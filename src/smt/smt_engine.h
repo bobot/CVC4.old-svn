@@ -164,7 +164,7 @@ private:
    * Process the assertion list: for literals and conjunctions of
    * literals, assert to T-solver.
    */
-  Node processAssertionList();
+  void processAssertionList();
 
 };/* class SmtEngine */
 

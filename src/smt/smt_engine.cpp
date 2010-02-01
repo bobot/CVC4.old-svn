@@ -42,29 +42,18 @@ Node SmtEngine::preprocess(const Node& e) {
   return e;
 }
 
-Node SmtEngine::processAssertionList() {
-  if(d_assertions.size() == 1) {
-    return d_assertions[0];
+void SmtEngine::processAssertionList() {
+  for(unsigned i = 0; i < d_assertions.size(); ++i) {
+    d_prop.assertFormula(d_assertions[i]);
   }
-
-  NodeBuilder<> asserts(AND);
-  for(std::vector<Node>::iterator i = d_assertions.begin();
-      i != d_assertions.end();
-      ++i) {
-    asserts << *i;
-  }
-
   d_assertions.clear();
-  d_assertions.push_back(asserts);
-  return d_assertions[0];
 }
 
 
 Result SmtEngine::check() {
   Debug("smt") << "SMT check()" << std::endl;
-  Node asserts = processAssertionList();
-
-  d_prop.solve(asserts);
+  processAssertionList();
+  d_prop.solve();
   return Result(Result::VALIDITY_UNKNOWN);
 }
 

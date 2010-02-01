@@ -87,12 +87,17 @@ public:
   CVC4_PUBLIC ~PropEngine();
 
   /**
+   * Converts the given formula to CNF and assert the CNF to the sat solver.
+   */
+  void assertFormula(const Node& node);
+
+  /**
    * Currently this takes a well-formed* Node,
    * converts it to a propositionally equisatisifiable formula for a sat solver,
    * and invokes the sat solver for a satisfying assignment.
    * TODO: what does well-formed mean here?
    */
-  void solve(Node);
+  void solve();
 
 };/* class PropEngine */
 

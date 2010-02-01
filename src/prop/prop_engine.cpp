@@ -63,9 +63,12 @@ Lit PropEngine::requestFreshLit(){
   return l;
 }
 
-void PropEngine::solve(Node e) {
-  
-  d_cnfStream->convertAndAssert(e);
+void PropEngine::assertFormula(const Node& node) {
+  d_cnfStream->convertAndAssert(node);
+}
+
+void PropEngine::solve() {
+
 
   d_sat.verbosity = 1;
   bool result = d_sat.solve();
