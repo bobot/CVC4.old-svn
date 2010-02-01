@@ -1,0 +1,7 @@
+This branch is for experimenting with an alternative cnf converter.
+CNF conversion will happen in a single pass with clauses being streamed out to
+the prop engine with the set of clause being propositionally equisatisfiable 
+to the original formula. 
+
+-- Tim King <taking@cs.nyu.edu> Mon Feb  1 11:43:35 EST 2010
+
