@@ -42,6 +42,8 @@ namespace CVC4 {
 class PropEngine {
   DecisionEngine &d_de;
   TheoryEngine &d_te;
+
+  friend class CVC4::prop::CnfStream;
   
   /* Morgan: I added these back.
    * Why did you push these into solve()?
@@ -51,19 +53,20 @@ class PropEngine {
    * Is this right?
    */
   CVC4::prop::minisat::SimpSolver d_sat;
-  std::map<Node, CVC4::prop::minisat::Lit> d_node2lit;
-  std::map<CVC4::prop::minisat::Lit, Node> d_lit2node;
+
+
+  std::map<Node, CVC4::prop::minisat::Lit> d_atom2lit;
+  std::map<CVC4::prop::minisat::Lit, Node> d_lit2atom;
 
   /** 
    * Adds mapping of n -> l to d_node2lit, and
    * a mapping of l -> n to d_lit2node.
    */
-  void registerMapping(const Node & n, CVC4::prop::minisat::Lit l);
+  void registerAtom(const Node & n, CVC4::prop::minisat::Lit l);
 
-  friend class CVC4::prop::CnfStream;
+
 
   CVC4::prop::minisat::Lit requestFreshLit();
-
   bool isNodeMapped(const Node & n) const;
   CVC4::prop::minisat::Lit lookupLit(const Node & n) const;
   
@@ -83,7 +86,7 @@ public:
   /**
    * Create a PropEngine with a particular decision and theory engine.
    */
-  CVC4_PUBLIC PropEngine(CVC4::DecisionEngine&, CVC4::TheoryEngine&, CVC4::NodeManager*);
+  CVC4_PUBLIC PropEngine(CVC4::DecisionEngine&, CVC4::TheoryEngine&);
   CVC4_PUBLIC ~PropEngine();
 
   /**
@@ -103,12 +106,12 @@ public:
 
 
 inline bool PropEngine::isNodeMapped(const Node & n) const{
-  return d_node2lit.find(n) != d_node2lit.end();
+  return d_atom2lit.find(n) != d_atom2lit.end();
 }
 
 inline CVC4::prop::minisat::Lit PropEngine::lookupLit(const Node & n) const{
   Assert(isNodeMapped(n));
-  return d_node2lit.find(n)->second;
+  return d_atom2lit.find(n)->second;
 }
 
 

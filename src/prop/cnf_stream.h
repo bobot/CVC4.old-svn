@@ -31,6 +31,8 @@
 #include "prop/minisat/core/SolverTypes.h"
 #include "prop/prop_engine.h"
 
+#include <map>
+
 namespace CVC4 {
   class PropEngine;
 }
@@ -40,55 +42,120 @@ namespace CVC4 {
 namespace prop {
 
 class CnfStream {
-  PropEngine *d_pl;
 
-  //Uniform interface for sending a clause back to
-  //the prop engine.
-  //May want to have internal datastructures later on
+private:
+  /**
+   * d_propEngine is the PropEngine that the CnfStream interacts with directly through
+   * the follwoing functions:
+   *    - insertClauseIntoStream
+   *    - acquireFreshLit
+   *    - registerMapping
+   */
+  PropEngine *d_propEngine;
+
+  /**Cache of what literal have been registered to a node.
+   *Not strictly needed for correctness.
+   *This can be flushed when memory is under pressure.
+   */
+  std::map<Node,minisat::Lit> d_translationCache;
+  
+protected:
+
+  /**
+   * Uniform interface for sending a clause back to d_propEngine.
+   * May want to have internal datastructures later on
+   */
   void insertClauseIntoStream(minisat::vec<minisat::Lit> & c);
   void insertClauseIntoStream(minisat::Lit a);
   void insertClauseIntoStream(minisat::Lit a,minisat::Lit b);
   void insertClauseIntoStream(minisat::Lit a,minisat::Lit b, minisat::Lit c);
   
 
-  //negotiates the mapping of literals with PropEngine
-  minisat::Lit registerLit(const Node & n, minisat::Lit intermsOf, bool negate = false);
-  //Requests a fresh literal from the prop engine
-  //and registers the node to map to that literal
-  minisat::Lit setupLit(const Node & n);
+  //utilities for the translation cache;
+  bool isCached(const Node & n) const;
+  minisat::Lit lookupInCache(const Node & n) const;
 
-  /* handler for each Kind.
-   * each is responsibile for returning a literal that is equivalent to 
-   * the node in the equisatisfiable cnf being sent back.
-   * A handle can assume that the Node has not yet been mapped.
+  /**
+   * Empties the internal translation cache.
+   */
+  void flushCache();
+
+  //negotiates the mapping of atoms to literals with PropEngine
+  void registerMapping(const Node & node, minisat::Lit lit, bool atom = false);
+  minisat::Lit acquireFreshLit(const Node & n);
+  minisat::Lit aquireAndRegister(const Node & n, bool atom = false);
+
+public:
+  /**
+   * Constructs a CnfStream that sends constructs an equisatisfiable set of clauses
+   * and sends them to pe.
+   */
+  CnfStream(CVC4::PropEngine *pe);
+
+
+  /**
+   * Converts and asserts a formula.
+   * @param n node to convert and assert
+   */
+  virtual void convertAndAssert(const Node & n) = 0;
+
+}; /* class CnfStream */
+
+
+/**
+ * TseitinCnfStream is based on the following recursive algorithm
+ * http://people.inf.ethz.ch/daniekro/classes/251-0247-00/f2007/readings/Tseitin70.pdf
+ * The general gist of the algorithm is to introduce a new literal that 
+ * will be equivalent to each subexpression in the constructed equisatisfiable formula
+ * then subsistute the new literal for the formula, and to do this recursively.
+ * 
+ * This implementation does this in a single recursive pass.
+ */
+class TseitinCnfStream : public CnfStream {
+
+public:
+  void convertAndAssert(const Node & n);
+  TseitinCnfStream(CVC4::PropEngine *pe);
+
+private:
+
+  /* Each of these formulas handles takes care of a Node of each Kind.
+   *
+   * Each handleX(Node &n) is responsibile for:
+   *   - constructing a new literal, l (if nessecary)
+   *   - calling registerNode(n,l)
+   *   - adding clauses asure that l is equivalent to the Node
+   *   - calling recTransform on its children (if nessecary)
+   *   - returning l
+   *
+   * handleX( n ) can assume that n is not in d_translationCache
    */
   minisat::Lit handleAtom(const Node & n);
   minisat::Lit handleNot(const Node & n);
   minisat::Lit handleXor(const Node & n);
-  
   minisat::Lit handleImplies(const Node & n);
   minisat::Lit handleIff(const Node & n);
-  
-  
   minisat::Lit handleIte(const Node & n);
 
   minisat::Lit handleAnd(const Node& n);
   minisat::Lit handleOr(const Node& n);
 
-  //helper for n-ary handles (OR, AND)
-  //Non n-ary Kinds should avoid this extra overhead and directly
-  //access their children.
-  //Iterates over a node's children and push the result to the back of target
-  void childLiterals(const Node& n, minisat::vec<minisat::Lit> & target);
+    
+  /**
+   *Maps recTransform over the children of a node.
+   *This is very useful for n-ary Kinds (OR, AND).
+   *
+   *Non n-ary kinds (IMPLIES) should avoid using this as it requires a
+   *tiny bit of extra overhead, and it leads to less readable code.
+   *
+   * precondition: target.size() == n.getNumChildren()
+   */
+  void mapRecTransformOverChildren(const Node& n, minisat::vec<minisat::Lit> & target);
 
   //Recurisively dispatches the various Kinds to the appropriate handler.
-  minisat::Lit naiveRecConvertToCnf(const Node & n);
+  minisat::Lit recTransform(const Node & n);
 
-public:
-  CnfStream(CVC4::PropEngine *);
-  void convertAndAssert(const Node & n);
-}; /* class PropEngine */
-
+}; /* class TseitinCnfStream */
 
 }/* prop namespace */
 }/* CVC4 namespace */

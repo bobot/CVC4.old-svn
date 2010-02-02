@@ -27,7 +27,7 @@ SmtEngine::SmtEngine(ExprManager* em, Options* opts) throw() :
   d_opts(opts),
   d_de(),
   d_te(),
-  d_prop(d_de, d_te, d_nm){
+  d_prop(d_de, d_te){
 }
 
 SmtEngine::~SmtEngine() {

@@ -31,13 +31,10 @@ using namespace std;
 
 namespace CVC4 {
 
-PropEngine::PropEngine(DecisionEngine& de, TheoryEngine& te, NodeManager * nm) :
+PropEngine::PropEngine(DecisionEngine& de, TheoryEngine& te) :
   d_de(de), 
-  d_te(te)
-  //Temporarily removing d_cnfConverter
-  /*, 
-	     d_cnfConverter(nm)*/ {
-  d_cnfStream = new CVC4::prop::CnfStream(this);
+  d_te(te){
+  d_cnfStream = new CVC4::prop::TseitinCnfStream(this);
 }
 
 PropEngine::~PropEngine(){
@@ -49,12 +46,13 @@ void PropEngine::assertClause(vec<Lit> & c){
   /*we can also here add a context dependent queue of assertions
    *for restarting the sat solver
    */
+  //TODO assert that each lit has been mapped to an atom or requested
   d_sat.addClause(c);
 }
 
-void PropEngine::registerMapping(const Node & n, Lit l){
-  d_node2lit.insert(make_pair(n,l));
-  d_lit2node.insert(make_pair(l,n));
+void PropEngine::registerAtom(const Node & n, Lit l){
+  d_atom2lit.insert(make_pair(n,l));
+  d_lit2atom.insert(make_pair(l,n));
 }
 
 Lit PropEngine::requestFreshLit(){
@@ -74,31 +72,6 @@ void PropEngine::solve() {
   bool result = d_sat.solve();
 
   Notice() << "result is " << (result ? "sat/invalid" : "unsat/valid") << endl;
-  /*
-  if(result) {
-    Notice() << "model:" << endl;
-    for(int i = 0; i < d_sat.model.size(); ++i){
-      Notice() << " " << toInt(d_sat.model[i]);
-    }
-    Notice() << endl;
-    for(int i = 0; i < d_sat.model.size(); ++i){
-      Notice() << " " << d_sat.model[i] << " is "
-               << (d_sat.model[i] == l_False ? "FALSE" :
-                   (d_sat.model[i] == l_Undef ? "UNDEF" :
-                    "TRUE")) << endl;
-    }
-  } else {
-    Notice() << "conflict:" << endl;
-    for(int i = 0; i < d_sat.conflict.size(); ++i){
-      Notice() << " " << (sign(d_sat.conflict[i]) ? "-" : "") << var(sat.conflict[i]);
-    }
-    Notice() << " [[";
-    for(int i = 0; i < d_sat.conflict.size(); ++i){
-      Notice() << " " << (sign(d_sat.conflict[i]) ? "-" : "") << varsReverse[var(sat.conflict[i])];
-    }
-    Notice() << " ]] " << endl;
-  }
-  */
 }
 
 }/* CVC4 namespace */
