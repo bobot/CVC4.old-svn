@@ -45,20 +45,13 @@ class PropEngine {
    */
   bool d_inCheckSat;
 
-  /**
-   * The queue of removable assertions that came in while the sat solver is
-   * active.
-   */
+  /** The queue of removable assertions that came in while solving active. */
   std::queue<Node> d_assertQueue;
 
-  /**
-   * The decision level that SAT solver should consider as 0.
-   */
+  /** The decision level that SAT solver should consider as 0. */
   context::CDO<unsigned> d_satBaseDecisionLevel;
 
-  /**
-   * The number of clauses that we have in the database for this context.
-   */
+  /** The number of clauses that we have in the database for this context. */
   context::CDO<unsigned> d_satClauses;
 
   /** The global options */
@@ -72,6 +65,9 @@ class PropEngine {
 
   /** The SAT solver*/
   SatSolver* d_satSolver;
+
+  /** The proxy to the sat solvers internal methods */
+  SatSolverProxy d_satSolverProxy;
 
   /** List of all of the assertions that need to be made */
   std::vector<Node> d_assertionList;

@@ -37,11 +37,12 @@ PropEngine::PropEngine(const Options* opts, DecisionEngine* de,
   d_satBaseDecisionLevel(context, 0),
   d_satClauses(context, 0),
   d_options(opts), d_decisionEngine(de),
-  d_theoryEngine(te) {
+  d_theoryEngine(te),
+  d_satSolver(new SatSolver()),
+  d_satSolverProxy(d_satSolver, d_options),
+  d_cnfStream(new CVC4::prop::TseitinCnfStream(d_satSolver))
+{
   Debug("prop") << "Constructing the PropEngine" << endl;
-  d_satSolver = new SatSolver();
-  SatSolverProxy::initSatSolver(d_satSolver, d_options);
-  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver);
 }
 
 PropEngine::~PropEngine() {

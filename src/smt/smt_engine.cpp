@@ -21,14 +21,13 @@
 #include "prop/prop_engine.h"
 
 using namespace CVC4::prop;
+using namespace std;
 
 namespace CVC4 {
 
 SmtEngine::SmtEngine(ExprManager* em, const Options* opts) throw () :
   d_context(),
-  d_user_context_level(&d_context, 0),
-  d_assertions_index(&d_context, 0),
-  d_assertions(&d_context),
+  d_backtrackContextLevel(&d_context, 0),
   d_exprManager(em),
   d_nodeManager(em->getNodeManager()),
   d_options(opts)
@@ -46,95 +45,101 @@ SmtEngine::~SmtEngine() {
 }
 
 void SmtEngine::doCommand(Command* c) {
+  Debug("smt") << "SmtEngine::doCommand(" << c << ")" << endl;
   NodeManagerScope nms(d_nodeManager);
   c->invoke(this);
 }
 
-Node SmtEngine::preprocess(const Node& e) {
-  return e;
+Node SmtEngine::preprocess(const Node& expr) {
+  Debug("smt") << "SmtEngine::preprocess(" << expr << ")" << endl;
+  return expr;
 }
 
-void SmtEngine::processAssertionList() {
-  while(d_assertions_index < d_assertions.size()) {
-    d_propEngine->assertFormula(d_assertions[d_assertions_index]);
-    d_assertions_index = d_assertions_index + 1;
-  }
-}
-
-Result SmtEngine::check() {
-  Debug("smt") << "SMT check()" << std::endl;
-  processAssertionList();
+Result SmtEngine::checkSat() {
+  Debug("smt") << "SmtEngine::checkSat()" << endl;
   return d_propEngine->checkSat();
 }
 
+Result SmtEngine::checkSat(const BoolExpr& formula) {
+  Debug("smt") << "SmtEngine::checkSat(" << formula << ")" << endl;
+  NodeManagerScope nms(d_nodeManager);
+
+  // Remember the current context
+  int context_level = d_context.getLevel();
+  pushInternal();
+
+  // Assert the formula and check for satsfiability
+  assertFormula(formula.getNode());
+  Result result = checkSat().asSatisfiabilityResult();
+
+  // If the result is UNSAT, pop the scope
+  if (result.isSAT() == Result::UNSAT) {
+    popInternal(context_level);
+  }
+
+  Debug("smt") << "SmtEngine::checkSat(" << formula << ") ==> " << result << endl;
+  return result;
+}
+
 Result SmtEngine::quickCheck() {
-  Debug("smt") << "SMT quickCheck()" << std::endl;
-  processAssertionList();
+  Debug("smt") << "SmtEngine::quickCheck()" << endl;
   return Result(Result::VALIDITY_UNKNOWN);
 }
 
-void SmtEngine::addFormula(const Node& e) {
-  Debug("smt") << "push_back assertion " << e << std::endl;
-  d_assertions.push_back(e);
+void SmtEngine::assertFormula(const Node& formula) {
+  Debug("smt") << "SmtEngine::assertFormula(" << formula << ")" << endl;
+  d_propEngine->assertFormula(preprocess(formula));
 }
 
-Result SmtEngine::checkSat(const BoolExpr& e) {
-  Debug("smt") << "SMT checkSat(" << e << ")" << std::endl;
+
+Result SmtEngine::query(const BoolExpr& formula) {
+  Debug("smt") << "SmtEngine::query(" << formula << ")" << endl;
   NodeManagerScope nms(d_nodeManager);
-  Node node_e = preprocess(e.getNode());
-  addFormula(node_e);
-  Result r = check().asSatisfiabilityResult();
-  Debug("smt") << "SMT checkSat(" << e << ") ==> " << r << std::endl;
+  Result r = checkSat(formula.notExpr()).asValidityResult();
+  Debug("smt") << "SMT query(" << formula << ") ==> " << r << endl;
   return r;
 }
 
-Result SmtEngine::query(const BoolExpr& e) {
-  Debug("smt") << "SMT query(" << e << ")" << std::endl;
+Result SmtEngine::assertFormula(const BoolExpr& formula) {
+  Debug("smt") << "SmtEngine::assertFormula(" << formula << ")" << endl;
   NodeManagerScope nms(d_nodeManager);
-  Node node_e = preprocess(d_nodeManager->mkNode(NOT, e.getNode()));
-  addFormula(node_e);
-  Result r = check().asValidityResult();
-  Debug("smt") << "SMT query(" << e << ") ==> " << r << std::endl;
-  return r;
-}
-
-Result SmtEngine::assertFormula(const BoolExpr& e) {
-  Debug("smt") << "SMT assertFormula(" << e << ")" << std::endl;
-  NodeManagerScope nms(d_nodeManager);
-  Node node_e = preprocess(e.getNode());
-  addFormula(node_e);
+  assertFormula(formula.getNode());
   return quickCheck().asValidityResult();
 }
 
-Expr SmtEngine::simplify(const Expr& e) {
-  Debug("smt") << "SMT simplify(" << e << ")" << std::endl;
+Expr SmtEngine::simplify(const Expr& expr) {
+  Debug("smt") << "SmtEngine::simplify(" << expr << ")" << endl;
   Expr simplify(const Expr& e);
   Unimplemented();
 }
 
 void SmtEngine::push() {
-  Debug("smt") << "SMT push()" << std::endl;
-  push_internal();
-  d_user_context_level = d_context.getLevel();
+  Debug("smt") << "SmtEngine::push()" << endl;
+  int currentLevel = d_context.getLevel();
+  pushInternal();
+  d_backtrackContextLevel = currentLevel;
 }
 
 void SmtEngine::pop() {
-  Debug("smt") << "SMT push()" << std::endl;
-  AlwaysAssert(d_user_context_level > 0, "Too many pops!");
-  int current_user_level = d_user_context_level;
-  while(current_user_level <= d_context.getLevel()) {
-    pop_internal();
-  }
+  Debug("smt") << "SmtEngine::push()" << endl;
+  popInternal(d_backtrackContextLevel);
 }
 
-void SmtEngine::push_internal() {
+void SmtEngine::pushInternal() {
   d_context.push();
   d_propEngine->push();
 }
 
-void SmtEngine::pop_internal() {
-  d_context.pop();
-  d_propEngine->pop();
+void SmtEngine::popInternal(int contextLevel) {
+  Assert(contextLevel <= d_context.getLevel(), "Given context level bigger than "
+      "the current one");
+  while(contextLevel != d_context.getLevel()) {
+    // We need to inform the prop engine as it needs to backtrack minisat's
+    // internal state
+    d_propEngine->pop();
+    // And we pop a context
+    d_context.pop();
+  }
 }
 
 }/* CVC4 namespace */

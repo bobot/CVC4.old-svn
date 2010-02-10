@@ -71,30 +71,33 @@ public:
   void doCommand(Command*);
 
   /**
-   * Add a formula to the current context: preprocess, do per-theory
-   * setup, use processAssertionList(), asserting to T-solver for
-   * literals and conjunction of literals.  Returns false iff
-   * inconsistent.
+   * Asserts the given formula to the current context.
    */
-  Result assertFormula(const BoolExpr& e);
+  Result assertFormula(const BoolExpr& formula);
 
   /**
-   * Add a formula to the current context and call check().  Returns
-   * true iff consistent.
+   * Check the formula for validity in the current context.
+   * @param formula the formula to check for validity
+   * @return the result
    */
-  Result query(const BoolExpr& e);
+  Result query(const BoolExpr& formula);
 
   /**
-   * Add a formula to the current context and call check().  Returns
-   * true iff consistent.
+   * Checks the given formula for satisfiability in the the current context.
+   * @param formula the formula to check for satisfiability
    */
-  Result checkSat(const BoolExpr& e);
+  Result checkSat(const BoolExpr& formula);
+
+  /**
+   * Checks the current context for satisfiability.
+   */
+  Result checkSat();
 
   /**
    * Simplify a formula without doing "much" work.  Requires assist
    * from the SAT Engine.
    */
-  Expr simplify(const Expr& e);
+  Expr simplify(const Expr& expr);
 
   /**
    * Get a (counter)model (only if preceded by a SAT or INVALID query).
@@ -119,21 +122,16 @@ private:
   /**
    * Pushes the internal context level.
    */
-  void push_internal();
+  void pushInternal();
 
   /**
-   * Pops the internal context level.
+   * Pops the internal context level to the given level.
+   * @param contextLevel the target context level
    */
-  void pop_internal();
+  void popInternal(int contextLevel);
 
-  /** User-level context level */
-  context::CDO<int> d_user_context_level;
-
-  /** Index of the first unprocessed assertion */
-  context::CDO<unsigned> d_assertions_index;
-
-  /** Current set of assertions (context dependent). */
-  context::CDList<Node> d_assertions;
+  /** The context level to backtrack to when the user pops */
+  context::CDO<int> d_backtrackContextLevel;
 
   /** Our expression manager */
   ExprManager* d_exprManager;
@@ -162,15 +160,10 @@ private:
   Node preprocess(const Node& node);
 
   /**
-   * Adds a formula to the current context.
+   * Asserts the formula to the current context.
+   * @param node the formula to assert
    */
-  void addFormula(const Node& node);
-
-  /**
-   * Full check of consistency in current context.  Returns true iff
-   * consistent.
-   */
-  Result check();
+  void assertFormula(const Node& node);
 
   /**
    * Quick check of consistency in current context: calls
@@ -178,12 +171,6 @@ private:
    * that).
    */
   Result quickCheck();
-
-  /**
-   * Process the assertion list: for literals and conjunctions of
-   * literals, assert to T-solver.
-   */
-  void processAssertionList();
 
 };/* class SmtEngine */
 

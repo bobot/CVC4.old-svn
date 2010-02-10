@@ -73,57 +73,55 @@ inline std::ostream& operator << (std::ostream& out, const SatClause& clause) {
  */
 class SatSolverProxy {
 
-  /** Only the prop engine can modify the internals of the SAT solver */
-  friend class PropEngine;
+  /** The Sat solver */
+  SatSolver* d_satSolver;
 
-  private:
+  public:
+
+    SatSolverProxy(SatSolver* satSolver, const Options* options)
+    : d_satSolver(satSolver) {
+      initSatSolver(options);
+    }
 
     /**
      * Initializes the given sat solver with the given options.
-     * @param satSolver the SAT solver
      * @param options the options
      */
-    inline static void initSatSolver(SatSolver* satSolver,
-                                     const Options* options) {
+    inline void initSatSolver(const Options* options) {
       // Setup the verbosity
-      satSolver->verbosity = (options->verbosity > 0) ? 1 : -1;
+      d_satSolver->verbosity = (options->verbosity > 0) ? 1 : -1;
       // Do not delete the satisfied clauses, just the learnt ones
-      satSolver->remove_satisfied = false;
+      d_satSolver->remove_satisfied = false;
       // Initialize the backtracking stuff to 0
-      satSolver->d_learntBase = 0;
-      satSolver->d_clausesBase = 0;
-      satSolver->d_decisionLevelBase = 0;
+      d_satSolver->d_learntBase = 0;
+      d_satSolver->d_clausesBase = 0;
+      d_satSolver->d_decisionLevelBase = 0;
     }
 
     /**
      * Backtracks the internal solver state to the first n_clauses clause
      * and sets the base level to decision_level.
-     * @param satSolver the SAT solver
      * @param clausesCount the number of problem clauses to keep
-     * @param learntsCount the number of learnt clauses to keep
+     * @param variablesCount the number of problem variables to keep
      * @param decisionLevel the decision level to pop to
      */
-    inline static void popTo(SatSolver* satSolver,
-                             int clausesCount, int learntsCount,
+    inline void popTo(int clausesCount,
+                             int variablesCount,
                              int decisionLevel) {
       // Pop the decision level
-      satSolver->cancelUntil(decisionLevel);
+      d_satSolver->cancelUntil(decisionLevel);
 
       // Remove the problem clauses from the database
-      minisat::vec<minisat::Clause*>& clauses = satSolver->clauses;
+      minisat::vec<minisat::Clause*>& clauses = d_satSolver->clauses;
       for (int i = clausesCount; i < clauses.size(); ++i) {
-        satSolver->removeClause(*clauses[i]);
+        d_satSolver->removeClause(*clauses[i]);
       }
       clauses.shrink(clausesCount);
 
-      // Remove the learnt clauses from the database
-      minisat::vec<minisat::Clause*>& learnts = satSolver->learnts;
-      for (int i = learntsCount; i < learnts.size(); ++i) {
-        satSolver->removeClause(*learnts[i]);
-      }
-      learnts.shrink(learntsCount);
-    }
+      // Remove the learnt clauses that are above the decision level
 
+      // Remove the variables
+    }
 };
 
 

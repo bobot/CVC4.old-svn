@@ -118,9 +118,9 @@ bool Solver::addClause(vec<Lit>& ps, bool learnt)
     }else{
         Clause* c = Clause_new(ps, learnt);
         if (learnt)
-        	learnt.push(c);
+          learnts.push(c);
        	else 
-       		clauses.push(c);
+       	  clauses.push(c);
         attachClause(*c);
     }
 
