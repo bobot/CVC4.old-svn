@@ -89,7 +89,41 @@ class SatSolverProxy {
       satSolver->verbosity = (options->verbosity > 0) ? 1 : -1;
       // Do not delete the satisfied clauses, just the learnt ones
       satSolver->remove_satisfied = false;
+      // Initialize the backtracking stuff to 0
+      satSolver->d_learntBase = 0;
+      satSolver->d_clausesBase = 0;
+      satSolver->d_decisionLevelBase = 0;
     }
+
+    /**
+     * Backtracks the internal solver state to the first n_clauses clause
+     * and sets the base level to decision_level.
+     * @param satSolver the SAT solver
+     * @param clausesCount the number of problem clauses to keep
+     * @param learntsCount the number of learnt clauses to keep
+     * @param decisionLevel the decision level to pop to
+     */
+    inline static void popTo(SatSolver* satSolver,
+                             int clausesCount, int learntsCount,
+                             int decisionLevel) {
+      // Pop the decision level
+      satSolver->cancelUntil(decisionLevel);
+
+      // Remove the problem clauses from the database
+      minisat::vec<minisat::Clause*>& clauses = satSolver->clauses;
+      for (int i = clausesCount; i < clauses.size(); ++i) {
+        satSolver->removeClause(*clauses[i]);
+      }
+      clauses.shrink(clausesCount);
+
+      // Remove the learnt clauses from the database
+      minisat::vec<minisat::Clause*>& learnts = satSolver->learnts;
+      for (int i = learntsCount; i < learnts.size(); ++i) {
+        satSolver->removeClause(*learnts[i]);
+      }
+      learnts.shrink(learntsCount);
+    }
+
 };
 
 

@@ -24,6 +24,9 @@
 #include "util/decision_engine.h"
 #include "theory/theory_engine.h"
 #include "prop/sat.h"
+#include "context/context.h"
+
+#include <queue>
 
 namespace CVC4 {
 namespace prop {
@@ -41,6 +44,22 @@ class PropEngine {
    * not mess with it's internal state.
    */
   bool d_inCheckSat;
+
+  /**
+   * The queue of removable assertions that came in while the sat solver is
+   * active.
+   */
+  std::queue<Node> d_assertQueue;
+
+  /**
+   * The decision level that SAT solver should consider as 0.
+   */
+  context::CDO<unsigned> d_satBaseDecisionLevel;
+
+  /**
+   * The number of clauses that we have in the database for this context.
+   */
+  context::CDO<unsigned> d_satClauses;
 
   /** The global options */
   const Options *d_options;
@@ -65,7 +84,7 @@ public:
   /**
    * Create a PropEngine with a particular decision and theory engine.
    */
-  PropEngine(const Options*, DecisionEngine*, TheoryEngine*);
+  PropEngine(const Options*, DecisionEngine*, TheoryEngine*, context::Context*);
 
   /**
    * Destructor.

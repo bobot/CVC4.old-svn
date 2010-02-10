@@ -25,14 +25,18 @@ using namespace CVC4::prop;
 namespace CVC4 {
 
 SmtEngine::SmtEngine(ExprManager* em, const Options* opts) throw () :
-  d_assertions(),
+  d_context(),
+  d_user_context_level(&d_context, 0),
+  d_assertions_index(&d_context, 0),
+  d_assertions(&d_context),
   d_exprManager(em),
   d_nodeManager(em->getNodeManager()),
   d_options(opts)
 {
   d_decisionEngine = new DecisionEngine();
   d_theoryEngine = new TheoryEngine(this);
-  d_propEngine = new PropEngine(opts, d_decisionEngine, d_theoryEngine);
+  d_propEngine = new PropEngine(opts, d_decisionEngine,
+                                d_theoryEngine, &d_context);
 }
 
 SmtEngine::~SmtEngine() {
@@ -51,10 +55,10 @@ Node SmtEngine::preprocess(const Node& e) {
 }
 
 void SmtEngine::processAssertionList() {
-  for(unsigned i = 0; i < d_assertions.size(); ++i) {
-    d_propEngine->assertFormula(d_assertions[i]);
+  while(d_assertions_index < d_assertions.size()) {
+    d_propEngine->assertFormula(d_assertions[d_assertions_index]);
+    d_assertions_index = d_assertions_index + 1;
   }
-  d_assertions.clear();
 }
 
 Result SmtEngine::check() {
@@ -110,10 +114,27 @@ Expr SmtEngine::simplify(const Expr& e) {
 
 void SmtEngine::push() {
   Debug("smt") << "SMT push()" << std::endl;
+  push_internal();
+  d_user_context_level = d_context.getLevel();
 }
 
 void SmtEngine::pop() {
-  Debug("smt") << "SMT pop()" << std::endl;
+  Debug("smt") << "SMT push()" << std::endl;
+  AlwaysAssert(d_user_context_level > 0, "Too many pops!");
+  int current_user_level = d_user_context_level;
+  while(current_user_level <= d_context.getLevel()) {
+    pop_internal();
+  }
+}
+
+void SmtEngine::push_internal() {
+  d_context.push();
+  d_propEngine->push();
+}
+
+void SmtEngine::pop_internal() {
+  d_context.pop();
+  d_propEngine->pop();
 }
 
 }/* CVC4 namespace */

@@ -91,7 +91,7 @@ Var Solver::newVar(bool sign, bool dvar)
 }
 
 
-bool Solver::addClause(vec<Lit>& ps)
+bool Solver::addClause(vec<Lit>& ps, bool learnt)
 {
     assert(decisionLevel() == 0);
 
@@ -116,8 +116,11 @@ bool Solver::addClause(vec<Lit>& ps)
         uncheckedEnqueue(ps[0]);
         return ok = (propagate() == NULL);
     }else{
-        Clause* c = Clause_new(ps, false);
-        clauses.push(c);
+        Clause* c = Clause_new(ps, learnt);
+        if (learnt)
+        	learnt.push(c);
+       	else 
+       		clauses.push(c);
         attachClause(*c);
     }
 
@@ -467,10 +470,10 @@ struct reduceDB_lt { bool operator () (Clause* x, Clause* y) { return x->size() 
 void Solver::reduceDB()
 {
     int     i, j;
-    double  extra_lim = cla_inc / learnts.size();    // Remove any clause below this activity
-
-    sort(learnts, reduceDB_lt());
-    for (i = j = 0; i < learnts.size() / 2; i++){
+    int learnts_size = learnts.size() - d_learntBase;
+    double  extra_lim = cla_inc / learnts_size;    // Remove any clause below this activity
+    sort(((Clause**)&learnts) + d_learntBase, learnts_size, reduceDB_lt());
+    for (i = j = d_learntBase; i < learnts_size / 2; i++){
         if (learnts[i]->size() > 2 && !locked(*learnts[i]))
             removeClause(*learnts[i]);
         else
@@ -489,7 +492,7 @@ void Solver::reduceDB()
 void Solver::removeSatisfied(vec<Clause*>& cs)
 {
     int i,j;
-    for (i = j = 0; i < cs.size(); i++){
+    for (i = j = d_learntBase; i < cs.size(); i++){
         if (satisfied(*cs[i]))
             removeClause(*cs[i]);
         else
@@ -597,7 +600,7 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             if (decisionLevel() == 0 && !simplify())
                 return l_False;
 
-            if (nof_learnts >= 0 && learnts.size()-nAssigns() >= nof_learnts)
+            if (nof_learnts >= 0 && learnts.size()-d_learntBase-nAssigns() >= nof_learnts)
                 // Reduce the set of learnt clauses:
                 reduceDB();
 
@@ -653,8 +656,9 @@ double Solver::progressEstimate() const
 
 bool Solver::solve(const vec<Lit>& assumps)
 {
-    model.clear();
-    conflict.clear();
+// CVC4: Re-entrant
+//    model.clear();
+//    conflict.clear();
 
     if (!ok) return false;
 

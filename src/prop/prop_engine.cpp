@@ -26,17 +26,18 @@
 #include <map>
 
 using namespace std;
+using namespace CVC4::context;
 
 namespace CVC4 {
 namespace prop {
 
 PropEngine::PropEngine(const Options* opts, DecisionEngine* de,
-                       TheoryEngine* te)
-: d_inCheckSat(false),
-  d_options(opts),
-  d_decisionEngine(de),
-  d_theoryEngine(te) 
-{
+                       TheoryEngine* te, Context* context) :
+  d_inCheckSat(false),
+  d_satBaseDecisionLevel(context, 0),
+  d_satClauses(context, 0),
+  d_options(opts), d_decisionEngine(de),
+  d_theoryEngine(te) {
   Debug("prop") << "Constructing the PropEngine" << endl;
   d_satSolver = new SatSolver();
   SatSolverProxy::initSatSolver(d_satSolver, d_options);
@@ -53,22 +54,35 @@ void PropEngine::assertFormula(const Node& node) {
   Assert(!d_inCheckSat, "Sat solver in solve()!");
   Debug("prop") << "assertFormula(" << node << ")" << endl;
   // Assert as non-removable
-  d_cnfStream->convertAndAssert(node);
+  d_cnfStream->convertAndAssert(node, false);
 }
 
 void PropEngine::assertLemma(const Node& node) {
   Debug("prop") << "assertFormula(" << node << ")" << endl;
   // Assert as removable
-  d_cnfStream->convertAndAssert(node);
+  if (d_inCheckSat)
+    d_assertQueue.push(node);
+  else
+    d_cnfStream->convertAndAssert(node, true);
 }
 
 Result PropEngine::checkSat() {
   Assert(!d_inCheckSat, "Sat solver in solve()!");
+  Assert(d_assertQueue.empty(), "Queue of assertion is not empty!");
   Debug("prop") << "solve()" << endl;
   // Mark that we are in the checkSat
   d_inCheckSat = true;
-  // Check the problem
-  bool result = d_satSolver->solve();
+  // Start the satisfiability loop
+  bool result = true;
+  do {
+    // Enqueue all the lemmas in the queue
+    while (!d_assertQueue.empty()) {
+      d_cnfStream->convertAndAssert(d_assertQueue.front(), true);
+      d_assertQueue.pop();
+    }
+    // Check the problem
+    result = d_satSolver->solve();
+  } while (result && !d_assertQueue.empty());
   // Not in checkSat any more
   d_inCheckSat = false;
   Debug("prop") << "solve() => " << (result ? "true" : "false") << endl;

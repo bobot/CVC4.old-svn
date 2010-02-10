@@ -43,8 +43,14 @@ namespace minisat {
 
 class Solver {
 
-  /** The only CVC4 entry point to the private solver data */
-  friend class CVC4::prop::SatSolverProxy;
+friend class CVC4::prop::SatSolverProxy;
+
+protected:
+
+  // CVC4 backtrack information
+  int d_clausesBase;
+  int d_learntBase;
+  int d_decisionLevelBase;
 
 public:
 
@@ -56,7 +62,7 @@ public:
     // Problem specification:
     //
     Var     newVar    (bool polarity = true, bool dvar = true); // Add a new variable with parameters specifying variable mode.
-    bool    addClause (vec<Lit>& ps);                           // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
+    bool    addClause (vec<Lit>& ps, bool learnt = false);      // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
 
     // Solving:
     //
@@ -106,7 +112,7 @@ public:
     uint64_t starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t clauses_literals, learnts_literals, max_literals, tot_literals;
 
-protected:
+ protected:
 
     // Helper structures:
     //

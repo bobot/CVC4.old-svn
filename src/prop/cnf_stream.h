@@ -61,20 +61,20 @@ protected:
    * Asserts the given clause to the sat solver.
    * @param clause the clasue to assert
    */
-  void assertClause(SatClause& clause);
+  void assertClause(SatClause& clause, bool removable = false);
 
   /**
    * Asserts the unit clause to the sat solver.
    * @param a the unit literal of the clause
    */
-  void assertClause(SatLiteral a);
+  void assertClause(SatLiteral a, bool removable = false);
 
   /**
    * Asserts the binary clause to the sat solver.
    * @param a the first literal in the clause
    * @param b the second literal in the clause
    */
-  void assertClause(SatLiteral a, SatLiteral b);
+  void assertClause(SatLiteral a, SatLiteral b, bool removable = false);
 
   /**
    * Asserts the ternary clause to the sat solver.
@@ -82,7 +82,7 @@ protected:
    * @param b the second literal in the clause
    * @param c the thirs literal in the clause
    */
-  void assertClause(SatLiteral a, SatLiteral b, SatLiteral c);
+  void assertClause(SatLiteral a, SatLiteral b, SatLiteral c, bool removable = false);
 
   /**
    * Returns true if the node has been cashed in the translation cache.
@@ -128,7 +128,7 @@ public:
    * @param node node to convert and assert
    * @param whether the sat solver can choose to remove this clause
    */
-  virtual void convertAndAssert(const Node& node) = 0;
+  virtual void convertAndAssert(const Node& node, bool removable = false) = 0;
 
 }; /* class CnfStream */
 
@@ -150,7 +150,7 @@ public:
    * Convert a given formula to CNF and assert it to the SAT solver.
    * @param node the formula to assert
    */
-  void convertAndAssert(const Node& node);
+  void convertAndAssert(const Node& node, bool removable);
 
   /**
    * Constructs the stream to use the given sat solver.

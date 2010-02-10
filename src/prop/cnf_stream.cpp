@@ -35,28 +35,28 @@ TseitinCnfStream::TseitinCnfStream(SatSolver* satSolver) :
   CnfStream(satSolver) {
 }
 
-void CnfStream::assertClause(SatClause& c) {
+void CnfStream::assertClause(SatClause& c, bool removable) {
   Debug("cnf") << "Inserting into stream " << c << endl;
-  d_satSolver->addClause(c);
+  d_satSolver->addClause(c, removable);
 }
 
-void CnfStream::assertClause(SatLiteral a) {
+void CnfStream::assertClause(SatLiteral a, bool removable) {
   SatClause clause(1);
   clause[0] = a;
-  assertClause(clause);
+  assertClause(clause, removable);
 }
-void CnfStream::assertClause(SatLiteral a, SatLiteral b) {
+void CnfStream::assertClause(SatLiteral a, SatLiteral b, bool removable) {
   SatClause clause(2);
   clause[0] = a;
   clause[1] = b;
-  assertClause(clause);
+  assertClause(clause, removable);
 }
-void CnfStream::assertClause(SatLiteral a, SatLiteral b, SatLiteral c) {
+void CnfStream::assertClause(SatLiteral a, SatLiteral b, SatLiteral c, bool removable) {
   SatClause clause(3);
   clause[0] = a;
   clause[1] = b;
   clause[2] = c;
-  assertClause(clause);
+  assertClause(clause, removable);
 }
 
 bool CnfStream::isCached(const Node& n) const {
@@ -316,9 +316,9 @@ SatLiteral TseitinCnfStream::toCNF(const Node& node) {
   }
 }
 
-void TseitinCnfStream::convertAndAssert(const Node& node) {
+void TseitinCnfStream::convertAndAssert(const Node& node, bool removable) {
   Debug("cnf") << "convertAndAssert(" << node << ")" << endl;
-  assertClause(toCNF(node));
+  assertClause(toCNF(node), removable);
 }
 
 }/* CVC4::prop namespace */

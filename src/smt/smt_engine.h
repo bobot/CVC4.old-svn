@@ -24,6 +24,7 @@
 #include "util/result.h"
 #include "util/model.h"
 #include "util/decision_engine.h"
+#include "context/context.h"
 
 // In terms of abstraction, this is below (and provides services to)
 // ValidityChecker and above (and requires the services of)
@@ -112,9 +113,27 @@ public:
 
 private:
 
-  /** Current set of assertions. */
-  // TODO: make context-aware to handle user-level push/pop.
-  std::vector<Node> d_assertions;
+  /** The context */
+  context::Context d_context;
+
+  /**
+   * Pushes the internal context level.
+   */
+  void push_internal();
+
+  /**
+   * Pops the internal context level.
+   */
+  void pop_internal();
+
+  /** User-level context level */
+  context::CDO<int> d_user_context_level;
+
+  /** Index of the first unprocessed assertion */
+  context::CDO<unsigned> d_assertions_index;
+
+  /** Current set of assertions (context dependent). */
+  context::CDList<Node> d_assertions;
 
   /** Our expression manager */
   ExprManager* d_exprManager;
