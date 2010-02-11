@@ -40,40 +40,21 @@ void CnfStream::assertClause(SatClause& c, bool removable) {
   d_satSolver->addClause(c, removable);
 }
 
-void CnfStream::assertClause(SatLiteral a, bool removable) {
-  SatClause clause(1);
-  clause[0] = a;
-  assertClause(clause, removable);
-}
-void CnfStream::assertClause(SatLiteral a, SatLiteral b, bool removable) {
-  SatClause clause(2);
-  clause[0] = a;
-  clause[1] = b;
-  assertClause(clause, removable);
-}
-void CnfStream::assertClause(SatLiteral a, SatLiteral b, SatLiteral c, bool removable) {
-  SatClause clause(3);
-  clause[0] = a;
-  clause[1] = b;
-  clause[2] = c;
-  assertClause(clause, removable);
-}
-
-bool CnfStream::isCached(const Node& n) const {
+bool TseitinCnfStream::isCached(const Node& n) const {
   return d_translationCache.find(n) != d_translationCache.end();
 }
 
-SatLiteral CnfStream::lookupInCache(const Node& n) const {
+SatLiteral TseitinCnfStream::lookupInCache(const Node& n) const {
   Assert(isCached(n), "Node is not in CNF translation cache");
-  return d_translationCache.find(n)->second;
+  return d_translationCache.find(n)->second.d_literal;
 }
 
-void CnfStream::cacheTranslation(const Node& node, SatLiteral lit) {
+void TseitinCnfStream::cacheTranslation(const Node& node, SatLiteral lit) {
   Debug("cnf") << "caching translation " << node << " to " << lit << endl;
   d_translationCache.insert(make_pair(node, lit));
 }
 
-SatLiteral CnfStream::newLiteral(const Node& node) {
+SatLiteral TseitinCnfStream::newLiteral(const Node& node) {
   SatLiteral lit = SatLiteral(d_satSolver->newVar());
   cacheTranslation(node, lit);
   return lit;
@@ -106,15 +87,22 @@ SatLiteral TseitinCnfStream::handleXor(const Node& xorNode) {
   Assert(xorNode.getKind() == XOR, "Expecting an XOR expression!");
   Assert(xorNode.getNumChildren() == 2, "Expecting exactly 2 children!");
 
+  SatLiteral xorLit = newLiteral(xorNode);
+  NodeTranslationData& cnf = d_translationCache[xorNode];
+
   SatLiteral a = toCNF(xorNode[0]);
   SatLiteral b = toCNF(xorNode[1]);
 
-  SatLiteral xorLit = newLiteral(xorNode);
+  // Generate the CNF if not already there
+  if (!cnf) {
+    cnf.assertClause(a, b, ~xorLit);
+    cnf.assertClause(~a, ~b, ~xorLit);
+    cnf.assertClause(a, ~b, xorLit);
+    cnf.assertClause(~a, b, xorLit);
+  }
 
-  assertClause(a, b, ~xorLit);
-  assertClause(~a, ~b, ~xorLit);
-  assertClause(a, ~b, xorLit);
-  assertClause(~a, b, xorLit);
+  // Assert the missing clauses
+  cnf.assertMissing(d_satSolver);
 
   return xorLit;
 }
@@ -320,6 +308,43 @@ void TseitinCnfStream::convertAndAssert(const Node& node, bool removable) {
   Debug("cnf") << "convertAndAssert(" << node << ")" << endl;
   assertClause(toCNF(node), removable);
 }
+
+void TseitinCnfStream::NodeTranslationData::assertClause(SatClause& c) {
+  d_missing.push_back(d_clauses.size());
+  d_clauses.push_back(c);
+}
+
+void TseitinCnfStream::NodeTranslationData::assertClause(SatLiteral a) {
+  SatClause clause(1);
+  clause[0] = a;
+  assertClause(clause);
+}
+
+void TseitinCnfStream::NodeTranslationData::assertClause(SatLiteral a, SatLiteral b) {
+  SatClause clause(2);
+  clause[0] = a;
+  clause[1] = b;
+  assertClause(clause);
+}
+
+void TseitinCnfStream::NodeTranslationData::assertClause(SatLiteral a, SatLiteral b, SatLiteral c) {
+  SatClause clause(3);
+  clause[0] = a;
+  clause[1] = b;
+  clause[2] = c;
+  assertClause(clause);
+}
+
+void TseitinCnfStream::NodeTranslationData::assertMissing(SatSolver* satSolver) {
+  if (!d_missing.empty()) {
+    for (int i = 0, i_end = cnf.d_missing.size(); i < i_end; ++ i) {
+      assertClause(cnf.d_missing[i]);
+    }
+    cnf.d_missing.clear();
+  }
+}
+
+
 
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */

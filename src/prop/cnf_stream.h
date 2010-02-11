@@ -42,24 +42,23 @@ namespace prop {
 class PropEngine;
 
 /**
- * Comments for the behavior of the whole class...
+ * This class is responsible for the translation to CNF. The main requirements
+ * are the following
+ * <li> When notified of a deletion of a removable clause, make a note of it,
+ *      so that we can rebuild the CNF
+ *
  * @author Tim King <taking@cs.nyu.edu>
  */
 class CnfStream {
 
-private:
+protected:
 
   /** The SAT solver we will be using */
   SatSolver *d_satSolver;
 
-  /** Cache of what literal have been registered to a node. */
-  __gnu_cxx::hash_map<Node, SatLiteral> d_translationCache;
-
-protected:
-
   /**
    * Asserts the given clause to the sat solver.
-   * @param clause the clasue to assert
+   * @param clause the clause to assert
    */
   void assertClause(SatClause& clause, bool removable = false);
 
@@ -83,36 +82,6 @@ protected:
    * @param c the thirs literal in the clause
    */
   void assertClause(SatLiteral a, SatLiteral b, SatLiteral c, bool removable = false);
-
-  /**
-   * Returns true if the node has been cashed in the translation cache.
-   * @param node the node
-   * @return true if the node has been cached
-   */
-  bool isCached(const Node& node) const;
-
-  /**
-   * Returns the cashed literal corresponding to the given node.
-   * @param node the node to lookup
-   * @return returns the corresponding literal
-   */
-  SatLiteral lookupInCache(const Node& n) const;
-
-  /**
-   * Caches the pair of the node and the literal corresponding to the
-   * translation.
-   * @param node node
-   * @param lit
-   */
-  void cacheTranslation(const Node& node, SatLiteral lit);
-
-  /**
-   * Acquires a new variable from the SAT solver to represent the node and
-   * inserts the necessary data it into the mapping tables.
-   * @param node a formula
-   * @return the literal corresponding to the formula
-   */
-  SatLiteral newLiteral(const Node& node);
 
 public:
 
@@ -160,16 +129,57 @@ public:
 
 private:
 
-  // Each of these formulas handles takes care of a Node of each Kind.
-  //
-  // Each handleX(Node &n) is responsible for:
-  //   - constructing a new literal, l (if necessary)
-  //   - calling registerNode(n,l)
-  //   - adding clauses assure that l is equivalent to the Node
-  //   - calling toCNF on its children (if necessary)
-  //   - returning l
-  //
-  // handleX( n ) can assume that n is not in d_translationCache
+  /**
+   * Acquires a new variable from the SAT solver to represent the node and
+   * inserts the necessary data it into the mapping tables.
+   * @param node a formula
+   * @return the literal corresponding to the formula
+   */
+  SatLiteral newLiteral(const Node& node);
+
+/**
+   * Returns true if the node has been cashed in the translation cache.
+   * @param node the node
+   * @return true if the node has been cached
+   */
+  bool isCached(const Node& node) const;
+
+  /**
+   * Returns the cashed literal corresponding to the given node.
+   * @param node the node to lookup
+   * @return returns the corresponding literal
+   */
+  SatLiteral lookupInCache(const Node& n) const;
+
+  /**
+   * Caches the pair of the node and the literal corresponding to the
+   * translation.
+   * @param node node
+   * @param lit
+   */
+  void cacheTranslation(const Node& node, SatLiteral lit);
+
+  /** The translation data we need to recover the translation */
+  struct NodeTranslationData {
+
+    /** The parts of the translation that got erased */
+    std::vector<int> d_missing;
+    /** The clauses that represent this node */
+    std::vector<SatClause> d_clauses;
+    /** The literal that represents this node */
+    SatLiteral d_literal;
+
+    void assertClause(SatClause& clause);
+    void assertClause(SatLiteral a);
+    void assertClause(SatLiteral a, SatLiteral b);
+    void assertClause(SatLiteral a, SatLiteral b, SatLiteral c);
+
+    operator bool() const { return d_clauses.size() != 0; }
+  };
+
+  /** Cache of what literal have been registered to a node. */
+  __gnu_cxx::hash_map<Node, NodeTranslationData> d_translationCache;
+
   SatLiteral handleAtom(const Node& node);
   SatLiteral handleNot(const Node& node);
   SatLiteral handleXor(const Node& node);
