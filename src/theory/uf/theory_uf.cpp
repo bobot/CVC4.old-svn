@@ -1,92 +1,18 @@
 
 #include "theory/uf/theory_uf.h"
+#include "theory/uf/ecdata.h"
+#include "expr/kind.h"
 
-class ECData : public ContextObj {
-private:
-  unsigned classSize;
-  ECData * find;
-
-  Node rep;
-  
-  Link * first;
-  Link * last;
+using namespace CVC4;
+using namespace theory;
+using namespace context;
 
 
-  ContextObj* save(ContextMemoryManager* pCMM) {
-    return new(pCMM) ECData(*this);
-  }
+enum TmpEnum {EC};
 
-  
-  void restore(ContextObj* pContextObj) {
-    *this = *((ECData*)pContextObj);
-  }
+void setAttribute(Node n, TmpEnum te, ECData * ec){}
 
-
-public:
-  ECData(Context * context, const Node & n) :
-    ContextObj(context),
-    classSize(1), 
-    find(this), 
-    rep(n), 
-    first(NULL), 
-    last(NULL)
-  {}
-  
-  unsigned getClassSize(){
-    return classSize;
-  }
-
-  void setClassSize(unsigned newSize){
-    makeCurrent();
-    classSize = newSize;
-  }
-
-  void updateFind(ECData * ec){
-    makeCurrent();
-    find = ec;
-  }
-  ECData * getFind(){
-    return find;
-  }
-  
-  Node getRep(){
-    return rep;
-  }
-
-  Link* getFirst(){
-    return first;
-  }
-
-  Link* getLast(){
-    return last;
-  }
-
-  void setFirst(Link * nfirst){
-    makeCurrent();
-    first = nfirst;
-  }
-
-  void setLast(Link * nlast){
-    makeCurrent();
-    last = nlast;
-  }
-  
-};
-
-struct Link {
-  CDO<Link *> next;
-  Node data;
-  
-  Link(Context * context, Node n, Link * l = NULL):
-    next(context, l), data(n)
-  {}
-
-  static void* operator new(size_t size, ContextMemoryManager* pCMM) {
-    return pCMM->newData(size);
-  }
-};
-
-
+ECData* getAttribute(Node n, TmpEnum te) { return NULL; }
 
 void TheoryUF::setup(const Node& n){
   ECData * ecN = new ECData(n);
@@ -101,20 +27,12 @@ void TheoryUF::setup(const Node& n){
       ECData * ecChild = getAttribute(child, EC);
       ecChild = ccFind(ecChild);
 
-      Link * npred = new (d_context->getCMM())  Link(d_context, n);      
-      if(ecChild->getFirst() == NULL){
-        ecChild->setFirst(npred);
-        ecChild->setLast(npred);
-      }else{
-        Link* currLast = ecChild->getLast();
-        currLast->next = npred;
-        ecChild->setLast(npred);
-      }
+      ecChild->addPredecessor(n, d_context);
     }
   }
 }
 
-bool equiv(Node x, Node y){
+bool TheoryUF::equiv(Node x, Node y){
   if(x.getNumChildren() != y.getNumChildren())
     return false;
 
@@ -136,30 +54,6 @@ bool equiv(Node x, Node y){
   return true;
 }
 
-inline void takeOverClass(ECData * nslave, ECData * nmaster){
-  nmaster->setClassSize(nmaster->getClassSize() + nslave->getClassSize());
-  
-  nslave->setFind( nmaster );
-
-  for(List * Px = nmaster->getFirst(); Px != NULL; Px = Px->next ){
-    for(List * Py = nslave->getFirst(); Py != NULL; Py = Py->next ){
-      if(equiv(Px->data,Py->data)){
-        d_pending.push_back(mkNode(Equality,Px->data, Py->data));
-      }
-    }
-
-  }
-
-  if(nmaster->getFirst() == NULL){
-    nmaster->setFirst(nslave->getFirst());
-    nmaster->setLast(nslave->getLast());
-  }else{
-    Link * currLast = nmaster->getLast();
-    currLast->next = nslave->getFirst();
-    nmaster->setLast(nslave->getLast());
-  }
-}
-
 ECData* TheoryUF::ccFind(ECData * x){
   if( x->getFind() == x)
     return x;
@@ -169,12 +63,26 @@ ECData* TheoryUF::ccFind(ECData * x){
 }
 
 void TheoryUF::ccUnion(ECData* ecX, ECData* ecY){
+  ECData* nslave;
+  ECData* nmaster;
 
-  if(exX->getClassSize() <= ecY->getClassSize()){
-    takeOverClass(ecX, ecY);
+  if(ecX->getClassSize() <= ecY->getClassSize()){
+    nslave = ecX;
+    nmaster = ecY;
   }else{
-    takeOverClass(ecY, ecX);
+    nslave = ecY;
+    nmaster = ecX;
   }
+
+  for(List* Px = nmaster->getFirst(); Px != NULL; Px = Px->next ){
+    for(List * Py = nslave->getFirst(); Py != NULL; Py = Py->next ){
+      if(equiv(Px->data,Py->data)){
+        d_pending.push_back((Px->data).eqExpr(Py->data));
+      }
+    }
+  }
+
+  ECData::takeOverClass(nslave, nmaster);
 }
 
 //TODO make parameters soft references
@@ -200,21 +108,23 @@ void TheoryUF::merge(){
 }
 
 void TheoryUF::check(OutputChannel& out, Effort level){
-  while(!done){
+  while(!done()){
     Node assertion = get();
     
     switch(assertion.getKind()){
-    case EQUALITY:
+    case EQUAL:
       d_pending.push_back(assertion);
       merge();
       break;
     case NOT:
       d_disequality.push_back(assertion[0]);
       break;
+    default:
+      Unreachable();
     }
   }
   if(fullEffort(level)){
-    for(vector<Node>::iterator diseqIter = d_disequality.begin();
+    for(CDList<Node>::const_iterator diseqIter = d_disequality.begin();
         diseqIter != d_disequality.end();
         ++diseqIter){
       

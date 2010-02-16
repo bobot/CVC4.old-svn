@@ -18,6 +18,7 @@
 
 #include "expr/node.h"
 #include "theory/output_channel.h"
+#include "context/context.h"
 
 namespace CVC4 {
 namespace theory {
@@ -92,6 +93,18 @@ public:
   virtual void explain(OutputChannel& out,
                        const Node& n,
                        Effort level = FULL_EFFORT) = 0;
+
+protected:
+  /**
+   * Returns the next atom in the assertFact() queue.
+   * Guarentees that registerTerm is called on the theory specific subterms.
+   * @return the next atom in the assertFact() queue.
+   */
+  Node get();
+
+private:
+  //context::CDO<unsigned> d_queuePosition;
+  //context::CDList<Node> d_assertFactQueue;
 
 };/* class Theory */
 
