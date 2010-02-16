@@ -1,44 +1,115 @@
 
 #include "theory/uf/theory_uf.h"
 
-struct ECData{
+class ECData : public ContextObj {
+private:
   unsigned classSize;
   ECData * find;
 
   Node rep;
   
   Link * first;
-  Link ** last;
+  Link * last;
 
-  ECData(const Node & n) :
-    classSize(1), find(this), rep(n), first(NULL), last(&(first))
+
+  ContextObj* save(ContextMemoryManager* pCMM) {
+    return new(pCMM) ECData(*this);
+  }
+
+  
+  void restore(ContextObj* pContextObj) {
+    *this = *((ECData*)pContextObj);
+  }
+
+
+public:
+  ECData(Context * context, const Node & n) :
+    ContextObj(context),
+    classSize(1), 
+    find(this), 
+    rep(n), 
+    first(NULL), 
+    last(NULL)
   {}
+  
+  unsigned getClassSize(){
+    return classSize;
+  }
+
+  void setClassSize(unsigned newSize){
+    makeCurrent();
+    classSize = newSize;
+  }
+
+  void updateFind(ECData * ec){
+    makeCurrent();
+    find = ec;
+  }
+  ECData * getFind(){
+    return find;
+  }
+  
+  Node getRep(){
+    return rep;
+  }
+
+  Link* getFirst(){
+    return first;
+  }
+
+  Link* getLast(){
+    return last;
+  }
+
+  void setFirst(Link * nfirst){
+    makeCurrent();
+    first = nfirst;
+  }
+
+  void setLast(Link * nlast){
+    makeCurrent();
+    last = nlast;
+  }
+  
 };
 
 struct Link {
-  Link * next;
+  CDO<Link *> next;
   Node data;
   
-  Link(Node n, Link * l = NULL) : next(l), data(n) {}
+  Link(Context * context, Node n, Link * l = NULL):
+    next(context, l), data(n)
+  {}
+
+  static void* operator new(size_t size, ContextMemoryManager* pCMM) {
+    return pCMM->newData(size);
+  }
 };
+
 
 
 void TheoryUF::setup(const Node& n){
   ECData * ecN = new ECData(n);
 
-  setAttribute(n, EC, 1);
+  //TODO Make sure attribute manager owns the pointer
+  setAttribute(n, EC, ecN);
 
   if(n.getKind() == APPLY){
     for(Node::iterator cIter = n.begin(); cIter != n.end(); ++cIter){
       Node child = *cIter;
       
-      ECData* ecChild = getAttribute(child, EC);
+      ECData * ecChild = getAttribute(child, EC);
       ecChild = ccFind(ecChild);
-      
 
-      *(ecChild->last) = new Link(n);
-      ecChild->last = &(*(ecChild->last)->next);
-      
+      Link * npred = new (d_context->getCMM())  Link(d_context, n);      
+      if(ecChild->getFirst() == NULL){
+        ecChild->setFirst(npred);
+        ecChild->setLast(npred);
+      }else{
+        Link* currLast = ecChild->getLast();
+        currLast->next = npred;
+        ecChild->setLast(npred);
+      }
     }
   }
 }
@@ -66,34 +137,40 @@ bool equiv(Node x, Node y){
 }
 
 inline void takeOverClass(ECData * nslave, ECData * nmaster){
-  nmaster->classSize += nslave->classSize;
+  nmaster->setClassSize(nmaster->getClassSize() + nslave->getClassSize());
   
-  nslave->find = nmaster;
+  nslave->setFind( nmaster );
 
-  for(List * Px = nmaster->first; Px != NULL; Px = Px->next ){
-    for(List * Py = nslave->first; Py != NULL; Py = Py->next ){
+  for(List * Px = nmaster->getFirst(); Px != NULL; Px = Px->next ){
+    for(List * Py = nslave->getFirst(); Py != NULL; Py = Py->next ){
       if(equiv(Px->data,Py->data)){
-        d_pending.push_back(mkNode(Equality(Px->data, Py->data)));
+        d_pending.push_back(mkNode(Equality,Px->data, Py->data));
       }
     }
 
   }
 
-  *(nmaster->last) = nslave->first;
-  nmaster->last = nslave->last;
+  if(nmaster->getFirst() == NULL){
+    nmaster->setFirst(nslave->getFirst());
+    nmaster->setLast(nslave->getLast());
+  }else{
+    Link * currLast = nmaster->getLast();
+    currLast->next = nslave->getFirst();
+    nmaster->setLast(nslave->getLast());
+  }
 }
 
 ECData* TheoryUF::ccFind(ECData * x){
-  if( x->find == x)
+  if( x->getFind() == x)
     return x;
   else{
-    return ccFind(x->find);
+    return ccFind(x->getFind());
   }
 }
 
 void TheoryUF::ccUnion(ECData* ecX, ECData* ecY){
 
-  if(exX->classSize <= ecY->classSize){
+  if(exX->getClassSize() <= ecY->getClassSize()){
     takeOverClass(ecX, ecY);
   }else{
     takeOverClass(ecY, ecX);
@@ -118,7 +195,7 @@ void TheoryUF::merge(){
     if(ecX == ecY)
       continue;
     
-    ccUnion(x,y);
+    ccUnion(ecX, ecY);
   }while(! d_pending.empty() );
 }
 
