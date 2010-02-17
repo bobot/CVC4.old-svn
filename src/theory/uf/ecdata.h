@@ -44,11 +44,11 @@ struct Link {
 
 class ECData : public context::ContextObj {
 private:
-  unsigned classSize;
   ECData * find;
 
   Node rep;
   
+  unsigned watchListSize;
   Link * first;
   Link * last;
 
@@ -57,9 +57,10 @@ private:
   void restore(context::ContextObj* pContextObj);
 
 
+public:
   /**
    * Returns true if this ECData object is the current representative of
-   * the equivalence class.  (Mostly used for debugging.)
+   * the equivalence class.
    */
   bool isClassRep();
 
@@ -69,10 +70,9 @@ private:
    * @param n the node to be added.
    * @pre isClassRep() == true
    */
-  void addPredecessor(Node n, context::Scope* context);
+  void addPredecessor(Node n, context::Context* context);
   
 
-public:
 
   /**
    * Creates a EQ with the representative n
@@ -81,16 +81,8 @@ public:
    * @param n the node that corresponds to this ECData
    */
   ECData(context::Context* context, const Node & n);
-
-  /**
-   * This merges an ECData into another ECData.
-   * nslave is merged into nmaster.
-   *
-   * @pre nslave->isClassRep() == true
-   * @pre nmaster->isClassRep() == true
-   * @post nlasve->isClassRep() == false
-   */
-  static void takeOverClass(ECData * nslave, ECData * nmaster);
+  
+  static void takeOverDescendantWatchList(ECData * nslave, ECData * nmaster);
 
   static ECData * ccFind(ECData * fp);
 
@@ -103,7 +95,7 @@ public:
   /**
    * Returns the size of the equivalence class.
    */
-  unsigned getClassSize();
+  unsigned getWatchListSize();
 
   /**
    * Returns a pointer the first member of the watch list.
@@ -118,17 +110,21 @@ public:
   ECData* getFind();
 
 
-private:
-
   /**
    * @pre isClassRep() == true
+   * @pre ec->isClassRep() == true
+   * @post isClassRep() == false
+   * @post ec->isClassRep() == true
    */
   void setFind(ECData * ec);
+  
+private:
+
   
   /**
    * @pre isClassRep() == true
    */
-  void setClassSize(unsigned newSize);
+  void setWatchListSize(unsigned newSize);
 
   /**
    * @pre isClassRep() == true
