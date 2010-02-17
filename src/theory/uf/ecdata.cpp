@@ -7,9 +7,9 @@ using namespace theory;
 
 ECData::ECData(Context * context, const Node & n) :
   ContextObj(context),
-  classSize(1), 
   find(this), 
   rep(n), 
+  watchListSize(0), 
   first(NULL), 
   last(NULL)
 {}
@@ -19,15 +19,18 @@ bool ECData::isClassRep(){
   return this == this->find;
 }
 
-void ECData::addPredecessor(Node n, Scope* scope){
+void ECData::addPredecessor(Node n, Context* context){
   Assert(isClassRep());
 
+  makeCurrent();
 
-  Link * newPred = new (scope->getCMM())  Link(scope->getContext(), n, first);
-  setFirst(newPred);
+  Link * newPred = new (context->getCMM())  Link(context, n, first);
+  first = newPred; 
   if(last == NULL){
-    setLast(newPred);
+    last = newPred;
   }
+
+  ++watchListSize;
 }
 
 ContextObj* ECData::save(ContextMemoryManager* pCMM) {
@@ -42,15 +45,15 @@ Node ECData::getRep(){
   return rep;
 }
   
-unsigned ECData::getClassSize(){
-  return classSize;
+unsigned ECData::getWatchListSize(){
+  return watchListSize;
 }
 
-void ECData::setClassSize(unsigned newSize){
+void ECData::setWatchListSize(unsigned newSize){
   Assert(isClassRep());
 
   makeCurrent();
-  classSize = newSize;
+  watchListSize = newSize;
 }
 
 void ECData::setFind(ECData * ec){
@@ -81,21 +84,22 @@ void ECData::setLast(Link * nlast){
   makeCurrent();
   last = nlast;
 }
-  
 
 
-void ECData::takeOverClass(ECData * nslave, ECData * nmaster){
-  nmaster->setClassSize(nmaster->getClassSize() + nslave->getClassSize());
-  
-  nslave->setFind( nmaster );
+void ECData::takeOverDescendantWatchList(ECData * nslave, ECData * nmaster){
+  Assert(nslave != nmaster);
+  Assert(nslave->getFind() == nmaster );
 
+  nmaster->makeCurrent();
 
-  if(nmaster->getFirst() == NULL){
-    nmaster->setFirst(nslave->getFirst());
-    nmaster->setLast(nslave->getLast());
-  }else if(nslave->getLast() != NULL){
-    Link * currLast = nmaster->getLast();
-    currLast->next = nslave->getFirst();
-    nmaster->setLast(nslave->getLast());
+  nmaster->watchListSize +=  nslave->watchListSize;
+
+  if(nmaster->first == NULL){
+    nmaster->first = nslave->first;
+    nmaster->last = nslave->last;
+  }else if(nslave->first != NULL){
+    Link * currLast = nmaster->last;
+    currLast->next = nslave->first;
+    nmaster->last = nslave->last;
   }
 }

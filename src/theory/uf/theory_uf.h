@@ -16,6 +16,7 @@ private:
   context::Context* d_context;
   context::CDList<Node> d_pending;
   context::CDList<Node> d_disequality;
+  context::CDO<unsigned> d_currentPendingIdx;
 
 public:
   void setup(const Node& n);
@@ -35,7 +36,7 @@ private:
 
   void merge();
   //TODO put back in theory
-  bool done() { return true; }
+
 
 };
 

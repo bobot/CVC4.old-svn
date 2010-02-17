@@ -8,14 +8,15 @@ using namespace theory;
 using namespace context;
 
 
+/* Temporaries to facilitate compiling. */
 enum TmpEnum {EC};
-
 void setAttribute(Node n, TmpEnum te, ECData * ec){}
-
 ECData* getAttribute(Node n, TmpEnum te) { return NULL; }
+Node getOperator(Node x) { return Node::null(); }
+
 
 void TheoryUF::setup(const Node& n){
-  ECData * ecN = new ECData(n);
+  ECData * ecN = new (true) ECData(d_context, n);
 
   //TODO Make sure attribute manager owns the pointer
   setAttribute(n, EC, ecN);
@@ -36,7 +37,7 @@ bool TheoryUF::equiv(Node x, Node y){
   if(x.getNumChildren() != y.getNumChildren())
     return false;
 
-  if(x.getOperator() != y.getOperator())
+  if(getOperator(x) != getOperator(y))
     return false;
 
   Node::iterator xIter = x.begin();
@@ -66,7 +67,7 @@ void TheoryUF::ccUnion(ECData* ecX, ECData* ecY){
   ECData* nslave;
   ECData* nmaster;
 
-  if(ecX->getClassSize() <= ecY->getClassSize()){
+  if(ecX->getWatchListSize() <= ecY->getWatchListSize()){
     nslave = ecX;
     nmaster = ecY;
   }else{
@@ -74,43 +75,43 @@ void TheoryUF::ccUnion(ECData* ecX, ECData* ecY){
     nmaster = ecX;
   }
 
-  for(List* Px = nmaster->getFirst(); Px != NULL; Px = Px->next ){
-    for(List * Py = nslave->getFirst(); Py != NULL; Py = Py->next ){
+  nslave->setFind(nmaster);
+
+  for(Link* Px = nmaster->getFirst(); Px != NULL; Px = Px->next ){
+    for(Link* Py = nslave->getFirst(); Py != NULL; Py = Py->next ){
       if(equiv(Px->data,Py->data)){
         d_pending.push_back((Px->data).eqExpr(Py->data));
       }
     }
   }
 
-  ECData::takeOverClass(nslave, nmaster);
+  ECData::takeOverDescendantWatchList(nslave, nmaster);
 }
 
 //TODO make parameters soft references
 void TheoryUF::merge(){
   do{
-    Node assertion = d_pending.back();
-    d_pending.pop_back();
+    Node assertion = d_pending[d_currentPendingIdx];
+    d_currentPendingIdx = d_currentPendingIdx + 1;
     
     Node x = assertion[0];
     Node y = assertion[1];
     
-    ECData* ecX = getAttribute(xRep, EC);
-    ECData* ecY = getAttribute(yRep, EC);
-    
-    ecX = ccFind(ecX);
-    ecY = ccFind(ecY);
+    ECData* ecX = ccFind(getAttribute(x, EC));
+    ECData* ecY = ccFind(getAttribute(y, EC));
     
     if(ecX == ecY)
       continue;
     
     ccUnion(ecX, ecY);
-  }while(! d_pending.empty() );
+  }while( d_currentPendingIdx < d_pending.size() );
 }
 
 void TheoryUF::check(OutputChannel& out, Effort level){
   while(!done()){
     Node assertion = get();
     
+
     switch(assertion.getKind()){
     case EQUAL:
       d_pending.push_back(assertion);

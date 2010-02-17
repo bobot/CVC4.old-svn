@@ -102,9 +102,10 @@ protected:
    */
   Node get();
 
-private:
-  //context::CDO<unsigned> d_queuePosition;
-  //context::CDList<Node> d_assertFactQueue;
+  /**
+   * Returns true if the assertFactQueue is empty
+   */
+  bool done() { return true; }
 
 };/* class Theory */
 
