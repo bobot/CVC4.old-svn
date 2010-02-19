@@ -29,7 +29,10 @@
 
 namespace CVC4 {
 
-class Node;
+static const bool default_count_ref = true;
+template <bool count_ref> class NodeTemplate;
+typedef NodeTemplate<true> Node;
+typedef NodeTemplate<false> NoteT;
 
 inline std::ostream& operator<<(std::ostream&, const Node&);
 
@@ -45,20 +48,22 @@ using CVC4::expr::NodeValue;
  * Encapsulation of an NodeValue pointer.  The reference count is
  * maintained in the NodeValue.
  */
-class Node {
+template <bool count_ref> class NodeTemplate {
 
   friend class NodeValue;
   friend class SoftNode;
 
   /** A convenient null-valued encapsulated pointer */
-  static Node s_null;
+  static NodeTemplate s_null;
 
   /** The referenced NodeValue */
   NodeValue* d_ev;
 
-  /** This constructor is reserved for use by the Node package; one
-   *  must construct an Node using one of the build mechanisms of the
-   *  Node package.
+  bool d_count_ref;
+
+  /** This constructor is reserved for use by the NodeTemplate package; one
+   *  must construct an NodeTemplate using one of the build mechanisms of the
+   *  NodeTemplate package.
    *
    *  Increments the reference count.
    *
@@ -69,7 +74,7 @@ class Node {
    *  details. */
   // this really does needs to be explicit to avoid hard to track
   // errors with Nodes implicitly wrapping NodeValues
-  explicit Node(const NodeValue*);
+  explicit NodeTemplate(const NodeValue*);
 
   template <unsigned> friend class NodeBuilder;
   friend class NodeManager;
@@ -94,51 +99,51 @@ class Node {
 public:
 
   /** Default constructor, makes a null expression. */
-  Node();
+  NodeTemplate();
 
-  Node(const Node&);
+  NodeTemplate(const NodeTemplate&);
 
   /** Destructor.  Decrements the reference count and, if zero,
    *  collects the NodeValue. */
-  ~Node();
+  ~NodeTemplate();
 
-  bool operator==(const Node& e) const { return d_ev == e.d_ev; }
-  bool operator!=(const Node& e) const { return d_ev != e.d_ev; }
+  bool operator==(const NodeTemplate& e) const { return d_ev == e.d_ev; }
+  bool operator!=(const NodeTemplate& e) const { return d_ev != e.d_ev; }
 
-  Node operator[](int i) const {
+  NodeTemplate operator[](int i) const {
     Assert(i >= 0 && i < d_ev->d_nchildren);
-    return Node(d_ev->d_children[i]);
+    return NodeTemplate(d_ev->d_children[i]);
   }
 
   /**
    * We compare by expression ids so, keeping things deterministic and having
    * that subexpressions have to be smaller than the enclosing expressions.
    */
-  inline bool operator<(const Node& e) const;
+  inline bool operator<(const NodeTemplate& e) const;
 
-  Node& operator=(const Node&);
+  NodeTemplate& operator=(const NodeTemplate&);
 
   size_t hash() const { return d_ev->getId(); }
   uint64_t getId() const { return d_ev->getId(); }
 
-  Node eqExpr(const Node& right) const;
-  Node notExpr() const;
-  Node andExpr(const Node& right) const;
-  Node orExpr(const Node& right) const;
-  Node iteExpr(const Node& thenpart, const Node& elsepart) const;
-  Node iffExpr(const Node& right) const;
-  Node impExpr(const Node& right) const;
-  Node xorExpr(const Node& right) const;
+  NodeTemplate eqExpr(const NodeTemplate& right) const;
+  NodeTemplate notExpr() const;
+  NodeTemplate andExpr(const NodeTemplate& right) const;
+  NodeTemplate orExpr(const NodeTemplate& right) const;
+  NodeTemplate iteExpr(const NodeTemplate& thenpart, const NodeTemplate& elsepart) const;
+  NodeTemplate iffExpr(const NodeTemplate& right) const;
+  NodeTemplate impExpr(const NodeTemplate& right) const;
+  NodeTemplate xorExpr(const NodeTemplate& right) const;
 
-  Node plusExpr(const Node& right) const;
-  Node uMinusExpr() const;
-  Node multExpr(const Node& right) const;
+  NodeTemplate plusExpr(const NodeTemplate& right) const;
+  NodeTemplate uMinusExpr() const;
+  NodeTemplate multExpr(const NodeTemplate& right) const;
 
   inline Kind getKind() const;
 
   inline size_t getNumChildren() const;
 
-  static Node null();
+  static NodeTemplate null();
 
   typedef NodeValue::node_iterator iterator;
   typedef NodeValue::node_iterator const_iterator;
@@ -166,7 +171,7 @@ public:
                            const typename AttrKind::value_type& value);
 
   /**
-   * Very basic pretty printer for Node.
+   * Very basic pretty printer for NodeTemplate.
    * @param o output stream to print to.
    * @param indent number of spaces to indent the formula by.
    */
@@ -182,7 +187,7 @@ private:
    */
   void debugPrint();
 
-};/* class Node */
+};/* class NodeTemplate */
 
 }/* CVC4 namespace */
 
@@ -203,7 +208,7 @@ namespace __gnu_cxx {
 
 namespace CVC4 {
 
-inline bool Node::operator<(const Node& e) const {
+template <bool count_ref> inline bool NodeTemplate<count_ref>::operator<(const NodeTemplate& e) const {
   return d_ev->d_id < e.d_ev->d_id;
 }
 
@@ -212,70 +217,235 @@ inline std::ostream& operator<<(std::ostream& out, const Node& e) {
   return out;
 }
 
-inline Kind Node::getKind() const {
+template <bool count_ref> inline Kind NodeTemplate<count_ref>::getKind() const {
   return Kind(d_ev->d_kind);
 }
 
-inline std::string Node::toString() const {
+template <bool count_ref> inline std::string NodeTemplate<count_ref>::toString() const {
   return d_ev->toString();
 }
 
-inline void Node::toStream(std::ostream& out) const {
+template <bool count_ref>
+inline void NodeTemplate<count_ref>::toStream(std::ostream& out) const {
   d_ev->toStream(out);
 }
 
-inline Node::ev_iterator Node::ev_begin() {
+template <bool count_ref>
+inline typename NodeTemplate<count_ref>::ev_iterator NodeTemplate<count_ref>::ev_begin() {
   return d_ev->ev_begin();
 }
 
-inline Node::ev_iterator Node::ev_end() {
+template <bool count_ref>
+inline typename NodeTemplate<count_ref>::ev_iterator NodeTemplate<count_ref>::ev_end() {
   return d_ev->ev_end();
 }
 
-inline Node::const_ev_iterator Node::ev_begin() const {
+template <bool count_ref>
+inline typename NodeTemplate<count_ref>::const_ev_iterator NodeTemplate<count_ref>::ev_begin() const {
   return d_ev->ev_begin();
 }
 
-inline Node::const_ev_iterator Node::ev_end() const {
+template <bool count_ref>
+inline typename NodeTemplate<count_ref>::const_ev_iterator NodeTemplate<count_ref>::ev_end() const {
   return d_ev->ev_end();
 }
 
-inline Node::iterator Node::begin() {
+template <bool count_ref>
+inline typename NodeTemplate<count_ref>::iterator NodeTemplate<count_ref>::begin() {
   return d_ev->begin();
 }
 
-inline Node::iterator Node::end() {
+template <bool count_ref>
+inline typename NodeTemplate<count_ref>::iterator NodeTemplate<count_ref>::end() {
   return d_ev->end();
 }
 
-inline Node::const_iterator Node::begin() const {
+template <bool count_ref>
+inline typename NodeTemplate<count_ref>::const_iterator NodeTemplate<count_ref>::begin() const {
   return d_ev->begin();
 }
 
-inline Node::const_iterator Node::end() const {
+template <bool count_ref>
+inline typename NodeTemplate<count_ref>::const_iterator NodeTemplate<count_ref>::end() const {
   return d_ev->end();
 }
 
-inline size_t Node::getNumChildren() const {
+template <bool count_ref>
+inline size_t NodeTemplate<count_ref>::getNumChildren() const {
   return d_ev->d_nchildren;
 }
 
+template <bool count_ref>
 template <class AttrKind>
-inline typename AttrKind::value_type Node::getAttribute(const AttrKind&) {
+inline typename AttrKind::value_type NodeTemplate<count_ref>::getAttribute(const AttrKind&) {
   return NodeManager::currentNM()->getAttribute(*this, AttrKind());
 }
 
+template <bool count_ref>
 template <class AttrKind>
-inline bool Node::hasAttribute(const AttrKind&,
+inline bool NodeTemplate<count_ref>::hasAttribute(const AttrKind&,
                                typename AttrKind::value_type* ret) {
   return NodeManager::currentNM()->hasAttribute(*this, AttrKind(), ret);
 }
 
+template <bool count_ref>
 template <class AttrKind>
-inline void Node::setAttribute(const AttrKind&,
+inline void NodeTemplate<count_ref>::setAttribute(const AttrKind&,
                                const typename AttrKind::value_type& value) {
   NodeManager::currentNM()->setAttribute(*this, AttrKind(), value);
 }
+
+static NodeValue NodeValue::s_null;
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::s_null(&NodeValue::s_null);
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::null() {
+  return s_null;
+}
+
+template <bool count_ref>
+bool NodeTemplate<count_ref>::isNull() const {
+  return d_ev == &NodeValue::s_null;
+}
+
+////FIXME: This function is a major hack! Should be changed ASAP
+////TODO: Should use positive definition, i.e. what kinds are atomic.
+template <bool count_ref>
+bool NodeTemplate<count_ref>::isAtomic() const {
+  switch(getKind()) {
+  case NOT:
+  case XOR:
+  case ITE:
+  case IFF:
+  case IMPLIES:
+  case OR:
+  case AND:
+    return false;
+  default:
+    return true;
+  }
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref>::NodeTemplate() :
+  d_ev(&NodeValue::s_null) {
+  // No refcount needed
+}
+
+// FIXME: escape from type system convenient but is there a better
+// way?  Nodes conceptually don't change their expr values but of
+// course they do modify the refcount.  But it's nice to be able to
+// support node_iterators over const NodeValue*.  So.... hm.
+template <bool count_ref>
+NodeTemplate<count_ref>::NodeTemplate(const NodeValue* ev)
+  : d_ev(const_cast<NodeValue*>(ev)) {
+  Assert(d_ev != NULL, "Expecting a non-NULL expression value!");
+  d_ev->inc();
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref>::NodeTemplate(const NodeTemplate<count_ref>& e) {
+  Assert(e.d_ev != NULL, "Expecting a non-NULL expression value!");
+  d_ev = e.d_ev;
+  d_ev->inc();
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref>::~NodeTemplate() {
+  Assert(d_ev != NULL, "Expecting a non-NULL expression value!");
+  d_ev->dec();
+}
+
+template <bool count_ref>
+void NodeTemplate<count_ref>::assignNodeValue(NodeValue* ev) {
+  d_ev = ev;
+  d_ev->inc();
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref>& NodeTemplate<count_ref>::operator=(const NodeTemplate<count_ref>& e) {
+  Assert(d_ev != NULL, "Expecting a non-NULL expression value!");
+  Assert(e.d_ev != NULL, "Expecting a non-NULL expression value on RHS!");
+  if(EXPECT_TRUE( d_ev != e.d_ev )) {
+    d_ev->dec();
+    d_ev = e.d_ev;
+    d_ev->inc();
+  }
+  return *this;
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::eqExpr(const NodeTemplate<count_ref>& right) const {
+  return NodeManager::currentNM()->mkNode(EQUAL, *this, right);
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::notExpr() const {
+  return NodeManager::currentNM()->mkNode(NOT, *this);
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::andExpr(const NodeTemplate<count_ref>& right) const {
+  return NodeManager::currentNM()->mkNode(AND, *this, right);
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::orExpr(const NodeTemplate<count_ref>& right) const {
+  return NodeManager::currentNM()->mkNode(OR, *this, right);
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::iteExpr(const NodeTemplate<count_ref>& thenpart, const NodeTemplate<count_ref>& elsepart) const {
+  return NodeManager::currentNM()->mkNode(ITE, *this, thenpart, elsepart);
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::iffExpr(const NodeTemplate<count_ref>& right) const {
+  return NodeManager::currentNM()->mkNode(IFF, *this, right);
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::impExpr(const NodeTemplate<count_ref>& right) const {
+  return NodeManager::currentNM()->mkNode(IMPLIES, *this, right);
+}
+
+template <bool count_ref>
+NodeTemplate<count_ref> NodeTemplate<count_ref>::xorExpr(const NodeTemplate<count_ref>& right) const {
+  return NodeManager::currentNM()->mkNode(XOR, *this, right);
+}
+
+static void indent(std::ostream & o, int indent){
+  for(int i=0; i < indent; i++)
+    o << ' ';
+}
+
+template <bool count_ref>
+void NodeTemplate<count_ref>::printAst(std::ostream & o, int ind) const{
+  indent(o, ind);
+  o << '(';
+  o << getKind();
+  if(getKind() == VARIABLE){
+    o << ' ' << getId();
+
+  }else if(getNumChildren() >= 1){
+    for(NodeTemplate::iterator child = begin(); child != end(); ++child){
+      o << std::endl;
+      (*child).printAst(o, ind+1);
+    }
+    o << std::endl;
+    indent(o, ind);
+  }
+  o << ')';
+}
+
+template <bool count_ref>
+void NodeTemplate<count_ref>::debugPrint(){
+  printAst(Warning(), 0);
+  Warning().flush();
+}
+
 
 }/* CVC4 namespace */
 
