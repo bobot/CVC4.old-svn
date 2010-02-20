@@ -33,7 +33,7 @@
 
 namespace CVC4 {
 
-class Node;
+template <bool ref_count> class NodeTemplate;
 template <unsigned> class NodeBuilder;
 class NodeManager;
 
@@ -76,7 +76,7 @@ class NodeValue {
 
   // todo add exprMgr ref in debug case
 
-  friend class CVC4::Node;
+  template <bool> friend class CVC4::NodeTemplate;
   template <unsigned> friend class CVC4::NodeBuilder;
   friend class CVC4::NodeManager;
 
@@ -108,7 +108,8 @@ class NodeValue {
   public:
     explicit node_iterator(const_ev_iterator i) : d_i(i) {}
 
-    inline Node operator*();
+    template <bool ref_count>
+    inline NodeTemplate<ref_count> operator*();
 
     bool operator==(const node_iterator& i) {
       return d_i == i.d_i;
@@ -128,10 +129,6 @@ class NodeValue {
     }
 
     typedef std::input_iterator_tag iterator_category;
-    typedef Node value_type;
-    typedef ptrdiff_t difference_type;
-    typedef Node* pointer;
-    typedef Node& reference;
   };
   typedef node_iterator const_node_iterator;
 
@@ -207,8 +204,9 @@ public:
 namespace CVC4 {
 namespace expr {
 
-inline Node NodeValue::node_iterator::operator*() {
-  return Node(*d_i);
+template <bool ref_count>
+inline NodeTemplate<ref_count> NodeValue::node_iterator::operator*() {
+  return NodeTemplate<ref_count>(*d_i);
 }
 
 }/* CVC4::expr namespace */

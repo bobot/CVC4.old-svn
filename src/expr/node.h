@@ -29,7 +29,6 @@
 
 namespace CVC4 {
 
-static const bool default_count_ref = true;
 template <bool count_ref> class NodeTemplate;
 typedef NodeTemplate<true> Node;
 typedef NodeTemplate<false> NoteT;
@@ -295,8 +294,6 @@ inline void NodeTemplate<count_ref>::setAttribute(const AttrKind&,
   NodeManager::currentNM()->setAttribute(*this, AttrKind(), value);
 }
 
-static NodeValue NodeValue::s_null;
-
 template <bool count_ref>
 NodeTemplate<count_ref> NodeTemplate<count_ref>::s_null(&NodeValue::s_null);
 
@@ -430,7 +427,7 @@ void NodeTemplate<count_ref>::printAst(std::ostream & o, int ind) const{
     o << ' ' << getId();
 
   }else if(getNumChildren() >= 1){
-    for(NodeTemplate::iterator child = begin(); child != end(); ++child){
+    for(NodeTemplate<count_ref>::iterator child = begin(); child != end(); ++child){
       o << std::endl;
       (*child).printAst(o, ind+1);
     }

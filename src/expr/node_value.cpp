@@ -27,6 +27,8 @@ namespace CVC4 {
 
 size_t NodeValue::next_id = 1;
 
+NodeValue NodeValue::s_null;
+
 NodeValue::NodeValue() :
   d_id(0),
   d_rc(MAX_RC),

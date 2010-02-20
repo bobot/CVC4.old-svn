@@ -12,14 +12,3 @@
  **
  ** Reference-counted encapsulation of a pointer to an expression.
  **/
-
-#include "expr/node.h"
-#include "expr/node_value.h"
-#include "expr/node_builder.h"
-#include "util/Assert.h"
-
-#include <sstream>
-
-using namespace CVC4::expr;
-using namespace std;
-
