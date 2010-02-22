@@ -70,7 +70,7 @@ SatLiteral CnfStream::lookupInCache(const TNode& n) const {
 
 void CnfStream::cacheTranslation(const TNode& node, SatLiteral lit) {
   Debug("cnf") << "caching translation " << node << " to " << lit << endl;
-  d_translationCache.insert(make_pair(node, lit));
+  d_translationCache[node] = lit;
 }
 
 SatLiteral CnfStream::newLiteral(const TNode& node) {

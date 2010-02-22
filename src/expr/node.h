@@ -38,6 +38,7 @@ typedef NodeTemplate<false> TNode;
 inline std::ostream& operator<<(std::ostream&, const Node&);
 
 class NodeManager;
+class Type;
 
 namespace expr {
 class NodeValue;
@@ -142,6 +143,8 @@ template<bool ref_count>
       return d_ev->getId();
     }
 
+    const Type* getType() const;
+
     NodeTemplate eqExpr(const NodeTemplate& right) const;
     NodeTemplate notExpr() const;
     NodeTemplate andExpr(const NodeTemplate& right) const;
@@ -176,9 +179,6 @@ template<bool ref_count>
     template <class AttrKind>
     inline bool hasAttribute(const AttrKind&, typename AttrKind::value_type* = NULL) const;
 
-    template<class AttrKind>
-      inline typename AttrKind::value_type getAttribute(const AttrKind&);
-
     inline std::string toString() const;
     inline void toStream(std::ostream&) const;
 
@@ -202,10 +202,6 @@ private:
    * the ostream.
    */
   void debugPrint();
-
-  template<class AttrKind>
-  inline bool hasAttribute(
-      const AttrKind&, typename AttrKind::value_type* = NULL);
 
   template<class AttrKind>
   inline void setAttribute(
@@ -311,7 +307,7 @@ template<bool ref_count>
     return d_ev->d_nchildren;
   }
 
-template<bool ref_count>
+template <bool ref_count>
 template <class AttrKind>
 inline typename AttrKind::value_type NodeTemplate<ref_count>::getAttribute(const AttrKind&) const {
   Assert( NodeManager::currentNM() != NULL,
@@ -321,7 +317,7 @@ inline typename AttrKind::value_type NodeTemplate<ref_count>::getAttribute(const
   return NodeManager::currentNM()->getAttribute(*this, AttrKind());
 }
 
-template<bool ref_count>
+template <bool ref_count>
 template <class AttrKind>
 inline bool NodeTemplate<ref_count>::hasAttribute(const AttrKind&,
                                typename AttrKind::value_type* ret) const {
@@ -332,7 +328,7 @@ inline bool NodeTemplate<ref_count>::hasAttribute(const AttrKind&,
   return NodeManager::currentNM()->hasAttribute(*this, AttrKind(), ret);
 }
 
-template<bool ref_count>
+template <bool ref_count>
 template <class AttrKind>
 inline void NodeTemplate<ref_count>::setAttribute(const AttrKind&,
                                const typename AttrKind::value_type& value) {
@@ -505,6 +501,14 @@ template<bool ref_count>
     printAst(Warning(), 0);
     Warning().flush();
   }
+
+template<bool ref_count>
+const Type* NodeTemplate<ref_count>::getType() const {
+  Assert( NodeManager::currentNM() != NULL,
+          "There is no current CVC4::NodeManager associated to this thread.\n"
+          "Perhaps a public-facing function is missing a NodeManagerScope ?" );
+  return NodeManager::currentNM()->getType(*this);
+}
 
 }/* CVC4 namespace */
 
