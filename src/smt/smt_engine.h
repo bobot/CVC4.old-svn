@@ -2,7 +2,7 @@
 /** smt_engine.h
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): taking
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -112,10 +112,6 @@ public:
 
 private:
 
-  /** Current set of assertions. */
-  // TODO: make context-aware to handle user-level push/pop.
-  std::vector<Node> d_assertions;
-
   /** Our expression manager */
   ExprManager* d_exprManager;
 
@@ -159,12 +155,6 @@ private:
    * that).
    */
   Result quickCheck();
-
-  /**
-   * Process the assertion list: for literals and conjunctions of
-   * literals, assert to T-solver.
-   */
-  void processAssertionList();
 
 };/* class SmtEngine */
 

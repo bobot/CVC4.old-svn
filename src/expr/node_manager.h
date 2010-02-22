@@ -1,8 +1,8 @@
 /*********************                                                        */
 /** node_manager.h
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): taking, dejan
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -13,6 +13,9 @@
  ** A manager for Nodes.
  **/
 
+/* circular dependency; force node.h first */
+#include "expr/node.h"
+
 #ifndef __CVC4__NODE_MANAGER_H
 #define __CVC4__NODE_MANAGER_H
 
@@ -20,7 +23,6 @@
 #include <string>
 #include <ext/hash_set>
 
-#include "expr/node.h"
 #include "expr/kind.h"
 
 namespace __gnu_cxx {
@@ -77,12 +79,12 @@ public:
 
   template <class AttrKind>
   inline typename AttrKind::value_type getAttribute(const Node& n,
-                                                    const AttrKind&);
+                                                    const AttrKind&) const;
 
   template <class AttrKind>
   inline bool hasAttribute(const Node& n,
                            const AttrKind&,
-                           typename AttrKind::value_type* = NULL);
+                           typename AttrKind::value_type* = NULL) const;
 
   template <class AttrKind>
   inline void setAttribute(const Node& n,
@@ -108,14 +110,14 @@ public:
 
 template <class AttrKind>
 inline typename AttrKind::value_type NodeManager::getAttribute(const Node& n,
-                                                               const AttrKind&) {
+                                                               const AttrKind&) const {
   return d_am.getAttribute(n, AttrKind());
 }
 
 template <class AttrKind>
 inline bool NodeManager::hasAttribute(const Node& n,
                                       const AttrKind&,
-                                      typename AttrKind::value_type* ret) {
+                                      typename AttrKind::value_type* ret) const {
   return d_am.hasAttribute(n, AttrKind(), ret);
 }
 

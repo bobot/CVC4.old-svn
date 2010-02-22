@@ -25,6 +25,7 @@
 
 #include "cvc4_config.h"
 #include "expr/kind.h"
+#include "expr/type.h"
 #include "util/Assert.h"
 
 namespace CVC4 {
@@ -51,8 +52,7 @@ using CVC4::expr::NodeValue;
 template<bool ref_count>
   class NodeTemplate {
 
-    friend class NodeValue;
-    friend class SoftNode;
+  friend class NodeValue;
 
     /** A convenient null-valued encapsulated pointer */
     static NodeTemplate s_null;
@@ -107,8 +107,15 @@ template<bool ref_count>
     /** Default constructor, makes a null expression. */
     NodeTemplate();
 
+<<<<<<< .working
     template <bool ref_count_1>
     NodeTemplate(const NodeTemplate<ref_count_1>&);
+=======
+  Node operator[](int i) const {
+    Assert(i >= 0 && unsigned(i) < d_ev->d_nchildren);
+    return Node(d_ev->d_children[i]);
+  }
+>>>>>>> .merge-right.r237
 
     /** Destructor.  Decrements the reference count and, if zero,
      *  collects the NodeValue. */
@@ -132,7 +139,15 @@ template<bool ref_count>
      */
     inline bool operator<(const NodeTemplate& e) const;
 
+<<<<<<< .working
     NodeTemplate& operator=(const NodeTemplate&);
+=======
+  /*
+  Node plusExpr(const Node& right) const;
+  Node uMinusExpr() const;
+  Node multExpr(const Node& right) const;
+>>>>>>> .merge-right.r237
+  */
 
     size_t hash() const {
       return d_ev->getId();
@@ -164,19 +179,49 @@ template<bool ref_count>
     typedef typename NodeValue::iterator<ref_count> iterator;
     typedef typename NodeValue::iterator<ref_count> const_iterator;
 
+<<<<<<< .working
     inline iterator begin();
     inline iterator end();
     inline const_iterator begin() const;
     inline const_iterator end() const;
+=======
+  template <class AttrKind>
+  inline typename AttrKind::value_type getAttribute(const AttrKind&) const;
+>>>>>>> .merge-right.r237
 
+<<<<<<< .working
     inline std::string toString() const;
     inline void toStream(std::ostream&) const;
+=======
+  template <class AttrKind>
+  inline bool hasAttribute(const AttrKind&,
+                           typename AttrKind::value_type* = NULL) const;
+>>>>>>> .merge-right.r237
 
     bool isNull() const;
     bool isAtomic() const;
 
+<<<<<<< .working
     template<class AttrKind>
       inline typename AttrKind::value_type getAttribute(const AttrKind&);
+=======
+  /**
+   * Very basic pretty printer for Node.
+   * @param o output stream to print to.
+   * @param indent number of spaces to indent the formula by.
+   */
+  void printAst(std::ostream & o, int indent = 0) const;
+
+private:
+
+  /**
+   * Pretty printer for use within gdb
+   * This is not intended to be used outside of gdb.
+   * This writes to the ostream Warning() and immediately flushes
+   * the ostream.
+   */
+  void debugPrint();
+>>>>>>> .merge-right.r237
 
     template<class AttrKind>
       inline bool hasAttribute(const AttrKind&, typename AttrKind::value_type* =
@@ -303,13 +348,25 @@ template<bool ref_count>
     return d_ev->d_nchildren;
   }
 
+<<<<<<< .working
 template<bool ref_count>
   template<class AttrKind>
     inline typename AttrKind::value_type NodeTemplate<ref_count>::getAttribute(
                                                                                const AttrKind&) {
       return NodeManager::currentNM()->getAttribute(*this, AttrKind());
     }
+=======
+template <class AttrKind>
+inline typename AttrKind::value_type Node::getAttribute(const AttrKind&) const {
+  Assert( NodeManager::currentNM() != NULL,
+          "There is no current CVC4::NodeManager associated to this thread.\n"
+          "Perhaps a public-facing function is missing a NodeManagerScope ?" );
 
+  return NodeManager::currentNM()->getAttribute(*this, AttrKind());
+}
+>>>>>>> .merge-right.r237
+
+<<<<<<< .working
 template<bool ref_count>
   template<class AttrKind>
     inline bool NodeTemplate<ref_count>::hasAttribute(
@@ -317,7 +374,19 @@ template<bool ref_count>
                                                       typename AttrKind::value_type* ret) {
       return NodeManager::currentNM()->hasAttribute(*this, AttrKind(), ret);
     }
+=======
+template <class AttrKind>
+inline bool Node::hasAttribute(const AttrKind&,
+                               typename AttrKind::value_type* ret) const {
+  Assert( NodeManager::currentNM() != NULL,
+          "There is no current CVC4::NodeManager associated to this thread.\n"
+          "Perhaps a public-facing function is missing a NodeManagerScope ?" );
 
+  return NodeManager::currentNM()->hasAttribute(*this, AttrKind(), ret);
+}
+>>>>>>> .merge-right.r237
+
+<<<<<<< .working
 template<bool ref_count>
   template<class AttrKind>
     inline void NodeTemplate<ref_count>::setAttribute(
@@ -325,6 +394,17 @@ template<bool ref_count>
                                                       const typename AttrKind::value_type& value) {
       NodeManager::currentNM()->setAttribute(*this, AttrKind(), value);
     }
+=======
+template <class AttrKind>
+inline void Node::setAttribute(const AttrKind&,
+                               const typename AttrKind::value_type& value) {
+  Assert( NodeManager::currentNM() != NULL,
+          "There is no current CVC4::NodeManager associated to this thread.\n"
+          "Perhaps a public-facing function is missing a NodeManagerScope ?" );
+
+  NodeManager::currentNM()->setAttribute(*this, AttrKind(), value);
+}
+>>>>>>> .merge-right.r237
 
 template<bool ref_count>
   NodeTemplate<ref_count> NodeTemplate<ref_count>::s_null(&NodeValue::s_null);

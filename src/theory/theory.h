@@ -2,7 +2,7 @@
 /** theory.h
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): dejan, taking
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -58,9 +58,17 @@ public:
   static bool fullEffort(Effort e)           { return e >= FULL_EFFORT; }
 
   /**
-   * Construct a theory.
+   * Construct a Theory.
    */
   Theory() {
+  }
+
+  /**
+   * Destructs a Theory.  This implementation does nothing, but we
+   * need a virtual destructor for safety in case subclasses have a
+   * destructor.
+   */
+  virtual ~Theory() {
   }
 
   /**

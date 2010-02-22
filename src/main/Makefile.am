@@ -9,11 +9,14 @@ cvc4_SOURCES = \
 	getopt.cpp \
 	util.cpp \
 	main.h \
-	usage.h \
-	about.h
+	usage.h
 
 cvc4_LDADD = \
 	../parser/libcvc4parser.la \
 	../libcvc4.la
 
+if STATIC_BINARY
+cvc4_LINK = $(CXXLINK) -all-static
+else
 cvc4_LINK = $(CXXLINK)
+endif

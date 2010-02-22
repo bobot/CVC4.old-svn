@@ -2,7 +2,7 @@
 /** usage.h
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -37,6 +37,7 @@ CVC4 options:\n\
    --stats         give statistics on exit\n\
    --segv-nospin   (debug builds only) don't spin on segfault waiting for gdb\n\
    --parse-only    exit after parsing input\n\
+   --show-config   show CVC4 static configuration\n\
 ";
 
 }/* CVC4::main namespace */

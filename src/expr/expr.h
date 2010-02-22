@@ -2,7 +2,7 @@
 /** expr.h
  ** Original author: dejan
  ** Major contributors: none
- ** Minor contributors (to current version): mdeters, taking
+ ** Minor contributors (to current version): taking, mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -13,11 +13,13 @@
  ** Public-facing expression interface.
  **/
 
+// circular dependency: force expr_manager.h first
+#include "expr/expr_manager.h"
+
 #ifndef __CVC4__EXPR_H
 #define __CVC4__EXPR_H
 
 #include "cvc4_config.h"
-#include "expr/expr_manager.h"
 
 #include <string>
 #include <iostream>
