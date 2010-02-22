@@ -66,22 +66,6 @@ void NodeValue::dec() {
   }
 }
 
-NodeValue::iterator NodeValue::begin() {
-  return node_iterator(d_children);
-}
-
-NodeValue::iterator NodeValue::end() {
-  return node_iterator(d_children + d_nchildren);
-}
-
-NodeValue::const_iterator NodeValue::begin() const {
-  return const_node_iterator(d_children);
-}
-
-NodeValue::const_iterator NodeValue::end() const {
-  return const_node_iterator(d_children + d_nchildren);
-}
-
 NodeValue::ev_iterator NodeValue::ev_begin() {
   return d_children;
 }

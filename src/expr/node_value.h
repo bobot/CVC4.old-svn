@@ -103,46 +103,45 @@ class NodeValue {
   const_ev_iterator ev_begin() const;
   const_ev_iterator ev_end() const;
 
-  class node_iterator {
+  template <bool ref_count>
+  class iterator {
     const_ev_iterator d_i;
   public:
-    explicit node_iterator(const_ev_iterator i) : d_i(i) {}
+    explicit iterator(const_ev_iterator i) : d_i(i) {}
 
-    template <bool ref_count>
-    inline NodeTemplate<ref_count> operator*();
+    inline CVC4::NodeTemplate<ref_count> operator*();
 
-    bool operator==(const node_iterator& i) {
+    bool operator==(const iterator& i) {
       return d_i == i.d_i;
     }
 
-    bool operator!=(const node_iterator& i) {
+    bool operator!=(const iterator& i) {
       return d_i != i.d_i;
     }
 
-    node_iterator operator++() {
+    iterator operator++() {
       ++d_i;
       return *this;
     }
 
-    node_iterator operator++(int) {
-      return node_iterator(d_i++);
+    iterator operator++(int) {
+      return iterator(d_i++);
     }
 
     typedef std::input_iterator_tag iterator_category;
   };
-  typedef node_iterator const_node_iterator;
 
 public:
 
-  // Iterator support
-  typedef node_iterator iterator;
-  typedef node_iterator const_iterator;
+  template <bool ref_count>
+  iterator<ref_count> begin() const {
+    return iterator<ref_count>(d_children);
+  }
 
-  iterator begin();
-  iterator end();
-
-  const_iterator begin() const;
-  const_iterator end() const;
+  template <bool ref_count>
+  iterator<ref_count> end() const {
+    return iterator<ref_count>(d_children + d_nchildren);
+  }
 
   /**
    * Hash this expression.
@@ -205,7 +204,7 @@ namespace CVC4 {
 namespace expr {
 
 template <bool ref_count>
-inline NodeTemplate<ref_count> NodeValue::node_iterator::operator*() {
+inline CVC4::NodeTemplate<ref_count> NodeValue::iterator<ref_count>::operator*() {
   return NodeTemplate<ref_count>(*d_i);
 }
 

@@ -26,7 +26,8 @@
 namespace CVC4 {
 
 // The internal expression representation
-class Node;
+template <bool count_ref>
+class NodeTemplate;
 
 /**
  * Class encapsulating CVC4 expressions and methods for constructing new
@@ -154,10 +155,10 @@ protected:
    * @param em the expression manager that handles this expression
    * @param node the actual expression node pointer
    */
-  Expr(ExprManager* em, Node* node);
+  Expr(ExprManager* em, NodeTemplate<true>* node);
 
   /** The internal expression representation */
-  Node* d_node;
+  NodeTemplate<true>* d_node;
 
   /** The responsible expression manager */
   ExprManager* d_em;
@@ -166,7 +167,7 @@ protected:
    * Returns the actual internal node.
    * @return the internal node
    */
-  Node getNode() const;
+  NodeTemplate<true> getNode() const;
 
   // Friend to access the actual internal node information and private methods
   friend class SmtEngine;
