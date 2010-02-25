@@ -17,7 +17,8 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. $(ANTLR_INCLUDES)
 AM_CXXFLAGS = -Wall -fvisibility=hidden -Wno-deprecated
 
-SUBDIRS = smt cvc
+SUBDIRS = smt 
+# cvc
 
 nobase_lib_LTLIBRARIES = libcvc4parser.la
 noinst_LTLIBRARIES = libcvc4parser_noinst.la
@@ -29,14 +30,15 @@ libcvc4parser_la_LINK = $(CXXLINK)
 
 libcvc4parser_noinst_la_LDFLAGS = $(ANTLR_LDFLAGS)
 libcvc4parser_noinst_la_LIBADD = \
-	@builddir@/smt/libparsersmt.la \
-	@builddir@/cvc/libparsercvc.la
+	@builddir@/smt/libparsersmt.la #\
+	# @builddir@/cvc/libparsercvc.la
 
 libcvc4parser_la_SOURCES =
 libcvc4parser_noinst_la_SOURCES = \
 	parser.h \
 	parser.cpp \
-	parser_exception.h \
+    semantic_exception.h \
+	semantic_exception.cpp \
 	symbol_table.h \
 	antlr_parser.h \
 	antlr_parser.cpp

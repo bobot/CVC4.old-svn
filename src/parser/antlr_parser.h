@@ -19,10 +19,9 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <antlr3.h>
 
-#include <antlr/LLkParser.hpp>
-#include <antlr/SemanticException.hpp>
-
+#include "semantic_exception.h"
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "util/Assert.h"
@@ -36,25 +35,38 @@ class FunctionType;
 
 namespace parser {
 
+/** Types of check for the symols */
+enum DeclarationCheck {
+  /** Enforce that the symbol has been declared */
+  CHECK_DECLARED,
+  /** Enforce that the symbol has not been declared */
+  CHECK_UNDECLARED,
+  /** Don't check anything */
+  CHECK_NONE
+};
+
+/**
+ * Types of symbols. Used to define namespaces.
+ */
+enum SymbolType {
+  /** Variables */
+  SYM_VARIABLE,
+  /** Functions */
+  SYM_FUNCTION,
+  /** Sorts */
+  SYM_SORT
+};
+
 /**
  * Wrapper of the ANTLR parser that includes convenience methods that interacts
  * with the expression manager. The grammars should have as little C++ code as
  * possible and all the state and actual functionality (besides parsing) should
  * go into this class.
  */
-class AntlrParser : public antlr::LLkParser {
+class AntlrParser {
 
 public:
-
-  /** Types of check for the symols */
-  enum DeclarationCheck {
-    /** Enforce that the symbol has been declared */
-    CHECK_DECLARED,
-    /** Enforce that the symbol has not been declared */
-    CHECK_UNDECLARED,
-    /** Don't check anything */
-    CHECK_NONE
-  };
+  AntlrParser(const std::string& filename);
 
   /**
    * Sets the expression manager to use when creating/managing expression.
@@ -80,36 +92,19 @@ public:
   /** Disable semantic checks during parsing. Disabling checks may lead to crashes on bad inputs. */
   void disableChecks();
 
-protected:
-
-  /**
-   * Create a parser with the given input state and token lookahead.
-   *
-   * @param state the shared input state
-   * @param k lookahead
-   */
-  AntlrParser(const antlr::ParserSharedInputState& state, int k);
-
-  /**
-   * Create a parser with the given token buffer and lookahead.
-   *
-   * @param tokenBuf the token buffer to use in parsing
-   * @param k lookahead
-   */
-  AntlrParser(antlr::TokenBuffer& tokenBuf, int k);
-
-  /**
-   * Create a parser with the given token stream and lookahead.
-   *
-   * @param lexer the lexer to use in parsing
-   * @param k lookahead
-   */
-  AntlrParser(antlr::TokenStream& lexer, int k);
+//protected:
 
   /**
    * Throws an ANTLR semantic exception with the given message.
    */
-  void parseError(const std::string& msg) throw (antlr::SemanticException);
+  void parseError(const std::string& msg) throw (SemanticException);
+
+  /** Get the name of the input file. */
+  inline const std::string getFilename() {
+    return d_filename;
+  }
+
+  virtual pANTLR3_LEXER getAntlrLexer() = 0;
 
   /**
    * Returns a variable, given a name and a type.
@@ -131,18 +126,6 @@ protected:
   const Type* getSort(const std::string& sort_name);
 
   /**
-   * Types of symbols. Used to define namespaces.
-   */
-  enum SymbolType {
-    /** Variables */
-    SYM_VARIABLE,
-    /** Functions */
-    SYM_FUNCTION,
-    /** Sorts */
-    SYM_SORT
-  };
-
-  /**
    * Checks if a symbol has been declared.
    * @param name the symbol name
    * @param type the symbol type
@@ -161,14 +144,14 @@ protected:
   void checkDeclaration(const std::string& name,
                         DeclarationCheck check,
                         SymbolType type = SYM_VARIABLE)
-    throw (antlr::SemanticException);
+    throw (SemanticException);
 
   /**
    * Checks whether the given name is bound to a function.
    * @param name the name to check
    * @throws SemanticException if checks are enabled and name is not bound to a function
    */
-  void checkFunction(const std::string& name) throw (antlr::SemanticException);
+  void checkFunction(const std::string& name) throw (SemanticException);
 
   /**
    * Check that <code>kind</code> can accept <code>numArgs</codes> arguments.
@@ -177,7 +160,7 @@ protected:
    * @throws SemanticException if checks are enabled and the operator <code>kind</code> cannot be
    * applied to <code>numArgs</code> arguments.
    */
-  void checkArity(Kind kind, unsigned int numArgs) throw (antlr::SemanticException);
+  void checkArity(Kind kind, unsigned int numArgs) throw (SemanticException);
 
   /** 
    * Returns the type for the variable with the given name. 
@@ -300,28 +283,6 @@ protected:
   /** Returns the maximum arity of the given kind. */
   static unsigned int maxArity(Kind kind);
 
-  /** Returns a string representation of the given object (for
-      debugging). */
-  inline std::string toString(DeclarationCheck check) {
-    switch(check) {
-    case CHECK_NONE: return "CHECK_NONE";
-    case CHECK_DECLARED:  return "CHECK_DECLARED";
-    case CHECK_UNDECLARED: return "CHECK_UNDECLARED";
-    default: Unreachable();
-    }
-  }
-
-  /** Returns a string representation of the given object (for
-      debugging). */
-  inline std::string toString(SymbolType type) {
-    switch(type) {
-    case SYM_VARIABLE: return "SYM_VARIABLE";
-    case SYM_FUNCTION: return "SYM_FUNCTION";
-    case SYM_SORT: return "SYM_SORT";
-    default: Unreachable();
-    }
-  }
-
 //  bool checksEnabled();
 
 private:
@@ -335,6 +296,9 @@ private:
   /** The sort table */
   SymbolTable<const Type*> d_sortTable;
 
+  /** The name of the input file. */
+  std::string d_filename;
+
   /** Are semantic checks enabled during parsing? */
   bool d_checksEnabled;
 
@@ -342,7 +306,27 @@ private:
   Expr getSymbol(const std::string& var_name, SymbolType type);
 };
 
+/** Returns a string representation of the given object (for
+    debugging). */
+inline std::string toString(DeclarationCheck check) {
+  switch(check) {
+  case CHECK_NONE: return "CHECK_NONE";
+  case CHECK_DECLARED:  return "CHECK_DECLARED";
+  case CHECK_UNDECLARED: return "CHECK_UNDECLARED";
+  default: Unreachable();
+  }
+}
 
+/** Returns a string representation of the given object (for
+    debugging). */
+inline std::string toString(SymbolType type) {
+  switch(type) {
+  case SYM_VARIABLE: return "SYM_VARIABLE";
+  case SYM_FUNCTION: return "SYM_FUNCTION";
+  case SYM_SORT: return "SYM_SORT";
+  default: Unreachable();
+  }
+}
 
 
 }/* CVC4::parser namespace */

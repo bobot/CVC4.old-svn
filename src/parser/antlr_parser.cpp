@@ -22,8 +22,10 @@
 
 #include <iostream>
 #include <limits.h>
+#include <antlr3.h>
 
 #include "antlr_parser.h"
+#include "semantic_exception.h"
 #include "util/output.h"
 #include "util/Assert.h"
 #include "expr/command.h"
@@ -36,16 +38,8 @@ using namespace CVC4::parser;
 namespace CVC4 {
 namespace parser {
 
-AntlrParser::AntlrParser(const antlr::ParserSharedInputState& state, int k) :
-  antlr::LLkParser(state, k), d_checksEnabled(true) {
-}
-
-AntlrParser::AntlrParser(antlr::TokenBuffer& tokenBuf, int k) :
-  antlr::LLkParser(tokenBuf, k), d_checksEnabled(true) {
-}
-
-AntlrParser::AntlrParser(antlr::TokenStream& lexer, int k) :
-  antlr::LLkParser(lexer, k), d_checksEnabled(true) {
+AntlrParser::AntlrParser(const std::string& filename) :
+    d_filename(filename), d_checksEnabled(true) {
 }
 
 Expr AntlrParser::getSymbol(const std::string& name, SymbolType type) {
@@ -292,16 +286,16 @@ bool AntlrParser::isDeclared(const std::string& name, SymbolType type) {
 }
 
 void AntlrParser::parseError(const std::string& message)
-    throw (antlr::SemanticException) {
-  throw antlr::SemanticException(message, getFilename(),
-                                 LT(1).get()->getLine(),
-                                 LT(1).get()->getColumn());
+    throw (SemanticException) {
+  pANTLR3_LEXER lexer = getAntlrLexer();
+  throw SemanticException(message, getFilename(), lexer->getLine(lexer),
+                          lexer->getCharPositionInLine(lexer));
 }
 
 void AntlrParser::checkDeclaration(const std::string& varName,
                                    DeclarationCheck check,
                                    SymbolType type)
-    throw (antlr::SemanticException) {
+    throw (SemanticException) {
   if(!d_checksEnabled) {
     return;
   }
@@ -328,14 +322,14 @@ void AntlrParser::checkDeclaration(const std::string& varName,
 }
 
 void AntlrParser::checkFunction(const std::string& name)
-  throw (antlr::SemanticException) {
+  throw (SemanticException) {
   if( d_checksEnabled && !isFunction(name) ) {
     parseError("Expecting function symbol, found '" + name + "'");
   } 
 }
 
 void AntlrParser::checkArity(Kind kind, unsigned int numArgs)
-  throw (antlr::SemanticException) {
+  throw (SemanticException) {
   if(!d_checksEnabled) {
     return;
   }

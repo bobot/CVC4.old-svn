@@ -38,6 +38,11 @@ Expr::Expr(const Expr& e) :
   d_node(new Node(*e.d_node)), d_exprManager(e.d_exprManager) {
 }
 
+Expr::Expr(uintptr_t n) :
+    d_node(new Node()), d_exprManager(NULL) {
+  AlwaysAssert(n==0);
+}
+
 ExprManager* Expr::getExprManager() const {
   return d_exprManager;
 }
@@ -55,6 +60,12 @@ Expr& Expr::operator=(const Expr& e) {
     d_exprManager = e.d_exprManager;
   }
   return *this;
+}
+
+Expr& Expr::operator=(uintptr_t n) {
+  AlwaysAssert(n==0);
+  Expr nullExpr;
+  return (*this = nullExpr);
 }
 
 bool Expr::operator==(const Expr& e) const {

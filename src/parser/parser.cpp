@@ -15,18 +15,16 @@
 
 #include <iostream>
 #include <fstream>
-#include <antlr/CharScanner.hpp>
+#include <antlr3.h>
 
 #include "parser.h"
 #include "expr/command.h"
 #include "util/output.h"
 #include "util/Assert.h"
 #include "parser_exception.h"
+#include "semantic_exception.h"
 #include "parser/antlr_parser.h"
-#include "parser/smt/generated/AntlrSmtParser.hpp"
-#include "parser/smt/generated/AntlrSmtLexer.hpp"
-#include "parser/cvc/generated/AntlrCvcParser.hpp"
-#include "parser/cvc/generated/AntlrCvcLexer.hpp"
+#include "parser/smt/antlr_smt_parser.h"
 
 using namespace std;
 using namespace antlr;
@@ -51,7 +49,7 @@ Command* Parser::parseNextCommand() throw (ParserException, AssertionException) 
       if(cmd == NULL) {
         setDone();
       }
-    } catch(antlr::ANTLRException& e) {
+    } catch(SemanticException& e) {
       setDone();
       throw ParserException(e.toString());
     }
@@ -68,7 +66,7 @@ Expr Parser::parseNextExpression() throw (ParserException, AssertionException) {
       result = d_antlrParser->parseExpr();
       if(result.isNull())
         setDone();
-    } catch(antlr::ANTLRException& e) {
+    } catch(SemanticException& e) {
       setDone();
       throw ParserException(e.toString());
     }
@@ -98,22 +96,18 @@ Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
   antlr::CharScanner* antlrLexer = 0;
 
   switch(lang) {
-  case LANG_CVC4: {
+/*  case LANG_CVC4: {
     antlrLexer = new AntlrCvcLexer(*input);
     antlrLexer->setFilename(filename);
     antlrParser = new AntlrCvcParser(*antlrLexer);
     antlrParser->setFilename(filename);
     antlrParser->setExpressionManager(em);
     break;
-  }
-  case LANG_SMTLIB: {
-    antlrLexer = new AntlrSmtLexer(*input);
-    antlrLexer->setFilename(filename);
-    antlrParser = new AntlrSmtParser(*antlrLexer);
-    antlrParser->setFilename(filename);
-    antlrParser->setExpressionManager(em);
+  }*/
+  case LANG_SMTLIB:
+    antlrParser = new AntlrSmtParser(em,filename);
     break;
-  }
+
   default:
     Unhandled("Unknown Input language!");
   }
