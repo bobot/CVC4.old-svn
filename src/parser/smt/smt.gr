@@ -1,0 +1,109 @@
+verbatim {
+#include <vector>
+#include "expr/expr.h"
+#include "expr/kind.h"
+
+#define mkExpr(kind,children) nullExpr
+#define getVariable(name) nullExpr
+#define getTrueExpr() nullExpr
+#define getFalseExpr() nullExpr
+
+using namespace CVC4;
+using namespace CVC4::expr;
+using namespace CVC4::kind;
+
+
+}
+
+context_class SmtParser : public UserActions {
+public:
+  static Expr nullExpr;
+};
+
+terminals {
+ 0 : EOF_TOK ;
+ 1 : NUMERAL_TOK ;
+ 2 : SYM_TOK ;
+ 3 : STRING_TOK ;
+ 4 : AR_SYMB ;
+ 5 : USER_VAL_TOK ;
+ 6 : TRUE_TOK "true" ;
+ 7 : FALSE_TOK "false" ;
+ 8 : ITE_TOK "ite" ;
+ 9 : NOT_TOK "not" ;
+10 : IMPLIES_TOK "implies" ;
+11 : IF_THEN_ELSE_TOK "if_then_else";
+12 : AND_TOK "and" ;
+13 : OR_TOK "or" ;
+14 : XOR_TOK "xor" ;
+15 : IFF_TOK "iff" ;
+16 : EXISTS_TOK "exists" ;
+17 : FORALL_TOK "forall" ;
+18 : LET_TOK "let" ;
+19 : FLET_TOK "flet" ;
+20 : NOTES_TOK ;
+21 : CVC_COMMAND_TOK ;
+22 : LOGIC_TOK ;
+23 : COLON_TOK ":" ;
+24 : LBRACKET_TOK "[" ;
+25 : RBRACKET_TOK "]" ;
+26 : LCURBRACK_TOK "{" ;
+27 : RCURBRACK_TOK "}" ;
+28 : LPAREN_TOK "(" ;
+29 : RPAREN_TOK ")" ;
+30 : SAT_TOK "sat" ;
+31 : UNSAT_TOK "unsat" ;
+32 : UNKNOWN_TOK "unknown" ;
+33 : ASSUMPTION_TOK "assumption" ;
+34 : FORMULA_TOK "formula" ;
+35 : STATUS_TOK "status" ;
+36 : BENCHMARK_TOK "benchmark" ;
+37 : EXTRASORTS_TOK "extrasorts" ;
+38 : EXTRAFUNS_TOK "extrafuns" ;
+39 : EXTRAPREDS_TOK "extrapreds" ;
+40 : DOLLAR_TOK "$" ;
+41 : QUESTION_TOK "?" ;
+42 : DISTINCT_TOK "distinct" ;
+43 : EQUAL_TOK "=";
+
+token(std::string) SYM_TOK;
+token(std::string) AR_SYMB;
+token(std::string) NUMERAL_TOK;
+
+}
+
+nonterm[CVC4::Expr] annotatedFormula {
+ -> "(" kind:builtinOp args:annotatedFormulaList ")" 
+    [ // checkArity(kind, args.size());
+      return mkExpr(kind,args); ]
+
+ -> name:SYM_TOK 
+    [ return getVariable(name); ]
+
+ -> "true" [ return getTrueExpr(); ]
+
+ -> "false" [ return getFalseExpr(); ]
+
+}
+
+nonterm[std::vector<CVC4::Expr>] annotatedFormulaList {
+ -> f:annotatedFormula
+    [ std::vector<CVC4::Expr> formulas;
+      formulas.push_back(f);
+      return formulas; ]
+
+ -> formulas:annotatedFormulaList f:annotatedFormula
+    [ formulas.push_back(f); 
+      return formulas; ]
+
+}
+
+nonterm[CVC4::Kind] builtinOp {
+ -> "not"      [ return CVC4::kind::NOT;     ]
+ -> "implies"  [ return CVC4::kind::IMPLIES; ]
+ -> "and"      [ return CVC4::kind::AND;     ]
+ -> "or"       [ return CVC4::kind::OR;      ]
+ -> "xor"      [ return CVC4::kind::XOR;     ]
+ -> "iff"      [ return CVC4::kind::IFF;     ]
+ -> "="    [ return CVC4::kind::EQUAL;   ]
+}
