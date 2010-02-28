@@ -264,7 +264,7 @@ void TheoryUF::check(Effort level){
       d_disequality.push_back(assertion[0]);
       break;
     default:
-      Unreachable();
+      Unreachable("TheoryUF::check");
     }
   }
 

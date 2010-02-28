@@ -14,10 +14,10 @@ LIBCVC4PARSER_VERSION = @CVC4_PARSER_LIBRARY_VERSION@
 
 AM_CPPFLAGS = \
 	-D__BUILDING_CVC4PARSERLIB \
-	-I@srcdir@/../include -I@srcdir@/.. $(ANTLR_INCLUDES)
+	-I@srcdir@/../include -I@srcdir@/..
 AM_CXXFLAGS = -Wall -fvisibility=hidden -Wno-deprecated
 
-SUBDIRS = smt cvc
+SUBDIRS = smt # cvc
 
 nobase_lib_LTLIBRARIES = libcvc4parser.la
 noinst_LTLIBRARIES = libcvc4parser_noinst.la
@@ -29,8 +29,9 @@ libcvc4parser_la_LINK = $(CXXLINK)
 
 libcvc4parser_noinst_la_LDFLAGS = $(ANTLR_LDFLAGS)
 libcvc4parser_noinst_la_LIBADD = \
-	@builddir@/smt/libparsersmt.la \
-	@builddir@/cvc/libparsercvc.la
+	@builddir@/smt/libparsersmt.la 
+#	\
+#	@builddir@/cvc/libparsercvc.la
 
 libcvc4parser_la_SOURCES =
 libcvc4parser_noinst_la_SOURCES = \
@@ -38,5 +39,5 @@ libcvc4parser_noinst_la_SOURCES = \
 	parser.cpp \
 	parser_exception.h \
 	symbol_table.h \
-	antlr_parser.h \
-	antlr_parser.cpp
+	pegtl_parser.h \
+	pegtl_parser.cpp 

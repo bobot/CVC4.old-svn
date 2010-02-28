@@ -95,24 +95,24 @@ Result SmtEngine::assertFormula(const BoolExpr& e) {
 Expr SmtEngine::simplify(const Expr& e) {
   NodeManagerScope nms(d_nodeManager);
   Debug("smt") << "SMT simplify(" << e << ")" << std::endl;
-  Unimplemented();
+  Unimplemented("simplify");
 }
 
 Model SmtEngine::getModel() {
   NodeManagerScope nms(d_nodeManager);
-  Unimplemented();
+  Unimplemented("getModel");
 }
 
 void SmtEngine::push() {
   NodeManagerScope nms(d_nodeManager);
   Debug("smt") << "SMT push()" << std::endl;
-  Unimplemented();
+  Unimplemented("push");
 }
 
 void SmtEngine::pop() {
   NodeManagerScope nms(d_nodeManager);
   Debug("smt") << "SMT pop()" << std::endl;
-  Unimplemented();
+  Unimplemented("pop");
 }
 
 }/* CVC4 namespace */

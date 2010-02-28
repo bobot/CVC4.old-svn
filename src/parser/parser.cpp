@@ -15,24 +15,27 @@
 
 #include <iostream>
 #include <fstream>
-#include <antlr/CharScanner.hpp>
+#include <string>
+#include <antlr/CharBuffer.hpp>
 
 #include "parser.h"
 #include "expr/command.h"
 #include "util/output.h"
 #include "util/Assert.h"
 #include "parser_exception.h"
-#include "parser/antlr_parser.h"
-#include "parser/smt/generated/AntlrSmtParser.hpp"
-#include "parser/smt/generated/AntlrSmtLexer.hpp"
-#include "parser/cvc/generated/AntlrCvcParser.hpp"
-#include "parser/cvc/generated/AntlrCvcLexer.hpp"
+#include "parser/pegtl_parser.h"
+#include "parser/smt/smt_parser.h"
 
 using namespace std;
 using namespace antlr;
 
 namespace CVC4 {
 namespace parser {
+
+Parser::Parser(PegtlParser* pegtlParser) :
+  d_pegtlParser(pegtlParser),
+  d_done(false) {
+}
 
 void Parser::setDone(bool done) {
   d_done = done;
@@ -46,15 +49,10 @@ Command* Parser::parseNextCommand() throw (ParserException, AssertionException) 
   Debug("parser") << "parseNextCommand()" << std::endl;
   Command* cmd = NULL;
   if(!done()) {
-    try {
-      cmd = d_antlrParser->parseCommand();
+      cmd = d_pegtlParser->parseCommand();
       if(cmd == NULL) {
         setDone();
       }
-    } catch(antlr::ANTLRException& e) {
-      setDone();
-      throw ParserException(e.toString());
-    }
   }
   Debug("parser") << "parseNextCommand() => " << cmd << std::endl;
   return cmd;
@@ -64,83 +62,77 @@ Expr Parser::parseNextExpression() throw (ParserException, AssertionException) {
   Debug("parser") << "parseNextExpression()" << std::endl;
   Expr result;
   if(!done()) {
-    try {
-      result = d_antlrParser->parseExpr();
+      result = d_pegtlParser->parseExpr();
       if(result.isNull())
         setDone();
-    } catch(antlr::ANTLRException& e) {
-      setDone();
-      throw ParserException(e.toString());
-    }
   }
   Debug("parser") << "parseNextExpression() => " << result << std::endl;
   return result;
 }
 
 Parser::~Parser() {
-  delete d_antlrParser;
-  delete d_antlrLexer;
-  if(d_deleteInput) {
-    delete d_input;
-  }
 }
 
-Parser::Parser(istream* input, AntlrParser* antlrParser,
-               CharScanner* antlrLexer, bool deleteInput) :
-  d_done(false), d_antlrParser(antlrParser), d_antlrLexer(antlrLexer),
-      d_input(input), d_deleteInput(deleteInput) {
-}
-
+  /*
 Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
-                             istream* input, string filename, bool deleteInput) {
-
-  AntlrParser* antlrParser = 0;
-  antlr::CharScanner* antlrLexer = 0;
-
+                             Input* input, const std::string& filename) {
   switch(lang) {
   case LANG_CVC4: {
-    antlrLexer = new AntlrCvcLexer(*input);
-    antlrLexer->setFilename(filename);
+    antlrLexer = new AntlrCvcLexer(*inputBuffer);
     antlrParser = new AntlrCvcParser(*antlrLexer);
-    antlrParser->setFilename(filename);
-    antlrParser->setExpressionManager(em);
     break;
   }
   case LANG_SMTLIB: {
-    antlrLexer = new AntlrSmtLexer(*input);
-    antlrLexer->setFilename(filename);
-    antlrParser = new AntlrSmtParser(*antlrLexer);
-    antlrParser->setFilename(filename);
-    antlrParser->setExpressionManager(em);
+    return new SmtParser(input,filename);
+    //pegtl::basic_parse_file< smt::read_annotatedFormula >(filename);
     break;
   }
   default:
     Unhandled("Unknown Input language!");
   }
 
-  return new Parser(input, antlrParser, antlrLexer, deleteInput);
+  antlrLexer->setFilename(filename);
+  antlrParser->setFilename(filename);
+  antlrParser->setExpressionManager(em);
+
+  return new Parser(inputBuffer, antlrParser, antlrLexer);
+}
+*/
+
+Parser* Parser::getMemoryMappedParser(ExprManager* em, InputLanguage lang,
+                                      const std::string& filename) {
+  PegtlParser* parser = new SmtParser(filename);
+  //parser->setFilename(filename);
+  //parser->setExpressionManager(em);
+  return new Parser(parser);
+/*
+  ascii_file_input input = new ascii_file_input( filename );
+  return getNewParser(em,lang,input,filename);
+*/
 }
 
 Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
-                             string filename) {
-  istream* input = new ifstream(filename.c_str());
-  if(!*input) {
-    throw Exception("file does not exist or is unreadable: " + filename);
-  }
-  return getNewParser(em, lang, input, filename, true);
-}
+                             istream& inputStream, const std::string& filename) {
+  Unimplemented("getNewParser(istream&)");
+/*
+  PegtlParser* parser = new SmtParser(filename);
+  parser->setFilename(filename);
+  parser->setExpressionManager(em);
+  return new Parser(parser);
+*/
 
-Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
-                             istream& input) {
-  return getNewParser(em, lang, &input, "", false);
+/*
+    buffer_input input = new buffer_input( std::istream_iterator< char >( inputStream ), std::istream_iterator< char >() );
+  return getNewParser(em, lang, input, filename);
+*/
 }
 
 void Parser::disableChecks() {
-  d_antlrParser->disableChecks();
+  d_pegtlParser->disableChecks();
 }
 
 void Parser::enableChecks() {
-  d_antlrParser->enableChecks();
+  d_pegtlParser->enableChecks();
 }
 
 

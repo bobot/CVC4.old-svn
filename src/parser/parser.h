@@ -23,10 +23,6 @@
 #include "parser/parser_exception.h"
 #include "util/Assert.h"
 
-namespace antlr {
-  class CharScanner;
-}
-
 namespace CVC4 {
 
 // Forward declarations
@@ -36,7 +32,7 @@ class ExprManager;
 
 namespace parser {
 
-class AntlrParser;
+class PegtlParser;
 
 /**
  * The parser. The parser should be obtained by calling the static methods
@@ -56,8 +52,8 @@ public:
     LANG_AUTO
   };
 
-  static Parser* getNewParser(ExprManager* em, InputLanguage lang, std::string filename);
-  static Parser* getNewParser(ExprManager* em, InputLanguage lang, std::istream& input);
+  static Parser* getMemoryMappedParser(ExprManager* em, InputLanguage lang, const std::string& filename);
+  static Parser* getNewParser(ExprManager* em, InputLanguage lang, std::istream& input, const std::string& filename);
 
   /**
    * Destructor.
@@ -96,18 +92,19 @@ private:
    * Create a new parser.
    * @param em the expression manager to usee
    * @param lang the language to parse
-   * @param input the input stream to parse
+   * @param inputBuffer the input buffer to parse
    * @param filename the filename to attach to the stream
    * @param deleteInput wheather to delete the input
    * @return the parser
    */
-  static Parser* getNewParser(ExprManager* em, InputLanguage lang, std::istream* input, std::string filename, bool deleteInput);
+//  template< typename Input >
+//  static Parser* getNewParser(ExprManager* em, InputLanguage lang, Input* input, std::string filename);
 
   /**
    * Create a new parser given the actual antlr parser.
    * @param antlrParser the antlr parser to user
    */
-  Parser(std::istream* input, AntlrParser* antlrParser, antlr::CharScanner* antlrLexer, bool deleteInput);
+  Parser(PegtlParser* pegtlParser);
 
   /** Sets the done flag */
   void setDone(bool done = true);
@@ -115,17 +112,9 @@ private:
   /** Are we done */
   bool d_done;
 
-  /** The antlr parser */
-  AntlrParser* d_antlrParser;
+  /** The pegtl parser */
+  PegtlParser* d_pegtlParser;
 
-  /** The entlr lexer */
-  antlr::CharScanner* d_antlrLexer;
-
-  /** The input stream we are using */
-  std::istream* d_input;
-
-  /** Wherther to de-allocate the input */
-  bool d_deleteInput;
 }; // end of class Parser
 
 }/* CVC4::parser namespace */

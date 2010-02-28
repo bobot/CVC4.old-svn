@@ -313,7 +313,7 @@ SatLiteral TseitinCnfStream::toCNF(const TNode& node) {
   case AND:
     return handleAnd(node);
   default:
-    Unreachable();
+    Unreachable("toCNF: " + node.getKind());
   }
 }
 

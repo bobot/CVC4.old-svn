@@ -1,8 +1,7 @@
 /*********************                                                        */
-/** antlr_parser.h
- ** Original author: dejan
- ** Major contributors: cconway
- ** Minor contributors (to current version): mdeters
+/** pegtl_parser.h
+ ** Original author: cconway
+ ** Major contributors: dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -10,24 +9,22 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.
  **
- ** Base for ANTLR parser classes.
+ ** Base for PEGTL parser classes.
  **/
 
 #include "cvc4parser_private.h"
 
-#ifndef __CVC4__PARSER__ANTLR_PARSER_H
-#define __CVC4__PARSER__ANTLR_PARSER_H
+#ifndef __CVC4__PARSER__PEGTL_PARSER_H
+#define __CVC4__PARSER__PEGTL_PARSER_H
 
-#include <vector>
+//#include <vector>
 #include <string>
 #include <iostream>
-
-#include <antlr/LLkParser.hpp>
-#include <antlr/SemanticException.hpp>
 
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "util/Assert.h"
+#include "parser/parser_exception.h"
 #include "parser/symbol_table.h"
 
 namespace CVC4 {
@@ -39,12 +36,12 @@ class FunctionType;
 namespace parser {
 
 /**
- * Wrapper of the ANTLR parser that includes convenience methods that interacts
+ * Wrapper of the PEGTL parser that includes convenience methods that interacts
  * with the expression manager. The grammars should have as little C++ code as
  * possible and all the state and actual functionality (besides parsing) should
  * go into this class.
  */
-class AntlrParser : public antlr::LLkParser {
+class PegtlParser {
 
 public:
 
@@ -85,33 +82,9 @@ public:
 protected:
 
   /**
-   * Create a parser with the given input state and token lookahead.
-   *
-   * @param state the shared input state
-   * @param k lookahead
+   * Throws an parser exception with the given message.
    */
-  AntlrParser(const antlr::ParserSharedInputState& state, int k);
-
-  /**
-   * Create a parser with the given token buffer and lookahead.
-   *
-   * @param tokenBuf the token buffer to use in parsing
-   * @param k lookahead
-   */
-  AntlrParser(antlr::TokenBuffer& tokenBuf, int k);
-
-  /**
-   * Create a parser with the given token stream and lookahead.
-   *
-   * @param lexer the lexer to use in parsing
-   * @param k lookahead
-   */
-  AntlrParser(antlr::TokenStream& lexer, int k);
-
-  /**
-   * Throws an ANTLR semantic exception with the given message.
-   */
-  void parseError(const std::string& msg) throw (antlr::SemanticException);
+  void parseError(const std::string& msg) throw (ParserException);
 
   /**
    * Returns a variable, given a name and a type.
@@ -163,14 +136,14 @@ protected:
   void checkDeclaration(const std::string& name,
                         DeclarationCheck check,
                         SymbolType type = SYM_VARIABLE)
-    throw (antlr::SemanticException);
+    throw (ParserException);
 
   /**
    * Checks whether the given name is bound to a function.
    * @param name the name to check
    * @throws SemanticException if checks are enabled and name is not bound to a function
    */
-  void checkFunction(const std::string& name) throw (antlr::SemanticException);
+  void checkFunction(const std::string& name) throw (ParserException);
 
   /**
    * Check that <code>kind</code> can accept <code>numArgs</codes> arguments.
@@ -179,7 +152,7 @@ protected:
    * @throws SemanticException if checks are enabled and the operator <code>kind</code> cannot be
    * applied to <code>numArgs</code> arguments.
    */
-  void checkArity(Kind kind, unsigned int numArgs) throw (antlr::SemanticException);
+  void checkArity(Kind kind, unsigned int numArgs) throw (ParserException);
 
   /** 
    * Returns the type for the variable with the given name. 
@@ -309,7 +282,7 @@ protected:
     case CHECK_NONE: return "CHECK_NONE";
     case CHECK_DECLARED:  return "CHECK_DECLARED";
     case CHECK_UNDECLARED: return "CHECK_UNDECLARED";
-    default: Unreachable();
+    default: Unreachable("toString");
     }
   }
 
@@ -320,7 +293,7 @@ protected:
     case SYM_VARIABLE: return "SYM_VARIABLE";
     case SYM_FUNCTION: return "SYM_FUNCTION";
     case SYM_SORT: return "SYM_SORT";
-    default: Unreachable();
+    default: Unreachable("toString");
     }
   }
 
@@ -347,4 +320,4 @@ private:
 }/* CVC4::parser namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__PARSER__ANTLR_PARSER_H */
+#endif /* __CVC4__PARSER__PEGTL_PARSER_H */

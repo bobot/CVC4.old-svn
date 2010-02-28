@@ -26,7 +26,7 @@ DecisionEngine::~DecisionEngine() {
  * virtual in the final design (?)
  */
 Node DecisionEngine::nextDecision() {
-  Unreachable();
+  Unimplemented("nextDecision");
 }
 
 }/* CVC4 namespace */

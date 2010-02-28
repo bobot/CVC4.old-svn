@@ -31,11 +31,11 @@ public:
     TheoryImpl<TheoryBV>(c, out) {
   }
 
-  void preRegisterTerm(TNode n) { Unimplemented(); }
-  void registerTerm(TNode n) { Unimplemented(); }
-  void check(Effort e) { Unimplemented(); }
-  void propagate(Effort e) { Unimplemented(); }
-  void explain(TNode n, Effort e) { Unimplemented(); }
+  void preRegisterTerm(TNode n) { Unimplemented("preRegisterTerm"); }
+  void registerTerm(TNode n) { Unimplemented("registerTerm"); }
+  void check(Effort e) { Unimplemented("check"); }
+  void propagate(Effort e) { Unimplemented("propagate"); }
+  void explain(TNode n, Effort e) { Unimplemented("explain"); }
 };
 
 }/* CVC4::theory::bv namespace */

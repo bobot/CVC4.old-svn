@@ -1,5 +1,5 @@
 /*********************                                                        */
-/** antlr_parser.cpp
+/** pegtl_parser.cpp
  ** Original author: dejan
  ** Major contributors: cconway
  ** Minor contributors (to current version): mdeters
@@ -10,11 +10,11 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.
  **
- ** A super-class for ANTLR-generated input language parsers
+ ** A super-class for pegtl-generated input language parsers
  **/
 
 /*
- * antlr_parser.cpp
+ * pegtl_parser.cpp
  *
  *  Created on: Nov 30, 2009
  *      Author: dejan
@@ -23,7 +23,7 @@
 #include <iostream>
 #include <limits.h>
 
-#include "antlr_parser.h"
+#include "pegtl_parser.h"
 #include "util/output.h"
 #include "util/Assert.h"
 #include "expr/command.h"
@@ -37,19 +37,22 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace parser {
 
-AntlrParser::AntlrParser(const antlr::ParserSharedInputState& state, int k) :
-  antlr::LLkParser(state, k), d_checksEnabled(true) {
+/*
+PegtlParser::PegtlParser(string filename) :
+  d_fileInput( new ascii_file_input( filename ) ),
+  d_bufferInput(NULL),
+  d_checksEnabled(true) {
 }
 
-AntlrParser::AntlrParser(antlr::TokenBuffer& tokenBuf, int k) :
-  antlr::LLkParser(tokenBuf, k), d_checksEnabled(true) {
+PegtlParser::PegtlParser(std::istream& input, std::string filename) :
+  d_fileInput(NULL),
+  d_bufferInput( new buffer_input< std::istream_iterator< char >( input ),
+                 std::istream_iterator< char >()> ),
+  d_checksEnabled(true) {
 }
+*/
 
-AntlrParser::AntlrParser(antlr::TokenStream& lexer, int k) :
-  antlr::LLkParser(lexer, k), d_checksEnabled(true) {
-}
-
-Expr AntlrParser::getSymbol(const std::string& name, SymbolType type) {
+Expr PegtlParser::getSymbol(const std::string& name, SymbolType type) {
   Assert( isDeclared(name, type) );
 
 
@@ -64,91 +67,91 @@ Expr AntlrParser::getSymbol(const std::string& name, SymbolType type) {
   }
 }
 
-Expr AntlrParser::getVariable(const std::string& name) {
+Expr PegtlParser::getVariable(const std::string& name) {
   return getSymbol(name, SYM_VARIABLE);
 }
 
-Expr AntlrParser::getFunction(const std::string& name) {
+Expr PegtlParser::getFunction(const std::string& name) {
   return getSymbol(name, SYM_FUNCTION);
 }
 
 const Type* 
-AntlrParser::getType(const std::string& var_name,
+PegtlParser::getType(const std::string& var_name,
                      SymbolType type) {
   Assert( isDeclared(var_name, type) );
   const Type* t = getSymbol(var_name,type).getType();
   return t;
 }
 
-const Type* AntlrParser::getSort(const std::string& name) {
+const Type* PegtlParser::getSort(const std::string& name) {
   Assert( isDeclared(name, SYM_SORT) );
   const Type* t = d_sortTable.getObject(name);
   return t;
 }
 
 /* Returns true if name is bound to a boolean variable. */
-bool AntlrParser::isBoolean(const std::string& name) {
+bool PegtlParser::isBoolean(const std::string& name) {
   return isDeclared(name, SYM_VARIABLE) && getType(name)->isBoolean();
 }
 
 /* Returns true if name is bound to a function. */
-bool AntlrParser::isFunction(const std::string& name) {
+bool PegtlParser::isFunction(const std::string& name) {
   return isDeclared(name, SYM_FUNCTION) && getType(name)->isFunction();
 }
 
 /* Returns true if name is bound to a function returning boolean. */
-bool AntlrParser::isPredicate(const std::string& name) {
+bool PegtlParser::isPredicate(const std::string& name) {
   return isDeclared(name, SYM_FUNCTION) && getType(name)->isPredicate();
 }
 
-Expr AntlrParser::getTrueExpr() const {
+Expr PegtlParser::getTrueExpr() const {
   return d_exprManager->mkExpr(TRUE);
 }
 
-Expr AntlrParser::getFalseExpr() const {
+Expr PegtlParser::getFalseExpr() const {
   return d_exprManager->mkExpr(FALSE);
 }
 
-Expr AntlrParser::mkExpr(Kind kind, const Expr& child) {
+Expr PegtlParser::mkExpr(Kind kind, const Expr& child) {
   Expr result = d_exprManager->mkExpr(kind, child);
   Debug("parser") << "mkExpr() => " << result << std::endl;
   return result;
 }
 
-Expr AntlrParser::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2) {
+Expr PegtlParser::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2) {
   Expr result = d_exprManager->mkExpr(kind, child_1, child_2);
   Debug("parser") << "mkExpr() => " << result << std::endl;
   return result;
 }
 
-Expr AntlrParser::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2,
+Expr PegtlParser::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2,
                          const Expr& child_3) {
   Expr result = d_exprManager->mkExpr(kind, child_1, child_2, child_3);
   Debug("parser") << "mkExpr() => " << result << std::endl;
   return result;
 }
 
-Expr AntlrParser::mkExpr(Kind kind, const std::vector<Expr>& children) {
+Expr PegtlParser::mkExpr(Kind kind, const std::vector<Expr>& children) {
   Expr result = d_exprManager->mkExpr(kind, children);
   Debug("parser") << "mkExpr() => " << result << std::endl;
   return result;
 }
 
 const Type* 
-AntlrParser::functionType(const Type* domainType, 
+PegtlParser::functionType(const Type* domainType,
                           const Type* rangeType) {
   return d_exprManager->mkFunctionType(domainType,rangeType);
 }
 
 const Type* 
-AntlrParser::functionType(const std::vector<const Type*>& argTypes, 
+PegtlParser::functionType(const std::vector<const Type*>& argTypes,
                           const Type* rangeType) {
   Assert( argTypes.size() > 0 );
   return d_exprManager->mkFunctionType(argTypes,rangeType);
 }
 
 const Type* 
-AntlrParser::functionType(const std::vector<const Type*>& sorts) {
+PegtlParser::functionType(const std::vector<const Type*>& sorts) {
   Assert( sorts.size() > 0 );
   if( sorts.size() == 1 ) {
     return sorts[0];
@@ -160,7 +163,7 @@ AntlrParser::functionType(const std::vector<const Type*>& sorts) {
   }
 }
 
-const Type* AntlrParser::predicateType(const std::vector<const Type*>& sorts) {
+const Type* PegtlParser::predicateType(const std::vector<const Type*>& sorts) {
   if(sorts.size() == 0) {
     return d_exprManager->booleanType();
   } else {
@@ -169,7 +172,7 @@ const Type* AntlrParser::predicateType(const std::vector<const Type*>& sorts) {
 }
 
 Expr 
-AntlrParser::mkVar(const std::string& name, const Type* type) {
+PegtlParser::mkVar(const std::string& name, const Type* type) {
   Debug("parser") << "mkVar(" << name << "," << *type << ")" << std::endl;
   Assert( !isDeclared(name) ) ;
   Expr expr = d_exprManager->mkVar(type, name);
@@ -179,7 +182,7 @@ AntlrParser::mkVar(const std::string& name, const Type* type) {
 }
 
 const std::vector<Expr> 
-AntlrParser::mkVars(const std::vector<std::string> names, 
+PegtlParser::mkVars(const std::vector<std::string> names,
                     const Type* type) {
   std::vector<Expr> vars;
   for(unsigned i = 0; i < names.size(); ++i) {
@@ -190,7 +193,7 @@ AntlrParser::mkVars(const std::vector<std::string> names,
 
 
 const Type* 
-AntlrParser::newSort(const std::string& name) {
+PegtlParser::newSort(const std::string& name) {
   Debug("parser") << "newSort(" << name << ")" << std::endl;
   Assert( !isDeclared(name, SYM_SORT) ) ;
   const Type* type = d_exprManager->mkSort(name);
@@ -200,7 +203,7 @@ AntlrParser::newSort(const std::string& name) {
 }
 
 const std::vector<const Type*>
-AntlrParser::newSorts(const std::vector<std::string>& names) {
+PegtlParser::newSorts(const std::vector<std::string>& names) {
   std::vector<const Type*> types;
   for(unsigned i = 0; i < names.size(); ++i) {
     types.push_back(newSort(names[i]));
@@ -208,15 +211,15 @@ AntlrParser::newSorts(const std::vector<std::string>& names) {
   return types;
 }
 
-const BooleanType* AntlrParser::booleanType() {
+const BooleanType* PegtlParser::booleanType() {
   return d_exprManager->booleanType(); 
 }
 
-const KindType* AntlrParser::kindType() {
+const KindType* PegtlParser::kindType() {
   return d_exprManager->kindType(); 
 }
 
-unsigned int AntlrParser::minArity(Kind kind) {
+unsigned int PegtlParser::minArity(Kind kind) {
   switch(kind) {
   case FALSE:
   case SKOLEM:
@@ -245,7 +248,7 @@ unsigned int AntlrParser::minArity(Kind kind) {
   }
 }
 
-unsigned int AntlrParser::maxArity(Kind kind) {
+unsigned int PegtlParser::maxArity(Kind kind) {
   switch(kind) {
   case FALSE:
   case SKOLEM:
@@ -276,11 +279,11 @@ unsigned int AntlrParser::maxArity(Kind kind) {
   }
 }
 
-void AntlrParser::setExpressionManager(ExprManager* em) {
+void PegtlParser::setExpressionManager(ExprManager* em) {
   d_exprManager = em;
 }
 
-bool AntlrParser::isDeclared(const std::string& name, SymbolType type) {
+bool PegtlParser::isDeclared(const std::string& name, SymbolType type) {
   switch(type) {
   case SYM_VARIABLE: // Functions share var namespace
   case SYM_FUNCTION:
@@ -292,17 +295,20 @@ bool AntlrParser::isDeclared(const std::string& name, SymbolType type) {
   }
 }
 
-void AntlrParser::parseError(const std::string& message)
-    throw (antlr::SemanticException) {
-  throw antlr::SemanticException(message, getFilename(),
-                                 LT(1).get()->getLine(),
-                                 LT(1).get()->getColumn());
+void PegtlParser::parseError(const std::string& message)
+    throw (ParserException) {
+  throw ParserException(message);
+/*
+  throw ParserException(message, getFilename(),
+                        LT(1).get()->getLine(),
+                        LT(1).get()->getColumn());
+*/
 }
 
-void AntlrParser::checkDeclaration(const std::string& varName,
+void PegtlParser::checkDeclaration(const std::string& varName,
                                    DeclarationCheck check,
                                    SymbolType type)
-    throw (antlr::SemanticException) {
+    throw (ParserException) {
   if(!d_checksEnabled) {
     return;
   }
@@ -328,15 +334,15 @@ void AntlrParser::checkDeclaration(const std::string& varName,
   }
 }
 
-void AntlrParser::checkFunction(const std::string& name)
-  throw (antlr::SemanticException) {
+void PegtlParser::checkFunction(const std::string& name)
+  throw (ParserException) {
   if( d_checksEnabled && !isFunction(name) ) {
     parseError("Expecting function symbol, found '" + name + "'");
   } 
 }
 
-void AntlrParser::checkArity(Kind kind, unsigned int numArgs)
-  throw (antlr::SemanticException) {
+void PegtlParser::checkArity(Kind kind, unsigned int numArgs)
+  throw (ParserException) {
   if(!d_checksEnabled) {
     return;
   }
@@ -358,11 +364,11 @@ void AntlrParser::checkArity(Kind kind, unsigned int numArgs)
   }
 }
 
-void AntlrParser::enableChecks() {
+void PegtlParser::enableChecks() {
   d_checksEnabled = true;
 }
 
-void AntlrParser::disableChecks() {
+void PegtlParser::disableChecks() {
   d_checksEnabled = false;
 }
 
