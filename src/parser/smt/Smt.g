@@ -29,7 +29,7 @@ options {
 //  genHashLines = true;              // Include line number information
 //  importVocab = SmtVocabulary;      // Import the common vocabulary
 //  defaultErrorHandler = false;      // Skip the default error handling, just break with exceptions
-//  k = 2;
+  k = 2;
 }
 
 @header {
@@ -423,7 +423,7 @@ USER_VALUE
  * Matches and skips whitespace in the input.
  */
 WHITESPACE /*options { paraphrase = 'whitespace'; }*/
-  :  (' ' | '\t' | '\f' | '\r' | '\n')              { $channel = HIDDEN;; }
+  :  (' ' | '\t' | '\f' | '\r' | '\n')+             { $channel = HIDDEN;; }
   ;
 
 /**
