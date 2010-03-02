@@ -43,4 +43,7 @@ libcvc4parser_noinst_la_SOURCES = \
 	antlr_parser.h \
 	antlr_parser.cpp \
 	two_place_token_buffer.h \
-	two_place_token_buffer.cpp
+	two_place_token_buffer.cpp \ 
+	bounded_token_factory.h \
+	bounded_token_factory.cpp
+

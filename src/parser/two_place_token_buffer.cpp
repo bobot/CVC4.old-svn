@@ -328,7 +328,6 @@ consume	(pANTLR3_INT_STREAM is)
 	cts	    = (pANTLR3_COMMON_TOKEN_STREAM) ts->super;
 	buffer      = (pTWO_PLACE_TOKEN_BUFFER)     cts->super;
 
-	ANTLR3_FREE(buffer->tokenNeg1);
 	buffer->tokenNeg1 = buffer->token1;
 	buffer->token1 = buffer->token2;
 //	buffer->token1->tindex = 1;

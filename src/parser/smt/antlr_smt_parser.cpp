@@ -6,6 +6,7 @@
  */
 
 #include "antlr_smt_parser.h"
+#include "parser/bounded_token_factory.h"
 
 namespace CVC4 {
 namespace parser {
@@ -19,6 +20,12 @@ AntlrSmtParser::AntlrSmtParser(ExprManager* em, const std::string& filename) :
   AlwaysAssert( d_input != NULL );
   d_pSmtLexer = SmtLexerNew(d_input);
   AlwaysAssert( d_pSmtLexer != NULL );
+  pANTLR3_TOKEN_FACTORY pOrigTokenFactory = d_pSmtLexer->pLexer->rec->state->tokFactory;
+  if( pOrigTokenFactory != NULL ) {
+    pOrigTokenFactory->close(pOrigTokenFactory);
+  }
+  pANTLR3_TOKEN_FACTORY pTokenFactory = BoundedTokenFactoryNew(d_input, 16);
+  d_pSmtLexer->pLexer->rec->state->tokFactory = pTokenFactory;
   pTWO_PLACE_TOKEN_BUFFER buffer = TwoPlaceTokenBufferSourceNew(ANTLR3_SIZE_HINT, TOKENSOURCE(d_pSmtLexer));
   d_tokenStream = buffer->commonTstream;
 //      antlr3CommonTokenStreamSourceNew(ANTLR3_SIZE_HINT, TOKENSOURCE(d_pSmtLexer));
