@@ -19,8 +19,9 @@ AntlrSmtParser::AntlrSmtParser(ExprManager* em, const std::string& filename) :
   AlwaysAssert( d_input != NULL );
   d_pSmtLexer = SmtLexerNew(d_input);
   AlwaysAssert( d_pSmtLexer != NULL );
-  d_tokenStream =
-      antlr3CommonTokenStreamSourceNew(ANTLR3_SIZE_HINT, TOKENSOURCE(d_pSmtLexer));
+  pTWO_PLACE_TOKEN_BUFFER buffer = TwoPlaceTokenBufferSourceNew(ANTLR3_SIZE_HINT, TOKENSOURCE(d_pSmtLexer));
+  d_tokenStream = buffer->commonTstream;
+//      antlr3CommonTokenStreamSourceNew(ANTLR3_SIZE_HINT, TOKENSOURCE(d_pSmtLexer));
   d_pSmtParser = SmtParserNew(d_tokenStream);
   SmtParserSetAntlrParser(this);
 }

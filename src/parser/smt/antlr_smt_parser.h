@@ -12,6 +12,7 @@
 #include <string>
 
 #include "parser/antlr_parser.h"
+#include "parser/two_place_token_buffer.h"
 #include "parser/smt/generated/SmtLexer.h"
 #include "parser/smt/generated/SmtParser.h"
 
