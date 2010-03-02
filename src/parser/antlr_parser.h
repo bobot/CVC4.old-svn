@@ -13,8 +13,10 @@
  ** Base for ANTLR parser classes.
  **/
 
-#ifndef CVC4_PARSER_H_
-#define CVC4_PARSER_H_
+#include "cvc4parser_private.h"
+
+#ifndef __CVC4__PARSER__ANTLR_PARSER_H
+#define __CVC4__PARSER__ANTLR_PARSER_H
 
 #include <vector>
 #include <string>
@@ -332,4 +334,4 @@ inline std::string toString(SymbolType type) {
 }/* CVC4::parser namespace */
 }/* CVC4 namespace */
 
-#endif /* CVC4_PARSER_H_ */
+#endif /* __CVC4__PARSER__ANTLR_PARSER_H */

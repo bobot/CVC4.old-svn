@@ -1,5 +1,5 @@
 /*********************                                                        */
-/** soft_node.h
+/** node.cpp
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
@@ -10,27 +10,17 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.
  **
- ** Encapsulation of a pointer to node information that is explicitly
- ** NOT reference-counted.  These "smart pointers" do NOT keep live
- ** the NodeValue object to which they refer.
+ ** Reference-counted encapsulation of a pointer to node information.
  **/
 
-#ifndef __CVC4__SOFT_NODE_H
-#define __CVC4__SOFT_NODE_H
-
 #include "expr/node.h"
+#include "util/output.h"
 
 namespace CVC4 {
 namespace expr {
 
-/**
- * For now, treat SoftNodes as regular Nodes.  We'll address this
- * later.
- */
-typedef CVC4::Node SoftNode;
-typedef CVC4::Node TNode;
+#ifdef CVC4_DEBUG
+#endif /* CVC4_DEBUG */
 
 }/* CVC4::expr namespace */
 }/* CVC4 namespace */
-
-#endif /* __CVC4__SOFT_NODE_H */

@@ -2,9 +2,13 @@
 UNIT_TESTS = \
 	expr/node_white \
 	expr/node_black \
+	expr/kind_black \
+	expr/node_builder_black \
 	parser/parser_black \
 	context/context_black \
 	context/context_mm_black \
+	theory/theory_black \
+	theory/theory_uf_white \
 	util/assert_white \
 	util/configuration_white \
 	util/output_white
@@ -35,8 +39,8 @@ AM_CPPFLAGS = \
 AM_CXXFLAGS = $(TEST_CXXFLAGS)
 AM_LDFLAGS = $(TEST_LDFLAGS)
 
-AM_CXXFLAGS_WHITE = -fno-access-control
-AM_CXXFLAGS_BLACK =
+AM_CXXFLAGS_WHITE = -fno-access-control -D__BUILDING_CVC4LIB_UNIT_TEST -D__BUILDING_CVC4PARSERLIB_UNIT_TEST
+AM_CXXFLAGS_BLACK = -D__BUILDING_CVC4LIB_UNIT_TEST -D__BUILDING_CVC4PARSERLIB_UNIT_TEST
 AM_CXXFLAGS_PUBLIC =
 AM_LDFLAGS_WHITE = \
 	@abs_top_builddir@/src/parser/libcvc4parser_noinst.la \

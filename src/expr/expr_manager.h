@@ -18,7 +18,6 @@
 
 #include "cvc4_config.h"
 #include "expr/kind.h"
-#include "expr/node_manager.h"
 #include <vector>
 
 namespace CVC4 {
@@ -29,6 +28,7 @@ class BooleanType;
 class FunctionType; 
 class KindType;
 class SmtEngine;
+class NodeManager;
 
 class CVC4_PUBLIC ExprManager {
 
@@ -46,10 +46,11 @@ public:
    */
   ~ExprManager();
 
-  /** Get the type for booleans. */
-  const BooleanType* booleanType();
+  /** Get the type for booleans */
+  const BooleanType* booleanType() const;
+
   /** Get the type for sorts. */
-  const KindType* kindType();
+  const KindType* kindType() const;
 
   /**
    * Make a unary expression of a given kind (TRUE, FALSE,...).
@@ -121,25 +122,6 @@ private:
 
   /** ExprManagerScope reaches in to get the NodeManager */
   friend class ExprManagerScope;
-};
-
-}/* CVC4 namespace */
-
-#include "expr/expr.h"
-
-namespace CVC4 {
-
-/**
- * A wrapper (essentially) for NodeManagerScope.  Without this, we'd
- * need Expr to be a friend of ExprManager.
- */
-class ExprManagerScope {
-  NodeManagerScope d_nms;
-public:
-  inline ExprManagerScope(const Expr& e) :
-    d_nms(e.getExprManager() == NULL ?
-          NodeManager::currentNM() : e.getExprManager()->getNodeManager()) {
-  }
 };
 
 }/* CVC4 namespace */

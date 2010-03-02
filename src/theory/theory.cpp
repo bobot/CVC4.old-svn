@@ -14,6 +14,11 @@
  **/
 
 #include "theory/theory.h"
+#include "util/Assert.h"
+
+#include <vector>
+
+using namespace std;
 
 namespace CVC4 {
 namespace theory {

@@ -23,7 +23,9 @@
 #include "expr/expr_manager.h"
 #include "util/result.h"
 #include "util/model.h"
-#include "util/decision_engine.h"
+
+// FIXME private header in public code
+#include "expr/node.h"
 
 // In terms of abstraction, this is below (and provides services to)
 // ValidityChecker and above (and requires the services of)
@@ -31,9 +33,14 @@
 
 namespace CVC4 {
 
+namespace context {
+  class Context;
+}
+
 class Command;
 class Options;
 class TheoryEngine;
+class DecisionEngine;
 
 namespace prop {
   class PropEngine;
@@ -112,6 +119,9 @@ public:
 
 private:
 
+  /** Our Context */
+  CVC4::context::Context* d_ctxt;
+
   /** Our expression manager */
   ExprManager* d_exprManager;
 
@@ -136,12 +146,12 @@ private:
    * passes over the Node.  TODO: may need to specify a LEVEL of
    * preprocessing (certain contexts need more/less ?).
    */
-  Node preprocess(const Node& node);
+  Node preprocess(TNode node);
 
   /**
    * Adds a formula to the current context.
    */
-  void addFormula(const Node& node);
+  void addFormula(TNode node);
 
   /**
    * Full check of consistency in current context.  Returns true iff

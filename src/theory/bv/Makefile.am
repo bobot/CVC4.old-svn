@@ -3,8 +3,10 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../../include -I@srcdir@/../..
 AM_CXXFLAGS = -Wall -fvisibility=hidden
 
-noinst_LTLIBRARIES = libbool.la
+noinst_LTLIBRARIES = libbv.la
 
-libbool_la_SOURCES =
+libbv_la_SOURCES = \
+	theory_def.h \
+	theory_bv.h
 
 EXTRA_DIST = kinds

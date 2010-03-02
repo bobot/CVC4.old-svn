@@ -10,7 +10,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.
  **
- ** [[ Add file-specific comments here ]]
+ **
  **/
 
 
@@ -19,50 +19,150 @@
 #include "expr/kind.h"
 
 using namespace CVC4;
-using namespace theory;
-using namespace context;
+using namespace CVC4::kind;
+using namespace CVC4::context;
+using namespace CVC4::theory;
+using namespace CVC4::theory::uf;
 
 
-/* Temporaries to facilitate compiling. */
-enum TmpEnum {EC};
-void setAttribute(Node n, TmpEnum te, ECData * ec){}
-ECData* getAttribute(Node n, TmpEnum te) { return NULL; }
-Node getOperator(Node x) { return Node::null(); }
 
+TheoryUF::TheoryUF(Context* c, OutputChannel& out) :
+  TheoryImpl<TheoryUF>(c, out),
+  d_assertions(c),
+  d_pending(c),
+  d_currentPendingIdx(c,0),
+  d_disequality(c),
+  d_registered(c)
+{}
 
-void TheoryUF::setup(const Node& n){
-  ECData * ecN = new (true) ECData(d_context, n);
+TheoryUF::~TheoryUF(){}
 
-  //TODO Make sure attribute manager owns the pointer
-  setAttribute(n, EC, ecN);
+void TheoryUF::preRegisterTerm(TNode n){
+}
 
+void TheoryUF::registerTerm(TNode n){
+
+  d_registered.push_back(n);
+#ifdef CVC4_DEBUG
+  n.printAst(Warning());
+#endif /* CVC4_DEBUG */
+
+  ECData* ecN;
+
+  if(n.hasAttribute(ECAttr(), ecN)){
+    /* registerTerm(n) is only called when a node has not been seen in the
+     * current context.  ECAttr() is not a context-dependent attribute.
+     * When n.hasAttribute(ECAttr(),...) is true on a registerTerm(n) call,
+     * then it must be the case that this attribute was created in a previous
+     * and no longer valid context. Because of this we have to reregister the
+     * predecessors lists.
+     * Also we do not have to worry about duplicates because all of the Link*
+     * setup before are removed when the context n was setup in was popped out
+     * of. All we are going to do here are sanity checks.
+     */
+
+    /*
+     * Consider the following chain of events:
+     * 1) registerTerm(n) is called on node n where n : f(m) in context level X,
+     * 2) A new ECData is created on the heap, ecN,
+     * 3) n is added to the predessecor list of m in context level X,
+     * 4) We pop out of X,
+     * 5) n is removed from the predessecor list of m because this is context
+     *    dependent, the Link* will be destroyed and pointers to the Link
+     *    structs in the ECData objects will be updated.
+     * 6) registerTerm(n) is called on node n in context level Y,
+     * 7) If n.hasAttribute(ECAttr(), &ecN), then ecN is still around,
+     *    but the predecessor list is not
+     *
+     * The above assumes that the code is working correctly.
+     */
+    Assert(ecN->getFirst() == NULL,
+           "Equivalence class data exists for the node being registered.  "
+           "Expected getFirst() == NULL.  "
+           "This data is either already in use or was not properly maintained "
+           "during backtracking");
+    /*Assert(ecN->getLast() == NULL,
+           "Equivalence class data exists for the node being registered.  "
+           "Expected getLast() == NULL.  "
+           "This data is either already in use or was not properly maintained "
+           "during backtracking.");*/
+    Assert(ecN->isClassRep(),
+           "Equivalence class data exists for the node being registered.  "
+           "Expected isClassRep() to be true.  "
+           "This data is either already in use or was not properly maintained "
+           "during backtracking");
+    Assert(ecN->getWatchListSize() == 0,
+           "Equivalence class data exists for the node being registered.  "
+           "Expected getWatchListSize() == 0.  "
+           "This data is either already in use or was not properly maintained "
+           "during backtracking");
+  }else{
+    //The attribute does not exist, so it is created and set
+    ecN = new (true) ECData(d_context, n);
+    n.setAttribute(ECAttr(), ecN);
+  }
+
+  /* If the node is an APPLY, we need to add it to the predecessor list
+   * of its children.
+   */
   if(n.getKind() == APPLY){
-    for(Node::iterator cIter = n.begin(); cIter != n.end(); ++cIter){
-      Node child = *cIter;
-      
-      ECData * ecChild = getAttribute(child, EC);
-      ecChild = ccFind(ecChild);
+    TNode::iterator cIter = n.begin();
+
+    //The first element of an apply is the function symbol which should not
+    //have an associated ECData, so it needs to be skipped.
+    ++cIter;
+    for(; cIter != n.end(); ++cIter){
+      TNode child = *cIter;
+
+      /* Because this can be called after nodes have been merged, we need
+       * to lookup the representative in the UnionFind datastructure.
+       */
+      ECData* ecChild = ccFind(child.getAttribute(ECAttr()));
+
+      /* Because this can be called after nodes have been merged we may need
+       * to be merged with other predecessors of the equivalence class.
+       */
+      for(Link* Px = ecChild->getFirst(); Px != NULL; Px = Px->next ){
+        if(equiv(n, Px->data)){
+          Node pend = n.eqNode(Px->data);
+          d_pending.push_back(pend);
+        }
+      }
 
       ecChild->addPredecessor(n, d_context);
     }
   }
+
 }
 
-bool TheoryUF::equiv(Node x, Node y){
+bool TheoryUF::sameCongruenceClass(TNode x, TNode y){
+  return
+    ccFind(x.getAttribute(ECAttr())) ==
+    ccFind(y.getAttribute(ECAttr()));
+}
+
+bool TheoryUF::equiv(TNode x, TNode y){
+  Assert(x.getKind() == kind::APPLY);
+  Assert(y.getKind() == kind::APPLY);
+
   if(x.getNumChildren() != y.getNumChildren())
     return false;
 
-  if(getOperator(x) != getOperator(y))
+  if(x.getOperator() != y.getOperator())
     return false;
 
-  Node::iterator xIter = x.begin();
-  Node::iterator yIter = y.begin();
+  TNode::iterator xIter = x.begin();
+  TNode::iterator yIter = y.begin();
+
+  //Skip operator of the applies
+  ++xIter;
+  ++yIter;
 
   while(xIter != x.end()){
-    
-    if(ccFind(getAttribute(*xIter, EC)) !=
-       ccFind(getAttribute(*yIter, EC)))
+
+    if(!sameCongruenceClass(*xIter, *yIter)){
       return false;
+    }
 
     ++xIter;
     ++yIter;
@@ -70,12 +170,30 @@ bool TheoryUF::equiv(Node x, Node y){
   return true;
 }
 
+/* This is a very basic, but *obviously correct* find implementation
+ * of the classic find algorithm.
+ * TODO after we have done some more testing:
+ * 1) Add path compression.  This is dependent on changes to ccUnion as
+ *    many better algorithms use eager path compression.
+ * 2) Elminate recursion.
+ */
 ECData* TheoryUF::ccFind(ECData * x){
   if( x->getFind() == x)
     return x;
   else{
     return ccFind(x->getFind());
   }
+  /* Slightly better Find w/ path compression and no recursion*/
+  /*
+    ECData* start;
+    ECData* next = x;
+    while(x != x->getFind()) x=x->getRep();
+    while( (start = next) != x){
+      next = start->getFind();
+      start->setFind(x);
+    }
+    return x;
+  */
 }
 
 void TheoryUF::ccUnion(ECData* ecX, ECData* ecY){
@@ -95,7 +213,8 @@ void TheoryUF::ccUnion(ECData* ecX, ECData* ecY){
   for(Link* Px = nmaster->getFirst(); Px != NULL; Px = Px->next ){
     for(Link* Py = nslave->getFirst(); Py != NULL; Py = Py->next ){
       if(equiv(Px->data,Py->data)){
-        d_pending.push_back((Px->data).eqNode(Py->data));
+        Node pendingEq = (Px->data).eqNode(Py->data);
+        d_pending.push_back(pendingEq);
       }
     }
   }
@@ -103,32 +222,42 @@ void TheoryUF::ccUnion(ECData* ecX, ECData* ecY){
   ECData::takeOverDescendantWatchList(nslave, nmaster);
 }
 
-//TODO make parameters soft references
 void TheoryUF::merge(){
-  do{
+  while(d_currentPendingIdx < d_pending.size() ) {
     Node assertion = d_pending[d_currentPendingIdx];
     d_currentPendingIdx = d_currentPendingIdx + 1;
-    
-    Node x = assertion[0];
-    Node y = assertion[1];
-    
-    ECData* ecX = ccFind(getAttribute(x, EC));
-    ECData* ecY = ccFind(getAttribute(y, EC));
-    
+
+    TNode x = assertion[0];
+    TNode y = assertion[1];
+
+    ECData* tmpX = x.getAttribute(ECAttr());
+    ECData* tmpY = y.getAttribute(ECAttr());
+
+    ECData* ecX = ccFind(tmpX);
+    ECData* ecY = ccFind(tmpY);
     if(ecX == ecY)
       continue;
-    
+
     ccUnion(ecX, ecY);
-  }while( d_currentPendingIdx < d_pending.size() );
+  }
 }
 
-void TheoryUF::check(OutputChannel& out, Effort level){
+Node TheoryUF::constructConflict(TNode diseq){
+  NodeBuilder<> nb(kind::AND);
+  nb << diseq;
+  for(unsigned i=0; i<d_assertions.size(); ++i)
+    nb << d_assertions[i];
+
+  return nb;
+}
+
+void TheoryUF::check(Effort level){
   while(!done()){
     Node assertion = get();
-    
 
     switch(assertion.getKind()){
     case EQUAL:
+      d_assertions.push_back(assertion);
       d_pending.push_back(assertion);
       merge();
       break;
@@ -139,14 +268,23 @@ void TheoryUF::check(OutputChannel& out, Effort level){
       Unreachable();
     }
   }
+
+  //Make sure all outstanding merges are completed.
+  if(d_currentPendingIdx < d_pending.size()){
+    merge();
+  }
+
   if(fullEffort(level)){
     for(CDList<Node>::const_iterator diseqIter = d_disequality.begin();
         diseqIter != d_disequality.end();
         ++diseqIter){
-      
-      if(ccFind(getAttribute((*diseqIter)[0], EC)) ==
-         ccFind(getAttribute((*diseqIter)[1], EC))){
-        out.conflict(*diseqIter, true);
+
+      TNode left  = (*diseqIter)[0];
+      TNode right = (*diseqIter)[1];
+      if(sameCongruenceClass(left, right)){
+        Node remakeNeq = (*diseqIter).notNode();
+        Node conflict = constructConflict(remakeNeq);
+        d_out->conflict(conflict, true);
       }
     }
   }

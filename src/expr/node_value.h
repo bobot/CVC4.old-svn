@@ -17,9 +17,7 @@
  ** reference count on NodeValue instances and
  **/
 
-/* this must be above the check for __CVC4__EXPR__NODE_VALUE_H */
-/* to resolve a circular dependency */
-//#include "expr/node.h"
+#include "cvc4_private.h"
 
 #ifndef __CVC4__EXPR__NODE_VALUE_H
 #define __CVC4__EXPR__NODE_VALUE_H
@@ -35,6 +33,10 @@ namespace CVC4 {
 
 template <bool ref_count> class NodeTemplate;
 template <unsigned> class NodeBuilder;
+class AndNodeBuilder;
+class OrNodeBuilder;
+class PlusNodeBuilder;
+class MultNodeBuilder;
 class NodeManager;
 
 namespace expr {
@@ -78,6 +80,10 @@ class NodeValue {
 
   template <bool> friend class CVC4::NodeTemplate;
   template <unsigned> friend class CVC4::NodeBuilder;
+  friend class CVC4::AndNodeBuilder;
+  friend class CVC4::OrNodeBuilder;
+  friend class CVC4::PlusNodeBuilder;
+  friend class CVC4::MultNodeBuilder;
   friend class CVC4::NodeManager;
 
   void inc();
@@ -92,7 +98,7 @@ class NodeValue {
   NodeValue(int);
 
   /** Destructor decrements the ref counts of its children */
-  ~NodeValue();
+  ~NodeValue() throw();
 
   typedef NodeValue** nv_iterator;
   typedef NodeValue const* const* const_nv_iterator;
@@ -159,17 +165,26 @@ public:
   }
 
   inline bool compareTo(const NodeValue* nv) const {
-    if(d_kind != nv->d_kind)
+    if(d_kind != nv->d_kind) {
       return false;
-    if(d_nchildren != nv->d_nchildren)
+    }
+
+    if(d_nchildren != nv->d_nchildren) {
       return false;
+    }
+
     const_nv_iterator i = nv_begin();
     const_nv_iterator j = nv->nv_begin();
     const_nv_iterator i_end = nv_end();
+
     while(i != i_end) {
-      if ((*i) != (*j)) return false;
-      ++i; ++j;
+      if((*i) != (*j)) {
+        return false;
+      }
+      ++i;
+      ++j;
     }
+
     return true;
   }
 
@@ -190,10 +205,71 @@ public:
   static inline unsigned kindToDKind(Kind k) {
     return ((unsigned) k) & kindMask;
   }
+
   static inline Kind dKindToKind(unsigned d) {
-    return (d == kindMask) ? UNDEFINED_KIND : Kind(d);
+    return (d == kindMask) ? kind::UNDEFINED_KIND : Kind(d);
   }
 };
+
+inline NodeValue::NodeValue() :
+  d_id(0),
+  d_rc(MAX_RC),
+  d_kind(kind::NULL_EXPR),
+  d_nchildren(0) {
+}
+
+inline NodeValue::NodeValue(int) :
+  d_id(0),
+  d_rc(0),
+  d_kind(kindToDKind(kind::UNDEFINED_KIND)),
+  d_nchildren(0) {
+}
+
+inline NodeValue::~NodeValue() throw() {
+  for(nv_iterator i = nv_begin(); i != nv_end(); ++i) {
+    (*i)->dec();
+  }
+}
+
+inline void NodeValue::inc() {
+  // FIXME multithreading
+  if(EXPECT_TRUE( d_rc < MAX_RC )) {
+    ++d_rc;
+  }
+}
+
+inline void NodeValue::dec() {
+  // FIXME multithreading
+  if(EXPECT_TRUE( d_rc < MAX_RC )) {
+    --d_rc;
+    if(EXPECT_FALSE( d_rc == 0 )) {
+      // FIXME gc
+    }
+  }
+}
+
+inline NodeValue::nv_iterator NodeValue::nv_begin() {
+  return d_children;
+}
+
+inline NodeValue::nv_iterator NodeValue::nv_end() {
+  return d_children + d_nchildren;
+}
+
+inline NodeValue::const_nv_iterator NodeValue::nv_begin() const {
+  return d_children;
+}
+
+inline NodeValue::const_nv_iterator NodeValue::nv_end() const {
+  return d_children + d_nchildren;
+}
+
+// for hash_maps, hash_sets, ...
+struct NodeValueHashFcn {
+  size_t operator()(const CVC4::expr::NodeValue* nv) const {
+    return (size_t)nv->hash();
+  }
+};/* struct NodeValueHashFcn */
 
 }/* CVC4::expr namespace */
 }/* CVC4 namespace */

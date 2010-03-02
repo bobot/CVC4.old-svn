@@ -20,9 +20,12 @@
 #include <iostream>
 
 namespace CVC4 {
+namespace kind {
 
-enum Kind {
+enum Kind_t {
   /* undefined */
   UNDEFINED_KIND = -1,
   /** Null Kind */
   NULL_EXPR,
+  /** The kind of nodes representing built-in operators */
+  BUILTIN,

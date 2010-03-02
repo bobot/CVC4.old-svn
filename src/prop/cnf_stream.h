@@ -19,9 +19,10 @@
  ** internals such as the representation and translation of 
  **/
 
+#include "cvc4_private.h"
+
 #ifndef __CVC4__CNF_STREAM_H
 #define __CVC4__CNF_STREAM_H
-
 
 #include "expr/node.h"
 #include "prop/sat.h"
@@ -45,7 +46,7 @@ private:
   SatSolver *d_satSolver;
 
   /** Cache of what literal have been registered to a node. */
-  __gnu_cxx::hash_map<Node, SatLiteral> d_translationCache;
+  __gnu_cxx::hash_map<Node, SatLiteral, NodeHashFcn> d_translationCache;
 
 protected:
 
