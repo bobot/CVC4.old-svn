@@ -24,7 +24,7 @@ AntlrSmtParser::AntlrSmtParser(ExprManager* em, const std::string& filename) :
   if( pOrigTokenFactory != NULL ) {
     pOrigTokenFactory->close(pOrigTokenFactory);
   }
-  pANTLR3_TOKEN_FACTORY pTokenFactory = BoundedTokenFactoryNew(d_input, 16);
+  pANTLR3_TOKEN_FACTORY pTokenFactory = BoundedTokenFactoryNew(d_input, 8);
   d_pSmtLexer->pLexer->rec->state->tokFactory = pTokenFactory;
   pTWO_PLACE_TOKEN_BUFFER buffer = TwoPlaceTokenBufferSourceNew(ANTLR3_SIZE_HINT, TOKENSOURCE(d_pSmtLexer));
   d_tokenStream = buffer->commonTstream;

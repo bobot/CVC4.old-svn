@@ -79,23 +79,24 @@ Expr Parser::parseNextExpression() throw (ParserException, AssertionException) {
 
 Parser::~Parser() {
   delete d_antlrParser;
-  delete d_antlrLexer;
-  delete d_inputBuffer;
+//  delete d_antlrLexer;
+//  delete d_inputBuffer;
 }
 
-Parser::Parser(InputBuffer* inputBuffer, AntlrParser* antlrParser,
-               CharScanner* antlrLexer) :
+Parser::Parser(/*InputBuffer* inputBuffer,*/
+               AntlrParser* antlrParser// ,
+               /*CharScanner* antlrLexer*/) :
   d_done(false),
-  d_antlrParser(antlrParser),
-  d_antlrLexer(antlrLexer),
-  d_inputBuffer(inputBuffer) {
+  d_antlrParser(antlrParser) //,
+//  d_antlrLexer(antlrLexer),
+//  d_inputBuffer(inputBuffer)
+  {
 }
 
 Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
-                             InputBuffer* inputBuffer, string filename) {
+                             /*InputBuffer* inputBuffer, */string filename) {
 
   AntlrParser* antlrParser = 0;
-  antlr::CharScanner* antlrLexer = 0;
 
   switch(lang) {
 /*  case LANG_CVC4: {
@@ -111,23 +112,23 @@ Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
     Unhandled("Unknown Input language!");
   }
 
-  antlrLexer->setFilename(filename);
-  antlrParser->setFilename(filename);
-  antlrParser->setExpressionManager(em);
-
-  return new Parser(inputBuffer, antlrParser, antlrLexer);
+  return new Parser(/*inputBuffer, */antlrParser/*, antlrLexer*/);
 }
 
+/*
 Parser* Parser::getMemoryMappedParser(ExprManager* em, InputLanguage lang, string filename) {
   MemoryMappedInputBuffer* inputBuffer = new MemoryMappedInputBuffer(filename);
   return getNewParser(em,lang,inputBuffer,filename);
 }
+*/
 
+/*
 Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
                              istream& input, string filename) {
   antlr::CharBuffer* inputBuffer = new CharBuffer(input);
   return getNewParser(em, lang, inputBuffer, filename);
 }
+*/
 
 void Parser::disableChecks() {
   d_antlrParser->disableChecks();

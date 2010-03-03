@@ -58,11 +58,12 @@ extern void SmtParserSetAntlrParser(CVC4::parser::AntlrParser* newAntlrParser);
 #include "util/output.h"
 #include <vector>
 
-#define STR(n) (LT(n)->getText(LT(n))->chars)
 
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::parser;
+
+
 }
 
 @members {
@@ -72,6 +73,26 @@ extern
 void SmtParserSetAntlrParser(CVC4::parser::AntlrParser* newAntlrParser) {
     antlrParser = newAntlrParser;
 }
+
+
+inline static
+std::string tokenText(pANTLR3_COMMON_TOKEN token) {
+  ANTLR3_MARKER start = token->getStartIndex(token);
+  ANTLR3_MARKER end = token->getStopIndex(token);
+  std::string txt( (const char *)start, end-start+1 );
+  Debug("parser") << "tokenText: start=" << start << endl
+                   <<  "end=" << end << endl
+                   <<  "txt='" << txt << "'" << endl;
+  return txt;
+}
+
+/*
+inline static
+std::string tokenTextAtIndex(int n) {
+// return (LT(n)->getText(LT(n))->chars)
+  return tokenText(LT(n));
+}
+*/
 }
 
 /**
@@ -145,7 +166,7 @@ benchAttribute returns [CVC4::Command* smt_command]
 annotatedFormula returns [CVC4::Expr formula]
 @declarations { vector<Expr> args; }
 @init {
-  Debug("parser") << "annotated formula: " << STR(1) << endl;
+  Debug("parser") << "annotated formula: " << tokenText(LT(1)) << endl;
   Kind kind;
   std::string name;
 } 
@@ -164,7 +185,7 @@ annotatedFormula returns [CVC4::Expr formula]
     { args.push_back(f); }
     annotatedFormulas[args] TOK_RPAREN
     // TODO: check arity
-    { formula = antlrParser->mkExpr(CVC4::APPLY,args); }
+    { formula = antlrParser->mkExpr(CVC4::kind::APPLY,args); }
 
   | /* An ite expression */
     TOK_LPAREN (TOK_ITE | TOK_IF_THEN_ELSE) 
@@ -172,7 +193,7 @@ annotatedFormula returns [CVC4::Expr formula]
     trueExpr = annotatedFormula
     falseExpr = annotatedFormula
     TOK_RPAREN
-    { formula = antlrParser->mkExpr(CVC4::ITE, test, trueExpr, falseExpr); }
+    { formula = antlrParser->mkExpr(CVC4::kind::ITE, test, trueExpr, falseExpr); }
 
   | /* a variable */
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]
@@ -199,15 +220,15 @@ annotatedFormulas[std::vector<CVC4::Expr>& formulas]
 */
 builtinOp[CVC4::Kind& kind]
 @init {
-  Debug("parser") << "builtin: " << STR(1) << endl;
+  Debug("parser") << "builtin: " << tokenText(LT(1)) << endl;
 }
-  : TOK_NOT      { $kind = CVC4::NOT;     }
-  | TOK_IMPLIES  { $kind = CVC4::IMPLIES; }
-  | TOK_AND      { $kind = CVC4::AND;     }
-  | TOK_OR       { $kind = CVC4::OR;      }
-  | TOK_XOR      { $kind = CVC4::XOR;     }
-  | TOK_IFF      { $kind = CVC4::IFF;     }
-  | TOK_EQUAL    { $kind = CVC4::EQUAL;   }
+  : TOK_NOT      { $kind = CVC4::kind::NOT;     }
+  | TOK_IMPLIES  { $kind = CVC4::kind::IMPLIES; }
+  | TOK_AND      { $kind = CVC4::kind::AND;     }
+  | TOK_OR       { $kind = CVC4::kind::OR;      }
+  | TOK_XOR      { $kind = CVC4::kind::XOR;     }
+  | TOK_IFF      { $kind = CVC4::kind::IFF;     }
+  | TOK_EQUAL    { $kind = CVC4::kind::EQUAL;   }
     /* TODO: lt, gt, plus, minus, etc. */
   ;
 
@@ -330,12 +351,13 @@ identifier[std::string& id,
 		   CVC4::parser::DeclarationCheck check, 
            CVC4::parser::SymbolType type] 
 @init {
-  Debug("parser") << "identifier: " << STR(1) 
+  id = tokenText(LT(1));
+  Debug("parser") << "identifier: " << id
                   << " check? " << toString(check)
                   << " type? " << toString(type) << endl;
 }
   : IDENTIFIER
-    { id = (char*) $IDENTIFIER.text->chars;
+    { Assert( id == tokenText( $IDENTIFIER ) );
       antlrParser->checkDeclaration(id, check,type); }
   ;
 

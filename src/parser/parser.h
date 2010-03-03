@@ -23,11 +23,6 @@
 #include "parser/parser_exception.h"
 #include "util/Assert.h"
 
-namespace antlr {
-  class CharScanner;
-  class InputBuffer;
-}
-
 namespace CVC4 {
 
 // Forward declarations
@@ -57,8 +52,8 @@ public:
     LANG_AUTO
   };
 
-  static Parser* getMemoryMappedParser(ExprManager* em, InputLanguage lang, std::string filename);
-  static Parser* getNewParser(ExprManager* em, InputLanguage lang, std::istream& input, std::string filename);
+/*  static Parser* getMemoryMappedParser(ExprManager* em, InputLanguage lang, std::string filename);*/
+  static Parser* getNewParser(ExprManager* em, InputLanguage lang, /*std::istream& input, */std::string filename);
 
   /**
    * Destructor.
@@ -102,13 +97,13 @@ private:
    * @param deleteInput wheather to delete the input
    * @return the parser
    */
-  static Parser* getNewParser(ExprManager* em, InputLanguage lang, antlr::InputBuffer* inputBuffer, std::string filename);
+/*  static Parser* getNewParser(ExprManager* em, InputLanguage lang, antlr::InputBuffer* inputBuffer, std::string filename);*/
 
   /**
    * Create a new parser given the actual antlr parser.
    * @param antlrParser the antlr parser to user
    */
-  Parser(antlr::InputBuffer* inputBuffer, AntlrParser* antlrParser, antlr::CharScanner* antlrLexer);
+  Parser(/*antlr::InputBuffer* inputBuffer,*/ AntlrParser* antlrParser);
 
   /** Sets the done flag */
   void setDone(bool done = true);
@@ -120,10 +115,10 @@ private:
   AntlrParser* d_antlrParser;
 
   /** The entlr lexer */
-  antlr::CharScanner* d_antlrLexer;
+//  antlr::CharScanner* d_antlrLexer;
 
   /** The input stream we are using */
-  antlr::InputBuffer* d_inputBuffer;
+//  antlr::InputBuffer* d_inputBuffer;
 
   /** Wherther to de-allocate the input */
   bool d_deleteInput;

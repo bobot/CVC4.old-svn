@@ -145,16 +145,20 @@ int runCvc4(int argc, char *argv[]) {
   istream* input = NULL;
 
   if(inputFromStdin) {
-    parser = Parser::getNewParser(&exprMgr, options.lang, cin, "<stdin>");
+    Unimplemented("Input from stdin.");
+    //    parser = Parser::getNewParser(&exprMgr, options.lang, cin, "<stdin>");
   } else if( options.memoryMap ) {
-    parser = Parser::getMemoryMappedParser(&exprMgr, options.lang, argv[firstArgIndex]);
+    Unimplemented("--mmap");
+//    parser = Parser::getMemoryMappedParser(&exprMgr, options.lang, argv[firstArgIndex]);
   } else {
     string filename = argv[firstArgIndex];
+/*
     input = new ifstream(filename.c_str());
     if(input == NULL) {
       throw Exception("file does not exist or is unreadable: " + filename);
     }
-    parser = Parser::getNewParser(&exprMgr, options.lang, *input, filename);
+*/
+    parser = Parser::getNewParser(&exprMgr, options.lang, /**input, */filename);
   }
 
   if(!options.semanticChecks) {
