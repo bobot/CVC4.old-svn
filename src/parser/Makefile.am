@@ -35,6 +35,7 @@ libcvc4parser_noinst_la_LIBADD = \
 
 libcvc4parser_la_SOURCES =
 libcvc4parser_noinst_la_SOURCES = \
+    parser_options.h \
 	parser.h \
 	parser.cpp \
     semantic_exception.h \
@@ -46,5 +47,6 @@ libcvc4parser_noinst_la_SOURCES = \
 	two_place_token_buffer.cpp \
 	bounded_token_factory.h \
 	bounded_token_factory.cpp \
-	memory_mapped_input_buffer.h
+	memory_mapped_input_buffer.h \
+	memory_mapped_input_buffer.cpp
 

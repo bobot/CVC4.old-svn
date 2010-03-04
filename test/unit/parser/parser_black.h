@@ -152,7 +152,7 @@ const int numBadSmtExprs = sizeof(badSmtExprs) / sizeof(string);
 class ParserBlack : public CxxTest::TestSuite {
   ExprManager *d_exprManager;
 
-  void tryGoodInputs(Parser::InputLanguage d_lang, const string goodInputs[], int numInputs) {
+  void tryGoodInputs(InputLanguage d_lang, const string goodInputs[], int numInputs) {
     for(int i = 0; i < numInputs; ++i) {
       try {
         // cout << "Testing good input: '" << goodInputs[i] << "'\n";
@@ -176,7 +176,7 @@ class ParserBlack : public CxxTest::TestSuite {
     }
   }
 
-  void tryBadInputs(Parser::InputLanguage d_lang, const string badInputs[], int numInputs) {
+  void tryBadInputs(InputLanguage d_lang, const string badInputs[], int numInputs) {
     for(int i = 0; i < numInputs; ++i) {
       // cout << "Testing bad input: '" << badInputs[i] << "'\n";
       istringstream stream(badInputs[i]);
@@ -189,7 +189,7 @@ class ParserBlack : public CxxTest::TestSuite {
     }
   }
 
-  void tryGoodExprs(Parser::InputLanguage d_lang,const string& context, const string goodBooleanExprs[], int numExprs) {
+  void tryGoodExprs(InputLanguage d_lang,const string& context, const string goodBooleanExprs[], int numExprs) {
     // cout << "Using context: " << context << endl;
     for(int i = 0; i < numExprs; ++i) {
       try {
@@ -216,7 +216,7 @@ class ParserBlack : public CxxTest::TestSuite {
     }
   }
 
-  void tryBadExprs(Parser::InputLanguage d_lang,const string& context, const string badBooleanExprs[], int numExprs) {
+  void tryBadExprs(InputLanguage d_lang,const string& context, const string badBooleanExprs[], int numExprs) {
     //Debug.on("parser");
     for(int i = 0; i < numExprs; ++i) {
       // cout << "Testing bad expr: '" << badBooleanExprs[i] << "'\n";

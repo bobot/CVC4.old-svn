@@ -108,14 +108,14 @@ int runCvc4(int argc, char *argv[]) {
   bool inputFromStdin = firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
 
   // Auto-detect input language by filename extension
-  if(!inputFromStdin && options.lang == Parser::LANG_AUTO) {
+  if(!inputFromStdin && options.lang == parser::LANG_AUTO) {
     const char* filename = argv[firstArgIndex];
     unsigned len = strlen(filename);
     if(len >= 4 && !strcmp(".smt", filename + len - 4)) {
-      options.lang = Parser::LANG_SMTLIB;
+      options.lang = parser::LANG_SMTLIB;
     } else if(( len >= 4 && !strcmp(".cvc", filename + len - 4) )
               || ( len >= 5 && !strcmp(".cvc4", filename + len - 5) )) {
-      options.lang = Parser::LANG_CVC4;
+      options.lang = parser::LANG_CVC4;
     }
   }
 
@@ -148,8 +148,7 @@ int runCvc4(int argc, char *argv[]) {
     Unimplemented("Input from stdin.");
     //    parser = Parser::getNewParser(&exprMgr, options.lang, cin, "<stdin>");
   } else if( options.memoryMap ) {
-    Unimplemented("--mmap");
-//    parser = Parser::getMemoryMappedParser(&exprMgr, options.lang, argv[firstArgIndex]);
+    parser = Parser::getMemoryMappedParser(&exprMgr, options.lang, argv[firstArgIndex]);
   } else {
     string filename = argv[firstArgIndex];
 /*
@@ -158,7 +157,7 @@ int runCvc4(int argc, char *argv[]) {
       throw Exception("file does not exist or is unreadable: " + filename);
     }
 */
-    parser = Parser::getNewParser(&exprMgr, options.lang, /**input, */filename);
+    parser = Parser::getNewParser(&exprMgr, options.lang, filename);
   }
 
   if(!options.semanticChecks) {

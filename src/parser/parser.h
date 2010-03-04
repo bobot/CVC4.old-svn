@@ -18,9 +18,11 @@
 
 #include <string>
 #include <iostream>
+#include <antlr3.h>
 
 #include "cvc4_config.h"
 #include "parser/parser_exception.h"
+#include "parser/parser_options.h"
 #include "util/Assert.h"
 
 namespace CVC4 {
@@ -42,18 +44,8 @@ class CVC4_PUBLIC Parser {
 
 public:
 
-  /** The input language option */
-  enum InputLanguage {
-    /** The SMTLIB input language */
-    LANG_SMTLIB,
-    /** The CVC4 input language */
-    LANG_CVC4,
-    /** Auto-detect the language */
-    LANG_AUTO
-  };
-
-/*  static Parser* getMemoryMappedParser(ExprManager* em, InputLanguage lang, std::string filename);*/
-  static Parser* getNewParser(ExprManager* em, InputLanguage lang, /*std::istream& input, */std::string filename);
+  static Parser* getMemoryMappedParser(ExprManager* em, InputLanguage lang, const std::string& filename);
+  static Parser* getNewParser(ExprManager* em, InputLanguage lang, /*std::istream& input, */const std::string& filename);
 
   /**
    * Destructor.
@@ -97,7 +89,7 @@ private:
    * @param deleteInput wheather to delete the input
    * @return the parser
    */
-/*  static Parser* getNewParser(ExprManager* em, InputLanguage lang, antlr::InputBuffer* inputBuffer, std::string filename);*/
+  static Parser* getNewParser(ExprManager* em, InputLanguage lang, pANTLR3_INPUT_STREAM input, std::string filename);
 
   /**
    * Create a new parser given the actual antlr parser.

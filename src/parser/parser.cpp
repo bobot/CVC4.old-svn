@@ -19,13 +19,13 @@
 #include <antlr/CharBuffer.hpp>
 
 #include "parser.h"
-#include "memory_mapped_input_buffer.h"
 #include "expr/command.h"
 #include "util/output.h"
 #include "util/Assert.h"
 #include "parser_exception.h"
 #include "semantic_exception.h"
 #include "parser/antlr_parser.h"
+#include "parser/memory_mapped_input_buffer.h"
 #include "parser/smt/antlr_smt_parser.h"
 
 using namespace std;
@@ -94,7 +94,7 @@ Parser::Parser(/*InputBuffer* inputBuffer,*/
 }
 
 Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
-                             /*InputBuffer* inputBuffer, */string filename) {
+                             pANTLR3_INPUT_STREAM inputBuffer, string filename) {
 
   AntlrParser* antlrParser = 0;
 
@@ -105,7 +105,7 @@ Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
     break;
   }*/
   case LANG_SMTLIB:
-    antlrParser = new AntlrSmtParser(em,filename);
+    antlrParser = new AntlrSmtParser(em,inputBuffer,filename);
     break;
 
   default:
@@ -115,13 +115,23 @@ Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
   return new Parser(/*inputBuffer, */antlrParser/*, antlrLexer*/);
 }
 
-/*
-Parser* Parser::getMemoryMappedParser(ExprManager* em, InputLanguage lang, string filename) {
-  MemoryMappedInputBuffer* inputBuffer = new MemoryMappedInputBuffer(filename);
-  return getNewParser(em,lang,inputBuffer,filename);
+Parser* Parser::getMemoryMappedParser(ExprManager* em, InputLanguage lang, const std::string& filename) {
+  pANTLR3_INPUT_STREAM input = MemoryMappedInputBufferNew(filename);
+  if( input == NULL ) {
+    return NULL;
+  }
+  return getNewParser(em,lang,input,filename);
 }
-*/
 
+Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
+                             const std::string& filename) {
+  pANTLR3_UINT8 fName = (pANTLR3_UINT8) filename.c_str();
+  pANTLR3_INPUT_STREAM input = antlr3AsciiFileStreamNew(fName);
+  if( input == NULL ) {
+    return NULL;
+  }
+  return getNewParser(em,lang,input,filename);
+}
 /*
 Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
                              istream& input, string filename) {

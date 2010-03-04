@@ -14,62 +14,18 @@
 #ifndef MEMORY_MAPPED_INPUT_BUFFER_H_
 #define MEMORY_MAPPED_INPUT_BUFFER_H_
 
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdint.h>
-
-#include <sys/errno.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <antlr/InputBuffer.hpp>
-
-#include "util/Assert.h"
-#include "util/exception.h"
+#include <antlr3input.h>
+#include <string>
 
 namespace CVC4 {
 namespace parser {
 
-class MemoryMappedInputBuffer : public antlr::InputBuffer {
+extern "C" {
 
-public:
-  MemoryMappedInputBuffer(const std::string& filename) {
-    errno = 0;
-    struct stat st;
-    if( stat(filename.c_str(), &st) == -1 ) {
-      throw Exception("unable to stat() file");
-//      throw Exception( "unable to stat() file " << filename << " errno " << errno );
-    }
-    d_size = st.st_size;
+pANTLR3_INPUT_STREAM
+MemoryMappedInputBufferNew(const std::string& filename);
 
-    int fd = open(filename.c_str(), O_RDONLY);
-    if( fd == -1 ) {
-      throw Exception("unable to fopen() file");
-    }
-
-    d_start = static_cast< const char * >(
-        mmap( 0, d_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0 ) );
-    errno = 0;
-    if( intptr_t( d_start ) == -1 ) {
-      throw Exception("unable to mmap() file");
-//         throw Exception( "unable to mmap() file " << filename << " errno " << errno );
-    }
-    d_cur = d_start;
-    d_end = d_start + d_size;
-  }
-
-  ~MemoryMappedInputBuffer() {
-    munmap((void*)d_start,d_size);
-  }
-
-  inline int getChar() {
-    Assert( d_cur >= d_start && d_cur <= d_end );
-    return d_cur == d_end ? EOF : *d_cur++;
-  }
-
-private:
-  unsigned long int d_size;
-  const char *d_start, *d_end, *d_cur;
-};
+}
 
 }
 }

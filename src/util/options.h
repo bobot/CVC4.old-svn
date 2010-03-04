@@ -17,7 +17,7 @@
 #define __CVC4__OPTIONS_H
 
 #include <iostream>
-#include "parser/parser.h"
+#include "parser/parser_options.h"
 #include "prop/cnf_conversion.h"
 
 namespace CVC4 {
@@ -40,7 +40,7 @@ struct CVC4_PUBLIC Options {
   int verbosity;
 
   /** The input language */
-  parser::Parser::InputLanguage lang;
+  parser::InputLanguage lang;
 
   /** The CNF conversion */
   CVC4::CnfConversion d_cnfConversion;
@@ -60,7 +60,7 @@ struct CVC4_PUBLIC Options {
               out(0),
               err(0),
               verbosity(0),
-              lang(parser::Parser::LANG_AUTO),
+              lang(parser::LANG_AUTO),
               d_cnfConversion(CVC4::CNF_VAR_INTRODUCTION),
               parseOnly(false),
               semanticChecks(true),

@@ -27,7 +27,7 @@ namespace parser {
 
 class AntlrSmtParser : public AntlrParser {
 public:
-  AntlrSmtParser(ExprManager* em, const std::string& filename);
+  AntlrSmtParser(ExprManager* em, pANTLR3_INPUT_STREAM input, const std::string& filename);
   ~AntlrSmtParser();
 
   Command* parseCommand();

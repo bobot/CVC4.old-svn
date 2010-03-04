@@ -43,6 +43,15 @@ options {
  **/
 }
 
+@lexer::includes {
+/* This improves performance by ~10% on big inputs.
+ * This option is only valid if we know the input is ASCII (or some 8-bit encoding).
+ * If we know the input is UTF-16, we can use ANTLR3_INLINE_INPUT_UTF16.
+ * Otherwise, we have to let the lexer detect the encoding at runtime.
+ */
+#define ANTLR3_INLINE_INPUT_ASCII
+}
+
 @parser::includes {
 #include "parser/antlr_parser.h"
 #include "expr/command.h"
@@ -62,8 +71,6 @@ extern void SmtParserSetAntlrParser(CVC4::parser::AntlrParser* newAntlrParser);
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::parser;
-
-
 }
 
 @members {
