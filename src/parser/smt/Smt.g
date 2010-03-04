@@ -15,19 +15,8 @@
 
 grammar Smt;
 
-/*options {
-  exportVocab = SmtVocabulary;  // Name of the shared token vocabulary
-  testLiterals = false;         // Do not check for literals by default
-  defaultErrorHandler = false;  // Skip the default error handling, just break with exceptions
-  k = 2;
-}*/
 options {
-  language = 'C';                  // C++ output for antlr
-//  namespaceStd = 'std';              // Cosmetic option to get rid of long defines in generated code
-//  namespaceAntlr = 'antlr';          // Cosmetic option to get rid of long defines in generated code
-//  namespace = 'CVC4::parser';        // Wrap everything in the smtparser namespace
-//  genHashLines = true;              // Include line number information
-//  importVocab = SmtVocabulary;      // Import the common vocabulary
+  language = 'C';                  // C output for antlr
 //  defaultErrorHandler = false;      // Skip the default error handling, just break with exceptions
   k = 2;
 }
@@ -44,7 +33,7 @@ options {
 }
 
 @lexer::includes {
-/* This improves performance by ~10% on big inputs.
+/* This improves performance by ~10 percent on big inputs.
  * This option is only valid if we know the input is ASCII (or some 8-bit encoding).
  * If we know the input is UTF-16, we can use ANTLR3_INLINE_INPUT_UTF16.
  * Otherwise, we have to let the lexer detect the encoding at runtime.
@@ -87,19 +76,11 @@ std::string tokenText(pANTLR3_COMMON_TOKEN token) {
   ANTLR3_MARKER start = token->getStartIndex(token);
   ANTLR3_MARKER end = token->getStopIndex(token);
   std::string txt( (const char *)start, end-start+1 );
-  Debug("parser") << "tokenText: start=" << start << endl
-                   <<  "end=" << end << endl
-                   <<  "txt='" << txt << "'" << endl;
+  Debug("parser-extra") << "tokenText: start=" << start << endl
+                        <<  "end=" << end << endl
+                        <<  "txt='" << txt << "'" << endl;
   return txt;
 }
-
-/*
-inline static
-std::string tokenTextAtIndex(int n) {
-// return (LT(n)->getText(LT(n))->chars)
-  return tokenText(LT(n));
-}
-*/
 }
 
 /**
@@ -107,7 +88,7 @@ std::string tokenTextAtIndex(int n) {
  * @return the parsed expression
  */
 parseExpr returns [CVC4::Expr expr]
-  : e = annotatedFormula { $expr = e; }
+  : annotatedFormula[expr]
   | EOF
   ;
 
@@ -150,13 +131,14 @@ benchAttribute returns [CVC4::Command* smt_command]
 @declarations { 
   std::string name;
   SetBenchmarkStatusCommand::BenchmarkStatus b_status;
+  Expr expr;
 }
   : TOK_LOGIC identifier[name,CHECK_NONE,SYM_VARIABLE]
     { smt_command = new SetBenchmarkLogicCommand(name);   }
-  | TOK_ASSUMPTION formula = annotatedFormula
-    { smt_command = new AssertCommand(formula);   }
-  | TOK_FORMULA formula = annotatedFormula
-    { smt_command = new CheckSatCommand(formula); }
+  | TOK_ASSUMPTION annotatedFormula[expr]
+    { smt_command = new AssertCommand(expr);   }
+  | TOK_FORMULA annotatedFormula[expr]
+    { smt_command = new CheckSatCommand(expr); }
   | TOK_STATUS status[b_status]                   
     { smt_command = new SetBenchmarkStatusCommand(b_status); }        
   | TOK_EXTRAFUNS TOK_LPAREN (functionDeclaration)+ TOK_RPAREN  
@@ -170,12 +152,13 @@ benchAttribute returns [CVC4::Command* smt_command]
  * Matches an annotated formula.
  * @return the expression representing the formula
  */
-annotatedFormula returns [CVC4::Expr formula]
-@declarations { vector<Expr> args; }
+annotatedFormula[CVC4::Expr& formula]
 @init {
   Debug("parser") << "annotated formula: " << tokenText(LT(1)) << endl;
   Kind kind;
   std::string name;
+  Expr f, test, trueExpr, falseExpr;
+  std::vector<Expr> args; /* = getExprVector(); */
 } 
   : /* a built-in operator application */
     TOK_LPAREN builtinOp[kind] annotatedFormulas[args] TOK_RPAREN 
@@ -188,7 +171,8 @@ annotatedFormula returns [CVC4::Expr formula]
     // are disallowed
     // { isFunction(LT(2)->getText()) }? 
 
-    TOK_LPAREN f = functionSymbol
+    TOK_LPAREN 
+    functionSymbol[f]
     { args.push_back(f); }
     annotatedFormulas[args] TOK_RPAREN
     // TODO: check arity
@@ -196,9 +180,9 @@ annotatedFormula returns [CVC4::Expr formula]
 
   | /* An ite expression */
     TOK_LPAREN (TOK_ITE | TOK_IF_THEN_ELSE) 
-    test = annotatedFormula 
-    trueExpr = annotatedFormula
-    falseExpr = annotatedFormula
+    annotatedFormula[test] 
+    annotatedFormula[trueExpr]
+    annotatedFormula[falseExpr]
     TOK_RPAREN
     { formula = antlrParser->mkExpr(CVC4::kind::ITE, test, trueExpr, falseExpr); }
 
@@ -218,7 +202,10 @@ annotatedFormula returns [CVC4::Expr formula]
  * @param formulas the vector to fill with formulas
  */   
 annotatedFormulas[std::vector<CVC4::Expr>& formulas]
-  : ( f = annotatedFormula { formulas.push_back(f); } )+
+@init {
+  Expr f;
+}
+  : ( annotatedFormula[f] { formulas.push_back(f); } )+
   ;
 
 /**
@@ -258,7 +245,7 @@ functionName[std::string& name, CVC4::parser::DeclarationCheck check]
 /**
  * Matches an previously declared function symbol (returning an Expr)
  */
-functionSymbol returns [CVC4::Expr fun]
+functionSymbol[CVC4::Expr& fun]
 @declarations {
 	std::string name;
 }

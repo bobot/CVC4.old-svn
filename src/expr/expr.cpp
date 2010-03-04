@@ -41,7 +41,8 @@ Expr::Expr(const Expr& e) :
 }
 
 Expr::Expr(uintptr_t n) :
-    d_node(new Node()), d_exprManager(NULL) {
+    d_node(new Node()),
+    d_exprManager(NULL) {
   AlwaysAssert(n==0);
 }
 
@@ -64,10 +65,11 @@ Expr& Expr::operator=(const Expr& e) {
   return *this;
 }
 
+/* This should only ever be assigning NULL to a null Expr! */
 Expr& Expr::operator=(uintptr_t n) {
   AlwaysAssert(n==0);
-  Expr nullExpr;
-  return (*this = nullExpr);
+  Assert(isNull());
+  return *this;
 }
 
 bool Expr::operator==(const Expr& e) const {
