@@ -64,6 +64,7 @@ using namespace CVC4::parser;
 
 @members {
 CVC4::parser::AntlrParser *antlrParser;
+CVC4::Expr expr1, expr2, expr3, expr4;
   
 extern
 void SmtParserSetAntlrParser(CVC4::parser::AntlrParser* newAntlrParser) {
@@ -131,14 +132,13 @@ benchAttribute returns [CVC4::Command* smt_command]
 @declarations { 
   std::string name;
   SetBenchmarkStatusCommand::BenchmarkStatus b_status;
-  Expr expr;
 }
   : TOK_LOGIC identifier[name,CHECK_NONE,SYM_VARIABLE]
     { smt_command = new SetBenchmarkLogicCommand(name);   }
-  | TOK_ASSUMPTION annotatedFormula[expr]
-    { smt_command = new AssertCommand(expr);   }
-  | TOK_FORMULA annotatedFormula[expr]
-    { smt_command = new CheckSatCommand(expr); }
+  | TOK_ASSUMPTION annotatedFormula[expr1]
+    { smt_command = new AssertCommand(expr1);   }
+  | TOK_FORMULA annotatedFormula[expr1]
+    { smt_command = new CheckSatCommand(expr1); }
   | TOK_STATUS status[b_status]                   
     { smt_command = new SetBenchmarkStatusCommand(b_status); }        
   | TOK_EXTRAFUNS TOK_LPAREN (functionDeclaration)+ TOK_RPAREN  
@@ -157,7 +157,6 @@ annotatedFormula[CVC4::Expr& formula]
   Debug("parser") << "annotated formula: " << tokenText(LT(1)) << endl;
   Kind kind;
   std::string name;
-  Expr f, test, trueExpr, falseExpr;
   std::vector<Expr> args; /* = getExprVector(); */
 } 
   : /* a built-in operator application */
@@ -172,19 +171,19 @@ annotatedFormula[CVC4::Expr& formula]
     // { isFunction(LT(2)->getText()) }? 
 
     TOK_LPAREN 
-    functionSymbol[f]
-    { args.push_back(f); }
+    functionSymbol[expr1]
+    { args.push_back(expr1); }
     annotatedFormulas[args] TOK_RPAREN
     // TODO: check arity
     { formula = antlrParser->mkExpr(CVC4::kind::APPLY,args); }
 
   | /* An ite expression */
     TOK_LPAREN (TOK_ITE | TOK_IF_THEN_ELSE) 
-    annotatedFormula[test] 
-    annotatedFormula[trueExpr]
-    annotatedFormula[falseExpr]
+    annotatedFormula[expr1] 
+    annotatedFormula[expr2]
+    annotatedFormula[expr3]
     TOK_RPAREN
-    { formula = antlrParser->mkExpr(CVC4::kind::ITE, test, trueExpr, falseExpr); }
+    { formula = antlrParser->mkExpr(CVC4::kind::ITE, expr1, expr2, expr3); }
 
   | /* a variable */
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]
@@ -202,10 +201,7 @@ annotatedFormula[CVC4::Expr& formula]
  * @param formulas the vector to fill with formulas
  */   
 annotatedFormulas[std::vector<CVC4::Expr>& formulas]
-@init {
-  Expr f;
-}
-  : ( annotatedFormula[f] { formulas.push_back(f); } )+
+  : ( annotatedFormula[expr1] { formulas.push_back(expr1); } )+
   ;
 
 /**

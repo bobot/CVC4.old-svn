@@ -26,6 +26,8 @@ pANTLR3_TOKEN_FACTORY
 BoundedTokenFactoryNew(pANTLR3_INPUT_STREAM input,ANTLR3_UINT32 size)
 {
     pANTLR3_TOKEN_FACTORY   factory;
+    pANTLR3_COMMON_TOKEN tok;
+    int i;
 
     /* allocate memory
      */
@@ -50,6 +52,18 @@ BoundedTokenFactoryNew(pANTLR3_INPUT_STREAM input,ANTLR3_UINT32 size)
     factory->pools[0]  =
         (pANTLR3_COMMON_TOKEN)
         ANTLR3_MALLOC((size_t)(sizeof(ANTLR3_COMMON_TOKEN) * size));
+
+    /* Set up the tokens once and for all */
+    for( i=0; i < size; i++ ) {
+      tok = factory->pools[0] + i;
+      antlr3SetTokenAPI(tok);
+
+      /* It is factory made, and we need to copy the string factory pointer
+       */
+      tok->factoryMade  = ANTLR3_TRUE;
+      tok->strFactory   = input == NULL ? NULL : input->strFactory;
+      tok->input        = input;
+    }
 
     /* Factory space is good, we now want to initialize our cheating token
      * which one it is initialized is the model for all tokens we manufacture
@@ -78,14 +92,6 @@ newPoolToken(pANTLR3_TOKEN_FACTORY factory)
     tok->custom = NULL;
   }
   factory->nextToken++;
-
-  antlr3SetTokenAPI(tok);
-
-  /* It is factory made, and we need to copy the string factory pointer
-   */
-  tok->factoryMade  = ANTLR3_TRUE;
-  tok->strFactory   = factory->input == NULL ? NULL : factory->input->strFactory;
-  tok->input        = factory->input;
 
   return tok;
 }
