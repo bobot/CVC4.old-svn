@@ -64,7 +64,7 @@ using namespace CVC4::parser;
 
 @members {
 CVC4::parser::AntlrParser *antlrParser;
-CVC4::Expr expr1, expr2, expr3, expr4;
+CVC4::Expr currentExpr;
   
 extern
 void SmtParserSetAntlrParser(CVC4::parser::AntlrParser* newAntlrParser) {
@@ -135,10 +135,10 @@ benchAttribute returns [CVC4::Command* smt_command]
 }
   : TOK_LOGIC identifier[name,CHECK_NONE,SYM_VARIABLE]
     { smt_command = new SetBenchmarkLogicCommand(name);   }
-  | TOK_ASSUMPTION annotatedFormula[expr1]
-    { smt_command = new AssertCommand(expr1);   }
-  | TOK_FORMULA annotatedFormula[expr1]
-    { smt_command = new CheckSatCommand(expr1); }
+  | TOK_ASSUMPTION annotatedFormula[currentExpr]
+    { smt_command = new AssertCommand(currentExpr);   }
+  | TOK_FORMULA annotatedFormula[currentExpr]
+    { smt_command = new CheckSatCommand(currentExpr); }
   | TOK_STATUS status[b_status]                   
     { smt_command = new SetBenchmarkStatusCommand(b_status); }        
   | TOK_EXTRAFUNS TOK_LPAREN (functionDeclaration)+ TOK_RPAREN  
@@ -171,19 +171,22 @@ annotatedFormula[CVC4::Expr& formula]
     // { isFunction(LT(2)->getText()) }? 
 
     TOK_LPAREN 
-    functionSymbol[expr1]
-    { args.push_back(expr1); }
+    functionSymbol[currentExpr]
+    { args.push_back(currentExpr); }
     annotatedFormulas[args] TOK_RPAREN
     // TODO: check arity
     { formula = antlrParser->mkExpr(CVC4::kind::APPLY,args); }
 
   | /* An ite expression */
     TOK_LPAREN (TOK_ITE | TOK_IF_THEN_ELSE) 
-    annotatedFormula[expr1] 
-    annotatedFormula[expr2]
-    annotatedFormula[expr3]
+    annotatedFormula[currentExpr]
+    { args.push_back(currentExpr); } 
+    annotatedFormula[currentExpr]
+    { args.push_back(currentExpr); } 
+    annotatedFormula[currentExpr]
+    { args.push_back(currentExpr); } 
     TOK_RPAREN
-    { formula = antlrParser->mkExpr(CVC4::kind::ITE, expr1, expr2, expr3); }
+    { formula = antlrParser->mkExpr(CVC4::kind::ITE, args); }
 
   | /* a variable */
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]
@@ -201,7 +204,7 @@ annotatedFormula[CVC4::Expr& formula]
  * @param formulas the vector to fill with formulas
  */   
 annotatedFormulas[std::vector<CVC4::Expr>& formulas]
-  : ( annotatedFormula[expr1] { formulas.push_back(expr1); } )+
+  : ( annotatedFormula[currentExpr] { formulas.push_back(currentExpr); } )+
   ;
 
 /**
