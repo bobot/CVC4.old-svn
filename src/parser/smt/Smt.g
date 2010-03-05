@@ -42,44 +42,51 @@ options {
 }
 
 @parser::includes {
-#include "parser/antlr_parser.h"
 #include "expr/command.h"
-#include "expr/type.h"
-#include <vector>
+#include "parser/parser.h"
 
-extern void SmtParserSetAntlrParser(CVC4::parser::AntlrParser* newAntlrParser);
+namespace CVC4 {
+  class Expr;
+namespace parser {
+  class Smt;
+}
+}
+
+extern
+void SetSmt(CVC4::parser::Smt* smt);
+
 }
 
 @parser::postinclude {
+#include "expr/expr.h"
 #include "expr/kind.h"
 #include "expr/type.h"
+#include "parser/parser.h"
+#include "parser/smt/smt_parser.h"
 #include "util/output.h"
 #include <vector>
 
-
-using namespace std;
 using namespace CVC4;
 using namespace CVC4::parser;
 }
 
 @members {
-CVC4::parser::AntlrParser *antlrParser;
+CVC4::parser::Smt *smt;
 CVC4::Expr currentExpr;
   
 extern
-void SmtParserSetAntlrParser(CVC4::parser::AntlrParser* newAntlrParser) {
-    antlrParser = newAntlrParser;
+void SetSmt(CVC4::parser::Smt* newSmt) {
+  smt = newSmt;
 }
-
 
 inline static
 std::string tokenText(pANTLR3_COMMON_TOKEN token) {
   ANTLR3_MARKER start = token->getStartIndex(token);
   ANTLR3_MARKER end = token->getStopIndex(token);
   std::string txt( (const char *)start, end-start+1 );
-  Debug("parser-extra") << "tokenText: start=" << start << endl
-                        <<  "end=" << end << endl
-                        <<  "txt='" << txt << "'" << endl;
+  Debug("parser-extra") << "tokenText: start=" << start << std::endl
+                        <<  "end=" << end << std::endl
+                        <<  "txt='" << txt << "'" << std::endl;
   return txt;
 }
 }
@@ -131,7 +138,7 @@ benchAttributes returns [CVC4::CommandSequence* cmd_seq]
 benchAttribute returns [CVC4::Command* smt_command]
 @declarations { 
   std::string name;
-  SetBenchmarkStatusCommand::BenchmarkStatus b_status;
+  BenchmarkStatus b_status;
 }
   : TOK_LOGIC identifier[name,CHECK_NONE,SYM_VARIABLE]
     { smt_command = new SetBenchmarkLogicCommand(name);   }
@@ -154,15 +161,15 @@ benchAttribute returns [CVC4::Command* smt_command]
  */
 annotatedFormula[CVC4::Expr& formula]
 @init {
-  Debug("parser") << "annotated formula: " << tokenText(LT(1)) << endl;
+  Debug("parser") << "annotated formula: " << tokenText(LT(1)) << std::endl;
   Kind kind;
   std::string name;
   std::vector<Expr> args; /* = getExprVector(); */
 } 
   : /* a built-in operator application */
     TOK_LPAREN builtinOp[kind] annotatedFormulas[args] TOK_RPAREN 
-    { antlrParser->checkArity(kind, args.size());
-      formula = antlrParser->mkExpr(kind,args); }
+    { smt->checkArity(kind, args.size());
+      formula = smt->mkExpr(kind,args); }
 
   | /* A non-built-in function application */
 
@@ -175,7 +182,7 @@ annotatedFormula[CVC4::Expr& formula]
     { args.push_back(currentExpr); }
     annotatedFormulas[args] TOK_RPAREN
     // TODO: check arity
-    { formula = antlrParser->mkExpr(CVC4::kind::APPLY,args); }
+    { formula = smt->mkExpr(CVC4::kind::APPLY,args); }
 
   | /* An ite expression */
     TOK_LPAREN (TOK_ITE | TOK_IF_THEN_ELSE) 
@@ -186,15 +193,15 @@ annotatedFormula[CVC4::Expr& formula]
     annotatedFormula[currentExpr]
     { args.push_back(currentExpr); } 
     TOK_RPAREN
-    { formula = antlrParser->mkExpr(CVC4::kind::ITE, args); }
+    { formula = smt->mkExpr(CVC4::kind::ITE, args); }
 
   | /* a variable */
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]
-    { formula = antlrParser->getVariable(name); }
+    { formula = smt->getVariable(name); }
 
     /* constants */
-  | TOK_TRUE          { formula = antlrParser->getTrueExpr(); }
-  | TOK_FALSE         { formula = antlrParser->getFalseExpr(); }
+  | TOK_TRUE          { formula = smt->getTrueExpr(); }
+  | TOK_FALSE         { formula = smt->getFalseExpr(); }
     /* TODO: let, flet, quantifiers, arithmetic constants */
   ;
 
@@ -213,7 +220,7 @@ annotatedFormulas[std::vector<CVC4::Expr>& formulas]
 */
 builtinOp[CVC4::Kind& kind]
 @init {
-  Debug("parser") << "builtin: " << tokenText(LT(1)) << endl;
+  Debug("parser") << "builtin: " << tokenText(LT(1)) << std::endl;
 }
   : TOK_NOT      { $kind = CVC4::kind::NOT;     }
   | TOK_IMPLIES  { $kind = CVC4::kind::IMPLIES; }
@@ -249,8 +256,8 @@ functionSymbol[CVC4::Expr& fun]
 	std::string name;
 }
   : functionName[name,CHECK_DECLARED]
-    { antlrParser->checkFunction(name);
-      fun = antlrParser->getFunction(name); }
+    { smt->checkFunction(name);
+      fun = smt->getFunction(name); }
   ;
   
 /**
@@ -271,8 +278,8 @@ functionDeclaration
       t = sortSymbol // require at least one sort
     { sorts.push_back(t); }
       sortList[sorts] TOK_RPAREN
-    { t = antlrParser->functionType(sorts);
-      antlrParser->mkVar(name, t); } 
+    { t = smt->functionType(sorts);
+      smt->mkVar(name, t); } 
   ;
               
 /**
@@ -284,8 +291,8 @@ predicateDeclaration
   std::vector<const Type*> p_sorts;
 }
   : TOK_LPAREN predicateName[name,CHECK_UNDECLARED] sortList[p_sorts] TOK_RPAREN
-    { const Type *t = antlrParser->predicateType(p_sorts);
-      antlrParser->mkVar(name, t); } 
+    { const Type *t = smt->predicateType(p_sorts);
+      smt->mkVar(name, t); } 
   ;
 
 sortDeclaration 
@@ -293,7 +300,7 @@ sortDeclaration
   std::string name;
 }
   : sortName[name,CHECK_UNDECLARED]
-    { antlrParser->newSort(name); }
+    { smt->newSort(name); }
   ;
   
 /**
@@ -316,16 +323,16 @@ sortSymbol returns [const CVC4::Type* t]
   std::string name;
 }
   : sortName[name,CHECK_NONE] 
-  	{ $t = antlrParser->getSort(name); }
+  	{ $t = smt->getSort(name); }
   ;
 
 /**
  * Matches the status of the benchmark, one of 'sat', 'unsat' or 'unknown'.
  */
-status[ CVC4::SetBenchmarkStatusCommand::BenchmarkStatus& status ]
-  : TOK_SAT       { $status = SetBenchmarkStatusCommand::SMT_SATISFIABLE;    }
-  | TOK_UNSAT     { $status = SetBenchmarkStatusCommand::SMT_UNSATISFIABLE;  }
-  | TOK_UNKNOWN   { $status = SetBenchmarkStatusCommand::SMT_UNKNOWN;        }
+status[ CVC4::BenchmarkStatus& status ]
+  : TOK_SAT       { $status = SMT_SATISFIABLE;    }
+  | TOK_UNSAT     { $status = SMT_UNSATISFIABLE;  }
+  | TOK_UNKNOWN   { $status = SMT_UNKNOWN;        }
   ;
 
 /**
@@ -347,11 +354,11 @@ identifier[std::string& id,
   id = tokenText(LT(1));
   Debug("parser") << "identifier: " << id
                   << " check? " << toString(check)
-                  << " type? " << toString(type) << endl;
+                  << " type? " << toString(type) << std::endl;
 }
   : IDENTIFIER
     { Assert( id == tokenText( $IDENTIFIER ) );
-      antlrParser->checkDeclaration(id, check,type); }
+      smt->checkDeclaration(id, check,type); }
   ;
 
 // Base SMT-LIB tokens

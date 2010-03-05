@@ -38,8 +38,7 @@ libcvc4parser_noinst_la_SOURCES = \
     parser_options.h \
 	parser.h \
 	parser.cpp \
-    semantic_exception.h \
-	semantic_exception.cpp \
+    parser_exception.h \
 	symbol_table.h \
 	antlr_parser.h \
 	antlr_parser.cpp \

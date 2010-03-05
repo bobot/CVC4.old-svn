@@ -21,9 +21,9 @@ ANTLR_STUFF = \
 
 libparsersmt_la_SOURCES = \
 	Smt.g \
-	$(ANTLR_STUFF) \
-	antlr_smt_parser.h \
-	antlr_smt_parser.cpp
+	smt_parser.h \
+	smt_parser.cpp \
+	$(ANTLR_STUFF)
 
 BUILT_SOURCES = $(ANTLR_STUFF)
 dist-hook: $(ANTLR_STUFF)
