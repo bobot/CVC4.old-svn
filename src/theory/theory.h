@@ -169,8 +169,19 @@ public:
    * Assert a fact in the current context.
    */
   void assertFact(TNode n) {
+    Debug("theory") << "Theory::assertFact(" << n << ")" << std::endl;
     d_facts.push(n);
   }
+
+  /**
+   * Clear the assertion queue.
+   */
+  void clearAssertionQueue() {
+    while (d_facts.size() > 0) {
+      d_facts.pop();
+    }
+  }
+
 
   /**
    * Check the current assignment's consistency.
@@ -293,9 +304,13 @@ Node TheoryImpl<T>::get() {
   Node fact = d_facts.front();
   d_facts.pop();
 
+  Debug("theory") << "Theory::get() => " << fact << "(" << d_facts.size() << " left)" << std::endl;
+
   if(! fact.getAttribute(RegisteredAttr())) {
     std::list<TNode> toReg;
     toReg.push_back(fact);
+
+    Debug("theory") << "Theory::get(): registering new atom" << std::endl;
 
     /* Essentially this is doing a breadth-first numbering of
      * non-registered subterms with children.  Any non-registered

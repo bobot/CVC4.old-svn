@@ -10,6 +10,8 @@ AC_CONFIG_SRCDIR([src/include/cvc4_config.h])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_MACRO_DIR([config])
 
+m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
+
 CVC4_MAJOR=0
 CVC4_MINOR=0
 CVC4_RELEASE=0
@@ -166,7 +168,7 @@ case "$with_build" in
     if test -z "${enable_tracing+set}"   ; then enable_tracing=no                ; fi
     if test -z "${enable_muzzle+set}"    ; then enable_muzzle=no                 ; fi
     ;;
-  debug) # Unoptimized, debug symbols, assertions, tracing
+  debug) # unoptimized, debug symbols, assertions, tracing
     CVC4CPPFLAGS=-DCVC4_DEBUG
     CVC4CXXFLAGS='-O0 -fno-inline -ggdb3'
     CVC4LDFLAGS=
@@ -299,6 +301,7 @@ fi
 AC_MSG_RESULT([$enable_coverage])
 
 if test "$enable_coverage" = yes; then
+  CVC4CPPFLAGS="$CVC4CPPFLAGS -DCVC4_COVERAGE"
   CVC4CXXFLAGS="$CVC4CXXFLAGS --coverage"
   CVC4LDFLAGS="$CVC4LDFLAGS --coverage"
 fi
@@ -316,6 +319,7 @@ fi
 AC_MSG_RESULT([$enable_profiling])
 
 if test "$enable_profiling" = yes; then
+  CVC4CPPFLAGS="$CVC4CPPFLAGS -DCVC4_PROFILING"
   CVC4CXXFLAGS="$CVC4CXXFLAGS -pg"
   CVC4LDFLAGS="$CVC4LDFLAGS -pg"
 fi

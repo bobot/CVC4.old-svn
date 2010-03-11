@@ -19,7 +19,7 @@
 
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
-#include "parser/parser.h"
+#include "parser/input.h"
 #include "expr/command.h"
 #include "util/output.h"
 
@@ -158,7 +158,7 @@ class ParserBlack : public CxxTest::TestSuite {
         // cout << "Testing good input: '" << goodInputs[i] << "'\n";
         // Debug.on("parser");
 //        istringstream stream(goodInputs[i]);
-        Parser* parser = Parser::newStringParser(d_exprManager, d_lang, goodInputs[i], "test");
+        Input* parser = Input::newStringParser(d_exprManager, d_lang, goodInputs[i], "test");
         TS_ASSERT( !parser->done() );
         Command* cmd;
         while((cmd = parser->parseNextCommand())) {
@@ -180,7 +180,7 @@ class ParserBlack : public CxxTest::TestSuite {
     for(int i = 0; i < numInputs; ++i) {
       // cout << "Testing bad input: '" << badInputs[i] << "'\n";
 //      istringstream stream(badInputs[i]);
-      Parser* parser = Parser::newStringParser(d_exprManager, d_lang, badInputs[i], "test");
+      Input* parser = Input::newStringParser(d_exprManager, d_lang, badInputs[i], "test");
       TS_ASSERT_THROWS
         ( while(parser->parseNextCommand());
           cout << "\nBad input succeeded:\n" << badInputs[i] << endl;, 
@@ -191,12 +191,14 @@ class ParserBlack : public CxxTest::TestSuite {
 
   void tryGoodExprs(InputLanguage d_lang,const string& context, const string goodBooleanExprs[], int numExprs) {
     // cout << "Using context: " << context << endl;
+//    Debug.on("parser");
+//    Debug.on("parser-extra");
     for(int i = 0; i < numExprs; ++i) {
       try {
         // cout << "Testing good expr: '" << goodBooleanExprs[i] << "'\n";
         // Debug.on("parser");
 //        istringstream stream(context + goodBooleanExprs[i]);
-        Parser* parser = Parser::newStringParser(d_exprManager, d_lang,
+        Input* parser = Input::newStringParser(d_exprManager, d_lang,
                                               context + goodBooleanExprs[i], "test");
         TS_ASSERT( !parser->done() );
         Command* cmd = parser->parseNextCommand();
@@ -222,7 +224,7 @@ class ParserBlack : public CxxTest::TestSuite {
     for(int i = 0; i < numExprs; ++i) {
       // cout << "Testing bad expr: '" << badBooleanExprs[i] << "'\n";
 //      istringstream stream(context + badBooleanExprs[i]);
-      Parser* parser = Parser::newStringParser(d_exprManager, d_lang,
+      Input* parser = Input::newStringParser(d_exprManager, d_lang,
                                             context + badBooleanExprs[i], "test");
       TS_ASSERT_THROWS
         ( parser->parseNextExpression();

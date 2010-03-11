@@ -22,7 +22,7 @@
 #include "config.h"
 #include "main.h"
 #include "usage.h"
-#include "parser/parser.h"
+#include "parser/input.h"
 #include "expr/expr_manager.h"
 #include "smt/smt_engine.h"
 #include "expr/command.h"
@@ -141,18 +141,18 @@ int runCvc4(int argc, char *argv[]) {
   }
 
   // Create the parser
-  Parser* parser;
+  Input* parser;
   istream* input = NULL;
 
   if(inputFromStdin) {
     Unimplemented("Input from stdin.");
     //    parser = Parser::getNewParser(&exprMgr, options.lang, cin, "<stdin>");
   } else {
-    parser = Parser::newFileParser(&exprMgr, options.lang, argv[firstArgIndex],
+    parser = Input::newFileParser(&exprMgr, options.lang, argv[firstArgIndex],
                                    options.memoryMap);
 /*
     input = new ifstream(filename.c_str());
-    if(input == NULL) {
+    if(!*input) {
       throw Exception("file does not exist or is unreadable: " + filename);
     }
 */

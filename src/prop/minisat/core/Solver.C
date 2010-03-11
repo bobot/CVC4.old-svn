@@ -77,7 +77,7 @@ Solver::~Solver()
 // Creates a new SAT variable in the solver. If 'decision_var' is cleared, variable will not be
 // used as a decision variable (NOTE! This has effects on the meaning of a SATISFIABLE result).
 //
-Var Solver::newVar(bool sign, bool dvar)
+Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
 {
     int v = nVars();
     watches   .push();          // (list for positive literal)
@@ -87,6 +87,8 @@ Var Solver::newVar(bool sign, bool dvar)
     level     .push(-1);
     activity  .push(0);
     seen      .push(0);
+
+    theory    .push(theoryAtom);
 
     polarity    .push((char)sign);
     decision_var.push((char)dvar);
@@ -139,6 +141,7 @@ void Solver::attachClause(Clause& c) {
 
 
 void Solver::detachClause(Clause& c) {
+    Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
     assert(c.size() > 1);
     assert(find(watches[toInt(~c[0])], &c));
     assert(find(watches[toInt(~c[1])], &c));
@@ -149,8 +152,10 @@ void Solver::detachClause(Clause& c) {
 
 
 void Solver::removeClause(Clause& c) {
+    Debug("minisat") << "Solver::removeClause(" << c << ")" << std::endl;
     detachClause(c);
-    free(&c); }
+    free(&c);
+}
 
 
 bool Solver::satisfied(const Clause& c) const {
@@ -177,6 +182,8 @@ void Solver::cancelUntil(int level) {
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
     }
+    // Now, clear the TheoryEngine queue
+    proxy->clearAssertionQueues();
 }
 
 
@@ -394,11 +401,17 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 void Solver::uncheckedEnqueue(Lit p, Clause* from)
 {
     assert(value(p) == l_Undef);
-    assigns  [var(p)] = toInt(lbool(!sign(p)));  // <<== abstract but not uttermost effecient
+    assigns  [var(p)] = toInt(lbool(!sign(p)));  // <<== abstract but not uttermost efficient
     level    [var(p)] = decisionLevel();
     reason   [var(p)] = from;
+    // Added for phase-caching
     polarity [var(p)] = sign(p);
     trail.push(p);
+
+    if (theory[var(p)]) {
+      // Enqueue to the theory
+      proxy->enqueueTheoryLiteral(p);
+    }
 }
 
 
@@ -428,9 +441,33 @@ Clause* Solver::propagate()
 |________________________________________________________________________________________________@*/
 Clause* Solver::propagateTheory()
 {
+  Clause* c = NULL;
   SatClause clause;
   proxy->theoryCheck(clause);
-  return NULL;
+  int clause_size = clause.size();
+  Assert(clause_size != 1, "Can't handle unit clause explanations");
+  if(clause_size > 0) {
+    // Find the max level of the conflict
+    int max_level = 0;
+    for (int i = 0; i < clause_size; ++i) {
+      int current_level = level[var(clause[i])];
+      Debug("minisat") << "Literal: " << clause[i] << " with reason " << reason[var(clause[i])] << " at level " << current_level << std::endl;
+      Assert(toLbool(assigns[var(clause[i])]) != l_Undef, "Got an unassigned literal in conflict!");
+      if (current_level > max_level) max_level = current_level;
+    }
+    // If smaller than the decision level then pop back so we can analyse
+    Debug("minisat") << "Max-level is " << max_level << " in decision level " << decisionLevel() << std::endl;
+    Assert(max_level <= decisionLevel(), "What is going on, can't get literals of a higher level as conflict!");
+    if (max_level < decisionLevel()) {
+      Debug("minisat") << "Max-level is " << max_level << " in decision level " << decisionLevel() << std::endl;
+      cancelUntil(max_level);
+    }
+    // Create the new clause and attach all the information
+    c = Clause_new(clause, true);
+    learnts.push(c);
+    attachClause(*c);
+  }
+  return c;
 }
 
 /*_________________________________________________________________________________________________

@@ -24,7 +24,7 @@
 
 #include "cvc4_config.h"
 #include <stdint.h>
-#include "kind.h"
+#include "expr/kind.h"
 
 #include <string>
 #include <iterator>
@@ -32,7 +32,8 @@
 namespace CVC4 {
 
 template <bool ref_count> class NodeTemplate;
-template <unsigned> class NodeBuilder;
+template <class Builder> class NodeBuilderBase;
+template <unsigned N> class NodeBuilder;
 class AndNodeBuilder;
 class OrNodeBuilder;
 class PlusNodeBuilder;
@@ -79,7 +80,8 @@ class NodeValue {
   // todo add exprMgr ref in debug case
 
   template <bool> friend class CVC4::NodeTemplate;
-  template <unsigned> friend class CVC4::NodeBuilder;
+  template <class Builder> friend class CVC4::NodeBuilderBase;
+  template <unsigned N> friend class CVC4::NodeBuilder;
   friend class CVC4::AndNodeBuilder;
   friend class CVC4::OrNodeBuilder;
   friend class CVC4::PlusNodeBuilder;
@@ -94,11 +96,8 @@ class NodeValue {
   /** Private default constructor for the null value. */
   NodeValue();
 
-  /** Private default constructor for the NodeBuilder. */
-  NodeValue(int);
-
   /** Destructor decrements the ref counts of its children */
-  ~NodeValue() throw();
+  ~NodeValue();
 
   typedef NodeValue** nv_iterator;
   typedef NodeValue const* const* const_nv_iterator;
@@ -150,16 +149,19 @@ public:
   }
 
   /**
-   * Hash this expression.
+   * Hash this NodeValue.  For hash_maps, hash_sets, etc.. but this is
+   * for expr package internal use only at present!  This is likely to
+   * be POORLY PERFORMING for other uses!  For example, this gives
+   * collisions for all VARIABLEs.
    * @return the hash value of this expression.
    */
-  size_t hash() const {
+  size_t internalHash() const {
     size_t hash = d_kind;
     const_nv_iterator i = nv_begin();
     const_nv_iterator i_end = nv_end();
-    while (i != i_end) {
+    while(i != i_end) {
       hash ^= (*i)->d_id + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-      ++ i;
+      ++i;
     }
     return hash;
   }
@@ -209,7 +211,36 @@ public:
   static inline Kind dKindToKind(unsigned d) {
     return (d == kindMask) ? kind::UNDEFINED_KIND : Kind(d);
   }
-};
+};/* class NodeValue */
+
+/**
+ * For hash_maps, hash_sets, etc.. but this is for expr package
+ * internal use only at present!  This is likely to be POORLY
+ * PERFORMING for other uses!  NodeValue::internalHash() will lead to
+ * collisions for all VARIABLEs.
+ */
+struct NodeValueInternalHashFcn {
+  inline size_t operator()(const NodeValue* nv) const {
+    return (size_t) nv->internalHash();
+  }
+};/* struct NodeValueHashFcn */
+
+/**
+ * For hash_maps, hash_sets, etc.
+ */
+struct NodeValueIDHashFcn {
+  inline size_t operator()(const NodeValue* nv) const {
+    return (size_t) nv->getId();
+  }
+};/* struct NodeValueHashFcn */
+
+}/* CVC4::expr namespace */
+}/* CVC4 namespace */
+
+#include "node_manager.h"
+
+namespace CVC4 {
+namespace expr {
 
 inline NodeValue::NodeValue() :
   d_id(0),
@@ -218,14 +249,7 @@ inline NodeValue::NodeValue() :
   d_nchildren(0) {
 }
 
-inline NodeValue::NodeValue(int) :
-  d_id(0),
-  d_rc(0),
-  d_kind(kindToDKind(kind::UNDEFINED_KIND)),
-  d_nchildren(0) {
-}
-
-inline NodeValue::~NodeValue() throw() {
+inline NodeValue::~NodeValue() {
   for(nv_iterator i = nv_begin(); i != nv_end(); ++i) {
     (*i)->dec();
   }
@@ -243,7 +267,10 @@ inline void NodeValue::dec() {
   if(EXPECT_TRUE( d_rc < MAX_RC )) {
     --d_rc;
     if(EXPECT_FALSE( d_rc == 0 )) {
-      // FIXME gc
+      Assert(NodeManager::currentNM() != NULL,
+             "No current NodeManager on destruction of NodeValue: "
+             "maybe a public CVC4 interface function is missing a NodeManagerScope ?");
+      NodeManager::currentNM()->gc(this);
     }
   }
 }
@@ -263,13 +290,6 @@ inline NodeValue::const_nv_iterator NodeValue::nv_begin() const {
 inline NodeValue::const_nv_iterator NodeValue::nv_end() const {
   return d_children + d_nchildren;
 }
-
-// for hash_maps, hash_sets, ...
-struct NodeValueHashFcn {
-  size_t operator()(const CVC4::expr::NodeValue* nv) const {
-    return (size_t)nv->hash();
-  }
-};/* struct NodeValueHashFcn */
 
 }/* CVC4::expr namespace */
 }/* CVC4 namespace */

@@ -90,7 +90,7 @@ inline std::string toString(SymbolType type) {
  * This class includes convenience methods for interacting with the ExprManager
  * from within a grammar.
  */
-class CVC4_PUBLIC Parser {
+class CVC4_PUBLIC Input {
 
 public:
   /** Create a parser for the given file.
@@ -99,7 +99,7 @@ public:
     * @param lang the input language
     * @param filename the input filename
     */
-   static Parser* newFileParser(ExprManager* exprManager, InputLanguage lang, const std::string& filename, bool useMmap=false);
+   static Input* newFileParser(ExprManager* exprManager, InputLanguage lang, const std::string& filename, bool useMmap=false);
 
   /** Create a parser for the given input stream.
    *
@@ -117,12 +117,12 @@ public:
    * @param input the input string
    * @param name the name of the stream, for use in error messages
    */
-  static Parser* newStringParser(ExprManager* exprManager, InputLanguage lang, const std::string& input, const std::string& name);
+  static Input* newStringParser(ExprManager* exprManager, InputLanguage lang, const std::string& input, const std::string& name);
 
   /**
    * Destructor.
    */
-  ~Parser();
+  ~Input();
 
   /**
    * Parse the next command of the input. If EOF is encountered a EmptyCommand
@@ -154,6 +154,13 @@ public:
   inline const std::string getFilename() {
     return d_filename;
   }
+
+  /**
+   * Sets the logic for the current benchmark. Declares any logic symbols.
+   *
+   * @param name the name of the logic (e.g., QF_UF, AUFLIA)
+   */
+  void setLogic(const std::string& name);
 
   /**
      * Returns a variable, given a name and a type.
@@ -276,6 +283,13 @@ public:
            const Type* type);
 
 
+    /** Create a new variable definition (e.g., from a let binding). */
+    void defineVar(const std::string& name, const Expr& val);
+    /** Remove a variable definition (e.g., from a let binding). */
+    void undefineVar(const std::string& name);
+
+    Expr mkDistinct(const std::vector<Expr>& args);
+
     /** Returns a function type over the given domain and range types. */
     const Type* functionType(const Type* domain, const Type* range);
 
@@ -343,7 +357,7 @@ protected:
      * @param exprManager the ExprManager to use
      * @param filename the path of the file to parse
      */
-    Parser(ExprManager* exprManager, const std::string& filename);
+    Input(ExprManager* exprManager, const std::string& filename);
 
 private:
 

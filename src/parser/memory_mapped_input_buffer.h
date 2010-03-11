@@ -11,8 +11,8 @@
  ** ANTLR input buffer from a memory-mapped file.
  **/
 
-#ifndef MEMORY_MAPPED_INPUT_BUFFER_H_
-#define MEMORY_MAPPED_INPUT_BUFFER_H_
+#ifndef __CVC4__PARSER__MEMORY_MAPPED_INPUT_BUFFER_H
+#define __CVC4__PARSER__MEMORY_MAPPED_INPUT_BUFFER_H
 
 #include <antlr3input.h>
 #include <string>
@@ -31,4 +31,4 @@ MemoryMappedInputBufferNew(const std::string& filename);
 }
 
 
-#endif /* MEMORY_MAPPED_INPUT_BUFFER_H_ */
+#endif /* __CVC4__PARSER__MEMORY_MAPPED_INPUT_BUFFER_H */

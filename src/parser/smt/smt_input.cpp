@@ -9,7 +9,7 @@
 
 #include "expr/expr_manager.h"
 #include "parser/parser_exception.h"
-#include "parser/smt/smt_parser.h"
+#include "parser/smt/smt_input.h"
 #include "parser/smt/generated/SmtLexer.h"
 #include "parser/smt/generated/SmtParser.h"
 
@@ -17,17 +17,17 @@ namespace CVC4 {
 namespace parser {
 
 /* Use lookahead=2 */
-Smt::Smt(ExprManager* exprManager, const std::string& filename, bool useMmap) :
-  AntlrParser(exprManager,filename,2,useMmap) {
+SmtInput::SmtInput(ExprManager* exprManager, const std::string& filename, bool useMmap) :
+  AntlrInput(exprManager,filename,2,useMmap) {
   init();
 }
 
-Smt::Smt(ExprManager* exprManager, const std::string& input, const std::string& name) :
-  AntlrParser(exprManager,input,name,2) {
+SmtInput::SmtInput(ExprManager* exprManager, const std::string& input, const std::string& name) :
+  AntlrInput(exprManager,input,name,2) {
   init();
 }
 
-void Smt::init() {
+void SmtInput::init() {
   pANTLR3_INPUT_STREAM input = getInputStream();
   AlwaysAssert( input != NULL );
 
@@ -47,24 +47,24 @@ void Smt::init() {
   }
 
   setParser(d_pSmtParser->pParser);
-  SetSmt(this);
+  SetSmtInput(this);
 }
 
 
-Smt::~Smt() {
+SmtInput::~SmtInput() {
   d_pSmtLexer->free(d_pSmtLexer);
   d_pSmtParser->free(d_pSmtParser);
 }
 
-Command* Smt::doParseCommand() throw (ParserException) {
+Command* SmtInput::doParseCommand() throw (ParserException) {
   return d_pSmtParser->parseCommand(d_pSmtParser);
 }
 
-Expr Smt::doParseExpr() throw (ParserException) {
+Expr SmtInput::doParseExpr() throw (ParserException) {
   return d_pSmtParser->parseExpr(d_pSmtParser);
 }
 
-pANTLR3_LEXER Smt::getLexer() {
+pANTLR3_LEXER SmtInput::getLexer() {
   return d_pSmtLexer->pLexer;
 }
 

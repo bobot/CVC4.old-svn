@@ -43,17 +43,17 @@ options {
 
 @parser::includes {
 #include "expr/command.h"
-#include "parser/parser.h"
+#include "parser/input.h"
 
 namespace CVC4 {
   class Expr;
 namespace parser {
-  class Smt;
+  class SmtInput;
 }
 }
 
 extern
-void SetSmt(CVC4::parser::Smt* smt);
+void SetSmtInput(CVC4::parser::SmtInput* smt);
 
 }
 
@@ -61,8 +61,8 @@ void SetSmt(CVC4::parser::Smt* smt);
 #include "expr/expr.h"
 #include "expr/kind.h"
 #include "expr/type.h"
-#include "parser/parser.h"
-#include "parser/smt/smt_parser.h"
+#include "parser/input.h"
+#include "parser/smt/smt_input.h"
 #include "util/output.h"
 #include <vector>
 
@@ -71,12 +71,11 @@ using namespace CVC4::parser;
 }
 
 @members {
-CVC4::parser::Smt *smt;
-CVC4::Expr currentExpr;
-  
+CVC4::parser::SmtInput *smtInput;
+
 extern
-void SetSmt(CVC4::parser::Smt* newSmt) {
-  smt = newSmt;
+void SetSmtInput(CVC4::parser::SmtInput* _smtInput) {
+  smtInput = _smtInput;
 }
 
 inline static
@@ -113,7 +112,7 @@ parseCommand returns [CVC4::Command* cmd]
  * @return the sequence command containing the whole problem
  */
 benchmark returns [CVC4::Command* cmd]
-  : TOK_LPAREN TOK_BENCHMARK IDENTIFIER c = benchAttributes TOK_RPAREN 
+  : LPAREN_TOK BENCHMARK_TOK IDENTIFIER c = benchAttributes RPAREN_TOK 
   	{ $cmd = c; }
   | EOF { $cmd = 0; }
   ;
@@ -139,19 +138,21 @@ benchAttribute returns [CVC4::Command* smt_command]
 @declarations { 
   std::string name;
   BenchmarkStatus b_status;
+  Expr expr;
 }
-  : TOK_LOGIC identifier[name,CHECK_NONE,SYM_VARIABLE]
-    { smt_command = new SetBenchmarkLogicCommand(name);   }
-  | TOK_ASSUMPTION annotatedFormula[currentExpr]
-    { smt_command = new AssertCommand(currentExpr);   }
-  | TOK_FORMULA annotatedFormula[currentExpr]
-    { smt_command = new CheckSatCommand(currentExpr); }
-  | TOK_STATUS status[b_status]                   
+  : LOGIC_TOK identifier[name,CHECK_NONE,SYM_VARIABLE]
+    { smtInput->setLogic(name);
+      smt_command = new SetBenchmarkLogicCommand(name);   }
+  | ASSUMPTION_TOK annotatedFormula[expr]
+    { smt_command = new AssertCommand(expr);   }
+  | FORMULA_TOK annotatedFormula[expr]
+    { smt_command = new CheckSatCommand(expr); }
+  | STATUS_TOK status[b_status]                   
     { smt_command = new SetBenchmarkStatusCommand(b_status); }        
-  | TOK_EXTRAFUNS TOK_LPAREN (functionDeclaration)+ TOK_RPAREN  
-  | TOK_EXTRAPREDS TOK_LPAREN (predicateDeclaration)+ TOK_RPAREN  
-  | TOK_EXTRASORTS TOK_LPAREN (sortDeclaration)+ TOK_RPAREN  
-  | TOK_NOTES STRING_LITERAL        
+  | EXTRAFUNS_TOK LPAREN_TOK (functionDeclaration)+ RPAREN_TOK  
+  | EXTRAPREDS_TOK LPAREN_TOK (predicateDeclaration)+ RPAREN_TOK  
+  | EXTRASORTS_TOK LPAREN_TOK sortDeclaration+ RPAREN_TOK  
+  | NOTES_TOK STRING_LITERAL        
   | annotation
   ;
 
@@ -159,7 +160,7 @@ benchAttribute returns [CVC4::Command* smt_command]
  * Matches an annotated formula.
  * @return the expression representing the formula
  */
-annotatedFormula[CVC4::Expr& formula]
+annotatedFormula[CVC4::Expr& expr]
 @init {
   Debug("parser") << "annotated formula: " << tokenText(LT(1)) << std::endl;
   Kind kind;
@@ -167,9 +168,13 @@ annotatedFormula[CVC4::Expr& formula]
   std::vector<Expr> args; /* = getExprVector(); */
 } 
   : /* a built-in operator application */
-    TOK_LPAREN builtinOp[kind] annotatedFormulas[args] TOK_RPAREN 
-    { smt->checkArity(kind, args.size());
-      formula = smt->mkExpr(kind,args); }
+    LPAREN_TOK builtinOp[kind] annotatedFormulas[args,expr] RPAREN_TOK 
+    { smtInput->checkArity(kind, args.size());
+      expr = smtInput->mkExpr(kind,args); }
+
+  | /* a "distinct" expr */
+    LPAREN_TOK DISTINCT_TOK annotatedFormulas[args,expr] RPAREN_TOK
+    { expr = smtInput->mkDistinct(args); }
 
   | /* A non-built-in function application */
 
@@ -177,41 +182,56 @@ annotatedFormula[CVC4::Expr& formula]
     // are disallowed
     // { isFunction(LT(2)->getText()) }? 
 
-    TOK_LPAREN 
-    functionSymbol[currentExpr]
-    { args.push_back(currentExpr); }
-    annotatedFormulas[args] TOK_RPAREN
+    LPAREN_TOK 
+    functionSymbol[expr]
+    { args.push_back(expr); }
+    annotatedFormulas[args,expr] RPAREN_TOK
     // TODO: check arity
-    { formula = smt->mkExpr(CVC4::kind::APPLY,args); }
+    { expr = smtInput->mkExpr(CVC4::kind::APPLY,args); }
 
   | /* An ite expression */
-    TOK_LPAREN (TOK_ITE | TOK_IF_THEN_ELSE) 
-    annotatedFormula[currentExpr]
-    { args.push_back(currentExpr); } 
-    annotatedFormula[currentExpr]
-    { args.push_back(currentExpr); } 
-    annotatedFormula[currentExpr]
-    { args.push_back(currentExpr); } 
-    TOK_RPAREN
-    { formula = smt->mkExpr(CVC4::kind::ITE, args); }
+    LPAREN_TOK (ITE_TOK | IF_THEN_ELSE_TOK) 
+    annotatedFormula[expr]
+    { args.push_back(expr); } 
+    annotatedFormula[expr]
+    { args.push_back(expr); } 
+    annotatedFormula[expr]
+    { args.push_back(expr); } 
+    RPAREN_TOK
+    { expr = smtInput->mkExpr(CVC4::kind::ITE, args); }
+
+  | /* a let/flet binding */
+    LPAREN_TOK 
+    (LET_TOK LPAREN_TOK var_identifier[name,CHECK_UNDECLARED]
+      | FLET_TOK LPAREN_TOK fun_identifier[name,CHECK_UNDECLARED] )
+    annotatedFormula[expr] RPAREN_TOK
+    { smtInput->defineVar(name,expr); }
+    annotatedFormula[expr]
+    RPAREN_TOK
+    { smtInput->undefineVar(name); }
 
   | /* a variable */
-    identifier[name,CHECK_DECLARED,SYM_VARIABLE]
-    { formula = smt->getVariable(name); }
+    ( identifier[name,CHECK_DECLARED,SYM_VARIABLE]
+      | var_identifier[name,CHECK_DECLARED] 
+      | fun_identifier[name,CHECK_DECLARED] )
+    { expr = smtInput->getVariable(name); }
 
     /* constants */
-  | TOK_TRUE          { formula = smt->getTrueExpr(); }
-  | TOK_FALSE         { formula = smt->getFalseExpr(); }
+  | TRUE_TOK          { expr = smtInput->getTrueExpr(); }
+  | FALSE_TOK         { expr = smtInput->getFalseExpr(); }
     /* TODO: let, flet, quantifiers, arithmetic constants */
   ;
 
 /**
- * Matches a sequence of annotaed formulas and puts them into the formulas
+ * Matches a sequence of annotated formulas and puts them into the formulas
  * vector.
  * @param formulas the vector to fill with formulas
+ * @param expr an Expr reference for the elements of the sequence
  */   
-annotatedFormulas[std::vector<CVC4::Expr>& formulas]
-  : ( annotatedFormula[currentExpr] { formulas.push_back(currentExpr); } )+
+/* NOTE: We pass an Expr in here just to avoid allocating a fresh Expr every 
+ * time through this rule. */
+annotatedFormulas[std::vector<CVC4::Expr>& formulas, CVC4::Expr& expr]
+  : ( annotatedFormula[expr] { formulas.push_back(expr); } )+
   ;
 
 /**
@@ -222,13 +242,13 @@ builtinOp[CVC4::Kind& kind]
 @init {
   Debug("parser") << "builtin: " << tokenText(LT(1)) << std::endl;
 }
-  : TOK_NOT      { $kind = CVC4::kind::NOT;     }
-  | TOK_IMPLIES  { $kind = CVC4::kind::IMPLIES; }
-  | TOK_AND      { $kind = CVC4::kind::AND;     }
-  | TOK_OR       { $kind = CVC4::kind::OR;      }
-  | TOK_XOR      { $kind = CVC4::kind::XOR;     }
-  | TOK_IFF      { $kind = CVC4::kind::IFF;     }
-  | TOK_EQUAL    { $kind = CVC4::kind::EQUAL;   }
+  : NOT_TOK      { $kind = CVC4::kind::NOT;     }
+  | IMPLIES_TOK  { $kind = CVC4::kind::IMPLIES; }
+  | AND_TOK      { $kind = CVC4::kind::AND;     }
+  | OR_TOK       { $kind = CVC4::kind::OR;      }
+  | XOR_TOK      { $kind = CVC4::kind::XOR;     }
+  | IFF_TOK      { $kind = CVC4::kind::IFF;     }
+  | EQUAL_TOK    { $kind = CVC4::kind::EQUAL;   }
     /* TODO: lt, gt, plus, minus, etc. */
   ;
 
@@ -256,8 +276,8 @@ functionSymbol[CVC4::Expr& fun]
 	std::string name;
 }
   : functionName[name,CHECK_DECLARED]
-    { smt->checkFunction(name);
-      fun = smt->getFunction(name); }
+    { smtInput->checkFunction(name);
+      fun = smtInput->getFunction(name); }
   ;
   
 /**
@@ -274,12 +294,12 @@ functionDeclaration
   std::string name;
   std::vector<const Type*> sorts;
 }
-  : TOK_LPAREN functionName[name,CHECK_UNDECLARED] 
+  : LPAREN_TOK functionName[name,CHECK_UNDECLARED] 
       t = sortSymbol // require at least one sort
     { sorts.push_back(t); }
-      sortList[sorts] TOK_RPAREN
-    { t = smt->functionType(sorts);
-      smt->mkVar(name, t); } 
+      sortList[sorts] RPAREN_TOK
+    { t = smtInput->functionType(sorts);
+      smtInput->mkVar(name, t); } 
   ;
               
 /**
@@ -290,9 +310,9 @@ predicateDeclaration
   std::string name;
   std::vector<const Type*> p_sorts;
 }
-  : TOK_LPAREN predicateName[name,CHECK_UNDECLARED] sortList[p_sorts] TOK_RPAREN
-    { const Type *t = smt->predicateType(p_sorts);
-      smt->mkVar(name, t); } 
+  : LPAREN_TOK predicateName[name,CHECK_UNDECLARED] sortList[p_sorts] RPAREN_TOK
+    { const Type *t = smtInput->predicateType(p_sorts);
+      smtInput->mkVar(name, t); } 
   ;
 
 sortDeclaration 
@@ -300,7 +320,8 @@ sortDeclaration
   std::string name;
 }
   : sortName[name,CHECK_UNDECLARED]
-    { smt->newSort(name); }
+    { Debug("parser") << "sort decl: '" << name << "'" << std::endl;
+      smtInput->newSort(name); }
   ;
   
 /**
@@ -323,16 +344,16 @@ sortSymbol returns [const CVC4::Type* t]
   std::string name;
 }
   : sortName[name,CHECK_NONE] 
-  	{ $t = smt->getSort(name); }
+  	{ $t = smtInput->getSort(name); }
   ;
 
 /**
  * Matches the status of the benchmark, one of 'sat', 'unsat' or 'unknown'.
  */
 status[ CVC4::BenchmarkStatus& status ]
-  : TOK_SAT       { $status = SMT_SATISFIABLE;    }
-  | TOK_UNSAT     { $status = SMT_UNSATISFIABLE;  }
-  | TOK_UNKNOWN   { $status = SMT_UNKNOWN;        }
+  : SAT_TOK       { $status = SMT_SATISFIABLE;    }
+  | UNSAT_TOK     { $status = SMT_UNSATISFIABLE;  }
+  | UNKNOWN_TOK   { $status = SMT_UNKNOWN;        }
   ;
 
 /**
@@ -343,76 +364,103 @@ annotation
   ;
 
 /**
- * Matches an identifier and returns a string.
+ * Matches an identifier and sets the string reference parameter id.
+ * @param id string to hold the identifier
  * @param check what kinds of check to do on the symbol
- * @return the id string
+ * @param type the intended namespace for the identifier
  */
 identifier[std::string& id,
 		   CVC4::parser::DeclarationCheck check, 
            CVC4::parser::SymbolType type] 
-@init {
-  id = tokenText(LT(1));
-  Debug("parser") << "identifier: " << id
-                  << " check? " << toString(check)
-                  << " type? " << toString(type) << std::endl;
-}
   : IDENTIFIER
-    { Assert( id == tokenText( $IDENTIFIER ) );
-      smt->checkDeclaration(id, check,type); }
+    { id = tokenText($IDENTIFIER);
+      Debug("parser") << "identifier: " << id
+                      << " check? " << toString(check)
+                      << " type? " << toString(type) << std::endl;
+      smtInput->checkDeclaration(id, check, type); }
   ;
 
+/**
+ * Matches an variable identifier and sets the string reference parameter id.
+ * @param id string to hold the identifier
+ * @param check what kinds of check to do on the symbol
+ */
+var_identifier[std::string& id,
+    		   CVC4::parser::DeclarationCheck check] 
+  : VAR_IDENTIFIER
+    { id = tokenText($VAR_IDENTIFIER);
+      Debug("parser") << "var_identifier: " << id
+                      << " check? " << toString(check) << std::endl;
+      smtInput->checkDeclaration(id, check, SYM_VARIABLE); }
+  ;
+
+/**
+ * Matches an function identifier and sets the string reference parameter id.
+ * @param id string to hold the identifier
+ * @param check what kinds of check to do on the symbol
+ */
+fun_identifier[std::string& id,
+    		   CVC4::parser::DeclarationCheck check] 
+  : FUN_IDENTIFIER
+    { id = tokenText($FUN_IDENTIFIER);
+      Debug("parser") << "fun_identifier: " << id
+                      << " check? " << toString(check) << std::endl;
+      smtInput->checkDeclaration(id, check, SYM_FUNCTION); }
+  ;
+
+
 // Base SMT-LIB tokens
-TOK_DISTINCT      : 'distinct';
-TOK_ITE           : 'ite';
-TOK_IF_THEN_ELSE  : 'if_then_else';
-TOK_TRUE          : 'true';
-TOK_FALSE         : 'false';
-TOK_NOT           : 'not';
-TOK_IMPLIES       : 'implies';
-TOK_AND           : 'and';
-TOK_OR            : 'or';
-TOK_XOR           : 'xor';
-TOK_IFF           : 'iff';
-TOK_EXISTS        : 'exists';
-TOK_FORALL        : 'forall';
-TOK_LET           : 'let';
-TOK_FLET          : 'flet';
-TOK_THEORY        : 'theory';
-TOK_SAT           : 'sat';
-TOK_UNSAT         : 'unsat';
-TOK_UNKNOWN       : 'unknown';
-TOK_BENCHMARK     : 'benchmark';
+DISTINCT_TOK      : 'distinct';
+ITE_TOK           : 'ite';
+IF_THEN_ELSE_TOK  : 'if_then_else';
+TRUE_TOK          : 'true';
+FALSE_TOK         : 'false';
+NOT_TOK           : 'not';
+IMPLIES_TOK       : 'implies';
+AND_TOK           : 'and';
+OR_TOK            : 'or';
+XOR_TOK           : 'xor';
+IFF_TOK           : 'iff';
+EXISTS_TOK        : 'exists';
+FORALL_TOK        : 'forall';
+LET_TOK           : 'let';
+FLET_TOK          : 'flet';
+THEORY_TOK        : 'theory';
+SAT_TOK           : 'sat';
+UNSAT_TOK         : 'unsat';
+UNKNOWN_TOK       : 'unknown';
+BENCHMARK_TOK     : 'benchmark';
 
 // The SMT attribute tokens
-TOK_LOGIC       : ':logic';
-TOK_ASSUMPTION  : ':assumption';
-TOK_FORMULA     : ':formula';
-TOK_STATUS      : ':status';
-TOK_EXTRASORTS  : ':extrasorts';
-TOK_EXTRAFUNS   : ':extrafuns';
-TOK_EXTRAPREDS  : ':extrapreds';
-TOK_NOTES       : ':notes';
+LOGIC_TOK       : ':logic';
+ASSUMPTION_TOK  : ':assumption';
+FORMULA_TOK     : ':formula';
+STATUS_TOK      : ':status';
+EXTRASORTS_TOK  : ':extrasorts';
+EXTRAFUNS_TOK   : ':extrafuns';
+EXTRAPREDS_TOK  : ':extrapreds';
+NOTES_TOK       : ':notes';
 
 // arithmetic symbols
-TOK_EQUAL         : '=';
-TOK_LESS_THAN     : '<';
-TOK_GREATER_THAN  : '>';
-TOK_AMPERSAND     : '&';
-TOK_AT            : '@';
-TOK_POUND         : '#';
-TOK_PLUS          : '+';
-TOK_MINUS         : '-';
-TOK_STAR          : '*';
-TOK_DIV           : '/';
-TOK_PERCENT       : '%';
-TOK_PIPE          : '|';
-TOK_TILDE         : '~';
+EQUAL_TOK         : '=';
+LESS_THAN_TOK     : '<';
+GREATER_THAN_TOK  : '>';
+AMPERSAND_TOK     : '&';
+AT_TOK            : '@';
+POUND_TOK         : '#';
+PLUS_TOK          : '+';
+MINUS_TOK         : '-';
+STAR_TOK          : '*';
+DIV_TOK           : '/';
+PERCENT_TOK       : '%';
+PIPE_TOK          : '|';
+TILDE_TOK         : '~';
 
 // Language meta-symbols
-TOK_QUESTION      : '?';
-TOK_DOLLAR        : '$';
-TOK_LPAREN        : '(';
-TOK_RPAREN        : ')';
+//QUESTION_TOK      : '?';
+//DOLLAR_TOK        : '$';
+LPAREN_TOK        : '(';
+RPAREN_TOK        : ')';
 
 /**
  * Matches an identifier from the input. An identifier is a sequence of letters,
@@ -423,11 +471,24 @@ IDENTIFIER /*options { paraphrase = 'an identifier'; testLiterals = true; }*/
   ;
 
 /**
- * Matches an identifier starting with a colon. An identifier is a sequence of letters,
- * digits and "_", "'", "." symbols, starting with a colon.
+ * Matches an identifier starting with a colon.
  */
 ATTR_IDENTIFIER /*options { paraphrase = 'an identifier starting with a colon'; testLiterals = true; }*/
-  :  ':' ALPHA (ALPHA | DIGIT | '_' | '\'' | '.')*
+  :  ':' IDENTIFIER
+  ;
+
+/**
+ * Matches an identifier starting with a question mark.
+ */
+VAR_IDENTIFIER
+  : '?' IDENTIFIER
+  ;
+  
+/**
+ * Matches an identifier starting with a dollar sign.
+ */
+FUN_IDENTIFIER
+  : '$' IDENTIFIER
   ;
 
 /**
@@ -451,7 +512,7 @@ WHITESPACE /*options { paraphrase = 'whitespace'; }*/
 /**
  * Matches a numeral from the input (non-empty sequence of digits).
  */
-TOK_NUMERAL /*options { paraphrase = 'a numeral'; }*/
+NUMERAL_TOK /*options { paraphrase = 'a numeral'; }*/
   :  (DIGIT)+
   ;
 

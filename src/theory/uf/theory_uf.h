@@ -30,6 +30,7 @@
 #include "theory/theory.h"
 
 #include "context/context.h"
+#include "context/cdlist.h"
 #include "theory/uf/ecdata.h"
 
 namespace CVC4 {
@@ -193,7 +194,7 @@ struct EquivClass;
 /**
  * ECAttr is the attribute that maps a node to an equivalence class.
  */
-typedef expr::Attribute<EquivClass, ECData* /*, ECCleanupFcn*/> ECAttr;
+typedef expr::Attribute<EquivClass, ECData*, ECCleanupFcn > ECAttr;
 
 } /* CVC4::theory::uf namespace */
 } /* CVC4::theory namespace */

@@ -54,13 +54,26 @@ class TheoryEngine {
    * back to a TheoryEngine.
    */
   class EngineOutputChannel : public theory::OutputChannel {
+
+    friend class TheoryEngine;
+
     TheoryEngine* d_engine;
+    context::Context* d_context;
+    context::CDO<Node> d_conflictNode;
+
   public:
-    void setEngine(TheoryEngine& engine) throw() {
-      d_engine = &engine;
+
+    EngineOutputChannel(TheoryEngine* engine, context::Context* context)
+    : d_engine(engine),
+      d_context(context),
+      d_conflictNode(context)
+    {
     }
 
-    void conflict(TNode, bool) throw(theory::Interrupted) {
+    void conflict(TNode conflictNode, bool) throw(theory::Interrupted) {
+      Debug("theory") << "EngineOutputChannel::conflict(" << conflictNode << ")" << std::endl;
+      d_conflictNode = conflictNode;
+      throw theory::Interrupted();
     }
 
     void propagate(TNode, bool) throw(theory::Interrupted) {
@@ -87,13 +100,13 @@ public:
    */
   TheoryEngine(SmtEngine* smt, context::Context* ctxt) :
     d_smt(smt),
-    d_theoryOut(),
+    d_theoryOut(this, ctxt),
     d_bool(ctxt, d_theoryOut),
     d_uf(ctxt, d_theoryOut),
     d_arith(ctxt, d_theoryOut),
     d_arrays(ctxt, d_theoryOut),
-    d_bv(ctxt, d_theoryOut) {
-    d_theoryOut.setEngine(*this);
+    d_bv(ctxt, d_theoryOut)
+  {
     theoryOfTable.registerTheory(&d_bool);
     theoryOfTable.registerTheory(&d_uf);
     theoryOfTable.registerTheory(&d_arith);
@@ -107,8 +120,41 @@ public:
    * @returns the theory, or NULL if the TNode is
    * of built-in type.
    */
-  theory::Theory* theoryOf(TNode n) {
-    return theoryOfTable[n];
+  theory::Theory* theoryOf(const TNode& node) {
+    if (node.getKind() == kind::EQUAL) return &d_uf;
+    else return NULL;
+  }
+
+  /**
+   * Assert the formula to the apropriate theory.
+   * @param node the assertion
+   */
+  inline void assertFact(const TNode& node) {
+    Debug("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
+    theory::Theory* theory = node.getKind() == kind::NOT ? theoryOf(node[0]) : theoryOf(node);
+    if (theory != NULL) theory->assertFact(node);
+  }
+
+  inline void check(theory::Theory::Effort effort) {
+    try {
+      d_uf.check(effort);
+    } catch (const theory::Interrupted&) {
+      Debug("theory") << "TheoryEngine::check() => conflict" << std::endl;
+    }
+  }
+
+  /**
+   * Returns the last conflict (if any).
+   */
+  inline Node getConflict() {
+    return d_theoryOut.d_conflictNode;
+  }
+
+  /**
+   * Clears the queues of the theories.
+   */
+  void clearAssertionQueues() {
+    d_uf.clearAssertionQueue();
   }
 
 };/* class TheoryEngine */

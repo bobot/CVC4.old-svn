@@ -8,7 +8,7 @@
 #ifndef SMT_PARSER_H_
 #define SMT_PARSER_H_
 
-#include "parser/antlr_parser.h"
+#include "parser/antlr_input.h"
 #include "parser/smt/generated/SmtLexer.h"
 #include "parser/smt/generated/SmtParser.h"
 
@@ -22,11 +22,11 @@ class ExprManager;
 
 namespace parser {
 
-class Smt : public AntlrParser {
+class SmtInput : public AntlrInput {
 public:
-  Smt(ExprManager* exprManager, const std::string& filename, bool useMmap);
-  Smt(ExprManager* exprManager, const std::string& input, const std::string& name);
-  ~Smt();
+  SmtInput(ExprManager* exprManager, const std::string& filename, bool useMmap);
+  SmtInput(ExprManager* exprManager, const std::string& input, const std::string& name);
+  ~SmtInput();
 
 protected:
   Command* doParseCommand() throw(ParserException);

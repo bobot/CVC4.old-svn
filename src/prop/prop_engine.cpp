@@ -12,8 +12,8 @@
  **
  **/
 
+#include "sat.h"
 #include "prop/prop_engine.h"
-#include "prop/cnf_stream.h"
 
 #include "theory/theory_engine.h"
 #include "util/decision_engine.h"
@@ -42,6 +42,7 @@ PropEngine::PropEngine(const Options* opts, DecisionEngine* de,
   Debug("prop") << "Constructing the PropEngine" << endl;
   d_satSolver = new SatSolver(this, d_theoryEngine, d_context, d_options);
   d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver);
+  d_satSolver->setCnfStream(d_cnfStream);
 }
 
 PropEngine::~PropEngine() {
@@ -65,14 +66,14 @@ void PropEngine::assertLemma(TNode node) {
 
 Result PropEngine::checkSat() {
   Assert(!d_inCheckSat, "Sat solver in solve()!");
-  Debug("prop") << "solve()" << endl;
+  Debug("prop") << "PropEngine::checkSat()" << endl;
   // Mark that we are in the checkSat
   d_inCheckSat = true;
   // Check the problem
   bool result = d_satSolver->solve();
   // Not in checkSat any more
   d_inCheckSat = false;
-  Debug("prop") << "solve() => " << (result ? "true" : "false") << endl;
+  Debug("prop") << "PropEngine::checkSat() => " << (result ? "true" : "false") << endl;
   return Result(result ? Result::SAT : Result::UNSAT);
 }
 

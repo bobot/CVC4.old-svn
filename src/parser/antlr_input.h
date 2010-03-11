@@ -25,7 +25,7 @@
 
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
-#include "parser/parser.h"
+#include "parser/input.h"
 #include "parser/symbol_table.h"
 #include "util/Assert.h"
 
@@ -40,13 +40,13 @@ namespace parser {
 /**
  * Wrapper for an ANTLR parser that includes convenience methods to set up input and token streams.
  */
-class AntlrParser : public Parser {
+class AntlrInput : public Input {
 
 public:
-  AntlrParser(ExprManager* exprManager, const std::string& filename, unsigned int lookahead, bool useMmap);
+  AntlrInput(ExprManager* exprManager, const std::string& filename, unsigned int lookahead, bool useMmap);
   // AntlrParser(ExprManager* em, std::istream& input, const std::string& name, unsigned int lookahead);
-  AntlrParser(ExprManager* exprManager, const std::string& input, const std::string& name, unsigned int lookahead);
-  ~AntlrParser();
+  AntlrInput(ExprManager* exprManager, const std::string& input, const std::string& name, unsigned int lookahead);
+  ~AntlrInput();
 
 protected:
 

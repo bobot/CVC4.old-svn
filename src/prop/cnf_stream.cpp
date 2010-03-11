@@ -14,6 +14,7 @@
  ** of given an equisatisfiable stream of assertions to PropEngine.
  **/
 
+#include "sat.h"
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
 #include "expr/node.h"
@@ -71,13 +72,36 @@ SatLiteral CnfStream::lookupInCache(const TNode& n) const {
 
 void CnfStream::cacheTranslation(const TNode& node, SatLiteral lit) {
   Debug("cnf") << "caching translation " << node << " to " << lit << endl;
+  // We always cash bot the node and the negation at the same time
   d_translationCache[node] = lit;
+  d_translationCache[node.notNode()] = ~lit;
 }
 
-SatLiteral CnfStream::newLiteral(const TNode& node) {
-  SatLiteral lit = SatLiteral(d_satSolver->newVar());
+SatLiteral CnfStream::newLiteral(const TNode& node, bool theoryLiteral) {
+  SatLiteral lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
   cacheTranslation(node, lit);
+  if (theoryLiteral) {
+    d_nodeCache[lit] = node;
+    d_nodeCache[~lit] = node.notNode();
+  }
   return lit;
+}
+
+Node CnfStream::getNode(const SatLiteral& literal) {
+  Node node;
+  NodeCache::iterator find = d_nodeCache.find(literal);
+  if(find != d_nodeCache.end()) {
+    node = find->second;
+  }
+  return node;
+}
+
+SatLiteral CnfStream::getLiteral(const TNode& node) {
+  TranslationCache::iterator find = d_translationCache.find(node);
+  Assert(find != d_translationCache.end(), "Literal not in the CNF Cache");
+  SatLiteral literal = find->second;
+  Debug("cnf") << "CnfStream::getLiteral(" << node << ") => " << literal << std::endl;
+  return literal;
 }
 
 SatLiteral TseitinCnfStream::handleAtom(const TNode& node) {
@@ -85,8 +109,9 @@ SatLiteral TseitinCnfStream::handleAtom(const TNode& node) {
   Assert(!isCached(node), "atom already mapped!");
 
   Debug("cnf") << "handleAtom(" << node << ")" << endl;
-
-  SatLiteral lit = newLiteral(node);
+ 
+   bool theoryLiteral = node.getKind() != kind::VARIABLE;
+   SatLiteral lit = newLiteral(node, theoryLiteral);
 
   switch(node.getKind()) {
   case TRUE:
@@ -320,21 +345,21 @@ SatLiteral TseitinCnfStream::toCNF(const TNode& node) {
 void TseitinCnfStream::convertAndAssert(const TNode& node) {
   Debug("cnf") << "convertAndAssert(" << node << ")" << endl;
   // If the node is a conjuntion, we handle each conjunct separatelu
-  if (node.getKind() == AND) {
+  if(node.getKind() == AND) {
     TNode::const_iterator conjunct = node.begin();
     TNode::const_iterator node_end = node.end();
-    while (conjunct != node_end) {
+    while(conjunct != node_end) {
       convertAndAssert(*conjunct);
       ++ conjunct;
     }
     return;
   }
   // If the node is a disjunction, we construct a clause and assert it
-  if (node.getKind() == OR) {
+  if(node.getKind() == OR) {
     int nChildren = node.getNumChildren();
     SatClause clause(nChildren);
     TNode::const_iterator disjunct = node.begin();
-    for (int i = 0; i < nChildren; ++ disjunct, ++ i) {
+    for(int i = 0; i < nChildren; ++ disjunct, ++ i) {
       clause[i] = toCNF(*disjunct);
     }
     assertClause(clause);

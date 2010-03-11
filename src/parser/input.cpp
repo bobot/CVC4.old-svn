@@ -15,16 +15,17 @@
 
 #include <iostream>
 #include <fstream>
+#include <stdint.h>
 
-#include "parser.h"
+#include "input.h"
 #include "expr/command.h"
 #include "expr/expr.h"
 #include "expr/kind.h"
 #include "expr/type.h"
 #include "util/output.h"
 #include "util/Assert.h"
-#include "parser_exception.h"
-#include "parser/smt/smt_parser.h"
+#include "parser/parser_exception.h"
+#include "parser/smt/smt_input.h"
 
 using namespace std;
 using namespace CVC4::kind;
@@ -32,15 +33,15 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace parser {
 
-void Parser::setDone(bool done) {
+void Input::setDone(bool done) {
   d_done = done;
 }
 
-bool Parser::done() const {
+bool Input::done() const {
   return d_done;
 }
 
-Command* Parser::parseNextCommand() throw (ParserException) {
+Command* Input::parseNextCommand() throw (ParserException) {
   Debug("parser") << "parseNextCommand()" << std::endl;
   Command* cmd = NULL;
   if(!done()) {
@@ -58,7 +59,7 @@ Command* Parser::parseNextCommand() throw (ParserException) {
   return cmd;
 }
 
-Expr Parser::parseNextExpression() throw (ParserException) {
+Expr Input::parseNextExpression() throw (ParserException) {
   Debug("parser") << "parseNextExpression()" << std::endl;
   Expr result;
   if(!done()) {
@@ -75,20 +76,20 @@ Expr Parser::parseNextExpression() throw (ParserException) {
   return result;
 }
 
-Parser::~Parser() {
+Input::~Input() {
 }
 
-Parser::Parser(ExprManager* exprManager, const std::string& filename) :
+Input::Input(ExprManager* exprManager, const std::string& filename) :
   d_exprManager(exprManager),
   d_filename(filename),
   d_done(false),
   d_checksEnabled(true) {
 }
 
-Parser* Parser::newFileParser(ExprManager* em, InputLanguage lang,
+Input* Input::newFileParser(ExprManager* em, InputLanguage lang,
                               const std::string& filename, bool useMmap) {
 
-  Parser* parser = 0;
+  Input* parser = 0;
 
   switch(lang) {
 /*  case LANG_CVC4: {
@@ -97,7 +98,7 @@ Parser* Parser::newFileParser(ExprManager* em, InputLanguage lang,
     break;
   }*/
   case LANG_SMTLIB:
-    parser = new Smt(em,filename,useMmap);
+    parser = new SmtInput(em,filename,useMmap);
     break;
 
   default:
@@ -137,9 +138,9 @@ Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
 }
 */
 
-Parser* Parser::newStringParser(ExprManager* em, InputLanguage lang,
+Input* Input::newStringParser(ExprManager* em, InputLanguage lang,
                              const std::string& input, const std::string& name) {
-  Parser* parser = 0;
+  Input* parser = 0;
 
   switch(lang) {
 /*  case LANG_CVC4: {
@@ -148,7 +149,7 @@ Parser* Parser::newStringParser(ExprManager* em, InputLanguage lang,
     break;
   }*/
   case LANG_SMTLIB:
-    parser = new Smt(em,input,name);
+    parser = new SmtInput(em,input,name);
     break;
 
   default:
@@ -157,7 +158,7 @@ Parser* Parser::newStringParser(ExprManager* em, InputLanguage lang,
   return parser;
 }
 
-Expr Parser::getSymbol(const std::string& name, SymbolType type) {
+Expr Input::getSymbol(const std::string& name, SymbolType type) {
   Assert( isDeclared(name, type) );
 
 
@@ -172,91 +173,113 @@ Expr Parser::getSymbol(const std::string& name, SymbolType type) {
   }
 }
 
-Expr Parser::getVariable(const std::string& name) {
+
+Expr Input::getVariable(const std::string& name) {
   return getSymbol(name, SYM_VARIABLE);
 }
 
-Expr Parser::getFunction(const std::string& name) {
+Expr Input::getFunction(const std::string& name) {
   return getSymbol(name, SYM_FUNCTION);
 }
 
 const Type*
-Parser::getType(const std::string& var_name,
+Input::getType(const std::string& var_name,
                      SymbolType type) {
   Assert( isDeclared(var_name, type) );
   const Type* t = getSymbol(var_name,type).getType();
   return t;
 }
 
-const Type* Parser::getSort(const std::string& name) {
+const Type* Input::getSort(const std::string& name) {
   Assert( isDeclared(name, SYM_SORT) );
   const Type* t = d_sortTable.getObject(name);
   return t;
 }
 
 /* Returns true if name is bound to a boolean variable. */
-bool Parser::isBoolean(const std::string& name) {
+bool Input::isBoolean(const std::string& name) {
   return isDeclared(name, SYM_VARIABLE) && getType(name)->isBoolean();
 }
 
 /* Returns true if name is bound to a function. */
-bool Parser::isFunction(const std::string& name) {
+bool Input::isFunction(const std::string& name) {
   return isDeclared(name, SYM_FUNCTION) && getType(name)->isFunction();
 }
 
 /* Returns true if name is bound to a function returning boolean. */
-bool Parser::isPredicate(const std::string& name) {
+bool Input::isPredicate(const std::string& name) {
   return isDeclared(name, SYM_FUNCTION) && getType(name)->isPredicate();
 }
 
-Expr Parser::getTrueExpr() const {
+Expr Input::getTrueExpr() const {
   return d_exprManager->mkExpr(TRUE);
 }
 
-Expr Parser::getFalseExpr() const {
+Expr Input::getFalseExpr() const {
   return d_exprManager->mkExpr(FALSE);
 }
 
-Expr Parser::mkExpr(Kind kind, const Expr& child) {
+Expr Input::mkExpr(Kind kind, const Expr& child) {
   Expr result = d_exprManager->mkExpr(kind, child);
   Debug("parser") << "mkExpr() => " << result << std::endl;
   return result;
 }
 
-Expr Parser::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2) {
+Expr Input::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2) {
   Expr result = d_exprManager->mkExpr(kind, child_1, child_2);
   Debug("parser") << "mkExpr() => " << result << std::endl;
   return result;
 }
 
-Expr Parser::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2,
+Expr Input::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2,
                          const Expr& child_3) {
   Expr result = d_exprManager->mkExpr(kind, child_1, child_2, child_3);
   Debug("parser") << "mkExpr() => " << result << std::endl;
   return result;
 }
 
-Expr Parser::mkExpr(Kind kind, const std::vector<Expr>& children) {
+Expr Input::mkExpr(Kind kind, const std::vector<Expr>& children) {
   Expr result = d_exprManager->mkExpr(kind, children);
   Debug("parser") << "mkExpr() => " << result << std::endl;
   return result;
 }
 
+
+/* TODO: This could be pushed into NodeManager. */
+Expr Input::mkDistinct(const std::vector<Expr>& args) {
+  if( args.size() == 1 ) {
+    return getTrueExpr();
+  }
+
+  if( args.size() == 2 ) {
+    return mkExpr(NOT, mkExpr(EQUAL,args[0],args[1]));
+  }
+
+  /* Explode into pairwise disequalities. */
+  std::vector<Expr> diseqs;
+  for(unsigned i = 0; i < args.size(); ++i) {
+    for(unsigned j = i+1; j < args.size(); ++j) {
+      diseqs.push_back(mkExpr(NOT, mkExpr(EQUAL,args[i],args[j])));
+    }
+  }
+  return mkExpr(AND, diseqs);
+}
+
 const Type*
-Parser::functionType(const Type* domainType,
+Input::functionType(const Type* domainType,
                           const Type* rangeType) {
   return d_exprManager->mkFunctionType(domainType,rangeType);
 }
 
 const Type*
-Parser::functionType(const std::vector<const Type*>& argTypes,
+Input::functionType(const std::vector<const Type*>& argTypes,
                           const Type* rangeType) {
   Assert( argTypes.size() > 0 );
   return d_exprManager->mkFunctionType(argTypes,rangeType);
 }
 
 const Type*
-Parser::functionType(const std::vector<const Type*>& sorts) {
+Input::functionType(const std::vector<const Type*>& sorts) {
   Assert( sorts.size() > 0 );
   if( sorts.size() == 1 ) {
     return sorts[0];
@@ -268,7 +291,7 @@ Parser::functionType(const std::vector<const Type*>& sorts) {
   }
 }
 
-const Type* Parser::predicateType(const std::vector<const Type*>& sorts) {
+const Type* Input::predicateType(const std::vector<const Type*>& sorts) {
   if(sorts.size() == 0) {
     return d_exprManager->booleanType();
   } else {
@@ -276,18 +299,16 @@ const Type* Parser::predicateType(const std::vector<const Type*>& sorts) {
   }
 }
 
-Expr
-Parser::mkVar(const std::string& name, const Type* type) {
+Expr 
+Input::mkVar(const std::string& name, const Type* type) {
   Debug("parser") << "mkVar(" << name << "," << *type << ")" << std::endl;
-  Assert( !isDeclared(name) ) ;
   Expr expr = d_exprManager->mkVar(type, name);
-  d_varSymbolTable.bindName(name, expr);
-  Assert( isDeclared(name) ) ;
+  defineVar(name,expr);
   return expr;
 }
 
 const std::vector<Expr>
-Parser::mkVars(const std::vector<std::string> names,
+Input::mkVars(const std::vector<std::string> names,
                     const Type* type) {
   std::vector<Expr> vars;
   for(unsigned i = 0; i < names.size(); ++i) {
@@ -296,9 +317,31 @@ Parser::mkVars(const std::vector<std::string> names,
   return vars;
 }
 
+void
+Input::defineVar(const std::string& name, const Expr& val) {
+  Assert(!isDeclared(name));
+  d_varSymbolTable.bindName(name,val);
+  Assert(isDeclared(name));
+}
+
+void
+Input::undefineVar(const std::string& name) {
+  Assert(isDeclared(name));
+  d_varSymbolTable.unbindName(name);
+  Assert(!isDeclared(name));
+}
+
+void
+Input::setLogic(const std::string& name) {
+  if( name == "QF_UF" ) {
+    newSort("U");
+  } else {
+    Unhandled("setLogic: " + name);
+  }
+}
 
 const Type*
-Parser::newSort(const std::string& name) {
+Input::newSort(const std::string& name) {
   Debug("parser") << "newSort(" << name << ")" << std::endl;
   Assert( !isDeclared(name, SYM_SORT) ) ;
   const Type* type = d_exprManager->mkSort(name);
@@ -308,7 +351,7 @@ Parser::newSort(const std::string& name) {
 }
 
 const std::vector<const Type*>
-Parser::newSorts(const std::vector<std::string>& names) {
+Input::newSorts(const std::vector<std::string>& names) {
   std::vector<const Type*> types;
   for(unsigned i = 0; i < names.size(); ++i) {
     types.push_back(newSort(names[i]));
@@ -316,15 +359,15 @@ Parser::newSorts(const std::vector<std::string>& names) {
   return types;
 }
 
-const BooleanType* Parser::booleanType() {
+const BooleanType* Input::booleanType() {
   return d_exprManager->booleanType();
 }
 
-const KindType* Parser::kindType() {
+const KindType* Input::kindType() {
   return d_exprManager->kindType();
 }
 
-unsigned int Parser::minArity(Kind kind) {
+unsigned int Input::minArity(Kind kind) {
   switch(kind) {
   case FALSE:
   case SKOLEM:
@@ -353,7 +396,7 @@ unsigned int Parser::minArity(Kind kind) {
   }
 }
 
-unsigned int Parser::maxArity(Kind kind) {
+unsigned int Input::maxArity(Kind kind) {
   switch(kind) {
   case FALSE:
   case SKOLEM:
@@ -384,7 +427,7 @@ unsigned int Parser::maxArity(Kind kind) {
   }
 }
 
-bool Parser::isDeclared(const std::string& name, SymbolType type) {
+bool Input::isDeclared(const std::string& name, SymbolType type) {
   switch(type) {
   case SYM_VARIABLE: // Functions share var namespace
   case SYM_FUNCTION:
@@ -396,7 +439,7 @@ bool Parser::isDeclared(const std::string& name, SymbolType type) {
   }
 }
 
-void Parser::checkDeclaration(const std::string& varName,
+void Input::checkDeclaration(const std::string& varName,
                                    DeclarationCheck check,
                                    SymbolType type)
     throw (ParserException) {
@@ -425,14 +468,14 @@ void Parser::checkDeclaration(const std::string& varName,
   }
 }
 
-void Parser::checkFunction(const std::string& name)
+void Input::checkFunction(const std::string& name)
   throw (ParserException) {
   if( d_checksEnabled && !isFunction(name) ) {
     parseError("Expecting function symbol, found '" + name + "'");
   }
 }
 
-void Parser::checkArity(Kind kind, unsigned int numArgs)
+void Input::checkArity(Kind kind, unsigned int numArgs)
   throw (ParserException) {
   if(!d_checksEnabled) {
     return;
@@ -455,11 +498,11 @@ void Parser::checkArity(Kind kind, unsigned int numArgs)
   }
 }
 
-void Parser::enableChecks() {
+void Input::enableChecks() {
   d_checksEnabled = true;
 }
 
-void Parser::disableChecks() {
+void Input::disableChecks() {
   d_checksEnabled = false;
 }
 

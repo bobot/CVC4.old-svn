@@ -28,7 +28,7 @@
 #include "util/Assert.h"
 #include "expr/command.h"
 #include "expr/type.h"
-#include "parser/antlr_parser.h"
+#include "parser/antlr_input.h"
 #include "parser/bounded_token_factory.h"
 #include "parser/memory_mapped_input_buffer.h"
 #include "parser/parser_exception.h"
@@ -42,8 +42,8 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace parser {
 
-AntlrParser::AntlrParser(ExprManager* exprManager, const std::string& filename, unsigned int lookahead, bool useMmap) :
-    Parser(exprManager, filename),
+AntlrInput::AntlrInput(ExprManager* exprManager, const std::string& filename, unsigned int lookahead, bool useMmap) :
+    Input(exprManager, filename),
     d_lookahead(lookahead),
     d_lexer(NULL),
     d_parser(NULL),
@@ -67,8 +67,8 @@ AntlrParser::AntlrParser(ExprManager* exprManager, std::istream& input, const st
 }
 */
 
-AntlrParser::AntlrParser(ExprManager* exprManager, const std::string& input, const std::string& name, unsigned int lookahead) :
-  Parser(exprManager,name),
+AntlrInput::AntlrInput(ExprManager* exprManager, const std::string& input, const std::string& name, unsigned int lookahead) :
+  Input(exprManager,name),
   d_lookahead(lookahead),
   d_lexer(NULL),
   d_parser(NULL),
@@ -84,20 +84,20 @@ AntlrParser::AntlrParser(ExprManager* exprManager, const std::string& input, con
   }
 }
 
-AntlrParser::~AntlrParser() {
+AntlrInput::~AntlrInput() {
   d_tokenStream->free(d_tokenStream);
   d_input->close(d_input);
 }
 
-pANTLR3_INPUT_STREAM AntlrParser::getInputStream() {
+pANTLR3_INPUT_STREAM AntlrInput::getInputStream() {
   return d_input;
 }
 
-pANTLR3_COMMON_TOKEN_STREAM AntlrParser::getTokenStream() {
+pANTLR3_COMMON_TOKEN_STREAM AntlrInput::getTokenStream() {
   return d_tokenStream;
 }
 
-void AntlrParser::setLexer(pANTLR3_LEXER pLexer) {
+void AntlrInput::setLexer(pANTLR3_LEXER pLexer) {
   d_lexer = pLexer;
 
   pANTLR3_TOKEN_FACTORY pTokenFactory = d_lexer->rec->state->tokFactory;
@@ -120,11 +120,11 @@ void AntlrParser::setLexer(pANTLR3_LEXER pLexer) {
   d_tokenStream = buffer->commonTstream;
 }
 
-void AntlrParser::setParser(pANTLR3_PARSER pParser) {
+void AntlrInput::setParser(pANTLR3_PARSER pParser) {
   d_parser = pParser;
 }
 
-void AntlrParser::parseError(const std::string& message)
+void AntlrInput::parseError(const std::string& message)
     throw (ParserException) {
   throw ParserException(message, getFilename(), d_lexer->getLine(d_lexer),
                           d_lexer->getCharPositionInLine(d_lexer));
