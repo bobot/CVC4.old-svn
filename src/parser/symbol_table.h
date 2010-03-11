@@ -37,7 +37,7 @@ struct StringHashFcn {
 /**
  * Generic symbol table for looking up variables by name.
  */
-template<typename ObjectType>
+template <class ObjectType>
 class SymbolTable {
 
 private:
@@ -87,7 +87,7 @@ public:
   ObjectType getObject(const std::string& name) throw () {
     table_iterator find = d_nameBindings.find(name);
     Assert(find != d_nameBindings.end());
-    return find->second /*.top()*/ ;
+    return find->second; /*.top()*/
   }
 
   /**

@@ -25,7 +25,7 @@
 namespace CVC4 {
 namespace parser {
 
-class CVC4_PUBLIC ParserException: public Exception {
+class CVC4_PUBLIC ParserException : public Exception {
 public:
   // Constructors
   ParserException() { }
@@ -40,7 +40,7 @@ public:
   }
 
   // Destructor
-  virtual ~ParserException() { }
+  virtual ~ParserException() throw() {}
   virtual std::string toString() const {
     if( d_line > 0 ) {
       std::stringstream ss;
