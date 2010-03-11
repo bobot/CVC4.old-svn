@@ -133,6 +133,16 @@ public:
   NodeTemplate(const NodeTemplate& node);
 
   /**
+   * Initialize from an integer. Fails if the integer is not 0.
+   * NOTE: This is here purely to support the auto-initialization
+   * behavior of the ANTLR3 C backend. Should be removed if future
+   * versions of ANTLR fix the problem.
+   */
+  NodeTemplate(uintptr_t n) : d_nv(&expr::NodeValue::s_null) {
+    AlwaysAssert( n == 0 );
+  }
+
+  /**
    * Assignment operator for nodes, copies the relevant information from node
    * to this node.
    * @param node the node to copy
@@ -147,6 +157,16 @@ public:
    * @return reference to this node
    */
   NodeTemplate& operator=(const NodeTemplate<!ref_count>& node);
+
+  /**
+   * Assignment from an integer. Fails if the integer is not 0.
+   * NOTE: This is here purely to support the auto-initialization
+   * behavior of the ANTLR3 C backend (i.e., a rule attribute
+   * <code>Expr e</code> gets initialized with <code>e = NULL;</code>.
+   * Should be removed if future versions of ANTLR fix the problem.
+   */
+  NodeTemplate& operator=(uintptr_t n);
+
 
   /**
    * Destructor. If ref_count is true it will decrement the reference count
@@ -532,6 +552,7 @@ NodeTemplate<ref_count>::~NodeTemplate() throw() {
              "Temporary node pointing to an expired node");
 }
 
+
 template<bool ref_count>
 void NodeTemplate<ref_count>::assignNodeValue(expr::NodeValue* ev) {
   d_nv = ev;
@@ -571,6 +592,14 @@ operator=(const NodeTemplate<!ref_count>& e) {
       d_nv->inc();
     }
   }
+  return *this;
+}
+
+template<bool ref_count>
+NodeTemplate<ref_count>& NodeTemplate<ref_count>::
+operator=(uintptr_t n)  {
+  AlwaysAssert(n==0);
+  Assert(isNull());
   return *this;
 }
 

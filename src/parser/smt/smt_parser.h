@@ -8,6 +8,7 @@
 #ifndef SMT_PARSER_H_
 #define SMT_PARSER_H_
 
+#include "expr/node.h"
 #include "parser/antlr_parser.h"
 #include "parser/smt/generated/SmtLexer.h"
 #include "parser/smt/generated/SmtParser.h"
@@ -18,7 +19,7 @@ namespace CVC4 {
 
 class Command;
 class Expr;
-class ExprManager;
+class NodeManager;
 
 namespace parser {
 
@@ -30,7 +31,7 @@ public:
 
 protected:
   Command* doParseCommand() throw(ParserException);
-  Expr doParseExpr() throw(ParserException);
+  Node doParseExpr() throw(ParserException);
   pANTLR3_LEXER getLexer();
   pANTLR3_LEXER createLexer(pANTLR3_INPUT_STREAM input);
   pANTLR3_PARSER createParser(pANTLR3_COMMON_TOKEN_STREAM tokenStream);

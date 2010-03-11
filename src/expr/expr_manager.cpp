@@ -34,6 +34,13 @@ ExprManager::ExprManager() :
   d_nodeManager(new NodeManager()) {
 }
 
+/*
+ExprManager::ExprManager(NodeManager* nm) :
+  d_nodeManager(nm) {
+}
+*/
+
+
 ExprManager::~ExprManager() {
   delete d_nodeManager;
 }

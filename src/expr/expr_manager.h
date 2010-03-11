@@ -30,6 +30,10 @@ class KindType;
 class SmtEngine;
 class NodeManager;
 
+namespace parser {
+  class Parser;
+}
+
 class CVC4_PUBLIC ExprManager {
 
 public:
@@ -116,6 +120,8 @@ private:
    * users, i.e. the friend classes.
    */
   NodeManager* getNodeManager() const;
+
+  friend class CVC4::parser::Parser;
 
   /** SmtEngine will use all the internals, so it will grab the node manager */
   friend class SmtEngine;

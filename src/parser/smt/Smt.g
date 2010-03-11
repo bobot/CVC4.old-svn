@@ -36,7 +36,8 @@ options {
 /* This improves performance by ~10 percent on big inputs.
  * This option is only valid if we know the input is ASCII (or some 8-bit encoding).
  * If we know the input is UTF-16, we can use ANTLR3_INLINE_INPUT_UTF16.
- * Otherwise, we have to let the lexer detect the encoding at runtime.
+ * Otherwise, we have to let the lexer detect the encoding at runtime and
+ * take the performance hit.
  */
 #define ANTLR3_INLINE_INPUT_ASCII
 }
@@ -72,7 +73,7 @@ using namespace CVC4::parser;
 
 @members {
 CVC4::parser::Smt *smt;
-CVC4::Expr currentExpr;
+CVC4::Node currentNode;
   
 extern
 void SetSmt(CVC4::parser::Smt* newSmt) {
@@ -93,9 +94,9 @@ std::string tokenText(pANTLR3_COMMON_TOKEN token) {
 
 /**
  * Parses an expression.
- * @return the parsed expression
+ * @return the parsed CVC4::Nodeession
  */
-parseExpr returns [CVC4::Expr expr]
+parseExpr returns [CVC4::Node expr]
   : annotatedFormula[expr]
   | EOF
   ;
@@ -142,10 +143,10 @@ benchAttribute returns [CVC4::Command* smt_command]
 }
   : TOK_LOGIC identifier[name,CHECK_NONE,SYM_VARIABLE]
     { smt_command = new SetBenchmarkLogicCommand(name);   }
-  | TOK_ASSUMPTION annotatedFormula[currentExpr]
-    { smt_command = new AssertCommand(currentExpr);   }
-  | TOK_FORMULA annotatedFormula[currentExpr]
-    { smt_command = new CheckSatCommand(currentExpr); }
+  | TOK_ASSUMPTION annotatedFormula[currentNode]
+    { smt_command = new AssertCommand(smt->toExpr(currentNode));   }
+  | TOK_FORMULA annotatedFormula[currentNode]
+    { smt_command = new CheckSatCommand(smt->toExpr(currentNode)); }
   | TOK_STATUS status[b_status]                   
     { smt_command = new SetBenchmarkStatusCommand(b_status); }        
   | TOK_EXTRAFUNS TOK_LPAREN (functionDeclaration)+ TOK_RPAREN  
@@ -159,17 +160,17 @@ benchAttribute returns [CVC4::Command* smt_command]
  * Matches an annotated formula.
  * @return the expression representing the formula
  */
-annotatedFormula[CVC4::Expr& formula]
+annotatedFormula[CVC4::Node& formula]
 @init {
   Debug("parser") << "annotated formula: " << tokenText(LT(1)) << std::endl;
   Kind kind;
   std::string name;
-  std::vector<Expr> args; /* = getExprVector(); */
+  std::vector<Node> args; /* = getExprVector(); */
 } 
   : /* a built-in operator application */
     TOK_LPAREN builtinOp[kind] annotatedFormulas[args] TOK_RPAREN 
     { smt->checkArity(kind, args.size());
-      formula = smt->mkExpr(kind,args); }
+      formula = smt->mkNode(kind,args); }
 
   | /* A non-built-in function application */
 
@@ -178,30 +179,30 @@ annotatedFormula[CVC4::Expr& formula]
     // { isFunction(LT(2)->getText()) }? 
 
     TOK_LPAREN 
-    functionSymbol[currentExpr]
-    { args.push_back(currentExpr); }
+    functionSymbol[currentNode]
+    { args.push_back(currentNode); }
     annotatedFormulas[args] TOK_RPAREN
     // TODO: check arity
-    { formula = smt->mkExpr(CVC4::kind::APPLY,args); }
+    { formula = smt->mkNode(CVC4::kind::APPLY,args); }
 
   | /* An ite expression */
     TOK_LPAREN (TOK_ITE | TOK_IF_THEN_ELSE) 
-    annotatedFormula[currentExpr]
-    { args.push_back(currentExpr); } 
-    annotatedFormula[currentExpr]
-    { args.push_back(currentExpr); } 
-    annotatedFormula[currentExpr]
-    { args.push_back(currentExpr); } 
+    annotatedFormula[currentNode]
+    { args.push_back(currentNode); } 
+    annotatedFormula[currentNode]
+    { args.push_back(currentNode); } 
+    annotatedFormula[currentNode]
+    { args.push_back(currentNode); } 
     TOK_RPAREN
-    { formula = smt->mkExpr(CVC4::kind::ITE, args); }
+    { formula = smt->mkNode(CVC4::kind::ITE, args); }
 
   | /* a variable */
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]
     { formula = smt->getVariable(name); }
 
     /* constants */
-  | TOK_TRUE          { formula = smt->getTrueExpr(); }
-  | TOK_FALSE         { formula = smt->getFalseExpr(); }
+  | TOK_TRUE          { formula = smt->getTrueNode(); }
+  | TOK_FALSE         { formula = smt->getFalseNode(); }
     /* TODO: let, flet, quantifiers, arithmetic constants */
   ;
 
@@ -210,8 +211,8 @@ annotatedFormula[CVC4::Expr& formula]
  * vector.
  * @param formulas the vector to fill with formulas
  */   
-annotatedFormulas[std::vector<CVC4::Expr>& formulas]
-  : ( annotatedFormula[currentExpr] { formulas.push_back(currentExpr); } )+
+annotatedFormulas[std::vector<CVC4::Node>& formulas]
+  : ( annotatedFormula[currentNode] { formulas.push_back(currentNode); } )+
   ;
 
 /**
@@ -251,7 +252,7 @@ functionName[std::string& name, CVC4::parser::DeclarationCheck check]
 /**
  * Matches an previously declared function symbol (returning an Expr)
  */
-functionSymbol[CVC4::Expr& fun]
+functionSymbol[CVC4::Node& fun]
 @declarations {
 	std::string name;
 }

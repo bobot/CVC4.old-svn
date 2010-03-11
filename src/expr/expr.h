@@ -31,6 +31,10 @@ namespace CVC4 {
 template <bool count_ref>
 class NodeTemplate;
 
+namespace parser {
+  class Parser;
+}
+
 /**
  * Class encapsulating CVC4 expressions and methods for constructing new
  * expressions.
@@ -196,6 +200,7 @@ protected:
   // Friend to access the actual internal node information and private methods
   friend class SmtEngine;
   friend class ExprManager;
+  friend class CVC4::parser::Parser;
 };
 
 /**

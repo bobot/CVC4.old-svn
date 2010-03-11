@@ -60,7 +60,7 @@ Command* Smt::doParseCommand() throw (ParserException) {
   return d_pSmtParser->parseCommand(d_pSmtParser);
 }
 
-Expr Smt::doParseExpr() throw (ParserException) {
+Node Smt::doParseExpr() throw (ParserException) {
   return d_pSmtParser->parseExpr(d_pSmtParser);
 }
 

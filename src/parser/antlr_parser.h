@@ -44,7 +44,7 @@ class AntlrParser : public Parser {
 
 public:
   AntlrParser(ExprManager* exprManager, const std::string& filename, unsigned int lookahead, bool useMmap);
-  // AntlrParser(ExprManager* em, std::istream& input, const std::string& name, unsigned int lookahead);
+  // AntlrParser(NodeManager* em, std::istream& input, const std::string& name, unsigned int lookahead);
   AntlrParser(ExprManager* exprManager, const std::string& input, const std::string& name, unsigned int lookahead);
   ~AntlrParser();
 

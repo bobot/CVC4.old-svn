@@ -20,7 +20,7 @@
 #include <iostream>
 
 #include "cvc4_config.h"
-#include "expr/expr.h"
+#include "expr/node.h"
 #include "expr/kind.h"
 #include "parser/parser_exception.h"
 #include "parser/parser_options.h"
@@ -31,8 +31,9 @@ namespace CVC4 {
 
 // Forward declarations
 class BooleanType;
-class ExprManager;
+class NodeManager;
 class Command;
+class Expr;
 class FunctionType;
 class KindType;
 class Type;
@@ -87,7 +88,7 @@ inline std::string toString(SymbolType type) {
  * The parser. The parser should be obtained by calling the static methods
  * getNewParser, and should be deleted when done.
  *
- * This class includes convenience methods for interacting with the ExprManager
+ * This class includes convenience methods for interacting with the NodeManager
  * from within a grammar.
  */
 class CVC4_PUBLIC Parser {
@@ -95,7 +96,7 @@ class CVC4_PUBLIC Parser {
 public:
   /** Create a parser for the given file.
     *
-    * @param exprManager the ExprManager for creating expressions from the input
+    * @param nodeManager the NodeManager for creating expressions from the input
     * @param lang the input language
     * @param filename the input filename
     */
@@ -103,16 +104,16 @@ public:
 
   /** Create a parser for the given input stream.
    *
-   * @param exprManager the ExprManager for creating expressions from the input
+   * @param nodeManager the NodeManager for creating expressions from the input
    * @param lang the input language
    * @param input the input stream
    * @param name the name of the stream, for use in error messages
    */
-  //static Parser* getNewParser(ExprManager* exprManager, InputLanguage lang, std::istream& input, const std::string& name);
+  //static Parser* getNewParser(NodeManager* nodeManager, InputLanguage lang, std::istream& input, const std::string& name);
 
   /** Create a parser for the given input string
    *
-   * @param exprManager the ExprManager for creating expressions from the input
+   * @param nodeManager the NodeManager for creating nodeessions from the input
    * @param lang the input language
    * @param input the input string
    * @param name the name of the stream, for use in error messages
@@ -131,9 +132,9 @@ public:
   Command* parseNextCommand() throw(ParserException);
 
   /**
-   * Parse the next expression of the stream. If EOF is encountered a null
-   * expression is returned and done flag is set.
-   * @return the parsed expression
+   * Parse the next nodeession of the stream. If EOF is encountered a null
+   * nodeession is returned and done flag is set.
+   * @return the parsed nodeession
    */
   Expr parseNextExpression() throw(ParserException);
 
@@ -158,16 +159,16 @@ public:
   /**
      * Returns a variable, given a name and a type.
      * @param var_name the name of the variable
-     * @return the variable expression
+     * @return the variable nodeession
      */
-    Expr getVariable(const std::string& var_name);
+    Node getVariable(const std::string& var_name);
 
     /**
      * Returns a function, given a name and a type.
      * @param name the name of the function
-     * @return the function expression
+     * @return the function nodeession
      */
-    Expr getFunction(const std::string& name);
+    Node getFunction(const std::string& name);
 
     /**
      * Returns a sort, given a name
@@ -220,24 +221,24 @@ public:
                         SymbolType type = SYM_VARIABLE);
 
     /**
-     * Returns the true expression.
-     * @return the true expression
+     * Returns the true nodeession.
+     * @return the true nodeession
      */
-    Expr getTrueExpr() const;
+    Node getTrueNode() const;
 
     /**
-     * Returns the false expression.
-     * @return the false expression
+     * Returns the false nodeession.
+     * @return the false nodeession
      */
-    Expr getFalseExpr() const;
+    Node getFalseNode() const;
 
     /**
-     * Creates a new unary CVC4 expression using the expression manager.
-     * @param kind the kind of the expression
+     * Creates a new unary CVC4 nodeession using the nodeession manager.
+     * @param kind the kind of the nodeession
      * @param child the child
-     * @return the new unary expression
+     * @return the new unary nodeession
      */
-    Expr mkExpr(Kind kind, const Expr& child);
+    Node mkNode(Kind kind, TNode child);
 
     /**
      * Creates a new binary CVC4 expression using the expression manager.
@@ -246,7 +247,7 @@ public:
      * @param child2 the second child
      * @return the new binary expression
      */
-    Expr mkExpr(Kind kind, const Expr& child_1, const Expr& child_2);
+    Node mkNode(Kind kind, TNode child_1, TNode child_2);
 
     /**
      * Creates a new ternary CVC4 expression using the expression manager.
@@ -256,25 +257,27 @@ public:
      * @param child_3
      * @return the new ternary expression
      */
-    Expr mkExpr(Kind kind, const Expr& child_1, const Expr& child_2,
-                const Expr& child_3);
+    Node mkNode(Kind kind, TNode child_1, TNode child_2,
+                TNode child_3);
 
     /**
      * Creates a new CVC4 expression using the expression manager.
      * @param kind the kind of the expression
      * @param children the children of the expression
      */
-    Expr mkExpr(Kind kind, const std::vector<Expr>& children);
+    Node mkNode(Kind kind, const std::vector<Node>& children);
 
     /** Create a new CVC4 variable expression of the given type. */
-    Expr mkVar(const std::string& name, const Type* type);
+    Node mkVar(const std::string& name, const Type* type);
 
     /** Create a set of new CVC4 variable expressions of the given
         type. */
-    const std::vector<Expr>
+    const std::vector<Node>
     mkVars(const std::vector<std::string> names,
            const Type* type);
 
+
+    const Expr toExpr(Node node);
 
     /** Returns a function type over the given domain and range types. */
     const Type* functionType(const Type* domain, const Type* range);
@@ -336,11 +339,11 @@ public:
 
 protected:
     virtual Command* doParseCommand() throw(ParserException) = 0;
-    virtual Expr doParseExpr() throw(ParserException) = 0;
+    virtual Node doParseExpr() throw(ParserException) = 0;
 
     /**
      * Create a new parser for the given file.
-     * @param exprManager the ExprManager to use
+     * @param nodeManager the ExprManager to use
      * @param filename the path of the file to parse
      */
     Parser(ExprManager* exprManager, const std::string& filename);
@@ -351,16 +354,18 @@ private:
   void setDone(bool done = true);
 
   /** Lookup a symbol in the given namespace. */
-  Expr getSymbol(const std::string& var_name, SymbolType type);
+  Node getSymbol(const std::string& var_name, SymbolType type);
 
   /** Whether to de-allocate the input */
 //  bool d_deleteInput;
 
-  /** The expression manager */
+  /** The nodeession manager */
+  NodeManager* d_nodeManager;
   ExprManager* d_exprManager;
+  NodeManagerScope d_nodeManagerScope;
 
   /** The symbol table lookup */
-  SymbolTable<Expr> d_varSymbolTable;
+  SymbolTable<Node> d_varSymbolTable;
 
   /** The sort table */
   SymbolTable<const Type*> d_sortTable;

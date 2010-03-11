@@ -60,7 +60,7 @@ Command* Parser::parseNextCommand() throw (ParserException) {
 
 Expr Parser::parseNextExpression() throw (ParserException) {
   Debug("parser") << "parseNextExpression()" << std::endl;
-  Expr result;
+  Node result;
   if(!done()) {
     try {
       result = doParseExpr();
@@ -72,20 +72,22 @@ Expr Parser::parseNextExpression() throw (ParserException) {
     }
   }
   Debug("parser") << "parseNextExpression() => " << result << std::endl;
-  return result;
+  return toExpr(result);
 }
 
 Parser::~Parser() {
 }
 
 Parser::Parser(ExprManager* exprManager, const std::string& filename) :
+  d_nodeManager(exprManager->getNodeManager()),
   d_exprManager(exprManager),
+  d_nodeManagerScope(d_nodeManager),
   d_filename(filename),
   d_done(false),
   d_checksEnabled(true) {
 }
 
-Parser* Parser::newFileParser(ExprManager* em, InputLanguage lang,
+Parser* Parser::newFileParser(ExprManager* exprManager, InputLanguage lang,
                               const std::string& filename, bool useMmap) {
 
   Parser* parser = 0;
@@ -97,7 +99,7 @@ Parser* Parser::newFileParser(ExprManager* em, InputLanguage lang,
     break;
   }*/
   case LANG_SMTLIB:
-    parser = new Smt(em,filename,useMmap);
+    parser = new Smt(exprManager,filename,useMmap);
     break;
 
   default:
@@ -108,7 +110,7 @@ Parser* Parser::newFileParser(ExprManager* em, InputLanguage lang,
 }
 
 /*
-Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
+Parser* Parser::getNewParser(NodeManager* em, InputLanguage lang,
                              istream& input, string filename) {
   antlr::CharBuffer* inputBuffer = new CharBuffer(input);
   return getNewParser(em, lang, inputBuffer, filename);
@@ -116,7 +118,7 @@ Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
 */
 
 /*
-Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
+Parser* Parser::getNewParser(NodeManager* em, InputLanguage lang,
                              std::istream& input, const std::string& name) {
   Parser* parser = 0;
 
@@ -137,7 +139,7 @@ Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
 }
 */
 
-Parser* Parser::newStringParser(ExprManager* em, InputLanguage lang,
+Parser* Parser::newStringParser(ExprManager* exprManager, InputLanguage lang,
                              const std::string& input, const std::string& name) {
   Parser* parser = 0;
 
@@ -148,7 +150,7 @@ Parser* Parser::newStringParser(ExprManager* em, InputLanguage lang,
     break;
   }*/
   case LANG_SMTLIB:
-    parser = new Smt(em,input,name);
+    parser = new Smt(exprManager,input,name);
     break;
 
   default:
@@ -157,7 +159,7 @@ Parser* Parser::newStringParser(ExprManager* em, InputLanguage lang,
   return parser;
 }
 
-Expr Parser::getSymbol(const std::string& name, SymbolType type) {
+Node Parser::getSymbol(const std::string& name, SymbolType type) {
   Assert( isDeclared(name, type) );
 
 
@@ -172,11 +174,11 @@ Expr Parser::getSymbol(const std::string& name, SymbolType type) {
   }
 }
 
-Expr Parser::getVariable(const std::string& name) {
+Node Parser::getVariable(const std::string& name) {
   return getSymbol(name, SYM_VARIABLE);
 }
 
-Expr Parser::getFunction(const std::string& name) {
+Node Parser::getFunction(const std::string& name) {
   return getSymbol(name, SYM_FUNCTION);
 }
 
@@ -209,50 +211,55 @@ bool Parser::isPredicate(const std::string& name) {
   return isDeclared(name, SYM_FUNCTION) && getType(name)->isPredicate();
 }
 
-Expr Parser::getTrueExpr() const {
-  return d_exprManager->mkExpr(TRUE);
+Node Parser::getTrueNode() const {
+  return d_nodeManager->mkNode(TRUE);
 }
 
-Expr Parser::getFalseExpr() const {
-  return d_exprManager->mkExpr(FALSE);
+Node Parser::getFalseNode() const {
+  return d_nodeManager->mkNode(FALSE);
 }
 
-Expr Parser::mkExpr(Kind kind, const Expr& child) {
-  Expr result = d_exprManager->mkExpr(kind, child);
-  Debug("parser") << "mkExpr() => " << result << std::endl;
+Node Parser::mkNode(Kind kind, TNode child) {
+  Node result = d_nodeManager->mkNode(kind, child);
+  Debug("parser") << "mkNode() => " << result << std::endl;
   return result;
 }
 
-Expr Parser::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2) {
-  Expr result = d_exprManager->mkExpr(kind, child_1, child_2);
-  Debug("parser") << "mkExpr() => " << result << std::endl;
+Node Parser::mkNode(Kind kind, TNode child_1, TNode child_2) {
+  Node result = d_nodeManager->mkNode(kind, child_1, child_2);
+  Debug("parser") << "mkNode() => " << result << std::endl;
   return result;
 }
 
-Expr Parser::mkExpr(Kind kind, const Expr& child_1, const Expr& child_2,
-                         const Expr& child_3) {
-  Expr result = d_exprManager->mkExpr(kind, child_1, child_2, child_3);
-  Debug("parser") << "mkExpr() => " << result << std::endl;
+Node Parser::mkNode(Kind kind, TNode child_1, TNode child_2,
+                         TNode child_3) {
+  Node result = d_nodeManager->mkNode(kind, child_1, child_2, child_3);
+  Debug("parser") << "mkNode() => " << result << std::endl;
   return result;
 }
 
-Expr Parser::mkExpr(Kind kind, const std::vector<Expr>& children) {
-  Expr result = d_exprManager->mkExpr(kind, children);
-  Debug("parser") << "mkExpr() => " << result << std::endl;
+Node Parser::mkNode(Kind kind, const std::vector<Node>& children) {
+  Node result = d_nodeManager->mkNode(kind, children);
+  Debug("parser") << "mkNode() => " << result << std::endl;
   return result;
+}
+
+
+const Expr Parser::toExpr(Node node) {
+  return Expr(d_exprManager,new Node(node));
 }
 
 const Type*
 Parser::functionType(const Type* domainType,
                           const Type* rangeType) {
-  return d_exprManager->mkFunctionType(domainType,rangeType);
+  return d_nodeManager->mkFunctionType(domainType,rangeType);
 }
 
 const Type*
 Parser::functionType(const std::vector<const Type*>& argTypes,
                           const Type* rangeType) {
   Assert( argTypes.size() > 0 );
-  return d_exprManager->mkFunctionType(argTypes,rangeType);
+  return d_nodeManager->mkFunctionType(argTypes,rangeType);
 }
 
 const Type*
@@ -270,26 +277,26 @@ Parser::functionType(const std::vector<const Type*>& sorts) {
 
 const Type* Parser::predicateType(const std::vector<const Type*>& sorts) {
   if(sorts.size() == 0) {
-    return d_exprManager->booleanType();
+    return d_nodeManager->booleanType();
   } else {
-    return d_exprManager->mkFunctionType(sorts, d_exprManager->booleanType());
+    return d_nodeManager->mkFunctionType(sorts, d_nodeManager->booleanType());
   }
 }
 
-Expr
+Node
 Parser::mkVar(const std::string& name, const Type* type) {
   Debug("parser") << "mkVar(" << name << "," << *type << ")" << std::endl;
   Assert( !isDeclared(name) ) ;
-  Expr expr = d_exprManager->mkVar(type, name);
+  Node expr = d_nodeManager->mkVar(type, name);
   d_varSymbolTable.bindName(name, expr);
   Assert( isDeclared(name) ) ;
   return expr;
 }
 
-const std::vector<Expr>
+const std::vector<Node>
 Parser::mkVars(const std::vector<std::string> names,
                     const Type* type) {
-  std::vector<Expr> vars;
+  std::vector<Node> vars;
   for(unsigned i = 0; i < names.size(); ++i) {
     vars.push_back(mkVar(names[i], type));
   }
@@ -301,7 +308,7 @@ const Type*
 Parser::newSort(const std::string& name) {
   Debug("parser") << "newSort(" << name << ")" << std::endl;
   Assert( !isDeclared(name, SYM_SORT) ) ;
-  const Type* type = d_exprManager->mkSort(name);
+  const Type* type = d_nodeManager->mkSort(name);
   d_sortTable.bindName(name, type);
   Assert( isDeclared(name, SYM_SORT) ) ;
   return type;
@@ -317,11 +324,11 @@ Parser::newSorts(const std::vector<std::string>& names) {
 }
 
 const BooleanType* Parser::booleanType() {
-  return d_exprManager->booleanType();
+  return d_nodeManager->booleanType();
 }
 
 const KindType* Parser::kindType() {
-  return d_exprManager->kindType();
+  return d_nodeManager->kindType();
 }
 
 unsigned int Parser::minArity(Kind kind) {
