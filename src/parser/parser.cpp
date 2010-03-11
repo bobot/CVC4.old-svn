@@ -85,8 +85,8 @@ Parser::Parser(ExprManager* exprManager, const std::string& filename) :
   d_checksEnabled(true) {
 }
 
-Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
-                             string filename, bool useMmap) {
+Parser* Parser::newFileParser(ExprManager* em, InputLanguage lang,
+                              const std::string& filename, bool useMmap) {
 
   Parser* parser = 0;
 
@@ -107,14 +107,6 @@ Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
   return parser;
 }
 
-Parser* Parser::getMemoryMappedParser(ExprManager* em, InputLanguage lang, const std::string& filename) {
-  return getNewParser(em,lang,filename,true);
-}
-
-Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
-                             const std::string& filename) {
-  return getNewParser(em,lang,filename,false);
-}
 /*
 Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
                              istream& input, string filename) {
@@ -122,6 +114,48 @@ Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
   return getNewParser(em, lang, inputBuffer, filename);
 }
 */
+
+/*
+Parser* Parser::getNewParser(ExprManager* em, InputLanguage lang,
+                             std::istream& input, const std::string& name) {
+  Parser* parser = 0;
+
+  switch(lang) {
+  case LANG_CVC4: {
+    antlrLexer = new AntlrCvcLexer(*inputBuffer);
+    antlrParser = new AntlrCvcParser(*antlrLexer);
+    break;
+  }
+  case LANG_SMTLIB:
+    parser = new Smt(em,input,name);
+    break;
+
+  default:
+    Unhandled("Unknown Input language!");
+  }
+  return parser;
+}
+*/
+
+Parser* Parser::newStringParser(ExprManager* em, InputLanguage lang,
+                             const std::string& input, const std::string& name) {
+  Parser* parser = 0;
+
+  switch(lang) {
+/*  case LANG_CVC4: {
+    antlrLexer = new AntlrCvcLexer(*inputBuffer);
+    antlrParser = new AntlrCvcParser(*antlrLexer);
+    break;
+  }*/
+  case LANG_SMTLIB:
+    parser = new Smt(em,input,name);
+    break;
+
+  default:
+    Unhandled("Unknown Input language!");
+  }
+  return parser;
+}
 
 Expr Parser::getSymbol(const std::string& name, SymbolType type) {
   Assert( isDeclared(name, type) );

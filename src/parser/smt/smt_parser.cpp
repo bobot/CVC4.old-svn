@@ -19,7 +19,15 @@ namespace parser {
 /* Use lookahead=2 */
 Smt::Smt(ExprManager* exprManager, const std::string& filename, bool useMmap) :
   AntlrParser(exprManager,filename,2,useMmap) {
+  init();
+}
 
+Smt::Smt(ExprManager* exprManager, const std::string& input, const std::string& name) :
+  AntlrParser(exprManager,input,name,2) {
+  init();
+}
+
+void Smt::init() {
   pANTLR3_INPUT_STREAM input = getInputStream();
   AlwaysAssert( input != NULL );
 
@@ -41,6 +49,7 @@ Smt::Smt(ExprManager* exprManager, const std::string& filename, bool useMmap) :
   setParser(d_pSmtParser->pParser);
   SetSmt(this);
 }
+
 
 Smt::~Smt() {
   d_pSmtLexer->free(d_pSmtLexer);

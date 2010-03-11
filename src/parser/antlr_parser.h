@@ -38,15 +38,14 @@ class FunctionType;
 namespace parser {
 
 /**
- * Wrapper of the ANTLR parser that includes convenience methods that interacts
- * with the expression manager. The grammars should have as little C++ code as
- * possible and all the state and actual functionality (besides parsing) should
- * go into this class.
+ * Wrapper for an ANTLR parser that includes convenience methods to set up input and token streams.
  */
 class AntlrParser : public Parser {
 
 public:
   AntlrParser(ExprManager* exprManager, const std::string& filename, unsigned int lookahead, bool useMmap);
+  // AntlrParser(ExprManager* em, std::istream& input, const std::string& name, unsigned int lookahead);
+  AntlrParser(ExprManager* exprManager, const std::string& input, const std::string& name, unsigned int lookahead);
   ~AntlrParser();
 
 protected:

@@ -59,6 +59,31 @@ AntlrParser::AntlrParser(ExprManager* exprManager, const std::string& filename, 
   }
 }
 
+/*
+AntlrParser::AntlrParser(ExprManager* exprManager, std::istream& input, const std::string& name, unsigned int lookahead)
+  Parser(exprManager,name),
+  d_lookahead(lookahead) {
+
+}
+*/
+
+AntlrParser::AntlrParser(ExprManager* exprManager, const std::string& input, const std::string& name, unsigned int lookahead) :
+  Parser(exprManager,name),
+  d_lookahead(lookahead),
+  d_lexer(NULL),
+  d_parser(NULL),
+  d_tokenStream(NULL) {
+  char* inputStr = strdup(input.c_str());
+  char* nameStr = strdup(name.c_str());
+  if( inputStr==NULL || nameStr==NULL ) {
+    throw ParserException("Couldn't initialize string input: '" + input + "'");
+  }
+  d_input = antlr3NewAsciiStringInPlaceStream((pANTLR3_UINT8)inputStr,input.size(),(pANTLR3_UINT8)nameStr);
+  if( d_input == NULL ) {
+    throw ParserException("Couldn't create input stream for string: '" + input + "'");
+  }
+}
+
 AntlrParser::~AntlrParser() {
   d_tokenStream->free(d_tokenStream);
   d_input->close(d_input);

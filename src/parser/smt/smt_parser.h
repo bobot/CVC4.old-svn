@@ -25,6 +25,7 @@ namespace parser {
 class Smt : public AntlrParser {
 public:
   Smt(ExprManager* exprManager, const std::string& filename, bool useMmap);
+  Smt(ExprManager* exprManager, const std::string& input, const std::string& name);
   ~Smt();
 
 protected:
@@ -35,6 +36,7 @@ protected:
   pANTLR3_PARSER createParser(pANTLR3_COMMON_TOKEN_STREAM tokenStream);
 
 private:
+  void init();
   pSmtLexer d_pSmtLexer;
   pSmtParser d_pSmtParser;
 }; // class AntlrSmtParser

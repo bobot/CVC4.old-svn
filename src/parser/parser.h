@@ -86,13 +86,38 @@ inline std::string toString(SymbolType type) {
 /**
  * The parser. The parser should be obtained by calling the static methods
  * getNewParser, and should be deleted when done.
+ *
+ * This class includes convenience methods for interacting with the ExprManager
+ * from within a grammar.
  */
 class CVC4_PUBLIC Parser {
 
 public:
+  /** Create a parser for the given file.
+    *
+    * @param exprManager the ExprManager for creating expressions from the input
+    * @param lang the input language
+    * @param filename the input filename
+    */
+   static Parser* newFileParser(ExprManager* exprManager, InputLanguage lang, const std::string& filename, bool useMmap=false);
 
-  static Parser* getMemoryMappedParser(ExprManager* em, InputLanguage lang, const std::string& filename);
-  static Parser* getNewParser(ExprManager* em, InputLanguage lang, /*std::istream& input, */const std::string& filename);
+  /** Create a parser for the given input stream.
+   *
+   * @param exprManager the ExprManager for creating expressions from the input
+   * @param lang the input language
+   * @param input the input stream
+   * @param name the name of the stream, for use in error messages
+   */
+  //static Parser* getNewParser(ExprManager* exprManager, InputLanguage lang, std::istream& input, const std::string& name);
+
+  /** Create a parser for the given input string
+   *
+   * @param exprManager the ExprManager for creating expressions from the input
+   * @param lang the input language
+   * @param input the input string
+   * @param name the name of the stream, for use in error messages
+   */
+  static Parser* newStringParser(ExprManager* exprManager, InputLanguage lang, const std::string& input, const std::string& name);
 
   /**
    * Destructor.
@@ -321,18 +346,6 @@ protected:
     Parser(ExprManager* exprManager, const std::string& filename);
 
 private:
-
-  /**
-   * Create a new parser.
-   * @param em the expression manager to usee
-   * @param lang the language to parse
-   * @param inputBuffer the input buffer to parse
-   * @param filename the filename to attach to the stream
-   * @param deleteInput wheather to delete the input
-   * @return the parser
-   */
-  static Parser* getNewParser(ExprManager* exprManager, InputLanguage lang, std::string filename, bool useMmap);
-
 
   /** Sets the done flag */
   void setDone(bool done = true);
