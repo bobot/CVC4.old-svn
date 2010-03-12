@@ -58,7 +58,7 @@ Expr::~Expr() {
 Expr& Expr::operator=(const Expr& e) {
   Assert(d_node != NULL, "Unexpected NULL expression pointer!");
   Assert(e.d_node != NULL, "Unexpected NULL expression pointer!");
-  /* Don't need an ExprManagerScope here, because we're just copying pointers. */
+  ExprManagerScope ems(*this);
   *d_node = *e.d_node;
   d_exprManager = e.d_exprManager;
   return *this;

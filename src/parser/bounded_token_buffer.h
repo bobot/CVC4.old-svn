@@ -3,8 +3,8 @@
  * one of these and then override any functions by installing their own pointers
  * to implement the various functions.
  */
-#ifndef	__CVC4__PARSER__TWO_PLACE_TOKEN_STREAM_H
-#define	__CVC4__PARSER__TWO_PLACE_TOKEN_STREAM_H
+#ifndef	__CVC4__PARSER__BOUNDED_TOKEN_BUFFER_H
+#define	__CVC4__PARSER__BOUNDED_TOKEN_BUFFER_H
 
 // [The "BSD licence"]
 // Copyright (c) 2005-2009 Jim Idle, Temporal Wave LLC
@@ -45,26 +45,21 @@ extern "C" {
 #endif
 
 
-
-typedef struct  TWO_PLACE_TOKEN_BUFFER_struct
+/** A "super" structure for COMMON_TOKEN_STREAM. */
+typedef struct BOUNDED_TOKEN_BUFFER_struct
 {
-    /** The ANTLR3_TOKEN_STREAM interface implementation, which also includes
-     *  the intstream implementation. We could duplicate the pANTLR_INT_STREAM
-     *  in this interface and initialize it to a copy, but this could be confusing
-     *  it just results in one more level of indirection and I think that with
-     *  judicial use of 'const' later, the optimizer will do decent job.
-     */
     pANTLR3_COMMON_TOKEN_STREAM    commonTstream;
-    pANTLR3_COMMON_TOKEN tokenNeg1, token1, token2;
-    unsigned long int index;
-    ANTLR3_BOOLEAN done;
-} TWO_PLACE_TOKEN_BUFFER, *pTWO_PLACE_TOKEN_BUFFER;
+    pANTLR3_COMMON_TOKEN* tokenBuffer;
+    // tokenNeg1, token1, token2;
+    ANTLR3_UINT32 currentIndex, maxIndex, k, bufferSize;
+    ANTLR3_BOOLEAN empty, done;
+} BOUNDED_TOKEN_BUFFER, *pBOUNDED_TOKEN_BUFFER;
 
-pTWO_PLACE_TOKEN_BUFFER
-TwoPlaceTokenBufferSourceNew(ANTLR3_UINT32 hint, pANTLR3_TOKEN_SOURCE source);
+pBOUNDED_TOKEN_BUFFER
+BoundedTokenBufferSourceNew(ANTLR3_UINT32 k, pANTLR3_TOKEN_SOURCE source);
 
 void
-TwoPlaceTokenBufferFree(pTWO_PLACE_TOKEN_BUFFER buffer);
+BoundedTokenBufferFree(pBOUNDED_TOKEN_BUFFER buffer);
 
 #ifdef __cplusplus
 }
@@ -74,5 +69,5 @@ TwoPlaceTokenBufferFree(pTWO_PLACE_TOKEN_BUFFER buffer);
 }
 
 
-#endif /* __CVC4__PARSER__TWO_PLACE_TOKEN_STREAM_H */
+#endif /* __CVC4__PARSER__BOUNDED_TOKEN_BUFFER_H */
 

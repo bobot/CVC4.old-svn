@@ -31,11 +31,13 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "two_place_token_buffer.h"
-#include "util/Assert.h"
 #include <antlr3commontoken.h>
 #include <antlr3lexer.h>
 #include <antlr3tokenstream.h>
+
+#include "bounded_token_buffer.h"
+#include "cvc4_config.h"
+#include "util/Assert.h"
 
 namespace CVC4 {
 namespace parser {
@@ -87,12 +89,13 @@ static void					dbgSeek						(pANTLR3_INT_STREAM is, ANTLR3_MARKER index);
 static pANTLR3_STRING		getSourceName				(pANTLR3_INT_STREAM is);
 static pANTLR3_COMMON_TOKEN LB							(pANTLR3_COMMON_TOKEN_STREAM tokenStream, ANTLR3_INT32 i);
 
-static pANTLR3_COMMON_TOKEN nextToken(pTWO_PLACE_TOKEN_BUFFER buffer);
+static pANTLR3_COMMON_TOKEN nextToken(pBOUNDED_TOKEN_BUFFER buffer);
 static pANTLR3_COMMON_TOKEN simpleEmit        (pANTLR3_LEXER lexer);
 
 void
-TwoPlaceTokenBufferFree(pTWO_PLACE_TOKEN_BUFFER buffer) {
+BoundedTokenBufferFree(pBOUNDED_TOKEN_BUFFER buffer) {
   buffer->commonTstream->free(buffer->commonTstream);
+  ANTLR3_FREE(buffer->tokenBuffer);
   ANTLR3_FREE(buffer);
 }
 
@@ -125,34 +128,33 @@ antlr3CommonTokenDebugStreamSourceNew(ANTLR3_UINT32 hint, pANTLR3_TOKEN_SOURCE s
 	return stream;
 }*/
 
-pTWO_PLACE_TOKEN_BUFFER
-TwoPlaceTokenBufferSourceNew(ANTLR3_UINT32 hint, pANTLR3_TOKEN_SOURCE source)
+pBOUNDED_TOKEN_BUFFER
+BoundedTokenBufferSourceNew(ANTLR3_UINT32 k, pANTLR3_TOKEN_SOURCE source)
 {
-    pTWO_PLACE_TOKEN_BUFFER buffer;
+    pBOUNDED_TOKEN_BUFFER buffer;
     pANTLR3_COMMON_TOKEN_STREAM	stream;
+
+
+    AlwaysAssert( k > 0 );
 
     /* Memory for the interface structure
      */
-    buffer = (pTWO_PLACE_TOKEN_BUFFER) ANTLR3_MALLOC(sizeof(TWO_PLACE_TOKEN_BUFFER_struct));
+    buffer = (pBOUNDED_TOKEN_BUFFER) ANTLR3_MALLOC(sizeof(BOUNDED_TOKEN_BUFFER_struct));
 
     if	(buffer == NULL)
     {
 	return	NULL;
     }
 
-    buffer->tokenNeg1 = NULL;
-    buffer->token1 = NULL;
-    buffer->token2 = NULL;
-    buffer->index = 0;
+    buffer->tokenBuffer = (pANTLR3_COMMON_TOKEN*) ANTLR3_MALLOC(2*k*sizeof(pANTLR3_COMMON_TOKEN));
+    buffer->currentIndex = 0;
+    buffer->maxIndex = 0;
+    buffer->k = k;
+    buffer->bufferSize = 2*k;
+    buffer->empty = ANTLR3_TRUE;
     buffer->done = ANTLR3_FALSE;
 
-    /* WARNING: this is kind of evil. I'm replacing the emit that calls the token factory pool allocater with my own. */
-    /* Bah! That doesn't work because the call to emit from lexer->nextToken is "non-virtual". I don't even know where
-     * this emit would ever be invoked. We need to override nextToken, but that's a much more complex function.
-     */
-    // ((pANTLR3_LEXER)source->super)->emit = simpleEmit;
-
-    stream = antlr3CommonTokenStreamSourceNew(hint,source);
+    stream = antlr3CommonTokenStreamSourceNew(k,source);
     if  (stream == NULL)
     {
         return  NULL;
@@ -220,35 +222,45 @@ setDebugListener	(pANTLR3_TOKEN_STREAM ts, pANTLR3_DEBUG_EVENT_LISTENER debugger
 */
 static pANTLR3_COMMON_TOKEN tokLT(pANTLR3_TOKEN_STREAM ts, ANTLR3_INT32 k) {
   pANTLR3_COMMON_TOKEN_STREAM cts;
-  pTWO_PLACE_TOKEN_BUFFER buffer;
-
-  AlwaysAssert( k >= -1 && k <= 2 );
+  pBOUNDED_TOKEN_BUFFER buffer;
 
   cts = (pANTLR3_COMMON_TOKEN_STREAM) ts->super;
-  buffer = (pTWO_PLACE_TOKEN_BUFFER) cts->super;
+  buffer = (pBOUNDED_TOKEN_BUFFER) cts->super;
 
-  if( k == -1 ) {
-    return buffer->tokenNeg1;
-  }
+  /* k must be in the range [-buffer->k..buffer->k] */
+  AlwaysAssert( k <= (ANTLR3_INT32)buffer->k 
+                && -k <= (ANTLR3_INT32)buffer->k );
 
   if(k == 0) {
     return NULL;
   }
 
-  if(buffer->token1 == NULL) {
-    AlwaysAssert( buffer->token2 == NULL );
-
-    buffer->token1 = nextToken(buffer);
-    buffer->token2 = nextToken(buffer);
+  /* Initialize the buffer on our first call. */
+  if( EXPECT_FALSE(buffer->empty == ANTLR3_TRUE) ) {
+    AlwaysAssert( buffer->tokenBuffer != NULL );
+    buffer->tokenBuffer[ 0 ] = nextToken(buffer);
+    buffer->maxIndex = 0;
+    buffer->currentIndex = 0;
+    buffer->empty = ANTLR3_FALSE;
   }
 
-  if(k == 1) {
-    return buffer->token1;
-  } else if (k == 2) {
-    return buffer->token2;
+  ANTLR3_UINT32 kIndex;
+  if( k > 0 ) {
+    /* look-ahead token k is at offset k-1 */
+    kIndex = buffer->currentIndex + k - 1;
   } else {
-    Unreachable("tokLT with k>2");
+    /* Can't look behind more tokens than we've consumed. */
+    AlwaysAssert( -k <= (ANTLR3_INT32)buffer->currentIndex );
+    /* look-behind token k is at offset -k */
+    kIndex = buffer->currentIndex + k;
   }
+
+  while( kIndex > buffer->maxIndex ) {
+    buffer->maxIndex++;
+    buffer->tokenBuffer[ buffer->maxIndex % buffer->bufferSize ] = nextToken(buffer);
+  }
+
+  return buffer->tokenBuffer[ kIndex % buffer->bufferSize ];
 }
 
 
@@ -322,18 +334,13 @@ consume	(pANTLR3_INT_STREAM is)
 {
 	pANTLR3_COMMON_TOKEN_STREAM cts;
 	pANTLR3_TOKEN_STREAM	ts;
-	pTWO_PLACE_TOKEN_BUFFER buffer;
+	pBOUNDED_TOKEN_BUFFER buffer;
 
 	ts	    = (pANTLR3_TOKEN_STREAM)	    is->super;
 	cts	    = (pANTLR3_COMMON_TOKEN_STREAM) ts->super;
-	buffer      = (pTWO_PLACE_TOKEN_BUFFER)     cts->super;
+	buffer      = (pBOUNDED_TOKEN_BUFFER)     cts->super;
 
-	buffer->tokenNeg1 = buffer->token1;
-	buffer->token1 = buffer->token2;
-//	buffer->token1->tindex = 1;
-	buffer->token2 = nextToken(buffer);
-//	buffer->token2->tindex = 2;
-	buffer->index++;
+	buffer->currentIndex++;
 }
 
 
@@ -478,13 +485,13 @@ tindex	(pANTLR3_INT_STREAM is)
 {
   pANTLR3_COMMON_TOKEN_STREAM cts;
   pANTLR3_TOKEN_STREAM        ts;
-  pTWO_PLACE_TOKEN_BUFFER buffer;
+  pBOUNDED_TOKEN_BUFFER buffer;
 
   ts      = (pANTLR3_TOKEN_STREAM)        is->super;
   cts     = (pANTLR3_COMMON_TOKEN_STREAM) ts->super;
-  buffer      = (pTWO_PLACE_TOKEN_BUFFER)     cts->super;
+  buffer      = (pBOUNDED_TOKEN_BUFFER)     cts->super;
 
-  return  buffer->index;
+  return  buffer->currentIndex;
 }
 
 static void		    
@@ -519,7 +526,7 @@ dbgSeek	(pANTLR3_INT_STREAM is, ANTLR3_MARKER index)
   AlwaysAssert(false);
 }
 
-static pANTLR3_COMMON_TOKEN nextToken(pTWO_PLACE_TOKEN_BUFFER buffer) {
+static pANTLR3_COMMON_TOKEN nextToken(pBOUNDED_TOKEN_BUFFER buffer) {
   pANTLR3_COMMON_TOKEN_STREAM tokenStream;
   pANTLR3_COMMON_TOKEN tok;
   ANTLR3_BOOLEAN discard;

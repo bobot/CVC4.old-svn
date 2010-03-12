@@ -29,10 +29,10 @@
 #include "expr/command.h"
 #include "expr/type.h"
 #include "parser/antlr_input.h"
+#include "parser/bounded_token_buffer.h"
 #include "parser/bounded_token_factory.h"
 #include "parser/memory_mapped_input_buffer.h"
 #include "parser/parser_exception.h"
-#include "parser/two_place_token_buffer.h"
 
 using namespace std;
 using namespace CVC4;
@@ -106,13 +106,13 @@ void AntlrInput::setLexer(pANTLR3_LEXER pLexer) {
   }
 
   /* 2*lookahead should be sufficient, but we give ourselves some breathing room. */
-  pTokenFactory = BoundedTokenFactoryNew(d_input, 4*d_lookahead);
+  pTokenFactory = BoundedTokenFactoryNew(d_input, 2*d_lookahead);
   if( pTokenFactory == NULL ) {
     throw ParserException("Couldn't create token factory.");
   }
   d_lexer->rec->state->tokFactory = pTokenFactory;
 
-  pTWO_PLACE_TOKEN_BUFFER buffer = TwoPlaceTokenBufferSourceNew(ANTLR3_SIZE_HINT, d_lexer->rec->state->tokSource);
+  pBOUNDED_TOKEN_BUFFER buffer = BoundedTokenBufferSourceNew(d_lookahead, d_lexer->rec->state->tokSource);
   if( buffer == NULL ) {
     throw ParserException("Couldn't create token buffer.");
   }

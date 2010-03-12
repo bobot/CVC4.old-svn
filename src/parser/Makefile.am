@@ -37,6 +37,8 @@ libcvc4parser_la_SOURCES =
 libcvc4parser_noinst_la_SOURCES = \
 	antlr_input.h \
 	antlr_input.cpp \
+	bounded_token_buffer.h \
+	bounded_token_buffer.cpp \
 	bounded_token_factory.h \
 	bounded_token_factory.cpp \
 	input.h \
@@ -45,7 +47,5 @@ libcvc4parser_noinst_la_SOURCES = \
 	memory_mapped_input_buffer.cpp \
     parser_options.h \
     parser_exception.h \
-	symbol_table.h \
-	two_place_token_buffer.h \
-	two_place_token_buffer.cpp
+	symbol_table.h
 
