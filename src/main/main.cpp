@@ -93,6 +93,11 @@ int runCvc4(int argc, char *argv[]) {
     cout << unitbuf;
   }
 
+  /* NOTE: ANTLR3 doesn't support input from stdin */
+  if(firstArgIndex >= argc) {
+    throw Exception("No input file specified.");
+  }
+
   // We only accept one input file
   if(argc > firstArgIndex + 1) {
     throw Exception("Too many input files specified.");
@@ -105,10 +110,10 @@ int runCvc4(int argc, char *argv[]) {
   SmtEngine smt(&exprMgr, &options);
 
   // If no file supplied we read from standard input
-  bool inputFromStdin = firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
+  // bool inputFromStdin = firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
 
   // Auto-detect input language by filename extension
-  if(!inputFromStdin && options.lang == parser::LANG_AUTO) {
+  if(/*!inputFromStdin && */options.lang == parser::LANG_AUTO) {
     const char* filename = argv[firstArgIndex];
     unsigned len = strlen(filename);
     if(len >= 4 && !strcmp(".smt", filename + len - 4)) {
@@ -144,20 +149,12 @@ int runCvc4(int argc, char *argv[]) {
   Input* parser;
   istream* input = NULL;
 
-  if(inputFromStdin) {
-    Unimplemented("Input from stdin.");
+//  if(inputFromStdin) {
     //    parser = Parser::getNewParser(&exprMgr, options.lang, cin, "<stdin>");
-  } else {
+//  } else {
     parser = Input::newFileParser(&exprMgr, options.lang, argv[firstArgIndex],
                                    options.memoryMap);
-/*
-    input = new ifstream(filename.c_str());
-    if(!*input) {
-      throw Exception("file does not exist or is unreadable: " + filename);
-    }
-*/
-//    parser = Parser::newFileParser(&exprMgr, options.lang, filename);
-  }
+//  }
 
   if(!options.semanticChecks) {
     parser->disableChecks();
