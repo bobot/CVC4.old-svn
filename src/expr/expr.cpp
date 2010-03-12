@@ -56,20 +56,26 @@ Expr::~Expr() {
 }
 
 Expr& Expr::operator=(const Expr& e) {
-  if(this != &e) {
-    ExprManagerScope ems(*this);
-    delete d_node;
-    d_node = new Node(*e.d_node);
-    d_exprManager = e.d_exprManager;
-  }
+  Assert(d_node != NULL, "Unexpected NULL expression pointer!");
+  Assert(e.d_node != NULL, "Unexpected NULL expression pointer!");
+  /* Don't need an ExprManagerScope here, because we're just copying pointers. */
+  *d_node = *e.d_node;
+  d_exprManager = e.d_exprManager;
   return *this;
 }
 
 /* This should only ever be assigning NULL to a null Expr! */
 Expr& Expr::operator=(uintptr_t n) {
   AlwaysAssert(n==0);
+  Assert(d_node != NULL, "Unexpected NULL expression pointer!");
+  if( EXPECT_FALSE(!isNull()) ) {
+    *d_node = Node::null();
+  }
+  return *this;
+/*
   Assert(isNull());
   return *this;
+*/
 }
 
 bool Expr::operator==(const Expr& e) const {
