@@ -170,7 +170,7 @@ class ParserBlack : public CxxTest::TestSuite {
       } catch (Exception& e) {
         cout << "\nGood input failed:\n" << goodInputs[i] << endl
              << e << endl;
-        throw e;
+        throw;
       }
 
     }
@@ -230,6 +230,7 @@ class ParserBlack : public CxxTest::TestSuite {
         ( parser->parseNextExpression();
           cout << "\nBad expr succeeded: " << badBooleanExprs[i] << endl;, 
           ParserException );
+      delete smtParser;
     }
     //Debug.off("parser");
   }
@@ -237,6 +238,10 @@ class ParserBlack : public CxxTest::TestSuite {
 public:
   void setUp() {
     d_exprManager = new ExprManager();
+  }
+
+  void tearDown() {
+    delete d_exprManager;
   }
 
   void XtestGoodCvc4Inputs() {

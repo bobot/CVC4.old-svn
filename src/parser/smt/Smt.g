@@ -292,7 +292,7 @@ attribute
 functionDeclaration
 @declarations {
   std::string name;
-  std::vector<const Type*> sorts;
+  std::vector<Type*> sorts;
 }
   : LPAREN_TOK functionName[name,CHECK_UNDECLARED] 
       t = sortSymbol // require at least one sort
@@ -308,10 +308,10 @@ functionDeclaration
 predicateDeclaration
 @declarations {
   std::string name;
-  std::vector<const Type*> p_sorts;
+  std::vector<Type*> p_sorts;
 }
   : LPAREN_TOK predicateName[name,CHECK_UNDECLARED] sortList[p_sorts] RPAREN_TOK
-    { const Type *t = smtInput->predicateType(p_sorts);
+    { Type *t = smtInput->predicateType(p_sorts);
       smtInput->mkVar(name, t); } 
   ;
 
@@ -327,7 +327,7 @@ sortDeclaration
 /**
  * Matches a sequence of sort symbols and fills them into the given vector.
  */
-sortList[std::vector<const CVC4::Type*>& sorts]
+sortList[std::vector<CVC4::Type*>& sorts]
   : ( t = sortSymbol { sorts.push_back(t); })* 
   ;
 
@@ -339,7 +339,7 @@ sortName[std::string& name, CVC4::parser::DeclarationCheck check]
   : identifier[name,check,SYM_SORT] 
   ;
 
-sortSymbol returns [const CVC4::Type* t]
+sortSymbol returns [CVC4::Type* t]
 @declarations {
   std::string name;
 }

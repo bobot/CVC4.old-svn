@@ -134,23 +134,23 @@ public:
    */
   void addNotifyObjPost(ContextNotifyObj* pCNO);
 
-}; /* class Context */
+};/* class Context */
 
-  /**
-   * Conceptually, a Scope encapsulates that portion of the context that
-   * changes after a call to push() and must be undone on a subsequent call to
-   * pop().  In particular, each call to push() creates a new Scope object .
-   * This new Scope object becomes the top scope and it points (via the
-   * d_pScopePrev member) to the previous top Scope.  Each call to pop()
-   * deletes the current top scope and restores the previous one.  The main
-   * purpose of a Scope is to maintain a linked list of ContexObj objects which
-   * change while the Scope is the top scope and which must be restored when
-   * the Scope is deleted.
-   *
-   * A Scope is also associated with a ContextMemoryManager.  All memory
-   * allocated by the Scope is allocated in a single region using the
-   * ContextMemoryManager and released all at once when the Scope is popped.
-   */
+/**
+ * Conceptually, a Scope encapsulates that portion of the context that
+ * changes after a call to push() and must be undone on a subsequent call to
+ * pop().  In particular, each call to push() creates a new Scope object .
+ * This new Scope object becomes the top scope and it points (via the
+ * d_pScopePrev member) to the previous top Scope.  Each call to pop()
+ * deletes the current top scope and restores the previous one.  The main
+ * purpose of a Scope is to maintain a linked list of ContexObj objects which
+ * change while the Scope is the top scope and which must be restored when
+ * the Scope is deleted.
+ *
+ * A Scope is also associated with a ContextMemoryManager.  All memory
+ * allocated by the Scope is allocated in a single region using the
+ * ContextMemoryManager and released all at once when the Scope is popped.
+ */
 class Scope {
 
   /**
@@ -273,6 +273,10 @@ public:
  *    ContextMemoryManager (see item 2 above).
  * 4. In the subclass implementation, any time the state is about to be
  *    changed, first call makeCurrent().
+ * 5. In the subclass implementation, the destructor should call destroy().
+ *    Unfortunately, the destroy() functionality cannot be in the ContextObj
+ *    destructor since it needs to call the subclass-specific restore() method
+ *    in order to properly clean up saved copies.
  */
 class ContextObj {
   /**
@@ -353,6 +357,14 @@ protected:
   }
 
   /**
+   * Should be called from sub-class destructor: calls restore until restored
+   * to initial version.  Also removes object from all Scope lists.  Note that
+   * this doesn't actually free the memory allocated by the ContextMemoryManager
+   * for this object.  This isn't done until the corresponding Scope is popped.
+   */
+  void destroy() throw(AssertionException);
+
+  /**
    * operator new using ContextMemoryManager (common case used by
    * subclasses during save() ).  No delete is required for memory
    * allocated this way, since it is automatically released when the
@@ -385,13 +397,9 @@ public:
   ContextObj(Context* context);
 
   /**
-   * Destructor: Calls restore until restored to initial version.
-   * Also removes object from all Scope lists.  Note that this doesn't
-   * actually free the memory allocated by the ContextMemoryManager
-   * for this object.  This isn't done until the corresponding Scope
-   * is popped.
+   * Destructor does nothing: subclass must explicitly call destroy() instead.
    */
-  virtual ~ContextObj() throw(AssertionException);
+  virtual ~ContextObj() {}
 
   /**
    * If you want to allocate a ContextObj object on the heap, use this
@@ -432,14 +440,14 @@ public:
 
 };/* class ContextObj */
 
-  /**
-   * For more flexible context-dependent behavior than that provided
-   * by ContextObj, objects may implement the ContextNotifyObj
-   * interface and simply get a notification when a pop has occurred.
-   * See Context class for how to register a ContextNotifyObj with the
-   * Context (you can choose to have notification come before or after
-   * the ContextObj objects have been restored).
-   */
+/**
+ * For more flexible context-dependent behavior than that provided by
+ * ContextObj, objects may implement the ContextNotifyObj interface
+ * and simply get a notification when a pop has occurred.  See
+ * Context class for how to register a ContextNotifyObj with the
+ * Context (you can choose to have notification come before or after
+ * the ContextObj objects have been restored).
+ */
 class ContextNotifyObj {
   /**
    * Context is our friend so that when the Context is deleted, any
@@ -490,7 +498,7 @@ public:
    * implemented by the subclass.
    */
   virtual void notify() = 0;
-}; /* class ContextNotifyObj */
+};/* class ContextNotifyObj */
 
 // Inline functions whose definitions had to be delayed:
 

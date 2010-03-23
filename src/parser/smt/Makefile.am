@@ -41,5 +41,8 @@ maintainer-clean-local:
 	-rm -f $(ANTLR_STUFF)
 	$(ANTLR) -o "@srcdir@/generated" "@srcdir@/Smt.g"
 
-# These don't actually depend on SmtLexer.h, but it's out representative for the ANTLR run
+# These don't actually depend on SmtLexer.h, but if we're doing parallel
+# make and the lexer needs to be rebuilt, we have to keep the rules
+# from running in parallel (since the token files will be deleted &
+# recreated)
 @srcdir@/generated/SmtLexer.c @srcdir@/generated/SmtParser.h @srcdir@/generated/SmtParser.c $(ANTLR_TOKEN_STUFF): @srcdir@/generated/SmtLexer.h

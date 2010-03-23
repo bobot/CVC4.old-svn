@@ -63,7 +63,7 @@ class CDO : public ContextObj {
   /**
    * operator= for CDO is private to ensure CDO object is not copied.
    */
-  CDO<T>& operator=(const CDO<T>& cdo) {}
+  CDO<T>& operator=(const CDO<T>& cdo);
 
 public:
   /**
@@ -84,9 +84,9 @@ public:
   }
 
   /**
-   * Destructor - no need to do anything.
+   * Destructor - call destroy() method
    */
-  ~CDO() throw() {}
+  ~CDO() throw() { destroy(); }
 
   /**
    * Set the data in the CDO.  First call makeCurrent.

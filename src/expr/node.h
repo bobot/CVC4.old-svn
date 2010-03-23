@@ -219,14 +219,6 @@ public:
   bool isAtomic() const;
 
   /**
-   * Returns the hash value of this node.
-   * @return the hash value
-   */
-  size_t hash() const {
-    return d_nv->getId();
-  }
-
-  /**
    * Returns the unique id of this node
    * @return the ud
    */
@@ -248,7 +240,7 @@ public:
    * Returns the type of this node.
    * @return the type
    */
-  const Type* getType() const;
+  Type* getType() const;
 
   /**
    * Returns the kind of this node.
@@ -420,7 +412,7 @@ namespace CVC4 {
 // for hash_maps, hash_sets..
 struct NodeHashFcn {
   size_t operator()(const CVC4::Node& node) const {
-    return (size_t) node.hash();
+    return (size_t) node.getId();
   }
 };
 
@@ -715,7 +707,7 @@ bool NodeTemplate<ref_count>::hasOperator() const {
 }
 
 template <bool ref_count>
-const Type* NodeTemplate<ref_count>::getType() const {
+Type* NodeTemplate<ref_count>::getType() const {
   Assert( NodeManager::currentNM() != NULL,
           "There is no current CVC4::NodeManager associated to this thread.\n"
           "Perhaps a public-facing function is missing a NodeManagerScope ?" );

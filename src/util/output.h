@@ -24,8 +24,6 @@
 #include <cstdarg>
 #include <set>
 
-#include "util/exception.h"
-
 namespace CVC4 {
 
 /**
@@ -60,25 +58,25 @@ public:
   DebugC(std::ostream* os) : d_os(os) {}
 
   void operator()(const char* tag, const char* s) {
-    if(d_tags.find(std::string(tag)) != d_tags.end()) {
+    if(!d_tags.empty() && d_tags.find(std::string(tag)) != d_tags.end()) {
       *d_os << s;
     }
   }
 
   void operator()(const char* tag, const std::string& s) {
-    if(d_tags.find(std::string(tag)) != d_tags.end()) {
+    if(!d_tags.empty() && d_tags.find(std::string(tag)) != d_tags.end()) {
       *d_os << s;
     }
   }
 
   void operator()(const std::string& tag, const char* s) {
-    if(d_tags.find(tag) != d_tags.end()) {
+    if(!d_tags.empty() && d_tags.find(tag) != d_tags.end()) {
       *d_os << s;
     }
   }
 
   void operator()(const std::string& tag, const std::string& s) {
-    if(d_tags.find(tag) != d_tags.end()) {
+    if(!d_tags.empty() && d_tags.find(tag) != d_tags.end()) {
       *d_os << s;
     }
   }
@@ -87,14 +85,14 @@ public:
   void printf(std::string tag, const char* fmt, ...) __attribute__ ((format(printf, 3, 4)));
 
   std::ostream& operator()(const char* tag) {
-    if(d_tags.find(std::string(tag)) != d_tags.end()) {
+    if(!d_tags.empty() && d_tags.find(std::string(tag)) != d_tags.end()) {
       return *d_os;
     } else {
       return null_os;
     }
   }
   std::ostream& operator()(std::string tag) {
-    if(d_tags.find(tag) != d_tags.end()) {
+    if(!d_tags.empty() && d_tags.find(tag) != d_tags.end()) {
       return *d_os;
     } else {
       return null_os;
@@ -110,6 +108,9 @@ public:
   void on (std::string tag) { d_tags.insert(tag);              }
   void off(const char* tag) { d_tags.erase (std::string(tag)); }
   void off(std::string tag) { d_tags.erase (tag);              }
+
+  bool isOn(const char* tag) { return d_tags.find(std::string(tag)) != d_tags.end(); }
+  bool isOn(std::string tag) { return d_tags.find(tag) != d_tags.end(); }
 
   void setStream(std::ostream& os) { d_os = &os; }
 };/* class Debug */
@@ -223,7 +224,7 @@ public:
   void printf(std::string tag, const char* fmt, ...) __attribute__ ((format(printf, 3, 4)));
 
   std::ostream& operator()(const char* tag) {
-    if(d_tags.find(tag) != d_tags.end()) {
+    if(!d_tags.empty() && d_tags.find(tag) != d_tags.end()) {
       return *d_os;
     } else {
       return null_os;
@@ -231,7 +232,7 @@ public:
   }
 
   std::ostream& operator()(std::string tag) {
-    if(d_tags.find(tag) != d_tags.end()) {
+    if(!d_tags.empty() && d_tags.find(tag) != d_tags.end()) {
       return *d_os;
     } else {
       return null_os;
@@ -242,6 +243,9 @@ public:
   void on (std::string tag) { d_tags.insert(tag);              };
   void off(const char* tag) { d_tags.erase (std::string(tag)); };
   void off(std::string tag) { d_tags.erase (tag);              };
+
+  bool isOn(const char* tag) { return d_tags.find(std::string(tag)) != d_tags.end(); }
+  bool isOn(std::string tag) { return d_tags.find(tag) != d_tags.end(); }
 
   void setStream(std::ostream& os) { d_os = &os; }
 };/* class Trace */
@@ -290,6 +294,9 @@ public:
   void on (std::string tag) {}
   void off(const char* tag) {}
   void off(std::string tag) {}
+
+  bool isOn(const char* tag) { return false; }
+  bool isOn(std::string tag) { return false; }
 
   void setStream(std::ostream& os) {}
 };/* class NullDebugC */

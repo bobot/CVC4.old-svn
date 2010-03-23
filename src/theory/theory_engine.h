@@ -69,10 +69,12 @@ class TheoryEngine {
       d_conflictNode(context) {
     }
 
-    void conflict(TNode conflictNode, bool) throw(theory::Interrupted) {
+    void conflict(TNode conflictNode, bool safe) throw(theory::Interrupted) {
       Debug("theory") << "EngineOutputChannel::conflict(" << conflictNode << ")" << std::endl;
       d_conflictNode = conflictNode;
-      throw theory::Interrupted();
+      if(safe) {
+        throw theory::Interrupted();
+      }
     }
 
     void propagate(TNode, bool) throw(theory::Interrupted) {
@@ -254,7 +256,8 @@ public:
    * Check all (currently-active) theories for conflicts.
    * @param effort the effort level to use
    */
-  inline void check(theory::Theory::Effort effort) {
+  inline bool check(theory::Theory::Effort effort) {
+    d_theoryOut.d_conflictNode = Node::null();
     try {
       //d_bool.check(effort);
       d_uf.check(effort);
@@ -264,6 +267,7 @@ public:
     } catch(const theory::Interrupted&) {
       Debug("theory") << "TheoryEngine::check() => conflict" << std::endl;
     }
+    return d_theoryOut.d_conflictNode.get().isNull();
   }
 
   /**

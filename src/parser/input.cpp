@@ -102,7 +102,7 @@ Input* Input::newFileParser(ExprManager* em, InputLanguage lang,
     break;
 
   default:
-    Unhandled("Unknown Input language!");
+    Unhandled(lang);
   }
 
   return parser;
@@ -153,7 +153,7 @@ Input* Input::newStringParser(ExprManager* em, InputLanguage lang,
     break;
 
   default:
-    Unhandled("Unknown Input language!");
+    Unhandled(lang);
   }
   return parser;
 }
@@ -169,7 +169,7 @@ Expr Input::getSymbol(const std::string& name, SymbolType type) {
     return d_varSymbolTable.getObject(name);
 
   default:
-    Unhandled("Unhandled symbol type!");
+    Unhandled(type);
   }
 }
 
@@ -182,17 +182,17 @@ Expr Input::getFunction(const std::string& name) {
   return getSymbol(name, SYM_FUNCTION);
 }
 
-const Type*
+Type*
 Input::getType(const std::string& var_name,
                      SymbolType type) {
   Assert( isDeclared(var_name, type) );
-  const Type* t = getSymbol(var_name,type).getType();
+  Type* t = getSymbol(var_name,type).getType();
   return t;
 }
 
-const Type* Input::getSort(const std::string& name) {
+Type* Input::getSort(const std::string& name) {
   Assert( isDeclared(name, SYM_SORT) );
-  const Type* t = d_sortTable.getObject(name);
+  Type* t = d_sortTable.getObject(name);
   return t;
 }
 
@@ -265,33 +265,33 @@ Expr Input::mkDistinct(const std::vector<Expr>& args) {
   return mkExpr(AND, diseqs);
 }
 
-const Type*
-Input::functionType(const Type* domainType,
-                          const Type* rangeType) {
+Type*
+Input::functionType(Type* domainType,
+                          Type* rangeType) {
   return d_exprManager->mkFunctionType(domainType,rangeType);
 }
 
-const Type*
-Input::functionType(const std::vector<const Type*>& argTypes,
-                          const Type* rangeType) {
+Type*
+Input::functionType(const std::vector<Type*>& argTypes,
+                          Type* rangeType) {
   Assert( argTypes.size() > 0 );
   return d_exprManager->mkFunctionType(argTypes,rangeType);
 }
 
-const Type*
-Input::functionType(const std::vector<const Type*>& sorts) {
+Type*
+Input::functionType(const std::vector<Type*>& sorts) {
   Assert( sorts.size() > 0 );
   if( sorts.size() == 1 ) {
     return sorts[0];
   } else {
-    std::vector<const Type*> argTypes(sorts);
-    const Type* rangeType = argTypes.back();
+    std::vector<Type*> argTypes(sorts);
+    Type* rangeType = argTypes.back();
     argTypes.pop_back();
     return functionType(argTypes,rangeType);
   }
 }
 
-const Type* Input::predicateType(const std::vector<const Type*>& sorts) {
+Type* Input::predicateType(const std::vector<Type*>& sorts) {
   if(sorts.size() == 0) {
     return d_exprManager->booleanType();
   } else {
@@ -300,7 +300,7 @@ const Type* Input::predicateType(const std::vector<const Type*>& sorts) {
 }
 
 Expr 
-Input::mkVar(const std::string& name, const Type* type) {
+Input::mkVar(const std::string& name, Type* type) {
   Debug("parser") << "mkVar(" << name << "," << *type << ")" << std::endl;
   Expr expr = d_exprManager->mkVar(type, name);
   defineVar(name,expr);
@@ -309,7 +309,7 @@ Input::mkVar(const std::string& name, const Type* type) {
 
 const std::vector<Expr>
 Input::mkVars(const std::vector<std::string> names,
-                    const Type* type) {
+                    Type* type) {
   std::vector<Expr> vars;
   for(unsigned i = 0; i < names.size(); ++i) {
     vars.push_back(mkVar(names[i], type));
@@ -336,34 +336,34 @@ Input::setLogic(const std::string& name) {
   if( name == "QF_UF" ) {
     newSort("U");
   } else {
-    Unhandled("setLogic: " + name);
+    Unhandled(name);
   }
 }
 
-const Type*
+Type*
 Input::newSort(const std::string& name) {
   Debug("parser") << "newSort(" << name << ")" << std::endl;
   Assert( !isDeclared(name, SYM_SORT) ) ;
-  const Type* type = d_exprManager->mkSort(name);
+  Type* type = d_exprManager->mkSort(name);
   d_sortTable.bindName(name, type);
   Assert( isDeclared(name, SYM_SORT) ) ;
   return type;
 }
 
-const std::vector<const Type*>
+const std::vector<Type*>
 Input::newSorts(const std::vector<std::string>& names) {
-  std::vector<const Type*> types;
+  std::vector<Type*> types;
   for(unsigned i = 0; i < names.size(); ++i) {
     types.push_back(newSort(names[i]));
   }
   return types;
 }
 
-const BooleanType* Input::booleanType() {
+BooleanType* Input::booleanType() {
   return d_exprManager->booleanType();
 }
 
-const KindType* Input::kindType() {
+KindType* Input::kindType() {
   return d_exprManager->kindType();
 }
 
@@ -392,7 +392,7 @@ unsigned int Input::minArity(Kind kind) {
     return 3;
 
   default:
-    Unhandled("kind in minArity");
+    Unhandled(kind);
   }
 }
 
@@ -423,7 +423,7 @@ unsigned int Input::maxArity(Kind kind) {
     return UINT_MAX;
 
   default:
-    Unhandled("kind in maxArity");
+    Unhandled(kind);
   }
 }
 
@@ -435,7 +435,7 @@ bool Input::isDeclared(const std::string& name, SymbolType type) {
   case SYM_SORT:
     return d_sortTable.isBound(name);
   default:
-    Unhandled("Unhandled symbol type!");
+    Unhandled(type);
   }
 }
 
@@ -464,7 +464,7 @@ void Input::checkDeclaration(const std::string& varName,
     break;
 
   default:
-    Unhandled("Unknown check type!");
+    Unhandled(check);
   }
 }
 
