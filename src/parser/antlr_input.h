@@ -48,6 +48,8 @@ public:
   AntlrInput(ExprManager* exprManager, const std::string& input, const std::string& name, unsigned int lookahead);
   ~AntlrInput();
 
+  inline static std::string tokenText(pANTLR3_COMMON_TOKEN token);
+
 protected:
 
   /**
@@ -73,6 +75,16 @@ private:
   pANTLR3_COMMON_TOKEN_STREAM d_tokenStream;
   pANTLR3_INPUT_STREAM d_input;
 };
+
+std::string AntlrInput::tokenText(pANTLR3_COMMON_TOKEN token) {
+  ANTLR3_MARKER start = token->getStartIndex(token);
+  ANTLR3_MARKER end = token->getStopIndex(token);
+  std::string txt( (const char *)start, end-start+1 );
+  Debug("parser-extra") << "tokenText: start=" << start << std::endl
+                        <<  "end=" << end << std::endl
+                        <<  "txt='" << txt << "'" << std::endl;
+  return txt;
+}
 
 }/* CVC4::parser namespace */
 }/* CVC4 namespace */

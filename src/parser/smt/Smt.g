@@ -71,22 +71,11 @@ using namespace CVC4::parser;
 }
 
 @members {
-CVC4::parser::SmtInput *smtInput;
+CVC4::parser::SmtInput *input;
 
 extern
-void SetSmtInput(CVC4::parser::SmtInput* _smtInput) {
-  smtInput = _smtInput;
-}
-
-inline static
-std::string tokenText(pANTLR3_COMMON_TOKEN token) {
-  ANTLR3_MARKER start = token->getStartIndex(token);
-  ANTLR3_MARKER end = token->getStopIndex(token);
-  std::string txt( (const char *)start, end-start+1 );
-  Debug("parser-extra") << "tokenText: start=" << start << std::endl
-                        <<  "end=" << end << std::endl
-                        <<  "txt='" << txt << "'" << std::endl;
-  return txt;
+void SetSmtInput(CVC4::parser::SmtInput* _input) {
+  input = _input;
 }
 }
 
@@ -141,7 +130,7 @@ benchAttribute returns [CVC4::Command* smt_command]
   Expr expr;
 }
   : LOGIC_TOK identifier[name,CHECK_NONE,SYM_VARIABLE]
-    { smtInput->setLogic(name);
+    { input->setLogic(name);
       smt_command = new SetBenchmarkLogicCommand(name);   }
   | ASSUMPTION_TOK annotatedFormula[expr]
     { smt_command = new AssertCommand(expr);   }
@@ -162,19 +151,19 @@ benchAttribute returns [CVC4::Command* smt_command]
  */
 annotatedFormula[CVC4::Expr& expr]
 @init {
-  Debug("parser") << "annotated formula: " << tokenText(LT(1)) << std::endl;
+  Debug("parser") << "annotated formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
   Kind kind;
   std::string name;
   std::vector<Expr> args; /* = getExprVector(); */
 } 
   : /* a built-in operator application */
     LPAREN_TOK builtinOp[kind] annotatedFormulas[args,expr] RPAREN_TOK 
-    { smtInput->checkArity(kind, args.size());
-      expr = smtInput->mkExpr(kind,args); }
+    { input->checkArity(kind, args.size());
+      expr = input->mkExpr(kind,args); }
 
   | /* a "distinct" expr */
     LPAREN_TOK DISTINCT_TOK annotatedFormulas[args,expr] RPAREN_TOK
-    { expr = smtInput->mkDistinct(args); }
+    { expr = input->mkDistinct(args); }
 
   | /* A non-built-in function application */
 
@@ -187,7 +176,7 @@ annotatedFormula[CVC4::Expr& expr]
     { args.push_back(expr); }
     annotatedFormulas[args,expr] RPAREN_TOK
     // TODO: check arity
-    { expr = smtInput->mkExpr(CVC4::kind::APPLY,args); }
+    { expr = input->mkExpr(CVC4::kind::APPLY,args); }
 
   | /* An ite expression */
     LPAREN_TOK (ITE_TOK | IF_THEN_ELSE_TOK) 
@@ -198,27 +187,27 @@ annotatedFormula[CVC4::Expr& expr]
     annotatedFormula[expr]
     { args.push_back(expr); } 
     RPAREN_TOK
-    { expr = smtInput->mkExpr(CVC4::kind::ITE, args); }
+    { expr = input->mkExpr(CVC4::kind::ITE, args); }
 
   | /* a let/flet binding */
     LPAREN_TOK 
     (LET_TOK LPAREN_TOK var_identifier[name,CHECK_UNDECLARED]
       | FLET_TOK LPAREN_TOK fun_identifier[name,CHECK_UNDECLARED] )
     annotatedFormula[expr] RPAREN_TOK
-    { smtInput->defineVar(name,expr); }
+    { input->defineVar(name,expr); }
     annotatedFormula[expr]
     RPAREN_TOK
-    { smtInput->undefineVar(name); }
+    { input->undefineVar(name); }
 
   | /* a variable */
     ( identifier[name,CHECK_DECLARED,SYM_VARIABLE]
       | var_identifier[name,CHECK_DECLARED] 
       | fun_identifier[name,CHECK_DECLARED] )
-    { expr = smtInput->getVariable(name); }
+    { expr = input->getVariable(name); }
 
     /* constants */
-  | TRUE_TOK          { expr = smtInput->getTrueExpr(); }
-  | FALSE_TOK         { expr = smtInput->getFalseExpr(); }
+  | TRUE_TOK          { expr = input->getTrueExpr(); }
+  | FALSE_TOK         { expr = input->getFalseExpr(); }
     /* TODO: let, flet, quantifiers, arithmetic constants */
   ;
 
@@ -240,7 +229,7 @@ annotatedFormulas[std::vector<CVC4::Expr>& formulas, CVC4::Expr& expr]
 */
 builtinOp[CVC4::Kind& kind]
 @init {
-  Debug("parser") << "builtin: " << tokenText(LT(1)) << std::endl;
+  Debug("parser") << "builtin: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : NOT_TOK      { $kind = CVC4::kind::NOT;     }
   | IMPLIES_TOK  { $kind = CVC4::kind::IMPLIES; }
@@ -276,8 +265,8 @@ functionSymbol[CVC4::Expr& fun]
 	std::string name;
 }
   : functionName[name,CHECK_DECLARED]
-    { smtInput->checkFunction(name);
-      fun = smtInput->getFunction(name); }
+    { input->checkFunction(name);
+      fun = input->getFunction(name); }
   ;
   
 /**
@@ -298,8 +287,8 @@ functionDeclaration
       t = sortSymbol // require at least one sort
     { sorts.push_back(t); }
       sortList[sorts] RPAREN_TOK
-    { t = smtInput->functionType(sorts);
-      smtInput->mkVar(name, t); } 
+    { t = input->functionType(sorts);
+      input->mkVar(name, t); } 
   ;
               
 /**
@@ -311,8 +300,8 @@ predicateDeclaration
   std::vector<Type*> p_sorts;
 }
   : LPAREN_TOK predicateName[name,CHECK_UNDECLARED] sortList[p_sorts] RPAREN_TOK
-    { Type *t = smtInput->predicateType(p_sorts);
-      smtInput->mkVar(name, t); } 
+    { Type *t = input->predicateType(p_sorts);
+      input->mkVar(name, t); } 
   ;
 
 sortDeclaration 
@@ -321,7 +310,7 @@ sortDeclaration
 }
   : sortName[name,CHECK_UNDECLARED]
     { Debug("parser") << "sort decl: '" << name << "'" << std::endl;
-      smtInput->newSort(name); }
+      input->newSort(name); }
   ;
   
 /**
@@ -344,7 +333,7 @@ sortSymbol returns [CVC4::Type* t]
   std::string name;
 }
   : sortName[name,CHECK_NONE] 
-  	{ $t = smtInput->getSort(name); }
+  	{ $t = input->getSort(name); }
   ;
 
 /**
@@ -373,11 +362,11 @@ identifier[std::string& id,
 		   CVC4::parser::DeclarationCheck check, 
            CVC4::parser::SymbolType type] 
   : IDENTIFIER
-    { id = tokenText($IDENTIFIER);
+    { id = AntlrInput::tokenText($IDENTIFIER);
       Debug("parser") << "identifier: " << id
                       << " check? " << toString(check)
                       << " type? " << toString(type) << std::endl;
-      smtInput->checkDeclaration(id, check, type); }
+      input->checkDeclaration(id, check, type); }
   ;
 
 /**
@@ -388,10 +377,10 @@ identifier[std::string& id,
 var_identifier[std::string& id,
     		   CVC4::parser::DeclarationCheck check] 
   : VAR_IDENTIFIER
-    { id = tokenText($VAR_IDENTIFIER);
+    { id = AntlrInput::tokenText($VAR_IDENTIFIER);
       Debug("parser") << "var_identifier: " << id
                       << " check? " << toString(check) << std::endl;
-      smtInput->checkDeclaration(id, check, SYM_VARIABLE); }
+      input->checkDeclaration(id, check, SYM_VARIABLE); }
   ;
 
 /**
@@ -402,10 +391,10 @@ var_identifier[std::string& id,
 fun_identifier[std::string& id,
     		   CVC4::parser::DeclarationCheck check] 
   : FUN_IDENTIFIER
-    { id = tokenText($FUN_IDENTIFIER);
+    { id = AntlrInput::tokenText($FUN_IDENTIFIER);
       Debug("parser") << "fun_identifier: " << id
                       << " check? " << toString(check) << std::endl;
-      smtInput->checkDeclaration(id, check, SYM_FUNCTION); }
+      input->checkDeclaration(id, check, SYM_FUNCTION); }
   ;
 
 
