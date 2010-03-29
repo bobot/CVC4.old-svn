@@ -28,7 +28,7 @@
 namespace CVC4 {
 namespace parser {
 
-struct StringHashFcn {
+struct StringHashFunction {
   size_t operator()(const std::string& str) const {
     return __gnu_cxx::hash<const char*>()(str.c_str());
   }
@@ -43,7 +43,7 @@ class SymbolTable {
 private:
 
   /** The name to expression bindings */
-  typedef __gnu_cxx::hash_map<std::string, ObjectType, StringHashFcn>
+  typedef __gnu_cxx::hash_map<std::string, ObjectType, StringHashFunction>
   LookupTable;
 
   /** The table iterator */

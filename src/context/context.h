@@ -273,10 +273,14 @@ public:
  *    ContextMemoryManager (see item 2 above).
  * 4. In the subclass implementation, any time the state is about to be
  *    changed, first call makeCurrent().
- * 5. In the subclass implementation, the destructor should call destroy().
- *    Unfortunately, the destroy() functionality cannot be in the ContextObj
- *    destructor since it needs to call the subclass-specific restore() method
- *    in order to properly clean up saved copies.
+ * 5. In the subclass implementation, the destructor should call destroy(),
+ *    which repeatedly calls restore() until the object is restored to context
+ *    level 0.  Note, however, that if there is additional cleanup required at
+ *    level 0, destroy() does not do this.  It has to be implemented in the
+ *    destructor of the subclass.  The reason the destroy() functionality
+ *    cannot be in the ContextObj destructor is that it needs to call the
+ *    subclass-specific restore() method in order to properly clean up saved
+ *    copies.
  */
 class ContextObj {
   /**
@@ -358,9 +362,10 @@ protected:
 
   /**
    * Should be called from sub-class destructor: calls restore until restored
-   * to initial version.  Also removes object from all Scope lists.  Note that
-   * this doesn't actually free the memory allocated by the ContextMemoryManager
-   * for this object.  This isn't done until the corresponding Scope is popped.
+   * to initial version (version at context level 0).  Also removes object from
+   * all Scope lists.  Note that this doesn't actually free the memory
+   * allocated by the ContextMemoryManager for this object.  This isn't done
+   * until the corresponding Scope is popped.
    */
   void destroy() throw(AssertionException);
 
@@ -399,7 +404,7 @@ public:
   /**
    * Destructor does nothing: subclass must explicitly call destroy() instead.
    */
-  virtual ~ContextObj() {}
+  virtual ~ContextObj() { Debug("contextgc") << "context obj dest" << std::endl; }
 
   /**
    * If you want to allocate a ContextObj object on the heap, use this
@@ -426,6 +431,7 @@ public:
    * ContextMemoryManager as an argument.
    */
   void deleteSelf() {
+    this->~ContextObj();
     ::operator delete(this);
   }
 

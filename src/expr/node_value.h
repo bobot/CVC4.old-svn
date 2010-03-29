@@ -141,6 +141,8 @@ private:
   /** Decrement ref counts of children */
   inline void decrRefCounts();
 
+  bool isBeingDeleted() const;
+
 public:
 
   template <bool ref_count>
@@ -229,16 +231,16 @@ public:
  * PERFORMING for other uses!  NodeValue::internalHash() will lead to
  * collisions for all VARIABLEs.
  */
-struct NodeValueInternalHashFcn {
+struct NodeValueInternalHashFunction {
   inline size_t operator()(const NodeValue* nv) const {
     return (size_t) nv->internalHash();
   }
-};/* struct NodeValueHashFcn */
+};/* struct NodeValueInternalHashFunction */
 
 /**
  * For hash_maps, hash_sets, etc.
  */
-struct NodeValueIDHashFcn {
+struct NodeValueIDHashFunction {
   inline size_t operator()(const NodeValue* nv) const {
     return (size_t) nv->getId();
   }
@@ -266,6 +268,9 @@ inline void NodeValue::decrRefCounts() {
 }
 
 inline void NodeValue::inc() {
+  Assert(!isBeingDeleted(),
+         "NodeValue is currently being deleted "
+         "and increment is being called on it. Don't Do That!");
   // FIXME multithreading
   if(EXPECT_TRUE( d_rc < MAX_RC )) {
     ++d_rc;
@@ -299,6 +304,13 @@ inline NodeValue::const_nv_iterator NodeValue::nv_begin() const {
 
 inline NodeValue::const_nv_iterator NodeValue::nv_end() const {
   return d_children + d_nchildren;
+}
+
+
+inline bool NodeValue::isBeingDeleted() const
+{
+  return NodeManager::currentNM() != NULL &&
+    NodeManager::currentNM()->isCurrentlyDeleting(this);
 }
 
 }/* CVC4::expr namespace */
