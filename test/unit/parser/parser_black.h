@@ -230,7 +230,7 @@ class ParserBlack : public CxxTest::TestSuite {
         ( parser->parseNextExpression();
           cout << "\nBad expr succeeded: " << badBooleanExprs[i] << endl;, 
           ParserException );
-      delete smtParser;
+      delete parser;
     }
     //Debug.off("parser");
   }
@@ -260,7 +260,7 @@ public:
     tryBadExprs(LANG_CVC4,cvc4ExprContext,badCvc4Exprs,numBadCvc4Exprs);
   }
 
-  void XtestGoodSmtInputs() {
+  void testGoodSmtInputs() {
     tryGoodInputs(LANG_SMTLIB,goodSmtInputs,numGoodSmtInputs);
   }
 

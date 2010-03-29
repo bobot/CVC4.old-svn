@@ -71,7 +71,7 @@ using namespace CVC4::parser;
 }
 
 @members {
-CVC4::parser::CvcInput *input;
+static CVC4::parser::CvcInput *input;
 
 extern
 void SetCvcInput(CVC4::parser::CvcInput* _input) {
@@ -103,15 +103,15 @@ parseCommand returns [CVC4::Command* cmd]
 command returns [CVC4::Command* cmd = 0]
 @init {
   Expr f;
-  Debug("parser") << "command: " << LT(1)->getText() << endl;
+  Debug("parser") << "command: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : ASSERT_TOK   f = formula  SEMICOLON { cmd = new AssertCommand(f);   }
-  | QUERY_TOK    f = formula  SEMICOLON { cmd = new QueryCommand(f);    }
-  | CHECKSAT_TOK f = formula  SEMICOLON { cmd = new CheckSatCommand(f); }
-  | CHECKSAT_TOK              SEMICOLON { cmd = new CheckSatCommand(getTrueExpr()); }
-  | PUSH                  SEMICOLON { cmd = new PushCommand(); }
-  | POP_TOK                   SEMICOLON { cmd = new PopCommand(); }
-  | cmd = declaration
+  : ASSERT_TOK formula[f] SEMICOLON { cmd = new AssertCommand(f);   }
+  | QUERY_TOK formula[f] SEMICOLON { cmd = new QueryCommand(f);    }
+  | CHECKSAT_TOK formula[f] SEMICOLON { cmd = new CheckSatCommand(f); }
+  | CHECKSAT_TOK SEMICOLON { cmd = new CheckSatCommand(input->getTrueExpr()); }
+  | PUSH_TOK SEMICOLON { cmd = new PushCommand(); }
+  | POP_TOK SEMICOLON { cmd = new PopCommand(); }
+  | declaration[cmd]
   | EOF
   ;
 
@@ -119,49 +119,49 @@ command returns [CVC4::Command* cmd = 0]
  * Match a declaration
  */
 
-declaration returns [CVC4::DeclarationCommand* cmd]
+declaration[CVC4::Command*& cmd]
 @init {
-  vector<string> ids;
+  std::vector<std::string> ids;
   Type* t;
-  Debug("parser") << "declaration: " << LT(1)->getText() << endl;
+  Debug("parser") << "declaration: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : // FIXME: These could be type or function declarations, if that matters.
-    identifierList[ids, CHECK_UNDECLARED, SYM_VARIABLE] COLON t = declType[ids] SEMICOLON
+    identifierList[ids, CHECK_UNDECLARED, SYM_VARIABLE] COLON declType[t,ids] SEMICOLON
     { cmd = new DeclarationCommand(ids,t); }
   ;
 
 /** Match the right-hand side of a declaration. Returns the type. */
-declType[std::vector<std::string>& idList] returns [CVC4::Type* t]
+declType[CVC4::Type*& t, std::vector<std::string>& idList]
 @init {
-  Debug("parser") << "declType: " << LT(1)->getText() << endl;
+  Debug("parser") << "declType: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : /* A sort declaration (e.g., "T : TYPE") */
-    TYPE_TOK { newSorts(idList); t = kindType(); }
+    TYPE_TOK { input->newSorts(idList); t = input->kindType(); }
   | /* A variable declaration */
-    t = type { mkVars(idList,t); }
+    type[t] { input->mkVars(idList,t); }
   ;
 
 /**
  * Match the type in a declaration and do the declaration binding.
  * TODO: Actually parse sorts into Type objects.
  */
-type returns  [CVC4::Type* t]
+type[CVC4::Type*& t]
 @init {
-  Type *t1, *t2;
-  Debug("parser") << "type: " << LT(1)->getText() << endl;
+  std::vector<Type*> typeList;
+  Debug("parser") << "type: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : /* Simple type */
-    t = baseType
+    baseType[t]
   | /* Single-parameter function type */
-    t1 = baseType RIGHT_ARROW t2 = baseType
-    { t = functionType(t1,t2); }
+    baseType[t] { typeList.push_back(t); }
+    RARROW baseType[t] 
+    { t = input->functionType(typeList,t); }
   | /* Multi-parameter function type */
-    LPAREN t1 = baseType
-    { std::vector<Type*> argTypes;
-      argTypes.push_back(t1); }
-    (COMMA t1 = baseType { argTypes.push_back(t1); } )+
-    RPAREN ARROW_TOK t2 = baseType
-    { t = functionType(argTypes,t2); }
+    LPAREN baseType[t]
+    { typeList.push_back(t); }
+    (COMMA baseType[t] { typeList.push_back(t); } )+
+    RPAREN ARROW_TOK baseType[t]
+    { t = input->functionType(typeList,t); }
   ;
 
 /**
@@ -174,58 +174,58 @@ identifierList[std::vector<std::string>& idList,
                CVC4::parser::DeclarationCheck check,
                CVC4::parser::SymbolType type]
 @init {
-  string id;
+  std::string id;
 }
-  : id = identifier[check,type] { idList.push_back(id); }
-      (COMMA id = identifier[check] { idList.push_back(id); })*
+  : identifier[id,check,type] { idList.push_back(id); }
+    (COMMA identifier[id,check,type] { idList.push_back(id); })*
   ;
 
 
 /**
  * Matches an identifier and returns a string.
  */
-identifier[CVC4::parser::DeclarationCheck check,
+identifier[std::string& id,
+           CVC4::parser::DeclarationCheck check,
            CVC4::parser::SymbolType type]
-returns [std::string id]
   : IDENTIFIER
     { id = AntlrInput::tokenText($IDENTIFIER);
-      checkDeclaration(id, check, type); }
+      input->checkDeclaration(id, check, type); }
   ;
 
 /**
  * Matches a type.
  * TODO: parse more types
  */
-baseType returns [CVC4::Type* t]
+baseType[CVC4::Type*& t]
 @init {
   std::string id;
-  Debug("parser") << "base type: " << LT(1)->getText() << endl;
+  Debug("parser") << "base type: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : BOOLEAN_TOK { t = booleanType(); }
-  | t = typeSymbol
+  : BOOLEAN_TOK { t = input->booleanType(); }
+  | typeSymbol[t]
   ;
 
 /**
  * Matches a type identifier
  */
-typeSymbol returns [CVC4::Type* t]
+typeSymbol[CVC4::Type*& t]
 @init {
   std::string id;
-  Debug("parser") << "type symbol: " << LT(1)->getText() << endl;
+  Debug("parser") << "type symbol: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : id = identifier[CHECK_DECLARED,SYM_SORT]
-    { t = getSort(id); }
+  : identifier[id,CHECK_DECLARED,SYM_SORT]
+    { t = input->getSort(id); }
   ;
 
 /**
  * Matches a CVC4 formula.
  * @return the expression representing the formula
  */
-formula returns [CVC4::Expr formula]
+formula[CVC4::Expr& formula]
 @init {
-  Debug("parser") << "formula: " << LT(1)->getText() << endl;
+  Debug("parser") << "formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  :  formula = iffFormula
+  :  iffFormula[formula]
   ;
 
 /**
@@ -235,8 +235,8 @@ formulaList[std::vector<CVC4::Expr>& formulas]
 @init {
   Expr f;
 }
-  : f = formula { formulas.push_back(f); }
-    ( COMMA f = formula
+  : formula[f] { formulas.push_back(f); }
+    ( COMMA formula[f]
       { formulas.push_back(f); }
     )*
   ;
@@ -244,74 +244,79 @@ formulaList[std::vector<CVC4::Expr>& formulas]
 /**
  * Matches a Boolean IFF formula (right-associative)
  */
-iffFormula returns [CVC4::Expr f]
+iffFormula[CVC4::Expr& f]
 @init {
   Expr e;
-  Debug("parser") << "<=> formula: " << LT(1)->getText() << endl;
+  Debug("parser") << "<=> formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : f = impliesFormula
-    ( IFF_TOK e = iffFormula
-        { f = mkExpr(CVC4::kind::IFF, f, e); }
+  : impliesFormula[f]
+    ( IFF_TOK 
+    	iffFormula[e]
+        { f = input->mkExpr(CVC4::kind::IFF, f, e); }
     )?
   ;
 
 /**
  * Matches a Boolean IMPLIES formula (right-associative)
  */
-impliesFormula returns [CVC4::Expr f]
+impliesFormula[CVC4::Expr& f]
 @init {
   Expr e;
-  Debug("parser") << "=> Formula: " << LT(1)->getText() << endl;
+  Debug("parser") << "=> Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : f = orFormula
-    ( IMPLIES_TOK e = impliesFormula
-        { f = mkExpr(CVC4::kind::IMPLIES, f, e); }
+  : orFormula[f]
+    ( IMPLIES_TOK impliesFormula[e]
+        { f = input->mkExpr(CVC4::kind::IMPLIES, f, e); }
     )?
   ;
 
 /**
  * Matches a Boolean OR formula (left-associative)
  */
-orFormula returns [CVC4::Expr f]
+orFormula[CVC4::Expr& f]
 @init {
-  Expr e;
-  vector<Expr> exprs;
-  Debug("parser") << "OR Formula: " << LT(1)->getText() << endl;
+  std::vector<Expr> exprs;
+  Debug("parser") << "OR Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : e = xorFormula { exprs.push_back(e); }
-      ( OR_TOK e = xorFormula { exprs.push_back(e); } )*
+  : xorFormula[f]
+      ( OR_TOK  { exprs.push_back(f); }
+        xorFormula[f] { exprs.push_back(f); } )*
     {
-      f = (exprs.size() > 1 ? mkExpr(CVC4::kind::OR, exprs) : exprs[0]);
+      if( exprs.size() > 0 ) {
+        f = input->mkExpr(CVC4::kind::OR, exprs);
+      }
     }
   ;
 
 /**
  * Matches a Boolean XOR formula (left-associative)
  */
-xorFormula returns [CVC4::Expr f]
+xorFormula[CVC4::Expr& f]
 @init {
   Expr e;
-  Debug("parser") << "XOR formula: " << LT(1)->getText() << endl;
+  Debug("parser") << "XOR formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : f = andFormula
-    ( XOR_TOK e = andFormula
-      { f = mkExpr(CVC4::kind::XOR,f, e); }
+  : andFormula[f]
+    ( XOR_TOK andFormula[e]
+      { f = input->mkExpr(CVC4::kind::XOR,f, e); }
     )*
   ;
 
 /**
  * Matches a Boolean AND formula (left-associative)
  */
-andFormula returns [CVC4::Expr f]
+andFormula[CVC4::Expr& f]
 @init {
-  Expr e;
-  vector<Expr> exprs;
-  Debug("parser") << "AND Formula: " << LT(1)->getText() << endl;
+  std::vector<Expr> exprs;
+  Debug("parser") << "AND Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : e = notFormula { exprs.push_back(e); }
-    ( AND_TOK e = notFormula { exprs.push_back(e); } )*
+  : notFormula[f] 
+    ( AND_TOK { exprs.push_back(f); }
+      notFormula[f] { exprs.push_back(f); } )*
     {
-      f = (exprs.size() > 1 ? mkExpr(CVC4::kind::AND, exprs) : exprs[0]);
+      if( exprs.size() > 0 ) {
+        f = input->mkExpr(CVC4::kind::AND, exprs);
+      }
     }
   ;
 
@@ -319,90 +324,88 @@ andFormula returns [CVC4::Expr f]
  * Parses a NOT formula.
  * @return the expression representing the formula
  */
-notFormula returns [CVC4::Expr f]
+notFormula[CVC4::Expr& f]
 @init {
-  Debug("parser") << "NOT formula: " << LT(1)->getText() << endl;
+  Debug("parser") << "NOT formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : /* negation */
-    NOT_TOK f = notFormula
-    { f = mkExpr(CVC4::kind::NOT, f); }
+    NOT_TOK notFormula[f]
+    { f = input->mkExpr(CVC4::kind::NOT, f); }
   | /* a boolean atom */
-    f = predFormula
+    predFormula[f]
   ;
 
-predFormula returns [CVC4::Expr f]
+predFormula[CVC4::Expr& f]
 @init {
-  Debug("parser") << "predicate formula: " << LT(1)->getText() << endl;
+  Expr e;
+  Debug("parser") << "predicate formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : { Expr e; }
-    f = term
-    (EQUAL_TOK e = term
-      { f = mkExpr(CVC4::kind::EQUAL, f, e); }
+  : term[f]
+    (EQUAL_TOK term[e]
+      { f = input->mkExpr(CVC4::kind::EQUAL, f, e); }
     )?
   ; // TODO: lt, gt, etc.
 
 /**
  * Parses a term.
  */
-term returns [CVC4::Expr t]
+term[CVC4::Expr& f]
 @init {
   std::string name;
-  Debug("parser") << "term: " << LT(1)->getText() << endl;
+  std::vector<Expr> args;
+  Debug("parser") << "term: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : /* function application */
-    // { isFunction(LT(1)->getText()) }?
-    { Expr f;
-      std::vector<CVC4::Expr> args; }
-    f = functionSymbol[CHECK_DECLARED]
+    // { isFunction(AntlrInput::tokenText(LT(1))) }?
+    functionSymbol[f]
     { args.push_back( f ); }
-
     LPAREN formulaList[args] RPAREN
     // TODO: check arity
-    { t = mkExpr(CVC4::kind::APPLY, args); }
+    { f = input->mkExpr(CVC4::kind::APPLY, args); }
 
   | /* if-then-else */
-    t = iteTerm
+    iteTerm[f]
 
   | /* parenthesized sub-formula */
-    LPAREN t = formula RPAREN
+    LPAREN formula[f] RPAREN
 
     /* constants */
-  | TRUE_TOK  { t = getTrueExpr(); }
-  | FALSE_TOK { t = getFalseExpr(); }
+  | TRUE_TOK  { f = input->getTrueExpr(); }
+  | FALSE_TOK { f = input->getFalseExpr(); }
 
   | /* variable */
-    name = identifier[CHECK_DECLARED,SYM_VARIABLE]
-    { t = getVariable(name); }
+    identifier[name,CHECK_DECLARED,SYM_VARIABLE]
+    { f = input->getVariable(name); }
   ;
 
 /**
  * Parses an ITE term.
  */
-iteTerm returns [CVC4::Expr t]
+iteTerm[CVC4::Expr& f]
 @init {
-  Expr iteCondition, iteThen, iteElse;
-  Debug("parser") << "ite: " << LT(1)->getText() << endl;
+  std::vector<Expr> args;
+  Debug("parser") << "ite: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : IF_TOK iteCondition = formula
-    THEN_TOK iteThen = formula
-    iteElse = iteElseTerm
+  : IF_TOK formula[f] { args.push_back(f); }
+    THEN_TOK formula[f] { args.push_back(f); }
+    iteElseTerm[f] { args.push_back(f); }
     ENDIF_TOK
-    { t = mkExpr(CVC4::kind::ITE, iteCondition, iteThen, iteElse); }
+    { f = input->mkExpr(CVC4::kind::ITE, args); }
   ;
 
 /**
  * Parses the else part of the ITE, i.e. ELSE f, or ELSIF b THEN f1 ...
  */
-iteElseTerm returns [CVC4::Expr t]
+iteElseTerm[CVC4::Expr& f]
 @init {
-  Expr iteCondition, iteThen, iteElse;
-  Debug("parser") << "else: " << LT(1)->getText() << endl;
+  std::vector<Expr> args;
+  Debug("parser") << "else: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : ELSE_TOK t = formula
-  | ELSEIF_TOK iteCondition = formula
-    THEN_TOK iteThen = formula
-    iteElse = iteElseTerm
-    { t = mkExpr(CVC4::kind::ITE, iteCondition, iteThen, iteElse); }
+  : ELSE_TOK formula[f] 
+  | ELSEIF_TOK iteCondition = formula[f] { args.push_back(f); }
+    THEN_TOK iteThen = formula[f] { args.push_back(f); }
+    iteElse = iteElseTerm[f] { args.push_back(f); }
+    { f = input->mkExpr(CVC4::kind::ITE, args); }
   ;
 
 /**
@@ -410,14 +413,14 @@ iteElseTerm returns [CVC4::Expr t]
  * @param what kind of check to perform on the id
  * @return the predicate symol
  */
-functionSymbol[CVC4::parser::DeclarationCheck check] returns [CVC4::Expr f]
+functionSymbol[CVC4::Expr& f]
 @init {
-  Debug("parser") << "function symbol: " << LT(1)->getText() << endl;
+  Debug("parser") << "function symbol: " << AntlrInput::tokenText(LT(1)) << std::endl;
   std::string name;
 }
-  : name = identifier[check,SYM_FUNCTION]
-    { checkFunction(name);
-      f = getFunction(name); }
+  : identifier[name,CHECK_DECLARED,SYM_FUNCTION]
+    { input->checkFunction(name);
+      f = input->getFunction(name); }
   ;
 
 

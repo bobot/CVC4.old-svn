@@ -71,7 +71,7 @@ using namespace CVC4::parser;
 }
 
 @members {
-CVC4::parser::SmtInput *input;
+static CVC4::parser::SmtInput *input;
 
 extern
 void SetSmtInput(CVC4::parser::SmtInput* _input) {
