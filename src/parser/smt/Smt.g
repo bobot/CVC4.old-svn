@@ -159,11 +159,14 @@ annotatedFormula[CVC4::Expr& expr]
   : /* a built-in operator application */
     LPAREN_TOK builtinOp[kind] annotatedFormulas[args,expr] RPAREN_TOK 
     { input->checkArity(kind, args.size());
-      expr = input->mkExpr(kind,args); }
-
-  | /* a "distinct" expr */
-    LPAREN_TOK DISTINCT_TOK annotatedFormulas[args,expr] RPAREN_TOK
-    { expr = input->mkDistinct(args); }
+      if((kind == CVC4::kind::AND || kind == CVC4::kind::OR) && args.size() == 1) {
+        /* Unary AND/OR can be replaced with the argument.
+	       It just so happens expr should already by the only argument. */
+        Assert( expr == args[0] );
+      } else {
+        expr = input->mkExpr(kind, args);
+      }
+    }
 
   | /* A non-built-in function application */
 
@@ -176,7 +179,7 @@ annotatedFormula[CVC4::Expr& expr]
     { args.push_back(expr); }
     annotatedFormulas[args,expr] RPAREN_TOK
     // TODO: check arity
-    { expr = input->mkExpr(CVC4::kind::APPLY,args); }
+    { expr = input->mkExpr(CVC4::kind::APPLY_UF,args); }
 
   | /* An ite expression */
     LPAREN_TOK (ITE_TOK | IF_THEN_ELSE_TOK) 
@@ -238,6 +241,7 @@ builtinOp[CVC4::Kind& kind]
   | XOR_TOK      { $kind = CVC4::kind::XOR;     }
   | IFF_TOK      { $kind = CVC4::kind::IFF;     }
   | EQUAL_TOK    { $kind = CVC4::kind::EQUAL;   }
+  | DISTINCT_TOK { $kind = CVC4::kind::DISTINCT; }
     /* TODO: lt, gt, plus, minus, etc. */
   ;
 

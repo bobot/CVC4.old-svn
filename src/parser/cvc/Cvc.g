@@ -361,7 +361,7 @@ term[CVC4::Expr& f]
     { args.push_back( f ); }
     LPAREN formulaList[args] RPAREN
     // TODO: check arity
-    { f = input->mkExpr(CVC4::kind::APPLY, args); }
+    { f = input->mkExpr(CVC4::kind::APPLY_UF, args); }
 
   | /* if-then-else */
     iteTerm[f]

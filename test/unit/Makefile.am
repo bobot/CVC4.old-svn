@@ -4,12 +4,15 @@ UNIT_TESTS = \
 	expr/node_black \
 	expr/kind_black \
 	expr/node_builder_black \
+	expr/node_manager_white \
 	expr/attribute_white \
 	expr/attribute_black \
 	parser/parser_black \
 	context/context_black \
 	context/context_mm_black \
+	context/cdo_black \
 	context/cdlist_black \
+	context/cdmap_black \
 	theory/theory_black \
 	theory/theory_uf_white \
 	util/assert_white \

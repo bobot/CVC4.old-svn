@@ -288,8 +288,6 @@ public:
     /** Remove a variable definition (e.g., from a let binding). */
     void undefineVar(const std::string& name);
 
-    Expr mkDistinct(const std::vector<Expr>& args);
-
     /** Returns a function type over the given domain and range types. */
     Type* functionType(Type* domain, Type* range);
 

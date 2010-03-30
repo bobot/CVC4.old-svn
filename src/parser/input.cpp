@@ -244,27 +244,6 @@ Expr Input::mkExpr(Kind kind, const std::vector<Expr>& children) {
   return result;
 }
 
-
-/* TODO: This could be pushed into NodeManager. */
-Expr Input::mkDistinct(const std::vector<Expr>& args) {
-  if( args.size() == 1 ) {
-    return getTrueExpr();
-  }
-
-  if( args.size() == 2 ) {
-    return mkExpr(NOT, mkExpr(EQUAL,args[0],args[1]));
-  }
-
-  /* Explode into pairwise disequalities. */
-  std::vector<Expr> diseqs;
-  for(unsigned i = 0; i < args.size(); ++i) {
-    for(unsigned j = i+1; j < args.size(); ++j) {
-      diseqs.push_back(mkExpr(NOT, mkExpr(EQUAL,args[i],args[j])));
-    }
-  }
-  return mkExpr(AND, diseqs);
-}
-
 Type*
 Input::functionType(Type* domainType,
                           Type* rangeType) {
@@ -380,7 +359,7 @@ unsigned int Input::minArity(Kind kind) {
   case OR:
     return 1;
 
-  case APPLY:
+  case APPLY_UF:
   case EQUAL:
   case IFF:
   case IMPLIES:
@@ -417,7 +396,7 @@ unsigned int Input::maxArity(Kind kind) {
     return 3;
 
   case AND:
-  case APPLY:
+  case APPLY_UF:
   case PLUS:
   case OR:
     return UINT_MAX;
