@@ -103,7 +103,7 @@ parseCommand returns [CVC4::Command* cmd]
 command returns [CVC4::Command* cmd = 0]
 @init {
   Expr f;
-  Debug("parser") << "command: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "command: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : ASSERT_TOK formula[f] SEMICOLON { cmd = new AssertCommand(f);   }
   | QUERY_TOK formula[f] SEMICOLON { cmd = new QueryCommand(f);    }
@@ -123,7 +123,7 @@ declaration[CVC4::Command*& cmd]
 @init {
   std::vector<std::string> ids;
   Type* t;
-  Debug("parser") << "declaration: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "declaration: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : // FIXME: These could be type or function declarations, if that matters.
     identifierList[ids, CHECK_UNDECLARED, SYM_VARIABLE] COLON declType[t,ids] SEMICOLON
@@ -133,7 +133,7 @@ declaration[CVC4::Command*& cmd]
 /** Match the right-hand side of a declaration. Returns the type. */
 declType[CVC4::Type*& t, std::vector<std::string>& idList]
 @init {
-  Debug("parser") << "declType: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "declType: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : /* A sort declaration (e.g., "T : TYPE") */
     TYPE_TOK { input->newSorts(idList); t = input->kindType(); }
@@ -148,13 +148,13 @@ declType[CVC4::Type*& t, std::vector<std::string>& idList]
 type[CVC4::Type*& t]
 @init {
   std::vector<Type*> typeList;
-  Debug("parser") << "type: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "type: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : /* Simple type */
     baseType[t]
   | /* Single-parameter function type */
     baseType[t] { typeList.push_back(t); }
-    RARROW baseType[t] 
+    ARROW_TOK baseType[t] 
     { t = input->functionType(typeList,t); }
   | /* Multi-parameter function type */
     LPAREN baseType[t]
@@ -199,7 +199,7 @@ identifier[std::string& id,
 baseType[CVC4::Type*& t]
 @init {
   std::string id;
-  Debug("parser") << "base type: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "base type: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : BOOLEAN_TOK { t = input->booleanType(); }
   | typeSymbol[t]
@@ -211,7 +211,7 @@ baseType[CVC4::Type*& t]
 typeSymbol[CVC4::Type*& t]
 @init {
   std::string id;
-  Debug("parser") << "type symbol: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "type symbol: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : identifier[id,CHECK_DECLARED,SYM_SORT]
     { t = input->getSort(id); }
@@ -223,7 +223,7 @@ typeSymbol[CVC4::Type*& t]
  */
 formula[CVC4::Expr& formula]
 @init {
-  Debug("parser") << "formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   :  iffFormula[formula]
   ;
@@ -247,7 +247,7 @@ formulaList[std::vector<CVC4::Expr>& formulas]
 iffFormula[CVC4::Expr& f]
 @init {
   Expr e;
-  Debug("parser") << "<=> formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "<=> formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : impliesFormula[f]
     ( IFF_TOK 
@@ -262,7 +262,7 @@ iffFormula[CVC4::Expr& f]
 impliesFormula[CVC4::Expr& f]
 @init {
   Expr e;
-  Debug("parser") << "=> Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "=> Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : orFormula[f]
     ( IMPLIES_TOK impliesFormula[e]
@@ -276,7 +276,7 @@ impliesFormula[CVC4::Expr& f]
 orFormula[CVC4::Expr& f]
 @init {
   std::vector<Expr> exprs;
-  Debug("parser") << "OR Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "OR Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : xorFormula[f]
       ( OR_TOK  { exprs.push_back(f); }
@@ -294,7 +294,7 @@ orFormula[CVC4::Expr& f]
 xorFormula[CVC4::Expr& f]
 @init {
   Expr e;
-  Debug("parser") << "XOR formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "XOR formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : andFormula[f]
     ( XOR_TOK andFormula[e]
@@ -308,7 +308,7 @@ xorFormula[CVC4::Expr& f]
 andFormula[CVC4::Expr& f]
 @init {
   std::vector<Expr> exprs;
-  Debug("parser") << "AND Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "AND Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : notFormula[f] 
     ( AND_TOK { exprs.push_back(f); }
@@ -326,7 +326,7 @@ andFormula[CVC4::Expr& f]
  */
 notFormula[CVC4::Expr& f]
 @init {
-  Debug("parser") << "NOT formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "NOT formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : /* negation */
     NOT_TOK notFormula[f]
@@ -338,7 +338,7 @@ notFormula[CVC4::Expr& f]
 predFormula[CVC4::Expr& f]
 @init {
   Expr e;
-  Debug("parser") << "predicate formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "predicate formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : term[f]
     (EQUAL_TOK term[e]
@@ -353,7 +353,7 @@ term[CVC4::Expr& f]
 @init {
   std::string name;
   std::vector<Expr> args;
-  Debug("parser") << "term: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "term: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : /* function application */
     // { isFunction(AntlrInput::tokenText(LT(1))) }?
@@ -384,7 +384,7 @@ term[CVC4::Expr& f]
 iteTerm[CVC4::Expr& f]
 @init {
   std::vector<Expr> args;
-  Debug("parser") << "ite: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "ite: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : IF_TOK formula[f] { args.push_back(f); }
     THEN_TOK formula[f] { args.push_back(f); }
@@ -399,7 +399,7 @@ iteTerm[CVC4::Expr& f]
 iteElseTerm[CVC4::Expr& f]
 @init {
   std::vector<Expr> args;
-  Debug("parser") << "else: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "else: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : ELSE_TOK formula[f] 
   | ELSEIF_TOK iteCondition = formula[f] { args.push_back(f); }
@@ -415,7 +415,7 @@ iteElseTerm[CVC4::Expr& f]
  */
 functionSymbol[CVC4::Expr& f]
 @init {
-  Debug("parser") << "function symbol: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  Debug("parser-extra") << "function symbol: " << AntlrInput::tokenText(LT(1)) << std::endl;
   std::string name;
 }
   : identifier[name,CHECK_DECLARED,SYM_FUNCTION]

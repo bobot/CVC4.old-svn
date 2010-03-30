@@ -14,9 +14,8 @@ TESTS =	\
 	euf_simp13.smt \
 	dead_dnd002.smt \
 	iso_brn001.smt \
-	SEQ032_size2.smt
-
-# simple.01.cvc \
+	SEQ032_size2.smt \
+    simple.01.cvc \
     simple.02.cvc \
     simple.03.cvc \
     simple.04.cvc

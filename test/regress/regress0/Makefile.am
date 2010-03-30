@@ -9,9 +9,8 @@ TESTS =	\
 	let2.smt \
 	simple2.smt \
 	simple.smt \
-	simple-uf.smt
-
-# bug32.cvc \
+	simple-uf.smt \
+    bug32.cvc \
 	hole6.cvc \
 	logops.01.cvc \
 	logops.02.cvc \

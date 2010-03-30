@@ -165,8 +165,9 @@ class ParserBlack : public CxxTest::TestSuite {
   void tryGoodInputs(InputLanguage d_lang, const string goodInputs[], int numInputs) {
     for(int i = 0; i < numInputs; ++i) {
       try {
-        // cout << "Testing good input: '" << goodInputs[i] << "'\n";
-        // Debug.on("parser");
+//         Debug.on("parser");
+//         Debug.on("parser-extra");
+         Debug("test") << "Testing good input: '" << goodInputs[i] << "'\n";
 //        istringstream stream(goodInputs[i]);
         Input* parser = Input::newStringParser(d_exprManager, d_lang, goodInputs[i], "test");
         TS_ASSERT( !parser->done() );
@@ -177,24 +178,27 @@ class ParserBlack : public CxxTest::TestSuite {
         TS_ASSERT( parser->parseNextCommand() == NULL );
         TS_ASSERT( parser->done() );
         delete parser;
+//        Debug.off("parser");
+//        Debug.off("parser-extra");
       } catch (Exception& e) {
         cout << "\nGood input failed:\n" << goodInputs[i] << endl
              << e << endl;
+//        Debug.off("parser-extra");
         throw;
       }
-
     }
   }
 
   void tryBadInputs(InputLanguage d_lang, const string badInputs[], int numInputs) {
     for(int i = 0; i < numInputs; ++i) {
-      // cout << "Testing bad input: '" << badInputs[i] << "'\n";
-//      istringstream stream(badInputs[i]);
+//      cout << "Testing bad input: '" << badInputs[i] << "'\n";
+//      Debug.on("parser");
       Input* parser = Input::newStringParser(d_exprManager, d_lang, badInputs[i], "test");
       TS_ASSERT_THROWS
         ( while(parser->parseNextCommand());
           cout << "\nBad input succeeded:\n" << badInputs[i] << endl;, 
           ParserException );
+//      Debug.off("parser");
       delete parser;
     }
   }
@@ -256,11 +260,11 @@ public:
     delete d_exprManager;
   }
 
-  void XtestGoodCvc4Inputs() {
+  void testGoodCvc4Inputs() {
     tryGoodInputs(LANG_CVC4,goodCvc4Inputs,numGoodCvc4Inputs);
   }
 
-  void XtestBadCvc4Inputs() {
+  void testBadCvc4Inputs() {
     tryBadInputs(LANG_CVC4,badCvc4Inputs,numBadCvc4Inputs);
   }
 
@@ -276,7 +280,7 @@ public:
     tryGoodInputs(LANG_SMTLIB,goodSmtInputs,numGoodSmtInputs);
   }
 
-  void XtestBadSmtInputs() {
+  void testBadSmtInputs() {
     tryBadInputs(LANG_SMTLIB,badSmtInputs,numBadSmtInputs);
   }
 
