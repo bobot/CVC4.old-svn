@@ -42,6 +42,14 @@ namespace parser {
  */
 class AntlrInput : public Input {
 
+  unsigned int d_lookahead;
+  pANTLR3_LEXER d_lexer;
+  pANTLR3_PARSER d_parser;
+  pANTLR3_COMMON_TOKEN_STREAM d_tokenStream;
+  pANTLR3_INPUT_STREAM d_input;
+
+  static void reportError(pANTLR3_BASE_RECOGNIZER recognizer);
+
 public:
   AntlrInput(ExprManager* exprManager, const std::string& filename, unsigned int lookahead, bool useMmap);
   // AntlrParser(ExprManager* em, std::istream& input, const std::string& name, unsigned int lookahead);
@@ -67,13 +75,6 @@ protected:
   void setLexer(pANTLR3_LEXER pLexer);
   /** Set the ANTLR parser implementation for this parser. */
   void setParser(pANTLR3_PARSER pParser);
-
-private:
-  unsigned int d_lookahead;
-  pANTLR3_LEXER d_lexer;
-  pANTLR3_PARSER d_parser;
-  pANTLR3_COMMON_TOKEN_STREAM d_tokenStream;
-  pANTLR3_INPUT_STREAM d_input;
 };
 
 std::string AntlrInput::tokenText(pANTLR3_COMMON_TOKEN token) {

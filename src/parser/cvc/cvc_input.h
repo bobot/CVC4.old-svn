@@ -39,7 +39,7 @@ private:
   void init();
   pCvcLexer d_pCvcLexer;
   pCvcParser d_pCvcParser;
-}; // class AntlrCvcParser
+}; // class CvcInput
 
 } // namespace parser
 

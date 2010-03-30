@@ -39,8 +39,7 @@ private:
   void init();
   pSmtLexer d_pSmtLexer;
   pSmtParser d_pSmtParser;
-}; // class AntlrSmtParser
-
+}; // class SmtInput
 } // namespace parser
 
 } // namespace CVC4

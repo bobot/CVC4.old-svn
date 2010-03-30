@@ -25,6 +25,7 @@
 #include "util/output.h"
 #include "util/Assert.h"
 #include "parser/parser_exception.h"
+#include "parser/cvc/cvc_input.h"
 #include "parser/smt/smt_input.h"
 
 using namespace std;
@@ -92,11 +93,9 @@ Input* Input::newFileParser(ExprManager* em, InputLanguage lang,
   Input* parser = 0;
 
   switch(lang) {
-/*  case LANG_CVC4: {
-    antlrLexer = new AntlrCvcLexer(*inputBuffer);
-    antlrParser = new AntlrCvcParser(*antlrLexer);
+  case LANG_CVC4:
+    parser = new CvcInput(em,filename,useMmap);
     break;
-  }*/
   case LANG_SMTLIB:
     parser = new SmtInput(em,filename,useMmap);
     break;
@@ -143,11 +142,10 @@ Input* Input::newStringParser(ExprManager* em, InputLanguage lang,
   Input* parser = 0;
 
   switch(lang) {
-/*  case LANG_CVC4: {
-    antlrLexer = new AntlrCvcLexer(*inputBuffer);
-    antlrParser = new AntlrCvcParser(*antlrLexer);
+  case LANG_CVC4: {
+    parser = new CvcInput(em,input,name);
     break;
-  }*/
+  }
   case LANG_SMTLIB:
     parser = new SmtInput(em,input,name);
     break;
@@ -360,6 +358,7 @@ unsigned int Input::minArity(Kind kind) {
     return 1;
 
   case APPLY_UF:
+  case DISTINCT:
   case EQUAL:
   case IFF:
   case IMPLIES:
@@ -397,6 +396,7 @@ unsigned int Input::maxArity(Kind kind) {
 
   case AND:
   case APPLY_UF:
+  case DISTINCT:
   case PLUS:
   case OR:
     return UINT_MAX;

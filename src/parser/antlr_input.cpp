@@ -97,6 +97,28 @@ pANTLR3_COMMON_TOKEN_STREAM AntlrInput::getTokenStream() {
   return d_tokenStream;
 }
 
+void AntlrInput::parseError(const std::string& message)
+    throw (ParserException) {
+  throw ParserException(message, getFilename(), d_lexer->getLine(d_lexer),
+                          d_lexer->getCharPositionInLine(d_lexer));
+}
+
+void AntlrInput::reportError(pANTLR3_BASE_RECOGNIZER recognizer) {
+  // Signal we are in error recovery now
+  recognizer->state->errorRecovery = ANTLR3_TRUE;
+
+  // Indicate this recognizer had an error while processing.
+  recognizer->state->errorCount++;
+
+  pANTLR3_PARSER parser = (pANTLR3_PARSER)(recognizer->super);
+  AlwaysAssert(parser!=NULL);
+  AntlrInput *input = (AntlrInput*)(parser->super);
+  AlwaysAssert(input!=NULL);
+
+  // Call the error display routine
+  input->parseError((char*)recognizer->state->exception->message);
+}
+
 void AntlrInput::setLexer(pANTLR3_LEXER pLexer) {
   d_lexer = pLexer;
 
@@ -122,13 +144,10 @@ void AntlrInput::setLexer(pANTLR3_LEXER pLexer) {
 
 void AntlrInput::setParser(pANTLR3_PARSER pParser) {
   d_parser = pParser;
+  d_parser->super = this;
+  d_parser->rec->reportError = &reportError;
 }
 
-void AntlrInput::parseError(const std::string& message)
-    throw (ParserException) {
-  throw ParserException(message, getFilename(), d_lexer->getLine(d_lexer),
-                          d_lexer->getCharPositionInLine(d_lexer));
-}
 
 }/* CVC4::parser namespace */
 }/* CVC4 namespace */
