@@ -29,7 +29,6 @@
 
 #include "context/cdmap.h"
 #include "expr/node.h"
-#include "expr/type.h"
 #include "util/output.h"
 
 // include supporting templates

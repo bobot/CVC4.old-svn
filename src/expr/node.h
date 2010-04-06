@@ -28,13 +28,11 @@
 
 #include "expr/kind.h"
 #include "expr/metakind.h"
-#include "expr/type.h"
 #include "util/Assert.h"
 #include "util/output.h"
 
 namespace CVC4 {
 
-class Type;
 class NodeManager;
 
 template <bool ref_count>
@@ -248,7 +246,7 @@ public:
    * Returns the type of this node.
    * @return the type
    */
-  Type* getType() const;
+  Node getTypeNode() const;
 
   /**
    * Returns the kind of this node.
@@ -815,11 +813,11 @@ inline bool NodeTemplate<ref_count>::hasOperator() const {
 }
 
 template <bool ref_count>
-Type* NodeTemplate<ref_count>::getType() const {
+Node NodeTemplate<ref_count>::getTypeNode() const {
   Assert( NodeManager::currentNM() != NULL,
           "There is no current CVC4::NodeManager associated to this thread.\n"
           "Perhaps a public-facing function is missing a NodeManagerScope ?" );
-  return NodeManager::currentNM()->getType(*this);
+  return NodeManager::currentNM()->getTypeNode(*this);
 }
 
 #ifdef CVC4_DEBUG

@@ -128,10 +128,10 @@ Expr Expr::getOperator() const {
   return Expr(d_exprManager, new Node(d_node->getOperator()));
 }
 
-Type* Expr::getType() const {
+Type Expr::getType() const {
   ExprManagerScope ems(*this);
   Assert(d_node != NULL, "Unexpected NULL expression pointer!");
-  return d_node->getType();
+  return d_exprManager->getType(*this);
 }
 
 std::string Expr::toString() const {
