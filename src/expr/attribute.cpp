@@ -28,7 +28,8 @@ namespace attr {
 void AttributeManager::deleteAllAttributes(NodeValue* nv) {
   d_bools.erase(nv);
   deleteFromTable(d_ints, nv);
-  deleteFromTable(d_exprs, nv);
+  deleteFromTable(d_tnodes, nv);
+  deleteFromTable(d_nodes, nv);
   deleteFromTable(d_strings, nv);
   deleteFromTable(d_ptrs, nv);
 
@@ -41,7 +42,10 @@ void AttributeManager::deleteAllAttributes(NodeValue* nv) {
     d_cdints.obliterate(std::make_pair(id, nv));
   }
   for(unsigned id = 0; id < attr::LastAttributeId<TNode, true>::s_id; ++id) {
-    d_cdexprs.obliterate(std::make_pair(id, nv));
+    d_cdtnodes.obliterate(std::make_pair(id, nv));
+  }
+  for(unsigned id = 0; id < attr::LastAttributeId<TNode, true>::s_id; ++id) {
+    d_cdnodes.obliterate(std::make_pair(id, nv));
   }
   for(unsigned id = 0; id < attr::LastAttributeId<std::string, true>::s_id; ++id) {
     d_cdstrings.obliterate(std::make_pair(id, nv));

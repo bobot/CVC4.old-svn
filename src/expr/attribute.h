@@ -56,7 +56,9 @@ class AttributeManager {
   /** Underlying hash table for integral-valued attributes */
   AttrHash<uint64_t> d_ints;
   /** Underlying hash table for node-valued attributes */
-  AttrHash<TNode> d_exprs;
+  AttrHash<TNode> d_tnodes;
+  /** Underlying hash table for node-valued attributes */
+  AttrHash<Node> d_nodes;
   /** Underlying hash table for string-valued attributes */
   AttrHash<std::string> d_strings;
   /** Underlying hash table for pointer-valued attributes */
@@ -70,7 +72,9 @@ class AttributeManager {
   /** Underlying hash table for context-dependent integral-valued attributes */
   CDAttrHash<uint64_t> d_cdints;
   /** Underlying hash table for context-dependent node-valued attributes */
-  CDAttrHash<TNode> d_cdexprs;
+  CDAttrHash<TNode> d_cdtnodes;
+  /** Underlying hash table for context-dependent node-valued attributes */
+  CDAttrHash<Node> d_cdnodes;
   /** Underlying hash table for context-dependent string-valued attributes */
   CDAttrHash<std::string> d_cdstrings;
   /** Underlying hash table for context-dependent pointer-valued attributes */
@@ -92,7 +96,8 @@ public:
   AttributeManager(context::Context* ctxt) :
     d_cdbools(ctxt),
     d_cdints(ctxt),
-    d_cdexprs(ctxt),
+    d_cdtnodes(ctxt),
+    d_cdnodes(ctxt),
     d_cdstrings(ctxt),
     d_cdptrs(ctxt) {
   }
@@ -209,15 +214,27 @@ struct getTable<uint64_t, false> {
   }
 };
 
-/** Access the "d_exprs" member of AttributeManager. */
+/** Access the "d_tnodes" member of AttributeManager. */
 template <>
 struct getTable<TNode, false> {
   typedef AttrHash<TNode> table_type;
   static inline table_type& get(AttributeManager& am) {
-    return am.d_exprs;
+    return am.d_tnodes;
   }
   static inline const table_type& get(const AttributeManager& am) {
-    return am.d_exprs;
+    return am.d_tnodes;
+  }
+};
+
+/** Access the "d_nodes" member of AttributeManager. */
+template <>
+struct getTable<Node, false> {
+  typedef AttrHash<Node> table_type;
+  static inline table_type& get(AttributeManager& am) {
+    return am.d_nodes;
+  }
+  static inline const table_type& get(const AttributeManager& am) {
+    return am.d_nodes;
   }
 };
 
@@ -281,15 +298,27 @@ struct getTable<uint64_t, true> {
   }
 };
 
-/** Access the "d_cdexprs" member of AttributeManager. */
+/** Access the "d_tnodes" member of AttributeManager. */
 template <>
 struct getTable<TNode, true> {
   typedef CDAttrHash<TNode> table_type;
   static inline table_type& get(AttributeManager& am) {
-    return am.d_cdexprs;
+    return am.d_cdtnodes;
   }
   static inline const table_type& get(const AttributeManager& am) {
-    return am.d_cdexprs;
+    return am.d_cdtnodes;
+  }
+};
+
+/** Access the "d_nodes" member of AttributeManager. */
+template <>
+struct getTable<Node, true> {
+  typedef CDAttrHash<Node> table_type;
+  static inline table_type& get(AttributeManager& am) {
+    return am.d_cdnodes;
+  }
+  static inline const table_type& get(const AttributeManager& am) {
+    return am.d_cdnodes;
   }
 };
 

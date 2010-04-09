@@ -26,6 +26,11 @@ std::ostream& operator<<(std::ostream& out, const Type& e) {
   return out;
 }
 
+Type Type::makeType(NodeTemplate<false> typeNode) const
+{
+  return Type(d_nodeManager, new Node(typeNode));
+}
+
 Type::Type(NodeManager* nm, NodeTemplate<true>* node)
 : d_typeNode(node),
   d_nodeManager(nm)
@@ -44,15 +49,19 @@ Type::Type()
 }
 
 Type::Type(uintptr_t n)
-: d_typeNode(NULL),
+: d_typeNode(new Node()),
   d_nodeManager(NULL) {
   AlwaysAssert(n == 0);
 }
 
 Type::Type(const Type& t)
-: d_typeNode(t.d_typeNode),
+: d_typeNode(new Node(*t.d_typeNode)),
   d_nodeManager(t.d_nodeManager)
 {
+}
+
+bool Type::isNull() const {
+  return d_typeNode->isNull();
 }
 
 Type& Type::operator=(const Type& t) {
@@ -64,6 +73,7 @@ Type& Type::operator=(const Type& t) {
 }
 
 bool Type::operator==(const Type& t) const {
+  std::cerr << *d_typeNode << " ==? " << *t.d_typeNode << std::endl;
   return *d_typeNode == *t.d_typeNode;
 }
 
@@ -72,7 +82,12 @@ bool Type::operator!=(const Type& t) const {
 }
 
 void Type::toStream(std::ostream& out) const {
-  out << *d_typeNode;
+  // Do the cast by hand
+  if (isBoolean()) { out << (BooleanType)*this; return; }
+  if (isFunction()) { out << (FunctionType)*this; return; }
+  if (isKind()) { out << (KindType)*this; return; }
+  // We should not get here
+  Unreachable("Type not implemented completely");
 }
 
 /** Is this the Boolean type? */
@@ -105,6 +120,17 @@ Type::operator FunctionType() const {
   return FunctionType(*this);
 }
 
+/** Is this a sort kind */
+bool Type::isSort() const {
+  return d_typeNode->getKind() == kind::SORT_TYPE;
+}
+
+/** Cast to a sort type */
+Type::operator SortType() const {
+  Assert(isSort());
+  return SortType(*this);
+}
+
 /** Is this a kind type (i.e., the type of a type)? */
 bool Type::isKind() const {
   return d_typeNode->getKind() == kind::TYPE_CONSTANT
@@ -117,27 +143,28 @@ Type::operator KindType() const {
   return KindType(*this);
 }
 
-/** Is this a sort kind */
-bool Type::isSort() const {
-  return d_typeNode->getKind() == kind::SORT_TYPE;
-}
-
-/** Cast to a sort type */
-Type::operator SortType() const {
-  Assert(isSort());
-  return SortType(*this);
-}
-
 std::vector<Type> FunctionType::getArgTypes() const {
   std::vector<Type> args;
   for (unsigned i = 0, i_end = d_typeNode->getNumChildren() - 1; i < i_end; ++ i) {
-    args.push_back(d_nodeManager->getType((*d_typeNode)[i]));
+    args.push_back(makeType((*d_typeNode)[i]));
   }
   return args;
 }
 
 Type FunctionType::getRangeType() const {
-  return d_nodeManager->getType(*d_typeNode->end());
+  return makeType((*d_typeNode)[d_typeNode->getNumChildren()-1]);
+}
+
+void BooleanType::toStream(std::ostream& out) const {
+  out << "BOOLEAN";
+}
+
+std::string SortType::getName() const {
+  return d_typeNode->getAttribute(expr::VarNameAttr());
+}
+
+void SortType::toStream(std::ostream& out) const {
+  out << getName();
 }
 
 void FunctionType::toStream(std::ostream& out) const {
@@ -151,7 +178,7 @@ void FunctionType::toStream(std::ostream& out) const {
     if(i > 0) {
       out << ",";
     }
-    (*d_typeNode)[i].toStream(out);
+    out << makeType(d_typeNode[i]);
   }
   if(arity > 2) {
     out << ")";
@@ -164,5 +191,6 @@ BooleanType::BooleanType(const Type& t) : Type(t) {}
 FunctionType::FunctionType(const Type& t) : Type(t) {}
 KindType::KindType(const Type& t) : Type(t) {}
 SortType::SortType(const Type& t) : Type(t) {}
+
 
 }/* CVC4 namespace */

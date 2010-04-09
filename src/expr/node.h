@@ -33,6 +33,7 @@
 
 namespace CVC4 {
 
+class Type;
 class NodeManager;
 
 template <bool ref_count>
@@ -246,7 +247,7 @@ public:
    * Returns the type of this node.
    * @return the type
    */
-  Node getTypeNode() const;
+  Type getType() const;
 
   /**
    * Returns the kind of this node.
@@ -813,11 +814,11 @@ inline bool NodeTemplate<ref_count>::hasOperator() const {
 }
 
 template <bool ref_count>
-Node NodeTemplate<ref_count>::getTypeNode() const {
+Type NodeTemplate<ref_count>::getType() const {
   Assert( NodeManager::currentNM() != NULL,
           "There is no current CVC4::NodeManager associated to this thread.\n"
           "Perhaps a public-facing function is missing a NodeManagerScope ?" );
-  return NodeManager::currentNM()->getTypeNode(*this);
+  return NodeManager::currentNM()->getType(*this);
 }
 
 #ifdef CVC4_DEBUG

@@ -30,7 +30,6 @@
 
 #include "expr/kind.h"
 #include "expr/metakind.h"
-#include "expr/expr.h"
 #include "expr/node_value.h"
 #include "context/context.h"
 #include "expr/type.h"
@@ -205,7 +204,7 @@ class NodeManager {
 
   // NodeManager's attributes.  These aren't exposed outside of this
   // class; use the getters.
-  typedef expr::ManagedAttribute<TypeTag, Node*> TypeAttr;
+  typedef expr::Attribute<TypeTag, Node> TypeAttr;
   typedef expr::Attribute<AtomicTag, bool> AtomicAttr;
 
   /**
@@ -476,11 +475,6 @@ public:
   inline Type getType(TNode n);
 
   /**
-   * Get the type for the given node.
-   */
-  inline Node getTypeNode(TNode n);
-
-  /**
    * Returns true if this node is atomic (has no more Boolean structure)
    * @param n the node to check for atomicity
    * @return true if atomic
@@ -530,38 +524,6 @@ public:
   }
 };
 
-/**
- * Creates a <code>NodeManagerScope</code> with the underlying
- * <code>NodeManager</code> of a given <code>Expr</code> or
- * <code>ExprManager</code>.  The <code>NodeManagerScope</code> is
- * destroyed when the <code>ExprManagerScope</code> is destroyed. See
- * <code>NodeManagerScope</code> for more information.
- */
-// NOTE: Here, it seems ExprManagerScope is redundant, since we have
-// NodeManagerScope already.  However, without this class, we'd need
-// Expr to be a friend of ExprManager, because in the implementation
-// of Expr functions, it needs to set the current NodeManager
-// correctly (and to do that it needs access to
-// ExprManager::getNodeManager()).  So, we make ExprManagerScope a
-// friend of ExprManager's, since its implementation is simple to
-// read and understand (and verify that it doesn't do any mischief).
-//
-// ExprManager::getNodeManager() can't just be made public, since
-// ExprManager is exposed to clients of the library and NodeManager is
-// not.  Similarly, ExprManagerScope shouldn't go in expr_manager.h,
-// since that's a public header.
-class ExprManagerScope {
-  NodeManagerScope d_nms;
-public:
-  inline ExprManagerScope(const Expr& e) :
-    d_nms(e.getExprManager() == NULL
-          ? NodeManager::currentNM()
-          : e.getExprManager()->getNodeManager()) {
-  }
-  inline ExprManagerScope(const ExprManager& exprManager) :
-    d_nms(exprManager.getNodeManager()) {
-  }
-};
 
 template <class AttrKind>
 inline typename AttrKind::value_type
@@ -665,12 +627,11 @@ inline Type NodeManager::mkSort(const std::string& name) {
   return Type(this, mkVarPtr(name, kindType()));
 }
 
-inline Node NodeManager::getTypeNode(TNode n)  {
-  return *getAttribute(n, TypeAttr());
-}
-
 inline Type NodeManager::getType(TNode n)  {
-  return Type(this, getAttribute(n, TypeAttr()));
+  Node* typeNode = new Node;
+  getAttribute(n, TypeAttr(), *typeNode);
+  // TODO: Type computation
+  return Type(this, typeNode);
 }
 
 inline expr::NodeValue* NodeManager::poolLookup(expr::NodeValue* nv) const {
@@ -760,59 +721,69 @@ inline bool NodeManager::hasOperator(Kind k) {
 }
 
 inline Node NodeManager::mkNode(Kind kind) {
-  return NodeBuilder<>(this, kind);
+  return NodeBuilder<0>(this, kind);
 }
 
 inline Node* NodeManager::mkNodePtr(Kind kind) {
-  return NodeBuilder<>(this, kind);
+  NodeBuilder<0> nb(this, kind);
+  return nb.constructNodePtr();
 }
 
 inline Node NodeManager::mkNode(Kind kind, TNode child1) {
-  return NodeBuilder<>(this, kind) << child1;
+  return NodeBuilder<1>(this, kind) << child1;
 }
 
 inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1) {
-  return NodeBuilder<>(this, kind) << child1;
+  NodeBuilder<1> nb(this, kind);
+  nb << child1;
+  return nb.constructNodePtr();
 }
 
 inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2) {
-  return NodeBuilder<>(this, kind) << child1 << child2;
+  return NodeBuilder<2>(this, kind) << child1 << child2;
 }
 
 inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1, TNode child2) {
-  return NodeBuilder<>(this, kind) << child1 << child2;
+  NodeBuilder<2> nb(this, kind);
+  nb << child1 << child2;
+  return nb.constructNodePtr();
 }
 
 inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2,
                                 TNode child3) {
-  return NodeBuilder<>(this, kind) << child1 << child2 << child3;
+  return NodeBuilder<3>(this, kind) << child1 << child2 << child3;
 }
 
 inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1, TNode child2,
                                 TNode child3) {
-  return NodeBuilder<>(this, kind) << child1 << child2 << child3;
+  NodeBuilder<3> nb(this, kind);
+  nb << child1 << child2 << child3;
+  return nb.constructNodePtr();
 }
 
 inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2,
                                 TNode child3, TNode child4) {
-  return NodeBuilder<>(this, kind) << child1 << child2 << child3 << child4;
+  return NodeBuilder<4>(this, kind) << child1 << child2 << child3 << child4;
 }
 
 inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1, TNode child2,
                                 TNode child3, TNode child4) {
-  return NodeBuilder<>(this, kind) << child1 << child2 << child3 << child4;
+  NodeBuilder<4> nb(this, kind);
+  nb << child1 << child2 << child3 << child4;
+  return nb.constructNodePtr();
 }
 
 inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2,
                                 TNode child3, TNode child4, TNode child5) {
-  return NodeBuilder<>(this, kind) << child1 << child2 << child3 << child4
+  return NodeBuilder<5>(this, kind) << child1 << child2 << child3 << child4
                                    << child5;
 }
 
 inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1, TNode child2,
                                 TNode child3, TNode child4, TNode child5) {
-  return NodeBuilder<>(this, kind) << child1 << child2 << child3 << child4
-                                   << child5;
+  NodeBuilder<5> nb(this, kind);
+  nb << child1 << child2 << child3 << child4 << child5;
+  return nb.constructNodePtr();
 }
 
 // N-ary version
@@ -827,7 +798,7 @@ template <bool ref_count>
 inline Node* NodeManager::mkNodePtr(Kind kind,
                                 const std::vector<NodeTemplate<ref_count> >&
                                 children) {
-  return NodeBuilder<>(this, kind).append(children);
+  return NodeBuilder<>(this, kind).append(children).constructNodePtr();
 }
 
 inline Node NodeManager::mkVar(const std::string& name, const Type& type) {
@@ -843,14 +814,14 @@ inline Node* NodeManager::mkVarPtr(const std::string& name, const Type& type) {
 }
 
 inline Node NodeManager::mkVar(const Type& type) {
-  Node n = NodeBuilder<>(this, kind::VARIABLE);
-  n.setAttribute(TypeAttr(), type.d_typeNode);
+  Node n = NodeBuilder<0>(this, kind::VARIABLE);
+  n.setAttribute(TypeAttr(), *type.d_typeNode);
   return n;
 }
 
 inline Node* NodeManager::mkVarPtr(const Type& type) {
-  Node* n = NodeBuilder<>(this, kind::VARIABLE);
-  n->setAttribute(TypeAttr(), type.d_typeNode);
+  Node* n = NodeBuilder<0>(this, kind::VARIABLE).constructNodePtr();
+  n->setAttribute(TypeAttr(), *type.d_typeNode);
   return n;
 }
 

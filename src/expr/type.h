@@ -25,7 +25,6 @@
 #include <vector>
 #include <limits.h>
 #include <stdint.h>
-#include "expr/expr_manager.h"
 
 namespace CVC4 {
 
@@ -53,6 +52,11 @@ protected:
   NodeManager* d_nodeManager;
 
   /**
+   * Construct a new type given the typeNode;
+   */
+  Type makeType(NodeTemplate<false> typeNode) const;
+
+  /**
    * Constructor for internal purposes.
    * @param em the expression manager that handles this expression
    * @param node the actual expression node pointer for this type
@@ -77,6 +81,9 @@ public:
 
   /** Copy constructor */
   Type(const Type& t);
+
+  /** Check whether this is a null type */
+  bool isNull() const;
 
   /** Assignment operator */
   Type& operator=(const Type& t);
@@ -103,17 +110,17 @@ public:
   /** Cast to a function type */
   operator FunctionType() const;
 
-  /** Is this a kind type (i.e., the type of a type)? */
-  bool isKind() const;
-
-  /** Cast to a kind type */
-  operator KindType() const;
-
   /** Is this a sort kind */
   bool isSort() const;
 
   /** Cast to a sort type */
   operator SortType() const;
+
+  /** Is this a kind type (i.e., the type of a type)? */
+  bool isKind() const;
+
+  /** Cast to a kind type */
+  operator KindType() const;
 
   /** Outputs a string representation of this type to the stream. */
   virtual void toStream(std::ostream& out) const;
@@ -133,6 +140,8 @@ public:
   /** Is this the boolean type? (Returns true.) */
   bool isBoolean() const;
 
+  /** Just outputs BOOLEAN */
+  void toStream(std::ostream& out) const;
 };
 
 /**
@@ -165,6 +174,22 @@ public:
 
 };
 
+/**
+ * Class encapsulating a user-defined sort.
+ */
+class CVC4_PUBLIC SortType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  SortType(const Type& type);
+
+  /** Get the name of the sort */
+  std::string getName() const;
+
+  /** Outouts the name of the sort */
+  void toStream(std::ostream& out) const;
+};
 
 /**
  * Class encapsulating the kind type (the type of types).
@@ -178,21 +203,6 @@ public:
 
   /** Is this the kind type? (Returns true.) */
   bool isKind() const;
-
-};
-
-/**
- * Class encapsulating a user-defined sort.
- */
-class CVC4_PUBLIC SortType : public Type {
-
-public:
-
-  /** Construct from the base type */
-  SortType(const Type& type);
-
-  /** Get the name of the sort */
-  std::string getName();
 
 };
 

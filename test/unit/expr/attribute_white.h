@@ -69,10 +69,11 @@ public:
     d_nm = new NodeManager(d_ctxt);
     d_scope = new NodeManagerScope(d_nm);
 
-    d_booleanType = d_nm->booleanType();
+    d_booleanType = new Type(d_nm->booleanType());
   }
 
   void tearDown() {
+    delete d_booleanType;
     delete d_scope;
     delete d_nm;
     delete d_ctxt;
@@ -153,9 +154,9 @@ public:
 
     //Debug.on("boolattr");
 
-    Node a = d_nm->mkVar(d_booleanType);
-    Node b = d_nm->mkVar(d_booleanType);
-    Node c = d_nm->mkVar(d_booleanType);
+    Node a = d_nm->mkVar(*d_booleanType);
+    Node b = d_nm->mkVar(*d_booleanType);
+    Node c = d_nm->mkVar(*d_booleanType);
 
     Debug("boolattr", "get flag 1 on a (should be F)\n");
     TS_ASSERT(! a.getAttribute(TestFlag1cd()));
@@ -283,10 +284,10 @@ public:
 
     //Debug.on("boolattr");
 
-    Node a = d_nm->mkVar(d_booleanType);
-    Node b = d_nm->mkVar(d_booleanType);
-    Node c = d_nm->mkVar(d_booleanType);
-    Node unnamed = d_nm->mkVar(d_booleanType);
+    Node a = d_nm->mkVar(*d_booleanType);
+    Node b = d_nm->mkVar(*d_booleanType);
+    Node c = d_nm->mkVar(*d_booleanType);
+    Node unnamed = d_nm->mkVar(*d_booleanType);
 
     a.setAttribute(VarNameAttr(), "a");
     b.setAttribute(VarNameAttr(), "b");
