@@ -543,12 +543,12 @@ inline void AttributeManager::deleteAllFromTable(AttrHash<T>& table) {
   for(uint64_t id = 0; id < attr::LastAttributeId<T, false>::s_id; ++id) {
     typedef AttributeTraits<T, false> traits_t;
     typedef AttrHash<T> hash_t;
-    std::pair<uint64_t, NodeValue*> pr = std::make_pair(id, nv);
     if(traits_t::cleanup[id] != NULL) {
       typename hash_t::iterator it = table.begin();
-      typename hash_t::iterator it_end = table.begin();
-      if(it != it_end) {
+      typename hash_t::iterator it_end = table.end();
+      while (it != it_end) {
         traits_t::cleanup[id]((*it).second);
+        ++ it;
       }
     }
     table.clear();

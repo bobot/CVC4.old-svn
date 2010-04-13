@@ -102,9 +102,7 @@ public:
     TS_ASSERT_DIFFERS(TestStringAttr1::s_id, TestStringAttr2::s_id);
 
     lastId = attr::LastAttributeId<void*, false>::s_id;
-    TS_ASSERT_LESS_THAN(NodeManager::TypeAttr::s_id, lastId);
     TS_ASSERT_LESS_THAN(theory::uf::ECAttr::s_id, lastId);
-    TS_ASSERT_DIFFERS(NodeManager::TypeAttr::s_id, theory::uf::ECAttr::s_id);
 
     lastId = attr::LastAttributeId<bool, false>::s_id;
     TS_ASSERT_LESS_THAN(NodeManager::AtomicAttr::s_id, lastId);
@@ -147,6 +145,10 @@ public:
 
     lastId = attr::LastAttributeId<TNode, false>::s_id;
     TS_ASSERT_LESS_THAN(theory::RewriteCache::s_id, lastId);
+
+    lastId = attr::LastAttributeId<Node, false>::s_id;
+    TS_ASSERT_LESS_THAN(NodeManager::TypeAttr::s_id, lastId);
+
   }
 
   void testCDAttributes() {

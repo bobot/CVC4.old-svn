@@ -85,7 +85,12 @@ class NodeManager {
    * NodeValues, but these shouldn't trigger a (recursive) call to
    * reclaimZombies().
    */
-  bool d_reclaiming;
+  bool d_dontGC;
+
+  /**
+   * Marks that we are in the Destructor currently.
+   */
+  bool d_inDestruction;
 
   /**
    * The set of zombie nodes.  We may want to revisit this design, as
@@ -163,11 +168,11 @@ class NodeManager {
     // reclaimZombies(), because it's already running.
     Debug("gc") << "zombifying node value " << nv
                 << " [" << nv->d_id << "]: " << *nv
-                << (d_reclaiming ? " [CURRENTLY-RECLAIMING]" : "")
+                << (d_dontGC ? " [CURRENTLY-RECLAIMING]" : "")
                 << std::endl;
     d_zombies.insert(nv);// FIXME multithreading
 
-    if(!d_reclaiming) {// FIXME multithreading
+    if(!d_dontGC) {// FIXME multithreading
       // for now, collect eagerly.  can add heuristic here later..
       reclaimZombies();
     }
@@ -235,6 +240,11 @@ public:
 
   NodeManager(context::Context* ctxt);
   ~NodeManager();
+
+  /**
+   * Return true if we are in destruction.
+   */
+  bool inDestruction() const { return d_inDestruction; }
 
   /** The node manager in the current context. */
   static NodeManager* currentNM() { return s_current; }

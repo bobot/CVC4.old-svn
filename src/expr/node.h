@@ -639,7 +639,7 @@ NodeTemplate<ref_count>::~NodeTemplate() throw(AssertionException) {
   if(ref_count) {
     d_nv->dec();
   } else {
-    Assert(d_nv->d_rc > 0 || d_nv->isBeingDeleted(),
+    Assert(d_nv->d_rc > 0 || d_nv->isBeingDeleted() || NodeManager::currentNM()->inDestruction(),
            "TNode pointing to an expired NodeValue at destruction time");
   }
 }
