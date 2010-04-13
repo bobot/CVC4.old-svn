@@ -150,8 +150,6 @@ public:
   }
 
   void testCDAttributes() {
-    AttributeManager& am = d_nm->d_attrManager;
-
     //Debug.on("boolattr");
 
     Node a = d_nm->mkVar(*d_booleanType);
@@ -280,8 +278,6 @@ public:
   }
 
   void testAttributes() {
-    AttributeManager& am = d_nm->d_attrManager;
-
     //Debug.on("boolattr");
 
     Node a = d_nm->mkVar(*d_booleanType);

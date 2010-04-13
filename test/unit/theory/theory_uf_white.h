@@ -146,7 +146,7 @@ public:
     d_euf->assertFact( f5_x_eq_x );
     d_euf->check(d_level);
 
-    TS_ASSERT_EQUALS(1, d_outputChannel.getNumCalls());
+    TS_ASSERT_EQUALS(1u, d_outputChannel.getNumCalls());
     TS_ASSERT_EQUALS(CONFLICT, d_outputChannel.getIthCallType(0));
     Node realConflict = d_outputChannel.getIthNode(0);
     TS_ASSERT_EQUALS(expectedConflict, realConflict);
@@ -155,13 +155,13 @@ public:
     d_euf->check(d_level);
 
     //Test that no additional calls to the output channel occurred.
-    TS_ASSERT_EQUALS(1, d_outputChannel.getNumCalls());
+    TS_ASSERT_EQUALS(1u, d_outputChannel.getNumCalls());
 
     d_euf->assertFact( f5_x_eq_x );
 
     d_euf->check(d_level);
 
-    TS_ASSERT_EQUALS(2, d_outputChannel.getNumCalls());
+    TS_ASSERT_EQUALS(2u, d_outputChannel.getNumCalls());
     TS_ASSERT_EQUALS(CONFLICT, d_outputChannel.getIthCallType(0));
     TS_ASSERT_EQUALS(CONFLICT, d_outputChannel.getIthCallType(1));
     Node  firstConflict = d_outputChannel.getIthNode(0);
@@ -190,7 +190,7 @@ public:
     d_euf->assertFact(f_f_f_x_neq_f_x);
     d_euf->check(d_level);
 
-    TS_ASSERT_EQUALS(1, d_outputChannel.getNumCalls());
+    TS_ASSERT_EQUALS(1u, d_outputChannel.getNumCalls());
     TS_ASSERT_EQUALS(CONFLICT, d_outputChannel.getIthCallType(0));
 
     Node realConflict = d_outputChannel.getIthNode(0);
@@ -206,7 +206,7 @@ public:
     d_euf->assertFact(x_neq_x);
     d_euf->check(d_level);
 
-    TS_ASSERT_EQUALS(1, d_outputChannel.getNumCalls());
+    TS_ASSERT_EQUALS(1u, d_outputChannel.getNumCalls());
     TS_ASSERT_EQUALS(x_neq_x, d_outputChannel.getIthNode(0));
     TS_ASSERT_EQUALS(CONFLICT, d_outputChannel.getIthCallType(0));
   }
@@ -219,7 +219,7 @@ public:
     d_euf->assertFact(x_eq_x);
     d_euf->check(d_level);
 
-    TS_ASSERT_EQUALS(0, d_outputChannel.getNumCalls());
+    TS_ASSERT_EQUALS(0u, d_outputChannel.getNumCalls());
   }
 
 
@@ -252,7 +252,7 @@ public:
     d_euf->assertFact( f1_x_neq_x );
     d_euf->check(d_level);
 
-    TS_ASSERT_EQUALS(1, d_outputChannel.getNumCalls());
+    TS_ASSERT_EQUALS(1u, d_outputChannel.getNumCalls());
     TS_ASSERT_EQUALS(CONFLICT, d_outputChannel.getIthCallType(0));
     Node realConflict = d_outputChannel.getIthNode(0);
     TS_ASSERT_EQUALS(expectedConflict, realConflict);
@@ -282,8 +282,5 @@ public:
     d_ctxt->pop();
     d_euf->check(d_level);
   }
-
-
-
 
 };
