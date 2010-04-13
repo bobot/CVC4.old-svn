@@ -54,6 +54,36 @@ void AttributeManager::deleteAllAttributes(NodeValue* nv) {
   }
 }
 
+void AttributeManager::deleteAllAttributes() {
+  deleteAllFromTable(d_bools);
+  deleteAllFromTable(d_ints);
+  deleteAllFromTable(d_tnodes);
+  deleteAllFromTable(d_nodes);
+  deleteAllFromTable(d_strings);
+  deleteAllFromTable(d_ptrs);
+
+  // FIXME CD-bools in optimized table
+  for(unsigned id = 0; id < attr::LastAttributeId<bool, true>::s_id; ++id) {
+    d_cdbools.obliterate(std::make_pair(id, nv));
+  }
+  for(unsigned id = 0; id < attr::LastAttributeId<uint64_t, true>::s_id; ++id) {
+    d_cdints.obliterate(std::make_pair(id, nv));
+  }
+  for(unsigned id = 0; id < attr::LastAttributeId<TNode, true>::s_id; ++id) {
+    d_cdtnodes.obliterate(std::make_pair(id, nv));
+  }
+  for(unsigned id = 0; id < attr::LastAttributeId<TNode, true>::s_id; ++id) {
+    d_cdnodes.obliterate(std::make_pair(id, nv));
+  }
+  for(unsigned id = 0; id < attr::LastAttributeId<std::string, true>::s_id; ++id) {
+    d_cdstrings.obliterate(std::make_pair(id, nv));
+  }
+  for(unsigned id = 0; id < attr::LastAttributeId<void*, true>::s_id; ++id) {
+    d_cdptrs.obliterate(std::make_pair(id, nv));
+  }
+}
+
+
 }/* CVC4::expr::attr namespace */
 }/* CVC4::expr namespace */
 }/* CVC4 namespace */

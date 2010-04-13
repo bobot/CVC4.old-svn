@@ -38,8 +38,8 @@ const string goodCvc4Inputs[] = {
       "CHECKSAT FALSE;",
       "a, b : BOOLEAN;",
       "a, b : BOOLEAN; QUERY (a => b) AND a => b;",
-      //"T, U : TYPE; f : T -> U; x : T; CHECKSAT f(x) = x;",
-      //"T : TYPE; x, y : T; a : BOOLEAN; QUERY (IF a THEN x ELSE y ENDIF) = x;",
+      "T, U : TYPE; f : T -> U; x : T; CHECKSAT f(x) = x;",
+      "T : TYPE; x, y : T; a : BOOLEAN; QUERY (IF a THEN x ELSE y ENDIF) = x;",
       "%% nothing but a comment",
       "% a comment\nASSERT TRUE; %a command\n% another comment",
   };

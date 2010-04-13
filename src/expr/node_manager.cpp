@@ -48,6 +48,8 @@ NodeManager::~NodeManager() {
 
   NodeManagerScope nms(this);
 
+  d_attrManager.deleteAllAttributes();
+
   for(unsigned i = 0; i < unsigned(kind::LAST_KIND); ++i) {
     d_operators[i] = Node::null();
   }

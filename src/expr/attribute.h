@@ -83,6 +83,9 @@ class AttributeManager {
   template <class T>
   void deleteFromTable(AttrHash<T>& table, NodeValue* nv);
 
+  template <class T>
+  void deleteAllFromTable(AttrHash<T>& table);
+
   /**
    * getTable<> is a helper template that gets the right table from an
    * AttributeManager given its type.
@@ -170,6 +173,11 @@ public:
    * @param nv the node from which to delete attributes
    */
   void deleteAllAttributes(NodeValue* nv);
+
+  /**
+   * Remove all attributes from the tables.
+   */
+  void deleteAllAttributes();
 };
 
 }/* CVC4::expr::attr namespace */
@@ -526,6 +534,27 @@ inline void AttributeManager::deleteFromTable(AttrHash<T>& table,
     }
   }
 }
+
+/**
+ * Remove all attributes from the table calling the cleanup function if one is defined.
+ */
+template <class T>
+inline void AttributeManager::deleteAllFromTable(AttrHash<T>& table) {
+  for(uint64_t id = 0; id < attr::LastAttributeId<T, false>::s_id; ++id) {
+    typedef AttributeTraits<T, false> traits_t;
+    typedef AttrHash<T> hash_t;
+    std::pair<uint64_t, NodeValue*> pr = std::make_pair(id, nv);
+    if(traits_t::cleanup[id] != NULL) {
+      typename hash_t::iterator it = table.begin();
+      typename hash_t::iterator it_end = table.begin();
+      if(it != it_end) {
+        traits_t::cleanup[id]((*it).second);
+      }
+    }
+    table.clear();
+  }
+}
+
 
 }/* CVC4::expr::attr namespace */
 }/* CVC4::expr namespace */
