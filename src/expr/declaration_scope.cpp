@@ -60,9 +60,13 @@ Type* DeclarationScope::lookupType(const std::string& name) const throw () {
 }
 
 
-void DeclarationScope::popScope() throw () {
+void DeclarationScope::popScope() throw (ScopeException) {
+  if( d_context->getLevel() == 0 ) {
+    throw ScopeException();
+  }
   d_context->pop();
 }
+
 void DeclarationScope::pushScope() throw () {
   d_context->push();
 }

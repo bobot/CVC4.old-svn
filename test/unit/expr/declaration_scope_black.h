@@ -153,6 +153,6 @@ public:
   void testBadPop() {
     DeclarationScope declScope;
     // TODO: What kind of exception gets thrown here?
-    declScope.popScope();
+    TS_ASSERT_THROWS( declScope.popScope(), ScopeException );
   }
 };

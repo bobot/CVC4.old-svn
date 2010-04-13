@@ -40,6 +40,9 @@ struct StringHashFunction {
   }
 };
 
+class CVC4_PUBLIC ScopeException : public Exception {
+};
+
 /**
  * A convenience class for handling scoped declarations. Implements the usual
  * nested scoping rules for declarations, with separate bindings for expressions
@@ -118,7 +121,7 @@ public:
    * <code>popScope</code> is only legal if the number of prior calls to
    * <code>pushScope</code> on this <code>DeclarationScope</code> is strictly
    * greater than then number of prior calls to <code>popScope</code>. */
-  void popScope() throw ();
+  void popScope() throw (ScopeException);
 
   /** Push a scope level. */
   void pushScope() throw ();
