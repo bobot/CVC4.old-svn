@@ -97,12 +97,8 @@ class ParserState {
   /** The input that we're parsing. */
   Input *d_input;
 
-  /** The symbol table lookup */
-//  SymbolTable<Expr>
-  expr::DeclarationScope d_varTable;
-
-  /** The sort table */
-  SymbolTable<Type*> d_sortTable;
+  /** The symbol table */
+  DeclarationScope d_declScope;
 
   /** The name of the input file. */
   std::string d_filename;
@@ -128,6 +124,12 @@ public:
   /** Get the associated input. */
   inline Input* getInput() const {
     return d_input;
+  }
+
+  /** Set the declaration scope manager for this input. NOTE: This should <em>only</me> be
+   * called before parsing begins. Otherwise, previous declarations will be lost. */
+  inline void setDeclarationScope(DeclarationScope declScope) {
+    d_declScope = declScope;
   }
 
   /**
@@ -253,8 +255,8 @@ public:
     d_input->parseError(msg);
   }
 
-  inline void pushScope() { d_varTable.pushScope(); }
-  inline void popScope() { d_varTable.popScope(); }
+  inline void pushScope() { d_declScope.pushScope(); }
+  inline void popScope() { d_declScope.popScope(); }
 }; // class ParserState
 
 } // namespace parser
