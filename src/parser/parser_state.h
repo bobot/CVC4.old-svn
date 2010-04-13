@@ -20,6 +20,7 @@
 
 #include <string>
 
+#include "expr/declaration_scope.h"
 #include "expr/expr.h"
 #include "expr/kind.h"
 #include "parser/input.h"
@@ -97,7 +98,8 @@ class ParserState {
   Input *d_input;
 
   /** The symbol table lookup */
-  SymbolTable<Expr> d_varTable;
+//  SymbolTable<Expr>
+  expr::DeclarationScope d_varTable;
 
   /** The sort table */
   SymbolTable<Type*> d_sortTable;
@@ -251,6 +253,8 @@ public:
     d_input->parseError(msg);
   }
 
+  inline void pushScope() { d_varTable.pushScope(); }
+  inline void popScope() { d_varTable.popScope(); }
 }; // class ParserState
 
 } // namespace parser

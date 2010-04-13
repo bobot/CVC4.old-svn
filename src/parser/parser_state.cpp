@@ -50,7 +50,7 @@ Expr ParserState::getSymbol(const std::string& name, SymbolType type) {
   switch( type ) {
 
   case SYM_VARIABLE: // Functions share var namespace
-    return d_varTable.getObject(name);
+    return d_varTable.lookup(name);
 
   default:
     Unhandled(type);
@@ -112,16 +112,18 @@ ParserState::mkVars(const std::vector<std::string> names,
 void
 ParserState::defineVar(const std::string& name, const Expr& val) {
   Assert(!isDeclared(name));
-  d_varTable.bindName(name,val);
+  d_varTable.bind(name,val);
   Assert(isDeclared(name));
 }
 
+/*
 void
 ParserState::undefineVar(const std::string& name) {
   Assert(isDeclared(name));
-  d_varTable.unbindName(name);
+  d_varTable.unbind(name);
   Assert(!isDeclared(name));
 }
+*/
 
 void
 ParserState::setLogic(const std::string& name) {
