@@ -178,7 +178,7 @@ void FunctionType::toStream(std::ostream& out) const {
     if(i > 0) {
       out << ",";
     }
-    out << makeType(d_typeNode[i]);
+    out << makeType((*d_typeNode)[i]);
   }
   if(arity > 2) {
     out << ")";
