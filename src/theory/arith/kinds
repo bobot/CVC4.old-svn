@@ -21,3 +21,8 @@ constant CONST_INTEGER \
     ::CVC4::IntegerHashStrategy \
     "util/integer.h" \
     "a multiple-precision integer constant"
+
+operator LESS_THAN 2 "less than, x < y"
+operator LESS_THAN_OR_EQUAL 2 "less than or equal, x <= y"
+operator GREATER_THAN 2 "greater than, x > y"
+operator GREATER_THAN_OR_EQUAL 2 "greater than or equal, x >= y"

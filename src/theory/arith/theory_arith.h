@@ -30,12 +30,17 @@ public:
   TheoryArith(context::Context* c, OutputChannel& out) :
     TheoryImpl<TheoryArith>(c, out) {
   }
+  Node canonize(TNode n);
 
   void preRegisterTerm(TNode n) { Unimplemented(); }
   void registerTerm(TNode n) { Unimplemented(); }
   void check(Effort e) { Unimplemented(); }
   void propagate(Effort e) { Unimplemented(); }
   void explain(TNode n, Effort e) { Unimplemented(); }
+
+private:
+  Node d_ZERO;
+  Node d_NEGATIVE_ONE
 };
 
 }/* CVC4::theory::arith namespace */
