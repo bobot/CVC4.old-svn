@@ -45,7 +45,7 @@ typedef expr::CDAttribute<TheoryArithmeticPropagatedID, bool> TheoryArithPropaga
 /**
  * Validates that a node constraint has the following form:
  *   constraint: x |><| c
- * where |><| is either <, <=, ==, >=, LT and c is a constant rational. 
+ * where |><| is either <, <=, ==, >=, LT and c is a constant rational.
  */
 bool validateConstraint(TNode constraint){
   switch(constaint.getKind()){
