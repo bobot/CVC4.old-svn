@@ -1,16 +1,37 @@
 
+#include "context/cdlist.h"
+#include "context/context.h"
+#include "theory/arith/delta_rational.h"
+#include "expr/node.h"
+
+
+#ifndef __CVC4__THEORY__ARITH__PARTIAL_MODEL_H
+#define __CVC4__THEORY__ARITH__PARTIAL_MODEL_H
+
 namespace CVC4 {
 namespace theory {
 namespace arith {
 
+typedef CVC4::context::CDList<TNode> BoundsList;
+
+namespace partial_model {
+struct DeltaRationalCleanupStrategy{
+  static void cleanup(DeltaRational* dq){
+    Debug("arithgc") << "cleaning up  " << dq << "\n";
+    delete dq;
+  }
+};
+
 struct AssignmentAttrID;
-typedef expr::Attribute<AssignmentAttrID, ExtendedRational> Assignment;
+typedef expr::Attribute<AssignmentAttrID,DeltaRational*,DeltaRationalCleanupStrategy> Assignment;
 
+// TODO should have a cleanup see bug #110
 struct LowerBoundAttrID;
-typedef expr::CDAttribute<LowerBoundAttrID,ExtendedRational> LowerBound;
+typedef expr::CDAttribute<LowerBoundAttrID,DeltaRational*> LowerBound;
 
+// TODO should have a cleanup see bug #110
 struct UpperBoundAttrID;
-typedef expr::CDAttribute<UpperBoundAttrID, ExtendedRational> UpperBound;
+typedef expr::CDAttribute<UpperBoundAttrID,DeltaRational*> UpperBound;
 
 struct LowerConstraintAttrID;
 typedef expr::CDAttribute<LowerConstraintAttrID,TNode> LowerConstraint;
@@ -18,12 +39,12 @@ typedef expr::CDAttribute<LowerConstraintAttrID,TNode> LowerConstraint;
 struct UpperConstraintAttrID;
 typedef expr::CDAttribute<UpperConstraintAttrID,TNode> UpperConstraint;
 
-typedef CVC4::CDList<TNode> BoundsList;
+typedef CVC4::context::CDList<TNode> BoundsList;
 
 struct BoundsListCleanupStrategy{
   static void cleanup(BoundsList* bl){
     Debug("arithgc") << "cleaning up  " << bl << "\n";
-    dl->deleteSelf();
+    bl->deleteSelf();
   }
 };
 
@@ -38,9 +59,10 @@ typedef expr::Attribute<BoundsListID,
                         BoundsList*,
                         BoundsListCleanupStrategy> BoundsListAttr;
 
+}; /*namespace partial_model*/
 
-typedef TheoryArithPropagatedID;
-typedef expr::CDAttribute<TheoryArithmeticPropagatedID, bool> TheoryArithPropagated;
+struct TheoryArithPropagatedID;
+typedef expr::CDAttribute<TheoryArithPropagatedID, bool> TheoryArithPropagated;
 
 /**
  * Validates that a node constraint has the following form:
@@ -48,13 +70,14 @@ typedef expr::CDAttribute<TheoryArithmeticPropagatedID, bool> TheoryArithPropaga
  * where |><| is either <, <=, ==, >=, LT and c is a constant rational.
  */
 bool validateConstraint(TNode constraint){
-  switch(constaint.getKind()){
-  case LT:case LEQ: case EQ: case GEQ: case GT: break;
-  default: false;
+  using namespace CVC4::kind;
+  switch(constraint.getKind()){
+  case LT:case LEQ: case EQUAL: case GEQ: case GT: break;
+  default: return false;
   }
 
-  if(contraint[0].getMetaKind() != VARIABLE) return false;
-  return contraint[1].getKind() == CONST_RATIONAL;
+  if(constraint[0].getMetaKind() != metakind::VARIABLE) return false;
+  return constraint[1].getKind() == CONST_RATIONAL;
 }
 
 void addBound(TNode constraint){
@@ -62,114 +85,162 @@ void addBound(TNode constraint){
   TNode x = constraint[0];
 
   BoundsList* bl;
-  if(!x.getAttribute(BoundsListAttr(), bl)){
-    bl = new (true) BoundsList(getContext());
-    x.setAttribute(BoundsListAttr(), bl);
+  if(!x.getAttribute(partial_model::BoundsListAttr(), bl)){
+    //TODO
+    context::Context* context = NULL;
+    bl = new (true) BoundsList(context);
+    x.setAttribute(partial_model::BoundsListAttr(), bl);
   }
   bl->push_back(constraint);
 }
 
 inline int deltaCoeff(Kind k){
   switch(k){
-  case LT: -1;
-  case GT: 1;
-  default: return 0;
+  case kind::LT:
+    return -1;
+  case kind::GT:
+    return 1;
+  default:
+    return 0;
   }
 }
 
 
-inline void propogateUpperBoundConstraint(TNode constraint, OutputChannel& oc){
-  /* [x <= u && u < c] \=> x <  c
+inline bool negateBoundPropogation(CVC4::Kind k, bool isLowerBound){
+  /* !isLowerBound
+   * [x <= u && u < c] \=> x <  c
    * [x <= u && u < c] \=> x <= c
    * [x <= u && u < c] \=> !(x == c)
    * [x <= u && u < c] \=> !(x >= c)
    * [x <= u && u < c] \=> !(x >  c)
    */
-  switch(constraint.getKind()){
-  case LT:
-  case LEQ:
-    oc.propagate(constraint,false);
-    break;
-  case EQ:
-  case GEQ:
-  case GT:
-    oc.propagate(constraint.negate(),false);
-    break;
-  }
-  constaint.setAttribute(TheoryArithPropagated(),true);
-}
-
-inline void propogateLowerBoundConstraint(TNode constraint, OutputChannel& oc){
-  /**
+  /* isLowerBound
    * [x >= l && l > c] \=> x > c
    * [x >= l && l > c] \=> x >= c
    * [x >= l && l > c] \=> !(x == c)
    * [x >= l && l > c] \=> !(x <= c)
    * [x >= l && l > c] \=> !(x < c)
    */
-  switch(constraint.getKind()){
-  case GT:
-  case GEQ:
-    oc.propagate(constraint,false);
-    break;
-  case EQ:
-  case LEQ:
+  using namespace CVC4::kind;
+  switch(k){
   case LT:
-    oc.propagate(constraint.negate(),false);
-    break;
+  case LEQ:
+    return isLowerBound;
+  case EQUAL:
+    return true;
+  case GEQ:
+  case GT:
+    return !isLowerBound;
+  default:
+    Unreachable();
+    return false;
+  }
+}
+
+void propogateBound(TNode constraint, OutputChannel& oc, bool isLower){
+  constraint.setAttribute(TheoryArithPropagated(),true);
+  bool neg = negateBoundPropogation(constraint.getKind(), isLower);
+
+  if(neg){
+    oc.propagate(constraint.notNode(),false);
+  }else{
+    oc.propagate(constraint,false);
   }
 }
 
 void propagateBoundConstraints(TNode x, OutputChannel& oc){
-  Assert(x.getMetaKind() == VARIABLE);
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
 
-  ExtendedRational l;
-  ExtendedRational u;
-  bool hasLowerBound = x.getAttribute(LowerBound(), l);
-  bool hasUpperBound = x.getAttribute(UpperBound(), u);
+  DeltaRational* l;
+  DeltaRational* u;
+  bool hasLowerBound = x.getAttribute(partial_model::LowerBound(), l);
+  bool hasUpperBound = x.getAttribute(partial_model::UpperBound(), u);
 
   if(!(hasLowerBound || hasUpperBound)) return;
   BoundsList* bl;
 
-  if(!x.getAttribute(BoundsList(), bl)) return;
+  if(!x.getAttribute(partial_model::BoundsListAttr(), bl)) return;
 
-  for(BoundsList::iterator iter = bl->begin(); iter != bl->end(); ++iter){
+  for(BoundsList::const_iterator iter = bl->begin(); iter != bl->end(); ++iter){
     TNode constraint = *iter;
-    if(contraint.hasAttribute(TheoryArithPropagated())){
+    if(constraint.hasAttribute(TheoryArithPropagated())){
       continue;
     }
-    Rational& c = contraint[1].getConst<CONST_RATIONAL>();
-    ExtendedRational ec(c, deltaCoeff(c.getKind()))
-    if(hasUpperBound && u < ec ){
-      constaint.setAttribute(TheoryArithPropagated(),true);
-      propogateUpperBoundConstraint(constraint, oc);
+    //TODO improve efficiency Rational&
+    Rational c = constraint[1].getConst<Rational>();
+    Rational k(Integer(deltaCoeff(constraint.getKind())));
+    DeltaRational ec(c, k);
+    if(hasUpperBound && (*u) < ec ){
+      propogateBound(constraint, oc, false);
     }
-    if(hasLowerBound && l > ec ){
-      constaint.setAttribute(TheoryArithPropagated(),true);
-      propogateLowerBoundConstraint(constraint, oc);
+    if(hasLowerBound && (*l) > ec ){
+      propogateBound(constraint, oc, true);
     }
   }
 }
 
+void setUpperBound(TNode x, DeltaRational& r){
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+  DeltaRational* c;
+  if(x.getAttribute(partial_model::UpperBound(), c)){
+    *c = r;
+  }else{
+    c = new DeltaRational(r);
+    x.setAttribute(partial_model::UpperBound(), c);
+  }
+}
 
-
+void setLowerBound(TNode x, DeltaRational& r){
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+  DeltaRational* c;
+  if(x.getAttribute(partial_model::LowerBound(), c)){
+    *c = r;
+  }else{
+    c = new DeltaRational(r);
+    x.setAttribute(partial_model::LowerBound(), c);
+  }
+}
 void setAssignment(TNode x, DeltaRational& r){
-  Assert(x.getMetaKind() == VARIABLE);
-  x.setAttribute(Attribute(), r);
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+  DeltaRational* c;
+  if(x.getAttribute(partial_model::Assignment(), c)){
+    *c = r;
+  }else{
+    c = new DeltaRational(r);
+    x.setAttribute(partial_model::Assignment(), c);
+  }
+}
+
+/** Must know that the bound exists both calling this! */
+DeltaRational getUpperBound(TNode x){
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+
+  DeltaRational* assign;
+  AlwaysAssert(x.getAttribute(partial_model::UpperBound(),assign));
+  return *assign;
+}
+
+
+DeltaRational getLowerBound(TNode x){
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+
+  DeltaRational* assign;
+  AlwaysAssert(x.getAttribute(partial_model::LowerBound(),assign));
+  return *assign;
 }
 
 DeltaRational getAssignment(TNode x){
-  Assert(x.getMetaKind() == VARIABLE);
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
 
-  DeltaRational assign;
-  AlwaysAssert(x.getAttribute(Assignment(),assign));
-  return assign;
+  DeltaRational* assign;
+  AlwaysAssert(x.getAttribute(partial_model::Assignment(),assign));
+  return *assign;
 }
-
-
 
 }; /* namesapce arith */
 }; /* namespace theory */
 }; /* namespace CVC4 */
 
 
+
+#endif /* __CVC4__THEORY__ARITH__PARTIAL_MODEL_H */

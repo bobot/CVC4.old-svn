@@ -1,9 +1,27 @@
 
+#include "expr/node.h"
+#include "expr/attribute.h"
+
+#include "theory/arith/basic.h"
+
+#include <ext/hash_map>
+#include <set>
+
+#ifndef __CVC4__THEORY__ARITH__TABLEAU_H
+#define __CVC4__THEORY__ARITH__TABLEAU_H
+
+namespace CVC4 {
+namespace theory {
+namespace arith {
+
+
 class Row {
   TNode d_x_i;
 
+  typedef __gnu_cxx::hash_map<TNode, Rational, NodeHashFunction> CoefficientTable;
+
   std::set<TNode> d_nonbasic;
-  std::hash_map<TNode, Rational> d_coeffs;
+  CoefficientTable d_coeffs;
 
 public:
 
@@ -12,11 +30,14 @@ public:
    *   basic = \sum_{x_i} c_i * x_i
    */
   Row(TNode basic, TNode sum): d_x_i(basic),d_nonbasic(), d_coeffs(){
-    Assert(d_x_i.getMetaKind() == VARIABLE);
-    Assert(d_x_i.getType() == REAL);
+    using namespace CVC4::kind;
+
+    Assert(d_x_i.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+
+    //TODO Assert(d_x_i.getType() == REAL);
     Assert(sum.getKind() == PLUS);
 
-    for(TNode::iterator iter=sum.begin(); iter != sum.end() ++iter){
+    for(TNode::iterator iter=sum.begin(); iter != sum.end(); ++iter){
       TNode pair = *iter;
       Assert(pair.getKind() == MULT);
       Assert(pair.getNumChildren() == 2);
@@ -24,10 +45,10 @@ public:
       TNode var_i = pair[1];
       Assert(coeff.getKind() == CONST_RATIONAL);
       Assert(var_i.getKind() == VARIABLE);
-      Assert(var_i.getKind() == REAL);
+      //TODO Assert(var_i.getKind() == REAL);
       Assert(!has(var_i));
-      d_nonbasic.add(var_i);
-      d_coeffs[var_i] = coeff.getConst<CONST_RATIONAL>();
+      d_nonbasic.insert(var_i);
+      d_coeffs[var_i] = coeff.getConst<Rational>();
     }
   }
 
@@ -36,7 +57,9 @@ public:
   }
 
   bool has(TNode x_j){
-    return d_coeffs.find(x_j) != d_coeffs.end();
+    CoefficientTable::iterator x_jPos = d_coeffs.find(x_j);
+
+    return x_jPos != d_coeffs.end();
   }
 
   Rational& lookup(TNode x_j){
@@ -45,17 +68,18 @@ public:
 
   void pivot(TNode x_j){
     Rational negInverseA_rs = -(lookup(x_j).inverse());
-    d_coeffs[d_x_i] = Rational(-1);
+    d_coeffs[d_x_i] = Rational(Integer(-1));
     d_coeffs.erase(x_j);
 
-    d_nonbasic.remove(x_j);
-    d_nonbasic.add(d_x_i);
+    d_nonbasic.erase(x_j);
+    d_nonbasic.insert(d_x_i);
     d_x_i = x_j;
 
-    for(set<TNode>::iterator nonbasicIter = d_nonbasic.begin();
+    for(std::set<TNode>::iterator nonbasicIter = d_nonbasic.begin();
         nonbasicIter != d_nonbasic.end();
         ++nonbasicIter){
-      d_coeffs *= negInverseA_rs;
+      TNode nb = *nonbasicIter;
+      d_coeffs[nb] = d_coeffs[nb] * negInverseA_rs;
     }
   }
 
@@ -75,9 +99,9 @@ public:
       TNode x_j = *iter;
       Rational a_sj = a_rs * row_s.lookup(x_j);
       if(has(x_j)){
-        d_coeffs[x_j] += a_sj;
+        d_coeffs[x_j] = d_coeffs[x_j] + a_sj;
       }else{
-        d_nonbasic.add(x_j);
+        d_nonbasic.insert(x_j);
         d_coeffs[x_j] = a_sj;
       }
     }
@@ -85,12 +109,18 @@ public:
 };
 
 class Tableau {
-private:
+public:
   typedef std::set<TNode> VarSet;
-  typedef std::hash_map<TNode, Row> RowsTable;
+
+private:
+  typedef __gnu_cxx::hash_map<TNode, Row*, NodeHashFunction> RowsTable;
 
   VarSet d_basicVars;
-  RowsTables d_rows;
+  RowsTable d_rows;
+
+  inline bool contains(TNode var){
+    return d_basicVars.find(var) != d_basicVars.end();
+  }
 
 public:
   /**
@@ -98,13 +128,31 @@ public:
    */
   Tableau() : d_basicVars(), d_rows() {}
 
+  VarSet::iterator begin(){
+    return d_basicVars.begin();
+  }
+
+  VarSet::iterator end(){
+    return d_basicVars.end();
+  }
+
+  Row* lookup(TNode var){
+    Assert(contains(var));
+    return d_rows[var];
+  }
+
   /**
    * Iterator for the tableau. Iterates over rows.
    */
+  /* TODO add back in =(
   class iterator {
   private:
+    const Tableau*  table_ref;
     VarSet::iterator variableIter;
-    iterator(VarSet::iterator& i) : variableIter(i){}
+
+    iterator(const Tableau* tr, VarSet::iterator& i) :
+      table_ref(tr), variableIter(i){}
+
   public:
     void operator++(){
       ++variableIter;
@@ -117,29 +165,32 @@ public:
       return variableIter != other.variableIter;
     }
 
-    Row& operator*(){
-      return d_rows[*variableIter];
+    Row& operator*() const{
+      TNode var = *variableIter;
+      RowsTable::iterator iter = table_ref->d_rows.find(var);
+      return *iter;
     }
   };
   iterator begin(){
-    return iterator(d_basicVars.begin());
+    return iterator(this, d_basicVars.begin());
   }
   iterator end(){
-    return iterator(d_basicVars.end());
-  }
+    return iterator(this, d_basicVars.end());
+  }*/
 
   void addRow(TNode eq){
-    Assert(eq.getKind() == EQ);
+    Assert(eq.getKind() == kind::EQUAL);
     Assert(eq.getNumChildren() == 2);
 
     TNode var = eq[0];
     TNode sum = eq[1];
 
-    Assert(isAdmissableVariable(var));
+    //Assert(isAdmissableVariable(var));
     Assert(var.getAttribute(IsBasic()));
 
-    d_basicVars.add(var);
-    d_rows[var] = Row(var.,sum);
+    Assert(d_basicVars.find(var) != d_basicVars.end());
+    d_basicVars.insert(var);
+    d_rows[var] = new Row(var,sum);
   }
 
   /**
@@ -150,28 +201,35 @@ public:
    */
   void pivot(TNode x_r, TNode x_s){
     RowsTable::iterator ptrRow_r = d_rows.find(x_r);
-    Assert(row_r != d_rows.end());
+    Assert(ptrRow_r != d_rows.end());
 
-    Row row_s = *ptrRow_r;
+    Row* row_s = (*ptrRow_r).second;
 
-    Assert(row_s.has(x_s));
-    row_s.pivot(x_s);
+    Assert(row_s->has(x_s));
+    row_s->pivot(x_s);
 
     d_rows.erase(ptrRow_r);
-    d_basicVars.remove(x_r);
+    d_basicVars.erase(x_r);
     makeNonbasic(x_r);
 
-    d_rows.insert(mk_pair(xs,row_s));
+    d_rows.insert(std::make_pair(x_s,row_s));
     d_basicVars.insert(x_s);
     makeBasic(x_s);
 
-    for(Tableau::iterator rowIter = begin(); rowIter != end(); ++rowIter){
-      Row& row_k = *rowIter;
-      if(row_k.basicVar() != x_s){
-        if(row_k.has(x_s)){
-          row_k.subsitute(row_s);
+    for(VarSet::iterator basicIter = begin(); basicIter != end(); ++basicIter){
+      TNode basic = *basicIter;
+      Row* row_k = lookup(basic);
+      if(row_k->basicVar() != x_s){
+        if(row_k->has(x_s)){
+          row_k->subsitute(*row_s);
         }
       }
     }
   }
 };
+
+}; /* namespace arith  */
+}; /* namespace theory */
+}; /* namespace CVC4   */
+
+#endif /* __CVC4__THEORY__ARITH__TABLEAU_H */

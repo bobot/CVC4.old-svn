@@ -1,7 +1,7 @@
 /*********************                                                        */
 /** theory_arith.h
  ** Original author: mdeters
- ** Major contributors: none
+ ** Major contributors: taking
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
@@ -20,27 +20,45 @@
 
 #include "theory/theory.h"
 #include "context/context.h"
+#include "context/cdlist.h"
+
+#include "theory/arith/delta_rational.h"
+#include "theory/arith/tableau.h"
 
 namespace CVC4 {
 namespace theory {
 namespace arith {
 
-class TheoryArith : public TheoryImpl<TheoryArith> {
+class TheoryArith : public Theory {
+private:
+  context::CDList<Node> d_diseq;
+  Tableau d_tableau;
 public:
   TheoryArith(context::Context* c, OutputChannel& out) :
-    TheoryImpl<TheoryArith>(c, out) {
-  }
+    Theory(c, out), d_diseq(c)
+  {}
   Node canonize(TNode n);
 
   void preRegisterTerm(TNode n) { Unimplemented(); }
-  void registerTerm(TNode n) { Unimplemented(); }
-  void check(Effort e) { Unimplemented(); }
+  void registerTerm(TNode n);
+  void check(Effort e);
   void propagate(Effort e) { Unimplemented(); }
   void explain(TNode n, Effort e) { Unimplemented(); }
 
+  static Node s_TRUE_NODE;
+  static Node s_FALSE_NODE;
+  static Rational s_ZERO;
+  static Rational s_ONE;
+  static Rational s_NEGATIVE_ONE;
+
 private:
-  Node d_ZERO;
-  Node d_NEGATIVE_ONE
+  void AssertLower(TNode n);
+  void AssertUpper(TNode n);
+  void update(TNode x_i, DeltaRational& v);
+  void pivotAndUpdate(TNode x_i, TNode x_j, DeltaRational& v);
+  TNode updateInconsistentVars();
+
+
 };
 
 }/* CVC4::theory::arith namespace */
