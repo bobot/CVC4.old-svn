@@ -71,6 +71,7 @@ class CDOmap : public ContextObj {
       }
       d_next->d_prev = d_prev;
       d_prev->d_next = d_next;
+      Debug("gc") << "CDMap<> trash push_back " << this << std::endl;
       d_map->d_trash.push_back(this);
     } else {
       d_data = p->d_data;
@@ -139,24 +140,6 @@ public:
   }
 };/* class CDOmap<> */
 
-// Dummy subclass of ContextObj to serve as our data class
-class CDMapData : public ContextObj {
-  // befriend CDMap<> so that it can allocate us
-  template <class Key, class Data, class HashFcn>
-  friend class CDMap;
-
-  ContextObj* save(ContextMemoryManager* pCMM) {
-    return new(pCMM) CDMapData(*this);
-  }
-
-  void restore(ContextObj* data) {}
-
-public:
-
-  CDMapData(Context* context) : ContextObj(context) {}
-  CDMapData(const ContextObj& co) : ContextObj(co) {}
-  ~CDMapData() { destroy(); }
-};
 
 /**
  * Generic templated class for a map which must be saved and restored
@@ -180,17 +163,20 @@ class CDMap : public ContextObj {
 
   // Nothing to save; the elements take care of themselves
   virtual ContextObj* save(ContextMemoryManager* pCMM) {
-    return new(pCMM) CDMapData(*this);
+    Unreachable();
   }
 
   // Similarly, nothing to restore
-  virtual void restore(ContextObj* data) {}
+  virtual void restore(ContextObj* data) {
+    Unreachable();
+  }
 
   void emptyTrash() {
     //FIXME multithreading
     for(typename std::vector<Element*>::iterator i = d_trash.begin();
         i != d_trash.end();
         ++i) {
+      Debug("gc") << "emptyTrash(): " << *i << std::endl;
       (*i)->deleteSelf();
     }
     d_trash.clear();
@@ -200,22 +186,41 @@ public:
 
   CDMap(Context* context) :
     ContextObj(context),
+    d_map(),
     d_first(NULL),
     d_context(context),
     d_trash() {
   }
 
   ~CDMap() throw(AssertionException) {
+    Debug("gc") << "cdmap " << this
+                << " disappearing, destroying..." << std::endl;
     destroy();
+    Debug("gc") << "cdmap " << this
+                << " disappearing, done destroying" << std::endl;
     for(typename table_type::iterator i = d_map.begin();
         i != d_map.end();
         ++i) {
       (*i).second->deleteSelf();
     }
-    //d_map.clear();
-    Debug("gc") << "cdmap gone, emptying trash" << std::endl;
+    Debug("gc") << "cdmap " << this << " gone, emptying trash" << std::endl;
     emptyTrash();
+    Debug("gc") << "done emptying trash for " << this << std::endl;
   }
+
+  void clear() throw(AssertionException) {
+    Debug("gc") << "cdmap " << this
+                << " disappearing, destroying..." << std::endl;
+    for(typename table_type::iterator i = d_map.begin();
+        i != d_map.end();
+        ++i) {
+      (*i).second->deleteSelf();
+    }
+    d_map.clear();
+    emptyTrash();
+    Debug("gc") << "done emptying trash for " << this << std::endl;
+  }
+
 
   // The usual operators of map
 

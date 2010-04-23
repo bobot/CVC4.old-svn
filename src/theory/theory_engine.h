@@ -139,7 +139,7 @@ class TheoryEngine {
     }
     Debug("rewrite") << "rewrote-children of " << in << std::endl
                      << "got " << b << std::endl;
-    return Node(b);
+    return b;
   }
 
   /**
@@ -235,7 +235,7 @@ public:
   /**
    * Preprocess a node.  This involves theory-specific rewriting, then
    * calling preRegisterTerm() on what's left over.
-   * @param the node to preprocess
+   * @param n the node to preprocess
    */
   Node preprocess(TNode n);
 

@@ -37,6 +37,7 @@ private:
   Context* d_ctxt;
   NodeManager* d_nm;
   NodeManagerScope* d_scope;
+  Type* d_booleanType;
 
 public:
 
@@ -44,10 +45,13 @@ public:
     d_ctxt = new Context;
     d_nm = new NodeManager(d_ctxt);
     d_scope = new NodeManagerScope(d_nm);
+
     specKind = PLUS;
+    d_booleanType = new Type(d_nm->booleanType());
   }
 
   void tearDown() {
+    delete d_booleanType;
     delete d_scope;
     delete d_nm;
     delete d_ctxt;
@@ -61,8 +65,8 @@ public:
     }
   }
 
-#define K 30
-#define LARGE_K UINT_MAX/40
+#define K 30u
+#define LARGE_K UINT_MAX / 40
 
   Kind specKind;
 
@@ -81,23 +85,23 @@ public:
     /* default size tests */
     NodeBuilder<> def;
     TS_ASSERT_EQUALS(def.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(def.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(def.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(def.begin(), def.end());
 
     NodeBuilder<> spec(specKind);
     TS_ASSERT_EQUALS(spec.getKind(), specKind);
-    TS_ASSERT_EQUALS(spec.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(spec.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(spec.begin(), spec.end());
 
 
     NodeBuilder<> from_nm(d_nm);
     TS_ASSERT_EQUALS(from_nm.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(from_nm.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(from_nm.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(from_nm.begin(), from_nm.end());
 
     NodeBuilder<> from_nm_kind(d_nm, specKind);
     TS_ASSERT_EQUALS(from_nm_kind.getKind(), specKind);
-    TS_ASSERT_EQUALS(from_nm_kind.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(from_nm_kind.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(from_nm_kind.begin(), from_nm_kind.end());
 
 
@@ -105,23 +109,23 @@ public:
 
     NodeBuilder<K> ws;
     TS_ASSERT_EQUALS(ws.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(ws.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(ws.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(ws.begin(), ws.end());
 
     NodeBuilder<K> ws_kind(specKind);
     TS_ASSERT_EQUALS(ws_kind.getKind(), specKind);
-    TS_ASSERT_EQUALS(ws_kind.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(ws_kind.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(ws_kind.begin(), ws_kind.end());
 
 
     NodeBuilder<K> ws_from_nm(d_nm);
     TS_ASSERT_EQUALS(ws_from_nm.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(ws_from_nm.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(ws_from_nm.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(ws_from_nm.begin(), ws_from_nm.end());
 
     NodeBuilder<K> ws_from_nm_kind(d_nm, specKind);
     TS_ASSERT_EQUALS(ws_from_nm_kind.getKind(), specKind);
-    TS_ASSERT_EQUALS(ws_from_nm_kind.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(ws_from_nm_kind.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(ws_from_nm_kind.begin(), ws_from_nm_kind.end());
 
 
@@ -134,23 +138,23 @@ public:
 
     NodeBuilder<> copy(def);
     TS_ASSERT_EQUALS(copy.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(copy.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(copy.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(copy.begin(), copy.end());
 
     NodeBuilder<K> cp_ws(ws);
     TS_ASSERT_EQUALS(cp_ws.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(cp_ws.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(cp_ws.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(cp_ws.begin(), cp_ws.end());
 
 
     NodeBuilder<K-10> cp_from_larger(ws);
     TS_ASSERT_EQUALS(cp_from_larger.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(cp_from_larger.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(cp_from_larger.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(cp_from_larger.begin(), cp_from_larger.end());
 
     NodeBuilder<K+10> cp_from_smaller(ws);
     TS_ASSERT_EQUALS(cp_from_smaller.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(cp_from_smaller.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(cp_from_smaller.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(cp_from_smaller.begin(), cp_from_smaller.end());
 
   }
@@ -171,14 +175,14 @@ public:
     TS_ASSERT_DIFFERS(ws.begin(), ws.end());
 
     NodeBuilder<K>::iterator iter = ws.begin();
-    for(int i = 0; i < K; ++i){
+    for(unsigned i = 0; i < K; ++i){
       TS_ASSERT_DIFFERS(iter, ws.end());
       ++iter;
     }
     TS_ASSERT_EQUALS(iter, ws.end());
 
     NodeBuilder<K>::const_iterator citer = ws.begin();
-    for(int i = 0; i < K; ++i){
+    for(unsigned i = 0; i < K; ++i){
       TS_ASSERT_DIFFERS(citer, ws.end());
       ++citer;
     }
@@ -193,14 +197,14 @@ public:
     TS_ASSERT_DIFFERS(smaller.begin(), smaller.end());
 
     NodeBuilder<>::iterator smaller_iter = smaller.begin();
-    for(int i = 0; i < K; ++i){
+    for(unsigned i = 0; i < K; ++i){
       TS_ASSERT_DIFFERS(smaller_iter, smaller.end());
       ++smaller_iter;
     }
     TS_ASSERT_EQUALS(iter, ws.end());
 
     NodeBuilder<>::const_iterator smaller_citer = smaller.begin();
-    for(int i = 0; i < K; ++i){
+    for(unsigned i = 0; i < K; ++i){
       TS_ASSERT_DIFFERS(smaller_citer, smaller.end());
       ++smaller_citer;
     }
@@ -209,9 +213,9 @@ public:
 
   void testIterator() {
     NodeBuilder<> b;
-    Node x = d_nm->mkVar();
-    Node y = d_nm->mkVar();
-    Node z = d_nm->mkVar();
+    Node x = d_nm->mkVar(*d_booleanType);
+    Node y = d_nm->mkVar(*d_booleanType);
+    Node z = d_nm->mkVar(*d_booleanType);
     b << x << y << z << AND;
 
     {
@@ -244,9 +248,9 @@ public:
 
     Node n = noKind;
 
-#ifdef CVC4_DEBUG
-    TS_ASSERT_THROWS_ANYTHING(noKind.getKind(););
-#endif
+#ifdef CVC4_ASSERTIONS
+    TS_ASSERT_THROWS(noKind.getKind(), AssertionException);
+#endif /* CVC4_ASSERTIONS */
 
     NodeBuilder<> spec(specKind);
     TS_ASSERT_EQUALS(spec.getKind(), specKind);
@@ -258,30 +262,30 @@ public:
     /* unsigned getNumChildren() const; */
 
     NodeBuilder<> noKind;
-    TS_ASSERT_EQUALS(noKind.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(noKind.getNumChildren(), 0u);
     push_back(noKind, K);
 
     TS_ASSERT_EQUALS(noKind.getNumChildren(), K);
 
     push_back(noKind, K);
-    TS_ASSERT_EQUALS(noKind.getNumChildren(), K+K);
+    TS_ASSERT_EQUALS(noKind.getNumChildren(), K + K);
 
     noKind << AND;// avoid exception on marking it used
     Node n = noKind;// avoid warning on clear()
     noKind.clear();
-    TS_ASSERT_EQUALS(noKind.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(noKind.getNumChildren(), 0u);
     push_back(noKind, K);
 
     TS_ASSERT_EQUALS(noKind.getNumChildren(), K);
 
     push_back(noKind, K);
-    TS_ASSERT_EQUALS(noKind.getNumChildren(), K+K);
+    TS_ASSERT_EQUALS(noKind.getNumChildren(), K + K);
 
-#ifdef CVC4_DEBUG
+#ifdef CVC4_ASSERTIONS
     noKind << specKind;
     n = noKind;
-    TS_ASSERT_THROWS_ANYTHING( noKind.getNumChildren() );
-#endif
+    TS_ASSERT_THROWS( noKind.getNumChildren(), AssertionException );
+#endif /* CVC4_ASSERTIONS */
   }
 
   void testOperatorSquare() {
@@ -297,10 +301,10 @@ public:
     Node i_2 = d_nm->mkConst(true);
     Node i_K = d_nm->mkNode(NOT, i_0);
 
-#ifdef CVC4_DEBUG
-    TS_ASSERT_THROWS_ANYTHING(arr[-1];);
-    TS_ASSERT_THROWS_ANYTHING(arr[0];);
-#endif
+#ifdef CVC4_ASSERTIONS
+    TS_ASSERT_THROWS(arr[-1], AssertionException);
+    TS_ASSERT_THROWS(arr[0], AssertionException);
+#endif /* CVC4_ASSERTIONS */
 
     arr << i_0;
 
@@ -317,7 +321,7 @@ public:
 
     TS_ASSERT_EQUALS(arr[0], i_0);
     TS_ASSERT_EQUALS(arr[2], i_2);
-    for(int i = 3; i < K; ++i) {
+    for(unsigned i = 3; i < K; ++i) {
       TS_ASSERT_EQUALS(arr[i], d_nm->mkConst(true));
     }
 
@@ -325,15 +329,15 @@ public:
 
     TS_ASSERT_EQUALS(arr[0], i_0);
     TS_ASSERT_EQUALS(arr[2], i_2);
-    for(int i = 3; i < K; ++i) {
+    for(unsigned i = 3; i < K; ++i) {
       TS_ASSERT_EQUALS(arr[i], d_nm->mkConst(true));
     }
     TS_ASSERT_EQUALS(arr[K], i_K);
 
-#ifdef CVC4_DEBUG
+#ifdef CVC4_ASSERTIONS
     Node n = arr;
-    TS_ASSERT_THROWS_ANYTHING(arr[0]);
-#endif
+    TS_ASSERT_THROWS(arr[0], AssertionException);
+#endif /* CVC4_ASSERTIONS */
   }
 
   void testClear() {
@@ -341,7 +345,7 @@ public:
     NodeBuilder<> nb;
 
     TS_ASSERT_EQUALS(nb.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(nb.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(nb.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(nb.begin(), nb.end());
 
     nb << specKind;
@@ -355,7 +359,7 @@ public:
     nb.clear();
 
     TS_ASSERT_EQUALS(nb.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(nb.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(nb.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(nb.begin(), nb.end());
 
     nb << specKind;
@@ -369,7 +373,7 @@ public:
     nb.clear(specKind);
 
     TS_ASSERT_EQUALS(nb.getKind(), specKind);
-    TS_ASSERT_EQUALS(nb.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(nb.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(nb.begin(), nb.end());
 
     push_back(nb, K);
@@ -377,7 +381,7 @@ public:
     nb.clear();
 
     TS_ASSERT_EQUALS(nb.getKind(), UNDEFINED_KIND);
-    TS_ASSERT_EQUALS(nb.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(nb.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(nb.begin(), nb.end());
 
   }
@@ -434,7 +438,7 @@ public:
     /* NodeBuilder& operator<<(const Node& n); */
     NodeBuilder<K> nb(specKind);
     TS_ASSERT_EQUALS(nb.getKind(), specKind);
-    TS_ASSERT_EQUALS(nb.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(nb.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(nb.begin(), nb.end());
     push_back(nb,K);
     TS_ASSERT_EQUALS(nb.getKind(), specKind);
@@ -448,26 +452,30 @@ public:
 
     NodeBuilder<> overflow(specKind);
     TS_ASSERT_EQUALS(overflow.getKind(), specKind);
-    TS_ASSERT_EQUALS(overflow.getNumChildren(), 0);
+    TS_ASSERT_EQUALS(overflow.getNumChildren(), 0u);
     TS_ASSERT_EQUALS(overflow.begin(), overflow.end());
 
     push_back(overflow,5*K+1);
 
     TS_ASSERT_EQUALS(overflow.getKind(), specKind);
-    TS_ASSERT_EQUALS(overflow.getNumChildren(), 5*K+1);
+    TS_ASSERT_EQUALS(overflow.getNumChildren(), 5 * K + 1);
     TS_ASSERT_DIFFERS(overflow.begin(), overflow.end());
 
   }
 
   void testAppend() {
-    Node x = d_nm->mkVar();
-    Node y = d_nm->mkVar();
-    Node z = d_nm->mkVar();
+    Node x = d_nm->mkVar(*d_booleanType);
+    Node y = d_nm->mkVar(*d_booleanType);
+    Node z = d_nm->mkVar(*d_booleanType);
     Node m = d_nm->mkNode(AND, y, z, x);
     Node n = d_nm->mkNode(OR, d_nm->mkNode(NOT, x), y, z);
-    Node o = d_nm->mkNode(XOR, y, x, z);
+    Node o = d_nm->mkNode(XOR, y, x);
     Node p = d_nm->mkNode(PLUS, z, d_nm->mkNode(UMINUS, x), z);
     Node q = d_nm->mkNode(AND, x, z, d_nm->mkNode(NOT, y));
+
+#ifdef CVC4_ASSERTIONS
+    TS_ASSERT_THROWS(d_nm->mkNode(XOR, y, x, x), AssertionException);
+#endif /* CVC4_ASSERTIONS */
 
     NodeBuilder<> b;
 
@@ -583,24 +591,24 @@ public:
   }
 
   void testConvenienceBuilders() {
-    Node a = d_nm->mkVar();
-    Node b = d_nm->mkVar();
-    Node c = d_nm->mkVar();
-    Node d = d_nm->mkVar();
-    Node e = d_nm->mkVar();
-    Node f = d_nm->mkVar();
+    Node a = d_nm->mkVar(*d_booleanType);
+    Node b = d_nm->mkVar(*d_booleanType);
+    Node c = d_nm->mkVar(*d_booleanType);
+    Node d = d_nm->mkVar(*d_booleanType);
+    Node e = d_nm->mkVar(*d_booleanType);
+    Node f = d_nm->mkVar(*d_booleanType);
 
     Node m = a && b;
-    Node n = a && b || c;
+    Node n = (a && b) || c;
     Node o = d + e - b;
-    Node p = a && o || c;
+    Node p = (a && o) || c;
 
     Node x = d + e + o - m;
     Node y = f - a - c + e;
 
     Node q = a && b && c;
 
-    Node r = e && d && b && a || x && y || f || q && a;
+    Node r = (e && d && b && a) || (x && y) || f || (q && a);
 
     TS_ASSERT_EQUALS(m, d_nm->mkNode(AND, a, b));
     TS_ASSERT_EQUALS(n, d_nm->mkNode(OR, m, c));

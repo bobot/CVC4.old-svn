@@ -10,7 +10,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.
  **
- ** Black box testing of CVC4::parser::SmtParser.
+ ** White box testing of CVC4::parser::SmtParser.
  **/
 
 #include <cxxtest/TestSuite.h>
@@ -139,24 +139,24 @@ const string badSmtExprs[] = {
 
 const int numBadSmtExprs = sizeof(badSmtExprs) / sizeof(string);
 
-class ParserBlack : public CxxTest::TestSuite {
+class ParserWhite : public CxxTest::TestSuite {
   ExprManager *d_exprManager;
 
   /* Set up declaration context for expr inputs */
 
   void setupContext(ParserState* parserState) {
     /* a, b, c: BOOLEAN */
-    parserState->mkVar("a",(Type*)d_exprManager->booleanType());
-    parserState->mkVar("b",(Type*)d_exprManager->booleanType());
-    parserState->mkVar("c",(Type*)d_exprManager->booleanType());
+    parserState->mkVar("a",d_exprManager->booleanType());
+    parserState->mkVar("b",d_exprManager->booleanType());
+    parserState->mkVar("c",d_exprManager->booleanType());
     /* t, u, v: TYPE */
-    Type *t = parserState->newSort("t");
-    Type *u = parserState->newSort("u");
-    Type *v = parserState->newSort("v");
+    Type t = parserState->mkSort("t");
+    Type u = parserState->mkSort("u");
+    Type v = parserState->mkSort("v");
     /* f : t->u; g: u->v; h: v->t; */
-    parserState->mkVar("f", (Type*)d_exprManager->mkFunctionType(t,u));
-    parserState->mkVar("g", (Type*)d_exprManager->mkFunctionType(u,v));
-    parserState->mkVar("h", (Type*)d_exprManager->mkFunctionType(v,t));
+    parserState->mkVar("f", d_exprManager->mkFunctionType(t,u));
+    parserState->mkVar("g", d_exprManager->mkFunctionType(u,v));
+    parserState->mkVar("h", d_exprManager->mkFunctionType(v,t));
     /* x:t; y:u; z:v; */
     parserState->mkVar("x",t);
     parserState->mkVar("y",u);
@@ -227,7 +227,7 @@ class ParserBlack : public CxxTest::TestSuite {
       } catch (Exception& e) {
         cout << "\nGood expr failed:\n" << goodBooleanExprs[i] << endl;
         cout << e;
-        throw e;
+        throw;
       }
     }
   }
@@ -259,6 +259,12 @@ public:
 
   void tearDown() {
     delete d_exprManager;
+  }
+
+  void testBs() {
+    DeclarationScope declScope;
+    declScope.bind("foo", d_exprManager->mkVar("foo",d_exprManager->booleanType()));
+
   }
 
   void testGoodCvc4Inputs() {

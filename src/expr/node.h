@@ -28,7 +28,6 @@
 
 #include "expr/kind.h"
 #include "expr/metakind.h"
-#include "expr/type.h"
 #include "util/Assert.h"
 #include "util/output.h"
 
@@ -248,7 +247,7 @@ public:
    * Returns the type of this node.
    * @return the type
    */
-  Type* getType() const;
+  Type getType() const;
 
   /**
    * Returns the kind of this node.
@@ -587,8 +586,8 @@ template <bool ref_count>
 NodeTemplate<ref_count> NodeTemplate<ref_count>::s_null(&expr::NodeValue::s_null);
 
 template <bool ref_count>
-bool NodeTemplate<ref_count>::isAtomic() const {
-  return kind::kindIsAtomic(getKind());
+inline bool NodeTemplate<ref_count>::isAtomic() const {
+  return NodeManager::currentNM()->isAtomic(*this);
 }
 
 // FIXME: escape from type system convenient but is there a better
@@ -640,7 +639,7 @@ NodeTemplate<ref_count>::~NodeTemplate() throw(AssertionException) {
   if(ref_count) {
     d_nv->dec();
   } else {
-    Assert(d_nv->d_rc > 0 || d_nv->isBeingDeleted(),
+    Assert(d_nv->d_rc > 0 || d_nv->isBeingDeleted() || NodeManager::currentNM()->inDestruction(),
            "TNode pointing to an expired NodeValue at destruction time");
   }
 }
@@ -815,7 +814,7 @@ inline bool NodeTemplate<ref_count>::hasOperator() const {
 }
 
 template <bool ref_count>
-Type* NodeTemplate<ref_count>::getType() const {
+Type NodeTemplate<ref_count>::getType() const {
   Assert( NodeManager::currentNM() != NULL,
           "There is no current CVC4::NodeManager associated to this thread.\n"
           "Perhaps a public-facing function is missing a NodeManagerScope ?" );

@@ -15,7 +15,7 @@ LIBCVC4_VERSION = @CVC4_LIBRARY_VERSION@
 AM_CPPFLAGS =
 	-D__BUILDING_CVC4LIB \
 	-I@srcdir@/include -I@srcdir@
-AM_CXXFLAGS = -Wall -fvisibility=hidden
+AM_CXXFLAGS = -Wall $(FLAG_VISIBILITY_HIDDEN)
 
 SUBDIRS = expr util context theory prop smt . parser main
 
@@ -55,7 +55,3 @@ install-data-local: $(publicheaders)
 		echo $(INSTALL_DATA) "$(srcdir)/$$f" "$(DESTDIR)/$(includedir)/cvc4"; \
 		$(INSTALL_DATA) "$(srcdir)/$$f" "$(DESTDIR)/$(includedir)/cvc4"; \
 	done
-
-include/cvc4.h: smt/smt_engine.h
-	@srcdir@/headergen.pl $< $@
-include/cvc4_expr.h: expr/expr.h

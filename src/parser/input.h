@@ -73,6 +73,7 @@ public:
     * @param exprManager the ExprManager for creating expressions from the input
     * @param lang the input language
     * @param filename the input filename
+    * @param useMmap true if the parser should use memory-mapped I/O (default: false)
     */
    static Input* newFileInput(ExprManager* exprManager, InputLanguage lang, const std::string& filename, bool useMmap=false);
 
@@ -95,16 +96,19 @@ public:
   static Input* newStringInput(ExprManager* exprManager, InputLanguage lang, const std::string& input, const std::string& name);
 
   /**
-    * Check if we are done -- either the end of input has been reached, or some
-    * error has been encountered.
-    * @return true if parser is done
-    */
+   * Check if we are done -- either the end of input has been reached, or some
+   * error has been encountered.
+   * @return true if parser is done
+   */
   bool done() const;
 
   /** Enable semantic checks during parsing. */
   void enableChecks();
 
-  /** Disable semantic checks during parsing. Disabling checks may lead to crashes on bad inputs. */
+  /**
+   * Disable semantic checks during parsing. Disabling checks may lead
+   * to crashes on bad inputs.
+   */
   void disableChecks();
 
   /**

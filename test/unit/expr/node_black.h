@@ -36,6 +36,7 @@ private:
   Context* d_ctxt;
   NodeManager* d_nodeManager;
   NodeManagerScope* d_scope;
+  Type *d_booleanType;
 
 public:
 
@@ -43,9 +44,11 @@ public:
     d_ctxt = new Context;
     d_nodeManager = new NodeManager(d_ctxt);
     d_scope = new NodeManagerScope(d_nodeManager);
+    d_booleanType = new Type(d_nodeManager->booleanType());
   }
 
   void tearDown() {
+    delete d_booleanType;
     delete d_scope;
     delete d_nodeManager;
     delete d_ctxt;
@@ -94,12 +97,12 @@ public:
   void testOperatorEquals() {
     Node a, b, c;
 
-    b = d_nodeManager->mkVar();
+    b = d_nodeManager->mkVar(*d_booleanType);
 
     a = b;
     c = a;
 
-    Node d = d_nodeManager->mkVar();
+    Node d = d_nodeManager->mkVar(*d_booleanType);
 
     TS_ASSERT(a==a);
     TS_ASSERT(a==b);
@@ -134,12 +137,12 @@ public:
 
     Node a, b, c;
 
-    b = d_nodeManager->mkVar();
+    b = d_nodeManager->mkVar(*d_booleanType);
 
     a = b;
     c = a;
 
-    Node d = d_nodeManager->mkVar();
+    Node d = d_nodeManager->mkVar(*d_booleanType);
 
     /*structed assuming operator == works */
     TS_ASSERT(iff(a!=a, !(a==a)));
@@ -196,7 +199,7 @@ public:
   /*tests:   Node& operator=(const Node&); */
   void testOperatorAssign() {
     Node a, b;
-    Node c = d_nodeManager->mkNode(NOT, d_nodeManager->mkVar());
+    Node c = d_nodeManager->mkNode(NOT, d_nodeManager->mkVar(*d_booleanType));
 
     b = c;
     TS_ASSERT(b==c);
@@ -212,8 +215,8 @@ public:
     /* We don't have access to the ids so we can't test the implementation
      * in the black box tests. */
 
-    Node a = d_nodeManager->mkVar(d_nodeManager->booleanType(), "a");
-    Node b = d_nodeManager->mkVar(d_nodeManager->booleanType(), "b");
+    Node a = d_nodeManager->mkVar("a", d_nodeManager->booleanType());
+    Node b = d_nodeManager->mkVar("b", d_nodeManager->booleanType());
 
     TS_ASSERT(a<b || b<a);
     TS_ASSERT(!(a<b && b<a));
@@ -317,8 +320,8 @@ public:
   void testIteNode() {
     /*Node iteNode(const Node& thenpart, const Node& elsepart) const;*/
 
-    Node a = d_nodeManager->mkVar();
-    Node b = d_nodeManager->mkVar();
+    Node a = d_nodeManager->mkVar(*d_booleanType);
+    Node b = d_nodeManager->mkVar(*d_booleanType);
 
     Node cnd = d_nodeManager->mkNode(PLUS, a, b);
     Node thenBranch = d_nodeManager->mkConst(true);
@@ -380,8 +383,8 @@ public:
   void testGetKind() {
     /*inline Kind getKind() const; */
 
-    Node a = d_nodeManager->mkVar();
-    Node b = d_nodeManager->mkVar();
+    Node a = d_nodeManager->mkVar(*d_booleanType);
+    Node b = d_nodeManager->mkVar(*d_booleanType);
 
     Node n = d_nodeManager->mkNode(NOT, a);
     TS_ASSERT(NOT == n.getKind());
@@ -397,9 +400,9 @@ public:
   }
 
   void testGetOperator() {
-    Type* sort = d_nodeManager->mkSort("T");
-    Type* booleanType = d_nodeManager->booleanType();
-    Type* predType = d_nodeManager->mkFunctionType(sort, booleanType);
+    Type sort = d_nodeManager->mkSort("T");
+    Type booleanType = d_nodeManager->booleanType();
+    Type predType = d_nodeManager->mkFunctionType(sort, booleanType);
 
     Node f = d_nodeManager->mkVar(predType);
     Node a = d_nodeManager->mkVar(booleanType);
@@ -420,10 +423,10 @@ public:
 #endif /* CVC4_ASSERTIONS */
   }
 
-  void testNaryExpForSize(Kind k, int N) {
+  void testNaryExpForSize(Kind k, unsigned N) {
     NodeBuilder<> nbz(k);
     Node trueNode = d_nodeManager->mkConst(true);
-    for(int i = 0; i < N; ++i) {
+    for(unsigned i = 0; i < N; ++i) {
       nbz << trueNode;
     }
     Node result = nbz;
@@ -449,7 +452,7 @@ public:
     srand(0);
     int trials = 500;
     for(int i = 0; i < trials; ++i) {
-      int N = rand() % 1000 + 2;
+      unsigned N = rand() % 1000 + 2;
       testNaryExpForSize(AND, N);
     }
 
@@ -463,9 +466,9 @@ public:
 
   void testIterator() {
     NodeBuilder<> b;
-    Node x = d_nodeManager->mkVar();
-    Node y = d_nodeManager->mkVar();
-    Node z = d_nodeManager->mkVar();
+    Node x = d_nodeManager->mkVar(*d_booleanType);
+    Node y = d_nodeManager->mkVar(*d_booleanType);
+    Node z = d_nodeManager->mkVar(*d_booleanType);
     Node n = b << x << y << z << kind::AND;
 
     { // iterator
@@ -487,12 +490,12 @@ public:
   }
 
   void testToString() {
-    Type* booleanType = d_nodeManager->booleanType();
+    Type booleanType = d_nodeManager->booleanType();
 
-    Node w = d_nodeManager->mkVar(booleanType, "w");
-    Node x = d_nodeManager->mkVar(booleanType, "x");
-    Node y = d_nodeManager->mkVar(booleanType, "y");
-    Node z = d_nodeManager->mkVar(booleanType, "z");
+    Node w = d_nodeManager->mkVar("w",booleanType);
+    Node x = d_nodeManager->mkVar("x",booleanType);
+    Node y = d_nodeManager->mkVar("y",booleanType);
+    Node z = d_nodeManager->mkVar("z",booleanType);
     Node m = NodeBuilder<>() << w << x << kind::OR;
     Node n = NodeBuilder<>() << m << y << z << kind::AND;
 
@@ -500,12 +503,12 @@ public:
   }
 
   void testToStream() {
-    Type* booleanType = d_nodeManager->booleanType();
+    Type booleanType = d_nodeManager->booleanType();
 
-    Node w = d_nodeManager->mkVar(booleanType, "w");
-    Node x = d_nodeManager->mkVar(booleanType, "x");
-    Node y = d_nodeManager->mkVar(booleanType, "y");
-    Node z = d_nodeManager->mkVar(booleanType, "z");
+    Node w = d_nodeManager->mkVar("w",booleanType);
+    Node x = d_nodeManager->mkVar("x",booleanType);
+    Node y = d_nodeManager->mkVar("y",booleanType);
+    Node z = d_nodeManager->mkVar("z",booleanType);
     Node m = NodeBuilder<>() << x << y << kind::OR;
     Node n = NodeBuilder<>() << w << m << z << kind::AND;
     Node o = NodeBuilder<>() << n << n << kind::XOR;

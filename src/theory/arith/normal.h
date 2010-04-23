@@ -1,4 +1,6 @@
 
+#ifndef __CVC4__THEORY__ARITH__NORMAL_H
+#define __CVC4__THEORY__ARITH__NORMAL_H
 
 namespace CVC4 {
 namespace theory {
@@ -23,3 +25,5 @@ typedef expr::Attribute<IsNormalAttrID, Node> NormalForm;
 }; /* namespace theory */
 }; /* namespace CVC4 */
 
+
+#endif /* __CVC4__THEORY__ARITH__NORMAL_H */

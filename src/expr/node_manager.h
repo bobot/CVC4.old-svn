@@ -11,6 +11,8 @@
  ** information.
  **
  ** A manager for Nodes.
+ **
+ ** Reviewed by Chris Conway, Apr 5 2010 (bug #65).
  **/
 
 #include "cvc4_private.h"
@@ -28,25 +30,21 @@
 
 #include "expr/kind.h"
 #include "expr/metakind.h"
-#include "expr/expr.h"
 #include "expr/node_value.h"
 #include "context/context.h"
 #include "expr/type.h"
 
 namespace CVC4 {
 
-class Type;
-
 namespace expr {
+
+// Definition of an attribute for the variable name.
+// TODO: hide this attribute behind a NodeManager interface.
 namespace attr {
-
-struct VarName {};
-struct Type {};
-
+  struct VarNameTag {};
 }/* CVC4::expr::attr namespace */
 
-typedef Attribute<attr::VarName, std::string> VarNameAttr;
-typedef ManagedAttribute<attr::Type, CVC4::Type*, attr::TypeCleanupStrategy> TypeAttr;
+typedef expr::Attribute<attr::VarNameTag, std::string> VarNameAttr;
 
 }/* CVC4::expr namespace */
 
@@ -68,36 +66,113 @@ class NodeManager {
 
   expr::attr::AttributeManager d_attrManager;
 
+  /**
+   * The node value we're currently freeing.  This unique node value
+   * is permitted to have outstanding TNodes to it (in "soft"
+   * contexts, like as a key in attribute tables), even though
+   * normally it's an error to have a TNode to a node value with a
+   * reference count of 0.  Being "under deletion" also enables
+   * assertions that inc() is not called on it.  (A poorly-behaving
+   * attribute cleanup function could otherwise create a "Node" that
+   * points to the node value that is in the process of being deleted,
+   * springing it back to life.)
+   */
   expr::NodeValue* d_nodeUnderDeletion;
-  bool d_reclaiming;
+
+  /**
+   * True iff we are in reclaimZombies().  This avoids unnecessary
+   * recursion; a NodeValue being deleted might zombify other
+   * NodeValues, but these shouldn't trigger a (recursive) call to
+   * reclaimZombies().
+   */
+  bool d_dontGC;
+
+  /**
+   * Marks that we are in the Destructor currently.
+   */
+  bool d_inDestruction;
+
+  /**
+   * The set of zombie nodes.  We may want to revisit this design, as
+   * we might like to delete nodes in least-recently-used order.  But
+   * we also need to avoid processing a zombie twice.
+   */
   ZombieSet d_zombies;
 
+  /**
+   * A set of operator singletons (w.r.t.  to this NodeManager
+   * instance) for operators.  Conceptually, Nodes with kind, say,
+   * PLUS, are APPLYs of a PLUS operator to arguments.  This array
+   * holds the set of operators for these things.  A PLUS operator is
+   * a Node with kind "BUILTIN", and if you call
+   * plusOperator->getConst<CVC4::Kind>(), you get kind::PLUS back.
+   */
+  Node d_operators[kind::LAST_KIND];
+
+  /**
+   * Look up a NodeValue in the pool associated to this NodeManager.
+   * The NodeValue argument need not be a "completely-constructed"
+   * NodeValue.  In particular, "non-inlined" constants are permitted
+   * (see below).
+   *
+   * For non-CONSTANT metakinds, nv's d_kind and d_nchildren should be
+   * correctly set, and d_children[0..n-1] should be valid (extant)
+   * NodeValues for lookup.
+   *
+   * For CONSTANT metakinds, nv's d_kind should be set correctly.
+   * Normally a CONSTANT would have d_nchildren == 0 and the constant
+   * value inlined in the d_children space.  However, here we permit
+   * "non-inlined" NodeValues to avoid unnecessary copying.  For
+   * these, d_nchildren == 1, and d_nchildren is a pointer to the
+   * constant value.
+   *
+   * The point of this complex design is to permit efficient lookups
+   * (without fully constructing a NodeValue).  In the case that the
+   * argument is not fully constructed, and this function returns
+   * NULL, the caller should fully construct an equivalent one before
+   * calling poolInsert().  NON-FULLY-CONSTRUCTED NODEVALUES are not
+   * permitted in the pool!
+   */
   inline expr::NodeValue* poolLookup(expr::NodeValue* nv) const;
-  void poolInsert(expr::NodeValue* nv);
+
+  /**
+   * Insert a NodeValue into the NodeManager's pool.
+   *
+   * It is an error to insert a NodeValue already in the pool.
+   * Enquire first with poolLookup().
+   */
+  inline void poolInsert(expr::NodeValue* nv);
+
+  /**
+   * Remove a NodeValue from the NodeManager's pool.
+   *
+   * It is an error to request the removal of a NodeValue from the
+   * pool that is not in the pool.
+   */
   inline void poolRemove(expr::NodeValue* nv);
 
-  bool isCurrentlyDeleting(const expr::NodeValue* nv) const{
+  /**
+   * Determine if nv is currently being deleted by the NodeManager.
+   */
+  inline bool isCurrentlyDeleting(const expr::NodeValue* nv) const {
     return d_nodeUnderDeletion == nv;
   }
-
-  Node d_operators[kind::LAST_KIND];
 
   /**
    * Register a NodeValue as a zombie.
    */
-  inline void gc(expr::NodeValue* nv) {
+  inline void markForDeletion(expr::NodeValue* nv) {
     Assert(nv->d_rc == 0);
-    if(d_reclaiming) {// FIXME multithreading
-      // currently reclaiming zombies; just push onto the list
-      Debug("gc") << "zombifying node value " << nv
-                  << " [" << nv->d_id << "]: " << *nv
-                  << " [CURRENTLY-RECLAIMING]\n";
-      d_zombies.insert(nv);// FIXME multithreading
-    } else {
-      Debug("gc") << "zombifying node value " << nv
-                  << " [" << nv->d_id << "]: " << *nv << "\n";
-      d_zombies.insert(nv);// FIXME multithreading
 
+    // if d_reclaiming is set, make sure we don't call
+    // reclaimZombies(), because it's already running.
+    Debug("gc") << "zombifying node value " << nv
+                << " [" << nv->d_id << "]: " << *nv
+                << (d_dontGC ? " [CURRENTLY-RECLAIMING]" : "")
+                << std::endl;
+    d_zombies.insert(nv);// FIXME multithreading
+
+    if(!d_dontGC) {// FIXME multithreading
       // for now, collect eagerly.  can add heuristic here later..
       reclaimZombies();
     }
@@ -125,55 +200,121 @@ class NodeManager {
     expr::NodeValue* child[N];
   };/* struct NodeManager::NVStorage<N> */
 
+  // attribute tags
+  struct TypeTag {};
+  struct AtomicTag {};
+
+  // NodeManager's attributes.  These aren't exposed outside of this
+  // class; use the getters.
+  typedef expr::Attribute<TypeTag, Node> TypeAttr;
+  typedef expr::Attribute<AtomicTag, bool> AtomicAttr;
+
+  /**
+   * Returns true if this node is atomic (has no more Boolean
+   * structure).  This is the NodeValue version for NodeManager's
+   * internal use.  There's a public version of this function below
+   * that takes a TNode.
+   * @param nv the node to check for atomicity
+   * @return true if atomic
+   */
+  inline bool isAtomic(expr::NodeValue* nv) const {
+    // The kindCanBeAtomic() and metakind checking are just optimizations
+    // (to avoid the hashtable lookup).  We assume that all nodes have
+    // the atomic attribute pre-computed and set at their time of
+    // creation.  This is because:
+    // (1) it's super cheap to do it bottom-up.
+    // (2) if we computed it lazily, we'd need a second attribute to
+    //     tell us whether we had computed it yet or not.
+    // The pre-computation and registration occurs in poolInsert().
+    AssertArgument(nv->getMetaKind() != kind::metakind::INVALID, *nv,
+                   "NodeManager::isAtomic() called on INVALID node (%s)",
+                   kind::kindToString(nv->getKind()).c_str());
+    return
+      nv->getMetaKind() == kind::metakind::VARIABLE ||
+      nv->getMetaKind() == kind::metakind::CONSTANT ||
+      ( kind::kindCanBeAtomic(nv->getKind()) &&
+        getAttribute(nv, AtomicAttr()) );
+  }
+
 public:
 
   NodeManager(context::Context* ctxt);
   ~NodeManager();
 
+  /**
+   * Return true if we are in destruction.
+   */
+  bool inDestruction() const { return d_inDestruction; }
+
   /** The node manager in the current context. */
   static NodeManager* currentNM() { return s_current; }
 
   // general expression-builders
+
   /** Create a node with no children. */
   Node mkNode(Kind kind);
+  Node* mkNodePtr(Kind kind);
 
   /** Create a node with one child. */
   Node mkNode(Kind kind, TNode child1);
+  Node* mkNodePtr(Kind kind, TNode child1);
 
   /** Create a node with two children. */
   Node mkNode(Kind kind, TNode child1, TNode child2);
+  Node* mkNodePtr(Kind kind, TNode child1, TNode child2);
 
   /** Create a node with three children. */
   Node mkNode(Kind kind, TNode child1, TNode child2, TNode child3);
+  Node* mkNodePtr(Kind kind, TNode child1, TNode child2, TNode child3);
 
   /** Create a node with four children. */
-  Node mkNode(Kind kind, TNode child1, TNode child2, TNode child3, TNode child4);
+  Node mkNode(Kind kind, TNode child1, TNode child2, TNode child3,
+              TNode child4);
+  Node* mkNodePtr(Kind kind, TNode child1, TNode child2, TNode child3,
+              TNode child4);
 
   /** Create a node with five children. */
-  Node mkNode(Kind kind, TNode child1, TNode child2, TNode child3, TNode child4, TNode child5);
+  Node mkNode(Kind kind, TNode child1, TNode child2, TNode child3,
+              TNode child4, TNode child5);
+  Node* mkNodePtr(Kind kind, TNode child1, TNode child2, TNode child3,
+              TNode child4, TNode child5);
 
   /** Create a node with an arbitrary number of children. */
-  Node mkNode(Kind kind, const std::vector<Node>& children);
+  template <bool ref_count>
+  Node mkNode(Kind kind, const std::vector<NodeTemplate<ref_count> >& children);
+  template <bool ref_count>
+  Node* mkNodePtr(Kind kind, const std::vector<NodeTemplate<ref_count> >& children);
 
-  // NOTE: variables are special, because duplicates are permitted
-
-  /** Create a variable with the given type and name. */
-  Node mkVar(Type* type, const std::string& name);
+  /**
+   * Create a variable with the given name and type.  NOTE that no
+   * lookup is done on the name.  If you mkVar("a", type) and then
+   * mkVar("a", type) again, you have two variables.
+   */
+  Node mkVar(const std::string& name, const Type& type);
+  Node* mkVarPtr(const std::string& name, const Type& type);
 
   /** Create a variable with the given type. */
-  Node mkVar(Type* type);
+  Node mkVar(const Type& type);
+  Node* mkVarPtr(const Type& type);
 
-  /** Create a variable of unknown type (?). */
-  Node mkVar();
-
-  /** Create a constant of type T */
+  /**
+   * Create a constant of type T.  It will have the appropriate
+   * CONST_* kind defined for T.
+   */
   template <class T>
   Node mkConst(const T&);
 
-  /** Determine whether Nodes of a particular Kind have operators. */
-  static inline bool hasOperator(Kind mk);
+  /**
+   * Determine whether Nodes of a particular Kind have operators.
+   * @returns true if Nodes of Kind k have operators.
+   */
+  static inline bool hasOperator(Kind k);
 
-  /** Get the (singleton) operator of an OPERATOR-kinded kind. */
+  /**
+   * Get the (singleton) operator of an OPERATOR-kinded kind.  The
+   * returned node n will have kind BUILTIN, and calling
+   * n.getConst<CVC4::Kind>() will yield k.
+   */
   inline TNode operatorOf(Kind k) {
     AssertArgument( kind::metaKindOf(k) == kind::metakind::OPERATOR, k,
                     "Kind is not an OPERATOR-kinded kind "
@@ -181,7 +322,8 @@ public:
     return d_operators[k];
   }
 
-  /** Retrieve an attribute for a node.
+  /**
+   * Retrieve an attribute for a node.
    *
    * @param nv the node value
    * @param attr an instance of the attribute kind to retrieve.
@@ -192,43 +334,52 @@ public:
   inline typename AttrKind::value_type getAttribute(expr::NodeValue* nv,
                                                     const AttrKind& attr) const;
 
-  /** Check whether an attribute is set for a node.
+  /**
+   * Check whether an attribute is set for a node.
    *
    * @param nv the node value
    * @param attr an instance of the attribute kind to check
-   * @returns <code>true</code> iff <code>attr</code> is set for <code>nv</code>.
+   * @returns <code>true</code> iff <code>attr</code> is set for
+   * <code>nv</code>.
    */
   template <class AttrKind>
   inline bool hasAttribute(expr::NodeValue* nv,
                            const AttrKind& attr) const;
 
-  /** Check whether an attribute is set for a node.
+  /**
+   * Check whether an attribute is set for a node, and, if so,
+   * retrieve it.
    *
    * @param nv the node value
    * @param attr an instance of the attribute kind to check
    * @param value a reference to an object of the attribute's value type.
    * <code>value</code> will be set to the value of the attribute, if it is
-   * set for <code>nv</code>; otherwise, it will be set to the default value of
-   * the attribute.
-   * @returns <code>true</code> iff <code>attr</code> is set for <code>nv</code>.
+   * set for <code>nv</code>; otherwise, it will be set to the default
+   * value of the attribute.
+   * @returns <code>true</code> iff <code>attr</code> is set for
+   * <code>nv</code>.
    */
   template <class AttrKind>
   inline bool getAttribute(expr::NodeValue* nv,
                            const AttrKind& attr,
                            typename AttrKind::value_type& value) const;
 
-  /** Set an attribute for a node.
-    *
-    * @param nv the node value
-    * @param attr an instance of the attribute kind to set
-    * @param value the value of <code>attr</code> for <code>nv</code>
-    */
+  /**
+   * Set an attribute for a node.  If the node doesn't have the
+   * attribute, this function assigns one.  If the node has one, this
+   * overwrites it.
+   *
+   * @param nv the node value
+   * @param attr an instance of the attribute kind to set
+   * @param value the value of <code>attr</code> for <code>nv</code>
+   */
   template <class AttrKind>
   inline void setAttribute(expr::NodeValue* nv,
-                           const AttrKind&,
+                           const AttrKind& attr,
                            const typename AttrKind::value_type& value);
 
-  /** Retrieve an attribute for a TNode.
+  /**
+   * Retrieve an attribute for a TNode.
    *
    * @param n the node
    * @param attr an instance of the attribute kind to retrieve.
@@ -236,15 +387,11 @@ public:
    * <code>AttrKind::value_type</code> if not.
    */
   template <class AttrKind>
-  inline typename AttrKind::value_type getAttribute(TNode n,
-                                                    const AttrKind&) const;
+  inline typename AttrKind::value_type 
+  getAttribute(TNode n, const AttrKind& attr) const;
 
-  /* NOTE: there are two, distinct hasAttribute() declarations for
-   a reason (rather than using a pointer-valued argument with a
-   default value): they permit more optimized code in the underlying
-   hasAttribute() implementations. */
-
-  /** Check whether an attribute is set for a TNode.
+  /**
+   * Check whether an attribute is set for a TNode.
    *
    * @param n the node
    * @param attr an instance of the attribute kind to check
@@ -254,7 +401,9 @@ public:
   inline bool hasAttribute(TNode n,
                            const AttrKind& attr) const;
 
-  /** Check whether an attribute is set for a TNode.
+  /**
+   * Check whether an attribute is set for a TNode and, if so, retieve
+   * it.
    *
    * @param n the node
    * @param attr an instance of the attribute kind to check
@@ -269,36 +418,44 @@ public:
                            const AttrKind& attr,
                            typename AttrKind::value_type& value) const;
 
-  /** Set an attribute for a TNode.
-    *
-    * @param n the node
-    * @param attr an instance of the attribute kind to set
-    * @param value the value of <code>attr</code> for <code>n</code>
-    */
+  /**
+   * Set an attribute for a node.  If the node doesn't have the
+   * attribute, this function assigns one.  If the node has one, this
+   * overwrites it.
+   *
+   * @param n the node
+   * @param attr an instance of the attribute kind to set
+   * @param value the value of <code>attr</code> for <code>n</code>
+   */
   template <class AttrKind>
   inline void setAttribute(TNode n,
-                           const AttrKind&,
+                           const AttrKind& attr,
                            const typename AttrKind::value_type& value);
 
-  /** Get the type for booleans. */
-  inline BooleanType* booleanType() const {
-    return BooleanType::getInstance();
-  }
+  /** Get the (singleton) type for booleans. */
+  inline BooleanType booleanType();
 
-  /** Get the type for sorts. */
-  inline KindType* kindType() const {
-    return KindType::getInstance();
-  }
+  /** Get the (singleton) type for sorts. */
+  inline KindType kindType();
 
-  /** Make a function type from domain to range. */
-  inline FunctionType* mkFunctionType(Type* domain, Type* range) const;
+  /**
+   * Make a function type from domain to range.
+   *
+   * @param domain the domain type
+   * @param range the range type
+   * @returns the functional type domain -> range
+   */
+  inline Type mkFunctionType(const Type& domain, const Type& range);
 
   /**
    * Make a function type with input types from
    * argTypes. <code>argTypes</code> must have at least one element.
+   *
+   * @param argTypes the domain is a tuple (argTypes[0], ..., argTypes[n])
+   * @param range the range type
+   * @returns the functional type (argTypes[0], ..., argTypes[n]) -> range
    */
-  inline FunctionType* mkFunctionType(const std::vector<Type*>& argTypes,
-                                      Type* range) const;
+  inline Type mkFunctionType(const std::vector<Type>& argTypes, const Type& range);
 
   /**
    * Make a function type with input types from
@@ -306,7 +463,7 @@ public:
    * <code>sorts[sorts.size()-1]</code>. <code>sorts</code> must have
    * at least 2 elements.
    */
-  inline FunctionType* mkFunctionType(const std::vector<Type*>& sorts) const;
+  inline Type mkFunctionType(const std::vector<Type>& sorts);
 
   /**
    * Make a predicate type with input types from
@@ -314,16 +471,27 @@ public:
    * <code>BOOLEAN</code>. <code>sorts</code> must have at least one
    * element.
    */
-  inline FunctionType* mkPredicateType(const std::vector<Type*>& sorts) const;
+  inline Type mkPredicateType(const std::vector<Type>& sorts);
+
+  /** Make a new sort. */
+  inline Type mkSort();
 
   /** Make a new sort with the given name. */
-  inline Type* mkSort(const std::string& name) const;
+  inline Type mkSort(const std::string& name);
 
-  /** Get the type for the given node.
-   *
-   * TODO: Does this call compute the type if it's not already available?
+  /**
+   * Get the type for the given node.
    */
-  inline Type* getType(TNode n) const;
+  inline Type getType(TNode n);
+
+  /**
+   * Returns true if this node is atomic (has no more Boolean structure)
+   * @param n the node to check for atomicity
+   * @return true if atomic
+   */
+  inline bool isAtomic(TNode n) const {
+    return isAtomic(n.d_nv);
+  }
 };
 
 /**
@@ -355,40 +523,21 @@ public:
 
   NodeManagerScope(NodeManager* nm) : d_oldNodeManager(NodeManager::s_current) {
     NodeManager::s_current = nm;
-    Debug("current") << "node manager scope: " << NodeManager::s_current << "\n";
+    Debug("current") << "node manager scope: "
+                     << NodeManager::s_current << "\n";
   }
 
   ~NodeManagerScope() {
     NodeManager::s_current = d_oldNodeManager;
-    Debug("current") << "node manager scope: returning to " << NodeManager::s_current << "\n";
+    Debug("current") << "node manager scope: "
+                     << "returning to " << NodeManager::s_current << "\n";
   }
 };
 
-/**
- * Creates
- * a <code>NodeManagerScope</code> with the underlying <code>NodeManager</code>
- * of a given <code>Expr</code> or <code>ExprManager</code>.
- * The <code>NodeManagerScope</code> is destroyed when the <code>ExprManagerScope</code>
- * is destroyed. See <code>NodeManagerScope</code> for more information.
- */
-// NOTE: Without this, we'd need Expr to be a friend of ExprManager.
-// [chris 3/25/2010] Why?
-class ExprManagerScope {
-  NodeManagerScope d_nms;
-public:
-  inline ExprManagerScope(const Expr& e) :
-    d_nms(e.getExprManager() == NULL
-          ? NodeManager::currentNM()
-          : e.getExprManager()->getNodeManager()) {
-  }
-  inline ExprManagerScope(const ExprManager& exprManager) :
-    d_nms(exprManager.getNodeManager()) {
-  }
-};
 
 template <class AttrKind>
-inline typename AttrKind::value_type NodeManager::getAttribute(expr::NodeValue* nv,
-                                                               const AttrKind&) const {
+inline typename AttrKind::value_type
+NodeManager::getAttribute(expr::NodeValue* nv, const AttrKind&) const {
   return d_attrManager.getAttribute(nv, AttrKind());
 }
 
@@ -399,84 +548,104 @@ inline bool NodeManager::hasAttribute(expr::NodeValue* nv,
 }
 
 template <class AttrKind>
-inline bool NodeManager::getAttribute(expr::NodeValue* nv,
-                                      const AttrKind&,
-                                      typename AttrKind::value_type& ret) const {
+inline bool
+NodeManager::getAttribute(expr::NodeValue* nv, const AttrKind&,
+                          typename AttrKind::value_type& ret) const {
   return d_attrManager.getAttribute(nv, AttrKind(), ret);
 }
 
 template <class AttrKind>
-inline void NodeManager::setAttribute(expr::NodeValue* nv,
-                                      const AttrKind&,
-                                      const typename AttrKind::value_type& value) {
+inline void
+NodeManager::setAttribute(expr::NodeValue* nv, const AttrKind&,
+                          const typename AttrKind::value_type& value) {
   d_attrManager.setAttribute(nv, AttrKind(), value);
 }
 
 template <class AttrKind>
-inline typename AttrKind::value_type NodeManager::getAttribute(TNode n,
-                                                               const AttrKind&) const {
+inline typename AttrKind::value_type
+NodeManager::getAttribute(TNode n, const AttrKind&) const {
   return d_attrManager.getAttribute(n.d_nv, AttrKind());
 }
 
 template <class AttrKind>
-inline bool NodeManager::hasAttribute(TNode n,
-                                      const AttrKind&) const {
+inline bool
+NodeManager::hasAttribute(TNode n, const AttrKind&) const {
   return d_attrManager.hasAttribute(n.d_nv, AttrKind());
 }
 
 template <class AttrKind>
-inline bool NodeManager::getAttribute(TNode n,
-                                      const AttrKind&,
-                                      typename AttrKind::value_type& ret) const {
+inline bool
+NodeManager::getAttribute(TNode n, const AttrKind&,
+                          typename AttrKind::value_type& ret) const {
   return d_attrManager.getAttribute(n.d_nv, AttrKind(), ret);
 }
 
 template <class AttrKind>
-inline void NodeManager::setAttribute(TNode n,
-                                      const AttrKind&,
-                                      const typename AttrKind::value_type& value) {
+inline void
+NodeManager::setAttribute(TNode n, const AttrKind&,
+                          const typename AttrKind::value_type& value) {
   d_attrManager.setAttribute(n.d_nv, AttrKind(), value);
+}
+
+
+/** Get the (singleton) type for booleans. */
+inline BooleanType NodeManager::booleanType() {
+  return Type(this, new Node(mkConst<TypeConstant>(BOOLEAN_TYPE)));
+}
+
+/** Get the (singleton) type for sorts. */
+inline KindType NodeManager::kindType() {
+  return Type(this, new Node(mkConst<TypeConstant>(KIND_TYPE)));
 }
 
 /** Make a function type from domain to range.
  * TODO: Function types should be unique for this manager. */
-inline FunctionType* NodeManager::mkFunctionType(Type* domain,
-                                                 Type* range) const {
-  std::vector<Type*> argTypes;
-  argTypes.push_back(domain);
-  return new FunctionType(argTypes, range);
+inline Type NodeManager::mkFunctionType(const Type& domain, const Type& range) {
+  return Type(this, mkNodePtr(kind::FUNCTION_TYPE, *domain.d_typeNode, *range.d_typeNode));
 }
 
-/** Make a function type with input types from argTypes.
- * TODO: Function types should be unique for this manager. */
-inline FunctionType*
-NodeManager::mkFunctionType(const std::vector<Type*>& argTypes,
-                            Type* range) const {
-  Assert( argTypes.size() > 0 );
-  return new FunctionType(argTypes, range);
+inline Type NodeManager::mkFunctionType(const std::vector<Type>& argTypes, const Type& range) {
+  Assert(argTypes.size() >= 1);
+  std::vector<Type> sorts(argTypes);
+  sorts.push_back(range);
+  return mkFunctionType(sorts);
 }
 
-inline FunctionType*
-NodeManager::mkFunctionType(const std::vector<Type*>& sorts) const {
-  Assert( sorts.size() >= 2 );
-  std::vector<Type*> argTypes(sorts);
-  Type* rangeType = argTypes.back();
-  argTypes.pop_back();
-  return mkFunctionType(argTypes,rangeType);
+
+inline Type
+NodeManager::mkFunctionType(const std::vector<Type>& sorts) {
+  Assert(sorts.size() >= 2);
+  std::vector<Node> sortNodes;
+  for (unsigned i = 0; i < sorts.size(); ++ i) {
+    sortNodes.push_back(*(sorts[i].d_typeNode));
+  }
+  return Type(this, mkNodePtr(kind::FUNCTION_TYPE, sortNodes));
 }
 
-inline FunctionType*
-NodeManager::mkPredicateType(const std::vector<Type*>& sorts) const {
-  Assert( sorts.size() >= 1 );
-  return mkFunctionType(sorts,booleanType());
+inline Type
+NodeManager::mkPredicateType(const std::vector<Type>& sorts) {
+  Assert(sorts.size() >= 1);
+  std::vector<Node> sortNodes;
+  for (unsigned i = 0; i < sorts.size(); ++ i) {
+    sortNodes.push_back(*(sorts[i].d_typeNode));
+  }
+  sortNodes.push_back(*(booleanType().d_typeNode));
+  return Type(this, mkNodePtr(kind::FUNCTION_TYPE, sortNodes));
 }
 
-inline Type* NodeManager::mkSort(const std::string& name) const {
-  return new SortType(name);
+inline Type NodeManager::mkSort() {
+  return Type(this, mkVarPtr(kindType()));
 }
 
-inline Type* NodeManager::getType(TNode n) const {
-  return getAttribute(n, CVC4::expr::TypeAttr());
+inline Type NodeManager::mkSort(const std::string& name) {
+  return Type(this, mkVarPtr(name, kindType()));
+}
+
+inline Type NodeManager::getType(TNode n)  {
+  Node* typeNode = new Node;
+  getAttribute(n, TypeAttr(), *typeNode);
+  // TODO: Type computation
+  return Type(this, typeNode);
 }
 
 inline expr::NodeValue* NodeManager::poolLookup(expr::NodeValue* nv) const {
@@ -492,11 +661,45 @@ inline void NodeManager::poolInsert(expr::NodeValue* nv) {
   Assert(d_nodeValuePool.find(nv) == d_nodeValuePool.end(),
          "NodeValue already in the pool!");
   d_nodeValuePool.insert(nv);// FIXME multithreading
+
+  switch(nv->getMetaKind()) {
+  case kind::metakind::INVALID:
+  case kind::metakind::VARIABLE:
+  case kind::metakind::CONSTANT:
+    // nothing to do (don't bother setting the attribute, isAtomic()
+    // on VARIABLEs and CONSTANTs is always true)
+    break;
+
+  case kind::metakind::OPERATOR:
+  case kind::metakind::PARAMETERIZED:
+    {
+      // register this NodeValue as atomic or not; use nv_begin/end
+      // because we need to consider the operator too in the case of
+      // PARAMETERIZED-metakinded nodes (i.e. APPLYs); they could have a
+      // buried ITE.
+
+      // assume it's atomic if its kind can be atomic, check children
+      // to see if that is actually true
+      bool atomic = kind::kindCanBeAtomic(nv->getKind());
+      if(atomic) {
+        for(expr::NodeValue::nv_iterator i = nv->nv_begin();
+            i != nv->nv_end();
+            ++i) {
+          if(!(atomic = isAtomic(*i))) {
+            break;
+          }
+        }
+      }
+
+      setAttribute(nv, AtomicAttr(), atomic);
+    }
+  }
 }
 
 inline void NodeManager::poolRemove(expr::NodeValue* nv) {
   Assert(d_nodeValuePool.find(nv) != d_nodeValuePool.end(),
          "NodeValue is not in the pool!");
+
   d_nodeValuePool.erase(nv);// FIXME multithreading
 }
 
@@ -532,50 +735,108 @@ inline bool NodeManager::hasOperator(Kind k) {
 }
 
 inline Node NodeManager::mkNode(Kind kind) {
-  return NodeBuilder<>(this, kind);
+  return NodeBuilder<0>(this, kind);
+}
+
+inline Node* NodeManager::mkNodePtr(Kind kind) {
+  NodeBuilder<0> nb(this, kind);
+  return nb.constructNodePtr();
 }
 
 inline Node NodeManager::mkNode(Kind kind, TNode child1) {
-  return NodeBuilder<>(this, kind) << child1;
+  return NodeBuilder<1>(this, kind) << child1;
+}
+
+inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1) {
+  NodeBuilder<1> nb(this, kind);
+  nb << child1;
+  return nb.constructNodePtr();
 }
 
 inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2) {
-  return NodeBuilder<>(this, kind) << child1 << child2;
+  return NodeBuilder<2>(this, kind) << child1 << child2;
 }
 
-inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2, TNode child3) {
-  return NodeBuilder<>(this, kind) << child1 << child2 << child3;
+inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1, TNode child2) {
+  NodeBuilder<2> nb(this, kind);
+  nb << child1 << child2;
+  return nb.constructNodePtr();
 }
 
-inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2, TNode child3, TNode child4) {
-  return NodeBuilder<>(this, kind) << child1 << child2 << child3 << child4;
+inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2,
+                                TNode child3) {
+  return NodeBuilder<3>(this, kind) << child1 << child2 << child3;
 }
 
-inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2, TNode child3, TNode child4, TNode child5) {
-  return NodeBuilder<>(this, kind) << child1 << child2 << child3 << child4 << child5;
+inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1, TNode child2,
+                                TNode child3) {
+  NodeBuilder<3> nb(this, kind);
+  nb << child1 << child2 << child3;
+  return nb.constructNodePtr();
+}
+
+inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2,
+                                TNode child3, TNode child4) {
+  return NodeBuilder<4>(this, kind) << child1 << child2 << child3 << child4;
+}
+
+inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1, TNode child2,
+                                TNode child3, TNode child4) {
+  NodeBuilder<4> nb(this, kind);
+  nb << child1 << child2 << child3 << child4;
+  return nb.constructNodePtr();
+}
+
+inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2,
+                                TNode child3, TNode child4, TNode child5) {
+  return NodeBuilder<5>(this, kind) << child1 << child2 << child3 << child4
+                                   << child5;
+}
+
+inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1, TNode child2,
+                                TNode child3, TNode child4, TNode child5) {
+  NodeBuilder<5> nb(this, kind);
+  nb << child1 << child2 << child3 << child4 << child5;
+  return nb.constructNodePtr();
 }
 
 // N-ary version
-inline Node NodeManager::mkNode(Kind kind, const std::vector<Node>& children) {
+template <bool ref_count>
+inline Node NodeManager::mkNode(Kind kind,
+                                const std::vector<NodeTemplate<ref_count> >&
+                                children) {
   return NodeBuilder<>(this, kind).append(children);
 }
 
-inline Node NodeManager::mkVar(Type* type, const std::string& name) {
+template <bool ref_count>
+inline Node* NodeManager::mkNodePtr(Kind kind,
+                                const std::vector<NodeTemplate<ref_count> >&
+                                children) {
+  return NodeBuilder<>(this, kind).append(children).constructNodePtr();
+}
+
+inline Node NodeManager::mkVar(const std::string& name, const Type& type) {
   Node n = mkVar(type);
   n.setAttribute(expr::VarNameAttr(), name);
   return n;
 }
 
-inline Node NodeManager::mkVar(Type* type) {
-  Node n = mkVar();
-  type->inc();// reference-count the type
-  n.setAttribute(expr::TypeAttr(), type);
+inline Node* NodeManager::mkVarPtr(const std::string& name, const Type& type) {
+  Node* n = mkVarPtr(type);
+  n->setAttribute(expr::VarNameAttr(), name);
   return n;
 }
 
-inline Node NodeManager::mkVar() {
-  // TODO: rewrite to not use NodeBuilder
-  return NodeBuilder<>(this, kind::VARIABLE);
+inline Node NodeManager::mkVar(const Type& type) {
+  Node n = NodeBuilder<0>(this, kind::VARIABLE);
+  n.setAttribute(TypeAttr(), *type.d_typeNode);
+  return n;
+}
+
+inline Node* NodeManager::mkVarPtr(const Type& type) {
+  Node* n = NodeBuilder<0>(this, kind::VARIABLE).constructNodePtr();
+  n->setAttribute(TypeAttr(), *type.d_typeNode);
+  return n;
 }
 
 template <class T>

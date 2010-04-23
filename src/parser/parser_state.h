@@ -13,11 +13,14 @@
  ** A collection of state for use by parser implementations.
  **/
 
-#ifndef __CVC4__PARSER__PARSER_STATE_H_
-#define __CVC4__PARSER__PARSER_STATE_H_
+#include "cvc4parser_private.h"
+
+#ifndef __CVC4__PARSER__PARSER_STATE_H
+#define __CVC4__PARSER__PARSER_STATE_H
 
 #include <string>
 
+#include "expr/declaration_scope.h"
 #include "expr/expr.h"
 #include "expr/kind.h"
 #include "parser/input.h"
@@ -94,11 +97,8 @@ class ParserState {
   /** The input that we're parsing. */
   Input *d_input;
 
-  /** The symbol table lookup */
-  SymbolTable<Expr> d_varTable;
-
-  /** The sort table */
-  SymbolTable<Type*> d_sortTable;
+  /** The symbol table */
+  DeclarationScope d_declScope;
 
   /** The name of the input file. */
   std::string d_filename;
@@ -124,6 +124,12 @@ public:
   /** Get the associated input. */
   inline Input* getInput() const {
     return d_input;
+  }
+
+  /** Set the declaration scope manager for this input. NOTE: This should <em>only</me> be
+   * called before parsing begins. Otherwise, previous declarations will be lost. */
+  inline void setDeclarationScope(DeclarationScope declScope) {
+    d_declScope = declScope;
   }
 
   /**
@@ -168,7 +174,7 @@ public:
   /**
    * Returns a sort, given a name
    */
-  Type* getSort(const std::string& sort_name);
+  Type getSort(const std::string& sort_name);
 
   /**
    * Checks if a symbol has been declared.
@@ -197,7 +203,7 @@ public:
   void checkFunction(const std::string& name) throw (ParserException);
 
   /**
-   * Check that <code>kind</code> can accept <code>numArgs</codes> arguments.
+   * Check that <code>kind</code> can accept <code>numArgs</code> arguments.
    * @param kind the built-in operator to check
    * @param numArgs the number of actual arguments
    * @throws ParserException if checks are enabled and the operator <code>kind</code> cannot be
@@ -207,18 +213,18 @@ public:
 
   /**
    * Returns the type for the variable with the given name.
-   * @param name the symbol to lookup
+   * @param var_name the symbol to lookup
    * @param type the (namespace) type of the symbol
    */
-  Type* getType(const std::string& var_name, SymbolType type = SYM_VARIABLE);
+  Type getType(const std::string& var_name, SymbolType type = SYM_VARIABLE);
 
   /** Create a new CVC4 variable expression of the given type. */
-  Expr mkVar(const std::string& name, Type* type);
+  Expr mkVar(const std::string& name, const Type& type);
 
   /** Create a set of new CVC4 variable expressions of the given
    type. */
   const std::vector<Expr>
-  mkVars(const std::vector<std::string> names, Type* type);
+  mkVars(const std::vector<std::string> names, const Type& type);
 
   /** Create a new variable definition (e.g., from a let binding). */
   void defineVar(const std::string& name, const Expr& val);
@@ -228,13 +234,13 @@ public:
   /**
    * Creates a new sort with the given name.
    */
-  Type* newSort(const std::string& name);
+  Type mkSort(const std::string& name);
 
   /**
    * Creates a new sorts with the given names.
    */
-  const std::vector<Type*>
-  newSorts(const std::vector<std::string>& names);
+  const std::vector<Type>
+  mkSorts(const std::vector<std::string>& names);
 
   /** Is the symbol bound to a boolean variable? */
   bool isBoolean(const std::string& name);
@@ -249,10 +255,12 @@ public:
     d_input->parseError(msg);
   }
 
+  inline void pushScope() { d_declScope.pushScope(); }
+  inline void popScope() { d_declScope.popScope(); }
 }; // class ParserState
 
 } // namespace parser
 
 } // namespace CVC4
 
-#endif /* __CVC4__PARSER__PARSER_STATE_H_ */
+#endif /* __CVC4__PARSER__PARSER_STATE_H */

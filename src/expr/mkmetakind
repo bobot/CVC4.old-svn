@@ -148,6 +148,12 @@ function constant {
 
 namespace expr {
 
+// The reinterpret_cast of d_children to \"$2 const*\"
+// flags a \"strict aliasing\" warning; it's okay, because we never access
+// the embedded constant as a NodeValue* child, and never access an embedded
+// NodeValue* child as a constant.
+#pragma GCC diagnostic ignored \"-Wstrict-aliasing\"
+
 template <>
 inline $2 const& NodeValue::getConst< $2 >() const {
   AssertArgument(getKind() == ::CVC4::kind::$1, *this,
@@ -159,6 +165,9 @@ inline $2 const& NodeValue::getConst< $2 >() const {
     ? *reinterpret_cast< $2 const* >(d_children)
     : *reinterpret_cast< $2 const* >(d_children[0]);
 }
+
+// re-enable the warning
+#pragma GCC diagnostic warning \"-Wstrict-aliasing\"
 
 }/* CVC4::expr namespace */
 
@@ -200,11 +209,11 @@ function register_metakind {
   nc=$3
 
   if [ $mk = NONATOMIC_OPERATOR ]; then
-    metakind_isatomic="${metakind_isatomic}    false, /* $k */
+    metakind_canbeatomic="${metakind_canbeatomic}    false, /* $k */
 ";
     mk=OPERATOR
   else
-    metakind_isatomic="${metakind_isatomic}    true, /* $k */
+    metakind_canbeatomic="${metakind_canbeatomic}    true, /* $k */
 ";
   fi
 
@@ -278,7 +287,7 @@ while [ $# -gt 0 ]; do
   metakind_kinds="${metakind_kinds}
     /* from $b */
 "
-  metakind_isatomic="${metakind_isatomic}
+  metakind_canbeatomic="${metakind_canbeatomic}
     /* from $b */
 "
   source "$kf"
@@ -293,7 +302,7 @@ text=$(cat "$template")
 for var in \
     metakind_includes \
     metakind_kinds \
-    metakind_isatomic \
+    metakind_canbeatomic \
     metakind_constantMaps \
     metakind_compares \
     metakind_constHashes \

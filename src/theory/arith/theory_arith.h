@@ -24,6 +24,7 @@
 
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
+#include "theory/arith/arith_rewriter.h"
 
 namespace CVC4 {
 namespace theory {
@@ -31,11 +32,16 @@ namespace arith {
 
 class TheoryArith : public Theory {
 private:
+  ArithConstants d_constants;
+
   context::CDList<Node> d_diseq;
   Tableau d_tableau;
+  ArithRewriter d_rewriter;
+
 public:
   TheoryArith(context::Context* c, OutputChannel& out) :
-    Theory(c, out), d_diseq(c)
+    Theory(c, out),
+    d_constants(NodeManager::currentNM()), d_diseq(c), d_rewriter(&d_constants)
   {}
   Node canonize(TNode n);
 
@@ -45,12 +51,6 @@ public:
   void propagate(Effort e) { Unimplemented(); }
   void explain(TNode n, Effort e) { Unimplemented(); }
 
-  static Node s_TRUE_NODE;
-  static Node s_FALSE_NODE;
-  static Rational s_ZERO;
-  static Rational s_ONE;
-  static Rational s_NEGATIVE_ONE;
-
 private:
   void AssertLower(TNode n);
   void AssertUpper(TNode n);
@@ -58,6 +58,12 @@ private:
   void pivotAndUpdate(TNode x_i, TNode x_j, DeltaRational& v);
   TNode updateInconsistentVars();
 
+  TNode selectSlackBelow(TNode x_i);
+  TNode selectSlackAbove(TNode x_i);
+  TNode selectSmallestInconsistentVar();
+
+  Node generateConflictAbove(TNode conflictVar);
+  Node generateConflictBelow(TNode conflictVar);
 
 };
 

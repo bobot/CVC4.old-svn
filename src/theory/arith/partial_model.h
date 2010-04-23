@@ -237,6 +237,102 @@ DeltaRational getAssignment(TNode x){
   return *assign;
 }
 
+void setLowerConstraint(TNode constraint){
+  TNode x = constraint[0];
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+
+  x.setAttribute(partial_model::LowerConstraint(),constraint);
+}
+
+void setUpperConstraint(TNode constraint){
+  TNode x = constraint[0];
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+
+  x.setAttribute(partial_model::UpperConstraint(),constraint);
+}
+TNode getLowerConstraint(TNode x){
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+
+  TNode ret;
+  AlwaysAssert(x.getAttribute(partial_model::LowerConstraint(),ret));
+  return ret;
+}
+
+TNode getUpperConstraint(TNode x){
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+
+  TNode ret;
+  AlwaysAssert(x.getAttribute(partial_model::UpperConstraint(),ret));
+  return ret;
+}
+
+/**
+ * x <= l
+ * ? c < l
+ */
+bool belowLowerBound(TNode x, DeltaRational& c, bool strict){
+  DeltaRational* l;
+  if(!x.getAttribute(partial_model::LowerBound(), l)){
+    // l = -\intfy
+    // ? c < -\infty |-  _|_
+    return false;
+  }
+
+  if(strict){
+    return c < *l;
+  }else{
+    return c <= *l;
+  }
+}
+
+/**
+ * x <= u
+ * ? c < u
+ */
+bool aboveUpperBound(TNode x, DeltaRational& c, bool strict){
+  DeltaRational* u;
+  if(!x.getAttribute(partial_model::UpperBound(), u)){
+    // c = \intfy
+    // ? c > \infty |-  _|_
+    return false;
+  }
+
+  if(strict){
+    return c > *u;
+  }else{
+    return c >= *u;
+  }
+}
+
+bool strictlyBelowUpperBound(TNode x){
+  DeltaRational* assign;
+  AlwaysAssert(x.getAttribute(partial_model::Assignment(),assign));
+
+  DeltaRational* u;
+  if(!x.getAttribute(partial_model::UpperBound(), u)){ // u = \infty
+    return true;
+  }
+  return *assign < *u;
+}
+
+bool strictlyAboveLowerBound(TNode x){
+  DeltaRational* assign;
+  AlwaysAssert(x.getAttribute(partial_model::Assignment(),assign));
+
+  DeltaRational* l;
+  if(!x.getAttribute(partial_model::LowerBound(), l)){ // l = -\infty
+    return true;
+  }
+  return *l < *assign;
+}
+
+bool assignmentIsConsistent(TNode x){
+  DeltaRational beta = getAssignment(x);
+
+  //l_i <= beta(x_i) <= u_i
+  return !aboveUpperBound(x,beta, true) && !belowLowerBound(x,beta,true);
+}
+
 }; /* namesapce arith */
 }; /* namespace theory */
 }; /* namespace CVC4 */

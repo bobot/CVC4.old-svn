@@ -15,7 +15,7 @@ LIBCVC4PARSER_VERSION = @CVC4_PARSER_LIBRARY_VERSION@
 AM_CPPFLAGS = \
 	-D__BUILDING_CVC4PARSERLIB \
 	-I@srcdir@/../include -I@srcdir@/.. $(ANTLR_INCLUDES)
-AM_CXXFLAGS = -Wall -fvisibility=hidden
+AM_CXXFLAGS = -Wall $(FLAG_VISIBILITY_HIDDEN)
 
 SUBDIRS = smt cvc
 
@@ -36,6 +36,7 @@ libcvc4parser_la_SOURCES =
 libcvc4parser_noinst_la_SOURCES = \
 	antlr_input.h \
 	antlr_input.cpp \
+	antlr_input_imports.cpp \
 	bounded_token_buffer.h \
 	bounded_token_buffer.cpp \
 	bounded_token_factory.h \

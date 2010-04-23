@@ -52,6 +52,14 @@ public:
     }
   }
 
+  std::set<TNode>::iterator begin(){
+    return d_nonbasic.begin();
+  }
+
+  std::set<TNode>::iterator end(){
+    return d_nonbasic.end();
+  }
+
   TNode basicVar(){
     return d_x_i;
   }

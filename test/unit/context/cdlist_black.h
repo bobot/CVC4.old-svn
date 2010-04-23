@@ -17,11 +17,23 @@
 
 #include <vector>
 #include <iostream>
+
+#include <limits.h>
+
+#include "memory.h"
+
 #include "context/context.h"
 #include "context/cdlist.h"
 
 using namespace std;
 using namespace CVC4::context;
+using namespace CVC4::test;
+
+struct DtorSensitiveObject {
+  bool& d_dtorCalled;
+  DtorSensitiveObject(bool& dtorCalled) : d_dtorCalled(dtorCalled) {}
+  ~DtorSensitiveObject() { d_dtorCalled = true; }
+};
 
 class CDListBlack : public CxxTest::TestSuite {
 private:
@@ -34,6 +46,10 @@ public:
     d_context = new Context();
   }
 
+  void tearDown() {
+    delete d_context;
+  }
+
   // test at different sizes.  this triggers grow() behavior differently.
   // grow() was completely broken in revision 256
   void testCDList10() { listTest(10); }
@@ -44,29 +60,86 @@ public:
   void testCDList99() { listTest(99); }
 
   void listTest(int N) {
-    CDList<int> list(d_context);
+    listTest(N, true);
+    listTest(N, false);
+  }
+
+  void listTest(int N, bool callDestructor) {
+    CDList<int> list(d_context, callDestructor);
 
     TS_ASSERT(list.empty());
     for(int i = 0; i < N; ++i) {
-      TS_ASSERT(list.size() == i);
+      TS_ASSERT_EQUALS(list.size(), unsigned(i));
       list.push_back(i);
       TS_ASSERT(!list.empty());
-      TS_ASSERT(list.back() == i);
+      TS_ASSERT_EQUALS(list.back(), i);
       int i2 = 0;
       for(CDList<int>::const_iterator j = list.begin();
           j != list.end();
           ++j) {
-        TS_ASSERT(*j == i2++);
+        TS_ASSERT_EQUALS(*j, i2++);
       }
     }
-    TS_ASSERT(list.size() == N);
+    TS_ASSERT_EQUALS(list.size(), unsigned(N));
 
     for(int i = 0; i < N; ++i) {
-      TS_ASSERT(list[i] == i);
+      TS_ASSERT_EQUALS(list[i], i);
     }
   }
 
-  void tearDown() {
-    delete d_context;
+  void testDtorCalled() {
+    bool shouldRemainFalse = false;
+    bool shouldFlipToTrue = false;
+    bool alsoFlipToTrue = false;
+    bool shouldAlsoRemainFalse = false;
+    bool aThirdFalse = false;
+
+    CDList<DtorSensitiveObject> listT(d_context, true);
+    CDList<DtorSensitiveObject> listF(d_context, false);
+
+    DtorSensitiveObject shouldRemainFalseDSO(shouldRemainFalse);
+    DtorSensitiveObject shouldFlipToTrueDSO(shouldFlipToTrue);
+    DtorSensitiveObject alsoFlipToTrueDSO(alsoFlipToTrue);
+    DtorSensitiveObject shouldAlsoRemainFalseDSO(shouldAlsoRemainFalse);
+    DtorSensitiveObject aThirdFalseDSO(aThirdFalse);
+
+    listT.push_back(shouldAlsoRemainFalseDSO);
+    listF.push_back(shouldAlsoRemainFalseDSO);
+
+    d_context->push();
+
+    listT.push_back(shouldFlipToTrueDSO);
+    listT.push_back(alsoFlipToTrueDSO);
+
+    listF.push_back(shouldRemainFalseDSO);
+    listF.push_back(shouldAlsoRemainFalseDSO);
+    listF.push_back(aThirdFalseDSO);
+
+    TS_ASSERT_EQUALS(shouldRemainFalse, false);
+    TS_ASSERT_EQUALS(shouldFlipToTrue, false);
+    TS_ASSERT_EQUALS(alsoFlipToTrue, false);
+    TS_ASSERT_EQUALS(shouldAlsoRemainFalse, false);
+    TS_ASSERT_EQUALS(aThirdFalse, false);
+
+    d_context->pop();
+
+    TS_ASSERT_EQUALS(shouldRemainFalse, false);
+    TS_ASSERT_EQUALS(shouldFlipToTrue, true);
+    TS_ASSERT_EQUALS(alsoFlipToTrue, true);
+    TS_ASSERT_EQUALS(shouldAlsoRemainFalse, false);
+    TS_ASSERT_EQUALS(aThirdFalse, false);
+  }
+
+  void testOutOfMemory() {
+    CDList<unsigned> list(d_context);
+    WithLimitedMemory wlm(0);
+
+    TS_ASSERT_THROWS({
+        // We cap it at UINT_MAX, preferring to terminate with a
+        // failure than run indefinitely.
+        for(unsigned i = 0; i < UINT_MAX; ++i) {
+          list.push_back(i);
+        }
+      }, bad_alloc);
   }
 };

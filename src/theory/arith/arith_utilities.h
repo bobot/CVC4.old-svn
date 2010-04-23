@@ -56,6 +56,7 @@ inline Node coerceToRationalNode(TNode constant){
 
 
 
+/** is k \in {LT, LEQ, EQ, GEQ, GT} */
 inline bool isRelationOperator(Kind k){
   using namespace kind;
 
@@ -87,6 +88,36 @@ inline bool evaluateConstantPredicate(Kind k, const Rational& left, const Ration
 }
 
 
+
+inline Node pushInNegation(Node assertion){
+  using namespace CVC4::kind;
+  Assert(assertion.getKind() == NOT);
+
+  Node p = assertion[0];
+
+  Kind k;
+
+  switch(p.getKind()){
+  case EQUAL:
+    return assertion;
+  case GT:
+    k = LT;
+    break;
+  case GEQ:
+    k = LEQ;
+    break;
+  case LEQ:
+    k = GEQ;
+    break;
+  case LT:
+    k = GT;
+    break;
+  default:
+    Unreachable();
+  }
+
+  return NodeManager::currentNM()->mkNode(k, p[0],p[1]);
+}
 
 }; /* namesapce arith */
 }; /* namespace theory */

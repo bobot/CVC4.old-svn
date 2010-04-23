@@ -11,6 +11,8 @@
  ** information.
  **
  ** Expression manager implementation.
+ **
+ ** Reviewed by Chris Conway, Apr 5 2010 (bug #65).
  **/
 
 #include "node_manager.h"
@@ -25,10 +27,51 @@ namespace CVC4 {
 
 __thread NodeManager* NodeManager::s_current = 0;
 
+/**
+ * This class ensures that NodeManager::d_reclaiming gets set to false
+ * even on exceptional exit from NodeManager::reclaimZombies().
+ */
+struct ScopedBool {
+  bool& d_value;
+
+  ScopedBool(bool& reclaim) :
+    d_value(reclaim) {
+
+    Debug("gc") << ">> setting RECLAIM field\n";
+    d_value = true;
+  }
+
+  ~ScopedBool() {
+    Debug("gc") << "<< clearing RECLAIM field\n";
+    d_value = false;
+  }
+};
+
+/**
+ * Similarly, ensure d_nodeUnderDeletion gets set to NULL even on
+ * exceptional exit from NodeManager::reclaimZombies().
+ */
+struct NVReclaim {
+  NodeValue*& d_deletionField;
+
+  NVReclaim(NodeValue*& deletionField) :
+    d_deletionField(deletionField) {
+
+    Debug("gc") << ">> setting NVRECLAIM field\n";
+  }
+
+  ~NVReclaim() {
+    Debug("gc") << "<< clearing NVRECLAIM field\n";
+    d_deletionField = NULL;
+  }
+};
+
+
 NodeManager::NodeManager(context::Context* ctxt) :
   d_attrManager(ctxt),
   d_nodeUnderDeletion(NULL),
-  d_reclaiming(false) {
+  d_dontGC(false),
+  d_inDestruction(false) {
   poolInsert( &expr::NodeValue::s_null );
 
   for(unsigned i = 0; i < unsigned(kind::LAST_KIND); ++i) {
@@ -45,6 +88,12 @@ NodeManager::~NodeManager() {
   // destruction of operators, because they get GCed.
 
   NodeManagerScope nms(this);
+  ScopedBool inDestruction(d_inDestruction);
+
+  {
+    ScopedBool dontGC(d_dontGC);
+    d_attrManager.deleteAllAttributes();
+  }
 
   for(unsigned i = 0; i < unsigned(kind::LAST_KIND); ++i) {
     d_operators[i] = Node::null();
@@ -57,61 +106,30 @@ NodeManager::~NodeManager() {
   poolRemove( &expr::NodeValue::s_null );
 }
 
-/**
- * This class ensure that NodeManager::d_reclaiming gets set to false
- * even on exceptional exit from NodeManager::reclaimZombies().
- */
-struct Reclaim {
-  bool& d_reclaimField;
-  Reclaim(bool& reclaim) :
-    d_reclaimField(reclaim) {
-
-    Debug("gc") << ">> setting RECLAIM field\n";
-    d_reclaimField = true;
-  }
-  ~Reclaim() {
-    Debug("gc") << "<< clearing RECLAIM field\n";
-    d_reclaimField = false;
-  }
-};
-
-struct NVReclaim {
-  NodeValue*& d_reclaimField;
-  NVReclaim(NodeValue*& reclaim) :
-    d_reclaimField(reclaim) {
-
-    Debug("gc") << ">> setting NVRECLAIM field\n";
-  }
-  ~NVReclaim() {
-    Debug("gc") << "<< clearing NVRECLAIM field\n";
-    d_reclaimField = NULL;
-  }
-};
-
 void NodeManager::reclaimZombies() {
   // FIXME multithreading
 
   Debug("gc") << "reclaiming " << d_zombies.size() << " zombie(s)!\n";
 
   // during reclamation, reclaimZombies() is never supposed to be called
-  Assert(! d_reclaiming, "NodeManager::reclaimZombies() not re-entrant!");
+  Assert(! d_dontGC, "NodeManager::reclaimZombies() not re-entrant!");
 
   // whether exit is normal or exceptional, the Reclaim dtor is called
   // and ensures that d_reclaiming is set back to false.
-  Reclaim r(d_reclaiming);
+  ScopedBool r(d_dontGC);
 
   // We copy the set away and clear the NodeManager's set of zombies.
   // This is because reclaimZombie() decrements the RC of the
   // NodeValue's children, which may (recursively) reclaim them.
   //
   // Let's say we're reclaiming zombie NodeValue "A" and its child "B"
-  // then becomes a zombie (NodeManager::gc(B) is called).
+  // then becomes a zombie (NodeManager::markForDeletion(B) is called).
   //
-  // One way to handle B's zombification is simply to put it into
-  // d_zombies.  This is what we do.  However, if we're currently
-  // processing d_zombies in the loop below, such addition may be
-  // invisible to us (B is leaked) or even invalidate our iterator,
-  // causing a crash.
+  // One way to handle B's zombification would be simply to put it
+  // into d_zombies.  This is what we do.  However, if we were to
+  // concurrently process d_zombies in the loop below, such addition
+  // may be invisible to us (B is leaked) or even invalidate our
+  // iterator, causing a crash.  So we need to copy the set away.
 
   vector<NodeValue*> zombies;
   zombies.reserve(d_zombies.size());
@@ -149,6 +167,6 @@ void NodeManager::reclaimZombies() {
       free(nv);
     }
   }
-}
+}/* NodeManager::reclaimZombies() */
 
 }/* CVC4 namespace */

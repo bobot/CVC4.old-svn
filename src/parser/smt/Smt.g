@@ -198,10 +198,11 @@ annotatedFormula[CVC4::Expr& expr]
     (LET_TOK LPAREN_TOK let_identifier[name,CHECK_UNDECLARED]
       | FLET_TOK LPAREN_TOK flet_identifier[name,CHECK_UNDECLARED] )
     annotatedFormula[expr] RPAREN_TOK
-    { PARSER_STATE->defineVar(name,expr); }
+    { PARSER_STATE->pushScope();
+      PARSER_STATE->defineVar(name,expr); }
     annotatedFormula[expr]
     RPAREN_TOK
-    { PARSER_STATE->undefineVar(name); }
+    { PARSER_STATE->popScope(); }
 
   | /* a variable */
     ( identifier[name,CHECK_DECLARED,SYM_VARIABLE]
@@ -284,7 +285,7 @@ attribute
 functionDeclaration
 @declarations {
   std::string name;
-  std::vector<Type*> sorts;
+  std::vector<Type> sorts;
 }
   : LPAREN_TOK functionName[name,CHECK_UNDECLARED] 
       t = sortSymbol // require at least one sort
@@ -304,10 +305,10 @@ functionDeclaration
 predicateDeclaration
 @declarations {
   std::string name;
-  std::vector<Type*> p_sorts;
+  std::vector<Type> p_sorts;
 }
   : LPAREN_TOK predicateName[name,CHECK_UNDECLARED] sortList[p_sorts] RPAREN_TOK
-    { Type *t;
+    { Type t;
       if( p_sorts.empty() ) {
         t = EXPR_MANAGER->booleanType();
       } else { 
@@ -322,13 +323,13 @@ sortDeclaration
 }
   : sortName[name,CHECK_UNDECLARED]
     { Debug("parser") << "sort decl: '" << name << "'" << std::endl;
-      PARSER_STATE->newSort(name); }
+      PARSER_STATE->mkSort(name); }
   ;
   
 /**
  * Matches a sequence of sort symbols and fills them into the given vector.
  */
-sortList[std::vector<CVC4::Type*>& sorts]
+sortList[std::vector<CVC4::Type>& sorts]
   : ( t = sortSymbol { sorts.push_back(t); })* 
   ;
 
@@ -340,7 +341,7 @@ sortName[std::string& name, CVC4::parser::DeclarationCheck check]
   : identifier[name,check,SYM_SORT] 
   ;
 
-sortSymbol returns [CVC4::Type* t]
+sortSymbol returns [CVC4::Type t]
 @declarations {
   std::string name;
 }

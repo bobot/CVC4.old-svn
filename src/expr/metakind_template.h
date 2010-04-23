@@ -113,6 +113,9 @@ enum MetaKind_t {
 // individual MetaKind constants under kind::metakind::
 typedef ::CVC4::kind::metakind::MetaKind_t MetaKind;
 
+/**
+ * Get the metakind for a particular kind.
+ */
 static inline MetaKind metaKindOf(Kind k) {
   static const MetaKind metaKinds[] = {
     metakind::INVALID, /* NULL_EXPR */
@@ -123,15 +126,20 @@ ${metakind_kinds}
   return metaKinds[k];
 }/* metaKindOf(k) */
 
-static inline bool kindIsAtomic(Kind k) {
-  static const bool isAtomic[] = {
+/**
+ * Determine if a particular kind can be atomic or not.  Some kinds
+ * are never atomic (OR, NOT, ITE...), some can be atomic depending on
+ * their children (PLUS might have an ITE under it, for instance).
+ */
+static inline bool kindCanBeAtomic(Kind k) {
+  static const bool canBeAtomic[] = {
     false, /* NULL_EXPR */
-${metakind_isatomic}
+${metakind_canbeatomic}
     false /* LAST_KIND */
-  };/* isAtomic[] */
+  };/* canBeAtomic[] */
 
-  return isAtomic[k];
-}/* kindIsAtomic(k) */
+  return canBeAtomic[k];
+}/* kindCanBeAtomic(k) */
 
 }/* CVC4::kind namespace */
 
@@ -191,7 +199,6 @@ inline bool NodeValueConstCompare<k, pool>::compare(const ::CVC4::expr::NodeValu
     if(x->d_nchildren == 1) {
       Assert(y->d_nchildren == 0);
       return compare(y, x);
-      return *reinterpret_cast<T*>(x->d_children[0]) == y->getConst<T>();
     } else if(y->d_nchildren == 1) {
       Assert(x->d_nchildren == 0);
       return x->getConst<T>() == *reinterpret_cast<T*>(y->d_children[0]);

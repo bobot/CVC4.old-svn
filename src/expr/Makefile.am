@@ -1,7 +1,7 @@
 AM_CPPFLAGS = \
 	-D__BUILDING_CVC4LIB \
 	-I@srcdir@/../include -I@srcdir@/..
-AM_CXXFLAGS = -Wall -fvisibility=hidden
+AM_CXXFLAGS = -Wall $(FLAG_VISIBILITY_HIDDEN)
 
 noinst_LTLIBRARIES = libexpr.la
 
@@ -24,7 +24,10 @@ libexpr_la_SOURCES = \
 	@srcdir@/expr.cpp \
 	type.cpp \
 	command.h \
-	command.cpp
+	command.cpp \
+	declaration_scope.h \
+	declaration_scope.cpp \
+	expr_manager_scope.h 
 
 EXTRA_DIST = \
 	@srcdir@/kind.h \
@@ -40,58 +43,60 @@ EXTRA_DIST = \
 	expr_template.h \
 	expr_template.cpp
 
-@srcdir@/kind.h: kind_template.h mkkind builtin_kinds @top_srcdir@/src/theory/Makefile.in @top_srcdir@/src/theory/*/kinds
+include @top_srcdir@/src/theory/Makefile.subdirs
+
+@srcdir@/kind.h: kind_template.h mkkind builtin_kinds @top_srcdir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mkkind
-	$(AM_V_at)mv -f $@ $@~ 2>/dev/null || true
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkkind \
 		$< \
 		@srcdir@/builtin_kinds \
-		`grep '^SUBDIRS = ' @top_srcdir@/src/theory/Makefile.in | cut -d' ' -f3- | tr ' ' "\n" | xargs -i__D__ echo @top_srcdir@/src/theory/__D__/kinds` \
+		`cat @top_srcdir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
 
-@srcdir@/metakind.h: metakind_template.h mkmetakind builtin_kinds @top_srcdir@/src/theory/Makefile.in @top_srcdir@/src/theory/*/kinds
+@srcdir@/metakind.h: metakind_template.h mkmetakind builtin_kinds @top_srcdir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mkmetakind
-	$(AM_V_at)mv -f $@ $@~ 2>/dev/null || true
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkmetakind \
 		$< \
 		@srcdir@/builtin_kinds \
-		`grep '^SUBDIRS = ' @top_srcdir@/src/theory/Makefile.in | cut -d' ' -f3- | tr ' ' "\n" | xargs -i__D__ echo @top_srcdir@/src/theory/__D__/kinds` \
+		`cat @top_srcdir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
 
-@srcdir@/expr.h: expr_template.h mkexpr builtin_kinds @top_srcdir@/src/theory/Makefile.in @top_srcdir@/src/theory/*/kinds
+@srcdir@/expr.h: expr_template.h mkexpr builtin_kinds @top_srcdir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mkexpr
-	$(AM_V_at)mv -f $@ $@~ 2>/dev/null || true
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkexpr \
 		$< \
 		@srcdir@/builtin_kinds \
-		`grep '^SUBDIRS = ' @top_srcdir@/src/theory/Makefile.in | cut -d' ' -f3- | tr ' ' "\n" | xargs -i__D__ echo @top_srcdir@/src/theory/__D__/kinds` \
+		`cat @top_srcdir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
 
-@srcdir@/expr.cpp: expr_template.cpp mkexpr builtin_kinds @top_srcdir@/src/theory/Makefile.in @top_srcdir@/src/theory/*/kinds
+@srcdir@/expr.cpp: expr_template.cpp mkexpr builtin_kinds @top_srcdir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mkexpr
-	$(AM_V_at)mv -f $@ $@~ 2>/dev/null || true
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkexpr \
 		$< \
 		@srcdir@/builtin_kinds \
-		`grep '^SUBDIRS = ' @top_srcdir@/src/theory/Makefile.in | cut -d' ' -f3- | tr ' ' "\n" | xargs -i__D__ echo @top_srcdir@/src/theory/__D__/kinds` \
+		`cat @top_srcdir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
 
-@srcdir@/expr_manager.h: expr_manager_template.h mkexpr builtin_kinds @top_srcdir@/src/theory/Makefile.in @top_srcdir@/src/theory/*/kinds
+@srcdir@/expr_manager.h: expr_manager_template.h mkexpr builtin_kinds @top_srcdir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mkexpr
-	$(AM_V_at)mv -f $@ $@~ 2>/dev/null || true
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkexpr \
 		$< \
 		@srcdir@/builtin_kinds \
-		`grep '^SUBDIRS = ' @top_srcdir@/src/theory/Makefile.in | cut -d' ' -f3- | tr ' ' "\n" | xargs -i__D__ echo @top_srcdir@/src/theory/__D__/kinds` \
+		`cat @top_srcdir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
 
-@srcdir@/expr_manager.cpp: expr_manager_template.cpp mkexpr builtin_kinds @top_srcdir@/src/theory/Makefile.in @top_srcdir@/src/theory/*/kinds
+@srcdir@/expr_manager.cpp: expr_manager_template.cpp mkexpr builtin_kinds @top_srcdir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mkexpr
-	$(AM_V_at)mv -f $@ $@~ 2>/dev/null || true
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkexpr \
 		$< \
 		@srcdir@/builtin_kinds \
-		`grep '^SUBDIRS = ' @top_srcdir@/src/theory/Makefile.in | cut -d' ' -f3- | tr ' ' "\n" | xargs -i__D__ echo @top_srcdir@/src/theory/__D__/kinds` \
+		`cat @top_srcdir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
 
 BUILT_SOURCES = \

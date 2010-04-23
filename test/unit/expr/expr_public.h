@@ -1,5 +1,5 @@
 /*********************                                                        */
-/** expr_black.h
+/** expr_public.h
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
@@ -10,7 +10,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.
  **
- ** Black box testing of CVC4::Expr.
+ ** Public black-box testing of CVC4::Expr.
  **/
 
 #include <cxxtest/TestSuite.h>
@@ -27,7 +27,7 @@ using namespace CVC4;
 using namespace CVC4::kind;
 using namespace std;
 
-class ExprBlack : public CxxTest::TestSuite {
+class ExprPublic : public CxxTest::TestSuite {
 private:
 
   ExprManager* d_em;
@@ -51,8 +51,8 @@ public:
     try {
       d_em = new ExprManager;
 
-      a = new Expr(d_em->mkVar(d_em->booleanType(), "a"));
-      b = new Expr(d_em->mkVar(d_em->booleanType(), "b"));
+      a = new Expr(d_em->mkVar("a",d_em->booleanType()));
+      b = new Expr(d_em->mkVar("b", d_em->booleanType()));
       c = new Expr(d_em->mkExpr(MULT, *a, *b));
       mult = new Expr(d_em->mkConst(MULT));
       plus = new Expr(d_em->mkConst(PLUS));
@@ -254,22 +254,18 @@ public:
   }
 
   void testGetType() {
-    /* Type* getType() const; */
+    /* Type getType(); */
 
     TS_ASSERT(a->getType() == d_em->booleanType());
     TS_ASSERT(b->getType() == d_em->booleanType());
-    TS_ASSERT(c->getType() == NULL);
-    TS_ASSERT(mult->getType() == NULL);
-    TS_ASSERT(plus->getType() == NULL);
-    TS_ASSERT(d->getType() == NULL);
-#ifdef CVC4_ASSERTIONS
-    TS_ASSERT_THROWS(null->getType(), AssertionException);
-#endif /* CVC4_ASSERTIONS */
-
-    TS_ASSERT(i1->getType() == NULL);
-    TS_ASSERT(i2->getType() == NULL);
-    TS_ASSERT(r1->getType() == NULL);
-    TS_ASSERT(r2->getType() == NULL);
+    TS_ASSERT(c->getType().isNull());
+    TS_ASSERT(mult->getType().isNull());
+    TS_ASSERT(plus->getType().isNull());
+    TS_ASSERT(d->getType().isNull());
+    TS_ASSERT(i1->getType().isNull());
+    TS_ASSERT(i2->getType().isNull());
+    TS_ASSERT(r1->getType().isNull());
+    TS_ASSERT(r2->getType().isNull());
   }
 
   void testToString() {
@@ -354,7 +350,9 @@ public:
     TS_ASSERT(mult->isAtomic());
     TS_ASSERT(plus->isAtomic());
     TS_ASSERT(d->isAtomic());
-    TS_ASSERT(!null->isAtomic());
+#ifdef CVC4_ASSERTIONS
+    TS_ASSERT_THROWS(null->isAtomic(), IllegalArgumentException);
+#endif /* CVC4_ASSERTIONS */
 
     TS_ASSERT(i1->isAtomic());
     TS_ASSERT(i2->isAtomic());
@@ -362,12 +360,18 @@ public:
     TS_ASSERT(r2->isAtomic());
 
     Expr x = d_em->mkExpr(AND, *a, *b);
-    Expr y = d_em->mkExpr(XOR, *a, *b, *c);
+    Expr y = d_em->mkExpr(ITE, *a, *b, *c);
     Expr z = d_em->mkExpr(IFF, x, y);
 
     TS_ASSERT(!x.isAtomic());
     TS_ASSERT(!y.isAtomic());
     TS_ASSERT(!z.isAtomic());
+
+    Expr w1 = d_em->mkExpr(PLUS, d_em->mkExpr(ITE, z, *i1, *i2), *i2);
+    Expr w2 = d_em->mkExpr(PLUS, d_em->mkExpr(MULT, *i1, *i2), *i2);
+
+    TS_ASSERT(!w1.isAtomic());
+    TS_ASSERT(w2.isAtomic());
   }
 
   void testGetConst() {
