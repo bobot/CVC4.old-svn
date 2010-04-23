@@ -1,118 +1,26 @@
 
+#include "theory/arith/arith_rewriter.h"
+#include "theory/arith/arith_utilities.h"
+#include "theory/arith/normal.h"
+
 #include <vector>
 #include <set>
 #include <stack>
 
-#include "theory/arith/arith_utilities.h"
 
-#ifndef __CVC4__THEORY__ARITH__REWRITER_H
-#define __CVC4__THEORY__ARITH__REWRITER_H
-
-namespace CVC4 {
-namespace theory {
-namespace arith {
+using namespace CVC4;
+using namespace CVC4::theory;
+using namespace CVC4::theory::arith;
 
 
-/***********************************************/
-/***************** Normal Form *****************/
-/***********************************************/
-/***********************************************/
 
-/**
- * Normal form for predicates:
- *    TRUE
- *    FALSE
- *    v |><| b
- *    p |><| b
- *    (+ p_1 .. p_N)  |><| b
- *  where
- *   1) b is of type CONST_RATIONAL
- *   2) |><| is of kind <, <=, =, >= or >
- *   3) p, p_i is in PNF,
- *   4) p.M >= 2
- *   5) p_i's are in strictly ascending <p,
- *   6) N >= 2,
- *   7) the kind of (+ p_1 .. p_N) is an N arity PLUS,
- *   8) p.d, p_1.d are 1,
- *   9) v has metakind variable, and
- *
- * PNF(t):
- *    (* d v_1 v_2 ... v_M)
- *  where
- *   1) d is of type CONST_RATIONAL,
- *   2) d != 0,
- *   4) M>=1,
- *   5) v_i are of metakind VARIABLE,
- *   6) v_i are in increasing (not strict) nodeOrder, and
- *   7) the kind of t is an M+1 arity MULT.
- *
- * <p is defined over PNF as follows (skipping some symmetry):
- *   cmp( (* d v_1 v_2 ... v_M), (* d' v'_1 v'_2 ... v'_M'):
- *      if(M == M'):
- *      then tupleCompare(v_i, v'_i)
- *      else M -M'
- *
- * Rewrite Normal Form for Terms:
- *    b
- *    v
- *    (+ c p_1 p_2 ... p_N)  |  not(N=1 and c=0 and p_1.d=1)
- *  where
- *   1) b,c is of type CONST_RATIONAL,
- *   3) p_i is in PNF,
- *   4) N >= 1
- *   5) the kind of (+ c p_1 p_2 ... p_N) is an N+1 arity PLUS,
- *   6) and p_i's are in strictly <p.
- *
- */
 
-class ArithRewriter{
-private:
-  Rational d_ZERO;
-  Rational d_ONE;
-  Rational d_NEGATIVE_ONE;
 
-  Node d_ZERO_NODE;
-  Node d_ONE_NODE;
-  Node d_NEGATIVE_ONE_NODE;
-
-  ArithRewriter(NodeManager* nm) : 
-    d_ZERO(0,1),
-    d_ONE(1,1),
-    d_NEGATIVE_ONE(-1,1),
-    d_ZERO_NODE(nm->mkConst(d_ZERO)),
-    d_ONE_NODE(nm->mkConst(d_ONE)),
-    d_NEGATIVE_ONE_NODE(nm->mkConst(d_NEGATIVE_ONE))
-  {}
-
-  Node rewriteAtom(TNode atom);
-  Node rewriteTerm(TNode t);
-  Node rewriteMult(TNode t);
-  Node rewritePlus(TNode t);
-  Node makeSubtractionNode(const TNode l, const TNode r);
-
-public:
-  Node rewrite(TNode t);
-
-};
-
-/** is k \in {LT, LEQ, EQ, GEQ, GT} */
-bool isRelationOperator(Kind k);
-bool evaluateConstantPredicate(Kind k, const Rational& l, const Rational& r);
-Node mkRationalNode(Rational& q);
-Node mkBoolNode(bool b);
 Kind multKind(Kind k, int sgn);
 
 Node coerceToRationalNode(TNode constant);
 
 Node multPnfByNonZero(TNode pnf, Rational& q);
-
-Node makeSubtractionNode(const TNode l, const TNode r);
-
-
-Node ArithRewriter::rewrite(TNode t){
-  Unimplemented();
-  return t;
-}
 
 
 /**
@@ -122,10 +30,10 @@ Node ArithRewriter::rewrite(TNode t){
  * Also writes relations with constants on both sides to TRUE or FALSE.
  * If it can, it returns true and sets res to this value.
  *
- * This is for optimizing rewriteAtom() to avoid the more compuationally expensive
- * general rewriting procedure.
+ * This is for optimizing rewriteAtom() to avoid the more compuationally
+ * expensive general rewriting procedure.
  *
- * If simplification is not done, is returning Node::null()
+ * If simplification is not done, it returns Node::null()
  */
 Node almostVarOrConstEqn(TNode atom, Kind k, TNode left, TNode right){
   Assert(atom.getKind() == k);
@@ -175,11 +83,11 @@ Node ArithRewriter::rewriteAtom(TNode atom){
   if(rewritten.getMetaKind() == kind::metakind::CONSTANT){
     // Case 1 rewritten : c
     Rational c = rewritten.getConst<Rational>();
-    bool res = evaluateConstantPredicate(k, c, d_ZERO);
+    bool res = evaluateConstantPredicate(k, c, d_constants->d_ZERO);
     nf = mkBoolNode(res);
   }else if(rewritten.getMetaKind() == kind::metakind::VARIABLE){
     // Case 2 rewritten : v
-    nf = NodeManager::currentNM()->mkNode(k, rewritten, d_ZERO_NODE);
+    nf = NodeManager::currentNM()->mkNode(k, rewritten, d_constants->d_ZERO_NODE);
   }else{
     // Case 3 rewritten : (+ c p_1 p_2 ... p_N)  |  not(N=1 and c=0 and p_1.d=1)
     Rational c = rewritten[0].getConst<Rational>();
@@ -259,27 +167,35 @@ Node addPnfs(TNode p0, TNode p1){
 void sortAndCombineCoefficients(std::vector<Node>& pnfs){
   using namespace std;
 
+  /* combined contains exactly 1 representative per for each pnf.
+   * This is maintained by combining the coefficients for pnfs.
+   * that is equal according to pnfLessThan.
+   */
   typedef set<Node, pnfLessThan> PnfSet;
-  PnfSet combined_pnf_set;
+  PnfSet combined;
 
   for(vector<Node>::iterator i=pnfs.begin(); i != pnfs.end(); ++i){
     Node pnf = *i;
-    PnfSet::iterator pos = combined_pnf_set.find(pnf);
+    PnfSet::iterator pos = combined.find(pnf);
 
-    if(pos == combined_pnf_set.end()){
-      combined_pnf_set.insert(pnf);
+    if(pos == combined.end()){
+      combined.insert(pnf);
     }else{
       Node current = *pos;
       Node sum = addPnfs(pnf, current);
-      combined_pnf_set.erase(pos);
-      combined_pnf_set.insert(sum);
+      combined.erase(pos);
+      combined.insert(sum);
     }
   }
   pnfs.clear();
-  for(PnfSet::iterator i=combined_pnf_set.begin(); i != combined_pnf_set.end(); ++i){
+  for(PnfSet::iterator i=combined.begin(); i != combined.end(); ++i){
     Node pnf = *i;
     pnfs.push_back(pnf);
   }
+}
+
+Node ArithRewriter::var2pnf(TNode variable){
+  return NodeManager::currentNM()->mkNode(kind::MULT,d_constants->d_ONE_NODE,variable);
 }
 
 Node ArithRewriter::rewritePlus(TNode t){
@@ -296,7 +212,7 @@ Node ArithRewriter::rewritePlus(TNode t){
       Rational c = rewrittenChild.getConst<Rational>();
       accumulator = accumulator + c;
     }else if(rewrittenChild.getMetaKind() == kind::metakind::VARIABLE){ //v
-      Node pnf = NodeManager::currentNM()->mkNode(kind::MULT,d_ONE_NODE,rewrittenChild);
+      Node pnf = var2pnf(rewrittenChild);
       pnfs.push_back(pnf);
     }else{ //(+ c p_1 p_2 ... p_N)
       Rational c = rewrittenChild[0].getConst<Rational>();
@@ -318,7 +234,7 @@ Node ArithRewriter::rewritePlus(TNode t){
   //Enforce not(N=1 and c=0 and p_1.d=1)
   if(pnfs.size() == 1){
     Node p_1 = *(pnfs.begin());
-    if(p_1[0].getConst<Rational>() == d_ONE){
+    if(p_1[0].getConst<Rational>() == d_constants->d_ONE){
       if(accumulator == 0){  // 0 + (* 1 var) |-> var
         Node var = p_1[1];
         return var;
@@ -402,7 +318,7 @@ Node ArithRewriter::rewriteMult(TNode t){
         Rational c = rewrittenChild.getConst<Rational>();
         accumulator = accumulator * c;
         if(accumulator == 0){
-          return d_ZERO_NODE;
+          return d_constants->d_ZERO_NODE;
         }
       }else if(rewrittenChild.getMetaKind() == kind::metakind::VARIABLE){ //v
         variables.insert(rewrittenChild);
@@ -416,7 +332,7 @@ Node ArithRewriter::rewriteMult(TNode t){
   if(sums.size() == 0){ //accumulator * (\prod var_i)
     if(variables.size() == 0){ //accumulator
       return mkRationalNode(accumulator);
-    }else if(variables.size() == 1 && accumulator == d_ONE){ // var_1
+    }else if(variables.size() == 1 && accumulator == d_constants->d_ONE){ // var_1
       Node var = *(variables.begin());
       return var;
     }else{
@@ -424,7 +340,7 @@ Node ArithRewriter::rewriteMult(TNode t){
       //To accomplish this:
       //  let pnf = pnf(accumulator * (\prod var_i)) in (+ 0 pnf)
       Node pnf = toPnf(accumulator, variables);
-      Node normalForm = NodeManager::currentNM()->mkNode(kind::PLUS, d_ZERO_NODE, pnf);
+      Node normalForm = NodeManager::currentNM()->mkNode(kind::PLUS, d_constants->d_ZERO_NODE, pnf);
       return normalForm;
     }
   }else{
@@ -496,9 +412,11 @@ Node multPnfByNonZero(TNode pnf, Rational& q){
 
 
 
-Node ArithRewriter::makeSubtractionNode(const TNode l, const TNode r){
-  Node negR = NodeManager::currentNM()->mkNode(kind::MULT, d_NEGATIVE_ONE_NODE, r);
-  Node diff = NodeManager::currentNM()->mkNode(kind::PLUS,l,negR);
+Node ArithRewriter::makeSubtractionNode(TNode l, TNode r){
+  using namespace CVC4::kind;
+  NodeManager* currentNM = NodeManager::currentNM();
+  Node negR = currentNM->mkNode(MULT, d_constants->d_NEGATIVE_ONE_NODE, r);
+  Node diff = currentNM->mkNode(PLUS, l, negR);
 
   return diff;
 }
@@ -524,13 +442,25 @@ Kind multKind(Kind k, int sgn){
   }
 }
 
+Node ArithRewriter::rewrite(TNode n){
 
+  if(n.getAttribute(IsNormal())){
+    return n;
+  }
 
+  Node res;
 
+  if(n.isAtomic()){
+    res = rewriteAtom(n);
+  }else{
+    res = rewriteTerm(n);
+  }
 
+  if(n == res){
+    n.setAttribute(NormalForm(), Node::null());
+  }else{
+    n.setAttribute(NormalForm(), res);
+  }
 
-}; /* namesapce arith */
-}; /* namespace theory */
-}; /* namespace CVC4 */
-
-#endif /* __CVC4__THEORY__ARITH__REWRITER_H */
+  return res;
+}
