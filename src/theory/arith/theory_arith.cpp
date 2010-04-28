@@ -355,8 +355,8 @@ void TheoryArith::check(Effort level){
   }
 
   if(fullEffort(level)){
-    TNode possibleConflict = updateInconsistentVars();
-    if(possibleConflict != TNode::null()){
+    Node possibleConflict = updateInconsistentVars();
+    if(possibleConflict != Node::null()){
       d_out->conflict(possibleConflict);
     }
   }

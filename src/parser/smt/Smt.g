@@ -33,9 +33,11 @@ options {
 }
 
 @lexer::includes {
-/** This suppresses warnings about the redefinition of token symbols between different
-  * parsers. The redefinitions should be harmless as long as no client: (a) #include's 
-  * the lexer headers for two grammars AND (b) uses the token symbol definitions. */
+/** This suppresses warnings about the redefinition of token symbols between
+  * different parsers. The redefinitions should be harmless as long as no
+  * client: (a) #include's the lexer headers for two grammars AND (b) uses the
+  * token symbol definitions.
+  */
 #pragma GCC system_header
 
 /* This improves performance by ~10 percent on big inputs.
@@ -61,7 +63,9 @@ namespace CVC4 {
 #include "expr/type.h"
 #include "parser/antlr_input.h"
 #include "parser/parser_state.h"
+#include "util/integer.h"
 #include "util/output.h"
+#include "util/rational.h"
 #include <vector>
 
 using namespace CVC4;
@@ -77,6 +81,24 @@ using namespace CVC4::parser;
 #define MK_EXPR EXPR_MANAGER->mkExpr
 #undef MK_CONST
 #define MK_CONST EXPR_MANAGER->mkConst
+
+/**   
+ * Sets the logic for the current benchmark. Declares any logic symbols.
+ *
+ * @param parserState pointer to the current parser state
+ * @param name the name of the logic (e.g., QF_UF, AUFLIA)
+ */
+void
+setLogic(ParserState *parserState, const std::string& name) {
+  if( name == "QF_UF" ) {
+    parserState->mkSort("U");
+  } else if(name == "QF_LRA"){
+    parserState->mkSort("Real");
+  } else{
+    // NOTE: Theory types go here
+    Unhandled(name);
+  }
+}
 }
 
 
@@ -131,7 +153,7 @@ benchAttribute returns [CVC4::Command* smt_command]
   Expr expr;
 }
   : LOGIC_TOK identifier[name,CHECK_NONE,SYM_VARIABLE]
-    { PARSER_STATE->setLogic(name);
+    { setLogic(PARSER_STATE,name);
       smt_command = new SetBenchmarkLogicCommand(name);   }
   | ASSUMPTION_TOK annotatedFormula[expr]
     { smt_command = new AssertCommand(expr);   }
@@ -183,7 +205,7 @@ annotatedFormula[CVC4::Expr& expr]
     { expr = MK_EXPR(CVC4::kind::APPLY_UF,args); }
 
   | /* An ite expression */
-    LPAREN_TOK (ITE_TOK | IF_THEN_ELSE_TOK) 
+    LPAREN_TOK ITE_TOK 
     annotatedFormula[expr]
     { args.push_back(expr); } 
     annotatedFormula[expr]
@@ -213,6 +235,14 @@ annotatedFormula[CVC4::Expr& expr]
     /* constants */
   | TRUE_TOK          { expr = MK_CONST(true); }
   | FALSE_TOK         { expr = MK_CONST(false); }
+  | NUMERAL_TOK
+    { Integer num( AntlrInput::tokenText($NUMERAL_TOK) );
+      expr = MK_CONST(num); }
+  | RATIONAL_TOK
+    { // FIXME: This doesn't work because an SMT rational is not a valid GMP rational string
+      Rational rat( AntlrInput::tokenText($RATIONAL_TOK) );
+      expr = MK_CONST(rat); }
+    // NOTE: Theory constants go here
     /* TODO: let, flet, quantifiers, arithmetic constants */
   ;
 
@@ -229,8 +259,7 @@ annotatedFormulas[std::vector<CVC4::Expr>& formulas, CVC4::Expr& expr]
   ;
 
 /**
-* Matches on of the unary Boolean connectives.
-* @return the kind of the Bollean connective
+* Matches a builtin operator symbol and sets kind to its associated Expr kind.
 */
 builtinOp[CVC4::Kind& kind]
 @init {
@@ -244,6 +273,19 @@ builtinOp[CVC4::Kind& kind]
   | IFF_TOK      { $kind = CVC4::kind::IFF;     }
   | EQUAL_TOK    { $kind = CVC4::kind::EQUAL;   }
   | DISTINCT_TOK { $kind = CVC4::kind::DISTINCT; }
+  | GREATER_THAN_TOK
+                 { $kind = CVC4::kind::GT; }
+  | GREATER_THAN_TOK EQUAL_TOK
+                 { $kind = CVC4::kind::GEQ; }
+  | LESS_THAN_TOK EQUAL_TOK
+                 { $kind = CVC4::kind::LEQ; }
+  | LESS_THAN_TOK
+                 { $kind = CVC4::kind::LT; }
+  | PLUS_TOK     { $kind = CVC4::kind::PLUS; }
+  | STAR_TOK     { $kind = CVC4::kind::MULT; }
+  | TILDE_TOK    { $kind = CVC4::kind::UMINUS; }
+  | MINUS_TOK    { $kind = CVC4::kind::MINUS; }
+    // NOTE: Theory operators go here
     /* TODO: lt, gt, plus, minus, etc. */
   ;
 
@@ -410,72 +452,65 @@ flet_identifier[std::string& id,
       PARSER_STATE->checkDeclaration(id, check); }
   ;
 
-
 // Base SMT-LIB tokens
-DISTINCT_TOK      : 'distinct';
-ITE_TOK           : 'ite';
-IF_THEN_ELSE_TOK  : 'if_then_else';
-TRUE_TOK          : 'true';
-FALSE_TOK         : 'false';
-NOT_TOK           : 'not';
-IMPLIES_TOK       : 'implies';
-AND_TOK           : 'and';
-OR_TOK            : 'or';
-XOR_TOK           : 'xor';
-IFF_TOK           : 'iff';
-EXISTS_TOK        : 'exists';
-FORALL_TOK        : 'forall';
-LET_TOK           : 'let';
-FLET_TOK          : 'flet';
-THEORY_TOK        : 'theory';
-SAT_TOK           : 'sat';
-UNSAT_TOK         : 'unsat';
-UNKNOWN_TOK       : 'unknown';
-BENCHMARK_TOK     : 'benchmark';
-
-// The SMT attribute tokens
-LOGIC_TOK       : ':logic';
 ASSUMPTION_TOK  : ':assumption';
-FORMULA_TOK     : ':formula';
-STATUS_TOK      : ':status';
-EXTRASORTS_TOK  : ':extrasorts';
+BENCHMARK_TOK   : 'benchmark';
 EXTRAFUNS_TOK   : ':extrafuns';
 EXTRAPREDS_TOK  : ':extrapreds';
+EXTRASORTS_TOK  : ':extrasorts';
+FALSE_TOK       : 'false';
+FLET_TOK        : 'flet';
+FORMULA_TOK     : ':formula';
+ITE_TOK         : 'ite' | 'if_then_else';
+LET_TOK         : 'let';
+LOGIC_TOK       : ':logic';
+LPAREN_TOK      : '(';
 NOTES_TOK       : ':notes';
+RPAREN_TOK      : ')';
+SAT_TOK         : 'sat';
+STATUS_TOK      : ':status';
+THEORY_TOK      : 'theory';
+TRUE_TOK        : 'true';
+UNKNOWN_TOK     : 'unknown';
+UNSAT_TOK       : 'unsat';
 
-// arithmetic symbols
-EQUAL_TOK         : '=';
-LESS_THAN_TOK     : '<';
-GREATER_THAN_TOK  : '>';
+// operators (NOTE: theory symbols go here)
 AMPERSAND_TOK     : '&';
+AND_TOK           : 'and';
 AT_TOK            : '@';
-POUND_TOK         : '#';
-PLUS_TOK          : '+';
-MINUS_TOK         : '-';
-STAR_TOK          : '*';
+DISTINCT_TOK      : 'distinct';
 DIV_TOK           : '/';
+EQUAL_TOK         : '=';
+EXISTS_TOK        : 'exists';
+FORALL_TOK        : 'forall';
+GREATER_THAN_TOK  : '>';
+IFF_TOK           : 'iff';
+IMPLIES_TOK       : 'implies';
+LESS_THAN_TOK     : '<';
+MINUS_TOK         : '-';
+NOT_TOK           : 'not';
+OR_TOK            : 'or';
 PERCENT_TOK       : '%';
 PIPE_TOK          : '|';
+PLUS_TOK          : '+';
+POUND_TOK         : '#';
+STAR_TOK          : '*';
 TILDE_TOK         : '~';
+XOR_TOK           : 'xor';
 
-// Language meta-symbols
-//QUESTION_TOK      : '?';
-//DOLLAR_TOK        : '$';
-LPAREN_TOK        : '(';
-RPAREN_TOK        : ')';
 
 /**
  * Matches an identifier from the input. An identifier is a sequence of letters,
  * digits and "_", "'", "." symbols, starting with a letter.
  */
-IDENTIFIER /*options { paraphrase = 'an identifier'; testLiterals = true; }*/
+IDENTIFIER
   :  ALPHA (ALPHA | DIGIT | '_' | '\'' | '.')*
   ;
 
 /**
  * Matches an identifier starting with a colon.
  */
-ATTR_IDENTIFIER /*options { paraphrase = 'an identifier starting with a colon'; testLiterals = true; }*/
+ATTR_IDENTIFIER 
   :  ':' IDENTIFIER
   ;
 
@@ -507,29 +542,33 @@ USER_VALUE
 /**
  * Matches and skips whitespace in the input.
  */
-WHITESPACE /*options { paraphrase = 'whitespace'; }*/
+WHITESPACE
   :  (' ' | '\t' | '\f' | '\r' | '\n')+             { $channel = HIDDEN;; }
   ;
 
 /**
  * Matches a numeral from the input (non-empty sequence of digits).
  */
-NUMERAL_TOK /*options { paraphrase = 'a numeral'; }*/
-  :  (DIGIT)+
+NUMERAL_TOK
+  : DIGIT+
+  ;
+
+RATIONAL_TOK
+  : DIGIT+ '.' DIGIT+
   ;
 
 /**
  * Matches a double quoted string literal. Escaping is supported, and escape
  * character '\' has to be escaped.
  */
-STRING_LITERAL /*options { paraphrase = 'a string literal'; }*/
+STRING_LITERAL 
   :  '"' (ESCAPE | ~('"'|'\\'))* '"'
   ;
 
 /**
  * Matches the comments and ignores them
  */
-COMMENT /*options { paraphrase = 'comment'; }*/
+COMMENT 
   : ';' (~('\n' | '\r'))*                    { $channel = HIDDEN;; }
   ;
 
@@ -538,7 +577,7 @@ COMMENT /*options { paraphrase = 'comment'; }*/
  * Matches any letter ('a'-'z' and 'A'-'Z').
  */
 fragment
-ALPHA /*options { paraphrase = 'a letter'; }*/
+ALPHA 
   :  'a'..'z'
   |  'A'..'Z'
   ;
@@ -546,16 +585,12 @@ ALPHA /*options { paraphrase = 'a letter'; }*/
 /**
  * Matches the digits (0-9)
  */
-fragment
-DIGIT /*options { paraphrase = 'a digit'; }*/
-  :   '0'..'9'
-  ;
-
+fragment DIGIT :   '0'..'9';
+// fragment NON_ZERO_DIGIT : '1'..'9';
+// fragment NUMERAL_SEQ : '0' | NON_ZERO_DIGIT DIGIT*;
 
 /**
  * Matches an allowed escaped character.
  */
-fragment ESCAPE
-  : '\\' ('"' | '\\' | 'n' | 't' | 'r')
-  ;
+fragment ESCAPE : '\\' ('"' | '\\' | 'n' | 't' | 'r');
 

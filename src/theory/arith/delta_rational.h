@@ -20,7 +20,8 @@ private:
 public:
   DeltaRational() : c(0), k(0) {}
   DeltaRational(const CVC4::Rational& base) : c(base), k(0) {}
-  DeltaRational(const CVC4::Rational& base, const CVC4::Rational& coeff) : c(base), k(coeff) {}
+  DeltaRational(const CVC4::Rational& base, const CVC4::Rational& coeff) :
+    c(base), k(coeff) {}
 
   DeltaRational operator+(const DeltaRational& other) const{
     CVC4::Rational tmpC = c+other.c;

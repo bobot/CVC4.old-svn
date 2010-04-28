@@ -46,7 +46,6 @@ ParserState::ParserState(ExprManager* exprManager, const std::string& filename, 
 Expr ParserState::getSymbol(const std::string& name, SymbolType type) {
   Assert( isDeclared(name, type) );
 
-
   switch( type ) {
 
   case SYM_VARIABLE: // Functions share var namespace
@@ -114,24 +113,6 @@ ParserState::defineVar(const std::string& name, const Expr& val) {
   Assert(!isDeclared(name));
   d_declScope.bind(name,val);
   Assert(isDeclared(name));
-}
-
-/*
-void
-ParserState::undefineVar(const std::string& name) {
-  Assert(isDeclared(name));
-  d_declScope.unbind(name);
-  Assert(!isDeclared(name));
-}
-*/
-
-void
-ParserState::setLogic(const std::string& name) {
-  if( name == "QF_UF" ) {
-    mkSort("U");
-  } else {
-    Unhandled(name);
-  }
 }
 
 Type
