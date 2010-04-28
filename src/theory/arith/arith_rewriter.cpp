@@ -443,6 +443,8 @@ Kind multKind(Kind k, int sgn){
 }
 
 Node ArithRewriter::rewrite(TNode n){
+  using namespace std;
+  cout << "Trace rewrite:" << n << endl;
 
   if(n.getAttribute(IsNormal())){
     return n;

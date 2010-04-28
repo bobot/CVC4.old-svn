@@ -11,6 +11,7 @@
 namespace CVC4 {
 
 enum TypeConstant {
+  REAL_TYPE,
   BOOLEAN_TYPE,
   KIND_TYPE
 };

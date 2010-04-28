@@ -147,6 +147,20 @@ bool Type::isKind() const {
       && d_typeNode->getConst<TypeConstant>() == KIND_TYPE;
 }
 
+/** Is this a Real kind */
+bool Type::isReal() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->getKind() == kind::TYPE_CONSTANT
+      && d_typeNode->getConst<TypeConstant>() == REAL_TYPE;
+}
+
+/** Cast to a sort type */
+Type::operator RealType() const {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isReal());
+  return RealType(*this);
+}
+
 /** Cast to a kind type */
 Type::operator KindType() const {
   NodeManagerScope nms(d_nodeManager);
@@ -203,6 +217,11 @@ void FunctionType::toStream(std::ostream& out) const {
   (*d_typeNode)[i].toStream(out);
 }
 
+void RealType::toStream(std::ostream& out) const {
+  out << "REAL";
+}
+
+RealType::RealType(const Type& t) : Type(t) {}
 BooleanType::BooleanType(const Type& t) : Type(t) {}
 FunctionType::FunctionType(const Type& t) : Type(t) {}
 KindType::KindType(const Type& t) : Type(t) {}

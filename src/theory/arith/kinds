@@ -6,9 +6,9 @@
 
 theory ::CVC4::theory::arith::TheoryArith "theory_arith.h"
 
-operator PLUS 2: "arithmetic addition"
-operator MULT 2: "arithmetic multiplication"
-operator UMINUS 1 "arithmetic negation"
+nonatomic_operator PLUS 2: "arithmetic addition"
+nonatomic_operator MULT 2: "arithmetic multiplication"
+nonatomic_operator UMINUS 1 "arithmetic negation"
 
 constant CONST_RATIONAL \
     ::CVC4::Rational \

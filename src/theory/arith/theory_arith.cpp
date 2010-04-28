@@ -51,6 +51,10 @@ void registerAtom(TNode rel){
   //Anything else?
 }
 
+Node TheoryArith::rewrite(TNode n){
+  return d_rewriter.rewrite(n);
+}
+
 void TheoryArith::registerTerm(TNode tn){
   if(tn.isAtomic()){
     Node normalForm = (isNormalized(tn)) ? Node(tn) : rewrite(tn);

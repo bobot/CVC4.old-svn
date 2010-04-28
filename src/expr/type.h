@@ -35,6 +35,7 @@ class BooleanType;
 class FunctionType;
 class KindType;
 class SortType;
+class RealType;
 
 /**
  * Class encapsulating CVC4 expression types.
@@ -121,6 +122,12 @@ public:
 
   /** Cast to a kind type */
   operator KindType() const;
+
+  /** Is this a Real type */
+  bool isReal() const;
+
+  /** Cast to a kind type */
+  operator RealType() const;
 
   /** Outputs a string representation of this type to the stream. */
   virtual void toStream(std::ostream& out) const;
@@ -214,6 +221,26 @@ public:
  */
 std::ostream& operator<<(std::ostream& out, const Type& t) CVC4_PUBLIC;
 
+
+/**
+ * Singleton class encapsulating the boolean type.
+ */
+class CVC4_PUBLIC RealType : public Type {
+public:
+
+  /** Construct from the base type */
+  RealType(const Type& type);
+
+  /** Is this the real type? (Returns true.) */
+  bool isReal() const;
+
+  /** Just outputs REAL */
+  void toStream(std::ostream& out) const;
+
+
+};
 }/* CVC4 namespace */
+
+
 
 #endif /* __CVC4__TYPE_H */

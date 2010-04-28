@@ -432,6 +432,10 @@ public:
                            const AttrKind& attr,
                            const typename AttrKind::value_type& value);
 
+
+  /** Get the (singleton) type for booleans. */
+  inline RealType realType();
+
   /** Get the (singleton) type for booleans. */
   inline BooleanType booleanType();
 
@@ -587,6 +591,11 @@ NodeManager::setAttribute(TNode n, const AttrKind&,
   d_attrManager.setAttribute(n.d_nv, AttrKind(), value);
 }
 
+//TODO I wonder if I am doing this right
+/** Get the (singleton) type for booleans. */
+inline RealType NodeManager::realType() {
+  return Type(this, new Node(mkConst<TypeConstant>(REAL_TYPE)));
+}
 
 /** Get the (singleton) type for booleans. */
 inline BooleanType NodeManager::booleanType() {

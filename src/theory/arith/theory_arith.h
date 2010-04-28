@@ -43,7 +43,8 @@ public:
     Theory(c, out),
     d_constants(NodeManager::currentNM()), d_diseq(c), d_rewriter(&d_constants)
   {}
-  Node canonize(TNode n);
+
+  Node rewrite(TNode n);
 
   void preRegisterTerm(TNode n) { Unimplemented(); }
   void registerTerm(TNode n);
