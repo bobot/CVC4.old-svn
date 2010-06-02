@@ -97,6 +97,8 @@ public:
     }
   }
 
+  void testFail() { TS_ASSERT(0); }
+
   void testDefaultCtor() {
     /* Expr(); */
     Expr e;
