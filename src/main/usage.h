@@ -32,6 +32,8 @@ Without an input file, or with `-', CVC4 reads from standard input.\n\
 CVC4 options:\n\
    --lang | -L     force input language (default is `auto'; see --lang help)\n\
    --version | -V  identify this CVC4 binary\n\
+   --proof-gen     turns proof generation on\n\
+   --proof-mode    set the proof mode\n\
    --help | -h     this command line reference\n\
    --parse-only    exit after parsing input\n\
    --mmap          memory map file input\n\

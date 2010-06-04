@@ -66,7 +66,9 @@ enum OptionValue {
   NO_CHECKING,
   USE_MMAP,
   SHOW_CONFIG,
-  STRICT_PARSING
+  STRICT_PARSING,
+  PROOF_GENERATION,
+  PROOF_MODE
 };/* enum OptionValue */
 
 /**
@@ -110,6 +112,9 @@ static struct option cmdlineOptions[] = {
   { "parse-only" , no_argument      , NULL, PARSE_ONLY  },
   { "mmap",        no_argument      , NULL, USE_MMAP    },
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
+  { "proof-gen", no_argument, NULL, PROOF_GENERATION },
+  { "proof-mode"      , required_argument, NULL, PROOF_MODE }
+
 };/* if you add things to the above, please remember to update usage.h! */
 
 /** Full argv[0] */
@@ -217,6 +222,13 @@ throw(OptionException) {
 
     case STRICT_PARSING:
       opts->strictParsing = true;
+      break;
+    case PROOF_GENERATION:
+      opts->proofGeneration = true;
+      break;
+
+    case PROOF_MODE:
+      opts->proofMode = optarg;
       break;
 
     case SHOW_CONFIG:
