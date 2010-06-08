@@ -57,6 +57,22 @@ void SatSolver::enqueueTheoryLiteral(const SatLiteral& l) {
   }
 }
 
+bool SatSolver::canErase(const CVC4::prop::minisat::Clause& clause) {
+  return d_cnfStream->canErase(reinterpret_cast<unsigned>(&clause));
+}
+
+void SatSolver::usingLiteral(const SatLiteral& l) {
+  d_cnfStream->usingLiteral(l);
+}
+
+bool SatSolver::releasingLiteral(const SatLiteral& l) {
+  return d_cnfStream->releasingLiteral(l);
+}
+
+void SatSolver::releasingClause(int clauseId) {
+  d_cnfStream->releasingClause(clauseId);
+}
+
 void SatSolver::setCnfStream(CnfStream* cnfStream) {
   d_cnfStream = cnfStream;
 }

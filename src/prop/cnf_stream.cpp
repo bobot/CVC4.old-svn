@@ -33,6 +33,129 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
+void CnfStream::incLiteralRefCount(TNode node) {
+  Assert(!node.isNull());
+  Assert(!(node.getKind() == NOT));
+  // Decrease and return the reference count
+  ++ d_nodeRefCountLiterals[node];
+}
+
+unsigned CnfStream::decLiteralRefCount(TNode node) {
+  Assert(!node.isNull());
+  Assert(!(node.getKind() == NOT));
+  // Decrease and return the reference count
+  return -- d_nodeRefCountLiterals[node];
+}
+
+void CnfStream::releaseNode(Node node) {
+  Debug("cnf") << "Releasing node " << node << endl;
+  Assert(!(node.getKind() == NOT));
+  Assert(getTotalRefCount(node) == 0);
+
+  // d_clauseToNodeMap should have been erased while erasing the clauses
+  // d_literalToNodeMpa should have been erased while erasing the literal
+
+  // Erase the nodes maps
+  d_nodeToLiteralMap.erase(node);
+  d_nodeRefCountLiterals.erase(node);
+  d_nodeRefCountClauses.erase(node);
+
+  // Erase the negated node maps
+  Node negatedNode = node.notNode();
+  d_nodeToLiteralMap.erase(negatedNode);
+  d_nodeRefCountLiterals.erase(negatedNode);
+  d_nodeRefCountClauses.erase(negatedNode);
+}
+
+bool CnfStream::releasingLiteral(const SatLiteral& l) {
+  Debug("cnf") << "Releasing literal " << l << endl;
+
+  // Get the node of this literal -- has to be a node as this might be the last reference
+  Node node = getPositive(getNode(l));
+
+  // Decrease the node's reference count
+  unsigned refCount = decLiteralRefCount(node);
+
+  // If the refCount goes to zero, we can erase both the positive and the
+  // negative literal from the maps
+  if (refCount == 0) {
+    // Erase the literal from the map
+    d_literalToNodeMap.erase(l);
+    d_literalToNodeMap.erase(~l);
+    // And, if the total refCount goes to zero, we can also erase the node
+    if (getClauseRefCount(node) == 0) {
+      releaseNode(node);
+    }
+    // No more occurrences of this literal
+    return true;
+  }
+  // There is still some stuff left
+  return false;
+}
+
+void CnfStream::releasingClause(int clauseId) {
+  Debug("cnf") << "Releasing clause with id " << clauseId << endl;
+
+  // Get the node -- has to be a node, as this might be the last reference
+  Node node = getPositive(d_clauseToNodeMap[clauseId]);
+
+  // Erase the clause from the clause map
+  d_clauseToNodeMap.erase(clauseId);
+
+  // Decrease the reference count of the node
+  unsigned refCount = decClauseRefCount(node);
+
+  // If there is no one pointing this node, we can/should erase it
+  if (refCount == 0 && getLiteralRefCount(node) == 0) {
+    releaseNode(node);
+  }
+}
+
+void CnfStream::usingLiteral(const SatLiteral& l) {
+  Debug("cnf") << "Using literal " << l << endl;
+  incLiteralRefCount(getPositive(getNode(l)));
+}
+
+unsigned CnfStream::getTotalRefCount(TNode node) const {
+  Assert(!node.isNull());
+  Assert(!(node.getKind() == NOT));
+  return getLiteralRefCount(node) + getClauseRefCount(node);
+}
+
+unsigned CnfStream::getLiteralRefCount(TNode node) const {
+  Assert(!node.isNull());
+  Assert(!(node.getKind() == NOT));
+  NodeRefCountMap::const_iterator nodeFind = d_nodeRefCountLiterals.find(node);
+  if (nodeFind != d_nodeRefCountLiterals.end()) {
+    return (nodeFind->second);
+  } else {
+    return 0;
+  }
+}
+
+unsigned CnfStream::getClauseRefCount(TNode node) const {
+  Assert(!node.isNull());
+  Assert(!(node.getKind() == NOT));
+  NodeRefCountMap::const_iterator nodeFind = d_nodeRefCountClauses.find(node);
+  if (nodeFind != d_nodeRefCountClauses.end()) {
+    return (nodeFind->second);
+  } else {
+    return 0;
+  }
+}
+
+TNode CnfStream::getGeneratingNode(int clauseId) const {
+  ClauseToNodeMap::const_iterator nodeFind = d_clauseToNodeMap.find(clauseId);
+  Assert(nodeFind != d_clauseToNodeMap.end());
+  return nodeFind->second;
+}
+
+bool CnfStream::canErase(int clauseId) const {
+  // Think hard dejan :)
+  Node postiveNode = getPositive(getGeneratingNode(clauseId));
+  return getLiteralRefCount(postiveNode) <= getClauseRefCount(postiveNode);
+}
+
 CnfStream::CnfStream(SatInputInterface *satSolver) :
   d_satSolver(satSolver) {
 }
@@ -43,7 +166,12 @@ TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver) :
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
   Debug("cnf") << "Inserting into stream " << c << endl;
-  d_satSolver->addClause(c, d_assertingLemma);
+  int clauseId = d_satSolver->addClause(c, d_assertingLemma);
+  if (clauseId > 0) {
+    Debug("cnf") << "Clause inserted with id " << clauseId << endl;
+    d_clauseToNodeMap[clauseId] = node;
+    incClauseRefCount(getPositive(node));
+  }
 }
 
 void CnfStream::assertClause(TNode node, SatLiteral a) {
@@ -68,54 +196,56 @@ void CnfStream::assertClause(TNode node, SatLiteral a, SatLiteral b, SatLiteral 
 }
 
 bool CnfStream::isCached(TNode n) const {
-  return d_translationCache.find(n) != d_translationCache.end();
+  return d_nodeToLiteralMap.find(n) != d_nodeToLiteralMap.end();
 }
 
 SatLiteral CnfStream::lookupInCache(TNode n) const {
   Assert(isCached(n), "Node is not in CNF translation cache");
-  return d_translationCache.find(n)->second;
+  return d_nodeToLiteralMap.find(n)->second;
 }
 
 void CnfStream::cacheTranslation(TNode node, SatLiteral lit) {
   Debug("cnf") << "caching translation " << node << " to " << lit << endl;
   // We always cash both the node and the negation at the same time
-  d_translationCache[node] = lit;
-  d_translationCache[node.notNode()] = ~lit;
+  d_nodeToLiteralMap[node] = lit;
+  if (node.getKind() == NOT)  d_nodeToLiteralMap[node[0]] = ~lit;
+  else d_nodeToLiteralMap[node.notNode()] = ~lit;
 }
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   SatLiteral lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
   cacheTranslation(node, lit);
-  if (theoryLiteral) {
-    d_nodeCache[lit] = node;
-    d_nodeCache[~lit] = node.notNode();
-  }
+  d_literalToNodeMap[lit] = node;
+  d_literalToNodeMap[~lit] = node.notNode();
   return lit;
 }
 
-Node CnfStream::getNode(const SatLiteral& literal) {
-  Node node;
-  NodeCache::iterator find = d_nodeCache.find(literal);
-  if(find != d_nodeCache.end()) {
-    node = find->second;
+Node CnfStream::getNode(const SatLiteral& l) const {
+  // If the node is not in the literal map, the negation has to
+  LiteralToNodeMap::const_iterator findNode = d_literalToNodeMap.find(l);
+  if (findNode == d_literalToNodeMap.end()) {
+    Assert(d_literalToNodeMap.find(~l) != d_literalToNodeMap.end());
+    Node negatedNode = d_literalToNodeMap.find(~l)->second;
+    return negatedNode.getKind() == NOT ? negatedNode[0] : negatedNode.notNode();
+  } else {
+    return findNode->second;
   }
-  return node;
 }
 
 SatLiteral CnfStream::getLiteral(TNode node) {
-  TranslationCache::iterator find = d_translationCache.find(node);
-  Assert(find != d_translationCache.end(), "Literal not in the CNF Cache");
+  NodeToLiteralMap::iterator find = d_nodeToLiteralMap.find(node);
+  Assert(find != d_nodeToLiteralMap.end(), "Literal not in the CNF Cache");
   SatLiteral literal = find->second;
   Debug("cnf") << "CnfStream::getLiteral(" << node << ") => " << literal << std::endl;
   return literal;
 }
 
-const CnfStream::NodeCache& CnfStream::getNodeCache() const {
-  return d_nodeCache;
+const CnfStream::LiteralToNodeMap& CnfStream::getNodeCache() const {
+  return d_literalToNodeMap;
 }
 
-const CnfStream::TranslationCache& CnfStream::getTranslationCache() const {
-  return d_translationCache;
+const CnfStream::NodeToLiteralMap& CnfStream::getTranslationCache() const {
+  return d_nodeToLiteralMap;
 }
 
 SatLiteral TseitinCnfStream::handleAtom(TNode node) {

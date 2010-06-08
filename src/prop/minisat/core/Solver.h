@@ -26,6 +26,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <cstdio>
 #include <cassert>
+#include <set>
 
 #include "../mtl/Vec.h"
 #include "../mtl/Heap.h"
@@ -77,7 +78,8 @@ public:
       CLAUSE_CONFLICT
     };
 
-    bool    addClause (vec<Lit>& ps, ClauseType type);                           // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
+    // returns -1 if conflict, 0 if no clause added, clause id otherwise
+    int     addClause (vec<Lit>& ps, ClauseType type);                           // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
 
     // Solving:
     //
@@ -125,7 +127,7 @@ public:
     // Statistics: (read-only member variable)
     //
     uint64_t starts, decisions, rnd_decisions, propagations, conflicts;
-    uint64_t clauses_literals, learnts_literals, max_literals, tot_literals;
+    uint64_t clauses_literals, learnts_literals, lemmas_literals, max_literals, tot_literals;
 
 protected:
 
@@ -159,8 +161,11 @@ protected:
     vec<char>           decision_var;     // Declares if a variable is eligible for selection in the decision heuristic.
     vec<Lit>            trail;            // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;        // Separator indices for different decision levels in 'trail'.
+
     vec<Clause*>        lemmas;           // List of lemmas we added (context dependent)
     vec<int>            lemmas_lim;       // Separator indices for different decision levels in 'lemmas'.
+    std::set<Clause*>   keep_lemma;       // Set of lemmas to keep
+
     vec<Clause*>        reason;           // 'reason[var]' is the clause that implied the variables current value, or 'NULL' if none.
     vec<int>            level;            // 'level[var]' contains the level at which the assignment was made.
     int                 qhead;            // Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
@@ -200,7 +205,7 @@ protected:
     void     removeSatisfied  (vec<Clause*>& cs);                                      // Shrink 'cs' to contain only non-satisfied clauses.
 
     // Maintaining Variable/Clause activity:
-    //
+    //inline
     void     varDecayActivity ();                      // Decay all variables with the specified factor. Implemented by increasing the 'bump' value instead.
     void     varBumpActivity  (Var v);                 // Increase a variable with the current 'bump' value.
     void     claDecayActivity ();                      // Decay all clauses with the specified factor. Implemented by increasing the 'bump' value instead.
@@ -208,10 +213,11 @@ protected:
 
     // Operations on clauses:
     //
-    void     attachClause     (Clause& c);             // Attach a clause to watcher lists.
-    void     detachClause     (Clause& c);             // Detach a clause to watcher lists.
-    void     removeClause     (Clause& c);             // Detach and free a clause.
+    void     attachClause     (Clause& c, ClauseType type);      // Attach a clause to watcher lists.
+    void     detachClause     (Clause& c, bool notfyCNF = true); // Detach a clause to watcher lists.
+    bool     removeClause     (Clause& c);             // Detach and free a clause (returns true if successful -- some theory clauses can't be erased).
     bool     locked           (const Clause& c) const; // Returns TRUE if a clause is a reason for some implication in the current state.
+    bool     shouldErase      (const Clause& c) const; // Returns TRUE if a clause can/should be erased
     bool     satisfied        (const Clause& c) const; // Returns TRUE if a clause is satisfied in the current state.
 
     // Misc:
@@ -270,6 +276,9 @@ inline void Solver::claBumpActivity (Clause& c) {
 
 inline bool     Solver::enqueue         (Lit p, Clause* from)   { return value(p) != l_Undef ? value(p) != l_False : (uncheckedEnqueue(p, from), true); }
 inline bool     Solver::locked          (const Clause& c) const { return reason[var(c[0])] == &c && value(c[0]) == l_True; }
+inline bool     Solver::shouldErase     (const Clause& c) const { return c.type() != Clause::CLAUSE_LEMMA_KEEP &&
+                                                                         (c.size() > 2 || c.type() == Clause::CLAUSE_LEMMA_ERASE)
+                                                                         && !locked(c); }
 inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); lemmas_lim.push(lemmas.size()); context->push(); }
 
 inline int      Solver::decisionLevel ()      const   { return trail_lim.size(); }

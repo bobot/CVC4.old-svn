@@ -102,13 +102,33 @@ const lbool l_Undef = toLbool( 0);
 //=================================================================================================
 // Clause -- a simple class for representing a clause:
 
-
 class Clause {
-    uint32_t size_etc;
+
+    // The type of the clause
+    unsigned clause_type : 2;
+    // Internal marking place
+    unsigned clause_mark : 2;
+    // The size of the clause
+    unsigned clause_size : 28;
+
     union { float act; uint32_t abst; } extra;
+
     Lit     data[0];
 
 public:
+
+    // What kind of clause this is
+    enum ClauseType {
+      // It's a problem clause
+      CLAUSE_PROBLEM,
+      // It's a clause learnt from conflicts
+      CLAUSE_LEARNT,
+      // It's a lemma that we need to keep
+      CLAUSE_LEMMA_KEEP,
+      // It's a lemma that we can erase
+      CLAUSE_LEMMA_ERASE
+    };
+
     void calcAbstraction() {
         uint32_t abstraction = 0;
         for (int i = 0; i < size(); i++)
@@ -117,25 +137,28 @@ public:
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
-    Clause(const V& ps, bool learnt) {
-        size_etc = (ps.size() << 3) | (uint32_t)learnt;
+    Clause(const V& ps, ClauseType type) {
+        clause_size = ps.size();
+        clause_type = type;
         for (int i = 0; i < ps.size(); i++) data[i] = ps[i];
-        if (learnt) extra.act = 0; else calcAbstraction(); }
+        if (type != CLAUSE_PROBLEM) extra.act = 0; else calcAbstraction(); }
 
     // -- use this function instead:
     template<class V>
-    friend Clause* Clause_new(const V& ps, bool learnt = false) {
+    friend Clause* Clause_new(const V& ps, ClauseType type = CLAUSE_PROBLEM) {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         void* mem = malloc(sizeof(Clause) + sizeof(uint32_t)*(ps.size()));
-        return new (mem) Clause(ps, learnt); }
+        return new (mem) Clause(ps, type); }
 
-    int          size        ()      const   { return size_etc >> 3; }
-    void         shrink      (int i)         { assert(i <= size()); size_etc = (((size_etc >> 3) - i) << 3) | (size_etc & 7); }
+    int          size        ()      const   { return clause_size; }
+    void         shrink      (int i)         { assert(i <= size()); clause_size -= i; }
     void         pop         ()              { shrink(1); }
-    bool         learnt      ()      const   { return size_etc & 1; }
-    uint32_t     mark        ()      const   { return (size_etc >> 1) & 3; }
-    void         mark        (uint32_t m)    { size_etc = (size_etc & ~6) | ((m & 3) << 1); }
+    bool         learnt      ()      const   { return clause_type == CLAUSE_LEARNT; }
+    ClauseType   type        ()      const   { return (ClauseType)clause_type; }
+    void         setType     (ClauseType type) { clause_type = type; }
+    uint32_t     mark        ()      const   { return clause_mark; }
+    void         mark        (uint32_t m)    { clause_mark = m; }
     const Lit&   last        ()      const   { return data[size()-1]; }
 
     // NOTE: somewhat unsafe to change the clause in-place! Must manually call 'calcAbstraction' afterwards for

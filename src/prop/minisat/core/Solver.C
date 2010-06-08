@@ -48,7 +48,7 @@ Solver::Solver(SatSolver* proxy, context::Context* context) :
     // Statistics: (formerly in 'SolverStats')
     //
   , starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
-  , clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
+  , clauses_literals(0), learnts_literals(0), lemmas_literals(0), max_literals(0), tot_literals(0)
 
   , ok               (true)
   , cla_inc          (1)
@@ -98,66 +98,125 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
 }
 
 
-bool Solver::addClause(vec<Lit>& ps, ClauseType type)
+int Solver::addClause(vec<Lit>& ps, ClauseType type)
 {
     assert(decisionLevel() == 0);
 
     if (!ok)
-        return false;
+        return -1;
     else{
         // Check if clause is satisfied and remove false/duplicate literals:
         sort(ps);
-        Lit p; int i, j;
-        for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
-            if (value(ps[i]) == l_True || ps[i] == ~p)
-                return true;
-            else if (value(ps[i]) != l_False && ps[i] != p)
-                ps[j++] = p = ps[i];
-        ps.shrink(i - j);
+        if (type == CLAUSE_PROBLEM){
+            Lit p; int i, j;
+            for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
+                // Only if assignment was made at level 0
+                if (level[var(ps[i])] == 0) {
+                    if (value(ps[i]) == l_True || ps[i] == ~p)
+                        return 0;
+                    else if (value(ps[i]) != l_False && ps[i] != p)
+                        ps[j++] = p = ps[i];
+                } else
+                  ps[j++] = p = ps[i];
+            ps.shrink(i - j);
+        }
     }
 
-    if (ps.size() == 0)
-        return ok = false;
-    else if (ps.size() == 1){
+    if (ps.size() == 0){
+        ok = false;
+        return -1;
+    }else if (ps.size() == 1){
         assert(type != CLAUSE_LEMMA);
         assert(value(ps[0]) == l_Undef);
         uncheckedEnqueue(ps[0]);
-        return ok = (propagate() == NULL);
+        proxy->usingLiteral(ps[0]);
+        ok = (propagate() == NULL);
+        if (ok) return 0;
+        else return -1;
     }else{
-        Clause* c = Clause_new(ps, false);
-        clauses.push(c);
-        if (type == CLAUSE_LEMMA) lemmas.push(c);
-        attachClause(*c);
+        Clause* c = NULL;
+        switch (type) {
+        case CLAUSE_PROBLEM :
+          c = Clause_new(ps, Clause::CLAUSE_PROBLEM);
+          clauses.push(c);
+          break;
+        case CLAUSE_LEMMA:
+          c = Clause_new(ps, Clause::CLAUSE_LEMMA_KEEP);
+          // Add to the CD stack of lemmas (so that we know which we can erase)
+          lemmas.push(c);
+          // And keep around in the learnts database
+          learnts.push(c);
+        default:
+          assert(false);
+        }
+        attachClause(*c, type);
+        return reinterpret_cast<int>(c);
     }
+}
 
-    return true;
+void Solver::attachClause(Clause& c, ClauseType type) {
+    assert(c.size() > 1);
+    if (type == CLAUSE_PROBLEM){
+      watches[toInt(~c[0])].push(&c);
+      watches[toInt(~c[1])].push(&c);
+      if (c.learnt()) learnts_literals += c.size();
+      else            clauses_literals += c.size();
+    } else {
+      // Some of the literals might be true
 
+    }
+    // Notify the CNF manager that the literals are pointing to nodes
+    for (int l = 0; l < c.size(); ++ l)
+        proxy->usingLiteral(c[l]);
 }
 
 
-void Solver::attachClause(Clause& c) {
-    assert(c.size() > 1);
-    watches[toInt(~c[0])].push(&c);
-    watches[toInt(~c[1])].push(&c);
-    if (c.learnt()) learnts_literals += c.size();
-    else            clauses_literals += c.size(); }
-
-
-void Solver::detachClause(Clause& c) {
+// The clause is deattached either if CNF manager says it's ok, or if it
+// is a problem clause that is not needed ->attachClause
+void Solver::detachClause(Clause& c, bool notifyCNF) {
     Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
     assert(c.size() > 1);
     assert(find(watches[toInt(~c[0])], &c));
     assert(find(watches[toInt(~c[1])], &c));
     remove(watches[toInt(~c[0])], &c);
     remove(watches[toInt(~c[1])], &c);
-    if (c.learnt()) learnts_literals -= c.size();
-    else            clauses_literals -= c.size(); }
+    switch (c.type()) {
+    case Clause::CLAUSE_LEARNT:
+        learnts_literals -= c.size();
+        break;
+    case Clause::CLAUSE_PROBLEM:
+        clauses_literals -= c.size();
+        break;
+    default:
+        lemmas_literals -= c.size();
+        if (notifyCNF) proxy->releasingClause(reinterpret_cast<int>(&c));
+        break;
+    }
+    if (notifyCNF) {
+      for (int l = 0; l < c.size(); ++ l) {
+        bool lastOccurance = proxy->releasingLiteral(c[l]);
+        // If this was the last of literal ignore it from now on
+        if (lastOccurance) {
+          int varL = var(c[l]);
+          theory  [varL] = false;
+          assigns [varL] = 0;
+          level   [varL] = 0;
+          reason  [varL] = NULL;
+        }
+      }
+    }
+}
 
 
-void Solver::removeClause(Clause& c) {
+bool Solver::removeClause(Clause& c) {
     Debug("minisat") << "Solver::removeClause(" << c << ")" << std::endl;
-    detachClause(c);
-    free(&c);
+    // If a learnt clause or the CNF engine approves, erase the clause
+    if (c.learnt() || proxy->canErase(c)) {
+        detachClause(c);
+        free(&c);
+        return true;
+    }
+    return false;
 }
 
 
@@ -186,7 +245,7 @@ void Solver::cancelUntil(int level) {
         trail_lim.shrink(trail_lim.size() - level);
         // We can erase the lemmas now
         for (int c = lemmas.size() - 1; c >= lemmas_lim[level]; c--) {
-          // TODO: can_erase[lemma[c]] = true;
+          lemmas[c]->setType(Clause::CLAUSE_LEMMA_ERASE);
         }
         lemmas.shrink(lemmas.size() - lemmas_lim[level]);
         lemmas_lim.shrink(lemmas_lim.size() - level);
@@ -470,7 +529,7 @@ Clause* Solver::propagateTheory()
       cancelUntil(max_level);
     }
     // Create the new clause and attach all the information
-    c = Clause_new(clause, true);
+    c = Clause_new(clause, Clause::CLAUSE_LEARNT);
     learnts.push(c);
     attachClause(*c);
   }
@@ -548,7 +607,9 @@ Clause* Solver::propagateBool()
 |  
 |  Description:
 |    Remove half of the learnt clauses, minus the clauses locked by the current assignment. Locked
-|    clauses are clauses that are reason to some assignment. Binary clauses are never removed.
+|    clauses are clauses that are reason to some assignment. Binary clauses are never removed unless
+|    they are lemmas (there will be a lot of splits there).
+|
 |________________________________________________________________________________________________@*/
 struct reduceDB_lt { bool operator () (Clause* x, Clause* y) { return x->size() > 2 && (y->size() == 2 || x->activity() < y->activity()); } };
 void Solver::reduceDB()
@@ -558,14 +619,18 @@ void Solver::reduceDB()
 
     sort(learnts, reduceDB_lt());
     for (i = j = 0; i < learnts.size() / 2; i++){
-        if (learnts[i]->size() > 2 && !locked(*learnts[i]))
-            removeClause(*learnts[i]);
+        if (shouldErase(*learnts[i])){
+            if (!removeClause(*learnts[i]))
+              learnts[j++] = learnts[i];
+        }
         else
             learnts[j++] = learnts[i];
     }
     for (; i < learnts.size(); i++){
-        if (learnts[i]->size() > 2 && !locked(*learnts[i]) && learnts[i]->activity() < extra_lim)
-            removeClause(*learnts[i]);
+        if (shouldErase(*learnts[i]) && learnts[i]->activity() < extra_lim) {
+            if (!removeClause(*learnts[i]))
+              learnts[j++] = learnts[i];
+        }
         else
             learnts[j++] = learnts[i];
     }
@@ -577,9 +642,11 @@ void Solver::removeSatisfied(vec<Clause*>& cs)
 {
     int i,j;
     for (i = j = 0; i < cs.size(); i++){
-        if (satisfied(*cs[i]))
-            removeClause(*cs[i]);
-        else
+        if (satisfied(*cs[i])) {
+            if (!removeClause(*cs[i])) {
+              cs[j++] = cs[i];
+            }
+        } else
             cs[j++] = cs[i];
     }
     cs.shrink(i - j);
@@ -613,7 +680,7 @@ bool Solver::simplify()
     order_heap.filter(VarFilter(*this));
 
     simpDB_assigns = nAssigns();
-    simpDB_props   = clauses_literals + learnts_literals;   // (shouldn't depend on stats really, but it will do for now)
+    simpDB_props   = clauses_literals + learnts_literals + lemmas_literals;   // (shouldn't depend on stats really, but it will do for now)
 
     return true;
 }
@@ -661,7 +728,7 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
-                Clause* c = Clause_new(learnt_clause, true);
+                Clause* c = Clause_new(learnt_clause, Clause::CLAUSE_LEARNT);
                 learnts.push(c);
                 attachClause(*c);
                 claBumpActivity(*c);

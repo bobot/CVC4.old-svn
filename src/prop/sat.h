@@ -94,9 +94,15 @@ inline std::string stringOfLiteralValue(SatLiteralValue val) {
  * into here, somehow?
  */
 class SatInputInterface {
+
 public:
-  /** Assert a clause in the solver. */
-  virtual void addClause(SatClause& clause, bool lemma) = 0;
+
+  /**
+   * Assert a clause in the solver.
+   * @return the SAT id of the clause
+   */
+  virtual int addClause(SatClause& clause, bool lemma) = 0;
+
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
 };
@@ -151,7 +157,30 @@ public:
 
   bool solve();
   
-  void addClause(SatClause& clause, bool lemma);
+  int addClause(SatClause& clause, bool lemma);
+
+  bool canErase(const minisat::Clause& clause);
+
+  /**
+   * Sat solver notifies the CNF every time it starts using a literal so
+   * that we can track the usage at CNF level.
+   */
+  void usingLiteral(const SatLiteral& lit);
+
+  /**
+   * Sat solver notifies the CNF every time it stops using a literal occurance
+   * so that we can track the usage at the CNF level.
+   * @param lit the literal to release
+   * @return true if there is no more occurances of lit in the problem (it's
+   *         safe to ignore it from now on)
+   */
+  bool releasingLiteral(const SatLiteral& lit);
+
+  /**
+   * Sat solver notifies the CNF every time it erases a clause so
+   * that we can track the usage at the CNF level.
+   */
+  void releasingClause(int clauseId);
 
   SatVariable newVar(bool theoryAtom = false);
 
@@ -193,8 +222,8 @@ inline bool SatSolver::solve() {
   return d_minisat->solve();
 }
 
-inline void SatSolver::addClause(SatClause& clause, bool lemma) {
-  d_minisat->addClause(clause, lemma ? minisat::Solver::CLAUSE_LEMMA : minisat::Solver::CLAUSE_PROBLEM);
+inline int SatSolver::addClause(SatClause& clause, bool lemma) {
+  return d_minisat->addClause(clause, lemma ? minisat::Solver::CLAUSE_LEMMA : minisat::Solver::CLAUSE_PROBLEM);
 }
 
 inline SatVariable SatSolver::newVar(bool theoryAtom) {

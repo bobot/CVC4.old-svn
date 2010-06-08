@@ -118,8 +118,10 @@ bool SimpSolver::solve(const vec<Lit>& assumps, bool do_simp, bool turn_off_simp
 
 
 
-bool SimpSolver::addClause(vec<Lit>& ps, ClauseType type)
+int SimpSolver::addClause(vec<Lit>& ps, ClauseType type)
 {
+    int clauseId = 0;
+
     for (int i = 0; i < ps.size(); i++)
         if (isEliminated(var(ps[i])))
             remember(var(ps[i]));
@@ -127,10 +129,11 @@ bool SimpSolver::addClause(vec<Lit>& ps, ClauseType type)
     int nclauses = clauses.size();
 
     if (redundancy_check && implied(ps))
-        return true;
+        return 0;
 
-    if (!Solver::addClause(ps, type))
-        return false;
+    clauseId = Solver::addClause(ps, type);
+    if (clauseId == -1)
+        return -1;
 
     if (use_simplification && clauses.size() == nclauses + 1){
         Clause& c = *clauses.last();
@@ -150,14 +153,16 @@ bool SimpSolver::addClause(vec<Lit>& ps, ClauseType type)
         }
     }
 
-    return true;
+    return clauseId;
 }
 
-
-void SimpSolver::removeClause(Clause& c)
+// This variant of removeClause is only called on problems clauses. Since they are
+// implicitly still part of the problem, we do not need to decrease the reference
+// counts, it is as if they are sill there.
+void SimpSolver::removeClause(Clause& c, bool notifyCNF)
 {
     Debug("minisat") << "SimpSolver::removeClause(" << c << ")" << std::endl;
-    assert(!c.learnt());
+    assert(c.type() == Clause::CLAUSE_PROBLEM);
 
     if (use_simplification)
         for (int i = 0; i < c.size(); i++){
@@ -165,7 +170,7 @@ void SimpSolver::removeClause(Clause& c)
             updateElimHeap(var(c[i]));
         }
 
-    detachClause(c);
+    detachClause(c, notifyCNF);
     c.mark(1);
 }
 
@@ -478,14 +483,15 @@ bool SimpSolver::eliminateVar(Var v, bool fail)
     assert(elimtable[v].eliminated.size() == 0);
     for (int i = 0; i < cls.size(); i++){
         elimtable[v].eliminated.push(Clause_new(*cls[i]));
-        removeClause(*cls[i]); }
+        // These clause might get reintroduced, so we don't really remove it
+        removeClause(*cls[i], false); }
 
     // Produce clauses in cross product:
     int top = clauses.size();
     vec<Lit> resolvent;
     for (int i = 0; i < pos.size(); i++)
         for (int j = 0; j < neg.size(); j++)
-            if (merge(*pos[i], *neg[j], v, resolvent) && !addClause(resolvent, CLAUSE_CONFLICT))
+            if (merge(*pos[i], *neg[j], v, resolvent) && !addClause(resolvent, CLAUSE_PROBLEM))
                 return false;
 
     // DEBUG: For checking that a clause set is saturated with respect to variable elimination.

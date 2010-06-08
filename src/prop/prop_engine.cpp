@@ -93,10 +93,10 @@ void PropEngine::assertLemma(TNode node) {
 
 
 void PropEngine::printSatisfyingAssignment(){
-  const CnfStream::TranslationCache& transCache = d_cnfStream->getTranslationCache();
+  const CnfStream::NodeToLiteralMap& transCache = d_cnfStream->getTranslationCache();
   Debug("prop-value") << "Literal | Value | Expr" << endl
                       << "---------------------------------------------------------" << endl;
-  for(CnfStream::TranslationCache::const_iterator i = transCache.begin(),
+  for(CnfStream::NodeToLiteralMap::const_iterator i = transCache.begin(),
       end = transCache.end();
       i != end;
       ++i) {

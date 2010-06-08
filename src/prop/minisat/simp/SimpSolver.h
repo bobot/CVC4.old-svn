@@ -45,7 +45,7 @@ class SimpSolver : public Solver {
     // Problem specification:
     //
     Var     newVar    (bool polarity = true, bool dvar = true, bool theoryAtom = false);
-    bool    addClause (vec<Lit>& ps, ClauseType type);
+    int     addClause (vec<Lit>& ps, ClauseType type); // returns -1 if conflict, 0 if no clause added, clause id otherwise
 
     // Variable mode:
     // 
@@ -128,7 +128,7 @@ class SimpSolver : public Solver {
     void          extendModel              ();
     void          verifyModel              ();
 
-    void          removeClause             (Clause& c);
+    void          removeClause             (Clause& c, bool notifyCNF = true);
     bool          strengthenClause         (Clause& c, Lit l);
     void          cleanUpClauses           ();
     bool          implied                  (const vec<Lit>& c);

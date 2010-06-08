@@ -46,18 +46,39 @@ class CnfStream {
 public:
 
   /** Cache of what nodes have been registered to a literal. */
-  typedef __gnu_cxx::hash_map<SatLiteral, Node, SatSolver::SatLiteralHashFunction> NodeCache;
+  typedef __gnu_cxx::hash_map<SatLiteral, Node, SatSolver::SatLiteralHashFunction> LiteralToNodeMap;
 
   /** Cache of what literals have been registered to a node. */
-  typedef __gnu_cxx::hash_map<Node, SatLiteral, NodeHashFunction> TranslationCache;
+  typedef __gnu_cxx::hash_map<Node, SatLiteral, NodeHashFunction> NodeToLiteralMap;
+
+  /** Map the clauses to the nodes that generated them */
+  typedef __gnu_cxx::hash_map<unsigned, TNode> ClauseToNodeMap;
+
+  /** Map from nodes to their reference counts (in the CNF context) */
+  typedef __gnu_cxx::hash_map<TNode, unsigned, NodeHashFunction> NodeRefCountMap;
 
 private:
 
   /** The SAT solver we will be using */
   SatInputInterface *d_satSolver;
 
-  TranslationCache d_translationCache;
-  NodeCache d_nodeCache;
+  /** Cache of what literals have been registered to a node. */
+  NodeToLiteralMap d_nodeToLiteralMap;
+
+  /** Cache of what nodes have been registered to a literal. */
+  LiteralToNodeMap d_literalToNodeMap;
+
+  /** Map the clauses to the nodes that generated them */
+  ClauseToNodeMap d_clauseToNodeMap;
+
+  /**
+   * Map from atomic nodes to their reference counts (in the CNF context).
+   * The count includes the negated literals.
+   */
+  NodeRefCountMap d_nodeRefCountLiterals;
+
+  /** Map from nodes to their clause reference counts (in the CNF context) */
+  NodeRefCountMap d_nodeRefCountClauses;
 
 protected:
 
@@ -91,7 +112,7 @@ protected:
    * Asserts the ternary clause to the sat solver.
    * @param a the first literal in the clause
    * @param b the second literal in the clause
-   * @param c the thirs literal in the clause
+   * @param c the third literal in the clause
    */
   void assertClause(TNode node, SatLiteral a, SatLiteral b, SatLiteral c);
 
@@ -127,6 +148,74 @@ protected:
    */
   SatLiteral newLiteral(TNode node, bool theoryLiteral = false);
 
+  /**
+   * Returns the positive version of the node. If the node is !a it returns a
+   * otherwise it returns the node itself.
+   * @param node the node to process
+   * @return the node stripped of the top negation (if there)
+   */
+  static inline Node getPositive(TNode node) {
+    return node.getKind() == kind::NOT ? node[0] : node;
+  }
+
+  /**
+   * Increase the literal to node reference count.
+   * @param node the node that the literal points to
+   */
+  void incLiteralRefCount(TNode node);
+
+  /**
+   * Decrease the literal to node reference count. Note that reference counts
+   * are kept together for the node and it's negation, so either can be passed
+   * in.
+   * @param node the node that the literal points to
+   * @return the resulting reference count
+   */
+  unsigned decLiteralRefCount(TNode node);
+
+  /**
+   * Returns the literal to node reference count.
+   * @return the reference count
+   */
+  unsigned getLiteralRefCount(TNode node) const;
+
+  /**
+   * Increase the clause to node reference count.
+   * @param node the node that the clause points to
+   */
+  void incClauseRefCount(TNode node) { Assert(!node.isNull()); ++ d_nodeRefCountClauses[node]; }
+
+  /**
+   * Decrease the clause to node reference count.
+   * @param node the node that the clause points to
+   * @return the resulting reference count
+   */
+  unsigned decClauseRefCount(TNode node) { Assert(!node.isNull()); return -- d_nodeRefCountClauses[node]; }
+
+  /**
+   * Returns the clause to node reference count.
+   * @return the reference count
+   */
+  unsigned getClauseRefCount(TNode node) const;
+
+  /**
+   * Returns the global reference count for the node and it's negation.
+   */
+  unsigned getTotalRefCount(TNode node) const;
+
+  /**
+   * Returns the node that generated the clause with the given id.
+   * @param clauseId the SAT solver id of the clause
+   */
+  TNode getGeneratingNode(int clauseId) const;
+
+  /**
+   * Remove the given node (and it's negation) from all the maps.
+   * An actuall NODE must be passed in as it might be the last reference.
+   * @param node node to erase
+   */
+  void releaseNode(Node node);
+
 public:
 
   /**
@@ -157,7 +246,7 @@ public:
    * @param literal the literal from the sat solver
    * @return the actual node
    */
-  Node getNode(const SatLiteral& literal);
+  Node getNode(const SatLiteral& literal) const;
 
   /**
    * Returns the literal that represents the given node in the SAT CNF
@@ -167,8 +256,39 @@ public:
    */
   SatLiteral getLiteral(TNode node);
 
-  const TranslationCache& getTranslationCache() const;
-  const NodeCache& getNodeCache() const;
+  /**
+   * Returns true if the state of the CNF translation is such that the
+   * clause can be erased. A clause can be erased if the no other clause
+   * is using the node that generated this clause, i.e. the reference count
+   * of the node is 0. This should only be called for the lemmas (no problem
+   * clauses, no conflict clauses)
+   * @param clauseId the SAT id of the clause
+   * @return true if the clause can be erased
+   */
+  bool canErase(int clauseId) const;
+
+  /**
+   * This method is called by the SAT solver every time is starts using a literal.
+   */
+  void usingLiteral(const SatLiteral& l);
+
+  /**
+   * This method is called by the SAT solver every time it stops an occurance of
+   * a literal.
+   * @return true if this this release was the last occurance of the literal,
+   *         i.e. the reference count went to 0
+   */
+  bool releasingLiteral(const SatLiteral& lit);
+
+  /**
+   * This method is called by the SAT solver every time it erases a clause.
+   */
+  void releasingClause(int clauseId);
+
+  // TODO: Remove these methods
+  const NodeToLiteralMap& getTranslationCache() const;
+  const LiteralToNodeMap& getNodeCache() const;
+
 }; /* class CnfStream */
 
 /**
