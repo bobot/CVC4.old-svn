@@ -33,6 +33,28 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
+#define PRINT_MAP(out, type, map)                            \
+{                                                            \
+  out << "Map: " << #map << endl;                            \
+  type::const_iterator it = map.begin();                     \
+  type::const_iterator it_end = map.end();                   \
+  for (; it != it_end; ++ it) {                              \
+    out << it->first << " -> " << it->second << endl;        \
+  }                                                          \
+}                                                            \
+
+CnfStream::~CnfStream() {
+#ifdef CVC4_TRACING
+if (false) {
+    PRINT_MAP(cerr, NodeToLiteralMap, d_nodeToLiteralMap);
+    PRINT_MAP(cerr, LiteralToNodeMap, d_literalToNodeMap);
+    PRINT_MAP(cerr, ClauseToNodeMap,  d_clauseToNodeMap);
+    PRINT_MAP(cerr, NodeRefCountMap,  d_nodeRefCountLiterals);
+    PRINT_MAP(cerr, NodeRefCountMap,  d_nodeRefCountClauses);
+}
+#endif
+}
+
 void CnfStream::incLiteralRefCount(TNode node) {
   Assert(!node.isNull());
   Assert(!(node.getKind() == NOT));
@@ -53,16 +75,18 @@ void CnfStream::releaseNode(Node node) {
   Assert(getTotalRefCount(node) == 0);
 
   // d_clauseToNodeMap should have been erased while erasing the clauses
-  // d_literalToNodeMpa should have been erased while erasing the literal
+  // d_literalToNodeMap should have been erased while erasing the literal
 
   // Erase the nodes maps
   d_nodeToLiteralMap.erase(node);
   d_nodeRefCountLiterals.erase(node);
   d_nodeRefCountClauses.erase(node);
+  d_nodesWithPureClauseSet.erase(node);
 
   // Erase the negated node maps
   Node negatedNode = node.notNode();
   d_nodeToLiteralMap.erase(negatedNode);
+  d_nodesWithPureClauseSet.erase(negatedNode);
   d_nodeRefCountLiterals.erase(negatedNode);
   d_nodeRefCountClauses.erase(negatedNode);
 }
@@ -169,8 +193,9 @@ void CnfStream::assertClause(TNode node, SatClause& c) {
   int clauseId = d_satSolver->addClause(c, d_assertingLemma);
   if (clauseId > 0) {
     Debug("cnf") << "Clause inserted with id " << clauseId << endl;
-    d_clauseToNodeMap[clauseId] = node;
-    incClauseRefCount(getPositive(node));
+    Node positive = getPositive(node);
+    d_clauseToNodeMap[clauseId] = positive;
+    incClauseRefCount(positive);
   }
 }
 
@@ -210,6 +235,12 @@ void CnfStream::cacheTranslation(TNode node, SatLiteral lit) {
   d_nodeToLiteralMap[node] = lit;
   if (node.getKind() == NOT)  d_nodeToLiteralMap[node[0]] = ~lit;
   else d_nodeToLiteralMap[node.notNode()] = ~lit;
+}
+
+void CnfStream::cachePureTranslation(TNode node) {
+  Debug("cnf") << "caching translation " << node << " to pure clauses";
+  // We always cash both the node and the negation at the same time
+  d_nodesWithPureClauseSet.insert(node);
 }
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
@@ -661,6 +692,7 @@ void TseitinCnfStream::convertAndAssertIte(TNode node, bool lemma, bool negated)
 void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
   Debug("cnf") << "convertAndAssert(" << node << ", negated = " << (negated ? "true" : "false") << ")" << endl;
   d_assertingLemma = lemma;
+  cachePureTranslation(node);
   switch(node.getKind()) {
   case AND:
     convertAndAssertAnd(node, lemma, negated);

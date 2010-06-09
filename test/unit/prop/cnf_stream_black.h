@@ -53,8 +53,9 @@ public:
     return d_nextVar++;
   }
 
-  void addClause(SatClause& c, bool lemma) {
+  int addClause(SatClause& c, bool lemma) {
     d_addClauseCalled = true;
+    return 1;
   }
 
   void reset() {

@@ -31,6 +31,7 @@
 #include "prop/sat.h"
 
 #include <ext/hash_map>
+#include <ext/hash_set>
 
 namespace CVC4 {
 namespace prop {
@@ -51,6 +52,9 @@ public:
   /** Cache of what literals have been registered to a node. */
   typedef __gnu_cxx::hash_map<Node, SatLiteral, NodeHashFunction> NodeToLiteralMap;
 
+  /** Nodes that have pure clauses */
+  typedef __gnu_cxx::hash_set<Node, NodeHashFunction> NodesWithPureClausesSet;
+
   /** Map the clauses to the nodes that generated them */
   typedef __gnu_cxx::hash_map<unsigned, TNode> ClauseToNodeMap;
 
@@ -64,6 +68,9 @@ private:
 
   /** Cache of what literals have been registered to a node. */
   NodeToLiteralMap d_nodeToLiteralMap;
+
+  /** Cache of nodes that are not mapped to a literal, but produced a clause */
+  NodesWithPureClausesSet d_nodesWithPureClauseSet;
 
   /** Cache of what nodes have been registered to a literal. */
   LiteralToNodeMap d_literalToNodeMap;
@@ -137,6 +144,12 @@ protected:
    * @param lit
    */
   void cacheTranslation(TNode node, SatLiteral lit);
+
+  /**
+   * Marks a node as being translated to pure clauses. For example, (x or y)
+   * does not procude a literal, but wee need to keep track of the translation.
+   */
+  void cachePureTranslation(TNode node);
 
   /**
    * Acquires a new variable from the SAT solver to represent the node and
@@ -230,8 +243,8 @@ public:
    * need a virtual destructor for safety in case subclasses have a
    * destructor.
    */
-  virtual ~CnfStream() {
-  }
+
+  virtual ~CnfStream();
 
   /**
    * Converts and asserts a formula.

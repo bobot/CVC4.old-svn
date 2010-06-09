@@ -156,15 +156,11 @@ int Solver::addClause(vec<Lit>& ps, ClauseType type)
 
 void Solver::attachClause(Clause& c, ClauseType type) {
     assert(c.size() > 1);
-    if (type == CLAUSE_PROBLEM){
-      watches[toInt(~c[0])].push(&c);
-      watches[toInt(~c[1])].push(&c);
-      if (c.learnt()) learnts_literals += c.size();
-      else            clauses_literals += c.size();
-    } else {
-      // Some of the literals might be true
-
-    }
+  	// TODO: some of the literals might be true
+    watches[toInt(~c[0])].push(&c);
+    watches[toInt(~c[1])].push(&c);
+    if (c.learnt()) learnts_literals += c.size();
+    else            clauses_literals += c.size();
     // Notify the CNF manager that the literals are pointing to nodes
     for (int l = 0; l < c.size(); ++ l)
         proxy->usingLiteral(c[l]);
