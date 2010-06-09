@@ -111,6 +111,9 @@ class Clause {
     // The size of the clause
     unsigned clause_size : 28;
 
+    // The id of the clause
+    unsigned clause_id   : 32;
+
     union { float act; uint32_t abst; } extra;
 
     Lit     data[0];
@@ -138,8 +141,10 @@ public:
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
     Clause(const V& ps, ClauseType type) {
+        static unsigned id = 0;
         clause_size = ps.size();
         clause_type = type;
+        clause_id   = ++ id;
         for (int i = 0; i < ps.size(); i++) data[i] = ps[i];
         if (type != CLAUSE_PROBLEM) extra.act = 0; else calcAbstraction(); }
 
@@ -152,6 +157,7 @@ public:
         return new (mem) Clause(ps, type); }
 
     int          size        ()      const   { return clause_size; }
+    unsigned     id          ()      const   { return clause_id; }
     void         shrink      (int i)         { assert(i <= size()); clause_size -= i; }
     void         pop         ()              { shrink(1); }
     bool         learnt      ()      const   { return clause_type == CLAUSE_LEARNT; }

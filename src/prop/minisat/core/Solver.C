@@ -150,7 +150,7 @@ int Solver::addClause(vec<Lit>& ps, ClauseType type)
           assert(false);
         }
         attachClause(*c, type);
-        return reinterpret_cast<int>(c);
+        return c->id();
     }
 }
 
@@ -531,7 +531,7 @@ Clause* Solver::propagateTheory()
     // Create the new clause and attach all the information
     c = Clause_new(clause, Clause::CLAUSE_LEARNT);
     learnts.push(c);
-    attachClause(*c);
+    attachClause(*c, CLAUSE_CONFLICT);
   }
   return c;
 }
@@ -730,7 +730,7 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             }else{
                 Clause* c = Clause_new(learnt_clause, Clause::CLAUSE_LEARNT);
                 learnts.push(c);
-                attachClause(*c);
+                attachClause(*c, CLAUSE_CONFLICT);
                 claBumpActivity(*c);
                 uncheckedEnqueue(learnt_clause[0], c);
             }
