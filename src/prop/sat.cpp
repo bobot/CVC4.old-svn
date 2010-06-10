@@ -58,7 +58,7 @@ void SatSolver::enqueueTheoryLiteral(const SatLiteral& l) {
 }
 
 bool SatSolver::canErase(const CVC4::prop::minisat::Clause& clause) {
-  return d_cnfStream->canErase(reinterpret_cast<unsigned>(&clause));
+  return d_cnfStream->canErase(clause.id());
 }
 
 void SatSolver::usingLiteral(const SatLiteral& l) {
