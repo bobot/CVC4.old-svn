@@ -185,7 +185,7 @@ void Solver::detachClause(Clause& c, bool notifyCNF) {
         break;
     default:
         lemmas_literals -= c.size();
-        if (notifyCNF) proxy->releasingClause(reinterpret_cast<int>(&c));
+        if (notifyCNF) proxy->releasingClause(c.id());
         break;
     }
     if (notifyCNF) {
