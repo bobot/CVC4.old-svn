@@ -491,7 +491,7 @@ bool SimpSolver::eliminateVar(Var v, bool fail)
     vec<Lit> resolvent;
     for (int i = 0; i < pos.size(); i++)
         for (int j = 0; j < neg.size(); j++)
-            if (merge(*pos[i], *neg[j], v, resolvent) && !addClause(resolvent, CLAUSE_PROBLEM))
+            if (merge(*pos[i], *neg[j], v, resolvent) && addClause(resolvent, CLAUSE_PROBLEM) == -1)
                 return false;
 
     // DEBUG: For checking that a clause set is saturated with respect to variable elimination.
@@ -533,7 +533,7 @@ void SimpSolver::remember(Var v)
             clause.push(c[j]);
 
         remembered_clauses++;
-        check(addClause(clause, CLAUSE_PROBLEM));
+        check(addClause(clause, CLAUSE_PROBLEM) != -1);
         free(&c);
     }
 

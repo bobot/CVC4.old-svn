@@ -723,7 +723,8 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
 
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
-            }else{
+                proxy->usingLiteral(learnt_clause[0]);
+	    }else{
                 Clause* c = Clause_new(learnt_clause, Clause::CLAUSE_LEARNT);
                 learnts.push(c);
                 attachClause(*c, CLAUSE_CONFLICT);
