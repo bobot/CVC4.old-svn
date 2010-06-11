@@ -20,6 +20,8 @@ libarith_la_SOURCES = \
 	slack.h \
 	tableau.h \
 	theory_arith.h \
-	theory_arith.cpp
+	theory_arith.cpp \
+	linked_tableau.h \
+	linked_tableau.cpp
 
 EXTRA_DIST = kinds
