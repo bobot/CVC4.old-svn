@@ -1,9 +1,11 @@
 #include "theory/arith/linked_tableau.h"
 #include "theory/arith/basic.h"
+#include "expr/kind.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
+using namespace CVC4::kind;
 
 void Row::setBasic(TNode b, TableauCell* cell){
   basic = b;
@@ -135,8 +137,8 @@ Row* Tableau::lookupRow(TNode basic){
   RowMap::iterator i = rowMap.find(basic);
   Assert( i != rowMap.end());
   return (i->second);
-
 }
+
 Column* Tableau::lookupColumn(TNode variable){
   ColumnMap::iterator i = colMap.find(variable);
   Assert( i != colMap.end());

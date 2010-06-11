@@ -157,7 +157,7 @@ public:
 
   void pivot(Row* r, Column* c);
 
-  void printTableau();
+  void printTableau(){}
 
   RowMap::iterator rowBegin(){
     return rowMap.begin();
