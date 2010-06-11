@@ -5,7 +5,12 @@
 
 #include <list>
 
-using namespace CVC4;
+#ifndef __CVC4__THEORY__ARITH__TABLEAU_H
+#define __CVC4__THEORY__ARITH__TABLEAU_H
+
+namespace CVC4 {
+namespace theory {
+namespace arith {
 
 class TableauCell;
 typedef std::list< TableauCell* > CellList;
@@ -33,6 +38,9 @@ class Row {
 
   size_t getId(){ return id; }
 
+  TNode getBasic(){
+    return basic;
+  }
   void setBasic(TNode b, TableauCell* cell);
 
   CellList::iterator begin(){
@@ -87,6 +95,18 @@ class TableauCell {
     d_rowPos = d_row->cells.insert(d_row->begin(), this);
     d_colPos = d_col->appearances.insert(d_col->begin(), this);
   }
+
+  Rational& getCoefficient(){
+    return coefficient;
+  }
+
+  Row* getRow(){
+    return d_row;
+  }
+
+  TNode getColumnVariable(){
+    return d_col->var;
+  }
 };
 
 // for hash_maps, hash_sets..
@@ -118,7 +138,7 @@ private:
 
 
 public:
-  Tableau();
+  Tableau() {}
 
   bool hasCell(Row* r, Column* c);
   bool hasCell(Row* r, Column* c, TableauCell*& cell);
@@ -137,4 +157,19 @@ public:
 
   void pivot(Row* r, Column* c);
 
+  void printTableau();
+
+  RowMap::iterator rowBegin(){
+    return rowMap.begin();
+  }
+  RowMap::iterator rowEnd(){
+    return rowMap.end();
+  }
 };
+
+
+}; /* namespace arith  */
+}; /* namespace theory */
+}; /* namespace CVC4   */
+
+#endif /* __CVC4__THEORY__ARITH__TABLEAU_H */

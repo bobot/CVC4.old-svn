@@ -27,7 +27,7 @@
 #include "expr/node.h"
 
 #include "theory/arith/delta_rational.h"
-#include "theory/arith/tableau.h"
+#include "theory/arith/linked_tableau.h"
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/partial_model.h"
 
