@@ -1,6 +1,7 @@
 
 #include "expr/node.h"
 #include "util/rational.h"
+#include "theory/arith/basic.h"
 #include <ext/hash_map>
 
 #include <list>
@@ -24,24 +25,42 @@ class Row {
 
   CellList cells;
 
-  TNode basic;
-  CellList::iterator basicPos;
 
-  friend class TableauCell;
-  friend class Tableau;
+  /**
+   * The basic variable for a row is not stored as a cell.
+   * This is to make iteration over the rows more straight forward.
+   */
+  TNode basic;
 
  public:
-  Row(){
+  Row(TNode b){
     static size_t id_dist = 0;
     id = id_dist++;
+    setBasic(b);
   }
 
   size_t getId(){ return id; }
 
+  void setBasic(TNode b){
+    Assert(isBasic(b));
+    basic = b;
+  }
+
   TNode getBasic(){
     return basic;
   }
-  void setBasic(TNode b, TableauCell* cell);
+
+  void erase(CellList::iterator i){
+    cells.erase(i);
+  }
+
+  size_t size(){
+    return cells.size();
+  }
+
+  CellList::iterator insert(TableauCell* cell){
+    return cells.insert(cells.end(), cell);
+  }
 
   CellList::iterator begin(){
     return cells.begin();
@@ -56,23 +75,33 @@ private:
   size_t id;
 
   TNode var;
-  CellList appearances;
+  CellList appearances; /* This must be empty for basic variables. */
 
-  friend class TableauCell;
-  friend class Tableau;
- 
 public:
   Column(TNode x): var(x) {
     static size_t id_dist = 0;
     id = id_dist++;
   }
 
+  TNode getVariable(){
+    return var;
+  }
+
+  size_t size(){
+    return appearances.size();
+  }
   size_t getId(){ return id; }
   CellList::iterator begin(){
     return appearances.begin();
   }
   CellList::iterator end(){
     return appearances.end();
+  }
+  CellList::iterator insert(TableauCell* cell){
+    return appearances.insert(appearances.end(), cell);
+  }
+  void erase(CellList::iterator i){
+    appearances.erase(i);
   }
 };
 
@@ -86,14 +115,13 @@ class TableauCell {
   CellList::iterator d_rowPos;
   CellList::iterator d_colPos;
 
-  friend class Row;
   friend class Tableau;
 
  public:
   TableauCell(Row* r, Column* c, const Rational& q):
     coefficient(q), d_row(r), d_col(c){
-    d_rowPos = d_row->cells.insert(d_row->begin(), this);
-    d_colPos = d_col->appearances.insert(d_col->begin(), this);
+    d_rowPos = d_row->insert(this);
+    d_colPos = d_col->insert(this);
   }
 
   Rational& getCoefficient(){
@@ -103,9 +131,8 @@ class TableauCell {
   Row* getRow(){
     return d_row;
   }
-
-  TNode getColumnVariable(){
-    return d_col->var;
+  Column* getColumn(){
+    return d_col;
   }
 };
 
@@ -131,14 +158,17 @@ private:
 
   void removeCell(TableauCell* cell);
 
-  void addRows(Row* dest, Row* src, const Rational& coeff);
+  void addNonbasicsInRow(Row* dest, Row* src, const Rational& coeff);
 
   void multRow(Row* dest, const Rational& q);
 
 
 
+
 public:
   Tableau() {}
+
+  void initializeVariable(TNode x);
 
   bool hasCell(Row* r, Column* c);
   bool hasCell(Row* r, Column* c, TableauCell*& cell);

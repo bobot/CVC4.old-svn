@@ -187,6 +187,8 @@ void TheoryArith::setupVariable(TNode x){
   Assert(x.getMetaKind() == kind::metakind::VARIABLE);
   d_variables.push_back(Node(x));
 
+  d_tableau.initializeVariable(x);
+
   if(!isBasic(x)){
     d_partialModel.initialize(x,d_constants.d_ZERO_DELTA);
   }else{
@@ -223,7 +225,7 @@ DeltaRational TheoryArith::computeRowValueUsingAssignment(TNode x){
   Row* row = d_tableau.lookupRow(x);
   for(CellList::iterator i = row->begin(); i != row->end();++i){
     TableauCell* cell = *i;
-    TNode nonbasic = cell->getColumnVariable();
+    TNode nonbasic = cell->getColumn()->getVariable();
     Rational& coeff = cell->getCoefficient();
     DeltaRational assignment = d_partialModel.getAssignment(nonbasic);
     sum = sum + (assignment * coeff);
@@ -241,7 +243,7 @@ DeltaRational TheoryArith::computeRowValueUsingSavedAssignment(TNode x){
   Row* row = d_tableau.lookupRow(x);
   for(CellList::iterator i = row->begin(); i != row->end();++i){
     TableauCell* cell = *i;
-    TNode nonbasic = cell->getColumnVariable();
+    TNode nonbasic = cell->getColumn()->getVariable();
     Rational& coeff = cell->getCoefficient();
     DeltaRational assignment = d_partialModel.getSafeAssignment(nonbasic);
     sum = sum + (assignment * coeff);
@@ -478,7 +480,7 @@ TNode TheoryArith::selectSlackBelow(TNode x_i){ //beta(x_i) < l_i
 
   for(CellList::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
     TableauCell* cell = *nbi;
-    TNode nonbasic = cell->getColumnVariable();
+    TNode nonbasic = cell->getColumn()->getVariable();
     Rational& a_ij = cell->getCoefficient();
 
     if(a_ij > d_constants.d_ZERO && d_partialModel.strictlyBelowUpperBound(nonbasic)){
@@ -513,7 +515,7 @@ TNode TheoryArith::selectSlackAbove(TNode x_i){ // beta(x_i) > u_i
 
   for(CellList::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
     TableauCell* cell = *nbi;
-    TNode nonbasic = cell->getColumnVariable();
+    TNode nonbasic = cell->getColumn()->getVariable();
     Rational& a_ij = cell->getCoefficient();
 
     if(a_ij < d_constants.d_ZERO && d_partialModel.strictlyBelowUpperBound(nonbasic)){
@@ -593,7 +595,7 @@ Node TheoryArith::generateConflictAbove(TNode conflictVar){
 
   for(CellList::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
     TableauCell* cell = *nbi;
-    TNode nonbasic = cell->getColumnVariable();
+    TNode nonbasic = cell->getColumn()->getVariable();
     Rational& a_ij = cell->getCoefficient();
 
     Assert(a_ij != d_constants.d_ZERO);
@@ -652,7 +654,7 @@ Node TheoryArith::generateConflictBelow(TNode conflictVar){
 
   for(CellList::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
     TableauCell* cell = *nbi;
-    TNode nonbasic = cell->getColumnVariable();
+    TNode nonbasic = cell->getColumn()->getVariable();
     Rational& a_ij = cell->getCoefficient();
 
     Assert(a_ij != d_constants.d_ZERO);
@@ -873,7 +875,7 @@ void TheoryArith::checkTableau(){
         nonbasicIter != row_k->end(); ++nonbasicIter){
       TableauCell* cell = *nonbasicIter;
 
-      TNode nonbasic = cell->getColumnVariable();
+      TNode nonbasic = cell->getColumn()->getVariable();
       Rational& coeff = cell->getCoefficient();
 
       DeltaRational beta = d_partialModel.getAssignment(nonbasic);
