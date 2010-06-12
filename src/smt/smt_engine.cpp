@@ -172,4 +172,6 @@ void SmtEngine::pop() {
   Unimplemented();
 }
 
+
+
 }/* CVC4 namespace */

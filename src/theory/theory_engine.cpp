@@ -207,4 +207,16 @@ Node TheoryEngine::rewrite(TNode in) {
   Unreachable();
 }
 
+
+
+void TheoryEngine::printTheoryStatistics(std::ostream &out){
+  out << "=== CVC4 TheoryEngine Stats ==="<< std::endl;
+  out << "statConflicts " << statConflicts << std::endl;
+  out << "statPropagate " << statPropagate << std::endl;
+  out << "statLemma " << statLemma << std::endl;
+  out << "statAugLemma " << statAugLemma << std::endl;
+  out << "statExplanatation " << statExplanatation << std::endl;
+  out << "=== CVC4 TheoryEngine Stats ==="<< std::endl;
+}
+
 }/* CVC4 namespace */

@@ -61,5 +61,19 @@ void SatSolver::setCnfStream(CnfStream* cnfStream) {
   d_cnfStream = cnfStream;
 }
 
+void SatSolver::printSatStatistics(std::ostream& out) const {
+  out << "====Sat solver statistics====" << std::endl;
+  out << "starts " << d_minisat-> starts << std::endl;
+  out << "decisions " << d_minisat->decisions << std::endl;
+  out << "rnd_decisions " << d_minisat->rnd_decisions << std::endl;
+  out << "propagations " << d_minisat->propagations << std::endl;
+  out << "conflicts " << d_minisat->conflicts << std::endl;
+  out << "clauses_literals " << d_minisat->clauses_literals << std::endl;
+  out << "learnts_literals " << d_minisat->learnts_literals << std::endl;
+  out << "max_literals " << d_minisat->max_literals << std::endl;
+  out << "tot_literals " << d_minisat->tot_literals << std::endl;
+  out << "==end sat solver statistics==" << std::endl;
+}
+
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */

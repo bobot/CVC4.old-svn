@@ -57,7 +57,12 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_constants(NodeManager::currentNM()),
   d_partialModel(c),
   d_diseq(c),
-  d_rewriter(&d_constants)
+  d_rewriter(&d_constants),
+  statPivots(0),
+  statUpdates(0),
+  statAssertUpperConflicts(0),
+  statAssertLowerConflicts(0),
+  statUpdateConflicts(0)
 {
   uint64_t ass_id = partial_model::Assignment::getId();
   Debug("arithsetup") << "Assignment: " << ass_id << std::endl;
@@ -68,6 +73,16 @@ TheoryArith::~TheoryArith(){
     Node var = *i;
     Debug("arithgc") << var << endl;
   }
+}
+
+void TheoryArith::printTheoryArithStatistics(std::ostream& out) const{
+  out << "===start printTheoryArithStatistics===" << std::endl;
+  out << "statPivots " << statPivots << std::endl;
+  out << "statUpdates " << statUpdates << std::endl;
+  out << "statAssertUpperConflicts " << statAssertUpperConflicts << std::endl;
+  out << "statAssertLowerConflicts " << statAssertLowerConflicts << std::endl;
+  out << "statUpdateConflicts " << statUpdateConflicts << std::endl;
+  out << "===end printTheoryArithStatistics()===" << std::endl;
 }
 
 bool isBasicSum(TNode n){
@@ -283,6 +298,7 @@ bool TheoryArith::AssertUpper(TNode n, TNode original){
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
+    statAssertUpperConflicts++;
     d_out->conflict(conflict);
     return true;
   }
@@ -317,6 +333,7 @@ bool TheoryArith::AssertLower(TNode n, TNode original){
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
     d_out->conflict(conflict);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
+    statAssertLowerConflicts++;
     return true;
   }
 
@@ -338,6 +355,7 @@ bool TheoryArith::AssertLower(TNode n, TNode original){
 void TheoryArith::update(TNode x_i, DeltaRational& v){
   Assert(!isBasic(x_i));
   DeltaRational assignment_x_i = d_partialModel.getAssignment(x_i);
+  statUpdates++;
 
   Debug("arith") <<"update " << x_i << ": "
                  << assignment_x_i << "|-> " << v << endl;
@@ -398,6 +416,7 @@ void TheoryArith::pivotAndUpdate(TNode x_i, TNode x_j, DeltaRational& v){
     }
   }
 
+  statPivots++;
   d_tableau.pivot(x_i, x_j);
 
   checkBasicVariable(x_j);
@@ -495,6 +514,7 @@ Node TheoryArith::updateInconsistentVars(){ //corresponds to Check() in dM06
       DeltaRational l_i = d_partialModel.getLowerBound(x_i);
       TNode x_j = selectSlackBelow(x_i);
       if(x_j == TNode::null() ){
+        statUpdateConflicts++;
         return generateConflictBelow(x_i); //unsat
       }
       pivotAndUpdate(x_i, x_j, l_i);
@@ -503,6 +523,7 @@ Node TheoryArith::updateInconsistentVars(){ //corresponds to Check() in dM06
       DeltaRational u_i = d_partialModel.getUpperBound(x_i);
       TNode x_j = selectSlackAbove(x_i);
       if(x_j == TNode::null() ){
+        statUpdateConflicts++;
         return generateConflictAbove(x_i); //unsat
       }
       pivotAndUpdate(x_i, x_j, u_i);
@@ -622,7 +643,7 @@ void TheoryArith::check(Effort level){
 
   bool conflictDuringAnAssert = false;
 
-  while(!done()){
+  while(!done() && !conflictDuringAnAssert){
     //checkTableau();
     Node original = get();
     Node assertion = simulatePreprocessing(original);
@@ -633,14 +654,16 @@ void TheoryArith::check(Effort level){
 
     switch(assertion.getKind()){
     case LEQ:
-      conflictDuringAnAssert |= AssertUpper(assertion, original);
+      conflictDuringAnAssert = AssertUpper(assertion, original);
       break;
     case GEQ:
-      conflictDuringAnAssert |= AssertLower(assertion, original);
+      conflictDuringAnAssert = AssertLower(assertion, original);
       break;
     case EQUAL:
-      conflictDuringAnAssert |= AssertUpper(assertion, original);
-      conflictDuringAnAssert |= AssertLower(assertion, original);
+      conflictDuringAnAssert = AssertUpper(assertion, original);
+      if(!conflictDuringAnAssert){
+        conflictDuringAnAssert = AssertLower(assertion, original);
+      }
       break;
     case NOT:
       {
@@ -649,13 +672,13 @@ void TheoryArith::check(Effort level){
         case LEQ: //(not (LEQ x c)) <=> (GT x c)
           {
             Node pushedin = pushInNegation(assertion);
-            conflictDuringAnAssert |= AssertLower(pushedin,original);
+            conflictDuringAnAssert = AssertLower(pushedin,original);
             break;
           }
         case GEQ: //(not (GEQ x c) <=> (LT x c)
           {
             Node pushedin = pushInNegation(assertion);
-            conflictDuringAnAssert |= AssertUpper(pushedin,original);
+            conflictDuringAnAssert = AssertUpper(pushedin,original);
             break;
           }
         case EQUAL:

@@ -68,6 +68,8 @@ private:
   ArithRewriter d_rewriter;
 
 
+  uint64_t statPivots, statUpdates, statAssertUpperConflicts,statAssertLowerConflicts, statUpdateConflicts;
+
 
 public:
   TheoryArith(context::Context* c, OutputChannel& out);
@@ -80,6 +82,13 @@ public:
   void check(Effort e);
   void propagate(Effort e) { Unimplemented(); }
   void explain(TNode n, Effort e) { Unimplemented(); }
+
+  void shutdown(){
+    printTheoryArithStatistics(std::cout);
+  }
+
+  void printTheoryArithStatistics(std::ostream& out) const;
+
 
 private:
   bool AssertLower(TNode n, TNode orig);

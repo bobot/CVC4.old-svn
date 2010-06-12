@@ -140,5 +140,12 @@ void PropEngine::pop() {
   Debug("prop") << "pop()" << endl;
 }
 
+
+void PropEngine::printPropStatistics(std::ostream& out) const{
+  Assert(!d_inCheckSat, "Sat solver in solve()!");
+
+  d_satSolver->printSatStatistics(out);
+}
+
 }/* prop namespace */
 }/* CVC4 namespace */

@@ -91,6 +91,7 @@ public:
    * the PropEngine.
    */
   void shutdown() {
+    printPropStatistics(std::cout);
   }
 
   /**
@@ -123,6 +124,9 @@ public:
    * Pop the context level.
    */
   void pop();
+
+
+  void printPropStatistics(std::ostream& out) const;
 
 };/* class PropEngine */
 

@@ -162,6 +162,8 @@ public:
   void setCnfStream(CnfStream* cnfStream);
 
   SatLiteralValue value(SatLiteral l);
+
+  void printSatStatistics(std::ostream& out) const;
 };
 
 /* Functions that delegate to the concrete SAT solver. */

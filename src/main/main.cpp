@@ -85,6 +85,22 @@ int main(int argc, char* argv[]) {
   }
 }
 
+uint64_t gmpAllocations, gmpReallocations, gmpFree;
+inline void * allocate_function (size_t alloc_size ){
+  gmpAllocations++;
+  return malloc(alloc_size);
+
+}
+inline void* realloc_func_ptr(void *ptr, size_t oldSize, size_t newSize){
+  gmpReallocations++;
+  return realloc(ptr, newSize);
+}
+inline void free_function (void *ptr, size_t size ){
+  gmpFree++;
+  free(ptr);
+}
+
+
 int runCvc4(int argc, char* argv[]) {
 
   // Initialize the signal handlers
@@ -103,8 +119,14 @@ int runCvc4(int argc, char* argv[]) {
     throw Exception("Too many input files specified.");
   }
 
+  gmpAllocations = gmpReallocations = gmpFree = 0;
+  mp_set_memory_functions (&allocate_function, &realloc_func_ptr, &free_function);
+
   // Create the expression manager
   ExprManager exprMgr;
+
+
+
 
   // Create the SmtEngine
   SmtEngine smt(&exprMgr, &options);
@@ -182,6 +204,13 @@ int runCvc4(int argc, char* argv[]) {
 
   // Remove the parser
   delete parser;
+
+  cout << "==== begin gmp statistics ====" << endl;
+  cout << "gmpAllocations " << gmpAllocations << endl;
+  cout << "gmpReallocations " << gmpReallocations << endl;
+  cout << "gmpFree " << gmpFree << endl;
+  cout << "==== end gmp statistics ====" << endl;
+
 
   switch(lastResult.asSatisfiabilityResult().isSAT()) {
 
