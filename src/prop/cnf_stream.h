@@ -147,9 +147,12 @@ protected:
 
   /**
    * Marks a node as being translated to pure clauses. For example, (x or y)
-   * does not procude a literal, but wee need to keep track of the translation.
+   * does not produce a literal, but wee need to keep track of the translation.
+   * @param node node the node to cahce
+   * @param negate whether the node is negated
+   * @return true if the node was not cached before
    */
-  void cachePureTranslation(TNode node);
+  bool cachePureTranslation(TNode node, bool negated);
 
   /**
    * Acquires a new variable from the SAT solver to represent the node and
@@ -169,6 +172,15 @@ protected:
    */
   static inline Node getPositive(TNode node) {
     return node.getKind() == kind::NOT ? node[0] : node;
+  }
+
+  /**
+   * Returns the negation of a node with removing duplicate not operators.
+   * @param node the node to negate
+   * @return the negated node
+   */
+  static inline Node getNegation(TNode node) {
+    return node.getKind() == kind::NOT ? Node(node[0]) : node.notNode();
   }
 
   /**

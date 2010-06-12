@@ -237,10 +237,11 @@ void CnfStream::cacheTranslation(TNode node, SatLiteral lit) {
   else d_nodeToLiteralMap[node.notNode()] = ~lit;
 }
 
-void CnfStream::cachePureTranslation(TNode node) {
+bool CnfStream::cachePureTranslation(TNode node, bool negated) {
   Debug("cnf") << "caching translation " << node << " to pure clauses";
-  // We always cash both the node and the negation at the same time
-  d_nodesWithPureClauseSet.insert(node);
+  // For the top level we only cache the node itself, not the negated one
+  if (negated) return d_nodesWithPureClauseSet.insert(getNegation(node)).second;
+  else return d_nodesWithPureClauseSet.insert(node).second;
 }
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
@@ -495,7 +496,6 @@ SatLiteral TseitinCnfStream::toCNF(TNode node, bool negated) {
   Debug("cnf") << "toCNF(" << node << ", negated = " << (negated ? "true" : "false") << ")" << endl;
 
   SatLiteral nodeLit;
-  Node negatedNode = node.notNode();
 
   // If the non-negated node has already been translated, get the translation
   if(isCached(node)) {
@@ -692,7 +692,15 @@ void TseitinCnfStream::convertAndAssertIte(TNode node, bool lemma, bool negated)
 void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
   Debug("cnf") << "convertAndAssert(" << node << ", negated = " << (negated ? "true" : "false") << ")" << endl;
   d_assertingLemma = lemma;
-  cachePureTranslation(node);
+
+  if (node.getKind() != NOT) {
+    // We cache and check all translations but NOT expressions, which are
+    // special. If we would cache the not, cache(!a, false), next call would be
+    // cache(a, true) which would return true, and we wouldn't add anything.
+    bool added = cachePureTranslation(node, negated);
+    if (!added) return;
+  }
+
   switch(node.getKind()) {
   case AND:
     convertAndAssertAnd(node, lemma, negated);

@@ -216,4 +216,31 @@ void testXor() {
       d_nodeManager->mkNode(kind::XOR, a, b), false );
   TS_ASSERT( d_satSolver->addClauseCalled() );
 }
+
+void testDuplicate() {
+  NodeManagerScope nms(d_nodeManager);
+  Node a = d_nodeManager->mkVar(d_nodeManager->booleanType());
+  Node b = d_nodeManager->mkVar(d_nodeManager->booleanType());
+  d_cnfStream->convertAndAssert(
+      d_nodeManager->mkNode(kind::OR, a, b), false );
+  TS_ASSERT( d_satSolver->addClauseCalled() );
+  d_satSolver->reset();
+  d_cnfStream->convertAndAssert(
+      d_nodeManager->mkNode(kind::OR, a, b), false );
+  TS_ASSERT( !d_satSolver->addClauseCalled() );
+}
+
+void testNodeAndNegated() {
+  NodeManagerScope nms(d_nodeManager);
+  Node a = d_nodeManager->mkVar(d_nodeManager->booleanType());
+  Node b = d_nodeManager->mkVar(d_nodeManager->booleanType());
+  d_cnfStream->convertAndAssert(
+      d_nodeManager->mkNode(kind::OR, a, b), false );
+  TS_ASSERT( d_satSolver->addClauseCalled() );
+  d_satSolver->reset();
+  d_cnfStream->convertAndAssert(
+      d_nodeManager->mkNode(kind::OR, a, b).notNode(), false );
+  TS_ASSERT( d_satSolver->addClauseCalled() );
+}
+
 };

@@ -107,19 +107,21 @@ int Solver::addClause(vec<Lit>& ps, ClauseType type)
     else{
         // Check if clause is satisfied and remove false/duplicate literals:
         sort(ps);
-        if (type == CLAUSE_PROBLEM){
-            Lit p; int i, j;
-            for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
-                // Only if assignment was made at level 0
-                if (level[var(ps[i])] == 0) {
-                    if (value(ps[i]) == l_True || ps[i] == ~p)
-                        return 0;
-                    else if (value(ps[i]) != l_False && ps[i] != p)
-                        ps[j++] = p = ps[i];
-                } else
-                  ps[j++] = p = ps[i];
-            ps.shrink(i - j);
-        }
+        Lit p; int i, j;
+        for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
+            if (value(ps[i]) == l_True || ps[i] == ~p) {
+                // lemmas are not allowed to use literals already assigned,
+                // or redundant clauses
+                assert(type != CLAUSE_LEMMA);
+                return 0;
+            }
+            else if (value(ps[i]) != l_False && ps[i] != p) {
+                ps[j++] = p = ps[i];
+            } else {
+                // lemmas are not allowed to use literals already assigned
+                assert(type != CLAUSE_LEMMA);
+            }
+        ps.shrink(i - j);
     }
 
     if (ps.size() == 0){
