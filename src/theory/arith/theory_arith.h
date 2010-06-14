@@ -30,6 +30,7 @@
 #include "theory/arith/tableau.h"
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/partial_model.h"
+#include "theory/arith/arith_propagator.h"
 
 #include <vector>
 #include <queue>
@@ -67,7 +68,7 @@ private:
   Tableau d_tableau;
   ArithRewriter d_rewriter;
 
-
+  ArithUnatePropagator d_propagator;
 
 public:
   TheoryArith(context::Context* c, OutputChannel& out);
@@ -78,7 +79,7 @@ public:
   void preRegisterTerm(TNode n);
   void registerTerm(TNode n);
   void check(Effort e);
-  void propagate(Effort e) { Unimplemented(); }
+  void propagate(Effort e);
   void explain(TNode n, Effort e) { Unimplemented(); }
 
 private:

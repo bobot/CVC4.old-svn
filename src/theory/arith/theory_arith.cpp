@@ -34,6 +34,7 @@
 #include "theory/arith/basic.h"
 
 #include "theory/arith/arith_rewriter.h"
+#include "theory/arith/arith_propagator.h"
 
 #include "theory/arith/theory_arith.h"
 #include <map>
@@ -57,10 +58,12 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_constants(NodeManager::currentNM()),
   d_partialModel(c),
   d_diseq(c),
-  d_rewriter(&d_constants)
+  d_rewriter(&d_constants),
+  d_propagator(c)
 {
   uint64_t ass_id = partial_model::Assignment::getId();
   Debug("arithsetup") << "Assignment: " << ass_id << std::endl;
+  Debug("arithsetup") << "EagerlySplitUpon.getId(): " << EagerlySplitUpon().getId() << std::endl;
 
 }
 TheoryArith::~TheoryArith(){
@@ -137,6 +140,8 @@ void TheoryArith::preRegisterTerm(TNode n) {
     Assert(isNormalAtom(n));
 
 
+    d_propagator.addAtom(n);
+
     TNode left  = n[0];
     TNode right = n[1];
     if(left.getKind() == PLUS){
@@ -162,7 +167,6 @@ void TheoryArith::setupSlack(TNode left){
   makeBasic(slack);
 
   Node slackEqLeft = NodeManager::currentNM()->mkNode(EQUAL,slack,left);
-  slackEqLeft.setAttribute(TheoryArithPropagated(), true);
 
   Debug("slack") << "slack " << slackEqLeft << endl;
 
@@ -624,11 +628,13 @@ void TheoryArith::check(Effort level){
 
   while(!done() && !conflictDuringAnAssert){
     //checkTableau();
+
     Node original = get();
     Node assertion = simulatePreprocessing(original);
     Debug("arith_assertions") << "arith assertion(" << original
                               << " \\-> " << assertion << ")" << std::endl;
 
+    d_propagator.assertLiteral(original);
     d_preprocessed.push_back(assertion);
 
     switch(assertion.getKind()){
@@ -774,5 +780,17 @@ void TheoryArith::checkTableau(){
     Debug("paranoid:check_tableau") << "ending row" << sum << "," << shouldBe << endl;
 
     Assert(sum == shouldBe);
+  }
+}
+
+void TheoryArith::propagate(Effort e) {
+
+  if(quickCheckOrMore(e)){
+    std::vector<Node> implied = d_propagator.getImpliedLiterals();
+    for(std::vector<Node>::iterator i = implied.begin();
+        i != implied.end();
+        ++i){
+      d_out->propagate(*i);
+    }
   }
 }
