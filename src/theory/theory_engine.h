@@ -306,7 +306,8 @@ public:
   }
 
   inline void newLemma(TNode node) {
-    d_propEngine->assertLemma(node);
+    Node preprocessed = preprocess(node);
+    d_propEngine->assertLemma(preprocessed);
   }
   inline void newAugmentingLemma(TNode node) {
     Node preprocessed = preprocess(node);

@@ -109,6 +109,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
                              << n << ")" << endl;
 
   Kind k = n.getKind();
+  /*
   if(n.getKind() == EQUAL){
     if(!n.getAttribute(EagerlySplitUpon())){
       TNode left = n[0];
@@ -124,7 +125,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
       n.setAttribute(EagerlySplitUpon(), true);
       d_out->augmentingLemma(eagerSplit);
     }
-  }
+  }*/
 
   if(n.getMetaKind() == metakind::VARIABLE){
 
@@ -622,7 +623,7 @@ void TheoryArith::check(Effort level){
 
   bool conflictDuringAnAssert = false;
 
-  while(!done()){
+  while(!done()  && !conflictDuringAnAssert){
     //checkTableau();
     Node original = get();
     Node assertion = simulatePreprocessing(original);
@@ -633,14 +634,16 @@ void TheoryArith::check(Effort level){
 
     switch(assertion.getKind()){
     case LEQ:
-      conflictDuringAnAssert |= AssertUpper(assertion, original);
+      conflictDuringAnAssert = AssertUpper(assertion, original);
       break;
     case GEQ:
-      conflictDuringAnAssert |= AssertLower(assertion, original);
+      conflictDuringAnAssert = AssertLower(assertion, original);
       break;
     case EQUAL:
-      conflictDuringAnAssert |= AssertUpper(assertion, original);
-      conflictDuringAnAssert |= AssertLower(assertion, original);
+      conflictDuringAnAssert = AssertUpper(assertion, original);
+      if(!conflictDuringAnAssert){
+        conflictDuringAnAssert = AssertLower(assertion, original);
+      }
       break;
     case NOT:
       {
@@ -649,17 +652,17 @@ void TheoryArith::check(Effort level){
         case LEQ: //(not (LEQ x c)) <=> (GT x c)
           {
             Node pushedin = pushInNegation(assertion);
-            conflictDuringAnAssert |= AssertLower(pushedin,original);
+            conflictDuringAnAssert = AssertLower(pushedin,original);
             break;
           }
         case GEQ: //(not (GEQ x c) <=> (LT x c)
           {
             Node pushedin = pushInNegation(assertion);
-            conflictDuringAnAssert |= AssertUpper(pushedin,original);
+            conflictDuringAnAssert = AssertUpper(pushedin,original);
             break;
           }
         case EQUAL:
-          d_diseq.push_back(assertion);
+          d_diseq.push_back(original);
           break;
         default:
           Unhandled();
@@ -674,6 +677,8 @@ void TheoryArith::check(Effort level){
     if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
     d_partialModel.revertAssignmentChanges();
     if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
+
+    while(!done()){ get(); }
 
     //return
     return;
@@ -693,6 +698,7 @@ void TheoryArith::check(Effort level){
 
       Debug("arith_conflict") << "Found a conflict "
                               << possibleConflict << endl;
+      return;
     }else{
       if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
 
@@ -704,37 +710,38 @@ void TheoryArith::check(Effort level){
     }
   }
 
-  // if(fullEffort(level)){
-//     bool enqueuedCaseSplit = false;
-//     typedef context::CDList<Node>::const_iterator diseq_iterator;
-//     for(diseq_iterator i = d_diseq.begin(); i!= d_diseq.end(); ++i){
+  if(fullEffort(level)){
+    typedef context::CDList<Node>::const_iterator diseq_iterator;
+    for(diseq_iterator i = d_diseq.begin(); i!= d_diseq.end(); ++i){
 
-//       Node assertion = *i;
-//       Debug("arith") << "splitting"  << assertion << endl;
-//       TNode eq = assertion[0];
-//       TNode x_i = eq[0];
-//       TNode c_i = eq[1];
-//       DeltaRational constant =  c_i.getConst<Rational>();
-//       Debug("arith") << "broken apart" << endl;
-//       if(d_partialModel.getAssignment(x_i) == constant){
-//         Debug("arith") << "here" << endl;
-//         enqueuedCaseSplit = true;
-//         Node lt = NodeManager::currentNM()->mkNode(LT,x_i,c_i);
-//         Node gt = NodeManager::currentNM()->mkNode(GT,x_i,c_i);
-//         Node caseSplit = NodeManager::currentNM()->mkNode(OR, eq, lt, gt);
-//         //d_out->enqueueCaseSplits(caseSplit);
-//         Debug("arith") << "finished" << caseSplit << endl;
-//       }
-//       Debug("arith") << "end of for loop" << endl;
+      Node assertion = *i;
+      Debug("arith_split") << "splitting"  << assertion << endl;
+      TNode eq = assertion[0];
+      TNode left = eq[0];
+      TNode x_i;
 
-//     }
-//     Debug("arith") << "finished" << endl;
+      if(left.getMetaKind() != metakind::VARIABLE){
+        Assert(left.hasAttribute(Slack()));
+        x_i = left.getAttribute(Slack());
+      }else{
+        x_i = left;
+      }
 
-//     if(enqueuedCaseSplit){
-//       //d_out->caseSplit();
-//       //Warning() << "Outstanding case split in theory arith" << endl;
-//     }
-//   }
+      TNode c_i = eq[1];
+      DeltaRational constant =  c_i.getConst<Rational>();
+
+      if(d_partialModel.getAssignment(x_i) == constant){
+
+        Node lt = NodeManager::currentNM()->mkNode(LT,left,c_i);
+        Node gt = NodeManager::currentNM()->mkNode(GT,left,c_i);
+        Node caseSplit = NodeManager::currentNM()->mkNode(OR, eq, lt, gt);
+        d_out->lemma(caseSplit);
+        Debug("arith_split") << "finished" << caseSplit << endl;
+      }
+      Debug("arith_split") << "end of for loop" << endl;
+
+    }
+  }
 
   Debug("arith") << "TheoryArith::check end" << std::endl;
 
