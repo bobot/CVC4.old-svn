@@ -20,7 +20,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "Solver.h"
 #include "Sort.h"
 #include "prop/sat.h"
+#include "util/proof.h"
 #include <cmath>
+#include <iostream>
 
 //=================================================================================================
 // Constructor/Destructor:
@@ -28,6 +30,18 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 namespace CVC4 {
 namespace prop {
 namespace minisat {
+
+// printing methods
+
+
+void printClause2(Clause* c){
+  for (int i=0;i<c->size();i++){
+    Lit a = (*c)[i];
+    std::cout<<sign(a)<<"-v"<<var(a)<<"  ";
+  }
+  std::cout<<"\n";
+}
+
 
 Solver::Solver(SatSolver* proxy, context::Context* context) :
 
@@ -67,6 +81,7 @@ Solver::~Solver()
 {
     for (int i = 0; i < learnts.size(); i++) free(learnts[i]);
     for (int i = 0; i < clauses.size(); i++) free(clauses[i]);
+
 }
 
 
@@ -252,13 +267,19 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
 
     // Generate conflict clause:
     //
+    trace_reasons.clear();
     out_learnt.push();      // (leave room for the asserting literal)
     int index   = trail.size() - 1;
     out_btlevel = 0;
 
+    std::cout<<"ORIG CONFLICT ";
+    printClause(*confl);
+    std::cout<<"\n";
     do{
         assert(confl != NULL);          // (otherwise should be UIP)
         Clause& c = *confl;
+        
+        trace_reasons.push(confl);
 
         if (c.learnt())
             claBumpActivity(c);
@@ -280,27 +301,40 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
         }
 
         // Select next clause to look at:
+        // gets the latest assigned variable that has been seen so far -lh
         while (!seen[var(trail[index--])]);
         p     = trail[index+1];
         confl = reason[var(p)];
         seen[var(p)] = 0;
         pathC--;
 
-    }while (pathC > 0);
+    }while (pathC > 0); // means you only have one literal at the current decision level, that is the clause will be an asserting clause
     out_learnt[0] = ~p;
 
     // Simplify conflict clause:
     //
-    int i, j;
+    int i, j, minim_res_ctr;
+
+		std::cout<<"Orig conflict clause ";
+    for(int k=0; k<out_learnt.size();k++){
+     		printLit(out_learnt[k]);
+     		std::cout<<" ";
+    }
+    std::cout<<"\n";
+
+    //if(false){
     if (expensive_ccmin){
         uint32_t abstract_level = 0;
         for (i = 1; i < out_learnt.size(); i++)
             abstract_level |= abstractLevel(var(out_learnt[i])); // (maintain an abstraction of levels involved in conflict)
 
         out_learnt.copyTo(analyze_toclear);
-        for (i = j = 1; i < out_learnt.size(); i++)
-            if (reason[var(out_learnt[i])] == NULL || !litRedundant(out_learnt[i], abstract_level))
-                out_learnt[j++] = out_learnt[i];
+        minim_res_ctr = find_removable(out_learnt, abstract_level);
+        j = prune_removable(out_learnt);
+        
+        //for (i = j = 1; i < out_learnt.size(); i++)
+        //    if (reason[var(out_learnt[i])] == NULL || !litRedundant(out_learnt[i], abstract_level))
+        //       out_learnt[j++] = out_learnt[i];
     }else{
         out_learnt.copyTo(analyze_toclear);
         for (i = j = 1; i < out_learnt.size(); i++){
@@ -312,8 +346,17 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
         }
     }
     max_literals += out_learnt.size();
-    out_learnt.shrink(i - j);
+    //out_learnt.shrink(i - j);
+    out_learnt.shrink(out_learnt.size() - j);
     tot_literals += out_learnt.size();
+
+		std::cout<<"Min cc ";
+    for(int k=0; k<out_learnt.size();k++){
+     		printLit(out_learnt[k]);
+     		std::cout<<" ";
+    }
+    std::cout<<"\n";
+        
 
     // Find correct backtrack level:
     //
@@ -332,7 +375,144 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
 
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
+    // print trace
+    std::cout<<"Conflict resolution \n";
+    for (int i=0; i< trace_reasons.size(); i++){
+    	printClause(*(trace_reasons[i]));
+    	std::cout<<"\n";
+    }
 }
+
+
+ int  Solver::prune_removable(vec<Lit>& out_learnt) {
+         int i, j, sz = out_learnt.size();
+         j = 1;
+         for (i = 1; i < sz; i++) {
+             if ((seen[var(out_learnt[i])] & (1|2)) == (1|2)) {
+                 assert((seen[var(out_learnt[i])] & (4|8)) == 0);
+                 out_learnt[j++] = out_learnt[i];
+             }
+         }
+     //if (j != sz) {
+     //  reportf("prune out_learnt[%d]=%d\n", j-1, toInt(out_learnt[j-1]));}
+         return j; 
+     }
+
+     int  Solver::find_removable(vec<Lit>& out_learnt, uint32_t abstract_level) {
+         int found_some;
+         found_some = 0;
+         int sz = out_learnt.size();
+         int i;
+         trace_lits_minim.clear();
+         for (i = 1; i < sz; i++) {
+             Lit curLit = out_learnt[i];
+             if (level[var(curLit)] <= 0)
+                 continue;
+     
+             if ((seen[var(curLit)] & (2|4|8)) == 0) {
+                 found_some |= dfs_removable(curLit, abstract_level);
+             }
+         }
+         int minim_res_ctr;
+         std::cout<<"found "<<found_some<<"\n";
+         if (found_some)
+            minim_res_ctr = res_removable();
+         else
+            minim_res_ctr = 0;
+         return minim_res_ctr;
+     }
+
+     int  Solver::quick_keeper(Lit p, uint32_t abstract_level, int maykeep) {
+         // See if I can kill myself right away.
+         // maykeep == 1 if I am in the original conflict clause.
+         if (reason[var(p)] == NULL) {
+             return (maykeep ? 2 : 8);
+         } else if ((abstractLevel(var(p)) & abstract_level) == 0) {
+             assert(maykeep == 0);
+             return 8;
+         } else {
+             return 0;
+         }
+     }
+
+     int  Solver::dfs_removable(Lit p, uint32_t abstract_level) {
+         int pseen = seen[var(p)];
+         assert((pseen & (2|4|8)) == 0);
+         int maykeep = pseen & (1);
+         int pstatus;
+         pstatus = quick_keeper(p, abstract_level, maykeep);
+         if (pstatus) {
+             seen[var(p)] |= (char) pstatus;
+             if (pseen == 0) analyze_toclear.push(p);
+             return 0;
+         }
+     
+         int found_some;
+         found_some = 0;
+         pstatus = 4;
+         Clause& rp = *reason[var(p)];
+         int sz = rp.size();
+         int i;
+         // rp[0] is p.  The rest of rp are predecessors of p.
+         for (i = 1; i < sz; i++) {
+             Lit q = rp[i];
+             if (level[var(q)] <= 0)
+                 continue;
+     
+             if ((seen[var(q)] & (2|4|8)) == 0) {
+                 found_some |= dfs_removable(q, abstract_level);
+             }
+             int qseen = seen[var(q)];
+             if (qseen & (8)) {
+                 pstatus = (maykeep ? 2 : 8);
+                 break;
+              }
+              assert((qseen & (2|4)));
+         }
+         if (pstatus == 4) {
+             // We might want to resolve p out.  See res_removable().
+             trace_lits_minim.push(p);
+         }
+         seen[var(p)] |= (char) pstatus;
+         if (pseen == 0) analyze_toclear.push(p);
+         found_some |= maykeep;
+         return found_some;
+     }
+
+     void  Solver::mark_needed_removable(Lit p) {
+         Clause& rp = *reason[var(p)];
+         for (int i = 1; i < rp.size(); i++){
+             Lit q  = rp[i];
+             if (level[var(q)] <= 0)
+                 continue;
+     
+             int qseen = seen[var(q)];
+             if ((qseen & (1)) == 0 && reason[var(q) ] != NULL) {
+                     seen[var(q)] |= 1;
+                     if (qseen == 0) analyze_toclear.push(q);
+             }
+         }
+         return;
+     }
+
+
+     int  Solver::res_removable(void) {
+         int minim_res_ctr = 0;
+         while (trace_lits_minim.size() > 0){
+             Lit p = trace_lits_minim.last();
+             assert(reason[var(p)] != NULL);
+             trace_lits_minim.pop();
+             int pseen = seen[var(p)];
+             if (pseen & (1)) {
+                 minim_res_ctr ++;
+                 trace_reasons.push(reason[var(p)]);
+                 std::cout<<"1";
+                 mark_needed_removable(p);
+             }
+         }
+         std::cout<<"Min res "<<minim_res_ctr<<"\n";
+         return minim_res_ctr;
+     }
 
 
 // Check if 'p' can be removed. 'abstract_levels' is used to abort early if the algorithm is
@@ -356,12 +536,17 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
                     for (int j = top; j < analyze_toclear.size(); j++)
                         seen[var(analyze_toclear[j])] = 0;
                     analyze_toclear.shrink(analyze_toclear.size() - top);
+                    // remove stuff stored for trace
                     return false;
                 }
             }
+           else{
+           // check if it was unit literal or something you have seen
+           // store it for the trace
+           }
         }
     }
-
+		// TODO: construct trace from unit literals stored 
     return true;
 }
 
@@ -746,7 +931,15 @@ bool Solver::solve(const vec<Lit>& assumps)
     if (!ok) return false;
 
     assumps.copyTo(assumptions);
-
+ 
+    std::cout<<assumps.size()<<" - assumps \n";
+    std::cout<<"Clauses \n";
+    for (int i = 0; i < clauses.size(); i++) 
+    	{
+    		printClause(*clauses[i]);
+    		std::cout<<"\n";    		
+    	}
+    
     double  nof_conflicts = restart_first;
     double  nof_learnts   = nClauses() * learntsize_factor;
     lbool   status        = l_Undef;
@@ -829,6 +1022,8 @@ void Solver::checkLiteralCount()
         assert((int)clauses_literals == cnt);
     }
 }
+
+
 
 }/* CVC4::prop::minisat namespace */
 }/* CVC4::prop namespace */

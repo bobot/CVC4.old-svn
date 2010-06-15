@@ -206,6 +206,17 @@ protected:
     void     claDecayActivity ();                      // Decay all clauses with the specified factor. Implemented by increasing the 'bump' value instead.
     void     claBumpActivity  (Clause& c);             // Increase a clause with the current 'bump' value.
 
+    // AVG routines for new DFS analyze conflict and proof logging 
+    // by lianah
+    vec<Clause*>        trace_reasons; // clauses to resolve to give CC
+    vec<Lit>            trace_lits_minim; // lits maybe used in minimization
+    int  prune_removable(vec<Lit>& out_learnt);
+    int  find_removable(vec<Lit>& out_learnt, uint32_t abstract_level);
+    int  quick_keeper(Lit p, uint32_t abstract_level, int maykeep);
+    int  dfs_removable(Lit p, uint32_t abstract_level);
+    void  mark_needed_removable(Lit p);
+    int  res_removable(void);
+
     // Operations on clauses:
     //
     void     attachClause     (Clause& c);             // Attach a clause to watcher lists.
