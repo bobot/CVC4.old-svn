@@ -70,8 +70,6 @@ private:
   ArithRewriter d_rewriter;
 
 
-  IntStat statPivots, statUpdates, statAssertUpperConflicts;
-  IntStat statAssertLowerConflicts, statUpdateConflicts;
 
 
 public:
@@ -117,6 +115,18 @@ private:
 
   //TODO get rid of this!
   Node simulatePreprocessing(TNode n);
+
+
+  /** These fields are designed to be accessable to TheoryArith methods. */
+  class Statistics {
+  public:
+    IntStat d_statPivots, d_statUpdates, d_statAssertUpperConflicts;
+    IntStat d_statAssertLowerConflicts, d_statUpdateConflicts;
+
+    Statistics();
+  };
+
+  Statistics d_statistics;
 
 };
 

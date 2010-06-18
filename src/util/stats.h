@@ -1,3 +1,23 @@
+/*********************                                                        */
+/*! \file stats.h
+ ** \verbatim
+ ** Original author: taking
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** rief [[ Add one-line brief description here ]]
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
+ **/
+
+#include "cvc4_public.h"
 
 #ifndef __CVC4__STATS_H
 #define __CVC4__STATS_H
@@ -117,6 +137,7 @@ public:
   }
 };
 
+/** T must have an operator=() and a copy constructor. */
 template <class T>
 class BackedStat: public DataStat<T>{
 protected:
@@ -131,6 +152,13 @@ public:
     if(USE_STATISTICS){
       d_data = t;
     }
+  }
+
+  BackedStat<T>& operator=(const T& t){
+    if(USE_STATISTICS){
+      d_data = t;
+    }
+    return *this;
   }
 
   const T& getData() const{
@@ -160,6 +188,22 @@ public:
       d_data+= val;
     }
     return *this;
+  }
+
+  void maxAssign(int64_t val){
+    if(USE_STATISTICS){
+      if(d_data < val){
+        d_data = val;
+      }
+    }
+  }
+
+  void minAssign(int64_t val){
+    if(USE_STATISTICS){
+      if(d_data > val){
+        d_data = val;
+      }
+    }
   }
 };
 
