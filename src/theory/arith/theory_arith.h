@@ -31,6 +31,8 @@
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/partial_model.h"
 
+#include "util/stats.h"
+
 #include <vector>
 #include <queue>
 
@@ -68,7 +70,8 @@ private:
   ArithRewriter d_rewriter;
 
 
-  uint64_t statPivots, statUpdates, statAssertUpperConflicts,statAssertLowerConflicts, statUpdateConflicts;
+  IntStat statPivots, statUpdates, statAssertUpperConflicts;
+  IntStat statAssertLowerConflicts, statUpdateConflicts;
 
 
 public:
@@ -83,11 +86,7 @@ public:
   void propagate(Effort e) { Unimplemented(); }
   void explain(TNode n, Effort e) { Unimplemented(); }
 
-  void shutdown(){
-    printTheoryArithStatistics(std::cout);
-  }
-
-  void printTheoryArithStatistics(std::ostream& out) const;
+  void shutdown(){ }
 
 
 private:

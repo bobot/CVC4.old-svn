@@ -32,6 +32,8 @@
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
 
+#include "util/stats.h"
+
 namespace CVC4 {
 
 // In terms of abstraction, this is below (and provides services to)
@@ -74,26 +76,26 @@ class TheoryEngine {
     void conflict(TNode conflictNode, bool safe) throw(theory::Interrupted, AssertionException) {
       Debug("theory") << "EngineOutputChannel::conflict(" << conflictNode << ")" << std::endl;
       d_conflictNode = conflictNode;
-      d_engine->statConflicts++;
+      ++(d_engine->statConflicts);
       if(safe) {
         throw theory::Interrupted();
       }
     }
 
     void propagate(TNode, bool) throw(theory::Interrupted, AssertionException) {
-      d_engine->statPropagate++;
+      ++(d_engine->statPropagate);
     }
 
     void lemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
-      d_engine->statLemma++;
+      ++(d_engine->statLemma);
       d_engine->newLemma(node);
     }
     void augmentingLemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
-      d_engine->statAugLemma++;
+      ++(d_engine->statAugLemma);
       d_engine->newAugmentingLemma(node);
     }
     void explanation(TNode, bool) throw(theory::Interrupted, AssertionException) {
-      d_engine->statExplanatation++;
+      ++(d_engine->statExplanatation);
     }
   };
 
@@ -107,10 +109,8 @@ class TheoryEngine {
   theory::arrays::TheoryArrays d_arrays;
   theory::bv::TheoryBV d_bv;
 
-  uint64_t statConflicts, statPropagate, statLemma, statAugLemma, statExplanatation;
+  IntStat statConflicts, statPropagate, statLemma, statAugLemma, statExplanatation;
 
-
-  void printTheoryStatistics(std::ostream &out);
 
   /**
    * Check whether a node is in the rewrite cache or not.
@@ -203,17 +203,23 @@ public:
     d_arith(ctxt, d_theoryOut),
     d_arrays(ctxt, d_theoryOut),
     d_bv(ctxt, d_theoryOut),
-    statConflicts(0),
-    statPropagate(0),
-    statLemma(0),
-    statAugLemma(0),
-    statExplanatation(0) {
+    statConflicts("theory::conlficts",0),
+    statPropagate("theory::propagate",0),
+    statLemma("theory::lemma",0),
+    statAugLemma("theory::aug_lemma", 0),
+    statExplanatation("theory::explanation", 0) {
 
     d_theoryOfTable.registerTheory(&d_bool);
     d_theoryOfTable.registerTheory(&d_uf);
     d_theoryOfTable.registerTheory(&d_arith);
     d_theoryOfTable.registerTheory(&d_arrays);
     d_theoryOfTable.registerTheory(&d_bv);
+
+    StatisticsRegistry::registerStat(&statConflicts);
+    StatisticsRegistry::registerStat(&statPropagate);
+    StatisticsRegistry::registerStat(&statLemma);
+    StatisticsRegistry::registerStat(&statAugLemma);
+    StatisticsRegistry::registerStat(&statExplanatation);
   }
 
   void setPropEngine(prop::PropEngine* propEngine)
@@ -228,8 +234,6 @@ public:
    * ordering issues between PropEngine and Theory.
    */
   void shutdown() {
-    printTheoryStatistics(std::cout);
-
     d_bool.shutdown();
     d_uf.shutdown();
     d_arith.shutdown();
