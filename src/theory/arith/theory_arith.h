@@ -80,7 +80,7 @@ public:
   void registerTerm(TNode n);
   void check(Effort e);
   void propagate(Effort e);
-  void explain(TNode n, Effort e) { Unimplemented(); }
+  void explain(TNode n, Effort e);
 
 private:
   bool AssertLower(TNode n, TNode orig);

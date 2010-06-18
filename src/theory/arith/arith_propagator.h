@@ -20,6 +20,8 @@ private:
   context::CDO<unsigned int> d_pendingAssertions;
   context::CDList<Node> d_assertions;
 
+  std::vector<Node> d_saver;
+
 public:
   ArithUnatePropagator(context::Context* cxt);
 
@@ -28,6 +30,8 @@ public:
   void assertLiteral(TNode lit);
 
   std::vector<Node> getImpliedLiterals();
+
+  Node explain(TNode lit);
 
 private:
   void addImplication(TNode a0, TNode a1);
@@ -62,6 +66,9 @@ typedef expr::Attribute<PropagatorRegisteredAtomsID,
 
 struct PropagatorMarkedID {};
 typedef expr::CDAttribute<PropagatorMarkedID, bool> PropagatorMarked;
+
+struct PropagatorExplanationID {};
+typedef expr::CDAttribute<PropagatorExplanationID, Node> PropagatorExplanation;
 
 }/* CVC4::theory::arith::propagator */
 }/* CVC4::theory::arith namespace */

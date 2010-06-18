@@ -122,6 +122,9 @@ void ArithUnatePropagator::addAtom(TNode atom){
   TNode left = atom[0];
   Node negation = NodeManager::currentNM()->mkNode(kind::NOT,atom);
 
+
+  d_saver.push_back(negation);
+
   std::vector<Node>* posImp = new std::vector<Node>();
   std::vector<Node>* negImp = new std::vector<Node>();
 
@@ -154,6 +157,7 @@ void ArithUnatePropagator::addAtom(TNode atom){
   Debug("propagator") << propagator::IsInPropagator().getId()<< std::endl;
 
 }
+ 
 
 
 
@@ -186,9 +190,22 @@ std::vector<Node> ArithUnatePropagator::getImpliedLiterals(){
         blah.setAttribute(propagator::PropagatorMarked(),true);
         newlyImplied.push_back(blah);
         impliedButNotAsserted.push_back(blah);
+
+        Node explanation;
+        if(newAssertion.getAttribute(propagator::PropagatorExplanation(), explanation)){
+          blah.setAttribute(propagator::PropagatorExplanation(), explanation);
+        }else{
+          blah.setAttribute(propagator::PropagatorExplanation(), newAssertion);
+        }
       }
     }
   }
 
   return impliedButNotAsserted;
+}
+
+Node ArithUnatePropagator::explain(TNode lit){
+  Assert(lit.hasAttribute(propagator::PropagatorExplanation()));
+
+  return lit.getAttribute(propagator::PropagatorExplanation());
 }

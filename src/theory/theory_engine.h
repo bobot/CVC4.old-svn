@@ -62,13 +62,15 @@ class TheoryEngine {
     TheoryEngine* d_engine;
     context::Context* d_context;
     context::CDO<Node> d_conflictNode;
+    context::CDO<Node> d_explanationNode;
 
   public:
 
     EngineOutputChannel(TheoryEngine* engine, context::Context* context) :
       d_engine(engine),
       d_context(context),
-      d_conflictNode(context) {
+      d_conflictNode(context),
+      d_explanationNode(context){
     }
 
     void conflict(TNode conflictNode, bool safe) throw(theory::Interrupted, AssertionException) {
@@ -79,7 +81,8 @@ class TheoryEngine {
       }
     }
 
-    void propagate(TNode, bool) throw(theory::Interrupted, AssertionException) {
+    void propagate(TNode lit, bool) throw(theory::Interrupted, AssertionException) {
+      d_engine->propagate(lit);
     }
 
     void lemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
@@ -88,7 +91,8 @@ class TheoryEngine {
     void augmentingLemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
       d_engine->newAugmentingLemma(node);
     }
-    void explanation(TNode, bool) throw(theory::Interrupted, AssertionException) {
+    void explanation(TNode explanationNode, bool) throw(theory::Interrupted, AssertionException) {
+      d_explanationNode = explanationNode;
     }
   };
 
@@ -317,6 +321,16 @@ public:
    */
   inline Node getConflict() {
     return d_theoryOut.d_conflictNode;
+  }
+
+  inline void propagate(TNode node){
+    //d_propEngine->setLiteral(node);
+  }
+  inline Node getExplanation(TNode node){
+    theory::Theory* theory = theoryOf(node);
+    d_theoryOut.d_explanationNode = Node::null();
+    theory->explain(node);
+    return d_theoryOut.d_explanationNode;
   }
 
 };/* class TheoryEngine */
