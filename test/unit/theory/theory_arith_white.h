@@ -8,6 +8,8 @@
 #include "context/context.h"
 #include "util/rational.h"
 
+#include "theory/theory_test_utils.h"
+
 #include <vector>
 
 using namespace CVC4;
@@ -18,61 +20,6 @@ using namespace CVC4::context;
 using namespace CVC4::kind;
 
 using namespace std;
-
-/**
- * Very basic OutputChannel for testing simple Theory Behaviour.
- * Stores a call sequence for the output channel
- */
-enum OutputChannelCallType { CONFLICT, PROPOGATE, AUG_LEMMA, LEMMA, EXPLANATION };
-class TestOutputChannel : public OutputChannel {
-private:
-  void push(OutputChannelCallType call, TNode n) {
-    d_callHistory.push_back(make_pair(call,n));
-  }
-public:
-  vector< pair<OutputChannelCallType, Node> > d_callHistory;
-
-  TestOutputChannel() {}
-
-  ~TestOutputChannel() {}
-
-  void safePoint()  throw(Interrupted, AssertionException) {}
-
-  void conflict(TNode n, bool safe = false)  throw(Interrupted, AssertionException) {
-    push(CONFLICT, n);
-  }
-
-  void propagate(TNode n, bool safe = false)  throw(Interrupted, AssertionException) {
-    push(PROPOGATE, n);
-  }
-
-  void lemma(TNode n, bool safe = false) throw(Interrupted, AssertionException) {
-    push(LEMMA, n);
-  }
-  void augmentingLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException){
-    push(AUG_LEMMA, n);
-  }
-  void explanation(TNode n, bool safe = false)  throw(Interrupted, AssertionException) {
-    push(EXPLANATION, n);
-  }
-
-  void clear() {
-    d_callHistory.clear();
-  }
-
-  Node getIthNode(int i) {
-    Node tmp = (d_callHistory[i]).second;
-    return tmp;
-  }
-
-  OutputChannelCallType getIthCallType(int i) {
-    return (d_callHistory[i]).first;
-  }
-
-  unsigned getNumCalls() {
-    return d_callHistory.size();
-  }
-};
 
 class TheoryArithWhite : public CxxTest::TestSuite {
 
@@ -283,9 +230,16 @@ public:
     d_arith->propagate(d_level);
 
 
-    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 1u);
+    TS_ASSERT_THROWS(  d_arith->explain(rLeq0, d_level), AssertionException );
+    d_arith->explain(rLeq1, d_level);
+    TS_ASSERT_THROWS(  d_arith->explain(rLt1, d_level), AssertionException );
+
+    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 2u);
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(0), PROPOGATE);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(1), EXPLANATION);
     TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), leq1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), rLt1);
+
 
   }
   void testTPLeq0() {
@@ -308,13 +262,20 @@ public:
     d_arith->propagate(d_level);
 
 
-    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 2u);
+    d_arith->explain(rLt1, d_level);
+    TS_ASSERT_THROWS(  d_arith->explain(rLeq0, d_level), AssertionException );
+    d_arith->explain(rLeq1, d_level);
+
+    TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 4u);
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(0), PROPOGATE);
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(1), PROPOGATE);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), EXPLANATION);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(3), EXPLANATION);
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), rLt1);
     TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), rLeq1);
-
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), rLeq0);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(3), rLeq0);
   }
   void testTPLeq1() {
     Node x = d_nm->mkVar(*d_realType);
@@ -335,8 +296,10 @@ public:
     d_arith->check(d_level);
     d_arith->propagate(d_level);
 
+    TS_ASSERT_THROWS(  d_arith->explain(rLeq0, d_level), AssertionException );
+    TS_ASSERT_THROWS(  d_arith->explain(rLeq1, d_level), AssertionException );
+    TS_ASSERT_THROWS(  d_arith->explain(rLt1, d_level), AssertionException );
 
     TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 0u);
-
   }
 };

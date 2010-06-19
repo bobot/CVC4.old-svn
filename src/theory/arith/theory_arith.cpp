@@ -788,7 +788,7 @@ void TheoryArith::explain(TNode n, Effort e) {
   Node explanation = d_propagator.explain(n);
   Debug("arith") << "arith::explain("<<explanation<<")->"
                  << explanation << endl;
-  d_out->propagate(explanation);
+  d_out->explanation(explanation, true);
 }
 
 void TheoryArith::propagate(Effort e) {
