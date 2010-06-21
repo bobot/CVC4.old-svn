@@ -15,6 +15,7 @@ libarith_la_SOURCES = \
 	delta_rational.cpp \
 	partial_model.h \
 	partial_model.cpp \
+	ordered_bounds_list.h \
 	basic.h \
 	normal.h \
 	slack.h \

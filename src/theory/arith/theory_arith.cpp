@@ -700,7 +700,7 @@ void TheoryArith::check(Effort level){
 
       if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
 
-      d_out->conflict(possibleConflict, true);
+      d_out->conflict(possibleConflict);
 
 
       Debug("arith_conflict") << "Found a conflict "

@@ -239,9 +239,9 @@ public:
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(1), EXPLANATION);
     TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), leq1);
     TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), rLt1);
-
-
   }
+
+
   void testTPLeq0() {
     Node x = d_nm->mkVar(*d_realType);
     Node c0 = d_nm->mkConst<Rational>(d_zero);
@@ -272,8 +272,10 @@ public:
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), EXPLANATION);
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(3), EXPLANATION);
 
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), rLt1);
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), rLeq1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), rLeq1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), rLt1);
+
+
     TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), rLeq0);
     TS_ASSERT_EQUALS(d_outputChannel.getIthNode(3), rLeq0);
   }
