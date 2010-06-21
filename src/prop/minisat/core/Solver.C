@@ -29,7 +29,27 @@ namespace CVC4 {
 namespace prop {
 namespace minisat {
 
-Clause* Solver::lazy_reason = reinterpret_cast<Clause*>(-1);
+Clause* Solver::lazy_reason = reinterpret_cast<Clause*>(1);
+
+Clause* Solver::getReason(Lit l)
+{
+    if (reason[var(l)] != lazy_reason) return reason[var(l)];
+    // Get the explanation from the theory
+    SatClause explanation;
+    if (value(l) == l_True) {
+      proxy->explainPropagation(l, explanation);
+      assert(explanation[0] == l);
+    } else {
+      proxy->explainPropagation(~l, explanation);
+      assert(explanation[0] == ~l);
+    }
+    Clause* real_reason = Clause_new(explanation, true);
+    reason[var(l)] = real_reason;
+    // Add it to the database
+    learnts.push(real_reason);
+    attachClause(*real_reason);
+    return real_reason;
+}
 
 Solver::Solver(SatSolver* proxy, context::Context* context) :
 
@@ -284,19 +304,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
         // Select next clause to look at:
         while (!seen[var(trail[index--])]);
         p     = trail[index+1];
-        confl = reason[var(p)];
-        if (confl == lazy_reason) {
-          // Get the explanation from the theory
-          SatClause explanation;
-          proxy->explainPropagation(p, explanation);
-          assert(explanation[0] == p);
-          confl = Clause_new(explanation, true);
-          // Set the reason for this variable
-          reason[var(p)] = confl;
-          // Add it to the database
-          learnts.push(confl);
-          attachClause(*confl);
-        }
+        confl = getReason(p);
         seen[var(p)] = 0;
         pathC--;
 
@@ -313,12 +321,12 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
 
         out_learnt.copyTo(analyze_toclear);
         for (i = j = 1; i < out_learnt.size(); i++)
-            if (reason[var(out_learnt[i])] == NULL || !litRedundant(out_learnt[i], abstract_level))
+            if (getReason(out_learnt[i]) == NULL || !litRedundant(out_learnt[i], abstract_level))
                 out_learnt[j++] = out_learnt[i];
     }else{
         out_learnt.copyTo(analyze_toclear);
         for (i = j = 1; i < out_learnt.size(); i++){
-            Clause& c = *reason[var(out_learnt[i])];
+            Clause& c = *getReason(out_learnt[i]);
             for (int k = 1; k < c.size(); k++)
                 if (!seen[var(c[k])] && level[var(c[k])] > 0){
                     out_learnt[j++] = out_learnt[i];
@@ -356,13 +364,13 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
     analyze_stack.clear(); analyze_stack.push(p);
     int top = analyze_toclear.size();
     while (analyze_stack.size() > 0){
-        assert(reason[var(analyze_stack.last())] != NULL);
+        assert(getReason(analyze_stack.last()) != NULL);
         Clause& c = *reason[var(analyze_stack.last())]; analyze_stack.pop();
 
         for (int i = 1; i < c.size(); i++){
             Lit p  = c[i];
             if (!seen[var(p)] && level[var(p)] > 0){
-                if (reason[var(p)] != NULL && (abstractLevel(var(p)) & abstract_levels) != 0){
+                if (getReason(p) != NULL && (abstractLevel(var(p)) & abstract_levels) != 0){
                     seen[var(p)] = 1;
                     analyze_stack.push(p);
                     analyze_toclear.push(p);

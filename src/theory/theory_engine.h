@@ -349,8 +349,9 @@ public:
   }
 
   inline Node getExplanation(TNode node){
-    theory::Theory* theory = theoryOf(node);
     d_theoryOut.d_explanationNode = Node::null();
+    theory::Theory* theory =
+              node.getKind() == kind::NOT ? theoryOf(node[0]) : theoryOf(node);
     theory->explain(node);
     return d_theoryOut.d_explanationNode;
   }

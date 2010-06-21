@@ -55,6 +55,7 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
   // If any literals, make a clause
   const unsigned i_end = outputNodes.size();
   for (unsigned i = 0; i < i_end; ++ i) {
+    Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i].toString() << endl;
     SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
     output.push_back(l);
   }
@@ -62,13 +63,19 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
 
 void SatSolver::explainPropagation(SatLiteral l, SatClause& explanation) {
   TNode lNode = d_cnfStream->getNode(l);
+  Debug("prop-explain") << "explainPropagation(" << lNode.toString() << ")" << endl;
   Node theoryExplanation = d_theoryEngine->getExplanation(lNode);
-  Assert(lNode.getKind() == kind::AND);
-  Node::const_iterator it = theoryExplanation.begin();
-  Node::const_iterator it_end = theoryExplanation.end();
-  explanation.push(l);
-  for (; it != it_end; ++ it) {
-    explanation.push(~d_cnfStream->getLiteral(*it));
+  Debug("prop-explain") << "explainPropagation() => " <<  theoryExplanation.toString() << endl;
+  if (lNode.getKind() == kind::AND) {
+    Node::const_iterator it = theoryExplanation.begin();
+    Node::const_iterator it_end = theoryExplanation.end();
+    explanation.push(l);
+    for (; it != it_end; ++ it) {
+      explanation.push(~d_cnfStream->getLiteral(*it));
+    }
+  } else {
+    explanation.push(l);
+    explanation.push(~d_cnfStream->getLiteral(theoryExplanation));
   }
 }
 

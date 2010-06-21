@@ -164,6 +164,8 @@ protected:
     static Clause*      lazy_reason;      // The mark when we need to ask the theory engine for a reason
     vec<Clause*>        reason;           // 'reason[var]' is the clause that implied the variables current value, lazy_reason if theory propagated, or 'NULL' if none.
 
+    Clause* getReason(Lit l);             // Returns the reason, or asks the theory for an explanation
+
     vec<int>            level;            // 'level[var]' contains the level at which the assignment was made.
     int                 qhead;            // Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
     int                 lhead;            // Head of the lemma stack (for backtracking)
