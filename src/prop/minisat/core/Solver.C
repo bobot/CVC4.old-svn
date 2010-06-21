@@ -289,6 +289,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
           // Get the explanation from the theory
           SatClause explanation;
           proxy->explainPropagation(p, explanation);
+          assert(explanation[0] == p);
           confl = Clause_new(explanation, true);
           // Set the reason for this variable
           reason[var(p)] = confl;
