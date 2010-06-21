@@ -64,6 +64,13 @@ class TheoryEngine {
     context::CDO<Node> d_conflictNode;
     context::CDO<Node> d_explanationNode;
 
+    /**
+     * Literals that are propagated by the theory. Note that these are TNodes.
+     * The theory can only propagate nodes that have an assigned literal in the
+     * sat solver and are hence referenced in the SAT solver.
+     */
+    std::vector<TNode> d_propagatedLiterals;
+
   public:
 
     EngineOutputChannel(TheoryEngine* engine, context::Context* context) :
@@ -82,7 +89,7 @@ class TheoryEngine {
     }
 
     void propagate(TNode lit, bool) throw(theory::Interrupted, AssertionException) {
-      d_engine->propagate(lit);
+      d_propagatedLiterals.push_back(lit);
     }
 
     void lemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
@@ -295,6 +302,7 @@ public:
   inline bool check(theory::Theory::Effort effort)
   {
     d_theoryOut.d_conflictNode = Node::null();
+    d_theoryOut.d_propagatedLiterals.clear();
     // Do the checking
     try {
       //d_bool.check(effort);
@@ -309,13 +317,23 @@ public:
     return d_theoryOut.d_conflictNode.get().isNull();
   }
 
+  inline const std::vector<TNode>& getPropagatedLiterals() const {
+    return d_theoryOut.d_propagatedLiterals;
+  }
+
+  void clearPropagatedLiterals() {
+    d_theoryOut.d_propagatedLiterals.clear();
+  }
+
   inline void newLemma(TNode node) {
     d_propEngine->assertLemma(node);
   }
+
   inline void newAugmentingLemma(TNode node) {
     Node preprocessed = preprocess(node);
     d_propEngine->assertFormula(preprocessed);
   }
+
   /**
    * Returns the last conflict (if any).
    */
@@ -323,9 +341,13 @@ public:
     return d_theoryOut.d_conflictNode;
   }
 
-  inline void propagate(TNode node){
-    //d_propEngine->setLiteral(node);
+  inline void propagate() {
+    d_theoryOut.d_propagatedLiterals.clear();
+    // Do the propagation
+    d_uf.propagate(theory::Theory::FULL_EFFORT);
+    d_arith.propagate(theory::Theory::FULL_EFFORT);
   }
+
   inline Node getExplanation(TNode node){
     theory::Theory* theory = theoryOf(node);
     d_theoryOut.d_explanationNode = Node::null();

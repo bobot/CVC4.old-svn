@@ -47,6 +47,35 @@ void SatSolver::theoryCheck(SatClause& conflict) {
   }
 }
 
+void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
+  // Propagate
+  d_theoryEngine->propagate();
+  // Get the propagated literals
+  const std::vector<TNode>& outputNodes = d_theoryEngine->getPropagatedLiterals();
+  // If any literals, make a clause
+  const unsigned i_end = outputNodes.size();
+  for (unsigned i = 0; i < i_end; ++ i) {
+    SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
+    output.push_back(l);
+  }
+}
+
+void SatSolver::explainPropagation(SatLiteral l, SatClause& explanation) {
+  TNode lNode = d_cnfStream->getNode(l);
+  Node theoryExplanation = d_theoryEngine->getExplanation(lNode);
+  Assert(lNode.getKind() == kind::AND);
+  Node::const_iterator it = theoryExplanation.begin();
+  Node::const_iterator it_end = theoryExplanation.end();
+  explanation.push(l);
+  for (; it != it_end; ++ it) {
+    explanation.push(~d_cnfStream->getLiteral(*it));
+  }
+}
+
+void SatSolver::clearPropagatedLiterals() {
+  d_theoryEngine->clearPropagatedLiterals();
+}
+
 void SatSolver::enqueueTheoryLiteral(const SatLiteral& l) {
   Node literalNode = d_cnfStream->getNode(l);
   Debug("prop") << "enqueueing theory literal " << l << " " << literalNode << std::endl;

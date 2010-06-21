@@ -157,6 +157,12 @@ public:
 
   void theoryCheck(SatClause& conflict);
 
+  void explainPropagation(SatLiteral l, SatClause& explanation);
+
+  void theoryPropagate(std::vector<SatLiteral>& output);
+
+  void clearPropagatedLiterals();
+
   void enqueueTheoryLiteral(const SatLiteral& l);
   
   void setCnfStream(CnfStream* cnfStream);
@@ -183,6 +189,8 @@ inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
   d_minisat->remove_satisfied = false;
   // Make minisat reuse the literal values
   d_minisat->polarity_mode = minisat::SimpSolver::polarity_user;
+  // No random choices
+  d_minisat->random_var_freq = 0;
 }
 
 inline SatSolver::~SatSolver() {

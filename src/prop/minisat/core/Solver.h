@@ -161,7 +161,9 @@ protected:
     vec<int>            trail_lim;        // Separator indices for different decision levels in 'trail'.
     vec<Clause*>        lemmas;           // List of lemmas we added (context dependent)
     vec<int>            lemmas_lim;       // Separator indices for different decision levels in 'lemmas'.
-    vec<Clause*>        reason;           // 'reason[var]' is the clause that implied the variables current value, or 'NULL' if none.
+    static Clause*      lazy_reason;      // The mark when we need to ask the theory engine for a reason
+    vec<Clause*>        reason;           // 'reason[var]' is the clause that implied the variables current value, lazy_reason if theory propagated, or 'NULL' if none.
+
     vec<int>            level;            // 'level[var]' contains the level at which the assignment was made.
     int                 qhead;            // Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
     int                 lhead;            // Head of the lemma stack (for backtracking)

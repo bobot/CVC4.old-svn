@@ -29,6 +29,8 @@ namespace CVC4 {
 namespace prop {
 namespace minisat {
 
+Clause* Solver::lazy_reason = reinterpret_cast<Clause*>(-1);
+
 Solver::Solver(SatSolver* proxy, context::Context* context) :
 
     // SMT stuff
@@ -283,6 +285,17 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
         while (!seen[var(trail[index--])]);
         p     = trail[index+1];
         confl = reason[var(p)];
+        if (confl == lazy_reason) {
+          // Get the explanation from the theory
+          SatClause explanation;
+          proxy->explainPropagation(p, explanation);
+          confl = Clause_new(explanation, true);
+          // Set the reason for this variable
+          reason[var(p)] = confl;
+          // Add it to the database
+          learnts.push(confl);
+          attachClause(*confl);
+        }
         seen[var(p)] = 0;
         pathC--;
 
@@ -415,7 +428,7 @@ void Solver::uncheckedEnqueue(Lit p, Clause* from)
     polarity [var(p)] = sign(p);
     trail.push(p);
 
-    if (theory[var(p)]) {
+    if (theory[var(p)] && from != lazy_reason) {
       // Enqueue to the theory
       proxy->enqueueTheoryLiteral(p);
     }
@@ -454,6 +467,8 @@ Clause* Solver::propagateTheory()
   int clause_size = clause.size();
   Assert(clause_size != 1, "Can't handle unit clause explanations");
   if(clause_size > 0) {
+    // We are not propagating, as there is a conflict
+    proxy->clearPropagatedLiterals();
     // Find the max level of the conflict
     int max_level = 0;
     for (int i = 0; i < clause_size; ++i) {
@@ -473,6 +488,14 @@ Clause* Solver::propagateTheory()
     c = Clause_new(clause, true);
     learnts.push(c);
     attachClause(*c);
+  } else {
+    std::vector<Lit> propagatedLiterals;
+    proxy->theoryPropagate(propagatedLiterals);
+    const unsigned i_end = propagatedLiterals.size();
+    for (unsigned i = 0; i < i_end; ++ i) {
+      uncheckedEnqueue(propagatedLiterals[i], lazy_reason);
+    }
+    proxy->clearPropagatedLiterals();
   }
   return c;
 }
