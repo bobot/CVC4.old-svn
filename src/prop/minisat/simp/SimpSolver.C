@@ -485,6 +485,7 @@ bool SimpSolver::eliminateVar(Var v, bool fail)
     vec<Lit> resolvent;
     for (int i = 0; i < pos.size(); i++)
         for (int j = 0; j < neg.size(); j++)
+            // FIXME: do i need to change the id?
             if (merge(*pos[i], *neg[j], v, resolvent) && !addClause(resolvent, CLAUSE_CONFLICT))
                 return false;
 

@@ -37,6 +37,7 @@ namespace minisat {
 // so that they can be used as array indices.
 
 typedef int Var;
+
 #define var_Undef (-1)
 
 
@@ -107,6 +108,7 @@ class Clause {
     uint32_t size_etc;
     union { float act; uint32_t abst; } extra;
     Lit     data[0];
+    unsigned clause_id : 32;
 
 public:
     void calcAbstraction() {
@@ -118,11 +120,15 @@ public:
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
     Clause(const V& ps, bool learnt) {
+        static unsigned id = 0;
+        clause_id = ++id;
         size_etc = (ps.size() << 3) | (uint32_t)learnt;
         for (int i = 0; i < ps.size(); i++) data[i] = ps[i];
-        if (learnt) extra.act = 0; else calcAbstraction(); }
+        if (learnt) extra.act = 0; else calcAbstraction();
+        }
 
     // -- use this function instead:
+    // if ClauseId is the default you do not allocate memory for it
     template<class V>
     friend Clause* Clause_new(const V& ps, bool learnt = false) {
         assert(sizeof(Lit)      == sizeof(uint32_t));
@@ -137,6 +143,9 @@ public:
     uint32_t     mark        ()      const   { return (size_etc >> 1) & 3; }
     void         mark        (uint32_t m)    { size_etc = (size_etc & ~6) | ((m & 3) << 1); }
     const Lit&   last        ()      const   { return data[size()-1]; }
+    // id for proof logging based on Minisat 1.14
+    // by lianah
+    unsigned id             ()       const   { return clause_id;}
 
     // NOTE: somewhat unsafe to change the clause in-place! Must manually call 'calcAbstraction' afterwards for
     //       subsumption operations to behave correctly.

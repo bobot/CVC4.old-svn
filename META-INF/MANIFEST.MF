@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: cvc4_proof
+Bundle-SymbolicName: cvc4_proof
+Bundle-Version: 1.0.0.qualifier

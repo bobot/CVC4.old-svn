@@ -32,7 +32,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "../mtl/Alg.h"
 
 #include "SolverTypes.h"
-//#include "util/proof.h"
 
 //=================================================================================================
 // Solver -- the main class:
@@ -42,9 +41,8 @@ namespace prop {
 
 class SatSolver;
 
-
 namespace minisat {
-class Derivation;
+
 class Solver {
 
   /** The only CVC4 entry point to the private solver data */
@@ -68,7 +66,8 @@ public:
     // Problem specification:
     //
     Var     newVar    (bool polarity = true, bool dvar = true, bool theoryAtom = false); // Add a new variable with parameters specifying variable mode.
-   // Types of clauses
+
+    // Types of clauses
     enum ClauseType {
       // Clauses defined by the problem
       CLAUSE_PROBLEM,
@@ -77,11 +76,6 @@ public:
       // Conflict clauses
       CLAUSE_CONFLICT
     };
-
-
-    // for proof logging by lianah
-
-    Derivation * d_derivation;
 
     bool    addClause (vec<Lit>& ps, ClauseType type);                           // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
 
@@ -214,8 +208,14 @@ protected:
 
     // AVG routines for new DFS analyze conflict and proof logging 
     // by lianah
-    vec<Clause*>        trace_reasons;          // clauses to resolve to give CC
-    vec<Lit>            trace_lits_minim;       // lits maybe used in minimization
+    vec<Clause*>        trace_reasons; // clauses to resolve to give CC
+    vec<Lit>            trace_lits_minim; // lits maybe used in minimization
+    int  prune_removable(vec<Lit>& out_learnt);
+    int  find_removable(vec<Lit>& out_learnt, uint32_t abstract_level);
+    int  quick_keeper(Lit p, uint32_t abstract_level, int maykeep);
+    int  dfs_removable(Lit p, uint32_t abstract_level);
+    void  mark_needed_removable(Lit p);
+    int  res_removable(void);
 
     // Operations on clauses:
     //
