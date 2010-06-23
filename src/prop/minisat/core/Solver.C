@@ -67,6 +67,7 @@ Solver::Solver(SatSolver* proxy, context::Context* context) :
     d_derivation = new Derivation();
   }
 
+bool debug = false;
 
 Solver::~Solver()
 {
@@ -173,6 +174,11 @@ bool Solver::satisfied(const Clause& c) const {
             return true;
     return false; }
 
+// for proof logging by lianah
+Clause* Solver::getReason(Lit lit){
+  return reason[var(lit)];
+}
+
 
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
@@ -256,19 +262,23 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
     int pathC = 0;
     Lit p     = lit_Undef;
 
-    // TODO: some form of new proof
+    trace_reasons.clear();
     SatResolution* res = NULL;
     res = new SatResolution(confl->id());
+    // FIXME: won't need this for LFSC
+    d_derivation->registerClause(confl, false);
 
     // Generate conflict clause:
     //
     out_learnt.push();      // (leave room for the asserting literal)
     int index   = trail.size() - 1;
     out_btlevel = 0;
+    if(debug){
+      std::cout<<"Original conflict \n";
+      printClause(*confl);
+      std::cout<<"\n";
 
-    std::cout<<"Original conflict \n";
-    printClause(*confl);
-    std::cout<<"\n";
+    }
 
     do{
         assert(confl != NULL);          // (otherwise should be UIP)
@@ -301,22 +311,26 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
         p     = trail[index+1];
         confl = reason[var(p)];
         seen[var(p)] = 0;
-        //res->addStep(confl->id());
+        if(confl!=NULL)
+          res->addStep(p, confl->id());
         pathC--;
 
     }while (pathC > 0);
     out_learnt[0] = ~p;
 
-    std::cout<<"Conflict clause \n";
-    for(int i=0;i<out_learnt.size();i++){
-      printLit(out_learnt[i]);
-      std::cout<<" ";
-    }
-    std::cout<<"\n";
+    if(debug){
 
-    for (int i=0; i<trace_reasons.size();i++){
-     printClause(*trace_reasons[i]);
-     std::cout<<"\n ";
+      std::cout<<"Conflict clause \n";
+      for(int i=0;i<out_learnt.size();i++){
+        printLit(out_learnt[i]);
+        std::cout<<" ";
+      }
+      std::cout<<"\n";
+
+      for (int i=0; i<trace_reasons.size();i++){
+       printClause(*trace_reasons[i]);
+       std::cout<<"\n ";
+      }
     }
 
     // Simplify conflict clause:
@@ -344,13 +358,15 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
     max_literals += out_learnt.size();
     out_learnt.shrink(i - j);
     tot_literals += out_learnt.size();
-    if(i!=j){
-      std::cout<<"Minimized cc \n";
-          for(int i=0;i<out_learnt.size();i++){
-            printLit(out_learnt[i]);
-            std::cout<<" ";
-          }
-          std::cout<<"\n";
+    if(debug){
+      if(i!=j){
+        std::cout<<"Minimized cc \n";
+            for(int i=0;i<out_learnt.size();i++){
+              printLit(out_learnt[i]);
+              std::cout<<" ";
+            }
+            std::cout<<"\n";
+      }
 
     }
 
@@ -509,7 +525,7 @@ Clause* Solver::propagateTheory()
       cancelUntil(max_level);
     }
     // Create the new clause and attach all the information
-    // TODO: add id to clause? check for proof and add id after last proof clause
+
     c = Clause_new(clause, true);
     learnts.push(c);
     attachClause(*c);
@@ -689,7 +705,17 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
         if (confl != NULL){
             // CONFLICT
             conflicts++; conflictC++;
-            if (decisionLevel() == 0) return l_False;
+            // returns unsatisfiable
+            if (decisionLevel() == 0) {
+              d_derivation->finish(confl, this);
+              if(debug){
+                std::cout<<"Final conflict \n";
+                printClause(*confl);
+                std::cout<<"\n";
+
+              }
+              return l_False;
+            }
 
             first = false;
 
@@ -783,9 +809,6 @@ double Solver::progressEstimate() const
 
 bool Solver::solve(const vec<Lit>& assumps)
 {
-//    if(assumps.size()>0){
-//      std::cout<<"ASSUMPTIONS!!\n";
-//    }
 
     model.clear();
     conflict.clear();
@@ -793,13 +816,15 @@ bool Solver::solve(const vec<Lit>& assumps)
     if (!ok) return false;
 
     assumps.copyTo(assumptions);
-
-    std::cout<<"Problem cl \n";
-    for(int i=0;i< clauses.size();i++){
-      printClause(*clauses[i]);
+    if(debug){
+      std::cout<<"Problem cl \n";
+      for(int i=0;i< clauses.size();i++){
+         d_derivation->registerClause(clauses[i], true);
+         printClause(*clauses[i]);
+         std::cout<<"\n";
+       }
       std::cout<<"\n";
     }
-    std::cout<<"\n";
 
     double  nof_conflicts = restart_first;
     double  nof_learnts   = nClauses() * learntsize_factor;
@@ -834,10 +859,8 @@ bool Solver::solve(const vec<Lit>& assumps)
 #endif
     }else{
         assert(status == l_False);
-        if (conflict.size() == 0){
+        if (conflict.size() == 0)
           ok = false;
-          std::cout<<"Not ok? \n";
-        }
 
     }
 

@@ -41,31 +41,26 @@ namespace minisat {
 
 class SatResolution {
 public:
-		//typedef std::vector<int>  RSteps;
+		typedef std::vector<std::pair <Lit, unsigned> >  RSteps;
 		unsigned d_start_clause;
-		std::vector<std::pair <int, unsigned> > d_steps;
+		RSteps d_steps;
 
 public:
 		
 		SatResolution(){};
 		SatResolution (int clause_id): d_start_clause(clause_id){};
 		
-		void addStep(unsigned clause_id){
-		  //std::vector<int> test;
-		  //test.push_back(4);
-		  std::pair<int, unsigned> p(3, clause_id);
-		  std::cout<<p.first;
-		  //std::cout<<d_steps.size();
-		  d_steps.push_back(p);
+		void addStep(Lit lit, unsigned clause_id){
+		  d_steps.push_back(std::make_pair(lit, clause_id));
 		} 
 		
 		int getStart() const {
 			return d_start_clause;			
 		}
 		
-		//const RSteps& getSteps() const{
-		//	return d_steps;
-		//}
+		const RSteps& getSteps() const{
+			return d_steps;
+		}
 		//void printRes();
 		//void printRes(int index);
 };
@@ -94,8 +89,7 @@ class Derivation {
 	private:
 		std::hash_map <int, Clause*> d_clauses; 	// map from id's to clauses
 		std::hash_set <int> d_input_clauses;		// the input clauses assumed true
-		// FIXME: why do i need them?
-		std::hash_set <int> d_unit_clauses;		// the set of unit clauses
+		std::hash_map <int, Clause*> d_unit_clauses;		// the set of unit clauses, indexed by value of variable for easy searching
 		std::hash_map <int, SatResolution*> d_res_map;	// a map from clause id's to the boolean resolution derivation of that respective clause
 		
 		Clause* d_emptyClause;
@@ -106,6 +100,8 @@ class Derivation {
 		void registerDerivation(int clause_id, SatResolution* res);
 		// TODO: do we need to allow for duplicate insertion? see minisat_derivation.h in cvc3
 		// don't really need to keep clauses, all you need to do is check that it's not the same.
+		void finish(Clause* confl, Solver* solver);
+		int getRootReason(Lit l, Solver* solver);
 };
 
 void Derivation::registerClause(Clause* clause, bool is_input_clause){
@@ -126,6 +122,44 @@ void Derivation::registerDerivation(int clause_id, SatResolution* res){
   }
 }
 
+int Derivation::getRootReason(Lit lit, Solver* solver){
+  Clause* reason = solver->getReason(lit);
+  // TODO: add asserts to check stuff
+
+  // if implied by an unit clause return the unit clause
+  if((*reason).size() == 1)
+    return reason->id();
+  std::hash_map<int, *Clause>::const_iterator iter;
+  iter = d_unit_clauses.find(toInt(lit));
+  if(iter != d_unit_clauses.end()){
+    int a = iter->second;
+    return 3;
+  }
+
+  SatResolution* res = new SatResolution(reason->id());
+
+  for(int i=0; i<(*reason).size();i++){
+    Clause* newreas = solver->getReason((*reason)[i]);
+    res->addStep(~((*reason)[i]), getRootReason(newreas->id(), solver));
+  }
+  // add the literal as a unit clause
+  std::vector<Lit> lits;
+  lits.push_back(lit);
+  Clause* unit = Clause_new(lits);
+  d_unit_clauses[toInt(lit)] = unit;
+  registerClause(unit, false);
+  registerDerivation(unit->id(), res);
+
+}
+
+void Derivation::finish(Clause* confl, Solver* solver){
+
+  SatResolution* res = new SatResolution(confl->id);
+  for (int i=;i<(*confl).size();i++){
+    Lit l = (*confl)[i];
+    res->addStep(~l, getRootReason(~l, solver));
+  }
+}
 
 }/* CVC4::prop::minisat namespace */
 }/* CVC4::prop namespace */

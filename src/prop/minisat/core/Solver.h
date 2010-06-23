@@ -49,6 +49,7 @@ class Solver {
 
   /** The only CVC4 entry point to the private solver data */
   friend class CVC4::prop::SatSolver;
+  friend class CVC4::prop::minisat::Derivation;
 
 protected:
 
@@ -83,8 +84,8 @@ public:
 
     Derivation * d_derivation;
 
-    bool    addClause (vec<Lit>& ps, ClauseType type);                           // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
-
+    bool    addClause   (vec<Lit>& ps, ClauseType type);                           // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
+    Clause* getReason   (Lit l);                    // returns the reason for assigning a literal
     // Solving:
     //
     bool    simplify     ();                        // Removes already satisfied clauses.
