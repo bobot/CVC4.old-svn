@@ -56,7 +56,12 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
   const unsigned i_end = outputNodes.size();
   for (unsigned i = 0; i < i_end; ++ i) {
     Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i].toString() << endl;
-    SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
+    // The second argument ("true") instructs the CNF stream to create
+    // a new literal mapping if it doesn't exist.  This can happen due
+    // to a circular dependence, if a SAT literal "a" is asserted as a
+    // unit to the SAT solver, a round of theory propagation can occur
+    // before all Nodes have SAT variable mappings.
+    SatLiteral l = d_cnfStream->getLiteral(outputNodes[i], true);
     output.push_back(l);
   }
 }
