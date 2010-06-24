@@ -1,14 +1,15 @@
 /*********************                                                        */
-/** smt.h
+/*! \file smt.cpp
+ ** \verbatim
  ** Original author: cconway
- ** Major contributors:
+ ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
  **
  ** Definitions of SMT constants.
  **/
@@ -79,6 +80,20 @@ void Smt::addArithmeticOperators() {
  */
 void Smt::addTheory(Theory theory) {
   switch(theory) {
+  case THEORY_ARRAYS:
+  case THEORY_ARRAYS_EX: {
+    Type indexType = mkSort("Index");
+    Type elementTYpe = mkSort("Element");
+    
+    // FIXME: should be defineType("Array",arrayType(indexType,elementType))
+    // but arrayType isn't defined
+    mkSort("Array");
+
+    addOperator(kind::SELECT);
+    addOperator(kind::STORE);
+    break;
+  }
+
   case THEORY_EMPTY:
     mkSort("U");
     break;
@@ -117,6 +132,10 @@ void Smt::setLogic(const std::string& name) {
   d_logic = toLogic(name);
 
   switch(d_logic) {
+  case QF_AX:
+    addTheory(THEORY_ARRAYS_EX);
+    break;
+
   case QF_IDL:
   case QF_LIA:
   case QF_NIA:
@@ -146,7 +165,6 @@ void Smt::setLogic(const std::string& name) {
   case AUFNIRA:
   case QF_AUFBV:
   case QF_AUFLIA:
-  case QF_AX:
   case QF_BV:
     Unhandled(name);
   }

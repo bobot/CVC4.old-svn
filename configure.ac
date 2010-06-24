@@ -62,6 +62,10 @@ AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
+if test "$enable_shared" = no -a "$enable_static" = yes; then
+  enable_static_binary=yes
+fi
+
 # Features requested by the user
 AC_MSG_CHECKING([for requested build profile])
 AC_ARG_WITH([build],
@@ -71,7 +75,7 @@ AC_ARG_WITH([build],
 if test -z "${with_build+set}" -o "$with_build" = default; then
   with_build=default
 fi
-if test -z "${enable_optimized+set}" -a -z "${enable_debug_symbols+set}" -a -z "${enable_assertions+set}" -a -z "${enable_tracing+set}" -a -z "${enable_muzzle+set}" -a -z "${enable_coverage+set}" -a -z "${enable_profiling+set}"; then
+if test -z "${enable_optimized+set}" -a -z "${enable_debug_symbols+set}" -a -z "${enable_assertions+set}" -a -z "${enable_tracing+set}" -a -z "${enable_muzzle+set}" -a -z "${enable_coverage+set}" -a -z "${enable_profiling+set}" -a -z "${enable_statistics+set}"; then
   custom_build_profile=no
 else
   custom_build_profile=yes
@@ -82,6 +86,13 @@ if test -n "${enable_optimized+set}"; then
     btargs="$btargs optimized"
   else
     btargs="$btargs nooptimized"
+  fi
+fi
+if test -n "${enable_static_binary+set}"; then
+  if test "$enable_static_binary" = yes; then
+    btargs="$btargs staticbinary"
+  else
+    btargs="$btargs nostaticbinary"
   fi
 fi
 if test -n "${enable_debug_symbols+set}"; then
@@ -124,6 +135,13 @@ if test -n "${enable_profiling+set}"; then
     btargs="$btargs profiling"
   else
     btargs="$btargs noprofiling"
+  fi
+fi
+if test -n "${enable_statistics+set}"; then
+  if test "$enable_statistics" = yes; then
+    btargs="$btargs statistics"
+  else
+    btargs="$btargs nostatistics"
   fi
 fi
 AC_MSG_RESULT([$with_build])
@@ -199,6 +217,7 @@ case "$with_build" in
     if test -z "${OPTLEVEL+set}"            ; then OPTLEVEL=3                       ; fi
     if test -z "${enable_optimized+set}"    ; then enable_optimized=yes             ; fi
     if test -z "${enable_debug_symbols+set}"; then enable_debug_symbols=yes         ; fi
+    if test -z "${enable_statistics+set}"   ; then enable_statistics=yes            ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=no             ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=no                ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
@@ -211,6 +230,7 @@ case "$with_build" in
     FLAG_VISIBILITY_HIDDEN=
     if test -z "${enable_optimized+set}"    ; then enable_optimized=no              ; fi
     if test -z "${enable_debug_symbols+set}"; then enable_debug_symbols=yes         ; fi
+    if test -z "${enable_statistics+set}"   ; then enable_statistics=yes            ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=yes            ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
@@ -224,6 +244,7 @@ case "$with_build" in
     if test -z "${OPTLEVEL+set}"            ; then OPTLEVEL=2                       ; fi
     if test -z "${enable_optimized+set}"    ; then enable_optimized=yes             ; fi
     if test -z "${enable_debug_symbols+set}"; then enable_debug_symbols=yes         ; fi
+    if test -z "${enable_statistics+set}"   ; then enable_statistics=yes            ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=yes            ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
@@ -237,6 +258,7 @@ case "$with_build" in
     if test -z "${OPTLEVEL+set}"            ; then OPTLEVEL=9                       ; fi
     if test -z "${enable_optimized+set}"    ; then enable_optimized=yes             ; fi
     if test -z "${enable_debug_symbols+set}"; then enable_debug_symbols=no          ; fi
+    if test -z "${enable_statistics+set}"   ; then enable_statistics=no             ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=no             ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=no                ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=yes                ; fi
@@ -300,6 +322,23 @@ AC_MSG_RESULT([$enable_debug_symbols])
 if test "$enable_debug_symbols" = yes; then
   CVC4CXXFLAGS="${CVC4CXXFLAGS:+$CVC4CXXFLAGS }-ggdb3"
   CVC4CFLAGS="${CVC4CFLAGS:+$CVC4CFLAGS }-ggdb3"
+fi
+
+AC_MSG_CHECKING([whether to include statistics are turned on in libcvc4])
+
+AC_ARG_ENABLE([statistics],
+  [AS_HELP_STRING([--disable-statistics],
+     [do not include statistics in libcvc4])])
+
+if test -z "${enable_statistics+set}"; then
+  enable_statistics=yes
+fi
+
+AC_MSG_RESULT([$enable_statistics])
+
+if test "$enable_statistics" = yes; then
+  CVC4CXXFLAGS="${CVC4CXXFLAGS:+$CVC4CXXFLAGS }-DCVC4_STATISTICS_ON"
+  CVC4CFLAGS="${CVC4CFLAGS:+$CVC4CFLAGS }-DCVC4_STATISTICS_ON"
 fi
 
 AC_MSG_CHECKING([whether to include assertions in build])
@@ -597,16 +636,17 @@ Build profile: $with_build
 Build ID     : $build_type
 Optimized    : $optimized
 Debug symbols: $enable_debug_symbols
+Statistics   : $enable_statistics
 Assertions   : $enable_assertions
 Tracing      : $enable_tracing
 Muzzle       : $enable_muzzle
 gcov support : $enable_coverage
 gprof support: $enable_profiling
-unit tests   : $support_unit_tests
+Unit tests   : $support_unit_tests
 
-static libs  : $enable_static
-shared libs  : $enable_shared
-static binary: $enable_static_binary
+Static libs  : $enable_static
+Shared libs  : $enable_shared
+Static binary: $enable_static_binary
 
 CPPFLAGS     : $CPPFLAGS
 CXXFLAGS     : $CXXFLAGS

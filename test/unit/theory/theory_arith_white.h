@@ -229,10 +229,11 @@ public:
     d_arith->check(d_level);
     d_arith->propagate(d_level);
 
-
+#ifdef CVC4_ASSERTIONS
     TS_ASSERT_THROWS(  d_arith->explain(rLeq0, d_level), AssertionException );
-    d_arith->explain(rLeq1, d_level);
     TS_ASSERT_THROWS(  d_arith->explain(rLt1, d_level), AssertionException );
+#endif
+    d_arith->explain(rLeq1, d_level);
 
     TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 2u);
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(0), PROPOGATE);
@@ -263,7 +264,9 @@ public:
 
 
     d_arith->explain(rLt1, d_level);
+#ifdef CVC4_ASSERTIONS
     TS_ASSERT_THROWS(  d_arith->explain(rLeq0, d_level), AssertionException );
+#endif
     d_arith->explain(rLeq1, d_level);
 
     TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 4u);
@@ -272,8 +275,8 @@ public:
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(2), EXPLANATION);
     TS_ASSERT_EQUALS(d_outputChannel.getIthCallType(3), EXPLANATION);
 
-    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), rLeq1);
     TS_ASSERT_EQUALS(d_outputChannel.getIthNode(1), rLt1);
+    TS_ASSERT_EQUALS(d_outputChannel.getIthNode(0), rLeq1);
 
 
     TS_ASSERT_EQUALS(d_outputChannel.getIthNode(2), rLeq0);
@@ -298,9 +301,11 @@ public:
     d_arith->check(d_level);
     d_arith->propagate(d_level);
 
+#ifdef CVC4_ASSERTIONS
     TS_ASSERT_THROWS(  d_arith->explain(rLeq0, d_level), AssertionException );
     TS_ASSERT_THROWS(  d_arith->explain(rLeq1, d_level), AssertionException );
     TS_ASSERT_THROWS(  d_arith->explain(rLt1, d_level), AssertionException );
+#endif
 
     TS_ASSERT_EQUALS(d_outputChannel.getNumCalls(), 0u);
   }

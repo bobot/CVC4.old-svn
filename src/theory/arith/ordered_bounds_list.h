@@ -70,11 +70,11 @@ struct RightHandRationalGT
 class OrderedBoundsList {
 private:
   bool d_isSorted;
-  std::vector<TNode> d_list;
+  std::vector<Node> d_list;
 
 public:
-  typedef std::vector<TNode>::const_iterator iterator;
-  typedef std::vector<TNode>::const_reverse_iterator reverse_iterator;
+  typedef std::vector<Node>::const_iterator iterator;
+  typedef std::vector<Node>::const_reverse_iterator reverse_iterator;
 
   /**
    * Constucts a new and empty OrderBoundsList.
@@ -191,7 +191,7 @@ public:
    * This is an O(n) method for searching the array to check if it contains n.
    */
   bool contains(TNode n) const {
-    for(std::vector<TNode>::const_iterator i = d_list.begin(); i != d_list.end(); ++i){
+    for(std::vector<Node>::const_iterator i = d_list.begin(); i != d_list.end(); ++i){
       if(*i == n) return true;
     }
     return false;

@@ -32,6 +32,8 @@
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
 
+#include "util/stats.h"
+
 namespace CVC4 {
 
 // In terms of abstraction, this is below (and provides services to)
@@ -83,6 +85,7 @@ class TheoryEngine {
     void conflict(TNode conflictNode, bool safe) throw(theory::Interrupted, AssertionException) {
       Debug("theory") << "EngineOutputChannel::conflict(" << conflictNode << ")" << std::endl;
       d_conflictNode = conflictNode;
+      ++(d_engine->d_statistics.d_statConflicts);
       if(safe) {
         throw theory::Interrupted();
       }
@@ -90,18 +93,24 @@ class TheoryEngine {
 
     void propagate(TNode lit, bool) throw(theory::Interrupted, AssertionException) {
       d_propagatedLiterals.push_back(lit);
+      ++(d_engine->d_statistics.d_statPropagate);
     }
 
     void lemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
+      ++(d_engine->d_statistics.d_statLemma);
       d_engine->newLemma(node);
     }
     void augmentingLemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
+      ++(d_engine->d_statistics.d_statAugLemma);
       d_engine->newAugmentingLemma(node);
     }
     void explanation(TNode explanationNode, bool) throw(theory::Interrupted, AssertionException) {
       d_explanationNode = explanationNode;
+      ++(d_engine->d_statistics.d_statExplanatation);
     }
   };
+
+
 
   EngineOutputChannel d_theoryOut;
 
@@ -110,6 +119,7 @@ class TheoryEngine {
   theory::arith::TheoryArith d_arith;
   theory::arrays::TheoryArrays d_arrays;
   theory::bv::TheoryBV d_bv;
+
 
   /**
    * Check whether a node is in the rewrite cache or not.
@@ -201,7 +211,8 @@ public:
     d_uf(ctxt, d_theoryOut),
     d_arith(ctxt, d_theoryOut),
     d_arrays(ctxt, d_theoryOut),
-    d_bv(ctxt, d_theoryOut) {
+    d_bv(ctxt, d_theoryOut),
+    d_statistics() {
 
     d_theoryOfTable.registerTheory(&d_bool);
     d_theoryOfTable.registerTheory(&d_uf);
@@ -341,6 +352,7 @@ public:
     return d_theoryOut.d_conflictNode;
   }
 
+
   inline void propagate() {
     d_theoryOut.d_propagatedLiterals.clear();
     // Do the propagation
@@ -355,6 +367,26 @@ public:
     theory->explain(node);
     return d_theoryOut.d_explanationNode;
   }
+
+private:
+  class Statistics {
+  public:
+    IntStat d_statConflicts, d_statPropagate, d_statLemma, d_statAugLemma, d_statExplanatation;
+    Statistics():
+      d_statConflicts("theory::conflicts",0),
+      d_statPropagate("theory::propagate",0),
+      d_statLemma("theory::lemma",0),
+      d_statAugLemma("theory::aug_lemma", 0),
+      d_statExplanatation("theory::explanation", 0)
+    {
+      StatisticsRegistry::registerStat(&d_statConflicts);
+      StatisticsRegistry::registerStat(&d_statPropagate);
+      StatisticsRegistry::registerStat(&d_statLemma);
+      StatisticsRegistry::registerStat(&d_statAugLemma);
+      StatisticsRegistry::registerStat(&d_statExplanatation);
+    }
+  };
+  Statistics d_statistics;
 
 };/* class TheoryEngine */
 

@@ -35,6 +35,7 @@
 #include "util/output.h"
 #include "util/options.h"
 #include "util/result.h"
+#include "util/stats.h"
 
 using namespace std;
 using namespace CVC4;
@@ -85,6 +86,7 @@ int main(int argc, char* argv[]) {
   }
 }
 
+
 int runCvc4(int argc, char* argv[]) {
 
   // Initialize the signal handlers
@@ -110,11 +112,14 @@ int runCvc4(int argc, char* argv[]) {
   SmtEngine smt(&exprMgr, &options);
 
   // If no file supplied we read from standard input
-  bool inputFromStdin = 
+  bool inputFromStdin =
     firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
 
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
+
+  ReferenceStat< const char* > s_statFilename("filename",filename);
+  StatisticsRegistry::registerStat(&s_statFilename);
 
   if(options.lang == parser::LANG_AUTO) {
     if( inputFromStdin ) {
@@ -158,7 +163,7 @@ int runCvc4(int argc, char* argv[]) {
       ParserBuilder(exprMgr, filename)
         .withInputLanguage(options.lang)
         .withMmap(options.memoryMap)
-        .withChecks(options.semanticChecks && 
+        .withChecks(options.semanticChecks &&
                     !Configuration::isMuzzledBuild() )
         .withStrictMode( options.strictParsing );
 
@@ -182,6 +187,14 @@ int runCvc4(int argc, char* argv[]) {
 
   // Remove the parser
   delete parser;
+
+  Result asSatResult = lastResult.asSatisfiabilityResult();
+  ReferenceStat< Result > s_statSatResult("sat/unsat", asSatResult);
+  StatisticsRegistry::registerStat(&s_statSatResult);
+
+  if(options.statistics){
+    StatisticsRegistry::flushStatistics(cerr);
+  }
 
   switch(lastResult.asSatisfiabilityResult().isSAT()) {
 
