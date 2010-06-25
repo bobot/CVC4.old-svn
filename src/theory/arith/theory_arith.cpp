@@ -450,14 +450,6 @@ void TheoryArith::pivotAndUpdate(TNode x_i, TNode x_j, DeltaRational& v){
     }
   }
 
-//     if(x_k != x_i && row_k->has(x_j)){
-//       Rational a_kj = row_k->lookup(x_j);
-//       DeltaRational nextAssignment = d_partialModel.getAssignment(x_k) + (theta * a_kj);
-//       d_partialModel.setAssignment(x_k, nextAssignment);
-//       checkBasicVariable(x_k);
-//     }
-//   }
-
   ++(d_statistics.d_statPivots);
   d_tableau.pivot(row_i, col_j);
 
@@ -484,19 +476,6 @@ TNode TheoryArith::selectSmallestInconsistentVar(){
     d_possiblyInconsistent.pop();
   }
 
-  if(debugTagIsOn("paranoid:variables")){
-   //  for(Tableau::VarSet::iterator basicIter = d_tableau.begin();
-//         basicIter != d_tableau.end();
-//         ++basicIter){
-
-//       TNode basic = *basicIter;
-//       Assert(d_partialModel.assignmentIsConsistent(basic));
-//       if(!d_partialModel.assignmentIsConsistent(basic)){
-//         return basic;
-//       }
-//     }
-  }
-
   return TNode::null();
 }
 
@@ -504,22 +483,34 @@ template <bool above>
 TNode TheoryArith::selectSlack(TNode x_i){
   Row* row_i = d_tableau.lookupRow(x_i);
 
-
   TNode minimumNonbasic = TNode::null();
 
   for(CellList::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
     TableauCell* cell = *nbi;
     TNode nonbasic = cell->getColumn()->getVariable();
+
     const Rational& a_ij = cell->getCoefficient();
 
-
-    if(a_ij > d_constants.d_ZERO && d_partialModel.strictlyBelowUpperBound(nonbasic)){
-      if(minimumNonbasic.isNull() || nonbasic < minimumNonbasic){
-        minimumNonbasic = nonbasic;
+    int cmp = a_ij.cmp(d_constants.d_ZERO);
+    if(above){ // beta(x_i) > u_i
+      if( cmp < 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)){
+        if(minimumNonbasic.isNull() || nonbasic < minimumNonbasic){
+          minimumNonbasic = nonbasic;
+        }
+      }else if( cmp > 0 && d_partialModel.strictlyAboveLowerBound(nonbasic)){
+        if(minimumNonbasic.isNull() || nonbasic < minimumNonbasic){
+          minimumNonbasic = nonbasic;
+        }
       }
-    }else if(a_ij < d_constants.d_ZERO && d_partialModel.strictlyAboveLowerBound(nonbasic)){
-      if(minimumNonbasic.isNull() || nonbasic < minimumNonbasic){
-        minimumNonbasic = nonbasic;
+    }else{ //beta(x_i) < l_i
+      if(cmp > 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)){
+        if(minimumNonbasic.isNull() || nonbasic < minimumNonbasic){
+          minimumNonbasic = nonbasic;
+        }
+      }else if(cmp < 0 && d_partialModel.strictlyAboveLowerBound(nonbasic)){
+        if(minimumNonbasic.isNull() || nonbasic < minimumNonbasic){
+          minimumNonbasic = nonbasic;
+        }
       }
     }
   }
@@ -730,7 +721,7 @@ void TheoryArith::check(Effort level){
 
       d_partialModel.revertAssignmentChanges();
 
-      d_out->conflict(possibleConflict, true);
+      d_out->conflict(possibleConflict);
 
       Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
     }else{
