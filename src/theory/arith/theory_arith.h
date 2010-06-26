@@ -230,6 +230,10 @@ private:
    */
   bool assertionCases(TNode original, TNode assertion);
 
+  TNode findBasicRow(TNode variable);
+  bool shouldEject(TNode var);
+  void ejectInactiveVariables();
+  void reinjectVariable(TNode x);
 
   //TODO get rid of this!
   Node simulatePreprocessing(TNode n);
@@ -245,6 +249,7 @@ private:
   };
 
   Statistics d_statistics;
+
 
 };
 
