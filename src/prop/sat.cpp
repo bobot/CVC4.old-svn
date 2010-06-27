@@ -26,9 +26,9 @@
 namespace CVC4 {
 namespace prop {
 
-void SatSolver::theoryCheck(SatClause& conflict) {
+void SatSolver::theoryCheck(theory::Theory::Effort effort, SatClause& conflict) {
   // Try theory propagation
-  bool ok = d_theoryEngine->check(theory::Theory::FULL_EFFORT);
+  bool ok = d_theoryEngine->check(effort);
   // If in conflict construct the conflict clause
   if (!ok) {
     // We have a conflict, get it

@@ -27,6 +27,7 @@
 
 #include "util/options.h"
 #include "util/stats.h"
+#include "theory/theory.h"
 
 #ifdef __CVC4_USE_MINISAT
 
@@ -199,7 +200,7 @@ public:
 
   SatVariable newVar(bool theoryAtom = false);
 
-  void theoryCheck(SatClause& conflict);
+  void theoryCheck(theory::Theory::Effort effort, SatClause& conflict);
 
   void explainPropagation(SatLiteral l, SatClause& explanation);
 

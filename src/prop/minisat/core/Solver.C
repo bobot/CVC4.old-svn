@@ -144,7 +144,7 @@ bool Solver::addClause(vec<Lit>& ps, ClauseType type)
         assert(type != CLAUSE_LEMMA);
         assert(value(ps[0]) == l_Undef);
         uncheckedEnqueue(ps[0]);
-        return ok = (propagate() == NULL);
+        return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == NULL);
     }else{
         Clause* c = Clause_new(ps, false);
         clauses.push(c);
@@ -444,40 +444,70 @@ void Solver::uncheckedEnqueue(Lit p, Clause* from)
 }
 
 
-Clause* Solver::propagate()
+Clause* Solver::propagate(TheoryCheckType type)
 {
     Clause* confl = NULL;
 
-    while(qhead < trail.size()) {
-      confl = propagateBool();
-      if (confl != NULL) break;
-      confl = propagateTheory();
-      if (confl != NULL) break;
+    // If this is the final check, no need for Boolean propagation and
+    // theory propagation
+    if (type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
+      return theoryCheck(theory::Theory::FULL_EFFORT);
     }
+
+    // The effort we will be using to theory check
+    theory::Theory::Effort effort = type == CHECK_WITHOUTH_PROPAGATION_QUICK ?
+        theory::Theory::QUICK_CHECK : theory::Theory::STANDARD;
+
+    // Keep running until we have checked everything, we
+    // have no conflict and no new literals have been asserted
+    bool new_assertions;
+    do {
+        new_assertions = false;
+        while(qhead < trail.size()) {
+            confl = propagateBool();
+            if (confl != NULL) break;
+            confl = theoryCheck(effort);
+            if (confl != NULL) break;
+        }
+
+        if (confl == NULL && type == CHECK_WITH_PROPAGATION_STANDARD) {
+          new_assertions = propagateTheory();
+          if (!new_assertions) break;
+        }
+    } while (new_assertions);
 
     return confl;
 }
 
+bool Solver::propagateTheory() {
+  std::vector<Lit> propagatedLiterals;
+  proxy->theoryPropagate(propagatedLiterals);
+  const unsigned i_end = propagatedLiterals.size();
+  for (unsigned i = 0; i < i_end; ++ i) {
+    uncheckedEnqueue(propagatedLiterals[i], lazy_reason);
+  }
+  proxy->clearPropagatedLiterals();
+  return propagatedLiterals.size() > 0;
+}
+
 /*_________________________________________________________________________________________________
 |
-|  propagateTheory : [void]  ->  [Clause*]
+|  theoryCheck: [void]  ->  [Clause*]
 |
 |  Description:
-|    Propagates all enqueued theory facts. If a conflict arises, the conflicting clause is returned,
-|    otherwise NULL.
+|    Checks all enqueued theory facts for satisfiability. If a conflict arises, the conflicting
+|    clause is returned, otherwise NULL.
 |
 |    Note: the propagation queue might be NOT empty
 |________________________________________________________________________________________________@*/
-Clause* Solver::propagateTheory()
+Clause* Solver::theoryCheck(theory::Theory::Effort effort)
 {
   Clause* c = NULL;
   SatClause clause;
-  proxy->theoryCheck(clause);
+  proxy->theoryCheck(effort, clause);
   int clause_size = clause.size();
   Assert(clause_size != 1, "Can't handle unit clause explanations");
   if(clause_size > 0) {
-    // We are not propagating, as there is a conflict
-    proxy->clearPropagatedLiterals();
     // Find the max level of the conflict
     int max_level = 0;
     for (int i = 0; i < clause_size; ++i) {
@@ -497,14 +527,6 @@ Clause* Solver::propagateTheory()
     c = Clause_new(clause, true);
     learnts.push(c);
     attachClause(*c);
-  } else {
-    std::vector<Lit> propagatedLiterals;
-    proxy->theoryPropagate(propagatedLiterals);
-    const unsigned i_end = propagatedLiterals.size();
-    for (unsigned i = 0; i < i_end; ++ i) {
-      uncheckedEnqueue(propagatedLiterals[i], lazy_reason);
-    }
-    proxy->clearPropagatedLiterals();
   }
   return c;
 }
@@ -630,7 +652,7 @@ bool Solver::simplify()
 {
     assert(decisionLevel() == 0);
 
-    if (!ok || propagate() != NULL)
+    if (!ok || propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) != NULL)
         return ok = false;
 
     if (nAssigns() == simpDB_assigns || (simpDB_props > 0))
@@ -675,9 +697,9 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
     starts++;
 
     bool first = true;
-
+    TheoryCheckType check_type = CHECK_WITH_PROPAGATION_STANDARD;
     for (;;){
-        Clause* confl = propagate();
+        Clause* confl = propagate(check_type);
         if (confl != NULL){
             // CONFLICT
             conflicts++; conflictC++;
@@ -703,8 +725,15 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             varDecayActivity();
             claDecayActivity();
 
+            // We have a conflict so, we are going back to standard checks
+            check_type = CHECK_WITH_PROPAGATION_STANDARD;
+
         }else{
             // NO CONFLICT
+
+            // If this was a final check, we are satisfiable
+            if (check_type == CHECK_WITHOUTH_PROPAGATION_FINAL)
+              return l_True;
 
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts){
                 // Reached bound on number of conflicts:
@@ -741,9 +770,11 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
                 decisions++;
                 next = pickBranchLit(polarity_mode, random_var_freq);
 
-                if (next == lit_Undef)
-                    // Model found:
-                    return l_True;
+                if (next == lit_Undef) {
+                    // We need to do a full theory check to confirm
+                    check_type = CHECK_WITHOUTH_PROPAGATION_FINAL;
+                    continue;
+                }
             }
 
             // Increase decision level and enqueue 'next'
