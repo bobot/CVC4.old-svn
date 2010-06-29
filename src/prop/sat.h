@@ -237,7 +237,9 @@ inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
   d_minisat->polarity_mode = minisat::SimpSolver::polarity_user;
 
   // No random choices
-  d_minisat->random_var_freq = 0;
+  if(debugTagIsOn("no_rnd_decisions")){
+    d_minisat->random_var_freq = 0;
+  }
 
   d_statistics.init(d_minisat);
 }

@@ -726,7 +726,7 @@ void TheoryArith::check(Effort level){
     d_partialModel.revertAssignmentChanges();
 
     if(debugTagIsOn("arith::print-conflict"))
-      debugPrintNode(possibleConflict);
+      Debug("arith_conflict") << (possibleConflict) << std::endl;
 
     d_out->conflict(possibleConflict);
 
