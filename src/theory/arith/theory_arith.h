@@ -215,9 +215,6 @@ private:
   /** Computes the value of a row in the tableau using the current assignment.*/
   DeltaRational computeRowValueUsingAssignment(TNode x);
 
-  /** Computes the value of a row in the tableau using the safe assignment.*/
-  DeltaRational computeRowValueUsingSavedAssignment(TNode x);
-
   /** Checks to make sure the assignment is consistent with the tableau. */
   void checkTableau();
 

@@ -26,6 +26,8 @@ struct SlackAttrID;
 
 typedef expr::Attribute<SlackAttrID, Node> Slack;
 
+struct ReverseSlackAttrID;
+typedef expr::Attribute<ReverseSlackAttrID, Node> ReverseSlack;
 
 }; /* namespace arith */
 }; /* namespace theory */

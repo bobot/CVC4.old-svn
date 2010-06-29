@@ -56,10 +56,7 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_diseq(c),
   d_rewriter(&d_constants),
   d_statistics()
-{
-  uint64_t ass_id = partial_model::Assignment::getId();
-  Debug("arithsetup") << "Assignment: " << ass_id << std::endl;
-}
+{ }
 TheoryArith::~TheoryArith(){
   for(vector<Node>::iterator i=d_variables.begin(); i!= d_variables.end(); ++i){
     Node var = *i;
@@ -162,6 +159,8 @@ void TheoryArith::setupSlack(TNode left){
   Node slack = NodeManager::currentNM()->mkVar(real_type);
 
   left.setAttribute(Slack(), slack);
+  slack.setAttribute(ReverseSlack(), left);
+
   makeBasic(slack);
 
   Node slackEqLeft = NodeManager::currentNM()->mkNode(EQUAL,slack,left);
@@ -196,9 +195,7 @@ void TheoryArith::setupVariable(TNode x){
 
     //This can go away if the tableau creation is done at preregister
     //time instead of register
-    DeltaRational safeAssignment = computeRowValueUsingSavedAssignment(x);
     DeltaRational assignment = computeRowValueUsingAssignment(x);
-    d_partialModel.initialize(x,safeAssignment);
     d_partialModel.setAssignment(x,assignment);
 
     checkBasicVariable(x);
@@ -221,28 +218,12 @@ DeltaRational TheoryArith::computeRowValueUsingAssignment(TNode x){
   for(Row::iterator i = row->begin(); i != row->end();++i){
     TNode nonbasic = *i;
     const Rational& coeff = row->lookup(nonbasic);
-    const DeltaRational& assignment = d_partialModel.getAssignment(nonbasic);
+    DeltaRational assignment = d_partialModel.getAssignment(nonbasic);
     sum = sum + (assignment * coeff);
   }
   return sum;
 }
 
-/**
- * Computes the value of a basic variable using the current assignment.
- */
-DeltaRational TheoryArith::computeRowValueUsingSavedAssignment(TNode x){
-  Assert(isBasic(x));
-  DeltaRational sum = d_constants.d_ZERO_DELTA;
-
-  Row* row = d_tableau.lookup(x);
-  for(Row::iterator i = row->begin(); i != row->end();++i){
-    TNode nonbasic = *i;
-    const Rational& coeff = row->lookup(nonbasic);
-    const DeltaRational& assignment = d_partialModel.getSafeAssignment(nonbasic);
-    sum = sum + (assignment * coeff);
-  }
-  return sum;
-}
 
 Node TheoryArith::rewrite(TNode n){
   Debug("arith") << "rewrite(" << n << ")" << endl;
@@ -691,29 +672,22 @@ void TheoryArith::check(Effort level){
 
     if(conflictDuringAnAssert){
       if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
-      d_partialModel.revertAssignmentChanges();
-      if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
-
       return;
     }
   }
 
-  if(fullEffort(level)){
-    if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
-
-    Node possibleConflict = updateInconsistentVars();
-    if(possibleConflict != Node::null()){
-
-      d_partialModel.revertAssignmentChanges();
-
-      d_out->conflict(possibleConflict, true);
-
-      Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
-    }else{
-      d_partialModel.commitAssignmentChanges();
-    }
-    if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
+  //The check procedure will not be sound unless this is done everytime
+  //TODO On a system pop(), regain the assertion that all non basic
+  // variables satisfy their bounds and that d_possiblyInconsistent is a
+  //superset of the inconsistent basic variables.
+  if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
+  Node possibleConflict = updateInconsistentVars();
+  if(possibleConflict != Node::null()){
+    d_out->conflict(possibleConflict, true);
+    Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
   }
+  if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
+
 
   Debug("arith") << "TheoryArith::check end" << std::endl;
 

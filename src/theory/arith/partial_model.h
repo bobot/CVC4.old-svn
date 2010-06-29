@@ -34,26 +34,6 @@ namespace theory {
 namespace arith {
 
 namespace partial_model {
-struct DeltaRationalCleanupStrategy{
-  static void cleanup(DeltaRational* dq){
-    Debug("arithgc") << "cleaning up  " << dq << "\n";
-    if(dq != NULL){
-      delete dq;
-    }
-  }
-};
-
-struct AssignmentAttrID {};
-typedef expr::Attribute<AssignmentAttrID,
-                        DeltaRational*,
-                        DeltaRationalCleanupStrategy> Assignment;
-
-
-struct SafeAssignmentAttrID {};
-typedef expr::Attribute<SafeAssignmentAttrID,
-                        DeltaRational*,
-                        DeltaRationalCleanupStrategy> SafeAssignment;
-
 /**
  * This defines a context dependent delta rational map.
  * This is used to keep track of the current lower and upper bounds on
@@ -113,22 +93,16 @@ typedef expr::CDAttribute<TheoryArithPropagatedID, bool> TheoryArithPropagated;
 
 class ArithPartialModel {
 private:
+  partial_model::CDDRationalMap d_assignmentMap;
   partial_model::CDDRationalMap d_LowerBoundMap;
   partial_model::CDDRationalMap d_UpperBoundMap;
-
-
-  /**
-   * List contains all of the variables that have an unsafe assignment.
-   */
-  typedef std::vector<TNode> HistoryList;
-  HistoryList d_history;
 
 public:
 
   ArithPartialModel(context::Context* c):
+    d_assignmentMap(c),
     d_LowerBoundMap(c),
-    d_UpperBoundMap(c),
-    d_history()
+    d_UpperBoundMap(c)
   { }
 
   void setLowerConstraint(TNode x, TNode constraint);
@@ -137,19 +111,8 @@ public:
   TNode getUpperConstraint(TNode x);
 
 
-
   /* Initializes a variable to a safe value.*/
   void initialize(TNode x, const DeltaRational& r);
-
-  /* Gets the last assignment to a variable that is known to be conistent. */
-  DeltaRational getSafeAssignment(TNode x) const;
-
-  /* Reverts all variable assignments to their safe values. */
-  void revertAssignmentChanges();
-
-  /* Commits all variables assignments as safe.*/
-  void commitAssignmentChanges();
-
 
 
   void setUpperBound(TNode x, const DeltaRational& r);
@@ -161,7 +124,12 @@ public:
   /** Must know that the bound exists before calling this! */
   DeltaRational getUpperBound(TNode x) const;
   DeltaRational getLowerBound(TNode x) const;
-  const DeltaRational& getAssignment(TNode x) const;
+
+  /**
+   * Gets the current assignment.
+   * Recomputes the value for slack variables if none exists.
+   */
+  DeltaRational getAssignment(TNode x);
 
 
   /**
@@ -183,12 +151,8 @@ public:
   void printModel(TNode x);
 
 private:
-
-  /**
-   * This function implements the mostly identical:
-   * revertAssignmentChanges() and commitAssignmentChanges().
-   */
-  void clearSafeAssignments(bool revert);
+  DeltaRational computeSum(TNode sum);
+  void computeMult(TNode mult, DeltaRational& accumulator);
 };
 
 
