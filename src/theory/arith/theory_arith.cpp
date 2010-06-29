@@ -717,25 +717,53 @@ void TheoryArith::check(Effort level){
     }
   }
 
-  if(fullEffort(level)){
-    if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
+  //TODO This must be done everytime for the time being
+  if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
 
-    Node possibleConflict = updateInconsistentVars();
-    if(possibleConflict != Node::null()){
+  Node possibleConflict = updateInconsistentVars();
+  if(possibleConflict != Node::null()){
 
-      d_partialModel.revertAssignmentChanges();
+    d_partialModel.revertAssignmentChanges();
 
-      d_out->conflict(possibleConflict);
+    if(debugTagIsOn("arith::print-conflict"))
+      debugPrintNode(possibleConflict);
 
-      Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
-    }else{
-      d_partialModel.commitAssignmentChanges();
-    }
-    if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
+    d_out->conflict(possibleConflict);
+
+    Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
+  }else{
+    d_partialModel.commitAssignmentChanges();
   }
+  if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
+
 
   Debug("arith") << "TheoryArith::check end" << std::endl;
 
+  if(debugTagIsOn("arith::print_model")) {
+    Debug("arith::print_model") << "Model:" << endl;
+
+    for (unsigned i = 0; i < d_variables.size(); ++ i) {
+      Debug("arith::print_model") << d_variables[i] << " : " <<
+        d_partialModel.getAssignment(d_variables[i]);
+      if(isBasic(d_variables[i]))
+        Debug("arith::print_model") << " (basic)";
+      Debug("arith::print_model") << endl;
+    }
+  }
+  if(debugTagIsOn("arith::print_assertions")) {
+    Debug("arith::print_assertions") << "Assertions:" << endl;
+    for (unsigned i = 0; i < d_variables.size(); ++ i) {
+      Node x = d_variables[i];
+      if (x.hasAttribute(partial_model::LowerConstraint())) {
+        Node constr = d_partialModel.getLowerConstraint(x);
+        Debug("arith::print_assertions") << constr.toString() << endl;
+      }
+      if (x.hasAttribute(partial_model::UpperConstraint())) {
+        Node constr = d_partialModel.getUpperConstraint(x);
+        Debug("arith::print_assertions") << constr.toString() << endl;
+      }
+    }
+  }
 }
 
 /**

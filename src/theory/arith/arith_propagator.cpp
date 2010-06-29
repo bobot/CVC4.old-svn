@@ -82,10 +82,12 @@ void ArithUnatePropagator::setupLefthand(TNode left){
 }
 
 void ArithUnatePropagator::assertLiteral(TNode lit){
-  Assert(!lit.getAttribute(propagator::PropagatorMarked()));
+
   if(lit.getKind() == NOT){
+    Assert(!lit[0].getAttribute(propagator::PropagatorMarked()));
     lit[0].setAttribute(propagator::PropagatorMarked(), true);
   }else{
+    Assert(!lit.getAttribute(propagator::PropagatorMarked()));
     lit.setAttribute(propagator::PropagatorMarked(), true);
   }
   d_assertions.push_back(lit);
@@ -99,6 +101,14 @@ std::vector<Node> ArithUnatePropagator::getImpliedLiterals(){
     d_pendingAssertions = d_pendingAssertions + 1;
 
     enqueueImpliedLiterals(assertion, impliedButNotAsserted);
+  }
+
+  if(debugTagIsOn("arith::propagator")){
+    for(std::vector<Node>::iterator i = impliedButNotAsserted.begin(),
+          endIter = impliedButNotAsserted.end(); i != endIter; ++i){
+      Node imp = *i;
+      Debug("arith::propagator") << explain(imp) << " (prop)-> " << imp << endl;
+    }
   }
 
   return impliedButNotAsserted;

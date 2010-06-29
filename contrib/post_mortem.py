@@ -168,6 +168,7 @@ def handleLine(db, ln):
         addStat(db,"sat/unsat",ln)
     else:
         (name,delim,result) = ln.partition(stat_name_delim)
+        print ln
         assert delim != ""
         addStat(db, name,result)
 
