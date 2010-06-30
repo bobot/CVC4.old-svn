@@ -32,13 +32,13 @@ class IntegerBlack : public CxxTest::TestSuite {
 public:
 
   void testConstructors() {
-    Integer z0(1);
+    Integer z0(1l);
     TS_ASSERT_EQUALS(z0.getLong(), 1);
 
-    Integer z1(0);
+    Integer z1(0l);
     TS_ASSERT_EQUALS(z1.getLong(), 0);
 
-    Integer z2(-1);
+    Integer z2(-1l);
     TS_ASSERT_EQUALS(z2.getLong(), -1);
 
     Integer z3(0x890UL);
@@ -61,15 +61,15 @@ public:
   }
 
   void testCompareAgainstZero(){
-    Integer z(0);
-    TS_ASSERT_THROWS_NOTHING(z == 0;);
-    TS_ASSERT_EQUALS(z,0);
+    Integer z(0l);
+    TS_ASSERT_THROWS_NOTHING(z == 0l;);
+    TS_ASSERT_EQUALS(z,0l);
   }
 
   void testOperatorAssign(){
-    Integer x(0);
-    Integer y(79);
-    Integer z(45789);
+    Integer x(0l);
+    Integer y(79l);
+    Integer z(45789l);
 
     TS_ASSERT_EQUALS(x.getUnsignedLong(), 0ul);
     TS_ASSERT_EQUALS(y.getUnsignedLong(), 79ul);
@@ -81,7 +81,7 @@ public:
     TS_ASSERT_EQUALS(y.getUnsignedLong(), 45789ul);
     TS_ASSERT_EQUALS(z.getUnsignedLong(), 45789ul);
 
-    Integer a(2);
+    Integer a(2l);
 
     y = a;
 
@@ -92,8 +92,8 @@ public:
   }
 
   void testOperatorEquals(){
-    Integer a(0);
-    Integer b(79);
+    Integer a(0l);
+    Integer b(79l);
     Integer c("79");
     Integer d;
 
@@ -120,8 +120,8 @@ public:
   }
 
   void testOperatorNotEquals(){
-    Integer a(0);
-    Integer b(79);
+    Integer a(0l);
+    Integer b(79l);
     Integer c("79");
     Integer d;
 
@@ -148,33 +148,33 @@ public:
   }
 
   void testOperatorSubtract(){
-    Integer x(0);
-    Integer y(79);
-    Integer z(-34);
+    Integer x(0l);
+    Integer y(79l);
+    Integer z(-34l);
 
 
     Integer act0 = x - x;
     Integer act1 = x - y;
     Integer act2 = x - z;
-    Integer exp0(0);
-    Integer exp1(-79);
-    Integer exp2(34);
+    Integer exp0(0l);
+    Integer exp1(-79l);
+    Integer exp2(34l);
 
 
     Integer act3 = y - x;
     Integer act4 = y - y;
     Integer act5 = y - z;
-    Integer exp3(79);
-    Integer exp4(0);
-    Integer exp5(113);
+    Integer exp3(79l);
+    Integer exp4(0l);
+    Integer exp5(113l);
 
 
     Integer act6 = z - x;
     Integer act7 = z - y;
     Integer act8 = z - z;
-    Integer exp6(-34);
-    Integer exp7(-113);
-    Integer exp8(0);
+    Integer exp6(-34l);
+    Integer exp7(-113l);
+    Integer exp8(0l);
 
 
 
@@ -189,33 +189,33 @@ public:
     TS_ASSERT_EQUALS(act8, exp8);
   }
   void testOperatorAdd(){
-    Integer x(0);
-    Integer y(79);
-    Integer z(-34);
+    Integer x(0l);
+    Integer y(79l);
+    Integer z(-34l);
 
 
     Integer act0 = x + x;
     Integer act1 = x + y;
     Integer act2 = x + z;
-    Integer exp0(0);
-    Integer exp1(79);
-    Integer exp2(-34);
+    Integer exp0(0l);
+    Integer exp1(79l);
+    Integer exp2(-34l);
 
 
     Integer act3 = y + x;
     Integer act4 = y + y;
     Integer act5 = y + z;
-    Integer exp3(79);
-    Integer exp4(158);
-    Integer exp5(45);
+    Integer exp3(79l);
+    Integer exp4(158l);
+    Integer exp5(45l);
 
 
     Integer act6 = z + x;
     Integer act7 = z + y;
     Integer act8 = z + z;
-    Integer exp6(-34);
-    Integer exp7(45);
-    Integer exp8(-68);
+    Integer exp6(-34l);
+    Integer exp7(45l);
+    Integer exp8(-68l);
 
 
 
@@ -231,33 +231,33 @@ public:
   }
 
   void testOperatorMult(){
-    Integer x(0);
-    Integer y(79);
-    Integer z(-34);
+    Integer x(0l);
+    Integer y(79l);
+    Integer z(-34l);
 
 
     Integer act0 = x * x;
     Integer act1 = x * y;
     Integer act2 = x * z;
-    Integer exp0(0);
-    Integer exp1(0);
-    Integer exp2(0);
+    Integer exp0(0l);
+    Integer exp1(0l);
+    Integer exp2(0l);
 
 
     Integer act3 = y * x;
     Integer act4 = y * y;
     Integer act5 = y * z;
-    Integer exp3(0);
-    Integer exp4(6241);
-    Integer exp5(-2686);
+    Integer exp3(0l);
+    Integer exp4(6241l);
+    Integer exp5(-2686l);
 
 
     Integer act6 = z * x;
     Integer act7 = z * y;
     Integer act8 = z * z;
-    Integer exp6(0);
-    Integer exp7(-2686);
-    Integer exp8(1156);
+    Integer exp6(0l);
+    Integer exp7(-2686l);
+    Integer exp8(1156l);
 
 
 
@@ -283,15 +283,15 @@ public:
   }
 
   void testPow() {
-    TS_ASSERT_EQUALS( Integer(1), Integer(1).pow(0) );
-    TS_ASSERT_EQUALS( Integer(1), Integer(5).pow(0) );
-    TS_ASSERT_EQUALS( Integer(1), Integer(-1).pow(0) );
-    TS_ASSERT_EQUALS( Integer(0), Integer(0).pow(1) );
-    TS_ASSERT_EQUALS( Integer(5), Integer(5).pow(1) );
-    TS_ASSERT_EQUALS( Integer(-5), Integer(-5).pow(1) );
-    TS_ASSERT_EQUALS( Integer(16), Integer(2).pow(4) );
-    TS_ASSERT_EQUALS( Integer(16), Integer(-2).pow(4) );
-    TS_ASSERT_EQUALS( Integer(1000), Integer(10).pow(3) );
-    TS_ASSERT_EQUALS( Integer(-1000), Integer(-10).pow(3) );
+    TS_ASSERT_EQUALS( Integer(1l), Integer(1l).pow(0) );
+    TS_ASSERT_EQUALS( Integer(1l), Integer(5l).pow(0) );
+    TS_ASSERT_EQUALS( Integer(1l), Integer(-1l).pow(0) );
+    TS_ASSERT_EQUALS( Integer(0l), Integer(0l).pow(1) );
+    TS_ASSERT_EQUALS( Integer(5l), Integer(5l).pow(1) );
+    TS_ASSERT_EQUALS( Integer(-5l), Integer(-5l).pow(1) );
+    TS_ASSERT_EQUALS( Integer(16l), Integer(2l).pow(4) );
+    TS_ASSERT_EQUALS( Integer(16l), Integer(-2l).pow(4) );
+    TS_ASSERT_EQUALS( Integer(1000l), Integer(10l).pow(3) );
+    TS_ASSERT_EQUALS( Integer(-1000l), Integer(-10l).pow(3) );
   }
 };

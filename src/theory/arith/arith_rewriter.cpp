@@ -350,7 +350,7 @@ Node ArithRewriter::rewriteMult(TNode t){
 
   using namespace std;
 
-  Rational accumulator(1,1);
+  Rational accumulator(1ul,1ul);
   set<Node> variables;
   vector<Node> sums;
 

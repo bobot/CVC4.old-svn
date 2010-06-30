@@ -20,6 +20,7 @@
 #include <sstream>
 
 #include "util/rational.h"
+#include <stdint.h>
 
 using namespace CVC4;
 using namespace std;
@@ -30,15 +31,26 @@ class RationalWhite : public CxxTest::TestSuite {
 public:
 
 
+  void testSizeof(){
+    Rational* q = new Rational(canReduce);
+    cout << sizeof(Rational) << endl;
+    cout << sizeof(Rational *) << endl;
+    cout << sizeof(uint64_t) << endl;
+    cout << sizeof(mpq_t) << endl;
+    cout << sizeof(mpz_t) << endl;
+    cout << sizeof(mpz_mimic) << endl;
+    cout << sizeof(stuffed_mpz_t) << endl;
+  }
+
   void testDestructor(){
     Rational* q = new Rational(canReduce);
     TS_ASSERT_THROWS_NOTHING( delete q );
   }
 
   void testCompareAgainstZero(){
-    Rational q(0);
-    TS_ASSERT_THROWS_NOTHING(q == 0;);
-    TS_ASSERT_EQUALS(q,0);
+    Rational q(0l);
+    TS_ASSERT_THROWS_NOTHING(q == 0l;);
+    TS_ASSERT_EQUALS(q,0l);
   }
 
   void testConstructors(){
@@ -74,9 +86,9 @@ public:
     TS_ASSERT_EQUALS(1L, zero.getDenominator().getLong());
 
 
-    signed int nsi = -5478, dsi = 34783;
+    signed int nsi = -5478; unsigned int dsi = 34783;
     unsigned int nui = 5478u, dui = 347589u;
-    signed long int nsli = 1489054690l, dsli = -347576678l;
+    signed long int nsli = 1489054690l; unsigned long int dsli = 347576678u;
     unsigned long int nuli = 2434689476ul, duli = 323447523ul;
 
     Rational qsi(nsi, dsi);
@@ -92,8 +104,8 @@ public:
     TS_ASSERT_EQUALS(dui/33, qui.getDenominator().getUnsignedLong());
 
 
-    TS_ASSERT_EQUALS(-nsli/2, qsli.getNumerator().getLong());
-    TS_ASSERT_EQUALS(-dsli/2, qsli.getDenominator().getLong());
+    TS_ASSERT_EQUALS(nsli/2, qsli.getNumerator().getLong());
+    TS_ASSERT_EQUALS((long signed int)dsli/2, qsli.getDenominator().getLong());
 
     TS_ASSERT_EQUALS(nuli, quli.getNumerator().getUnsignedLong());
     TS_ASSERT_EQUALS(duli, quli.getDenominator().getUnsignedLong());
@@ -109,9 +121,9 @@ public:
   }
 
   void testOperatorAssign(){
-    Rational x(0,1);
-    Rational y(78,6);
-    Rational z(45789,1);
+    Rational x(0l,1l);
+    Rational y(78l,6l);
+    Rational z(45789l,1l);
 
     TS_ASSERT_EQUALS(x.getNumerator().getUnsignedLong(), 0ul);
     TS_ASSERT_EQUALS(y.getNumerator().getUnsignedLong(), 13ul);
@@ -123,7 +135,7 @@ public:
     TS_ASSERT_EQUALS(y.getNumerator().getUnsignedLong(), 45789ul);
     TS_ASSERT_EQUALS(z.getNumerator().getUnsignedLong(), 45789ul);
 
-    Rational a(78,91);
+    Rational a(78l,91ul);
 
     y = a;
 
@@ -198,33 +210,33 @@ public:
 
   }
   void testOperatorSubtract(){
-    Rational x(3,2);
-    Rational y(7,8);
-    Rational z(-3,33);
+    Rational x(3l,2l);
+    Rational y(7l,8l);
+    Rational z(-3l,33l);
 
 
     Rational act0 = x - x;
     Rational act1 = x - y;
     Rational act2 = x - z;
-    Rational exp0(0,1);
-    Rational exp1(5,8);
-    Rational exp2(35,22);
+    Rational exp0(0l,1l);
+    Rational exp1(5l,8l);
+    Rational exp2(35l,22l);
 
 
     Rational act3 = y - x;
     Rational act4 = y - y;
     Rational act5 = y - z;
-    Rational exp3(-5,8);
-    Rational exp4(0,1);
-    Rational exp5(85,88);
+    Rational exp3(-5l,8l);
+    Rational exp4(0l,1l);
+    Rational exp5(85l,88l);
 
 
     Rational act6 = z - x;
     Rational act7 = z - y;
     Rational act8 = z - z;
-    Rational exp6(-35,22);
-    Rational exp7(-85, 88);
-    Rational exp8(0, 1);
+    Rational exp6(-35l,22l);
+    Rational exp7(-85l, 88l);
+    Rational exp8(0l, 1l);
 
 
 
@@ -239,33 +251,33 @@ public:
     TS_ASSERT_EQUALS(act8, exp8);
   }
   void testOperatorAdd(){
-    Rational x(3,2);
-    Rational y(7,8);
-    Rational z(-3,33);
+    Rational x(3l,2l);
+    Rational y(7l,8l);
+    Rational z(-3l,33l);
 
 
     Rational act0 = x + x;
     Rational act1 = x + y;
     Rational act2 = x + z;
-    Rational exp0(3,1);
-    Rational exp1(19,8);
-    Rational exp2(31,22);
+    Rational exp0(3l,1l);
+    Rational exp1(19l,8l);
+    Rational exp2(31l,22l);
 
 
     Rational act3 = y + x;
     Rational act4 = y + y;
     Rational act5 = y + z;
-    Rational exp3(19,8);
-    Rational exp4(7,4);
-    Rational exp5(69,88);
+    Rational exp3(19l,8l);
+    Rational exp4(7l,4l);
+    Rational exp5(69l,88l);
 
 
     Rational act6 = z + x;
     Rational act7 = z + y;
     Rational act8 = z + z;
-    Rational exp6(31,22);
-    Rational exp7(69, 88);
-    Rational exp8(-2, 11);
+    Rational exp6(31l,22l);
+    Rational exp7(69l, 88l);
+    Rational exp8(-2l, 11l);
 
 
 
@@ -281,33 +293,33 @@ public:
   }
 
   void testOperatorMult(){
-    Rational x(3,2);
-    Rational y(7,8);
-    Rational z(-3,33);
+    Rational x(3l,2l);
+    Rational y(7l,8l);
+    Rational z(-3l,33l);
 
 
     Rational act0 = x * x;
     Rational act1 = x * y;
     Rational act2 = x * z;
-    Rational exp0(9,4);
-    Rational exp1(21,16);
-    Rational exp2(-3,22);
+    Rational exp0(9l,4l);
+    Rational exp1(21l,16l);
+    Rational exp2(-3l,22l);
 
 
     Rational act3 = y * x;
     Rational act4 = y * y;
     Rational act5 = y * z;
-    Rational exp3(21,16);
-    Rational exp4(49,64);
-    Rational exp5(-7,88);
+    Rational exp3(21l,16l);
+    Rational exp4(49l,64l);
+    Rational exp5(-7l,88l);
 
 
     Rational act6 = z * x;
     Rational act7 = z * y;
     Rational act8 = z * z;
-    Rational exp6(-3, 22);
-    Rational exp7(-7, 88);
-    Rational exp8(1, 121);
+    Rational exp6(-3l, 22l);
+    Rational exp7(-7l, 88l);
+    Rational exp8(1l, 121l);
 
 
 
@@ -322,33 +334,33 @@ public:
     TS_ASSERT_EQUALS(act8, exp8);
   }
   void testOperatorDiv(){
-    Rational x(3,2);
-    Rational y(7,8);
-    Rational z(-3,33);
+    Rational x(3l,2l);
+    Rational y(7l,8l);
+    Rational z(-3l,33l);
 
 
     Rational act0 = x / x;
     Rational act1 = x / y;
     Rational act2 = x / z;
-    Rational exp0(1,1);
-    Rational exp1(12,7);
-    Rational exp2(-33,2);
+    Rational exp0(1l,1l);
+    Rational exp1(12l,7l);
+    Rational exp2(-33l,2l);
 
 
     Rational act3 = y / x;
     Rational act4 = y / y;
     Rational act5 = y / z;
-    Rational exp3(7,12);
-    Rational exp4(1,1);
-    Rational exp5(-77,8);
+    Rational exp3(7l,12l);
+    Rational exp4(1l,1l);
+    Rational exp5(-77l,8l);
 
 
     Rational act6 = z / x;
     Rational act7 = z / y;
     Rational act8 = z / z;
-    Rational exp6(-2,33);
-    Rational exp7(-8, 77);
-    Rational exp8(1, 1);
+    Rational exp6(-2l,33l);
+    Rational exp7(-8l, 77l);
+    Rational exp8(1l, 1l);
 
 
 
@@ -370,16 +382,16 @@ public:
     TS_ASSERT_EQUALS(reduce0.getNumerator(), num0);
     TS_ASSERT_EQUALS(reduce0.getDenominator(), den0);
 
-    Rational reduce1(0, 454789);
-    Integer num1(0);
-    Integer den1(1);
+    Rational reduce1(0l, 454789l);
+    Integer num1(0l);
+    Integer den1(1l);
 
     TS_ASSERT_EQUALS(reduce1.getNumerator(), num1);
     TS_ASSERT_EQUALS(reduce1.getDenominator(), den1);
 
-    Rational reduce2(0, -454789);
-    Integer num2(0);
-    Integer den2(1);
+    Rational reduce2(0l, -454789l);
+    Integer num2(0l);
+    Integer den2(1l);
 
 
     TS_ASSERT_EQUALS(reduce2.getNumerator(), num2);
@@ -388,34 +400,18 @@ public:
 
     Rational reduce3(822898902L, 273L);
     Integer num3(39185662L);
-    Integer den3(13);
+    Integer den3(13L);
 
     TS_ASSERT_EQUALS(reduce2.getNumerator(), num2);
     TS_ASSERT_EQUALS(reduce2.getDenominator(), den2);
 
-    Rational reduce4( 822898902L,-273L);
+    Rational reduce4(-822898902L, 273UL);
     Integer num4(-39185662L);
-    Integer den4(13);
+    Integer den4(13L);
 
 
     TS_ASSERT_EQUALS(reduce4.getNumerator(), num4);
     TS_ASSERT_EQUALS(reduce4.getDenominator(), den4);
-
-    Rational reduce5(-822898902L, 273L);
-    Integer num5(-39185662L);
-    Integer den5(13);
-
-
-    TS_ASSERT_EQUALS(reduce5.getNumerator(), num5);
-    TS_ASSERT_EQUALS(reduce5.getDenominator(), den5);
-
-    Rational reduce6(-822898902L,-273L);
-    Integer num6(39185662L);
-    Integer den6(13);
-
-
-    TS_ASSERT_EQUALS(reduce6.getNumerator(), num6);
-    TS_ASSERT_EQUALS(reduce6.getDenominator(), den6);
 
   }
 

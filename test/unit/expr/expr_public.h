@@ -67,8 +67,8 @@ public:
       null = new Expr;
 
       i1 = new Expr(d_em->mkConst(Integer("0")));
-      i2 = new Expr(d_em->mkConst(Integer(23)));
-      r1 = new Expr(d_em->mkConst(Rational(1, 5)));
+      i2 = new Expr(d_em->mkConst(Integer(23l)));
+      r1 = new Expr(d_em->mkConst(Rational(1l, 5l)));
       r2 = new Expr(d_em->mkConst(Rational("0")));
     } catch(Exception e) {
       cerr << "Exception during setUp():" << endl << e;
@@ -365,9 +365,9 @@ public:
     TS_ASSERT_THROWS(d_apply_fun_bool->getConst<Kind>(), IllegalArgumentException);
     TS_ASSERT_THROWS(null->getConst<Kind>(), IllegalArgumentException);
 
-    TS_ASSERT(i1->getConst<Integer>() == 0);
-    TS_ASSERT(i2->getConst<Integer>() == 23);
-    TS_ASSERT(r1->getConst<Rational>() == Rational(1, 5));
+    TS_ASSERT(i1->getConst<Integer>() == 0l);
+    TS_ASSERT(i2->getConst<Integer>() == 23l);
+    TS_ASSERT(r1->getConst<Rational>() == Rational(1l, 5l));
     TS_ASSERT(r2->getConst<Rational>() == Rational("0"));
 
     TS_ASSERT_THROWS(i1->getConst<Kind>(), IllegalArgumentException);

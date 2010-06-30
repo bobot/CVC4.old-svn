@@ -41,10 +41,7 @@ private:
 public:
 
   BitVector(unsigned size = 0)
-  : d_size(size), d_value(0) {}
-
-  BitVector(unsigned size, unsigned int z)
-  : d_size(size), d_value(z) {}
+  : d_size(size), d_value(0ul) {}
 
   BitVector(unsigned size, unsigned long int z)
   : d_size(size), d_value(z) {}

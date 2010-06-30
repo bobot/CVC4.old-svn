@@ -35,7 +35,7 @@ Rational Rational::fromDecimal(const string& dec) {
 
     /* Compute the denominator: 10 raise to the number of decimal places */
     int decPlaces = dec.size() - (i + 1);
-    Integer denominator( Integer(10).pow(decPlaces) );
+    Integer denominator( Integer(10ul).pow(decPlaces) );
 
     return Rational( numerator, denominator );
   } else {

@@ -260,7 +260,7 @@ void TheoryArith::registerTerm(TNode tn){
 /* procedure AssertUpper( x_i <= c_i) */
 bool TheoryArith::AssertUpper(TNode n, TNode original){
   TNode x_i = n[0];
-  Rational dcoeff = Rational(Integer(deltaCoeff(n.getKind())));
+  Rational dcoeff = Rational(Integer((long int)deltaCoeff(n.getKind())));
   DeltaRational c_i(n[1].getConst<Rational>(), dcoeff);
 
 
@@ -296,7 +296,7 @@ bool TheoryArith::AssertUpper(TNode n, TNode original){
 /* procedure AssertLower( x_i >= c_i ) */
 bool TheoryArith::AssertLower(TNode n, TNode original){
   TNode x_i = n[0];
-  Rational dcoeff = Rational(Integer(deltaCoeff(n.getKind())));
+  Rational dcoeff = Rational(Integer((long int)deltaCoeff(n.getKind())));
   DeltaRational c_i(n[1].getConst<Rational>(),dcoeff);
 
   Debug("arith") << "AssertLower(" << x_i << " " << c_i << ")"<< std::endl;
@@ -488,7 +488,7 @@ TNode TheoryArith::selectSlack(TNode x_i){
   for(Row::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
     TNode nonbasic = *nbi;
     const Rational& a_ij = row_i->lookup(nonbasic);
-    int cmp = a_ij.cmp(d_constants.d_ZERO);
+    int cmp = Rational::cmp(a_ij, d_constants.d_ZERO);
     if(above){ // beta(x_i) > u_i
       if( cmp < 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)){
         return nonbasic;

@@ -44,9 +44,9 @@ public:
   Node d_NEGATIVE_ONE_NODE;
 
   ArithConstants(NodeManager* nm) :
-    d_ZERO(0,1),
-    d_ONE(1,1),
-    d_NEGATIVE_ONE(-1,1),
+    d_ZERO(0ul,1ul),
+    d_ONE(1ul,1ul),
+    d_NEGATIVE_ONE(-1l,1l),
     d_ZERO_DELTA(d_ZERO),
     d_ZERO_NODE(nm->mkConst(d_ZERO)),
     d_ONE_NODE(nm->mkConst(d_ONE)),

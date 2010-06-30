@@ -41,8 +41,8 @@ private:
   CVC4::Rational k;
 
 public:
-  DeltaRational() : c(0,1), k(0,1) {}
-  DeltaRational(const CVC4::Rational& base) : c(base), k(0,1) {}
+  DeltaRational() : c(0ul,1ul), k(0ul,1ul) {}
+  DeltaRational(const CVC4::Rational& base) : c(base), k(0ul,1ul) {}
   DeltaRational(const CVC4::Rational& base, const CVC4::Rational& coeff) :
     c(base), k(coeff) {}
 
@@ -67,7 +67,7 @@ public:
   }
 
   DeltaRational operator-(const DeltaRational& a) const{
-    CVC4::Rational negOne(CVC4::Integer(-1));
+    CVC4::Rational negOne(CVC4::Integer(-1l));
     return *(this) + (a * negOne);
   }
 
@@ -76,7 +76,7 @@ public:
   }
 
   bool operator<=(const DeltaRational& other) const{
-    int cmp = c.cmp(other.c);
+    int cmp = Rational::cmp(c,other.c);
     return (cmp < 0) || ((cmp==0)&&(k <= other.k));
   }
   bool operator<(const DeltaRational& other) const{

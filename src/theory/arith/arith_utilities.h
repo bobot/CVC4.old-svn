@@ -49,7 +49,7 @@ inline Rational coerceToRational(TNode constant){
   default:
     Unreachable();
   }
-  Rational unreachable(0,0);
+  Rational unreachable(0L,0L);
   return unreachable;
 }
 

@@ -30,16 +30,16 @@ class RationalBlack : public CxxTest::TestSuite {
 public:
 
   void testFromDecimal() {
-    TS_ASSERT_EQUALS( Rational(0,1), Rational::fromDecimal("0") );
-    TS_ASSERT_EQUALS( Rational(1,1), Rational::fromDecimal("1") );
-    TS_ASSERT_EQUALS( Rational(-1,1), Rational::fromDecimal("-1") );
-    TS_ASSERT_EQUALS( Rational(3,2), Rational::fromDecimal("1.5") );
-    TS_ASSERT_EQUALS( Rational(-3,2), Rational::fromDecimal("-1.5") );
-    TS_ASSERT_EQUALS( Rational(7,10), Rational::fromDecimal(".7") );
-    TS_ASSERT_EQUALS( Rational(-7,10), Rational::fromDecimal("-.7") );
-    TS_ASSERT_EQUALS( Rational(5,1), Rational::fromDecimal("5.") );
-    TS_ASSERT_EQUALS( Rational(-5,1), Rational::fromDecimal("-5.") );
-    TS_ASSERT_EQUALS( Rational(12345,100), Rational::fromDecimal("123.45") );
+    TS_ASSERT_EQUALS( Rational(0l,1l), Rational::fromDecimal("0") );
+    TS_ASSERT_EQUALS( Rational(1l,1l), Rational::fromDecimal("1") );
+    TS_ASSERT_EQUALS( Rational(-1l,1l), Rational::fromDecimal("-1") );
+    TS_ASSERT_EQUALS( Rational(3l,2l), Rational::fromDecimal("1.5") );
+    TS_ASSERT_EQUALS( Rational(-3l,2l), Rational::fromDecimal("-1.5") );
+    TS_ASSERT_EQUALS( Rational(7l,10l), Rational::fromDecimal(".7") );
+    TS_ASSERT_EQUALS( Rational(-7l,10l), Rational::fromDecimal("-.7") );
+    TS_ASSERT_EQUALS( Rational(5l,1l), Rational::fromDecimal("5.") );
+    TS_ASSERT_EQUALS( Rational(-5l,1l), Rational::fromDecimal("-5.") );
+    TS_ASSERT_EQUALS( Rational(12345l,100ll), Rational::fromDecimal("123.45") );
 
     TS_ASSERT_THROWS( Rational::fromDecimal("1.2.3");, const std::invalid_argument& );
     TS_ASSERT_THROWS( Rational::fromDecimal("1.2/3");, const std::invalid_argument& );

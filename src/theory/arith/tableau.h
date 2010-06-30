@@ -100,7 +100,7 @@ public:
 
   void pivot(TNode x_j){
     Rational negInverseA_rs = -(lookup(x_j).inverse());
-    d_coeffs[d_x_i] = Rational(Integer(-1));
+    d_coeffs[d_x_i] = Rational(Integer(-1l));
     d_coeffs.erase(x_j);
 
     d_nonbasic.erase(x_j);
@@ -123,7 +123,7 @@ public:
     Assert(d_nonbasic.find(x_s) != d_nonbasic.end());
     Assert(x_s != d_x_i);
 
-    Rational zero(0,1);
+    Rational zero(0L,1L);
 
     Rational a_rs = lookup(x_s);
     Assert(a_rs != zero);

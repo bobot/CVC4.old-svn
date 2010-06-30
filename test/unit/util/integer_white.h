@@ -32,7 +32,7 @@ public:
   void testHash(){
     Integer large (largeVal);
     Integer zero;
-    Integer fits_in_2_bytes(55890);
+    Integer fits_in_2_bytes(55890ul);
     Integer fits_in_16_bytes("7890D789D33234027890D789D3323402", 16);
 
 
