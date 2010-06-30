@@ -129,18 +129,21 @@ int Derivation::getRootReason(Lit lit, Solver* solver){
   // if implied by an unit clause return the unit clause
   if((*reason).size() == 1)
     return reason->id();
-  std::hash_map<int, *Clause>::const_iterator iter;
+
+  // if the literal is already an unit clause then it has a computed reason
+  std::hash_map<int, Clause*>::const_iterator iter;
   iter = d_unit_clauses.find(toInt(lit));
   if(iter != d_unit_clauses.end()){
-    int a = iter->second;
-    return 3;
-  }
+    return iter->second->id();
+    }
 
   SatResolution* res = new SatResolution(reason->id());
 
-  for(int i=0; i<(*reason).size();i++){
-    Clause* newreas = solver->getReason((*reason)[i]);
-    res->addStep(~((*reason)[i]), getRootReason(newreas->id(), solver));
+  // starts from 1 because reason[0] = lit
+  for(int i=1; i<(*reason).size();i++){
+    //Clause* new_reas = solver->getReason((*reason)[i]);
+    int root_res = getRootReason((*reason)[i], solver);
+    res->addStep(~((*reason)[i]), root_res);
   }
   // add the literal as a unit clause
   std::vector<Lit> lits;
@@ -148,18 +151,48 @@ int Derivation::getRootReason(Lit lit, Solver* solver){
   Clause* unit = Clause_new(lits);
   d_unit_clauses[toInt(lit)] = unit;
   registerClause(unit, false);
+  // add the derivation of the unit
   registerDerivation(unit->id(), res);
-
 }
+
 
 void Derivation::finish(Clause* confl, Solver* solver){
 
-  SatResolution* res = new SatResolution(confl->id);
-  for (int i=;i<(*confl).size();i++){
+  SatResolution* res = new SatResolution(confl->id());
+  for (int i=0;i<(*confl).size();i++){
     Lit l = (*confl)[i];
     res->addStep(~l, getRootReason(~l, solver));
   }
+  registerDerivation(confl->id(), res);
+
+  // printing derivation for debugging
+  print(confl->id());
 }
+
+// helper functions
+
+void Derivation::print(int clause_id){
+  SatResolution res = d_res_map.find(clause_id);
+  if (res == d_res_map.end()){
+    std::cout<<"Error: Clause has no derivation \n";
+    return;
+  }
+  std::cout<<"R ( ";
+  Clause* clause = d_clauses.find(clause_id);
+  printClause(clause);
+
+  RSteps step = res.getSteps
+  for(int i=0;i<res.getSteps().size();i++){
+
+    std::cout<<"R ( ";
+    Clause* clause = d_clauses.find(res.);
+    printClause(clause);
+    std::cout<<" )";
+  }
+
+  std::cout<<" )";
+}
+
 
 }/* CVC4::prop::minisat namespace */
 }/* CVC4::prop namespace */
