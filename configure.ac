@@ -532,7 +532,7 @@ fi
 AC_CHECK_LIB(gmp, __gmpz_init, , [AC_MSG_ERROR([GNU MP (libgmp) not found, see http://gmplib.org/])])
 AC_CHECK_LIB(gmpxx, __gmpz_init, , [AC_MSG_ERROR([GNU MP C++ library (libgmpxx) not found, see http://gmplib.org/])])
 
-PKG_CHECK_MODULES([CLN], [cln >= 1.3.1])
+PKG_CHECK_MODULES([CLN], [cln >= 1.2.2])
 
 CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }$CLN_CFLAGS"
 CVC4CXXFLAGS="${CVC4CXXFLAGS:+$CVC4CXXFLAGS }$CLN_CFLAGS"
