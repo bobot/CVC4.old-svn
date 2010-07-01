@@ -23,6 +23,11 @@
 
 #include <string>
 #include <iostream>
+#include <cln/integer.h>
+#include <sstream>
+#include <cln/input.h>
+#include <cln/integer_io.h>
+#include "util/Assert.h"
 #include "util/gmp_util.h"
 
 namespace CVC4 {
@@ -35,18 +40,20 @@ private:
    * Stores the value of the rational is stored in a C++ GMP integer class.
    * Using this instead of mpz_t allows for easier destruction.
    */
-  mpz_class d_value;
+  cln::cl_I d_value;
 
   /**
    * Gets a reference to the gmp data that backs up the integer.
    * Only accessible to friend classes.
    */
-  const mpz_class& get_mpz() const { return d_value; }
-
+  //const mpz_class& get_mpz() const { return d_value; }
+  const cln::cl_I& get_cl_I() const { return d_value; }
+ 
   /**
    * Constructs an Integer by copying a GMP C++ primitive.
    */
-  Integer(const mpz_class& val) : d_value(val) {}
+  //Integer(const mpz_class& val) : d_value(val) {}
+  Integer(const cln::cl_I& val) : d_value(val) {}
 
 public:
 
@@ -59,8 +66,33 @@ public:
    * For more information about what is a valid rational string,
    * see GMP's documentation for mpq_set_str().
    */
-  explicit Integer(const char * s, int base = 10): d_value(s,base) {}
-  Integer(const std::string& s, unsigned base = 10) : d_value(s, base) {}
+  explicit Integer(const char * s, int base = 10) throw (std::invalid_argument){
+    cln::cl_read_flags flags;
+    flags.syntax = cln::syntax_integer;
+    flags.lsyntax = cln::lsyntax_standard;
+    flags.rational_base = base;
+    try{
+      d_value = read_integer(flags, s, NULL, NULL);
+    }catch(...){
+      std::stringstream ss;
+      ss << "Integer() failed to parse value \"" <<s << "\" in base=" <<base;
+      throw std::invalid_argument(ss.str());
+    }
+  }
+
+  Integer(const std::string& s, int base = 10) throw (std::invalid_argument) {
+    cln::cl_read_flags flags;
+    flags.syntax = cln::syntax_integer;
+    flags.lsyntax = cln::lsyntax_standard;
+    flags.rational_base = base;
+    try{
+      d_value = read_integer(flags, s.c_str(), NULL, NULL);
+    }catch(...){
+      std::stringstream ss;
+      ss << "Integer() failed to parse value \"" <<s << "\" in base=" <<base;
+      throw std::invalid_argument(ss.str());
+    }
+  }
 
   Integer(const Integer& q) : d_value(q.d_value) {}
 
@@ -119,35 +151,56 @@ public:
   Integer operator*(const Integer& y) const {
     return Integer( d_value * y.d_value );
   }
-  Integer operator/(const Integer& y) const {
-    return Integer( d_value / y.d_value );
-  }
 
   /** Raise this Integer to the power <code>exp</code>.
    *
    * @param exp the exponent
    */
   Integer pow(unsigned long int exp) const {
-    mpz_class result;
-    mpz_pow_ui(result.get_mpz_t(),d_value.get_mpz_t(),exp);
-    return Integer( result );
+    if(exp > 0){
+      cln::cl_I result= cln::expt_pos(d_value,exp);
+      return Integer( result );
+    }else if(exp == 0){
+      return Integer( 1 );
+    }else{
+      Unimplemented();
+    }
   }
 
   std::string toString(int base = 10) const{
-    return d_value.get_str(base);
+    std::stringstream ss;
+    switch(base){
+    case 2:
+      fprintbinary(ss,d_value);
+      break;
+    case 8:
+      fprintoctal(ss,d_value);
+      break;
+    case 10:
+      fprintdecimal(ss,d_value);
+      break;
+    case 16:
+      fprinthexadecimal(ss,d_value);
+      break;
+    default:
+      Unhandled();
+      break;
+    }
+
+    return ss.str();
   }
 
   //friend std::ostream& operator<<(std::ostream& os, const Integer& n);
 
-  long getLong() const { return d_value.get_si(); }
-  unsigned long getUnsignedLong() const {return d_value.get_ui(); }
+  long getLong() const { return cln::cl_I_to_long(d_value); }
+  unsigned long getUnsignedLong() const {return cln::cl_I_to_ulong(d_value); }
 
   /**
    * Computes the hash of the node from the first word of the
    * numerator, the denominator.
    */
   size_t hash() const {
-    return gmpz_hash(d_value.get_mpz_t());
+    return equal_hashcode(d_value);
   }
 
   friend class CVC4::Rational;

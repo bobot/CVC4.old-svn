@@ -23,6 +23,12 @@
 
 #include <gmp.h>
 #include <string>
+#include <sstream>
+#include <cln/rational.h>
+#include <cln/input.h>
+#include <cln/rational_io.h>
+#include <cln/number_io.h>
+#include "util/Assert.h"
 #include "util/integer.h"
 
 namespace CVC4 {
@@ -48,7 +54,7 @@ private:
    * Stores the value of the rational is stored in a C++ GMP rational class.
    * Using this instead of mpq_t allows for easier destruction.
    */
-  mpq_class d_value;
+  cln::cl_RA d_value;
 
   /**
    * Constructs a Rational from a mpq_class object.
@@ -56,7 +62,8 @@ private:
    * Assumes that the value is in canonical form, and thus does not
    * have to call canonicalize() on the value.
    */
-  Rational(const mpq_class& val) : d_value(val) {  }
+  //Rational(const mpq_class& val) : d_value(val) {  }
+  Rational(const cln::cl_RA& val) : d_value(val) {  }
 
 public:
 
@@ -69,7 +76,6 @@ public:
 
   /** Constructs a rational with the value 0/1. */
   Rational() : d_value(0){
-    d_value.canonicalize();
   }
 
   /**
@@ -78,62 +84,71 @@ public:
    * For more information about what is a valid rational string,
    * see GMP's documentation for mpq_set_str().
    */
-  explicit Rational(const char * s, int base = 10): d_value(s,base) {
-    d_value.canonicalize();
+  explicit Rational(const char * s, int base = 10) throw (std::invalid_argument){
+    cln::cl_read_flags flags;
+
+    flags.syntax = cln::syntax_rational;
+    flags.lsyntax = cln::lsyntax_standard;
+    flags.rational_base = base;
+    try{
+      d_value = read_rational(flags, s, NULL, NULL);
+    }catch(...){
+      std::stringstream ss;
+      ss << "Rational() failed to parse value \"" <<s << "\" in base=" <<base;
+      throw std::invalid_argument(ss.str());
+    }
   }
-  Rational(const std::string& s, unsigned base = 10) : d_value(s, base) {
-    d_value.canonicalize();
+  Rational(const std::string& s, int base = 10) throw (std::invalid_argument){
+    cln::cl_read_flags flags;
+
+    flags.syntax = cln::syntax_rational;
+    flags.lsyntax = cln::lsyntax_standard;
+    flags.rational_base = base;
+    try{
+      d_value = read_rational(flags, s.c_str(), NULL, NULL);
+    }catch(...){
+      std::stringstream ss;
+      ss << "Rational() failed to parse value \"" <<s << "\" in base=" <<base;
+      throw std::invalid_argument(ss.str());
+    }
   }
 
   /**
    * Creates a Rational from another Rational, q, by performing a deep copy.
    */
-  Rational(const Rational& q) : d_value(q.d_value) {
-    d_value.canonicalize();
-  }
+  Rational(const Rational& q) : d_value(q.d_value) { }
 
   /**
    * Constructs a canonical Rational from a numerator.
    */
-  Rational(signed int n) : d_value(n,1) {
-    d_value.canonicalize();
-  }
-  Rational(unsigned int n) : d_value(n,1) {
-    d_value.canonicalize();
-  }
-  Rational(signed long int n) : d_value(n,1) {
-    d_value.canonicalize();
-  }
-  Rational(unsigned long int n) : d_value(n,1) {
-    d_value.canonicalize();
-  }
+  Rational(signed int n) : d_value(n) { }
+  Rational(unsigned int n) : d_value(n) { }
+  Rational(signed long int n) : d_value(n) { }
+  Rational(unsigned long int n) : d_value(n) { }
 
   /**
    * Constructs a canonical Rational from a numerator and denominator.
    */
-  Rational(signed int n, signed int d) : d_value(n,d) {
-    d_value.canonicalize();
+  Rational(signed int n, signed int d) : d_value(n) {
+    d_value /= d;
   }
-  Rational(unsigned int n, unsigned int d) : d_value(n,d) {
-    d_value.canonicalize();
+  Rational(unsigned int n, unsigned int d) : d_value(n) {
+    d_value /= d;
   }
-  Rational(signed long int n, signed long int d) : d_value(n,d) {
-    d_value.canonicalize();
+  Rational(signed long int n, signed long int d) : d_value(n) {
+    d_value /= d;
   }
-  Rational(unsigned long int n, unsigned long int d) : d_value(n,d) {
-    d_value.canonicalize();
+  Rational(unsigned long int n, unsigned long int d) : d_value(n) {
+    d_value /= d;
   }
 
   Rational(const Integer& n, const Integer& d) :
-    d_value(n.get_mpz(), d.get_mpz())
+    d_value(n.get_cl_I())
   {
-    d_value.canonicalize();
+    d_value /= d.get_cl_I();
   }
-  Rational(const Integer& n) :
-    d_value(n.get_mpz())
-  {
-    d_value.canonicalize();
-  }
+  Rational(const Integer& n) : d_value(n.get_cl_I()){  }
+
   ~Rational() {}
 
 
@@ -142,7 +157,7 @@ public:
    * Note that this makes a deep copy of the numerator.
    */
   Integer getNumerator() const {
-    return Integer(d_value.get_num());
+    return Integer(cln::numerator(d_value));
   }
 
   /**
@@ -150,22 +165,30 @@ public:
    * Note that this makes a deep copy of the denominator.
    */
   Integer getDenominator() const{
-    return Integer(d_value.get_den());
+    return Integer(cln::denominator(d_value));
   }
 
   Rational inverse() const {
-    return Rational(getDenominator(), getNumerator());
+    return Rational(cln::recip(d_value));
   }
 
   int cmp(const Rational& x) const {
     //Don't use mpq_class's cmp() function.
     //The name ends up conflicting with this function.
-    return mpq_cmp(d_value.get_mpq_t(), x.d_value.get_mpq_t());
+    return cln::compare(d_value, x.d_value);
   }
 
 
   int sgn() {
-    return mpq_sgn(d_value.get_mpq_t());
+    cln::cl_RA sign = cln::signum(d_value);
+    if(sign == 0)
+      return 0;
+    else if(sign == -1)
+      return -1;
+    else if(sign == 1)
+      return 1;
+    else
+      Unreachable();
   }
 
   Rational& operator=(const Rational& x){
@@ -231,7 +254,9 @@ public:
 
   /** Returns a string representing the rational in the given base. */
   std::string toString(int base = 10) const {
-    return d_value.get_str(base);
+    std::stringstream ss;
+    fprint(ss, d_value);
+    return ss.str();
   }
 
   /**
@@ -239,10 +264,7 @@ public:
    * denominator.
    */
   size_t hash() const {
-    size_t numeratorHash = gmpz_hash(d_value.get_num_mpz_t());
-    size_t denominatorHash = gmpz_hash(d_value.get_den_mpz_t());
-
-    return numeratorHash xor denominatorHash;
+    return equal_hashcode(d_value);
   }
 
 };/* class Rational */
