@@ -46,12 +46,12 @@ public:
     TS_ASSERT_EQUALS( 8u, b3.getSize() );
     TS_ASSERT_EQUALS( "01111111", b3.toString() );
     TS_ASSERT_EQUALS( "127", b3.toString(10) );
-    TS_ASSERT_EQUALS( "7F", b3.toString(16) );
+    TS_ASSERT_EQUALS( "7f", b3.toString(16) );
 
     BitVector b4("01a", 16);
     TS_ASSERT_EQUALS( 12u, b4.getSize() );
     TS_ASSERT_EQUALS( "000000011010", b4.toString() );
     TS_ASSERT_EQUALS( "26", b4.toString(10) );
-    TS_ASSERT_EQUALS( "1A", b4.toString(16) );
+    TS_ASSERT_EQUALS( "1a", b4.toString(16) );
   }
 };
