@@ -23,6 +23,7 @@
 
 #include "theory/theory.h"
 #include "context/context.h"
+#include "context/cdo.h"
 #include "context/cdlist.h"
 #include "expr/node.h"
 
@@ -56,6 +57,9 @@ private:
   // can hit the tableau to stay alive forever!
   //This needs to come before d_partialModel and d_tableau in the file
 
+
+  context::CDO<unsigned> d_propagateDelayListIdx;
+  context::CDList<Node> d_propagateDelayList;
 
   std::priority_queue<Node> d_possiblyInconsistent;
 
@@ -105,7 +109,13 @@ private:
 
   void checkBasicVariable(TNode basic);
 
+  //Returns true if there is a conflict
+  bool updateDisequalitiesCheck();
+  bool updateUnsatisfiedDisequality(TNode diseq);
 
+
+  void caseSplitDisequalityIfNeeded(TNode diseq);
+  void caseSplitUnsatisfiedDisequalities();
 
   //TODO get rid of this!
   Node simulatePreprocessing(TNode n);

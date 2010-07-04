@@ -173,8 +173,8 @@ public:
   bool belowLowerBound(TNode x, const DeltaRational& c, bool strict);
 
   /**
-   * x <= u
-   * ? c < u
+   * x >= u
+   * ? c > u
    */
   bool aboveUpperBound(TNode x, const DeltaRational& c, bool strict);
 

@@ -50,10 +50,14 @@ using namespace CVC4::theory::arith;
 struct EagerSplittingTag {};
 typedef expr::Attribute<EagerSplittingTag, bool> EagerlySplitUpon;
 
+struct DiseqIsSatisfiedTag {};
+typedef expr::CDAttribute<DiseqIsSatisfiedTag, bool> DiseqIsSatisfied;
 
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   Theory(c, out),
   d_preprocessed(c),
+  d_propagateDelayListIdx(c,0),
+  d_propagateDelayList(c),
   d_constants(NodeManager::currentNM()),
   d_partialModel(c),
   d_diseq(c),
@@ -684,6 +688,13 @@ void TheoryArith::check(Effort level){
     return;
   }
 
+  if(standardEffortOrMore(level)){
+    if(updateDisequalitiesCheck()){
+      d_partialModel.revertAssignmentChanges();
+      return;
+    }
+  }
+
   if(fullEffort(level)){
     Node possibleConflict = updateInconsistentVars();
     if(possibleConflict != Node::null()){
@@ -693,7 +704,7 @@ void TheoryArith::check(Effort level){
 
       if(debugTagIsOn("paranoid:check_tableau")){ checkTableau(); }
 
-      d_out->conflict(possibleConflict, true);
+      d_out->conflict(possibleConflict);
 
 
       Debug("arith_conflict") << "Found a conflict "
@@ -711,40 +722,131 @@ void TheoryArith::check(Effort level){
   }
 
   if(fullEffort(level)){
-    typedef context::CDList<Node>::const_iterator diseq_iterator;
-    for(diseq_iterator i = d_diseq.begin(); i!= d_diseq.end(); ++i){
-
-      Node assertion = *i;
-      Debug("arith_split") << "splitting"  << assertion << endl;
-      TNode eq = assertion[0];
-      TNode left = eq[0];
-      TNode x_i;
-
-      if(left.getMetaKind() != metakind::VARIABLE){
-        Assert(left.hasAttribute(Slack()));
-        x_i = left.getAttribute(Slack());
-      }else{
-        x_i = left;
-      }
-
-      TNode c_i = eq[1];
-      DeltaRational constant =  c_i.getConst<Rational>();
-
-      if(d_partialModel.getAssignment(x_i) == constant){
-
-        Node lt = NodeManager::currentNM()->mkNode(LT,left,c_i);
-        Node gt = NodeManager::currentNM()->mkNode(GT,left,c_i);
-        Node caseSplit = NodeManager::currentNM()->mkNode(OR, eq, lt, gt);
-        d_out->lemma(caseSplit);
-        Debug("arith_split") << "finished" << caseSplit << endl;
-      }
-      Debug("arith_split") << "end of for loop" << endl;
-
-    }
+    caseSplitUnsatisfiedDisequalities();
   }
 
   Debug("arith") << "TheoryArith::check end" << std::endl;
 
+}
+
+void TheoryArith::caseSplitDisequalityIfNeeded(TNode assertion){
+  Debug("arith_split") << "splitting"  << assertion << endl;
+  Assert(assertion.getKind() == NOT);
+  TNode eq = assertion[0];
+
+  Assert(eq.getKind() == EQUAL);
+
+  TNode left = eq[0];
+  TNode c_i = eq[1];
+  TNode x_i;
+
+  if(left.getMetaKind() != metakind::VARIABLE){
+    Assert(left.hasAttribute(Slack()));
+    x_i = left.getAttribute(Slack());
+  }else{
+    x_i = left;
+  }
+
+  Assert(c_i.getKind() == CONST_RATIONAL);
+  DeltaRational constant =  c_i.getConst<Rational>();
+
+  if(d_partialModel.getAssignment(x_i) == constant){
+
+    Node lt = NodeManager::currentNM()->mkNode(LT,left,c_i);
+    Node gt = NodeManager::currentNM()->mkNode(GT,left,c_i);
+    Node caseSplit = NodeManager::currentNM()->mkNode(OR, eq, lt, gt);
+    d_out->lemma(caseSplit);
+    Debug("arith_split") << "finished" << caseSplit << endl;
+  }
+}
+
+void TheoryArith::caseSplitUnsatisfiedDisequalities(){
+  typedef context::CDList<Node>::const_iterator diseq_iterator;
+  for(diseq_iterator i = d_diseq.begin(); i!= d_diseq.end(); ++i){
+
+    Node assertion = *i;
+
+    if(assertion.getAttribute(DiseqIsSatisfied())){
+      continue;
+    }
+    caseSplitDisequalityIfNeeded(assertion);
+  }
+
+}
+
+bool TheoryArith::updateUnsatisfiedDisequality(TNode assertion){
+
+  TNode eq = assertion[0];
+  TNode left = eq[0];
+  TNode right = eq[1];
+
+  TNode x_i;
+
+  if(left.getMetaKind() != metakind::VARIABLE){
+    Assert(left.hasAttribute(Slack()));
+    x_i = left.getAttribute(Slack());
+  }else{
+    x_i = left;
+  }
+
+
+  bool hasUpper = x_i.hasAttribute(partial_model::UpperConstraint());
+  bool hasLower = x_i.hasAttribute(partial_model::LowerConstraint());
+
+  DeltaRational val = right.getConst<Rational>();
+  if(hasUpper){
+    if(d_partialModel.aboveUpperBound(x_i, val, true)){ // (x <= u /\ u < c) -> x != c
+      assertion.setAttribute(DiseqIsSatisfied(), true);
+      return false;
+    }
+  }else if(hasLower){
+    if(d_partialModel.aboveUpperBound(x_i, val, true)){ // (x <= u /\ u < c) -> x != c
+      assertion.setAttribute(DiseqIsSatisfied(), true);
+      return false;
+    }
+  }
+
+  if(hasUpper && hasLower){
+    if(d_partialModel.getUpperBound(x_i) == val && d_partialModel.getLowerBound(x_i) == val){
+      Node leq = NodeManager::currentNM()->mkNode(LEQ,left,right);
+      Node geq = NodeManager::currentNM()->mkNode(GEQ,left,right);
+
+      Node lt = NodeManager::currentNM()->mkNode(NOT,geq);
+      Node gt = NodeManager::currentNM()->mkNode(NOT,leq);
+      Node caseSplit = NodeManager::currentNM()->mkNode(OR, eq, lt, gt);
+      d_out->conflict(caseSplit);
+      return true;
+    }
+  }else if(!hasUpper && hasLower){
+    if(d_partialModel.getLowerBound(x_i) == val){
+      // (x != c /\ x >= c) -> x > c
+      Node leq = NodeManager::currentNM()->mkNode(LEQ,left,right);
+      Node gt = NodeManager::currentNM()->mkNode(NOT,leq);
+      d_propagateDelayList.push_back(gt);
+    }
+  }else if(hasUpper && !hasLower){
+    if(d_partialModel.getUpperBound(x_i) == val){
+      // (x != c /\ x <= c) -> x < c
+      Node geq = NodeManager::currentNM()->mkNode(GEQ,left,right);
+      Node lt = NodeManager::currentNM()->mkNode(NOT,geq);
+      d_propagateDelayList.push_back(lt);
+    }
+  }
+  return false;
+}
+
+bool TheoryArith::updateDisequalitiesCheck(){
+  typedef context::CDList<Node>::const_iterator diseq_iterator;
+  for(diseq_iterator i = d_diseq.begin(); i!= d_diseq.end(); ++i){
+
+    Node assertion = *i;
+
+    if(assertion.getAttribute(DiseqIsSatisfied())){ continue; }
+    if(updateUnsatisfiedDisequality(assertion)){
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
