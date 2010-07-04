@@ -265,6 +265,7 @@ Node CnfStream::getNode(const SatLiteral& l) const {
 }
 
 SatLiteral CnfStream::getLiteral(TNode node) {
+  Debug("cnf") << "CnfStream::getLiteral(" << node << ")" << std::endl;
   NodeToLiteralMap::iterator find = d_nodeToLiteralMap.find(node);
   Assert(find != d_nodeToLiteralMap.end(), "Literal not in the CNF Cache");
   SatLiteral literal = find->second;
