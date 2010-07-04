@@ -61,7 +61,7 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
     // to a circular dependence, if a SAT literal "a" is asserted as a
     // unit to the SAT solver, a round of theory propagation can occur
     // before all Nodes have SAT variable mappings.
-    SatLiteral l = d_cnfStream->getLiteral(outputNodes[i], true);
+    SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
     output.push_back(l);
   }
 }
