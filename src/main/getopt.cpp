@@ -31,6 +31,7 @@
 #include "util/output.h"
 #include "util/options.h"
 #include "parser/parser_options.h"
+#include "expr/expr.h"
 
 #include "cvc4autoconfig.h"
 #include "main.h"
@@ -66,7 +67,9 @@ enum OptionValue {
   NO_CHECKING,
   USE_MMAP,
   SHOW_CONFIG,
-  STRICT_PARSING
+  STRICT_PARSING,
+  DEFAULT_EXPR_DEPTH,
+  PRINT_EXPR_TYPES
 };/* enum OptionValue */
 
 /**
@@ -110,6 +113,8 @@ static struct option cmdlineOptions[] = {
   { "parse-only" , no_argument      , NULL, PARSE_ONLY  },
   { "mmap",        no_argument      , NULL, USE_MMAP    },
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
+  { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
+  { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
 };/* if you add things to the above, please remember to update usage.h! */
 
 /** Full argv[0] */
@@ -193,7 +198,7 @@ throw(OptionException) {
     case 'd':
       Debug.on(optarg);
       Trace.on(optarg);
-      /* fall-through */
+      break;
 
     case STATS:
       opts->statistics = true;
@@ -217,6 +222,29 @@ throw(OptionException) {
 
     case STRICT_PARSING:
       opts->strictParsing = true;
+      break;
+
+    case DEFAULT_EXPR_DEPTH:
+      {
+        int depth = atoi(optarg);
+        Debug.getStream() << Expr::setdepth(depth);
+        Trace.getStream() << Expr::setdepth(depth);
+        Notice.getStream() << Expr::setdepth(depth);
+        Chat.getStream() << Expr::setdepth(depth);
+        Message.getStream() << Expr::setdepth(depth);
+        Warning.getStream() << Expr::setdepth(depth);
+      }
+      break;
+
+    case PRINT_EXPR_TYPES:
+      {
+        Debug.getStream() << Expr::printtypes(true);
+        Trace.getStream() << Expr::printtypes(true);
+        Notice.getStream() << Expr::printtypes(true);
+        Chat.getStream() << Expr::printtypes(true);
+        Message.getStream() << Expr::printtypes(true);
+        Warning.getStream() << Expr::printtypes(true);
+      }
       break;
 
     case SHOW_CONFIG:

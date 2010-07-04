@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -32,6 +32,7 @@ void ArithPartialModel::setUpperBound(TNode x, const DeltaRational& r){
   Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
 
   Debug("partial_model") << "setUpperBound(" << x << "," << r << ")" << endl;
+  x.setAttribute(partial_model::HasHadABound(), true);
 
   d_UpperBoundMap[x] = r;
 }
@@ -39,6 +40,8 @@ void ArithPartialModel::setUpperBound(TNode x, const DeltaRational& r){
 void ArithPartialModel::setLowerBound(TNode x, const DeltaRational& r){
   Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
   Debug("partial_model") << "setLowerBound(" << x << "," << r << ")" << endl;
+  x.setAttribute(partial_model::HasHadABound(), true);
+
   d_LowerBoundMap[x] = r;
 }
 
@@ -57,6 +60,33 @@ void ArithPartialModel::setAssignment(TNode x, const DeltaRational& r){
   }
 
   *curr = r;
+  Debug("partial_model") << "pm: updating the assignment to" << x
+                         << " now " << r <<endl;
+}
+void ArithPartialModel::setAssignment(TNode x, const DeltaRational& safe, const DeltaRational& r){
+  Assert(x.getMetaKind() == CVC4::kind::metakind::VARIABLE);
+  Assert(x.hasAttribute(partial_model::Assignment()));
+  Assert(x.hasAttribute(partial_model::SafeAssignment()));
+
+  DeltaRational* curr = x.getAttribute(partial_model::Assignment());
+  DeltaRational* saved = x.getAttribute(partial_model::SafeAssignment());
+
+  if(safe == r){
+    if(saved != NULL){
+      x.setAttribute(partial_model::SafeAssignment(), NULL);
+      delete saved;
+    }
+  }else{
+    if(saved == NULL){
+      saved = new DeltaRational(safe);
+      x.setAttribute(partial_model::SafeAssignment(), saved);
+    }else{
+      *saved = safe;
+    }
+    d_history.push_back(x);
+  }
+  *curr = r;
+
   Debug("partial_model") << "pm: updating the assignment to" << x
                          << " now " << r <<endl;
 }
@@ -175,7 +205,7 @@ bool ArithPartialModel::belowLowerBound(TNode x, const DeltaRational& c, bool st
     return false;
   }
 
-  DeltaRational l = (*i).second;
+  const DeltaRational& l = (*i).second;
 
   if(strict){
     return c < l;
@@ -191,13 +221,19 @@ bool ArithPartialModel::aboveUpperBound(TNode x, const DeltaRational& c, bool st
     // ? u < -\infty |-  _|_
     return false;
   }
-  DeltaRational u = (*i).second;
+  const DeltaRational& u = (*i).second;
 
   if(strict){
     return c > u;
   }else{
     return c >= u;
   }
+}
+
+bool ArithPartialModel::hasBounds(TNode x){
+  return
+    d_UpperBoundMap.find(x) != d_UpperBoundMap.end() ||
+    d_LowerBoundMap.find(x) != d_LowerBoundMap.end();
 }
 
 bool ArithPartialModel::strictlyBelowUpperBound(TNode x){
@@ -208,9 +244,9 @@ bool ArithPartialModel::strictlyBelowUpperBound(TNode x){
   if(i == d_UpperBoundMap.end()){// u = \infty
     return true;
   }
-  DeltaRational u = (*i).second;
 
-  return *assign < u;
+  const DeltaRational& u = (*i).second;
+  return (*assign) < u;
 }
 
 bool ArithPartialModel::strictlyAboveLowerBound(TNode x){
@@ -221,7 +257,8 @@ bool ArithPartialModel::strictlyAboveLowerBound(TNode x){
   if(i == d_LowerBoundMap.end()){// l = \infty
     return true;
   }
-  DeltaRational l = (*i).second;
+
+  const DeltaRational& l = (*i).second;
   return l < *assign;
 }
 

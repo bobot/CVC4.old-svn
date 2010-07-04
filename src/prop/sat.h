@@ -2,7 +2,7 @@
 /*! \file sat.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan, cconway
+ ** Major contributors: taking, dejan, cconway
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
@@ -26,6 +26,8 @@
 #define __CVC4_USE_MINISAT
 
 #include "util/options.h"
+#include "util/stats.h"
+#include "theory/theory.h"
 
 #ifdef __CVC4_USE_MINISAT
 
@@ -138,6 +140,49 @@ class SatSolver : public SatInputInterface {
   /** Minisat solver */
   minisat::SimpSolver* d_minisat;
 
+  class Statistics {
+  private:
+    ReferenceStat<uint64_t> d_statStarts, d_statDecisions;
+    ReferenceStat<uint64_t> d_statRndDecisions, d_statPropagations;
+    ReferenceStat<uint64_t> d_statConflicts, d_statClausesLiterals;
+    ReferenceStat<uint64_t> d_statLearntsLiterals,  d_statMaxLiterals;
+    ReferenceStat<uint64_t> d_statTotLiterals;
+  public:
+    Statistics() :
+      d_statStarts("sat::starts"),
+      d_statDecisions("sat::decisions"),
+      d_statRndDecisions("sat::rnd_decisions"),
+      d_statPropagations("sat::propagations"),
+      d_statConflicts("sat::conflicts"),
+      d_statClausesLiterals("sat::clauses_literals"),
+      d_statLearntsLiterals("sat::learnts_literals"),
+      d_statMaxLiterals("sat::max_literals"),
+      d_statTotLiterals("sat::tot_literals")
+    {
+      StatisticsRegistry::registerStat(&d_statStarts);
+      StatisticsRegistry::registerStat(&d_statDecisions);
+      StatisticsRegistry::registerStat(&d_statRndDecisions);
+      StatisticsRegistry::registerStat(&d_statPropagations);
+      StatisticsRegistry::registerStat(&d_statConflicts);
+      StatisticsRegistry::registerStat(&d_statClausesLiterals);
+      StatisticsRegistry::registerStat(&d_statLearntsLiterals);
+      StatisticsRegistry::registerStat(&d_statMaxLiterals);
+      StatisticsRegistry::registerStat(&d_statTotLiterals);
+    }
+    void init(minisat::SimpSolver* d_minisat){
+      d_statStarts.setData(d_minisat->starts);
+      d_statDecisions.setData(d_minisat->decisions);
+      d_statRndDecisions.setData(d_minisat->rnd_decisions);
+      d_statPropagations.setData(d_minisat->propagations);
+      d_statConflicts.setData(d_minisat->conflicts);
+      d_statClausesLiterals.setData(d_minisat->clauses_literals);
+      d_statLearntsLiterals.setData(d_minisat->learnts_literals);
+      d_statMaxLiterals.setData(d_minisat->max_literals);
+      d_statTotLiterals.setData(d_minisat->tot_literals);
+    }
+  };
+  Statistics d_statistics;
+
 #endif /* __CVC4_USE_MINISAT */
 
 protected:
@@ -156,7 +201,7 @@ public:
   ~SatSolver();
 
   bool solve();
-  
+
   int addClause(SatClause& clause, bool lemma);
 
   bool canErase(const minisat::Clause& clause);
@@ -184,10 +229,16 @@ public:
 
   SatVariable newVar(bool theoryAtom = false);
 
-  void theoryCheck(SatClause& conflict);
+  void theoryCheck(theory::Theory::Effort effort, SatClause& conflict);
+
+  void explainPropagation(SatLiteral l, SatClause& explanation);
+
+  void theoryPropagate(std::vector<SatLiteral>& output);
+
+  void clearPropagatedLiterals();
 
   void enqueueTheoryLiteral(const SatLiteral& l);
-  
+
   void setCnfStream(CnfStream* cnfStream);
 
   SatLiteralValue value(SatLiteral l);
@@ -202,7 +253,8 @@ inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
   d_propEngine(propEngine),
   d_cnfStream(NULL),
   d_theoryEngine(theoryEngine),
-  d_context(context)
+  d_context(context),
+  d_statistics()
 {
   // Create the solver
   d_minisat = new minisat::SimpSolver(this, d_context);
@@ -212,6 +264,13 @@ inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
   d_minisat->remove_satisfied = false;
   // Make minisat reuse the literal values
   d_minisat->polarity_mode = minisat::SimpSolver::polarity_user;
+
+  // No random choices
+  if(Debug.isOn("no_rnd_decisions")){
+    d_minisat->random_var_freq = 0;
+  }
+
+  d_statistics.init(d_minisat);
 }
 
 inline SatSolver::~SatSolver() {
@@ -241,13 +300,15 @@ SatSolver::SatLiteralHashFunction::operator()(const SatLiteral& literal) const {
   return hashSatLiteral(literal);
 }
 
-inline std::ostream& operator <<(std::ostream& out, SatLiteral lit) {
-  const char * s = (literalSign(lit)) ? "~" : " ";
-  out << s << literalToVariable(lit);
+}/* CVC4::prop namespace */
+
+inline std::ostream& operator <<(std::ostream& out, prop::SatLiteral lit) {
+  const char * s = (prop::literalSign(lit)) ? "~" : " ";
+  out << s << prop::literalToVariable(lit);
   return out;
 }
 
-inline std::ostream& operator <<(std::ostream& out, const SatClause& clause) {
+inline std::ostream& operator <<(std::ostream& out, const prop::SatClause& clause) {
   out << "clause:";
   for(int i = 0; i < clause.size(); ++i) {
     out << " " << clause[i];
@@ -256,12 +317,11 @@ inline std::ostream& operator <<(std::ostream& out, const SatClause& clause) {
   return out;
 }
 
-inline std::ostream& operator <<(std::ostream& out, const SatLiteralValue& val) {
-  out << stringOfLiteralValue(val);
+inline std::ostream& operator <<(std::ostream& out, prop::SatLiteralValue val) {
+  out << prop::stringOfLiteralValue(val);
   return out;
 }
 
-}/* CVC4::prop namespace */
 }/* CVC4 namespace */
 
 #endif /* __CVC4__PROP__SAT_H */

@@ -1,10 +1,10 @@
-SUBDIRS = precedence uf
+SUBDIRS = . precedence uf
 
 TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/cvc4
 
 # These are run for all build profiles.
 # If a test shouldn't be run in e.g. competition mode,
-# put it below.
+# put it below in "TESTS +="
 TESTS =	\
 	boolean-prec.cvc \
 	distinct.smt \
@@ -63,11 +63,17 @@ TESTS =	\
 	wiki.21.cvc \
 	fuzz_3.smt
 
+EXTRA_DIST = $(TESTS)
+
 if CVC4_BUILD_PROFILE_COMPETITION
 else
 TESTS += \
 	error.cvc
 endif
+
+# and make sure to distribute it
+EXTRA_DIST += \
+	error.cvc
 
 # synonyms for "check"
 .PHONY: regress regress0 test

@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: cconway
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -17,15 +17,14 @@
  ** \todo document this file
  **/
 
+#include "cvc4_public.h"
+
 #ifndef __CVC4__BITVECTOR_H_
 #define __CVC4__BITVECTOR_H_
 
 #include <iostream>
 #include "util/Assert.h"
-#include "util/gmp_util.h"
 #include "util/integer.h"
-
-using namespace std;
 
 namespace CVC4 {
 

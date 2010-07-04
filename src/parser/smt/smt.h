@@ -1,14 +1,15 @@
 /*********************                                                        */
-/** smt.h
+/*! \file smt.h
+ ** \verbatim
  ** Original author: cconway
- ** Major contributors:
- ** Minor contributors (to current version): none
+ ** Major contributors: none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
  **
  ** Definitions of SMT constants.
  **/
@@ -35,9 +36,10 @@ class Smt : public Parser {
 
 public:
   enum Logic {
-    AUFLIA,
+    AUFLIA, // +p and -p?
     AUFLIRA,
     AUFNIRA,
+    LRA,
     QF_AUFBV,
     QF_AUFLIA,
     QF_AX,
@@ -49,7 +51,11 @@ public:
     QF_RDL,
     QF_SAT,
     QF_UF,
-    QF_UFIDL
+    QF_UFIDL,
+    QF_UFLIA,
+    QF_UFLRA,
+    QF_UFNRA,
+    UFNIA
   };
 
   enum Theory {
@@ -101,6 +107,7 @@ public:
 private:
 
   void addArithmeticOperators();
+  void addUf();
   static std::hash_map<const std::string, Logic, CVC4::StringHashFunction> newLogicMap();
 };
 }/* CVC4::parser namespace */

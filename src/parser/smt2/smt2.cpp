@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -64,6 +64,14 @@ void Smt2::addTheory(Theory theory) {
     addOperator(kind::XOR);
     break;
 
+  case THEORY_ARRAYS:
+    // FIXME: should define a paramterized type 'Array' with 2 arguments
+    mkSort("Array");
+
+    addOperator(kind::SELECT);
+    addOperator(kind::STORE);
+    break;
+
   case THEORY_REALS_INTS:
     defineType("Real", getExprManager()->realType());
     // falling-through on purpose, to add Ints part of RealsInts
@@ -105,6 +113,10 @@ void Smt2::setLogic(const std::string& name) {
     /* No extra symbols necessary */
     break;
 
+  case Smt::QF_AX:
+    addTheory(THEORY_ARRAYS);
+    break;
+
   case Smt::QF_IDL:
   case Smt::QF_LIA:
   case Smt::QF_NIA:
@@ -116,20 +128,29 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_REALS);
     break;
 
+  case Smt::QF_UF:
+    addOperator(kind::APPLY_UF);
+    break;
+
   case Smt::QF_UFIDL:
     addTheory(THEORY_INTS);
-    // falling-through on purpose, to add UF part of UFIDL
+    addOperator(kind::APPLY_UF);
+    break;
 
-  case Smt::QF_UF:
+  case Smt::QF_UFLIA:
+  case Smt::QF_UFLRA:
+  case Smt::QF_UFNRA:
+    addTheory(THEORY_REALS);
     addOperator(kind::APPLY_UF);
     break;
 
   case Smt::AUFLIA:
   case Smt::AUFLIRA:
   case Smt::AUFNIRA:
+  case Smt::LRA:
+  case Smt::UFNIA:
   case Smt::QF_AUFBV:
   case Smt::QF_AUFLIA:
-  case Smt::QF_AX:
   case Smt::QF_BV:
     Unhandled(name);
   }

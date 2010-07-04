@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): mdeters, dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -223,7 +223,7 @@ inline std::string AntlrInput::tokenTextSubstr(pANTLR3_COMMON_TOKEN token,
   ANTLR3_MARKER end = token->getStopIndex(token);
   Assert( start < end );
   if( index > (size_t) end - start ) {
-    stringstream ss;
+    std::stringstream ss;
     ss << "Out-of-bounds substring index: " << index;
     throw std::invalid_argument(ss.str());
   }

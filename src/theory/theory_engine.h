@@ -2,7 +2,7 @@
 /*! \file theory_engine.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: taking, dejan
+ ** Major contributors: dejan, taking
  ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
@@ -26,11 +26,14 @@
 #include "theory/theoryof_table.h"
 
 #include "prop/prop_engine.h"
+#include "theory/builtin/theory_builtin.h"
 #include "theory/booleans/theory_bool.h"
 #include "theory/uf/theory_uf.h"
 #include "theory/arith/theory_arith.h"
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
+
+#include "util/stats.h"
 
 namespace CVC4 {
 
@@ -62,38 +65,59 @@ class TheoryEngine {
     TheoryEngine* d_engine;
     context::Context* d_context;
     context::CDO<Node> d_conflictNode;
+    context::CDO<Node> d_explanationNode;
+
+    /**
+     * Literals that are propagated by the theory. Note that these are TNodes.
+     * The theory can only propagate nodes that have an assigned literal in the
+     * sat solver and are hence referenced in the SAT solver.
+     */
+    std::vector<TNode> d_propagatedLiterals;
 
   public:
 
     EngineOutputChannel(TheoryEngine* engine, context::Context* context) :
       d_engine(engine),
       d_context(context),
-      d_conflictNode(context) {
+      d_conflictNode(context),
+      d_explanationNode(context){
     }
 
     void conflict(TNode conflictNode, bool safe) throw(theory::Interrupted, AssertionException) {
       Debug("theory") << "EngineOutputChannel::conflict(" << conflictNode << ")" << std::endl;
       d_conflictNode = conflictNode;
+      ++(d_engine->d_statistics.d_statConflicts);
       if(safe) {
         throw theory::Interrupted();
       }
     }
 
-    void propagate(TNode, bool) throw(theory::Interrupted, AssertionException) {
+    void propagate(TNode lit, bool) throw(theory::Interrupted, AssertionException) {
+      d_propagatedLiterals.push_back(lit);
+      ++(d_engine->d_statistics.d_statPropagate);
+      ++(d_engine->d_statistics.d_statPropagate);
     }
 
     void lemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
+      ++(d_engine->d_statistics.d_statLemma);
       d_engine->newLemma(node);
     }
     void augmentingLemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
+      ++(d_engine->d_statistics.d_statAugLemma);
       d_engine->newAugmentingLemma(node);
     }
-    void explanation(TNode, bool) throw(theory::Interrupted, AssertionException) {
+    void explanation(TNode explanationNode, bool) throw(theory::Interrupted, AssertionException) {
+      d_explanationNode = explanationNode;
+      ++(d_engine->d_statistics.d_statExplanatation);
+      ++(d_engine->d_statistics.d_statExplanatation);
     }
   };
 
+
+
   EngineOutputChannel d_theoryOut;
 
+  theory::builtin::TheoryBuiltin d_builtin;
   theory::booleans::TheoryBool d_bool;
   theory::uf::TheoryUF d_uf;
   theory::arith::TheoryArith d_arith;
@@ -101,81 +125,58 @@ class TheoryEngine {
   theory::bv::TheoryBV d_bv;
 
   /**
-   * Check whether a node is in the rewrite cache or not.
+   * Check whether a node is in the pre-rewrite cache or not.
    */
-  static bool inRewriteCache(TNode n) throw() {
-    return n.hasAttribute(theory::RewriteCache());
+  static bool inPreRewriteCache(TNode n, bool topLevel) throw() {
+    return theory::Theory::inPreRewriteCache(n, topLevel);
   }
 
   /**
-   * Get the value of the rewrite cache (or Node::null()) if there is
+   * Get the value of the pre-rewrite cache (or Node::null()) if there is
    * none).
    */
-  static Node getRewriteCache(TNode n) throw() {
-    return n.getAttribute(theory::RewriteCache());
+  static Node getPreRewriteCache(TNode n, bool topLevel) throw() {
+    return theory::Theory::getPreRewriteCache(n, topLevel);
   }
 
   /**
-   * Get the value of the rewrite cache (or Node::null()) if there is
+   * Set the value of the pre-rewrite cache.  v cannot be a null Node.
+   */
+  static void setPreRewriteCache(TNode n, bool topLevel, TNode v) throw() {
+    return theory::Theory::setPreRewriteCache(n, topLevel, v);
+  }
+
+  /**
+   * Check whether a node is in the post-rewrite cache or not.
+   */
+  static bool inPostRewriteCache(TNode n, bool topLevel) throw() {
+    return theory::Theory::inPostRewriteCache(n, topLevel);
+  }
+
+  /**
+   * Get the value of the post-rewrite cache (or Node::null()) if there is
    * none).
    */
-  static void setRewriteCache(TNode n, TNode v) throw() {
-    return n.setAttribute(theory::RewriteCache(), v);
+  static Node getPostRewriteCache(TNode n, bool topLevel) throw() {
+    return theory::Theory::getPostRewriteCache(n, topLevel);
+  }
+
+  /**
+   * Set the value of the post-rewrite cache.  v cannot be a null Node.
+   */
+  static void setPostRewriteCache(TNode n, bool topLevel, TNode v) throw() {
+    return theory::Theory::setPostRewriteCache(n, topLevel, v);
   }
 
   /**
    * This is the top rewrite entry point, called during preprocessing.
    * It dispatches to the proper theories to rewrite the given Node.
    */
-  Node rewrite(TNode in);
+  Node rewrite(TNode in, bool topLevel = true);
 
   /**
-   * Convenience function to recurse through the children, rewriting,
-   * while leaving the Node's kind alone.
+   * Replace ITE forms in a node.
    */
-  Node rewriteChildren(TNode in) {
-    if(in.getMetaKind() == kind::metakind::CONSTANT) {
-      return in;
-    }
-
-    NodeBuilder<> b(in.getKind());
-    if(in.getMetaKind() == kind::metakind::PARAMETERIZED){
-      Assert(in.hasOperator());
-      b << in.getOperator();
-    }
-    for(TNode::iterator c = in.begin(); c != in.end(); ++c) {
-      b << rewrite(*c);
-    }
-    Debug("rewrite") << "rewrote-children of " << in << std::endl
-                     << "got " << b << std::endl;
-    Node ret = b;
-    return ret;
-  }
-
-  /**
-   * Rewrite Nodes with builtin kind (that is, those Nodes n for which
-   * theoryOf(n) == NULL).  The master list is in expr/builtin_kinds.
-   */
-  Node rewriteBuiltins(TNode in) {
-    switch(Kind k = in.getKind()) {
-    case kind::EQUAL:
-      return rewriteChildren(in);
-
-    case kind::ITE:
-      Unhandled(k);
-
-    case kind::SKOLEM:
-    case kind::VARIABLE:
-      return in;
-
-    case kind::TUPLE:
-      return rewriteChildren(in);
-
-    default:
-      Unhandled(k);
-    }
-  }
-
   Node removeITEs(TNode t);
 
 public:
@@ -186,12 +187,15 @@ public:
   TheoryEngine(context::Context* ctxt) :
     d_propEngine(NULL),
     d_theoryOut(this, ctxt),
+    d_builtin(ctxt, d_theoryOut),
     d_bool(ctxt, d_theoryOut),
     d_uf(ctxt, d_theoryOut),
     d_arith(ctxt, d_theoryOut),
     d_arrays(ctxt, d_theoryOut),
-    d_bv(ctxt, d_theoryOut) {
+    d_bv(ctxt, d_theoryOut),
+    d_statistics() {
 
+    d_theoryOfTable.registerTheory(&d_builtin);
     d_theoryOfTable.registerTheory(&d_bool);
     d_theoryOfTable.registerTheory(&d_uf);
     d_theoryOfTable.registerTheory(&d_arith);
@@ -211,6 +215,7 @@ public:
    * ordering issues between PropEngine and Theory.
    */
   void shutdown() {
+    d_builtin.shutdown();
     d_bool.shutdown();
     d_uf.shutdown();
     d_arith.shutdown();
@@ -224,45 +229,7 @@ public:
    * @returns the theory, or NULL if the TNode is
    * of built-in type.
    */
-  theory::Theory* theoryOf(TNode n) {
-    Kind k = n.getKind();
-
-    Assert(k >= 0 && k < kind::LAST_KIND);
-
-    if(k == kind::VARIABLE) {
-      TypeNode t = n.getType();
-      if(t.isBoolean()){
-        return &d_bool;
-      }else if(t.isReal()){
-        return &d_arith;
-      }else{
-        return &d_uf;
-      }
-      //Unimplemented();
-    } else if(k == kind::EQUAL) {
-      // if LHS is a VARIABLE, use theoryOf(LHS.getType())
-      // otherwise, use theoryOf(LHS)
-      TNode lhs = n[0];
-      if(lhs.getKind() == kind::VARIABLE) {
-        // FIXME: we don't yet have a Type-to-Theory map.  When we do,
-        // look up the type of the LHS and return that Theory (?)
-
-        //The following JUST hacks around this lack of a table
-        TypeNode type_of_n = lhs.getType();
-        if(type_of_n.isReal()){
-          return &d_arith;
-        }else{
-          return &d_uf;
-          //Unimplemented();
-        }
-      } else {
-        return theoryOf(lhs);
-      }
-    } else {
-      // use our Kind-to-Theory mapping
-      return d_theoryOfTable[k];
-    }
-  }
+  theory::Theory* theoryOf(TNode n);
 
   /**
    * Preprocess a node.  This involves theory-specific rewriting, then
@@ -291,12 +258,14 @@ public:
   inline bool check(theory::Theory::Effort effort)
   {
     d_theoryOut.d_conflictNode = Node::null();
+    d_theoryOut.d_propagatedLiterals.clear();
     // Do the checking
     try {
+      //d_builtin.check(effort);
       //d_bool.check(effort);
       d_uf.check(effort);
       d_arith.check(effort);
-      //d_arrays.check(effort);
+      d_arrays.check(effort);
       //d_bv.check(effort);
     } catch(const theory::Interrupted&) {
       Debug("theory") << "TheoryEngine::check() => conflict" << std::endl;
@@ -305,20 +274,78 @@ public:
     return d_theoryOut.d_conflictNode.get().isNull();
   }
 
+  inline const std::vector<TNode>& getPropagatedLiterals() const {
+    return d_theoryOut.d_propagatedLiterals;
+  }
+
+  void clearPropagatedLiterals() {
+    d_theoryOut.d_propagatedLiterals.clear();
+  }
+
   inline void newLemma(TNode node) {
     Node preprocessed = preprocess(node);
     d_propEngine->assertLemma(preprocessed);
   }
+
   inline void newAugmentingLemma(TNode node) {
     Node preprocessed = preprocess(node);
     d_propEngine->assertFormula(preprocessed);
   }
+
   /**
    * Returns the last conflict (if any).
    */
   inline Node getConflict() {
     return d_theoryOut.d_conflictNode;
   }
+
+  inline void propagate() {
+    d_theoryOut.d_propagatedLiterals.clear();
+    // Do the propagation
+    //d_builtin.propagate(theory::Theory::FULL_EFFORT);
+    //d_bool.propagate(theory::Theory::FULL_EFFORT);
+    d_uf.propagate(theory::Theory::FULL_EFFORT);
+    d_arith.propagate(theory::Theory::FULL_EFFORT);
+    d_arrays.propagate(theory::Theory::FULL_EFFORT);
+    //d_bv.propagate(theory::Theory::FULL_EFFORT);
+  }
+
+  inline Node getExplanation(TNode node){
+    d_theoryOut.d_explanationNode = Node::null();
+    theory::Theory* theory =
+              node.getKind() == kind::NOT ? theoryOf(node[0]) : theoryOf(node);
+    theory->explain(node);
+    return d_theoryOut.d_explanationNode;
+  }
+
+private:
+  class Statistics {
+  public:
+    IntStat d_statConflicts, d_statPropagate, d_statLemma, d_statAugLemma, d_statExplanatation;
+    Statistics():
+      d_statConflicts("theory::conflicts",0),
+      d_statPropagate("theory::propagate",0),
+      d_statLemma("theory::lemma",0),
+      d_statAugLemma("theory::aug_lemma", 0),
+      d_statExplanatation("theory::explanation", 0)
+    {
+      StatisticsRegistry::registerStat(&d_statConflicts);
+      StatisticsRegistry::registerStat(&d_statPropagate);
+      StatisticsRegistry::registerStat(&d_statLemma);
+      StatisticsRegistry::registerStat(&d_statAugLemma);
+      StatisticsRegistry::registerStat(&d_statExplanatation);
+    }
+
+    ~Statistics() {
+      StatisticsRegistry::unregisterStat(&d_statConflicts);
+      StatisticsRegistry::unregisterStat(&d_statPropagate);
+      StatisticsRegistry::unregisterStat(&d_statLemma);
+      StatisticsRegistry::unregisterStat(&d_statAugLemma);
+      StatisticsRegistry::unregisterStat(&d_statExplanatation);
+    }
+  };
+  Statistics d_statistics;
+
 
 };/* class TheoryEngine */
 

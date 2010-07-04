@@ -2,7 +2,7 @@
 /*! \file type_node.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
@@ -35,6 +35,20 @@ bool TypeNode::isReal() const {
     && (getConst<TypeConstant>() == REAL_TYPE || getConst<TypeConstant>() == INTEGER_TYPE);
 }
 
+bool TypeNode::isArray() const {
+  return getKind() == kind::ARRAY_TYPE;
+}
+
+TypeNode TypeNode::getArrayIndexType() const {
+  Assert(isArray());
+  return (*this)[0];
+}
+
+TypeNode TypeNode::getArrayConstituentType() const {
+  Assert(isArray());
+  return (*this)[1];
+}
+
 /** Is this a function type? */
 bool TypeNode::isFunction() const {
   return getKind() == kind::FUNCTION_TYPE;
@@ -63,7 +77,7 @@ TypeNode TypeNode::getRangeType() const {
 
 /** Is this a sort kind */
 bool TypeNode::isSort() const {
-  return getKind() == kind::VARIABLE;
+  return getKind() == kind::SORT_TYPE;
 }
 
 /** Is this a kind type (i.e., the type of a type)? */

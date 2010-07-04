@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): dejan, cconway
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -25,8 +25,6 @@
 
 #include "expr/kind.h"
 #include "util/Assert.h"
-
-${metakind_includes}
 
 namespace CVC4 {
 
@@ -186,6 +184,8 @@ struct NodeValuePoolEq {
 #include "expr/node_value.h"
 
 #endif /* __CVC4__KIND__METAKIND_H */
+
+${metakind_includes}
 
 #ifdef __CVC4__NODE_MANAGER_NEEDS_CONSTANT_MAP
 

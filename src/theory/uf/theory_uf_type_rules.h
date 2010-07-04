@@ -2,7 +2,8 @@
 /*! \file theory_uf_type_rules.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -17,8 +18,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__THEORY_UF_TYPE_RULES_H_
-#define __CVC4__THEORY_UF_TYPE_RULES_H_
+#ifndef __CVC4__THEORY__UF__THEORY_UF_TYPE_RULES_H_
+#define __CVC4__THEORY__UF__THEORY_UF_TYPE_RULES_H_
 
 namespace CVC4 {
 namespace theory {
@@ -49,4 +50,4 @@ public:
 }
 
 
-#endif /* THEORY_UF_TYPE_RULES_H_ */
+#endif /* __CVC4__THEORY__UF__THEORY_UF_TYPE_RULES_H_ */
