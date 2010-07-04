@@ -207,7 +207,6 @@ void Solver::detachClause(Clause& c, bool notifyCNF) {
     }
     if (notifyCNF) {
       for (int l = 0; l < c.size(); ++ l) {
-        Debug("minisat") << "Releasing literal " << c[l] << std::endl;
         bool lastOccurance = proxy->releasingLiteral(c[l]);
         // If this was the last of literal ignore it from now on
         if (lastOccurance) {

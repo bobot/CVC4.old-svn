@@ -128,7 +128,7 @@ class SimpSolver : public Solver {
     void          extendModel              ();
     void          verifyModel              ();
 
-    void          removeClause             (Clause& c, bool notifyCNF = true);
+    void          removeClause             (Clause& c, bool notifyCNF = false);
     bool          strengthenClause         (Clause& c, Lit l);
     void          cleanUpClauses           ();
     bool          implied                  (const vec<Lit>& c);
