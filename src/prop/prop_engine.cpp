@@ -88,7 +88,7 @@ void PropEngine::assertLemma(TNode node) {
   Assert(d_inCheckSat, "Sat solver should be in solve()!");
   Debug("prop") << "assertFormula(" << node << ")" << endl;
   // Assert as removable
-  d_cnfStream->convertAndAssert(node, false, false);
+  d_cnfStream->convertAndAssert(node, true, false);
 }
 
 

@@ -108,19 +108,34 @@ int Solver::addClause(vec<Lit>& ps, ClauseType type)
         // Check if clause is satisfied and remove false/duplicate literals:
         sort(ps);
         Lit p; int i, j;
-        for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
-            if (value(ps[i]) == l_True || ps[i] == ~p) {
-                // lemmas are not allowed to use literals already assigned,
-                // or redundant clauses
-                assert(type != CLAUSE_LEMMA);
-                return 0;
+        if (type != CLAUSE_LEMMA) {
+            for (i = j = 0, p = lit_Undef; i < ps.size(); i++) {
+                if (value(ps[i]) == l_True || ps[i] == ~p) {
+                    return 0;
+                }
+                else if (value(ps[i]) != l_False && ps[i] != p) {
+                    ps[j++] = p = ps[i];
+                }
             }
-            else if (value(ps[i]) != l_False && ps[i] != p) {
-                ps[j++] = p = ps[i];
-            } else {
-                // lemmas are not allowed to use literals already assigned
-                assert(type != CLAUSE_LEMMA);
+        } else {
+            for (i = j = 0, p = lit_Undef; i < ps.size(); i++) {
+                Assert(value(ps[i]) != l_True, "Lemmas are not allowed to be true under the current assignment");
+                if (ps[i] != p) {
+                    ps[j++] = p = ps[i];
+                }
             }
+            // Move all the false literals to the end
+            int k_end = j;
+            int k = 0;
+            while (k < k_end) {
+                if (value(ps[k]) == l_False) {
+                    std::swap(ps[k], ps[-- k_end]);
+                } else {
+                    ++ k;
+                }
+            }
+            Assert(k > 1, "Lemmas must not propagate at the current level (clauses must have at least 2 unassigned literals)");
+        }
         ps.shrink(i - j);
     }
 

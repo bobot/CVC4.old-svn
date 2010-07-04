@@ -238,7 +238,7 @@ void CnfStream::cacheTranslation(TNode node, SatLiteral lit) {
 }
 
 bool CnfStream::cachePureTranslation(TNode node, bool negated) {
-  Debug("cnf") << "caching translation " << node << " to pure clauses";
+  Debug("cnf") << "caching translation " << node << " to pure clauses" << endl;
   // For the top level we only cache the node itself, not the negated one
   if (negated) return d_nodesWithPureClauseSet.insert(getNegation(node)).second;
   else return d_nodesWithPureClauseSet.insert(node).second;
