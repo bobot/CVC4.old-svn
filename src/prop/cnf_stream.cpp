@@ -72,9 +72,14 @@ unsigned CnfStream::decLiteralRefCount(TNode node) {
 }
 
 void CnfStream::releaseNode(Node node) {
+
   Debug("cnf") << "Releasing node " << node << endl;
   Assert(!(node.getKind() == NOT));
   Assert(getTotalRefCount(node) == 0);
+
+  // Release the node from the theories
+  d_satSolver->theoryUnPreRegisterTerm(node);
+
 
   // d_clauseToNodeMap should have been erased while erasing the clauses
   // d_literalToNodeMap should have been erased while erasing the literal
@@ -99,6 +104,7 @@ void CnfStream::releaseNode(Node node) {
 }
 
 bool CnfStream::releasingLiteral(const SatLiteral& l) {
+
   Debug("cnf") << "Releasing literal " << l << endl;
 
   // Get the node of this literal -- has to be a node as this might be the last reference

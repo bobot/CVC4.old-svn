@@ -26,6 +26,10 @@
 namespace CVC4 {
 namespace prop {
 
+void SatSolver::theoryUnPreRegisterTerm(TNode node) {
+  d_theoryEngine->unPreRegisterTerm(node);
+}
+
 void SatSolver::theoryCheck(theory::Theory::Effort effort, SatClause& conflict) {
   // Try theory propagation
   bool ok = d_theoryEngine->check(effort);
@@ -89,10 +93,11 @@ void SatSolver::clearPropagatedLiterals() {
 }
 
 void SatSolver::enqueueTheoryLiteral(const SatLiteral& l) {
+  Debug("prop") << "enqueueing theory literal " << l;
   Node literalNode = d_cnfStream->getNode(l);
-  Debug("prop") << "enqueueing theory literal " << l << " " << literalNode << std::endl;
+  Debug("prop") << " " << literalNode << std::endl;
   // We can get null from the prop engine if the literal is useless (i.e.)
-  // the expression is not in context anyomore
+  // the expression is not in context anymore
   if(!literalNode.isNull()) {
     d_theoryEngine->assertFact(literalNode);
   }

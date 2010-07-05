@@ -107,6 +107,9 @@ public:
 
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
+
+  /** This method will be called when a node is not needed anymore */
+  virtual void theoryUnPreRegisterTerm(TNode node) = 0;
 };
 
 /**
@@ -125,7 +128,7 @@ class SatSolver : public SatInputInterface {
   /** The theory engine we are using */
   TheoryEngine* d_theoryEngine;
 
-  /** Context we will be using to synchronzie the sat solver */
+  /** Context we will be using to synchronize the sat solver */
   context::Context* d_context;
 
   /** Remember the options */
@@ -205,6 +208,8 @@ public:
   int addClause(SatClause& clause, bool lemma);
 
   bool canErase(const minisat::Clause& clause);
+
+  void theoryUnPreRegisterTerm(TNode node);
 
   /**
    * Sat solver notifies the CNF every time it starts using a literal so

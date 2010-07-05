@@ -47,7 +47,7 @@ public:
   void explain(TNode n, Effort e) { Unimplemented(); }
   std::string identify() const { return std::string("TheoryBool"); }
 
-  void unPreRegisterTerm(TNode atom) { Unimplemented(); }
+  void unPreRegisterTerm(TNode atom) { }
 
 };
 
