@@ -1052,13 +1052,13 @@ void TheoryArith::propagate(Effort e) {
 
   if(quickCheckOrMore(e)){
 
-    while(d_propagateDelayListIdx < d_propagateDelayList.size()){
-      Node prop = d_propagateDelayList[d_propagateDelayListIdx];
-
-      d_out->propagate(prop);
-
-      d_propagateDelayListIdx= d_propagateDelayListIdx + 1;
-    }
+//    while(d_propagateDelayListIdx < d_propagateDelayList.size()){
+//      Node prop = d_propagateDelayList[d_propagateDelayListIdx];
+//
+//      d_out->propagate(prop);
+//
+//      d_propagateDelayListIdx= d_propagateDelayListIdx + 1;
+//    }
 
     std::vector<Node> implied = d_propagator.getImpliedLiterals();
     for(std::vector<Node>::iterator i = implied.begin();
