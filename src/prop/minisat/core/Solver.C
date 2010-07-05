@@ -838,9 +838,12 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
                 continue;
             }
 
-              // If this was a final check, we are satisfiable
+            // If this was a final check, we are satisfiable
             if (check_type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
-                return l_True;
+		// If we didn't get any new literals, wea re satisfiable
+		if (order_heap.empty()) return l_True;
+		// Otherwise, we need to get more decisions, so we go normal
+		check_type = CHECK_WITH_PROPAGATION_STANDARD;
             }
 
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts){
