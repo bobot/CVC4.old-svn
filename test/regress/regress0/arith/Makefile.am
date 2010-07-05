@@ -4,6 +4,7 @@ TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
+	bug171.smt \
 	clocksynchro_5clocks.main_invar.base.smt \
 	fs_frame_gap.base.smt \
 	irit.smt \
