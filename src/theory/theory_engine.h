@@ -37,6 +37,11 @@
 
 namespace CVC4 {
 
+namespace theory {
+struct PreRegisteredTag {};
+typedef expr::Attribute<PreRegisteredTag, bool> PreRegistered;
+}
+
 // In terms of abstraction, this is below (and provides services to)
 // PropEngine.
 
@@ -257,6 +262,7 @@ public:
       node.getKind() == kind::NOT ? theoryOf(node[0]) : theoryOf(node);
     if(theory != NULL) {
       theory->unPreRegisterTerm(node);
+      node.setAttribute(theory::PreRegistered(), true);
     }
   }
 

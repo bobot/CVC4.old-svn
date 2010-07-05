@@ -33,9 +33,6 @@ using namespace CVC4::theory;
 namespace CVC4 {
 namespace theory {
 
-struct PreRegisteredTag {};
-typedef expr::Attribute<PreRegisteredTag, bool> PreRegistered;
-
 struct IteRewriteTag {};
 typedef expr::Attribute<IteRewriteTag, Node> IteRewriteAttr;
 
