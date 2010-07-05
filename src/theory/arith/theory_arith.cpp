@@ -184,22 +184,8 @@ void TheoryArith::reinjectVariable(TNode x){
 void TheoryArith::preRegisterTerm(TNode n) {
   Debug("arith_preregister") <<"begin arith::preRegisterTerm("<< n <<")"<< endl;
   Kind k = n.getKind();
-  if(k == EQUAL){
-    TNode left = n[0];
-    TNode right = n[1];
-
-    Node lt = NodeManager::currentNM()->mkNode(LT, left,right);
-    Node gt = NodeManager::currentNM()->mkNode(GT, left,right);
-    Node eagerSplit = NodeManager::currentNM()->mkNode(OR, n, lt, gt);
-
-    d_splits.push_back(eagerSplit);
-
-
-    d_out->augmentingLemma(eagerSplit);
-  }
 
   if(n.getMetaKind() == metakind::VARIABLE){
-
     setupVariable(n);
   }
 
@@ -360,10 +346,10 @@ void TheoryArith::registerTerm(TNode tn){
 }
 
 /* procedure AssertUpper( x_i <= c_i) */
-bool TheoryArith::AssertUpper(TNode n, TNode original){
-  TNode x_i = n[0];
-  Rational dcoeff = Rational(Integer(deltaCoeff(n.getKind())));
-  DeltaRational c_i(n[1].getConst<Rational>(), dcoeff);
+bool TheoryArith::AssertUpper(TNode upperBound, TNode original){
+  TNode x_i = upperBound[0];
+  Rational dcoeff = Rational(Integer(deltaCoeff(upperBound.getKind())));
+  DeltaRational c_i(upperBound[1].getConst<Rational>(), dcoeff);
 
 
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
@@ -377,7 +363,7 @@ bool TheoryArith::AssertUpper(TNode n, TNode original){
   if(d_partialModel.belowLowerBound(x_i, c_i, true)){// \lowerbound(x_i) > c_i
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
-    Debug("arith") << "AssertUpper conflict " << conflict << endl;
+    Debug("arith::print-conflict") << "AssertUpper conflict " << conflict << endl;
     ++(d_statistics.d_statAssertUpperConflicts);
     d_out->conflict(conflict);
     return true;
@@ -395,7 +381,7 @@ bool TheoryArith::AssertUpper(TNode n, TNode original){
   }else{
     checkBasicVariable(x_i);
   }
-  d_partialModel.printModel(x_i);
+
   return false;
 }
 
@@ -418,7 +404,7 @@ bool TheoryArith::AssertLower(TNode n, TNode original){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
     d_out->conflict(conflict);
-    Debug("arith") << "AssertLower conflict " << conflict << endl;
+    Debug("arith::print-conflict") << "AssertLower conflict " << conflict << endl;
     ++(d_statistics.d_statAssertLowerConflicts);
     return true;
   }
@@ -461,14 +447,14 @@ bool TheoryArith::AssertEquality(TNode n, TNode original){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
     d_out->conflict(conflict);
-    Debug("arith") << "AssertLower conflict " << conflict << endl;
+    Debug("arith::print-conflict") << "AssertLower conflict " << conflict << endl;
     return true;
   }
 
   if(d_partialModel.belowLowerBound(x_i, c_i, true)){
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
-    Debug("arith") << "AssertUpper conflict " << conflict << endl;
+    Debug("arith::print-conflict") << "AssertUpper conflict " << conflict << endl;
     d_out->conflict(conflict);
     return true;
   }
@@ -793,7 +779,7 @@ bool TheoryArith::assertionCases(TNode original, TNode assertion){
           return AssertUpper(pushedin,original);
         }
       case EQUAL:
-        d_diseq.push_back(assertion);
+        d_diseq.push_back(original);
         return false;
       default:
         Unreachable();
@@ -836,16 +822,18 @@ void TheoryArith::check(Effort level){
     }
   }
 
-  if(standardEffortOrMore(level)){
+  if(quickCheckOrMore(level)){
     Node possibleConflict = updateInconsistentVars();
     if(possibleConflict != Node::null()){
 
       d_partialModel.revertAssignmentChanges();
 
       if(Debug.isOn("arith::print-conflict"))
-        Debug("arith_conflict") << (possibleConflict) << std::endl;
+        Debug("arith::print-conflict") << (possibleConflict) << std::endl;
       d_out->conflict(possibleConflict);
-      Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
+      Debug("arith::print-conflict") <<"Found a conflict "<< possibleConflict << endl;
+
+      return;
     }else{
       d_partialModel.commitAssignmentChanges();
     }
@@ -887,6 +875,22 @@ void TheoryArith::check(Effort level){
   }
 }
 
+Node TheoryArith::caseSplitEq(TNode eq){
+  Node left = eq[0];
+  Node right = eq[1];
+
+  Node leq = NodeManager::currentNM()->mkNode(LEQ,left,right);
+  Node geq = NodeManager::currentNM()->mkNode(GEQ,left,right);
+
+  Node lt = NodeManager::currentNM()->mkNode(NOT,geq);
+  Node gt = NodeManager::currentNM()->mkNode(NOT,leq);
+  Node caseSplit = NodeManager::currentNM()->mkNode(OR, eq, lt, gt);
+
+  d_splits.push_back(caseSplit);
+
+  return caseSplit;
+}
+
 void TheoryArith::caseSplitDisequalityIfNeeded(TNode assertion){
   Debug("arith_split") << "splitting"  << assertion << endl;
   Assert(assertion.getKind() == NOT);
@@ -909,12 +913,10 @@ void TheoryArith::caseSplitDisequalityIfNeeded(TNode assertion){
   DeltaRational constant =  c_i.getConst<Rational>();
 
   if(d_partialModel.getAssignment(x_i) == constant){
-
-    Node lt = NodeManager::currentNM()->mkNode(LT,left,c_i);
-    Node gt = NodeManager::currentNM()->mkNode(GT,left,c_i);
-    Node caseSplit = NodeManager::currentNM()->mkNode(OR, eq, lt, gt);
+    Node caseSplit = caseSplitEq(eq);
+    Debug("arith_split") << "split " << caseSplit << endl;
     d_out->lemma(caseSplit);
-    Debug("arith_split") << "finished" << caseSplit << endl;
+
   }
 }
 
@@ -967,12 +969,8 @@ bool TheoryArith::updateUnsatisfiedDisequality(TNode assertion){
   if(hasUpper && hasLower){
     if(d_partialModel.getUpperBound(x_i) == val &&
        d_partialModel.getLowerBound(x_i) == val){
-      Node leq = NodeManager::currentNM()->mkNode(LEQ,left,right);
-      Node geq = NodeManager::currentNM()->mkNode(GEQ,left,right);
-
-      Node lt = NodeManager::currentNM()->mkNode(NOT,geq);
-      Node gt = NodeManager::currentNM()->mkNode(NOT,leq);
-      Node caseSplit = NodeManager::currentNM()->mkNode(OR, eq, lt, gt);
+      Node caseSplit = caseSplitEq(eq);
+      Debug("arith_split") << "split conflict" << caseSplit << endl;
       d_out->conflict(caseSplit);
       return true;
     }

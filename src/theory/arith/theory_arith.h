@@ -261,7 +261,7 @@ private:
 
   //TODO get rid of this!
   Node simulatePreprocessing(TNode n);
-
+  Node caseSplitEq(TNode eq);
 
   /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {
