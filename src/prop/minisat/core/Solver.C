@@ -161,9 +161,10 @@ int Solver::addClause(vec<Lit>& ps, ClauseType type)
         ps.shrink(i - j);
     }
 
-    if (ps.size() == 0)
-        return ok ? 0 : -1;
-    else if (ps.size() == 1){
+    if (ps.size() == 0) {
+        ok = false;
+        return -1;
+    } else if (ps.size() == 1){
         assert(type != CLAUSE_LEMMA);
         assert(value(ps[0]) == l_Undef);
         uncheckedEnqueue(ps[0]);

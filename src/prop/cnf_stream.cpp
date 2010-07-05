@@ -245,10 +245,12 @@ bool CnfStream::cachePureTranslation(TNode node, bool negated) {
 }
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
+  Debug("cnf") << "CnfStream::newLiteral(" << node << ", " << (theoryLiteral ? "true)" : "false)") << endl;
   SatLiteral lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
   cacheTranslation(node, lit);
   d_literalToNodeMap[lit] = node;
   d_literalToNodeMap[~lit] = node.notNode();
+  Debug("cnf") << "CnfStream::newLiteral(" << node << ", " << (theoryLiteral ? "true)" : "false) => ") << lit << endl;
   return lit;
 }
 
