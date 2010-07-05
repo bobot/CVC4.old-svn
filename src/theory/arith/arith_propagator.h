@@ -53,6 +53,7 @@ public:
    * Atom is assumed to have been rewritten by TheoryArith::rewrite().
    */
   void addAtom(TNode atom);
+  void deleteAtom(TNode atom);
 
   /**
    * Informs the propagator that a literal has been asserted to the theory.

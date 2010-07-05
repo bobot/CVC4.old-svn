@@ -130,6 +130,8 @@ public:
   void propagate(Effort level) {}
   void explain(TNode n, Effort level) {}
   string identify() const { return "DummyTheory"; }
+  void unPreRegisterTerm(TNode atom) { Unimplemented(); }
+
 };
 
 class TheoryBlack : public CxxTest::TestSuite {

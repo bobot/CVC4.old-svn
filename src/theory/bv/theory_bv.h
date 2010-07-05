@@ -40,6 +40,8 @@ public:
   void propagate(Effort e) {}
   void explain(TNode n, Effort e) { Unimplemented(); }
   std::string identify() const { return std::string("TheoryBV"); }
+  void unPreRegisterTerm(TNode atom) { Unimplemented(); }
+
 };/* class TheoryBV */
 
 }/* CVC4::theory::bv namespace */

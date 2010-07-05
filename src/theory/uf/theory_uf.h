@@ -155,6 +155,7 @@ public:
   void explain(TNode n, Effort level) {}
 
   std::string identify() const { return std::string("TheoryUF"); }
+  void unPreRegisterTerm(TNode atom) { Unimplemented(); }
 
 private:
   /**

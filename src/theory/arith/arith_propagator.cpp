@@ -46,7 +46,32 @@ bool acceptedKinds(Kind k){
     return false;
   }
 }
+void ArithUnatePropagator::deleteAtom(TNode atom){
+  Assert(acceptedKinds(atom.getKind()));
 
+  TNode left  = atom[0];
+  TNode right = atom[1];
+
+  Assert(leftIsSetup(left));
+
+  OrderedBoundsList* atomList = NULL;
+  switch(atom.getKind()){
+  case EQUAL:
+    atomList = left.getAttribute(propagator::PropagatorEqList());
+    break;
+  case LEQ:
+    atomList = left.getAttribute(propagator::PropagatorLeqList());
+    break;
+  case GEQ:
+    atomList = left.getAttribute(propagator::PropagatorGeqList());
+    break;
+  default:
+    Unreachable();
+  };
+
+  Assert(atomList->contains(atom));
+  atomList->deleteElement(atom);
+}
 void ArithUnatePropagator::addAtom(TNode atom){
   Assert(acceptedKinds(atom.getKind()));
 

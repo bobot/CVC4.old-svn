@@ -180,6 +180,12 @@ void TheoryArith::reinjectVariable(TNode x){
   DeltaRational assignment = computeRowValueUsingAssignment(x);
   d_partialModel.setAssignment(x,safeAssignment,assignment);
 }
+void TheoryArith::unPreRegisterTerm(TNode atom){
+  Debug("arith::deregisterTerm") <<"begin arith::deregisterTerm("<< atom <<")"<< endl;
+  Assert(isNormalAtom(atom));
+
+  d_propagator.deleteAtom(atom);
+}
 
 void TheoryArith::preRegisterTerm(TNode n) {
   Debug("arith_preregister") <<"begin arith::preRegisterTerm("<< n <<")"<< endl;

@@ -42,6 +42,8 @@ public:
   void shutdown() { }
   RewriteResponse preRewrite(TNode n, bool topLevel);
   std::string identify() const { return std::string("TheoryBuiltin"); }
+  void unPreRegisterTerm(TNode atom) { Unimplemented(); }
+
 };/* class TheoryBuiltin */
 
 }/* CVC4::theory::builtin namespace */

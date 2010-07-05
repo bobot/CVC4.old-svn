@@ -127,6 +127,8 @@ public:
    */
   void preRegisterTerm(TNode n);
 
+  void unPreRegisterTerm(TNode atom);
+
   /** CD setup for a node. Currently does nothing. */
   void registerTerm(TNode n);
 

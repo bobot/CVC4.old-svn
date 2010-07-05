@@ -251,6 +251,15 @@ public:
     }
   }
 
+  inline void unPreRegisterTerm(TNode node) {
+    Debug("theory") << "TheoryEngine::unPreRegisterTerm(" << node << ")" << std::endl;
+    theory::Theory* theory =
+      node.getKind() == kind::NOT ? theoryOf(node[0]) : theoryOf(node);
+    if(theory != NULL) {
+      theory->unPreRegisterTerm(node);
+    }
+  }
+
   /**
    * Check all (currently-active) theories for conflicts.
    * @param effort the effort level to use

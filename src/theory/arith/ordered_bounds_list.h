@@ -215,12 +215,24 @@ public:
     }
     return false;
   }
+
+  void deleteElement(TNode atom){
+    sortIfNeeded();
+    std::vector<Node>::iterator lb = lower_bound_non_const(atom);
+    Assert(atom == (*lb));
+    d_list.erase(lb);
+  }
+
 private:
   /** Sorts the list if it is not already sorted.  */
   void sortIfNeeded(){
     if(!d_isSorted){
       sort();
     }
+  }
+  std::vector<Node>::iterator lower_bound_non_const(TNode value){
+    sortIfNeeded();
+    return std::lower_bound(d_list.begin(), d_list.end(), value, RightHandRationalLT());
   }
 };
 

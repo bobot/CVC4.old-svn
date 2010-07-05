@@ -159,6 +159,8 @@ public:
   void check(Theory::Effort) { Unimplemented(); }
   void propagate(Theory::Effort) { Unimplemented(); }
   void explain(TNode, Theory::Effort) { Unimplemented(); }
+  void unPreRegisterTerm(TNode atom) { Unimplemented(); }
+
 };/* class FakeTheory */
 
 std::deque<RewriteItem> FakeTheory::s_expected;

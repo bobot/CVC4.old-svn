@@ -363,6 +363,8 @@ public:
    */
   virtual void explain(TNode n, Effort level = FULL_EFFORT) = 0;
 
+  virtual void unPreRegisterTerm(TNode atom) = 0;
+
   /**
    * Identify this theory (for debugging, dynamic configuration,
    * etc..)

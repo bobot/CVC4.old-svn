@@ -53,6 +53,8 @@ public:
   void explain(TNode n, Effort e) { }
   void shutdown() { }
   std::string identify() const { return std::string("TheoryArrays"); }
+  void unPreRegisterTerm(TNode atom) { Unimplemented(); }
+
 };/* class TheoryArrays */
 
 }/* CVC4::theory::arrays namespace */
