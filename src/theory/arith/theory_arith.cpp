@@ -1062,7 +1062,8 @@ void TheoryArith::propagate(Effort e) {
     for(std::vector<Node>::iterator i = implied.begin();
         i != implied.end();
         ++i){
-      d_out->propagate(*i);
+      Node prop = *i;
+      d_out->propagate(prop);
     }
   }
 }

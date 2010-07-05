@@ -5,6 +5,7 @@ TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
 # put it below in "TESTS +="
 TESTS =	\
 	bug173.smt \
+	bug174.smt \
 	clocksynchro_5clocks.main_invar.base.smt \
 	fs_frame_gap.base.smt \
 	irit.smt \
