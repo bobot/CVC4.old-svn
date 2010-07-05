@@ -258,12 +258,13 @@ public:
 
   inline void unPreRegisterTerm(TNode node) {
     Debug("theory") << "TheoryEngine::unPreRegisterTerm(" << node << ")" << std::endl;
-    theory::Theory* theory =
-      node.getKind() == kind::NOT ? theoryOf(node[0]) : theoryOf(node);
+    Assert(node.getKind() != kind::NOT);
+    theory::Theory* theory = theoryOf(node);
     if(theory != NULL) {
       theory->unPreRegisterTerm(node);
-      node.setAttribute(theory::PreRegistered(), true);
     }
+    node.setAttribute(theory::PreRegistered(), false);
+    node.notNode().setAttribute(theory::PreRegistered(), false);
   }
 
   /**

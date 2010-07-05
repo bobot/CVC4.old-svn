@@ -109,7 +109,7 @@ public:
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
 
   /** This method will be called when a node is not needed anymore */
-  virtual void theoryUnPreRegisterTerm(TNode node) = 0;
+  virtual void theoryUnPreRegisterAtom(TNode atom) = 0;
 };
 
 /**
@@ -209,7 +209,7 @@ public:
 
   bool canErase(const minisat::Clause& clause);
 
-  void theoryUnPreRegisterTerm(TNode node);
+  void theoryUnPreRegisterAtom(TNode node);
 
   /**
    * Sat solver notifies the CNF every time it starts using a literal so

@@ -82,7 +82,7 @@ Node TheoryEngine::preprocess(TNode t) {
   toReg.push_back(top);
 
   /* Essentially this is doing a breadth-first numbering of
-   * non-registered subterms with children.  Any non-registered
+   * non-registered sub-terms with children.  Any non-registered
    * leaves are immediately registered. */
   for(list<TNode>::iterator workp = toReg.begin();
       workp != toReg.end();
@@ -106,7 +106,7 @@ Node TheoryEngine::preprocess(TNode t) {
 
   /* Now register the list of terms in reverse order.  Between this
    * and the above registration of leaves, this should ensure that
-   * all subterms in the entire tree were registered in
+   * all sub-terms in the entire tree were registered in
    * reverse-topological order. */
   for(list<TNode>::reverse_iterator i = toReg.rbegin();
       i != toReg.rend();

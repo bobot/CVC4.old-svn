@@ -78,8 +78,7 @@ void CnfStream::releaseNode(Node node) {
   Assert(getTotalRefCount(node) == 0);
 
   // Release the node from the theories
-  d_satSolver->theoryUnPreRegisterTerm(node);
-
+  d_satSolver->theoryUnPreRegisterAtom(node);
 
   // d_clauseToNodeMap should have been erased while erasing the clauses
   // d_literalToNodeMap should have been erased while erasing the literal

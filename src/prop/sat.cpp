@@ -26,8 +26,8 @@
 namespace CVC4 {
 namespace prop {
 
-void SatSolver::theoryUnPreRegisterTerm(TNode node) {
-  d_theoryEngine->unPreRegisterTerm(node);
+void SatSolver::theoryUnPreRegisterAtom(TNode atom) {
+  d_theoryEngine->unPreRegisterTerm(atom);
 }
 
 void SatSolver::theoryCheck(theory::Theory::Effort effort, SatClause& conflict) {
