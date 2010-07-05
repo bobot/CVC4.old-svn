@@ -1,4 +1,4 @@
-SUBDIRS = . precedence uf
+SUBDIRS = . precedence arith uf
 
 TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/cvc4
 
