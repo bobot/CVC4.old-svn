@@ -482,7 +482,7 @@ bool SimpSolver::eliminateVar(Var v, bool fail)
     elimtable[v].order = elimorder++;
     assert(elimtable[v].eliminated.size() == 0);
     for (int i = 0; i < cls.size(); i++){
-        elimtable[v].eliminated.push(Clause_new(*cls[i]));
+        elimtable[v].eliminated.push(Clause_new(*cls[i], Clause::CLAUSE_LEARNT));
         // These clause might get reintroduced, so we don't really remove it
         removeClause(*cls[i], false); }
 

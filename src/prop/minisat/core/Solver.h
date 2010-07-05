@@ -160,12 +160,13 @@ protected:
     vec<char>           polarity;         // The preferred polarity of each variable.
     vec<bool>           theory;           // Is the variable representing a theory atom
     vec<char>           decision_var;     // Declares if a variable is eligible for selection in the decision heuristic.
-    vec<Lit>            trail;            // Assignment stack; stores all assigments made in the order they were made.
+    vec<Lit>            trail;            // Assignment stack; stores all assignments made in the order they were made.
     vec<int>            trail_lim;        // Separator indices for different decision levels in 'trail'.
 
     vec<Clause*>        lemmas;           // List of lemmas we added (context dependent)
     vec<int>            lemmas_lim;       // Separator indices for different decision levels in 'lemmas'.
-    
+    vec<Lit>            lemmas_prop_lit;  // Literals that we got directly from the lemmas
+    vec<Clause*>        lemmas_prop_reas; // Lemmas responsible for the propagation
     std::set<Clause*>   keep_lemma;       // Set of lemmas to keep
 
     vec<Clause*>        reason;           // 'reason[var]' is the clause that implied the variables current value, or 'NULL' if none.

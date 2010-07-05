@@ -32,6 +32,7 @@
 
 #include <ext/hash_map>
 #include <ext/hash_set>
+#include <iostream>
 
 namespace CVC4 {
 namespace prop {
@@ -55,11 +56,27 @@ public:
   /** Nodes that have pure clauses */
   typedef __gnu_cxx::hash_set<Node, NodeHashFunction> NodesWithPureClausesSet;
 
+  /** The entry describing the relationship between the clause and the node */
+  struct ClauseToNodeMapEntry {
+    /** The node this clause is attached to */
+    TNode node;
+    /** Is this a pure clause or not */
+    bool isPure;
+    /** Constructor */
+    ClauseToNodeMapEntry(TNode node, bool isPure)
+    : node(node), isPure(isPure) {}
+    /** Default constructor */
+    ClauseToNodeMapEntry() {}
+  };
+
   /** Map the clauses to the nodes that generated them */
-  typedef __gnu_cxx::hash_map<unsigned, TNode> ClauseToNodeMap;
+  typedef __gnu_cxx::hash_map<unsigned, ClauseToNodeMapEntry> ClauseToNodeMap;
 
   /** Map from nodes to their reference counts (in the CNF context) */
   typedef __gnu_cxx::hash_map<TNode, unsigned, NodeHashFunction> NodeRefCountMap;
+
+  /** Keeps the nodes that need to regenerate their clauses */
+  typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction> RegenerateSet;
 
 private:
 
@@ -69,8 +86,14 @@ private:
   /** Cache of what literals have been registered to a node. */
   NodeToLiteralMap d_nodeToLiteralMap;
 
+  /** Nodes that need to regenerate the clause */
+  RegenerateSet d_nodeToLiteralMapRegenerateClause;
+
   /** Cache of nodes that are not mapped to a literal, but produced a clause */
   NodesWithPureClausesSet d_nodesWithPureClauseSet;
+
+  /** Nodes that need to regenerate the clause */
+  RegenerateSet d_nodesWithPureClauseSetRegenerateClause;
 
   /** Cache of what nodes have been registered to a literal. */
   LiteralToNodeMap d_literalToNodeMap;
@@ -100,20 +123,20 @@ protected:
    * Asserts the given clause to the sat solver.
    * @param clause the clasue to assert
    */
-  void assertClause(TNode node, SatClause& clause);
+  void assertClause(TNode node, SatClause& clause, bool isPure);
 
   /**
    * Asserts the unit clause to the sat solver.
    * @param a the unit literal of the clause
    */
-  void assertClause(TNode node, SatLiteral a);
+  void assertClause(TNode node, SatLiteral a, bool isPure);
 
   /**
    * Asserts the binary clause to the sat solver.
    * @param a the first literal in the clause
    * @param b the second literal in the clause
    */
-  void assertClause(TNode node, SatLiteral a, SatLiteral b);
+  void assertClause(TNode node, SatLiteral a, SatLiteral b, bool isPure);
 
   /**
    * Asserts the ternary clause to the sat solver.
@@ -121,7 +144,7 @@ protected:
    * @param b the second literal in the clause
    * @param c the third literal in the clause
    */
-  void assertClause(TNode node, SatLiteral a, SatLiteral b, SatLiteral c);
+  void assertClause(TNode node, SatLiteral a, SatLiteral b, SatLiteral c, bool isPure);
 
   /**
    * Returns true if the node has been cashed in the translation cache.
@@ -129,6 +152,17 @@ protected:
    * @return true if the node has been cached
    */
   bool isCached(TNode node) const;
+
+  /**
+   * Returns true if the node should regenerate it's clauses.
+   */
+  bool shouldRegenerateClauses(TNode node, bool pure) const;
+
+  /**
+   * Marks that the node has generated it's clauses in the pure or non-pure
+   * context.
+   */
+  void markAsGenerated(TNode node, bool pure);
 
   /**
    * Returns the cashed literal corresponding to the given node.
@@ -150,7 +184,7 @@ protected:
    * does not produce a literal, but wee need to keep track of the translation.
    * @param node node the node to cahce
    * @param negate whether the node is negated
-   * @return true if the node was not cached before
+   * @return true if the node should go agead and generate the clauses
    */
   bool cachePureTranslation(TNode node, bool negated);
 
@@ -165,13 +199,28 @@ protected:
   SatLiteral newLiteral(TNode node, bool theoryLiteral = false);
 
   /**
+   * Acquires a new variable from the SAT solver to represent the node and
+   * inserts the necessary data it into the mapping tables. Or, if the node
+   * has been cached alread (but must be set to regenerate), it returns the
+   * cached literal.
+   * @param node a formula
+   * @param theoryLiteral is this literal a theory literal (i.e. theory to be
+   *        informed when set to true/false
+   * @return the literal corresponding to the formula
+   */
+  SatLiteral newLiteralOrCached(TNode node, bool theoryLiteral = false);
+
+  /**
    * Returns the positive version of the node. If the node is !a it returns a
-   * otherwise it returns the node itself.
+   * otherwise it returns the node itself. Duplicate not's are removed.
    * @param node the node to process
-   * @return the node stripped of the top negation (if there)
+   * @return the node stripped of the top negations (if there)
    */
   static inline Node getPositive(TNode node) {
-    return node.getKind() == kind::NOT ? node[0] : node;
+    while (node.getKind() == kind::NOT) {
+      node = node[0];
+    }
+    return node;
   }
 
   /**
@@ -180,7 +229,15 @@ protected:
    * @return the negated node
    */
   static inline Node getNegation(TNode node) {
-    return node.getKind() == kind::NOT ? Node(node[0]) : node.notNode();
+    while (node.getKind() == kind::NOT) {
+      node = node[0];
+      if (node.getKind() == kind::NOT) {
+          node = node[0];
+          continue;
+      }
+      return node;
+    }
+    return node.notNode();
   }
 
   /**

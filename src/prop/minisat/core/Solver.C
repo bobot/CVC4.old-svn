@@ -43,11 +43,11 @@ Clause* Solver::getReason(Lit l)
       proxy->explainPropagation(~l, explanation);
       assert(explanation[0] == ~l);
     }
-    Clause* real_reason = Clause_new(explanation, Clause::CLAUSE_LEMMA_KEEP);
+    Clause* real_reason = Clause_new(explanation, Clause::CLAUSE_LEARNT);
     reason[var(l)] = real_reason;
     // Add it to the database
     learnts.push(real_reason);
-    attachClause(*real_reason, CLAUSE_LEMMA);
+    attachClause(*real_reason, CLAUSE_CONFLICT);
     return real_reason;
 }
 
@@ -156,7 +156,13 @@ int Solver::addClause(vec<Lit>& ps, ClauseType type)
                     ++ k;
                 }
             }
-            Assert(k > 1, "Lemmas must not propagate at the current level (clauses must have at least 2 unassigned literals)");
+            Assert(k > 0, "Lemmas can not be false");
+            if (k == 1) {
+              // If only one literal, we still add the clause, but we also enqueue
+              // the first chance we get
+              lemmas_prop_lit.push(ps[0]);
+            }
+            Assert(j > 1, "No direct assertions allowed for lemmas");
         }
         ps.shrink(i - j);
     }
@@ -185,6 +191,10 @@ int Solver::addClause(vec<Lit>& ps, ClauseType type)
           lemmas.push(c);
           // And keep around in the learnts database
           learnts.push(c);
+          // If we propagated from the lemma, we add the reason also
+          if (lemmas_prop_lit.size() != lemmas_prop_reas.size()) {
+            lemmas_prop_reas.push(c);
+          }
         default:
           assert(false);
         }
@@ -194,6 +204,7 @@ int Solver::addClause(vec<Lit>& ps, ClauseType type)
 }
 
 void Solver::attachClause(Clause& c, ClauseType type) {
+    Debug("minisat") << " Solver::attachClause(" << &c << ")" << std::endl;
     assert(c.size() > 1);
     watches[toInt(~c[0])].push(&c);
     watches[toInt(~c[1])].push(&c);
@@ -522,7 +533,7 @@ Clause* Solver::propagate(TheoryCheckType type)
     // If this is the final check, no need for Boolean propagation and
     // theory propagation
     if (type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
-      return theoryCheck(theory::Theory::FULL_EFFORT);
+        return theoryCheck(theory::Theory::FULL_EFFORT);
     }
 
     // The effort we will be using to theory check
@@ -778,6 +789,10 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
     bool first = true;
     TheoryCheckType check_type = CHECK_WITH_PROPAGATION_STANDARD;
     for (;;){
+        // Clear any lemma propagations
+        lemmas_prop_lit.clear();
+        lemmas_prop_reas.clear();
+
         Clause* confl = propagate(check_type);
         if (confl != NULL){
             // CONFLICT
@@ -811,9 +826,22 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
         }else{
             // NO CONFLICT
 
-            // If this was a final check, we are satisfiable
-            if (check_type == CHECK_WITHOUTH_PROPAGATION_FINAL)
-              return l_True;
+            // If there is no lemmas we have to enqueue them and continue
+            if (lemmas_prop_lit.size() > 0) {
+                for (int k = 0; k < lemmas_prop_lit.size(); ++ k) {
+                  uncheckedEnqueue(lemmas_prop_lit[k], lemmas_prop_reas[k]);
+                }
+                // And just continue with the normal search
+                if (check_type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
+                  check_type = CHECK_WITH_PROPAGATION_STANDARD;
+                }
+                continue;
+            }
+
+              // If this was a final check, we are satisfiable
+            if (check_type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
+                return l_True;
+            }
 
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts){
                 // Reached bound on number of conflicts:

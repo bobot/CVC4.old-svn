@@ -1,0 +1,73 @@
+(benchmark pd_no_op_accs.base.smt
+  :source {
+The Formal Verification of a Reintegration Protocol. Author: Lee Pike. Website: http://www.cs.indiana.edu/~lepike/pub_pages/emsoft.html.
+
+This benchmark was automatically translated into SMT-LIB format from
+CVC format using CVC Lite
+}
+  :status unsat
+:category { industrial }
+:difficulty { 0 }
+  :logic QF_LRA
+  
+  :extrafuns ((x_0 Real))
+  :extrafuns ((x_1 Real))
+  :extrapreds ((x_2))
+  :extrapreds ((x_3))
+  :extrapreds ((x_4))
+  :extrapreds ((x_5))
+  :extrafuns ((x_6 Real))
+  :extrafuns ((x_7 Real))
+  :extrafuns ((x_8 Real))
+  :extrafuns ((x_9 Real))
+  :extrafuns ((x_10 Real))
+  :extrafuns ((x_11 Real))
+  :extrapreds ((x_12))
+  :extrapreds ((x_13))
+  :extrapreds ((x_14))
+  :extrapreds ((x_15))
+  :extrapreds ((x_16))
+  :extrapreds ((x_17))
+  :extrapreds ((x_18))
+  :extrapreds ((x_19))
+  :extrafuns ((x_20 Real))
+  :extrafuns ((x_21 Real))
+  :extrafuns ((x_22 Real))
+  :extrapreds ((x_23))
+  :extrafuns ((x_24 Real))
+  :extrafuns ((x_25 Real))
+  :extrafuns ((x_26 Real))
+  :extrafuns ((x_27 Real))
+  :extrapreds ((x_28))
+  :extrafuns ((x_29 Real))
+  :extrapreds ((x_30))
+  :extrapreds ((x_31))
+  :extrapreds ((x_32))
+  :extrapreds ((x_33))
+  :extrapreds ((x_34))
+  :extrapreds ((x_35))
+  :extrafuns ((x_36 Real))
+  :extrafuns ((x_37 Real))
+  :extrafuns ((x_38 Real))
+  :extrafuns ((x_39 Real))
+  :extrapreds ((x_40))
+  :extrapreds ((x_41))
+  :extrapreds ((x_42))
+  :extrapreds ((x_43))
+  :extrapreds ((x_44))
+  :extrafuns ((x_45 Real))
+  :extrafuns ((x_46 Real))
+  :extrafuns ((x_47 Real))
+  :extrafuns ((x_48 Real))
+  :extrafuns ((x_49 Real))
+  :extrafuns ((x_50 Real))
+  :extrafuns ((x_51 Real))
+  :extrafuns ((x_52 Real))
+  :extrafuns ((x_53 Real))
+  :extrapreds ((x_54))
+  :extrafuns ((x_55 Real))
+  :extrafuns ((x_56 Real))
+  :extrafuns ((x_57 Real))
+  :formula
+(let (?cvcl_3 (- x_0 x_1)) (let (?cvcl_34 (+ x_1 x_9)) (flet ($cvcl_84 (<= x_0 x_27)) (flet ($cvcl_63 (iff x_28 x_16)) (flet ($cvcl_88 (= x_29 0)) (flet ($cvcl_19 $cvcl_88) (flet ($cvcl_20 (< x_0 x_11)) (flet ($cvcl_47 (= x_27 x_0)) (flet ($cvcl_73 $cvcl_47) (flet ($cvcl_74 (= x_29 2)) (flet ($cvcl_76 (iff x_30 x_5)) (flet ($cvcl_77 (and (iff x_31 x_3) (iff x_32 x_4))) (flet ($cvcl_61 (iff x_33 x_19)) (flet ($cvcl_62 (and (iff x_34 x_17) (iff x_35 x_18))) (flet ($cvcl_78 (= x_36 x_8)) (flet ($cvcl_79 (and (= x_37 x_6) (= x_38 x_7))) (flet ($cvcl_29 (= x_39 x_11)) (flet ($cvcl_60 (iff x_40 x_2)) (flet ($cvcl_58 (iff x_41 x_15)) (flet ($cvcl_59 (and (iff x_42 x_13) (iff x_43 x_14))) (flet ($cvcl_80 (iff x_44 x_12)) (let (?cvcl_85 (- x_45 x_1)) (flet ($cvcl_51 (= x_29 1)) (let (?cvcl_55 (+ x_9 x_1)) (flet ($cvcl_50 (<= x_24 x_27)) (flet ($cvcl_57 (iff x_30 (or x_5  (and $cvcl_50 x_15) ))) (flet ($cvcl_37 (<= x_21 ?cvcl_34)) (flet ($cvcl_39 (<= x_22 ?cvcl_34)) (flet ($cvcl_30 (<= x_21 x_9)) (flet ($cvcl_36 $cvcl_30) (flet ($cvcl_32 (<= x_22 x_9)) (flet ($cvcl_38 $cvcl_32) (flet ($cvcl_13 (not x_3)) (flet ($cvcl_42 $cvcl_13) (flet ($cvcl_65 (< x_21 x_0)) (flet ($cvcl_66 (= x_27 x_21)) (flet ($cvcl_14 (not x_4)) (flet ($cvcl_44 $cvcl_14) (flet ($cvcl_68 (< x_22 x_0)) (flet ($cvcl_69 (= x_27 x_22)) (flet ($cvcl_15 (not x_5)) (flet ($cvcl_46 $cvcl_15) (flet ($cvcl_86 (not $cvcl_84)) (flet ($cvcl_31 (not x_13)) (flet ($cvcl_41 $cvcl_31) (flet ($cvcl_33 (not x_14)) (flet ($cvcl_43 $cvcl_33) (flet ($cvcl_35 (not x_15)) (flet ($cvcl_45 $cvcl_35) (flet ($cvcl_48 (and (not $cvcl_30) (<= x_21 x_27))) (flet ($cvcl_49 (and (not $cvcl_32) (<= x_22 x_27))) (flet ($cvcl_56 (and (iff x_31 (or x_3  (and $cvcl_48 x_13) )) (iff x_32 (or x_4  (and $cvcl_49 x_14) )))) (flet ($cvcl_40 (<= x_24 ?cvcl_34)) (flet ($cvcl_71 (< x_24 x_0)) (flet ($cvcl_72 (= x_27 x_24)) (flet ($cvcl_75 (<= (ite x_19 (ite x_18 (ite x_17 3 2) x_46) (ite x_18 x_46 (ite x_17 1 0))) (* (* (ite x_5 (ite x_4 (ite x_3 0 1) x_47) (ite x_4 x_47 (ite x_3 2 3))) 1) (/ 1 2)))) (flet ($cvcl_87 $cvcl_50) (flet ($cvcl_52 (not $cvcl_37)) (flet ($cvcl_53 (not $cvcl_39)) (flet ($cvcl_4 (not (<= x_24 x_9))) (flet ($cvcl_5 (and $cvcl_4 $cvcl_50)) (flet ($cvcl_7 $cvcl_5) (flet ($cvcl_6 (not (<= x_25 x_9))) (flet ($cvcl_10 (and $cvcl_6 (<= x_25 x_27))) (flet ($cvcl_8 $cvcl_10) (flet ($cvcl_11 $cvcl_5) (flet ($cvcl_12 $cvcl_10) (flet ($cvcl_54 (not $cvcl_40)) (flet ($cvcl_0 (= x_6 0)) (flet ($cvcl_1 (= x_7 0)) (flet ($cvcl_2 (= x_8 0)) (flet ($cvcl_28 (= x_36 0)) (flet ($cvcl_18 (= x_36 3)) (flet ($cvcl_24 (= x_37 0)) (flet ($cvcl_16 (= x_37 3)) (flet ($cvcl_26 (= x_38 0)) (flet ($cvcl_17 (= x_38 3)) (flet ($cvcl_82 (not x_2)) (flet ($cvcl_64 (not x_17)) (flet ($cvcl_67 (not x_18)) (flet ($cvcl_70 (not x_19)) (flet ($cvcl_81 (= x_20 0)) (flet ($cvcl_9 (and (not (<= x_26 x_9)) (<= x_26 x_27))) (flet ($cvcl_21 (= x_37 (ite $cvcl_13 (ite (and $cvcl_48 (< x_6 3)) (+ x_6 1) x_6) x_6))) (flet ($cvcl_22 (= x_38 (ite $cvcl_14 (ite (and $cvcl_49 (< x_7 3)) (+ x_7 1) x_7) x_7))) (flet ($cvcl_23 (or x_3  $cvcl_16 )) (flet ($cvcl_25 (or x_4  $cvcl_17 )) (flet ($cvcl_27 (or x_5  $cvcl_18 )) (flet ($cvcl_83 (= x_20 1)) (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (and (<= x_29 2) (>= x_29 0)) (<= x_20 2)) (>= x_20 0)) (>= x_0 0)) (> x_1 0)) (>= x_1 0)) (or (or (or $cvcl_0  (= x_6 1) )  (= x_6 2) )  (= x_6 3) )) (not (< x_6 0))) (<= x_6 3)) (or (or (or $cvcl_1  (= x_7 1) )  (= x_7 2) )  (= x_7 3) )) (not (< x_7 0))) (<= x_7 3)) (or (or (or $cvcl_2  (= x_8 1) )  (= x_8 2) )  (= x_8 3) )) (not (< x_8 0))) (<= x_8 3)) (>= x_9 0)) (not (<= x_10 (* x_1 3)))) (>= x_10 0)) (>= x_11 0)) (>= x_21 0)) (>= x_22 0)) (>= x_24 0)) (>= x_25 0)) (>= x_26 0)) (>= x_27 0)) (or (or (or $cvcl_28  (= x_36 1) )  (= x_36 2) )  $cvcl_18 )) (not (< x_36 0))) (<= x_36 3)) (or (or (or $cvcl_24  (= x_37 1) )  (= x_37 2) )  $cvcl_16 )) (not (< x_37 0))) (<= x_37 3)) (or (or (or $cvcl_26  (= x_38 1) )  (= x_38 2) )  $cvcl_17 )) (not (< x_38 0))) (<= x_38 3)) (>= x_39 0)) (>= x_45 0)) (>= x_52 0)) (>= x_53 0)) (>= x_55 0)) (>= x_56 0)) (>= x_57 0)) $cvcl_82) $cvcl_13) $cvcl_14) $cvcl_15) $cvcl_0) $cvcl_1) $cvcl_2) (not (< x_9 0))) (< x_9 x_10)) (= x_11 (+ (+ x_9 x_10) x_1))) x_12) $cvcl_31) $cvcl_33) $cvcl_35) x_16) $cvcl_64) $cvcl_67) $cvcl_70) $cvcl_81) (not (<= x_0 x_21))) (not (<= x_21 ?cvcl_3))) (not (<= x_0 x_22))) (not (<= x_22 ?cvcl_3))) (= x_0 (ite (not (< x_9 x_1)) (+ x_10 x_1) x_1))) (not x_23)) $cvcl_4) $cvcl_6) (< x_24 x_25)) (< x_25 x_26)) (= x_46 (ite x_17 2 1))) (= x_47 (ite x_3 1 2))) (= x_48 (ite $cvcl_7 2 1))) (= x_49 (ite $cvcl_11 2 1))) (= x_50 (+ (ite $cvcl_9 (ite $cvcl_8 (ite $cvcl_7 3 2) x_48) (ite $cvcl_8 x_48 (ite $cvcl_7 1 0))) x_8))) (= x_51 (+ (ite $cvcl_9 (ite $cvcl_12 (ite $cvcl_11 3 2) x_49) (ite $cvcl_12 x_49 (ite $cvcl_11 1 0))) x_8))) (or (or (and (and (and (and (and (and (or (and (and (and (and (and (and (and (and (and (and $cvcl_19 $cvcl_20) $cvcl_47) $cvcl_21) $cvcl_22) (= x_36 (ite $cvcl_15 (ite (not (< x_50 3)) 3 x_50) x_8))) (iff x_31 $cvcl_23)) (iff x_32 $cvcl_25)) (iff x_30 $cvcl_27)) $cvcl_60) $cvcl_29)  (and (and (and (and (and (and (and (and (and (and $cvcl_19 (not $cvcl_20)) x_40) (= x_27 x_11)) $cvcl_21) $cvcl_22) (= x_36 (ite $cvcl_15 (ite (not (< x_51 3)) 3 x_51) x_8))) (iff x_31 (or $cvcl_23  $cvcl_24 ))) (iff x_32 (or $cvcl_25  $cvcl_26 ))) (iff x_30 (or $cvcl_27  $cvcl_28 ))) $cvcl_29) ) $cvcl_58) $cvcl_59) $cvcl_80) $cvcl_61) $cvcl_62) $cvcl_63)  (and (and (and (and (and (and (and (or (and (and (and (and (and (and (and (and (and (and (and $cvcl_51 (or (or (and (and (and (not $cvcl_36) $cvcl_42) $cvcl_41) $cvcl_37)  (and (and (and (not $cvcl_38) $cvcl_44) $cvcl_43) $cvcl_39) )  (and (and $cvcl_46 $cvcl_45) $cvcl_40) )) (not x_44)) (or (or (or (or $cvcl_36  $cvcl_52 )  x_13 )  x_3 )  (not (< x_27 x_21)) )) (or (or (or (or $cvcl_38  $cvcl_53 )  x_14 )  x_4 )  (not (< x_27 x_22)) )) (or (or (or $cvcl_54  x_15 )  x_5 )  (not (< x_27 x_24)) )) (or (or (or (and (and (and (and $cvcl_41 $cvcl_42) $cvcl_37) $cvcl_65) $cvcl_66)  (and (and (and (and $cvcl_43 $cvcl_44) $cvcl_39) $cvcl_68) $cvcl_69) )  (and (and (and (and $cvcl_45 $cvcl_46) $cvcl_40) $cvcl_71) $cvcl_72) )  (and (< x_0 ?cvcl_55) $cvcl_73) )) (iff x_42 (or x_13  $cvcl_48 ))) (iff x_43 (or x_14  $cvcl_49 ))) (iff x_41 (or x_15  $cvcl_50 ))) $cvcl_56) $cvcl_57)  (and (and (and (and (and (and (and (and (and $cvcl_51 (or (or (or $cvcl_36  x_13 )  x_3 )  $cvcl_52 )) (or (or (or $cvcl_38  x_14 )  x_4 )  $cvcl_53 )) (or (or x_15  x_5 )  $cvcl_54 )) x_44) (= x_27 ?cvcl_55)) $cvcl_56) $cvcl_57) $cvcl_58) $cvcl_59) ) $cvcl_78) $cvcl_79) $cvcl_29) $cvcl_60) $cvcl_61) $cvcl_62) $cvcl_63) )  (and (and (and (and (and (and (and (or (and (and (and (and (and (and (and (and (and (and (and $cvcl_74 $cvcl_75) (not x_28)) (or (or (or $cvcl_36  x_17 )  x_3 )  (<= x_27 x_21) )) (or (or (or $cvcl_38  x_18 )  x_4 )  (<= x_27 x_22) )) (or (or x_19  x_5 )  (<= x_27 x_24) )) (or (or (or (and (and (and (and $cvcl_64 $cvcl_42) (< x_9 x_21)) $cvcl_65) $cvcl_66)  (and (and (and (and $cvcl_67 $cvcl_44) (< x_9 x_22)) $cvcl_68) $cvcl_69) )  (and (and (and $cvcl_70 $cvcl_46) $cvcl_71) $cvcl_72) )  $cvcl_73 )) (iff x_34 (or x_17  (= x_21 x_27) ))) (iff x_35 (or x_18  (= x_22 x_27) ))) (iff x_33 (or x_19  (= x_24 x_27) ))) $cvcl_76) $cvcl_77)  (and (and (and (and (and (and (and $cvcl_74 (not $cvcl_75)) x_28) $cvcl_76) $cvcl_77) (= x_27 x_9)) $cvcl_61) $cvcl_62) ) $cvcl_78) $cvcl_79) $cvcl_29) $cvcl_60) $cvcl_58) $cvcl_59) $cvcl_80) )) (or (or (and $cvcl_81 (= x_29 (ite $cvcl_82 x_20 1)))  (and $cvcl_83 (= x_29 (ite (not x_12) x_20 2))) )  (and (and (not $cvcl_81) (not $cvcl_83)) (= x_29 x_20)) )) (or (and (and $cvcl_84 (not (<= x_45 x_52))) (not (<= x_52 ?cvcl_85)))  (and $cvcl_86 (= x_52 x_21)) )) (or (and (and $cvcl_84 (not (<= x_45 x_53))) (not (<= x_53 ?cvcl_85)))  (and $cvcl_86 (= x_53 x_22)) )) (or (and (and $cvcl_84 (= x_45 (+ x_0 x_10))) x_54)  (and (and $cvcl_86 (not x_54)) (= x_45 x_0)) )) (or (and (and (and (and $cvcl_87 (not (<= x_55 x_27))) (not (<= x_56 x_27))) (< x_55 x_56)) (< x_56 x_57))  (and (and (and (not $cvcl_87) (= x_55 x_24)) (= x_56 x_25)) (= x_57 x_26)) )) (or (and $cvcl_88 (or x_31  x_32 ))  (and $cvcl_81 (or x_3  x_4 )) )))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+)

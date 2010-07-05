@@ -45,13 +45,15 @@ namespace prop {
 
 CnfStream::~CnfStream() {
 #ifdef CVC4_TRACING
-if (false) {
+#ifdef PRINT_MAPS
+  if (false) {
     PRINT_MAP(cerr, NodeToLiteralMap, d_nodeToLiteralMap);
     PRINT_MAP(cerr, LiteralToNodeMap, d_literalToNodeMap);
     PRINT_MAP(cerr, ClauseToNodeMap,  d_clauseToNodeMap);
     PRINT_MAP(cerr, NodeRefCountMap,  d_nodeRefCountLiterals);
     PRINT_MAP(cerr, NodeRefCountMap,  d_nodeRefCountClauses);
-}
+  }
+#endif
 #endif
 }
 
@@ -79,14 +81,19 @@ void CnfStream::releaseNode(Node node) {
 
   // Erase the nodes maps
   d_nodeToLiteralMap.erase(node);
+  d_nodeToLiteralMapRegenerateClause.erase(node);
   d_nodeRefCountLiterals.erase(node);
   d_nodeRefCountClauses.erase(node);
   d_nodesWithPureClauseSet.erase(node);
+  d_nodesWithPureClauseSetRegenerateClause.erase(node);
 
   // Erase the negated node maps
-  Node negatedNode = node.notNode();
+  Node negatedNode = getNegation(node);
   d_nodeToLiteralMap.erase(negatedNode);
+  d_nodeToLiteralMapRegenerateClause.erase(negatedNode);
   d_nodesWithPureClauseSet.erase(negatedNode);
+  // We don't erase this guy as they the negative and positive are different translations
+  // d_nodesWithPureClauseSetRegenerateClause.erase(negatedNode);
   d_nodeRefCountLiterals.erase(negatedNode);
   d_nodeRefCountClauses.erase(negatedNode);
 }
@@ -121,7 +128,17 @@ void CnfStream::releasingClause(int clauseId) {
   Debug("cnf") << "Releasing clause with id " << clauseId << endl;
 
   // Get the node -- has to be a node, as this might be the last reference
-  Node node = getPositive(d_clauseToNodeMap[clauseId]);
+  ClauseToNodeMapEntry entry = d_clauseToNodeMap[clauseId];
+  Node node = getPositive(entry.node);
+
+  // Depending on the type of the clause mark the node to regenerate clauses
+  // if asserted again
+  if (!entry.isPure) {
+    d_nodeToLiteralMapRegenerateClause.insert(node);
+    d_nodeToLiteralMapRegenerateClause.insert(getNegation(node));
+  } else {
+    d_nodesWithPureClauseSetRegenerateClause.insert(entry.node);
+  }
 
   // Erase the clause from the clause map
   d_clauseToNodeMap.erase(clauseId);
@@ -171,7 +188,7 @@ unsigned CnfStream::getClauseRefCount(TNode node) const {
 TNode CnfStream::getGeneratingNode(int clauseId) const {
   ClauseToNodeMap::const_iterator nodeFind = d_clauseToNodeMap.find(clauseId);
   Assert(nodeFind != d_clauseToNodeMap.end());
-  return nodeFind->second;
+  return nodeFind->second.node;
 }
 
 bool CnfStream::canErase(int clauseId) const {
@@ -188,40 +205,57 @@ TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver) :
   CnfStream(satSolver) {
 }
 
-void CnfStream::assertClause(TNode node, SatClause& c) {
+void CnfStream::assertClause(TNode node, SatClause& c, bool isPure) {
   Debug("cnf") << "Inserting into stream " << c << endl;
   int clauseId = d_satSolver->addClause(c, d_assertingLemma);
   if (clauseId > 0) {
     Debug("cnf") << "Clause inserted with id " << clauseId << endl;
     Node positive = getPositive(node);
-    d_clauseToNodeMap[clauseId] = positive;
+    d_clauseToNodeMap[clauseId] = ClauseToNodeMapEntry(positive, isPure);
     incClauseRefCount(positive);
   }
 }
 
-void CnfStream::assertClause(TNode node, SatLiteral a) {
+void CnfStream::assertClause(TNode node, SatLiteral a, bool isPure) {
   SatClause clause(1);
   clause[0] = a;
-  assertClause(node, clause);
+  assertClause(node, clause, isPure);
 }
 
-void CnfStream::assertClause(TNode node, SatLiteral a, SatLiteral b) {
+void CnfStream::assertClause(TNode node, SatLiteral a, SatLiteral b, bool isPure) {
   SatClause clause(2);
   clause[0] = a;
   clause[1] = b;
-  assertClause(node, clause);
+  assertClause(node, clause, isPure);
 }
 
-void CnfStream::assertClause(TNode node, SatLiteral a, SatLiteral b, SatLiteral c) {
+void CnfStream::assertClause(TNode node, SatLiteral a, SatLiteral b, SatLiteral c, bool isPure) {
   SatClause clause(3);
   clause[0] = a;
   clause[1] = b;
   clause[2] = c;
-  assertClause(node, clause);
+  assertClause(node, clause, isPure);
 }
 
 bool CnfStream::isCached(TNode n) const {
   return d_nodeToLiteralMap.find(n) != d_nodeToLiteralMap.end();
+}
+
+bool CnfStream::shouldRegenerateClauses(TNode node, bool pure) const {
+  if (!pure) {
+    return d_nodeToLiteralMapRegenerateClause.find(node) != d_nodeToLiteralMapRegenerateClause.end();
+  } else {
+    return d_nodesWithPureClauseSetRegenerateClause.find(node) != d_nodesWithPureClauseSetRegenerateClause.end();
+  }
+}
+
+void CnfStream::markAsGenerated(TNode node, bool pure) {
+  if (!pure) {
+    d_nodeToLiteralMapRegenerateClause.erase(node);
+    d_nodeToLiteralMapRegenerateClause.erase(getNegation(node));
+  } else {
+    d_nodesWithPureClauseSetRegenerateClause.erase(node);
+  }
 }
 
 SatLiteral CnfStream::lookupInCache(TNode n) const {
@@ -233,15 +267,21 @@ void CnfStream::cacheTranslation(TNode node, SatLiteral lit) {
   Debug("cnf") << "caching translation " << node << " to " << lit << endl;
   // We always cash both the node and the negation at the same time
   d_nodeToLiteralMap[node] = lit;
-  if (node.getKind() == NOT)  d_nodeToLiteralMap[node[0]] = ~lit;
-  else d_nodeToLiteralMap[node.notNode()] = ~lit;
+  d_nodeToLiteralMap[getNegation(node)] = ~lit;
 }
 
 bool CnfStream::cachePureTranslation(TNode node, bool negated) {
   Debug("cnf") << "caching translation " << node << " to pure clauses" << endl;
   // For the top level we only cache the node itself, not the negated one
-  if (negated) return d_nodesWithPureClauseSet.insert(getNegation(node)).second;
-  else return d_nodesWithPureClauseSet.insert(node).second;
+  if (negated) {
+    Node negatedNode = getNegation(node);
+    bool added = d_nodesWithPureClauseSet.insert(negatedNode).second;
+    if (!added) return shouldRegenerateClauses(negatedNode, true);
+  } else {
+    bool added = d_nodesWithPureClauseSet.insert(node).second;
+    if (!added) return shouldRegenerateClauses(node, true);
+  }
+  return true;
 }
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
@@ -249,9 +289,16 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   SatLiteral lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
   cacheTranslation(node, lit);
   d_literalToNodeMap[lit] = node;
-  d_literalToNodeMap[~lit] = node.notNode();
+  d_literalToNodeMap[~lit] = getNegation(node);
   Debug("cnf") << "CnfStream::newLiteral(" << node << ", " << (theoryLiteral ? "true)" : "false) => ") << lit << endl;
   return lit;
+}
+
+SatLiteral CnfStream::newLiteralOrCached(TNode node, bool theoryLiteral) {
+  Debug("cnf") << "CnfStream::newLiteralOrCached(" << node << ", " << (theoryLiteral ? "true)" : "false)") << endl;
+  Assert(!isCached(node) || shouldRegenerateClauses(node, false));
+  if (isCached(node)) return lookupInCache(node);
+  else return newLiteral(node, theoryLiteral);
 }
 
 Node CnfStream::getNode(const SatLiteral& l) const {
@@ -260,7 +307,7 @@ Node CnfStream::getNode(const SatLiteral& l) const {
   if (findNode == d_literalToNodeMap.end()) {
     Assert(d_literalToNodeMap.find(~l) != d_literalToNodeMap.end());
     Node negatedNode = d_literalToNodeMap.find(~l)->second;
-    return negatedNode.getKind() == NOT ? negatedNode[0] : negatedNode.notNode();
+    return getNegation(negatedNode);
   } else {
     return findNode->second;
   }
@@ -284,18 +331,18 @@ const CnfStream::NodeToLiteralMap& CnfStream::getTranslationCache() const {
 }
 
 SatLiteral TseitinCnfStream::handleAtom(TNode node) {
-  Assert(!isCached(node), "atom already mapped!");
+  Assert(!isCached(node) || shouldRegenerateClauses(node, false), "atom already mapped!");
 
   Debug("cnf") << "handleAtom(" << node << ")" << endl;
 
   bool theoryLiteral = node.getKind() != kind::VARIABLE;
-  SatLiteral lit = newLiteral(node, theoryLiteral);
+  SatLiteral lit = newLiteralOrCached(node, theoryLiteral);
 
   if(node.getKind() == kind::CONST_BOOLEAN) {
     if(node.getConst<bool>()) {
-      assertClause(node, lit);
+      assertClause(node, lit, false);
     } else {
-      assertClause(node, ~lit);
+      assertClause(node, ~lit, false);
     }
   }
 
@@ -303,25 +350,25 @@ SatLiteral TseitinCnfStream::handleAtom(TNode node) {
 }
 
 SatLiteral TseitinCnfStream::handleXor(TNode xorNode) {
-  Assert(!isCached(xorNode), "Atom already mapped!");
+  Assert(!isCached(xorNode) || shouldRegenerateClauses(xorNode, false), "Atom already mapped!");
   Assert(xorNode.getKind() == XOR, "Expecting an XOR expression!");
   Assert(xorNode.getNumChildren() == 2, "Expecting exactly 2 children!");
 
   SatLiteral a = toCNF(xorNode[0]);
   SatLiteral b = toCNF(xorNode[1]);
 
-  SatLiteral xorLit = newLiteral(xorNode);
+  SatLiteral xorLit = newLiteralOrCached(xorNode);
 
-  assertClause(xorNode, a, b, ~xorLit);
-  assertClause(xorNode, ~a, ~b, ~xorLit);
-  assertClause(xorNode, a, ~b, xorLit);
-  assertClause(xorNode, ~a, b, xorLit);
+  assertClause(xorNode, a, b, ~xorLit, false);
+  assertClause(xorNode, ~a, ~b, ~xorLit, false);
+  assertClause(xorNode, a, ~b, xorLit, false);
+  assertClause(xorNode, ~a, b, xorLit, false);
 
   return xorLit;
 }
 
 SatLiteral TseitinCnfStream::handleOr(TNode orNode) {
-  Assert(!isCached(orNode), "Atom already mapped!");
+  Assert(!isCached(orNode) || shouldRegenerateClauses(orNode, false), "Atom already mapped!");
   Assert(orNode.getKind() == OR, "Expecting an OR expression!");
   Assert(orNode.getNumChildren() > 1, "Expecting more then 1 child!");
 
@@ -337,27 +384,27 @@ SatLiteral TseitinCnfStream::handleOr(TNode orNode) {
   }
 
   // Get the literal for this node
-  SatLiteral orLit = newLiteral(orNode);
+  SatLiteral orLit = newLiteralOrCached(orNode);
 
   // lit <- (a_1 | a_2 | a_3 | ... | a_n)
   // lit | ~(a_1 | a_2 | a_3 | ... | a_n)
   // (lit | ~a_1) & (lit | ~a_2) & (lit & ~a_3) & ... & (lit & ~a_n)
   for(unsigned i = 0; i < n_children; ++i) {
-    assertClause(orNode, orLit, ~clause[i]);
+    assertClause(orNode, orLit, ~clause[i], false);
   }
 
   // lit -> (a_1 | a_2 | a_3 | ... | a_n)
   // ~lit | a_1 | a_2 | a_3 | ... | a_n
   clause[n_children] = ~orLit;
   // This needs to go last, as the clause might get modified by the SAT solver
-  assertClause(orNode, clause);
+  assertClause(orNode, clause, false);
 
   // Return the literal
   return orLit;
 }
 
 SatLiteral TseitinCnfStream::handleAnd(TNode andNode) {
-  Assert(!isCached(andNode), "Atom already mapped!");
+  Assert(!isCached(andNode)  || shouldRegenerateClauses(andNode, false), "Atom already mapped!");
   Assert(andNode.getKind() == AND, "Expecting an AND expression!");
   Assert(andNode.getNumChildren() > 1, "Expecting more than 1 child!");
 
@@ -373,13 +420,13 @@ SatLiteral TseitinCnfStream::handleAnd(TNode andNode) {
   }
 
   // Get the literal for this node
-  SatLiteral andLit = newLiteral(andNode);
+  SatLiteral andLit = newLiteralOrCached(andNode);
 
   // lit -> (a_1 & a_2 & a_3 & ... & a_n)
   // ~lit | (a_1 & a_2 & a_3 & ... & a_n)
   // (~lit | a_1) & (~lit | a_2) & ... & (~lit | a_n)
   for(unsigned i = 0; i < n_children; ++i) {
-    assertClause(andNode, ~andLit, ~clause[i]);
+    assertClause(andNode, ~andLit, ~clause[i], false);
   }
 
   // lit <- (a_1 & a_2 & a_3 & ... a_n)
@@ -387,12 +434,12 @@ SatLiteral TseitinCnfStream::handleAnd(TNode andNode) {
   // lit | ~a_1 | ~a_2 | ~a_3 | ... | ~a_n
   clause[n_children] = andLit;
   // This needs to go last, as the clause might get modified by the SAT solver
-  assertClause(andNode, clause);
+  assertClause(andNode, clause, false);
   return andLit;
 }
 
 SatLiteral TseitinCnfStream::handleImplies(TNode impliesNode) {
-  Assert(!isCached(impliesNode), "Atom already mapped!");
+  Assert(!isCached(impliesNode) || shouldRegenerateClauses(impliesNode, false), "Atom already mapped!");
   Assert(impliesNode.getKind() == IMPLIES, "Expecting an IMPLIES expression!");
   Assert(impliesNode.getNumChildren() == 2, "Expecting exactly 2 children!");
 
@@ -400,24 +447,24 @@ SatLiteral TseitinCnfStream::handleImplies(TNode impliesNode) {
   SatLiteral a = toCNF(impliesNode[0]);
   SatLiteral b = toCNF(impliesNode[1]);
 
-  SatLiteral impliesLit = newLiteral(impliesNode);
+  SatLiteral impliesLit = newLiteralOrCached(impliesNode);
 
   // lit -> (a->b)
   // ~lit | ~ a | b
-  assertClause(impliesNode, ~impliesLit, ~a, b);
+  assertClause(impliesNode, ~impliesLit, ~a, b, false);
 
   // (a->b) -> lit
   // ~(~a | b) | lit
   // (a | l) & (~b | l)
-  assertClause(impliesNode, a, impliesLit);
-  assertClause(impliesNode, ~b, impliesLit);
+  assertClause(impliesNode, a, impliesLit, false);
+  assertClause(impliesNode, ~b, impliesLit, false);
 
   return impliesLit;
 }
 
 
 SatLiteral TseitinCnfStream::handleIff(TNode iffNode) {
-  Assert(!isCached(iffNode), "Atom already mapped!");
+  Assert(!isCached(iffNode) || shouldRegenerateClauses(iffNode, false), "Atom already mapped!");
   Assert(iffNode.getKind() == IFF, "Expecting an IFF expression!");
   Assert(iffNode.getNumChildren() == 2, "Expecting exactly 2 children!");
 
@@ -426,28 +473,28 @@ SatLiteral TseitinCnfStream::handleIff(TNode iffNode) {
   SatLiteral b = toCNF(iffNode[1]);
 
   // Get the now literal
-  SatLiteral iffLit = newLiteral(iffNode);
+  SatLiteral iffLit = newLiteralOrCached(iffNode);
 
   // lit -> ((a-> b) & (b->a))
   // ~lit | ((~a | b) & (~b | a))
   // (~a | b | ~lit) & (~b | a | ~lit)
-  assertClause(iffNode, ~a, b, ~iffLit);
-  assertClause(iffNode, a, ~b, ~iffLit);
+  assertClause(iffNode, ~a, b, ~iffLit, false);
+  assertClause(iffNode, a, ~b, ~iffLit, false);
 
   // (a<->b) -> lit
   // ~((a & b) | (~a & ~b)) | lit
   // (~(a & b)) & (~(~a & ~b)) | lit
   // ((~a | ~b) & (a | b)) | lit
   // (~a | ~b | lit) & (a | b | lit)
-  assertClause(iffNode, ~a, ~b, iffLit);
-  assertClause(iffNode, a, b, iffLit);
+  assertClause(iffNode, ~a, ~b, iffLit, false);
+  assertClause(iffNode, a, b, iffLit, false);
 
   return iffLit;
 }
 
 
 SatLiteral TseitinCnfStream::handleNot(TNode notNode) {
-  Assert(!isCached(notNode), "Atom already mapped!");
+  Assert(!isCached(notNode) || shouldRegenerateClauses(notNode, false), "Atom already mapped!");
   Assert(notNode.getKind() == NOT, "Expecting a NOT expression!");
   Assert(notNode.getNumChildren() == 1, "Expecting exactly 1 child!");
 
@@ -469,7 +516,7 @@ SatLiteral TseitinCnfStream::handleIte(TNode iteNode) {
   SatLiteral thenLit = toCNF(iteNode[1]);
   SatLiteral elseLit = toCNF(iteNode[2]);
 
-  SatLiteral iteLit = newLiteral(iteNode);
+  SatLiteral iteLit = newLiteralOrCached(iteNode);
 
   // If ITE is true then one of the branches is true and the condition
   // implies which one
@@ -477,9 +524,9 @@ SatLiteral TseitinCnfStream::handleIte(TNode iteNode) {
   // lit -> (t | e) & (b -> t) & (!b -> e)
   // lit -> (t | e) & (!b | t) & (b | e)
   // (!lit | t | e) & (!lit | !b | t) & (!lit | b | e)
-  assertClause(iteNode, ~iteLit, thenLit, elseLit);
-  assertClause(iteNode, ~iteLit, ~condLit, thenLit);
-  assertClause(iteNode, ~iteLit, condLit, elseLit);
+  assertClause(iteNode, ~iteLit, thenLit, elseLit, false);
+  assertClause(iteNode, ~iteLit, ~condLit, thenLit, false);
+  assertClause(iteNode, ~iteLit, condLit, elseLit, false);
 
   // If ITE is false then one of the branches is false and the condition
   // implies which one
@@ -487,9 +534,9 @@ SatLiteral TseitinCnfStream::handleIte(TNode iteNode) {
   // !lit -> (!t | !e) & (b -> !t) & (!b -> !e)
   // !lit -> (!t | !e) & (!b | !t) & (b | !e)
   // (lit | !t | !e) & (lit | !b | !t) & (lit | b | !e)
-  assertClause(iteNode, iteLit, ~thenLit, ~elseLit);
-  assertClause(iteNode, iteLit, ~condLit, ~thenLit);
-  assertClause(iteNode, iteLit, condLit, ~elseLit);
+  assertClause(iteNode, iteLit, ~thenLit, ~elseLit, false);
+  assertClause(iteNode, iteLit, ~condLit, ~thenLit, false);
+  assertClause(iteNode, iteLit, condLit, ~elseLit, false);
 
   return iteLit;
 }
@@ -503,40 +550,45 @@ SatLiteral TseitinCnfStream::toCNF(TNode node, bool negated) {
   // If the non-negated node has already been translated, get the translation
   if(isCached(node)) {
     nodeLit = lookupInCache(node);
-  } else {
-    // Handle each Boolean operator case
-    switch(node.getKind()) {
-    case NOT:
-      nodeLit = handleNot(node);
-      break;
-    case XOR:
-      nodeLit = handleXor(node);
-      break;
-    case ITE:
-      nodeLit = handleIte(node);
-      break;
-    case IFF:
-      nodeLit = handleIff(node);
-      break;
-    case IMPLIES:
-      nodeLit = handleImplies(node);
-      break;
-    case OR:
-      nodeLit = handleOr(node);
-      break;
-    case AND:
-      nodeLit = handleAnd(node);
-      break;
-    default:
-      {
-        //TODO make sure this does not contain any boolean substructure
-        nodeLit = handleAtom(node);
-        //Unreachable();
-        //Node atomic = handleNonAtomicNode(node);
-        //return isCached(atomic) ? lookupInCache(atomic) : handleAtom(atomic);
-      }
+    if (negated) {
+      if (!shouldRegenerateClauses(getNegation(node), false)) return ~nodeLit;
+    } else {
+      if (!shouldRegenerateClauses(node, false)) return nodeLit;
     }
   }
+
+  // Handle each Boolean operator case
+  switch(node.getKind()) {
+  case NOT:
+    nodeLit = handleNot(node);
+    break;
+  case XOR:
+    nodeLit = handleXor(node);
+    break;
+  case ITE:
+    nodeLit = handleIte(node);
+    break;
+  case IFF:
+    nodeLit = handleIff(node);
+    break;
+  case IMPLIES:
+    nodeLit = handleImplies(node);
+    break;
+  case OR:
+    nodeLit = handleOr(node);
+    break;
+  case AND:
+    nodeLit = handleAnd(node);
+    break;
+  default:
+    {
+      //TODO make sure this does not contain any boolean substructure
+      nodeLit = handleAtom(node);
+    }
+  }
+
+  // We've generated the clauses so we can mark it as regenerated now
+  markAsGenerated(getPositive(node), false);
 
   // Return the appropriate (negated) literal
   if (!negated) return nodeLit;
@@ -561,7 +613,7 @@ void TseitinCnfStream::convertAndAssertAnd(TNode node, bool lemma, bool negated)
       clause[i] = toCNF(*disjunct, true);
     }
     Assert(disjunct == node.end());
-    assertClause(node, clause);
+    assertClause(node, clause, true);
   }
 }
 
@@ -577,7 +629,7 @@ void TseitinCnfStream::convertAndAssertOr(TNode node, bool lemma, bool negated) 
       clause[i] = toCNF(*disjunct, false);
     }
     Assert(disjunct == node.end());
-    assertClause(node, clause);
+    assertClause(node, clause, true);
   } else {
     // If the node is a conjunction, we handle each conjunct separately
     for(TNode::const_iterator conjunct = node.begin(), node_end = node.end();
@@ -596,11 +648,11 @@ void TseitinCnfStream::convertAndAssertXor(TNode node, bool lemma, bool negated)
     SatClause clause1(2);
     clause1[0] = ~p;
     clause1[1] = ~q;
-    assertClause(node, clause1);
+    assertClause(node, clause1, true);
     SatClause clause2(2);
     clause2[0] = p;
     clause2[1] = q;
-    assertClause(node, clause2);
+    assertClause(node, clause2, true);
   } else {
     // !(p XOR q) is the same as p <=> q
     SatLiteral p = toCNF(node[0], false);
@@ -609,11 +661,11 @@ void TseitinCnfStream::convertAndAssertXor(TNode node, bool lemma, bool negated)
     SatClause clause1(2);
     clause1[0] = ~p;
     clause1[1] = q;
-    assertClause(node, clause1);
+    assertClause(node, clause1, true);
     SatClause clause2(2);
     clause2[0] = p;
     clause2[1] = ~q;
-    assertClause(node, clause2);
+    assertClause(node, clause2, true);
   }
 }
 
@@ -626,11 +678,11 @@ void TseitinCnfStream::convertAndAssertIff(TNode node, bool lemma, bool negated)
     SatClause clause1(2);
     clause1[0] = ~p;
     clause1[1] = q;
-    assertClause(node, clause1);
+    assertClause(node, clause1, true);
     SatClause clause2(2);
     clause2[0] = p;
     clause2[1] = ~q;
-    assertClause(node, clause2);
+    assertClause(node, clause2, true);
   } else {
     // !(p <=> q) is the same as p XOR q
     SatLiteral p = toCNF(node[0], false);
@@ -639,11 +691,11 @@ void TseitinCnfStream::convertAndAssertIff(TNode node, bool lemma, bool negated)
     SatClause clause1(2);
     clause1[0] = ~p;
     clause1[1] = ~q;
-    assertClause(node, clause1);
+    assertClause(node, clause1, true);
     SatClause clause2(2);
     clause2[0] = p;
     clause2[1] = q;
-    assertClause(node, clause2);
+    assertClause(node, clause2, true);
   }
 }
 
@@ -656,7 +708,7 @@ void TseitinCnfStream::convertAndAssertImplies(TNode node, bool lemma, bool nega
     SatClause clause(2);
     clause[0] = ~p;
     clause[1] = q;
-    assertClause(node, clause);
+    assertClause(node, clause, true);
   } else {// Construct the
     // !(p => q) is the same as (p && ~q)
     convertAndAssert(node[0], lemma, false);
@@ -674,19 +726,19 @@ void TseitinCnfStream::convertAndAssertIte(TNode node, bool lemma, bool negated)
   SatClause clause1(2);
   clause1[0] = ~p;
   clause1[1] = q;
-  assertClause(node, clause1);
+  assertClause(node, clause1, true);
   SatClause clause2(2);
   clause2[0] = p;
   clause2[1] = r;
-  assertClause(node, clause2);
+  assertClause(node, clause2, true);
   SatClause clause3(2);
   clause3[0] = q;
   clause3[1] = ~p;
-  assertClause(node, clause3);
+  assertClause(node, clause3, true);
   SatClause clause4(2);
   clause4[0] = r;
   clause4[1] = p;
-  assertClause(node, clause4);
+  assertClause(node, clause4, true);
 }
 
 // At the top level we must ensure that all clauses that are asserted are
@@ -700,8 +752,8 @@ void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
     // We cache and check all translations but NOT expressions, which are
     // special. If we would cache the not, cache(!a, false), next call would be
     // cache(a, true) which would return true, and we wouldn't add anything.
-    bool added = cachePureTranslation(node, negated);
-    if (!added) return;
+    bool shouldGenerate = cachePureTranslation(node, negated);
+    if (!shouldGenerate) return;
   }
 
   switch(node.getKind()) {
@@ -728,8 +780,14 @@ void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
     break;
   default:
     // Atoms
-    assertClause(node, toCNF(node, negated));
+    assertClause(node, toCNF(node, negated), true);
     break;
+  }
+
+  if (node.getKind() != NOT) {
+    Node positiveNode = getPositive(node);
+    if (negated) markAsGenerated(getNegation(positiveNode), true);
+    else markAsGenerated(positiveNode, true);
   }
 }
 
