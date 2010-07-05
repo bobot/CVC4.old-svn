@@ -38,10 +38,11 @@ namespace minisat {
 
 
 // helper functions
+typedef std::vector<std::pair <Lit, unsigned> >  RSteps;
 
 class SatResolution {
 public:
-		typedef std::vector<std::pair <Lit, unsigned> >  RSteps;
+
 		unsigned d_start_clause;
 		RSteps d_steps;
 
@@ -102,6 +103,7 @@ class Derivation {
 		// don't really need to keep clauses, all you need to do is check that it's not the same.
 		void finish(Clause* confl, Solver* solver);
 		int getRootReason(Lit l, Solver* solver);
+		void printDerivation(int clause_id, Solver* solver);
 };
 
 void Derivation::registerClause(Clause* clause, bool is_input_clause){
@@ -123,9 +125,16 @@ void Derivation::registerDerivation(int clause_id, SatResolution* res){
 }
 
 int Derivation::getRootReason(Lit lit, Solver* solver){
+  Debug("proof")<<"getRootReason for ";
+  solver->printLit(lit);
   Clause* reason = solver->getReason(lit);
   // TODO: add asserts to check stuff
-
+  if(reason==NULL){
+    std::cout<<"Null Root Reason ";
+    solver->printLit(lit);
+    std::cout<<" \n";
+    return 0;
+  }
   // if implied by an unit clause return the unit clause
   if((*reason).size() == 1)
     return reason->id();
@@ -153,6 +162,7 @@ int Derivation::getRootReason(Lit lit, Solver* solver){
   registerClause(unit, false);
   // add the derivation of the unit
   registerDerivation(unit->id(), res);
+  return toInt(lit);
 }
 
 
@@ -162,35 +172,36 @@ void Derivation::finish(Clause* confl, Solver* solver){
   for (int i=0;i<(*confl).size();i++){
     Lit l = (*confl)[i];
     res->addStep(~l, getRootReason(~l, solver));
+
   }
   registerDerivation(confl->id(), res);
 
   // printing derivation for debugging
-  print(confl->id());
+  printDerivation(confl->id(), solver);
 }
 
 // helper functions
 
-void Derivation::print(int clause_id){
-  SatResolution res = d_res_map.find(clause_id);
-  if (res == d_res_map.end()){
-    std::cout<<"Error: Clause has no derivation \n";
-    return;
-  }
-  std::cout<<"R ( ";
-  Clause* clause = d_clauses.find(clause_id);
-  printClause(clause);
+void Derivation::printDerivation(int clause_id, Solver* solver){
+  // TODO:: check that clause_id is in map
+  SatResolution* res = d_res_map.find(clause_id)->second;
 
-  RSteps step = res.getSteps
-  for(int i=0;i<res.getSteps().size();i++){
+  RSteps step = res->getSteps();
+  int parenCount = 0;
+  for(unsigned i=0;i< res->getSteps().size();i++){
 
     std::cout<<"R ( ";
-    Clause* clause = d_clauses.find(res.);
-    printClause(clause);
-    std::cout<<" )";
+    solver->printLit(step[i].first);
+    std::cout<<"| ";
+    Clause* clause = d_clauses.find(step[i].second)->second;
+    solver->printClause(*clause);
+    parenCount++;
   }
-
-  std::cout<<" )";
+  Clause* clause = d_clauses.find(clause_id)->second;
+  std::cout<<"::";
+  solver->printClause(*clause);
+  for(int i=0;i<=parenCount;i++)
+    std::cout<<" )";
 }
 
 

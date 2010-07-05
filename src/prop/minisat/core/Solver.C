@@ -67,7 +67,7 @@ Solver::Solver(SatSolver* proxy, context::Context* context) :
     d_derivation = new Derivation();
   }
 
-bool debug = false;
+bool debug = true;
 
 Solver::~Solver()
 {
