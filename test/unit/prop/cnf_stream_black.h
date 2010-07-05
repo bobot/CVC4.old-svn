@@ -65,6 +65,10 @@ public:
   unsigned int addClauseCalled() {
     return d_addClauseCalled;
   }
+  void theoryUnPreRegisterAtom(CVC4::TNode){
+    Unimplemented();
+  }
+
 };
 
 class CnfStreamBlack : public CxxTest::TestSuite {
