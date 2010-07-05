@@ -11,7 +11,8 @@ TESTS =	\
 	irit.smt \
 	pd_no_op_accs.base.smt \
 	reint_to_least.base.smt \
-	simple_startup_3nodes.abstract.base.smt
+	simple_startup_3nodes.abstract.base.smt \
+	sc-5.base.cvc.smt	
 	
 EXTRA_DIST = $(TESTS)
 
