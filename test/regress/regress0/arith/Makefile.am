@@ -6,13 +6,17 @@ TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
 TESTS =	\
 	bug173.smt \
 	bug174.smt \
+	clocksynchro_2clocks.main_invar.base.smt \
 	clocksynchro_5clocks.main_invar.base.smt \
 	fs_frame_gap.base.smt \
 	irit.smt \
 	pd_no_op_accs.base.smt \
 	reint_to_least.base.smt \
 	simple_startup_3nodes.abstract.base.smt \
-	sc-5.base.cvc.smt	
+	simple_startup_4nodes.synchro.induct.smt \
+	sc-5.base.cvc.smt \
+	pursuit-safety-8.smt \	
+	pursuit-safety-11.smt 
 	
 EXTRA_DIST = $(TESTS)
 
