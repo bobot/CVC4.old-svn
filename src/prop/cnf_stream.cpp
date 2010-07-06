@@ -121,12 +121,17 @@ bool CnfStream::releasingLiteral(const SatLiteral& l) {
   // If the refCount goes to zero, we can erase both the positive and the
   // negative literal from the maps
   if (refCount == 0 && getClauseRefCount(node) == 0) {
-    SatLiteral lit = getLiteral(node);
-    SatLiteral assigned_value;
-    if (d_satSolver->isInUse(lit, assigned_value)) {
-      usingLiteral(assigned_value);
-      d_satSolver->eraseWhenUnassigned(assigned_value);
-      return false;
+    if (isCached(node)) {
+      SatLiteral lit = getLiteral(node);
+      SatLiteral assigned_value;
+      if (d_satSolver->isInUse(lit, assigned_value)) {
+        usingLiteral(assigned_value);
+        d_satSolver->eraseWhenUnassigned(assigned_value);
+        return false;
+      } else {
+        releaseNode(node);
+        return true;
+      }
     } else {
       releaseNode(node);
       return true;
@@ -160,13 +165,18 @@ void CnfStream::releasingClause(int clauseId) {
 
   // If there is no one pointing this node, we can/should erase it
   if (refCount == 0 && getLiteralRefCount(node) == 0) {
-    SatLiteral lit = getLiteral(node);
-    SatLiteral assigned_value;
-    if (d_satSolver->isInUse(lit, assigned_value)) {
-      usingLiteral(assigned_value);
-      d_satSolver->eraseWhenUnassigned(assigned_value);
-    } else
+    if (isCached(node)) {
+      SatLiteral lit = getLiteral(node);
+      SatLiteral assigned_value;
+      if (d_satSolver->isInUse(lit, assigned_value)) {
+        usingLiteral(assigned_value);
+        d_satSolver->eraseWhenUnassigned(assigned_value);
+      } else {
+        releaseNode(node);
+      }
+    } else {
       releaseNode(node);
+    }
   }
 }
 
