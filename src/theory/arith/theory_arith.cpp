@@ -985,10 +985,7 @@ bool TheoryArith::updateUnsatisfiedDisequality(TNode assertion){
       Assert(geq == d_partialModel.getLowerConstraint(x_i) );
 
       Node conflict = NodeManager::currentNM()->mkNode(AND, assertion, leq, geq);
-      if(Debug.isOn("arith_split")){
-        Debug("arith_split") << "split conflict" << endl;
-        debugPrintNode(conflict);
-      }
+      Debug("arith_split") << "split conflict" << conflict<< endl;
 
       d_out->conflict(conflict);
       return true;
