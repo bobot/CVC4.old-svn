@@ -30,6 +30,8 @@ namespace CVC4 {
 namespace prop {
 namespace minisat {
 
+unsigned Clause::id_counter=0;
+
 Solver::Solver(SatSolver* proxy, context::Context* context) :
 
     // SMT stuff
@@ -64,7 +66,7 @@ Solver::Solver(SatSolver* proxy, context::Context* context) :
   , d_derivation(NULL)
 {
   if(true)
-    d_derivation = new Derivation();
+    d_derivation = new Derivation(this);
   }
 
 bool debug = true;
@@ -257,35 +259,29 @@ Lit Solver::pickBranchLit(int polarity_mode, double random_var_freq)
 |  Effect:
 |    Will undo part of the trail, upto but not beyond the assumption of the current decision level.
 |________________________________________________________________________________________________@*/
-void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
+void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatResolution* &res)
 {
     int pathC = 0;
     Lit p     = lit_Undef;
 
     trace_reasons.clear();
-    SatResolution* res = NULL;
+
     res = new SatResolution(confl->id());
-    // FIXME: won't need this for LFSC
-    d_derivation->registerClause(confl, false);
 
     // Generate conflict clause:
     //
     out_learnt.push();      // (leave room for the asserting literal)
     int index   = trail.size() - 1;
     out_btlevel = 0;
-    if(debug){
-      std::cout<<"Original conflict \n";
-      printClause(*confl);
-      std::cout<<"\n";
 
-    }
+    Debug("proof")<<"OC id"<<confl->id()<<": ";
+    printClause(*confl);
+    Debug("proof")<<"\n";
 
     do{
         assert(confl != NULL);          // (otherwise should be UIP)
-        // FIXME: won't need this for lfsc
-        d_derivation->registerClause(confl, false);
-        Clause& c = *confl;
         trace_reasons.push(confl);
+        Clause& c = *confl;
         if (c.learnt())
             claBumpActivity(c);
 
@@ -309,10 +305,18 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
         // Select next clause to look at:
         while (!seen[var(trail[index--])]);
         p     = trail[index+1];
+        // proof logging (p must appear in the conflict since p was seen)
+        Debug("proof")<<"adding step id"<<confl->id()<<" ";
+        printLit(p);
+        Debug("proof")<<" ";
+        printClause(*confl);
+        Debug("proof")<<"\n";
+        res->addStep(p, confl->id());
+        d_derivation->registerClause(confl, false);
+
         confl = reason[var(p)];
         seen[var(p)] = 0;
-        if(confl!=NULL)
-          res->addStep(p, confl->id());
+
         pathC--;
 
     }while (pathC > 0);
@@ -320,17 +324,18 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
 
     if(debug){
 
-      std::cout<<"Conflict clause \n";
+      Debug("proof")<<"Conflict clause \n";
       for(int i=0;i<out_learnt.size();i++){
         printLit(out_learnt[i]);
-        std::cout<<" ";
+        Debug("proof")<<" ";
       }
-      std::cout<<"\n";
+      Debug("proof")<<"\n";
 
       for (int i=0; i<trace_reasons.size();i++){
        printClause(*trace_reasons[i]);
-       std::cout<<"\n ";
+       Debug("proof")<<"\n ";
       }
+      //d_derivation->printDerivation();
     }
 
     // Simplify conflict clause:
@@ -360,12 +365,12 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel)
     tot_literals += out_learnt.size();
     if(debug){
       if(i!=j){
-        std::cout<<"Minimized cc \n";
+        Debug("proof")<<"Minimized cc \n";
             for(int i=0;i<out_learnt.size();i++){
               printLit(out_learnt[i]);
-              std::cout<<" ";
+              Debug("proof")<<" ";
             }
-            std::cout<<"\n";
+            Debug("proof")<<"\n";
       }
 
     }
@@ -707,11 +712,11 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             conflicts++; conflictC++;
             // returns unsatisfiable
             if (decisionLevel() == 0) {
-              d_derivation->finish(confl, this);
+              d_derivation->finish(confl);
               if(debug){
-                std::cout<<"Final conflict \n";
+                Debug("proof")<<"Final conflict \n";
                 printClause(*confl);
-                std::cout<<"\n";
+                Debug("proof")<<"\n";
 
               }
               return l_False;
@@ -720,7 +725,9 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             first = false;
 
             learnt_clause.clear();
-            analyze(confl, learnt_clause, backtrack_level);
+
+            SatResolution *res = NULL;
+            analyze(confl, learnt_clause, backtrack_level, res);
             cancelUntil(backtrack_level);
             // learnt_clause[0] is the asserting literal
             assert(value(learnt_clause[0]) == l_Undef);
@@ -728,8 +735,10 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
-                // TODO: add id to learned clause?
                 Clause* c = Clause_new(learnt_clause, true);
+                d_derivation->registerClause(c, false);
+                d_derivation->registerDerivation(c->id(), res);
+                d_derivation->printDerivation(c->id());
                 learnts.push(c);
                 attachClause(*c);
                 claBumpActivity(*c);
@@ -816,15 +825,13 @@ bool Solver::solve(const vec<Lit>& assumps)
     if (!ok) return false;
 
     assumps.copyTo(assumptions);
-    if(debug){
-      std::cout<<"Problem cl \n";
-      for(int i=0;i< clauses.size();i++){
-         d_derivation->registerClause(clauses[i], true);
-         printClause(*clauses[i]);
-         std::cout<<"\n";
-       }
-      std::cout<<"\n";
-    }
+    Debug("proof")<<"Problem cl \n";
+    for(int i=0;i< clauses.size();i++){
+       d_derivation->registerClause(clauses[i], true);
+       printClause(*clauses[i]);
+       Debug("proof")<<"\n";
+     }
+    Debug("proof")<<"\n";
 
     double  nof_conflicts = restart_first;
     double  nof_learnts   = nClauses() * learntsize_factor;

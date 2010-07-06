@@ -45,6 +45,7 @@ class SatSolver;
 
 namespace minisat {
 class Derivation;
+class SatResolution;
 class Solver {
 
   /** The only CVC4 entry point to the private solver data */
@@ -199,7 +200,7 @@ protected:
     Clause*  propagateBool    ();                                                      // Perform Boolean propagation. Returns possibly conflicting clause.
     Clause*  propagateTheory  ();                                                      // Perform Theory propagation. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
-    void     analyze          (Clause* confl, vec<Lit>& out_learnt, int& out_btlevel); // (bt = backtrack)
+    void     analyze          (Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatResolution* &res); // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
     bool     litRedundant     (Lit p, uint32_t abstract_levels);                       // (helper method for 'analyze()')
     lbool    search           (int nof_conflicts, int nof_learnts);                    // Search for a given number of conflicts.
@@ -334,7 +335,7 @@ static inline void check(bool expr) { assert(expr); }
 
 inline void Solver::printLit(Lit l)
 {
-    reportf("%s%d:%c", sign(l) ? "-" : "", var(l)+1, value(l) == l_True ? '1' : (value(l) == l_False ? '0' : 'X'));
+    DebugOut.printf("proof","%s%d:%c", sign(l) ? "-" : "", var(l)+1, value(l) == l_True ? '1' : (value(l) == l_False ? '0' : 'X'));
 }
 
 
@@ -343,7 +344,7 @@ inline void Solver::printClause(const C& c)
 {
     for (int i = 0; i < c.size(); i++){
         printLit(c[i]);
-        fprintf(stderr, " ");
+        Debug("proof")<<" ";
     }
 }
 
