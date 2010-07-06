@@ -7,6 +7,7 @@ TESTS =	\
 	bug173.smt \
 	bug174.smt \
 	bug177.smt \
+	bug181.smt \
 	clocksynchro_2clocks.main_invar.base.smt \
 	clocksynchro_5clocks.main_invar.base.smt \
 	fs_frame_gap.base.smt \
