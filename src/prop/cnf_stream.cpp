@@ -145,7 +145,7 @@ bool CnfStream::releasingLiteral(const SatLiteral& l) {
 }
 
 void CnfStream::releasingClause(int clauseId) {
-  return false;
+  return;
   Debug("cnf") << "Releasing clause with id " << clauseId << endl;
 
   ClauseToNodeMap::iterator clause_find = d_clauseToNodeMap.find(clauseId);
