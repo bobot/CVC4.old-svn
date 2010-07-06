@@ -301,6 +301,7 @@ void Solver::cancelUntil(int level) {
             }
 
             if (!lastOccurance) {
+              decision_var[x] = true;
               insertVarOrder(x);
             } else {
               // If this literal was erased, we never send it to the theories
