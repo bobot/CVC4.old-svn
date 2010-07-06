@@ -111,8 +111,6 @@ void CnfStream::releaseNode(Node node) {
 
 bool CnfStream::releasingLiteral(const SatLiteral& l) {
 
-  return false;
-
   Debug("cnf") << "Releasing literal " << l << endl;
 
   // Get the node of this literal -- has to be a node as this might be the last reference
@@ -145,7 +143,6 @@ bool CnfStream::releasingLiteral(const SatLiteral& l) {
 }
 
 void CnfStream::releasingClause(int clauseId) {
-  return;
   Debug("cnf") << "Releasing clause with id " << clauseId << endl;
 
   ClauseToNodeMap::iterator clause_find = d_clauseToNodeMap.find(clauseId);
