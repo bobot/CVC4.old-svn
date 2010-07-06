@@ -979,9 +979,18 @@ bool TheoryArith::updateUnsatisfiedDisequality(TNode assertion){
   if(hasUpper && hasLower){
     if(d_partialModel.getUpperBound(x_i) == val &&
        d_partialModel.getLowerBound(x_i) == val){
-      Node caseSplit = caseSplitEq(eq);
-      Debug("arith_split") << "split conflict" << caseSplit << endl;
-      d_out->conflict(caseSplit);
+      Node leq = NodeManager::currentNM()->mkNode(LEQ,left,right);
+      Node geq = NodeManager::currentNM()->mkNode(GEQ,left,right);
+      Assert(leq == d_partialModel.getUpperConstraint(x_i) );
+      Assert(geq == d_partialModel.getLowerConstraint(x_i) );
+
+      Node conflict = NodeManager::currentNM()->mkNode(AND, assertion, leq, geq);
+      if(Debug.isOn("arith_split")){
+        Debug("arith_split") << "split conflict" << endl;
+        debugPrintNode(conflict);
+      }
+
+      d_out->conflict(conflict);
       return true;
     }
   }else if(!hasUpper && hasLower){
