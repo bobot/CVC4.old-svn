@@ -68,7 +68,12 @@ public:
   void theoryUnPreRegisterAtom(CVC4::TNode){
     Unimplemented();
   }
-
+  bool isInUse(CVC4::prop::SatLiteral, CVC4::prop::SatLiteral&){
+    Unimplemented();
+  }
+  void eraseWhenUnassigned(CVC4::prop::SatLiteral){
+    Unimplemented();
+  }
 };
 
 class CnfStreamBlack : public CxxTest::TestSuite {

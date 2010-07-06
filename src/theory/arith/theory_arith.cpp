@@ -918,6 +918,10 @@ void TheoryArith::caseSplitDisequalityIfNeeded(TNode assertion){
   Assert(c_i.getKind() == CONST_RATIONAL);
   DeltaRational constant =  c_i.getConst<Rational>();
 
+  if(isBasic(x_i) && d_tableau.isEjected(x_i)){
+    reinjectVariable(x_i);
+  }
+
   if(d_partialModel.getAssignment(x_i) == constant){
     Node caseSplit = caseSplitEq(eq);
     Debug("arith_split") << "split " << caseSplit << endl;
