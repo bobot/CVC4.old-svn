@@ -121,9 +121,8 @@ bool CnfStream::releasingLiteral(const SatLiteral& l) {
     // And, if the total refCount goes to zero, we can also erase the node
     if (getClauseRefCount(node) == 0) {
       releaseNode(node);
+      return true;
     }
-    // No more occurrences of this literal
-    return true;
   }
   // There is still some stuff left
   return false;
