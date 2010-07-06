@@ -128,6 +128,28 @@ bool CnfStream::releasingLiteral(const SatLiteral& l) {
   return false;
 }
 
+bool CnfStream::releasingLiteralInUse(const SatLiteral& l, const SatLiteral& l_value) {
+
+  Debug("cnf") << "Releasing literal " << l << " with value " << l_value  << endl;
+
+  // Get the node of this literal -- has to be a node as this might be the last reference
+  Node node = getPositive(getNode(l));
+
+  // Decrease the node's reference count
+  unsigned refCount = decLiteralRefCount(node);
+
+  // If the refCount goes to zero, we can erase both the positive and the
+  // negative literal from the maps
+  if (refCount == 0 && getClauseRefCount(node) == 0) {
+      // We don't erase the node, as it is still in use
+      usingLiteral(l_value);
+      // But we kind of erased it (only one reference left)
+      return true;
+  }
+  // There is still some stuff left
+  return false;
+}
+
 void CnfStream::releasingClause(int clauseId) {
   Debug("cnf") << "Releasing clause with id " << clauseId << endl;
 

@@ -227,6 +227,12 @@ public:
   bool releasingLiteral(const SatLiteral& lit);
 
   /**
+   * Same as abve, but we want to keep the literal as it is used by the current
+   * assignment.
+   */
+  bool releasingLiteralInUse(const SatLiteral& l, const SatLiteral& l_value);
+
+  /**
    * Sat solver notifies the CNF every time it erases a clause so
    * that we can track the usage at the CNF level.
    */

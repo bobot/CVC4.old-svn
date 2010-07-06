@@ -362,6 +362,8 @@ public:
    */
   bool releasingLiteral(const SatLiteral& lit);
 
+  bool releasingLiteralInUse(const SatLiteral& l, const SatLiteral& l_value);
+
   /**
    * This method is called by the SAT solver every time it erases a clause.
    */

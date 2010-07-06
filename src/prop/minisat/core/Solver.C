@@ -239,14 +239,22 @@ void Solver::detachClause(Clause& c, bool notifyCNF) {
     }
     if (notifyCNF) {
       for (int l = 0; l < c.size(); ++ l) {
-        bool lastOccurance = proxy->releasingLiteral(c[l]);
+        Lit lit = c[l];
+        lbool assigned_value = value(lit);
+        bool literal_in_use = assigned_value != l_Undef;
+        bool lastOccurance;
+        if (literal_in_use) {
+          lastOccurance = proxy->releasingLiteralInUse(lit, assigned_value == l_True ? lit : ~lit);
+        } else {
+          lastOccurance = proxy->releasingLiteral(lit);
+        }
         // If this was the last of literal ignore it from now on
         if (lastOccurance) {
-          int varL = var(c[l]);
-          theory  [varL] = false;
-          assigns [varL] = 0;
-          level   [varL] = 0;
-          reason  [varL] = NULL;
+          Var varL = var(lit);
+          // If the literal is not in use then mark it as non-theory
+          if (!literal_in_use) theory[varL] = false;
+          // Mark the literal as erased, i.e we don't decide on this literal anymore
+          decision_var[varL] = false;
         }
       }
     }
@@ -281,9 +289,23 @@ void Solver::cancelUntil(int level) {
           context->pop();
         // Now the minisat stuff
         for (int c = trail.size()-1; c >= trail_lim[level]; c--) {
-            Var     x  = var(trail[c]);
+            Lit x_lit = trail[c];
+            Var x = var(x_lit);
             assigns[x] = toInt(l_Undef);
-            insertVarOrder(x);
+
+            // We are not using this literal anymore
+            bool lastOccurance = false;
+            // We might have erased this literal
+            if (!decision_var[x]) {
+              lastOccurance = proxy->releasingLiteral(x_lit);
+            }
+
+            if (!lastOccurance) {
+              insertVarOrder(x);
+            } else {
+              // If this literal was erased, we never send it to the theories
+              theory[x] = false;
+            }
         }
         qhead = trail_lim[level];
         trail.shrink(trail.size() - trail_lim[level]);
@@ -519,6 +541,7 @@ void Solver::uncheckedEnqueue(Lit p, Clause* from)
     polarity [var(p)] = sign(p);
     trail.push(p);
 
+    // We enqueue the theory variables that are not propagated by the theory
     if (theory[var(p)] && from != lazy_reason) {
       // Enqueue to the theory
       proxy->enqueueTheoryLiteral(p);

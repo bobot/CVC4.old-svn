@@ -115,6 +115,11 @@ bool SatSolver::releasingLiteral(const SatLiteral& l) {
   return d_cnfStream->releasingLiteral(l);
 }
 
+bool SatSolver::releasingLiteralInUse(const SatLiteral& l, const SatLiteral& l_value) {
+  return d_cnfStream->releasingLiteralInUse(l, l_value);
+}
+
+
 void SatSolver::releasingClause(int clauseId) {
   d_cnfStream->releasingClause(clauseId);
 }
