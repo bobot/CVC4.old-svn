@@ -110,6 +110,9 @@ private:
   /** Map from nodes to their clause reference counts (in the CNF context) */
   NodeRefCountMap d_nodeRefCountClauses;
 
+  /** Map from nodes to their pure clause reference counts (in the CNF context) */
+  NodeRefCountMap d_nodeRefCountClausesPure;
+
 protected:
 
   /**
@@ -268,6 +271,12 @@ protected:
   void incClauseRefCount(TNode node) { Assert(!node.isNull()); ++ d_nodeRefCountClauses[node]; }
 
   /**
+   * Increase the clause to node reference count for the pure clauses.
+   * @param node the node that the clause points to
+   */
+  void incPureClauseRefCount(TNode node) { Assert(!node.isNull()); ++ d_nodeRefCountClausesPure[node]; }
+
+  /**
    * Decrease the clause to node reference count.
    * @param node the node that the clause points to
    * @return the resulting reference count
@@ -279,6 +288,12 @@ protected:
    * @return the reference count
    */
   unsigned getClauseRefCount(TNode node) const;
+
+  /**
+   * Returns the clause to node reference count.
+   * @return the reference count
+   */
+  unsigned getPureClauseRefCount(TNode node) const;
 
   /**
    * Returns the global reference count for the node and it's negation.

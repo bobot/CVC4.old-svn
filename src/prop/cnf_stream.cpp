@@ -94,6 +94,7 @@ void CnfStream::releaseNode(Node node) {
   d_nodeToLiteralMapRegenerateClause.erase(node);
   d_nodeRefCountLiterals.erase(node);
   d_nodeRefCountClauses.erase(node);
+  d_nodeRefCountClausesPure.erase(node);
   d_nodesWithPureClauseSet.erase(node);
   d_nodesWithPureClauseSetRegenerateClause.erase(node);
 
@@ -102,10 +103,10 @@ void CnfStream::releaseNode(Node node) {
   d_nodeToLiteralMap.erase(negatedNode);
   d_nodeToLiteralMapRegenerateClause.erase(negatedNode);
   d_nodesWithPureClauseSet.erase(negatedNode);
-  // We don't erase this guy as they the negative and positive are different translations
-  // d_nodesWithPureClauseSetRegenerateClause.erase(negatedNode);
+  d_nodesWithPureClauseSetRegenerateClause.erase(negatedNode);
   d_nodeRefCountLiterals.erase(negatedNode);
   d_nodeRefCountClauses.erase(negatedNode);
+  d_nodeRefCountClausesPure.erase(negatedNode);
 }
 
 bool CnfStream::releasingLiteral(const SatLiteral& l) {
@@ -144,8 +145,11 @@ bool CnfStream::releasingLiteral(const SatLiteral& l) {
 void CnfStream::releasingClause(int clauseId) {
   Debug("cnf") << "Releasing clause with id " << clauseId << endl;
 
+  ClauseToNodeMap::iterator clause_find = d_clauseToNodeMap.find(clauseId);
+  if (clause_find == d_clauseToNodeMap.end()) return;
+
   // Get the node -- has to be a node, as this might be the last reference
-  ClauseToNodeMapEntry entry = d_clauseToNodeMap[clauseId];
+  ClauseToNodeMapEntry& entry = clause_find->second;
   Node node = getPositive(entry.node);
 
   // Depending on the type of the clause mark the node to regenerate clauses
@@ -213,6 +217,17 @@ unsigned CnfStream::getClauseRefCount(TNode node) const {
   }
 }
 
+unsigned CnfStream::getPureClauseRefCount(TNode node) const {
+  Assert(!node.isNull());
+  Assert(!(node.getKind() == NOT));
+  NodeRefCountMap::const_iterator nodeFind = d_nodeRefCountClausesPure.find(node);
+  if (nodeFind != d_nodeRefCountClausesPure.end()) {
+    return (nodeFind->second);
+  } else {
+    return 0;
+  }
+}
+
 TNode CnfStream::getGeneratingNode(int clauseId) const {
   ClauseToNodeMap::const_iterator nodeFind = d_clauseToNodeMap.find(clauseId);
   Assert(nodeFind != d_clauseToNodeMap.end());
@@ -222,7 +237,7 @@ TNode CnfStream::getGeneratingNode(int clauseId) const {
 bool CnfStream::canErase(int clauseId) const {
   // Think hard dejan :)
   Node postiveNode = getPositive(getGeneratingNode(clauseId));
-  return getLiteralRefCount(postiveNode) <= getClauseRefCount(postiveNode);
+  return getLiteralRefCount(postiveNode) <= getClauseRefCount(postiveNode) - getPureClauseRefCount(postiveNode);
 }
 
 CnfStream::CnfStream(SatInputInterface *satSolver) :
@@ -241,6 +256,7 @@ void CnfStream::assertClause(TNode node, SatClause& c, bool isPure) {
     Node positive = getPositive(node);
     d_clauseToNodeMap[clauseId] = ClauseToNodeMapEntry(positive, isPure);
     incClauseRefCount(positive);
+    if (isPure) incPureClauseRefCount(positive);
   }
 }
 
