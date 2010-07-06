@@ -81,7 +81,13 @@ void CnfStream::releaseNode(Node node) {
   d_satSolver->theoryUnPreRegisterAtom(node);
 
   // d_clauseToNodeMap should have been erased while erasing the clauses
-  // d_literalToNodeMap should have been erased while erasing the literal
+
+  // Erase from the literal maps if the node has an associated literal
+  if (isCached(node)) {
+    SatLiteral l = getLiteral(node);
+    d_literalToNodeMap.erase(l);
+    d_literalToNodeMap.erase(~l);
+  }
 
   // Erase the nodes maps
   d_nodeToLiteralMap.erase(node);
@@ -114,15 +120,9 @@ bool CnfStream::releasingLiteral(const SatLiteral& l) {
 
   // If the refCount goes to zero, we can erase both the positive and the
   // negative literal from the maps
-  if (refCount == 0) {
-    // Erase the literal from the map
-    d_literalToNodeMap.erase(l);
-    d_literalToNodeMap.erase(~l);
-    // And, if the total refCount goes to zero, we can also erase the node
-    if (getClauseRefCount(node) == 0) {
+  if (refCount == 0 && getClauseRefCount(node) == 0) {
       releaseNode(node);
       return true;
-    }
   }
   // There is still some stuff left
   return false;
