@@ -110,6 +110,9 @@ public:
 
   /** This method will be called when a node is not needed anymore */
   virtual void theoryUnPreRegisterAtom(TNode atom) = 0;
+
+  virtual bool isInUse(const SatLiteral lit, SatLiteral& assigned_value) = 0;
+  virtual void eraseWhenUnassigned(const SatLiteral lit) = 0;
 };
 
 /**
@@ -226,11 +229,8 @@ public:
    */
   bool releasingLiteral(const SatLiteral& lit);
 
-  /**
-   * Same as abve, but we want to keep the literal as it is used by the current
-   * assignment.
-   */
-  bool releasingLiteralInUse(const SatLiteral& l, const SatLiteral& l_value);
+  bool isInUse(const SatLiteral lit, SatLiteral& assigned_value);
+  void eraseWhenUnassigned(const SatLiteral lit);
 
   /**
    * Sat solver notifies the CNF every time it erases a clause so

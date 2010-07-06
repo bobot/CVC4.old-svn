@@ -240,20 +240,12 @@ void Solver::detachClause(Clause& c, bool notifyCNF) {
     if (notifyCNF) {
       for (int l = 0; l < c.size(); ++ l) {
         Lit lit = c[l];
-        lbool assigned_value = value(lit);
-        bool literal_in_use = assigned_value != l_Undef;
-        bool lastOccurance;
-        if (literal_in_use) {
-          lastOccurance = proxy->releasingLiteralInUse(lit, assigned_value == l_True ? lit : ~lit);
-        } else {
-          lastOccurance = proxy->releasingLiteral(lit);
-        }
+        bool lastOccurance = proxy->releasingLiteral(lit);
         // If this was the last of literal ignore it from now on
         if (lastOccurance) {
           Var varL = var(lit);
-          // If the literal is not in use then mark it as non-theory
-          if (!literal_in_use) theory[varL] = false;
           // Mark the literal as erased, i.e we don't decide on this literal anymore
+          theory[varL] = false;
           decision_var[varL] = false;
         }
       }

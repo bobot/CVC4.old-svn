@@ -262,6 +262,18 @@ protected:
     // Returns a random integer 0 <= x < size. Seed must never be 0.
     static inline int irand(double& seed, int size) {
         return (int)(drand(seed) * size); }
+
+    bool isAssigned(const Lit& lit, Lit& assigned_value) {
+      lbool lit_value = value(lit);
+      if (lit_value  == l_True) assigned_value = lit;
+      if (lit_value == l_False) assigned_value = ~lit;
+      return lit_value != l_Undef;
+    }
+
+    void eraseWhenUnassigned(const Lit& lit) {
+      decision_var[var(lit)] = false;
+    }
+
 };
 
 //=================================================================================================

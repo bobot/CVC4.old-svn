@@ -115,10 +115,13 @@ bool SatSolver::releasingLiteral(const SatLiteral& l) {
   return d_cnfStream->releasingLiteral(l);
 }
 
-bool SatSolver::releasingLiteralInUse(const SatLiteral& l, const SatLiteral& l_value) {
-  return d_cnfStream->releasingLiteralInUse(l, l_value);
+bool SatSolver::isInUse(const SatLiteral lit, SatLiteral& assigned_value) {
+  return d_minisat->isAssigned(lit, assigned_value);
 }
 
+void SatSolver::eraseWhenUnassigned(const SatLiteral lit) {
+  d_minisat->eraseWhenUnassigned(lit);
+}
 
 void SatSolver::releasingClause(int clauseId) {
   d_cnfStream->releasingClause(clauseId);
