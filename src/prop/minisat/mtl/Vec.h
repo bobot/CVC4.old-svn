@@ -38,11 +38,11 @@ namespace minisat {
 template<class T>
 class vec {
     T*  data;
-    int sz;
-    int cap;
+    size_t sz;
+    size_t cap;
 
-    void     init(int size, const T& pad);
-    void     grow(int min_cap);
+    void     init(size_t size, const T& pad);
+    void     grow(size_t min_cap);
 
     // Don't allow copying (error prone):
     vec<T>&  operator = (vec<T>& other) { assert(0); return *this; }
@@ -75,11 +75,11 @@ public:
 
     // Size operations:
     int      size   (void) const       { return sz; }
-    void     shrink (int nelems)       { assert(nelems <= sz); for (int i = 0; i < nelems; i++) sz--, data[sz].~T(); }
+    void     shrink (int nelems)       { assert(nelems <= (int)sz); for (int i = 0; i < nelems; i++) sz--, data[sz].~T(); }
     void     shrink_(int nelems)       { assert(nelems <= sz); sz -= nelems; }
     void     pop    (void)             { sz--, data[sz].~T(); }
-    void     growTo (int size);
-    void     growTo (int size, const T& pad);
+    void     growTo (size_t size);
+    void     growTo (size_t size, const T& pad);
     void     clear  (bool dealloc = false);
     void     capacity (int size) { grow(size); }
 
@@ -103,35 +103,35 @@ public:
 
 
     // Duplicatation (preferred instead):
-    void copyTo(vec<T>& copy) const { copy.clear(); copy.growTo(sz); for (int i = 0; i < sz; i++) new (&copy[i]) T(data[i]); }
+    void copyTo(vec<T>& copy) const { copy.clear(); copy.growTo(sz); for (size_t i = 0; i < sz; i++) new (&copy[i]) T(data[i]); }
     void moveTo(vec<T>& dest) { dest.clear(true); dest.data = data; dest.sz = sz; dest.cap = cap; data = NULL; sz = 0; cap = 0; }
 };
 
 template<class T>
-void vec<T>::grow(int min_cap) {
+void vec<T>::grow(size_t min_cap) {
     if (min_cap <= cap) return;
     if (cap == 0) cap = (min_cap >= 2) ? min_cap : 2;
     else          do cap = (cap*3+1) >> 1; while (cap < min_cap);
     data = (T*)realloc(data, cap * sizeof(T)); }
 
 template<class T>
-void vec<T>::growTo(int size, const T& pad) {
+void vec<T>::growTo(size_t size, const T& pad) {
     if (sz >= size) return;
     grow(size);
-    for (int i = sz; i < size; i++) new (&data[i]) T(pad);
+    for (size_t i = sz; i < size; i++) new (&data[i]) T(pad);
     sz = size; }
 
 template<class T>
-void vec<T>::growTo(int size) {
+void vec<T>::growTo(size_t size) {
     if (sz >= size) return;
     grow(size);
-    for (int i = sz; i < size; i++) new (&data[i]) T();
+    for (size_t i = sz; i < size; i++) new (&data[i]) T();
     sz = size; }
 
 template<class T>
 void vec<T>::clear(bool dealloc) {
     if (data != NULL){
-        for (int i = 0; i < sz; i++) data[i].~T();
+        for (size_t i = 0; i < sz; i++) data[i].~T();
         sz = 0;
         if (dealloc) free(data), data = NULL, cap = 0; } }
 
