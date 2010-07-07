@@ -36,7 +36,7 @@
 #include "context/context.h"
 #include "context/cdo.h"
 #include "context/cdlist.h"
-#include "theory/uf/ecdata.h"
+#include "util/congruence_closure.h"
 
 namespace CVC4 {
 namespace theory {
@@ -45,6 +45,17 @@ namespace uf {
 class TheoryUF : public Theory {
 
 private:
+
+  class CongruenceChannel {
+    TheoryUF* d_uf;
+
+  public:
+    CongruenceChannel(TheoryUF* uf) : d_uf(uf) {}
+    void notifyCongruent(TNode a, TNode b) {
+      d_uf->notifyCongruent(a, b);
+    }
+  };/* class CongruenceChannel */
+  friend class CongruenceChannel;
 
   /**
    * List of all of the non-negated literals from the assertion queue.
@@ -56,16 +67,14 @@ private:
   context::CDList<Node> d_assertions;
 
   /**
-   * List of pending equivalence class merges.
-   *
-   * Tricky part:
-   * Must keep a hard link because new equality terms are created and appended
-   * to this list.
+   * Our channel connected to the congruence closure module.
    */
-  context::CDList<Node> d_pending;
+  CongruenceChannel d_ccChannel;
 
-  /** Index of the next pending equality to merge. */
-  context::CDO<unsigned> d_currentPendingIdx;
+  /**
+   * Instance of the congruence closure module.
+   */
+  CongruenceClosure<CongruenceChannel> d_cc;
 
   /** List of all disequalities this theory has seen. */
   context::CDList<Node> d_disequality;
@@ -88,8 +97,6 @@ public:
 
   /** Destructor for the TheoryUF object. */
   ~TheoryUF();
-
-
 
   /**
    * Registers a previously unseen [in this context] node n.
@@ -123,28 +130,20 @@ public:
    */
   void check(Effort level);
 
-
   /**
    * Rewrites a node in the theory of uninterpreted functions.
    * This is fairly basic and only ensures that atoms that are
    * unsatisfiable or a valid are rewritten to false or true respectively.
    */
-  Node rewrite(TNode n);
+  RewriteResponse postRewrite(TNode n, bool topLevel);
 
   /**
-   * Plug in old rewrite to the new (pre,post)rewrite interface.
-   */
-  RewriteResponse postRewrite(TNode n, bool topLevel) {
-    return RewriteComplete(topLevel ? rewrite(n) : Node(n));
-  }
-
-  /**
-   * Propagates theory literals. Currently does nothing.
+   * Propagates theory literals.
    *
    * Overloads void propagate(Effort level); from theory.h.
    * See theory/theory.h for more information about this method.
    */
-  void propagate(Effort level) {}
+  void propagate(Effort level);
 
   /**
    * Explains a previously reported conflict. Currently does nothing.
@@ -157,67 +156,17 @@ public:
   std::string identify() const { return std::string("TheoryUF"); }
 
 private:
-  /**
-   * Checks whether 2 nodes are already in the same equivalence class tree.
-   * This should only be used internally, and it should only be called when
-   * the only thing done with the equivalence classes is an equality check.
-   *
-   * @returns true iff ccFind(x) == ccFind(y);
-   */
-  bool sameCongruenceClass(TNode x, TNode y);
-
-  /**
-   * Checks whether Node x and Node y are currently congruent
-   * using the equivalence class data structures.
-   * @returns true iff
-   *    |x| = n = |y| and
-   *    x.getOperator() == y.getOperator() and
-   *    forall 1 <= i < n : ccFind(x[i]) == ccFind(y[i])
-   */
-  bool equiv(TNode x, TNode y);
-
-  /**
-   * Merges 2 equivalence classes, checks wether any predecessors need to
-   * be set equal to complete congruence closure.
-   * The class with the smaller class size will be merged.
-   * @pre ecX->isClassRep()
-   * @pre ecY->isClassRep()
-   */
-  void ccUnion(ECData* ecX, ECData* ecY);
-
-  /**
-   * Returns the representative of the equivalence class.
-   * May modify the find pointers associated with equivalence classes.
-   */
-  ECData* ccFind(ECData* x);
-
-  /** Performs Congruence Closure to reflect the new additions to d_pending. */
-  void merge();
 
   /** Constructs a conflict from an inconsistent disequality. */
   Node constructConflict(TNode diseq);
 
+  /**
+   * Receives a notification from the congruence closure module that
+   * two nodes have been merged into the same congruence class.
+   */
+  void notifyCongruent(TNode a, TNode b);
+
 };/* class TheoryUF */
-
-
-/**
- * Cleanup function for ECData. This will be used for called whenever
- * a ECAttr is being destructed.
- */
-struct ECCleanupStrategy {
-  static void cleanup(ECData* ec) {
-    Debug("ufgc") << "cleaning up ECData " << ec << "\n";
-    ec->deleteSelf();
-  }
-};/* struct ECCleanupStrategy */
-
-/** Unique name to use for constructing ECAttr. */
-struct ECAttrTag {};
-
-/**
- * ECAttr is the attribute that maps a node to an equivalence class.
- */
-typedef expr::Attribute<ECAttrTag, ECData*, ECCleanupStrategy> ECAttr;
 
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */

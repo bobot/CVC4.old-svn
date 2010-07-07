@@ -11,7 +11,6 @@ libutil_la_SOURCES = \
 	Makefile.am \
 	Makefile.in \
 	congruence_closure.h \
-	congruence_closure.cpp \
 	debug.h \
 	decision_engine.cpp \
 	decision_engine.h \

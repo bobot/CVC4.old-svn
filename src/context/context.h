@@ -438,6 +438,8 @@ protected:
     return d_pScope->isCurrent();
   }
 
+public:
+
   /**
    * operator new using ContextMemoryManager (common case used by
    * subclasses during save()).  No delete is required for memory
@@ -458,8 +460,6 @@ protected:
    * call to the above new operator.
    */
   static void operator delete(void* pMem, ContextMemoryManager* pCMM) {}
-
-public:
 
   /**
    * Create a new ContextObj.  The initial scope is set to the bottom
