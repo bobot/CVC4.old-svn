@@ -24,6 +24,7 @@
 #include <list>
 #include <ext/hash_map>
 #include <ext/hash_set>
+#include <sstream>
 
 #include "expr/node_manager.h"
 #include "expr/node.h"
@@ -248,6 +249,7 @@ private:
    * that function can.
    */
   void merge(TNode ec1, TNode ec2);
+  void mergeProof(TNode a, TNode b, TNode e);
 
   /**
    * Internal normalization.
@@ -341,8 +343,8 @@ void CongruenceClosure<OutputChannel>::addEquality(TNode eq) {
   d_equalities.push_back(eq);
 
   Debug("cc") << "CC addEquality: " << eq << std::endl;
-
   Assert(eq.getKind() == kind::EQUAL);
+  Assert(!areCongruent(eq[0], eq[1]));
 
   TNode s = eq[0], t = eq[1];
   bool sIsApplication = (s.getKind() == kind::APPLY_UF);
@@ -491,6 +493,9 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
       Assert(e.getKind() == kind::TUPLE);
       Assert(e[0].getKind() == kind::EQUAL);
       Assert(e[1].getKind() == kind::EQUAL);
+      Assert(e[0][0].getKind() == kind::APPLY_UF);
+      Assert(e[1][0].getKind() == kind::APPLY_UF);
+      Assert(e[0][0].getNumChildren() == e[1][0].getNumChildren());
 
       a = e[0][1];
       b = e[1][1];
@@ -511,13 +516,39 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
     if(a.getKind() == kind::APPLY_UF ||
        b.getKind() == kind::APPLY_UF) {
       Node ap = normalize(a), bp = normalize(b);
+      Assert(a.getKind() == ap.getKind());
+      Assert(b.getKind() == bp.getKind());
       if(ap != bp) {
         // if either is an application, we need to XXXX
+        /*
         for(context::CDList<Node>::const_iterator i = d_equalities.begin();
             i != d_equalities.end();
             ++i) {
           Debug("cc") << "EQ:  " << *i << std::endl;
         }
+        */
+        /*
+          static TypeNode extraSort = NodeManager::currentNM()->mkSort("_extrasort");
+          static unsigned id = 0;
+          std::stringstream ss;
+          ss << "extra::" << id;
+          Node v = NodeManager::currentNM()->mkVar(ss.str(), extraSort);
+          Debug("cc") << v;
+          addEquality(ap.eqNode(v));
+          addEquality(bp.eqNode(v));
+        */
+
+        Debug("cc") << "CC[a] == " << ap << std::endl
+                    << "CC[b] == " << bp << std::endl;
+        if(ap.getKind() == kind::APPLY_UF) {
+          mergeProof(a, b, e);
+          merge(ap, bp);
+        } else {
+          Assert(bp.getKind() == kind::APPLY_UF);
+          mergeProof(b, a, e);
+          merge(bp, ap);
+        }
+
         Assert(false);
         //addEquality(ap.eqNode(bp));
       }
@@ -525,8 +556,8 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
       Node ap = find(a), bp = find(b);
       if(ap != bp) {
 
-        Debug("cc") << "CC[a] == " << ap << std::endl
-                    << "CC[b] == " << bp << std::endl;
+        Debug("cc") << "EC[a] == " << ap << std::endl
+                    << "EC[b] == " << bp << std::endl;
 
         // w.l.o.g., |classList ap| <= |classList bp|
 
@@ -541,28 +572,6 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
           tmp = a; a = b; b = tmp;
         }
 
-        // proof forest gets a -> b labeled with e
-        { // first reverse all the edges in proof forest to root of this proof tree
-          Debug("cc") << "CC PROOF reversing proof tree\n";
-          // c and p are child and parent in (old) proof tree
-          Node c = a, p = d_proof[a];
-          // when we hit null p, we're at the (former) root
-          Debug("cc") << "CC PROOF start at c == " << c << std::endl
-                      << "                  p == " << p << std::endl;
-          while(!p.isNull()) {
-            Node pParSave = d_proof[p];
-            d_proof[p] = c;
-            c = p;
-            p = pParSave;
-            Debug("cc") << "CC PROOF now   at c == " << c << std::endl
-                        << "                  p == " << p << std::endl;
-          }
-
-          // add an edge from e to e'
-          d_proof[a] = b;
-          d_proofLabel[a] = e;
-        }
-
         const context::CDList<Node>* cl = d_classList[ap];
         context::CDList<Node>* cl_bp = d_classList[bp];
 
@@ -572,8 +581,10 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
           Debug("cc") << "CC in prop alloc classlist for " << bp << std::endl;
         }
         // we don't store 'ap' in its own class list; so process it here
-        Debug("cc") << "calling merge1 " << ap << "   AND   " << bp << std::endl;
+        Debug("cc") << "calling mergeproof/merge1 " << ap << "   AND   " << bp << std::endl;
+        mergeProof(a, b, e);
         merge(ap, bp);
+
         cl_bp->push_back(ap);
         if(cl != NULL) {
           for(context::CDList<Node>::const_iterator i = cl->begin();
@@ -658,8 +669,10 @@ void CongruenceClosure<OutputChannel>::merge(TNode ec1, TNode ec2) {
               << (d_careSet.find(ec2) == d_careSet.end() ?
                   " -- NOT in care set" : " -- IN CARE SET") << std::endl;
 
+  /* can now be applications
   Assert(ec1.getKind() != kind::APPLY_UF);
   Assert(ec2.getKind() != kind::APPLY_UF);
+  */
 
   Assert(ec1 != ec2);
   Assert(find(ec1) == ec1);
@@ -671,6 +684,36 @@ void CongruenceClosure<OutputChannel>::merge(TNode ec1, TNode ec2) {
     d_out->notifyCongruent(ec1, ec2);
   }
 }/* CongruenceClosure<OutputChannel>::merge(TNode ec1, TNode ec2) */
+
+
+template <class OutputChannel>
+void CongruenceClosure<OutputChannel>::mergeProof(TNode a, TNode b, TNode e) {
+  Debug("cc") << "  -- merge-proofing " << a << "\n"
+              << "                and " << b << "\n"
+              << "               with " << e << "\n";
+
+  // proof forest gets a -> b labeled with e
+  { // first reverse all the edges in proof forest to root of this proof tree
+    Debug("cc") << "CC PROOF reversing proof tree\n";
+    // c and p are child and parent in (old) proof tree
+    Node c = a, p = d_proof[a];
+    // when we hit null p, we're at the (former) root
+    Debug("cc") << "CC PROOF start at c == " << c << std::endl
+                << "                  p == " << p << std::endl;
+    while(!p.isNull()) {
+      Node pParSave = d_proof[p];
+      d_proof[p] = c;
+      c = p;
+      p = pParSave;
+      Debug("cc") << "CC PROOF now   at c == " << c << std::endl
+                  << "                  p == " << p << std::endl;
+    }
+
+    // add an edge from e to e'
+    d_proof[a] = b;
+    d_proofLabel[a] = e;
+  }
+}/* CongruenceClosure<OutputChannel>::mergeProof() */
 
 
 template <class OutputChannel>

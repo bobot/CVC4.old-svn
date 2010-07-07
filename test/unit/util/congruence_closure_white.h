@@ -383,6 +383,7 @@ public:
   }
 
   void testUF() {
+    try{
     Debug.on("cc");
 
     Node c_0 = d_nm->mkVar("c_0", U);
@@ -425,6 +426,7 @@ public:
   d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_0));
   d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0));
 
+  } catch(Exception& e) { Debug("cc") << "\n\n" << e << "\n\n"; throw e; }
   }
 
 
