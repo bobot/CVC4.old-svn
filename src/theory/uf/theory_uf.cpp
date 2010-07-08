@@ -64,6 +64,7 @@ void TheoryUF::registerTerm(TNode n) {
 
 Node TheoryUF::constructConflict(TNode diseq) {
   Debug("uf") << "uf: begin constructConflict()" << std::endl;
+  Debug("uf") << "uf:   using diseq == " << diseq << std::endl;
 
   Node explanation = d_cc.explain(diseq[0], diseq[1]);
 

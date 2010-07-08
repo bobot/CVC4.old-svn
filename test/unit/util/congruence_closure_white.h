@@ -158,7 +158,7 @@ public:
     }
   }
 
-  void XtestSimple() {
+  void testSimple() {
     // add terms, then add equalities
 
     d_cc->addTerm(fa);
@@ -166,14 +166,14 @@ public:
 
     d_cc->addEquality(a_eq_b);
 
-    TS_ASSERT(d_out->areCongruent(fa, fb));
+    //TS_ASSERT(d_out->areCongruent(fa, fb));
     TS_ASSERT(d_cc->areCongruent(fa, fb));
 
     TS_ASSERT(!d_out->areCongruent(a, b));
     TS_ASSERT(d_cc->areCongruent(a, b));
   }
 
-  void XtestSimpleReverse() {
+  void testSimpleReverse() {
     // add equalities, then add terms; should get the same as
     // testSimple()
 
@@ -182,14 +182,14 @@ public:
     d_cc->addTerm(fa);
     d_cc->addTerm(fb);
 
-    TS_ASSERT(d_out->areCongruent(fa, fb));
+    //TS_ASSERT(d_out->areCongruent(fa, fb));
     TS_ASSERT(d_cc->areCongruent(fa, fb));
 
     TS_ASSERT(!d_out->areCongruent(a, b));
     TS_ASSERT(d_cc->areCongruent(a, b));
   }
 
-  void XtestSimpleContextual() {
+  void testSimpleContextual() {
     TS_ASSERT(!d_out->areCongruent(fa, fb));
     TS_ASSERT(!d_cc->areCongruent(fa, fb));
 
@@ -213,7 +213,7 @@ public:
 
         d_cc->addEquality(a_eq_b);
 
-        TS_ASSERT(d_out->areCongruent(fa, fb));
+        //TS_ASSERT(d_out->areCongruent(fa, fb));
         TS_ASSERT(d_cc->areCongruent(fa, fb));
 
         TS_ASSERT(!d_out->areCongruent(a, b));
@@ -238,7 +238,7 @@ public:
     TS_ASSERT(!d_cc->areCongruent(a, b));
   }
 
-  void XtestSimpleContextualReverse() {
+  void testSimpleContextualReverse() {
     TS_ASSERT(!d_out->areCongruent(fa, fb));
     TS_ASSERT(!d_cc->areCongruent(fa, fb));
 
@@ -262,7 +262,7 @@ public:
         d_cc->addTerm(fa);
         d_cc->addTerm(fb);
 
-        TS_ASSERT(d_out->areCongruent(fa, fb));
+        //TS_ASSERT(d_out->areCongruent(fa, fb));
         TS_ASSERT(d_cc->areCongruent(fa, fb));
 
         TS_ASSERT(!d_out->areCongruent(a, b));
@@ -287,13 +287,13 @@ public:
     TS_ASSERT(!d_cc->areCongruent(a, b));
   }
 
-  void Xtest_f_of_f_of_something() {
+  void test_f_of_f_of_something() {
     d_cc->addTerm(ffa);
     d_cc->addTerm(ffb);
 
     d_cc->addEquality(a_eq_b);
 
-    TS_ASSERT(d_out->areCongruent(ffa, ffb));
+    //TS_ASSERT(d_out->areCongruent(ffa, ffb));
     TS_ASSERT(d_cc->areCongruent(ffa, ffb));
 
     TS_ASSERT(!d_out->areCongruent(fa, fb));
@@ -303,13 +303,13 @@ public:
     TS_ASSERT(d_cc->areCongruent(a, b));
   }
 
-  void Xtest_f4_of_something() {
+  void test_f4_of_something() {
     d_cc->addTerm(ffffa);
     d_cc->addTerm(ffffb);
 
     d_cc->addEquality(a_eq_b);
 
-    TS_ASSERT(d_out->areCongruent(ffffa, ffffb));
+    //TS_ASSERT(d_out->areCongruent(ffffa, ffffb));
     TS_ASSERT(d_cc->areCongruent(ffffa, ffffb));
 
     TS_ASSERT(!d_out->areCongruent(fffa, fffb));
@@ -325,17 +325,17 @@ public:
     TS_ASSERT(d_cc->areCongruent(a, b));
   }
 
-  void XtestSimpleBinaryFunction() {
+  void testSimpleBinaryFunction() {
     d_cc->addTerm(gab);
     d_cc->addTerm(gba);
 
     d_cc->addEquality(a_eq_b);
 
-    TS_ASSERT(d_out->areCongruent(gab, gba));
+    //TS_ASSERT(d_out->areCongruent(gab, gba));
     TS_ASSERT(d_cc->areCongruent(gab, gba));
   }
 
-  void XtestSimpleBinaryFunction2() {
+  void testSimpleBinaryFunction2() {
     Debug.on("cc");
 
     try {
@@ -368,7 +368,7 @@ public:
                 << "hba norm:   " << d_cc->normalize(hba) << std::endl
                 << "hfaa norm:  " << d_cc->normalize(hfaa) << std::endl;
 
-    TS_ASSERT(d_out->areCongruent(gfafb, gba));
+    //TS_ASSERT(d_out->areCongruent(gfafb, gba));
     TS_ASSERT(d_cc->areCongruent(b, fa));
     TS_ASSERT(d_cc->areCongruent(gfafb, hba));
     TS_ASSERT(d_cc->areCongruent(gfafb, gba));
@@ -383,9 +383,6 @@ public:
   }
 
   void testUF() {
-    try{
-    Debug.on("cc");
-
     Node c_0 = d_nm->mkVar("c_0", U);
     Node c_1 = d_nm->mkVar("c_1", U);
     Node c_2 = d_nm->mkVar("c_2", U);
@@ -400,34 +397,48 @@ public:
     vector<TypeNode> args2U(2, U);
     Node f1 = d_nm->mkVar("f1", d_nm->mkFunctionType(args2U, U));
 
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0))));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_2))));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_1),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_1))));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2))));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2))));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_0),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0))));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_1),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1))));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0)))),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_2))))));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c2,c8),d_nm->mkNode(kind::APPLY_UF, f1,c4,c9)));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c9,c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c8,c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c4,c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c2,c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c5,c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c7,c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c3,c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c6,c_1));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1),c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0),c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2),c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_1),c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_0),c_1));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_0));
-  d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0));
-
-  } catch(Exception& e) { Debug("cc") << "\n\n" << e << "\n\n"; throw e; }
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0))));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_2))));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_1),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_1))));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2))));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2))));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_0),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0))));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_1),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1))));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0)))),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_2))))));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c2,c8),d_nm->mkNode(kind::APPLY_UF, f1,c4,c9)));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c9,c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c8,c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c4,c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c2,c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c5,c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c7,c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c3,c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c6,c_1));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1),c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0),c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2),c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_1),c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_0),c_1));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_0));
+    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0));
   }
 
+  void testUF2() {
+    Node f = d_nm->mkVar("f", d_nm->mkFunctionType(U, U));
+    Node x = d_nm->mkVar("x", U);
+    Node y = d_nm->mkVar("y", U);
+    Node z = d_nm->mkVar("z", U);
+    Node ffx = d_nm->mkNode(kind::APPLY_UF, f, d_nm->mkNode(kind::APPLY_UF, f, x));
+    Node fffx = d_nm->mkNode(kind::APPLY_UF, f, ffx);
+    Node ffffx = d_nm->mkNode(kind::APPLY_UF, f, fffx);
+    Node ffx_eq_fffx = ffx.eqNode(fffx);
+    Node ffx_eq_y = ffx.eqNode(y);
+    Node ffffx_eq_z = ffffx.eqNode(z);
+
+    d_cc->addEquality(ffx_eq_fffx);
+    d_cc->addEquality(ffx_eq_y);
+    d_cc->addEquality(ffffx_eq_z);
+  }
 
 };/* class CongruenceClosureWhite */

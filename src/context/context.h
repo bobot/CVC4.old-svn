@@ -380,6 +380,15 @@ protected:
   inline void makeCurrent() throw(AssertionException);
 
   /**
+   * Just calls update(), but given a different name for the derived
+   * class-facing interface.  This is a "forced" makeCurrent(), useful
+   * for ContextObjs allocated in CMM that need a special "bottom"
+   * case when they disappear out of existence (kind of a destructor).
+   * See CDOmap (in cdmap.h) for an example.
+   */
+  inline void makeSaveRestorePoint() throw(AssertionException);
+
+  /**
    * Should be called from sub-class destructor: calls restore until restored
    * to initial version (version at context level 0).  Also removes object from
    * all Scope lists.  Note that this doesn't actually free the memory
@@ -590,6 +599,10 @@ inline void ContextObj::makeCurrent() throw(AssertionException) {
   if(!(d_pScope->isCurrent())) {
     update();
   }
+}
+
+inline void ContextObj::makeSaveRestorePoint() throw(AssertionException) {
+  update();
 }
 
 inline Scope::~Scope() throw(AssertionException) {
