@@ -152,6 +152,7 @@ public:
       delete d_scope;
       delete d_nm;
       delete d_context;
+
     } catch(Exception& e) {
       Warning() << std::endl << e << std::endl;
       throw;
@@ -336,7 +337,6 @@ public:
   }
 
   void testSimpleBinaryFunction2() {
-    Debug.on("cc");
 
     try {
 
@@ -376,8 +376,8 @@ public:
     TS_ASSERT(d_cc->areCongruent(hfaa, hba));
     TS_ASSERT(d_cc->areCongruent(hfaa, gba));
 
-    } catch(Exception& e) {
-      Debug("cc") << "\n\n" << e << "\n\n";
+    } catch(Exception e) {
+      cout << "\n\n" << e << "\n\n";
       throw;
     }
   }

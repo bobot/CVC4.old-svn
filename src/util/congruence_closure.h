@@ -90,23 +90,35 @@ class CongruenceClosure {
   /** The output channel */
   OutputChannel* d_out;
 
-  context::CDList<Node> d_equalities;
+  // typedef all of these so that iterators are easy to define
+  typedef context::CDMap<Node, Node, NodeHashFunction> RepresentativeMap;
+  typedef context::CDList<Node> ClassList;
+  typedef context::CDMap<Node, ClassList*, NodeHashFunction> ClassLists;
+  typedef context::CDList<Node> UseList;
+  typedef context::CDMap<TNode, UseList*, TNodeHashFunction> UseLists;
+  typedef context::CDMap<Node, Node, NodeHashFunction> LookupMap;
 
-  context::CDMap<Node, Node, NodeHashFunction> d_representative;
-  context::CDMap<Node, context::CDList<Node>*, NodeHashFunction> d_classList;
-  context::CDMap<Node, context::CDList<Node>*, NodeHashFunction> d_careClassList;
-  context::CDMap<TNode, context::CDList<Node>*, TNodeHashFunction> d_useList;
-  context::CDMap<TNode, context::CDList<Node>*, TNodeHashFunction> d_careUseList;
-  context::CDMap<Node, Node, NodeHashFunction> d_lookup;
+  //typedef context::CDMap<Node, context::CDList<Node>*, NodeHashFunction> CareClassLists;
+  //typedef context::CDMap<TNode, context::CDList<Node>*, TNodeHashFunction> CareUseLists;
 
-  context::CDMap<Node, Node, NodeHashFunction> d_proof;
-  context::CDMap<Node, Node, NodeHashFunction> d_proofLabel;
+  typedef context::CDMap<Node, Node, NodeHashFunction> ProofMap;
+  typedef context::CDMap<Node, Node, NodeHashFunction> ProofLabel;
+
+  RepresentativeMap d_representative;
+  ClassLists d_classList;
+  //CareClassLists d_careClassList;
+  UseLists d_useList;
+  //CareUseLists d_careUseList;
+  LookupMap d_lookup;
+
+  ProofMap d_proof;
+  ProofLabel d_proofLabel;
 
   /**
    * The set of terms we care about (i.e. those that have been given
    * us with addTerm() and their representatives).
    */
-  context::CDSet<Node, NodeHashFunction> d_careSet;
+  //context::CDSet<Node, NodeHashFunction> d_careSet;
 
 public:
   /** Construct a congruence closure module instance */
@@ -114,16 +126,16 @@ public:
     throw(AssertionException) :
     d_context(ctxt),
     d_out(out),
-    d_equalities(ctxt),
     d_representative(ctxt),
     d_classList(ctxt),
-    d_careClassList(ctxt),
+    //d_careClassList(ctxt),
     d_useList(ctxt),
-    d_careUseList(ctxt),
+    //d_careUseList(ctxt),
     d_lookup(ctxt),
     d_proof(ctxt),
-    d_proofLabel(ctxt),
-    d_careSet(ctxt) {
+    d_proofLabel(ctxt)
+    //d_careSet(ctxt)
+  {
   }
 
   /**
@@ -138,14 +150,18 @@ public:
    * context-dependent.  Calls OutputChannel::notifyCongruent()
    * indirectly, so it can throw anything that that function can.
    */
-  void addEquality(Node eq);
+  void addEquality(TNode eq);
 
   /**
    * Inquire whether two expressions are congruent in the current
    * context.
    */
   inline bool areCongruent(TNode a, TNode b) throw(AssertionException) {
-    Debug("cc:detail") << "CC areCongruent? " << a << "  ==  " << b << std::endl;
+    Debug("cc") << "CC areCongruent? " << a << "  ==  " << b << std::endl;
+    Debug("cc") << "  a  " << a << std::endl;
+    Debug("cc") << "  b  " << b << std::endl;
+    Debug("cc") << "  a' " << normalize(a) << std::endl;
+    Debug("cc") << "  b' " << normalize(b) << std::endl;
     return normalize(a) == normalize(b);
   }
 
@@ -221,10 +237,13 @@ private:
   inline void appendToUseList(TNode of, TNode eq) {
     Assert(eq.getKind() == kind::EQUAL);
     Assert(of == find(of));
-    context::CDList<Node>* ul = d_useList[of];
-    if(ul == NULL) {
-      ul = new(d_context->getCMM()) context::CDList<Node>(true, d_context);
+    UseLists::iterator usei = d_useList.find(of);
+    UseList* ul;
+    if(usei == d_useList.end()) {
+      ul = new(d_context->getCMM()) UseList(true, d_context);
       d_useList.insertDataFromContextMemory(of, ul);
+    } else {
+      ul = (*usei).second;
     }
     ul->push_back(eq);
   }
@@ -232,6 +251,7 @@ private:
   /**
    * Append to care-uselist of "of".
    */
+  /*
   inline void appendToCareUseList(TNode of, TNode n) {
     Assert(of == find(of));
     context::CDList<Node>* cul = d_careUseList[of];
@@ -241,6 +261,7 @@ private:
     }
     cul->push_back(n);
   }
+  */
 
   /**
    * Merge equivalence class ec1 under ec2.  ec1's new union-find
@@ -285,6 +306,7 @@ private:
 
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::addTerm(TNode trm) {
+  /*
   bool notAlreadyCaredAbout = d_careSet.insert(trm);
 
   Debug("cc") << "CC addTerm [" << d_careSet.size() << "]: " << trm
@@ -316,6 +338,7 @@ void CongruenceClosure<OutputChannel>::addTerm(TNode trm) {
   if(trm.getKind() == kind::APPLY_UF) {
     addTermEqualities(trm);
   }
+  */
 }
 
 
@@ -346,9 +369,7 @@ void CongruenceClosure<OutputChannel>::addSubtermCares(TNode trm) {
 
 
 template <class OutputChannel>
-void CongruenceClosure<OutputChannel>::addEquality(Node eq) {
-  d_equalities.push_back(eq);
-
+void CongruenceClosure<OutputChannel>::addEquality(TNode eq) {
   Debug("cc") << "CC addEquality[" << d_context->getLevel() << "]: " << eq << std::endl;
   Assert(eq.getKind() == kind::EQUAL);
   if(areCongruent(eq[0], eq[1])) {
@@ -362,12 +383,15 @@ void CongruenceClosure<OutputChannel>::addEquality(Node eq) {
 
   Assert(s != t);
 
+  Node tupleeq;
   if(!sIsApplication && tIsApplication) {
     s = eq[1];
     t = eq[0];
     sIsApplication = !sIsApplication;
     tIsApplication = !tIsApplication;
-    eq = NodeManager::currentNM()->mkNode(kind::EQUAL, s, t);
+    tupleeq = NodeManager::currentNM()->mkNode(kind::EQUAL, s, t);
+  } else {
+    tupleeq = eq;
   }
 
   Debug("cc:detail") << "CC        " << s << " == " << t << std::endl;
@@ -386,7 +410,7 @@ void CongruenceClosure<OutputChannel>::addEquality(Node eq) {
     Debug("cc:detail") << "CC lookup(ap): " << l << std::endl;
     if(!l.isNull()) {
       // ensure a hard Node link exists to this during the call
-      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, l);
+      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, tupleeq, l);
       Debug("cc:detail") << "pending1 " << pending << std::endl;
       propagate(pending);
     } else {
@@ -410,7 +434,7 @@ void CongruenceClosure<OutputChannel>::addEquality(Node eq) {
     Debug("cc:detail") << "CC2lookup(ap): " << l << std::endl;
     if(!l.isNull()) {
       // ensure a hard Node link exists to this during the call
-      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, l);
+      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, tupleeq, l);
       Debug("cc:detail") << "pending3 " << pending << std::endl;
       propagate(pending);
     } else {
@@ -449,6 +473,9 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
     Node e = pending.front();
     pending.pop_front();
 
+    Debug("cc") << "=== top of propagate loop ===" << std::endl;
+    Debug("cc") << "=== e is " << e << " ===" << std::endl;
+
     TNode a, b;
     if(e.getKind() == kind::EQUAL) {
       // e is an equality a = b (change from paper: a, b may not be consts)
@@ -483,7 +510,7 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
 
     // change from paper: need to normalize() here since in our
     // implementation, a and b can be applications
-    Node ap = normalize(a), bp = normalize(b);
+    Node ap = find(a), bp = find(b);
     if(ap != bp) {
 
       Debug("cc:detail") << "EC[a] == " << ap << std::endl
@@ -512,24 +539,28 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
       }
 
       { // class list handling
-        const context::CDList<Node>* cl = d_classList[ap];
-        context::CDList<Node>* cl_bp = d_classList[bp];
-
-        if(cl_bp == NULL) {
-          cl_bp = new(d_context->getCMM()) context::CDList<Node>(true, d_context);
+        ClassLists::iterator cl_bpi = d_classList.find(bp);
+        ClassList* cl_bp;
+        if(cl_bpi == d_classList.end()) {
+          cl_bp = new(d_context->getCMM()) ClassList(true, d_context);
           d_classList.insertDataFromContextMemory(bp, cl_bp);
           Debug("cc:detail") << "CC in prop alloc classlist for " << bp << std::endl;
+        } else {
+          cl_bp = (*cl_bpi).second;
         }
         // we don't store 'ap' in its own class list; so process it here
-        Debug("cc:detail") << "calling mergeproof/merge1 " << ap << "   AND   " << bp << std::endl;
+        Debug("cc:detail") << "calling mergeproof/merge1 " << ap
+                           << "   AND   " << bp << std::endl;
         mergeProof(a, b, e);
         merge(ap, bp);
 
         Debug("cc") << " adding ap == " << ap << std::endl
                     << "   to class list of " << bp << std::endl;
         cl_bp->push_back(ap);
-        if(cl != NULL) {
-          for(context::CDList<Node>::const_iterator i = cl->begin();
+        ClassLists::const_iterator cli = d_classList.find(ap);
+        if(cli != d_classList.end()) {
+          const ClassList* cl = (*cli).second;
+          for(ClassList::const_iterator i = cl->begin();
               i != cl->end();
               ++i) {
             TNode c = *i;
@@ -551,11 +582,12 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
       { // use list handling
         Debug("cc:detail") << "ap is " << ap << std::endl;
         Debug("cc:detail") << "find(ap) is " << find(ap) << std::endl;
-        context::CDList<Node>* ul = d_useList[ap];
         Debug("cc:detail") << "CC in prop go through useList of " << ap << std::endl;
-        if(ul != NULL) {
+        UseLists::iterator usei = d_useList.find(ap);
+        if(usei != d_useList.end()) {
+          UseList* ul = (*usei).second;
           //for( f(c1,c2)=c in UseList(ap) )
-          for(context::CDList<Node>::const_iterator i = ul->begin();
+          for(UseList::const_iterator i = ul->begin();
               i != ul->end();
               ++i) {
             TNode eq = *i;
@@ -608,12 +640,14 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
 
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::merge(TNode ec1, TNode ec2) {
+  /*
   Debug("cc:detail") << "  -- merging " << ec1
-              << (d_careSet.find(ec1) == d_careSet.end() ?
-                  " -- NOT in care set" : " -- IN CARE SET") << std::endl
-              << "         and " << ec2
-              << (d_careSet.find(ec2) == d_careSet.end() ?
-                  " -- NOT in care set" : " -- IN CARE SET") << std::endl;
+                     << (d_careSet.find(ec1) == d_careSet.end() ?
+                         " -- NOT in care set" : " -- IN CARE SET") << std::endl
+                     << "         and " << ec2
+                     << (d_careSet.find(ec2) == d_careSet.end() ?
+                         " -- NOT in care set" : " -- IN CARE SET") << std::endl;
+  */
 
   Debug("cc") << "CC setting rep of " << ec1 << std::endl;
   Debug("cc") << "CC             to " << ec2 << std::endl;
@@ -631,10 +665,13 @@ void CongruenceClosure<OutputChannel>::merge(TNode ec1, TNode ec2) {
   Assert(ec1.getId() > ec2.getId());
 
   d_representative[ec1] = ec2;
+
+  /*
   if(d_careSet.find(ec1) != d_careSet.end()) {
     d_careSet.insert(ec2);
     d_out->notifyCongruent(ec1, ec2);
   }
+  */
 }/* merge() */
 
 
@@ -743,15 +780,29 @@ Node CongruenceClosure<OutputChannel>::findWithProof
   Node p = t;
   do {
     Node e = d_proofLabel[p];
-    Debug("cc:detail") << "CC proof tree for a: " << p << std::endl;
-    Debug("cc:detail") << "              label: " << e << std::endl;
+    Debug("cc") << "CC proof tree for a: " << p << std::endl;
+    Debug("cc") << "              label: " << e << std::endl;
     //    Debug("cc:detail") << "              rep is:" << normalize(p) << std::endl;
     Assert(e.isNull() == d_proof[p].get().isNull());
     if(!e.isNull()) {
       pf.insert(e);
     }
   } while(!(p = d_proof[p]).isNull());
-  return find(t);
+
+  Node rep = find(t);
+  p = rep;
+  do {
+    Node e = d_proofLabel[p];
+    Debug("cc") << "CC pf tree for rep : " << p << std::endl;
+    Debug("cc") << "              label: " << e << std::endl;
+    //    Debug("cc:detail") << "              rep is:" << normalize(p) << std::endl;
+    Assert(e.isNull() == d_proof[p].get().isNull());
+    if(!e.isNull()) {
+      pf.insert(e);
+    }
+  } while(!(p = d_proof[p]).isNull());
+
+  return rep;
 }/* findWithProof() */
 
 
@@ -760,7 +811,9 @@ Node CongruenceClosure<OutputChannel>::normalizeWithProof
   (TNode t, __gnu_cxx::hash_set<Node, NodeHashFunction>& pf)
   throw(AssertionException) {
   // change from paper: always find()
+  Debug("cc") << "find of : " << t << std::endl;
   t = findWithProof(t, pf);
+  Debug("cc") << "   is   : " << t << std::endl;
   if(t.getKind() == kind::APPLY_UF) {
     NodeBuilder<> ab(kind::TUPLE), apb(kind::TUPLE);
     TNode op = t.getOperator();
@@ -837,6 +890,8 @@ Node CongruenceClosure<OutputChannel>::explain(TNode a, TNode b)
   }
   normalizeWithProof(b, terms);
 
+  Debug("cc") << "CC EXPLAIN final proof has size " << terms.size() << std::endl;
+
   Assert(terms.size() > 0);
 
   NodeBuilder<> pf(kind::AND);
@@ -844,7 +899,10 @@ Node CongruenceClosure<OutputChannel>::explain(TNode a, TNode b)
       i != terms.end();
       ++i) {
     pf << *i;
+    Debug("cc") << "CC EXPLAIN " << *i << std::endl;
   }
+
+  Debug("cc") << "CC EXPLAIN done" << std::endl;
 
   if(pf.getNumChildren() == 1) {
     return pf[0];
