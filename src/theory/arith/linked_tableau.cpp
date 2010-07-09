@@ -7,6 +7,21 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 using namespace CVC4::kind;
 
+Node Row::asEquality() const{
+  NodeBuilder<> nb(PLUS);
+  for(CellList::const_iterator nbIter = begin(); nbIter != end(); ++nbIter){
+    TableauCell* nonBasic = *nbIter;
+    TNode var = nonBasic->getColumn()->getVariable();
+    const Rational& qCoeff = nonBasic->getCoefficient();
+    Node coeff = NodeManager::currentNM()->mkConst<Rational>(qCoeff);
+    Node mult  = NodeManager::currentNM()->mkNode(MULT, coeff, var);
+    nb << mult;
+  }
+
+  Assert(nb.getNumChildren() > 1);
+  return NodeManager::currentNM()->mkNode(EQUAL, getBasic(), Node(nb));
+}
+
 void Tableau::initializeVariable(TNode x){
   Assert(!hasColumn(x));
 
@@ -170,4 +185,51 @@ bool Tableau::hasCell(Row* r, Column* c, TableauCell*& cell){
   bool res = (i != cellMap.end());
   cell = res ? (i->second) : NULL;
   return res;
+}
+
+struct EjectedID;
+typedef expr::Attribute<EjectedID, Node> Ejected;
+
+
+bool Tableau::isEjected(TNode var){
+  if(var.hasAttribute(Ejected())){
+    return Node::null() != var.getAttribute(Ejected());
+  }
+  return false;
+}
+
+void Tableau::ejectBasic(TNode basic){
+  Assert(isBasic(basic));
+  Assert(!isEjected(basic));
+
+  Row* row = lookupRow(basic);
+
+  Assert(row->size() > 1);
+
+  Node asEq = row->asEquality();
+
+  removeRow(row);
+  basic.setAttribute(Ejected(), asEq);
+}
+
+void Tableau::reinjectBasic(TNode basic){
+  Assert(isBasic(basic));
+  Assert(isEjected(basic));
+
+  Node asEq = basic.getAttribute(Ejected());
+  basic.setAttribute(Ejected(), Node::null() );
+  insertRow(asEq);
+}
+
+void Tableau::removeRow(Row* r){
+  TNode basic = r->getBasic();
+
+  for(CellList::iterator nbIter = r->begin(); nbIter != r->end(); ){
+    TableauCell* nbCell = *nbIter;
+    ++nbIter;
+    removeCell(nbCell);
+  }
+
+  rowMap.erase(basic);
+  delete r;
 }

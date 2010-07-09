@@ -39,14 +39,14 @@ class Row {
     setBasic(b);
   }
 
-  size_t getId(){ return id; }
+  size_t getId() const{ return id; }
 
   void setBasic(TNode b){
     Assert(isBasic(b));
     basic = b;
   }
 
-  TNode getBasic(){
+  TNode getBasic() const{
     return basic;
   }
 
@@ -54,7 +54,7 @@ class Row {
     cells.erase(i);
   }
 
-  size_t size(){
+  size_t size() const{
     return cells.size();
   }
 
@@ -68,6 +68,15 @@ class Row {
   CellList::iterator end(){
     return cells.end();
   }
+
+  CellList::const_iterator begin() const{
+    return cells.begin();
+  }
+  CellList::const_iterator end() const{
+    return cells.end();
+  }
+  Node asEquality() const;
+
 };
 
 class Column {
@@ -163,7 +172,7 @@ private:
   void multRow(Row* dest, const Rational& q);
 
 
-
+  void removeRow(Row* r);
 
 public:
   Tableau() {}
@@ -195,10 +204,16 @@ public:
   RowMap::iterator rowEnd(){
     return rowMap.end();
   }
-  bool isEjected(TNode var) { return false; }
 
-  void ejectBasic(TNode basic) { }
-  void reinjectBasic(TNode basic) {}
+  bool isEjected(TNode var);
+
+  void ejectBasic(TNode basic);
+  void reinjectBasic(TNode basic);
+
+  size_t rowSize(TNode basic){
+    Row* r = lookupRow(basic);
+    return r->size();
+  }
 };
 
 

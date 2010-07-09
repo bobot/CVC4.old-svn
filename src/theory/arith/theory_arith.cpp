@@ -129,15 +129,20 @@ bool isNormalAtom(TNode n){
 
 
 bool TheoryArith::shouldEject(TNode var){
+  Assert(isBasic(var));
+
   if(d_partialModel.hasBounds(var)){
     return false;
   }else if(d_tableau.isEjected(var)) {
+    return false;
+  }else if(d_tableau.rowSize(var) <= 1){
     return false;
   }else if(!d_partialModel.hasEverHadABound(var)){
     return true;
   }else if(getActivity(var) >= ACTIVITY_THRESHOLD){
     return true;
   }
+
   return false;
 }
 
