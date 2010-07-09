@@ -99,7 +99,8 @@ class CongruenceClosure {
   typedef context::CDMap<Node, Node, NodeHashFunction> LookupMap;
 
   //typedef context::CDMap<Node, context::CDList<Node>*, NodeHashFunction> CareClassLists;
-  //typedef context::CDMap<TNode, context::CDList<Node>*, TNodeHashFunction> CareUseLists;
+  typedef context::CDList<Node> CareUseList;
+  typedef context::CDMap<TNode, CareUseList*, TNodeHashFunction> CareUseLists;
 
   typedef context::CDMap<Node, Node, NodeHashFunction> ProofMap;
   typedef context::CDMap<Node, Node, NodeHashFunction> ProofLabel;
@@ -108,7 +109,7 @@ class CongruenceClosure {
   ClassLists d_classList;
   //CareClassLists d_careClassList;
   UseLists d_useList;
-  //CareUseLists d_careUseList;
+  CareUseLists d_careUseList;
   LookupMap d_lookup;
 
   ProofMap d_proof;
@@ -118,7 +119,8 @@ class CongruenceClosure {
    * The set of terms we care about (i.e. those that have been given
    * us with addTerm() and their representatives).
    */
-  //context::CDSet<Node, NodeHashFunction> d_careSet;
+  typedef context::CDSet<Node, NodeHashFunction> CareSet;
+  CareSet d_careSet;
 
 public:
   /** Construct a congruence closure module instance */
@@ -130,12 +132,11 @@ public:
     d_classList(ctxt),
     //d_careClassList(ctxt),
     d_useList(ctxt),
-    //d_careUseList(ctxt),
+    d_careUseList(ctxt),
     d_lookup(ctxt),
     d_proof(ctxt),
-    d_proofLabel(ctxt)
-    //d_careSet(ctxt)
-  {
+    d_proofLabel(ctxt),
+    d_careSet(ctxt) {
   }
 
   /**
@@ -159,10 +160,26 @@ public:
   inline bool areCongruent(TNode a, TNode b) throw(AssertionException) {
     Debug("cc") << "CC areCongruent? " << a << "  ==  " << b << std::endl;
     Debug("cc") << "  a  " << a << std::endl;
-    Debug("cc") << "  b  " << b << std::endl;
     Debug("cc") << "  a' " << normalize(a) << std::endl;
+    Debug("cc") << "  b  " << b << std::endl;
     Debug("cc") << "  b' " << normalize(b) << std::endl;
-    return normalize(a) == normalize(b);
+
+    Node ap = find(a), bp = find(b);
+
+    // areCongruent() works fine as just find(a) == find(b) _except_
+    // for terms not appearing in equalities.  For example, let's say
+    // you have unary f and binary g, h, and
+    //
+    //   a == f(b) ; f(a) == b ; g == h
+    //
+    // it's clear that h(f(a),a) == g(b,a), but it's not in the
+    // union-find even if you addTerm() on those two.
+    //
+    // we implement areCongruent() to handle more general
+    // queries---i.e., to check for new congruences---but shortcut a
+    // cheap & common case
+    //
+    return ap == bp || normalize(ap) == normalize(bp);
   }
 
   /**
@@ -212,29 +229,41 @@ private:
     if(i == d_lookup.end()) {
       return TNode::null();
     } else {
-      return (*i).second;
+      TNode l = (*i).second;
+      Assert(l.getKind() == kind::TUPLE);
+      Assert(l.getNumChildren() == 2);
+      Assert((l[1] != l[0][0] || l[0][0].getKind() == kind::APPLY_UF) &&
+             (l[1] != l[0][1] || l[0][1].getKind() == kind::APPLY_UF));
+      Assert(l[1] == l[0][0] || l[1] == l[0][1]);
+      return l;
     }
   }
 
   /**
    * Internal lookup mapping.
    */
-  inline void setLookup(TNode a, TNode b) {
+  inline void setLookup(TNode a, TNode b, TNode side) {
     Assert(a.getKind() == kind::TUPLE);
     Assert(b.getKind() == kind::EQUAL);
-    d_lookup[a] = b;
+    Assert(side == b[0] || side == b[1]);
+    d_lookup[a] = NodeManager::currentNM()->mkNode(kind::TUPLE, b, side);
   }
 
   /**
    * Given an apply (f a1 a2...), build a TUPLE expression
    * (f', a1', a2', ...) suitable for a lookup() key.
    */
-  Node buildRepresentativesOfApply(TNode apply) throw(AssertionException);
+  Node buildRepresentativesOfApply(TNode apply, Kind kindToBuild = kind::TUPLE)
+    throw(AssertionException);
+
+  Node buildNormalsOfApply(TNode apply, Kind kindToBuild = kind::TUPLE)
+    throw(AssertionException);
 
   /**
    * Append equality "eq" to uselist of "of".
    */
   inline void appendToUseList(TNode of, TNode eq) {
+    Debug("cc") << "adding " << eq << " to use list of " << of << std::endl;
     Assert(eq.getKind() == kind::EQUAL);
     Assert(of == find(of));
     UseLists::iterator usei = d_useList.find(of);
@@ -251,17 +280,20 @@ private:
   /**
    * Append to care-uselist of "of".
    */
-  /*
   inline void appendToCareUseList(TNode of, TNode n) {
+    Debug("cc") << "append " << n << " to care-use-list of " << of << std::endl;
+    Assert(n.getKind() != kind::EQUAL);
     Assert(of == find(of));
-    context::CDList<Node>* cul = d_careUseList[of];
-    if(cul == NULL) {
-      cul = new(d_context->getCMM()) context::CDList<Node>(true, d_context);
+    CareUseLists::iterator cusei = d_careUseList.find(of);
+    CareUseList* cul;
+    if(cusei == d_careUseList.end()) {
+      cul = new(d_context->getCMM()) CareUseList(true, d_context);
       d_careUseList.insertDataFromContextMemory(of, cul);
+    } else {
+      cul = (*cusei).second;
     }
     cul->push_back(n);
   }
-  */
 
   /**
    * Merge equivalence class ec1 under ec2.  ec1's new union-find
@@ -299,49 +331,42 @@ private:
    * OutputChannel::notifyCongruent() indirectly, so it can throw
    * anything that that function can.
    */
-  void addTermEqualities(TNode t);
+  //void addTermEqualities(TNode t);
+
+  /**
+   * Add subterms of trm to proper careUseLists and notify (through
+   * OutputChannel) any new important congruences.
+   */
+  void addSubtermCares(TNode trm);
 
 };/* class CongruenceClosure */
 
 
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::addTerm(TNode trm) {
-  /*
-  bool notAlreadyCaredAbout = d_careSet.insert(trm);
+  Node trmp = find(trm);
+  bool alreadyCaredAbout = d_careSet.contains(trm);
 
   Debug("cc") << "CC addTerm [" << d_careSet.size() << "]: " << trm
               << std::endl;
 
-  if(notAlreadyCaredAbout) {
-    TNode trmp = find(trm);
+  if(!alreadyCaredAbout) {
     if(trm != trmp) {
       // if part of an equivalence class headed by another node,
       // notify the client of this merge that's already been
       // performed..
       d_out->notifyCongruent(trm, trmp);
-      // .. and add the representative to the care set if it's not already
-      d_careSet.insert(trmp);
     }
-  } else {
-    Debug("cc") << "  (that term is already cared about)" << std::endl;
-  }
 
-  // This is necessary since we aren't flattening input equalities and
-  // introducing variables.  If we don't do this, we miss congruences.
-  // For example, if someone calls addTerm[ (f (f (f (f x)))) ] and
-  // addTerm[ (f (f (f (f y)))) ], then addEquality( x == y ), they
-  // expect a notification that (f (f (f (f x)))) == (f (f (f (f y)))),
-  // but the system will miss that unless we do something with the
-  // intermediate applications.
-  //
-  // FIXME better way ?
-  if(trm.getKind() == kind::APPLY_UF) {
-    addTermEqualities(trm);
+    // add its representative to the care set
+    d_careSet.insert(trmp);
+
+    addSubtermCares(trm);
   }
-  */
 }
 
 
+/*
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::addTermEqualities(TNode trm) {
   addEquality(NodeManager::currentNM()->mkNode(kind::EQUAL, trm, trm));
@@ -352,20 +377,28 @@ void CongruenceClosure<OutputChannel>::addTermEqualities(TNode trm) {
     }
   }
 }
+*/
 
 
-/*
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::addSubtermCares(TNode trm) {
+  Assert(trm.getKind() == kind::APPLY_UF);
   for(TNode::iterator i = trm.begin(); i != trm.end(); ++i) {
     TNode n = *i;
-    appendToCareUseList(find(n), trm);
+    Node np = find(n);
+    if(n != np) {
+      Node trm2 = buildRepresentativesOfApply(trm, kind::APPLY_UF);
+
+      // FIXME: I _think_ this should catch all congruences _without_
+      // having to look at lookup().  [same FIXME as in propagate]
+      propagate(trm.eqNode(trm2));
+    }
+    appendToCareUseList(np, trm);
     if(n.getKind() == kind::APPLY_UF) {
-      addTermEqualities(n);
+      addSubtermCares(n);
     }
   }
 }
-*/
 
 
 template <class OutputChannel>
@@ -383,15 +416,11 @@ void CongruenceClosure<OutputChannel>::addEquality(TNode eq) {
 
   Assert(s != t);
 
-  Node tupleeq;
   if(!sIsApplication && tIsApplication) {
     s = eq[1];
     t = eq[0];
     sIsApplication = !sIsApplication;
     tIsApplication = !tIsApplication;
-    tupleeq = NodeManager::currentNM()->mkNode(kind::EQUAL, s, t);
-  } else {
-    tupleeq = eq;
   }
 
   Debug("cc:detail") << "CC        " << s << " == " << t << std::endl;
@@ -401,21 +430,21 @@ void CongruenceClosure<OutputChannel>::addEquality(TNode eq) {
   propagate(eq);
 
   if(sIsApplication) {
-    Node ap = buildRepresentativesOfApply(s);
+    Node ap = buildNormalsOfApply(s);
 
     Debug("cc:detail") << "CC rewrLHS " << "op_and_args_a == " << t << std::endl;
-    Debug("cc:detail") << "CC ap is   " << ap << std::endl;
+    Debug("cc") << "CC ap is   " << ap << std::endl;
 
     TNode l = lookup(ap);
     Debug("cc:detail") << "CC lookup(ap): " << l << std::endl;
     if(!l.isNull()) {
       // ensure a hard Node link exists to this during the call
-      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, tupleeq, l);
+      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, s, l[0], l[1]);
       Debug("cc:detail") << "pending1 " << pending << std::endl;
       propagate(pending);
     } else {
-      Debug("cc:detail") << "CC lookup(ap) setting to " << eq << std::endl;
-      setLookup(ap, eq);
+      Debug("cc") << "CC lookup(ap) setting to " << eq << std::endl;
+      setLookup(ap, eq, s);
       for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
         appendToUseList(*i, eq);
       }
@@ -425,21 +454,21 @@ void CongruenceClosure<OutputChannel>::addEquality(TNode eq) {
   if(tIsApplication) {
     Assert(s != t);
     // go backward, symmetrically
-    Node ap = buildRepresentativesOfApply(t);
+    Node ap = buildNormalsOfApply(t);
 
     Debug("cc:detail") << "CC2rewrRHS " << s << " == op_and_args_a" << std::endl;
-    Debug("cc:detail") << "CC2ap is   " << ap << std::endl;
+    Debug("cc") << "CC2ap is   " << ap << std::endl;
 
     TNode l = lookup(ap);
     Debug("cc:detail") << "CC2lookup(ap): " << l << std::endl;
     if(!l.isNull()) {
       // ensure a hard Node link exists to this during the call
-      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, tupleeq, l);
+      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, t, l[0], l[1]);
       Debug("cc:detail") << "pending3 " << pending << std::endl;
       propagate(pending);
     } else {
-      Debug("cc:detail") << "CC2lookup(ap) setting to " << eq << std::endl;
-      setLookup(ap, eq);
+      Debug("cc") << "CC2lookup(ap) setting to " << eq << std::endl;
+      setLookup(ap, eq, t);
       for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
         appendToUseList(*i, eq);
       }
@@ -449,16 +478,31 @@ void CongruenceClosure<OutputChannel>::addEquality(TNode eq) {
 
 
 template <class OutputChannel>
-Node CongruenceClosure<OutputChannel>::buildRepresentativesOfApply(TNode apply)
+Node CongruenceClosure<OutputChannel>::buildRepresentativesOfApply(TNode apply,
+                                                              Kind kindToBuild)
   throw(AssertionException) {
   Assert(apply.getKind() == kind::APPLY_UF);
-  NodeBuilder<> argspb(kind::TUPLE);
+  NodeBuilder<> argspb(kindToBuild);
   argspb << find(apply.getOperator());
   for(TNode::iterator i = apply.begin(); i != apply.end(); ++i) {
     argspb << find(*i);
   }
   return argspb;
 }/* buildRepresentativesOfApply() */
+
+
+template <class OutputChannel>
+Node CongruenceClosure<OutputChannel>::buildNormalsOfApply(TNode apply,
+                                                           Kind kindToBuild)
+  throw(AssertionException) {
+  Assert(apply.getKind() == kind::APPLY_UF);
+  NodeBuilder<> argspb(kindToBuild);
+  argspb << normalize(apply.getOperator());
+  for(TNode::iterator i = apply.begin(); i != apply.end(); ++i) {
+    argspb << normalize(*i);
+  }
+  return argspb;
+}/* buildNormalsOfApply() */
 
 
 template <class OutputChannel>
@@ -487,18 +531,23 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
     } else {
       // e is a tuple ( apply f A... = a , apply f B... = b )
 
+      Debug("cc") << "propagate tuple: " << e << "\n";
+
       Assert(e.getKind() == kind::TUPLE);
+      Assert(e.getNumChildren() == 4);
       Assert(e[0].getKind() == kind::EQUAL);
-      Assert(e[1].getKind() == kind::EQUAL);
-      Assert(e[0][0].getKind() == kind::APPLY_UF);
-      Assert(e[1][0].getKind() == kind::APPLY_UF);
-      Assert(e[0][0].getNumChildren() == e[1][0].getNumChildren());
+      Assert(e[1] == e[0][0] || e[1] == e[0][1]);
+      Assert(e[2].getKind() == kind::EQUAL);
+      Assert(e[3] == e[2][0] || e[3] == e[2][1]);
+      Assert(e[1].getKind() == kind::APPLY_UF);
+      Assert(e[3].getKind() == kind::APPLY_UF);
+      Assert(e[1].getNumChildren() == e[3].getNumChildren());
 
-      a = e[0][1];
-      b = e[1][1];
+      // tuple is (eq, eqside, lookup, lookupside)
+      a = (e[1] == e[0][0] ? e[0][1] : e[0][0]);
+      b = (e[3] == e[2][0] ? e[2][1] : e[2][0]);
 
-      Debug("cc:detail") << "propagate tuple: " << e << "\n"
-                  << "                 ( " << a << " , " << b << " )" << std::endl;
+      Debug("cc") << "                 ( " << a << " , " << b << " )" << std::endl;
     }
 
     Debug("cc:detail") << "=====at start=====" << std::endl
@@ -591,37 +640,69 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
               i != ul->end();
               ++i) {
             TNode eq = *i;
-            Debug("cc:detail") << "CC  -- useList: " << eq << std::endl;
+            Debug("cc") << "CC  -- useList: " << eq << std::endl;
             Assert(eq.getKind() == kind::EQUAL);
-            Assert(eq[0].getKind() == kind::APPLY_UF);
+            // change from paper
+            // use list elts can have form (apply c..) = x  OR  x = (apply c..)
+            Assert(eq[0].getKind() == kind::APPLY_UF || eq[1].getKind() == kind::APPLY_UF);
+            // do for each side that is an application
+            for(int side = 0; side <= 1; ++side) {
+              if(eq[side].getKind() != kind::APPLY_UF) {
+                continue;
+              }
 
-            // if lookup(c1',c2') is some f(d1,d2)=d then
-            Node cp = buildRepresentativesOfApply(eq[0]);
-            TNode n = lookup(cp);
+              Node cp = buildNormalsOfApply(eq[side]);
 
-            Debug("cc:detail") << "CC     -- c' is " << cp << std::endl;
+              // if lookup(c1',c2') is some f(d1,d2)=d then
+              TNode n = lookup(cp);
 
-            if(!n.isNull()) {
-              Debug("cc:detail") << "CC     -- lookup(c') is " << n << std::endl;
-              // add (f(c1,c2)=c,f(d1,d2)=d) to pending
-              Node tuple = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, n);
-              pending.push_back(tuple);
-              // remove f(c1,c2)=c from UseList(ap)
-              Debug("cc:detail") << "supposed to remove " << eq << std::endl
-                                 << "  from UseList of " << ap << std::endl;
-              //i = ul.erase(i);// FIXME do we need to?
-            } else {
-              Debug("cc:detail") << "CC     -- lookup(c') is null" << std::endl;
-              // set lookup(c1',c2') to f(c1,c2)=c
-              setLookup(cp, eq);
-              // move f(c1,c2)=c from UseList(ap) to UseList(b')
-              //i = ul.erase(i);// FIXME do we need to remove from UseList(ap) ?
-              appendToUseList(bp, eq);
+              Debug("cc:detail") << "CC     -- c' is " << cp << std::endl;
+
+              if(!n.isNull()) {
+                Debug("cc:detail") << "CC     -- lookup(c') is " << n << std::endl;
+                // add (f(c1,c2)=c,f(d1,d2)=d) to pending
+                Node tuple = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, eq[side], n[0], n[1]);
+                pending.push_back(tuple);
+                // remove f(c1,c2)=c from UseList(ap)
+                Debug("cc:detail") << "supposed to remove " << eq << std::endl
+                                   << "  from UseList of " << ap << std::endl;
+                //i = ul.erase(i);// FIXME do we need to?
+              } else {
+                Debug("cc") << "CC     -- lookup(c') is null" << std::endl;
+                Debug("cc") << "CC     -- setlookup(c') to " << eq << std::endl;
+                // set lookup(c1',c2') to f(c1,c2)=c
+                setLookup(cp, eq, eq[side]);
+                // move f(c1,c2)=c from UseList(ap) to UseList(b')
+                //i = ul.erase(i);// FIXME do we need to remove from UseList(ap) ?
+                appendToUseList(bp, eq);
+              }
             }
           }
         }
       }
       Debug("cc:detail") << "CC in prop done with useList of " << ap << std::endl;
+
+      { // care use list handling
+        UseLists::iterator cusei = d_careUseList.find(ap);
+        if(cusei != d_careUseList.end()) {
+          CareUseList* cul = (*cusei).second;
+          for(CareUseList::const_iterator i = cul->begin();
+              i != cul->end();
+              ++i) {
+            TNode apply = *i;
+            Debug("cc:detail") << "CC  -- careUseList: " << apply << std::endl;
+            Assert(apply.getKind() == kind::APPLY_UF);
+
+            Node apply2 = buildRepresentativesOfApply(apply, kind::APPLY_UF);
+
+            // FIXME: I _think_ this should catch all congruences
+            // _without_ having to look at lookup().
+            pending.push_back(apply.eqNode(apply2));
+
+            appendToCareUseList(bp, apply);
+          }
+        }
+      }
     } else {
       Debug("cc:detail") << "CCs the same ( == " << ap << "), do nothing."
                   << std::endl;
@@ -666,12 +747,10 @@ void CongruenceClosure<OutputChannel>::merge(TNode ec1, TNode ec2) {
 
   d_representative[ec1] = ec2;
 
-  /*
   if(d_careSet.find(ec1) != d_careSet.end()) {
     d_careSet.insert(ec2);
     d_out->notifyCongruent(ec1, ec2);
   }
-  */
 }/* merge() */
 
 
@@ -722,38 +801,27 @@ Node CongruenceClosure<OutputChannel>::normalize(TNode t)
   t = find(t);
   Debug("cc:detail") << "  find " << t << std::endl;
   if(t.getKind() == kind::APPLY_UF) {
-    NodeBuilder<> ab(kind::TUPLE), apb(kind::TUPLE);
+    NodeBuilder<> apb(kind::TUPLE);
     TNode op = t.getOperator();
-    ab << op;
     apb << normalize(op);
-    bool allConstants = (op.getKind() != kind::APPLY_UF);
     for(TNode::iterator i = t.begin(); i != t.end(); ++i) {
       TNode c = *i;
-      ab << c;
       Debug("cc:detail") << "INF RECUR1 ?" << std::endl;
       Node n = normalize(c);
       apb << n;
-      allConstants = allConstants && (n.getKind() != kind::APPLY_UF);
     }
 
-    Node a = ab, ap = apb;
-    Debug("cc:detail") << "  got a  " << a << std::endl;
+    Node ap = apb;
     Debug("cc:detail") << "  got ap " << ap << std::endl;
-    Debug("cc:detail") << "  allcon " << allConstants << std::endl;
 
-    allConstants = true;// change from paper
+    Node theLookup = lookup(ap);
+    if(!theLookup.isNull()) {
+      Node theLookupSide = theLookup[1];
+      theLookup = theLookup[0];
 
-    Node theLookup = Node::null();
-    if(allConstants) {
-      theLookup = lookup(ap);
-    }
-    if(allConstants && !theLookup.isNull()) {
-      Assert(theLookup.getKind() == kind::EQUAL);
-      Assert(theLookup[0].getKind() == kind::APPLY_UF);
-      Debug("cc:detail") << "n[[" << t << "]]theLookup is " << theLookup << std::endl;
-      // change from paper: theLookup[1] might not be a constant in our case
-      Debug("cc") << "INF RECUR ?" << std::endl;
-      return find(theLookup[1]);
+      Assert(find(theLookup[0]) == find(theLookup[1]));
+
+      return find(theLookup[0]);
     } else {
       NodeBuilder<> fa(kind::APPLY_UF);
       for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
@@ -785,7 +853,12 @@ Node CongruenceClosure<OutputChannel>::findWithProof
     //    Debug("cc:detail") << "              rep is:" << normalize(p) << std::endl;
     Assert(e.isNull() == d_proof[p].get().isNull());
     if(!e.isNull()) {
-      pf.insert(e);
+      if(e.getKind() == kind::EQUAL) {
+        // e is either an EQUALity justifying the proof step...
+        pf.insert(e);
+      } else {
+        // ...or a TUPLE describing the proof steps to make
+      }
     }
   } while(!(p = d_proof[p]).isNull());
 
@@ -798,6 +871,7 @@ Node CongruenceClosure<OutputChannel>::findWithProof
     //    Debug("cc:detail") << "              rep is:" << normalize(p) << std::endl;
     Assert(e.isNull() == d_proof[p].get().isNull());
     if(!e.isNull()) {
+      Assert(e.getKind() == kind::EQUAL);
       pf.insert(e);
     }
   } while(!(p = d_proof[p]).isNull());
@@ -815,43 +889,55 @@ Node CongruenceClosure<OutputChannel>::normalizeWithProof
   t = findWithProof(t, pf);
   Debug("cc") << "   is   : " << t << std::endl;
   if(t.getKind() == kind::APPLY_UF) {
-    NodeBuilder<> ab(kind::TUPLE), apb(kind::TUPLE);
+    NodeBuilder<> apb(kind::TUPLE);
     TNode op = t.getOperator();
-    ab << op;
     apb << normalizeWithProof(op, pf);
-    bool allConstants = (op.getKind() != kind::APPLY_UF);
     for(TNode::iterator i = t.begin(); i != t.end(); ++i) {
       TNode c = *i;
-      ab << c;
       Node n = normalizeWithProof(c, pf);
       apb << n;
-      allConstants = allConstants && (n.getKind() != kind::APPLY_UF);
     }
 
-    Node a = ab, ap = apb;
+    Node ap = apb;
+    Debug("cc:detail") << "  got ap " << ap << std::endl;
 
-    allConstants = true;// change from paper
+    Node theLookup = lookup(ap);
+    if(!theLookup.isNull()) {
+      Node theLookupSide = theLookup[1];
+      theLookup = theLookup[0];
 
-    Node theLookup = Node::null();
-    if(allConstants) {
-      theLookup = lookup(ap);
-    }
-    if(allConstants && !theLookup.isNull()) {
+      Assert(find(theLookup[0]) == find(theLookup[1]));
+
+      NodeBuilder<> fa(kind::APPLY_UF);
+      for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
+        fa << *i;
+        Debug("cc") << "n[[" << t << "]]it :: " << *i << std::endl;
+      }
+      // ensure a hard Node link exists during the call
+      Node n = fa;
+
       Assert(theLookup.getKind() == kind::EQUAL);
-      Assert(theLookup[0].getKind() == kind::APPLY_UF);
-      Debug("cc:detail") << "n[[" << t << "]]theLookup is " << theLookup << std::endl;
+      // lookup eqs can have form (apply c..) = x  OR  x = (apply c..)
+      Debug("cc") << "n[[" << t << "]]theLookup is " << theLookup << std::endl;
       // output pf that t congruent to theLookup
-      Debug("cc:detail") << "============== LOOKUP PROOF ==============\n";
-      Debug("cc:detail") << theLookup << std::endl;
-      Debug("cc:detail") << "============== LOOKUP PROOF ==============\n";
+      Debug("cc") << "============== LOOKUP PROOF ==============\n";
+      Debug("cc") << theLookup << std::endl;
+      Debug("cc") << "============== LOOKUP PROOF ==============\n";
       pf.insert(theLookup);
-      // change from paper: theLookup[1] might not be a constant in our case
-      return findWithProof(theLookup[1], pf);
+
+      // we care what _side_ we came from for the lookup
+      if(theLookupSide == theLookup[0]) {
+        // change from paper: theLookup[1] might not be a constant in our case
+        return findWithProof(theLookup[1], pf);
+      } else {// theLookupSide == theLookup[1]
+        // change from paper: theLookup[0] might not be a constant in our case
+        return findWithProof(theLookup[0], pf);
+      }
     } else {
       NodeBuilder<> fa(kind::APPLY_UF);
       for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
         fa << *i;
-        Debug("cc:detail") << "n[[" << t << "]]it :: " << *i << std::endl;
+        Debug("cc") << "n[[" << t << "]]it :: " << *i << std::endl;
       }
       // ensure a hard Node link exists during the call
       Node n = fa;

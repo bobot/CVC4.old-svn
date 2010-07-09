@@ -63,6 +63,7 @@ struct MyOutputChannel {
                 << "=== a' is " << find(a) << std::endl
                 << "=== b is  " << b << std::endl
                 << "=== b' is " << find(b) << std::endl;
+
     return find(a) == find(b);
   }
 
@@ -167,7 +168,7 @@ public:
 
     d_cc->addEquality(a_eq_b);
 
-    //TS_ASSERT(d_out->areCongruent(fa, fb));
+    TS_ASSERT(d_out->areCongruent(fa, fb));
     TS_ASSERT(d_cc->areCongruent(fa, fb));
 
     TS_ASSERT(!d_out->areCongruent(a, b));
@@ -183,7 +184,7 @@ public:
     d_cc->addTerm(fa);
     d_cc->addTerm(fb);
 
-    //TS_ASSERT(d_out->areCongruent(fa, fb));
+    TS_ASSERT(d_out->areCongruent(fa, fb));
     TS_ASSERT(d_cc->areCongruent(fa, fb));
 
     TS_ASSERT(!d_out->areCongruent(a, b));
@@ -214,7 +215,7 @@ public:
 
         d_cc->addEquality(a_eq_b);
 
-        //TS_ASSERT(d_out->areCongruent(fa, fb));
+        TS_ASSERT(d_out->areCongruent(fa, fb));
         TS_ASSERT(d_cc->areCongruent(fa, fb));
 
         TS_ASSERT(!d_out->areCongruent(a, b));
@@ -263,7 +264,7 @@ public:
         d_cc->addTerm(fa);
         d_cc->addTerm(fb);
 
-        //TS_ASSERT(d_out->areCongruent(fa, fb));
+        TS_ASSERT(d_out->areCongruent(fa, fb));
         TS_ASSERT(d_cc->areCongruent(fa, fb));
 
         TS_ASSERT(!d_out->areCongruent(a, b));
@@ -294,7 +295,7 @@ public:
 
     d_cc->addEquality(a_eq_b);
 
-    //TS_ASSERT(d_out->areCongruent(ffa, ffb));
+    TS_ASSERT(d_out->areCongruent(ffa, ffb));
     TS_ASSERT(d_cc->areCongruent(ffa, ffb));
 
     TS_ASSERT(!d_out->areCongruent(fa, fb));
@@ -310,7 +311,7 @@ public:
 
     d_cc->addEquality(a_eq_b);
 
-    //TS_ASSERT(d_out->areCongruent(ffffa, ffffb));
+    TS_ASSERT(d_out->areCongruent(ffffa, ffffb));
     TS_ASSERT(d_cc->areCongruent(ffffa, ffffb));
 
     TS_ASSERT(!d_out->areCongruent(fffa, fffb));
@@ -332,12 +333,13 @@ public:
 
     d_cc->addEquality(a_eq_b);
 
-    //TS_ASSERT(d_out->areCongruent(gab, gba));
+    TS_ASSERT(d_out->areCongruent(gab, gba));
     TS_ASSERT(d_cc->areCongruent(gab, gba));
   }
 
   void testSimpleBinaryFunction2() {
 
+    //Debug.on("cc");
     try {
 
     d_cc->addTerm(gfafb);
@@ -368,12 +370,13 @@ public:
                 << "hba norm:   " << d_cc->normalize(hba) << std::endl
                 << "hfaa norm:  " << d_cc->normalize(hfaa) << std::endl;
 
-    //TS_ASSERT(d_out->areCongruent(gfafb, gba));
+    TS_ASSERT(d_out->areCongruent(gfafb, gba));
     TS_ASSERT(d_cc->areCongruent(b, fa));
     TS_ASSERT(d_cc->areCongruent(gfafb, hba));
     TS_ASSERT(d_cc->areCongruent(gfafb, gba));
     TS_ASSERT(d_cc->areCongruent(hba, gba));
     TS_ASSERT(d_cc->areCongruent(hfaa, hba));
+    TS_ASSERT(d_out->areCongruent(hfaa, gba));// fails due to problem with care lists
     TS_ASSERT(d_cc->areCongruent(hfaa, gba));
 
     } catch(Exception e) {
@@ -383,6 +386,8 @@ public:
   }
 
   void testUF() {
+    //Debug.on("cc");
+    try{
     Node c_0 = d_nm->mkVar("c_0", U);
     Node c_1 = d_nm->mkVar("c_1", U);
     Node c_2 = d_nm->mkVar("c_2", U);
@@ -422,6 +427,7 @@ public:
     d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_0),c_1));
     d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_0));
     d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0));
+    }catch(Exception &e) { cout << e << "\n"; throw e; }
   }
 
   void testUF2() {
