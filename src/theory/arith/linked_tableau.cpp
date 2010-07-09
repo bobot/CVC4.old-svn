@@ -2,10 +2,15 @@
 #include "theory/arith/basic.h"
 #include "expr/kind.h"
 
+
+
 using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 using namespace CVC4::kind;
+
+struct EjectedID;
+typedef expr::Attribute<EjectedID, Node> Ejected;
 
 Node Row::asEquality() const{
   NodeBuilder<> nb(PLUS);
@@ -30,6 +35,35 @@ void Tableau::initializeVariable(TNode x){
 }
 
 
+void Tableau::repivotFixpoint(TNode basic, std::vector<Node>& reinjected){
+
+  Node asEq = basic.getAttribute(Ejected());
+
+  TNode sum = asEq[1];
+
+  reinjected.push_back(basic);
+  reinjectBasic(basic);
+
+  Row* basicRow = lookupRow(basic);
+
+  for(TNode::iterator iter=sum.begin(); iter != sum.end(); ++iter){
+    TNode pair = *iter;
+    Assert(pair.getKind() == MULT);
+    Assert(pair.getNumChildren() == 2);
+    Assert(pair[0].getKind() == CONST_RATIONAL);
+    const Rational& coeff = pair[0].getConst<Rational>();
+    TNode var_i = pair[1];
+
+    if(isBasic(var_i)){
+      if(isEjected(var_i)){
+        repivotFixpoint(var_i, reinjected);
+      }
+      Row* nbRow = lookupRow(var_i);
+      addNonbasicsInRow(basicRow, nbRow, coeff);
+    }
+  }
+}
+
 void Tableau::insertRow(TNode eq){
   Assert(eq.getKind() == kind::EQUAL);
   Assert(eq.getNumChildren() == 2);
@@ -45,6 +79,8 @@ void Tableau::insertRow(TNode eq){
   rowMap.insert(std::make_pair(var,row_var));
   //  colMap.insert(make_pair(var,col_var));
 
+  std::vector<Node> reinjected;
+
   for(TNode::iterator iter=sum.begin(); iter != sum.end(); ++iter){
     TNode pair = *iter;
     Assert(pair.getKind() == MULT);
@@ -54,18 +90,20 @@ void Tableau::insertRow(TNode eq){
     TNode var_i = pair[1];
 
     if(isBasic(var_i)){
+      if(isEjected(var_i))
+        repivotFixpoint(var_i, reinjected);
       Row* nbRow = lookupRow(var_i);
       addNonbasicsInRow(row_var, nbRow, coeff);
     }else{
-//       Column* col;
-//       if(!hasColumn(var_i, col)){
-//         col = new Column(var_i);
-//         colMap.insert(make_pair(var_i, col));
-//       }
       Column* col = lookupColumn(var_i);
       TableauCell* newCell = new TableauCell(row_var, col, coeff);
       cellMap.insert(std::make_pair(std::make_pair(row_var,col), newCell));
     }
+  }
+
+  for(std::vector<Node>::iterator reinIter = reinjected.begin(); reinIter != reinjected.end(); ++reinIter){
+    Node ejectBasiced = *reinIter;
+    ejectBasic(ejectBasiced);
   }
 }
 
@@ -186,9 +224,6 @@ bool Tableau::hasCell(Row* r, Column* c, TableauCell*& cell){
   cell = res ? (i->second) : NULL;
   return res;
 }
-
-struct EjectedID;
-typedef expr::Attribute<EjectedID, Node> Ejected;
 
 
 bool Tableau::isEjected(TNode var){

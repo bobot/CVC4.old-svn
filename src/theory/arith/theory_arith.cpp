@@ -151,8 +151,8 @@ void TheoryArith::ejectInactiveVariables(){
   for(std::vector<Node>::iterator i = d_variables.begin(),
         end = d_variables.end(); i != end; ++i){
     TNode variable = *i;
-    if(shouldEject(variable)){
-      if(isBasic(variable)){
+    if(isBasic(variable)){
+      if(shouldEject(variable)){
         Debug("decay") << "ejecting basic " << variable << endl;;
         d_tableau.ejectBasic(variable);
       }

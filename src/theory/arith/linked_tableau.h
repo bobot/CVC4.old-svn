@@ -5,6 +5,7 @@
 #include <ext/hash_map>
 
 #include <list>
+#include <vector>
 
 #ifndef __CVC4__THEORY__ARITH__TABLEAU_H
 #define __CVC4__THEORY__ARITH__TABLEAU_H
@@ -171,6 +172,8 @@ private:
 
   void multRow(Row* dest, const Rational& q);
 
+
+  void repivotFixpoint(TNode basic, std::vector<Node>& reinjected);
 
   void removeRow(Row* r);
 
