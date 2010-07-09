@@ -122,6 +122,9 @@ Result SmtEngine::quickCheck() {
 void SmtEnginePrivate::addFormula(SmtEngine& smt, TNode n) {
   Debug("smt") << "push_back assertion " << n << std::endl;
   smt.d_propEngine->assertFormula(SmtEnginePrivate::preprocess(smt, n));
+
+  smt.d_theoryEngine->finishedTopLevelAdd();
+
 }
 
 Result SmtEngine::checkSat(const BoolExpr& e) {

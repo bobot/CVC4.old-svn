@@ -180,7 +180,7 @@ public:
   }
 
 
-  int sgn() {
+  int sgn() const {
     cln::cl_RA sign = cln::signum(d_value);
     if(sign == 0)
       return 0;

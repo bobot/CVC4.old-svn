@@ -134,7 +134,7 @@ public:
   void shutdown(){ }
 
   std::string identify() const { return std::string("TheoryArith"); }
-
+  void finishedTopLevelAdd();
 private:
   /**
    * Assert*(n, orig) takes an bound n that is implied by orig.
@@ -248,6 +248,12 @@ private:
   bool shouldEject(TNode var);
   void ejectInactiveVariables();
   void reinjectVariable(TNode x);
+
+  bool rowLowerBound(TNode x_j, DeltaRational& dest, Node&);
+  bool rowUpperBound(TNode x_j, DeltaRational& dest, Node&);
+  void possiblyPropagateNewBasic(TNode x_j);
+
+
 
   //TODO get rid of this!
   Node simulatePreprocessing(TNode n);

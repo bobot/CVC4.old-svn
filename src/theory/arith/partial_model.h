@@ -189,6 +189,8 @@ public:
   void printModel(TNode x);
 
   bool hasBounds(TNode x);
+  bool hasUpperBound(TNode x);
+  bool hasLowerBound(TNode x);
   bool hasEverHadABound(TNode var){
     return var.getAttribute(partial_model::HasHadABound());
   }

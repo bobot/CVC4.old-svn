@@ -32,7 +32,7 @@ using namespace CVC4::kind;
 using namespace std;
 
 ArithUnatePropagator::ArithUnatePropagator(context::Context* cxt) :
-  d_assertions(cxt), d_pendingAssertions(cxt,0)
+  d_assertions(cxt), d_pendingAssertions(cxt,0), d_additionalEnqueues(cxt), d_additionalEnqueuesIdx(cxt,0)
 { }
 
 
@@ -44,6 +44,14 @@ bool acceptedKinds(Kind k){
     return true;
   default:
     return false;
+  }
+}
+
+Node explainChain(TNode atom){
+  if(atom.hasAttribute(propagator::PropagatorExplanation())){
+    return explainChain(atom.getAttribute(propagator::PropagatorExplanation()));
+  }else{
+    return atom;
   }
 }
 
@@ -122,6 +130,12 @@ std::vector<Node> ArithUnatePropagator::getImpliedLiterals(){
     enqueueImpliedLiterals(assertion, impliedButNotAsserted);
   }
 
+  while(d_additionalEnqueuesIdx < d_additionalEnqueues.size()){
+    TNode assertion = d_additionalEnqueues[d_additionalEnqueuesIdx];
+    d_additionalEnqueuesIdx = d_additionalEnqueuesIdx + 1;
+
+    impliedButNotAsserted.push_back(assertion);
+  }
   if(Debug.isOn("arith::propagator")){
     for(std::vector<Node>::iterator i = impliedButNotAsserted.begin(),
           endIter = impliedButNotAsserted.end(); i != endIter; ++i){
@@ -192,7 +206,7 @@ void ArithUnatePropagator::enqueueEqualityImplications(TNode orig, std::vector<N
       eq.setAttribute(propagator::PropagatorMarked(), true);
 
       Node neq = NodeManager::currentNM()->mkNode(NOT, eq);
-      neq.setAttribute(propagator::PropagatorExplanation(), orig);
+      neq.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
       buffer.push_back(neq);
     }
   }
@@ -204,12 +218,12 @@ void ArithUnatePropagator::enqueueEqualityImplications(TNode orig, std::vector<N
       const Rational& d = leq[1].getConst<Rational>();
       if(c <= d){
         /* (x = c) /\ (c <= d) => (x <= d)  */
-        leq.setAttribute(propagator::PropagatorExplanation(), orig);
+        leq.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
         buffer.push_back(leq);
       }else{
         /* (x = c) /\ (c > d) => (x > d)  */
         Node gt = NodeManager::currentNM()->mkNode(NOT, leq);
-        gt.setAttribute(propagator::PropagatorExplanation(), orig);
+        gt.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
         buffer.push_back(gt);
       }
     }
@@ -223,12 +237,12 @@ void ArithUnatePropagator::enqueueEqualityImplications(TNode orig, std::vector<N
       const Rational& d = geq[1].getConst<Rational>();
       if(c >= d){
         /* (x = c) /\ (c >= d) => (x >= d)  */
-        geq.setAttribute(propagator::PropagatorExplanation(), orig);
+        geq.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
         buffer.push_back(geq);
       }else{
         /* (x = c) /\ (c >= d) => (x >= d)  */
         Node lt = NodeManager::currentNM()->mkNode(NOT, geq);
-        lt.setAttribute(propagator::PropagatorExplanation(), orig);
+        lt.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
         buffer.push_back(lt);
       }
     }
@@ -257,7 +271,7 @@ void ArithUnatePropagator::enqueueUpperBoundImplications(TNode atom, TNode orig,
       const Rational& d = leq[1].getConst<Rational>();
       Assert( c <= d );
 
-      leq.setAttribute(propagator::PropagatorExplanation(), orig);
+      leq.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
       buffer.push_back(leq); // (x<=c) /\ (c <= d) => (x <= d)
       //Note that if c=d, that at the node is not marked this can only be reached when (x < c)
       //So we do not have to worry about a circular dependency
@@ -275,7 +289,7 @@ void ArithUnatePropagator::enqueueUpperBoundImplications(TNode atom, TNode orig,
       Assert( c < d );
 
       Node lt = NodeManager::currentNM()->mkNode(NOT, geq);
-      lt.setAttribute(propagator::PropagatorExplanation(), orig);
+      lt.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
       buffer.push_back(lt); // x<=c /\ d > c => x < d
     }else{
       break; //No need to examine this atom implies the rest
@@ -291,7 +305,7 @@ void ArithUnatePropagator::enqueueUpperBoundImplications(TNode atom, TNode orig,
       Assert( c < d );
 
       Node neq = NodeManager::currentNM()->mkNode(NOT, eq);
-      neq.setAttribute(propagator::PropagatorExplanation(), orig);
+      neq.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
       buffer.push_back(neq); // x<=c /\ c < d => x !=  d
     }
   }
@@ -319,7 +333,7 @@ void ArithUnatePropagator::enqueueLowerBoundImplications(TNode atom, TNode orig,
       const Rational& d = geq[1].getConst<Rational>();
       Assert( c >= d );
 
-      geq.setAttribute(propagator::PropagatorExplanation(), orig);
+      geq.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
       buffer.push_back(geq); // x>=c /\ c >= d => x >= d
     }else if(geq != atom){
       break; //No need to examine the rest, this atom implies the rest of the possible propagataions
@@ -336,7 +350,7 @@ void ArithUnatePropagator::enqueueLowerBoundImplications(TNode atom, TNode orig,
       Assert( c > d );
 
       Node gt = NodeManager::currentNM()->mkNode(NOT, leq);
-      gt.setAttribute(propagator::PropagatorExplanation(), orig);
+      gt.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
       buffer.push_back(gt); // x>=c /\ d < c => x > d
     }else{
       break; //No need to examine this atom implies the rest
@@ -353,7 +367,7 @@ void ArithUnatePropagator::enqueueLowerBoundImplications(TNode atom, TNode orig,
       Assert( c > d );
 
       Node neq = NodeManager::currentNM()->mkNode(NOT, eq);
-      neq.setAttribute(propagator::PropagatorExplanation(), orig);
+      neq.setAttribute(propagator::PropagatorExplanation(), explainChain(orig));
       buffer.push_back(neq); // x>=c /\ c > d => x !=  d
     }
   }
@@ -363,4 +377,40 @@ void ArithUnatePropagator::enqueueLowerBoundImplications(TNode atom, TNode orig,
 Node ArithUnatePropagator::explain(TNode lit){
   Assert(lit.hasAttribute(propagator::PropagatorExplanation()));
   return lit.getAttribute(propagator::PropagatorExplanation());
+}
+
+void ArithUnatePropagator::knownLowerBound(TNode x, const Rational& lb, bool strict, Node explanation){
+  Node bound;
+  Node constant = NodeManager::currentNM()->mkConst<Rational>(lb);
+  if(strict){
+    bound =  NodeManager::currentNM()->mkNode(NOT, NodeManager::currentNM()->mkNode(LEQ, x, constant));
+  }else{
+    bound =  NodeManager::currentNM()->mkNode(GEQ, x, constant);
+  }
+
+  if(bound.getAttribute(propagator::PropagatorMarked())){ return;}
+
+  bound.setAttribute(propagator::PropagatorExplanation(), explanation);
+  bound.setAttribute(propagator::PropagatorMarked(), true);
+  assertLiteral(bound);
+  d_additionalEnqueues.push_back(bound);
+}
+
+void ArithUnatePropagator::knownUpperBound(TNode x, const Rational& ub, bool strict, Node explanation){
+  Node bound;
+  Node constant = NodeManager::currentNM()->mkConst<Rational>(ub);
+  if(strict){
+    bound =  NodeManager::currentNM()->mkNode(NOT, NodeManager::currentNM()->mkNode(GEQ, x, constant));
+  }else{
+    bound =  NodeManager::currentNM()->mkNode(LEQ, x, constant);
+  }
+
+  if(bound.getAttribute(propagator::PropagatorMarked())){ return;}
+
+  bound.setAttribute(propagator::PropagatorExplanation(), explanation);
+
+  cout << "Adding bound known upper bound" << bound << " <- " << explanation;
+
+  assertLiteral(bound);
+  d_additionalEnqueues.push_back(bound);
 }

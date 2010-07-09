@@ -344,6 +344,11 @@ public:
     theory->explain(node);
     return d_theoryOut.d_explanationNode;
   }
+  inline void finishedTopLevelAdd(){
+    d_uf.finishedTopLevelAdd();
+    d_arith.finishedTopLevelAdd();
+    d_arrays.finishedTopLevelAdd();
+  }
 
 private:
   class Statistics {

@@ -127,7 +127,110 @@ bool isNormalAtom(TNode n){
 
 }
 
+bool TheoryArith::rowLowerBound(TNode x_j, DeltaRational& dest, Node& lowerExplanation){
+  Row* row_i = d_tableau.lookup(x_j);
 
+  DeltaRational tmp;
+
+  NodeBuilder<> nb(AND);
+
+  for(Row::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
+    TNode nonbasic = nbi->first;
+    const Rational& a_ij = nbi->second;
+
+    int sign = a_ij.sgn();
+    if(sign < 0){
+      if(!d_partialModel.hasUpperBound(nonbasic))
+        return false;
+      nb << d_partialModel.getUpperConstraint(nonbasic);
+      tmp = d_partialModel.getUpperBound(nonbasic)*a_ij;
+      dest += tmp;
+    }else if(sign > 0){
+      if(!d_partialModel.hasLowerBound(nonbasic))
+        return false;
+      nb << d_partialModel.getLowerConstraint(nonbasic);
+      tmp = (d_partialModel.getLowerBound(nonbasic)*a_ij);
+      dest += tmp;
+    }else{
+      Unreachable();
+    }
+  }
+
+  Assert(nb.getNumChildren() >= 1);
+  if(nb.getNumChildren() > 1){
+    lowerExplanation = nb;
+  }else{
+    lowerExplanation = nb[0];
+  }
+
+  return true;
+}
+bool TheoryArith::rowUpperBound(TNode x_j, DeltaRational& dest, Node& upperExplanation){
+  Row* row_i = d_tableau.lookup(x_j);
+
+  DeltaRational tmp;
+  NodeBuilder<> nb(AND);
+
+  for(Row::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
+    TNode nonbasic = nbi->first;
+    const Rational& a_ij = nbi->second;
+
+    int sign = a_ij.sgn();
+    if(sign < 0){
+      if(!d_partialModel.hasLowerBound(nonbasic))
+        return false;
+
+      nb << d_partialModel.getLowerConstraint(nonbasic);
+      tmp = (d_partialModel.getLowerBound(nonbasic)*a_ij);
+      dest += tmp;
+    }else if(sign > 0){
+      if(!d_partialModel.hasUpperBound(nonbasic))
+        return false;
+
+      nb << d_partialModel.getUpperConstraint(nonbasic);
+      tmp = (d_partialModel.getUpperBound(nonbasic)*a_ij);
+      dest += tmp;
+    }else{
+      Unreachable();
+    }
+  }
+
+  Assert(nb.getNumChildren() >= 1);
+  if(nb.getNumChildren() > 1){
+    upperExplanation = nb;
+  }else{
+    upperExplanation = nb[0];
+  }
+  return true;
+}
+
+void TheoryArith::possiblyPropagateNewBasic(TNode x_j){
+  if(d_partialModel.hasEverHadABound(x_j)){
+
+    DeltaRational lb;
+    Node lowerExplanation;
+    if(rowLowerBound(x_j,lb, lowerExplanation)){
+      bool strict = lb.getInfintestimalPart().sgn() > 0;
+
+      d_propagator.knownLowerBound(x_j, lb.getNoninfintestimalPart(),strict, lowerExplanation);
+    }
+    DeltaRational ub;
+    Node upperExplanation;
+    if(rowLowerBound(x_j,ub, upperExplanation)){
+      bool strict = ub.getInfintestimalPart().sgn() < 0;
+      d_propagator.knownUpperBound(x_j, ub.getNoninfintestimalPart(), strict, upperExplanation);
+    }
+  }
+}
+
+void TheoryArith::finishedTopLevelAdd(){
+  for(Tableau::VarSet::iterator basicIter = d_tableau.begin();
+      basicIter != d_tableau.end();
+      ++basicIter){
+    TNode x_j = *basicIter;
+    possiblyPropagateNewBasic(x_j);
+  }
+}
 bool TheoryArith::shouldEject(TNode var){
   if(d_partialModel.hasBounds(var)){
     return false;
@@ -561,6 +664,7 @@ void TheoryArith::pivotAndUpdate(TNode x_i, TNode x_j, DeltaRational& v){
   d_tableau.pivot(x_i, x_j);
 
   checkBasicVariable(x_j);
+  possiblyPropagateNewBasic(x_j);
 
   if(Debug.isOn("tableau")){
     d_tableau.printTableau();

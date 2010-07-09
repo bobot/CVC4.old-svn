@@ -230,10 +230,14 @@ bool ArithPartialModel::aboveUpperBound(TNode x, const DeltaRational& c, bool st
   }
 }
 
+bool ArithPartialModel::hasUpperBound(TNode x){
+  return d_UpperBoundMap.find(x) != d_UpperBoundMap.end();
+}
+bool ArithPartialModel::hasLowerBound(TNode x){
+  return d_LowerBoundMap.find(x) != d_LowerBoundMap.end();
+}
 bool ArithPartialModel::hasBounds(TNode x){
-  return
-    d_UpperBoundMap.find(x) != d_UpperBoundMap.end() ||
-    d_LowerBoundMap.find(x) != d_LowerBoundMap.end();
+  return hasUpperBound(x) || hasLowerBound(x);
 }
 
 bool ArithPartialModel::strictlyBelowUpperBound(TNode x){

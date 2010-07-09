@@ -427,6 +427,8 @@ public:
     return theoryReady(s);
   }
 
+  virtual void finishedTopLevelAdd(){ }
+
 protected:
 
   /**

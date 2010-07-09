@@ -29,6 +29,7 @@
 #include "context/context.h"
 #include "context/cdo.h"
 #include "theory/arith/ordered_bounds_list.h"
+#include "theory/arith/delta_rational.h"
 
 #include <algorithm>
 #include <vector>
@@ -44,6 +45,9 @@ private:
 
   /** Index of the last assertion in d_assertions to be asserted. */
   context::CDO<unsigned int> d_pendingAssertions;
+
+  context::CDList<Node> d_additionalEnqueues;
+  context::CDO<unsigned int> d_additionalEnqueuesIdx;
 
 public:
   ArithUnatePropagator(context::Context* cxt);
@@ -67,6 +71,9 @@ public:
 
   /** Explains a literal that was asserted in the current context. */
   Node explain(TNode lit);
+
+  void knownLowerBound(TNode x, const Rational& lb, bool strict, Node explanation);
+  void knownUpperBound(TNode x, const Rational& ub, bool strict, Node explanation);
 
 private:
   /** returns true if the left hand side side left has been setup. */
