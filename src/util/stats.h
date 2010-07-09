@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** rief [[ Add one-line brief description here ]]
+ ** \brief [[ Add one-line brief description here ]]
  **
  ** [[ Add lengthier description here ]]
  ** \todo document this file
@@ -31,9 +31,9 @@ namespace CVC4 {
 
 
 #ifdef CVC4_STATISTICS_ON
-#define USE_STATISTICS true
+#  define USE_STATISTICS true
 #else
-#define USE_STATISTICS false
+#  define USE_STATISTICS false
 #endif
 
 class CVC4_PUBLIC Stat;
@@ -49,7 +49,8 @@ public:
   static void flushStatistics(std::ostream& out);
 
   static inline void registerStat(Stat* s) throw (AssertionException);
-}; /* class StatisticsRegistry */
+  static inline void unregisterStat(Stat* s) throw (AssertionException);
+};/* class StatisticsRegistry */
 
 
 class CVC4_PUBLIC Stat {
@@ -95,11 +96,17 @@ inline void StatisticsRegistry::registerStat(Stat* s) throw (AssertionException)
     d_registeredStats.insert(s);
   }
 }
+inline void StatisticsRegistry::unregisterStat(Stat* s) throw (AssertionException){
+  if(USE_STATISTICS){
+    AlwaysAssert(d_registeredStats.find(s) != d_registeredStats.end());
+    d_registeredStats.erase(s);
+  }
+}
 
 
 
 /**
- *  class T must have stream insertion operation defined.
+ * class T must have stream insertion operation defined.
  * std::ostream& operator<<(std::ostream&, const T&);
  */
 template<class T>

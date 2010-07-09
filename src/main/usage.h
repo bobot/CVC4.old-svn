@@ -2,8 +2,8 @@
 /*! \file usage.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway
- ** Minor contributors (to current version): none
+ ** Major contributors: none
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -30,25 +30,22 @@ usage: %s [options] [input-file]\n\
 Without an input file, or with `-', CVC4 reads from standard input.\n\
 \n\
 CVC4 options:\n\
-   --lang | -L     force input language (default is `auto'; see --lang help)\n\
-   --version | -V  identify this CVC4 binary\n\
-   --help | -h     this command line reference\n\
-   --parse-only    exit after parsing input\n\
-   --mmap          memory map file input\n\
-   --show-config   show CVC4 static configuration\n"
-#ifdef CVC4_DEBUG
-"\
-   --segv-nospin   don't spin on segfault waiting for gdb\n"
-#endif
-#ifndef CVC4_MUZZLE
-"\
-   --no-checking   disable semantic checks in the parser\n\
-   --verbose | -v  increase verbosity (repeatable)\n\
-   --quiet | -q    decrease verbosity (repeatable)\n\
-   --trace | -t    tracing for something (e.g. --trace pushpop)\n\
-   --debug | -d    debugging for something (e.g. --debug arith), implies -t\n\
-   --stats         give statistics on exit\n"
-#endif
+   --lang | -L            force input language (default is `auto'; see --lang help)\n\
+   --version | -V         identify this CVC4 binary\n\
+   --help | -h            this command line reference\n\
+   --parse-only           exit after parsing input\n\
+   --mmap                 memory map file input\n\
+   --show-config          show CVC4 static configuration\n\
+   --segv-nospin          don't spin on segfault waiting for gdb\n\
+   --no-checking          disable semantic checks in the parser\n\
+   --strict-parsing       fail on inputs that are not strictly conformant (SMT2 only)\n\
+   --verbose | -v         increase verbosity (repeatable)\n\
+   --quiet | -q           decrease verbosity (repeatable)\n\
+   --trace | -t           tracing for something (e.g. --trace pushpop)\n\
+   --debug | -d           debugging for something (e.g. --debug arith), implies -t\n\
+   --stats                give statistics on exit\n\
+   --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
+   --print-expr-types     print types with variables when printing exprs\n"
 ;
 
 }/* CVC4::main namespace */

@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -60,11 +60,13 @@ Smt2Input::~Smt2Input() {
   d_pSmt2Parser->free(d_pSmt2Parser);
 }
 
-Command* Smt2Input::parseCommand() throw (ParserException) {
+Command* Smt2Input::parseCommand()
+  throw (ParserException, AssertionException) {
   return d_pSmt2Parser->parseCommand(d_pSmt2Parser);
 }
 
-Expr Smt2Input::parseExpr() throw (ParserException) {
+Expr Smt2Input::parseExpr()
+  throw (ParserException, AssertionException) {
   return d_pSmt2Parser->parseExpr(d_pSmt2Parser);
 }
 

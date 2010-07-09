@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): dejan, mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -19,7 +19,7 @@
 #ifndef DECLARATION_SCOPE_H_
 #define DECLARATION_SCOPE_H_
 
-#include "expr.h"
+#include "expr/expr.h"
 #include "util/hash.h"
 
 #include <ext/hash_map>

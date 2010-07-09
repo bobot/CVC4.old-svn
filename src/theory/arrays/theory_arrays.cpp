@@ -2,8 +2,8 @@
 /*! \file theory_arrays.cpp
  ** \verbatim
  ** Original author: barrett
- ** Major contributors: 
- ** Minor contributors (to current version): 
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -16,8 +16,10 @@
  ** Implementation of the theory of arrays.
  **/
 
+
 #include "theory/arrays/theory_arrays.h"
 #include "expr/kind.h"
+
 
 using namespace std;
 using namespace CVC4;
@@ -26,13 +28,28 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arrays;
 
-TheoryArrays::TheoryArrays(Context* c, OutputChannel& out) :
-  Theory(c, out)
+
+TheoryArrays::TheoryArrays(int id, Context* c, OutputChannel& out) :
+  Theory(id, c, out)
 {
 }
 
+
 TheoryArrays::~TheoryArrays() {
 }
+
+
+void TheoryArrays::addSharedTerm(TNode t) {
+  Debug("arrays") << "TheoryArrays::addSharedTerm(): "
+                  << t << endl;
+}
+
+
+void TheoryArrays::notifyEq(TNode lhs, TNode rhs) {
+  Debug("arrays") << "TheoryArrays::notifyEq(): "
+                  << lhs << " = " << rhs << endl;
+}
+
 
 void TheoryArrays::check(Effort e) {
   while(!done()) {

@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): mdeters, dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -74,12 +74,12 @@ public:
    */
   static AntlrInputStream* newFileInputStream(const std::string& name, 
                                               bool useMmap = false)
-    throw (InputStreamException);
+    throw (InputStreamException, AssertionException);
 
   /** Create an input from an istream. */
   static AntlrInputStream* newStreamInputStream(std::istream& input, 
                                                 const std::string& name)
-    throw (InputStreamException);
+    throw (InputStreamException, AssertionException);
 
   /** Create a string input.
    *
@@ -88,7 +88,7 @@ public:
    */
   static AntlrInputStream* newStringInputStream(const std::string& input, 
                                                 const std::string& name)
-    throw (InputStreamException);
+    throw (InputStreamException, AssertionException);
 };
 
 class Parser;
@@ -192,7 +192,8 @@ protected:
   /**
    * Throws a <code>ParserException</code> with the given message.
    */
-  void parseError(const std::string& msg) throw (ParserException);
+  void parseError(const std::string& msg)
+    throw (ParserException, AssertionException);
 
   /** Set the ANTLR3 lexer for this input. */
   void setAntlr3Lexer(pANTLR3_LEXER pLexer);
@@ -223,7 +224,7 @@ inline std::string AntlrInput::tokenTextSubstr(pANTLR3_COMMON_TOKEN token,
   ANTLR3_MARKER end = token->getStopIndex(token);
   Assert( start < end );
   if( index > (size_t) end - start ) {
-    stringstream ss;
+    std::stringstream ss;
     ss << "Out-of-bounds substring index: " << index;
     throw std::invalid_argument(ss.str());
   }

@@ -2,7 +2,7 @@
 /*! \file sat.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan, cconway
+ ** Major contributors: taking, dejan, cconway
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
@@ -27,6 +27,7 @@
 
 #include "util/options.h"
 #include "util/stats.h"
+#include "theory/theory.h"
 
 #ifdef __CVC4_USE_MINISAT
 
@@ -96,6 +97,8 @@ inline std::string stringOfLiteralValue(SatLiteralValue val) {
  */
 class SatInputInterface {
 public:
+  /** Virtual destructor to make g++ happy */
+  virtual ~SatInputInterface() { }
   /** Assert a clause in the solver. */
   virtual void addClause(SatClause& clause, bool lemma) = 0;
   /** Create a new boolean variable in the solver. */
@@ -199,7 +202,13 @@ public:
 
   SatVariable newVar(bool theoryAtom = false);
 
-  void theoryCheck(SatClause& conflict);
+  void theoryCheck(theory::Theory::Effort effort, SatClause& conflict);
+
+  void explainPropagation(SatLiteral l, SatClause& explanation);
+
+  void theoryPropagate(std::vector<SatLiteral>& output);
+
+  void clearPropagatedLiterals();
 
   void enqueueTheoryLiteral(const SatLiteral& l);
 
@@ -228,6 +237,11 @@ inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
   d_minisat->remove_satisfied = false;
   // Make minisat reuse the literal values
   d_minisat->polarity_mode = minisat::SimpSolver::polarity_user;
+
+  // No random choices
+  if(Debug.isOn("no_rnd_decisions")){
+    d_minisat->random_var_freq = 0;
+  }
 
   d_statistics.init(d_minisat);
 }
@@ -259,13 +273,15 @@ SatSolver::SatLiteralHashFunction::operator()(const SatLiteral& literal) const {
   return hashSatLiteral(literal);
 }
 
-inline std::ostream& operator <<(std::ostream& out, SatLiteral lit) {
-  const char * s = (literalSign(lit)) ? "~" : " ";
-  out << s << literalToVariable(lit);
+}/* CVC4::prop namespace */
+
+inline std::ostream& operator <<(std::ostream& out, prop::SatLiteral lit) {
+  const char * s = (prop::literalSign(lit)) ? "~" : " ";
+  out << s << prop::literalToVariable(lit);
   return out;
 }
 
-inline std::ostream& operator <<(std::ostream& out, const SatClause& clause) {
+inline std::ostream& operator <<(std::ostream& out, const prop::SatClause& clause) {
   out << "clause:";
   for(int i = 0; i < clause.size(); ++i) {
     out << " " << clause[i];
@@ -274,12 +290,11 @@ inline std::ostream& operator <<(std::ostream& out, const SatClause& clause) {
   return out;
 }
 
-inline std::ostream& operator <<(std::ostream& out, const SatLiteralValue& val) {
-  out << stringOfLiteralValue(val);
+inline std::ostream& operator <<(std::ostream& out, prop::SatLiteralValue val) {
+  out << prop::stringOfLiteralValue(val);
   return out;
 }
 
-}/* CVC4::prop namespace */
 }/* CVC4 namespace */
 
 #endif /* __CVC4__PROP__SAT_H */

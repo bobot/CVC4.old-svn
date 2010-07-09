@@ -2,8 +2,8 @@
 /*! \file type.h
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: dejan
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters, dejan
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -41,9 +41,17 @@ class BooleanType;
 class IntegerType;
 class RealType;
 class BitVectorType;
+class ArrayType;
 class FunctionType;
 class KindType;
 class SortType;
+class Type;
+
+/** Strategy for hashing Types */
+struct CVC4_PUBLIC TypeHashStrategy {
+  /** Return a hash code for type t */
+  static size_t hash(const CVC4::Type& t);
+};/* struct TypeHashStrategy */
 
 /**
  * Class encapsulating CVC4 expression types.
@@ -51,6 +59,8 @@ class SortType;
 class CVC4_PUBLIC Type {
 
   friend class ExprManager;
+  friend class TypeNode;
+  friend class TypeHashStrategy;
 
 protected:
 
@@ -191,6 +201,18 @@ public:
   operator FunctionType() const throw (AssertionException);
 
   /**
+   * Is this a function type?
+   * @return true if the type is a Boolean type
+   */
+  bool isArray() const;
+
+  /**
+   * Cast this type to an array type
+   * @return the ArrayType
+   */
+  operator ArrayType() const throw (AssertionException);
+
+  /**
    * Is this a sort kind?
    * @return true if this is a sort kind
    */
@@ -270,6 +292,23 @@ public:
 
   /** Get the range type (i.e., the type of the result). */
   Type getRangeType() const;
+};
+
+/**
+ * Class encapsulating a function type.
+ */
+class CVC4_PUBLIC ArrayType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  ArrayType(const Type& type) throw (AssertionException);
+
+  /** Get the index type */
+  Type getIndexType() const;
+
+  /** Get the constituent type */
+  Type getConstituentType() const;
 };
 
 /**

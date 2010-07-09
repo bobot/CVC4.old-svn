@@ -138,7 +138,7 @@ class TableauCell {
 
 // for hash_maps, hash_sets..
 struct RowColumnHash {
-  size_t operator()( pair<Row*, Column*> p) const {
+  size_t operator()( std::pair<Row*, Column*> p) const {
      __gnu_cxx::hash<size_t> H;
     Row* r = p.first;
     Column* c = p.second;
@@ -146,7 +146,7 @@ struct RowColumnHash {
 
   }
 };
-typedef __gnu_cxx::hash_map< pair<Row*,Column*>, TableauCell*, RowColumnHash> CellMap;
+typedef __gnu_cxx::hash_map< std::pair<Row*,Column*>, TableauCell*, RowColumnHash> CellMap;
 typedef __gnu_cxx::hash_map< TNode, Row*, NodeHashFunction> RowMap;
 typedef __gnu_cxx::hash_map< TNode, Column*, NodeHashFunction> ColumnMap;
 
@@ -195,6 +195,10 @@ public:
   RowMap::iterator rowEnd(){
     return rowMap.end();
   }
+  bool isEjected(TNode var) { return false; }
+
+  void ejectBasic(TNode basic) { }
+  void reinjectBasic(TNode basic) {}
 };
 
 

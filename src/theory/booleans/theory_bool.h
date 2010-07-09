@@ -30,8 +30,8 @@ namespace booleans {
 
 class TheoryBool : public Theory {
 public:
-  TheoryBool(context::Context* c, OutputChannel& out) :
-    Theory(c, out) {
+  TheoryBool(int id, context::Context* c, OutputChannel& out) :
+    Theory(id, c, out) {
   }
 
   void preRegisterTerm(TNode n) {
@@ -45,7 +45,7 @@ public:
   void check(Effort e) { Unimplemented(); }
   void propagate(Effort e) { Unimplemented(); }
   void explain(TNode n, Effort e) { Unimplemented(); }
-
+  std::string identify() const { return std::string("TheoryBool"); }
 };
 
 }/* CVC4::theory::booleans namespace */

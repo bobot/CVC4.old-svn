@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -63,7 +63,7 @@ pANTLR3_INPUT_STREAM AntlrInputStream::getAntlr3InputStream() const {
 AntlrInputStream* 
 AntlrInputStream::newFileInputStream(const std::string& name, 
                                      bool useMmap)
-  throw (InputStreamException) {
+  throw (InputStreamException, AssertionException) {
   pANTLR3_INPUT_STREAM input = NULL;
   if( useMmap ) {
     input = MemoryMappedInputBufferNew(name);
@@ -79,7 +79,7 @@ AntlrInputStream::newFileInputStream(const std::string& name,
 AntlrInputStream* 
 AntlrInputStream::newStreamInputStream(std::istream& input, 
                                        const std::string& name)
-  throw (InputStreamException) {
+  throw (InputStreamException, AssertionException) {
 
   // Since these are all NULL on entry, realloc will be called
   char *basep = NULL, *boundp = NULL, *cp = NULL;
@@ -126,7 +126,7 @@ AntlrInputStream::newStreamInputStream(std::istream& input,
 AntlrInputStream* 
 AntlrInputStream::newStringInputStream(const std::string& input, 
                                        const std::string& name)
-  throw (InputStreamException) {
+  throw (InputStreamException, AssertionException) {
   char* inputStr = strdup(input.c_str());
   char* nameStr = strdup(name.c_str());
   AlwaysAssert( inputStr!=NULL && nameStr!=NULL );
@@ -159,6 +159,7 @@ AntlrInput* AntlrInput::newInput(InputLanguage lang, AntlrInputStream& inputStre
   default:
     Unhandled(lang);
   }
+
   return input;
 }
 
@@ -225,7 +226,7 @@ void AntlrInput::lexerError(pANTLR3_BASE_RECOGNIZER recognizer) {
 }
 
 void AntlrInput::parseError(const std::string& message)
-    throw (ParserException) {
+  throw (ParserException, AssertionException) {
   Debug("parser") << "Throwing exception: "
       << getInputStream()->getName() << ":"
       << d_lexer->getLine(d_lexer) << "."

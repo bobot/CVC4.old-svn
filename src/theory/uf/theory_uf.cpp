@@ -26,8 +26,8 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 
-TheoryUF::TheoryUF(Context* c, OutputChannel& out) :
-  Theory(c, out),
+TheoryUF::TheoryUF(int id, Context* c, OutputChannel& out) :
+  Theory(id, c, out),
   d_assertions(c),
   d_pending(c),
   d_currentPendingIdx(c,0),
@@ -307,7 +307,7 @@ void TheoryUF::check(Effort level) {
     merge();
   }
 
-  if(fullEffort(level)) {
+  if(standardEffortOrMore(level)) {
     for(CDList<Node>::const_iterator diseqIter = d_disequality.begin();
         diseqIter != d_disequality.end();
         ++diseqIter) {

@@ -11,7 +11,7 @@ void Tableau::initializeVariable(TNode x){
   Assert(!hasColumn(x));
 
   Column* col = new Column(x);
-  colMap.insert(make_pair(x,col));
+  colMap.insert(std::make_pair(x,col));
 }
 
 
@@ -27,7 +27,7 @@ void Tableau::insertRow(TNode eq){
   Row* row_var = new Row(var);
   //Column* col_var = new Column(var);
 
-  rowMap.insert(make_pair(var,row_var));
+  rowMap.insert(std::make_pair(var,row_var));
   //  colMap.insert(make_pair(var,col_var));
 
   for(TNode::iterator iter=sum.begin(); iter != sum.end(); ++iter){
@@ -49,7 +49,7 @@ void Tableau::insertRow(TNode eq){
 //       }
       Column* col = lookupColumn(var_i);
       TableauCell* newCell = new TableauCell(row_var, col, coeff);
-      cellMap.insert(make_pair(make_pair(row_var,col), newCell));
+      cellMap.insert(std::make_pair(std::make_pair(row_var,col), newCell));
     }
   }
 }
@@ -65,11 +65,11 @@ void Tableau::pivot(Row* r, Column* c){
 
   r->setBasic(c->getVariable());
 
-  rowMap.insert(make_pair(r->getBasic(), r));
+  rowMap.insert(std::make_pair(r->getBasic(), r));
 
   Column* oldBasicCol = lookupColumn(oldBasic);
   TableauCell* oldBasicCell = new TableauCell(r, oldBasicCol, -1);
-  cellMap.insert(make_pair(make_pair(r,oldBasicCol), oldBasicCell));
+  cellMap.insert(std::make_pair(std::make_pair(r,oldBasicCol), oldBasicCell));
 
 
   Rational q = -(nbCell->coefficient.inverse());
@@ -90,7 +90,7 @@ void Tableau::pivot(Row* r, Column* c){
 }
 
 void Tableau::removeCell(TableauCell* cell){
-  cellMap.erase(make_pair(cell->getRow(),cell->getColumn()));
+  cellMap.erase(std::make_pair(cell->getRow(),cell->getColumn()));
   cell->d_row->erase(cell->d_rowPos);
   cell->d_col->erase(cell->d_colPos);
   delete cell;
@@ -109,7 +109,7 @@ void Tableau::addNonbasicsInRow(Row* dest, Row* src, const Rational& coeff){
       }
     }else{
       target = new TableauCell(dest, c, cell->coefficient * coeff);
-      cellMap.insert(make_pair(make_pair(dest,c), target));
+      cellMap.insert(std::make_pair(std::make_pair(dest,c), target));
     }
   }
 }
@@ -157,16 +157,16 @@ Column* Tableau::lookupColumn(TNode variable){
 }
 
 TableauCell* Tableau::lookupCell(Row* r, Column* c){
-  CellMap::iterator i = cellMap.find(make_pair(r,c));
+  CellMap::iterator i = cellMap.find(std::make_pair(r,c));
   Assert(i != cellMap.end());
   return (i->second);
 }
 
 bool Tableau::hasCell(Row* r, Column* c){
-  return cellMap.find(make_pair(r,c)) != cellMap.end();
+  return cellMap.find(std::make_pair(r,c)) != cellMap.end();
 }
 bool Tableau::hasCell(Row* r, Column* c, TableauCell*& cell){
-  CellMap::iterator i = cellMap.find(make_pair(r,c));
+  CellMap::iterator i = cellMap.find(std::make_pair(r,c));
   bool res = (i != cellMap.end());
   cell = res ? (i->second) : NULL;
   return res;

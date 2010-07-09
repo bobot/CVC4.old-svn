@@ -26,7 +26,7 @@
 #include "expr/node_manager.h"
 #include "expr/attribute.h"
 #include "expr/node.h"
-#include "theory/theory.h"
+#include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
 #include "util/Assert.h"
 
@@ -131,15 +131,24 @@ public:
     TS_ASSERT_DIFFERS(TestFlag4::s_id, TestFlag5::s_id);
 
     lastId = attr::LastAttributeId<bool, true>::s_id;
-    TS_ASSERT_LESS_THAN(theory::Theory::RegisteredAttr::s_id, lastId);
+    TS_ASSERT_LESS_THAN(TheoryEngine::RegisteredAttr::s_id, lastId);
     TS_ASSERT_LESS_THAN(TestFlag1cd::s_id, lastId);
     TS_ASSERT_LESS_THAN(TestFlag2cd::s_id, lastId);
-    TS_ASSERT_DIFFERS(theory::Theory::RegisteredAttr::s_id, TestFlag1cd::s_id);
-    TS_ASSERT_DIFFERS(theory::Theory::RegisteredAttr::s_id, TestFlag2cd::s_id);
+    TS_ASSERT_DIFFERS(TheoryEngine::RegisteredAttr::s_id, TestFlag1cd::s_id);
+    TS_ASSERT_DIFFERS(TheoryEngine::RegisteredAttr::s_id, TestFlag2cd::s_id);
     TS_ASSERT_DIFFERS(TestFlag1cd::s_id, TestFlag2cd::s_id);
 
-    lastId = attr::LastAttributeId<TNode, false>::s_id;
-    TS_ASSERT_LESS_THAN(theory::RewriteCache::s_id, lastId);
+    lastId = attr::LastAttributeId<Node, false>::s_id;
+    TS_ASSERT_LESS_THAN(theory::PreRewriteCache::s_id, lastId);
+    TS_ASSERT_LESS_THAN(theory::PostRewriteCache::s_id, lastId);
+    TS_ASSERT_LESS_THAN(theory::PreRewriteCacheTop::s_id, lastId);
+    TS_ASSERT_LESS_THAN(theory::PostRewriteCacheTop::s_id, lastId);
+    TS_ASSERT_DIFFERS(theory::PreRewriteCache::s_id, theory::PostRewriteCache::s_id);
+    TS_ASSERT_DIFFERS(theory::PreRewriteCache::s_id, theory::PreRewriteCacheTop::s_id);
+    TS_ASSERT_DIFFERS(theory::PreRewriteCache::s_id, theory::PostRewriteCacheTop::s_id);
+    TS_ASSERT_DIFFERS(theory::PostRewriteCache::s_id, theory::PreRewriteCacheTop::s_id);
+    TS_ASSERT_DIFFERS(theory::PostRewriteCache::s_id, theory::PostRewriteCacheTop::s_id);
+    TS_ASSERT_DIFFERS(theory::PreRewriteCacheTop::s_id, theory::PostRewriteCacheTop::s_id);
 
     lastId = attr::LastAttributeId<TypeNode, false>::s_id;
     TS_ASSERT_LESS_THAN(NodeManager::TypeAttr::s_id, lastId);
@@ -176,7 +185,7 @@ public:
     TS_ASSERT(c.hasAttribute(TestFlag1cd()));
 
     // test two-arg version of hasAttribute()
-    bool bb;
+    bool bb = false;
     Debug("boolattr", "get flag 1 on a (should be F)\n");
     TS_ASSERT(a.getAttribute(TestFlag1cd(), bb));
     TS_ASSERT(! bb);

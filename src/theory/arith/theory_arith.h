@@ -30,6 +30,7 @@
 #include "theory/arith/linked_tableau.h"
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/partial_model.h"
+#include "theory/arith/arith_propagator.h"
 
 #include "util/stats.h"
 
@@ -39,7 +40,6 @@
 namespace CVC4 {
 namespace theory {
 namespace arith {
-
 
 /**
  * Implementation of QF_LRA.
@@ -96,15 +96,28 @@ private:
    */
   ArithRewriter d_rewriter;
 
+  ArithUnatePropagator d_propagator;
 
 public:
-  TheoryArith(context::Context* c, OutputChannel& out);
+  TheoryArith(int id, context::Context* c, OutputChannel& out);
   ~TheoryArith();
 
   /**
    * Rewrites a node to a unique normal form given in normal_form_notes.txt
    */
   Node rewrite(TNode n);
+
+  /**
+   * Rewriting optimizations.
+   */
+  RewriteResponse preRewrite(TNode n, bool topLevel);
+
+  /**
+   * Plug in old rewrite to the new (pre,post)rewrite interface.
+   */
+  RewriteResponse postRewrite(TNode n, bool topLevel) {
+    return RewriteComplete(topLevel ? rewrite(n) : Node(n));
+  }
 
   /**
    * Does non-context dependent setup for a node connected to a theory.
@@ -115,11 +128,12 @@ public:
   void registerTerm(TNode n);
 
   void check(Effort e);
-  void propagate(Effort e) { Unimplemented(); }
-  void explain(TNode n, Effort e) { Unimplemented(); }
+  void propagate(Effort e);
+  void explain(TNode n, Effort e);
 
   void shutdown(){ }
 
+  std::string identify() const { return std::string("TheoryArith"); }
 
 private:
   /**
@@ -230,6 +244,9 @@ private:
    */
   bool assertionCases(TNode original, TNode assertion);
 
+  bool shouldEject(TNode var);
+  void ejectInactiveVariables();
+  void reinjectVariable(TNode x);
 
   //TODO get rid of this!
   Node simulatePreprocessing(TNode n);
@@ -242,11 +259,13 @@ private:
     IntStat d_statAssertLowerConflicts, d_statUpdateConflicts;
 
     Statistics();
+    ~Statistics();
   };
 
   Statistics d_statistics;
 
-};
+
+};/* class TheoryArith */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

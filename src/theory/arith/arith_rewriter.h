@@ -2,7 +2,7 @@
 /*! \file arith_rewriter.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
@@ -103,7 +103,7 @@ private:
 
   Node multPnfByNonZero(TNode pnf, Rational& q);
 
-  Node rewriteConstantDiv(TNode t);
+  Node rewriteDivByConstant(TNode t);
   void sortAndCombineCoefficients(std::vector<Node>& pnfs);
 
 

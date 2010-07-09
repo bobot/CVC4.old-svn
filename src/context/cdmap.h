@@ -106,11 +106,6 @@ namespace context {
 
 template <class Key, class Data, class HashFcn = __gnu_cxx::hash<Key> > class CDMap;
 
-template <class T, class U>
-inline std::ostream& operator<<(std::ostream& out, const std::pair<T, U>& p) {
-  return out << "[" << p.first << "," << p.second << "]";
-}
-
 template <class Key, class Data, class HashFcn = __gnu_cxx::hash<Key> >
 class CDOmap : public ContextObj {
   friend class CDMap<Key, Data, HashFcn>;
@@ -118,6 +113,9 @@ class CDOmap : public ContextObj {
   Key d_key;
   Data d_data;
   CDMap<Key, Data, HashFcn>* d_map;
+
+  /** never put this cdmap element on the trash */
+  bool d_noTrash;
 
   // Doubly-linked list for keeping track of elements in order of insertion
   CDOmap* d_prev;
@@ -152,13 +150,27 @@ class CDOmap : public ContextObj {
         }
         d_next->d_prev = d_prev;
         d_prev->d_next = d_next;
-        Debug("gc") << "CDMap<> trash push_back " << this << std::endl;
-        //this->deleteSelf();
-        d_map->d_trash.push_back(this);
+        if(d_noTrash) {
+          Debug("gc") << "CDMap<> no-trash " << this << std::endl;
+        } else {
+          Debug("gc") << "CDMap<> trash push_back " << this << std::endl;
+          //this->deleteSelf();
+          d_map->d_trash.push_back(this);
+        }
       } else {
         d_data = p->d_data;
       }
     }
+  }
+
+  /** ensure copy ctor is only called by us */
+  CDOmap(const CDOmap& other) :
+    ContextObj(other),
+    d_key(other.d_key),
+    d_data(other.d_data),
+    d_map(other.d_map),
+    d_prev(NULL),
+    d_next(NULL) {
   }
 
 public:
@@ -166,16 +178,39 @@ public:
   CDOmap(Context* context,
          CDMap<Key, Data, HashFcn>* map,
 	 const Key& key,
-         const Data& data) :
-    ContextObj(context),
+         const Data& data,
+         bool atLevelZero = false,
+         bool allocatedInCMM = false) :
+    ContextObj(allocatedInCMM, context),
     d_key(key),
-    d_map(NULL) {
+    d_map(NULL),
+    d_noTrash(allocatedInCMM) {
 
-    // makeCurrent(), then set the data and then the map.  Order is
-    // important; we can't initialize d_map in the constructor init
-    // list above, because we want the restore of d_map to NULL to
-    // signal us to remove the element from the map.
-    set(data);
+    // untested, probably unsafe.
+    Assert(!(atLevelZero && allocatedInCMM));
+
+    if(atLevelZero) {
+      // "Initializing" map insertion: this entry will never be
+      // removed from the map, it's inserted at level 0 as an
+      // "initializing" element.  See
+      // CDMap<>::insertAtContextLevelZero().
+      d_data = data;
+    } else {
+      // Normal map insertion: first makeCurrent(), then set the data
+      // and then, later, the map.  Order is important; we can't
+      // initialize d_map in the constructor init list above, because
+      // we want the restore of d_map to NULL to signal us to remove
+      // the element from the map.
+
+      if(allocatedInCMM) {
+        // Force a save/restore point, even though the object is
+        // allocated here.  This is so that we can detect when the
+        // object falls out of the map (otherwise we wouldn't get it).
+        makeSaveRestorePoint();
+      }
+
+      set(data);
+    }
     d_map = map;
 
     CDOmap*& first = d_map->d_first;
@@ -348,7 +383,7 @@ public:
     return *obj;
   }
 
-  void insert(const Key& k, const Data& d) {
+  bool insert(const Key& k, const Data& d) {
     emptyTrash();
 
     typename table_type::iterator i = d_map.find(k);
@@ -356,9 +391,60 @@ public:
     if(i == d_map.end()) {// create new object
       Element* obj = new(true) Element(d_context, this, k, d);
       d_map[k] = obj;
+      return true;
     } else {
       (*i).second->set(d);
+      return false;
     }
+  }
+
+  // Use this for pointer data d allocated in context memory at this
+  // level.  THIS IS HIGHLY EXPERIMENTAL.  It seems to work if ALL
+  // your data objects are allocated from context memory.
+  void insertDataFromContextMemory(const Key& k, const Data& d) {
+    emptyTrash();
+
+    AlwaysAssert(d_map.find(k) == d_map.end());
+
+    Element* obj = new(d_context->getCMM()) Element(d_context, this, k, d,
+                                                    false /* atLevelZero */,
+                                                    true /* allocatedInCMM */);
+
+    d_map[k] = obj;
+  }
+
+  /**
+   * Version of insert() for CDMap<> that inserts data value d at
+   * context level zero.  This is a special escape hatch for inserting
+   * "initializing" data into the map.  Imagine something happens at a
+   * deep context level L that causes insertion into a map, such that
+   * the object should have an "initializing" value v1 below context
+   * level L, and a "current" value v2 at context level L.  Then you
+   * can (assuming key k):
+   *
+   *   map.insertAtContextLevelZero(k, v1);
+   *   map.insert(k, v2);
+   *
+   * The justification for this "escape hatch" has to do with
+   * variables and assignments in theories (e.g., in arithmetic).
+   * Let's say you introduce a new variable x at some deep decision
+   * level (thanks to lazy registration, or a splitting lemma, or
+   * whatever).  x might be mapped to something, but for theory
+   * implementation simplicity shouldn't disappear from the map on
+   * backjump; rather, it can take another (legal) value, or a special
+   * value to indicate it needs to be recomputed.
+   *
+   * It is an error (checked via AlwaysAssert()) to
+   * insertAtContextLevelZero() a key that already is in the map.
+   */
+  void insertAtContextLevelZero(const Key& k, const Data& d) {
+    emptyTrash();
+
+    AlwaysAssert(d_map.find(k) == d_map.end());
+
+    Element* obj = new(true) Element(d_context, this, k, d,
+                                     true /* atLevelZero */);
+    d_map[k] = obj;
   }
 
   // FIXME: no erase(), too much hassle to implement efficiently...

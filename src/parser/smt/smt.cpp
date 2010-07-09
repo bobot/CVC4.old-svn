@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -83,11 +83,9 @@ void Smt::addTheory(Theory theory) {
   case THEORY_ARRAYS:
   case THEORY_ARRAYS_EX: {
     Type indexType = mkSort("Index");
-    Type elementTYpe = mkSort("Element");
+    Type elementType = mkSort("Element");
     
-    // FIXME: should be defineType("Array",arrayType(indexType,elementType))
-    // but arrayType isn't defined
-    mkSort("Array");
+    defineType("Array",getExprManager()->mkArrayType(indexType,elementType));
 
     addOperator(kind::SELECT);
     addOperator(kind::STORE);
@@ -121,6 +119,11 @@ bool Smt::logicIsSet() {
   return d_logicSet;
 }
 
+inline void Smt::addUf() {
+  addTheory(Smt::THEORY_EMPTY);
+  addOperator(kind::APPLY_UF);
+}
+
 /**
  * Sets the logic for the current benchmark. Declares any logic and theory symbols.
  *
@@ -152,17 +155,26 @@ void Smt::setLogic(const std::string& name) {
     break;
 
   case QF_UFIDL:
+  case QF_UFLIA:
     addTheory(THEORY_INTS);
-    // falling-through on purpose, to add UF part of UFIDL
+    addUf();
+    break;
+
+  case QF_UFLRA:
+  case QF_UFNRA:
+    addTheory(THEORY_REALS);
+    addUf();
+    break;
 
   case QF_UF:
-    addTheory(THEORY_EMPTY);
-    addOperator(kind::APPLY_UF);
+    addUf();
     break;
 
   case AUFLIA:
   case AUFLIRA:
   case AUFNIRA:
+  case LRA:
+  case UFNIA:
   case QF_AUFBV:
   case QF_AUFLIA:
   case QF_BV:

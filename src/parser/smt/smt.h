@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -36,9 +36,10 @@ class Smt : public Parser {
 
 public:
   enum Logic {
-    AUFLIA,
+    AUFLIA, // +p and -p?
     AUFLIRA,
     AUFNIRA,
+    LRA,
     QF_AUFBV,
     QF_AUFLIA,
     QF_AX,
@@ -50,7 +51,11 @@ public:
     QF_RDL,
     QF_SAT,
     QF_UF,
-    QF_UFIDL
+    QF_UFIDL,
+    QF_UFLIA,
+    QF_UFLRA,
+    QF_UFNRA,
+    UFNIA
   };
 
   enum Theory {
@@ -102,6 +107,7 @@ public:
 private:
 
   void addArithmeticOperators();
+  void addUf();
   static std::hash_map<const std::string, Logic, CVC4::StringHashFunction> newLogicMap();
 };
 }/* CVC4::parser namespace */

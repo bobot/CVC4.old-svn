@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -36,6 +36,7 @@ void Smt2::addArithmeticOperators() {
   addOperator(kind::MINUS);
   addOperator(kind::UMINUS);
   addOperator(kind::MULT);
+  addOperator(kind::DIVISION);
   addOperator(kind::LT);
   addOperator(kind::LEQ);
   addOperator(kind::GT);
@@ -128,17 +129,27 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_REALS);
     break;
 
+  case Smt::QF_UF:
+    addOperator(kind::APPLY_UF);
+    break;
+
   case Smt::QF_UFIDL:
     addTheory(THEORY_INTS);
-    // falling-through on purpose, to add UF part of UFIDL
+    addOperator(kind::APPLY_UF);
+    break;
 
-  case Smt::QF_UF:
+  case Smt::QF_UFLIA:
+  case Smt::QF_UFLRA:
+  case Smt::QF_UFNRA:
+    addTheory(THEORY_REALS);
     addOperator(kind::APPLY_UF);
     break;
 
   case Smt::AUFLIA:
   case Smt::AUFLIRA:
   case Smt::AUFNIRA:
+  case Smt::LRA:
+  case Smt::UFNIA:
   case Smt::QF_AUFBV:
   case Smt::QF_AUFLIA:
   case Smt::QF_BV:

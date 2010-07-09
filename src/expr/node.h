@@ -99,7 +99,7 @@ class NodeValue;
     class AttributeManager;
   }/* CVC4::expr::attr namespace */
 
-  class NodeSetDepth;
+  class ExprSetDepth;
 }/* CVC4::expr namespace */
 
 /**
@@ -304,7 +304,8 @@ public:
    * Returns the type of this node.
    * @return the type
    */
-  TypeNode getType() const throw (CVC4::TypeCheckingExceptionPrivate);
+  TypeNode getType() const
+    throw (CVC4::TypeCheckingExceptionPrivate, CVC4::AssertionException);
 
   /**
    * Returns the kind of this node.
@@ -454,12 +455,13 @@ public:
    * given stream
    * @param out the sream to serialise this node to
    */
-  inline void toStream(std::ostream& out, int toDepth = -1) const {
+  inline void toStream(std::ostream& out, int toDepth = -1,
+                       bool types = false) const {
     if(!ref_count) {
       Assert( d_nv->d_rc > 0, "TNode pointing to an expired NodeValue" );
     }
 
-    d_nv->toStream(out, toDepth);
+    d_nv->toStream(out, toDepth, types);
   }
 
   /**
@@ -476,14 +478,25 @@ public:
    *
    * gives "(OR a b (...))"
    */
-  typedef expr::NodeSetDepth setdepth;
+  typedef expr::ExprSetDepth setdepth;
+
+  /**
+   * IOStream manipulator to print type ascriptions or not.
+   *
+   *   // let a, b, c, and d be variables of sort U
+   *   Node n = nm->mkNode(OR, a, b, nm->mkNode(AND, c, nm->mkNode(NOT, d)))
+   *   out << n;
+   *
+   * gives "(OR a:U b:U (AND c:U (NOT d:U)))", but
+   */
+  typedef expr::ExprPrintTypes printtypes;
 
   /**
    * Very basic pretty printer for Node.
    * @param o output stream to print to.
    * @param indent number of spaces to indent the formula by.
    */
-  void printAst(std::ostream & o, int indent = 0) const;
+  inline void printAst(std::ostream& out, int indent = 0) const;
 
   NodeTemplate<true> eqNode(const NodeTemplate& right) const;
 
@@ -496,98 +509,7 @@ public:
   NodeTemplate<true> impNode(const NodeTemplate& right) const;
   NodeTemplate<true> xorNode(const NodeTemplate& right) const;
 
-private:
-
-  /**
-   * Indents the given stream a given amount of spaces.
-   * @param out the stream to indent
-   * @param indent the numer of spaces
-   */
-  static void indent(std::ostream& out, int indent) {
-    for(int i = 0; i < indent; i++) {
-      out << ' ';
-    }
-  }
-
 };/* class NodeTemplate<ref_count> */
-
-namespace expr {
-
-/**
- * IOStream manipulator to set the maximum depth of Nodes when
- * pretty-printing.  -1 means print to any depth.  E.g.:
- *
- *   // let a, b, c, and d be VARIABLEs
- *   Node n = nm->mkNode(OR, a, b, nm->mkNode(AND, c, nm->mkNode(NOT, d)))
- *   out << setdepth(3) << n;
- *
- * gives "(OR a b (AND c (NOT d)))", but
- *
- *   out << setdepth(1) << [same node as above]
- *
- * gives "(OR a b (...))".
- *
- * The implementation of this class serves two purposes; it holds
- * information about the depth setting (such as the index of the
- * allocated word in ios_base), and serves also as the manipulator
- * itself (as above).
- */
-class NodeSetDepth {
-  /**
-   * The allocated index in ios_base for our depth setting.
-   */
-  static const int s_iosIndex;
-
-  /**
-   * The default depth to print, for ostreams that haven't yet had a
-   * setdepth() applied to them.
-   */
-  static const int s_defaultPrintDepth = 3;
-
-  /**
-   * When this manipulator is 
-   */
-  long d_depth;
-
-public:
-  /**
-   * Construct a NodeSetDepth with the given depth.
-   */
-  NodeSetDepth(long depth) : d_depth(depth) {}
-
-  inline void applyDepth(std::ostream& out) {
-    out.iword(s_iosIndex) = d_depth;
-  }
-
-  static inline long getDepth(std::ostream& out) {
-    long& l = out.iword(s_iosIndex);
-    if(l == 0) {
-      // set the default print depth on this ostream
-      l = s_defaultPrintDepth;
-    }
-    return l;
-  }
-
-  static inline void setDepth(std::ostream& out, long depth) {
-    out.iword(s_iosIndex) = depth;
-  }
-};
-
-/**
- * Sets the default depth when pretty-printing a Node to an ostream.
- * Use like this:
- *
- *   // let out be an ostream, n a Node
- *   out << Node::setdepth(n) << n << endl;
- *
- * The depth stays permanently (until set again) with the stream.
- */
-inline std::ostream& operator<<(std::ostream& out, NodeSetDepth sd) {
-  sd.applyDepth(out);
-  return out;
-}
-
-}/* CVC4::expr namespace */
 
 /**
  * Serializes a given node to the given stream.
@@ -596,7 +518,9 @@ inline std::ostream& operator<<(std::ostream& out, NodeSetDepth sd) {
  * @return the changed stream.
  */
 inline std::ostream& operator<<(std::ostream& out, TNode n) {
-  n.toStream(out, Node::setdepth::getDepth(out));
+  n.toStream(out,
+             Node::setdepth::getDepth(out),
+             Node::printtypes::getPrintTypes(out));
   return out;
 }
 
@@ -882,30 +806,9 @@ NodeTemplate<ref_count>::xorNode(const NodeTemplate<ref_count>& right) const {
 }
 
 template <bool ref_count>
-void NodeTemplate<ref_count>::printAst(std::ostream& out, int ind) const {
-  indent(out, ind);
-  out << '(';
-  out << getKind();
-  if(getMetaKind() == kind::metakind::VARIABLE) {
-    out << ' ' << getId();
-  } else if(getMetaKind() == kind::metakind::CONSTANT) {
-    out << ' ';
-    kind::metakind::NodeValueConstPrinter::toStream(out, d_nv);
-  } else {
-    if(hasOperator()) {
-      out << std::endl;
-      getOperator().printAst(out, ind + 1);
-    }
-    if(getNumChildren() >= 1) {
-      for(const_iterator child = begin(); child != end(); ++child) {
-        out << std::endl;
-        (*child).printAst(out, ind + 1);
-      }
-      out << std::endl;
-      indent(out, ind);
-    }
-  }
-  out << ')';
+inline void
+NodeTemplate<ref_count>::printAst(std::ostream& out, int indent) const {
+  d_nv->printAst(out, indent);
 }
 
 /**
@@ -957,7 +860,8 @@ inline bool NodeTemplate<ref_count>::hasOperator() const {
 }
 
 template <bool ref_count>
-TypeNode NodeTemplate<ref_count>::getType() const throw (CVC4::TypeCheckingExceptionPrivate) {
+TypeNode NodeTemplate<ref_count>::getType() const
+  throw (CVC4::TypeCheckingExceptionPrivate, CVC4::AssertionException) {
   Assert( NodeManager::currentNM() != NULL,
           "There is no current CVC4::NodeManager associated to this thread.\n"
           "Perhaps a public-facing function is missing a NodeManagerScope ?" );
@@ -986,11 +890,19 @@ TypeNode NodeTemplate<ref_count>::getType() const throw (CVC4::TypeCheckingExcep
  * to meet. A cleaner solution is welcomed.
  */
 static void __attribute__((used)) debugPrintNode(const NodeTemplate<true>& n) {
+  Warning() << Node::setdepth(-1) << n << std::endl;
+  Warning().flush();
+}
+static void __attribute__((used)) debugPrintRawNode(const NodeTemplate<true>& n) {
   n.printAst(Warning(), 0);
   Warning().flush();
 }
 
 static void __attribute__((used)) debugPrintTNode(const NodeTemplate<false>& n) {
+  Warning() << Node::setdepth(-1) << n << std::endl;
+  Warning().flush();
+}
+static void __attribute__((used)) debugPrintRawTNode(const NodeTemplate<false>& n) {
   n.printAst(Warning(), 0);
   Warning().flush();
 }

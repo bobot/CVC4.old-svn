@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -23,7 +23,7 @@
 #ifndef	__CVC4__PARSER__BOUNDED_TOKEN_BUFFER_H
 #define	__CVC4__PARSER__BOUNDED_TOKEN_BUFFER_H
 
-#include    <antlr3defs.h>
+#include <antlr3defs.h>
 
 namespace CVC4 {
 namespace parser {
@@ -50,12 +50,10 @@ void
 BoundedTokenBufferFree(pBOUNDED_TOKEN_BUFFER buffer);
 
 #ifdef __cplusplus
-}
+}/* extern "C" */
 #endif
 
-}
-}
-
+}/* CVC4::parser namespace */
+}/* CVC4 namespace */
 
 #endif /* __CVC4__PARSER__BOUNDED_TOKEN_BUFFER_H */
-

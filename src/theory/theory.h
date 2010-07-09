@@ -29,7 +29,8 @@
 #include <deque>
 #include <list>
 
-#include <typeinfo>
+#include <string>
+#include <iostream>
 
 namespace CVC4 {
 
@@ -38,8 +39,81 @@ class TheoryEngine;
 namespace theory {
 
 // rewrite cache support
-struct RewriteCacheTag {};
-typedef expr::Attribute<RewriteCacheTag, TNode> RewriteCache;
+template <bool topLevel> struct PreRewriteCacheTag {};
+typedef expr::Attribute<PreRewriteCacheTag<true>, Node> PreRewriteCacheTop;
+typedef expr::Attribute<PreRewriteCacheTag<false>, Node> PreRewriteCache;
+template <bool topLevel> struct PostRewriteCacheTag {};
+typedef expr::Attribute<PostRewriteCacheTag<true>, Node> PostRewriteCacheTop;
+typedef expr::Attribute<PostRewriteCacheTag<false>, Node> PostRewriteCache;
+
+/**
+ * Instances of this class serve as response codes from
+ * Theory::preRewrite() and Theory::postRewrite().  Instances of
+ * derived classes RewriteComplete(n), RewriteAgain(n), and
+ * FullRewriteNeeded(n) should be used, giving self-documenting
+ * rewrite behavior.
+ */
+class RewriteResponse {
+protected:
+  enum Status { DONE, REWRITE, REWRITE_FULL };
+
+  RewriteResponse(Status s, Node n) : d_status(s), d_node(n) {}
+
+private:
+  const Status d_status;
+  const Node d_node;
+
+public:
+  bool isDone() const { return d_status == DONE; }
+  bool needsMoreRewriting() const { return d_status != DONE; }
+  bool needsFullRewriting() const { return d_status == REWRITE_FULL; }
+  Node getNode() const { return d_node; }
+};/* class RewriteResponse */
+
+/**
+ * Signal that (pre,post)rewriting of the Node is complete at n.  Note
+ * that if theory A returns this, and the Node is in another theory B,
+ * theory B will still be called on to pre- or postrewrite it.
+ */
+class RewriteComplete : public RewriteResponse {
+public:
+  RewriteComplete(Node n) : RewriteResponse(DONE, n) {}
+};/* class RewriteComplete */
+
+/**
+ * Return n, but request additional rewriting of it; if this is
+ * returned from preRewrite(), this re-preRewrite()'s the Node.  If
+ * this is returned from postRewrite(), this re-postRewrite()'s the
+ * Node, but does NOT re-preRewrite() it, nor does it rewrite the
+ * Node's children.
+ *
+ * Note that this is the behavior if a theory returns
+ * RewriteComplete() for a Node belonging to another theory.
+ */
+class RewriteAgain : public RewriteResponse {
+public:
+  RewriteAgain(Node n) : RewriteResponse(REWRITE, n) {}
+};/* class RewriteAgain */
+
+/**
+ * Return n, but request an additional complete rewriting pass over
+ * it.  This has the same behavior as RewriteAgain() for
+ * pre-rewriting.  However, in post-rewriting, FullRewriteNeeded will
+ * _completely_ pre- and post-rewrite the term and the term's children
+ * (though it will use the cache to elide what calls it can).  Use
+ * with caution; it has bad effects on performance.  This might be
+ * useful if theory A rewrites a term into something quite different,
+ * and certain child nodes might belong to another theory whose normal
+ * form is unknown to theory A.  For example, if the builtin theory
+ * post-rewrites (DISTINCT a b c) into pairwise NOT EQUAL expressions,
+ * the theories owning a, b, and c might need to rewrite that EQUAL.
+ * (This came up, but the fix was to rewrite DISTINCT in
+ * pre-rewriting, obviating the problem.  See bug #168.)
+ */
+class FullRewriteNeeded : public RewriteResponse {
+public:
+  FullRewriteNeeded(Node n) : RewriteResponse(REWRITE_FULL, n) {}
+};/* class FullRewriteNeeded */
 
 /**
  * Base class for T-solvers.  Abstract DPLL(T).
@@ -60,6 +134,11 @@ private:
    * Disallow default construction.
    */
   Theory();
+
+  /**
+   * A unique integer identifying the theory
+   */
+  int d_id;
 
   /**
    * The context for the Theory.
@@ -101,7 +180,8 @@ protected:
   /**
    * Construct a Theory.
    */
-  Theory(context::Context* ctxt, OutputChannel& out) throw() :
+  Theory(int id, context::Context* ctxt, OutputChannel& out) throw() :
+    d_id(id),
     d_context(ctxt),
     d_facts(),
     d_factsResetter(*this),
@@ -121,10 +201,6 @@ protected:
     d_facts.clear();
   }
 
-  context::Context* getContext() const {
-    return d_context;
-  }
-
   /**
    * The output channel for the Theory.
    */
@@ -137,31 +213,6 @@ protected:
     return d_facts.empty();
   }
 
-  /**
-   * Return whether a node is shared or not.  Used by setup().
-   */
-  bool isShared(TNode n) throw();
-
-  /**
-   * Check whether a node is in the rewrite cache or not.
-   */
-  static bool inRewriteCache(TNode n) throw() {
-    return n.hasAttribute(RewriteCache());
-  }
-
-  /**
-   * Get the value of the rewrite cache (or Node::null()) if there is
-   * none).
-   */
-  static Node getRewriteCache(TNode n) throw() {
-    return n.getAttribute(RewriteCache());
-  }
-
-  /** Tag for the "registerTerm()-has-been-called" flag on Nodes */
-  struct Registered {};
-  /** The "registerTerm()-has-been-called" flag on Nodes */
-  typedef CVC4::expr::CDAttribute<Registered, bool> RegisteredAttr;
-
   /** Tag for the "preRegisterTerm()-has-been-called" flag on Nodes */
   struct PreRegistered {};
   /** The "preRegisterTerm()-has-been-called" flag on Nodes */
@@ -173,7 +224,16 @@ protected:
    *
    * @return the next atom in the assertFact() queue.
    */
-  Node get();
+  Node get() {
+    Assert( !d_facts.empty(),
+            "Theory::get() called with assertion queue empty!" );
+    Node fact = d_facts.front();
+    d_facts.pop_front();
+    Debug("theory") << "Theory::get() => " << fact
+                    << "(" << d_facts.size() << " left)" << std::endl;
+    d_out->newFact(fact);
+    return fact;
+  }
 
 public:
 
@@ -208,6 +268,20 @@ public:
   static bool fullEffort(Effort e)           { return e >= FULL_EFFORT; }
 
   /**
+   * Get the id for this Theory.
+   */
+  int getId() const {
+    return d_id;
+  }
+
+  /**
+   * Get the context associated to this Theory.
+   */
+  context::Context* getContext() const {
+    return d_context;
+  }
+
+  /**
    * Set the output channel associated to this theory.
    */
   void setOutputChannel(OutputChannel& out) {
@@ -230,15 +304,31 @@ public:
 
   /**
    * Pre-register a term.  Done one time for a Node, ever.
-   *
    */
   virtual void preRegisterTerm(TNode) = 0;
 
   /**
-   * Rewrite a term.  Done one time for a Node, ever.
+   * Pre-rewrite a term.  This default base-class implementation
+   * simply returns RewriteComplete(n).  A theory should never
+   * rewrite a term to a strictly larger term that contains itself, as
+   * this will cause a loop of hard Node links in the cache (and thus
+   * memory leakage).
    */
-  virtual Node rewrite(TNode n) {
-    return n;
+  virtual RewriteResponse preRewrite(TNode n, bool topLevel) {
+    Debug("theory-rewrite") << "no pre-rewriting to perform for " << n << std::endl;
+    return RewriteComplete(n);
+  }
+
+  /**
+   * Post-rewrite a term.  This default base-class implementation
+   * simply returns RewriteComplete(n).  A theory should never
+   * rewrite a term to a strictly larger term that contains itself, as
+   * this will cause a loop of hard Node links in the cache (and thus
+   * memory leakage).
+   */
+  virtual RewriteResponse postRewrite(TNode n, bool topLevel) {
+    Debug("theory-rewrite") << "no post-rewriting to perform for " << n << std::endl;
+    return RewriteComplete(n);
   }
 
   /**
@@ -263,6 +353,22 @@ public:
   }
 
   /**
+   * This method is called to notify a theory that the node n should be considered a "shared term" by this theory
+   */
+  virtual void addSharedTerm(TNode n) { }
+
+  /**
+   * This method is called by the shared term manager when a shared term lhs
+   * which this theory cares about (either because it received a previous
+   * addSharedTerm call with lhs or because it received a previous notifyEq call
+   * with lhs as the second argument) becomes equal to another shared term rhs.
+   * This call also serves as notice to the theory that the shared term manager
+   * now considers rhs the representative for this equivalence class of shared
+   * terms, so future notifications for this class will be based on rhs not lhs.
+   */
+  virtual void notifyEq(TNode lhs, TNode rhs) { }
+
+  /**
    * Check the current assignment's consistency.
    *
    * An implementation of check() is required to either:
@@ -284,6 +390,12 @@ public:
    * explanations to an output channel.
    */
   virtual void explain(TNode n, Effort level = FULL_EFFORT) = 0;
+
+  /**
+   * Identify this theory (for debugging, dynamic configuration,
+   * etc..)
+   */
+  virtual std::string identify() const = 0;
 
   //
   // CODE INVARIANT CHECKING (used only with CVC4_ASSERTIONS)
@@ -329,9 +441,106 @@ protected:
     return true;
   }
 
+  /**
+   * Check whether a node is in the pre-rewrite cache or not.
+   */
+  static bool inPreRewriteCache(TNode n, bool topLevel) throw() {
+    if(topLevel) {
+      return n.hasAttribute(PreRewriteCacheTop());
+    } else {
+      return n.hasAttribute(PreRewriteCache());
+    }
+  }
+
+  /**
+   * Get the value of the pre-rewrite cache (or Node::null()) if there is
+   * none).
+   */
+  static Node getPreRewriteCache(TNode n, bool topLevel) throw() {
+    if(topLevel) {
+      Node out;
+      if(n.getAttribute(PreRewriteCacheTop(), out)) {
+        return out.isNull() ? Node(n) : out;
+      }
+    } else {
+      Node out;
+      if(n.getAttribute(PreRewriteCache(), out)) {
+        return out.isNull() ? Node(n) : out;
+      }
+    }
+    return Node::null();
+  }
+
+  /**
+   * Set the value of the pre-rewrite cache.  v cannot be a null Node.
+   */
+  static void setPreRewriteCache(TNode n, bool topLevel, TNode v) throw() {
+    AssertArgument(!n.isNull(), n, "n cannot be null in setPostRewriteCache()");
+    AssertArgument(!v.isNull(), v, "v cannot be null in setPreRewriteCache()");
+    // mappings from  n -> n  are actually stored as  n -> null  as a
+    // special case, to avoid cycles in the reference-counting of Nodes
+    if(topLevel) {
+      n.setAttribute(PreRewriteCacheTop(), n == v ? TNode::null() : v);
+    } else {
+      n.setAttribute(PreRewriteCache(), n == v ? TNode::null() : v);
+    }
+  }
+
+  /**
+   * Check whether a node is in the post-rewrite cache or not.
+   */
+  static bool inPostRewriteCache(TNode n, bool topLevel) throw() {
+    if(topLevel) {
+      return n.hasAttribute(PostRewriteCacheTop());
+    } else {
+      return n.hasAttribute(PostRewriteCache());
+    }
+  }
+
+  /**
+   * Get the value of the post-rewrite cache (or Node::null()) if there is
+   * none).
+   */
+  static Node getPostRewriteCache(TNode n, bool topLevel) throw() {
+    if(topLevel) {
+      Node out;
+      if(n.getAttribute(PostRewriteCacheTop(), out)) {
+        return out.isNull() ? Node(n) : out;
+      }
+    } else {
+      Node out;
+      if(n.getAttribute(PostRewriteCache(), out)) {
+        return out.isNull() ? Node(n) : out;
+      }
+    }
+    return Node::null();
+  }
+
+  /**
+   * Set the value of the post-rewrite cache.  v cannot be a null Node.
+   */
+  static void setPostRewriteCache(TNode n, bool topLevel, TNode v) throw() {
+    AssertArgument(!n.isNull(), n, "n cannot be null in setPostRewriteCache()");
+    AssertArgument(!v.isNull(), v, "v cannot be null in setPostRewriteCache()");
+    // mappings from  n -> n  are actually stored as  n -> null  as a
+    // special case, to avoid cycles in the reference-counting of Nodes
+    if(topLevel) {
+      n.setAttribute(PostRewriteCacheTop(), n == v ? TNode::null() : v);
+    } else {
+      n.setAttribute(PostRewriteCache(), n == v ? TNode::null() : v);
+    }
+  }
+
 };/* class Theory */
 
+std::ostream& operator<<(std::ostream& os, Theory::Effort level);
+
 }/* CVC4::theory namespace */
+
+inline std::ostream& operator<<(std::ostream& out, const CVC4::theory::Theory& theory) {
+  return out << theory.identify();
+}
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__THEORY__THEORY_H */

@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -81,7 +81,7 @@ protected:
    *
    * @throws ParserException if an error is encountered during parsing.
    */
-  Command* parseCommand() throw(ParserException);
+  Command* parseCommand() throw(ParserException, AssertionException);
 
   /**
    * Parse an expression from the input. Returns a null
@@ -89,7 +89,7 @@ protected:
    *
    * @throws ParserException if an error is encountered during parsing.
    */
-  Expr parseExpr() throw(ParserException);
+  Expr parseExpr() throw(ParserException, AssertionException);
 
 };/* class Smt2Input */
 
