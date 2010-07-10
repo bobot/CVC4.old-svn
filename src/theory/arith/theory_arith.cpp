@@ -242,7 +242,7 @@ bool TheoryArith::rowUpperBound(TNode x_j, DeltaRational& dest, Node& upperExpla
 
 bool TheoryArith::shouldPossiblyPropagateNewBasic(TNode x_j, bool isInSolve){
   static const size_t BEFORE_SOLVE_THRESHOLD = 10;
-  static const size_t IN_SOLVE_THRESHOLD = 100;
+  static const size_t IN_SOLVE_THRESHOLD = 10;
 
   bool everAppearsInBound = x_j.getAttribute(LeftHandVariableInAnyBound());
 
