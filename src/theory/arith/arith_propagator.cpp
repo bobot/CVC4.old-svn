@@ -122,6 +122,18 @@ void ArithUnatePropagator::assertLiteral(TNode lit){
   d_assertions.push_back(lit);
 }
 
+bool ArithUnatePropagator::isKnownInPropagator(TNode lit){
+  return lit.getAttribute(propagator::IsKnownInPropagator());
+}
+
+bool ArithUnatePropagator::isMarked(TNode lit){
+  if(lit.getKind() == NOT){
+    return lit[0].getAttribute(propagator::PropagatorMarked());
+  }else{
+    return lit.getAttribute(propagator::PropagatorMarked());
+  }
+}
+
 std::vector<Node> ArithUnatePropagator::getImpliedLiterals(){
   std::vector<Node> impliedButNotAsserted;
 
@@ -458,6 +470,7 @@ Node ArithUnatePropagator::knownLowerBound(TNode x, const Rational& lb, bool str
 
   tightBound.setAttribute(propagator::PropagatorExplanation(), explanation);
 
+  tightBound.setAttribute(propagator::IsKnownInPropagator(), true);
   assertLiteral(tightBound);
   d_additionalEnqueues.push_back(tightBound);
 
@@ -500,6 +513,7 @@ Node ArithUnatePropagator::knownUpperBound(TNode x, const Rational& ub, bool str
 
   tightBound.setAttribute(propagator::PropagatorExplanation(), explanation);
 
+  tightBound.setAttribute(propagator::IsKnownInPropagator(), true);
   assertLiteral(tightBound);
   d_additionalEnqueues.push_back(tightBound);
 

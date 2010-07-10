@@ -77,6 +77,11 @@ public:
   Node tightestImpliedUpperBound(TNode upperBound);
   Node tightestImpliedLowerBound(TNode lowerBound);
 
+  bool isKnownInPropagator(TNode lit);
+  bool isMarked(TNode lit);
+
+
+
 private:
   /** returns true if the left hand side side left has been setup. */
   bool leftIsSetup(TNode left);
@@ -132,6 +137,9 @@ typedef expr::Attribute<PropagatorLeqListID, OrderedBoundsList*, ListCleanupStra
 
 struct PropagatorMarkedID {};
 typedef expr::CDAttribute<PropagatorMarkedID, bool> PropagatorMarked;
+
+struct IsKnownInPropagatorID {};
+typedef expr::CDAttribute<IsKnownInPropagatorID, bool> IsKnownInPropagator;
 
 struct PropagatorExplanationID {};
 typedef expr::CDAttribute<PropagatorExplanationID, Node> PropagatorExplanation;

@@ -258,11 +258,19 @@ bool TheoryArith::shouldPossiblyPropagateNewBasic(TNode x_j, bool isInSolve){
 }
 Node joinAnds(Node and1, Node and2){
   NodeBuilder<> nb(AND);
-  for(Node::iterator a1Iter = and1.begin(); a1Iter != and1.end(); ++ a1Iter){
-    nb << *a1Iter;
+  if(and1.getKind() == AND){
+    for(Node::iterator a1Iter = and1.begin(); a1Iter != and1.end(); ++ a1Iter){
+      nb << *a1Iter;
+    }
+  }else{
+    nb << and1;
   }
-  for(Node::iterator a2Iter = and2.begin(); a2Iter != and2.end(); ++a2Iter){
-    nb << *a2Iter;
+  if(and2.getKind() == AND){
+    for(Node::iterator a2Iter = and2.begin(); a2Iter != and2.end(); ++a2Iter){
+      nb << *a2Iter;
+    }
+  }else{
+    nb << and2;
   }
   return nb;
 }
@@ -1021,7 +1029,22 @@ void TheoryArith::check(Effort level){
     Debug("arith_assertions") << "arith assertion(" << original
                               << " \\-> " << assertion << ")" << std::endl;
 
-    d_propagator.assertLiteral(original);
+    if(d_propagator.isMarked(original)){
+      if(d_propagator.isKnownInPropagator(original)){
+        continue;
+      }else{
+        Node negation =  NodeManager::currentNM()->mkNode(NOT, original);
+        Node explanation = d_propagator.explain(negation);
+
+        Node conflictFromExplain = joinAnds(explanation, original);
+
+        d_out->conflict(conflictFromExplain);
+        d_partialModel.revertAssignmentChanges();
+        return;
+      }
+    }else{
+      d_propagator.assertLiteral(original);
+    }
     bool conflictDuringAnAssert = assertionCases(original, assertion);
 
 
