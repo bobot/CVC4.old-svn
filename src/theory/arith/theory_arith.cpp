@@ -238,11 +238,18 @@ bool TheoryArith::rowUpperBound(TNode x_j, DeltaRational& dest, Node& upperExpla
   return true;
 }
 
-bool shouldPossiblyPropagateNewBasic(TNode x_j, bool isInSolve, bool hasEverHadABound){
-  if(isInSolve && hasEverHadABound){
-    return true;
-  }else if(!isInSolve && x_j.getAttribute(LeftHandVariableInAnyBound())){
-    return true;
+bool TheoryArith::shouldPossiblyPropagateNewBasic(TNode x_j, bool isInSolve){
+  static const size_t BEFORE_SOLVE_THRESHOLD = 10;
+  static const size_t IN_SOLVE_THRESHOLD = 100;
+
+  bool everAppearsInBound = x_j.getAttribute(LeftHandVariableInAnyBound());
+
+  if(everAppearsInBound){
+    if(isInSolve){
+      return d_tableau.rowSize(x_j) <= IN_SOLVE_THRESHOLD;
+    }else{ //!isInSolve
+      return d_tableau.rowSize(x_j) <= BEFORE_SOLVE_THRESHOLD;
+    }
   }
 
   return false;
@@ -258,8 +265,8 @@ Node joinAnds(Node and1, Node and2){
   return nb;
 }
 
-void TheoryArith::possiblyPropagateNewBasic(TNode x_j){
-  if(d_partialModel.hasEverHadABound(x_j)){
+void TheoryArith::possiblyPropagateNewBasic(TNode x_j, bool isInSolve){
+  if(shouldPossiblyPropagateNewBasic(x_j, isInSolve)){
 
     Node left;
     if(isSlack(x_j)){
@@ -308,7 +315,7 @@ void TheoryArith::finishedTopLevelAdd(){
       basicIter != d_tableau.end();
       ++basicIter){
     TNode x_j = *basicIter;
-    possiblyPropagateNewBasic(x_j);
+    possiblyPropagateNewBasic(x_j, false);
     if(d_conflict)
       return;
   }

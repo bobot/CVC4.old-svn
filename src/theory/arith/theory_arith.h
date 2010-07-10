@@ -253,7 +253,8 @@ private:
 
   bool rowLowerBound(TNode x_j, DeltaRational& dest, Node&,bool&);
   bool rowUpperBound(TNode x_j, DeltaRational& dest, Node&, bool&);
-  void possiblyPropagateNewBasic(TNode x_j);
+  void possiblyPropagateNewBasic(TNode x_j, bool isInSolve = true);
+  bool shouldPossiblyPropagateNewBasic(TNode x_j, bool isInSolve);
 
 
 

@@ -76,6 +76,10 @@ public:
     }
   }
 
+  size_t size(){
+    return d_coeffs.size();
+  }
+
   iterator begin(){
     return d_coeffs.begin();
   }
@@ -183,6 +187,12 @@ public:
   Row* lookup(TNode var){
     Assert(isActiveBasicVariable(var));
     return d_activeRows[var];
+  }
+
+  size_t rowSize(TNode var){
+    Assert(isActiveBasicVariable(var));
+    Row* row = lookup(var);
+    return row->size();
   }
 
 private:
