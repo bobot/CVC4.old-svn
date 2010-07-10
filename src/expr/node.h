@@ -244,6 +244,11 @@ public:
     return d_nv->d_id < node.d_nv->d_id;
   }
 
+  template <bool ref_count_1>
+  inline bool operator>(const NodeTemplate<ref_count_1>& node) const {
+     return d_nv->d_id > node.d_nv->d_id;
+  }
+
   /**
    * Returns the i-th child of this node.
    * @param i the index of the child

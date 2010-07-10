@@ -28,6 +28,7 @@
 #include <ext/hash_map>
 #include <map>
 #include <set>
+#include <functional>
 
 #ifndef __CVC4__THEORY__ARITH__TABLEAU_H
 #define __CVC4__THEORY__ARITH__TABLEAU_H
@@ -40,7 +41,7 @@ namespace arith {
 class Row {
   TNode d_x_i;
 
-  typedef std::map<TNode, Rational> CoefficientTable;
+  typedef std::map<TNode, Rational, std::greater<Node> > CoefficientTable;
 
   CoefficientTable d_coeffs;
 
