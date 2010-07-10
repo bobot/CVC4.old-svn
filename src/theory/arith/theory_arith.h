@@ -63,6 +63,8 @@ private:
 
 
   context::CDO<bool> d_conflict;
+  context::CDList<Node> d_addOns;
+  context::CDO<unsigned int> d_addOnsIdx;
 
   /**
    * Priority Queue of the basic variables that may be inconsistent.

@@ -72,8 +72,10 @@ public:
   /** Explains a literal that was asserted in the current context. */
   Node explain(TNode lit);
 
-  void knownLowerBound(TNode x, const Rational& lb, bool strict, Node explanation);
-  void knownUpperBound(TNode x, const Rational& ub, bool strict, Node explanation);
+  Node knownLowerBound(TNode x, const Rational& lb, bool strict, Node explanation);
+  Node knownUpperBound(TNode x, const Rational& ub, bool strict, Node explanation);
+  Node tightestImpliedUpperBound(TNode upperBound);
+  Node tightestImpliedLowerBound(TNode lowerBound);
 
 private:
   /** returns true if the left hand side side left has been setup. */

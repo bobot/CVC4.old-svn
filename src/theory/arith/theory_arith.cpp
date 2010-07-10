@@ -54,6 +54,8 @@ typedef expr::Attribute<LeftHandVariableInAnyBoundID, bool> LeftHandVariableInAn
 TheoryArith::TheoryArith(int id, context::Context* c, OutputChannel& out) :
   Theory(id, c, out),
   d_conflict(c, false),
+  d_addOns(c),
+  d_addOnsIdx(c, 0),
   d_constants(NodeManager::currentNM()),
   d_partialModel(c),
   d_diseq(c),
@@ -300,12 +302,18 @@ void TheoryArith::possiblyPropagateNewBasic(TNode x_j, bool isInSolve){
     }
     if(lbWasFound){
       bool strict = lb.getInfintestimalPart().sgn() > 0;
-      d_propagator.knownLowerBound(left, lb.getNoninfintestimalPart(),strict, lowerExplanation);
+      Node implied = d_propagator.knownLowerBound(left, lb.getNoninfintestimalPart(),strict, lowerExplanation);
+      if(implied != Node::null()){
+        d_addOns.push_back(implied);
+      }
     }
     if(ubWasFound){
       bool strict = ub.getInfintestimalPart().sgn() < 0;
       printStuff();
-      d_propagator.knownUpperBound(left, ub.getNoninfintestimalPart(), strict, upperExplanation);
+      Node implied = d_propagator.knownUpperBound(left, ub.getNoninfintestimalPart(), strict, upperExplanation);
+      if(implied != Node::null() ){
+        d_addOns.push_back(implied);
+      }
     }
   }
 }
@@ -1022,6 +1030,24 @@ void TheoryArith::check(Effort level){
       return;
     }
   }
+  while(d_addOnsIdx < d_addOns.size()){
+
+    Node original = d_addOns[d_addOnsIdx];
+    d_addOnsIdx = d_addOnsIdx+1;
+
+    Node assertion = simulatePreprocessing(original);
+    Debug("arith_assertions") << "arith assertion(" << original
+                              << " \\-> " << assertion << ")" << std::endl;
+
+    bool conflictDuringAnAssert = assertionCases(original, assertion);
+
+
+    if(conflictDuringAnAssert){
+      d_partialModel.revertAssignmentChanges();
+      return;
+    }
+  }
+
 
   //TODO This must be done everytime for the time being
   if(Debug.isOn("paranoid:check_tableau")){ checkTableau(); }
