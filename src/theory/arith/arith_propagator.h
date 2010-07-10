@@ -98,6 +98,11 @@ private:
    * enqueue additional entailed assertions in buffer.
    */
   void enqueueUpperBoundImplications(TNode atom, TNode original, std::vector<Node>& buffer);
+
+  bool isARealBound(TNode lit);
+  bool isARealLeq(TNode lit);
+  bool isARealGeq(TNode lit);
+  bool isARealEquality(TNode lit);
 };
 
 

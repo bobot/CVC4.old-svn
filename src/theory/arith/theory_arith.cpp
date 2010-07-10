@@ -158,12 +158,24 @@ bool TheoryArith::rowLowerBound(TNode x_j, DeltaRational& dest, Node& lowerExpla
   }
 
   dest.roundInfintesimal();
+
+  cout << dest << " ";
+
+  if(d_partialModel.hasUpperBound(x_j)){
+    cout << d_partialModel.getUpperBound(x_j) << endl;
+  }else{
+    cout << " no upper bound";
+  }
+
   if(d_partialModel.belowLowerBound(x_j, dest, false)){
     return false;
   }
   if(d_partialModel.aboveUpperBound(x_j, dest, true)){
     // (ub >= x >= lb /\ lb > ub) -> _|_
     nb << d_partialModel.getUpperConstraint(x_j);
+
+    cout << "conflict ahoy "<< nb << endl;
+
     conflict = true;
   }
 
@@ -207,7 +219,7 @@ bool TheoryArith::rowUpperBound(TNode x_j, DeltaRational& dest, Node& upperExpla
   }
 
   dest.roundInfintesimal();
-  if(d_partialModel.belowLowerBound(x_j, dest, false)){
+  if(d_partialModel.aboveUpperBound(x_j, dest, false)){
     return false;
   }
   if(d_partialModel.belowLowerBound(x_j, dest, true)){
@@ -256,7 +268,7 @@ void TheoryArith::possiblyPropagateNewBasic(TNode x_j){
 
       printStuff();
       if(conflict){
-        d_out->conflict(lowerExplanation);
+        d_out->conflict(upperExplanation);
         d_conflict = true;
         return;
       }

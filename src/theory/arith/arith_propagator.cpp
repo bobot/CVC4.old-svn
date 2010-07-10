@@ -379,6 +379,50 @@ Node ArithUnatePropagator::explain(TNode lit){
   return lit.getAttribute(propagator::PropagatorExplanation());
 }
 
+bool ArithUnatePropagator::isARealEquality(TNode lit){
+  TNode left = lit[0];
+  OrderedBoundsList* eqList = left.getAttribute(propagator::PropagatorEqList());
+  return eqList->lower_bound(lit) != eqList->end();
+}
+bool ArithUnatePropagator::isARealLeq(TNode lit){
+  TNode left = lit[0];
+  OrderedBoundsList* leqList = left.getAttribute(propagator::PropagatorLeqList());
+  return leqList->lower_bound(lit) != leqList->end();
+}
+bool ArithUnatePropagator::isARealGeq(TNode lit){
+  TNode left = lit[0];
+  OrderedBoundsList* geqList = left.getAttribute(propagator::PropagatorGeqList());
+  return geqList->lower_bound(lit) != geqList->end();
+}
+
+bool ArithUnatePropagator::isARealBound(TNode lit){
+  switch(lit.getKind()){
+  case EQUAL:
+    return isARealEquality(lit);
+  case LEQ:
+    return isARealLeq(lit);
+  case GEQ:
+    return isARealGeq(lit);
+  case NOT:
+    {
+      TNode under = lit[0];
+      switch(under.getKind()){
+      case EQUAL:
+        return isARealEquality(under);
+      case LEQ:
+        return isARealLeq(under);
+      case GEQ:
+        return isARealGeq(under);
+      default:
+        Unreachable();
+      }
+      break;
+    }
+  default:
+    Unreachable();
+  }
+}
+
 void ArithUnatePropagator::knownLowerBound(TNode x, const Rational& lb, bool strict, Node explanation){
   Node bound, negation;
   Node constant = NodeManager::currentNM()->mkConst<Rational>(lb);
@@ -401,7 +445,8 @@ void ArithUnatePropagator::knownLowerBound(TNode x, const Rational& lb, bool str
 
   bound.setAttribute(propagator::PropagatorExplanation(), explanation);
   assertLiteral(bound);
-  d_additionalEnqueues.push_back(bound);
+  if(isARealBound(bound))
+    d_additionalEnqueues.push_back(bound);
 }
 
 void ArithUnatePropagator::knownUpperBound(TNode x, const Rational& ub, bool strict, Node explanation){
@@ -427,5 +472,6 @@ void ArithUnatePropagator::knownUpperBound(TNode x, const Rational& ub, bool str
 
   bound.setAttribute(propagator::PropagatorExplanation(), explanation);
   assertLiteral(bound);
-  d_additionalEnqueues.push_back(bound);
+  if(isARealBound(bound))
+    d_additionalEnqueues.push_back(bound);
 }
