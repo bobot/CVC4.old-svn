@@ -385,17 +385,17 @@ Node ArithUnatePropagator::explain(TNode lit){
 bool ArithUnatePropagator::isARealEquality(TNode lit){
   TNode left = lit[0];
   OrderedBoundsList* eqList = left.getAttribute(propagator::PropagatorEqList());
-  return eqList->lower_bound(lit) != eqList->end();
+  return eqList->find(lit) != eqList->end();
 }
 bool ArithUnatePropagator::isARealLeq(TNode lit){
   TNode left = lit[0];
   OrderedBoundsList* leqList = left.getAttribute(propagator::PropagatorLeqList());
-  return leqList->lower_bound(lit) != leqList->end();
+  return leqList->find(lit) != leqList->end();
 }
 bool ArithUnatePropagator::isARealGeq(TNode lit){
   TNode left = lit[0];
   OrderedBoundsList* geqList = left.getAttribute(propagator::PropagatorGeqList());
-  return geqList->lower_bound(lit) != geqList->end();
+  return geqList->find(lit) != geqList->end();
 }
 
 bool ArithUnatePropagator::isARealBound(TNode lit){

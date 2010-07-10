@@ -206,6 +206,20 @@ public:
     return std::lower_bound(rbegin(), rend(), value, RightHandRationalGT());
   }
 
+  iterator find(TNode value){
+    iterator lb = lower_bound(value);
+    if(lb == end() ){
+      return end();
+    }else{
+      TNode bound = *lb;
+      if(bound == value){
+        return lb;
+      }else{
+        return end();
+      }
+    }
+  }
+
   /**
    * This is an O(n) method for searching the array to check if it contains n.
    */
