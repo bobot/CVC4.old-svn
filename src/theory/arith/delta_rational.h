@@ -111,6 +111,12 @@ public:
 
   std::string toString() const;
 
+  void roundInfintesimal(){
+    int sgn = getInfintestimalPart().sgn();
+    DeltaRational tmp(getNoninfintestimalPart(),sgn);
+    *this = tmp;
+  }
+
 };
 
 std::ostream& operator<<(std::ostream& os, const DeltaRational& n);

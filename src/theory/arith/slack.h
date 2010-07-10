@@ -17,6 +17,7 @@
  ** \todo document this file
  **/
 
+#include "expr/node.h"
 
 namespace CVC4 {
 namespace theory {
@@ -26,6 +27,13 @@ struct SlackAttrID;
 
 typedef expr::Attribute<SlackAttrID, Node> Slack;
 
+struct ReverseSlackAttrID;
+typedef expr::Attribute<ReverseSlackAttrID, Node> ReverseSlack;
+
+
+inline bool isSlack(TNode v){
+  return v.hasAttribute(ReverseSlack());
+}
 
 }; /* namespace arith */
 }; /* namespace theory */

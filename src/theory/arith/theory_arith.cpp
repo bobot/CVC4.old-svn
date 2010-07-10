@@ -52,6 +52,7 @@ using namespace CVC4::theory::arith;
 
 TheoryArith::TheoryArith(int id, context::Context* c, OutputChannel& out) :
   Theory(id, c, out),
+  d_conflict(c, false),
   d_constants(NodeManager::currentNM()),
   d_partialModel(c),
   d_diseq(c),
@@ -127,7 +128,7 @@ bool isNormalAtom(TNode n){
 
 }
 
-bool TheoryArith::rowLowerBound(TNode x_j, DeltaRational& dest, Node& lowerExplanation){
+bool TheoryArith::rowLowerBound(TNode x_j, DeltaRational& dest, Node& lowerExplanation, bool& conflict){
   Row* row_i = d_tableau.lookup(x_j);
 
   DeltaRational tmp;
@@ -156,6 +157,16 @@ bool TheoryArith::rowLowerBound(TNode x_j, DeltaRational& dest, Node& lowerExpla
     }
   }
 
+  dest.roundInfintesimal();
+  if(d_partialModel.belowLowerBound(x_j, dest, false)){
+    return false;
+  }
+  if(d_partialModel.aboveUpperBound(x_j, dest, true)){
+    // (ub >= x >= lb /\ lb > ub) -> _|_
+    nb << d_partialModel.getUpperConstraint(x_j);
+    conflict = true;
+  }
+
   Assert(nb.getNumChildren() >= 1);
   if(nb.getNumChildren() > 1){
     lowerExplanation = nb;
@@ -165,7 +176,7 @@ bool TheoryArith::rowLowerBound(TNode x_j, DeltaRational& dest, Node& lowerExpla
 
   return true;
 }
-bool TheoryArith::rowUpperBound(TNode x_j, DeltaRational& dest, Node& upperExplanation){
+bool TheoryArith::rowUpperBound(TNode x_j, DeltaRational& dest, Node& upperExplanation, bool& conflict){
   Row* row_i = d_tableau.lookup(x_j);
 
   DeltaRational tmp;
@@ -195,6 +206,16 @@ bool TheoryArith::rowUpperBound(TNode x_j, DeltaRational& dest, Node& upperExpla
     }
   }
 
+  dest.roundInfintesimal();
+  if(d_partialModel.belowLowerBound(x_j, dest, false)){
+    return false;
+  }
+  if(d_partialModel.belowLowerBound(x_j, dest, true)){
+    // (ub >= x >= lb /\ lb > ub) -> _|_
+    nb << d_partialModel.getLowerConstraint(x_j);
+    conflict = true;
+  }
+
   Assert(nb.getNumChildren() >= 1);
   if(nb.getNumChildren() > 1){
     upperExplanation = nb;
@@ -207,18 +228,41 @@ bool TheoryArith::rowUpperBound(TNode x_j, DeltaRational& dest, Node& upperExpla
 void TheoryArith::possiblyPropagateNewBasic(TNode x_j){
   if(d_partialModel.hasEverHadABound(x_j)){
 
+    Node left;
+    if(isSlack(x_j)){
+      left = x_j.getAttribute(ReverseSlack());
+    }else{
+      left = x_j;
+    }
+
     DeltaRational lb;
     Node lowerExplanation;
-    if(rowLowerBound(x_j,lb, lowerExplanation)){
-      bool strict = lb.getInfintestimalPart().sgn() > 0;
+    bool conflict = false;
+    if(rowLowerBound(x_j,lb, lowerExplanation, conflict)){
 
-      d_propagator.knownLowerBound(x_j, lb.getNoninfintestimalPart(),strict, lowerExplanation);
+
+      if(conflict){
+        d_out->conflict(lowerExplanation);
+        d_conflict = true;
+        return;
+      }
+      bool strict = lb.getInfintestimalPart().sgn() > 0;
+      printStuff();
+      d_propagator.knownLowerBound(left, lb.getNoninfintestimalPart(),strict, lowerExplanation);
     }
     DeltaRational ub;
     Node upperExplanation;
-    if(rowLowerBound(x_j,ub, upperExplanation)){
+    if(rowUpperBound(x_j,ub, upperExplanation, conflict)){
+
+      printStuff();
+      if(conflict){
+        d_out->conflict(lowerExplanation);
+        d_conflict = true;
+        return;
+      }
       bool strict = ub.getInfintestimalPart().sgn() < 0;
-      d_propagator.knownUpperBound(x_j, ub.getNoninfintestimalPart(), strict, upperExplanation);
+      printStuff();
+      d_propagator.knownUpperBound(left, ub.getNoninfintestimalPart(), strict, upperExplanation);
     }
   }
 }
@@ -229,6 +273,8 @@ void TheoryArith::finishedTopLevelAdd(){
       ++basicIter){
     TNode x_j = *basicIter;
     possiblyPropagateNewBasic(x_j);
+    if(d_conflict)
+      return;
   }
 }
 bool TheoryArith::shouldEject(TNode var){
@@ -329,6 +375,7 @@ void TheoryArith::setupSlack(TNode left){
   TypeNode real_type = NodeManager::currentNM()->realType();
   Node slack = NodeManager::currentNM()->mkVar(real_type);
 
+  slack.setAttribute(ReverseSlack(), left);
   left.setAttribute(Slack(), slack);
   makeBasic(slack);
 
@@ -734,7 +781,7 @@ Node TheoryArith::updateInconsistentVars(){ //corresponds to Check() in dM06
 
   static int iteratationNum = 0;
   static const int EJECT_FREQUENCY = 10;
-  while(true){
+  while(!d_conflict){
     if(Debug.isOn("paranoid:check_tableau")){ checkTableau(); }
 
     TNode x_i = selectSmallestInconsistentVar();
@@ -769,6 +816,7 @@ Node TheoryArith::updateInconsistentVars(){ //corresponds to Check() in dM06
       pivotAndUpdate(x_i, x_j, u_i);
     }
   }
+  return Node::null();
 }
 
 Node TheoryArith::generateConflictAbove(TNode conflictVar){
@@ -942,12 +990,19 @@ void TheoryArith::check(Effort level){
 
     Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
   }else{
-    d_partialModel.commitAssignmentChanges();
+    if(d_conflict)
+      d_partialModel.revertAssignmentChanges();
+    else
+      d_partialModel.commitAssignmentChanges();
   }
   if(Debug.isOn("paranoid:check_tableau")){ checkTableau(); }
 
 
   Debug("arith") << "TheoryArith::check end" << std::endl;
+  printStuff();
+}
+
+void TheoryArith::printStuff(){
 
   if(Debug.isOn("arith::print_model")) {
     Debug("arith::print_model") << "Model:" << endl;
@@ -957,6 +1012,14 @@ void TheoryArith::check(Effort level){
         d_partialModel.getAssignment(d_variables[i]);
       if(isBasic(d_variables[i]))
         Debug("arith::print_model") << " (basic)";
+      if(d_partialModel.hasLowerBound(d_variables[i])){
+        Debug("arith::print_model") << " (>="
+                                    << d_partialModel.getLowerBound(d_variables[i]) << ")";
+      }
+      if(d_partialModel.hasUpperBound(d_variables[i])){
+        Debug("arith::print_model") << " (<="
+                                    << d_partialModel.getUpperBound(d_variables[i]) << ")";
+      }
       Debug("arith::print_model") << endl;
     }
   }

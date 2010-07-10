@@ -62,6 +62,8 @@ private:
   /* Chopping block ends */
 
 
+  context::CDO<bool> d_conflict;
+
   /**
    * Priority Queue of the basic variables that may be inconsistent.
    *
@@ -249,14 +251,15 @@ private:
   void ejectInactiveVariables();
   void reinjectVariable(TNode x);
 
-  bool rowLowerBound(TNode x_j, DeltaRational& dest, Node&);
-  bool rowUpperBound(TNode x_j, DeltaRational& dest, Node&);
+  bool rowLowerBound(TNode x_j, DeltaRational& dest, Node&,bool&);
+  bool rowUpperBound(TNode x_j, DeltaRational& dest, Node&, bool&);
   void possiblyPropagateNewBasic(TNode x_j);
 
 
 
   //TODO get rid of this!
   Node simulatePreprocessing(TNode n);
+  void printStuff();
 
 
   /** These fields are designed to be accessable to TheoryArith methods. */

@@ -380,37 +380,52 @@ Node ArithUnatePropagator::explain(TNode lit){
 }
 
 void ArithUnatePropagator::knownLowerBound(TNode x, const Rational& lb, bool strict, Node explanation){
-  Node bound;
+  Node bound, negation;
   Node constant = NodeManager::currentNM()->mkConst<Rational>(lb);
   if(strict){
-    bound =  NodeManager::currentNM()->mkNode(NOT, NodeManager::currentNM()->mkNode(LEQ, x, constant));
+    negation = NodeManager::currentNM()->mkNode(LEQ, x, constant);
+    bound =  NodeManager::currentNM()->mkNode(NOT, negation);
+
   }else{
     bound =  NodeManager::currentNM()->mkNode(GEQ, x, constant);
+    negation =  NodeManager::currentNM()->mkNode(NOT, bound);
   }
 
   if(bound.getAttribute(propagator::PropagatorMarked())){ return;}
 
+  cout << "Adding bound known lower bound" << bound << " <- " << explanation << endl
+       << x.getId() << endl;
+  if(negation.getAttribute(propagator::PropagatorMarked())){
+    cout << "" << negation << " <- " << negation.getAttribute(propagator::PropagatorExplanation()) << endl;
+  }
+
   bound.setAttribute(propagator::PropagatorExplanation(), explanation);
-  bound.setAttribute(propagator::PropagatorMarked(), true);
   assertLiteral(bound);
   d_additionalEnqueues.push_back(bound);
 }
 
 void ArithUnatePropagator::knownUpperBound(TNode x, const Rational& ub, bool strict, Node explanation){
-  Node bound;
+  Node bound, negation;
   Node constant = NodeManager::currentNM()->mkConst<Rational>(ub);
   if(strict){
-    bound =  NodeManager::currentNM()->mkNode(NOT, NodeManager::currentNM()->mkNode(GEQ, x, constant));
+    negation =  NodeManager::currentNM()->mkNode(GEQ, x, constant);
+    bound =  NodeManager::currentNM()->mkNode(NOT, negation);
   }else{
     bound =  NodeManager::currentNM()->mkNode(LEQ, x, constant);
+    negation =  NodeManager::currentNM()->mkNode(NOT, bound);
   }
 
   if(bound.getAttribute(propagator::PropagatorMarked())){ return;}
 
+
+
+  cout << "Adding bound known upper bound" << bound << " <- " << explanation << endl
+       << x.getId() << endl;
+  if(negation.getAttribute(propagator::PropagatorMarked())){
+    cout << "" << negation << " <- " << negation.getAttribute(propagator::PropagatorExplanation()) << endl;
+  }
+
   bound.setAttribute(propagator::PropagatorExplanation(), explanation);
-
-  cout << "Adding bound known upper bound" << bound << " <- " << explanation;
-
   assertLiteral(bound);
   d_additionalEnqueues.push_back(bound);
 }
