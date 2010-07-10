@@ -131,7 +131,8 @@ std::vector<Node> ArithUnatePropagator::getImpliedLiterals(){
 
     enqueueImpliedLiterals(assertion, impliedButNotAsserted);
   }
-
+  Debug("arith::propagator") << "Called" << (unsigned)d_additionalEnqueuesIdx
+                                  << " " << d_additionalEnqueues.size() << endl;
   while(d_additionalEnqueuesIdx < d_additionalEnqueues.size()){
     TNode assertion = d_additionalEnqueues[d_additionalEnqueuesIdx];
     d_additionalEnqueuesIdx = d_additionalEnqueuesIdx + 1;
@@ -431,16 +432,9 @@ Node ArithUnatePropagator::knownLowerBound(TNode x, const Rational& lb, bool str
   if(strict){
     negation = NodeManager::currentNM()->mkNode(LEQ, x, constant);
     bound =  NodeManager::currentNM()->mkNode(NOT, negation);
-
-    if(negation.getAttribute(propagator::PropagatorMarked())){
-      return Node::null(); //this is a nop
-    }
   }else{
     bound =  NodeManager::currentNM()->mkNode(GEQ, x, constant);
     negation =  NodeManager::currentNM()->mkNode(NOT, bound);
-    if(bound.getAttribute(propagator::PropagatorMarked())) {
-      return Node::null();
-    }
   }
 
   Debug("bounds-refinement") << "Adding bound known lower bound" << endl
@@ -448,13 +442,26 @@ Node ArithUnatePropagator::knownLowerBound(TNode x, const Rational& lb, bool str
                              << explanation << endl
                              << x.getId() << endl;
 
-  bound.setAttribute(propagator::PropagatorExplanation(), explanation);
-  assertLiteral(bound);
-  if(isARealBound(bound)){
-    d_additionalEnqueues.push_back(bound);
+  Node tightBound = tightestImpliedLowerBound(bound);
+  if(tightBound == Node::null()){
+    return Node::null();
+  }
+  if(tightBound.getKind() == NOT){
+    if(tightBound[0].getAttribute(propagator::PropagatorMarked())){
+      return Node::null();
+    }
+  }else{
+    if(tightBound.getAttribute(propagator::PropagatorMarked())){
+      return Node::null();
+    }
   }
 
-  return tightestImpliedLowerBound(bound);
+  tightBound.setAttribute(propagator::PropagatorExplanation(), explanation);
+
+  assertLiteral(tightBound);
+  d_additionalEnqueues.push_back(tightBound);
+
+  return tightestImpliedLowerBound(tightBound);
 }
 
 Node ArithUnatePropagator::knownUpperBound(TNode x, const Rational& ub, bool strict, Node explanation){
@@ -463,29 +470,40 @@ Node ArithUnatePropagator::knownUpperBound(TNode x, const Rational& ub, bool str
   if(strict){
     negation =  NodeManager::currentNM()->mkNode(GEQ, x, constant);
     bound =  NodeManager::currentNM()->mkNode(NOT, negation);
-    if(negation.getAttribute(propagator::PropagatorMarked())){
-      return Node::null(); //this is a nop
-    }
   }else{
     bound =  NodeManager::currentNM()->mkNode(LEQ, x, constant);
     negation =  NodeManager::currentNM()->mkNode(NOT, bound);
-    if(bound.getAttribute(propagator::PropagatorMarked())) {
-      return Node::null();
-    }
   }
+
+  Node tightBound = tightestImpliedUpperBound(bound);
+
 
   Debug("bounds-refinement") << "Adding bound known upper bound"
                              << bound << " <- " << endl
                              << explanation << endl
+                             << tightBound << endl
                              << x.getId() << endl;
 
-  bound.setAttribute(propagator::PropagatorExplanation(), explanation);
-  assertLiteral(bound);
-  if(isARealBound(bound)){
-    d_additionalEnqueues.push_back(bound);
+
+  if(tightBound == Node::null()){
+    return Node::null();
+  }
+  if(tightBound.getKind() == NOT){
+    if(tightBound[0].getAttribute(propagator::PropagatorMarked())){
+      return Node::null();
+    }
+  }else{
+    if(tightBound.getAttribute(propagator::PropagatorMarked())){
+      return Node::null();
+    }
   }
 
-  return tightestImpliedUpperBound(bound);
+  tightBound.setAttribute(propagator::PropagatorExplanation(), explanation);
+
+  assertLiteral(tightBound);
+  d_additionalEnqueues.push_back(tightBound);
+
+  return tightBound;
 }
 
 Node ArithUnatePropagator::tightestImpliedUpperBound(TNode upperBound){
@@ -534,12 +552,7 @@ Node ArithUnatePropagator::tightestImpliedUpperBound(TNode upperBound){
     toReturn = NodeManager::currentNM()->mkNode(NOT,lt);
   }
 
-  if(toReturn == Node::null())
-    return Node::null();
 
-  if(toReturn.getAttribute(propagator::PropagatorMarked()) && toReturn != upperBound){
-    return Node::null();
-  }
 
   return toReturn;
 }
