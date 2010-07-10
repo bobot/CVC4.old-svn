@@ -49,7 +49,9 @@ bool acceptedKinds(Kind k){
 
 Node explainChain(TNode atom){
   if(atom.hasAttribute(propagator::PropagatorExplanation())){
-    return explainChain(atom.getAttribute(propagator::PropagatorExplanation()));
+    Node explanation = atom.getAttribute(propagator::PropagatorExplanation());
+    Assert(!explanation.hasAttribute(propagator::PropagatorExplanation()));
+    return explanation;
   }else{
     return atom;
   }
@@ -136,6 +138,7 @@ std::vector<Node> ArithUnatePropagator::getImpliedLiterals(){
 
     impliedButNotAsserted.push_back(assertion);
   }
+
   if(Debug.isOn("arith::propagator")){
     for(std::vector<Node>::iterator i = impliedButNotAsserted.begin(),
           endIter = impliedButNotAsserted.end(); i != endIter; ++i){
@@ -429,18 +432,21 @@ void ArithUnatePropagator::knownLowerBound(TNode x, const Rational& lb, bool str
     negation = NodeManager::currentNM()->mkNode(LEQ, x, constant);
     bound =  NodeManager::currentNM()->mkNode(NOT, negation);
 
+    if(negation.getAttribute(propagator::PropagatorMarked())){
+      return; //this is a nop
+    }
   }else{
     bound =  NodeManager::currentNM()->mkNode(GEQ, x, constant);
     negation =  NodeManager::currentNM()->mkNode(NOT, bound);
+    if(bound.getAttribute(propagator::PropagatorMarked())) {
+      return;
+    }
   }
 
-  if(bound.getAttribute(propagator::PropagatorMarked())){ return;}
-
-  Debug("bounds-refinement") << "Adding bound known lower bound" << bound << " <- " << explanation << endl
-       << x.getId() << endl;
-  if(negation.getAttribute(propagator::PropagatorMarked())){
-    Debug("bounds-refinement") << "" << negation << " <- " << negation.getAttribute(propagator::PropagatorExplanation()) << endl;
-  }
+  Debug("bounds-refinement") << "Adding bound known lower bound" << endl
+                             << bound << " <- " << endl
+                             << explanation << endl
+                             << x.getId() << endl;
 
   bound.setAttribute(propagator::PropagatorExplanation(), explanation);
   assertLiteral(bound);
@@ -454,22 +460,21 @@ void ArithUnatePropagator::knownUpperBound(TNode x, const Rational& ub, bool str
   if(strict){
     negation =  NodeManager::currentNM()->mkNode(GEQ, x, constant);
     bound =  NodeManager::currentNM()->mkNode(NOT, negation);
+    if(negation.getAttribute(propagator::PropagatorMarked())){
+      return; //this is a nop
+    }
   }else{
     bound =  NodeManager::currentNM()->mkNode(LEQ, x, constant);
     negation =  NodeManager::currentNM()->mkNode(NOT, bound);
+    if(bound.getAttribute(propagator::PropagatorMarked())) {
+      return;
+    }
   }
-
-  if(bound.getAttribute(propagator::PropagatorMarked())){ return;}
-
-
 
   Debug("bounds-refinement") << "Adding bound known upper bound"
-                             << bound << " <- " << explanation << endl
+                             << bound << " <- " << endl
+                             << explanation << endl
                              << x.getId() << endl;
-  if(negation.getAttribute(propagator::PropagatorMarked())){
-    Debug("bounds-refinement") << " " << negation << " <- " << endl
-                               << negation.getAttribute(propagator::PropagatorExplanation()) << endl;
-  }
 
   bound.setAttribute(propagator::PropagatorExplanation(), explanation);
   assertLiteral(bound);

@@ -48,7 +48,8 @@ using namespace CVC4::kind;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-
+struct LeftHandVariableInAnyBoundID;
+typedef expr::Attribute<LeftHandVariableInAnyBoundID, bool> LeftHandVariableInAnyBound;
 
 TheoryArith::TheoryArith(int id, context::Context* c, OutputChannel& out) :
   Theory(id, c, out),
@@ -237,6 +238,26 @@ bool TheoryArith::rowUpperBound(TNode x_j, DeltaRational& dest, Node& upperExpla
   return true;
 }
 
+bool shouldPossiblyPropagateNewBasic(TNode x_j, bool isInSolve, bool hasEverHadABound){
+  if(isInSolve && hasEverHadABound){
+    return true;
+  }else if(!isInSolve && x_j.getAttribute(LeftHandVariableInAnyBound())){
+    return true;
+  }
+
+  return false;
+}
+Node joinAnds(Node and1, Node and2){
+  NodeBuilder<> nb(AND);
+  for(Node::iterator a1Iter = and1.begin(); a1Iter != and1.end(); ++ a1Iter){
+    nb << *a1Iter;
+  }
+  for(Node::iterator a2Iter = and2.begin(); a2Iter != and2.end(); ++a2Iter){
+    nb << *a2Iter;
+  }
+  return nb;
+}
+
 void TheoryArith::possiblyPropagateNewBasic(TNode x_j){
   if(d_partialModel.hasEverHadABound(x_j)){
 
@@ -247,31 +268,34 @@ void TheoryArith::possiblyPropagateNewBasic(TNode x_j){
       left = x_j;
     }
 
-    DeltaRational lb;
-    Node lowerExplanation;
+    DeltaRational lb, ub;
+    Node lowerExplanation, upperExplanation;
     bool conflict = false;
-    if(rowLowerBound(x_j,lb, lowerExplanation, conflict)){
+    bool lbWasFound = rowLowerBound(x_j,lb, lowerExplanation, conflict);
+    if(lbWasFound && conflict){
+      d_out->conflict(lowerExplanation);
+      d_conflict = true;
+      return;
+    }
+    bool ubWasFound = rowUpperBound(x_j,ub, upperExplanation, conflict);
+    if(ubWasFound && conflict){
+      d_out->conflict(upperExplanation);
+      d_conflict = true;
+      return;
+    }
 
-
-      if(conflict){
-        d_out->conflict(lowerExplanation);
+    if(lbWasFound && ubWasFound){
+      if(lb > ub){
+        d_out->conflict(joinAnds(lowerExplanation, upperExplanation));
         d_conflict = true;
         return;
       }
+    }
+    if(lbWasFound){
       bool strict = lb.getInfintestimalPart().sgn() > 0;
-      printStuff();
       d_propagator.knownLowerBound(left, lb.getNoninfintestimalPart(),strict, lowerExplanation);
     }
-    DeltaRational ub;
-    Node upperExplanation;
-    if(rowUpperBound(x_j,ub, upperExplanation, conflict)){
-
-      printStuff();
-      if(conflict){
-        d_out->conflict(upperExplanation);
-        d_conflict = true;
-        return;
-      }
+    if(ubWasFound){
       bool strict = ub.getInfintestimalPart().sgn() < 0;
       printStuff();
       d_propagator.knownUpperBound(left, ub.getNoninfintestimalPart(), strict, upperExplanation);
@@ -378,6 +402,11 @@ void TheoryArith::preRegisterTerm(TNode n) {
       if(!left.hasAttribute(Slack())){
         setupSlack(left);
       }
+      Assert(left.hasAttribute(Slack()));
+      TNode slack = left.getAttribute(Slack());
+      slack.setAttribute(LeftHandVariableInAnyBound(),true);
+    }else{
+      left.setAttribute(LeftHandVariableInAnyBound(),true);
     }
   }
   Debug("arith_preregister") << "end arith::preRegisterTerm("<< n <<")"<< endl;
