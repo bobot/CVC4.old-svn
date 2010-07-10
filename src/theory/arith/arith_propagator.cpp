@@ -414,12 +414,11 @@ bool ArithUnatePropagator::isARealBound(TNode lit){
       case GEQ:
         return isARealGeq(under);
       default:
-        Unreachable();
+        return false;
       }
-      break;
     }
   default:
-    Unreachable();
+    return false;
   }
 }
 
@@ -437,10 +436,10 @@ void ArithUnatePropagator::knownLowerBound(TNode x, const Rational& lb, bool str
 
   if(bound.getAttribute(propagator::PropagatorMarked())){ return;}
 
-  cout << "Adding bound known lower bound" << bound << " <- " << explanation << endl
+  Debug("bounds-refinement") << "Adding bound known lower bound" << bound << " <- " << explanation << endl
        << x.getId() << endl;
   if(negation.getAttribute(propagator::PropagatorMarked())){
-    cout << "" << negation << " <- " << negation.getAttribute(propagator::PropagatorExplanation()) << endl;
+    Debug("bounds-refinement") << "" << negation << " <- " << negation.getAttribute(propagator::PropagatorExplanation()) << endl;
   }
 
   bound.setAttribute(propagator::PropagatorExplanation(), explanation);
@@ -464,10 +463,12 @@ void ArithUnatePropagator::knownUpperBound(TNode x, const Rational& ub, bool str
 
 
 
-  cout << "Adding bound known upper bound" << bound << " <- " << explanation << endl
-       << x.getId() << endl;
+  Debug("bounds-refinement") << "Adding bound known upper bound"
+                             << bound << " <- " << explanation << endl
+                             << x.getId() << endl;
   if(negation.getAttribute(propagator::PropagatorMarked())){
-    cout << "" << negation << " <- " << negation.getAttribute(propagator::PropagatorExplanation()) << endl;
+    Debug("bounds-refinement") << " " << negation << " <- " << endl
+                               << negation.getAttribute(propagator::PropagatorExplanation()) << endl;
   }
 
   bound.setAttribute(propagator::PropagatorExplanation(), explanation);
