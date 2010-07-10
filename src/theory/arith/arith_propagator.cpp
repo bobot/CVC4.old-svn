@@ -556,6 +556,54 @@ Node ArithUnatePropagator::tightestImpliedUpperBound(TNode upperBound){
 
   return toReturn;
 }
-Node ArithUnatePropagator::tightestImpliedLowerBound(TNode upperBound){
-  return Node::null();
+Node ArithUnatePropagator::tightestImpliedLowerBound(TNode lowerBound){
+  Node under;
+  if(lowerBound.getKind() == NOT){
+    under = lowerBound[0];
+  }else{
+    under = lowerBound;
+  }
+  Node left = under[0];
+
+
+  OrderedBoundsList* leqList = left.getAttribute(propagator::PropagatorLeqList());
+  OrderedBoundsList* geqList = left.getAttribute(propagator::PropagatorGeqList());
+
+  OrderedBoundsList::reverse_iterator leqRIter = leqList->reverse_lower_bound(under);
+  OrderedBoundsList::reverse_iterator geqRIter = geqList->reverse_lower_bound(under);
+
+  Node toReturn = Node::null();
+
+
+  if(leqRIter != leqList->rend() && geqRIter != geqList->rend()){
+    Node gt = *leqRIter;
+    Node geq = *geqRIter;
+
+    Assert(under[1].getConst<Rational>() >= gt[1].getConst<Rational>());
+    Assert(under[1].getConst<Rational>() >= geq[1].getConst<Rational>());
+
+    if(geq == lowerBound){
+      toReturn = lowerBound;
+    }else if(gt == under){
+      toReturn = lowerBound;
+    }else{
+      int cmp = geq[1].getConst<Rational>().cmp(gt[1].getConst<Rational>());
+      if(cmp > 0){
+        toReturn = geq;
+      }else if(cmp <= 0){
+        toReturn = NodeManager::currentNM()->mkNode(NOT,gt);
+      }
+    }
+
+  }else if(leqRIter != leqList->rend()){
+    Node gt = *leqRIter;
+    Assert(under[1].getConst<Rational>() >= gt[1].getConst<Rational>());
+    toReturn = NodeManager::currentNM()->mkNode(NOT,gt);
+  }else if(geqRIter != geqList->rend()){
+    Node geq = *geqRIter;
+    Assert(under[1].getConst<Rational>() >= geq[1].getConst<Rational>());
+    toReturn = geq;
+  }
+
+  return toReturn;
 }
