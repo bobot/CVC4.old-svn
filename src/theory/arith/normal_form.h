@@ -3,6 +3,8 @@
 #include "util/rational.h"
 #include "theory/arith/arith_constants.h"
 
+#include <vector>
+
 #ifndef __CVC4__THEORY__ARITH__NORMAL_FORM_H
 #define __CVC4__THEORY__ARITH__NORMAL_FORM_H
 
@@ -84,60 +86,199 @@ namespace arith {
  *  accepts/generates it.
  *  All subexpressions are also in normal form and are also tagged.
  */
+namespace normal_form {
+
 enum ArithNormalFormTag
-  {VARIABLE,
-   CONSTANT,
-   MONOMIAL,
-   COEFFICIENT_MONOMIAL,
-   SUM,
-   CONSTANT_SUM};
+  {VARIABLE             = 0b0101111,
+   MONOMIAL             = 0b0101110,
+   COEFFICIENT_MONOMIAL = 0b0101100,
+   SUM                  = 0b0101000,
+   CONSTANT             = 0b0110000,
+   CONSTANT_SUM         = 0b0100000};
 
 
-/** Sets and gets the tag on a node. */
-inline ArithNormalFormTag getNFTag(TNode x);
+struct ArithNFTagID;
+typedef expr::Attribute<ArithNFTagID, uint64_t> ArithNFTag;
 
-/** Debug mode enforces that the tag is tight. */
-inline void setNFTag(TNode x, ArithNormalFormTag tag);
+};
 
-/** Compares 2 monomials by lexigraphical order. */
-inline int compareMonomial(TNode x, TNode y);
+/** Returns true if the language for tag0 is a subset of the language for tag1. */
+inline bool subformRelation(normal_form::ArithNormalFormTag tag0,
+                            normal_form::ArithNormalFormTag tag1){
+  return (tag0 & tag1) == tag1;
+}
 
-/** Conversion functions between integers and normal form tags */
-inline uint8_t arithTagToInt(ArithNormalFormTag tag);
-inline ArithNormalFormTag intToArithTag(uint8_t intTag);
+class ArithNormalForm {
+public:
+  /** Gets the tag on a node. */
+  static inline normal_form::ArithNormalFormTag getTag(TNode x);
 
-/** Decomposes a constant sum term.*/
-inline Node getConstantFromConstantSum(TNode x);
-/** Returns null if there are no variables.*/
-inline Node getSumFromConstantSum(TNode x);
+private:
+  /**
+   * Sets the tag on a node.
+   * This does not enforce the strictness or correctness of the tag.
+   * This is private so that only the mkX() functions can use this.
+   */
+  static inline void setNFTag(TNode x, normal_form::ArithNormalFormTag tag);
 
-inline TNode getMonomialFromCoefficientMonomial(TNode x);
-inline Node getCoefficientFromCoefficientMonomial(TNode x);
+public:
 
-namespace normal_form{
+  /**
+   * Returns true if the tag on a node belongs to the language of tag.
+   * precondition: x is tagged.
+   */
+  static inline bool isForm(TNode x, normal_form::ArithNormalFormTag tag){
+    Assert(x.hasAttribute(normal_form::ArithNFTag()));
+    return subformRelation(tag, getTag(x));
+  }
 
-/**
- * The check functions are (potentially) full tree traversing calls that
- * check whether the formula belongs to a language.
- */
-bool checkTag(TNode x, ArithNormalFormTag tag);
-bool checkIsVariable(TNode x);
-bool checkIsConstant(TNode x);
-bool checkIsMonomial(TNode x);
-bool checkIsCoefficientMonomial(TNode x);
-bool checkIsSum(TNode x);
-bool checkIsConstantSum(TNode x);
-bool checkIsComparison(TNode x);
-bool checkIsNormalFormTerm(TNode x);
-bool checkIsNormalFormAtom(TNode x);
+  /**
+   * Correct by construction builders for expressions in the normal form.
+   * The output is guarenteed to belong to the corresponding language.
+   * If the result would not belong to the language this cannot be used.
+   * i.e. mkCoefficientSum(0, mkMonomial([x])) is not allowed but
+   *      mkCoefficientSum(1, mkMonomial([x])) == mkMonomial([x]) holds.
+   * Debug mode assures that the construction is locally correct i.e.
+   * all of the children are correctly tagged.
+   */
+  static inline Node mkConstant(const Rational& value);
+  static inline Node mkVariable(TNode x);
+  static inline Node mkMonomial(std::vector<TNode>& variables);
+  static inline Node mkCoefficientMonomial(const Rational& coeff, TNode monomial);
+  static inline Node mkSum(const std::vector<TNode>& variables);
+  static inline Node mkConstantSum(const Rational& constant, TNode sum);
 
-/**
- * checks if the tag is as tight as possible.
- * precondition: checkTag(x, tag) is true
- */
-bool checkTagIsTight(TNode x, ArithNormalFormTag tag);
+  /** Decomposes a constant sum term.*/
+  static inline Node getConstantFromConstantSum(TNode x);
+  /** Returns null if there are no variables.*/
+  static inline Node getSumFromConstantSum(TNode x);
+
+  /** Compares 2 monomials by lexigraphical order. */
+  static inline int compareMonomial(TNode x, TNode y);
+
+  static inline TNode getMonomialFromCoefficientMonomial(TNode x);
+  static inline Node getCoefficientFromCoefficientMonomial(TNode x);
+
+private:
+  /**
+   * The check functions are calls that check whether the formula belongs to a language.
+   * These are NOT efficient ways of determining the language of a tagged formula.
+   *
+   * If checkChildren is true, a full recursive check is called.
+   *
+   * The checks are language strict.
+   * Does not assume the node is tagged.
+   * Does assume the children are tagged.
+   * If !checkChildren, assumes that the children are correctly tagged.
+   */
+  static bool checkIsVariable(TNode x, bool checkChildren);
+  static bool checkIsConstant(TNode x, bool checkChildren);
+  static bool checkIsMonomial(TNode x, bool checkChildren);
+  static bool checkIsCoefficientMonomial(TNode x, bool checkChildren);
+  static bool checkIsSum(TNode x, bool checkChildren);
+  static bool checkIsConstantSum(TNode x, bool checkChildren);
+  static bool checkIsComparison(TNode x, bool checkChildren);
+  static bool checkIsNormalFormTerm(TNode x, bool checkChildren);
+  static bool checkIsNormalFormAtom(TNode x, bool checkChildren);
+
+public:
+  /** Similar to the check calls on an aribitrary tagged node. */
+  static bool checkTaggedTerm(TNode x, bool checkChildren);
+
+};
+
+inline Node ArithNormalForm::mkConstant(const Rational& value){
+  Node constant = NodeManager::currentNM()->mkConst<Rational>(value);
+  setNFTag(constant, normal_form::CONSTANT);
+
+  checkTaggedTerm(constant, false);
+  return constant;
+}
 
 
+inline Node ArithNormalForm::mkVariable(TNode x){
+  setNFTag(x, normal_form::VARIABLE);
+  checkTaggedTerm(constant, false);
+  return x;
+}
+
+inline Node ArithNormalForm::mkMonomial(const std::vector<TNode>& variables){
+  Assert(variables.size() >= 1);
+
+  if(variables.size() == 1){
+    TNode var = variables.front();
+    Assert(isForm(var, VARIABLE));
+    return var;
+  }else{
+    std::sort(variables.begin(), variables.end());
+    NodeBuilder<> nb(kind::MULT);
+    for(std::vector<TNode>::iterator i; i != variables.end(); ++i){
+      TNode var = (*i);
+      Assert(isForm(var, VARIABLE));
+      nb << var;
+    }
+
+    Node monomial(nb);
+    setNFTag(monomial, MONOMIAL);
+    checkTaggedTerm(monomial, false);
+    return monomial;
+  }
+}
+
+inline Node ArithNormalForm::mkCoefficientMonomial(const Rational& coeff, TNode monomial){
+  Assert(coeff != 0);
+  if(coeff == 1){
+    checkTaggedTerm(monomial, false);
+    return monomial;
+  }else{
+    Node coefficient = mkConstant(coeff);
+    Node coeffMono = NodeManager::currentNM()->mkNode(kind::MULT, coefficient, monomial);
+    setNFTag(coeffMono, COEFFICIENT_MONOMIAL);
+    checkTaggedTerm(coeffMono, false);
+    return coeffMono;
+  }
+}
+inline Node ArithNormalForm::mkMonomial(const std::vector<TNode>& cMonomials){
+  Assert(cMonomials.size() >= 1);
+
+  if(cMonomials.size() == 1){
+    TNode var = variables.front();
+    Assert(isForm(var, VARIABLE));
+    return var;
+  }else{
+    sum = mkNode(kind::PLUS, total.begin(),total.end());
+    setNFTag(sum, SUM);
+
+    std::sort(variables.begin(), variables.end());
+    NodeBuilder<> nb(kind::PLUS);
+    for(std::vector<TNode>::iterator i; i != variables.end(); ++i){
+      TNode var = (*i);
+      Assert(isForm(var, VARIABLE));
+      nb << var;
+    }
+
+    Node monomial(nb);
+    setNFTag(monomial, MONOMIAL);
+    checkTaggedTerm(monomial, false);
+    return monomial;
+  }
+}
+
+inline Node ArithNormalForm::mkCoefficientMonomial(const Rational& coeff, TNode monomial){
+  Assert(coeff != 0);
+
+
+  if(coeff == 1){
+    checkTaggedTerm(monomial, false);
+    return monomial;
+  }else{
+    Node coefficient = mkConstant(coeff);
+    Node coeffMono = NodeManager::currentNM()->mkNode(kind::MULT, coefficient, monomial);
+    setNFTag(coeffMono, COEFFICIENT_MONOMIAL);
+    checkTaggedTerm(coeffMono, false);
+    return coeffMono;
+  }
+}
 
 /**
  * Auxillary
@@ -181,16 +322,16 @@ bool checkTagIsTight(TNode x, ArithNormalFormTag tag);
 
 
 inline int compareMonomial(TNode x, TNode y){
-  Assert(checkIsMonomial(x));
-  Assert(checkIsMonomial(y));
+  Assert(checkIsMonomial(x, false));
+  Assert(checkIsMonomial(y, false));
 
-  bool xIsMult = x.getKind() == MULT;
-  bool yIsMult = y.getKind() == MULT;
+  bool xIsMult = x.getKind() == kind::MULT;
+  bool yIsMult = y.getKind() == kind::MULT;
 
   if(xIsMult && yIsMult){
     if(x.getNumChildren() == y.getNumChildren() ){
       for(TNode::iterator i = x.begin(), j = y.begin(),
-            xEnd = x.end(), yEnd = y.end(); i != end; ++i, ++j){
+            xEnd = x.end(), yEnd = y.end(); i != xEnd; ++i, ++j){
         TNode xCurr = *i;
         TNode yCurr = *j;
         if(xCurr < yCurr){
@@ -208,57 +349,36 @@ inline int compareMonomial(TNode x, TNode y){
   }else if(!xIsMult &&  yIsMult){
     return -1;
   }else{
-    return compare(x,y);
+    if(x < y){
+      return -1;
+    }else if(x == y){
+      return 0;
+    }else{
+      return 1;
+    }
   }
+}
+inline int compareCoefficientMonomial(TNode x, TNode y){
+  return compareMonomial(getMonomialFromCoefficientMonomial(x),
+                         getMonomialFromCoefficientMonomial(y));
 }
 
 
-
-inline uint8_t arithTagToInt(ArithNormalFormTag tag){
-  switch(tag){
-  case VARIABLE: return 1;
-  case CONSTANT: return 2;
-  case MONOMIAL: return 3;
-  case COEFFICIENT_MONOMIAL: return 4;
-  case SUM: return 5;
-  case CONSTANT_SUM: return 6;
-  default: Unreachable();
-  }
-}
-
-inline ArithNormalFormTag intToArithTag(uint8_t intTag){
-  switch(intTag){
-  case 1: return VARIABLE;
-  case 2: return CONSTANT;
-  case 3: return MONOMIAL;
-  case 4: return COEFFICIENT_MONOMIAL;
-  case 5: return SUM;
-  case 6: return CONSTANT_SUM;
-  default: Unreachable();
-  }
-}
-
-
-struct ArithNFTagID;
-typedef expr::Attribute<ArithNFTagID, uint64_t> ArithNFTag;
 
 }; /* namesapce normal_form */
 
 inline ArithNormalFormTag getNFTag(TNode x){
-  return intToArithTag(x.getAttribute(normal_form::ArithNFTag()));
+  return (ArithNormalFormTag)(x.getAttribute(normal_form::ArithNFTag()));
 }
 
 inline void setNFTag(TNode x, ArithNormalFormTag tag){
-  Assert(checkTag(x,tag));
-  Assert(checkTagIsTight(x,tag));
-
-  x.setAttribute(normal_form::ArithNFTag(), arithTagToInt(tag));
+  x.setAttribute(normal_form::ArithNFTag(), (uint64_t)tag);
 }
 
 
 
 inline TNode getMonomialFromCoefficientMonomial(TNode x){
-  Assert(checkIsCoefficientMonomial(x));
+  Assert(normal_form::checkIsCoefficientMonomial(x, true));
 
   if(x.getKind() == kind::MULT){
     if(x.getNumChildren() == 2 && x[0].getKind() == kind::CONST_RATIONAL){
@@ -300,6 +420,10 @@ inline Node getConstantFromConstantSum(TNode x){
   }
 
   return NodeManager::currentNM()->mkConst<Rational>(Rational(0));
+}
+
+inline bool subformRelation(ArithNormalFormTag tag0, ArithNormalFormTag tag1){
+  return (tag0 & tag1) == tag1;
 }
 
 }; /* namesapce arith */

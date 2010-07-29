@@ -17,8 +17,16 @@
  ** \todo document this file
  **/
 
+#include "theory/arith/arith_constants.h"
+#include "theory/theory.h"
 
 
+#ifndef __CVC4__THEORY__ARITH__REWRITER_H
+#define __CVC4__THEORY__ARITH__REWRITER_H
+
+namespace CVC4 {
+namespace theory {
+namespace arith {
 
 class ArithRewriter{
 private:
@@ -31,12 +39,10 @@ private:
   /** Returns a node of kind CONST_RATIONAL */
   Node evaluateConstantExpression(TNode n);
 
-  Node rewriteTerm(TNode t);
-
-  Node rewriteTerm(TNode t);
-  Node rewriteMult(TNode t);
-  Node rewritePlus(TNode t);
-  Node rewriteMinus(TNode t);
+  RewriteResponse rewriteTerm(TNode t);
+  RewriteResponse rewriteMult(TNode t);
+  RewriteResponse rewritePlus(TNode t);
+  RewriteResponse rewriteMinus(TNode t);
 
 public:
   ArithRewriter(ArithConstants* ac) :

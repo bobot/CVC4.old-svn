@@ -18,7 +18,8 @@
  **/
 
 
-#include "theory/arith/arith_rewriter.h"
+#include "theory/arith/normal_form.h"
+#include "theory/arith/next_arith_rewriter.h"
 #include "theory/arith/arith_utilities.h"
 
 #include <vector>
@@ -30,13 +31,13 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-void rewritePlus(TNode t){
+RewriteResponse ArithRewriter::rewritePlus(TNode t){
   Rational acc(0);
   std::vector<Node> total;
 
   for(TNode::iterator i=t.begin(), tEnd=t.end(); i!=tEnd; ++i){
     TNode curr = postRewrite(*i);
-    ArithNormalFormTag tag = curr.getNFTag();
+    ArithNormalFormTag tag = getNFTag(curr);
     switch(tag){
     case CONSTANT:
       acc += curr.getConst<Rational>();
@@ -55,7 +56,7 @@ void rewritePlus(TNode t){
       {
         acc += getConstantFromConstantSum(curr).getConst<Rational>();
         TNode sum = getSumFromConstantSum(curr);
-        for(TNode::iterator j=sum.begin(), currEnd = sum.end(); j!=currEnd; ++j){
+        for(TNode::iterator j=sum.begin(), currEnd=sum.end(); j!=currEnd; ++j){
           total.push_back(*j);
         }
       }
@@ -79,14 +80,12 @@ void rewritePlus(TNode t){
   if(total.length() == 1){
     sum = total.front();
   }else{
-    sum = mkNode(PLUS, total.begin(),total.end());
-    setNFTag(sum, SUM);
   }
 
   if(acc == d_constants.ZERO){
     return RewriteComplete(sum);
   }else{
-    Node plus = mkNode(PLUS, constant, sum);
+    Node plus = mkNode(kind::PLUS, constant, sum);
     setNFTag(plus, CONSTANT_SUM);
     return RewriteComplete(plus);
   }
@@ -154,69 +153,12 @@ void rewriteMult(TNode t){
     }
   }
 
-  if(acc == 0 || (variables.size() == 0 && sums.size() == 0) ){
-    Node constant = mkConst<Rational>(acc);
-    tag(constant, CONSTANT);
-    return RewriteComplete(constant);
-  }else if(variables.size() == 0 && sums.size() ==  0){
-    
-  }
-
-  Node coefficentMonomial = mkCoefficientMonomial(acc,variables);
-
-  switch(sums.size()){
-  case 0:
-    return RewriteComplete(coefficentMonomial);
-  case 1:
-  default:
-    Unimplemented();
-  }
+  Unimplemented();
 
 }
 
-Node mkConstant(const Rational& value){
-  Node constant = mkConst<Rational>(value);
-  setTag(constant, CONSTANT);
-  return constant;
-}
 
-Node mkVariable(TNode x){
-  setTag(x, VARIABLE);
-  return x;
-}
 
-Node mkMonomial(vector<TNode>& variables){
-  Assert(variables.size() > 1);
-
-  if(variables.size() == 1){
-    return variables.front();
-  }else{
-    sort(variables, node_id);
-    NodeBuilder<> nb(MULT);
-    for(vector<TNode>::iterator i; i != variables.end(); ++i){
-      nb << (*i);
-    }
-    Node monomial(nb);
-    tagAs(monomial, MONOMIAL);
-    return monomial;
-  }
-}
-
-Node mkCoefficientMonomial(const Rational& coeff, vector<TNode>& variables){
-  if(coeff == 0){
-    return mkConstant(coeff);
-  }
-
-  Node monomial = mkMonomial(variables);
-
-  if(coeff != 1){
-    Node a = mkNode(MULT, coeff, monomial);
-    tagNode(a, COEFFICIENT_MONOMIAL);
-    return a;
-  }else{
-    return monomial;
-  }
-}
 
 void rewriteTerm(TNode t){
   if(t.getMetaKind() == kind::metakind::CONSTANT){

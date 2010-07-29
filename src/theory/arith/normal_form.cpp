@@ -1,7 +1,11 @@
 
+#include "theory/arith/normal_form.h"
 
+using namespace CVC4;
+using namespace CVC4::theory;
+using namespace CVC4::theory::arith;
 
-bool checkTag(x, ArithNormalFormTag tag){
+bool normal_form::checkTag(TNode x, ArithNormalFormTag tag){
   switch(tag){
   case VARIABLE:
     return checkIsVariable(x);
@@ -21,7 +25,7 @@ bool checkTag(x, ArithNormalFormTag tag){
 }
 
 
-inline bool checkTagIsTight(x, ArithNormalFormTag tag){
+bool normal_form::checkTagIsTight(TNode x, ArithNormalFormTag tag){
   //Assumes checkTag(x,tag)
   switch(tag){
   case VARIABLE:
@@ -41,21 +45,21 @@ inline bool checkTagIsTight(x, ArithNormalFormTag tag){
 }
 
 
-bool checkIsVariable(TNode x){
-  return x.getMetaKind() == metakind::VARIABLE;
+bool normal_form::checkIsVariable(TNode x){
+  return x.getMetaKind() == kind::metakind::VARIABLE;
 }
 
-bool checkIsConstant(TNode x){
+bool normal_form::checkIsConstant(TNode x){
   return x.getKind() == kind::CONST_RATIONAL;
 }
 
 
-bool checkIsMonomial(TNode x){
+bool normal_form::checkIsMonomial(TNode x){
   if(x.getKind() == kind::MULT){
     Assert(x.getNumChildren() >= 2);
     TNode::iterator i = x.begin();
     TNode prev = *i;
-    if(!checkIsVariable(prev)) return false;
+    if(!normal_form::checkIsVariable(prev)) return false;
     ++i;
     for(TNode::iterator end = x.end(); i != end; ++i){
       TNode curr = *i;
@@ -65,31 +69,12 @@ bool checkIsMonomial(TNode x){
     }
     return true;
   }else{
-    return checkIsVariable(x);
-  }
-}
-
-bool checkIsMonomial(TNode x){
-  if(x.getKind() == kind::MULT){
-    Assert(x.getNumChildren() >= 2);
-    TNode::iterator i = x.begin();
-    TNode prev = *i;
-    if(!checkIsVariable(prev)) return false;
-    ++i;
-    for(TNode::iterator end = x.end(); i != end; ++i){
-      TNode curr = *i;
-      if(!checkIsVariable(curr)) return false;
-      if(prev > curr) return false;
-      prev = curr;
-    }
-    return true;
-  }else{
-    return checkIsVariable(x);
+    return normal_form::checkIsVariable(x);
   }
 }
 
 
-bool checkIsCoefficientMonomial(TNode x){
+bool normal_form::checkIsCoefficientMonomial(TNode x){
   if(x.getKind() == kind::MULT){
     Assert(x.getNumChildren() >= 2);
     if(x.getNumChildren() == 2 && x[0].getKind() == kind::CONST_RATIONAL){
@@ -108,7 +93,7 @@ bool checkIsCoefficientMonomial(TNode x){
 
 
 
-bool checkIsSum(TNode x){
+bool normal_form::checkIsSum(TNode x){
   if(x.getKind() == kind::PLUS){
     Assert(x.getNumChildren() >= 2);
     TNode::iterator i = x.begin();
@@ -117,7 +102,7 @@ bool checkIsSum(TNode x){
     ++i;
     for(TNode::iterator end = x.end(); i != end; ++i){
       TNode curr = *i;
-      if(!checkIsCoefficientMonomial(curr)) return false;
+      if(!normal_form::checkIsCoefficientMonomial(curr)) return false;
       if(compareCoefficientMonomial(prev,curr) >= 0) return false;
       prev = curr;
     }
@@ -127,7 +112,7 @@ bool checkIsSum(TNode x){
 }
 
 
-bool checkIsConstantSum(TNode x){
+bool normal_form::checkIsConstantSum(TNode x){
   if(x.getKind() == kind::CONST_RATIONAL){
     return true;
   }else if(x.getKind() == kind::PLUS &&
@@ -138,22 +123,23 @@ bool checkIsConstantSum(TNode x){
       if(coeff == 0){
         return false;
       }
-      return checkIsSum(x[1]);
-    }
+      return normal_form::checkIsSum(x[1]);
   }else{
-    return checkIsSum(x);
+    return normal_form::checkIsSum(x);
   }
 }
 
 
-inline bool checkIsComparison(TNode x){
-  if(x.getKind() == kind::GEQ || x.getKind() == kind::LEQ || x.getKind() == kind::EQUAL){
+bool normal_form::checkIsComparison(TNode x){
+  if(x.getKind() == kind::GEQ ||
+     x.getKind() == kind::LEQ ||
+     x.getKind() == kind::EQUAL){
     Assert(x.getNumChildren() == 2);
 
-    if((x[1]).getKind() != CONST_RATIONAL) return false;
+    if((x[1]).getKind() != kind::CONST_RATIONAL) return false;
 
     TNode left = x[0];
-    if(left.getKind() == PLUS){
+    if(left.getKind() == kind::PLUS){
       if(! checkIsMonomial(left[0])) return false;
 
       return checkIsSum(left);
@@ -165,14 +151,14 @@ inline bool checkIsComparison(TNode x){
 }
 
 
-inline bool checkIsNormalFormTerm(TNode x){
-  return isConsSum(x);
+inline bool normal_form::checkIsNormalFormTerm(TNode x){
+  return normal_form::checkIsConstantSum(x);
 }
 
-inline bool checkIsNormalFormAtom(TNode x){
+inline bool normal_form::checkIsNormalFormAtom(TNode x){
   switch(x.getKind()){
-  case CONST_BOOLEAN: return true;
-  case NOT: return checkIsComparison(x[0]);
+  case kind::CONST_BOOLEAN: return true;
+  case kind::NOT: return normal_form::checkIsComparison(x[0]);
+  default: return normal_form::checkIsComparison(x);
   }
-  return checkIsComparison(x);
 }
