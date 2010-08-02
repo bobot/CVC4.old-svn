@@ -78,6 +78,7 @@ class Derivation {
 		Clause* d_emptyClause;
 	// TODO: do you need to store clauses removed from derivation? 
 	public:
+		int static id_counter;
 		Derivation(Solver* solver) : d_emptyClause(NULL), d_solver(solver) {};
 		void registerClause(Clause* clause, bool is_input_clause);
 		void registerDerivation(int clause_id, SatResolution* res);
@@ -86,7 +87,12 @@ class Derivation {
 		void finish(Clause* confl);
 		int getRootReason(Lit l);
 		void printDerivation(int clause_id);
+		int new_id();
 };
+
+int Derivation::new_id(){
+  return id_counter++;
+}
 
 void Derivation::registerClause(Clause* clause, bool is_input_clause){
     Debug("proof")<<"Registering clause id "<<clause->id()<<":: ";

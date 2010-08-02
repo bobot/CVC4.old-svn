@@ -30,7 +30,7 @@ namespace CVC4 {
 namespace prop {
 namespace minisat {
 
-unsigned Clause::id_counter=0;
+int Derivation::id_counter=0;
 
 Solver::Solver(SatSolver* proxy, context::Context* context) :
 
@@ -107,7 +107,7 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
 }
 
 
-bool Solver::addClause(vec<Lit>& ps, ClauseType type)
+bool Solver::addClause(vec<Lit>& ps, ClauseType type, ClauseId id)
 {
     assert(decisionLevel() == 0);
 

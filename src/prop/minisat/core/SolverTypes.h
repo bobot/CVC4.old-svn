@@ -103,13 +103,15 @@ const lbool l_Undef = toLbool( 0);
 //=================================================================================================
 // Clause -- a simple class for representing a clause:
 
+typedef int ClauseId;
+const int ClauseId_NULL = -2147483648;
 
 class Clause {
     uint32_t size_etc;
     union { float act; uint32_t abst; } extra;
     Lit     data[0];
-    unsigned clause_id : 32;
-    static unsigned id_counter;
+    //unsigned clause_id : 32;
+    //static unsigned id_counter;
 
 public:
     void calcAbstraction() {
@@ -120,24 +122,27 @@ public:
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
-    Clause(const V& ps, bool learnt) {
-        clause_id = ++id_counter;
-        Debug("proof:id")<<"Creating clause "<<clause_id<<"\n";
+    Clause(const V& ps, bool learnt, ClauseId id_ = ClauseId_NULL) {
+        //clause_id = ++id_counter;
+        //Debug("proof:id")<<"Creating clause "<<clause_id<<"\n";
         //printClause(this);
-        Debug("proof:id")<<"\n";
+        //Debug("proof:id")<<"\n";
         size_etc = (ps.size() << 3) | (uint32_t)learnt;
         for (int i = 0; i < ps.size(); i++) data[i] = ps[i];
         if (learnt) extra.act = 0; else calcAbstraction();
+        // proof:
+        if(id_ != ClauseId_NULL) id() = id_;
         }
 
     // -- use this function instead:
     // if ClauseId is the default you do not allocate memory for it
     template<class V>
-    friend Clause* Clause_new(const V& ps, bool learnt = false) {
+    friend Clause* Clause_new(const V& ps, bool learnt = false, ClauseId id = ClauseId_NULL) {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
-        void* mem = malloc(sizeof(Clause) + sizeof(uint32_t)*(ps.size()));
-        return new (mem) Clause(ps, learnt); }
+        // proof: added the clause_id to the size
+        void* mem = malloc(sizeof(Clause) + sizeof(uint32_t)*(ps.size())+ (int)(id != ClauseId_NULL));
+        return new (mem) Clause(ps, learnt,id); }
 
     int          size        ()      const   { return size_etc >> 3; }
     void         shrink      (int i)         { assert(i <= size()); size_etc = (((size_etc >> 3) - i) << 3) | (size_etc & 7); }
@@ -145,14 +150,14 @@ public:
     bool         learnt      ()      const   { return size_etc & 1; }
     uint32_t     mark        ()      const   { return (size_etc >> 1) & 3; }
     void         mark        (uint32_t m)    { size_etc = (size_etc & ~6) | ((m & 3) << 1); }
-    //const Lit&   last        ()      const   { return data[size()-1]; }
+    const Lit&   last        ()      const   { return data[size()-1]; }
     // id for proof logging based on Minisat 1.14
     // by lianah
-    unsigned id             ()       const   { return clause_id;}
+    ClauseId& id             ()      const { return *((ClauseId*)&data[size() + (int)learnt()]); }
 
     // NOTE: somewhat unsafe to change the clause in-place! Must manually call 'calcAbstraction' afterwards for
     //       subsumption operations to behave correctly.
-    //Lit&         operator [] (int i)         { return data[i]; }
+    Lit&         operator [] (int i)         { return data[i]; }
     Lit          operator [] (int i) const   { return data[i]; }
     operator const Lit* (void) const         { return data; }
 
