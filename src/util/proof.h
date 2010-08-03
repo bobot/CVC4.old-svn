@@ -20,10 +20,13 @@
 #include <ext/hash_map>
 #include <ext/hash_set>
 #include <iostream>
+#include <sstream>
+
 #include <utility>
 // do i need these includes?
 #include "prop/minisat/core/SolverTypes.h"
 #include "prop/minisat/core/Solver.h"
+#include "lfsc_proof.h"
 
 namespace std {
 using namespace __gnu_cxx;
@@ -40,6 +43,12 @@ namespace minisat {
 // helper functions
 typedef std::vector<std::pair <Lit, unsigned> >  RSteps;
 
+std::string intToStr(int i){
+  std::stringstream ss;
+  ss<<i;
+  return ss.str();
+}
+
 class SatResolution {
 public:
 
@@ -49,7 +58,9 @@ public:
 public:
 		
 		SatResolution(){};
-		SatResolution (int clause_id): d_start_clause(clause_id){};
+		SatResolution (int clause_id): d_start_clause(clause_id){
+		  Debug("proof:id")<<"NEW_RES:: start_id:"<<clause_id<<"\n";
+		};
 		
 		void addStep(Lit lit, unsigned clause_id){
 		  d_steps.push_back(std::make_pair(lit, clause_id));
@@ -67,11 +78,12 @@ public:
 
 
 
-
 class Derivation {
 	private:
-		std::hash_map <int, Clause*> d_clauses; 	// map from id's to clauses
+		//std::hash_map <int, Clause*> d_clauses; 	// map from id's to clauses
 		std::hash_set <int> d_input_clauses;		// the input clauses assumed true
+		std::hash_set <int> d_vars;                     // the set of variables that appear in the proof
+		std::vector <Clause*> d_clauses;            // clause with id i will be on position i
 		std::hash_map <int, Clause*> d_unit_clauses;		// the set of unit clauses, indexed by value of variable for easy searching
 		std::hash_map <int, SatResolution*> d_res_map;	// a map from clause id's to the boolean resolution derivation of that respective clause
 		Solver* d_solver;
@@ -81,46 +93,78 @@ class Derivation {
 		int static id_counter;
 		Derivation(Solver* solver) : d_emptyClause(NULL), d_solver(solver) {};
 		void registerClause(Clause* clause, bool is_input_clause);
-		void registerDerivation(int clause_id, SatResolution* res);
+		void registerDerivation(Clause* clause, SatResolution* res);
 		// TODO: do we need to allow for duplicate insertion? see minisat_derivation.h in cvc3
 		// don't really need to keep clauses, all you need to do is check that it's not the same.
 		void finish(Clause* confl);
 		int getRootReason(Lit l);
-		void printDerivation(int clause_id);
+		void printDerivation(Clause* clause);
+		void printLFSCProof(Clause* clause);
+		int getId(Clause* clause);
 		int new_id();
 };
+
+int Derivation::getId(Clause* cl){
+  int id = -1;
+  //store the variables
+  for(unsigned i=0; i<cl->size(); i++){
+    d_vars.insert(var((*cl)[i])+1);
+  }
+
+  for(unsigned i=0; i< d_clauses.size(); i++){
+    Clause* cl_i = d_clauses[i];
+    if(cl->size() == cl_i->size()){
+      id = i;
+      // compare clauses
+      for(int j=0; j < cl->size(); j++)
+        if (cl[j] != cl_i[j]){
+          id = -1;
+          break;
+          }
+
+      if(id!= -1)
+        return id;
+    }
+ }
+  return -1;
+}
 
 int Derivation::new_id(){
   return id_counter++;
 }
 
 void Derivation::registerClause(Clause* clause, bool is_input_clause){
-    Debug("proof")<<"Registering clause id "<<clause->id()<<":: ";
-    d_solver->printClause(*clause);
-    Debug("proof")<<"\n";
-
-    if(d_clauses.find(clause->id()) == d_clauses.end()){
+    Debug("proof:id")<<"REG_CL:: ";
+    //d_solver->printClause(*clause);
+    int id = getId(clause);
+    if(id == -1){
       // if not already registered
-      d_clauses[clause->id()] = clause;
+      d_clauses.push_back(clause);
       if(is_input_clause){
         // if it's an input clause
-        d_input_clauses.insert(clause->id());
+        // id will be the position it has been inserted at
+        d_input_clauses.insert(d_clauses.size()-1);
       }
+      Debug("proof:id")<<":: id:"<< d_clauses.size()-1<<"\n";
     }
     else
-      Debug("proof")<<"Clause already registered \n";
+      Debug("proof:id")<<"already reg with id:"<<id<<"\n";
 
 }
 
-void Derivation::registerDerivation(int clause_id, SatResolution* res){
-  Debug("proof")<<"Registering derivation clausse_id ="<<clause_id<<"\n";
+void Derivation::registerDerivation(Clause* clause, SatResolution* res){
+  int clause_id = getId(clause);
+  Debug("proof")<<"REG_DERIV :: id:"<<clause_id<<"\n";
   if(d_res_map.find(clause_id)== d_res_map.end()){
     d_res_map[clause_id] = res;
+  }
+  else{
+   Debug("proof")<<"DERIV:: already registered \n";
   }
 }
 
 int Derivation::getRootReason(Lit lit){
-  Debug("proof")<<"getRootReason lit=";
+  Debug("proof")<<"ROOT_REASON lit:";
   d_solver->printLit(lit);
   Debug("proof")<<"\n";
 
@@ -136,16 +180,17 @@ int Derivation::getRootReason(Lit lit){
 
   // if implied by an unit clause return the unit clause
   if((*reason).size() == 1)
-    return reason->id();
+    return getId(reason);
 
   // if the literal is already an unit clause then it has a computed reason
+
   std::hash_map<int, Clause*>::const_iterator iter;
   iter = d_unit_clauses.find(toInt(lit));
   if(iter != d_unit_clauses.end()){
-    return iter->second->id();
+    return getId(iter->second);
     }
 
-  SatResolution* res = new SatResolution(reason->id());
+  SatResolution* res = new SatResolution(getId(reason));
 
   // starts from 1 because reason[0] = lit
   for(int i=1; i<(*reason).size();i++){
@@ -160,35 +205,35 @@ int Derivation::getRootReason(Lit lit){
   d_unit_clauses[toInt(lit)] = unit;
   registerClause(unit, false);
   // add the derivation of the unit
-  registerDerivation(unit->id(), res);
+  registerDerivation(unit, res);
   return toInt(lit);
 }
 
 
 void Derivation::finish(Clause* confl){
 
-  SatResolution* res = new SatResolution(confl->id());
+  SatResolution* res = new SatResolution(getId(confl));
   for (int i=0;i<(*confl).size();i++){
     Lit l = (*confl)[i];
     res->addStep(~l, getRootReason(~l));
 
   }
-  registerDerivation(confl->id(), res);
+  registerDerivation(confl, res);
 
   // printing derivation for debugging
-  printDerivation(confl->id());
+  printDerivation(confl);
 }
 
 // helper functions
 
-void Derivation::printDerivation(int clause_id){
-
+void Derivation::printDerivation(Clause* clause){
+  int clause_id = getId(clause);
   Debug("proof")<<"Derivation clause_id="<<clause_id<<": ";
-  d_solver->printClause(* d_clauses.find(clause_id)->second);
+  d_solver->printClause(* d_clauses[clause_id]);
   SatResolution* res = d_res_map.find(clause_id)->second;
 
   RSteps step = res->getSteps();
-  Clause* cl = d_clauses.find(res->getStart())->second;
+  Clause* cl = d_clauses[res->getStart()];
   Debug("proof")<<"\n ";
 
   d_solver->printClause(*cl);
@@ -196,10 +241,86 @@ void Derivation::printDerivation(int clause_id){
     Debug("proof")<<"| ";
     d_solver->printLit(step[i].first);
     Debug("proof")<<"| ";
-    Clause* clause = d_clauses.find(step[i].second)->second;
+    Clause* clause = d_clauses[step[i].second];
     d_solver->printClause(*clause);
   }
+  Debug("proof")<<"\n";
 }
+
+
+std::string printLFSCClause(Clause* clause){
+  std::stringstream ss;
+  std::stringstream end;
+  for(int i=0; i< clause->size(); i++){
+    ss<<"( clc ";
+    if(sign((*clause)[i]))
+      ss<<"(neg v"<<var((*clause)[i])+1<<") ";
+    else
+      ss<<"(pos v"<<var((*clause)[i])+1<<") ";
+    end<<")";
+  }
+  ss<<" cln";
+  return (ss.str()+end.str());
+}
+
+void Derivation::printLFSCProof(Clause* clause){
+  std::stringstream os;
+  std::stringstream end;
+  LFSCProof::init();
+
+  os<<"\n(check \n";
+  end<<")";
+
+  //printing variables
+
+  for (std::hash_set<int>::iterator i = d_vars.begin(); i!=d_vars.end(); ++i){
+    os<<"(% v"<<*i<<" var \n";
+    end<<")";
+   }
+
+  int clause_id = getId(clause);
+  SatResolution* res = d_res_map.find(clause_id)->second;
+
+  RSteps step = res->getSteps();
+  Clause* cl = d_clauses[res->getStart()];
+
+  // printing start clause
+  os<<"(% k"<<res->getStart()<<" (holds";
+  os<<printLFSCClause(cl);
+  os<<") \n";
+  end<<")";
+
+  // printing other clauses
+  for(unsigned i=0;i< res->getSteps().size();i++){
+    os<<"(% k"<<step[i].second<<" (holds ";
+    os<<printLFSCClause(d_clauses[step[i].second]);
+    os<<")\n";
+    end<<")";
+  }
+
+  // printing type checking
+
+  os<<"(: (holds ";
+  os<<printLFSCClause(clause);
+  os<<")";
+  end<<")";
+
+  LFSCProof* k1 = LFSCProofSym::make( "k"+intToStr(res->getStart()) );
+  LFSCProof* v= NULL;
+  LFSCProof* k2 = NULL;
+  LFSCProof* k3 = NULL;
+  for(unsigned i=0; i< res->getSteps().size(); i++){
+    v = LFSCProofSym::make("v"+intToStr(var(step[i].first)+1));
+    k2 = LFSCProofSym::make("k"+intToStr(step[i].second));
+    k3 = LFSCProof::make_Q(k1, k2, v);
+    k1 = k3;
+  }
+
+  std::cout<<os.str();
+  k1->print(std::cout);
+  std::cout<<end.str();
+
+  }
 
 
 }/* CVC4::prop::minisat namespace */

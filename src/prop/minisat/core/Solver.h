@@ -85,7 +85,7 @@ public:
 
     Derivation * d_derivation;
 
-    bool    addClause   (vec<Lit>& ps, ClauseType type, ClauseId id = ClauseId_NULL);                           // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
+    bool    addClause   (vec<Lit>& ps, ClauseType type);                           // Add a clause to the solver. NOTE! 'ps' may be shrunk by this method!
     Clause* getReason   (Lit l);                    // returns the reason for assigning a literal
     // Solving:
     //

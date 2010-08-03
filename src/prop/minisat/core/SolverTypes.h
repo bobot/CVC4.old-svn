@@ -103,8 +103,8 @@ const lbool l_Undef = toLbool( 0);
 //=================================================================================================
 // Clause -- a simple class for representing a clause:
 
-typedef int ClauseId;
-const int ClauseId_NULL = -2147483648;
+//typedef int ClauseId;
+//const int ClauseId_NULL = -2147483648;
 
 class Clause {
     uint32_t size_etc;
@@ -122,7 +122,7 @@ public:
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
-    Clause(const V& ps, bool learnt, ClauseId id_ = ClauseId_NULL) {
+    Clause(const V& ps, bool learnt) {
         //clause_id = ++id_counter;
         //Debug("proof:id")<<"Creating clause "<<clause_id<<"\n";
         //printClause(this);
@@ -131,18 +131,18 @@ public:
         for (int i = 0; i < ps.size(); i++) data[i] = ps[i];
         if (learnt) extra.act = 0; else calcAbstraction();
         // proof:
-        if(id_ != ClauseId_NULL) id() = id_;
+        //if(id_ != ClauseId_NULL) id() = id_;
         }
 
     // -- use this function instead:
     // if ClauseId is the default you do not allocate memory for it
     template<class V>
-    friend Clause* Clause_new(const V& ps, bool learnt = false, ClauseId id = ClauseId_NULL) {
+    friend Clause* Clause_new(const V& ps, bool learnt = false) {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         // proof: added the clause_id to the size
-        void* mem = malloc(sizeof(Clause) + sizeof(uint32_t)*(ps.size())+ (int)(id != ClauseId_NULL));
-        return new (mem) Clause(ps, learnt,id); }
+        void* mem = malloc(sizeof(Clause) + sizeof(uint32_t)*(ps.size()));
+        return new (mem) Clause(ps, learnt); }
 
     int          size        ()      const   { return size_etc >> 3; }
     void         shrink      (int i)         { assert(i <= size()); size_etc = (((size_etc >> 3) - i) << 3) | (size_etc & 7); }
@@ -153,7 +153,7 @@ public:
     const Lit&   last        ()      const   { return data[size()-1]; }
     // id for proof logging based on Minisat 1.14
     // by lianah
-    ClauseId& id             ()      const { return *((ClauseId*)&data[size() + (int)learnt()]); }
+    //ClauseId& id             ()      const { return *((ClauseId*)&data[size() + (int)learnt()]); }
 
     // NOTE: somewhat unsafe to change the clause in-place! Must manually call 'calcAbstraction' afterwards for
     //       subsumption operations to behave correctly.

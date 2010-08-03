@@ -107,7 +107,7 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
 }
 
 
-bool Solver::addClause(vec<Lit>& ps, ClauseType type, ClauseId id)
+bool Solver::addClause(vec<Lit>& ps, ClauseType type)
 {
     assert(decisionLevel() == 0);
 
@@ -266,7 +266,8 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
 
     trace_reasons.clear();
 
-    res = new SatResolution(confl->id());
+    d_derivation->registerClause(confl, false);
+    res = new SatResolution(d_derivation->getId(confl));
 
     // Generate conflict clause:
     //
@@ -274,7 +275,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
     int index   = trail.size() - 1;
     out_btlevel = 0;
 
-    Debug("proof")<<"OC id"<<confl->id()<<": ";
+    Debug("proof")<<"OC ";
     printClause(*confl);
     Debug("proof")<<"\n";
 
@@ -306,16 +307,21 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
         while (!seen[var(trail[index--])]);
         p     = trail[index+1];
         // proof logging (p must appear in the conflict since p was seen)
-        Debug("proof")<<"adding step id"<<confl->id()<<" ";
-        printLit(p);
-        Debug("proof")<<" ";
-        printClause(*confl);
-        Debug("proof")<<"\n";
-        res->addStep(p, confl->id());
-        d_derivation->registerClause(confl, false);
 
         confl = reason[var(p)];
         seen[var(p)] = 0;
+
+        if(confl!= NULL){
+          d_derivation->registerClause(confl, false);
+          res->addStep(p, d_derivation->getId(confl));
+
+          Debug("proof:id")<<"ADD_STEP:: id:"<<d_derivation->getId(confl)<<" lit:";
+          //printLit(p);
+          Debug("proof:id")<<" cl:";
+          //printClause(*confl);
+          Debug("proof:id")<<"\n";
+        }
+
 
         pathC--;
 
@@ -324,7 +330,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
 
     if(debug){
 
-      Debug("proof")<<"Conflict clause \n";
+      Debug("proof")<<"\n Conflict clause \n";
       for(int i=0;i<out_learnt.size();i++){
         printLit(out_learnt[i]);
         Debug("proof")<<" ";
@@ -737,8 +743,9 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             }else{
                 Clause* c = Clause_new(learnt_clause, true);
                 d_derivation->registerClause(c, false);
-                d_derivation->registerDerivation(c->id(), res);
-                d_derivation->printDerivation(c->id());
+                d_derivation->registerDerivation(c, res);
+                d_derivation->printDerivation(c);
+                d_derivation->printLFSCProof(c);
                 learnts.push(c);
                 attachClause(*c);
                 claBumpActivity(*c);
