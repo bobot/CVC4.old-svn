@@ -29,4 +29,5 @@ using namespace std;
 
 namespace CVC4 {
 
+
 }/* CVC4 namespace */

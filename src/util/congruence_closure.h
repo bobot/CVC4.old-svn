@@ -36,6 +36,12 @@
 
 namespace CVC4 {
 
+template <class OutputChannel>
+class CongruenceClosure;
+
+template <class OutputChannel>
+std::ostream& operator<<(std::ostream& out,
+                         const CongruenceClosure<OutputChannel>& cc);
 
 class CVC4_PUBLIC CongruenceClosureException : public Exception {
 public:
@@ -115,6 +121,8 @@ class CongruenceClosure {
   ProofMap d_proof;
   ProofLabel d_proofLabel;
 
+  ProofMap d_proofRewrite;
+
   /**
    * The set of terms we care about (i.e. those that have been given
    * us with addTerm() and their representatives).
@@ -136,6 +144,7 @@ public:
     d_lookup(ctxt),
     d_proof(ctxt),
     d_proofLabel(ctxt),
+    d_proofRewrite(ctxt),
     d_careSet(ctxt) {
   }
 
@@ -151,13 +160,58 @@ public:
    * context-dependent.  Calls OutputChannel::notifyCongruent()
    * indirectly, so it can throw anything that that function can.
    */
-  void addEquality(TNode eq);
+  void addEquality(TNode inputEq) {
+    Debug("cc") << "CC addEquality[" << d_context->getLevel() << "]: " << inputEq << std::endl;
+    Assert(inputEq.getKind() == kind::EQUAL);
+    NodeBuilder<> eqb(kind::EQUAL);
+    if(inputEq[1].getKind() == kind::APPLY_UF &&
+       inputEq[0].getKind() != kind::APPLY_UF) {
+      eqb << flatten(inputEq[1]) << inputEq[0];
+    } else {
+      eqb << flatten(inputEq[0]) << replace(flatten(inputEq[1]));
+    }
+    Node eq = eqb;
+    addEq(eq, inputEq);
+  }
+  void addEq(TNode eq, TNode inputEq);
+
+  Node flatten(TNode t) {
+    if(t.getKind() == kind::APPLY_UF) {
+      NodeBuilder<> appb(kind::APPLY_UF);
+      appb << replace(flatten(t.getOperator()));
+      for(TNode::iterator i = t.begin(); i != t.end(); ++i) {
+        appb << replace(flatten(*i));
+      }
+      return Node(appb);
+    } else {
+      return t;
+    }
+  }
+
+  Node replace(TNode t) {
+    if(t.getKind() == kind::APPLY_UF) {
+      Node v = NodeManager::currentNM()->mkSkolem(t.getType());
+      addEq(NodeManager::currentNM()->mkNode(kind::EQUAL, t, v), TNode::null());
+      return v;
+    } else {
+      return t;
+    }
+  }
+
+  TNode proofRewrite(TNode pfStep) {
+    ProofMap::const_iterator i = d_proofRewrite.find(pfStep);
+    if(i == d_proofRewrite.end()) {
+      return pfStep;
+    } else {
+      return (*i).second;
+    }
+  }
 
   /**
    * Inquire whether two expressions are congruent in the current
    * context.
    */
-  inline bool areCongruent(TNode a, TNode b) throw(AssertionException) {
+  inline bool areCongruent(TNode a, TNode b) const throw(AssertionException) {
     Debug("cc") << "CC areCongruent? " << a << "  ==  " << b << std::endl;
     Debug("cc") << "  a  " << a << std::endl;
     Debug("cc") << "  a' " << normalize(a) << std::endl;
@@ -185,18 +239,27 @@ public:
   /**
    * Find the EC representative for a term t in the current context.
    */
-  inline TNode find(TNode t) throw(AssertionException) {
+  inline TNode find(TNode t) const throw(AssertionException) {
     context::CDMap<Node, Node, NodeHashFunction>::iterator i =
       d_representative.find(t);
     return (i == d_representative.end()) ? t : TNode((*i).second);
   }
+
+  void explainAlongPath(TNode a, TNode c, std::list<std::pair<Node, Node> >& pending, __gnu_cxx::hash_map<Node, Node, NodeHashFunction>& unionFind, std::list<Node>& pf)
+    throw(AssertionException);
+
+  Node highestNode(TNode a, __gnu_cxx::hash_map<Node, Node, NodeHashFunction>& unionFind)
+    throw(AssertionException);
+
+  Node nearestCommonAncestor(TNode a, TNode b)
+    throw(AssertionException);
 
   /**
    * Request an explanation for why a and b are in the same EC in the
    * current context.  Throws a CongruenceClosureException if they
    * aren't in the same EC.
    */
-  Node explain(TNode a, TNode b)
+  Node explain(Node a, Node b)
     throw(CongruenceClosureException, AssertionException);
 
   /**
@@ -212,6 +275,9 @@ public:
 
 private:
 
+  friend std::ostream& operator<< <>(std::ostream& out,
+                                     const CongruenceClosure<OutputChannel>& cc);
+
   /**
    * Internal propagation of information.  Propagation tends to
    * cascade (this implementation uses an iterative "pending"
@@ -224,17 +290,13 @@ private:
   /**
    * Internal lookup mapping from tuples to equalities.
    */
-  inline TNode lookup(TNode a) {
+  inline TNode lookup(TNode a) const {
     context::CDMap<Node, Node, NodeHashFunction>::iterator i = d_lookup.find(a);
     if(i == d_lookup.end()) {
       return TNode::null();
     } else {
       TNode l = (*i).second;
-      Assert(l.getKind() == kind::TUPLE);
-      Assert(l.getNumChildren() == 2);
-      Assert((l[1] != l[0][0] || l[0][0].getKind() == kind::APPLY_UF) &&
-             (l[1] != l[0][1] || l[0][1].getKind() == kind::APPLY_UF));
-      Assert(l[1] == l[0][0] || l[1] == l[0][1]);
+      Assert(l.getKind() == kind::EQUAL);
       return l;
     }
   }
@@ -242,11 +304,10 @@ private:
   /**
    * Internal lookup mapping.
    */
-  inline void setLookup(TNode a, TNode b, TNode side) {
+  inline void setLookup(TNode a, TNode b) {
     Assert(a.getKind() == kind::TUPLE);
     Assert(b.getKind() == kind::EQUAL);
-    Assert(side == b[0] || side == b[1]);
-    d_lookup[a] = NodeManager::currentNM()->mkNode(kind::TUPLE, b, side);
+    d_lookup[a] = b;
   }
 
   /**
@@ -254,9 +315,6 @@ private:
    * (f', a1', a2', ...) suitable for a lookup() key.
    */
   Node buildRepresentativesOfApply(TNode apply, Kind kindToBuild = kind::TUPLE)
-    throw(AssertionException);
-
-  Node buildNormalsOfApply(TNode apply, Kind kindToBuild = kind::TUPLE)
     throw(AssertionException);
 
   /**
@@ -307,21 +365,7 @@ private:
   /**
    * Internal normalization.
    */
-  Node normalize(TNode t) throw(AssertionException);
-
-  /**
-   * Why is t congruent to normalize(t) ?
-   */
-  Node normalizeWithProof(TNode t,
-                          __gnu_cxx::hash_set<Node, NodeHashFunction>& pf)
-    throw(AssertionException);
-
-  /**
-   * Why is t equal to find(t) ?
-   */
-  Node findWithProof(TNode t,
-                     __gnu_cxx::hash_set<Node, NodeHashFunction>& pf)
-    throw(AssertionException);
+  Node normalize(TNode t) const throw(AssertionException);
 
   /**
    * Adds "term equalities".  "t" is assumed to be a function
@@ -402,35 +446,32 @@ void CongruenceClosure<OutputChannel>::addSubtermCares(TNode trm) {
 
 
 template <class OutputChannel>
-void CongruenceClosure<OutputChannel>::addEquality(TNode eq) {
-  Debug("cc") << "CC addEquality[" << d_context->getLevel() << "]: " << eq << std::endl;
+void CongruenceClosure<OutputChannel>::addEq(TNode eq, TNode inputEq) {
+  d_proofRewrite[eq] = inputEq;
+
+  Debug("cc") << "CC addEq[" << d_context->getLevel() << "]: " << eq << std::endl;
   Assert(eq.getKind() == kind::EQUAL);
+  Assert(eq[1].getKind() != kind::APPLY_UF);
   if(areCongruent(eq[0], eq[1])) {
     Debug("cc") << "CC -- redundant, ignoring...\n";
     return;
   }
 
   TNode s = eq[0], t = eq[1];
-  bool sIsApplication = (s.getKind() == kind::APPLY_UF);
-  bool tIsApplication = (t.getKind() == kind::APPLY_UF);
 
   Assert(s != t);
-
-  if(!sIsApplication && tIsApplication) {
-    s = eq[1];
-    t = eq[0];
-    sIsApplication = !sIsApplication;
-    tIsApplication = !tIsApplication;
-  }
 
   Debug("cc:detail") << "CC        " << s << " == " << t << std::endl;
 
   // change from paper: do this whether or not s, t are applications
   Debug("cc:detail") << "CC        propagating the eq" << std::endl;
-  propagate(eq);
 
-  if(sIsApplication) {
-    Node ap = buildNormalsOfApply(s);
+  if(s.getKind() != kind::APPLY_UF) {
+    // s, t are constants
+    propagate(eq);
+  } else {
+    // s is an apply, t is a constant
+    Node ap = buildRepresentativesOfApply(s);
 
     Debug("cc:detail") << "CC rewrLHS " << "op_and_args_a == " << t << std::endl;
     Debug("cc") << "CC ap is   " << ap << std::endl;
@@ -439,42 +480,20 @@ void CongruenceClosure<OutputChannel>::addEquality(TNode eq) {
     Debug("cc:detail") << "CC lookup(ap): " << l << std::endl;
     if(!l.isNull()) {
       // ensure a hard Node link exists to this during the call
-      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, s, l[0], l[1]);
+      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, l);
       Debug("cc:detail") << "pending1 " << pending << std::endl;
       propagate(pending);
     } else {
       Debug("cc") << "CC lookup(ap) setting to " << eq << std::endl;
-      setLookup(ap, eq, s);
+      setLookup(ap, eq);
       for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
         appendToUseList(*i, eq);
       }
     }
   }
 
-  if(tIsApplication) {
-    Assert(s != t);
-    // go backward, symmetrically
-    Node ap = buildNormalsOfApply(t);
-
-    Debug("cc:detail") << "CC2rewrRHS " << s << " == op_and_args_a" << std::endl;
-    Debug("cc") << "CC2ap is   " << ap << std::endl;
-
-    TNode l = lookup(ap);
-    Debug("cc:detail") << "CC2lookup(ap): " << l << std::endl;
-    if(!l.isNull()) {
-      // ensure a hard Node link exists to this during the call
-      Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, t, l[0], l[1]);
-      Debug("cc:detail") << "pending3 " << pending << std::endl;
-      propagate(pending);
-    } else {
-      Debug("cc") << "CC2lookup(ap) setting to " << eq << std::endl;
-      setLookup(ap, eq, t);
-      for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
-        appendToUseList(*i, eq);
-      }
-    }
-  }
-}/* addEquality() */
+  Debug("cc") << *this;
+}/* addEq() */
 
 
 template <class OutputChannel>
@@ -492,26 +511,13 @@ Node CongruenceClosure<OutputChannel>::buildRepresentativesOfApply(TNode apply,
 
 
 template <class OutputChannel>
-Node CongruenceClosure<OutputChannel>::buildNormalsOfApply(TNode apply,
-                                                           Kind kindToBuild)
-  throw(AssertionException) {
-  Assert(apply.getKind() == kind::APPLY_UF);
-  NodeBuilder<> argspb(kindToBuild);
-  argspb << normalize(apply.getOperator());
-  for(TNode::iterator i = apply.begin(); i != apply.end(); ++i) {
-    argspb << normalize(*i);
-  }
-  return argspb;
-}/* buildNormalsOfApply() */
-
-
-template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
   Debug("cc:detail") << "=== doing a round of propagation ===" << std::endl
               << "the \"seed\" propagation is: " << seed << std::endl;
 
   std::list<Node> pending;
 
+  Debug("cc") << "seed propagation with: " << seed << std::endl;
   pending.push_back(seed);
   do { // while(!pending.empty())
     Node e = pending.front();
@@ -522,7 +528,7 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
 
     TNode a, b;
     if(e.getKind() == kind::EQUAL) {
-      // e is an equality a = b (change from paper: a, b may not be consts)
+      // e is an equality a = b (a, b are constants)
 
       a = e[0];
       b = e[1];
@@ -534,18 +540,17 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
       Debug("cc") << "propagate tuple: " << e << "\n";
 
       Assert(e.getKind() == kind::TUPLE);
-      Assert(e.getNumChildren() == 4);
-      Assert(e[0].getKind() == kind::EQUAL);
-      Assert(e[1] == e[0][0] || e[1] == e[0][1]);
-      Assert(e[2].getKind() == kind::EQUAL);
-      Assert(e[3] == e[2][0] || e[3] == e[2][1]);
-      Assert(e[1].getKind() == kind::APPLY_UF);
-      Assert(e[3].getKind() == kind::APPLY_UF);
-      Assert(e[1].getNumChildren() == e[3].getNumChildren());
 
-      // tuple is (eq, eqside, lookup, lookupside)
-      a = (e[1] == e[0][0] ? e[0][1] : e[0][0]);
-      b = (e[3] == e[2][0] ? e[2][1] : e[2][0]);
+      Assert(e.getNumChildren() == 2);
+      Assert(e[0].getKind() == kind::EQUAL);
+      Assert(e[1].getKind() == kind::EQUAL);
+
+      // tuple is (eq, lookup)
+      a = e[0][1];
+      b = e[1][1];
+
+      Assert(a.getKind() != kind::APPLY_UF);
+      Assert(b.getKind() != kind::APPLY_UF);
 
       Debug("cc") << "                 ( " << a << " , " << b << " )" << std::endl;
     }
@@ -651,7 +656,7 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
                 continue;
               }
 
-              Node cp = buildNormalsOfApply(eq[side]);
+              Node cp = buildRepresentativesOfApply(eq[side]);
 
               // if lookup(c1',c2') is some f(d1,d2)=d then
               TNode n = lookup(cp);
@@ -661,7 +666,8 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
               if(!n.isNull()) {
                 Debug("cc:detail") << "CC     -- lookup(c') is " << n << std::endl;
                 // add (f(c1,c2)=c,f(d1,d2)=d) to pending
-                Node tuple = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, eq[side], n[0], n[1]);
+                Node tuple = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, n);
+                Debug("cc") << "CC add tuple to pending: " << tuple << std::endl;
                 pending.push_back(tuple);
                 // remove f(c1,c2)=c from UseList(ap)
                 Debug("cc:detail") << "supposed to remove " << eq << std::endl
@@ -671,7 +677,7 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
                 Debug("cc") << "CC     -- lookup(c') is null" << std::endl;
                 Debug("cc") << "CC     -- setlookup(c') to " << eq << std::endl;
                 // set lookup(c1',c2') to f(c1,c2)=c
-                setLookup(cp, eq, eq[side]);
+                setLookup(cp, eq);
                 // move f(c1,c2)=c from UseList(ap) to UseList(b')
                 //i = ul.erase(i);// FIXME do we need to remove from UseList(ap) ?
                 appendToUseList(bp, eq);
@@ -679,7 +685,7 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
             }
           }
         }
-      }
+      }/* use lists */
       Debug("cc:detail") << "CC in prop done with useList of " << ap << std::endl;
 
       { // care use list handling
@@ -794,163 +800,102 @@ void CongruenceClosure<OutputChannel>::mergeProof(TNode a, TNode b, TNode e) {
 
 
 template <class OutputChannel>
-Node CongruenceClosure<OutputChannel>::normalize(TNode t)
+Node CongruenceClosure<OutputChannel>::normalize(TNode t) const
   throw(AssertionException) {
-  // change from paper: always find()
   Debug("cc:detail") << "normalize " << t << std::endl;
-  t = find(t);
-  Debug("cc:detail") << "  find " << t << std::endl;
-  if(t.getKind() == kind::APPLY_UF) {
+  if(t.getKind() != kind::APPLY_UF) {// t is a constant
+    t = find(t);
+    Debug("cc:detail") << "  find " << t << std::endl;
+    return t;
+  } else {// t is an apply
     NodeBuilder<> apb(kind::TUPLE);
     TNode op = t.getOperator();
-    apb << normalize(op);
+    Node n = normalize(op);
+    apb << n;
+    bool allConstants = (n.getKind() != kind::APPLY_UF);
     for(TNode::iterator i = t.begin(); i != t.end(); ++i) {
       TNode c = *i;
-      Debug("cc:detail") << "INF RECUR1 ?" << std::endl;
-      Node n = normalize(c);
+      n = normalize(c);
       apb << n;
+      allConstants = (allConstants && n.getKind() != kind::APPLY_UF);
     }
 
     Node ap = apb;
     Debug("cc:detail") << "  got ap " << ap << std::endl;
 
     Node theLookup = lookup(ap);
-    if(!theLookup.isNull()) {
-      Node theLookupSide = theLookup[1];
-      theLookup = theLookup[0];
-
-      Assert(find(theLookup[0]) == find(theLookup[1]));
-
-      return find(theLookup[0]);
+    if(allConstants && !theLookup.isNull()) {
+      Assert(theLookup.getKind() == kind::EQUAL);
+      Assert(theLookup[0].getKind() == kind::APPLY_UF);
+      Assert(theLookup[1].getKind() != kind::APPLY_UF);
+      return find(theLookup[1]);
     } else {
       NodeBuilder<> fa(kind::APPLY_UF);
       for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
         fa << *i;
-        Debug("cc:detail") << "n[[" << t << "]]it :: " << *i << std::endl;
       }
       // ensure a hard Node link exists during the call
       Node n = fa;
-      return find(n);
+      return n;
     }
-  } else {
-    Debug("cc:detail") << "  exit" << std::endl;
-    return t;
   }
 }/* normalize() */
 
 
 template <class OutputChannel>
-Node CongruenceClosure<OutputChannel>::findWithProof
-  (TNode t, __gnu_cxx::hash_set<Node, NodeHashFunction>& pf)
+Node CongruenceClosure<OutputChannel>::highestNode(TNode a, __gnu_cxx::hash_map<Node, Node, NodeHashFunction>& unionFind)
   throw(AssertionException) {
-  // why is t congruent to its class representative ?
-  // output equality labels in proof tree
-  Node p = t;
-  do {
-    Node e = d_proofLabel[p];
-    Debug("cc") << "CC proof tree for a: " << p << std::endl;
-    Debug("cc") << "              label: " << e << std::endl;
-    //    Debug("cc:detail") << "              rep is:" << normalize(p) << std::endl;
-    Assert(e.isNull() == d_proof[p].get().isNull());
-    if(!e.isNull()) {
-      if(e.getKind() == kind::EQUAL) {
-        // e is either an EQUALity justifying the proof step...
-        pf.insert(e);
-      } else {
-        // ...or a TUPLE describing the proof steps to make
-      }
-    }
-  } while(!(p = d_proof[p]).isNull());
-
-  Node rep = find(t);
-  p = rep;
-  do {
-    Node e = d_proofLabel[p];
-    Debug("cc") << "CC pf tree for rep : " << p << std::endl;
-    Debug("cc") << "              label: " << e << std::endl;
-    //    Debug("cc:detail") << "              rep is:" << normalize(p) << std::endl;
-    Assert(e.isNull() == d_proof[p].get().isNull());
-    if(!e.isNull()) {
-      Assert(e.getKind() == kind::EQUAL);
-      pf.insert(e);
-    }
-  } while(!(p = d_proof[p]).isNull());
-
-  return rep;
-}/* findWithProof() */
-
-
-template <class OutputChannel>
-Node CongruenceClosure<OutputChannel>::normalizeWithProof
-  (TNode t, __gnu_cxx::hash_set<Node, NodeHashFunction>& pf)
-  throw(AssertionException) {
-  // change from paper: always find()
-  Debug("cc") << "find of : " << t << std::endl;
-  t = findWithProof(t, pf);
-  Debug("cc") << "   is   : " << t << std::endl;
-  if(t.getKind() == kind::APPLY_UF) {
-    NodeBuilder<> apb(kind::TUPLE);
-    TNode op = t.getOperator();
-    apb << normalizeWithProof(op, pf);
-    for(TNode::iterator i = t.begin(); i != t.end(); ++i) {
-      TNode c = *i;
-      Node n = normalizeWithProof(c, pf);
-      apb << n;
-    }
-
-    Node ap = apb;
-    Debug("cc:detail") << "  got ap " << ap << std::endl;
-
-    Node theLookup = lookup(ap);
-    if(!theLookup.isNull()) {
-      Node theLookupSide = theLookup[1];
-      theLookup = theLookup[0];
-
-      Assert(find(theLookup[0]) == find(theLookup[1]));
-
-      NodeBuilder<> fa(kind::APPLY_UF);
-      for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
-        fa << *i;
-        Debug("cc") << "n[[" << t << "]]it :: " << *i << std::endl;
-      }
-      // ensure a hard Node link exists during the call
-      Node n = fa;
-
-      Assert(theLookup.getKind() == kind::EQUAL);
-      // lookup eqs can have form (apply c..) = x  OR  x = (apply c..)
-      Debug("cc") << "n[[" << t << "]]theLookup is " << theLookup << std::endl;
-      // output pf that t congruent to theLookup
-      Debug("cc") << "============== LOOKUP PROOF ==============\n";
-      Debug("cc") << theLookup << std::endl;
-      Debug("cc") << "============== LOOKUP PROOF ==============\n";
-      pf.insert(theLookup);
-
-      // we care what _side_ we came from for the lookup
-      if(theLookupSide == theLookup[0]) {
-        // change from paper: theLookup[1] might not be a constant in our case
-        return findWithProof(theLookup[1], pf);
-      } else {// theLookupSide == theLookup[1]
-        // change from paper: theLookup[0] might not be a constant in our case
-        return findWithProof(theLookup[0], pf);
-      }
-    } else {
-      NodeBuilder<> fa(kind::APPLY_UF);
-      for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
-        fa << *i;
-        Debug("cc") << "n[[" << t << "]]it :: " << *i << std::endl;
-      }
-      // ensure a hard Node link exists during the call
-      Node n = fa;
-      return findWithProof(n, pf);
-    }
+  __gnu_cxx::hash_map<Node, Node, NodeHashFunction>::iterator i = unionFind.find(a);
+  if(i == unionFind.end()) {
+    return a;
   } else {
-    return t;
+    return unionFind[a] = highestNode((*i).second, unionFind);
   }
-}/* normalizeWithProof() */
+}
 
 
 template <class OutputChannel>
-Node CongruenceClosure<OutputChannel>::explain(TNode a, TNode b)
+void CongruenceClosure<OutputChannel>::explainAlongPath(TNode a, TNode c, std::list<std::pair<Node, Node> >& pending, __gnu_cxx::hash_map<Node, Node, NodeHashFunction>& unionFind, std::list<Node>& pf)
+  throw(AssertionException) {
+
+  a = highestNode(a, unionFind);
+  Assert(c == highestNode(c, unionFind));
+
+  while(a != c) {
+    Node b = d_proof[a];
+    Node e = d_proofLabel[a];
+    if(e.getKind() == kind::EQUAL) {
+      pf.push_back(e);
+    } else {
+      Assert(e.getKind() == kind::TUPLE);
+      pf.push_back(e[0]);
+      pf.push_back(e[1]);
+      Assert(e[0][0].getKind() == kind::APPLY_UF);
+      Assert(e[0][1].getKind() != kind::APPLY_UF);
+      Assert(e[1][0].getKind() == kind::APPLY_UF);
+      Assert(e[1][1].getKind() != kind::APPLY_UF);
+      Assert(e[0][0].getNumChildren() == e[1][0].getNumChildren());
+      pending.push_back(std::make_pair(e[0][0].getOperator(), e[1][0].getOperator()));
+      for(int i = 0, nc = e[0][0].getNumChildren(); i < nc; ++i) {
+        pending.push_back(std::make_pair(e[0][0][i], e[1][0][i]));
+      }
+    }
+    unionFind[a] = b;
+    a = highestNode(b, unionFind);
+  }
+}/* explainAlongPath() */
+
+
+template <class OutputChannel>
+Node CongruenceClosure<OutputChannel>::nearestCommonAncestor(TNode a, TNode b)
+  throw(AssertionException) {
+  Assert(find(a) == find(b));
+  return find(a); // FIXME
+}/* nearestCommonAncestor() */
+
+
+template <class OutputChannel>
+Node CongruenceClosure<OutputChannel>::explain(Node a, Node b)
   throw(CongruenceClosureException, AssertionException) {
 
   Assert(a != b);
@@ -960,35 +905,51 @@ Node CongruenceClosure<OutputChannel>::explain(TNode a, TNode b)
                                      "that aren't congruent");
   }
 
-  // why does a eq b ?
-  __gnu_cxx::hash_set<Node, NodeHashFunction> terms;
-
-  Debug("cc") << "CC EXPLAINING   " << a << "\n"
-              << "                " << b << "\n"
-              << "CC normalize to " << normalize(a) << "\n";
-
-  normalizeWithProof(a, terms);
-  Debug("cc") << "  after the first we have\n";
-  for(__gnu_cxx::hash_set<Node, NodeHashFunction>::iterator i = terms.begin();
-      i != terms.end();
-      ++i) {
-    Debug("cc") << "    " << *i << std::endl;
+  if(a.getKind() == kind::APPLY_UF) {
+    a = replace(flatten(a));
   }
-  normalizeWithProof(b, terms);
+  if(b.getKind() == kind::APPLY_UF) {
+    b = replace(flatten(b));
+  }
+
+  std::list<std::pair<Node, Node> > pending;
+  __gnu_cxx::hash_map<Node, Node, NodeHashFunction> unionFind;
+  std::list<Node> terms;
+
+  pending.push_back(std::make_pair(a, b));
+
+  Debug("cc") << "CC EXPLAINING " << a << " == " << b << std::endl;
+
+  do {// while(!pending.empty())
+    std::pair<Node, Node> eq = pending.front();
+    pending.pop_front();
+
+    a = eq.first;
+    b = eq.second;
+
+    Node c = nearestCommonAncestor(a, b);
+
+    explainAlongPath(a, c, pending, unionFind, terms);
+    explainAlongPath(b, c, pending, unionFind, terms);
+  } while(!pending.empty());
 
   Debug("cc") << "CC EXPLAIN final proof has size " << terms.size() << std::endl;
 
-  Assert(terms.size() > 0);
-
   NodeBuilder<> pf(kind::AND);
-  for(__gnu_cxx::hash_set<Node, NodeHashFunction>::iterator i = terms.begin();
-      i != terms.end();
-      ++i) {
-    pf << *i;
-    Debug("cc") << "CC EXPLAIN " << *i << std::endl;
+  while(!terms.empty()) {
+    Node p = terms.front();
+    terms.pop_front();
+    Debug("cc") << "CC EXPLAIN " << p << std::endl;
+    p = proofRewrite(p);
+    Debug("cc") << "   rewrite " << p << std::endl;
+    if(!p.isNull()) {
+      pf << p;
+    }
   }
 
   Debug("cc") << "CC EXPLAIN done" << std::endl;
+
+  Assert(pf.getNumChildren() > 0);
 
   if(pf.getNumChildren() == 1) {
     return pf[0];
@@ -996,6 +957,48 @@ Node CongruenceClosure<OutputChannel>::explain(TNode a, TNode b)
     return pf;
   }
 }/* explain() */
+
+
+template <class OutputChannel>
+std::ostream& operator<<(std::ostream& out,
+                         const CongruenceClosure<OutputChannel>& cc) {
+  out << "==============================================" << std::endl;
+
+  out << "Representatives:" << std::endl;
+  for(typename CongruenceClosure<OutputChannel>::RepresentativeMap::const_iterator i = cc.d_representative.begin(); i != cc.d_representative.end(); ++i) {
+    out << "  " << (*i).first << " => " << (*i).second << std::endl;
+  }
+
+  out << "ClassLists:" << std::endl;
+  for(typename CongruenceClosure<OutputChannel>::ClassLists::const_iterator i = cc.d_classList.begin(); i != cc.d_classList.end(); ++i) {
+    if(cc.find((*i).first) == (*i).first) {
+      out << "  " << (*i).first << " =>" << std::endl;
+      for(typename CongruenceClosure<OutputChannel>::ClassList::const_iterator j = (*i).second->begin(); j != (*i).second->end(); ++j) {
+        out << "      " << *j << std::endl;
+      }
+    }
+  }
+
+  out << "UseLists:" << std::endl;
+  for(typename CongruenceClosure<OutputChannel>::UseLists::const_iterator i = cc.d_useList.begin(); i != cc.d_useList.end(); ++i) {
+    if(cc.find((*i).first) == (*i).first) {
+      out << "  " << (*i).first << " =>" << std::endl;
+      for(typename CongruenceClosure<OutputChannel>::UseList::const_iterator j = (*i).second->begin(); j != (*i).second->end(); ++j) {
+        out << "      " << *j << std::endl;
+      }
+    }
+  }
+
+  out << "Lookup:" << std::endl;
+  for(typename CongruenceClosure<OutputChannel>::LookupMap::const_iterator i = cc.d_lookup.begin(); i != cc.d_lookup.end(); ++i) {
+    TNode n = (*i).second;
+    out << "  " << (*i).first << " => " << n << std::endl;
+  }
+
+  out << "==============================================" << std::endl;
+
+  return out;
+}
 
 
 }/* CVC4 namespace */
