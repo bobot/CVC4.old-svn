@@ -1,0 +1,30 @@
+the explain isn't currently accounting for the normalizing lookup in
+propagate
+
+maybe when we do normalizing lookup in propagate(), add an EQ to
+pending.  failing example euf_simp06 - because we have
+
+ ffx = x
+ fffffx = x
+
+ and ask if fx = x ?
+
+problem is, lookup(f, ffffx) == [ fffffx = x ]
+
+but that doesn't help.  fx is not congruent to x unless we do
+normalizing lookup.  This normalizes ffffx to x.  Then we get
+lookup(f, x) == [ fffffx = x ], but then in explaining why fx = x, all
+we do is give the input eq [ fffffx = x ], when we need also
+[ ffx = x ], which we used during normalization.
+
+if we put (ffffx, x, [ffx = x]) in pending at the time of the
+normalizing lookup we're probably safe, right?
+
+alternatively, just have explain() explain why the lookup args are the
+way they are.  i have a start to this but needs more args.
+
+morgan
+--
+Morgan Deters
+mdeters@cs.nyu.edu
+

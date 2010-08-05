@@ -76,24 +76,25 @@ private:
    */
   CongruenceClosure<CongruenceChannel> d_cc;
 
+  typedef context::CDMap<TNode, TNode, TNodeHashFunction> UnionFind;
+  UnionFind d_unionFind;
+
+  typedef context::CDList<Node> DiseqList;
+  typedef context::CDMap<Node, DiseqList*, NodeHashFunction> DiseqLists;
+
   /** List of all disequalities this theory has seen. */
+  DiseqLists d_disequalities;
+
   context::CDList<Node> d_disequality;
 
-  /**
-   * List of all of the terms that are registered in the current context.
-   * When registerTerm is called on a term we want to guarentee that there
-   * is a hard link to the term for the duration of the context in which
-   * register term is called.
-   * This invariant is enough for us to use soft links where we want is the
-   * current implementation as well as making ECAttr() not context dependent.
-   * Soft links used both in ECData, and Link.
-   */
-  context::CDList<Node> d_registered;
+  Node d_conflict;
+
+  Node d_trueNode, d_falseNode;
 
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-  TheoryUF(int id, context::Context* c, OutputChannel& out);
+  TheoryUF(int id, context::Context* ctxt, OutputChannel& out);
 
   /** Destructor for the TheoryUF object. */
   ~TheoryUF();
@@ -159,6 +160,13 @@ private:
 
   /** Constructs a conflict from an inconsistent disequality. */
   Node constructConflict(TNode diseq);
+
+  TNode find(TNode a);
+  TNode debugFind(TNode a) const;
+  void unionClasses(TNode a, TNode b);
+
+  void appendToDiseqList(TNode of, TNode eq);
+  void addDisequality(TNode eq);
 
   /**
    * Receives a notification from the congruence closure module that
