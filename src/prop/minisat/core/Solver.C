@@ -597,6 +597,7 @@ Clause* Solver::propagateBool()
                     while (i < end)
                         *j++ = *i++;
                 }else
+                    // first is undefined, and the only one not false in the clause
                     uncheckedEnqueue(first, &c);
             }
         FoundWatch:;
@@ -719,12 +720,9 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             // returns unsatisfiable
             if (decisionLevel() == 0) {
               d_derivation->finish(confl);
-              if(debug){
-                Debug("proof")<<"Final conflict \n";
-                printClause(*confl);
-                Debug("proof")<<"\n";
-
-              }
+              Debug("proof")<<"Final conflict \n";
+              printClause(*confl);
+              Debug("proof")<<"\n";
               return l_False;
             }
 

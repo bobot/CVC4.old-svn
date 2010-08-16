@@ -136,6 +136,18 @@ int Derivation::new_id(){
 void Derivation::registerClause(Clause* clause, bool is_input_clause){
     Debug("proof:id")<<"REG_CL:: ";
     //d_solver->printClause(*clause);
+
+    // check if it's an unit clause
+    if(clause->size()==1){
+      // if it's registered
+      Lit lit = *clause[0];
+      if(d_unit_clauses.find(toInt(lit)) == d_unit_clauses.end()){
+        Debug("proof:id")<<"unit already reg with id:"<<id<<"\n";
+        d_unit_clauses[toInt(lit)];
+        return;
+      }
+    }
+
     int id = getId(clause);
     if(id == -1){
       // if not already registered
@@ -178,6 +190,10 @@ int Derivation::getRootReason(Lit lit){
     return 0;
   }
 
+  Debug("proof")<<"reason: ";
+  d_solver->printClause(*reason);
+  Debug("proof")<<"\n";
+
   // if implied by an unit clause return the unit clause
   if((*reason).size() == 1)
     return getId(reason);
@@ -190,7 +206,13 @@ int Derivation::getRootReason(Lit lit){
     return getId(iter->second);
     }
 
-  SatResolution* res = new SatResolution(getId(reason));
+  int resId = getId(reason);
+
+  // if the reason is an input clause
+  //if(d_input_clauses.find(resId)!= d_input_clauses.end())
+  //  return resId;
+
+  SatResolution* res = new SatResolution(resId);
 
   // starts from 1 because reason[0] = lit
   for(int i=1; i<(*reason).size();i++){
