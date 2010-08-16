@@ -597,8 +597,13 @@ Clause* Solver::propagateBool()
                     while (i < end)
                         *j++ = *i++;
                 }else
-                    // first is undefined, and the only one not false in the clause
-                    uncheckedEnqueue(first, &c);
+                {
+                  // first is undefined, and the only one not false in the clause
+                  if(decisionLevel()==0)
+                      Debug("proof")<<"PROPAGATE AT 0!! \n";
+                  uncheckedEnqueue(first, &c);
+                }
+
             }
         FoundWatch:;
         }
