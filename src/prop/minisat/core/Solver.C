@@ -326,8 +326,16 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                     trace_reasons.push(r);
                     for (int i = 0; i< r->size();i++){
                       Lit l2 = (*r)[i];
-                      if(reason[var(l2)] != NULL && !seen2[var(l2)]){
-                        stack.push(l2);
+                      if(!seen2[var(l2)]){
+                        if(reason[var(l2)] != NULL)
+                          stack.push(l2);
+                        else{
+                          // we assume that the unit clause l2 has already been registered because l2 has reason NULL at level 0 which means it has been deduced by a unit learned clause
+                          res->addStep(l2, toInt(~l2));
+                          vec<Lit> lits;
+                          lits.push(~l2);
+                          trace_reasons.push(Clause_new(lits, true));
+                        }
                       }
                       else if(reason[var(l2)]==NULL){
                         Debug("proof:d")<<"Unit clause ";
@@ -528,7 +536,6 @@ void Solver::uncheckedEnqueue(Lit p, Clause* from)
     // Added for phase-caching
     polarity [var(p)] = sign(p);
     trail.push(p);
-
     if (theory[var(p)]) {
       // Enqueue to the theory
       proxy->enqueueTheoryLiteral(p);
@@ -793,7 +800,10 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             assert(value(learnt_clause[0]) == l_Undef);
 
             if (learnt_clause.size() == 1){
-                uncheckedEnqueue(learnt_clause[0]);
+              //add to solving unit clauses
+              Clause* c = Clause_new(learnt_clause, true);
+              d_derivation->registerClause(c, false);
+              uncheckedEnqueue(learnt_clause[0]);
             }else{
                 Clause* c = Clause_new(learnt_clause, true);
                 d_derivation->registerClause(c, false);

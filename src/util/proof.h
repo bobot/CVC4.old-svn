@@ -84,7 +84,7 @@ class Derivation {
 		std::hash_set <int> d_input_clauses;		// the input clauses assumed true
 		std::hash_set <int> d_vars;                     // the set of variables that appear in the proof
 		std::vector <Clause*> d_clauses;            // clause with id i will be on position i
-		std::hash_map <int, Clause*> d_unit_clauses;		// the set of unit clauses, indexed by value of variable for easy searching
+		std::hash_map <int, Clause*> d_unit_clauses;		// the set of unit clauses, indexed by value of variable for easy searching (unit clauses are also stored in d_clauses)
 		std::hash_map <int, SatResolution*> d_res_map;	// a map from clause id's to the boolean resolution derivation of that respective clause
 		Solver* d_solver;
 		Clause* d_emptyClause;
@@ -135,23 +135,16 @@ int Derivation::new_id(){
 
 void Derivation::registerClause(Clause* clause, bool is_input_clause){
     Debug("proof:id")<<"REG_CL:: ";
-    //d_solver->printClause(*clause);
-
-    // check if it's an unit clause
-    if(clause->size()==1){
-      // if it's registered
-      Lit lit = *clause[0];
-      if(d_unit_clauses.find(toInt(lit)) == d_unit_clauses.end()){
-        Debug("proof:id")<<"unit already reg with id:"<<id<<"\n";
-        d_unit_clauses[toInt(lit)];
-        return;
-      }
-    }
 
     int id = getId(clause);
     if(id == -1){
       // if not already registered
       d_clauses.push_back(clause);
+      if(clause->size()==1){
+        // if unit clause
+        Lit lit = *clause[0];
+        d_unit_clauses[toInt(lit)] = clause;
+      }
       if(is_input_clause){
         // if it's an input clause
         // id will be the position it has been inserted at
@@ -175,6 +168,7 @@ void Derivation::registerDerivation(Clause* clause, SatResolution* res){
   }
 }
 
+
 int Derivation::getRootReason(Lit lit){
   Debug("proof")<<"ROOT_REASON lit:";
   d_solver->printLit(lit);
@@ -184,10 +178,13 @@ int Derivation::getRootReason(Lit lit){
   // TODO: add asserts to check stuff
 
   if(reason==NULL){
+    /*
     Debug("proof")<<"Null Root Reason ";
     d_solver->printLit(lit);
     Debug("proof")<<" \n";
     return 0;
+    */
+    return toInt(lit);
   }
 
   Debug("proof")<<"reason: ";
@@ -232,6 +229,57 @@ int Derivation::getRootReason(Lit lit){
 }
 
 
+
+void Derivation::new_finish(Clause* confl){
+  LFSCProof confl_pf;
+  if (confl.isLearned())
+    // is learned
+    confl_pf = addSatLemma(confl); // will return the variable name
+  else
+    // is input clause
+    confl_pf = getInputVariable(confl);
+
+  for(int i=0; i< confl->size(); i++){
+    LFSCProof* var = LFSCProofSym::make(toString(confl[i]));
+    LFSCProof* pf = LFSCProof::make_R(confl_pf, getProof(reason[confl[i]]), var);
+    confl_pf = pf;
+  }
+}
+
+LFSCProof* Derivation::addSatLemma(int clause_id){
+  if(sat_lemmas.find(clause_id) != sat_lemmas.end()){
+    sat_lemmas.push(make_pair(clause_id, getProof(clause_id)));
+   }
+  return LFSCProofSym::make("pf_"+intToStr(clause_id));
+}
+
+LFSCProof* Derivation::getProof(int clause_id){
+  // constructs an LFSCProof of the clause
+  if (isLemma(clause_id))
+    return lemmaVariable(clause_id);
+  // does it have to have a derivation?
+  if(hasDeriv(clause_id)){
+    return derivToLFSC(clause_id);
+  }
+  if(isInput(clause_id)){
+    return getInputClauseVar(clause_id);
+  }
+}
+
+LFSCProof* Derivation::derivToLFSC(int clause_id){
+  // assert it has deriv
+  SatResolution* res = getRes(clause_id);
+  LFSCProof* pf1 = getProof(res->getStart());
+  RSteps steps = res->getSteps();
+
+  for(int i=0; i< steps.size(); i++){
+    Lit var = steps[i].first;
+    int c_id = steps[i].second;
+    LFSCProof* pf2 = LFSCProof::make_R(pf1, getProof(c_id), LFSCSymb::make(var));
+    pf1 = pf2;
+  }
+}
+
 void Derivation::finish(Clause* confl){
 
   SatResolution* res = new SatResolution(getId(confl));
@@ -269,6 +317,8 @@ void Derivation::printDerivation(Clause* clause){
   Debug("proof")<<"\n";
 }
 
+
+//TODO: move to lfsc_proof.h
 
 std::string printLFSCClause(Clause* clause){
   std::stringstream ss;
