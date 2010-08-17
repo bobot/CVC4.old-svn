@@ -296,10 +296,58 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                     pathC++;
                 else{
                     out_learnt.push(q);
-
                     if (level[var(q)] > out_btlevel)
                         out_btlevel = level[var(q)];
                 }
+            }
+            else {
+              if(level[var(q)] == 0) {
+                // special proof logging case when one of the literals has level 0 and we need to store it's reason
+                // maybe use this only in case we need to know the derivation of that literal when we're reconstructing the proof?
+                if(reason[var(q)]!= NULL){
+                  printLit(q);
+                  Debug("proof:d")<<" propagated at 0 \n";
+                  printClause(*(reason[var(q)]));
+
+                  vec<char> seen2;
+                  seen2.growTo(seen.size());
+                  for (int j = 0;j < seen.size(); j++)
+                    seen2[j] = 0;
+
+                  vec<Lit> stack;
+                  stack.push(q);
+                  do{
+                    Lit l = stack.last();
+                    stack.pop();
+                    Clause* r = reason[var(l)];
+                    seen2[var(l)]=1;
+                    d_derivation->registerClause(r, false);
+                    res->addStep(l, d_derivation->getId(r));
+                    trace_reasons.push(r);
+                    for (int i = 0; i< r->size();i++){
+                      Lit l2 = (*r)[i];
+                      if(reason[var(l2)] != NULL && !seen2[var(l2)]){
+                        stack.push(l2);
+                      }
+                      else if(reason[var(l2)]==NULL){
+                        Debug("proof:d")<<"Unit clause ";
+                        printLit(l2);
+                        Debug("proof:d")<<"\n";
+                      }
+
+                    }
+                  }
+                  while(stack.size()>0);
+                }
+                else{
+                  // check if it's an unit clause
+                  Debug("proof")<<"Unit clause ";
+                  printLit(q);
+                  Debug("proof")<<"\n";
+
+                }
+              }
+
             }
         }
 
@@ -598,10 +646,13 @@ Clause* Solver::propagateBool()
                         *j++ = *i++;
                 }else
                 {
-                  // first is undefined, and the only one not false in the clause
-                  if(decisionLevel()==0)
-                      Debug("proof")<<"PROPAGATE AT 0!! \n";
+                  // lh first is undefined, and the only one not false in the clause
                   uncheckedEnqueue(first, &c);
+                  /*if(decisionLevel()==0){
+                    printLit(first);
+                    Debug("proof")<<" PROPAGATED AT 0!! \n";
+                    printClause(c);
+                  }*/
                 }
 
             }
