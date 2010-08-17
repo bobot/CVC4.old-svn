@@ -30,10 +30,13 @@
 #include "theory/builtin/theory_builtin.h"
 #include "theory/booleans/theory_bool.h"
 #include "theory/uf/theory_uf.h"
+#include "theory/uf/tim/theory_uf_tim.h"
+#include "theory/uf/morgan/theory_uf_morgan.h"
 #include "theory/arith/theory_arith.h"
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
 
+#include "util/options.h"
 #include "util/stats.h"
 
 namespace CVC4 {
@@ -193,7 +196,7 @@ public:
   /**
    * Construct a theory engine.
    */
-  TheoryEngine(context::Context* ctxt) :
+  TheoryEngine(context::Context* ctxt, const Options* opts) :
     d_propEngine(NULL),
     d_theoryOut(this, ctxt),
     d_statistics() {
@@ -202,7 +205,16 @@ public:
 
     d_builtin = new theory::builtin::TheoryBuiltin(0, ctxt, d_theoryOut);
     d_bool = new theory::booleans::TheoryBool(1, ctxt, d_theoryOut);
-    d_uf = new theory::uf::TheoryUF(2, ctxt, d_theoryOut);
+    switch(opts->uf_implementation) {
+    case Options::TIM:
+      d_uf = new theory::uf::tim::TheoryUFTim(2, ctxt, d_theoryOut);
+      break;
+    case Options::MORGAN:
+      d_uf = new theory::uf::morgan::TheoryUFMorgan(2, ctxt, d_theoryOut);
+      break;
+    default:
+      Unhandled(opts->uf_implementation);
+    }
     d_arith = new theory::arith::TheoryArith(3, ctxt, d_theoryOut);
     d_arrays = new theory::arrays::TheoryArrays(4, ctxt, d_theoryOut);
     d_bv = new theory::bv::TheoryBV(5, ctxt, d_theoryOut);

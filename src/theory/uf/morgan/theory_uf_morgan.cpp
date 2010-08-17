@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file theory_uf.cpp
+/*! \file theory_uf_morgan.cpp
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters
@@ -16,7 +16,7 @@
  ** Implementation of the theory of uninterpreted functions.
  **/
 
-#include "theory/uf/theory_uf.h"
+#include "theory/uf/morgan/theory_uf_morgan.h"
 #include "expr/kind.h"
 #include "util/congruence_closure.h"
 
@@ -25,9 +25,10 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
+using namespace CVC4::theory::uf::morgan;
 
-TheoryUF::TheoryUF(int id, Context* ctxt, OutputChannel& out) :
-  Theory(id, ctxt, out),
+TheoryUFMorgan::TheoryUFMorgan(int id, Context* ctxt, OutputChannel& out) :
+  TheoryUF(id, ctxt, out),
   d_assertions(ctxt),
   d_ccChannel(this),
   d_cc(ctxt, &d_ccChannel),
@@ -44,10 +45,10 @@ TheoryUF::TheoryUF(int id, Context* ctxt, OutputChannel& out) :
   d_cc.addTerm(d_falseNode);
 }
 
-TheoryUF::~TheoryUF() {
+TheoryUFMorgan::~TheoryUFMorgan() {
 }
 
-RewriteResponse TheoryUF::postRewrite(TNode n, bool topLevel) {
+RewriteResponse TheoryUFMorgan::postRewrite(TNode n, bool topLevel) {
   if(topLevel) {
     Debug("uf") << "uf: begin rewrite(" << n << ")" << std::endl;
     Node ret(n);
@@ -63,15 +64,15 @@ RewriteResponse TheoryUF::postRewrite(TNode n, bool topLevel) {
   }
 }
 
-void TheoryUF::preRegisterTerm(TNode n) {
+void TheoryUFMorgan::preRegisterTerm(TNode n) {
   Debug("uf") << "uf: preRegisterTerm(" << n << ")" << std::endl;
 }
 
-void TheoryUF::registerTerm(TNode n) {
+void TheoryUFMorgan::registerTerm(TNode n) {
   Debug("uf") << "uf: registerTerm(" << n << ")" << std::endl;
 }
 
-Node TheoryUF::constructConflict(TNode diseq) {
+Node TheoryUFMorgan::constructConflict(TNode diseq) {
   Debug("uf") << "uf: begin constructConflict()" << std::endl;
   Debug("uf") << "uf:   using diseq == " << diseq << std::endl;
 
@@ -101,7 +102,7 @@ Node TheoryUF::constructConflict(TNode diseq) {
   return conflict;
 }
 
-TNode TheoryUF::find(TNode a) {
+TNode TheoryUFMorgan::find(TNode a) {
   UnionFind::iterator i = d_unionFind.find(a);
   if(i == d_unionFind.end()) {
     return a;
@@ -111,7 +112,7 @@ TNode TheoryUF::find(TNode a) {
 }
 
 // no path compression
-TNode TheoryUF::debugFind(TNode a) const {
+TNode TheoryUFMorgan::debugFind(TNode a) const {
   UnionFind::iterator i = d_unionFind.find(a);
   if(i == d_unionFind.end()) {
     return a;
@@ -120,7 +121,7 @@ TNode TheoryUF::debugFind(TNode a) const {
   }
 }
 
-void TheoryUF::unionClasses(TNode a, TNode b) {
+void TheoryUFMorgan::unionClasses(TNode a, TNode b) {
   if(a == b) {
     return;
   }
@@ -129,7 +130,7 @@ void TheoryUF::unionClasses(TNode a, TNode b) {
   d_unionFind[a] = b;
 }
 
-void TheoryUF::notifyCongruent(TNode a, TNode b) {
+void TheoryUFMorgan::notifyCongruent(TNode a, TNode b) {
   Debug("uf") << "uf: notified of merge " << a << std::endl
               << "                  and " << b << std::endl;
   if(!d_conflict.isNull()) {
@@ -215,7 +216,7 @@ void TheoryUF::notifyCongruent(TNode a, TNode b) {
   }
 }
 
-void TheoryUF::appendToDiseqList(TNode of, TNode eq) {
+void TheoryUFMorgan::appendToDiseqList(TNode of, TNode eq) {
   Debug("uf") << "appending " << eq << std::endl
               << "  to diseq list of " << of << std::endl;
   Assert(eq.getKind() == kind::EQUAL);
@@ -232,7 +233,7 @@ void TheoryUF::appendToDiseqList(TNode of, TNode eq) {
   Debug("uf") << "  size is now " << deq->size() << std::endl;
 }
 
-void TheoryUF::addDisequality(TNode eq) {
+void TheoryUFMorgan::addDisequality(TNode eq) {
   Assert(eq.getKind() == kind::EQUAL);
 
   Node a = eq[0];
@@ -242,7 +243,7 @@ void TheoryUF::addDisequality(TNode eq) {
   appendToDiseqList(find(b), eq);
 }
 
-void TheoryUF::check(Effort level) {
+void TheoryUFMorgan::check(Effort level) {
   Debug("uf") << "uf: begin check(" << level << ")" << std::endl;
 
   while(!done()) {
@@ -341,7 +342,7 @@ void TheoryUF::check(Effort level) {
   Debug("uf") << "uf: end check(" << level << ")" << std::endl;
 }
 
-void TheoryUF::propagate(Effort level) {
+void TheoryUFMorgan::propagate(Effort level) {
   Debug("uf") << "uf: begin propagate(" << level << ")" << std::endl;
   Debug("uf") << "uf: end propagate(" << level << ")" << std::endl;
 }
