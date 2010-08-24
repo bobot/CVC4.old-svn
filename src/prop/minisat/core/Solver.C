@@ -782,7 +782,7 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
             conflicts++; conflictC++;
             // returns unsatisfiable
             if (decisionLevel() == 0) {
-              d_derivation->finish(confl);
+              d_derivation->printLFSCProof(confl);
               Debug("proof")<<"Final conflict \n";
               printClause(*confl);
               Debug("proof")<<"\n";
@@ -809,7 +809,7 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
                 d_derivation->registerClause(c, false);
                 d_derivation->registerDerivation(c, res);
                 d_derivation->printDerivation(c);
-                d_derivation->printLFSCProof(c);
+                //d_derivation->printLFSCProof(c);
                 learnts.push(c);
                 attachClause(*c);
                 claBumpActivity(*c);
