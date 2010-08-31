@@ -331,7 +331,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                           stack.push(l2);
                         else{
                           // we assume that the unit clause l2 has already been registered because l2 has reason NULL at level 0 which means it has been deduced by a unit learned clause
-                          res->addStep(l2, toInt(~l2));
+                          res->addStep(l2, d_derivation->getUnitId(~l2));
                           vec<Lit> lits;
                           lits.push(~l2);
                           trace_reasons.push(Clause_new(lits, true));
@@ -803,6 +803,8 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
               //add to solving unit clauses
               Clause* c = Clause_new(learnt_clause, true);
               d_derivation->registerClause(c, false);
+              d_derivation->registerDerivation(c, res);
+              d_derivation->printDerivation(c);
               uncheckedEnqueue(learnt_clause[0]);
             }else{
                 Clause* c = Clause_new(learnt_clause, true);
