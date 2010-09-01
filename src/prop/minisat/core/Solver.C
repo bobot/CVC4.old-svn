@@ -30,7 +30,7 @@ namespace CVC4 {
 namespace prop {
 namespace minisat {
 
-int Derivation::id_counter=0;
+int Derivation::id_counter=1;
 
 Solver::Solver(SatSolver* proxy, context::Context* context) :
 

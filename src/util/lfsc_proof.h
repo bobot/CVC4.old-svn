@@ -73,7 +73,7 @@ void LFSCProofC::print( std::ostream& os ){
   switch( id ){
   case rule_R: os << "R";break;
   case rule_Q: os << "Q";break;
-  case rule_satlem: os << "satlem";break;
+  case rule_satlem: os << "\n satlem";break;
   }
   int counter = 0;
   while( kids[counter]!= NULL ){
@@ -89,7 +89,7 @@ void LFSCProofLam::print( std::ostream& os ){
   if( typ ){
     os << "% ";
   }else{
-    os << "\\ ";
+    os << "\n \\ ";
   }
   var->print( os );
   os << " ";

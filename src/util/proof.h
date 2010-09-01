@@ -21,6 +21,7 @@
 #include <ext/hash_set>
 #include <iostream>
 #include <sstream>
+#include <map>
 
 #include <utility>
 // do i need these includes?
@@ -83,17 +84,18 @@ class Derivation {
 		//std::hash_map <int, Clause*> d_clauses; 	// map from id's to clauses
 		std::hash_set <int> d_input_clauses;		// the input clauses assumed true
 		std::hash_set <int> d_vars;                     // the set of variables that appear in the proof
-		std::hash_map <int, SatResolution*> d_sat_lemmas;             // the resolution chains that will be outputed as sat lemmmas
+		std::map <int, SatResolution*> d_sat_lemmas;             // the resolution chains that will be outputed as sat lemmmas
 		std::vector <Clause*> d_clauses;            // clause with id i will be on position i
 		std::vector <int> d_lemma_stack;              // stack to print sat_lemmas in proper order
 		std::hash_map <int, int > d_unit_clauses;		// the set of unit clauses, indexed by value of variable for easy searching (unit clauses are also stored in d_clauses)
 		std::hash_map <int, SatResolution*> d_res_map;	// a map from clause id's to the boolean resolution derivation of that respective clause
 		Solver* d_solver;
 		Clause* d_emptyClause;
+		int d_empty_clause_id;
 	// TODO: do you need to store clauses removed from derivation? 
 	public:
 		int static id_counter;
-		Derivation(Solver* solver) : d_emptyClause(NULL), d_solver(solver) {};
+		Derivation(Solver* solver) : d_emptyClause(NULL), d_empty_clause_id(0), d_solver(solver) {d_clauses.push_back(d_emptyClause);};
 		void registerClause(Clause* clause, bool is_input_clause);
 		void registerDerivation(Clause* clause, SatResolution* res);
 		// TODO: do we need to allow for duplicate insertion? see minisat_derivation.h in cvc3
@@ -111,12 +113,14 @@ class Derivation {
 		void lemmaProof(int clause_id);
 		//int getRootReason(Lit l);
 		int getLitReason(Lit lit);
+		void printDerivation(int clause_id);
 		void printDerivation(Clause* clause);
 		void printLFSCProof(Clause* clause);
-		void printSatLemmas(LFSCProof* pf);
+		LFSCProof* addLFSCSatLemmas(LFSCProof* pf);
 		void printAllClauses();
 		int getUnitId(Lit l);
 		int getId(Clause* clause);
+		bool isPos(int v, Clause* clause);
 		int new_id();
 };
 
@@ -124,6 +128,8 @@ class Derivation {
 
 int Derivation::getId(Clause* cl){
   int id = -1;
+  if(cl == NULL)
+    return 0;
   //store the variables
   for(unsigned i=0; i<cl->size(); i++){
     d_vars.insert(var((*cl)[i])+1);
@@ -136,7 +142,7 @@ int Derivation::getId(Clause* cl){
   }
 
 
-  for(unsigned i=0; i< d_clauses.size(); i++){
+  for(unsigned i=1; i< d_clauses.size(); i++){
     Clause* cl_i = d_clauses[i];
     if(cl->size() == cl_i->size()){
       id = i;
@@ -155,13 +161,14 @@ int Derivation::getId(Clause* cl){
 }
 
 int Derivation::new_id(){
-  if(id_counter == 0){
+  if(id_counter == 1){
     id_counter = d_clauses.size();
   }
   return id_counter++;
 }
 
 void Derivation::registerClause(Clause* clause, bool is_input_clause){
+    Assert(clause != NULL);
     Debug("proof:id")<<"REG_CL:: ";
 
     int id = getId(clause);
@@ -186,6 +193,7 @@ void Derivation::registerClause(Clause* clause, bool is_input_clause){
 }
 
 void Derivation::registerDerivation(Clause* clause, SatResolution* res){
+  Assert(clause!= NULL);
   int clause_id = getId(clause);
   // invariant always register the clause first
   Assert(clause_id != -1);
@@ -233,6 +241,15 @@ int Derivation::getUnitId(Lit lit){
   return id;
 }
 
+bool Derivation::isPos(int v, Clause* clause){
+  if (clause == NULL)
+    return false;
+  for(int i=0; i<clause->size();i++)
+    if(v == var((*clause)[i]))
+      return sign((*clause)[i]);
+  return false;
+}
+
 LFSCProof* Derivation::derivToLFSC(int clause_id){
 
   SatResolution* res = getRes(clause_id);
@@ -243,9 +260,15 @@ LFSCProof* Derivation::derivToLFSC(int clause_id){
   for(unsigned i=0; i< steps.size(); i++){
     int v = var(steps[i].first);
     int c_id = steps[i].second;
-    LFSCProof* pf2 = LFSCProof::make_R(pf1, getProof(c_id), LFSCProofSym::make("v"+intToStr(v+1)));
+    // checking the second clause, hence invert Q and R
+    LFSCProof* pf2;
+    if(isPos(v, d_clauses[c_id]))
+      pf2 = LFSCProof::make_R(pf1, getProof(c_id), LFSCProofSym::make("v"+intToStr(v+1)));
+    else
+      pf2 = LFSCProof::make_Q(pf1, getProof(c_id), LFSCProofSym::make("v"+intToStr(v+1)));
     pf1 = pf2;
   }
+  return pf1;
 }
 
 bool Derivation::isSatLemma(int clause_id){
@@ -253,7 +276,7 @@ bool Derivation::isSatLemma(int clause_id){
 }
 
 LFSCProof* Derivation::satLemmaVariable(int clause_id){
-  return LFSCProofSym::make("pf_"+intToStr(clause_id));
+  return LFSCProofSym::make("pf"+intToStr(clause_id));
 }
 
 
@@ -325,7 +348,8 @@ LFSCProof* Derivation::getProof(int clause_id){
 }
 
 void Derivation::new_finish(Clause* confl){
-  printAllClauses();
+  Assert(confl!= NULL);
+
 
   //LFSCProof* confl_pf = NULL;
 
@@ -351,7 +375,7 @@ void Derivation::new_finish(Clause* confl){
     //confl_pf = pf;
     res->addStep(lit, res_id);
   }
-  d_res_map[confl_id] = res;
+  d_res_map[d_empty_clause_id] = res;
   //return confl_pf;
 }
 
@@ -362,7 +386,7 @@ void Derivation::new_finish(Clause* confl){
 
 void Derivation::printAllClauses(){
   Debug("proof")<<"d_clauses \n";
-  for(int i = 0; i< d_clauses.size();i++){
+  for(int i = 1; i< d_clauses.size();i++){
     Debug("proof")<<"id: "<<i<<" = ";
     Clause* cl = d_clauses[i];
     d_solver->printClause(*cl);
@@ -383,9 +407,16 @@ void Derivation::printAllClauses(){
 
 void Derivation::printDerivation(Clause* clause){
   int clause_id = getId(clause);
-  Assert(clause_id>0 && clause_id < d_clauses.size());
+  printDerivation(clause_id);
+}
+
+void Derivation::printDerivation(int clause_id){
+  Assert(clause_id >= 0 && clause_id < d_clauses.size());
   Debug("proof")<<"Derivation clause_id="<<clause_id<<": ";
-  d_solver->printClause(* d_clauses[clause_id]);
+  if(clause_id == 0)
+    Debug("proof")<<" empty ";
+  else
+    d_solver->printClause(* d_clauses[clause_id]);
 
   SatResolution* res = getRes(clause_id);
   Assert(res!= NULL);
@@ -412,11 +443,15 @@ void Derivation::printDerivation(Clause* clause){
 }
 
 
+
+
 //TODO: move to lfsc_proof.h
 
 std::string printLFSCClause(Clause* clause){
   std::stringstream ss;
   std::stringstream end;
+  if(clause == NULL)
+    return "cln";
   for(int i=0; i< clause->size(); i++){
     ss<<"( clc ";
     if(sign((*clause)[i]))
@@ -430,14 +465,17 @@ std::string printLFSCClause(Clause* clause){
 }
 
 
-void Derivation::printSatLemmas(LFSCProof* pf){
+LFSCProof* Derivation::addLFSCSatLemmas(LFSCProof* pf){
   // the iterator traverses the set in order of the keys which corresponds to the order in which the clauses were registered
   // to ensure that the sat lemmas are printed in the appropriate order
-  //for(std::hash_map<int, LFSCProof*>::iterator i =  d_sat_lemmas.begin(); i!=d_sat_lemmas.end();i++){
-    //LFSCProof u1 = derivToLFSC(*i); // calls addLemma!!!!!
 
-  //}
-
+  for(std::map<int, SatResolution*>::reverse_iterator i =  d_sat_lemmas.rbegin(); i!=d_sat_lemmas.rend();i++){
+    LFSCProof* u1 = derivToLFSC((*i).first); // make sure it doesn't call addSatlemma anymore
+    LFSCProofSym* lam_var = LFSCProofSym::make("pf"+intToStr((*i).first));
+    LFSCProof* u2 = LFSCProofLam::make(lam_var, pf);
+    pf = LFSCProof::make_satlem(u1, u2);
+  }
+  return pf;
 }
 
 void Derivation::printLFSCProof(Clause* confl){
@@ -462,14 +500,22 @@ void Derivation::printLFSCProof(Clause* confl){
      os<<")\n";
      end<<")";
    }
+   printAllClauses();
    new_finish(confl);
 
-   printDerivation(confl);
+   printDerivation(d_empty_clause_id);
+
+
+
+   os<<"(: (holds cln)";
+   end<<")";
    std::cout<<os.str();
-   int confl_id = getId(confl);
-   Assert(confl_id > 0 && confl_id < d_clauses.size());
-   LFSCProof* pf = derivToLFSC(confl_id);
-   //pf->print(std::cout);
+   //int confl_id = getId(confl);
+   //Assert(confl_id > 0 && confl_id < d_clauses.size());
+   Assert(getRes(d_empty_clause_id)!=NULL);
+   LFSCProof* pf = derivToLFSC(d_empty_clause_id);
+   pf = addLFSCSatLemmas(pf);
+   pf->print(std::cout);
    std::cout<<end.str();
 }
 
