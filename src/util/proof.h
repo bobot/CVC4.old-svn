@@ -55,6 +55,7 @@ public:
 
 		unsigned d_start_clause;
 		RSteps d_steps;
+		std::vector<bool> d_signs;
 
 public:
 		
@@ -63,8 +64,9 @@ public:
 		  Debug("proof:id")<<"NEW_RES:: start_id:"<<clause_id<<"\n";
 		};
 		
-		void addStep(Lit lit, unsigned clause_id){
+		void addStep(Lit lit, unsigned clause_id, bool sign){
 		  d_steps.push_back(std::make_pair(lit, clause_id));
+		  d_signs.push_back(sign);
 		} 
 		
 		int getStart() const {
@@ -73,6 +75,10 @@ public:
 		
 		const RSteps& getSteps() const{
 			return d_steps;
+		}
+		bool getSign(int i){
+		  Assert(i< d_signs.size());
+		  return d_signs[i];
 		}
 
 };
@@ -262,7 +268,7 @@ LFSCProof* Derivation::derivToLFSC(int clause_id){
     int c_id = steps[i].second;
     // checking the second clause, hence invert Q and R
     LFSCProof* pf2;
-    if(isPos(v, d_clauses[c_id]))
+    if(res->getSign(i))
       pf2 = LFSCProof::make_R(pf1, getProof(c_id), LFSCProofSym::make("v"+intToStr(v+1)));
     else
       pf2 = LFSCProof::make_Q(pf1, getProof(c_id), LFSCProofSym::make("v"+intToStr(v+1)));
@@ -320,8 +326,9 @@ int Derivation::getLitReason(Lit lit){
   int clause_id = getId(cl);
   SatResolution* res = new SatResolution(clause_id);
   for(int i= 1; i < cl->size(); i++){
-    Lit v = (*cl)[i];
-    res->addStep(v, getLitReason(v));
+    Lit lit = (*cl)[i];
+    // flips the literal so that the Q/R invariant works
+    res->addStep(lit, getLitReason(lit), !(sign(lit)));
   }
 
   int id = new_id();
@@ -350,33 +357,21 @@ LFSCProof* Derivation::getProof(int clause_id){
 void Derivation::new_finish(Clause* confl){
   Assert(confl!= NULL);
 
-
-  //LFSCProof* confl_pf = NULL;
-
   int confl_id = getId(confl);
   SatResolution* res = new SatResolution(confl_id);
 
   if (isLearned(confl_id)){
     // is learned
-    //confl_pf = LFSCProofSym::make("phi_"+intToStr(confl_id)); // will return the variable name
     addSatLemma(confl_id);
   }
-  //else
-    // is input clause
-    //confl_pf = getInputVariable(confl_id);
 
   for(int i=0; i< confl->size(); i++){
     Lit lit = (*confl)[i];
-    //LFSCProof* v = LFSCProofSym::make("v"+intToStr(var((*confl)[i])+1));
     int res_id = getLitReason(lit);
     Assert(getRes(res_id)!=NULL);
-    //LFSCProof* pf = derivToLFSC(res_id);
-    //pf = LFSCProof::make_R(confl_pf, pf, v);
-    //confl_pf = pf;
-    res->addStep(lit, res_id);
+    res->addStep(lit, res_id, !sign(lit));
   }
   d_res_map[d_empty_clause_id] = res;
-  //return confl_pf;
 }
 
 

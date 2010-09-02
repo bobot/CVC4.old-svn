@@ -322,7 +322,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                     Clause* r = reason[var(l)];
                     seen2[var(l)]=1;
                     d_derivation->registerClause(r, false);
-                    res->addStep(l, d_derivation->getId(r));
+                    res->addStep(l, d_derivation->getId(r), sign(l));
                     trace_reasons.push(r);
                     for (int i = 0; i< r->size();i++){
                       Lit l2 = (*r)[i];
@@ -331,7 +331,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                           stack.push(l2);
                         else{
                           // we assume that the unit clause l2 has already been registered because l2 has reason NULL at level 0 which means it has been deduced by a unit learned clause
-                          res->addStep(l2, d_derivation->getUnitId(~l2));
+                          res->addStep(l2, d_derivation->getUnitId(~l2), !sign(l2));
                           vec<Lit> lits;
                           lits.push(~l2);
                           trace_reasons.push(Clause_new(lits, true));
@@ -366,10 +366,10 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
 
         confl = reason[var(p)];
         seen[var(p)] = 0;
-
-        if(confl!= NULL){
+        pathC--;
+        if(confl!= NULL && pathC > 0){
           d_derivation->registerClause(confl, false);
-          res->addStep(p, d_derivation->getId(confl));
+          res->addStep(p, d_derivation->getId(confl), sign(p));
 
           Debug("proof:id")<<"ADD_STEP:: id:"<<d_derivation->getId(confl)<<" lit:";
           //printLit(p);
@@ -379,7 +379,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
         }
 
 
-        pathC--;
+
 
     }while (pathC > 0);
     out_learnt[0] = ~p;
