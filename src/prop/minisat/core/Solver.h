@@ -202,7 +202,7 @@ protected:
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
     void     analyze          (Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatResolution* &res); // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
-    bool     litRedundant     (Lit p, uint32_t abstract_levels);                       // (helper method for 'analyze()')
+    bool     litRedundant     (Lit p, uint32_t abstract_levels, SatResolution* &res);                       // (helper method for 'analyze()')
     lbool    search           (int nof_conflicts, int nof_learnts);                    // Search for a given number of conflicts.
     void     reduceDB         ();                                                      // Reduce the set of learnt clauses.
     void     removeSatisfied  (vec<Clause*>& cs);                                      // Shrink 'cs' to contain only non-satisfied clauses.

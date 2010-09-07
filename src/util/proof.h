@@ -463,11 +463,15 @@ std::string printLFSCClause(Clause* clause){
 LFSCProof* Derivation::addLFSCSatLemmas(LFSCProof* pf){
   // the iterator traverses the set in order of the keys which corresponds to the order in which the clauses were registered
   // to ensure that the sat lemmas are printed in the appropriate order
+  LFSCProof* u1, * u2;
+  LFSCProofSym* lam_var = LFSCProofSym::make("done");
+  u2 = LFSCProofLam::make(lam_var, lam_var);
+  pf = LFSCProof::make_satlem(pf, u2);
 
   for(std::map<int, SatResolution*>::reverse_iterator i =  d_sat_lemmas.rbegin(); i!=d_sat_lemmas.rend();i++){
-    LFSCProof* u1 = derivToLFSC((*i).first); // make sure it doesn't call addSatlemma anymore
-    LFSCProofSym* lam_var = LFSCProofSym::make("pf"+intToStr((*i).first));
-    LFSCProof* u2 = LFSCProofLam::make(lam_var, pf);
+    u1 = derivToLFSC((*i).first); // make sure it doesn't call addSatlemma anymore
+    lam_var = LFSCProofSym::make("pf"+intToStr((*i).first));
+    u2 = LFSCProofLam::make(lam_var, pf);
     pf = LFSCProof::make_satlem(u1, u2);
   }
   return pf;
@@ -511,7 +515,7 @@ void Derivation::printLFSCProof(Clause* confl){
    LFSCProof* pf = derivToLFSC(d_empty_clause_id);
    pf = addLFSCSatLemmas(pf);
    pf->print(std::cout);
-   std::cout<<end.str();
+   std::cout<<end.str()<<";";
 }
 
 

@@ -322,7 +322,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                     Clause* r = reason[var(l)];
                     seen2[var(l)]=1;
                     d_derivation->registerClause(r, false);
-                    res->addStep(l, d_derivation->getId(r), sign(l));
+                    res->addStep(l, d_derivation->getId(r), !sign(l));
                     trace_reasons.push(r);
                     for (int i = 0; i< r->size();i++){
                       Lit l2 = (*r)[i];
@@ -384,7 +384,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
     }while (pathC > 0);
     out_learnt[0] = ~p;
 
-    if(debug){
+    {
 
       Debug("proof")<<"\n Conflict clause \n";
       for(int i=0;i<out_learnt.size();i++){
@@ -410,8 +410,12 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
 
         out_learnt.copyTo(analyze_toclear);
         for (i = j = 1; i < out_learnt.size(); i++)
-            if (reason[var(out_learnt[i])] == NULL || !litRedundant(out_learnt[i], abstract_level))
+            if (reason[var(out_learnt[i])] == NULL || !litRedundant(out_learnt[i], abstract_level, res))
                 out_learnt[j++] = out_learnt[i];
+            else{
+              Debug("proof")<<"\n CCMIN \n";
+            }
+
     }else{
         out_learnt.copyTo(analyze_toclear);
         for (i = j = 1; i < out_learnt.size(); i++){
@@ -420,7 +424,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                 if (!seen[var(c[k])] && level[var(c[k])] > 0){
                     out_learnt[j++] = out_learnt[i];
                     break; }
-        }
+       }
     }
     max_literals += out_learnt.size();
     out_learnt.shrink(i - j);
@@ -459,8 +463,10 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
 
 // Check if 'p' can be removed. 'abstract_levels' is used to abort early if the algorithm is
 // visiting literals at levels that cannot be removed later.
-bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
+bool Solver::litRedundant(Lit p, uint32_t abstract_levels, SatResolution* &res)
 {
+    std::vector <std::pair <Lit, Clause*> > temp_steps;
+
     analyze_stack.clear(); analyze_stack.push(p);
     int top = analyze_toclear.size();
     while (analyze_stack.size() > 0){
@@ -474,6 +480,7 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
                     seen[var(p)] = 1;
                     analyze_stack.push(p);
                     analyze_toclear.push(p);
+                    temp_steps.push_back(std::make_pair(p, reason[var(p)]));
                 }else{
                     for (int j = top; j < analyze_toclear.size(); j++)
                         seen[var(analyze_toclear[j])] = 0;
@@ -483,6 +490,31 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
             }
         }
     }
+
+    if(reason[var(p)]!=NULL){
+      temp_steps.push_back(std::make_pair(p, reason[var(p)]));
+      Debug("proof")<<"removing lit ";
+      printLit(p);
+      Debug("proof")<<" by resolving \n";
+      for(int i=0; i<temp_steps.size();i++){
+        Lit lit = temp_steps[i].first;
+        Clause* cl = temp_steps[i].second;
+        //d_derivation->registerClause(temp_steps[i].second, false);
+        //res->addStep(lit, d_derivation->getId(temp_steps[i].second), sign(lit));
+
+        Debug("proof")<<"lit ";
+        printLit(lit);
+        Debug("proof")<<" cl ";
+        printClause(*cl);
+        Debug("proof")<<"\n";
+      }
+
+    }
+    else{
+      printLit(p);
+      Debug("proof")<<" null reason in litRedunt \n";
+    }
+
 
     return true;
 }
