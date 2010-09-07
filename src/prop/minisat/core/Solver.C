@@ -30,7 +30,7 @@ namespace CVC4 {
 namespace prop {
 namespace minisat {
 
-int Derivation::id_counter=1;
+ClauseID Derivation::id_counter=1;
 
 Solver::Solver(SatSolver* proxy, context::Context* context) :
 
@@ -499,8 +499,8 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, SatResolution* &res)
       for(int i=0; i<temp_steps.size();i++){
         Lit lit = temp_steps[i].first;
         Clause* cl = temp_steps[i].second;
-        //d_derivation->registerClause(temp_steps[i].second, false);
-        //res->addStep(lit, d_derivation->getId(temp_steps[i].second), sign(lit));
+        d_derivation->registerClause(temp_steps[i].second, false);
+        res->addStep(lit, d_derivation->getId(temp_steps[i].second), sign(lit));
 
         Debug("proof")<<"lit ";
         printLit(lit);
@@ -716,6 +716,7 @@ Clause* Solver::propagateBool()
 struct reduceDB_lt { bool operator () (Clause* x, Clause* y) { return x->size() > 2 && (y->size() == 2 || x->activity() < y->activity()); } };
 void Solver::reduceDB()
 {
+    Debug("proof")<<"\n \n !!!!!!!!!!!!! REDUCING DB!!!!!!! \n \n";
     int     i, j;
     double  extra_lim = cla_inc / learnts.size();    // Remove any clause below this activity
 
