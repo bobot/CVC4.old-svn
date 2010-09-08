@@ -154,6 +154,7 @@ void Solver::attachClause(Clause& c) {
 
 void Solver::detachClause(Clause& c) {
     Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
+    d_derivation->markDeleted(&c);
     assert(c.size() > 1);
     assert(find(watches[toInt(~c[0])], &c));
     assert(find(watches[toInt(~c[1])], &c));
@@ -496,11 +497,11 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, SatResolution* &res)
       Debug("proof")<<"removing lit ";
       printLit(p);
       Debug("proof")<<" by resolving \n";
-      for(int i=0; i<temp_steps.size();i++){
+      for(int i=temp_steps.size()-1; i>=0;i--){
         Lit lit = temp_steps[i].first;
         Clause* cl = temp_steps[i].second;
         d_derivation->registerClause(temp_steps[i].second, false);
-        res->addStep(lit, d_derivation->getId(temp_steps[i].second), sign(lit));
+        res->addStep(lit, d_derivation->getId(temp_steps[i].second), ~sign(lit));
 
         Debug("proof")<<"lit ";
         printLit(lit);
