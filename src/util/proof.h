@@ -92,6 +92,7 @@ class Derivation {
 		std::hash_set <int> d_vars;                     // the set of variables that appear in the proof
 		std::map <ClauseID, SatResolution*> d_sat_lemmas;    // the resolution chains that will be outputed as sat lemmmas
 		std::vector <Clause*> d_clauses;            // clause with id i will be on position i
+		std::vector <bool> d_deleted;               // true if the clause has been delted in minisat
 		std::vector <ClauseID> d_lemma_stack;              // stack to print sat_lemmas in proper order
 		std::hash_map <int, ClauseID > d_unit_clauses;		// the set of unit clauses, indexed by value of variable for easy searching (unit clauses are also stored in d_clauses)
 		std::hash_map <ClauseID, SatResolution*> d_res_map;	// a map from clause id's to the boolean resolution derivation of that respective clause
@@ -101,7 +102,7 @@ class Derivation {
 	// TODO: do you need to store clauses removed from derivation? 
 	public:
 		ClauseID static id_counter;
-		Derivation(Solver* solver) : d_solver(solver), d_empty_clause(NULL), d_empty_clause_id(0) {d_clauses.push_back(d_empty_clause);};
+		Derivation(Solver* solver) : d_solver(solver), d_empty_clause(NULL), d_empty_clause_id(0) {d_clauses.push_back(d_empty_clause); d_deleted.push_back(false);};
 		void registerClause(Clause* clause, bool is_input_clause);
 		void registerDerivation(Clause* clause, SatResolution* res);
 		// TODO: do we need to allow for duplicate insertion? see minisat_derivation.h in cvc3
@@ -126,11 +127,23 @@ class Derivation {
 		ClauseID getUnitId(Lit l);
 		ClauseID getId(Clause* clause);
 		ClauseID new_id();
+		void markDeleted(Clause* clause);
 };
 
+void Derivation::markDeleted(Clause* clause){
+  bool found = false;
+  for(unsigned i= 0 ;i <d_clauses.size(); i++)
+    if(clause == d_clauses[i]){
+      d_deleted[i] = true;
+      found = true;
+      break;
+    }
+  Assert(found);
+  return;
+}
 
 bool Derivation::isEq(Clause* cl1, Clause* cl2){
-  Assert(cl1!= NULL & cl2!=NULL);
+  Assert(cl1!= NULL && cl2!=NULL);
   if (cl1->size() != cl2->size())
     return false;
 
@@ -160,7 +173,7 @@ ClauseID Derivation::getId(Clause* cl){
 
   for(unsigned i=1; i< d_clauses.size(); i++){
     Clause* cl_i = d_clauses[i];
-    if(isEq(cl, cl_i))
+    if (isEq(cl, cl_i)&& !d_deleted[i])
       return i;
   }
   return -1;
@@ -181,6 +194,7 @@ void Derivation::registerClause(Clause* clause, bool is_input_clause){
     if(id == -1){
       // if not already registered
       d_clauses.push_back(clause);
+      d_deleted.push_back(false);
       if(clause->size()==1){
         // if unit clause
         Lit lit = *clause[0];
