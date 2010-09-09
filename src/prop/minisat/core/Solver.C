@@ -280,6 +280,9 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
     printClause(*confl);
     Debug("proof")<<"\n";
 
+    if( var((*confl)[0])==5 &&  var((*confl)[1])==4 && confl->size()==2)
+      Debug("proof")<<"sfds";
+
     do{
         assert(confl != NULL);          // (otherwise should be UIP)
         trace_reasons.push(confl);
@@ -310,6 +313,15 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                   Debug("proof:d")<<" propagated at 0 \n";
                   printClause(*(reason[var(q)]));
 
+                  ClauseID id = d_derivation->registerClause(q);
+                  res->addStep(q, id, sign(q));
+
+                  // FIXME:: make default for register clause be false
+                  ClauseID id_r = d_derivation->registerClause(reason[var(q)], false);
+                  SatResolution* res_unit = new SatResolution(id_r);
+                  d_derivation->registerDerivation(id, res_unit);
+
+
                   vec<char> seen2;
                   seen2.growTo(seen.size());
                   for (int j = 0;j < seen.size(); j++)
@@ -322,17 +334,20 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                     stack.pop();
                     Clause* r = reason[var(l)];
                     seen2[var(l)]=1;
-                    d_derivation->registerClause(r, false);
-                    res->addStep(l, d_derivation->getId(r), !sign(l));
+                    // Create new resolution for unit that proves q
+                    ClauseID r_id = d_derivation->registerClause(r, false); //FIXME: how do u know it's not an input clause
+                    if(l!=q)
+                      res_unit->addStep(l, r_id, !sign(l));
+
                     trace_reasons.push(r);
-                    for (int i = 0; i< r->size();i++){
+                    for (int i = 1; i< r->size();i++){ //FIXME: start from 1
                       Lit l2 = (*r)[i];
                       if(!seen2[var(l2)]){
                         if(reason[var(l2)] != NULL)
                           stack.push(l2);
                         else{
                           // we assume that the unit clause l2 has already been registered because l2 has reason NULL at level 0 which means it has been deduced by a unit learned clause
-                          res->addStep(l2, d_derivation->getUnitId(~l2), !sign(l2));
+                          res_unit->addStep(l2, d_derivation->getUnitId(~l2), !sign(l2));
                           vec<Lit> lits;
                           lits.push(~l2);
                           trace_reasons.push(Clause_new(lits, true));
@@ -342,20 +357,23 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                         Debug("proof:d")<<"Unit clause ";
                         printLit(l2);
                         Debug("proof:d")<<"\n";
+                        res_unit->addStep(l2, d_derivation->getUnitId(~l2), !sign(l2));
                       }
-
                     }
                   }
                   while(stack.size()>0);
+
                 }
                 else{
                   // check if it's an unit clause
                   Debug("proof")<<"Unit clause ";
                   printLit(q);
                   Debug("proof")<<"\n";
+                  res->addStep(q, d_derivation->getUnitId(~q), !sign(q));
 
                 }
               }
+
 
             }
         }
@@ -405,6 +423,8 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
     //
     int i, j;
     if (expensive_ccmin){
+        if(var(out_learnt[0])==4 && var(out_learnt[1])== 39)
+          Debug("proof")<<"!!! \n";
         uint32_t abstract_level = 0;
         for (i = 1; i < out_learnt.size(); i++)
             abstract_level |= abstractLevel(var(out_learnt[i])); // (maintain an abstraction of levels involved in conflict)
@@ -470,6 +490,9 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, SatResolution* &res)
 
     analyze_stack.clear(); analyze_stack.push(p);
     int top = analyze_toclear.size();
+    Assert(reason[var(p)]!= NULL);
+    temp_steps.push_back(std::make_pair(p, reason[var(p)]));
+
     while (analyze_stack.size() > 0){
         assert(reason[var(analyze_stack.last())] != NULL);
         Clause& c = *reason[var(analyze_stack.last())]; analyze_stack.pop();
@@ -493,15 +516,14 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, SatResolution* &res)
     }
 
     if(reason[var(p)]!=NULL){
-      temp_steps.push_back(std::make_pair(p, reason[var(p)]));
       Debug("proof")<<"removing lit ";
       printLit(p);
       Debug("proof")<<" by resolving \n";
-      for(int i=temp_steps.size()-1; i>=0;i--){
+      for(int i=0; i<temp_steps.size(); i--){
         Lit lit = temp_steps[i].first;
         Clause* cl = temp_steps[i].second;
         d_derivation->registerClause(temp_steps[i].second, false);
-        res->addStep(lit, d_derivation->getId(temp_steps[i].second), ~sign(lit));
+        res->addStep(lit, d_derivation->getId(temp_steps[i].second), !sign(lit));
 
         Debug("proof")<<"lit ";
         printLit(lit);
