@@ -19,39 +19,50 @@
 
 #include "theory/arith/arith_constants.h"
 #include "theory/theory.h"
+#include "theory/arith/normal_form.h"
 
-
-#ifndef __CVC4__THEORY__ARITH__REWRITER_H
-#define __CVC4__THEORY__ARITH__REWRITER_H
+#ifndef __CVC4__THEORY__ARITH__REWRITER_NEXT_H
+#define __CVC4__THEORY__ARITH__REWRITER_NEXT_H
 
 namespace CVC4 {
 namespace theory {
 namespace arith {
 
-class ArithRewriter{
+class NextArithRewriter{
 private:
   ArithConstants* d_constants;
-
 
   Node makeSubtractionNode(TNode l, TNode r);
   Node makeUnaryMinusNode(TNode n);
 
-  /** Returns a node of kind CONST_RATIONAL */
-  Node evaluateConstantExpression(TNode n);
+  RewriteResponse preRewriteTerm(TNode t);
+  RewriteResponse postRewriteTerm(TNode t);
 
-  RewriteResponse rewriteTerm(TNode t);
-  RewriteResponse rewriteMult(TNode t);
-  RewriteResponse rewritePlus(TNode t);
-  RewriteResponse rewriteMinus(TNode t);
+  RewriteResponse rewriteVariable(TNode t);
+  RewriteResponse rewriteConstant(TNode t);
+  RewriteResponse rewriteMinus(TNode t, bool pre);
+  RewriteResponse rewriteUMinus(TNode t, bool pre);
+  RewriteResponse rewriteDivByConstant(TNode t, bool pre);
+
+  RewriteResponse preRewritePlus(TNode t);
+  RewriteResponse postRewritePlus(TNode t);
+
+  RewriteResponse preRewriteMult(TNode t);
+  RewriteResponse postRewriteMult(TNode t);
+
+
+  RewriteResponse postRewriteAtom(TNode t);
+  RewriteResponse postRewriteAtomConstantRHS(TNode t);
 
 public:
-  ArithRewriter(ArithConstants* ac) :
-    d_constants(ac)
-  {}
+  NextArithRewriter(ArithConstants* ac) : d_constants(ac) {}
 
-  RewriteResponse preRewrite(TNode n, bool topLevel);
-  RewriteResponse postRewrite(TNode n, bool topLevel);
+  RewriteResponse preRewrite(TNode n);
+  RewriteResponse postRewrite(TNode n);
 
+private:
+  bool isAtom(TNode n) const { return isRelationOperator(n.getKind()); }
+  bool isTerm(TNode n) const { return !isAtom(n); }
 };
 
 
@@ -59,4 +70,4 @@ public:
 }; /* namespace theory */
 }; /* namespace CVC4 */
 
-#endif /* __CVC4__THEORY__ARITH__REWRITER_H */
+#endif /* __CVC4__THEORY__ARITH__REWRITER_NEXT_H */

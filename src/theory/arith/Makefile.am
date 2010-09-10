@@ -9,6 +9,8 @@ libarith_la_SOURCES = \
 	theory_arith_type_rules.h \
 	arith_rewriter.h \
 	arith_rewriter.cpp \
+	next_arith_rewriter.h \
+	next_arith_rewriter.cpp \
 	normal_form.h\
 	normal_form.cpp \
 	arith_utilities.h \

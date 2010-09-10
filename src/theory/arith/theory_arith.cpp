@@ -37,6 +37,8 @@
 #include "theory/arith/arith_propagator.h"
 
 #include "theory/arith/theory_arith.h"
+#include "theory/arith/normal_form.h"
+
 #include <map>
 #include <stdint.h>
 
@@ -56,6 +58,7 @@ TheoryArith::TheoryArith(int id, context::Context* c, OutputChannel& out) :
   d_partialModel(c),
   d_diseq(c),
   d_rewriter(&d_constants),
+  d_nextRewriter(&d_constants),
   d_propagator(c),
   d_statistics()
 {
@@ -109,22 +112,9 @@ bool isBasicSum(TNode n){
 
 bool isNormalAtom(TNode n){
 
-  if(!(n.getKind() == LEQ|| n.getKind() == GEQ || n.getKind() == EQUAL)){
-    return false;
-  }
-  TNode left = n[0];
-  TNode right = n[1];
-  if(right.getKind() != CONST_RATIONAL){
-    return false;
-  }
-  if(left.getMetaKind() == metakind::VARIABLE){
-    return true;
-  }else if(isBasicSum(left)){
-    return true;
-  }else{
-    return false;
-  }
+  Comparison parse = Comparison::parseNormalForm(n);
 
+  return parse.isNormalForm();
 }
 
 
@@ -213,7 +203,6 @@ void TheoryArith::preRegisterTerm(TNode n) {
     if(left.getKind() == PLUS){
       //We may need to introduce a slack variable.
       Assert(left.getNumChildren() >= 2);
-      Assert(isBasicSum(left));
       if(!left.hasAttribute(Slack())){
         setupSlack(left);
       }
@@ -229,11 +218,9 @@ void TheoryArith::setupSlack(TNode left){
   left.setAttribute(Slack(), slack);
   makeBasic(slack);
 
-  Node slackEqLeft = NodeManager::currentNM()->mkNode(EQUAL,slack,left);
+  Node eq = NodeManager::currentNM()->mkNode(kind::EQUAL, slack, left);
 
-  Debug("slack") << "slack " << slackEqLeft << endl;
-
-  d_tableau.addRow(slackEqLeft);
+  d_tableau.addRow(eq);
 
   setupVariable(slack);
 }
@@ -347,7 +334,9 @@ Node TheoryArith::rewrite(TNode n){
   Debug("arith") << "rewrite(" << n << ")" << endl;
 
   Node result = d_rewriter.rewrite(n);
+
   Debug("arith-rewrite") << "rewrite(" << n << ") -> " << result << endl;
+
   return result;
 }
 

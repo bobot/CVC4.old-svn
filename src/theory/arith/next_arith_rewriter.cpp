@@ -18,6 +18,7 @@
  **/
 
 
+#include "theory/theory.h"
 #include "theory/arith/normal_form.h"
 #include "theory/arith/next_arith_rewriter.h"
 #include "theory/arith/arith_utilities.h"
@@ -31,183 +32,225 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-RewriteResponse ArithRewriter::rewritePlus(TNode t){
-  Rational acc(0);
-  std::vector<Node> total;
+bool isVariable(TNode t){
+  return t.getMetaKind() == kind::metakind::VARIABLE;
+}
 
-  for(TNode::iterator i=t.begin(), tEnd=t.end(); i!=tEnd; ++i){
-    TNode curr = postRewrite(*i);
-    ArithNormalFormTag tag = getNFTag(curr);
-    switch(tag){
-    case CONSTANT:
-      acc += curr.getConst<Rational>();
-      break;
-    case VARIABLE:
-    case MONOMIAL:
-    case COEFFICIENT_MONOMIAL:
-      total.push_back(curr);
-      break;
-    case SUM:
-      for(TNode::iterator j=curr.begin(), currEnd = curr.end(); j!=currEnd; ++j){
-        total.push_back(*j);
-      }
-      break;
-    case CONSTANT_SUM:
-      {
-        acc += getConstantFromConstantSum(curr).getConst<Rational>();
-        TNode sum = getSumFromConstantSum(curr);
-        for(TNode::iterator j=sum.begin(), currEnd=sum.end(); j!=currEnd; ++j){
-          total.push_back(*j);
-        }
-      }
-      break;
-    default:
-      Unreachable();
-    }
-  }
+RewriteResponse NextArithRewriter::rewriteConstant(TNode t){
+  Assert(t.getMetaKind() == kind::metakind::CONSTANT);
+  Node val = coerceToRationalNode(t);
 
-  Node constant = mkNode<Rational>(acc);
-  setNFTag(constant, CONSTANT);
+  return RewriteComplete(val);
+}
 
-  sort(total, monomial_order);
-  combineCoefficients(total);
+RewriteResponse NextArithRewriter::rewriteVariable(TNode t){
+  Assert(isVariable(t));
 
-  if(total.length() == 0){
-    return RewriteComplete(constant);
-  }
+  return RewriteComplete(t);
+}
 
-  Node sum;
-  if(total.length() == 1){
-    sum = total.front();
+RewriteResponse NextArithRewriter::rewriteMinus(TNode t, bool pre){
+  Assert(t.getKind()== kind::MINUS);
+
+  if(t[0] == t[1]) return RewriteComplete(d_constants->d_ZERO_NODE);
+
+  Node noMinus = makeSubtractionNode(t[0],t[1]);
+  if(pre){
+    return RewriteComplete(noMinus);
   }else{
-  }
-
-  if(acc == d_constants.ZERO){
-    return RewriteComplete(sum);
-  }else{
-    Node plus = mkNode(kind::PLUS, constant, sum);
-    setNFTag(plus, CONSTANT_SUM);
-    return RewriteComplete(plus);
+    return FullRewriteNeeded(noMinus);
   }
 }
 
-void combineCoefficients(vector<TNode>& total){
-  vector<TNode> newTotal;
-  vector<TNode>::iterator iter = total.begin();
-  vector<TNode>::iterator end = total.end();
+RewriteResponse NextArithRewriter::rewriteUMinus(TNode t, bool pre){
+  Assert(t.getKind()== kind::UMINUS);
 
-  while(iter != end){
-    Node curr = *iter;
-    ++iter;
-    vector<TNode>::iterator bleck = iter;
-    for(; bleck != end; ++bleck){
-      TNode next = *bleck;
-      if(monomial_order(curr, next) == 0){
-        curr = combine(curr, next);
-      }else{
-        break;
-      }
-    }
-    newTotal.push_back(curr);
-    iter = bleck;
-  }
-
-  total = newTotal;
+  Node noUminus = makeUnaryMinusNode(t[0]);
+  if(pre)
+    return RewriteComplete(noUminus);
+  else
+    return RewriteAgain(noUminus);
 }
 
-void rewriteMult(TNode t){
-  Assert(t.getKind() == MULT);
-  Rational acc(1);
-  std::vector<Node> variables;
-  std::vector<Node> sums;
-
-  for(TNode::iterator i=t.begin(), tEnd=t.end(); i!=tEnd; ++i){
-    TNode curr = postRewrite(*i);
-    ArithNormalFormTag tag = curr.getNFTag();
-    switch(tag){
-    case CONSTANT:
-      acc *= curr.getConst<Rational>();
-      break;
-    case VARIABLE:
-      variables.push_back(curr);
-      break;
-    case MONOMIAL:
-      for(TNode::iterator j=curr.begin(), currEnd = curr.end(); j!=currEnd; ++j){
-        variables.push_back(*j);
-      }
-      break;
-    case COEFFICIENT_MONOMIAL:
-      acc *= getCoefficientFromCoefficientMonomial(curr).getConst<Rational>();
-      TNode monomial = getMonomialFromCoefficientMonomial(curr);
-      for(TNode::iterator j=monomial.begin(), currEnd = monomial.end();
-          j!=currEnd; ++j){
-        variables.push_back(*j);
-      }
-      break;
-    case SUM:
-    case CONSTANT_SUM:
-      sums.push_back(curr);
-      break;
-    default:
-      Unreachable();
-    }
-  }
-
-  Unimplemented();
-
-}
-
-
-
-
-void rewriteTerm(TNode t){
+RewriteResponse NextArithRewriter::preRewriteTerm(TNode t){
   if(t.getMetaKind() == kind::metakind::CONSTANT){
-    return RewriteComplete(coerceToRationalNode(t));
+    return rewriteConstant(t);
   }else if(isVariable(t)){
-    return RewriteComplete(t);
+    return rewriteVariable(t);
   }else if(t.getKind() == kind::MINUS){
-    Node noMinus = makeSubtractionNode(t[0],t[1]);
-    return RewriteMore(sub);
+    return rewriteMinus(t, true);
   }else if(t.getKind() == kind::UMINUS){
-    Node noUminus = makeUnaryMinusNode(t[0]);
-    return RewriteMore(sub);
+    return rewriteUMinus(t, true);
   }else if(t.getKind() == kind::DIVISION){
-    Node noDiv = divByConstant(t);
-    return RewriteMore(noDiv);
-  }else if(t.getKind() == kind::MULT){
-    return rewriteMult(t);
+    return rewriteDivByConstant(t, true);
   }else if(t.getKind() == kind::PLUS){
-    return rewritePlus(t);
+    return preRewritePlus(t);
+  }else if(t.getKind() == kind::MULT){
+    return preRewriteMult(t);
   }else{
     Unreachable();
-    return Node::null();
+  }
+}
+RewriteResponse NextArithRewriter::postRewriteTerm(TNode t){
+  if(t.getMetaKind() == kind::metakind::CONSTANT){
+    return rewriteConstant(t);
+  }else if(isVariable(t)){
+    return rewriteVariable(t);
+  }else if(t.getKind() == kind::MINUS){
+    return rewriteMinus(t, false);
+  }else if(t.getKind() == kind::UMINUS){
+    return rewriteUMinus(t, false);
+  }else if(t.getKind() == kind::DIVISION){
+    return rewriteDivByConstant(t, false);
+  }else if(t.getKind() == kind::PLUS){
+    return postRewritePlus(t);
+  }else if(t.getKind() == kind::MULT){
+    return postRewriteMult(t);
+  }else{
+    Unreachable();
   }
 }
 
-Node divByConstant(TNode t){
-  Assert(t.getKind() == DIVISION);
-  Assert(t.getNumChildren() == 2);
-
-  Node rewrittenNumerator = getPostRewrite(t[0]);
-  Node rewrittenDenominator = getPostRewrite(t[1]);
-
-  Assert(rewrittenDenominator.getKind() == kind::CONST_RATIONAL);
-
-  Rational inv = rewrittenDenominator.getConst<Rational>().inverse();
-  Node invNode = NodeManager::currentNM()->mkConst<Rational>(inv);
-
-  return NodeManager::currentNM()->mkNode(MULT, invNode, rewrittenNumerator);
+RewriteResponse NextArithRewriter::preRewriteMult(TNode t){
+  return RewriteComplete(t);
+}
+RewriteResponse NextArithRewriter::preRewritePlus(TNode t){
+  return RewriteComplete(t);
 }
 
-Node ArithRewriter::makeUnaryMinusNode(TNode n){
-  return NodeManager::currentNM()->mkNode(kind::MULT,
-                                          d_constants->d_NEGATIVE_ONE_NODE,
-                                          n);
+RewriteResponse NextArithRewriter::postRewritePlus(TNode t){
+  Assert(t.getKind()== kind::PLUS);
+
+  Polynomial res = Polynomial::mkZero();
+
+  for(TNode::iterator i = t.begin(), end = t.end(); i != end; ++i){
+    Node curr = *i;
+    Polynomial currPoly = Polynomial::parsePolynomial(curr);
+
+    res = res + currPoly;
+  }
+
+  return RewriteComplete(res.getNode());
 }
 
-Node ArithRewriter::makeSubtractionNode(TNode l, TNode r){
+RewriteResponse NextArithRewriter::postRewriteMult(TNode t){
+  Assert(t.getKind()== kind::MULT);
+
+  Polynomial res = Polynomial::mkOne();
+
+  for(TNode::iterator i = t.begin(), end = t.end(); i != end; ++i){
+    Node curr = *i;
+    Polynomial currPoly = Polynomial::parsePolynomial(curr);
+
+    res = res * currPoly;
+  }
+
+  return RewriteComplete(res.getNode());
+}
+
+RewriteResponse NextArithRewriter::postRewriteAtomConstantRHS(TNode t){
+  TNode left  = t[0];
+  TNode right = t[1];
+
+  Comparison cmp(t.getKind(), Polynomial::parsePolynomial(left), Constant(right));
+
+  if(cmp.isBoolean()){
+    return RewriteComplete(cmp.getNode());
+  }
+
+  if(cmp.getLeft().containsConstant()){
+    Monomial constantHead = cmp.getLeft().getHead();
+    Assert(constantHead.isConstant());
+
+    Constant constant = constantHead.getConstant();
+
+    Constant negativeConstantHead = -constant;
+
+    cmp = cmp.addConstant(negativeConstantHead);
+  }
+  Assert(!cmp.getLeft().containsConstant());
+
+  if(!cmp.getLeft().getHead().coefficientIsOne()){
+    Monomial constantHead = cmp.getLeft().getHead();
+    Assert(!constantHead.isConstant());
+    Constant constant = constantHead.getConstant();
+
+    Constant inverse(constant.getValue().inverse());
+
+    cmp = cmp.multiplyConstant(inverse);
+  }
+  Assert(cmp.getLeft().getHead().coefficientIsOne());
+
+  Assert(cmp.isBoolean() || cmp.isNormalForm());
+  return RewriteComplete(cmp.getNode());
+}
+
+RewriteResponse NextArithRewriter::postRewriteAtom(TNode atom){
+  // left |><| right
+  TNode left = atom[0];
+  TNode right = atom[1];
+
+  if(right.getMetaKind() == kind::metakind::CONSTANT){
+    return postRewriteAtomConstantRHS(atom);
+  }else{
+    //Transform this to: (left - right) |><| 0
+    Node diff = makeSubtractionNode(left, right);
+    Node reduction = NodeManager::currentNM()->mkNode(atom.getKind(), diff, d_constants->d_ZERO_NODE);
+    return FullRewriteNeeded(reduction);
+  }
+}
+
+RewriteResponse NextArithRewriter::postRewrite(TNode t){
+  if(isTerm(t)){
+    RewriteResponse response = postRewriteTerm(t);
+    if(Debug.isOn("arith::rewriter") && response.isDone()) {
+      Polynomial::parsePolynomial(response.getNode());
+    }
+    return response;
+  }else if(isAtom(t)){
+    RewriteResponse response = postRewriteAtom(t);
+    if(Debug.isOn("arith::rewriter") && response.isDone()) {
+      Comparison::parseNormalForm(response.getNode());
+    }
+    return response;
+  }else{
+    Unreachable();
+    return RewriteComplete(Node::null());
+  }
+}
+
+
+Node NextArithRewriter::makeUnaryMinusNode(TNode n){
+  return NodeManager::currentNM()->mkNode(kind::MULT,d_constants->d_NEGATIVE_ONE_NODE,n);
+}
+
+Node NextArithRewriter::makeSubtractionNode(TNode l, TNode r){
   Node negR = makeUnaryMinusNode(r);
   Node diff = NodeManager::currentNM()->mkNode(kind::PLUS, l, negR);
 
   return diff;
+}
+
+RewriteResponse NextArithRewriter::rewriteDivByConstant(TNode t, bool pre){
+  Assert(t.getKind()== kind::DIVISION);
+
+  Node left = t[0];
+  Node right = t[1];
+  Assert(right.getKind()== kind::CONST_RATIONAL);
+
+
+  const Rational& den = right.getConst<Rational>();
+
+  Assert(den != d_constants->d_ZERO);
+
+  Rational div = den.inverse();
+
+  Node result = mkRationalNode(div);
+
+  Node mult = NodeManager::currentNM()->mkNode(kind::MULT,left,result);
+  if(pre){
+    return RewriteComplete(mult);
+  }else{
+    return RewriteAgain(mult);
+  }
 }

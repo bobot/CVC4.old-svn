@@ -29,6 +29,7 @@
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
 #include "theory/arith/arith_rewriter.h"
+#include "theory/arith/next_arith_rewriter.h"
 #include "theory/arith/partial_model.h"
 #include "theory/arith/arith_propagator.h"
 
@@ -95,6 +96,7 @@ private:
    * The rewriter module for arithmetic.
    */
   ArithRewriter d_rewriter;
+  NextArithRewriter d_nextRewriter;
 
   ArithUnatePropagator d_propagator;
 
@@ -116,7 +118,12 @@ public:
    * Plug in old rewrite to the new (pre,post)rewrite interface.
    */
   RewriteResponse postRewrite(TNode n, bool topLevel) {
-    return RewriteComplete(topLevel ? rewrite(n) : Node(n));
+    Debug("arith::rewriter::next") << n << std::endl;
+
+    RewriteResponse nextResult = d_nextRewriter.postRewrite(n);
+    if(Debug.isOn("arith::rewriter::next"))
+      debugPrintNode(nextResult.getNode());
+    return nextResult;
   }
 
   /**
