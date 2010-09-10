@@ -152,7 +152,8 @@ RewriteResponse NextArithRewriter::postRewriteAtomConstantRHS(TNode t){
   TNode left  = t[0];
   TNode right = t[1];
 
-  Comparison cmp(t.getKind(), Polynomial::parsePolynomial(left), Constant(right));
+
+  Comparison cmp = Comparison::mkComparison(t.getKind(), Polynomial::parsePolynomial(left), Constant(right));
 
   if(cmp.isBoolean()){
     return RewriteComplete(cmp.getNode());
@@ -175,7 +176,7 @@ RewriteResponse NextArithRewriter::postRewriteAtomConstantRHS(TNode t){
     Assert(!constantHead.isConstant());
     Constant constant = constantHead.getConstant();
 
-    Constant inverse(constant.getValue().inverse());
+    Constant inverse = Constant::mkConstant(constant.getValue().inverse());
 
     cmp = cmp.multiplyConstant(inverse);
   }
