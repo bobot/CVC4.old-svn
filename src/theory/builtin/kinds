@@ -119,7 +119,7 @@ operator EQUAL 2 "equality"
 operator DISTINCT 2: "disequality"
 variable SKOLEM "skolem var"
 variable VARIABLE "variable"
-operator TUPLE 2: "a tuple"
+operator TUPLE 1: "a tuple"
 
 constant TYPE_CONSTANT \
     ::CVC4::TypeConstant \
