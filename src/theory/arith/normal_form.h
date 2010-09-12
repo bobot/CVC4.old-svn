@@ -208,6 +208,17 @@ public:
   }
 };
 
+template <class GetNodeIterator>
+inline Node makeNode(Kind k, GetNodeIterator start, GetNodeIterator end){
+  NodeBuilder<> nb(k);
+
+  while(start != end){
+    nb << (*start).getNode();
+    ++start;
+  }
+  return Node(nb);
+}
+
 /**
  * A VarList is a sorted list of variables representing a product.
  * If the VarList is empty, it represents an empty product or 1.
@@ -222,12 +233,7 @@ private:
   static Node multList(const std::vector<Variable>& list){
     Assert(list.size() >= 2);
 
-    NodeBuilder<> nb(kind::MULT);
-    typedef std::vector<Variable>::const_iterator list_iterator;
-    for(list_iterator i=list.begin(), end = list.end(); i!=end; ++i){
-      nb << (*i).getNode();
-    }
-    return Node(nb);
+    return makeNode(kind::MULT, list.begin(), list.end());
   }
   static Node makeTuple(Node n){
     return NodeManager::currentNM()->mkNode(kind::TUPLE, n);
@@ -246,7 +252,7 @@ public:
   private:
     Node::iterator d_iter;
   public:
-    iterator(Node::iterator i) : d_iter(i) {}
+    explicit iterator(Node::iterator i) : d_iter(i) {}
 
     inline Variable operator*(){
       return Variable(*d_iter);
@@ -455,11 +461,8 @@ private:
 
   static Node makePlusNode(const std::vector<Monomial>& m){
     Assert(m.size() >= 2);
-    NodeBuilder<> nb(kind::PLUS);
-    for(iterator i = m.begin(), end = m.end(); i != end; ++i){
-      nb << (*i).getNode();
-    }
-    return Node(nb);
+
+    return makeNode(kind::PLUS, m.begin(), m.end());
   }
 
 public:
