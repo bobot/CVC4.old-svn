@@ -112,9 +112,31 @@ RewriteResponse NextArithRewriter::postRewriteTerm(TNode t){
 }
 
 RewriteResponse NextArithRewriter::preRewriteMult(TNode t){
+  Assert(t.getKind()== kind::MULT);
+
+  // Rewrite multiplications with a 0 argument and to 0
+  Integer intZero;
+
+  for(TNode::iterator i = t.begin(); i != t.end(); ++i) {
+    if((*i).getKind() == kind::CONST_RATIONAL) {
+      if((*i).getConst<Rational>() == d_constants->d_ZERO) {
+        return RewriteComplete(d_constants->d_ZERO_NODE);
+      }
+    } else if((*i).getKind() == kind::CONST_INTEGER) {
+      if((*i).getConst<Integer>() == intZero) {
+        if(t.getType().isInteger()) {
+          return RewriteComplete(NodeManager::currentNM()->mkConst(intZero));
+        } else {
+          return RewriteComplete(d_constants->d_ZERO_NODE);
+        }
+      }
+    }
+  }
   return RewriteComplete(t);
 }
 RewriteResponse NextArithRewriter::preRewritePlus(TNode t){
+  Assert(t.getKind()== kind::PLUS);
+
   return RewriteComplete(t);
 }
 
@@ -201,6 +223,33 @@ RewriteResponse NextArithRewriter::postRewriteAtom(TNode atom){
   }
 }
 
+RewriteResponse NextArithRewriter::preRewriteAtom(TNode atom){
+  Assert(isAtom(t));
+  NodeManager* currNM = NodeManager::currentNM();
+
+  Node reduction = atom;
+
+  if(atom[1].getMetaKind() != kind::metakind::CONSTANT){
+    // left |><| right
+    TNode left = atom[0];
+    TNode right = atom[1];
+
+    //Transform this to: (left - right) |><| 0
+    Node diff = makeSubtractionNode(left, right);
+    reduction = currNM->mkNode(atom.getKind(), diff, d_constants->d_ZERO_NODE);
+  }
+
+  if(reduction.getKind() == kind::GT){
+    Node leq = currNM->mkNode(kind::LEQ, reduction[0], reduction[1]);
+    reduction = currNM->mkNode(kind::NOT, leq);
+  }else if(reduction.getKind() == kind::LT){
+    Node geq = currNM->mkNode(kind::GEQ, reduction[0], reduction[1]);
+    reduction = currNM->mkNode(kind::NOT, geq);
+  }
+
+  return RewriteComplete(reduction);
+}
+
 RewriteResponse NextArithRewriter::postRewrite(TNode t){
   if(isTerm(t)){
     RewriteResponse response = postRewriteTerm(t);
@@ -220,6 +269,16 @@ RewriteResponse NextArithRewriter::postRewrite(TNode t){
   }
 }
 
+RewriteResponse NextArithRewriter::preRewrite(TNode t){
+  if(isTerm(t)){
+    return preRewriteTerm(t);
+  }else if(isAtom(t)){
+    return preRewriteAtom(t);
+  }else{
+    Unreachable();
+    return RewriteComplete(Node::null());
+  }
+}
 
 Node NextArithRewriter::makeUnaryMinusNode(TNode n){
   return NodeManager::currentNM()->mkNode(kind::MULT,d_constants->d_NEGATIVE_ONE_NODE,n);

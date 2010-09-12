@@ -53,14 +53,20 @@ VarList VarList::parseVarList(Node n){
 }
 
 VarList VarList::operator*(const VarList& vl) const{
-  vector<Variable> result;
-  vector<Variable> thisAsVec = this->asList();
-  vector<Variable> vlAsVec = vl.asList();
-  back_insert_iterator<vector<Variable> > bii(result);
+  if(this->empty()){
+    return vl;
+  }else if(vl.empty()){
+    return *this;
+  }else{
+    vector<Variable> result;
+    vector<Variable> thisAsVec = this->asList();
+    vector<Variable> vlAsVec = vl.asList();
+    back_insert_iterator<vector<Variable> > bii(result);
 
-  merge(thisAsVec.begin(), thisAsVec.end(), vlAsVec.begin(), vlAsVec.end(), bii);
+    merge(thisAsVec.begin(), thisAsVec.end(), vlAsVec.begin(), vlAsVec.end(), bii);
 
-  return VarList::mkVarList(result);
+    return VarList::mkVarList(result);
+  }
 }
 
 std::vector<Variable> VarList::asList() const {

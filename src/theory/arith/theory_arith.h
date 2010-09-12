@@ -105,11 +105,6 @@ public:
   ~TheoryArith();
 
   /**
-   * Rewrites a node to a unique normal form given in normal_form_notes.txt
-   */
-  Node rewrite(TNode n);
-
-  /**
    * Rewriting optimizations.
    */
   RewriteResponse preRewrite(TNode n, bool topLevel);

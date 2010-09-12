@@ -51,6 +51,7 @@ private:
   RewriteResponse postRewriteMult(TNode t);
 
 
+  RewriteResponse preRewriteAtom(TNode t);
   RewriteResponse postRewriteAtom(TNode t);
   RewriteResponse postRewriteAtomConstantRHS(TNode t);
 
