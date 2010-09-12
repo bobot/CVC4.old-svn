@@ -118,12 +118,7 @@ public:
    * Plug in old rewrite to the new (pre,post)rewrite interface.
    */
   RewriteResponse postRewrite(TNode n, bool topLevel) {
-    Debug("arith::rewriter::next") << n << std::endl;
-
-    RewriteResponse nextResult = d_nextRewriter.postRewrite(n);
-    if(Debug.isOn("arith::rewriter::next"))
-      debugPrintNode(nextResult.getNode());
-    return nextResult;
+    return d_nextRewriter.postRewrite(n);
   }
 
   /**
