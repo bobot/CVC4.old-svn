@@ -135,6 +135,11 @@ class Derivation {
 		ClauseID getId(Clause* clause);
 		ClauseID new_id();
 		void markDeleted(Clause* clause);
+
+		bool checkDerivation(ClauseID clause_id);
+		bool compareClauses(Clause* cl1, Clause* cl2);
+		Clause* resolve(Clause* cl1, Clause* cl2, Lit lit);
+		Clause* resolve(Clause* cl1, Lit cl2, Lit lit);
 };
 
 void Derivation::markDeleted(Clause* clause){
@@ -191,9 +196,9 @@ ClauseID Derivation::new_id(){
 // note that the clause is not created it only exists as a mapping
 
 ClauseID Derivation::registerClause(Lit lit){
-  if(d_unit_clauses.find(toInt(lit))!= d_unit_clauses.end()){
+  if(d_unit_clauses.find(toInt(~lit))!= d_unit_clauses.end()){
     // already registered unit clause
-    return d_unit_clauses[toInt(lit)];
+    return d_unit_clauses[toInt(~lit)];
   }
 
   ClauseID id = new_id();
@@ -240,11 +245,13 @@ void Derivation::registerDerivation(ClauseID clause_id, SatResolution* res){
   if(d_res_map.find(clause_id)== d_res_map.end()){
     d_res_map[clause_id] = res;
     Assert(d_res_map.find(clause_id)!= d_res_map.end());
-    // because minisat does not store the reason if the reason is a unit clause
+
   }
   else{
    Debug("proof")<<"DERIV:: already registered \n";
   }
+
+  Assert(checkDerivation(clause_id));
 }
 
 void Derivation::registerDerivation(Clause* clause, SatResolution* res){
@@ -265,6 +272,7 @@ void Derivation::registerDerivation(Clause* clause, SatResolution* res){
   else{
    Debug("proof")<<"DERIV:: already registered \n";
   }
+  Assert(checkDerivation(clause_id));
 }
 
 
@@ -451,16 +459,109 @@ void Derivation::printAllClauses(){
       Debug("proof")<<" NULL ";
   }
 */
+
   Debug("proof")<<"d_unit_clauses \n";
   for(std::hash_map<int, ClauseID>::iterator i = d_unit_clauses.begin(); i!=d_unit_clauses.end();i++){
     int lit = (*i).first;
     ClauseID id = (*i).second;
     Debug("proof")<<"var "<<var(toLit(lit))+1 <<"id: "<<id <<" = ";
-    Clause* cl = d_id_clause[id];
-    d_solver->printClause(*cl);
+    //if(d_id_clause.find(id)!= d_id_clause.end()){
+    //  Clause* cl = d_id_clause[id];
+     // d_solver->printClause(*cl);
+   // }
+
     Debug("proof")<<"\n";
   }
 
+}
+
+bool Derivation::compareClauses(Clause* cl1, Clause* cl2){
+  Assert(cl1 != NULL && cl2 != NULL);
+  if(cl1->size()!= cl2->size())
+    return false;
+
+  bool eq = false;
+  for (int i=0; i<cl1->size();i++){
+    Lit l = (*cl1)[i];
+    eq = false;
+    for(int j=0;j< cl2->size();j++)
+      if(l == (*cl2)[j])
+        eq = true;
+  }
+
+  return eq;
+}
+
+Clause* Derivation::resolve(Clause* cl1, Clause* cl2, Lit lit){
+  vec<Lit> lits;
+
+  for(int i=0; i< cl1->size(); i++){
+    if(var((*cl1)[i])!=var(lit))
+     lits.push((*cl1)[i]);
+  }
+
+  for(int i=0; i< cl2->size(); i++){
+    bool found = false;
+
+    for(int j=0;j < lits.size(); j++)
+      if(var(lits[j]) == var((*cl2)[i])){
+        found = true;
+        break;
+      }
+
+    if(!found && var((*cl2)[i])!= var(lit))
+      lits.push((*cl2)[i]);
+  }
+  return Clause_new(lits);
+}
+
+Clause* Derivation::resolve(Clause* cl1, Lit l2, Lit lit){
+  Assert(var(l2) == var(lit));
+
+  vec<Lit> lits;
+  for (int i=0; i< cl1->size();i++)
+    if(var((*cl1)[i])!= var(lit))
+      lits.push((*cl1)[i]);
+
+  return Clause_new(lits);
+}
+
+bool Derivation::checkDerivation(ClauseID clause_id){
+  if(clause_id == d_empty_clause_id)
+    return true;
+
+  SatResolution* res = getRes(clause_id);
+  Assert(res!= NULL);
+
+  ClauseID start_id = res->getStart();
+  Assert(d_id_clause.find(start_id)!=d_id_clause.end());
+  Clause* start = d_id_clause[start_id];
+
+  RSteps steps = res->getSteps();
+  for(int i=0;i <steps.size(); i++){
+    if(d_id_clause.find(steps[i].second)!= d_id_clause.end()){
+      start = resolve(start,d_id_clause[steps[i].second],  steps[i].first);
+      Debug("proof")<<"CHECK:: ";
+      d_solver->printClause(*start);
+      Debug("proof")<<"\n";
+    }
+    else{
+      Assert(d_unit_clauses.find(toInt(~(steps[i].first)))!= d_unit_clauses.end());
+      start = resolve(start, steps[i].first,  steps[i].first);
+    }
+
+  }
+
+  if(d_id_clause.find(clause_id)!= d_id_clause.end()){
+    Clause* concl = d_id_clause[clause_id];
+    return compareClauses(concl, start);
+  }
+
+  // should be an unit clause then
+  Assert(start->size() == 1);
+  Lit lit = (*start)[0];
+  Assert(d_unit_clauses.find(toInt(lit))!= d_unit_clauses.end());
+  return clause_id == d_unit_clauses[toInt(lit)];
 }
 
 void Derivation::printDerivation(Clause* clause){
@@ -652,7 +753,6 @@ void Derivation::printLFSCProof(Clause* confl){
    Assert(getRes(d_empty_clause_id)!=NULL);
    LFSCProof* pf = derivToLFSC(d_empty_clause_id);
    std::cout<<"\n \n";
-   printDerivation2(1319);
    pf = addLFSCSatLemmas(pf);
    pf->print(std::cout);
    std::cout<<end.str()<<";";

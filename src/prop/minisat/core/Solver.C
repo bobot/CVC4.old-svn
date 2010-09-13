@@ -280,9 +280,6 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
     printClause(*confl);
     Debug("proof")<<"\n";
 
-    if( var((*confl)[0])==5 &&  var((*confl)[1])==4 && confl->size()==2)
-      Debug("proof")<<"sfds";
-
     do{
         assert(confl != NULL);          // (otherwise should be UIP)
         trace_reasons.push(confl);
@@ -314,12 +311,12 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                   printClause(*(reason[var(q)]));
 
                   ClauseID id = d_derivation->registerClause(q);
-                  res->addStep(q, id, sign(q));
+                  res->addStep(q, id, !sign(q));
 
                   // FIXME:: make default for register clause be false
                   ClauseID id_r = d_derivation->registerClause(reason[var(q)], false);
                   SatResolution* res_unit = new SatResolution(id_r);
-                  d_derivation->registerDerivation(id, res_unit);
+
 
 
                   vec<char> seen2;
@@ -362,6 +359,7 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
                     }
                   }
                   while(stack.size()>0);
+                  d_derivation->registerDerivation(id, res_unit);
 
                 }
                 else{
