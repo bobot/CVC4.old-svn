@@ -251,7 +251,7 @@ void Derivation::registerDerivation(ClauseID clause_id, SatResolution* res){
    Debug("proof")<<"DERIV:: already registered \n";
   }
 
-  Assert(checkDerivation(clause_id));
+  //Assert(checkDerivation(clause_id));
 }
 
 void Derivation::registerDerivation(Clause* clause, SatResolution* res){
@@ -272,7 +272,7 @@ void Derivation::registerDerivation(Clause* clause, SatResolution* res){
   else{
    Debug("proof")<<"DERIV:: already registered \n";
   }
-  Assert(checkDerivation(clause_id));
+  //Assert(checkDerivation(clause_id));
 }
 
 
@@ -529,6 +529,9 @@ Clause* Derivation::resolve(Clause* cl1, Lit l2, Lit lit){
 bool Derivation::checkDerivation(ClauseID clause_id){
   if(clause_id == d_empty_clause_id)
     return true;
+
+  Debug("proof")<<"Checking Derivation \n";
+  printDerivation(clause_id);
 
   SatResolution* res = getRes(clause_id);
   Assert(res!= NULL);
