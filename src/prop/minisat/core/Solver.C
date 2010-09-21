@@ -395,6 +395,9 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
           Debug("proof:id")<<"\n";
         }
 
+
+
+
     }while (pathC > 0);
     out_learnt[0] = ~p;
 
@@ -417,48 +420,52 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
     // Simplify conflict clause:
     //
     int i, j;
+    vec<Lit> eliminated_lit;
+
     if (expensive_ccmin){
+        if(var(out_learnt[0])==4 && var(out_learnt[1])== 39)
+          Debug("proof")<<"!!! \n";
         uint32_t abstract_level = 0;
         for (i = 1; i < out_learnt.size(); i++)
             abstract_level |= abstractLevel(var(out_learnt[i])); // (maintain an abstraction of levels involved in conflict)
 
-        vec<Lit> res_order;
-
         out_learnt.copyTo(analyze_toclear);
         for (i = j = 1; i < out_learnt.size(); i++)
-          if(seen[var(out_learnt[i])]&16){
-            // it has already been visited by the litRedundant DFS
-            if(seen[var(out_learnt[i])]&4)
-              // it's a keep
-              out_learnt[j++] = out_learnt[i];
-            else
-              // has to be removable
-              Assert(seen[var(out_learnt[i])] & 8);
-          }
-            else{
-              // call litRedundant
-              if(!litRedundant(out_learnt[i], abstract_level, res_order))
+            if (reason[var(out_learnt[i])] == NULL || !litRedundant(out_learnt[i], abstract_level))
                 out_learnt[j++] = out_learnt[i];
-             }
+            else{
+              seen[var(out_learnt[i])]|= 4;
+              eliminated_lit.push(out_learnt[i]);
 
-        // add the steps to the resolution
-        for(int k= res_order.size()-1; k>= 0; k--){
-          if(seen[var(res_order[k])]&1){
-            mark_needed_removable(res_order[k]);
-            Clause* cl = reason[var(res_order[k])];
-            Assert(cl!= NULL);
-            int cl_id = d_derivation->registerClause(cl, false);
-            res->addStep(res_order[k], cl_id, !(sign(res_order[k])) );
+            }
 
-            Debug("proof")<<"removing lit ";
-            printLit(res_order[k]);
+        if(eliminated_lit.size() > 0){
+          vec<Lit> order;
+          int k;
+          for(k = 0; k< eliminated_lit.size(); k++)
+            order_dfs(eliminated_lit[k], order);
+          Debug("proof")<<"order size ---"<<order.size()<<"\n";
+
+          for(k = order.size()-1; k>=0; k--){
+            Clause* cl = reason[var(order[k])];
+            ClauseID cl_id;
+            if(cl == NULL)
+              // if it was a unit clause
+              cl_id = d_derivation->registerClause(order[k]);
+            else
+              cl_id = d_derivation->registerClause(cl, false);
+            res->addStep(order[k], cl_id, !(sign(order[k])));
+            Debug("proof")<<"eliminating lit ";
+            printLit(order[k]);
             Debug("proof")<<" by resolving ";
-            printClause(*cl);
+            if (cl!= NULL)
+              printClause(*cl);
+            else
+              printLit(~order[k]);
             Debug("proof")<<"\n";
-            //d_derivation->printDerivation(cl_id);
+
           }
         }
-
 
     }else{
         out_learnt.copyTo(analyze_toclear);
@@ -505,95 +512,53 @@ void Solver::analyze(Clause* confl, vec<Lit>& out_learnt, int& out_btlevel, SatR
 }
 
 
-void Solver::mark_needed_removable(Lit p){
 
-  Clause& cl = *reason[var(p)];
-  for(int i= 1; i< cl.size(); i++){
-    Lit q = cl[i];
-    int qseen = seen[var(q)];
-    seen[var(q)]|=1;
+void Solver::order_dfs(Lit p, vec<Lit> & ordered){
+  // seen[var(p)] :
+  // 0 bit - in the original conflict clause
+  // 1 bit - removable not in original clause
+  // 2 bit - removable and in original clause
+  // 3 bit - processed by this method
 
-    if(qseen == 0)
-      analyze_toclear.push(q);
-  }
-
-
-}
-
-
-bool Solver::litRedundant(Lit p, uint32_t abstract_levels, vec<Lit>& order){
-// FIXME: add abstract_levels
-
-  // seen[var(p)]: has the following values
-  // 0 bit - in original conflict
-  // 1 bit - poison
-  // 2 bit - keep
-  // 3 bit - removable
-  // 4 bit - visited by this procedure
-
-  if(seen[var(p)] & 16){
-    Assert(seen[var(p)]& 8 || seen[var(p)]&4 || seen[var(p)]&2);
-    // if already visited by this procedure return computed result
-    return (seen[var(p)] & 8);
-  }
-
-  // if it was 0 initially need to make sure the seen value will be cleared
-  if(seen[var(p)] == 0)
+  // check if already seen
+  if(seen[var(p)]&8)
+    return;
+  // mark it as seen
+  if(seen[var(p)]== 0)
     analyze_toclear.push(p);
 
-  // mark as visited
-  seen[var(p)] |= 16;
-
-  if(reason[var(p)]== NULL){
-    // if a decision literal
-    if(seen[var(p)] & 1)
-      // in original conflict clause so mark as keep
-      seen[var(p)] |= 4;
-    else
-      // not in original clause, mark as poison
-      seen[var(p)] |= 2;
-    return false;
-  }
+  seen[var(p)]|= 8;
+  Assert(reason[var(p)]!= NULL);
 
   Clause& cl = *reason[var(p)];
-  int removable = 0;
-  for(int i=1; i< cl.size(); i++){
-    litRedundant(cl[i], abstract_levels, order);
-    removable |= seen[var(cl[i])];
+  for(int i=1; i < cl.size(); i++){
+    //FIXME: make it readable and logical
+    if(reason[var(cl[i])]== NULL && (seen[var(cl[i])]&1) == 0){
+      // if has no reason and not in original conflict
+      // must be deduced by a unit clause
+      ordered.push(cl[i]);
+    }
+    else
+    if((seen[var(cl[i])] & (2|4)) || level[var(cl[i])]==0 )
+      order_dfs(cl[i], ordered);
   }
 
-  if(removable & 2){
-    // if there are any poison in the successors
-    if(seen[var(p)]&1){
-      // if in the original conflict mark as keep
-      seen[var(p)] |= 4;
-    }
-    else{
-      // if not in the original conflict mark as poison
-      seen[var(p)] |= 2;
-    }
-    return false;
-  }
-  else{
-    // otherwise all successors are keep or removable so mark as removable and push onto stack
-    seen[var(p)] |= 8;
-    order.push(p);
-    return true;
-  }
+  if((seen[var(p)] & (2|4)) || level[var(p)] == 0)
+    // if it's removable and in the original clause
+    // or it's not in the original clause and has been processed by the litRedunt method i.e. intermediary removable
+    ordered.push(p);
+
 }
+
 
 // Check if 'p' can be removed. 'abstract_levels' is used to abort early if the algorithm is
 // visiting literals at levels that cannot be removed later.
-
-/*
-bool Solver::litRedundant(Lit p, uint32_t abstract_levels, SatResolution* &res)
+bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
 {
-    std::vector <std::pair <Lit, Clause*> > temp_steps;
 
     analyze_stack.clear(); analyze_stack.push(p);
     int top = analyze_toclear.size();
     Assert(reason[var(p)]!= NULL);
-    temp_steps.push_back(std::make_pair(p, reason[var(p)]));
 
     while (analyze_stack.size() > 0){
         assert(reason[var(analyze_stack.last())] != NULL);
@@ -603,10 +568,10 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, SatResolution* &res)
             Lit p  = c[i];
             if (!seen[var(p)] && level[var(p)] > 0){
                 if (reason[var(p)] != NULL && (abstractLevel(var(p)) & abstract_levels) != 0){
-                    seen[var(p)] = 1;
+                    // p is removable but intermediate
+                    seen[var(p)] |= 2;
                     analyze_stack.push(p);
                     analyze_toclear.push(p);
-                    temp_steps.push_back(std::make_pair(p, reason[var(p)]));
                 }else{
                     for (int j = top; j < analyze_toclear.size(); j++)
                         seen[var(analyze_toclear[j])] = 0;
@@ -616,35 +581,9 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels, SatResolution* &res)
             }
         }
     }
-
-    if(reason[var(p)]!=NULL){
-      Debug("proof")<<"removing lit ";
-      printLit(p);
-      Debug("proof")<<" by resolving \n";
-      for(int i=0; i<temp_steps.size(); i--){
-        Lit lit = temp_steps[i].first;
-        Clause* cl = temp_steps[i].second;
-        d_derivation->registerClause(temp_steps[i].second, false);
-        res->addStep(lit, d_derivation->getId(temp_steps[i].second), !sign(lit));
-
-        Debug("proof")<<"lit ";
-        printLit(lit);
-        Debug("proof")<<" cl ";
-        printClause(*cl);
-        Debug("proof")<<"\n";
-      }
-
-    }
-    else{
-      printLit(p);
-      Debug("proof")<<" null reason in litRedunt \n";
-    }
-
-
     return true;
 }
 
-*/
 
 /*_________________________________________________________________________________________________
 |
@@ -960,10 +899,9 @@ lbool Solver::search(int nof_conflicts, int nof_learnts)
 
             if (learnt_clause.size() == 1){
               //add to solving unit clauses
-              Clause* c = Clause_new(learnt_clause, true);
-              d_derivation->registerClause(c, false);
-              d_derivation->registerDerivation(c, res);
-              d_derivation->printDerivation(c);
+              ClauseID cl_id = d_derivation->registerClause(learnt_clause[0]);
+              d_derivation->registerDerivation(cl_id, res);
+              d_derivation->printDerivation(cl_id);
               uncheckedEnqueue(learnt_clause[0]);
             }else{
                 Clause* c = Clause_new(learnt_clause, true);

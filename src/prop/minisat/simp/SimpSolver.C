@@ -37,7 +37,7 @@ SimpSolver::SimpSolver(SatSolver* proxy, context::Context* context) :
   , asymm_lits         (0)
   , remembered_clauses (0)
   , elimorder          (1)
-  , use_simplification (true)
+  , use_simplification (false)
   , elim_heap          (ElimLt(n_occ))
   , bwdsub_assigns     (0)
 {
