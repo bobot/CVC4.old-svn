@@ -203,6 +203,7 @@ ClauseID Derivation::registerClause(Lit lit){
 
   ClauseID id = new_id();
   d_unit_clauses[toInt(~lit)]= id;
+  Assert(d_unit_clauses.find(toInt(~lit))!= d_unit_clauses.end());
   return id;
 }
 
@@ -251,7 +252,7 @@ void Derivation::registerDerivation(ClauseID clause_id, SatResolution* res){
    Debug("proof")<<"DERIV:: already registered \n";
   }
 
-  //Assert(checkDerivation(clause_id));
+  Assert(checkDerivation(clause_id));
 }
 
 void Derivation::registerDerivation(Clause* clause, SatResolution* res){
@@ -272,7 +273,7 @@ void Derivation::registerDerivation(Clause* clause, SatResolution* res){
   else{
    Debug("proof")<<"DERIV:: already registered \n";
   }
-  //Assert(checkDerivation(clause_id));
+  Assert(checkDerivation(clause_id));
 }
 
 
@@ -339,8 +340,6 @@ LFSCProof* Derivation::satLemmaVariable(ClauseID clause_id){
 void Derivation::lemmaProof(ClauseID clause_id){
   if(!isSatLemma(clause_id)){
     SatResolution* res = getRes(clause_id);
-    if(res== NULL)
-      Debug("proof")<<"ASda";
     Assert(res!= NULL);
     printDerivation(clause_id);
 
@@ -563,8 +562,11 @@ bool Derivation::checkDerivation(ClauseID clause_id){
   // should be an unit clause then
   Assert(start->size() == 1);
   Lit lit = (*start)[0];
-  Assert(d_unit_clauses.find(toInt(lit))!= d_unit_clauses.end());
-  return clause_id == d_unit_clauses[toInt(lit)];
+  Lit lit2 = ~lit;
+  //ClauseID id_lit1 = getUnitId(lit);
+  ClauseID id_lit2 = getUnitId(lit2);
+  return clause_id == id_lit2;
+
 }
 
 void Derivation::printDerivation(Clause* clause){
