@@ -25,6 +25,8 @@
 #include <vector>
 #include <deque>
 
+#include "util/output.h"
+
 namespace CVC4 {
 namespace context {
 
@@ -132,6 +134,61 @@ class ContextMemoryManager {
   void pop();
 
 };/* class ContextMemoryManager */
+
+/**
+ * An STL-like allocator class for allocating from context memory.
+ */
+template <class T>
+class ContextMemoryAllocator {
+  ContextMemoryManager* d_mm;
+
+public:
+
+  typedef size_t size_type;
+  typedef ptrdiff_t difference_type;
+  typedef T* pointer;
+  typedef T const* const_pointer;
+  typedef T& reference;
+  typedef T const& const_reference;
+  typedef T value_type;
+  template <class U> struct rebind {
+    typedef ContextMemoryAllocator<U> other;
+  };
+
+  ContextMemoryAllocator(ContextMemoryManager* mm) throw() : d_mm(mm) {}
+  ContextMemoryAllocator(const ContextMemoryAllocator& alloc) throw() : d_mm(alloc.d_mm) {}
+  ~ContextMemoryAllocator() throw() {}
+
+  T* address(T& v) const { return &v; }
+  T const* address(T const& v) const { return &v; }
+  size_t max_size() const throw() {
+    return size_t(-1) / sizeof(T);
+  }
+  T* allocate(size_t n, const void* = 0) const {
+    return static_cast<T*>(d_mm->newData(n * sizeof(T)));
+  }
+  void deallocate(T* p, size_t n) const {
+    /* no explicit delete */
+  }
+  void construct(T* p, T const& v) const {
+    ::new(reinterpret_cast<void*>(p)) T(v);
+  }
+  void destroy(T* p) const {
+    p->~T();
+  }
+};/* class ContextMemoryAllocator */
+
+template <class T>
+inline bool operator==(const ContextMemoryAllocator<T>& a1,
+                       const ContextMemoryAllocator<T>& a2) {
+  return a1.d_mm == a2.d_mm;
+}
+
+template <class T>
+inline bool operator!=(const ContextMemoryAllocator<T>& a1,
+                       const ContextMemoryAllocator<T>& a2) {
+  return a1.d_mm != a2.d_mm;
+}
 
 }/* CVC4::context namespace */
 }/* CVC4 namespace */

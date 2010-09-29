@@ -24,6 +24,9 @@
 #include "context/context.h"
 #include "util/Assert.h"
 
+#include <memory>
+#include <string>
+
 namespace CVC4 {
 namespace context {
 
@@ -35,12 +38,12 @@ namespace context {
  * 2. T objects can safely be copied using their copy constructor,
  *    operator=, and memcpy.
  */
-template <class T>
+template <class T, class Allocator = std::allocator<T>, class ListHead = T*>
 class CDList : public ContextObj {
   /**
    * d_list is a dynamic array of objects of type T.
    */
-  T* d_list;
+  ListHead d_list;
 
   /**
    * Whether to call the destructor when items are popped from the
@@ -57,7 +60,12 @@ class CDList : public ContextObj {
   /**
    * Allocated size of d_list.
    */
-  unsigned d_sizeAlloc;
+  size_t d_sizeAlloc;
+
+  /**
+   * Our allocator.
+   */
+  Allocator d_allocator;
 
 protected:
 
@@ -68,7 +76,7 @@ protected:
    * The saved information is allocated using the ContextMemoryManager.
    */
   ContextObj* save(ContextMemoryManager* pCMM) {
-    return new(pCMM) CDList<T>(*this);
+    return new(pCMM) CDList<T, Allocator, ListHead>(*this);
   }
 
   /**
@@ -78,13 +86,13 @@ protected:
    */
   void restore(ContextObj* data) {
     if(d_callDestructor) {
-      unsigned size = ((CDList<T>*)data)->d_size;
+      unsigned size = ((CDList<T, Allocator, ListHead>*)data)->d_size;
       while(d_size != size) {
         --d_size;
         d_list[d_size].~T();
       }
     } else {
-      d_size = ((CDList<T>*)data)->d_size;
+      d_size = ((CDList<T, Allocator, ListHead>*)data)->d_size;
     }
   }
 
@@ -95,12 +103,13 @@ private:
    * are not copied: only the base class information and d_size are needed in
    * restore.
    */
-  CDList(const CDList<T>& l) :
+  CDList(const CDList<T, Allocator, ListHead>& l) :
     ContextObj(l),
     d_list(NULL),
     d_callDestructor(l.d_callDestructor),
     d_size(l.d_size),
-    d_sizeAlloc(0) {
+    d_sizeAlloc(0),
+    d_allocator(l.d_allocator) {
   }
 
   /**
@@ -111,42 +120,50 @@ private:
     if(d_list == NULL) {
       // Allocate an initial list if one does not yet exist
       d_sizeAlloc = 10;
-      d_list = (T*) malloc(sizeof(T) * d_sizeAlloc);
+      Debug("cdlist") << "initial grow of cdlist " << this << " to " << d_sizeAlloc << std::endl;
+      d_list = (T*) d_allocator.allocate(d_sizeAlloc);
       if(d_list == NULL) {
         throw std::bad_alloc();
       }
     } else {
       // Allocate a new array with double the size
-      d_sizeAlloc *= 2;
-      T* tmpList = (T*) realloc(d_list, sizeof(T) * d_sizeAlloc);
-      if(tmpList == NULL) {
+      size_t newSize = d_sizeAlloc * 2;
+      Debug("cdlist") << "2x grow of cdlist " << this << " to " << newSize << std::endl;
+      T* newList = d_allocator.allocate(newSize);
+      if(newList == NULL) {
         throw std::bad_alloc();
       }
-      d_list = tmpList;
+      std::memcpy(newList, d_list, sizeof(T) * d_sizeAlloc);
+      d_allocator.deallocate(d_list, d_sizeAlloc);
+      d_list = newList;
+      d_sizeAlloc = newSize;
     }
   }
 
 public:
+
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList(Context* context, bool callDestructor = true) :
+  CDList(Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
     ContextObj(context),
     d_list(NULL),
     d_callDestructor(callDestructor),
     d_size(0),
-    d_sizeAlloc(0) {
+    d_sizeAlloc(0),
+    d_allocator(alloc) {
   }
 
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList(bool allocatedInCMM, Context* context, bool callDestructor = true) :
+  CDList(bool allocatedInCMM, Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
     ContextObj(allocatedInCMM, context),
     d_list(NULL),
     d_callDestructor(callDestructor),
     d_size(0),
-    d_sizeAlloc(0) {
+    d_sizeAlloc(0),
+    d_allocator(alloc) {
   }
 
   /**
@@ -161,7 +178,7 @@ public:
       }
     }
 
-    free(d_list);
+    d_allocator.deallocate(d_list, d_sizeAlloc);
   }
 
   /**
@@ -216,11 +233,11 @@ public:
    * uninitialized list, as begin() and end() will have the same value (NULL).
    */
   class const_iterator {
-    T* d_it;
+    T const* d_it;
 
-    const_iterator(T* it) : d_it(it) {}
+    const_iterator(T const* it) : d_it(it) {}
 
-    friend class CDList<T>;
+    friend class CDList<T, Allocator, ListHead>;
 
   public:
 
@@ -281,14 +298,14 @@ public:
    * Returns an iterator pointing to the first item in the list.
    */
   const_iterator begin() const {
-    return const_iterator(d_list);
+    return const_iterator(static_cast<T const*>(d_list));
   }
 
   /**
    * Returns an iterator pointing one past the last item in the list.
    */
   const_iterator end() const {
-    return const_iterator(d_list + d_size);
+    return const_iterator(static_cast<T const*>(d_list) + d_size);
   }
 
 };/* class CDList */

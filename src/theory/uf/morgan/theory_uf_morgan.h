@@ -35,6 +35,7 @@
 #include "theory/uf/theory_uf.h"
 
 #include "context/context.h"
+#include "context/context_mm.h"
 #include "context/cdo.h"
 #include "context/cdlist.h"
 #include "util/congruence_closure.h"
@@ -81,7 +82,7 @@ private:
   typedef context::CDMap<TNode, TNode, TNodeHashFunction> UnionFind;
   UnionFind d_unionFind;
 
-  typedef context::CDList<Node> DiseqList;
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode>, context::CDO<TNode*> > DiseqList;
   typedef context::CDMap<Node, DiseqList*, NodeHashFunction> DiseqLists;
 
   /** List of all disequalities this theory has seen. */

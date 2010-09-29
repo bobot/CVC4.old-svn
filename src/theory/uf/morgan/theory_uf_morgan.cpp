@@ -50,6 +50,9 @@ TheoryUFMorgan::TheoryUFMorgan(int id, Context* ctxt, OutputChannel& out) :
 }
 
 TheoryUFMorgan::~TheoryUFMorgan() {
+  d_trueNode = Node::null();
+  d_falseNode = Node::null();
+  d_trueEqFalseNode = Node::null();
 }
 
 RewriteResponse TheoryUFMorgan::postRewrite(TNode n, bool topLevel) {
@@ -188,11 +191,6 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
 
   d_unionFind[a] = b;
 
-  if(Debug.isOn("uf") && find(d_trueNode) == find(d_falseNode)) {
-    Debug("uf") << "ok, pay attention now.." << std::endl;
-    dump();
-  }
-
   DiseqLists::iterator deq_i = d_disequalities.find(a);
   if(deq_i != d_disequalities.end()) {
     // a set of other trees we are already disequal to
@@ -267,7 +265,8 @@ void TheoryUFMorgan::appendToDiseqList(TNode of, TNode eq) {
   DiseqLists::iterator deq_i = d_disequalities.find(of);
   DiseqList* deq;
   if(deq_i == d_disequalities.end()) {
-    deq = new(getContext()->getCMM()) DiseqList(true, getContext());
+    deq = new(getContext()->getCMM()) DiseqList(true, getContext(), false,
+                                                ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_disequalities.insertDataFromContextMemory(of, deq);
   } else {
     deq = (*deq_i).second;

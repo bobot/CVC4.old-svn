@@ -29,6 +29,8 @@
 #include "expr/node_manager.h"
 #include "expr/node.h"
 #include "context/context.h"
+#include "context/context_mm.h"
+#include "context/cdo.h"
 #include "context/cdmap.h"
 #include "context/cdset.h"
 #include "context/cdlist.h"
@@ -103,9 +105,9 @@ class CongruenceClosure {
 
   // typedef all of these so that iterators are easy to define
   typedef context::CDMap<Node, Node, NodeHashFunction> RepresentativeMap;
-  typedef context::CDList<Node> ClassList;
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode>, context::CDO<TNode*> > ClassList;
   typedef context::CDMap<Node, ClassList*, NodeHashFunction> ClassLists;
-  typedef context::CDList<Node> UseList;
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode>, context::CDO<TNode*> > UseList;
   typedef context::CDMap<TNode, UseList*, TNodeHashFunction> UseLists;
   typedef context::CDMap<Node, Node, NodeHashFunction> LookupMap;
 
@@ -344,7 +346,8 @@ private:
     UseLists::iterator usei = d_useList.find(of);
     UseList* ul;
     if(usei == d_useList.end()) {
-      ul = new(d_context->getCMM()) UseList(true, d_context);
+      ul = new(d_context->getCMM()) UseList(true, d_context, false,
+                                            context::ContextMemoryAllocator<TNode>(d_context->getCMM()));
       d_useList.insertDataFromContextMemory(of, ul);
     } else {
       ul = (*usei).second;
@@ -550,7 +553,8 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
         ClassLists::iterator cl_bpi = d_classList.find(bp);
         ClassList* cl_bp;
         if(cl_bpi == d_classList.end()) {
-          cl_bp = new(d_context->getCMM()) ClassList(true, d_context);
+          cl_bp = new(d_context->getCMM()) ClassList(true, d_context, false,
+                                                     context::ContextMemoryAllocator<TNode>(d_context->getCMM()));
           d_classList.insertDataFromContextMemory(bp, cl_bp);
           Debug("cc:detail") << "CC in prop alloc classlist for " << bp << std::endl;
         } else {
