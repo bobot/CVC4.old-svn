@@ -36,7 +36,7 @@ private:
 public:
   IsBasicManager() : d_basic() {}
 
-  void init(ArithVar var, bool value = false){
+  void init(ArithVar var, bool value){
     Assert(var == d_basic.size());
     d_basic.push_back(value);
   }

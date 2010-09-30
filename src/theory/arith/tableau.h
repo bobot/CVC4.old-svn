@@ -151,6 +151,7 @@ public:
   }
 
   void ejectBasic(ArithVar basic){
+    Assert(d_basicManager.isBasic(basic));
     Assert(isActiveBasicVariable(basic));
 
     Row* row = lookup(basic);
@@ -161,6 +162,7 @@ public:
   }
 
   void reinjectBasic(ArithVar basic){
+    Assert(d_basicManager.isBasic(basic));
     Assert(isEjected(basic));
 
     Row* row = lookupEjected(basic);

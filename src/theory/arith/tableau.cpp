@@ -90,6 +90,7 @@ void Tableau::addRow(ArithVar basicVar,
                      const std::vector<ArithVar>& variables){
 
   Assert(coeffs.size() == variables.size());
+  Assert(d_basicManager.isBasic(basicVar));
 
   //The new basic variable cannot already be a basic variable
   Assert(!isActiveBasicVariable(basicVar));
@@ -107,7 +108,12 @@ void Tableau::addRow(ArithVar basicVar,
   for( ; coeffsIter != coeffsEnd; ++coeffsIter, ++ varsIter){
     ArithVar var = *varsIter;
 
-    if(isActiveBasicVariable(var)){
+    if(d_basicManager.isBasic(var)){
+      if(!isActiveBasicVariable(var)){
+        reinjectBasic(var);
+      }
+      Assert(isActiveBasicVariable(var));
+
       Row* row_var = lookup(var);
       row_current->subsitute(*row_var);
     }
@@ -115,6 +121,9 @@ void Tableau::addRow(ArithVar basicVar,
 }
 
 void Tableau::pivot(ArithVar x_r, ArithVar x_s){
+  Assert(d_basicManager.isBasic(x_r));
+  Assert(!d_basicManager.isBasic(x_s));
+
   RowsTable::iterator ptrRow_r = d_activeRows.find(x_r);
   Assert(ptrRow_r != d_activeRows.end());
 
@@ -147,6 +156,12 @@ void Tableau::printTableau(){
       basicIter != endIter; ++basicIter){
     ArithVar basic = *basicIter;
     Row* row_k = lookup(basic);
+    row_k->printRow();
+  }
+  for(RowsTable::iterator basicIter = d_inactiveRows.begin(), endIter =  d_inactiveRows.end();
+      basicIter != endIter; ++basicIter){
+    ArithVar basic = (*basicIter).first;
+    Row* row_k = lookupEjected(basic);
     row_k->printRow();
   }
 }
