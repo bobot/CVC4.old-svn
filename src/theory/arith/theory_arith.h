@@ -258,7 +258,6 @@ private:
   //TODO get rid of this!
   Node simulatePreprocessing(TNode n);
 
-  ArithVar asArithVar(TNode v);
   void asVectors(Polynomial& p,
                  std::vector<Rational>& coeffs,
                  std::vector<ArithVar>& variables) const;

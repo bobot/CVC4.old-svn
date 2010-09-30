@@ -40,6 +40,11 @@ typedef uint64_t ArithVar;
 struct ArithVarAttrID{};
 typedef expr::Attribute<ArithVarAttrID,ArithVar> ArithVarAttr;
 
+inline ArithVar asArithVar(TNode x){
+  Assert(x.hasAttribute(ArithVarAttr()));
+  return x.getAttribute(ArithVarAttr());
+}
+
 inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);
 }

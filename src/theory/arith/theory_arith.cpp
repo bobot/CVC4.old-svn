@@ -153,10 +153,9 @@ ArithVar TheoryArith::findBasicRow(ArithVar variable){
 
 void TheoryArith::ejectInactiveVariables(){
   Debug("decay") << "begin ejectInactiveVariables()" << endl;
-  for(std::vector<Node>::iterator i = d_variables.begin(),
-        end = d_variables.end(); i != end; ++i){
-    TNode var = *i;
-    ArithVar variable = asArithVar(var);
+  for(ArithVar variable = 0, end = d_variables.size(); variable != end; ++variable){
+    //TNode var = *i;
+    //ArithVar variable = asArithVar(var);
     if(shouldEject(variable)){
       if(d_basicManager.isBasic(variable)){
         Debug("decay") << "ejecting basic " << variable << endl;;
@@ -164,11 +163,6 @@ void TheoryArith::ejectInactiveVariables(){
       }
     }
   }
-}
-
-ArithVar TheoryArith::asArithVar(TNode x){
-  Unimplemented();
-  return -1;
 }
 
 void TheoryArith::reinjectVariable(ArithVar x){
