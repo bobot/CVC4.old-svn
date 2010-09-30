@@ -41,7 +41,7 @@ namespace arith {
 class Row {
   ArithVar d_x_i;
 
-  typedef std::map<ArithVar, Rational> CoefficientTable;
+  typedef std::map<ArithVar, Rational, std::greater<ArithVar> > CoefficientTable;
 
   CoefficientTable d_coeffs;
 
