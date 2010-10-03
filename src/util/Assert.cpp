@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): acsys
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -138,7 +138,7 @@ void AssertionException::construct(const char* header, const char* extra,
  */
 void debugAssertionFailed(const AssertionException& thisException,
                           const char* propagatingException) {
-  static __thread bool alreadyFired = false;
+  static CVC4_THREADLOCAL(bool) alreadyFired = false;
 
   if(EXPECT_TRUE( !std::uncaught_exception() ) || alreadyFired) {
     throw thisException;

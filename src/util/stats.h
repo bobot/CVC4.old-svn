@@ -2,8 +2,8 @@
 /*! \file stats.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -29,6 +29,7 @@
 #include <ctime>
 
 #include "util/Assert.h"
+#include "lib/clock_gettime.h"
 
 namespace CVC4 {
 
@@ -325,7 +326,7 @@ public:
   void start() {
     if(__CVC4_USE_STATISTICS) {
       AlwaysAssert(!d_running);
-      clock_gettime(CLOCK_REALTIME, &d_start);
+      clock_gettime(CLOCK_MONOTONIC, &d_start);
       d_running = true;
     }
   }
@@ -334,7 +335,7 @@ public:
     if(__CVC4_USE_STATISTICS) {
       AlwaysAssert(d_running);
       ::timespec end;
-      clock_gettime(CLOCK_REALTIME, &end);
+      clock_gettime(CLOCK_MONOTONIC, &end);
       d_data += end - d_start;
       d_running = false;
     }

@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): taking, dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -340,9 +340,7 @@ public:
   }
 
   void clear() throw(AssertionException) {
-    Debug("gc") << "clearing cdmap " << this << std::endl;
-
-    Debug("gc") << "cdmap " << this << " cleared, emptying trash" << std::endl;
+    Debug("gc") << "clearing cdmap " << this << ", emptying trash" << std::endl;
     emptyTrash();
     Debug("gc") << "done emptying trash for " << this << std::endl;
 

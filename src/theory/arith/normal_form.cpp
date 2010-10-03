@@ -2,7 +2,7 @@
 /*! \file normal_form.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
@@ -244,8 +244,8 @@ Comparison Comparison::parseNormalForm(TNode n) {
 Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Constant& right) {
   Assert(isRelationOperator(k));
   if(left.isConstant()) {
-    const Rational& rConst =  left.getNode().getConst<Rational>();
-    const Rational& lConst = right.getNode().getConst<Rational>();
+    const Rational& lConst =  left.getNode().getConst<Rational>();
+    const Rational& rConst = right.getNode().getConst<Rational>();
     bool res = evaluateConstantPredicate(k, lConst, rConst);
     return Comparison(res);
   } else {
