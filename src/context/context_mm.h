@@ -25,8 +25,6 @@
 #include <vector>
 #include <deque>
 
-#include "util/output.h"
-
 namespace CVC4 {
 namespace context {
 
