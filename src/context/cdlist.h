@@ -22,6 +22,8 @@
 #define __CVC4__CONTEXT__CDLIST_H
 
 #include "context/context.h"
+#include "context/context_mm.h"
+#include "context/cdo.h"
 #include "util/Assert.h"
 
 #include <memory>
@@ -31,6 +33,48 @@ namespace CVC4 {
 namespace context {
 
 /**
+ * Screwy way of decoupling the need (when allocating using context
+ * memory) for a context-dependent list head from the usual case where
+ * allocated memory doesn't go away on context pop.  This template
+ * gives the usual behavior; it's just a wrapper to construct a T*
+ * with additional context-related arguments, which are ignored.
+ */
+template <class T, class Allocator>
+class ListHead {
+  T* d_t;
+public:
+  /** The head-of-the-list type */
+  typedef T* head_t;
+  /**
+   * The type to construct; refers to this ListHead<> type so that we
+   * can ignore additional constructor arguments.  The result of the
+   * construction is then just converted to a T*, extracting that
+   * constructor argument.
+   */
+  typedef ListHead<T, Allocator> construct_t;
+  ListHead(Context* context, T* t) : d_t(t) {}
+  ListHead(bool allocatedInCMM, Context* context, T* t) : d_t(t) {}
+  operator T*() { return d_t; }
+};/* class ListHead<T, Allocator> */
+
+/**
+ * Specialization of the ListHead<> template which permits
+ * construction of a CDO<T*>.
+ */
+template <>
+class ListHead<class T, ContextMemoryAllocator<T> > {
+public:
+  /** The head-of-the-list type */
+  typedef CDO<T*> head_t;
+  /**
+   * The type to construct; refers to the same type as head_t, so the
+   * list head is constructed directly from constructor arguments.
+   */
+  typedef CDO<T*> construct_t;
+};/* class ListHead<T, ContextMemoryAllocator<T> > */
+
+
+/**
  * Generic context-dependent dynamic array.  Note that for efficiency, this
  * implementation makes the following assumptions:
  * 1. Over time, objects are only added to the list.  Objects are only
@@ -38,12 +82,12 @@ namespace context {
  * 2. T objects can safely be copied using their copy constructor,
  *    operator=, and memcpy.
  */
-template <class T, class Allocator = std::allocator<T>, class ListHead = T*>
+template <class T, class Allocator = std::allocator<T> >
 class CDList : public ContextObj {
   /**
    * d_list is a dynamic array of objects of type T.
    */
-  ListHead d_list;
+  typename ListHead<T, Allocator>::head_t d_list;
 
   /**
    * Whether to call the destructor when items are popped from the
@@ -76,7 +120,7 @@ protected:
    * The saved information is allocated using the ContextMemoryManager.
    */
   ContextObj* save(ContextMemoryManager* pCMM) {
-    return new(pCMM) CDList<T, Allocator, ListHead>(*this);
+    return new(pCMM) CDList<T, Allocator>(*this);
   }
 
   /**
@@ -86,13 +130,13 @@ protected:
    */
   void restore(ContextObj* data) {
     if(d_callDestructor) {
-      unsigned size = ((CDList<T, Allocator, ListHead>*)data)->d_size;
+      unsigned size = ((CDList<T, Allocator>*)data)->d_size;
       while(d_size != size) {
         --d_size;
         d_list[d_size].~T();
       }
     } else {
-      d_size = ((CDList<T, Allocator, ListHead>*)data)->d_size;
+      d_size = ((CDList<T, Allocator>*)data)->d_size;
     }
   }
 
@@ -103,9 +147,9 @@ private:
    * are not copied: only the base class information and d_size are needed in
    * restore.
    */
-  CDList(const CDList<T, Allocator, ListHead>& l) :
+  CDList(const CDList<T, Allocator>& l) :
     ContextObj(l),
-    d_list(NULL),
+    d_list(typename ListHead<T, Allocator>::construct_t(l.getContext(), NULL)),
     d_callDestructor(l.d_callDestructor),
     d_size(l.d_size),
     d_sizeAlloc(0),
@@ -147,7 +191,7 @@ public:
    */
   CDList(Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
     ContextObj(context),
-    d_list(NULL),
+    d_list(typename ListHead<T, Allocator>::construct_t(context, NULL)),
     d_callDestructor(callDestructor),
     d_size(0),
     d_sizeAlloc(0),
@@ -159,7 +203,7 @@ public:
    */
   CDList(bool allocatedInCMM, Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
     ContextObj(allocatedInCMM, context),
-    d_list(NULL),
+    d_list(typename ListHead<T, Allocator>::construct_t(allocatedInCMM, context, NULL)),
     d_callDestructor(callDestructor),
     d_size(0),
     d_sizeAlloc(0),
@@ -237,7 +281,7 @@ public:
 
     const_iterator(T const* it) : d_it(it) {}
 
-    friend class CDList<T, Allocator, ListHead>;
+    friend class CDList<T, Allocator>;
 
   public:
 

@@ -104,9 +104,9 @@ class CongruenceClosure {
 
   // typedef all of these so that iterators are easy to define
   typedef context::CDMap<Node, Node, NodeHashFunction> RepresentativeMap;
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode>, context::CDO<TNode*> > ClassList;
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > ClassList;
   typedef context::CDMap<Node, ClassList*, NodeHashFunction> ClassLists;
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode>, context::CDO<TNode*> > UseList;
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > UseList;
   typedef context::CDMap<TNode, UseList*, TNodeHashFunction> UseLists;
   typedef context::CDMap<Node, Node, NodeHashFunction> LookupMap;
 
