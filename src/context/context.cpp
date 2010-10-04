@@ -332,9 +332,9 @@ std::ostream& operator<<(std::ostream& out,
          pContextObj->prev() == &scope.d_pContextObjList);
   while(pContextObj != NULL) {
     out << " <--> " << pContextObj;
-    Assert(pContextObj->d_pScope == &scope);
-    Assert(pContextObj->next() == NULL ||
-           pContextObj->next()->prev() == &pContextObj->next());
+    if(!(pContextObj->d_pScope == &scope)) { out << " XX1XX "; }
+    if(!(pContextObj->next() == NULL ||
+         pContextObj->next()->prev() == &pContextObj->next())) { out << " XX2XX "; }
     pContextObj = pContextObj->next();
   }
   return out << " --> NULL";

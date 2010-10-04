@@ -28,51 +28,10 @@
 
 #include <memory>
 #include <string>
+#include <sstream>
 
 namespace CVC4 {
 namespace context {
-
-/**
- * Screwy way of decoupling the need (when allocating using context
- * memory) for a context-dependent list head from the usual case where
- * allocated memory doesn't go away on context pop.  This template
- * gives the usual behavior; it's just a wrapper to construct a T*
- * with additional context-related arguments, which are ignored.
- */
-template <class T, class Allocator>
-class ListHead {
-  T* d_t;
-public:
-  /** The head-of-the-list type */
-  typedef T* head_t;
-  /**
-   * The type to construct; refers to this ListHead<> type so that we
-   * can ignore additional constructor arguments.  The result of the
-   * construction is then just converted to a T*, extracting that
-   * constructor argument.
-   */
-  typedef ListHead<T, Allocator> construct_t;
-  ListHead(Context* context, T* t) : d_t(t) {}
-  ListHead(bool allocatedInCMM, Context* context, T* t) : d_t(t) {}
-  operator T*() { return d_t; }
-};/* class ListHead<T, Allocator> */
-
-/**
- * Specialization of the ListHead<> template which permits
- * construction of a CDO<T*>.
- */
-template <>
-class ListHead<class T, ContextMemoryAllocator<T> > {
-public:
-  /** The head-of-the-list type */
-  typedef CDO<T*> head_t;
-  /**
-   * The type to construct; refers to the same type as head_t, so the
-   * list head is constructed directly from constructor arguments.
-   */
-  typedef CDO<T*> construct_t;
-};/* class ListHead<T, ContextMemoryAllocator<T> > */
-
 
 /**
  * Generic context-dependent dynamic array.  Note that for efficiency, this
@@ -82,12 +41,14 @@ public:
  * 2. T objects can safely be copied using their copy constructor,
  *    operator=, and memcpy.
  */
-template <class T, class Allocator = std::allocator<T> >
-class CDList : public ContextObj {
+template <class T, class Allocator>
+class CDListBase : public ContextObj {
+protected:
+
   /**
    * d_list is a dynamic array of objects of type T.
    */
-  typename ListHead<T, Allocator>::head_t d_list;
+  T* d_list;
 
   /**
    * Whether to call the destructor when items are popped from the
@@ -111,49 +72,19 @@ class CDList : public ContextObj {
    */
   Allocator d_allocator;
 
-protected:
-
   /**
-   * Implementation of mandatory ContextObj method save: simply copies the
-   * current size to a copy using the copy constructor (the pointer and the
-   * allocated size are *not* copied as they are not restored on a pop).
-   * The saved information is allocated using the ContextMemoryManager.
-   */
-  ContextObj* save(ContextMemoryManager* pCMM) {
-    return new(pCMM) CDList<T, Allocator>(*this);
-  }
-
-  /**
-   * Implementation of mandatory ContextObj method restore: simply restores the
-   * previous size.  Note that the list pointer and the allocated size are not
-   * changed.
-   */
-  void restore(ContextObj* data) {
-    if(d_callDestructor) {
-      unsigned size = ((CDList<T, Allocator>*)data)->d_size;
-      while(d_size != size) {
-        --d_size;
-        d_list[d_size].~T();
-      }
-    } else {
-      d_size = ((CDList<T, Allocator>*)data)->d_size;
-    }
-  }
-
-private:
-
-  /**
-   * Private copy constructor used only by save above.  d_list and d_sizeAlloc
+   * Private copy constructor used only by save().  d_list and d_sizeAlloc
    * are not copied: only the base class information and d_size are needed in
    * restore.
    */
-  CDList(const CDList<T, Allocator>& l) :
+  CDListBase(const CDListBase<T, Allocator>& l) :
     ContextObj(l),
-    d_list(typename ListHead<T, Allocator>::construct_t(l.getContext(), NULL)),
+    d_list(NULL),
     d_callDestructor(l.d_callDestructor),
     d_size(l.d_size),
     d_sizeAlloc(0),
     d_allocator(l.d_allocator) {
+    Debug("cdlist") << "copy ctor: " << this << " from " << &l << " size " << d_size << std::endl;
   }
 
   /**
@@ -164,7 +95,7 @@ private:
     if(d_list == NULL) {
       // Allocate an initial list if one does not yet exist
       d_sizeAlloc = 10;
-      Debug("cdlist") << "initial grow of cdlist " << this << " to " << d_sizeAlloc << std::endl;
+      Debug("cdlist") << "initial grow of cdlist " << this << " level " << getContext()->getLevel() << " to " << d_sizeAlloc << std::endl;
       d_list = (T*) d_allocator.allocate(d_sizeAlloc);
       if(d_list == NULL) {
         throw std::bad_alloc();
@@ -172,8 +103,8 @@ private:
     } else {
       // Allocate a new array with double the size
       size_t newSize = d_sizeAlloc * 2;
-      Debug("cdlist") << "2x grow of cdlist " << this << " to " << newSize << std::endl;
       T* newList = d_allocator.allocate(newSize);
+      Debug("cdlist") << "2x grow of cdlist " << this << " level " << getContext()->getLevel() << " to " << newSize << " (from " << d_list << " to " << newList << ")" << std::endl;
       if(newList == NULL) {
         throw std::bad_alloc();
       }
@@ -189,9 +120,9 @@ public:
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList(Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
+  CDListBase(Context* context, bool callDestructor, const Allocator& alloc) :
     ContextObj(context),
-    d_list(typename ListHead<T, Allocator>::construct_t(context, NULL)),
+    d_list(NULL),
     d_callDestructor(callDestructor),
     d_size(0),
     d_sizeAlloc(0),
@@ -201,28 +132,13 @@ public:
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList(bool allocatedInCMM, Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
+  CDListBase(bool allocatedInCMM, Context* context, bool callDestructor, const Allocator& alloc) :
     ContextObj(allocatedInCMM, context),
-    d_list(typename ListHead<T, Allocator>::construct_t(allocatedInCMM, context, NULL)),
+    d_list(NULL),
     d_callDestructor(callDestructor),
     d_size(0),
     d_sizeAlloc(0),
     d_allocator(alloc) {
-  }
-
-  /**
-   * Destructor: delete the list
-   */
-  ~CDList() throw(AssertionException) {
-    destroy();
-
-    if(d_callDestructor) {
-      for(unsigned i = 0; i < d_size; ++i) {
-        d_list[i].~T();
-      }
-    }
-
-    d_allocator.deallocate(d_list, d_sizeAlloc);
   }
 
   /**
@@ -243,14 +159,20 @@ public:
    * Add an item to the end of the list.
    */
   void push_back(const T& data) {
+    Debug("cdlist") << "push_back " << this << " " << getContext()->getLevel() << ": make-current, d_list == " << d_list << "\n";
     makeCurrent();
 
+    Debug("cdlist") << "push_back " << this << " " << getContext()->getLevel() << ": grow? " << d_size << " " << d_sizeAlloc << "\n";
     if(d_size == d_sizeAlloc) {
+      Debug("cdlist") << "push_back " << this << " " << getContext()->getLevel() << ": grow!\n";
       grow();
     }
 
+    Debug("cdlist") << "push_back " << this << " " << getContext()->getLevel() << ": construct! at " << d_list << "[" << d_size << "] == " << (d_list + d_size) << "\n";
     ::new((void*)(d_list + d_size)) T(data);
+    Debug("cdlist") << "push_back " << this << " " << getContext()->getLevel() << ": done...\n";
     ++d_size;
+    Debug("cdlist") << "push_back " << this << " " << getContext()->getLevel() << ": size now " << d_size << "\n";
   }
 
   /**
@@ -281,7 +203,7 @@ public:
 
     const_iterator(T const* it) : d_it(it) {}
 
-    friend class CDList<T, Allocator>;
+    friend class CDListBase<T, Allocator>;
 
   public:
 
@@ -351,8 +273,175 @@ public:
   const_iterator end() const {
     return const_iterator(static_cast<T const*>(d_list) + d_size);
   }
+};/* class CDListBase<> */
 
-};/* class CDList */
+
+template <class T, class Allocator = std::allocator<T> >
+class CDList : public CDListBase<T, Allocator> {
+public:
+  typedef typename CDListBase<T, Allocator>::const_iterator const_iterator;
+
+protected:
+  /**
+   * Private copy constructor used only by save().  d_list and d_sizeAlloc
+   * are not copied: only the base class information and d_size are needed in
+   * restore.
+   */
+  CDList(const CDList<T, Allocator>& l) :
+    CDListBase<T, Allocator>(l) {
+    this->d_size = l.d_size;
+    Debug("cdlist") << "copy ctor: " << this << " from " << &l << " size " << this->d_size << std::endl;
+  }
+
+  /**
+   * Implementation of mandatory ContextObj method save: simply copies the
+   * current size to a copy using the copy constructor (the pointer and the
+   * allocated size are *not* copied as they are not restored on a pop).
+   * The saved information is allocated using the ContextMemoryManager.
+   */
+  ContextObj* save(ContextMemoryManager* pCMM) {
+    ContextObj* data = new(pCMM) CDList<T, Allocator>(*this);
+    Debug("cdlist") << "save " << this << " at level " << this->getContext()->getLevel() << " size at " << this->d_size << " sizeAlloc at " << this->d_sizeAlloc << " d_list is " << this->d_list << " data:" << data << std::endl;
+    return data;
+  }
+
+  /**
+   * Implementation of mandatory ContextObj method restore: simply restores the
+   * previous size.  Note that the list pointer and the allocated size are not
+   * changed.
+   */
+  void restore(ContextObj* data) {
+    Debug("cdlist") << "restore " << this << " level " << this->getContext()->getLevel() << " data == " << data << " call dtor == " << this->d_callDestructor << " d_list == " << this->d_list << std::endl;
+    if(this->d_callDestructor) {
+      unsigned size = ((CDList<T, Allocator>*)data)->d_size;
+      while(this->d_size != size) {
+        --this->d_size;
+        this->d_list[this->d_size].~T();
+      }
+    } else {
+      this->d_size = ((CDList<T, Allocator>*)data)->d_size;
+    }
+    Debug("cdlist") << "restore " << this << " level " << this->getContext()->getLevel() << " size back to " << this->d_size << " sizeAlloc at " << this->d_sizeAlloc << std::endl;
+  }
+
+public:
+
+  /**
+   * Main constructor: d_list starts as NULL, size is 0
+   */
+  CDList(Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
+    CDListBase<T, Allocator>(context, callDestructor, alloc) {
+  }
+
+  /**
+   * Main constructor: d_list starts as NULL, size is 0
+   */
+  CDList(bool allocatedInCMM, Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
+    CDListBase<T, Allocator>(allocatedInCMM, context, callDestructor, alloc) {
+  }
+
+  /**
+   * Destructor: delete the list
+   */
+  ~CDList() throw(AssertionException) {
+    this->destroy();
+
+    if(this->d_callDestructor) {
+      for(unsigned i = 0; i < this->d_size; ++i) {
+        this->d_list[i].~T();
+      }
+    }
+
+    this->d_allocator.deallocate(this->d_list, this->d_sizeAlloc);
+  }
+};/* class CDList<> */
+
+
+template <class T>
+class CDList<T, ContextMemoryAllocator<T> > : public CDListBase<T, ContextMemoryAllocator<T> > {
+  typedef ContextMemoryAllocator<T> Allocator;
+public:
+  typedef typename CDListBase<T, Allocator>::const_iterator const_iterator;
+
+protected:
+  /**
+   * Private copy constructor used only by save().  d_list and d_sizeAlloc
+   * are not copied: only the base class information and d_size are needed in
+   * restore.
+   */
+  CDList(const CDList<T, Allocator>& l) :
+    CDListBase<T, Allocator>(l) {
+    this->d_list = l.d_list;
+    this->d_size = l.d_size;
+    this->d_sizeAlloc = l.d_sizeAlloc;
+    Debug("cdlist") << "copy ctor: " << this << " from " << &l << " size " << this->d_size << std::endl;
+  }
+
+  /**
+   * Implementation of mandatory ContextObj method save: simply copies the
+   * current size to a copy using the copy constructor (the pointer and the
+   * allocated size are *not* copied as they are not restored on a pop).
+   * The saved information is allocated using the ContextMemoryManager.
+   */
+  ContextObj* save(ContextMemoryManager* pCMM) {
+    ContextObj* data = new(pCMM) CDList<T, Allocator>(*this);
+    Debug("cdlist") << "save " << this << " at level " << this->getContext()->getLevel() << " size at " << this->d_size << " sizeAlloc at " << this->d_sizeAlloc << " d_list is " << this->d_list << " data:" << data << std::endl;
+    return data;
+  }
+
+  /**
+   * Implementation of mandatory ContextObj method restore: simply restores the
+   * previous size.  Note that the list pointer and the allocated size are not
+   * changed.
+   */
+  void restore(ContextObj* data) {
+    Debug("cdlist") << "restore " << this << " level " << this->getContext()->getLevel() << " data == " << data << " call dtor == " << this->d_callDestructor << " d_list == " << this->d_list << std::endl;
+    if(this->d_callDestructor) {
+      unsigned size = ((CDList<T, Allocator>*)data)->d_size;
+      while(this->d_size != size) {
+        --this->d_size;
+        this->d_list[this->d_size].~T();
+      }
+    } else {
+      this->d_size = ((CDList<T, Allocator>*)data)->d_size;
+    }
+    this->d_list = ((CDList<T, Allocator>*)data)->d_list;
+    this->d_sizeAlloc = ((CDList<T, Allocator>*)data)->d_sizeAlloc;
+    Debug("cdlist") << "restore " << this << " level " << this->getContext()->getLevel() << " size back to " << this->d_size << " sizeAlloc at " << this->d_sizeAlloc << std::endl;
+  }
+
+public:
+
+  /**
+   * Main constructor: d_list starts as NULL, size is 0
+   */
+  CDList(Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
+    CDListBase<T, Allocator>(context, callDestructor, alloc) {
+  }
+
+  /**
+   * Main constructor: d_list starts as NULL, size is 0
+   */
+  CDList(bool allocatedInCMM, Context* context, bool callDestructor = true, const Allocator& alloc = Allocator()) :
+    CDListBase<T, Allocator>(allocatedInCMM, context, callDestructor, alloc) {
+  }
+
+  /**
+   * Destructor: delete the list
+   */
+  ~CDList() throw(AssertionException) {
+    this->destroy();
+
+    if(this->d_callDestructor) {
+      for(unsigned i = 0; i < this->d_size; ++i) {
+        this->d_list[i].~T();
+      }
+    }
+
+    this->d_allocator.deallocate(this->d_list, this->d_sizeAlloc);
+  }
+};/* class CDList<> */
+
 
 }/* CVC4::context namespace */
 }/* CVC4 namespace */
