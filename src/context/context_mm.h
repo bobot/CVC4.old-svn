@@ -106,6 +106,13 @@ class ContextMemoryManager {
  public:
 
   /**
+   * Get the maximum allocation size for this memory manager.
+   */
+  static unsigned getMaxAllocationSize() {
+    return chunkSizeBytes;
+  }
+
+  /**
    * Constructor - creates an initial region and an empty stack
    */
   ContextMemoryManager();
@@ -157,10 +164,11 @@ public:
   ContextMemoryAllocator(const ContextMemoryAllocator& alloc) throw() : d_mm(alloc.d_mm) {}
   ~ContextMemoryAllocator() throw() {}
 
+  ContextMemoryManager* getCMM() { return d_mm; }
   T* address(T& v) const { return &v; }
   T const* address(T const& v) const { return &v; }
   size_t max_size() const throw() {
-    return size_t(-1) / sizeof(T);
+    return ContextMemoryManager::getMaxAllocationSize() / sizeof(T);
   }
   T* allocate(size_t n, const void* = 0) const {
     return static_cast<T*>(d_mm->newData(n * sizeof(T)));
