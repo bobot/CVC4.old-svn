@@ -23,6 +23,7 @@
 
 #include <string>
 #include <set>
+#include <list>
 
 #include "input.h"
 #include "parser_exception.h"
@@ -124,6 +125,13 @@ class CVC4_PUBLIC Parser {
   /** The set of operators available in the current logic. */
   std::set<Kind> d_logicOperators;
 
+  /**
+   * "Preemption commands": extra commands implied by subterms that
+   * should be issued before the currently-being-parsed command is
+   * issued.  Used to support SMT-LIBv2 ":named" attribute on terms.
+   */
+  std::list<Command*> d_commandQueue;
+
   /** Lookup a symbol in the given namespace. */
   Expr getSymbol(const std::string& var_name, SymbolType type);
 
@@ -186,31 +194,32 @@ public:
 
   bool strictModeEnabled() { return d_strictMode; }
 
-  /** Get the name of the input file. */
-/*
-  inline const std::string getFilename() {
-    return d_filename;
-  }
-*/
-
   /**
-   * Sets the logic for the current benchmark. Declares any logic symbols.
+   * Returns a variable, given a name.
    *
-   * @param name the name of the logic (e.g., QF_UF, AUFLIA)
+   * @param name the name of the variable
+   * @return the variable expression
    */
-//  void setLogic(const std::string& name);
+  Expr getVariable(const std::string& name);
 
   /**
-   * Returns a variable, given a name and a type.
+   * Returns a function, given a name.
+   *
    * @param var_name the name of the variable
    * @return the variable expression
    */
-  Expr getVariable(const std::string& var_name);
+  Expr getFunction(const std::string& name);
 
   /**
-   * Returns a sort, given a name
+   * Returns a sort, given a name.
    */
   Type getSort(const std::string& sort_name);
+
+  /**
+   * Returns a (parameterized) sort, given a name and args.
+   */
+  Type getSort(const std::string& sort_name,
+               const std::vector<Type>& params);
 
   /**
    * Checks if a symbol has been declared.
@@ -234,7 +243,8 @@ public:
   /**
    * Checks whether the given name is bound to a function.
    * @param name the name to check
-   * @throws ParserException if checks are enabled and name is not bound to a function
+   * @throws ParserException if checks are enabled and name is not
+   * bound to a function
    */
   void checkFunction(const std::string& name) throw (ParserException);
 
@@ -242,23 +252,26 @@ public:
    * Check that <code>kind</code> can accept <code>numArgs</code> arguments.
    * @param kind the built-in operator to check
    * @param numArgs the number of actual arguments
-   * @throws ParserException if checks are enabled and the operator <code>kind</code> cannot be
-   * applied to <code>numArgs</code> arguments.
+   * @throws ParserException if checks are enabled and the operator
+   * <code>kind</code> cannot be applied to <code>numArgs</code>
+   * arguments.
    */
   void checkArity(Kind kind, unsigned int numArgs) throw (ParserException);
 
-  /** Check that <code>kind</code> is a legal operator in the current logic and
-   * that it can accept <code>numArgs</code> arguments.
+  /**
+   * Check that <code>kind</code> is a legal operator in the current
+   * logic and that it can accept <code>numArgs</code> arguments.
    *
    * @param kind the built-in operator to check
    * @param numArgs the number of actual arguments
-   * @throws ParserException if the parser mode is strict and the operator <code>kind</kind>
-   * has not been enabled
+   * @throws ParserException if the parser mode is strict and the
+   * operator <code>kind</kind> has not been enabled
    */
   void checkOperator(Kind kind, unsigned int numArgs) throw (ParserException);
 
   /**
    * Returns the type for the variable with the given name.
+   *
    * @param var_name the symbol to lookup
    * @param type the (namespace) type of the symbol
    */
@@ -267,16 +280,32 @@ public:
   /** Create a new CVC4 variable expression of the given type. */
   Expr mkVar(const std::string& name, const Type& type);
 
-  /** Create a set of new CVC4 variable expressions of the given
-   type. */
+  /**
+   * Create a set of new CVC4 variable expressions of the given type.
+   */
   const std::vector<Expr>
   mkVars(const std::vector<std::string> names, const Type& type);
+
+  /** Create a new CVC4 function expression of the given type. */
+  Expr mkFunction(const std::string& name, const Type& type);
 
   /** Create a new variable definition (e.g., from a let binding). */
   void defineVar(const std::string& name, const Expr& val);
 
+  /** Create a new function definition (e.g., from a define-fun). */
+  void defineFunction(const std::string& name, const Expr& val);
+
   /** Create a new type definition. */
   void defineType(const std::string& name, const Type& type);
+
+  /** Create a new (parameterized) type definition. */
+  void defineType(const std::string& name,
+                  const std::vector<Type>& params, const Type& type);
+
+  /** Create a new type definition (e.g., from an SMT-LIBv2 define-sort). */
+  void defineParameterizedType(const std::string& name,
+                               const std::vector<Type>& params,
+                               const Type& type);
 
   /**
    * Creates a new sort with the given name.
@@ -284,22 +313,38 @@ public:
   Type mkSort(const std::string& name);
 
   /**
-   * Creates a new sorts with the given names.
+   * Creates a new sort constructor with the given name and arity.
+   */
+  Type mkSortConstructor(const std::string& name, size_t arity);
+
+  /**
+   * Creates new sorts with the given names (all of arity 0).
    */
   const std::vector<Type>
   mkSorts(const std::vector<std::string>& names);
 
-  /** Add an operator to the current legal set.
+  /**
+   * Add an operator to the current legal set.
    *
    * @param kind the built-in operator to add
    */
   void addOperator(Kind kind);
+
+  /**
+   * Preempt the next returned command with other ones; used to
+   * support the :named attribute in SMT-LIBv2, which implicitly
+   * inserts a new command before the current one.
+   */
+  void preemptCommand(Command* cmd);
 
   /** Is the symbol bound to a boolean variable? */
   bool isBoolean(const std::string& name);
 
   /** Is the symbol bound to a function? */
   bool isFunction(const std::string& name);
+
+  /** Is the symbol bound to a defined function? */
+  bool isDefinedFunction(const std::string& name);
 
   /** Is the symbol bound to a predicate? */
   bool isPredicate(const std::string& name);

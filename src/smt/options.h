@@ -11,9 +11,9 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Global (command-line or equivalent) tuning parameters.
+ ** \brief Global (command-line, set-option, ...) parameters for SMT.
  **
- ** Global (command-line or equivalent) tuning parameters.
+ ** Global (command-line, set-option, ...) parameters for SMT.
  **/
 
 #include "cvc4_public.h"
@@ -21,10 +21,16 @@
 #ifndef __CVC4__OPTIONS_H
 #define __CVC4__OPTIONS_H
 
+#ifdef CVC4_DEBUG
+#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
+#else /* CVC4_DEBUG */
+#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT false
+#endif /* CVC4_DEBUG */
+
 #include <iostream>
 #include <string>
 
-#include "parser/parser_options.h"
+#include "util/language.h"
 
 namespace CVC4 {
 
@@ -45,7 +51,7 @@ struct CVC4_PUBLIC Options {
   int verbosity;
 
   /** The input language */
-  parser::InputLanguage lang;
+  InputLanguage inputLanguage;
 
   /** Enumeration of UF implementation choices */
   typedef enum { TIM, MORGAN } UfImplementation;
@@ -65,21 +71,50 @@ struct CVC4_PUBLIC Options {
   /** Should we strictly enforce the language standard while parsing? */
   bool strictParsing;
 
-  Options() : binary_name(),
-              statistics(false),
-              out(0),
-              err(0),
-              verbosity(0),
-              lang(parser::LANG_AUTO),
-              uf_implementation(MORGAN),
-              parseOnly(false),
-              semanticChecks(true),
-              memoryMap(false),
-              strictParsing(false)
-  {}
+  /** Should we expand function definitions lazily? */
+  bool lazyDefinitionExpansion;
+
+  /** Whether we're in interactive mode or not */
+  bool interactive;
+
+  /**
+   * Whether we're in interactive mode (or not) due to explicit user
+   * setting (if false, we inferred the proper default setting).
+   */
+  bool interactiveSetByUser;
+
+  /** Whether we support SmtEngine::getValue() for this run. */
+  bool produceModels;
+
+  /** Whether we support SmtEngine::getAssignment() for this run. */
+  bool produceAssignments;
+
+  /** Whether we do typechecking at Expr creation time. */
+  bool earlyTypeChecking;
+
+  Options() :
+    binary_name(),
+    statistics(false),
+    out(0),
+    err(0),
+    verbosity(0),
+    inputLanguage(language::input::LANG_AUTO),
+    uf_implementation(MORGAN),
+    parseOnly(false),
+    semanticChecks(true),
+    memoryMap(false),
+    strictParsing(false),
+    lazyDefinitionExpansion(false),
+    interactive(false),
+    interactiveSetByUser(false),
+    produceModels(false),
+    produceAssignments(false),
+    earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT) {
+  }
 };/* struct Options */
 
-inline std::ostream& operator<<(std::ostream& out, Options::UfImplementation uf) {
+inline std::ostream& operator<<(std::ostream& out,
+                                Options::UfImplementation uf) {
   switch(uf) {
   case Options::TIM:
     out << "TIM";
@@ -95,5 +130,7 @@ inline std::ostream& operator<<(std::ostream& out, Options::UfImplementation uf)
 }
 
 }/* CVC4 namespace */
+
+#undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT
 
 #endif /* __CVC4__OPTIONS_H */

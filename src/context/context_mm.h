@@ -103,7 +103,7 @@ class ContextMemoryManager {
    */
   void newChunk();
 
- public:
+public:
 
   /**
    * Get the maximum allocation size for this memory manager.

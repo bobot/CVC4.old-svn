@@ -33,7 +33,7 @@
 #include "util/Assert.h"
 #include "util/configuration.h"
 #include "util/output.h"
-#include "util/options.h"
+#include "smt/options.h"
 #include "util/result.h"
 #include "util/stats.h"
 
@@ -41,8 +41,6 @@ using namespace std;
 using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
-
-static Result lastResult;
 
 namespace CVC4 {
   namespace main {
@@ -110,35 +108,40 @@ int runCvc4(int argc, char* argv[]) {
     throw Exception("Too many input files specified.");
   }
 
+  // If no file supplied we will read from standard input
+  const bool inputFromStdin =
+    firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
+
+  // if we're reading from stdin, default to interactive mode
+  if(!options.interactiveSetByUser) {
+    options.interactive = inputFromStdin;
+  }
+
   // Create the expression manager
-  ExprManager exprMgr;
+  ExprManager exprMgr(options.earlyTypeChecking);
 
   // Create the SmtEngine
   SmtEngine smt(&exprMgr, &options);
 
-  // If no file supplied we read from standard input
-  bool inputFromStdin =
-    firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
-
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
 
-  ReferenceStat< const char* > s_statFilename("filename",filename);
+  ReferenceStat< const char* > s_statFilename("filename", filename);
   StatisticsRegistry::registerStat(&s_statFilename);
 
-  if(options.lang == parser::LANG_AUTO) {
+  if(options.inputLanguage == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
       // We can't do any fancy detection on stdin
-      options.lang = parser::LANG_CVC4;
+      options.inputLanguage = language::input::LANG_CVC4;
     } else {
       unsigned len = strlen(filename);
       if(len >= 5 && !strcmp(".smt2", filename + len - 5)) {
-        options.lang = parser::LANG_SMTLIB_V2;
+        options.inputLanguage = language::input::LANG_SMTLIB_V2;
       } else if(len >= 4 && !strcmp(".smt", filename + len - 4)) {
-        options.lang = parser::LANG_SMTLIB;
+        options.inputLanguage = language::input::LANG_SMTLIB;
       } else if(( len >= 4 && !strcmp(".cvc", filename + len - 4) )
                 || ( len >= 5 && !strcmp(".cvc4", filename + len - 5) )) {
-        options.lang = parser::LANG_CVC4;
+        options.inputLanguage = language::input::LANG_CVC4;
       }
     }
   }
@@ -162,11 +165,19 @@ int runCvc4(int argc, char* argv[]) {
       Message.setStream(CVC4::null_os);
       Warning.setStream(CVC4::null_os);
     }
+
+    OutputLanguage language = language::toOutputLanguage(options.inputLanguage);
+    Debug.getStream() << Expr::setlanguage(language);
+    Trace.getStream() << Expr::setlanguage(language);
+    Notice.getStream() << Expr::setlanguage(language);
+    Chat.getStream() << Expr::setlanguage(language);
+    Message.getStream() << Expr::setlanguage(language);
+    Warning.getStream() << Expr::setlanguage(language);
   }
 
   ParserBuilder parserBuilder =
       ParserBuilder(exprMgr, filename)
-        .withInputLanguage(options.lang)
+        .withInputLanguage(options.inputLanguage)
         .withMmap(options.memoryMap)
         .withChecks(options.semanticChecks &&
                     !Configuration::isMuzzledBuild() )
@@ -180,6 +191,9 @@ int runCvc4(int argc, char* argv[]) {
 
   // Parse and execute commands until we are done
   Command* cmd;
+  if( options.interactive ) {
+    // cout << "CVC4> " << flush;
+  }
   while((cmd = parser->nextCommand())) {
     if( !options.parseOnly ) {
       doCommand(smt, cmd);
@@ -187,20 +201,15 @@ int runCvc4(int argc, char* argv[]) {
     delete cmd;
   }
 
-  Result asSatResult = lastResult.asSatisfiabilityResult();
+  string result = smt.getInfo(":status").getValue();
   int returnValue;
 
-  switch(asSatResult.isSAT()) {
-
-  case Result::SAT:
+  if(result == "sat") {
     returnValue = 10;
-    break;
-  case Result::UNSAT:
+  } else if(result == "unsat") {
     returnValue = 20;
-    break;
-  default:
+  } else {
     returnValue = 0;
-    break;
   }
 
 #ifdef CVC4_COMPETITION_MODE
@@ -212,7 +221,7 @@ int runCvc4(int argc, char* argv[]) {
   // Remove the parser
   delete parser;
 
-  ReferenceStat< Result > s_statSatResult("sat/unsat", asSatResult);
+  ReferenceStat< Result > s_statSatResult("sat/unsat", result);
   StatisticsRegistry::registerStat(&s_statSatResult);
 
   if(options.statistics){
@@ -238,22 +247,10 @@ void doCommand(SmtEngine& smt, Command* cmd) {
       cout << "Invoking: " << *cmd << endl;
     }
 
-    cmd->invoke(&smt);
-
-    QueryCommand *qc = dynamic_cast<QueryCommand*>(cmd);
-    if(qc != NULL) {
-      lastResult = qc->getResult();
-      if(options.verbosity >= 0) {
-        cout << lastResult << endl;
-      }
+    if(options.verbosity >= 0) {
+      cmd->invoke(&smt, cout);
     } else {
-      CheckSatCommand *csc = dynamic_cast<CheckSatCommand*>(cmd);
-      if(csc != NULL) {
-        lastResult = csc->getResult();
-        if(options.verbosity >= 0) {
-          cout << lastResult << endl;
-        }
-      }
+      cmd->invoke(&smt);
     }
   }
 }

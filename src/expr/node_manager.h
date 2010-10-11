@@ -48,9 +48,11 @@ namespace expr {
 // TODO: hide this attribute behind a NodeManager interface.
 namespace attr {
   struct VarNameTag {};
+  struct SortArityTag {};
 }/* CVC4::expr::attr namespace */
 
 typedef expr::Attribute<attr::VarNameTag, std::string> VarNameAttr;
+typedef expr::Attribute<attr::SortArityTag, uint64_t> SortArityAttr;
 
 }/* CVC4::expr namespace */
 
@@ -114,6 +116,12 @@ class NodeManager {
    * plusOperator->getConst<CVC4::Kind>(), you get kind::PLUS back.
    */
   Node d_operators[kind::LAST_KIND];
+
+  /**
+   * Whether to do early type checking (only effective in debug
+   * builds; other builds never do early type checking.
+   */
+  const bool d_earlyTypeChecking;
 
   /**
    * Look up a NodeValue in the pool associated to this NodeManager.
@@ -231,9 +239,12 @@ class NodeManager {
   // bool containsDecision(TNode); // is "atomic"
   // bool properlyContainsDecision(TNode); // all children are atomic
 
+  // undefined private copy constructor (disallow copy)
+  NodeManager(const NodeManager&);
+
 public:
 
-  NodeManager(context::Context* ctxt);
+  explicit NodeManager(context::Context* ctxt, bool earlyTypeChecking = true);
   ~NodeManager();
 
   /** The node manager in the current context. */
@@ -395,7 +406,7 @@ public:
    * <code>AttrKind::value_type</code> if not.
    */
   template <class AttrKind>
-  inline typename AttrKind::value_type 
+  inline typename AttrKind::value_type
   getAttribute(TNode n, const AttrKind& attr) const;
 
   /**
@@ -504,11 +515,18 @@ public:
   /** Make the type of arrays with the given parameterization */
   inline TypeNode mkArrayType(TypeNode indexType, TypeNode constituentType);
 
-  /** Make a new sort. */
+  /** Make a new (anonymous) sort of arity 0. */
   inline TypeNode mkSort();
 
-  /** Make a new sort with the given name. */
+  /** Make a new sort with the given name and arity. */
   inline TypeNode mkSort(const std::string& name);
+
+  /** Make a new sort with the given name and arity. */
+  inline TypeNode mkSort(TypeNode constructor,
+                         const std::vector<TypeNode>& children);
+
+  /** Make a new sort with the given name and arity. */
+  inline TypeNode mkSortConstructor(const std::string& name, size_t arity);
 
   /**
    * Get the type for the given node and optionally do type checking.
@@ -532,7 +550,7 @@ public:
    * amount of checking required to return a valid result.
    *
    * @param n the Node for which we want a type
-   * @param check whether we should check the type as we compute it 
+   * @param check whether we should check the type as we compute it
    * (default: false)
    */
   TypeNode getType(TNode n, bool check = false)
@@ -762,12 +780,48 @@ inline bool NodeManager::hasOperator(Kind k) {
 }
 
 inline TypeNode NodeManager::mkSort() {
-  return NodeBuilder<0>(this, kind::SORT_TYPE).constructTypeNode();
+  NodeBuilder<1> nb(this, kind::SORT_TYPE);
+  Node sortTag = NodeBuilder<0>(this, kind::SORT_TAG);
+  nb << sortTag;
+  return nb.constructTypeNode();
 }
 
 inline TypeNode NodeManager::mkSort(const std::string& name) {
   TypeNode type = mkSort();
   type.setAttribute(expr::VarNameAttr(), name);
+  return type;
+}
+
+inline TypeNode NodeManager::mkSort(TypeNode constructor,
+                                    const std::vector<TypeNode>& children) {
+  Assert(constructor.getKind() == kind::SORT_TYPE &&
+         constructor.getNumChildren() == 0,
+         "expected a sort constructor");
+  Assert(children.size() > 0, "expected non-zero # of children");
+  Assert( hasAttribute(constructor.d_nv, expr::SortArityAttr()) &&
+          hasAttribute(constructor.d_nv, expr::VarNameAttr()),
+          "expected a sort constructor" );
+  std::string name = getAttribute(constructor.d_nv, expr::VarNameAttr());
+  Assert(getAttribute(constructor.d_nv, expr::SortArityAttr()) == children.size(),
+         "arity mismatch in application of sort constructor");
+  NodeBuilder<> nb(this, kind::SORT_TYPE);
+  Node sortTag = Node(constructor.d_nv->d_children[0]);
+  nb << sortTag;
+  nb.append(children);
+  TypeNode type = nb.constructTypeNode();
+  type.setAttribute(expr::VarNameAttr(), name);
+  return type;
+}
+
+inline TypeNode NodeManager::mkSortConstructor(const std::string& name,
+                                               size_t arity) {
+  Assert(arity > 0);
+  NodeBuilder<> nb(this, kind::SORT_TYPE);
+  Node sortTag = NodeBuilder<0>(this, kind::SORT_TAG);
+  nb << sortTag;
+  TypeNode type = nb.constructTypeNode();
+  type.setAttribute(expr::VarNameAttr(), name);
+  type.setAttribute(expr::SortArityAttr(), arity);
   return type;
 }
 
@@ -831,7 +885,7 @@ inline Node NodeManager::mkNode(Kind kind, TNode child1, TNode child2,
 }
 
 inline Node* NodeManager::mkNodePtr(Kind kind, TNode child1, TNode child2,
-                                TNode child3, TNode child4, TNode child5) {
+                                    TNode child3, TNode child4, TNode child5) {
   NodeBuilder<5> nb(this, kind);
   nb << child1 << child2 << child3 << child4 << child5;
   return nb.constructNodePtr();

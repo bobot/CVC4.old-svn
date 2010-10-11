@@ -36,6 +36,8 @@
 #include "util/Assert.h"
 #include "util/configuration.h"
 #include "util/output.h"
+#include "util/exception.h"
+#include "util/language.h"
 
 namespace CVC4 {
 
@@ -53,12 +55,12 @@ class TypeCheckingExceptionPrivate : public Exception {
 
 private:
 
-  /** The node repsonsible for the failure */
+  /** The node responsible for the failure */
   NodeTemplate<true>* d_node;
 
 protected:
 
-  TypeCheckingExceptionPrivate(): Exception() {}
+  TypeCheckingExceptionPrivate() : Exception() {}
 
 public:
 
@@ -342,11 +344,14 @@ public:
   /**
    * Returns a node representing the operator of this expression.
    * If this is an APPLY, then the operator will be a functional term.
-   * Otherwise, it will be a node with kind BUILTIN
+   * Otherwise, it will be a node with kind BUILTIN.
    */
   NodeTemplate<true> getOperator() const;
 
-  /** Returns true if the node has an operator (i.e., it's not a variable or a constant). */
+  /**
+   * Returns true if the node has an operator (i.e., it's not a
+   * variable or a constant).
+   */
   inline bool hasOperator() const;
 
   /**
@@ -375,6 +380,20 @@ public:
    */
   TypeNode getType(bool check = false) const
     throw (CVC4::TypeCheckingExceptionPrivate, CVC4::AssertionException);
+
+  /**
+   * Substitution of Nodes.
+   */
+  Node substitute(TNode node, TNode replacement) const;
+
+  /**
+   * Simultaneous substitution of Nodes.
+   */
+  template <class Iterator1, class Iterator2>
+  Node substitute(Iterator1 nodesBegin,
+                  Iterator1 nodesEnd,
+                  Iterator2 replacementsBegin,
+                  Iterator2 replacementsEnd) const;
 
   /**
    * Returns the kind of this node.
@@ -639,12 +658,12 @@ public:
   /**
    * Converst this node into a string representation and sends it to the
    * given stream
-   * @param out the sream to serialise this node to
+   * @param out the stream to serialize this node to
    */
-  inline void toStream(std::ostream& out, int toDepth = -1,
-                       bool types = false) const {
+  inline void toStream(std::ostream& out, int toDepth = -1, bool types = false,
+                       OutputLanguage language = language::output::LANG_AST) const {
     assertTNodeNotExpired();
-    d_nv->toStream(out, toDepth, types);
+    d_nv->toStream(out, toDepth, types, language);
   }
 
   /**
@@ -675,6 +694,11 @@ public:
   typedef expr::ExprPrintTypes printtypes;
 
   /**
+   * IOStream manipulator to set the output language for Exprs.
+   */
+  typedef expr::ExprSetLanguage setlanguage;
+
+  /**
    * Very basic pretty printer for Node.
    * @param o output stream to print to.
    * @param indent number of spaces to indent the formula by.
@@ -703,7 +727,8 @@ public:
 inline std::ostream& operator<<(std::ostream& out, TNode n) {
   n.toStream(out,
              Node::setdepth::getDepth(out),
-             Node::printtypes::getPrintTypes(out));
+             Node::printtypes::getPrintTypes(out),
+             Node::setlanguage::getLanguage(out));
   return out;
 }
 
@@ -721,14 +746,14 @@ struct NodeHashFunction {
   size_t operator()(const CVC4::Node& node) const {
     return (size_t) node.getId();
   }
-};
+};/* struct NodeHashFunction */
 
 // for hash_maps, hash_sets..
 struct TNodeHashFunction {
   size_t operator()(CVC4::TNode node) const {
     return (size_t) node.getId();
   }
-};
+};/* struct TNodeHashFunction */
 
 template <bool ref_count>
 inline size_t NodeTemplate<ref_count>::getNumChildren() const {
@@ -976,7 +1001,7 @@ NodeTemplate<ref_count>::printAst(std::ostream& out, int indent) const {
 /**
  * Returns a node representing the operator of this expression.
  * If this is an APPLY, then the operator will be a functional term.
- * Otherwise, it will be a node with kind BUILTIN
+ * Otherwise, it will be a node with kind BUILTIN.
  */
 template <bool ref_count>
 NodeTemplate<true> NodeTemplate<ref_count>::getOperator() const {
@@ -1030,6 +1055,59 @@ TypeNode NodeTemplate<ref_count>::getType(bool check) const
   assertTNodeNotExpired();
 
   return NodeManager::currentNM()->getType(*this, check);
+}
+
+template <bool ref_count>
+Node NodeTemplate<ref_count>::substitute(TNode node,
+                                         TNode replacement) const {
+  NodeBuilder<> nb(getKind());
+  if(getMetaKind() == kind::metakind::PARAMETERIZED) {
+    // push the operator
+    nb << getOperator();
+  }
+  for(TNode::const_iterator i = begin(),
+        iend = end();
+      i != iend;
+      ++i) {
+    if(*i == node) {
+      nb << replacement;
+    } else {
+      (*i).substitute(node, replacement);
+    }
+  }
+  Node n = nb;
+  return n;
+}
+
+template <bool ref_count>
+template <class Iterator1, class Iterator2>
+Node NodeTemplate<ref_count>::substitute(Iterator1 nodesBegin,
+                                         Iterator1 nodesEnd,
+                                         Iterator2 replacementsBegin,
+                                         Iterator2 replacementsEnd) const {
+  Assert( nodesEnd - nodesBegin == replacementsEnd - replacementsBegin,
+          "Substitution iterator ranges must be equal size" );
+  Iterator1 j = find(nodesBegin, nodesEnd, *this);
+  if(j != nodesEnd) {
+    return *(replacementsBegin + (j - nodesBegin));
+  } else if(getNumChildren() == 0) {
+    return *this;
+  } else {
+    NodeBuilder<> nb(getKind());
+    if(getMetaKind() == kind::metakind::PARAMETERIZED) {
+      // push the operator
+      nb << getOperator();
+    }
+    for(TNode::const_iterator i = begin(),
+          iend = end();
+        i != iend;
+        ++i) {
+      nb << (*i).substitute(nodesBegin, nodesEnd,
+                            replacementsBegin, replacementsEnd);
+    }
+    Node n = nb;
+    return n;
+  }
 }
 
 #ifdef CVC4_DEBUG

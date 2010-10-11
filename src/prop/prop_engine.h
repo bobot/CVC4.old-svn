@@ -25,12 +25,12 @@
 
 #include "expr/node.h"
 #include "util/result.h"
-#include "util/options.h"
 #include "util/decision_engine.h"
 
 namespace CVC4 {
 
 class TheoryEngine;
+class Options;
 
 namespace prop {
 
@@ -114,6 +114,14 @@ public:
   Result checkSat();
 
   /**
+   * Get the value of a boolean variable.
+   *
+   * @return mkConst<true>, mkConst<false>, or Node::null() if
+   * unassigned.
+   */
+  Node getValue(TNode node);
+
+  /**
    * Push the context level.
    */
   void push();
@@ -125,7 +133,7 @@ public:
 
 };/* class PropEngine */
 
-}/* prop namespace */
+}/* CVC4::prop namespace */
 }/* CVC4 namespace */
 
 #endif /* __CVC4__PROP_ENGINE_H */

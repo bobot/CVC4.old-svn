@@ -25,8 +25,15 @@
 
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
+#include "context/cdmap_forward.h"
+#include "context/cdset_forward.h"
 #include "util/result.h"
 #include "util/model.h"
+#include "util/sexpr.h"
+#include "util/hash.h"
+#include "smt/modal_exception.h"
+#include "smt/no_such_function_exception.h"
+#include "smt/bad_option_exception.h"
 
 // In terms of abstraction, this is below (and provides services to)
 // ValidityChecker and above (and requires the services of)
@@ -34,20 +41,33 @@
 
 namespace CVC4 {
 
-namespace context {
-  class Context;
-}/* CVC4::context namespace */
-
+template <bool ref_count> class NodeTemplate;
+typedef NodeTemplate<true> Node;
+typedef NodeTemplate<false> TNode;
+class NodeHashFunction;
 class Command;
 class Options;
 class TheoryEngine;
 class DecisionEngine;
+
+namespace context {
+  class Context;
+  template <class T> class CDList;
+}/* CVC4::context namespace */
 
 namespace prop {
   class PropEngine;
 }/* CVC4::prop namespace */
 
 namespace smt {
+  /**
+   * Representation of a defined function.  We keep these around in
+   * SmtEngine to permit expanding definitions late (and lazily), to
+   * support getValue() over defined functions, to support user output
+   * in terms of defined functions, etc.
+   */
+  class DefinedFunction;
+
   class SmtEnginePrivate;
 }/* CVC4::smt namespace */
 
@@ -64,6 +84,82 @@ namespace smt {
 
 class CVC4_PUBLIC SmtEngine {
 
+  /** The type of our internal map of defined functions */
+  typedef context::CDMap<Node, smt::DefinedFunction, NodeHashFunction>
+    DefinedFunctionMap;
+  /** The type of our internal assertion list */
+  typedef context::CDList<Expr> AssertionList;
+  /** The type of our internal assignment set */
+  typedef context::CDSet<Node, NodeHashFunction> AssignmentSet;
+
+  /** Our Context */
+  context::Context* d_context;
+  /** Our expression manager */
+  ExprManager* d_exprManager;
+  /** Out internal expression/node manager */
+  NodeManager* d_nodeManager;
+  /** User-level options */
+  const Options* d_options;
+  /** The decision engine */
+  DecisionEngine* d_decisionEngine;
+  /** The decision engine */
+  TheoryEngine* d_theoryEngine;
+  /** The propositional engine */
+  prop::PropEngine* d_propEngine;
+  /** An index of our defined functions */
+  DefinedFunctionMap* d_definedFunctions;
+  /**
+   * The assertion list (before any conversion) for supporting
+   * getAssertions().  Only maintained if in interactive mode.
+   */
+  AssertionList* d_assertionList;
+
+  /**
+   * List of items for which to retrieve values using getAssignment().
+   */
+  AssignmentSet* d_assignments;
+
+  /**
+   * Whether or not we have added any
+   * assertions/declarations/definitions since the last checkSat/query
+   * (and therefore we're not responsible for an assignment).
+   */
+  bool d_haveAdditions;
+
+  /**
+   * Most recent result of last checkSat/query or (set-info :status).
+   */
+  Result d_status;
+
+  /**
+   * This is called by the destructor, just before destroying the
+   * PropEngine, TheoryEngine, and DecisionEngine (in that order).  It
+   * is important because there are destruction ordering issues
+   * between PropEngine and Theory.
+   */
+  void shutdown();
+
+  /**
+   * Full check of consistency in current context.  Returns true iff
+   * consistent.
+   */
+  Result check();
+
+  /**
+   * Quick check of consistency in current context: calls
+   * processAssertionList() then look for inconsistency (based only on
+   * that).
+   */
+  Result quickCheck();
+
+  /**
+   * Fully type-check the argument, and also type-check that it's
+   * actually Boolean.
+   */
+  void ensureBoolean(const BoolExpr& e);
+
+  friend class ::CVC4::smt::SmtEnginePrivate;
+
 public:
 
   /**
@@ -77,9 +173,38 @@ public:
   ~SmtEngine();
 
   /**
-   * Execute a command.
+   * Set information about the script executing.
    */
-  void doCommand(Command*);
+  void setInfo(const std::string& key, const SExpr& value)
+    throw(BadOptionException);
+
+  /**
+   * Query information about the SMT environment.
+   */
+  SExpr getInfo(const std::string& key) const
+    throw(BadOptionException);
+
+  /**
+   * Set an aspect of the current SMT execution environment.
+   */
+  void setOption(const std::string& key, const SExpr& value)
+    throw(BadOptionException);
+
+  /**
+   * Get an aspect of the current SMT execution environment.
+   */
+  SExpr getOption(const std::string& key) const
+    throw(BadOptionException);
+
+  /**
+   * Add a formula to the current context: preprocess, do per-theory
+   * setup, use processAssertionList(), asserting to T-solver for
+   * literals and conjunction of literals.  Returns false iff
+   * inconsistent.
+   */
+  void defineFunction(Expr func,
+                      const std::vector<Expr>& formals,
+                      Expr formula);
 
   /**
    * Add a formula to the current context: preprocess, do per-theory
@@ -108,9 +233,35 @@ public:
   Expr simplify(const Expr& e);
 
   /**
-   * Get a (counter)model (only if preceded by a SAT or INVALID query).
+   * Get the assigned value of an expr (only if immediately preceded
+   * by a SAT or INVALID query).  Only permitted if the SmtEngine is
+   * set to operate interactively and produce-models is on.
    */
-  Model getModel();
+  Expr getValue(const Expr& e) throw(ModalException, AssertionException);
+
+  /**
+   * Add a function to the set of expressions whose value is to be
+   * later returned by a call to getAssignment().  The expression
+   * should be a Boolean zero-ary defined function or a Boolean
+   * variable.  Rather than throwing a ModalException on modal
+   * failures (not in interactive mode or not producing assignments),
+   * this function returns true if the expression was added and false
+   * if this request was ignored.
+   */
+  bool addToAssignment(const Expr& e) throw(AssertionException);
+
+  /**
+   * Get the assignment (only if immediately preceded by a SAT or
+   * INVALID query).  Only permitted if the SmtEngine is set to
+   * operate interactively and produce-assignments is on.
+   */
+  SExpr getAssignment() throw(ModalException, AssertionException);
+
+  /**
+   * Get the current set of assertions.  Only permitted if the
+   * SmtEngine is set to operate interactively.
+   */
+  std::vector<Expr> getAssertions() throw(ModalException, AssertionException);
 
   /**
    * Push a user-level context.
@@ -121,56 +272,6 @@ public:
    * Pop a user-level context.  Throws an exception if nothing to pop.
    */
   void pop();
-
-private:
-
-  /** Our Context */
-  CVC4::context::Context* d_ctxt;
-
-  /** Our expression manager */
-  ExprManager* d_exprManager;
-
-  /** Out internal expression/node manager */
-  NodeManager* d_nodeManager;
-
-  /** User-level options */
-  const Options* d_options;
-
-  /** The decision engine */
-  DecisionEngine* d_decisionEngine;
-
-  /** The decision engine */
-  TheoryEngine* d_theoryEngine;
-
-  /** The propositional engine */
-  prop::PropEngine* d_propEngine;
-
-  // preprocess() and addFormula() used to be housed here; they are
-  // now in an SmtEnginePrivate class.  See the comment in
-  // smt_engine.cpp.
-
-  /**
-   * This is called by the destructor, just before destroying the
-   * PropEngine, TheoryEngine, and DecisionEngine (in that order).  It
-   * is important because there are destruction ordering issues
-   * between PropEngine and Theory.
-   */
-  void shutdown();
-
-  /**
-   * Full check of consistency in current context.  Returns true iff
-   * consistent.
-   */
-  Result check();
-
-  /**
-   * Quick check of consistency in current context: calls
-   * processAssertionList() then look for inconsistency (based only on
-   * that).
-   */
-  Result quickCheck();
-
-  friend class ::CVC4::smt::SmtEnginePrivate;
 
 };/* class SmtEngine */
 

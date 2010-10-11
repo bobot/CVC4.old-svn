@@ -39,12 +39,17 @@ namespace expr {
 
 const int ExprSetDepth::s_iosIndex = std::ios_base::xalloc();
 const int ExprPrintTypes::s_iosIndex = std::ios_base::xalloc();
+const int ExprSetLanguage::s_iosIndex = std::ios_base::xalloc();
 
 }/* CVC4::expr namespace */
 
+std::ostream& operator<<(std::ostream& out, const TypeCheckingException& e) {
+  return out << e.getMessage() << ": " << e.getExpression();
+}
+
 std::ostream& operator<<(std::ostream& out, const Expr& e) {
-  e.toStream(out);
-  return out;
+  ExprManagerScope ems(*e.getExprManager());
+  return out << e.getNode();
 }
 
 TypeCheckingException::TypeCheckingException(const TypeCheckingException& t)
@@ -54,6 +59,12 @@ TypeCheckingException::TypeCheckingException(const TypeCheckingException& t)
 
 TypeCheckingException::TypeCheckingException(const Expr& expr, std::string message)
 : Exception(message), d_expr(new Expr(expr))
+{
+}
+
+TypeCheckingException::TypeCheckingException(ExprManager* em,
+                                             const TypeCheckingExceptionPrivate* exc)
+: Exception(exc->getMessage()), d_expr(new Expr(em, new Node(exc->getNode())))
 {
 }
 
@@ -147,6 +158,12 @@ bool Expr::operator>(const Expr& e) const {
   return *d_node > *e.d_node;
 }
 
+unsigned Expr::getId() const {
+  ExprManagerScope ems(*this);
+  Assert(d_node != NULL, "Unexpected NULL expression pointer!");
+  return d_node->getId();
+}
+
 Kind Expr::getKind() const {
   ExprManagerScope ems(*this);
   Assert(d_node != NULL, "Unexpected NULL expression pointer!");
@@ -208,12 +225,17 @@ bool Expr::isConst() const {
   return d_node->isConst();
 }
 
-void Expr::toStream(std::ostream& out, int depth, bool types) const {
+void Expr::toStream(std::ostream& out, int depth, bool types,
+                    OutputLanguage language) const {
   ExprManagerScope ems(*this);
-  d_node->toStream(out, depth, types);
+  d_node->toStream(out, depth, types, language);
 }
 
-Node Expr::getNode() const {
+Node Expr::getNode() const throw() {
+  return *d_node;
+}
+
+TNode Expr::getTNode() const throw() {
   return *d_node;
 }
 

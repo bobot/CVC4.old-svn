@@ -22,6 +22,7 @@
 #define __CVC4__CONTEXT__CDSET_H
 
 #include "context/context.h"
+#include "context/cdset_forward.h"
 #include "context/cdmap.h"
 #include "util/Assert.h"
 
@@ -33,6 +34,23 @@ class CDSet : protected CDMap<V, V, HashFcn> {
   typedef CDMap<V, V, HashFcn> super;
 
 public:
+
+  // ensure these are publicly accessible
+  static void* operator new(size_t size, bool b) {
+    return ContextObj::operator new(size, b);
+  }
+
+  static void operator delete(void* pMem, bool b) {
+    return ContextObj::operator delete(pMem, b);
+  }
+
+  void deleteSelf() {
+    this->ContextObj::deleteSelf();
+  }
+
+  static void operator delete(void* pMem) {
+    AlwaysAssert(false, "It is not allowed to delete a ContextObj this way!");
+  }
 
   CDSet(Context* context) :
     super(context) {

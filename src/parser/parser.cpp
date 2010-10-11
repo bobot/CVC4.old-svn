@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <iterator>
 #include <stdint.h>
 
 #include "input.h"
@@ -65,17 +66,28 @@ Expr Parser::getVariable(const std::string& name) {
   return getSymbol(name, SYM_VARIABLE);
 }
 
+Expr Parser::getFunction(const std::string& name) {
+  return getSymbol(name, SYM_VARIABLE);
+}
+
 Type
 Parser::getType(const std::string& var_name,
                      SymbolType type) {
   Assert( isDeclared(var_name, type) );
-  Type t = getSymbol(var_name,type).getType();
+  Type t = getSymbol(var_name, type).getType();
   return t;
 }
 
 Type Parser::getSort(const std::string& name) {
   Assert( isDeclared(name, SYM_SORT) );
   Type t = d_declScope.lookupType(name);
+  return t;
+}
+
+Type Parser::getSort(const std::string& name,
+                     const std::vector<Type>& params) {
+  Assert( isDeclared(name, SYM_SORT) );
+  Type t = d_declScope.lookupType(name, params);
   return t;
 }
 
@@ -89,46 +101,100 @@ bool Parser::isFunction(const std::string& name) {
   return isDeclared(name, SYM_VARIABLE) && getType(name).isFunction();
 }
 
+/* Returns true if name is bound to a defined function. */
+bool Parser::isDefinedFunction(const std::string& name) {
+  // more permissive in type than isFunction(), because defined
+  // functions can be zero-ary and declared functions cannot.
+  return d_declScope.isBoundDefinedFunction(name);
+}
+
 /* Returns true if name is bound to a function returning boolean. */
 bool Parser::isPredicate(const std::string& name) {
   return isDeclared(name, SYM_VARIABLE) && getType(name).isPredicate();
 }
 
-Expr 
+Expr
 Parser::mkVar(const std::string& name, const Type& type) {
-  Debug("parser") << "mkVar(" << name << "," << type << ")" << std::endl;
+  Debug("parser") << "mkVar(" << name << ", " << type << ")" << std::endl;
   Expr expr = d_exprManager->mkVar(name, type);
-  defineVar(name,expr);
+  defineVar(name, expr);
+  return expr;
+}
+
+Expr
+Parser::mkFunction(const std::string& name, const Type& type) {
+  Debug("parser") << "mkVar(" << name << ", " << type << ")" << std::endl;
+  Expr expr = d_exprManager->mkVar(name, type);
+  defineFunction(name, expr);
   return expr;
 }
 
 const std::vector<Expr>
 Parser::mkVars(const std::vector<std::string> names,
-                    const Type& type) {
+               const Type& type) {
   std::vector<Expr> vars;
   for(unsigned i = 0; i < names.size(); ++i) {
-    vars.push_back(mkVar(names[i],type));
+    vars.push_back(mkVar(names[i], type));
   }
   return vars;
 }
 
 void
 Parser::defineVar(const std::string& name, const Expr& val) {
-  d_declScope.bind(name,val);
-  Assert(isDeclared(name));
+  d_declScope.bind(name, val);
+  Assert( isDeclared(name) );
+}
+
+void
+Parser::defineFunction(const std::string& name, const Expr& val) {
+  d_declScope.bindDefinedFunction(name, val);
+  Assert( isDeclared(name) );
 }
 
 void
 Parser::defineType(const std::string& name, const Type& type) {
-  d_declScope.bindType(name,type);
-  Assert( isDeclared(name, SYM_SORT) ) ;
+  d_declScope.bindType(name, type);
+  Assert( isDeclared(name, SYM_SORT) );
+}
+
+void
+Parser::defineType(const std::string& name,
+                   const std::vector<Type>& params,
+                   const Type& type) {
+  d_declScope.bindType(name, params, type);
+  Assert( isDeclared(name, SYM_SORT) );
+}
+
+void
+Parser::defineParameterizedType(const std::string& name,
+                                const std::vector<Type>& params,
+                                const Type& type) {
+  if(Debug.isOn("parser")) {
+    Debug("parser") << "defineParameterizedType(" << name << ", " << params.size() << ", [";
+    if(params.size() > 0) {
+      copy(params.begin(), params.end() - 1,
+           ostream_iterator<Type>(Debug("parser"), ", ") );
+      Debug("parser") << params.back();
+    }
+    Debug("parser") << "], " << type << ")" << std::endl;
+  }
+  defineType(name, params, type);
 }
 
 Type
 Parser::mkSort(const std::string& name) {
   Debug("parser") << "newSort(" << name << ")" << std::endl;
   Type type = d_exprManager->mkSort(name);
-  defineType(name,type);
+  defineType(name, type);
+  return type;
+}
+
+Type
+Parser::mkSortConstructor(const std::string& name, size_t arity) {
+  Debug("parser") << "newSortConstructor(" << name << ", " << arity << ")"
+                  << std::endl;
+  Type type = d_exprManager->mkSortConstructor(name, arity);
+  defineType(name, vector<Type>(arity), type);
   return type;
 }
 
@@ -215,30 +281,45 @@ void Parser::checkOperator(Kind kind, unsigned int numArgs) throw (ParserExcepti
   if( d_strictMode && d_logicOperators.find(kind) == d_logicOperators.end() ) {
     parseError( "Operator is not defined in the current logic: " + kindToString(kind) );
   }
-  checkArity(kind,numArgs);
+  checkArity(kind, numArgs);
 }
 
 void Parser::addOperator(Kind kind) {
   d_logicOperators.insert(kind);
 }
 
+void Parser::preemptCommand(Command* cmd) {
+  d_commandQueue.push_back(cmd);
+}
+
 Command* Parser::nextCommand() throw(ParserException) {
   Debug("parser") << "nextCommand()" << std::endl;
   Command* cmd = NULL;
-  if(!done()) {
-    try {
-      cmd = d_input->parseCommand();
-      if(cmd == NULL) {
+  if(!d_commandQueue.empty()) {
+    cmd = d_commandQueue.front();
+    d_commandQueue.pop_front();
+    if(cmd == NULL) {
+      setDone();
+    }
+  } else {
+    if(!done()) {
+      try {
+        cmd = d_input->parseCommand();
+        d_commandQueue.push_back(cmd);
+        cmd = d_commandQueue.front();
+        d_commandQueue.pop_front();
+        if(cmd == NULL) {
+          setDone();
+        }
+      } catch(ParserException& e) {
         setDone();
+        throw;
+      } catch(Exception& e) {
+        setDone();
+        stringstream ss;
+        ss << e;
+        parseError( ss.str() );
       }
-    } catch(ParserException& e) {
-      setDone();
-      throw;
-    } catch(TypeCheckingException& e) {
-      setDone();
-      stringstream ss;
-      ss << e.getMessage() << ": " << e.getExpression();
-      parseError( ss.str() );
     }
   }
   Debug("parser") << "nextCommand() => " << cmd << std::endl;
@@ -257,10 +338,10 @@ Expr Parser::nextExpression() throw(ParserException) {
     } catch(ParserException& e) {
       setDone();
       throw;
-    } catch(TypeCheckingException& e) {
+    } catch(Exception& e) {
       setDone();
       stringstream ss;
-      ss << e.getMessage() << ": " << e.getExpression();
+      ss << e;
       parseError( ss.str() );
     }
   }

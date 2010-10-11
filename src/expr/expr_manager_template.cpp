@@ -34,9 +34,9 @@ using namespace CVC4::kind;
 
 namespace CVC4 {
 
-ExprManager::ExprManager() :
+ExprManager::ExprManager(bool earlyTypeChecking) :
   d_ctxt(new Context),
-  d_nodeManager(new NodeManager(d_ctxt)) {
+  d_nodeManager(new NodeManager(d_ctxt, earlyTypeChecking)) {
 }
 
 ExprManager::~ExprManager() {
@@ -75,7 +75,7 @@ Expr ExprManager::mkExpr(Kind kind, const Expr& child1) {
   try {
     return Expr(this, d_nodeManager->mkNodePtr(kind, child1.getNode()));
   } catch (const TypeCheckingExceptionPrivate& e) {
-    throw TypeCheckingException(Expr(this, new Node(e.getNode())), e.getMessage());
+    throw TypeCheckingException(this, &e);
   }
 }
 
@@ -88,12 +88,11 @@ Expr ExprManager::mkExpr(Kind kind, const Expr& child1, const Expr& child2) {
                 minArity(kind), maxArity(kind), n);
   NodeManagerScope nms(d_nodeManager);
   try {
-    return Expr(this, d_nodeManager->mkNodePtr(kind, 
+    return Expr(this, d_nodeManager->mkNodePtr(kind,
                                                child1.getNode(),
                                                child2.getNode()));
   } catch (const TypeCheckingExceptionPrivate& e) {
-    throw TypeCheckingException(Expr(this, new Node(e.getNode())), 
-                                e.getMessage());
+    throw TypeCheckingException(this, &e);
   }
 }
 
@@ -107,13 +106,12 @@ Expr ExprManager::mkExpr(Kind kind, const Expr& child1, const Expr& child2,
                 minArity(kind), maxArity(kind), n);
   NodeManagerScope nms(d_nodeManager);
   try {
-    return Expr(this, d_nodeManager->mkNodePtr(kind, 
-                                               child1.getNode(), 
-                                               child2.getNode(), 
+    return Expr(this, d_nodeManager->mkNodePtr(kind,
+                                               child1.getNode(),
+                                               child2.getNode(),
                                                child3.getNode()));
   } catch (const TypeCheckingExceptionPrivate& e) {
-    throw TypeCheckingException(Expr(this, new Node(e.getNode())), 
-                                e.getMessage());
+    throw TypeCheckingException(this, &e);
   }
 }
 
@@ -127,14 +125,13 @@ Expr ExprManager::mkExpr(Kind kind, const Expr& child1, const Expr& child2,
                 minArity(kind), maxArity(kind), n);
   NodeManagerScope nms(d_nodeManager);
   try {
-    return Expr(this, d_nodeManager->mkNodePtr(kind, 
+    return Expr(this, d_nodeManager->mkNodePtr(kind,
                                                child1.getNode(),
-                                               child2.getNode(), 
+                                               child2.getNode(),
                                                child3.getNode(),
                                                child4.getNode()));
   } catch (const TypeCheckingExceptionPrivate& e) {
-    throw TypeCheckingException(Expr(this, new Node(e.getNode())), 
-                                e.getMessage());
+    throw TypeCheckingException(this, &e);
   }
 }
 
@@ -149,15 +146,14 @@ Expr ExprManager::mkExpr(Kind kind, const Expr& child1, const Expr& child2,
                 minArity(kind), maxArity(kind), n);
   NodeManagerScope nms(d_nodeManager);
   try {
-    return Expr(this, d_nodeManager->mkNodePtr(kind, 
+    return Expr(this, d_nodeManager->mkNodePtr(kind,
                                                child1.getNode(),
-                                               child2.getNode(), 
+                                               child2.getNode(),
                                                child3.getNode(),
                                                child4.getNode(),
                                                child5.getNode()));
   } catch (const TypeCheckingExceptionPrivate& e) {
-    throw TypeCheckingException(Expr(this, new Node(e.getNode())), 
-                                e.getMessage());
+    throw TypeCheckingException(this, &e);
   }
 }
 
@@ -181,8 +177,7 @@ Expr ExprManager::mkExpr(Kind kind, const std::vector<Expr>& children) {
   try {
     return Expr(this, d_nodeManager->mkNodePtr(kind, nodes));
   } catch (const TypeCheckingExceptionPrivate& e) {
-    throw TypeCheckingException(Expr(this, new Node(e.getNode())), 
-                                e.getMessage());
+    throw TypeCheckingException(this, &e);
   }
 }
 
@@ -207,7 +202,7 @@ Expr ExprManager::mkExpr(Expr opExpr, const std::vector<Expr>& children) {
   try {
     return Expr(this,d_nodeManager->mkNodePtr(opExpr.getNode(), nodes));
   } catch (const TypeCheckingExceptionPrivate& e) {
-    throw TypeCheckingException(Expr(this, new Node(e.getNode())), e.getMessage());
+    throw TypeCheckingException(this, &e);
   }
 }
 
@@ -219,8 +214,8 @@ FunctionType ExprManager::mkFunctionType(const Type& domain, const Type& range) 
 
 /** Make a function type with input types from argTypes. */
 FunctionType ExprManager::mkFunctionType(const std::vector<Type>& argTypes, const Type& range) {
-  Assert( argTypes.size() >= 1 );
   NodeManagerScope nms(d_nodeManager);
+  Assert( argTypes.size() >= 1 );
   std::vector<TypeNode> argTypeNodes;
   for (unsigned i = 0, i_end = argTypes.size(); i < i_end; ++ i) {
     argTypeNodes.push_back(*argTypes[i].d_typeNode);
@@ -229,8 +224,8 @@ FunctionType ExprManager::mkFunctionType(const std::vector<Type>& argTypes, cons
 }
 
 FunctionType ExprManager::mkFunctionType(const std::vector<Type>& sorts) {
-  Assert( sorts.size() >= 2 );
   NodeManagerScope nms(d_nodeManager);
+  Assert( sorts.size() >= 2 );
   std::vector<TypeNode> sortNodes;
   for (unsigned i = 0, i_end = sorts.size(); i < i_end; ++ i) {
      sortNodes.push_back(*sorts[i].d_typeNode);
@@ -239,8 +234,8 @@ FunctionType ExprManager::mkFunctionType(const std::vector<Type>& sorts) {
 }
 
 FunctionType ExprManager::mkPredicateType(const std::vector<Type>& sorts) {
-  Assert( sorts.size() >= 1 );
   NodeManagerScope nms(d_nodeManager);
+  Assert( sorts.size() >= 1 );
   std::vector<TypeNode> sortNodes;
   for (unsigned i = 0, i_end = sorts.size(); i < i_end; ++ i) {
      sortNodes.push_back(*sorts[i].d_typeNode);
@@ -249,8 +244,8 @@ FunctionType ExprManager::mkPredicateType(const std::vector<Type>& sorts) {
 }
 
 TupleType ExprManager::mkTupleType(const std::vector<Type>& types) {
-  Assert( types.size() >= 2 );
   NodeManagerScope nms(d_nodeManager);
+  Assert( types.size() >= 2 );
   std::vector<TypeNode> typeNodes;
   for (unsigned i = 0, i_end = types.size(); i < i_end; ++ i) {
      typeNodes.push_back(*types[i].d_typeNode);
@@ -271,6 +266,13 @@ ArrayType ExprManager::mkArrayType(Type indexType, Type constituentType) const {
 SortType ExprManager::mkSort(const std::string& name) const {
   NodeManagerScope nms(d_nodeManager);
   return Type(d_nodeManager, new TypeNode(d_nodeManager->mkSort(name)));
+}
+
+SortConstructorType ExprManager::mkSortConstructor(const std::string& name,
+                                                   size_t arity) const {
+  NodeManagerScope nms(d_nodeManager);
+  return Type(d_nodeManager,
+              new TypeNode(d_nodeManager->mkSortConstructor(name, arity)));
 }
 
 /**
@@ -295,23 +297,26 @@ SortType ExprManager::mkSort(const std::string& name) const {
  * amount of checking required to return a valid result.
  *
  * @param n the Expr for which we want a type
- * @param check whether we should check the type as we compute it 
+ * @param check whether we should check the type as we compute it
  * (default: false)
  */
 Type ExprManager::getType(const Expr& e, bool check) throw (TypeCheckingException) {
   NodeManagerScope nms(d_nodeManager);
   Type t;
   try {
-    t = Type(d_nodeManager, new TypeNode(d_nodeManager->getType(e.getNode(), check)));
+    t = Type(d_nodeManager,
+             new TypeNode(d_nodeManager->getType(e.getNode(), check)));
   } catch (const TypeCheckingExceptionPrivate& e) {
-    throw TypeCheckingException(Expr(this, new Node(e.getNode())), e.getMessage());
+    throw TypeCheckingException(this, &e);
   }
   return t;
 }
 
 Expr ExprManager::mkVar(const std::string& name, const Type& type) {
   NodeManagerScope nms(d_nodeManager);
-  return Expr(this, d_nodeManager->mkVarPtr(name, *type.d_typeNode));
+  Node* n = d_nodeManager->mkVarPtr(name, *type.d_typeNode);
+  Debug("nm") << "set " << name << " on " << *n << std::endl;
+  return Expr(this, n);
 }
 
 Expr ExprManager::mkVar(const Type& type) {
@@ -333,7 +338,7 @@ Expr ExprManager::mkAssociative(Kind kind,
   /* If the number of children is within bounds, then there's nothing to do. */
   if( numChildren <= max ) {
     return mkExpr(kind,children);
-  } 
+  }
 
   std::vector<Expr>::const_iterator it = children.begin() ;
   std::vector<Expr>::const_iterator end = children.end() ;
@@ -379,7 +384,7 @@ Expr ExprManager::mkAssociative(Kind kind,
 
   /* It would be really weird if this happened (it would require
    * min > 2, for one thing), but let's make sure. */
-  AlwaysAssert( newChildren.size() >= min, 
+  AlwaysAssert( newChildren.size() >= min,
                 "Too few new children in mkAssociative" );
 
   return Expr(this, d_nodeManager->mkNodePtr(kind,newChildren) );

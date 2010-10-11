@@ -21,6 +21,8 @@
 #ifndef __CVC4__CONTEXT__CDLIST_H
 #define __CVC4__CONTEXT__CDLIST_H
 
+#include <iterator>
+
 #include "context/context.h"
 #include "context/context_mm.h"
 #include "context/cdo.h"
@@ -256,6 +258,12 @@ public:
     friend class CDList<T, Allocator>;
 
   public:
+
+    typedef std::input_iterator_tag iterator_category;
+    typedef T value_type;
+    typedef ptrdiff_t difference_type;
+    typedef const T* pointer;
+    typedef const T& reference;
 
     const_iterator() : d_it(NULL) {}
 

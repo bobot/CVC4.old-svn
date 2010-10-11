@@ -14,7 +14,7 @@
  ** \brief Black box testing of CVC4::parser::Parser, including CVC, SMT and
  ** SMT v2 inputs.
  **
- ** Black box testing of CVC4::parser::Parser, including CVC, SMT and
+ ** Black box testing of CVC4::parser::Parser, including CVC, SMT, and
  ** SMT v2 inputs.
  **/
 
@@ -32,6 +32,7 @@
 
 using namespace CVC4;
 using namespace CVC4::parser;
+using namespace CVC4::language::input;
 using namespace std;
 
 class ParserBlack {
@@ -138,17 +139,19 @@ protected:
       }
   }
 
-  /* NOTE: The check implemented here may fail if a bad expression expression string
-   * has a prefix that is parseable as a good expression. E.g., the bad SMT v2 expression
-   * "#b10@@@@@@" will actually return the bit-vector 10 and ignore the tail of the
-   * input. It's more trouble than it's worth to check that the whole input was
-   * consumed here, so just be careful to avoid valid prefixes in tests.
+  /* NOTE: The check implemented here may fail if a bad expression
+   * expression string has a prefix that is parseable as a good
+   * expression. E.g., the bad SMT v2 expression "#b10@@@@@@" will
+   * actually return the bit-vector 10 and ignore the tail of the
+   * input. It's more trouble than it's worth to check that the whole
+   * input was consumed here, so just be careful to avoid valid
+   * prefixes in tests.
    */
   void tryBadExpr(const string badExpr, bool strictMode = false) {
 //    Debug.on("parser");
 //    Debug.on("parser-extra");
 //      cout << "Testing bad expr: '" << badExpr << "'\n";
-      
+
       Parser *parser =
         ParserBuilder(*d_exprManager,"test")
           .withStringInput(badExpr)
@@ -169,20 +172,31 @@ protected:
   }
 
   ParserBlack(InputLanguage lang) :
-    d_lang(lang),
-    d_exprManager(new ExprManager()) {
+    d_lang(lang) {
   }
 
-public:
-  virtual ~ParserBlack() {
+  void setUp() {
+    d_exprManager = new ExprManager;
+  }
+
+  void tearDown() {
     delete d_exprManager;
   }
 };
 
 class Cvc4ParserTest : public CxxTest::TestSuite, public ParserBlack  {
+  typedef ParserBlack super;
 
 public:
   Cvc4ParserTest() : ParserBlack(LANG_CVC4) { }
+
+  void setUp() {
+    super::setUp();
+  }
+
+  void tearDown() {
+    super::tearDown();
+  }
 
   void testGoodCvc4Inputs() {
     tryGoodInput(""); // empty string is OK
@@ -228,8 +242,18 @@ public:
 };
 
 class SmtParserTest : public CxxTest::TestSuite, public ParserBlack {
+  typedef ParserBlack super;
+
 public:
   SmtParserTest() : ParserBlack(LANG_SMTLIB) { }
+
+  void setUp() {
+    super::setUp();
+  }
+
+  void tearDown() {
+    super::tearDown();
+  }
 
   void testGoodSmtInputs() {
     tryGoodInput(""); // empty string is OK
@@ -285,6 +309,14 @@ class Smt2ParserTest : public CxxTest::TestSuite, public ParserBlack {
 
 public:
   Smt2ParserTest() : ParserBlack(LANG_SMTLIB_V2) { }
+
+  void setUp() {
+    super::setUp();
+  }
+
+  void tearDown() {
+    super::tearDown();
+  }
 
   void setupContext(Smt2& parser) {
     parser.addTheory(Smt2::THEORY_CORE);

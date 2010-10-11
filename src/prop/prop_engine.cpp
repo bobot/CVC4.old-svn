@@ -24,7 +24,7 @@
 #include "util/decision_engine.h"
 #include "util/Assert.h"
 #include "util/output.h"
-#include "util/options.h"
+#include "smt/options.h"
 #include "util/result.h"
 
 #include <utility>
@@ -93,9 +93,11 @@ void PropEngine::assertLemma(TNode node) {
 
 
 void PropEngine::printSatisfyingAssignment(){
-  const CnfStream::TranslationCache& transCache = d_cnfStream->getTranslationCache();
+  const CnfStream::TranslationCache& transCache =
+    d_cnfStream->getTranslationCache();
   Debug("prop-value") << "Literal | Value | Expr" << endl
-                      << "---------------------------------------------------------" << endl;
+                      << "----------------------------------------"
+                      << "-----------------" << endl;
   for(CnfStream::TranslationCache::const_iterator i = transCache.begin(),
       end = transCache.end();
       i != end;
@@ -105,8 +107,7 @@ void PropEngine::printSatisfyingAssignment(){
     if(!sign(l)) {
       Node n = curr.first;
       SatLiteralValue value = d_satSolver->value(l);
-      Debug("prop-value") << /*setw(4) << */ "'" << l << "' " /*<< setw(4)*/ << value << " " << n
-            << endl;
+      Debug("prop-value") << "'" << l << "' " << value << " " << n << endl;
     }
   }
 }
@@ -126,8 +127,23 @@ Result PropEngine::checkSat() {
     printSatisfyingAssignment();
   }
 
-  Debug("prop") << "PropEngine::checkSat() => " << (result ? "true" : "false") << endl;
+  Debug("prop") << "PropEngine::checkSat() => "
+                << (result ? "true" : "false") << endl;
   return Result(result ? Result::SAT : Result::UNSAT);
+}
+
+Node PropEngine::getValue(TNode node) {
+  Assert(node.getKind() == kind::VARIABLE &&
+         node.getType().isBoolean());
+  SatLiteralValue v = d_satSolver->value(d_cnfStream->getLiteral(node));
+  if(v == l_True) {
+    return NodeManager::currentNM()->mkConst(true);
+  } else if(v == l_False) {
+    return NodeManager::currentNM()->mkConst(false);
+  } else {
+    Assert(v == l_Undef);
+    return Node::null();
+  }
 }
 
 void PropEngine::push() {
@@ -140,5 +156,5 @@ void PropEngine::pop() {
   Debug("prop") << "pop()" << endl;
 }
 
-}/* prop namespace */
+}/* CVC4::prop namespace */
 }/* CVC4 namespace */

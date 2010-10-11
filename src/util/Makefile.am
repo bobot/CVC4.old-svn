@@ -18,10 +18,10 @@ libutil_la_SOURCES = \
 	hash.h \
 	bool.h \
 	model.h \
-	options.h \
 	output.cpp \
 	output.h \
 	result.h \
+	result.cpp \
 	unique_id.h \
 	configuration.h \
 	configuration_private.h \
@@ -35,7 +35,8 @@ libutil_la_SOURCES = \
 	stats.h \
 	stats.cpp \
 	triple.h \
-	dynamic_array.h
+	dynamic_array.h \
+	language.h
 
 BUILT_SOURCES = \
 	rational.h \

@@ -82,10 +82,11 @@ struct NVReclaim {
 };
 
 
-NodeManager::NodeManager(context::Context* ctxt) :
+NodeManager::NodeManager(context::Context* ctxt, bool earlyTypeChecking) :
   d_attrManager(ctxt),
   d_nodeUnderDeletion(NULL),
-  d_inReclaimZombies(false) {
+  d_inReclaimZombies(false),
+  d_earlyTypeChecking(earlyTypeChecking) {
   poolInsert( &expr::NodeValue::s_null );
 
   for(unsigned i = 0; i < unsigned(kind::LAST_KIND); ++i) {
@@ -197,6 +198,9 @@ TypeNode NodeManager::getType(TNode n, bool check)
     switch(n.getKind()) {
     case kind::SORT_TYPE:
       typeNode = kindType();
+      break;
+    case kind::APPLY:
+      typeNode = CVC4::theory::builtin::ApplyTypeRule::computeType(this, n, check);
       break;
     case kind::EQUAL:
       typeNode = CVC4::theory::builtin::EqualityTypeRule::computeType(this, n, check);

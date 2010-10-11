@@ -34,6 +34,7 @@ typedef __gnu_cxx::stdio_filebuf<char> filebuf_gnu;
 
 using namespace CVC4;
 using namespace CVC4::parser;
+using namespace CVC4::language::input;
 using namespace std;
 
 class ParserBuilderBlack : public CxxTest::TestSuite {
@@ -96,7 +97,7 @@ public:
                     );
 
     remove(filename);
-    //    mkfifo(ptr, S_IWUSR | s_IRUSR);    
+    //    mkfifo(ptr, S_IWUSR | s_IRUSR);
   }
 
   void testSimpleFileInput() {

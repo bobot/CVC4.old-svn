@@ -35,7 +35,7 @@
 #include "context/context.h"
 #include "util/rational.h"
 #include "util/integer.h"
-#include "util/options.h"
+#include "smt/options.h"
 #include "util/Assert.h"
 
 using namespace CVC4;
@@ -205,6 +205,7 @@ public:
   void check(Theory::Effort) { Unimplemented(); }
   void propagate(Theory::Effort) { Unimplemented(); }
   void explain(TNode, Theory::Effort) { Unimplemented(); }
+  Node getValue(TNode n, TheoryEngine* engine) { return Node::null(); }
 };/* class FakeTheory */
 
 

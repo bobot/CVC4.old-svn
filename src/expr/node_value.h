@@ -29,6 +29,7 @@
 #define __CVC4__EXPR__NODE_VALUE_H
 
 #include "expr/kind.h"
+#include "util/language.h"
 
 #include <stdint.h>
 #include <string>
@@ -119,11 +120,8 @@ class NodeValue {
 
   static size_t next_id;
 
-public:
   /**
-   * Uninitializing constructor for NodeBuilder's use.  This is
-   * somewhat dangerous, but must also be public for the
-   * makeStackNodeBuilder() macro to work.
+   * Uninitializing constructor for NodeBuilder's use.
    */
   NodeValue() { /* do not initialize! */ }
 
@@ -140,10 +138,11 @@ private:
   const_nv_iterator nv_begin() const;
   const_nv_iterator nv_end() const;
 
-  template <typename T>
+  template <class T>
   class iterator {
     const_nv_iterator d_i;
   public:
+    typedef std::random_access_iterator_tag iterator_category;
     typedef T value_type;
     typedef ptrdiff_t difference_type;
     typedef T* pointer;
@@ -152,13 +151,18 @@ private:
     iterator() : d_i(NULL) {}
     explicit iterator(const_nv_iterator i) : d_i(i) {}
 
-    inline T operator*();
+    // conversion of a TNode iterator to a Node iterator
+    inline operator NodeValue::iterator<NodeTemplate<true> >() {
+      return iterator<NodeTemplate<true> >(d_i);
+    }
 
-    bool operator==(const iterator& i) {
+    inline T operator*() const;
+
+    bool operator==(const iterator& i) const {
       return d_i == i.d_i;
     }
 
-    bool operator!=(const iterator& i) {
+    bool operator!=(const iterator& i) const {
       return d_i != i.d_i;
     }
 
@@ -171,8 +175,46 @@ private:
       return iterator(d_i++);
     }
 
-    typedef std::input_iterator_tag iterator_category;
-  };
+    iterator& operator--() {
+      --d_i;
+      return *this;
+    }
+
+    iterator operator--(int) {
+      return iterator(d_i--);
+    }
+
+    iterator& operator+=(difference_type p) {
+      d_i += p;
+      return *this;
+    }
+
+    iterator& operator-=(difference_type p) {
+      d_i -= p;
+      return *this;
+    }
+
+    iterator operator+(difference_type p) {
+      return iterator(d_i + p);
+    }
+
+    iterator operator-(difference_type p) {
+      return iterator(d_i - p);
+    }
+
+    difference_type operator-(iterator i) {
+      return d_i - i.d_i;
+    }
+  };/* class NodeValue::iterator<T> */
+
+  // operator+ (as a function) cannot be a template, so we have to
+  // define two versions
+  friend NodeValue::iterator<NodeTemplate<true> >
+  operator+(NodeValue::iterator<NodeTemplate<true> >::difference_type p,
+            NodeValue::iterator<NodeTemplate<true> > i);
+  friend NodeValue::iterator<NodeTemplate<false> >
+  operator+(NodeValue::iterator<NodeTemplate<false> >::difference_type p,
+            NodeValue::iterator<NodeTemplate<false> > i);
 
   /** Decrement ref counts of children */
   inline void decrRefCounts();
@@ -219,7 +261,8 @@ public:
   }
 
   std::string toString() const;
-  void toStream(std::ostream& out, int toDepth = -1, bool types = false) const;
+  void toStream(std::ostream& out, int toDepth = -1, bool types = false,
+                OutputLanguage = language::output::LANG_AST) const;
 
   static inline unsigned kindToDKind(Kind k) {
     return ((unsigned) k) & kindMask;
@@ -257,6 +300,26 @@ private:
   }
 
 };/* class NodeValue */
+
+/**
+ * Provides a symmetric addition operator to that already defined in
+ * the iterator class.
+ */
+inline NodeValue::iterator<NodeTemplate<true> >
+operator+(NodeValue::iterator<NodeTemplate<true> >::difference_type p,
+          NodeValue::iterator<NodeTemplate<true> > i) {
+  return i + p;
+}
+
+/**
+ * Provides a symmetric addition operator to that already defined in
+ * the iterator class.
+ */
+inline NodeValue::iterator<NodeTemplate<false> >
+operator+(NodeValue::iterator<NodeTemplate<false> >::difference_type p,
+          NodeValue::iterator<NodeTemplate<false> > i) {
+  return i + p;
+}
 
 /**
  * For hash_maps, hash_sets, etc.. but this is for expr package
@@ -380,7 +443,7 @@ namespace CVC4 {
 namespace expr {
 
 template <typename T>
-inline T NodeValue::iterator<T>::operator*() {
+inline T NodeValue::iterator<T>::operator*() const {
   return T(*d_i);
 }
 

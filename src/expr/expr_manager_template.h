@@ -74,12 +74,18 @@ private:
   /** ExprManagerScope reaches in to get the NodeManager */
   friend class ExprManagerScope;
 
+  // undefined, private copy constructor (disallow copy)
+  ExprManager(const ExprManager&);
+
 public:
 
   /**
    * Creates an expression manager.
+   * @param earlyTypeChecking whether to do type checking early (at Expr
+   * creation time); only used in debug builds---for other builds, type
+   * checking is never done early.
    */
-  ExprManager();
+  explicit ExprManager(bool earlyTypeChecking = true);
 
   /**
    * Destroys the expression manager. No will be deallocated at this point, so
@@ -173,7 +179,8 @@ public:
   template <class T>
   Expr mkConst(const T&);
 
-  /** Create an Expr by applying an associative operator to the children.
+  /**
+   * Create an Expr by applying an associative operator to the children.
    * If <code>children.size()</code> is greater than the max arity for
    * <code>kind</code>, then the expression will be broken up into
    * suitably-sized chunks, taking advantage of the associativity of
@@ -227,8 +234,16 @@ public:
   /** Make a new sort with the given name. */
   SortType mkSort(const std::string& name) const;
 
+  /** Make a new sort from a constructor */
+  SortType mkSort(SortConstructorType constructor,
+                  const std::vector<TypeNode>& children) const;
+
+  /** Make a sort constructor from a name and arity */
+  SortConstructorType mkSortConstructor(const std::string& name,
+                                        size_t arity) const;
+
   /** Get the type of an expression */
-  Type getType(const Expr& e, bool check = false) 
+  Type getType(const Expr& e, bool check = false)
     throw (TypeCheckingException);
 
   // variables are special, because duplicates are permitted

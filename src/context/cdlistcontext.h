@@ -29,7 +29,7 @@ protected:
     }
   protected:
     ContextObj* save(ContextMemoryManager* pCMM) {
-      new(pCMM) CDList<T, Allocator>(d_nextSegment, d_segmentSizeAlloc, d_list);
+     return new(pCMM) CDList<T, Allocator>(d_nextSegment, d_segmentSizeAlloc, d_list);
     }
     void restore(ContextObj* data) {
       ListSegment* segment = (ListSegment*) data;
@@ -111,25 +111,24 @@ protected:
   void grow() {
     if(d_headSegment.d_list == NULL) {
       // Allocate an initial list if one does not yet exist
-      d_sizeAlloc = 10;
-      Debug("cdlist") << "initial grow of cdlist " << this << " level " << getContext()->getLevel() << " to " << d_sizeAlloc << std::endl;
-      Assert(d_sizeAlloc <= d_allocator.max_size(),
+      d_headSegment.d_sizeAlloc = 10;
+      Debug("cdlist") << "initial grow of cdlist " << this << " level " << getContext()->getLevel() << " to " << d_headSegment.d_sizeAlloc << std::endl;
+      Assert(d_headSegment.d_sizeAlloc <= d_allocator.max_size(),
              "cannot request %u elements due to allocator limits");
-      d_headSegment.d_list = d_allocator.allocate(d_sizeAlloc);
+      d_headSegment.d_list = d_allocator.allocate(d_headSegment.d_sizeAlloc);
       if(d_headSegment.d_list == NULL) {
         throw std::bad_alloc();
       }
     } else {
       // Allocate a new array with double the size
-      typedef typename Allocator::rebind<ListSegment>::other SegmentAllocator;
+      typedef typename Allocator::template rebind<ListSegment>::other SegmentAllocator;
       ContextMemoryManager* cmm = d_allocator.getCMM();
-      Context* context = cmm->getContext();
       SegmentAllocator segAllocator = SegmentAllocator(cmm);
       ListSegment* newSegment = segAllocator.allocate(1);
       if(newSegment == NULL) {
         throw std::bad_alloc();
       }
-      segAllocator.construct(newSegment, ListSegment(context, NULL, 0, NULL));
+      segAllocator.construct(newSegment, ListSegment(getContext(), NULL, 0, NULL));
       size_t newSize = d_sizeAlloc * 2;
       Assert(newSize <= d_allocator.max_size(),
              "cannot request %u elements due to allocator limits");

@@ -25,9 +25,9 @@
 // Optional blocks below will be unconditionally included
 #define __CVC4_USE_MINISAT
 
-#include "util/options.h"
 #include "util/stats.h"
 #include "theory/theory.h"
+#include "smt/options.h"
 
 #ifdef __CVC4_USE_MINISAT
 
@@ -89,9 +89,9 @@ inline std::string stringOfLiteralValue(SatLiteralValue val) {
 }
 #endif /* __CVC4_USE_MINISAT */
 
-/** Interface encapsulating the "input" to the solver, e.g., from the 
- * CNF converter. 
- * 
+/** Interface encapsulating the "input" to the solver, e.g., from the
+ * CNF converter.
+ *
  * TODO: Is it possible to push the typedefs of SatClause and SatVariable
  * into here, somehow?
  */
@@ -226,7 +226,7 @@ public:
   void setCnfStream(CnfStream* cnfStream);
 
   SatLiteralValue value(SatLiteral l);
-};
+};/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */
 
