@@ -1,0 +1,13 @@
+AM_CPPFLAGS = \
+	-D__BUILDING_CVC4LIB \
+	-I@srcdir@/../include -I@srcdir@/..
+AM_CXXFLAGS = -Wall -fvisibility=hidden
+
+noinst_LTLIBRARIES = libcontext.la
+
+libcontext_la_SOURCES = \
+	context.cpp \
+	context.h \
+	context_mm.cpp \
+	context_mm.h
+

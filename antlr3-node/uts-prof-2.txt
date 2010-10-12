@@ -1,0 +1,1267 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+  9.15      0.44     0.44                             malloc
+  8.73      0.86     0.42                             _int_malloc
+  7.69      1.23     0.37                             cfree
+  7.28      1.58     0.35  1811710     0.00     0.00  CVC4::parser::AntlrParser::getSymbol(std::string const&, CVC4::parser::SymbolType)
+  4.37      1.79     0.21   812226     0.00     0.00  __gnu_cxx::hashtable<CVC4::expr::NodeValue*, CVC4::expr::NodeValue*, CVC4::expr::NodeValueHashFcn, std::_Identity<CVC4::expr::NodeValue*>, CVC4::expr::NodeValue::NodeValueEq, std::allocator<CVC4::expr::NodeValue*> >::resize(unsigned long)
+  3.95      1.98     0.19                             _int_free
+  3.33      2.14     0.16                             annotatedFormula(SmtParser_Ctx_struct*)
+  3.22      2.30     0.16                             nextToken
+  3.12      2.45     0.15 28753563     0.00     0.00  CVC4::Expr::~Expr()
+  2.91      2.59     0.14                             emit
+  2.70      2.72     0.13 13275644     0.00     0.00  CVC4::parser::newPoolToken(ANTLR3_TOKEN_FACTORY_struct*)
+  2.70      2.85     0.13                             mTokens(SmtLexer_Ctx_struct*)
+  2.29      2.96     0.11                             antlr3SetTokenAPI
+  2.08      3.06     0.10                             brk
+  1.98      3.15     0.10  1769987     0.00     0.00  CVC4::NodeManager::poolLookup(CVC4::expr::NodeValue*) const
+  1.87      3.24     0.09                             operator new(unsigned long)
+  1.77      3.33     0.09 31740162     0.00     0.00  CVC4::parser::tokLT(ANTLR3_TOKEN_STREAM_struct*, int)
+  1.66      3.41     0.08 16783837     0.00     0.00  CVC4::Expr::operator=(unsigned long)
+  1.46      3.48     0.07                             mIDENTIFIER(SmtLexer_Ctx_struct*)
+  1.25      3.54     0.06  8192256     0.00     0.00  CVC4::parser::consume(ANTLR3_INT_STREAM_struct*)
+  1.04      3.59     0.05                             __profile_frequency
+  1.04      3.64     0.05                             munmap_chunk
+  0.94      3.68     0.05  7291232     0.00     0.00  CVC4::Expr::operator=(CVC4::Expr const&)
+  0.83      3.72     0.04  1769986     0.00     0.00  CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&)
+  0.83      3.76     0.04        1    40.00    50.00  CVC4::ExprManager::~ExprManager()
+  0.83      3.80     0.04                             antlr3VectorAdd
+  0.83      3.84     0.04                             valloc
+  0.73      3.88     0.04 21608357     0.00     0.00  CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int)
+  0.62      3.91     0.03                             __cxxabiv1::__class_type_info::~__class_type_info()
+  0.62      3.94     0.03                             operator delete(void*)
+  0.62      3.97     0.03 16911675     0.00     0.00  CVC4::Expr::Expr()
+  0.62      4.00     0.03  2894638     0.00     0.00  CVC4::Expr::getNode() const
+  0.62      4.03     0.03   127838     0.00     0.00  __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::resize(unsigned long)
+  0.62      4.06     0.03                             identifier(SmtParser_Ctx_struct*, std::string&, CVC4::parser::DeclarationCheck, CVC4::parser::SymbolType)
+  0.62      4.09     0.03                             mWHITESPACE(SmtLexer_Ctx_struct*)
+  0.62      4.12     0.03                             annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&)
+  0.62      4.15     0.03                             _wordcopy_fwd_aligned
+  0.62      4.18     0.03                             antlr3StackPop
+  0.62      4.21     0.03                             antlr3VectorDel
+  0.62      4.24     0.03                             match
+  0.62      4.27     0.03                             matchs
+  0.52      4.29     0.03  6362366     0.00     0.00  CVC4::Expr::Expr(CVC4::Expr const&)
+  0.52      4.32     0.03  2593181     0.00     0.00  std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::Expr*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > >, CVC4::Expr const&)
+  0.52      4.34     0.03                             antlr3AsciiConsume
+  0.52      4.37     0.03                             antlr3AsciiLA
+  0.42      4.39     0.02  1769986     0.00     0.00  CVC4::parser::AntlrParser::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&)
+  0.42      4.41     0.02   127838     0.00     0.00  __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::find_or_insert(std::pair<std::string const, CVC4::Expr> const&)
+  0.42      4.43     0.02                             mTOK_RPAREN(SmtLexer_Ctx_struct*)
+  0.42      4.45     0.02                             mTOK_OR(SmtLexer_Ctx_struct*)
+  0.42      4.47     0.02                             std::bad_alloc::~bad_alloc()
+  0.42      4.49     0.02                             __read_nocancel
+  0.42      4.51     0.02                             antlr3StackPush
+  0.31      4.52     0.02                             T.134
+  0.31      4.54     0.02                             CVC4::parser::setTokenSource(ANTLR3_TOKEN_STREAM_struct*, ANTLR3_TOKEN_SOURCE_struct*)
+  0.31      4.55     0.02                             displayRecognitionError
+  0.31      4.57     0.02                             getCharPositionInLine
+  0.31      4.58     0.02                             setCharPositionInLine
+  0.21      4.59     0.01 16669866     0.00     0.00  CVC4::ExprManager::getNodeManager() const
+  0.21      4.60     0.01  2593181     0.00     0.00  std::vector<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::NodeTemplate<true>*, std::vector<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > > >, CVC4::NodeTemplate<true> const&)
+  0.21      4.61     0.01  1939549     0.00     0.00  CVC4::parser::AntlrParser::checkDeclaration(std::string const&, CVC4::parser::DeclarationCheck, CVC4::parser::SymbolType)
+  0.21      4.62     0.01  1769986     0.00     0.00  CVC4::parser::AntlrParser::checkArity(CVC4::kind::Kind_t, unsigned int)
+  0.21      4.63     0.01        1    10.00    10.00  CVC4::expr::attr::AttributeManager::~AttributeManager()
+  0.21      4.64     0.01                             benchAttribute(SmtParser_Ctx_struct*)
+  0.21      4.65     0.01                             benchAttributes(SmtParser_Ctx_struct*)
+  0.21      4.66     0.01                             mTOK_ASSUMPTION(SmtLexer_Ctx_struct*)
+  0.21      4.67     0.01                             builtinOp(SmtParser_Ctx_struct*, CVC4::kind::Kind_t&)
+  0.21      4.68     0.01                             CVC4::Expr::toString() const
+  0.21      4.69     0.01                             std::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(char const*, unsigned long, std::allocator<char> const&)
+  0.21      4.70     0.01                             antlr3StackPeek
+  0.21      4.71     0.01                             antlr3StackSize
+  0.21      4.72     0.01                             arena_get2
+  0.21      4.73     0.01                             malloc_printerr
+  0.21      4.74     0.01                             matchc
+  0.21      4.75     0.01                             memcpy
+  0.10      4.76     0.01  3581697     0.00     0.00  CVC4::Expr::Expr(unsigned long)
+  0.10      4.76     0.01                             CVC4::Expr::Expr(unsigned long)
+  0.10      4.77     0.01                             CVC4::debugPrintTNode(CVC4::NodeTemplate<false> const&)
+  0.10      4.77     0.01                             std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::Type const**, std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> > >, CVC4::Type const* const&)
+  0.10      4.78     0.01                             antlr3AsciiGetCharPosition
+  0.10      4.78     0.01                             antlr3AsciiGetLine
+  0.10      4.79     0.01                             antlr3AsciiGetLineBuf
+  0.10      4.79     0.01                             antlr3AsciiSubstr
+  0.10      4.80     0.01                             freeIntTrie
+  0.10      4.80     0.01                             getCharIndex
+  0.10      4.81     0.01                             getCharPositionInLine
+  0.10      4.81     0.01                             getCurrentInputSymbol
+  0.00      4.81     0.00  1897825     0.00     0.00  CVC4::NodeBuilder<10u>::~NodeBuilder()
+  0.00      4.81     0.00  1897825     0.00     0.00  CVC4::NodeBuilder<10u>::operator CVC4::NodeTemplate<true>()
+  0.00      4.81     0.00  1897825     0.00     0.00  CVC4::Expr::Expr(CVC4::ExprManager*, CVC4::NodeTemplate<true>*)
+  0.00      4.81     0.00  1811710     0.00     0.00  CVC4::parser::AntlrParser::getVariable(std::string const&)
+  0.00      4.81     0.00  1374118     0.00     0.00  CVC4::Expr::~Expr()
+  0.00      4.81     0.00   812225     0.00     0.00  CVC4::NodeManager::poolInsert(CVC4::expr::NodeValue*)
+  0.00      4.81     0.00   812225     0.00     0.00  CVC4::expr::NodeValue** std::copy<CVC4::expr::NodeValue**, CVC4::expr::NodeValue**>(CVC4::expr::NodeValue**, CVC4::expr::NodeValue**, CVC4::expr::NodeValue**)
+  0.00      4.81     0.00   687059     0.00     0.00  CVC4::Expr::Expr(CVC4::Expr const&)
+  0.00      4.81     0.00   687059     0.00     0.00  CVC4::BoolExpr::BoolExpr(CVC4::Expr const&)
+  0.00      4.81     0.00   687058     0.00     0.00  CVC4::AssertCommand::~AssertCommand()
+  0.00      4.81     0.00   127838     0.00     0.00  CVC4::BooleanType::getInstance()
+  0.00      4.81     0.00   127838     0.00     0.00  CVC4::ExprManager::mkVar(CVC4::Type const*, std::string const&)
+  0.00      4.81     0.00   127838     0.00     0.00  CVC4::parser::AntlrParser::predicateType(std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> > const&)
+  0.00      4.81     0.00   127838     0.00     0.00  CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*)
+  0.00      4.81     0.00   127838     0.00     0.00  __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<void*> >::resize(unsigned long)
+  0.00      4.81     0.00   127838     0.00     0.00  __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<std::string> >::find_or_insert(std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> const&)
+  0.00      4.81     0.00   127838     0.00     0.00  __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<std::string> >::resize(unsigned long)
+  0.00      4.81     0.00   127838     0.00     0.00  CVC4::ExprManager::booleanType() const
+  0.00      4.81     0.00       10     0.00     0.00  std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_create_nodes(CVC4::NodeTemplate<true>**, CVC4::NodeTemplate<true>**)
+  0.00      4.81     0.00       10     0.00     0.00  std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_initialize_map(unsigned long)
+  0.00      4.81     0.00        5     0.00     0.00  CVC4::context::ContextObj::ContextObj(CVC4::context::Context*)
+  0.00      4.81     0.00        5     0.00     0.00  CVC4::context::ContextObj::~ContextObj()
+  0.00      4.81     0.00        4     0.00     0.00  CVC4::theory::Theory::Theory(CVC4::context::Context*, CVC4::theory::OutputChannel&)
+  0.00      4.81     0.00        4     0.00     0.00  std::deque<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::~deque()
+  0.00      4.81     0.00        3     0.00     0.00  CVC4::context::CDList<CVC4::NodeTemplate<true> >::~CDList()
+  0.00      4.81     0.00        2     0.00     0.00  CVC4::parser::AntlrSmtParser::parseCommand()
+  0.00      4.81     0.00        2     0.00     0.00  CVC4::parser::Parser::parseNextCommand()
+  0.00      4.81     0.00        2     0.00     0.00  CVC4::parser::nextToken(CVC4::parser::TWO_PLACE_TOKEN_BUFFER_struct*)
+  0.00      4.81     0.00        2     0.00     0.00  std::_Rb_tree<std::string, std::string, std::_Identity<std::string>, std::less<std::string>, std::allocator<std::string> >::_M_erase(std::_Rb_tree_node<std::string>*)
+  0.00      4.81     0.00        1     0.00     0.00  BoundedTokenFactoryNew
+  0.00      4.81     0.00        1     0.00     0.00  T.299
+  0.00      4.81     0.00        1     0.00     0.00  TwoPlaceTokenBufferSourceNew
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to MemoryMappedInputBufferNew
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to TwoPlaceTokenBufferFree
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC411ExprManagerC2Ev
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC411NodeManager9s_currentE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC414DecisionEngineD2Ev
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC418AssertionException9constructEPKcS2_S2_S2_jS2_P13__va_list_tag
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC44expr9NodeValue7next_idE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC44main10segvNoSpinE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC44main8progPathE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC44prop10PropEngineC2EPKNS_7OptionsEPNS_14DecisionEngineEPNS_12TheoryEngineE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC44prop7minisat10SimpSolverC2Ev
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC44prop7minisat6SolverC2Ev
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC44prop9CnfStreamC2EPNS0_7minisat10SimpSolverE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC46parser11AntlrParserC2ERKSs
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC46parser14AntlrSmtParserC2EPNS_11ExprManagerEP26ANTLR3_INPUT_STREAM_structRKSs
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC46parser17SemanticExceptionC2Ev
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC46parser6Parser7setDoneEb
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC46theory2uf6ECDataC2EPNS_7context7ContextENS_12NodeTemplateILb0EEE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC46theory2uf8TheoryUFC2EPNS_7context7ContextERNS0_13OutputChannelE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC47context20ContextMemoryManager8newChunkEv
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC47context7ContextC2Ev
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC47null_sbE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC49SmtEngineC2EPNS_11ExprManagerEPKNS_7OptionsE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC4lsERSoPKNS_7CommandE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC4lsERSoRKNS_4ExprE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to _ZN4CVC4lsERSoRKNS_4TypeE
+  0.00      4.81     0.00        1     0.00     0.00  global constructors keyed to main
+  0.00      4.81     0.00        1     0.00    51.12  runCvc4(int, char**)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::BooleanType::BooleanType()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::BooleanType::~BooleanType()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::ExprManager::ExprManager()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::DecisionEngine::~DecisionEngine()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::null_streambuf::~null_streambuf()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::CheckSatCommand::~CheckSatCommand()
+  0.00      4.81     0.00        1     0.00     0.41  CVC4::CommandSequence::~CommandSequence()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::SetBenchmarkLogicCommand::~SetBenchmarkLogicCommand()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::expr::attr::AttributeManager::AttributeManager()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::expr::NodeValue::~NodeValue()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::main::parseOptions(int, char**, CVC4::Options*)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::main::cvc4_init()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::prop::PropEngine::PropEngine(CVC4::Options const*, CVC4::DecisionEngine*, CVC4::TheoryEngine*)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::prop::PropEngine::~PropEngine()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::prop::TseitinCnfStream::TseitinCnfStream(CVC4::prop::minisat::SimpSolver*)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::prop::TseitinCnfStream::~TseitinCnfStream()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::prop::minisat::SimpSolver::SimpSolver()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::prop::minisat::SimpSolver::~SimpSolver()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::prop::minisat::Solver::Solver()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::prop::minisat::Solver::~Solver()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::DebugC::~DebugC()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::TraceC::~TraceC()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::parser::AntlrParser::disableChecks()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::parser::AntlrParser::setExpressionManager(CVC4::ExprManager*)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::parser::AntlrParser::AntlrParser(std::string const&)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::parser::AntlrSmtParser::AntlrSmtParser(CVC4::ExprManager*, ANTLR3_INPUT_STREAM_struct*, std::string const&)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, ANTLR3_INPUT_STREAM_struct*, std::string)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, std::string const&)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::parser::Parser::disableChecks()
+  0.00      4.81     0.00        1     0.00     0.70  CVC4::parser::Parser::~Parser()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::theory::uf::TheoryUF::TheoryUF(CVC4::context::Context*, CVC4::theory::OutputChannel&)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::theory::uf::TheoryUF::~TheoryUF()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::Options::~Options()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::context::ContextMemoryManager::newData(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::context::ContextMemoryManager::ContextMemoryManager()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::context::ContextMemoryManager::~ContextMemoryManager()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::context::Context::Context()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::context::Context::~Context()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::KindType::KindType()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::KindType::~KindType()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::SmtEngine::SmtEngine(CVC4::ExprManager*, CVC4::Options const*)
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::SmtEngine::~SmtEngine()
+  0.00      4.81     0.00        1     0.00     0.70  __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::clear()
+  0.00      4.81     0.00        1     0.00     0.00  CVC4::parser::AntlrParser::getTrueExpr() const
+  0.00      4.81     0.00        1     0.00     0.00  std::_Deque_base<char*, std::allocator<char*> >::_M_create_nodes(char***, char***)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<CVC4::context::Scope*, std::allocator<CVC4::context::Scope*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::context::Scope**, std::vector<CVC4::context::Scope*, std::allocator<CVC4::context::Scope*> > >, CVC4::context::Scope* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>**, std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> > >, unsigned long, __gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> >::reserve(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> >::reserve(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> >::reserve(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> >::reserve(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> >::reserve(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> >::reserve(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> >::reserve(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> >::reserve(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >* const&)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> >::reserve(unsigned long)
+  0.00      4.81     0.00        1     0.00     0.00  std::vector<char*, std::allocator<char*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<char**, std::vector<char*, std::allocator<char*> > >, char* const&)
+  0.00      4.81     0.00        1     0.00    51.12  main
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+ 
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this 
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.21% of 4.81 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]     24.3    0.16    1.01                 annotatedFormula(SmtParser_Ctx_struct*) [1]
+                0.02    0.36 1769986/1769986     CVC4::parser::AntlrParser::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [4]
+                0.00    0.36 1811710/1811710     CVC4::parser::AntlrParser::getVariable(std::string const&) [7]
+                0.11    0.01 20803123/28753563     CVC4::Expr::~Expr() [14]
+                0.07    0.00 14326788/16783837     CVC4::Expr::operator=(unsigned long) [26]
+                0.03    0.00 14326788/16911675     CVC4::Expr::Expr() [49]
+                0.01    0.01 5351683/21608357     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+                0.02    0.00 3581697/7291232     CVC4::Expr::operator=(CVC4::Expr const&) [39]
+                0.01    0.00 1769986/1769986     CVC4::parser::AntlrParser::checkArity(CVC4::kind::Kind_t, unsigned int) [78]
+                0.01    0.00 3581697/3581697     CVC4::Expr::Expr(unsigned long) [92]
+                0.00    0.00       1/1           CVC4::parser::AntlrParser::getTrueExpr() const [104]
+-----------------------------------------------
+                                                 <spontaneous>
+[2]      9.1    0.44    0.00                 malloc [2]
+-----------------------------------------------
+                                                 <spontaneous>
+[3]      8.7    0.42    0.00                 _int_malloc [3]
+-----------------------------------------------
+                0.02    0.36 1769986/1769986     annotatedFormula(SmtParser_Ctx_struct*) [1]
+[4]      8.0    0.02    0.36 1769986         CVC4::parser::AntlrParser::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [4]
+                0.04    0.32 1769986/1769986     CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [6]
+-----------------------------------------------
+                                                 <spontaneous>
+[5]      7.7    0.37    0.00                 cfree [5]
+-----------------------------------------------
+                0.04    0.32 1769986/1769986     CVC4::parser::AntlrParser::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [4]
+[6]      7.6    0.04    0.32 1769986         CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [6]
+                0.00    0.28 1769986/1897825     CVC4::NodeBuilder<10u>::operator CVC4::NodeTemplate<true>() [9]
+                0.03    0.00 2894638/2894638     CVC4::Expr::getNode() const [50]
+                0.01    0.00 2593181/2593181     std::vector<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::NodeTemplate<true>*, std::vector<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > > >, CVC4::NodeTemplate<true> const&) [76]
+                0.00    0.00 1769986/1897825     CVC4::NodeBuilder<10u>::~NodeBuilder() [849]
+                0.00    0.00 1769986/1897825     CVC4::Expr::Expr(CVC4::ExprManager*, CVC4::NodeTemplate<true>*) [850]
+                0.00    0.00    3129/812225      CVC4::expr::NodeValue** std::copy<CVC4::expr::NodeValue**, CVC4::expr::NodeValue**>(CVC4::expr::NodeValue**, CVC4::expr::NodeValue**, CVC4::expr::NodeValue**) [851]
+-----------------------------------------------
+                0.00    0.36 1811710/1811710     annotatedFormula(SmtParser_Ctx_struct*) [1]
+[7]      7.4    0.00    0.36 1811710         CVC4::parser::AntlrParser::getVariable(std::string const&) [7]
+                0.35    0.01 1811710/1811710     CVC4::parser::AntlrParser::getSymbol(std::string const&, CVC4::parser::SymbolType) [8]
+-----------------------------------------------
+                0.35    0.01 1811710/1811710     CVC4::parser::AntlrParser::getVariable(std::string const&) [7]
+[8]      7.4    0.35    0.01 1811710         CVC4::parser::AntlrParser::getSymbol(std::string const&, CVC4::parser::SymbolType) [8]
+                0.01    0.00 1811710/6362366     CVC4::Expr::Expr(CVC4::Expr const&) [56]
+-----------------------------------------------
+                0.00    0.00       1/1897825     CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t) [103]
+                0.00    0.02  127838/1897825     CVC4::ExprManager::mkVar(CVC4::Type const*, std::string const&) [57]
+                0.00    0.28 1769986/1897825     CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [6]
+[9]      6.3    0.00    0.31 1897825         CVC4::NodeBuilder<10u>::operator CVC4::NodeTemplate<true>() [9]
+                0.00    0.21  812225/812225      CVC4::NodeManager::poolInsert(CVC4::expr::NodeValue*) [12]
+                0.10    0.00 1769987/1769987     CVC4::NodeManager::poolLookup(CVC4::expr::NodeValue*) const [22]
+                0.00    0.00  809096/812225      CVC4::expr::NodeValue** std::copy<CVC4::expr::NodeValue**, CVC4::expr::NodeValue**>(CVC4::expr::NodeValue**, CVC4::expr::NodeValue**, CVC4::expr::NodeValue**) [851]
+-----------------------------------------------
+                                                 <spontaneous>
+[10]     5.6    0.14    0.13                 emit [10]
+                0.13    0.00 13275644/13275644     CVC4::parser::newPoolToken(ANTLR3_TOKEN_FACTORY_struct*) [18]
+-----------------------------------------------
+                0.00    0.00       1/812226      CVC4::ExprManager::ExprManager() [102]
+                0.21    0.00  812225/812226      CVC4::NodeManager::poolInsert(CVC4::expr::NodeValue*) [12]
+[11]     4.4    0.21    0.00  812226         __gnu_cxx::hashtable<CVC4::expr::NodeValue*, CVC4::expr::NodeValue*, CVC4::expr::NodeValueHashFcn, std::_Identity<CVC4::expr::NodeValue*>, CVC4::expr::NodeValue::NodeValueEq, std::allocator<CVC4::expr::NodeValue*> >::resize(unsigned long) [11]
+-----------------------------------------------
+                0.00    0.21  812225/812225      CVC4::NodeBuilder<10u>::operator CVC4::NodeTemplate<true>() [9]
+[12]     4.4    0.00    0.21  812225         CVC4::NodeManager::poolInsert(CVC4::expr::NodeValue*) [12]
+                0.21    0.00  812225/812226      __gnu_cxx::hashtable<CVC4::expr::NodeValue*, CVC4::expr::NodeValue*, CVC4::expr::NodeValueHashFcn, std::_Identity<CVC4::expr::NodeValue*>, CVC4::expr::NodeValue::NodeValueEq, std::allocator<CVC4::expr::NodeValue*> >::resize(unsigned long) [11]
+-----------------------------------------------
+                                                 <spontaneous>
+[13]     4.0    0.19    0.00                 _int_free [13]
+-----------------------------------------------
+                0.00    0.00  127838/28753563     __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::clear() [98]
+                0.00    0.00  127838/28753563     predicateDeclaration(SmtParser_Ctx_struct*) [27]
+                0.00    0.00  255676/28753563     CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*) [28]
+                0.01    0.00 1374122/28753563     benchAttribute(SmtParser_Ctx_struct*) [43]
+                0.01    0.00 1400342/28753563     std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::Expr*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > >, CVC4::Expr const&) [38]
+                0.02    0.00 4664624/28753563     annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&) [15]
+                0.11    0.01 20803123/28753563     annotatedFormula(SmtParser_Ctx_struct*) [1]
+[14]     3.3    0.15    0.01 28753563         CVC4::Expr::~Expr() [14]
+                0.01    0.00 14171095/16669866     CVC4::ExprManager::getNodeManager() const [83]
+-----------------------------------------------
+                                                 <spontaneous>
+[15]     3.2    0.03    0.13                 annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&) [15]
+                0.03    0.02 2593181/2593181     std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::Expr*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > >, CVC4::Expr const&) [38]
+                0.02    0.00 4664624/28753563     CVC4::Expr::~Expr() [14]
+                0.01    0.01 4664624/21608357     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+                0.02    0.00 2894638/7291232     CVC4::Expr::operator=(CVC4::Expr const&) [39]
+                0.01    0.00 1769986/16783837     CVC4::Expr::operator=(unsigned long) [26]
+                0.00    0.00 1769986/16911675     CVC4::Expr::Expr() [49]
+                0.00    0.00  301457/6362366     CVC4::Expr::Expr(CVC4::Expr const&) [56]
+-----------------------------------------------
+                                                 <spontaneous>
+[16]     3.2    0.16    0.00                 nextToken [16]
+-----------------------------------------------
+                                                 <spontaneous>
+[17]     3.1    0.03    0.12                 match [17]
+                0.06    0.00 8192256/8192256     CVC4::parser::consume(ANTLR3_INT_STREAM_struct*) [30]
+                0.01    0.02 8192256/21608357     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+                0.02    0.00 8192256/31740162     CVC4::parser::tokLT(ANTLR3_TOKEN_STREAM_struct*, int) [25]
+-----------------------------------------------
+                0.13    0.00 13275644/13275644     emit [10]
+[18]     2.7    0.13    0.00 13275644         CVC4::parser::newPoolToken(ANTLR3_TOKEN_FACTORY_struct*) [18]
+-----------------------------------------------
+                                                 <spontaneous>
+[19]     2.7    0.13    0.00                 mTokens(SmtLexer_Ctx_struct*) [19]
+-----------------------------------------------
+                                                 <spontaneous>
+[20]     2.3    0.11    0.00                 antlr3SetTokenAPI [20]
+-----------------------------------------------
+                                                 <spontaneous>
+[21]     2.1    0.10    0.00                 brk [21]
+-----------------------------------------------
+                0.10    0.00 1769987/1769987     CVC4::NodeBuilder<10u>::operator CVC4::NodeTemplate<true>() [9]
+[22]     2.0    0.10    0.00 1769987         CVC4::NodeManager::poolLookup(CVC4::expr::NodeValue*) const [22]
+-----------------------------------------------
+                0.00    0.00       2/21608357     annotation(SmtParser_Ctx_struct*) [105]
+                0.00    0.00       2/21608357     benchmark(SmtParser_Ctx_struct*) [106]
+                0.00    0.00  127838/21608357     sortList(SmtParser_Ctx_struct*, std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> >&) [99]
+                0.00    0.00  687064/21608357     benchAttributes(SmtParser_Ctx_struct*) [69]
+                0.00    0.00  814902/21608357     benchAttribute(SmtParser_Ctx_struct*) [43]
+                0.00    0.00 1769986/21608357     builtinOp(SmtParser_Ctx_struct*, CVC4::kind::Kind_t&) [63]
+                0.01    0.01 4664624/21608357     annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&) [15]
+                0.01    0.01 5351683/21608357     annotatedFormula(SmtParser_Ctx_struct*) [1]
+                0.01    0.02 8192256/21608357     match [17]
+[23]     1.9    0.04    0.06 21608357         CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+                0.06    0.00 21608357/31740162     CVC4::parser::tokLT(ANTLR3_TOKEN_STREAM_struct*, int) [25]
+-----------------------------------------------
+                                                 <spontaneous>
+[24]     1.9    0.09    0.00                 operator new(unsigned long) [24]
+-----------------------------------------------
+                0.01    0.00 1939549/31740162     identifier(SmtParser_Ctx_struct*, std::string&, CVC4::parser::DeclarationCheck, CVC4::parser::SymbolType) [40]
+                0.02    0.00 8192256/31740162     match [17]
+                0.06    0.00 21608357/31740162     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+[25]     1.8    0.09    0.00 31740162         CVC4::parser::tokLT(ANTLR3_TOKEN_STREAM_struct*, int) [25]
+                0.00    0.00       2/2           CVC4::parser::nextToken(CVC4::parser::TWO_PLACE_TOKEN_BUFFER_struct*) [869]
+-----------------------------------------------
+                0.00    0.00  687063/16783837     benchAttribute(SmtParser_Ctx_struct*) [43]
+                0.01    0.00 1769986/16783837     annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&) [15]
+                0.07    0.00 14326788/16783837     annotatedFormula(SmtParser_Ctx_struct*) [1]
+[26]     1.7    0.08    0.00 16783837         CVC4::Expr::operator=(unsigned long) [26]
+-----------------------------------------------
+                                                 <spontaneous>
+[27]     1.6    0.00    0.07                 predicateDeclaration(SmtParser_Ctx_struct*) [27]
+                0.00    0.07  127838/127838      CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*) [28]
+                0.00    0.00  127838/28753563     CVC4::Expr::~Expr() [14]
+                0.00    0.00  127838/127838      CVC4::parser::AntlrParser::predicateType(std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> > const&) [855]
+-----------------------------------------------
+                0.00    0.07  127838/127838      predicateDeclaration(SmtParser_Ctx_struct*) [27]
+[28]     1.5    0.00    0.07  127838         CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*) [28]
+                0.02    0.03  127838/127838      __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::find_or_insert(std::pair<std::string const, CVC4::Expr> const&) [34]
+                0.00    0.02  127838/127838      CVC4::ExprManager::mkVar(CVC4::Type const*, std::string const&) [57]
+                0.00    0.00  255676/28753563     CVC4::Expr::~Expr() [14]
+                0.00    0.00  127838/7291232     CVC4::Expr::operator=(CVC4::Expr const&) [39]
+                0.00    0.00  127838/6362366     CVC4::Expr::Expr(CVC4::Expr const&) [56]
+                0.00    0.00  127838/16911675     CVC4::Expr::Expr() [49]
+-----------------------------------------------
+                                                 <spontaneous>
+[29]     1.5    0.07    0.00                 mIDENTIFIER(SmtLexer_Ctx_struct*) [29]
+-----------------------------------------------
+                0.06    0.00 8192256/8192256     match [17]
+[30]     1.2    0.06    0.00 8192256         CVC4::parser::consume(ANTLR3_INT_STREAM_struct*) [30]
+-----------------------------------------------
+                0.00    0.05       1/1           __libc_start_main [33]
+[31]     1.1    0.00    0.05       1         main [31]
+                0.00    0.05       1/1           runCvc4(int, char**) [32]
+-----------------------------------------------
+                0.00    0.05       1/1           main [31]
+[32]     1.1    0.00    0.05       1         runCvc4(int, char**) [32]
+                0.04    0.01       1/1           CVC4::ExprManager::~ExprManager() [36]
+                0.00    0.00       1/1           CVC4::parser::Parser::~Parser() [97]
+                0.00    0.00       1/1           CVC4::CommandSequence::~CommandSequence() [100]
+                0.00    0.00       1/1           CVC4::ExprManager::ExprManager() [102]
+                0.00    0.00       1/1           CVC4::SmtEngine::SmtEngine(CVC4::ExprManager*, CVC4::Options const*) [108]
+                0.00    0.00       2/2           CVC4::parser::Parser::parseNextCommand() [868]
+                0.00    0.00       1/1           CVC4::main::cvc4_init() [906]
+                0.00    0.00       1/1           CVC4::main::parseOptions(int, char**, CVC4::Options*) [905]
+                0.00    0.00       1/1           CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, std::string const&) [922]
+                0.00    0.00       1/1           CVC4::SmtEngine::~SmtEngine() [934]
+                0.00    0.00       1/1           CVC4::parser::AntlrParser::disableChecks() [917]
+                0.00    0.00       1/1           CVC4::parser::Parser::disableChecks() [923]
+-----------------------------------------------
+                                                 <spontaneous>
+[33]     1.1    0.00    0.05                 __libc_start_main [33]
+                0.00    0.05       1/1           main [31]
+-----------------------------------------------
+                0.02    0.03  127838/127838      CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*) [28]
+[34]     1.0    0.02    0.03  127838         __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::find_or_insert(std::pair<std::string const, CVC4::Expr> const&) [34]
+                0.03    0.00  127838/127838      __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::resize(unsigned long) [51]
+                0.00    0.00  127838/6362366     CVC4::Expr::Expr(CVC4::Expr const&) [56]
+-----------------------------------------------
+                                                 <spontaneous>
+[35]     1.0    0.05    0.00                 munmap_chunk [35]
+-----------------------------------------------
+                0.04    0.01       1/1           runCvc4(int, char**) [32]
+[36]     1.0    0.04    0.01       1         CVC4::ExprManager::~ExprManager() [36]
+                0.01    0.00       1/1           CVC4::expr::attr::AttributeManager::~AttributeManager() [79]
+-----------------------------------------------
+                                                 <spontaneous>
+[37]     1.0    0.05    0.00                 __profile_frequency [37]
+-----------------------------------------------
+                0.03    0.02 2593181/2593181     annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&) [15]
+[38]     1.0    0.03    0.02 2593181         std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::Expr*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > >, CVC4::Expr const&) [38]
+                0.02    0.00 3993523/6362366     CVC4::Expr::Expr(CVC4::Expr const&) [56]
+                0.01    0.00 1400342/28753563     CVC4::Expr::~Expr() [14]
+-----------------------------------------------
+                0.00    0.00  127838/7291232     CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*) [28]
+                0.00    0.00  687059/7291232     benchAttribute(SmtParser_Ctx_struct*) [43]
+                0.02    0.00 2894638/7291232     annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&) [15]
+                0.02    0.00 3581697/7291232     annotatedFormula(SmtParser_Ctx_struct*) [1]
+[39]     0.9    0.05    0.00 7291232         CVC4::Expr::operator=(CVC4::Expr const&) [39]
+                0.00    0.00 1124652/16669866     CVC4::ExprManager::getNodeManager() const [83]
+-----------------------------------------------
+                                                 <spontaneous>
+[40]     0.9    0.03    0.02                 identifier(SmtParser_Ctx_struct*, std::string&, CVC4::parser::DeclarationCheck, CVC4::parser::SymbolType) [40]
+                0.01    0.00 1939549/1939549     CVC4::parser::AntlrParser::checkDeclaration(std::string const&, CVC4::parser::DeclarationCheck, CVC4::parser::SymbolType) [77]
+                0.01    0.00 1939549/31740162     CVC4::parser::tokLT(ANTLR3_TOKEN_STREAM_struct*, int) [25]
+-----------------------------------------------
+                                                 <spontaneous>
+[41]     0.8    0.04    0.00                 antlr3VectorAdd [41]
+-----------------------------------------------
+                                                 <spontaneous>
+[42]     0.8    0.04    0.00                 valloc [42]
+-----------------------------------------------
+                                                 <spontaneous>
+[43]     0.6    0.01    0.02                 benchAttribute(SmtParser_Ctx_struct*) [43]
+                0.01    0.00 1374122/28753563     CVC4::Expr::~Expr() [14]
+                0.00    0.00  687059/7291232     CVC4::Expr::operator=(CVC4::Expr const&) [39]
+                0.00    0.00  814902/21608357     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+                0.00    0.00  687063/16783837     CVC4::Expr::operator=(unsigned long) [26]
+                0.00    0.00  687063/16911675     CVC4::Expr::Expr() [49]
+                0.00    0.00  687059/1374118     CVC4::Expr::~Expr() [96]
+                0.00    0.00  687059/687059      CVC4::BoolExpr::BoolExpr(CVC4::Expr const&) [853]
+                0.00    0.00  687059/687059      CVC4::Expr::Expr(CVC4::Expr const&) [852]
+-----------------------------------------------
+                                                 <spontaneous>
+[44]     0.6    0.03    0.00                 __cxxabiv1::__class_type_info::~__class_type_info() [44]
+-----------------------------------------------
+                                                 <spontaneous>
+[45]     0.6    0.03    0.00                 operator delete(void*) [45]
+-----------------------------------------------
+                                                 <spontaneous>
+[46]     0.6    0.03    0.00                 antlr3StackPop [46]
+-----------------------------------------------
+                                                 <spontaneous>
+[47]     0.6    0.03    0.00                 antlr3VectorDel [47]
+-----------------------------------------------
+                                                 <spontaneous>
+[48]     0.6    0.03    0.00                 matchs [48]
+-----------------------------------------------
+                0.00    0.00  127838/16911675     CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*) [28]
+                0.00    0.00  687063/16911675     benchAttribute(SmtParser_Ctx_struct*) [43]
+                0.00    0.00 1769986/16911675     annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&) [15]
+                0.03    0.00 14326788/16911675     annotatedFormula(SmtParser_Ctx_struct*) [1]
+[49]     0.6    0.03    0.00 16911675         CVC4::Expr::Expr() [49]
+-----------------------------------------------
+                0.03    0.00 2894638/2894638     CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [6]
+[50]     0.6    0.03    0.00 2894638         CVC4::Expr::getNode() const [50]
+-----------------------------------------------
+                0.03    0.00  127838/127838      __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::find_or_insert(std::pair<std::string const, CVC4::Expr> const&) [34]
+[51]     0.6    0.03    0.00  127838         __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::resize(unsigned long) [51]
+-----------------------------------------------
+                                                 <spontaneous>
+[52]     0.6    0.03    0.00                 mWHITESPACE(SmtLexer_Ctx_struct*) [52]
+-----------------------------------------------
+                                                 <spontaneous>
+[53]     0.6    0.03    0.00                 _wordcopy_fwd_aligned [53]
+-----------------------------------------------
+                                                 <spontaneous>
+[54]     0.5    0.03    0.00                 antlr3AsciiConsume [54]
+-----------------------------------------------
+                                                 <spontaneous>
+[55]     0.5    0.03    0.00                 antlr3AsciiLA [55]
+-----------------------------------------------
+                0.00    0.00  127838/6362366     CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*) [28]
+                0.00    0.00  127838/6362366     __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::find_or_insert(std::pair<std::string const, CVC4::Expr> const&) [34]
+                0.00    0.00  301457/6362366     annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&) [15]
+                0.01    0.00 1811710/6362366     CVC4::parser::AntlrParser::getSymbol(std::string const&, CVC4::parser::SymbolType) [8]
+                0.02    0.00 3993523/6362366     std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::Expr*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > >, CVC4::Expr const&) [38]
+[56]     0.5    0.03    0.00 6362366         CVC4::Expr::Expr(CVC4::Expr const&) [56]
+-----------------------------------------------
+                0.00    0.02  127838/127838      CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*) [28]
+[57]     0.4    0.00    0.02  127838         CVC4::ExprManager::mkVar(CVC4::Type const*, std::string const&) [57]
+                0.00    0.02  127838/1897825     CVC4::NodeBuilder<10u>::operator CVC4::NodeTemplate<true>() [9]
+                0.00    0.00  127838/1897825     CVC4::NodeBuilder<10u>::~NodeBuilder() [849]
+                0.00    0.00  127838/127838      __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<void*> >::resize(unsigned long) [856]
+                0.00    0.00  127838/127838      __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<std::string> >::find_or_insert(std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> const&) [857]
+                0.00    0.00  127838/1897825     CVC4::Expr::Expr(CVC4::ExprManager*, CVC4::NodeTemplate<true>*) [850]
+-----------------------------------------------
+                                                 <spontaneous>
+[58]     0.4    0.02    0.00                 antlr3StackPush [58]
+-----------------------------------------------
+                                                 <spontaneous>
+[59]     0.4    0.02    0.00                 mTOK_RPAREN(SmtLexer_Ctx_struct*) [59]
+-----------------------------------------------
+                                                 <spontaneous>
+[60]     0.4    0.02    0.00                 mTOK_OR(SmtLexer_Ctx_struct*) [60]
+-----------------------------------------------
+                                                 <spontaneous>
+[61]     0.4    0.02    0.00                 std::bad_alloc::~bad_alloc() [61]
+-----------------------------------------------
+                                                 <spontaneous>
+[62]     0.4    0.02    0.00                 __read_nocancel [62]
+-----------------------------------------------
+                                                 <spontaneous>
+[63]     0.4    0.01    0.01                 builtinOp(SmtParser_Ctx_struct*, CVC4::kind::Kind_t&) [63]
+                0.00    0.00 1769986/21608357     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+-----------------------------------------------
+                                                 <spontaneous>
+[64]     0.3    0.02    0.00                 T.134 [64]
+-----------------------------------------------
+                                                 <spontaneous>
+[65]     0.3    0.02    0.00                 displayRecognitionError [65]
+-----------------------------------------------
+                                                 <spontaneous>
+[66]     0.3    0.02    0.00                 getCharPositionInLine [66]
+-----------------------------------------------
+                                                 <spontaneous>
+[67]     0.3    0.02    0.00                 setCharPositionInLine [67]
+-----------------------------------------------
+                                                 <spontaneous>
+[68]     0.3    0.02    0.00                 CVC4::parser::setTokenSource(ANTLR3_TOKEN_STREAM_struct*, ANTLR3_TOKEN_SOURCE_struct*) [68]
+-----------------------------------------------
+                                                 <spontaneous>
+[69]     0.3    0.01    0.00                 benchAttributes(SmtParser_Ctx_struct*) [69]
+                0.00    0.00  687064/21608357     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+-----------------------------------------------
+                                                 <spontaneous>
+[70]     0.2    0.01    0.00                 antlr3StackPeek [70]
+-----------------------------------------------
+                                                 <spontaneous>
+[71]     0.2    0.01    0.00                 antlr3StackSize [71]
+-----------------------------------------------
+                                                 <spontaneous>
+[72]     0.2    0.01    0.00                 arena_get2 [72]
+-----------------------------------------------
+                                                 <spontaneous>
+[73]     0.2    0.01    0.00                 malloc_printerr [73]
+-----------------------------------------------
+                                                 <spontaneous>
+[74]     0.2    0.01    0.00                 matchc [74]
+-----------------------------------------------
+                                                 <spontaneous>
+[75]     0.2    0.01    0.00                 memcpy [75]
+-----------------------------------------------
+                0.01    0.00 2593181/2593181     CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [6]
+[76]     0.2    0.01    0.00 2593181         std::vector<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::NodeTemplate<true>*, std::vector<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > > >, CVC4::NodeTemplate<true> const&) [76]
+-----------------------------------------------
+                0.01    0.00 1939549/1939549     identifier(SmtParser_Ctx_struct*, std::string&, CVC4::parser::DeclarationCheck, CVC4::parser::SymbolType) [40]
+[77]     0.2    0.01    0.00 1939549         CVC4::parser::AntlrParser::checkDeclaration(std::string const&, CVC4::parser::DeclarationCheck, CVC4::parser::SymbolType) [77]
+-----------------------------------------------
+                0.01    0.00 1769986/1769986     annotatedFormula(SmtParser_Ctx_struct*) [1]
+[78]     0.2    0.01    0.00 1769986         CVC4::parser::AntlrParser::checkArity(CVC4::kind::Kind_t, unsigned int) [78]
+-----------------------------------------------
+                0.01    0.00       1/1           CVC4::ExprManager::~ExprManager() [36]
+[79]     0.2    0.01    0.00       1         CVC4::expr::attr::AttributeManager::~AttributeManager() [79]
+-----------------------------------------------
+                                                 <spontaneous>
+[80]     0.2    0.01    0.00                 mTOK_ASSUMPTION(SmtLexer_Ctx_struct*) [80]
+-----------------------------------------------
+                                                 <spontaneous>
+[81]     0.2    0.01    0.00                 CVC4::Expr::toString() const [81]
+-----------------------------------------------
+                                                 <spontaneous>
+[82]     0.2    0.01    0.00                 std::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(char const*, unsigned long, std::allocator<char> const&) [82]
+-----------------------------------------------
+                0.00    0.00       1/16669866     CVC4::SmtEngine::SmtEngine(CVC4::ExprManager*, CVC4::Options const*) [108]
+                0.00    0.00 1124652/16669866     CVC4::Expr::operator=(CVC4::Expr const&) [39]
+                0.00    0.00 1374118/16669866     CVC4::Expr::~Expr() [96]
+                0.01    0.00 14171095/16669866     CVC4::Expr::~Expr() [14]
+[83]     0.2    0.01    0.00 16669866         CVC4::ExprManager::getNodeManager() const [83]
+-----------------------------------------------
+                                                 <spontaneous>
+[84]     0.1    0.01    0.00                 antlr3AsciiGetCharPosition [84]
+-----------------------------------------------
+                                                 <spontaneous>
+[85]     0.1    0.01    0.00                 antlr3AsciiGetLine [85]
+-----------------------------------------------
+                                                 <spontaneous>
+[86]     0.1    0.01    0.00                 antlr3AsciiGetLineBuf [86]
+-----------------------------------------------
+                                                 <spontaneous>
+[87]     0.1    0.01    0.00                 antlr3AsciiSubstr [87]
+-----------------------------------------------
+                                                 <spontaneous>
+[88]     0.1    0.01    0.00                 freeIntTrie [88]
+-----------------------------------------------
+                                                 <spontaneous>
+[89]     0.1    0.01    0.00                 getCharIndex [89]
+-----------------------------------------------
+                                                 <spontaneous>
+[90]     0.1    0.01    0.00                 getCharPositionInLine [90]
+-----------------------------------------------
+                                                 <spontaneous>
+[91]     0.1    0.01    0.00                 getCurrentInputSymbol [91]
+-----------------------------------------------
+                0.01    0.00 3581697/3581697     annotatedFormula(SmtParser_Ctx_struct*) [1]
+[92]     0.1    0.01    0.00 3581697         CVC4::Expr::Expr(unsigned long) [92]
+-----------------------------------------------
+                                                 <spontaneous>
+[93]     0.1    0.01    0.00                 CVC4::Expr::Expr(unsigned long) [93]
+-----------------------------------------------
+                                                 <spontaneous>
+[94]     0.1    0.01    0.00                 CVC4::debugPrintTNode(CVC4::NodeTemplate<false> const&) [94]
+-----------------------------------------------
+                                                 <spontaneous>
+[95]     0.1    0.01    0.00                 std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::Type const**, std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> > >, CVC4::Type const* const&) [95]
+-----------------------------------------------
+                0.00    0.00       1/1374118     CVC4::CheckSatCommand::~CheckSatCommand() [107]
+                0.00    0.00  687058/1374118     CVC4::AssertCommand::~AssertCommand() [101]
+                0.00    0.00  687059/1374118     benchAttribute(SmtParser_Ctx_struct*) [43]
+[96]     0.0    0.00    0.00 1374118         CVC4::Expr::~Expr() [96]
+                0.00    0.00 1374118/16669866     CVC4::ExprManager::getNodeManager() const [83]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[97]     0.0    0.00    0.00       1         CVC4::parser::Parser::~Parser() [97]
+                0.00    0.00       1/1           __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::clear() [98]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::Parser::~Parser() [97]
+[98]     0.0    0.00    0.00       1         __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::clear() [98]
+                0.00    0.00  127838/28753563     CVC4::Expr::~Expr() [14]
+-----------------------------------------------
+                                                 <spontaneous>
+[99]     0.0    0.00    0.00                 sortList(SmtParser_Ctx_struct*, std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> >&) [99]
+                0.00    0.00  127838/21608357     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[100]    0.0    0.00    0.00       1         CVC4::CommandSequence::~CommandSequence() [100]
+                0.00    0.00  687058/687058      CVC4::AssertCommand::~AssertCommand() [101]
+                0.00    0.00       1/1           CVC4::CheckSatCommand::~CheckSatCommand() [107]
+                0.00    0.00       1/1           CVC4::SetBenchmarkLogicCommand::~SetBenchmarkLogicCommand() [902]
+-----------------------------------------------
+                0.00    0.00  687058/687058      CVC4::CommandSequence::~CommandSequence() [100]
+[101]    0.0    0.00    0.00  687058         CVC4::AssertCommand::~AssertCommand() [101]
+                0.00    0.00  687058/1374118     CVC4::Expr::~Expr() [96]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[102]    0.0    0.00    0.00       1         CVC4::ExprManager::ExprManager() [102]
+                0.00    0.00       1/812226      __gnu_cxx::hashtable<CVC4::expr::NodeValue*, CVC4::expr::NodeValue*, CVC4::expr::NodeValueHashFcn, std::_Identity<CVC4::expr::NodeValue*>, CVC4::expr::NodeValue::NodeValueEq, std::allocator<CVC4::expr::NodeValue*> >::resize(unsigned long) [11]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> >::reserve(unsigned long) [938]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>**, std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> > >, unsigned long, __gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>* const&) [937]
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::AntlrParser::getTrueExpr() const [104]
+[103]    0.0    0.00    0.00       1         CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t) [103]
+                0.00    0.00       1/1897825     CVC4::NodeBuilder<10u>::operator CVC4::NodeTemplate<true>() [9]
+                0.00    0.00       1/1897825     CVC4::NodeBuilder<10u>::~NodeBuilder() [849]
+                0.00    0.00       1/1897825     CVC4::Expr::Expr(CVC4::ExprManager*, CVC4::NodeTemplate<true>*) [850]
+-----------------------------------------------
+                0.00    0.00       1/1           annotatedFormula(SmtParser_Ctx_struct*) [1]
+[104]    0.0    0.00    0.00       1         CVC4::parser::AntlrParser::getTrueExpr() const [104]
+                0.00    0.00       1/1           CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t) [103]
+-----------------------------------------------
+                                                 <spontaneous>
+[105]    0.0    0.00    0.00                 annotation(SmtParser_Ctx_struct*) [105]
+                0.00    0.00       2/21608357     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+-----------------------------------------------
+                                                 <spontaneous>
+[106]    0.0    0.00    0.00                 benchmark(SmtParser_Ctx_struct*) [106]
+                0.00    0.00       2/21608357     CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) [23]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::CommandSequence::~CommandSequence() [100]
+[107]    0.0    0.00    0.00       1         CVC4::CheckSatCommand::~CheckSatCommand() [107]
+                0.00    0.00       1/1374118     CVC4::Expr::~Expr() [96]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[108]    0.0    0.00    0.00       1         CVC4::SmtEngine::SmtEngine(CVC4::ExprManager*, CVC4::Options const*) [108]
+                0.00    0.00       1/16669866     CVC4::ExprManager::getNodeManager() const [83]
+                0.00    0.00       4/4           CVC4::theory::Theory::Theory(CVC4::context::Context*, CVC4::theory::OutputChannel&) [864]
+                0.00    0.00       1/1           CVC4::context::Context::Context() [930]
+                0.00    0.00       1/1           CVC4::theory::uf::TheoryUF::TheoryUF(CVC4::context::Context*, CVC4::theory::OutputChannel&) [924]
+                0.00    0.00       1/1           CVC4::prop::PropEngine::PropEngine(CVC4::Options const*, CVC4::DecisionEngine*, CVC4::TheoryEngine*) [907]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::AntlrSmtParser::AntlrSmtParser(CVC4::ExprManager*, ANTLR3_INPUT_STREAM_struct*, std::string const&) [920]
+[109]    0.0    0.00    0.00       1         BoundedTokenFactoryNew [109]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::context::ContextMemoryManager::ContextMemoryManager() [928]
+[110]    0.0    0.00    0.00       1         T.299 [110]
+                0.00    0.00       1/1           std::_Deque_base<char*, std::allocator<char*> >::_M_create_nodes(char***, char***) [935]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::AntlrSmtParser::AntlrSmtParser(CVC4::ExprManager*, ANTLR3_INPUT_STREAM_struct*, std::string const&) [920]
+[111]    0.0    0.00    0.00       1         TwoPlaceTokenBufferSourceNew [111]
+-----------------------------------------------
+                0.00    0.00       1/1897825     CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t) [103]
+                0.00    0.00  127838/1897825     CVC4::ExprManager::mkVar(CVC4::Type const*, std::string const&) [57]
+                0.00    0.00 1769986/1897825     CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [6]
+[849]    0.0    0.00    0.00 1897825         CVC4::NodeBuilder<10u>::~NodeBuilder() [849]
+-----------------------------------------------
+                0.00    0.00       1/1897825     CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t) [103]
+                0.00    0.00  127838/1897825     CVC4::ExprManager::mkVar(CVC4::Type const*, std::string const&) [57]
+                0.00    0.00 1769986/1897825     CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [6]
+[850]    0.0    0.00    0.00 1897825         CVC4::Expr::Expr(CVC4::ExprManager*, CVC4::NodeTemplate<true>*) [850]
+-----------------------------------------------
+                0.00    0.00    3129/812225      CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [6]
+                0.00    0.00  809096/812225      CVC4::NodeBuilder<10u>::operator CVC4::NodeTemplate<true>() [9]
+[851]    0.0    0.00    0.00  812225         CVC4::expr::NodeValue** std::copy<CVC4::expr::NodeValue**, CVC4::expr::NodeValue**>(CVC4::expr::NodeValue**, CVC4::expr::NodeValue**, CVC4::expr::NodeValue**) [851]
+-----------------------------------------------
+                0.00    0.00  687059/687059      benchAttribute(SmtParser_Ctx_struct*) [43]
+[852]    0.0    0.00    0.00  687059         CVC4::Expr::Expr(CVC4::Expr const&) [852]
+-----------------------------------------------
+                0.00    0.00  687059/687059      benchAttribute(SmtParser_Ctx_struct*) [43]
+[853]    0.0    0.00    0.00  687059         CVC4::BoolExpr::BoolExpr(CVC4::Expr const&) [853]
+-----------------------------------------------
+                0.00    0.00  127838/127838      CVC4::ExprManager::booleanType() const [859]
+[854]    0.0    0.00    0.00  127838         CVC4::BooleanType::getInstance() [854]
+-----------------------------------------------
+                0.00    0.00  127838/127838      predicateDeclaration(SmtParser_Ctx_struct*) [27]
+[855]    0.0    0.00    0.00  127838         CVC4::parser::AntlrParser::predicateType(std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> > const&) [855]
+                0.00    0.00  127838/127838      CVC4::ExprManager::booleanType() const [859]
+-----------------------------------------------
+                0.00    0.00  127838/127838      CVC4::ExprManager::mkVar(CVC4::Type const*, std::string const&) [57]
+[856]    0.0    0.00    0.00  127838         __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<void*> >::resize(unsigned long) [856]
+-----------------------------------------------
+                0.00    0.00  127838/127838      CVC4::ExprManager::mkVar(CVC4::Type const*, std::string const&) [57]
+[857]    0.0    0.00    0.00  127838         __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<std::string> >::find_or_insert(std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> const&) [857]
+                0.00    0.00  127838/127838      __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<std::string> >::resize(unsigned long) [858]
+-----------------------------------------------
+                0.00    0.00  127838/127838      __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<std::string> >::find_or_insert(std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> const&) [857]
+[858]    0.0    0.00    0.00  127838         __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<std::string> >::resize(unsigned long) [858]
+-----------------------------------------------
+                0.00    0.00  127838/127838      CVC4::parser::AntlrParser::predicateType(std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> > const&) [855]
+[859]    0.0    0.00    0.00  127838         CVC4::ExprManager::booleanType() const [859]
+                0.00    0.00  127838/127838      CVC4::BooleanType::getInstance() [854]
+-----------------------------------------------
+                0.00    0.00      10/10          std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_initialize_map(unsigned long) [861]
+[860]    0.0    0.00    0.00      10         std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_create_nodes(CVC4::NodeTemplate<true>**, CVC4::NodeTemplate<true>**) [860]
+-----------------------------------------------
+                0.00    0.00       2/10          CVC4::theory::uf::TheoryUF::TheoryUF(CVC4::context::Context*, CVC4::theory::OutputChannel&) [924]
+                0.00    0.00       8/10          CVC4::theory::Theory::Theory(CVC4::context::Context*, CVC4::theory::OutputChannel&) [864]
+[861]    0.0    0.00    0.00      10         std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_initialize_map(unsigned long) [861]
+                0.00    0.00      10/10          std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_create_nodes(CVC4::NodeTemplate<true>**, CVC4::NodeTemplate<true>**) [860]
+-----------------------------------------------
+                0.00    0.00       5/5           CVC4::theory::uf::TheoryUF::TheoryUF(CVC4::context::Context*, CVC4::theory::OutputChannel&) [924]
+[862]    0.0    0.00    0.00       5         CVC4::context::ContextObj::ContextObj(CVC4::context::Context*) [862]
+-----------------------------------------------
+                0.00    0.00       5/5           CVC4::theory::uf::TheoryUF::~TheoryUF() [925]
+[863]    0.0    0.00    0.00       5         CVC4::context::ContextObj::~ContextObj() [863]
+-----------------------------------------------
+                0.00    0.00       4/4           CVC4::SmtEngine::SmtEngine(CVC4::ExprManager*, CVC4::Options const*) [108]
+[864]    0.0    0.00    0.00       4         CVC4::theory::Theory::Theory(CVC4::context::Context*, CVC4::theory::OutputChannel&) [864]
+                0.00    0.00       8/10          std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_initialize_map(unsigned long) [861]
+-----------------------------------------------
+                0.00    0.00       4/4           CVC4::SmtEngine::~SmtEngine() [934]
+[865]    0.0    0.00    0.00       4         std::deque<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::~deque() [865]
+-----------------------------------------------
+                0.00    0.00       3/3           CVC4::theory::uf::TheoryUF::~TheoryUF() [925]
+[866]    0.0    0.00    0.00       3         CVC4::context::CDList<CVC4::NodeTemplate<true> >::~CDList() [866]
+-----------------------------------------------
+                0.00    0.00       2/2           CVC4::parser::Parser::parseNextCommand() [868]
+[867]    0.0    0.00    0.00       2         CVC4::parser::AntlrSmtParser::parseCommand() [867]
+-----------------------------------------------
+                0.00    0.00       2/2           runCvc4(int, char**) [32]
+[868]    0.0    0.00    0.00       2         CVC4::parser::Parser::parseNextCommand() [868]
+                0.00    0.00       2/2           CVC4::parser::AntlrSmtParser::parseCommand() [867]
+-----------------------------------------------
+                0.00    0.00       2/2           CVC4::parser::tokLT(ANTLR3_TOKEN_STREAM_struct*, int) [25]
+[869]    0.0    0.00    0.00       2         CVC4::parser::nextToken(CVC4::parser::TWO_PLACE_TOKEN_BUFFER_struct*) [869]
+-----------------------------------------------
+                0.00    0.00       1/2           CVC4::TraceC::~TraceC() [916]
+                0.00    0.00       1/2           CVC4::DebugC::~DebugC() [915]
+[870]    0.0    0.00    0.00       2         std::_Rb_tree<std::string, std::string, std::_Identity<std::string>, std::less<std::string>, std::allocator<std::string> >::_M_erase(std::_Rb_tree_node<std::string>*) [870]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[871]    0.0    0.00    0.00       1         global constructors keyed to MemoryMappedInputBufferNew [871]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[872]    0.0    0.00    0.00       1         global constructors keyed to TwoPlaceTokenBufferFree [872]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[873]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC411ExprManagerC2Ev [873]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[874]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC411NodeManager9s_currentE [874]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[875]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC414DecisionEngineD2Ev [875]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[876]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC418AssertionException9constructEPKcS2_S2_S2_jS2_P13__va_list_tag [876]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[877]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC44expr9NodeValue7next_idE [877]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[878]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC44main10segvNoSpinE [878]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[879]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC44main8progPathE [879]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[880]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC44prop10PropEngineC2EPKNS_7OptionsEPNS_14DecisionEngineEPNS_12TheoryEngineE [880]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[881]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC44prop7minisat10SimpSolverC2Ev [881]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[882]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC44prop7minisat6SolverC2Ev [882]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[883]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC44prop9CnfStreamC2EPNS0_7minisat10SimpSolverE [883]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[884]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC46parser11AntlrParserC2ERKSs [884]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[885]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC46parser14AntlrSmtParserC2EPNS_11ExprManagerEP26ANTLR3_INPUT_STREAM_structRKSs [885]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[886]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC46parser17SemanticExceptionC2Ev [886]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[887]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC46parser6Parser7setDoneEb [887]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[888]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC46theory2uf6ECDataC2EPNS_7context7ContextENS_12NodeTemplateILb0EEE [888]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[889]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC46theory2uf8TheoryUFC2EPNS_7context7ContextERNS0_13OutputChannelE [889]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[890]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC47context20ContextMemoryManager8newChunkEv [890]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[891]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC47context7ContextC2Ev [891]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[892]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC47null_sbE [892]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[893]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC49SmtEngineC2EPNS_11ExprManagerEPKNS_7OptionsE [893]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[894]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC4lsERSoPKNS_7CommandE [894]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[895]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC4lsERSoRKNS_4ExprE [895]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[896]    0.0    0.00    0.00       1         global constructors keyed to _ZN4CVC4lsERSoRKNS_4TypeE [896]
+                0.00    0.00       1/1           CVC4::BooleanType::BooleanType() [898]
+                0.00    0.00       1/1           CVC4::KindType::KindType() [932]
+-----------------------------------------------
+                0.00    0.00       1/1           __do_global_ctors_aux [4171]
+[897]    0.0    0.00    0.00       1         global constructors keyed to main [897]
+-----------------------------------------------
+                0.00    0.00       1/1           global constructors keyed to _ZN4CVC4lsERSoRKNS_4TypeE [896]
+[898]    0.0    0.00    0.00       1         CVC4::BooleanType::BooleanType() [898]
+-----------------------------------------------
+                0.00    0.00       1/1           exit [387]
+[899]    0.0    0.00    0.00       1         CVC4::BooleanType::~BooleanType() [899]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::SmtEngine::~SmtEngine() [934]
+[900]    0.0    0.00    0.00       1         CVC4::DecisionEngine::~DecisionEngine() [900]
+-----------------------------------------------
+                0.00    0.00       1/1           exit [387]
+[901]    0.0    0.00    0.00       1         CVC4::null_streambuf::~null_streambuf() [901]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::CommandSequence::~CommandSequence() [100]
+[902]    0.0    0.00    0.00       1         CVC4::SetBenchmarkLogicCommand::~SetBenchmarkLogicCommand() [902]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::ExprManager::ExprManager() [102]
+[903]    0.0    0.00    0.00       1         CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> >::reserve(unsigned long) [942]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >* const&) [941]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> >::reserve(unsigned long) [950]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >* const&) [949]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> >::reserve(unsigned long) [944]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >* const&) [943]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> >::reserve(unsigned long) [948]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >* const&) [947]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> >::reserve(unsigned long) [946]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >* const&) [945]
+-----------------------------------------------
+                0.00    0.00       1/1           exit [387]
+[904]    0.0    0.00    0.00       1         CVC4::expr::NodeValue::~NodeValue() [904]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[905]    0.0    0.00    0.00       1         CVC4::main::parseOptions(int, char**, CVC4::Options*) [905]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[906]    0.0    0.00    0.00       1         CVC4::main::cvc4_init() [906]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::SmtEngine::SmtEngine(CVC4::ExprManager*, CVC4::Options const*) [108]
+[907]    0.0    0.00    0.00       1         CVC4::prop::PropEngine::PropEngine(CVC4::Options const*, CVC4::DecisionEngine*, CVC4::TheoryEngine*) [907]
+                0.00    0.00       1/1           CVC4::prop::minisat::SimpSolver::SimpSolver() [911]
+                0.00    0.00       1/1           CVC4::prop::TseitinCnfStream::TseitinCnfStream(CVC4::prop::minisat::SimpSolver*) [909]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::SmtEngine::~SmtEngine() [934]
+[908]    0.0    0.00    0.00       1         CVC4::prop::PropEngine::~PropEngine() [908]
+                0.00    0.00       1/1           CVC4::prop::TseitinCnfStream::~TseitinCnfStream() [910]
+                0.00    0.00       1/1           CVC4::prop::minisat::Solver::~Solver() [914]
+                0.00    0.00       1/1           CVC4::prop::minisat::SimpSolver::~SimpSolver() [912]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::prop::PropEngine::PropEngine(CVC4::Options const*, CVC4::DecisionEngine*, CVC4::TheoryEngine*) [907]
+[909]    0.0    0.00    0.00       1         CVC4::prop::TseitinCnfStream::TseitinCnfStream(CVC4::prop::minisat::SimpSolver*) [909]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> >::reserve(unsigned long) [940]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >* const&) [939]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::prop::PropEngine::~PropEngine() [908]
+[910]    0.0    0.00    0.00       1         CVC4::prop::TseitinCnfStream::~TseitinCnfStream() [910]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::prop::PropEngine::PropEngine(CVC4::Options const*, CVC4::DecisionEngine*, CVC4::TheoryEngine*) [907]
+[911]    0.0    0.00    0.00       1         CVC4::prop::minisat::SimpSolver::SimpSolver() [911]
+                0.00    0.00       1/1           CVC4::prop::minisat::Solver::Solver() [913]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::prop::PropEngine::~PropEngine() [908]
+[912]    0.0    0.00    0.00       1         CVC4::prop::minisat::SimpSolver::~SimpSolver() [912]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::prop::minisat::SimpSolver::SimpSolver() [911]
+[913]    0.0    0.00    0.00       1         CVC4::prop::minisat::Solver::Solver() [913]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::prop::PropEngine::~PropEngine() [908]
+[914]    0.0    0.00    0.00       1         CVC4::prop::minisat::Solver::~Solver() [914]
+-----------------------------------------------
+                0.00    0.00       1/1           exit [387]
+[915]    0.0    0.00    0.00       1         CVC4::DebugC::~DebugC() [915]
+                0.00    0.00       1/2           std::_Rb_tree<std::string, std::string, std::_Identity<std::string>, std::less<std::string>, std::allocator<std::string> >::_M_erase(std::_Rb_tree_node<std::string>*) [870]
+-----------------------------------------------
+                0.00    0.00       1/1           exit [387]
+[916]    0.0    0.00    0.00       1         CVC4::TraceC::~TraceC() [916]
+                0.00    0.00       1/2           std::_Rb_tree<std::string, std::string, std::_Identity<std::string>, std::less<std::string>, std::allocator<std::string> >::_M_erase(std::_Rb_tree_node<std::string>*) [870]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[917]    0.0    0.00    0.00       1         CVC4::parser::AntlrParser::disableChecks() [917]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::AntlrSmtParser::AntlrSmtParser(CVC4::ExprManager*, ANTLR3_INPUT_STREAM_struct*, std::string const&) [920]
+[918]    0.0    0.00    0.00       1         CVC4::parser::AntlrParser::setExpressionManager(CVC4::ExprManager*) [918]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::AntlrSmtParser::AntlrSmtParser(CVC4::ExprManager*, ANTLR3_INPUT_STREAM_struct*, std::string const&) [920]
+[919]    0.0    0.00    0.00       1         CVC4::parser::AntlrParser::AntlrParser(std::string const&) [919]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> >::reserve(unsigned long) [952]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >* const&) [951]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> >::reserve(unsigned long) [954]
+                0.00    0.00       1/1           std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >* const&) [953]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, ANTLR3_INPUT_STREAM_struct*, std::string) [921]
+[920]    0.0    0.00    0.00       1         CVC4::parser::AntlrSmtParser::AntlrSmtParser(CVC4::ExprManager*, ANTLR3_INPUT_STREAM_struct*, std::string const&) [920]
+                0.00    0.00       1/1           CVC4::parser::AntlrParser::AntlrParser(std::string const&) [919]
+                0.00    0.00       1/1           CVC4::parser::AntlrParser::setExpressionManager(CVC4::ExprManager*) [918]
+                0.00    0.00       1/1           BoundedTokenFactoryNew [109]
+                0.00    0.00       1/1           TwoPlaceTokenBufferSourceNew [111]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, std::string const&) [922]
+[921]    0.0    0.00    0.00       1         CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, ANTLR3_INPUT_STREAM_struct*, std::string) [921]
+                0.00    0.00       1/1           CVC4::parser::AntlrSmtParser::AntlrSmtParser(CVC4::ExprManager*, ANTLR3_INPUT_STREAM_struct*, std::string const&) [920]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[922]    0.0    0.00    0.00       1         CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, std::string const&) [922]
+                0.00    0.00       1/1           CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, ANTLR3_INPUT_STREAM_struct*, std::string) [921]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[923]    0.0    0.00    0.00       1         CVC4::parser::Parser::disableChecks() [923]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::SmtEngine::SmtEngine(CVC4::ExprManager*, CVC4::Options const*) [108]
+[924]    0.0    0.00    0.00       1         CVC4::theory::uf::TheoryUF::TheoryUF(CVC4::context::Context*, CVC4::theory::OutputChannel&) [924]
+                0.00    0.00       5/5           CVC4::context::ContextObj::ContextObj(CVC4::context::Context*) [862]
+                0.00    0.00       2/10          std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_initialize_map(unsigned long) [861]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::SmtEngine::~SmtEngine() [934]
+[925]    0.0    0.00    0.00       1         CVC4::theory::uf::TheoryUF::~TheoryUF() [925]
+                0.00    0.00       5/5           CVC4::context::ContextObj::~ContextObj() [863]
+                0.00    0.00       3/3           CVC4::context::CDList<CVC4::NodeTemplate<true> >::~CDList() [866]
+-----------------------------------------------
+                0.00    0.00       1/1           exit [387]
+[926]    0.0    0.00    0.00       1         CVC4::Options::~Options() [926]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::context::Context::Context() [930]
+[927]    0.0    0.00    0.00       1         CVC4::context::ContextMemoryManager::newData(unsigned long) [927]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::context::Context::Context() [930]
+[928]    0.0    0.00    0.00       1         CVC4::context::ContextMemoryManager::ContextMemoryManager() [928]
+                0.00    0.00       1/1           T.299 [110]
+                0.00    0.00       1/1           std::vector<char*, std::allocator<char*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<char**, std::vector<char*, std::allocator<char*> > >, char* const&) [955]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::context::Context::~Context() [931]
+[929]    0.0    0.00    0.00       1         CVC4::context::ContextMemoryManager::~ContextMemoryManager() [929]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::SmtEngine::SmtEngine(CVC4::ExprManager*, CVC4::Options const*) [108]
+[930]    0.0    0.00    0.00       1         CVC4::context::Context::Context() [930]
+                0.00    0.00       1/1           CVC4::context::ContextMemoryManager::ContextMemoryManager() [928]
+                0.00    0.00       1/1           CVC4::context::ContextMemoryManager::newData(unsigned long) [927]
+                0.00    0.00       1/1           std::vector<CVC4::context::Scope*, std::allocator<CVC4::context::Scope*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::context::Scope**, std::vector<CVC4::context::Scope*, std::allocator<CVC4::context::Scope*> > >, CVC4::context::Scope* const&) [936]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::SmtEngine::~SmtEngine() [934]
+[931]    0.0    0.00    0.00       1         CVC4::context::Context::~Context() [931]
+                0.00    0.00       1/1           CVC4::context::ContextMemoryManager::~ContextMemoryManager() [929]
+-----------------------------------------------
+                0.00    0.00       1/1           global constructors keyed to _ZN4CVC4lsERSoRKNS_4TypeE [896]
+[932]    0.0    0.00    0.00       1         CVC4::KindType::KindType() [932]
+-----------------------------------------------
+                0.00    0.00       1/1           exit [387]
+[933]    0.0    0.00    0.00       1         CVC4::KindType::~KindType() [933]
+-----------------------------------------------
+                0.00    0.00       1/1           runCvc4(int, char**) [32]
+[934]    0.0    0.00    0.00       1         CVC4::SmtEngine::~SmtEngine() [934]
+                0.00    0.00       4/4           std::deque<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::~deque() [865]
+                0.00    0.00       1/1           CVC4::prop::PropEngine::~PropEngine() [908]
+                0.00    0.00       1/1           CVC4::theory::uf::TheoryUF::~TheoryUF() [925]
+                0.00    0.00       1/1           CVC4::DecisionEngine::~DecisionEngine() [900]
+                0.00    0.00       1/1           CVC4::context::Context::~Context() [931]
+-----------------------------------------------
+                0.00    0.00       1/1           T.299 [110]
+[935]    0.0    0.00    0.00       1         std::_Deque_base<char*, std::allocator<char*> >::_M_create_nodes(char***, char***) [935]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::context::Context::Context() [930]
+[936]    0.0    0.00    0.00       1         std::vector<CVC4::context::Scope*, std::allocator<CVC4::context::Scope*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::context::Scope**, std::vector<CVC4::context::Scope*, std::allocator<CVC4::context::Scope*> > >, CVC4::context::Scope* const&) [936]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::ExprManager::ExprManager() [102]
+[937]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>**, std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> > >, unsigned long, __gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>* const&) [937]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::ExprManager::ExprManager() [102]
+[938]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> >::reserve(unsigned long) [938]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::prop::TseitinCnfStream::TseitinCnfStream(CVC4::prop::minisat::SimpSolver*) [909]
+[939]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >* const&) [939]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::prop::TseitinCnfStream::TseitinCnfStream(CVC4::prop::minisat::SimpSolver*) [909]
+[940]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> >::reserve(unsigned long) [940]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[941]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >* const&) [941]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[942]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> >::reserve(unsigned long) [942]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[943]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >* const&) [943]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[944]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> >::reserve(unsigned long) [944]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[945]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >* const&) [945]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[946]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> >::reserve(unsigned long) [946]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[947]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >* const&) [947]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[948]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> >::reserve(unsigned long) [948]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[949]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >* const&) [949]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::expr::attr::AttributeManager::AttributeManager() [903]
+[950]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> >::reserve(unsigned long) [950]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::AntlrParser::AntlrParser(std::string const&) [919]
+[951]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >* const&) [951]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::AntlrParser::AntlrParser(std::string const&) [919]
+[952]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> >::reserve(unsigned long) [952]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::AntlrParser::AntlrParser(std::string const&) [919]
+[953]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >* const&) [953]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::parser::AntlrParser::AntlrParser(std::string const&) [919]
+[954]    0.0    0.00    0.00       1         std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> >::reserve(unsigned long) [954]
+-----------------------------------------------
+                0.00    0.00       1/1           CVC4::context::ContextMemoryManager::ContextMemoryManager() [928]
+[955]    0.0    0.00    0.00       1         std::vector<char*, std::allocator<char*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<char**, std::vector<char*, std::allocator<char*> > >, char* const&) [955]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+
+Index by function name
+
+ [109] BoundedTokenFactoryNew [26] CVC4::Expr::operator=(unsigned long) [860] std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_create_nodes(CVC4::NodeTemplate<true>**, CVC4::NodeTemplate<true>**)
+  [64] T.134 (Assert.h)      [903] CVC4::expr::attr::AttributeManager::AttributeManager() [861] std::_Deque_base<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_initialize_map(unsigned long)
+ [110] T.299 (stl_deque.h)    [79] CVC4::expr::attr::AttributeManager::~AttributeManager() [935] std::_Deque_base<char*, std::allocator<char*> >::_M_create_nodes(char***, char***)
+ [111] TwoPlaceTokenBufferSourceNew [904] CVC4::expr::NodeValue::~NodeValue() [865] std::deque<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::~deque()
+ [871] global constructors keyed to MemoryMappedInputBufferNew (memory_mapped_input_buffer.cpp) [905] CVC4::main::parseOptions(int, char**, CVC4::Options*) [76] std::vector<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::NodeTemplate<true>*, std::vector<CVC4::NodeTemplate<true>, std::allocator<CVC4::NodeTemplate<true> > > >, CVC4::NodeTemplate<true> const&)
+ [872] global constructors keyed to TwoPlaceTokenBufferFree (two_place_token_buffer.cpp) [906] CVC4::main::cvc4_init() [38] std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::Expr*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > >, CVC4::Expr const&)
+ [873] global constructors keyed to _ZN4CVC411ExprManagerC2Ev (expr_manager.cpp) [907] CVC4::prop::PropEngine::PropEngine(CVC4::Options const*, CVC4::DecisionEngine*, CVC4::TheoryEngine*) [95] std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::Type const**, std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> > >, CVC4::Type const* const&)
+ [874] global constructors keyed to _ZN4CVC411NodeManager9s_currentE (node_manager.cpp) [908] CVC4::prop::PropEngine::~PropEngine() [936] std::vector<CVC4::context::Scope*, std::allocator<CVC4::context::Scope*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<CVC4::context::Scope**, std::vector<CVC4::context::Scope*, std::allocator<CVC4::context::Scope*> > >, CVC4::context::Scope* const&)
+ [875] global constructors keyed to _ZN4CVC414DecisionEngineD2Ev (decision_engine.cpp) [909] CVC4::prop::TseitinCnfStream::TseitinCnfStream(CVC4::prop::minisat::SimpSolver*) [937] std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>**, std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> > >, unsigned long, __gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>* const&)
+ [876] global constructors keyed to _ZN4CVC418AssertionException9constructEPKcS2_S2_S2_jS2_P13__va_list_tag (Assert.cpp) [910] CVC4::prop::TseitinCnfStream::~TseitinCnfStream() [938] std::vector<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*, std::allocator<__gnu_cxx::_Hashtable_node<CVC4::expr::NodeValue*>*> >::reserve(unsigned long)
+ [877] global constructors keyed to _ZN4CVC44expr9NodeValue7next_idE (node_value.cpp) [911] CVC4::prop::minisat::SimpSolver::SimpSolver() [939] std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >* const&)
+ [878] global constructors keyed to _ZN4CVC44main10segvNoSpinE (util.cpp) [912] CVC4::prop::minisat::SimpSolver::~SimpSolver() [940] std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::NodeTemplate<true> const, CVC4::prop::minisat::Lit> >*> >::reserve(unsigned long)
+ [879] global constructors keyed to _ZN4CVC44main8progPathE (getopt.cpp) [913] CVC4::prop::minisat::Solver::Solver() [941] std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >* const&)
+ [880] global constructors keyed to _ZN4CVC44prop10PropEngineC2EPKNS_7OptionsEPNS_14DecisionEngineEPNS_12TheoryEngineE (prop_engine.cpp) [914] CVC4::prop::minisat::Solver::~Solver() [942] std::vector<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<CVC4::expr::NodeValue* const, unsigned long> >*> >::reserve(unsigned long)
+ [881] global constructors keyed to _ZN4CVC44prop7minisat10SimpSolverC2Ev (SimpSolver.C) [915] CVC4::DebugC::~DebugC() [943] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >* const&)
+ [882] global constructors keyed to _ZN4CVC44prop7minisat6SolverC2Ev (Solver.C) [916] CVC4::TraceC::~TraceC() [944] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, CVC4::NodeTemplate<false> > >*> >::reserve(unsigned long)
+ [883] global constructors keyed to _ZN4CVC44prop9CnfStreamC2EPNS0_7minisat10SimpSolverE (cnf_stream.cpp) [78] CVC4::parser::AntlrParser::checkArity(CVC4::kind::Kind_t, unsigned int) [945] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >* const&)
+ [884] global constructors keyed to _ZN4CVC46parser11AntlrParserC2ERKSs (antlr_parser.cpp) [7] CVC4::parser::AntlrParser::getVariable(std::string const&) [946] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >*> >::reserve(unsigned long)
+ [885] global constructors keyed to _ZN4CVC46parser14AntlrSmtParserC2EPNS_11ExprManagerEP26ANTLR3_INPUT_STREAM_structRKSs (antlr_smt_parser.cpp) [917] CVC4::parser::AntlrParser::disableChecks() [947] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >* const&)
+ [886] global constructors keyed to _ZN4CVC46parser17SemanticExceptionC2Ev (semantic_exception.cpp) [855] CVC4::parser::AntlrParser::predicateType(std::vector<CVC4::Type const*, std::allocator<CVC4::Type const*> > const&) [948] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >*> >::reserve(unsigned long)
+ [887] global constructors keyed to _ZN4CVC46parser6Parser7setDoneEb (parser.cpp) [77] CVC4::parser::AntlrParser::checkDeclaration(std::string const&, CVC4::parser::DeclarationCheck, CVC4::parser::SymbolType) [949] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >* const&)
+ [888] global constructors keyed to _ZN4CVC46theory2uf6ECDataC2EPNS_7context7ContextENS_12NodeTemplateILb0EEE (ecdata.cpp) [918] CVC4::parser::AntlrParser::setExpressionManager(CVC4::ExprManager*) [950] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, unsigned long> >*> >::reserve(unsigned long)
+ [889] global constructors keyed to _ZN4CVC46theory2uf8TheoryUFC2EPNS_7context7ContextERNS0_13OutputChannelE (theory_uf.cpp) [28] CVC4::parser::AntlrParser::mkVar(std::string const&, CVC4::Type const*) [951] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >* const&)
+ [890] global constructors keyed to _ZN4CVC47context20ContextMemoryManager8newChunkEv (context_mm.cpp) [4] CVC4::parser::AntlrParser::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [952] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Expr> >*> >::reserve(unsigned long)
+ [891] global constructors keyed to _ZN4CVC47context7ContextC2Ev (context.cpp) [8] CVC4::parser::AntlrParser::getSymbol(std::string const&, CVC4::parser::SymbolType) [953] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> >::_M_fill_insert(__gnu_cxx::__normal_iterator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >**, std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> > >, unsigned long, __gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >* const&)
+ [892] global constructors keyed to _ZN4CVC47null_sbE (output.cpp) [919] CVC4::parser::AntlrParser::AntlrParser(std::string const&) [954] std::vector<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*, std::allocator<__gnu_cxx::_Hashtable_node<std::pair<std::string const, CVC4::Type const*> >*> >::reserve(unsigned long)
+ [893] global constructors keyed to _ZN4CVC49SmtEngineC2EPNS_11ExprManagerEPKNS_7OptionsE (smt_engine.cpp) [867] CVC4::parser::AntlrSmtParser::parseCommand() [955] std::vector<char*, std::allocator<char*> >::_M_insert_aux(__gnu_cxx::__normal_iterator<char**, std::vector<char*, std::allocator<char*> > >, char* const&)
+ [894] global constructors keyed to _ZN4CVC4lsERSoPKNS_7CommandE (command.cpp) [920] CVC4::parser::AntlrSmtParser::AntlrSmtParser(CVC4::ExprManager*, ANTLR3_INPUT_STREAM_struct*, std::string const&) [870] std::_Rb_tree<std::string, std::string, std::_Identity<std::string>, std::less<std::string>, std::allocator<std::string> >::_M_erase(std::_Rb_tree_node<std::string>*)
+ [895] global constructors keyed to _ZN4CVC4lsERSoRKNS_4ExprE (expr.cpp) [921] CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, ANTLR3_INPUT_STREAM_struct*, std::string) [61] std::bad_alloc::~bad_alloc()
+ [896] global constructors keyed to _ZN4CVC4lsERSoRKNS_4TypeE (type.cpp) [922] CVC4::parser::Parser::getNewParser(CVC4::ExprManager*, CVC4::parser::InputLanguage, std::string const&) [851] CVC4::expr::NodeValue** std::copy<CVC4::expr::NodeValue**, CVC4::expr::NodeValue**>(CVC4::expr::NodeValue**, CVC4::expr::NodeValue**, CVC4::expr::NodeValue**)
+ [897] global constructors keyed to main (main.cpp) [923] CVC4::parser::Parser::disableChecks() [45] operator delete(void*)
+  [32] runCvc4(int, char**)  [868] CVC4::parser::Parser::parseNextCommand() [24] operator new(unsigned long)
+  [40] identifier(SmtParser_Ctx_struct*, std::string&, CVC4::parser::DeclarationCheck, CVC4::parser::SymbolType) (SmtParser.c) [97] CVC4::parser::Parser::~Parser() [37] __profile_frequency
+  [29] mIDENTIFIER(SmtLexer_Ctx_struct*) (SmtLexer.c) [18] CVC4::parser::newPoolToken(ANTLR3_TOKEN_FACTORY_struct*) (bounded_token_factory.cpp) [62] __read_nocancel
+  [59] mTOK_RPAREN(SmtLexer_Ctx_struct*) (SmtLexer.c) [68] CVC4::parser::setTokenSource(ANTLR3_TOKEN_STREAM_struct*, ANTLR3_TOKEN_SOURCE_struct*) (two_place_token_buffer.cpp) [13] _int_free
+  [52] mWHITESPACE(SmtLexer_Ctx_struct*) (SmtLexer.c) [23] CVC4::parser::_LA(ANTLR3_INT_STREAM_struct*, int) (two_place_token_buffer.cpp) [3] _int_malloc
+  [43] benchAttribute(SmtParser_Ctx_struct*) (SmtParser.c) [25] CVC4::parser::tokLT(ANTLR3_TOKEN_STREAM_struct*, int) (two_place_token_buffer.cpp) [53] _wordcopy_fwd_aligned
+  [69] benchAttributes(SmtParser_Ctx_struct*) (SmtParser.c) [30] CVC4::parser::consume(ANTLR3_INT_STREAM_struct*) (two_place_token_buffer.cpp) [54] antlr3AsciiConsume (antlr3inputstream.c)
+  [80] mTOK_ASSUMPTION(SmtLexer_Ctx_struct*) (SmtLexer.c) [869] CVC4::parser::nextToken(CVC4::parser::TWO_PLACE_TOKEN_BUFFER_struct*) (two_place_token_buffer.cpp) [84] antlr3AsciiGetCharPosition (antlr3inputstream.c)
+   [1] annotatedFormula(SmtParser_Ctx_struct*) (SmtParser.c) [924] CVC4::theory::uf::TheoryUF::TheoryUF(CVC4::context::Context*, CVC4::theory::OutputChannel&) [85] antlr3AsciiGetLine (antlr3inputstream.c)
+  [15] annotatedFormulas(SmtParser_Ctx_struct*, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> >&) (SmtParser.c) [925] CVC4::theory::uf::TheoryUF::~TheoryUF() [86] antlr3AsciiGetLineBuf (antlr3inputstream.c)
+  [60] mTOK_OR(SmtLexer_Ctx_struct*) (SmtLexer.c) [864] CVC4::theory::Theory::Theory(CVC4::context::Context*, CVC4::theory::OutputChannel&) [55] antlr3AsciiLA (antlr3inputstream.c)
+  [19] mTokens(SmtLexer_Ctx_struct*) (SmtLexer.c) [926] CVC4::Options::~Options() [87] antlr3AsciiSubstr (antlr3inputstream.c)
+  [63] builtinOp(SmtParser_Ctx_struct*, CVC4::kind::Kind_t&) (SmtParser.c) [862] CVC4::context::ContextObj::ContextObj(CVC4::context::Context*) [20] antlr3SetTokenAPI
+  [44] __cxxabiv1::__class_type_info::~__class_type_info() [863] CVC4::context::ContextObj::~ContextObj() [70] antlr3StackPeek (antlr3collections.c)
+ [854] CVC4::BooleanType::getInstance() [927] CVC4::context::ContextMemoryManager::newData(unsigned long) [46] antlr3StackPop (antlr3collections.c)
+ [898] CVC4::BooleanType::BooleanType() [928] CVC4::context::ContextMemoryManager::ContextMemoryManager() [58] antlr3StackPush (antlr3collections.c)
+ [899] CVC4::BooleanType::~BooleanType() [929] CVC4::context::ContextMemoryManager::~ContextMemoryManager() [71] antlr3StackSize (antlr3collections.c)
+  [57] CVC4::ExprManager::mkVar(CVC4::Type const*, std::string const&) [866] CVC4::context::CDList<CVC4::NodeTemplate<true> >::~CDList() [41] antlr3VectorAdd (antlr3collections.c)
+ [103] CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t) [930] CVC4::context::Context::Context() [47] antlr3VectorDel (antlr3collections.c)
+   [6] CVC4::ExprManager::mkExpr(CVC4::kind::Kind_t, std::vector<CVC4::Expr, std::allocator<CVC4::Expr> > const&) [931] CVC4::context::Context::~Context() [72] arena_get2
+ [102] CVC4::ExprManager::ExprManager() [853] CVC4::BoolExpr::BoolExpr(CVC4::Expr const&) [21] brk
+  [36] CVC4::ExprManager::~ExprManager() [932] CVC4::KindType::KindType() [5] cfree
+ [849] CVC4::NodeBuilder<10u>::~NodeBuilder() [933] CVC4::KindType::~KindType() [65] displayRecognitionError (antlr3lexer.c)
+   [9] CVC4::NodeBuilder<10u>::operator CVC4::NodeTemplate<true>() [108] CVC4::SmtEngine::SmtEngine(CVC4::ExprManager*, CVC4::Options const*) [10] emit (antlr3lexer.c)
+  [12] CVC4::NodeManager::poolInsert(CVC4::expr::NodeValue*) [934] CVC4::SmtEngine::~SmtEngine() [88] freeIntTrie (antlr3baserecognizer.c)
+ [101] CVC4::AssertCommand::~AssertCommand() [94] CVC4::debugPrintTNode(CVC4::NodeTemplate<false> const&) (node.h) [89] getCharIndex (antlr3lexer.c)
+ [900] CVC4::DecisionEngine::~DecisionEngine() [11] __gnu_cxx::hashtable<CVC4::expr::NodeValue*, CVC4::expr::NodeValue*, CVC4::expr::NodeValueHashFcn, std::_Identity<CVC4::expr::NodeValue*>, CVC4::expr::NodeValue::NodeValueEq, std::allocator<CVC4::expr::NodeValue*> >::resize(unsigned long) [66] getCharPositionInLine (antlr3commontoken.c)
+ [901] CVC4::null_streambuf::~null_streambuf() [856] __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, void*> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<void*> >::resize(unsigned long) [90] getCharPositionInLine (antlr3lexer.c)
+ [107] CVC4::CheckSatCommand::~CheckSatCommand() [857] __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<std::string> >::find_or_insert(std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> const&) [91] getCurrentInputSymbol (antlr3baserecognizer.c)
+ [100] CVC4::CommandSequence::~CommandSequence() [858] __gnu_cxx::hashtable<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string>, std::pair<unsigned long, CVC4::expr::NodeValue*>, CVC4::expr::attr::AttrHashFcn, std::_Select1st<std::pair<std::pair<unsigned long, CVC4::expr::NodeValue*> const, std::string> >, std::equal_to<std::pair<unsigned long, CVC4::expr::NodeValue*> >, std::allocator<std::string> >::resize(unsigned long) [31] main
+ [902] CVC4::SetBenchmarkLogicCommand::~SetBenchmarkLogicCommand() [34] __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::find_or_insert(std::pair<std::string const, CVC4::Expr> const&) [2] malloc
+ [850] CVC4::Expr::Expr(CVC4::ExprManager*, CVC4::NodeTemplate<true>*) [98] __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::clear() [73] malloc_printerr
+  [56] CVC4::Expr::Expr(CVC4::Expr const&) [51] __gnu_cxx::hashtable<std::pair<std::string const, CVC4::Expr>, std::string, CVC4::parser::StringHashFcn, std::_Select1st<std::pair<std::string const, CVC4::Expr> >, std::equal_to<std::string>, std::allocator<CVC4::Expr> >::resize(unsigned long) [17] match (antlr3baserecognizer.c)
+  [92] CVC4::Expr::Expr(unsigned long) [859] CVC4::ExprManager::booleanType() const [74] matchc (antlr3lexer.c)
+  [49] CVC4::Expr::Expr()     [83] CVC4::ExprManager::getNodeManager() const [48] matchs (antlr3lexer.c)
+ [852] CVC4::Expr::Expr(CVC4::Expr const&) [22] CVC4::NodeManager::poolLookup(CVC4::expr::NodeValue*) const [75] memcpy
+  [93] CVC4::Expr::Expr(unsigned long) [50] CVC4::Expr::getNode() const [35] munmap_chunk
+  [14] CVC4::Expr::~Expr()    [81] CVC4::Expr::toString() const [16] nextToken (antlr3lexer.c)
+  [96] CVC4::Expr::~Expr()   [104] CVC4::parser::AntlrParser::getTrueExpr() const [67] setCharPositionInLine (antlr3commontoken.c)
+  [39] CVC4::Expr::operator=(CVC4::Expr const&) [82] std::basic_string<char, std::char_traits<char>, std::allocator<char> >::basic_string(char const*, unsigned long, std::allocator<char> const&) [42] valloc

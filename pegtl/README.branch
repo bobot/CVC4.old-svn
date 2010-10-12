@@ -1,0 +1,19 @@
+This is a branch for experimenting with the pegtl parser generator.
+It has only a partial grammar for SMT, and can only apply it to 
+a memory-mapped file (not stdin).
+
+Run cvc4 with --parse-only and --mmap or it will crash. 
+
+It does not actually generate Exprs.
+The point of this is just to see whether the raw parsing is fast enough
+to continue implementing a full pegtl parser.
+
+Early results are promising:
+
+http://goedel.cims.nyu.edu/benchmarks/cvc4/sat/palacios/uts/uts-l06-ipc5-h29-unknown.cnf.smt
+pegtl: 0.7s
+ANTLR2: 10-20s
+
+http://goedel.cims.nyu.edu/benchmarks/cvc4/sat/manolios/manol-pipe-c10nidw_s.cnf.smt
+pegtl: 1.5s
+ANTLR2: 20-35s
