@@ -113,8 +113,9 @@ protected:
       Debug("cdlist") << "initial grow of cdlist " << this
                       << " level " << getContext()->getLevel()
                       << " to " << d_sizeAlloc << std::endl;
-      Assert( d_sizeAlloc <= d_allocator.max_size(),
-              "cannot request %u elements due to allocator limits" );
+      if(d_sizeAlloc > d_allocator.max_size()) {
+        d_sizeAlloc = d_allocator.max_size();
+      }
       d_list = d_allocator.allocate(d_sizeAlloc);
       if(d_list == NULL) {
         throw std::bad_alloc();
@@ -122,8 +123,11 @@ protected:
     } else {
       // Allocate a new array with double the size
       size_t newSize = GROWTH_FACTOR * d_sizeAlloc;
-      Assert(newSize <= d_allocator.max_size(),
-             "cannot request %u elements due to allocator limits");
+      if(newSize > d_allocator.max_size()) {
+        newSize = d_allocator.max_size();
+        Assert(newSize > d_sizeAlloc,
+               "cannot request larger list due to allocator limits");
+      }
       T* newList = d_allocator.allocate(newSize);
       Debug("cdlist") << "2x grow of cdlist " << this
                       << " level " << getContext()->getLevel()

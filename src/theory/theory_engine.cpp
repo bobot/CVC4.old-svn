@@ -23,6 +23,9 @@
 #include "expr/node_builder.h"
 #include "smt/options.h"
 
+#include "theory/uf/theory_uf_morgan.h"
+#include "theory/uf/theory_uf_tim.h"
+
 #include <vector>
 #include <list>
 

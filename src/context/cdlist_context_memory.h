@@ -128,9 +128,9 @@ protected:
   struct CDListSave : public ContextObj {
     ListSegment* d_tail;
     size_t d_tailSize, d_size, d_sizeAlloc;
-    CDListSave(Context* context, ListSegment* tail,
+    CDListSave(const CDList<T, Allocator>& list, ListSegment* tail,
                size_t size, size_t sizeAlloc) :
-      ContextObj(context),
+      ContextObj(list),
       d_tail(tail),
       d_tailSize(tail->size()),
       d_size(size),
@@ -168,8 +168,9 @@ protected:
     Debug("cdlist:cmm") << "initial grow of cdlist " << this
                         << " level " << getContext()->getLevel()
                         << " to " << newSize << std::endl;
-    Assert(newSize <= d_allocator.max_size(),
-           "cannot request %u elements due to allocator limits");
+    if(newSize > d_allocator.max_size()) {
+      newSize = d_allocator.max_size();
+    }
     T* newList = d_allocator.allocate(newSize);
     if(newList == NULL) {
       throw std::bad_alloc();
@@ -196,8 +197,9 @@ protected:
     }
     segAllocator.construct(newSegment, ListSegment());
     size_t newSize = INCREMENTAL_GROWTH_FACTOR * d_totalSizeAlloc;
-    Assert(newSize <= d_allocator.max_size(),
-           "cannot request %u elements due to allocator limits");
+    if(newSize > d_allocator.max_size()) {
+      newSize = d_allocator.max_size();
+    }
     T* newList = d_allocator.allocate(newSize);
     Debug("cdlist:cmm") << "new segment of cdlistcontext " << this
                         << " level " << getContext()->getLevel()
@@ -220,7 +222,7 @@ protected:
    * The saved information is allocated using the ContextMemoryManager.
    */
   ContextObj* save(ContextMemoryManager* pCMM) {
-    ContextObj* data = new(pCMM) CDListSave(getContext(), d_tailSegment,
+    ContextObj* data = new(pCMM) CDListSave(*this, d_tailSegment,
                                             d_size, d_totalSizeAlloc);
     Debug("cdlist:cmm") << "save " << this
                         << " at level " << this->getContext()->getLevel()
@@ -270,22 +272,28 @@ protected:
 
 public:
 
-  /**
-   * Main constructor: d_list starts as NULL, size is 0
-   */
   CDList(Context* context, bool callDestructor, const Allocator& alloc) :
     ContextObj(context),
     d_headSegment(),
     d_tailSegment(&d_headSegment),
     d_callDestructor(callDestructor),
     d_size(0),
+    d_totalSizeAlloc(0),
     d_allocator(alloc) {
     allocateHeadSegment();
   }
 
-  /**
-   * Main constructor: d_list starts as NULL, size is 0
-   */
+  CDList(Context* context, bool callDestructor = true) :
+    ContextObj(context),
+    d_headSegment(),
+    d_tailSegment(&d_headSegment),
+    d_callDestructor(callDestructor),
+    d_size(0),
+    d_totalSizeAlloc(0),
+    d_allocator(Allocator(context->getCMM())) {
+    allocateHeadSegment();
+  }
+
   CDList(bool allocatedInCMM, Context* context, bool callDestructor,
          const Allocator& alloc) :
     ContextObj(allocatedInCMM, context),
@@ -293,7 +301,19 @@ public:
     d_tailSegment(&d_headSegment),
     d_callDestructor(callDestructor),
     d_size(0),
+    d_totalSizeAlloc(0),
     d_allocator(alloc) {
+    allocateHeadSegment();
+  }
+
+  CDList(bool allocatedInCMM, Context* context, bool callDestructor = true) :
+    ContextObj(allocatedInCMM, context),
+    d_headSegment(),
+    d_tailSegment(&d_headSegment),
+    d_callDestructor(callDestructor),
+    d_size(0),
+    d_totalSizeAlloc(0),
+    d_allocator(Allocator(context->getCMM())) {
     allocateHeadSegment();
   }
 
@@ -374,7 +394,7 @@ public:
    */
   const T& operator[](size_t i) const {
     Assert(i < d_size, "index out of bounds in CDList::operator[]");
-    ListSegment* seg = &d_headSegment;
+    const ListSegment* seg = &d_headSegment;
     while(i >= seg->size()) {
       i -= seg->size();
       seg = seg->getNextSegment();
@@ -459,7 +479,7 @@ public:
    * Returns an iterator pointing one past the last item in the list.
    */
   const_iterator end() const {
-    return const_iterator(d_tailSegment, d_tailSegment->size());
+    return const_iterator(NULL, 0);
   }
 };/* class CDList<T, ContextMemoryAllocator<T> > */
 

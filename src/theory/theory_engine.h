@@ -30,8 +30,6 @@
 #include "theory/builtin/theory_builtin.h"
 #include "theory/booleans/theory_bool.h"
 #include "theory/uf/theory_uf.h"
-#include "theory/uf/tim/theory_uf_tim.h"
-#include "theory/uf/morgan/theory_uf_morgan.h"
 #include "theory/arith/theory_arith.h"
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"

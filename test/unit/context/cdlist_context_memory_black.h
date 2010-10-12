@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file cdlist_black.h
+/*! \file cdlist_context_memory_black.h
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
@@ -26,7 +26,7 @@
 #include "memory.h"
 
 #include "context/context.h"
-#include "context/cdlist.h"
+#include "context/cdlist_context_memory.h"
 
 using namespace std;
 using namespace CVC4::context;
@@ -38,7 +38,7 @@ struct DtorSensitiveObject {
   ~DtorSensitiveObject() { d_dtorCalled = true; }
 };
 
-class CDListBlack : public CxxTest::TestSuite {
+class CDListContextMemoryBlack : public CxxTest::TestSuite {
 private:
 
   Context* d_context;
@@ -68,7 +68,8 @@ public:
   }
 
   void listTest(int N, bool callDestructor) {
-    CDList<int> list(d_context, callDestructor);
+    CDList<int, ContextMemoryAllocator<int> >
+      list(d_context, callDestructor, ContextMemoryAllocator<int>(d_context->getCMM()));
 
     TS_ASSERT(list.empty());
     for(int i = 0; i < N; ++i) {
@@ -77,7 +78,7 @@ public:
       TS_ASSERT(!list.empty());
       TS_ASSERT_EQUALS(list.back(), i);
       int i2 = 0;
-      for(CDList<int>::const_iterator j = list.begin();
+      for(CDList<int, ContextMemoryAllocator<int> >::const_iterator j = list.begin();
           j != list.end();
           ++j) {
         TS_ASSERT_EQUALS(*j, i2++);
@@ -97,8 +98,8 @@ public:
     bool shouldAlsoRemainFalse = false;
     bool aThirdFalse = false;
 
-    CDList<DtorSensitiveObject> listT(d_context, true);
-    CDList<DtorSensitiveObject> listF(d_context, false);
+    CDList<DtorSensitiveObject, ContextMemoryAllocator<DtorSensitiveObject> > listT(d_context, true, ContextMemoryAllocator<DtorSensitiveObject>(d_context->getCMM()));
+    CDList<DtorSensitiveObject, ContextMemoryAllocator<DtorSensitiveObject> > listF(d_context, false, ContextMemoryAllocator<DtorSensitiveObject>(d_context->getCMM()));
 
     DtorSensitiveObject shouldRemainFalseDSO(shouldRemainFalse);
     DtorSensitiveObject shouldFlipToTrueDSO(shouldFlipToTrue);
@@ -141,7 +142,7 @@ public:
 
 #else /* __APPLE__ */
 
-    CDList<unsigned> list(d_context);
+    CDList<unsigned, ContextMemoryAllocator<unsigned> > list(d_context);
     WithLimitedMemory wlm(1);
 
     TS_ASSERT_THROWS({
