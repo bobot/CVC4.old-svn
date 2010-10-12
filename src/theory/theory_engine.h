@@ -31,25 +31,13 @@
 namespace CVC4 {
 
 namespace theory {
-namespace builtin {
-class TheoryBuiltin;
-}
-namespace booleans {
-class TheoryBool;
-}
-namespace uf {
-class TheoryUF;
-}
-namespace arith {
-class TheoryArith;
-}
-namespace arrays {
-class TheoryArrays;
-}
-namespace bv {
-class TheoryBV;
-}
-}
+  namespace builtin { class TheoryBuiltin; }
+  namespace booleans { class TheoryBool; }
+  namespace uf { class TheoryUF; }
+  namespace arith { class TheoryArith; }
+  namespace arrays { class TheoryArrays; }
+  namespace bv { class TheoryBV; }
+}/* CVC4::theory namespace */
 
 // In terms of abstraction, this is below (and provides services to)
 // PropEngine.
