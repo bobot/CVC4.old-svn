@@ -82,6 +82,9 @@ protected:
               "Double-linking of ListSegment not permitted" );
       d_nextSegment = nextSegment;
     }
+    void cutLink() {
+      d_nextSegment = NULL;
+    }
     ListSegment* getNextSegment() const { return d_nextSegment; }
     size_t& size() { return d_segmentSize; }
     size_t size() const { return d_segmentSize; }
@@ -262,6 +265,7 @@ protected:
     this->d_size = save->d_size;
     this->d_tailSegment = save->d_tail;
     this->d_tailSegment->size() = save->d_tailSize;
+    this->d_tailSegment->cutLink();
     this->d_totalSizeAlloc = save->d_sizeAlloc;
     Debug("cdlist:cmm") << "restore " << this
                         << " level " << this->getContext()->getLevel()
