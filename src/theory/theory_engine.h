@@ -30,6 +30,27 @@
 
 namespace CVC4 {
 
+namespace theory {
+namespace builtin {
+class TheoryBuiltin;
+}
+namespace booleans {
+class TheoryBool;
+}
+namespace uf {
+class TheoryUF;
+}
+namespace arith {
+class TheoryArith;
+}
+namespace arrays {
+class TheoryArrays;
+}
+namespace bv {
+class TheoryBV;
+}
+}
+
 // In terms of abstraction, this is below (and provides services to)
 // PropEngine.
 
@@ -116,12 +137,12 @@ class TheoryEngine {
   /** Pointer to Shared Term Manager */
   SharedTermManager* d_sharedTermManager;
 
-  theory::Theory* d_builtin;
-  theory::Theory* d_bool;
-  theory::Theory* d_uf;
-  theory::Theory* d_arith;
-  theory::Theory* d_arrays;
-  theory::Theory* d_bv;
+  theory::builtin::TheoryBuiltin* d_builtin;
+  theory::booleans::TheoryBool* d_bool;
+  theory::uf::TheoryUF* d_uf;
+  theory::arith::TheoryArith* d_arith;
+  theory::arrays::TheoryArrays* d_arrays;
+  theory::bv::TheoryBV* d_bv;
 
   /**
    * Debugging flag to ensure that shutdown() is called before the
