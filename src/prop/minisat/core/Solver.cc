@@ -24,6 +24,10 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/Solver.h"
 #include "prop/sat.h"
 
+// --lsh
+#include "util/sat_proof.h"
+// lsh--
+
 using namespace Minisat;
 using namespace CVC4;
 using namespace CVC4::prop;

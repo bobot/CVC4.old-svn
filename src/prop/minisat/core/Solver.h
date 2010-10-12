@@ -35,6 +35,9 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 namespace CVC4 {
 namespace prop {
   class SatSolver;
+  // --lsh
+  class Derivation;
+  // lsh--
 }
 }
 
@@ -47,6 +50,10 @@ class Solver {
 
   /** The only CVC4 entry point to the private solver data */
   friend class CVC4::prop::SatSolver;
+  /** The second CVC4 entry point to the private solver data for proof logging */
+  //--lsh
+  friend class CVC4::prop::Derivation;
+  //--lsh
 
 protected:
 
