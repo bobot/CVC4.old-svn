@@ -1,0 +1,5 @@
+This is a experimental branch for using Nodes instead of Exprs in the
+parser. In theory, this should speed things up a little bit because
+Exprs force a bit more allocation and a double indirection (since an
+Expr wraps a Node). In practice, it doesn't seem to make much
+difference.
