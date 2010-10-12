@@ -182,7 +182,7 @@ public:
   void destroy(T* p) const {
     p->~T();
   }
-};/* class ContextMemoryAllocator */
+};/* class ContextMemoryAllocator<T> */
 
 template <class T>
 inline bool operator==(const ContextMemoryAllocator<T>& a1,

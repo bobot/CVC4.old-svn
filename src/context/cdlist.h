@@ -29,7 +29,6 @@
 #include "context/context.h"
 #include "context/context_mm.h"
 #include "context/cdlist_forward.h"
-#include "context/cdo.h"
 #include "util/Assert.h"
 
 namespace CVC4 {
@@ -45,9 +44,19 @@ namespace context {
  * 2. T objects can safely be copied using their copy constructor,
  *    operator=, and memcpy.
  */
-template <class T, class Allocator>
+template <class T, class AllocatorT>
 class CDList : public ContextObj {
+public:
+
+  /** The value type with which this CDList<> was instantiated. */
+  typedef T value_type;
+  /** The allocator type with which this CDList<> was instantiated. */
+  typedef AllocatorT Allocator;
+
 protected:
+
+  static const size_t INITIAL_SIZE = 10;
+  static const size_t GROWTH_FACTOR = 2;
 
   /**
    * d_list is a dynamic array of objects of type T.
@@ -100,19 +109,19 @@ protected:
   void grow() {
     if(d_list == NULL) {
       // Allocate an initial list if one does not yet exist
-      d_sizeAlloc = 10;
+      d_sizeAlloc = INITIAL_SIZE;
       Debug("cdlist") << "initial grow of cdlist " << this
                       << " level " << getContext()->getLevel()
                       << " to " << d_sizeAlloc << std::endl;
-      Assert(d_sizeAlloc <= d_allocator.max_size(),
-             "cannot request %u elements due to allocator limits");
+      Assert( d_sizeAlloc <= d_allocator.max_size(),
+              "cannot request %u elements due to allocator limits" );
       d_list = d_allocator.allocate(d_sizeAlloc);
       if(d_list == NULL) {
         throw std::bad_alloc();
       }
     } else {
       // Allocate a new array with double the size
-      size_t newSize = d_sizeAlloc * 2;
+      size_t newSize = GROWTH_FACTOR * d_sizeAlloc;
       Assert(newSize <= d_allocator.max_size(),
              "cannot request %u elements due to allocator limits");
       T* newList = d_allocator.allocate(newSize);
@@ -381,9 +390,5 @@ public:
 
 }/* CVC4::context namespace */
 }/* CVC4 namespace */
-
-#define __CVC4__CONTEXT__CDLIST_H_INCLUDING_CDLIST_CONTEX_MEMORY_H
-#  include "context/cdlist_context_memory.h"
-#undef __CVC4__CONTEXT__CDLIST_H_INCLUDING_CDLIST_CONTEX_MEMORY_H
 
 #endif /* __CVC4__CONTEXT__CDLIST_H */

@@ -11,9 +11,11 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Context-dependent list class specialized for use in .
+ ** \brief Context-dependent list class specialized for use with a
+ ** context memory allocator.
  **
- ** Context-dependent list class.
+ ** Context-dependent list class specialized for use with a context
+ ** memory allocator.
  **/
 
 #include "cvc4_private.h"
@@ -21,9 +23,13 @@
 #ifndef __CVC4__CONTEXT__CDLIST_CONTEXT_MEMORY_H
 #define __CVC4__CONTEXT__CDLIST_CONTEXT_MEMORY_H
 
-#ifndef __CVC4__CONTEXT__CDLIST_H_INCLUDING_CDLIST_CONTEX_MEMORY_H
-#  error cdlist_context_memory.h should only be included from cdlist.h
-#endif /* __CVC4__CONTEXT__CDLIST_H_INCLUDING_CDLIST_CONTEX_MEMORY_H */
+#include <iterator>
+#include <memory>
+
+#include "context/cdlist_forward.h"
+#include "context/context.h"
+#include "context/context_mm.h"
+#include "util/Assert.h"
 
 namespace CVC4 {
 namespace context {
@@ -37,9 +43,17 @@ namespace context {
  */
 template <class T>
 class CDList<T, ContextMemoryAllocator<T> > : public ContextObj {
+public:
+
+  /** The value type with which this CDList<> was instantiated. */
+  typedef T value_type;
+  /** The allocator type with which this CDList<> was instantiated. */
+  typedef ContextMemoryAllocator<T> Allocator;
+
 protected:
 
-  typedef ContextMemoryAllocator<T> Allocator;
+  static const size_t INITIAL_SEGMENT_SIZE = 10;
+  static const size_t INCREMENTAL_GROWTH_FACTOR = 2;
 
   /**
    * ListSegment is itself allocated in Context memory, but it is
@@ -50,15 +64,11 @@ protected:
     ListSegment* d_nextSegment;
     size_t d_segmentSize;
     T* d_list;
-    ListSegment(const ListSegment&);
   public:
     ListSegment() :
       d_nextSegment(NULL),
       d_segmentSize(0),
       d_list(NULL) {
-    }
-    ~ListSegment() {
-      destroy();
     }
     void initialize(T* list) {
       Assert( d_nextSegment == NULL &&
@@ -75,6 +85,7 @@ protected:
     ListSegment* getNextSegment() const { return d_nextSegment; }
     size_t& size() { return d_segmentSize; }
     size_t size() const { return d_segmentSize; }
+    const T* list() const { return d_list; }
     T& operator[](size_t i) { return d_list[i]; }
     const T& operator[](size_t i) const { return d_list[i]; }
   };/* struct CDList<T, ContextMemoryAllocator<T> >::ListSegment */
@@ -117,11 +128,26 @@ protected:
   struct CDListSave : public ContextObj {
     ListSegment* d_tail;
     size_t d_tailSize, d_size, d_sizeAlloc;
-    CDListSave(ListSegment* tail, size_t size, size_t sizeAlloc) :
+    CDListSave(Context* context, ListSegment* tail,
+               size_t size, size_t sizeAlloc) :
+      ContextObj(context),
       d_tail(tail),
       d_tailSize(tail->size()),
       d_size(size),
       d_sizeAlloc(sizeAlloc) {
+    }
+    ~CDListSave() {
+      this->destroy();
+    }
+    ContextObj* save(ContextMemoryManager* pCMM) {
+      // This type of object _is_ the save/restore object.  It isn't
+      // itself saved or restored.
+      Unreachable();
+    }
+    void restore(ContextObj* data) {
+      // This type of object _is_ the save/restore object.  It isn't
+      // itself saved or restored.
+      Unreachable();
     }
   };/* struct CDList<T, ContextMemoryAllocator<T> >::CDListSave */
 
@@ -131,51 +157,60 @@ protected:
   CDList(const CDList<T, Allocator>& l);
 
   /**
-   * Reallocate the array with more space.
+   * Allocate the first list segment.
+   */
+  void allocateHeadSegment() {
+    Assert(d_headSegment.list() == NULL);
+    Assert(d_totalSizeAlloc == 0 && d_size == 0);
+
+    // Allocate an initial list if one does not yet exist
+    size_t newSize = INITIAL_SEGMENT_SIZE;
+    Debug("cdlist:cmm") << "initial grow of cdlist " << this
+                        << " level " << getContext()->getLevel()
+                        << " to " << newSize << std::endl;
+    Assert(newSize <= d_allocator.max_size(),
+           "cannot request %u elements due to allocator limits");
+    T* newList = d_allocator.allocate(newSize);
+    if(newList == NULL) {
+      throw std::bad_alloc();
+    }
+    d_totalSizeAlloc = newSize;
+    d_headSegment.initialize(newList);
+  }
+
+  /**
+   * Allocate a new segment with more space.
    * Throws bad_alloc if memory allocation fails.
    */
   void grow() {
-    if(d_headSegment.d_list == NULL) {
-      // Allocate an initial list if one does not yet exist
-      d_headSegment.d_sizeAlloc = 10;
-      Debug("cdlist:cmm") << "initial grow of cdlist " << this
-                          << " level " << getContext()->getLevel()
-                          << " to " << d_headSegment.d_sizeAlloc << std::endl;
-      Assert(d_headSegment.d_sizeAlloc <= d_allocator.max_size(),
-             "cannot request %u elements due to allocator limits");
-      d_headSegment.d_list = d_allocator.allocate(d_headSegment.d_sizeAlloc);
-      if(d_headSegment.d_list == NULL) {
-        throw std::bad_alloc();
-      }
-    } else {
-      // Allocate a new array with double the size
-      typedef typename Allocator::template rebind<ListSegment>::other
-        SegmentAllocator;
-      ContextMemoryManager* cmm = d_allocator.getCMM();
-      SegmentAllocator segAllocator = SegmentAllocator(cmm);
-      ListSegment* newSegment = segAllocator.allocate(1);
-      if(newSegment == NULL) {
-        throw std::bad_alloc();
-      }
-      segAllocator.construct(newSegment,
-                             ListSegment(getContext(), NULL, 0, NULL));
-      size_t newSize = d_tailSegment->d_sizeAlloc * 2;
-      Assert(newSize <= d_allocator.max_size(),
-             "cannot request %u elements due to allocator limits");
-      T* newList = d_allocator.allocate(newSize);
-      Debug("cdlist:cmm") << "new segment of cdlistcontext " << this
-                          << " level " << getContext()->getLevel()
-                          << " to " << newSize
-                          << " (from " << d_tailSegment->d_list
-                          << " to " << newList << ")" << std::endl;
-      if(newList == NULL) {
-        throw std::bad_alloc();
-      }
-      d_tailSegment->linkTo(newSegment);
-      d_tailSegment = newSegment;
-      d_tailSegment->initialize(newList);
-      d_totalSizeAlloc += newSize;
+    Assert(d_totalSizeAlloc == d_size);
+
+    // Allocate a new segment
+    typedef typename Allocator::template rebind<ListSegment>::other
+      SegmentAllocator;
+    ContextMemoryManager* cmm = d_allocator.getCMM();
+    SegmentAllocator segAllocator = SegmentAllocator(cmm);
+    ListSegment* newSegment = segAllocator.allocate(1);
+    if(newSegment == NULL) {
+      throw std::bad_alloc();
     }
+    segAllocator.construct(newSegment, ListSegment());
+    size_t newSize = INCREMENTAL_GROWTH_FACTOR * d_totalSizeAlloc;
+    Assert(newSize <= d_allocator.max_size(),
+           "cannot request %u elements due to allocator limits");
+    T* newList = d_allocator.allocate(newSize);
+    Debug("cdlist:cmm") << "new segment of cdlistcontext " << this
+                        << " level " << getContext()->getLevel()
+                        << " to " << newSize
+                        << " (from " << d_tailSegment->list()
+                        << " to " << newList << ")" << std::endl;
+    if(newList == NULL) {
+      throw std::bad_alloc();
+    }
+    d_tailSegment->linkTo(newSegment);
+    d_tailSegment = newSegment;
+    d_tailSegment->initialize(newList);
+    d_totalSizeAlloc += newSize;
   }
 
   /**
@@ -185,13 +220,12 @@ protected:
    * The saved information is allocated using the ContextMemoryManager.
    */
   ContextObj* save(ContextMemoryManager* pCMM) {
-    ContextObj* data =
-      new(pCMM) CDListSave(d_tailSegment, d_size, d_totalSizeAlloc);
+    ContextObj* data = new(pCMM) CDListSave(getContext(), d_tailSegment,
+                                            d_size, d_totalSizeAlloc);
     Debug("cdlist:cmm") << "save " << this
                         << " at level " << this->getContext()->getLevel()
                         << " size at " << this->d_size
-                        << " sizeAlloc at " << this->d_sizeAlloc
-                        << " d_list is " << this->d_list
+                        << " totalSizeAlloc at " << this->d_totalSizeAlloc
                         << " data:" << data << std::endl;
     return data;
   }
@@ -209,20 +243,29 @@ protected:
                         << " call dtor == " << this->d_callDestructor
                         << " d_tail == " << this->d_tailSegment << std::endl;
     if(this->d_callDestructor) {
-      const size_t size = save->d_size;
-      while(this->d_size != size) {
-        --this->d_size;
-        this->d_allocator.destroy((*this)[this->d_size]);
+      ListSegment* seg = &d_headSegment;
+      size_t i = save->d_size;
+      while(i >= seg->size()) {
+        i -= seg->size();
+        seg = seg->getNextSegment();
       }
-    } else {
-      this->d_size = save->d_size;
+      do {
+        while(i < seg->size()) {
+          this->d_allocator.destroy(&(*seg)[i++]);
+        }
+        i = 0;
+      } while((seg = seg->getNextSegment()) != NULL);
     }
+
+    this->d_size = save->d_size;
     this->d_tailSegment = save->d_tail;
     this->d_tailSegment->size() = save->d_tailSize;
+    this->d_totalSizeAlloc = save->d_sizeAlloc;
     Debug("cdlist:cmm") << "restore " << this
                         << " level " << this->getContext()->getLevel()
                         << " size back to " << this->d_size
-                        << " sizeAlloc at " << this->d_sizeAlloc << std::endl;
+                        << " totalSizeAlloc at " << this->d_totalSizeAlloc
+                        << std::endl;
   }
 
 public:
@@ -237,6 +280,7 @@ public:
     d_callDestructor(callDestructor),
     d_size(0),
     d_allocator(alloc) {
+    allocateHeadSegment();
   }
 
   /**
@@ -250,6 +294,7 @@ public:
     d_callDestructor(callDestructor),
     d_size(0),
     d_allocator(alloc) {
+    allocateHeadSegment();
   }
 
   /**
@@ -259,8 +304,12 @@ public:
     this->destroy();
 
     if(this->d_callDestructor) {
-      for(size_t i = 0; i < this->d_size; ++i) {
-        this->d_allocator.destroy((*this)[i]);
+      for(ListSegment* segment = &d_headSegment;
+          segment != NULL;
+          segment = segment->getNextSegment()) {
+        for(size_t i = 0; i < segment->size(); ++i) {
+          this->d_allocator.destroy(&(*segment)[i]);
+        }
       }
     }
   }
@@ -287,7 +336,7 @@ public:
     Debug("cdlist:cmm") << "push_back " << this
                         << " level " << getContext()->getLevel()
                         << ": make-current, "
-                        << "d_list == " << &(*d_tailSegment)[0] << std::endl;
+                        << "d_list == " << d_tailSegment->list() << std::endl;
     makeCurrent();
 
     Debug("cdlist:cmm") << "push_back " << this

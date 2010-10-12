@@ -32,7 +32,7 @@
 #include "context/cdo.h"
 #include "context/cdmap.h"
 #include "context/cdset.h"
-#include "context/cdlist.h"
+#include "context/cdlist_context_memory.h"
 #include "util/exception.h"
 
 namespace CVC4 {
