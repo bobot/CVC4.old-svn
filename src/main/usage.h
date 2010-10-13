@@ -52,6 +52,7 @@ CVC4 options:\n\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
+   --proof-gen            output lfsc-style proof\n\
    --no-early-type-checking don't typecheck at Expr creation [non-DEBUG builds never do]\n";
 
 }/* CVC4::main namespace */

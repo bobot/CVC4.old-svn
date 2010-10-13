@@ -37,12 +37,12 @@ namespace prop {
   class SatSolver;
   // --lsh
   class Derivation;
+  class SatResolution;
   // lsh--
 }
 }
 
 namespace Minisat {
-
 //=================================================================================================
 // Solver -- the main class:
 
@@ -176,6 +176,11 @@ public:
     //
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
+
+    // Proof generation
+    //--lsh
+    CVC4::prop::Derivation* proof;
+    //lsh--
 
 protected:
 

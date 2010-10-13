@@ -76,7 +76,8 @@ enum OptionValue {
   NO_INTERACTIVE,
   PRODUCE_MODELS,
   PRODUCE_ASSIGNMENTS,
-  NO_EARLY_TYPE_CHECKING
+  NO_EARLY_TYPE_CHECKING,
+  PROOF_GENERATION
 };/* enum OptionValue */
 
 /**
@@ -129,6 +130,7 @@ static struct option cmdlineOptions[] = {
   { "produce-models", no_argument   , NULL, PRODUCE_MODELS},
   { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS},
   { "no-early-type-checking", no_argument, NULL, NO_EARLY_TYPE_CHECKING},
+  { "proof-gen", no_argument, NULL, PROOF_GENERATION },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -237,6 +239,10 @@ throw(OptionException) {
 
     case STRICT_PARSING:
       opts->strictParsing = true;
+      break;
+
+    case PROOF_GENERATION:
+      opts->proofGeneration = true;
       break;
 
     case DEFAULT_EXPR_DEPTH:

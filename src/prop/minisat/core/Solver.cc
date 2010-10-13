@@ -23,7 +23,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Sort.h"
 #include "core/Solver.h"
 #include "prop/sat.h"
-
 // --lsh
 #include "util/sat_proof.h"
 // lsh--
@@ -50,6 +49,9 @@ static IntOption     opt_restart_first     (_cat, "rfirst",      "The base resta
 static DoubleOption  opt_restart_inc       (_cat, "rinc",        "Restart interval increase factor", 3, DoubleRange(1, false, HUGE_VAL, false));
 static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction of wasted memory allowed before a garbage collection is triggered",  0.20, DoubleRange(0, false, HUGE_VAL, false));
 
+//--lsh initialize clause id counter
+ClauseID Derivation::id_counter=1;
+//lsh--
 
 //=================================================================================================
 // Constructor/Destructor:
@@ -103,7 +105,13 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context) :
   , conflict_budget    (-1)
   , propagation_budget (-1)
   , asynch_interrupt   (false)
-{}
+  , proof (NULL)
+{
+  //--lsh
+  //TODO: check for flag
+  proof = new Derivation(this);
+  //lsh--
+  }
 
 
 Solver::~Solver()

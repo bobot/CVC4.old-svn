@@ -71,6 +71,9 @@ struct CVC4_PUBLIC Options {
   /** Should we strictly enforce the language standard while parsing? */
   bool strictParsing;
 
+  /** Turns proof generation on **/
+  bool proofGeneration;
+
   /** Should we expand function definitions lazily? */
   bool lazyDefinitionExpansion;
 
