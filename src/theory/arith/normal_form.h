@@ -23,6 +23,7 @@
 #define __CVC4__THEORY__ARITH__NORMAL_FORM_H
 
 #include "expr/node.h"
+#include "expr/node_self_iterator.h"
 #include "util/rational.h"
 #include "theory/arith/arith_constants.h"
 #include "theory/arith/arith_utilities.h"
@@ -247,6 +248,34 @@ inline Node makeNode(Kind k, GetNodeIterator start, GetNodeIterator end) {
 }/* makeNode<GetNodeIterator>(Kind, iterator, iterator) */
 
 
+template <class GetNodeIterator, class T>
+static void copy_range(GetNodeIterator begin, GetNodeIterator end, std::vector<T>& result){
+  while(begin != end){
+    result.push_back(*begin);
+    ++begin;
+  }
+}
+
+template <class GetNodeIterator, class T>
+static void merge_ranges(GetNodeIterator first1,
+                  GetNodeIterator last1,
+                  GetNodeIterator first2,
+                  GetNodeIterator last2,
+                  std::vector<T>& result) {
+
+  while(first1 != last1 && first2 != last2){
+    if( (*first1) < (*first2) ){
+      result.push_back(*first1);
+      ++ first1;
+    }else{
+      result.push_back(*first2);
+      ++ first2;
+    }
+  }
+  copy_range(first1, last1, result);
+  copy_range(first2, last2, result);
+}
+
 /**
  * A VarList is a sorted list of variables representing a product.
  * If the VarList is empty, it represents an empty product or 1.
@@ -254,34 +283,47 @@ inline Node makeNode(Kind k, GetNodeIterator start, GetNodeIterator end) {
  *
  * A non-sorted VarList can never be successfully made in debug mode.
  */
-class VarList {
+class VarList : public NodeWrapper {
 private:
-  Node backingNode;
 
   static Node multList(const std::vector<Variable>& list) {
     Assert(list.size() >= 2);
 
     return makeNode(kind::MULT, list.begin(), list.end());
   }
-  static Node makeTuple(Node n) {
-    // MGD FOR REVIEW: drop IDENTITY kind ?
-    return NodeManager::currentNM()->mkNode(kind::IDENTITY, n);
-  }
 
-  VarList() : backingNode(Node::null()) {}
+  VarList() : NodeWrapper(Node::null()) {}
 
-  VarList(Node n) {
-    backingNode = (Variable::isMember(n)) ? makeTuple(n) : n;
-
+  VarList(Node n) : NodeWrapper(n) {
     Assert(isSorted(begin(), end()));
   }
 
+  typedef expr::NodeSelfIterator internal_iterator;
+
+  internal_iterator internalBegin() const {
+    if(singleton()){
+      return expr::NodeSelfIterator::self(getNode());
+    }else{
+      return getNode().begin();
+    }
+  }
+
+  internal_iterator internalEnd() const {
+    if(singleton()){
+      return expr::NodeSelfIterator::selfEnd(getNode());
+    }else{
+      return getNode().end();
+    }
+  }
+
 public:
-  class iterator  {
+
+  class iterator {
   private:
-    Node::iterator d_iter;
+    internal_iterator d_iter;
+
   public:
-    explicit iterator(Node::iterator i) : d_iter(i) {}
+    explicit iterator(internal_iterator i) : d_iter(i) {}
 
     inline Variable operator*() {
       return Variable(*d_iter);
@@ -305,25 +347,19 @@ public:
     }
   };
 
-  Node getNode() const {
-    if(singleton()) {
-      return backingNode[0];
-    } else {
-      return backingNode;
-    }
-  }
-
   iterator begin() const {
-    return iterator(backingNode.begin());
-  }
-  iterator end() const {
-    return iterator(backingNode.end());
+    return iterator(internalBegin());
   }
 
-  VarList(Variable v) : backingNode(makeTuple(v.getNode())) {
+  iterator end() const {
+    return iterator(internalEnd());
+  }
+
+  VarList(Variable v) : NodeWrapper(v.getNode()) {
     Assert(isSorted(begin(), end()));
   }
-  VarList(const std::vector<Variable>& l) : backingNode(multList(l)) {
+
+  VarList(const std::vector<Variable>& l) : NodeWrapper(multList(l)) {
     Assert(l.size() >= 2);
     Assert(isSorted(begin(), end()));
   }
@@ -350,9 +386,17 @@ public:
     }
   }
 
-  int size() const { return backingNode.getNumChildren(); }
-  bool empty() const { return size() == 0; }
-  bool singleton() const { return backingNode.getKind() == kind::IDENTITY; }
+  bool empty() const { return getNode().isNull(); }
+  bool singleton() const {
+    return !empty() && getNode().getKind() != kind::MULT;
+  }
+
+  int size() const {
+    if(singleton())
+      return 1;
+    else
+      return getNode().getNumChildren();
+  }
 
   static VarList parseVarList(Node n);
 
@@ -418,6 +462,8 @@ public:
     Assert(multStructured(getNode()));
   }
 
+  static bool isMember(TNode n);
+
   /** Makes a monomial with no restrictions on c and vl. */
   static Monomial mkMonomial(const Constant& c, const VarList& vl);
 
@@ -474,20 +520,18 @@ public:
    */
   static std::vector<Monomial> sumLikeTerms(const std::vector<Monomial>& monos);
 
-  static void printList(const std::vector<Monomial>& monos);
+  void print() const;
+  static void printList(const std::vector<Monomial>& list);
+
 };/* class Monomial */
 
 
 class Polynomial : public NodeWrapper {
 private:
-  // MGD FOR REVIEW: do not create this vector<>!
-  std::vector<Monomial> monos;
+  bool d_singleton;
 
-  Polynomial(Node n, const std::vector<Monomial>& m):
-    NodeWrapper(n), monos(m)
-  {
-    Assert( !monos.empty() );
-    Assert( Monomial::isStrictlySorted(monos) );
+  Polynomial(TNode n) : NodeWrapper(n), d_singleton(Monomial::isMember(n)) {
+    Assert(isMember(getNode()));
   }
 
   static Node makePlusNode(const std::vector<Monomial>& m) {
@@ -496,22 +540,84 @@ private:
     return makeNode(kind::PLUS, m.begin(), m.end());
   }
 
-public:
-  typedef std::vector<Monomial>::const_iterator iterator;
+  typedef expr::NodeSelfIterator internal_iterator;
 
-  iterator begin() const { return monos.begin(); }
-  iterator end() const { return monos.end(); }
+  internal_iterator internalBegin() const {
+    if(singleton()){
+      return expr::NodeSelfIterator::self(getNode());
+    }else{
+      return getNode().begin();
+    }
+  }
+
+  internal_iterator internalEnd() const {
+    if(singleton()){
+      return expr::NodeSelfIterator::selfEnd(getNode());
+    }else{
+      return getNode().end();
+    }
+  }
+
+  bool singleton() const { return d_singleton; }
+
+public:
+  static bool isMember(TNode n) {
+    if(Monomial::isMember(n)){
+      return true;
+    }else if(n.getKind() == kind::PLUS){
+      Assert(n.getNumChildren() >= 2);
+      for(Node::iterator curr = n.begin(), end = n.end(); curr != end;++curr){
+        if(!Monomial::isMember(*curr)){
+          return false;
+        }
+      }
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  class iterator {
+  private:
+    internal_iterator d_iter;
+
+  public:
+    explicit iterator(internal_iterator i) : d_iter(i) {}
+
+    inline Monomial operator*() {
+      return Monomial::parseMonomial(*d_iter);
+    }
+
+    bool operator==(const iterator& i) {
+      return d_iter == i.d_iter;
+    }
+
+    bool operator!=(const iterator& i) {
+      return d_iter != i.d_iter;
+    }
+
+    iterator operator++() {
+      ++d_iter;
+      return *this;
+    }
+
+    iterator operator++(int) {
+      return iterator(d_iter++);
+    }
+  };
+
+  iterator begin() const { return iterator(internalBegin()); }
+  iterator end() const {  return iterator(internalEnd()); }
 
   Polynomial(const Monomial& m):
-    NodeWrapper(m.getNode()), monos()
-  {
-    monos.push_back(m);
-  }
+    NodeWrapper(m.getNode()), d_singleton(true)
+  {}
+
   Polynomial(const std::vector<Monomial>& m):
-    NodeWrapper(makePlusNode(m)), monos(m)
+    NodeWrapper(makePlusNode(m)), d_singleton(false)
   {
-    Assert( monos.size() >= 2);
-    Assert( Monomial::isStrictlySorted(monos) );
+    Assert( m.size() >= 2);
+    Assert( Monomial::isStrictlySorted(m) );
   }
 
 
@@ -525,17 +631,8 @@ public:
     }
   }
 
-  // MGD FOR REVIEW: make this constant time (for non-debug mode)
   static Polynomial parsePolynomial(Node n) {
-    std::vector<Monomial> monos;
-    if(n.getKind() == kind::PLUS) {
-      for(Node::iterator i=n.begin(), end=n.end(); i != end; ++i) {
-        monos.push_back(Monomial::parseMonomial(*i));
-      }
-    } else {
-      monos.push_back(Monomial::parseMonomial(n));
-    }
-    return Polynomial(n,monos);
+    return Polynomial(n);
   }
 
   static Polynomial mkZero() {
@@ -545,11 +642,11 @@ public:
     return Polynomial(Monomial::mkOne());
   }
   bool isZero() const {
-    return (monos.size() == 1) && (getHead().isZero());
+    return singleton() && (getHead().isZero());
   }
 
   bool isConstant() const {
-    return (monos.size() == 1) && (getHead().isConstant());
+    return singleton() && (getHead().isConstant());
   }
 
   bool containsConstant() const {
@@ -561,17 +658,24 @@ public:
   }
 
   Polynomial getTail() const {
-    Assert(monos.size() >= 1);
+    Assert(! singleton());
 
-    iterator start = begin()+1;
-    std::vector<Monomial> subrange(start, end());
+    iterator tailStart = begin();
+    ++tailStart;
+    std::vector<Monomial> subrange;
+    copy_range(tailStart, end(), subrange);
     return mkPolynomial(subrange);
   }
 
   void printList() const {
-    Debug("normal-form") << "start list" << std::endl;
-    Monomial::printList(monos);
-    Debug("normal-form") << "end list" << std::endl;
+    if(Debug.isOn("normal-form")){
+      Debug("normal-form") << "start list" << std::endl;
+      for(iterator i = begin(), oend = end(); i != oend; ++i) {
+        const Monomial& m =*i;
+        m.print();
+      }
+      Debug("normal-form") << "end list" << std::endl;
+    }
   }
 
   Polynomial operator+(const Polynomial& vl) const;

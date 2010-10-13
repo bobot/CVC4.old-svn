@@ -70,25 +70,35 @@ VarList VarList::parseVarList(Node n) {
   }
 }
 
-VarList VarList::operator*(const VarList& vl) const {
+VarList VarList::operator*(const VarList& other) const {
   if(this->empty()) {
-    return vl;
-  } else if(vl.empty()) {
+    return other;
+  } else if(other.empty()) {
     return *this;
   } else {
     vector<Node> result;
-    back_insert_iterator< vector<Node> > bii(result);
 
-    Node::iterator
-      thisBegin = this->backingNode.begin(),
-      thisEnd = this->backingNode.end(),
-      v1Begin = vl.backingNode.begin(),
-      v1End = vl.backingNode.end();
+    internal_iterator
+      thisBegin = this->internalBegin(),
+      thisEnd = this->internalEnd(),
+      otherBegin = other.internalBegin(),
+      otherEnd = other.internalEnd();
 
-    merge(thisBegin, thisEnd, v1Begin, v1End, bii);
+    merge_ranges(thisBegin, thisEnd, otherBegin, otherEnd, result);
+
     Assert(result.size() >= 2);
     Node mult = NodeManager::currentNM()->mkNode(kind::MULT, result);
     return VarList::parseVarList(mult);
+  }
+}
+
+bool Monomial::isMember(TNode n){
+  if(n.getKind() == kind::CONST_RATIONAL) {
+    return true;
+  } else if(multStructured(n)) {
+    return VarList::isMember(n[1]);
+  } else {
+    return VarList::isMember(n);
   }
 }
 
@@ -147,20 +157,22 @@ vector<Monomial> Monomial::sumLikeTerms(const vector<Monomial> & monos) {
   return outMonomials;
 }
 
-void Monomial::printList(const std::vector<Monomial>& monos) {
-  typedef std::vector<Monomial>::const_iterator iterator;
-  for(iterator i = monos.begin(), end = monos.end(); i != end; ++i) {
-    Debug("blah") <<  ((*i).getNode()) << std::endl;
-  }
+void Monomial::print() const {
+  Debug("normal-form") <<  getNode() << std::endl;
 }
 
+void Monomial::printList(const vector<Monomial>& list) {
+  for(vector<Monomial>::const_iterator i = list.begin(), end = list.end(); i != end; ++i) {
+    const Monomial& m =*i;
+    m.print();
+  }
+}
 Polynomial Polynomial::operator+(const Polynomial& vl) const {
   this->printList();
   vl.printList();
 
   std::vector<Monomial> sortedMonos;
-  std::back_insert_iterator<std::vector<Monomial> > bii(sortedMonos);
-  std::merge(begin(), end(), vl.begin(), vl.end(), bii);
+  merge_ranges(begin(), end(), vl.begin(), vl.end(), sortedMonos);
 
   std::vector<Monomial> combined = Monomial::sumLikeTerms(sortedMonos);
 

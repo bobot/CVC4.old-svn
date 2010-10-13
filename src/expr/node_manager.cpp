@@ -118,6 +118,20 @@ NodeManager::~NodeManager() {
   }
 
   poolRemove( &expr::NodeValue::s_null );
+
+  if(Debug.isOn("gc:leaks")) {
+    Debug("gc:leaks") << "still in pool:" << std::endl;
+    for(NodeValuePool::const_iterator i = d_nodeValuePool.begin(),
+          iend = d_nodeValuePool.end();
+        i != iend;
+        ++i) {
+      Debug("gc:leaks") << "  " << *i
+                        << " id=" << (*i)->d_id
+                        << " rc=" << (*i)->d_rc
+                        << " " << **i << std::endl;
+    }
+    Debug("gc:leaks") << ":end:" << std::endl;
+  }
 }
 
 void NodeManager::reclaimZombies() {
@@ -248,9 +262,6 @@ TypeNode NodeManager::getType(TNode n, bool check)
       break;
     case kind::APPLY_UF:
       typeNode = CVC4::theory::uf::UfTypeRule::computeType(this, n, check);
-      break;
-    case kind::IDENTITY:
-      typeNode = CVC4::theory::arith::ArithOperatorTypeRule::computeType(this, n, check);
       break;
     case kind::PLUS:
       typeNode = CVC4::theory::arith::ArithOperatorTypeRule::computeType(this, n, check);
