@@ -318,6 +318,9 @@ protected:
     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
     bool     withinBudget     ()      const;
 
+    //--lsh
+    void order_dfs(Lit p, vec<Lit> & ordered);
+
     // Static helpers:
     //
 

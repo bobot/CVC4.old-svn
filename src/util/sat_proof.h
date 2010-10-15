@@ -143,6 +143,7 @@ public:
   SatResolution* getResolution(ClauseID clause_id);
 
   void markDeleted(Clause* clause);
+  void storeVars(Clause* clause);
 
 
   /** solver interface **/
@@ -192,6 +193,8 @@ public:
 
 bool Derivation::isUnit(Clause* cl){
   Assert(cl!= NULL);
+  if (cl->size()>1)
+    return false;
   return d_unit_clauses.end()!= d_unit_clauses.find(toInt((*cl)[0]));
 }
 
@@ -276,6 +279,12 @@ void Derivation::markDeleted(Clause* clause){
 
 }
 
+void Derivation::storeVars(Clause* clause){
+  Assert(clause!=NULL);
+  for(int i=0; i<clause->size(); i++)
+    d_vars.insert(var(*clause[i])+1);
+}
+
 
 /**** registration methods *****/
 
@@ -300,6 +309,8 @@ ClauseID Derivation::registerClause(Clause* clause, bool is_input_clause){
 
     ClauseID id = getId(clause);
     if(id == -1){
+      //FIXME: better way to do this?
+      storeVars(clause);
       // if not already registered
       id = newId();
       d_clause_id[clause] = id;
@@ -365,7 +376,7 @@ void Derivation::lemmaProof(ClauseID clause_id){
   if(!isSatLemma(clause_id)){
     SatResolution* res = getResolution(clause_id);
     //printResolution(clause_id);
-
+    //Debug("proof")<<"lemmaProof::id "<<clause_id<<"\n";
     RSteps steps = res->getSteps();
     ClauseID start_id = res->getStart();
     if(!isSatLemma(start_id) && isLearned(start_id))
@@ -409,8 +420,7 @@ ClauseID Derivation::getLitReason(Lit lit){
   if(!isSatLemma(clause_id)&& isLearned(clause_id))
     lemmaProof(clause_id);
 
-  ClauseID id = newId();
-  d_unit_clauses[toInt(~lit)] = id;
+  ClauseID id = registerClause(lit);
   d_res_map[id] = res;
   return id;
 }
@@ -446,7 +456,8 @@ inline void Derivation::printLit(Lit l)
 
 inline void Derivation::printClause(Clause* c)
 {
-    for (int i = 0; i < c->size(); i++){
+  Assert(c!= NULL);
+  for (int i = 0; i < c->size(); i++){
         printLit((*c)[i]);
         Debug("proof")<<" ";
     }

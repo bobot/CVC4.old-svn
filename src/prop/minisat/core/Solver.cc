@@ -351,11 +351,11 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
                 else
                     out_learnt.push(q);
             }
-            //FIXME: how to write this mess in an elegant way?
+            //FIXME: make function, move to sat_proof.h
             //--lsh
             else{
              if(level(var(q)) == 0){
-               if(reason(var(q))==CRef_Undef){
+               if(reason(var(q))==CRef_Undef || (proof->isUnit(~q) && proof->hasResolution(proof->getUnitId(~q))) ){
                 // must be an unit clause
                 Debug("proof")<<"Solver::analyze::unit clause ";
                 proof->printLit(q);
@@ -374,6 +374,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
 
                  // FIXME:: make default for register clause be false
                  ClauseID id_r = proof->registerClause(&ca[reason(var(q))], false);
+                 Debug("proof")<<"id_r="<<id_r<<"\n";
                  SatResolution* res_unit = new SatResolution(id_r);
 
                  vec<char> seen2;
@@ -435,6 +436,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
         if(confl!= CRef_Undef && pathC>0){
           ClauseID id = proof->registerClause(&(ca[confl]), false);
           res->addStep(p, id, sign(p));
+          if(id==1929)
+            proof->printClause(&(ca[confl]));
         }
         //lsh--
 
@@ -445,7 +448,18 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
     // Simplify conflict clause:
     //
     int i, j;
+    //--lsh
+    vec<Lit> eliminated_lit;
+    //lsh--
     out_learnt.copyTo(analyze_toclear);
+    Debug("proof")<<"CC:: ";
+    for(int i=0; i< out_learnt.size();i++){
+      proof->printLit(out_learnt[i]);
+      Debug("proof")<<" ";
+    }
+    Debug("proof")<<"\n";
+
+
     if (ccmin_mode == 2){
         uint32_t abstract_level = 0;
         for (i = 1; i < out_learnt.size(); i++)
@@ -454,6 +468,47 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
         for (i = j = 1; i < out_learnt.size(); i++)
             if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i], abstract_level))
                 out_learnt[j++] = out_learnt[i];
+            //--lsh
+            else{
+              seen[var(out_learnt[i])] |=4;
+              eliminated_lit.push(out_learnt[i]);
+            }
+            //lsh--
+        //--lsh
+        if(eliminated_lit.size() > 0){
+          Debug("proof")<<"minimized clause \n";
+          for(int k=0; k <eliminated_lit.size();k++){
+            proof->printLit(eliminated_lit[k]);
+          }
+          Debug("proof")<<"\n";
+          vec<Lit> order;
+          int k;
+          for(k = 0; k< eliminated_lit.size(); k++)
+            order_dfs(eliminated_lit[k], order);
+          Debug("proof")<<"order size ---"<<order.size()<<"\n";
+
+          for(k = order.size()-1; k>=0; k--){
+            CRef cref = reason(var(order[k]));
+            ClauseID cl_id;
+            if(cref == CRef_Undef)
+              // if it was a unit clause
+              cl_id = proof->registerClause(order[k]);
+            else
+              cl_id = proof->registerClause(&(ca[cref]), false);
+            res->addStep(order[k], cl_id, !(sign(order[k])));
+            Debug("proof")<<"eliminating lit ";
+            proof->printLit(order[k]);
+            Debug("proof")<<" by resolving ";
+            if (cref!= CRef_Undef)
+              proof->printClause(&(ca[cref]));
+            else
+              proof->printLit(~order[k]);
+            Debug("proof")<<"\n";
+
+          }
+
+        }
+        //lsh--
         
     }else if (ccmin_mode == 1){
         for (i = j = 1; i < out_learnt.size(); i++){
@@ -496,7 +551,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
 
     //--lsh
-    Debug("proof")<<"CC: ";
+    Debug("proof")<<"Min_CC: ";
     for(int i=0; i< out_learnt.size();i++){
       proof->printLit(out_learnt[i]);
       Debug("proof")<<" ";
@@ -506,6 +561,47 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
 
 }
 
+
+//--lsh
+
+void Solver::order_dfs(Lit p, vec<Lit> & ordered){
+  // seen[var(p)] :
+  // 0 bit - in the original conflict clause
+  // 1 bit - removable not in original clause
+  // 2 bit - removable and in original clause
+  // 3 bit - processed by this method
+
+  // check if already seen
+  if(seen[var(p)]&8)
+    return;
+  // mark it as seen
+  if(seen[var(p)]== 0)
+    analyze_toclear.push(p);
+
+  seen[var(p)]|= 8;
+  Assert(reason(var(p))!= CRef_Undef);
+
+  Clause& cl = ca[reason(var(p))];
+  for(int i=1; i < cl.size(); i++){
+    //FIXME: make it readable and logical
+    if(reason(var(cl[i]))== CRef_Undef && (seen[var(cl[i])]&1) == 0){
+      // if has no reason and not in original conflict
+      // must be deduced by a unit clause
+      ordered.push(cl[i]);
+    }
+    else
+    if((seen[var(cl[i])] & (2|4)) || level(var(cl[i]))==0 )
+      order_dfs(cl[i], ordered);
+  }
+
+  if((seen[var(p)] & (2|4)) || level(var(p)) == 0)
+    // if it's removable and in the original clause
+    // or it's not in the original clause and has been processed by the litRedunt method i.e. intermediary removable
+    ordered.push(p);
+
+}
+
+//lsh--
 
 // Check if 'p' can be removed. 'abstract_levels' is used to abort early if the algorithm is
 // visiting literals at levels that cannot be removed later.
@@ -521,7 +617,7 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
             Lit p  = c[i];
             if (!seen[var(p)] && level(var(p)) > 0){
                 if (reason(var(p)) != CRef_Undef && (abstractLevel(var(p)) & abstract_levels) != 0){
-                    seen[var(p)] = 1;
+                    seen[var(p)] |= 2; //--lsh
                     analyze_stack.push(p);
                     analyze_toclear.push(p);
                 }else{
