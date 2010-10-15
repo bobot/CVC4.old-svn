@@ -280,7 +280,8 @@ protected:
     bool     propagateTheory  ();                                                      // Perform Theory propagation. Return true if any literals were asserted.
     CRef     theoryCheck      (CVC4::theory::Theory::Effort effort);                   // Perform a theory satisfiability check. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
-    void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel);    // (bt = backtrack)
+    //--lsh added a new argument to analyze for proof logging
+    void     analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel, CVC4::prop::SatResolution* &res);    // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
     bool     litRedundant     (Lit p, uint32_t abstract_levels);                       // (helper method for 'analyze()')
     lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.

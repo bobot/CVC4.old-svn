@@ -315,7 +315,7 @@ Lit Solver::pickBranchLit()
 |        rest of literals. There may be others from the same level though.
 |  
 |________________________________________________________________________________________________@*/
-void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
+void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatResolution* &res)
 {
     int pathC = 0;
     Lit p     = lit_Undef;
@@ -324,6 +324,14 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     //
     out_learnt.push();      // (leave room for the asserting literal)
     int index   = trail.size() - 1;
+
+    //--lsh
+    ClauseID id = proof->registerClause(&(ca[confl]), false);
+    res = new SatResolution(id);
+    Debug("proof")<<"OC ";
+    proof->printClause(&(ca[confl]));
+
+    //lsh--
 
     do{
         assert(confl != CRef_Undef); // (otherwise should be UIP)
@@ -343,6 +351,78 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
                 else
                     out_learnt.push(q);
             }
+            //FIXME: how to write this mess in an elegant way?
+            //--lsh
+            else{
+             if(level(var(q)) == 0){
+               if(reason(var(q))==CRef_Undef){
+                // must be an unit clause
+                Debug("proof")<<"Solver::analyze::unit clause ";
+                proof->printLit(q);
+                Debug("proof")<<"\n";
+                res->addStep(q, proof->getUnitId(~q), ~sign(q));
+               }
+               else{
+                 // must be propagated at 0 and must recursively trace the reasons
+
+                 proof->printLit(q);
+                 Debug("proof:d")<<" propagated at 0 \n";
+                 proof->printClause(&ca[reason(var(q))]);
+
+                 ClauseID id = proof->registerClause(q);
+                 res->addStep(q, id, !sign(q));
+
+                 // FIXME:: make default for register clause be false
+                 ClauseID id_r = proof->registerClause(&ca[reason(var(q))], false);
+                 SatResolution* res_unit = new SatResolution(id_r);
+
+                 vec<char> seen2;
+                 seen2.growTo(seen.size());
+                 for (int j = 0;j < seen.size(); j++)
+                   seen2[j] = 0;
+
+                 vec<Lit> stack;
+                 stack.push(q);
+                 do{
+                   Lit l = stack.last();
+                   stack.pop();
+                   Clause* r = &ca[reason(var(l))];
+                   seen2[var(l)]=1;
+                   // Create new resolution for unit that proves q
+                   ClauseID r_id = proof->registerClause(r, false); //FIXME: how do u know it's not an input clause
+                   if(l!=q)
+                     res_unit->addStep(l, r_id, !sign(l));
+
+                   for (int i = 1; i< r->size();i++){ //FIXME: start from 1
+                     Lit l2 = (*r)[i];
+                     if(!seen2[var(l2)]){
+                       if(reason(var(l2)) != CRef_Undef)
+                         stack.push(l2);
+                       else{
+                         // we assume that the unit clause l2 has already been registered because l2 has reason NULL at level 0 which means it has been deduced by a unit learned clause
+                         Assert(proof->isUnit(~l2));
+                         res_unit->addStep(l2, proof->getUnitId(~l2), !sign(l2));
+                         //vec<Lit> lits;
+                         //lits.push(~l2);
+                       }
+                     }
+                     else if(reason(var(l2))==CRef_Undef){
+                       Debug("proof:d")<<"Unit clause ";
+                       proof->printLit(l2);
+                       Debug("proof:d")<<"\n";
+                       Assert(proof->isUnit(~l2));
+                       res_unit->addStep(l2, proof->getUnitId(~l2), !sign(l2));
+                     }
+                   }
+                 }
+                 while(stack.size()>0);
+                 proof->registerResolution(id, res_unit);
+
+               }
+             }
+
+            }
+            //lsh--
         }
         
         // Select next clause to look at:
@@ -351,6 +431,13 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         confl = reason(var(p));
         seen[var(p)] = 0;
         pathC--;
+        //--lsh
+        if(confl!= CRef_Undef && pathC>0){
+          ClauseID id = proof->registerClause(&(ca[confl]), false);
+          res->addStep(p, id, sign(p));
+        }
+        //lsh--
+
 
     }while (pathC > 0);
     out_learnt[0] = ~p;
@@ -407,6 +494,16 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     }
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
+
+    //--lsh
+    Debug("proof")<<"CC: ";
+    for(int i=0; i< out_learnt.size();i++){
+      proof->printLit(out_learnt[i]);
+      Debug("proof")<<" ";
+    }
+    Debug("proof")<<"\n";
+    //lsh--
+
 }
 
 
@@ -772,16 +869,34 @@ lbool Solver::search(int nof_conflicts)
         if (confl != CRef_Undef){
             // CONFLICT
             conflicts++; conflictC++;
-            if (decisionLevel() == 0) return l_False;
-
+            if (decisionLevel() == 0) {
+              //--lsh
+              proof->printClause(&(ca[confl]));
+              proof->printLFSCProof(&(ca[confl]));
+              //lsh--
+              return l_False;
+            }
             learnt_clause.clear();
-            analyze(confl, learnt_clause, backtrack_level);
+            //--lsh
+            SatResolution* res = NULL;
+            analyze(confl, learnt_clause, backtrack_level, res);
+            //lsh--
             cancelUntil(backtrack_level);
 
             if (learnt_clause.size() == 1){
+                //--lsh
+                ClauseID cl_id = proof->registerClause(~(learnt_clause[0]));
+                proof->registerResolution(cl_id, res);
+                proof->printResolution(cl_id);
+                //lsh--
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
                 CRef cr = ca.alloc(learnt_clause, true);
+                //--lsh
+                proof->registerClause(&(ca[cr]), false);
+                proof->registerResolution(&(ca[cr]), res);
+                proof->printResolution(&(ca[cr]));
+                //lsh--
                 learnts.push(cr);
                 attachClause(cr);
                 claBumpActivity(ca[cr]);
@@ -907,6 +1022,14 @@ static double luby(double y, int x){
 // NOTE: assumptions passed in member-variable 'assumptions'.
 lbool Solver::solve_()
 {
+    //--lsh
+    Debug("proof")<<"Problem clauses \n";
+    for(int i=0; i< clauses.size(); i++){
+      proof->registerClause(&ca[clauses[i]], true);
+      proof->printClause(&(ca[clauses[i]]));
+    }
+    //lsh--
+
     model.clear();
     conflict.clear();
     if (!ok) return l_False;
