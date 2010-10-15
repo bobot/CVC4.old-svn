@@ -90,10 +90,10 @@ private:
   std::hash_set <int> d_vars;                            // the set of variables that appear in the proof
   std::map <ClauseID, SatResolution*> d_sat_lemmas;      // the resolution chains that will be printed as sat lemmas
 
-  std::map <ClauseID, Clause*> d_id_clause;             // map from clause id to clauses
-  std::map <Clause*, ClauseID> d_clause_id;             // map from clauses to clause id
+  std::map <ClauseID, CRef> d_id_clause;             // map from clause id to clauses
+  std::map <CRef, ClauseID> d_clause_id;             // map from clauses to clause id
 
-  std::hash_map <ClauseID, Clause*> d_deleted;          // stores the clauses deleted from the minisat database
+  std::hash_map <ClauseID, CRef> d_deleted;          // stores the clauses deleted from the minisat database
 
   std::vector <ClauseID> d_lemma_stack;              // stack to print sat_lemmas in proper order
   std::hash_map <int, ClauseID > d_unit_clauses;          // the set of unit clauses, indexed by value of variable for easy searching
@@ -102,12 +102,12 @@ private:
   std::hash_map <ClauseID, SatResolution*> d_res_map;     // a map from clause id's to the boolean resolution derivation of that respective clause
   SatResolution* d_current;
   Solver* d_solver;
-  Clause* d_empty_clause;
+  CRef d_empty_clause;
   ClauseID d_empty_clause_id;
 
 public:
   ClauseID static id_counter;
-  Derivation(Solver* solver) : d_solver(solver), d_empty_clause(NULL), d_empty_clause_id(0),d_current(NULL)
+  Derivation(Solver* solver) : d_solver(solver), d_empty_clause(CRef_Undef), d_empty_clause_id(0),d_current(NULL)
     {d_id_clause[0]=(d_empty_clause); };
 
   /** registration methods**/
@@ -115,19 +115,19 @@ public:
   // register unit clause corresponding to lit
   // special case because minisat does not store unit learned conflicts
   ClauseID registerClause(Lit lit);
-  ClauseID registerClause(Clause* clause, bool is_input_clause);
+  ClauseID registerClause(CRef clause, bool is_input_clause);
 
-  void registerResolution(Clause* clause, SatResolution* res);
+  void registerResolution(CRef clause, SatResolution* res);
   void registerResolution(ClauseID clause_id, SatResolution* res);
 
   /** helper methods **/
 
-  bool isUnit(Clause* cl);
+  bool isUnit(CRef cl);
   bool isUnit(Lit lit);
   bool isUnit(ClauseID clause_id);
-  bool isStoredClause(Clause* cl);
+  bool isStoredClause(CRef cl);
 
-  bool isRegistered(Clause* cl);
+  bool isRegistered(CRef cl);
   bool isRegistered(ClauseID cl_id);
   bool hasResolution(ClauseID cl_id);
 
@@ -135,23 +135,27 @@ public:
   bool isSatLemma(ClauseID clause_id);
 
   ClauseID newId();
-  ClauseID getId(Clause* clause);
-  ClauseID getUnitId(Clause* cl);
+  ClauseID getId(CRef clause);
+  ClauseID getUnitId(CRef cl);
   ClauseID getUnitId(Lit l);
-  ClauseID getClauseId(Clause* cl);
+  ClauseID getClauseId(CRef cl);
   Lit getUnit(ClauseID cl_id);
   SatResolution* getResolution(ClauseID clause_id);
 
-  void markDeleted(Clause* clause);
-  void storeVars(Clause* clause);
+  void markDeleted(CRef clause);
+  void storeVars(CRef clause);
 
+  /** access to the solver**/
+
+  Clause& cl(CRef cr);
+  CRef getReason(int v);
 
   /** solver interface **/
   /*
   TODO: make all other private
 
-  void startResolution(Clause* confl);
-  void addStep(Lit l, Clause* cl);
+  void startResolution(CRef confl);
+  void addStep(Lit l, CRef cl);
   void endResolution();
   */
 
@@ -161,7 +165,7 @@ public:
   void addSatLemma(ClauseID clause_id);
   void lemmaProof(ClauseID clause_id);
   ClauseID getLitReason(Lit lit);
-  void finish(Clause* confl);
+  void finish(CRef confl);
 
   /** constructing LFSC proof **/
   LFSCProof* getInputVariable(ClauseID confl_id);
@@ -172,18 +176,19 @@ public:
 
   /** debugging **/
   void printLit(Lit l);
-  void printClause(Clause* cl);
+  void printClause(CRef cl);
   void printAllClauses();
-  void printResolution(Clause* cl);
+  void printResolution(CRef cl);
   void printResolution(ClauseID cl_id);
 
    /** resolution checking **/
   bool checkDerivation(ClauseID clause_id);
-  bool compareClauses(Clause* cl1, Clause* cl2);
-  Clause* resolve(Clause* cl1, Clause* cl2, Lit lit);
-  Clause* resolve(Clause* cl1, Lit cl2, Lit lit);
+  bool compareClauses(CRef cl1, CRef cl2);
+  CRef resolve(CRef cl1, CRef cl2, Lit lit);
+  CRef resolve(CRef cl1, Lit cl2, Lit lit);
 
-  void printLFSCProof(Clause* final_confl);
+  std::string printLFSCClause(CRef cref);
+  void printLFSCProof(CRef final_confl);
 
 };
 
@@ -191,11 +196,12 @@ public:
 
 /** id-clause methods **/
 
-bool Derivation::isUnit(Clause* cl){
-  Assert(cl!= NULL);
-  if (cl->size()>1)
+bool Derivation::isUnit(CRef cref){
+  Assert(cref!= CRef_Undef);
+  Clause& clause = cl(cref);
+  if (clause.size()>1)
     return false;
-  return d_unit_clauses.end()!= d_unit_clauses.find(toInt((*cl)[0]));
+  return d_unit_clauses.end()!= d_unit_clauses.find(toInt(clause[0]));
 }
 
 bool Derivation::isUnit(Lit lit){
@@ -206,11 +212,11 @@ bool Derivation::isUnit(ClauseID cl_id){
   return d_unit_ids.end()!=d_unit_ids.find(cl_id);
 }
 
-bool Derivation::isStoredClause(Clause* cl){
+bool Derivation::isStoredClause(CRef cl){
   return d_clause_id.find(cl)!= d_clause_id.end();
 }
 
-bool Derivation::isRegistered(Clause* cl){
+bool Derivation::isRegistered(CRef cl){
   return isStoredClause(cl) || isUnit(cl);
 }
 
@@ -219,12 +225,12 @@ bool Derivation::isRegistered(ClauseID cl_id){
 }
 
 bool Derivation::hasResolution(ClauseID cl_id){
-  return d_res_map.find(cl_id)!=d_res_map.end();
+  return (d_res_map.find(cl_id)!=d_res_map.end());
 }
 
-ClauseID Derivation::getUnitId(Clause* cl){
-  Assert(isUnit(cl));
-  return d_unit_clauses[toInt((*cl)[0])];
+ClauseID Derivation::getUnitId(CRef cref){
+  Assert(isUnit(cref));
+  return d_unit_clauses[toInt((cl(cref))[0])];
 }
 
 ClauseID Derivation::getUnitId(Lit lit){
@@ -237,13 +243,13 @@ Lit Derivation::getUnit(ClauseID cl_id){
  return toLit(d_unit_ids[cl_id]);
 }
 
-ClauseID Derivation::getClauseId(Clause* cl){
+ClauseID Derivation::getClauseId(CRef cl){
   Assert(isStoredClause(cl));
   return d_clause_id[cl];
 }
 
 // returns -1 if the clause has not been registered
-ClauseID Derivation::getId(Clause* cl){
+ClauseID Derivation::getId(CRef cl){
    if(cl == d_empty_clause)
     return d_empty_clause_id;
    //FIXME: maybe check if all unit clauses are in d_unit so then merge isUnit and getUnit?
@@ -268,7 +274,7 @@ ClauseID Derivation::newId(){
   return id_counter++;
 }
 
-void Derivation::markDeleted(Clause* clause){
+void Derivation::markDeleted(CRef clause){
   if(isStoredClause(clause)){
     ClauseID id;
     id = d_clause_id[clause];
@@ -279,12 +285,22 @@ void Derivation::markDeleted(Clause* clause){
 
 }
 
-void Derivation::storeVars(Clause* clause){
-  Assert(clause!=NULL);
-  for(int i=0; i<clause->size(); i++)
-    d_vars.insert(var(*clause[i])+1);
+//TODO: print actual variable names
+void Derivation::storeVars(CRef cref){
+  Assert(cref!=CRef_Undef);
+  Clause& clause = cl(cref);
+  for(int i=0; i<clause.size(); i++)
+    d_vars.insert(var(clause[i])+1);
 }
 
+Clause& Derivation::cl(CRef cref){
+  Assert(cref!= CRef_Undef);
+  return d_solver->ca[cref];
+}
+
+CRef Derivation::getReason(int v){
+  return d_solver->reason(v);
+}
 
 /**** registration methods *****/
 
@@ -303,21 +319,21 @@ ClauseID Derivation::registerClause(Lit lit){
   return id;
 }
 
-ClauseID Derivation::registerClause(Clause* clause, bool is_input_clause){
-    Assert(clause != NULL);
-    Assert(clause->size() > 1); // minisat does not store unit clauses
+ClauseID Derivation::registerClause(CRef cref, bool is_input_clause){
+    Clause& clause = cl(cref);
+    Assert(clause.size() > 1); // minisat does not store unit clauses
 
-    ClauseID id = getId(clause);
+    ClauseID id = getId(cref);
     if(id == -1){
       //FIXME: better way to do this?
-      storeVars(clause);
+      storeVars(cref);
       // if not already registered
       id = newId();
-      d_clause_id[clause] = id;
-      d_id_clause[id] = clause;
-      if(clause->size()==1){
-        d_unit_clauses[toInt(~(*clause[0]))] = id;
-        d_unit_ids[id] = toInt(~(*clause[0]));
+      d_clause_id[cref] = id;
+      d_id_clause[id] = cref;
+      if(clause.size()==1){
+        d_unit_clauses[toInt(~(clause[0]))] = id;
+        d_unit_ids[id] = toInt(~(clause[0]));
       }
       if(is_input_clause)
         d_input_clauses.insert(id);
@@ -339,8 +355,8 @@ void Derivation::registerResolution(ClauseID clause_id, SatResolution* res){
   //Assert(checkDerivation(clause_id));
 }
 
-void Derivation::registerResolution(Clause* clause, SatResolution* res){
-  Assert(clause!= NULL);
+void Derivation::registerResolution(CRef clause, SatResolution* res){
+  Assert(clause!= CRef_Undef);
   ClauseID clause_id = getId(clause);
 
   Assert(clause_id != -1);
@@ -373,10 +389,10 @@ void Derivation::addSatLemma(ClauseID clause_id){
 
 
 void Derivation::lemmaProof(ClauseID clause_id){
-  if(!isSatLemma(clause_id)){
+  if(!isSatLemma(clause_id) && isLearned(clause_id)){
     SatResolution* res = getResolution(clause_id);
-    //printResolution(clause_id);
-    //Debug("proof")<<"lemmaProof::id "<<clause_id<<"\n";
+    printResolution(clause_id);
+    Debug("proof")<<"lemmaProof::id "<<clause_id<<"\n";
     RSteps steps = res->getSteps();
     ClauseID start_id = res->getStart();
     if(!isSatLemma(start_id) && isLearned(start_id))
@@ -403,16 +419,17 @@ ClauseID Derivation::getLitReason(Lit lit){
   }
 
   //FIXME:!
-  Clause* cl = &(d_solver->ca)[d_solver->reason(var(lit))];
+  CRef cref = getReason(var(lit));
 
   // if it was NULL then should have been derived by an unit clause
   // and isUnit would have been true
 
-  Assert(cl!=NULL);
-  ClauseID clause_id = getId(cl);
+  Assert(cref!=CRef_Undef);
+  ClauseID clause_id = getId(cref);
   SatResolution* res = new SatResolution(clause_id);
-  for(int i= 1; i < cl->size(); i++){
-    Lit lit = (*cl)[i];
+  Clause& clause = cl(cref);
+  for(int i= 1; i < clause.size(); i++){
+    Lit lit = clause[i];
     // flips the literal so that the Q/R invariant works
     res->addStep(lit, getLitReason(lit), !(sign(lit)));
   }
@@ -425,7 +442,7 @@ ClauseID Derivation::getLitReason(Lit lit){
   return id;
 }
 
-void Derivation::finish(Clause* confl){
+void Derivation::finish(CRef confl){
   Assert(confl!= NULL);
 
   ClauseID confl_id = getId(confl);
@@ -435,9 +452,9 @@ void Derivation::finish(Clause* confl){
     // is learned
     addSatLemma(confl_id);
   }
-
-  for(int i=0; i< confl->size(); i++){
-    Lit lit = (*confl)[i];
+  Clause& conflc = cl(confl);
+  for(int i=0; i< conflc.size(); i++){
+    Lit lit = conflc[i];
     ClauseID res_id = getLitReason(lit);
     Assert(hasResolution(res_id));
     res->addStep(lit, res_id, !sign(lit));
@@ -454,11 +471,12 @@ inline void Derivation::printLit(Lit l)
 }
 
 
-inline void Derivation::printClause(Clause* c)
+inline void Derivation::printClause(CRef cref)
 {
-  Assert(c!= NULL);
-  for (int i = 0; i < c->size(); i++){
-        printLit((*c)[i]);
+  Assert(cref != CRef_Undef);
+  Clause& c = cl(cref);
+  for (int i = 0; i < c.size(); i++){
+        printLit(c[i]);
         Debug("proof")<<" ";
     }
     Debug("proof")<<"\n";
@@ -467,10 +485,10 @@ inline void Derivation::printClause(Clause* c)
 
 void Derivation::printAllClauses(){
   Debug("proof")<<"d_clauses \n";
-  for(std::map<ClauseID, Clause*>::iterator it = d_id_clause.begin(); it!= d_id_clause.end();it++){
+  for(std::map<ClauseID, CRef>::iterator it = d_id_clause.begin(); it!= d_id_clause.end();it++){
     Debug("proof")<<"id: "<<(*it).first<<" = ";
     if((*it).second!= 0){
-      Clause* cl = (*it).second;
+      CRef cl = (*it).second;
       printClause(cl);
     }
   }
@@ -485,7 +503,7 @@ void Derivation::printAllClauses(){
 
 }
 
-void Derivation::printResolution(Clause* clause){
+void Derivation::printResolution(CRef clause){
   ClauseID clause_id = getId(clause);
   printResolution(clause_id);
 }
@@ -511,7 +529,7 @@ void Derivation::printResolution(ClauseID clause_id){
   RSteps step = res->getSteps();
 
   if(d_id_clause.find(res->getStart())!=d_id_clause.end()){
-    Clause* cl = d_id_clause[res->getStart()];
+    CRef cl = d_id_clause[res->getStart()];
     Debug("proof")<<"\n ";
     printClause(cl);
   }
@@ -526,7 +544,7 @@ void Derivation::printResolution(ClauseID clause_id){
       Debug("proof")<<" del"<<step[i].second;
     }
     else if(d_id_clause.find(step[i].second)!= d_id_clause.end()){
-      Clause* clause = d_id_clause[step[i].second];
+      CRef clause = d_id_clause[step[i].second];
       printClause(clause);
     }
     else{// must be an unit clause, hence must be the literal we are resolving on
@@ -549,17 +567,18 @@ LFSCProof* Derivation::satLemmaVariable(ClauseID clause_id){
   return LFSCProofSym::make("m"+intToStr(clause_id));
 }
 
-std::string printLFSCClause(Clause* clause){
+std::string Derivation::printLFSCClause(CRef cref){
   std::stringstream ss;
   std::stringstream end;
-  if(clause == NULL)
+  if(cref == CRef_Undef)
     return "cln";
-  for(int i=0; i< clause->size(); i++){
+  Clause& clause = cl(cref);
+  for(int i=0; i< clause.size(); i++){
     ss<<"( clc ";
-    if(sign((*clause)[i]))
-      ss<<"(neg v"<<var((*clause)[i])+1<<") ";
+    if(sign(clause[i]))
+      ss<<"(neg v"<<var(clause[i])+1<<") ";
     else
-      ss<<"(pos v"<<var((*clause)[i])+1<<") ";
+      ss<<"(pos v"<<var(clause[i])+1<<") ";
     end<<")";
   }
   ss<<" cln";
@@ -625,10 +644,14 @@ LFSCProof* Derivation::addLFSCSatLemmas(LFSCProof* pf){
   return pf;
 }
 
-void Derivation::printLFSCProof(Clause* confl){
+void Derivation::printLFSCProof(CRef confl){
    std::stringstream os;
    std::stringstream end;
    LFSCProof::init();
+
+   for (std::hash_map<int, SatResolution*>::iterator i = d_res_map.begin(); i!=d_res_map.end(); ++i){
+     printResolution((*i).first);
+    }
 
    os<<"\n(check \n";
    end<<")";

@@ -326,10 +326,10 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
     int index   = trail.size() - 1;
 
     //--lsh
-    ClauseID id = proof->registerClause(&(ca[confl]), false);
+    ClauseID id = proof->registerClause(confl, false);
     res = new SatResolution(id);
     Debug("proof")<<"OC ";
-    proof->printClause(&(ca[confl]));
+    proof->printClause(confl);
 
     //lsh--
 
@@ -367,13 +367,13 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
 
                  proof->printLit(q);
                  Debug("proof:d")<<" propagated at 0 \n";
-                 proof->printClause(&ca[reason(var(q))]);
+                 proof->printClause(reason(var(q)));
 
                  ClauseID id = proof->registerClause(q);
                  res->addStep(q, id, !sign(q));
 
                  // FIXME:: make default for register clause be false
-                 ClauseID id_r = proof->registerClause(&ca[reason(var(q))], false);
+                 ClauseID id_r = proof->registerClause(reason(var(q)), false);
                  Debug("proof")<<"id_r="<<id_r<<"\n";
                  SatResolution* res_unit = new SatResolution(id_r);
 
@@ -390,7 +390,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
                    Clause* r = &ca[reason(var(l))];
                    seen2[var(l)]=1;
                    // Create new resolution for unit that proves q
-                   ClauseID r_id = proof->registerClause(r, false); //FIXME: how do u know it's not an input clause
+                   ClauseID r_id = proof->registerClause(reason(var(l)), false); //FIXME: how do u know it's not an input clause
                    if(l!=q)
                      res_unit->addStep(l, r_id, !sign(l));
 
@@ -434,10 +434,10 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
         pathC--;
         //--lsh
         if(confl!= CRef_Undef && pathC>0){
-          ClauseID id = proof->registerClause(&(ca[confl]), false);
+          ClauseID id = proof->registerClause(confl, false);
           res->addStep(p, id, sign(p));
           if(id==1929)
-            proof->printClause(&(ca[confl]));
+            proof->printClause(confl);
         }
         //lsh--
 
@@ -494,13 +494,13 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
               // if it was a unit clause
               cl_id = proof->registerClause(order[k]);
             else
-              cl_id = proof->registerClause(&(ca[cref]), false);
+              cl_id = proof->registerClause(cref, false);
             res->addStep(order[k], cl_id, !(sign(order[k])));
             Debug("proof")<<"eliminating lit ";
             proof->printLit(order[k]);
             Debug("proof")<<" by resolving ";
             if (cref!= CRef_Undef)
-              proof->printClause(&(ca[cref]));
+              proof->printClause(cref);
             else
               proof->printLit(~order[k]);
             Debug("proof")<<"\n";
@@ -967,8 +967,8 @@ lbool Solver::search(int nof_conflicts)
             conflicts++; conflictC++;
             if (decisionLevel() == 0) {
               //--lsh
-              proof->printClause(&(ca[confl]));
-              proof->printLFSCProof(&(ca[confl]));
+              proof->printClause(confl);
+              proof->printLFSCProof(confl);
               //lsh--
               return l_False;
             }
@@ -989,9 +989,9 @@ lbool Solver::search(int nof_conflicts)
             }else{
                 CRef cr = ca.alloc(learnt_clause, true);
                 //--lsh
-                proof->registerClause(&(ca[cr]), false);
-                proof->registerResolution(&(ca[cr]), res);
-                proof->printResolution(&(ca[cr]));
+                proof->registerClause(cr, false);
+                proof->registerResolution(cr, res);
+                proof->printResolution(cr);
                 //lsh--
                 learnts.push(cr);
                 attachClause(cr);
@@ -1121,8 +1121,8 @@ lbool Solver::solve_()
     //--lsh
     Debug("proof")<<"Problem clauses \n";
     for(int i=0; i< clauses.size(); i++){
-      proof->registerClause(&ca[clauses[i]], true);
-      proof->printClause(&(ca[clauses[i]]));
+      proof->registerClause(clauses[i], true);
+      proof->printClause(clauses[i]);
     }
     //lsh--
 
