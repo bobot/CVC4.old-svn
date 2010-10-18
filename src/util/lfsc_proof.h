@@ -3,7 +3,9 @@
 
 #include <string>
 
+namespace CVC4{
 
+namespace prop{
 
 class LFSCProof{
 protected:
@@ -133,6 +135,10 @@ LFSCProof* LFSCProof::make_satlem( LFSCProof* u1, LFSCProof* u2 ){
   kids[5] = 0;
   return new LFSCProofC( rule_satlem, kids );
 }
+
+
+} // namespace prop
+} // namespace CVC4
 
 
 #endif

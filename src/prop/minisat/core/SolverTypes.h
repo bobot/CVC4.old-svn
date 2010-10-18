@@ -18,11 +18,11 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#include "cvc4_private.h"
 
 #ifndef Minisat_SolverTypes_h
 #define Minisat_SolverTypes_h
 
+#include "cvc4_private.h"
 #include <assert.h>
 
 #include "mtl/IntTypes.h"
@@ -30,6 +30,15 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Vec.h"
 #include "mtl/Map.h"
 #include "mtl/Alloc.h"
+
+
+//--lsh
+namespace CVC4{
+namespace prop{
+  class Derivation;
+}
+}
+//lsh--
 
 namespace Minisat {
 
@@ -203,6 +212,8 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     ClauseAllocator(uint32_t start_cap) : RegionAllocator<uint32_t>(start_cap), extra_clause_field(false){}
     ClauseAllocator() : extra_clause_field(false){}
 
+    inline void updateId(CRef r1, CRef r2, CVC4::prop::Derivation* proof);
+
     void moveTo(ClauseAllocator& to){
         to.extra_clause_field = extra_clause_field;
         RegionAllocator<uint32_t>::moveTo(to); }
@@ -233,15 +244,19 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::free(clauseWord32Size(c.size(), c.has_extra()));
     }
 
-    void reloc(CRef& cr, ClauseAllocator& to)
+    void reloc(CRef& cr, ClauseAllocator& to,  CVC4::prop::Derivation* proof = NULL) //--lsh added extra argument for proof logging
     {
         Clause& c = operator[](cr);
         
         if (c.reloced()) { cr = c.relocation(); return; }
-        
+
+        CRef old = cr; //lsh--
+
         cr = to.alloc(c, c.learnt());
         c.relocate(cr);
         
+        updateId(old, cr, proof); //lsh--
+
         // Copy extra data-fields: 
         // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
         to[cr].mark(c.mark());
@@ -405,5 +420,23 @@ inline void Clause::strengthen(Lit p)
 
 //=================================================================================================
 }
+
+
+//--lsh
+/*
+ * proxy method to avoid circular dependencies
+ * with sat_proof.h
+ *
+ */
+#include "util/sat_proof.h"
+namespace Minisat{
+
+inline void ClauseAllocator::updateId(CRef r1, CRef r2,  CVC4::prop::Derivation* proof){
+  if(proof!= NULL)
+  proof->updateId(r1, r2);
+}
+}
+
+//lsh--
 
 #endif

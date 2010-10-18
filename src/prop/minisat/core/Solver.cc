@@ -24,7 +24,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "core/Solver.h"
 #include "prop/sat.h"
 // --lsh
-#include "util/sat_proof.h"
+#include "util/sat_proof_inline.h"
 // lsh--
 
 using namespace Minisat;
@@ -211,6 +211,7 @@ void Solver::attachClause(CRef cr) {
 
 
 void Solver::detachClause(CRef cr, bool strict) {
+    proof->markDeleted(cr);      // lsh--
     const Clause& c = ca[cr];
     CVC4::Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
     assert(c.size() > 1);
@@ -330,7 +331,6 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
     res = new SatResolution(id);
     Debug("proof")<<"OC ";
     proof->printClause(confl);
-
     //lsh--
 
     do{
@@ -1251,6 +1251,8 @@ void Solver::toDimacs(FILE* f, const vec<Lit>& assumps)
 
 void Solver::relocAll(ClauseAllocator& to)
 {
+    Debug("proof")<<"relocAll \n";
+    proof->printAllClauses();
     // All watchers:
     //
     // for (int i = 0; i < watches.size(); i++)
@@ -1261,7 +1263,7 @@ void Solver::relocAll(ClauseAllocator& to)
             // printf(" >>> RELOCING: %s%d\n", sign(p)?"-":"", var(p)+1);
             vec<Watcher>& ws = watches[p];
             for (int j = 0; j < ws.size(); j++)
-                ca.reloc(ws[j].cref, to);
+                ca.reloc(ws[j].cref, to, proof); //--lsh
         }
 
     // All reasons:
@@ -1270,18 +1272,18 @@ void Solver::relocAll(ClauseAllocator& to)
         Var v = var(trail[i]);
 
         if (hasReason(v) && (ca[reason(v)].reloced() || locked(ca[reason(v)])))
-            ca.reloc(vardata[v].reason, to);
+            ca.reloc(vardata[v].reason, to, proof); //--lsh
     }
 
     // All learnt:
     //
     for (int i = 0; i < learnts.size(); i++)
-        ca.reloc(learnts[i], to);
+        ca.reloc(learnts[i], to, proof); //--lsh
 
     // All original:
     //
     for (int i = 0; i < clauses.size(); i++)
-        ca.reloc(clauses[i], to);
+        ca.reloc(clauses[i], to, proof); //--lsh
 }
 
 
@@ -1296,4 +1298,5 @@ void Solver::garbageCollect()
         printf("|  Garbage collection:   %12d bytes => %12d bytes             |\n", 
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
+
 }
