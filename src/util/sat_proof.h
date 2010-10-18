@@ -101,6 +101,10 @@ public:
   std::map <ClauseID, CRef> d_id_clause;             // map from clause id to clauses
   std::map <CRef, ClauseID> d_clause_id;             // map from clauses to clause id
 
+  /* temporary for memory reallocation during garbage collection */
+  std::map <ClauseID, CRef> d_id_clause_tmp;             // map from clause id to clauses
+  std::map <CRef, ClauseID> d_clause_id_tmp;             // map from clauses to clause id
+
   std::hash_map <ClauseID, CRef> d_deleted;          // stores the clauses deleted from the minisat database
 
   std::vector <ClauseID> d_lemma_stack;              // stack to print sat_lemmas in proper order
@@ -120,6 +124,7 @@ public:
   /** solver interface **/
 
   void updateId(CRef cr1, CRef cr2);
+  void finishUpdateId();
   void newResolution(CRef confl);
   void newResolution(Lit lit);
   void addResStep(Lit l, CRef cl, bool sign);

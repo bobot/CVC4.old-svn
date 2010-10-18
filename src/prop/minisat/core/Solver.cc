@@ -403,8 +403,6 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
                          // we assume that the unit clause l2 has already been registered because l2 has reason NULL at level 0 which means it has been deduced by a unit learned clause
                          Assert(proof->isUnit(~l2));
                          res_unit->addStep(l2, proof->getUnitId(~l2), !sign(l2));
-                         //vec<Lit> lits;
-                         //lits.push(~l2);
                        }
                      }
                      else if(reason(var(l2))==CRef_Undef){
@@ -436,8 +434,6 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
         if(confl!= CRef_Undef && pathC>0){
           ClauseID id = proof->registerClause(confl, false);
           res->addStep(p, id, sign(p));
-          if(id==1929)
-            proof->printClause(confl);
         }
         //lsh--
 

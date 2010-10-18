@@ -689,17 +689,17 @@ void SimpSolver::relocAll(ClauseAllocator& to)
     for (int i = 0; i < nVars(); i++){
         vec<CRef>& cs = occurs[i];
         for (int j = 0; j < cs.size(); j++)
-            ca.reloc(cs[j], to);
+            ca.reloc(cs[j], to, Solver::proof);
     }
 
     // Subsumption queue:
     //
     for (int i = 0; i < subsumption_queue.size(); i++)
-        ca.reloc(subsumption_queue[i], to);
+        ca.reloc(subsumption_queue[i], to, Solver::proof);
 
     // Temporary clause:
     //
-    ca.reloc(bwdsub_tmpunit, to);
+    ca.reloc(bwdsub_tmpunit, to, Solver::proof);
 }
 
 
@@ -718,6 +718,7 @@ void SimpSolver::garbageCollect()
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
 
+    proof->finishUpdateId();
     Debug("proof")<<"After: \n";
     proof->printAllClauses();
 }

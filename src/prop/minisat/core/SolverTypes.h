@@ -244,13 +244,12 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::free(clauseWord32Size(c.size(), c.has_extra()));
     }
 
-    void reloc(CRef& cr, ClauseAllocator& to,  CVC4::prop::Derivation* proof = NULL) //--lsh added extra argument for proof logging
+    void reloc(CRef& cr, ClauseAllocator& to,  CVC4::prop::Derivation* proof) //--lsh added extra argument for proof logging
     {
         Clause& c = operator[](cr);
-        
-        if (c.reloced()) { cr = c.relocation(); return; }
-
         CRef old = cr; //lsh--
+        
+        if (c.reloced()) { cr = c.relocation(); updateId(old, cr, proof); return; }
 
         cr = to.alloc(c, c.learnt());
         c.relocate(cr);
