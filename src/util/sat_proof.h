@@ -130,7 +130,7 @@ public:
   void addResStep(Lit l, CRef cl, bool sign);
   void endResolution(CRef cl);
   void endResolution(Lit lit);
-  void traceReason(Lit l);
+  void traceReason(Lit l, SatResolution* res);
 
 public:
 
