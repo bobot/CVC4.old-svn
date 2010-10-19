@@ -66,6 +66,16 @@ void Derivation::updateId(CRef old_ref, CRef new_ref){
 }
 
 void Derivation::finishUpdateId(){
+  // copy the things that might have gotten deleted because there were no more references to them
+
+
+  for (std::map<ClauseID, CRef>::iterator i = d_id_clause.begin(); i!=d_id_clause.end(); ++i)
+    if(d_id_clause_tmp.find((*i).first) == d_id_clause_tmp.end()){
+      d_deleted.insert((*i).first);
+      //Debug("proof")<<"new-del"<<(*i).first<<" ";
+    }
+  //Debug("proof")<<"\n";
+
   d_clause_id = d_clause_id_tmp;
   d_id_clause = d_id_clause_tmp;
   d_clause_id_tmp.clear();
@@ -276,13 +286,13 @@ ClauseID Derivation::newId(){
 
 void Derivation::markDeleted(CRef clause){
   if(isStoredClause(clause)){
-    Debug("proof")<<"("<<clause<<")";
+    //Debug("proof")<<"("<<clause<<")";
     ClauseID id;
     id = d_clause_id[clause];
-    d_deleted[id] = clause;
+    d_deleted.insert(id);
     d_id_clause.erase(id);
     d_clause_id.erase(clause);
-    Debug("proof")<<"deleted::"<<id<<" ";
+    //Debug("proof")<<"deleted::"<<id<<" ";
   }
 
 }
@@ -361,7 +371,7 @@ void Derivation::registerResolution(ClauseID clause_id, SatResolution* res){
   else{
    Debug("proof")<<"DERIV:: already registered \n";
   }
-  //Assert(checkDerivation(clause_id));
+  //Assert(checkResolution(clause_id));
 }
 
 void Derivation::registerResolution(CRef clause, SatResolution* res){
@@ -375,7 +385,7 @@ void Derivation::registerResolution(CRef clause, SatResolution* res){
   else
    Debug("proof")<<"Derivation::registerResolution::already registered clause_id::"<<clause_id<<"\n";
 
-  //Assert(checkDerivation(clause_id));
+  //Assert(checkResolution(clause_id));
 }
 
 /** helper methods for proof construction **/
@@ -491,6 +501,23 @@ inline void Derivation::printClause(CRef cref)
     Debug("proof")<<"\n";
 }
 
+inline void Derivation::printIdClause(ClauseID id){
+  if(id == d_empty_clause_id)
+    Debug("proof")<<" empty ";
+  else
+  if(d_deleted.count(id))
+    Debug("proof")<<"del"<<id<<"\n ";
+  else
+  if(isUnit(id)){
+    Debug("proof")<<"( unit"<<id<<":";
+    printLit(getUnit(id));
+    Debug("proof")<<") \n";
+    }
+  else{
+    Assert(d_id_clause.find(id)!=d_id_clause.end());
+    printClause(d_id_clause[id]);
+    }
+}
 
 void Derivation::printAllClauses(){
   Debug("proof")<<"d_clauses \n";
@@ -510,6 +537,11 @@ void Derivation::printAllClauses(){
     Debug("proof")<<"\n";
   }
 
+  Debug("proof")<<"d_deleted \n";
+  for(std::hash_set<ClauseID>::iterator i = d_deleted.begin(); i!=d_deleted.end();i++){
+    Debug("proof")<<"del id"<<(*i)<<"\n";
+  }
+
 }
 
 void Derivation::printResolution(CRef clause){
@@ -521,46 +553,21 @@ void Derivation::printResolution(CRef clause){
 void Derivation::printResolution(ClauseID clause_id){
   Assert(clause_id >= 0);
   Debug("proof")<<"Derivation clause_id="<<clause_id<<": ";
-  if(clause_id == d_empty_clause_id)
-    Debug("proof")<<" empty ";
-  else{
-    if(d_id_clause.find(clause_id)!=d_id_clause.end())
-      printClause(d_id_clause[clause_id]);
-    else if(d_deleted.find(clause_id)==d_deleted.end()){
-      Debug("proof")<<" unit? ";
-    }
-    else
-      Debug("proof")<<" del"<<clause_id;
-  }
-
+  printIdClause(clause_id);
+  Debug("proof")<<":\n";
   SatResolution* res = getResolution(clause_id);
 
   RSteps step = res->getSteps();
+  ClauseID start_id = res->getStart();
 
-  if(d_id_clause.find(res->getStart())!=d_id_clause.end()){
-    CRef cl = d_id_clause[res->getStart()];
-    Debug("proof")<<"\n ";
-    printClause(cl);
-  }
-  else
-    Debug("proof")<<" del"<<res->getStart();
+  printIdClause(start_id);
 
   for(unsigned i=0;i< res->getSteps().size();i++){
     Debug("proof")<<"| ";
     printLit(step[i].first);
     Debug("proof")<<"| ";
-    if(d_deleted.find(step[i].second)!= d_deleted.end()){
-      Debug("proof")<<" del"<<step[i].second;
+    printIdClause(step[i].second);
     }
-    else if(d_id_clause.find(step[i].second)!= d_id_clause.end()){
-      CRef clause = d_id_clause[step[i].second];
-      printClause(clause);
-    }
-    else{// must be an unit clause, hence must be the literal we are resolving on
-      Assert(step[i].second == getUnitId(~(step[i].first)));
-      printLit(~step[i].first);
-    }
-  }
   Debug("proof")<<"\n";
 }
 
@@ -658,10 +665,13 @@ void Derivation::printLFSCProof(CRef confl){
    std::stringstream end;
    LFSCProof::init();
 
+
+   //printAllClauses();
+   /*
    for (std::hash_map<int, SatResolution*>::iterator i = d_res_map.begin(); i!=d_res_map.end(); ++i){
      printResolution((*i).first);
     }
-
+   */
    os<<"\n(check \n";
    end<<")";
 
@@ -697,6 +707,120 @@ void Derivation::printLFSCProof(CRef confl){
    pf->print(std::cout);
    std::cout<<end.str()<<";";
 }
+
+
+/*
+ * Debugging derivation checking
+ */
+
+
+/*
+bool Derivation::compareClauses(vec<Lit> lits1, vec<Lit> lits2){
+  Assert(lits1 != NULL && lits2 != NULL);
+  if(lits1.size()!= lits2.size())
+    return false;
+
+  bool eq = false;
+  for (int i=0; i<lits1.size();i++){
+    Lit l = lits1[i];
+    eq = false;
+    for(int j=0;j< lits2.size();j++)
+      if(l == lits2[j])
+        eq = true;
+  }
+
+  return eq;
+}
+
+vec<Lit> Derivation::resolve(vec<Lit> cl1, CRef cr2, Lit lit){
+  vec<Lit> lits;
+  Clause& cl2 = cl(cr2);
+
+  for(int i=0; i< cl1.size(); i++){
+    if(var(cl1[i])!=var(lit))
+     lits.push(cl1[i]);
+  }
+
+  for(int i=0; i< cl2.size(); i++){
+    bool found = false;
+
+    for(int j=0;j < lits.size(); j++)
+      if(var(lits[j]) == var(cl2[i])){
+        found = true;
+        break;
+      }
+
+    if(!found && var(cl2[i])!= var(lit))
+      lits.push(cl2[i]);
+  }
+  return lits;
+}
+
+vec<Lit> Derivation::resolve(vec<Lit> cl1, Lit l2, Lit lit){
+  Assert(var(l2) == var(lit));
+
+  vec<Lit> lits;
+  for (int i=0; i< cl1.size();i++)
+    if(var(cl1[i])!= var(lit))
+      lits.push(cl1[i]);
+
+  return lits;
+}
+
+bool Derivation::checkResolution(ClauseID clause_id){
+  if(clause_id == d_empty_clause_id)
+    return true;
+
+  Debug("proof")<<"Checking Resolution \n";
+  printResolution(clause_id);
+
+  SatResolution* res = getResolution(clause_id);
+  Assert(res!= NULL);
+
+  ClauseID start_id = res->getStart();
+  Assert(d_id_clause.find(start_id)!=d_id_clause.end());
+  Clause& start = cl(d_id_clause[start_id]);
+
+  vec<Lit> result;
+  for(int i=0;i<start.size();i++)
+    result.push(start[i]);
+
+
+  RSteps steps = res->getSteps();
+  for(int i=0;i <steps.size(); i++){
+    if(d_id_clause.find(steps[i].second)!= d_id_clause.end()){
+      result = resolve(result,d_id_clause[steps[i].second],  steps[i].first);
+      Debug("proof")<<"CHECK:: ";
+      d_solver->printClause(start);
+      Debug("proof")<<"\n";
+    }
+    else{
+      Assert(d_unit_clauses.find(toInt(~(steps[i].first)))!= d_unit_clauses.end());
+      result = resolve(result, steps[i].first,  steps[i].first);
+    }
+
+  }
+
+  if(d_id_clause.find(clause_id)!= d_id_clause.end()){
+    Clause& concl_cl = cl(d_id_clause[clause_id]);
+    vec<Lit> concl;
+    for(int i=0;i<concl_cl.size();i++){
+     concl.push_back(concl_cl[i]);
+    }
+    return compareClauses(concl, result);
+  }
+
+  // should be an unit clause then
+  Clause& cl_start = cl(start);
+  Assert(cl_start.size() == 1);
+  Lit lit = cl_start[0];
+  Lit lit2 = ~lit;
+  //ClauseID id_lit1 = getUnitId(lit);
+  ClauseID id_lit2 = getUnitId(lit2);
+  return clause_id == id_lit2;
+
+}
+*/
 
 }/* prop namespace */
 }/* CVC4 namespace */

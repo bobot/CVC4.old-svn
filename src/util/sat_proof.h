@@ -105,7 +105,7 @@ public:
   std::map <ClauseID, CRef> d_id_clause_tmp;             // map from clause id to clauses
   std::map <CRef, ClauseID> d_clause_id_tmp;             // map from clauses to clause id
 
-  std::hash_map <ClauseID, CRef> d_deleted;          // stores the clauses deleted from the minisat database
+  std::hash_set <ClauseID> d_deleted;          // stores the clauses deleted from the minisat database
 
   std::vector <ClauseID> d_lemma_stack;              // stack to print sat_lemmas in proper order
   std::hash_map <int, ClauseID > d_unit_clauses;          // the set of unit clauses, indexed by value of variable for easy searching
@@ -193,15 +193,16 @@ public:
   /** debugging **/
   void printLit(Lit l);
   void printClause(CRef cl);
+  void printIdClause(ClauseID id);
   void printAllClauses();
   void printResolution(CRef cl);
   void printResolution(ClauseID cl_id);
 
    /** resolution checking **/
-  bool checkDerivation(ClauseID clause_id);
-  bool compareClauses(CRef cl1, CRef cl2);
-  CRef resolve(CRef cl1, CRef cl2, Lit lit);
-  CRef resolve(CRef cl1, Lit cl2, Lit lit);
+  bool checkResolution(ClauseID clause_id);
+  bool compareClauses(vec<Lit> ls1, vec<Lit> ls2);
+  vec<Minisat::Lit> resolve(vec<Minisat::Lit> cl1, CRef cl2, Lit lit);
+  vec<Minisat::Lit> resolve(vec<Minisat::Lit> cl1, Lit cl2, Lit lit);
 
   std::string printLFSCClause(CRef cref);
   void printLFSCProof(CRef final_confl);

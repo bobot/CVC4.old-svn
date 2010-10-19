@@ -611,14 +611,15 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     trail.push_(p);
 
     //--lsh
+    /*
     Debug("proof")<<"uncheckedEnqueue ";
     proof->printLit(p);
     Debug("proof")<<"reason:";
     if(from!=CRef_Undef)
       proof->printClause(from);
+    */
 
     if(decisionLevel()==0 && from!=CRef_Undef){
-      Debug("proof")<<"Tracing res";
       ClauseID id = proof->registerClause(from, false);
       SatResolution* res = new SatResolution(id);
       proof->traceReason(p, res);
@@ -914,6 +915,7 @@ lbool Solver::search(int nof_conflicts)
             conflicts++; conflictC++;
             if (decisionLevel() == 0) {
               //--lsh
+              Debug("proof")<<"FINAL CONFLICT ";
               proof->printClause(confl);
               proof->printLFSCProof(confl);
               //lsh--
