@@ -242,7 +242,13 @@ throw(OptionException) {
       break;
 
     case PROOF_GENERATION:
+#ifdef CVC4_PROOFS
       opts->proofGeneration = true;
+#else /* CVC4_PROOFS */
+      throw OptionException(string("Proofs not supported in this build; "
+                                   "reconfigure CVC4 with --enable-proof "
+                                   "and rebuild"));
+#endif /* CVC4_PROOFS */
       break;
 
     case DEFAULT_EXPR_DEPTH:

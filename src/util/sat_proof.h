@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file proof.h
+/*! \file sat_proof.h
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
@@ -27,6 +27,7 @@
 #include <map>
 
 #include <utility>
+#include "util/proof.h"
 #include "prop/minisat/core/SolverTypes.h"
 #include "prop/minisat/core/Solver.h"
 #include "util/Assert.h"

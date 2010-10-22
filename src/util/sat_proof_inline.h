@@ -461,7 +461,7 @@ ClauseID Derivation::getLitReason(Lit lit){
 }
 
 void Derivation::finish(CRef confl){
-  Assert(confl!= NULL);
+  Assert(confl!= CRef_Undef);
 
   ClauseID confl_id = getId(confl);
   SatResolution* res = new SatResolution(confl_id);

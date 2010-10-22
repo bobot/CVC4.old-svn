@@ -125,7 +125,7 @@ class SatSolver : public SatInputInterface {
   context::Context* d_context;
 
   /** Remember the options */
-  Options* d_options;
+  const Options* d_options;
 
   /* Pointer to the concrete SAT solver. Including this via the
      preprocessor saves us a level of indirection vs, e.g., defining a
@@ -226,6 +226,8 @@ public:
   void setCnfStream(CnfStream* cnfStream);
 
   SatLiteralValue value(SatLiteral l);
+
+  inline bool proofsOn() const throw();
 };/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */
@@ -233,11 +235,12 @@ public:
 #ifdef __CVC4_USE_MINISAT
 
 inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
-                     context::Context* context, const Options* options) :
+                            context::Context* context, const Options* options) :
   d_propEngine(propEngine),
   d_cnfStream(NULL),
   d_theoryEngine(theoryEngine),
   d_context(context),
+  d_options(options),
   d_statistics()
 {
   // Create the solver
@@ -271,6 +274,10 @@ inline SatVariable SatSolver::newVar(bool theoryAtom) {
 
 inline SatLiteralValue SatSolver::value(SatLiteral l) {
   return d_minisat->modelValue(l);
+}
+
+inline bool SatSolver::proofsOn() const throw() {
+  return d_options->proofGeneration;
 }
 
 #endif /* __CVC4_USE_MINISAT */

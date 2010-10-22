@@ -90,12 +90,19 @@ AC_ARG_WITH([build],
 if test -z "${with_build+set}" -o "$with_build" = default; then
   with_build=default
 fi
-if test -z "${enable_optimized+set}" -a -z "${enable_debug_symbols+set}" -a -z "${enable_assertions+set}" -a -z "${enable_tracing+set}" -a -z "${enable_muzzle+set}" -a -z "${enable_coverage+set}" -a -z "${enable_profiling+set}" -a -z "${enable_statistics+set}" -a -z "${with_gmp+set}" -a -z "${with_cln+set}"; then
+if test -z "${enable_proofs+set}" -a -z "${enable_optimized+set}" -a -z "${enable_debug_symbols+set}" -a -z "${enable_assertions+set}" -a -z "${enable_tracing+set}" -a -z "${enable_muzzle+set}" -a -z "${enable_coverage+set}" -a -z "${enable_profiling+set}" -a -z "${enable_statistics+set}" -a -z "${with_gmp+set}" -a -z "${with_cln+set}"; then
   custom_build_profile=no
 else
   custom_build_profile=yes
 fi
 btargs=
+if test -n "${enable_proofs+set}"; then
+  if test "$enable_proofs" = yes; then
+    btargs="$btargs proofs"
+  else
+    btargs="$btargs noproofs"
+  fi
+fi
 if test -n "${enable_optimized+set}"; then
   if test "$enable_optimized" = yes; then
     btargs="$btargs optimized"
@@ -332,6 +339,7 @@ case "$with_build" in
     CVC4CFLAGS=
     CVC4LDFLAGS=
     FLAG_VISIBILITY_HIDDEN='-fvisibility=hidden'
+    if test -z "${enable_proofs+set}"       ; then enable_proofs=no                 ; fi
     if test -z "${OPTLEVEL+set}"            ; then OPTLEVEL=3                       ; fi
     if test -z "${enable_optimized+set}"    ; then enable_optimized=yes             ; fi
     if test -z "${enable_debug_symbols+set}"; then enable_debug_symbols=yes         ; fi
@@ -346,6 +354,7 @@ case "$with_build" in
     CVC4CFLAGS='-fno-inline'
     CVC4LDFLAGS=
     FLAG_VISIBILITY_HIDDEN=
+    if test -z "${enable_proofs+set}"       ; then enable_proofs=no                 ; fi
     if test -z "${enable_optimized+set}"    ; then enable_optimized=no              ; fi
     if test -z "${enable_debug_symbols+set}"; then enable_debug_symbols=yes         ; fi
     if test -z "${enable_statistics+set}"   ; then enable_statistics=yes            ; fi
@@ -359,6 +368,7 @@ case "$with_build" in
     CVC4CFLAGS=
     CVC4LDFLAGS=
     FLAG_VISIBILITY_HIDDEN='-fvisibility=hidden'
+    if test -z "${enable_proofs+set}"       ; then enable_proofs=no                 ; fi
     if test -z "${OPTLEVEL+set}"            ; then OPTLEVEL=2                       ; fi
     if test -z "${enable_optimized+set}"    ; then enable_optimized=yes             ; fi
     if test -z "${enable_debug_symbols+set}"; then enable_debug_symbols=yes         ; fi
@@ -373,6 +383,7 @@ case "$with_build" in
     CVC4CFLAGS='-funroll-all-loops -fexpensive-optimizations -fno-enforce-eh-specs'
     CVC4LDFLAGS=
     FLAG_VISIBILITY_HIDDEN='-fvisibility=hidden'
+    if test -z "${enable_proofs+set}"       ; then enable_proofs=no                 ; fi
     if test -z "${OPTLEVEL+set}"            ; then OPTLEVEL=9                       ; fi
     if test -z "${enable_optimized+set}"    ; then enable_optimized=yes             ; fi
     if test -z "${enable_debug_symbols+set}"; then enable_debug_symbols=no          ; fi
@@ -407,6 +418,22 @@ AC_MSG_RESULT([$enable_static_binary])
 if test "$enable_static_binary" = yes -a "$enable_static" != yes; then
   enable_static=yes
   AC_MSG_WARN([forcing static-library building, --enable-static-binary given])
+fi
+
+AC_MSG_CHECKING([whether to support proofs in libcvc4])
+
+AC_ARG_ENABLE([proofs],
+  [AS_HELP_STRING([--enable-proofs],
+     [support proof generation])])
+
+if test -z "${enable_proofs+set}"; then
+  enable_proofs=no
+fi
+
+AC_MSG_RESULT([$enable_proofs])
+
+if test "$enable_proofs" = yes; then
+  CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_PROOFS"
 fi
 
 AC_MSG_CHECKING([whether to optimize libcvc4])
@@ -801,6 +828,7 @@ Build profile: $with_build
 Build ID     : $build_type
 Optimized    : $optimized
 Debug symbols: $enable_debug_symbols
+Proofs       : $enable_proofs
 Statistics   : $enable_statistics
 Assertions   : $enable_assertions
 Tracing      : $enable_tracing

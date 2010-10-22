@@ -89,6 +89,10 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context) :
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
   , dec_vars(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
 
+#ifdef CVC4_PROOFS
+  , proof (NULL)// lsh
+#endif /* CVC4_PROOFS */
+
   , ok                 (true)
   , cla_inc            (1)
   , var_inc            (1)
@@ -105,7 +109,6 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context) :
   , conflict_budget    (-1)
   , propagation_budget (-1)
   , asynch_interrupt   (false)
-  , proof (NULL)
 {
   //--lsh
   //TODO: check for flag
@@ -118,6 +121,11 @@ Solver::~Solver()
 {
 }
 
+#ifdef CVC4_PROOFS
+bool Solver::proofsOn() const throw() {
+  return proxy->proofsOn();
+}
+#endif /* CVC4_PROOFS */
 
 //=================================================================================================
 // Minor methods:
@@ -211,7 +219,7 @@ void Solver::attachClause(CRef cr) {
 
 
 void Solver::detachClause(CRef cr, bool strict) {
-    proof->markDeleted(cr);      // lsh--
+    PROOF( proof->markDeleted(cr) );      // lsh--
     const Clause& c = ca[cr];
     CVC4::Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
     assert(c.size() > 1);
@@ -353,8 +361,9 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
             }
             //FIXME: make function, move to sat_proof.h
             //--lsh
-            else
-              proof->traceReason(q, res);
+            else {
+              PROOF( proof->traceReason(q, res) );      // lsh--
+            }
             //lsh--
         }
         

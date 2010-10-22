@@ -25,6 +25,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "cvc4_private.h"
 #include <assert.h>
 
+#include "util/proof.h"
 #include "mtl/IntTypes.h"
 #include "mtl/Alg.h"
 #include "mtl/Vec.h"
@@ -212,7 +213,10 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     ClauseAllocator(uint32_t start_cap) : RegionAllocator<uint32_t>(start_cap), extra_clause_field(false){}
     ClauseAllocator() : extra_clause_field(false){}
 
+#ifdef CVC4_PROOFS
     inline void updateId(CRef r1, CRef r2, CVC4::prop::Derivation* proof);
+    inline bool proofsOn() const throw();
+#endif
 
     void moveTo(ClauseAllocator& to){
         to.extra_clause_field = extra_clause_field;
@@ -254,7 +258,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         cr = to.alloc(c, c.learnt());
         c.relocate(cr);
         
-        updateId(old, cr, proof); //lsh--
+        IF_CVC4_SUPPORTS_PROOFS( if(proof != NULL) { updateId(old, cr, proof); } ); //lsh--
 
         // Copy extra data-fields: 
         // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
@@ -430,10 +434,12 @@ inline void Clause::strengthen(Lit p)
 #include "util/sat_proof.h"
 namespace Minisat{
 
+#ifdef CVC4_PROOFS
 inline void ClauseAllocator::updateId(CRef r1, CRef r2,  CVC4::prop::Derivation* proof){
   if(proof!= NULL)
   proof->updateId(r1, r2);
 }
+#endif /* CVC4_PROOFS */
 }
 
 //lsh--
