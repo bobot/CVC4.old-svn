@@ -103,6 +103,20 @@ void Row::printRow(){
   Debug("tableau") << std::endl;
 }
 
+ArithVar Row::forcefullyEjectBasic(){
+  ArithVar newBasic = begin()->first;
+  Rational newBasicNegInverse = -(lookup(newBasic).inverse());
+  d_coeffs.erase(newBasic);
+
+  d_x_i = newBasic;
+
+  for(iterator nonbasicIter = begin(), nonbasicIter_end = end();
+      nonbasicIter != nonbasicIter_end; ++nonbasicIter){
+    nonbasicIter->second *= newBasicNegInverse;
+  }
+  return newBasic;
+}
+
 void Tableau::addRow(ArithVar basicVar,
                      const std::vector<Rational>& coeffs,
                      const std::vector<ArithVar>& variables){
@@ -195,4 +209,38 @@ void Tableau::updateRow(Row* row){
       endIter = row->end();
     }
   }
+}
+
+ArithVar Tableau::ejectAlwaysZeroBasic(ArithVar basic){
+  Assert(d_basicManager.isBasic(basic));
+  Assert(!isEjected(basic));
+
+  Row* row = lookup(basic);
+
+  ArithVar newbasic = row->forcefullyEjectBasic();
+
+  d_basicManager.makeNonbasic(basic);
+  d_activeBasicVars.erase(basic);
+  d_rowsTable[basic] = NULL;
+
+  if(row->size() == 0){
+    delete row;
+    return newbasic;
+  }
+
+  d_activeBasicVars.insert(newbasic);
+  d_basicManager.makeBasic(newbasic);
+  d_rowsTable[newbasic] = row;
+
+  for(ArithVarSet::iterator basicIter = begin(), endIter = end();
+      basicIter != endIter; ++basicIter){
+    ArithVar basic = *basicIter;
+    Row* row_k = lookup(basic);
+    if(row_k->has(newbasic)){
+      d_activityMonitor.increaseActivity(basic, 30);
+      row_k->substitute(*row);
+    }
+  }
+
+  return ARITHVAR_SENTINEL;
 }

@@ -261,6 +261,9 @@ private:
   void ejectInactiveVariables();
   void reinjectVariable(ArithVar x);
 
+  void ejectAlwaysZeroBasic(ArithVar x_i, TNode assert);
+
+
   void asVectors(Polynomial& p,
                  std::vector<Rational>& coeffs,
                  std::vector<ArithVar>& variables) const;

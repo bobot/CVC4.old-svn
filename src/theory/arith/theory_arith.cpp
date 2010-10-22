@@ -464,10 +464,29 @@ bool TheoryArith::AssertEquality(ArithVar x_i, const DeltaRational& c_i, TNode o
     }
   }else{
     checkBasicVariable(x_i);
+    if(getContext()->getLevel() == 0 &&
+       d_partialModel.assignmentIsConsistent(x_i) &&
+       c_i == d_constants.d_ZERO_DELTA){
+      ejectAlwaysZeroBasic(x_i, original);
+    }
   }
-
   return false;
 }
+
+void TheoryArith::ejectAlwaysZeroBasic(ArithVar x_i, TNode assert){
+  Assert(d_basicManager.isBasic(x_i));
+  Assert(getContext()->getLevel() == 0);
+  Assert(d_partialModel.getUpperBound(x_i) ==  d_constants.d_ZERO_DELTA);
+  Assert(d_partialModel.getLowerBound(x_i) ==  d_constants.d_ZERO_DELTA);
+  Assert(d_partialModel.getAssignment(x_i) ==  d_constants.d_ZERO_DELTA);
+
+  ArithVar result = d_tableau.ejectAlwaysZeroBasic(x_i);
+
+  if(result != ARITHVAR_SENTINEL){
+    AssertEquality(result, Rational(0), assert);
+  }
+}
+
 void TheoryArith::update(ArithVar x_i, const DeltaRational& v){
   Assert(!d_basicManager.isBasic(x_i));
   DeltaRational assignment_x_i = d_partialModel.getAssignment(x_i);

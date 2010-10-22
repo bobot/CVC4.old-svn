@@ -58,6 +58,8 @@ public:
       const std::vector< ArithVar >& variables);
 
 
+  unsigned size(){ return d_coeffs.size(); }
+
   iterator begin(){
     return d_coeffs.begin();
   }
@@ -84,6 +86,9 @@ public:
   void pivot(ArithVar x_j);
 
   void substitute(Row& row_s);
+
+  /** PLEASE DO NOT USE THIS IF YOU ARE NOT TIM! */
+  ArithVar forcefullyEjectBasic();
 
   void printRow();
 };
@@ -214,6 +219,9 @@ public:
     d_activeBasicVars.insert(basic);
     updateRow(row);
   }
+
+  ArithVar ejectAlwaysZeroBasic(ArithVar basic);
+
 private:
   inline bool isActiveBasicVariable(ArithVar var){
     return d_activeBasicVars.inSet(var);
