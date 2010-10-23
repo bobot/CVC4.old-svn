@@ -156,8 +156,6 @@ ArithVar TheoryArith::findBasicRow(ArithVar variable){
 void TheoryArith::ejectInactiveVariables(){
   Debug("decay") << "begin ejectInactiveVariables()" << endl;
   for(ArithVar variable = 0, end = d_variables.size(); variable != end; ++variable){
-    //TNode var = *i;
-    //ArithVar variable = asArithVar(var);
     if(shouldEject(variable)){
       if(d_basicManager.isBasic(variable)){
         Debug("decay") << "ejecting basic " << variable << endl;;
@@ -169,7 +167,6 @@ void TheoryArith::ejectInactiveVariables(){
 
 void TheoryArith::reinjectVariable(ArithVar x){
   d_tableau.reinjectBasic(x);
-
 
   DeltaRational safeAssignment = computeRowValue(x, true);
   DeltaRational assignment = computeRowValue(x, false);
@@ -204,8 +201,6 @@ void TheoryArith::preRegisterTerm(TNode n) {
     setupInitialValue(varN);
   }
 
-
-  //TODO is an atom
   if(isRelationOperator(k)){
     Assert(isNormalAtom(n));
 
@@ -480,10 +475,13 @@ void TheoryArith::ejectAlwaysZeroBasic(ArithVar x_i, TNode assert){
   Assert(d_partialModel.getLowerBound(x_i) ==  d_constants.d_ZERO_DELTA);
   Assert(d_partialModel.getAssignment(x_i) ==  d_constants.d_ZERO_DELTA);
 
-  ArithVar result = d_tableau.ejectAlwaysZeroBasic(x_i);
+  vector<ArithVar> removedRows = d_tableau.ejectAlwaysZeroBasic(x_i);
+  Debug("kickout0s") << "begin ejectAlwaysZeroBasic("<< x_i<< " " << assert<<")"<< endl;
 
-  if(result != ARITHVAR_SENTINEL){
-    AssertEquality(result, Rational(0), assert);
+  for(vector<ArithVar>::iterator removedIter = removedRows.begin(),
+        endIter = removedRows.end();
+      removedIter != endIter; ++removedIter){
+    AssertEquality(*removedIter, Rational(0), assert);
   }
 }
 
@@ -670,9 +668,8 @@ Node TheoryArith::updateInconsistentVars(){ //corresponds to Check() in dM06
 Node TheoryArith::generateConflictAbove(ArithVar conflictVar){
 
   Row* row_i = d_tableau.lookup(conflictVar);
-
-  NodeBuilder<> nb(kind::AND);
   TNode bound = d_partialModel.getUpperConstraint(conflictVar);
+  NodeBuilder<> nb(kind::AND);
 
   Debug("arith")  << "generateConflictAbove "
                   << "conflictVar " << conflictVar
@@ -680,6 +677,7 @@ Node TheoryArith::generateConflictAbove(ArithVar conflictVar){
                   << " " << bound << endl;
 
   nb << bound;
+
 
   for(Row::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
     ArithVar nonbasic = nbi->first;
@@ -707,15 +705,16 @@ Node TheoryArith::generateConflictAbove(ArithVar conflictVar){
 
 Node TheoryArith::generateConflictBelow(ArithVar conflictVar){
   Row* row_i = d_tableau.lookup(conflictVar);
+  TNode bound = d_partialModel.getLowerConstraint(conflictVar);
 
   NodeBuilder<> nb(kind::AND);
-  TNode bound = d_partialModel.getLowerConstraint(conflictVar);
 
   Debug("arith") << "generateConflictBelow "
                  << "conflictVar " << conflictVar
                  << d_partialModel.getAssignment(conflictVar) << " "
                  << " " << bound << endl;
   nb << bound;
+
 
   for(Row::iterator nbi = row_i->begin(); nbi != row_i->end(); ++nbi){
     ArithVar nonbasic = nbi->first;

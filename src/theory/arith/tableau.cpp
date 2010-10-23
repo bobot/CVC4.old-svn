@@ -89,7 +89,7 @@ void Row::pivot(ArithVar x_j){
       nonbasicIter != nonbasicIter_end; ++nonbasicIter){
     nonbasicIter->second *= negInverseA_rs;
   }
-
+  Assert(size() != 0);
 }
 
 void Row::printRow(){
@@ -104,7 +104,10 @@ void Row::printRow(){
 }
 
 ArithVar Row::forcefullyEjectBasic(){
-  ArithVar newBasic = begin()->first;
+  Assert(!empty());
+
+  ArithVar newBasic = (d_coeffs.begin())->first;
+
   Rational newBasicNegInverse = -(lookup(newBasic).inverse());
   d_coeffs.erase(newBasic);
 
@@ -150,6 +153,7 @@ void Tableau::addRow(ArithVar basicVar,
       row_current->substitute(*row_var);
     }
   }
+  Assert(row_current->size() != 0);
 }
 
 void Tableau::pivot(ArithVar x_r, ArithVar x_s){
@@ -158,6 +162,9 @@ void Tableau::pivot(ArithVar x_r, ArithVar x_s){
 
   Row* row_s = lookup(x_r);
   Assert(row_s->has(x_s));
+
+  Debug("pivot") << x_r << " -> " << x_s << endl;
+  Debug("pivot") << x_s << " " << row_s->size() << endl;
 
   //Swap x_r and x_s in d_activeRows
   d_rowsTable[x_s] = row_s;
@@ -180,6 +187,8 @@ void Tableau::pivot(ArithVar x_r, ArithVar x_s){
       row_k->substitute(*row_s);
     }
   }
+  Debug("pivot") << x_s << " " << row_s->size() << endl;
+  Assert(row_s->size() != 0);
 }
 void Tableau::printTableau(){
   Debug("tableau") << "Tableau::d_activeRows"  << endl;
@@ -209,38 +218,57 @@ void Tableau::updateRow(Row* row){
       endIter = row->end();
     }
   }
+
+  Assert(row->size() != 0);
 }
 
-ArithVar Tableau::ejectAlwaysZeroBasic(ArithVar basic){
+std::vector<ArithVar> Tableau::ejectAlwaysZeroBasic(ArithVar basic){
   Assert(d_basicManager.isBasic(basic));
   Assert(!isEjected(basic));
 
   Row* row = lookup(basic);
 
   ArithVar newbasic = row->forcefullyEjectBasic();
+  std::vector<ArithVar> removedRows;
 
   d_basicManager.makeNonbasic(basic);
   d_activeBasicVars.erase(basic);
   d_rowsTable[basic] = NULL;
 
-  if(row->size() == 0){
-    delete row;
-    return newbasic;
+  d_basicManager.makeBasic(newbasic);
+  d_activeBasicVars.insert(newbasic);
+  d_rowsTable[newbasic] = row;
+
+  if(row->empty()){
+    removedRows.push_back(newbasic);
   }
 
-  d_activeBasicVars.insert(newbasic);
-  d_basicManager.makeBasic(newbasic);
-  d_rowsTable[newbasic] = row;
 
   for(ArithVarSet::iterator basicIter = begin(), endIter = end();
       basicIter != endIter; ++basicIter){
-    ArithVar basic = *basicIter;
-    Row* row_k = lookup(basic);
+    ArithVar k = *basicIter;
+    Row* row_k = lookup(k);
     if(row_k->has(newbasic)){
-      d_activityMonitor.increaseActivity(basic, 30);
       row_k->substitute(*row);
+
+      if(row_k->empty()){
+        removedRows.push_back(k);
+      }
     }
   }
 
-  return ARITHVAR_SENTINEL;
+  for(std::vector<ArithVar>::iterator removedIter = removedRows.begin(),
+        endIter = removedRows.end();
+      removedIter != endIter; ++removedIter){
+    ArithVar removed = *removedIter;
+
+    d_basicManager.makeNonbasic(removed);
+    d_activeBasicVars.erase(removed);
+
+    Row* row_removed = d_rowsTable[removed];
+    d_rowsTable[removed] = NULL;
+    delete row_removed;
+  }
+
+  return removedRows;
 }

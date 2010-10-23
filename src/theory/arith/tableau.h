@@ -59,6 +59,7 @@ public:
 
 
   unsigned size(){ return d_coeffs.size(); }
+  bool empty(){ return d_coeffs.empty(); }
 
   iterator begin(){
     return d_coeffs.begin();
@@ -220,7 +221,7 @@ public:
     updateRow(row);
   }
 
-  ArithVar ejectAlwaysZeroBasic(ArithVar basic);
+  std::vector<ArithVar> ejectAlwaysZeroBasic(ArithVar basic);
 
 private:
   inline bool isActiveBasicVariable(ArithVar var){
