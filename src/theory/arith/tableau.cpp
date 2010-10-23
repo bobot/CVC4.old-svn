@@ -244,9 +244,11 @@ std::vector<ArithVar> Tableau::ejectAlwaysZeroBasic(ArithVar basic){
   }
 
 
-  for(ArithVarSet::iterator basicIter = begin(), endIter = end();
-      basicIter != endIter; ++basicIter){
-    ArithVar k = *basicIter;
+  for(ArithVar k = 0, end = d_rowsTable.size(); k != end; ++k){
+    if(!d_basicManager.isBasic(k) || k == newbasic) continue;
+    if(isEjected(k)){
+      reinjectBasic(k);
+    }
     Row* row_k = lookup(k);
     if(row_k->has(newbasic)){
       row_k->substitute(*row);
