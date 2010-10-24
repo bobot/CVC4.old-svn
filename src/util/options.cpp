@@ -19,12 +19,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <new>
+#include <vector>
+#include <string>
+#include <iostream>
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
 #include <time.h>
 
-#include <getopt.h>
+#include <boost/program_options.hpp>
 
 #include "expr/expr.h"
 #include "util/configuration.h"
@@ -35,37 +38,23 @@
 
 #include "cvc4autoconfig.h"
 
+#ifdef CVC4_DEBUG
+#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
+#else /* CVC4_DEBUG */
+#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT false
+#endif /* CVC4_DEBUG */
+
+#ifdef CVC4_MUZZLED
+#  define DO_SEMANTIC_CHECKS_BY_DEFAULT false
+#else
+#  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
+#endif
+
 using namespace std;
 using namespace CVC4;
+using namespace boost::program_options;
 
 namespace CVC4 {
-
-static const string optionsDescription = "\
-   --lang | -L            force input language (default is `auto'; see --lang help)\n\
-   --version | -V         identify this CVC4 binary\n\
-   --help | -h            this command line reference\n\
-   --parse-only           exit after parsing input\n\
-   --mmap                 memory map file input\n\
-   --show-config          show CVC4 static configuration\n\
-   --segv-nospin          don't spin on segfault waiting for gdb\n\
-   --lazy-type-checking   type check expressions only when necessary (default)\n\
-   --eager-type-checking  type check expressions immediately on creation\n\
-   --no-type-checking     never type check expressions\n\
-   --no-checking          disable ALL semantic checks, including type checks \n\
-   --strict-parsing       fail on non-conformant inputs (SMT2 only)\n\
-   --verbose | -v         increase verbosity (repeatable)\n\
-   --quiet | -q           decrease verbosity (repeatable)\n\
-   --trace | -t           tracing for something (e.g. --trace pushpop)\n\
-   --debug | -d           debugging for something (e.g. --debug arith), implies -t\n\
-   --stats                give statistics on exit\n\
-   --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
-   --print-expr-types     print types with variables when printing exprs\n\
-   --uf=morgan|tim        select uninterpreted function theory implementation\n\
-   --interactive          run interactively\n\
-   --no-interactive       do not run interactively\n\
-   --produce-models       support the get-value command\n\
-   --produce-assignments  support the get-assignment command\n\
-   --lazy-definition-expansion expand define-fun lazily\n";
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -75,322 +64,234 @@ Languages currently supported as arguments to the -L / --lang option:\n\
   smt2 | smtlib2 SMT-LIB format 2.0\n\
 ";
 
-string Options::getDescription() const {
-  return optionsDescription;
-}
+static const string ufDescription = "\
+UF implementations available:\n\
+  morgan   Morgan's UF solver (default)\n\
+  tim      Tim's initial UF solver (predicates and models not supported)\n\
+";
 
-void Options::printUsage(const string msg, std::ostream& out) {
-  out << msg << optionsDescription << endl << flush;
-  // printf(usage + options.getDescription(), options.binary_name.c_str());
-  //     printf(usage, binary_name.c_str());
+void Options::printUsage(const string& msg, ostream& out) const {
+  out << msg << option_desc << endl << flush;
 }
 
 void Options::printLanguageHelp(std::ostream& out) {
   out << languageDescription << flush;
 }
 
-/**
- * For the main getopt() routine, we need ways to switch on long
- * options without clashing with short option characters.  This is an
- * enum of those long options.  For long options (e.g. "--verbose")
- * with a short option equivalent ("-v"), we use the single-letter
- * short option; therefore, this enumeration starts at 256 to avoid
- * any collision.
- */
-enum OptionValue {
-  SMTCOMP = 256, /* no clash with char options */
-  STATS,
-  SEGV_NOSPIN,
-  PARSE_ONLY,
-  NO_CHECKING,
-  USE_MMAP,
-  SHOW_CONFIG,
-  STRICT_PARSING,
-  DEFAULT_EXPR_DEPTH,
-  PRINT_EXPR_TYPES,
-  UF_THEORY,
-  LAZY_DEFINITION_EXPANSION,
-  INTERACTIVE,
-  NO_INTERACTIVE,
-  PRODUCE_MODELS,
-  PRODUCE_ASSIGNMENTS,
-  NO_TYPE_CHECKING,
-  LAZY_TYPE_CHECKING,
-  EAGER_TYPE_CHECKING,
-};/* enum OptionValue */
+void Options::printUfHelp(std::ostream& out) {
+  out << ufDescription << flush;
+}
 
-/**
- * This is a table of long options.  By policy, each short option
- * should have an equivalent long option (but the reverse isn't the
- * case), so this table should thus contain all command-line options.
- *
- * Each option in this array has four elements:
- *
- * 1. the long option string
- * 2. argument behavior for the option:
- *    no_argument - no argument permitted
- *    required_argument - an argument is expected
- *    optional_argument - an argument is permitted but not required
- * 3. this is a pointer to an int which is set to the 4th entry of the
- *    array if the option is present; or NULL, in which case
- *    getopt_long() returns the 4th entry
- * 4. the return value for getopt_long() when this long option (or the
- *    value to set the 3rd entry to; see #3)
- *
- * If you add something here, you should add it in src/main/usage.h
- * also, to document it.
- *
- * If you add something that has a short option equivalent, you should
- * add it to the getopt_long() call in parseOptions().
- */
-static struct option cmdlineOptions[] = {
-  // name, has_arg, *flag, val
-  { "verbose"    , no_argument      , NULL, 'v'         },
-  { "quiet"      , no_argument      , NULL, 'q'         },
-  { "debug"      , required_argument, NULL, 'd'         },
-  { "trace"      , required_argument, NULL, 't'         },
-  { "stats"      , no_argument      , NULL, STATS       },
-  { "no-checking", no_argument      , NULL, NO_CHECKING },
-  { "show-config", no_argument      , NULL, SHOW_CONFIG },
-  { "segv-nospin", no_argument      , NULL, SEGV_NOSPIN },
-  { "help"       , no_argument      , NULL, 'h'         },
-  { "version"    , no_argument      , NULL, 'V'         },
-  { "about"      , no_argument      , NULL, 'V'         },
-  { "lang"       , required_argument, NULL, 'L'         },
-  { "parse-only" , no_argument      , NULL, PARSE_ONLY  },
-  { "mmap"       , no_argument      , NULL, USE_MMAP    },
-  { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
-  { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
-  { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
-  { "uf"         , required_argument, NULL, UF_THEORY },
-  { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
-  { "interactive", no_argument      , NULL, INTERACTIVE },
-  { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
-  { "produce-models", no_argument   , NULL, PRODUCE_MODELS},
-  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS},
-  { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING},
-  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING},
-  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING},
-  { NULL         , no_argument      , NULL, '\0'        }
-};/* if you add things to the above, please remember to update usage.h! */
+Options::Options() :
+  option_desc("CVC4 options"),
+  binary_name(),
+  statistics(false),
+  in(&std::cin),
+  out(&std::cout),
+  err(&std::cerr),
+  verbosity(0),
+  inputLanguage(language::input::LANG_AUTO),
+  uf_implementation(MORGAN),
+  parseOnly(false),
+  semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
+  memoryMap(false),
+  strictParsing(false),
+  lazyDefinitionExpansion(false),
+  interactive(false),
+  interactiveSetByUser(false),
+  segvNoSpin(false),
+  produceModels(false),
+  produceAssignments(false),
+  typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
+  earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT) {
 
+  option_desc.add_options()
+    ( "help,h", "this command line reference" )
+    ( "version,V", "identify this CVC4 binary" )
+    ( "about", "identify this CVC4 binary" )
+    ( "show-config", "show CVC4 static configuration" )
+
+    ( "verbose,v", "increase verbosity (repeatable)" )
+    ( "quiet,q", "decrease verbosity (repeatable)" )
+    ( "stats", "give statistics on exit" )
+
+    ( "debug,d", value< vector<string> >(), "debugging for something (e.g. --debug arith), implies -t" )
+    ( "trace,t", value< vector<string> >(), "tracing for something (.e.g, --trace pushpop)" )
+    ( "segv-nospin", "don't spin on segfault waiting for gdb" )
+
+    ( "lang,L", value<string>()->default_value("auto"), "force input language (default is `auto'; see --lang help)" )
+    ( "input-file", value<string>()->default_value("-"), "input file to process (default is `-', meaning stdin)" )
+    ( "mmap", "memory map file input" )
+    ( "parse-only" , "parse, don't execute any commands" )
+    ( "strict-parsing", "fail on non-conformant inputs (SMT2 only)" )
+
+    ( "lazy-definition-expansion", "expand define-fun lazily" )
+
+    ( "no-checking", "disable ALL semantic checks, including type checks" )
+    ( "no-type-checking", "never type check expressions" )
+    ( "lazy-type-checking", "type check expressions only when necessary (default)" )
+    ( "eager-type-checking", "type check expressions immediately on creation" )
+
+    ( "uf", value<string>()->default_value("morgan"), "select uninterpreted function theory implementation" )
+
+    ( "default-expr-depth", value<int>(), "print exprs to depth N (0 == default, -1 == no limit)" )
+    ( "print-expr-types", "print types with variables when printing exprs" )
+
+    ( "interactive", "run interactively" )
+    ( "no-interactive", "do not run interactively" )
+
+    ( "produce-models", "support the get-value command" )
+    ( "produce-assignments", "support the get-assignment command" );
+}
 
 /** Parse argc/argv and put the result into a CVC4::Options struct. */
-int Options::parseOptions(int argc, char* argv[])
-throw(OptionException) {
-  const char *progName = argv[0];
-  int c;
+string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
+  positional_options_description p;
+  p.add("input-file", -1);
 
   // find the base name of the program
-  const char *x = strrchr(progName, '/');
-  if(x != NULL) {
-    progName = x + 1;
+  const char *progName = argv[0];
+  const char *cp = strrchr(progName, '/');
+  if(cp != NULL) {
+    progName = cp + 1;
   }
   binary_name = string(progName);
 
-  // The strange string in this call is the short option string.  The
-  // initial '+' means that option processing stops as soon as a
-  // non-option argument is encountered.  The initial ':' indicates
-  // that getopt_long() should return ':' instead of '?' for a missing
-  // option argument.  Then, each letter is a valid short option for
-  // getopt_long(), and if it's encountered, getopt_long() returns
-  // that character.  A ':' after an option character means an
-  // argument is required; two colons indicates an argument is
-  // optional; no colons indicate an argument is not permitted.
-  // cmdlineOptions specifies all the long-options and the return
-  // value for getopt_long() should they be encountered.
-  while((c = getopt_long(argc, argv,
-                         "+:hVvqL:d:t:",
-                         cmdlineOptions, NULL)) != -1) {
-    switch(c) {
+  // parse the command-line options
+  variables_map vm;
+  store(command_line_parser(argc, argv).
+            options(option_desc).positional(p).run(), vm);
+  notify(vm);
 
-    case 'h':
-      help = true;
-      break;
-      // options.printUsage(usage);
-      // exit(1);
-
-    case 'V':
-      version = true;
-      break;
-      // fputs(Configuration::about().c_str(), stdout);
-      // exit(0);
-
-    case 'v':
-      ++verbosity;
-      break;
-
-    case 'q':
-      --verbosity;
-      break;
-
-    case 'L':
-      if(!strcmp(optarg, "cvc4") || !strcmp(optarg, "pl")) {
-        inputLanguage = language::input::LANG_CVC4;
-        break;
-      } else if(!strcmp(optarg, "smtlib") || !strcmp(optarg, "smt")) {
-        inputLanguage = language::input::LANG_SMTLIB;
-        break;
-      } else if(!strcmp(optarg, "smtlib2") || !strcmp(optarg, "smt2")) {
-        inputLanguage = language::input::LANG_SMTLIB_V2;
-        break;
-      } else if(!strcmp(optarg, "auto")) {
-        inputLanguage = language::input::LANG_AUTO;
-        break;
-      }
-
-      if(strcmp(optarg, "help")) {
-        throw OptionException(string("unknown language for --lang: `") +
-                              optarg + "'.  Try --lang help.");
-      }
-
-      languageHelp = true;
-      break;
-
-    case 't':
-      Trace.on(optarg);
-      break;
-
-    case 'd':
-      Debug.on(optarg);
-      Trace.on(optarg);
-      break;
-
-    case STATS:
-      statistics = true;
-      break;
-
-    case SEGV_NOSPIN:
-      segvNoSpin = true;
-      break;
-
-    case PARSE_ONLY:
-      parseOnly = true;
-      break;
-
-    case NO_CHECKING:
-      semanticChecks = false;
-      typeChecking = false;
-      earlyTypeChecking = false;
-      break;
-
-    case USE_MMAP:
-      memoryMap = true;
-      break;
-
-    case STRICT_PARSING:
-      strictParsing = true;
-      break;
-
-    case DEFAULT_EXPR_DEPTH:
-      {
-        int depth = atoi(optarg);
-        Debug.getStream() << Expr::setdepth(depth);
-        Trace.getStream() << Expr::setdepth(depth);
-        Notice.getStream() << Expr::setdepth(depth);
-        Chat.getStream() << Expr::setdepth(depth);
-        Message.getStream() << Expr::setdepth(depth);
-        Warning.getStream() << Expr::setdepth(depth);
-      }
-      break;
-
-    case PRINT_EXPR_TYPES:
-      {
-        Debug.getStream() << Expr::printtypes(true);
-        Trace.getStream() << Expr::printtypes(true);
-        Notice.getStream() << Expr::printtypes(true);
-        Chat.getStream() << Expr::printtypes(true);
-        Message.getStream() << Expr::printtypes(true);
-        Warning.getStream() << Expr::printtypes(true);
-      }
-      break;
-
-    case UF_THEORY:
-      {
-        if(!strcmp(optarg, "tim")) {
-          uf_implementation = Options::TIM;
-        } else if(!strcmp(optarg, "morgan")) {
-          uf_implementation = Options::MORGAN;
-        } else if(!strcmp(optarg, "help")) {
-          printf("UF implementations available:\n");
-          printf("tim\n");
-          printf("morgan\n");
-          exit(1);
-        } else {
-          throw OptionException(string("unknown option for --uf: `") +
-                                optarg + "'.  Try --uf help.");
-        }
-      }
-      break;
-
-    case LAZY_DEFINITION_EXPANSION:
-      lazyDefinitionExpansion = true;
-      break;
-
-    case INTERACTIVE:
-      interactive = true;
-      interactiveSetByUser = true;
-      break;
-
-    case NO_INTERACTIVE:
-      interactive = false;
-      interactiveSetByUser = true;
-      break;
-
-    case PRODUCE_MODELS:
-      produceModels = true;
-      break;
-
-    case PRODUCE_ASSIGNMENTS:
-      produceAssignments = true;
-      break;
-
-    case NO_TYPE_CHECKING:
-      typeChecking = false;
-      earlyTypeChecking = false;
-      break;
-
-    case LAZY_TYPE_CHECKING:
-      earlyTypeChecking = false;
-      break;
-
-    case EAGER_TYPE_CHECKING:
-      typeChecking = true;
-      earlyTypeChecking = true;
-      break;
-
-    case SHOW_CONFIG:
-      fputs(Configuration::about().c_str(), stdout);
-      printf("\n");
-      printf("version    : %s\n", Configuration::getVersionString().c_str());
-      printf("\n");
-      printf("library    : %u.%u.%u\n",
-             Configuration::getVersionMajor(),
-             Configuration::getVersionMinor(),
-             Configuration::getVersionRelease());
-      printf("\n");
-      printf("debug code : %s\n", Configuration::isDebugBuild() ? "yes" : "no");
-      printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
-      printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
-      printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");
-      printf("coverage   : %s\n", Configuration::isCoverageBuild() ? "yes" : "no");
-      printf("profiling  : %s\n", Configuration::isProfilingBuild() ? "yes" : "no");
-      printf("competition: %s\n", Configuration::isCompetitionBuild() ? "yes" : "no");
-      exit(0);
-
-    case '?':
-      throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
-
-    case ':':
-      throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
-
-    default:
-      throw OptionException(string("can't understand option:") + argv[optind - 1] + "'");
-    }
-
+  help = vm.count("help");
+  version = vm.count("version");
+  verbosity = vm.count("verbose") - vm.count("quiet");
+  string lang = vm["lang"].as<string>();
+  if(lang == "cvc4" || lang == "pl") {
+    inputLanguage = language::input::LANG_CVC4;
+  } else if(lang == "smtlib" || lang == "smt") {
+    inputLanguage = language::input::LANG_SMTLIB;
+  } else if(lang == "smtlib2" || lang == "smt2") {
+    inputLanguage = language::input::LANG_SMTLIB_V2;
+  } else if(lang == "auto") {
+    inputLanguage = language::input::LANG_AUTO;
+  } else if(lang == "help") {
+    languageHelp = true;
+  } else {
+    throw OptionException(string("unknown language for --lang: `") +
+                          optarg + "'.  Try --lang help.");
   }
 
-  return optind;
+  if(vm.count("trace")) {
+    vector<string> traces = vm["trace"].as< vector<string> >();
+    for(vector<string>::const_iterator i = traces.begin(),
+          iend = traces.end();
+        i != iend;
+        ++i) {
+      Trace.on(*i);
+    }
+  }
+  if(vm.count("debug")) {
+    vector<string> debugs = vm["debug"].as< vector<string> >();
+    for(vector<string>::const_iterator i = debugs.begin(),
+          iend = debugs.end();
+        i != iend;
+        ++i) {
+      Debug.on(*i);
+      Trace.on(*i);
+    }
+  }
+
+  statistics = vm.count("stats");
+  segvNoSpin = vm.count("segv-nospin");
+  parseOnly = vm.count("parse-only");
+
+  if(vm.count("no-checking")) {
+    semanticChecks = false;
+    typeChecking = false;
+    earlyTypeChecking = false;
+  }
+
+  memoryMap = vm.count("mmap");
+  strictParsing = vm.count("strict-parsing");
+
+  if(vm.count("default-expr-depth")) {
+    int depth = vm["default-expr-depth"].as<int>();
+    Debug.getStream() << Expr::setdepth(depth);
+    Trace.getStream() << Expr::setdepth(depth);
+    Notice.getStream() << Expr::setdepth(depth);
+    Chat.getStream() << Expr::setdepth(depth);
+    Message.getStream() << Expr::setdepth(depth);
+    Warning.getStream() << Expr::setdepth(depth);
+  }
+
+  if(vm.count("print-expr-types")) {
+    Debug.getStream() << Expr::printtypes(true);
+    Trace.getStream() << Expr::printtypes(true);
+    Notice.getStream() << Expr::printtypes(true);
+    Chat.getStream() << Expr::printtypes(true);
+    Message.getStream() << Expr::printtypes(true);
+    Warning.getStream() << Expr::printtypes(true);
+  }
+
+  string ufTheory = vm["uf"].as<string>();
+  if(ufTheory == "tim") {
+    uf_implementation = TIM;
+  } else if(ufTheory == "morgan") {
+    uf_implementation = MORGAN;
+  } else if(ufTheory == "help") {
+    ufHelp = true;
+  } else {
+    throw OptionException(string("unknown option for --uf: `") +
+                          optarg + "'.  Try --uf help.");
+  }
+
+  lazyDefinitionExpansion = vm.count("lazy-definition-expansion");
+
+  if(vm.count("interactive")) {
+    interactive = true;
+    interactiveSetByUser = true;
+  }
+  if(vm.count("no-interactive")) {
+    interactive = false;
+    interactiveSetByUser = true;
+  }
+
+  produceModels = vm.count("produce-models");
+  produceAssignments = vm.count("produce-assignments");
+  if(vm.count("no-type-checking")) {
+    typeChecking = false;
+    earlyTypeChecking = false;
+  }
+  if(vm.count("lazy-type-checking")) {
+    earlyTypeChecking = false;
+  }
+  if(vm.count("eager-type-checking")) {
+    typeChecking = true;
+    earlyTypeChecking = true;
+  }
+
+  if(vm.count("show-config")) {
+    fputs(Configuration::about().c_str(), stdout);
+    printf("\n");
+    printf("version    : %s\n", Configuration::getVersionString().c_str());
+    printf("\n");
+    printf("library    : %u.%u.%u\n",
+           Configuration::getVersionMajor(),
+           Configuration::getVersionMinor(),
+           Configuration::getVersionRelease());
+    printf("\n");
+    printf("debug code : %s\n", Configuration::isDebugBuild() ? "yes" : "no");
+    printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
+    printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
+    printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");
+    printf("coverage   : %s\n", Configuration::isCoverageBuild() ? "yes" : "no");
+    printf("profiling  : %s\n", Configuration::isProfilingBuild() ? "yes" : "no");
+    printf("competition: %s\n", Configuration::isCompetitionBuild() ? "yes" : "no");
+    exit(0);
+  }
+
+  return vm["input-file"].as<string>();
 }
 
 }/* CVC4 namespace */

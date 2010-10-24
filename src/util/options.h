@@ -21,20 +21,10 @@
 #ifndef __CVC4__OPTIONS_H
 #define __CVC4__OPTIONS_H
 
-#ifdef CVC4_DEBUG
-#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
-#else /* CVC4_DEBUG */
-#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT false
-#endif /* CVC4_DEBUG */
-
-#ifdef CVC4_MUZZLED
-#  define DO_SEMANTIC_CHECKS_BY_DEFAULT false
-#else
-#  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
-#endif
-
 #include <iostream>
 #include <string>
+
+#include <boost/program_options.hpp>
 
 #include "util/exception.h"
 #include "util/language.h"
@@ -50,6 +40,8 @@ public:
 };/* class OptionException */
 
 struct CVC4_PUBLIC Options {
+
+  boost::program_options::options_description option_desc;
 
   std::string binary_name;
 
@@ -83,6 +75,9 @@ struct CVC4_PUBLIC Options {
 
   /** Should we print the language help information? */
   bool languageHelp;
+
+  /** Should we print the UF theory selection information? */
+  bool ufHelp;
 
   /** Should we exit after parsing? */
   bool parseOnly;
@@ -123,43 +118,16 @@ struct CVC4_PUBLIC Options {
   /** Whether we do typechecking at Expr creation time. */
   bool earlyTypeChecking;
 
-  Options() :
-    binary_name(),
-    statistics(false),
-    in(&std::cin),
-    out(&std::cout),
-    err(&std::cerr),
-    verbosity(0),
-    inputLanguage(language::input::LANG_AUTO),
-    uf_implementation(MORGAN),
-    parseOnly(false),
-    semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-    memoryMap(false),
-    strictParsing(false),
-    lazyDefinitionExpansion(false),
-    interactive(false),
-    interactiveSetByUser(false),
-    segvNoSpin(false),
-    produceModels(false),
-    produceAssignments(false),
-    typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-    earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT) {
-  }
+  Options();
 
-  /** 
-   * Get a description of the command-line flags accepted by
-   * parseOptions.  The returned string will be escaped so that it is
-   * suitable as an argument to printf. */
-  std::string getDescription() const;
-
-  static void printUsage(const std::string msg, std::ostream& out);
+  void printUsage(const std::string& msg, std::ostream& out) const;
   static void printLanguageHelp(std::ostream& out);
+  static void printUfHelp(std::ostream& out);
 
   /**
    * Initialize the options based on the given command-line arguments.
    */
-  int parseOptions(int argc, char* argv[])
-    throw(OptionException);
+  std::string parseOptions(int argc, char* argv[]) throw(OptionException);
 };/* struct Options */
 
 inline std::ostream& operator<<(std::ostream& out,
@@ -178,10 +146,6 @@ inline std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
- 
-
 }/* CVC4 namespace */
-
-#undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT
 
 #endif /* __CVC4__OPTIONS_H */

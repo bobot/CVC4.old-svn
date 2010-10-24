@@ -68,9 +68,7 @@ namespace CVC4 {
 const string usageMessage = "\
 usage: %s [options] [input-file]\n\
 \n\
-Without an input file, or with `-', CVC4 reads from standard input.\n\
-\n\
-CVC4 options:\n";
+Without an input file, or with `-', CVC4 reads from standard input.\n";
 
 void printUsage() {
   stringstream ss;
@@ -79,7 +77,7 @@ void printUsage() {
       << "Without an input file, or with `-', CVC4 reads from standard input." << endl
       << endl
       << "CVC4 options:" << endl;
-  Options::printUsage( ss.str(), *options.out );
+  options.printUsage( ss.str(), *options.out );
 }
 
 /**
@@ -133,9 +131,9 @@ int runCvc4(int argc, char* argv[]) {
   cvc4_init();
 
   progPath = argv[0];
-  
+
   // Parse the options
-  int firstArgIndex = options.parseOptions(argc, argv);
+  string inputFile = options.parseOptions(argc, argv);
 
   progName = options.binary_name.c_str();
 
@@ -148,7 +146,10 @@ int runCvc4(int argc, char* argv[]) {
   } else if( options.version ) {
     *options.out << Configuration::about().c_str() << flush;
     exit(0);
-  } 
+  } else if( options.ufHelp ) {
+    Options::printUfHelp(*options.out);
+    exit(1);
+  }
 
   segvNoSpin = options.segvNoSpin;
 
@@ -157,14 +158,8 @@ int runCvc4(int argc, char* argv[]) {
   *options.out << unitbuf;
 #endif
 
-  // We only accept one input file
-  if(argc > firstArgIndex + 1) {
-    throw Exception("Too many input files specified.");
-  }
-
   // If no file supplied we will read from standard input
-  const bool inputFromStdin =
-    firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
+  const bool inputFromStdin = (inputFile == "-");
 
   // if we're reading from stdin on a TTY, default to interactive mode
   if(!options.interactiveSetByUser) {
@@ -178,7 +173,7 @@ int runCvc4(int argc, char* argv[]) {
   SmtEngine smt(&exprMgr, options);
 
   // Auto-detect input language by filename extension
-  const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
+  const char* filename = inputFromStdin ? "<stdin>" : inputFile.c_str();
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
   StatisticsRegistry::registerStat(&s_statFilename);

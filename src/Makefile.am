@@ -22,7 +22,8 @@ SUBDIRS = lib expr util context theory prop smt . parser main
 lib_LTLIBRARIES = libcvc4.la
 noinst_LTLIBRARIES = libcvc4_noinst.la
 
-libcvc4_la_LDFLAGS = -version-info $(LIBCVC4_VERSION)
+libcvc4_la_LDFLAGS = -version-info $(LIBCVC4_VERSION) \
+	$(BOOST_PROGRAM_OPTIONS_LDFLAGS)
 
 # empty.cpp is a fake file added to "trick" automake into linking us as a
 # C++ library (rather than as a C library, which messes up exception
@@ -37,7 +38,8 @@ libcvc4_la_LIBADD = \
 	@builddir@/prop/minisat/libminisat.la \
 	@builddir@/smt/libsmt.la \
 	@builddir@/theory/libtheory.la \
-	@builddir@/lib/libreplacements.la
+	@builddir@/lib/libreplacements.la \
+	$(BOOST_PROGRAM_OPTIONS_LIBS)
 libcvc4_noinst_la_LIBADD = \
 	@builddir@/util/libutil.la \
 	@builddir@/expr/libexpr.la \
@@ -46,7 +48,8 @@ libcvc4_noinst_la_LIBADD = \
 	@builddir@/prop/minisat/libminisat.la \
 	@builddir@/smt/libsmt.la \
 	@builddir@/theory/libtheory.la \
-	@builddir@/lib/libreplacements.la
+	@builddir@/lib/libreplacements.la \
+	$(BOOST_PROGRAM_OPTIONS_LIBS)
 
 EXTRA_DIST = \
 	include/cvc4parser_private.h \
