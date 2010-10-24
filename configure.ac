@@ -257,6 +257,10 @@ fi
 AM_CONDITIONAL([CVC4_CLN_IMP], [test $cvc4_cln_or_gmp = cln])
 AM_CONDITIONAL([CVC4_GMP_IMP], [test $cvc4_cln_or_gmp = gmp])
 
+# require boost library
+BOOST_REQUIRE
+BOOST_PROGRAM_OPTIONS
+
 # construct the build string
 AC_MSG_CHECKING([for appropriate build string])
 if test -z "$ac_confdir"; then
