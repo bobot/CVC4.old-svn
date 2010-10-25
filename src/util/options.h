@@ -42,6 +42,7 @@ public:
 struct CVC4_PUBLIC Options {
 
   boost::program_options::options_description option_desc;
+  boost::program_options::options_description option_desc_hidden;
 
   std::string binary_name;
 
@@ -72,6 +73,9 @@ struct CVC4_PUBLIC Options {
 
   /** Should we print the release information? */
   bool version;
+
+  /** Should we print the compile-time configuration? */
+  bool showConfig;
 
   /** Should we print the language help information? */
   bool languageHelp;
@@ -123,6 +127,7 @@ struct CVC4_PUBLIC Options {
   void printUsage(const std::string& msg, std::ostream& out) const;
   static void printLanguageHelp(std::ostream& out);
   static void printUfHelp(std::ostream& out);
+  static void printConfiguration(std::ostream& out);
 
   /**
    * Initialize the options based on the given command-line arguments.

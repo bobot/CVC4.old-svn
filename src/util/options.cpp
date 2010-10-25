@@ -82,8 +82,27 @@ void Options::printUfHelp(std::ostream& out) {
   out << ufDescription << flush;
 }
 
+void Options::printConfiguration(std::ostream& out) {
+  out << Configuration::about() << endl
+      << "version    : " << Configuration::getVersionString() << endl
+      << endl
+      << "library    : " << Configuration::getVersionMajor() << '.'
+                         << Configuration::getVersionMinor() << '.'
+                         << Configuration::getVersionRelease() << endl
+      << endl
+      << "debug code : " << (Configuration::isDebugBuild() ? "yes" : "no") << endl
+      << "tracing    : " << (Configuration::isTracingBuild() ? "yes" : "no") << endl
+      << "muzzled    : " << (Configuration::isMuzzledBuild() ? "yes" : "no") << endl
+      << "assertions : " << (Configuration::isAssertionBuild() ? "yes" : "no") << endl
+      << "coverage   : " << (Configuration::isCoverageBuild() ? "yes" : "no") << endl
+      << "profiling  : " << (Configuration::isProfilingBuild() ? "yes" : "no") << endl
+      << "competition: " << (Configuration::isCompetitionBuild() ? "yes" : "no") << endl
+      << flush;
+}
+
 Options::Options() :
   option_desc("CVC4 options"),
+  option_desc_hidden("Hidden options"),
   binary_name(),
   statistics(false),
   in(&std::cin),
@@ -105,47 +124,65 @@ Options::Options() :
   typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
   earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT) {
 
-  option_desc.add_options()
+  options_description debug("Debugging options");
+  options_description parser("Parser/input options");
+  options_description core("Core options");
+  options_description checking("Checking options");
+  options_description theories("Theory options");
+  options_description output("Output options");
+
+  option_desc_hidden.add_options()
+    ( "about", "identify this CVC4 binary" )
+    ( "input-file", value<string>()->default_value("-"), "input file to process (default is `-', meaning stdin)" );
+  option_desc.add_options()// driver options
     ( "help,h", "this command line reference" )
     ( "version,V", "identify this CVC4 binary" )
-    ( "about", "identify this CVC4 binary" )
     ( "show-config", "show CVC4 static configuration" )
-
+    ( "interactive", "run interactively" )
+    ( "no-interactive", "do not run interactively" )
     ( "verbose,v", "increase verbosity (repeatable)" )
     ( "quiet,q", "decrease verbosity (repeatable)" )
-    ( "stats", "give statistics on exit" )
-
+    ( "stats", "give statistics on exit" );
+  debug.add_options()
     ( "debug,d", value< vector<string> >(), "debugging for something (e.g. --debug arith), implies -t" )
-    ( "trace,t", value< vector<string> >(), "tracing for something (.e.g, --trace pushpop)" )
-    ( "segv-nospin", "don't spin on segfault waiting for gdb" )
-
+    ( "trace,t", value< vector<string> >(), "tracing for something (e.g. --trace pushpop)" )
+    ( "segv-nospin", "don't spin on segfault waiting for gdb" );
+  parser.add_options()
     ( "lang,L", value<string>()->default_value("auto"), "force input language (default is `auto'; see --lang help)" )
-    ( "input-file", value<string>()->default_value("-"), "input file to process (default is `-', meaning stdin)" )
     ( "mmap", "memory map file input" )
     ( "parse-only" , "parse, don't execute any commands" )
-    ( "strict-parsing", "fail on non-conformant inputs (SMT2 only)" )
-
-    ( "lazy-definition-expansion", "expand define-fun lazily" )
-
+    ( "strict-parsing", "fail on non-conformant inputs (SMT2 only)" );
+  core.add_options()
+    ( "produce-models", "support the get-value command" )
+    ( "produce-assignments", "support the get-assignment command" )
+    ( "lazy-definition-expansion", "expand define-fun lazily" );
+  checking.add_options()
     ( "no-checking", "disable ALL semantic checks, including type checks" )
     ( "no-type-checking", "never type check expressions" )
     ( "lazy-type-checking", "type check expressions only when necessary (default)" )
-    ( "eager-type-checking", "type check expressions immediately on creation" )
-
-    ( "uf", value<string>()->default_value("morgan"), "select uninterpreted function theory implementation" )
-
+    ( "eager-type-checking", "type check expressions immediately on creation" );
+  theories.add_options()
+    ( "uf", value<string>()->default_value("morgan"), "select uninterpreted function theory implementation" );
+  output.add_options()
     ( "default-expr-depth", value<int>(), "print exprs to depth N (0 == default, -1 == no limit)" )
-    ( "print-expr-types", "print types with variables when printing exprs" )
+    ( "print-expr-types", "print types with variables when printing exprs" );
 
-    ( "interactive", "run interactively" )
-    ( "no-interactive", "do not run interactively" )
-
-    ( "produce-models", "support the get-value command" )
-    ( "produce-assignments", "support the get-assignment command" );
+  option_desc.add(debug);
+  option_desc.add(parser);
+  option_desc.add(core);
+  option_desc.add(checking);
+  option_desc.add(theories);
+  option_desc.add(output);
 }
 
 /** Parse argc/argv and put the result into a CVC4::Options struct. */
 string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
+  // compose visible and hidden options
+  options_description allOptions;
+  allOptions.add(option_desc);
+  allOptions.add(option_desc_hidden);
+
+  // positional options
   positional_options_description p;
   p.add("input-file", -1);
 
@@ -159,12 +196,17 @@ string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
 
   // parse the command-line options
   variables_map vm;
-  store(command_line_parser(argc, argv).
-            options(option_desc).positional(p).run(), vm);
+  try {
+    store(command_line_parser(argc, argv).
+          options(allOptions).positional(p).run(), vm);
+  } catch(std::exception& e) {
+    throw OptionException(e.what());// e.g. unrecognized option
+  }
   notify(vm);
 
-  help = vm.count("help");
+  help = vm.count("help") + vm.count("about");
   version = vm.count("version");
+  showConfig = vm.count("show-config");
   verbosity = vm.count("verbose") - vm.count("quiet");
   string lang = vm["lang"].as<string>();
   if(lang == "cvc4" || lang == "pl") {
@@ -206,12 +248,6 @@ string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
   segvNoSpin = vm.count("segv-nospin");
   parseOnly = vm.count("parse-only");
 
-  if(vm.count("no-checking")) {
-    semanticChecks = false;
-    typeChecking = false;
-    earlyTypeChecking = false;
-  }
-
   memoryMap = vm.count("mmap");
   strictParsing = vm.count("strict-parsing");
 
@@ -248,6 +284,9 @@ string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
 
   lazyDefinitionExpansion = vm.count("lazy-definition-expansion");
 
+  if(vm.count("interactive") && vm.count("no-interactive")) {
+    throw OptionException("can't specify both --interactive and --no-interactive");
+  }
   if(vm.count("interactive")) {
     interactive = true;
     interactiveSetByUser = true;
@@ -259,9 +298,23 @@ string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
 
   produceModels = vm.count("produce-models");
   produceAssignments = vm.count("produce-assignments");
+  if(vm.count("no-checking")) {
+    semanticChecks = false;
+    typeChecking = false;
+    earlyTypeChecking = false;
+  }
   if(vm.count("no-type-checking")) {
     typeChecking = false;
     earlyTypeChecking = false;
+  }
+  if((vm.count("no-checking") || vm.count("no-type-checking")) && vm.count("eager-type-checking")) {
+    throw OptionException("can't specify --eager-type-checking with --no-checking or --no-type-checking");
+  }
+  if((vm.count("no-checking") || vm.count("no-type-checking")) && vm.count("lazy-type-checking")) {
+    throw OptionException("can't specify --lazy-type-checking with --no-checking or --no-type-checking");
+  }
+  if(vm.count("lazy-type-checking") && vm.count("eager-type-checking")) {
+    throw OptionException("can't specify both --lazy-type-checking and --eager-type-checking");
   }
   if(vm.count("lazy-type-checking")) {
     earlyTypeChecking = false;
@@ -269,26 +322,6 @@ string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
   if(vm.count("eager-type-checking")) {
     typeChecking = true;
     earlyTypeChecking = true;
-  }
-
-  if(vm.count("show-config")) {
-    fputs(Configuration::about().c_str(), stdout);
-    printf("\n");
-    printf("version    : %s\n", Configuration::getVersionString().c_str());
-    printf("\n");
-    printf("library    : %u.%u.%u\n",
-           Configuration::getVersionMajor(),
-           Configuration::getVersionMinor(),
-           Configuration::getVersionRelease());
-    printf("\n");
-    printf("debug code : %s\n", Configuration::isDebugBuild() ? "yes" : "no");
-    printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
-    printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
-    printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");
-    printf("coverage   : %s\n", Configuration::isCoverageBuild() ? "yes" : "no");
-    printf("profiling  : %s\n", Configuration::isProfilingBuild() ? "yes" : "no");
-    printf("competition: %s\n", Configuration::isCompetitionBuild() ? "yes" : "no");
-    exit(0);
   }
 
   return vm["input-file"].as<string>();

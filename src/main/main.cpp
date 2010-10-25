@@ -75,8 +75,7 @@ void printUsage() {
   ss << "usage: " << options.binary_name << " [options] [input-file]" << endl
       << endl
       << "Without an input file, or with `-', CVC4 reads from standard input." << endl
-      << endl
-      << "CVC4 options:" << endl;
+      << endl;
   options.printUsage( ss.str(), *options.out );
 }
 
@@ -94,8 +93,9 @@ int main(int argc, char* argv[]) {
 #ifdef CVC4_COMPETITION_MODE
     *options.out << "unknown" << endl;
 #endif
-    cerr << "CVC4 Error:" << endl << e << endl;
-    printUsage();
+    cerr << "CVC4 Error:" << endl << e << endl
+         << "Refer to `" << options.binary_name
+         << " --help' for usage information." << endl;
     exit(1);
   } catch(Exception& e) {
 #ifdef CVC4_COMPETITION_MODE
@@ -115,12 +115,21 @@ int main(int argc, char* argv[]) {
       StatisticsRegistry::flushStatistics(*options.err);
     }
     exit(1);
+  } catch(exception& e) {
+#ifdef CVC4_COMPETITION_MODE
+    *options.out << "unknown" << endl;
+#endif
+    *options.err << e.what() << endl;
+    if(options.statistics) {
+      StatisticsRegistry::flushStatistics(*options.err);
+    }
+    exit(1);
   } catch(...) {
 #ifdef CVC4_COMPETITION_MODE
     *options.out << "unknown" << endl;
 #endif
     *options.err << "CVC4 threw an exception of unknown type." << endl;
-    exit(1);
+    throw;//exit(1);
   }
 }
 
@@ -140,12 +149,15 @@ int runCvc4(int argc, char* argv[]) {
   if( options.help ) {
     printUsage();
     exit(1);
-  } else if( options.languageHelp ) {
-    Options::printLanguageHelp(*options.out);
-    exit(1);
   } else if( options.version ) {
     *options.out << Configuration::about().c_str() << flush;
     exit(0);
+  } else if( options.showConfig ) {
+    Options::printConfiguration(*options.out);
+    exit(0);
+  } else if( options.languageHelp ) {
+    Options::printLanguageHelp(*options.out);
+    exit(1);
   } else if( options.ufHelp ) {
     Options::printUfHelp(*options.out);
     exit(1);
