@@ -202,9 +202,9 @@ public:
 
    /** resolution checking **/
   bool checkResolution(ClauseID clause_id);
-  bool compareClauses(vec<Lit> ls1, vec<Lit> ls2);
-  vec<Minisat::Lit> resolve(vec<Minisat::Lit> cl1, CRef cl2, Lit lit);
-  vec<Minisat::Lit> resolve(vec<Minisat::Lit> cl1, Lit cl2, Lit lit);
+  bool hasLit(Lit l, vec<Lit>& cl);
+  bool compareClauses(ClauseID id, vec<Lit>& ls2);
+  void resolve(vec<Lit> &cl1, ClauseID id, Lit lit);
 
   std::string printLFSCClause(CRef cref);
   void printLFSCProof(CRef final_confl);

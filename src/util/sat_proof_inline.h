@@ -378,7 +378,9 @@ void Derivation::registerResolution(ClauseID clause_id, SatResolution* res){
   else{
    Debug("proof")<<"DERIV:: already registered \n";
   }
-  //Assert(checkResolution(clause_id));
+
+  checkResolution(clause_id);
+  Assert(checkResolution(clause_id));
 }
 
 void Derivation::registerResolution(CRef clause, SatResolution* res){
@@ -392,7 +394,8 @@ void Derivation::registerResolution(CRef clause, SatResolution* res){
   else
    Debug("proof")<<"Derivation::registerResolution::already registered clause_id::"<<clause_id<<"\n";
 
-  //Assert(checkResolution(clause_id));
+  checkResolution(clause_id);
+  Assert(checkResolution(clause_id));
 }
 
 /** helper methods for proof construction **/
@@ -631,6 +634,7 @@ LFSCProof* Derivation::getProof(ClauseID clause_id){
 
 LFSCProof* Derivation::derivToLFSC(ClauseID clause_id){
   // TODO: cache getVar and getLam and something else
+  //Debug("proof")<<"derivToLFSC "<<clause_id<<" ";
   SatResolution* res = getResolution(clause_id);
   LFSCProof* pf1 = getProof(res->getStart());
   RSteps steps = res->getSteps();
@@ -721,113 +725,98 @@ void Derivation::printLFSCProof(CRef confl){
  */
 
 
-/*
-bool Derivation::compareClauses(vec<Lit> lits1, vec<Lit> lits2){
-  Assert(lits1 != NULL && lits2 != NULL);
-  if(lits1.size()!= lits2.size())
+void Derivation::resolve(vec<Lit> &clause, ClauseID id, Lit lit){
+  vec<Lit> result;
+  if(isUnit(id)){
+    Lit unit = getUnit(id);
+    for(int i=0; i<clause.size(); i++){
+      if(var(clause[i])!=var(lit))
+       result.push(clause[i]);
+    }
+    result.copyTo(clause);
+    return;
+  }
+  else{
+    Clause& clause2 = cl(d_id_clause[id]);
+    for(int i=0; i<clause.size(); i++){
+      // would also need to check that it has a resolution, presumably it has one
+      if(var(clause[i])!=var(lit) && !isUnit(~clause[i]))
+       result.push(clause[i]);
+    }
+    for(int i=0; i<clause2.size(); i++)
+      if(var(clause2[i])!= var(lit) && !hasLit(clause2[i], result)&& !isUnit(~clause2[i]))
+        result.push(clause2[i]);
+    result.copyTo(clause);
+    return;
+  }
+
+}
+
+bool Derivation::hasLit(Lit l, vec<Lit>& cl){
+  for(int i=0; i<cl.size(); i++)
+    if(var(cl[i])==var(l))
+      return true;
+
+  return false;
+}
+
+bool Derivation::compareClauses(ClauseID clause_id, vec<Lit>& cl2){
+
+  if(!isUnit(clause_id)){
+    Assert(d_id_clause.find(clause_id)!=d_id_clause.end());
+    Clause& cl1 = cl(d_id_clause[clause_id]);
+    if(cl1.size()!=cl2.size())
+      return false;
+
+    for(int i=0; i< cl1.size(); i++){
+       if(!hasLit(cl1[i], cl2))
+         return false;
+    }
+    return true;
+  }
+  else{
+    Lit l = getUnit(clause_id);
+    if(cl2.size()==1)
+      return l == cl2[0];
+
     return false;
-
-  bool eq = false;
-  for (int i=0; i<lits1.size();i++){
-    Lit l = lits1[i];
-    eq = false;
-    for(int j=0;j< lits2.size();j++)
-      if(l == lits2[j])
-        eq = true;
   }
-
-  return eq;
-}
-
-vec<Lit> Derivation::resolve(vec<Lit> cl1, CRef cr2, Lit lit){
-  vec<Lit> lits;
-  Clause& cl2 = cl(cr2);
-
-  for(int i=0; i< cl1.size(); i++){
-    if(var(cl1[i])!=var(lit))
-     lits.push(cl1[i]);
-  }
-
-  for(int i=0; i< cl2.size(); i++){
-    bool found = false;
-
-    for(int j=0;j < lits.size(); j++)
-      if(var(lits[j]) == var(cl2[i])){
-        found = true;
-        break;
-      }
-
-    if(!found && var(cl2[i])!= var(lit))
-      lits.push(cl2[i]);
-  }
-  return lits;
-}
-
-vec<Lit> Derivation::resolve(vec<Lit> cl1, Lit l2, Lit lit){
-  Assert(var(l2) == var(lit));
-
-  vec<Lit> lits;
-  for (int i=0; i< cl1.size();i++)
-    if(var(cl1[i])!= var(lit))
-      lits.push(cl1[i]);
-
-  return lits;
 }
 
 bool Derivation::checkResolution(ClauseID clause_id){
-  if(clause_id == d_empty_clause_id)
-    return true;
-
-  Debug("proof")<<"Checking Resolution \n";
+  Debug("proof:cr")<<"checkResolution "<<clause_id<<"\n";
+  SatResolution* res = getResolution(clause_id);
   printResolution(clause_id);
 
-  SatResolution* res = getResolution(clause_id);
-  Assert(res!= NULL);
-
   ClauseID start_id = res->getStart();
-  Assert(d_id_clause.find(start_id)!=d_id_clause.end());
-  Clause& start = cl(d_id_clause[start_id]);
-
-  vec<Lit> result;
-  for(int i=0;i<start.size();i++)
-    result.push(start[i]);
-
+  Clause& start_cl = cl(d_id_clause[start_id]);
+  vec<Lit> start;
+  for(int i=0;i<start_cl.size();i++)
+    start.push(start_cl[i]);
 
   RSteps steps = res->getSteps();
-  for(int i=0;i <steps.size(); i++){
-    if(d_id_clause.find(steps[i].second)!= d_id_clause.end()){
-      result = resolve(result,d_id_clause[steps[i].second],  steps[i].first);
-      Debug("proof")<<"CHECK:: ";
-      d_solver->printClause(start);
-      Debug("proof")<<"\n";
-    }
-    else{
-      Assert(d_unit_clauses.find(toInt(~(steps[i].first)))!= d_unit_clauses.end());
-      result = resolve(result, steps[i].first,  steps[i].first);
-    }
-
+  for(int i=0;i < steps.size(); i++){
+    ClauseID id = steps[i].second;
+    Lit l = steps[i].first;
+    resolve(start, id, l);
   }
 
-  if(d_id_clause.find(clause_id)!= d_id_clause.end()){
-    Clause& concl_cl = cl(d_id_clause[clause_id]);
-    vec<Lit> concl;
-    for(int i=0;i<concl_cl.size();i++){
-     concl.push_back(concl_cl[i]);
-    }
-    return compareClauses(concl, result);
+  Debug("proof")<<"result ";
+  for(int i=0;i<start.size();i++)
+    printLit(start[i]);
+  Debug("proof")<<"\n";
+
+  if(isUnit(clause_id)){
+   Lit unit = getUnit(clause_id);
+   if(start.size()==1 && start[0]==unit)
+     return true;
+   else
+     return false;
   }
 
-  // should be an unit clause then
-  Clause& cl_start = cl(start);
-  Assert(cl_start.size() == 1);
-  Lit lit = cl_start[0];
-  Lit lit2 = ~lit;
-  //ClauseID id_lit1 = getUnitId(lit);
-  ClauseID id_lit2 = getUnitId(lit2);
-  return clause_id == id_lit2;
-
+  return compareClauses(clause_id, start);
 }
-*/
+
 
 }/* prop namespace */
 }/* CVC4 namespace */
