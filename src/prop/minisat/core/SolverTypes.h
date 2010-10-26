@@ -253,7 +253,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         Clause& c = operator[](cr);
         CRef old = cr; //lsh--
         
-        if (c.reloced()) { cr = c.relocation(); updateId(old, cr, proof); return; }
+        if (c.reloced()) { cr = c.relocation(); return; }
 
         cr = to.alloc(c, c.learnt());
         c.relocate(cr);

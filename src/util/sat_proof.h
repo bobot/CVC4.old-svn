@@ -126,9 +126,10 @@ public:
 
   void updateId(CRef cr1, CRef cr2);
   void finishUpdateId();
-  void newResolution(CRef confl);
+  void newResolution(CRef confl, bool is_input);
   void newResolution(Lit lit);
   void addResStep(Lit l, CRef cl, bool sign);
+  void addResStep(Lit l, Lit l2, bool sign);
   void endResolution(CRef cl);
   void endResolution(Lit lit);
   void traceReason(Lit l, SatResolution* res);

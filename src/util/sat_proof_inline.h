@@ -58,7 +58,7 @@ void Derivation::updateId(CRef old_ref, CRef new_ref){
   /*
    * called in relocAll in minisat during garbage collection
    */
-  if(isRegistered(old_ref) && old_ref != new_ref){
+  if(isRegistered(old_ref)){
     ClauseID id = getId(old_ref);
     d_clause_id_tmp[new_ref] = id;
     d_id_clause_tmp[id] = new_ref;
@@ -67,24 +67,22 @@ void Derivation::updateId(CRef old_ref, CRef new_ref){
 
 void Derivation::finishUpdateId(){
   // copy the things that might have gotten deleted because there were no more references to them
-
-
   for (std::map<ClauseID, CRef>::iterator i = d_id_clause.begin(); i!=d_id_clause.end(); ++i)
     if(d_id_clause_tmp.find((*i).first) == d_id_clause_tmp.end()){
       d_deleted.insert((*i).first);
       //Debug("proof")<<"new-del"<<(*i).first<<" ";
     }
   //Debug("proof")<<"\n";
-
   d_clause_id = d_clause_id_tmp;
   d_id_clause = d_id_clause_tmp;
   d_clause_id_tmp.clear();
   d_id_clause_tmp.clear();
 }
 
-void Derivation::newResolution(CRef cref){
-
-  ClauseID id = registerClause(cref, false);
+void Derivation::newResolution(CRef cref, bool is_problem_clause= false){
+  // adds a new resolution on the resolution stack
+  // starting with clause cref
+  ClauseID id = registerClause(cref, is_problem_clause);
   Debug("proof")<<"newResolution "<<id<<"\n";
   printClause(cref);
   SatResolution* res = new SatResolution(id);
@@ -101,6 +99,15 @@ void Derivation::addResStep(Lit l, CRef cl, bool sign){
   Assert(!d_current.empty());
 
   ClauseID id = registerClause(cl, false);
+  int n = d_current.size();
+  (d_current[n-1])->addStep(l, id, sign);
+}
+
+
+void Derivation::addResStep(Lit l, Lit l2, bool sign){
+  Assert(!d_current.empty());
+
+  ClauseID id = registerClause(l2);
   int n = d_current.size();
   (d_current[n-1])->addStep(l, id, sign);
 }
@@ -126,7 +133,7 @@ void Derivation::endResolution(Lit lit){
 }
 
 void Derivation::traceReason(Lit q, SatResolution* res){
-
+  //SatResolution* res = d_current[d_current.size()-1];
                if(d_solver->level(var(q)) == 0){
                  if(getReason(var(q))==CRef_Undef || (isUnit(~q) && hasResolution(getUnitId(~q))) ){
                   // must be an unit clause
@@ -523,7 +530,7 @@ void Derivation::printAllClauses(){
   Debug("proof")<<"d_clauses \n";
   for(std::map<ClauseID, CRef>::iterator it = d_id_clause.begin(); it!= d_id_clause.end();it++){
     Debug("proof")<<"id: "<<(*it).first<<" = ";
-    if((*it).second!= 0){
+    if((*it).first!= 0){
       CRef cl = (*it).second;
       printClause(cl);
     }
