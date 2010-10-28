@@ -219,7 +219,7 @@ void Solver::attachClause(CRef cr) {
 
 
 void Solver::detachClause(CRef cr, bool strict) {
-    PROOF( proof->markDeleted(cr) );      // lsh--
+    proof->markDeleted(cr);      // lsh--
     const Clause& c = ca[cr];
     CVC4::Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
     assert(c.size() > 1);
@@ -361,8 +361,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
             }
             //FIXME: make function, move to sat_proof.h
             //--lsh
-            else {
-              PROOF( proof->traceReason(q, res) );      // lsh--
+            else if(level(var(q)) == 0) {
+              proof->traceReason(q, res);      // lsh--
             }
             //lsh--
         }
@@ -431,7 +431,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
             ClauseID cl_id;
             if(cref == CRef_Undef)
               // if it was a unit clause
-              cl_id = proof->registerClause(order[k]);
+              cl_id = proof->registerClause(~(order[k]));
             else
               cl_id = proof->registerClause(cref, false);
             res->addStep(order[k], cl_id, !(sign(order[k])));
@@ -615,6 +615,8 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 void Solver::uncheckedEnqueue(Lit p, CRef from)
 {
     assert(value(p) == l_Undef);
+    if(var(p)==37)
+      Debug("proof")<<"uncheckedEnqueue "<<(from==CRef_Undef)<<" "<<Derivation::id_counter<<"\n";
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
@@ -627,12 +629,13 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     if(from!=CRef_Undef)
       proof->printClause(from);
     */
-
+    /*
     if(decisionLevel()==0 && from!=CRef_Undef){
       ClauseID id = proof->registerClause(from, false);
       SatResolution* res = new SatResolution(id);
       proof->traceReason(p, res);
     }
+    */
     //lsh--
 
 
@@ -942,7 +945,7 @@ lbool Solver::search(int nof_conflicts)
                 Debug("proof")<<"unit learned clause ";
                 proof->printLit(learnt_clause[0]);
                 Debug("proof")<<"\n";
-                ClauseID cl_id = proof->registerClause(~(learnt_clause[0]));
+                ClauseID cl_id = proof->registerClause(learnt_clause[0]);
                 proof->registerResolution(cl_id, res);
                 proof->printResolution(cl_id);
                 //lsh--
@@ -1230,7 +1233,7 @@ void Solver::relocAll(ClauseAllocator& to)
     for (int i = 0; i < trail.size(); i++){
         Var v = var(trail[i]);
         proof->printLit(trail[i]);
-        Debug("proof")<<" has reason? "<<hasReason(v)<<"\n";
+        Debug("proof")<<" is locked? "<<hasReason(v)<<" "<<(hasReason(v)&&locked(ca[reason(v)]))<<"\n";
         if (hasReason(v) && (ca[reason(v)].reloced() || locked(ca[reason(v)])))
             ca.reloc(vardata[v].reason, to, proof); //--lsh
     }

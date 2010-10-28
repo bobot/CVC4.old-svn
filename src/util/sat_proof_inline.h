@@ -90,7 +90,7 @@ void Derivation::newResolution(CRef cref, bool is_problem_clause= false){
 }
 
 void Derivation::newResolution(Lit lit){
-  ClauseID id = registerClause(~lit);
+  ClauseID id = registerClause(lit);
   SatResolution* res = new SatResolution(id);
   d_current.push_back(res);
 }
@@ -132,75 +132,75 @@ void Derivation::endResolution(Lit lit){
   d_current.pop_back();
 }
 
-void Derivation::traceReason(Lit q, SatResolution* res){
-  //SatResolution* res = d_current[d_current.size()-1];
-               if(d_solver->level(var(q)) == 0){
-                 if(getReason(var(q))==CRef_Undef || (isUnit(~q) && hasResolution(getUnitId(~q))) ){
-                  // must be an unit clause
-                  Debug("proof")<<"Solver::analyze::unit clause ";
-                  printLit(q);
-                  Debug("proof")<<"\n";
-                  res->addStep(q, getUnitId(~q), ~sign(q));
-                 }
-                 else{
-                   // must be propagated at 0 and must recursively trace the reasons
-
-                   printLit(q);
-                   Debug("proof:d")<<" propagated at 0 \n";
-                   printClause(getReason(var(q)));
-
-                   ClauseID id = registerClause(~q);
-                   res->addStep(q, id, !sign(q));
-
-                   // FIXME:: make default for register clause be false
-                   ClauseID id_r = registerClause(getReason(var(q)), false);
-                   Debug("proof")<<"id_r="<<id_r<<"\n";
-                   SatResolution* res_unit = new SatResolution(id_r);
-
-                   vec<char> seen2;
-                   seen2.growTo(d_solver->seen.size());
-                   for (int j = 0;j < d_solver->seen.size(); j++)
-                     seen2[j] = 0;
-
-                   vec<Lit> stack;
-                   stack.push(q);
-                   do{
-                     Lit l = stack.last();
-                     stack.pop();
-                     Clause* r = &cl(getReason(var(l)));
-                     seen2[var(l)]=1;
-                     // Create new resolution for unit that proves q
-                     ClauseID r_id = registerClause(getReason(var(l)), false); //FIXME: how do u know it's not an input clause
-                     if(l!=q)
-                       res_unit->addStep(l, r_id, !sign(l));
-
-                     for (int i = 1; i< r->size();i++){ //FIXME: start from 1
-                       Lit l2 = (*r)[i];
-                       if(!seen2[var(l2)]){
-                         if(getReason(var(l2)) != CRef_Undef)
-                           stack.push(l2);
-                         else{
-                           // we assume that the unit clause l2 has already been registered because l2 has reason NULL at level 0 which means it has been deduced by a unit learned clause
-                           Assert(isUnit(~l2));
-                           res_unit->addStep(l2, getUnitId(~l2), !sign(l2));
-                         }
-                       }
-                       else if(getReason(var(l2))==CRef_Undef){
-                         Debug("proof:d")<<"Unit clause ";
-                         printLit(l2);
-                         Debug("proof:d")<<"\n";
-                         Assert(isUnit(~l2));
-                         res_unit->addStep(l2, getUnitId(~l2), !sign(l2));
-                       }
-                     }
-                   }
-                   while(stack.size()>0);
-                   registerResolution(id, res_unit);
-
-                 }
-               }
+void Derivation::traceReason(Lit q, SatResolution* &res){
+  Assert(d_solver->level(var(q))==0);
 
 
+  if(getReason(var(q))==CRef_Undef || (isUnit(~q) && hasResolution(getUnitId(~q))) ) {
+    // must be an unit clause
+    Debug("proof")<<"traceReason:: q is unit:";
+    printLit(q);
+    Debug("proof")<<"\n";
+    res->addStep(q, getUnitId(~q), ~sign(q));
+  }
+
+  else{
+     // must be propagated at 0 and must recursively trace the reasons
+
+     printLit(q);
+     Debug("proof")<<"traceReason:: propagated at 0 \n";
+     printClause(getReason(var(q)));
+
+     ClauseID id = registerClause(~q);
+     // resolves q out of the learned clause
+     res->addStep(q, id, !sign(q));
+
+     ClauseID id_r = registerClause(getReason(var(q)), false);
+     Debug("proof")<<"tarceReason::id_r="<<id_r<<"\n";
+     // create new resolution proving ~q
+     SatResolution* res_unit = new SatResolution(id_r);
+
+     vec<char> seen2;
+     seen2.growTo(d_solver->seen.size());
+     for (int j = 0;j < d_solver->seen.size(); j++)
+       seen2[j] = 0;
+
+     vec<Lit> stack;
+     stack.push(q);
+     seen2[var(q)] = 1;
+
+     do{
+       Lit l = stack.last();
+       stack.pop();
+
+       Clause* reason = &cl(getReason(var(l)));
+       ClauseID r_id = registerClause(getReason(var(l)), false);
+       if(!seen2[var(l)])
+         res_unit->addStep(l, r_id, !sign(l));
+
+       seen2[var(l)]=1;
+
+       for (int i = 1; i< reason->size();i++){
+         Lit li = (*reason)[i];
+         if(getReason(var(li))== CRef_Undef) {
+           // must be an unit clause
+           Debug("proof")<<"traceReason:: li unit clause level"<<d_solver->level(var(li))<<" ";
+           printLit(li);
+           Debug("proof")<<"\n";
+           Assert(isUnit(~li));
+           res_unit->addStep(li, getUnitId(~li), !sign(li));
+           seen2[var(li)]=1;
+         }
+         else if(!seen2[var(li)]){
+           // add to stack to resolve
+           stack.push(li);
+         }
+       }
+     }
+     while(stack.size()>0);
+
+     registerResolution(id, res_unit);
+  }
 
 }
 
@@ -335,13 +335,13 @@ CRef Derivation::getReason(int v){
 // register the unit clause containing the literal
 // note that the clause is not created it only exists as a mapping
 ClauseID Derivation::registerClause(Lit lit){
-  if(isUnit(~lit))
+  if(isUnit(lit))
     // if already registered return current id
-    return getUnitId(~lit);
+    return getUnitId(lit);
 
   ClauseID id = newId();
-  d_unit_clauses[toInt(~lit)]= id;
-  d_unit_ids[id] = toInt(~lit);
+  d_unit_clauses[toInt(lit)]= id;
+  d_unit_ids[id] = toInt(lit);
   return id;
 }
 
@@ -379,7 +379,7 @@ void Derivation::registerResolution(ClauseID clause_id, SatResolution* res){
    Debug("proof")<<"DERIV:: already registered \n";
   }
 
-  checkResolution(clause_id);
+  //checkResolution(clause_id);
   Assert(checkResolution(clause_id));
 }
 
@@ -394,7 +394,7 @@ void Derivation::registerResolution(CRef clause, SatResolution* res){
   else
    Debug("proof")<<"Derivation::registerResolution::already registered clause_id::"<<clause_id<<"\n";
 
-  checkResolution(clause_id);
+  //checkResolution(clause_id);
   Assert(checkResolution(clause_id));
 }
 
@@ -465,7 +465,7 @@ ClauseID Derivation::getLitReason(Lit lit){
   if(!isSatLemma(clause_id)&& isLearned(clause_id))
     lemmaProof(clause_id);
 
-  ClauseID id = registerClause(lit);
+  ClauseID id = registerClause(~lit);
   d_res_map[id] = res;
   return id;
 }
@@ -740,11 +740,11 @@ void Derivation::resolve(vec<Lit> &clause, ClauseID id, Lit lit){
     Clause& clause2 = cl(d_id_clause[id]);
     for(int i=0; i<clause.size(); i++){
       // would also need to check that it has a resolution, presumably it has one
-      if(var(clause[i])!=var(lit) && !isUnit(~clause[i]))
+      if(var(clause[i])!=var(lit) )
        result.push(clause[i]);
     }
     for(int i=0; i<clause2.size(); i++)
-      if(var(clause2[i])!= var(lit) && !hasLit(clause2[i], result)&& !isUnit(~clause2[i]))
+      if(var(clause2[i])!= var(lit) && !hasLit(clause2[i], result))
         result.push(clause2[i]);
     result.copyTo(clause);
     return;
