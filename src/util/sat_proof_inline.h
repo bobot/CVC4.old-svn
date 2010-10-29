@@ -151,7 +151,6 @@ ClauseID Derivation::traceReason(Lit q){
 
   else {
      // must be propagated at 0 and must recursively trace the reasons
-
      printLit(q);
      Debug("proof")<<"traceReason:: propagated at 0 \n";
      printClause(getReason(var(q)));
@@ -640,12 +639,17 @@ LFSCProof* Derivation::derivToLFSC(ClauseID clause_id){
   //Debug("proof")<<"derivToLFSC "<<clause_id<<" ";
   SatResolution* res = getResolution(clause_id);
   LFSCProof* pf1 = getProof(res->getStart());
+  //Debug("proof")<<"derivToLFSC::"<<clause_id;
+  Assert(clause_id > res->getStart() || clause_id == 0 );
+
   RSteps steps = res->getSteps();
 
   for(unsigned i=0; i< steps.size(); i++){
     int v = var(steps[i].first);
     ClauseID c_id = steps[i].second;
     // checking the second clause, hence invert Q and R
+    Assert( clause_id > c_id || clause_id == 0);
+
     LFSCProof* pf2;
     if(res->getSign(i))
       pf2 = LFSCProof::make_R(pf1, getProof(c_id), LFSCProofSym::make("v"+intToStr(v+1)));
@@ -730,6 +734,17 @@ void Derivation::printLFSCProof(CRef confl){
 
 void Derivation::resolve(vec<Lit> &clause, ClauseID id, Lit lit){
   vec<Lit> result;
+  bool s = true;
+  Lit l1, l2;
+  if(s) {
+    l1 = sign(lit)?~lit:lit;
+    l2 = sign(lit)?lit:~lit;
+  }
+  else {
+    l1 = sign(lit)?lit:~lit;
+    l2 = sign(lit)?~lit:lit;
+  }
+
   if(isUnit(id)){
     Lit unit = getUnit(id);
     for(int i=0; i<clause.size(); i++){
@@ -787,9 +802,9 @@ bool Derivation::compareClauses(ClauseID clause_id, vec<Lit>& cl2){
 }
 
 bool Derivation::checkResolution(ClauseID clause_id){
-  Debug("proof:cr")<<"checkResolution "<<clause_id<<"\n";
+  //Debug("proof:cr")<<"checkResolution "<<clause_id<<"\n";
   SatResolution* res = getResolution(clause_id);
-  printResolution(clause_id);
+  //printResolution(clause_id);
 
   ClauseID start_id = res->getStart();
   Clause& start_cl = cl(d_id_clause[start_id]);
@@ -798,17 +813,18 @@ bool Derivation::checkResolution(ClauseID clause_id){
     start.push(start_cl[i]);
 
   RSteps steps = res->getSteps();
-  for(int i=0;i < steps.size(); i++){
+  for(unsigned i=0; i < steps.size(); i++){
     ClauseID id = steps[i].second;
     Lit l = steps[i].first;
     resolve(start, id, l);
   }
 
+  /*
   Debug("proof")<<"result ";
   for(int i=0;i<start.size();i++)
     printLit(start[i]);
   Debug("proof")<<"\n";
-
+  */
   if(isUnit(clause_id)){
    Lit unit = getUnit(clause_id);
    if(start.size()==1 && start[0]==unit)

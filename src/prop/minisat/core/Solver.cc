@@ -362,7 +362,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
             //--lsh
             else if(level(var(q)) == 0) {
               ClauseID unit_id = proof->traceReason(~q);
-              res->addStep(q, unit_id, ~sign(q));
+              res->addStep(q, unit_id, !sign(q));
             }
             //lsh--
         }
