@@ -132,42 +132,45 @@ void Derivation::endResolution(Lit lit){
   d_current.pop_back();
 }
 
-void Derivation::traceReason(Lit q, SatResolution* &res){
+/*
+ * construct a resolution that proves (q)
+ * returns the ID of the unit clause (q)
+ */
+
+ClauseID Derivation::traceReason(Lit q){
+
   Assert(d_solver->level(var(q))==0);
 
-
-  if(getReason(var(q))==CRef_Undef || (isUnit(~q) && hasResolution(getUnitId(~q))) ) {
+  if(getReason(var(q))==CRef_Undef || (isUnit(q) && hasResolution(getUnitId(q))) ) {
     // must be an unit clause
     Debug("proof")<<"traceReason:: q is unit:";
     printLit(q);
     Debug("proof")<<"\n";
-    res->addStep(q, getUnitId(~q), ~sign(q));
+    return getUnitId(q);
   }
 
-  else{
+  else {
      // must be propagated at 0 and must recursively trace the reasons
 
      printLit(q);
      Debug("proof")<<"traceReason:: propagated at 0 \n";
      printClause(getReason(var(q)));
 
-     ClauseID id = registerClause(~q);
-     // resolves q out of the learned clause
-     res->addStep(q, id, !sign(q));
+     ClauseID unit_id = registerClause(q);
 
      ClauseID id_r = registerClause(getReason(var(q)), false);
      Debug("proof")<<"tarceReason::id_r="<<id_r<<"\n";
      // create new resolution proving ~q
      SatResolution* res_unit = new SatResolution(id_r);
-
+/*
      vec<char> seen2;
      seen2.growTo(d_solver->seen.size());
      for (int j = 0;j < d_solver->seen.size(); j++)
        seen2[j] = 0;
-
+*/
      vec<Lit> stack;
      stack.push(q);
-     seen2[var(q)] = 1;
+     //seen2[var(q)] = 1;
 
      do{
        Lit l = stack.last();
@@ -175,10 +178,8 @@ void Derivation::traceReason(Lit q, SatResolution* &res){
 
        Clause* reason = &cl(getReason(var(l)));
        ClauseID r_id = registerClause(getReason(var(l)), false);
-       if(!seen2[var(l)])
+       if(l!=q)
          res_unit->addStep(l, r_id, !sign(l));
-
-       seen2[var(l)]=1;
 
        for (int i = 1; i< reason->size();i++){
          Lit li = (*reason)[i];
@@ -189,9 +190,8 @@ void Derivation::traceReason(Lit q, SatResolution* &res){
            Debug("proof")<<"\n";
            Assert(isUnit(~li));
            res_unit->addStep(li, getUnitId(~li), !sign(li));
-           seen2[var(li)]=1;
          }
-         else if(!seen2[var(li)]){
+         else {
            // add to stack to resolve
            stack.push(li);
          }
@@ -199,7 +199,8 @@ void Derivation::traceReason(Lit q, SatResolution* &res){
      }
      while(stack.size()>0);
 
-     registerResolution(id, res_unit);
+     registerResolution(unit_id, res_unit);
+     return unit_id;
   }
 
 }
@@ -323,6 +324,8 @@ Clause& Derivation::cl(CRef cref){
 
   return c;
 }
+
+
 
 CRef Derivation::getReason(int v){
   return d_solver->reason(v);

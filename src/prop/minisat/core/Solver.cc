@@ -359,10 +359,10 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
                 else
                     out_learnt.push(q);
             }
-            //FIXME: make function, move to sat_proof.h
             //--lsh
             else if(level(var(q)) == 0) {
-              proof->traceReason(q, res);      // lsh--
+              ClauseID unit_id = proof->traceReason(~q);
+              res->addStep(q, unit_id, ~sign(q));
             }
             //lsh--
         }
@@ -615,29 +615,9 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 void Solver::uncheckedEnqueue(Lit p, CRef from)
 {
     assert(value(p) == l_Undef);
-    if(var(p)==37)
-      Debug("proof")<<"uncheckedEnqueue "<<(from==CRef_Undef)<<" "<<Derivation::id_counter<<"\n";
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel());
     trail.push_(p);
-
-    //--lsh
-    /*
-    Debug("proof")<<"uncheckedEnqueue ";
-    proof->printLit(p);
-    Debug("proof")<<"reason:";
-    if(from!=CRef_Undef)
-      proof->printClause(from);
-    */
-    /*
-    if(decisionLevel()==0 && from!=CRef_Undef){
-      ClauseID id = proof->registerClause(from, false);
-      SatResolution* res = new SatResolution(id);
-      proof->traceReason(p, res);
-    }
-    */
-    //lsh--
-
 
     if (theory[var(p)] && from != CRef_Lazy) {
       // Enqueue to the theory
@@ -847,8 +827,15 @@ void Solver::removeSatisfied(vec<CRef>& cs)
     int i, j;
     for (i = j = 0; i < cs.size(); i++){
         Clause& c = ca[cs[i]];
-        if (satisfied(c))
+        if (satisfied(c)){
+            //--lsh
+            if(locked(c)){
+              Debug("proof")<<"Solver::removeSatisfied\n";
+              proof->traceReason(c[0]);
+            }
+            //lsh--
             removeClause(cs[i]);
+        }
         else
             cs[j++] = cs[i];
     }

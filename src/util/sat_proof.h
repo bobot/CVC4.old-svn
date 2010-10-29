@@ -106,7 +106,7 @@ public:
   std::map <ClauseID, CRef> d_id_clause_tmp;             // map from clause id to clauses
   std::map <CRef, ClauseID> d_clause_id_tmp;             // map from clauses to clause id
 
-  std::hash_set <ClauseID> d_deleted;          // stores the clauses deleted from the minisat database
+  std::hash_set <ClauseID> d_deleted;          //  stores the clauses deleted from the minisat database
 
   std::vector <ClauseID> d_lemma_stack;              // stack to print sat_lemmas in proper order
   std::hash_map <int, ClauseID > d_unit_clauses;          // the set of unit clauses, indexed by value of variable for easy searching
@@ -132,7 +132,7 @@ public:
   void addResStep(Lit l, Lit l2, bool sign);
   void endResolution(CRef cl);
   void endResolution(Lit lit);
-  void traceReason(Lit l, SatResolution* &res);
+  ClauseID traceReason(Lit l);
 
 public:
 
