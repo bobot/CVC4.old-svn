@@ -117,9 +117,20 @@ public:
   ClauseID d_empty_clause_id;
   std::vector<SatResolution*> d_current;                // stack of resolutions, the top one is the current one
 
+  /*
+   * LFSCProof cache
+   */
+  //std::set <LFSCProof*> d_var_cache;
+  //std::set <LFSCProof*> d_lam_cache;
+  int nres;
+  float avg_length;
+  int max_res;
+  int nunit;
+
 public:
   ClauseID static id_counter;
-  Derivation(Solver* solver) : d_solver(solver), d_empty_clause_id(0), d_current(NULL)
+  Derivation(Solver* solver) : d_solver(solver), d_empty_clause_id(0), d_current(NULL), nres(0),
+      avg_length(0), max_res(0), nunit(0)
     {};
 
   /** solver interface **/
