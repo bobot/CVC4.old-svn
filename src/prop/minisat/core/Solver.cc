@@ -111,7 +111,6 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context) :
   , asynch_interrupt   (false)
 {
   //--lsh
-  //TODO: check for flag
   proof = new Derivation(this);
   //lsh--
   }
@@ -185,8 +184,12 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
     sort(ps);
     Lit p; int i, j;
     for (i = j = 0, p = lit_Undef; i < ps.size(); i++)
-        if (value(ps[i]) == l_True || ps[i] == ~p)
+        if (value(ps[i]) == l_True || ps[i] == ~p) {
+            //--lsh
+            //FIXME: do something about satisfied input clauses that get remove
+            //lsh--
             return true;
+        }
         else if (value(ps[i]) != l_False && ps[i] != p)
             ps[j++] = p = ps[i];
     ps.shrink(i - j);
@@ -197,9 +200,15 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
         assert(type != CLAUSE_LEMMA);
         assert(value(ps[0]) == l_Undef);
         uncheckedEnqueue(ps[0]);
+        //--lsh
+        proof->registerClause(ps[0], true);
+        //lsh--
         return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
     }else{
         CRef cr = ca.alloc(ps, false);
+        //--lsh
+        proof->registerClause(cr, true);
+        //lsh--
         clauses.push(cr);
 	if (type == CLAUSE_LEMMA) lemmas.push(cr);
         attachClause(cr);
@@ -337,8 +346,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
     //--lsh
     ClauseID id = proof->registerClause(confl, false);
     res = new SatResolution(id);
-    Debug("proof")<<"OC ";
-    proof->printClause(confl);
+    //Debug("proof")<<"OC ";
+    //proof->printClause(confl);
     //lsh--
 
     do{
@@ -436,12 +445,12 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
               cl_id = proof->registerClause(cref, false);
             res->addStep(order[k], cl_id, !(sign(order[k])));
             Debug("proof")<<"eliminating lit ";
-            proof->printLit(order[k]);
+            //proof->printLit(order[k]);
             Debug("proof")<<" by resolving ";
-            if (cref!= CRef_Undef)
-              proof->printClause(cref);
-            else
-              proof->printLit(~order[k]);
+            //if (cref!= CRef_Undef)
+              //proof->printClause(cref);
+            //else
+              //proof->printLit(~order[k]);
             Debug("proof")<<"\n";
 
           }
@@ -829,7 +838,6 @@ void Solver::removeSatisfied(vec<CRef>& cs)
         if (satisfied(c)){
             //--lsh
             if(locked(c)){
-              Debug("proof")<<"Solver::removeSatisfied\n";
               proof->traceReason(c[0]);
             }
             //lsh--
@@ -914,7 +922,7 @@ lbool Solver::search(int nof_conflicts)
             if (decisionLevel() == 0) {
               //--lsh
               Debug("proof")<<"FINAL CONFLICT ";
-              proof->printClause(confl);
+              //proof->printClause(confl);
               proof->printLFSCProof(confl);
               //lsh--
               return l_False;
@@ -939,7 +947,7 @@ lbool Solver::search(int nof_conflicts)
             }else{
                 CRef cr = ca.alloc(learnt_clause, true);
                 //--lsh
-                proof->registerClause(cr, false);
+                proof->registerClause(cr);
                 proof->registerResolution(cr, res);
                 proof->printResolution(cr);
                 //lsh--
@@ -1068,13 +1076,6 @@ static double luby(double y, int x){
 // NOTE: assumptions passed in member-variable 'assumptions'.
 lbool Solver::solve_()
 {
-    //--lsh
-    Debug("proof")<<"Problem clauses \n";
-    for(int i=0; i< clauses.size(); i++){
-      proof->registerClause(clauses[i], true);
-      proof->printClause(clauses[i]);
-    }
-    //lsh--
 
     model.clear();
     conflict.clear();

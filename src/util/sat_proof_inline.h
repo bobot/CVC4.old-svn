@@ -336,18 +336,22 @@ CRef Derivation::getReason(int v){
 
 // register the unit clause containing the literal
 // note that the clause is not created it only exists as a mapping
-ClauseID Derivation::registerClause(Lit lit){
+ClauseID Derivation::registerClause(Lit lit,  bool is_input) {
   if(isUnit(lit))
     // if already registered return current id
     return getUnitId(lit);
 
+  d_vars.insert(var(lit)+1);
   ClauseID id = newId();
   d_unit_clauses[toInt(lit)]= id;
   d_unit_ids[id] = toInt(lit);
+  if(is_input) {
+      d_input_clauses.insert(id);
+  }
   return id;
 }
 
-ClauseID Derivation::registerClause(CRef cref, bool is_input_clause){
+ClauseID Derivation::registerClause(CRef cref, bool is_input_clause) {
     Clause& clause = cl(cref);
     Assert(clause.size() > 1); // minisat does not store unit clauses
 
@@ -373,21 +377,11 @@ ClauseID Derivation::registerClause(CRef cref, bool is_input_clause){
 
 void Derivation::registerResolution(ClauseID clause_id, SatResolution* res){
   Assert(clause_id != -1);
-  Debug("proof")<<"Derivation::registerResolution::clause_id::"<<clause_id<<"\n";
-  if(!hasResolution(clause_id)){
-    d_res_map[clause_id] = res;
-  }
-  else{
-   Debug("proof")<<"DERIV:: already registered \n";
-  }
+  Debug("proof:regres")<<"Derivation::registerResolution::clause_id::"<<clause_id<<"\n";
+  Assert(!hasResolution(clause_id));
 
-  avg_length = (nres*avg_length+(res->getSteps().size()))/(nres+1);
-  nres +=1;
-  if(res->getSteps().size()> max_res)
-      max_res = res->getSteps().size();
-
-  //checkResolution(clause_id);
-  //Assert(checkResolution(clause_id));
+  d_res_map[clause_id] = res;
+  Assert(checkResolution(clause_id));
 }
 
 void Derivation::registerResolution(CRef clause, SatResolution* res){
@@ -395,19 +389,14 @@ void Derivation::registerResolution(CRef clause, SatResolution* res){
   ClauseID clause_id = getId(clause);
 
   Assert(clause_id != -1);
-  Debug("proof")<<"Derivation::registerResolution::clause_id::"<<clause_id<<"\n";
-  if(!hasResolution(clause_id))
-    d_res_map[clause_id] = res;
-  else
-   Debug("proof")<<"Derivation::registerResolution::already registered clause_id::"<<clause_id<<"\n";
+  Debug("proof:regres")<<"Derivation::registerResolution::clause_id::"<<clause_id<<"\n";
+  Assert(!hasResolution(clause_id));
 
-  avg_length = (nres*avg_length+(res->getSteps().size()))/(nres+1);
-  nres +=1;
-  nunit +=1;
-  if(res->getSteps().size()> max_res)
-      max_res = res->getSteps().size();
-  //checkResolution(clause_id);
-  //Assert(checkResolution(clause_id));
+  d_res_map[clause_id] = res;
+  if(clause_id ==51870)
+        printResolution(51870);
+
+  Assert(checkResolution(clause_id));
 }
 
 /** helper methods for proof construction **/
@@ -502,7 +491,7 @@ void Derivation::finish(CRef confl){
 
 inline void Derivation::printLit(Lit l)
 {
-    Debug("proof")<<(sign(l) ? "-" : "")<<var(l)+1<<" ";
+    Debug("proof:res")<<(sign(l) ? "-" : "")<<var(l)+1<<" ";
 }
 
 
@@ -510,27 +499,27 @@ inline void Derivation::printClause(CRef cref)
 {
   Assert(cref != CRef_Undef);
   Clause& c = cl(cref);
-  Debug("proof")<<"("<<cref<<")";
+  Debug("proof:res")<<"("<<cref<<")";
   if(isRegistered(cref))
-    Debug("proof")<<"["<<getId(cref)<<"]";
+    Debug("proof:res")<<"["<<getId(cref)<<"]";
   for (int i = 0; i < c.size(); i++){
         printLit(c[i]);
-        Debug("proof")<<" ";
+        Debug("proof:res")<<" ";
     }
-    Debug("proof")<<"\n";
+    Debug("proof:res")<<"\n";
 }
 
 inline void Derivation::printIdClause(ClauseID id){
   if(id == d_empty_clause_id)
-    Debug("proof")<<" empty ";
+    Debug("proof:res")<<" empty ";
   else
   if(d_deleted.count(id))
-    Debug("proof")<<"del"<<id<<"\n ";
+    Debug("proof:res")<<"del"<<id<<"\n ";
   else
   if(isUnit(id)){
-    Debug("proof")<<"( unit"<<id<<":";
+    Debug("proof:res")<<"( unit"<<id<<":";
     printLit(getUnit(id));
-    Debug("proof")<<") \n";
+    Debug("proof:res")<<") \n";
     }
   else{
     Assert(d_id_clause.find(id)!=d_id_clause.end());
@@ -571,9 +560,9 @@ void Derivation::printResolution(CRef clause){
 
 void Derivation::printResolution(ClauseID clause_id){
   Assert(clause_id >= 0);
-  Debug("proof")<<"Derivation clause_id="<<clause_id<<": ";
+  Debug("proof:res")<<"Derivation clause_id="<<clause_id<<": ";
   printIdClause(clause_id);
-  Debug("proof")<<":\n";
+  Debug("proof:res")<<":\n";
   SatResolution* res = getResolution(clause_id);
 
   RSteps step = res->getSteps();
@@ -582,12 +571,13 @@ void Derivation::printResolution(ClauseID clause_id){
   printIdClause(start_id);
 
   for(unsigned i=0;i< res->getSteps().size();i++){
-    Debug("proof")<<"| ";
+    Debug("proof:res")<<"| ";
     printLit(step[i].first);
-    Debug("proof")<<"| ";
+    Debug("proof:res")<<" "<<(res->getSign(i)?"R":"Q");
+    Debug("proof:res")<<"| ";
     printIdClause(step[i].second);
     }
-  Debug("proof")<<"\n";
+  Debug("proof:res")<<"\n";
 }
 
 /***** LFSC Proof *****/
@@ -698,7 +688,13 @@ void Derivation::printLFSCProof(CRef confl){
    // printing input clauses
    for(std::hash_set<ClauseID>::iterator i=d_input_clauses.begin();i!= d_input_clauses.end();i++){
      os<<"(% P"<<*i<<" (holds ";
-     os<<printLFSCClause(d_id_clause[*i]);
+     if(isUnit(*i)) {
+       Lit unit = getUnit(*i);
+       os<<"( clc ("<<(sign(unit)? " neg ": " pos ")<<"v"<<var(unit)+1<<" ) cln )";
+     }
+     else {
+       os<<printLFSCClause(d_id_clause[*i]);
+     }
      os<<")\n";
      end<<")";
    }
@@ -725,37 +721,64 @@ void Derivation::printLFSCProof(CRef confl){
  */
 
 
-void Derivation::resolve(vec<Lit> &clause, ClauseID id, Lit lit){
+bool Derivation::resolve(vec<Lit> &clause, ClauseID id, Lit lit, bool s){
   vec<Lit> result;
+  bool found = false;
+  Lit l1, l2;
+  if(s) {
+    l1 = sign(lit)? ~lit : lit;
+    l2 = sign(lit)? lit : ~lit;
+  }
+  else {
+    l1 = sign(lit)? lit: ~lit;
+    l2 = sign(lit)? ~lit: lit;
+  }
 
   if(isUnit(id)){
     Lit unit = getUnit(id);
+    Assert(unit == l2);
     for(int i=0; i<clause.size(); i++){
-      if(var(clause[i])!=var(lit))
+      if(clause[i]!=l1)
        result.push(clause[i]);
+      else
+       found = true;
     }
+    if(!found)
+      return false;
     result.copyTo(clause);
-    return;
   }
   else{
     Clause& clause2 = cl(d_id_clause[id]);
     for(int i=0; i<clause.size(); i++){
       // would also need to check that it has a resolution, presumably it has one
-      if(var(clause[i])!=var(lit) )
+      if(clause[i]!=l1)
        result.push(clause[i]);
+      else
+        found = true;
     }
-    for(int i=0; i<clause2.size(); i++)
-      if(var(clause2[i])!= var(lit) && !hasLit(clause2[i], result))
-        result.push(clause2[i]);
+    if(!found)
+      return false;
+    found = false;
+    for(int i=0; i<clause2.size(); i++) {
+      if(clause2[i]!= l2) {
+        if(!hasLit(clause2[i], result))
+          result.push(clause2[i]);
+      }
+      else
+        found = true;
+    }
+
+    if(!found)
+      return false;
     result.copyTo(clause);
-    return;
+    return true;
   }
 
 }
 
 bool Derivation::hasLit(Lit l, vec<Lit>& cl){
   for(int i=0; i<cl.size(); i++)
-    if(var(cl[i])==var(l))
+    if(cl[i]==l)
       return true;
 
   return false;
@@ -785,9 +808,7 @@ bool Derivation::compareClauses(ClauseID clause_id, vec<Lit>& cl2){
 }
 
 bool Derivation::checkResolution(ClauseID clause_id){
-  //Debug("proof:cr")<<"checkResolution "<<clause_id<<"\n";
   SatResolution* res = getResolution(clause_id);
-  //printResolution(clause_id);
 
   ClauseID start_id = res->getStart();
   Clause& start_cl = cl(d_id_clause[start_id]);
@@ -799,7 +820,7 @@ bool Derivation::checkResolution(ClauseID clause_id){
   for(unsigned i=0; i < steps.size(); i++){
     ClauseID id = steps[i].second;
     Lit l = steps[i].first;
-    resolve(start, id, l);
+    resolve(start, id, l, res->getSign(i));
   }
 
   /*
@@ -812,11 +833,20 @@ bool Derivation::checkResolution(ClauseID clause_id){
    Lit unit = getUnit(clause_id);
    if(start.size()==1 && start[0]==unit)
      return true;
-   else
+   else {
+     Debug("proof:res")<<"checkResolution::FAIL \n";
+     printResolution(clause_id);
      return false;
+   }
   }
 
-  return compareClauses(clause_id, start);
+  bool eq = compareClauses(clause_id, start);
+  if(!eq) {
+    Debug("proof:res")<<"checkResolution::FAIL \n";
+    printResolution(clause_id);
+    return false;
+  }
+  return true;
 }
 
 

@@ -151,7 +151,7 @@ public:
 
   // register unit clause corresponding to lit
   // special case because minisat does not store unit learned conflicts
-  ClauseID registerClause(Lit lit);
+  ClauseID registerClause(Lit lit, bool is_input_clause = false);
   ClauseID registerClause(CRef clause, bool is_input_clause = false);
 
   void registerResolution(CRef clause, SatResolution* res);
@@ -215,10 +215,11 @@ public:
   bool checkResolution(ClauseID clause_id);
   bool hasLit(Lit l, vec<Lit>& cl);
   bool compareClauses(ClauseID id, vec<Lit>& ls2);
-  void resolve(vec<Lit> &cl1, ClauseID id, Lit lit);
+  bool resolve(vec<Lit> &cl1, ClauseID id, Lit lit, bool sign);
 
   std::string printLFSCClause(CRef cref);
   void printLFSCProof(CRef final_confl);
+
 
 };
 
