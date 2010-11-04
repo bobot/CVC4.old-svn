@@ -39,6 +39,8 @@
 #include "theory/arith/theory_arith.h"
 #include "theory/arith/normal_form.h"
 
+#include "theory/arith/reduce.h"
+
 #include <map>
 #include <stdint.h>
 
@@ -64,8 +66,10 @@ TheoryArith::TheoryArith(int id, context::Context* c, OutputChannel& out) :
   d_rewriter(&d_constants),
   d_propagator(c),
   d_simplex(d_constants, d_partialModel, d_basicManager,  d_out, d_activityMonitor, d_tableau),
+  d_oneVar(ARITHVAR_SENTINEL),
   d_statistics()
-{}
+{
+}
 
 TheoryArith::~TheoryArith(){}
 
@@ -101,7 +105,19 @@ ArithVar TheoryArith::findBasicRow(ArithVar variable){
 
 
 void TheoryArith::preRegisterTerm(TNode n) {
+
   Debug("arith_preregister") <<"begin arith::preRegisterTerm("<< n <<")"<< endl;
+
+  if(d_oneVar == ARITHVAR_SENTINEL){
+    TypeNode real_type = NodeManager::currentNM()->realType();
+    Node nodeOneVar = NodeManager::currentNM()->mkVar(real_type);
+    d_oneVar = requestArithVar(nodeOneVar, false);
+    d_oneVarIsOne = NodeManager::currentNM()->mkNode(EQUAL,nodeOneVar, d_constants.d_ONE_NODE);
+    setupInitialValue(d_oneVar);
+
+    d_out->augmentingLemma(d_oneVarIsOne);
+  }
+
   Kind k = n.getKind();
   if(k == EQUAL){
     TNode left = n[0];
@@ -123,7 +139,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
     d_out->setIncomplete();
   }
 
-  if(isTheoryLeaf(n) || isStrictlyVarList){
+  if((isTheoryLeaf(n) || isStrictlyVarList)&& n != d_oneVarIsOne[0]){
     ++(d_statistics.d_statUserVariables);
     ArithVar varN = requestArithVar(n,false);
     setupInitialValue(varN);
@@ -197,9 +213,6 @@ void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::v
 }
 
 void TheoryArith::setupSlack(TNode left){
-
-  
-
   ++(d_statistics.d_statSlackVariables);
   TypeNode real_type = NodeManager::currentNM()->realType();
   Node slack = NodeManager::currentNM()->mkVar(real_type);
@@ -355,6 +368,17 @@ void TheoryArith::check(Effort level){
     Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
   }else{
     d_partialModel.commitAssignmentChanges();
+    if(getContext()->getLevel() == 0){
+      Reduce reducer(d_partialModel,
+                     d_tableau,
+                     d_basicManager,
+                     d_simplex,
+                     d_oneVar,
+                     d_oneVarIsOne,
+                     d_variables.size());
+
+      reducer.RemoveConstants();
+    }
   }
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 

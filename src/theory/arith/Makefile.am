@@ -19,6 +19,8 @@ libarith_la_SOURCES = \
 	partial_model.cpp \
 	ordered_bounds_list.h \
 	arithvar_dense_set.h \
+	reduce.h \
+	reduce.cpp \
 	tableau.h \
 	tableau.cpp \
 	simplex.h \

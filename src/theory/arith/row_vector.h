@@ -63,7 +63,7 @@ protected:
    */
   VarCoeffArray d_entries;
 
-  std::vector<uint32_t>& d_rowCount;
+  std::vector<uint32_t>* d_rowCount;
 
   NonZeroIterator lower_bound(ArithVar x_j) const{
     return std::lower_bound(d_entries.begin(), d_entries.end(), make_pair(x_j,0), cmp);
@@ -76,7 +76,7 @@ public:
   RowVector(const std::vector< ArithVar >& variables,
             const std::vector< Rational >& coefficients,
             std::vector<uint32_t>& counts);
-
+  RowVector(ArithVar var, const Rational& coefficient);
 
   /** Returns the number of nonzero variables in the vector. */
   uint32_t size() const {
@@ -146,6 +146,17 @@ public:
   ArithVar basic() const{
     Assert(basicIsSet());
     return d_basic;
+  }
+
+  ArithVar selectAnyNonBasic() const{
+    Assert(size() >= 2);
+    NonZeroIterator i = beginNonZero();
+    if(getArithVar(*i) == basic()){
+      ++i;
+      return getArithVar(*i);
+    }else{
+      return getArithVar(*i);
+    }
   }
 
   void pivot(ArithVar x_j);

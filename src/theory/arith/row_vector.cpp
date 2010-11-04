@@ -51,15 +51,24 @@ void RowVector::zip(const std::vector< ArithVar >& variables,
 RowVector::RowVector(const std::vector< ArithVar >& variables,
                      const std::vector< Rational >& coefficients,
                      std::vector<uint32_t>& counts):
-  d_rowCount(counts)
+  d_rowCount(&counts)
 {
   zip(variables, coefficients, d_entries);
 
   std::sort(d_entries.begin(), d_entries.end(), cmp);
 
   for(NonZeroIterator i=beginNonZero(), end=endNonZero(); i != end; ++i){
-    ++d_rowCount[getArithVar(*i)];
+    ++(*d_rowCount)[getArithVar(*i)];
   }
+
+  Assert(isSorted(d_entries, true));
+  Assert(noZeroCoefficients(d_entries));
+}
+
+RowVector::RowVector(ArithVar var, const Rational& coefficient):
+  d_rowCount(NULL)
+{
+  d_entries.push_back(make_pair(var, coefficient));
 
   Assert(isSorted(d_entries, true));
   Assert(noZeroCoefficients(d_entries));
@@ -123,7 +132,7 @@ void RowVector::multiply(const Rational& c){
 void RowVector::addRowTimesConstant(const Rational& c, const RowVector& other){
   Assert(c != 0);
 
-  merge(d_entries, other.d_entries, c, d_rowCount);
+  merge(d_entries, other.d_entries, c, *d_rowCount);
 }
 
 void RowVector::printRow(){
@@ -144,7 +153,7 @@ ReducedRowVector::ReducedRowVector(ArithVar basic,
   VarCoeffArray justBasic;
   justBasic.push_back(make_pair(basic, Rational(-1)));
 
-  merge(d_entries,justBasic, Rational(1), d_rowCount);
+  merge(d_entries,justBasic, Rational(1), *d_rowCount);
 
   Assert(wellFormed());
 }

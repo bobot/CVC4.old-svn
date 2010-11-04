@@ -174,6 +174,30 @@ public:
     d_activeBasicVars.insert(basic);
     updateRow(row);
   }
+
+  void removeRow(ArithVar basic){
+    Assert(d_basicManager.isMember(basic));
+    Assert(isActiveBasicVariable(basic));
+
+    ReducedRowVector* row = lookup(basic);
+
+    d_rowsTable[basic] = NULL;
+    d_activeBasicVars.erase(basic);
+    d_basicManager.remove(basic);
+
+    delete row;
+  }
+  void reinjectAll(){
+    typedef RowsTable::iterator table_iter;
+
+    for(table_iter rowIter = d_rowsTable.begin(), end = d_rowsTable.end();
+        rowIter != end; ++rowIter){
+      ReducedRowVector* row_k = *rowIter;
+      if(row_k != NULL && isEjected(row_k->basic() )){
+        reinjectBasic(row_k->basic());
+      }
+    }
+  }
 private:
   inline bool isActiveBasicVariable(ArithVar var){
     return d_activeBasicVars.inSet(var);

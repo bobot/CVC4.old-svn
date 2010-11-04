@@ -101,6 +101,9 @@ private:
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;
 
+  ArithVar d_oneVar;
+  Node d_oneVarIsOne;
+
 public:
   TheoryArith(int id, context::Context* c, OutputChannel& out);
   ~TheoryArith();
