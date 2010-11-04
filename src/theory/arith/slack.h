@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file delta_rational.cpp
+/*! \file slack.h
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters
@@ -18,18 +18,16 @@
  **/
 
 
-#include "theory/arith/delta_rational.h"
+namespace CVC4 {
+namespace theory {
+namespace arith {
 
-using namespace std;
-using namespace CVC4;
+struct SlackAttrID;
 
-std::ostream& CVC4::operator<<(std::ostream& os, const DeltaRational& dq){
-  return os << "(" << dq.getNoninfintestimalPart()
-            << "," << dq.getInfintestimalPart() << ")";
-}
+typedef expr::Attribute<SlackAttrID, Node> Slack;
 
 
-std::string DeltaRational::toString() const {
-  return "(" + getNoninfintestimalPart().toString() + "," +
-    getInfintestimalPart().toString() + ")";
-}
+}; /* namespace arith */
+}; /* namespace theory */
+}; /* namespace CVC4 */
+

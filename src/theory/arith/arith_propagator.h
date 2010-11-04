@@ -2,7 +2,7 @@
 /*! \file arith_propagator.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters
+ ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
@@ -17,6 +17,8 @@
  ** \todo document this file
  **/
 
+
+
 #include "cvc4_private.h"
 
 #ifndef __CVC4__THEORY__ARITH__ARITH_PROPAGATOR_H
@@ -26,100 +28,46 @@
 #include "context/cdlist.h"
 #include "context/context.h"
 #include "context/cdo.h"
-#include "theory/arith/ordered_bounds_list.h"
 
-#include <algorithm>
-#include <vector>
+#include "theory/arith/ordered_set.h"
+
+
 
 namespace CVC4 {
 namespace theory {
 namespace arith {
 
+struct RightHandRationalLT;
+class TheoryArith;
+
 class ArithUnatePropagator {
 private:
-  /** Index of assertions. */
-  context::CDList<Node> d_assertions;
-
-  /** Index of the last assertion in d_assertions to be asserted. */
-  context::CDO<unsigned int> d_pendingAssertions;
+  TheoryArith* d_arith;
 
 public:
-  ArithUnatePropagator(context::Context* cxt);
+  ArithUnatePropagator(context::Context* cxt, TheoryArith* arith);
 
-  /**
-   * Adds a new atom for the propagator to watch.
-   * Atom is assumed to have been rewritten by TheoryArith::rewrite().
-   */
   void addAtom(TNode atom);
 
-  /**
-   * Informs the propagator that a literal has been asserted to the theory.
-   */
-  void assertLiteral(TNode lit);
-
-
-  /**
-   * returns a vector of literals that are 
-   */
-  std::vector<Node> getImpliedLiterals();
-
-  /** Explains a literal that was asserted in the current context. */
-  Node explain(TNode lit);
-
 private:
-  /** returns true if the left hand side side left has been setup. */
+  void addImplication(TNode a, TNode b, const char *);
   bool leftIsSetup(TNode left);
-
-  /**
-   * Sets up a left hand side.
-   * This initializes the attributes PropagatorEqList, PropagatorGeqList, and PropagatorLeqList for left.
-   */
   void setupLefthand(TNode left);
+  void addEquality(TNode atom, OrderedSet* eqSet, OrderedSet* leqSet, OrderedSet* geqSet, OrderedSet::iterator atomPos);
+  void addLeq(TNode atom, OrderedSet* eqSet,OrderedSet* leqSet, OrderedSet* geqSet, OrderedSet::iterator atomPos);
+  void addGeq(TNode atom, OrderedSet* eqSet, OrderedSet* leqSet, OrderedSet* geqSet, OrderedSet::iterator atomPos);
 
-  /**
-   * Given that the literal lit is now asserted,
-   * enqueue additional entailed assertions in buffer.
-   */
-  void enqueueImpliedLiterals(TNode lit, std::vector<Node>& buffer);
-
-  void enqueueEqualityImplications(TNode original, std::vector<Node>& buffer);
-  void enqueueLowerBoundImplications(TNode atom, TNode original, std::vector<Node>& buffer);
-  /**
-   * Given that the literal original is now asserted, which is either (<= x c) or (not (>= x c)),
-   * enqueue additional entailed assertions in buffer.
-   */
-  void enqueueUpperBoundImplications(TNode atom, TNode original, std::vector<Node>& buffer);
 };
 
 
+struct PropagatorLeqSetID {};
+typedef expr::Attribute<PropagatorLeqSetID, OrderedSet*, SetCleanupStrategy> PropagatorLeqSet;
 
-namespace propagator {
+struct PropagatorEqSetID {};
+typedef expr::Attribute<PropagatorEqSetID, OrderedSet*, SetCleanupStrategy> PropagatorEqSet;
 
-/** Basic memory management wrapper for deleting PropagatorEqList, PropagatorGeqList, and PropagatorLeqList.*/
-struct ListCleanupStrategy{
-  static void cleanup(OrderedBoundsList* l){
-    Debug("arithgc") << "cleaning up  " << l << "\n";
-    delete l;
-  }
-};
-
-
-struct PropagatorEqListID {};
-typedef expr::Attribute<PropagatorEqListID, OrderedBoundsList*, ListCleanupStrategy> PropagatorEqList;
-
-struct PropagatorGeqListID {};
-typedef expr::Attribute<PropagatorGeqListID, OrderedBoundsList*, ListCleanupStrategy> PropagatorGeqList;
-
-struct PropagatorLeqListID {};
-typedef expr::Attribute<PropagatorLeqListID, OrderedBoundsList*, ListCleanupStrategy> PropagatorLeqList;
-
-
-struct PropagatorMarkedID {};
-typedef expr::CDAttribute<PropagatorMarkedID, bool> PropagatorMarked;
-
-struct PropagatorExplanationID {};
-typedef expr::CDAttribute<PropagatorExplanationID, Node> PropagatorExplanation;
-}/* CVC4::theory::arith::propagator */
+struct PropagatorGeqSetID {};
+typedef expr::Attribute<PropagatorGeqSetID, OrderedSet*, SetCleanupStrategy> PropagatorGeqSet;
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

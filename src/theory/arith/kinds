@@ -1,7 +1,7 @@
 # kinds                                                               -*- sh -*-
 #
 # For documentation on this file format, please refer to
-# src/theory/builtin/kinds.
+# src/expr/builtin_kinds.
 #
 
 theory ::CVC4::theory::arith::TheoryArith "theory_arith.h"

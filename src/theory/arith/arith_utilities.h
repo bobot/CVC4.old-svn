@@ -2,8 +2,8 @@
 /*! \file arith_utilities.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -17,49 +17,17 @@
  ** \todo document this file
  **/
 
-#include "cvc4_private.h"
-
 #ifndef __CVC4__THEORY__ARITH__ARITH_UTILITIES_H
 #define __CVC4__THEORY__ARITH__ARITH_UTILITIES_H
 
 #include "util/rational.h"
 #include "expr/node.h"
-#include "expr/attribute.h"
-#include <vector>
-#include <stdint.h>
-#include <limits>
 
 namespace CVC4 {
 namespace theory {
 namespace arith {
 
-
-typedef uint32_t ArithVar;
-//static const ArithVar ARITHVAR_SENTINEL = std::numeric_limits<ArithVar>::max();
-#define ARITHVAR_SENTINEL std::numeric_limits<ArithVar>::max()
-
-struct ArithVarAttrID{};
-typedef expr::Attribute<ArithVarAttrID,uint64_t> ArithVarAttr;
-
-inline bool hasArithVar(TNode x){
-  return x.hasAttribute(ArithVarAttr());
-}
-
-inline ArithVar asArithVar(TNode x){
-  Assert(hasArithVar(x));
-  Assert(x.getAttribute(ArithVarAttr()) <= ARITHVAR_SENTINEL);
-  return x.getAttribute(ArithVarAttr());
-}
-
-inline void setArithVar(TNode x, ArithVar a){
-  Assert(!hasArithVar(x));
-  return x.setAttribute(ArithVarAttr(), (uint64_t)a);
-}
-
-typedef std::vector<uint64_t> ActivityMonitor;
-
-
-inline Node mkRationalNode(const Rational& q){
+inline Node mkRationalNode(Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);
 }
 
@@ -119,21 +87,6 @@ inline bool isRelationOperator(Kind k){
   }
 }
 
-/** is k \in {LT, LEQ, EQ, GEQ, GT} */
-inline Kind negateRelationKind(Kind k){
-  using namespace kind;
-
-  switch(k){
-  case LT: return GT;
-  case LEQ: return GEQ;
-  case EQUAL: return EQUAL;
-  case GEQ: return LEQ;
-  case GT: return LT;
-
-  default:
-    Unreachable();
-  }
-}
 inline bool evaluateConstantPredicate(Kind k, const Rational& left, const Rational& right){
   using namespace kind;
 
@@ -207,41 +160,6 @@ inline int deltaCoeff(Kind k){
     return 1;
   default:
     return 0;
-  }
-}
-
-/**
- * Given a rewritten predicate to TheoryArith return a single kind to
- * to indicate its underlying structure.
- * The function returns the following in each case:
- * - (K left right) -> K where is a wildcard for EQUAL, LEQ, or GEQ:
- * - (NOT (EQUAL left right)) -> DISTINCT
- * - (NOT (LEQ left right))   -> GT
- * - (NOT (GEQ left right))   -> LT
- * If none of these match, it returns UNDEFINED_KIND.
- */
- inline Kind simplifiedKind(TNode assertion){
-  switch(assertion.getKind()){
-  case kind::LEQ:
-  case  kind::GEQ:
-  case  kind::EQUAL:
-    return assertion.getKind();
-  case  kind::NOT:
-    {
-      TNode atom = assertion[0];
-      switch(atom.getKind()){
-      case  kind::LEQ: //(not (LEQ x c)) <=> (GT x c)
-        return  kind::GT;
-      case  kind::GEQ: //(not (GEQ x c) <=> (LT x c)
-        return  kind::LT;
-      case  kind::EQUAL:
-        return  kind::DISTINCT;
-      default:
-        return  kind::UNDEFINED_KIND;
-      }
-    }
-  default:
-    return kind::UNDEFINED_KIND;
   }
 }
 

@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file arith_constants.h
+/*! \file basic.h
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters
@@ -18,44 +18,36 @@
  **/
 
 
-
 #include "expr/node.h"
-#include "expr/node_manager.h"
-#include "util/rational.h"
-#include "theory/arith/delta_rational.h"
+#include "expr/attribute.h"
 
-#ifndef __CVC4__THEORY__ARITH__ARITH_CONSTANTS_H
-#define __CVC4__THEORY__ARITH__ARITH_CONSTANTS_H
+
+#ifndef __CVC4__THEORY__ARITH__BASIC_H
+#define __CVC4__THEORY__ARITH__BASIC_H
 
 namespace CVC4 {
 namespace theory {
 namespace arith {
 
-class ArithConstants{
-public:
-  Rational d_ZERO;
-  Rational d_ONE;
-  Rational d_NEGATIVE_ONE;
+struct IsBasicAttrID;
 
-  DeltaRational d_ZERO_DELTA;
+typedef expr::Attribute<IsBasicAttrID, bool> IsBasic;
 
-  Node d_ZERO_NODE;
-  Node d_ONE_NODE;
-  Node d_NEGATIVE_ONE_NODE;
 
-  ArithConstants(NodeManager* nm) :
-    d_ZERO(0,1),
-    d_ONE(1,1),
-    d_NEGATIVE_ONE(-1,1),
-    d_ZERO_DELTA(d_ZERO),
-    d_ZERO_NODE(nm->mkConst(d_ZERO)),
-    d_ONE_NODE(nm->mkConst(d_ONE)),
-    d_NEGATIVE_ONE_NODE(nm->mkConst(d_NEGATIVE_ONE))
-  {}
-};
+inline bool isBasic(TNode x){
+  return x.getAttribute(IsBasic());
+}
 
-}; /* namesapce arith */
+inline void makeBasic(TNode x){
+  return x.setAttribute(IsBasic(), true);
+}
+
+inline void makeNonbasic(TNode x){
+  return x.setAttribute(IsBasic(), false);
+}
+
+}; /* namespace arith */
 }; /* namespace theory */
 }; /* namespace CVC4 */
 
-#endif /* __CVC4__THEORY__ARITH_ARITH_CONSTANTS_H */
+#endif /* __CVC4__THEORY__ARITH__BASIC_H */
