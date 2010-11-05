@@ -209,6 +209,19 @@ RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
   Assert(cmp.getLeft().getHead().coefficientIsOne());
 
   Assert(cmp.isBoolean() || cmp.isNormalForm());
+
+  if(!cmp.isBoolean() && cmp.getNode().getKind() == kind::EQUAL) {
+    TNode t = cmp.getNode();
+    NodeBuilder<2> b(kind::AND);
+    NodeBuilder<2> bless(kind::LEQ);
+    NodeBuilder<2> bgreater(kind::GEQ);
+    bgreater << t[0] << t[1];
+    bless << t[0] << t[1];
+    b << Node(bgreater) << Node(bless);
+    Node n = b;
+    return RewriteComplete(n);
+  }
+
   return RewriteComplete(cmp.getNode());
 }
 

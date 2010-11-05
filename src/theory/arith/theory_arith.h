@@ -105,6 +105,10 @@ public:
   TheoryArith(int id, context::Context* c, OutputChannel& out);
   ~TheoryArith();
 
+  void addInternalLemma(TNode lemma) {
+    d_out->augmentingLemma(lemma);
+  }
+
   /**
    * Rewriting optimizations.
    */

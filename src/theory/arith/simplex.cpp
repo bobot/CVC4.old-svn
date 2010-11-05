@@ -73,7 +73,7 @@ bool SimplexDecisionProcedure::shouldEject(ArithVar var){
   }else if(!d_partialModel.hasEverHadABound(var)){
     return true;
   }else if(d_activityMonitor[var] >= ACTIVITY_THRESHOLD){
-    return false;
+    return true;
   }
   return false;
 }

@@ -62,7 +62,7 @@ TheoryArith::TheoryArith(int id, context::Context* c, OutputChannel& out) :
   d_diseq(c),
   d_tableau(d_activityMonitor, d_basicManager),
   d_rewriter(&d_constants),
-  d_propagator(c),
+  d_propagator(c, this),
   d_simplex(d_constants, d_partialModel, d_basicManager,  d_out, d_activityMonitor, d_tableau),
   d_statistics()
 {}
@@ -330,7 +330,7 @@ void TheoryArith::check(Effort level){
 
     Node assertion = get();
 
-    d_propagator.assertLiteral(assertion);
+    //d_propagator.assertLiteral(assertion);
     bool conflictDuringAnAssert = assertionCases(assertion);
 
     if(conflictDuringAnAssert){
@@ -386,14 +386,18 @@ void TheoryArith::check(Effort level){
 }
 
 void TheoryArith::explain(TNode n, Effort e) {
+  /*
   Node explanation = d_propagator.explain(n);
   Debug("arith") << "arith::explain("<<explanation<<")->"
                  << explanation << endl;
   d_out->explanation(explanation, true);
+  */
+  Unreachable();
 }
 
 void TheoryArith::propagate(Effort e) {
 
+  /*
   if(quickCheckOrMore(e)){
     std::vector<Node> implied = d_propagator.getImpliedLiterals();
     for(std::vector<Node>::iterator i = implied.begin();
@@ -402,6 +406,7 @@ void TheoryArith::propagate(Effort e) {
       d_out->propagate(*i);
     }
   }
+  */
 }
 
 Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
