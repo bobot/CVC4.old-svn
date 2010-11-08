@@ -89,6 +89,9 @@ struct CVC4_PUBLIC Options {
   /** Should the parser do semantic checks? */
   bool semanticChecks;
 
+  /** Should the TheoryEngine do theory registration? */
+  bool theoryRegistration;
+
   /** Should the parser memory-map file input? */
   bool memoryMap;
 

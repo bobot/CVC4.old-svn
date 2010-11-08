@@ -113,6 +113,7 @@ Options::Options() :
   uf_implementation(MORGAN),
   parseOnly(false),
   semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
+  theoryRegistration(true),
   memoryMap(false),
   strictParsing(false),
   lazyDefinitionExpansion(false),
@@ -156,6 +157,7 @@ Options::Options() :
     ( "produce-models", "support the get-value command" )
     ( "produce-assignments", "support the get-assignment command" )
     ( "lazy-definition-expansion", "expand define-fun lazily" );
+    ( "no-theory-registration", "do not do theory registration (unsafe for some theories)" );
   checking.add_options()
     ( "no-checking", "disable ALL semantic checks, including type checks" )
     ( "no-type-checking", "never type check expressions" )
@@ -298,6 +300,9 @@ string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
 
   produceModels = vm.count("produce-models");
   produceAssignments = vm.count("produce-assignments");
+  if(vm.count("no-theory-registration")) {
+    theoryRegistration = false;
+  }
   if(vm.count("no-checking")) {
     semanticChecks = false;
     typeChecking = false;
