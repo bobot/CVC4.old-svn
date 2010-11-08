@@ -317,6 +317,7 @@ string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
     throw OptionException("can't specify both --lazy-type-checking and --eager-type-checking");
   }
   if(vm.count("lazy-type-checking")) {
+    typeChecking = true;
     earlyTypeChecking = false;
   }
   if(vm.count("eager-type-checking")) {
