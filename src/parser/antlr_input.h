@@ -28,12 +28,10 @@
 #include <string>
 #include <vector>
 
-#include "parser/input.h"
-#include "parser/parser_options.h"
-#include "parser/parser_exception.h"
-#include "parser/bounded_token_buffer.h"
-#include "expr/expr.h"
-#include "expr/expr_manager.h"
+#include "bounded_token_buffer.h"
+#include "parser_exception.h"
+#include "input.h"
+
 #include "util/Assert.h"
 #include "util/bitvector.h"
 #include "util/integer.h"
@@ -69,7 +67,7 @@ public:
 
   /** Create a file input.
    *
-   * @param filename the path of the file to read
+   * @param name the path of the file to read
    * @param useMmap <code>true</code> if the input should use memory-mapped I/O; otherwise, the
    * input will use the standard ANTLR3 I/O implementation.
    */

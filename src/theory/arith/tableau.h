@@ -25,8 +25,9 @@
 #include "theory/arith/arithvar_dense_set.h"
 #include "theory/arith/normal_form.h"
 
+#include "theory/arith/row_vector.h"
+
 #include <ext/hash_map>
-#include <map>
 #include <set>
 
 #ifndef __CVC4__THEORY__ARITH__TABLEAU_H
@@ -35,57 +36,6 @@
 namespace CVC4 {
 namespace theory {
 namespace arith {
-
-
-class Row {
-  ArithVar d_x_i;
-
-  typedef std::map<ArithVar, Rational, std::greater<ArithVar> > CoefficientTable;
-
-  CoefficientTable d_coeffs;
-
-public:
-
-  typedef CoefficientTable::iterator iterator;
-
-  /**
-   * Construct a row equal to:
-   *   basic = \sum_{x_i} c_i * x_i
-   */
-  Row(ArithVar basic,
-      const std::vector< Rational >& coefficients,
-      const std::vector< ArithVar >& variables);
-
-
-  iterator begin(){
-    return d_coeffs.begin();
-  }
-
-  iterator end(){
-    return d_coeffs.end();
-  }
-
-  ArithVar basicVar(){
-    return d_x_i;
-  }
-
-  bool has(ArithVar x_j){
-    CoefficientTable::iterator x_jPos = d_coeffs.find(x_j);
-    return x_jPos != d_coeffs.end();
-  }
-
-  const Rational& lookup(ArithVar x_j){
-    CoefficientTable::iterator x_jPos = d_coeffs.find(x_j);
-    Assert(x_jPos !=  d_coeffs.end());
-    return (*x_jPos).second;
-  }
-
-  void pivot(ArithVar x_j);
-
-  void substitute(Row& row_s);
-
-  void printRow();
-};
 
 class ArithVarSet {
 private:
@@ -138,7 +88,7 @@ private:
 class Tableau {
 private:
 
-  typedef std::vector< Row* > RowsTable;
+  typedef std::vector< ReducedRowVector* > RowsTable;
 
   ArithVarSet d_activeBasicVars;
   RowsTable d_rowsTable;
@@ -146,6 +96,8 @@ private:
 
   ActivityMonitor& d_activityMonitor;
   ArithVarDenseSet& d_basicManager;
+
+  std::vector<uint32_t> d_rowCount;
 
 public:
   /**
@@ -161,6 +113,7 @@ public:
   void increaseSize(){
     d_activeBasicVars.increaseSize();
     d_rowsTable.push_back(NULL);
+    d_rowCount.push_back(0);
   }
 
   ArithVarSet::iterator begin(){
@@ -171,19 +124,26 @@ public:
     return d_activeBasicVars.end();
   }
 
-  Row* lookup(ArithVar var){
+  ReducedRowVector* lookup(ArithVar var){
     Assert(isActiveBasicVariable(var));
     return d_rowsTable[var];
   }
 
 private:
-  Row* lookupEjected(ArithVar var){
+  ReducedRowVector* lookupEjected(ArithVar var){
     Assert(isEjected(var));
     return d_rowsTable[var];
   }
 public:
 
-  void addRow(ArithVar basicVar, const std::vector<Rational>& coeffs, const std::vector<ArithVar>& variables);
+  uint32_t getRowCount(ArithVar x){
+    Assert(x < d_rowCount.size());
+    return d_rowCount[x];
+  }
+
+  void addRow(ArithVar basicVar,
+              const std::vector<Rational>& coeffs,
+              const std::vector<ArithVar>& variables);
 
   /**
    * preconditions:
@@ -210,7 +170,7 @@ public:
     Assert(d_basicManager.isMember(basic));
     Assert(isEjected(basic));
 
-    Row* row = lookupEjected(basic);
+    ReducedRowVector* row = lookupEjected(basic);
     d_activeBasicVars.insert(basic);
     updateRow(row);
   }
@@ -219,7 +179,7 @@ private:
     return d_activeBasicVars.inSet(var);
   }
 
-  void updateRow(Row* row);
+  void updateRow(ReducedRowVector* row);
 };
 
 }; /* namespace arith  */
