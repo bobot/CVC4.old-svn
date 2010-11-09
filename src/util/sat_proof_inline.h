@@ -153,7 +153,7 @@ ClauseID Derivation::traceReason(Lit q){
      // must be propagated at 0 and must recursively trace the reasons
      printLit(q);
      Debug("proof")<<"traceReason:: propagated at 0 \n";
-     printClause(getReason(var(q)));
+     //printClause(getReason(var(q)));
 
      ClauseID unit_id = registerClause(q);
 
@@ -161,15 +161,14 @@ ClauseID Derivation::traceReason(Lit q){
      Debug("proof")<<"tarceReason::id_r="<<id_r<<"\n";
      // create new resolution proving ~q
      SatResolution* res_unit = new SatResolution(id_r);
-/*
-     vec<char> seen2;
-     seen2.growTo(d_solver->seen.size());
-     for (int j = 0;j < d_solver->seen.size(); j++)
-       seen2[j] = 0;
-*/
+
      vec<Lit> stack;
      stack.push(q);
-     //seen2[var(q)] = 1;
+     vec<bool> instack;
+     instack.growTo(d_solver->seen.size());
+     for(i=0;i<instack.size();i++)
+       instack[i]=0;
+
 
      do{
        Lit l = stack.last();
@@ -202,6 +201,70 @@ ClauseID Derivation::traceReason(Lit q){
      return unit_id;
   }
 
+}
+
+void Derivation::orderDFS(Lit p, vec<Lit> & ordered){
+  // seen[var(p)] :
+  // 0 bit - in the original conflict clause
+  // 1 bit - removable not in original clause
+  // 2 bit - removable and in original clause
+  // 3 bit - processed by this method
+
+  // check if already seen
+  if(d_solver->seen[var(p)]&8)
+    return;
+  // mark it as seen
+  if(d_solver->seen[var(p)]== 0)
+    d_solver->analyze_toclear.push(p);
+
+  d_solver->seen[var(p)]|= 8;
+  Assert(getReason(var(p))!= CRef_Undef);
+
+  Clause& clause = cl(getReason(var(p)));
+  for(int i=1; i < clause.size(); i++){
+    if(getReason(var(clause[i]))== CRef_Undef && (d_solver->seen[var(clause[i])]&1) == 0){
+      // if has no reason and not in original conflict
+      // must be deduced by a unit clause
+      ordered.push(clause[i]);
+    }
+    else
+    if((d_solver->seen[var(clause[i])] & (2|4)) || d_solver->level(var(clause[i]))==0 )
+      orderDFS(clause[i], ordered);
+  }
+
+  if((d_solver->seen[var(p)] & (2|4)) || d_solver->level(var(p)) == 0)
+    // if it's removable and in the original clause
+    // or it's not in the original clause and has been processed by the litRedunt method i.e. intermediary removable
+    ordered.push(p);
+
+}
+
+
+void Derivation::resolveMinimizedCC(vec<Lit> &eliminated_lit, SatResolution* & res){
+
+  if(eliminated_lit.size() > 0){
+    vec<Lit> order;
+    int k;
+    // dfs starting from each eliminated literal
+    for(k = 0; k< eliminated_lit.size(); k++) {
+      orderDFS(eliminated_lit[k], order);
+    }
+
+    // resolve out literals from original clause
+    for(k = order.size()-1; k>=0; k--){
+      CRef cref = getReason(var(order[k]));
+      ClauseID cl_id;
+      if(cref == CRef_Undef) {
+        cl_id = registerClause(~(order[k]));
+      }
+      else {
+        cl_id = registerClause(cref);
+      }
+      res->addStep(order[k], cl_id, !(sign(order[k])));
+
+    }
+
+  }
 }
 
 /***** helper methods *****/
@@ -393,8 +456,6 @@ void Derivation::registerResolution(CRef clause, SatResolution* res){
   Assert(!hasResolution(clause_id));
 
   d_res_map[clause_id] = res;
-  if(clause_id ==51870)
-        printResolution(51870);
 
   Assert(checkResolution(clause_id));
 }
@@ -406,23 +467,27 @@ bool Derivation::isLearned(ClauseID clause_id){
 }
 
 bool Derivation::isSatLemma(ClauseID clause_id){
-  return (d_sat_lemmas.find(clause_id)!= d_sat_lemmas.end());
+  return d_sat_lemmas.count(clause_id) != 0;
 }
 
 /**** constructing the proof *****/
 
 void Derivation::addSatLemma(ClauseID clause_id){
   SatResolution* res = getResolution(clause_id);
-  d_sat_lemmas[clause_id] = res;
+  d_sat_lemmas.insert(clause_id);
   return;
 }
 
 
 void Derivation::lemmaProof(ClauseID clause_id){
-  if(!isSatLemma(clause_id) && isLearned(clause_id)){
+  if(!isLearned(clause_id)){
+    d_needed_input.insert(clause_id);
+    return;
+  }
+  if(!isSatLemma(clause_id)){
     SatResolution* res = getResolution(clause_id);
     Debug("proof")<<"lemmaProof::id "<<clause_id<<"\n";
-    printResolution(clause_id);
+    //printResolution(clause_id);
     RSteps steps = res->getSteps();
     ClauseID start_id = res->getStart();
     lemmaProof(start_id);
@@ -431,7 +496,7 @@ void Derivation::lemmaProof(ClauseID clause_id){
       ClauseID c_id = steps[i].second;
       lemmaProof(c_id);
       }
-    d_sat_lemmas[clause_id] = res;
+    d_sat_lemmas.insert(clause_id);
   }
 
 }
@@ -474,6 +539,9 @@ void Derivation::finish(CRef confl){
   if (isLearned(confl_id)){
     //addSatLemma(confl_id);
     lemmaProof(confl_id);
+  }
+  else {
+    d_needed_input.insert(confl_id);
   }
   Clause& conflc = cl(confl);
   for(int i=0; i< conflc.size(); i++){
@@ -659,10 +727,10 @@ LFSCProof* Derivation::addLFSCSatLemmas(LFSCProof* pf){
   u2 = LFSCProofLam::make(lam_var, lam_var);
   pf = LFSCProof::make_satlem(pf, u2);
 
-  for(std::map<ClauseID, SatResolution*>::reverse_iterator i =  d_sat_lemmas.rbegin(); i!=d_sat_lemmas.rend();i++){
-    Debug("proof")<<(*i).first<<" ";
-    u1 = derivToLFSC((*i).first); // make sure it doesn't call addSatlemma anymore
-    lam_var = LFSCProofSym::make("m"+intToStr((*i).first));
+  for(std::set<ClauseID>::reverse_iterator i =  d_sat_lemmas.rbegin(); i!=d_sat_lemmas.rend();i++){
+    Debug("proof")<<(*i)<<" ";
+    u1 = derivToLFSC(*i); // make sure it doesn't call addSatlemma anymore
+    lam_var = LFSCProofSym::make("m"+intToStr(*i));
     u2 = LFSCProofLam::make(lam_var, pf);
     pf = LFSCProof::make_satlem(u1, u2);
   }
@@ -674,7 +742,10 @@ void Derivation::printLFSCProof(CRef confl){
    std::stringstream os;
    std::stringstream end;
    LFSCProof::init();
-   Debug("finish")<<"DONE\n";
+
+   finish(confl);
+   Assert(hasResolution(d_empty_clause_id));
+
    os<<"\n(check \n";
    end<<")";
 
@@ -686,7 +757,7 @@ void Derivation::printLFSCProof(CRef confl){
     }
 
    // printing input clauses
-   for(std::hash_set<ClauseID>::iterator i=d_input_clauses.begin();i!= d_input_clauses.end();i++){
+   for(std::hash_set<ClauseID>::iterator i=d_needed_input.begin();i!= d_needed_input.end();i++){
      os<<"(% P"<<*i<<" (holds ";
      if(isUnit(*i)) {
        Lit unit = getUnit(*i);
@@ -699,13 +770,11 @@ void Derivation::printLFSCProof(CRef confl){
      end<<")";
    }
 
-   finish(confl);
-   printResolution(d_empty_clause_id);
 
    os<<"(: (holds cln)";
    end<<")";
    std::cout<<os.str();
-   Assert(hasResolution(d_empty_clause_id));
+
    LFSCProof* pf = derivToLFSC(d_empty_clause_id);
    std::cout<<"\n \n";
 
@@ -746,6 +815,7 @@ bool Derivation::resolve(vec<Lit> &clause, ClauseID id, Lit lit, bool s){
     if(!found)
       return false;
     result.copyTo(clause);
+    return true;
   }
   else{
     Clause& clause2 = cl(d_id_clause[id]);
@@ -811,6 +881,9 @@ bool Derivation::checkResolution(ClauseID clause_id){
   SatResolution* res = getResolution(clause_id);
 
   ClauseID start_id = res->getStart();
+
+  Assert(hasResolution(start_id)||!isLearned(start_id));
+
   Clause& start_cl = cl(d_id_clause[start_id]);
   vec<Lit> start;
   for(int i=0;i<start_cl.size();i++)
@@ -819,8 +892,16 @@ bool Derivation::checkResolution(ClauseID clause_id){
   RSteps steps = res->getSteps();
   for(unsigned i=0; i < steps.size(); i++){
     ClauseID id = steps[i].second;
+    Assert(hasResolution(id)||!isLearned(id));
+
     Lit l = steps[i].first;
-    resolve(start, id, l, res->getSign(i));
+    if(!resolve(start, id, l, res->getSign(i))){
+      Debug("proof:res")<<"Start "<<start<<" id "<<id<<" lit ";
+      printLit(l);
+      Debug("proof:res")<<"\n";
+      printResolution(clause_id);
+      return false;
+    }
   }
 
   /*

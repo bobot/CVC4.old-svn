@@ -96,8 +96,9 @@ public:
 class Derivation{
 public:
   std::hash_set <ClauseID> d_input_clauses;              // the input clauses assumed true
+  std::hash_set <ClauseID> d_needed_input; //FIXME!
   std::hash_set <int> d_vars;                            // the set of variables that appear in the proof
-  std::map <ClauseID, SatResolution*> d_sat_lemmas;      // the resolution chains that will be printed as sat lemmas
+  std::set <ClauseID> d_sat_lemmas;      // the resolution chains that will be printed as sat lemmas
 
   std::map <ClauseID, CRef> d_id_clause;             // map from clause id to clauses
   std::map <CRef, ClauseID> d_clause_id;             // map from clauses to clause id
@@ -108,7 +109,6 @@ public:
 
   std::hash_set <ClauseID> d_deleted;          //  stores the clauses deleted from the minisat database
 
-  std::vector <ClauseID> d_lemma_stack;              // stack to print sat_lemmas in proper order
   std::hash_map <int, ClauseID > d_unit_clauses;          // the set of unit clauses, indexed by value of variable for easy searching
   std::hash_map <ClauseID, int> d_unit_ids;               // reverse map of d_unit_clauses
 
@@ -117,48 +117,52 @@ public:
   ClauseID d_empty_clause_id;
   std::vector<SatResolution*> d_current;                // stack of resolutions, the top one is the current one
 
-  /*
-   * LFSCProof cache
-   */
-  //std::set <LFSCProof*> d_var_cache;
-  //std::set <LFSCProof*> d_lam_cache;
-  int nres;
-  float avg_length;
-  int max_res;
-  int nunit;
+  std::set <LFSCProof*> d_var_cache;
+  std::set <LFSCProof*> d_lam_cache;
+
+
 
 public:
   ClauseID static id_counter;
-  Derivation(Solver* solver) : d_solver(solver), d_empty_clause_id(0), d_current(NULL), nres(0),
-      avg_length(0), max_res(0), nunit(0)
+  Derivation(Solver* solver) : d_solver(solver), d_empty_clause_id(0), d_current(NULL)
     {};
 
-  /** solver interface **/
-
+  /*
+   * SOLVER INTERFACE
+   *
+   */
   void updateId(CRef cr1, CRef cr2);
   void finishUpdateId();
+
   void newResolution(CRef confl, bool is_input);
   void newResolution(Lit lit);
+
   void addResStep(Lit l, CRef cl, bool sign);
   void addResStep(Lit l, Lit l2, bool sign);
+
   void endResolution(CRef cl);
   void endResolution(Lit lit);
+
   ClauseID traceReason(Lit l);
+  void orderDFS(Lit p, vec<Lit> & ordered);
+  void resolveMinimizedCC(vec<Lit> &eliminated_lit, SatResolution* & res);
 
-public:
-
-  /** registration methods**/
-
+  /*
+   * REGISTRATION METHODS
+   *
+   */
   // register unit clause corresponding to lit
-  // special case because minisat does not store unit learned conflicts
+  // special case because Minisat does not store unit learned conflicts
   ClauseID registerClause(Lit lit, bool is_input_clause = false);
   ClauseID registerClause(CRef clause, bool is_input_clause = false);
 
   void registerResolution(CRef clause, SatResolution* res);
   void registerResolution(ClauseID clause_id, SatResolution* res);
 
-  /** helper methods **/
-
+  /*
+   * HELPER METHODS
+   *
+   */
   bool isUnit(CRef cl);
   bool isUnit(Lit lit);
   bool isUnit(ClauseID clause_id);
@@ -183,27 +187,39 @@ public:
   void storeVars(CRef clause);
 
   std::string intToStr(int i);
-  /** access to the solver**/
 
+  /*
+   * ACCESS TO THE SOLVER
+   *
+   */
   Clause& cl(CRef cr);
   CRef getReason(int v);
 
-  /** constructing the proof **/
-
-
+  /*
+   * PROOF FINALIZING
+   *
+   */
   void addSatLemma(ClauseID clause_id);
   void lemmaProof(ClauseID clause_id);
   ClauseID getLitReason(Lit lit);
   void finish(CRef confl);
 
-  /** constructing LFSC proof **/
+  /*
+   * LFSC PROOF
+   *
+   */
   LFSCProof* getInputVariable(ClauseID confl_id);
   LFSCProof* satLemmaVariable(ClauseID clause_id);
   LFSCProof* derivToLFSC(ClauseID clause_id);
   LFSCProof* getProof(ClauseID clause_id);
   LFSCProof* addLFSCSatLemmas(LFSCProof* pf);
+  std::string printLFSCClause(CRef cref);
+  void printLFSCProof(CRef final_confl);
 
-  /** debugging **/
+  /*
+   * PRINTING
+   *
+   */
   void printLit(Lit l);
   void printClause(CRef cl);
   void printIdClause(ClauseID id);
@@ -211,14 +227,14 @@ public:
   void printResolution(CRef cl);
   void printResolution(ClauseID cl_id);
 
-   /** resolution checking **/
+  /*
+   * RESOLUTION CHECKING
+   *
+   */
   bool checkResolution(ClauseID clause_id);
   bool hasLit(Lit l, vec<Lit>& cl);
   bool compareClauses(ClauseID id, vec<Lit>& ls2);
   bool resolve(vec<Lit> &cl1, ClauseID id, Lit lit, bool sign);
-
-  std::string printLFSCClause(CRef cref);
-  void printLFSCProof(CRef final_confl);
 
 
 };
