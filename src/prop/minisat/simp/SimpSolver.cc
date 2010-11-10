@@ -718,5 +718,5 @@ void SimpSolver::garbageCollect()
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
 
-    proof->finishUpdateId(); // lsh--
+    PROOF(proof->finishUpdateId()); // lsh--
 }

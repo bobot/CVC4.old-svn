@@ -115,7 +115,9 @@ public:
   std::hash_map <ClauseID, SatResolution*> d_res_map;     // a map from clause id's to the boolean resolution derivation of that respective clause
   Solver* d_solver;
   ClauseID d_empty_clause_id;
-  std::vector<SatResolution*> d_current;                // stack of resolutions, the top one is the current one
+  SatResolution* d_current;                // stack of resolutions, the top one is the current one
+
+  vec<Lit> eliminated_lit;      // vector storing the eliminated literals during conflict clause minimization
 
   std::set <LFSCProof*> d_var_cache;
   std::set <LFSCProof*> d_lam_cache;
@@ -134,18 +136,19 @@ public:
   void updateId(CRef cr1, CRef cr2);
   void finishUpdateId();
 
-  void newResolution(CRef confl, bool is_input);
+  void newResolution(CRef confl, bool is_input=false);
   void newResolution(Lit lit);
 
   void addResStep(Lit l, CRef cl, bool sign);
   void addResStep(Lit l, Lit l2, bool sign);
+  void addResStepId(Lit l, ClauseID id, bool sign);
 
   void endResolution(CRef cl);
   void endResolution(Lit lit);
 
-  ClauseID traceReason(Lit l);
   void orderDFS(Lit p, vec<Lit> & ordered);
-  void resolveMinimizedCC(vec<Lit> &eliminated_lit, SatResolution* & res);
+  void resolveMinimizedCC();
+  void addEliminatedLit(Lit lit);
 
   /*
    * REGISTRATION METHODS

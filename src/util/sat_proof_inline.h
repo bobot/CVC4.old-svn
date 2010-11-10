@@ -79,129 +79,55 @@ void Derivation::finishUpdateId(){
   d_id_clause_tmp.clear();
 }
 
-void Derivation::newResolution(CRef cref, bool is_problem_clause= false){
+void Derivation::newResolution(CRef cref, bool is_problem_clause){
   // adds a new resolution on the resolution stack
   // starting with clause cref
   ClauseID id = registerClause(cref, is_problem_clause);
   Debug("proof")<<"newResolution "<<id<<"\n";
-  printClause(cref);
-  SatResolution* res = new SatResolution(id);
-  d_current.push_back(res);
+  Assert(d_current == NULL);
+  d_current = new SatResolution(id);
+
 }
 
 void Derivation::newResolution(Lit lit){
   ClauseID id = registerClause(lit);
-  SatResolution* res = new SatResolution(id);
-  d_current.push_back(res);
+  Assert(d_current == NULL);
+  d_current = new SatResolution(id);
 }
 
 void Derivation::addResStep(Lit l, CRef cl, bool sign){
-  Assert(!d_current.empty());
-
+  Assert(d_current != NULL);
   ClauseID id = registerClause(cl, false);
-  int n = d_current.size();
-  (d_current[n-1])->addStep(l, id, sign);
+  d_current->addStep(l, id, sign);
 }
 
 
 void Derivation::addResStep(Lit l, Lit l2, bool sign){
-  Assert(!d_current.empty());
-
+  Assert(d_current!=NULL);
   ClauseID id = registerClause(l2);
-  int n = d_current.size();
-  (d_current[n-1])->addStep(l, id, sign);
+  d_current->addStep(l, id, sign);
 }
+
+void Derivation::addResStepId(Lit l, ClauseID id, bool sign){
+  Assert(d_current != NULL);
+  d_current->addStep(l, id, sign);
+}
+
 
 void Derivation::endResolution(CRef cl){
-  Assert(!d_current.empty());
-  SatResolution* res = d_current[d_current.size()-1];
+  Assert(d_current!=NULL);
   ClauseID id = registerClause(cl);
-  registerResolution(id, res);
-  d_current.pop_back();
+  registerResolution(id, d_current);
+  d_current = NULL;
 }
-
 
 void Derivation::endResolution(Lit lit){
-  Assert(!d_current.empty());
-  SatResolution* res = d_current[d_current.size()-1];
+  Assert(d_current!=NULL);
   ClauseID id = registerClause(lit);
-  registerResolution(id, res);
-
-  printResolution(id);
-
-  d_current.pop_back();
+  registerResolution(id, d_current);
+  d_current = NULL;
 }
 
-/*
- * construct a resolution that proves (q)
- * returns the ID of the unit clause (q)
- */
-
-ClauseID Derivation::traceReason(Lit q){
-
-  Assert(d_solver->level(var(q))==0);
-
-  if(getReason(var(q))==CRef_Undef || (isUnit(q) && hasResolution(getUnitId(q))) ) {
-    // must be an unit clause
-    Debug("proof")<<"traceReason:: q is unit:";
-    printLit(q);
-    Debug("proof")<<"\n";
-    return getUnitId(q);
-  }
-
-  else {
-     // must be propagated at 0 and must recursively trace the reasons
-     printLit(q);
-     Debug("proof")<<"traceReason:: propagated at 0 \n";
-     //printClause(getReason(var(q)));
-
-     ClauseID unit_id = registerClause(q);
-
-     ClauseID id_r = registerClause(getReason(var(q)), false);
-     Debug("proof")<<"tarceReason::id_r="<<id_r<<"\n";
-     // create new resolution proving ~q
-     SatResolution* res_unit = new SatResolution(id_r);
-
-     vec<Lit> stack;
-     stack.push(q);
-     vec<bool> instack;
-     instack.growTo(d_solver->seen.size());
-     for(i=0;i<instack.size();i++)
-       instack[i]=0;
-
-
-     do{
-       Lit l = stack.last();
-       stack.pop();
-
-       Clause* reason = &cl(getReason(var(l)));
-       ClauseID r_id = registerClause(getReason(var(l)), false);
-       if(l!=q)
-         res_unit->addStep(l, r_id, !sign(l));
-
-       for (int i = 1; i< reason->size();i++){
-         Lit li = (*reason)[i];
-         if(getReason(var(li))== CRef_Undef) {
-           // must be an unit clause
-           Debug("proof")<<"traceReason:: li unit clause level"<<d_solver->level(var(li))<<" ";
-           printLit(li);
-           Debug("proof")<<"\n";
-           Assert(isUnit(~li));
-           res_unit->addStep(li, getUnitId(~li), !sign(li));
-         }
-         else {
-           // add to stack to resolve
-           stack.push(li);
-         }
-       }
-     }
-     while(stack.size()>0);
-
-     registerResolution(unit_id, res_unit);
-     return unit_id;
-  }
-
-}
 
 void Derivation::orderDFS(Lit p, vec<Lit> & ordered){
   // seen[var(p)] :
@@ -239,9 +165,12 @@ void Derivation::orderDFS(Lit p, vec<Lit> & ordered){
 
 }
 
+void Derivation::addEliminatedLit(Lit lit){
+  eliminated_lit.push(lit);
+}
 
-void Derivation::resolveMinimizedCC(vec<Lit> &eliminated_lit, SatResolution* & res){
-
+void Derivation::resolveMinimizedCC(){
+  Assert(d_current!=NULL);
   if(eliminated_lit.size() > 0){
     vec<Lit> order;
     int k;
@@ -260,11 +189,12 @@ void Derivation::resolveMinimizedCC(vec<Lit> &eliminated_lit, SatResolution* & r
       else {
         cl_id = registerClause(cref);
       }
-      res->addStep(order[k], cl_id, !(sign(order[k])));
+      d_current->addStep(order[k], cl_id, !(sign(order[k])));
 
     }
 
   }
+  eliminated_lit.clear();
 }
 
 /***** helper methods *****/
@@ -381,6 +311,7 @@ void Derivation::storeVars(CRef cref){
 
 Clause& Derivation::cl(CRef cref){
   Assert(cref!= CRef_Undef);
+  Assert(d_solver!= NULL);
 
   Clause& c = d_solver->ca[cref];
 
@@ -444,7 +375,12 @@ void Derivation::registerResolution(ClauseID clause_id, SatResolution* res){
   Assert(!hasResolution(clause_id));
 
   d_res_map[clause_id] = res;
-  Assert(checkResolution(clause_id));
+  /*
+  if(!checkResolution(clause_id)){
+    Debug("proof:res")<<"Failed checking: "<<clause_id<<"\n";
+    printResolution(clause_id);
+    Assert(false);
+  }*/
 }
 
 void Derivation::registerResolution(CRef clause, SatResolution* res){
@@ -456,8 +392,14 @@ void Derivation::registerResolution(CRef clause, SatResolution* res){
   Assert(!hasResolution(clause_id));
 
   d_res_map[clause_id] = res;
+  /*
+  if(!checkResolution(clause_id)){
+    Debug("proof:res")<<"Failed checking: "<<clause_id<<"\n";
+    printResolution(clause_id);
+    Assert(false);
+  }
+  */
 
-  Assert(checkResolution(clause_id));
 }
 
 /** helper methods for proof construction **/

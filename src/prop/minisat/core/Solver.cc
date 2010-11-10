@@ -111,7 +111,7 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context) :
   , asynch_interrupt   (false)
 {
   //--lsh
-  proof = new Derivation(this);
+  PROOF(proof = new Derivation(this));
   //lsh--
   }
 
@@ -198,13 +198,13 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
         assert(value(ps[0]) == l_Undef);
         uncheckedEnqueue(ps[0]);
         //--lsh registering unit problem clauses, that minisat does not store
-        proof->registerClause(ps[0], true);
+        PROOF(proof->registerClause(ps[0], true));
         //lsh--
         return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
     }else{
         CRef cr = ca.alloc(ps, false);
         //--lsh registering regular problem clauses
-        proof->registerClause(cr, true);
+        PROOF(proof->registerClause(cr, true));
         //lsh--
         clauses.push(cr);
 	if (type == CLAUSE_LEMMA) lemmas.push(cr);
@@ -225,7 +225,7 @@ void Solver::attachClause(CRef cr) {
 
 
 void Solver::detachClause(CRef cr, bool strict) {
-    proof->markDeleted(cr);      // lsh--
+    PROOF(proof->markDeleted(cr));      // lsh--
     const Clause& c = ca[cr];
     CVC4::Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
     assert(c.size() > 1);
@@ -330,15 +330,10 @@ Lit Solver::pickBranchLit()
 |        rest of literals. There may be others from the same level though.
 |  
 |________________________________________________________________________________________________@*/
-void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatResolution* &res)
+void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
 {
     int pathC = 0;
     Lit p     = lit_Undef;
-
-    //--debug
-    if(Derivation::id_counter == 613007) {
-      Debug("proof:res")<<"  ";
-    }
 
     // Generate conflict clause:
     //
@@ -347,8 +342,7 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
 
     //--lsh starting a new resolution that will derive the learned clause
     // from the conflict clause
-    ClauseID id = proof->registerClause(confl, false);
-    res = new SatResolution(id);
+    PROOF(proof->newResolution(confl));
     //lsh--
 
     do{
@@ -371,10 +365,11 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
             }
             //--lsh because q was propagated at 0 and it needs to
             // be resolved out of of the learned clause
-            else if(level(var(q)) == 0) {
-              ClauseID unit_id = proof->traceReason(~q);
-              res->addStep(q, unit_id, !sign(q));
-            }
+            PROOF(
+                if(level(var(q)) == 0) {
+                  ClauseID unit_id = proof->getLitReason(q);
+                  proof->addResStepId(q, unit_id, !sign(q));
+                });
             //lsh--
         }
         
@@ -385,10 +380,10 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
         seen[var(p)] = 0;
         pathC--;
         //--lsh
-        if(confl!= CRef_Undef && pathC>0){
-          ClauseID id = proof->registerClause(confl, false);
-          res->addStep(p, id, sign(p));
-        }
+        PROOF(
+            if(confl!= CRef_Undef && pathC>0){
+              proof->addResStep(p, confl, sign(p));
+            });
         //lsh--
 
 
@@ -398,10 +393,6 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
     // Simplify conflict clause:
     //
     int i, j;
-    //--lsh stores the literals that will be eliminated as
-    // the result of clause minimization
-    vec<Lit> eliminated_lit;
-    //lsh--
     out_learnt.copyTo(analyze_toclear);
 
     if (ccmin_mode == 2){
@@ -413,12 +404,12 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel, SatReso
             if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i], abstract_level))
                 out_learnt[j++] = out_learnt[i];
         //--lsh
+        //FIXME: fix the 4
             else{
               seen[var(out_learnt[i])] |=4;     // special mark for order_dfs
-              eliminated_lit.push(out_learnt[i]);
+              PROOF(proof->addEliminatedLit(out_learnt[i]));
             }
-        // resolves out the literals removed during clause minimization
-        proof->resolveMinimizedCC(eliminated_lit, res);
+        PROOF(proof->resolveMinimizedCC());
         //lsh--
 
     }else if (ccmin_mode == 1){
@@ -751,9 +742,10 @@ void Solver::removeSatisfied(vec<CRef>& cs)
         if (satisfied(c)){
             //--lsh if c was involved in propagation, store
             // a resolution of the literal it propagated
-            if(locked(c)){
-              proof->traceReason(c[0]);
-            }
+            PROOF (
+                if(locked(c)){
+                    proof->getLitReason(~c[0]);
+                })
             //lsh--
             removeClause(cs[i]);
         }
@@ -835,29 +827,26 @@ lbool Solver::search(int nof_conflicts)
             conflicts++; conflictC++;
             if (decisionLevel() == 0) {
               //--lsh output the LFSC proof
-              proof->printLFSCProof(confl);
+             PROOF(proof->printLFSCProof(confl));
               //lsh--
               return l_False;
             }
             learnt_clause.clear();
-            //--lsh
-            SatResolution* res = NULL;
-            analyze(confl, learnt_clause, backtrack_level, res);
-            //lsh--
+            analyze(confl, learnt_clause, backtrack_level);
+
             cancelUntil(backtrack_level);
 
             if (learnt_clause.size() == 1){
                 //--lsh
-                ClauseID cl_id = proof->registerClause(learnt_clause[0]);
-                proof->registerResolution(cl_id, res);
+                PROOF( proof->endResolution(learnt_clause[0]) );
                 //lsh--
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
                 CRef cr = ca.alloc(learnt_clause, true);
                 //--lsh
-                proof->registerClause(cr);
-                proof->registerResolution(cr, res);
-                //proof->printResolution(cr);
+                PROOF(
+                    proof->endResolution(cr)
+                    );
                 //lsh--
                 learnts.push(cr);
                 attachClause(cr);
@@ -1127,8 +1116,6 @@ void Solver::relocAll(ClauseAllocator& to)
     //
     for (int i = 0; i < trail.size(); i++){
         Var v = var(trail[i]);
-        proof->printLit(trail[i]);
-        Debug("proof")<<" is locked? "<<hasReason(v)<<" "<<(hasReason(v)&&locked(ca[reason(v)]))<<"\n";
         if (hasReason(v) && (ca[reason(v)].reloced() || locked(ca[reason(v)])))
             ca.reloc(vardata[v].reason, to, proof); //--lsh added proof parameter
     }
