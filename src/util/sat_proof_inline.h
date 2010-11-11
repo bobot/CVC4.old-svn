@@ -30,12 +30,9 @@
 #include "prop/minisat/core/SolverTypes.h"
 #include "prop/minisat/core/Solver.h"
 #include "util/Assert.h"
-#include "lfsc_proof.h"
 #include "util/sat_proof.h"
 
-//FIXME:: namespace in header
 
-using namespace Minisat;
 namespace Minisat{
   class Solver;
 }
@@ -43,7 +40,6 @@ namespace Minisat{
 namespace std {
 using namespace __gnu_cxx;
 }
-
 
 
 namespace CVC4 {
@@ -70,9 +66,7 @@ void Derivation::finishUpdateId(){
   for (std::map<ClauseID, CRef>::iterator i = d_id_clause.begin(); i!=d_id_clause.end(); ++i)
     if(d_id_clause_tmp.find((*i).first) == d_id_clause_tmp.end()){
       d_deleted.insert((*i).first);
-      //Debug("proof")<<"new-del"<<(*i).first<<" ";
     }
-  //Debug("proof")<<"\n";
   d_clause_id = d_clause_id_tmp;
   d_id_clause = d_id_clause_tmp;
   d_clause_id_tmp.clear();
@@ -415,7 +409,6 @@ bool Derivation::isSatLemma(ClauseID clause_id){
 /**** constructing the proof *****/
 
 void Derivation::addSatLemma(ClauseID clause_id){
-  SatResolution* res = getResolution(clause_id);
   d_sat_lemmas.insert(clause_id);
   return;
 }
@@ -429,13 +422,13 @@ void Derivation::lemmaProof(ClauseID clause_id){
   if(!isSatLemma(clause_id)){
     SatResolution* res = getResolution(clause_id);
     Debug("proof")<<"lemmaProof::id "<<clause_id<<"\n";
-    //printResolution(clause_id);
-    RSteps steps = res->getSteps();
+
+    std::vector<ResStep> steps = res->getSteps();
     ClauseID start_id = res->getStart();
     lemmaProof(start_id);
 
     for(unsigned i=0; i< steps.size();i++){
-      ClauseID c_id = steps[i].second;
+      ClauseID c_id = steps[i].id;
       lemmaProof(c_id);
       }
     d_sat_lemmas.insert(clause_id);
@@ -575,17 +568,17 @@ void Derivation::printResolution(ClauseID clause_id){
   Debug("proof:res")<<":\n";
   SatResolution* res = getResolution(clause_id);
 
-  RSteps step = res->getSteps();
+  vector<ResStep> steps = res->getSteps();
   ClauseID start_id = res->getStart();
 
   printIdClause(start_id);
 
-  for(unsigned i=0;i< res->getSteps().size();i++){
+  for(unsigned i=0;i< steps.size();i++){
     Debug("proof:res")<<"| ";
-    printLit(step[i].first);
-    Debug("proof:res")<<" "<<(res->getSign(i)?"R":"Q");
+    printLit(steps[i].lit);
+    Debug("proof:res")<<" "<<(steps[i].sign?"R":"Q");
     Debug("proof:res")<<"| ";
-    printIdClause(step[i].second);
+    printIdClause(steps[i].id);
     }
   Debug("proof:res")<<"\n";
 }
@@ -594,12 +587,45 @@ void Derivation::printResolution(ClauseID clause_id){
 
 /** helper methods **/
 
-LFSCProof* Derivation::getInputVariable(ClauseID confl_id){
-  return LFSCProofSym::make("P"+intToStr(confl_id));
+
+std::string Derivation::printVar(Lit l){
+  std::stringstream out;
+  out<<" v"<<var(l)+1;
+  return out.str();
 }
 
-LFSCProof* Derivation::satLemmaVariable(ClauseID clause_id){
-  return LFSCProofSym::make("m"+intToStr(clause_id));
+std::string Derivation::printClauseVar(ClauseID id){
+  std::stringstream out;
+  if(isLearned(id))
+    out<<"m"<<id;
+  else
+    out<<"P"<<id;
+
+  return out.str();
+}
+
+std::string Derivation::printResChain(ClauseID id){
+  std::stringstream start;
+  std::stringstream end;
+  start<<"satlem _ _ _ ";
+  SatResolution* res = getResolution(id);
+  std::vector<ResStep> steps =res->getSteps();
+
+  end<<(steps[0].sign? "(R _ _": "(Q _ _");
+  end<<printClauseVar(res->getStart())<<" "<<printClauseVar(steps[0].id);
+  end<<" "<<printVar(steps[0].lit)<<") ";
+
+  for (unsigned i = 1; i < steps.size() ; i++ ) {
+    if(steps[steps.size()-i].sign)
+      start<<"(R _ _ ";
+    else
+      start<<"(Q _ _ ";
+    end<<printClauseVar(steps[i].id)<<" ";
+    end<<printVar(steps[i].lit)<<") ";
+  }
+
+  end<<"(\\"<<printClauseVar(id)<<" \n";
+  return (start.str()+end.str());
 }
 
 std::string Derivation::printLFSCClause(CRef cref){
@@ -620,70 +646,9 @@ std::string Derivation::printLFSCClause(CRef cref){
   return (ss.str()+end.str());
 }
 
-/** constructing the lfsc proof **/
-
-LFSCProof* Derivation::getProof(ClauseID clause_id){
-  // constructs an LFSCProof of the clause
-  // does it have to have a derivation?
-  // check if it's an unit clause
-
- if(!isLearned(clause_id))
-    // then has to be input clause
-    return getInputVariable(clause_id);
- if(!isSatLemma(clause_id))
-   std::cout<<"getProof"<<clause_id<<"\n";
- Assert(isSatLemma(clause_id));
- return satLemmaVariable(clause_id);
-
-}
-
-
-LFSCProof* Derivation::derivToLFSC(ClauseID clause_id){
-  // TODO: cache getVar and getLam and something else
-  SatResolution* res = getResolution(clause_id);
-  LFSCProof* pf1 = getProof(res->getStart());
-  Assert(clause_id > res->getStart() || clause_id == 0 );
-
-  RSteps steps = res->getSteps();
-
-  for(unsigned i=0; i< steps.size(); i++){
-    int v = var(steps[i].first);
-    ClauseID c_id = steps[i].second;
-    Assert( clause_id > c_id || clause_id == 0);
-    LFSCProof* pf2;
-    if(res->getSign(i))
-      pf2 = LFSCProof::make_R(pf1, getProof(c_id), LFSCProofSym::make("v"+intToStr(v+1)));
-    else
-      pf2 = LFSCProof::make_Q(pf1, getProof(c_id), LFSCProofSym::make("v"+intToStr(v+1)));
-    pf1 = pf2;
-  }
-  return pf1;
-}
-
-
-LFSCProof* Derivation::addLFSCSatLemmas(LFSCProof* pf){
-  // the iterator traverses the set in order of the keys which corresponds to the order in which the clauses were registered
-  // to ensure that the sat lemmas are printed in the appropriate order
-  LFSCProof* u1, * u2;
-  LFSCProofSym* lam_var = LFSCProofSym::make("done");
-  u2 = LFSCProofLam::make(lam_var, lam_var);
-  pf = LFSCProof::make_satlem(pf, u2);
-
-  for(std::set<ClauseID>::reverse_iterator i =  d_sat_lemmas.rbegin(); i!=d_sat_lemmas.rend();i++){
-    Debug("proof")<<(*i)<<" ";
-    u1 = derivToLFSC(*i); // make sure it doesn't call addSatlemma anymore
-    lam_var = LFSCProofSym::make("m"+intToStr(*i));
-    u2 = LFSCProofLam::make(lam_var, pf);
-    pf = LFSCProof::make_satlem(u1, u2);
-  }
-  return pf;
-}
-
-
 void Derivation::printLFSCProof(CRef confl){
    std::stringstream os;
    std::stringstream end;
-   LFSCProof::init();
 
    finish(confl);
    Assert(hasResolution(d_empty_clause_id));
@@ -713,15 +678,20 @@ void Derivation::printLFSCProof(CRef confl){
    }
 
 
-   os<<"(: (holds cln)";
+   os<<"(: (holds cln) \n";
    end<<")";
    std::cout<<os.str();
 
-   LFSCProof* pf = derivToLFSC(d_empty_clause_id);
-   std::cout<<"\n \n";
-
-   pf = addLFSCSatLemmas(pf);
-   pf->print(std::cout);
+   // printing sat lemmas
+   for(std::set<ClauseID>::iterator i = d_sat_lemmas.begin(); i!= d_sat_lemmas.end(); i++) {
+     std::cout<<"(";
+     std::cout<<printResChain(*i);
+     end<<"))";
+   }
+   std::cout<<"(";
+   std::cout<<printResChain(d_empty_clause_id);
+   std::cout<<" m0";
+   end<<"))";
    std::cout<<end.str()<<";";
 
 }
@@ -831,13 +801,13 @@ bool Derivation::checkResolution(ClauseID clause_id){
   for(int i=0;i<start_cl.size();i++)
     start.push(start_cl[i]);
 
-  RSteps steps = res->getSteps();
+  std::vector<ResStep> steps = res->getSteps();
   for(unsigned i=0; i < steps.size(); i++){
-    ClauseID id = steps[i].second;
+    ClauseID id = steps[i].id;
     Assert(hasResolution(id)||!isLearned(id));
 
-    Lit l = steps[i].first;
-    if(!resolve(start, id, l, res->getSign(i))){
+    Lit l = steps[i].lit;
+    if(!resolve(start, id, l, steps[i].sign)){
       Debug("proof:res")<<"Start "<<start<<" id "<<id<<" lit ";
       printLit(l);
       Debug("proof:res")<<"\n";

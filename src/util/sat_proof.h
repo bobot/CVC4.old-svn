@@ -54,18 +54,17 @@ namespace CVC4 {
 
 namespace prop{
 
-
-// helper functions
-typedef std::vector<std::pair <Lit, unsigned> >  RSteps;
 typedef int ClauseID;
-
+struct ResStep {
+  Lit lit;
+  ClauseID id;
+  bool sign;
+};
 
 class SatResolution {
 public:
-
-                unsigned d_start_clause;
-                RSteps d_steps;
-                std::vector<bool> d_signs;
+                ClauseID d_start_clause;
+                std::vector<ResStep> d_steps;
 
 public:
 
@@ -73,22 +72,20 @@ public:
                 SatResolution (ClauseID clause_id): d_start_clause(clause_id){}
 
                 void addStep(Lit lit, ClauseID clause_id, bool sign){
-                  d_steps.push_back(std::make_pair(lit, clause_id));
-                  d_signs.push_back(sign);
+                  ResStep step;
+                  step.lit = lit;
+                  step.id = clause_id;
+                  step.sign = sign;
+                  d_steps.push_back(step);
                 }
 
                 ClauseID getStart() const {
                         return d_start_clause;
                 }
 
-                const RSteps& getSteps() const{
+                const std::vector<ResStep> getSteps() const{
                         return d_steps;
                 }
-                bool getSign(ClauseID i){
-                  Assert(i< d_signs.size());
-                  return d_signs[i];
-                }
-
 };
 
 
@@ -118,10 +115,6 @@ public:
   SatResolution* d_current;                // stack of resolutions, the top one is the current one
 
   vec<Lit> eliminated_lit;      // vector storing the eliminated literals during conflict clause minimization
-
-  std::set <LFSCProof*> d_var_cache;
-  std::set <LFSCProof*> d_lam_cache;
-
 
 
 public:
@@ -211,13 +204,13 @@ public:
    * LFSC PROOF
    *
    */
-  LFSCProof* getInputVariable(ClauseID confl_id);
-  LFSCProof* satLemmaVariable(ClauseID clause_id);
-  LFSCProof* derivToLFSC(ClauseID clause_id);
-  LFSCProof* getProof(ClauseID clause_id);
-  LFSCProof* addLFSCSatLemmas(LFSCProof* pf);
+
   std::string printLFSCClause(CRef cref);
   void printLFSCProof(CRef final_confl);
+
+  std::string printVar(Lit l);
+  std::string printClauseVar(ClauseID id);
+  std::string printResChain(ClauseID id);
 
   /*
    * PRINTING
