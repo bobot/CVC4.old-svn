@@ -50,16 +50,23 @@ namespace prop{
  * Interface to Solver
  */
 
+/**
+ * Updates the ClauseIDs when Minisat does garbage collection
+ * and clauses are reallocated in memory
+ */
+
 void Derivation::updateId(CRef old_ref, CRef new_ref){
-  /*
-   * called in relocAll in minisat during garbage collection
-   */
   if(isRegistered(old_ref)){
     ClauseID id = getId(old_ref);
     d_clause_id_tmp[new_ref] = id;
     d_id_clause_tmp[id] = new_ref;
   }
 }
+
+/**
+ * Deletes the temporary maps used in updating IDs
+ *
+ */
 
 void Derivation::finishUpdateId(){
   // copy the things that might have gotten deleted because there were no more references to them
@@ -73,9 +80,12 @@ void Derivation::finishUpdateId(){
   d_id_clause_tmp.clear();
 }
 
+/**
+ * Creates a new resolution starting from cref
+ * must only be called when d_current == NULL
+ */
+
 void Derivation::newResolution(CRef cref, bool is_problem_clause){
-  // adds a new resolution on the resolution stack
-  // starting with clause cref
   ClauseID id = registerClause(cref, is_problem_clause);
   Debug("proof")<<"newResolution "<<id<<"\n";
   Assert(d_current == NULL);
@@ -89,12 +99,14 @@ void Derivation::newResolution(Lit lit){
   d_current = new SatResolution(id);
 }
 
+/**
+ * Adds a step to the current resolution
+ */
 void Derivation::addResStep(Lit l, CRef cl, bool sign){
   Assert(d_current != NULL);
   ClauseID id = registerClause(cl, false);
   d_current->addStep(l, id, sign);
 }
-
 
 void Derivation::addResStep(Lit l, Lit l2, bool sign){
   Assert(d_current!=NULL);
@@ -107,7 +119,10 @@ void Derivation::addResStepId(Lit l, ClauseID id, bool sign){
   d_current->addStep(l, id, sign);
 }
 
-
+/**
+ * Stores the resolution proving cl in the resolution map
+ * and rested d_current
+ */
 void Derivation::endResolution(CRef cl){
   Assert(d_current!=NULL);
   ClauseID id = registerClause(cl);
@@ -122,8 +137,14 @@ void Derivation::endResolution(Lit lit){
   d_current = NULL;
 }
 
-
-void Derivation::orderDFS(Lit p, vec<Lit> & ordered){
+/**
+ * Depth first search starting from removed literal p
+ * used in conflict clause minimization. Because it does
+ * not matter which order we resolve unit clauses we can
+ * resolve them only once in the end
+ * IMPORTANT: alters seen in Solver.cc
+ */
+void Derivation::orderDFS(Lit p, vec<Lit> & ordered, vec<Lit> & units){
   // seen[var(p)] :
   // 0 bit - in the original conflict clause
   // 1 bit - removable not in original clause
@@ -135,6 +156,7 @@ void Derivation::orderDFS(Lit p, vec<Lit> & ordered){
     return;
   // mark it as seen
   if(d_solver->seen[var(p)]== 0)
+    // make sure Minisat will reset seen[var(p)] to 0 when cleaning up
     d_solver->analyze_toclear.push(p);
 
   d_solver->seen[var(p)]|= 8;
@@ -145,11 +167,18 @@ void Derivation::orderDFS(Lit p, vec<Lit> & ordered){
     if(getReason(var(clause[i]))== CRef_Undef && (d_solver->seen[var(clause[i])]&1) == 0){
       // if has no reason and not in original conflict
       // must be deduced by a unit clause
-      ordered.push(clause[i]);
+      if(! (d_solver->seen[var(clause[i])]&8)) {
+        units.push(clause[i]);
+
+        if(d_solver->seen[var(clause[i])]==0)
+          d_solver->analyze_toclear.push(clause[i]);
+        // mark it as processed by this method
+        d_solver->seen[var(clause[i])]|=8;
+      }
     }
     else
     if((d_solver->seen[var(clause[i])] & (2|4)) || d_solver->level(var(clause[i]))==0 )
-      orderDFS(clause[i], ordered);
+      orderDFS(clause[i], ordered, units);
   }
 
   if((d_solver->seen[var(p)] & (2|4)) || d_solver->level(var(p)) == 0)
@@ -159,18 +188,26 @@ void Derivation::orderDFS(Lit p, vec<Lit> & ordered){
 
 }
 
+/**
+ * Adds lit to the eliminated lit stack to resolve it out
+ */
 void Derivation::addEliminatedLit(Lit lit){
   eliminated_lit.push(lit);
 }
 
+/**
+ * Resolve out the literals that have been removed from out_learnt
+ * during conflict clause minimization (works only for ccmin_mode == 2)
+ */
 void Derivation::resolveMinimizedCC(){
   Assert(d_current!=NULL);
   if(eliminated_lit.size() > 0){
     vec<Lit> order;
+    vec<Lit> units;
     int k;
     // dfs starting from each eliminated literal
     for(k = 0; k< eliminated_lit.size(); k++) {
-      orderDFS(eliminated_lit[k], order);
+      orderDFS(eliminated_lit[k], order, units);
     }
 
     // resolve out literals from original clause
@@ -187,6 +224,15 @@ void Derivation::resolveMinimizedCC(){
 
     }
 
+    // resolve out the unit clauses (may be units that appear in the original
+    // learned clause, or added by resolving out other eliminated literals
+    for(k = 0; k< units.size(); k++){
+      CRef cref = getReason(var(units[k]));
+      ClauseID cl_id;
+      cl_id = registerClause(~(units[k]));
+      d_current->addStep(units[k], cl_id, !(sign(units[k])));
+    }
+
   }
   eliminated_lit.clear();
 }
@@ -195,11 +241,7 @@ void Derivation::resolveMinimizedCC(){
 
 /** id-clause methods **/
 
-std::string Derivation::intToStr(int i){
-  std::stringstream ss;
-  ss<<i;
-  return ss.str();
-}
+
 
 bool Derivation::isUnit(CRef cref){
   Assert(cref!= CRef_Undef);
@@ -254,7 +296,11 @@ ClauseID Derivation::getClauseId(CRef cl){
   return d_clause_id[cl];
 }
 
-// returns -1 if the clause has not been registered
+/**
+ * Returns the ClauseID corresponding to cl if it has been registered
+ * and -1 otherwise
+ */
+
 ClauseID Derivation::getId(CRef cl){
 
   if(isStoredClause(cl))
@@ -271,22 +317,22 @@ SatResolution* Derivation::getResolution(ClauseID clause_id){
   return (d_res_map.find(clause_id))->second;
 }
 
-/** **/
-
 
 ClauseID Derivation::newId(){
   return id_counter++;
 }
 
+/**
+ * Stores the IDs of deleted clauses and removes the clauses
+ * from the id to CRef maps
+ */
 void Derivation::markDeleted(CRef clause){
   if(isStoredClause(clause)){
-    //Debug("proof")<<"("<<clause<<")";
     ClauseID id;
     id = d_clause_id[clause];
     d_deleted.insert(id);
     d_id_clause.erase(id);
     d_clause_id.erase(clause);
-    //Debug("proof")<<"deleted::"<<id<<" ";
   }
 
 }
@@ -312,7 +358,13 @@ Clause& Derivation::cl(CRef cref){
   return c;
 }
 
-
+/**
+ * Returns the reason for a variable by calling
+ * Minisat's reason()
+ * IMPORTANT: theory reasons are computed lazily and
+ * calling getReason may cause a new clause to be created
+ * and thus garbage collection
+ */
 
 CRef Derivation::getReason(int v){
   return d_solver->reason(v);
@@ -322,8 +374,12 @@ CRef Derivation::getReason(int v){
 
 /** clause registration **/
 
-// register the unit clause containing the literal
-// note that the clause is not created it only exists as a mapping
+/**
+ * register the unit clause containing the literal
+ * note that the clause is not created it only exists
+ * as a mapping, because Minisat does not store unit clauses
+ */
+
 ClauseID Derivation::registerClause(Lit lit,  bool is_input) {
   if(isUnit(lit))
     // if already registered return current id
@@ -345,7 +401,6 @@ ClauseID Derivation::registerClause(CRef cref, bool is_input_clause) {
 
     ClauseID id = getId(cref);
     if(id == -1){
-      //FIXME: better way to do this?
       storeVars(cref);
       // if not already registered
       id = newId();
@@ -369,12 +424,8 @@ void Derivation::registerResolution(ClauseID clause_id, SatResolution* res){
   Assert(!hasResolution(clause_id));
 
   d_res_map[clause_id] = res;
-  /*
-  if(!checkResolution(clause_id)){
-    Debug("proof:res")<<"Failed checking: "<<clause_id<<"\n";
-    printResolution(clause_id);
-    Assert(false);
-  }*/
+
+  //Assert(checkResolution(clause_id));
 }
 
 void Derivation::registerResolution(CRef clause, SatResolution* res){
@@ -386,13 +437,8 @@ void Derivation::registerResolution(CRef clause, SatResolution* res){
   Assert(!hasResolution(clause_id));
 
   d_res_map[clause_id] = res;
-  /*
-  if(!checkResolution(clause_id)){
-    Debug("proof:res")<<"Failed checking: "<<clause_id<<"\n";
-    printResolution(clause_id);
-    Assert(false);
-  }
-  */
+
+  //Assert(checkResolution(clause_id));
 
 }
 

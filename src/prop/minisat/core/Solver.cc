@@ -345,6 +345,12 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     PROOF(proof->newResolution(confl));
     //lsh--
 
+    //lsh
+    if(Derivation::id_counter == 78227) {
+      Debug("proof:res")<<"CONFL \n";
+      proof->printClause(confl);
+    }
+
     do{
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
@@ -389,6 +395,15 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
 
     }while (pathC > 0);
     out_learnt[0] = ~p;
+
+    //lsh
+        if(Derivation::id_counter == 78227) {
+          Debug("proof:res")<<"LEARNED \n";
+          for(int i=0; i<out_learnt.size(); i++)
+            proof->printLit(out_learnt[i]);
+          Debug("proof:res")<<"\n";
+        }
+
 
     // Simplify conflict clause:
     //
@@ -451,6 +466,15 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     }
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
+
+    //lsh
+        if(Derivation::id_counter == 78227) {
+          Debug("proof:res")<<"MIN CC \n";
+          for(int i=0; i<out_learnt.size(); i++)
+            proof->printLit(out_learnt[i]);
+          Debug("proof:res")<<"\n";
+        }
+
 
 }
 

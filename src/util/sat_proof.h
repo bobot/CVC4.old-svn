@@ -139,7 +139,7 @@ public:
   void endResolution(CRef cl);
   void endResolution(Lit lit);
 
-  void orderDFS(Lit p, vec<Lit> & ordered);
+  void orderDFS(Lit p, vec<Lit> & ordered, vec<Lit> & units);
   void resolveMinimizedCC();
   void addEliminatedLit(Lit lit);
 
@@ -181,8 +181,6 @@ public:
 
   void markDeleted(CRef clause);
   void storeVars(CRef clause);
-
-  std::string intToStr(int i);
 
   /*
    * ACCESS TO THE SOLVER
