@@ -17,11 +17,12 @@ libarith_la_SOURCES = \
 	partial_model.h \
 	partial_model.cpp \
 	ordered_bounds_list.h \
+	unate_propagator.h \
+	unate_propagator.cpp \
+	ordered_set.h \
 	basic.h \
 	slack.h \
 	tableau.h \
-	arith_propagator.h \
-	arith_propagator.cpp \
 	theory_arith.h \
 	theory_arith.cpp
 

@@ -19,8 +19,6 @@
 
 
 
-LKJFL:JLFJL
-
 #include "cvc4_private.h"
 
 #ifndef __CVC4__THEORY__ARITH__ARITH_PROPAGATOR_H
@@ -31,23 +29,19 @@ LKJFL:JLFJL
 #include "context/context.h"
 #include "context/cdo.h"
 
+#include "theory/output_channel.h"
 #include "theory/arith/ordered_set.h"
-
-
 
 namespace CVC4 {
 namespace theory {
 namespace arith {
 
-struct RightHandRationalLT;
-class TheoryArith;
-
 class ArithUnatePropagator {
 private:
-  TheoryArith* d_arith;
+  OutputChannel& d_arithOut;
 
 public:
-  ArithUnatePropagator(context::Context* cxt, TheoryArith* arith);
+  ArithUnatePropagator(context::Context* cxt, OutputChannel& arith);
 
   void addAtom(TNode atom);
 
@@ -55,9 +49,18 @@ private:
   void addImplication(TNode a, TNode b, const char *);
   bool leftIsSetup(TNode left);
   void setupLefthand(TNode left);
-  void addEquality(TNode atom, OrderedSet* eqSet, OrderedSet* leqSet, OrderedSet* geqSet, OrderedSet::iterator atomPos);
-  void addLeq(TNode atom, OrderedSet* eqSet,OrderedSet* leqSet, OrderedSet* geqSet, OrderedSet::iterator atomPos);
-  void addGeq(TNode atom, OrderedSet* eqSet, OrderedSet* leqSet, OrderedSet* geqSet, OrderedSet::iterator atomPos);
+
+  void addEquality(TNode atom,
+                   OrderedSet* eqSet, OrderedSet* leqSet, OrderedSet* geqSet,
+                   OrderedSet::iterator atomPos);
+
+  void addLeq(TNode atom,
+              OrderedSet* eqSet,OrderedSet* leqSet, OrderedSet* geqSet,
+              OrderedSet::iterator atomPos);
+
+  void addGeq(TNode atom,
+              OrderedSet* eqSet, OrderedSet* leqSet, OrderedSet* geqSet,
+              OrderedSet::iterator atomPos);
 
 };
 

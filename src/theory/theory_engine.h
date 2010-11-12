@@ -113,6 +113,11 @@ class TheoryEngine {
       ++(d_engine->d_statistics.d_statAugLemma);
       d_engine->newAugmentingLemma(node);
     }
+    void safeLemma(TNode node, bool) throw(theory::Interrupted, AssertionException) {
+      ++(d_engine->d_statistics.d_statLemma);
+      d_engine->newSafeLemma(node);
+    }
+
     void explanation(TNode explanationNode, bool) throw(theory::Interrupted, AssertionException) {
       d_explanationNode = explanationNode;
       ++(d_engine->d_statistics.d_statExplanation);
@@ -312,6 +317,10 @@ public:
   inline void newAugmentingLemma(TNode node) {
     Node preprocessed = preprocess(node);
     d_propEngine->assertFormula(preprocessed);
+  }
+
+  inline void newSafeLemma(TNode node) {
+    d_propEngine->assertSafeLemma(node);
   }
 
   /**

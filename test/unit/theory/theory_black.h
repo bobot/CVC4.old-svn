@@ -66,7 +66,9 @@ public:
   void augmentingLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException){
     Unreachable();
   }
-
+  void safeLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException){
+    Unreachable();
+  }
   void explanation(TNode n, bool safe = false) throw(Interrupted, AssertionException) {
     push(EXPLANATION, n);
   }

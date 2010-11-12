@@ -105,6 +105,8 @@ public:
    */
   virtual void augmentingLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException) = 0;
 
+  virtual void safeLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException) = 0;
+
   /**
    * Provide an explanation in response to an explanation request.
    *

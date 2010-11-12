@@ -91,6 +91,13 @@ void PropEngine::assertLemma(TNode node) {
   d_cnfStream->convertAndAssert(node, false, false);
 }
 
+void PropEngine::assertSafeLemma(TNode node) {
+  if(d_inCheckSat){
+    assertLemma(node);
+  }else{
+    assertFormula(node);
+  }
+}
 
 void PropEngine::printSatisfyingAssignment(){
   const CnfStream::TranslationCache& transCache = d_cnfStream->getTranslationCache();

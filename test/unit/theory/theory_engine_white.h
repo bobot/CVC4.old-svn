@@ -54,6 +54,9 @@ class FakeOutputChannel : public OutputChannel {
   void augmentingLemma(TNode n, bool safe) throw(AssertionException) {
     Unimplemented();
   }
+  void safeLemma(TNode n, bool safe) throw(AssertionException) {
+    Unimplemented();
+  }
   void explanation(TNode n, bool safe) throw(AssertionException) {
     Unimplemented();
   }

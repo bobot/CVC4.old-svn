@@ -30,7 +30,7 @@
 #include "theory/arith/tableau.h"
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/partial_model.h"
-#include "theory/arith/arith_propagator.h"
+#include "theory/arith/unate_propagator.h"
 
 #include "util/stats.h"
 

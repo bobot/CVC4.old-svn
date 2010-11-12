@@ -91,6 +91,11 @@ public:
   void augmentingLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException){
     push(AUG_LEMMA, n);
   }
+
+  void safeLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException){
+    push(AUG_LEMMA, n);
+  }
+
   void explanation(TNode n, bool safe = false)  throw(Interrupted, AssertionException) {
     push(EXPLANATION, n);
   }

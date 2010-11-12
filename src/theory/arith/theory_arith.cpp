@@ -34,7 +34,7 @@
 #include "theory/arith/arith_activity.h"
 
 #include "theory/arith/arith_rewriter.h"
-#include "theory/arith/arith_propagator.h"
+#include "theory/arith/unate_propagator.h"
 
 #include "theory/arith/theory_arith.h"
 #include <map>
@@ -56,7 +56,7 @@ TheoryArith::TheoryArith(int id, context::Context* c, OutputChannel& out) :
   d_partialModel(c),
   d_diseq(c),
   d_rewriter(&d_constants),
-  d_propagator(c, this),
+  d_propagator(c, out),
   d_statistics()
 {
   uint64_t ass_id = partial_model::Assignment::getId();
