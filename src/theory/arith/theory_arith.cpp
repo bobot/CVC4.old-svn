@@ -71,15 +71,21 @@ TheoryArith::~TheoryArith(){}
 
 TheoryArith::Statistics::Statistics():
   d_statUserVariables("theory::arith::UserVariables", 0),
-  d_statSlackVariables("theory::arith::SlackVariables", 0)
+  d_statSlackVariables("theory::arith::SlackVariables", 0),
+  d_statDisequalitySplits("theory::arith::DisequalitySplits", 0),
+  d_statDisequalityConflicts("theory::arith::DisequalityConflicts", 0)
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
   StatisticsRegistry::registerStat(&d_statSlackVariables);
+  StatisticsRegistry::registerStat(&d_statDisequalitySplits);
+  StatisticsRegistry::registerStat(&d_statDisequalityConflicts);
 }
 
 TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_statUserVariables);
   StatisticsRegistry::unregisterStat(&d_statSlackVariables);
+  StatisticsRegistry::unregisterStat(&d_statDisequalitySplits);
+  StatisticsRegistry::unregisterStat(&d_statDisequalityConflicts);
 }
 
 
@@ -299,6 +305,7 @@ bool TheoryArith::assertionCases(TNode assertion){
       if (d_diseq.find(diseq) != d_diseq.end()) {
         NodeBuilder<3> conflict(kind::AND);
         conflict << diseq << assertion << d_partialModel.getLowerConstraint(x_i);
+        ++(d_statistics.d_statDisequalityConflicts);
         d_out->conflict((TNode)conflict);
         return true;
       }
@@ -311,6 +318,7 @@ bool TheoryArith::assertionCases(TNode assertion){
       if (d_diseq.find(diseq) != d_diseq.end()) {
         NodeBuilder<3> conflict(kind::AND);
         conflict << diseq << assertion << d_partialModel.getUpperConstraint(x_i);
+        ++(d_statistics.d_statDisequalityConflicts);
         d_out->conflict((TNode)conflict);
         return true;
       }
@@ -426,6 +434,7 @@ void TheoryArith::check(Effort effortLevel){
           // All the implication
           Node impClosure = NodeBuilder<3>(kind::AND) << imp1 << imp2 << imp3;
 
+          ++(d_statistics.d_statDisequalitySplits);
           d_out->lemma(lemma.andNode(impClosure));
         }
       }

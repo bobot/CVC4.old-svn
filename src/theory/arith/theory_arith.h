@@ -176,6 +176,8 @@ private:
   class Statistics {
   public:
     IntStat d_statUserVariables, d_statSlackVariables;
+    IntStat d_statDisequalitySplits;
+    IntStat d_statDisequalityConflicts;
 
     Statistics();
     ~Statistics();
