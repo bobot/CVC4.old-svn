@@ -123,7 +123,8 @@ Options::Options() :
   produceModels(false),
   produceAssignments(false),
   typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-  earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT) {
+  earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
+  incrementalSolving(false) {
 
   options_description debug("Debugging options");
   options_description parser("Parser/input options");
@@ -158,6 +159,7 @@ Options::Options() :
     ( "produce-assignments", "support the get-assignment command" )
     ( "lazy-definition-expansion", "expand define-fun lazily" );
     ( "no-theory-registration", "do not do theory registration (unsafe for some theories)" );
+    ( "incremental", "enable incremental solving (multiple queries, push/pop)" );
   checking.add_options()
     ( "no-checking", "disable ALL semantic checks, including type checks" )
     ( "no-type-checking", "never type check expressions" )
@@ -328,6 +330,10 @@ string Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
   if(vm.count("eager-type-checking")) {
     typeChecking = true;
     earlyTypeChecking = true;
+  }
+
+  if(vm.count("incremental")) {
+    incrementalSolving = true;
   }
 
   return vm["input-file"].as<string>();

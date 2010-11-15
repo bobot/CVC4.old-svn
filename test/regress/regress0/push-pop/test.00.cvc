@@ -1,0 +1,11 @@
+x: BOOLEAN;
+
+PUSH;
+ASSERT x;
+% EXPECT: sat
+CHECKSAT;
+POP;
+ASSERT (NOT x);
+% EXPECT: unsat
+CHECKSAT;
+% EXIT: 20

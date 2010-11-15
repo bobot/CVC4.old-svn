@@ -125,6 +125,9 @@ struct CVC4_PUBLIC Options {
   /** Whether we do typechecking at Expr creation time. */
   bool earlyTypeChecking;
 
+  /** Whether incemental solving (push/pop) */
+  bool incrementalSolving;
+
   Options();
 
   void printUsage(const std::string& msg, std::ostream& out) const;
