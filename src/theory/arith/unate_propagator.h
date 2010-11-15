@@ -89,10 +89,11 @@ private:
 
 
   /**
-   * The add*K*(...) functions are the work horses of ArithUnatePropagator.
-   * These take an atom of the kind *K* that has just been added
-   * to its associated lists, and enqueue
-   * the implications to be added using addImplication().
+   * The addKtoJs(...) functions are the work horses of ArithUnatePropagator.
+   * These take an atom of the kind K that has just been added
+   * to its associated list, and the list of Js associated with the lhs,
+   * and uses these to deduce unate implications.
+   * (K and J vary over EQUAL, LEQ, and GEQ.)
    *
    * Input:
    * atom - the atom being inserted
@@ -102,17 +103,18 @@ private:
    * Unfortunately, these tend to be an absolute bear to read because
    * of all of the special casing and C++ iterator manipulation required.
    */
-  void addEquality(TNode atom,
-                   OrderedSet* eqSet, OrderedSet* leqSet, OrderedSet* geqSet,
-                   OrderedSet::iterator atomPos);
 
-  void addLeq(TNode atom,
-              OrderedSet* eqSet,OrderedSet* leqSet, OrderedSet* geqSet,
-              OrderedSet::iterator atomPos);
+  void addEqualityToEqualities(TNode eq, OrderedSet* eqSet, OrderedSet::iterator eqPos);
+  void addEqualityToLeqs(TNode eq, OrderedSet* leqSet);
+  void addEqualityToGeqs(TNode eq, OrderedSet* geqSet);
 
-  void addGeq(TNode atom,
-              OrderedSet* eqSet, OrderedSet* leqSet, OrderedSet* geqSet,
-              OrderedSet::iterator atomPos);
+  void addLeqToLeqs(TNode leq, OrderedSet* leqSet, OrderedSet::iterator leqPos);
+  void addLeqToGeqs(TNode leq, OrderedSet* geqSet);
+  void addLeqToEqualities(TNode leq, OrderedSet* eqSet);
+
+  void addGeqToGeqs(TNode geq, OrderedSet* geqSet, OrderedSet::iterator geqPos);
+  void addGeqToLeqs(TNode geq, OrderedSet* leqSet);
+  void addGeqToEqualities(TNode geq, OrderedSet* eqSet);
 
 };
 

@@ -76,21 +76,30 @@ void ArithUnatePropagator::addAtom(TNode atom){
     {
       pair<OrderedSet::iterator, bool> res = eqSet->insert(atom);
       Assert(res.second);
-      addEquality(atom, eqSet, leqSet, geqSet, res.first);
+      addEqualityToEqualities(atom, eqSet, res.first);
+      addEqualityToLeqs(atom, leqSet);
+      addEqualityToGeqs(atom, geqSet);
       break;
     }
   case LEQ:
     {
       pair<OrderedSet::iterator, bool> res = leqSet->insert(atom);
       Assert(res.second);
-      addLeq(atom, eqSet, leqSet, geqSet, res.first);
+
+      addLeqToLeqs(atom, leqSet, res.first);
+      addLeqToEqualities(atom, eqSet);
+      addLeqToGeqs(atom, geqSet);
       break;
     }
   case GEQ:
     {
       pair<OrderedSet::iterator, bool> res = geqSet->insert(atom);
       Assert(res.second);
-      addGeq(atom, eqSet, leqSet, geqSet, res.first);
+
+      addGeqToGeqs(atom, geqSet, res.first);
+      addGeqToEqualities(atom, eqSet);
+      addGeqToLeqs(atom, leqSet);
+
       break;
     }
   default:
@@ -117,14 +126,10 @@ bool rightHandRationalIsLT(TNode a, TNode b){
   return qA < qB;
 }
 
-
-void ArithUnatePropagator::addEquality
-(TNode atom,
- OrderedSet* eqSet,
- OrderedSet* leqSet,
- OrderedSet* geqSet,
- OrderedSet::iterator eqPos)
-{
+void ArithUnatePropagator::addEqualityToEqualities(TNode atom,
+                                                   OrderedSet* eqSet,
+                                                   OrderedSet::iterator eqPos){
+  Assert(atom.getKind() == EQUAL);
   Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
   for(OrderedSet::iterator eqIter = eqSet->begin();
       eqIter != eqSet->end(); ++eqIter){
@@ -133,6 +138,12 @@ void ArithUnatePropagator::addEquality
     Assert(!rightHandRationalIsEqual(eq, atom));
     addImplication(eq, negation);
   }
+}
+
+void ArithUnatePropagator::addEqualityToLeqs(TNode atom, OrderedSet* leqSet)
+{
+  Assert(atom.getKind() == EQUAL);
+  Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
 
   OrderedSet::iterator leqIter = leqSet->lower_bound(atom);
   if(leqIter != leqSet->end()){
@@ -163,6 +174,12 @@ void ArithUnatePropagator::addEquality
   }else{
     Assert(leqSet->empty());
   }
+}
+
+void ArithUnatePropagator::addEqualityToGeqs(TNode atom, OrderedSet* geqSet){
+
+  Assert(atom.getKind() == EQUAL);
+  Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
 
   OrderedSet::iterator geqIter = geqSet->lower_bound(atom);
   if(geqIter != geqSet->end()){
@@ -195,11 +212,9 @@ void ArithUnatePropagator::addEquality
   }
 }
 
-void ArithUnatePropagator::addLeq
+void ArithUnatePropagator::addLeqToLeqs
 (TNode atom,
- OrderedSet* eqSet,
  OrderedSet* leqSet,
- OrderedSet* geqSet,
  OrderedSet::iterator atomPos)
 {
   Assert(atom.getKind() == LEQ);
@@ -218,7 +233,11 @@ void ArithUnatePropagator::addLeq
     Assert(rightHandRationalIsLT(atom, afterLeq));
     addImplication(atom, afterLeq);// x<=b /\ b < b' => x <= b'
   }
+}
+void ArithUnatePropagator::addLeqToGeqs(TNode atom, OrderedSet* geqSet) {
 
+  Assert(atom.getKind() == LEQ);
+  Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
 
   OrderedSet::iterator geqIter = geqSet->lower_bound(atom);
   if(geqIter != geqSet->end()){
@@ -250,6 +269,11 @@ void ArithUnatePropagator::addLeq
   }else{
     Assert(geqSet->empty());
   }
+}
+
+void ArithUnatePropagator::addLeqToEqualities(TNode atom, OrderedSet* eqSet) {
+  Assert(atom.getKind() == LEQ);
+  Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
 
   //TODO Improve this later
   for(OrderedSet::iterator eqIter = eqSet->begin(); eqIter != eqSet->end(); ++eqIter){
@@ -267,12 +291,9 @@ void ArithUnatePropagator::addLeq
   }
 }
 
-void ArithUnatePropagator::addGeq
-(TNode atom,
- OrderedSet* eqSet,
- OrderedSet* leqSet,
- OrderedSet* geqSet,
- OrderedSet::iterator atomPos)
+
+void ArithUnatePropagator::addGeqToGeqs
+(TNode atom, OrderedSet* geqSet, OrderedSet::iterator atomPos)
 {
   Assert(atom.getKind() == GEQ);
   Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
@@ -290,6 +311,12 @@ void ArithUnatePropagator::addGeq
     Assert(rightHandRationalIsLT(atom, afterGeq));
     addImplication(afterGeq, atom);// x>=b' /\ b' > b => x >= b
   }
+}
+
+void ArithUnatePropagator::addGeqToLeqs(TNode atom, OrderedSet* leqSet){
+
+  Assert(atom.getKind() == GEQ);
+  Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
 
   OrderedSet::iterator leqIter = leqSet->lower_bound(atom);
   if(leqIter != leqSet->end()){
@@ -322,6 +349,11 @@ void ArithUnatePropagator::addGeq
   }else{
     Assert(leqSet->empty());
   }
+}
+void ArithUnatePropagator::addGeqToEqualities(TNode atom, OrderedSet* eqSet){
+
+  Assert(atom.getKind() == GEQ);
+  Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
 
   //TODO Improve this later
   for(OrderedSet::iterator eqIter = eqSet->begin(); eqIter != eqSet->end(); ++eqIter){
