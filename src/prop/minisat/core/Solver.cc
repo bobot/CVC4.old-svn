@@ -197,7 +197,8 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
         assert(type != CLAUSE_LEMMA);
         assert(value(ps[0]) == l_Undef);
         uncheckedEnqueue(ps[0]);
-        //--lsh registering unit problem clauses, that minisat does not store
+        //--lsh registering unit problem clauses for proof logging
+        // (Minisat does not store them, but enqueues them directly)
         PROOF(proof->registerClause(ps[0], true));
         //lsh--
         return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
@@ -345,12 +346,6 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     PROOF(proof->newResolution(confl));
     //lsh--
 
-    //lsh
-    if(Derivation::id_counter == 78227) {
-      Debug("proof:res")<<"CONFL \n";
-      proof->printClause(confl);
-    }
-
     do{
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
@@ -369,8 +364,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
                 else
                     out_learnt.push(q);
             }
-            //--lsh because q was propagated at 0 and it needs to
-            // be resolved out of of the learned clause
+            //--lsh q was propagated at 0 and was not added to out_learnt
+            // must be resolved out of of the learned clause
             PROOF(
                 if(level(var(q)) == 0) {
                   ClauseID unit_id = proof->getLitReason(q);
@@ -385,7 +380,8 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         confl = reason(var(p));
         seen[var(p)] = 0;
         pathC--;
-        //--lsh
+        //--lsh add a new step to the resolution
+        // if the loop is executed one more time
         PROOF(
             if(confl!= CRef_Undef && pathC>0){
               proof->addResStep(p, confl, sign(p));
@@ -395,14 +391,6 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
 
     }while (pathC > 0);
     out_learnt[0] = ~p;
-
-    //lsh
-        if(Derivation::id_counter == 78227) {
-          Debug("proof:res")<<"LEARNED \n";
-          for(int i=0; i<out_learnt.size(); i++)
-            proof->printLit(out_learnt[i]);
-          Debug("proof:res")<<"\n";
-        }
 
 
     // Simplify conflict clause:
@@ -419,11 +407,13 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
             if (reason(var(out_learnt[i])) == CRef_Undef || !litRedundant(out_learnt[i], abstract_level))
                 out_learnt[j++] = out_learnt[i];
         //--lsh
-        //FIXME: fix the 4
             else{
-              seen[var(out_learnt[i])] |=4;     // special mark for order_dfs
+              // mark out_learnt[i] as removable and in the original clause
+              // to be resolved out later in orderDFS in the proper order
+              PROOF(seen[var(out_learnt[i])] |=2);
               PROOF(proof->addEliminatedLit(out_learnt[i]));
             }
+        // resolve out the literals removed during clause minimization
         PROOF(proof->resolveMinimizedCC());
         //lsh--
 
@@ -467,15 +457,6 @@ void Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
 
     for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
 
-    //lsh
-        if(Derivation::id_counter == 78227) {
-          Debug("proof:res")<<"MIN CC \n";
-          for(int i=0; i<out_learnt.size(); i++)
-            proof->printLit(out_learnt[i]);
-          Debug("proof:res")<<"\n";
-        }
-
-
 }
 
 
@@ -493,7 +474,11 @@ bool Solver::litRedundant(Lit p, uint32_t abstract_levels)
             Lit p  = c[i];
             if (!seen[var(p)] && level(var(p)) > 0){
                 if (reason(var(p)) != CRef_Undef && (abstractLevel(var(p)) & abstract_levels) != 0){
+#ifdef CVC4_PROOFS
                     seen[var(p)] |= 2; //--lsh for proof logging, special marker
+#else
+                    seen[var(p)] = 1;
+#endif
                     analyze_stack.push(p);
                     analyze_toclear.push(p);
                 }else{
@@ -861,13 +846,15 @@ lbool Solver::search(int nof_conflicts)
             cancelUntil(backtrack_level);
 
             if (learnt_clause.size() == 1){
-                //--lsh
+                //--lsh store the resolution chain that proves the
+                // learned unit clause
                 PROOF( proof->endResolution(learnt_clause[0]) );
                 //lsh--
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
                 CRef cr = ca.alloc(learnt_clause, true);
-                //--lsh
+                //--lsh store the resolution chain that proves the
+                // learned clause
                 PROOF(
                     proof->endResolution(cr)
                     );
