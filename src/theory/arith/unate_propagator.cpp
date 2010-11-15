@@ -19,7 +19,6 @@
 
 #include "theory/arith/unate_propagator.h"
 #include "theory/arith/arith_utilities.h"
-#include "theory/arith/theory_arith.h"
 
 #include <list>
 
@@ -30,6 +29,15 @@ using namespace CVC4::theory::arith;
 using namespace CVC4::kind;
 
 using namespace std;
+
+struct PropagatorLeqSetID {};
+typedef expr::Attribute<PropagatorLeqSetID, OrderedSet*, SetCleanupStrategy> PropagatorLeqSet;
+
+struct PropagatorEqSetID {};
+typedef expr::Attribute<PropagatorEqSetID, OrderedSet*, SetCleanupStrategy> PropagatorEqSet;
+
+struct PropagatorGeqSetID {};
+typedef expr::Attribute<PropagatorGeqSetID, OrderedSet*, SetCleanupStrategy> PropagatorGeqSet;
 
 ArithUnatePropagator::ArithUnatePropagator(context::Context* cxt, OutputChannel& out) :
   d_arithOut(out)
@@ -109,6 +117,7 @@ bool rightHandRationalIsLT(TNode a, TNode b){
   return qA < qB;
 }
 
+
 void ArithUnatePropagator::addEquality
 (TNode atom,
  OrderedSet* eqSet,
@@ -122,35 +131,35 @@ void ArithUnatePropagator::addEquality
     if(eqIter == eqPos) continue;
     TNode eq = *eqIter;
     Assert(!rightHandRationalIsEqual(eq, atom));
-    addImplication(eq, negation, "125");
+    addImplication(eq, negation);
   }
 
   OrderedSet::iterator leqIter = leqSet->lower_bound(atom);
   if(leqIter != leqSet->end()){
     TNode lowerBound = *leqIter;
     if(rightHandRationalIsEqual(atom, lowerBound)){
-      addImplication(atom, lowerBound, "132");  // x=b /\ b = b' => x <= b'
+      addImplication(atom, lowerBound);  // x=b /\ b = b' => x <= b'
       if(leqIter != leqSet->begin()){
         --leqIter;
         Assert(rightHandRationalIsLT(*leqIter, atom));
-        addImplication(*leqIter, negation, "136"); // x=b /\ b > b' => x > b'
+        addImplication(*leqIter, negation); // x=b /\ b > b' => x > b'
       }
     }else{
       //probably wrong
       Assert(rightHandRationalIsLT(atom, lowerBound));
-      addImplication(atom, lowerBound, "141");// x=b /\ b < b' => x <= b'
+      addImplication(atom, lowerBound);// x=b /\ b < b' => x <= b'
 
       if(leqIter != leqSet->begin()){
         --leqIter;
         Assert(rightHandRationalIsLT(*leqIter, atom));
-        addImplication(*leqIter, negation, "146");// x=b /\ b > b' => x > b'
+        addImplication(*leqIter, negation);// x=b /\ b > b' => x > b'
       }
     }
   }else if(leqIter != leqSet->begin()){
     --leqIter;
     TNode strictlyLessThan = *leqIter;
     Assert(rightHandRationalIsLT(strictlyLessThan, atom));
-    addImplication(*leqIter, negation, "153"); // x=b /\ b < b' => x <= b'
+    addImplication(*leqIter, negation); // x=b /\ b < b' => x <= b'
   }else{
     Assert(leqSet->empty());
   }
@@ -159,28 +168,28 @@ void ArithUnatePropagator::addEquality
   if(geqIter != geqSet->end()){
     TNode lowerBound = *geqIter;
     if(rightHandRationalIsEqual(atom, lowerBound)){
-      addImplication(atom, lowerBound, "162");  // x=b /\ b = b' => x >= b'
+      addImplication(atom, lowerBound);  // x=b /\ b = b' => x >= b'
       ++geqIter;
       if(geqIter != geqSet->end()){ // x=b /\ b < b' => x < b'
         TNode strictlyGt = *geqIter;
         Assert(rightHandRationalIsLT( atom, strictlyGt ));
-        addImplication(strictlyGt, negation, "167");
+        addImplication(strictlyGt, negation);
       }
     }else{
       Assert(rightHandRationalIsLT(atom, lowerBound));
-      addImplication(lowerBound, negation, "171");// x=b /\ b < b' => x < b'
+      addImplication(lowerBound, negation);// x=b /\ b < b' => x < b'
       if(geqIter != geqSet->begin()){
         --geqIter;
         TNode strictlyLessThan = *geqIter;
         Assert(rightHandRationalIsLT(strictlyLessThan, atom));
-        addImplication(atom, strictlyLessThan, "176");// x=b /\ b > b' => x >= b'
+        addImplication(atom, strictlyLessThan);// x=b /\ b > b' => x >= b'
       }
     }
   }else if(geqIter != geqSet->begin()){
     --geqIter;
     TNode strictlyLT = *geqIter;
     Assert(rightHandRationalIsLT(strictlyLT, atom));
-    addImplication(atom, strictlyLT, "183");// x=b /\ b > b' => x >= b'
+    addImplication(atom, strictlyLT);// x=b /\ b > b' => x >= b'
   }else{
     Assert(geqSet->empty());
   }
@@ -200,14 +209,14 @@ void ArithUnatePropagator::addLeq
     --atomPos;
     TNode beforeLeq = *atomPos;
     Assert(rightHandRationalIsLT(beforeLeq, atom));
-    addImplication(beforeLeq, atom, "203");// x<=b' /\ b' < b => x <= b
+    addImplication(beforeLeq, atom);// x<=b' /\ b' < b => x <= b
     ++atomPos;
   }
   ++atomPos;
   if(atomPos != leqSet->end()){
     TNode afterLeq = *atomPos;
     Assert(rightHandRationalIsLT(atom, afterLeq));
-    addImplication(atom, afterLeq, "210");// x<=b /\ b < b' => x <= b'
+    addImplication(atom, afterLeq);// x<=b /\ b < b' => x <= b'
   }
 
 
@@ -216,28 +225,28 @@ void ArithUnatePropagator::addLeq
     TNode lowerBound = *geqIter;
     if(rightHandRationalIsEqual(atom, lowerBound)){
       Assert(rightHandRationalIsEqual(atom, lowerBound));
-      addImplication(negation, lowerBound, "219");// (x > b) => (x >= b)
+      addImplication(negation, lowerBound);// (x > b) => (x >= b)
       ++geqIter;
       if(geqIter != geqSet->end()){
         TNode next = *geqIter;
         Assert(rightHandRationalIsLT(atom, next));
-        addImplication(next, negation, "224");// x>=b' /\ b' > b => x > b
+        addImplication(next, negation);// x>=b' /\ b' > b => x > b
       }
     }else{
       Assert(rightHandRationalIsLT(atom, lowerBound));
-      addImplication(lowerBound, negation, "228");// x>=b' /\ b' > b => x > b
+      addImplication(lowerBound, negation);// x>=b' /\ b' > b => x > b
       if(geqIter != geqSet->begin()){
         --geqIter;
         TNode prev = *geqIter;
         Assert(rightHandRationalIsLT(prev, atom));
-        addImplication(negation, prev, "233");// (x>b /\ b > b') => x >= b'
+        addImplication(negation, prev);// (x>b /\ b > b') => x >= b'
       }
     }
   }else if(geqIter != geqSet->begin()){
     --geqIter;
     TNode strictlyLT = *geqIter;
     Assert(rightHandRationalIsLT(strictlyLT, atom));
-    addImplication(negation, strictlyLT, "240");// (x>b /\ b > b') => x >= b'
+    addImplication(negation, strictlyLT);// (x>b /\ b > b') => x >= b'
   }else{
     Assert(geqSet->empty());
   }
@@ -247,13 +256,13 @@ void ArithUnatePropagator::addLeq
     TNode eq = *eqIter;
     if(rightHandRationalIsEqual(atom, eq)){
       // (x = b' /\ b = b') =>  x <= b
-      addImplication(eq, atom, "250");
+      addImplication(eq, atom);
     }else if(rightHandRationalIsLT(atom, eq)){
       // (x = b' /\ b' > b) =>  x > b
-      addImplication(eq, negation, "253");
+      addImplication(eq, negation);
     }else{
       // (x = b' /\ b' < b) =>  x <= b
-      addImplication(eq, atom, "256");
+      addImplication(eq, atom);
     }
   }
 }
@@ -272,14 +281,14 @@ void ArithUnatePropagator::addGeq
     --atomPos;
     TNode beforeGeq = *atomPos;
     Assert(rightHandRationalIsLT(beforeGeq, atom));
-    addImplication(atom, beforeGeq, "275");// x>=b /\ b > b' => x >= b'
+    addImplication(atom, beforeGeq);// x>=b /\ b > b' => x >= b'
     ++atomPos;
   }
   ++atomPos;
   if(atomPos != geqSet->end()){
     TNode afterGeq = *atomPos;
     Assert(rightHandRationalIsLT(atom, afterGeq));
-    addImplication(afterGeq, atom, "282");// x>=b' /\ b' > b => x >= b
+    addImplication(afterGeq, atom);// x>=b' /\ b' > b => x >= b
   }
 
   OrderedSet::iterator leqIter = leqSet->lower_bound(atom);
@@ -287,29 +296,29 @@ void ArithUnatePropagator::addGeq
     TNode lowerBound = *leqIter;
     if(rightHandRationalIsEqual(atom, lowerBound)){
       Assert(rightHandRationalIsEqual(atom, lowerBound));
-      addImplication(negation, lowerBound, "290");// (x < b) => (x <= b)
+      addImplication(negation, lowerBound);// (x < b) => (x <= b)
 
       if(leqIter != leqSet->begin()){
         --leqIter;
         TNode prev = *leqIter;
         Assert(rightHandRationalIsLT(prev, atom));
-        addImplication(prev, negation, "296");// x<=b' /\ b' < b => x < b
+        addImplication(prev, negation);// x<=b' /\ b' < b => x < b
       }
     }else{
       Assert(rightHandRationalIsLT(atom, lowerBound));
-      addImplication(negation, lowerBound, "300");// (x < b /\ b < b') => x <= b'
+      addImplication(negation, lowerBound);// (x < b /\ b < b') => x <= b'
       ++leqIter;
       if(leqIter != leqSet->end()){
         TNode next = *leqIter;
         Assert(rightHandRationalIsLT(atom, next));
-        addImplication(negation, next, "305");// (x < b /\ b < b') => x <= b'
+        addImplication(negation, next);// (x < b /\ b < b') => x <= b'
       }
     }
   }else if(leqIter != leqSet->begin()){
     --leqIter;
     TNode strictlyLT = *leqIter;
     Assert(rightHandRationalIsLT(strictlyLT, atom));
-    addImplication(strictlyLT, negation, "312");// (x <= b' /\ b' < b) => x < b
+    addImplication(strictlyLT, negation);// (x <= b' /\ b' < b) => x < b
   }else{
     Assert(leqSet->empty());
   }
@@ -319,59 +328,22 @@ void ArithUnatePropagator::addGeq
     TNode eq = *eqIter;
     if(rightHandRationalIsEqual(atom, eq)){
       // (x = b' /\ b = b') =>  x >= b
-      addImplication(eq, atom, "322");
+      addImplication(eq, atom);
     }else if(rightHandRationalIsLT(eq, atom)){
       // (x = b' /\ b' < b) =>  x < b
-      addImplication(eq, negation, "325");
+      addImplication(eq, negation);
     }else{
       // (x = b' /\ b' > b) =>  x >= b
-      addImplication(eq, atom, "328");
+      addImplication(eq, atom);
     }
   }
 }
 
+void ArithUnatePropagator::addImplication(TNode a, TNode b){
+  Node imp = NodeBuilder<2>(IMPLIES) << a << b;
 
-
-Node miniReduce(TNode a){
-  switch(a.getKind()){
-  case GEQ:
-  case EQUAL:
-  case LEQ:
-    return a;
-  case NOT:
-    if(a[0].getKind() == NOT){
-      return miniReduce((a[0])[0]);
-    }else{
-      return NodeManager::currentNM()->mkNode(NOT, miniReduce(a[0]));
-    }
-  case IMPLIES:
-    {
-      Node negateFirst = NodeManager::currentNM()->mkNode(NOT, a[0]);
-      Node reduceNegateFirst = miniReduce(negateFirst);
-      Node reduceSecond = miniReduce(a[1]);
-      return NodeManager::currentNM()->mkNode(OR, reduceNegateFirst, reduceSecond);
-    }
-  default:
-    Unreachable();
-    return Node::null();
-  }
-}
-
-void ArithUnatePropagator::addImplication(TNode a, TNode b, const char* c){
-  Node imp = NodeManager::currentNM()->mkNode(IMPLIES, a, b);
-
-  static set<const char*> set;
-
-
-  Debug("arith-propagate") << "Adding propagation lemma " << c << endl
-                           << "\t" << a << endl
-                           << "\t" << b << endl;
-
-  if(set.find(c) == set.end()){
-    set.insert(c);
-    Debug("arith-propagate") << "print set size " << set.size() << endl;
-  }
-  Node reduce = miniReduce(imp);
+  Debug("arith-propagate") << "ArithUnatePropagator::addImplication";
+  Debug("arith-propagate") << "(" << a << ", " << b <<")" << endl;
 
   d_arithOut.lemma(imp);
 }
