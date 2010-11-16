@@ -78,11 +78,14 @@ private:
   typedef context::CDMap<TNode, TNode, TNodeHashFunction> UnionFind;
   UnionFind d_unionFind;
 
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > DiseqList;
-  typedef context::CDMap<Node, DiseqList*, NodeHashFunction> DiseqLists;
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
+  typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
 
   /** List of all disequalities this theory has seen. */
-  DiseqLists d_disequalities;
+  EqLists d_disequalities;
+
+  /** List of all (potential) equalities to be propagated. */
+  EqLists d_equalities;
 
   Node d_conflict;
 
@@ -151,7 +154,7 @@ public:
    * Overloads void explain(TNode n, Effort level); from theory.h.
    * See theory/theory.h for more information about this method.
    */
-  void explain(TNode n, Effort level) {}
+  void explain(TNode n, Effort level);
 
   /**
    * Gets a theory value.
@@ -172,7 +175,9 @@ private:
   TNode debugFind(TNode a) const;
 
   void appendToDiseqList(TNode of, TNode eq);
+  void appendToEqList(TNode of, TNode eq);
   void addDisequality(TNode eq);
+  void registerEqualityForPropagation(TNode eq);
 
   /**
    * Receives a notification from the congruence closure module that

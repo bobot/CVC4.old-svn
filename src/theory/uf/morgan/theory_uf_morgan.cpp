@@ -21,6 +21,8 @@
 #include "expr/kind.h"
 #include "util/congruence_closure.h"
 
+#include <map>
+
 using namespace CVC4;
 using namespace CVC4::context;
 using namespace CVC4::theory;
@@ -34,6 +36,7 @@ TheoryUFMorgan::TheoryUFMorgan(int id, Context* ctxt, OutputChannel& out) :
   d_cc(ctxt, &d_ccChannel),
   d_unionFind(ctxt),
   d_disequalities(ctxt),
+  d_equalities(ctxt),
   d_conflict(),
   d_trueNode(),
   d_falseNode(),
@@ -73,6 +76,9 @@ RewriteResponse TheoryUFMorgan::postRewrite(TNode n, bool topLevel) {
 
 void TheoryUFMorgan::preRegisterTerm(TNode n) {
   Debug("uf") << "uf: preRegisterTerm(" << n << ")" << std::endl;
+  if(n.getKind() == kind::EQUAL || n.getKind() == kind::IFF) {
+    registerEqualityForPropagation(n);
+  }
 }
 
 void TheoryUFMorgan::registerTerm(TNode n) {
@@ -165,8 +171,8 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
   Assert(d_conflict.isNull());
 
   // make "a" the one with shorter diseqList
-  DiseqLists::iterator deq_ia = d_disequalities.find(a);
-  DiseqLists::iterator deq_ib = d_disequalities.find(b);
+  EqLists::iterator deq_ia = d_disequalities.find(a);
+  EqLists::iterator deq_ib = d_disequalities.find(b);
   if(deq_ia != d_disequalities.end()) {
     if(deq_ib == d_disequalities.end() ||
        (*deq_ia).second->size() > (*deq_ib).second->size()) {
@@ -190,15 +196,15 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
 
   d_unionFind[a] = b;
 
-  DiseqLists::iterator deq_i = d_disequalities.find(a);
+  EqLists::iterator deq_i = d_disequalities.find(a);
+  // a set of other trees we are already disequal to, and their
+  // (TNode) equalities (for optimizations below)
+  std::map<TNode, TNode> alreadyDiseqs;
   if(deq_i != d_disequalities.end()) {
-    // a set of other trees we are already disequal to
-    // (for the optimization below)
-    std::set<TNode> alreadyDiseqs;
-    DiseqLists::iterator deq_ib = d_disequalities.find(b);
+    EqLists::iterator deq_ib = d_disequalities.find(b);
     if(deq_ib != d_disequalities.end()) {
-      DiseqList* deq = (*deq_ib).second;
-      for(DiseqList::const_iterator j = deq->begin(); j != deq->end(); ++j) {
+      EqList* deq = (*deq_ib).second;
+      for(EqList::const_iterator j = deq->begin(); j != deq->end(); ++j) {
         TNode deqn = *j;
         TNode s = deqn[0];
         TNode t = deqn[1];
@@ -206,19 +212,19 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
         TNode tp = find(t);
         Assert(sp == b || tp == b);
         if(sp == b) {
-          alreadyDiseqs.insert(tp);
+          alreadyDiseqs[tp] = deqn;
         } else {
-          alreadyDiseqs.insert(sp);
+          alreadyDiseqs[sp] = deqn;
         }
       }
     }
 
-    DiseqList* deq = (*deq_i).second;
+    EqList* deq = (*deq_i).second;
     if(Debug.isOn("uf")) {
       Debug("uf") << "a == " << a << std::endl;
       Debug("uf") << "size of deq(a) is " << deq->size() << std::endl;
     }
-    for(DiseqList::const_iterator j = deq->begin(); j != deq->end(); ++j) {
+    for(EqList::const_iterator j = deq->begin(); j != deq->end(); ++j) {
       Debug("uf") << "  deq(a) ==> " << *j << std::endl;
       TNode deqn = *j;
       Assert(deqn.getKind() == kind::EQUAL ||
@@ -242,16 +248,75 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
       if(sp == b) {
         if(alreadyDiseqs.find(tp) == alreadyDiseqs.end()) {
           appendToDiseqList(b, deqn);
-          alreadyDiseqs.insert(tp);
+          alreadyDiseqs[tp] = deqn;
         }
       } else {
         if(alreadyDiseqs.find(sp) == alreadyDiseqs.end()) {
           appendToDiseqList(b, deqn);
-          alreadyDiseqs.insert(sp);
+          alreadyDiseqs[sp] = deqn;
         }
       }
     }
-    Debug("uf") << "end" << std::endl;
+    Debug("uf") << "end diseq-list." << std::endl;
+  }
+
+  // Note that at this point, alreadyDiseqs contains everything we're
+  // disequal to, and the attendant disequality
+
+  // FIXME these could be "remembered" and then done in propagation (?)
+  EqLists::iterator eq_i = d_equalities.find(a);
+  if(eq_i != d_equalities.end()) {
+    EqList* eq = (*eq_i).second;
+    if(Debug.isOn("uf")) {
+      Debug("uf") << "a == " << a << std::endl;
+      Debug("uf") << "size of eq(a) is " << eq->size() << std::endl;
+    }
+    for(EqList::const_iterator j = eq->begin(); j != eq->end(); ++j) {
+      Debug("uf") << "  eq(a) ==> " << *j << std::endl;
+      TNode eqn = *j;
+      Assert(eqn.getKind() == kind::EQUAL ||
+             eqn.getKind() == kind::IFF);
+      TNode s = eqn[0];
+      TNode t = eqn[1];
+      if(Debug.isOn("uf")) {
+        Debug("uf") << "       s  ==> " << s << std::endl
+                    << "       t  ==> " << t << std::endl
+                    << "  find(s) ==> " << debugFind(s) << std::endl
+                    << "  find(t) ==> " << debugFind(t) << std::endl;
+      }
+      TNode sp = find(s);
+      TNode tp = find(t);
+      if(sp == tp) {
+        // propagation of equality
+        Debug("uf:prop") << "  uf-propagating " << eqn << std::endl;
+        d_out->propagate(eqn);
+      } else {
+        Assert(sp == b || tp == b);
+        appendToEqList(b, eqn);
+        if(sp == b) {
+          std::map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(tp);
+          if(k != alreadyDiseqs.end()) {
+            // propagation of disequality
+            // FIXME: this will propagate the same disequality on every
+            // subsequent merge, won't it??
+            Node deqn = (*k).second.notNode();
+            Debug("uf:prop") << "  uf-propagating " << deqn << std::endl;
+            d_out->propagate(deqn);
+          }
+        } else {
+          std::map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(sp);
+          if(k != alreadyDiseqs.end()) {
+            // propagation of disequality
+            // FIXME: this will propagate the same disequality on every
+            // subsequent merge, won't it??
+            Node deqn = (*k).second.notNode();
+            Debug("uf:prop") << "  uf-propagating " << deqn << std::endl;
+            d_out->propagate(deqn);
+          }
+        }
+      }
+    }
+    Debug("uf") << "end eq-list." << std::endl;
   }
 }
 
@@ -261,11 +326,11 @@ void TheoryUFMorgan::appendToDiseqList(TNode of, TNode eq) {
   Assert(eq.getKind() == kind::EQUAL ||
          eq.getKind() == kind::IFF);
   Assert(of == debugFind(of));
-  DiseqLists::iterator deq_i = d_disequalities.find(of);
-  DiseqList* deq;
+  EqLists::iterator deq_i = d_disequalities.find(of);
+  EqList* deq;
   if(deq_i == d_disequalities.end()) {
-    deq = new(getContext()->getCMM()) DiseqList(true, getContext(), false,
-                                                ContextMemoryAllocator<TNode>(getContext()->getCMM()));
+    deq = new(getContext()->getCMM()) EqList(true, getContext(), false,
+                                             ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_disequalities.insertDataFromContextMemory(of, deq);
   } else {
     deq = (*deq_i).second;
@@ -273,6 +338,27 @@ void TheoryUFMorgan::appendToDiseqList(TNode of, TNode eq) {
   deq->push_back(eq);
   if(Debug.isOn("uf")) {
     Debug("uf") << "  size is now " << deq->size() << std::endl;
+  }
+}
+
+void TheoryUFMorgan::appendToEqList(TNode of, TNode eq) {
+  Debug("uf") << "appending " << eq << std::endl
+              << "  to eq list of " << of << std::endl;
+  Assert(eq.getKind() == kind::EQUAL ||
+         eq.getKind() == kind::IFF);
+  Assert(of == debugFind(of));
+  EqLists::iterator eq_i = d_equalities.find(of);
+  EqList* eql;
+  if(eq_i == d_equalities.end()) {
+    eql = new(getContext()->getCMM()) EqList(true, getContext(), false,
+                                             ContextMemoryAllocator<TNode>(getContext()->getCMM()));
+    d_equalities.insertDataFromContextMemory(of, eql);
+  } else {
+    eql = (*eq_i).second;
+  }
+  eql->push_back(eq);
+  if(Debug.isOn("uf")) {
+    Debug("uf") << "  size is now " << eql->size() << std::endl;
   }
 }
 
@@ -285,6 +371,24 @@ void TheoryUFMorgan::addDisequality(TNode eq) {
 
   appendToDiseqList(find(a), eq);
   appendToDiseqList(find(b), eq);
+}
+
+void TheoryUFMorgan::registerEqualityForPropagation(TNode eq) {
+  // should NOT be in search at this point, this must be called during
+  // preregistration
+
+  // FIXME with lemmas on demand, this could miss future propagations,
+  // since we are not necessarily at context level 0, but are updating
+  // context-sensitive structures.
+
+  Assert(eq.getKind() == kind::EQUAL ||
+         eq.getKind() == kind::IFF);
+
+  TNode a = eq[0];
+  TNode b = eq[1];
+
+  appendToEqList(find(a), eq);
+  appendToEqList(find(b), eq);
 }
 
 void TheoryUFMorgan::check(Effort level) {
@@ -449,7 +553,14 @@ void TheoryUFMorgan::check(Effort level) {
 
 void TheoryUFMorgan::propagate(Effort level) {
   Debug("uf") << "uf: begin propagate(" << level << ")" << std::endl;
+  // propagation is done in check(), for now
+  // FIXME need to find a slick way to propagate predicates
   Debug("uf") << "uf: end propagate(" << level << ")" << std::endl;
+}
+
+void TheoryUFMorgan::explain(TNode n, Effort level) {
+  Debug("uf") << "uf: begin explain(" << n << ", " << level << ")" << std::endl;
+  Debug("uf") << "uf: end explain(" << n << ", " << level << ")" << std::endl;
 }
 
 Node TheoryUFMorgan::getValue(TNode n, TheoryEngine* engine) {
@@ -497,12 +608,12 @@ void TheoryUFMorgan::dump() {
                 << std::endl;
   }
   Debug("uf") << "Disequality lists:" << std::endl;
-  for(DiseqLists::const_iterator i = d_disequalities.begin();
+  for(EqLists::const_iterator i = d_disequalities.begin();
       i != d_disequalities.end();
       ++i) {
     Debug("uf") << "    " << (*i).first << ":" << std::endl;
-    DiseqList* dl = (*i).second;
-    for(DiseqList::const_iterator j = dl->begin();
+    EqList* dl = (*i).second;
+    for(EqList::const_iterator j = dl->begin();
         j != dl->end();
         ++j) {
       Debug("uf") << "        " << *j << std::endl;
