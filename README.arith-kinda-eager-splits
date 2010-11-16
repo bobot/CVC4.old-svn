@@ -1,0 +1,6 @@
+
+This branch is for storing the code for how to do "kinda eager splits."
+The empirical results are currently mixed.
+The reasons for this are not well understood,
+and until they are better understood the code is going to be stored on a branch.
+

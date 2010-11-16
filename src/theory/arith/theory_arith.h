@@ -24,7 +24,6 @@
 #include "theory/theory.h"
 #include "context/context.h"
 #include "context/cdlist.h"
-#include "context/cdset.h"
 #include "expr/node.h"
 
 #include "theory/arith/arith_utilities.h"
@@ -84,10 +83,13 @@ private:
   ArithVarDenseSet d_basicManager;
   ActivityMonitor d_activityMonitor;
 
+
+
+
   /**
    * List of all of the inequalities asserted in the current context.
    */
-  context::CDSet<Node, NodeHashFunction> d_diseq;
+  VarRationalCDSet d_diseq;
 
   /**
    * The tableau for all of the constraints seen thus far in the system.
@@ -135,6 +137,12 @@ public:
   void shutdown(){ }
 
   std::string identify() const { return std::string("TheoryArith"); }
+
+
+  Node getNodeForVariable(ArithVar var) const{
+    Assert(var < d_variables.size());
+    return d_variables[var];
+  }
 
 private:
 

@@ -54,10 +54,13 @@ private:
   bool d_deltaIsSafe;
   Rational d_delta;
 
+public:
   /**
    * List contains all of the variables that have an unsafe assignment.
    */
   typedef std::vector<ArithVar> HistoryList;
+
+private:
   HistoryList d_history;
 
 public:
@@ -149,6 +152,14 @@ public:
       computeDelta();
     }
     return d_delta;
+  }
+
+  HistoryList::const_iterator beginChanged() const{
+    return d_history.begin();
+  }
+
+  HistoryList::const_iterator endChanged() const{
+    return d_history.end();
   }
 
 private:

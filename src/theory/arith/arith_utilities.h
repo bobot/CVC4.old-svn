@@ -25,9 +25,11 @@
 #include "util/rational.h"
 #include "expr/node.h"
 #include "expr/attribute.h"
+#include "context/cdset.h"
 #include <vector>
 #include <stdint.h>
 #include <limits>
+#include <utility>
 
 namespace CVC4 {
 namespace theory {
@@ -57,7 +59,16 @@ inline void setArithVar(TNode x, ArithVar a){
 }
 
 typedef std::vector<uint64_t> ActivityMonitor;
+typedef std::pair<ArithVar, Rational> VarRationalPair;
 
+struct VarRationalPairHashFunction{
+public:
+  inline size_t operator()(const VarRationalPair& p) const{
+    return p.first xor (p.second.hash());
+  }
+};
+
+typedef context::CDSet<VarRationalPair, VarRationalPairHashFunction> VarRationalCDSet;
 
 inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);
