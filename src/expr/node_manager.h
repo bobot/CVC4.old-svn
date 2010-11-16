@@ -42,6 +42,8 @@
 
 namespace CVC4 {
 
+class Options;
+
 namespace expr {
 
 // Definition of an attribute for the variable name.
@@ -119,9 +121,9 @@ class NodeManager {
 
   /**
    * Whether to do early type checking (only effective in debug
-   * builds; other builds never do early type checking.
+   * builds; other builds never do early type checking).
    */
-  const bool d_earlyTypeChecking;
+  bool d_earlyTypeChecking;
 
   /**
    * Look up a NodeValue in the pool associated to this NodeManager.
@@ -240,11 +242,17 @@ class NodeManager {
   // bool properlyContainsDecision(TNode); // all children are atomic
 
   // undefined private copy constructor (disallow copy)
-  NodeManager(const NodeManager&);
+  NodeManager(const NodeManager&) CVC4_UNDEFINED;
+
+  TypeNode computeType(TNode n, bool check = false)
+    throw (TypeCheckingExceptionPrivate, AssertionException);
+
+  void init(const Options& options);
 
 public:
 
-  explicit NodeManager(context::Context* ctxt, bool earlyTypeChecking = true);
+  explicit NodeManager(context::Context* ctxt);
+  explicit NodeManager(context::Context* ctxt, const Options& options);
   ~NodeManager();
 
   /** The node manager in the current context. */

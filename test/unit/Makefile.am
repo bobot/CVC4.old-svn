@@ -39,7 +39,8 @@ UNIT_TESTS = \
 	util/integer_white \
 	util/rational_black \
 	util/rational_white \
-	util/stats_black
+	util/stats_black \
+	main/interactive_shell_black
 
 export VERBOSE = 1
 
@@ -73,12 +74,15 @@ AM_LDFLAGS_WHITE =
 AM_LDFLAGS_BLACK =
 AM_LDFLAGS_PUBLIC =
 AM_LIBADD_WHITE = \
+	@abs_top_builddir@/src/main/libmain.a \
 	@abs_top_builddir@/src/parser/libcvc4parser_noinst.la \
 	@abs_top_builddir@/src/libcvc4_noinst.la
 AM_LIBADD_BLACK = \
+	@abs_top_builddir@/src/main/libmain.a \
 	@abs_top_builddir@/src/parser/libcvc4parser_noinst.la \
 	@abs_top_builddir@/src/libcvc4_noinst.la
 AM_LIBADD_PUBLIC = \
+	@abs_top_builddir@/src/parser/libcvc4parser.la \
 	@abs_top_builddir@/src/libcvc4.la
 
 EXTRA_DIST = \
@@ -101,9 +105,9 @@ else
 unit_LINK = $(CXXLINK)
 endif
 
-@AMDEP_TRUE@@am__include@ $(UNIT_TESTS:%=@am__quote@./$(DEPDIR)/%.Plo@am__quote@)
+@AMDEP_TRUE@@am__include@ $(UNIT_TESTS:%=@am__quote@./@DEPDIR@/%.Plo@am__quote@)
 
-$(UNIT_TESTS:%=@am__quote@./$(DEPDIR)/%.Plo@am__quote@): %.Plo:
+$(UNIT_TESTS:%=@am__quote@./@DEPDIR@/%.Plo@am__quote@): %.Plo:
 	$(AM_V_at)$(MKDIR_P) `dirname "$@"`
 	$(AM_V_GEN)test -e "$@" || touch "$@"
 
@@ -157,7 +161,7 @@ EXTRA_DIST = \
 
 endif
 
-$(UNIT_TESTS:%=%.cpp): $(UNIT_TESTS:%=$(abs_builddir)/%.cpp)
+$(UNIT_TESTS:%=%.cpp): $(UNIT_TESTS:%=@abs_builddir@/%.cpp)
 
 # trick automake into setting LTCXXCOMPILE, CXXLINK, etc.
 if CVC4_FALSE

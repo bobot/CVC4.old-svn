@@ -25,6 +25,7 @@
 #include "util/rational.h"
 #include "expr/node.h"
 #include "expr/attribute.h"
+#include <vector>
 #include <stdint.h>
 #include <limits>
 
@@ -54,6 +55,9 @@ inline void setArithVar(TNode x, ArithVar a){
   Assert(!hasArithVar(x));
   return x.setAttribute(ArithVarAttr(), (uint64_t)a);
 }
+
+typedef std::vector<uint64_t> ActivityMonitor;
+
 
 inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);
@@ -203,6 +207,43 @@ inline int deltaCoeff(Kind k){
     return 1;
   default:
     return 0;
+  }
+}
+
+/**
+ * Given a rewritten predicate to TheoryArith return a single kind to
+ * to indicate its underlying structure.
+ * The function returns the following in each case:
+ * - (K left right) -> K where is a wildcard for EQUAL, LEQ, or GEQ:
+ * - (NOT (EQUAL left right)) -> DISTINCT
+ * - (NOT (LEQ left right))   -> GT
+ * - (NOT (GEQ left right))   -> LT
+ * If none of these match, it returns UNDEFINED_KIND.
+ */
+ inline Kind simplifiedKind(TNode assertion){
+  switch(assertion.getKind()){
+  case kind::LEQ:
+  case  kind::GEQ:
+  case  kind::EQUAL:
+    return assertion.getKind();
+  case  kind::NOT:
+    {
+      TNode atom = assertion[0];
+      switch(atom.getKind()){
+      case  kind::LEQ: //(not (LEQ x c)) <=> (GT x c)
+        return  kind::GT;
+      case  kind::GEQ: //(not (GEQ x c) <=> (LT x c)
+        return  kind::LT;
+      case  kind::EQUAL:
+        return  kind::DISTINCT;
+      default:
+        Unreachable();
+        return  kind::UNDEFINED_KIND;
+      }
+    }
+  default:
+    Unreachable();
+    return kind::UNDEFINED_KIND;
   }
 }
 

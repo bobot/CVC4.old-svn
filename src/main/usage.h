@@ -37,8 +37,11 @@ CVC4 options:\n\
    --mmap                 memory map file input\n\
    --show-config          show CVC4 static configuration\n\
    --segv-nospin          don't spin on segfault waiting for gdb\n\
-   --no-checking          disable semantic checks in the parser\n\
-   --strict-parsing       fail on inputs that are not strictly conformant (SMT2 only)\n\
+   --lazy-type-checking   type check expressions only when necessary (default)\n\
+   --eager-type-checking  type check expressions immediately on creation\n\
+   --no-type-checking     never type check expressions\n\
+   --no-checking          disable ALL semantic checks, including type checks \n\
+   --strict-parsing       fail on non-conformant inputs (SMT2 only)\n\
    --verbose | -v         increase verbosity (repeatable)\n\
    --quiet | -q           decrease verbosity (repeatable)\n\
    --trace | -t           tracing for something (e.g. --trace pushpop)\n\

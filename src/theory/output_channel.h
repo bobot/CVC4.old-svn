@@ -32,10 +32,10 @@ namespace theory {
  */
 class OutputChannel {
   /** Disallow copying: private constructor */
-  OutputChannel(const OutputChannel&);
+  OutputChannel(const OutputChannel&) CVC4_UNDEFINED;
 
   /** Disallow assignment: private operator=() */
-  OutputChannel& operator=(const OutputChannel&);
+  OutputChannel& operator=(const OutputChannel&) CVC4_UNDEFINED;
 
 public:
 
@@ -97,17 +97,6 @@ public:
    * @param safe - whether it is safe to be interrupted
    */
   virtual void lemma(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException) = 0;
-
-  /**
-   * Tell the core to add the following valid lemma as if it were a
-   * user assertion.  This should NOT be called during solving, only
-   * preprocessing.
-   *
-   * @param n - a theory lemma valid to be asserted
-   * @param safe - whether it is safe to be interrupted
-   */
-  virtual void augmentingLemma(TNode n, bool safe = false)
     throw(Interrupted, AssertionException) = 0;
 
   /**

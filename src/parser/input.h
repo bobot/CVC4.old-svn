@@ -29,8 +29,8 @@
 #include "expr/expr.h"
 #include "expr/expr_manager.h"
 #include "parser/parser_exception.h"
-#include "parser/parser_options.h"
 #include "util/Assert.h"
+#include "util/language.h"
 
 namespace CVC4 {
 
@@ -47,7 +47,7 @@ public:
   virtual ~InputStreamException() throw() { }
 };
 
-/** Wrapper around an ANTLR3 input stream. */
+/** Wrapper around an input stream. */
 class InputStream {
 
   /** The name of this input stream. */
@@ -93,11 +93,13 @@ class CVC4_PUBLIC Input {
   /** The input stream. */
   InputStream *d_inputStream;
 
-  /* Since we own d_tokenStream and it needs to be freed, we need to prevent
+  /* Since we own d_inputStream and it needs to be freed, we need to prevent
    * copy construction and assignment.
    */
   Input(const Input& input) { Unimplemented("Copy constructor for Input."); }
   Input& operator=(const Input& input) { Unimplemented("operator= for Input."); }
+
+public:
 
   /** Create an input for the given file.
     *
@@ -132,10 +134,12 @@ class CVC4_PUBLIC Input {
                                const std::string& name)
     throw (InputStreamException, AssertionException);
 
-public:
 
-  /** Destructor. Frees the token stream and closes the input. */
+  /** Destructor. Frees the input stream and closes the input. */
   virtual ~Input();
+
+  /** Retrieve the remaining text in this input. */
+  virtual std::string getUnparsedText() = 0;
 
 protected:
 
@@ -148,8 +152,8 @@ protected:
   /** Retrieve the input stream for this parser. */
   InputStream *getInputStream();
 
-  /** Parse a command from
-   * the input by invoking the implementation-specific parsing method.  Returns
+  /** Parse a command from the input by invoking the
+   * implementation-specific parsing method.  Returns
    * <code>NULL</code> if there is no command there to parse.
    *
    * @throws ParserException if an error is encountered during parsing.
@@ -163,10 +167,9 @@ protected:
   virtual void parseError(const std::string& msg)
     throw (ParserException, AssertionException) = 0;
 
-  /** Parse an
-   * expression from the input by invoking the implementation-specific
-   * parsing method. Returns a null <code>Expr</code> if there is no
-   * expression there to parse.
+  /** Parse an expression from the input by invoking the
+   * implementation-specific parsing method. Returns a null
+   * <code>Expr</code> if there is no expression there to parse.
    *
    * @throws ParserException if an error is encountered during parsing.
    */

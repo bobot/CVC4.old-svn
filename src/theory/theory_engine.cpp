@@ -19,13 +19,13 @@
 #include <vector>
 #include <list>
 
-#include "theory/theory_engine.h"
-#include "expr/node.h"
 #include "expr/attribute.h"
-#include "theory/theory.h"
+#include "expr/node.h"
 #include "expr/node_builder.h"
-#include "smt/options.h"
+#include "util/options.h"
 
+#include "theory/theory.h"
+#include "theory/theory_engine.h"
 #include "theory/builtin/theory_builtin.h"
 #include "theory/booleans/theory_bool.h"
 #include "theory/uf/theory_uf.h"
@@ -65,7 +65,8 @@ void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
     // Automatically track all asserted equalities in the shared term manager
     d_engine->getSharedTermManager()->addEq(fact);
   }
-  if(! fact.getAttribute(RegisteredAttr())) {
+
+  if(d_engine->d_theoryRegistration && !fact.getAttribute(RegisteredAttr())) {
     list<TNode> toReg;
     toReg.push_back(fact);
 
@@ -123,12 +124,13 @@ void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
         d_engine->theoryOf(n)->registerTerm(n);
       }
     }
-  }
+  }/* d_engine->d_theoryRegistration && !fact.getAttribute(RegisteredAttr()) */
 }
 
-TheoryEngine::TheoryEngine(context::Context* ctxt, const Options* opts) :
+TheoryEngine::TheoryEngine(context::Context* ctxt, const Options& opts) :
   d_propEngine(NULL),
   d_theoryOut(this, ctxt),
+  d_theoryRegistration(opts.theoryRegistration),
   d_hasShutDown(false),
   d_incomplete(ctxt, false),
   d_statistics() {
@@ -137,7 +139,7 @@ TheoryEngine::TheoryEngine(context::Context* ctxt, const Options* opts) :
 
   d_builtin = new theory::builtin::TheoryBuiltin(0, ctxt, d_theoryOut);
   d_bool = new theory::booleans::TheoryBool(1, ctxt, d_theoryOut);
-  switch(opts->uf_implementation) {
+  switch(opts.uf_implementation) {
   case Options::TIM:
     d_uf = new theory::uf::tim::TheoryUFTim(2, ctxt, d_theoryOut);
     break;
@@ -145,7 +147,7 @@ TheoryEngine::TheoryEngine(context::Context* ctxt, const Options* opts) :
     d_uf = new theory::uf::morgan::TheoryUFMorgan(2, ctxt, d_theoryOut);
     break;
   default:
-    Unhandled(opts->uf_implementation);
+    Unhandled(opts.uf_implementation);
   }
   d_arith = new theory::arith::TheoryArith(3, ctxt, d_theoryOut);
   d_arrays = new theory::arrays::TheoryArrays(4, ctxt, d_theoryOut);

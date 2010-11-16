@@ -23,18 +23,18 @@
 
 #include <vector>
 
-#include "expr/expr.h"
-#include "expr/expr_manager.h"
+#include "context/cdlist_forward.h"
 #include "context/cdmap_forward.h"
 #include "context/cdset_forward.h"
-#include "context/cdlist_forward.h"
-#include "util/result.h"
-#include "util/model.h"
-#include "util/sexpr.h"
-#include "util/hash.h"
+#include "expr/expr.h"
+#include "expr/expr_manager.h"
+#include "smt/bad_option_exception.h"
 #include "smt/modal_exception.h"
 #include "smt/no_such_function_exception.h"
-#include "smt/bad_option_exception.h"
+#include "util/hash.h"
+#include "util/options.h"
+#include "util/result.h"
+#include "util/sexpr.h"
 
 // In terms of abstraction, this is below (and provides services to)
 // ValidityChecker and above (and requires the services of)
@@ -46,10 +46,8 @@ template <bool ref_count> class NodeTemplate;
 typedef NodeTemplate<true> Node;
 typedef NodeTemplate<false> TNode;
 class NodeHashFunction;
-class Command;
-class Options;
+
 class TheoryEngine;
-class DecisionEngine;
 
 namespace context {
   class Context;
@@ -92,16 +90,18 @@ class CVC4_PUBLIC SmtEngine {
   /** The type of our internal assignment set */
   typedef context::CDSet<Node, NodeHashFunction> AssignmentSet;
 
-  /** Our Context */
+  /** Expr manager context */
   context::Context* d_context;
+
+  /** The context levels of user pushes */
+  std::vector<int> d_userLevels;
+  /** User level context */
+  context::Context* d_userContext;
+
   /** Our expression manager */
   ExprManager* d_exprManager;
   /** Out internal expression/node manager */
   NodeManager* d_nodeManager;
-  /** User-level options */
-  const Options* d_options;
-  /** The decision engine */
-  DecisionEngine* d_decisionEngine;
   /** The decision engine */
   TheoryEngine* d_theoryEngine;
   /** The propositional engine */
@@ -120,16 +120,49 @@ class CVC4_PUBLIC SmtEngine {
   AssignmentSet* d_assignments;
 
   /**
+   * The logic we're in.
+   */
+  std::string d_logic;
+
+  /**
    * Whether or not we have added any
    * assertions/declarations/definitions since the last checkSat/query
    * (and therefore we're not responsible for an assignment).
    */
   bool d_haveAdditions;
 
+  /** 
+   * Whether or not to type check input expressions.
+   */
+  bool d_typeChecking;
+
+  /**
+   * Whether we're being used in an interactive setting.
+   */
+  bool d_interactive;
+
+  /**
+   * Whether we expand function definitions lazily.
+   */
+  bool d_lazyDefinitionExpansion;
+
+  /**
+   * Whether getValue() is enabled.
+   */
+  bool d_produceModels;
+
+  /**
+   * Whether getAssignment() is enabled.
+   */
+  bool d_produceAssignments;
+
   /**
    * Most recent result of last checkSat/query or (set-info :status).
    */
   Result d_status;
+
+  /** Called by the constructors to setup fields. */
+  void init(const Options& opts) throw();
 
   /**
    * This is called by the destructor, just before destroying the
@@ -158,14 +191,23 @@ class CVC4_PUBLIC SmtEngine {
    */
   void ensureBoolean(const BoolExpr& e);
 
+  void internalPush();
+
+  void internalPop();
+
   friend class ::CVC4::smt::SmtEnginePrivate;
 
 public:
 
   /**
+   * Construct an SmtEngine with the given expression manager.
+   */
+  SmtEngine(ExprManager* em) throw();
+
+  /**
    * Construct an SmtEngine with the given expression manager and user options.
    */
-  SmtEngine(ExprManager* em, const Options* opts) throw();
+  SmtEngine(ExprManager* em, const Options& opts) throw();
 
   /**
    * Destruct the SMT engine.
@@ -173,10 +215,15 @@ public:
   ~SmtEngine();
 
   /**
+   * Set the logic of the script.
+   */
+  void setLogic(const std::string& logic) throw(ModalException);
+
+  /**
    * Set information about the script executing.
    */
   void setInfo(const std::string& key, const SExpr& value)
-    throw(BadOptionException);
+    throw(BadOptionException, ModalException);
 
   /**
    * Query information about the SMT environment.
@@ -188,7 +235,7 @@ public:
    * Set an aspect of the current SMT execution environment.
    */
   void setOption(const std::string& key, const SExpr& value)
-    throw(BadOptionException);
+    throw(BadOptionException, ModalException);
 
   /**
    * Get an aspect of the current SMT execution environment.
@@ -272,6 +319,13 @@ public:
    * Pop a user-level context.  Throws an exception if nothing to pop.
    */
   void pop();
+
+  /** Enable type checking. Forces a type check on any Expr parameter
+      to an SmtEngine method. */
+  void enableTypeChecking() { d_typeChecking = true; }
+
+  /** Disable type checking. */
+  void disableTypeChecking() { d_typeChecking = false; }
 
 };/* class SmtEngine */
 

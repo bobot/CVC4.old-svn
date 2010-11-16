@@ -155,6 +155,16 @@ public:
     return gmpz_hash(d_value.get_mpz_t());
   }
 
+  /**
+   * Returns true iff bit n is set.
+   *
+   * @param n the bit to test (0 == least significant bit)
+   * @return true if bit n is set in this integer; false otherwise
+   */
+  bool testBit(unsigned n) const {
+    return mpz_tstbit(d_value.get_mpz_t(), n);
+  }
+
   friend class CVC4::Rational;
 };/* class Integer */
 
@@ -164,9 +174,10 @@ struct IntegerHashStrategy {
   }
 };/* struct IntegerHashStrategy */
 
-std::ostream& operator<<(std::ostream& os, const Integer& n);
+inline std::ostream& operator<<(std::ostream& os, const Integer& n) {
+  return os << n.toString();
+}
 
 }/* CVC4 namespace */
 
 #endif /* __CVC4__INTEGER_H */
-

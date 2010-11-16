@@ -16,24 +16,28 @@
  ** Main driver for CVC4 executable.
  **/
 
-#include <iostream>
-#include <fstream>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iostream>
 #include <new>
+
+#include <stdio.h>
+#include <unistd.h>
 
 #include "cvc4autoconfig.h"
 #include "main.h"
-#include "usage.h"
+#include "interactive_shell.h"
 #include "parser/parser.h"
 #include "parser/parser_builder.h"
+#include "parser/parser_exception.h"
 #include "expr/expr_manager.h"
 #include "smt/smt_engine.h"
 #include "expr/command.h"
 #include "util/Assert.h"
 #include "util/configuration.h"
+#include "util/options.h"
 #include "util/output.h"
-#include "smt/options.h"
 #include "util/result.h"
 #include "util/stats.h"
 
@@ -42,14 +46,41 @@ using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
 
-namespace CVC4 {
-  namespace main {
-    struct Options options;
-  }/* CVC4::main namespace */
-}/* CVC4 namespace */
-
 int runCvc4(int argc, char* argv[]);
 void doCommand(SmtEngine&, Command*);
+void printUsage();
+
+namespace CVC4 {
+  namespace main {/* Global options variable */
+    Options options;
+
+    /** Full argv[0] */
+    const char *progPath;
+
+    /** Just the basename component of argv[0] */
+    const char *progName;
+  }
+}
+
+
+// no more % chars in here without being escaped; it's used as a
+// printf() format string
+const string usageMessage = "\
+usage: %s [options] [input-file]\n\
+\n\
+Without an input file, or with `-', CVC4 reads from standard input.\n\
+\n\
+CVC4 options:\n";
+
+void printUsage() {
+  stringstream ss;
+  ss << "usage: " << options.binary_name << " [options] [input-file]" << endl
+      << endl
+      << "Without an input file, or with `-', CVC4 reads from standard input." << endl
+      << endl
+      << "CVC4 options:" << endl;
+  Options::printUsage( ss.str(), *options.out );
+}
 
 /**
  * CVC4's main() routine is just an exception-safe wrapper around CVC4.
@@ -63,34 +94,34 @@ int main(int argc, char* argv[]) {
     return runCvc4(argc, argv);
   } catch(OptionException& e) {
 #ifdef CVC4_COMPETITION_MODE
-    cout << "unknown" << endl;
+    *options.out << "unknown" << endl;
 #endif
     cerr << "CVC4 Error:" << endl << e << endl;
-    printf(usage, options.binary_name.c_str());
+    printUsage();
     exit(1);
   } catch(Exception& e) {
 #ifdef CVC4_COMPETITION_MODE
-    cout << "unknown" << endl;
+    *options.out << "unknown" << endl;
 #endif
-    cerr << "CVC4 Error:" << endl << e << endl;
+    *options.err << "CVC4 Error:" << endl << e << endl;
     if(options.statistics) {
-      StatisticsRegistry::flushStatistics(cerr);
+      StatisticsRegistry::flushStatistics(*options.err);
     }
     exit(1);
   } catch(bad_alloc) {
 #ifdef CVC4_COMPETITION_MODE
-    cout << "unknown" << endl;
+    *options.out << "unknown" << endl;
 #endif
-    cerr << "CVC4 ran out of memory." << endl;
+    *options.err << "CVC4 ran out of memory." << endl;
     if(options.statistics) {
-      StatisticsRegistry::flushStatistics(cerr);
+      StatisticsRegistry::flushStatistics(*options.err);
     }
     exit(1);
   } catch(...) {
 #ifdef CVC4_COMPETITION_MODE
-    cout << "unknown" << endl;
+    *options.out << "unknown" << endl;
 #endif
-    cerr << "CVC4 threw an exception of unknown type." << endl;
+    *options.err << "CVC4 threw an exception of unknown type." << endl;
     exit(1);
   }
 }
@@ -101,12 +132,29 @@ int runCvc4(int argc, char* argv[]) {
   // Initialize the signal handlers
   cvc4_init();
 
+  progPath = argv[0];
+
   // Parse the options
-  int firstArgIndex = parseOptions(argc, argv, &options);
+  int firstArgIndex = options.parseOptions(argc, argv);
+
+  progName = options.binary_name.c_str();
+
+  if( options.help ) {
+    printUsage();
+    exit(1);
+  } else if( options.languageHelp ) {
+    Options::printLanguageHelp(*options.out);
+    exit(1);
+  } else if( options.version ) {
+    *options.out << Configuration::about().c_str() << flush;
+    exit(0);
+  }
+
+  segvNoSpin = options.segvNoSpin;
 
   // If in competition mode, set output stream option to flush immediately
 #ifdef CVC4_COMPETITION_MODE
-  cout << unitbuf;
+  *options.out << unitbuf;
 #endif
 
   // We only accept one input file
@@ -118,16 +166,16 @@ int runCvc4(int argc, char* argv[]) {
   const bool inputFromStdin =
     firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
 
-  // if we're reading from stdin, default to interactive mode
+  // if we're reading from stdin on a TTY, default to interactive mode
   if(!options.interactiveSetByUser) {
-    options.interactive = inputFromStdin;
+    options.interactive = inputFromStdin && isatty(fileno(stdin));
   }
 
   // Create the expression manager
-  ExprManager exprMgr(options.earlyTypeChecking);
+  ExprManager exprMgr(options);
 
   // Create the SmtEngine
-  SmtEngine smt(&exprMgr, &options);
+  SmtEngine smt(&exprMgr, options);
 
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
@@ -181,30 +229,30 @@ int runCvc4(int argc, char* argv[]) {
     Warning.getStream() << Expr::setlanguage(language);
   }
 
-  ParserBuilder parserBuilder =
-      ParserBuilder(exprMgr, filename)
-        .withInputLanguage(options.inputLanguage)
-        .withMmap(options.memoryMap)
-        .withChecks(options.semanticChecks &&
-                    !Configuration::isMuzzledBuild() )
-        .withStrictMode( options.strictParsing );
-
-  if( inputFromStdin ) {
-    parserBuilder.withStreamInput(cin);
-  }
-
-  Parser *parser = parserBuilder.build();
 
   // Parse and execute commands until we are done
   Command* cmd;
   if( options.interactive ) {
-    // cout << "CVC4> " << flush;
-  }
-  while((cmd = parser->nextCommand())) {
-    if( !options.parseOnly ) {
-      doCommand(smt, cmd);
+    InteractiveShell shell(exprMgr,options);
+    while((cmd = shell.readCommand())) {
+      doCommand(smt,cmd);
+      delete cmd;
     }
-    delete cmd;
+  } else {
+    ParserBuilder parserBuilder =
+      ParserBuilder(exprMgr, filename, options);
+
+    if( inputFromStdin ) {
+      parserBuilder.withStreamInput(cin);
+    }
+
+    Parser *parser = parserBuilder.build();
+    while((cmd = parser->nextCommand())) {
+      doCommand(smt, cmd);
+      delete cmd;
+    }
+    // Remove the parser
+    delete parser;
   }
 
   string result = smt.getInfo(":status").getValue();
@@ -224,14 +272,11 @@ int runCvc4(int argc, char* argv[]) {
   exit(returnValue);
 #endif
 
-  // Remove the parser
-  delete parser;
-
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
   StatisticsRegistry::registerStat(&s_statSatResult);
 
   if(options.statistics) {
-    StatisticsRegistry::flushStatistics(cerr);
+    StatisticsRegistry::flushStatistics(*options.err);
   }
 
   StatisticsRegistry::unregisterStat(&s_statSatResult);
@@ -240,7 +285,12 @@ int runCvc4(int argc, char* argv[]) {
   return returnValue;
 }
 
+/** Executes a command. Deletes the command after execution. */
 void doCommand(SmtEngine& smt, Command* cmd) {
+  if( options.parseOnly ) {
+    return;
+  }
+
   CommandSequence *seq = dynamic_cast<CommandSequence*>(cmd);
   if(seq != NULL) {
     for(CommandSequence::iterator subcmd = seq->begin();
@@ -250,11 +300,11 @@ void doCommand(SmtEngine& smt, Command* cmd) {
     }
   } else {
     if(options.verbosity > 0) {
-      cout << "Invoking: " << *cmd << endl;
+      *options.out << "Invoking: " << *cmd << endl;
     }
 
     if(options.verbosity >= 0) {
-      cmd->invoke(&smt, cout);
+      cmd->invoke(&smt, *options.out);
     } else {
       cmd->invoke(&smt);
     }

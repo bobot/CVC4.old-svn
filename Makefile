@@ -3,7 +3,7 @@ builddir = builds
 .PHONY: _default_build_ all
 _default_build_: all
 all %:
-	@if test -e $(builddir); then \
+	@if test -d $(builddir); then \
 		echo cd $(builddir); \
 		cd $(builddir); \
 		echo $(MAKE) $@; \
@@ -17,6 +17,9 @@ all %:
 # synonyms for "check"
 .PHONY: test
 test: check
+
+.PHONY: doc
+doc: doc-builds
 
 submission:
 	if [ ! -e configure ]; then ./autogen.sh; fi

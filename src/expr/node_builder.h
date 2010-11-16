@@ -178,9 +178,6 @@ namespace CVC4 {
 
 namespace CVC4 {
 
-template <unsigned nchild_thresh>
-inline std::ostream& operator<<(std::ostream&, const NodeBuilder<nchild_thresh>&);
-
 /* see expr/convenience_node_builders.h */
 class AndNodeBuilder;
 class OrNodeBuilder;
@@ -661,10 +658,10 @@ private:
   expr::NodeValue* constructNV();
   expr::NodeValue* constructNV() const;
 
-  inline void debugCheckType(const TNode n) const {
-    // force an immediate type check, if we are in debug mode
-    // and the current node isn't a variable or constant
-    if( IS_DEBUG_BUILD && d_nm->d_earlyTypeChecking ) {
+  inline void maybeCheckType(const TNode n) const {
+    /* force an immediate type check, if early type checking is
+       enabled and the current node isn't a variable or constant */
+    if( d_nm->d_earlyTypeChecking ) {
       kind::MetaKind mk = n.getMetaKind();
       if( mk != kind::metakind::VARIABLE 
           && mk != kind::metakind::CONSTANT ) {
@@ -691,13 +688,6 @@ public:
   // NodeBuilders which are temporaries appearing as rvalues
   operator Node();
   operator Node() const;
-
-  inline void toStream(std::ostream& out, int depth = -1, bool types = false,
-                       OutputLanguage language = language::output::LANG_AST) const {
-    Assert(!isUsed(), "NodeBuilder is one-shot only; "
-           "attempt to access it after conversion");
-    d_nv->toStream(out, depth, types, language);
-  }
 
   NodeBuilder<nchild_thresh>& operator&=(TNode);
   NodeBuilder<nchild_thresh>& operator|=(TNode);
@@ -842,28 +832,28 @@ TypeNode NodeBuilder<nchild_thresh>::constructTypeNode() const {
 template <unsigned nchild_thresh>
 Node NodeBuilder<nchild_thresh>::constructNode() {
   Node n = Node(constructNV());
-  debugCheckType(n);
+  maybeCheckType(n);
   return n;
 }
 
 template <unsigned nchild_thresh>
 Node NodeBuilder<nchild_thresh>::constructNode() const {
   Node n = Node(constructNV());
-  debugCheckType(n);
+  maybeCheckType(n);
   return n;
 }
 
 template <unsigned nchild_thresh>
 Node* NodeBuilder<nchild_thresh>::constructNodePtr() {
   Node *np = new Node(constructNV());
-  debugCheckType(*np);
+  maybeCheckType(*np);
   return np;
 }
 
 template <unsigned nchild_thresh>
 Node* NodeBuilder<nchild_thresh>::constructNodePtr() const {
   Node *np = new Node(constructNV());
-  debugCheckType(*np);
+  maybeCheckType(*np);
   return np;
 }
 
@@ -1248,15 +1238,6 @@ void NodeBuilder<nchild_thresh>::internalCopy(const NodeBuilder<N>& nb) {
       ++i) {
     (*i)->inc();
   }
-}
-
-template <unsigned nchild_thresh>
-inline std::ostream& operator<<(std::ostream& out,
-                                const NodeBuilder<nchild_thresh>& b) {
-  b.toStream(out,
-             Node::setdepth::getDepth(out),
-             Node::printtypes::getPrintTypes(out));
-  return out;
 }
 
 }/* CVC4 namespace */

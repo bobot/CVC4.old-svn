@@ -25,9 +25,9 @@
 // Optional blocks below will be unconditionally included
 #define __CVC4_USE_MINISAT
 
-#include "util/stats.h"
 #include "theory/theory.h"
-#include "smt/options.h"
+#include "util/options.h"
+#include "util/stats.h"
 
 #ifdef __CVC4_USE_MINISAT
 
@@ -103,6 +103,12 @@ public:
   virtual void addClause(SatClause& clause, bool lemma) = 0;
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
+  /** Get the current decision level of the solver */
+  virtual int getLevel() const = 0;
+  /** Unregister the variable (of the literal) from solving */
+  virtual void unregisterVar(SatLiteral lit) = 0;
+  /** Register the variable (of the literal) for solving */
+  virtual void renewVar(SatLiteral lit, int level = -1) = 0;
 };
 
 /**
@@ -125,7 +131,7 @@ class SatSolver : public SatInputInterface {
   context::Context* d_context;
 
   /** Remember the options */
-  const Options* d_options;
+  //Options* d_options;
 
   /* Pointer to the concrete SAT solver. Including this via the
      preprocessor saves us a level of indirection vs, e.g., defining a
@@ -203,7 +209,7 @@ public:
   SatSolver(PropEngine* propEngine,
                    TheoryEngine* theoryEngine,
                    context::Context* context,
-                   const Options* options);
+                   const Options& options);
 
   ~SatSolver();
 
@@ -226,8 +232,22 @@ public:
   void setCnfStream(CnfStream* cnfStream);
 
   SatLiteralValue value(SatLiteral l);
-
   inline bool proofsOn() const throw();
+
+  int getLevel() const;
+
+  void push();
+
+  void pop();
+
+  void removeClausesAboveLevel(int level);
+
+  void unregisterVar(SatLiteral lit);
+
+  void renewVar(SatLiteral lit, int level = -1);
+
+  TNode getNode(SatLiteral lit);
+
 };/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */
@@ -235,18 +255,17 @@ public:
 #ifdef __CVC4_USE_MINISAT
 
 inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
-                            context::Context* context, const Options* options) :
+                     context::Context* context, const Options& options) :
   d_propEngine(propEngine),
   d_cnfStream(NULL),
   d_theoryEngine(theoryEngine),
   d_context(context),
-  d_options(options),
   d_statistics()
 {
   // Create the solver
-  d_minisat = new Minisat::SimpSolver(this, d_context);
+  d_minisat = new Minisat::SimpSolver(this, d_context, options.incrementalSolving);
   // Setup the verbosity
-  d_minisat->verbosity = (options->verbosity > 0) ? 1 : -1;
+  d_minisat->verbosity = (options.verbosity > 0) ? 1 : -1;
 
   // No random choices
   if(Debug.isOn("no_rnd_decisions")){
@@ -277,7 +296,29 @@ inline SatLiteralValue SatSolver::value(SatLiteral l) {
 }
 
 inline bool SatSolver::proofsOn() const throw() {
-  return d_options->proofGeneration;
+  //FIXME: fix options
+  return true;
+  //return d_options->proofGeneration;
+}
+
+inline void SatSolver::push() {
+  d_minisat->push();
+}
+
+inline void SatSolver::pop() {
+  d_minisat->pop();
+}
+
+inline int SatSolver::getLevel() const {
+  return d_minisat->getAssertionLevel();
+}
+
+inline void SatSolver::unregisterVar(SatLiteral lit) {
+  d_minisat->unregisterVar(lit);
+}
+
+inline void SatSolver::renewVar(SatLiteral lit, int level) {
+  d_minisat->renewVar(lit, level);
 }
 
 #endif /* __CVC4_USE_MINISAT */

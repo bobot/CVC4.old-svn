@@ -3,7 +3,7 @@ This is a prerelease version of CVC4; distribution is restricted.
 For a suggestion of editing CVC4 code with emacs, see README.emacs.
 
 To build, you'll need reasonably new automake, autoconf, and libtool
-installed. Execute,
+installed (see below). Execute,
 
     ./autogen.sh 
     ./configure
@@ -13,4 +13,24 @@ To build a source release, use "make dist"; this will include the
 configure script and all the bits of automake/autoconf/libtool that
 are necessary for an independent install.
 
--- Morgan Deters <mdeters@cs.nyu.edu>  Mon, 02 Nov 2009 18:28:47 -0500
+*** Dependencies
+
+The following tools and libraries are required to run CVC4. Versions
+given are minimum versions; more recent versions should be compatible.
+
+GNU C and C++ (gcc and g++), reasonably recent versions
+GNU Make
+GMP v4.2
+libantlr3c v3.2
+Optional: CLN v1.3
+
+*** Build dependencies
+
+The following tools and libraries are required to build CVC4 from
+scratch. 
+
+Automake v1.11
+Autoconf v2.61 
+Libtool v2.2
+ANTLR3 v3.2
+

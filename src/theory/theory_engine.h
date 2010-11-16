@@ -22,10 +22,11 @@
 #define __CVC4__THEORY_ENGINE_H
 
 #include "expr/node.h"
-#include "theory/theory.h"
-#include "theory/theoryof_table.h"
 #include "prop/prop_engine.h"
 #include "theory/shared_term_manager.h"
+#include "theory/theory.h"
+#include "theory/theoryof_table.h"
+#include "util/options.h"
 #include "util/stats.h"
 
 namespace CVC4 {
@@ -105,11 +106,7 @@ class TheoryEngine {
       ++(d_engine->d_statistics.d_statLemma);
       d_engine->newLemma(node);
     }
-    void augmentingLemma(TNode node, bool)
-      throw(theory::Interrupted, AssertionException) {
-      ++(d_engine->d_statistics.d_statAugLemma);
-      d_engine->newAugmentingLemma(node);
-    }
+
     void explanation(TNode explanationNode, bool)
       throw(theory::Interrupted, AssertionException) {
       d_explanationNode = explanationNode;
@@ -133,6 +130,12 @@ class TheoryEngine {
   theory::Theory* d_arith;
   theory::Theory* d_arrays;
   theory::Theory* d_bv;
+
+  /**
+   * Whether or not theory registration is on.  May not be safe to
+   * turn off with some theories.
+   */
+  bool d_theoryRegistration;
 
   /**
    * Debugging flag to ensure that shutdown() is called before the
@@ -206,7 +209,7 @@ public:
   /**
    * Construct a theory engine.
    */
-  TheoryEngine(context::Context* ctxt, const Options* opts);
+  TheoryEngine(context::Context* ctxt, const Options& opts);
 
   /**
    * Destroy a theory engine.
@@ -315,12 +318,7 @@ public:
   }
 
   inline void newLemma(TNode node) {
-    d_propEngine->assertLemma(node);
-  }
-
-  inline void newAugmentingLemma(TNode node) {
-    Node preprocessed = preprocess(node);
-    d_propEngine->assertFormula(preprocessed);
+    d_propEngine->assertLemma(preprocess(node));
   }
 
   /**

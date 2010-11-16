@@ -23,28 +23,16 @@
 
 #include <string>
 
-#include "parser/input.h"
-#include "parser/parser_options.h"
+#include "input.h"
+
+#include "util/language.h"
 
 namespace CVC4 {
 
 class ExprManager;
+class Options;
 
 namespace parser {
-
-/*
-class InputBuilder {
-protected:
-  InputLanguage d_lang;
-  std::string d_name;
-public:
-  InputBuilder(InputLanguage lang, const std::string& name) :
-    d_lang(lang),
-    d_name(name) {
-  }
-  virtual Input& build() = 0;
-};
-*/
 
 class Parser;
 
@@ -87,10 +75,15 @@ class CVC4_PUBLIC ParserBuilder {
   /** Should we memory-map a file input? */
   bool d_mmap;
 
+  void init(ExprManager& exprManager, const std::string& filename);
+
 public:
 
   /** Create a parser builder using the given ExprManager and filename. */
   ParserBuilder(ExprManager& exprManager, const std::string& filename);
+
+  ParserBuilder(ExprManager& exprManager, const std::string& filename,
+                const Options& options);
 
   /** Build the parser, using the current settings. */
   Parser *build() throw (InputStreamException,AssertionException);
@@ -117,6 +110,9 @@ public:
   /** Should the parser memory-map its input? This is only relevant if
    * the parser will have a file input. (Default: no) */
   ParserBuilder& withMmap(bool flag = true);
+
+  /** Derive settings from the given options. */
+  ParserBuilder& withOptions(const Options& options);
 
   /** Should the parser use strict mode? (Default: no) */
   ParserBuilder& withStrictMode(bool flag = true);

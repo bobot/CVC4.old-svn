@@ -90,13 +90,6 @@ EXTRA_DIST = \
 	Makefile.subdir \
 	config/build-type \
 	config/mkbuilddir \
-	contrib/addsourcedir \
-	contrib/code-checker \
-	contrib/configure-in-place \
-	contrib/cvc-devel.el \
-	contrib/cvc-mode.el \
-	contrib/dimacs_to_smt.pl \
-	contrib/editing-with-emacs \
-	contrib/switch-config
+	config/doxygen.cfg
 dist-hook:
 	cp -p "$(srcdir)/Makefile" "$(distdir)/Makefile"

@@ -40,6 +40,7 @@ namespace CVC4 {
 class Expr;
 class SmtEngine;
 class NodeManager;
+class Options;
 
 namespace context {
   class Context;
@@ -75,17 +76,22 @@ private:
   friend class ExprManagerScope;
 
   // undefined, private copy constructor (disallow copy)
-  ExprManager(const ExprManager&);
+  ExprManager(const ExprManager&) CVC4_UNDEFINED;
 
 public:
 
   /**
-   * Creates an expression manager.
-   * @param earlyTypeChecking whether to do type checking early (at Expr
-   * creation time); only used in debug builds---for other builds, type
-   * checking is never done early.
+   * Creates an expression manager with default options.
    */
-  explicit ExprManager(bool earlyTypeChecking = true);
+  ExprManager();
+
+  /**
+   * Creates an expression manager.
+   *
+   * @param options the earlyTypeChecking field is used to configure
+   * whether to do at Expr creation time.
+   */
+  explicit ExprManager(const Options&);
 
   /**
    * Destroys the expression manager. No will be deallocated at this point, so
@@ -108,6 +114,7 @@ public:
 
   /**
    * Make a unary expression of a given kind (NOT, BVNOT, ...).
+   * @param kind the kind of expression
    * @param child1 kind the kind of expression
    * @return the expression
    */
@@ -186,7 +193,7 @@ public:
    * suitably-sized chunks, taking advantage of the associativity of
    * <code>kind</code>. For example, if kind <code>FOO</code> has max arity
    * 2, then calling <code>mkAssociative(FOO,a,b,c)</code> will return
-   * <code>(FOO (FOO a b) c)</code> or code>(FOO a (FOO b c))</code>.
+   * <code>(FOO (FOO a b) c)</code> or <code>(FOO a (FOO b c))</code>.
    * The order of the arguments will be preserved in a left-to-right
    * traversal of the resulting tree.
    */

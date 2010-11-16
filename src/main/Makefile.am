@@ -4,15 +4,19 @@ AM_CPPFLAGS = \
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas
 
 bin_PROGRAMS = cvc4
+noinst_LIBRARIES = libmain.a
 
-cvc4_SOURCES = \
-	main.cpp \
-	getopt.cpp \
-	util.cpp \
+libmain_a_SOURCES = \
+	interactive_shell.h \
+	interactive_shell.cpp \
 	main.h \
-	usage.h
+	main.cpp \
+	usage.h \
+	util.cpp
 
+cvc4_SOURCES =
 cvc4_LDADD = \
+	libmain.a \
 	../parser/libcvc4parser.la \
 	../libcvc4.la \
 	../lib/libreplacements.la

@@ -12,29 +12,25 @@ libutil_la_SOURCES = \
 	Makefile.in \
 	congruence_closure.h \
 	debug.h \
-	decision_engine.cpp \
-	decision_engine.h \
 	exception.h \
 	hash.h \
 	bool.h \
-	model.h \
+	options.h \
+	options.cpp \
 	output.cpp \
 	output.h \
 	result.h \
 	result.cpp \
-	unique_id.h \
 	configuration.h \
 	configuration_private.h \
 	configuration.cpp \
 	rational.h \
 	integer.h \
 	bitvector.h \
-	bitvector.cpp \
 	gmp_util.h \
 	sexpr.h \
 	stats.h \
 	stats.cpp \
-	triple.h \
 	dynamic_array.h \
 	language.h
 
@@ -45,12 +41,10 @@ BUILT_SOURCES = \
 
 if CVC4_CLN_IMP
 libutil_la_SOURCES += \
-	integer_cln_imp.cpp \
 	rational_cln_imp.cpp
 endif
 if CVC4_GMP_IMP
 libutil_la_SOURCES += \
-	integer_gmp_imp.cpp \
 	rational_gmp_imp.cpp
 endif
 
@@ -58,11 +52,9 @@ EXTRA_DIST = \
 	rational_cln_imp.h \
 	integer_cln_imp.h \
 	rational_cln_imp.cpp \
-	integer_cln_imp.cpp \
 	rational_gmp_imp.h \
 	integer_gmp_imp.h \
 	rational_gmp_imp.cpp \
-	integer_gmp_imp.cpp \
 	rational.h.in \
 	integer.h.in \
 	tls.h.in

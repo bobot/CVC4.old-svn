@@ -309,10 +309,17 @@ public:
 
   /**
    * Outputs the string representation of the expression to the stream.
-   * @param out the output stream
+   *
+   * @param out the stream to serialize this expression to
+   * @param toDepth the depth to which to print this expression, or -1
+   * to print it fully
+   * @param types set to true to ascribe types to the output
+   * expressions (might break language compliance, but good for
+   * debugging expressions)
+   * @param language the language in which to output
    */
-  void toStream(std::ostream& out, int depth = -1, bool types = false,
-                OutputLanguage lang = language::output::LANG_AST) const;
+  void toStream(std::ostream& out, int toDepth = -1, bool types = false,
+                OutputLanguage language = language::output::LANG_AST) const;
 
   /**
    * Check if this is a null expression.
@@ -641,15 +648,23 @@ public:
   ExprSetLanguage(OutputLanguage l) : d_language(l) {}
 
   inline void applyLanguage(std::ostream& out) {
-    out.iword(s_iosIndex) = int(d_language);
+    // (offset by one to detect whether default has been set yet)
+    out.iword(s_iosIndex) = int(d_language) + 1;
   }
 
   static inline OutputLanguage getLanguage(std::ostream& out) {
-    return OutputLanguage(out.iword(s_iosIndex));
+    long& l = out.iword(s_iosIndex);
+    if(l == 0) {
+      // set the default language on this ostream
+      // (offset by one to detect whether default has been set yet)
+      l = s_defaultLanguage + 1;
+    }
+    return OutputLanguage(l - 1);
   }
 
   static inline void setLanguage(std::ostream& out, OutputLanguage l) {
-    out.iword(s_iosIndex) = int(l);
+    // (offset by one to detect whether default has been set yet)
+    out.iword(s_iosIndex) = int(l) + 1;
   }
 };/* class ExprSetLanguage */
 
@@ -657,7 +672,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 659 "${template}"
+#line 676 "${template}"
 
 namespace expr {
 

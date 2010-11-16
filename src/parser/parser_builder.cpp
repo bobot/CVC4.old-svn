@@ -19,55 +19,48 @@
 #include <string>
 
 #include "parser_builder.h"
+#include "input.h"
+#include "parser.h"
+#include "smt/smt.h"
+#include "smt2/smt2.h"
+
 #include "expr/expr_manager.h"
-#include "parser/input.h"
-#include "parser/parser.h"
-#include "parser/smt/smt.h"
-#include "parser/smt2/smt2.h"
+#include "util/options.h"
 
 namespace CVC4 {
 
 namespace parser {
 
-/*class FileInputBuilder : public InputBuilder {
-  bool d_useMmap;
-public:
-  FileInputBuilder(InputLanguage lang, const std::string& filename, bool useMmap) :
-    InputBuilder(lang,filename),
-    d_useMmap(useMmap) {
-  }
-  ParserBuilder& useMmap();
-
-  Input& build() {
-    return Input::newFileInput(d_lang,d_name,d_useMmap);
-  }
-};
-
-class StringInputBuilder : public InputBuilder {
-  std::string d_input;
-public:
-  StringInputBuilder(InputLanguage lang, const std::string& input, const std::string& name) :
-    InputBuilder(lang,name),
-    d_input(input) {
-  }
-
-  Input& build() {
-    return Input::newStringInput(lang,input,name);
-  }
-};*/
-
-ParserBuilder::ParserBuilder(ExprManager& exprManager, const std::string& filename) :
-    d_inputType(FILE_INPUT),
-    d_lang(language::input::LANG_AUTO),
-    d_filename(filename),
-    d_streamInput(NULL),
-    d_exprManager(exprManager),
-    d_checksEnabled(true),
-    d_strictMode(false),
-    d_mmap(false) {
+ParserBuilder::ParserBuilder(ExprManager& exprManager, 
+                             const std::string& filename) : 
+  d_filename(filename),
+  d_exprManager(exprManager) {
+  init(exprManager,filename);
 }
 
-Parser *ParserBuilder::build() throw (InputStreamException,AssertionException) {
+ParserBuilder::ParserBuilder(ExprManager& exprManager, 
+                             const std::string& filename, 
+                             const Options& options) :
+  d_filename(filename),
+  d_exprManager(exprManager) {
+  init(exprManager,filename);
+  withOptions(options);
+}
+
+void ParserBuilder::init(ExprManager& exprManager, 
+                         const std::string& filename) {
+  d_inputType = FILE_INPUT;
+  d_lang = language::input::LANG_AUTO;
+  d_filename = filename;
+  d_streamInput = NULL;
+  d_exprManager = exprManager;
+  d_checksEnabled = true;
+  d_strictMode = false;
+  d_mmap = false;
+}
+
+Parser *ParserBuilder::build() 
+  throw (InputStreamException,AssertionException) {
   Input *input = NULL;
   switch( d_inputType ) {
   case FILE_INPUT:
@@ -84,45 +77,27 @@ Parser *ParserBuilder::build() throw (InputStreamException,AssertionException) {
   default:
     Unreachable();
   }
+
+  Parser *parser = NULL;
   switch(d_lang) {
   case language::input::LANG_SMTLIB:
-    return new Smt(&d_exprManager, input, d_strictMode);
+    parser = new Smt(&d_exprManager, input, d_strictMode);
+    break;
   case language::input::LANG_SMTLIB_V2:
-    return new Smt2(&d_exprManager, input, d_strictMode);
+    parser = new Smt2(&d_exprManager, input, d_strictMode);
+    break;
   default:
-    return new Parser(&d_exprManager, input, d_strictMode);
+    parser = new Parser(&d_exprManager, input, d_strictMode);
   }
-}
 
-/*ParserBuilder& ParserBuilder::disableChecks() {
-  d_checksEnabled = false;
-  return *this;
-}
+  if( d_checksEnabled ) {
+    parser->enableChecks();
+  } else {
+    parser->disableChecks();
+  }
 
-ParserBuilder& ParserBuilder::disableMmap() {
-  d_mmap = false;
-  return *this;
+  return parser;
 }
-
-ParserBuilder& ParserBuilder::disableStrictMode() {
-  d_strictMode = false;
-  return *this;
-}
-
-ParserBuilder& ParserBuilder::enableChecks() {
-  d_checksEnabled = true;
-  return *this;
-}
-
-ParserBuilder& ParserBuilder::enableMmap() {
-  d_mmap = true;
-  return *this;
-}
-
-ParserBuilder& ParserBuilder::enableStrictMode() {
-  d_strictMode = true;
-  return *this;
-}*/
 
 ParserBuilder& ParserBuilder::withChecks(bool flag) {
   d_checksEnabled = flag;
@@ -154,6 +129,14 @@ ParserBuilder& ParserBuilder::withMmap(bool flag) {
   d_mmap = flag;
   return *this;
 }
+
+ParserBuilder& ParserBuilder::withOptions(const Options& options) {
+  return 
+    withInputLanguage(options.inputLanguage)
+      .withMmap(options.memoryMap)
+      .withChecks(options.semanticChecks)
+      .withStrictMode(options.strictParsing);
+  }
 
 ParserBuilder& ParserBuilder::withStrictMode(bool flag) {
   d_strictMode = flag;

@@ -19,6 +19,7 @@
 #include "expr/node_manager.h"
 #include "expr/expr_manager.h"
 #include "context/context.h"
+#include "util/options.h"
 
 ${includes}
 
@@ -26,7 +27,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 30 "${template}"
+#line 31 "${template}"
 
 using namespace std;
 using namespace CVC4::context;
@@ -34,9 +35,14 @@ using namespace CVC4::kind;
 
 namespace CVC4 {
 
-ExprManager::ExprManager(bool earlyTypeChecking) :
+ExprManager::ExprManager() :
   d_ctxt(new Context),
-  d_nodeManager(new NodeManager(d_ctxt, earlyTypeChecking)) {
+  d_nodeManager(new NodeManager(d_ctxt)) {
+}
+
+ExprManager::ExprManager(const Options& options) :
+  d_ctxt(new Context),
+  d_nodeManager(new NodeManager(d_ctxt, options)) {
 }
 
 ExprManager::~ExprManager() {
@@ -296,7 +302,7 @@ SortConstructorType ExprManager::mkSortConstructor(const std::string& name,
  * type checking is not requested, getType() will do the minimum
  * amount of checking required to return a valid result.
  *
- * @param n the Expr for which we want a type
+ * @param e the Expr for which we want a type
  * @param check whether we should check the type as we compute it
  * (default: false)
  */

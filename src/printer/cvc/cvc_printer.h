@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file triple.h
+/*! \file cvc_printer.h
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
@@ -11,33 +11,32 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Similar to std::pair<>, for triples
+ ** \brief The pretty-printer interface for the CVC output language
  **
- ** Similar to std::pair<>, for triples.  Once we move to c++0x, this
- ** can be removed in favor of (standard-provided) N-ary tuples.
+ ** The pretty-printer interface for the CVC output language.
  **/
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__TRIPLE_H
-#define __CVC4__TRIPLE_H
+#ifndef __CVC4__PRINTER__CVC_PRINTER_H
+#define __CVC4__PRINTER__CVC_PRINTER_H
+
+#include <iostream>
+
+#include "printer/printer.h"
 
 namespace CVC4 {
+namespace printer {
+namespace cvc {
 
-template <class T1, class T2, class T3>
-class triple {
+class CvcPrinter : public CVC4::Printer {
 public:
-  T1 first;
-  T2 second;
-  T3 third;
-};
+  void toStream(std::ostream& out, TNode n, int toDepth, bool types) const;
+};/* class CvcPrinter */
 
-template <class T1, class T2, class T3>
-inline triple<T1, T2, T3>
-make_triple(const T1& t1, const T2& t2, const T3& t3) {
-  return triple<T1, T2, T3>(t1, t2, t3);
-}
-
+}/* CVC4::printer::cvc namespace */
+}/* CVC4::printer namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__TRIPLE_H */
+#endif /* __CVC4__PRINTER__CVC_PRINTER_H */
+

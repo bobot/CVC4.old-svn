@@ -137,19 +137,21 @@ class Clause {
         unsigned learnt    : 1;
         unsigned has_extra : 1;
         unsigned reloced   : 1;
-        unsigned size      : 27; }                            header;
+        unsigned size      : 27;
+        unsigned level     : 32; }                            header;
     union { Lit lit; float act; uint32_t abs; CRef rel; } data[0];
 
     friend class ClauseAllocator;
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
-    Clause(const V& ps, bool use_extra, bool learnt) {
+    Clause(const V& ps, bool use_extra, bool learnt, int level) {
         header.mark      = 0;
         header.learnt    = learnt;
         header.has_extra = use_extra;
         header.reloced   = 0;
         header.size      = ps.size();
+        header.level     = level;
 
         for (int i = 0; i < ps.size(); i++) 
             data[i].lit = ps[i];
@@ -170,6 +172,7 @@ public:
         data[header.size].abs = abstraction;  }
 
 
+    int          level       ()      const   { return header.level; }
     int          size        ()      const   { return header.size; }
     void         shrink      (int i)         { assert(i <= size()); if (header.has_extra) data[header.size-i] = data[header.size]; header.size -= i; }
     void         pop         ()              { shrink(1); }
@@ -223,14 +226,14 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::moveTo(to); }
 
     template<class Lits>
-    CRef alloc(const Lits& ps, bool learnt = false)
+    CRef alloc(int level, const Lits& ps, bool learnt = false)
     {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         bool use_extra = learnt | extra_clause_field;
 
         CRef cid = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), use_extra));
-        new (lea(cid)) Clause(ps, use_extra, learnt);
+        new (lea(cid)) Clause(ps, use_extra, learnt, level);
 
         return cid;
     }
@@ -255,7 +258,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         
         if (c.reloced()) { cr = c.relocation(); return; }
 
-        cr = to.alloc(c, c.learnt());
+        cr = to.alloc(c.level(), c, c.learnt());
         c.relocate(cr);
         
         IF_CVC4_SUPPORTS_PROOFS( if(proof != NULL) { updateId(old, cr, proof); } ); //lsh--
@@ -386,6 +389,11 @@ class CMap
 |________________________________________________________________________________________________@*/
 inline Lit Clause::subsumes(const Clause& other) const
 {
+    // We restrict subsumtion to clauses at higher levels (if !enable_incremantal this should always be false)
+    if (level() > other.level()) {
+      return lit_Error;
+    }
+
     //if (other.size() < size() || (extra.abst & ~other.extra.abst) != 0)
     //if (other.size() < size() || (!learnt() && !other.learnt() && (extra.abst & ~other.extra.abst) != 0))
     assert(!header.learnt);   assert(!other.header.learnt);
