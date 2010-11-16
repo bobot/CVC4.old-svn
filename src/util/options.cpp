@@ -66,6 +66,7 @@ static const string optionsDescription = "\
    --no-interactive       do not run interactively\n\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
+   --lfsc-proof           generates and prints out LFSC style proof\n\
    --lazy-definition-expansion expand define-fun lazily\n\
    --incremental          enable incremental solving\n";
 
@@ -116,6 +117,7 @@ enum OptionValue {
   INTERACTIVE,
   NO_INTERACTIVE,
   PRODUCE_MODELS,
+  LFSC_PROOF,
   PRODUCE_ASSIGNMENTS,
   NO_TYPE_CHECKING,
   LAZY_TYPE_CHECKING,
@@ -172,6 +174,7 @@ static struct option cmdlineOptions[] = {
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
   { "produce-models", no_argument   , NULL, PRODUCE_MODELS},
+  { "lfsc-proof", no_argument   , NULL, LFSC_PROOF},
   { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS},
   { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING},
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING},
@@ -349,6 +352,10 @@ throw(OptionException) {
 
     case PRODUCE_MODELS:
       produceModels = true;
+      break;
+
+    case LFSC_PROOF:
+      lfscProof = true;
       break;
 
     case PRODUCE_ASSIGNMENTS:

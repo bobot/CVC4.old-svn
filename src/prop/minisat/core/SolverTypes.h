@@ -254,7 +254,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
     void reloc(CRef& cr, ClauseAllocator& to,  CVC4::prop::Derivation* proof) //--lsh added extra argument for proof logging
     {
         Clause& c = operator[](cr);
-        CRef old = cr; //lsh--
+        IF_CVC4_SUPPORTS_PROOFS(CRef old = cr;); //lsh--
         
         if (c.reloced()) { cr = c.relocation(); return; }
 

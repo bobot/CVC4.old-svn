@@ -210,13 +210,11 @@ public:
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
 
-#ifdef CVC4_PROOFS
     // Proof generation
     //--lsh
     CVC4::prop::Derivation* proof;
     bool proofsOn() const throw();
     //lsh--
-#endif /* CVC4_PROOFS */
 
 protected:
 

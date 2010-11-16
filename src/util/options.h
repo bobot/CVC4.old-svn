@@ -117,6 +117,9 @@ struct CVC4_PUBLIC Options {
   /** Whether we support SmtEngine::getValue() for this run. */
   bool produceModels;
 
+  /** Whether to output LFSC-style proof. */
+  bool lfscProof;
+
   /** Whether we support SmtEngine::getAssignment() for this run. */
   bool produceAssignments;
 
@@ -148,6 +151,7 @@ struct CVC4_PUBLIC Options {
     interactiveSetByUser(false),
     segvNoSpin(false),
     produceModels(false),
+    lfscProof(false),
     produceAssignments(false),
     typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
     earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
