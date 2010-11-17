@@ -315,6 +315,11 @@ public:
    */
   bool presolve();
 
+  /**
+   * Calls notifyRestart() on all active theories.
+   */
+  void notifyRestart();
+
   inline const std::vector<TNode>& getPropagatedLiterals() const {
     return d_theoryOut.d_propagatedLiterals;
   }

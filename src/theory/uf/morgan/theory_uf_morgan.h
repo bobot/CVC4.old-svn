@@ -98,6 +98,7 @@ private:
   TimerStat d_checkTimer;/*! time spent in check() */
   TimerStat d_propagateTimer;/*! time spent in propagate() */
   TimerStat d_explainTimer;/*! time spent in explain() */
+  TimerStat d_presolveTimer;/*! time spent in presolve() */
   WrappedStat<AverageStat> d_ccExplanationLength;/*! CC module expl length */
   WrappedStat<IntStat> d_ccNewSkolemVars;/*! CC module # skolem vars */
 
@@ -141,10 +142,6 @@ public:
    */
   void check(Effort level);
 
-  void presolve() {
-    // do nothing for now
-  }
-
   /**
    * Rewrites a node in the theory of uninterpreted functions.
    * This is fairly basic and only ensures that atoms that are
@@ -167,6 +164,21 @@ public:
    * See theory/theory.h for more information about this method.
    */
   void explain(TNode n, Effort level);
+
+  /**
+   * A Theory is called with presolve exactly one time per user check-sat.
+   * presolve() is called after preregistration, rewriting, and Boolean propagation,
+   * (other theories' propagation?), but the notified Theory has not yet had its check()
+   * or propagate() method called.
+   * A Theory may empty its assertFact() queue using get().
+   * A Theory can raise conflicts, add lemmas, and propagate literals during presolve.
+   */
+  void presolve();
+
+  /**
+   * Notification sent to the Theory when the search restarts.
+   */
+  void notifyRestart();
 
   /**
    * Gets a theory value.

@@ -623,14 +623,35 @@ bool TheoryEngine::presolve() {
   d_theoryOut.d_propagatedLiterals.clear();
   try {
     d_uf->presolve();
+    if(!d_theoryOut.d_conflictNode.get().isNull()) {
+      return true;
+    }
     d_arith->presolve();
-    //d_arrays->presolve();
-    //d_bv->presolve();
+    /*
+    if(!d_theoryOut.d_conflictNode.get().isNull()) {
+      return true;
+    }
+    d_arrays->presolve();
+    if(!d_theoryOut.d_conflictNode.get().isNull()) {
+      return true;
+    }
+    d_bv->presolve();
+    */
   } catch(const theory::Interrupted&) {
-    Debug("theory") << "TheoryEngine::presolve() => conflict" << std::endl;
+    Debug("theory") << "TheoryEngine::presolve() => interrupted" << endl;
   }
-  // Return whether we have a conflict
-  return d_theoryOut.d_conflictNode.get().isNull();
+  // return whether we have a conflict
+  return !d_theoryOut.d_conflictNode.get().isNull();
+}
+
+
+void TheoryEngine::notifyRestart() {
+  d_uf->notifyRestart();
+  /*
+  d_arith->notifyRestart();
+  d_arrays->notifyRestart();
+  d_bv->notifyRestart();
+  */
 }
 
 }/* CVC4 namespace */

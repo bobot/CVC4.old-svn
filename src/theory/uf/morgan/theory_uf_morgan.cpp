@@ -23,6 +23,8 @@
 
 #include <map>
 
+using namespace std;
+
 using namespace CVC4;
 using namespace CVC4::context;
 using namespace CVC4::theory;
@@ -44,6 +46,7 @@ TheoryUFMorgan::TheoryUFMorgan(int id, Context* ctxt, OutputChannel& out) :
   d_checkTimer("theory::uf::morgan::checkTime"),
   d_propagateTimer("theory::uf::morgan::propagateTime"),
   d_explainTimer("theory::uf::morgan::explainTime"),
+  d_presolveTimer("theory::uf::morgan::presolveTime"),
   d_ccExplanationLength("theory::uf::morgan::cc::averageExplanationLength", d_cc.getExplanationLength()),
   d_ccNewSkolemVars("theory::uf::morgan::cc::newSkolemVariables", d_cc.getNewSkolemVars()) {
 
@@ -77,7 +80,7 @@ TheoryUFMorgan::~TheoryUFMorgan() {
 
 RewriteResponse TheoryUFMorgan::postRewrite(TNode n, bool topLevel) {
   if(topLevel) {
-    Debug("uf") << "uf: begin rewrite(" << n << ")" << std::endl;
+    Debug("uf") << "uf: begin rewrite(" << n << ")" << endl;
     Node ret(n);
     if(n.getKind() == kind::EQUAL ||
        n.getKind() == kind::IFF) {
@@ -85,7 +88,7 @@ RewriteResponse TheoryUFMorgan::postRewrite(TNode n, bool topLevel) {
         ret = NodeManager::currentNM()->mkConst(true);
       }
     }
-    Debug("uf") << "uf: end rewrite(" << n << ") : " << ret << std::endl;
+    Debug("uf") << "uf: end rewrite(" << n << ") : " << ret << endl;
     return RewriteComplete(ret);
   } else {
     return RewriteComplete(n);
@@ -93,19 +96,19 @@ RewriteResponse TheoryUFMorgan::postRewrite(TNode n, bool topLevel) {
 }
 
 void TheoryUFMorgan::preRegisterTerm(TNode n) {
-  Debug("uf") << "uf: preRegisterTerm(" << n << ")" << std::endl;
+  Debug("uf") << "uf: preRegisterTerm(" << n << ")" << endl;
   if(n.getKind() == kind::EQUAL || n.getKind() == kind::IFF) {
     registerEqualityForPropagation(n);
   }
 }
 
 void TheoryUFMorgan::registerTerm(TNode n) {
-  Debug("uf") << "uf: registerTerm(" << n << ")" << std::endl;
+  Debug("uf") << "uf: registerTerm(" << n << ")" << endl;
 }
 
 Node TheoryUFMorgan::constructConflict(TNode diseq) {
-  Debug("uf") << "uf: begin constructConflict()" << std::endl;
-  Debug("uf") << "uf:   using diseq == " << diseq << std::endl;
+  Debug("uf") << "uf: begin constructConflict()" << endl;
+  Debug("uf") << "uf:   using diseq == " << diseq << endl;
 
   Node explanation = d_cc.explain(diseq[0], diseq[1]);
 
@@ -148,16 +151,16 @@ Node TheoryUFMorgan::constructConflict(TNode diseq) {
   Assert(nb.getNumChildren() > 1);
 
   Node conflict = nb;
-  Debug("uf") << "conflict constructed : " << conflict << std::endl;
+  Debug("uf") << "conflict constructed : " << conflict << endl;
 
-  Debug("uf") << "uf: ending constructConflict()" << std::endl;
+  Debug("uf") << "uf: ending constructConflict()" << endl;
 
   return conflict;
 }
 
 void TheoryUFMorgan::notifyCongruent(TNode a, TNode b) {
-  Debug("uf") << "uf: notified of merge " << a << std::endl
-              << "                  and " << b << std::endl;
+  Debug("uf") << "uf: notified of merge " << a << endl
+              << "                  and " << b << endl;
   if(!d_conflict.isNull()) {
     // if already a conflict, we don't care
     return;
@@ -178,13 +181,13 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
       TNode tmp = a;
       a = b;
       b = tmp;
-      Debug("uf") << "    swapping to make a shorter diseqList" << std::endl;
+      Debug("uf") << "    swapping to make a shorter diseqList" << endl;
     }
   }
   a = find(a);
   b = find(b);
-  Debug("uf") << "uf: uf reps are " << a << std::endl
-              << "            and " << b << std::endl;
+  Debug("uf") << "uf: uf reps are " << a << endl
+              << "            and " << b << endl;
 
   if(a == b) {
     return;
@@ -198,7 +201,7 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
   EqLists::iterator deq_i = d_disequalities.find(a);
   // a set of other trees we are already disequal to, and their
   // (TNode) equalities (for optimizations below)
-  std::map<TNode, TNode> alreadyDiseqs;
+  map<TNode, TNode> alreadyDiseqs;
   if(deq_i != d_disequalities.end()) {
     EqLists::iterator deq_ib = d_disequalities.find(b);
     if(deq_ib != d_disequalities.end()) {
@@ -220,21 +223,21 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
 
     EqList* deq = (*deq_i).second;
     if(Debug.isOn("uf")) {
-      Debug("uf") << "a == " << a << std::endl;
-      Debug("uf") << "size of deq(a) is " << deq->size() << std::endl;
+      Debug("uf") << "a == " << a << endl;
+      Debug("uf") << "size of deq(a) is " << deq->size() << endl;
     }
     for(EqList::const_iterator j = deq->begin(); j != deq->end(); ++j) {
-      Debug("uf") << "  deq(a) ==> " << *j << std::endl;
+      Debug("uf") << "  deq(a) ==> " << *j << endl;
       TNode deqn = *j;
       Assert(deqn.getKind() == kind::EQUAL ||
              deqn.getKind() == kind::IFF);
       TNode s = deqn[0];
       TNode t = deqn[1];
       if(Debug.isOn("uf")) {
-        Debug("uf") << "       s  ==> " << s << std::endl
-                    << "       t  ==> " << t << std::endl
-                    << "  find(s) ==> " << debugFind(s) << std::endl
-                    << "  find(t) ==> " << debugFind(t) << std::endl;
+        Debug("uf") << "       s  ==> " << s << endl
+                    << "       t  ==> " << t << endl
+                    << "  find(s) ==> " << debugFind(s) << endl
+                    << "  find(t) ==> " << debugFind(t) << endl;
       }
       TNode sp = find(s);
       TNode tp = find(t);
@@ -256,7 +259,7 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
         }
       }
     }
-    Debug("uf") << "end diseq-list." << std::endl;
+    Debug("uf") << "end diseq-list." << endl;
   }
 
   // Note that at this point, alreadyDiseqs contains everything we're
@@ -267,61 +270,61 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
   if(eq_i != d_equalities.end()) {
     EqList* eq = (*eq_i).second;
     if(Debug.isOn("uf")) {
-      Debug("uf") << "a == " << a << std::endl;
-      Debug("uf") << "size of eq(a) is " << eq->size() << std::endl;
+      Debug("uf") << "a == " << a << endl;
+      Debug("uf") << "size of eq(a) is " << eq->size() << endl;
     }
     for(EqList::const_iterator j = eq->begin(); j != eq->end(); ++j) {
-      Debug("uf") << "  eq(a) ==> " << *j << std::endl;
+      Debug("uf") << "  eq(a) ==> " << *j << endl;
       TNode eqn = *j;
       Assert(eqn.getKind() == kind::EQUAL ||
              eqn.getKind() == kind::IFF);
       TNode s = eqn[0];
       TNode t = eqn[1];
       if(Debug.isOn("uf")) {
-        Debug("uf") << "       s  ==> " << s << std::endl
-                    << "       t  ==> " << t << std::endl
-                    << "  find(s) ==> " << debugFind(s) << std::endl
-                    << "  find(t) ==> " << debugFind(t) << std::endl;
+        Debug("uf") << "       s  ==> " << s << endl
+                    << "       t  ==> " << t << endl
+                    << "  find(s) ==> " << debugFind(s) << endl
+                    << "  find(t) ==> " << debugFind(t) << endl;
       }
       TNode sp = find(s);
       TNode tp = find(t);
       if(sp == tp) {
         // propagation of equality
-        Debug("uf:prop") << "  uf-propagating " << eqn << std::endl;
+        Debug("uf:prop") << "  uf-propagating " << eqn << endl;
         d_out->propagate(eqn);
       } else {
         Assert(sp == b || tp == b);
         appendToEqList(b, eqn);
         if(sp == b) {
-          std::map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(tp);
+          map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(tp);
           if(k != alreadyDiseqs.end()) {
             // propagation of disequality
             // FIXME: this will propagate the same disequality on every
             // subsequent merge, won't it??
             Node deqn = (*k).second.notNode();
-            Debug("uf:prop") << "  uf-propagating " << deqn << std::endl;
+            Debug("uf:prop") << "  uf-propagating " << deqn << endl;
             d_out->propagate(deqn);
           }
         } else {
-          std::map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(sp);
+          map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(sp);
           if(k != alreadyDiseqs.end()) {
             // propagation of disequality
             // FIXME: this will propagate the same disequality on every
             // subsequent merge, won't it??
             Node deqn = (*k).second.notNode();
-            Debug("uf:prop") << "  uf-propagating " << deqn << std::endl;
+            Debug("uf:prop") << "  uf-propagating " << deqn << endl;
             d_out->propagate(deqn);
           }
         }
       }
     }
-    Debug("uf") << "end eq-list." << std::endl;
+    Debug("uf") << "end eq-list." << endl;
   }
 }
 
 void TheoryUFMorgan::appendToDiseqList(TNode of, TNode eq) {
-  Debug("uf") << "appending " << eq << std::endl
-              << "  to diseq list of " << of << std::endl;
+  Debug("uf") << "appending " << eq << endl
+              << "  to diseq list of " << of << endl;
   Assert(eq.getKind() == kind::EQUAL ||
          eq.getKind() == kind::IFF);
   Assert(of == debugFind(of));
@@ -336,13 +339,13 @@ void TheoryUFMorgan::appendToDiseqList(TNode of, TNode eq) {
   }
   deq->push_back(eq);
   if(Debug.isOn("uf")) {
-    Debug("uf") << "  size is now " << deq->size() << std::endl;
+    Debug("uf") << "  size is now " << deq->size() << endl;
   }
 }
 
 void TheoryUFMorgan::appendToEqList(TNode of, TNode eq) {
-  Debug("uf") << "appending " << eq << std::endl
-              << "  to eq list of " << of << std::endl;
+  Debug("uf") << "appending " << eq << endl
+              << "  to eq list of " << of << endl;
   Assert(eq.getKind() == kind::EQUAL ||
          eq.getKind() == kind::IFF);
   Assert(of == debugFind(of));
@@ -357,7 +360,7 @@ void TheoryUFMorgan::appendToEqList(TNode of, TNode eq) {
   }
   eql->push_back(eq);
   if(Debug.isOn("uf")) {
-    Debug("uf") << "  size is now " << eql->size() << std::endl;
+    Debug("uf") << "  size is now " << eql->size() << endl;
   }
 }
 
@@ -393,7 +396,7 @@ void TheoryUFMorgan::registerEqualityForPropagation(TNode eq) {
 void TheoryUFMorgan::check(Effort level) {
   TimerStat::CodeTimer codeTimer(d_checkTimer);
 
-  Debug("uf") << "uf: begin check(" << level << ")" << std::endl;
+  Debug("uf") << "uf: begin check(" << level << ")" << endl;
 
   while(!done()) {
     Assert(d_conflict.isNull());
@@ -402,7 +405,7 @@ void TheoryUFMorgan::check(Effort level) {
 
     //d_activeAssertions.push_back(assertion);
 
-    Debug("uf") << "uf check(): " << assertion << std::endl;
+    Debug("uf") << "uf check(): " << assertion << endl;
 
     switch(assertion.getKind()) {
     case kind::EQUAL:
@@ -436,7 +439,7 @@ void TheoryUFMorgan::check(Effort level) {
 
         if(Debug.isOn("uf")) {
           Debug("uf") << "true == false ? "
-                      << (find(d_trueNode) == find(d_falseNode)) << std::endl;
+                      << (find(d_trueNode) == find(d_falseNode)) << endl;
         }
 
         Assert(find(d_trueNode) != find(d_falseNode));
@@ -456,10 +459,10 @@ void TheoryUFMorgan::check(Effort level) {
         d_cc.addTerm(b);
 
         if(Debug.isOn("uf")) {
-          Debug("uf") << "       a  ==> " << a << std::endl
-                      << "       b  ==> " << b << std::endl
-                      << "  find(a) ==> " << debugFind(a) << std::endl
-                      << "  find(b) ==> " << debugFind(b) << std::endl;
+          Debug("uf") << "       a  ==> " << a << endl
+                      << "       b  ==> " << b << endl
+                      << "  find(a) ==> " << debugFind(a) << endl
+                      << "  find(b) ==> " << debugFind(b) << endl;
         }
 
         // There are two ways to get a conflict here.
@@ -507,7 +510,7 @@ void TheoryUFMorgan::check(Effort level) {
 
         if(Debug.isOn("uf")) {
           Debug("uf") << "true == false ? "
-                      << (find(d_trueNode) == find(d_falseNode)) << std::endl;
+                      << (find(d_trueNode) == find(d_falseNode)) << endl;
         }
 
         Assert(find(d_trueNode) != find(d_falseNode));
@@ -527,7 +530,7 @@ void TheoryUFMorgan::check(Effort level) {
   }
   Assert(d_conflict.isNull());
   Debug("uf") << "uf check() done = " << (done() ? "true" : "false")
-              << std::endl;
+              << endl;
 
   /*
   for(CDList<Node>::const_iterator diseqIter = d_disequality.begin();
@@ -537,36 +540,48 @@ void TheoryUFMorgan::check(Effort level) {
     TNode left  = (*diseqIter)[0];
     TNode right = (*diseqIter)[1];
     if(Debug.isOn("uf")) {
-      Debug("uf") << "testing left: " << left << std::endl
-                  << "       right: " << right << std::endl
-                  << "     find(L): " << debugFind(left) << std::endl
-                  << "     find(R): " << debugFind(right) << std::endl
+      Debug("uf") << "testing left: " << left << endl
+                  << "       right: " << right << endl
+                  << "     find(L): " << debugFind(left) << endl
+                  << "     find(R): " << debugFind(right) << endl
                   << "     areCong: " << d_cc.areCongruent(left, right)
-                  << std::endl;
+                  << endl;
     }
     Assert((debugFind(left) == debugFind(right)) ==
            d_cc.areCongruent(left, right));
   }
   */
 
-  Debug("uf") << "uf: end check(" << level << ")" << std::endl;
+  Debug("uf") << "uf: end check(" << level << ")" << endl;
 }
 
 void TheoryUFMorgan::propagate(Effort level) {
   TimerStat::CodeTimer codeTimer(d_propagateTimer);
 
-  Debug("uf") << "uf: begin propagate(" << level << ")" << std::endl;
+  Debug("uf") << "uf: begin propagate(" << level << ")" << endl;
   // propagation is done in check(), for now
   // FIXME need to find a slick way to propagate predicates
-  Debug("uf") << "uf: end propagate(" << level << ")" << std::endl;
+  Debug("uf") << "uf: end propagate(" << level << ")" << endl;
 }
 
 void TheoryUFMorgan::explain(TNode n, Effort level) {
   TimerStat::CodeTimer codeTimer(d_explainTimer);
 
-  Debug("uf") << "uf: begin explain([" << n << "], " << level << ")" << std::endl;
+  Debug("uf") << "uf: begin explain([" << n << "], " << level << ")" << endl;
   Unimplemented();
-  Debug("uf") << "uf: end explain([" << n << "], " << level << ")" << std::endl;
+  Debug("uf") << "uf: end explain([" << n << "], " << level << ")" << endl;
+}
+
+void TheoryUFMorgan::presolve() {
+  TimerStat::CodeTimer codeTimer(d_presolveTimer);
+
+  Debug("uf") << "uf: begin presolve()" << endl;
+  Debug("uf") << "uf: end presolve()" << endl;
+}
+
+void TheoryUFMorgan::notifyRestart() {
+  Debug("uf") << "uf: begin notifyDecisionLevelZero()" << endl;
+  Debug("uf") << "uf: end notifyDecisionLevelZero()" << endl;
 }
 
 Node TheoryUFMorgan::getValue(TNode n, TheoryEngine* engine) {
@@ -599,32 +614,32 @@ void TheoryUFMorgan::dump() {
   if(!Debug.isOn("uf")) {
     return;
   }
-  Debug("uf") << "============== THEORY_UF ==============" << std::endl;
-  Debug("uf") << "Active assertions list:" << std::endl;
+  Debug("uf") << "============== THEORY_UF ==============" << endl;
+  Debug("uf") << "Active assertions list:" << endl;
   for(context::CDList<Node>::const_iterator i = d_activeAssertions.begin();
       i != d_activeAssertions.end();
       ++i) {
-    Debug("uf") << "    " << *i << std::endl;
+    Debug("uf") << "    " << *i << endl;
   }
-  Debug("uf") << "Congruence union-find:" << std::endl;
+  Debug("uf") << "Congruence union-find:" << endl;
   for(UnionFind::const_iterator i = d_unionFind.begin();
       i != d_unionFind.end();
       ++i) {
     Debug("uf") << "    " << (*i).first << "  ==>  " << (*i).second
-                << std::endl;
+                << endl;
   }
-  Debug("uf") << "Disequality lists:" << std::endl;
+  Debug("uf") << "Disequality lists:" << endl;
   for(EqLists::const_iterator i = d_disequalities.begin();
       i != d_disequalities.end();
       ++i) {
-    Debug("uf") << "    " << (*i).first << ":" << std::endl;
+    Debug("uf") << "    " << (*i).first << ":" << endl;
     EqList* dl = (*i).second;
     for(EqList::const_iterator j = dl->begin();
         j != dl->end();
         ++j) {
-      Debug("uf") << "        " << *j << std::endl;
+      Debug("uf") << "        " << *j << endl;
     }
   }
-  Debug("uf") << "=======================================" << std::endl;
+  Debug("uf") << "=======================================" << endl;
 }
 */
