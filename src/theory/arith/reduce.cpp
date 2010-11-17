@@ -29,6 +29,7 @@ void Reduce::replaceWithConstant(ArithVar x){
   Assert(d_pm.getLowerBound(x) == d_pm.getUpperBound(x));
   Assert(d_pm.getLowerBound(x).getInfinitesimalPart() == 0);
   Assert(d_pm.getUpperBound(x).getInfinitesimalPart() == 0);
+  Assert(d_pm.getAssignment(x) == d_pm.getLowerBound(x));
 
   Rational assignment = d_pm.getLowerBound(x).getNoninfinitesimalPart();
 
@@ -38,7 +39,9 @@ void Reduce::replaceWithConstant(ArithVar x){
     if(row->has(x)){
       Rational coeff = row->lookup(x);
       RowVector cancel(x, coeff);
+
       row->addRowTimesConstant(-1,cancel);
+      Assert(!row->has(x));
 
       if(assignment == 0){
         if(row->size() == 1){
@@ -63,14 +66,14 @@ void Reduce::replaceWithConstant(ArithVar x){
 
 void Reduce::propagateConstant(ArithVar basic, const Rational& value){
   Assert(d_bm.isMember(basic));
-  Assert(d_bm.isMember(basic));
+  Assert(d_pm.getAssignment(basic) == DeltaRational(value));
   DeltaRational dvalue(value, 0);
 
   bool conflict = d_simplex.AssertEquality(basic, dvalue, d_oneVarIsOne);
 
   Assert(!conflict);
 
-  d_tab.removeRow(basic);
+  //d_tab.removeRow(basic);
 }
 
 void Reduce::RemoveConstants(){
@@ -102,8 +105,26 @@ void Reduce::RemoveConstants(){
         propagateConstant(x, 0);
       }else{
         ArithVar nonBasic = row->selectAnyNonBasic();
-        d_tab.pivot(x, nonBasic);
-        replaceWithConstant(x);
+        if(nonBasic == d_oneVar){
+          if(row->size() == 2){
+            propagateConstant(x, row->lookup(nonBasic));
+          }else{
+            RowVector::NonZeroIterator i = row->beginNonZero();
+            if(getArithVar(*i) == d_oneVar || getArithVar(*i) == x){
+              ++i;
+              if(getArithVar(*i) == d_oneVar || getArithVar(*i) == x){
+                ++i;
+                nonBasic = getArithVar(*i);
+              }else{
+                nonBasic = getArithVar(*i);
+              }
+            }else{
+              nonBasic = getArithVar(*i);
+            }
+          }
+          d_tab.pivot(x, nonBasic);
+          replaceWithConstant(x);
+        }
       }
     }
   }

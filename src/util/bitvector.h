@@ -122,7 +122,11 @@ public:
   unsigned getSize() const {
     return d_size;
   }
-};
+
+  const Integer& getValue() const {
+    return d_value;
+  }
+};/* class BitVector */
 
 inline BitVector::BitVector(const std::string& num, unsigned base) {
   AlwaysAssert( base == 2 || base == 16 );
@@ -245,8 +249,13 @@ struct UnsignedHashStrategy {
   }
 };
 
-std::ostream& operator <<(std::ostream& os, const BitVector& bv);
-std::ostream& operator <<(std::ostream& os, const BitVectorExtract& bv);
+inline std::ostream& operator <<(std::ostream& os, const BitVector& bv) {
+  return os << bv.toString();
+}
+
+inline std::ostream& operator <<(std::ostream& os, const BitVectorExtract& bv) {
+  return os << "[" << bv.high << ":" << bv.low << "]";
+}
 
 }/* CVC4 namespace */
 

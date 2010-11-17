@@ -18,6 +18,7 @@ libarith_la_SOURCES = \
 	partial_model.h \
 	partial_model.cpp \
 	ordered_bounds_list.h \
+	ordered_set.h \
 	arithvar_dense_set.h \
 	reduce.h \
 	reduce.cpp \
@@ -27,8 +28,8 @@ libarith_la_SOURCES = \
 	simplex.cpp \
 	row_vector.h \
 	row_vector.cpp \
-	arith_propagator.h \
-	arith_propagator.cpp \
+	unate_propagator.h \
+	unate_propagator.cpp \
 	theory_arith.h \
 	theory_arith.cpp
 

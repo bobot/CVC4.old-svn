@@ -52,6 +52,7 @@ static const string optionsDescription = "\
    --eager-type-checking  type check expressions immediately on creation\n\
    --no-type-checking     never type check expressions\n\
    --no-checking          disable ALL semantic checks, including type checks \n\
+   --no-theory-registration disable theory reg (not safe for some theories)\n\
    --strict-parsing       fail on non-conformant inputs (SMT2 only)\n\
    --verbose | -v         increase verbosity (repeatable)\n\
    --quiet | -q           decrease verbosity (repeatable)\n\
@@ -65,7 +66,8 @@ static const string optionsDescription = "\
    --no-interactive       do not run interactively\n\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
-   --lazy-definition-expansion expand define-fun lazily\n";
+   --lazy-definition-expansion expand define-fun lazily\n\
+   --incremental          enable incremental solving\n";
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -103,6 +105,7 @@ enum OptionValue {
   SEGV_NOSPIN,
   PARSE_ONLY,
   NO_CHECKING,
+  NO_THEORY_REGISTRATION,
   USE_MMAP,
   SHOW_CONFIG,
   STRICT_PARSING,
@@ -117,6 +120,7 @@ enum OptionValue {
   NO_TYPE_CHECKING,
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
+  INCREMENTAL
 };/* enum OptionValue */
 
 /**
@@ -151,6 +155,7 @@ static struct option cmdlineOptions[] = {
   { "trace"      , required_argument, NULL, 't'         },
   { "stats"      , no_argument      , NULL, STATS       },
   { "no-checking", no_argument      , NULL, NO_CHECKING },
+  { "no-theory-registration", no_argument, NULL, NO_THEORY_REGISTRATION },
   { "show-config", no_argument      , NULL, SHOW_CONFIG },
   { "segv-nospin", no_argument      , NULL, SEGV_NOSPIN },
   { "help"       , no_argument      , NULL, 'h'         },
@@ -171,6 +176,7 @@ static struct option cmdlineOptions[] = {
   { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING},
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING},
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING},
+  { "incremental", no_argument, NULL, INCREMENTAL},
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -268,6 +274,10 @@ throw(OptionException) {
       parseOnly = true;
       break;
 
+    case NO_THEORY_REGISTRATION:
+      theoryRegistration = false;
+      break;
+
     case NO_CHECKING:
       semanticChecks = false;
       typeChecking = false;
@@ -351,12 +361,17 @@ throw(OptionException) {
       break;
 
     case LAZY_TYPE_CHECKING:
+      typeChecking = true;
       earlyTypeChecking = false;
       break;
 
     case EAGER_TYPE_CHECKING:
       typeChecking = true;
       earlyTypeChecking = true;
+      break;
+
+    case INCREMENTAL:
+      incrementalSolving = true;
       break;
 
     case SHOW_CONFIG:

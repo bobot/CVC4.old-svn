@@ -22,7 +22,6 @@
 
 #include "theory/theory_engine.h"
 #include "util/Assert.h"
-#include "util/decision_engine.h"
 #include "util/options.h"
 #include "util/output.h"
 #include "util/result.h"
@@ -57,11 +56,9 @@ public:
   }
 };
 
-PropEngine::PropEngine(DecisionEngine* de, TheoryEngine* te, 
+PropEngine::PropEngine(TheoryEngine* te,
                        Context* context, const Options& opts) :
   d_inCheckSat(false),
-  // d_options(opts),
-  d_decisionEngine(de),
   d_theoryEngine(te),
   d_context(context) {
   Debug("prop") << "Constructing the PropEngine" << endl;
@@ -84,10 +81,12 @@ void PropEngine::assertFormula(TNode node) {
 }
 
 void PropEngine::assertLemma(TNode node) {
-  Assert(d_inCheckSat, "Sat solver should be in solve()!");
-  Debug("prop") << "assertFormula(" << node << ")" << endl;
+  //Assert(d_inCheckSat, "Sat solver should be in solve()!");
+  Debug("prop::lemmas") << "assertLemma(" << node << ")" << endl;
+
+  //TODO This comment is now false
   // Assert as removable
-  d_cnfStream->convertAndAssert(node, false, false);
+  d_cnfStream->convertAndAssert(node, true, false);
 }
 
 
@@ -101,8 +100,8 @@ void PropEngine::printSatisfyingAssignment(){
       end = transCache.end();
       i != end;
       ++i) {
-    pair<Node, SatLiteral> curr = *i;
-    SatLiteral l = curr.second;
+    pair<Node, CnfStream::TranslationInfo> curr = *i;
+    SatLiteral l = curr.second.literal;
     if(!sign(l)) {
       Node n = curr.first;
       SatLiteralValue value = d_satSolver->value(l);
@@ -118,6 +117,9 @@ Result PropEngine::checkSat() {
   // Mark that we are in the checkSat
   ScopedBool scopedBool(d_inCheckSat);
   d_inCheckSat = true;
+
+  // TODO This currently ignores conflicts (a dangerous practice).
+  d_theoryEngine->presolve();
 
   // Check the problem
   bool result = d_satSolver->solve();
@@ -150,11 +152,13 @@ Node PropEngine::getValue(TNode node) {
 
 void PropEngine::push() {
   Assert(!d_inCheckSat, "Sat solver in solve()!");
+  d_satSolver->push();
   Debug("prop") << "push()" << endl;
 }
 
 void PropEngine::pop() {
   Assert(!d_inCheckSat, "Sat solver in solve()!");
+  d_satSolver->pop();
   Debug("prop") << "pop()" << endl;
 }
 

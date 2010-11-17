@@ -48,7 +48,6 @@ typedef NodeTemplate<false> TNode;
 class NodeHashFunction;
 
 class TheoryEngine;
-class DecisionEngine;
 
 namespace context {
   class Context;
@@ -91,16 +90,18 @@ class CVC4_PUBLIC SmtEngine {
   /** The type of our internal assignment set */
   typedef context::CDSet<Node, NodeHashFunction> AssignmentSet;
 
-  /** Our Context */
+  /** Expr manager context */
   context::Context* d_context;
+
+  /** The context levels of user pushes */
+  std::vector<int> d_userLevels;
+  /** User level context */
+  context::Context* d_userContext;
+
   /** Our expression manager */
   ExprManager* d_exprManager;
   /** Out internal expression/node manager */
   NodeManager* d_nodeManager;
-  /** User-level options */
-  //const Options d_options;
-  /** The decision engine */
-  DecisionEngine* d_decisionEngine;
   /** The decision engine */
   TheoryEngine* d_theoryEngine;
   /** The propositional engine */
@@ -119,11 +120,24 @@ class CVC4_PUBLIC SmtEngine {
   AssignmentSet* d_assignments;
 
   /**
-   * Whether or not we have added any
-   * assertions/declarations/definitions since the last checkSat/query
-   * (and therefore we're not responsible for an assignment).
+   * The logic we're in.
+   */
+  std::string d_logic;
+
+  /**
+   * Whether or not we have added any assertions/declarations/definitions
+   * since the last checkSat/query (and therefore we're not responsible
+   * for an assignment).
    */
   bool d_haveAdditions;
+
+  /**
+   * Whether or not a query() or checkSat() has already been made through
+   * this SmtEngine.  If true, and d_incrementalSolving is false, then
+   * attempting an additional query() or checkSat() will fail with a
+   * ModalException.
+   */
+  bool d_queryMade;
 
   /** 
    * Whether or not to type check input expressions.
@@ -149,6 +163,11 @@ class CVC4_PUBLIC SmtEngine {
    * Whether getAssignment() is enabled.
    */
   bool d_produceAssignments;
+
+  /**
+   * Whether multiple queries can be made, and also push/pop is enabled.
+   */
+  bool d_incrementalSolving;
 
   /**
    * Most recent result of last checkSat/query or (set-info :status).
@@ -185,6 +204,10 @@ class CVC4_PUBLIC SmtEngine {
    */
   void ensureBoolean(const BoolExpr& e);
 
+  void internalPush();
+
+  void internalPop();
+
   friend class ::CVC4::smt::SmtEnginePrivate;
 
 public:
@@ -205,10 +228,15 @@ public:
   ~SmtEngine();
 
   /**
+   * Set the logic of the script.
+   */
+  void setLogic(const std::string& logic) throw(ModalException);
+
+  /**
    * Set information about the script executing.
    */
   void setInfo(const std::string& key, const SExpr& value)
-    throw(BadOptionException);
+    throw(BadOptionException, ModalException);
 
   /**
    * Query information about the SMT environment.
@@ -220,7 +248,7 @@ public:
    * Set an aspect of the current SMT execution environment.
    */
   void setOption(const std::string& key, const SExpr& value)
-    throw(BadOptionException);
+    throw(BadOptionException, ModalException);
 
   /**
    * Get an aspect of the current SMT execution environment.

@@ -27,11 +27,11 @@
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT false
 #endif /* CVC4_DEBUG */
 
-#ifdef CVC4_MUZZLED
+#if defined(CVC4_MUZZLED) || defined(CVC4_COMPETITION_MODE)
 #  define DO_SEMANTIC_CHECKS_BY_DEFAULT false
-#else
+#else /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
 #  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
-#endif
+#endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
 
 #include <iostream>
 #include <string>
@@ -90,6 +90,9 @@ struct CVC4_PUBLIC Options {
   /** Should the parser do semantic checks? */
   bool semanticChecks;
 
+  /** Should the TheoryEngine do theory registration? */
+  bool theoryRegistration;
+
   /** Should the parser memory-map file input? */
   bool memoryMap;
 
@@ -123,6 +126,9 @@ struct CVC4_PUBLIC Options {
   /** Whether we do typechecking at Expr creation time. */
   bool earlyTypeChecking;
 
+  /** Whether incemental solving (push/pop) */
+  bool incrementalSolving;
+
   Options() :
     binary_name(),
     statistics(false),
@@ -134,6 +140,7 @@ struct CVC4_PUBLIC Options {
     uf_implementation(MORGAN),
     parseOnly(false),
     semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
+    theoryRegistration(true),
     memoryMap(false),
     strictParsing(false),
     lazyDefinitionExpansion(false),
@@ -143,7 +150,8 @@ struct CVC4_PUBLIC Options {
     produceModels(false),
     produceAssignments(false),
     typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-    earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT) {
+    earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
+    incrementalSolving(false) {
   }
 
   /** 
@@ -178,10 +186,9 @@ inline std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
- 
-
 }/* CVC4 namespace */
 
 #undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT
+#undef DO_SEMANTIC_CHECKS_BY_DEFAULT
 
 #endif /* __CVC4__OPTIONS_H */

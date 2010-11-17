@@ -24,6 +24,7 @@
 #include "theory/theory.h"
 #include "context/context.h"
 #include "context/cdlist.h"
+#include "context/cdset.h"
 #include "expr/node.h"
 
 #include "theory/arith/arith_utilities.h"
@@ -32,7 +33,7 @@
 #include "theory/arith/tableau.h"
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/partial_model.h"
-#include "theory/arith/arith_propagator.h"
+#include "theory/arith/unate_propagator.h"
 #include "theory/arith/simplex.h"
 
 #include "util/stats.h"
@@ -86,7 +87,7 @@ private:
   /**
    * List of all of the inequalities asserted in the current context.
    */
-  context::CDList<Node> d_diseq;
+  context::CDSet<Node, NodeHashFunction> d_diseq;
 
   /**
    * The tableau for all of the constraints seen thus far in the system.
@@ -136,6 +137,12 @@ public:
 
   void shutdown(){ }
 
+  void presolve(){
+    static int callCount = 0;
+    Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
+    check(FULL_EFFORT);
+  }
+
   std::string identify() const { return std::string("TheoryArith"); }
 
 private:
@@ -178,6 +185,8 @@ private:
   class Statistics {
   public:
     IntStat d_statUserVariables, d_statSlackVariables;
+    IntStat d_statDisequalitySplits;
+    IntStat d_statDisequalityConflicts;
 
     Statistics();
     ~Statistics();

@@ -47,10 +47,18 @@ class CnfStream {
 public:
 
   /** Cache of what nodes have been registered to a literal. */
-  typedef __gnu_cxx::hash_map<SatLiteral, Node, SatSolver::SatLiteralHashFunction> NodeCache;
+  typedef __gnu_cxx::hash_map<SatLiteral, TNode, SatSolver::SatLiteralHashFunction> NodeCache;
+
+  /** Per node translation information */
+  struct TranslationInfo {
+    /** The level at which this node was translated (negative if not translated) */
+    int level;
+    /** The literal of this node */
+    SatLiteral literal;
+  };
 
   /** Cache of what literals have been registered to a node. */
-  typedef __gnu_cxx::hash_map<Node, SatLiteral, NodeHashFunction> TranslationCache;
+  typedef __gnu_cxx::hash_map<Node, TranslationInfo, NodeHashFunction> TranslationCache;
 
 private:
 
@@ -62,6 +70,33 @@ private:
 
 protected:
 
+  /** Top level nodes that we translated */
+  std::vector<TNode> d_translationTrail;
+
+  /** Nodes belonging to asserted lemmas */
+  std::vector<Node> d_lemmas;
+
+  /** Remove nots from the node */
+  TNode stripNot(TNode node) {
+    while (node.getKind() == kind::NOT) {
+      node = node[0];
+    }
+    return node;
+  }
+
+  /** Record this translation */
+  void recordTranslation(TNode node);
+
+  /**
+   * Moves the node and all of it's parents to level 0.
+   */
+  void moveToBaseLevel(TNode node);
+
+  /**
+   * Mark the node, and all parent at levels above level as untranslated.
+   */
+  void undoTranslate(TNode node, int level);
+
   /**
    * Are we asserting a lemma (true) or a permanent clause (false).
    * This is set at the begining of convertAndAssert so that it doesn't
@@ -72,7 +107,7 @@ protected:
   /**
    * Asserts the given clause to the sat solver.
    * @param node the node giving rise to this clause
-   * @param clause the clasue to assert
+   * @param clause the clause to assert
    */
   void assertClause(TNode node, SatClause& clause);
 
@@ -105,22 +140,16 @@ protected:
    * @param node the node
    * @return true if the node has been cached
    */
-  bool isCached(TNode node) const;
+  bool isTranslated(TNode node) const;
 
   /**
-   * Returns the cached literal corresponding to the given node.
-   * @param node the node to lookup
-   * @return returns the corresponding literal
-   */
-  SatLiteral lookupInCache(TNode node) const;
-
-  /**
+   * Returns true if the node has an assigned literal (it might not be translated).
    * Caches the pair of the node and the literal corresponding to the
    * translation.
    * @param node the node
    * @param lit the literal
    */
-  void cacheTranslation(TNode node, SatLiteral lit);
+  bool hasLiteral(TNode node) const;
 
   /**
    * Acquires a new variable from the SAT solver to represent the node
@@ -172,7 +201,7 @@ public:
    * @param literal the literal from the sat solver
    * @return the actual node
    */
-  Node getNode(const SatLiteral& literal);
+  TNode getNode(const SatLiteral& literal);
 
   /**
    * Returns the literal that represents the given node in the SAT CNF
@@ -189,6 +218,11 @@ public:
   const NodeCache& getNodeCache() const {
     return d_nodeCache;
   }
+
+  /**
+   * Removes all the translation information of clauses that have the given associated assert level.
+   */
+  void removeClausesAboveLevel(int level);
 
 };/* class CnfStream */
 
