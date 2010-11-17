@@ -125,6 +125,9 @@ public:
    */
   void check(Effort level);
 
+  void presolve() {
+    // do nothing
+  }
 
   /**
    * Rewrites a node in the theory of uninterpreted functions.

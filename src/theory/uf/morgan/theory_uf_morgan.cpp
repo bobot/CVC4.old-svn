@@ -40,7 +40,19 @@ TheoryUFMorgan::TheoryUFMorgan(int id, Context* ctxt, OutputChannel& out) :
   d_conflict(),
   d_trueNode(),
   d_falseNode(),
-  d_trueEqFalseNode() {
+  d_trueEqFalseNode(),
+  d_checkTimer("theory::uf::morgan::checkTime"),
+  d_propagateTimer("theory::uf::morgan::propagateTime"),
+  d_explainTimer("theory::uf::morgan::explainTime"),
+  d_ccExplanationLength("theory::uf::morgan::cc::averageExplanationLength", d_cc.getExplanationLength()),
+  d_ccNewSkolemVars("theory::uf::morgan::cc::newSkolemVariables", d_cc.getNewSkolemVars()) {
+
+  StatisticsRegistry::registerStat(&d_checkTimer);
+  StatisticsRegistry::registerStat(&d_propagateTimer);
+  StatisticsRegistry::registerStat(&d_explainTimer);
+  StatisticsRegistry::registerStat(&d_ccExplanationLength);
+  StatisticsRegistry::registerStat(&d_ccNewSkolemVars);
+
   NodeManager* nm = NodeManager::currentNM();
   TypeNode boolType = nm->booleanType();
   d_trueNode = nm->mkVar("TRUE_UF", boolType);
@@ -55,6 +67,12 @@ TheoryUFMorgan::~TheoryUFMorgan() {
   d_trueNode = Node::null();
   d_falseNode = Node::null();
   d_trueEqFalseNode = Node::null();
+
+  StatisticsRegistry::unregisterStat(&d_checkTimer);
+  StatisticsRegistry::unregisterStat(&d_propagateTimer);
+  StatisticsRegistry::unregisterStat(&d_explainTimer);
+  StatisticsRegistry::unregisterStat(&d_ccExplanationLength);
+  StatisticsRegistry::unregisterStat(&d_ccNewSkolemVars);
 }
 
 RewriteResponse TheoryUFMorgan::postRewrite(TNode n, bool topLevel) {
@@ -137,25 +155,6 @@ Node TheoryUFMorgan::constructConflict(TNode diseq) {
   return conflict;
 }
 
-TNode TheoryUFMorgan::find(TNode a) {
-  UnionFind::iterator i = d_unionFind.find(a);
-  if(i == d_unionFind.end()) {
-    return a;
-  } else {
-    return d_unionFind[a] = find((*i).second);
-  }
-}
-
-// no path compression
-TNode TheoryUFMorgan::debugFind(TNode a) const {
-  UnionFind::iterator i = d_unionFind.find(a);
-  if(i == d_unionFind.end()) {
-    return a;
-  } else {
-    return debugFind((*i).second);
-  }
-}
-
 void TheoryUFMorgan::notifyCongruent(TNode a, TNode b) {
   Debug("uf") << "uf: notified of merge " << a << std::endl
               << "                  and " << b << std::endl;
@@ -194,7 +193,7 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
   // should have already found such a conflict
   Assert(find(d_trueNode) != find(d_falseNode));
 
-  d_unionFind[a] = b;
+  d_unionFind.setCanon(a, b);
 
   EqLists::iterator deq_i = d_disequalities.find(a);
   // a set of other trees we are already disequal to, and their
@@ -392,6 +391,8 @@ void TheoryUFMorgan::registerEqualityForPropagation(TNode eq) {
 }
 
 void TheoryUFMorgan::check(Effort level) {
+  TimerStat::CodeTimer codeTimer(d_checkTimer);
+
   Debug("uf") << "uf: begin check(" << level << ")" << std::endl;
 
   while(!done()) {
@@ -552,6 +553,8 @@ void TheoryUFMorgan::check(Effort level) {
 }
 
 void TheoryUFMorgan::propagate(Effort level) {
+  TimerStat::CodeTimer codeTimer(d_propagateTimer);
+
   Debug("uf") << "uf: begin propagate(" << level << ")" << std::endl;
   // propagation is done in check(), for now
   // FIXME need to find a slick way to propagate predicates
@@ -559,8 +562,11 @@ void TheoryUFMorgan::propagate(Effort level) {
 }
 
 void TheoryUFMorgan::explain(TNode n, Effort level) {
-  Debug("uf") << "uf: begin explain(" << n << ", " << level << ")" << std::endl;
-  Debug("uf") << "uf: end explain(" << n << ", " << level << ")" << std::endl;
+  TimerStat::CodeTimer codeTimer(d_explainTimer);
+
+  Debug("uf") << "uf: begin explain([" << n << "], " << level << ")" << std::endl;
+  Unimplemented();
+  Debug("uf") << "uf: end explain([" << n << "], " << level << ")" << std::endl;
 }
 
 Node TheoryUFMorgan::getValue(TNode n, TheoryEngine* engine) {

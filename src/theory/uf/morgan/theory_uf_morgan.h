@@ -30,6 +30,7 @@
 
 #include "theory/theory.h"
 #include "theory/uf/theory_uf.h"
+#include "theory/uf/morgan/union_find.h"
 
 #include "context/context.h"
 #include "context/context_mm.h"
@@ -75,8 +76,10 @@ private:
    */
   CongruenceClosure<CongruenceChannel> d_cc;
 
-  typedef context::CDMap<TNode, TNode, TNodeHashFunction> UnionFind;
-  UnionFind d_unionFind;
+  /**
+   * Our union find for equalities.
+   */
+  UnionFind<TNode, TNodeHashFunction> d_unionFind;
 
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
   typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
@@ -91,7 +94,12 @@ private:
 
   Node d_trueNode, d_falseNode, d_trueEqFalseNode;
 
-  //context::CDList<Node> d_activeAssertions;
+  // === STATISTICS ===
+  TimerStat d_checkTimer;/*! time spent in check() */
+  TimerStat d_propagateTimer;/*! time spent in propagate() */
+  TimerStat d_explainTimer;/*! time spent in explain() */
+  WrappedStat<AverageStat> d_ccExplanationLength;/*! CC module expl length */
+  WrappedStat<IntStat> d_ccNewSkolemVars;/*! CC module # skolem vars */
 
 public:
 
@@ -133,6 +141,10 @@ public:
    */
   void check(Effort level);
 
+  void presolve() {
+    // do nothing for now
+  }
+
   /**
    * Rewrites a node in the theory of uninterpreted functions.
    * This is fairly basic and only ensures that atoms that are
@@ -171,8 +183,8 @@ private:
   /** Constructs a conflict from an inconsistent disequality. */
   Node constructConflict(TNode diseq);
 
-  TNode find(TNode a);
-  TNode debugFind(TNode a) const;
+  inline TNode find(TNode a);
+  inline TNode debugFind(TNode a) const;
 
   void appendToDiseqList(TNode of, TNode eq);
   void appendToEqList(TNode of, TNode eq);
@@ -195,6 +207,14 @@ private:
   void dump();
 
 };/* class TheoryUFMorgan */
+
+inline TNode TheoryUFMorgan::find(TNode a) {
+  return d_unionFind.find(a);
+}
+
+inline TNode TheoryUFMorgan::debugFind(TNode a) const {
+  return d_unionFind.debugFind(a);
+}
 
 }/* CVC4::theory::uf::morgan namespace */
 }/* CVC4::theory::uf namespace */
