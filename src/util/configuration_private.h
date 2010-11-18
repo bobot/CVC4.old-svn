@@ -48,6 +48,12 @@ namespace CVC4 {
 #  define IS_ASSERTIONS_BUILD false
 #endif /* CVC4_ASSERTIONS */
 
+#ifdef CVC4_PROOFS
+#  define IS_PROOFS_BUILD true
+#else /* CVC4_PROOFS */
+#  define IS_PROOFS_BUILD false
+#endif /* CVC4_PROOFS */
+
 #ifdef CVC4_COVERAGE
 #  define IS_COVERAGE_BUILD true
 #else /* CVC4_COVERAGE */

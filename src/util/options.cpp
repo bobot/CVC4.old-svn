@@ -395,6 +395,7 @@ throw(OptionException) {
       printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
       printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
       printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");
+      printf("proofs     : %s\n", Configuration::isProofsBuild() ? "yes" : "no");
       printf("coverage   : %s\n", Configuration::isCoverageBuild() ? "yes" : "no");
       printf("profiling  : %s\n", Configuration::isProfilingBuild() ? "yes" : "no");
       printf("competition: %s\n", Configuration::isCompetitionBuild() ? "yes" : "no");
