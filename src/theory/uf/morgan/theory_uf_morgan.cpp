@@ -43,16 +43,11 @@ TheoryUFMorgan::TheoryUFMorgan(int id, Context* ctxt, OutputChannel& out) :
   d_trueNode(),
   d_falseNode(),
   d_trueEqFalseNode(),
-  d_checkTimer("theory::uf::morgan::checkTime"),
-  d_propagateTimer("theory::uf::morgan::propagateTime"),
-  d_explainTimer("theory::uf::morgan::explainTime"),
-  d_presolveTimer("theory::uf::morgan::presolveTime"),
-  d_ccExplanationLength("theory::uf::morgan::cc::averageExplanationLength", d_cc.getExplanationLength()),
-  d_ccNewSkolemVars("theory::uf::morgan::cc::newSkolemVariables", d_cc.getNewSkolemVars()) {
+  d_ccExplanationLength("theory::uf::morgan::cc::averageExplanationLength",
+                        d_cc.getExplanationLength()),
+  d_ccNewSkolemVars("theory::uf::morgan::cc::newSkolemVariables",
+                    d_cc.getNewSkolemVars()) {
 
-  StatisticsRegistry::registerStat(&d_checkTimer);
-  StatisticsRegistry::registerStat(&d_propagateTimer);
-  StatisticsRegistry::registerStat(&d_explainTimer);
   StatisticsRegistry::registerStat(&d_ccExplanationLength);
   StatisticsRegistry::registerStat(&d_ccNewSkolemVars);
 
@@ -71,9 +66,6 @@ TheoryUFMorgan::~TheoryUFMorgan() {
   d_falseNode = Node::null();
   d_trueEqFalseNode = Node::null();
 
-  StatisticsRegistry::unregisterStat(&d_checkTimer);
-  StatisticsRegistry::unregisterStat(&d_propagateTimer);
-  StatisticsRegistry::unregisterStat(&d_explainTimer);
   StatisticsRegistry::unregisterStat(&d_ccExplanationLength);
   StatisticsRegistry::unregisterStat(&d_ccNewSkolemVars);
 }
@@ -291,6 +283,7 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
       if(sp == tp) {
         // propagation of equality
         Debug("uf:prop") << "  uf-propagating " << eqn << endl;
+        ++d_propagations;
         d_out->propagate(eqn);
       } else {
         Assert(sp == b || tp == b);
@@ -303,6 +296,7 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
             // subsequent merge, won't it??
             Node deqn = (*k).second.notNode();
             Debug("uf:prop") << "  uf-propagating " << deqn << endl;
+            ++d_propagations;
             d_out->propagate(deqn);
           }
         } else {
@@ -313,6 +307,7 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
             // subsequent merge, won't it??
             Node deqn = (*k).second.notNode();
             Debug("uf:prop") << "  uf-propagating " << deqn << endl;
+            ++d_propagations;
             d_out->propagate(deqn);
           }
         }
@@ -414,6 +409,7 @@ void TheoryUFMorgan::check(Effort level) {
       if(!d_conflict.isNull()) {
         Node conflict = constructConflict(d_conflict);
         d_conflict = Node::null();
+        ++d_conflicts;
         d_out->conflict(conflict, false);
         return;
       }
@@ -433,6 +429,7 @@ void TheoryUFMorgan::check(Effort level) {
         if(!d_conflict.isNull()) {
           Node conflict = constructConflict(d_conflict);
           d_conflict = Node::null();
+          ++d_conflicts;
           d_out->conflict(conflict, false);
           return;
         }
@@ -475,6 +472,7 @@ void TheoryUFMorgan::check(Effort level) {
           // catch it, so that we can clear out d_conflict.
           Node conflict = constructConflict(d_conflict);
           d_conflict = Node::null();
+          ++d_conflicts;
           d_out->conflict(conflict, false);
           return;
         } else if(find(a) == find(b)) {
@@ -482,6 +480,7 @@ void TheoryUFMorgan::check(Effort level) {
           // a, b and were notified previously (via notifyCongruent())
           // that they were congruent.
           Node conflict = constructConflict(assertion[0]);
+          ++d_conflicts;
           d_out->conflict(conflict, false);
           return;
         }
@@ -504,6 +503,7 @@ void TheoryUFMorgan::check(Effort level) {
         if(!d_conflict.isNull()) {
           Node conflict = constructConflict(d_conflict);
           d_conflict = Node::null();
+          ++d_conflicts;
           d_out->conflict(conflict, false);
           return;
         }

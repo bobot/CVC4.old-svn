@@ -140,7 +140,7 @@ class CongruenceClosure {
    * The set of terms we care about (i.e. those that have been given
    * us with addTerm() and their representatives).
    */
-  typedef context::CDSet<Node, NodeHashFunction> CareSet;
+  typedef context::CDSet<TNode, TNodeHashFunction> CareSet;
   CareSet d_careSet;
 
   // === STATISTICS ===
@@ -843,7 +843,7 @@ Node CongruenceClosure<OutputChannel>::highestNode(TNode a, UnionFind_t& unionFi
   } else {
     return unionFind[a] = highestNode((*i).second, unionFind);
   }
-}
+}/* highestNode() */
 
 
 template <class OutputChannel>

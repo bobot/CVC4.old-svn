@@ -95,19 +95,42 @@ private:
   Node d_trueNode, d_falseNode, d_trueEqFalseNode;
 
   // === STATISTICS ===
-  TimerStat d_checkTimer;/*! time spent in check() */
-  TimerStat d_propagateTimer;/*! time spent in propagate() */
-  TimerStat d_explainTimer;/*! time spent in explain() */
-  TimerStat d_presolveTimer;/*! time spent in presolve() */
-  WrappedStat<AverageStat> d_ccExplanationLength;/*! CC module expl length */
-  WrappedStat<IntStat> d_ccNewSkolemVars;/*! CC module # skolem vars */
+  /** time spent in check() */
+  KEEP_STATISTIC(TimerStat,
+                 d_checkTimer,
+                 "theory::uf::morgan::checkTime");
+  /** time spent in propagate() */
+  KEEP_STATISTIC(TimerStat,
+                 d_propagateTimer,
+                 "theory::uf::morgan::propagateTime");
+
+  /** time spent in explain() */
+  KEEP_STATISTIC(TimerStat,
+                 d_explainTimer,
+                 "theory::uf::morgan::explainTime");
+  /** time spent in presolve() */
+  KEEP_STATISTIC(TimerStat,
+                 d_presolveTimer,
+                 "theory::uf::morgan::presolveTime");
+  /** number of UF conflicts */
+  KEEP_STATISTIC(IntStat,
+                 d_conflicts,
+                 "theory::uf::morgan::conflicts", 0);
+  /** number of UF propagations */
+  KEEP_STATISTIC(IntStat,
+                 d_propagations,
+                 "theory::uf::morgan::propagations", 0);
+  /** CC module expl length */
+  WrappedStat<AverageStat> d_ccExplanationLength;
+  /** CC module # skolem vars */
+  WrappedStat<IntStat> d_ccNewSkolemVars;
 
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
   TheoryUFMorgan(int id, context::Context* ctxt, OutputChannel& out);
 
-  /** Destructor for the TheoryUF object. */
+  /** Destructor for UF theory, cleans up memory and statistics. */
   ~TheoryUFMorgan();
 
   /**
