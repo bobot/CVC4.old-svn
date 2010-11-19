@@ -414,16 +414,130 @@ Node SmtEnginePrivate::expandDefinitions(SmtEngine& smt, TNode n)
   }
 }
 
-Node SmtEnginePrivate::preprocess(SmtEngine& smt, TNode n)
-  throw(NoSuchFunctionException, AssertionException) {
-  if(!smt.d_lazyDefinitionExpansion) {
-    Node node = expandDefinitions(smt, n);
-    Debug("expand") << "have: " << n << endl
-                    << "made: " << node << endl;
-    return smt.d_theoryEngine->preprocess(node);
-  } else {
-    return smt.d_theoryEngine->preprocess(n);
+void staticLearning(TNode n, NodeBuilder<>& learned) {
+  vector<TNode> workList;
+  workList.push_back(n);
+  __gnu_cxx::hash_set<TNode, TNodeHashFunction> processed;
+
+  while(!workList.empty()) {
+    n = workList.back();
+
+    bool unprocessedChildren = false;
+    for(TNode::iterator i = n.begin(), iend = n.end(); i != iend; ++i) {
+      if(processed.find(*i) == processed.end()) {
+        // unprocessed child
+        workList.push_back(*i);
+        unprocessedChildren = true;
+      }
+    }
+
+    if(unprocessedChildren) {
+      continue;
+    }
+
+    workList.pop_back();
+    // has node n been processed in the meantime ?
+    if(processed.find(n) != processed.end()) {
+      continue;
+    }
+    processed.insert(n);
+
+    // == DIAMONDS ==
+
+    Debug("diamonds") << "===================== looking at" << endl
+                      << n << endl;
+
+    // binary OR of binary ANDs of EQUALities
+    if(n.getKind() == kind::OR && n.getNumChildren() == 2 &&
+       n[0].getKind() == kind::AND && n[0].getNumChildren() == 2 &&
+       (n[0][0].getKind() == kind::EQUAL || n[0][0].getKind() == kind::IFF) &&
+       (n[0][1].getKind() == kind::EQUAL || n[0][1].getKind() == kind::IFF) &&
+       (n[1][0].getKind() == kind::EQUAL || n[1][0].getKind() == kind::IFF) &&
+       (n[1][1].getKind() == kind::EQUAL || n[1][1].getKind() == kind::IFF)) {
+      // now we have (a = b && c = d) || (e = f && g = h)
+
+      Debug("diamonds") << "has form of a diamond!" << endl;
+
+      TNode
+        a = n[0][0][0], b = n[0][0][1],
+        c = n[0][1][0], d = n[0][1][1],
+        e = n[1][0][0], f = n[1][0][1],
+        g = n[1][1][0], h = n[1][1][1];
+
+      // test that one of {a, b} = one of {c, d}, and make "b" the
+      // shared node (i.e. put in the form (a = b && b = d))
+      // note we don't actually care about the shared ones, so the
+      // "swaps" below are one-sided, ignoring b and c
+      if(a == c) {
+        a = b;
+      } else if(a == d) {
+        a = b;
+        d = c;
+      } else if(b == c) {
+        // nothing to do
+      } else if(b == d) {
+        d = c;
+      } else {
+        // condition not satisfied
+        Debug("diamonds") << "+ A fails" << endl;
+        continue;
+      }
+
+      Debug("diamonds") << "+ A holds" << endl;
+
+      // same: one of {e, f} = one of {g, h}, and make "f" the
+      // shared node (i.e. put in the form (e = f && f = h))
+      if(e == g) {
+        e = f;
+      } else if(e == h) {
+        e = f;
+        h = g;
+      } else if(f == g) {
+        // nothing to do
+      } else if(f == h) {
+        h = g;
+      } else {
+        // condition not satisfied
+        Debug("diamonds") << "+ B fails" << endl;
+        continue;
+      }
+
+      Debug("diamonds") << "+ B holds" << endl;
+
+      // now we have (a = b && b = d) || (e = f && f = h)
+      // test that {a, d} == {e, h}
+      if( (a == e && d == h) ||
+          (a == h && d == e) ) {
+        // learn: n implies a == d
+        Debug("diamonds") << "+ C holds" << endl;
+        Node newEquality = a.getType().isBoolean() ? a.iffNode(d) : a.eqNode(d);
+        Debug("diamonds") << "  ==> " << newEquality << endl;
+        learned << n.impNode(newEquality);
+      } else {
+        Debug("diamonds") << "+ C fails" << endl;
+      }
+    }
   }
+}
+
+Node SmtEnginePrivate::preprocess(SmtEngine& smt, TNode in)
+  throw(NoSuchFunctionException, AssertionException) {
+  NodeBuilder<> learned(kind::AND);
+  Node n;
+  learned << in;
+  staticLearning(in, learned);
+  if(learned.getNumChildren() == 1) {
+    learned.clear();
+    n = in;
+  } else {
+    n = learned;
+  }
+  if(!smt.d_lazyDefinitionExpansion) {
+    Debug("expand") << "have: " << n << endl;
+    n = expandDefinitions(smt, n);
+    Debug("expand") << "made: " << n << endl;
+  }
+  return smt.d_theoryEngine->preprocess(n);
 }
 
 Result SmtEngine::check() {
@@ -516,6 +630,8 @@ Expr SmtEngine::simplify(const Expr& e) {
     e.getType(true);// ensure expr is type-checked at this point
   }
   Debug("smt") << "SMT simplify(" << e << ")" << endl;
+  // probably want to do an addFormula(), to get preprocessing, static
+  // learning, definition expansion...
   Unimplemented();
 }
 
