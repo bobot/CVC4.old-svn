@@ -310,6 +310,12 @@ public:
   }
 
   /**
+   * Calls staticLearning() on all active theories, accumulating their
+   * combined contributions in the "learned" builder.
+   */
+  void staticLearning(TNode in, NodeBuilder<>& learned);
+
+  /**
    * Calls presolve() on all active theories and returns true
    * if one of the theories discovers a conflict.
    */

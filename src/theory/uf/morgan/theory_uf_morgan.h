@@ -108,6 +108,10 @@ private:
   KEEP_STATISTIC(TimerStat,
                  d_explainTimer,
                  "theory::uf::morgan::explainTime");
+  /** time spent in staticLearning() */
+  KEEP_STATISTIC(TimerStat,
+                 d_staticLearningTimer,
+                 "theory::uf::morgan::staticLearningTime");
   /** time spent in presolve() */
   KEEP_STATISTIC(TimerStat,
                  d_presolveTimer,
@@ -189,12 +193,20 @@ public:
   void explain(TNode n, Effort level);
 
   /**
-   * A Theory is called with presolve exactly one time per user check-sat.
-   * presolve() is called after preregistration, rewriting, and Boolean propagation,
-   * (other theories' propagation?), but the notified Theory has not yet had its check()
-   * or propagate() method called.
-   * A Theory may empty its assertFact() queue using get().
-   * A Theory can raise conflicts, add lemmas, and propagate literals during presolve.
+   * The theory should only add (via .operator<< or .append()) to the
+   * "learned" builder.  It is a conjunction to add to the formula at
+   * the top-level and may contain other theories' contributions.
+   */
+  void staticLearning(TNode in, NodeBuilder<>& learned);
+
+  /**
+   * A Theory is called with presolve exactly one time per user
+   * check-sat.  presolve() is called after preregistration,
+   * rewriting, and Boolean propagation, (other theories'
+   * propagation?), but the notified Theory has not yet had its
+   * check() or propagate() method called.  A Theory may empty its
+   * assertFact() queue using get().  A Theory can raise conflicts,
+   * add lemmas, and propagate literals during presolve().
    */
   void presolve();
 

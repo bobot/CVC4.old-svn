@@ -622,6 +622,16 @@ bool TheoryEngine::presolve() {
   d_theoryOut.d_conflictNode = Node::null();
   d_theoryOut.d_propagatedLiterals.clear();
   try {
+    /*
+    d_builtin->presolve();
+    if(!d_theoryOut.d_conflictNode.get().isNull()) {
+      return true;
+    }
+    d_bool->presolve();
+    if(!d_theoryOut.d_conflictNode.get().isNull()) {
+      return true;
+    }
+    */
     d_uf->presolve();
     if(!d_theoryOut.d_conflictNode.get().isNull()) {
       return true;
@@ -646,6 +656,10 @@ bool TheoryEngine::presolve() {
 
 
 void TheoryEngine::notifyRestart() {
+  /*
+  d_builtin->notifyRestart();
+  d_bool->notifyRestart();
+  */
   d_uf->notifyRestart();
   /*
   d_arith->notifyRestart();
@@ -653,5 +667,16 @@ void TheoryEngine::notifyRestart() {
   d_bv->notifyRestart();
   */
 }
+
+
+void TheoryEngine::staticLearning(TNode in, NodeBuilder<>& learned) {
+  d_builtin->staticLearning(in, learned);
+  d_bool->staticLearning(in, learned);
+  d_uf->staticLearning(in, learned);
+  d_arith->staticLearning(in, learned);
+  d_arrays->staticLearning(in, learned);
+  d_bv->staticLearning(in, learned);
+}
+
 
 }/* CVC4 namespace */
