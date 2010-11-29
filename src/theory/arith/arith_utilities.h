@@ -68,6 +68,12 @@ inline Node mkBoolNode(bool b){
 }
 
 
+struct SimplifiedAttrID;
+typedef expr::Attribute<SimplifiedAttrID, Node> Simplified;
+
+struct ReverseSimplifiedAttrID;
+typedef expr::Attribute<ReverseSimplifiedAttrID, Node> ReverseSimplified;
+
 
 inline Rational coerceToRational(TNode constant){
   switch(constant.getKind()){

@@ -77,6 +77,11 @@ public:
    */
   void addAtom(TNode atom);
 
+
+  bool hasConstraint(TNode left){
+    return leftIsSetup(left);
+  }
+
 private:
   /** Sends an implication (=> a b) to the PropEngine via d_arithOut. */
   void addImplication(TNode a, TNode b);

@@ -40,6 +40,8 @@
 
 #include <vector>
 #include <queue>
+#include <map>
+#include <set>
 
 namespace CVC4 {
 namespace theory {
@@ -62,6 +64,9 @@ private:
   /* Chopping block ends */
 
   std::vector<Node> d_variables;
+  std::vector<Node> d_atoms;
+
+  bool d_setupOnline;
 
   /**
    * Priority Queue of the basic variables that may be inconsistent.
@@ -137,15 +142,31 @@ public:
 
   void shutdown(){ }
 
-  void presolve(){
-    static int callCount = 0;
-    Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
-    check(FULL_EFFORT);
-  }
+  void presolve();
 
   std::string identify() const { return std::string("TheoryArith"); }
 
 private:
+  /** Added */
+  void setupAtom(TNode n);
+  void setupAtomList(const vector<Node>& atoms);
+  void setupOneVar();
+  Node simplify(const std::map<Node, Node>& simpMap, Node arithNode);
+
+  std::map<Node,Node> detectSimplifications(const std::set<Node>& inputAsserted);
+  void simplifyAtoms(const vector<Node>& atoms, const map<Node, Node>& simplifications);
+  bool detectConflicts(set<Node>& asserted, const map<Node, Node>& simplifications,
+                       Node simpJustification);
+
+  void propagateSimplifiedAtoms(const set<Node>& asserted,
+                                const vector<Node>& atoms);
+
+  vector<ArithVar> detectUnconstrained();
+  void ejectList(const vector<ArithVar>& unconstrained);
+
+  void checkAllDisequalities();
+  Node fakeRewrite(Node arithNode);
+  /** Added */
 
   bool isTheoryLeaf(TNode x) const;
 

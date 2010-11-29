@@ -25,9 +25,8 @@
 #include "expr/attribute.h"
 #include "theory/output_channel.h"
 #include "context/context.h"
-
-#include <deque>
-#include <list>
+#include "context/cdlist.h"
+#include "context/cdo.h"
 
 #include <string>
 #include <iostream>
@@ -148,32 +147,14 @@ private:
   /**
    * The assertFact() queue.
    *
-   * This queue MUST be emptied by ANY call to check() at ANY effort
-   * level.  In debug builds, this is checked.  On backjump we clear
-   * the fact queue (see FactsResetter, below).
-   *
    * These can safely be TNodes because the literal map maintained in
    * the SAT solver keeps them live.  As an added benefit, if we have
    * them as TNodes, dtors are cheap (optimized away?).
    */
-  std::deque<TNode> d_facts;
+  context::CDList<TNode> d_facts;
 
-  /** Helper class to reset the fact queue on pop(). */
-  class FactsResetter : public context::ContextNotifyObj {
-    Theory& d_thy;
-
-  public:
-    FactsResetter(Theory& thy) :
-      context::ContextNotifyObj(thy.d_context),
-      d_thy(thy) {
-    }
-
-    void notify() {
-      d_thy.d_facts.clear();
-    }
-  } d_factsResetter;
-
-  friend class FactsResetter;
+  /** Index into the head of the facts list */
+  context::CDO<unsigned> d_factsHead;
 
 protected:
 
@@ -183,8 +164,8 @@ protected:
   Theory(int id, context::Context* ctxt, OutputChannel& out) throw() :
     d_id(id),
     d_context(ctxt),
-    d_facts(),
-    d_factsResetter(*this),
+    d_facts(ctxt),
+    d_factsHead(ctxt, 0),
     d_out(&out) {
   }
 
@@ -197,9 +178,7 @@ protected:
    * you must make an explicit call here to this->Theory::shutdown()
    * too.
    */
-  virtual void shutdown() {
-    d_facts.clear();
-  }
+  virtual void shutdown() { }
 
   /**
    * The output channel for the Theory.
@@ -210,7 +189,7 @@ protected:
    * Returns true if the assertFact queue is empty
    */
   bool done() throw() {
-    return d_facts.empty();
+    return d_factsHead == d_facts.size();
   }
 
   /** Tag for the "preRegisterTerm()-has-been-called" flag on Nodes */
@@ -224,15 +203,31 @@ protected:
    *
    * @return the next atom in the assertFact() queue.
    */
-  Node get() {
-    Assert( !d_facts.empty(),
-            "Theory::get() called with assertion queue empty!" );
-    Node fact = d_facts.front();
-    d_facts.pop_front();
+  TNode get() {
+    Assert( !done(), "Theory::get() called with assertion queue empty!" );
+    TNode fact = d_facts[d_factsHead];
+    d_factsHead = d_factsHead + 1;
     Debug("theory") << "Theory::get() => " << fact
                     << "(" << d_facts.size() << " left)" << std::endl;
     d_out->newFact(fact);
     return fact;
+  }
+
+protected:
+  typedef context::CDList<TNode>::const_iterator fact_iterator;
+
+  /**
+   * Returns an iterator to the beginning of the entire list of
+   * literals that have been asserted to the theory.
+   */
+  fact_iterator facts_begin() const{
+    return d_facts.begin();
+  }
+  /**
+   * Returns an iterator to the end of the list of asserted literals.
+   */
+  fact_iterator facts_end() const{
+    return d_facts.end();
   }
 
 public:
@@ -444,14 +439,30 @@ public:
   virtual Node getValue(TNode n, TheoryEngine* engine) = 0;
 
   /**
-   * A Theory is called with presolve exactly one time per user check-sat.
-   * presolve() is called after preregistration, rewriting, and Boolean propagation,
-   * (other theories' propagation?), but the notified Theory has not yet had its check()
-   * or propagate() method called yet.
-   * A Theory may empty its assertFact() queue using get().
-   * A Theory can raise conflicts, add lemmas, and propagate literals during presolve.
+   * The theory should only add (via .operator<< or .append()) to the
+   * "learned" builder.  It is a conjunction to add to the formula at
+   * the top-level and may contain other theories' contributions.
+   */
+  virtual void staticLearning(TNode in, NodeBuilder<>& learned) { }
+
+  /**
+   * A Theory is called with presolve exactly one time per user
+   * check-sat.  presolve() is called after preregistration,
+   * rewriting, and Boolean propagation, (other theories'
+   * propagation?), but the notified Theory has not yet had its
+   * check() or propagate() method called.  A Theory may empty its
+   * assertFact() queue using get().  A Theory can raise conflicts,
+   * add lemmas, and propagate literals during presolve().
    */
   virtual void presolve() = 0;
+
+  /**
+   * Notification sent to the theory wheneven the search restarts.
+   * Serves as a good time to do some clean-up work, and you can
+   * assume you're at DL 0 for the purposes of Contexts.  This function
+   * should not use the output channel.
+   */
+  virtual void notifyRestart() { }
 
   /**
    * Identify this theory (for debugging, dynamic configuration,

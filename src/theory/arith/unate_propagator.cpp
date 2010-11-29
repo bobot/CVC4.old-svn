@@ -374,9 +374,10 @@ void ArithUnatePropagator::addGeqToEqualities(TNode atom, OrderedSet* eqSet){
 Node unsimpLit(TNode lit){
   if(lit.getKind() == NOT){
     Node unsimpAtom = unsimpLit(lit[0]);
+    return unsimpAtom.notNode();
   }else{
     Assert(lit.hasAttribute(ReverseSimplified()));
-    return let.getAttribute(ReverseSimplified());
+    return lit.getAttribute(ReverseSimplified());
   }
 }
 

@@ -476,6 +476,10 @@ public:
   static Monomial mkOne() {
     return Monomial(Constant::mkConstant(1));
   }
+  static Monomial mkNegativeOne() {
+    return Monomial(Constant::mkConstant(-1));
+  }
+
   const Constant& getConstant() const { return constant; }
   const VarList& getVarList() const { return varList; }
 
@@ -558,9 +562,10 @@ private:
     }
   }
 
+public:
+
   bool singleton() const { return d_singleton; }
 
-public:
   static bool isMember(TNode n) {
     if(Monomial::isMember(n)){
       return true;
@@ -683,6 +688,10 @@ public:
   Polynomial operator*(const Monomial& mono) const;
 
   Polynomial operator*(const Polynomial& poly) const;
+
+  Polynomial operator-(const Polynomial& poly) const {
+    return (*this) + (poly * Monomial::mkNegativeOne());
+  }
 
 };/* class Polynomial */
 

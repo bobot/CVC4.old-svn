@@ -55,8 +55,12 @@ using namespace CVC4::theory::arith;
 struct SlackAttrID;
 typedef expr::Attribute<SlackAttrID, Node> Slack;
 
+struct IgnoreAtomID;
+typedef expr::Attribute<IgnoreAtomID, bool> IgnoreAtom;
+
 TheoryArith::TheoryArith(int id, context::Context* c, OutputChannel& out) :
   Theory(id, c, out),
+  d_setupOnline(false),
   d_constants(NodeManager::currentNM()),
   d_partialModel(c),
   d_basicManager(),
@@ -109,7 +113,7 @@ ArithVar TheoryArith::findBasicRow(ArithVar variable){
   return ARITHVAR_SENTINEL;
 }
 
-void setupAtom(Atom n){
+void TheoryArith::setupAtom(TNode n){
   Assert(Comparison::isNormalAtom(n));
   TNode left  = n[0];
   TNode right = n[1];
@@ -121,7 +125,8 @@ void setupAtom(Atom n){
     }
   }
 }
-void setupAtomList(const vector<Node>& atoms){
+
+void TheoryArith::setupAtomList(const vector<Node>& atoms){
   vector<Node>::const_iterator it = atoms.begin();
   vector<Node>::const_iterator it_end = atoms.end();
   for(; it != it_end; ++it){
@@ -134,7 +139,7 @@ void setupAtomList(const vector<Node>& atoms){
 
 void TheoryArith::preRegisterTerm(TNode n) {
 
-  Debug("arith_preregister") <<"begin arith::preRegisterTerm("<< n <<")"<< endl;
+  Debug("arith::preregister") <<"begin arith::preRegisterTerm("<< n <<")"<< endl;
 
   Kind k = n.getKind();
 
@@ -158,7 +163,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
       setupAtom(n);
     }
   }
-  Debug("arith_preregister") << "end arith::preRegisterTerm("<< n <<")"<< endl;
+  Debug("arith::preregister") << "end arith::preRegisterTerm("<< n <<")"<< endl;
 }
 
 
@@ -189,99 +194,239 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   return varX;
 }
 
-void setupOneVar(){
+void TheoryArith::setupOneVar(){
   TypeNode real_type = NodeManager::currentNM()->realType();
   Node nodeOneVar = NodeManager::currentNM()->mkVar(real_type);
   d_oneVar = requestArithVar(nodeOneVar, false);
-  Node oneVarIsOne = NodeBuilder<2>(EQUAL,nodeOneVar, d_constants.d_ONE_NODE);
+  Node oneVarIsOne = NodeBuilder<2>(EQUAL) << nodeOneVar << d_constants.d_ONE_NODE;
   d_out->lemma(oneVarIsOne);
 
 }
 
-void detectSimplications(const set<Node>& inputAsserted){
-  set<Node> asserted(inputAsserted);
+Node simplifyRec(const map<Node, Node>& simpMap, Node arithNode){
+  if(simpMap.find(arithNode) != simpMap.end()){
+    return simpMap.find(arithNode)->second;
+  }else if(arithNode.getNumChildren() > 0){
+    Node::iterator node_it = arithNode.begin();
+    Node::iterator node_it_end = arithNode.end();
+    NodeBuilder<> nb(arithNode.getKind());
+    for(; node_it != node_it_end; ++node_it) {
+      nb << simplifyRec(simpMap, *node_it);
+    }
+    return nb;
+  }else{
+    return arithNode;
+  }
+}
+
+Node TheoryArith::fakeRewrite(Node arithNode){
+  if(arithNode.getMetaKind() == metakind::CONSTANT || isTheoryLeaf(arithNode)){
+    RewriteResponse rr = postRewrite(arithNode, true);
+    Assert(rr.isDone()); // This may not be valid
+    return rr.getNode();
+  }else{
+    Assert(arithNode.getNumChildren() > 0);
+    NodeBuilder<> nb(arithNode.getKind());
+    Node::iterator it = arithNode.begin();
+    Node::iterator it_end = arithNode.end();
+    for(; it!= it_end; ++it){
+      nb << fakeRewrite(*it);
+    }
+    Node simplified = nb;
+    RewriteResponse rr = postRewrite(simplified, true);
+    Assert(rr.isDone()); // This may not be valid
+    return rr.getNode();
+  }
+}
+
+Node TheoryArith::simplify(const map<Node, Node>& simpMap, Node arithNode){
+  Node simp = simplifyRec(simpMap, arithNode);
+  if(simp != arithNode){
+    cout << "Do not check in" << endl;
+    return fakeRewrite(simp);
+  }else{
+    return arithNode;
+  }
+}
+
+map<Node, Node> TheoryArith::detectSimplifications(const set<Node>& asserted){
+  //For each equality in the set asserted
+  //  add it to simplifications after doing guassian elimination
   map<Node, Node> simplifications;
 
-  bool atFixPoint = false;
-  while(!atFixPoint){
+  Monomial negOne = Monomial::mkNegativeOne();
 
-    atFixPoint = true;
+  Debug("arith::detectSimplifications") << "<detectSimplifications>" << endl;
 
-    set<Node>::iterator it = asserted.begin();
-    set<Node>::iterator it_end = asserted.end();
-    for(; it != it_end; ++it){
-      Node assertion = *it;
+  set<Node>::iterator it = asserted.begin();
+  set<Node>::iterator it_end = asserted.end();
+  for(; it != it_end; ++it){
+    Node assertion = *it;
+    if(assertion.getKind() == EQUAL){
+      Comparison eq = Comparison::parseNormalForm(assertion);
+      const Polynomial& lhs = eq.getLeft();
+      const Constant& rhs = eq.getRight();
+      Monomial free = Monomial::mkZero();
 
-      if(assertion.getKind() == EQUAL){
-        Node lhs = assertion[0];
-        Node rhs = assertion[1];
+      Polynomial::iterator monomials_it = lhs.begin();
+      Polynomial::iterator monomials_it_end = lhs.end();
 
-        Polynomial p = parsePolynomial(lhs);
-        if(p.getSize() == 1){
-          pair<Node,Node> simp = make_pair(lhs, rhs);
-          if(!simplification.contains(lhs)){
-            simplifications.insert(make_pair(lhs, rhs));
-            atFixPoint = false;
-          }
-        }else if(p.getSize() == 2 && rhs.getValue() == 0){
-          Node v1 = p.getHead();
-          Node v2 = p.getTail();
-
-          if(!simplification.contains(v1)){
-            simplifications.insert(make_pair(v1, v2));
-            atFixPoint = false;
+      for(; monomials_it != monomials_it_end; ++monomials_it){
+        Monomial curr = *monomials_it;
+        const VarList& vl = curr.getVarList();
+        if(vl.singleton()){
+          if(simplifications.find(vl.getNode()) == simplifications.end() ){
+            free = curr;
+            break;
           }
         }
       }
-    }
-    it = asserted.begin();
-    for(; it != it_end; ++it){
-      Node assertion = *it;
-      Node simplified = simplify(simplifications, assertion);
-      if(assertion != simplified){
-        asserted.replace(assertion, simplified);
+
+      if(!free.isZero()){
+        const Constant& coeff = free.getConstant();
+        const VarList& var = free.getVarList();
+
+        Assert( coeff.getValue() != 0 );
+
+        /* Assertion must have the following form:
+         *   (coeff * var + \sum monomials_i = rhs)
+         * Introduce the following simplification:
+         *   var |-> (rhs - \sum monomials_i )/ coeff
+         */
+
+        //To get row reduced form "for free" use the simplification
+        //routine to simplify the left hand side.
+        Node simplifiedLhsNode = simplify(simplifications, lhs.getNode());
+        Polynomial simplifiedLhs = Polynomial::parsePolynomial(simplifiedLhsNode);
+        Polynomial negSimpLhs = simplifiedLhs * negOne;
+
+        Polynomial newRhs = Polynomial::parsePolynomial(rhs.getNode()) + negSimpLhs;
+        newRhs = newRhs + free;
+
+        Node coeffInv = mkRationalNode(coeff.getValue().inverse());
+        Monomial coeffInv_mono = Monomial::parseMonomial(coeffInv);
+        newRhs = newRhs * coeffInv_mono;
+
+        Debug("arith::detectSimplifications")
+          << "Adding simplification " << var.getNode() << " |-> " << newRhs.getNode() << endl;
+
+        simplifications.insert(make_pair(var.getNode(), newRhs.getNode()));
       }
     }
   }
+
+  // simplifications now contains row reduced form.
+  // The following is to get simplifications from row reduced form
+  // to row reduced echelon form.
+  map<Node, Node>::iterator simp_it = simplifications.begin();
+  map<Node, Node>::iterator simp_it_end = simplifications.end();
+  while(simp_it != simp_it_end){
+    Node var = simp_it->first;
+    Polynomial p = Polynomial::parsePolynomial( simp_it->second );
+    // var |-> p
+
+    bool requiresNoSimplification = true;
+
+    Polynomial::iterator monomials_it = p.begin();
+    Polynomial::iterator monomials_it_end = p.end();
+    for(; monomials_it != monomials_it_end; ++monomials_it){
+      Monomial m = *monomials_it;
+      Node varInRow = m.getVarList().getNode();
+
+      map<Node, Node>::iterator varInRow_it = simplifications.find(varInRow);
+      if(varInRow_it != simp_it_end ){
+        Monomial coeff = Monomial::parseMonomial(m.getConstant().getNode());
+        //If this is the case varInRow should be simplified out of p
+        Polynomial row = Polynomial::parsePolynomial(varInRow_it->second);
+        Polynomial newP = p + (row * coeff) - m;
+
+        Debug("arith::detectSimplifications")
+          << "RREF reduction " << var << " was " << p.getNode() << endl
+          << "\t" << "now " << newP.getNode() << endl;
+
+        simplifications.erase(simp_it);
+        pair<map<Node, Node>::iterator, bool>  res;
+        res = simplifications.insert(make_pair(var, newP.getNode()));
+
+        simp_it = res.first;
+        simp_it_end = simplifications.end();
+
+        requiresNoSimplification = false;
+        break;
+      }
+    }
+
+    //Only reached if the row for p is in row reduced form.
+    if(requiresNoSimplification){
+      ++simp_it;
+    }
+  }
+
+  Debug("arith::detectSimplifications") << "</detectSimplifications>" << endl;
+
   return simplifications;
 }
 
-void simplifyAtoms(const vector<Node>& atoms, const map<Node, Node>& simplifications){
+void TheoryArith::simplifyAtoms(const vector<Node>& atoms, const map<Node, Node>& simplifications){
   for(unsigned i = 0; i < atoms.size(); ++i){
     Node atom =  atoms[i];
     Node simplified = simplify(simplifications, atom);
 
-    Debug("arith::simplifyAtoms") << atom << " simplifies to " << simplified;
+    Debug("arith::simplifyAtoms") << atom << " simplifies to " << simplified << endl;
 
     atom.setAttribute(Simplified(), simplified);
+    if(simplified.getKind() == CONST_BOOLEAN){
+      //atom or its negation is now implied
+      atom.setAttribute(IgnoreAtom(), true);
+      continue;
+    }else {    //Note the reverse direction may not be unique.
+      if(simplified.hasAttribute(ReverseSimplified())){
+        Node reverse = simplified.getAttribute(ReverseSimplified());
+        Node iff = NodeBuilder<2>(kind::IFF) << atom << reverse;
+        d_out->lemma(iff);
 
-    //Note this may not be unique due to values collapsing
-    simplified.setAttribute(ReverseSimplified(), atom);
+        atom.setAttribute(IgnoreAtom(), true);
+      }else{
+        simplified.setAttribute(ReverseSimplified(), atom);
+      }
+    }
   }
 }
-
-bool detectConflicts(set<Node>& asserted, const map<Node, Node>& simplifications){
-  for(iterates over asserted){
+Node flattenAND(Node andNode){
+  Unimplemented();
+  return Node::null();
+}
+bool TheoryArith::detectConflicts(set<Node>& asserted,
+                                  const map<Node, Node>& simplifications,
+                                  Node simpJustification){
+  set<Node>::iterator it = asserted.begin();
+  set<Node>::iterator it_end = asserted.end();
+  for(; it != it_end; ++it){
     Node assertion = *it;
     Node simplified = simplify(simplifications, assertion);
     if(simplified.getKind() == CONST_BOOLEAN){
-      if(simplified.getValue<bool>() == false){
-        Node conflict = and(simplifications, assertion);
-        d_out->conflict(assertion);
+      if(simplified.getConst<bool>() == false){
+        Node conflict = NodeBuilder<2>(AND)<< simpJustification << assertion;
+        Node conflictClause = flattenAND(conflict);
+        d_out->conflict(conflictClause);
         return true;
       }
     }
   }
   return false;
 }
+Node simplifiedAtom(TNode n){
+  Assert(n.hasAttribute(Simplified()));
+  return n.getAttribute(Simplified());
+}
 
-void propagateSimplifiedAtoms(const set<Node>& asserted, const vector<Node>& atoms){
+void TheoryArith::propagateSimplifiedAtoms(const set<Node>& asserted, const vector<Node>& atoms){
   for(unsigned i = 0, size = atoms.size(); i < size; ++i){
     Node atom = atoms[i];
     Node simplified = simplifiedAtom(atom);
     if(simplified.getKind() == CONST_BOOLEAN){
       if(asserted.find(atom) == asserted.end() ){
-        if(simplified.getValue<bool>()){
+        if(simplified.getConst<bool>()){
           d_out->propagate(atom); // explanations, A THING OF THE PAST!
         }else{
           d_out->propagate(atom.notNode());
@@ -291,24 +436,90 @@ void propagateSimplifiedAtoms(const set<Node>& asserted, const vector<Node>& ato
   }
 }
 
-void presolve(){
+Node mkAnd(const set<Node>& nodes){
+  switch(nodes.size()){
+  case 0:
+    return mkBoolNode(true);
+  case 1:
+    return *nodes.begin();
+  default:
+    {
+      NodeBuilder<> andNB(AND);
+      set<Node>::const_iterator it = nodes.begin();
+      set<Node>::const_iterator it_end = nodes.end();
+      for(;it != it_end; ++it){
+        andNB << *it;
+      }
+      return andNB;
+    }
+  }
+}
+
+//Requires d_propagator to be setup with constraints.
+vector<ArithVar> TheoryArith::detectUnconstrained(){
+  vector<ArithVar> unconstrained;
+  for(ArithVar v = 0; v < d_variables.size(); ++v){
+    Node left = d_variables[v];
+
+    if(!d_propagator.hasConstraint(left)){
+      unconstrained.push_back(v);
+    }
+  }
+
+  return unconstrained;
+}
+
+void TheoryArith::ejectList(const vector<ArithVar>& unconstrained){
+  vector<ArithVar>::const_iterator unconstrained_it = unconstrained.begin();
+  vector<ArithVar>::const_iterator unconstrained_it_end = unconstrained.end();
+  for(; unconstrained_it != unconstrained_it_end; ++ unconstrained_it){
+    ArithVar var = *unconstrained_it;
+    Debug("arith::ejectList") << "uncontrained " << var << " or " << d_variables[var] << endl;
+    cout << "Do not check this in!" << endl;
+  }
+}
+
+void TheoryArith::presolve(){
+  Debug("arith::presolve") << "TheoryArith::presolve begin" << endl;
   //setupOneVar();
 
   set<Node> asserted;
-  while(!done()){
-    Node assertion = get();
+
+  fact_iterator fact_it = facts_begin();
+  fact_iterator fact_it_end = facts_end();
+  for(; fact_it != fact_it_end; ++fact_it){
+    Node assertion = *fact_it;
+    Debug("arith::presolve") << "presolve assertion" << assertion << endl;
     asserted.insert(assertion);
   }
 
-  map<Node, Node> simplifications;
-  detectSimplifications(simplifications, asserted);
+  map<Node, Node> simplifications = detectSimplifications(asserted);
 
-  if(detectConflicts(asserted, simplifications)){
+  if(Debug.isOn("arith::presolve::simplifications")){
+    map<Node, Node>::const_iterator it = simplifications.begin();
+    map<Node, Node>::const_iterator it_end = simplifications.end();
+    for(; it != it_end; ++it){
+      Node key = (*it).first;
+      Node value = (*it).second;
+      Debug("arith::presolve::simplifications") << key << " |-> " << value << endl;
+    }
+  }
+
+  //This is an overapproximation of the knowledge needed to prove the
+  //simplification map just generated.
+  Node justifySimplifications = mkAnd(asserted);
+
+  bool conflictAfterSimplifying = detectConflicts(asserted, simplifications, justifySimplifications);
+  if(conflictAfterSimplifying){
     return;
   }
   //Assume no asserted value is simplified to false
+
+  //Simplify ever atom in the system and construct the Simplified attribute.
   simplifyAtoms(d_atoms, simplifications);
-  propagateConstants(asserted, d_atoms);
+
+  //propagate atoms that have been simplified to true
+  propagateSimplifiedAtoms(asserted, d_atoms);
 
   setupAtomList(d_atoms);
 
@@ -318,24 +529,7 @@ void presolve(){
 
   d_setupOnline = true;
 
-  //Finally perform a normal check using the nodes in asserted
-  for(unsigned i=0; i < asserted.size(); ++i){
-    Node assertion = simplifiedAtom(d_asserted[i]);
-
-    bool conflictDuringAnAssert = assertionCases(assertion);
-
-    if(conflictDuringAnAssert){
-      d_partialModel.revertAssignmentChanges();
-      return;
-    }
-  }
-  Node possibleConflict = d_simplex.updateInconsistentVars();
-  if(possibleConflict != Node::null()){
-    d_partialModel.revertAssignmentChanges();
-    d_out->conflict(possibleConflict);
-  }else{
-    d_partialModel.commitAssignmentChanges();
-  }
+  check(FULL_EFFORT);
 }
 
 void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::vector<ArithVar>& variables) const{
@@ -502,10 +696,14 @@ bool TheoryArith::assertionCases(TNode assertion){
       Assert(rhs.getKind() == CONST_RATIONAL);
       ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
       DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
-      if (d_partialModel.hasLowerBound(lhsVar) && d_partialModel.hasUpperBound(lhsVar) &&
-          d_partialModel.getLowerBound(lhsVar) == rhsValue && d_partialModel.getUpperBound(lhsVar) == rhsValue) {
+      if (d_partialModel.hasLowerBound(lhsVar) &&
+          d_partialModel.hasUpperBound(lhsVar) &&
+          d_partialModel.getLowerBound(lhsVar) == rhsValue &&
+          d_partialModel.getUpperBound(lhsVar) == rhsValue) {
         NodeBuilder<3> conflict(kind::AND);
-        conflict << assertion << d_partialModel.getLowerConstraint(lhsVar) << d_partialModel.getUpperConstraint(lhsVar);
+        conflict << assertion;
+        conflict << d_partialModel.getLowerConstraint(lhsVar);
+        conflict << d_partialModel.getUpperConstraint(lhsVar);
         d_out->conflict((TNode)conflict);
       }
     }
@@ -516,7 +714,7 @@ bool TheoryArith::assertionCases(TNode assertion){
   }
 }
 
-void checkAllDisequalities(){
+void TheoryArith::checkAllDisequalities(){
   context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
   context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
   for(; it != it_end; ++ it) {
@@ -555,11 +753,18 @@ void checkAllDisequalities(){
 }
 
 void TheoryArith::check(Effort effortLevel){
+
+  //In order to delay performing the needed setup until after
+  //presolve(), quickCheck must be disabled.
+  if(quickCheckOnly(effortLevel)) return;
+
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
   while(!done()){
 
     Node assertion = get();
+
+    if(assertion.getAttribute(IgnoreAtom())) continue;
 
     //d_propagator.assertLiteral(assertion);
     bool conflictDuringAnAssert = assertionCases(assertion);
