@@ -22,6 +22,7 @@
 #define __CVC4__THEORY__ARRAYS__THEORY_ARRAYS_H
 
 #include "theory/theory.h"
+#include "util/congruence_closure.h"
 
 #include <iostream>
 
@@ -30,6 +31,35 @@ namespace theory {
 namespace arrays {
 
 class TheoryArrays : public Theory {
+
+private:
+  class CongruenceChannel {
+    TheoryArrays* d_arrays;
+
+  public:
+    CongruenceChannel(TheoryArrays* arrays) : d_arrays(arrays) {}
+    void notifyCongruent(TNode a, TNode b) {
+      d_arrays->notifyCongruent(a, b);
+    }
+  }; /* class CongruenceChannel*/
+  friend class CongruenceChannel;
+
+  /**
+   * Output channel connected to the congruence closure module.
+   */
+  CongruenceChannel d_ccChannel;
+
+  /**
+   * Instance of the congruence closure module.
+   */
+  CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::SELECT, kind::STORE)> d_cc;
+
+  /**
+   * Received a notification from the congruence closure algorithm that the two nodes
+   * a and b have been merged.
+   */
+  void notifyCongruent(TNode a, TNode b);
+
 public:
   TheoryArrays(int id, context::Context* c, OutputChannel& out);
   ~TheoryArrays();

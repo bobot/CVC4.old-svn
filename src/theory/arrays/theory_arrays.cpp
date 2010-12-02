@@ -31,7 +31,9 @@ using namespace CVC4::theory::arrays;
 
 
 TheoryArrays::TheoryArrays(int id, Context* c, OutputChannel& out) :
-  Theory(id, c, out)
+  Theory(id, c, out),
+  d_ccChannel(this),
+  d_cc(c, &d_ccChannel)
 {
 }
 
