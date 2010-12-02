@@ -251,6 +251,8 @@ public:
 
   void notifyRestart();
 
+  bool preSolve();
+
 };/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */

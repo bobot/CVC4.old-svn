@@ -127,9 +127,6 @@ void TheoryArith::setupAtom(TNode n){
   TNode right = n[1];
 
   if(d_setupOnline){
-    if(n.hasAttribute(Simplified())){
-      cout << "simplified " << n.getAttribute(Simplified()) << endl;
-    }
     Assert(!n.hasAttribute(Simplified()));
     n.setAttribute(Simplified(), n);
 
@@ -495,12 +492,14 @@ void TheoryArith::propagateSimplifiedAtoms(const set<Node>& asserted, const vect
     if(simplified.getKind() == CONST_BOOLEAN){
       if(asserted.find(atom) == asserted.end() ){
         if(simplified.getConst<bool>()){
-          cout << "propagating " << atom << endl;
-          d_out->propagate(atom); // explanations, A THING OF THE PAST!
+          Debug("arith::propagateSimplifiedAtoms") << "propagating " << atom << endl;
+          d_toPropagate.push(atom);
+          //d_out->propagate(atom); // explanations, A THING OF THE PAST!
           //Do not need to unsimplify
         }else{
-          cout << "propagating " << atom.notNode() << endl;
-          d_out->propagate(atom.notNode());
+          Debug("arith::propagateSimplifiedAtoms") << "propagating " << atom.notNode() << endl;
+          d_toPropagate.push(atom.notNode());
+          //d_out->propagate(atom.notNode());
         }
       }
     }
@@ -843,14 +842,16 @@ void TheoryArith::check(Effort effortLevel){
     //Check if the literal should be ignored.
     if(assertion.getKind() == NOT){
       if(assertion[0].getAttribute(IgnoreAtom())){
-        cout << "ignoring "<< assertion << endl;
-        cout << "\t should be covered by "<< simplifiedAtom(assertion[0]).notNode() << endl;
+        Debug("arith::check::ignoring")
+          << "ignoring "<< assertion << endl
+          << "\t should be covered by "<< simplifiedAtom(assertion[0]).notNode() << endl;
         continue;
       }
     }else{
       if(assertion.getAttribute(IgnoreAtom())){
-        cout << "ignoring "<< assertion << endl;
-        cout << "\t should be covered by "<< simplifiedAtom(assertion) << endl;
+        Debug("arith::check::ignoring")
+          << "ignoring "<< assertion << endl
+          << "\t should be covered by "<< simplifiedAtom(assertion) << endl;
         continue;
       }
     }
@@ -943,6 +944,11 @@ void TheoryArith::propagate(Effort e) {
   //     d_out->propagate(*i);
   //   }
   // }
+  while(!d_toPropagate.empty()){
+    Node lit = d_toPropagate.front();
+    d_out->propagate(lit);
+    d_toPropagate.pop();
+  }
 }
 
 Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {

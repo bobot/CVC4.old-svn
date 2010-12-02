@@ -1105,6 +1105,15 @@ lbool Solver::solve_()
         printf("===============================================================================\n");
     }
 
+    // Presolve
+    bool preSolveConflict = proxy->preSolve();
+    if (preSolveConflict) {
+      status = l_False;
+    } else {
+      // Ask the theory for propagated literals
+      propagateTheory();
+    }
+
     // Search:
     int curr_restarts = 0;
     while (status == l_Undef){

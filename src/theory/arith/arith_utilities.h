@@ -263,15 +263,15 @@ inline Node unsimplifyBoolean(TNode n){
     Assert(n.hasAttribute(ReverseSimplified()));
     return n.getAttribute(ReverseSimplified());
   }else if(n.getNumChildren() > 0){
-    NodeBuilder<> tmp(n.getKind());
+    NodeBuilder<> nb(n.getKind());
     Node::iterator n_it = n.begin();
     Node::iterator n_it_end = n.end();
     for(; n_it != n_it_end; ++n_it){
-      tmp << unsimplifyBoolean(*n_it);
+      nb << unsimplifyBoolean(*n_it);
     }
-    Node bleck(tmp);
-    cout << "unsimplify " << n << " |-> " << bleck << endl;
-    return bleck;
+    Node unsimplifiedNode(nb);
+    Debug("unsimplify") << "unsimplify " << n << " |-> " << unsimplifiedNode << endl;
+    return unsimplifiedNode;
   }else{
     return n;
   }

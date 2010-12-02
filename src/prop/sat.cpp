@@ -112,5 +112,9 @@ void SatSolver::notifyRestart() {
   d_theoryEngine->notifyRestart();
 }
 
+bool SatSolver::preSolve() {
+  return d_theoryEngine->presolve();
+}
+
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */

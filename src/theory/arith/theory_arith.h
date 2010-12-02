@@ -157,6 +157,11 @@ private:
   std::vector<Node> d_simplifiedAtoms;
   std::set<Node> d_setupAtoms;
 
+  //THIS IS NOT CONTEXT DEPENDENT, BUT IT GETS AWAY WITH IT BECAUSE IT IS USED ONLY
+  //BY PRESOLVE
+  //THIS SHOULD NEVER BE USED ANYWHERE EXCEPT PRESOLVE
+  std::queue<Node> d_toPropagate;
+
   std::map<Node,Node> detectSimplifications(const std::set<Node>& inputAsserted);
   void simplifyAtoms(const vector<Node>& atoms, const map<Node, Node>& simplifications);
   bool detectConflicts(set<Node>& asserted, const map<Node, Node>& simplifications,

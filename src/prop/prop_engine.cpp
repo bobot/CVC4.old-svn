@@ -114,18 +114,6 @@ Result PropEngine::checkSat() {
   Assert(!d_inCheckSat, "Sat solver in solve()!");
   Debug("prop") << "PropEngine::checkSat()" << endl;
 
-  // Mark that we are in the checkSat
-  
-  if(d_theoryEngine->presolve()){
-    return Result(Result::UNSAT);
-  } else {
-    // Add the propagated literals 
-    vector<TNode> literals = d_theoryEngine->getPropagatedLiterals();
-    for (unsigned i = 0; i < literals.size(); ++ i) {    
-      assertFormula(literals[i]);
-    }
-  }
-
   // Check the problem
   ScopedBool scopedBool(d_inCheckSat);
   d_inCheckSat = true;
