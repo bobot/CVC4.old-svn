@@ -115,13 +115,20 @@ Result PropEngine::checkSat() {
   Debug("prop") << "PropEngine::checkSat()" << endl;
 
   // Mark that we are in the checkSat
-  ScopedBool scopedBool(d_inCheckSat);
-  d_inCheckSat = true;
-
-  // TODO This currently ignores conflicts (a dangerous practice).
-  d_theoryEngine->presolve();
+  
+  if(d_theoryEngine->presolve()){
+    return Result(Result::UNSAT);
+  } else {
+    // Add the propagated literals 
+    vector<TNode> literals = d_theoryEngine->getPropagatedLiterals();
+    for (unsigned i = 0; i < literals.size(); ++ i) {    
+      assertFormula(literals[i]);
+    }
+  }
 
   // Check the problem
+  ScopedBool scopedBool(d_inCheckSat);
+  d_inCheckSat = true;
   bool result = d_satSolver->solve();
 
   if( result && Debug.isOn("prop") ) {

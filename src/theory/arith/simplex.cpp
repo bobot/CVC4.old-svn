@@ -92,7 +92,7 @@ bool SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_
   if(d_partialModel.aboveUpperBound(x_i, c_i, true)){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
-    d_out->conflict(conflict);
+    d_out->conflict(unsimplifyBoolean(conflict));
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     ++(d_statistics.d_statAssertLowerConflicts);
     return true;
@@ -129,7 +129,7 @@ bool SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     ++(d_statistics.d_statAssertUpperConflicts);
-    d_out->conflict(conflict);
+    d_out->conflict(unsimplifyBoolean(conflict));
     return true;
   }
 
@@ -169,7 +169,7 @@ bool SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
   if(d_partialModel.aboveUpperBound(x_i, c_i, true)){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
-    d_out->conflict(conflict);
+    d_out->conflict(unsimplifyBoolean(conflict));
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     return true;
   }
@@ -178,7 +178,7 @@ bool SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
-    d_out->conflict(conflict);
+    d_out->conflict(unsimplifyBoolean(conflict));
     return true;
   }
 

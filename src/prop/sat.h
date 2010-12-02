@@ -223,6 +223,8 @@ public:
 
   void explainPropagation(SatLiteral l, SatClause& explanation);
 
+  void getPropagatedLiterals(std::vector<SatLiteral>& output);
+
   void theoryPropagate(std::vector<SatLiteral>& output);
 
   void clearPropagatedLiterals();

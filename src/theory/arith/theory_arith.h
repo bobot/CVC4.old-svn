@@ -152,6 +152,10 @@ private:
   void setupAtomList(const vector<Node>& atoms);
   void setupOneVar();
   Node simplify(const std::map<Node, Node>& simpMap, Node arithNode);
+  Node simplifyFP(const std::map<Node, Node>& simpMap, Node arithNode);
+
+  std::vector<Node> d_simplifiedAtoms;
+  std::set<Node> d_setupAtoms;
 
   std::map<Node,Node> detectSimplifications(const std::set<Node>& inputAsserted);
   void simplifyAtoms(const vector<Node>& atoms, const map<Node, Node>& simplifications);

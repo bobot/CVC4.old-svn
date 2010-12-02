@@ -48,8 +48,8 @@ private:
 
   context::CDVector<DeltaRational> d_upperBound;
   context::CDVector<DeltaRational> d_lowerBound;
-  context::CDVector<TNode> d_upperConstraint;
-  context::CDVector<TNode> d_lowerConstraint;
+  context::CDVector<Node> d_upperConstraint;
+  context::CDVector<Node> d_lowerConstraint;
 
   bool d_deltaIsSafe;
   Rational d_delta;
@@ -70,8 +70,8 @@ public:
     d_safeAssignment(),
     d_upperBound(c, false),
     d_lowerBound(c, false),
-    d_upperConstraint(c,false),
-    d_lowerConstraint(c,false),
+    d_upperConstraint(c,true),
+    d_lowerConstraint(c,true),
     d_deltaIsSafe(false),
     d_delta(-1,1),
     d_history()

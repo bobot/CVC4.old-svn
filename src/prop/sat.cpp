@@ -47,9 +47,7 @@ void SatSolver::theoryCheck(theory::Theory::Effort effort, SatClause& conflict) 
   }
 }
 
-void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
-  // Propagate
-  d_theoryEngine->propagate();
+void SatSolver::getPropagatedLiterals(std::vector<SatLiteral>& output) {
   // Get the propagated literals
   const std::vector<TNode>& outputNodes = d_theoryEngine->getPropagatedLiterals();
   // If any literals, make a clause
@@ -59,6 +57,14 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
     SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
     output.push_back(l);
   }
+}
+
+
+void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
+  // Propagate
+  d_theoryEngine->propagate();
+  // Get the propagated literals
+  getPropagatedLiterals(output);
 }
 
 void SatSolver::explainPropagation(SatLiteral l, SatClause& explanation) {

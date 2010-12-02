@@ -253,6 +253,30 @@ inline int deltaCoeff(Kind k){
   }
 }
 
+inline Node simplifiedAtom(TNode n){
+  Assert(n.hasAttribute(Simplified()));
+  return n.getAttribute(Simplified());
+}
+
+inline Node unsimplifyBoolean(TNode n){
+  if(isRelationOperator(n.getKind())){
+    Assert(n.hasAttribute(ReverseSimplified()));
+    return n.getAttribute(ReverseSimplified());
+  }else if(n.getNumChildren() > 0){
+    NodeBuilder<> tmp(n.getKind());
+    Node::iterator n_it = n.begin();
+    Node::iterator n_it_end = n.end();
+    for(; n_it != n_it_end; ++n_it){
+      tmp << unsimplifyBoolean(*n_it);
+    }
+    Node bleck(tmp);
+    cout << "unsimplify " << n << " |-> " << bleck << endl;
+    return bleck;
+  }else{
+    return n;
+  }
+}
+
 }; /* namesapce arith */
 }; /* namespace theory */
 }; /* namespace CVC4 */
