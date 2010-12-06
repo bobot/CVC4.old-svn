@@ -24,6 +24,7 @@
 #include "theory/theory.h"
 #include "util/congruence_closure.h"
 
+#include <ext/hash_set>
 #include <iostream>
 
 namespace CVC4 {
@@ -60,11 +61,48 @@ private:
    */
   void notifyCongruent(TNode a, TNode b);
 
+  /**
+   * set of array read terms we care about
+   */
+  std::set<TNode> proxied;
+
+  /**
+   * set of terms of array type at initialization
+   */
+  std::set<TNode> array_terms;
+
 public:
   TheoryArrays(int id, context::Context* c, OutputChannel& out);
   ~TheoryArrays();
-  void preRegisterTerm(TNode n) { }
-  void registerTerm(TNode n) { }
+  void preRegisterTerm(TNode n) {
+    Debug("arrays-register") << "pre-registering "<< n << std::endl;
+    if(n.getKind() == kind::SELECT) {
+      proxied.insert(n);
+    }
+
+    if(n.getKind() == kind::STORE || n.getKind() == kind::VARIABLE) {
+      array_terms.insert(n);
+    }
+  }
+
+  void registerTerm(TNode n) {
+    Debug("arrays-register") << "registering "<< n << std::endl;
+    if(n.getKind() == kind::STORE || n.getKind() == kind::VARIABLE) {
+      for(std::set<Node>::iterator i; i != array_terms.end(); i++) {
+        if(*i != n) {
+         // add the Ext0 lemma
+          NodeManager* nm = NodeManager::currentNM();
+          Node neq1 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, n, *i));
+          Node new_var = nm->mkVar();
+          Node select0 = nm->mkNode(kind::SELECT, n, new_var);
+          Node select1 = nm->mkNode(kind::SELECT, *i, new_var);
+          Node neq2 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, select0, select1));
+          Node impl = nm->mkNode(kind::IF, neq1, neq2);
+          out.lemma(impl);
+        }
+      }
+    }
+  }
 
   RewriteResponse preRewrite(TNode in, bool topLevel) {
     Debug("arrays-rewrite") << "pre-rewriting " << in
