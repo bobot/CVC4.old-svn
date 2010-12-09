@@ -571,7 +571,7 @@ void TseitinCnfStream::convertAndAssertIte(TNode node, bool lemma, bool negated)
 void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
   Debug("cnf") << "convertAndAssert(" << node << ", negated = " << (negated ? "true" : "false") << ")" << endl;
   if (lemma) {
-    cerr << "Lemma: " << node << endl;
+    Debug("cnf::lemma") << "Lemma: " << node << endl;
   }
   d_assertingLemma = lemma;
   switch(node.getKind()) {

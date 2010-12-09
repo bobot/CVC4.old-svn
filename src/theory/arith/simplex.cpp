@@ -448,6 +448,8 @@ Node SimplexDecisionProcedure::privateUpdateInconsistentVars(){
 }
 
 
+static int conflictNum = 0;
+
 Node SimplexDecisionProcedure::generateConflictAbove(ArithVar conflictVar){
 
   ReducedRowVector* row_i = d_tableau.lookup(conflictVar);
@@ -455,10 +457,12 @@ Node SimplexDecisionProcedure::generateConflictAbove(ArithVar conflictVar){
   NodeBuilder<> nb(kind::AND);
   TNode bound = d_partialModel.getUpperConstraint(conflictVar);
 
-  Debug("arith")  << "generateConflictAbove "
-                  << "conflictVar " << conflictVar
-                  << " " << d_partialModel.getAssignment(conflictVar)
-                  << " " << bound << endl;
+  Debug("arith::generate")
+    << (conflictNum++)
+    << " generateConflictAbove "
+    << "conflictVar " << conflictVar
+    << " " << d_partialModel.getAssignment(conflictVar)
+    << " " << bound << endl;
 
   nb << bound;
 
@@ -473,13 +477,13 @@ Node SimplexDecisionProcedure::generateConflictAbove(ArithVar conflictVar){
 
     if(a_ij < d_constants.d_ZERO){
       bound =  d_partialModel.getUpperConstraint(nonbasic);
-      Debug("arith") << "below 0 " << nonbasic << " "
+      Debug("arith::generate") << "below 0 " << nonbasic << " "
                      << d_partialModel.getAssignment(nonbasic)
                      << " " << bound << endl;
       nb << bound;
     }else{
       bound =  d_partialModel.getLowerConstraint(nonbasic);
-      Debug("arith") << " above 0 " << nonbasic << " "
+      Debug("arith::generate") << " above 0 " << nonbasic << " "
                      << d_partialModel.getAssignment(nonbasic)
                      << " " << bound << endl;
       nb << bound;
@@ -495,10 +499,13 @@ Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
   NodeBuilder<> nb(kind::AND);
   TNode bound = d_partialModel.getLowerConstraint(conflictVar);
 
-  Debug("arith") << "generateConflictBelow "
-                 << "conflictVar " << conflictVar
-                 << d_partialModel.getAssignment(conflictVar) << " "
-                 << " " << bound << endl;
+  Debug("arith::generate")
+    << (conflictNum++)
+    << "generateConflictBelow "
+    << "conflictVar " << conflictVar
+    << d_partialModel.getAssignment(conflictVar) << " "
+    << " " << bound << endl;
+
   nb << bound;
 
   for(ReducedRowVector::NonZeroIterator nbi = row_i->beginNonZero(), end = row_i->endNonZero(); nbi != end; ++nbi){
@@ -511,14 +518,14 @@ Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
 
     if(a_ij < d_constants.d_ZERO){
       TNode bound = d_partialModel.getLowerConstraint(nonbasic);
-      Debug("arith") << "Lower "<< nonbasic << " "
+      Debug("arith::generate") << "Lower "<< nonbasic << " "
                      << d_partialModel.getAssignment(nonbasic) << " "
                      << bound << endl;
 
       nb << bound;
     }else{
       TNode bound = d_partialModel.getUpperConstraint(nonbasic);
-      Debug("arith") << "Upper "<< nonbasic << " "
+      Debug("arith::generate") << "Upper "<< nonbasic << " "
                      << d_partialModel.getAssignment(nonbasic) << " "
                      << bound << endl;
 

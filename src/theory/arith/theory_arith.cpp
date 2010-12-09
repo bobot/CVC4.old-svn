@@ -119,7 +119,9 @@ void TheoryArith::setupAtom(TNode n){
 
   if(d_setupAtoms.find(n) != d_setupAtoms.end()){
     if (d_setupOnline) {
-      cerr << "SPECIAL CASE: " << n << endl  << (d_setupOnline ? "online" : "not online") << endl;
+      Debug("arith::late::addition")
+        << "SPECIAL CASE: " << n << endl
+        << (d_setupOnline ? "online" : "not online") << endl;
       Node reverse;
       if (n.getAttribute(ReverseSimplified(), reverse)) {
         Node iff = NodeBuilder<2>(kind::IFF) << n << reverse;
@@ -270,7 +272,7 @@ Node TheoryArith::fakeRewrite(Node arithNode){
 Node TheoryArith::simplify(const map<Node, Node>& simpMap, Node arithNode){
   Node simp = simplifyRec(simpMap, arithNode);
   if(simp != arithNode){
-    cout << "Do not check in" << endl;
+    //cout << "Do not check in" << endl;
     return fakeRewrite(simp);
   }else{
     return arithNode;
@@ -429,7 +431,7 @@ void TheoryArith::simplifyAtoms(const vector<Node>& atoms, const map<Node, Node>
       if(simplified.hasAttribute(ReverseSimplified())){
         Node reverse = simplified.getAttribute(ReverseSimplified());
         Node iff = NodeBuilder<2>(kind::IFF) << atom << reverse;
-        cerr << "Adding: " << iff << endl;
+        Debug("arith::simplifyAtoms") << "Adding: " << iff << endl;
         d_out->lemma(iff); //Do not need to unsimplify
 
 
@@ -564,7 +566,7 @@ void TheoryArith::ejectList(const vector<ArithVar>& unconstrained){
   for(; unconstrained_it != unconstrained_it_end; ++ unconstrained_it){
     ArithVar var = *unconstrained_it;
     Debug("arith::ejectList") << "unconstrained " << var << " or " << d_variables[var] << endl;
-    cout << "Do not check this in!" << endl;
+    //cout << "Do not check this in!" << endl;
   }
 }
 
