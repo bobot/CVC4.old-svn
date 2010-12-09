@@ -234,6 +234,7 @@ Node TheoryArith::fakeRewrite(Node arithNode){
     (arithNode.getKind() == kind::NOT && arithNode[0].getKind() == CONST_BOOLEAN);
 
   if(isConstant || isTheoryLeaf(arithNode)){
+    // MAybe not handled in postRewrite
     RewriteResponse rr = postRewrite(arithNode, true);
     Assert(rr.isDone()); // This may not be valid
     return rr.getNode();
@@ -251,6 +252,7 @@ Node TheoryArith::fakeRewrite(Node arithNode){
       return simplified;
     }
 
+    // MAUBE not handled NOT true
     RewriteResponse rr = postRewrite(simplified, true);
     Assert(rr.isDone()); // This may not be valid
     return rr.getNode();
@@ -268,6 +270,7 @@ Node TheoryArith::simplify(const map<Node, Node>& simpMap, Node arithNode){
 }
 
 Node TheoryArith::simplifyFP(const map<Node, Node>& simpMap, Node arithNode){
+  // WAY SIMPLER
   Node simp = simplify(simpMap, arithNode);
   if(simp != arithNode){
     return simplifyFP(simpMap, simp);
@@ -279,6 +282,8 @@ Node TheoryArith::simplifyFP(const map<Node, Node>& simpMap, Node arithNode){
 map<Node, Node> TheoryArith::detectSimplifications(const set<Node>& asserted){
   //For each equality in the set asserted
   //  add it to simplifications after doing guassian elimination
+
+  // PASs IN THIS MAP
   map<Node, Node> simplifications;
 
   Debug("arith::detectSimplifications") << "<detectSimplifications>" << endl;
@@ -307,6 +312,7 @@ map<Node, Node> TheoryArith::detectSimplifications(const set<Node>& asserted){
         Monomial curr = *monomials_it;
         const VarList& vl = curr.getVarList();
         if(vl.singleton()){
+          // MAYBE USELESS
           if(simplifications.find(vl.getNode()) == simplifications.end() ){
             free = curr;
             break;
@@ -316,6 +322,7 @@ map<Node, Node> TheoryArith::detectSimplifications(const set<Node>& asserted){
 
       if(free.isZero()){
         Debug("arith::detectSimplifications") << "free.isZero() ";
+	// MAYBE CONFLICT
       }else{
         const Constant& coeff = free.getConstant();
         const VarList& var = free.getVarList();
@@ -388,6 +395,7 @@ map<Node, Node> TheoryArith::detectSimplifications(const set<Node>& asserted){
 
     //Only reached if the row for p is in row reduced form.
     if(requiresNoSimplification){
+      // Wouldnt need to do this if polynomials have the order of variables
       ++simp_it;
     }
   }
@@ -406,7 +414,7 @@ void TheoryArith::simplifyAtoms(const vector<Node>& atoms, const map<Node, Node>
 
     atom.setAttribute(Simplified(), simplified);
     if(simplified.getKind() == CONST_BOOLEAN){
-      //atom or its negation is now implied
+      //atom or its negation is now implied (WHAT ABOUT THE NEGATIONS OF CONSTANTS)
       atom.setAttribute(IgnoreAtom(), true);
       continue;
     }else {    //Note the reverse direction may not be unique.
@@ -429,6 +437,7 @@ void TheoryArith::simplifyAtoms(const vector<Node>& atoms, const map<Node, Node>
     }
   }
 }
+
 Node flattenAnd(Node andNode){
   Assert(andNode.getKind() == AND);
   NodeBuilder<> nb(AND);
@@ -563,6 +572,7 @@ void TheoryArith::presolve(){
     asserted.insert(assertion);
   }
 
+  // REnAME TO SOLVE_EQ
   map<Node, Node> simplifications = detectSimplifications(asserted);
 
   if(Debug.isOn("arith::presolve::simplifications")){
@@ -578,6 +588,7 @@ void TheoryArith::presolve(){
 
   //This is an overapproximation of the knowledge needed to prove the
   //simplification map just generated.
+  // Dont likE
   Node justifySimplifications = mkAnd(asserted);
 
   bool conflictAfterSimplifying = detectConflicts(asserted, simplifications, justifySimplifications);
@@ -831,9 +842,9 @@ void TheoryArith::check(Effort effortLevel){
 
   //In order to delay performing the needed setup until after
   //presolve(), quickCheck must be disabled.
-  if(quickCheckOnly(effortLevel)) return;
+  if(!d_setupOnline) return;
 
-  Debug("arith") << "TheoryArith::check begun" << std::endl;
+  Debug("arith") << "TheoryArith::check begun" << getContext()->getLevel() << std::endl;
 
   while(!done()){
 
@@ -932,6 +943,8 @@ void TheoryArith::explain(TNode n, Effort e) {
   // Debug("arith") << "arith::explain("<<explanation<<")->"
   //                << explanation << endl;
   // d_out->explanation(explanation, true);
+
+  Unreachable();
 }
 
 void TheoryArith::propagate(Effort e) {
