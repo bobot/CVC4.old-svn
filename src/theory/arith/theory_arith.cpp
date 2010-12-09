@@ -118,6 +118,14 @@ void TheoryArith::setupAtom(TNode n){
   Assert(Comparison::isNormalAtom(n));
 
   if(d_setupAtoms.find(n) != d_setupAtoms.end()){
+    if (d_setupOnline) {
+      cerr << "SPECIAL CASE: " << n << endl  << (d_setupOnline ? "online" : "not online") << endl;
+      Node reverse;
+      if (n.getAttribute(ReverseSimplified(), reverse)) {
+        Node iff = NodeBuilder<2>(kind::IFF) << n << reverse;
+        d_out->lemma(iff);
+      }
+    }
     return;
   }else{
     d_setupAtoms.insert(n);
@@ -421,7 +429,9 @@ void TheoryArith::simplifyAtoms(const vector<Node>& atoms, const map<Node, Node>
       if(simplified.hasAttribute(ReverseSimplified())){
         Node reverse = simplified.getAttribute(ReverseSimplified());
         Node iff = NodeBuilder<2>(kind::IFF) << atom << reverse;
+        cerr << "Adding: " << iff << endl;
         d_out->lemma(iff); //Do not need to unsimplify
+
 
         atom.setAttribute(IgnoreAtom(), true);
       }else{
@@ -819,6 +829,7 @@ void TheoryArith::checkAllDisequalities(){
       Debug("arith::lemma") << "Splitting on " << eq << endl;
       Debug("arith::lemma") << "LHS value = " << lhsValue << endl;
       Debug("arith::lemma") << "RHS value = " << rhsValue << endl;
+
       Node ltNode = NodeBuilder<2>(kind::LT) << lhs << rhs;
       Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
       Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;

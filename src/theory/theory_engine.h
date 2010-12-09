@@ -305,6 +305,16 @@ public:
     } catch(const theory::Interrupted&) {
       Debug("theory") << "TheoryEngine::check() => conflict" << std::endl;
     }
+
+    if(!d_theoryOut.d_conflictNode.get().isNull() && Debug.isOn("minisat::lemmas")) {
+      std::cerr << "Asserted facts in arithmetic!" << std::endl;
+      theory::Theory::fact_iterator it = d_arith->facts_begin();
+      theory::Theory::fact_iterator it_end = d_arith->facts_end();
+      for(; it != it_end; ++ it) {
+          std::cerr << *it << std::endl;
+      }
+    }
+
     // Return whether we have a conflict
     return d_theoryOut.d_conflictNode.get().isNull();
   }

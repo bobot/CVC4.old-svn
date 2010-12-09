@@ -570,6 +570,9 @@ void TseitinCnfStream::convertAndAssertIte(TNode node, bool lemma, bool negated)
 // clauses later when they are not needed anymore (lemmas for example).
 void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
   Debug("cnf") << "convertAndAssert(" << node << ", negated = " << (negated ? "true" : "false") << ")" << endl;
+  if (lemma) {
+    cerr << "Lemma: " << node << endl;
+  }
   d_assertingLemma = lemma;
   switch(node.getKind()) {
   case AND:

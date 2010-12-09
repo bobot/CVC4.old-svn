@@ -213,7 +213,8 @@ protected:
     return fact;
   }
 
-protected:
+public:
+
   typedef context::CDList<TNode>::const_iterator fact_iterator;
 
   /**
@@ -229,8 +230,6 @@ protected:
   fact_iterator facts_end() const{
     return d_facts.end();
   }
-
-public:
 
   /**
    * Destructs a Theory.  This implementation does nothing, but we

@@ -39,6 +39,8 @@ void SatSolver::theoryCheck(theory::Theory::Effort effort, SatClause& conflict) 
     Node::const_iterator literal_end = conflictNode.end();
     while (literal_it != literal_end) {
       // Get the literal corresponding to the node
+      Assert((*literal_it).getKind() != kind::AND);
+      Assert(d_cnfStream->hasLiteral(*literal_it));
       SatLiteral l = d_cnfStream->getLiteral(*literal_it);
       // Add the negation to the conflict clause and continue
       conflict.push(~l);
