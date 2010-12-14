@@ -182,6 +182,45 @@ Type::operator BitVectorType() const throw(AssertionException) {
   return BitVectorType(*this);
 }
 
+/** Cast to a Constructor type */
+Type::operator ConstructorType() const throw(AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isConstructor());
+  return ConstructorType(*this);
+}
+
+/** Is this the Constructor type? */
+bool Type::isConstructor() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isConstructor();
+}
+
+/** Cast to a Selector type */
+Type::operator SelectorType() const throw(AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isSelector());
+  return SelectorType(*this);
+}
+
+/** Is this the Selector type? */
+bool Type::isSelector() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isSelector();
+}
+
+/** Cast to a Tester type */
+Type::operator TesterType() const throw(AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isTester());
+  return TesterType(*this);
+}
+
+/** Is this the Tester type? */
+bool Type::isTester() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isTester();
+}
+
 /** Is this a function type? */
 bool Type::isFunction() const {
   NodeManagerScope nms(d_nodeManager);
@@ -345,6 +384,21 @@ BitVectorType::BitVectorType(const Type& t) throw(AssertionException) :
   Assert(isBitVector());
 }
 
+ConstructorType::ConstructorType(const Type& t) throw(AssertionException) :
+  Type(t) {
+  Assert(isConstructor());
+}
+
+SelectorType::SelectorType(const Type& t) throw(AssertionException) :
+  Type(t) {
+  Assert(isSelector());
+}
+
+TesterType::TesterType(const Type& t) throw(AssertionException) :
+  Type(t) {
+  Assert(isTester());
+}
+
 FunctionType::FunctionType(const Type& t) throw(AssertionException) :
   Type(t) {
   Assert(isFunction());
@@ -386,6 +440,10 @@ Type ArrayType::getIndexType() const {
 
 Type ArrayType::getConstituentType() const {
   return makeType(d_typeNode->getArrayConstituentType());
+}
+
+Type ConstructorType::getReturnType() const {
+  return makeType(d_typeNode->getConstructorReturnType());
 }
 
 size_t TypeHashStrategy::hash(const Type& t) {

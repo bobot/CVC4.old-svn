@@ -42,6 +42,9 @@ class IntegerType;
 class RealType;
 class BitVectorType;
 class ArrayType;
+class ConstructorType;
+class SelectorType;
+class TesterType;
 class FunctionType;
 class TupleType;
 class KindType;
@@ -252,6 +255,42 @@ public:
   operator ArrayType() const throw(AssertionException);
 
   /**
+   * Is this a constructor type?
+   * @return true if the type is a constructor type
+   */
+  bool isConstructor() const;
+
+  /**
+   * Cast this type to a constructor type
+   * @return the ConstructorType
+   */
+  operator ConstructorType() const throw(AssertionException);
+
+  /**
+   * Is this a selector type?
+   * @return true if the type is a selector type
+   */
+  bool isSelector() const;
+
+  /**
+   * Cast this type to a selector type
+   * @return the SelectorType
+   */
+  operator SelectorType() const throw(AssertionException);
+
+  /**
+   * Is this a tester type?
+   * @return true if the type is a tester type
+   */
+  bool isTester() const;
+
+  /**
+   * Cast this type to a tester type
+   * @return the TesterType
+   */
+  operator TesterType() const throw(AssertionException);
+
+  /**
    * Is this a sort kind?
    * @return true if this is a sort kind
    */
@@ -441,6 +480,44 @@ public:
    */
   unsigned getSize() const;
 };/* class BitVectorType */
+
+/**
+ * Class encapsulating the constructor type
+ */
+class CVC4_PUBLIC ConstructorType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  ConstructorType(const Type& type) throw(AssertionException);
+
+  /** Get the return type */
+  Type getReturnType() const;
+
+};/* class ConstructorType */
+
+
+/**
+ * Class encapsulating the Selector type
+ */
+class CVC4_PUBLIC SelectorType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  SelectorType(const Type& type) throw(AssertionException);
+};/* class SelectorType */
+
+/**
+ * Class encapsulating the Tester type
+ */
+class CVC4_PUBLIC TesterType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  TesterType(const Type& type) throw(AssertionException);
+};/* class TesterType */
 
 }/* CVC4 namespace */
 

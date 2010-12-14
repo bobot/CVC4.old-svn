@@ -360,6 +360,9 @@ public:
   /** Get the element type (for array types) */
   TypeNode getArrayConstituentType() const;
 
+  /** Get the return type (for constructor types) */
+  TypeNode getConstructorReturnType() const;
+
   /** Is this a function type? */
   bool isFunction() const;
 
@@ -386,6 +389,15 @@ public:
 
   /** Is this a bit-vector type of size <code>size</code> */
   bool isBitVector(unsigned size) const;
+
+  /** Is this a constructor type */
+  bool isConstructor() const;
+
+  /** Is this a selector type */
+  bool isSelector() const;
+
+  /** Is this a tester type */
+  bool isTester() const;
 
   /** Get the size of this bit-vector type */
   unsigned getBitVectorSize() const;

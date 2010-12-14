@@ -34,6 +34,7 @@
 #include "theory/arith/theory_arith.h"
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
+#include "theory/datatypes/theory_datatypes.h"
 
 using namespace std;
 
@@ -152,6 +153,7 @@ TheoryEngine::TheoryEngine(context::Context* ctxt, const Options& opts) :
   d_arith = new theory::arith::TheoryArith(3, ctxt, d_theoryOut);
   d_arrays = new theory::arrays::TheoryArrays(4, ctxt, d_theoryOut);
   d_bv = new theory::bv::TheoryBV(5, ctxt, d_theoryOut);
+  d_datatypes = new theory::datatypes::TheoryDatatypes(6, ctxt, d_theoryOut);
 
   d_sharedTermManager->registerTheory(static_cast<theory::builtin::TheoryBuiltin*>(d_builtin));
   d_sharedTermManager->registerTheory(static_cast<theory::booleans::TheoryBool*>(d_bool));
@@ -159,6 +161,7 @@ TheoryEngine::TheoryEngine(context::Context* ctxt, const Options& opts) :
   d_sharedTermManager->registerTheory(static_cast<theory::arith::TheoryArith*>(d_arith));
   d_sharedTermManager->registerTheory(static_cast<theory::arrays::TheoryArrays*>(d_arrays));
   d_sharedTermManager->registerTheory(static_cast<theory::bv::TheoryBV*>(d_bv));
+  d_sharedTermManager->registerTheory(static_cast<theory::datatypes::TheoryDatatypes*>(d_datatypes));
 
   d_theoryOfTable.registerTheory(static_cast<theory::builtin::TheoryBuiltin*>(d_builtin));
   d_theoryOfTable.registerTheory(static_cast<theory::booleans::TheoryBool*>(d_bool));
@@ -166,6 +169,7 @@ TheoryEngine::TheoryEngine(context::Context* ctxt, const Options& opts) :
   d_theoryOfTable.registerTheory(static_cast<theory::arith::TheoryArith*>(d_arith));
   d_theoryOfTable.registerTheory(static_cast<theory::arrays::TheoryArrays*>(d_arrays));
   d_theoryOfTable.registerTheory(static_cast<theory::bv::TheoryBV*>(d_bv));
+  d_theoryOfTable.registerTheory(static_cast<theory::datatypes::TheoryDatatypes*>(d_datatypes));
 }
 
 TheoryEngine::~TheoryEngine() {
@@ -616,6 +620,11 @@ Node TheoryEngine::getValue(TNode node) {
   // otherwise ask the theory-in-charge
   return theoryOf(node)->getValue(node, this);
 }/* TheoryEngine::getValue(TNode node) */
+
+void TheoryEngine::addConstructorDefinitions( std::vector<std::pair<Type, std::vector<Type> > >& defs )
+{
+  ((theory::datatypes::TheoryDatatypes*)d_datatypes)->addConstructorDefinitions( defs );
+}
 
 
 bool TheoryEngine::presolve() {

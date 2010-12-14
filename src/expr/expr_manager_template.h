@@ -237,6 +237,16 @@ public:
 
   /** Make the type of arrays with the given parameterization */
   ArrayType mkArrayType(Type indexType, Type constituentType) const;
+  
+  /** Make a type representing a constructor with the given parameterization, 
+      args should be "SelectorType"s */
+  ConstructorType mkConstructorType(const std::vector<Type>& argTypes, const Type& range) const;
+
+  /** Make a type representing a selector with the given parameterization */
+  SelectorType mkSelectorType(const Type& domain, const Type& range) const;
+
+  /** Make a type representing a tester with given parameterization */
+  TesterType mkTesterType(const ConstructorType& domain) const;
 
   /** Make a new sort with the given name. */
   SortType mkSort(const std::string& name) const;

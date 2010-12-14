@@ -264,6 +264,15 @@ public:
   void printResult(std::ostream& out) const;
 };/* class GetOptionCommand */
 
+class CVC4_PUBLIC DatatypeCommand : public Command {
+private:
+  std::vector<std::pair<Type, std::vector<Type> > > d_defs;
+public:
+  DatatypeCommand( std::vector<std::pair<Type, std::vector<Type> > >& defs );
+  void invoke(SmtEngine* smtEngine);
+  void toStream(std::ostream& out) const;
+};/* class DatatypeCommand */
+
 class CVC4_PUBLIC CommandSequence : public Command {
 private:
   /** All the commands to be executed (in sequence) */

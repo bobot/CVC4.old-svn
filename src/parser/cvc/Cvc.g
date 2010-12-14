@@ -107,6 +107,9 @@ parseCommand returns [CVC4::Command* cmd]
 command returns [CVC4::Command* cmd = 0]
 @init {
   Expr f;
+  Type t;
+  std::vector<Type> args;
+  std::vector<std::pair<Type, std::vector<Type> > > datatypes;
   Debug("parser-extra") << "command: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : ASSERT_TOK formula[f] SEMICOLON { cmd = new AssertCommand(f);   }
@@ -115,6 +118,9 @@ command returns [CVC4::Command* cmd = 0]
   | CHECKSAT_TOK SEMICOLON { cmd = new CheckSatCommand(MK_CONST(true)); }
   | PUSH_TOK SEMICOLON { cmd = new PushCommand(); }
   | POP_TOK SEMICOLON { cmd = new PopCommand(); }
+  | DATATYPE_TOK datatypeDef[t, args] { datatypes.push_back( std::pair<Type, std::vector<Type> >( t, args ) ); }
+    ( COMMA datatypeDef[t, args] { datatypes.push_back( std::pair<Type, std::vector<Type> >( t, args ) ); } )* 
+     END_TOK SEMICOLON { cmd = new DatatypeCommand( datatypes ); }
   | declaration[cmd]
   | EOF
   ;
@@ -407,13 +413,25 @@ unaryTerm[CVC4::Expr& f]
   std::vector<Expr> args;
   Debug("parser-extra") << "term: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : /* function application */
+  : /* application */
     // { isFunction(AntlrInput::tokenText(LT(1))) }?
-    functionSymbol[f]
-    { args.push_back( f ); }
+    identifier[name,CHECK_DECLARED,SYM_VARIABLE]
+    { args.push_back( PARSER_STATE->getVariable(name) ); }
     LPAREN formulaList[args] RPAREN
-    // TODO: check arity
-    { f = MK_EXPR(CVC4::kind::APPLY_UF, args); }
+    { 
+      if( PARSER_STATE->getType(name).isFunction() ){
+        f = MK_EXPR(CVC4::kind::APPLY_UF, args);
+      }else if( PARSER_STATE->getType(name).isConstructor() ){
+        Debug("parser-idt") << "apply constructor: " << name.c_str() << " " << args.size() << std::endl;
+        f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, args);
+      }else if( PARSER_STATE->getType(name).isSelector() ){
+        Debug("parser-idt") << "apply selector: " << name.c_str() << " " << args.size() << std::endl;
+        f = MK_EXPR(CVC4::kind::APPLY_SELECTOR, args);
+      }else if( PARSER_STATE->getType(name).isTester() ){
+        Debug("parser-idt") << "apply tester: " << name.c_str() << " " << args.size() << std::endl;
+        f = MK_EXPR(CVC4::kind::APPLY_TESTER, args);
+      }
+    }
 
   | /* if-then-else */
     iteTerm[f]
@@ -433,7 +451,14 @@ unaryTerm[CVC4::Expr& f]
 
   | /* variable */
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]
-    { f = PARSER_STATE->getVariable(name); }
+    { 
+      f = PARSER_STATE->getVariable(name);
+      if( PARSER_STATE->getType(name).isConstructor() ){
+        args.push_back( f );
+        args.push_back( f );   //temporary
+        f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, args);
+      }
+    }
   ;
 
 /**
@@ -480,7 +505,81 @@ functionSymbol[CVC4::Expr& f]
     { PARSER_STATE->checkFunction(name);
       f = PARSER_STATE->getVariable(name); }
   ;
-
+  
+/**
+ *
+ */
+readOrDeclBaseType[CVC4::Type& t]
+@init {
+  std::string id;
+}
+  : BOOLEAN_TOK { t = EXPR_MANAGER->booleanType(); }
+  | INT_TOK { t = EXPR_MANAGER->integerType(); }
+  | REAL_TOK { t = EXPR_MANAGER->realType(); }
+  | identifier[id,CHECK_NONE,SYM_SORT] 
+  {
+    if( PARSER_STATE->isDeclared( id, SYM_SORT ) ){
+      t = PARSER_STATE->getSort(id); 
+      Debug("parser-idt") << "get datatype: " << id.c_str() << std::endl;
+    }else{
+      t = PARSER_STATE->mkSort(id); 
+      Debug("parser-idt") << "make datatype: " << id.c_str() << std::endl;
+    }
+  }
+ ;
+ 
+/**
+ * Parses a datatype definition
+ */
+datatypeDef[CVC4::Type& type, std::vector< CVC4::Type >& args]
+@init {
+  std::string id;
+  Type consType;
+}
+  : readOrDeclBaseType[type]
+    EQUAL_TOK constructorDef[ type, consType ] { args.push_back( consType ); }
+    ( BAR_TOK constructorDef[ type, consType ] { args.push_back( consType ); } )*
+  ;
+  
+/**
+ * Parses a constructor defintion for type
+ */
+constructorDef[CVC4::Type& type, CVC4::Type& consType]
+@init {
+  std::string id;
+  std::vector< Type > args;
+  Type selType;
+}
+  : identifier[id,CHECK_UNDECLARED,SYM_SORT] (LPAREN 
+     selector[type, selType] { args.push_back(selType); } 
+     (COMMA selector[type, selType] { args.push_back(selType); } )*
+     RPAREN)?
+     { //make the constructor
+       consType = EXPR_MANAGER->mkConstructorType( args, type );
+       PARSER_STATE->mkVar( id, consType );
+       Debug("parser-idt") << "constructor: " << id.c_str() << std::endl;
+       
+       //make the tester
+       std::string testerId("is_");
+       testerId.append( id );
+       PARSER_STATE->checkDeclaration(testerId, CHECK_UNDECLARED, SYM_SORT);
+       Type testerType = EXPR_MANAGER->mkTesterType( consType );
+       PARSER_STATE->mkVar( testerId, testerType );
+     }
+  ;
+  
+selector[CVC4::Type& type, CVC4::Type& selType]
+@init {
+  std::string id;
+  Type t;
+}
+  : identifier[id,CHECK_UNDECLARED,SYM_SORT] COLON readOrDeclBaseType[t]
+    { //make the selector
+      selType = EXPR_MANAGER->mkSelectorType( type, t );
+      PARSER_STATE->mkVar( id, selType );
+      Debug("parser-idt") << "selector: " << id.c_str() << std::endl;
+    }
+  ;
 
 // Keywords
 
@@ -507,6 +606,10 @@ THEN_TOK : 'THEN';
 TRUE_TOK : 'TRUE';
 TYPE_TOK : 'TYPE';
 XOR_TOK : 'XOR';
+
+DATATYPE_TOK : 'DATATYPE';
+END_TOK : 'END';
+BAR_TOK : '|';
 
 // Symbols
 

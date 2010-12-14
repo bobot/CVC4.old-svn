@@ -26,6 +26,8 @@
 #include "theory/arith/theory_arith_type_rules.h"
 #include "theory/arrays/theory_arrays_type_rules.h"
 #include "theory/bv/theory_bv_type_rules.h"
+#include "theory/datatypes/theory_datatypes_type_rules.h"
+
 
 #include "util/Assert.h"
 #include "util/options.h"
@@ -419,6 +421,15 @@ TypeNode NodeManager::computeType(TNode n, bool check)
     break;
   case kind::BITVECTOR_SIGN_EXTEND:
     typeNode = CVC4::theory::bv::BitVectorExtendTypeRule::computeType(this, n, check);
+    break;
+  case kind::APPLY_CONSTRUCTOR:
+    typeNode = CVC4::theory::datatypes::DatatypeConstructorTypeRule::computeType(this, n, check);
+    break;
+  case kind::APPLY_SELECTOR:
+    typeNode = CVC4::theory::datatypes::DatatypeSelectorTypeRule::computeType(this, n, check);
+    break;
+  case kind::APPLY_TESTER:
+    typeNode = CVC4::theory::datatypes::DatatypeTesterTypeRule::computeType(this, n, check);
     break;
   default:
     Debug("getType") << "FAILURE" << std::endl;

@@ -529,6 +529,15 @@ public:
   /** Make the type of arrays with the given parameterization */
   inline TypeNode mkArrayType(TypeNode indexType, TypeNode constituentType);
 
+  /** Make a type representing a constructor with the given parameterization */
+  inline TypeNode mkConstructorType(const std::vector<TypeNode>& argTypes, const TypeNode& range);
+
+  /** Make a type representing a selector with the given parameterization */
+  inline TypeNode mkSelectorType(const TypeNode& domain, const TypeNode& range);
+
+  /** Make a type representing a tester with given parameterization */
+  inline TypeNode mkTesterType(const TypeNode& domain);
+
   /** Make a new (anonymous) sort of arity 0. */
   inline TypeNode mkSort();
 
@@ -743,6 +752,23 @@ inline TypeNode NodeManager::mkBitVectorType(unsigned size) {
 inline TypeNode NodeManager::mkArrayType(TypeNode indexType,
                                          TypeNode constituentType) {
   return mkTypeNode(kind::ARRAY_TYPE, indexType, constituentType);
+}
+
+
+inline TypeNode NodeManager::mkConstructorType(const std::vector<TypeNode>& typeNodes, 
+                                               const TypeNode& range) {
+  std::vector<TypeNode> sorts(typeNodes);
+  sorts.push_back(range);
+  return mkTypeNode(kind::CONSTRUCTOR_TYPE, sorts);
+}
+
+inline TypeNode NodeManager::mkSelectorType( const TypeNode& domain, const TypeNode& range ) {
+  return mkTypeNode(kind::SELECTOR_TYPE, domain, range);
+}
+
+
+inline TypeNode NodeManager::mkTesterType( const TypeNode& domain ) {
+  return mkTypeNode(kind::TESTER_TYPE, domain );
 }
 
 inline expr::NodeValue* NodeManager::poolLookup(expr::NodeValue* nv) const {

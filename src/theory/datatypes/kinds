@@ -1,0 +1,25 @@
+# kinds                                                               -*- sh -*-
+#
+# For documentation on this file format, please refer to
+# src/theory/builtin/kinds.
+#
+
+theory ::CVC4::theory::datatypes::TheoryDatatypes "theory_datatypes.h"
+
+# constructor type has a list of selector types followed by a return type
+operator CONSTRUCTOR_TYPE 1: "constructor"
+
+# selector type has domain type and a range type
+operator SELECTOR_TYPE 2 "selector"
+
+# tester type has a constructor type
+operator TESTER_TYPE 1 "tester"
+
+parameterized APPLY_CONSTRUCTOR CONSTRUCTOR_TYPE 1: "constructor application"
+
+parameterized APPLY_SELECTOR SELECTOR_TYPE 1: "selector application"
+
+parameterized APPLY_TESTER TESTER_TYPE 1: "tester application"
+
+# should have a type, followed by an array of constructors
+operator DATATYPE_DECL 1: "datatype declaration"

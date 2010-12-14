@@ -269,6 +269,26 @@ ArrayType ExprManager::mkArrayType(Type indexType, Type constituentType) const {
   return Type(d_nodeManager, new TypeNode(d_nodeManager->mkArrayType(*indexType.d_typeNode, *constituentType.d_typeNode)));
 }
 
+
+ConstructorType ExprManager::mkConstructorType(const std::vector<Type>& argTypes, const Type& range) const {
+  NodeManagerScope nms(d_nodeManager);
+  std::vector<TypeNode> typeNodes;
+  for (unsigned i = 0, i_end = argTypes.size(); i < i_end; ++ i) {
+     typeNodes.push_back(*argTypes[i].d_typeNode);
+  }
+  return Type(d_nodeManager, new TypeNode(d_nodeManager->mkConstructorType(typeNodes,*range.d_typeNode)));
+}
+
+SelectorType ExprManager::mkSelectorType(const Type& domain,const Type& range) const {
+  NodeManagerScope nms(d_nodeManager);
+  return Type(d_nodeManager, new TypeNode(d_nodeManager->mkSelectorType(*domain.d_typeNode,*range.d_typeNode)));
+}
+
+TesterType ExprManager::mkTesterType(const ConstructorType& domain) const {
+  NodeManagerScope nms(d_nodeManager);
+  return Type(d_nodeManager, new TypeNode(d_nodeManager->mkTesterType(*domain.d_typeNode)));
+}
+
 SortType ExprManager::mkSort(const std::string& name) const {
   NodeManagerScope nms(d_nodeManager);
   return Type(d_nodeManager, new TypeNode(d_nodeManager->mkSort(name)));

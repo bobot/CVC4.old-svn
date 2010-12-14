@@ -76,6 +76,11 @@ TypeNode TypeNode::getArrayConstituentType() const {
   return (*this)[1];
 }
 
+TypeNode TypeNode::getConstructorReturnType() const {
+  Assert(isConstructor());
+  return (*this)[getNumChildren()-1];
+}
+
 /** Is this a function type? */
 bool TypeNode::isFunction() const {
   return getKind() == kind::FUNCTION_TYPE;
@@ -135,6 +140,20 @@ bool TypeNode::isKind() const {
 /** Is this a bit-vector type */
 bool TypeNode::isBitVector() const {
   return getKind() == kind::BITVECTOR_TYPE;
+}
+/** Is this a constructor type */
+bool TypeNode::isConstructor() const {
+  return getKind() == kind::CONSTRUCTOR_TYPE;
+}
+
+/** Is this a selector type */
+bool TypeNode::isSelector() const {
+  return getKind() == kind::SELECTOR_TYPE;
+}
+
+/** Is this a tester type */
+bool TypeNode::isTester() const {
+  return getKind() == kind::TESTER_TYPE;
 }
 
 /** Is this a bit-vector type of size <code>size</code> */

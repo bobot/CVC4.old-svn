@@ -130,6 +130,7 @@ class TheoryEngine {
   theory::Theory* d_arith;
   theory::Theory* d_arrays;
   theory::Theory* d_bv;
+  theory::Theory* d_datatypes;
 
   /**
    * Whether or not theory registration is on.  May not be safe to
@@ -249,6 +250,7 @@ public:
     d_arith->shutdown();
     d_arrays->shutdown();
     d_bv->shutdown();
+    d_datatypes->shutdown();
   }
 
   /**
@@ -302,6 +304,7 @@ public:
       d_arith->check(effort);
       d_arrays->check(effort);
       d_bv->check(effort);
+      d_datatypes->check(effort);
     } catch(const theory::Interrupted&) {
       Debug("theory") << "TheoryEngine::check() => conflict" << std::endl;
     }
@@ -354,6 +357,7 @@ public:
     d_arith->propagate(theory::Theory::FULL_EFFORT);
     d_arrays->propagate(theory::Theory::FULL_EFFORT);
     //d_bv->propagate(theory::Theory::FULL_EFFORT);
+    //d_datatypes->propagate(theory::Theory::FULL_EFFORT);
   }
 
   inline Node getExplanation(TNode node, theory::Theory* theory) {
@@ -370,6 +374,8 @@ public:
   }
 
   Node getValue(TNode node);
+
+  void addConstructorDefinitions( std::vector<std::pair<Type, std::vector<Type> > >& defs );
 
 private:
   class Statistics {

@@ -343,6 +343,11 @@ public:
   /** Disable type checking. */
   void disableTypeChecking() { d_typeChecking = false; }
 
+  /**
+   * Add a vector of constructor defitions of the form (type, { vector of constructors for that type } )
+   */
+  void addConstructorDefinitions( std::vector<std::pair<Type, std::vector<Type> > >& defs );
+
 };/* class SmtEngine */
 
 }/* CVC4 namespace */
