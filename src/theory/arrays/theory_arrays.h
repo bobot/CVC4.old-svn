@@ -91,9 +91,11 @@ private:
   /** List of all (potential) equalities to be propagated. */
   EqLists d_equalities;
 
+  /**
+   * stores the conflicting disequality (still need to call construct
+   * conflict to get the actual explanation)
+   */
   Node d_conflict;
-
-  void appendToDiseqList(TNode of, TNode eq);
 
 public:
   TheoryArrays(int id, context::Context* c, OutputChannel& out);
@@ -112,6 +114,7 @@ public:
 
   void registerTerm(TNode n) {
     Debug("arrays-register") << "registering "<< n << std::endl;
+    /*
     if(n.getKind() == kind::STORE || n.getKind() == kind::VARIABLE) {
 
       for(std::set<TNode>::iterator it = array_terms.begin(); it != array_terms.end(); it++) {
@@ -137,6 +140,8 @@ public:
         }
       }
     }
+    */
+
   }
 
   RewriteResponse preRewrite(TNode in, bool topLevel) {
@@ -172,6 +177,16 @@ public:
   void merge(TNode a, TNode b);
   inline TNode find(TNode a);
   inline TNode debugFind(TNode a) const;
+
+  /*
+   * Helper methods
+   */
+
+  void addDiseq(TNode diseq);
+  void appendToDiseqList(TNode of, TNode eq);
+  void appendToEqList(TNode of, TNode eq);
+  Node constructConflict(TNode diseq);
+
 
 };/* class TheoryArrays */
 
