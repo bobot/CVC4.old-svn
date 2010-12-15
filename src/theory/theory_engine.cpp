@@ -182,6 +182,7 @@ TheoryEngine::~TheoryEngine() {
 }
 
 Theory* TheoryEngine::theoryOf(TypeNode t) {
+
   // FIXME: we don't yet have a Type-to-Theory map.  When we do,
   // look up the type of the var and return that Theory (?)
 
@@ -211,7 +212,9 @@ Theory* TheoryEngine::theoryOf(TNode n) {
   Assert(k >= 0 && k < kind::LAST_KIND);
 
   if(n.getMetaKind() == kind::metakind::VARIABLE) {
-    return theoryOf(n.getType());
+    // TODO: sketchy fix for arrays only
+    return d_arrays;
+    //return theoryOf(n.getType());
   } else if(k == kind::EQUAL) {
     // equality is special: use LHS
     return theoryOf(n[0]);

@@ -56,7 +56,11 @@ void TheoryArrays::addSharedTerm(TNode t) {
 void TheoryArrays::notifyEq(TNode lhs, TNode rhs) {
   Debug("arrays") << "TheoryArrays::notifyEq(): "
                   << lhs << " = " << rhs << endl;
-  // TODO: call the congruence rule if necessary
+  // FIXME: is this enough and is there a better way to do this?
+  d_unionFind.setCanon(lhs, rhs);
+  NodeManager* nm = NodeManager::currentNM();
+  Node eq = nm->mkNode(kind::EQUAL, lhs, rhs);
+  d_cc.addEquality(eq);
 }
 
 void TheoryArrays::notifyCongruent(TNode a, TNode b) {
@@ -65,7 +69,6 @@ void TheoryArrays::notifyCongruent(TNode a, TNode b) {
   if(!d_conflict.isNull()) {
     return;
   }
-
   merge(a,b);
 }
 
@@ -104,6 +107,7 @@ void TheoryArrays::check(Effort e) {
         // we got notified through notifyCongruent which called merge
         // after addTerm since we weren't watching a or b before
         Node conflict = constructConflict(d_conflict);
+        Debug("arrays")<<" conflict2 "<<conflict<<endl;
         d_conflict = Node::null();
         d_out->conflict(conflict, false);
         return;
@@ -144,6 +148,8 @@ Node TheoryArrays::getValue(TNode n, TheoryEngine* engine) {
 
 void TheoryArrays::merge(TNode a, TNode b) {
   Assert(d_conflict.isNull());
+
+  Debug("arrays-merge")<<"TheoryArrays::merge() " << a <<" and " <<b <<endl;
 
   // make "a" the one with shorter diseqList
   EqLists::iterator deq_ia = d_disequalities.find(a);
@@ -207,8 +213,8 @@ void TheoryArrays::merge(TNode a, TNode b) {
       Assert(deqn.getKind() == kind::EQUAL || deqn.getKind() == kind::IFF);
       TNode s = deqn[0];
       TNode t = deqn[1];
-      TNode sp = deqn[0];
-      TNode tp = deqn[1];
+      TNode sp = find(s);
+      TNode tp = find(t);
 
       if(find(s) == find(t)) {
         d_conflict = deqn;
@@ -241,13 +247,26 @@ Node TheoryArrays::constructConflict(TNode diseq) {
 
   // returns the reason the two terms are equal
   Node explanation = d_cc.explain(diseq[0], diseq[1]);
-  // should either be a conjunction or one equality
-  Assert(explanation.getKind() == kind::EQUAL ||
-         explanation.getKind() == kind::IFF ||
-         explanation.getKind() == kind::AND);
 
-  Debug("arrays") << "conflict constructed : " << explanation << endl;
-  return explanation;
+  NodeBuilder<> nb(kind::AND);
+
+  if(explanation.getKind() == kind::EQUAL ||
+     explanation.getKind() == kind::IFF) {
+    // if the explanation is only one literal
+    nb<<explanation;
+  }
+  else {
+    Assert(explanation.getKind() == kind::AND);
+    for(TNode::iterator i  = TNode(explanation).begin();
+        i != TNode(explanation).end(); i++) {
+      nb<<*i;
+    }
+  }
+
+  nb<<diseq.notNode();
+  Node conflict = nb;
+  Debug("arrays") << "conflict constructed : " << conflict << endl;
+  return conflict;
 }
 
 
@@ -300,5 +319,55 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
     eql = (*eq_i).second;
   }
   eql->push_back(eq);
+
+}
+
+
+
+void TheoryArrays::addRoW0Lemma(TNode n) {
+  Assert(n.getKind() == kind::SELECT);
+  TNode c = n[0];
+  TNode j = n[1];
+
+  for (std::set<TNode>::iterator it = store_terms.begin(); it != store_terms.end(); it++) {
+    if(c.getType() == (*it).getType()) {
+      TNode b = *it;
+      Assert(b.getKind() == kind::STORE);
+      TNode a = b[0];
+      TNode i = b[1];
+
+      NodeManager* nm = NodeManager::currentNM();
+      Node aj = nm->mkNode(kind::SELECT, a, j);
+      Node bj = nm->mkNode(kind::SELECT, b, j);
+      Node eq = nm->mkNode(kind::EQUAL, aj, bj);
+      Node neq = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, i, j));
+      Node impl = nm->mkNode(kind::IMPLIES, neq, eq);
+
+      d_out->lemma(impl);
+      Debug("arrays-lemma") << "array-lemma RoW0 "<< impl << std::endl;
+
+    }
+
+  }
+}
+
+void TheoryArrays::addExt0Lemma(TNode a, TNode b) {
+  // add the Ext0 lemma
+  //    for all two arrays a, b of the same type add a != b => a[i]!= b[i]
+  //    for a new variable i.
+
+  NodeManager* nm = NodeManager::currentNM();
+  Node neq1 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, a, b));
+  Node new_var = nm->mkVar(a.getType()[0]);
+  Node select0 = nm->mkNode(kind::SELECT, a, new_var);
+  Node select1 = nm->mkNode(kind::SELECT, b, new_var);
+  Node neq2 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, select0, select1));
+  Node impl = nm->mkNode(kind::IMPLIES, neq1, neq2);
+
+  d_out->lemma(impl);
+  Debug("arrays-lemma") << "array-lemma Ext0 "<< impl << std::endl;
+  // add the new terms a[i], b[i] to the list of proxied variables
+  addProxy(select0);
+  addProxy(select1);s
 
 }

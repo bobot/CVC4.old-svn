@@ -298,10 +298,10 @@ public:
     try {
       //d_builtin->check(effort);
       //d_bool->check(effort);
-      d_uf->check(effort);
-      d_arith->check(effort);
+      //d_uf->check(effort);
+      //d_arith->check(effort);
       d_arrays->check(effort);
-      d_bv->check(effort);
+      //d_bv->check(effort);
     } catch(const theory::Interrupted&) {
       Debug("theory") << "TheoryEngine::check() => conflict" << std::endl;
     }
@@ -350,8 +350,8 @@ public:
     // Do the propagation
     //d_builtin->propagate(theory::Theory::FULL_EFFORT);
     //d_bool->propagate(theory::Theory::FULL_EFFORT);
-    d_uf->propagate(theory::Theory::FULL_EFFORT);
-    d_arith->propagate(theory::Theory::FULL_EFFORT);
+    //d_uf->propagate(theory::Theory::FULL_EFFORT);
+    //d_arith->propagate(theory::Theory::FULL_EFFORT);
     d_arrays->propagate(theory::Theory::FULL_EFFORT);
     //d_bv->propagate(theory::Theory::FULL_EFFORT);
   }

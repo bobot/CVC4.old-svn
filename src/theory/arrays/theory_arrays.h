@@ -46,6 +46,9 @@ private:
   }; /* class CongruenceChannel*/
   friend class CongruenceChannel;
 
+  struct ArrayExt0Id {};
+  typedef expr::Attribute<ArrayExt0Id, bool> ArrayExt0;
+
   /**
    * Output channel connected to the congruence closure module.
    */
@@ -78,6 +81,11 @@ private:
    */
   std::set<TNode> array_terms;
 
+  /**
+   * set of the store terms at initialization
+   */
+  std::set<TNode> store_terms; //FIXME: duplicates in array_terms
+
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
   typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
 
@@ -97,50 +105,52 @@ private:
    */
   Node d_conflict;
 
+  /*
+   * Helper methods
+   */
+
+  void addDiseq(TNode diseq);
+  void appendToDiseqList(TNode of, TNode eq);
+  void appendToEqList(TNode of, TNode eq);
+  Node constructConflict(TNode diseq);
+
+  void addProxy(TNode n);
+  void addRoW0Lemma(TNode n);
+  void addExt0Lemma(TNode a, TNode b);
+
 public:
   TheoryArrays(int id, context::Context* c, OutputChannel& out);
   ~TheoryArrays();
   void preRegisterTerm(TNode n) {
-    Debug("arrays-register") << "pre-registering "<< n << std::endl;
+    Debug("arrays-register") << "pre-registering "<< n <<std::endl;
     if(n.getKind() == kind::SELECT) {
-      proxied.insert(n);
+      addProxy(n);
     }
 
     if(n.getKind() == kind::STORE || n.getKind() == kind::VARIABLE) {
       // store all the terms of type ARRAY
+      if(n.getKind() == kind::STORE) {
+        store_terms.insert(n);
+      }
       array_terms.insert(n);
     }
   }
 
   void registerTerm(TNode n) {
     Debug("arrays-register") << "registering "<< n << std::endl;
-    /*
-    if(n.getKind() == kind::STORE || n.getKind() == kind::VARIABLE) {
+
+    if( n.getKind() == kind::STORE ||
+        (n.getKind() == kind::VARIABLE && n.getType().isArray())) {
 
       for(std::set<TNode>::iterator it = array_terms.begin(); it != array_terms.end(); it++) {
         // check that the arrays are of the same type
-        if(*it != n && (*it).getType() == n.getType()) {
-          // add the Ext0 lemma
-          //    for all two arrays a, b of the same type add a != b => a[i]!= b[i]
-          //    for a new variable i.
-
-          NodeManager* nm = NodeManager::currentNM();
-          Node neq1 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, n, *it));
-          Node new_var = nm->mkVar(n.getType()[0]);
-          Node select0 = nm->mkNode(kind::SELECT, n, new_var);
-          Node select1 = nm->mkNode(kind::SELECT, *it, new_var);
-          Node neq2 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, select0, select1));
-          Node impl = nm->mkNode(kind::IMPLIES, neq1, neq2);
-
-          d_out->lemma(impl);
-          Debug("arrays-lemma") << "array-lemma "<< impl << std::endl;
-          // add the new terms a[i], b[i] to the list of proxied variables
-          proxied.insert(select0);
-          proxied.insert(select1);
+        if(*it != n && (*it).getType() == n.getType() &&
+            ! ((Node)*it).getAttribute(ArrayExt0())) {
+          addExt0Lemma(n, (*it));
         }
       }
+      n.setAttribute(ArrayExt0(), true);
     }
-    */
 
   }
 
@@ -178,14 +188,7 @@ public:
   inline TNode find(TNode a);
   inline TNode debugFind(TNode a) const;
 
-  /*
-   * Helper methods
-   */
 
-  void addDiseq(TNode diseq);
-  void appendToDiseqList(TNode of, TNode eq);
-  void appendToEqList(TNode of, TNode eq);
-  Node constructConflict(TNode diseq);
 
 
 };/* class TheoryArrays */
@@ -197,6 +200,18 @@ inline TNode TheoryArrays::find(TNode a) {
 
 inline TNode TheoryArrays::debugFind(TNode a) const {
   return d_unionFind.debugFind(a);
+}
+
+inline void TheoryArrays::addProxy(TNode n) {
+  Assert(n.getKind() == kind::SELECT);
+  if(proxied.find(n) != proxied.end()) {
+    Debug("arrays-proxy")<<"addProxy " <<  n << "already proxied \n";
+    return;
+  }
+
+  Debug("arrays-proxy")<<"addProxy " <<  n << "\n";
+  proxied.insert(n);
+  addRoW0Lemma(n);
 }
 
 }/* CVC4::theory::arrays namespace */
