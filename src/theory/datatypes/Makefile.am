@@ -8,6 +8,8 @@ noinst_LTLIBRARIES = libdatatypes.la
 libdatatypes_la_SOURCES = \
 	theory_datatypes_type_rules.h \
 	theory_datatypes.h \
-	theory_datatypes.cpp
+	theory_datatypes.cpp \
+	union_find.h \
+	union_find.cpp
 
 EXTRA_DIST = kinds

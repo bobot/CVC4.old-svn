@@ -31,24 +31,24 @@ struct DatatypeConstructorTypeRule {
     Assert(n.getKind() == kind::APPLY_CONSTRUCTOR);
     TypeNode consType = n.getOperator().getType(check);
     if( check ){
-      if( !( consType.getNumChildren()==1 && n.getNumChildren()==1 ) ){   //temporary
-        Debug("typecheck-idt") << "typecheck cons: " << n << " " << n.getNumChildren() << std::endl;
-        Debug("typecheck-idt") << "cons type: " << consType << " " << consType.getNumChildren() << std::endl;
-        if( (n.getNumChildren() != consType.getNumChildren() - 1) ){
-          throw TypeCheckingExceptionPrivate(n, "number of arguments does not match the constructor type");
-        }
-        TNode::iterator child_it = n.begin();
-        TNode::iterator child_it_end = n.end();
-        TypeNode::iterator tchild_it = consType.begin();
-        for(; child_it != child_it_end; ++child_it) {
-          TypeNode childType = (*child_it).getType(check);
-          Debug("typecheck-idt") << "typecheck cons arg: " << childType << " " << (*tchild_it) << std::endl;
-          if( childType!=(*tchild_it)[1] ){
-            throw TypeCheckingExceptionPrivate(n, "bad type for constructor argument");
-          }
-          ++tchild_it;
-        }
+      //if( !( consType.getNumChildren()==1 && n.getNumChildren()==1 ) ){   //temporary
+      Debug("typecheck-idt") << "typecheck cons: " << n << " " << n.getNumChildren() << std::endl;
+      Debug("typecheck-idt") << "cons type: " << consType << " " << consType.getNumChildren() << std::endl;
+      if( (n.getNumChildren() != consType.getNumChildren() - 1) ){
+        throw TypeCheckingExceptionPrivate(n, "number of arguments does not match the constructor type");
       }
+      TNode::iterator child_it = n.begin();
+      TNode::iterator child_it_end = n.end();
+      TypeNode::iterator tchild_it = consType.begin();
+      for(; child_it != child_it_end; ++child_it) {
+        TypeNode childType = (*child_it).getType(check);
+        Debug("typecheck-idt") << "typecheck cons arg: " << childType << " " << (*tchild_it) << std::endl;
+        if( childType!=(*tchild_it)[1] ){
+          throw TypeCheckingExceptionPrivate(n, "bad type for constructor argument");
+        }
+        ++tchild_it;
+      }
+      //}
     }
     return consType.getConstructorReturnType();
   }

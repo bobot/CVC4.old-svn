@@ -455,7 +455,7 @@ unaryTerm[CVC4::Expr& f]
       f = PARSER_STATE->getVariable(name);
       if( PARSER_STATE->getType(name).isConstructor() ){
         args.push_back( f );
-        args.push_back( f );   //temporary
+        //args.push_back( f );   //temporary
         f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, args);
       }
     }
