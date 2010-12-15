@@ -330,7 +330,7 @@ void TheoryArrays::addRoW0Lemma(TNode n) {
   TNode j = n[1];
 
   for (std::set<TNode>::iterator it = store_terms.begin(); it != store_terms.end(); it++) {
-    if(c.getType() == (*it).getType()) {
+    if(c.getType() == (*it).getType() && c != (*it)) {
       TNode b = *it;
       Assert(b.getKind() == kind::STORE);
       TNode a = b[0];
@@ -339,12 +339,22 @@ void TheoryArrays::addRoW0Lemma(TNode n) {
       NodeManager* nm = NodeManager::currentNM();
       Node aj = nm->mkNode(kind::SELECT, a, j);
       Node bj = nm->mkNode(kind::SELECT, b, j);
-      Node eq = nm->mkNode(kind::EQUAL, aj, bj);
-      Node neq = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, i, j));
-      Node impl = nm->mkNode(kind::IMPLIES, neq, eq);
+      Node lemma;
+      if( i == j ) {
+        lemma = nm->mkNode(kind::EQUAL, aj, bj);
+      } else {
+        Node eq = nm->mkNode(kind::EQUAL, aj, bj);
+        Node neq = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, i, j));
+        lemma = nm->mkNode(kind::IMPLIES, neq, eq);
+      }
 
-      d_out->lemma(impl);
-      Debug("arrays-lemma") << "array-lemma RoW0 "<< impl << std::endl;
+      if(lemma_cache.find(lemma) == lemma_cache.end()) {
+        d_out->lemma(lemma);
+        Debug("arrays-lemma") << "array-lemma RoW0 "<< lemma << std::endl;
+      }
+      else {
+        Debug("arrays-lemma") << "array-lemma RoW0 "<< lemma <<" already registered \n";
+      }
 
     }
 
@@ -356,6 +366,14 @@ void TheoryArrays::addExt0Lemma(TNode a, TNode b) {
   //    for all two arrays a, b of the same type add a != b => a[i]!= b[i]
   //    for a new variable i.
 
+  // making sure we don't add the same lemma with arguments in reverse order
+
+  if(a > b) {
+    TNode tmp = a;
+    a = b;
+    b = tmp;
+  }
+
   NodeManager* nm = NodeManager::currentNM();
   Node neq1 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, a, b));
   Node new_var = nm->mkVar(a.getType()[0]);
@@ -364,10 +382,16 @@ void TheoryArrays::addExt0Lemma(TNode a, TNode b) {
   Node neq2 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, select0, select1));
   Node impl = nm->mkNode(kind::IMPLIES, neq1, neq2);
 
-  d_out->lemma(impl);
-  Debug("arrays-lemma") << "array-lemma Ext0 "<< impl << std::endl;
-  // add the new terms a[i], b[i] to the list of proxied variables
-  addProxy(select0);
-  addProxy(select1);s
+  if(lemma_cache.find(impl) == lemma_cache.end()) {
+    d_out->lemma(impl);
+    Debug("arrays-lemma") << "array-lemma Ext0 "<< impl << std::endl;
+    // add the new terms a[i], b[i] to the list of proxied variables
+    addProxy(select0);
+    addProxy(select1);
+  }
+  else {
+    Debug("arrays-lemma") <<"array-lemma Ext0 "<< impl << "already registered \n";
+  }
+
 
 }

@@ -84,7 +84,12 @@ private:
   /**
    * set of the store terms at initialization
    */
-  std::set<TNode> store_terms; //FIXME: duplicates in array_terms
+  std::set<TNode> store_terms; //FIXME: stored twice
+
+  /**
+   * store the lemmas already learned to make sure not to add duplicates
+   */
+  std::set<TNode> lemma_cache;
 
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
   typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
@@ -144,12 +149,11 @@ public:
 
       for(std::set<TNode>::iterator it = array_terms.begin(); it != array_terms.end(); it++) {
         // check that the arrays are of the same type
-        if(*it != n && (*it).getType() == n.getType() &&
-            ! ((Node)*it).getAttribute(ArrayExt0())) {
+        if(*it != n && (*it).getType() == n.getType()) {
           addExt0Lemma(n, (*it));
         }
       }
-      n.setAttribute(ArrayExt0(), true);
+      //n.setAttribute(ArrayExt0(), true);
     }
 
   }
