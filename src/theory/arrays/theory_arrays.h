@@ -27,6 +27,7 @@
 
 #include <ext/hash_set>
 #include <iostream>
+#include <map>
 
 namespace CVC4 {
 namespace theory {
@@ -46,8 +47,16 @@ private:
   }; /* class CongruenceChannel*/
   friend class CongruenceChannel;
 
-  struct ArrayExt0Id {};
-  typedef expr::Attribute<ArrayExt0Id, bool> ArrayExt0;
+  struct ArrayRoWId {};
+  typedef expr::Attribute<ArrayRoWId, bool> ArrayRoW;
+
+  struct ArrayInStoreId {};
+  typedef expr::Attribute<ArrayInStoreId, bool> ArrayInStore;
+
+  struct ArrayInSelectId {};
+  typedef expr::Attribute<ArrayInSelectId, bool> ArrayInSelect;
+
+  const static int mode = 1;
 
   /**
    * Output channel connected to the congruence closure module.
@@ -64,6 +73,12 @@ private:
    */
 
   UnionFind<Node, NodeHashFunction> d_unionFind;
+
+  /**
+   * Union find over the relation "two arrays differ on finitely many indices"
+   * note that this includes the first union find
+   */
+  UnionFind<Node, NodeHashFunction> d_unionFindI;
 
   /**
    * Received a notification from the congruence closure algorithm that the two nodes
@@ -85,6 +100,18 @@ private:
    * set of the store terms at initialization
    */
   std::set<TNode> store_terms; //FIXME: stored twice
+
+  /**
+   * map from node to all the indices it is read at
+   */
+
+  map<TNode, std::set<TNode> > index_map;
+
+  /**
+   * map from node to all the Store's it is involved in
+   */
+
+  map<TNode, std::set<TNode> > store_map;
 
   /**
    * store the lemmas already learned to make sure not to add duplicates
@@ -119,9 +146,22 @@ private:
   void appendToEqList(TNode of, TNode eq);
   Node constructConflict(TNode diseq);
 
+  void generateLemmas(TNode a, TNode b);
+
   void addProxy(TNode n);
-  void addRoW0Lemma(TNode n);
-  void addExt0Lemma(TNode a, TNode b);
+  void addRoWLemma(TNode n);
+  void addExtLemma(TNode a, TNode b);
+  bool condRoW(TNode a, TNode b, TNode i);
+  bool condExt(TNode a, TNode b);
+
+  bool condRoW0(TNode a, TNode b, TNode i);
+  bool condExt0(TNode a, TNode b);
+
+  bool condRoW1(TNode a, TNode b, TNode i);
+  bool condExt1(TNode a, TNode b);
+
+  void setupStore(TNode n);
+  void setupSelect(TNode n);
 
 public:
   TheoryArrays(int id, context::Context* c, OutputChannel& out);
@@ -129,20 +169,25 @@ public:
   void preRegisterTerm(TNode n) {
     Debug("arrays-register") << "pre-registering "<< n <<std::endl;
     if(n.getKind() == kind::SELECT) {
-      addProxy(n);
+      setupSelect(n);
     }
 
     if(n.getKind() == kind::STORE || n.getKind() == kind::VARIABLE) {
       // store all the terms of type ARRAY
       if(n.getKind() == kind::STORE) {
-        store_terms.insert(n);
+        setupStore(n);
       }
       array_terms.insert(n);
+      d_cc.addTerm(n);
     }
   }
 
   void registerTerm(TNode n) {
     Debug("arrays-register") << "registering "<< n << std::endl;
+
+    if( n.getKind() == kind::SELECT) {
+      addRoWLemma(n);
+    }
 
     if( n.getKind() == kind::STORE ||
         (n.getKind() == kind::VARIABLE && n.getType().isArray())) {
@@ -150,10 +195,9 @@ public:
       for(std::set<TNode>::iterator it = array_terms.begin(); it != array_terms.end(); it++) {
         // check that the arrays are of the same type
         if(*it != n && (*it).getType() == n.getType()) {
-          addExt0Lemma(n, (*it));
+          addExtLemma(n, (*it));
         }
       }
-      //n.setAttribute(ArrayExt0(), true);
     }
 
   }
@@ -192,11 +236,23 @@ public:
   inline TNode find(TNode a);
   inline TNode debugFind(TNode a) const;
 
+  inline TNode findI(TNode a);
+  inline TNode debugFindI(TNode a) const;
+
+  inline void setCanon(TNode a, TNode b);
+
 
 
 
 };/* class TheoryArrays */
 
+inline void TheoryArrays::setCanon(TNode a, TNode b) {
+  d_unionFind.setCanon(a, b);
+
+  if(mode> 0) {
+    d_unionFindI.setCanon(findI(a), findI(b));
+  }
+}
 
 inline TNode TheoryArrays::find(TNode a) {
   return d_unionFind.find(a);
@@ -206,17 +262,90 @@ inline TNode TheoryArrays::debugFind(TNode a) const {
   return d_unionFind.debugFind(a);
 }
 
-inline void TheoryArrays::addProxy(TNode n) {
-  Assert(n.getKind() == kind::SELECT);
-  if(proxied.find(n) != proxied.end()) {
-    Debug("arrays-proxy")<<"addProxy " <<  n << "already proxied \n";
-    return;
+inline TNode TheoryArrays::findI(TNode a) {
+  return d_unionFindI.find(a);
+}
+
+inline TNode TheoryArrays::debugFindI(TNode a) const {
+  return d_unionFindI.debugFind(a);
+}
+
+
+inline bool TheoryArrays::condRoW(TNode b, TNode c, TNode i) {
+  switch(mode){
+  case 0: {
+    return condRoW0(b, c, i);
+    break;
+  }
+  case 1: {
+    return condRoW1(b, c, i);
+    break;
+  }
+  default:
+    Unhandled("Unknown arrays mode \n");
   }
 
-  Debug("arrays-proxy")<<"addProxy " <<  n << "\n";
-  proxied.insert(n);
-  addRoW0Lemma(n);
 }
+
+
+inline bool TheoryArrays::condExt(TNode a, TNode b) {
+  switch(mode){
+  case 0: {
+    return condExt0(a, b);
+    break;
+  }
+  case 1: {
+    return condExt1(a, b);
+    break;
+  }
+  default:
+    Unhandled("Unknown arrays mode \n");
+  }
+
+}
+
+
+inline void TheoryArrays::setupStore(TNode n) {
+  Assert(n.getKind() == kind::STORE);
+  if(store_map.find(n) == store_map.end()) {
+    std::set<TNode> ss;
+    ss.insert(n[0]);
+    store_map[n] = ss;
+  }
+  else {
+    std::set<TNode> ss = store_map[n];
+    ss.insert(n[0]);
+    store_map[n] = ss;
+  }
+
+  store_terms.insert(n);
+  n[0].setAttribute(ArrayInStore(), true);
+  if(mode > 0) {
+    TNode n1 = n[0];
+    n1 = findI(n1);
+    n = findI(n);
+    d_unionFindI.setCanon(n, n1);
+  }
+
+}
+
+inline void TheoryArrays::setupSelect(TNode n) {
+  Assert(n.getKind()== kind::SELECT);
+  if(index_map.find(n) == index_map.end()) {
+    std::set<TNode> is;
+    is.insert(n[1]);
+    index_map[n] = is;
+  }
+  else {
+    std::set<TNode> is = index_map[n];
+    is.insert(n[1]);
+    index_map[n] = is;
+  }
+
+  proxied.insert(n);
+  n[0].setAttribute(ArrayInSelect(), true);
+}
+
 
 }/* CVC4::theory::arrays namespace */
 }/* CVC4::theory namespace */

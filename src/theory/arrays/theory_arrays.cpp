@@ -36,6 +36,7 @@ TheoryArrays::TheoryArrays(int id, Context* c, OutputChannel& out) :
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
+  d_unionFindI(c),
   d_disequalities(c),
   d_equalities(c),
   d_conflict()
@@ -57,7 +58,7 @@ void TheoryArrays::notifyEq(TNode lhs, TNode rhs) {
   Debug("arrays") << "TheoryArrays::notifyEq(): "
                   << lhs << " = " << rhs << endl;
   // FIXME: is this enough and is there a better way to do this?
-  d_unionFind.setCanon(lhs, rhs);
+  setCanon(lhs, rhs);
   NodeManager* nm = NodeManager::currentNM();
   Node eq = nm->mkNode(kind::EQUAL, lhs, rhs);
   d_cc.addEquality(eq);
@@ -91,6 +92,7 @@ void TheoryArrays::check(Effort e) {
         return;
       }
       merge(assertion[0], assertion[1]);
+      generateLemmas(assertion[0], assertion[1]);
       break;
     case kind::NOT:
     {
@@ -118,6 +120,8 @@ void TheoryArrays::check(Effort e) {
         return;
         }
       Assert(!d_cc.areCongruent(a,b));
+      // FIXME: no need to call lemma generation since a disequality does now change
+      // lemma application conditions?
       break;
     }
     default:
@@ -126,6 +130,8 @@ void TheoryArrays::check(Effort e) {
   }
 
   Debug("arrays") << "TheoryArrays::check(): done" << endl;
+
+  //TODO: start generating lemmas now.
 }
 
 Node TheoryArrays::getValue(TNode n, TheoryEngine* engine) {
@@ -171,7 +177,7 @@ void TheoryArrays::merge(TNode a, TNode b) {
   }
 
   // b becomes the canon of a
-  d_unionFind.setCanon(a, b);
+  setCanon(a, b);
 
   deq_ia = d_disequalities.find(a);
   map<TNode, TNode> alreadyDiseqs;
@@ -323,18 +329,48 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
 }
 
 
+bool TheoryArrays::condRoW0(TNode a, TNode b, TNode j) {
+  Assert(b.getKind() == kind::STORE);
+  return (a.getType() == b.getType() && a!= b);
+}
 
-void TheoryArrays::addRoW0Lemma(TNode n) {
+bool TheoryArrays::condRoW1(TNode c, TNode b, TNode j) {
+  Assert(b.getKind() == kind::STORE);
+  TNode a = b[0];
+  TNode i = b[1];
+  Debug("arrays-lemma")<<"CondRoW1 "<<c<<" "<< b <<"\n finds "<<findI(c)<<" "<<findI(b)<<"\n";
+  return (a.getType() == b.getType() && a!= b &&
+          findI(c)==findI(a) &&
+          find(i) != find(j));
+}
+
+void TheoryArrays::addRoWLemma(TNode n) {
   Assert(n.getKind() == kind::SELECT);
+
   TNode c = n[0];
   TNode j = n[1];
 
-  for (std::set<TNode>::iterator it = store_terms.begin(); it != store_terms.end(); it++) {
-    if(c.getType() == (*it).getType() && c != (*it)) {
+  // if rule already fired with j no need to do it again
+  // since the store operations are constant
+
+  if(j.getAttribute(ArrayRoW())) {
+      //Debug("arrays-lemma")<<"arrays RoW redunandant "<<j <<"\n";
+      return;
+    }
+
+    for (std::set<TNode>::iterator it = store_terms.begin(); it != store_terms.end(); it++) {
+    if(condRoW(c, *it, j)) {
+      j.setAttribute(ArrayRoW(), true);
       TNode b = *it;
       Assert(b.getKind() == kind::STORE);
       TNode a = b[0];
       TNode i = b[1];
+
+      if(a < b) {
+        TNode temp = a;
+        a = b;
+        b = temp;
+      }
 
       NodeManager* nm = NodeManager::currentNM();
       Node aj = nm->mkNode(kind::SELECT, a, j);
@@ -348,25 +384,35 @@ void TheoryArrays::addRoW0Lemma(TNode n) {
         lemma = nm->mkNode(kind::IMPLIES, neq, eq);
       }
 
-      if(lemma_cache.find(lemma) == lemma_cache.end()) {
+      if(lemma_cache.find((TNode)lemma) == lemma_cache.end()) {
         d_out->lemma(lemma);
-        Debug("arrays-lemma") << "array-lemma RoW0 "<< lemma << std::endl;
+        Debug("arrays-lemma") << "array-lemma RoW0 for "<<n <<" is "<< lemma << std::endl;
       }
-      else {
-        Debug("arrays-lemma") << "array-lemma RoW0 "<< lemma <<" already registered \n";
-      }
-
     }
 
   }
 }
 
-void TheoryArrays::addExt0Lemma(TNode a, TNode b) {
+bool TheoryArrays::condExt0(TNode a, TNode b) {
+  return (a.getType() == b.getType() && a.getType().isArray());
+}
+
+bool TheoryArrays::condExt1(TNode a, TNode b) {
+  Debug("arrays-lemma")<<"CondExt1 "<<a<<" "<< b <<"\n finds "<<findI(a)<<" "<<findI(b)<<"\n";
+  return (a.getType() == b.getType() && a.getType().isArray() &&
+          findI(a) == findI(b) && find(a) != find(b) );
+}
+
+void TheoryArrays::addExtLemma(TNode a, TNode b) {
   // add the Ext0 lemma
   //    for all two arrays a, b of the same type add a != b => a[i]!= b[i]
   //    for a new variable i.
 
   // making sure we don't add the same lemma with arguments in reverse order
+
+  if(!condExt (a, b)) {
+    return;
+  }
 
   if(a > b) {
     TNode tmp = a;
@@ -382,16 +428,84 @@ void TheoryArrays::addExt0Lemma(TNode a, TNode b) {
   Node neq2 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, select0, select1));
   Node impl = nm->mkNode(kind::IMPLIES, neq1, neq2);
 
-  if(lemma_cache.find(impl) == lemma_cache.end()) {
+  if(lemma_cache.find((TNode)impl) == lemma_cache.end()) {
     d_out->lemma(impl);
     Debug("arrays-lemma") << "array-lemma Ext0 "<< impl << std::endl;
-    // add the new terms a[i], b[i] to the list of proxied variables
-    addProxy(select0);
-    addProxy(select1);
+    // only need to do the lemma for one
+    // note that they get proxied during pre-registration
+    addRoWLemma(select0);
+    //addRoW0Lemma(select1);
   }
   else {
     Debug("arrays-lemma") <<"array-lemma Ext0 "<< impl << "already registered \n";
   }
 
+
+}
+
+/**
+ * generate new lemmas after receiving a new equality
+ * if possible (some of the lemma side conditions might
+ * have been enabled by the equality)
+ */
+
+void TheoryArrays::generateLemmas(TNode a, TNode b) {
+  // if one of them is proxied indirectly i.e. proxied containts b[i] (add attribute)
+  // the other one is involved in a STORE (or many?) (add in STORE attribute?)
+  // don't  just add lemma, make it dependant on the equality
+
+  // need to store lists of all the indices a certain node is looked at?
+
+
+  // generating RoW lemmas
+  // TODO check reverse order
+
+
+  if(b.getAttribute(ArrayInStore()) && a.getAttribute(ArrayInSelect()) &&
+        a.getType() == b.getType() && a.getType().isArray()) {
+    TNode temp = a;
+    a = b;
+    b = temp;
+  }
+
+  if(a.getAttribute(ArrayInStore()) && b.getAttribute(ArrayInSelect()) &&
+      a.getType() == b.getType() && a.getType().isArray()) {
+    set<TNode> indices = index_map[b];
+    set<TNode> stores = store_map[a];
+
+    for(set<TNode>::iterator ii = indices.begin(); ii!= indices.end(); ii++) {
+      for(set<TNode>::iterator ci = stores.begin(); ci != stores.end(); ci++ ) {
+       TNode c = *ci;
+       TNode i = *ii;
+       Assert(c.getKind() == kind::STORE || a.getKind() == kind::STORE);
+       // get the j from either one
+       TNode j;
+       if(c.getKind() == kind::STORE) {
+         j = c[1];
+       }
+       else {
+         j = a[1];
+       }
+       // want to create the lemma
+       // a = b => i!= j => c[i] = a[i]
+       // actually don't need to add the equality it is a valid lemma anyway
+
+       NodeManager* nm = NodeManager::currentNM();
+       Node neq1 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, i, j));
+       Node select0 = nm->mkNode(kind::SELECT, c, i);
+       Node select1 = nm->mkNode(kind::SELECT, a, i);
+       Node eq1 = nm->mkNode(kind::EQUAL,select0, select1);
+       Node lemma = nm->mkNode(kind::IMPLIES, neq1, eq1);
+       d_out->lemma(lemma);
+
+      }
+    }
+
+  }
+
+  // generating Ext1 lemmas
+  if(findI(a) == findI(b) && find(a) != find(b)) {
+    addExtLemma(a, b);
+  }
 
 }
