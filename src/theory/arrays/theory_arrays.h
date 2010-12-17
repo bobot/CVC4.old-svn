@@ -117,7 +117,7 @@ private:
   /**
    * store the lemmas already learned to make sure not to add duplicates
    */
-  std::set<TNode> lemma_cache;
+  std::set<Node> lemma_cache;
 
   /**
    * cache of values the Ext rule was called on to make
@@ -157,7 +157,7 @@ private:
   void generateLemmas(TNode a, TNode b);
 
   void addProxy(TNode n);
-  void addRoWLemma(TNode n);
+  void addRoWLemma(TNode a, TNode b, TNode i);
   void addExtLemma(TNode a, TNode b);
   bool condRoW(TNode a, TNode b, TNode i);
   bool condExt(TNode a, TNode b);
@@ -174,6 +174,15 @@ private:
   bool hasExtLemma(TNode a, TNode b);
 
   void generateLemmas();
+
+  // === STATISTICS ===
+  KEEP_STATISTIC(IntStat,
+                 d_numExtLemmas,
+                 "theory::arrays::ExtLemmas", 0);
+  KEEP_STATISTIC(IntStat,
+                   d_numRoWLemmas,
+                   "theory::arrays::RoWLemmas", 0);
+
 
 public:
   TheoryArrays(int id, context::Context* c, OutputChannel& out);
@@ -199,7 +208,7 @@ public:
     case kind::EQUAL:
       break;
     default:
-      Unhandled("arrays: Unknown kind in preregistration. \n");
+     Unhandled("arrays: Unknown kind in preregistration. \n");
     }
 
     d_cc.addTerm(n);
@@ -212,17 +221,25 @@ public:
           return;
 
     if( n.getKind() == kind::SELECT) {
-      addRoWLemma(n);
+      Assert(n.getKind() == kind::SELECT);
+
+      TNode c = n[0];
+      TNode j = n[1];
+
+      if(j.getAttribute(ArrayRoW()))
+        return;
+
+      for (std::set<TNode>::iterator it = store_terms.begin(); it != store_terms.end(); it++) {
+        addRoWLemma(*it, n, j);
+        j.setAttribute(ArrayRoW(), true);
+      }
     }
 
     if( n.getKind() == kind::STORE ||
         (n.getKind() == kind::VARIABLE && n.getType().isArray())) {
 
       for(std::set<TNode>::iterator it = array_terms.begin(); it != array_terms.end(); it++) {
-        // check that the arrays are of the same type
-        if(*it != n && (*it).getType() == n.getType()) {
-          addExtLemma(n, (*it));
-        }
+         addExtLemma(n, (*it));
       }
     }
 
@@ -345,19 +362,23 @@ inline void TheoryArrays::setupStore(TNode n) {
   }
 
   store_terms.insert(n);
-  n[0].setAttribute(ArrayInStore(), true);
+
+  //n[0].setAttribute(ArrayInStore(), true);
   if(mode > 0) {
     TNode n1 = n[0];
     n1 = findI(n1);
     n = findI(n);
     d_unionFindI.setCanon(n, n1);
   }
+
   array_terms.insert(n);
+
 
 }
 
 inline void TheoryArrays::setupSelect(TNode n) {
   Assert(n.getKind()== kind::SELECT);
+  /*
   if(index_map.find(n) == index_map.end()) {
     std::set<TNode> is;
     is.insert(n[1]);
@@ -368,9 +389,11 @@ inline void TheoryArrays::setupSelect(TNode n) {
     is.insert(n[1]);
     index_map[n] = is;
   }
+  */
 
   proxied.insert(n);
-  n[0].setAttribute(ArrayInSelect(), true);
+  //n[0].setAttribute(ArrayInSelect(), true);
+
 }
 
 
