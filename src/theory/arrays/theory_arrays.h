@@ -108,7 +108,8 @@ private:
   map<TNode, std::set<TNode> > index_map;
 
   /**
-   * map from node to all the Store's it is involved in
+   * map from an array a to all arrays it differs from on
+   * only one position
    */
 
   map<TNode, std::set<TNode> > store_map;
@@ -117,6 +118,13 @@ private:
    * store the lemmas already learned to make sure not to add duplicates
    */
   std::set<TNode> lemma_cache;
+
+  /**
+   * cache of values the Ext rule was called on to make
+   * sure we don't generate multiple lemmas for the same arrays
+   */
+
+  std::set<std::pair<TNode,TNode> > ext_cache;
 
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
   typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
@@ -163,27 +171,45 @@ private:
   void setupStore(TNode n);
   void setupSelect(TNode n);
 
+  bool hasExtLemma(TNode a, TNode b);
+
+  void generateLemmas();
+
 public:
   TheoryArrays(int id, context::Context* c, OutputChannel& out);
   ~TheoryArrays();
   void preRegisterTerm(TNode n) {
     Debug("arrays-register") << "pre-registering "<< n <<std::endl;
-    if(n.getKind() == kind::SELECT) {
+
+    switch(n.getKind()) {
+    case kind::SELECT: {
       setupSelect(n);
+      break;
+    }
+    case kind::STORE: {
+      setupStore(n);
+      break;
+    }
+    case kind::VARIABLE: {
+      if(n.getType().isArray()) {
+        array_terms.insert(n);
+      }
+      break;
+    }
+    case kind::EQUAL:
+      break;
+    default:
+      Unhandled("arrays: Unknown kind in preregistration. \n");
     }
 
-    if(n.getKind() == kind::STORE || n.getKind() == kind::VARIABLE) {
-      // store all the terms of type ARRAY
-      if(n.getKind() == kind::STORE) {
-        setupStore(n);
-      }
-      array_terms.insert(n);
-      d_cc.addTerm(n);
-    }
+    d_cc.addTerm(n);
   }
 
   void registerTerm(TNode n) {
     Debug("arrays-register") << "registering "<< n << std::endl;
+
+    if(mode != 0)
+          return;
 
     if( n.getKind() == kind::SELECT) {
       addRoWLemma(n);
@@ -326,6 +352,7 @@ inline void TheoryArrays::setupStore(TNode n) {
     n = findI(n);
     d_unionFindI.setCanon(n, n1);
   }
+  array_terms.insert(n);
 
 }
 
