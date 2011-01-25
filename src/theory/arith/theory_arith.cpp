@@ -174,11 +174,11 @@ void TheoryArith::preRegisterTerm(TNode n) {
 
   bool isStrictlyVarList = k == kind::MULT && VarList::isMember(n);
 
-  if(isStrictlyVarList){
+  if(isStrictlyVarList && d_setupOnline){
     d_out->setIncomplete();
   }
 
-  if(isTheoryLeaf(n) || isStrictlyVarList){
+  if(isTheoryLeaf(n) || (isStrictlyVarList && d_setupOnline)){
     ++(d_statistics.d_statUserVariables);
     ArithVar varN = requestArithVar(n,false);
     setupInitialValue(varN);
