@@ -55,6 +55,7 @@
 
 #include "theory/output_channel.h"
 #include "theory/arith/ordered_set.h"
+#include <queue>
 
 namespace CVC4 {
 namespace theory {
@@ -66,10 +67,10 @@ private:
    * OutputChannel for the theory of arithmetic.
    * The propagator uses this to pass implications back to the SAT solver.
    */
-  OutputChannel& d_arithOut;
+  std::queue<Node>& d_lemmasQueue;
 
 public:
-  ArithUnatePropagator(context::Context* cxt, OutputChannel& arith);
+  ArithUnatePropagator(std::queue<Node>& q);
 
   /**
    * Adds an atom to the propagator.

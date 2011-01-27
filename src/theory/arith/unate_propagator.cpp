@@ -39,8 +39,8 @@ typedef expr::Attribute<PropagatorEqSetID, OrderedSet*, SetCleanupStrategy> Prop
 struct PropagatorGeqSetID {};
 typedef expr::Attribute<PropagatorGeqSetID, OrderedSet*, SetCleanupStrategy> PropagatorGeqSet;
 
-ArithUnatePropagator::ArithUnatePropagator(context::Context* cxt, OutputChannel& out) :
-  d_arithOut(out)
+ArithUnatePropagator::ArithUnatePropagator(std::queue<Node>& q) :
+  d_lemmasQueue(q)
 { }
 
 bool ArithUnatePropagator::leftIsSetup(TNode left){
@@ -377,5 +377,5 @@ void ArithUnatePropagator::addImplication(TNode a, TNode b){
   Debug("arith-propagate") << "ArithUnatePropagator::addImplication";
   Debug("arith-propagate") << "(" << a << ", " << b <<")" << endl;
 
-  d_arithOut.lemma(imp);
+  d_lemmasQueue.push(imp);
 }

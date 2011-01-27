@@ -56,6 +56,43 @@ inline void setArithVar(TNode x, ArithVar a){
   return x.setAttribute(ArithVarAttr(), (uint64_t)a);
 }
 
+typedef uint64_t TimeStamp;
+struct TimeStampAttrID{};
+typedef expr::Attribute<TimeStampAttrID, uint64_t> TimeStampAttr;
+
+#define DEFAULT_TIMESTAMP 0
+
+inline bool hasTimeStamp(TNode x){
+  return x.hasAttribute(TimeStampAttr());
+}
+inline TimeStamp getTimeStamp(TNode x){
+  TimeStamp ret;
+  if(x.getAttribute(TimeStampAttr(), ret)){
+    return ret;
+  }else{
+    return DEFAULT_TIMESTAMP;
+  }
+}
+inline void setTimeStamp(TNode x, TimeStamp t){
+  return x.setAttribute(TimeStampAttr(), t);
+}
+
+struct SimplifiedAttrID{};
+typedef expr::Attribute<SimplifiedAttrID, Node> SimplifiedAttr;
+
+inline bool hasSimplifiedNode(TNode x){
+  return x.hasAttribute(SimplifiedAttr());
+}
+inline Node getSimplifiedNode(TNode x){
+  Assert(hasSimplifiedNode(x));
+  return x.getAttribute(SimplifiedAttr());
+}
+
+inline void setSimplifiedNode(TNode x, Node simp){
+  return x.setAttribute(SimplifiedAttr(), simp);
+}
+
+
 typedef std::vector<uint64_t> ActivityMonitor;
 
 

@@ -124,7 +124,7 @@ namespace arith {
  */
 
 /**
- * Section 3: Guard Conditions Misc.
+ * Section 3:  Misc. Guard Conditions
  *
  *
  *  var_list_len vl =
@@ -562,9 +562,9 @@ private:
     }
   }
 
+public:
   bool singleton() const { return d_singleton; }
 
-public:
   static bool isMember(TNode n) {
     if(Monomial::isMember(n)){
       return true;

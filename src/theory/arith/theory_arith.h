@@ -32,13 +32,16 @@
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
 #include "theory/arith/arith_rewriter.h"
+#include "theory/arith/arith_simp.h"
 #include "theory/arith/partial_model.h"
 #include "theory/arith/unate_propagator.h"
 #include "theory/arith/simplex.h"
+#include "theory/arith/disjoint_set_forest.h"
 
 #include "util/stats.h"
 
 #include <vector>
+#include <set>
 #include <queue>
 
 namespace CVC4 {
@@ -53,15 +56,33 @@ namespace arith {
 class TheoryArith : public Theory {
 private:
 
-  /* TODO Everything in the chopping block needs to be killed. */
-  /* Chopping block begins */
-
   std::vector<Node> d_splits;
   //This stores the eager splits sent out of the theory.
 
-  /* Chopping block ends */
-
   std::vector<Node> d_variables;
+  //This stores the variables sent to the theory.
+
+  std::set<Node> d_simplifiedNegatations;
+  //This stores the set of simplified negated atoms
+  //The purpose of this set is to ensure attributes cannot be deleted,
+  //and to prevent nodes from being registered a second time.
+
+  DisjointSetForest d_preregisteredAtoms;
+  /* This stores the set of atoms that have been preregistered with the theory.
+   * Only atoms in this set can be returned by the theory in conflicts,
+   * and propagated.
+   * Two atoms are in the same equivalence class iff their rewritten,
+   * and simplified form is the same thing.
+   */
+
+  /** Module for handling simplifications. */
+  ArithSimp d_simplifier;
+
+  TimeStamp d_currentTime;
+
+
+  std::queue<Node> d_lemmasQueue;
+
 
   /**
    * Priority Queue of the basic variables that may be inconsistent.
@@ -110,8 +131,15 @@ public:
   void registerTerm(TNode n);
 
   void check(Effort e);
-  void propagate(Effort e);
-  void explain(TNode n);
+
+  void propagate(Effort e){
+    while(!d_lemmasQueue.empty()){
+      d_out->lemma(d_lemmasQueue.front());
+      d_lemmasQueue.pop();
+    }
+  }
+  void explain(TNode n) {} //Currently unused
+  void notifyRestart() { resetInternalState(); }
 
   void notifyEq(TNode lhs, TNode rhs);
 
@@ -121,7 +149,8 @@ public:
 
   void presolve(){
     static int callCount = 0;
-    Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
+    Debug("arith::presolve") << "TheoryArith::presolve #"
+                             << (callCount++) << endl;
     check(FULL_EFFORT);
   }
 
@@ -143,10 +172,31 @@ private:
   void setupInitialValue(ArithVar x);
 
   /** Initial (not context dependent) sets up for a new slack variable.*/
-  void setupSlack(TNode left);
+  void setupSlack(Polynomial left);
+
+  /** Lazily simplify and setup as necessary. */
+  Node lazySimplifyAndSetup(TNode lit);
+
+  /** Setup the literal, atom and monomial as needed. */
+  void arithRegisterLit(TNode lit);
+  void arithRegisterMonomial(Monomial m);
 
 
+  /** Undoes registrations. */
+  void resetInternalState();
 
+  /** TimeStamp time */
+  TimeStamp currentTimeStamp();
+  void incCurrentTime();
+
+  /** Returns true if the literal can be safely ignored. */
+  bool ignore(Node lit);
+
+  /**
+   * Iterates over all of the disequalities, and splits it (using a lemma)
+   * if it is not satisfied.
+   */
+  void splitDisequalities();
 
   /**
    * Handles the case splitting for check() for a new assertion.
@@ -159,6 +209,12 @@ private:
   void asVectors(Polynomial& p,
                  std::vector<Rational>& coeffs,
                  std::vector<ArithVar>& variables) const;
+
+  /** Debug printing of the assertions. */
+  void debugPrintAssertions();
+
+  /** Debug printing of the assertions. */
+  void debugPrintModel();
 
 
   /** These fields are designed to be accessable to TheoryArith methods. */

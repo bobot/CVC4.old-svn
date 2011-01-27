@@ -55,16 +55,21 @@ typedef expr::Attribute<SlackAttrID, Node> Slack;
 
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   Theory(THEORY_ARITH, c, out),
+  d_currentTime(DEFAULT_TIMESTAMP),
   d_constants(NodeManager::currentNM()),
   d_partialModel(c),
   d_basicManager(),
   d_activityMonitor(),
   d_diseq(c),
   d_tableau(d_activityMonitor, d_basicManager),
-  d_propagator(c, out),
+  d_propagator(d_lemmasQueue),
   d_simplex(d_constants, d_partialModel, d_basicManager,  d_out, d_activityMonitor, d_tableau),
   d_statistics()
-{}
+{
+  incCurrentTime();
+  d_preregisteredAtoms.add(d_constants.d_TRUE);
+  d_preregisteredAtoms.add(d_constants.d_FALSE);
+}
 
 TheoryArith::~TheoryArith(){}
 
@@ -87,8 +92,13 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_statDisequalityConflicts);
 }
 
+TimeStamp TheoryArith::currentTimeStamp() {
+  return d_currentTime;
+}
 
-
+void TheoryArith::incCurrentTime(){
+  ++d_currentTime;
+}
 
 ArithVar TheoryArith::findBasicRow(ArithVar variable){
   for(ArithVarSet::iterator basicIter = d_tableau.begin();
@@ -106,40 +116,11 @@ ArithVar TheoryArith::findBasicRow(ArithVar variable){
 
 
 void TheoryArith::preRegisterTerm(TNode n) {
-  Debug("arith_preregister") <<"begin arith::preRegisterTerm("<< n <<")"<< endl;
-  Kind k = n.getKind();
+  Debug("arith_preregister")<<"begin arith::preRegisterTerm("<<n<<")"<<endl;
 
-  bool isStrictlyVarList = k == kind::MULT && VarList::isMember(n);
-
-  if(isStrictlyVarList){
-    d_out->setIncomplete();
+  if(isRelationOperator(n.getKind())){
+    d_preregisteredAtoms.add(n);
   }
-
-  if(isLeaf(n) || isStrictlyVarList){
-    ++(d_statistics.d_statUserVariables);
-    ArithVar varN = requestArithVar(n,false);
-    setupInitialValue(varN);
-  }
-
-
-  //TODO is an atom
-  if(isRelationOperator(k)){
-    Assert(Comparison::isNormalAtom(n));
-
-
-    d_propagator.addAtom(n);
-
-    TNode left  = n[0];
-    TNode right = n[1];
-    if(left.getKind() == PLUS){
-      //We may need to introduce a slack variable.
-      Assert(left.getNumChildren() >= 2);
-      if(!left.hasAttribute(Slack())){
-        setupSlack(left);
-      }
-    }
-  }
-  Debug("arith_preregister") << "end arith::preRegisterTerm("<< n <<")"<< endl;
 }
 
 
@@ -165,6 +146,27 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   return varX;
 }
 
+Node TheoryArith::lazySimplifyAndSetup(TNode lit){
+  if(getTimeStamp(lit) < currentTimeStamp() ){
+    Node simplified = d_simplifier.simplify(lit);
+
+    if(simplified.getKind() == CONST_BOOLEAN){
+      return simplified;
+    }
+    if(simplified.getKind() == EQUAL && getContext()->getLevel() == 0){
+      if(d_simplifier.addEquality(simplified)){
+        incCurrentTime();
+        return d_constants.d_TRUE;
+      }
+    }
+
+    arithRegisterLit(simplified);
+    return simplified;
+  }else{
+    return lit;
+  }
+}
+
 void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::vector<ArithVar>& variables) const{
   for(Polynomial::iterator i = p.begin(), end = p.end(); i != end; ++i){
     const Monomial& mono = *i;
@@ -185,21 +187,68 @@ void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::v
   }
 }
 
-void TheoryArith::setupSlack(TNode left){
+void TheoryArith::arithRegisterMonomial(Monomial m){
+  const VarList& vl = m.getVarList();
+
+  Node n = vl.getNode();
+
+  if(hasArithVar(n)){ return; }
+
+  bool isStrictlyVarList = n.getKind() == kind::MULT;
+
+  if(isStrictlyVarList){
+    d_out->setIncomplete();
+  }
+
+  if(isLeaf(n) || isStrictlyVarList){
+    ++(d_statistics.d_statUserVariables);
+    ArithVar varN = requestArithVar(n,false);
+    setupInitialValue(varN);
+  }
+}
+
+void TheoryArith::arithRegisterLit(TNode lit){
+  Node atom = (lit.getKind() == NOT) ? lit[0] : lit;
+
+  Assert(Comparison::isNormalAtom(atom));
+
+  Node negative = NodeBuilder<1>(kind::NOT) << atom;
+  if(d_simplifiedNegatations.find(negative) != d_simplifiedNegatations.end()){
+    return;
+  }
+
+  Comparison cmp = Comparison::parseNormalForm(atom);
+  const Polynomial& left = cmp.getLeft();
+
+
+  for(Polynomial::iterator i = left.begin(), end = left.end();
+      i != end; ++i){
+    arithRegisterMonomial(*i);
+  }
+
+  d_propagator.addAtom(atom);
+
+  //We may need to introduce a slack variable.
+  if(!left.singleton() && !(left.getNode()).hasAttribute(Slack())){
+    setupSlack(left);
+  }
+  d_simplifiedNegatations.insert(negative);
+}
+
+void TheoryArith::setupSlack(Polynomial left){
 
   ++(d_statistics.d_statSlackVariables);
   TypeNode real_type = NodeManager::currentNM()->realType();
   Node slack = NodeManager::currentNM()->mkVar(real_type);
-  left.setAttribute(Slack(), slack);
+  Node leftNode = left.getNode();
+  leftNode.setAttribute(Slack(), slack);
 
   ArithVar varSlack = requestArithVar(slack, true);
-
-  Polynomial polyLeft = Polynomial::parsePolynomial(left);
 
   vector<ArithVar> variables;
   vector<Rational> coefficients;
 
-  asVectors(polyLeft, coefficients, variables);
+  asVectors(left, coefficients, variables);
 
   d_tableau.addRow(varSlack, coefficients, variables);
 
@@ -214,8 +263,8 @@ void TheoryArith::setupInitialValue(ArithVar x){
   if(!d_basicManager.isMember(x)){
     d_partialModel.initialize(x,d_constants.d_ZERO_DELTA);
   }else{
-    //If the variable is basic, assertions may have already happened and updates
-    //may have occured before setting this variable up.
+    //If the variable is basic, assertions may have already happened
+    //and updates may have occured before setting this variable up.
 
     //This can go away if the tableau creation is done at preregister
     //time instead of register
@@ -238,6 +287,10 @@ void TheoryArith::setupInitialValue(ArithVar x){
 
 void TheoryArith::registerTerm(TNode tn){
   Debug("arith") << "registerTerm(" << tn << ")" << endl;
+}
+
+void TheoryArith::resetInternalState(){
+  //incCurrentTime();
 }
 
 template <bool selectLeft>
@@ -287,14 +340,17 @@ bool TheoryArith::assertionCases(TNode assertion){
 
   Debug("arith_assertions") << "arith assertion(" << assertion
                             << " \\-> "
-                            <<x_i<<" "<< simpKind <<" "<< c_i << ")" << std::endl;
+                            << x_i <<" "<< simpKind <<" "<< c_i << ")"
+                            << std::endl;
   switch(simpKind){
   case LEQ:
-    if (d_partialModel.hasLowerBound(x_i) && d_partialModel.getLowerBound(x_i) == c_i) {
+    if (d_partialModel.hasLowerBound(x_i) &&
+        d_partialModel.getLowerBound(x_i) == c_i) {
       Node diseq = assertion[0].eqNode(assertion[1]).notNode();
       if (d_diseq.find(diseq) != d_diseq.end()) {
         NodeBuilder<3> conflict(kind::AND);
-        conflict << diseq << assertion << d_partialModel.getLowerConstraint(x_i);
+        conflict << diseq << assertion
+                 << d_partialModel.getLowerConstraint(x_i);
         ++(d_statistics.d_statDisequalityConflicts);
         d_out->conflict((TNode)conflict);
         return true;
@@ -303,11 +359,13 @@ bool TheoryArith::assertionCases(TNode assertion){
   case LT:
     return d_simplex.AssertUpper(x_i, c_i, assertion);
   case GEQ:
-    if (d_partialModel.hasUpperBound(x_i) && d_partialModel.getUpperBound(x_i) == c_i) {
+    if (d_partialModel.hasUpperBound(x_i) &&
+        d_partialModel.getUpperBound(x_i) == c_i) {
       Node diseq = assertion[0].eqNode(assertion[1]).notNode();
       if (d_diseq.find(diseq) != d_diseq.end()) {
         NodeBuilder<3> conflict(kind::AND);
-        conflict << diseq << assertion << d_partialModel.getUpperConstraint(x_i);
+        conflict << diseq << assertion
+                 << d_partialModel.getUpperConstraint(x_i);
         ++(d_statistics.d_statDisequalityConflicts);
         d_out->conflict((TNode)conflict);
         return true;
@@ -328,10 +386,13 @@ bool TheoryArith::assertionCases(TNode assertion){
       Assert(rhs.getKind() == CONST_RATIONAL);
       ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
       DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
-      if (d_partialModel.hasLowerBound(lhsVar) && d_partialModel.hasUpperBound(lhsVar) &&
-          d_partialModel.getLowerBound(lhsVar) == rhsValue && d_partialModel.getUpperBound(lhsVar) == rhsValue) {
+      if (d_partialModel.hasLowerBound(lhsVar) &&
+          d_partialModel.hasUpperBound(lhsVar) &&
+          d_partialModel.getLowerBound(lhsVar) == rhsValue &&
+          d_partialModel.getUpperBound(lhsVar) == rhsValue) {
         NodeBuilder<3> conflict(kind::AND);
-        conflict << assertion << d_partialModel.getLowerConstraint(lhsVar) << d_partialModel.getUpperConstraint(lhsVar);
+        conflict << assertion << d_partialModel.getLowerConstraint(lhsVar)
+                 << d_partialModel.getUpperConstraint(lhsVar);
         d_out->conflict((TNode)conflict);
       }
     }
@@ -342,15 +403,100 @@ bool TheoryArith::assertionCases(TNode assertion){
   }
 }
 
+void TheoryArith::debugPrintAssertions(){
+  Debug("arith::print_assertions") << "Assertions:" << endl;
+  for (ArithVar i = 0; i < d_variables.size(); ++ i) {
+    if (d_partialModel.hasLowerBound(i)) {
+      Node lConstr = d_partialModel.getLowerConstraint(i);
+      Debug("arith::print_assertions") << lConstr.toString() << endl;
+    }
+    if (d_partialModel.hasUpperBound(i)) {
+      Node uConstr = d_partialModel.getUpperConstraint(i);
+      Debug("arith::print_assertions") << uConstr.toString() << endl;
+    }
+  }
+  context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
+  context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
+  for(; it != it_end; ++ it) {
+    Debug("arith::print_assertions") << *it << endl;
+  }
+}
+
+void TheoryArith::debugPrintModel(){
+  Debug("arith::print_model") << "Model:" << endl;
+
+  for (ArithVar i = 0; i < d_variables.size(); ++ i) {
+    Debug("arith::print_model") << d_variables[i] << " : " <<
+      d_partialModel.getAssignment(i);
+    if(d_basicManager.isMember(i))
+      Debug("arith::print_model") << " (basic)";
+    Debug("arith::print_model") << endl;
+  }
+}
+
+void TheoryArith::splitDisequalities(){
+  context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
+  context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
+  for(; it != it_end; ++ it) {
+    TNode eq = (*it)[0];
+    Assert(eq.getKind() == kind::EQUAL);
+    TNode lhs = eq[0];
+    TNode rhs = eq[1];
+    Assert(rhs.getKind() == CONST_RATIONAL);
+    ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
+    if(d_tableau.isEjected(lhsVar)){
+      d_simplex.reinjectVariable(lhsVar);
+    }
+    DeltaRational lhsValue = d_partialModel.getAssignment(lhsVar);
+    DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
+    if (lhsValue == rhsValue) {
+      Debug("arith::lemma") << "Splitting on " << eq << endl;
+      Debug("arith::lemma") << "LHS value = " << lhsValue << endl;
+      Debug("arith::lemma") << "RHS value = " << rhsValue << endl;
+      Node ltNode = NodeBuilder<2>(kind::LT) << lhs << rhs;
+      Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
+      Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
+
+      // < => !>
+      Node imp1 = NodeBuilder<2>(kind::IMPLIES) << ltNode << gtNode.notNode();
+      // < => !=
+      Node imp2 = NodeBuilder<2>(kind::IMPLIES) << ltNode << eq.notNode();
+      // > => !=
+      Node imp3 = NodeBuilder<2>(kind::IMPLIES) << gtNode << eq.notNode();
+      // All the implication
+      Node impClosure = NodeBuilder<3>(kind::AND) << imp1 << imp2 << imp3;
+
+      ++(d_statistics.d_statDisequalitySplits);
+      d_out->lemma( lemma.andNode(impClosure));
+      //One of the splits is "on-demand", this cannot be sent to the queue
+      //(thus delayed) until propagation as check() must have some output.
+    }
+  }
+}
+
+bool TheoryArith::ignore(Node lit){
+  Node atom = lit.getKind() == kind::NOT ? lit[0] : lit;
+  return !d_preregisteredAtoms.isClassRepresentative(atom);
+}
+
 void TheoryArith::check(Effort effortLevel){
-  Debug("arith") << "TheoryArith::check begun" << std::endl;
+  Debug("arith::check") << "TheoryArith::check begun" << std::endl;
 
   while(!done()){
-
     Node assertion = get();
+    Debug("arith::assertions")<<"arith::assertion "<<assertion<<std::endl;
 
-    //d_propagator.assertLiteral(assertion);
-    bool conflictDuringAnAssert = assertionCases(assertion);
+    if(ignore(assertion)){
+      Debug("arith::assertions::ignore") << "(ignore) "
+                                         << assertion
+                                         << std::endl;
+      continue;
+    }
+
+    Node simplified = lazySimplifyAndSetup(assertion);
+    // There may be a conflict created by the implications.
+
+    bool conflictDuringAnAssert = assertionCases(simplified);
 
     if(conflictDuringAnAssert){
       d_partialModel.revertAssignmentChanges();
@@ -359,23 +505,7 @@ void TheoryArith::check(Effort effortLevel){
   }
 
   if(Debug.isOn("arith::print_assertions") && fullEffort(effortLevel)) {
-    Debug("arith::print_assertions") << "Assertions:" << endl;
-    for (ArithVar i = 0; i < d_variables.size(); ++ i) {
-      if (d_partialModel.hasLowerBound(i)) {
-        Node lConstr = d_partialModel.getLowerConstraint(i);
-        Debug("arith::print_assertions") << lConstr.toString() << endl;
-      }
-
-      if (d_partialModel.hasUpperBound(i)) {
-        Node uConstr = d_partialModel.getUpperConstraint(i);
-        Debug("arith::print_assertions") << uConstr.toString() << endl;
-      }
-    }
-    context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-    context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
-    for(; it != it_end; ++ it) {
-      Debug("arith::print_assertions") << *it << endl;
-    }
+    debugPrintAssertions();
   }
 
   Node possibleConflict = d_simplex.updateInconsistentVars();
@@ -383,87 +513,18 @@ void TheoryArith::check(Effort effortLevel){
 
     d_partialModel.revertAssignmentChanges();
 
-    if(Debug.isOn("arith::print-conflict"))
-      Debug("arith_conflict") << (possibleConflict) << std::endl;
-
     d_out->conflict(possibleConflict);
 
     Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
   }else{
     d_partialModel.commitAssignmentChanges();
 
-    if (fullEffort(effortLevel)) {
-      context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-      context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
-      for(; it != it_end; ++ it) {
-        TNode eq = (*it)[0];
-        Assert(eq.getKind() == kind::EQUAL);
-        TNode lhs = eq[0];
-        TNode rhs = eq[1];
-        Assert(rhs.getKind() == CONST_RATIONAL);
-        ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
-        if(d_tableau.isEjected(lhsVar)){
-          d_simplex.reinjectVariable(lhsVar);
-        }
-        DeltaRational lhsValue = d_partialModel.getAssignment(lhsVar);
-        DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
-        if (lhsValue == rhsValue) {
-          Debug("arith_lemma") << "Splitting on " << eq << endl;
-          Debug("arith_lemma") << "LHS value = " << lhsValue << endl;
-          Debug("arith_lemma") << "RHS value = " << rhsValue << endl;
-          Node ltNode = NodeBuilder<2>(kind::LT) << lhs << rhs;
-          Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
-          Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
-
-          // < => !>
-          Node imp1 = NodeBuilder<2>(kind::IMPLIES) << ltNode << gtNode.notNode();
-          // < => !=
-          Node imp2 = NodeBuilder<2>(kind::IMPLIES) << ltNode << eq.notNode();
-          // > => !=
-          Node imp3 = NodeBuilder<2>(kind::IMPLIES) << gtNode << eq.notNode();
-          // All the implication
-          Node impClosure = NodeBuilder<3>(kind::AND) << imp1 << imp2 << imp3;
-
-          ++(d_statistics.d_statDisequalitySplits);
-          d_out->lemma(lemma.andNode(impClosure));
-        }
-      }
-    }
+    if (fullEffort(effortLevel)) { splitDisequalities(); }
   }
+
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
-
-  Debug("arith") << "TheoryArith::check end" << std::endl;
-
-  if(Debug.isOn("arith::print_model")) {
-    Debug("arith::print_model") << "Model:" << endl;
-
-    for (ArithVar i = 0; i < d_variables.size(); ++ i) {
-      Debug("arith::print_model") << d_variables[i] << " : " <<
-        d_partialModel.getAssignment(i);
-      if(d_basicManager.isMember(i))
-        Debug("arith::print_model") << " (basic)";
-      Debug("arith::print_model") << endl;
-    }
-  }
-}
-
-void TheoryArith::explain(TNode n) {
-  // Node explanation = d_propagator.explain(n);
-  // Debug("arith") << "arith::explain("<<explanation<<")->"
-  //                << explanation << endl;
-  // d_out->explanation(explanation, true);
-}
-
-void TheoryArith::propagate(Effort e) {
-
-  // if(quickCheckOrMore(e)){
-  //   std::vector<Node> implied = d_propagator.getImpliedLiterals();
-  //   for(std::vector<Node>::iterator i = implied.begin();
-  //       i != implied.end();
-  //       ++i){
-  //     d_out->propagate(*i);
-  //   }
-  // }
+  if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
+  Debug("arith::check") << "TheoryArith::check end" << std::endl;
 }
 
 Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
@@ -544,5 +605,6 @@ Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
 }
 
 void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
-
+  Node eq = NodeBuilder<2>(EQUAL) << lhs << rhs;
+  assertFact(eq);
 }

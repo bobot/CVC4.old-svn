@@ -43,6 +43,9 @@ public:
   Node d_ONE_NODE;
   Node d_NEGATIVE_ONE_NODE;
 
+  Node d_TRUE;
+  Node d_FALSE;
+
   ArithConstants(NodeManager* nm) :
     d_ZERO(0,1),
     d_ONE(1,1),
@@ -50,7 +53,9 @@ public:
     d_ZERO_DELTA(d_ZERO),
     d_ZERO_NODE(nm->mkConst(d_ZERO)),
     d_ONE_NODE(nm->mkConst(d_ONE)),
-    d_NEGATIVE_ONE_NODE(nm->mkConst(d_NEGATIVE_ONE))
+    d_NEGATIVE_ONE_NODE(nm->mkConst(d_NEGATIVE_ONE)),
+    d_TRUE(nm->mkConst(true)),
+    d_FALSE(nm->mkConst(false))
   {}
 
   ~ArithConstants() {
