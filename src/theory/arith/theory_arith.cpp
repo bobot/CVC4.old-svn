@@ -39,6 +39,8 @@
 #include "theory/arith/theory_arith.h"
 #include "theory/arith/normal_form.h"
 
+#include "theory/arith/tab_model_utilities.h"
+
 #include <map>
 #include <stdint.h>
 
@@ -61,7 +63,7 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_basicManager(),
   d_activityMonitor(),
   d_diseq(c),
-  d_tableau(d_activityMonitor, d_basicManager),
+  d_tableau(d_activityMonitor, d_basicManager, d_partialModel),
   d_propagator(d_lemmasQueue),
   d_simplex(d_constants, d_partialModel, d_basicManager,  d_out, d_activityMonitor, d_tableau),
   d_statistics()
@@ -268,8 +270,8 @@ void TheoryArith::setupInitialValue(ArithVar x){
 
     //This can go away if the tableau creation is done at preregister
     //time instead of register
-    DeltaRational safeAssignment = d_simplex.computeRowValue(x, true);
-    DeltaRational assignment = d_simplex.computeRowValue(x, false);
+    DeltaRational safeAssignment = TableauModelUtilities::computeRowValue(d_tableau, d_basicManager, d_partialModel, x, true);
+    DeltaRational assignment = TableauModelUtilities::computeRowValue(d_tableau, d_basicManager, d_partialModel, x, false);
     d_partialModel.initialize(x,safeAssignment);
     d_partialModel.setAssignment(x,assignment);
 
@@ -394,6 +396,7 @@ bool TheoryArith::assertionCases(TNode assertion){
         conflict << assertion << d_partialModel.getLowerConstraint(lhsVar)
                  << d_partialModel.getUpperConstraint(lhsVar);
         d_out->conflict((TNode)conflict);
+        return true;
       }
     }
     return false;
@@ -402,17 +405,28 @@ bool TheoryArith::assertionCases(TNode assertion){
     return false;
   }
 }
+/*
+void TheoryArith::debugValidateAssertions(TheoryEngine* te){
+  Debug("arith::validate") << "reached" << endl;
+  typedef context::CDList<Node>::const_iterator fiterator;
+  for(fiterator i = d_facts.begin(), end = d_facts.end(); i != end; ++i){
+    Node assertion = *i;
+    Node value = getValue(assertion, te);
+    Debug("arith::validate::print") << "val:" << assertion << "|->"<< value << endl;
+  }
+}
+*/
 
 void TheoryArith::debugPrintAssertions(){
   Debug("arith::print_assertions") << "Assertions:" << endl;
   for (ArithVar i = 0; i < d_variables.size(); ++ i) {
     if (d_partialModel.hasLowerBound(i)) {
       Node lConstr = d_partialModel.getLowerConstraint(i);
-      Debug("arith::print_assertions") << lConstr.toString() << endl;
+      Debug("arith::print_assertions") << lConstr << endl;
     }
     if (d_partialModel.hasUpperBound(i)) {
       Node uConstr = d_partialModel.getUpperConstraint(i);
-      Debug("arith::print_assertions") << uConstr.toString() << endl;
+      Debug("arith::print_assertions") << uConstr << endl;
     }
   }
   context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
@@ -426,8 +440,9 @@ void TheoryArith::debugPrintModel(){
   Debug("arith::print_model") << "Model:" << endl;
 
   for (ArithVar i = 0; i < d_variables.size(); ++ i) {
-    Debug("arith::print_model") << d_variables[i] << " : " <<
-      d_partialModel.getAssignment(i);
+    Debug("arith::print_model") << d_variables[i]
+                                << "("<< i<<")" << " : "
+                                << d_partialModel.getAssignment(i);
     if(d_basicManager.isMember(i))
       Debug("arith::print_model") << " (basic)";
     Debug("arith::print_model") << endl;
@@ -445,7 +460,8 @@ void TheoryArith::splitDisequalities(){
     Assert(rhs.getKind() == CONST_RATIONAL);
     ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
     if(d_tableau.isEjected(lhsVar)){
-      d_simplex.reinjectVariable(lhsVar);
+      TableauModelUtilities::reinjectVariable(d_tableau, d_basicManager, d_partialModel, lhsVar);
+      //d_simplex.reinjectVariable(lhsVar);
     }
     DeltaRational lhsValue = d_partialModel.getAssignment(lhsVar);
     DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
@@ -496,7 +512,18 @@ void TheoryArith::check(Effort effortLevel){
     Node simplified = lazySimplifyAndSetup(assertion);
     // There may be a conflict created by the implications.
 
+    if(Debug.isOn("paranoid:check_tableau")){
+      TableauModelUtilities::checkTableau(d_tableau, d_basicManager, d_partialModel);
+    }
+
     bool conflictDuringAnAssert = assertionCases(simplified);
+
+
+    if(Debug.isOn("paranoid:check_tableau")){
+      TableauModelUtilities::checkTableau(d_tableau, d_basicManager, d_partialModel);
+    }
+
+    //if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
     if(conflictDuringAnAssert){
       d_partialModel.revertAssignmentChanges();
@@ -504,11 +531,21 @@ void TheoryArith::check(Effort effortLevel){
     }
   }
 
+
+
   if(Debug.isOn("arith::print_assertions") && fullEffort(effortLevel)) {
     debugPrintAssertions();
   }
+  //if(Debug.isOn("arith::validate")) {
+  //  debugValidateAssertions(te);
+  //}
 
+  if(Debug.isOn("paranoid:check_tableau")){
+      TableauModelUtilities::checkTableau(d_tableau, d_basicManager, d_partialModel);
+  }
   Node possibleConflict = d_simplex.updateInconsistentVars();
+
+
   if(possibleConflict != Node::null()){
 
     d_partialModel.revertAssignmentChanges();
@@ -522,7 +559,9 @@ void TheoryArith::check(Effort effortLevel){
     if (fullEffort(effortLevel)) { splitDisequalities(); }
   }
 
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  if(Debug.isOn("paranoid:check_tableau")){
+    TableauModelUtilities::checkTableau(d_tableau, d_basicManager, d_partialModel);
+  }
   if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
   Debug("arith::check") << "TheoryArith::check end" << std::endl;
 }
@@ -531,10 +570,13 @@ Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
+  case kind::NOT: // 2 args
+    return nodeManager->mkConst(! getValue(n[0],engine).getConst<bool>() );
+
   case kind::VARIABLE: {
     ArithVar var = asArithVar(n);
     if(d_tableau.isEjected(var)){
-      d_simplex.reinjectVariable(var);
+      //d_simplex.reinjectVariable(var);
     }
 
     DeltaRational drat = d_partialModel.getAssignment(var);

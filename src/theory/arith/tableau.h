@@ -23,7 +23,9 @@
 
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/arithvar_dense_set.h"
+#include "theory/arith/simplex.h"
 #include "theory/arith/normal_form.h"
+#include "theory/arith/partial_model.h"
 
 #include "theory/arith/row_vector.h"
 
@@ -97,18 +99,15 @@ private:
   ActivityMonitor& d_activityMonitor;
   ArithVarDenseSet& d_basicManager;
 
+  ArithPartialModel& d_pm;
+
   std::vector<uint32_t> d_rowCount;
 
 public:
   /**
    * Constructs an empty tableau.
    */
-  Tableau(ActivityMonitor &am, ArithVarDenseSet& bm) :
-    d_activeBasicVars(),
-    d_rowsTable(),
-    d_activityMonitor(am),
-    d_basicManager(bm)
-  {}
+  Tableau(ActivityMonitor &am, ArithVarDenseSet& bm, ArithPartialModel& pm);
 
   void increaseSize(){
     d_activeBasicVars.increaseSize();
@@ -163,13 +162,26 @@ public:
     Assert(d_basicManager.isMember(basic));
     Assert(isActiveBasicVariable(basic));
 
+    Debug("arith::eject") << "eject" <<basic << std::endl;
+
     d_activeBasicVars.erase(basic);
   }
 
+  /**
+   * This code undoes the tableau modifications of an injection.
+   * Do not call this unless you know what you are doing.
+   * You probably want simplex.h's reinjectVariable() instead!
+   *
+   * Why is this not what you?
+   * This code does NOT update the partial model.
+   * DO NOT CALL THIS DIRECTLY UNLESS YOU ARE ABSOLUTELY SURE YOU HAVE
+   * PROPERLY UPDATED THE PARTIAL MODEL! Learn from my pain --Tim.
+   */
   void reinjectBasic(ArithVar basic){
     Assert(d_basicManager.isMember(basic));
     Assert(isEjected(basic));
 
+    Debug("arith::eject") << "reinject" <<basic << std::endl;
     ReducedRowVector* row = lookupEjected(basic);
     d_activeBasicVars.insert(basic);
     updateRow(row);

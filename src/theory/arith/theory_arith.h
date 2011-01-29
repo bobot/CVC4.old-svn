@@ -215,6 +215,7 @@ private:
 
   /** Debug printing of the assertions. */
   void debugPrintModel();
+  //void debugValidateAssertions(TheoryEngine* te);
 
 
   /** These fields are designed to be accessable to TheoryArith methods. */

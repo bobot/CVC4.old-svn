@@ -23,6 +23,8 @@ libarith_la_SOURCES = \
 	arithvar_dense_set.h \
 	tableau.h \
 	tableau.cpp \
+	tab_model_utilities.h \
+	tab_model_utilities.cpp \
 	simplex.h \
 	simplex.cpp \
 	row_vector.h \

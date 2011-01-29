@@ -1,5 +1,6 @@
 
 #include "theory/arith/simplex.h"
+#include "theory/arith/tab_model_utilities.h"
 
 using namespace std;
 
@@ -55,15 +56,15 @@ void SimplexDecisionProcedure::ejectInactiveVariables(){
   }
 }
 
-void SimplexDecisionProcedure::reinjectVariable(ArithVar x){
-  ++(d_statistics.d_statUnEjections);
+// void SimplexDecisionProcedure::reinjectVariable(ArithVar x){
+//   ++(d_statistics.d_statUnEjections);
 
-  d_tableau.reinjectBasic(x);
+//   d_tableau.reinjectBasic(x);
 
-  DeltaRational safeAssignment = computeRowValue(x, true);
-  DeltaRational assignment = computeRowValue(x, false);
-  d_partialModel.setAssignment(x,safeAssignment,assignment);
-}
+//   DeltaRational safeAssignment = computeRowValue(x, true);
+//   DeltaRational assignment = computeRowValue(x, false);
+//   d_partialModel.setAssignment(x,safeAssignment,assignment);
+// }
 
 bool SimplexDecisionProcedure::shouldEject(ArithVar var){
   if(d_partialModel.hasEitherBound(var)){
@@ -83,7 +84,9 @@ bool SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_
   Debug("arith") << "AssertLower(" << x_i << " " << c_i << ")"<< std::endl;
 
   if(d_basicManager.isMember(x_i) && d_tableau.isEjected(x_i)){
-    reinjectVariable(x_i);
+    TableauModelUtilities::reinjectVariable(d_tableau, d_basicManager, d_partialModel, x_i);
+
+    //reinjectVariable(x_i);
   }
 
   if(d_partialModel.belowLowerBound(x_i, c_i, false)){
@@ -118,7 +121,8 @@ bool SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
 
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
   if(d_basicManager.isMember(x_i) && d_tableau.isEjected(x_i)){
-    reinjectVariable(x_i);
+    TableauModelUtilities::reinjectVariable(d_tableau, d_basicManager, d_partialModel, x_i);
+    //reinjectVariable(x_i);
   }
 
   if(d_partialModel.aboveUpperBound(x_i, c_i, false) ){ // \upperbound(x_i) <= c_i
@@ -156,7 +160,8 @@ bool SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
   Debug("arith") << "AssertEquality(" << x_i << " " << c_i << ")"<< std::endl;
 
   if(d_basicManager.isMember(x_i) && d_tableau.isEjected(x_i)){
-    reinjectVariable(x_i);
+    TableauModelUtilities::reinjectVariable(d_tableau, d_basicManager, d_partialModel, x_i);
+    //reinjectVariable(x_i);
   }
 
   // u_i <= c_i <= l_i
@@ -231,7 +236,7 @@ void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
   d_partialModel.setAssignment(x_i, v);
 
   if(Debug.isOn("paranoid:check_tableau")){
-    checkTableau();
+    TableauModelUtilities::checkTableau(d_tableau, d_basicManager, d_partialModel);
   }
 }
 
@@ -396,7 +401,9 @@ Node SimplexDecisionProcedure::privateUpdateInconsistentVars(){
   static const int EJECT_FREQUENCY = 10;
 
   while(!d_pivotStage || iteratationNum <= d_numVariables){
-    if(Debug.isOn("paranoid:check_tableau")){ checkTableau(); }
+    if(Debug.isOn("paranoid:check_tableau")){
+      TableauModelUtilities::checkTableau(d_tableau, d_basicManager, d_partialModel);
+    }
 
     ArithVar x_i = selectSmallestInconsistentVar();
     Debug("arith_update") << "selectSmallestInconsistentVar()=" << x_i << endl;
@@ -532,22 +539,22 @@ Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
 /**
  * Computes the value of a basic variable using the current assignment.
  */
-DeltaRational SimplexDecisionProcedure::computeRowValue(ArithVar x, bool useSafe){
-  Assert(d_basicManager.isMember(x));
-  DeltaRational sum = d_constants.d_ZERO_DELTA;
+// DeltaRational SimplexDecisionProcedure::computeRowValue(ArithVar x, bool useSafe){
+//   Assert(d_basicManager.isMember(x));
+//   DeltaRational sum = d_constants.d_ZERO_DELTA;
 
-  ReducedRowVector* row = d_tableau.lookup(x);
-  for(ReducedRowVector::NonZeroIterator i = row->beginNonZero(), end = row->endNonZero();
-      i != end;++i){
-    ArithVar nonbasic = getArithVar(*i);
-    if(nonbasic == row->basic()) continue;
-    const Rational& coeff = getCoefficient(*i);
+//   ReducedRowVector* row = d_tableau.lookup(x);
+//   for(ReducedRowVector::NonZeroIterator i = row->beginNonZero(), end = row->endNonZero();
+//       i != end;++i){
+//     ArithVar nonbasic = getArithVar(*i);
+//     if(nonbasic == row->basic()) continue;
+//     const Rational& coeff = getCoefficient(*i);
 
-    const DeltaRational& assignment = d_partialModel.getAssignment(nonbasic, useSafe);
-    sum = sum + (assignment * coeff);
-  }
-  return sum;
-}
+//     const DeltaRational& assignment = d_partialModel.getAssignment(nonbasic, useSafe);
+//     sum = sum + (assignment * coeff);
+//   }
+//   return sum;
+// }
 
 
 void SimplexDecisionProcedure::checkBasicVariable(ArithVar basic){
@@ -564,38 +571,3 @@ void SimplexDecisionProcedure::checkBasicVariable(ArithVar basic){
     }
   }
 }
-
-/**
- * This check is quite expensive.
- * It should be wrapped in a Debug.isOn() guard.
- *   if(Debug.isOn("paranoid:check_tableau")){
- *      checkTableau();
- *   }
- */
-void SimplexDecisionProcedure::checkTableau(){
-
-  for(ArithVarSet::iterator basicIter = d_tableau.begin();
-      basicIter != d_tableau.end(); ++basicIter){
-    ArithVar basic = *basicIter;
-    ReducedRowVector* row_k = d_tableau.lookup(basic);
-    DeltaRational sum;
-    Debug("paranoid:check_tableau") << "starting row" << basic << endl;
-    for(ReducedRowVector::NonZeroIterator nonbasicIter = row_k->beginNonZero();
-        nonbasicIter != row_k->endNonZero();
-        ++nonbasicIter){
-      ArithVar nonbasic = nonbasicIter->first;
-      if(basic == nonbasic) continue;
-
-      const Rational& coeff = nonbasicIter->second;
-      DeltaRational beta = d_partialModel.getAssignment(nonbasic);
-      Debug("paranoid:check_tableau") << nonbasic << beta << coeff<<endl;
-      sum = sum + (beta*coeff);
-    }
-    DeltaRational shouldBe = d_partialModel.getAssignment(basic);
-    Debug("paranoid:check_tableau") << "ending row" << sum
-                                    << "," << shouldBe << endl;
-
-    Assert(sum == shouldBe);
-  }
-}
-

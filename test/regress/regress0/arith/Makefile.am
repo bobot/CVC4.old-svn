@@ -7,6 +7,7 @@ TESTS =	\
 	arith.01.cvc \
 	arith.02.cvc \
 	arith.03.cvc \
+	dmin.smt \
 	delta-minimized-row-vector-bug.smt \
 	leq.01.smt
 

@@ -167,14 +167,14 @@ private:
 
 public:
   /** Checks to make sure the assignment is consistent with the tableau. */
-  void checkTableau();
+  //void checkTableau();
 
 private:
   bool shouldEject(ArithVar var);
   void ejectInactiveVariables();
 
 public:
-  void reinjectVariable(ArithVar x);
+  //void reinjectVariable(ArithVar x);
 
   /**
    * Computes the value of a basic variable using the assignments
@@ -183,7 +183,7 @@ public:
    * - the the current assignment (useSafe=false) or
    * - the safe assignment (useSafe = true).
    */
-  DeltaRational computeRowValue(ArithVar x, bool useSafe);
+  //DeltaRational computeRowValue(ArithVar x, bool useSafe);
 
 private:
   /** Check to make sure all of the basic variables are within their bounds. */

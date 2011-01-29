@@ -19,10 +19,21 @@
 
 
 #include "theory/arith/tableau.h"
+#include "theory/arith/tab_model_utilities.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
+
+Tableau::Tableau(ActivityMonitor &am,
+                 ArithVarDenseSet& bm,
+                 ArithPartialModel& pm) :
+    d_activeBasicVars(),
+    d_rowsTable(),
+    d_activityMonitor(am),
+    d_basicManager(bm),
+    d_pm(pm)
+  {}
 
 void Tableau::addRow(ArithVar basicVar,
                      const std::vector<Rational>& coeffs,
@@ -49,7 +60,7 @@ void Tableau::addRow(ArithVar basicVar,
 
     if(d_basicManager.isMember(var)){
       if(!isActiveBasicVariable(var)){
-        reinjectBasic(var);
+        TableauModelUtilities::reinjectVariable(*this, d_basicManager, d_pm, var);
       }
       Assert(isActiveBasicVariable(var));
 
