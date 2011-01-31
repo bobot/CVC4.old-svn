@@ -50,13 +50,16 @@ private:
   struct ArrayRoWId {};
   typedef expr::Attribute<ArrayRoWId, bool> ArrayRoW;
 
+  struct ArrayRegisteredId {};
+  typedef expr::Attribute<ArrayRegisteredId, bool> ArrayRegistered;
+
   struct ArrayInStoreId {};
   typedef expr::Attribute<ArrayInStoreId, bool> ArrayInStore;
 
   struct ArrayInSelectId {};
   typedef expr::Attribute<ArrayInSelectId, bool> ArrayInSelect;
 
-  const static int mode = 1;
+  const static int mode = 0;
 
   /**
    * Output channel connected to the congruence closure module.
@@ -257,9 +260,8 @@ public:
     return RewriteComplete(in);
   }
 
-  void presolve() {
-    Unimplemented();
-  }
+  void presolve();
+
 
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);
@@ -350,46 +352,30 @@ inline bool TheoryArrays::condExt(TNode a, TNode b) {
 
 inline void TheoryArrays::setupStore(TNode n) {
   Assert(n.getKind() == kind::STORE);
-  if(store_map.find(n) == store_map.end()) {
-    std::set<TNode> ss;
-    ss.insert(n[0]);
-    store_map[n] = ss;
-  }
-  else {
-    std::set<TNode> ss = store_map[n];
-    ss.insert(n[0]);
-    store_map[n] = ss;
-  }
+  /*
+   * for all STORE(a, i, v) add SELECT(STORE(a,i, v), i) = v
+   * to the congruence closure
+   */
 
+  NodeManager* nm = NodeManager::currentNM();
+  Node ai = nm->mkNode(kind::SELECT, n[0], n[1]);
+  Node eq = nm->mkNode(kind::EQUAL, ai, n[2]);
+  d_cc.addEquality(eq);
   store_terms.insert(n);
 
-  //n[0].setAttribute(ArrayInStore(), true);
-  if(mode > 0) {
-    TNode n1 = n[0];
-    n1 = findI(n1);
-    n = findI(n);
-    d_unionFindI.setCanon(n, n1);
-  }
+  /*
+  TNode n1 = n[0];
+  n1 = findI(n1);
+  n = findI(n);
+  d_unionFindI.setCanon(n, n1);
+  */
 
   array_terms.insert(n);
-
 
 }
 
 inline void TheoryArrays::setupSelect(TNode n) {
   Assert(n.getKind()== kind::SELECT);
-  /*
-  if(index_map.find(n) == index_map.end()) {
-    std::set<TNode> is;
-    is.insert(n[1]);
-    index_map[n] = is;
-  }
-  else {
-    std::set<TNode> is = index_map[n];
-    is.insert(n[1]);
-    index_map[n] = is;
-  }
-  */
 
   proxied.insert(n);
   //n[0].setAttribute(ArrayInSelect(), true);

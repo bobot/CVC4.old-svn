@@ -640,6 +640,7 @@ bool TheoryEngine::presolve() {
       return true;
     }
     d_arith->presolve();
+    d_arrays->presolve();
     /*
     if(!d_theoryOut.d_conflictNode.get().isNull()) {
       return true;

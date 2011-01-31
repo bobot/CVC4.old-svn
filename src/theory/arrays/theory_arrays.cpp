@@ -48,6 +48,13 @@ TheoryArrays::~TheoryArrays() {
 }
 
 
+void TheoryArrays::presolve() {
+  Debug("arrays")<<"TheoryArrays::presolve() \n";
+  // adding the RoW and Ext lemmas for UPD0
+  generateLemmas();
+
+}
+
 void TheoryArrays::addSharedTerm(TNode t) {
   Debug("arrays") << "TheoryArrays::addSharedTerm(): "
                   << t << endl;
@@ -129,8 +136,6 @@ void TheoryArrays::check(Effort e) {
   }
 
   Debug("arrays") << "TheoryArrays::check(): done" << endl;
-  if(mode != 0)
-    generateLemmas();
 
 }
 
@@ -331,7 +336,7 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
 
 bool TheoryArrays::condRoW0(TNode a, TNode b, TNode j) {
   Assert(a.getKind() == kind::STORE);
-  return (a.getType() == b.getType() && a!= b);
+  return (a.getType() == b.getType() );
 }
 
 bool TheoryArrays::condRoW1(TNode b, TNode c, TNode j) {
@@ -345,6 +350,7 @@ bool TheoryArrays::condRoW1(TNode b, TNode c, TNode j) {
 }
 
 void TheoryArrays::addRoWLemma(TNode b, TNode c, TNode j) {
+  Debug("arrays-lemma")<<"TheoryArrays::addRoWLemma: "<<b<<" "<<c<<" "<<j<<"\n";
 
   if(!condRoW(b, c[0], j))
     return;
@@ -361,31 +367,22 @@ void TheoryArrays::addRoWLemma(TNode b, TNode c, TNode j) {
   if(i == j) {
     return;
   }
-  NodeManager* nm = NodeManager::currentNM();
-  Node eq1 = nm->mkNode(kind::EQUAL, i, j);
-  Node val = a[2];
-  Node eq2 = nm->mkNode(kind::EQUAL, val, nm->mkNode(kind::SELECT, a, j));
-  Node lemma1 = nm->mkNode(kind::IMPLIES, eq1, eq2);
-  if(lemma_cache.find(lemma1) == lemma_cache.end()) {
-      ++d_numRoWLemmas;
-      d_out->lemma(lemma1);
-      Debug("arrays-lemma") << "array-lemma RoW "<< lemma1 << std::endl;
-      lemma_cache.insert(lemma1);
-    }
 
+  NodeManager* nm = NodeManager::currentNM();
   Node aj = nm->mkNode(kind::SELECT, a, j);
   Node bj = nm->mkNode(kind::SELECT, b, j);
   Node eq = nm->mkNode(kind::EQUAL, aj, bj);
   Node neq = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, i, j));
   Node lemma = nm->mkNode(kind::IMPLIES, neq, eq);
+  d_out->lemma(lemma);
 
-
+  /*
   if(lemma_cache.find(lemma) == lemma_cache.end()) {
     ++d_numRoWLemmas;
     d_out->lemma(lemma);
     Debug("arrays-lemma") << "array-lemma RoW "<< lemma << std::endl;
     lemma_cache.insert(lemma);
-  }
+  }*/
 }
 
 
@@ -405,6 +402,7 @@ bool TheoryArrays::condExt1(TNode a, TNode b) {
  * a', b' such that a'~ a and b'~ a.
  */
 
+/*
 bool TheoryArrays::hasExtLemma(TNode a, TNode b) {
 
   if(a > b) {
@@ -426,6 +424,7 @@ bool TheoryArrays::hasExtLemma(TNode a, TNode b) {
   return false;
 }
 
+*/
 void TheoryArrays::addExtLemma(TNode a, TNode b) {
   // add the Ext0 lemma
   //    for all two arrays a, b of the same type add a != b => a[i]!= b[i]
@@ -437,10 +436,10 @@ void TheoryArrays::addExtLemma(TNode a, TNode b) {
     b = tmp;
   }
 
-  if(!condExt(a, b) ||  hasExtLemma(a,b))
+  if(!condExt(a, b))// ||  hasExtLemma(a,b))
     return;
 
-  ext_cache.insert(std::make_pair(a, b));
+  //ext_cache.insert(std::make_pair(a, b));
 
   ++d_numExtLemmas;
   NodeManager* nm = NodeManager::currentNM();
@@ -453,6 +452,7 @@ void TheoryArrays::addExtLemma(TNode a, TNode b) {
 
   d_out->lemma(impl);
   Debug("arrays-lemma") << "array-lemma Ext "<< impl << std::endl;
+
 }
 
 
@@ -465,7 +465,6 @@ void TheoryArrays::addExtLemma(TNode a, TNode b) {
 
 
 void TheoryArrays::generateLemmas() {
-  // naive implementation called at end of check()
 
   // adding Ext lemmas
   for(std::set<TNode>::iterator ai = array_terms.begin();
@@ -492,34 +491,6 @@ void TheoryArrays::generateLemmas() {
       Assert(c.getKind() == kind::SELECT);
       TNode j = c[1];
       addRoWLemma(a, c, j);
-      /*
-      if(findI(c[0]) == findI(a) && find(i) != find(j)) {
-        if(a < b) {
-          TNode temp = a;
-          a = b;
-          b = temp;
-        }
-
-        NodeManager* nm = NodeManager::currentNM();
-        Node eq1 = nm->mkNode(kind::EQUAL, i, j);
-        Node val = a[2];
-        Node eq2 = nm->mkNode(kind::EQUAL, val, nm->mkNode(kind::SELECT, a, j));
-        Node lemma1 =nm->mkNode(kind::IMPLIES, eq1, eq2);
-
-        if(lemma_cache.find(lemma1) == lemma_cache.end()) {
-          d_out->lemma(lemma1);
-          Debug("arrays-lemma") << "array-lemma RoW "<< lemma1 << std::endl;
-          lemma_cache.insert(lemma1);
-        }
-
-        Node aj = nm->mkNode(kind::SELECT, a, j);
-        Node bj = nm->mkNode(kind::SELECT, b, j);
-        Node eq = nm->mkNode(kind::EQUAL, aj, bj);
-        Node neq = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, i, j));
-        Node lemma = nm->mkNode(kind::IMPLIES, neq, eq);
-
-
-      }*/
     }
   }
 
