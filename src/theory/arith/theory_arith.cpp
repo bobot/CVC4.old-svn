@@ -492,7 +492,9 @@ void TheoryArith::splitDisequalities(){
 
 bool TheoryArith::ignore(Node lit){
   Node atom = lit.getKind() == kind::NOT ? lit[0] : lit;
-  return !d_preregisteredAtoms.isClassRepresentative(atom);
+  return
+    d_preregisteredAtoms.inForest(atom) &&
+    !d_preregisteredAtoms.isClassRepresentative(atom);
 }
 
 void TheoryArith::check(Effort effortLevel){
@@ -512,8 +514,20 @@ void TheoryArith::check(Effort effortLevel){
     Node simplified = lazySimplifyAndSetup(assertion);
     // There may be a conflict created by the implications.
 
+    // TODO do we add non-preregistered atoms to
+    // d_preregistered when we see them?
+
     if(Debug.isOn("paranoid:check_tableau")){
       TableauModelUtilities::checkTableau(d_tableau, d_basicManager, d_partialModel);
+    }
+    if(simplified.getKind() == CONST_BOOLEAN){
+      if(simplified.getConst<bool>()){
+        continue;
+      }else{ //conflict
+        d_out->conflict(assertion);
+        d_partialModel.revertAssignmentChanges();
+        return;
+      }
     }
 
     bool conflictDuringAnAssert = assertionCases(simplified);
@@ -647,6 +661,6 @@ Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
 }
 
 void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
-  Node eq = NodeBuilder<2>(EQUAL) << lhs << rhs;
-  assertFact(eq);
+  //Node eq = NodeBuilder<2>(EQUAL) << lhs << rhs;
+  //assertFact(eq);
 }
