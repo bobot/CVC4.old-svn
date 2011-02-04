@@ -2,10 +2,10 @@
 #
 # mkrewriter
 # Morgan Deters <mdeters@cs.nyu.edu> for CVC4
-# Copyright (c) 2010  The CVC4 Project
+# Copyright (c) 2010-2011  The CVC4 Project
 #
-# The purpose of this script is to create kind.h from a template and a
-# list of theory kinds.
+# The purpose of this script is to create the rewriter tables from a
+# template and a list of theory kinds.
 #
 # Invocation:
 #
@@ -14,11 +14,11 @@
 # Output is to standard out.
 #
 
-copyright=2010
+copyright=2010-2011
 
 cat <<EOF
 /*********************                                                        */
-/** kind.h
+/** rewriter_tables.h
  **
  ** Copyright $copyright  The AcSys Group, New York University, and as below.
  **
@@ -139,6 +139,19 @@ function parameterized {
 function constant {
   # constant K T Hasher header ["comment"]
   lineno=${BASH_LINENO[0]}
+}
+
+function check_theory_seen {
+  if ! $seen_theory; then
+    echo "$kf:$lineno: error: no \"theory\" declaration found (it has to be first)" >&2
+    exit 1
+  fi
+}
+
+function check_builtin_theory_seen {
+  if ! $seen_theory_builtin; then
+    echo "$me: warning: no declaration for the builtin theory found" >&2
+  fi
 }
 
 while [ $# -gt 0 ]; do

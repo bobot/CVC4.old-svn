@@ -67,7 +67,9 @@ static const string optionsDescription = "\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
-   --incremental          enable incremental solving\n";
+   --incremental          enable incremental solving\n\
+   --replay file          replay decisions from file\n\
+   --replay-log file      log decisions and propagations to file\n";
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -120,7 +122,9 @@ enum OptionValue {
   NO_TYPE_CHECKING,
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
-  INCREMENTAL
+  INCREMENTAL,
+  REPLAY,
+  REPLAY_LOG
 };/* enum OptionValue */
 
 /**
@@ -177,6 +181,8 @@ static struct option cmdlineOptions[] = {
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING},
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING},
   { "incremental", no_argument, NULL, INCREMENTAL},
+  { "replay", required_argument, NULL, REPLAY},
+  { "replay-log", required_argument, NULL, REPLAY_LOG},
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -372,6 +378,35 @@ throw(OptionException) {
 
     case INCREMENTAL:
       incrementalSolving = true;
+      break;
+
+    case REPLAY:
+#ifdef CVC4_REPLAY
+      if(optarg == NULL || *optarg == '\0') {
+        throw OptionException(string("Bad file name for --replay"));
+      } else {
+        replayFilename = optarg;
+      }
+#else /* CVC4_REPLAY */
+      throw OptionException("The replay feature was disabled in this build of CVC4.");
+#endif /* CVC4_REPLAY */
+      break;
+
+    case REPLAY_LOG:
+#ifdef CVC4_REPLAY
+      if(optarg == NULL || *optarg == '\0') {
+        throw OptionException(string("Bad file name for --replay-log"));
+      } else if(!strcmp(optarg, "-")) {
+        replayLog = &cout;
+      } else {
+        replayLog = new ofstream(optarg, ofstream::out | ofstream::trunc);
+        if(!*replayLog) {
+          throw OptionException(string("Cannot open replay-log file: `") + optarg + "'");
+        }
+      }
+#else /* CVC4_REPLAY */
+      throw OptionException("The replay feature was disabled in this build of CVC4.");
+#endif /* CVC4_REPLAY */
       break;
 
     case SHOW_CONFIG:

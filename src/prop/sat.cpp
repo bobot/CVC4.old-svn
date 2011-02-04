@@ -17,11 +17,12 @@
  ** \todo document this file
  **/
 
-#include "cnf_stream.h"
-#include "prop_engine.h"
-#include "sat.h"
+#include "prop/cnf_stream.h"
+#include "prop/prop_engine.h"
+#include "prop/sat.h"
 #include "context/context.h"
 #include "theory/theory_engine.h"
+#include "expr/expr_stream.h"
 
 namespace CVC4 {
 namespace prop {
@@ -105,6 +106,29 @@ TNode SatSolver::getNode(SatLiteral lit) {
 void SatSolver::notifyRestart() {
   d_theoryEngine->notifyRestart();
 }
+
+SatLiteral SatSolver::getNextReplayDecision() {
+#ifdef CVC4_REPLAY
+  if(d_options->replayStream != NULL) {
+    Expr e = d_options->replayStream->nextExpr();
+    if(!e.isNull()) { // we get null node when out of decisions to replay
+      // convert & return
+      return d_cnfStream->getLiteral(e);
+    }
+  }
+  return Minisat::lit_Undef;
+#endif /* CVC4_REPLAY */
+}
+
+void SatSolver::logDecision(SatLiteral lit) {
+#ifdef CVC4_REPLAY
+  if(d_options->replayLog != NULL) {
+    Assert(lit != Minisat::lit_Undef, "logging an `undef' decision ?!");
+    *d_options->replayLog << d_cnfStream->getNode(lit) << std::endl;
+  }
+#endif /* CVC4_REPLAY */
+}
+
 
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */
