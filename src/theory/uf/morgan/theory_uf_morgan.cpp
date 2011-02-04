@@ -241,63 +241,63 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
   // disequal to, and the attendant disequality
 
   // FIXME these could be "remembered" and then done in propagation (?)
-//  EqLists::iterator eq_i = d_equalities.find(a);
-//  if(eq_i != d_equalities.end()) {
-//    EqList* eq = (*eq_i).second;
-//    if(Debug.isOn("uf")) {
-//      Debug("uf") << "a == " << a << endl;
-//      Debug("uf") << "size of eq(a) is " << eq->size() << endl;
-//    }
-//    for(EqList::const_iterator j = eq->begin(); j != eq->end(); ++j) {
-//      Debug("uf") << "  eq(a) ==> " << *j << endl;
-//      TNode eqn = *j;
-//      Assert(eqn.getKind() == kind::EQUAL ||
-//             eqn.getKind() == kind::IFF);
-//      TNode s = eqn[0];
-//      TNode t = eqn[1];
-//      if(Debug.isOn("uf")) {
-//        Debug("uf") << "       s  ==> " << s << endl
-//                    << "       t  ==> " << t << endl
-//                    << "  find(s) ==> " << debugFind(s) << endl
-//                    << "  find(t) ==> " << debugFind(t) << endl;
-//      }
-//      TNode sp = find(s);
-//      TNode tp = find(t);
-//      if(sp == tp) {
-//        // propagation of equality
-//        Debug("uf:prop") << "  uf-propagating " << eqn << endl;
-//        ++d_propagations;
-//        d_out->propagate(eqn);
-//      } else {
-//        Assert(sp == b || tp == b);
-//        appendToEqList(b, eqn);
-//        if(sp == b) {
-//          map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(tp);
-//          if(k != alreadyDiseqs.end()) {
-//            // propagation of disequality
-//            // FIXME: this will propagate the same disequality on every
-//            // subsequent merge, won't it??
-//            Node deqn = (*k).second.notNode();
-//            Debug("uf:prop") << "  uf-propagating " << deqn << endl;
-//            ++d_propagations;
-//            d_out->propagate(deqn);
-//          }
-//        } else {
-//          map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(sp);
-//          if(k != alreadyDiseqs.end()) {
-//            // propagation of disequality
-//            // FIXME: this will propagate the same disequality on every
-//            // subsequent merge, won't it??
-//            Node deqn = (*k).second.notNode();
-//            Debug("uf:prop") << "  uf-propagating " << deqn << endl;
-//            ++d_propagations;
-//            d_out->propagate(deqn);
-//          }
-//        }
-//      }
-//    }
-//    Debug("uf") << "end eq-list." << endl;
-//  }
+  EqLists::iterator eq_i = d_equalities.find(a);
+  if(eq_i != d_equalities.end()) {
+    EqList* eq = (*eq_i).second;
+    if(Debug.isOn("uf")) {
+      Debug("uf") << "a == " << a << endl;
+      Debug("uf") << "size of eq(a) is " << eq->size() << endl;
+    }
+    for(EqList::const_iterator j = eq->begin(); j != eq->end(); ++j) {
+      Debug("uf") << "  eq(a) ==> " << *j << endl;
+      TNode eqn = *j;
+      Assert(eqn.getKind() == kind::EQUAL ||
+             eqn.getKind() == kind::IFF);
+      TNode s = eqn[0];
+      TNode t = eqn[1];
+      if(Debug.isOn("uf")) {
+        Debug("uf") << "       s  ==> " << s << endl
+                    << "       t  ==> " << t << endl
+                    << "  find(s) ==> " << debugFind(s) << endl
+                    << "  find(t) ==> " << debugFind(t) << endl;
+      }
+      TNode sp = find(s);
+      TNode tp = find(t);
+      if(sp == tp) {
+        // propagation of equality
+        Debug("uf:prop") << "  uf-propagating1 " << eqn << endl;
+        ++d_propagations;
+        d_out->propagate(eqn);
+      } else {
+        Assert(sp == b || tp == b);
+        appendToEqList(b, eqn);
+        if(sp == b) {
+          map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(tp);
+          if(k != alreadyDiseqs.end()) {
+            // propagation of disequality
+            // FIXME: this will propagate the same disequality on every
+            // subsequent merge, won't it??
+            Node deqn = (*k).second.notNode();
+            Debug("uf:prop") << "  uf-propagating2 " << deqn << endl;
+            ++d_propagations;
+            d_out->propagate(deqn);
+          }
+        } else {
+          map<TNode, TNode>::const_iterator k = alreadyDiseqs.find(sp);
+          if(k != alreadyDiseqs.end()) {
+            // propagation of disequality
+            // FIXME: this will propagate the same disequality on every
+            // subsequent merge, won't it??
+            Node deqn = (*k).second.notNode();
+            Debug("uf:prop") << "  uf-propagating3 " << deqn << endl;
+            ++d_propagations;
+            d_out->propagate(deqn);
+          }
+        }
+      }
+    }
+    Debug("uf") << "end eq-list." << endl;
+  }
 }
 
 void TheoryUFMorgan::appendToDiseqList(TNode of, TNode eq) {
@@ -551,7 +551,7 @@ void TheoryUFMorgan::explain(TNode n) {
   TimerStat::CodeTimer codeTimer(d_explainTimer);
 
   Debug("uf") << "uf: begin explain([" << n << "])" << endl;
-  Unimplemented();
+  d_out->explanation(d_cc.explain(n));
   Debug("uf") << "uf: end explain([" << n << "])" << endl;
 }
 

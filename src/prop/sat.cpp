@@ -57,7 +57,10 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
   for (unsigned i = 0; i < i_end; ++ i) {
     Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i].toString() << std::endl;
     SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
-    output.push_back(l);
+    if(d_minisat->value(l) != l_True) {
+      Assert(d_minisat->value(l) == l_Undef, "tried to theory-propagate something already defined");
+      output.push_back(l);
+    }
   }
 }
 
