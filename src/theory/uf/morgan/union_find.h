@@ -54,7 +54,7 @@ class UnionFind : context::ContextNotifyObj {
   MapType d_map;
 
   /** Our undo stack for changes made to d_map. */
-  std::vector<std::pair<TNode, TNode> > d_trace;
+  std::vector<std::pair<TNode, NodeType> > d_trace;
 
   /** Our current offset in the d_trace stack (context-dependent). */
   context::CDO<size_t> d_offset;

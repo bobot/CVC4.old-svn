@@ -139,17 +139,17 @@ class CongruenceClosure {
   OutputChannel* d_out;
 
   // typedef all of these so that iterators are easy to define
-  typedef theory::uf::morgan::StackingMap<Node, NodeHashFunction> RepresentativeMap;
+  typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> RepresentativeMap;
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > ClassList;
   typedef context::CDMap<Node, ClassList*, NodeHashFunction> ClassLists;
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > UseList;
   typedef context::CDMap<TNode, UseList*, TNodeHashFunction> UseLists;
-  typedef context::CDMap<Node, Node, NodeHashFunction> LookupMap;
+  typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> LookupMap;
 
-  typedef context::CDMap<TNode, Node, NodeHashFunction> EqMap;
+  typedef theory::uf::morgan::StackingMap<TNode, Node, TNodeHashFunction> EqMap;
 
-  typedef context::CDMap<Node, Node, NodeHashFunction> ProofMap;
-  typedef context::CDMap<Node, Node, NodeHashFunction> ProofLabel;
+  typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> ProofMap;
+  typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> ProofLabel;
 
   // Simple, NON-context-dependent pending list, union find and "seen
   // set" types for constructing explanations and
@@ -257,12 +257,12 @@ private:
 
   Node replace(TNode t) {
     if(isCongruenceOperator(t.getKind())) {
-      EqMap::iterator i = d_eqMap.find(t);
+      EqMap::const_iterator i = d_eqMap.find(t);
       if(i == d_eqMap.end()) {
         ++d_newSkolemVars;
         Node v = NodeManager::currentNM()->mkSkolem(t.getType());
         addEq(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
-        d_eqMap.insert(t, v);
+        d_eqMap.set(t, v);
         return v;
       } else {
         return (*i).second;
@@ -318,8 +318,12 @@ private:
    * Find the EC representative for a term t in the current context.
    */
   inline TNode find(TNode t) const throw(AssertionException) {
-    TNode rep1 = d_representative.find(t);
-    return rep1.isNull() ? t : rep1;
+    RepresentativeMap::const_iterator it = d_representative.find(t);
+    if(it == d_representative.end()) {
+      return t;
+    } else {
+      return (*it).second;
+    }
   }
 
   void explainAlongPath(TNode a, TNode c, PendingProofList_t& pending, UnionFind_t& unionFind, std::list<Node>& pf)
@@ -375,7 +379,7 @@ private:
    * Internal lookup mapping from tuples to equalities.
    */
   inline TNode lookup(TNode a) const {
-    LookupMap::iterator i = d_lookup.find(a);
+    LookupMap::const_iterator i = d_lookup.find(a);
     if(i == d_lookup.end()) {
       return TNode::null();
     } else {
@@ -393,7 +397,7 @@ private:
     Assert(a.getKind() == kind::TUPLE);
     Assert(b.getKind() == kind::EQUAL ||
            b.getKind() == kind::IFF);
-    d_lookup[a] = b;
+    d_lookup.set(a, b);
   }
 
   /**
@@ -495,7 +499,7 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addEq(TNode eq, T
   Assert(!eq[0].getType().isFunction() && !eq[1].getType().isFunction(),
          "CongruenceClosure:: equality between function symbols not allowed");
 
-  d_proofRewrite[eq] = inputEq;
+  d_proofRewrite.set(eq, inputEq);
 
   if(Trace.isOn("cc")) {
     Trace("cc") << "CC addEq[" << d_context->getLevel() << "]: " << eq << std::endl;
@@ -643,7 +647,7 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::propagate(TNode s
       }
 
       { // class list handling
-        ClassLists::iterator cl_bpi = d_classList.find(bp);
+        ClassLists::const_iterator cl_bpi = d_classList.find(bp);
         ClassList* cl_bp;
         if(cl_bpi == d_classList.end()) {
           cl_bp = new(d_context->getCMM()) ClassList(true, d_context, false,
@@ -818,8 +822,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::mergeProof(TNode 
 
     Node pParSave = d_proof[p];
     Node pLabelSave = d_proofLabel[p];
-    d_proof[p] = c;
-    d_proofLabel[p] = edgePf;
+    d_proof.set(p, c);
+    d_proofLabel.set(p, edgePf);
     c = p;
     p = pParSave;
     edgePf = pLabelSave;
@@ -829,8 +833,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::mergeProof(TNode 
   }
 
   // add an edge from a to b
-  d_proof[a] = b;
-  d_proofLabel[a] = e;
+  d_proof.set(a, b);
+  d_proofLabel.set(a, e);
 }/* mergeProof() */
 
 

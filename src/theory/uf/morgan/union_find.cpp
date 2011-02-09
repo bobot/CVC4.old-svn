@@ -35,7 +35,7 @@ template <class NodeType, class NodeHash>
 void UnionFind<NodeType, NodeHash>::notify() {
   Trace("ufuf") << "UFUF cancelling : " << d_offset << " < " << d_trace.size() << " ?" << endl;
   while(d_offset < d_trace.size()) {
-    pair<TNode, TNode> p = d_trace.back();
+    pair<TNode, NodeType> p = d_trace.back();
     if(p.second.isNull()) {
       d_map.erase(p.first);
       Trace("ufuf") << "UFUF   " << d_trace.size() << " erasing " << p.first << endl;

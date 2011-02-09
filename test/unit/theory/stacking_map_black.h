@@ -33,7 +33,7 @@ using namespace std;
  */
 class StackingMapBlack : public CxxTest::TestSuite {
   Context* d_ctxt;
-  StackingMap<TNode, TNodeHashFunction>* d_map;
+  StackingMap<TNode, TNode, TNodeHashFunction>* d_mapPtr;
   NodeManager* d_nm;
   NodeManagerScope* d_scope;
 
@@ -45,7 +45,7 @@ public:
     d_ctxt = new Context;
     d_nm = new NodeManager(d_ctxt);
     d_scope = new NodeManagerScope(d_nm);
-    d_map = new StackingMap<TNode, TNodeHashFunction>(d_ctxt);
+    d_mapPtr = new StackingMap<TNode, TNode, TNodeHashFunction>(d_ctxt);
 
     a = d_nm->mkVar("a", d_nm->realType());
     b = d_nm->mkVar("b", d_nm->realType());
@@ -65,96 +65,98 @@ public:
     b = Node::null();
     a = Node::null();
 
-    delete d_map;
+    delete d_mapPtr;
     delete d_scope;
     delete d_nm;
     delete d_ctxt;
   }
 
   void testSimpleContextual() {
-    TS_ASSERT(d_map->find(a).isNull());
-    TS_ASSERT(d_map->find(b).isNull());
-    TS_ASSERT(d_map->find(c).isNull());
-    TS_ASSERT(d_map->find(d).isNull());
-    TS_ASSERT(d_map->find(e).isNull());
-    TS_ASSERT(d_map->find(f).isNull());
-    TS_ASSERT(d_map->find(g).isNull());
+    StackingMap<TNode, TNode, TNodeHashFunction>& d_map = *d_mapPtr;
 
-    d_map->set(a, b);
+    TS_ASSERT(d_map[a].isNull());
+    TS_ASSERT(d_map[b].isNull());
+    TS_ASSERT(d_map[c].isNull());
+    TS_ASSERT(d_map[d].isNull());
+    TS_ASSERT(d_map[e].isNull());
+    TS_ASSERT(d_map[f].isNull());
+    TS_ASSERT(d_map[g].isNull());
 
-    TS_ASSERT(d_map->find(a) == b);
-    TS_ASSERT(d_map->find(b).isNull());
-    TS_ASSERT(d_map->find(c).isNull());
-    TS_ASSERT(d_map->find(d).isNull());
-    TS_ASSERT(d_map->find(e).isNull());
-    TS_ASSERT(d_map->find(f).isNull());
-    TS_ASSERT(d_map->find(g).isNull());
+    d_map.set(a, b);
+
+    TS_ASSERT(d_map[a] == b);
+    TS_ASSERT(d_map[b].isNull());
+    TS_ASSERT(d_map[c].isNull());
+    TS_ASSERT(d_map[d].isNull());
+    TS_ASSERT(d_map[e].isNull());
+    TS_ASSERT(d_map[f].isNull());
+    TS_ASSERT(d_map[g].isNull());
 
     d_ctxt->push();
     {
-      TS_ASSERT(d_map->find(a) == b);
-      TS_ASSERT(d_map->find(b).isNull());
-      TS_ASSERT(d_map->find(c).isNull());
-      TS_ASSERT(d_map->find(d).isNull());
-      TS_ASSERT(d_map->find(e).isNull());
-      TS_ASSERT(d_map->find(f).isNull());
-      TS_ASSERT(d_map->find(g).isNull());
+      TS_ASSERT(d_map[a] == b);
+      TS_ASSERT(d_map[b].isNull());
+      TS_ASSERT(d_map[c].isNull());
+      TS_ASSERT(d_map[d].isNull());
+      TS_ASSERT(d_map[e].isNull());
+      TS_ASSERT(d_map[f].isNull());
+      TS_ASSERT(d_map[g].isNull());
 
-      d_map->set(c, d);
-      d_map->set(f, e);
+      d_map.set(c, d);
+      d_map.set(f, e);
 
-      TS_ASSERT(d_map->find(a) == b);
-      TS_ASSERT(d_map->find(b).isNull());
-      TS_ASSERT(d_map->find(c) == d);
-      TS_ASSERT(d_map->find(d).isNull());
-      TS_ASSERT(d_map->find(e).isNull());
-      TS_ASSERT(d_map->find(f) == e);
-      TS_ASSERT(d_map->find(g).isNull());
+      TS_ASSERT(d_map[a] == b);
+      TS_ASSERT(d_map[b].isNull());
+      TS_ASSERT(d_map[c] == d);
+      TS_ASSERT(d_map[d].isNull());
+      TS_ASSERT(d_map[e].isNull());
+      TS_ASSERT(d_map[f] == e);
+      TS_ASSERT(d_map[g].isNull());
 
       d_ctxt->push();
       {
 
-        TS_ASSERT(d_map->find(a) == b);
-        TS_ASSERT(d_map->find(b).isNull());
-        TS_ASSERT(d_map->find(c) == d);
-        TS_ASSERT(d_map->find(d).isNull());
-        TS_ASSERT(d_map->find(e).isNull());
-        TS_ASSERT(d_map->find(f) == e);
-        TS_ASSERT(d_map->find(g).isNull());
+        TS_ASSERT(d_map[a] == b);
+        TS_ASSERT(d_map[b].isNull());
+        TS_ASSERT(d_map[c] == d);
+        TS_ASSERT(d_map[d].isNull());
+        TS_ASSERT(d_map[e].isNull());
+        TS_ASSERT(d_map[f] == e);
+        TS_ASSERT(d_map[g].isNull());
 
-        d_map->set(a, c);
-        d_map->set(f, f);
-        d_map->set(e, d);
-        d_map->set(c, Node::null());
-        d_map->set(g, a);
+        d_map.set(a, c);
+        d_map.set(f, f);
+        d_map.set(e, d);
+        d_map.set(c, Node::null());
+        d_map.set(g, a);
 
-        TS_ASSERT(d_map->find(a) == c);
-        TS_ASSERT(d_map->find(b).isNull());
-        TS_ASSERT(d_map->find(c).isNull());
-        TS_ASSERT(d_map->find(d).isNull());
-        TS_ASSERT(d_map->find(e) == d);
-        TS_ASSERT(d_map->find(f) == f);
-        TS_ASSERT(d_map->find(g) == a);
+        TS_ASSERT(d_map[a] == c);
+        TS_ASSERT(d_map[b].isNull());
+        TS_ASSERT(d_map[c].isNull());
+        TS_ASSERT(d_map[d].isNull());
+        TS_ASSERT(d_map[e] == d);
+        TS_ASSERT(d_map[f] == f);
+        TS_ASSERT(d_map[g] == a);
 
       }
       d_ctxt->pop();
 
-      TS_ASSERT(d_map->find(a) == b);
-      TS_ASSERT(d_map->find(b).isNull());
-      TS_ASSERT(d_map->find(c) == d);
-      TS_ASSERT(d_map->find(d).isNull());
-      TS_ASSERT(d_map->find(e).isNull());
-      TS_ASSERT(d_map->find(f) == e);
-      TS_ASSERT(d_map->find(g).isNull());
+      TS_ASSERT(d_map[a] == b);
+      TS_ASSERT(d_map[b].isNull());
+      TS_ASSERT(d_map[c] == d);
+      TS_ASSERT(d_map[d].isNull());
+      TS_ASSERT(d_map[e].isNull());
+      TS_ASSERT(d_map[f] == e);
+      TS_ASSERT(d_map[g].isNull());
     }
     d_ctxt->pop();
 
-    TS_ASSERT(d_map->find(a) == b);
-    TS_ASSERT(d_map->find(b).isNull());
-    TS_ASSERT(d_map->find(c).isNull());
-    TS_ASSERT(d_map->find(d).isNull());
-    TS_ASSERT(d_map->find(e).isNull());
-    TS_ASSERT(d_map->find(f).isNull());
-    TS_ASSERT(d_map->find(g).isNull());
+    TS_ASSERT(d_map[a] == b);
+    TS_ASSERT(d_map[b].isNull());
+    TS_ASSERT(d_map[c].isNull());
+    TS_ASSERT(d_map[d].isNull());
+    TS_ASSERT(d_map[e].isNull());
+    TS_ASSERT(d_map[f].isNull());
+    TS_ASSERT(d_map[g].isNull());
   }
 };
