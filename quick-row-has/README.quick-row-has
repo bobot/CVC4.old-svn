@@ -1,4 +1,6 @@
 
+--- This branch is dead. It was merged into trunk in -r1272. ---
+
 This branch is for developing a version of row with a constant time check for whether it contains a variable.
 This will be done by adding a vector<bool> to each row to represent the set of non-zero coefficient variables in a row.
 
