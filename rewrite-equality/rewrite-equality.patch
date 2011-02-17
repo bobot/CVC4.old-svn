@@ -1,0 +1,9 @@
+259c259,264
+<   }
+---
+>   }else if(reduction.getKind() == kind::EQUAL){
+>     Node geq = currNM->mkNode(kind::GEQ, reduction[0], reduction[1]);
+>     Node leq = currNM->mkNode(kind::LEQ, reduction[0], reduction[1]);
+>     reduction = currNM->mkNode(kind::AND, geq, leq);
+>    }
+> 
