@@ -9,6 +9,8 @@ libarrays_la_SOURCES = \
 	theory_arrays_type_rules.h \
 	theory_arrays_rewriter.h \
 	theory_arrays.h \
-	theory_arrays.cpp
+	theory_arrays.cpp \
+	union_find.h \
+	union_find.cpp
 
 EXTRA_DIST = kinds
