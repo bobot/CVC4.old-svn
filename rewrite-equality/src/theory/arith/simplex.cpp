@@ -22,7 +22,9 @@ SimplexDecisionProcedure::Statistics::Statistics():
   d_selectInitialConflictTime("theory::arith::selectInitialConflictTime"),
   d_pivotsAfterConflict("theory::arith::pivotsAfterConflict", 0),
   d_checksWithWastefulPivots("theory::arith::checksWithWastefulPivots", 0),
-  d_pivotTime("theory::arith::pivotTime")
+  d_pivotTime("theory::arith::pivotTime"),
+  d_avgNumRowsNotContainingOnUpdate("theory::arith::avgNumRowsNotContainingOnUpdate"),
+  d_avgNumRowsNotContainingOnPivot("theory::arith::avgNumRowsNotContainingOnPivot")
 {
   StatisticsRegistry::registerStat(&d_statPivots);
   StatisticsRegistry::registerStat(&d_statUpdates);
@@ -36,6 +38,9 @@ SimplexDecisionProcedure::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_pivotsAfterConflict);
   StatisticsRegistry::registerStat(&d_checksWithWastefulPivots);
   StatisticsRegistry::registerStat(&d_pivotTime);
+
+  StatisticsRegistry::registerStat(&d_avgNumRowsNotContainingOnUpdate);
+  StatisticsRegistry::registerStat(&d_avgNumRowsNotContainingOnPivot);
 }
 
 SimplexDecisionProcedure::Statistics::~Statistics(){
@@ -51,6 +56,9 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_pivotsAfterConflict);
   StatisticsRegistry::unregisterStat(&d_checksWithWastefulPivots);
   StatisticsRegistry::unregisterStat(&d_pivotTime);
+
+  StatisticsRegistry::unregisterStat(&d_avgNumRowsNotContainingOnUpdate);
+  StatisticsRegistry::unregisterStat(&d_avgNumRowsNotContainingOnPivot);
 }
 
 /* procedure AssertLower( x_i >= c_i ) */
@@ -72,7 +80,7 @@ bool SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_
   d_partialModel.setLowerConstraint(x_i,original);
   d_partialModel.setLowerBound(x_i, c_i);
 
-  if(!d_basicManager.isMember(x_i)){
+  if(!d_tableau.isBasic(x_i)){
     if(d_partialModel.getAssignment(x_i) < c_i){
       update(x_i, c_i);
     }
@@ -103,7 +111,7 @@ bool SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
   d_partialModel.setUpperConstraint(x_i,original);
   d_partialModel.setUpperBound(x_i, c_i);
 
-  if(!d_basicManager.isMember(x_i)){
+  if(!d_tableau.isBasic(x_i)){
     if(d_partialModel.getAssignment(x_i) > c_i){
       update(x_i, c_i);
     }
@@ -149,7 +157,7 @@ bool SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
   d_partialModel.setUpperConstraint(x_i,original);
   d_partialModel.setUpperBound(x_i, c_i);
 
-  if(!d_basicManager.isMember(x_i)){
+  if(!d_tableau.isBasic(x_i)){
     if(!(d_partialModel.getAssignment(x_i) == c_i)){
       update(x_i, c_i);
     }
@@ -161,7 +169,7 @@ bool SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
 }
 
 void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
-  Assert(!d_basicManager.isMember(x_i));
+  Assert(!d_tableau.isBasic(x_i));
   DeltaRational assignment_x_i = d_partialModel.getAssignment(x_i);
   ++(d_statistics.d_statUpdates);
 
@@ -188,6 +196,10 @@ void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
 
   d_partialModel.setAssignment(x_i, v);
 
+  Assert(d_tableau.getNumRows() >= d_tableau.getRowCount(x_i));
+  double difference = ((double)d_tableau.getNumRows()) - ((double) d_tableau.getRowCount(x_i));
+
+  (d_statistics.d_avgNumRowsNotContainingOnUpdate).addEntry(difference);
   if(Debug.isOn("paranoid:check_tableau")){
     checkTableau();
   }
@@ -261,7 +273,11 @@ void SimplexDecisionProcedure::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaR
     ++(d_statistics.d_pivotsAfterConflict);
   }
 
+  Assert(d_tableau.getNumRows() >= d_tableau.getRowCount(x_j));
+  double difference = ((double)d_tableau.getNumRows()) - ((double) d_tableau.getRowCount(x_j));
+  (d_statistics.d_avgNumRowsNotContainingOnPivot).addEntry(difference);
   d_tableau.pivot(x_i, x_j);
+
 
   checkBasicVariable(x_j);
 
@@ -294,7 +310,7 @@ ArithVar SimplexDecisionProcedure::selectSmallestInconsistentVar(){
     while(!d_griggioRuleQueue.empty()){
       ArithVar var = d_griggioRuleQueue.top().first;
       Debug("arith_update") << "possiblyInconsistentGriggio var" << var << endl;
-      if(d_basicManager.isMember(var)){
+      if(d_tableau.isBasic(var)){
         if(!d_partialModel.assignmentIsConsistent(var)){
           return var;
         }
@@ -305,7 +321,7 @@ ArithVar SimplexDecisionProcedure::selectSmallestInconsistentVar(){
     while(!d_possiblyInconsistent.empty()){
       ArithVar var = d_possiblyInconsistent.top();
       Debug("arith_update") << "possiblyInconsistent var" << var << endl;
-      if(d_basicManager.isMember(var)){
+      if(d_tableau.isBasic(var)){
         if(!d_partialModel.assignmentIsConsistent(var)){
           return var;
         }
@@ -392,7 +408,7 @@ Node SimplexDecisionProcedure::selectInitialConflict() {
 
   while( !d_griggioRuleQueue.empty()){
     ArithVar var = d_griggioRuleQueue.top().first;
-    if(d_basicManager.isMember(var)){
+    if(d_tableau.isBasic(var)){
       if(!d_partialModel.assignmentIsConsistent(var)){
         init.push_back( d_griggioRuleQueue.top());
       }
@@ -451,7 +467,7 @@ Node SimplexDecisionProcedure::updateInconsistentVars(){
 
 Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
 
-  Assert(d_basicManager.isMember(basic));
+  Assert(d_tableau.isBasic(basic));
   const DeltaRational& beta = d_partialModel.getAssignment(basic);
 
   if(d_partialModel.belowLowerBound(basic, beta, true)){
@@ -520,7 +536,7 @@ Node SimplexDecisionProcedure::privateUpdateInconsistentVars(){
   if(d_pivotStage && iteratationNum >= d_numVariables){
     while(!d_griggioRuleQueue.empty()){
       ArithVar var = d_griggioRuleQueue.top().first;
-      if(d_basicManager.isMember(var)){
+      if(d_tableau.isBasic(var)){
         d_possiblyInconsistent.push(var);
       }
       d_griggioRuleQueue.pop();
@@ -623,7 +639,7 @@ Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
  * Computes the value of a basic variable using the current assignment.
  */
 DeltaRational SimplexDecisionProcedure::computeRowValue(ArithVar x, bool useSafe){
-  Assert(d_basicManager.isMember(x));
+  Assert(d_tableau.isBasic(x));
   DeltaRational sum = d_constants.d_ZERO_DELTA;
 
   ReducedRowVector& row = d_tableau.lookup(x);
@@ -641,7 +657,7 @@ DeltaRational SimplexDecisionProcedure::computeRowValue(ArithVar x, bool useSafe
 
 
 void SimplexDecisionProcedure::checkBasicVariable(ArithVar basic){
-  Assert(d_basicManager.isMember(basic));
+  Assert(d_tableau.isBasic(basic));
   if(!d_partialModel.assignmentIsConsistent(basic)){
     if(d_pivotStage){
       const DeltaRational& beta = d_partialModel.getAssignment(basic);

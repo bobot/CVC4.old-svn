@@ -21,6 +21,16 @@ bool RowVector::isSorted(const VarCoeffArray& arr, bool strictlySorted) {
   return true;
 }
 
+RowVector::~RowVector(){
+  NonZeroIterator curr = beginNonZero();
+  NonZeroIterator end = endNonZero();
+  for(;curr != end; ++curr){
+    ArithVar v = getArithVar(*curr);
+    Assert(d_rowCount[v] >= 1);
+    --(d_rowCount[v]);
+  }
+}
+
 bool RowVector::noZeroCoefficients(const VarCoeffArray& arr){
   for(NonZeroIterator curr = arr.begin(), end = arr.end();
       curr != end; ++curr){
@@ -107,7 +117,8 @@ void RowVector::merge(VarCoeffArray& arr,
     }else{
       Rational res = getCoefficient(*curr1) + c * getCoefficient(*curr2);
       if(res != 0){
-        ++counts[getArithVar(*curr2)];
+        //The variable is not new so the count stays the same
+        //bug: ++counts[getArithVar(*curr2)];
 
         arr.push_back(make_pair(getArithVar(*curr1), res));
       }else{
@@ -149,9 +160,9 @@ void RowVector::addRowTimesConstant(const Rational& c, const RowVector& other){
 void RowVector::printRow(){
   for(NonZeroIterator i = beginNonZero(); i != endNonZero(); ++i){
     ArithVar nb = getArithVar(*i);
-    Debug("tableau") << "{" << nb << "," << getCoefficient(*i) << "}";
+    Debug("row::print") << "{" << nb << "," << getCoefficient(*i) << "}";
   }
-  Debug("tableau") << std::endl;
+  Debug("row::print") << std::endl;
 }
 
 ReducedRowVector::ReducedRowVector(ArithVar basic,
@@ -167,6 +178,7 @@ ReducedRowVector::ReducedRowVector(ArithVar basic,
   merge(d_entries, d_contains, justBasic, Rational(1), d_rowCount);
 
   Assert(wellFormed());
+  Assert(d_rowCount[d_basic] == 1);
 }
 
 void ReducedRowVector::substitute(const ReducedRowVector& row_s){
@@ -182,6 +194,7 @@ void ReducedRowVector::substitute(const ReducedRowVector& row_s){
 
   Assert(!has(x_s));
   Assert(wellFormed());
+  Assert(d_rowCount[basic()] == 1);
 }
 
 void ReducedRowVector::pivot(ArithVar x_j){
@@ -192,4 +205,48 @@ void ReducedRowVector::pivot(ArithVar x_j){
   d_basic = x_j;
 
   Assert(wellFormed());
+  //The invariant Assert(d_rowCount[basic()] == 1); does not hold.
+  //This is because the pivot is within the row first then
+  //is moved through the propagated through the rest of the tableau.
+}
+
+
+Node ReducedRowVector::asEquality(const ArithVarToNodeMap& map) const{
+  using namespace CVC4::kind;
+
+  Assert(size() >= 2);
+  Node sum = Node::null();
+  if(size() > 2){
+    NodeBuilder<> sumBuilder(PLUS);
+
+    for(NonZeroIterator i = beginNonZero(); i != endNonZero(); ++i){
+      ArithVar nb = getArithVar(*i);
+      if(nb == basic()) continue;
+      Node var = (map.find(nb))->second;
+      Node coeff = mkRationalNode(getCoefficient(*i));
+
+      Node mult = NodeBuilder<2>(MULT) << coeff << var;
+      sumBuilder << mult;
+    }
+    sum = sumBuilder;
+  }else{
+    Assert(size() == 2);
+    NonZeroIterator i = beginNonZero();
+    if(getArithVar(*i) == basic()){
+      ++i;
+    }
+    Assert(getArithVar(*i) != basic());
+    Node var = (map.find(getArithVar(*i)))->second;
+    Node coeff = mkRationalNode(getCoefficient(*i));
+    sum = NodeBuilder<2>(MULT) << coeff << var;
+  }
+  Node basicVar = (map.find(basic()))->second;
+  return NodeBuilder<2>(EQUAL) << basicVar << sum;
+}
+
+
+ReducedRowVector::~ReducedRowVector(){
+  //This executes before the super classes destructor RowVector,
+  // which will set this to 0.
+  Assert(d_rowCount[basic()] == 1);
 }

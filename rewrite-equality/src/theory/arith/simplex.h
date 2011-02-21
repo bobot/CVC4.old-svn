@@ -55,8 +55,6 @@ private:
    */
   ArithPartialModel& d_partialModel;
 
-  ArithVarSet& d_basicManager;
-
   OutputChannel* d_out;
 
   Tableau& d_tableau;
@@ -68,13 +66,11 @@ private:
 public:
   SimplexDecisionProcedure(const ArithConstants& constants,
                            ArithPartialModel& pm,
-                           ArithVarSet& bm,
                            OutputChannel* out,
                            Tableau& tableau) :
     d_possiblyInconsistent(),
     d_constants(constants),
     d_partialModel(pm),
-    d_basicManager(bm),
     d_out(out),
     d_tableau(tableau),
     d_numVariables(0),
@@ -212,6 +208,10 @@ private:
 
     IntStat d_pivotsAfterConflict, d_checksWithWastefulPivots;
     TimerStat d_pivotTime;
+
+    AverageStat d_avgNumRowsNotContainingOnUpdate;
+    AverageStat d_avgNumRowsNotContainingOnPivot;
+
     Statistics();
     ~Statistics();
   };

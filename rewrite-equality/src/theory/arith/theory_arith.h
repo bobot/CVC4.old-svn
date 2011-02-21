@@ -64,7 +64,12 @@ private:
 
   std::vector<Node> d_variables;
 
-  std::map<ArithVar, ReducedRowVector*> d_removedRows;
+  /**
+   * If ArithVar v maps to the node n in d_removednode,
+   * then n = (= asNode(v) rhs) where rhs is a term that
+   * can be used to determine the value of n uysing getValue().
+   */
+  std::map<ArithVar, Node> d_removedRows;
 
   /**
    * Priority Queue of the basic variables that may be inconsistent.
@@ -84,8 +89,37 @@ private:
    */
   ArithPartialModel d_partialModel;
 
-  ArithVarSet d_basicManager;
+  /**
+   * Set of ArithVars that were introduced via preregisteration.
+   */
   ArithVarSet d_userVariables;
+
+  /**
+   * Bidirectional map between Nodes and ArithVars.
+   */
+  NodeToArithVarMap d_nodeToArithVarMap;
+  ArithVarToNodeMap d_arithVarToNodeMap;
+
+  inline bool hasArithVar(TNode x) const {
+    return d_nodeToArithVarMap.find(x) != d_nodeToArithVarMap.end();
+  }
+
+  inline ArithVar asArithVar(TNode x) const{
+    Assert(hasArithVar(x));
+    Assert((d_nodeToArithVarMap.find(x))->second <= ARITHVAR_SENTINEL);
+    return (d_nodeToArithVarMap.find(x))->second;
+  }
+  inline Node asNode(ArithVar a) const{
+    Assert(d_arithVarToNodeMap.find(a) != d_arithVarToNodeMap.end());
+    return (d_arithVarToNodeMap.find(a))->second;
+  }
+
+  inline void setArithVar(TNode x, ArithVar a){
+    Assert(!hasArithVar(x));
+    Assert(d_arithVarToNodeMap.find(a) == d_arithVarToNodeMap.end());
+    d_arithVarToNodeMap[a] = x;
+    d_nodeToArithVarMap[x] = a;
+  }
 
   /**
    * List of all of the inequalities asserted in the current context.
