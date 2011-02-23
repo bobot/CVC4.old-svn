@@ -121,7 +121,11 @@ void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
       // traversing a DAG as a tree and that can really blow up @CB
       if(! n.getAttribute(RegisteredAttr())) {
         n.setAttribute(RegisteredAttr(), true);
-        d_engine->theoryOf(n)->registerTerm(n);
+        if (n.getKind() == kind::EQUAL) {
+          d_engine->theoryOf(n[0])->registerTerm(n);
+        } else {
+          d_engine->theoryOf(n)->registerTerm(n);
+        }
       }
     }
   }/* d_engine->d_theoryRegistration && !fact.getAttribute(RegisteredAttr()) */

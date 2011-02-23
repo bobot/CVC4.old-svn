@@ -148,7 +148,12 @@ class TheoryEngine {
    */
   Node removeITEs(TNode t);
 
+
 public:
+  /** The logic of the problem
+   *
+   */
+  std::string d_logic;
 
   /**
    * Construct a theory engine.
@@ -239,10 +244,18 @@ public:
    * @param node the assertion
    */
   inline void assertFact(TNode node) {
-    Debug("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
+    Debug("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl<<d_logic<<std::endl;
+
+
+    if(d_logic == "QF_AX") {
+      //Debug("theory")<< "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays \n";
+      d_theoryTable[theory::THEORY_ARRAY]->assertFact(node);
+      return;
+    }
 
     // Get the atom
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
+
 
     // Again, eqaulity is a special case
     if (atom.getKind() == kind::EQUAL) {

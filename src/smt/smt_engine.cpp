@@ -149,6 +149,7 @@ void SmtEngine::init(const Options& opts) throw() {
   d_theoryEngine->addTheory<theory::arith::TheoryArith>();
   d_theoryEngine->addTheory<theory::arrays::TheoryArrays>();
   d_theoryEngine->addTheory<theory::bv::TheoryBV>();
+
   switch(opts.uf_implementation) {
   case Options::TIM:
     d_theoryEngine->addTheory<theory::uf::tim::TheoryUFTim>();
@@ -214,6 +215,7 @@ void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
     throw ModalException("logic already set");
   }
   d_logic = s;
+  d_theoryEngine->d_logic = s;
 }
 
 void SmtEngine::setInfo(const std::string& key, const SExpr& value)

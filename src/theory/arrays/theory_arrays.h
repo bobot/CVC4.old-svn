@@ -64,20 +64,44 @@ private:
    * Received a notification from the congruence closure algorithm that the two nodes
    * a and b have been merged.
    */
+
+  /**
+   * set of store terms
+   */
+  std::set<TNode> d_stores;
+
+  /**
+   * set of select terms
+   */
+
+  std::set<TNode> d_selects;
+
   void notifyCongruent(TNode a, TNode b);
 
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
-  typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > CTNodeList;
+  typedef context::CDMap<Node, CTNodeList*, NodeHashFunction> CNodeTNodesMap;
 
+  /**
+   * Context dependent map from array representative to set of indices any array
+   * in that congruence class is being read from    *
+   */
+
+  CNodeTNodesMap d_readIndicesMap;
+
+  /**
+   * Context dependent map from array representative to set of stores it
+   * is equal to
+   */
+  CNodeTNodesMap d_storesMap;
   /**
    * List of all disequalities this theory has seen.
    * Maintaints the invariant that if a is in the
    * disequality list of b, then b is in that of a.
    * */
-  EqLists d_disequalities;
+  CNodeTNodesMap d_disequalities;
 
   /** List of all (potential) equalities to be propagated. */
-  EqLists d_equalities;
+  CNodeTNodesMap d_equalities;
 
   /**
    * stores the conflicting disequality (still need to call construct
@@ -104,13 +128,52 @@ private:
   inline TNode debugFind(TNode a) const;
 
   inline void setCanon(TNode a, TNode b);
-
+  inline void addLemma(TNode lem) {
+    Debug("arrays-lem")<<"TheoryArrays::addLemma "<<lem<<"\n";
+    d_out->lemma(lem);
+  }
+  /**
+   *
+   */
+  inline void appendIndex(TNode a, TNode index);
+  inline void appendStore(TNode a, TNode store);
 
 public:
   TheoryArrays(context::Context* c, OutputChannel& out);
   ~TheoryArrays();
-  void preRegisterTerm(TNode n) { }
-  void registerTerm(TNode n) { }
+
+  void preRegisterTerm(TNode n) {
+    Debug("arrays-preregister")<<"TheoryArrays::preRegisterTerm "<<n<<"\n";
+
+    switch(n.getKind()) {
+    case kind::SELECT:
+      d_selects.insert(n);
+      appendIndex(n[0], n[1]);
+      break;
+    case kind::STORE:
+    {
+      d_stores.insert(n);
+      appendStore(n, n);
+      //FIXME: maybe can keep track of these
+      TNode b = n[0];
+      TNode i = n[1];
+      TNode v = n[2];
+      NodeManager* nm = NodeManager::currentNM();
+      Node ni = nm->mkNode(kind::SELECT, n, i);
+      Node eq = nm->mkNode(kind::EQUAL, ni, v);
+      addLemma(eq);
+      d_cc.addEquality(eq);
+      break;
+    }
+    default:
+      Debug("darrays")<<"Arrays::preRegisterTerm \n";
+    }
+
+  }
+
+  void registerTerm(TNode n) {
+    Debug("arrays-register")<<"TheoryArrays::registerTerm "<<n<<"\n";
+  }
 
   void presolve() { }
 

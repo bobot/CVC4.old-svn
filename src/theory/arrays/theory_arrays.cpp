@@ -35,6 +35,8 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out) :
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
+  d_readIndicesMap(c),
+  d_storesMap(c),
   d_disequalities(c),
   d_equalities(c),
   d_conflict()
@@ -53,8 +55,14 @@ void TheoryArrays::addSharedTerm(TNode t) {
 
 
 void TheoryArrays::notifyEq(TNode lhs, TNode rhs) {
+  /*
   Debug("arrays") << "TheoryArrays::notifyEq(): "
                   << lhs << " = " << rhs << endl;
+
+  NodeManager* nm = NodeManager::currentNM();
+  TNode eq = nm->mkNode(kind::EQUAL, lhs, rhs);
+  d_cc.addEquality(eq);
+  */
 }
 
 void TheoryArrays::notifyCongruent(TNode a, TNode b) {
@@ -102,7 +110,6 @@ void TheoryArrays::check(Effort e) {
         // we got notified through notifyCongruent which called merge
         // after addTerm since we weren't watching a or b before
         Node conflict = constructConflict(d_conflict);
-        Debug("arrays")<<" conflict2 "<<conflict<<endl;
         d_conflict = Node::null();
         d_out->conflict(conflict, false);
         return;
@@ -122,6 +129,8 @@ void TheoryArrays::check(Effort e) {
     }
 
   }
+  // generate lemmas
+
   Debug("arrays") << "TheoryArrays::check(): done" << endl;
 }
 
@@ -148,8 +157,8 @@ void TheoryArrays::merge(TNode a, TNode b) {
   Debug("arrays-merge")<<"TheoryArrays::merge() " << a <<" and " <<b <<endl;
 
   // make "a" the one with shorter diseqList
-  EqLists::iterator deq_ia = d_disequalities.find(a);
-  EqLists::iterator deq_ib = d_disequalities.find(b);
+  CNodeTNodesMap::iterator deq_ia = d_disequalities.find(a);
+  CNodeTNodesMap::iterator deq_ib = d_disequalities.find(b);
 
   if(deq_ia != d_disequalities.end()) {
     if(deq_ib == d_disequalities.end() ||
@@ -178,10 +187,10 @@ void TheoryArrays::merge(TNode a, TNode b) {
      * in a's class when we look at the diseq list of find(a)
      */
 
-    EqLists::iterator deq_ib = d_disequalities.find(b);
+    CNodeTNodesMap::iterator deq_ib = d_disequalities.find(b);
     if(deq_ib != d_disequalities.end()) {
-      EqList* deq = (*deq_ib).second;
-      for(EqList::const_iterator j = deq->begin(); j!=deq->end(); j++) {
+      CTNodeList* deq = (*deq_ib).second;
+      for(CTNodeList::const_iterator j = deq->begin(); j!=deq->end(); j++) {
         TNode deqn = *j;
         TNode s = deqn[0];
         TNode t = deqn[1];
@@ -203,8 +212,8 @@ void TheoryArrays::merge(TNode a, TNode b) {
      * became the canonical representative)
      */
 
-    EqList* deqa = (*deq_ia).second;
-    for(EqList::const_iterator i = deqa->begin(); i!= deqa->end(); i++) {
+    CTNodeList* deqa = (*deq_ia).second;
+    for(CTNodeList::const_iterator i = deqa->begin(); i!= deqa->end(); i++) {
       TNode deqn = (*i);
       Assert(deqn.getKind() == kind::EQUAL || deqn.getKind() == kind::IFF);
       TNode s = deqn[0];
@@ -283,10 +292,10 @@ void TheoryArrays::appendToDiseqList(TNode of, TNode eq) {
   Assert(eq.getKind() == kind::EQUAL ||
          eq.getKind() == kind::IFF);
 
-  EqLists::iterator deq_i = d_disequalities.find(of);
-  EqList* deq;
+  CNodeTNodesMap::iterator deq_i = d_disequalities.find(of);
+  CTNodeList* deq;
   if(deq_i == d_disequalities.end()) {
-    deq = new(getContext()->getCMM()) EqList(true, getContext(), false,
+    deq = new(getContext()->getCMM()) CTNodeList(true, getContext(), false,
                                              ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_disequalities.insertDataFromContextMemory(of, deq);
   } else {
@@ -305,15 +314,24 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
 
   Assert(of == debugFind(of));
 
-  EqLists::iterator eq_i = d_equalities.find(of);
-  EqList* eql;
+  CNodeTNodesMap::iterator eq_i = d_equalities.find(of);
+  CTNodeList* eql;
   if(eq_i == d_equalities.end()) {
-    eql = new(getContext()->getCMM()) EqList(true, getContext(), false,
+    eql = new(getContext()->getCMM()) CTNodeList(true, getContext(), false,
                                              ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_equalities.insertDataFromContextMemory(of, eql);
   } else {
     eql = (*eq_i).second;
   }
   eql->push_back(eq);
+
+}
+
+void TheoryArrays::appendIndex(TNode a, TNode index) {
+  Debug("arrays::index")<<"TheoryArrays::appendIndex a = "<<a<<" i = "<<index<<"\n";
+
+}
+
+void TheoryArrays::appendStore(TNode a, TNode store) {
 
 }
