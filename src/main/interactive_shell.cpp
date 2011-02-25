@@ -40,7 +40,7 @@ InteractiveShell::InteractiveShell(ExprManager& exprManager,
    ParserBuilder parserBuilder(exprManager,INPUT_FILENAME,options);
    /* Create parser with bogus input. */
    d_parser = parserBuilder.withStringInput("").build();
-}/* InteractiveShell::InteractiveShell() */
+}
 
 
 Command* InteractiveShell::readCommand() {
@@ -139,7 +139,6 @@ Command* InteractiveShell::readCommand() {
   // d_lastParser = parser;
 
   return cmd_seq;
-}/* InteractiveShell::readCommand() */
+}
 
-}/* CVC4 namespace */
-
+} // CVC4 namespace

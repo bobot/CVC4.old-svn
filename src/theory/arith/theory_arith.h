@@ -28,7 +28,7 @@
 #include "expr/node.h"
 
 #include "theory/arith/arith_utilities.h"
-#include "theory/arith/arithvar_dense_set.h"
+#include "theory/arith/arithvar_set.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
 #include "theory/arith/arith_rewriter.h"
@@ -39,6 +39,7 @@
 #include "util/stats.h"
 
 #include <vector>
+#include <map>
 #include <queue>
 
 namespace CVC4 {
@@ -64,6 +65,13 @@ private:
   std::vector<Node> d_variables;
 
   /**
+   * If ArithVar v maps to the node n in d_removednode,
+   * then n = (= asNode(v) rhs) where rhs is a term that
+   * can be used to determine the value of n uysing getValue().
+   */
+  std::map<ArithVar, Node> d_removedRows;
+
+  /**
    * Priority Queue of the basic variables that may be inconsistent.
    *
    * This is required to contain at least 1 instance of every inconsistent
@@ -81,8 +89,37 @@ private:
    */
   ArithPartialModel d_partialModel;
 
-  ArithVarDenseSet d_basicManager;
-  ActivityMonitor d_activityMonitor;
+  /**
+   * Set of ArithVars that were introduced via preregisteration.
+   */
+  ArithVarSet d_userVariables;
+
+  /**
+   * Bidirectional map between Nodes and ArithVars.
+   */
+  NodeToArithVarMap d_nodeToArithVarMap;
+  ArithVarToNodeMap d_arithVarToNodeMap;
+
+  inline bool hasArithVar(TNode x) const {
+    return d_nodeToArithVarMap.find(x) != d_nodeToArithVarMap.end();
+  }
+
+  inline ArithVar asArithVar(TNode x) const{
+    Assert(hasArithVar(x));
+    Assert((d_nodeToArithVarMap.find(x))->second <= ARITHVAR_SENTINEL);
+    return (d_nodeToArithVarMap.find(x))->second;
+  }
+  inline Node asNode(ArithVar a) const{
+    Assert(d_arithVarToNodeMap.find(a) != d_arithVarToNodeMap.end());
+    return (d_arithVarToNodeMap.find(a))->second;
+  }
+
+  inline void setArithVar(TNode x, ArithVar a){
+    Assert(!hasArithVar(x));
+    Assert(d_arithVarToNodeMap.find(a) == d_arithVarToNodeMap.end());
+    d_arithVarToNodeMap[a] = x;
+    d_nodeToArithVarMap[x] = a;
+  }
 
   /**
    * List of all of the inequalities asserted in the current context.
@@ -119,11 +156,9 @@ public:
 
   void shutdown(){ }
 
-  void presolve(){
-    static int callCount = 0;
-    Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
-    check(FULL_EFFORT);
-  }
+  void presolve();
+
+  void staticLearning(TNode in, NodeBuilder<>& learned);
 
   std::string identify() const { return std::string("TheoryArith"); }
 
@@ -146,15 +181,30 @@ private:
   void setupSlack(TNode left);
 
 
-
-
   /**
    * Handles the case splitting for check() for a new assertion.
    * returns true if their is a conflict.
    */
   bool assertionCases(TNode assertion);
 
-  ArithVar findBasicRow(ArithVar variable);
+  /**
+   * Returns the basic variable with the shorted row containg a non-basic variable.
+   * If no such row exists, return ARITHVAR_SENTINEL.
+   */
+  ArithVar findShortestBasicRow(ArithVar variable);
+
+  /**
+   * Debugging only routine!
+   * Returns true iff every variable is consistent in the partial model.
+   */
+  bool entireStateIsConsistent();
+
+  /**
+   * Permanently removes a variable from the problem.
+   * The caller guarentees the saftey of this removal!
+   */
+  void permanentlyRemoveVariable(ArithVar v);
+
 
   void asVectors(Polynomial& p,
                  std::vector<Rational>& coeffs,
@@ -167,7 +217,10 @@ private:
     IntStat d_statUserVariables, d_statSlackVariables;
     IntStat d_statDisequalitySplits;
     IntStat d_statDisequalityConflicts;
+    TimerStat d_staticLearningTimer;
 
+    IntStat d_permanentlyRemovedVariables;
+    TimerStat d_presolveTime;
     Statistics();
     ~Statistics();
   };

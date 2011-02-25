@@ -131,7 +131,7 @@ class SatSolver : public SatInputInterface {
   context::Context* d_context;
 
   /** Remember the options */
-  const Options* d_options;
+  // Options* d_options;
 
   /* Pointer to the concrete SAT solver. Including this via the
      preprocessor saves us a level of indirection vs, e.g., defining a
@@ -249,10 +249,6 @@ public:
 
   void notifyRestart();
 
-  SatLiteral getNextReplayDecision();
-
-  void logDecision(SatLiteral lit);
-
 };/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */
@@ -265,7 +261,6 @@ inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
   d_cnfStream(NULL),
   d_theoryEngine(theoryEngine),
   d_context(context),
-  d_options(&options),
   d_statistics()
 {
   // Create the solver

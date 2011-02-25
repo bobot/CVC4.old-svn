@@ -22,7 +22,7 @@
 #include "expr/attribute.h"
 
 #include "theory/arith/arith_utilities.h"
-#include "theory/arith/arithvar_dense_set.h"
+#include "theory/arith/arithvar_set.h"
 #include "theory/arith/normal_form.h"
 
 #include "theory/arith/row_vector.h"
@@ -37,110 +37,104 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-class ArithVarSet {
-private:
-  typedef std::list<ArithVar> VarList;
+typedef ArithVarSet Column;
 
-public:
-  typedef VarList::const_iterator iterator;
-
-private:
-  VarList d_list;
-  std::vector< VarList::iterator > d_posVector;
-
-public:
-  ArithVarSet() : d_list(),  d_posVector() {}
-
-  iterator begin() const{ return d_list.begin(); }
-  iterator end() const{ return d_list.end(); }
-
-  void insert(ArithVar av){
-    Assert(inRange(av) );
-    Assert(!inSet(av) );
-
-    d_posVector[av] = d_list.insert(d_list.end(), av);
-  }
-
-  void erase(ArithVar var){
-    Assert( inRange(var) );
-    Assert( inSet(var) );
-
-    d_list.erase(d_posVector[var]);
-    d_posVector[var] = d_list.end();
-  }
-
-  void increaseSize(){
-    d_posVector.push_back(d_list.end());
-  }
-
-  bool inSet(ArithVar v) const{
-    Assert(inRange(v) );
-
-    return d_posVector[v] != d_list.end();
-  }
-
-private:
-  bool inRange(ArithVar v) const{
-    return v < d_posVector.size();
-  }
-};
+typedef std::vector<Column> ColumnMatrix;
 
 class Tableau {
 private:
 
   typedef std::vector< ReducedRowVector* > RowsTable;
 
-  ArithVarSet d_activeBasicVars;
   RowsTable d_rowsTable;
 
-
-  ActivityMonitor& d_activityMonitor;
-  ArithVarDenseSet& d_basicManager;
+  ArithVarSet d_basicVariables;
 
   std::vector<uint32_t> d_rowCount;
+  ColumnMatrix d_columnMatrix;
 
 public:
   /**
    * Constructs an empty tableau.
    */
-  Tableau(ActivityMonitor &am, ArithVarDenseSet& bm) :
-    d_activeBasicVars(),
+  Tableau() :
     d_rowsTable(),
-    d_activityMonitor(am),
-    d_basicManager(bm)
+    d_basicVariables(),
+    d_rowCount(),
+    d_columnMatrix()
   {}
+  ~Tableau();
+
+  size_t getNumRows() const {
+    return d_basicVariables.size();
+  }
 
   void increaseSize(){
-    d_activeBasicVars.increaseSize();
+    d_basicVariables.increaseSize();
     d_rowsTable.push_back(NULL);
     d_rowCount.push_back(0);
+
+    d_columnMatrix.push_back(ArithVarSet());
+
+    //TODO replace with version of ArithVarSet that handles misses as non-entries
+    // not as buffer overflows
+    ColumnMatrix::iterator i = d_columnMatrix.begin(), end = d_columnMatrix.end();
+    for(; i != end; ++i){
+      Column& col = *i;
+      col.increaseSize(d_columnMatrix.size());
+    }
+  }
+
+  bool isBasic(ArithVar v) const {
+    return d_basicVariables.isMember(v);
   }
 
   ArithVarSet::iterator begin(){
-    return d_activeBasicVars.begin();
+    return d_basicVariables.begin();
   }
 
   ArithVarSet::iterator end(){
-    return d_activeBasicVars.end();
+    return d_basicVariables.end();
   }
 
-  ReducedRowVector* lookup(ArithVar var){
-    Assert(isActiveBasicVariable(var));
-    return d_rowsTable[var];
+  const Column& getColumn(ArithVar v){
+    Assert(v < d_columnMatrix.size());
+    return d_columnMatrix[v];
   }
 
-private:
-  ReducedRowVector* lookupEjected(ArithVar var){
-    Assert(isEjected(var));
-    return d_rowsTable[var];
+  Column::iterator beginColumn(ArithVar v){
+    return getColumn(v).begin();
   }
+  Column::iterator endColumn(ArithVar v){
+    return getColumn(v).end();
+  }
+
+
+  ReducedRowVector& lookup(ArithVar var){
+    Assert(d_basicVariables.isMember(var));
+    Assert(d_rowsTable[var] != NULL);
+    return *(d_rowsTable[var]);
+  }
+
 public:
-
   uint32_t getRowCount(ArithVar x){
     Assert(x < d_rowCount.size());
+    AlwaysAssert(d_rowCount[x] == getColumn(x).size());
+
     return d_rowCount[x];
   }
 
+  /**
+   * Adds a row to the tableau.
+   * The new row is equivalent to:
+   *   basicVar = \sum_i coeffs[i] * variables[i]
+   * preconditions:
+   *   basicVar is already declared to be basic
+   *   basicVar does not have a row associated with it in the tableau.
+   *
+   * Note: each variables[i] does not have to be non-basic.
+   * Pivoting will be mimicked if it is basic.
+   */
   void addRow(ArithVar basicVar,
               const std::vector<Rational>& coeffs,
               const std::vector<ArithVar>& variables);
@@ -155,31 +149,7 @@ public:
 
   void printTableau();
 
-  bool isEjected(ArithVar var){
-    return d_basicManager.isMember(var) && !isActiveBasicVariable(var);
-  }
-
-  void ejectBasic(ArithVar basic){
-    Assert(d_basicManager.isMember(basic));
-    Assert(isActiveBasicVariable(basic));
-
-    d_activeBasicVars.erase(basic);
-  }
-
-  void reinjectBasic(ArithVar basic){
-    Assert(d_basicManager.isMember(basic));
-    Assert(isEjected(basic));
-
-    ReducedRowVector* row = lookupEjected(basic);
-    d_activeBasicVars.insert(basic);
-    updateRow(row);
-  }
-private:
-  inline bool isActiveBasicVariable(ArithVar var){
-    return d_activeBasicVars.inSet(var);
-  }
-
-  void updateRow(ReducedRowVector* row);
+  ReducedRowVector* removeRow(ArithVar basic);
 };
 
 }; /* namespace arith  */

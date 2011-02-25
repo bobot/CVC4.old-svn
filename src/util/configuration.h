@@ -43,8 +43,6 @@ public:
 
   static bool isStatisticsBuild();
 
-  static bool isReplayBuild();
-
   static bool isTracingBuild();
 
   static bool isMuzzledBuild();

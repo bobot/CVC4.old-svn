@@ -68,13 +68,6 @@ private:
   TranslationCache d_translationCache;
   NodeCache d_nodeCache;
 
-  /**
-   * True if the lit-to-Node map should be kept for all lits, not just
-   * theory lits.  This is true if e.g. replay logging is on, which
-   * dumps the Nodes corresponding to decision literals.
-   */
-  const bool d_fullLitToNodeMap;
-
 protected:
 
   /** Top level nodes that we translated */
@@ -183,9 +176,8 @@ public:
    * Constructs a CnfStream that sends constructs an equi-satisfiable
    * set of clauses and sends them to the given sat solver.
    * @param satSolver the sat solver to use
-   * @param fullLitToNodeMap whether to store lit->Node for all lits
    */
-  CnfStream(SatInputInterface* satSolver, bool fullLitToNodeMap);
+  CnfStream(SatInputInterface* satSolver);
 
   /**
    * Destructs a CnfStream.  This implementation does nothing, but we
@@ -259,9 +251,8 @@ public:
   /**
    * Constructs the stream to use the given sat solver.
    * @param satSolver the sat solver to use
-   * @param fullLitToNodeMap whether to store lit->Node for all lits
    */
-  TseitinCnfStream(SatInputInterface* satSolver, bool fullLitToNodeMap);
+  TseitinCnfStream(SatInputInterface* satSolver);
 
 private:
 

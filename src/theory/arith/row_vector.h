@@ -6,6 +6,7 @@
 #define __CVC4__THEORY__ARITH__ROW_VECTOR_H
 
 #include "theory/arith/arith_utilities.h"
+#include "theory/arith/arithvar_set.h"
 #include "util/rational.h"
 #include <vector>
 
@@ -31,18 +32,14 @@ public:
   typedef std::vector<VarCoeffPair> VarCoeffArray;
   typedef VarCoeffArray::const_iterator NonZeroIterator;
 
+  typedef std::vector<bool> ArithVarContainsSet;
+
   /**
    * Let c be -1 if strictlySorted is true and c be 0 otherwise.
    * isSorted(arr, strictlySorted) is then equivalent to
    * If i<j, cmp(getArithVar(d_entries[i]), getArithVar(d_entries[j])) <= c.
    */
   static bool isSorted(const VarCoeffArray& arr, bool strictlySorted);
-
-  /**
-   * noZeroCoefficients(arr) is equivalent to
-   *  0 != getCoefficient(arr[i]) for all i.
-   */
-  static bool noZeroCoefficients(const VarCoeffArray& arr);
 
   /**
    * Zips together an array of variables and coefficients and appends
@@ -52,10 +49,25 @@ public:
                   const std::vector< Rational >& coefficients,
                   VarCoeffArray& output);
 
-  static void merge(VarCoeffArray& arr, const VarCoeffArray& other, const Rational& c, std::vector<uint32_t>& count);
-
+  static void merge(VarCoeffArray& arr,
+                    ArithVarContainsSet& contains,
+                    const VarCoeffArray& other,
+                    const Rational& c,
+                    std::vector<uint32_t>& count,
+                    std::vector<ArithVarSet>& columnMatrix,
+                    ArithVar basic);
 
 protected:
+  /**
+   * Debugging code.
+   * noZeroCoefficients(arr) is equivalent to
+   *  0 != getCoefficient(arr[i]) for all i.
+   */
+  static bool noZeroCoefficients(const VarCoeffArray& arr);
+
+  /** Debugging code.*/
+  bool matchingCounts() const;
+
   /**
    * Invariants:
    * - isSorted(d_entries, true)
@@ -63,7 +75,14 @@ protected:
    */
   VarCoeffArray d_entries;
 
+  /**
+   * Invariants:
+   * - This set is the same as the set maintained in d_entries.
+   */
+  ArithVarContainsSet d_contains;
+
   std::vector<uint32_t>& d_rowCount;
+  std::vector<ArithVarSet>& d_columnMatrix;
 
   NonZeroIterator lower_bound(ArithVar x_j) const{
     return std::lower_bound(d_entries.begin(), d_entries.end(), make_pair(x_j,0), cmp);
@@ -75,8 +94,10 @@ public:
 
   RowVector(const std::vector< ArithVar >& variables,
             const std::vector< Rational >& coefficients,
-            std::vector<uint32_t>& counts);
+            std::vector<uint32_t>& counts,
+            std::vector<ArithVarSet>& columnMatrix);
 
+  ~RowVector();
 
   /** Returns the number of nonzero variables in the vector. */
   uint32_t size() const {
@@ -89,14 +110,26 @@ public:
 
   /** Returns true if the variable is in the row. */
   bool has(ArithVar x_j) const{
+    if(x_j >= d_contains.size()){
+      return false;
+    }else{
+      return d_contains[x_j];
+    }
+  }
+
+private:
+  /** Debugging code. */
+  bool hasInEntries(ArithVar x_j) const {
     return std::binary_search(d_entries.begin(), d_entries.end(), make_pair(x_j,0), cmp);
   }
+public:
 
   /**
    * Returns the coefficient of a variable in the row.
    */
   const Rational& lookup(ArithVar x_j) const{
     Assert(has(x_j));
+    Assert(hasInEntries(x_j));
     NonZeroIterator lb = lower_bound(x_j);
     return getCoefficient(*lb);
   }
@@ -110,9 +143,20 @@ public:
    * Updates the current row to be the sum of itself and
    * another vector times c (c != 0).
    */
-  void addRowTimesConstant(const Rational& c, const RowVector& other);
+  void addRowTimesConstant(const Rational& c, const RowVector& other, ArithVar basic);
 
   void printRow();
+
+protected:
+  /**
+   * Adds v to d_contains.
+   * This may resize d_contains.
+   */
+  static void addArithVar(ArithVarContainsSet& contains, ArithVar v);
+
+  /** Removes v from d_contains. */
+  static void removeArithVar(ArithVarContainsSet& contains, ArithVar v);
+
 }; /* class RowVector */
 
 /**
@@ -140,17 +184,35 @@ public:
   ReducedRowVector(ArithVar basic,
                    const std::vector< ArithVar >& variables,
                    const std::vector< Rational >& coefficients,
-                   std::vector<uint32_t>& count);
+                   std::vector<uint32_t>& count,
+                   std::vector<ArithVarSet>& columnMatrix);
 
+  ~ReducedRowVector();
 
   ArithVar basic() const{
     Assert(basicIsSet());
     return d_basic;
   }
 
+  /** Return true if x is in the row and is not the basic variable. */
+  bool hasNonBasic(ArithVar x) const {
+    if(x == basic()){
+      return false;
+    }else{
+      return has(x);
+    }
+  }
+
   void pivot(ArithVar x_j);
 
   void substitute(const ReducedRowVector& other);
+
+  /**
+   * Returns the reduced row as an equality with
+   * the basic variable on the lhs equal to the sum of the non-basics variables.
+   * The mapped from ArithVars to Nodes is specificied by map.
+   */
+  Node asEquality(const ArithVarToNodeMap& map) const;
 }; /* class ReducedRowVector */
 
 

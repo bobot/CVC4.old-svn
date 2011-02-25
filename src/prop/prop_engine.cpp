@@ -63,14 +63,7 @@ PropEngine::PropEngine(TheoryEngine* te,
   d_context(context) {
   Debug("prop") << "Constructing the PropEngine" << endl;
   d_satSolver = new SatSolver(this, d_theoryEngine, d_context, opts);
-
-  // compute whether we need a full lit->Node mapping for all lits
-  bool fullMap = false;
-#ifdef CVC4_REPLAY
-  fullMap = (opts.replayLog != NULL);
-#endif /* CVC4_REPLAY */
-  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, fullMap);
-
+  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver);
   d_satSolver->setCnfStream(d_cnfStream);
 }
 
