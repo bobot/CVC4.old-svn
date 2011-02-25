@@ -385,7 +385,7 @@ BitVectorType::BitVectorType(const Type& t) throw(AssertionException) :
 }
 
 ConstructorType::ConstructorType(const Type& t) throw(AssertionException) :
-  Type(t) {
+  Type(t){
   Assert(isConstructor());
 }
 

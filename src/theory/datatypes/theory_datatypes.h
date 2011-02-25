@@ -34,10 +34,24 @@ namespace datatypes {
 
 class TheoryDatatypes : public Theory {
 private:
+  enum{
+    
+  };
   //a list of types with the list of constructors for that type
   std::vector<std::pair<Type, std::vector<Type> > > d_defs;
-  // the distinguished term for each type
-  //std::vector< Node > d_distinguishTerms;
+  // the distinguished ground term for each type
+  std::vector< Node > d_distinguishTerms;
+  //finite datatypes
+  std::vector<std::pair< bool, std::vector<bool> > > is_finite;
+  //well founded datatypes
+  std::vector<std::pair< bool, std::vector<bool> > > is_wellFounded;
+  //
+  bool requiresCheckFiniteWellFounded;
+  int getDatatypeIndex( TypeNode t );
+  bool isDatatype( TypeNode t ) { return getDatatypeIndex( t )!=-1; }
+  bool isFiniteDatatype( TypeNode t );
+  bool isWellFoundedDatatype( TypeNode t );
+  void checkFiniteWellFounded();
 
   class CongruenceChannel {
     TheoryDatatypes* d_datatypes;
@@ -115,12 +129,14 @@ public:
   void checkTester( Effort e, Node tassertion, Node assertion );
 
   /* from uf_morgan */
+  void merge(TNode a, TNode b);
   inline TNode find(TNode a);
   inline TNode debugFind(TNode a) const;
   void appendToDiseqList(TNode of, TNode eq);
   void appendToEqList(TNode of, TNode eq);
   void addDisequality(TNode eq);
   void registerEqualityForPropagation(TNode eq);
+  Node constructConflict(TNode diseq);
 
 };/* class TheoryDatatypes */
 

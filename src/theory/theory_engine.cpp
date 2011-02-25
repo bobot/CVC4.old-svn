@@ -656,6 +656,7 @@ bool TheoryEngine::presolve() {
     }
     d_bv->presolve();
     */
+    d_datatypes->presolve();
   } catch(const theory::Interrupted&) {
     Debug("theory") << "TheoryEngine::presolve() => interrupted" << endl;
   }

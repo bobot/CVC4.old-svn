@@ -118,8 +118,11 @@ command returns [CVC4::Command* cmd = 0]
   | CHECKSAT_TOK SEMICOLON { cmd = new CheckSatCommand(MK_CONST(true)); }
   | PUSH_TOK SEMICOLON { cmd = new PushCommand(); }
   | POP_TOK SEMICOLON { cmd = new PopCommand(); }
-  | DATATYPE_TOK datatypeDef[t, args] { datatypes.push_back( std::pair<Type, std::vector<Type> >( t, args ) ); }
-    ( COMMA datatypeDef[t, args] { datatypes.push_back( std::pair<Type, std::vector<Type> >( t, args ) ); } )* 
+  | DATATYPE_TOK datatypeDef[t, args] { 
+     datatypes.push_back( std::pair<Type, std::vector<Type> >( t, args ) );
+     args.clear();
+   }( COMMA datatypeDef[t, args] { datatypes.push_back( std::pair<Type, std::vector<Type> >( t, args ) );
+                                   args.clear(); } )* 
      END_TOK SEMICOLON { cmd = new DatatypeCommand( datatypes ); }
   | declaration[cmd]
   | EOF

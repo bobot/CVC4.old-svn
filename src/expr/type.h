@@ -51,7 +51,11 @@ class KindType;
 class SortType;
 class SortConstructorType;
 class Type;
-
+namespace theory {
+namespace datatypes {
+class TheoryDatatypes;    //FIXME?
+}
+}
 /** Strategy for hashing Types */
 struct CVC4_PUBLIC TypeHashStrategy {
   /** Return a hash code for type t */
@@ -76,6 +80,7 @@ class CVC4_PUBLIC Type {
   friend class ExprManager;
   friend class TypeNode;
   friend class TypeHashStrategy;
+  friend class theory::datatypes::TheoryDatatypes; //FIXME?
   friend std::ostream& operator<<(std::ostream& out, const Type& t);
 
 protected:
