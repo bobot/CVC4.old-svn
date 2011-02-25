@@ -226,6 +226,49 @@ Node TheoryEngine::preprocess(TNode node) {
   return preprocessed;
 }
 
+/**
+ * Check all (currently-active) theories for conflicts.
+ * @param effort the effort level to use
+ */
+bool TheoryEngine::check(theory::Theory::Effort effort) {
+  d_theoryOut.d_conflictNode = Node::null();
+  d_theoryOut.d_propagatedLiterals.clear();
+
+#ifdef CVC4_FOR_EACH_THEORY_STATEMENT
+#undef CVC4_FOR_EACH_THEORY_STATEMENT
+#endif
+#define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
+  if (theory::TheoryTraits<THEORY>::hasCheck) { \
+     reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(d_theoryTable[THEORY])->check(effort); \
+     if (!d_theoryOut.d_conflictNode.get().isNull()) { \
+       return false; \
+     } \
+  }
+
+  // Do the checking
+  try {
+    CVC4_FOR_EACH_THEORY
+  } catch(const theory::Interrupted&) {
+    Debug("theory") << "TheoryEngine::check() => conflict" << std::endl;
+  }
+
+  return true;
+}
+
+void TheoryEngine::propagate() {
+  // Definition of the statement that is to be run by every theory
+#ifdef CVC4_FOR_EACH_THEORY_STATEMENT
+#undef CVC4_FOR_EACH_THEORY_STATEMENT
+#endif
+#define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
+  if (theory::TheoryTraits<THEORY>::hasPropagate) { \
+      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(d_theoryTable[THEORY])->propagate(theory::Theory::FULL_EFFORT); \
+  }
+
+  // Propagate for each theory using the statement above
+  CVC4_FOR_EACH_THEORY
+}
+
 /* Our goal is to tease out any ITE's sitting under a theory operator. */
 Node TheoryEngine::removeITEs(TNode node) {
   Debug("ite") << "removeITEs(" << node << ")" << endl;
