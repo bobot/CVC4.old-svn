@@ -1,0 +1,7 @@
+This branch aims to break dependences between TheoryEngine and theories---that
+is, so if you modify theory_engine.h or any theory header, it doesn't recompile
+all theories.  This doesn't require extensive changes, but should be
+benchmarked, so this (short-lived) branch serves as a repository for this
+work.
+
+-- Morgan Deters <mdeters@cs.nyu.edu>  Fri, 25 Feb 2011 16:12:32 -0500
