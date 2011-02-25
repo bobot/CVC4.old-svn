@@ -156,6 +156,7 @@ void TheoryArrays::merge(TNode a, TNode b) {
 
   Debug("arrays-merge")<<"TheoryArrays::merge() " << a <<" and " <<b <<endl;
 
+
   // make "a" the one with shorter diseqList
   CNodeTNodesMap::iterator deq_ia = d_disequalities.find(a);
   CNodeTNodesMap::iterator deq_ib = d_disequalities.find(b);
@@ -177,6 +178,10 @@ void TheoryArrays::merge(TNode a, TNode b) {
 
   // b becomes the canon of a
   setCanon(a, b);
+
+  //FIXME: do i need to merge these if there is conflict?
+  mergeIndices(a, b);
+  mergeStores(a, b);
 
   deq_ia = d_disequalities.find(a);
   map<TNode, TNode> alreadyDiseqs;
@@ -328,10 +333,67 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
 }
 
 void TheoryArrays::appendIndex(TNode a, TNode index) {
-  Debug("arrays::index")<<"TheoryArrays::appendIndex a = "<<a<<" i = "<<index<<"\n";
+  Debug("arrays::index")<<"TheoryArrays::appendIndex a       = "<<a<<" i = "<<index<<"\n";
+
+  Assert(a.getKind() == kind::ARRAY_TYPE);
+  a = find(a);
+
+  Debug("arrays::index")<<"TheoryArrays::appendIndex find(a) = "<<a<<"\n";
+  CTNodeList* ilist;
+  CNodeTNodesMap::iterator it = d_readIndicesMap.find(a);
+  if( it == d_readIndicesMap.end()) {
+    ilist = new (getContext()->getCMM()) CTNodeList(true, getContext(), false,
+                                                    ContextMemoryAllocator<TNode>(getContext()->getCMM()));
+    d_readIndicesMap.insertDataFromContextMemory(a, ilist);
+    Debug("arrays::index")<<"TheoryArrays::appendIndex adding (find(a), [index]) entry \n";
+    ilist->push_back(index);
+  } else {
+    ilist = (*it).second;
+    // check if index already in list
+    CTNodeList::const_iterator i = ilist->begin();
+    for(; i!= ilist->end(); i++) {
+      if((*i) == index) {
+        Debug("arrays::index")<<"TheoryArrays::appendIndex index already exits \n";
+        return;
+      }
+    }
+    Debug("arrays::index")<<"TheoryArrays::appendIndex appending index to find(a) \n";
+    ilist->push_back(index);
+
+  }
 
 }
 
 void TheoryArrays::appendStore(TNode a, TNode store) {
+
+}
+
+void TheoryArrays::mergeIndices(TNode a, TNode b) {
+  Assert(find(a) == find(b) && find(a) == b);
+  set<TNode> aindices;
+  CNodeTNodesMap::iterator ialist = d_indicesMap.find(a);
+  CTNodeList* alist = (*ialist).second;
+
+  // collect a indicies
+
+  CTNodeList::const_iterator ia = alist->begin();
+  for( ; ia!= alist ->end(); ia++ ) {
+    aindices.insert(*ia);
+  }
+
+  // add b indices to the a list of indices if they are not already there
+
+  CNodeTNodesMap::iterator iblist = d_indicesMap.find(b);
+  CTNodeList* blist = (*iblist).second;
+  CTNodeList::const_iterator ib = blist->begin();
+    for( ; ib!= blist ->end(); ib++ ) {
+      if(aindices.find(*ib) == aindices.end()) {
+        alist->push_back(*ib);
+      }
+    }
+
+   //TODO: remove b from map
+   //
+
 
 }

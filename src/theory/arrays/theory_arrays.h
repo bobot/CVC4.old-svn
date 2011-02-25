@@ -137,6 +137,13 @@ private:
    */
   inline void appendIndex(TNode a, TNode index);
   inline void appendStore(TNode a, TNode store);
+  /**
+   * pre-conditions
+   *    a = find(a) and b = find(b)
+   *    a and b have already been merged and b is the representative
+   */
+  inline void mergeIndices(TNode a, TNode b);
+  inline void mergeStores(TNode a, TNode b);
 
 public:
   TheoryArrays(context::Context* c, OutputChannel& out);

@@ -364,6 +364,7 @@ SetBenchmarkLogicCommand::SetBenchmarkLogicCommand(std::string logic) :
 }
 
 void SetBenchmarkLogicCommand::invoke(SmtEngine* smtEngine) {
+  Debug("logic")<<"SetBenchmarkLogicCommand "<<d_logic<<"\n";
   try {
     smtEngine->setLogic(d_logic);
     //d_result = "success";
