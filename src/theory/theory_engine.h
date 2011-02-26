@@ -28,6 +28,7 @@
 #include "theory/shared_term_manager.h"
 #include "theory/theory.h"
 #include "theory/rewriter.h"
+#include "theory/valuation.h"
 #include "util/options.h"
 #include "util/stats.h"
 
@@ -141,6 +142,12 @@ class TheoryEngine {
    * context level or below).
    */
   context::CDO<bool> d_incomplete;
+
+  /**
+   * A "valuation proxy" for this TheoryEngine.  Used only in getValue()
+   * for decoupled Theory-to-TheoryEngine communication.
+   */
+  theory::Valuation d_valuation;
 
   /**
    * Replace ITE forms in a node.
