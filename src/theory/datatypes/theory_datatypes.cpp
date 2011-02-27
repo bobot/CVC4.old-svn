@@ -41,6 +41,16 @@ int TheoryDatatypes::getDatatypeIndex( TypeNode t )
   return -1;
 }
 
+int TheoryDatatypes::getConstructorIndex( int typeIndex, TypeNode t )
+{
+  for( int a=0; a<(int)d_defs[typeIndex].second.size(); a++ ){
+    if( *(d_defs[typeIndex].second[a].d_typeNode)==t ){
+      return a;
+    }
+  }
+  return -1;
+}
+
 bool TheoryDatatypes::isFiniteDatatype( TypeNode t ){
   for( int a=0; a<(int)d_defs.size(); a++ ){
     if( *(d_defs[a].first.d_typeNode)==t ){
@@ -178,9 +188,9 @@ TheoryDatatypes::TheoryDatatypes(int id, Context* c, OutputChannel& out) :
   d_unionFind(c),
   d_disequalities(c),
   d_equalities(c),
-  d_conflict(),
-  requiresCheckFiniteWellFounded( true )
+  d_conflict()
 {
+  requiresCheckFiniteWellFounded = true;
 }
 
 
@@ -189,7 +199,6 @@ TheoryDatatypes::~TheoryDatatypes() {
 
 
 RewriteResponse TheoryDatatypes::preRewrite(TNode in, bool topLevel) {
-  checkFiniteWellFounded();
   Debug("datatypes-rewrite") << "pre-rewriting " << in
                           << " topLevel==" << topLevel << std::endl;
 
@@ -197,17 +206,18 @@ RewriteResponse TheoryDatatypes::preRewrite(TNode in, bool topLevel) {
 }
 
 RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
-  checkFiniteWellFounded();
   Debug("datatypes-rewrite") << "post-rewriting " << in
                           << " topLevel==" << topLevel << std::endl;
+
+  checkFiniteWellFounded();
 
   if( in.getKind()==APPLY_TESTER &&
       in[0].getKind()==APPLY_CONSTRUCTOR ){
     TypeNode testConsType = (in.getOperator().getType())[0];
     TypeNode consType = in[0].getOperator().getType();
     Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: Rewrite trivial tester " << in << endl;
-    //Debug("datatypes-rewrite") << testConsType << endl;
-    //Debug("datatypes-rewrite") << consType << endl;
+    Debug("datatypes-rewrite") << in.getOperator().getType() << " " << in.getOperator() << endl;
+    Debug("datatypes-rewrite") << in[0].getOperator().getType() << " " << in[0].getOperator() << endl;
     return RewriteComplete(NodeManager::currentNM()->mkConst(testConsType==consType));
   }
   if( in.getKind()==APPLY_SELECTOR &&
@@ -229,24 +239,17 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
     }
     if( selIndex==-1 ){
       Debug("datatypes-rewrite") << "Applied selector to wrong constructor " << selType[1] << endl;
-      //return distinguished term  FIXME
-      //NodeManager* nm = NodeManager::currentNM();
-      //ostringstream os;
-      //os << "_term_" << in.getOperator();
-      //Node tn = nm->mkVar(os.str().c_str(), selType[1]);
       int index = getDatatypeIndex( selType[1] );
-      Debug("datatypes-rewrite") << "Returned index " << index << endl;
       if( index==-1 ){
         Debug("datatypes-rewrite") << "Bad index for type " << selType[1] << endl;
       }else{
-        Node tn = d_distinguishTerms[index];
-        Debug("datatypes-rewrite") << "Return distinguished term " << tn << " of type " << selType[1] << endl;
-        return RewriteComplete(tn);
+        Debug("datatypes-rewrite") << "Return distinguished term " << d_distinguishTerms[index] << " of type " << selType[1] << endl;
+        return RewriteComplete( d_distinguishTerms[index] );
       }
     }else{
       Debug("datatypes-rewrite") << "Applied selector to correct constructor, index = " << selIndex << endl;
       Debug("datatypes-rewrite") << "Return " << in[0][selIndex] << endl;
-      return RewriteComplete(in[0][selIndex]);
+      return RewriteComplete( in[0][selIndex] );
     }
   }
 
@@ -279,8 +282,8 @@ void TheoryDatatypes::notifyCongruent(TNode lhs, TNode rhs) {
 
 
 void TheoryDatatypes::presolve() {
-  checkFiniteWellFounded();
   Debug("datatypes") << "TheoryDatatypes::presolve()" << endl;
+  checkFiniteWellFounded();
 }
 
 void TheoryDatatypes::check(Effort e) {
@@ -369,24 +372,79 @@ void TheoryDatatypes::check(Effort e) {
 }
 
 void TheoryDatatypes::checkTester( Effort e, Node tassertion, Node assertion ){
-  TypeNode testConsType = (tassertion.getOperator().getType())[0];
+  Debug("datatypes") << "check tester " << assertion << std::endl;
 
+  //tassertion[0] should be a variable
   Assert( tassertion[0].getKind()!=kind::APPLY_CONSTRUCTOR );
-  ////test the constructor type
-  //TypeNode consType = tassertion[0].getOperator().getType();
-  //if( (testConsType==consType)==(assertion.getKind()==NOT) ){
-  //  Debug("datatypes") << "TheoryDatatypes::check(): Tester fail " << (assertion.getKind()==NOT) << std::endl;
-  //  //generate conflict
-  //  Debug("datatypes") << "Conflict =  " << assertion << std::endl;
-  //  d_out->conflict( assertion, false );
-  //}else{
-  //  Debug("datatypes") << "TheoryDatatypes::check(): Tester pass " << (assertion.getKind()==NOT) << std::endl;
-  //}
-  //Debug("datatypes") << testConsType << std::endl;
-  //Debug("datatypes") << consType << endl;
 
-  
-
+  int datatypeIndex = getDatatypeIndex( tassertion[0].getType() );
+  Assert( datatypeIndex!= -1 );
+  //check if empty label (no possible constructors remain)
+  if( assertion.getKind()==NOT ){
+    int notCount = 0;
+    bool add = true;
+    for( int a=d_labels[ tassertion[0] ].size()-1; a>=0; a-- ){
+      if( d_labels[ tassertion[0] ][a].getKind()==kind::NOT ){
+        if( d_labels[ tassertion[0] ][a][0].getOperator()==tassertion.getOperator() ){
+          add = false;
+          break;
+        }
+        notCount++;
+      }else{
+        add = false;
+        if( d_labels[ tassertion[0] ][a].getOperator()==tassertion.getOperator() ){
+          NodeBuilder<> nb(kind::AND);
+          nb << d_labels[ tassertion[0] ][a] << assertion;
+          Node conflict = nb;
+          d_out->conflict( conflict, false );
+          Debug("datatypes") << "Contradictory labels1 " << conflict << std::endl;
+        }
+        break;
+      }
+    }
+    if( add ){
+      if( notCount==(int)d_defs[datatypeIndex].second.size()-1 ){
+        NodeBuilder<> nb(kind::AND);
+        for( int a=d_labels[ tassertion[0] ].size()-1; a>=0; a-- ){
+          nb << d_labels[ tassertion[0] ][a];
+        }
+        nb << assertion;
+        Node conflict = nb;
+        d_out->conflict( conflict, false ); 
+        Debug("datatypes") << "Exhausted possibilities for labels " << conflict << std::endl;
+      }else{
+        d_labels[ tassertion[0] ].push_back( assertion );
+        Debug("datatypes") << "Add to labels " << d_labels[ tassertion[0] ].size() << std::endl;
+      }
+    }
+  }else{
+    bool add = true;
+    for( int a=d_labels[ tassertion[0] ].size()-1; a>=0; a-- ){
+      if( d_labels[ tassertion[0] ][a].getKind()==kind::NOT ){
+        if( d_labels[ tassertion[0] ][a][0].getOperator()==tassertion.getOperator() ){
+          NodeBuilder<> nb(kind::AND);
+          nb << d_labels[ tassertion[0] ][a] << assertion;
+          Node conflict = nb;
+          d_out->conflict( conflict, false ); 
+          Debug("datatypes") << "Contradictory labels2 " << conflict << std::endl;
+        }
+      }else{
+        if( d_labels[ tassertion[0] ][a].getOperator()!=tassertion.getOperator() ){
+          NodeBuilder<> nb(kind::AND);
+          nb << d_labels[ tassertion[0] ][a] << assertion;
+          Node conflict = nb;
+          d_out->conflict( conflict, false ); 
+          Debug("datatypes") << "Contradictory labels3 " << conflict << std::endl;
+        }
+        add = false;
+        break;
+      }
+    }
+    if( add ){
+      d_labels[ tassertion[0] ].push_back( assertion );
+      Debug("datatypes") << "Add to labels " << d_labels[ tassertion[0] ].size() << std::endl;
+    }
+  }
 }
 
 Node TheoryDatatypes::getValue(TNode n, TheoryEngine* engine) {

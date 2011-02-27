@@ -27,6 +27,7 @@
 
 #include <ext/hash_set>
 #include <iostream>
+#include <map>
 
 namespace CVC4 {
 namespace theory {
@@ -34,9 +35,6 @@ namespace datatypes {
 
 class TheoryDatatypes : public Theory {
 private:
-  enum{
-    
-  };
   //a list of types with the list of constructors for that type
   std::vector<std::pair<Type, std::vector<Type> > > d_defs;
   // the distinguished ground term for each type
@@ -48,10 +46,14 @@ private:
   //
   bool requiresCheckFiniteWellFounded;
   int getDatatypeIndex( TypeNode t );
+  int getConstructorIndex( int typeIndex, TypeNode t );
   bool isDatatype( TypeNode t ) { return getDatatypeIndex( t )!=-1; }
   bool isFiniteDatatype( TypeNode t );
   bool isWellFoundedDatatype( TypeNode t );
   void checkFiniteWellFounded();
+
+  //for possible constructors, map from terms to tester asserted for that term
+  std::map<Node, std::vector<Node> > d_labels;
 
   class CongruenceChannel {
     TheoryDatatypes* d_datatypes;
