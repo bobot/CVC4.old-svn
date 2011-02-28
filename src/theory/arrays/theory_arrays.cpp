@@ -20,7 +20,7 @@
 #include "theory/arrays/theory_arrays.h"
 #include "theory/valuation.h"
 #include "expr/kind.h"
-
+#include <map>
 
 using namespace std;
 using namespace CVC4;
@@ -350,6 +350,7 @@ void TheoryArrays::appendIndex(TNode a, TNode index) {
   } else {
     ilist = (*it).second;
     // check if index already in list
+    //FIXME: maybe do this lazily when merging?
     CTNodeList::const_iterator i = ilist->begin();
     for(; i!= ilist->end(); i++) {
       if((*i) == index) {
