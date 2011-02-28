@@ -11,8 +11,10 @@ libprop_la_SOURCES = \
 	prop_engine.cpp \
 	prop_engine.h \
 	sat.h \
-        sat.cpp \
+	sat.cpp \
 	cnf_stream.h \
-	cnf_stream.cpp
+	cnf_stream.cpp \
+	propositional_query.h \
+	propositional_query.cpp
 
 SUBDIRS = minisat

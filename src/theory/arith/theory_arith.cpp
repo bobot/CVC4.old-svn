@@ -97,8 +97,13 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_presolveTime);
 }
 
+#include "prop/propositional_query.h"
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_staticLearningTimer);
+
+  Debug("prop::static") << n << "is "
+                        << prop::PropositionalQuery::isSatisfiable(n) << endl;
+
 
   vector<TNode> workList;
   workList.push_back(n);
