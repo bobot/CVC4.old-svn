@@ -51,4 +51,8 @@ void cvc4_init() throw(Exception);
 }/* CVC4::main namespace */
 }/* CVC4 namespace */
 
+/** Actual Cvc4 driver functions **/
+int runCvc4(int argc, char* argv[]);
+int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[]);
+
 #endif /* __CVC4__MAIN__MAIN_H */

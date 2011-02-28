@@ -46,7 +46,7 @@ using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
 
-int runCvc4(int argc, char* argv[]);
+//int runCvc4(int argc, char* argv[]);
 void doCommand(SmtEngine&, Command*);
 void printUsage();
 
@@ -91,7 +91,11 @@ void printUsage() {
  */
 int main(int argc, char* argv[]) {
   try {
+#ifdef CVC4_PORTFOLIO_MODE
+    return runCvc4Portfolio(2, argc, argv);
+#else
     return runCvc4(argc, argv);
+#endif
   } catch(OptionException& e) {
 #ifdef CVC4_COMPETITION_MODE
     *options.out << "unknown" << endl;
@@ -118,11 +122,17 @@ int main(int argc, char* argv[]) {
     }
     exit(1);
   } catch(...) {
+#ifdef CVC4_PORTFOLIO_MODE
+    // Can't use exceptions in our use of pthread, see:
+    // http://www.alexonlinux.com/pthread_exit-in-c
+    throw;
+#else /* CVC4_PORTFOLIO_MODE */
 #ifdef CVC4_COMPETITION_MODE
     *options.out << "unknown" << endl;
 #endif
     *options.err << "CVC4 threw an exception of unknown type." << endl;
     exit(1);
+#endif /* CVC4_PORTFOLIO_MODE */
   }
 }
 
