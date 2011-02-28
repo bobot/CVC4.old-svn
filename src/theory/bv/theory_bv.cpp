@@ -20,12 +20,14 @@
 #include "theory/bv/theory_bv.h"
 #include "theory/bv/theory_bv_utils.h"
 
-#include "theory/theory_engine.h"
+#include "theory/valuation.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::bv;
 using namespace CVC4::theory::bv::utils;
+
+using namespace std;
 
 void TheoryBV::preRegisterTerm(TNode node) {
 
@@ -72,19 +74,13 @@ void TheoryBV::check(Effort e) {
       // We need to check this as the equality trigger might have been true when we made it
       TNode equality = assertion[0];
 
-      // Slice the equality
-      std::vector<Node> lhsSlices, rhsSlices;
-      d_sliceManager.addEquality(equality[0], equality[1], lhsSlices, rhsSlices);
-      Assert(lhsSlices.size() == rhsSlices.size());
-
-      for (int i = 0, i_end = lhsSlices.size(); i != i_end; ++ i) {
-        if (d_eqEngine.areEqual(lhsSlices[i], rhsSlices[i])) {
-          vector<TNode> assertions;
-          d_eqEngine.getExplanation(lhsSlices[i], rhsSlices[i], assertions);
-          assertions.push_back(assertion);
-          d_out->conflict(mkAnd(assertions));
-          return;
-        }
+      // No need to slice the equality, the whole thing *should* be deduced
+      if (d_eqEngine.areEqual(equality[0], equality[1])) {
+        vector<TNode> assertions;
+        d_eqEngine.getExplanation(equality[0], equality[1], assertions);
+        assertions.push_back(assertion);
+        d_out->conflict(mkAnd(assertions));
+        return;
       }
       break;
     }
@@ -121,7 +117,7 @@ bool TheoryBV::triggerEquality(size_t triggerId) {
   return true;
 }
 
-Node TheoryBV::getValue(TNode n, TheoryEngine* engine) {
+Node TheoryBV::getValue(TNode n, Valuation* valuation) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -131,7 +127,7 @@ Node TheoryBV::getValue(TNode n, TheoryEngine* engine) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( engine->getValue(n[0]) == engine->getValue(n[1]) );
+      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
 
   default:
     Unhandled(n.getKind());

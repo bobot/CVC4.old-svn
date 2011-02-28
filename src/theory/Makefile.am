@@ -21,7 +21,10 @@ libtheory_la_SOURCES = \
 	shared_data.cpp \
 	rewriter.h \
 	rewriter_attributes.h \
-	rewriter.cpp 
+	rewriter.cpp \
+	valuation.h \
+	valuation.cpp
+
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \
 	theory_traits.h
@@ -47,7 +50,7 @@ BUILT_SOURCES = \
 
 CLEANFILES = \
 	rewriter_tables.h \
-	theory_traits.h 
+	theory_traits.h
 
 include @top_srcdir@/src/theory/Makefile.subdirs
 
@@ -62,8 +65,7 @@ rewriter_tables.h: rewriter_tables_template.h mkrewriter @top_builddir@/src/theo
 theory_traits.h: theory_traits_template.h mktheorytraits @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mktheorytraits
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
-	$(AM_V_GEN)(@srcdir@//mktheorytraits \
+	$(AM_V_GEN)(@srcdir@/mktheorytraits \
 		$< \
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
-	

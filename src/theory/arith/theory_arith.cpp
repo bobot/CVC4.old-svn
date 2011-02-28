@@ -22,7 +22,7 @@
 #include "expr/metakind.h"
 #include "expr/node_builder.h"
 
-#include "theory/theory_engine.h"
+#include "theory/valuation.h"
 
 #include "util/rational.h"
 #include "util/integer.h"
@@ -57,12 +57,11 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   Theory(THEORY_ARITH, c, out),
   d_constants(NodeManager::currentNM()),
   d_partialModel(c),
-  d_basicManager(),
   d_userVariables(),
   d_diseq(c),
-  d_tableau(d_basicManager),
+  d_tableau(),
   d_propagator(c, out),
-  d_simplex(d_constants, d_partialModel, d_basicManager,  d_out, d_tableau),
+  d_simplex(d_constants, d_partialModel, d_out, d_tableau),
   d_statistics()
 {}
 
@@ -261,7 +260,7 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
 
   setArithVar(x,varX);
 
-  d_basicManager.init(varX,basic);
+  //d_basicManager.init(varX,basic);
   d_userVariables.init(varX, !basic);
   d_tableau.increaseSize();
 
@@ -316,7 +315,7 @@ void TheoryArith::setupSlack(TNode left){
  */
 void TheoryArith::setupInitialValue(ArithVar x){
 
-  if(!d_basicManager.isMember(x)){
+  if(!d_tableau.isBasic(x)){
     d_partialModel.initialize(x,d_constants.d_ZERO_DELTA);
   }else{
     //If the variable is basic, assertions may have already happened and updates
@@ -542,7 +541,7 @@ void TheoryArith::check(Effort effortLevel){
     for (ArithVar i = 0; i < d_variables.size(); ++ i) {
       Debug("arith::print_model") << d_variables[i] << " : " <<
         d_partialModel.getAssignment(i);
-      if(d_basicManager.isMember(i))
+      if(d_tableau.isBasic(i))
         Debug("arith::print_model") << " (basic)";
       Debug("arith::print_model") << endl;
     }
@@ -568,12 +567,19 @@ void TheoryArith::propagate(Effort e) {
   // }
 }
 
-Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
+Node TheoryArith::getValue(TNode n, Valuation* valuation) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
   case kind::VARIABLE: {
     ArithVar var = asArithVar(n);
+
+    if(d_removedRows.find(var) != d_removedRows.end()){
+      Node eq = d_removedRows.find(var)->second;
+      Assert(n == eq[0]);
+      Node rhs = eq[1];
+      return getValue(rhs, valuation);
+    }
 
     DeltaRational drat = d_partialModel.getAssignment(var);
     const Rational& delta = d_partialModel.getDelta();
@@ -585,7 +591,7 @@ Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( engine->getValue(n[0]) == engine->getValue(n[1]) );
+      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
 
   case kind::PLUS: { // 2+ args
     Rational value = d_constants.d_ZERO;
@@ -593,7 +599,7 @@ Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
             iend = n.end();
           i != iend;
           ++i) {
-      value += engine->getValue(*i).getConst<Rational>();
+      value += valuation->getValue(*i).getConst<Rational>();
     }
     return nodeManager->mkConst(value);
   }
@@ -604,7 +610,7 @@ Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
             iend = n.end();
           i != iend;
           ++i) {
-      value *= engine->getValue(*i).getConst<Rational>();
+      value *= valuation->getValue(*i).getConst<Rational>();
     }
     return nodeManager->mkConst(value);
   }
@@ -618,24 +624,24 @@ Node TheoryArith::getValue(TNode n, TheoryEngine* engine) {
     Unreachable();
 
   case kind::DIVISION: // 2 args
-    return nodeManager->mkConst( engine->getValue(n[0]).getConst<Rational>() /
-                                 engine->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() /
+                                 valuation->getValue(n[1]).getConst<Rational>() );
 
   case kind::LT: // 2 args
-    return nodeManager->mkConst( engine->getValue(n[0]).getConst<Rational>() <
-                                 engine->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() <
+                                 valuation->getValue(n[1]).getConst<Rational>() );
 
   case kind::LEQ: // 2 args
-    return nodeManager->mkConst( engine->getValue(n[0]).getConst<Rational>() <=
-                                 engine->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() <=
+                                 valuation->getValue(n[1]).getConst<Rational>() );
 
   case kind::GT: // 2 args
-    return nodeManager->mkConst( engine->getValue(n[0]).getConst<Rational>() >
-                                 engine->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() >
+                                 valuation->getValue(n[1]).getConst<Rational>() );
 
   case kind::GEQ: // 2 args
-    return nodeManager->mkConst( engine->getValue(n[0]).getConst<Rational>() >=
-                                 engine->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() >=
+                                 valuation->getValue(n[1]).getConst<Rational>() );
 
   default:
     Unhandled(n.getKind());
@@ -667,28 +673,38 @@ void TheoryArith::permanentlyRemoveVariable(ArithVar v){
   //  It appears that this can happen after other variables have been removed!
   //  Tread carefullty with this one.
 
-  if(!d_basicManager.isMember(v)){
+  bool noRow = false;
+
+  if(!d_tableau.isBasic(v)){
     ArithVar basic = findShortestBasicRow(v);
 
     if(basic == ARITHVAR_SENTINEL){
-      //Case 3) do nothing else.
-      //TODO think hard about if this is okay...
-      //Probably wrecks havoc with model generation
-      //*feh* DO IT ANYWAYS!
-      return;
+      noRow = true;
+    }else{
+      Assert(basic != ARITHVAR_SENTINEL);
+      d_tableau.pivot(basic, v);
     }
-
-    AlwaysAssert(basic != ARITHVAR_SENTINEL);
-    d_tableau.pivot(basic, v);
   }
 
-  Assert(d_basicManager.isMember(v));
+  if(d_tableau.isBasic(v)){
+    Assert(!noRow);
 
-  //remove the row from the tableau
-  ReducedRowVector* row  = d_tableau.removeRow(v);
-  d_removedRows[v] = row;
+    //remove the row from the tableau
+    ReducedRowVector* row  = d_tableau.removeRow(v);
+    Node eq = row->asEquality(d_arithVarToNodeMap);
 
-  Debug("arith::permanentlyRemoveVariable") << v << " died an ignoble death."<< endl;
+    if(Debug.isOn("row::print")) row->printRow();
+    if(Debug.isOn("tableau")) d_tableau.printTableau();
+    Debug("arith::permanentlyRemoveVariable") << eq << endl;
+    delete row;
+
+    Assert(d_tableau.getRowCount(v) == 0);
+    Assert(d_removedRows.find(v) ==  d_removedRows.end());
+    d_removedRows[v] = eq;
+  }
+
+  Debug("arith::permanentlyRemoveVariable") << "Permanently removed variable "
+                                            << v << ":" << asNode(v) << endl;
   ++(d_statistics.d_permanentlyRemovedVariables);
 }
 

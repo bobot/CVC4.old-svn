@@ -18,7 +18,7 @@
 
 
 #include "theory/arrays/theory_arrays.h"
-#include "theory/theory_engine.h"
+#include "theory/valuation.h"
 #include "expr/kind.h"
 
 
@@ -134,7 +134,7 @@ void TheoryArrays::check(Effort e) {
   Debug("arrays") << "TheoryArrays::check(): done" << endl;
 }
 
-Node TheoryArrays::getValue(TNode n, TheoryEngine* engine) {
+Node TheoryArrays::getValue(TNode n, Valuation* valuation) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -144,7 +144,7 @@ Node TheoryArrays::getValue(TNode n, TheoryEngine* engine) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( engine->getValue(n[0]) == engine->getValue(n[1]) );
+      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
 
   default:
     Unhandled(n.getKind());
@@ -371,7 +371,7 @@ void TheoryArrays::appendStore(TNode a, TNode store) {
 void TheoryArrays::mergeIndices(TNode a, TNode b) {
   Assert(find(a) == find(b) && find(a) == b);
   set<TNode> aindices;
-  CNodeTNodesMap::iterator ialist = d_indicesMap.find(a);
+  CNodeTNodesMap::iterator ialist = d_readIndicesMap.find(a);
   CTNodeList* alist = (*ialist).second;
 
   // collect a indicies
@@ -383,7 +383,7 @@ void TheoryArrays::mergeIndices(TNode a, TNode b) {
 
   // add b indices to the a list of indices if they are not already there
 
-  CNodeTNodesMap::iterator iblist = d_indicesMap.find(b);
+  CNodeTNodesMap::iterator iblist = d_readIndicesMap.find(b);
   CTNodeList* blist = (*iblist).second;
   CTNodeList::const_iterator ib = blist->begin();
     for( ; ib!= blist ->end(); ib++ ) {
@@ -395,5 +395,9 @@ void TheoryArrays::mergeIndices(TNode a, TNode b) {
    //TODO: remove b from map
    //
 
+
+}
+
+void TheoryArrays::mergeStores(TNode a, TNode b) {
 
 }

@@ -37,8 +37,9 @@ namespace arith {
  */
 
 class ArithVarSet {
-private:
+public:
   typedef std::vector<ArithVar> VarList;
+private:
   //List of the ArithVars in the set.
   VarList d_list;
 
@@ -49,10 +50,13 @@ private:
 public:
   typedef VarList::const_iterator iterator;
 
- ArithVarSet() :  d_list(), d_posVector() {}
+  ArithVarSet() :  d_list(), d_posVector() {}
 
   size_t size() const {
     return d_list.size();
+  }
+  bool empty() const {
+    return d_list.empty();
   }
 
   size_t allocated() const {
@@ -92,6 +96,9 @@ public:
   iterator begin() const{ return d_list.begin(); }
   iterator end() const{ return d_list.end(); }
 
+  const VarList& getList() const{
+    return d_list;
+  }
 
   /** Invalidates iterators */
   void remove(ArithVar x){
