@@ -97,28 +97,28 @@ public:
 
 template <class NodeType, class ValueType, class NodeHash>
 void StackingMap<NodeType, ValueType, NodeHash>::set(TNode n, const ValueType& newValue) {
-  Trace("ufsm") << "UFSM setting " << n << " : " << newValue << " @ " << d_trace.size() << endl;
+  Trace("ufsm") << "UFSM setting " << n << " : " << newValue << " @ " << d_trace.size() << std::endl;
   ValueType& ref = d_map[n];
-  d_trace.push_back(make_pair(n, ValueType(ref)));
+  d_trace.push_back(std::make_pair(n, ValueType(ref)));
   d_offset = d_trace.size();
   ref = newValue;
 }
 
 template <class NodeType, class ValueType, class NodeHash>
 void StackingMap<NodeType, ValueType, NodeHash>::notify() {
-  Trace("ufsm") << "UFSM cancelling : " << d_offset << " < " << d_trace.size() << " ?" << endl;
+  Trace("ufsm") << "UFSM cancelling : " << d_offset << " < " << d_trace.size() << " ?" << std::endl;
   while(d_offset < d_trace.size()) {
-    pair<TNode, TNode> p = d_trace.back();
+    std::pair<TNode, TNode> p = d_trace.back();
     if(p.second.isNull()) {
       d_map.erase(p.first);
-      Trace("ufsm") << "UFSM   " << d_trace.size() << " erasing " << p.first << endl;
+      Trace("ufsm") << "UFSM   " << d_trace.size() << " erasing " << p.first << std::endl;
     } else {
       d_map[p.first] = p.second;
-      Trace("ufsm") << "UFSM   " << d_trace.size() << " replacing " << p << endl;
+      Trace("ufsm") << "UFSM   " << d_trace.size() << " replacing " << p << std::endl;
     }
     d_trace.pop_back();
   }
-  Trace("ufufsm") << "UFSM cancelling finished." << endl;
+  Trace("ufufsm") << "UFSM cancelling finished." << std::endl;
 }
 
 }/* CVC4::theory::uf::morgan namespace */
