@@ -27,6 +27,7 @@
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "context/cdo.h"
+#include "util/options.h"
 
 #include <string>
 #include <iostream>
@@ -34,6 +35,10 @@
 namespace CVC4 {
 
 class TheoryEngine;
+
+namespace theory {
+  class Valuation;
+}/* CVC4::theory namespace */
 
 namespace theory {
 
@@ -90,6 +95,8 @@ protected:
     d_factsHead(ctxt, 0),
     d_out(&out) {
   }
+
+
 
   /**
    * This is called at shutdown time by the TheoryEngine, just before
@@ -322,7 +329,8 @@ public:
    * if you *know* that you are responsible handle the Node you're
    * asking for; other theories can use your types, so be careful
    * here!  To be safe, it's best to delegate back to the
-   * TheoryEngine.
+   * TheoryEngine (by way of the Valuation proxy object, which avoids
+   * direct dependence on TheoryEngine).
    *
    * Usually, you need to handle at least the two cases of EQUAL and
    * VARIABLE---EQUAL in case a value of yours is on the LHS of an
@@ -337,7 +345,7 @@ public:
    * and suspect this situation is the case, return Node::null()
    * rather than throwing an exception.
    */
-  virtual Node getValue(TNode n, TheoryEngine* engine) = 0;
+  virtual Node getValue(TNode n, Valuation* valuation) = 0;
 
   /**
    * The theory should only add (via .operator<< or .append()) to the
@@ -370,6 +378,8 @@ public:
    * etc..)
    */
   virtual std::string identify() const = 0;
+
+  virtual void notifyOptions(const Options& opt) {}
 
   //
   // CODE INVARIANT CHECKING (used only with CVC4_ASSERTIONS)

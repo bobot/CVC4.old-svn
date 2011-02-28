@@ -20,12 +20,14 @@
 #include "theory/bv/theory_bv.h"
 #include "theory/bv/theory_bv_utils.h"
 
-#include "theory/theory_engine.h"
+#include "theory/valuation.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::bv;
 using namespace CVC4::theory::bv::utils;
+
+using namespace std;
 
 void TheoryBV::preRegisterTerm(TNode node) {
 
@@ -55,13 +57,24 @@ void TheoryBV::check(Effort e) {
     // Do the right stuff
     switch (assertion.getKind()) {
     case kind::EQUAL: {
-      bool ok = d_eqEngine.addEquality(assertion[0], assertion[1]);
-      if (!ok) return;
+
+      // Slice the equality
+      std::vector<Node> lhsSlices, rhsSlices;
+      d_sliceManager.addEquality(assertion[0], assertion[1], lhsSlices, rhsSlices);
+      Assert(lhsSlices.size() == rhsSlices.size());
+
+      // Add the equality to the equality engine
+      for (int i = 0, i_end = lhsSlices.size(); i != i_end; ++ i) {
+        bool ok = d_eqEngine.addEquality(lhsSlices[i], rhsSlices[i]);
+        if (!ok) return;
+      }
       break;
     }
     case kind::NOT: {
       // We need to check this as the equality trigger might have been true when we made it
       TNode equality = assertion[0];
+
+      // No need to slice the equality, the whole thing *should* be deduced
       if (d_eqEngine.areEqual(equality[0], equality[1])) {
         vector<TNode> assertions;
         d_eqEngine.getExplanation(equality[0], equality[1], assertions);
@@ -104,7 +117,7 @@ bool TheoryBV::triggerEquality(size_t triggerId) {
   return true;
 }
 
-Node TheoryBV::getValue(TNode n, TheoryEngine* engine) {
+Node TheoryBV::getValue(TNode n, Valuation* valuation) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -114,7 +127,7 @@ Node TheoryBV::getValue(TNode n, TheoryEngine* engine) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( engine->getValue(n[0]) == engine->getValue(n[1]) );
+      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
 
   default:
     Unhandled(n.getKind());
