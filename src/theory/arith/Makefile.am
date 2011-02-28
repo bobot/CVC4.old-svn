@@ -17,11 +17,12 @@ libarith_la_SOURCES = \
 	delta_rational.cpp \
 	partial_model.h \
 	partial_model.cpp \
-	ordered_bounds_list.h \
 	ordered_set.h \
-	arithvar_dense_set.h \
+	arithvar_set.h \
 	tableau.h \
 	tableau.cpp \
+	arith_priority_queue.h \
+	arith_priority_queue.cpp \
 	simplex.h \
 	simplex.cpp \
 	row_vector.h \
@@ -32,5 +33,4 @@ libarith_la_SOURCES = \
 	theory_arith.cpp
 
 EXTRA_DIST = \
-	kinds \
-	normal_form_notes.txt
+	kinds

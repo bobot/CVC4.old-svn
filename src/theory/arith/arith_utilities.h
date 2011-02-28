@@ -28,6 +28,7 @@
 #include <vector>
 #include <stdint.h>
 #include <limits>
+#include <ext/hash_map>
 
 namespace CVC4 {
 namespace theory {
@@ -38,25 +39,9 @@ typedef uint32_t ArithVar;
 //static const ArithVar ARITHVAR_SENTINEL = std::numeric_limits<ArithVar>::max();
 #define ARITHVAR_SENTINEL std::numeric_limits<ArithVar>::max()
 
-struct ArithVarAttrID{};
-typedef expr::Attribute<ArithVarAttrID,uint64_t> ArithVarAttr;
-
-inline bool hasArithVar(TNode x){
-  return x.hasAttribute(ArithVarAttr());
-}
-
-inline ArithVar asArithVar(TNode x){
-  Assert(hasArithVar(x));
-  Assert(x.getAttribute(ArithVarAttr()) <= ARITHVAR_SENTINEL);
-  return x.getAttribute(ArithVarAttr());
-}
-
-inline void setArithVar(TNode x, ArithVar a){
-  Assert(!hasArithVar(x));
-  return x.setAttribute(ArithVarAttr(), (uint64_t)a);
-}
-
-typedef std::vector<uint64_t> ActivityMonitor;
+//Maps from Nodes -> ArithVars, and vice versa
+typedef __gnu_cxx::hash_map<Node, ArithVar, NodeHashFunction> NodeToArithVarMap;
+typedef __gnu_cxx::hash_map<ArithVar, Node> ArithVarToNodeMap;
 
 
 inline Node mkRationalNode(const Rational& q){
@@ -119,21 +104,28 @@ inline bool isRelationOperator(Kind k){
   }
 }
 
-/** is k \in {LT, LEQ, EQ, GEQ, GT} */
-inline Kind negateRelationKind(Kind k){
+/**
+ * Given a relational kind, k, return the kind k' s.t.
+ * swapping the lefthand and righthand side is equivalent.
+ *
+ * The following equivalence should hold, 
+ *   (k l r) <=> (k' r l)
+ */
+inline Kind reverseRelationKind(Kind k){
   using namespace kind;
 
   switch(k){
-  case LT: return GT;
-  case LEQ: return GEQ;
+  case LT:    return GT;
+  case LEQ:   return GEQ;
   case EQUAL: return EQUAL;
-  case GEQ: return LEQ;
-  case GT: return LT;
+  case GEQ:   return LEQ;
+  case GT:    return LT;
 
   default:
     Unreachable();
   }
 }
+
 inline bool evaluateConstantPredicate(Kind k, const Rational& left, const Rational& right){
   using namespace kind;
 
@@ -149,56 +141,13 @@ inline bool evaluateConstantPredicate(Kind k, const Rational& left, const Ration
   }
 }
 
-
-
-inline Node pushInNegation(Node assertion){
-  using namespace CVC4::kind;
-  Assert(assertion.getKind() == NOT);
-
-  Node p = assertion[0];
-
-  Kind k;
-
-  switch(p.getKind()){
-  case EQUAL:
-    return assertion;
-  case GT:
-    k = LEQ;
-    break;
-  case GEQ:
-    k = LT;
-    break;
-  case LEQ:
-    k = GT;
-    break;
-  case LT:
-    k = GEQ;
-    break;
-  default:
-    Unreachable();
-  }
-
-  return NodeManager::currentNM()->mkNode(k, p[0],p[1]);
-}
-
 /**
- * Validates that a node constraint has the following form:
- *   constraint: x |><| c
- * where |><| is either <, <=, ==, >=, LT,
- * x is of metakind a variabale,
- * and c is a constant rational.
+ * Returns the appropraite coefficient for the infinitesimal given the kind
+ * for an arithmetic atom inorder to represent strict inequalities as inequalities.
+ *   x < c  becomes  x <= c + (-1) * \delta
+ *   x > c  becomes  x >= x + ( 1) * \delta
+ * Non-strict inequalities have a coefficient of zero.
  */
-inline bool validateConstraint(TNode constraint){
-  using namespace CVC4::kind;
-  switch(constraint.getKind()){
-  case LT:case LEQ: case EQUAL: case GEQ: case GT: break;
-  default: return false;
-  }
-
-  if(constraint[0].getMetaKind() != metakind::VARIABLE) return false;
-  return constraint[1].getKind() == CONST_RATIONAL;
-}
-
 inline int deltaCoeff(Kind k){
   switch(k){
   case kind::LT:
@@ -211,20 +160,24 @@ inline int deltaCoeff(Kind k){
 }
 
 /**
- * Given a rewritten predicate to TheoryArith return a single kind to
+ * Given a literal to TheoryArith return a single kind to
  * to indicate its underlying structure.
  * The function returns the following in each case:
- * - (K left right) -> K where is a wildcard for EQUAL, LEQ, or GEQ:
+ * - (K left right) -> K where is a wildcard for EQUAL, LT, GT, LEQ, or GEQ:
  * - (NOT (EQUAL left right)) -> DISTINCT
  * - (NOT (LEQ left right))   -> GT
  * - (NOT (GEQ left right))   -> LT
+ * - (NOT (LT left right))    -> GEQ
+ * - (NOT (GT left right))    -> LEQ
  * If none of these match, it returns UNDEFINED_KIND.
  */
  inline Kind simplifiedKind(TNode assertion){
   switch(assertion.getKind()){
+  case kind::LT:
+  case kind::GT:
   case kind::LEQ:
-  case  kind::GEQ:
-  case  kind::EQUAL:
+  case kind::GEQ:
+  case kind::EQUAL:
     return assertion.getKind();
   case  kind::NOT:
     {
@@ -232,8 +185,12 @@ inline int deltaCoeff(Kind k){
       switch(atom.getKind()){
       case  kind::LEQ: //(not (LEQ x c)) <=> (GT x c)
         return  kind::GT;
-      case  kind::GEQ: //(not (GEQ x c) <=> (LT x c)
+      case  kind::GEQ: //(not (GEQ x c)) <=> (LT x c)
         return  kind::LT;
+      case  kind::LT: //(not (LT x c)) <=> (GEQ x c)
+        return  kind::GEQ;
+      case  kind::GT: //(not (GT x c) <=> (LEQ x c)
+        return  kind::LEQ;
       case  kind::EQUAL:
         return  kind::DISTINCT;
       default:
@@ -246,6 +203,26 @@ inline int deltaCoeff(Kind k){
     return kind::UNDEFINED_KIND;
   }
 }
+
+ /**
+  * Takes two nodes with exactly 2 children,
+  * the second child of both are of kind CONST_RATIONAL,
+  * and compares value of the two children.
+  * This is for comparing inequality nodes.
+  *   RightHandRationalLT((<= x 50), (< x 75)) == true
+  */
+struct RightHandRationalLT
+{
+  bool operator()(TNode s1, TNode s2) const
+  {
+    TNode rh1 = s1[1];
+    TNode rh2 = s2[1];
+    const Rational& c1 = rh1.getConst<Rational>();
+    const Rational& c2 = rh2.getConst<Rational>();
+    int cmpRes = c1.cmp(c2);
+    return cmpRes < 0;
+  }
+};
 
 }; /* namesapce arith */
 }; /* namespace theory */
