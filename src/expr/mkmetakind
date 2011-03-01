@@ -83,21 +83,25 @@ function theory {
 function properties {
   # properties prop*
   lineno=${BASH_LINENO[0]}
+  check_theory_seen
 }
 
 function endtheory {
   # endtheory
   lineno=${BASH_LINENO[0]}
+  check_theory_seen
 }
 
 function rewriter {
   # rewriter class header
   lineno=${BASH_LINENO[0]}
+  check_theory_seen
 }
 
 function sort {
   # sort TYPE ["comment"]
   lineno=${BASH_LINENO[0]}
+  check_theory_seen
 }
 
 function variable {

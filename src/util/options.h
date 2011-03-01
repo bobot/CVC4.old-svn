@@ -141,6 +141,9 @@ struct CVC4_PUBLIC Options {
   /** Log to write replay instructions to; NULL if not logging. */
   std::ostream* replayLog;
 
+  typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
+  ArithPivotRule pivotRule;
+
   Options() :
     binary_name(),
     statistics(false),
@@ -166,7 +169,8 @@ struct CVC4_PUBLIC Options {
     incrementalSolving(false),
     replayFilename(""),
     replayStream(NULL),
-    replayLog(NULL) {
+    replayLog(NULL),
+    pivotRule(MINIMUM) {
   }
 
   /** 

@@ -124,7 +124,8 @@ enum OptionValue {
   EAGER_TYPE_CHECKING,
   INCREMENTAL,
   REPLAY,
-  REPLAY_LOG
+  REPLAY_LOG,
+  PIVOT_RULE
 };/* enum OptionValue */
 
 /**
@@ -171,18 +172,19 @@ static struct option cmdlineOptions[] = {
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
   { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
   { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
-  { "uf"         , required_argument, NULL, UF_THEORY },
+  { "uf"         , required_argument, NULL, UF_THEORY   },
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
-  { "produce-models", no_argument   , NULL, PRODUCE_MODELS},
-  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS},
-  { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING},
-  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING},
-  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING},
-  { "incremental", no_argument, NULL, INCREMENTAL},
-  { "replay", required_argument, NULL, REPLAY},
-  { "replay-log", required_argument, NULL, REPLAY_LOG},
+  { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
+  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
+  { "no-type-checking", no_argument , NULL, NO_TYPE_CHECKING },
+  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
+  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
+  { "incremental", no_argument      , NULL, INCREMENTAL },
+  { "replay"     , required_argument, NULL, REPLAY      },
+  { "replay-log" , required_argument, NULL, REPLAY_LOG  },
+  { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -407,6 +409,28 @@ throw(OptionException) {
 #else /* CVC4_REPLAY */
       throw OptionException("The replay feature was disabled in this build of CVC4.");
 #endif /* CVC4_REPLAY */
+      break;
+
+    case PIVOT_RULE:
+      if(!strcmp(optarg, "min")) {
+        pivotRule = MINIMUM;
+        break;
+      } else if(!strcmp(optarg, "min-break-ties")) {
+        pivotRule = BREAK_TIES;
+        break;
+      } else if(!strcmp(optarg, "max")) {
+        pivotRule = MAXIMUM;
+        break;
+      } else if(!strcmp(optarg, "help")) {
+        printf("Pivot rules available:\n");
+        printf("min\n");
+        printf("min-break-ties\n");
+        printf("max\n");
+        exit(1);
+      } else {
+        throw OptionException(string("unknown option for --pivot-rule: `") +
+                              optarg + "'.  Try --pivot-rule help.");
+      }
       break;
 
     case SHOW_CONFIG:
