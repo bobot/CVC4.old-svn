@@ -4,19 +4,32 @@
 #include <cstdlib>
 
 #include "main.h"
+#include "util/output.h"
 
 using namespace std;
 
 // const int NUM_THREADS = 2;
 pthread_mutex_t mutex_done = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_self_lock = PTHREAD_MUTEX_INITIALIZER;
 /* pthread_cond_t condition_var_main_wait = PTHREAD_COND_INITIALIZER;
    pthread_mutex_t mutex_main_wait = PTHREAD_MUTEX_INITIALIZER; */
 
 struct thread_data {
-  long thread_id;
+  int thread_id;
   int argc;
   char **argv;
 };
+
+/* This function should be moved somewhere else eventuall */
+std::string intToString(int i)
+{
+    std::stringstream ss;
+    std::string s;
+    ss << i;
+    s = ss.str();
+
+    return s;
+}
 
 void *runCvcThread(void *argsData)
 {
@@ -31,7 +44,8 @@ void *runCvcThread(void *argsData)
 
     pthread_mutex_lock( &mutex_done );   // we never unlock this
 
-    printf("Thread %ld wins. Rerturns %d.\n", args->thread_id, returnValue);
+    fprintf(stderr, "INFO; Thread %ld wins. Rerturns %d.\n", args->thread_id, returnValue);
+    //CVC4::Notice("Thread " + intToString(t) + ": creating thread " + intToString(t) + "\n" );
 
     exit(returnValue);  // hack for time being
 
@@ -46,10 +60,11 @@ int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[])
 {
   pthread_t threads[NUM_THREADS];
   int rc;
-  long t;
+  int t;
 
   for ( t=0; t<NUM_THREADS; ++t ) {
-    printf("In main: creating thread %ld\n", t);
+    fprintf(stderr, "INFO; In main: creating thread %ld\n", t);
+    //CVC4::Notice("In main: creating thread " + intToString(t) + "\n" );
     thread_data *args = new thread_data;
     args->thread_id = t;
     args->argc = argc;
@@ -74,6 +89,11 @@ int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[])
   }
   printf("We are here\n"); */
 
+  // Hack: Wait for others, because of problem with exceptions (didn't work)
+  //for ( t=0; t<NUM_THREADS; ++t ) 
+    //pthread_join(threads[t], NULL);
+  //sleep(300); // Yet another hack (which didn't work either -- strange)
+  //while(true) { }
+  
   pthread_exit(NULL);
 }
-
