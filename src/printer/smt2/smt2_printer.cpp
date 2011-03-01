@@ -173,6 +173,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     if(toDepth != 0) {
       n.getOperator().toStream(out, toDepth < 0 ? toDepth : toDepth - 1,
                                types, language::output::LANG_SMTLIB_V2);
+      out << " ";
     } else {
       out << "(...)";
     }

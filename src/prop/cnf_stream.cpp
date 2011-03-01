@@ -33,8 +33,10 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
-CnfStream::CnfStream(SatInputInterface *satSolver) :
-  d_satSolver(satSolver) {
+CnfStream::CnfStream(SatInputInterface *satSolver,
+                     bool fullLitToNodeMap) :
+  d_satSolver(satSolver),
+  d_fullLitToNodeMap(fullLitToNodeMap) {
 }
 
 void CnfStream::recordTranslation(TNode node) {
@@ -45,8 +47,9 @@ void CnfStream::recordTranslation(TNode node) {
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver) :
-  CnfStream(satSolver) {
+TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver,
+                                   bool fullLitToNodeMap) :
+  CnfStream(satSolver, fullLitToNodeMap) {
 }
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
@@ -86,7 +89,7 @@ bool CnfStream::hasLiteral(TNode n) const {
 }
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
-  Debug("cnf") << "newLiteral(" << node << ")" << endl;
+  Debug("cnf") << "newLiteral(" << node << ", " << theoryLiteral << ")" << endl;
 
   // Get the literal for this node
   SatLiteral lit;
@@ -106,14 +109,15 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   d_translationCache[node].level = level;
   d_translationCache[node.notNode()].level = level;
 
-  // If it's a theory literal, store it for back queries
-  if (theoryLiteral) {
+  // If it's a theory literal, need to store it for back queries
+  if (theoryLiteral || d_fullLitToNodeMap) {
     d_nodeCache[lit] = node;
     d_nodeCache[~lit] = node.notNode();
   }
 
   // Here, you can have it
   Debug("cnf") << "newLiteral(" << node << ") => " << lit << endl;
+
   return lit;
 }
 
@@ -147,6 +151,7 @@ SatLiteral CnfStream::convertAtom(TNode node) {
 
 SatLiteral CnfStream::getLiteral(TNode node) {
   TranslationCache::iterator find = d_translationCache.find(node);
+  Assert(!node.isNull(), "CnfStream: can't getLiteral() of null node");
   Assert(find != d_translationCache.end(), "Literal not in the CNF Cache");
   SatLiteral literal = find->second.literal;
   Debug("cnf") << "CnfStream::getLiteral(" << node << ") => " << literal << std::endl;

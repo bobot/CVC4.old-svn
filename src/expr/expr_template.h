@@ -432,6 +432,7 @@ protected:
   friend class ExprManager;
   friend class TypeCheckingException;
   friend std::ostream& operator<<(std::ostream& out, const Expr& e);
+  template <bool ref_count> friend class NodeTemplate;
 
 };/* class Expr */
 

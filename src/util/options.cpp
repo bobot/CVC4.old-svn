@@ -67,7 +67,9 @@ static const string optionsDescription = "\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
-   --incremental          enable incremental solving\n";
+   --incremental          enable incremental solving\n\
+   --replay file          replay decisions from file\n\
+   --replay-log file      log decisions and propagations to file\n";
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -121,6 +123,8 @@ enum OptionValue {
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
   INCREMENTAL,
+  REPLAY,
+  REPLAY_LOG,
   PIVOT_RULE
 };/* enum OptionValue */
 
@@ -168,16 +172,18 @@ static struct option cmdlineOptions[] = {
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
   { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
   { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
-  { "uf"         , required_argument, NULL, UF_THEORY },
+  { "uf"         , required_argument, NULL, UF_THEORY   },
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
-  { "produce-models", no_argument   , NULL, PRODUCE_MODELS},
-  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS},
-  { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING},
-  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING},
-  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING},
-  { "incremental", no_argument, NULL, INCREMENTAL},
+  { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
+  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
+  { "no-type-checking", no_argument , NULL, NO_TYPE_CHECKING },
+  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
+  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
+  { "incremental", no_argument      , NULL, INCREMENTAL },
+  { "replay"     , required_argument, NULL, REPLAY      },
+  { "replay-log" , required_argument, NULL, REPLAY_LOG  },
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
@@ -376,6 +382,35 @@ throw(OptionException) {
       incrementalSolving = true;
       break;
 
+    case REPLAY:
+#ifdef CVC4_REPLAY
+      if(optarg == NULL || *optarg == '\0') {
+        throw OptionException(string("Bad file name for --replay"));
+      } else {
+        replayFilename = optarg;
+      }
+#else /* CVC4_REPLAY */
+      throw OptionException("The replay feature was disabled in this build of CVC4.");
+#endif /* CVC4_REPLAY */
+      break;
+
+    case REPLAY_LOG:
+#ifdef CVC4_REPLAY
+      if(optarg == NULL || *optarg == '\0') {
+        throw OptionException(string("Bad file name for --replay-log"));
+      } else if(!strcmp(optarg, "-")) {
+        replayLog = &cout;
+      } else {
+        replayLog = new ofstream(optarg, ofstream::out | ofstream::trunc);
+        if(!*replayLog) {
+          throw OptionException(string("Cannot open replay-log file: `") + optarg + "'");
+        }
+      }
+#else /* CVC4_REPLAY */
+      throw OptionException("The replay feature was disabled in this build of CVC4.");
+#endif /* CVC4_REPLAY */
+      break;
+
     case PIVOT_RULE:
       if(!strcmp(optarg, "min")) {
         pivotRule = MINIMUM;
@@ -410,6 +445,7 @@ throw(OptionException) {
       printf("\n");
       printf("debug code : %s\n", Configuration::isDebugBuild() ? "yes" : "no");
       printf("statistics : %s\n", Configuration::isStatisticsBuild() ? "yes" : "no");
+      printf("replay     : %s\n", Configuration::isReplayBuild() ? "yes" : "no");
       printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
       printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
       printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");

@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+# Lists the Trace() and Debug() keys used in sources.
+#
+# e.g. if Debug("uf") occurs in the sources, then "uf" is printed by this script.
+
+if [ $# -ne 0 ]; then
+  echo "usage: `basename $0`" >&2
+  exit 1
+fi
+
+cd `dirname "$0"`/..
+
+if ! [ -d src ]; then
+  echo "`basename $0`: not in CVC4 directory tree?!" >&2
+  exit 1
+fi
+
+echo Trace and debug flags used in sources:
+grep -r --exclude-dir=.svn '\(Debug\|Trace\)("[^"]\+")' src | sed 's,.*\(Debug\|Trace\)("\([^"]\+\)").*,\2,' | sort -u
+
