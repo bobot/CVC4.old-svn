@@ -115,12 +115,18 @@ SatLiteral SatSolver::getNextReplayDecision() {
   if(d_options->replayStream != NULL) {
     Expr e = d_options->replayStream->nextExpr();
     if(!e.isNull()) { // we get null node when out of decisions to replay
+      Trace("replay") << "replay: will replay expr " << e << std::endl;
+      // first do theory rewriting to make sure it's in correct form
+      Node n = theory::Rewriter::rewrite(e);
+      Trace("replay") << "replay:     rewrote to   " << n << std::endl;
       // convert & return
-      return d_cnfStream->getLiteral(e);
+      SatLiteral lit = d_cnfStream->getLiteral(n);
+      Trace("replay") << "replay:     lit is       " << lit << std::endl;
+      return lit;
     }
   }
-  return Minisat::lit_Undef;
 #endif /* CVC4_REPLAY */
+  return Minisat::lit_Undef;
 }
 
 void SatSolver::logDecision(SatLiteral lit) {

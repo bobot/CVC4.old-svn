@@ -334,7 +334,7 @@ fi
 # --enable/disable-X options
 case "$with_build" in
   production) # highly optimized, no assertions, no tracing
-    CVC4CPPFLAGS=
+    CVC4CPPFLAGS='-DNDEBUG'
     CVC4CXXFLAGS=
     CVC4CFLAGS=
     CVC4LDFLAGS=
@@ -378,7 +378,7 @@ case "$with_build" in
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
     ;;
   competition) # maximally optimized, no assertions, no tracing, muzzled
-    CVC4CPPFLAGS='-DCVC4_COMPETITION_MODE'
+    CVC4CPPFLAGS='-DCVC4_COMPETITION_MODE -DNDEBUG'
     CVC4CXXFLAGS='-funroll-all-loops -fexpensive-optimizations -fno-enforce-eh-specs'
     CVC4CFLAGS='-funroll-all-loops -fexpensive-optimizations -fno-enforce-eh-specs'
     CVC4LDFLAGS=
