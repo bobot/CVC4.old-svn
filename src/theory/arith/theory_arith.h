@@ -224,6 +224,10 @@ private:
 
     IntStat d_permanentlyRemovedVariables;
     TimerStat d_presolveTime;
+
+    IntStat d_miplibtrickApplications;
+    AverageStat d_avgNumMiplibtrickValues;
+
     Statistics();
     ~Statistics();
   };
