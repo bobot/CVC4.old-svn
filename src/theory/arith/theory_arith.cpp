@@ -247,7 +247,7 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
 
     Assert(!imps.empty());
     vector<Node> conditions;
-    vector<Rational> values;
+    vector<Rational> valueCollection;
     set<TNode>::const_iterator j=imps.begin(), impsEnd=imps.end();
     for(; j != impsEnd; ++j){
       TNode imp = *j;
@@ -261,7 +261,7 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
       Assert(rewriteEqTo.getKind() == CONST_RATIONAL);
 
       conditions.push_back(imp[0]);
-      values.push_back(rewriteEqTo.getConst<Rational>());
+      valueCollection.push_back(rewriteEqTo.getConst<Rational>());
     }
 
     Node possibleTaut = Node::null();
@@ -281,21 +281,24 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
     if(isTaut == Result(Result::VALID)){
       Debug("arith::miplib") << var << " found a tautology!"<< endl;
 
-      set<Rational> valuesSet(values.begin(), values.end());
-      const Rational& min = values.front();
-      const Rational& max = values.back();
+      set<Rational> values(valueCollection.begin(), valueCollection.end());
+      const Rational& min = *(values.begin());
+      const Rational& max = *(values.rbegin());
+
+      Debug("arith::miplib") << "min: " << min << endl;
+      Debug("arith::miplib") << "max: " << max << endl;
 
       Assert(min <= max);
 
       ++(d_statistics.d_miplibtrickApplications);
-      (d_statistics.d_avgNumMiplibtrickValues).addEntry(valuesSet.size());
+      (d_statistics.d_avgNumMiplibtrickValues).addEntry(values.size());
 
       Node nGeqMin = NodeBuilder<2>(GEQ) << var << mkRationalNode(min);
       Node nLeqMax = NodeBuilder<2>(LEQ) << var << mkRationalNode(max);
       Debug("arith::miplib") << nGeqMin << nLeqMax << endl;
       learned << nGeqMin << nLeqMax;
-      set<Rational>::iterator valuesIter = valuesSet.begin();
-      set<Rational>::iterator valuesEnd = valuesSet.end();
+      set<Rational>::iterator valuesIter = values.begin();
+      set<Rational>::iterator valuesEnd = values.end();
       set<Rational>::iterator valuesPrev = valuesIter;
       ++valuesIter;
       for(; valuesIter != valuesEnd; valuesPrev = valuesIter, ++valuesIter){
