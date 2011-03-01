@@ -10,12 +10,11 @@ libmain_a_SOURCES = \
 	interactive_shell.h \
 	interactive_shell.cpp \
 	main.h \
-	main.cpp \
 	usage.h \
 	util.cpp \
 	driver.cpp
 
-cvc4_SOURCES =
+cvc4_SOURCES = main.cpp
 cvc4_LDADD = \
 	libmain.a \
 	../parser/libcvc4parser.la \
@@ -28,7 +27,7 @@ else
 cvc4_LINK = $(CXXLINK)
 endif
 
-pcvc4_SOURCES =
+pcvc4_SOURCES = main_portfolio.cpp driver_portfolio.cpp
 pcvc4_LDADD = \
 	libmain.a \
 	../parser/libcvc4parser.la \
