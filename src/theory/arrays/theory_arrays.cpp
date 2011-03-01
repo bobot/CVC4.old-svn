@@ -35,12 +35,15 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out) :
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
-  d_readIndicesMap(c),
-  d_storesMap(c),
   d_disequalities(c),
   d_equalities(c),
-  d_conflict()
+  d_conflict(),
+  d_true_const(),
+  d_infoMap(c),
+  d_readIndicesMap(c),
+  d_storesMap(c)
 {
+  d_true_const = NodeManager::currentNM()->mkConst(true);
 }
 
 
@@ -124,6 +127,10 @@ void TheoryArrays::check(Effort e) {
       // lemma application conditions?
       break;
     }
+    case kind::CONST_BOOLEAN:
+      Debug("arrays")<<"TheoryArrays::check() CONST_BOOLEAN \n";
+      Assert(assertion == d_true_const);
+      break;
     default:
       Unhandled(assertion.getKind());
     }
@@ -180,8 +187,12 @@ void TheoryArrays::merge(TNode a, TNode b) {
   setCanon(a, b);
 
   //FIXME: do i need to merge these if there is conflict?
-  mergeIndices(a, b);
-  mergeStores(a, b);
+  if(a.getType().isArray()) {
+    // merge extra information stored for arrays
+
+    mergeInfo(a, b, d_storesMap);
+    mergeInfo(a, b, d_readIndicesMap);
+  }
 
   deq_ia = d_disequalities.find(a);
   map<TNode, TNode> alreadyDiseqs;
@@ -332,10 +343,10 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
 
 }
 
-void TheoryArrays::appendIndex(TNode a, TNode index) {
+inline void TheoryArrays::appendIndex(TNode a, TNode index) {
   Debug("arrays::index")<<"TheoryArrays::appendIndex a       = "<<a<<" i = "<<index<<"\n";
+  //Assert(a.getKind() == kind::ARRAY_TYPE);
 
-  Assert(a.getKind() == kind::ARRAY_TYPE);
   a = find(a);
 
   Debug("arrays::index")<<"TheoryArrays::appendIndex find(a) = "<<a<<"\n";
@@ -365,40 +376,108 @@ void TheoryArrays::appendIndex(TNode a, TNode index) {
 
 }
 
-void TheoryArrays::appendStore(TNode a, TNode store) {
+inline void TheoryArrays::appendStore(TNode a, TNode st) {
+  Debug("arrays::store")<<"TheoryArrays::appendStore a       = "<<a<<" st = "<<st<<"\n";
+  Assert(st.getKind() == kind::STORE);
+  //TODO: good way to check it's an array?
+  //Assert(a.getKind() == kind::ARRAY_TYPE);
+  a = find(a);
 
-}
-
-void TheoryArrays::mergeIndices(TNode a, TNode b) {
-  Assert(find(a) == find(b) && find(a) == b);
-  set<TNode> aindices;
-  CNodeTNodesMap::iterator ialist = d_readIndicesMap.find(a);
-  CTNodeList* alist = (*ialist).second;
-
-  // collect a indicies
-
-  CTNodeList::const_iterator ia = alist->begin();
-  for( ; ia!= alist ->end(); ia++ ) {
-    aindices.insert(*ia);
-  }
-
-  // add b indices to the a list of indices if they are not already there
-
-  CNodeTNodesMap::iterator iblist = d_readIndicesMap.find(b);
-  CTNodeList* blist = (*iblist).second;
-  CTNodeList::const_iterator ib = blist->begin();
-    for( ; ib!= blist ->end(); ib++ ) {
-      if(aindices.find(*ib) == aindices.end()) {
-        alist->push_back(*ib);
+  Debug("arrays::store")<<"TheoryArrays::appendStore find(a) = "<<a<<"\n";
+  CTNodeList* ilist;
+  CNodeTNodesMap::iterator it = d_storesMap.find(a);
+  if( it == d_storesMap.end()) {
+    ilist = new (getContext()->getCMM()) CTNodeList(true, getContext(), false,
+                                                    ContextMemoryAllocator<TNode>(getContext()->getCMM()));
+    d_storesMap.insertDataFromContextMemory(a, ilist);
+    Debug("arrays::store")<<"TheoryArrays::appendStore adding (find(a), [st]) entry \n";
+    ilist->push_back(st);
+  } else {
+    ilist = (*it).second;
+    // check if index already in list
+    //FIXME: maybe do this lazily when merging?
+    CTNodeList::const_iterator i = ilist->begin();
+    for(; i!= ilist->end(); i++) {
+      if((*i) == st) {
+        Debug("arrays::store")<<"TheoryArrays::appendStore store already exits \n";
+        return;
       }
     }
+    Debug("arrays::store")<<"TheoryArrays::appendStore appending store to find(a) \n";
+    ilist->push_back(st);
 
-   //TODO: remove b from map
-   //
 
+  }
+}
+
+void TheoryArrays::debugList(CTNodeList* list) {
+  CTNodeList::const_iterator it = list->begin();
+  Debug("arrays::merge")<<"   [ ";
+  for(; it != list->end(); it++ ) {
+    Debug("arrays::merge")<<(*it)<<" ";
+  }
+  Debug("arrays::merge")<<"] \n";
+}
+
+
+// fixme: merge both things at the same time
+// before merge iterate through indices and stores and see if any of them
+void TheoryArrays::mergeInfo(TNode a, TNode b, CNodeTNodesMap& info_map) {
+  Debug("arrays::merge")<<"TheoryArrays::mergeInfo of nodes \n"<<a<<"\n";
+
+  CNodeTNodesMap::iterator iblist = info_map.find(b);
+  CNodeTNodesMap::iterator ialist = info_map.find(a);
+
+  if(ialist != info_map.end()) {
+    debugList((*ialist).second);
+  }
+
+  Debug("arrays::merge")<<b<<"\n";
+  if(iblist != info_map.end()) {
+     debugList((*iblist).second);
+  }
+  Assert(find(a) == find(b) && find(a) == b);
+
+  set<TNode> binfo;
+
+  if(ialist != info_map.end()) {
+    if (iblist != info_map.end()) {
+      // both a and b have info
+      CTNodeList* blist = (*iblist).second;
+
+      // collect b-info
+
+      CTNodeList::const_iterator ib = blist->begin();
+      for( ; ib!= blist ->end(); ib++ ) {
+        binfo.insert(*ib);
+      }
+
+      // add a info to the b list of info if they are not already there
+
+      CTNodeList* alist = (*ialist).second;
+      CTNodeList::const_iterator ia = alist->begin();
+
+      for( ; ia!= alist ->end(); ia++ ) {
+        if(binfo.find(*ia) == binfo.end()) {
+          blist->push_back(*ia);
+        }
+      }
+
+    }
+    else {
+      // a has info but b has no info so we simply assigned
+      // the info of a to b
+      CTNodeList* alist = (*ialist).second;
+      info_map.insert(b, alist);
+    }
+  }
+  // if a has no info there's nothing to do because b is the representative
+
+  Debug("arrays::merge")<<"New list of "<<b<<"\n";
+  if(iblist != info_map.end()) {
+     debugList((*iblist).second);
+  }
+  // FIXME: no erasing in CDMap? is that a problem?
 
 }
 
-void TheoryArrays::mergeStores(TNode a, TNode b) {
-
-}

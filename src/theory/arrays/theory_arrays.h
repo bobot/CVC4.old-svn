@@ -82,18 +82,6 @@ private:
   typedef context::CDMap<Node, CTNodeList*, NodeHashFunction> CNodeTNodesMap;
 
   /**
-   * Context dependent map from array representative to set of indices any array
-   * in that congruence class is being read from    *
-   */
-
-  CNodeTNodesMap d_readIndicesMap;
-
-  /**
-   * Context dependent map from array representative to set of stores it
-   * is equal to
-   */
-  CNodeTNodesMap d_storesMap;
-  /**
    * List of all disequalities this theory has seen.
    * Maintaints the invariant that if a is in the
    * disequality list of b, then b is in that of a.
@@ -108,6 +96,46 @@ private:
    * conflict to get the actual explanation)
    */
   Node d_conflict;
+
+  /**
+   * true constant (sometimes check gets called on a CONST_BOOLEAN)
+   */
+  Node d_true_const;
+
+
+  /**
+   * Structure keeping track of the following information for canonical
+   * representatives of type array [a] :
+   *    indices at which it is being read (all i for which there is a
+   *            term of the form SELECT a i)
+   *    all store terms in the congruence class
+   *    stores in which it appears (terms of the form STORE a _ _ )
+   *
+   */
+  struct Info {
+    CTNodeList* indices;
+    CTNodeList* eq_stores;
+    CTNodeList* in_stores;
+  } ;
+
+  typedef context::CDMap<Node, Info, NodeHashFunction> CNodeInfoMap;
+
+  CNodeInfoMap d_infoMap;
+
+  CNodeTNodesMap d_readIndicesMap;
+
+  /**
+   * Context dependent map from array representative to set of stores it
+   * is equal to
+   */
+  CNodeTNodesMap d_storesMap;
+
+
+  /**
+   * Marking stores and reads that have been already registered
+   */
+  struct ArrayPreRegisteredId {};
+  typedef expr::Attribute<ArrayPreRegisteredId, bool> ArrayRegistered;
 
   /*
    * Helper methods
@@ -141,9 +169,14 @@ private:
    * pre-conditions
    *    a = find(a) and b = find(b)
    *    a and b have already been merged and b is the representative
+   *
    */
-  inline void mergeIndices(TNode a, TNode b);
-  inline void mergeStores(TNode a, TNode b);
+  inline void mergeInfo(TNode a, TNode b, CNodeTNodesMap& info_map);
+
+  /**
+   * Sketchy debug methods
+   */
+  void debugList(CTNodeList* list);
 
 public:
   TheoryArrays(context::Context* c, OutputChannel& out);
