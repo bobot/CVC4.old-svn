@@ -35,6 +35,9 @@ namespace datatypes {
 
 class TheoryDatatypes : public Theory {
 private:
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
+  typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
+
   //a list of types with the list of constructors for that type
   std::vector<std::pair<Type, std::vector<Type> > > d_defs;
   // the distinguished ground term for each type
@@ -53,7 +56,16 @@ private:
   void checkFiniteWellFounded();
 
   //for possible constructors, map from terms to tester asserted for that term
-  std::map<Node, std::vector<Node> > d_labels;
+  //typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > CTNodeList;
+  //typedef context::CDMap<Node, CTNodeList*, NodeHashFunction> CNodeTNodesMap;
+  EqLists d_labels;
+  /*
+  ilist = new (getContext()->getCMM()) CTNodeList(true, getContext(), false,
+                                                   ContextMemoryAllocator<TNode>(getContext()->getCMM()));
+   d_labels.insertDataFromContextMemory(a, ilist);
+   */
+
+
 
   class CongruenceChannel {
     TheoryDatatypes* d_datatypes;
@@ -74,7 +86,7 @@ private:
   /**
    * Instance of the congruence closure module.
    */
-  CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_1 (kind::APPLY_CONSTRUCTOR)> d_cc;
+  CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::APPLY_CONSTRUCTOR, kind::APPLY_SELECTOR)> d_cc;
 
   /**
    * Union find for storing the equalities.
@@ -86,9 +98,6 @@ private:
    * a and b have been merged.
    */
   void notifyCongruent(TNode a, TNode b);
-
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
-  typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
 
   /**
    * List of all disequalities this theory has seen.
