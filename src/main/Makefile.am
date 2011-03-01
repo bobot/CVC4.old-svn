@@ -1,6 +1,5 @@
 AM_CPPFLAGS = \
 	-D__BUILDING_CVC4DRIVER \
-        -DCVC4_PORTFOLIO_MODE \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. $(ANTLR_INCLUDES)
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas
 
@@ -14,7 +13,7 @@ libmain_a_SOURCES = \
 	main.cpp \
 	usage.h \
 	util.cpp \
-	portfolio.cpp
+	driver.cpp
 
 cvc4_SOURCES =
 cvc4_LDADD = \
@@ -29,7 +28,6 @@ else
 cvc4_LINK = $(CXXLINK)
 endif
 
-#pcvc4_CPPFLAGS = -DCVC4_PORTFOLIO_MODE $(AM_CPPFLAGS)
 pcvc4_SOURCES =
 pcvc4_LDADD = \
 	libmain.a \
