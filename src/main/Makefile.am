@@ -3,7 +3,11 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. $(ANTLR_INCLUDES)
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas
 
-bin_PROGRAMS = cvc4 pcvc4
+## Uncomment following line if you want cvc4 to point to single-threaded
+# bin_PROGRAMS = cvc4 pcvc4
+## And this one if you want to call cvc4 to point to multi-threaded
+bin_PROGRAMS = cvc4 scvc4
+
 noinst_LIBRARIES = libmain.a
 
 libmain_a_SOURCES = \
@@ -14,7 +18,36 @@ libmain_a_SOURCES = \
 	util.cpp \
 	driver.cpp
 
-cvc4_SOURCES = main.cpp
+## Uncomment following lines if you want cvc4 to point to single-threaded
+# cvc4_SOURCES = main.cpp
+# cvc4_LDADD = \
+# 	libmain.a \
+# 	../parser/libcvc4parser.la \
+# 	../libcvc4.la \
+# 	../lib/libreplacements.la
+
+# if STATIC_BINARY
+# cvc4_LINK = $(CXXLINK) -all-static
+# else
+# cvc4_LINK = $(CXXLINK)
+# endif
+
+# pcvc4_SOURCES = main_portfolio.cpp driver_portfolio.cpp
+# pcvc4_LDADD = \
+# 	libmain.a \
+# 	../parser/libcvc4parser.la \
+# 	../libcvc4.la \
+# 	../lib/libreplacements.la
+
+# if STATIC_BINARY
+# pcvc4_LINK = $(CXXLINK) -all-static
+# else
+# pcvc4_LINK = $(CXXLINK)
+# endif
+
+
+## And these one if you want to call cvc4 to point to multi-threaded
+cvc4_SOURCES = main_portfolio.cpp driver_portfolio.cpp
 cvc4_LDADD = \
 	libmain.a \
 	../parser/libcvc4parser.la \
@@ -27,15 +60,17 @@ else
 cvc4_LINK = $(CXXLINK)
 endif
 
-pcvc4_SOURCES = main_portfolio.cpp driver_portfolio.cpp
-pcvc4_LDADD = \
+
+scvc4_SOURCES = main.cpp
+scvc4_LDADD = \
 	libmain.a \
 	../parser/libcvc4parser.la \
 	../libcvc4.la \
 	../lib/libreplacements.la
 
 if STATIC_BINARY
-pcvc4_LINK = $(CXXLINK) -all-static
+scvc4_LINK = $(CXXLINK) -all-static
 else
-pcvc4_LINK = $(CXXLINK)
+scvc4_LINK = $(CXXLINK)
 endif
+
