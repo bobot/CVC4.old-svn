@@ -39,9 +39,9 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out) :
   d_equalities(c),
   d_conflict(),
   d_true_const(),
-  d_infoMap(c),
-  d_readIndicesMap(c),
-  d_storesMap(c)
+  d_infoMap(c)
+  //d_readIndicesMap(c),
+  //d_storesMap(c)
 {
   d_true_const = NodeManager::currentNM()->mkConst(true);
 }
@@ -188,10 +188,11 @@ void TheoryArrays::merge(TNode a, TNode b) {
 
   //FIXME: do i need to merge these if there is conflict?
   if(a.getType().isArray()) {
-    // merge extra information stored for arrays
-
-    mergeInfo(a, b, d_storesMap);
-    mergeInfo(a, b, d_readIndicesMap);
+    checkLemmas(a,b);
+    checkLemmas(b,a);
+    // note the change in order, merge info adds the list of
+    // the 2nd argument to the first
+    d_infoMap.mergeInfo(b, a);
   }
 
   deq_ia = d_disequalities.find(a);
@@ -205,8 +206,8 @@ void TheoryArrays::merge(TNode a, TNode b) {
 
     CNodeTNodesMap::iterator deq_ib = d_disequalities.find(b);
     if(deq_ib != d_disequalities.end()) {
-      CTNodeList* deq = (*deq_ib).second;
-      for(CTNodeList::const_iterator j = deq->begin(); j!=deq->end(); j++) {
+      CTNodeListAlloc* deq = (*deq_ib).second;
+      for(CTNodeListAlloc::const_iterator j = deq->begin(); j!=deq->end(); j++) {
         TNode deqn = *j;
         TNode s = deqn[0];
         TNode t = deqn[1];
@@ -228,8 +229,8 @@ void TheoryArrays::merge(TNode a, TNode b) {
      * became the canonical representative)
      */
 
-    CTNodeList* deqa = (*deq_ia).second;
-    for(CTNodeList::const_iterator i = deqa->begin(); i!= deqa->end(); i++) {
+    CTNodeListAlloc* deqa = (*deq_ia).second;
+    for(CTNodeListAlloc::const_iterator i = deqa->begin(); i!= deqa->end(); i++) {
       TNode deqn = (*i);
       Assert(deqn.getKind() == kind::EQUAL || deqn.getKind() == kind::IFF);
       TNode s = deqn[0];
@@ -309,9 +310,9 @@ void TheoryArrays::appendToDiseqList(TNode of, TNode eq) {
          eq.getKind() == kind::IFF);
 
   CNodeTNodesMap::iterator deq_i = d_disequalities.find(of);
-  CTNodeList* deq;
+  CTNodeListAlloc* deq;
   if(deq_i == d_disequalities.end()) {
-    deq = new(getContext()->getCMM()) CTNodeList(true, getContext(), false,
+    deq = new(getContext()->getCMM()) CTNodeListAlloc(true, getContext(), false,
                                              ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_disequalities.insertDataFromContextMemory(of, deq);
   } else {
@@ -331,9 +332,9 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
   Assert(of == debugFind(of));
 
   CNodeTNodesMap::iterator eq_i = d_equalities.find(of);
-  CTNodeList* eql;
+  CTNodeListAlloc* eql;
   if(eq_i == d_equalities.end()) {
-    eql = new(getContext()->getCMM()) CTNodeList(true, getContext(), false,
+    eql = new(getContext()->getCMM()) CTNodeListAlloc(true, getContext(), false,
                                              ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_equalities.insertDataFromContextMemory(of, eql);
   } else {
@@ -343,6 +344,9 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
 
 }
 
+
+/*
+
 inline void TheoryArrays::appendIndex(TNode a, TNode index) {
   Debug("arrays::index")<<"TheoryArrays::appendIndex a       = "<<a<<" i = "<<index<<"\n";
   //Assert(a.getKind() == kind::ARRAY_TYPE);
@@ -350,10 +354,10 @@ inline void TheoryArrays::appendIndex(TNode a, TNode index) {
   a = find(a);
 
   Debug("arrays::index")<<"TheoryArrays::appendIndex find(a) = "<<a<<"\n";
-  CTNodeList* ilist;
+  CTNodeListAlloc* ilist;
   CNodeTNodesMap::iterator it = d_readIndicesMap.find(a);
   if( it == d_readIndicesMap.end()) {
-    ilist = new (getContext()->getCMM()) CTNodeList(true, getContext(), false,
+    ilist = new (getContext()->getCMM()) CTNodeListAlloc(true, getContext(), false,
                                                     ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_readIndicesMap.insertDataFromContextMemory(a, ilist);
     Debug("arrays::index")<<"TheoryArrays::appendIndex adding (find(a), [index]) entry \n";
@@ -362,7 +366,7 @@ inline void TheoryArrays::appendIndex(TNode a, TNode index) {
     ilist = (*it).second;
     // check if index already in list
     //FIXME: maybe do this lazily when merging?
-    CTNodeList::const_iterator i = ilist->begin();
+    CTNodeListAlloc::const_iterator i = ilist->begin();
     for(; i!= ilist->end(); i++) {
       if((*i) == index) {
         Debug("arrays::index")<<"TheoryArrays::appendIndex index already exits \n";
@@ -384,10 +388,10 @@ inline void TheoryArrays::appendStore(TNode a, TNode st) {
   a = find(a);
 
   Debug("arrays::store")<<"TheoryArrays::appendStore find(a) = "<<a<<"\n";
-  CTNodeList* ilist;
+  CTNodeListAlloc* ilist;
   CNodeTNodesMap::iterator it = d_storesMap.find(a);
   if( it == d_storesMap.end()) {
-    ilist = new (getContext()->getCMM()) CTNodeList(true, getContext(), false,
+    ilist = new (getContext()->getCMM()) CTNodeListAlloc(true, getContext(), false,
                                                     ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_storesMap.insertDataFromContextMemory(a, ilist);
     Debug("arrays::store")<<"TheoryArrays::appendStore adding (find(a), [st]) entry \n";
@@ -396,7 +400,7 @@ inline void TheoryArrays::appendStore(TNode a, TNode st) {
     ilist = (*it).second;
     // check if index already in list
     //FIXME: maybe do this lazily when merging?
-    CTNodeList::const_iterator i = ilist->begin();
+    CTNodeListAlloc::const_iterator i = ilist->begin();
     for(; i!= ilist->end(); i++) {
       if((*i) == st) {
         Debug("arrays::store")<<"TheoryArrays::appendStore store already exits \n";
@@ -409,19 +413,13 @@ inline void TheoryArrays::appendStore(TNode a, TNode st) {
 
   }
 }
-
-void TheoryArrays::debugList(CTNodeList* list) {
-  CTNodeList::const_iterator it = list->begin();
-  Debug("arrays::merge")<<"   [ ";
-  for(; it != list->end(); it++ ) {
-    Debug("arrays::merge")<<(*it)<<" ";
-  }
-  Debug("arrays::merge")<<"] \n";
-}
+*/
 
 
 // fixme: merge both things at the same time
 // before merge iterate through indices and stores and see if any of them
+
+/*
 void TheoryArrays::mergeInfo(TNode a, TNode b, CNodeTNodesMap& info_map) {
   Debug("arrays::merge")<<"TheoryArrays::mergeInfo of nodes \n"<<a<<"\n";
 
@@ -443,19 +441,19 @@ void TheoryArrays::mergeInfo(TNode a, TNode b, CNodeTNodesMap& info_map) {
   if(ialist != info_map.end()) {
     if (iblist != info_map.end()) {
       // both a and b have info
-      CTNodeList* blist = (*iblist).second;
+      CTNodeListAlloc* blist = (*iblist).second;
 
       // collect b-info
 
-      CTNodeList::const_iterator ib = blist->begin();
+      CTNodeListAlloc::const_iterator ib = blist->begin();
       for( ; ib!= blist ->end(); ib++ ) {
         binfo.insert(*ib);
       }
 
       // add a info to the b list of info if they are not already there
 
-      CTNodeList* alist = (*ialist).second;
-      CTNodeList::const_iterator ia = alist->begin();
+      CTNodeListAlloc* alist = (*ialist).second;
+      CTNodeListAlloc::const_iterator ia = alist->begin();
 
       for( ; ia!= alist ->end(); ia++ ) {
         if(binfo.find(*ia) == binfo.end()) {
@@ -467,7 +465,7 @@ void TheoryArrays::mergeInfo(TNode a, TNode b, CNodeTNodesMap& info_map) {
     else {
       // a has info but b has no info so we simply assigned
       // the info of a to b
-      CTNodeList* alist = (*ialist).second;
+      CTNodeListAlloc* alist = (*ialist).second;
       info_map.insert(b, alist);
     }
   }
@@ -480,4 +478,4 @@ void TheoryArrays::mergeInfo(TNode a, TNode b, CNodeTNodesMap& info_map) {
   // FIXME: no erasing in CDMap? is that a problem?
 
 }
-
+*/
