@@ -133,20 +133,20 @@ private:
 
     static void printList(CTNodeList* list) {
       CTNodeList::const_iterator it = list->begin();
-      Debug("arrays-mergei")<<"   [ ";
+      Debug("arrays-info")<<"   [ ";
       for(; it != list->end(); it++ ) {
-        Debug("arrays-mergei")<<(*it)<<" ";
+        Debug("arrays-info")<<(*it)<<" ";
       }
-      Debug("arrays-mergei")<<"] \n";
+      Debug("arrays-info")<<"] \n";
     }
 
     void print() {
       Assert(indices != NULL && eq_stores!= NULL && in_stores != NULL);
-      Debug("arrays-mergei")<<"  indices   ";
+      Debug("arrays-info")<<"  indices   ";
       printList(indices);
-      Debug("arrays-mergei")<<"  eq_stores ";
+      Debug("arrays-info")<<"  eq_stores ";
       printList(eq_stores);
-      Debug("arrays-mergei")<<"  in_stores ";
+      Debug("arrays-info")<<"  in_stores ";
       printList(in_stores);
     }
   };
@@ -166,6 +166,7 @@ private:
     typedef context::CDMap <Node, Info*, NodeHashFunction> CNodeInfoMap;
     CNodeInfoMap info_map;
     CTNodeList* emptyList;
+    Info* emptyInfo;
 
     /**
      * checks if a certain element is in the list l
@@ -200,6 +201,7 @@ private:
   public:
     ArrayInfo(context::Context* c): ct(c), info_map(ct) {
       emptyList = new(true) CTNodeList(ct);
+      emptyInfo = new Info(ct);
     }
     ~ArrayInfo(){
       CNodeInfoMap::iterator it = info_map.begin();
@@ -207,6 +209,7 @@ private:
         delete (*it).second;
       }
       emptyList->deleteSelf();
+      delete emptyInfo;
     };
 
     /**
@@ -289,6 +292,13 @@ private:
      * returns the
      */
 
+    Info* getInfo(TNode a) {
+      CNodeInfoMap::iterator it = info_map.find(a);
+      if(it!= info_map.end())
+          return (*it).second;
+      return emptyInfo;
+    }
+
     CTNodeList* getIndices(TNode a) {
       CNodeInfoMap::iterator it = info_map.find(a);
       if(it!= info_map.end()) {
@@ -332,10 +342,13 @@ private:
       CNodeInfoMap::iterator itb = info_map.find(b);
       if(ita != info_map.end()) {
         Debug("arrays-mergei")<<"Arrays::mergeInfo info "<<a<<"\n";
-        (*ita).second->print();
+        if(Debug.isOn("arrays-mergei"))
+          (*ita).second->print();
+
         if(itb != info_map.end()) {
           Debug("arrays-mergei")<<"Arrays::mergeInfo info "<<b<<"\n";
-          (*itb).second->print();
+          if(Debug.isOn("arrays-mergei"))
+            (*itb).second->print();
           CTNodeList* lista_i = (*ita).second->indices;
           CTNodeList* lista_inst = (*ita).second->in_stores;
           CTNodeList* lista_eqst = (*ita).second->eq_stores;
@@ -350,7 +363,8 @@ private:
         }
       }
       Debug("arrays-mergei")<<"Arrays::mergeInfo merged info \n";
-      (*ita).second->print();
+      if(Debug.isOn("arrays-mergei"))
+        (*ita).second->print();
     };
   };
 
@@ -363,7 +377,14 @@ ArrayInfo d_infoMap;
  * i.e. before setCanon(a,b)
  */
 
-void checkLemmas(const Node a, const Node b) {
+void checkLemmas(const TNode a, const TNode b) {
+
+  Debug("arrays-cl")<<"Arrays::checkLemmas "<<a<<"\n";
+  if(Debug.isOn("arrays-cl"))
+    d_infoMap.getInfo(a)->print();
+  Debug("arrays-cl")<<"  ------------  and "<<b<<"\n";
+  if(Debug.isOn("arrays-cl"))
+    d_infoMap.getInfo(b)->print();
   CTNodeList* i_a = d_infoMap.getIndices(a);
   CTNodeList* inst_b = d_infoMap.getInStores(b);
   CTNodeList* eqst_b = d_infoMap.getEqStores(b);
@@ -375,20 +396,23 @@ void checkLemmas(const Node a, const Node b) {
     TNode i = *it;
     its = inst_b->begin();
     for ( ; its != inst_b->end(); its++) {
+
       TNode store = *its;
       Assert(store.getKind() == kind::STORE);
       TNode j = store[1];
       TNode c = store[0];
 
       NodeManager* nm = NodeManager::currentNM();
-      TNode eq1 = nm->mkNode(kind::EQUAL, i, j);
-      TNode cj = nm->mkNode(kind::SELECT, c, j);
-      TNode aj = nm->mkNode(kind::SELECT, a, j);
-      TNode eq2 = nm->mkNode(kind::EQUAL, cj, aj);
+      Node eq1 = nm->mkNode(kind::EQUAL, i, j);
+      Node cj = nm->mkNode(kind::SELECT, c, j);
+      Node aj = nm->mkNode(kind::SELECT, a, j);
+      Node eq2 = nm->mkNode(kind::EQUAL, cj, aj);
 
       // TODO add check if lemma exists and if any of the disjuncts are already
       // true
-      addLemma(nm->mkNode(kind::OR, eq1, eq2));
+      if( i!= j && cj != aj) {
+        addLemma(nm->mkNode(kind::OR, eq1, eq2));
+      }
     }
 
     its = eqst_b->begin();
@@ -399,16 +423,17 @@ void checkLemmas(const Node a, const Node b) {
       TNode c = store[0];
 
       NodeManager* nm = NodeManager::currentNM();
-      TNode eq1 = nm->mkNode(kind::EQUAL, i, j);
-      TNode cj = nm->mkNode(kind::SELECT, c, j);
-      TNode aj = nm->mkNode(kind::SELECT, a, j);
-      TNode eq2 = nm->mkNode(kind::EQUAL, cj, aj);
+      Node eq1 = nm->mkNode(kind::EQUAL, i, j);
+      Node cj = nm->mkNode(kind::SELECT, c, j);
+      Node aj = nm->mkNode(kind::SELECT, a, j);
+      Node eq2 = nm->mkNode(kind::EQUAL, cj, aj);
 
       // TODO add check if lemma exists and if any of the disjuncts are already
       // true
-      addLemma(nm->mkNode(kind::OR, eq1, eq2));
+      if( i!= j && cj != aj ) {
+        addLemma(nm->mkNode(kind::OR, eq1, eq2));
+      }
     }
-
 
   }
 
