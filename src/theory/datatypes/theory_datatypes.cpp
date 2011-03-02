@@ -43,24 +43,24 @@ using namespace CVC4::theory::datatypes;
 //  return Type();
 //}
 
-int TheoryDatatypes::getConstructorIndex( TypeNode t, TypeNode tc )
+int TheoryDatatypes::getConstructorIndex( TypeNode t, Node c )
 {
-  std::map<TypeNode, std::vector<TypeNode> >::iterator it = d_cons.find( t );
+  std::map<TypeNode, std::vector<Node> >::iterator it = d_cons.find( t );
   if( it != d_cons.end() ){
     for( int i = 0; i<(int)it->second.size(); i++ ){
-      if( it->second[i]==tc ){
+      if( it->second[i]==c ){
         return i;
       }
     }
   }
   return -1;
 }
-int TheoryDatatypes::getTesterIndex( TypeNode t, TypeNode tc )
+int TheoryDatatypes::getTesterIndex( TypeNode t, Node c )
 {
-  std::map<TypeNode, std::vector<TypeNode> >::iterator it = d_testers.find( t );
+  std::map<TypeNode, std::vector<Node> >::iterator it = d_testers.find( t );
   if( it != d_testers.end() ){
     for( int i = 0; i<(int)it->second.size(); i++ ){
-      if( it->second[i]==tc ){
+      if( it->second[i]==c ){
         return i;
       }
     }
@@ -73,15 +73,15 @@ void TheoryDatatypes::checkFiniteWellFounded(){
     Debug("datatypes-finite") << "Check finite, well-founded." << std::endl;
 
     //check well-founded and finite, create distinguished ground terms
-    std::map<TypeNode, std::vector<TypeNode> >::iterator it;
-    std::vector<TypeNode>::iterator itc;
+    std::map<TypeNode, std::vector<Node> >::iterator it;
+    std::vector<Node>::iterator itc;
     for( it = d_cons.begin(); it!=d_cons.end(); ++it ){
       d_distinguishTerms[it->first] = Node::null();
       d_finite[it->first] = false;
       d_wellFounded[it->first] = false;
       for( itc = it->second.begin(); itc!=it->second.end(); ++itc ){
-        d_finite[*itc] = false;
-        d_wellFounded[*itc] = false;
+        d_cons_finite[*itc] = false;
+        d_cons_wellFounded[*itc] = false;
       }
     }
     bool changed;
@@ -92,9 +92,10 @@ void TheoryDatatypes::checkFiniteWellFounded(){
         //Debug("datatypes-finite") << "check " << t << std::endl;
         bool typeFinite = true;
         for( itc = it->second.begin(); itc!=it->second.end(); ++itc ){
-          TypeNode ct = *itc;
+          Node cn = *itc;
+          TypeNode ct = cn.getType();
           //Debug("datatypes-finite") << " check cons " << ct << std::endl;
-          if( !d_finite[ct] ){
+          if( !d_cons_finite[cn] ){
             int c;
             for( c=0; c<(int)ct.getNumChildren()-1; c++ ){
               //Debug("datatypes-finite") << "  check sel " << ct[c] << std::endl;
@@ -106,13 +107,13 @@ void TheoryDatatypes::checkFiniteWellFounded(){
             }
             if( c ==(int)ct.getNumChildren()-1 ){
               changed = true;
-              d_finite[ct] = true;
+              d_cons_finite[cn] = true;
               //Debug("datatypes-finite") << ct << " is finite" << std::endl;
             }else{
               typeFinite = false;
             }
           }
-          if( !d_wellFounded[ct] ){
+          if( !d_cons_wellFounded[cn] ){
             int c;
             for( c=0; c<(int)ct.getNumChildren()-1; c++ ){
               //Debug("datatypes") << "  check sel " << ct.d_typeNode[0][c] << std::endl;
@@ -124,11 +125,11 @@ void TheoryDatatypes::checkFiniteWellFounded(){
             }
             if( c ==(int)ct.getNumChildren()-1 ){
               changed = true;
-              d_wellFounded[ct] = true;
+              d_cons_wellFounded[cn] = true;
               //Debug("datatypes-finite") << ct << " is well founded" << std::endl;
             }
           }
-          if( d_wellFounded[ct] ){
+          if( d_cons_wellFounded[cn] ){
             if( !d_wellFounded[t] ){
               changed = true;
               d_wellFounded[t] = true;
@@ -210,8 +211,8 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
       in[0].getKind()==APPLY_CONSTRUCTOR ){
     TypeNode testType = in.getOperator().getType();
     TypeNode consType = in[0].getOperator().getType();
-    int testIndex = getTesterIndex( testType[0], testType );
-    int consIndex = getConstructorIndex( testType[0], consType );
+    int testIndex = getTesterIndex( testType[0], in.getOperator() );
+    int consIndex = getConstructorIndex( testType[0], in[0].getOperator() );
     Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: Rewrite trivial tester " << in << endl;
     Debug("datatypes-rewrite") << testType << " " << in.getOperator() << " " << testIndex << endl;
     Debug("datatypes-rewrite") << consType << " " << in[0].getOperator() << " " << consIndex << endl;
@@ -255,18 +256,18 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
   return RewriteComplete(in);
 }
 
-void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Type> > >& cons,
-                                              std::vector<std::pair< Type, std::vector<Type> > >& testers ){
-  std::vector<std::pair< Type, std::vector<Type> > >::iterator it;
-  std::vector<Type>::iterator itc;
+void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
+                                              std::vector<std::pair< TypeNode, std::vector<Node> > >& testers ){
+  std::vector<std::pair< TypeNode, std::vector<Node> > >::iterator it;
+  std::vector<Node>::iterator itc;
   for( it = cons.begin(); it!=cons.end(); ++it ){
     for( itc = it->second.begin(); itc!=it->second.end(); ++itc ){
-      d_cons[*(it->first.d_typeNode)].push_back( *(itc->d_typeNode) );
+      d_cons[it->first].push_back( *itc );
     }
   }
   for( it = testers.begin(); it!=testers.end(); ++it ){
     for( itc = it->second.begin(); itc!=it->second.end(); ++itc ){
-      d_testers[*(it->first.d_typeNode)].push_back( *(itc->d_typeNode) );
+      d_testers[it->first].push_back( *itc );
     }
   }
   requiresCheckFiniteWellFounded = true;

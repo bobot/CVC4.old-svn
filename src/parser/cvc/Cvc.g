@@ -108,8 +108,8 @@ command returns [CVC4::Command* cmd = 0]
 @init {
   Expr f;
   Type t;
-  std::vector<Type> cons;
-  std::vector<Type> testers;
+  std::vector<Expr> cons;
+  std::vector<Expr> testers;
   Debug("parser-extra") << "command: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : ASSERT_TOK formula[f] SEMICOLON { cmd = new AssertCommand(f);   }
@@ -537,23 +537,23 @@ readOrDeclBaseType[CVC4::Type& t]
 /**
  * Parses a datatype definition
  */
-datatypeDef[CVC4::Type& type, std::vector< CVC4::Type >& cons, std::vector< CVC4::Type >& testers ]
+datatypeDef[CVC4::Type& type, std::vector< CVC4::Expr >& cons, std::vector< CVC4::Expr >& testers ]
 @init {
   std::string id;
-  Type consType;
-  Type testerType;
+  Expr consExpr;
+  Expr testerExpr;
 }
   : readOrDeclBaseType[type]
-    EQUAL_TOK constructorDef[ type, consType, testerType ] { cons.push_back( consType );
-                                                             testers.push_back( testerType ); }
-    ( BAR_TOK constructorDef[ type, consType, testerType ] { cons.push_back( consType );
-                                                             testers.push_back( testerType ); } )*
+    EQUAL_TOK constructorDef[ type, consExpr, testerExpr ] { cons.push_back( consExpr );
+                                                             testers.push_back( testerExpr ); }
+    ( BAR_TOK constructorDef[ type, consExpr, testerExpr ] { cons.push_back( consExpr );
+                                                             testers.push_back( testerExpr ); } )*
   ;
   
 /**
  * Parses a constructor defintion for type
  */
-constructorDef[CVC4::Type& type, CVC4::Type& consType, CVC4::Type& testerType]
+constructorDef[CVC4::Type& type, CVC4::Expr& consExpr, CVC4::Expr& testerExpr]
 @init {
   std::string id;
   std::vector< Type > args;
@@ -564,16 +564,16 @@ constructorDef[CVC4::Type& type, CVC4::Type& consType, CVC4::Type& testerType]
      (COMMA selector[type, selType] { args.push_back(selType); } )*
      RPAREN)?
      { //make the constructor
-       consType = EXPR_MANAGER->mkConstructorType( args, type );
-       PARSER_STATE->mkVar( id, consType );
+       Type consType = EXPR_MANAGER->mkConstructorType( args, type );
+       consExpr = PARSER_STATE->mkVar( id, consType );
        Debug("parser-idt") << "constructor: " << id.c_str() << std::endl;
        
        //make the tester
        std::string testerId("is_");
        testerId.append( id );
        PARSER_STATE->checkDeclaration(testerId, CHECK_UNDECLARED, SYM_SORT);
-       testerType = EXPR_MANAGER->mkTesterType( type );
-       PARSER_STATE->mkVar( testerId, testerType );
+       Type testerType = EXPR_MANAGER->mkTesterType( type );
+       testerExpr = PARSER_STATE->mkVar( testerId, testerType );
      }
   ;
   

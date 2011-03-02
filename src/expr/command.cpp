@@ -513,9 +513,9 @@ void DatatypeCommand::toStream(std::ostream& out) const {
 
 }
 
-void DatatypeCommand::addDefinition( Type t, std::vector< Type >& cons, std::vector< Type >& testers ){
-  d_cons.push_back( std::pair< Type, std::vector<Type> >( t, cons ) );
-  d_testers.push_back( std::pair< Type, std::vector<Type> >( t, testers ) );
+void DatatypeCommand::addDefinition( Type t, std::vector< Expr >& cons, std::vector< Expr >& testers ){
+  d_cons.push_back( std::pair< Type, std::vector<Expr> >( t, cons ) );
+  d_testers.push_back( std::pair< Type, std::vector<Expr> >( t, testers ) );
 }
 
 /* output stream insertion operator for benchmark statuses */

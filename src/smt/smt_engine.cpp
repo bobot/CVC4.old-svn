@@ -692,9 +692,25 @@ void SmtEngine::pop() {
   // SMT-LIBv2 spec seems to imply no, but it would make sense to..
 }
 
-void SmtEngine::addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Type> > >& cons,
-                                        std::vector<std::pair< Type, std::vector<Type> > >& testers ){
-  d_theoryEngine->addDatatypeDefinitions( cons, testers );
+void SmtEngine::addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Expr> > >& cons,
+                                        std::vector<std::pair< Type, std::vector<Expr> > >& testers ){
+  std::vector<std::pair< TypeNode, std::vector<Node> > > n_cons;
+  std::vector<std::pair< TypeNode, std::vector<Node> > > n_testers;
+  for( int i=0; i<(int)cons.size(); i++ ){
+    std::vector<Node> vec;
+    for( int j=0; j<(int)cons[i].second.size(); j++ ){
+      vec.push_back( cons[i].second[j].getNode() );
+    }
+    n_cons.push_back( std::pair< TypeNode, std::vector<Node> >( *(cons[i].first.d_typeNode), vec ) );
+  }
+  for( int i=0; i<(int)testers.size(); i++ ){
+    std::vector<Node> vec;
+    for( int j=0; j<(int)testers[i].second.size(); j++ ){
+      vec.push_back( testers[i].second[j].getNode() );
+    }
+    n_testers.push_back( std::pair< TypeNode, std::vector<Node> >( *(testers[i].first.d_typeNode), vec ) );
+  }
+  d_theoryEngine->addDatatypeDefinitions( n_cons, n_testers );
 }
 
 void SmtEngine::internalPop() {

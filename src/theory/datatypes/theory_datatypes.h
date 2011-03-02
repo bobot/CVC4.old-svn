@@ -39,20 +39,22 @@ private:
   typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
 
   //a list of types with the list of constructors for that type
-  std::map<TypeNode, std::vector<TypeNode> > d_cons;
+  std::map<TypeNode, std::vector<Node> > d_cons;
   //a list of types with the list of constructors for that type
-  std::map<TypeNode, std::vector<TypeNode> > d_testers;
+  std::map<TypeNode, std::vector<Node> > d_testers;
   // the distinguished ground term for each type
   std::map< TypeNode, Node > d_distinguishTerms;
   //finite datatypes/constructor
   std::map< TypeNode, bool > d_finite;
+  std::map< Node, bool > d_cons_finite;
   //well founded datatypes/constructor
   std::map< TypeNode, bool > d_wellFounded;
+  std::map< Node, bool > d_cons_wellFounded;
   //whether we need to check finite and well foundedness
   bool requiresCheckFiniteWellFounded;
   //Type getType( TypeNode t );
-  int getConstructorIndex( TypeNode t, TypeNode t );
-  int getTesterIndex( TypeNode t, TypeNode t );
+  int getConstructorIndex( TypeNode t, Node t );
+  int getTesterIndex( TypeNode t, Node t );
   bool isDatatype( TypeNode t ) { return d_cons.find( t )!=d_cons.end(); }
   void checkFiniteWellFounded();
 
@@ -117,8 +119,8 @@ public:
 
   void presolve();
 
-  void addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Type> > >& cons,
-                               std::vector<std::pair< Type, std::vector<Type> > >& testers );
+  void addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
+                               std::vector<std::pair< TypeNode, std::vector<Node> > >& testers );
 
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);

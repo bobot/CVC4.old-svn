@@ -267,14 +267,14 @@ public:
 
 class CVC4_PUBLIC DatatypeCommand : public Command {
 private:
-  std::vector<std::pair< Type, std::vector<Type> > > d_cons;
-  std::vector<std::pair< Type, std::vector<Type> > > d_testers;
+  std::vector<std::pair< Type, std::vector<Expr> > > d_cons;
+  std::vector<std::pair< Type, std::vector<Expr> > > d_testers;
 public:
   DatatypeCommand();
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
 
-  void addDefinition( Type t, std::vector< Type >& cons, std::vector< Type >& testers );
+  void addDefinition( Type t, std::vector< Expr >& cons, std::vector< Expr >& testers );
 };/* class DatatypeCommand */
 
 class CVC4_PUBLIC CommandSequence : public Command {
