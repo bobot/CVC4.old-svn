@@ -246,7 +246,7 @@ public:
   SelectorType mkSelectorType(const Type& domain, const Type& range) const;
 
   /** Make a type representing a tester with given parameterization */
-  TesterType mkTesterType(const ConstructorType& domain) const;
+  TesterType mkTesterType(const Type& domain) const;
 
   /** Make a new sort with the given name. */
   SortType mkSort(const std::string& name) const;

@@ -284,7 +284,7 @@ SelectorType ExprManager::mkSelectorType(const Type& domain,const Type& range) c
   return Type(d_nodeManager, new TypeNode(d_nodeManager->mkSelectorType(*domain.d_typeNode,*range.d_typeNode)));
 }
 
-TesterType ExprManager::mkTesterType(const ConstructorType& domain) const {
+TesterType ExprManager::mkTesterType(const Type& domain) const {
   NodeManagerScope nms(d_nodeManager);
   return Type(d_nodeManager, new TypeNode(d_nodeManager->mkTesterType(*domain.d_typeNode)));
 }

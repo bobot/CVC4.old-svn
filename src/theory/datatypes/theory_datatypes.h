@@ -39,33 +39,25 @@ private:
   typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
 
   //a list of types with the list of constructors for that type
-  std::vector<std::pair<Type, std::vector<Type> > > d_defs;
+  std::map<TypeNode, std::vector<TypeNode> > d_cons;
+  //a list of types with the list of constructors for that type
+  std::map<TypeNode, std::vector<TypeNode> > d_testers;
   // the distinguished ground term for each type
-  std::vector< Node > d_distinguishTerms;
-  //finite datatypes
-  std::vector<std::pair< bool, std::vector<bool> > > is_finite;
-  //well founded datatypes
-  std::vector<std::pair< bool, std::vector<bool> > > is_wellFounded;
-  //
+  std::map< TypeNode, Node > d_distinguishTerms;
+  //finite datatypes/constructor
+  std::map< TypeNode, bool > d_finite;
+  //well founded datatypes/constructor
+  std::map< TypeNode, bool > d_wellFounded;
+  //whether we need to check finite and well foundedness
   bool requiresCheckFiniteWellFounded;
-  int getDatatypeIndex( TypeNode t );
-  int getConstructorIndex( int typeIndex, TypeNode t );
-  bool isDatatype( TypeNode t ) { return getDatatypeIndex( t )!=-1; }
-  bool isFiniteDatatype( TypeNode t );
-  bool isWellFoundedDatatype( TypeNode t );
+  //Type getType( TypeNode t );
+  int getConstructorIndex( TypeNode t, TypeNode t );
+  int getTesterIndex( TypeNode t, TypeNode t );
+  bool isDatatype( TypeNode t ) { return d_cons.find( t )!=d_cons.end(); }
   void checkFiniteWellFounded();
 
   //for possible constructors, map from terms to tester asserted for that term
-  //typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > CTNodeList;
-  //typedef context::CDMap<Node, CTNodeList*, NodeHashFunction> CNodeTNodesMap;
   EqLists d_labels;
-  /*
-  ilist = new (getContext()->getCMM()) CTNodeList(true, getContext(), false,
-                                                   ContextMemoryAllocator<TNode>(getContext()->getCMM()));
-   d_labels.insertDataFromContextMemory(a, ilist);
-   */
-
-
 
   class CongruenceChannel {
     TheoryDatatypes* d_datatypes;
@@ -125,7 +117,8 @@ public:
 
   void presolve();
 
-  void addConstructorDefinitions( std::vector<std::pair<Type, std::vector<Type> > >& defs );
+  void addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Type> > >& cons,
+                               std::vector<std::pair< Type, std::vector<Type> > >& testers );
 
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);

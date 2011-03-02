@@ -28,6 +28,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "expr/expr.h"
 #include "expr/type.h"
@@ -266,11 +267,14 @@ public:
 
 class CVC4_PUBLIC DatatypeCommand : public Command {
 private:
-  std::vector<std::pair<Type, std::vector<Type> > > d_defs;
+  std::vector<std::pair< Type, std::vector<Type> > > d_cons;
+  std::vector<std::pair< Type, std::vector<Type> > > d_testers;
 public:
-  DatatypeCommand( std::vector<std::pair<Type, std::vector<Type> > >& defs );
+  DatatypeCommand();
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
+
+  void addDefinition( Type t, std::vector< Type >& cons, std::vector< Type >& testers );
 };/* class DatatypeCommand */
 
 class CVC4_PUBLIC CommandSequence : public Command {

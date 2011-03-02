@@ -621,9 +621,10 @@ Node TheoryEngine::getValue(TNode node) {
   return theoryOf(node)->getValue(node, this);
 }/* TheoryEngine::getValue(TNode node) */
 
-void TheoryEngine::addConstructorDefinitions( std::vector<std::pair<Type, std::vector<Type> > >& defs )
+void TheoryEngine::addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Type> > >& cons,
+                                           std::vector<std::pair< Type, std::vector<Type> > >& testers )
 {
-  ((theory::datatypes::TheoryDatatypes*)d_datatypes)->addConstructorDefinitions( defs );
+  ((theory::datatypes::TheoryDatatypes*)d_datatypes)->addDatatypeDefinitions( cons, testers );
 }
 
 

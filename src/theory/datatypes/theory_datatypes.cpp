@@ -31,150 +31,144 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::datatypes;
 
-int TheoryDatatypes::getDatatypeIndex( TypeNode t )
+////need this?
+//Type TheoryDatatypes::getType( TypeNode t )
+//{
+//  std::map<Type, std::vector<Type> >::iterator it;
+//  for( it=d_cons.begin(); it!=d_cons.end(); ++it ){
+//    if( *(it->first.d_typeNode)==t ){
+//      return it->first;
+//    }
+//  }
+//  return Type();
+//}
+
+int TheoryDatatypes::getConstructorIndex( TypeNode t, TypeNode tc )
 {
-  for( int a=0; a<(int)d_defs.size(); a++ ){
-    if( *(d_defs[a].first.d_typeNode)==t ){
-      return a;
+  std::map<TypeNode, std::vector<TypeNode> >::iterator it = d_cons.find( t );
+  if( it != d_cons.end() ){
+    for( int i = 0; i<(int)it->second.size(); i++ ){
+      if( it->second[i]==tc ){
+        return i;
+      }
     }
   }
   return -1;
 }
-
-int TheoryDatatypes::getConstructorIndex( int typeIndex, TypeNode t )
+int TheoryDatatypes::getTesterIndex( TypeNode t, TypeNode tc )
 {
-  for( int a=0; a<(int)d_defs[typeIndex].second.size(); a++ ){
-    if( *(d_defs[typeIndex].second[a].d_typeNode)==t ){
-      return a;
+  std::map<TypeNode, std::vector<TypeNode> >::iterator it = d_testers.find( t );
+  if( it != d_testers.end() ){
+    for( int i = 0; i<(int)it->second.size(); i++ ){
+      if( it->second[i]==tc ){
+        return i;
+      }
     }
   }
   return -1;
-}
-
-bool TheoryDatatypes::isFiniteDatatype( TypeNode t ){
-  for( int a=0; a<(int)d_defs.size(); a++ ){
-    if( *(d_defs[a].first.d_typeNode)==t ){
-      return is_finite[a].first;
-    }
-  }
-  return false;
-}
-
-bool TheoryDatatypes::isWellFoundedDatatype( TypeNode t ){
-  for( int a=0; a<(int)d_defs.size(); a++ ){
-    if( *(d_defs[a].first.d_typeNode)==t ){
-      return is_wellFounded[a].first;
-    }
-  }
-  return false;
 }
 
 void TheoryDatatypes::checkFiniteWellFounded(){
   if( requiresCheckFiniteWellFounded ){
+    Debug("datatypes-finite") << "Check finite, well-founded." << std::endl;
+
     //check well-founded and finite, create distinguished ground terms
-    d_distinguishTerms.clear();
-    d_distinguishTerms.resize( (int)d_defs.size() );
-    is_wellFounded.clear();
-    is_finite.clear();
-    is_wellFounded.resize( (int)d_defs.size() );
-    is_finite.resize( (int)d_defs.size() );
-    for( int a=0; a<(int)d_defs.size(); a++ ){
-      is_wellFounded[a].first = false;
-      is_finite[a].first = false;
-      is_wellFounded[a].second.resize( (int)d_defs[a].second.size(), false );
-      is_finite[a].second.resize( (int)d_defs[a].second.size(), false );
+    std::map<TypeNode, std::vector<TypeNode> >::iterator it;
+    std::vector<TypeNode>::iterator itc;
+    for( it = d_cons.begin(); it!=d_cons.end(); ++it ){
+      d_distinguishTerms[it->first] = Node::null();
+      d_finite[it->first] = false;
+      d_wellFounded[it->first] = false;
+      for( itc = it->second.begin(); itc!=it->second.end(); ++itc ){
+        d_finite[*itc] = false;
+        d_wellFounded[*itc] = false;
+      }
     }
     bool changed;
     do{
       changed = false;
-      for( int a=0; a<(int)d_defs.size(); a++ ){
-        Type t = d_defs[a].first;
-        //Debug("datatypes") << "check " << t << std::endl;
+      for( it = d_cons.begin(); it!=d_cons.end(); ++it ){
+        TypeNode t = it->first;
+        //Debug("datatypes-finite") << "check " << t << std::endl;
         bool typeFinite = true;
-        for( int b=0; b<(int)d_defs[a].second.size(); b++ ){
-          ConstructorType ct = (ConstructorType)d_defs[a].second[b];
-          //Debug("datatypes") << " check cons " << ct << std::endl;
-          if( !is_finite[a].second[b] ){
+        for( itc = it->second.begin(); itc!=it->second.end(); ++itc ){
+          TypeNode ct = *itc;
+          //Debug("datatypes-finite") << " check cons " << ct << std::endl;
+          if( !d_finite[ct] ){
             int c;
-            for( c=0; c<(int)ct.d_typeNode->getNumChildren()-1; c++ ){
-              //Debug("datatypes") << "  check sel " << ct.d_typeNode[0][c] << std::endl;
-              TypeNode ts = ct.d_typeNode[0][c][1];
+            for( c=0; c<(int)ct.getNumChildren()-1; c++ ){
+              //Debug("datatypes-finite") << "  check sel " << ct[c] << std::endl;
+              TypeNode ts = ct[c][1];
               //Debug("datatypes") << "  check : " << ts << std::endl;
-              if( !isDatatype( ts ) || !isFiniteDatatype( ts ) ){
+              if( !isDatatype( ts ) || !d_finite[ ts ] ){
                 break;
               }
             }
-            if( c ==(int)ct.d_typeNode->getNumChildren()-1 ){
+            if( c ==(int)ct.getNumChildren()-1 ){
               changed = true;
-              is_finite[a].second[b] = true;
-              Debug("datatypes-finite") << ct << " is finite" << std::endl;
+              d_finite[ct] = true;
+              //Debug("datatypes-finite") << ct << " is finite" << std::endl;
             }else{
               typeFinite = false;
             }
           }
-          if( !is_wellFounded[a].second[b] ){
+          if( !d_wellFounded[ct] ){
             int c;
-            for( c=0; c<(int)ct.d_typeNode->getNumChildren()-1; c++ ){
+            for( c=0; c<(int)ct.getNumChildren()-1; c++ ){
               //Debug("datatypes") << "  check sel " << ct.d_typeNode[0][c] << std::endl;
-              TypeNode ts = ct.d_typeNode[0][c][1];
+              TypeNode ts = ct[c][1];
               //Debug("datatypes") << "  check : " << ts << std::endl;
-              if( isDatatype( ts ) && !isWellFoundedDatatype( ts ) ){
+              if( isDatatype( ts ) && !d_wellFounded[ ts ] ){
                 break;
               }
             }
-            if( c ==(int)ct.d_typeNode->getNumChildren()-1 ){
+            if( c ==(int)ct.getNumChildren()-1 ){
               changed = true;
-              is_wellFounded[a].second[b] = true;
-              Debug("datatypes-finite") << ct << " is well founded" << std::endl;
+              d_wellFounded[ct] = true;
+              //Debug("datatypes-finite") << ct << " is well founded" << std::endl;
             }
           }
-          if( is_wellFounded[a].second[b] ){
-            if( !is_wellFounded[a].first ){
+          if( d_wellFounded[ct] ){
+            if( !d_wellFounded[t] ){
               changed = true;
-              is_wellFounded[a].first = true;
+              d_wellFounded[t] = true;
               //also set distinguished ground term
               //Debug("datatypes") << "set distinguished ground term out of " << ct << std::endl;
-              Debug("datatypes-finite") << a << " is type wf" << std::endl;
+              //Debug("datatypes-finite") << t << " is type wf" << std::endl;
               NodeManager* nm = NodeManager::currentNM();
               std::vector< NodeTemplate<true> > children;
-              children.push_back( nm->mkVar( *d_defs[a].second[b].d_typeNode ) );
-              for( int c=0; c<(int)ct.d_typeNode->getNumChildren()-1; c++ ){
-                TypeNode ts = ct.d_typeNode[0][c][1];
-                int dindex = getDatatypeIndex( ts );
-                if( dindex!=-1 ){
-                  children.push_back( d_distinguishTerms[dindex] );
+              children.push_back( nm->mkVar( ct ) );
+              for( int c=0; c<(int)ct.getNumChildren()-1; c++ ){
+                TypeNode ts = ct[c][1];
+                if( isDatatype( ts ) ){
+                  children.push_back( d_distinguishTerms[ts] );
                 }else{
                   nm->mkVar( ts );
                 }
               }
               Node dgt = nm->mkNode( APPLY_CONSTRUCTOR, children );
-              Debug("datatypes-finite") << "set distinguished ground term " << a << " to " << dgt << std::endl;
-              d_distinguishTerms[a] = dgt;
+              Debug("datatypes-finite") << "set distinguished ground term " << t << " to " << dgt << std::endl;
+              d_distinguishTerms[t] = dgt;
             }
           }
         }
-        if( typeFinite && !is_finite[a].first ){
+        if( typeFinite && !d_finite[t] ){
           changed = true;
-          is_finite[a].first = true;
-          Debug("datatypes-finite") << a << " now type finite" << std::endl;
+          d_finite[t] = true;
+          Debug("datatypes-finite") << t << " now type finite" << std::endl;
         }
       }
     }while( changed );
-    for( int a=0; a<(int)d_defs.size(); a++ ){
-      if( !is_finite[a].first ){
-        Debug("datatypes-finite") << d_defs[a].first << " is not finite." << std::endl;
-      }
-      if( !is_wellFounded[a].first ){
-        Debug("datatypes-finite") << d_defs[a].first << " is not well-founded." << std::endl;
+    std::map<TypeNode, bool >::iterator itb;
+    for( itb=d_finite.begin(); itb!=d_finite.end(); ++itb ){
+      Debug("datatypes-finite") << itb->first << " is ";
+      Debug("datatypes-finite") << ( itb->second ? "" : "not ") << "finite." << std::endl;
+    }
+    for( itb=d_wellFounded.begin(); itb!=d_wellFounded.end(); ++itb ){
+      Debug("datatypes-finite") << itb->first << " is ";
+      Debug("datatypes-finite") << ( itb->second ? "" : "not ") << "well founded." << std::endl;
+      if( !itb->second && isDatatype( itb->first ) ){
         //throw exception?
-      }
-      for( int b=0; b<(int)d_defs[a].second.size(); b++ ){
-        if( !is_finite[a].second[b] ){
-          Debug("datatypes-finite") << d_defs[a].second[b] << " is not finite." << std::endl;
-        }
-        if( !is_wellFounded[a].second[b] ){
-          Debug("datatypes-finite") << d_defs[a].second[b] << " is not well-founded." << std::endl;
-        }
       }
     }
     requiresCheckFiniteWellFounded = false;
@@ -214,13 +208,15 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
 
   if( in.getKind()==APPLY_TESTER &&
       in[0].getKind()==APPLY_CONSTRUCTOR ){
-    TypeNode testConsType = (in.getOperator().getType())[0];
+    TypeNode testType = in.getOperator().getType();
     TypeNode consType = in[0].getOperator().getType();
+    int testIndex = getTesterIndex( testType[0], testType );
+    int consIndex = getConstructorIndex( testType[0], consType );
     Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: Rewrite trivial tester " << in << endl;
-    Debug("datatypes-rewrite") << in.getOperator().getType() << " " << in.getOperator() << endl;
-    Debug("datatypes-rewrite") << in[0].getOperator().getType() << " " << in[0].getOperator() << endl;
+    Debug("datatypes-rewrite") << testType << " " << in.getOperator() << " " << testIndex << endl;
+    Debug("datatypes-rewrite") << consType << " " << in[0].getOperator() << " " << consIndex << endl;
     //FIXME
-    return RewriteComplete(NodeManager::currentNM()->mkConst(testConsType==consType));
+    return RewriteComplete(NodeManager::currentNM()->mkConst(testIndex==consIndex));
   }
   if( in.getKind()==APPLY_SELECTOR &&
       in[0].getKind()==APPLY_CONSTRUCTOR ){
@@ -230,9 +226,8 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
     int currIndex = 0;
     TypeNode selType = in.getOperator().getType();
     TypeNode c = in[0].getOperator().getType();
-    TypeNode::iterator child_it = c.begin();
-    TypeNode::iterator child_it_end = c.end();
-    for(; child_it != child_it_end; ++child_it) {   //possibly improve this, store index in selector type?
+    TypeNode::iterator child_it;
+    for(child_it = c.begin(); child_it != c.end(); ++child_it) {   //possibly improve this, store index in selector type?
       if( (*child_it)==selType ){
         selIndex = currIndex;
         break;
@@ -241,13 +236,9 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
     }
     if( selIndex==-1 ){
       Debug("datatypes-rewrite") << "Applied selector to wrong constructor " << selType[1] << endl;
-      int index = getDatatypeIndex( selType[1] );
-      if( index==-1 ){
-        Debug("datatypes-rewrite") << "Bad index for type " << selType[1] << endl;
-      }else{
-        Debug("datatypes-rewrite") << "Return distinguished term " << d_distinguishTerms[index] << " of type " << selType[1] << endl;
-        return RewriteComplete( d_distinguishTerms[index] );
-      }
+      Debug("datatypes-rewrite") << "Return distinguished term ";
+      Debug("datatypes-rewrite") << d_distinguishTerms[ selType[1] ] << " of type " << selType[1] << endl;
+      return RewriteComplete( d_distinguishTerms[ selType[1] ] );
     }else{
       Debug("datatypes-rewrite") << "Applied selector to correct constructor, index = " << selIndex << endl;
       Debug("datatypes-rewrite") << "Return " << in[0][selIndex] << endl;
@@ -264,8 +255,20 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
   return RewriteComplete(in);
 }
 
-void TheoryDatatypes::addConstructorDefinitions( std::vector<std::pair<Type, std::vector<Type> > >& defs ){
-  d_defs.insert( d_defs.begin(), defs.begin(), defs.end() );
+void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Type> > >& cons,
+                                              std::vector<std::pair< Type, std::vector<Type> > >& testers ){
+  std::vector<std::pair< Type, std::vector<Type> > >::iterator it;
+  std::vector<Type>::iterator itc;
+  for( it = cons.begin(); it!=cons.end(); ++it ){
+    for( itc = it->second.begin(); itc!=it->second.end(); ++itc ){
+      d_cons[*(it->first.d_typeNode)].push_back( *(itc->d_typeNode) );
+    }
+  }
+  for( it = testers.begin(); it!=testers.end(); ++it ){
+    for( itc = it->second.begin(); itc!=it->second.end(); ++itc ){
+      d_testers[*(it->first.d_typeNode)].push_back( *(itc->d_typeNode) );
+    }
+  }
   requiresCheckFiniteWellFounded = true;
 }
 
@@ -278,7 +281,7 @@ void TheoryDatatypes::addSharedTerm(TNode t) {
 void TheoryDatatypes::notifyEq(TNode lhs, TNode rhs) {
   Debug("datatypes") << "TheoryDatatypes::notifyEq(): "
                   << lhs << " = " << rhs << endl;
-  d_unionFind.setCanon(lhs, rhs);
+  //d_unionFind.setCanon(lhs, rhs);  //FIXME?
   NodeManager* nm = NodeManager::currentNM();
   Node eq = nm->mkNode(kind::EQUAL, lhs, rhs);
   d_cc.addEquality(eq);
@@ -425,9 +428,7 @@ void TheoryDatatypes::checkTester( Effort e, Node tassertion, Node assertion ){
         }
       }
       if( add ){
-        int datatypeIndex = getDatatypeIndex( tassertion[0].getType() );
-        Assert( datatypeIndex!= -1 );
-        if( notCount==(int)d_defs[datatypeIndex].second.size()-1 ){
+        if( notCount==(int)d_cons[ tassertion[0].getType() ].size()-1 ){
           NodeBuilder<> nb(kind::AND);
           for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
             nb << (*i);

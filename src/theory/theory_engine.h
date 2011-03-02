@@ -21,6 +21,8 @@
 #ifndef __CVC4__THEORY_ENGINE_H
 #define __CVC4__THEORY_ENGINE_H
 
+#include <map>
+
 #include "expr/node.h"
 #include "prop/prop_engine.h"
 #include "theory/shared_term_manager.h"
@@ -375,7 +377,8 @@ public:
 
   Node getValue(TNode node);
 
-  void addConstructorDefinitions( std::vector<std::pair<Type, std::vector<Type> > >& defs );
+  void addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Type> > >& cons,
+                               std::vector<std::pair< Type, std::vector<Type> > >& testers );
 
 private:
   class Statistics {

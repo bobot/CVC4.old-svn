@@ -82,13 +82,13 @@ struct DatatypeTesterTypeRule {
       if(n.getNumChildren() != 1) {
         throw TypeCheckingExceptionPrivate(n, "number of arguments does not match the tester type");
       }
-      //TypeNode testType = n.getOperator().getType(check);
-      //TypeNode childType = n[0].getType(check);
-      //Debug("typecheck-idt") << "typecheck test: " << n << std::endl;
-      //Debug("typecheck-idt") << "test type: " << testType << std::endl;
-      //if( testType[0].getConstructorReturnType()!=childType ){
-      //  throw TypeCheckingExceptionPrivate(n, "bad type for tester argument");
-      //}
+      TypeNode testType = n.getOperator().getType(check);
+      TypeNode childType = n[0].getType(check);
+      Debug("typecheck-idt") << "typecheck test: " << n << std::endl;
+      Debug("typecheck-idt") << "test type: " << testType << std::endl;
+      if( testType[0]!=childType ){
+        throw TypeCheckingExceptionPrivate(n, "bad type for tester argument");
+      }
     }
     return nodeManager->booleanType();
   }

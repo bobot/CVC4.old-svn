@@ -692,8 +692,9 @@ void SmtEngine::pop() {
   // SMT-LIBv2 spec seems to imply no, but it would make sense to..
 }
 
-void SmtEngine::addConstructorDefinitions( std::vector<std::pair<Type, std::vector<Type> > >& defs ){
-  d_theoryEngine->addConstructorDefinitions( defs );
+void SmtEngine::addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Type> > >& cons,
+                                        std::vector<std::pair< Type, std::vector<Type> > >& testers ){
+  d_theoryEngine->addDatatypeDefinitions( cons, testers );
 }
 
 void SmtEngine::internalPop() {

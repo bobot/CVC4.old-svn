@@ -108,8 +108,8 @@ command returns [CVC4::Command* cmd = 0]
 @init {
   Expr f;
   Type t;
-  std::vector<Type> args;
-  std::vector<std::pair<Type, std::vector<Type> > > datatypes;
+  std::vector<Type> cons;
+  std::vector<Type> testers;
   Debug("parser-extra") << "command: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : ASSERT_TOK formula[f] SEMICOLON { cmd = new AssertCommand(f);   }
@@ -118,12 +118,15 @@ command returns [CVC4::Command* cmd = 0]
   | CHECKSAT_TOK SEMICOLON { cmd = new CheckSatCommand(MK_CONST(true)); }
   | PUSH_TOK SEMICOLON { cmd = new PushCommand(); }
   | POP_TOK SEMICOLON { cmd = new PopCommand(); }
-  | DATATYPE_TOK datatypeDef[t, args] { 
-     datatypes.push_back( std::pair<Type, std::vector<Type> >( t, args ) );
-     args.clear();
-   }( COMMA datatypeDef[t, args] { datatypes.push_back( std::pair<Type, std::vector<Type> >( t, args ) );
-                                   args.clear(); } )* 
-     END_TOK SEMICOLON { cmd = new DatatypeCommand( datatypes ); }
+  | DATATYPE_TOK datatypeDef[t, cons, testers] { 
+     cmd = new DatatypeCommand;
+     ((DatatypeCommand*)cmd)->addDefinition( t, cons, testers );
+     cons.clear();
+     testers.clear();
+   }( COMMA datatypeDef[t, cons, testers] { ((DatatypeCommand*)cmd)->addDefinition( t, cons, testers );
+                                            cons.clear();
+                                            testers.clear(); } )* 
+     END_TOK SEMICOLON
   | declaration[cmd]
   | EOF
   ;
@@ -456,9 +459,9 @@ unaryTerm[CVC4::Expr& f]
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]
     { 
       f = PARSER_STATE->getVariable(name);
+      //0-ary constructors
       if( PARSER_STATE->getType(name).isConstructor() ){
         args.push_back( f );
-        //args.push_back( f );   //temporary
         f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, args);
       }
     }
@@ -534,20 +537,23 @@ readOrDeclBaseType[CVC4::Type& t]
 /**
  * Parses a datatype definition
  */
-datatypeDef[CVC4::Type& type, std::vector< CVC4::Type >& args]
+datatypeDef[CVC4::Type& type, std::vector< CVC4::Type >& cons, std::vector< CVC4::Type >& testers ]
 @init {
   std::string id;
   Type consType;
+  Type testerType;
 }
   : readOrDeclBaseType[type]
-    EQUAL_TOK constructorDef[ type, consType ] { args.push_back( consType ); }
-    ( BAR_TOK constructorDef[ type, consType ] { args.push_back( consType ); } )*
+    EQUAL_TOK constructorDef[ type, consType, testerType ] { cons.push_back( consType );
+                                                             testers.push_back( testerType ); }
+    ( BAR_TOK constructorDef[ type, consType, testerType ] { cons.push_back( consType );
+                                                             testers.push_back( testerType ); } )*
   ;
   
 /**
  * Parses a constructor defintion for type
  */
-constructorDef[CVC4::Type& type, CVC4::Type& consType]
+constructorDef[CVC4::Type& type, CVC4::Type& consType, CVC4::Type& testerType]
 @init {
   std::string id;
   std::vector< Type > args;
@@ -566,7 +572,7 @@ constructorDef[CVC4::Type& type, CVC4::Type& consType]
        std::string testerId("is_");
        testerId.append( id );
        PARSER_STATE->checkDeclaration(testerId, CHECK_UNDECLARED, SYM_SORT);
-       Type testerType = EXPR_MANAGER->mkTesterType( consType );
+       testerType = EXPR_MANAGER->mkTesterType( type );
        PARSER_STATE->mkVar( testerId, testerType );
      }
   ;
