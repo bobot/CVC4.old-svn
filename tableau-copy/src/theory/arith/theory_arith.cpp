@@ -652,6 +652,12 @@ void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 
 }
 
+void TheoryArith::notifyRestart(){
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  d_tableau = d_preprocessedCopy;
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+}
+
 bool TheoryArith::entireStateIsConsistent(){
   typedef std::vector<Node>::const_iterator VarIter;
   for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
@@ -727,5 +733,9 @@ void TheoryArith::presolve(){
 
   static int callCount = 0;
   Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
+
+  //Assert(callCount == 1);
+  d_preprocessedCopy = d_tableau;
+
   check(FULL_EFFORT);
 }

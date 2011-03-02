@@ -130,6 +130,7 @@ private:
    * The tableau for all of the constraints seen thus far in the system.
    */
   Tableau d_tableau;
+  Tableau d_preprocessedCopy;
 
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;
@@ -157,7 +158,7 @@ public:
   void shutdown(){ }
 
   void presolve();
-
+  void notifyRestart();
   void staticLearning(TNode in, NodeBuilder<>& learned);
 
   std::string identify() const { return std::string("TheoryArith"); }
