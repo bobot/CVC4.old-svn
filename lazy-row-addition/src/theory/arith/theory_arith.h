@@ -73,15 +73,6 @@ private:
    */
   std::map<ArithVar, Node> d_removedRows;
 
-  /**
-   * Priority Queue of the basic variables that may be inconsistent.
-   *
-   * This is required to contain at least 1 instance of every inconsistent
-   * basic variable. This is only required to be a superset though so its
-   * contents must be checked to still be basic and inconsistent.
-   */
-  std::priority_queue<ArithVar> d_possiblyInconsistent;
-
 
   /** Stores system wide constants to avoid unnessecary reconstruction. */
   ArithConstants d_constants;
@@ -133,18 +124,17 @@ private:
    * The tableau for all of the constraints seen thus far in the system.
    */
   Tableau d_tableau;
-  Tableau d_preprocessedCopy;
 
-  __gnu_cxx::hash_set<Node, NodeHashFunction> d_initialized;
+  ArithVarSet d_initialized;
 
-  bool initialized(TNode left){
-    return d_initialized.find(left) != d_initialized.end();
+  bool initialized(ArithVar var){
+    return d_initialized.isMember(var);
   };
-  void initialize(TNode left){
-    d_initialized.insert(left);
+  void initialize(ArithVar var){
+    d_initialized.add(var);
   }
 
-  void reinitSlack(TNode left);
+  void reinitSlack(ArithVar var, TNode left);
 
 
   ArithUnatePropagator d_propagator;

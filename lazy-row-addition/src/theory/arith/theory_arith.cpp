@@ -266,6 +266,7 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   //d_basicManager.init(varX,basic);
   //d_userVariables.init(varX, !basic);
   d_userVariables.init(varX, false);
+  d_initialized.init(varX, false);
   d_tableau.increaseSize();
 
   Debug("arith::arithvar") << x << " |-> " << varX << endl;
@@ -304,12 +305,13 @@ void TheoryArith::setupSlack(TNode left){
   setupInitialValue(varSlack);
 }
 
-void TheoryArith::reinitSlack(TNode left){
-  Assert(!initialized(left));
+void TheoryArith::reinitSlack(ArithVar varSlack, TNode left){
+  Assert(!initialized(varSlack));
   Assert(left.hasAttribute(Slack()));
+  Assert(left.getAttribute(Slack()) == asNode(varSlack));
 
-  Node slack = left.getAttribute(Slack());
-  ArithVar varSlack = asArithVar(slack);
+  //Node slack = left.getAttribute(Slack());
+  //ArithVar varSlack = asArithVar(slack);
 
   Polynomial polyLeft = Polynomial::parsePolynomial(left);
 
@@ -344,8 +346,8 @@ void TheoryArith::reinitSlack(TNode left){
   //lower bound. This is done to strongly enforce the notion that basic
   //variables should not be changed without begin checked.
 
-  initialize(left);
-  Assert(initialized(left));
+  initialize(varSlack);
+  Assert(initialized(varSlack));
 }
 
 /* Requirements:
@@ -387,11 +389,13 @@ ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
   }else{
     Assert(left.hasAttribute(Slack()));
 
-    if(!initialized(left)){
-      reinitSlack(left);
-    }
     TNode slack = left.getAttribute(Slack());
-    return asArithVar(slack);
+    ArithVar varSlack = asArithVar(slack);
+    if(!initialized(varSlack)){
+      Assert(!d_userVariables.isMember(varSlack));
+      reinitSlack(varSlack, left);
+    }
+    return varSlack;
   }
 }
 
@@ -774,14 +778,15 @@ void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 void TheoryArith::notifyRestart(){
 
   unsigned int before = d_tableau.getNumRows();
-  /*
+
   d_tableau.clear();
   d_initialized.clear();
 
-  for(int i=0, size = d_variables.size(); i < size; ++i){
+  for(ArithVar i=0, size = d_variables.size(); i < size; ++i){
     d_tableau.increaseSize();
+    d_initialized.init(i, false);
   }
-  */
+
   for(context::CDList<Node>::const_iterator i = d_facts.begin(), end = d_facts.end(); i!= end; ++i){
     Node assertion = *i;
     Kind simpKind = simplifiedKind(assertion);
@@ -876,7 +881,6 @@ void TheoryArith::presolve(){
   Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
 
   //Assert(callCount == 1);
-  d_preprocessedCopy = d_tableau;
 
   check(FULL_EFFORT);
 }
