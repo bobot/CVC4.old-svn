@@ -556,7 +556,12 @@ void TheoryArith::explain(TNode n) {
 }
 
 void TheoryArith::propagate(Effort e) {
-
+  if(quickCheckOrMore(e)){
+    while(d_simplex.hasMoreLemmas()){
+      Node lemma = d_simplex.popLemma();
+      d_out->lemma(lemma);
+    }
+  }
   // if(quickCheckOrMore(e)){
   //   std::vector<Node> implied = d_propagator.getImpliedLiterals();
   //   for(std::vector<Node>::iterator i = implied.begin();
@@ -652,6 +657,10 @@ void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 
 }
 
+void TheoryArith::notifyRestart(){
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+}
+
 bool TheoryArith::entireStateIsConsistent(){
   typedef std::vector<Node>::const_iterator VarIter;
   for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
@@ -727,5 +736,6 @@ void TheoryArith::presolve(){
 
   static int callCount = 0;
   Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
+
   check(FULL_EFFORT);
 }
