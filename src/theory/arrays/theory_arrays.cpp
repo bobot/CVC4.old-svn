@@ -123,8 +123,7 @@ void TheoryArrays::check(Effort e) {
         return;
         }
       Assert(!d_cc.areCongruent(a,b));
-      // no need to call lemma generation since a disequality does now change
-      // lemma application conditions?
+      checkExtLemmas(a, b);
       break;
     }
     case kind::CONST_BOOLEAN:
@@ -188,8 +187,9 @@ void TheoryArrays::merge(TNode a, TNode b) {
 
   //FIXME: do i need to merge these if there is conflict?
   if(a.getType().isArray()) {
-    checkLemmas(a,b);
-    checkLemmas(b,a);
+    checkRoWLemmas(a,b);
+    checkRoWLemmas(b,a);
+    Debug("arrays-merge")<<"after \n";
     // note the change in order, merge info adds the list of
     // the 2nd argument to the first
     d_infoMap.mergeInfo(b, a);
@@ -344,6 +344,72 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
 
 }
 
+void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
+
+  //Assert(find(a)!= find(b));
+
+  Debug("arrays-cl")<<"Arrays::checkLemmas "<<a<<"\n";
+  if(Debug.isOn("arrays-cl"))
+    d_infoMap.getInfo(a)->print();
+  Debug("arrays-cl")<<"  ------------  and "<<b<<"\n";
+  if(Debug.isOn("arrays-cl"))
+    d_infoMap.getInfo(b)->print();
+  CTNodeList* i_a = d_infoMap.getIndices(a);
+  CTNodeList* inst_b = d_infoMap.getInStores(b);
+  CTNodeList* eqst_b = d_infoMap.getEqStores(b);
+
+  CTNodeList::const_iterator it = i_a->begin();
+  CTNodeList::const_iterator its;
+
+  for( ; it != i_a->end(); it++ ) {
+    TNode i = *it;
+    its = inst_b->begin();
+    for ( ; its != inst_b->end(); its++) {
+
+      TNode store = *its;
+      Assert(store.getKind() == kind::STORE);
+      TNode j = store[1];
+      TNode c = store[0];
+
+      NodeManager* nm = NodeManager::currentNM();
+      Node eq1 = nm->mkNode(kind::EQUAL, i, j);
+      Node cj = nm->mkNode(kind::SELECT, c, j);
+      Node aj = nm->mkNode(kind::SELECT, a, j);
+      Node eq2 = nm->mkNode(kind::EQUAL, cj, aj);
+
+      // TODO add check if lemma exists and if any of the disjuncts are already
+      // true
+      if( i!= j && cj != aj) {
+        addLemma(nm->mkNode(kind::OR, eq1, eq2));
+      }
+    }
+
+    its = eqst_b->begin();
+    for ( ; its != eqst_b->end(); its++) {
+      TNode store = *its;
+      Assert(store.getKind() == kind::STORE);
+      TNode j = store[1];
+      TNode c = store[0];
+
+      NodeManager* nm = NodeManager::currentNM();
+      Node eq1 = nm->mkNode(kind::EQUAL, i, j);
+      Node cj = nm->mkNode(kind::SELECT, c, j);
+      Node aj = nm->mkNode(kind::SELECT, a, j);
+      Node eq2 = nm->mkNode(kind::EQUAL, cj, aj);
+
+      // TODO add check if lemma exists and if any of the disjuncts are already
+      // true
+      if( i!= j && cj != aj ) {
+        addLemma(nm->mkNode(kind::OR, eq1, eq2));
+      }
+    }
+
+  }
+}
+
+void TheoryArrays::checkExtLemmas(TNode a, TNode b) {
+
+}
 
 /*
 

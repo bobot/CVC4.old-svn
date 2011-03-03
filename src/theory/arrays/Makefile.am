@@ -11,6 +11,8 @@ libarrays_la_SOURCES = \
 	theory_arrays.h \
 	theory_arrays.cpp \
 	union_find.h \
-	union_find.cpp
+	union_find.cpp \
+	array_info.h \
+	array_info.cpp
 
 EXTRA_DIST = kinds
