@@ -156,12 +156,12 @@ public:
   ReducedRowVector* removeRow(ArithVar basic);
 
 
+  /** Clears the structures in the tableau. */
+  void clear();
 private:
   /** Copies the datastructures in tab to this.*/
   void internalCopy(const Tableau& tab);
 
-  /** Clears the structures in the tableau. */
-  void clear();
 };
 
 }; /* namespace arith  */

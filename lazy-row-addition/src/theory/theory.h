@@ -78,8 +78,10 @@ private:
    * These can not be TNodes as some atoms (such as equalities) are sent across theories withouth being stored
    * in a global map.
    */
+protected:
   context::CDList<Node> d_facts;
 
+private:
   /** Index into the head of the facts list */
   context::CDO<unsigned> d_factsHead;
 

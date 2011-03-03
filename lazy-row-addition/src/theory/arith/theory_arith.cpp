@@ -55,6 +55,7 @@ typedef expr::Attribute<SlackAttrID, Node> Slack;
 
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   Theory(THEORY_ARITH, c, out),
+  d_assertions(c),
   d_constants(NodeManager::currentNM()),
   d_partialModel(c),
   d_userVariables(),
@@ -225,6 +226,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
     ++(d_statistics.d_statUserVariables);
     ArithVar varN = requestArithVar(n,false);
     setupInitialValue(varN);
+    d_userVariables.add(varN);
   }
 
 
@@ -250,6 +252,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
 
 
 ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
+  Assert(basic == false);
   Assert(isLeaf(x));
   Assert(!hasArithVar(x));
 
@@ -261,7 +264,8 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   setArithVar(x,varX);
 
   //d_basicManager.init(varX,basic);
-  d_userVariables.init(varX, !basic);
+  //d_userVariables.init(varX, !basic);
+  d_userVariables.init(varX, false);
   d_tableau.increaseSize();
 
   Debug("arith::arithvar") << x << " |-> " << varX << endl;
@@ -296,47 +300,61 @@ void TheoryArith::setupSlack(TNode left){
   Node slack = NodeManager::currentNM()->mkVar(real_type);
   left.setAttribute(Slack(), slack);
 
-  ArithVar varSlack = requestArithVar(slack, true);
+  ArithVar varSlack = requestArithVar(slack, false);
+  setupInitialValue(varSlack);
+}
+
+void TheoryArith::reinitSlack(TNode left){
+  Assert(!initialized(left));
+  Assert(left.hasAttribute(Slack()));
+
+  Node slack = left.getAttribute(Slack());
+  ArithVar varSlack = asArithVar(slack);
 
   Polynomial polyLeft = Polynomial::parsePolynomial(left);
 
   vector<ArithVar> variables;
   vector<Rational> coefficients;
-
   asVectors(polyLeft, coefficients, variables);
 
   d_tableau.addRow(varSlack, coefficients, variables);
 
-  setupInitialValue(varSlack);
+  //If the variable is basic, assertions may have already happened and updates
+  //may have occured before setting this variable up.
+
+  //This can go away if the tableau creation is done at preregister
+  //time instead of register
+  DeltaRational safeAssignment = d_simplex.computeRowValue(varSlack, true);
+  DeltaRational assignment = d_simplex.computeRowValue(varSlack, false);
+
+  d_partialModel.setAssignment(varSlack, safeAssignment, assignment);
+
+  //cout << "never going to work" << endl;
+  //Assert(!d_partialModel.hasLowerBound(varSlack));
+  //Assert(!d_partialModel.hasUpperBound(varSlack));
+
+  //d_partialModel.initialize(x,safeAssignment);
+  //d_partialModel.setAssignment(x,assignment);
+
+
+  //d_simplex.checkBasicVariable(x);
+  //Conciously violating unneeded check
+
+  //Strictly speaking checking x is unnessecary as it cannot have an upper or
+  //lower bound. This is done to strongly enforce the notion that basic
+  //variables should not be changed without begin checked.
+
+  initialize(left);
+  Assert(initialized(left));
 }
 
 /* Requirements:
  * For basic variables the row must have been added to the tableau.
  */
 void TheoryArith::setupInitialValue(ArithVar x){
+  Assert(!d_tableau.isBasic(x));
+  d_partialModel.initialize(x,d_constants.d_ZERO_DELTA);
 
-  if(!d_tableau.isBasic(x)){
-    d_partialModel.initialize(x,d_constants.d_ZERO_DELTA);
-  }else{
-    //If the variable is basic, assertions may have already happened and updates
-    //may have occured before setting this variable up.
-
-    //This can go away if the tableau creation is done at preregister
-    //time instead of register
-    DeltaRational safeAssignment = d_simplex.computeRowValue(x, true);
-    DeltaRational assignment = d_simplex.computeRowValue(x, false);
-    d_partialModel.initialize(x,safeAssignment);
-    d_partialModel.setAssignment(x,assignment);
-
-
-    //d_simplex.checkBasicVariable(x);
-    //Conciously violating unneeded check
-
-    //Strictly speaking checking x is unnessecary as it cannot have an upper or
-    //lower bound. This is done to strongly enforce the notion that basic
-    //variables should not be changed without begin checked.
-
-  }
   Debug("arithgc") << "setupVariable("<<x<<")"<<std::endl;
 };
 
@@ -368,6 +386,10 @@ ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
     return asArithVar(left);
   }else{
     Assert(left.hasAttribute(Slack()));
+
+    if(!initialized(left)){
+      reinitSlack(left);
+    }
     TNode slack = left.getAttribute(Slack());
     return asArithVar(slack);
   }
@@ -453,6 +475,8 @@ void TheoryArith::check(Effort effortLevel){
 
     Node assertion = get();
 
+    d_assertions.push_back(assertion);
+
     //d_propagator.assertLiteral(assertion);
     bool conflictDuringAnAssert = assertionCases(assertion);
 
@@ -531,7 +555,6 @@ void TheoryArith::check(Effort effortLevel){
       }
     }
   }
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
   Debug("arith") << "TheoryArith::check end" << std::endl;
 
@@ -544,6 +567,15 @@ void TheoryArith::check(Effort effortLevel){
       if(d_tableau.isBasic(i))
         Debug("arith::print_model") << " (basic)";
       Debug("arith::print_model") << endl;
+    }
+  }
+
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  if(Debug.isOn("arith::print::assignmentIsConsistent") && fullEffort(effortLevel)) {
+    for (context::CDList<Node>::const_iterator i = d_assertions.begin(), end = d_assertions.end(); i != end; ++i){
+      Node assertion = *i;
+      Node eval = evaluate(assertion);
+      Debug("nohope") << assertion << ":" << eval << endl;
     }
   }
 }
@@ -648,12 +680,121 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
   }
 }
 
+Node TheoryArith::evaluate(TNode n) {
+  NodeManager* nodeManager = NodeManager::currentNM();
+
+  switch(n.getKind()) {
+  case kind::VARIABLE: {
+    ArithVar var = asArithVar(n);
+
+    if(d_removedRows.find(var) != d_removedRows.end()){
+      Node eq = d_removedRows.find(var)->second;
+      Assert(n == eq[0]);
+      Node rhs = eq[1];
+      return evaluate(rhs);
+    }
+
+    DeltaRational drat = d_partialModel.getAssignment(var);
+    const Rational& delta = d_partialModel.getDelta();
+    Debug("getValue") << n << " " << drat << " " << delta << endl;
+    return nodeManager->
+      mkConst( drat.getNoninfinitesimalPart() +
+               drat.getInfinitesimalPart() * delta );
+  }
+  case kind::EQUAL: // 2 args
+    return nodeManager->
+      mkConst( evaluate(n[0]) == evaluate(n[1]) );
+
+  case kind::PLUS: { // 2+ args
+    Rational value = d_constants.d_ZERO;
+    for(TNode::iterator i = n.begin(),
+            iend = n.end();
+          i != iend;
+          ++i) {
+      value += evaluate(*i).getConst<Rational>();
+    }
+    return nodeManager->mkConst(value);
+  }
+
+  case kind::MULT: { // 2+ args
+    Rational value = d_constants.d_ONE;
+    for(TNode::iterator i = n.begin(),
+            iend = n.end();
+          i != iend;
+          ++i) {
+      value *= evaluate(*i).getConst<Rational>();
+    }
+    return nodeManager->mkConst(value);
+  }
+
+  case kind::MINUS: // 2 args
+    // should have been rewritten
+    Unreachable();
+
+  case kind::UMINUS: // 1 arg
+    // should have been rewritten
+    Unreachable();
+
+  case kind::DIVISION: // 2 args
+    return nodeManager->mkConst( evaluate(n[0]).getConst<Rational>() /
+                                 evaluate(n[1]).getConst<Rational>() );
+
+  case kind::LT: // 2 args
+    return nodeManager->mkConst( evaluate(n[0]).getConst<Rational>() <
+                                 evaluate(n[1]).getConst<Rational>() );
+
+  case kind::LEQ: // 2 args
+    return nodeManager->mkConst( evaluate(n[0]).getConst<Rational>() <=
+                                 evaluate(n[1]).getConst<Rational>() );
+
+  case kind::GT: // 2 args
+    return nodeManager->mkConst( evaluate(n[0]).getConst<Rational>() >
+                                 evaluate(n[1]).getConst<Rational>() );
+
+  case kind::GEQ: // 2 args
+    return nodeManager->mkConst( evaluate(n[0]).getConst<Rational>() >=
+                                 evaluate(n[1]).getConst<Rational>() );
+
+
+  case kind::NOT:
+    return nodeManager->
+      mkConst( !(evaluate(n[0]).getConst<bool>()));
+  case kind::CONST_RATIONAL:
+  case kind::CONST_BOOLEAN:
+    return n;
+  default:
+    Unhandled(n.getKind());
+  }
+}
+
 void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 
 }
 
 void TheoryArith::notifyRestart(){
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+
+  unsigned int before = d_tableau.getNumRows();
+  /*
+  d_tableau.clear();
+  d_initialized.clear();
+
+  for(int i=0, size = d_variables.size(); i < size; ++i){
+    d_tableau.increaseSize();
+  }
+  */
+  for(context::CDList<Node>::const_iterator i = d_facts.begin(), end = d_facts.end(); i!= end; ++i){
+    Node assertion = *i;
+    Kind simpKind = simplifiedKind(assertion);
+    Assert(simpKind != UNDEFINED_KIND);
+    determineLeftVariable(assertion, simpKind); //this calls the correct setup  eventually
+  }
+
+  unsigned int after = d_tableau.getNumRows();
+  //cout << "tableau size " <<before << " to " << after << " using " << d_facts.size()<< endl;
+
+  // if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  // d_tableau = d_preprocessedCopy;
+  // if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 }
 
 bool TheoryArith::entireStateIsConsistent(){
@@ -715,6 +856,7 @@ void TheoryArith::permanentlyRemoveVariable(ArithVar v){
 void TheoryArith::presolve(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_presolveTime);
 
+  /*
   typedef std::vector<Node>::const_iterator VarIter;
   for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
     Node variableNode = *i;
@@ -725,12 +867,16 @@ void TheoryArith::presolve(){
       permanentlyRemoveVariable(var);
     }
   }
+  */
 
   //Assert(entireStateIsConsistent()); //Boy is this paranoid
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
   static int callCount = 0;
   Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
+
+  //Assert(callCount == 1);
+  d_preprocessedCopy = d_tableau;
 
   check(FULL_EFFORT);
 }

@@ -54,6 +54,8 @@ namespace arith {
 class TheoryArith : public Theory {
 private:
 
+  context::CDList<Node> d_assertions;
+
   /* TODO Everything in the chopping block needs to be killed. */
   /* Chopping block begins */
 
@@ -70,6 +72,16 @@ private:
    * can be used to determine the value of n uysing getValue().
    */
   std::map<ArithVar, Node> d_removedRows;
+
+  /**
+   * Priority Queue of the basic variables that may be inconsistent.
+   *
+   * This is required to contain at least 1 instance of every inconsistent
+   * basic variable. This is only required to be a superset though so its
+   * contents must be checked to still be basic and inconsistent.
+   */
+  std::priority_queue<ArithVar> d_possiblyInconsistent;
+
 
   /** Stores system wide constants to avoid unnessecary reconstruction. */
   ArithConstants d_constants;
@@ -121,6 +133,19 @@ private:
    * The tableau for all of the constraints seen thus far in the system.
    */
   Tableau d_tableau;
+  Tableau d_preprocessedCopy;
+
+  __gnu_cxx::hash_set<Node, NodeHashFunction> d_initialized;
+
+  bool initialized(TNode left){
+    return d_initialized.find(left) != d_initialized.end();
+  };
+  void initialize(TNode left){
+    d_initialized.insert(left);
+  }
+
+  void reinitSlack(TNode left);
+
 
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;
@@ -220,6 +245,7 @@ private:
   };
 
   Statistics d_statistics;
+  Node evaluate(TNode n);
 
 
 };/* class TheoryArith */
