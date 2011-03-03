@@ -5,8 +5,23 @@
 
 #include "main.h"
 #include "util/output.h"
+#include "util/options.h"
 
+using namespace CVC4;
 using namespace std;
+
+struct thread_data {
+  int thread_id;
+  int argc;
+  char **argv;
+//  Options options;
+};
+
+struct thread_return_data {
+  int thread_id;
+  stringstream s;
+  int returnValue;
+};
 
 // const int NUM_THREADS = 2;
 pthread_mutex_t mutex_done = PTHREAD_MUTEX_INITIALIZER;
@@ -15,13 +30,7 @@ pthread_cond_t condition_var_main_wait = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex_main_wait = PTHREAD_MUTEX_INITIALIZER;
 
 bool global_flag_done = false;
-int global_returnValue = -1;
-
-struct thread_data {
-  int thread_id;
-  int argc;
-  char **argv;
-};
+thread_return_data global_returnData;
 
 /* This function should be moved somewhere else eventuall */
 std::string intToString(int i)
@@ -41,7 +50,13 @@ void *runCvc4Thread(void *argsData)
 
   args = (thread_data *) argsData;
 
-  returnValue=runCvc4(args->argc, args->argv);
+  /* Set some options so that we process the output before exiting */
+  //stringstream sout(stringstream::out);
+  //CVC4::main::options.out = &sout ;
+
+  Options options; 
+  fprintf(stderr, "%d %s\n", args->argc, args->argv[1]);
+  returnValue=runCvc4(args->argc, args->argv, options);
 
   if( returnValue ) {
 
@@ -50,7 +65,8 @@ void *runCvc4Thread(void *argsData)
     fprintf(stderr, "INFO; Thread %d wins. Rerturns %d.\n", args->thread_id, returnValue);
     //CVC4::Notice("Thread " + intToString(t) + ": creating thread " + intToString(t) + "\n" );
     
-    global_returnValue = returnValue;
+    global_returnData.returnValue = returnValue;
+    
     
     //exit(returnValue);  // hack for time being
 
@@ -62,15 +78,11 @@ void *runCvc4Thread(void *argsData)
   return NULL;
 }
 
-int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[])
+int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[], Options& options)
 {
   pthread_t threads[NUM_THREADS];
   int rc;
   int t;
-
-  /* Set some options so that we process the output before exiting */
-  stringstream sout(stringstream::out);
-  CVC4::main::options.out = &sout ;
 
   for ( t=0; t<NUM_THREADS; ++t ) {
     fprintf(stderr, "INFO; In main: creating thread %d\n", t);
@@ -88,15 +100,16 @@ int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[])
   
   while(global_flag_done == false)
     pthread_cond_wait(&condition_var_main_wait, &mutex_main_wait );
-  fprintf(stderr, "Main thread: Exiting program. %d return value of fastest thread \n", global_returnValue);
+  fprintf(stderr, "Main thread: Exiting program. %d return value"
+                  " of fastest thread \n", global_returnData.returnValue);
   
-  string out_s = sout.str();
+  /*string out_s = sout.str();
   string out_s_begin = out_s.substr(0, out_s.size()/2);
   string out_s_end = out_s.substr(out_s.size()/2, out_s.size()/2);
   if(out_s_begin == out_s_end)
     out_s = out_s_begin;
-  cout << out_s;
-  exit(global_returnValue);
+  cout << out_s;*/
+  exit(global_returnData.returnValue);
 
   for ( t=0; t<NUM_THREADS; ++t ) {
     printf("In main: cancelling thread %d\n", t);	

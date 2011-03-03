@@ -29,12 +29,12 @@ using namespace CVC4::parser;
 using namespace CVC4::main;
 
 //int runCvc4(int argc, char* argv[]);
-void doCommand(SmtEngine&, Command*);
+void doCommand(SmtEngine&, Command*, Options&);
 //void printUsage();
 
 namespace CVC4 {
   namespace main {/* Global options variable */
-    Options options;
+    //Options options;
 
     /** Full argv[0] */
     const char *progPath;
@@ -54,7 +54,7 @@ Without an input file, or with `-', CVC4 reads from standard input.\n\
 \n\
 CVC4 options:\n";
 
-void printUsage() {
+void printUsage(Options& options) {
   stringstream ss;
   ss << "usage: " << options.binary_name << " [options] [input-file]" << endl
       << endl
@@ -64,7 +64,7 @@ void printUsage() {
   Options::printUsage( ss.str(), *options.out );
 }
 
-int runCvc4(int argc, char* argv[]) {
+int runCvc4(int argc, char* argv[], Options& options) {
 
   // Initialize the signal handlers
   cvc4_init();
@@ -77,7 +77,7 @@ int runCvc4(int argc, char* argv[]) {
   progName = options.binary_name.c_str();
 
   if( options.help ) {
-    printUsage();
+    printUsage(options);
     exit(1);
   } else if( options.languageHelp ) {
     Options::printLanguageHelp(*options.out);
@@ -172,7 +172,7 @@ int runCvc4(int argc, char* argv[]) {
   if( options.interactive ) {
     InteractiveShell shell(exprMgr,options);
     while((cmd = shell.readCommand())) {
-      doCommand(smt,cmd);
+      doCommand(smt,cmd, options);
       delete cmd;
     }
   } else {
@@ -185,7 +185,7 @@ int runCvc4(int argc, char* argv[]) {
 
     Parser *parser = parserBuilder.build();
     while((cmd = parser->nextCommand())) {
-      doCommand(smt, cmd);
+      doCommand(smt, cmd, options);
       delete cmd;
     }
     // Remove the parser
@@ -223,7 +223,7 @@ int runCvc4(int argc, char* argv[]) {
 }
 
 /** Executes a command. Deletes the command after execution. */
-void doCommand(SmtEngine& smt, Command* cmd) {
+void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
   if( options.parseOnly ) {
     return;
   }
@@ -233,7 +233,7 @@ void doCommand(SmtEngine& smt, Command* cmd) {
     for(CommandSequence::iterator subcmd = seq->begin();
         subcmd != seq->end();
         ++subcmd) {
-      doCommand(smt, *subcmd);
+      doCommand(smt, *subcmd, options);
     }
   } else {
     if(options.verbosity > 0) {

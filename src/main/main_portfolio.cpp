@@ -21,12 +21,13 @@ using namespace CVC4::main;
  * Put everything in runCvc4().
  */
 int main(int argc, char* argv[]) {
+  Options options;
   try {
-    return runCvc4Portfolio(2, argc, argv);
+    return runCvc4Portfolio(2, argc, argv, options);
   } catch(OptionException& e) {
     *options.out << "unknown" << endl;
     cerr << "CVC4 Error:" << endl << e << endl;
-    printUsage();
+    printUsage(options);
     exit(1);
   } catch(Exception& e) {
 #ifdef CVC4_COMPETITION_MODE

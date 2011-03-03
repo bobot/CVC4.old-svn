@@ -39,14 +39,15 @@ using namespace CVC4::main;
  * Put everything in runCvc4().
  */
 int main(int argc, char* argv[]) {
+  Options options;
   try {
-    return runCvc4(argc, argv);
+    return runCvc4(argc, argv, options);
   } catch(OptionException& e) {
 #ifdef CVC4_COMPETITION_MODE
     *options.out << "unknown" << endl;
 #endif
     cerr << "CVC4 Error:" << endl << e << endl;
-    printUsage();
+    printUsage(options);
     exit(1);
   } catch(Exception& e) {
 #ifdef CVC4_COMPETITION_MODE

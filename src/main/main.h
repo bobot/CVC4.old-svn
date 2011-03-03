@@ -43,7 +43,7 @@ extern const char *progName;
  */
 extern bool segvNoSpin;
 
-extern Options options;
+//extern Options options;
 
 /** Initialize the driver.  Sets signal handlers for SIGINT and SIGSEGV. */
 void cvc4_init() throw(Exception);
@@ -52,8 +52,8 @@ void cvc4_init() throw(Exception);
 }/* CVC4 namespace */
 
 /** Actual Cvc4 driver functions **/
-int runCvc4(int argc, char* argv[]);
-int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[]);
-void printUsage();
+int runCvc4(int argc, char* argv[], CVC4::Options& );
+int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[], CVC4::Options& );
+void printUsage(CVC4::Options& );
 
 #endif /* __CVC4__MAIN__MAIN_H */
