@@ -38,7 +38,7 @@
 #include "util/output.h"
 #include "util/exception.h"
 #include "util/language.h"
-
+#include "util/ntuple.h"
 namespace CVC4 {
 
 class TypeNode;
@@ -776,8 +776,21 @@ struct TNodePairHashFunction {
     TNode n2 = pair.second;
 
     return (size_t) (n1.getId()*0x9e3779b9 + n2.getId());
+
   }
-};/* struct TNodeHashFunction */
+};/* struct TNodePairHashFunction */
+
+struct TNodeQuadHashFunction {
+  size_t operator()(const quad<CVC4::TNode, CVC4::TNode, CVC4::TNode, CVC4::TNode>& q ) const {
+    TNode n1 = q.first;
+    TNode n2 = q.second;
+    TNode n3 = q.third;
+    TNode n4 = q.fourth;
+    return (size_t) (n1.getId()*0x9e3779b9 + n2.getId()*0x30000059 +
+        n3.getId()*0x60000005 + n4.getId()*0x201326611);
+
+  }
+};/* struct TNodeQuadHashFunction */
 
 template <bool ref_count>
 inline size_t NodeTemplate<ref_count>::getNumChildren() const {

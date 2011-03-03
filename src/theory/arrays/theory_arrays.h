@@ -26,6 +26,7 @@
 #include "util/congruence_closure.h"
 #include "array_info.h"
 #include "util/hash.h"
+#include "util/ntuple.h"
 #include <iostream>
 #include <map>
 namespace CVC4 {
@@ -112,12 +113,15 @@ private:
   ArrayInfo d_infoMap;
 
   /**
-   * context dependant Ext-Lemma cache
+   * Ext-Lemma and RoW-lemma caches
    */
-  std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction> test;
-  //std::hash_set<std::pair<TNode, TNode> > d_extLemmaCache;
-  //std::set<std::vector<TNode> > d_RoWLemmaCache;
+  std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction> d_extLemmaCache;
+  std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_RoWLemmaCache;
 
+  /* TODO: maybe have them context dependent?
+  void updateLemmaCache(TNode a, TNode b);
+  void updateLemmaCache(TNode i, TNode j, TNode a, TNode b);
+  */
   /**
    * Checks if any new RoW lemmas have to be generated after a ~ b.
    * Preconditions:
@@ -129,10 +133,10 @@ private:
   void checkRoWLemmas(TNode a, TNode b);
 
   /**
-   * Given the disequality a != b checks if we need to generate any extensionality
-   * lemmas of the form:
+   * When the disequality a != b is asserted checks if we need to generate any
+   * extensionality lemmas of the form:
    *
-   *      a = b OR a[k] != b[k], for a fresh variable k
+   *      a = b OR a[k] != b[k], for a fresh variable k  *
    *
    */
 
@@ -179,6 +183,12 @@ public:
     switch(n.getKind()) {
     case kind::SELECT:
       d_infoMap.addIndex(n[0], n[1]);
+
+      // TODO: make sure this is ok even if it's not a new index
+      // fixme: only need to check one index, maybe abstract part of checkRoWlemmas
+      // not sure this works always!!!
+      checkRoWLemmas(n[0], find(n[0]));
+
       break;
 
     case kind::STORE:

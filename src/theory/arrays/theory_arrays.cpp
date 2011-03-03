@@ -123,7 +123,9 @@ void TheoryArrays::check(Effort e) {
         return;
         }
       Assert(!d_cc.areCongruent(a,b));
-      checkExtLemmas(a, b);
+      if(a.getType().isArray()) {
+        checkExtLemmas(a, b);
+      }
       break;
     }
     case kind::CONST_BOOLEAN:
@@ -348,11 +350,11 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
 
   //Assert(find(a)!= find(b));
 
-  Debug("arrays-cl")<<"Arrays::checkLemmas "<<a<<"\n";
-  if(Debug.isOn("arrays-cl"))
+  Debug("arrays-clr")<<"Arrays::checkLemmas "<<a<<"\n";
+  if(Debug.isOn("arrays-clr"))
     d_infoMap.getInfo(a)->print();
-  Debug("arrays-cl")<<"  ------------  and "<<b<<"\n";
-  if(Debug.isOn("arrays-cl"))
+  Debug("arrays-clr")<<"  ------------  and "<<b<<"\n";
+  if(Debug.isOn("arrays-clr"))
     d_infoMap.getInfo(b)->print();
   CTNodeList* i_a = d_infoMap.getIndices(a);
   CTNodeList* inst_b = d_infoMap.getInStores(b);
@@ -373,13 +375,14 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
 
       NodeManager* nm = NodeManager::currentNM();
       Node eq1 = nm->mkNode(kind::EQUAL, i, j);
-      Node cj = nm->mkNode(kind::SELECT, c, j);
-      Node aj = nm->mkNode(kind::SELECT, a, j);
-      Node eq2 = nm->mkNode(kind::EQUAL, cj, aj);
+      Node ci = nm->mkNode(kind::SELECT, c, i);
+      Node ai = nm->mkNode(kind::SELECT, a, i);
+      Node eq2 = nm->mkNode(kind::EQUAL, ci, ai);
 
       // TODO add check if lemma exists and if any of the disjuncts are already
       // true
-      if( i!= j && cj != aj) {
+      Debug("arrays-clr")<<i<<" "<<j<<" | "<<ci<<" "<<ai<<"\n";
+      if( i!= j && ci != ai) {
         addLemma(nm->mkNode(kind::OR, eq1, eq2));
       }
     }
@@ -393,13 +396,13 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
 
       NodeManager* nm = NodeManager::currentNM();
       Node eq1 = nm->mkNode(kind::EQUAL, i, j);
-      Node cj = nm->mkNode(kind::SELECT, c, j);
-      Node aj = nm->mkNode(kind::SELECT, a, j);
-      Node eq2 = nm->mkNode(kind::EQUAL, cj, aj);
+      Node ci = nm->mkNode(kind::SELECT, c, i);
+      Node ai = nm->mkNode(kind::SELECT, a, i);
+      Node eq2 = nm->mkNode(kind::EQUAL, ci, ai);
 
       // TODO add check if lemma exists and if any of the disjuncts are already
       // true
-      if( i!= j && cj != aj ) {
+      if( i!= j && ci != ai ) {
         addLemma(nm->mkNode(kind::OR, eq1, eq2));
       }
     }
@@ -408,6 +411,29 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
 }
 
 void TheoryArrays::checkExtLemmas(TNode a, TNode b) {
+  Assert(a.getType().isArray());
+  Assert(b.getType().isArray());
+
+  Debug("arrays-cle")<<"Arrays::checkExtLemmas "<<a<<" \n";
+  Debug("arrays-cle")<<"                   and "<<b<<" \n";
+
+
+  if(   d_extLemmaCache.count(make_pair(a, b)) == 0
+     && d_extLemmaCache.count(make_pair(b, a)) == 0) {
+
+    NodeManager* nm = NodeManager::currentNM();
+    Node k = nm->mkVar(a.getType()[0]);
+    Node eq = nm->mkNode(kind::EQUAL, a, b);
+    Node ak = nm->mkNode(kind::SELECT, a, k);
+    Node bk = nm->mkNode(kind::SELECT, b, k);
+    Node neq = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, ak, bk));
+    Node lem = nm->mkNode(kind::OR, eq, neq);
+
+    addLemma(lem);
+    d_extLemmaCache.insert(make_pair(a,b));
+    return;
+  }
+  Debug("arrays-cle")<<"Arrays::checkExtLemmas lemma already generated. \n";
 
 }
 
