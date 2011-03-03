@@ -12,9 +12,11 @@
 #include "theory/arith/partial_model.h"
 #include "theory/output_channel.h"
 
+#include "util/options.h"
+
 #include "util/stats.h"
 
-#include <queue>
+#include <vector>
 
 namespace CVC4 {
 namespace theory {
@@ -40,6 +42,9 @@ private:
 
   ArithVar d_numVariables;
 
+  std::vector<Node> d_delayedLemmas;
+  uint32_t d_delayedLemmasPos;
+
 public:
   SimplexDecisionProcedure(const ArithConstants& constants,
                            ArithPartialModel& pm,
@@ -50,10 +55,13 @@ public:
     d_out(out),
     d_tableau(tableau),
     d_queue(pm, tableau),
-    d_numVariables(0)
+    d_numVariables(0),
+    d_delayedLemmas(),
+    d_delayedLemmasPos(0)
   {}
 
-  void increaseMax() {d_numVariables++;}
+
+public:
 
   /**
    * Assert*(n, orig) takes an bound n that is implied by orig.
@@ -150,6 +158,22 @@ private:
   Node generateConflictBelow(ArithVar conflictVar);
 
 public:
+  void notifyOptions(const Options& opt){
+    switch(opt.pivotRule){
+    case Options::MINIMUM:
+      d_queue.setPivotRule(ArithPriorityQueue::MINIMUM);
+      break;
+    case Options::BREAK_TIES:
+      d_queue.setPivotRule(ArithPriorityQueue::BREAK_TIES);
+      break;
+    case Options::MAXIMUM:
+      d_queue.setPivotRule(ArithPriorityQueue::MAXIMUM);
+      break;
+    default:
+      Unhandled(opt.pivotRule);
+    }
+  }
+
   /**
    * Checks to make sure the assignment is consistent with the tableau.
    * This code is for debugging.
@@ -165,7 +189,33 @@ public:
    */
   DeltaRational computeRowValue(ArithVar x, bool useSafe);
 
+
+  void increaseMax() {d_numVariables++;}
+
+  /** Returns true if the simplex procedure has more delayed lemmas in its queue.*/
+  bool hasMoreLemmas() const {
+    return d_delayedLemmasPos < d_delayedLemmas.size();
+  }
+  /** Returns the next delayed lemmas on the queue.*/
+  Node popLemma(){
+    Assert(hasMoreLemmas());
+    Node lemma = d_delayedLemmas[d_delayedLemmasPos];
+    ++d_delayedLemmasPos;
+    return lemma;
+  }
+
 private:
+  /** Adds a lemma to the queue. */
+  void pushLemma(Node lemma){
+    d_delayedLemmas.push_back(lemma);
+    ++(d_statistics.d_delayedConflicts);
+  }
+
+  /** Adds a conflict as a lemma to the queue. */
+  void delayConflictAsLemma(Node conflict){
+    Node negatedConflict = negateConjunctionAsClause(conflict);
+    pushLemma(negatedConflict);
+  }
 
   /**
    * Checks a basic variable, b, to see if it is in conflict.
@@ -187,6 +237,8 @@ private:
     IntStat d_attemptBeforeDiffSearch, d_successBeforeDiffSearch;
     IntStat d_attemptAfterDiffSearch, d_successAfterDiffSearch;
     IntStat d_attemptDuringVarOrderSearch, d_successDuringVarOrderSearch;
+
+    IntStat d_delayedConflicts;
 
     TimerStat d_pivotTime;
 

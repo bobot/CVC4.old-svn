@@ -14,15 +14,26 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-typedef std::pair<ArithVar, Rational> VarCoeffPair;
+class VarCoeffPair {
+private:
+  ArithVar d_variable;
+  Rational d_coeff;
 
-inline ArithVar getArithVar(const VarCoeffPair& v) { return v.first; }
-inline Rational& getCoefficient(VarCoeffPair& v) { return v.second; }
-inline const Rational& getCoefficient(const VarCoeffPair& v) { return v.second; }
+public:
+  VarCoeffPair(ArithVar v, const Rational& q): d_variable(v), d_coeff(q) {}
 
-inline bool cmp(const VarCoeffPair& a, const VarCoeffPair& b){
-  return getArithVar(a) < getArithVar(b);
-}
+  ArithVar getArithVar() const { return d_variable; }
+  Rational& getCoefficient() { return d_coeff; }
+  const Rational& getCoefficient() const { return d_coeff; }
+
+  bool operator<(const VarCoeffPair& other) const{
+    return getArithVar() < other.getArithVar();
+  }
+
+  static bool variableLess(const VarCoeffPair& a, const VarCoeffPair& b){
+    return a < b;
+  }
+};
 
 /**
  * ReducedRowVector is a sparse vector representation that represents the
@@ -35,9 +46,8 @@ public:
   typedef std::vector<VarCoeffPair> VarCoeffArray;
   typedef VarCoeffArray::const_iterator const_iterator;
 
-  typedef std::vector<bool> ArithVarContainsSet;
-
 private:
+  typedef std::vector<bool> ArithVarContainsSet;
   typedef VarCoeffArray::iterator iterator;
 
   /**
@@ -46,6 +56,11 @@ private:
    * - noZeroCoefficients(d_entries)
    */
   VarCoeffArray d_entries;
+
+  /**
+   * Buffer for d_entries to reduce allocations by addRowTimesConstant.
+   */
+  VarCoeffArray d_buffer;
 
   /**
    * The basic variable associated with the row.
@@ -71,9 +86,12 @@ public:
                    const std::vector< Rational >& coefficients,
                    std::vector<uint32_t>& count,
                    std::vector<ArithVarSet>& columnMatrix);
-
   ~ReducedRowVector();
 
+  void enqueueNonBasicVariablesAndCoefficients(std::vector< ArithVar >& variables,
+                                               std::vector< Rational >& coefficients) const;
+
+  /** Returns the basic variable.*/
   ArithVar basic() const{
     Assert(basicIsSet());
     return d_basic;
@@ -84,7 +102,7 @@ public:
     return d_entries.size();
   }
 
-  //Iterates over the nonzero entries in the Vector
+  /** Iterates over the nonzero entries in the vector. */
   const_iterator begin() const { return d_entries.begin(); }
   const_iterator end() const { return d_entries.end(); }
 
@@ -104,25 +122,28 @@ public:
     Assert(has(x_j));
     Assert(hasInEntries(x_j));
     const_iterator lb = lower_bound(x_j);
-    return getCoefficient(*lb);
+    return (*lb).getCoefficient();
   }
 
-  /** Multiplies the coefficients of the RowVector by c (where c != 0). */
-  void multiply(const Rational& c);
 
-  /**
-   * \sum(this->entries) += c * (\sum(other.d_entries) )
-   *
-   * Updates the current row to be the sum of itself and
-   * another vector times c (c != 0).
-   */
-  void addRowTimesConstant(const Rational& c, const ReducedRowVector& other);
-
+  /** Prints the row to the buffer Debug("row::print"). */
   void printRow();
 
-
+  /**
+   * Changes the basic variable to x_j.
+   * Precondition: has(x_j)
+   */
   void pivot(ArithVar x_j);
 
+  /**
+   * Replaces other.basic() in the current row using the other row.
+   * This assumes the other row represents an equality equal to zero.
+   *
+   *   \sum(this->entries) -= this->lookup(other.basic()) * (\sum(other.d_entries))
+   * Precondition:
+   *  has(other.basic())
+   *  basic != other.basic()
+   */
   void substitute(const ReducedRowVector& other);
 
   /**
@@ -133,6 +154,19 @@ public:
   Node asEquality(const ArithVarToNodeMap& map) const;
 
 private:
+
+  /**
+   * \sum(this->entries) += c * (\sum(other.d_entries) )
+   *
+   * Updates the current row to be the sum of itself and
+   * another vector times c (c != 0).
+   */
+  void addRowTimesConstant(const Rational& c, const ReducedRowVector& other);
+
+
+  /** Multiplies the coefficients of the RowVector by c (where c != 0). */
+  void multiply(const Rational& c);
+
   /**
    * Adds v to d_contains.
    * This may resize d_contains.
@@ -158,8 +192,6 @@ private:
                   const std::vector< Rational >& coefficients,
                   VarCoeffArray& output);
 
-  void merge(const VarCoeffArray& other, const Rational& c);
-
   /**
    * Debugging code.
    * noZeroCoefficients(arr) is equivalent to
@@ -171,7 +203,7 @@ private:
   bool matchingCounts() const;
 
   const_iterator lower_bound(ArithVar x_j) const{
-    return std::lower_bound(d_entries.begin(), d_entries.end(), std::make_pair(x_j,0), cmp);
+    return std::lower_bound(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j, 0));
   }
 
   /** Debugging code */
@@ -188,7 +220,7 @@ private:
 
   /** Debugging code. */
   bool hasInEntries(ArithVar x_j) const {
-    return std::binary_search(d_entries.begin(), d_entries.end(), std::make_pair(x_j,0), cmp);
+    return std::binary_search(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j,0));
   }
 
 }; /* class ReducedRowVector */
