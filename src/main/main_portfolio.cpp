@@ -47,16 +47,12 @@ int main(int argc, char* argv[]) {
     }
     exit(1);
   } catch(...) {
-    // Can't use exceptions in our use of pthread, see:
-    // http://www.alexonlinux.com/pthread_exit-in-c
     throw;
-    /*
 #ifdef CVC4_COMPETITION_MODE
     *options.out << "unknown" << endl;
 #endif
     *options.err << "CVC4 threw an exception of unknown type." << endl;
     exit(1);
-    */
   }
 }
 

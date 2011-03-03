@@ -30,7 +30,7 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-arith::ArithConstants* ArithRewriter::s_constants = NULL;
+__thread arith::ArithConstants* ArithRewriter::s_constants = NULL;
 
 bool isVariable(TNode t){
   return t.getMetaKind() == kind::metakind::VARIABLE;

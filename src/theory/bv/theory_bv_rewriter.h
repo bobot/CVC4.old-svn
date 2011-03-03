@@ -32,7 +32,7 @@ class AllRewriteRules;
 
 class TheoryBVRewriter {
 
-  static AllRewriteRules* s_allRules;
+  static __thread AllRewriteRules* s_allRules;
 
 public:
 
