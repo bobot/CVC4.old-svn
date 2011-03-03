@@ -21,6 +21,7 @@
 #include "theory/arith/normal_form.h"
 #include "theory/arith/arith_rewriter.h"
 #include "theory/arith/arith_utilities.h"
+#include "util/tls.h"
 
 #include <vector>
 #include <set>
@@ -30,7 +31,7 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-__thread arith::ArithConstants* ArithRewriter::s_constants = NULL;
+CVC4_THREADLOCAL(arith::ArithConstants*) ArithRewriter::s_constants = NULL;
 
 bool isVariable(TNode t){
   return t.getMetaKind() == kind::metakind::VARIABLE;

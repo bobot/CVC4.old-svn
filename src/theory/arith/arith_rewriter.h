@@ -37,7 +37,7 @@ class ArithRewriter {
 
 private:
 
-  static __thread arith::ArithConstants* s_constants;
+  static CVC4_THREADLOCAL(arith::ArithConstants*) s_constants;
 
   static Node makeSubtractionNode(TNode l, TNode r);
   static Node makeUnaryMinusNode(TNode n);

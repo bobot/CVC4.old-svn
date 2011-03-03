@@ -91,7 +91,7 @@ class RewriteRule {
   };
 
   /** Statistics about the rule */
-  static RuleStatistics* s_statictics;
+  static CVC4_THREADLOCAL(RuleStatistics*) s_statictics;
 
   /** Actually apply the rewrite rule */
   static inline Node apply(Node node) {
@@ -131,7 +131,7 @@ public:
 };
 
 template<RewriteRuleId rule>
-typename RewriteRule<rule>::RuleStatistics* RewriteRule<rule>::s_statictics = NULL;
+CVC4_THREADLOCAL(typename RewriteRule<rule>::RuleStatistics*) RewriteRule<rule>::s_statictics = NULL;
 
 /** Have to list all the rewrite rules to get the statistics out */
 struct AllRewriteRules {
