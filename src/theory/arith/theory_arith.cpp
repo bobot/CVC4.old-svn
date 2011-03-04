@@ -734,7 +734,7 @@ void TheoryArith::presolve(){
   //Assert(entireStateIsConsistent()); //Boy is this paranoid
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
-  static int callCount = 0;
+  static CVC4_THREADLOCAL(unsigned) callCount = 0;
   Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
 
   check(FULL_EFFORT);

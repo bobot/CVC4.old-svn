@@ -436,7 +436,8 @@ Node SimplexDecisionProcedure::updateInconsistentVars(){
   if(d_queue.empty()){
     return Node::null();
   }
-  static unsigned int instance = 0;
+
+  static CVC4_THREADLOCAL(unsigned int) instance = 0;
 
   ++instance;
   Debug("arith::updateInconsistentVars") << "begin updateInconsistentVars() "
@@ -501,7 +502,7 @@ template <bool limitIterations>
 Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingIterations){
   Debug("arith") << "updateInconsistentVars" << endl;
 
-  static const uint32_t CHECK_PERIOD = 100;
+  const uint32_t CHECK_PERIOD = 100;
 
   while(!limitIterations || remainingIterations > 0){
     if(Debug.isOn("paranoid:check_tableau")){ checkTableau(); }
