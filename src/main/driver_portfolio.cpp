@@ -14,12 +14,12 @@ struct thread_data {
   int thread_id;
   int argc;
   char **argv;
-//  Options options;
+  Options options;
 };
 
 struct thread_return_data {
   int thread_id;
-  stringstream s;
+  string s_out;
   int returnValue;
 };
 
@@ -54,19 +54,22 @@ void *runCvc4Thread(void *argsData)
   //stringstream sout(stringstream::out);
   //CVC4::main::options.out = &sout ;
 
-  Options options; 
-  fprintf(stderr, "%d %s\n", args->argc, args->argv[1]);
-  returnValue=runCvc4(args->argc, args->argv, options);
+  stringstream ss_out(stringstream::out);
+  Options options = args->options;
+  options.out = &ss_out;
+  //fprintf(stderr, "%d %s\n", args->argc, args->argv[1]);
+  returnValue = runCvc4(args->argc, args->argv, options);
 
   if( returnValue ) {
 
     pthread_mutex_lock( &mutex_done );   // we never unlock this
 
-    fprintf(stderr, "INFO; Thread %d wins. Rerturns %d.\n", args->thread_id, returnValue);
+    //fprintf(stderr, "INFO; Thread %d wins. Rerturns %d.\n", args->thread_id, returnValue);
     //CVC4::Notice("Thread " + intToString(t) + ": creating thread " + intToString(t) + "\n" );
     
+    global_returnData.returnValue = args->thread_id;
     global_returnData.returnValue = returnValue;
-    
+    global_returnData.s_out = ss_out.str();
     
     //exit(returnValue);  // hack for time being
 
@@ -85,37 +88,40 @@ int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[], Options& options)
   int t;
 
   for ( t=0; t<NUM_THREADS; ++t ) {
-    fprintf(stderr, "INFO; In main: creating thread %d\n", t);
+    //fprintf(stderr, "INFO; In main: creating thread %d\n", t);
     //CVC4::Notice("In main: creating thread " + intToString(t) + "\n" );
     thread_data *args = new thread_data;
+    Options o;
     args->thread_id = t;
     args->argc = argc;
     args->argv = argv;
+    o.pivotRule = t == 0 ? Options::MINIMUM : Options::MAXIMUM;
+    args->options = o;
     rc = pthread_create(&threads[t], NULL, runCvc4Thread, (void *)args);
     if (rc) {
-      fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", rc);
+      //fprintf(stderr, "ERROR; return code from pthread_create() is %d\n", rc);
       exit(-1);
     }
   }
   
   while(global_flag_done == false)
-    pthread_cond_wait(&condition_var_main_wait, &mutex_main_wait );
-  fprintf(stderr, "Main thread: Exiting program. %d return value"
-                  " of fastest thread \n", global_returnData.returnValue);
+    pthread_cond_wait(&condition_var_main_wait, &mutex_main_wait);
+  //fprintf(stderr, "Main thread: Exiting program. %d return value of fastest thread \n", global_returnData.returnValue);
   
   /*string out_s = sout.str();
   string out_s_begin = out_s.substr(0, out_s.size()/2);
   string out_s_end = out_s.substr(out_s.size()/2, out_s.size()/2);
   if(out_s_begin == out_s_end)
-    out_s = out_s_begin;
-  cout << out_s;*/
+    out_s = out_s_begin;*/
+  cout << global_returnData.s_out;
+  //cout << global_returnData.sout.str();
   exit(global_returnData.returnValue);
 
   for ( t=0; t<NUM_THREADS; ++t ) {
     printf("In main: cancelling thread %d\n", t);	
     rc = pthread_cancel(threads[t]);
     if (rc) {
-      fprintf(stderr, "ERROR; return code from pthread_cancel() is %d\n", rc);
+      //fprintf(stderr, "ERROR; return code from pthread_cancel() is %d\n", rc);
       exit(-1);  //if we can't cancel, we just exit
     }
   }
