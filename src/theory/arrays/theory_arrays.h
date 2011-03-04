@@ -187,7 +187,7 @@ public:
       // TODO: make sure this is ok even if it's not a new index
       // fixme: only need to check one index, maybe abstract part of checkRoWlemmas
       // not sure this works always!!!
-      checkRoWLemmas(n[0], n[0]);
+      checkRoWLemmas(n[0], find(n[0]));
 
       break;
 
