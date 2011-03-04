@@ -394,7 +394,6 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
       TNode j = store[1];
       TNode c = store[0];
 
-
       NodeManager* nm = NodeManager::currentNM();
       Node eq1 = nm->mkNode(kind::EQUAL, i, j);
       Node ci = nm->mkNode(kind::SELECT, c, i);
