@@ -120,7 +120,8 @@ private:
   /**
    * The tableau for all of the constraints seen thus far in the system.
    */
-  Tableau d_tableau;
+  Tableau d_tableau, d_initialTableau;
+  double d_initialDensity;
 
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;

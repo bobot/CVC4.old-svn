@@ -669,6 +669,15 @@ void TheoryArith::notifyRestart(){
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
   d_statistics.d_avgTableauDensityAtRestart.addEntry(d_tableau.densityMeasure());
+
+  static int restartsSinceReset = 0;
+  ++restartsSinceReset;
+
+  if(restartsSinceReset >= 5 &&
+     d_tableau.densityMeasure()>= 1.5 * d_initialDensity){
+    d_tableau = d_initialTableau;
+  }
+
 }
 
 bool TheoryArith::entireStateIsConsistent(){
@@ -741,7 +750,9 @@ void TheoryArith::presolve(){
     }
   }
 
-  d_statistics.d_initialTableauDensity.setData(d_tableau.densityMeasure());
+  d_initialTableau = d_tableau;
+  d_initialDensity = d_initialTableau.densityMeasure();
+  d_statistics.d_initialTableauDensity.setData(d_initialDensity);
 
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
