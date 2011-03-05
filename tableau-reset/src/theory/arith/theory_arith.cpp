@@ -74,7 +74,9 @@ TheoryArith::Statistics::Statistics():
   d_statDisequalityConflicts("theory::arith::DisequalityConflicts", 0),
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
-  d_presolveTime("theory::arith::presolveTime")
+  d_presolveTime("theory::arith::presolveTime"),
+  d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
+  d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts")
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
   StatisticsRegistry::registerStat(&d_statSlackVariables);
@@ -84,6 +86,9 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::registerStat(&d_presolveTime);
+
+  StatisticsRegistry::registerStat(&d_initialTableauDensity);
+  StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -95,6 +100,9 @@ TheoryArith::Statistics::~Statistics(){
 
   StatisticsRegistry::unregisterStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::unregisterStat(&d_presolveTime);
+
+  StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
+  StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
 }
 
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
@@ -659,6 +667,8 @@ void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 
 void TheoryArith::notifyRestart(){
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+
+  d_statistics.d_avgTableauDensityAtRestart.addEntry(d_tableau.densityMeasure());
 }
 
 bool TheoryArith::entireStateIsConsistent(){
@@ -731,7 +741,8 @@ void TheoryArith::presolve(){
     }
   }
 
-  //Assert(entireStateIsConsistent()); //Boy is this paranoid
+  d_statistics.d_initialTableauDensity.setData(d_tableau.densityMeasure());
+
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
   static int callCount = 0;

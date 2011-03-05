@@ -215,6 +215,10 @@ private:
 
     IntStat d_permanentlyRemovedVariables;
     TimerStat d_presolveTime;
+
+    BackedStat<double> d_initialTableauDensity;
+    AverageStat d_avgTableauDensityAtRestart;
+
     Statistics();
     ~Statistics();
   };

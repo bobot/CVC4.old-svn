@@ -183,3 +183,24 @@ void Tableau::printTableau(){
     }
   }
 }
+
+uint32_t Tableau::numNonZeroEntries() const {
+  uint32_t colSum = 0;
+  ColumnMatrix::const_iterator i = d_columnMatrix.begin(), end = d_columnMatrix.end();
+  for(; i != end; ++i){
+    const Column& col = *i;
+    colSum += col.size();
+  }
+  return colSum;
+}
+
+uint32_t Tableau::numNonZeroEntriesByRow() const {
+  uint32_t rowSum = 0;
+  ArithVarSet::iterator i = d_basicVariables.begin(), end = d_basicVariables.end();
+  for(; i != end; ++i){
+    ArithVar basic = *i;
+    const ReducedRowVector& row = *(d_rowsTable[basic]);
+    rowSum += row.size();
+  }
+  return rowSum;
+}
