@@ -1,0 +1,5 @@
+a, b, c : BOOLEAN;
+
+% EXPECT: valid
+QUERY a OR TRUE <=> TRUE;
+% EXIT: 20
