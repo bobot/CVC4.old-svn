@@ -20,7 +20,11 @@
 #include <map>
 #include <algorithm>
 
-#include <bdd.h>
+//#include <bdd.h>
+
+#include "/usr/include/cudd/util.h"
+#include "/usr/include/cudd/cudd.h"
+#include "/usr/include/cudd/cuddObj.hh"
 
 using namespace std;
 using namespace CVC4;
@@ -33,17 +37,18 @@ namespace prop {
 
 class BddInstance {
 private:
-  //Cudd d_mgr;
+  Cudd d_mgr;
   //std::map<Node, BDD> d_atomToBddMap;
-  typedef std::map<Node, unsigned> AtomToIDMap;
+  //typedef std::map<Node, unsigned> AtomToIDMap;
+  typedef std::map<Node, BDD> AtomToIDMap;
   AtomToIDMap d_atomToBddMap;
 
   unsigned d_atomId;
 
 
-  bdd encodeNode(TNode t);
-  bdd encodeAtom(TNode t);
-  bdd encodeCombinator(TNode t);
+  BDD encodeNode(TNode t);
+  BDD encodeAtom(TNode t);
+  BDD encodeCombinator(TNode t);
 
   bool isAnAtom(TNode t) {
     switch(t.getKind()){
@@ -83,19 +88,21 @@ public:
     if(d_atomToBddMap.size() > MAX_VARIABLES){
       d_result = Result(Result::SAT_UNKNOWN, Result::TIMEOUT);
     }else{
-      bdd_init(1000,100);
-      bdd_gbc_hook(NULL);
+      //bdd_init(1000,100);
+      //bdd_gbc_hook(NULL);
 
       //Size must be at least 1
       size_t varsToAlloc = max(d_atomToBddMap.size(), (size_t)1);
-      bdd_setvarnum(varsToAlloc);
+      //bdd_setvarnum(varsToAlloc);
+      d_mgr;
 
-      bdd res = encodeNode(t);
-      bdd falseBdd = !(bdd_true());
+      BDD res = encodeNode(t);
+      //BDD falseBdd = !(bdd_true());
+      BDD falseBdd = d_mgr.bddZero();
       bool isUnsat = (res == falseBdd);
 
       clear();
-      bdd_done();
+      //bdd_done();
 
       if(isUnsat){
         d_result = Result::UNSAT;
@@ -112,7 +119,7 @@ public:
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */
 
-bdd BddInstance::encodeNode(TNode t){
+BDD BddInstance::encodeNode(TNode t){
   if(isAnAtom(t)){
     return encodeAtom(t);
   }else{
@@ -121,75 +128,86 @@ bdd BddInstance::encodeNode(TNode t){
 }
 
 
-bdd BddInstance::encodeCombinator(TNode t){
+BDD BddInstance::encodeCombinator(TNode t){
   switch(t.getKind()){
   case XOR:{
     Assert(t.getNumChildren() == 2);
-    bdd left = encodeNode(t[0]);
-    bdd right = encodeNode(t[1]);
-    bdd res = bdd_xor(left,right);
-    return res;
+    return encodeNode(t[0]).Xor(encodeNode(t[1]));
+    // bdd left = encodeNode(t[0]);
+    // bdd right = encodeNode(t[1]);
+    // bdd res = bdd_xor(left,right);
+    // return res;
   }
   case IFF:{
     Assert(t.getNumChildren() == 2);
-    bdd left = encodeNode(t[0]);
-    bdd right = encodeNode(t[1]);
-    bdd res = bdd_biimp(left,right);
-    return res;
+    BDD left = encodeNode(t[0]);
+    BDD right = encodeNode(t[1]);
+    //(left => right) & (right => left)
+    return (!left | right) & (left | !right);
+
+    //bdd left = encodeNode(t[0]);
+    //bdd right = encodeNode(t[1]);
+    //bdd res = bdd_biimp(left,right);
+    //return res;
   }
   case IMPLIES:{
     Assert(t.getNumChildren() == 2);
-    bdd left = encodeNode(t[0]);
-    bdd right = encodeNode(t[1]);
-    bdd res = bdd_imp(left,right);
-    return res;
+    BDD left = encodeNode(t[0]);
+    BDD right = encodeNode(t[1]);
+    return (!left | right);
+
+    //bdd res = bdd_imp(left,right);
+    //return res;
   }
   case AND:
   case OR:{
     Assert(t.getNumChildren() >= 2);
     TNode::iterator i = t.begin(), end = t.end();
-    bdd tmp = encodeNode(*i);
+    BDD tmp = encodeNode(*i);
     ++i;
     for(; i != end; ++i){
-      bdd curr = encodeNode(*i);
+      BDD curr = encodeNode(*i);
       if(t.getKind() == AND){
-        tmp = bdd_and(tmp, curr);
+        tmp = tmp & curr;
       }else{
-        tmp = bdd_or(tmp,curr);
+        tmp = tmp | curr;
       }
     }
     return tmp;
   }
   case ITE:{
     Assert(t.getType().isBoolean());
-    bdd cnd = encodeNode(t[0]);
-    bdd thenBranch = encodeNode(t[1]);
-    bdd elseBranch = encodeNode(t[2]);
-    return bdd_ite(cnd,thenBranch, elseBranch);
+    BDD cnd = encodeNode(t[0]);
+    BDD thenBranch = encodeNode(t[1]);
+    BDD elseBranch = encodeNode(t[2]);
+    return cnd.Ite(thenBranch, elseBranch);
   }
   case NOT:{
-    bdd child = encodeNode(t[0]);
-    return bdd_not(child);
+    return ! encodeNode(t[0]);
+    //bdd child = encodeNode(t[0]);
+    //return bdd_not(child);
   }
   default:
     Unhandled(t.getKind());
   }
 }
 
-bdd BddInstance::encodeAtom(TNode t){
+BDD BddInstance::encodeAtom(TNode t){
   if(t.getKind() == kind::CONST_BOOLEAN){
     if(t.getConst<bool>()){
-      return bdd_true();
+      return d_mgr.bddOne();
     }else{
-      return bdd_not(bdd_true());
+      return d_mgr.bddZero();
     }
   }
   Assert(t.getKind() != kind::CONST_BOOLEAN);
 
   AtomToIDMap::iterator findT = d_atomToBddMap.find(t);
+
   Assert(d_atomToBddMap.find(t) != d_atomToBddMap.end());
-  unsigned id = findT->second;
-  return bdd_ithvar(id);
+  return findT->second;
+  //unsigned id = findT->second;
+  //return d_mgr.bddVar(id);
 }
 
 void BddInstance::setupAtoms(TNode t){
@@ -197,8 +215,8 @@ void BddInstance::setupAtoms(TNode t){
   }else if(isAnAtom(t)){
     AtomToIDMap::iterator findT = d_atomToBddMap.find(t);
     if(findT == d_atomToBddMap.end()){
-
-      d_atomToBddMap.insert(make_pair(t, d_atomId));
+      BDD var = d_mgr.bddVar();
+      d_atomToBddMap.insert(make_pair(t, var));
       d_atomId++;
     }
   }else{
