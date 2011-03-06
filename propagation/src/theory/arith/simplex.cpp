@@ -9,6 +9,10 @@ using namespace CVC4::kind;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
+
+template uint32_t SimplexDecisionProcedure::numCandidateSlack<true>(ArithVar x_i);
+template uint32_t SimplexDecisionProcedure::numCandidateSlack<false>(ArithVar x_i);
+
 SimplexDecisionProcedure::Statistics::Statistics():
   d_statPivots("theory::arith::pivots",0),
   d_statUpdates("theory::arith::updates",0),
@@ -388,9 +392,33 @@ ArithVar SimplexDecisionProcedure::selectSlack(ArithVar x_i){
       slack = (slack == ARITHVAR_SENTINEL) ? nonbasic : pref(*this, slack, nonbasic);
     }
   }
-
   return slack;
 }
+
+template <bool above>
+uint32_t SimplexDecisionProcedure::numCandidateSlack(ArithVar x_i){
+  ReducedRowVector& row_i = d_tableau.lookup(x_i);
+
+  uint32_t candidates = 0;
+
+  for(ReducedRowVector::const_iterator nbi = row_i.begin(), end = row_i.end();
+      nbi != end; ++nbi){
+    ArithVar nonbasic = (*nbi).getArithVar();
+    if(nonbasic == x_i) continue;
+
+    const Rational& a_ij = (*nbi).getCoefficient();
+    int sgn = a_ij.sgn();
+    if(( above && sgn < 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)) ||
+       ( above && sgn > 0 && d_partialModel.strictlyAboveLowerBound(nonbasic)) ||
+       (!above && sgn > 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)) ||
+       (!above && sgn < 0 && d_partialModel.strictlyAboveLowerBound(nonbasic))) {
+
+      ++candidates;
+    }
+  }
+  return candidates;
+}
+
 
 Node betterConflict(TNode x, TNode y){
   if(x.isNull()) return y;
@@ -559,6 +587,59 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
   return Node::null();
 }
 
+Node SimplexDecisionProcedure::impliedUpperBound(ArithVar basic, Node basicAsNode){
+  Assert(d_tableau.isBasic(basic));
+  Assert(d_partialModel.assignmentIsConsistent(basic));
+
+  ReducedRowVector& row_i = d_tableau.lookup(basic);
+
+  Assert(numCandidateSlack<false>(basic) == 0);
+
+  NodeBuilder<> nb(kind::AND);
+  DeltaRational u(0,0);
+
+  ReducedRowVector::const_iterator nbi = row_i.begin(), end = row_i.end();
+  for(; nbi != end; ++nbi){
+    ArithVar nonbasic = (*nbi).getArithVar();
+    if(nonbasic == basic) continue;
+
+    const Rational& a_ij = (*nbi).getCoefficient();
+    Assert(a_ij != d_constants.d_ZERO);
+
+    int sgn = a_ij.sgn();
+    Assert(sgn != 0);
+    if(sgn < 0){
+      //cout << nonbasic << ": " << d_partialModel.hasLowerBound(nonbasic) << endl;
+      Assert(d_partialModel.hasLowerBound(nonbasic));
+      u = u +  (d_partialModel.getLowerBound(nonbasic) * a_ij);
+      nb << d_partialModel.getLowerConstraint(nonbasic);
+    }else{
+      //cout << nonbasic << ": " << d_partialModel.hasUpperBound(nonbasic) << endl;
+      Assert(sgn > 0);
+      Assert(d_partialModel.hasUpperBound(nonbasic));
+      u = u + (d_partialModel.getUpperBound(nonbasic) * a_ij );
+      nb << d_partialModel.getUpperConstraint(nonbasic);
+    }
+  }
+
+  Assert(d_partialModel.getAssignment(basic) <= u);
+
+  if(d_partialModel.betweenAssignmentAndUpperBound(basic, u)){
+    Node explanation = nb;
+
+    const Rational& noninf = u.getNoninfinitesimalPart();
+    const Rational& inf = u.getInfinitesimalPart();
+
+    Assert(inf <= 0);
+    Kind boundKind = (inf == 0) ?  LEQ : LT;
+    Node bound = NodeBuilder<2>(boundKind) << basicAsNode << mkRationalNode(noninf);
+
+    Node implication = NodeBuilder<2>(IMPLIES) << explanation << bound;
+    return implication;
+  }
+  return Node::null();
+}
+
 
 Node SimplexDecisionProcedure::generateConflictAbove(ArithVar conflictVar){
 
@@ -603,6 +684,60 @@ Node SimplexDecisionProcedure::generateConflictAbove(ArithVar conflictVar){
   Node conflict = nb;
   return conflict;
 }
+Node SimplexDecisionProcedure::impliedLowerBound(ArithVar basic, Node basicAsNode){
+  Assert(d_tableau.isBasic(basic));
+  Assert(d_partialModel.assignmentIsConsistent(basic));
+
+  ReducedRowVector& row_i = d_tableau.lookup(basic);
+
+  Assert(numCandidateSlack<true>(basic) == 0);
+
+  NodeBuilder<> nb(kind::AND);
+  DeltaRational l(0,0);
+
+  ReducedRowVector::const_iterator nbi = row_i.begin(), end = row_i.end();
+  for(; nbi != end; ++nbi){
+    ArithVar nonbasic = (*nbi).getArithVar();
+    if(nonbasic == basic) continue;
+
+    const Rational& a_ij = (*nbi).getCoefficient();
+    Assert(a_ij != d_constants.d_ZERO);
+
+    int sgn = a_ij.sgn();
+    Assert(sgn != 0);
+    if(sgn > 0){
+      //cout << nonbasic << ": " << d_partialModel.hasLowerBound(nonbasic) << endl;
+      Assert(d_partialModel.hasLowerBound(nonbasic));
+      l = l +  (d_partialModel.getLowerBound(nonbasic) * a_ij);
+      nb << d_partialModel.getLowerConstraint(nonbasic);
+    }else{
+      //cout << nonbasic << ": " << d_partialModel.hasUpperBound(nonbasic) << endl;
+      Assert(sgn < 0);
+      Assert(d_partialModel.hasUpperBound(nonbasic));
+      l = l + (d_partialModel.getUpperBound(nonbasic) * a_ij );
+      nb << d_partialModel.getUpperConstraint(nonbasic);
+    }
+  }
+
+  Assert(d_partialModel.getAssignment(basic) <= l);
+
+  if(d_partialModel.betweenAssignmentAndLowerBound(basic, l)){
+    Node explanation = nb;
+
+    const Rational& noninf = l.getNoninfinitesimalPart();
+    const Rational& inf = l.getInfinitesimalPart();
+
+    Assert(inf >= 0);
+    Kind boundKind = (inf == 0) ?  GEQ : GT;
+    Node bound = NodeBuilder<2>(boundKind) << basicAsNode << mkRationalNode(noninf);
+
+    Node implication = NodeBuilder<2>(IMPLIES) << explanation << bound;
+    return implication;
+  }
+  return Node::null();
+}
+
+
 
 Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
   ReducedRowVector& row_i = d_tableau.lookup(conflictVar);

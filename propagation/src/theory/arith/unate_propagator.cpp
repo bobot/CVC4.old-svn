@@ -19,6 +19,7 @@
 
 #include "theory/arith/unate_propagator.h"
 #include "theory/arith/arith_utilities.h"
+#include "theory/output_channel.h"
 
 #include <list>
 
@@ -30,7 +31,29 @@ using namespace CVC4::kind;
 
 using namespace std;
 
-ArithUnatePropagator::ArithUnatePropagator(context::Context* cxt, OutputChannel& out) :
+class VectorOutputChannel : public OutputChannel {
+private:
+  vector<Node> d_vec;
+public:
+
+  void conflict(TNode n, bool safe = false) throw(Interrupted, AssertionException){}
+  void propagate(TNode n, bool safe = false)
+    throw(Interrupted, AssertionException){}
+  void explanation(TNode n, bool safe = false)
+    throw(Interrupted, AssertionException){}
+  void setIncomplete()
+    throw(Interrupted, AssertionException){}
+
+  const vector<Node>& getVector() const{
+    return d_vec;
+  }
+  void lemma(TNode n, bool safe = false)
+    throw(Interrupted, AssertionException){
+    d_vec.push_back(n);
+  }
+};
+
+ArithUnatePropagator::ArithUnatePropagator(context::Context* cxt, OutputChannel* out) :
   d_arithOut(out), d_orderedListMap()
 { }
 
@@ -41,6 +64,111 @@ bool ArithUnatePropagator::leftIsSetup(TNode left){
 ArithUnatePropagator::OrderedSetTriple& ArithUnatePropagator::getOrderedSetTriple(TNode left){
   Assert(leftIsSetup(left));
   return d_orderedListMap[left];
+}
+
+void ArithUnatePropagator::removeAtom(Node atom){
+  TNode left = atom[0];
+  Assert(leftIsSetup(left));
+  switch(atom.getKind()){
+  case LEQ:{
+    OrderedSet& leqSet = getLeqSet(left);
+    Assert(leqSet.find(atom) != leqSet.end());
+    leqSet.erase(atom);
+    break;
+  }
+  case GEQ:{
+    OrderedSet& geqSet = getGeqSet(left);
+    Assert(geqSet.find(atom) != geqSet.end());
+    geqSet.erase(atom);
+    break;
+  }
+  default:
+    Unhandled(atom.getKind());
+  }
+}
+
+Node ArithUnatePropagator::impliedBound(TNode bound){
+  TNode left = bound[0];
+  if(!leftIsSetup(left)){
+    return Node::null();
+  }
+
+  OutputChannel* savedChannel = d_arithOut;
+  VectorOutputChannel* voc = new VectorOutputChannel();
+  d_arithOut = voc;
+
+  OrderedSet& geqSet = getGeqSet(left);
+  OrderedSet& leqSet = getLeqSet(left);
+
+  Node simp;
+  Node neg;
+  switch(bound.getKind()){
+  case LT:
+    neg = NodeBuilder<2>(GEQ) << bound[0] << bound[1];
+    simp = NodeBuilder<1>(NOT) << neg;
+    if(geqSet.find(neg) != geqSet.end()){
+      delete voc;
+      d_arithOut = savedChannel;
+
+      return simp;
+    }
+    addAtom(neg);
+    removeAtom(neg);
+    break;
+  case GT:
+    neg = NodeBuilder<2>(LEQ) << bound[0] << bound[1];
+    simp = NodeBuilder<1>(NOT) << neg;
+    if(leqSet.find(neg) != leqSet.end()){
+      delete voc;
+      d_arithOut = savedChannel;
+      return simp;
+    }
+    addAtom(neg);
+    removeAtom(neg);
+    break;
+  case LEQ:
+    simp = bound;
+    neg = NodeBuilder<1>(NOT) << simp;
+    if(leqSet.find(simp) != leqSet.end()){
+      delete voc;
+      d_arithOut = savedChannel;
+      return simp;
+    }
+    Assert(leqSet.find(simp) == leqSet.end());
+    addAtom(simp);
+    removeAtom(simp);
+    break;
+  case GEQ:
+    simp = bound;
+    neg = NodeBuilder<1>(NOT) << simp;
+    if(geqSet.find(simp) != geqSet.end()){
+      delete voc;
+      d_arithOut = savedChannel;
+      return simp;
+    }
+    Assert(geqSet.find(simp) == geqSet.end());
+    addAtom(simp);
+    removeAtom(simp);
+    break;
+  default:
+    Unhandled(bound.getKind());
+  }
+
+  vector<Node> output(voc->getVector());
+  delete voc;
+  d_arithOut = savedChannel;
+
+  for(vector<Node>::iterator i = output.begin(), end = output.end(); i != end; ++i){
+    Node orNode = *i;
+    Assert(orNode.getKind() == OR);
+    Assert(orNode.getNumChildren() == 2);
+    if(orNode[0] == neg){
+      return orNode[1];
+    }else if(orNode[1] == neg){
+      return orNode[0];
+    }
+  }
+  return Node::null();
 }
 
 OrderedSet& ArithUnatePropagator::getEqSet(TNode left){
@@ -387,11 +515,22 @@ void ArithUnatePropagator::addImplicationsUsingGeqAndEqualityList(TNode atom, Or
   }
 }
 
+Node simplifiedImplication(TNode a, TNode b){
+  Node negA;
+  if(a.getKind() == NOT){
+    negA = a[0];
+  }else{
+    negA = NodeBuilder<1>(NOT)<<a;
+  }
+  Node simpImp = NodeBuilder<2>(OR) << negA << b;
+  return simpImp;
+}
+
 void ArithUnatePropagator::addImplication(TNode a, TNode b){
-  Node imp = NodeBuilder<2>(IMPLIES) << a << b;
+  Node imp = simplifiedImplication(a,b);
 
   Debug("arith-propagate") << "ArithUnatePropagator::addImplication";
   Debug("arith-propagate") << "(" << a << ", " << b <<")" << endl;
 
-  d_arithOut.lemma(imp);
+  d_arithOut->lemma(imp);
 }

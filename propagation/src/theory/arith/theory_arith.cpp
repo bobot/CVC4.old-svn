@@ -52,6 +52,8 @@ using namespace CVC4::theory::arith;
 
 struct SlackAttrID;
 typedef expr::Attribute<SlackAttrID, Node> Slack;
+struct RSlackAttrID;
+typedef expr::Attribute<RSlackAttrID, Node> ReverseSlack;
 
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   Theory(THEORY_ARITH, c, out),
@@ -60,7 +62,7 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_userVariables(),
   d_diseq(c),
   d_tableau(),
-  d_propagator(c, out),
+  d_propagator(c, &out),
   d_simplex(d_constants, d_partialModel, d_out, d_tableau),
   d_statistics()
 {}
@@ -74,7 +76,9 @@ TheoryArith::Statistics::Statistics():
   d_statDisequalityConflicts("theory::arith::DisequalityConflicts", 0),
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
-  d_presolveTime("theory::arith::presolveTime")
+  d_presolveTime("theory::arith::presolveTime"),
+  d_restartTime("theory::arith::restartTime"),
+  d_propagationLemmas("theory::arith::propagationLemmas",0)
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
   StatisticsRegistry::registerStat(&d_statSlackVariables);
@@ -84,6 +88,9 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::registerStat(&d_presolveTime);
+
+  StatisticsRegistry::registerStat(&d_restartTime);
+  StatisticsRegistry::registerStat(&d_propagationLemmas);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -95,6 +102,9 @@ TheoryArith::Statistics::~Statistics(){
 
   StatisticsRegistry::unregisterStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::unregisterStat(&d_presolveTime);
+
+  StatisticsRegistry::unregisterStat(&d_restartTime);
+  StatisticsRegistry::unregisterStat(&d_propagationLemmas);
 }
 
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
@@ -295,6 +305,7 @@ void TheoryArith::setupSlack(TNode left){
   TypeNode real_type = NodeManager::currentNM()->realType();
   Node slack = NodeManager::currentNM()->mkVar(real_type);
   left.setAttribute(Slack(), slack);
+  slack.setAttribute(ReverseSlack(), left);
 
   ArithVar varSlack = requestArithVar(slack, true);
 
@@ -656,9 +667,63 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
 void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 
 }
+Node simpImplication(Node reason, Node implied){
+  NodeBuilder<> orB(OR);
+  Assert(reason.getKind() == AND);
+
+  for(Node::iterator i = reason.begin(), end=reason.end(); i != end; ++i){
+    Node child = *i;
+    Node notChild = NodeBuilder<1>(NOT) << child;
+    orB << notChild;
+  }
+
+  orB << implied;
+
+  return orB;
+}
+
+void TheoryArith::handleImpliedBound(TNode imp){
+  Assert(!imp.isNull());
+  Assert(imp.getKind() == IMPLIES);
+  Node reason = imp[0];
+  Node impliedBound = imp[1];
+  Node preregisteredBound = d_propagator.impliedBound(impliedBound);
+
+  if(!preregisteredBound.isNull()){
+    Node simpImp = simpImplication(reason, preregisteredBound);
+    Debug("propagation") << simpImp << endl;
+    d_out->lemma(simpImp );
+    d_propagationLemmas.push_back(simpImp);
+    ++(d_statistics.d_propagationLemmas);
+  }
+}
 
 void TheoryArith::notifyRestart(){
+  TimerStat::CodeTimer codeTimer(d_statistics.d_restartTime);
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  for(ArithVarSet::iterator i = d_tableau.begin(), end = d_tableau.end(); i != end; ++i){
+    ArithVar basic = *i;
+    bool hasImpliedUpperBound = d_simplex.numCandidateSlack<false>(basic) == 0;
+    bool hasImpliedLowerBound = d_simplex.numCandidateSlack<true>(basic) == 0;
+    if(hasImpliedUpperBound || hasImpliedLowerBound){
+      Node basicNode = asNode(basic);
+      if(!d_userVariables.isMember(basic)){
+        basicNode = basicNode.getAttribute(ReverseSlack());
+      }
+      if(hasImpliedUpperBound){
+        Node imp = d_simplex.impliedUpperBound(basic, basicNode);
+        if(!imp.isNull()){
+          handleImpliedBound(imp);
+        }
+      }
+      if(hasImpliedLowerBound){
+        Node imp = d_simplex.impliedLowerBound(basic, basicNode);
+        if(!imp.isNull()){
+          handleImpliedBound(imp);
+        }
+      }
+    }
+  }
 }
 
 bool TheoryArith::entireStateIsConsistent(){

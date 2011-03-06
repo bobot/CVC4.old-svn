@@ -58,6 +58,7 @@ private:
   /* Chopping block begins */
 
   std::vector<Node> d_splits;
+  std::vector<Node> d_propagationLemmas;
   //This stores the eager splits sent out of the theory.
 
   /* Chopping block ends */
@@ -159,6 +160,7 @@ public:
 private:
 
   ArithVar determineLeftVariable(TNode assertion, Kind simpleKind);
+  void handleImpliedBound(TNode imp);
 
 
   /**
@@ -215,6 +217,10 @@ private:
 
     IntStat d_permanentlyRemovedVariables;
     TimerStat d_presolveTime;
+
+    TimerStat d_restartTime;
+    IntStat d_propagationLemmas;
+
     Statistics();
     ~Statistics();
   };

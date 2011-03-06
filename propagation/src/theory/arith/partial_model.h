@@ -113,6 +113,22 @@ public:
   const DeltaRational& getAssignment(ArithVar x) const;
 
 
+  bool betweenAssignmentAndUpperBound(ArithVar basic, const DeltaRational& c){
+    if(hasUpperBound(basic)){
+      return getAssignment(basic) <= c && c < getUpperBound(basic);
+    }else{
+      return getAssignment(basic) <= c;
+    }
+  }
+
+  bool betweenAssignmentAndLowerBound(ArithVar basic, const DeltaRational& c){
+    if(hasLowerBound(basic)){
+      return getAssignment(basic) >= c && c > getLowerBound(basic);
+    }else{
+      return getAssignment(basic) >= c;
+    }
+  }
+
   /**
    * x <= l
    * ? c < l

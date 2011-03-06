@@ -175,6 +175,13 @@ private:
   template <PreferenceFunction pf> ArithVar selectSlackAbove(ArithVar x_i) {
     return selectSlack<true, pf>(x_i);
   }
+
+public:
+  template <bool above> uint32_t numCandidateSlack(ArithVar x_i);
+  Node impliedUpperBound(ArithVar basic, Node basicAsNode);
+  Node impliedLowerBound(ArithVar basic, Node basicAsNode);
+
+private:
   /**
    * Returns the smallest basic variable whose assignment is not consistent
    * with its upper and lower bounds.
