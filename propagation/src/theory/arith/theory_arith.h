@@ -145,6 +145,7 @@ private:
 
   typedef __gnu_cxx::hash_set<Node, NodeHashFunction> NodeSet;
   NodeSet d_propLemmas;
+  PermissiveBackArithVarSet d_triedSoFar;
 
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;

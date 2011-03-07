@@ -600,14 +600,14 @@ void TheoryArith::propagate(Effort e) {
   }
   if(quickCheckOrMore(e)){
     Debug("propagation") << "propagate " << numPropagate << endl;
-    PermissiveBackArithVarSet triedSoFar;
+    d_triedSoFar.clear();
     unsigned checked = 0;
     while(d_simplex.hasMoreBasicsToLookAt()){
       ArithVar cand = d_simplex.popBasicsToLookAt();
-      if(d_tableau.isBasic(cand) && !triedSoFar.isMember(cand)){
+      if(d_tableau.isBasic(cand) && !d_triedSoFar.isMember(cand)){
         ++checked;
         candidatePropagateBasic(cand);
-        triedSoFar.add(cand);
+        d_triedSoFar.add(cand);
       }
       Debug("propagation") << "end propagate " << checked << endl;
     }
