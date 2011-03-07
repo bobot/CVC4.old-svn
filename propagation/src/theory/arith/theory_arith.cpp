@@ -84,7 +84,7 @@ TheoryArith::Statistics::Statistics():
   d_presolveTime("theory::arith::presolveTime"),
   d_restartTime("theory::arith::restartTime"),
   d_propagationLemmas("theory::arith::propagationLemmas",0),
-
+  d_propagateTime("theory::arith::propagateTime"),
   d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
   d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
   d_tableauResets("theory::arith::tableauResets", 0)
@@ -100,6 +100,8 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_restartTime);
   StatisticsRegistry::registerStat(&d_propagationLemmas);
+  StatisticsRegistry::registerStat(&d_propagateTime);
+
   StatisticsRegistry::registerStat(&d_initialTableauDensity);
   StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
   StatisticsRegistry::registerStat(&d_tableauResets);
@@ -117,6 +119,7 @@ TheoryArith::Statistics::~Statistics(){
 
   StatisticsRegistry::unregisterStat(&d_restartTime);
   StatisticsRegistry::unregisterStat(&d_propagationLemmas);
+  StatisticsRegistry::unregisterStat(&d_propagateTime);
 
   StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
   StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
@@ -583,18 +586,30 @@ void TheoryArith::explain(TNode n) {
 }
 
 void TheoryArith::propagate(Effort e) {
+  TimerStat::CodeTimer codeTimer(d_statistics.d_propagateTime);
+  static unsigned numPropagate = 0;
+  ++numPropagate;
   if(quickCheckOrMore(e)){
     while(d_simplex.hasMoreLemmas()){
       Node lemma = d_simplex.popLemma();
-      d_out->lemma(lemma);
+      if(d_propLemmas.find(lemma) == d_propLemmas.end() ){
+        d_propLemmas.insert(lemma);
+        d_out->lemma(lemma);
+      }
     }
   }
   if(quickCheckOrMore(e)){
+    Debug("propagation") << "propagate " << numPropagate << endl;
+    PermissiveBackArithVarSet triedSoFar;
+    unsigned checked = 0;
     while(d_simplex.hasMoreBasicsToLookAt()){
       ArithVar cand = d_simplex.popBasicsToLookAt();
-      if(d_tableau.isBasic(cand)){
+      if(d_tableau.isBasic(cand) && !triedSoFar.isMember(cand)){
+        ++checked;
         candidatePropagateBasic(cand);
+        triedSoFar.add(cand);
       }
+      Debug("propagation") << "end propagate " << checked << endl;
     }
   }
 }
@@ -689,7 +704,12 @@ Node simpImplication(Node reason, Node implied){
 
   for(Node::iterator i = reason.begin(), end=reason.end(); i != end; ++i){
     Node child = *i;
-    Node notChild = NodeBuilder<1>(NOT) << child;
+    Node notChild ;
+    if(child.getKind() == NOT){
+      notChild = child[0];
+    }else{
+      notChild = NodeBuilder<1>(NOT) << child;
+    }
     orB << notChild;
   }
 
@@ -708,9 +728,13 @@ void TheoryArith::handleImpliedBound(TNode imp){
   if(!preregisteredBound.isNull()){
     Node simpImp = simpImplication(reason, preregisteredBound);
     Debug("propagation") << simpImp << endl;
-    d_out->lemma(simpImp );
-    d_propagationLemmas.push_back(simpImp);
-    ++(d_statistics.d_propagationLemmas);
+    if(d_propLemmas.find(simpImp) == d_propLemmas.end() ){
+      d_propLemmas.insert(simpImp);
+
+      d_out->lemma(simpImp );
+      d_propagationLemmas.push_back(simpImp);
+      ++(d_statistics.d_propagationLemmas);
+    }
   }
 }
 
@@ -746,6 +770,7 @@ void TheoryArith::notifyRestart(){
   ++d_restartsCounter;
 
   if(d_restartsCounter % d_tableauResetPeriod == 0){
+    Debug("propagations") << "notifyRestart " << d_restartsCounter << endl;
     for(ArithVarSet::iterator i = d_tableau.begin(), end = d_tableau.end(); i != end; ++i){
       ArithVar basic = *i;
       candidatePropagateBasic(basic);

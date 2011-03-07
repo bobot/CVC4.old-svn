@@ -230,7 +230,13 @@ inline Node negateConjunctionAsClause(TNode conjunction){
 
   for(TNode::iterator i = conjunction.begin(), end=conjunction.end(); i != end; ++i){
     TNode child = *i;
-    Node negatedChild = NodeBuilder<1>(kind::NOT)<<(child);
+    Node negatedChild;
+    if(child.getKind() == kind::NOT){
+      negatedChild = child[0];
+    }else{
+      negatedChild = NodeBuilder<1>(kind::NOT)<<(child);
+    }
+
     orBuilder << negatedChild;
   }
   return orBuilder;
