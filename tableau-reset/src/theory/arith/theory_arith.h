@@ -85,8 +85,6 @@ private:
    */
   ArithVarSet d_userVariables;
 
-  
-
   /**
    * Bidirectional map between Nodes and ArithVars.
    */
@@ -140,8 +138,9 @@ private:
    * is set to d_initialTableau.
    */
   double d_initialDensity;
-  static const double s_TABLEAU_RESET_DENSITY = 2.0;
-  static const uint32_t s_TABLEAU_RESET_PERIOD = 10;
+  double d_tableauResetDensity;
+  uint32_t d_tableauResetPeriod;
+  static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
 
 
   ArithUnatePropagator d_propagator;
@@ -241,6 +240,7 @@ private:
     BackedStat<double> d_initialTableauDensity;
     AverageStat d_avgTableauDensityAtRestart;
     IntStat d_tableauResets;
+    TimerStat d_restartTimer;
 
     Statistics();
     ~Statistics();

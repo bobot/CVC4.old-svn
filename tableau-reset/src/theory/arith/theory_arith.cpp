@@ -61,6 +61,9 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_diseq(c),
   d_tableau(),
   d_restartsCounter(0),
+  d_initialDensity(1.0),
+  d_tableauResetDensity(2.0),
+  d_tableauResetPeriod(10),
   d_propagator(c, out),
   d_simplex(d_constants, d_partialModel, d_out, d_tableau),
   d_statistics()
@@ -78,7 +81,8 @@ TheoryArith::Statistics::Statistics():
   d_presolveTime("theory::arith::presolveTime"),
   d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
   d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
-  d_tableauResets("theory::arith::tableauResets", 0)
+  d_tableauResets("theory::arith::tableauResets", 0),
+  d_restartTimer("theory::arith::restartTimer")
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
   StatisticsRegistry::registerStat(&d_statSlackVariables);
@@ -92,6 +96,7 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_initialTableauDensity);
   StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
   StatisticsRegistry::registerStat(&d_tableauResets);
+  StatisticsRegistry::registerStat(&d_restartTimer);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -107,6 +112,7 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
   StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
   StatisticsRegistry::unregisterStat(&d_tableauResets);
+  StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
@@ -670,14 +676,19 @@ void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 }
 
 void TheoryArith::notifyRestart(){
+  TimerStat::CodeTimer codeTimer(d_statistics.d_restartTimer);
+
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
   ++d_restartsCounter;
-  if(d_restartsCounter % s_TABLEAU_RESET_PERIOD == 0){
+  if(d_restartsCounter % d_tableauResetPeriod == 0){
     double currentDensity = d_tableau.densityMeasure();
     d_statistics.d_avgTableauDensityAtRestart.addEntry(currentDensity);
-    if(currentDensity >= s_TABLEAU_RESET_DENSITY * d_initialDensity){
+    if(currentDensity >= d_tableauResetDensity * d_initialDensity){
+
       ++d_statistics.d_tableauResets;
+      d_tableauResetPeriod += s_TABLEAU_RESET_INCREMENT;
+      d_tableauResetDensity += .2;
       d_tableau = d_initialTableau;
     }
   }
