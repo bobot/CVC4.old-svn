@@ -40,7 +40,7 @@ public:
   }
 
   void notifyNewLemma(Expr lemma) {
-    Notice() << d_tag << ": " << lemma << std::endl;
+    std::cout << d_tag << ": " << lemma << std::endl;
   }
 
 };/* class PortfolioLemmaOutputChannel */
