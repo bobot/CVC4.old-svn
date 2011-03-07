@@ -85,6 +85,8 @@ private:
    */
   ArithVarSet d_userVariables;
 
+  
+
   /**
    * Bidirectional map between Nodes and ArithVars.
    */
@@ -120,8 +122,27 @@ private:
   /**
    * The tableau for all of the constraints seen thus far in the system.
    */
-  Tableau d_tableau, d_initialTableau;
+  Tableau d_tableau;
+
+  /**
+   * A copy of the tableau immediately after removing variables
+   * without bounds in presolve().
+   */
+  Tableau d_initialTableau;
+
+  /** Counts the number of notifyRestart() calls to the theory. */
+  uint32_t d_restartsCounter;
+
+  /**
+   * Every number of restarts equal to s_TABLEAU_RESET_PERIOD,
+   * the density of the tableau, d, is computed.
+   * If d >= s_TABLEAU_RESET_DENSITY * d_initialDensity, the tableau
+   * is set to d_initialTableau.
+   */
   double d_initialDensity;
+  static const double s_TABLEAU_RESET_DENSITY = 2.0;
+  static const uint32_t s_TABLEAU_RESET_PERIOD = 10;
+
 
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;
@@ -219,6 +240,7 @@ private:
 
     BackedStat<double> d_initialTableauDensity;
     AverageStat d_avgTableauDensityAtRestart;
+    IntStat d_tableauResets;
 
     Statistics();
     ~Statistics();

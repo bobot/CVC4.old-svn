@@ -60,6 +60,7 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_userVariables(),
   d_diseq(c),
   d_tableau(),
+  d_restartsCounter(0),
   d_propagator(c, out),
   d_simplex(d_constants, d_partialModel, d_out, d_tableau),
   d_statistics()
@@ -76,7 +77,8 @@ TheoryArith::Statistics::Statistics():
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
   d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
-  d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts")
+  d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
+  d_tableauResets("theory::arith::tableauResets", 0)
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
   StatisticsRegistry::registerStat(&d_statSlackVariables);
@@ -89,6 +91,7 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_initialTableauDensity);
   StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::registerStat(&d_tableauResets);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -103,6 +106,7 @@ TheoryArith::Statistics::~Statistics(){
 
   StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
   StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::unregisterStat(&d_tableauResets);
 }
 
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
@@ -668,16 +672,15 @@ void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 void TheoryArith::notifyRestart(){
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
-  d_statistics.d_avgTableauDensityAtRestart.addEntry(d_tableau.densityMeasure());
-
-  static int restartsSinceReset = 0;
-  ++restartsSinceReset;
-
-  if(restartsSinceReset >= 5 &&
-     d_tableau.densityMeasure()>= 1.5 * d_initialDensity){
-    d_tableau = d_initialTableau;
+  ++d_restartsCounter;
+  if(d_restartsCounter % s_TABLEAU_RESET_PERIOD == 0){
+    double currentDensity = d_tableau.densityMeasure();
+    d_statistics.d_avgTableauDensityAtRestart.addEntry(currentDensity);
+    if(currentDensity >= s_TABLEAU_RESET_DENSITY * d_initialDensity){
+      ++d_statistics.d_tableauResets;
+      d_tableau = d_initialTableau;
+    }
   }
-
 }
 
 bool TheoryArith::entireStateIsConsistent(){
