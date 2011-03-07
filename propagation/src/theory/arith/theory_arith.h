@@ -123,6 +123,27 @@ private:
    */
   Tableau d_tableau;
 
+  /**
+   * A copy of the tableau immediately after removing variables
+   * without bounds in presolve().
+   */
+  Tableau d_initialTableau;
+
+  /** Counts the number of notifyRestart() calls to the theory. */
+  uint32_t d_restartsCounter;
+
+  /**
+   * Every number of restarts equal to s_TABLEAU_RESET_PERIOD,
+   * the density of the tableau, d, is computed.
+   * If d >= s_TABLEAU_RESET_DENSITY * d_initialDensity, the tableau
+   * is set to d_initialTableau.
+   */
+  double d_initialDensity;
+  double d_tableauResetDensity;
+  uint32_t d_tableauResetPeriod;
+  static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
+
+
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;
 
@@ -161,7 +182,7 @@ private:
 
   ArithVar determineLeftVariable(TNode assertion, Kind simpleKind);
   void handleImpliedBound(TNode imp);
-
+  void candidatePropagateBasic(ArithVar basic);
 
   /**
    * This requests a new unique ArithVar value for x.
@@ -220,6 +241,10 @@ private:
 
     TimerStat d_restartTime;
     IntStat d_propagationLemmas;
+
+    BackedStat<double> d_initialTableauDensity;
+    AverageStat d_avgTableauDensityAtRestart;
+    IntStat d_tableauResets;
 
     Statistics();
     ~Statistics();

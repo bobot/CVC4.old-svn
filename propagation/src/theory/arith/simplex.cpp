@@ -10,8 +10,11 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
 
-template uint32_t SimplexDecisionProcedure::numCandidateSlack<true>(ArithVar x_i);
-template uint32_t SimplexDecisionProcedure::numCandidateSlack<false>(ArithVar x_i);
+//template uint32_t SimplexDecisionProcedure::numCandidateSlack<true>(ArithVar x_i);
+//template uint32_t SimplexDecisionProcedure::numCandidateSlack<false>(ArithVar x_i);
+
+template bool SimplexDecisionProcedure::anyCandidateSlack<true>(ArithVar x_i);
+template bool SimplexDecisionProcedure::anyCandidateSlack<false>(ArithVar x_i);
 
 SimplexDecisionProcedure::Statistics::Statistics():
   d_statPivots("theory::arith::pivots",0),
@@ -202,8 +205,8 @@ set<ArithVar> tableauAndHasSet(Tableau& tab, ArithVar v){
 
 set<ArithVar> columnIteratorSet(Tableau& tab,ArithVar v){
   set<ArithVar> has;
-  ArithVarSet::iterator basicIter = tab.beginColumn(v);
-  ArithVarSet::iterator endIter = tab.endColumn(v);
+  Column::iterator basicIter = tab.beginColumn(v);
+  Column::iterator endIter = tab.endColumn(v);
   for(; basicIter != endIter; ++basicIter){
     ArithVar basic = *basicIter;
     has.insert(basic);
@@ -226,8 +229,8 @@ void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
   DeltaRational diff = v - assignment_x_i;
 
   Assert(matchingSets(d_tableau, x_i));
-  ArithVarSet::iterator basicIter = d_tableau.beginColumn(x_i);
-  ArithVarSet::iterator endIter   = d_tableau.endColumn(x_i);
+  Column::iterator basicIter = d_tableau.beginColumn(x_i);
+  Column::iterator endIter   = d_tableau.endColumn(x_i);
   for(; basicIter != endIter; ++basicIter){
     ArithVar x_j = *basicIter;
     ReducedRowVector& row_j = d_tableau.lookup(x_j);
@@ -299,8 +302,8 @@ void SimplexDecisionProcedure::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaR
 
 
   Assert(matchingSets(d_tableau, x_j));
-  ArithVarSet::iterator basicIter = d_tableau.beginColumn(x_j);
-  ArithVarSet::iterator endIter   = d_tableau.endColumn(x_j);
+  Column::iterator basicIter = d_tableau.beginColumn(x_j);
+  Column::iterator endIter   = d_tableau.endColumn(x_j);
   for(; basicIter != endIter; ++basicIter){
     ArithVar x_k = *basicIter;
     ReducedRowVector& row_k = d_tableau.lookup(x_k);
@@ -395,6 +398,7 @@ ArithVar SimplexDecisionProcedure::selectSlack(ArithVar x_i){
   return slack;
 }
 
+/*
 template <bool above>
 uint32_t SimplexDecisionProcedure::numCandidateSlack(ArithVar x_i){
   ReducedRowVector& row_i = d_tableau.lookup(x_i);
@@ -418,7 +422,31 @@ uint32_t SimplexDecisionProcedure::numCandidateSlack(ArithVar x_i){
   }
   return candidates;
 }
+*/
 
+template <bool above>
+bool SimplexDecisionProcedure::anyCandidateSlack(ArithVar x_i){
+  ReducedRowVector& row_i = d_tableau.lookup(x_i);
+
+  //uint32_t candidates = 0;
+
+  for(ReducedRowVector::const_iterator nbi = row_i.begin(), end = row_i.end();
+      nbi != end; ++nbi){
+    ArithVar nonbasic = (*nbi).getArithVar();
+    if(nonbasic == x_i) continue;
+
+    const Rational& a_ij = (*nbi).getCoefficient();
+    int sgn = a_ij.sgn();
+    if(( above && sgn < 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)) ||
+       ( above && sgn > 0 && d_partialModel.strictlyAboveLowerBound(nonbasic)) ||
+       (!above && sgn > 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)) ||
+       (!above && sgn < 0 && d_partialModel.strictlyAboveLowerBound(nonbasic))) {
+
+      return true;
+    }
+  }
+  return false;
+}
 
 Node betterConflict(TNode x, TNode y){
   if(x.isNull()) return y;
@@ -576,6 +604,9 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       pivotAndUpdate(x_i, x_j, u_i);
     }
     Assert(x_j != ARITHVAR_SENTINEL);
+    if(!anyCandidateSlack<false>(x_j) || !anyCandidateSlack<true>(x_j)){
+      d_basicsToLookForProp.push(x_j);
+    }
     //Check to see if we already have a conflict with x_j to prevent wasteful work
     Node earlyConflict = checkBasicForConflict(x_j);
     if(!earlyConflict.isNull()){
@@ -593,7 +624,7 @@ Node SimplexDecisionProcedure::impliedUpperBound(ArithVar basic, Node basicAsNod
 
   ReducedRowVector& row_i = d_tableau.lookup(basic);
 
-  Assert(numCandidateSlack<false>(basic) == 0);
+  Assert(!anyCandidateSlack<false>(basic));
 
   NodeBuilder<> nb(kind::AND);
   DeltaRational u(0,0);
@@ -690,7 +721,7 @@ Node SimplexDecisionProcedure::impliedLowerBound(ArithVar basic, Node basicAsNod
 
   ReducedRowVector& row_i = d_tableau.lookup(basic);
 
-  Assert(numCandidateSlack<true>(basic) == 0);
+  Assert(!anyCandidateSlack<true>(basic));
 
   NodeBuilder<> nb(kind::AND);
   DeltaRational l(0,0);

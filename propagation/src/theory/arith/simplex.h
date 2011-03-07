@@ -17,6 +17,7 @@
 #include "util/stats.h"
 
 #include <vector>
+#include <queue>
 
 namespace CVC4 {
 namespace theory {
@@ -43,6 +44,8 @@ private:
 
   std::vector<Node> d_delayedLemmas;
   uint32_t d_delayedLemmasPos;
+
+  std::queue<ArithVar> d_basicsToLookForProp;
 
 public:
   SimplexDecisionProcedure(const ArithConstants& constants,
@@ -177,7 +180,8 @@ private:
   }
 
 public:
-  template <bool above> uint32_t numCandidateSlack(ArithVar x_i);
+  //template <bool above> uint32_t numCandidateSlack(ArithVar x_i);
+  template <bool above> bool anyCandidateSlack(ArithVar x_i);
   Node impliedUpperBound(ArithVar basic, Node basicAsNode);
   Node impliedLowerBound(ArithVar basic, Node basicAsNode);
 
@@ -243,6 +247,16 @@ public:
     Node lemma = d_delayedLemmas[d_delayedLemmasPos];
     ++d_delayedLemmasPos;
     return lemma;
+  }
+
+  bool hasMoreBasicsToLookAt() {
+    return !d_basicsToLookForProp.empty();
+  }
+  ArithVar popBasicsToLookAt() {
+    Assert(hasMoreBasicsToLookAt());
+    ArithVar front = d_basicsToLookForProp.front();
+    d_basicsToLookForProp.pop();
+    return front;
   }
 
 private:

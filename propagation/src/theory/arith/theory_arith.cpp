@@ -62,6 +62,10 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_userVariables(),
   d_diseq(c),
   d_tableau(),
+  d_restartsCounter(0),
+  d_initialDensity(1.0),
+  d_tableauResetDensity(2.0),
+  d_tableauResetPeriod(10),
   d_propagator(c, &out),
   d_simplex(d_constants, d_partialModel, d_out, d_tableau),
   d_statistics()
@@ -76,9 +80,14 @@ TheoryArith::Statistics::Statistics():
   d_statDisequalityConflicts("theory::arith::DisequalityConflicts", 0),
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
+
   d_presolveTime("theory::arith::presolveTime"),
   d_restartTime("theory::arith::restartTime"),
-  d_propagationLemmas("theory::arith::propagationLemmas",0)
+  d_propagationLemmas("theory::arith::propagationLemmas",0),
+
+  d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
+  d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
+  d_tableauResets("theory::arith::tableauResets", 0)
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
   StatisticsRegistry::registerStat(&d_statSlackVariables);
@@ -91,6 +100,9 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_restartTime);
   StatisticsRegistry::registerStat(&d_propagationLemmas);
+  StatisticsRegistry::registerStat(&d_initialTableauDensity);
+  StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::registerStat(&d_tableauResets);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -105,6 +117,10 @@ TheoryArith::Statistics::~Statistics(){
 
   StatisticsRegistry::unregisterStat(&d_restartTime);
   StatisticsRegistry::unregisterStat(&d_propagationLemmas);
+
+  StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
+  StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::unregisterStat(&d_tableauResets);
 }
 
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
@@ -573,14 +589,14 @@ void TheoryArith::propagate(Effort e) {
       d_out->lemma(lemma);
     }
   }
-  // if(quickCheckOrMore(e)){
-  //   std::vector<Node> implied = d_propagator.getImpliedLiterals();
-  //   for(std::vector<Node>::iterator i = implied.begin();
-  //       i != implied.end();
-  //       ++i){
-  //     d_out->propagate(*i);
-  //   }
-  // }
+  if(quickCheckOrMore(e)){
+    while(d_simplex.hasMoreBasicsToLookAt()){
+      ArithVar cand = d_simplex.popBasicsToLookAt();
+      if(d_tableau.isBasic(cand)){
+        candidatePropagateBasic(cand);
+      }
+    }
+  }
 }
 
 Node TheoryArith::getValue(TNode n, Valuation* valuation) {
@@ -698,30 +714,53 @@ void TheoryArith::handleImpliedBound(TNode imp){
   }
 }
 
+void TheoryArith::candidatePropagateBasic(ArithVar basic){
+
+  Assert(d_tableau.isBasic(basic));
+  bool hasImpliedUpperBound = !d_simplex.anyCandidateSlack<false>(basic);
+  bool hasImpliedLowerBound = !d_simplex.anyCandidateSlack<true>(basic);
+  if(hasImpliedUpperBound || hasImpliedLowerBound){
+    Node basicNode = asNode(basic);
+    if(!d_userVariables.isMember(basic)){
+      basicNode = basicNode.getAttribute(ReverseSlack());
+    }
+    if(hasImpliedUpperBound){
+      Node imp = d_simplex.impliedUpperBound(basic, basicNode);
+      if(!imp.isNull()){
+        handleImpliedBound(imp);
+      }
+    }
+    if(hasImpliedLowerBound){
+      Node imp = d_simplex.impliedLowerBound(basic, basicNode);
+      if(!imp.isNull()){
+        handleImpliedBound(imp);
+      }
+    }
+  }
+}
+
 void TheoryArith::notifyRestart(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_restartTime);
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
-  for(ArithVarSet::iterator i = d_tableau.begin(), end = d_tableau.end(); i != end; ++i){
-    ArithVar basic = *i;
-    bool hasImpliedUpperBound = d_simplex.numCandidateSlack<false>(basic) == 0;
-    bool hasImpliedLowerBound = d_simplex.numCandidateSlack<true>(basic) == 0;
-    if(hasImpliedUpperBound || hasImpliedLowerBound){
-      Node basicNode = asNode(basic);
-      if(!d_userVariables.isMember(basic)){
-        basicNode = basicNode.getAttribute(ReverseSlack());
-      }
-      if(hasImpliedUpperBound){
-        Node imp = d_simplex.impliedUpperBound(basic, basicNode);
-        if(!imp.isNull()){
-          handleImpliedBound(imp);
-        }
-      }
-      if(hasImpliedLowerBound){
-        Node imp = d_simplex.impliedLowerBound(basic, basicNode);
-        if(!imp.isNull()){
-          handleImpliedBound(imp);
-        }
-      }
+
+  ++d_restartsCounter;
+
+  if(d_restartsCounter % d_tableauResetPeriod == 0){
+    for(ArithVarSet::iterator i = d_tableau.begin(), end = d_tableau.end(); i != end; ++i){
+      ArithVar basic = *i;
+      candidatePropagateBasic(basic);
+    }
+  }
+
+  if(d_restartsCounter % d_tableauResetPeriod == 0){
+    double currentDensity = d_tableau.densityMeasure();
+    d_statistics.d_avgTableauDensityAtRestart.addEntry(currentDensity);
+    if(currentDensity >= d_tableauResetDensity * d_initialDensity){
+
+      ++d_statistics.d_tableauResets;
+      d_tableauResetPeriod += s_TABLEAU_RESET_INCREMENT;
+      d_tableauResetDensity += .2;
+      d_tableau = d_initialTableau;
     }
   }
 }
@@ -796,7 +835,10 @@ void TheoryArith::presolve(){
     }
   }
 
-  //Assert(entireStateIsConsistent()); //Boy is this paranoid
+  d_initialTableau = d_tableau;
+  d_initialDensity = d_initialTableau.densityMeasure();
+  d_statistics.d_initialTableauDensity.setData(d_initialDensity);
+
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
   static int callCount = 0;
