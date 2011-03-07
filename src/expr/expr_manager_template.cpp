@@ -70,7 +70,7 @@ namespace CVC4 {
 
 ExprManager::ExprManager() :
   d_ctxt(new Context),
-  d_nodeManager(new NodeManager(d_ctxt)) {
+  d_nodeManager(new NodeManager(d_ctxt, this)) {
 #ifdef CVC4_STATISTICS_ON   
   for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
     d_exprStatistics[i] = NULL;
@@ -83,7 +83,7 @@ ExprManager::ExprManager() :
 
 ExprManager::ExprManager(const Options& options) :
   d_ctxt(new Context),
-  d_nodeManager(new NodeManager(d_ctxt, options)) {
+  d_nodeManager(new NodeManager(d_ctxt, this, options)) {
 #ifdef CVC4_STATISTICS_ON  
   for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
     d_exprStatisticsVars[i] = NULL;

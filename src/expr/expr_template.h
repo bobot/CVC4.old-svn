@@ -42,6 +42,8 @@ namespace CVC4 {
 template <bool ref_count>
 class NodeTemplate;
 
+class NodeManager;
+
 class Expr;
 class ExprManager;
 class SmtEngine;
@@ -430,6 +432,7 @@ protected:
   friend class SmtEngine;
   friend class smt::SmtEnginePrivate;
   friend class ExprManager;
+  friend class NodeManager;
   friend class TypeCheckingException;
   friend std::ostream& operator<<(std::ostream& out, const Expr& e);
 

@@ -17,9 +17,9 @@
  ** \todo document this file
  **/
 
-#include "cnf_stream.h"
-#include "prop_engine.h"
-#include "sat.h"
+#include "prop/cnf_stream.h"
+#include "prop/prop_engine.h"
+#include "prop/sat.h"
 #include "context/context.h"
 #include "theory/theory_engine.h"
 
@@ -57,7 +57,10 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
   for (unsigned i = 0; i < i_end; ++ i) {
     Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i].toString() << std::endl;
     SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
-    output.push_back(l);
+    if(d_minisat->value(l) != l_True) {
+      Assert(d_minisat->value(l) == l_Undef, "tried to theory-propagate something already defined");
+      output.push_back(l);
+    }
   }
 }
 
@@ -104,6 +107,22 @@ TNode SatSolver::getNode(SatLiteral lit) {
 
 void SatSolver::notifyRestart() {
   d_theoryEngine->notifyRestart();
+}
+
+void SatSolver::notifyNewLemma(SatClause& lemma) {
+  Assert(lemma.size() > 0);
+  if(d_options->lemmaOutputChannel != NULL) {
+    if(lemma.size() == 1) {
+      d_options->lemmaOutputChannel->notifyNewLemma(d_cnfStream->getNode(lemma[0]).toExpr());
+    } else {
+      NodeBuilder<> b(kind::OR);
+      for(unsigned i = 0, i_end = lemma.size(); i < i_end; ++i) {
+        b << d_cnfStream->getNode(lemma[i]);
+      }
+      Node n = b;
+      d_options->lemmaOutputChannel->notifyNewLemma(n.toExpr());
+    }
+  }
 }
 
 }/* CVC4::prop namespace */

@@ -89,7 +89,7 @@ class CnfStreamBlack : public CxxTest::TestSuite {
 
 void setUp() {
   d_context = new Context;
-  d_nodeManager = new NodeManager(d_context);
+  d_nodeManager = new NodeManager(d_context, NULL);
   d_satSolver = new FakeSatSolver;
   d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver);
 }

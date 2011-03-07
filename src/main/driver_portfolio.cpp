@@ -32,6 +32,19 @@ pthread_mutex_t mutex_main_wait = PTHREAD_MUTEX_INITIALIZER;
 bool global_flag_done = false;
 thread_return_data global_returnData;
 
+class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
+  string d_tag;
+public:
+  PortfolioLemmaOutputChannel(string tag) :
+    d_tag(tag) {
+  }
+
+  void notifyNewLemma(Expr lemma) {
+    Notice() << d_tag << ": " << lemma << std::endl;
+  }
+
+};/* class PortfolioLemmaOutputChannel */
+
 /* This function should be moved somewhere else eventuall */
 std::string intToString(int i)
 {
@@ -96,6 +109,7 @@ int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[], Options& options)
     args->argc = argc;
     args->argv = argv;
     o.pivotRule = t == 0 ? Options::MINIMUM : Options::MAXIMUM;
+    o.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #" + intToString(t));
     args->options = o;
     rc = pthread_create(&threads[t], NULL, runCvc4Thread, (void *)args);
     if (rc) {

@@ -33,7 +33,8 @@ libutil_la_SOURCES = \
 	stats.cpp \
 	dynamic_array.h \
 	language.h \
-	triple.h
+	triple.h \
+	lemma_output_channel.h
 
 BUILT_SOURCES = \
 	rational.h \

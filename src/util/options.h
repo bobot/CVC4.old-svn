@@ -38,6 +38,7 @@
 
 #include "util/exception.h"
 #include "util/language.h"
+#include "util/lemma_output_channel.h"
 
 namespace CVC4 {
 
@@ -129,9 +130,11 @@ struct CVC4_PUBLIC Options {
   /** Whether incemental solving (push/pop) */
   bool incrementalSolving;
 
-
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
   ArithPivotRule pivotRule;
+
+  /** The output channel to receive notfication events for new lemmas */
+  LemmaOutputChannel* lemmaOutputChannel;
 
   Options() :
     binary_name(),
@@ -159,8 +162,8 @@ struct CVC4_PUBLIC Options {
     typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
     earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
     incrementalSolving(false),
-    pivotRule(MINIMUM)
-    {
+    pivotRule(MINIMUM),
+    lemmaOutputChannel(NULL) {
   }
 
   /** 

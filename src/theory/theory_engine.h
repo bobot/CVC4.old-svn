@@ -308,6 +308,9 @@ public:
   }
 
   inline void newLemma(TNode node) {
+    if(d_opts.lemmaOutputChannel != NULL) {
+      d_opts.lemmaOutputChannel->notifyNewLemma(node.toExpr());
+    }
     d_propEngine->assertLemma(preprocess(node));
   }
 

@@ -83,16 +83,20 @@ struct NVReclaim {
   }
 };
 
-NodeManager::NodeManager(context::Context* ctxt) :
-  d_attrManager(ctxt) {
+NodeManager::NodeManager(context::Context* ctxt,
+                         ExprManager* exprManager) :
+  d_attrManager(ctxt),
+  d_exprManager(exprManager) {
   Options options;
   init(options);
 }
 
 
 NodeManager::NodeManager(context::Context* ctxt, 
+                         ExprManager* exprManager,
                          const Options& options) :
-  d_attrManager(ctxt) {
+  d_attrManager(ctxt),
+  d_exprManager(exprManager) {
   init(options);
 }
 

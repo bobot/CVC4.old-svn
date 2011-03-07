@@ -332,6 +332,17 @@ public:
   // bool properlyContainsDecision(); // maybe not atomic but all children are
 
   /**
+   * Convert this Node into an Expr using the currently-in-scope
+   * manager.  Essentially this is like an "operator Expr()" but we
+   * don't want it to compete with implicit conversions between e.g.
+   * Node and TNode, and we want internal-to-external interface
+   * (Node -> Expr) points to be explicit.  We could write an
+   * explicit Expr(Node) constructor---but that dirties the public
+   * interface.
+   */
+  inline Expr toExpr();
+
+  /**
    * Returns true if this node represents a constant
    * @return true if const
    */
@@ -1122,6 +1133,12 @@ Node NodeTemplate<ref_count>::substitute(Iterator1 nodesBegin,
     Node n = nb;
     return n;
   }
+}
+
+template <bool ref_count>
+inline Expr NodeTemplate<ref_count>::toExpr() {
+  assertTNodeNotExpired();
+  return NodeManager::currentNM()->toExpr(*this);
 }
 
 #ifdef CVC4_DEBUG

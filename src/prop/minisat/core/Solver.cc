@@ -945,6 +945,8 @@ lbool Solver::search(int nof_conflicts)
             int max_level = analyze(confl, learnt_clause, backtrack_level);
             cancelUntil(backtrack_level);
 
+            proxy->notifyNewLemma(learnt_clause);
+
             if (learnt_clause.size() == 1){
                 uncheckedEnqueue(learnt_clause[0]);
             }else{
