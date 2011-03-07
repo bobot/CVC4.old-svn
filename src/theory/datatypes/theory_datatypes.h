@@ -42,8 +42,10 @@ private:
   std::map<TypeNode, std::vector<Node> > d_cons;
   //a list of types with the list of constructors for that type
   std::map<TypeNode, std::vector<Node> > d_testers;
+  //a list of constructors with the list of selectors
+  std::map<Node, std::vector<Node> > d_sels;
   // the distinguished ground term for each type
-  std::map< TypeNode, Node > d_distinguishTerms;
+  std::map<TypeNode, Node > d_distinguishTerms;
   //finite datatypes/constructor
   std::map< TypeNode, bool > d_finite;
   std::map< Node, bool > d_cons_finite;
@@ -120,7 +122,8 @@ public:
   void presolve();
 
   void addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
-                               std::vector<std::pair< TypeNode, std::vector<Node> > >& testers );
+                               std::vector<std::pair< TypeNode, std::vector<Node> > >& testers,
+                               std::vector<std::pair< Node, std::vector<Node> > >& sels  );
 
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);
@@ -141,6 +144,7 @@ public:
   void appendToDiseqList(TNode of, TNode eq);
   void appendToEqList(TNode of, TNode eq);
   void addDisequality(TNode eq);
+  void addEquality(TNode eq);
   void registerEqualityForPropagation(TNode eq);
   Node constructConflict(TNode diseq);
 

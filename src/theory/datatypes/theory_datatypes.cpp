@@ -31,18 +31,6 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::datatypes;
 
-////need this?
-//Type TheoryDatatypes::getType( TypeNode t )
-//{
-//  std::map<Type, std::vector<Type> >::iterator it;
-//  for( it=d_cons.begin(); it!=d_cons.end(); ++it ){
-//    if( *(it->first.d_typeNode)==t ){
-//      return it->first;
-//    }
-//  }
-//  return Type();
-//}
-
 int TheoryDatatypes::getConstructorIndex( TypeNode t, Node c )
 {
   std::map<TypeNode, std::vector<Node> >::iterator it = d_cons.find( t );
@@ -99,7 +87,7 @@ void TheoryDatatypes::checkFiniteWellFounded(){
             int c;
             for( c=0; c<(int)ct.getNumChildren()-1; c++ ){
               //Debug("datatypes-finite") << "  check sel " << ct[c] << std::endl;
-              TypeNode ts = ct[c][1];
+              TypeNode ts = ct[c];
               //Debug("datatypes") << "  check : " << ts << std::endl;
               if( !isDatatype( ts ) || !d_finite[ ts ] ){
                 break;
@@ -117,7 +105,7 @@ void TheoryDatatypes::checkFiniteWellFounded(){
             int c;
             for( c=0; c<(int)ct.getNumChildren()-1; c++ ){
               //Debug("datatypes") << "  check sel " << ct.d_typeNode[0][c] << std::endl;
-              TypeNode ts = ct[c][1];
+              TypeNode ts = ct[c];
               //Debug("datatypes") << "  check : " << ts << std::endl;
               if( isDatatype( ts ) && !d_wellFounded[ ts ] ){
                 break;
@@ -140,7 +128,7 @@ void TheoryDatatypes::checkFiniteWellFounded(){
               std::vector< NodeTemplate<true> > children;
               children.push_back( nm->mkVar( ct ) );
               for( int c=0; c<(int)ct.getNumChildren()-1; c++ ){
-                TypeNode ts = ct[c][1];
+                TypeNode ts = ct[c];
                 if( isDatatype( ts ) ){
                   children.push_back( d_distinguishTerms[ts] );
                 }else{
@@ -224,19 +212,17 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
 
     Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: Rewrite trivial selector " << in << endl;
     int selIndex = -1;
-    int currIndex = 0;
-    TypeNode selType = in.getOperator().getType();
-    TypeNode c = in[0].getOperator().getType();
-    TypeNode::iterator child_it;
-    for(child_it = c.begin(); child_it != c.end(); ++child_it) {   //possibly improve this, store index in selector type?
-      if( (*child_it)==selType ){
-        selIndex = currIndex;
+    Node sel = in.getOperator();
+    TypeNode selType = sel.getType();
+    Node cons = in[0].getOperator();
+    for(int i=0; i<(int)d_sels[cons].size(); i++ ) {
+      if( d_sels[cons][i]==sel ){
+        selIndex = i;
         break;
       }
-      ++currIndex;
     }
     if( selIndex==-1 ){
-      Debug("datatypes-rewrite") << "Applied selector to wrong constructor " << selType[1] << endl;
+      Debug("datatypes-rewrite") << "Applied selector to wrong constructor " << sel << endl;
       Debug("datatypes-rewrite") << "Return distinguished term ";
       Debug("datatypes-rewrite") << d_distinguishTerms[ selType[1] ] << " of type " << selType[1] << endl;
       return RewriteComplete( d_distinguishTerms[ selType[1] ] );
@@ -257,7 +243,8 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
 }
 
 void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
-                                              std::vector<std::pair< TypeNode, std::vector<Node> > >& testers ){
+                                              std::vector<std::pair< TypeNode, std::vector<Node> > >& testers,
+                                              std::vector<std::pair< Node, std::vector<Node> > >& sels ){
   std::vector<std::pair< TypeNode, std::vector<Node> > >::iterator it;
   std::vector<Node>::iterator itc;
   for( it = cons.begin(); it!=cons.end(); ++it ){
@@ -268,6 +255,12 @@ void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< TypeNode, s
   for( it = testers.begin(); it!=testers.end(); ++it ){
     for( itc = it->second.begin(); itc!=it->second.end(); ++itc ){
       d_testers[it->first].push_back( *itc );
+    }
+  }
+  std::vector<std::pair< Node, std::vector<Node> > >::iterator it2;
+  for( it2 = sels.begin(); it2!=sels.end(); ++it2 ){
+    for( itc = it2->second.begin(); itc!=it2->second.end(); ++itc ){
+      d_sels[it2->first].push_back( *itc );
     }
   }
   requiresCheckFiniteWellFounded = true;
@@ -283,11 +276,9 @@ void TheoryDatatypes::notifyEq(TNode lhs, TNode rhs) {
   Debug("datatypes") << "TheoryDatatypes::notifyEq(): "
                   << lhs << " = " << rhs << endl;
   //d_unionFind.setCanon(lhs, rhs);  //FIXME?
-  NodeManager* nm = NodeManager::currentNM();
-  Node eq = nm->mkNode(kind::EQUAL, lhs, rhs);
-  d_cc.addEquality(eq);
-
-  //do unification?
+  //NodeManager* nm = NodeManager::currentNM();
+  //Node eq = nm->mkNode(kind::EQUAL, lhs, rhs);
+  //addEquality(eq);
 }
 
 void TheoryDatatypes::notifyCongruent(TNode lhs, TNode rhs) {
@@ -297,8 +288,6 @@ void TheoryDatatypes::notifyCongruent(TNode lhs, TNode rhs) {
     return;
   }
   merge(lhs,rhs);
-
-  //do unification?
 }
 
 
@@ -315,7 +304,7 @@ void TheoryDatatypes::check(Effort e) {
     switch(assertion.getKind()) {
     case kind::EQUAL:
     case kind::IFF:
-      d_cc.addEquality(assertion);
+      addEquality(assertion);
       if(!d_conflict.isNull()) {
         Node conflict = constructConflict(d_conflict);
         d_conflict = Node::null();
@@ -324,6 +313,13 @@ void TheoryDatatypes::check(Effort e) {
         return;
       }
       merge(assertion[0], assertion[1]);
+      if(!d_conflict.isNull()) {
+        Node conflict = constructConflict(d_conflict);
+        d_conflict = Node::null();
+        //++d_conflicts;
+        d_out->conflict(conflict, false);
+        return;
+      }
       break;
     case kind::APPLY_TESTER:
       checkTester( e, assertion, assertion );
@@ -405,9 +401,9 @@ void TheoryDatatypes::checkTester( Effort e, Node tassertion, Node assertion ){
     Debug("datatypes") << "label = " << lbl << std::endl;
 
     //check if empty label (no possible constructors for term)
+    bool add = true;
+    int notCount = 0;
     if( assertion.getKind()==NOT ){
-      int notCount = 0;
-      bool add = true;
       for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
         TNode leqn = (*i);
         if( leqn.getKind()==kind::NOT ){
@@ -428,23 +424,7 @@ void TheoryDatatypes::checkTester( Effort e, Node tassertion, Node assertion ){
           break;
         }
       }
-      if( add ){
-        if( notCount==(int)d_cons[ tassertion[0].getType() ].size()-1 ){
-          NodeBuilder<> nb(kind::AND);
-          for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
-            nb << (*i);
-          }
-          nb << assertion;
-          Node conflict = nb;
-          d_out->conflict( conflict, false ); 
-          Debug("datatypes") << "Exhausted possibilities for labels " << conflict << std::endl;
-        }else{
-          lbl->push_back( assertion );
-          Debug("datatypes") << "Add to labels " << lbl->size() << std::endl;
-        }
-      }
     }else{
-      bool add = true;
       for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
         TNode leqn = (*i);
         if( leqn.getKind()==kind::NOT ){
@@ -467,10 +447,20 @@ void TheoryDatatypes::checkTester( Effort e, Node tassertion, Node assertion ){
           break;
         }
       }
-      if( add ){
-        lbl->push_back( assertion );
-        Debug("datatypes") << "Add to labels " << lbl->size() << std::endl;
+    }
+    if( add ){
+      if( assertion.getKind()==NOT && notCount==(int)d_cons[ tassertion[0].getType() ].size()-1 ){
+        NodeBuilder<> nb(kind::AND);
+        for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
+          nb << (*i);
+        }
+        nb << assertion;
+        Node conflict = nb;
+        d_out->conflict( conflict, false ); 
+        Debug("datatypes") << "Exhausted possibilities for labels " << conflict << std::endl;
       }
+      lbl->push_back( assertion );
+      Debug("datatypes") << "Add to labels " << lbl->size() << std::endl;
     }
   }
 }
@@ -516,6 +506,13 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   }
 
   // b becomes the canon of a
+  //Node clash = d_unionFind.checkClash( a, b );
+  //if( !clash.isNull() ){
+  //  Debug("datatypes") << "Clash " << a << " " << clash << std::endl;
+  //  d_conflict = d_cc.explain( a, clash );
+  //  Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
+  //  return;
+  //}
   d_unionFind.setCanon(a, b);
 
   deq_ia = d_disequalities.find(a);
@@ -625,6 +622,23 @@ void TheoryDatatypes::appendToEqList(TNode of, TNode eq) {
   eql->push_back(eq);
   //if(Debug.isOn("uf")) {
   //  Debug("uf") << "  size is now " << eql->size() << endl;
+  //}
+}
+
+void TheoryDatatypes::addEquality(TNode eq){
+  Assert(eq.getKind() == kind::EQUAL ||
+         eq.getKind() == kind::IFF);
+  d_cc.addEquality(eq);
+  ////do unification
+  //if( eq[0].getKind()==APPLY_CONSTRUCTOR && eq[1].getKind()==APPLY_CONSTRUCTOR &&
+  //  eq[0].getOperator()==eq[1].getOperator() ){
+  //  Debug("datatypes") << "Unification: " << eq[0] << " and " << eq[1] << "." << std::endl;
+  //  for( int i=0; i<(int)eq[0].getNumChildren(); i++ ) {
+  //    Node newEq = NodeManager::currentNM()->mkNode( EQUAL, eq[0][i], eq[1][i] );
+  //    Debug("datatypes") << "UEqual: " << newEq << "." << std::endl;
+  //    //addEquality( newEq );
+  //    
+  //  }
   //}
 }
 

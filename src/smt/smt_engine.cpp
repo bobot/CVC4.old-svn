@@ -693,9 +693,11 @@ void SmtEngine::pop() {
 }
 
 void SmtEngine::addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Expr> > >& cons,
-                                        std::vector<std::pair< Type, std::vector<Expr> > >& testers ){
+                                        std::vector<std::pair< Type, std::vector<Expr> > >& testers,
+                                        std::vector<std::pair< Expr, std::vector<Expr> > >& sels ){
   std::vector<std::pair< TypeNode, std::vector<Node> > > n_cons;
   std::vector<std::pair< TypeNode, std::vector<Node> > > n_testers;
+  std::vector<std::pair< Node, std::vector<Node> > > n_sels;
   for( int i=0; i<(int)cons.size(); i++ ){
     std::vector<Node> vec;
     for( int j=0; j<(int)cons[i].second.size(); j++ ){
@@ -710,7 +712,14 @@ void SmtEngine::addDatatypeDefinitions( std::vector<std::pair< Type, std::vector
     }
     n_testers.push_back( std::pair< TypeNode, std::vector<Node> >( *(testers[i].first.d_typeNode), vec ) );
   }
-  d_theoryEngine->addDatatypeDefinitions( n_cons, n_testers );
+  for( int i=0; i<(int)sels.size(); i++ ){
+    std::vector<Node> vec;
+    for( int j=0; j<(int)sels[i].second.size(); j++ ){
+      vec.push_back( sels[i].second[j].getNode() );
+    }
+    n_sels.push_back( std::pair< Node, std::vector<Node> >( sels[i].first.getNode(), vec ) );
+  }
+  d_theoryEngine->addDatatypeDefinitions( n_cons, n_testers, n_sels );
 }
 
 void SmtEngine::internalPop() {

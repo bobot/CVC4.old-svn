@@ -378,7 +378,8 @@ public:
   Node getValue(TNode node);
 
   void addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
-                               std::vector<std::pair< TypeNode, std::vector<Node> > >& testers );
+                               std::vector<std::pair< TypeNode, std::vector<Node> > >& testers,
+                               std::vector<std::pair< Node, std::vector< Node > > >& sels );
 
 private:
   class Statistics {

@@ -347,7 +347,8 @@ public:
    * Add a vector of constructor defitions of the form (type, { vector of constructors for that type } )
    */
   void addDatatypeDefinitions( std::vector<std::pair< Type, std::vector<Expr> > >& cons,
-                               std::vector<std::pair< Type, std::vector<Expr> > >& testers );
+                               std::vector<std::pair< Type, std::vector<Expr> > >& testers,
+                               std::vector<std::pair< Expr, std::vector<Expr> > >& sels );
 
 };/* class SmtEngine */
 

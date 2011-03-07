@@ -506,16 +506,21 @@ DatatypeCommand::DatatypeCommand(){
 
 void DatatypeCommand::invoke(SmtEngine* smtEngine) {
   Debug("datatypes") << "Invoke datatype command."<< endl;
-  smtEngine->addDatatypeDefinitions( d_cons, d_testers );
+  smtEngine->addDatatypeDefinitions( d_cons, d_testers, d_sels );
 }
 
 void DatatypeCommand::toStream(std::ostream& out) const {
 
 }
 
-void DatatypeCommand::addDefinition( Type t, std::vector< Expr >& cons, std::vector< Expr >& testers ){
+void DatatypeCommand::addDefinition( Type t, std::vector< Expr >& cons, std::vector< Expr >& testers,
+                                     std::vector< std::vector< Expr > >& sels ){
+  Assert( cons.size()==sels.size() );
   d_cons.push_back( std::pair< Type, std::vector<Expr> >( t, cons ) );
   d_testers.push_back( std::pair< Type, std::vector<Expr> >( t, testers ) );
+  for( int i=0; i<(int)sels.size(); i++ ){
+    d_sels.push_back( std::pair< Expr, std::vector<Expr> >( cons[i], sels[i] ) );
+  }
 }
 
 /* output stream insertion operator for benchmark statuses */

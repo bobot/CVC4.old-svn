@@ -85,6 +85,10 @@ public:
   inline void setCanon(TNode n, TNode newParent);
 
   /**
+   */
+  inline NodeType checkClash(TNode n, TNode newParent);
+
+  /**
    * Called by the Context when a pop occurs.  Cancels everything to the
    * current context level.  Overrides ContextNotifyObj::notify().
    */
@@ -137,6 +141,23 @@ inline void UnionFind<NodeType, NodeHash>::setCanon(TNode n, TNode newParent) {
     d_trace.push_back(make_pair(n, TNode::null()));
     d_offset = d_trace.size();
   }
+}
+
+template <class NodeType, class NodeHash>
+inline NodeType UnionFind<NodeType, NodeHash>::checkClash(TNode n, TNode newParent) {
+  //check for conflicts
+  if( n.getKind()==kind::APPLY_CONSTRUCTOR ){
+    if( newParent.getKind()==kind::APPLY_CONSTRUCTOR && n!=newParent ){
+      return newParent;
+    }
+    typename MapType::iterator it;
+    for( it = d_map.begin(); it != d_map.end(); ++it ){
+      if( it->second==newParent && it->first.getKind()==kind::APPLY_CONSTRUCTOR && it->first!=n ){
+        return it->first;
+      }
+    }
+  }
+  return Node::null();
 }
 
 }/* CVC4::theory::datatypes namespace */

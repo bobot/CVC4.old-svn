@@ -622,9 +622,10 @@ Node TheoryEngine::getValue(TNode node) {
 }/* TheoryEngine::getValue(TNode node) */
 
 void TheoryEngine::addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
-                                           std::vector<std::pair< TypeNode, std::vector<Node> > >& testers )
+                                           std::vector<std::pair< TypeNode, std::vector<Node> > >& testers,
+                                           std::vector<std::pair< Node, std::vector<Node> > >& sels )
 {
-  ((theory::datatypes::TheoryDatatypes*)d_datatypes)->addDatatypeDefinitions( cons, testers );
+  ((theory::datatypes::TheoryDatatypes*)d_datatypes)->addDatatypeDefinitions( cons, testers, sels );
 }
 
 
