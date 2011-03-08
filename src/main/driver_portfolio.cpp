@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
-#include <boost/thread/thread.hpp>
+#include <boost/thread.hpp>
 #include <boost/thread/condition.hpp>
 
 #include "main.h"
