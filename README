@@ -28,6 +28,7 @@ given are minimum versions; more recent versions should be compatible.
 GNU C and C++ (gcc and g++), reasonably recent versions
 GNU Make
 GMP v4.2
+The Boost C++ threading library (libboost_thread)
 libantlr3c v3.2
 Optional: CLN v1.3
 

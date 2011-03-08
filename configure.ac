@@ -573,6 +573,10 @@ if test "$enable_profiling" = yes; then
   CVC4LDFLAGS="${CVC4LDFLAGS:+$CVC4LDFLAGS }-pg"
 fi
 
+# require boost library
+BOOST_REQUIRE
+BOOST_THREADS
+
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 

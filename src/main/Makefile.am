@@ -53,6 +53,9 @@ cvc4_LDADD = \
 	../parser/libcvc4parser.la \
 	../libcvc4.la \
 	../lib/libreplacements.la
+cvc4_CPPFLAGS = $(AM_CPPFLAGS) $(BOOST_CPPFLAGS)
+cvc4_LDADD += $(BOOST_THREAD_LIBS)
+cvc4_LDADD += $(BOOST_THREAD_LDFLAGS)
 
 if STATIC_BINARY
 cvc4_LINK = $(CXXLINK) -all-static
