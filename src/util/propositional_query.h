@@ -1,10 +1,23 @@
 /*********************                                                        */
 /*! \file propositional_query.h
+ ** \verbatim
+ ** Original author: taking
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
  **
- ** \brief PropositionalQuery is a way for parts of CVC4 to do quick purely
- ** propositional satisfiability or validity checks on a Node.
- ** These checks have no theory reasoning, and handle atoms as propositional
- ** variables.
+ ** \brief A class for simple, quick, propositional
+ ** satisfiability/validity checking
+ **
+ ** PropositionalQuery is a way for parts of CVC4 to do quick purely
+ ** propositional satisfiability or validity checks on a Node.  These
+ ** checks do no theory reasoning, and handle atoms as propositional
+ ** variables, but can sometimes be useful for subqueries.
  **/
 
 #include "cvc4_private.h"
@@ -16,7 +29,6 @@
 #include "util/result.h"
 
 namespace CVC4 {
-namespace prop {
 
 /**
  * PropositionalQuery is a way for parts of CVC4 to do quick purely
@@ -49,7 +61,6 @@ public:
 
 };/* class PropositionalQuery */
 
-}/* CVC4::prop namespace */
 }/* CVC4 namespace */
 
 #endif /* __CVC4__PROPOSITIONAL_QUERY_H */

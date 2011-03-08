@@ -1,39 +1,41 @@
 /*********************                                                        */
-/*! \file prop_engine.cpp
+/*! \file propositional_query.cpp
  ** \verbatim
- ** Original author: mdeters
- ** Major contributors: cconway, dejan
- ** Minor contributors (to current version): taking
+ ** Original author: taking
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Implementation of the propositional engine of CVC4.
+ ** \brief A class for simple, quick, propositional
+ ** satisfiability/validity checking
  **
- ** Implementation of the propositional engine of CVC4.
+ ** PropositionalQuery is a way for parts of CVC4 to do quick purely
+ ** propositional satisfiability or validity checks on a Node.  These
+ ** checks do no theory reasoning, and handle atoms as propositional
+ ** variables, but can sometimes be useful for subqueries.
  **/
 
-#include "prop/propositional_query.h"
+#include "util/propositional_query.h"
+
 #include <map>
 #include <algorithm>
 
-//#include <bdd.h>
-
-#include "/usr/include/cudd/util.h"
-#include "/usr/include/cudd/cudd.h"
-#include "/usr/include/cudd/cuddObj.hh"
-
 using namespace std;
 using namespace CVC4;
-using namespace CVC4::prop;
 using namespace CVC4::kind;
 
+#ifdef CVC4_USE_CUDD
+
+#include <util.h>
+#include <cudd.h>
+#include <cuddObj.hh>
 
 namespace CVC4 {
-namespace prop {
 
 class BddInstance {
 private:
@@ -114,9 +116,8 @@ public:
 
   Result getResult() const{ return d_result; }
 
-
 };/* class BddInstance */
-}/* CVC4::prop namespace */
+
 }/* CVC4 namespace */
 
 BDD BddInstance::encodeNode(TNode t){
@@ -126,7 +127,6 @@ BDD BddInstance::encodeNode(TNode t){
     return encodeCombinator(t);
   }
 }
-
 
 BDD BddInstance::encodeCombinator(TNode t){
   switch(t.getKind()){
@@ -226,15 +226,25 @@ void BddInstance::setupAtoms(TNode t){
   }
 }
 
-Result PropositionalQuery::isSatisfiable(TNode q){
+Result PropositionalQuery::isSatisfiable(TNode q) {
   BddInstance instance(q);
-
   return instance.getResult();
 }
 
-Result PropositionalQuery::isTautology(TNode q){
-  Node negQ = NodeBuilder<1>(kind::NOT) << q;
+Result PropositionalQuery::isTautology(TNode q) {
+  Node negQ = q.notNode();
   Result satResult = isSatisfiable(negQ);
-
   return satResult.asValidityResult();
 }
+
+#else /* CVC4_USE_CUDD */
+
+Result PropositionalQuery::isSatisfiable(TNode q) {
+  return Result(Result::SAT_UNKNOWN, Result::UNSUPPORTED);
+}
+
+Result PropositionalQuery::isTautology(TNode q){
+  return Result(Result::VALIDITY_UNKNOWN, Result::UNSUPPORTED);
+}
+
+#endif /* CVC4_USE_CUDD */

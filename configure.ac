@@ -270,8 +270,6 @@ if test "$custom_build_profile" = yes; then
 fi
 AC_MSG_RESULT($build_type)
 
-AC_CHECK_LIB(bdd, bdd_init, , [AC_MSG_ERROR([libbdd not found])])
-
 # Require building in target and build-specific build directory:
 #
 # If the configure script is invoked from the top-level source

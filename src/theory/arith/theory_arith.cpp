@@ -107,7 +107,7 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_avgNumMiplibtrickValues);
 }
 
-#include "prop/propositional_query.h"
+#include "util/propositional_query.h"
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_staticLearningTimer);
 
@@ -277,7 +277,7 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
     Debug("arith::miplib") << "var: " << var << endl;
     Debug("arith::miplib") << "possibleTaut: " << possibleTaut << endl;
 
-    Result isTaut = prop::PropositionalQuery::isTautology(possibleTaut);
+    Result isTaut = PropositionalQuery::isTautology(possibleTaut);
     if(isTaut == Result(Result::VALID)){
       Debug("arith::miplib") << var << " found a tautology!"<< endl;
 
