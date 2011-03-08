@@ -5,12 +5,10 @@ AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
 noinst_LTLIBRARIES = libutil.la libutilcudd.la
 
-CUDD_DIR = /Users/mdeters/cudd-2.4.2
-CUDD_CPPFLAGS = -I$(CUDD_DIR)/include -DCVC4_USE_CUDD
-CUDD_LDFLAGS = -L$(CUDD_DIR)/util -L$(CUDD_DIR)/cudd -L$(CUDD_DIR)/st -L$(CUDD_DIR)/mtr -L$(CUDD_DIR)/epd -L$(CUDD_DIR)/obj -lobj -lcudd -lst -lmtr -lepd -lutil
-
-libutilcudd_la_CPPFLAGS = $(CPPFLAGS) $(AM_CPPFLAGS) $(CUDD_CPPFLAGS)
-libutilcudd_la_LIBADD = $(CUDD_LDFLAGS)
+# libutilcudd.la is a separate library so that we can pass separate
+# compiler flags
+libutilcudd_la_CPPFLAGS = $(CPPFLAGS) $(AM_CPPFLAGS) @CUDD_CPPFLAGS@
+libutilcudd_la_LIBADD = @CUDD_LDFLAGS@
 
 libutil_la_SOURCES = \
 	Assert.h \

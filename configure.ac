@@ -647,6 +647,37 @@ AC_SEARCH_LIBS([clock_gettime], [rt],
                           [Defined to 1 if clock_gettime() is supported by the platform.])],
                [AC_LIBOBJ([clock_gettime])])
 
+AC_ARG_WITH([cudd-dir],
+  [AS_HELP_STRING([--with-cudd-dir=DIR], [path to cudd installation])],
+  [CUDD_DIR="$withval"])
+if test -z "$CUDD_DIR"; then
+  CUDD_DIR=/usr
+fi
+AC_MSG_CHECKING([for cudd includes under $CUDD_DIR])
+CUDD_CPPFLAGS=
+CUDD_LDFLAGS=
+result="not found"
+for cuddinc in "$CUDD_DIR/include" "$CUDD_DIR/include/cudd" "$CUDD_DIR"; do
+  if test -r "$cuddinc/cudd.h"; then
+    CUDD_CPPFLAGS="-DCVC4_USE_CUDD \"-I$cuddinc\""
+    result="$cuddinc"
+    break
+  fi
+done
+AC_MSG_RESULT([$result])
+AC_MSG_CHECKING([for cudd libraries under $CUDD_DIR])
+result="not found"
+for cuddlib in "$CUDD_DIR/lib" "$CUDD_DIR/lib/cudd" "$CUDD_DIR"; do
+  if test -r "$cuddlib/libcuddxx.la"; then
+    CUDD_LDFLAGS="\"-L$cuddlib\" -lcuddxx"
+    result="$cuddlib"
+    break
+  fi
+done
+AC_MSG_RESULT([$result]);
+AC_SUBST([CUDD_CPPFLAGS])
+AC_SUBST([CUDD_LDFLAGS])
+
 # Check for antlr C++ runtime (defined in config/antlr.m4)
 AC_LIB_ANTLR
 
