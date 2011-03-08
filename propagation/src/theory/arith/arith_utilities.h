@@ -43,6 +43,7 @@ typedef uint32_t ArithVar;
 typedef __gnu_cxx::hash_map<Node, ArithVar, NodeHashFunction> NodeToArithVarMap;
 typedef __gnu_cxx::hash_map<ArithVar, Node> ArithVarToNodeMap;
 
+typedef __gnu_cxx::hash_set<Node, NodeHashFunction> LemmaSet;
 
 inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);

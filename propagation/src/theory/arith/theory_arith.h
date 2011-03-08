@@ -143,9 +143,7 @@ private:
   uint32_t d_tableauResetPeriod;
   static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
 
-  typedef __gnu_cxx::hash_set<Node, NodeHashFunction> NodeSet;
-  NodeSet d_propLemmas;
-  PermissiveBackArithVarSet d_triedSoFar;
+  LemmaSet d_propLemmas;
 
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;

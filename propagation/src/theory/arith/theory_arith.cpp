@@ -67,7 +67,7 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_tableauResetDensity(2.0),
   d_tableauResetPeriod(10),
   d_propagator(c, &out),
-  d_simplex(d_constants, d_partialModel, d_out, d_tableau),
+  d_simplex(d_constants, d_partialModel, d_out, d_tableau, d_propLemmas),
   d_statistics()
 {}
 
@@ -592,25 +592,25 @@ void TheoryArith::propagate(Effort e) {
   if(quickCheckOrMore(e)){
     while(d_simplex.hasMoreLemmas()){
       Node lemma = d_simplex.popLemma();
-      if(d_propLemmas.find(lemma) == d_propLemmas.end() ){
-        d_propLemmas.insert(lemma);
-        d_out->lemma(lemma);
-      }
+      Assert(d_propLemmas.find(lemma) != d_propLemmas.end());
+      d_out->lemma(lemma);
     }
   }
   if(quickCheckOrMore(e)){
     Debug("propagation") << "propagate " << numPropagate << endl;
-    d_triedSoFar.clear();
+    PermissiveBackArithVarSet::iterator i = d_simplex.beginBasicToLookAt();
+    PermissiveBackArithVarSet::iterator end = d_simplex.endBasicToLookAt();
+
     unsigned checked = 0;
-    while(d_simplex.hasMoreBasicsToLookAt()){
-      ArithVar cand = d_simplex.popBasicsToLookAt();
-      if(d_tableau.isBasic(cand) && !d_triedSoFar.isMember(cand)){
+    for(;i != end; ++i){
+      ArithVar cand = *i;
+      if(d_tableau.isBasic(cand)){
         ++checked;
         candidatePropagateBasic(cand);
-        d_triedSoFar.add(cand);
       }
       Debug("propagation") << "end propagate " << checked << endl;
     }
+    d_simplex.clearBasicToLookAt();
   }
 }
 
@@ -728,6 +728,7 @@ void TheoryArith::handleImpliedBound(TNode imp){
   if(!preregisteredBound.isNull()){
     Node simpImp = simpImplication(reason, preregisteredBound);
     Debug("propagation") << simpImp << endl;
+
     if(d_propLemmas.find(simpImp) == d_propLemmas.end() ){
       d_propLemmas.insert(simpImp);
 

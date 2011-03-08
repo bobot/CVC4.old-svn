@@ -17,7 +17,7 @@
 #include "util/stats.h"
 
 #include <vector>
-#include <queue>
+//#include <queue>
 
 namespace CVC4 {
 namespace theory {
@@ -45,13 +45,16 @@ private:
   std::vector<Node> d_delayedLemmas;
   uint32_t d_delayedLemmasPos;
 
-  std::queue<ArithVar> d_basicsToLookForProp;
+  //std::queue<ArithVar> d_basicsToLookForProp;
+  PermissiveBackArithVarSet d_triedSoFar;
+  LemmaSet& d_lemmaSet;
 
 public:
   SimplexDecisionProcedure(const ArithConstants& constants,
                            ArithPartialModel& pm,
                            OutputChannel* out,
-                           Tableau& tableau) :
+                           Tableau& tableau,
+                           LemmaSet& lemmas) :
     d_constants(constants),
     d_partialModel(pm),
     d_out(out),
@@ -59,7 +62,8 @@ public:
     d_queue(pm, tableau),
     d_numVariables(0),
     d_delayedLemmas(),
-    d_delayedLemmasPos(0)
+    d_delayedLemmasPos(0),
+    d_lemmaSet(lemmas)
   {}
 
 
@@ -153,9 +157,9 @@ public:
 private:
   template <PreferenceFunction> Node searchForFeasibleSolution(uint32_t maxIterations);
 
-  enum SearchPeriod {BeforeDiffSearch, AfterDiffSearch, DuringVarOrderSearch};
+  enum SearchPeriod {BeforeDiffSearch, DuringDiffSearch, AfterDiffSearch, DuringVarOrderSearch};
 
-  Node findConflictOnTheQueue(SearchPeriod period);
+  Node findConflictOnTheQueue(SearchPeriod period, bool returnFirst = true);
 
 
   /**
@@ -249,6 +253,7 @@ public:
     return lemma;
   }
 
+  /*
   bool hasMoreBasicsToLookAt() {
     return !d_basicsToLookForProp.empty();
   }
@@ -257,13 +262,35 @@ public:
     ArithVar front = d_basicsToLookForProp.front();
     d_basicsToLookForProp.pop();
     return front;
+  }*/
+
+  PermissiveBackArithVarSet::iterator beginBasicToLookAt() const{
+    return d_triedSoFar.begin();
+  }
+  PermissiveBackArithVarSet::iterator endBasicToLookAt() const{
+    return d_triedSoFar.end();
+  }
+
+  void clearBasicToLookAt(){
+    d_triedSoFar.clear();
+  }
+
+private:
+  void addBasicToLookAt(ArithVar v){
+    Assert(d_tableau.isBasic(v));
+    if(!d_triedSoFar.isMember(v)){
+      d_triedSoFar.add(v);
+    }
   }
 
 private:
   /** Adds a lemma to the queue. */
   void pushLemma(Node lemma){
-    d_delayedLemmas.push_back(lemma);
-    ++(d_statistics.d_delayedConflicts);
+    if(d_lemmaSet.find(lemma) == d_lemmaSet.end()){
+      d_delayedLemmas.push_back(lemma);
+      ++(d_statistics.d_delayedConflicts);
+      d_lemmaSet.insert(lemma);
+    }
   }
 
   /** Adds a conflict as a lemma to the queue. */
@@ -291,6 +318,7 @@ private:
 
     IntStat d_attemptBeforeDiffSearch, d_successBeforeDiffSearch;
     IntStat d_attemptAfterDiffSearch, d_successAfterDiffSearch;
+    IntStat d_attemptDuringDiffSearch, d_successDuringDiffSearch;
     IntStat d_attemptDuringVarOrderSearch, d_successDuringVarOrderSearch;
 
     IntStat d_delayedConflicts;
