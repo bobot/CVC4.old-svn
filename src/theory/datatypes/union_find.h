@@ -84,9 +84,17 @@ public:
    */
   inline void setCanon(TNode n, TNode newParent);
 
+private:
   /**
    */
-  inline NodeType checkClash(TNode n, TNode newParent);
+  inline bool isClashConstructor( TNode n1, TNode n2 );
+  inline bool isCycleConstructor( TNode n1, TNode n2 );
+
+public:
+  /**
+   */
+  inline bool isInconsistentConstructor( TNode n1, TNode n2 );
+  inline NodeType checkInconsistent(TNode n, TNode newParent);
 
   /**
    * Called by the Context when a pop occurs.  Cancels everything to the
@@ -144,15 +152,51 @@ inline void UnionFind<NodeType, NodeHash>::setCanon(TNode n, TNode newParent) {
 }
 
 template <class NodeType, class NodeHash>
-inline NodeType UnionFind<NodeType, NodeHash>::checkClash(TNode n, TNode newParent) {
+inline bool UnionFind<NodeType, NodeHash>::isClashConstructor(TNode n1, TNode n2) {
+  if( n1.getKind()==kind::APPLY_CONSTRUCTOR && n2.getKind()==kind::APPLY_CONSTRUCTOR ){
+    if( n1.getOperator()!=n2.getOperator() ){
+      return true;
+    }else{
+      Assert( n1.getNumChildren()==n2.getNumChildren() );
+      for( int i=0; i<(int)n1.getNumChildren(); i++ ){
+        if( isClashConstructor( n1[i], n2[i] ) ){
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+template <class NodeType, class NodeHash>
+inline bool UnionFind<NodeType, NodeHash>::isCycleConstructor(TNode n1, TNode n2) {
+  if( n1==n2 ){
+    return true;
+  }else if( n2.getKind()==kind::APPLY_CONSTRUCTOR ){
+    for( int i=0; i<(int)n2.getNumChildren(); i++ ){
+      if( isCycleConstructor( n1, n2[i] ) ){
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+template <class NodeType, class NodeHash>
+inline bool UnionFind<NodeType, NodeHash>::isInconsistentConstructor(TNode n1, TNode n2) {
+  return isClashConstructor( n1, n2 ) || ( n1!=n2 && ( isCycleConstructor( n1, n2 ) || isCycleConstructor( n2, n1 ) ) );
+}
+
+template <class NodeType, class NodeHash>
+inline NodeType UnionFind<NodeType, NodeHash>::checkInconsistent(TNode n, TNode newParent) {
   //check for conflicts
   if( n.getKind()==kind::APPLY_CONSTRUCTOR ){
-    if( newParent.getKind()==kind::APPLY_CONSTRUCTOR && n!=newParent ){
+    if( isInconsistentConstructor( n, newParent ) ){
       return newParent;
     }
     typename MapType::iterator it;
     for( it = d_map.begin(); it != d_map.end(); ++it ){
-      if( it->second==newParent && it->first.getKind()==kind::APPLY_CONSTRUCTOR && it->first!=n ){
+      if( it->second==newParent && isInconsistentConstructor( n, it->first ) ){
         return it->first;
       }
     }

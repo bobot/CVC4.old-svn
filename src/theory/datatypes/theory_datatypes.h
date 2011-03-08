@@ -54,6 +54,8 @@ private:
   std::map< Node, bool > d_cons_wellFounded;
   //whether we need to check finite and well foundedness
   bool requiresCheckFiniteWellFounded;
+  //map from equalties and the equalities they are derived from
+  context::CDMap< Node, TNode, NodeHashFunction > d_drv_map;
   //Type getType( TypeNode t );
   int getConstructorIndex( TypeNode t, Node t );
   int getTesterIndex( TypeNode t, Node t );
@@ -110,6 +112,7 @@ private:
    * conflict to get the actual explanation)
    */
   Node d_conflict;
+  bool d_conflict_is_input;
 public:
   TheoryDatatypes(int id, context::Context* c, OutputChannel& out);
   ~TheoryDatatypes();
@@ -135,7 +138,7 @@ public:
   std::string identify() const { return std::string("TheoryDatatypes"); }
 
   /* Helper methods */
-  void checkTester( Effort e, Node tassertion, Node assertion );
+  bool checkTester( Effort e, Node tassertion, Node assertion );
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);
@@ -146,7 +149,7 @@ public:
   void addDisequality(TNode eq);
   void addEquality(TNode eq);
   void registerEqualityForPropagation(TNode eq);
-  Node constructConflict(TNode diseq);
+  Node constructConflict(TNode diseq, bool incDisequality = true );
 
 };/* class TheoryDatatypes */
 

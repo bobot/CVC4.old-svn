@@ -147,6 +147,7 @@ SatLiteral CnfStream::convertAtom(TNode node) {
 
 SatLiteral CnfStream::getLiteral(TNode node) {
   TranslationCache::iterator find = d_translationCache.find(node);
+  Debug("cnf-ajr") << "add " << node << std::endl;
   Assert(find != d_translationCache.end(), "Literal not in the CNF Cache");
   SatLiteral literal = find->second.literal;
   Debug("cnf") << "CnfStream::getLiteral(" << node << ") => " << literal << std::endl;

@@ -126,7 +126,7 @@ void TheoryDatatypes::checkFiniteWellFounded(){
               //Debug("datatypes-finite") << t << " is type wf" << std::endl;
               NodeManager* nm = NodeManager::currentNM();
               std::vector< NodeTemplate<true> > children;
-              children.push_back( nm->mkVar( ct ) );
+              children.push_back( cn );
               for( int c=0; c<(int)ct.getNumChildren()-1; c++ ){
                 TypeNode ts = ct[c];
                 if( isDatatype( ts ) ){
@@ -166,13 +166,15 @@ void TheoryDatatypes::checkFiniteWellFounded(){
 
 TheoryDatatypes::TheoryDatatypes(int id, Context* c, OutputChannel& out) :
   Theory(id, c, out),
+  d_drv_map(c),
   d_labels(c),
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
   d_disequalities(c),
   d_equalities(c),
-  d_conflict()
+  d_conflict(), 
+  d_conflict_is_input( false )
 {
   requiresCheckFiniteWellFounded = true;
 }
@@ -204,7 +206,6 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
     Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: Rewrite trivial tester " << in << endl;
     Debug("datatypes-rewrite") << testType << " " << in.getOperator() << " " << testIndex << endl;
     Debug("datatypes-rewrite") << consType << " " << in[0].getOperator() << " " << consIndex << endl;
-    //FIXME
     return RewriteComplete(NodeManager::currentNM()->mkConst(testIndex==consIndex));
   }
   if( in.getKind()==APPLY_SELECTOR &&
@@ -236,6 +237,9 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
     return RewriteComplete(NodeManager::currentNM()->mkConst(true));
   }
   if( in.getKind()==kind::NOT && in[0].getKind()==kind::EQUAL && in[0][0]==in[0][1] ){
+    return RewriteComplete(NodeManager::currentNM()->mkConst(false));
+  }
+  if( in.getKind()==kind::EQUAL && d_unionFind.isInconsistentConstructor( in[0], in[1] ) ){
     return RewriteComplete(NodeManager::currentNM()->mkConst(false));
   }
 
@@ -306,7 +310,7 @@ void TheoryDatatypes::check(Effort e) {
     case kind::IFF:
       addEquality(assertion);
       if(!d_conflict.isNull()) {
-        Node conflict = constructConflict(d_conflict);
+        Node conflict = constructConflict(d_conflict, d_conflict_is_input);
         d_conflict = Node::null();
         //++d_conflicts;
         d_out->conflict(conflict, false);
@@ -314,7 +318,7 @@ void TheoryDatatypes::check(Effort e) {
       }
       merge(assertion[0], assertion[1]);
       if(!d_conflict.isNull()) {
-        Node conflict = constructConflict(d_conflict);
+        Node conflict = constructConflict(d_conflict, d_conflict_is_input);
         d_conflict = Node::null();
         //++d_conflicts;
         d_out->conflict(conflict, false);
@@ -322,7 +326,9 @@ void TheoryDatatypes::check(Effort e) {
       }
       break;
     case kind::APPLY_TESTER:
-      checkTester( e, assertion, assertion );
+      if( checkTester( e, assertion, assertion ) ){
+        return;
+      }
       break;
     case kind::NOT:
       {
@@ -349,7 +355,7 @@ void TheoryDatatypes::check(Effort e) {
               // they are congruent.  We make this a separate case (even
               // though the check in the "else if.." below would also
               // catch it, so that we can clear out d_conflict.
-              Node conflict = constructConflict(d_conflict);
+              Node conflict = constructConflict(d_conflict, d_conflict_is_input);
               d_conflict = Node::null();
               //++d_conflicts;
               d_out->conflict(conflict, false);
@@ -370,7 +376,9 @@ void TheoryDatatypes::check(Effort e) {
           }
           break;
         case kind::APPLY_TESTER:
-          checkTester( e, assertion[0], assertion );
+          if( checkTester( e, assertion[0], assertion ) ){
+            return;
+          }
           break;
         default:
           Unhandled(assertion[0].getKind());
@@ -386,7 +394,7 @@ void TheoryDatatypes::check(Effort e) {
   Debug("datatypes") << "TheoryDatatypes::check(): done" << endl;
 }
 
-void TheoryDatatypes::checkTester( Effort e, Node tassertion, Node assertion ){
+bool TheoryDatatypes::checkTester( Effort e, Node tassertion, Node assertion ){
   Debug("datatypes") << "check tester " << assertion << std::endl;
   Assert( tassertion[0].getKind()!=kind::APPLY_CONSTRUCTOR );
 
@@ -401,52 +409,38 @@ void TheoryDatatypes::checkTester( Effort e, Node tassertion, Node assertion ){
     Debug("datatypes") << "label = " << lbl << std::endl;
 
     //check if empty label (no possible constructors for term)
+    Node conflict = Node::null();
     bool add = true;
     int notCount = 0;
-    if( assertion.getKind()==NOT ){
-      for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
-        TNode leqn = (*i);
-        if( leqn.getKind()==kind::NOT ){
-          if( leqn[0].getOperator()==tassertion.getOperator() ){
+    for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
+      TNode leqn = (*i);
+      if( leqn.getKind()==kind::NOT ){
+        if( leqn[0].getOperator()==tassertion.getOperator() ){
+          if( assertion.getKind()==NOT ){
             add = false;
-            break;
-          }
-          notCount++;
-        }else{
-          if( leqn.getOperator()==tassertion.getOperator() ){
+          }else{
             NodeBuilder<> nb(kind::AND);
             nb << leqn << assertion;
-            Node conflict = nb;
-            d_out->conflict( conflict, false );
-            Debug("datatypes") << "Contradictory labels1 " << conflict << std::endl;
+            conflict = nb;
+            Debug("datatypes") << "Contradictory labels " << conflict << std::endl;
           }
-          add = false;
           break;
         }
-      }
-    }else{
-      for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
-        TNode leqn = (*i);
-        if( leqn.getKind()==kind::NOT ){
-          if( leqn[0].getOperator()==tassertion.getOperator() ){
-            NodeBuilder<> nb(kind::AND);
-            nb << leqn << assertion;
-            Node conflict = nb;
-            d_out->conflict( conflict, false ); 
-            Debug("datatypes") << "Contradictory labels2 " << conflict << std::endl;
-          }
-        }else{
-          if( leqn.getOperator()!=tassertion.getOperator() ){
-            NodeBuilder<> nb(kind::AND);
-            nb << leqn << assertion;
-            Node conflict = nb;
-            d_out->conflict( conflict, false ); 
-            Debug("datatypes") << "Contradictory labels3 " << conflict << std::endl;
-          }
-          add = false;
-          break;
+        notCount++;
+      }else{
+        if( (leqn.getOperator()==tassertion.getOperator()) == (assertion.getKind()==NOT) ){
+          NodeBuilder<> nb(kind::AND);
+          nb << leqn << assertion;
+          conflict = nb;
+          Debug("datatypes") << "Contradictory labels2 " << conflict << std::endl;
         }
+        add = false;
+        break;
       }
+    }
+    if( !conflict.isNull() ){
+      d_out->conflict( conflict, false );
+      return true;
     }
     if( add ){
       if( assertion.getKind()==NOT && notCount==(int)d_cons[ tassertion[0].getType() ].size()-1 ){
@@ -458,11 +452,13 @@ void TheoryDatatypes::checkTester( Effort e, Node tassertion, Node assertion ){
         Node conflict = nb;
         d_out->conflict( conflict, false ); 
         Debug("datatypes") << "Exhausted possibilities for labels " << conflict << std::endl;
+        return true;
       }
       lbl->push_back( assertion );
       Debug("datatypes") << "Add to labels " << lbl->size() << std::endl;
     }
   }
+  return false;
 }
 
 Node TheoryDatatypes::getValue(TNode n, TheoryEngine* engine) {
@@ -506,13 +502,14 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   }
 
   // b becomes the canon of a
-  //Node clash = d_unionFind.checkClash( a, b );
-  //if( !clash.isNull() ){
-  //  Debug("datatypes") << "Clash " << a << " " << clash << std::endl;
-  //  d_conflict = d_cc.explain( a, clash );
-  //  Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
-  //  return;
-  //}
+  Node clash = d_unionFind.checkInconsistent( a, b );
+  if( !clash.isNull() ){
+    Debug("datatypes") << "Clash " << a << " " << clash << std::endl;
+    d_conflict = NodeManager::currentNM()->mkNode( EQUAL, a, clash );
+    d_conflict_is_input = false;
+    Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
+    return;
+  }
   d_unionFind.setCanon(a, b);
 
   deq_ia = d_disequalities.find(a);
@@ -560,6 +557,7 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
 
       if(find(s) == find(t)) {
         d_conflict = deqn;
+        d_conflict_is_input = true;
         return;
       }
       Assert( sp == b || tp == b);
@@ -629,17 +627,19 @@ void TheoryDatatypes::addEquality(TNode eq){
   Assert(eq.getKind() == kind::EQUAL ||
          eq.getKind() == kind::IFF);
   d_cc.addEquality(eq);
-  ////do unification
-  //if( eq[0].getKind()==APPLY_CONSTRUCTOR && eq[1].getKind()==APPLY_CONSTRUCTOR &&
-  //  eq[0].getOperator()==eq[1].getOperator() ){
-  //  Debug("datatypes") << "Unification: " << eq[0] << " and " << eq[1] << "." << std::endl;
-  //  for( int i=0; i<(int)eq[0].getNumChildren(); i++ ) {
-  //    Node newEq = NodeManager::currentNM()->mkNode( EQUAL, eq[0][i], eq[1][i] );
-  //    Debug("datatypes") << "UEqual: " << newEq << "." << std::endl;
-  //    //addEquality( newEq );
-  //    
-  //  }
-  //}
+  //do unification
+  if( eq[0].getKind()==APPLY_CONSTRUCTOR && eq[1].getKind()==APPLY_CONSTRUCTOR &&
+    eq[0].getOperator()==eq[1].getOperator() ){
+    Debug("datatypes") << "Unification: " << eq[0] << " and " << eq[1] << "." << std::endl;
+    for( int i=0; i<(int)eq[0].getNumChildren(); i++ ) {
+      if( find( eq[0][i] )!=find( eq[1][i] ) ){
+        Node newEq = NodeManager::currentNM()->mkNode( EQUAL, eq[0][i], eq[1][i] );
+        Debug("datatypes") << "UEqual: " << newEq << "." << std::endl;
+        d_drv_map[ newEq ] = eq;
+        addEquality( newEq );
+      }
+    }
+  }
 }
 
 void TheoryDatatypes::addDisequality(TNode eq) {
@@ -671,7 +671,7 @@ void TheoryDatatypes::registerEqualityForPropagation(TNode eq) {
   appendToEqList(find(b), eq);
 }
 
-Node TheoryDatatypes::constructConflict(TNode diseq) {
+Node TheoryDatatypes::constructConflict(TNode diseq, bool incDisequality ) {
   Debug("datatypes") << "datatypes: begin constructConflict()" << endl;
   Debug("datatypes") << "datatypes:   using diseq == " << diseq << endl;
 
@@ -681,6 +681,28 @@ Node TheoryDatatypes::constructConflict(TNode diseq) {
   Assert(explanation.getKind() == kind::EQUAL ||
          explanation.getKind() == kind::IFF ||
          explanation.getKind() == kind::AND);
+
+  //map derived equalities back to their original
+  NodeBuilder<> nb(kind::AND);
+  if( explanation.getKind()==kind::AND ){
+    for( int i=0; i<(int)explanation.getNumChildren(); i++ ){
+      while( !d_drv_map[ explanation[i] ].get().isNull() ){
+        explanation[i] = d_drv_map[ explanation[i] ].get();
+      }
+      nb << explanation[i];
+    }
+  }else{
+    while( !d_drv_map[ explanation ].get().isNull() ){
+      explanation = d_drv_map[ explanation ].get();
+    }
+    nb << explanation;
+  }
+  if( incDisequality ){
+    nb << diseq.notNode();
+  }
+  if( explanation.getKind()==kind::AND || incDisequality ){
+    explanation = nb;
+  }
 
   Debug("datatypes") << "conflict constructed : " << explanation << endl;
   return explanation;
