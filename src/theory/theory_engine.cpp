@@ -17,7 +17,8 @@
  **/
 
 #include <vector>
-#include <list>
+#include <stack>
+#include <utility>
 
 #include "expr/attribute.h"
 #include "expr/node.h"
@@ -62,68 +63,56 @@ void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
 //     if (fact.getKind() == kind::EQUAL) {
 //       d_engine->getSharedTermManager()->addDiseq(fact);
 //     }
-  }
-  else if (fact.getKind() == kind::EQUAL) {
+  } else if(fact.getKind() == kind::EQUAL) {
     // Automatically track all asserted equalities in the shared term manager
     d_engine->getSharedTermManager()->addEq(fact);
   }
 
   if(d_engine->d_theoryRegistration && !fact.getAttribute(RegisteredAttr())) {
-    list<TNode> toReg;
-    toReg.push_back(fact);
+    stack<pair<TNode, bool> > toReg;
+    toReg.push(make_pair(fact, false));
 
     Debug("theory") << "Theory::get(): registering new atom" << endl;
 
-    /* Essentially this is doing a breadth-first numbering of
-     * non-registered subterms with children.  Any non-registered
-     * leaves are immediately registered. */
-    for(list<TNode>::iterator workp = toReg.begin();
-        workp != toReg.end();
-        ++workp) {
+    /* Depth-first traversal through node structure, register in
+     * reverse order. */
+    while(toReg.size() > 0) {
+      pair<TNode, bool> p = toReg.top();
+      TNode n = p.first;
+      bool childrenProcessed = p.second;
+      toReg.pop();
+      if(! n.getAttribute(RegisteredAttr())) {
+        if(!childrenProcessed) {
+          // Children of n not yet processed.  First remember that we have
+          // processed n, then actually process the children.
+          toReg.push(make_pair(n, true));
 
-      TNode n = *workp;
-      Theory* thParent = d_engine->theoryOf(n);
+          Theory* thParent = d_engine->theoryOf(n);
 
-      for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
-        TNode c = *i;
-        Theory* thChild = d_engine->theoryOf(c);
+          for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
+            TNode c = *i;
+            Theory* thChild = d_engine->theoryOf(c);
 
-        if (thParent != thChild) {
-          d_engine->getSharedTermManager()->addTerm(c, thParent, thChild);
-        }
-        if(! c.getAttribute(RegisteredAttr())) {
-          if(c.getNumChildren() == 0) {
-            c.setAttribute(RegisteredAttr(), true);
-            thChild->registerTerm(c);
-          } else {
-            toReg.push_back(c);
+            if(thParent != thChild) {
+              d_engine->getSharedTermManager()->addTerm(c, thParent, thChild);
+            }
+            if(! c.getAttribute(RegisteredAttr())) {
+              if(c.getNumChildren() == 0) {
+                c.setAttribute(RegisteredAttr(), true);
+                thChild->registerTerm(c);
+              } else {
+                toReg.push(make_pair(c, false));
+              }
+            }
+          }
+        } else {
+          // children of n were previously processed, just register n
+          // and continue
+          if(! n.getAttribute(RegisteredAttr())) {
+            n.setAttribute(RegisteredAttr(), true);
+            d_engine->theoryOf(n)->registerTerm(n);
           }
         }
-      }
-    }
-
-    /* Now register the list of terms in reverse order.  Between this
-     * and the above registration of leaves, this should ensure that
-     * all subterms in the entire tree were registered in
-     * reverse-topological order. */
-    for(list<TNode>::reverse_iterator i = toReg.rbegin();
-        i != toReg.rend();
-        ++i) {
-
-      TNode n = *i;
-
-      /* Note that a shared TNode in the DAG rooted at "fact" could
-       * appear twice on the list, so we have to avoid hitting it
-       * twice. */
-      // FIXME when ExprSets are online, use one of those to avoid
-      // duplicates in the above?
-      // Actually, that doesn't work because you have to make sure 
-      // that the *last* occurrence is the one that gets processed first @CB
-      // This could be a big performance problem though because it requires
-      // traversing a DAG as a tree and that can really blow up @CB
-      if(! n.getAttribute(RegisteredAttr())) {
-        n.setAttribute(RegisteredAttr(), true);
-        d_engine->theoryOf(n)->registerTerm(n);
       }
     }
   }/* d_engine->d_theoryRegistration && !fact.getAttribute(RegisteredAttr()) */
