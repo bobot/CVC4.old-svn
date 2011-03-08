@@ -9,8 +9,8 @@ using namespace CVC4::kind;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-static const bool LATE_COMER = false;
-static const bool s_CHECK_AFTER_PIVOT = false;
+static const bool LATE_COMER = true;
+static const bool s_CHECK_AFTER_PIVOT = true;
 static const uint32_t DIFF_CHECK_PERIOD = 20;
 static const uint32_t VARORDER_CHECK_PERIOD = 100;
 
