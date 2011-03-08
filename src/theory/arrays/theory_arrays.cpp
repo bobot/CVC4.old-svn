@@ -52,14 +52,14 @@ TheoryArrays::~TheoryArrays() {
 
 
 void TheoryArrays::addSharedTerm(TNode t) {
-  Debug("arrays") << "TheoryArrays::addSharedTerm(): "
+  Debug("arrays") << "Arrays::addSharedTerm(): "
                   << t << endl;
 }
 
 
 void TheoryArrays::notifyEq(TNode lhs, TNode rhs) {
   /*
-  Debug("arrays") << "TheoryArrays::notifyEq(): "
+  Debug("arrays") << "Arrays::notifyEq(): "
                   << lhs << " = " << rhs << endl;
 
   NodeManager* nm = NodeManager::currentNM();
@@ -69,7 +69,7 @@ void TheoryArrays::notifyEq(TNode lhs, TNode rhs) {
 }
 
 void TheoryArrays::notifyCongruent(TNode a, TNode b) {
-  Debug("arrays") << "TheoryArrays::notifyCongruent(): "
+  Debug("arrays") << "Arrays::notifyCongruent(): "
        << a << " = " << b << endl;
   if(!d_conflict.isNull()) {
     return;
@@ -82,7 +82,7 @@ void TheoryArrays::check(Effort e) {
   Debug("arrays") <<"start check ";
   while(!done()) {
     Node assertion = get();
-    Debug("arrays") << "TheoryArrays::check(): " << assertion << endl;
+    Debug("arrays") << "Arrays::check(): " << assertion << endl;
 
     switch(assertion.getKind()) {
     case kind::EQUAL:
@@ -104,8 +104,8 @@ void TheoryArrays::check(Effort e) {
          assertion[0].getKind() == kind::IFF );
       Node a = assertion[0][0];
       Node b = assertion[0][1];
-
       addDiseq(assertion[0]);
+
       d_cc.addTerm(a);
       d_cc.addTerm(b);
 
@@ -124,14 +124,10 @@ void TheoryArrays::check(Effort e) {
         }
       Assert(!d_cc.areCongruent(a,b));
       if(a.getType().isArray()) {
-        checkExtLemmas(a, b);
+        addExtLemma(a, b);
       }
       break;
     }
-    case kind::CONST_BOOLEAN:
-      Debug("arrays")<<"TheoryArrays::check() CONST_BOOLEAN \n";
-      Assert(assertion == d_true_const);
-      break;
     default:
       Unhandled(assertion.getKind());
     }
@@ -139,7 +135,7 @@ void TheoryArrays::check(Effort e) {
   }
   // generate lemmas
 
-  Debug("arrays") << "TheoryArrays::check(): done" << endl;
+  Debug("arrays") << "Arrays::check(): done" << endl;
 }
 
 Node TheoryArrays::getValue(TNode n, Valuation* valuation) {
@@ -162,7 +158,7 @@ Node TheoryArrays::getValue(TNode n, Valuation* valuation) {
 void TheoryArrays::merge(TNode a, TNode b) {
   Assert(d_conflict.isNull());
 
-  Debug("arrays-merge")<<"TheoryArrays::merge() " << a <<" and " <<b <<endl;
+  Debug("arrays-merge")<<"Arrays::merge() " << a <<" and " <<b <<endl;
 
 
   // make "a" the one with shorter diseqList
@@ -265,6 +261,26 @@ void TheoryArrays::merge(TNode a, TNode b) {
 
 }
 
+bool TheoryArrays::isAxiom(TNode t1, TNode t2) {
+  Debug("arrays-axiom")<<"Arrays::isAxiom start "<<t1<<" = "<<t2<<"\n";
+  if(t1.getKind() == kind::SELECT) {
+    TNode a = t1[0];
+    TNode i = t1[1];
+
+    if(a.getKind() == kind::STORE) {
+      TNode b = a[0];
+      TNode j = a[1];
+      TNode v = a[2];
+      if(i == j && v == t2) {
+        Debug("arrays-axiom")<<"Arrays::isAxiom true\n";
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+
 Node TheoryArrays::constructConflict(TNode diseq) {
   Debug("arrays") << "arrays: begin constructConflict()" << endl;
   Debug("arrays") << "arrays:   using diseq == " << diseq << endl;
@@ -277,13 +293,18 @@ Node TheoryArrays::constructConflict(TNode diseq) {
   if(explanation.getKind() == kind::EQUAL ||
      explanation.getKind() == kind::IFF) {
     // if the explanation is only one literal
-    nb<<explanation;
+    if(!isAxiom(explanation[0], explanation[1]) &&
+       !isAxiom(explanation[1], explanation[0])) {
+      nb<<explanation;
+    }
   }
   else {
     Assert(explanation.getKind() == kind::AND);
     for(TNode::iterator i  = TNode(explanation).begin();
         i != TNode(explanation).end(); i++) {
-      nb<<*i;
+      if(!isAxiom((*i)[0], (*i)[1]) && !isAxiom((*i)[1], (*i)[0])) {
+        nb<<*i;
+      }
     }
   }
 
@@ -346,11 +367,27 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
 
 }
 
+void TheoryArrays::addRoW1Lemma(TNode a) {
+  Assert(a.getKind() == kind::STORE);
+  TNode i = a[1];
+  TNode v = a[2];
+
+  NodeManager* nm = NodeManager::currentNM();
+  Node ai = nm->mkNode(kind::SELECT, a, i);
+  Node eq = nm->mkNode(kind::EQUAL, ai, v);
+  // adding read-intro1 lemma
+  Debug("arrays-lem") <<"Arrays::addRoW1Lemma "<<eq<<"\n";
+  d_out->lemma(eq);
+
+  d_cc.addEquality(eq);
+}
+
+
 void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
 
   //Assert(find(a)!= find(b));
 
-  Debug("arrays-clr")<<"Arrays::checkLemmas "<<a<<"\n";
+  Debug("arrays-clr")<<"Arrays::checkLemmas begin \n"<<a<<"\n";
   if(Debug.isOn("arrays-clr"))
     d_infoMap.getInfo(a)->print();
   Debug("arrays-clr")<<"  ------------  and "<<b<<"\n";
@@ -363,28 +400,17 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
   CTNodeList::const_iterator it = i_a->begin();
   CTNodeList::const_iterator its;
 
+
   for( ; it != i_a->end(); it++ ) {
     TNode i = *it;
     its = inst_b->begin();
     for ( ; its != inst_b->end(); its++) {
-
       TNode store = *its;
       Assert(store.getKind() == kind::STORE);
       TNode j = store[1];
       TNode c = store[0];
-
-      NodeManager* nm = NodeManager::currentNM();
-      Node eq1 = nm->mkNode(kind::EQUAL, i, j);
-      Node ci = nm->mkNode(kind::SELECT, c, i);
-      Node ai = nm->mkNode(kind::SELECT, a, i);
-      Node eq2 = nm->mkNode(kind::EQUAL, ci, ai);
-
-      // TODO add check if lemma exists and if any of the disjuncts are already
-      // true
-      Debug("arrays-clr")<<i<<" "<<j<<" | "<<ci<<" "<<ai<<"\n";
-      if( i!= j && ci != ai) {
-        addLemma(nm->mkNode(kind::OR, eq1, eq2));
-      }
+      insertInRoWLemmaQueue(store, c, j, i);
+      //lemmas.push_back(make_quad(store, c, j, i));
     }
 
     its = eqst_b->begin();
@@ -393,66 +419,120 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
       Assert(store.getKind() == kind::STORE);
       TNode j = store[1];
       TNode c = store[0];
-
-      NodeManager* nm = NodeManager::currentNM();
-      Node eq1 = nm->mkNode(kind::EQUAL, i, j);
-      Node ci = nm->mkNode(kind::SELECT, c, i);
-      Node ai = nm->mkNode(kind::SELECT, a, i);
-      Node eq2 = nm->mkNode(kind::EQUAL, ci, ai);
-
-      // TODO add check if lemma exists and if any of the disjuncts are already
-      // true
-      if( i!= j && ci != ai ) {
-        addLemma(nm->mkNode(kind::OR, eq1, eq2));
-      }
+      insertInRoWLemmaQueue(store, c, j, i);
+      //lemmas.push_back(make_quad(store, c, j, i));
     }
 
   }
+
+  dischargeRoWLemmas();
+
+  Debug("arrays-clr")<<"Arrays::checkLemmas done.\n";
 }
 
-void TheoryArrays::checkExtLemmas(TNode a, TNode b) {
-  Assert(a.getType().isArray());
-  Assert(b.getType().isArray());
+inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
+ Assert(a.getType().isArray());
+ Assert(b.getType().isArray());
 
-  Debug("arrays-cle")<<"Arrays::checkExtLemmas "<<a<<" \n";
-  Debug("arrays-cle")<<"                   and "<<b<<" \n";
+ NodeManager* nm = NodeManager::currentNM();
+ Node aj = nm->mkNode(kind::SELECT, a, j);
+ Node bj = nm->mkNode(kind::SELECT, b, j);
+ Node eq1 = nm->mkNode(kind::EQUAL, aj, bj);
+ Node eq2 = nm->mkNode(kind::EQUAL, i, j);
+ Node lem = nm->mkNode(kind::OR, eq1, eq2);
+ //TODO: add checks for propagation
+ if(i!=j && aj!=bj) {
+   Debug("arrays-lem")<<"Arrays::addRoW2Lemma "<<lem<<"\n";
+   d_out->lemma(lem);
+ }
+ //Debug("arrays-lem")<<"Arrays::addRoW2Lemma redundant lemma "<<lem<<"\n";
+}
 
+void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
+  CTNodeList* stores;
+  CTNodeList::const_iterator it;
+  stores = d_infoMap.getInStores(a);
 
-  if(   d_extLemmaCache.count(make_pair(a, b)) == 0
-     && d_extLemmaCache.count(make_pair(b, a)) == 0) {
-
-    NodeManager* nm = NodeManager::currentNM();
-    Node k = nm->mkVar(a.getType()[0]);
-    Node eq = nm->mkNode(kind::EQUAL, a, b);
-    Node ak = nm->mkNode(kind::SELECT, a, k);
-    Node bk = nm->mkNode(kind::SELECT, b, k);
-    Node neq = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, ak, bk));
-    Node lem = nm->mkNode(kind::OR, eq, neq);
-
-    addLemma(lem);
-    d_extLemmaCache.insert(make_pair(a,b));
-    return;
+  Debug("arrays-cri")<<"Arrays::checkRoWForIndex "<<a<<"\n";
+  Debug("arrays-cri")<<"                   index "<<i<<"\n";
+  if(Debug.isOn("arrays-cri")) {
+    d_infoMap.getInfo(a)->print();
   }
-  Debug("arrays-cle")<<"Arrays::checkExtLemmas lemma already generated. \n";
+  it = stores->begin();
+  for(; it!= stores->end(); it++) {
+    TNode store = *it;
+    Assert(store.getKind()==kind::STORE);
+    TNode j = store[1];
+    insertInRoWLemmaQueue(store, store[0], j, i);
+  }
+
+  stores = d_infoMap.getEqStores(a);
+  it = stores->begin();
+  for(; it!= stores->end(); it++) {
+   TNode store = *it;
+   TNode j = store[1];
+   insertInRoWLemmaQueue(store, store[0], j, i);
+  }
+
+  dischargeRoWLemmas();
+}
+
+/**
+* Adds a new Ext lemma of the form
+*    a = b OR a[k]!=b[k], for a new variable k
+*/
+
+inline void TheoryArrays::addExtLemma(TNode a, TNode b) {
+ Assert(a.getType().isArray());
+ Assert(b.getType().isArray());
+
+ Debug("arrays-cle")<<"Arrays::checkExtLemmas "<<a<<" \n";
+ Debug("arrays-cle")<<"                   and "<<b<<" \n";
+
+
+ if(   d_extLemmaCache.count(make_pair(a, b)) == 0
+    && d_extLemmaCache.count(make_pair(b, a)) == 0) {
+
+   NodeManager* nm = NodeManager::currentNM();
+   Node k = nm->mkVar(a.getType()[0]);
+   Node eq = nm->mkNode(kind::EQUAL, a, b);
+   Node ak = nm->mkNode(kind::SELECT, a, k);
+   Node bk = nm->mkNode(kind::SELECT, b, k);
+   Node neq = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, ak, bk));
+   Node lem = nm->mkNode(kind::OR, eq, neq);
+
+   Debug("arrays-lem")<<"Arrays::addExtLemma "<<lem<<"\n";
+   d_out->lemma(lem);
+   d_extLemmaCache.insert(make_pair(a,b));
+
+   // check if we need to generate new RoW lemmas due to this index
+   // need to check for a and b
+   checkRoWForIndex(k, a);
+   checkRoWForIndex(k, b);
+
+   return;
+ }
+ Debug("arrays-cle")<<"Arrays::checkExtLemmas lemma already generated. \n";
 
 }
+
 
 /*
 
 inline void TheoryArrays::appendIndex(TNode a, TNode index) {
-  Debug("arrays::index")<<"TheoryArrays::appendIndex a       = "<<a<<" i = "<<index<<"\n";
+  Debug("arrays::index")<<"Arrays::appendIndex a       = "<<a<<" i = "<<index<<"\n";
   //Assert(a.getKind() == kind::ARRAY_TYPE);
 
   a = find(a);
 
-  Debug("arrays::index")<<"TheoryArrays::appendIndex find(a) = "<<a<<"\n";
+  Debug("arrays::index")<<"Arrays::appendIndex find(a) = "<<a<<"\n";
   CTNodeListAlloc* ilist;
   CNodeTNodesMap::iterator it = d_readIndicesMap.find(a);
   if( it == d_readIndicesMap.end()) {
     ilist = new (getContext()->getCMM()) CTNodeListAlloc(true, getContext(), false,
                                                     ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_readIndicesMap.insertDataFromContextMemory(a, ilist);
-    Debug("arrays::index")<<"TheoryArrays::appendIndex adding (find(a), [index]) entry \n";
+    Debug("arrays::index")<<"Arrays::appendIndex adding (find(a), [index]) entry \n";
     ilist->push_back(index);
   } else {
     ilist = (*it).second;
@@ -461,11 +541,11 @@ inline void TheoryArrays::appendIndex(TNode a, TNode index) {
     CTNodeListAlloc::const_iterator i = ilist->begin();
     for(; i!= ilist->end(); i++) {
       if((*i) == index) {
-        Debug("arrays::index")<<"TheoryArrays::appendIndex index already exits \n";
+        Debug("arrays::index")<<"Arrays::appendIndex index already exits \n";
         return;
       }
     }
-    Debug("arrays::index")<<"TheoryArrays::appendIndex appending index to find(a) \n";
+    Debug("arrays::index")<<"Arrays::appendIndex appending index to find(a) \n";
     ilist->push_back(index);
 
   }
@@ -473,20 +553,20 @@ inline void TheoryArrays::appendIndex(TNode a, TNode index) {
 }
 
 inline void TheoryArrays::appendStore(TNode a, TNode st) {
-  Debug("arrays::store")<<"TheoryArrays::appendStore a       = "<<a<<" st = "<<st<<"\n";
+  Debug("arrays::store")<<"Arrays::appendStore a       = "<<a<<" st = "<<st<<"\n";
   Assert(st.getKind() == kind::STORE);
   //TODO: good way to check it's an array?
   //Assert(a.getKind() == kind::ARRAY_TYPE);
   a = find(a);
 
-  Debug("arrays::store")<<"TheoryArrays::appendStore find(a) = "<<a<<"\n";
+  Debug("arrays::store")<<"Arrays::appendStore find(a) = "<<a<<"\n";
   CTNodeListAlloc* ilist;
   CNodeTNodesMap::iterator it = d_storesMap.find(a);
   if( it == d_storesMap.end()) {
     ilist = new (getContext()->getCMM()) CTNodeListAlloc(true, getContext(), false,
                                                     ContextMemoryAllocator<TNode>(getContext()->getCMM()));
     d_storesMap.insertDataFromContextMemory(a, ilist);
-    Debug("arrays::store")<<"TheoryArrays::appendStore adding (find(a), [st]) entry \n";
+    Debug("arrays::store")<<"Arrays::appendStore adding (find(a), [st]) entry \n";
     ilist->push_back(st);
   } else {
     ilist = (*it).second;
@@ -495,11 +575,11 @@ inline void TheoryArrays::appendStore(TNode a, TNode st) {
     CTNodeListAlloc::const_iterator i = ilist->begin();
     for(; i!= ilist->end(); i++) {
       if((*i) == st) {
-        Debug("arrays::store")<<"TheoryArrays::appendStore store already exits \n";
+        Debug("arrays::store")<<"Arrays::appendStore store already exits \n";
         return;
       }
     }
-    Debug("arrays::store")<<"TheoryArrays::appendStore appending store to find(a) \n";
+    Debug("arrays::store")<<"Arrays::appendStore appending store to find(a) \n";
     ilist->push_back(st);
 
 
@@ -513,7 +593,7 @@ inline void TheoryArrays::appendStore(TNode a, TNode st) {
 
 /*
 void TheoryArrays::mergeInfo(TNode a, TNode b, CNodeTNodesMap& info_map) {
-  Debug("arrays::merge")<<"TheoryArrays::mergeInfo of nodes \n"<<a<<"\n";
+  Debug("arrays::merge")<<"Arrays::mergeInfo of nodes \n"<<a<<"\n";
 
   CNodeTNodesMap::iterator iblist = info_map.find(b);
   CNodeTNodesMap::iterator ialist = info_map.find(a);

@@ -49,7 +49,7 @@ void ArrayInfo::mergeLists(CTNodeList* la, CTNodeList* lb) {
 void ArrayInfo::addIndex(const Node a, const TNode i) {
   Assert(a.getType().isArray());
   Assert(!i.getType().isArray()); // temporary for flat arrays
-
+  Debug("arrays-ind")<<"Arrays::addIndex "<<a<<"["<<i<<"]\n";
   CTNodeList* temp_indices;
   Info* temp_info;
 

@@ -256,11 +256,6 @@ public:
     Debug("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl<<d_logic<<std::endl;
 
 
-    if(d_logic == "QF_AX") {
-      //Debug("theory")<< "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays \n";
-      d_theoryTable[theory::THEORY_ARRAY]->assertFact(node);
-      return;
-    }
 
     // Get the atom
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
@@ -268,6 +263,13 @@ public:
 
     // Again, eqaulity is a special case
     if (atom.getKind() == kind::EQUAL) {
+
+      if(d_logic == "QF_AX") {
+        //Debug("theory")<< "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays \n";
+        d_theoryTable[theory::THEORY_ARRAY]->assertFact(node);
+        return;
+      }
+
       theory::TheoryId theoryLHS = theory::Theory::theoryOf(atom[0]);
       Debug("theory") << "asserting " << node << " to " << theoryLHS << std::endl;
       d_theoryTable[theoryLHS]->assertFact(node);

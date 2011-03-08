@@ -132,16 +132,6 @@ private:
 
   void checkRoWLemmas(TNode a, TNode b);
 
-  /**
-   * When the disequality a != b is asserted checks if we need to generate any
-   * extensionality lemmas of the form:
-   *
-   *      a = b OR a[k] != b[k], for a fresh variable k  *
-   *
-   */
-
-  void checkExtLemmas(TNode a, TNode b);
-
     /**
      * Marking stores and reads that have been already registered
      */
@@ -167,44 +157,79 @@ private:
   inline TNode debugFind(TNode a) const;
 
   inline void setCanon(TNode a, TNode b);
-  inline void addLemma(TNode lem) {
-    Debug("arrays-lem")<<"TheoryArrays::addLemma "<<lem<<"\n";
-    d_out->lemma(lem);
+  /**
+   * Add a RoW1 lemma of the form
+   *    read (store(a, i, v) i) = v
+   */
+  void addRoW1Lemma(TNode a);
+
+  /**
+   * Adds a RoW lemma of the form:
+   *    i = j OR a[j] = b [j]
+   * Preconditions: ...
+   */
+  void addRoW2Lemma(TNode a, TNode b, TNode i, TNode j);
+
+  /**
+   * Adds a new Ext lemma of the form
+   *    a = b OR a[k]!=b[k], for a new variable k
+   */
+
+  void addExtLemma(TNode a, TNode b);
+
+  /**
+   *
+   */
+  void checkRoWForIndex(TNode i, TNode a);
+
+  std::set<quad<TNode, TNode, TNode, TNode> > d_RoWLemmaQueue;
+
+  void insertInRoWLemmaQueue(TNode a, TNode b, TNode i, TNode j){
+    if(i != j) {
+      d_RoWLemmaQueue.insert(make_quad(a,b,i,j));
+    }
   }
 
+  void dischargeRoWLemmas() {
+    std::set<quad<TNode, TNode, TNode, TNode> >::iterator it = d_RoWLemmaQueue.begin();
+    for( ; it!= d_RoWLemmaQueue.end(); it++) {
+      addRoW2Lemma((*it).first, (*it).second, (*it).third, (*it).fourth);
+    }
+    d_RoWLemmaQueue.clear();
+  }
+
+  bool isAxiom(TNode a, TNode b);
 
 public:
   TheoryArrays(context::Context* c, OutputChannel& out);
   ~TheoryArrays();
 
   void preRegisterTerm(TNode n) {
-    Debug("arrays-preregister")<<"TheoryArrays::preRegisterTerm "<<n<<"\n";
+    Debug("arrays-preregister")<<"Arrays::preRegisterTerm "<<n<<"\n";
 
     switch(n.getKind()) {
     case kind::SELECT:
       d_infoMap.addIndex(n[0], n[1]);
-
-      // TODO: make sure this is ok even if it's not a new index
-      // fixme: only need to check one index, maybe abstract part of checkRoWlemmas
-      // not sure this works always!!!
-      checkRoWLemmas(n[0], find(n[0]));
-
       break;
 
     case kind::STORE:
     {
       d_infoMap.addEqStore(n, n);
       d_infoMap.addInStore(n[0], n);
+      // there is an implicit read
+      d_infoMap.addIndex(n, n[1]);
 
-      //FIXME: maybe can keep track of these lemmas internally
-      TNode b = n[0];
       TNode i = n[1];
       TNode v = n[2];
+
       NodeManager* nm = NodeManager::currentNM();
       Node ni = nm->mkNode(kind::SELECT, n, i);
       Node eq = nm->mkNode(kind::EQUAL, ni, v);
-      addLemma(eq);
+
+      d_infoMap.addIndex(n, i);
+
       d_cc.addEquality(eq);
+      //d_out->lemma(eq);
       break;
     }
     case kind::VARIABLE: {
@@ -220,7 +245,16 @@ public:
   }
 
   void registerTerm(TNode n) {
-    Debug("arrays-register")<<"TheoryArrays::registerTerm "<<n<<"\n";
+    Debug("arrays-register")<<"Arrays::registerTerm "<<n<<"\n";
+
+    if(n.getKind() == kind::STORE && find(n) == n) {
+      CTNodeList* is = d_infoMap.getIndices(n);
+      for(CTNodeList::const_iterator it = is->begin(); it != is->end(); it++) {
+        TNode i = (*it);
+        addRoW2Lemma(n, n[0],n[1],i);
+      }
+
+    }
   }
 
   void presolve() { Debug("arrays")<<"Presolving \n";}
