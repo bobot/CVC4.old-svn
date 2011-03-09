@@ -21,9 +21,9 @@ using namespace CVC4::main;
  * Put everything in runCvc4().
  */
 int main(int argc, char* argv[]) {
-  Options options; //just for local use
+  Options options;
   try {
-    return runCvc4Portfolio(argc, argv, options);
+    return runCvc4Portfolio(2, argc, argv, options);
   } catch(OptionException& e) {
     *options.out << "unknown" << endl;
     cerr << "CVC4 Error:" << endl << e << endl;
