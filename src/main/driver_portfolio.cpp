@@ -28,7 +28,7 @@ public:
   }
 
   void notifyNewLemma(Expr lemma) {
-    std::cout << d_tag << ": " << lemma << std::endl;
+    //std::cout << d_tag << ": " << lemma << std::endl;
   }
 
 };/* class PortfolioLemmaOutputChannel */
@@ -64,7 +64,8 @@ void runCvc4Thread(int argc, char **argv, Options options)
 
   if( returnValue ) {
 
-    boost::mutex::scoped_lock lock(mutex_done);   // we never unlock this
+    while(global_flag_done==false)
+    if( mutex_done.try_lock() ) {
 
     //fprintf(stderr, "INFO; Thread %d wins. Rerturns %d.\n", args->thread_id, returnValue);
     //CVC4::Notice("Thread " + intToString(t) + ": creating thread " + intToString(t) + "\n" );
@@ -76,10 +77,10 @@ void runCvc4Thread(int argc, char **argv, Options options)
     //exit(returnValue);  // hack for time being
 
     global_flag_done = true;
+    mutex_done.unlock();
     condition_var_main_wait.notify_all(); //we want main thread to quit
-  } else {
-    //pthread_exit(NULL);
-  }
+    }
+  } 
 }
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)

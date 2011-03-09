@@ -48,7 +48,6 @@ int main(int argc, char* argv[]) {
     }
     exit(1);
   } catch(...) {
-    throw;
 #ifdef CVC4_COMPETITION_MODE
     *options.out << "unknown" << endl;
 #endif
