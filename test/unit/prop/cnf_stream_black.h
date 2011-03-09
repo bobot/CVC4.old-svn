@@ -91,7 +91,7 @@ void setUp() {
   d_context = new Context;
   d_nodeManager = new NodeManager(d_context, NULL);
   d_satSolver = new FakeSatSolver;
-  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver);
+  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, false);
 }
 
 void tearDown() {

@@ -63,7 +63,10 @@ PropEngine::PropEngine(TheoryEngine* te,
   d_context(context) {
   Debug("prop") << "Constructing the PropEngine" << endl;
   d_satSolver = new SatSolver(this, d_theoryEngine, d_context, opts);
-  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver);
+
+  bool fullMap = true; // need full map for lemma sharing
+  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, fullMap);
+
   d_satSolver->setCnfStream(d_cnfStream);
 }
 
