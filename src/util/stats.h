@@ -31,6 +31,7 @@
 #include <ctime>
 
 #include "util/Assert.h"
+#include "util/tls.h"
 #include "lib/clock_gettime.h"
 
 namespace CVC4 {
@@ -61,7 +62,10 @@ private:
   typedef std::set< Stat*, StatCmp > StatSet;
 
   /** The set of currently active statistics */
-  static StatSet d_registeredStats;
+  static CVC4_THREADLOCAL(StatSet*) d_registeredStats;
+
+  /** Get a reference to the currently-registered set of statistics */
+  inline static StatSet& registeredStats();
 
   /** Private default constructor undefined (no construction permitted). */
   StatisticsRegistry() CVC4_UNDEFINED;
@@ -87,7 +91,7 @@ public:
    * (registered) statistics.
    */
   static inline const_iterator begin() {
-    return d_registeredStats.begin();
+    return registeredStats().begin();
   }
 
   /**
@@ -95,7 +99,7 @@ public:
    * (registered) statistics.
    */
   static inline const_iterator end() {
-    return d_registeredStats.end();
+    return registeredStats().end();
   }
 
 };/* class StatisticsRegistry */
@@ -121,7 +125,7 @@ private:
    * The delimiter between name and value to use when outputting a
    * statistic.
    */
-  static std::string s_delim;
+  static const char* const s_delim;
 
 public:
 
@@ -172,11 +176,17 @@ inline bool StatisticsRegistry::StatCmp::operator()(const Stat* s1,
   return s1->getName() < s2->getName();
 }
 
+inline StatisticsRegistry::StatSet& StatisticsRegistry::registeredStats() {
+  return (d_registeredStats == NULL) ?
+    *( d_registeredStats = new StatSet() ) :
+    *d_registeredStats;
+}
+
 inline void StatisticsRegistry::registerStat(Stat* s)
   throw(AssertionException) {
   if(__CVC4_USE_STATISTICS) {
-    AlwaysAssert(d_registeredStats.find(s) == d_registeredStats.end());
-    d_registeredStats.insert(s);
+    AlwaysAssert(registeredStats().find(s) == registeredStats().end());
+    registeredStats().insert(s);
   }
 }/* StatisticsRegistry::registerStat() */
 
@@ -184,8 +194,8 @@ inline void StatisticsRegistry::registerStat(Stat* s)
 inline void StatisticsRegistry::unregisterStat(Stat* s)
   throw(AssertionException) {
   if(__CVC4_USE_STATISTICS) {
-    AlwaysAssert(d_registeredStats.find(s) != d_registeredStats.end());
-    d_registeredStats.erase(s);
+    AlwaysAssert(registeredStats().find(s) != registeredStats().end());
+    registeredStats().erase(s);
   }
 }/* StatisticsRegistry::unregisterStat() */
 
