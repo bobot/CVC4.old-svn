@@ -750,18 +750,48 @@ void TheoryArith::permanentlyRemoveVariable(ArithVar v){
   ++(d_statistics.d_permanentlyRemovedVariables);
 }
 
+struct ColumnCompare {
+  const Tableau& d_tableau;
+  ColumnCompare(const Tableau& tab) : d_tableau(tab) {}
+
+  bool operator() (ArithVar i, ArithVar j) {
+    return d_tableau.getRowCount(i) < d_tableau.getRowCount(j);
+  }
+};
+
 void TheoryArith::presolve(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_presolveTime);
+
+  vector<ArithVar> variablesToRemove;
 
   typedef std::vector<Node>::const_iterator VarIter;
   for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
     Node variableNode = *i;
     ArithVar var = asArithVar(variableNode);
     if(d_userVariables.isMember(var) && !d_propagator.hasAnyAtoms(variableNode)){
-      //The user variable is unconstrained.
-      //Remove this variable permanently
-      permanentlyRemoveVariable(var);
+      variablesToRemove.push_back(var);
     }
+  }
+
+  ColumnCompare cc(d_tableau);
+  while(!variablesToRemove.empty()){
+    unsigned minIndex = 0;
+    unsigned minRowCount = d_tableau.getRowCount(variablesToRemove[minIndex]);
+    for(unsigned i=1; i < variablesToRemove.size(); ++i){
+      unsigned rowCount = d_tableau.getRowCount(variablesToRemove[i]);
+      if(rowCount < minRowCount){
+        minRowCount = rowCount;
+        minIndex = i;
+      }
+    }
+
+    ArithVar fewestColumns = variablesToRemove[minIndex];
+    variablesToRemove[minIndex] = variablesToRemove.back();
+
+    //The user variable is unconstrained.
+    //Remove this variable permanently
+    permanentlyRemoveVariable(fewestColumns);
+    variablesToRemove.pop_back();
   }
 
   d_initialTableau = d_tableau;

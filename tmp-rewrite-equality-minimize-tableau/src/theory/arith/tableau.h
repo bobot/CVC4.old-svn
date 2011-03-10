@@ -102,7 +102,7 @@ public:
     return d_basicVariables.end();
   }
 
-  const Column& getColumn(ArithVar v){
+  const Column& getColumn(ArithVar v) const{
     Assert(v < d_columnMatrix.size());
     return d_columnMatrix[v];
   }
@@ -121,7 +121,7 @@ public:
     return *(d_rowsTable[var]);
   }
 
-  uint32_t getRowCount(ArithVar x){
+  uint32_t getRowCount(ArithVar x) const{
     Assert(x < d_rowCount.size());
     AlwaysAssert(d_rowCount[x] == getColumn(x).size());
 
