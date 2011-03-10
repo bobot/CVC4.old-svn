@@ -240,7 +240,7 @@ RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
   if( in.getKind()==kind::NOT && in[0].getKind()==kind::EQUAL && in[0][0]==in[0][1] ){
     return RewriteComplete(NodeManager::currentNM()->mkConst(false));
   }
-  if( in.getKind()==kind::EQUAL && d_unionFind.isInconsistentConstructor( in[0], in[1] ) ){
+  if( in.getKind()==kind::EQUAL && d_unionFind.isInconsistentConstructor( in[0], in[1], true ) ){
     return RewriteComplete(NodeManager::currentNM()->mkConst(false));
   }
 
@@ -320,14 +320,14 @@ void TheoryDatatypes::check(Effort e) {
         d_out->conflict(conflict, false);
         return;
       }
-      merge(assertion[0], assertion[1]);
-      if(!d_conflict.isNull()) {
-        Node conflict = constructConflict(d_conflict, d_conflict_is_input);
-        d_conflict = Node::null();
-        //++d_conflicts;
-        d_out->conflict(conflict, false);
-        return;
-      }
+      //merge(assertion[0], assertion[1]);
+      //if(!d_conflict.isNull()) {
+      //  Node conflict = constructConflict(d_conflict, d_conflict_is_input);
+      //  d_conflict = Node::null();
+      //  //++d_conflicts;
+      //  d_out->conflict(conflict, false);
+      //  return;
+      //}
       break;
     case kind::APPLY_TESTER:
       if( checkTester( e, assertion, assertion ) ){
@@ -610,22 +610,32 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
     return;
   }
 
-  // b becomes the canon of a
-  Node clash = d_unionFind.checkInconsistent( a, b );
-  if( !clash.isNull() ){
-    Debug("datatypes") << "Clash " << a << " " << clash << std::endl;
-    d_conflict = NodeManager::currentNM()->mkNode( EQUAL, a, clash );
-    d_conflict_is_input = false;
-    Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
-    return;
-  }
   //if b is a selector, swap a and b
   if( b.getKind()==APPLY_SELECTOR && a.getKind()!=APPLY_SELECTOR ){
     Node c = a;
     a = b;
     b = c;
   }
+  // b becomes the canon of a
   d_unionFind.setCanon(a, b);
+  // FIXME : find if any node in the equivalence class of b conflicts with a, or
+  // if any node in the equivalence class of a conflicts with b
+  Node clash = d_unionFind.checkInconsistent( a );
+  if( !clash.isNull() ){
+    Debug("datatypes") << "ClashA " << a << " " << clash << std::endl;
+    d_conflict = NodeManager::currentNM()->mkNode( EQUAL, a, clash );
+    d_conflict_is_input = false;
+    Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
+    return;
+  }
+  clash = d_unionFind.checkInconsistent( b );
+  if( !clash.isNull() ){
+    Debug("datatypes") << "ClashB " << b << " " << clash << std::endl;
+    d_conflict = NodeManager::currentNM()->mkNode( EQUAL, b, clash );
+    d_conflict_is_input = false;
+    Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
+    return;
+  }
 
   deq_ia = d_disequalities.find(a);
   map<TNode, TNode> alreadyDiseqs;
@@ -742,16 +752,19 @@ void TheoryDatatypes::addEquality(TNode eq){
   Assert(eq.getKind() == kind::EQUAL ||
          eq.getKind() == kind::IFF);
   d_cc.addEquality(eq);
-  //do unification
-  if( eq[0].getKind()==APPLY_CONSTRUCTOR && eq[1].getKind()==APPLY_CONSTRUCTOR &&
-    eq[0].getOperator()==eq[1].getOperator() ){
-    Debug("datatypes") << "Unification: " << eq[0] << " and " << eq[1] << "." << std::endl;
-    for( int i=0; i<(int)eq[0].getNumChildren(); i++ ) {
-      if( find( eq[0][i] )!=find( eq[1][i] ) ){
-        Node newEq = NodeManager::currentNM()->mkNode( EQUAL, eq[0][i], eq[1][i] );
-        Debug("datatypes") << "UEqual: " << newEq << "." << std::endl;
-        d_drv_map[ newEq ] = eq;
-        addEquality( newEq );
+  if( d_conflict.isNull() ){
+    merge(eq[0], eq[1]);
+    //do unification
+    if( eq[0].getKind()==APPLY_CONSTRUCTOR && eq[1].getKind()==APPLY_CONSTRUCTOR &&
+      eq[0].getOperator()==eq[1].getOperator() ){
+      Debug("datatypes") << "Unification: " << eq[0] << " and " << eq[1] << "." << std::endl;
+      for( int i=0; i<(int)eq[0].getNumChildren(); i++ ) {
+        if( find( eq[0][i] )!=find( eq[1][i] ) ){
+          Node newEq = NodeManager::currentNM()->mkNode( EQUAL, eq[0][i], eq[1][i] );
+          Debug("datatypes") << "UEqual: " << newEq << "." << std::endl;
+          d_drv_map[ newEq ] = eq;
+          addEquality( newEq );
+        }
       }
     }
   }

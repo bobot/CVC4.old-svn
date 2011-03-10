@@ -93,8 +93,8 @@ private:
 public:
   /**
    */
-  inline bool isInconsistentConstructor( TNode n1, TNode n2 );
-  inline NodeType checkInconsistent(TNode n, TNode newParent);
+  inline bool isInconsistentConstructor( TNode n1, TNode n2, bool checkRecursive = false );
+  inline NodeType checkInconsistent( TNode n );
 
   /**
    * Called by the Context when a pop occurs.  Cancels everything to the
@@ -183,20 +183,36 @@ inline bool UnionFind<NodeType, NodeHash>::isCycleConstructor(TNode n1, TNode n2
 }
 
 template <class NodeType, class NodeHash>
-inline bool UnionFind<NodeType, NodeHash>::isInconsistentConstructor(TNode n1, TNode n2) {
-  return isClashConstructor( n1, n2 ) || ( n1!=n2 && ( isCycleConstructor( n1, n2 ) || isCycleConstructor( n2, n1 ) ) );
+inline bool UnionFind<NodeType, NodeHash>::isInconsistentConstructor(TNode n1, TNode n2, bool checkRecursive ) {
+  if( isClashConstructor( n1, n2 ) || ( n1!=n2 && ( isCycleConstructor( n1, n2 ) || isCycleConstructor( n2, n1 ) ) ) ){
+    return true;
+  }else if( checkRecursive ){
+    if( n1.getKind()==kind::APPLY_CONSTRUCTOR && n2.getKind()==kind::APPLY_CONSTRUCTOR &&
+        n1.getOperator()==n2.getOperator() ){
+      for( int i=0; i<(int)n1.getNumChildren(); i++ ) {
+        if( isInconsistentConstructor( n1[i], n2[i], true ) ){
+          return true;
+        }
+      }
+    }
+    return false;
+  }else{
+    return false;
+  }
 }
 
 template <class NodeType, class NodeHash>
-inline NodeType UnionFind<NodeType, NodeHash>::checkInconsistent(TNode n, TNode newParent) {
+inline NodeType UnionFind<NodeType, NodeHash>::checkInconsistent(TNode n) {
   //check for conflicts
   if( n.getKind()==kind::APPLY_CONSTRUCTOR ){
-    if( isInconsistentConstructor( n, newParent ) ){
-      return newParent;
+    TNode parent = find( n ); 
+    if( isInconsistentConstructor( n, parent ) ){
+      return parent;
     }
     typename MapType::iterator it;
     for( it = d_map.begin(); it != d_map.end(); ++it ){
-      if( it->second==newParent && isInconsistentConstructor( n, it->first ) ){
+      TNode nparent = find( it->first );
+      if( nparent==parent && isInconsistentConstructor( n, it->first ) ){
         return it->first;
       }
     }
