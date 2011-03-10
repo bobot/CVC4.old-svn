@@ -513,13 +513,21 @@ unaryTerm[CVC4::Expr& f]
         f = MK_EXPR(CVC4::kind::APPLY_UF, args);
       }else if( PARSER_STATE->getType(name).isConstructor() ){
         Debug("parser-idt") << "apply constructor: " << name.c_str() << " " << args.size() << std::endl;
+        for( int i=0; i<(int)args.size(); i++ ){
+          Debug("parser-idt") << " args[" << i << "]=" << args[i] << std::endl;
+        }
         f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, args);
+        Debug("parser-idt") << "done." << std::endl;
       }else if( PARSER_STATE->getType(name).isSelector() ){
         Debug("parser-idt") << "apply selector: " << name.c_str() << " " << args.size() << std::endl;
         f = MK_EXPR(CVC4::kind::APPLY_SELECTOR, args);
       }else if( PARSER_STATE->getType(name).isTester() ){
         Debug("parser-idt") << "apply tester: " << name.c_str() << " " << args.size() << std::endl;
+        for( int i=0; i<(int)args.size(); i++ ){
+          Debug("parser-idt") << " args[" << i << "]=" << args[i] << std::endl;
+        }
         f = MK_EXPR(CVC4::kind::APPLY_TESTER, args);
+        Debug("parser-idt") << "done." << std::endl;
       }
     }
 

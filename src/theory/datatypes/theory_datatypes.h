@@ -56,9 +56,11 @@ private:
   bool requiresCheckFiniteWellFounded;
   //map from equalties and the equalities they are derived from
   context::CDMap< Node, TNode, NodeHashFunction > d_drv_map;
+  //map from terms to whether they have been instantiated
+  context::CDMap< Node, bool, NodeHashFunction > d_inst_map;
   //Type getType( TypeNode t );
-  int getConstructorIndex( TypeNode t, Node t );
-  int getTesterIndex( TypeNode t, Node t );
+  int getConstructorIndex( TypeNode t, Node c );
+  int getTesterIndex( TypeNode t, Node c );
   bool isDatatype( TypeNode t ) { return d_cons.find( t )!=d_cons.end(); }
   void checkFiniteWellFounded();
 
@@ -139,6 +141,7 @@ public:
 
   /* Helper methods */
   bool checkTester( Effort e, Node tassertion, Node assertion );
+  void checkInstantiate( Node t );
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);
@@ -150,6 +153,7 @@ public:
   void addEquality(TNode eq);
   void registerEqualityForPropagation(TNode eq);
   Node constructConflict(TNode diseq, bool incDisequality = true );
+  Node convertDerived(TNode n);
 
 };/* class TheoryDatatypes */
 
