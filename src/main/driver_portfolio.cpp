@@ -54,7 +54,7 @@ void runCvc4Thread(int thread_id, int argc, char **argv, Options& options)
 
   /* Output to string stream, so that */
   stringstream ss_out(stringstream::out);
-  //options.out = &ss_out;
+  options.out = &ss_out;
   returnValue = runCvc4(argc, argv, options);
 
   if(returnValue) {
@@ -79,7 +79,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   boost::thread threads[numThreads];
 
   for(int t=0; t<numThreads; ++t) {
-    CVC4::Notice("Driver thread: creating thread " + intToString(t) + "\n" );
+    //CVC4::Notice("Driver thread: creating thread " + intToString(t) + "\n" );
     Options o = options;
     o.pivotRule = t == 0 ? Options::MINIMUM : Options::MAXIMUM;
     o.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #" + intToString(t));
