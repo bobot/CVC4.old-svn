@@ -28,17 +28,16 @@
 #include "util/options.h"
 
 namespace CVC4 {
-
 namespace parser {
 
-ParserBuilder::ParserBuilder(ExprManager& exprManager, 
+ParserBuilder::ParserBuilder(ExprManager* exprManager, 
                              const std::string& filename) : 
   d_filename(filename),
   d_exprManager(exprManager) {
   init(exprManager,filename);
 }
 
-ParserBuilder::ParserBuilder(ExprManager& exprManager, 
+ParserBuilder::ParserBuilder(ExprManager* exprManager, 
                              const std::string& filename, 
                              const Options& options) :
   d_filename(filename),
@@ -47,7 +46,7 @@ ParserBuilder::ParserBuilder(ExprManager& exprManager,
   withOptions(options);
 }
 
-void ParserBuilder::init(ExprManager& exprManager, 
+void ParserBuilder::init(ExprManager* exprManager, 
                          const std::string& filename) {
   d_inputType = FILE_INPUT;
   d_lang = language::input::LANG_AUTO;
@@ -81,13 +80,13 @@ Parser *ParserBuilder::build()
   Parser *parser = NULL;
   switch(d_lang) {
   case language::input::LANG_SMTLIB:
-    parser = new Smt(&d_exprManager, input, d_strictMode);
+    parser = new Smt(d_exprManager, input, d_strictMode);
     break;
   case language::input::LANG_SMTLIB_V2:
-    parser = new Smt2(&d_exprManager, input, d_strictMode);
+    parser = new Smt2(d_exprManager, input, d_strictMode);
     break;
   default:
-    parser = new Parser(&d_exprManager, input, d_strictMode);
+    parser = new Parser(d_exprManager, input, d_strictMode);
   }
 
   if( d_checksEnabled ) {
@@ -104,7 +103,7 @@ ParserBuilder& ParserBuilder::withChecks(bool flag) {
   return *this;
 }
 
-ParserBuilder& ParserBuilder::withExprManager(ExprManager& exprManager) {
+ParserBuilder& ParserBuilder::withExprManager(ExprManager* exprManager) {
   d_exprManager = exprManager;
   return *this;
 }

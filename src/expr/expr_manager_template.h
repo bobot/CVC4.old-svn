@@ -80,8 +80,12 @@ private:
   /** ExprManagerScope reaches in to get the NodeManager */
   friend class ExprManagerScope;
 
-  // undefined, private copy constructor (disallow copy)
+  /** NodeManager reaches in to get the NodeManager */
+  friend class NodeManager;
+
+  // undefined, private copy constructor and assignment op (disallow copy)
   ExprManager(const ExprManager&) CVC4_UNDEFINED;
+  ExprManager& operator=(const ExprManager&) CVC4_UNDEFINED;
 
 public:
 
@@ -261,6 +265,11 @@ public:
   // variables are special, because duplicates are permitted
   Expr mkVar(const std::string& name, const Type& type);
   Expr mkVar(const Type& type);
+
+  /** Export an expr to a different ExprManager */
+  //static Expr exportExpr(const Expr& e, ExprManager* em);
+  /** Export a type to a different ExprManager */
+  static Type exportType(const Type& t, ExprManager* em);
 
   /** Returns the minimum arity of the given kind. */
   static unsigned minArity(Kind kind);

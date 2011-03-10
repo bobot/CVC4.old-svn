@@ -27,6 +27,7 @@
 
 #include "util/exception.h"
 #include "util/language.h"
+#include "util/hash.h"
 
 ${includes}
 
@@ -34,7 +35,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 38 "${template}"
+#line 39 "${template}"
 
 namespace CVC4 {
 
@@ -51,6 +52,14 @@ class Type;
 class TypeCheckingException;
 class TypeCheckingExceptionPrivate;
 
+struct ExprHashFunction;
+
+/**
+ * A map Expr -> Expr, intended to be used for a mapping of variables
+ * between two ExprManagers.
+ */
+typedef std::hash_map<Expr, Expr, ExprHashFunction> VariableMap;
+
 namespace smt {
   class SmtEnginePrivate;
 }/* CVC4::smt namespace */
@@ -59,6 +68,8 @@ namespace expr {
   class CVC4_PUBLIC ExprSetDepth;
   class CVC4_PUBLIC ExprPrintTypes;
   class CVC4_PUBLIC ExprSetLanguage;
+
+  NodeTemplate<true> exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableMap& vmap);
 }/* CVC4::expr namespace */
 
 /**
@@ -365,6 +376,13 @@ public:
   ExprManager* getExprManager() const;
 
   /**
+   * Maps this Expr into one for a different ExprManager, using
+   * variableMap for the translation and extending it with any new
+   * mappings.
+   */
+  Expr exportTo(ExprManager* exprManager, VariableMap& variableMap);
+
+  /**
    * IOStream manipulator to set the maximum depth of Exprs when
    * pretty-printing.  -1 means print to any depth.  E.g.:
    *
@@ -434,6 +452,8 @@ protected:
   friend class ExprManager;
   friend class NodeManager;
   friend class TypeCheckingException;
+  friend NodeTemplate<true> expr::exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableMap& vmap);
+
   friend std::ostream& operator<<(std::ostream& out, const Expr& e);
 
 };/* class Expr */
@@ -675,7 +695,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 676 "${template}"
+#line 699 "${template}"
 
 namespace expr {
 

@@ -37,6 +37,11 @@ BUILDING_STATIC = @BUILDING_STATIC@
 BUILDING_SHARED = @BUILDING_SHARED@
 STATIC_BINARY = @STATIC_BINARY@
 
+# all the binaries that might need to be installed
+# (it's not a fatal error for one/some don't exist in a given build
+# configuration)
+CVC4_BINARIES = cvc4 pcvc4
+
 .PHONY: _default_build_ all
 _default_build_: all
 all:
@@ -57,24 +62,35 @@ ifeq ($(BUILDING_SHARED)$(STATIC_BINARY),10)
 #	if we're building shared libs and the binary is not static, relink
 #	the handling with empty $relink_command is a hack for Mac OS
 	thelibdir="$(abs_builddir)$(libdir)"; \
-	progdir="$(abs_builddir)$(bindir)"; file=cvc4; \
-		eval `grep '^relink_command=' $(CURRENT_BUILD)/src/main/cvc4 | sed 's:-Wl,-rpath:-Wl,-rpath -Wl,\\\\$$thelibdir -Wl,-rpath:'`; \
-		if test -z "$$relink_command"; then \
-			$(mkinstalldirs) "$(CURRENT_BUILD)$(bindir)/.libs"; \
-			$(install_sh) \
-				$(CURRENT_BUILD)/src/main/.libs/cvc4 \
-				"$(abs_builddir)$(bindir)/.libs"; \
-			$(install_sh) \
-				$(CURRENT_BUILD)/src/main/cvc4 \
-				"$(abs_builddir)$(bindir)"; \
+	progdir="$(abs_builddir)$(bindir)"; for file in $(CVC4_BINARIES); do \
+		if test -r $(CURRENT_BUILD)/src/main/$$file; then \
+			eval `grep '^relink_command=' $(CURRENT_BUILD)/src/main/$$file | sed 's:-Wl,-rpath:-Wl,-rpath -Wl,\\\\$$thelibdir -Wl,-rpath:'`; \
+			if test -z "$$relink_command"; then \
+				$(mkinstalldirs) "$(CURRENT_BUILD)$(bindir)/.libs"; \
+				$(install_sh) \
+					$(CURRENT_BUILD)/src/main/.libs/$$file \
+					"$(abs_builddir)$(bindir)/.libs"; \
+				$(install_sh) \
+					$(CURRENT_BUILD)/src/main/$$file \
+					"$(abs_builddir)$(bindir)"; \
+			else \
+				eval "(cd $(CURRENT_BUILD)/src/main && $$relink_command)"; \
+			fi; \
 		else \
-			eval "(cd $(CURRENT_BUILD)/src/main && $$relink_command)"; \
-		fi
+			rm -f "$(abs_builddir)$(bindir)/$$file"; \
+		fi; \
+	done
 else
 #	if we're building static libs only, just install the driver binary directly
-	$(install_sh) \
-		$(CURRENT_BUILD)/src/main/cvc4 \
-		"$(abs_builddir)$(bindir)"
+	for file in $(CVC4_BINARIES); do \
+		if test -r $(CURRENT_BUILD)/src/main/$$file; then \
+			$(install_sh) \
+				$(CURRENT_BUILD)/src/main/$$file \
+				"$(abs_builddir)$(bindir)"; \
+		else \
+			rm -f "$(abs_builddir)$(bindir)/$$file"; \
+		fi; \
+	done
 endif
 #	set up builds/$(CURRENT_BUILD)/bin and builds/$(CURRENT_BUILD)/lib
 	test -e $(CURRENT_BUILD)/lib || ln -sfv "$(abs_builddir)$(libdir)" $(CURRENT_BUILD)/lib
@@ -88,22 +104,33 @@ endif
 ifeq ($(BUILDING_SHARED)$(STATIC_BINARY),10)
 #	if we're building shared libs and the binary is not static, relink
 #	the handling with empty $relink_command is a hack for Mac OS
-	thelibdir="`pwd`$(libdir)"; progdir="`pwd`$(bindir)"; file=cvc4; \
-		eval `grep '^relink_command=' $(CURRENT_BUILD)/src/main/cvc4 | sed 's:-Wl,-rpath:-Wl,-rpath -Wl,\\\\$$thelibdir -Wl,-rpath:'`; \
-		if test -z "$$relink_command"; then \
-			$(mkinstalldirs) ".$(bindir)/.libs"; \
-			$(install_sh) \
-				$(CURRENT_BUILD)/src/main/.libs/cvc4 \
-				"`pwd`$(bindir)/.libs"; \
-			$(install_sh) \
-				$(CURRENT_BUILD)/src/main/cvc4 \
-				"`pwd`$(bindir)"; \
+	thelibdir="`pwd`$(libdir)"; progdir="`pwd`$(bindir)"; for file in $(CVC4_BINARIES); do \
+		if test -r $(CURRENT_BUILD)/src/main/$$file; then \
+			eval `grep '^relink_command=' $(CURRENT_BUILD)/src/main/$$file | sed 's:-Wl,-rpath:-Wl,-rpath -Wl,\\\\$$thelibdir -Wl,-rpath:'`; \
+			if test -z "$$relink_command"; then \
+				$(mkinstalldirs) ".$(bindir)/.libs"; \
+				$(install_sh) \
+					$(CURRENT_BUILD)/src/main/.libs/$$file \
+					"`pwd`$(bindir)/.libs"; \
+				$(install_sh) \
+					$(CURRENT_BUILD)/src/main/$$file \
+					"`pwd`$(bindir)"; \
+			else \
+				eval "(cd $(CURRENT_BUILD)/src/main && $$relink_command)"; \
+			fi; \
 		else \
-			eval "(cd $(CURRENT_BUILD)/src/main && $$relink_command)"; \
-		fi
+			rm -f "`pwd`$(bindir)/$$file"; \
+		fi; \
+	done
 else
 #	if we're building static libs only, just install the driver binary directly
-	$(install_sh) $(CURRENT_BUILD)/src/main/cvc4 "`pwd`$(bindir)"
+	for file in $(CVC4_BINARIES); do \
+		if test -r $(CURRENT_BUILD)/src/main/$$file; then \
+			$(install_sh) $(CURRENT_BUILD)/src/main/$$file "`pwd`$(bindir)"; \
+		else \
+			rm -f "`pwd`$(bindir)/$$file"; \
+		fi; \
+	done
 endif
 #	set up builds/bin and builds/lib
 	test -e lib || ln -sfv ".$(libdir)" lib

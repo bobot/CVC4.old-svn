@@ -579,6 +579,21 @@ public:
    * associated to this NodeManager.
    */
   inline Expr toExpr(TNode n);
+
+  /**
+   * Convert an expression to a node.
+   */
+  static inline Node fromExpr(const Expr& e);
+
+  /**
+   * Convert a node manager to an expression manager.
+   */
+  inline ExprManager* toExprManager();
+
+  /**
+   * Convert an expression manager to a node manager.
+   */
+  static inline NodeManager* fromExprManager(ExprManager* exprManager);
 };
 
 /**
@@ -779,6 +794,18 @@ inline void NodeManager::poolRemove(expr::NodeValue* nv) {
 
 inline Expr NodeManager::toExpr(TNode n) {
   return Expr(d_exprManager, new Node(n));
+}
+
+inline Node NodeManager::fromExpr(const Expr& e) {
+  return e.getNode();
+}
+
+inline ExprManager* NodeManager::toExprManager() {
+  return d_exprManager;
+}
+
+inline NodeManager* NodeManager::fromExprManager(ExprManager* exprManager) {
+  return exprManager->getNodeManager();
 }
 
 }/* CVC4 namespace */

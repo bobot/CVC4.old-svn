@@ -140,6 +140,16 @@ public:
                   const std::vector<Type>& replacements) const;
 
   /**
+   * Get this type's ExprManager.
+   */
+  ExprManager* getExprManager() const;
+
+  /**
+   * Exports this type into a different ExprManager.
+   */
+  Type exportTo(ExprManager* exprManager);
+
+  /**
    * Assignment operator.
    * @param t the type to assign to this type
    * @return this type after assignment.

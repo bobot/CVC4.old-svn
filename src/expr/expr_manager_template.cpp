@@ -484,6 +484,27 @@ Context* ExprManager::getContext() const {
   return d_ctxt;
 }
 
+namespace expr {
+
+static TypeNode exportTypeInternal(TypeNode n, NodeManager* nm) {
+  vector<TypeNode> children;
+  children.reserve(n.getNumChildren());
+  for(TypeNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
+    children.push_back(exportTypeInternal(*i, nm));
+  }
+  return nm->mkTypeNode(n.getKind(), children);// FIXME thread safety
+}/* exportTypeInternal() */
+
+}/* CVC4::expr namespace */
+
+Type ExprManager::exportType(const Type& t, ExprManager* em) {
+  Assert(t.d_nodeManager != em->d_nodeManager,
+         "Can't export a Type to the same ExprManager");
+  NodeManagerScope ems(t.d_nodeManager);
+  return Type(em->d_nodeManager,
+              new TypeNode(expr::exportTypeInternal(*t.d_typeNode, em->d_nodeManager)));
+}
+
 ${mkConst_implementations}
 
 }/* CVC4 namespace */

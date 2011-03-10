@@ -2,8 +2,8 @@
 /*! \file interactive_shell.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: 
- ** Minor contributors (to current version): 
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -33,11 +33,11 @@ using namespace parser;
 const string InteractiveShell::INPUT_FILENAME = "<shell>";
 
 InteractiveShell::InteractiveShell(ExprManager& exprManager,
-                                   const Options& options) : 
+                                   const Options& options) :
    d_in(*options.in),
    d_out(*options.out),
    d_language(options.inputLanguage) {
-   ParserBuilder parserBuilder(exprManager,INPUT_FILENAME,options);
+   ParserBuilder parserBuilder(&exprManager, INPUT_FILENAME, options);
    /* Create parser with bogus input. */
    d_parser = parserBuilder.withStringInput("").build();
 }

@@ -573,10 +573,6 @@ if test "$enable_profiling" = yes; then
   CVC4LDFLAGS="${CVC4LDFLAGS:+$CVC4LDFLAGS }-pg"
 fi
 
-# require boost library
-BOOST_REQUIRE
-BOOST_THREADS
-
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
@@ -665,30 +661,53 @@ AC_CHECK_HEADERS([getopt.h unistd.h])
 #AC_TYPE_UINT64_T
 #AC_TYPE_SIZE_T
 
+# look for boost library, but don't make it a fatal error if not found
+#m4_rename([AC_MSG_ERROR], [__cvc4_old_error])
+#m4_define([AC_MSG_ERROR],[AC_MSG_WARN([$1])])
+cvc4_has_threads=maybe
+BOOST_REQUIRE([], [cvc4_has_threads=no])
+if test $cvc4_has_threads = no; then
+  AC_MSG_WARN([disabling multithreaded support])
+else
+  BOOST_THREADS
+  if test -n "$BOOST_THREAD_LIBS"; then
+    cvc4_has_threads=yes
+  else
+    AC_MSG_WARN([disabling multithreaded support])
+    cvc4_has_threads=no
+  fi
+fi
+#m4_undefine([AC_MSG_ERROR])
+#m4_rename([__cvc4_old_error], [AC_MSG_ERROR])
+
 # Check for availability of TLS support (e.g. __thread storage class)
 AC_MSG_CHECKING([whether to use compiler-supported TLS if available])
 AC_ARG_ENABLE([tls], AS_HELP_STRING([--disable-tls], [don't use compiler-native TLS]))
-if test -z "${enable_tls+set}" || test "$enable_tls" = "yes"; then
-  AC_MSG_RESULT([yes])
-  AX_TLS([CVC4_TLS=$ac_cv_tls], [CVC4_TLS=])
-else
-  AC_MSG_RESULT([no])
-  CVC4_TLS=
-fi
-if test -n "$CVC4_TLS"; then
+if test $cvc4_has_threads = no; then
+  # We disable TLS entirely by simply telling the build system that
+  # the empty string is the __thread keyword.
+  AC_MSG_RESULT([multithreading disabled])
   CVC4_TLS_SUPPORTED=1
+  CVC4_TLS=
+  CVC4_TLS_explanation='disabled (no multithreading support)'
 else
-  CVC4_TLS='pthread_getspecific()'
-  CVC4_TLS_SUPPORTED=0
+  if test -z "${enable_tls+set}" || test "$enable_tls" = "yes"; then
+    AC_MSG_RESULT([yes])
+    AX_TLS([CVC4_TLS=$ac_cv_tls], [CVC4_TLS=])
+  else
+    AC_MSG_RESULT([no])
+    CVC4_TLS=
+  fi
+  if test -n "$CVC4_TLS"; then
+    CVC4_TLS_SUPPORTED=1
+    CVC4_TLS_explanation="$CVC4_TLS"
+  else
+    CVC4_TLS_explanation='pthread_getspecific()'
+    CVC4_TLS_SUPPORTED=0
+  fi
 fi
 AC_SUBST([CVC4_TLS])
 AC_SUBST([CVC4_TLS_SUPPORTED])
-
-# Checks for library functions.
-# (empty)
-
-# Some definitions for config.h
-# (empty)
 
 # Prepare configure output
 
@@ -755,6 +774,16 @@ AC_CONFIG_FILES([
   m4_esyscmd([find contrib lib src test -name Makefile.am | sort | sed 's,\.am$,,'])
 )
 
+if test $cvc4_has_threads = yes; then
+  support_multithreaded='with boost threading library'
+  AM_CONDITIONAL([CVC4_HAS_THREADS], [true])
+  AC_SUBST([CVC4_HAS_THREADS], 1)
+else
+  support_multithreaded='no'
+  AM_CONDITIONAL([CVC4_HAS_THREADS], [false])
+  AC_SUBST([CVC4_HAS_THREADS], 0)
+fi
+
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/integer.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/tls.h])
@@ -817,7 +846,9 @@ Unit tests   : $support_unit_tests
 Static libs  : $enable_static
 Shared libs  : $enable_shared
 Static binary: $enable_static_binary
-TLS support  : $CVC4_TLS
+
+Multithreaded: $support_multithreaded
+TLS support  : $CVC4_TLS_explanation
 
 MP library   : $mplibrary
 

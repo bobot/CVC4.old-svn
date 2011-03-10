@@ -21,13 +21,15 @@
 #include "expr/expr_manager_scope.h"
 #include "util/Assert.h"
 
+#include <vector>
+
 ${includes}
 
 // This is a hack, but an important one: if there's an error, the
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 31 "${template}"
+#line 33 "${template}"
 
 using namespace CVC4::kind;
 
@@ -111,6 +113,48 @@ Expr::~Expr() {
 
 ExprManager* Expr::getExprManager() const {
   return d_exprManager;
+}
+
+namespace expr {
+
+Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableMap& vmap) {
+  if(n.getMetaKind() == kind::metakind::VARIABLE) {
+    Expr from_e(from, new Node(n));
+    Expr& to_e = vmap[from_e];
+    if(! to_e.isNull()) {
+      return to_e.getNode();
+    } else {
+      // construct new variable in other manager:
+      // to_e is a ref, so this inserts from_e -> to_e
+      std::string name;
+      if(Node::fromExpr(from_e).getAttribute(VarNameAttr(), name)) {
+        to_e = to->mkVar(name, from_e.getType());// FIXME thread safety
+      } else {
+        to_e = to->mkVar(from_e.getType());// FIXME thread safety
+      }
+      vmap[to_e] = from_e;// insert other direction too
+      return Node::fromExpr(to_e);
+    }
+  } else {
+    std::vector<Node> children;
+    children.reserve(n.getNumChildren());
+    if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
+      children.push_back(exportInternal(n.getOperator(), from, to, vmap));
+    }
+    for(TNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
+      children.push_back(exportInternal(*i, from, to, vmap));
+    }
+    return NodeManager::fromExprManager(to)->mkNode(n.getKind(), children);// FIXME thread safety
+  }
+}/* exportInternal() */
+
+}/* CVC4::expr namespace */
+
+Expr Expr::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+  Assert(d_exprManager != exprManager,
+         "No sense in cloning an Expr in the same ExprManager");
+  ExprManagerScope ems(*this);
+  return Expr(exprManager, new Node(expr::exportInternal(*d_node, d_exprManager, exprManager, variableMap)));
 }
 
 Expr& Expr::operator=(const Expr& e) {

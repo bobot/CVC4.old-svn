@@ -56,13 +56,40 @@ std::ostream& operator<<(std::ostream& out,
                          BenchmarkStatus status) CVC4_PUBLIC;
 
 class CVC4_PUBLIC Command {
+  // intentionally not permitted
+  Command(const Command&) CVC4_UNDEFINED;
+  Command& operator=(const Command&) CVC4_UNDEFINED;
+
 public:
+
   virtual void invoke(SmtEngine* smtEngine) = 0;
   virtual void invoke(SmtEngine* smtEngine, std::ostream& out);
-  virtual ~Command() {};
+  Command() { }
+  virtual ~Command() { }
   virtual void toStream(std::ostream&) const = 0;
   std::string toString() const;
   virtual void printResult(std::ostream& out) const;
+  /**
+   * Maps this Command into one for a different ExprManager, using
+   * variableMap for the translation and extending it with any new
+   * mappings.
+   */
+  virtual Command* exportTo(ExprManager* exprManager, VariableMap& variableMap) = 0;
+
+protected:
+  class ExportTransformer {
+    ExprManager* d_exprManager;
+    VariableMap& d_variableMap;
+  public:
+    ExportTransformer(ExprManager* exprManager, VariableMap& variableMap) :
+      d_exprManager(exprManager),
+      d_variableMap(variableMap) {
+    }
+    Expr operator()(Expr e) {
+      return e.exportTo(d_exprManager, d_variableMap);
+    }
+  };/* class Command::ExportTransformer */
+
 };/* class Command */
 
 /**
@@ -76,6 +103,7 @@ public:
   EmptyCommand(std::string name = "");
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class EmptyCommand */
 
 class CVC4_PUBLIC AssertCommand : public Command {
@@ -85,18 +113,21 @@ public:
   AssertCommand(const BoolExpr& e);
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class AssertCommand */
 
 class CVC4_PUBLIC PushCommand : public Command {
 public:
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class PushCommand */
 
 class CVC4_PUBLIC PopCommand : public Command {
 public:
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class PopCommand */
 
 class CVC4_PUBLIC DeclarationCommand : public EmptyCommand {
@@ -107,6 +138,7 @@ public:
   DeclarationCommand(const std::string& id, Type t);
   DeclarationCommand(const std::vector<std::string>& ids, Type t);
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class DeclarationCommand */
 
 class CVC4_PUBLIC DefineFunctionCommand : public Command {
@@ -120,6 +152,7 @@ public:
                         Expr formula);
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class DefineFunctionCommand */
 
 /**
@@ -134,6 +167,7 @@ public:
                              Expr formula);
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class DefineNamedFunctionCommand */
 
 class CVC4_PUBLIC CheckSatCommand : public Command {
@@ -146,6 +180,7 @@ public:
   Result getResult() const;
   void printResult(std::ostream& out) const;
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class CheckSatCommand */
 
 class CVC4_PUBLIC QueryCommand : public Command {
@@ -158,6 +193,7 @@ public:
   Result getResult() const;
   void printResult(std::ostream& out) const;
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class QueryCommand */
 
 class CVC4_PUBLIC GetValueCommand : public Command {
@@ -170,6 +206,7 @@ public:
   Expr getResult() const;
   void printResult(std::ostream& out) const;
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class GetValueCommand */
 
 class CVC4_PUBLIC GetAssignmentCommand : public Command {
@@ -181,6 +218,7 @@ public:
   SExpr getResult() const;
   void printResult(std::ostream& out) const;
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class GetAssignmentCommand */
 
 class CVC4_PUBLIC GetAssertionsCommand : public Command {
@@ -192,6 +230,7 @@ public:
   std::string getResult() const;
   void printResult(std::ostream& out) const;
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class GetAssertionsCommand */
 
 class CVC4_PUBLIC SetBenchmarkStatusCommand : public Command {
@@ -202,6 +241,7 @@ public:
   SetBenchmarkStatusCommand(BenchmarkStatus status);
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class SetBenchmarkStatusCommand */
 
 class CVC4_PUBLIC SetBenchmarkLogicCommand : public Command {
@@ -212,6 +252,7 @@ public:
   SetBenchmarkLogicCommand(std::string logic);
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class SetBenchmarkLogicCommand */
 
 class CVC4_PUBLIC SetInfoCommand : public Command {
@@ -225,6 +266,7 @@ public:
   void toStream(std::ostream& out) const;
   std::string getResult() const;
   void printResult(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class SetInfoCommand */
 
 class CVC4_PUBLIC GetInfoCommand : public Command {
@@ -237,6 +279,7 @@ public:
   void toStream(std::ostream& out) const;
   std::string getResult() const;
   void printResult(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class GetInfoCommand */
 
 class CVC4_PUBLIC SetOptionCommand : public Command {
@@ -250,6 +293,7 @@ public:
   void toStream(std::ostream& out) const;
   std::string getResult() const;
   void printResult(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class SetOptionCommand */
 
 class CVC4_PUBLIC GetOptionCommand : public Command {
@@ -262,6 +306,7 @@ public:
   void toStream(std::ostream& out) const;
   std::string getResult() const;
   void printResult(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class GetOptionCommand */
 
 class CVC4_PUBLIC CommandSequence : public Command {
@@ -286,6 +331,8 @@ public:
 
   iterator begin() { return d_commandSequence.begin(); }
   iterator end() { return d_commandSequence.end(); }
+
+  Command* exportTo(ExprManager* exprManager, VariableMap& variableMap);
 };/* class CommandSequence */
 
 }/* CVC4 namespace */

@@ -343,6 +343,11 @@ public:
   inline Expr toExpr();
 
   /**
+   * Convert an Expr into a Node.
+   */
+  static inline Node fromExpr(const Expr& e);
+
+  /**
    * Returns true if this node represents a constant
    * @return true if const
    */
@@ -1139,6 +1144,12 @@ template <bool ref_count>
 inline Expr NodeTemplate<ref_count>::toExpr() {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->toExpr(*this);
+}
+
+// intentionally not defined for TNode
+template <>
+inline Node NodeTemplate<true>::fromExpr(const Expr& e) {
+  return NodeManager::fromExpr(e);
 }
 
 #ifdef CVC4_DEBUG

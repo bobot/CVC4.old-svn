@@ -117,6 +117,14 @@ Type Type::substitute(const std::vector<Type>& types,
                                          replacementsNodes.end()));
 }
 
+ExprManager* Type::getExprManager() const {
+  return d_nodeManager->toExprManager();
+}
+
+Type Type::exportTo(ExprManager* exprManager) {
+  return ExprManager::exportType(*this, exprManager);
+}
+
 void Type::toStream(std::ostream& out) const {
   NodeManagerScope nms(d_nodeManager);
   out << *d_typeNode;

@@ -1,4 +1,5 @@
-TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
+BINARY = cvc4
+TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/$(BINARY)
 MAKEFLAGS = -k
 
 # These are run for all build profiles.
