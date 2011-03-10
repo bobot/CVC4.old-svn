@@ -1,8 +1,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+
 #include <boost/thread.hpp>
 #include <boost/thread/condition.hpp>
+#include <boost/exception_ptr.hpp>
 
 #include "main.h"
 #include "util/output.h"
@@ -15,6 +17,8 @@ struct thread_return_data {
   int thread_id;
   string s_out;
   int returnValue;
+  bool exceptionOccurred;       // beware: we assume this is false because global variable
+  boost::exception_ptr exceptionPtr;
 };
 
 class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
@@ -55,7 +59,21 @@ void runCvc4Thread(int thread_id, int argc, char **argv, Options& options)
   /* Output to string stream, so that */
   stringstream ss_out(stringstream::out);
   options.out = &ss_out;
-  returnValue = runCvc4(argc, argv, options);
+
+  try {
+    returnValue = runCvc4(argc, argv, options);
+  }catch(...){
+    while(global_flag_done == false)
+      if( mutex_done.try_lock() ) {
+        global_returnData.exceptionOccurred = true;
+        global_returnData.exceptionPtr = boost::current_exception();  // gets rid of exception?
+        global_returnData.returnValue = 1;
+        
+        global_flag_done = true;
+        mutex_done.unlock();
+        condition_var_main_wait.notify_all(); //we want main thread to quit        
+      }
+  }
 
   if(returnValue) {
     while(global_flag_done==false)
@@ -88,6 +106,9 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   
   while(global_flag_done == false)
     condition_var_main_wait.wait(mutex_main_wait);
+
+  if( global_returnData.exceptionOccurred )
+    boost::rethrow_exception( global_returnData.exceptionPtr );
   
   CVC4::Notice("Driver thread: Exiting program. " + intToString(global_returnData.returnValue)
                + " return value of the fastest thread.\n" );
