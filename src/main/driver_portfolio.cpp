@@ -162,13 +162,13 @@ namespace CVC4 {
 
 // no more % chars in here without being escaped; it's used as a
 // printf() format string
-const string usageMessage = "\
+/* const string usageMessage = "                 \
 usage: %s [options] [input-file]\n\
 \n\
 Without an input file, or with `-', CVC4 reads from standard input.\n\
 \n\
 CVC4 options:\n";
-
+*/
 void printUsage(Options& options) {
   stringstream ss;
   ss << "usage: " << options.binary_name << " [options] [input-file]" << endl
@@ -223,12 +223,6 @@ int runCvc4(int argc, char* argv[], Options& options) {
     options.interactive = inputFromStdin && isatty(fileno(stdin));
   }
 
-  // Create the expression manager
-  ExprManager exprMgr(options);
-
-  // Create the SmtEngine
-  SmtEngine smt(&exprMgr, options);
-
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
 
@@ -282,13 +276,16 @@ int runCvc4(int argc, char* argv[], Options& options) {
   }
 
 
-  // Parse and execute commands until we are done
+  // Create the expression manager
+  ExprManager exprMgr(options);
+
+  // Parse commands until we are done
   Command* cmd;
+  CommandSequence seq;
   if( options.interactive ) {
     InteractiveShell shell(exprMgr,options);
     while((cmd = shell.readCommand())) {
-      doCommand(smt,cmd, options);
-      delete cmd;
+      seq.addCommand(cmd);
     }
   } else {
     ParserBuilder parserBuilder =
@@ -300,12 +297,26 @@ int runCvc4(int argc, char* argv[], Options& options) {
 
     Parser *parser = parserBuilder.build();
     while((cmd = parser->nextCommand())) {
-      doCommand(smt, cmd, options);
-      delete cmd;
+      seq.addCommand(cmd);
+      // doCommand(smt, cmd, options);
+      // delete cmd;
     }
     // Remove the parser
     delete parser;
   }
+
+  // Brilliant, so what all do we have at this point?
+  // - CommandSequence* seq has the sequence of commands
+  // - ExprManager exprMgr(options) is the main expression manager
+
+  // What do we need to do next?
+  // - Create a second exprMgr, and import everything there
+  
+  // Create the SmtEngine
+  SmtEngine smt(&exprMgr, options);
+  
+  doCommand(smt, &seq, options);
+  
 
   string result = smt.getInfo(":status").getValue();
   int returnValue;
