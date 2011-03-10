@@ -1,0 +1,7 @@
+
+This branch should be the same as trunk except that equalities are rewritten to inequalities.
+ (= l r) is rewritten to (and (<= l r) (>= l r))
+
+Applying the following command to get the patch from trunk:
+  $cd branches/arithmetic/rewrite-equality
+  $patch src/theory/arith/arith_rewriter.cpp < rewrite-equality.patch
