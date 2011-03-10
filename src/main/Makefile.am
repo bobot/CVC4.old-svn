@@ -15,8 +15,7 @@ libmain_a_SOURCES = \
 	interactive_shell.cpp \
 	main.h \
 	usage.h \
-	util.cpp \
-	driver.cpp
+	util.cpp
 
 ## Uncomment following lines if you want cvc4 to point to single-threaded
 # cvc4_SOURCES = main.cpp
@@ -64,7 +63,7 @@ cvc4_LINK = $(CXXLINK)
 endif
 
 
-scvc4_SOURCES = main.cpp
+scvc4_SOURCES = main.cpp driver.cpp
 scvc4_LDADD = \
 	libmain.a \
 	../parser/libcvc4parser.la \
