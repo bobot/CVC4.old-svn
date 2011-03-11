@@ -64,7 +64,12 @@ private:
   bool isDatatype( TypeNode t ) { return d_cons.find( t )!=d_cons.end(); }
   void checkFiniteWellFounded();
 
-  //for possible constructors, map from terms to tester asserted for that term
+  //for possible constructors, map from terms to testers asserted for that term
+  // for each t, this is either a list of equations of the form 
+  //   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t ), each of which are unique testers,
+  // or a list of equations of the form 
+  //   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t )  followed by
+  //   is_[constructor_(n+1)]( t ), each of which is a unique tester.
   EqLists d_labels;
 
   class CongruenceChannel {
@@ -114,7 +119,6 @@ private:
    * conflict to get the actual explanation)
    */
   Node d_conflict;
-  bool d_conflict_is_input;
 public:
   TheoryDatatypes(int id, context::Context* c, OutputChannel& out);
   ~TheoryDatatypes();
@@ -140,8 +144,9 @@ public:
   std::string identify() const { return std::string("TheoryDatatypes"); }
 
   /* Helper methods */
-  bool checkTester( Effort e, Node tassertion, Node assertion );
+  void checkTester( Effort e, Node tassertion, Node assertion );
   void checkInstantiate( Node t );
+  Node checkCanBeConstructor( Node t, Node cons );
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);
@@ -152,9 +157,9 @@ public:
   void addDisequality(TNode eq);
   void addEquality(TNode eq);
   void registerEqualityForPropagation(TNode eq);
-  Node constructConflict(TNode diseq, bool incDisequality = true );
+  //Node constructConflict(TNode diseq, bool incDisequality = true );
   Node convertDerived(TNode n);
-
+  void throwConflict();
 };/* class TheoryDatatypes */
 
 inline TNode TheoryDatatypes::find(TNode a) {
