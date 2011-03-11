@@ -66,7 +66,8 @@ boost::mutex mutex_done;
 boost::mutex mutex_main_wait;
 boost::condition condition_var_main_wait; 
 
-void runCvc4Thread(int thread_id, int argc, char **argv, Options& options)
+//void runCvc4Thread(int thread_id, int argc, char **argv, Options& options)
+void doCommandThread(int thread_id, int smt
 {
   int returnValue;
 
@@ -108,6 +109,23 @@ void runCvc4Thread(int thread_id, int argc, char **argv, Options& options)
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 {
+
+  // In future I would like to make this function general enough so that
+  // it takes as arguments:
+  // - a boost::function f(..) which could be paassed to boost::thread
+  // - for each argument that f takes, an array of size numThreads
+  // - do something about general-enough returning
+  //
+  // - maybe even a function that the "main thread" is supposed to do
+  // - after creating the threads
+
+  // For now we'll copy this thread creation stuff to runCvc4, so
+  // commenting stuff below.
+
+  // Coming to think of it, hasn't someone already written a program
+  // to simulate races? :P
+
+  /*
   boost::thread threads[numThreads];
 
   for(int t=0; t<numThreads; ++t) {
@@ -138,6 +156,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   }
   
   return global_returnData.returnValue;
+  */
 }
 
 
@@ -311,12 +330,16 @@ int runCvc4(int argc, char* argv[], Options& options) {
 
   // What do we need to do next?
   // - Create a second exprMgr, and import everything there
-  
-  // Create the SmtEngine
+
+  ExprManager em2;
+  VariableMap vmap;
+  Command* seq2 = seq.exportTo(&em2, vmap);
+
+  // Create the SmtEngine(s)
   SmtEngine smt(&exprMgr, options);
+  SmtEngine smt2(&em2, options);
   
   doCommand(smt, &seq, options);
-  
 
   string result = smt.getInfo(":status").getValue();
   int returnValue;
