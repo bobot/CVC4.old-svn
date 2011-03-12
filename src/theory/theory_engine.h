@@ -286,7 +286,12 @@ public:
     theory::Theory* theory =
       node.getKind() == kind::NOT ? theoryOf(node[0]) : theoryOf(node);
     if(theory != NULL) {
-      theory->assertFact(node);
+      if( ( node.getKind()==kind::EQUAL ||  //AJR hack
+          ( node.getKind()==kind::NOT && node[0].getKind()==kind::EQUAL ) ) ){
+        d_datatypes->assertFact(node);
+      }else{
+        theory->assertFact(node);
+      }
     }
   }
 

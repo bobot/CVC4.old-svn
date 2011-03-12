@@ -55,7 +55,7 @@ private:
   //whether we need to check finite and well foundedness
   bool requiresCheckFiniteWellFounded;
   //map from equalties and the equalities they are derived from
-  context::CDMap< Node, TNode, NodeHashFunction > d_drv_map;
+  context::CDMap< Node, Node, NodeHashFunction > d_drv_map;
   //map from terms to whether they have been instantiated
   context::CDMap< Node, bool, NodeHashFunction > d_inst_map;
   //Type getType( TypeNode t );
@@ -97,6 +97,7 @@ private:
    * Union find for storing the equalities.
    */
   UnionFind<Node, NodeHashFunction> d_unionFind;
+  UnionFind<Node, NodeHashFunction> d_cons_rep_map;
 
   /**
    * Received a notification from the congruence closure algorithm that the two nodes
@@ -158,7 +159,7 @@ public:
   void addEquality(TNode eq);
   void registerEqualityForPropagation(TNode eq);
   //Node constructConflict(TNode diseq, bool incDisequality = true );
-  Node convertDerived(TNode n);
+  void convertDerived(Node n, NodeBuilder<>& nb);
   void throwConflict();
 };/* class TheoryDatatypes */
 

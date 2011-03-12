@@ -217,8 +217,13 @@ Theory* TheoryEngine::theoryOf(TNode n) {
   if(n.getMetaKind() == kind::metakind::VARIABLE) {
     return theoryOf(n.getType());
   } else if(k == kind::EQUAL) {
-    // equality is special: use LHS
-    return theoryOf(n[0]);
+    return d_datatypes;
+    //if( theoryOf(n[1])==d_datatypes ){  //AJR hack
+    //  return d_datatypes;
+    //}else{
+    //  // equality is special: use LHS
+    //  return theoryOf(n[0]);
+    //}
   } else {
     // use our Kind-to-Theory mapping
     return d_theoryOfTable[k];
