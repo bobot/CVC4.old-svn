@@ -655,6 +655,12 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
     ac = bc;
     bc = tmp;
   }
+  if( d_unionFind.isInconsistentConstructor( ac, bc ) ){
+    Debug("datatypes") << "Clash " << ac << " " << bc << std::endl;
+    d_conflict = d_cc.explain( ac, bc );
+    Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
+    return;
+  }
   d_cons_rep_map.setCanon( ac, bc );
   if( bc.getKind()==APPLY_CONSTRUCTOR ){
     for( int i=0; i<2; i++ ){
@@ -696,7 +702,6 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   }
   Node clash = d_unionFind.checkInconsistent( a );
   if( !clash.isNull() ){
-    Assert( false );
     Debug("datatypes") << "ClashA " << a << " " << clash << std::endl;
     d_conflict = d_cc.explain( a, clash );
     Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
@@ -704,7 +709,6 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   }
   clash = d_unionFind.checkInconsistent( b );
   if( !clash.isNull() ){
-    Assert( false );
     Debug("datatypes") << "ClashB " << b << " " << clash << std::endl;
     d_conflict = d_cc.explain( b, clash );
     Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
