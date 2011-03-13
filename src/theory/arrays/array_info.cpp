@@ -23,7 +23,7 @@ namespace CVC4 {
 namespace theory {
 namespace arrays {
 
-bool ArrayInfo::inList(CTNodeList* l, TNode el) {
+bool ArrayInfo::inList(const CTNodeList* l, const TNode el) const{
   CTNodeList::const_iterator it = l->begin();
   for ( ; it!= l->end(); it ++) {
     if(*it == el)
@@ -32,7 +32,7 @@ bool ArrayInfo::inList(CTNodeList* l, TNode el) {
   return false;
 }
 
-void ArrayInfo::mergeLists(CTNodeList* la, CTNodeList* lb) {
+void ArrayInfo::mergeLists(CTNodeList* la, const CTNodeList* lb) const{
   std::set<TNode> temp;
   CTNodeList::const_iterator it;
   for(it = la->begin() ; it != la->end(); it++ ) {
@@ -95,6 +95,7 @@ void ArrayInfo::addEqStore(const Node a, const TNode st){
 };
 
 void ArrayInfo::addInStore(const Node a, const TNode st){
+  Debug("arrays-addinstore")<<"Arrays::addInStore "<<a<<"->"<<st<<"\n";
   Assert(a.getType().isArray());
   Assert(st.getKind()== kind::STORE); // temporary for flat arrays
 
@@ -120,11 +121,11 @@ void ArrayInfo::addInStore(const Node a, const TNode st){
 /**
  * Maps a to the emptyInfo if a is not already in the map
  */
-void ArrayInfo::addEmptyEntry(TNode a) {
+void ArrayInfo::addEmptyEntry(const TNode a) {
   Assert(a.getType().isArray());
 
   if(info_map.find(a) == info_map.end()) {
-    info_map.insert(a, emptyInfo);
+    info_map.insert(a, new Info(ct));
   }
 }
 
@@ -132,14 +133,14 @@ void ArrayInfo::addEmptyEntry(TNode a) {
  * Returns the information associated with TNode a
  */
 
-Info* ArrayInfo::getInfo(TNode a) {
+const Info* ArrayInfo::getInfo(const TNode a) const{
   CNodeInfoMap::iterator it = info_map.find(a);
   if(it!= info_map.end())
       return (*it).second;
   return emptyInfo;
 }
 
-CTNodeList* ArrayInfo::getIndices(TNode a) {
+const CTNodeList* ArrayInfo::getIndices(const TNode a) const{
   CNodeInfoMap::iterator it = info_map.find(a);
   if(it!= info_map.end()) {
     return (*it).second->indices;
@@ -147,7 +148,7 @@ CTNodeList* ArrayInfo::getIndices(TNode a) {
   return emptyList;
 }
 
-CTNodeList* ArrayInfo::getInStores(TNode a) {
+const CTNodeList* ArrayInfo::getInStores(const TNode a) const{
   CNodeInfoMap::iterator it = info_map.find(a);
   if(it!= info_map.end()) {
     return (*it).second->in_stores;
@@ -155,7 +156,7 @@ CTNodeList* ArrayInfo::getInStores(TNode a) {
   return emptyList;
 }
 
-CTNodeList* ArrayInfo::getEqStores(TNode a) {
+const CTNodeList* ArrayInfo::getEqStores(const TNode a) const{
   CNodeInfoMap::iterator it = info_map.find(a);
   if(it!= info_map.end()) {
     return (*it).second->eq_stores;
@@ -164,7 +165,7 @@ CTNodeList* ArrayInfo::getEqStores(TNode a) {
 }
 
 
-void ArrayInfo::mergeInfo(TNode a, TNode b){
+void ArrayInfo::mergeInfo(const TNode a, const TNode b){
   // can't have assertion that find(b) = a !
 
   Debug("arrays-mergei")<<"Arrays::mergeInfo merging "<<a<<"\n";

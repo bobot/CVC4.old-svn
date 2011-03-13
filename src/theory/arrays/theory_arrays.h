@@ -209,6 +209,7 @@ public:
 
     switch(n.getKind()) {
     case kind::SELECT:
+      Debug("arrays-preregister")<<"n[0]"<<n[0]<<" "<<n[1]<<"\n";
       d_infoMap.addIndex(n[0], n[1]);
       break;
 
@@ -216,8 +217,6 @@ public:
     {
       d_infoMap.addEqStore(n, n);
       d_infoMap.addInStore(n[0], n);
-      // there is an implicit read
-      d_infoMap.addIndex(n, n[1]);
 
       TNode i = n[1];
       TNode v = n[2];
@@ -241,14 +240,13 @@ public:
     default:
       Debug("darrays")<<"Arrays::preRegisterTerm \n";
     }
-
   }
 
   void registerTerm(TNode n) {
     Debug("arrays-register")<<"Arrays::registerTerm "<<n<<"\n";
 
     if(n.getKind() == kind::STORE && find(n) == n) {
-      CTNodeList* is = d_infoMap.getIndices(n);
+      const CTNodeList* is = d_infoMap.getIndices(n);
       for(CTNodeList::const_iterator it = is->begin(); it != is->end(); it++) {
         TNode i = (*it);
         addRoW2Lemma(n, n[0],n[1],i);

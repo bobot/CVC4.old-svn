@@ -62,7 +62,7 @@ public:
    * debug method to print a list
    */
 
-  static void printList(CTNodeList* list) {
+  static void printList (CTNodeList* list) {
     CTNodeList::const_iterator it = list->begin();
     Debug("arrays-info")<<"   [ ";
     for(; it != list->end(); it++ ) {
@@ -74,7 +74,7 @@ public:
   /**
    * prints the information
    */
-  void print() {
+  void print() const {
     Assert(indices != NULL && eq_stores!= NULL && in_stores != NULL);
     Debug("arrays-info")<<"  indices   ";
     printList(indices);
@@ -102,21 +102,22 @@ private:
   CNodeInfoMap info_map;
 
   CTNodeList* emptyList;
-  Info* emptyInfo;
+
 
   /**
    * checks if a certain element is in the list l
    * FIXME: better way to check for duplicates?
    */
-  bool inList(CTNodeList* l, TNode el);
+  bool inList(const CTNodeList* l, const TNode el) const;
 
   /**
    * helper method that merges two lists into the first
    * without adding duplicates
    */
-  void mergeLists(CTNodeList* la, CTNodeList* lb);
+  void mergeLists(CTNodeList* la, const CTNodeList* lb) const;
 
 public:
+  const Info* emptyInfo;
 
   ArrayInfo(context::Context* c): ct(c), info_map(ct) {
     emptyList = new(true) CTNodeList(ct);
@@ -144,19 +145,19 @@ public:
   /**
    * Maps a to the emptyInfo if a is not already in the map
    */
-  void addEmptyEntry(TNode a);
+  void addEmptyEntry(const TNode a);
 
   /**
    * Returns the information associated with TNode a
    */
 
-  Info* getInfo(TNode a);
+  const Info* getInfo(const TNode a) const;
 
-  CTNodeList* getIndices(TNode a);
+  const CTNodeList* getIndices(const TNode a) const;
 
-  CTNodeList* getInStores(TNode a);
+  const CTNodeList* getInStores(const TNode a) const;
 
-  CTNodeList* getEqStores(TNode a);
+  const CTNodeList* getEqStores(const TNode a) const;
 
   /**
    * merges the information of  nodes a and b
@@ -164,7 +165,7 @@ public:
    * pre-condition
    *  a should be the canonical representative of b
    */
-  void mergeInfo(TNode a, TNode b);
+  void mergeInfo(const TNode a, const TNode b);
 };
 
 

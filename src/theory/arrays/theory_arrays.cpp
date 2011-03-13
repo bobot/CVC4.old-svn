@@ -190,7 +190,7 @@ void TheoryArrays::merge(TNode a, TNode b) {
     Debug("arrays-merge")<<"after \n";
     // note the change in order, merge info adds the list of
     // the 2nd argument to the first
-    d_infoMap.mergeInfo(b, a);
+    //d_infoMap.mergeInfo(b, a);
   }
 
   deq_ia = d_disequalities.find(a);
@@ -393,9 +393,9 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
   Debug("arrays-clr")<<"  ------------  and "<<b<<"\n";
   if(Debug.isOn("arrays-clr"))
     d_infoMap.getInfo(b)->print();
-  CTNodeList* i_a = d_infoMap.getIndices(a);
-  CTNodeList* inst_b = d_infoMap.getInStores(b);
-  CTNodeList* eqst_b = d_infoMap.getEqStores(b);
+  const CTNodeList* i_a = d_infoMap.getIndices(a);
+  const CTNodeList* inst_b = d_infoMap.getInStores(b);
+  const CTNodeList* eqst_b = d_infoMap.getEqStores(b);
 
   CTNodeList::const_iterator it = i_a->begin();
   CTNodeList::const_iterator its;
@@ -449,7 +449,7 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
 }
 
 void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
-  CTNodeList* stores;
+  const CTNodeList* stores;
   CTNodeList::const_iterator it;
   stores = d_infoMap.getInStores(a);
 
