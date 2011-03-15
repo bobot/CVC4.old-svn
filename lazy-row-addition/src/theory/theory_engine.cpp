@@ -52,6 +52,8 @@ typedef expr::Attribute<IteRewriteTag, Node> IteRewriteAttr;
 }/* CVC4::theory namespace */
 
 void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
+  TimerStat::CodeTimer codeTimer(d_newFactTimer);
+
   //FIXME: Assert(fact.isLiteral(), "expected literal");
   if (fact.getKind() == kind::NOT) {
     // No need to register negations - only atoms
@@ -308,6 +310,12 @@ Node TheoryEngine::removeITEs(TNode node) {
   }
   vector<Node> newChildren;
   bool somethingChanged = false;
+  if(node.getMetaKind() == kind::metakind::PARAMETERIZED) {
+    // Make sure to push operator or it will be missing in new
+    // (reformed) node.  This was crashing on the very simple input
+    // "(f (ite c 0 1))"
+    newChildren.push_back(node.getOperator());
+  }
   for(TNode::const_iterator it = node.begin(), end = node.end();
       it != end;
       ++it) {

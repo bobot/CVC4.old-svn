@@ -125,16 +125,45 @@ private:
    */
   Tableau d_tableau;
 
-  ArithVarSet d_initialized;
+  /** Set of slack variables that have constraints currently in the tableau. */
+  PermissiveBackArithVarSet d_constrainedSlackVariables;
+  PermissiveBackArithVarSet d_savedConstrained;
 
-  bool initialized(ArithVar var){
-    return d_initialized.isMember(var);
+
+  bool slackIsConstrained(ArithVar var){
+    Assert(!d_userVariables.isMember(var));
+    return d_constrainedSlackVariables.isMember(var);
   };
-  void initialize(ArithVar var){
-    d_initialized.add(var);
+
+  void setConstrained(ArithVar var){
+    Assert(!d_userVariables.isMember(var));
+    d_constrainedSlackVariables.add(var);
   }
 
-  void reinitSlack(ArithVar var, TNode left);
+  void constrainSlack(ArithVar var, TNode left, Tableau& tab);
+  void resetTableau();
+
+  /**
+   * A copy of the tableau immediately after removing variables
+   * without bounds in presolve().
+   */
+  Tableau d_constrainedTableau;
+
+  uint32_t d_coveredByInitial;
+
+  /** Counts the number of notifyRestart() calls to the theory. */
+  uint32_t d_restartsCounter;
+
+  /**
+   * Every number of restarts equal to s_TABLEAU_RESET_PERIOD,
+   * the density of the tableau, d, is computed.
+   * If d >= s_TABLEAU_RESET_DENSITY * d_initialDensity, the tableau
+   * is set to d_initialTableau.
+   */
+  //double d_initialDensity;
+  //double d_tableauResetDensity;
+  uint32_t d_tableauResetPeriod;
+  static const uint32_t s_TABLEAU_RESET_INCREMENT = 2;
 
 
   ArithUnatePropagator d_propagator;
@@ -230,6 +259,12 @@ private:
 
     IntStat d_permanentlyRemovedVariables;
     TimerStat d_presolveTime;
+
+    BackedStat<double> d_initialTableauDensity;
+    AverageStat d_avgTableauDensityAtRestart;
+    IntStat d_tableauResets;
+    TimerStat d_restartTimer;
+
     Statistics();
     ~Statistics();
   };

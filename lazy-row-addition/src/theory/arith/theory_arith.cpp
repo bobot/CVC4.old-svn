@@ -61,6 +61,12 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   d_userVariables(),
   d_diseq(c),
   d_tableau(),
+  d_constrainedTableau(),
+  d_coveredByInitial(0),
+  d_restartsCounter(0),
+  //d_initialDensity(1.0),
+  //d_tableauResetDensity(2.0),
+  d_tableauResetPeriod(5),
   d_propagator(c, out),
   d_simplex(d_constants, d_partialModel, d_out, d_tableau),
   d_statistics()
@@ -75,7 +81,11 @@ TheoryArith::Statistics::Statistics():
   d_statDisequalityConflicts("theory::arith::DisequalityConflicts", 0),
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
-  d_presolveTime("theory::arith::presolveTime")
+  d_presolveTime("theory::arith::presolveTime"),
+  d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
+  d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
+  d_tableauResets("theory::arith::tableauResets", 0),
+  d_restartTimer("theory::arith::restartTimer")
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
   StatisticsRegistry::registerStat(&d_statSlackVariables);
@@ -85,6 +95,11 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::registerStat(&d_presolveTime);
+
+  StatisticsRegistry::registerStat(&d_initialTableauDensity);
+  StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::registerStat(&d_tableauResets);
+  StatisticsRegistry::registerStat(&d_restartTimer);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -96,6 +111,11 @@ TheoryArith::Statistics::~Statistics(){
 
   StatisticsRegistry::unregisterStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::unregisterStat(&d_presolveTime);
+
+  StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
+  StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::unregisterStat(&d_tableauResets);
+  StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
@@ -266,7 +286,7 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   //d_basicManager.init(varX,basic);
   //d_userVariables.init(varX, !basic);
   d_userVariables.init(varX, false);
-  d_initialized.init(varX, false);
+  d_constrainedSlackVariables.init(varX, false);
   d_tableau.increaseSize();
 
   Debug("arith::arithvar") << x << " |-> " << varX << endl;
@@ -305,8 +325,8 @@ void TheoryArith::setupSlack(TNode left){
   setupInitialValue(varSlack);
 }
 
-void TheoryArith::reinitSlack(ArithVar varSlack, TNode left){
-  Assert(!initialized(varSlack));
+void TheoryArith::constrainSlack(ArithVar varSlack, TNode left, Tableau& tab){
+  Assert(!slackIsConstrained(varSlack));
   Assert(left.hasAttribute(Slack()));
   Assert(left.getAttribute(Slack()) == asNode(varSlack));
 
@@ -319,7 +339,7 @@ void TheoryArith::reinitSlack(ArithVar varSlack, TNode left){
   vector<Rational> coefficients;
   asVectors(polyLeft, coefficients, variables);
 
-  d_tableau.addRow(varSlack, coefficients, variables);
+  tab.addRow(varSlack, coefficients, variables);
 
   //If the variable is basic, assertions may have already happened and updates
   //may have occured before setting this variable up.
@@ -346,8 +366,8 @@ void TheoryArith::reinitSlack(ArithVar varSlack, TNode left){
   //lower bound. This is done to strongly enforce the notion that basic
   //variables should not be changed without begin checked.
 
-  initialize(varSlack);
-  Assert(initialized(varSlack));
+  setConstrained(varSlack);
+  Assert(slackIsConstrained(varSlack));
 }
 
 /* Requirements:
@@ -391,9 +411,9 @@ ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
 
     TNode slack = left.getAttribute(Slack());
     ArithVar varSlack = asArithVar(slack);
-    if(!initialized(varSlack)){
+    if(!slackIsConstrained(varSlack)){
       Assert(!d_userVariables.isMember(varSlack));
-      reinitSlack(varSlack, left);
+      constrainSlack(varSlack, left, d_tableau);
     }
     return varSlack;
   }
@@ -592,7 +612,12 @@ void TheoryArith::explain(TNode n) {
 }
 
 void TheoryArith::propagate(Effort e) {
-
+  if(quickCheckOrMore(e)){
+    while(d_simplex.hasMoreLemmas()){
+      Node lemma = d_simplex.popLemma();
+      d_out->lemma(lemma);
+    }
+  }
   // if(quickCheckOrMore(e)){
   //   std::vector<Node> implied = d_propagator.getImpliedLiterals();
   //   for(std::vector<Node>::iterator i = implied.begin();
@@ -775,31 +800,52 @@ void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 
 }
 
-void TheoryArith::notifyRestart(){
-
+void TheoryArith::resetTableau(){
   unsigned int before = d_tableau.getNumRows();
 
   d_tableau.clear();
-  d_initialized.clear();
 
-  for(ArithVar i=0, size = d_variables.size(); i < size; ++i){
-    d_tableau.increaseSize();
-    d_initialized.init(i, false);
-  }
-
-  for(context::CDList<Node>::const_iterator i = d_facts.begin(), end = d_facts.end(); i!= end; ++i){
-    Node assertion = *i;
+  for(unsigned size = d_facts.size(); d_coveredByInitial < size; ++d_coveredByInitial){
+    Node assertion = d_facts[d_coveredByInitial];
     Kind simpKind = simplifiedKind(assertion);
     Assert(simpKind != UNDEFINED_KIND);
-    determineLeftVariable(assertion, simpKind); //this calls the correct setup  eventually
+
+    TNode left = getSide<true>(assertion, simpKind);
+    if(!isLeaf(left)){
+      TNode slack = left.getAttribute(Slack());
+      ArithVar varSlack = asArithVar(slack);
+      if(!slackIsConstrained(varSlack)){
+        Assert(!d_userVariables.isMember(varSlack));
+        constrainSlack(varSlack, left, d_constrainedTableau);
+        d_savedConstrained.add(varSlack);
+      }
+    }
   }
 
-  unsigned int after = d_tableau.getNumRows();
-  //cout << "tableau size " <<before << " to " << after << " using " << d_facts.size()<< endl;
+  d_tableau = d_constrainedTableau;
+  d_constrainedSlackVariables = d_savedConstrained;
 
-  // if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
-  // d_tableau = d_preprocessedCopy;
-  // if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  for(ArithVar i=d_tableau.getNumRows(), size = d_variables.size(); i < size; ++i){
+    d_tableau.increaseSize();
+  }
+  unsigned int after = d_tableau.getNumRows();
+
+  TimerStat::CodeTimer codeTimer(d_statistics.d_restartTimer);
+
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  Debug("arith::lazy") << "resetTableau " << before << " -> " << after << endl;
+}
+
+void TheoryArith::notifyRestart(){
+  ++d_restartsCounter;
+  if(d_restartsCounter % d_tableauResetPeriod == 0){
+    double currentDensity = d_tableau.densityMeasure();
+    d_statistics.d_avgTableauDensityAtRestart.addEntry(currentDensity);
+    resetTableau();
+
+    ++d_statistics.d_tableauResets;
+    d_tableauResetPeriod += s_TABLEAU_RESET_INCREMENT;
+  }
 }
 
 bool TheoryArith::entireStateIsConsistent(){
@@ -874,7 +920,10 @@ void TheoryArith::presolve(){
   }
   */
 
-  //Assert(entireStateIsConsistent()); //Boy is this paranoid
+  //d_initialTableau = d_tableau;
+  //d_initialDensity = d_initialTableau.densityMeasure();
+  //d_statistics.d_initialTableauDensity.setData(d_initialDensity);
+
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
   static int callCount = 0;
