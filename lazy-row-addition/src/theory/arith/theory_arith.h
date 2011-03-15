@@ -133,14 +133,11 @@ private:
   bool slackIsConstrained(ArithVar var){
     Assert(!d_userVariables.isMember(var));
     return d_constrainedSlackVariables.isMember(var);
-  };
-
-  void setConstrained(ArithVar var){
-    Assert(!d_userVariables.isMember(var));
-    d_constrainedSlackVariables.add(var);
   }
 
-  void constrainSlack(ArithVar var, TNode left, Tableau& tab);
+  void addRowForSlack(ArithVar varSlack, TNode left, Tableau& tab);
+  void computeAndSetBasicAssignment(ArithVar varSlack);
+
   void resetTableau();
 
   /**
@@ -259,6 +256,9 @@ private:
 
     IntStat d_permanentlyRemovedVariables;
     TimerStat d_presolveTime;
+
+    IntStat d_miplibtrickApplications;
+    AverageStat d_avgNumMiplibtrickValues;
 
     BackedStat<double> d_initialTableauDensity;
     AverageStat d_avgTableauDensityAtRestart;

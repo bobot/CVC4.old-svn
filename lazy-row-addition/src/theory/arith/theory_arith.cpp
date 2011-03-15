@@ -27,6 +27,8 @@
 #include "util/rational.h"
 #include "util/integer.h"
 
+#include "theory/rewriter.h"
+
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/partial_model.h"
@@ -82,6 +84,8 @@ TheoryArith::Statistics::Statistics():
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
+  d_miplibtrickApplications("theory::arith::miplibtrickApplications", 0),
+  d_avgNumMiplibtrickValues("theory::arith::avgNumMiplibtrickValues"),
   d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
   d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
   d_tableauResets("theory::arith::tableauResets", 0),
@@ -95,6 +99,9 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::registerStat(&d_presolveTime);
+
+  StatisticsRegistry::registerStat(&d_miplibtrickApplications);
+  StatisticsRegistry::registerStat(&d_avgNumMiplibtrickValues);
 
   StatisticsRegistry::registerStat(&d_initialTableauDensity);
   StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
@@ -112,18 +119,42 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::unregisterStat(&d_presolveTime);
 
+  StatisticsRegistry::unregisterStat(&d_miplibtrickApplications);
+  StatisticsRegistry::unregisterStat(&d_avgNumMiplibtrickValues);
+
   StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
   StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
   StatisticsRegistry::unregisterStat(&d_tableauResets);
   StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
+#include "util/propositional_query.h"
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_staticLearningTimer);
+
+  /*
+  if(Debug.isOn("prop::static")){
+    Debug("prop::static") << n << "is "
+                          << prop::PropositionalQuery::isSatisfiable(n)
+                          << endl;
+  }
+  */
 
   vector<TNode> workList;
   workList.push_back(n);
   __gnu_cxx::hash_set<TNode, TNodeHashFunction> processed;
+
+  //Contains an underapproximation of nodes that must hold.
+  __gnu_cxx::hash_set<TNode, TNodeHashFunction> defTrue;
+
+  /* Maps a variable, x, to the set of defTrue nodes of the form
+   *  (=> _ (= x c))
+   * where c is a constant.
+   */
+  typedef __gnu_cxx::hash_map<TNode, set<TNode>, TNodeHashFunction> VarToNodeSetMap;
+  VarToNodeSetMap miplibTrick;
+
+  defTrue.insert(n);
 
   while(!workList.empty()) {
     n = workList.back();
@@ -134,6 +165,11 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
         // unprocessed child
         workList.push_back(*i);
         unprocessedChildren = true;
+      }
+    }
+    if(n.getKind() == AND && defTrue.find(n) != defTrue.end() ){
+      for(TNode::iterator i = n.begin(), iend = n.end(); i != iend; ++i) {
+        defTrue.insert(*i);
       }
     }
 
@@ -204,6 +240,105 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
       Node nLeqMax = NodeBuilder<2>(LEQ) << n << max;
       Debug("arith::mins") << n << " is a constant sandwich"  << nGeqMin << nLeqMax << endl;
       learned << nGeqMin << nLeqMax;
+    }
+    // == 3-FINITE VALUE SET : Collect information ==
+    if(n.getKind() == IMPLIES &&
+       n[1].getKind() == EQUAL &&
+       n[1][0].getMetaKind() == metakind::VARIABLE &&
+       defTrue.find(n) != defTrue.end()){
+      Node eqTo = n[1][1];
+      Node rewriteEqTo = Rewriter::rewrite(eqTo);
+      if(rewriteEqTo.getKind() == CONST_RATIONAL){
+
+        TNode var = n[1][0];
+        if(miplibTrick.find(var)  == miplibTrick.end()){
+          //[MGD] commented out following line as per TAK's instructions
+          //miplibTrick.insert(make_pair(var, set<TNode>()));
+        }
+        //[MGD] commented out following line as per TAK's instructions
+        //miplibTrick[var].insert(n);
+        Debug("arith::miplib") << "insert " << var  << " const " << n << endl;
+      }
+    }
+  }
+
+  // == 3-FINITE VALUE SET ==
+  VarToNodeSetMap::iterator i = miplibTrick.begin(), endMipLibTrick = miplibTrick.end();
+  for(; i != endMipLibTrick; ++i){
+    TNode var = i->first;
+    const set<TNode>& imps = i->second;
+
+    Assert(!imps.empty());
+    vector<Node> conditions;
+    vector<Rational> valueCollection;
+    set<TNode>::const_iterator j=imps.begin(), impsEnd=imps.end();
+    for(; j != impsEnd; ++j){
+      TNode imp = *j;
+      Assert(imp.getKind() == IMPLIES);
+      Assert(defTrue.find(imp) != defTrue.end());
+      Assert(imp[1].getKind() == EQUAL);
+
+
+      Node eqTo = imp[1][1];
+      Node rewriteEqTo = Rewriter::rewrite(eqTo);
+      Assert(rewriteEqTo.getKind() == CONST_RATIONAL);
+
+      conditions.push_back(imp[0]);
+      valueCollection.push_back(rewriteEqTo.getConst<Rational>());
+    }
+
+    Node possibleTaut = Node::null();
+    if(conditions.size() == 1){
+      possibleTaut = conditions.front();
+    }else{
+      NodeBuilder<> orBuilder(OR);
+      orBuilder.append(conditions);
+      possibleTaut = orBuilder;
+    }
+
+
+    Debug("arith::miplib") << "var: " << var << endl;
+    Debug("arith::miplib") << "possibleTaut: " << possibleTaut << endl;
+
+    Result isTaut = PropositionalQuery::isTautology(possibleTaut);
+    if(isTaut == Result(Result::VALID)){
+      Debug("arith::miplib") << var << " found a tautology!"<< endl;
+
+      set<Rational> values(valueCollection.begin(), valueCollection.end());
+      const Rational& min = *(values.begin());
+      const Rational& max = *(values.rbegin());
+
+      Debug("arith::miplib") << "min: " << min << endl;
+      Debug("arith::miplib") << "max: " << max << endl;
+
+      Assert(min <= max);
+
+      ++(d_statistics.d_miplibtrickApplications);
+      (d_statistics.d_avgNumMiplibtrickValues).addEntry(values.size());
+
+      Node nGeqMin = NodeBuilder<2>(GEQ) << var << mkRationalNode(min);
+      Node nLeqMax = NodeBuilder<2>(LEQ) << var << mkRationalNode(max);
+      Debug("arith::miplib") << nGeqMin << nLeqMax << endl;
+      learned << nGeqMin << nLeqMax;
+      set<Rational>::iterator valuesIter = values.begin();
+      set<Rational>::iterator valuesEnd = values.end();
+      set<Rational>::iterator valuesPrev = valuesIter;
+      ++valuesIter;
+      for(; valuesIter != valuesEnd; valuesPrev = valuesIter, ++valuesIter){
+        const Rational& prev = *valuesPrev;
+        const Rational& curr = *valuesIter;
+        Assert(prev < curr);
+
+        //The interval (last,curr) can be excluded:
+        //(not (and (> var prev) (< var curr))
+        //<=> (or (not (> var prev)) (not (< var curr)))
+        //<=> (or (<= var prev) (>= var curr))
+        Node leqPrev = NodeBuilder<2>(LEQ) << var << mkRationalNode(prev);
+        Node geqCurr = NodeBuilder<2>(GEQ) << var << mkRationalNode(curr);
+        Node excludedMiddle =  NodeBuilder<2>(OR) << leqPrev << geqCurr;
+        Debug("arith::miplib") << excludedMiddle << endl;
+        learned << excludedMiddle;
+      }
     }
   }
 }
@@ -288,6 +423,7 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   d_userVariables.init(varX, false);
   d_constrainedSlackVariables.init(varX, false);
   d_tableau.increaseSize();
+  d_constrainedTableau.increaseSize();
 
   Debug("arith::arithvar") << x << " |-> " << varX << endl;
 
@@ -325,13 +461,10 @@ void TheoryArith::setupSlack(TNode left){
   setupInitialValue(varSlack);
 }
 
-void TheoryArith::constrainSlack(ArithVar varSlack, TNode left, Tableau& tab){
-  Assert(!slackIsConstrained(varSlack));
+void TheoryArith::addRowForSlack(ArithVar varSlack, TNode left, Tableau& tab){
+  //Assert(!slackIsConstrained(varSlack));
   Assert(left.hasAttribute(Slack()));
   Assert(left.getAttribute(Slack()) == asNode(varSlack));
-
-  //Node slack = left.getAttribute(Slack());
-  //ArithVar varSlack = asArithVar(slack);
 
   Polynomial polyLeft = Polynomial::parsePolynomial(left);
 
@@ -340,34 +473,15 @@ void TheoryArith::constrainSlack(ArithVar varSlack, TNode left, Tableau& tab){
   asVectors(polyLeft, coefficients, variables);
 
   tab.addRow(varSlack, coefficients, variables);
+}
 
-  //If the variable is basic, assertions may have already happened and updates
-  //may have occured before setting this variable up.
-
-  //This can go away if the tableau creation is done at preregister
-  //time instead of register
+void TheoryArith::computeAndSetBasicAssignment(ArithVar varSlack){
+  Assert(d_tableau.isBasic(varSlack));
+  Assert(slackIsConstrained(varSlack));
   DeltaRational safeAssignment = d_simplex.computeRowValue(varSlack, true);
   DeltaRational assignment = d_simplex.computeRowValue(varSlack, false);
 
   d_partialModel.setAssignment(varSlack, safeAssignment, assignment);
-
-  //cout << "never going to work" << endl;
-  //Assert(!d_partialModel.hasLowerBound(varSlack));
-  //Assert(!d_partialModel.hasUpperBound(varSlack));
-
-  //d_partialModel.initialize(x,safeAssignment);
-  //d_partialModel.setAssignment(x,assignment);
-
-
-  //d_simplex.checkBasicVariable(x);
-  //Conciously violating unneeded check
-
-  //Strictly speaking checking x is unnessecary as it cannot have an upper or
-  //lower bound. This is done to strongly enforce the notion that basic
-  //variables should not be changed without begin checked.
-
-  setConstrained(varSlack);
-  Assert(slackIsConstrained(varSlack));
 }
 
 /* Requirements:
@@ -413,7 +527,9 @@ ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
     ArithVar varSlack = asArithVar(slack);
     if(!slackIsConstrained(varSlack)){
       Assert(!d_userVariables.isMember(varSlack));
-      constrainSlack(varSlack, left, d_tableau);
+      addRowForSlack(varSlack, left, d_tableau);
+      d_constrainedSlackVariables.add(varSlack);
+      computeAndSetBasicAssignment(varSlack);
     }
     return varSlack;
   }
@@ -605,10 +721,6 @@ void TheoryArith::check(Effort effortLevel){
 }
 
 void TheoryArith::explain(TNode n) {
-  // Node explanation = d_propagator.explain(n);
-  // Debug("arith") << "arith::explain("<<explanation<<")->"
-  //                << explanation << endl;
-  // d_out->explanation(explanation, true);
 }
 
 void TheoryArith::propagate(Effort e) {
@@ -618,14 +730,6 @@ void TheoryArith::propagate(Effort e) {
       d_out->lemma(lemma);
     }
   }
-  // if(quickCheckOrMore(e)){
-  //   std::vector<Node> implied = d_propagator.getImpliedLiterals();
-  //   for(std::vector<Node>::iterator i = implied.begin();
-  //       i != implied.end();
-  //       ++i){
-  //     d_out->propagate(*i);
-  //   }
-  // }
 }
 
 Node TheoryArith::getValue(TNode n, Valuation* valuation) {
@@ -805,6 +909,8 @@ void TheoryArith::resetTableau(){
 
   d_tableau.clear();
 
+  vector<ArithVar> computeValues;
+
   for(unsigned size = d_facts.size(); d_coveredByInitial < size; ++d_coveredByInitial){
     Node assertion = d_facts[d_coveredByInitial];
     Kind simpKind = simplifiedKind(assertion);
@@ -814,10 +920,11 @@ void TheoryArith::resetTableau(){
     if(!isLeaf(left)){
       TNode slack = left.getAttribute(Slack());
       ArithVar varSlack = asArithVar(slack);
-      if(!slackIsConstrained(varSlack)){
+      if(!d_savedConstrained.isMember(varSlack)){
         Assert(!d_userVariables.isMember(varSlack));
-        constrainSlack(varSlack, left, d_constrainedTableau);
+        addRowForSlack(varSlack, left, d_constrainedTableau);
         d_savedConstrained.add(varSlack);
+        computeValues.push_back(varSlack);
       }
     }
   }
@@ -825,15 +932,18 @@ void TheoryArith::resetTableau(){
   d_tableau = d_constrainedTableau;
   d_constrainedSlackVariables = d_savedConstrained;
 
-  for(ArithVar i=d_tableau.getNumRows(), size = d_variables.size(); i < size; ++i){
-    d_tableau.increaseSize();
+  vector<ArithVar>::iterator i =computeValues.begin(), end = computeValues.end();
+  for(; i != end; ++i){
+    computeAndSetBasicAssignment(*i);
   }
+
   unsigned int after = d_tableau.getNumRows();
 
   TimerStat::CodeTimer codeTimer(d_statistics.d_restartTimer);
 
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
   Debug("arith::lazy") << "resetTableau " << before << " -> " << after << endl;
+  //cout << "resetTableau " << before << " -> " << after << endl;
 }
 
 void TheoryArith::notifyRestart(){
