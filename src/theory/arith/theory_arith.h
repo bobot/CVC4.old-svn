@@ -71,15 +71,6 @@ private:
    */
   std::map<ArithVar, Node> d_removedRows;
 
-  /**
-   * Priority Queue of the basic variables that may be inconsistent.
-   *
-   * This is required to contain at least 1 instance of every inconsistent
-   * basic variable. This is only required to be a superset though so its
-   * contents must be checked to still be basic and inconsistent.
-   */
-  std::priority_queue<ArithVar> d_possiblyInconsistent;
-
   /** Stores system wide constants to avoid unnessecary reconstruction. */
   ArithConstants d_constants;
 
@@ -131,6 +122,27 @@ private:
    */
   Tableau d_tableau;
 
+  /**
+   * A copy of the tableau immediately after removing variables
+   * without bounds in presolve().
+   */
+  Tableau d_initialTableau;
+
+  /** Counts the number of notifyRestart() calls to the theory. */
+  uint32_t d_restartsCounter;
+
+  /**
+   * Every number of restarts equal to s_TABLEAU_RESET_PERIOD,
+   * the density of the tableau, d, is computed.
+   * If d >= s_TABLEAU_RESET_DENSITY * d_initialDensity, the tableau
+   * is set to d_initialTableau.
+   */
+  double d_initialDensity;
+  double d_tableauResetDensity;
+  uint32_t d_tableauResetPeriod;
+  static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
+
+
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;
 
@@ -157,7 +169,7 @@ public:
   void shutdown(){ }
 
   void presolve();
-
+  void notifyRestart();
   void staticLearning(TNode in, NodeBuilder<>& learned);
 
   std::string identify() const { return std::string("TheoryArith"); }
@@ -227,6 +239,11 @@ private:
 
     IntStat d_miplibtrickApplications;
     AverageStat d_avgNumMiplibtrickValues;
+
+    BackedStat<double> d_initialTableauDensity;
+    AverageStat d_avgTableauDensityAtRestart;
+    IntStat d_tableauResets;
+    TimerStat d_restartTimer;
 
     Statistics();
     ~Statistics();

@@ -29,7 +29,7 @@ using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
 
-#ifdef CVC4_USE_CUDD
+#ifdef CVC4_CUDD
 
 #include <util.h>
 #include <cudd.h>
@@ -87,10 +87,6 @@ public:
     if(d_atomToBddMap.size() > MAX_VARIABLES) {
       d_result = Result(Result::SAT_UNKNOWN, Result::TIMEOUT);
     } else {
-      // size must be at least 1
-      size_t varsToAlloc = max(d_atomToBddMap.size(), (size_t) 1);
-      d_mgr;
-
       BDD res = encodeNode(t);
       BDD falseBdd = d_mgr.bddZero();
       bool isUnsat = (res == falseBdd);
@@ -217,7 +213,7 @@ Result PropositionalQuery::isTautology(TNode q) {
   return satResult.asValidityResult();
 }
 
-#else /* CVC4_USE_CUDD */
+#else /* CVC4_CUDD */
 
 // if CUDD wasn't available at build time, just return UNKNOWN everywhere.
 
@@ -229,4 +225,4 @@ Result PropositionalQuery::isTautology(TNode q) {
   return Result(Result::VALIDITY_UNKNOWN, Result::UNSUPPORTED);
 }
 
-#endif /* CVC4_USE_CUDD */
+#endif /* CVC4_CUDD */
