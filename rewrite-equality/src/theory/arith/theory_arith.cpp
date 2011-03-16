@@ -27,6 +27,8 @@
 #include "util/rational.h"
 #include "util/integer.h"
 
+#include "theory/rewriter.h"
+
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/partial_model.h"
@@ -79,6 +81,8 @@ TheoryArith::Statistics::Statistics():
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
+  d_miplibtrickApplications("theory::arith::miplibtrickApplications", 0),
+  d_avgNumMiplibtrickValues("theory::arith::avgNumMiplibtrickValues"),
   d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
   d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
   d_tableauResets("theory::arith::tableauResets", 0),
@@ -92,6 +96,9 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::registerStat(&d_presolveTime);
+
+  StatisticsRegistry::registerStat(&d_miplibtrickApplications);
+  StatisticsRegistry::registerStat(&d_avgNumMiplibtrickValues);
 
   StatisticsRegistry::registerStat(&d_initialTableauDensity);
   StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
@@ -109,18 +116,34 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::unregisterStat(&d_presolveTime);
 
+  StatisticsRegistry::unregisterStat(&d_miplibtrickApplications);
+  StatisticsRegistry::unregisterStat(&d_avgNumMiplibtrickValues);
+
   StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
   StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
   StatisticsRegistry::unregisterStat(&d_tableauResets);
   StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
+#include "util/propositional_query.h"
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_staticLearningTimer);
 
   vector<TNode> workList;
   workList.push_back(n);
   __gnu_cxx::hash_set<TNode, TNodeHashFunction> processed;
+
+  //Contains an underapproximation of nodes that must hold.
+  __gnu_cxx::hash_set<TNode, TNodeHashFunction> defTrue;
+
+  /* Maps a variable, x, to the set of defTrue nodes of the form
+   *  (=> _ (= x c))
+   * where c is a constant.
+   */
+  typedef __gnu_cxx::hash_map<TNode, set<TNode>, TNodeHashFunction> VarToNodeSetMap;
+  VarToNodeSetMap miplibTrick;
+
+  defTrue.insert(n);
 
   while(!workList.empty()) {
     n = workList.back();
@@ -131,6 +154,11 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
         // unprocessed child
         workList.push_back(*i);
         unprocessedChildren = true;
+      }
+    }
+    if(n.getKind() == AND && defTrue.find(n) != defTrue.end() ){
+      for(TNode::iterator i = n.begin(), iend = n.end(); i != iend; ++i) {
+        defTrue.insert(*i);
       }
     }
 
@@ -200,6 +228,90 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
       Node nGeqMin = NodeBuilder<2>(GEQ) << n << min;
       Node nLeqMax = NodeBuilder<2>(LEQ) << n << max;
       Debug("arith::mins") << n << " is a constant sandwich"  << nGeqMin << nLeqMax << endl;
+      learned << nGeqMin << nLeqMax;
+    }
+    // == 3-FINITE VALUE SET : Collect information ==
+    if(n.getKind() == IMPLIES &&
+       n[1].getKind() == EQUAL &&
+       n[1][0].getMetaKind() == metakind::VARIABLE &&
+       defTrue.find(n) != defTrue.end()){
+      Node eqTo = n[1][1];
+      Node rewriteEqTo = Rewriter::rewrite(eqTo);
+      if(rewriteEqTo.getKind() == CONST_RATIONAL){
+
+        TNode var = n[1][0];
+        if(miplibTrick.find(var)  == miplibTrick.end()){
+          miplibTrick.insert(make_pair(var, set<TNode>()));
+        }
+        miplibTrick[var].insert(n);
+        Debug("arith::miplib") << "insert " << var  << " const " << n << endl;
+      }
+    }
+  }
+
+  // == 3-FINITE VALUE SET ==
+  VarToNodeSetMap::iterator i = miplibTrick.begin(), endMipLibTrick = miplibTrick.end();
+  for(; i != endMipLibTrick; ++i){
+    TNode var = i->first;
+    const set<TNode>& imps = i->second;
+
+    Assert(!imps.empty());
+    vector<Node> conditions;
+    vector<Rational> valueCollection;
+    set<TNode>::const_iterator j=imps.begin(), impsEnd=imps.end();
+    for(; j != impsEnd; ++j){
+      TNode imp = *j;
+      Assert(imp.getKind() == IMPLIES);
+      Assert(defTrue.find(imp) != defTrue.end());
+      Assert(imp[1].getKind() == EQUAL);
+
+
+      Node eqTo = imp[1][1];
+      Node rewriteEqTo = Rewriter::rewrite(eqTo);
+      Assert(rewriteEqTo.getKind() == CONST_RATIONAL);
+
+      conditions.push_back(imp[0]);
+      valueCollection.push_back(rewriteEqTo.getConst<Rational>());
+    }
+
+    Node possibleTaut = Node::null();
+    if(conditions.size() == 1){
+      possibleTaut = conditions.front();
+    }else{
+      NodeBuilder<> orBuilder(OR);
+      orBuilder.append(conditions);
+      possibleTaut = orBuilder;
+    }
+
+
+    Debug("arith::miplib") << "var: " << var << endl;
+    Debug("arith::miplib") << "possibleTaut: " << possibleTaut << endl;
+
+    Result isTaut = PropositionalQuery::isTautology(possibleTaut);
+    if(isTaut == Result(Result::VALID)){
+      Debug("arith::miplib") << var << " found a tautology!"<< endl;
+
+      vector<Rational>::iterator minIter, maxIter;
+      minIter = std::min_element(valueCollection.begin(), valueCollection.end());
+      maxIter = std::max_element(valueCollection.begin(), valueCollection.end());
+
+      Assert(minIter != valueCollection.end());
+      Assert(maxIter != valueCollection.end());
+
+      const Rational& min = *minIter;
+      const Rational& max = *maxIter;
+
+      Debug("arith::miplib") << "min: " << min << endl;
+      Debug("arith::miplib") << "max: " << max << endl;
+
+      Assert(min <= max);
+
+      ++(d_statistics.d_miplibtrickApplications);
+      (d_statistics.d_avgNumMiplibtrickValues).addEntry(valueCollection.size());
+
+      Node nGeqMin = NodeBuilder<2>(GEQ) << var << mkRationalNode(min);
+      Node nLeqMax = NodeBuilder<2>(LEQ) << var << mkRationalNode(max);
+      Debug("arith::miplib") << nGeqMin << nLeqMax << endl;
       learned << nGeqMin << nLeqMax;
     }
   }
