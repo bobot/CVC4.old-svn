@@ -33,7 +33,13 @@ ReducedRowVector::~ReducedRowVector(){
   for(;curr != endEntries; ++curr){
     ArithVar v = (*curr).getArithVar();
     Assert(d_rowCount[v] >= 1);
-    d_columnMatrix[v].remove(basic());
+    const Column::iterator pos = (*curr).getColumnPosition();
+    Assert(*pos == d_basic);
+
+    Column& col = *(d_columnMatrix[v]);
+    Debug("row") << d_basic << " " << *pos << " " << v << endl;
+    col.erase(pos);
+    //d_columnMatrix[v].remove(basic());
     --(d_rowCount[v]);
   }
 
@@ -44,7 +50,7 @@ ReducedRowVector::~ReducedRowVector(){
 bool ReducedRowVector::matchingCounts() const{
   for(const_iterator i=begin(), endEntries=end(); i != endEntries; ++i){
     ArithVar v = (*i).getArithVar();
-    if(d_columnMatrix[v].size() != d_rowCount[v]){
+    if(d_columnMatrix[v]->size() != d_rowCount[v]){
       return false;
     }
   }
@@ -62,7 +68,8 @@ bool ReducedRowVector::noZeroCoefficients(const VarCoeffArray& arr){
 
 void ReducedRowVector::zip(const std::vector< ArithVar >& variables,
                            const std::vector< Rational >& coefficients,
-                           VarCoeffArray& output){
+                           VarCoeffArray& output,
+                           const Column::iterator& defaultPos){
 
   Assert(coefficients.size() == variables.size() );
 
@@ -74,7 +81,7 @@ void ReducedRowVector::zip(const std::vector< ArithVar >& variables,
     const Rational& coeff = *coeffIter;
     ArithVar var_i = *varIter;
 
-    output.push_back(VarCoeffPair(var_i, coeff));
+    output.push_back(VarCoeffPair(var_i, coeff, defaultPos));
   }
 }
 
@@ -122,11 +129,14 @@ void ReducedRowVector::addRowTimesConstant(const Rational& c, const ReducedRowVe
     }else if(var1 > var2){
 
       ++d_rowCount[var2];
-      d_columnMatrix[var2].add(d_basic);
+
+      Column& col = *(d_columnMatrix[var2]);
+      Column::iterator pos = col.insert(col.begin(), d_basic);
+      //d_columnMatrix[var2].push_back(d_basic);
 
       addArithVar(d_contains, var2);
       const Rational& coeff2 = (*curr2).getCoefficient();
-      d_buffer.push_back( VarCoeffPair(var2, c * coeff2));
+      d_buffer.push_back( VarCoeffPair(var2, c * coeff2, pos));
       ++curr2;
     }else{
       Assert(var1 == var2);
@@ -134,13 +144,17 @@ void ReducedRowVector::addRowTimesConstant(const Rational& c, const ReducedRowVe
       const Rational& coeff2 = (*curr2).getCoefficient();
       Rational res = coeff1 + (c * coeff2);
       if(res != 0){
-        //The variable is not new so the count stays the same
-        d_buffer.push_back(VarCoeffPair(var1, res));
+        //The variable is not new so the count and position stay the same
+        const Column::iterator& pos1 = (*curr1).getColumnPosition();
+        d_buffer.push_back(VarCoeffPair(var1, res, pos1));
       }else{
         removeArithVar(d_contains, var1);
 
         --d_rowCount[var1];
-        d_columnMatrix[var1].remove(d_basic);
+        //d_columnMatrix[var1].remove(d_basic);
+        const Column::iterator& pos1 = (*curr1).getColumnPosition();
+        Column& col = *(d_columnMatrix[var1]);
+        col.erase(pos1);
       }
       ++curr1;
       ++curr2;
@@ -154,11 +168,14 @@ void ReducedRowVector::addRowTimesConstant(const Rational& c, const ReducedRowVe
     ArithVar var2 = (*curr2).getArithVar();
     const Rational& coeff2 = (*curr2).getCoefficient();
     ++d_rowCount[var2];
-    d_columnMatrix[var2].add(d_basic);
+
+    Column& col = *(d_columnMatrix[var2]);
+    Column::iterator pos = col.insert(col.begin(), d_basic);
+    //d_columnMatrix[var2].add(d_basic);
 
     addArithVar(d_contains, var2);
 
-    d_buffer.push_back(VarCoeffPair(var2, c * coeff2));
+    d_buffer.push_back(VarCoeffPair(var2, c * coeff2, pos));
     ++curr2;
   }
 
@@ -182,19 +199,28 @@ ReducedRowVector::ReducedRowVector(ArithVar basic,
                                    const std::vector<ArithVar>& variables,
                                    const std::vector<Rational>& coefficients,
                                    std::vector<uint32_t>& counts,
-                                   std::vector<PermissiveBackArithVarSet>& cm):
+                                   ColumnMatrix& cm):
   d_basic(basic), d_rowCount(counts),  d_columnMatrix(cm)
 {
-  zip(variables, coefficients, d_entries);
-  d_entries.push_back(VarCoeffPair(basic, Rational(-1)));
+  Column tmp;
+  zip(variables, coefficients, d_entries, tmp.end());
+
+  d_entries.push_back(VarCoeffPair(basic, Rational(-1), tmp.end()));
 
   std::sort(d_entries.begin(), d_entries.end());
 
-  for(const_iterator i=begin(), endEntries=end(); i != endEntries; ++i){
-    ArithVar var = (*i).getArithVar();
+  for(iterator i=d_entries.begin(), endEntries=d_entries.end(); i != endEntries; ++i){
+    VarCoeffPair& entry = *i;
+    ArithVar var = entry.getArithVar();
     ++d_rowCount[var];
     addArithVar(d_contains, var);
-    d_columnMatrix[var].add(d_basic);
+
+    Column& col = *( d_columnMatrix[var] );
+    Column::iterator pos = col.insert(col.begin(), d_basic);
+    entry.setColumnPosition(pos);
+
+    Assert(std::find(col.begin(), col.end(), d_basic) == entry.getColumnPosition());
+    //d_columnMatrix[var].add(d_basic);
   }
 
   Assert(isSorted(d_entries, true));
@@ -229,16 +255,28 @@ void ReducedRowVector::pivot(ArithVar x_j){
   Rational negInverseA_rs = -(lookup(x_j).inverse());
   multiply(negInverseA_rs);
 
-  for(const_iterator i=begin(), endEntries=end(); i != endEntries; ++i){
-    ArithVar var = (*i).getArithVar();
-    d_columnMatrix[var].remove(d_basic);
-    d_columnMatrix[var].add(x_j);
+  for(iterator i=d_entries.begin(), endEntries=d_entries.end(); i != endEntries; ++i){
+    VarCoeffPair& entry = *i;
+    ArithVar var = entry.getArithVar();
+    const Column::iterator pos = entry.getColumnPosition();
+    Assert(*pos == d_basic);
+
+    Column& col = *(d_columnMatrix[var]);
+
+    Assert( std::find(col.begin(), col.end(), d_basic) == pos);
+
+    col.erase(pos);
+    Column::iterator newPos= col.insert(col.begin(), x_j);
+    entry.setColumnPosition(newPos);
+    //d_columnMatrix[var].remove(d_basic);
+    //d_columnMatrix[var].add(x_j);
   }
 
   d_basic = x_j;
 
   Assert(matchingCounts());
   Assert(wellFormed());
+
   //The invariant Assert(d_rowCount[basic()] == 1); does not hold.
   //This is because the pivot is within the row first then
   //is moved through the propagated through the rest of the tableau.

@@ -19,12 +19,23 @@ private:
   ArithVar d_variable;
   Rational d_coeff;
 
+  //An iterator corresponding to this row element's position
+  // in d_variable's column list
+  Column::iterator d_columnPos;
+
 public:
-  VarCoeffPair(ArithVar v, const Rational& q): d_variable(v), d_coeff(q) {}
+  VarCoeffPair(ArithVar v, const Rational& q, const Column::iterator& pos):
+    d_variable(v), d_coeff(q), d_columnPos(pos)
+  {}
 
   ArithVar getArithVar() const { return d_variable; }
   Rational& getCoefficient() { return d_coeff; }
   const Rational& getCoefficient() const { return d_coeff; }
+  const Column::iterator& getColumnPosition() const { return d_columnPos; }
+
+  void setColumnPosition(const Column::iterator& pos){
+    d_columnPos = pos;
+  }
 
   bool operator<(const VarCoeffPair& other) const{
     return getArithVar() < other.getArithVar();
@@ -76,7 +87,7 @@ private:
   ArithVarContainsSet d_contains;
 
   std::vector<uint32_t>& d_rowCount;
-  std::vector<PermissiveBackArithVarSet>& d_columnMatrix;
+  ColumnMatrix& d_columnMatrix;
 
 
 public:
@@ -85,7 +96,7 @@ public:
                    const std::vector< ArithVar >& variables,
                    const std::vector< Rational >& coefficients,
                    std::vector<uint32_t>& count,
-                   std::vector< PermissiveBackArithVarSet >& columnMatrix);
+                   ColumnMatrix& columnMatrix);
   ~ReducedRowVector();
 
   void enqueueNonBasicVariablesAndCoefficients(std::vector< ArithVar >& variables,
@@ -190,7 +201,8 @@ private:
    */
   static void zip(const std::vector< ArithVar >& variables,
                   const std::vector< Rational >& coefficients,
-                  VarCoeffArray& output);
+                  VarCoeffArray& output,
+                  const Column::iterator& defaultPos);
 
   /**
    * Debugging code.
@@ -203,7 +215,9 @@ private:
   bool matchingCounts() const;
 
   const_iterator lower_bound(ArithVar x_j) const{
-    return std::lower_bound(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j, 0));
+    Assert(basic() < d_columnMatrix.size());
+    Column& col =  *(d_columnMatrix[basic()]);
+    return std::lower_bound(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j, 0, col.end()));
   }
 
   /** Debugging code */
@@ -220,7 +234,9 @@ private:
 
   /** Debugging code. */
   bool hasInEntries(ArithVar x_j) const {
-    return std::binary_search(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j,0));
+    Assert(basic() < d_columnMatrix.size());
+    Column& col = *(d_columnMatrix[basic()]);
+    return std::binary_search(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j,0,col.end()));
   }
 
 }; /* class ReducedRowVector */

@@ -25,7 +25,6 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-
 Tableau::Tableau(const Tableau& tab){
   internalCopy(tab);
 }
@@ -35,24 +34,16 @@ void Tableau::internalCopy(const Tableau& tab){
 
   Debug("tableau::copy") << "tableau copy "<< N << endl;
 
-  if(N > 1){
-    d_columnMatrix.insert(d_columnMatrix.end(), N, Column());
+  if(N >= 1){
+    for(unsigned i = 0; i < N; ++i){
+      d_columnMatrix.push_back(new Column());
+    }
     d_rowsTable.insert(d_rowsTable.end(), N, NULL);
     d_basicVariables.increaseSize(N-1);
 
     Assert(d_basicVariables.allocated() == tab.d_basicVariables.allocated());
 
     d_rowCount.insert(d_rowCount.end(), N, 0);
-  }
-
-  ColumnMatrix::const_iterator otherIter = tab.d_columnMatrix.begin();
-  ColumnMatrix::iterator i_colIter = d_columnMatrix.begin();
-  ColumnMatrix::iterator end_colIter = d_columnMatrix.end();
-  for(; i_colIter != end_colIter; ++i_colIter, ++otherIter){
-    Assert(otherIter != tab.d_columnMatrix.end());
-    Column& col = *i_colIter;
-    const Column& otherCol = *otherIter;
-    col.increaseSize(otherCol.allocated());
   }
 
   ArithVarSet::iterator i_basicIter = tab.d_basicVariables.begin();
@@ -92,6 +83,12 @@ void Tableau::clear(){
     ArithVar curr = *(d_basicVariables.begin());
     ReducedRowVector* vec = removeRow(curr);
     delete vec;
+  }
+
+  //must be emptied after rows
+  for(ColumnMatrix::iterator i = d_columnMatrix.begin(), end = d_columnMatrix.end(); i != end; ++i ){
+    Column* col = *i;
+    delete col;
   }
 
   d_rowsTable.clear();
@@ -158,8 +155,8 @@ void Tableau::pivot(ArithVar x_r, ArithVar x_s){
 
   row_s->pivot(x_s);
 
-  Column::VarList copy(getColumn(x_s).getList());
-  vector<ArithVar>::iterator basicIter = copy.begin(), endIter = copy.end();
+  Column copy(getColumn(x_s));
+  Column::const_iterator basicIter = copy.begin(), endIter = copy.end();
 
   for(; basicIter != endIter; ++basicIter){
     ArithVar basic = *basicIter;
@@ -174,6 +171,16 @@ void Tableau::pivot(ArithVar x_r, ArithVar x_s){
   Assert(getRowCount(x_s) == 1);
 }
 
+
+void printColumn(const Column& col) {
+  Debug("tableau") << "{";
+  for(Column::const_iterator colIter = col.begin(), colEnd = col.end(); colIter!=colEnd; ++colIter){
+    ArithVar basic = *colIter;
+    Debug("tableau") << basic << ", ";
+  }
+  Debug("tableau") << "}";
+}
+
 void Tableau::printTableau(){
   Debug("tableau") << "Tableau::d_activeRows"  << endl;
 
@@ -185,13 +192,26 @@ void Tableau::printTableau(){
       row_k->printRow();
     }
   }
+
+  Debug("tableau") << "Tableau::columns begin" << endl;
+  typedef ColumnMatrix::iterator col_iter;
+  ArithVar i = 0;
+  for(col_iter matIter = d_columnMatrix.begin(), endMat = d_columnMatrix.end();
+      matIter != endMat; ++matIter, ++i){
+    Column& col = *(*matIter);
+    Debug("tableau") << "Tableau::column "<< i << ": ";
+    printColumn(col);
+    Debug("tableau") << endl;
+  }
+  Debug("tableau") << "Tableau::columns end" << endl;
 }
+
 
 uint32_t Tableau::numNonZeroEntries() const {
   uint32_t colSum = 0;
   ColumnMatrix::const_iterator i = d_columnMatrix.begin(), end = d_columnMatrix.end();
   for(; i != end; ++i){
-    const Column& col = *i;
+    const Column& col = *(*i);
     colSum += col.size();
   }
   return colSum;

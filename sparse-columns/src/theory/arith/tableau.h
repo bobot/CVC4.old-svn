@@ -37,13 +37,10 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-typedef PermissiveBackArithVarSet Column;
 
-typedef std::vector<Column> ColumnMatrix;
 
 class Tableau {
 private:
-
   typedef std::vector< ReducedRowVector* > RowsTable;
 
   RowsTable d_rowsTable;
@@ -79,7 +76,7 @@ public:
     d_rowsTable.push_back(NULL);
     d_rowCount.push_back(0);
 
-    d_columnMatrix.push_back(PermissiveBackArithVarSet());
+    d_columnMatrix.push_back(new Column());
 
     //TODO replace with version of ArithVarSet that handles misses as non-entries
     // not as buffer overflows
@@ -102,15 +99,15 @@ public:
     return d_basicVariables.end();
   }
 
-  const Column& getColumn(ArithVar v){
+  const Column& getColumn(ArithVar v) const{
     Assert(v < d_columnMatrix.size());
-    return d_columnMatrix[v];
+    return *(d_columnMatrix[v]);
   }
 
-  Column::iterator beginColumn(ArithVar v){
+  Column::const_iterator beginColumn(ArithVar v) const{
     return getColumn(v).begin();
   }
-  Column::iterator endColumn(ArithVar v){
+  Column::const_iterator endColumn(ArithVar v) const{
     return getColumn(v).end();
   }
 

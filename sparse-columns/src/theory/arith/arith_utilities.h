@@ -26,6 +26,7 @@
 #include "expr/node.h"
 #include "expr/attribute.h"
 #include <vector>
+#include <list>
 #include <stdint.h>
 #include <limits>
 #include <ext/hash_map>
@@ -33,6 +34,7 @@
 namespace CVC4 {
 namespace theory {
 namespace arith {
+
 
 
 typedef uint32_t ArithVar;
@@ -43,6 +45,10 @@ typedef uint32_t ArithVar;
 typedef __gnu_cxx::hash_map<Node, ArithVar, NodeHashFunction> NodeToArithVarMap;
 typedef __gnu_cxx::hash_map<ArithVar, Node> ArithVarToNodeMap;
 
+
+
+typedef std::list<ArithVar> Column;
+typedef std::vector< Column* > ColumnMatrix;
 
 inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);
