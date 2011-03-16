@@ -1,5 +1,0 @@
-a, b, c: BOOLEAN;
-% EXPECT: valid
-QUERY TRUE XOR FALSE;
- 
-% EXIT: 20
