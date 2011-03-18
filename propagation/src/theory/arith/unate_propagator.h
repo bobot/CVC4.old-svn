@@ -54,6 +54,7 @@
 #include "theory/output_channel.h"
 #include "theory/arith/ordered_set.h"
 
+#include <vector>
 #include <ext/hash_map>
 
 namespace CVC4 {
@@ -68,6 +69,34 @@ private:
    */
   OutputChannel* d_arithOut;
 
+  class VectorOutputChannel : public OutputChannel {
+  private:
+    std::vector<Node> d_vec;
+  public:
+
+    void conflict(TNode n, bool safe = false) throw(Interrupted, AssertionException){}
+    void propagate(TNode n, bool safe = false)
+      throw(Interrupted, AssertionException){}
+    void explanation(TNode n, bool safe = false)
+      throw(Interrupted, AssertionException){}
+    void setIncomplete()
+      throw(Interrupted, AssertionException){}
+
+    const std::vector<Node>& getVector() const{
+      return d_vec;
+    }
+    void lemma(TNode n, bool safe = false)
+      throw(Interrupted, AssertionException){
+      d_vec.push_back(n);
+    }
+
+    void clear(){
+      d_vec.clear();
+    }
+  };
+
+  VectorOutputChannel* d_voc;
+
   struct OrderedSetTriple {
     OrderedSet d_leqSet;
     OrderedSet d_eqSet;
@@ -80,6 +109,8 @@ private:
 
 public:
   ArithUnatePropagator(context::Context* cxt, OutputChannel* arith);
+
+  ~ArithUnatePropagator();
 
   /**
    * Adds an atom to the propagator.

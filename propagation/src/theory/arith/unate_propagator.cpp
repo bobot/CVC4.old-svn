@@ -31,31 +31,18 @@ using namespace CVC4::kind;
 
 using namespace std;
 
-class VectorOutputChannel : public OutputChannel {
-private:
-  vector<Node> d_vec;
-public:
 
-  void conflict(TNode n, bool safe = false) throw(Interrupted, AssertionException){}
-  void propagate(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException){}
-  void explanation(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException){}
-  void setIncomplete()
-    throw(Interrupted, AssertionException){}
-
-  const vector<Node>& getVector() const{
-    return d_vec;
-  }
-  void lemma(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException){
-    d_vec.push_back(n);
-  }
-};
 
 ArithUnatePropagator::ArithUnatePropagator(context::Context* cxt, OutputChannel* out) :
   d_arithOut(out), d_orderedListMap()
-{ }
+{
+  d_voc = new VectorOutputChannel();
+}
+
+ArithUnatePropagator::~ArithUnatePropagator(){
+  delete d_voc;
+}
+
 
 bool ArithUnatePropagator::leftIsSetup(TNode left){
   return d_orderedListMap.find(left) != d_orderedListMap.end();
@@ -88,14 +75,12 @@ void ArithUnatePropagator::removeAtom(Node atom){
 }
 
 Node ArithUnatePropagator::impliedBound(TNode bound){
+
   TNode left = bound[0];
   if(!leftIsSetup(left)){
     return Node::null();
   }
 
-  OutputChannel* savedChannel = d_arithOut;
-  VectorOutputChannel* voc = new VectorOutputChannel();
-  d_arithOut = voc;
 
   OrderedSet& geqSet = getGeqSet(left);
   OrderedSet& leqSet = getLeqSet(left);
@@ -106,47 +91,58 @@ Node ArithUnatePropagator::impliedBound(TNode bound){
   case LT:
     neg = NodeBuilder<2>(GEQ) << bound[0] << bound[1];
     simp = NodeBuilder<1>(NOT) << neg;
-    if(geqSet.find(neg) != geqSet.end()){
-      delete voc;
-      d_arithOut = savedChannel;
-
-      return simp;
-    }
-    addAtom(neg);
-    removeAtom(neg);
     break;
   case GT:
     neg = NodeBuilder<2>(LEQ) << bound[0] << bound[1];
     simp = NodeBuilder<1>(NOT) << neg;
-    if(leqSet.find(neg) != leqSet.end()){
-      delete voc;
-      d_arithOut = savedChannel;
-      return simp;
-    }
-    addAtom(neg);
-    removeAtom(neg);
     break;
   case LEQ:
     simp = bound;
     neg = NodeBuilder<1>(NOT) << simp;
-    if(leqSet.find(simp) != leqSet.end()){
-      delete voc;
-      d_arithOut = savedChannel;
-      return simp;
-    }
-    Assert(leqSet.find(simp) == leqSet.end());
-    addAtom(simp);
-    removeAtom(simp);
     break;
   case GEQ:
     simp = bound;
     neg = NodeBuilder<1>(NOT) << simp;
-    if(geqSet.find(simp) != geqSet.end()){
-      delete voc;
-      d_arithOut = savedChannel;
+    break;
+  default:
+    Unhandled(bound.getKind());
+  }
+  switch(bound.getKind()){
+  case LT:
+    if(geqSet.find(neg) != geqSet.end()){
       return simp;
     }
-    Assert(geqSet.find(simp) == geqSet.end());
+    break;
+  case GT:
+    if(leqSet.find(neg) != leqSet.end()){
+      return simp;
+    }
+    break;
+  case LEQ:
+    if(leqSet.find(simp) != leqSet.end()){
+      return simp;
+    }
+    break;
+  case GEQ:
+    if(geqSet.find(simp) != geqSet.end()){
+      return simp;
+    }
+    break;
+  default:
+    Unhandled(bound.getKind());
+  }
+
+  OutputChannel* savedChannel = d_arithOut;
+  d_arithOut = d_voc;
+
+  switch(bound.getKind()){
+  case LT:
+  case GT:
+    addAtom(neg);
+    removeAtom(neg);
+    break;
+  case LEQ:
+  case GEQ:
     addAtom(simp);
     removeAtom(simp);
     break;
@@ -154,21 +150,53 @@ Node ArithUnatePropagator::impliedBound(TNode bound){
     Unhandled(bound.getKind());
   }
 
-  vector<Node> output(voc->getVector());
-  delete voc;
+  const vector<Node>& output = d_voc->getVector();
   d_arithOut = savedChannel;
 
-  for(vector<Node>::iterator i = output.begin(), end = output.end(); i != end; ++i){
+  bool min  = bound.getKind() == LEQ || bound.getKind() == LT;
+
+  Node winner = Node::null();
+
+  for(vector<Node>::const_iterator i = output.begin(), end = output.end();
+      i != end; ++i){
     Node orNode = *i;
     Assert(orNode.getKind() == OR);
     Assert(orNode.getNumChildren() == 2);
+    Node implied = Node::null();
     if(orNode[0] == neg){
-      return orNode[1];
+      implied = orNode[1];
     }else if(orNode[1] == neg){
-      return orNode[0];
+      implied = orNode[0];
+    }
+    if(!implied.isNull()){
+      if(winner.isNull()){
+        winner = implied;
+      }else{
+        Debug("propagation") << bound << winner << implied << endl;
+        TNode inter1 = winner.getKind() == kind::NOT ? winner[0] : winner;
+        TNode inter2 = implied.getKind() == kind::NOT ? implied[0] : implied;
+        TNode rh1 = inter1[1];
+        TNode rh2 = inter2[1];
+        const Rational& c1 = rh1.getConst<Rational>();
+        const Rational& c2 = rh2.getConst<Rational>();
+        int cmpRes = c1.cmp(c2);
+
+        if(cmpRes == 0){
+          Assert(winner.getKind() == NOT || implied.getKind() == NOT);
+          if(implied.getKind() == NOT){
+            winner = implied;
+          }
+        }else if(cmpRes > 0 && min){
+          winner = implied;
+        }else if(cmpRes < 0 && !min){
+          winner = implied;
+        }
+      }
+      Debug("propagation") << bound << winner << endl;
     }
   }
-  return Node::null();
+  d_voc->clear();
+  return winner;
 }
 
 OrderedSet& ArithUnatePropagator::getEqSet(TNode left){
