@@ -22,165 +22,130 @@
 #include "util/result.h"
 #include "util/stats.h"
 
+#include "main/portfolio.h"
+
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
 
-struct thread_return_data {
-  int thread_id;
-  string s_out;
-  int returnValue;
-  bool exceptionOccurred;       // beware: we assume this is false because global variable
-  boost::exception_ptr exceptionPtr;
-};
+// struct thread_return_data {
+//   int thread_id;
+//   string s_out;
+//   int returnValue;
+//   bool exceptionOccurred;       // beware: we assume this is false because global variable
+//   boost::exception_ptr exceptionPtr;
+// };
 
-class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
-  string d_tag;
-public:
-  PortfolioLemmaOutputChannel(string tag) :
-    d_tag(tag) {
-  }
+// class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
+//   string d_tag;
+// public:
+//   PortfolioLemmaOutputChannel(string tag) :
+//     d_tag(tag) {
+//   }
 
-  void notifyNewLemma(Expr lemma) {
-    //std::cout << d_tag << ": " << lemma << std::endl;
-  }
+//   void notifyNewLemma(Expr lemma) {
+//     //std::cout << d_tag << ": " << lemma << std::endl;
+//   }
 
-};/* class PortfolioLemmaOutputChannel */
+// };/* class PortfolioLemmaOutputChannel */
 
-/* This function should be moved somewhere else eventuall */
-std::string intToString(int i)
-{
-    std::stringstream ss;
-    std::string s;
-    ss << i;
-    s = ss.str();
+// /* This function should be moved somewhere else eventuall */
+// std::string intToString(int i)
+// {
+//     std::stringstream ss;
+//     std::string s;
+//     ss << i;
+//     s = ss.str();
 
-    return s;
-}
+//     return s;
+// }
 
-bool global_flag_done = false;
-thread_return_data global_returnData;
+// bool global_flag_done = false;
+// thread_return_data global_returnData;
 
-boost::mutex mutex_done;
-boost::mutex mutex_main_wait;
-boost::condition condition_var_main_wait; 
+// boost::mutex mutex_done;
+// boost::mutex mutex_main_wait;
+// boost::condition condition_var_main_wait; 
 
-void runCvc4Thread(int thread_id, int argc, char **argv, Options& options)
-{
-  int returnValue;
+// void runCvc4Thread(int thread_id, int argc, char **argv, Options& options)
+// {
+//   int returnValue;
 
-  /* Output to string stream, so that */
-  stringstream ss_out(stringstream::out);
-  options.out = &ss_out;
+//   /* Output to string stream, so that */
+//   stringstream ss_out(stringstream::out);
+//   options.out = &ss_out;
 
-  try {
-    returnValue = runCvc4(argc, argv, options);
-  }catch(...){
-    while(global_flag_done == false)
-      if( mutex_done.try_lock() ) {
-        global_returnData.exceptionOccurred = true;
-        global_returnData.exceptionPtr = boost::current_exception();  // gets rid of exception?
-        global_returnData.returnValue = 1;
+//   try {
+//     returnValue = runCvc4(argc, argv, options);
+//   }catch(...){
+//     while(global_flag_done == false)
+//       if( mutex_done.try_lock() ) {
+//         global_returnData.exceptionOccurred = true;
+//         global_returnData.exceptionPtr = boost::current_exception();  // gets rid of exception?
+//         global_returnData.returnValue = 1;
         
-        global_flag_done = true;
-        mutex_done.unlock();
-        condition_var_main_wait.notify_all(); //we want main thread to quit        
-      }
-  }
+//         global_flag_done = true;
+//         mutex_done.unlock();
+//         condition_var_main_wait.notify_all(); //we want main thread to quit        
+//       }
+//   }
 
-  if(returnValue) {
-    while(global_flag_done==false)
-      if( mutex_done.try_lock() ) {
-        CVC4::Notice("Thread " + intToString(thread_id) + "wins.\n"
-                     "Returns " + intToString(returnValue) + ".\n");
+//   if(returnValue) {
+//     while(global_flag_done==false)
+//       if( mutex_done.try_lock() ) {
+//         CVC4::Notice("Thread " + intToString(thread_id) + "wins.\n"
+//                      "Returns " + intToString(returnValue) + ".\n");
     
-        global_returnData.thread_id = thread_id;
-        global_returnData.returnValue = returnValue;
-        global_returnData.s_out = ss_out.str();
+//         global_returnData.thread_id = thread_id;
+//         global_returnData.returnValue = returnValue;
+//         global_returnData.s_out = ss_out.str();
     
-        global_flag_done = true;
-        mutex_done.unlock();
-        condition_var_main_wait.notify_all(); //we want main thread to quit
-      }
-  } 
-}
+//         global_flag_done = true;
+//         mutex_done.unlock();
+//         condition_var_main_wait.notify_all(); //we want main thread to quit
+//       }
+//   } 
+// }
+
+// int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
+// {
+//   boost::thread threads[numThreads];
+
+//   for(int t=0; t<numThreads; ++t) {
+//     //CVC4::Notice("Driver thread: creating thread " + intToString(t) + "\n" );
+//     Options o = options;
+//     o.pivotRule = t == 0 ? Options::MINIMUM : Options::MAXIMUM;
+//     o.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #" + intToString(t));
+//     threads[t] = boost::thread(runCvc4Thread, t, argc, argv, o);
+//   }
+  
+//   while(global_flag_done == false)
+//     condition_var_main_wait.wait(mutex_main_wait);
+
+//   if( global_returnData.exceptionOccurred )
+//     boost::rethrow_exception( global_returnData.exceptionPtr );
+  
+//   CVC4::Notice("Driver thread: Exiting program. " + intToString(global_returnData.returnValue)
+//                + " return value of the fastest thread.\n" );
+
+//   cout << global_returnData.s_out;
+  
+//   //exit(global_returnData.returnValue);  // Hack, no longer needed, thanks to boost
+
+//   for(int t=0; t<numThreads; ++t) {
+//     CVC4::Notice("Driver thread: cancelling thread " + intToString(t) + "\n");
+//     threads[t].interrupt();
+//     threads[t].join();
+//   }
+  
+//   return global_returnData.returnValue;
+// }
+
+int doCommand(SmtEngine&, Command*, Options&);
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 {
-  boost::thread threads[numThreads];
-
-  for(int t=0; t<numThreads; ++t) {
-    //CVC4::Notice("Driver thread: creating thread " + intToString(t) + "\n" );
-    Options o = options;
-    o.pivotRule = t == 0 ? Options::MINIMUM : Options::MAXIMUM;
-    o.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #" + intToString(t));
-    threads[t] = boost::thread(runCvc4Thread, t, argc, argv, o);
-  }
-  
-  while(global_flag_done == false)
-    condition_var_main_wait.wait(mutex_main_wait);
-
-  if( global_returnData.exceptionOccurred )
-    boost::rethrow_exception( global_returnData.exceptionPtr );
-  
-  CVC4::Notice("Driver thread: Exiting program. " + intToString(global_returnData.returnValue)
-               + " return value of the fastest thread.\n" );
-
-  cout << global_returnData.s_out;
-  
-  //exit(global_returnData.returnValue);  // Hack, no longer needed, thanks to boost
-
-  for(int t=0; t<numThreads; ++t) {
-    CVC4::Notice("Driver thread: cancelling thread " + intToString(t) + "\n");
-    threads[t].interrupt();
-    threads[t].join();
-  }
-  
-  return global_returnData.returnValue;
-}
-
-
-/***** ***** ***** Copy from driver.cpp ***** ***** *****
- * Sorry, figured making a copy was best for now 
- * Will reduce redundancy later
- */
-void doCommand(SmtEngine&, Command*, Options&);
-
-namespace CVC4 {
-  namespace main {/* Global options variable */
-    //Options options;
-
-    /** Full argv[0] */
-    const char *progPath;
-
-    /** Just the basename component of argv[0] */
-    const char *progName;
-  }
-}
-
-
-// no more % chars in here without being escaped; it's used as a
-// printf() format string
-/* const string usageMessage = "                 \
-usage: %s [options] [input-file]\n\
-\n\
-Without an input file, or with `-', CVC4 reads from standard input.\n\
-\n\
-CVC4 options:\n";
-*/
-void printUsage(Options& options) {
-  stringstream ss;
-  ss << "usage: " << options.binary_name << " [options] [input-file]" << endl
-      << endl
-      << "Without an input file, or with `-', CVC4 reads from standard input." << endl
-      << endl
-      << "CVC4 options:" << endl;
-  Options::printUsage( ss.str(), *options.out );
-}
-
-int runCvc4(int argc, char* argv[], Options& options) {
-
   // Initialize the signal handlers
   cvc4_init();
 
@@ -312,22 +277,45 @@ int runCvc4(int argc, char* argv[], Options& options) {
   // What do we need to do next?
   // - Create a second exprMgr, and import everything there
   
-  // Create the SmtEngine
-  SmtEngine smt(&exprMgr, options);
-  
-  doCommand(smt, &seq, options);
-  
+  // Duplication, Individualisation
+  ExprManager exprMgr2;
+  VariableMap vmap;
+  Command *seq2 = seq.exportTo(&exprMgr2, vmap);
+  Options options2 = options;
+  options.pivotRule = Options::MINIMUM;
+  options2.pivotRule = Options::MAXIMUM;
 
-  string result = smt.getInfo(":status").getValue();
+  /* Output to string stream, so that */
+  stringstream ss_out(stringstream::out);
+  options.out = &ss_out;
+  stringstream ss_out2(stringstream::out);
+  options2.out = &ss_out2;
+
+
+  // Create the SmtEngine(s)
+  SmtEngine smt1(&exprMgr, options);
+  SmtEngine smt2(&exprMgr2, options);
+  
+  // function <int()> fns[2];
+  // fns[0] = boost::bind(doCommand, boost::ref(smt1), &seq, boost::ref(options));
+  // fns[1] = boost::bind(doCommand, boost::ref(smt2), seq2, boost::ref(options2));
+  // int winner = runPortfolio(2, function<void()>(), fns).first;
+
+  // SmtEngine *smt = winner == 0 ? &smt1 : &smt2;
+
+  // cout << (winner == 0 ? ss_out : ss_out2).str();
+
+  // //Old stuff
+  // string result = smt->getInfo(":status").getValue();
   int returnValue;
 
-  if(result == "sat") {
-    returnValue = 10;
-  } else if(result == "unsat") {
-    returnValue = 20;
-  } else {
-    returnValue = 0;
-  }
+  // if(result == "sat") {
+  //   returnValue = 10;
+  // } else if(result == "unsat") {
+  //   returnValue = 20;
+  // } else {
+  //   returnValue = 0;
+  // }
 
 #ifdef CVC4_COMPETITION_MODE
   // exit, don't return
@@ -335,23 +323,67 @@ int runCvc4(int argc, char* argv[], Options& options) {
   exit(returnValue);
 #endif
 
-  ReferenceStat< Result > s_statSatResult("sat/unsat", result);
-  StatisticsRegistry::registerStat(&s_statSatResult);
+  // ReferenceStat< Result > s_statSatResult("sat/unsat", result);
+  // StatisticsRegistry::registerStat(&s_statSatResult);
 
-  if(options.statistics) {
-    StatisticsRegistry::flushStatistics(*options.err);
-  }
+  // if(options.statistics) {
+  //   StatisticsRegistry::flushStatistics(*options.err);
+  // }
 
-  StatisticsRegistry::unregisterStat(&s_statSatResult);
-  StatisticsRegistry::unregisterStat(&s_statFilename);
+  // StatisticsRegistry::unregisterStat(&s_statSatResult);
+  // StatisticsRegistry::unregisterStat(&s_statFilename);
 
   return returnValue;
 }
 
+/***** ***** ***** Copy from driver.cpp ***** ***** *****
+ * Sorry, figured making a copy was best for now 
+ * Will reduce redundancy later
+ */
+
+namespace CVC4 {
+  namespace main {/* Global options variable */
+    //Options options;
+
+    /** Full argv[0] */
+    const char *progPath;
+
+    /** Just the basename component of argv[0] */
+    const char *progName;
+  }
+}
+
+// no more % chars in here without being escaped; it's used as a
+// printf() format string
+/* const string usageMessage = "                 \
+usage: %s [options] [input-file]\n\
+\n\
+Without an input file, or with `-', CVC4 reads from standard input.\n\
+\n\
+CVC4 options:\n";
+*/
+void printUsage(Options& options) {
+  stringstream ss;
+  ss << "usage: " << options.binary_name << " [options] [input-file]" << endl
+      << endl
+      << "Without an input file, or with `-', CVC4 reads from standard input." << endl
+      << endl
+      << "CVC4 options:" << endl;
+  Options::printUsage( ss.str(), *options.out );
+}
+
+// int runCvc4(int argc, char* argv[], Options& options) {
+
+  
+//   //doCommand(smt, &seq, options);
+  
+
+// }
+
 /** Executes a command. Deletes the command after execution. */
-void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
+int doCommand(SmtEngine& smt, Command* cmd, Options& options) {
   if( options.parseOnly ) {
-    return;
+    return 0;
   }
 
   CommandSequence *seq = dynamic_cast<CommandSequence*>(cmd);
@@ -372,4 +404,5 @@ void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
       cmd->invoke(&smt);
     }
   }
+  return 0;
 }
