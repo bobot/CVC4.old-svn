@@ -85,18 +85,18 @@ void ReducedRowVector::zip(const std::vector< ArithVar >& variables,
   }
 }
 
-void ReducedRowVector::addArithVar(ArithVarContainsSet& contains, ArithVar v){
-  if(v >= contains.size()){
-    contains.resize(v+1, false);
-  }
-  contains[v] = true;
-}
+// void ReducedRowVector::addArithVar(ArithVarContainsSet& contains, ArithVar v){
+//   if(v >= contains.size()){
+//     contains.resize(v+1, false);
+//   }
+//   contains[v] = true;
+// }
 
-void ReducedRowVector::removeArithVar(ArithVarContainsSet& contains, ArithVar v){
-  Assert(v < contains.size());
-  Assert(contains[v]);
-  contains[v] = false;
-}
+// void ReducedRowVector::removeArithVar(ArithVarContainsSet& contains, ArithVar v){
+//   Assert(v < contains.size());
+//   Assert(contains[v]);
+//   contains[v] = false;
+// }
 
 void ReducedRowVector::multiply(const Rational& c){
   Assert(c != 0);
@@ -134,7 +134,7 @@ void ReducedRowVector::addRowTimesConstant(const Rational& c, const ReducedRowVe
       Column::iterator pos = col.insert(col.begin(), d_basic);
       //d_columnMatrix[var2].push_back(d_basic);
 
-      addArithVar(d_contains, var2);
+      //addArithVar(d_contains, var2);
       const Rational& coeff2 = (*curr2).getCoefficient();
       d_buffer.push_back( VarCoeffPair(var2, c * coeff2, pos));
       ++curr2;
@@ -148,7 +148,7 @@ void ReducedRowVector::addRowTimesConstant(const Rational& c, const ReducedRowVe
         const Column::iterator& pos1 = (*curr1).getColumnPosition();
         d_buffer.push_back(VarCoeffPair(var1, res, pos1));
       }else{
-        removeArithVar(d_contains, var1);
+        //removeArithVar(d_contains, var1);
 
         --d_rowCount[var1];
         //d_columnMatrix[var1].remove(d_basic);
@@ -173,7 +173,7 @@ void ReducedRowVector::addRowTimesConstant(const Rational& c, const ReducedRowVe
     Column::iterator pos = col.insert(col.begin(), d_basic);
     //d_columnMatrix[var2].add(d_basic);
 
-    addArithVar(d_contains, var2);
+    //addArithVar(d_contains, var2);
 
     d_buffer.push_back(VarCoeffPair(var2, c * coeff2, pos));
     ++curr2;
@@ -213,7 +213,7 @@ ReducedRowVector::ReducedRowVector(ArithVar basic,
     VarCoeffPair& entry = *i;
     ArithVar var = entry.getArithVar();
     ++d_rowCount[var];
-    addArithVar(d_contains, var);
+    //addArithVar(d_contains, var);
 
     Column& col = *( d_columnMatrix[var] );
     Column::iterator pos = col.insert(col.begin(), d_basic);
@@ -234,7 +234,7 @@ ReducedRowVector::ReducedRowVector(ArithVar basic,
 void ReducedRowVector::substitute(const ReducedRowVector& row_s){
   ArithVar x_s = row_s.basic();
 
-  Assert(has(x_s));
+  Assert(hasInEntries(x_s));
   Assert(x_s != basic());
 
   Rational a_rs = lookup(x_s);
@@ -243,14 +243,14 @@ void ReducedRowVector::substitute(const ReducedRowVector& row_s){
   addRowTimesConstant(a_rs, row_s);
 
 
-  Assert(!has(x_s));
+  Assert(!hasInEntries(x_s));
   Assert(wellFormed());
   Assert(matchingCounts());
   Assert(d_rowCount[basic()] == 1);
 }
 
 void ReducedRowVector::pivot(ArithVar x_j){
-  Assert(has(x_j));
+  Assert(hasInEntries(x_j));
   Assert(basic() != x_j);
   Rational negInverseA_rs = -(lookup(x_j).inverse());
   multiply(negInverseA_rs);

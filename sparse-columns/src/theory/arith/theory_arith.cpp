@@ -131,13 +131,13 @@ ArithVar TheoryArith::findShortestBasicRow(ArithVar variable){
   ArithVar bestBasic = ARITHVAR_SENTINEL;
   uint64_t rowLength = std::numeric_limits<uint64_t>::max();
 
-  Column::iterator basicIter = d_tableau.beginColumn(variable);
-  Column::iterator end = d_tableau.endColumn(variable);
+  Column::const_iterator basicIter = d_tableau.beginColumn(variable);
+  Column::const_iterator end = d_tableau.endColumn(variable);
   for(; basicIter != end; ++basicIter){
     ArithVar x_j = *basicIter;
     ReducedRowVector& row_j = d_tableau.lookup(x_j);
 
-    Assert(row_j.has(variable));
+    Assert(row_j.hasInEntries(variable));
     if((row_j.size() < rowLength) ||
        (row_j.size() == rowLength && x_j < bestBasic)){
       bestBasic = x_j;

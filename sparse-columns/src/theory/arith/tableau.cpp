@@ -143,7 +143,7 @@ void Tableau::pivot(ArithVar x_r, ArithVar x_s){
 
   ReducedRowVector* row_s = d_rowsTable[x_r];
   Assert(row_s != NULL);
-  Assert(row_s->has(x_s));
+  Assert(row_s->hasInEntries(x_s));
 
   //Swap x_r and x_s in d_activeRows
   d_rowsTable[x_s] = row_s;
@@ -163,7 +163,7 @@ void Tableau::pivot(ArithVar x_r, ArithVar x_s){
     if(basic == x_s) continue;
 
     ReducedRowVector& row_k = lookup(basic);
-    Assert(row_k.has(x_s));
+    Assert(row_k.hasInEntries(x_s));
 
     row_k.substitute(*row_s);
   }

@@ -58,7 +58,7 @@ public:
   typedef VarCoeffArray::const_iterator const_iterator;
 
 private:
-  typedef std::vector<bool> ArithVarContainsSet;
+  //typedef std::vector<bool> ArithVarContainsSet;
   typedef VarCoeffArray::iterator iterator;
 
   /**
@@ -84,7 +84,7 @@ private:
    * Invariants:
    * - This set is the same as the set maintained in d_entries.
    */
-  ArithVarContainsSet d_contains;
+  //ArithVarContainsSet d_contains;
 
   std::vector<uint32_t>& d_rowCount;
   ColumnMatrix& d_columnMatrix;
@@ -118,19 +118,18 @@ public:
   const_iterator end() const { return d_entries.end(); }
 
   /** Returns true if the variable is in the row. */
-  bool has(ArithVar x_j) const{
-    if(x_j >= d_contains.size()){
-      return false;
-    }else{
-      return d_contains[x_j];
-    }
-  }
+  // bool has(ArithVar x_j) const{
+  //   if(x_j >= d_contains.size()){
+  //     return false;
+  //   }else{
+  //     return d_contains[x_j];
+  //   }
+  // }
 
   /**
    * Returns the coefficient of a variable in the row.
    */
   const Rational& lookup(ArithVar x_j) const{
-    Assert(has(x_j));
     Assert(hasInEntries(x_j));
     const_iterator lb = lower_bound(x_j);
     return (*lb).getCoefficient();
@@ -182,10 +181,10 @@ private:
    * Adds v to d_contains.
    * This may resize d_contains.
    */
-  static void addArithVar(ArithVarContainsSet& contains, ArithVar v);
+  //static void addArithVar(ArithVarContainsSet& contains, ArithVar v);
 
   /** Removes v from d_contains. */
-  static void removeArithVar(ArithVarContainsSet& contains, ArithVar v);
+  //static void removeArithVar(ArithVarContainsSet& contains, ArithVar v);
 
 
   /**
@@ -226,12 +225,13 @@ private:
       isSorted(d_entries, true) &&
       noZeroCoefficients(d_entries) &&
       basicIsSet() &&
-      has(basic()) &&
+      hasInEntries(basic()) &&
       lookup(basic()) == Rational(-1);
   }
 
   bool basicIsSet() const { return d_basic != ARITHVAR_SENTINEL; }
 
+public:
   /** Debugging code. */
   bool hasInEntries(ArithVar x_j) const {
     Assert(basic() < d_columnMatrix.size());

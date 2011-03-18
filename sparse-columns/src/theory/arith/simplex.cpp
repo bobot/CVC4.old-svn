@@ -211,7 +211,7 @@ set<ArithVar> tableauAndHasSet(Tableau& tab, ArithVar v){
     ArithVar basic = *basicIter;
     ReducedRowVector& row = tab.lookup(basic);
 
-    if(row.has(v)){
+    if(row.hasInEntries(v)){
       has.insert(basic);
     }
   }
@@ -250,7 +250,7 @@ void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
     ArithVar x_j = *basicIter;
     ReducedRowVector& row_j = d_tableau.lookup(x_j);
 
-    Assert(row_j.has(x_i));
+    Assert(row_j.hasInEntries(x_i));
     const Rational& a_ji = row_j.lookup(x_i);
 
     const DeltaRational& assignment = d_partialModel.getAssignment(x_j);
@@ -327,7 +327,7 @@ void SimplexDecisionProcedure::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaR
     ArithVar x_k = *basicIter;
     ReducedRowVector& row_k = d_tableau.lookup(x_k);
 
-    Assert(row_k.has(x_j));
+    Assert(row_k.hasInEntries(x_j));
     if(x_k != x_i ){
       const Rational& a_kj = row_k.lookup(x_j);
       DeltaRational nextAssignment = d_partialModel.getAssignment(x_k) + (theta * a_kj);
