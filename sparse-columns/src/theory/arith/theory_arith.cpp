@@ -134,8 +134,10 @@ ArithVar TheoryArith::findShortestBasicRow(ArithVar variable){
   Column::const_iterator basicIter = d_tableau.beginColumn(variable);
   Column::const_iterator end = d_tableau.endColumn(variable);
   for(; basicIter != end; ++basicIter){
-    ArithVar x_j = *basicIter;
-    ReducedRowVector& row_j = d_tableau.lookup(x_j);
+    CoefficientEntry* ce = *basicIter;
+    ReducedRowVector& row_j = ce->getVector();
+    ArithVar x_j = row_j.basic();
+    //ReducedRowVector& row_j = d_tableau.lookup(x_j);
 
     Assert(row_j.hasInEntries(variable));
     if((row_j.size() < rowLength) ||

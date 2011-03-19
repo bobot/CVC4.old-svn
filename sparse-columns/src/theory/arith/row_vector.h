@@ -14,37 +14,63 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-class VarCoeffPair {
+class ReducedRowVector;
+
+class CoefficientEntry {
 private:
+  ReducedRowVector* d_vector;
+
   ArithVar d_variable;
   Rational d_coeff;
 
-  //An iterator corresponding to this row element's position
-  // in d_variable's column list
-  Column::iterator d_columnPos;
+  uint32_t d_columnPos;
 
 public:
-  VarCoeffPair(ArithVar v, const Rational& q, const Column::iterator& pos):
-    d_variable(v), d_coeff(q), d_columnPos(pos)
+  CoefficientEntry(ReducedRowVector* vec, ArithVar v, const Rational& q):
+    d_vector(vec), d_variable(v), d_coeff(q), d_columnPos(ARITHVAR_SENTINEL)
   {}
 
   ArithVar getArithVar() const { return d_variable; }
   Rational& getCoefficient() { return d_coeff; }
   const Rational& getCoefficient() const { return d_coeff; }
-  const Column::iterator& getColumnPosition() const { return d_columnPos; }
 
-  void setColumnPosition(const Column::iterator& pos){
-    d_columnPos = pos;
+  ReducedRowVector& getVector() const{ return *d_vector; }
+  uint32_t getColumnPosition() const{ return d_columnPos; }
+  void setColumnPosition(uint32_t columnPos){
+    d_columnPos = columnPos;
   }
 
-  bool operator<(const VarCoeffPair& other) const{
+  bool operator<(const CoefficientEntry& other) const{
     return getArithVar() < other.getArithVar();
   }
 
-  static bool variableLess(const VarCoeffPair& a, const VarCoeffPair& b){
+  /*
+  static bool variableLess(const CoefficientEntry& a, const CoefficientEntry& b){
     return a < b;
   }
+  */
+
+  static bool variableLess(const CoefficientEntry* a, const CoefficientEntry* b){
+    return (*a) < (*b);
+  }
 };
+
+typedef std::vector< CoefficientEntry* > Column;
+typedef std::vector< Column > ColumnMatrix;
+
+inline void removeFromColumn(Column& col, CoefficientEntry* ce){
+  uint32_t colPos = ce->getColumnPosition();
+  CoefficientEntry* atBack = col.back();
+  col[colPos] = atBack;
+  atBack->setColumnPosition(colPos);
+  col.pop_back();
+}
+
+inline void addToColumn(Column& col, CoefficientEntry* ce){
+  uint32_t colPos = col.size();
+  ce->setColumnPosition(colPos);
+  col.push_back(ce);
+}
 
 /**
  * ReducedRowVector is a sparse vector representation that represents the
@@ -54,37 +80,29 @@ public:
  */
 class ReducedRowVector {
 public:
-  typedef std::vector<VarCoeffPair> VarCoeffArray;
-  typedef VarCoeffArray::const_iterator const_iterator;
+  typedef std::vector< CoefficientEntry* > EntryArray;
+  typedef EntryArray::const_iterator const_iterator;
 
 private:
-  //typedef std::vector<bool> ArithVarContainsSet;
-  typedef VarCoeffArray::iterator iterator;
+  typedef EntryArray::iterator iterator;
 
   /**
    * Invariants:
    * - isSorted(d_entries, true)
    * - noZeroCoefficients(d_entries)
    */
-  VarCoeffArray d_entries;
+  EntryArray d_entries;
 
   /**
    * Buffer for d_entries to reduce allocations by addRowTimesConstant.
    */
-  VarCoeffArray d_buffer;
+  EntryArray d_buffer;
 
   /**
    * The basic variable associated with the row.
    * Must have a coefficient of -1.
    */
   ArithVar d_basic;
-
-
-  /**
-   * Invariants:
-   * - This set is the same as the set maintained in d_entries.
-   */
-  //ArithVarContainsSet d_contains;
 
   std::vector<uint32_t>& d_rowCount;
   ColumnMatrix& d_columnMatrix;
@@ -117,22 +135,14 @@ public:
   const_iterator begin() const { return d_entries.begin(); }
   const_iterator end() const { return d_entries.end(); }
 
-  /** Returns true if the variable is in the row. */
-  // bool has(ArithVar x_j) const{
-  //   if(x_j >= d_contains.size()){
-  //     return false;
-  //   }else{
-  //     return d_contains[x_j];
-  //   }
-  // }
-
   /**
    * Returns the coefficient of a variable in the row.
    */
   const Rational& lookup(ArithVar x_j) const{
     Assert(hasInEntries(x_j));
     const_iterator lb = lower_bound(x_j);
-    return (*lb).getCoefficient();
+    CoefficientEntry* ce = *lb;
+    return ce->getCoefficient();
   }
 
 
@@ -178,21 +188,11 @@ private:
   void multiply(const Rational& c);
 
   /**
-   * Adds v to d_contains.
-   * This may resize d_contains.
-   */
-  //static void addArithVar(ArithVarContainsSet& contains, ArithVar v);
-
-  /** Removes v from d_contains. */
-  //static void removeArithVar(ArithVarContainsSet& contains, ArithVar v);
-
-
-  /**
    * Let c be -1 if strictlySorted is true and c be 0 otherwise.
    * isSorted(arr, strictlySorted) is then equivalent to
    * If i<j, cmp(getArithVar(d_entries[i]), getArithVar(d_entries[j])) <= c.
    */
-  static bool isSorted(const VarCoeffArray& arr, bool strictlySorted);
+  static bool isSorted(const EntryArray& arr, bool strictlySorted);
 
   /**
    * Zips together an array of variables and coefficients and appends
@@ -200,7 +200,7 @@ private:
    */
   static void zip(const std::vector< ArithVar >& variables,
                   const std::vector< Rational >& coefficients,
-                  VarCoeffArray& output,
+                  EntryArray& output,
                   const Column::iterator& defaultPos);
 
   /**
@@ -208,15 +208,15 @@ private:
    * noZeroCoefficients(arr) is equivalent to
    *  0 != getCoefficient(arr[i]) for all i.
    */
-  static bool noZeroCoefficients(const VarCoeffArray& arr);
+  static bool noZeroCoefficients(const EntryArray& arr);
 
   /** Debugging code.*/
   bool matchingCounts() const;
 
   const_iterator lower_bound(ArithVar x_j) const{
     Assert(basic() < d_columnMatrix.size());
-    Column& col =  *(d_columnMatrix[basic()]);
-    return std::lower_bound(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j, 0, col.end()));
+    CoefficientEntry onStack((ReducedRowVector*)this, x_j, 0);
+    return std::lower_bound(d_entries.begin(), d_entries.end(), &onStack, CoefficientEntry::variableLess);
   }
 
   /** Debugging code */
@@ -225,8 +225,9 @@ private:
       isSorted(d_entries, true) &&
       noZeroCoefficients(d_entries) &&
       basicIsSet() &&
-      hasInEntries(basic()) &&
-      lookup(basic()) == Rational(-1);
+      hasInEntries(basic());
+      // hasInEntries(basic()) &&
+      // lookup(basic()) == Rational(-1);
   }
 
   bool basicIsSet() const { return d_basic != ARITHVAR_SENTINEL; }
@@ -235,8 +236,8 @@ public:
   /** Debugging code. */
   bool hasInEntries(ArithVar x_j) const {
     Assert(basic() < d_columnMatrix.size());
-    Column& col = *(d_columnMatrix[basic()]);
-    return std::binary_search(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j,0,col.end()));
+    CoefficientEntry onStack((ReducedRowVector*)this, x_j, 0);
+    return std::binary_search(d_entries.begin(), d_entries.end(), &onStack, CoefficientEntry::variableLess);
   }
 
 }; /* class ReducedRowVector */

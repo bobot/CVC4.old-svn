@@ -76,7 +76,7 @@ public:
     d_rowsTable.push_back(NULL);
     d_rowCount.push_back(0);
 
-    d_columnMatrix.push_back(new Column());
+    d_columnMatrix.push_back(Column());
 
     //TODO replace with version of ArithVarSet that handles misses as non-entries
     // not as buffer overflows
@@ -101,7 +101,7 @@ public:
 
   const Column& getColumn(ArithVar v) const{
     Assert(v < d_columnMatrix.size());
-    return *(d_columnMatrix[v]);
+    return d_columnMatrix[v];
   }
 
   Column::const_iterator beginColumn(ArithVar v) const{

@@ -47,9 +47,6 @@ typedef __gnu_cxx::hash_map<ArithVar, Node> ArithVarToNodeMap;
 
 
 
-typedef std::list<ArithVar> Column;
-typedef std::vector< Column* > ColumnMatrix;
-
 inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);
 }

@@ -36,7 +36,7 @@ void Tableau::internalCopy(const Tableau& tab){
 
   if(N >= 1){
     for(unsigned i = 0; i < N; ++i){
-      d_columnMatrix.push_back(new Column());
+      d_columnMatrix.push_back(Column());
     }
     d_rowsTable.insert(d_rowsTable.end(), N, NULL);
     d_basicVariables.increaseSize(N-1);
@@ -83,12 +83,6 @@ void Tableau::clear(){
     ArithVar curr = *(d_basicVariables.begin());
     ReducedRowVector* vec = removeRow(curr);
     delete vec;
-  }
-
-  //must be emptied after rows
-  for(ColumnMatrix::iterator i = d_columnMatrix.begin(), end = d_columnMatrix.end(); i != end; ++i ){
-    Column* col = *i;
-    delete col;
   }
 
   d_rowsTable.clear();
@@ -159,10 +153,13 @@ void Tableau::pivot(ArithVar x_r, ArithVar x_s){
   Column::const_iterator basicIter = copy.begin(), endIter = copy.end();
 
   for(; basicIter != endIter; ++basicIter){
-    ArithVar basic = *basicIter;
+    CoefficientEntry* ce =  *basicIter;
+    ReducedRowVector& row_k = ce->getVector();
+    Assert(ce != NULL);
+    ArithVar basic = row_k.basic();
     if(basic == x_s) continue;
 
-    ReducedRowVector& row_k = lookup(basic);
+    //ReducedRowVector& row_k = lookup(basic);
     Assert(row_k.hasInEntries(x_s));
 
     row_k.substitute(*row_s);
@@ -175,7 +172,8 @@ void Tableau::pivot(ArithVar x_r, ArithVar x_s){
 void printColumn(const Column& col) {
   Debug("tableau") << "{";
   for(Column::const_iterator colIter = col.begin(), colEnd = col.end(); colIter!=colEnd; ++colIter){
-    ArithVar basic = *colIter;
+    CoefficientEntry* ce =  *colIter;
+    ArithVar basic = (ce->getVector()).basic();
     Debug("tableau") << basic << ", ";
   }
   Debug("tableau") << "}";
@@ -198,7 +196,7 @@ void Tableau::printTableau(){
   ArithVar i = 0;
   for(col_iter matIter = d_columnMatrix.begin(), endMat = d_columnMatrix.end();
       matIter != endMat; ++matIter, ++i){
-    Column& col = *(*matIter);
+    Column& col = (*matIter);
     Debug("tableau") << "Tableau::column "<< i << ": ";
     printColumn(col);
     Debug("tableau") << endl;
@@ -211,7 +209,7 @@ uint32_t Tableau::numNonZeroEntries() const {
   uint32_t colSum = 0;
   ColumnMatrix::const_iterator i = d_columnMatrix.begin(), end = d_columnMatrix.end();
   for(; i != end; ++i){
-    const Column& col = *(*i);
+    const Column& col = (*i);
     colSum += col.size();
   }
   return colSum;
