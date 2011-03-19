@@ -10,13 +10,12 @@
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
 #include "theory/arith/partial_model.h"
-#include "theory/output_channel.h"
 
 #include "util/options.h"
 
 #include "util/stats.h"
 
-#include <vector>
+#include <queue>
 
 namespace CVC4 {
 namespace theory {
@@ -25,60 +24,50 @@ namespace arith {
 class SimplexDecisionProcedure {
 private:
 
-  /** Stores system wide constants to avoid unnessecary reconstruction. */
-  const ArithConstants& d_constants;
-
   /**
    * Manages information about the assignment and upper and lower bounds on
    * variables.
    */
   ArithPartialModel& d_partialModel;
 
-  OutputChannel* d_out;
-
   Tableau& d_tableau;
   ArithPriorityQueue d_queue;
 
   ArithVar d_numVariables;
 
-  std::vector<Node> d_delayedLemmas;
-  uint32_t d_delayedLemmasPos;
+  std::queue<Node> d_delayedLemmas;
+
+  Rational d_ZERO;
 
 public:
-  SimplexDecisionProcedure(const ArithConstants& constants,
-                           ArithPartialModel& pm,
-                           OutputChannel* out,
+  SimplexDecisionProcedure(ArithPartialModel& pm,
                            Tableau& tableau) :
-    d_constants(constants),
     d_partialModel(pm),
-    d_out(out),
     d_tableau(tableau),
     d_queue(pm, tableau),
     d_numVariables(0),
     d_delayedLemmas(),
-    d_delayedLemmasPos(0)
+    d_ZERO(0)
   {}
 
-
-public:
   /**
    * Assert*(n, orig) takes an bound n that is implied by orig.
    * and asserts that as a new bound if it is tighter than the current bound
    * and updates the value of a basic variable if needed.
-   * If this new bound is in conflict with the other bound,
-   * a conflict is created and asserted to the output channel.
    *
-   * orig must be an atom in the SAT solver so that it can be used for
+   * orig must be a literal in the SAT solver so that it can be used for
    * conflict analysis.
    *
-   * n is of the form (x =?= c) where x is a variable,
-   * c is a constant and =?= is either LT, LEQ, EQ, GEQ, or GT.
+   * x is the variable getting the new bound,
+   * c is the value of the new bound.
    *
-   * returns true if a conflict was asserted.
+   * If this new bound is in conflict with the other bound,
+   * a node describing this conflict is returned.
+   * If this new bound is not in conflict, Node::null() is returned.
    */
-  bool AssertLower(ArithVar x_i, const DeltaRational& c_i, TNode orig);
-  bool AssertUpper(ArithVar x_i, const DeltaRational& c_i, TNode orig);
-  bool AssertEquality(ArithVar x_i, const DeltaRational& c_i, TNode orig);
+  Node AssertLower(ArithVar x, const DeltaRational& c, TNode orig);
+  Node AssertUpper(ArithVar x, const DeltaRational& c, TNode orig);
+  Node AssertEquality(ArithVar x, const DeltaRational& c, TNode orig);
 
 private:
   /**
@@ -228,20 +217,20 @@ public:
 
   /** Returns true if the simplex procedure has more delayed lemmas in its queue.*/
   bool hasMoreLemmas() const {
-    return d_delayedLemmasPos < d_delayedLemmas.size();
+    return !d_delayedLemmas.empty();
   }
   /** Returns the next delayed lemmas on the queue.*/
   Node popLemma(){
     Assert(hasMoreLemmas());
-    Node lemma = d_delayedLemmas[d_delayedLemmasPos];
-    ++d_delayedLemmasPos;
+    Node lemma = d_delayedLemmas.front();
+    d_delayedLemmas.pop();
     return lemma;
   }
 
 private:
   /** Adds a lemma to the queue. */
   void pushLemma(Node lemma){
-    d_delayedLemmas.push_back(lemma);
+    d_delayedLemmas.push(lemma);
     ++(d_statistics.d_delayedConflicts);
   }
 
