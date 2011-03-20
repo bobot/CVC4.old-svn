@@ -44,6 +44,8 @@ ReducedRowVector::~ReducedRowVector(){
 
     //d_columnMatrix[v].remove(basic());
     --(d_rowCount[v]);
+
+    delete ce;
   }
 
   Assert(matchingCounts());
@@ -161,6 +163,7 @@ void ReducedRowVector::addRowTimesConstant(const Rational& c, const ReducedRowVe
         // const Column::iterator& pos1 = (*curr1).getColumnPosition();
         // Column& col = *(d_columnMatrix[var1]);
         // col.erase(pos1);
+        delete ce1;
       }
       ++curr1;
       ++curr2;
