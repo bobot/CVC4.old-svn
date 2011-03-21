@@ -19,6 +19,7 @@
 #include "expr/expr.h"
 #include "expr/node.h"
 #include "expr/expr_manager_scope.h"
+#include "expr/variable_type_map.h"
 #include "util/Assert.h"
 
 #include <vector>
@@ -117,32 +118,50 @@ ExprManager* Expr::getExprManager() const {
 
 namespace expr {
 
-Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableMap& vmap) {
-  if(n.getMetaKind() == kind::metakind::VARIABLE) {
+Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap) {
+  if(n.getMetaKind() == kind::metakind::CONSTANT) {
+    Unimplemented("requires additional support from metakind");
+  } else if(n.getMetaKind() == kind::metakind::VARIABLE) {
     Expr from_e(from, new Node(n));
     Expr& to_e = vmap[from_e];
     if(! to_e.isNull()) {
+Debug("export") << "+ mapped `" << from_e << "' to `" << to_e << "'" << std::endl;
       return to_e.getNode();
     } else {
       // construct new variable in other manager:
       // to_e is a ref, so this inserts from_e -> to_e
       std::string name;
+      Type type = from->exportType(from_e.getType(), to, vmap);
       if(Node::fromExpr(from_e).getAttribute(VarNameAttr(), name)) {
-        to_e = to->mkVar(name, from_e.getType());// FIXME thread safety
+        to_e = to->mkVar(name, type);// FIXME thread safety
+Debug("export") << "+ exported var `" << from_e << "'[" << from_e.getId() << "] with name `" << name << "' and type `" << from_e.getType() << "' to `" << to_e << "'[" << to_e.getId() << "] with type `" << type << "'" << std::endl;
       } else {
-        to_e = to->mkVar(from_e.getType());// FIXME thread safety
+        to_e = to->mkVar(type);// FIXME thread safety
+Debug("export") << "+ exported unnamed var `" << from_e << "' with type `" << from_e.getType() << "' to `" << to_e << "' with type `" << type << "'" << std::endl;
       }
       vmap[to_e] = from_e;// insert other direction too
       return Node::fromExpr(to_e);
     }
   } else {
     std::vector<Node> children;
-    children.reserve(n.getNumChildren());
+Debug("export") << "n: " << n << std::endl;
     if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
+Debug("export") << "+ parameterized, op is " << n.getOperator() << std::endl;
+      children.reserve(n.getNumChildren() + 1);
       children.push_back(exportInternal(n.getOperator(), from, to, vmap));
+    } else {
+      children.reserve(n.getNumChildren());
     }
     for(TNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
+Debug("export") << "+ child: " << *i << std::endl;
       children.push_back(exportInternal(*i, from, to, vmap));
+    }
+    if(Debug.isOn("export")) {
+      ExprManagerScope ems(*to);
+      Debug("export") << "children for export from " << n << std::endl;
+      for(std::vector<Node>::iterator i = children.begin(), i_end = children.end(); i != i_end; ++i) {
+        Debug("export") << "  child: " << *i << std::endl;
+      }
     }
     return NodeManager::fromExprManager(to)->mkNode(n.getKind(), children);// FIXME thread safety
   }
@@ -150,7 +169,7 @@ Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableMap& vm
 
 }/* CVC4::expr namespace */
 
-Expr Expr::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Expr Expr::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   Assert(d_exprManager != exprManager,
          "No sense in cloning an Expr in the same ExprManager");
   ExprManagerScope ems(*this);

@@ -121,8 +121,8 @@ ExprManager* Type::getExprManager() const {
   return d_nodeManager->toExprManager();
 }
 
-Type Type::exportTo(ExprManager* exprManager) {
-  return ExprManager::exportType(*this, exprManager);
+Type Type::exportTo(ExprManager* exprManager, VariableTypeMap& vmap) {
+  return ExprManager::exportType(*this, exprManager, vmap);
 }
 
 void Type::toStream(std::ostream& out) const {

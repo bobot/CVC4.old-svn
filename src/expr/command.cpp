@@ -76,7 +76,7 @@ void EmptyCommand::toStream(std::ostream& out) const {
   out << "EmptyCommand(" << d_name << ")";
 }
 
-Command* EmptyCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* EmptyCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   return new EmptyCommand(d_name);
 }
 
@@ -94,7 +94,7 @@ void AssertCommand::toStream(std::ostream& out) const {
   out << "Assert(" << d_expr << ")";
 }
 
-Command* AssertCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* AssertCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   return new AssertCommand(d_expr.exportTo(exprManager, variableMap));
 }
 
@@ -108,7 +108,7 @@ void PushCommand::toStream(std::ostream& out) const {
   out << "Push()";
 }
 
-Command* PushCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* PushCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   return new PushCommand;
 }
 
@@ -122,7 +122,7 @@ void PopCommand::toStream(std::ostream& out) const {
   out << "Pop()";
 }
 
-Command* PopCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* PopCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   return new PopCommand;
 }
 
@@ -152,7 +152,7 @@ void CheckSatCommand::printResult(std::ostream& out) const {
   out << d_result << endl;
 }
 
-Command* CheckSatCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* CheckSatCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   CheckSatCommand* c = new CheckSatCommand(d_expr.exportTo(exprManager, variableMap));
   c->d_result = d_result;
   return c;
@@ -182,7 +182,7 @@ void QueryCommand::toStream(std::ostream& out) const {
   out << ")";
 }
 
-Command* QueryCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* QueryCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   QueryCommand* c = new QueryCommand(d_expr.exportTo(exprManager, variableMap));
   c->d_result = d_result;
   return c;
@@ -226,7 +226,7 @@ void CommandSequence::toStream(std::ostream& out) const {
   out << "]";
 }
 
-Command* CommandSequence::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* CommandSequence::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   CommandSequence* seq = new CommandSequence();
   for(iterator i = begin(); i != end(); ++i) {
     seq->addCommand((*i)->exportTo(exprManager, variableMap));
@@ -256,9 +256,9 @@ void DeclarationCommand::toStream(std::ostream& out) const {
 }
 
 Command* DeclarationCommand::exportTo(ExprManager* exprManager,
-                                   VariableMap& variableMap) {
+                                   VariableTypeMap& variableMap) {
   return new DeclarationCommand(d_declaredSymbols,
-                                d_type.exportTo(exprManager));
+                                d_type.exportTo(exprManager, variableMap));
 }
 
 /* class DefineFunctionCommand */
@@ -285,7 +285,7 @@ void DefineFunctionCommand::toStream(std::ostream& out) const {
   out << "], << " << d_formula << " >> )";
 }
 
-Command* DefineFunctionCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* DefineFunctionCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   Expr func = d_func.exportTo(exprManager, variableMap);
   vector<Expr> formals;
   transform(d_formals.begin(), d_formals.end(), back_inserter(formals),
@@ -316,7 +316,7 @@ void DefineNamedFunctionCommand::toStream(std::ostream& out) const {
   out << " )";
 }
 
-Command* DefineNamedFunctionCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* DefineNamedFunctionCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   Expr func = d_func.exportTo(exprManager, variableMap);
   vector<Expr> formals;
   transform(d_formals.begin(), d_formals.end(), back_inserter(formals),
@@ -348,7 +348,7 @@ void GetValueCommand::toStream(std::ostream& out) const {
   out << "GetValue( << " << d_term << " >> )";
 }
 
-Command* GetValueCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* GetValueCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   GetValueCommand* c = new GetValueCommand(d_term.exportTo(exprManager, variableMap));
   c->d_result = d_result.exportTo(exprManager, variableMap);
   return c;
@@ -375,7 +375,7 @@ void GetAssignmentCommand::toStream(std::ostream& out) const {
   out << "GetAssignment()";
 }
 
-Command* GetAssignmentCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* GetAssignmentCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   GetAssignmentCommand* c = new GetAssignmentCommand;
   c->d_result = d_result;
   return c;
@@ -405,7 +405,7 @@ void GetAssertionsCommand::toStream(std::ostream& out) const {
   out << "GetAssertions()";
 }
 
-Command* GetAssertionsCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* GetAssertionsCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   GetAssertionsCommand* c = new GetAssertionsCommand;
   c->d_result = d_result;
   return c;
@@ -436,7 +436,7 @@ void SetBenchmarkStatusCommand::toStream(std::ostream& out) const {
   out << "SetBenchmarkStatus(" << d_status << ")";
 }
 
-Command* SetBenchmarkStatusCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* SetBenchmarkStatusCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   SetBenchmarkStatusCommand* c = new SetBenchmarkStatusCommand(d_status);
   c->d_result = d_result;
   return c;
@@ -461,7 +461,7 @@ void SetBenchmarkLogicCommand::toStream(std::ostream& out) const {
   out << "SetBenchmarkLogic(" << d_logic << ")";
 }
 
-Command* SetBenchmarkLogicCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* SetBenchmarkLogicCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   SetBenchmarkLogicCommand* c = new SetBenchmarkLogicCommand(d_logic);
   c->d_result = d_result;
   return c;
@@ -499,7 +499,7 @@ void SetInfoCommand::toStream(std::ostream& out) const {
   out << "SetInfo(" << d_flag << ", " << d_sexpr << ")";
 }
 
-Command* SetInfoCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* SetInfoCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   SetInfoCommand* c = new SetInfoCommand(d_flag, d_sexpr);
   c->d_result = d_result;
   return c;
@@ -535,7 +535,7 @@ void GetInfoCommand::toStream(std::ostream& out) const {
   out << "GetInfo(" << d_flag << ")";
 }
 
-Command* GetInfoCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* GetInfoCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   GetInfoCommand* c = new GetInfoCommand(d_flag);
   c->d_result = d_result;
   return c;
@@ -573,7 +573,7 @@ void SetOptionCommand::toStream(std::ostream& out) const {
   out << "SetOption(" << d_flag << ", " << d_sexpr << ")";
 }
 
-Command* SetOptionCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* SetOptionCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   SetOptionCommand* c = new SetOptionCommand(d_flag, d_sexpr);
   c->d_result = d_result;
   return c;
@@ -607,7 +607,7 @@ void GetOptionCommand::toStream(std::ostream& out) const {
   out << "GetOption(" << d_flag << ")";
 }
 
-Command* GetOptionCommand::exportTo(ExprManager* exprManager, VariableMap& variableMap) {
+Command* GetOptionCommand::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
   GetOptionCommand* c = new GetOptionCommand(d_flag);
   c->d_result = d_result;
   return c;

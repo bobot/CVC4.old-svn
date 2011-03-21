@@ -148,6 +148,7 @@ class NodeTemplate {
 
   friend class NodeTemplate<true>;
   friend class NodeTemplate<false>;
+  friend class TypeNode;
   friend class NodeManager;
 
   template <unsigned nchild_thresh>

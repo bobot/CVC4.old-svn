@@ -52,7 +52,7 @@ pcvc4_LDADD = \
 	../libcvc4.la \
 	../lib/libreplacements.la
 pcvc4_CPPFLAGS = $(AM_CPPFLAGS) $(BOOST_CPPFLAGS)
-pcvc4_LDADD += $(BOOST_THREAD_LIBS)
+pcvc4_LDADD += $(BOOST_THREAD_LIBS) -lpthread
 pcvc4_LDADD += $(BOOST_THREAD_LDFLAGS)
 
 if STATIC_BINARY

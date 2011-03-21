@@ -18,6 +18,7 @@
 
 #include "expr/node_manager.h"
 #include "expr/expr_manager.h"
+#include "expr/variable_type_map.h"
 #include "context/context.h"
 #include "util/options.h"
 #include "util/stats.h"
@@ -28,7 +29,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 32 "${template}"
+#line 33 "${template}"
 
 #ifdef CVC4_STATISTICS_ON
   #define INC_STAT(kind) \
@@ -486,23 +487,46 @@ Context* ExprManager::getContext() const {
 
 namespace expr {
 
-static TypeNode exportTypeInternal(TypeNode n, NodeManager* nm) {
-  vector<TypeNode> children;
-  children.reserve(n.getNumChildren());
-  for(TypeNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
-    children.push_back(exportTypeInternal(*i, nm));
+Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap);
+
+TypeNode exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* to, VariableTypeMap& vmap) {
+Debug("export") << "type: " << n << std::endl;
+  Assert(n.getKind() == kind::SORT_TYPE ||
+         n.getMetaKind() != kind::metakind::PARAMETERIZED,
+         "PARAMETERIZED-kinded types (other than SORT_KIND) not supported");
+  if(n.getKind() == kind::TYPE_CONSTANT) {
+    return to->mkTypeConst(n.getConst<TypeConstant>());
   }
-  return nm->mkTypeNode(n.getKind(), children);// FIXME thread safety
+  Type from_t = from->toType(n);
+  Type& to_t = vmap[from_t];
+  if(! to_t.isNull()) {
+Debug("export") << "+ mapped `" << from_t << "' to `" << to_t << "'" << std::endl;
+    return *Type::getTypeNode(to_t);
+  }
+  NodeBuilder<> children(to, n.getKind());
+  if(n.getKind() == kind::SORT_TYPE) {
+Debug("export") << "type: operator: " << n.getOperator() << std::endl;
+    // make a new sort tag in target node manager
+    Node sortTag = NodeBuilder<0>(to, kind::SORT_TAG);
+    children << sortTag;
+  }
+  for(TypeNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
+Debug("export") << "type: child: " << *i << std::endl;
+    children << exportTypeInternal(*i, from, to, vmap);
+  }
+  TypeNode out = children.constructTypeNode();// FIXME thread safety
+  to_t = to->toType(out);
+  return out;
 }/* exportTypeInternal() */
 
 }/* CVC4::expr namespace */
 
-Type ExprManager::exportType(const Type& t, ExprManager* em) {
+Type ExprManager::exportType(const Type& t, ExprManager* em, VariableTypeMap& vmap) {
   Assert(t.d_nodeManager != em->d_nodeManager,
          "Can't export a Type to the same ExprManager");
   NodeManagerScope ems(t.d_nodeManager);
   return Type(em->d_nodeManager,
-              new TypeNode(expr::exportTypeInternal(*t.d_typeNode, em->d_nodeManager)));
+              new TypeNode(expr::exportTypeInternal(*t.d_typeNode, t.d_nodeManager, em->d_nodeManager, vmap)));
 }
 
 ${mkConst_implementations}

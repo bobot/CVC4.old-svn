@@ -42,6 +42,7 @@ class SmtEngine;
 class NodeManager;
 class Options;
 class IntStat;
+class VariableTypeMap;
 
 namespace context {
   class Context;
@@ -269,7 +270,7 @@ public:
   /** Export an expr to a different ExprManager */
   //static Expr exportExpr(const Expr& e, ExprManager* em);
   /** Export a type to a different ExprManager */
-  static Type exportType(const Type& t, ExprManager* em);
+  static Type exportType(const Type& t, ExprManager* em, VariableTypeMap& vmap);
 
   /** Returns the minimum arity of the given kind. */
   static unsigned minArity(Kind kind);

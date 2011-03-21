@@ -52,13 +52,9 @@ class Type;
 class TypeCheckingException;
 class TypeCheckingExceptionPrivate;
 
-struct ExprHashFunction;
+class VariableTypeMap;
 
-/**
- * A map Expr -> Expr, intended to be used for a mapping of variables
- * between two ExprManagers.
- */
-typedef std::hash_map<Expr, Expr, ExprHashFunction> VariableMap;
+struct ExprHashFunction;
 
 namespace smt {
   class SmtEnginePrivate;
@@ -69,7 +65,7 @@ namespace expr {
   class CVC4_PUBLIC ExprPrintTypes;
   class CVC4_PUBLIC ExprSetLanguage;
 
-  NodeTemplate<true> exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableMap& vmap);
+  NodeTemplate<true> exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap);
 }/* CVC4::expr namespace */
 
 /**
@@ -380,7 +376,7 @@ public:
    * variableMap for the translation and extending it with any new
    * mappings.
    */
-  Expr exportTo(ExprManager* exprManager, VariableMap& variableMap);
+  Expr exportTo(ExprManager* exprManager, VariableTypeMap& variableMap);
 
   /**
    * IOStream manipulator to set the maximum depth of Exprs when
@@ -452,7 +448,7 @@ protected:
   friend class ExprManager;
   friend class NodeManager;
   friend class TypeCheckingException;
-  friend NodeTemplate<true> expr::exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableMap& vmap);
+  friend NodeTemplate<true> expr::exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap);
 
   friend std::ostream& operator<<(std::ostream& out, const Expr& e);
 
@@ -695,7 +691,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 699 "${template}"
+#line 695 "${template}"
 
 namespace expr {
 

@@ -7,12 +7,13 @@
 #include <boost/exception_ptr.hpp>
 
 #include "cvc4autoconfig.h"
-#include "main.h"
-#include "interactive_shell.h"
+#include "main/main.h"
+#include "main/interactive_shell.h"
 #include "parser/parser.h"
 #include "parser/parser_builder.h"
 #include "parser/parser_exception.h"
 #include "expr/expr_manager.h"
+#include "expr/variable_type_map.h"
 #include "smt/smt_engine.h"
 #include "expr/command.h"
 #include "util/Assert.h"
@@ -279,7 +280,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   
   // Duplication, Individualisation
   ExprManager exprMgr2;
-  VariableMap vmap;
+  VariableTypeMap vmap;
   Command *seq2 = seq.exportTo(&exprMgr2, vmap);
   Options options2 = options;
   options.pivotRule = Options::MINIMUM;
@@ -296,26 +297,26 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   SmtEngine smt1(&exprMgr, options);
   SmtEngine smt2(&exprMgr2, options);
   
-  // function <int()> fns[2];
-  // fns[0] = boost::bind(doCommand, boost::ref(smt1), &seq, boost::ref(options));
-  // fns[1] = boost::bind(doCommand, boost::ref(smt2), seq2, boost::ref(options2));
-  // int winner = runPortfolio(2, function<void()>(), fns).first;
+  function <int()> fns[2];
+  fns[0] = boost::bind(doCommand, boost::ref(smt1), &seq, boost::ref(options));
+  fns[1] = boost::bind(doCommand, boost::ref(smt2), seq2, boost::ref(options2));
+  int winner = runPortfolio(2, function<void()>(), fns).first;
 
-  // SmtEngine *smt = winner == 0 ? &smt1 : &smt2;
+  SmtEngine *smt = winner == 0 ? &smt1 : &smt2;
 
-  // cout << (winner == 0 ? ss_out : ss_out2).str();
+  cout << (winner == 0 ? ss_out : ss_out2).str();
 
-  // //Old stuff
-  // string result = smt->getInfo(":status").getValue();
+  //Old stuff
+  string result = smt->getInfo(":status").getValue();
   int returnValue;
 
-  // if(result == "sat") {
-  //   returnValue = 10;
-  // } else if(result == "unsat") {
-  //   returnValue = 20;
-  // } else {
-  //   returnValue = 0;
-  // }
+  if(result == "sat") {
+    returnValue = 10;
+  } else if(result == "unsat") {
+    returnValue = 20;
+  } else {
+    returnValue = 0;
+  }
 
 #ifdef CVC4_COMPETITION_MODE
   // exit, don't return

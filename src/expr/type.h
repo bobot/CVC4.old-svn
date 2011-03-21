@@ -33,6 +33,7 @@ namespace CVC4 {
 class NodeManager;
 class ExprManager;
 class TypeNode;
+class VariableTypeMap;
 
 template <bool ref_count>
 class NodeTemplate;
@@ -55,6 +56,13 @@ struct CVC4_PUBLIC TypeHashStrategy {
   static size_t hash(const CVC4::Type& t);
 };/* struct TypeHashStrategy */
 
+/** Strategy for hashing Types (as a function for use in hashtables etc.) */
+struct CVC4_PUBLIC TypeHashFunction {
+  inline size_t operator()(const CVC4::Type& t) const {
+    return TypeHashStrategy::hash(t);
+  }
+};/* struct TypeHashFunction */
+
 /**
  * Output operator for types
  * @param out the stream to output to
@@ -62,6 +70,10 @@ struct CVC4_PUBLIC TypeHashStrategy {
  * @return the stream
  */
 std::ostream& operator<<(std::ostream& out, const Type& t) CVC4_PUBLIC;
+
+namespace expr {
+  TypeNode exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* nm, VariableTypeMap& vmap);
+}/* CVC4::expr namespace */
 
 /**
  * Class encapsulating CVC4 expression types.
@@ -71,9 +83,11 @@ class CVC4_PUBLIC Type {
   friend class SmtEngine;
   friend class SmtEnginePrivate;
   friend class ExprManager;
+  friend class NodeManager;
   friend class TypeNode;
   friend class TypeHashStrategy;
   friend std::ostream& operator<<(std::ostream& out, const Type& t);
+  friend TypeNode expr::exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* nm, VariableTypeMap& vmap);
 
 protected:
 
@@ -147,7 +161,7 @@ public:
   /**
    * Exports this type into a different ExprManager.
    */
-  Type exportTo(ExprManager* exprManager);
+  Type exportTo(ExprManager* exprManager, VariableTypeMap& vmap);
 
   /**
    * Assignment operator.
