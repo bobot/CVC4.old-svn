@@ -38,7 +38,8 @@ libutil_la_SOURCES = \
 	stats.cpp \
 	dynamic_array.h \
 	language.h \
-	triple.h
+	triple.h \
+	boolean_simplification.h
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
 libutilcudd_la_SOURCES = \
