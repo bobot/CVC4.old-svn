@@ -118,9 +118,11 @@ ExprManager* Expr::getExprManager() const {
 
 namespace expr {
 
+static Node exportConstant(TNode n, NodeManager* to);
+
 Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap) {
   if(n.getMetaKind() == kind::metakind::CONSTANT) {
-    Unimplemented("requires additional support from metakind");
+    return exportConstant(n, NodeManager::fromExprManager(to));
   } else if(n.getMetaKind() == kind::metakind::VARIABLE) {
     Expr from_e(from, new Node(n));
     Expr& to_e = vmap[from_e];
@@ -390,4 +392,16 @@ void Expr::debugPrint() {
 
 ${getConst_implementations}
 
+namespace expr {
+
+static Node exportConstant(TNode n, NodeManager* to) {
+  Assert(n.getMetaKind() == kind::metakind::CONSTANT);
+  switch(n.getKind()) {
+${exportConstant_cases}
+
+  default: Unhandled(n.getKind());
+  }
+}/* exportConstant() */
+
+}/* CVC4::expr namespace */
 }/* CVC4 namespace */

@@ -75,5 +75,5 @@ public:
   static void shutdown();
 };
 
-} // Namesapce theory
+} // Namespace theory
 } // Namespace CVC4

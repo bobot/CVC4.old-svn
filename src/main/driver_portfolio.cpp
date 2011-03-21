@@ -67,7 +67,7 @@ using namespace CVC4::main;
 
 // boost::mutex mutex_done;
 // boost::mutex mutex_main_wait;
-// boost::condition condition_var_main_wait; 
+// boost::condition condition_var_main_wait;
 
 // void runCvc4Thread(int thread_id, int argc, char **argv, Options& options)
 // {
@@ -85,10 +85,10 @@ using namespace CVC4::main;
 //         global_returnData.exceptionOccurred = true;
 //         global_returnData.exceptionPtr = boost::current_exception();  // gets rid of exception?
 //         global_returnData.returnValue = 1;
-        
+
 //         global_flag_done = true;
 //         mutex_done.unlock();
-//         condition_var_main_wait.notify_all(); //we want main thread to quit        
+//         condition_var_main_wait.notify_all(); //we want main thread to quit
 //       }
 //   }
 
@@ -97,16 +97,16 @@ using namespace CVC4::main;
 //       if( mutex_done.try_lock() ) {
 //         CVC4::Notice("Thread " + intToString(thread_id) + "wins.\n"
 //                      "Returns " + intToString(returnValue) + ".\n");
-    
+
 //         global_returnData.thread_id = thread_id;
 //         global_returnData.returnValue = returnValue;
 //         global_returnData.s_out = ss_out.str();
-    
+
 //         global_flag_done = true;
 //         mutex_done.unlock();
 //         condition_var_main_wait.notify_all(); //we want main thread to quit
 //       }
-//   } 
+//   }
 // }
 
 // int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
@@ -120,18 +120,18 @@ using namespace CVC4::main;
 //     o.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #" + intToString(t));
 //     threads[t] = boost::thread(runCvc4Thread, t, argc, argv, o);
 //   }
-  
+
 //   while(global_flag_done == false)
 //     condition_var_main_wait.wait(mutex_main_wait);
 
 //   if( global_returnData.exceptionOccurred )
 //     boost::rethrow_exception( global_returnData.exceptionPtr );
-  
+
 //   CVC4::Notice("Driver thread: Exiting program. " + intToString(global_returnData.returnValue)
 //                + " return value of the fastest thread.\n" );
 
 //   cout << global_returnData.s_out;
-  
+
 //   //exit(global_returnData.returnValue);  // Hack, no longer needed, thanks to boost
 
 //   for(int t=0; t<numThreads; ++t) {
@@ -139,7 +139,7 @@ using namespace CVC4::main;
 //     threads[t].interrupt();
 //     threads[t].join();
 //   }
-  
+
 //   return global_returnData.returnValue;
 // }
 
@@ -277,7 +277,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 
   // What do we need to do next?
   // - Create a second exprMgr, and import everything there
-  
+
   // Duplication, Individualisation
   ExprManager exprMgr2;
   VariableTypeMap vmap;
@@ -296,7 +296,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   // Create the SmtEngine(s)
   SmtEngine smt1(&exprMgr, options);
   SmtEngine smt2(&exprMgr2, options);
-  
+
   function <int()> fns[2];
   fns[0] = boost::bind(doCommand, boost::ref(smt1), &seq, boost::ref(options));
   fns[1] = boost::bind(doCommand, boost::ref(smt2), seq2, boost::ref(options2));
@@ -338,7 +338,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 }
 
 /***** ***** ***** Copy from driver.cpp ***** ***** *****
- * Sorry, figured making a copy was best for now 
+ * Sorry, figured making a copy was best for now
  * Will reduce redundancy later
  */
 
@@ -375,9 +375,9 @@ void printUsage(Options& options) {
 
 // int runCvc4(int argc, char* argv[], Options& options) {
 
-  
+
 //   //doCommand(smt, &seq, options);
-  
+
 
 // }
 

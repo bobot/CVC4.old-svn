@@ -60,6 +60,7 @@ getConst_instantiations=
 getConst_implementations=
 mkConst_instantiations=
 mkConst_implementations=
+exportConstant_cases=
 
 seen_theory=false
 seen_theory_builtin=false
@@ -156,10 +157,12 @@ template <>
 $2 const & Expr::getConst() const {
   // check even for production builds
   CheckArgument(getKind() == ::CVC4::kind::$1, *this,
-                \"Improper kind for getConst<$2>()\");
+                \"Improper kind for getConst< $2 >()\");
   return d_node->getConst< $2 >();
 }
 "
+  exportConstant_cases="${exportConstant_cases}
+  case $1: return to->mkConst(n.getConst< $2 >());"
 }
 
 function check_theory_seen {
@@ -194,7 +197,8 @@ for var in \
     getConst_instantiations \
     getConst_implementations \
     mkConst_instantiations \
-    mkConst_implementations; do
+    mkConst_implementations \
+    exportConstant_cases; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
 done
 error=`expr "$text" : '.*\${\([^}]*\)}.*'`
