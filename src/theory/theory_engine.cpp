@@ -136,7 +136,6 @@ TheoryEngine::TheoryEngine(context::Context* ctxt, const Options& opts) :
   d_theoryRegistration(opts.theoryRegistration),
   d_hasShutDown(false),
   d_incomplete(ctxt, false),
-  d_valuation(this),
   d_opts(opts),
   d_statistics() {
 
@@ -347,7 +346,7 @@ Node TheoryEngine::getValue(TNode node) {
   }
 
   // otherwise ask the theory-in-charge
-  return theoryOf(node)->getValue(node, &d_valuation);
+  return theoryOf(node)->getValue(node);
 }/* TheoryEngine::getValue(TNode node) */
 
 bool TheoryEngine::presolve() {

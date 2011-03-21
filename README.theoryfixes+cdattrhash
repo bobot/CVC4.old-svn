@@ -1,0 +1,27 @@
+This branch will contain adjustments to the Theory interface and include
+a "compressed" form of CDAttrHash<bool> for context-dependent Boolean flags
+on nodes.  This stuff is being kept out of trunk until after a looming
+bitvector deadline on 3/23/2011.
+
+These changes are somewhat disparate but belong on the same branch because
+they are held back from trunk all for the same reason (to keep the trunk
+stable for furious bitvector development).
+
+Specifically:
+
+* Bug 71 is resolved by adding a specialization for CDAttrHash<> in the
+  attribute package.
+* Two adjustments to the theory interface as requested by Tim King:
+  1. Theories get the Valuation proxy object up front.  (This is the
+     proxy back to TheoryEngine that theories use to get the value of
+     subterms in getValue()---but it can be useful elsewhere, too,
+     esp. for debugging.)  This changes the signature of the
+     constructors for all theories, the signature of getValue(), and
+     adds a data member to the Theory base class.
+  2. Theories now have const access to the fact queue through base
+     class functions facts_begin() and facts_end(); again, useful for
+     debugging.
+* Minor other adjustments to documentation, coding to be more
+  conformant to CVC4 policy.
+
+-- Morgan Deters <mdeters@cs.nyu.edu>  Mon, 21 Mar 2011 14:40:48 -0400
