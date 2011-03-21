@@ -135,6 +135,10 @@ private:
   void addImplicationsUsingGeqAndLeqList(TNode geq, OrderedSet& leqSet);
   void addImplicationsUsingGeqAndGeqList(TNode geq, OrderedSet& geqSet);
 
+public:
+  Node getBestImpliedUpperBound(TNode upperBound) const;
+  Node getBestImpliedLowerBound(TNode lowerBound) const;
+
 };
 
 }/* CVC4::theory::arith namespace */

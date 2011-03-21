@@ -395,3 +395,14 @@ void ArithUnatePropagator::addImplication(TNode a, TNode b){
 
   d_arithOut.lemma(imp);
 }
+
+
+Node ArithUnatePropagator::getBestImpliedUpperBound(TNode upperBound) const {
+  std::cout << upperBound << std::endl;
+  return Node::null();
+}
+
+Node ArithUnatePropagator::getBestImpliedLowerBound(TNode lowerBound) const {
+  std::cout << lowerBound << std::endl;
+  return Node::null();
+}

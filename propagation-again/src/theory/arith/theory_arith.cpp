@@ -26,6 +26,8 @@
 
 #include "util/rational.h"
 #include "util/integer.h"
+#include "util/boolean_simplification.h"
+
 
 #include "theory/rewriter.h"
 
@@ -53,7 +55,7 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
 struct SlackAttrID;
-typedef expr::Attribute<SlackAttrID, Node> Slack;
+typedef expr::Attribute<SlackAttrID, bool> Slack;
 
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   Theory(THEORY_ARITH, c, out),
@@ -175,7 +177,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
     if(left.getKind() == PLUS){
       //We may need to introduce a slack variable.
       Assert(left.getNumChildren() >= 2);
-      if(!left.hasAttribute(Slack())){
+      if(!left.getAttribute(Slack())){
         setupSlack(left);
       }
     }
@@ -185,7 +187,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
 
 
 ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
-  Assert(isLeaf(x));
+  Assert(isLeaf(x) || x.getKind() == PLUS);
   Assert(!hasArithVar(x));
 
   ArithVar varX = d_variables.size();
@@ -227,10 +229,9 @@ void TheoryArith::setupSlack(TNode left){
 
   ++(d_statistics.d_statSlackVariables);
   TypeNode real_type = NodeManager::currentNM()->realType();
-  Node slack = NodeManager::currentNM()->mkVar(real_type);
-  left.setAttribute(Slack(), slack);
+  left.setAttribute(Slack(), true);
 
-  ArithVar varSlack = requestArithVar(slack, true);
+  ArithVar varSlack = requestArithVar(left, true);
 
   Polynomial polyLeft = Polynomial::parsePolynomial(left);
 
@@ -293,8 +294,7 @@ ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
     return asArithVar(left);
   }else{
     Assert(left.hasAttribute(Slack()));
-    TNode slack = left.getAttribute(Slack());
-    return asArithVar(slack);
+    return asArithVar(left);
   }
 }
 
@@ -386,21 +386,29 @@ void TheoryArith::check(Effort effortLevel){
 
     if(!possibleConflict.isNull()){
       d_partialModel.revertAssignmentChanges();
-      d_out->conflict(possibleConflict);
+      Node simpleConflict  = BooleanSimplification::simplifyConflict(possibleConflict);
+
+      Debug("arith::conflict") << "conflict   " << possibleConflict << endl
+                               << "simplified " << simpleConflict << endl;
+      d_out->conflict(simpleConflict);
       return;
     }
   }
 
-  if(Debug.isOn("arith::print_assertions") && fullEffort(effortLevel)) {
+  if(Debug.isOn("arith::print_assertions")) {
     debugPrintAssertions();
   }
 
   Node possibleConflict = d_simplex.updateInconsistentVars();
   if(possibleConflict != Node::null()){
-
     d_partialModel.revertAssignmentChanges();
+    d_simplex.clearDeducedBounds();
 
-    d_out->conflict(possibleConflict);
+    Node simpleConflict  = BooleanSimplification::simplifyConflict(possibleConflict);
+
+    Debug("arith::conflict") << "conflict   " << possibleConflict << endl
+                             << "simplified " << simpleConflict << endl;
+    d_out->conflict(simpleConflict);
   }else{
     d_partialModel.commitAssignmentChanges();
 
@@ -486,13 +494,54 @@ void TheoryArith::debugPrintModel(){
 }
 
 void TheoryArith::explain(TNode n) {
+  Kind simpKind = simplifiedKind(n);
+  ArithVar var = determineLeftVariable(n, simpKind);
+
+  TNode bound = TNode::null();
+  switch(simpKind){
+  case LT: case LEQ:
+    bound = d_partialModel.getUpperConstraint(var);
+    break;
+  case GEQ: case GT:
+    bound = d_partialModel.getLowerConstraint(var);
+    break;
+  default:
+    Unreachable();
+  }
+  AlwaysAssert(bound.getKind() == kind::AND);
+  d_out->explanation(bound, true);
 }
 
 void TheoryArith::propagate(Effort e) {
   if(quickCheckOrMore(e)){
     while(d_simplex.hasMoreLemmas()){
       Node lemma = d_simplex.popLemma();
-      d_out->lemma(lemma);
+      Node simpleLemma = BooleanSimplification::simplifyClause(lemma);
+      d_out->lemma(simpleLemma);
+    }
+    while(d_simplex.hasMoreDeducedUpperBounds()){
+      ArithVar var = d_simplex.popDeducedUpperBound();
+      Node varAsNode = asNode(var);
+      const DeltaRational& ub = d_partialModel.getUpperBound(var);
+      Assert(ub.getInfinitesimalPart() <= 0 );
+      Kind kind = ub.getInfinitesimalPart() < 0 ? LT : LEQ;
+      Node ubAsNode = NodeBuilder<2>(kind) << varAsNode << mkRationalNode(ub.getNoninfinitesimalPart());
+      Node bestImplied = d_propagator.getBestImpliedUpperBound(ubAsNode);
+      if(!bestImplied.isNull()){
+        d_out->propagate(bestImplied);
+      }
+    }
+    while(d_simplex.hasMoreDeducedLowerBounds()){
+      ArithVar var = d_simplex.popDeducedLowerBound();
+      Node varAsNode = asNode(var);
+      const DeltaRational& lb = d_partialModel.getLowerBound(var);
+      Assert(lb.getInfinitesimalPart() >= 0 );
+      Kind kind = lb.getInfinitesimalPart() > 0 ? GT : GEQ;
+      Node lbAsIneq = NodeBuilder<2>(kind) << varAsNode << mkRationalNode(lb.getNoninfinitesimalPart());
+      Node bestImplied = d_propagator.getBestImpliedLowerBound(lbAsIneq);
+      if(!bestImplied.isNull()){
+        d_out->propagate(bestImplied);
+      }
     }
   }
 }

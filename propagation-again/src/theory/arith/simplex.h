@@ -39,6 +39,9 @@ private:
 
   Rational d_ZERO;
 
+  PermissiveBackArithVarSet d_deducedUpperBound;
+  PermissiveBackArithVarSet d_deducedLowerBound;
+
 public:
   SimplexDecisionProcedure(ArithPartialModel& pm,
                            Tableau& tableau) :
@@ -151,18 +154,18 @@ private:
    * This returns ARITHVAR_SENTINEL if none exists.
    *
    * More formally one of the following conditions must be satisfied:
-   * -  above && a_ij < 0 && assignment(x_j) < upperbound(x_j)
-   * -  above && a_ij > 0 && assignment(x_j) > lowerbound(x_j)
-   * - !above && a_ij > 0 && assignment(x_j) < upperbound(x_j)
-   * - !above && a_ij < 0 && assignment(x_j) > lowerbound(x_j)
+   * -  lowerBound && a_ij < 0 && assignment(x_j) < upperbound(x_j)
+   * -  lowerBound && a_ij > 0 && assignment(x_j) > lowerbound(x_j)
+   * - !lowerBound && a_ij > 0 && assignment(x_j) < upperbound(x_j)
+   * - !lowerBound && a_ij < 0 && assignment(x_j) > lowerbound(x_j)
    *
    */
-  template <bool above, PreferenceFunction>  ArithVar selectSlack(ArithVar x_i);
-  template <PreferenceFunction pf> ArithVar selectSlackBelow(ArithVar x_i) {
-    return selectSlack<false, pf>(x_i);
-  }
-  template <PreferenceFunction pf> ArithVar selectSlackAbove(ArithVar x_i) {
+  template <bool lowerBound, PreferenceFunction>  ArithVar selectSlack(ArithVar x_i);
+  template <PreferenceFunction pf> ArithVar selectSlackLowerBound(ArithVar x_i) {
     return selectSlack<true, pf>(x_i);
+  }
+  template <PreferenceFunction pf> ArithVar selectSlackUpperBound(ArithVar x_i) {
+    return selectSlack<false, pf>(x_i);
   }
   /**
    * Returns the smallest basic variable whose assignment is not consistent
@@ -170,13 +173,30 @@ private:
    */
   ArithVar selectSmallestInconsistentVar();
 
+
+  /**
+   * Exports either the explanation of an upperbound or a lower bound
+   * of the basic variable basic, using the non-basic variables in the row.
+   */
+  template <bool upperBound>
+  void explainNonbasics(ArithVar basic, NodeBuilder<>& output);
+  void explainNonbasicsLowerBound(ArithVar basic, NodeBuilder<>& output){
+    explainNonbasics<false>(basic, output);
+  }
+  void explainNonbasicsUpperBound(ArithVar basic, NodeBuilder<>& output){
+    explainNonbasics<true>(basic, output);
+  }
+
+  Node deduceUpperBound(ArithVar basicVar);
+  Node deduceLowerBound(ArithVar basicVar);
+
   /**
    * Given a non-basic variable that is know to not be updatable
    * to a consistent value, construct and return a conflict.
    * Follows section 4.2 in the CAV06 paper.
    */
-  Node generateConflictAbove(ArithVar conflictVar);
-  Node generateConflictBelow(ArithVar conflictVar);
+  Node generateConflictAboveUpperBound(ArithVar conflictVar);
+  Node generateConflictBelowLowerBound(ArithVar conflictVar);
 
 public:
   void notifyOptions(const Options& opt){
@@ -225,6 +245,29 @@ public:
     Node lemma = d_delayedLemmas.front();
     d_delayedLemmas.pop();
     return lemma;
+  }
+
+  bool hasMoreDeducedUpperBounds() const {
+    return !d_deducedUpperBound.empty();
+  }
+
+  ArithVar popDeducedUpperBound() {
+    ArithVar back = d_deducedUpperBound.pop_back();
+    return back;
+  }
+
+  bool hasMoreDeducedLowerBounds() const {
+    return !d_deducedLowerBound.empty();
+  }
+
+  ArithVar popDeducedLowerBound() {
+    ArithVar back = d_deducedLowerBound.pop_back();
+    return back;
+  }
+
+  void clearDeducedBounds() {
+    d_deducedLowerBound.clear();
+    d_deducedUpperBound.clear();
   }
 
 private:

@@ -125,8 +125,16 @@ public:
   void remove(ArithVar x){
     Assert(isMember(x));
     swapToBack(x);
-    d_posVector[x] = ARITHVAR_SENTINEL;
+    Assert(d_list.back() == x);
+    pop_back();
+  }
+
+  ArithVar pop_back() {
+    Assert(!empty());
+    ArithVar atBack = d_list.back();
+    d_posVector[atBack] = ARITHVAR_SENTINEL;
     d_list.pop_back();
+    return atBack;
   }
 
  private:

@@ -122,17 +122,14 @@ Node SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
 
   if(d_partialModel.aboveUpperBound(x_i, c_i, false) ){ // \upperbound(x_i) <= c_i
-    //return false; //sat
-    return Node::null();
+    return Node::null(); //sat
   }
   if(d_partialModel.belowLowerBound(x_i, c_i, true)){// \lowerbound(x_i) > c_i
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     ++(d_statistics.d_statAssertUpperConflicts);
-    //d_out->conflict(conflict);
     return conflict;
-    //return true;
   }
 
   d_partialModel.setUpperConstraint(x_i,original);
@@ -149,7 +146,6 @@ Node SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
   if(Debug.isOn("model")) { d_partialModel.printModel(x_i); }
 
   return Node::null();
-  //return false;
 }
 
 
@@ -162,16 +158,13 @@ Node SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
   // This can happen if both c_i <= x_i and x_i <= c_i are in the system.
   if(d_partialModel.belowLowerBound(x_i, c_i, false) &&
      d_partialModel.aboveUpperBound(x_i, c_i, false)){
-    //return false; //sat
-    return Node::null();
+    return Node::null(); //sat
   }
 
   if(d_partialModel.aboveUpperBound(x_i, c_i, true)){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
-    //d_out->conflict(conflict);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
-    //return true;
     return conflict;
   }
 
@@ -179,8 +172,6 @@ Node SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
-    //d_out->conflict(conflict);
-    //return true;
     return conflict;
   }
 
@@ -196,10 +187,7 @@ Node SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
     }
   }else{
     d_queue.enqueueIfInconsistent(x_i);
-    //checkBasicVariable(x_i);
   }
-
-  //return false;
   return Node::null();
 }
 
@@ -541,14 +529,14 @@ Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
   const DeltaRational& beta = d_partialModel.getAssignment(basic);
 
   if(d_partialModel.belowLowerBound(basic, beta, true)){
-    ArithVar x_j = selectSlackBelow<minVarOrder>(basic);
+    ArithVar x_j = selectSlackUpperBound<minVarOrder>(basic);
     if(x_j == ARITHVAR_SENTINEL ){
-      return generateConflictBelow(basic);
+      return generateConflictBelowLowerBound(basic);
     }
   }else if(d_partialModel.aboveUpperBound(basic, beta, true)){
-    ArithVar x_j = selectSlackAbove<minVarOrder>(basic);
+    ArithVar x_j = selectSlackLowerBound<minVarOrder>(basic);
     if(x_j == ARITHVAR_SENTINEL ){
-      return generateConflictAbove(basic);
+      return generateConflictAboveUpperBound(basic);
     }
   }
   return Node::null();
@@ -576,29 +564,38 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     ArithVar x_j = ARITHVAR_SENTINEL;
 
     if(d_partialModel.belowLowerBound(x_i, beta_i, true)){
-      x_j = selectSlackBelow<pf>(x_i);
+      x_j = selectSlackUpperBound<pf>(x_i);
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);
-        return generateConflictBelow(x_i); //unsat
+        return generateConflictBelowLowerBound(x_i); //unsat
       }
       DeltaRational l_i = d_partialModel.getLowerBound(x_i);
       pivotAndUpdate(x_i, x_j, l_i);
 
     }else if(d_partialModel.aboveUpperBound(x_i, beta_i, true)){
-      x_j = selectSlackAbove<pf>(x_i);
+      x_j = selectSlackLowerBound<pf>(x_i);
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);
-        return generateConflictAbove(x_i); //unsat
+        return generateConflictAboveUpperBound(x_i); //unsat
       }
       DeltaRational u_i = d_partialModel.getUpperBound(x_i);
       pivotAndUpdate(x_i, x_j, u_i);
     }
     Assert(x_j != ARITHVAR_SENTINEL);
+
     //Check to see if we already have a conflict with x_j to prevent wasteful work
     if(s_CHECK_AFTER_PIVOT){
-      Node earlyConflict = checkBasicForConflict(x_j);
-      if(!earlyConflict.isNull()){
-        return earlyConflict;
+      if(selectSlackUpperBound<pf>(x_j) == ARITHVAR_SENTINEL){
+        Node possibleConflict  = deduceUpperBound(x_j);
+        if(!possibleConflict.isNull()){
+          return possibleConflict;
+        }
+      }
+      if(selectSlackLowerBound<pf>(x_j) == ARITHVAR_SENTINEL){
+        Node possibleConflict  = deduceLowerBound(x_j);
+        if(!possibleConflict.isNull()){
+          return possibleConflict;
+        }
       }
     }
   }
@@ -607,93 +604,108 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
   return Node::null();
 }
 
+template <bool upperBound>
+void SimplexDecisionProcedure::explainNonbasics(ArithVar basic, NodeBuilder<>& output){
+  Assert(d_tableau.isBasic(basic));
+  const ReducedRowVector& row = d_tableau.lookup(basic);
 
-Node SimplexDecisionProcedure::generateConflictAbove(ArithVar conflictVar){
-
-  ReducedRowVector& row_i = d_tableau.lookup(conflictVar);
-
-  NodeBuilder<> nb(kind::AND);
-  TNode bound = d_partialModel.getUpperConstraint(conflictVar);
-
-  Debug("arith")  << "generateConflictAbove "
-                  << "conflictVar " << conflictVar
-                  << " " << d_partialModel.getAssignment(conflictVar)
-                  << " " << bound << endl;
-
-  nb << bound;
-
-  ReducedRowVector::const_iterator nbi = row_i.begin(), end = row_i.end();
-
+  ReducedRowVector::const_iterator nbi = row.begin(), end = row.end();
   for(; nbi != end; ++nbi){
     ArithVar nonbasic = (*nbi).getArithVar();
-    if(nonbasic == conflictVar) continue;
+    if(nonbasic == basic) continue;
 
     const Rational& a_ij = (*nbi).getCoefficient();
     Assert(a_ij != d_ZERO);
+    TNode bound = TNode::null();
 
     int sgn = a_ij.sgn();
     Assert(sgn != 0);
-    if(sgn < 0){
-      bound =  d_partialModel.getUpperConstraint(nonbasic);
-      Debug("arith") << "below 0 " << nonbasic << " "
-                     << d_partialModel.getAssignment(nonbasic)
-                     << " " << bound << endl;
-      nb << bound;
+    if(upperBound){
+      if(sgn < 0){
+        bound = d_partialModel.getLowerConstraint(nonbasic);
+      }else{
+        Assert(sgn > 0);
+        bound = d_partialModel.getUpperConstraint(nonbasic);
+      }
     }else{
-      Assert(sgn > 0);
-      bound =  d_partialModel.getLowerConstraint(nonbasic);
-      Debug("arith") << " above 0 " << nonbasic << " "
-                     << d_partialModel.getAssignment(nonbasic)
-                     << " " << bound << endl;
-      nb << bound;
+      if(sgn < 0){
+        bound =  d_partialModel.getUpperConstraint(nonbasic);
+      }else{
+        Assert(sgn > 0);
+        bound =  d_partialModel.getLowerConstraint(nonbasic);
+      }
     }
+    Assert(!bound.isNull());
+    output << bound;
   }
+}
+
+Node SimplexDecisionProcedure::deduceUpperBound(ArithVar basicVar){
+  Assert(d_tableau.isBasic(basicVar));
+  Assert(selectSlackUpperBound<minVarOrder>(basicVar) == ARITHVAR_SENTINEL);
+
+  const DeltaRational& assignment = d_partialModel.getAssignment(basicVar);
+
+  Assert(assignment.getInfinitesimalPart() <= 0);
+
+  if(d_partialModel.strictlyBelowUpperBound(basicVar, assignment)){
+    NodeBuilder<> nb(kind::AND);
+    explainNonbasicsUpperBound(basicVar, nb);
+    Node explanation = nb;
+    Debug("waka-waka") << basicVar << " ub " << assignment << " "<< explanation << endl;
+    Node res = AssertUpper(basicVar, assignment, explanation);
+    if(res.isNull()){
+      d_deducedUpperBound.add(basicVar);
+    }
+    return res;
+  }else{
+    return Node::null();
+  }
+}
+
+Node SimplexDecisionProcedure::deduceLowerBound(ArithVar basicVar){
+  Assert(d_tableau.isBasic(basicVar));
+  Assert(selectSlackLowerBound<minVarOrder>(basicVar) == ARITHVAR_SENTINEL);
+
+  const DeltaRational& assignment = d_partialModel.getAssignment(basicVar);
+
+  if(Debug.isOn("paranoid:check_tableau")){ checkTableau(); }
+
+  Assert(assignment.getInfinitesimalPart() >= 0);
+
+  if(d_partialModel.strictlyAboveLowerBound(basicVar, assignment)){
+    NodeBuilder<> nb(kind::AND);
+    explainNonbasicsLowerBound(basicVar, nb);
+    Node explanation = nb;
+    Debug("waka-waka") << basicVar << " lb " << assignment << " "<< explanation << endl;
+    Node res = AssertLower(basicVar, assignment, explanation);
+    if(res.isNull()){
+      d_deducedLowerBound.add(basicVar);
+    }
+    return res;
+  }else{
+    return Node::null();
+  }
+}
+
+Node SimplexDecisionProcedure::generateConflictAboveUpperBound(ArithVar conflictVar){
+
+  NodeBuilder<> nb(kind::AND);
+  nb << d_partialModel.getUpperConstraint(conflictVar);
+
+  explainNonbasicsLowerBound(conflictVar, nb);
+
   Node conflict = nb;
   return conflict;
 }
 
-Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
-  ReducedRowVector& row_i = d_tableau.lookup(conflictVar);
-
+Node SimplexDecisionProcedure::generateConflictBelowLowerBound(ArithVar conflictVar){
   NodeBuilder<> nb(kind::AND);
-  TNode bound = d_partialModel.getLowerConstraint(conflictVar);
+  nb << d_partialModel.getLowerConstraint(conflictVar);
 
-  Debug("arith") << "generateConflictBelow "
-                 << "conflictVar " << conflictVar
-                 << d_partialModel.getAssignment(conflictVar) << " "
-                 << " " << bound << endl;
-  nb << bound;
+  explainNonbasicsUpperBound(conflictVar, nb);
 
-
-  ReducedRowVector::const_iterator nbi = row_i.begin(), end = row_i.end();
-  for(; nbi != end; ++nbi){
-    ArithVar nonbasic = (*nbi).getArithVar();
-    if(nonbasic == conflictVar) continue;
-
-    const Rational& a_ij = (*nbi).getCoefficient();
-
-    int sgn = a_ij.sgn();
-    Assert(a_ij != d_ZERO);
-    Assert(sgn != 0);
-
-    if(sgn < 0){
-      TNode bound = d_partialModel.getLowerConstraint(nonbasic);
-      Debug("arith") << "Lower "<< nonbasic << " "
-                     << d_partialModel.getAssignment(nonbasic) << " "
-                     << bound << endl;
-
-      nb << bound;
-    }else{
-      Assert(sgn > 0);
-      TNode bound = d_partialModel.getUpperConstraint(nonbasic);
-      Debug("arith") << "Upper "<< nonbasic << " "
-                     << d_partialModel.getAssignment(nonbasic) << " "
-                     << bound << endl;
-
-      nb << bound;
-    }
-  }
-  Node conflict (nb.constructNode());
+  Node conflict = nb;
   return conflict;
 }
 
