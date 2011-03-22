@@ -231,6 +231,11 @@ private:
    */
   void permanentlyRemoveVariable(ArithVar v);
 
+  bool isImpliedUpperBound(ArithVar var, Node exp);
+  bool isImpliedLowerBound(ArithVar var, Node exp);
+
+  void internalExplain(TNode n, NodeBuilder<>& explainBuilder);
+
 
   void asVectors(Polynomial& p,
                  std::vector<Rational>& coeffs,
