@@ -23,18 +23,20 @@
 
 #include <vector>
 #include <ext/hash_map>
+#include <sstream>
 
 #include "expr/node.h"
 #include "context/cdo.h"
 #include "util/output.h"
 #include "util/stats.h"
+#include "theory/rewriter.h"
+#include "theory/bv/theory_bv_utils.h"
 
 namespace CVC4 {
 namespace theory {
 namespace bv {
 
 struct BitSizeTraits {
-
   /** The null id */
   static const size_t id_null; // Defined in the cpp file (GCC bug)
   /** The null trigger id */
@@ -46,13 +48,6 @@ struct BitSizeTraits {
   static const size_t size_bits = 16;
   /** Number of bits we use for the trigger id */
   static const size_t trigger_id_bits = 24;
-
-  /** Number of bits we use for the function ids */
-  static const size_t function_id_bits = 8;
-  /** Number of bits we use for the function arguments count */
-  static const size_t function_arguments_count_bits = 16;
-  /** Number of bits we use for the index into the arguments memory */
-  static const size_t function_arguments_index_bits = 24;
 };
 
 class EqualityNode {
@@ -68,22 +63,18 @@ public:
   /** The next equality node in this class */
   size_t d_nextId : BitSizeTraits::id_bits;
 
-  /** Is this node a function application */
-  size_t d_isFunction : 1;
-
 public:
 
   /**
    * Creates a new node, which is in a list of it's own.
    */
   EqualityNode(size_t nodeId = BitSizeTraits::id_null)
-  : d_size(1), d_findId(nodeId), d_nextId(nodeId), d_isFunction(0) {}
+  : d_size(1), d_findId(nodeId), d_nextId(nodeId) {}
 
   /** Initialize the equality node */
-  inline void init(size_t nodeId, bool isFunction) {
+  inline void init(size_t nodeId) {
     d_size = 1;
     d_findId = d_nextId = nodeId;
-    d_isFunction = isFunction;
   }
 
   /**
@@ -125,65 +116,10 @@ public:
   inline void setFind(size_t findId) { d_findId = findId; }
 };
 
-/**
- * FunctionNode class represents the information related to a function node. It has an id, number of children
- * and the
- */
-class FunctionNode {
-
-  /** Is the function associative */
-  size_t d_isAssociative  : 1;
-  /** The id of the function */
-  size_t d_functionId     : BitSizeTraits::function_id_bits;
-  /** Number of children */
-  size_t d_argumentsCount : BitSizeTraits::function_arguments_count_bits;
-  /** Index of the start of the arguments in the children array */
-  size_t d_argumentsIndex : BitSizeTraits::function_arguments_index_bits;
-
-public:
-
-  FunctionNode(size_t functionId = 0, size_t argumentsCount = 0, size_t argumentsIndex = 0, bool associative = false)
-  : d_isAssociative(associative), d_functionId(functionId), d_argumentsCount(argumentsCount), d_argumentsIndex(argumentsIndex)
-  {}
-
-  void init(size_t functionId, size_t argumentsCount, size_t argumentsIndex, bool associative) {
-    d_functionId = functionId;
-    d_argumentsCount = argumentsCount;
-    d_argumentsIndex = argumentsIndex;
-    d_isAssociative = associative;
-  }
-
-  /** Check if the function is associative */
-  bool isAssociative() const { return d_isAssociative; }
-
-  /** Get the function id */
-  size_t getFunctionId() const { return d_functionId; }
-
-  /** Get the number of arguments */
-  size_t getArgumentsCount() const { return d_argumentsCount; }
-
-  /** Get the infex of the first argument in the arguments memory */
-  size_t getArgumentsIndex() const { return d_argumentsIndex; }
-
-};
-
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
 class EqualityEngine {
 
 public:
-
-  /**
-   * Basic information about a function.
-   */
-  struct FunctionInfo {
-    /** Name of the function */
-    std::string name;
-    /** Is the function associative */
-    bool isAssociative;
-
-    FunctionInfo(std::string name, bool isAssociative)
-    : name(name), isAssociative(isAssociative) {}
-  };
 
   /** Statistics about the equality engine instance */
   struct Statistics {
@@ -193,8 +129,6 @@ public:
     IntStat termsCount;
     /** Number of function terms managed by the system */
     IntStat functionTermsCount;
-    /** Number of distince functions managed by the system */
-    IntStat functionsCount;
     /** Number of times we performed a backtrack */
     IntStat backtracksCount;
 
@@ -202,13 +136,11 @@ public:
     : mergesCount(name + "::mergesCount", 0),
       termsCount(name + "::termsCount", 0),
       functionTermsCount(name + "functionTermsCoutn", 0),
-      functionsCount(name + "::functionsCount", 0),
       backtracksCount(name + "::backtracksCount", 0)
     {
       StatisticsRegistry::registerStat(&mergesCount);
       StatisticsRegistry::registerStat(&termsCount);
       StatisticsRegistry::registerStat(&functionTermsCount);
-      StatisticsRegistry::registerStat(&functionsCount);
       StatisticsRegistry::registerStat(&backtracksCount);
     }
 
@@ -216,7 +148,6 @@ public:
       StatisticsRegistry::unregisterStat(&mergesCount);
       StatisticsRegistry::unregisterStat(&termsCount);
       StatisticsRegistry::unregisterStat(&functionTermsCount);
-      StatisticsRegistry::unregisterStat(&functionsCount);
       StatisticsRegistry::unregisterStat(&backtracksCount);
     }
   };
@@ -238,12 +169,6 @@ private:
   /** Number of asserted equalities we have so far */
   context::CDO<size_t> d_assertedEqualitiesCount;
 
-  /** Map from ids to functional representations */
-  std::vector<FunctionNode> d_functionNodes;
-
-  /** Functions in the system */
-  std::vector<FunctionInfo> d_functions;
-
   /**
    * We keep a list of asserted equalities. Not among original terms, but
    * among the class representatives.
@@ -260,6 +185,8 @@ private:
 
   /** The ids of the classes we have merged */
   std::vector<Equality> d_assertedEqualities;
+
+  /** The reasons for the equalities */
 
   /**
    * An edge in the equality graph. This graph is an undirected graph (both edges added)
@@ -292,13 +219,23 @@ private:
   std::vector<EqualityEdge> d_equalityEdges;
 
   /**
+   * Returns the string representation of the edges.
+   */
+  std::string edgesToString(size_t edgeId) const;
+
+  /**
+   * Reasons for equalities.
+   */
+  std::vector<Node> d_equalityReasons;
+
+  /**
    * Map from a node to it's first edge in the equality graph. Edges are added to the front of the
    * list which makes the insertion/backtracking easy.
    */
   std::vector<size_t> d_equalityGraph;
 
   /** Add an edge to the equality graph */
-  inline void addGraphEdge(size_t t1, size_t t2);
+  inline void addGraphEdge(size_t t1, size_t t2, Node reason);
 
   /** Returns the equality node of the given node */
   inline EqualityNode& getEqualityNode(TNode node);
@@ -376,7 +313,7 @@ public:
    */
   EqualityEngine(OwnerClass& owner, context::Context* context, std::string name)
   : d_notify(owner), d_assertedEqualitiesCount(context, 0), d_stats(name) {
-    Debug("equality") << "EqualityEdge::EqualityEdge(): id_null = " << BitSizeTraits::id_null <<
+    BVDebug("equality") << "EqualityEdge::EqualityEdge(): id_null = " << BitSizeTraits::id_null <<
         ", trigger_id_null = " << BitSizeTraits::trigger_id_null << std::endl;
   }
 
@@ -386,19 +323,15 @@ public:
   size_t addTerm(TNode t);
 
   /**
-   * Adds a term that is an application of a function symbol to the databas. Returns the internal id of the term.
-   */
-  size_t addFunctionApplication(size_t funcionId, const std::vector<TNode>& arguments);
-
-  /**
    * Check whether the node is already in the database.
    */
   inline bool hasTerm(TNode t) const;
 
   /**
-   * Adds an equality t1 = t2 to the database. Returns false if any of the triggers failed.
+   * Adds an equality t1 = t2 to the database. Returns false if any of the triggers failed, or a
+   * conflict was introduced.
    */
-  bool addEquality(TNode t1, TNode t2);
+  bool addEquality(TNode t1, TNode t2, Node reason);
 
   /**
    * Returns the representative of the term t.
@@ -424,25 +357,29 @@ public:
   size_t addTrigger(TNode t1, TNode t2);
 
   /**
-   * Adds a new function to the equality engine. The funcions are not of fixed arity and no typechecking is performed!
-   * Associative functions allow for normalization, i.e. f(f(x, y), z) = f(x, f(y, z)) = f(x, y, z).
-   * @associative should be true if the function is associative and you want this to be handled by the engine
+   * Normalizes a term by finding the representative. If the representative can be decomposed (using
+   * UnionFindPreferences) it will try and recursively find the representatives, and substitute.
+   * Assumptions used in normalization are retruned in the set.
    */
-  inline size_t newFunction(std::string name, bool associative) {
-    Assert(use_functions);
-    Assert(!associative || enable_associative);
-    ++ d_stats.functionsCount;
-    size_t id = d_functions.size();
-    d_functions.push_back(FunctionInfo(name, associative));
-    return id;
-  }
+  Node normalize(TNode node, std::set<TNode>& assumptions);
+
+private:
+
+  /** Hash of normalizations to avioid cycles */
+  typedef __gnu_cxx::hash_map<TNode, Node, TNodeHashFunction> normalization_cache;
+  normalization_cache d_normalizationCache;
+
+  /**
+   * Same as above, but does cahcing to avoid loops.
+   */
+  Node normalizeWithCache(TNode node, std::set<TNode>& assumptions);
 
 };
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-size_t EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::addTerm(TNode t) {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+size_t EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addTerm(TNode t) {
 
-  Debug("equality") << "EqualityEngine::addTerm(" << t << ")" << std::endl;
+  BVDebug("equality") << "EqualityEngine::addTerm(" << t << ")" << std::endl;
 
   // If term already added, retrurn it's id
   if (hasTerm(t)) return getNodeId(t);
@@ -462,71 +399,37 @@ size_t EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative
   if (d_equalityNodes.size() <= newId) {
     d_equalityNodes.resize(newId + 100);
   }
-  d_equalityNodes[newId].init(newId, false);
+  d_equalityNodes[newId].init(newId);
   // Return the id of the term
   return newId;
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-size_t EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::addFunctionApplication(size_t functionId, const std::vector<TNode>& arguments) {
-
-  Debug("equality") << "EqualityEngine::addFunctionApplication(" << d_functions[functionId].name << ":" << arguments.size() << ")" << std::endl;
-
-  ++ d_stats.functionTermsCount;
-  ++ d_stats.termsCount;
-
-  // Register the new id of the term
-  size_t newId = d_nodes.size();
-  // Add the node to it's position
-  d_nodes.push_back(Node());
-  // Add the trigger list for this node
-  d_nodeTriggers.push_back(BitSizeTraits::trigger_id_null);
-  // Add it to the equality graph
-  d_equalityGraph.push_back(BitSizeTraits::id_null);
-  // Add the equality node to the nodes
-  if (d_equalityNodes.size() <= newId) {
-    d_equalityNodes.resize(newId + 100);
-  }
-  d_equalityNodes[newId].init(newId, true);
-  // Add the function application to the function nodes
-  if (d_functionNodes.size() <= newId) {
-    d_functionNodes.resize(newId + 100);
-  }
-  // Initialize the function node
-  size_t argumentsIndex;
-  d_functionNodes[newId].init(functionId, arguments.size(), argumentsIndex, d_functions[functionId].isAssociative);
-
-  // Return the id of the term
-  return newId;
-
-}
-
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-bool EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::hasTerm(TNode t) const {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::hasTerm(TNode t) const {
   return d_nodeIds.find(t) != d_nodeIds.end();
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-size_t EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::getNodeId(TNode node) const {
-  Assert(hasTerm(node));
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+size_t EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getNodeId(TNode node) const {
+  Assert(hasTerm(node), node.toString().c_str());
   return (*d_nodeIds.find(node)).second;
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-EqualityNode& EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::getEqualityNode(TNode t) {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+EqualityNode& EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getEqualityNode(TNode t) {
   return getEqualityNode(getNodeId(t));
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-EqualityNode& EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::getEqualityNode(size_t nodeId) {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+EqualityNode& EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getEqualityNode(size_t nodeId) {
   Assert(nodeId < d_equalityNodes.size());
   return d_equalityNodes[nodeId];
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-bool EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::addEquality(TNode t1, TNode t2) {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addEquality(TNode t1, TNode t2, Node reason) {
 
-  Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;
+  BVDebug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;
 
   // Backtrack if necessary
   backtrack();
@@ -542,6 +445,17 @@ bool EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
   // If already the same, we're done
   if (t1classId == t2classId) return true;
 
+  // Check for constants
+  if (d_nodes[t1classId].getMetaKind() == kind::metakind::CONSTANT &&
+      d_nodes[t2classId].getMetaKind() == kind::metakind::CONSTANT) {
+    std::vector<TNode> reasons;
+    getExplanation(t1, d_nodes[t1classId], reasons);
+    getExplanation(t2, d_nodes[t2classId], reasons);
+    reasons.push_back(reason);
+    d_notify.conflict(utils::mkAnd(reasons));
+    return false;
+  }
+
   // Get the nodes of the representatives
   EqualityNode& node1 = getEqualityNode(t1classId);
   EqualityNode& node2 = getEqualityNode(t2classId);
@@ -549,18 +463,20 @@ bool EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
   Assert(node1.getFind() == t1classId);
   Assert(node2.getFind() == t2classId);
 
-  // Depending on the size, merge them
+  // Depending on the merge preference (such as size), merge them
   std::vector<size_t> triggers;
-  if (node1.getSize() < node2.getSize()) {
+  if (UnionFindPreferences::mergePreference(d_nodes[t2classId], node2.getSize(), d_nodes[t1classId], node1.getSize())) {
+    BVDebug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t1 << " into " << t2 << std::endl;
     merge(node2, node1, triggers);
     d_assertedEqualities.push_back(Equality(t2classId, t1classId));
   } else {
+    BVDebug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t2 << " into " << t1 << std::endl;
     merge(node1, node2, triggers);
     d_assertedEqualities.push_back(Equality(t1classId, t2classId));
   }
 
   // Add the actuall equality to the equality graph
-  addGraphEdge(t1Id, t2Id);
+  addGraphEdge(t1Id, t2Id, reason);
 
   // One more equality added
   d_assertedEqualitiesCount = d_assertedEqualitiesCount + 1;
@@ -577,10 +493,10 @@ bool EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
   return true;
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-TNode EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::getRepresentative(TNode t) const {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+TNode EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getRepresentative(TNode t) const {
 
-  Debug("equality") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
+  BVDebug("equality") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
 
   Assert(hasTerm(t));
 
@@ -588,14 +504,14 @@ TNode EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>
   const_cast<EqualityEngine*>(this)->backtrack();
   size_t representativeId = const_cast<EqualityEngine*>(this)->getEqualityNode(t).getFind();
 
-  Debug("equality") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
+  BVDebug("equality") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
 
   return d_nodes[representativeId];
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-bool EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::areEqual(TNode t1, TNode t2) const {
-  Debug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ")" << std::endl;
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::areEqual(TNode t1, TNode t2) const {
+  BVDebug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ")" << std::endl;
 
   Assert(hasTerm(t1));
   Assert(hasTerm(t2));
@@ -605,15 +521,15 @@ bool EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
   size_t rep1 = const_cast<EqualityEngine*>(this)->getEqualityNode(t1).getFind();
   size_t rep2 = const_cast<EqualityEngine*>(this)->getEqualityNode(t2).getFind();
 
-  Debug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ") => " << (rep1 == rep2 ? "true" : "false") << std::endl;
+  BVDebug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ") => " << (rep1 == rep2 ? "true" : "false") << std::endl;
 
   return rep1 == rep2;
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::merge(EqualityNode& class1, EqualityNode& class2, std::vector<size_t>& triggers) {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::merge(EqualityNode& class1, EqualityNode& class2, std::vector<size_t>& triggers) {
 
-  Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << ")" << std::endl;
+  BVDebug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << ")" << std::endl;
 
   Assert(triggers.empty());
 
@@ -660,10 +576,10 @@ void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
   class1.merge<true>(class2);
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::undoMerge(EqualityNode& class1, EqualityNode& class2, size_t class2Id) {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::undoMerge(EqualityNode& class1, EqualityNode& class2, size_t class2Id) {
 
-  Debug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << ")" << std::endl;
+  BVDebug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << ")" << std::endl;
 
   // Now unmerge the lists (same as merge)
   class1.merge<false>(class2);
@@ -692,15 +608,15 @@ void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
 
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::backtrack() {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::backtrack() {
 
   // If we need to backtrack then do it
   if (d_assertedEqualitiesCount < d_assertedEqualities.size()) {
 
     ++ d_stats.backtracksCount;
 
-    Debug("equality") << "EqualityEngine::backtrack(): nodes" << std::endl;
+    BVDebug("equality") << "EqualityEngine::backtrack(): nodes" << std::endl;
 
     for (int i = (int)d_assertedEqualities.size() - 1, i_end = (int)d_assertedEqualitiesCount; i >= i_end; --i) {
       // Get the ids of the merged classes
@@ -711,7 +627,7 @@ void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
 
     d_assertedEqualities.resize(d_assertedEqualitiesCount);
 
-    Debug("equality") << "EqualityEngine::backtrack(): edges" << std::endl;
+    BVDebug("equality") << "EqualityEngine::backtrack(): edges" << std::endl;
 
     for (int i = (int)d_equalityEdges.size() - 2, i_end = (int)(2*d_assertedEqualitiesCount); i >= i_end; i -= 2) {
       EqualityEdge& edge1 = d_equalityEdges[i];
@@ -721,27 +637,45 @@ void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
     }
 
     d_equalityEdges.resize(2 * d_assertedEqualitiesCount);
+    d_equalityReasons.resize(d_assertedEqualitiesCount);
   }
 
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::addGraphEdge(size_t t1, size_t t2) {
-  Debug("equality") << "EqualityEngine::addGraphEdge(" << d_nodes[t1] << "," << d_nodes[t2] << ")" << std::endl;
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addGraphEdge(size_t t1, size_t t2, Node reason) {
+  BVDebug("equality") << "EqualityEngine::addGraphEdge(" << d_nodes[t1] << "," << d_nodes[t2] << ")" << std::endl;
   size_t edge = d_equalityEdges.size();
   d_equalityEdges.push_back(EqualityEdge(t2, d_equalityGraph[t1]));
   d_equalityEdges.push_back(EqualityEdge(t1, d_equalityGraph[t2]));
   d_equalityGraph[t1] = edge;
   d_equalityGraph[t2] = edge | 1;
+  d_equalityReasons.push_back(reason);
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::getExplanation(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
-  Assert(equalities.empty());
-  Assert(t1 != t2);
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+std::string EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::edgesToString(size_t edgeId) const {
+  std::stringstream out;
+  bool first = true;
+  while (edgeId != BitSizeTraits::id_null) {
+    const EqualityEdge& edge = d_equalityEdges[edgeId];
+    if (!first) out << ",";
+    out << d_nodes[edge.getNodeId()];
+    edgeId = edge.getNext();
+    first = false;
+  }
+  return out.str();
+}
+
+
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getExplanation(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
   Assert(getRepresentative(t1) == getRepresentative(t2));
 
-  Debug("equality") << "EqualityEngine::getExplanation(" << t1 << "," << t2 << ")" << std::endl;
+  BVDebug("equality") << "EqualityEngine::getExplanation(" << t1 << "," << t2 << ")" << std::endl;
+
+  // If the nodes are the same, we're done
+  if (t1 == t2) return;
 
   const_cast<EqualityEngine*>(this)->backtrack();
 
@@ -760,13 +694,15 @@ void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
     Assert(currentIndex < bfsQueue.size());
 
     // The next node to visit
-    BfsData& current = bfsQueue[currentIndex];
+    BfsData current = bfsQueue[currentIndex];
     size_t currentNode = current.nodeId;
 
-    Debug("equality") << "EqualityEngine::getExplanation(): currentNode =  " << d_nodes[currentNode] << std::endl;
+    BVDebug("equality") << "EqualityEngine::getExplanation(): currentNode =  " << d_nodes[currentNode] << std::endl;
 
     // Go through the equality edges of this node
     size_t currentEdge = d_equalityGraph[currentNode];
+
+    BVDebug("equality") << "EqualityEngine::getExplanation(): edges =  " << edgesToString(currentEdge) << std::endl;
 
     while (currentEdge != BitSizeTraits::id_null) {
       // Get the edge
@@ -775,35 +711,29 @@ void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
       // If not just the backwards edge
       if ((currentEdge | 1u) != (current.edgeId | 1u)) {
 
-        Debug("equality") << "EqualityEngine::getExplanation(): currentEdge = (" << d_nodes[currentNode] << "," << d_nodes[edge.getNodeId()] << ")" << std::endl;
+        BVDebug("equality") << "EqualityEngine::getExplanation(): currentEdge = (" << d_nodes[currentNode] << "," << d_nodes[edge.getNodeId()] << ")" << std::endl;
 
         // Did we find the path
         if (edge.getNodeId() == t2Id) {
 
-          Debug("equality") << "EqualityEngine::getExplanation(): path found: " << std::endl;
+          BVDebug("equality") << "EqualityEngine::getExplanation(): path found: " << std::endl;
 
           // Reconstruct the path
           do {
-            // Get the left and right hand side from the edge
-            size_t firstEdge = (currentEdge >> 1) << 1;
-            size_t secondEdge = (currentEdge | 1);
-            TNode lhs = d_nodes[d_equalityEdges[secondEdge].getNodeId()];
-            TNode rhs = d_nodes[d_equalityEdges[firstEdge].getNodeId()];
             // Add the actual equality to the vector
-            equalities.push_back(lhs.eqNode(rhs));
-
-            Debug("equality") << "EqualityEngine::getExplanation(): adding: " << lhs.eqNode(rhs) << std::endl;
+            equalities.push_back(d_equalityReasons[currentEdge >> 1]);
+            BVDebug("equality") << "EqualityEngine::getExplanation(): adding: " << d_equalityReasons[currentEdge >> 1] << std::endl;
 
             // Go to the previous
             currentEdge = bfsQueue[currentIndex].edgeId;
             currentIndex = bfsQueue[currentIndex].previousIndex;
-        } while (currentEdge != BitSizeTraits::id_null);
+          } while (currentEdge != BitSizeTraits::id_null);
 
-        // Done
-        return;
-      }
+          // Done
+          return;
+        }
 
-      // Push to the visitation queue if it's not the backward edge 
+        // Push to the visitation queue if it's not the backward edge
         bfsQueue.push_back(BfsData(edge.getNodeId(), currentEdge, currentIndex));
       }
       
@@ -816,10 +746,10 @@ void EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>:
   }
 }
 
-template <typename OwnerClass, typename NotifyClass, bool use_functions, bool enable_associative>
-size_t EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative>::addTrigger(TNode t1, TNode t2) {
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+size_t EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addTrigger(TNode t1, TNode t2) {
 
-  Debug("equality") << "EqualityEngine::addTrigger(" << t1 << "," << t2 << ")" << std::endl;
+  BVDebug("equality") << "EqualityEngine::addTrigger(" << t1 << "," << t2 << ")" << std::endl;
 
   Assert(hasTerm(t1));
   Assert(hasTerm(t2));
@@ -844,10 +774,68 @@ size_t EqualityEngine<OwnerClass, NotifyClass, use_functions, enable_associative
   d_nodeTriggers[t1Id] = t1NewTriggerId;
   d_nodeTriggers[t2Id] = t2NewTriggerId;
 
-  Debug("equality") << "EqualityEngine::addTrigger(" << t1 << "," << t2 << ") => " << t1NewTriggerId / 2 << std::endl;
+  BVDebug("equality") << "EqualityEngine::addTrigger(" << t1 << "," << t2 << ") => " << t1NewTriggerId / 2 << std::endl;
 
   // Return the global id of the trigger
   return t1NewTriggerId / 2;
+}
+
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+Node EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::normalize(TNode node, std::set<TNode>& assumptions) {
+  d_normalizationCache.clear();
+  Node result = Rewriter::rewrite(normalizeWithCache(node, assumptions));
+  d_normalizationCache.clear();
+  return result;
+}
+
+
+template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+Node EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::normalizeWithCache(TNode node, std::set<TNode>& assumptions) {
+
+  BVDebug("equality") << "EqualityEngine::normalize(" << node << ")" << push << std::endl;
+
+  normalization_cache::iterator find = d_normalizationCache.find(node);
+  if (find != d_normalizationCache.end()) {
+    if (find->second.isNull()) {
+      // We are in a cycle
+      return node;
+    } else {
+      // Not in a cycle, return it
+      return find->second;
+    }
+  } else {
+    d_normalizationCache[node] = Node();
+  }
+
+  // Get the representative
+  Node result = hasTerm(node) ? getRepresentative(node) : node;
+  if (node != result) {
+    std::vector<TNode> equalities;
+    getExplanation(result, node, equalities);
+    assumptions.insert(equalities.begin(), equalities.end());
+  }
+
+  // If asked, substitute the children with their representatives
+  if (UnionFindPreferences::descend(result)) {
+    // Make the builder for substitution
+    NodeBuilder<> builder;
+    builder << result.getKind();
+    kind::MetaKind metaKind = result.getMetaKind();
+    if (metaKind == kind::metakind::PARAMETERIZED) {
+      builder << result.getOperator();
+    }
+    for (unsigned i = 0; i < result.getNumChildren(); ++ i) {
+      builder << normalizeWithCache(result[i], assumptions);
+    }
+    result = builder;
+  }
+
+  BVDebug("equality") << "EqualityEngine::normalize(" << node << ") => " << result << pop << std::endl;
+
+  // Cache the result for real now
+  d_normalizationCache[node] = result;
+
+  return result;
 }
 
 } // Namespace bv

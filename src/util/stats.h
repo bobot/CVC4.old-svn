@@ -43,6 +43,8 @@ namespace CVC4 {
 
 class CVC4_PUBLIC Stat;
 
+inline std::ostream& operator<<(std::ostream& os, const ::timespec& t);
+
 /**
  * The main statistics registry.  This registry maintains the list of
  * currently active statistics and is able to "flush" them all.
@@ -509,16 +511,20 @@ public:
 inline ::timespec& operator+=(::timespec& a, const ::timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   const long nsec_per_sec = 1000000000L; // one thousand million
+  Assert(a.tv_nsec >= 0 && a.tv_nsec < nsec_per_sec);
+  Assert(b.tv_nsec >= 0 && b.tv_nsec < nsec_per_sec);
   a.tv_sec += b.tv_sec;
   long nsec = a.tv_nsec + b.tv_nsec;
-  while(nsec < 0) {
+  Assert(nsec >= 0);
+  if(nsec < 0) {
     nsec += nsec_per_sec;
-    ++a.tv_sec;
-  }
-  while(nsec >= nsec_per_sec) {
-    nsec -= nsec_per_sec;
     --a.tv_sec;
   }
+  if(nsec >= nsec_per_sec) {
+    nsec -= nsec_per_sec;
+    ++a.tv_sec;
+  }
+  Assert(nsec >= 0 && nsec < nsec_per_sec);
   a.tv_nsec = nsec;
   return a;
 }
@@ -527,16 +533,19 @@ inline ::timespec& operator+=(::timespec& a, const ::timespec& b) {
 inline ::timespec& operator-=(::timespec& a, const ::timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   const long nsec_per_sec = 1000000000L; // one thousand million
+  Assert(a.tv_nsec >= 0 && a.tv_nsec < nsec_per_sec);
+  Assert(b.tv_nsec >= 0 && b.tv_nsec < nsec_per_sec);
   a.tv_sec -= b.tv_sec;
   long nsec = a.tv_nsec - b.tv_nsec;
-  while(nsec < 0) {
+  if(nsec < 0) {
     nsec += nsec_per_sec;
-    ++a.tv_sec;
-  }
-  while(nsec >= nsec_per_sec) {
-    nsec -= nsec_per_sec;
     --a.tv_sec;
   }
+  if(nsec >= nsec_per_sec) {
+    nsec -= nsec_per_sec;
+    ++a.tv_sec;
+  }
+  Assert(nsec >= 0 && nsec < nsec_per_sec);
   a.tv_nsec = nsec;
   return a;
 }
@@ -702,6 +711,26 @@ public:
       StatisticsRegistry::unregisterStat(this);                         \
     }                                                                   \
   } _StatField
+
+/**
+ * Resource-acquisition-is-initialization idiom for statistics
+ * registry.  Useful for stack-based statistics (like in the driver).
+ * Generally, for statistics kept in a member field of class, it's
+ * better to use the above KEEP_STATISTIC(), which does declaration of
+ * the member, construction of the statistic, and
+ * registration/unregistration.  This RAII class only does
+ * registration and unregistration.
+ */
+class RegisterStatistic {
+  Stat* d_stat;
+public:
+  RegisterStatistic(Stat* stat) : d_stat(stat) {
+    StatisticsRegistry::registerStat(d_stat);
+  }
+  ~RegisterStatistic() {
+    StatisticsRegistry::unregisterStat(d_stat);
+  }
+};/* class RegisterStatistic */
 
 #undef __CVC4_USE_STATISTICS
 
