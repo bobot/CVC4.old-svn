@@ -56,6 +56,8 @@ private:
   bool requiresCheckFiniteWellFounded;
   //map from equalties and the equalities they are derived from
   context::CDMap< Node, Node, NodeHashFunction > d_drv_map;
+  //equalities that are axioms
+  context::CDMap< Node, bool, NodeHashFunction > d_axioms;
   //map from terms to whether they have been instantiated
   context::CDMap< Node, bool, NodeHashFunction > d_inst_map;
   //Type getType( TypeNode t );
@@ -64,7 +66,7 @@ private:
   bool isDatatype( TypeNode t ) { return d_cons.find( t )!=d_cons.end(); }
   void checkFiniteWellFounded();
 
-  //for possible constructors, map from terms to testers asserted for that term
+  //map from terms to testers asserted for that term
   // for each t, this is either a list of equations of the form 
   //   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t ), each of which are unique testers,
   // or a list of equations of the form 
@@ -97,7 +99,6 @@ private:
    * Union find for storing the equalities.
    */
   UnionFind<Node, NodeHashFunction> d_unionFind;
-  UnionFind<Node, NodeHashFunction> d_cons_rep_map;
 
   /**
    * Received a notification from the congruence closure algorithm that the two nodes
@@ -120,6 +121,8 @@ private:
    * conflict to get the actual explanation)
    */
   Node d_conflict;
+  bool d_noMerge;
+  std::vector< std::vector< std::pair< Node, Node > > > d_merge_pending;
 public:
   TheoryDatatypes(int id, context::Context* c, OutputChannel& out);
   ~TheoryDatatypes();
@@ -145,9 +148,10 @@ public:
   std::string identify() const { return std::string("TheoryDatatypes"); }
 
   /* Helper methods */
-  void checkTester( Effort e, Node tassertion, Node assertion );
+  void checkTester( Node assertion );
+  bool checkTrivialTester( Node assertion );
   void checkInstantiate( Node t );
-  Node checkCanBeConstructor( Node t, Node cons );
+  TNode collapseSelector( TNode t, TNode tc, bool useContext = false );
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);
@@ -158,7 +162,6 @@ public:
   void addDisequality(TNode eq);
   void addEquality(TNode eq);
   void registerEqualityForPropagation(TNode eq);
-  //Node constructConflict(TNode diseq, bool incDisequality = true );
   void convertDerived(Node n, NodeBuilder<>& nb);
   void throwConflict();
 };/* class TheoryDatatypes */
