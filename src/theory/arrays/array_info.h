@@ -56,19 +56,19 @@ struct TNodeQuadHashFunction {
 class Info {
 public:
   CTNodeList* indices;
-  CTNodeList* eq_stores;
-  CTNodeList* in_stores; //FIXME: maybe need only one store list
+  CTNodeList* stores;
+  //CTNodeList* equals;
 
   Info(context::Context* c) {
     indices = new(true)CTNodeList(c);
-    eq_stores = new(true)CTNodeList(c);
-    in_stores = new(true)CTNodeList(c);
+    stores = new(true)CTNodeList(c);
+    //equals = new(true)CTNodeList(c);
   }
 
   ~Info() {
     indices->deleteSelf();
-    eq_stores->deleteSelf();
-    in_stores->deleteSelf();
+    stores->deleteSelf();
+    //equals->deleteSelf();
   }
 
   /**
@@ -88,13 +88,13 @@ public:
    * prints the information
    */
   void print() const {
-    Assert(indices != NULL && eq_stores!= NULL && in_stores != NULL);
+    Assert(indices != NULL && stores!= NULL); // && equals != NULL);
     Debug("arrays-info")<<"  indices   ";
     printList(indices);
-    Debug("arrays-info")<<"  eq_stores ";
-    printList(eq_stores);
-    Debug("arrays-info")<<"  in_stores ";
-    printList(in_stores);
+    Debug("arrays-info")<<"  stores ";
+    printList(stores);
+    //Debug("arrays-info")<<"  equals ";
+    //printList(equals);
   }
 };
 
@@ -152,8 +152,8 @@ public:
    * and it initializes the info. checks for duplicate i's
    */
   void addIndex(const Node a, const TNode i);
-  void addEqStore(const Node a, const TNode st);
-  void addInStore(const Node a, const TNode st);
+  void addStore(const Node a, const TNode st);
+  //void addEquals(const TNode a, const TNode st);
 
   /**
    * Maps a to the emptyInfo if a is not already in the map
@@ -168,9 +168,9 @@ public:
 
   const CTNodeList* getIndices(const TNode a) const;
 
-  const CTNodeList* getInStores(const TNode a) const;
+  const CTNodeList* getStores(const TNode a) const;
 
-  const CTNodeList* getEqStores(const TNode a) const;
+  //const CTNodeList* getEquals(const TNode a) const;
 
   /**
    * merges the information of  nodes a and b

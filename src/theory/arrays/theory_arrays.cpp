@@ -79,6 +79,9 @@ void TheoryArrays::notifyCongruent(TNode a, TNode b) {
 
 
 void TheoryArrays::check(Effort e) {
+  if(!fullEffort(e) ) {
+   return;
+  }
   Debug("arrays") <<"start check ";
   while(!done()) {
     Node assertion = get();
@@ -190,7 +193,7 @@ void TheoryArrays::merge(TNode a, TNode b) {
     Debug("arrays-merge")<<"after \n";
     // note the change in order, merge info adds the list of
     // the 2nd argument to the first
-    //d_infoMap.mergeInfo(b, a);
+    d_infoMap.mergeInfo(b, a);
   }
 
   deq_ia = d_disequalities.find(a);
@@ -394,38 +397,27 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
   if(Debug.isOn("arrays-clr"))
     d_infoMap.getInfo(b)->print();
   const CTNodeList* i_a = d_infoMap.getIndices(a);
-  const CTNodeList* inst_b = d_infoMap.getInStores(b);
-  const CTNodeList* eqst_b = d_infoMap.getEqStores(b);
+  const CTNodeList* st_b = d_infoMap.getStores(b);
+
 
   CTNodeList::const_iterator it = i_a->begin();
   CTNodeList::const_iterator its;
-
+  std::set<quad<TNode, TNode, TNode, TNode> > queue;
 
   for( ; it != i_a->end(); it++ ) {
     TNode i = *it;
-    its = inst_b->begin();
-    for ( ; its != inst_b->end(); its++) {
+    its = st_b->begin();
+    for ( ; its != st_b->end(); its++) {
       TNode store = *its;
       Assert(store.getKind() == kind::STORE);
       TNode j = store[1];
       TNode c = store[0];
-      insertInRoWLemmaQueue(store, c, j, i);
+      insertInQuadQueue(queue, store, c, j, i);
       //lemmas.push_back(make_quad(store, c, j, i));
     }
-
-    its = eqst_b->begin();
-    for ( ; its != eqst_b->end(); its++) {
-      TNode store = *its;
-      Assert(store.getKind() == kind::STORE);
-      TNode j = store[1];
-      TNode c = store[0];
-      insertInRoWLemmaQueue(store, c, j, i);
-      //lemmas.push_back(make_quad(store, c, j, i));
-    }
-
   }
 
-  dischargeRoWLemmas();
+  dischargeRoWLemmas(queue);
 
   Debug("arrays-clr")<<"Arrays::checkLemmas done.\n";
 }
@@ -434,6 +426,12 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Assert(a.getType().isArray());
  Assert(b.getType().isArray());
 
+ if(d_RoWLemmaCache.count(make_quad(a, b, i, j)) != 0) {
+   //Debug("arrays-cri")<<"Arrays::addRoW2Lemma redundant \n";
+   //Debug("arrays-cri")<<"("<<a<<", "<<b<<", "<< i<<", "<<j<<") \n";
+   return;
+ }
+
  NodeManager* nm = NodeManager::currentNM();
  Node aj = nm->mkNode(kind::SELECT, a, j);
  Node bj = nm->mkNode(kind::SELECT, b, j);
@@ -441,40 +439,61 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Node eq2 = nm->mkNode(kind::EQUAL, i, j);
  Node lem = nm->mkNode(kind::OR, eq1, eq2);
  //TODO: add checks for propagation
+ //Debug("arrays-cri")<<"Arrays::addRoW2Lemma check if should add "<<lem<<"\n";
  if(i!=j && aj!=bj) {
-   Debug("arrays-lem")<<"Arrays::addRoW2Lemma "<<lem<<"\n";
+   Debug("arrays-lem")<<"Arrays::addRoW2Lemma adding "<<lem<<"\n";
    d_out->lemma(lem);
+   d_RoWLemmaCache.insert(make_quad(a,b,i,j));
+   checkRoWForIndex(j, find(a));
+   checkRoWForIndex(j, find(b));
  }
  //Debug("arrays-lem")<<"Arrays::addRoW2Lemma redundant lemma "<<lem<<"\n";
 }
+/*
+void TheoryArrays::checkNewRoW(TNode i, TNode a) {
+  // array a is newly being read at index i, so we need to
+  // check for if a ~ store (...) or there is some (store ~ )
 
+  const CTNodeList* equals;
+  CTNodeList::const_iterator it;
+  equals = d_infoMap.getEquals(a);
+
+  Debug("arrays-cnr")<<"Arrays::checkNewRoW "<<a<<"\n"
+                     <<"              index "<<i<<"\n";
+
+  if(a.getKind() == kind::STORE) {
+    TNode c = a[0];
+    TNode j = a[1];
+    TNode v = a[2];
+    for( it = equals->begin(); it!=equals->end(); it++) {
+      TNode b = *it;
+      addRoW2Lemma(c, a, j, i);
+    }
+  }
+  Debug("arrays-cnr")<<"Arrays::checkNewRow done \n";
+}
+*/
 void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
   const CTNodeList* stores;
   CTNodeList::const_iterator it;
-  stores = d_infoMap.getInStores(a);
+  stores = d_infoMap.getStores(a);
 
   Debug("arrays-cri")<<"Arrays::checkRoWForIndex "<<a<<"\n";
   Debug("arrays-cri")<<"                   index "<<i<<"\n";
   if(Debug.isOn("arrays-cri")) {
     d_infoMap.getInfo(a)->print();
   }
+  std::set<quad<TNode, TNode, TNode, TNode> > queue;
   it = stores->begin();
   for(; it!= stores->end(); it++) {
     TNode store = *it;
     Assert(store.getKind()==kind::STORE);
     TNode j = store[1];
-    insertInRoWLemmaQueue(store, store[0], j, i);
+    Debug("arrays-cri")<<"Arrays::checkRoWForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
+    insertInQuadQueue(queue, store, store[0], j, i);
   }
 
-  stores = d_infoMap.getEqStores(a);
-  it = stores->begin();
-  for(; it!= stores->end(); it++) {
-   TNode store = *it;
-   TNode j = store[1];
-   insertInRoWLemmaQueue(store, store[0], j, i);
-  }
-
-  dischargeRoWLemmas();
+  dischargeRoWLemmas(queue);
 }
 
 /**
@@ -507,8 +526,11 @@ inline void TheoryArrays::addExtLemma(TNode a, TNode b) {
 
    // check if we need to generate new RoW lemmas due to this index
    // need to check for a and b
-   checkRoWForIndex(k, a);
-   checkRoWForIndex(k, b);
+   checkRoWForIndex(k, find(a));
+   checkRoWForIndex(k, find(b));
+   // add k to index list of a and b
+   //d_infoMap.addIndex(find(a), k);
+   //d_infoMap.addIndex(find(b), k);
 
    return;
  }

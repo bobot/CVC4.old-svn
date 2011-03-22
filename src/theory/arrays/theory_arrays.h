@@ -182,20 +182,20 @@ private:
    */
   void checkRoWForIndex(TNode i, TNode a);
 
-  std::set<quad<TNode, TNode, TNode, TNode> > d_RoWLemmaQueue;
+  //std::set<quad<TNode, TNode, TNode, TNode> > d_RoWLemmaQueue;
 
-  void insertInRoWLemmaQueue(TNode a, TNode b, TNode i, TNode j){
+  void insertInQuadQueue(std::set<quad<TNode, TNode, TNode, TNode> >& queue, TNode a, TNode b, TNode i, TNode j){
     if(i != j) {
-      d_RoWLemmaQueue.insert(make_quad(a,b,i,j));
+      queue.insert(make_quad(a,b,i,j));
     }
   }
 
-  void dischargeRoWLemmas() {
-    std::set<quad<TNode, TNode, TNode, TNode> >::iterator it = d_RoWLemmaQueue.begin();
-    for( ; it!= d_RoWLemmaQueue.end(); it++) {
+  void dischargeRoWLemmas(std::set<quad<TNode, TNode, TNode, TNode> >& queue ) {
+    std::set<quad<TNode, TNode, TNode, TNode> >::const_iterator it = queue.begin();
+    for( ; it!= queue.end(); it++) {
       addRoW2Lemma((*it).first, (*it).second, (*it).third, (*it).fourth);
     }
-    d_RoWLemmaQueue.clear();
+    queue.clear();
   }
 
   bool isAxiom(TNode a, TNode b);
@@ -209,14 +209,14 @@ public:
 
     switch(n.getKind()) {
     case kind::SELECT:
-      Debug("arrays-preregister")<<"n[0]"<<n[0]<<" "<<n[1]<<"\n";
+      //Debug("arrays-preregister")<<"n[0]"<<n[0]<<" "<<n[1]<<"\n";
       d_infoMap.addIndex(n[0], n[1]);
       break;
 
     case kind::STORE:
     {
-      d_infoMap.addEqStore(n, n);
-      d_infoMap.addInStore(n[0], n);
+      d_infoMap.addStore(n, n);
+      d_infoMap.addStore(n[0], n);
 
       TNode i = n[1];
       TNode v = n[2];
@@ -235,6 +235,7 @@ public:
       // adding each term of type array to the
       if(n.getType().isArray()) {
         d_infoMap.addEmptyEntry(n);
+        //d_infoMap.addEquals(n,n);
       }
     }
     default:
@@ -255,7 +256,9 @@ public:
     }
   }
 
-  void presolve() { Debug("arrays")<<"Presolving \n";}
+  void presolve() {
+    Debug("arrays")<<"Presolving \n";
+  }
 
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);

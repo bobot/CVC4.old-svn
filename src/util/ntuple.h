@@ -63,8 +63,23 @@ bool operator==(const quad<T1,T2,T3,T4>& x,
 template <class T1, class T2, class T3, class T4>
 bool operator<(const quad<T1,T2,T3,T4>& x,
                 const quad<T1,T2,T3,T4>& y) {
-  return (x.first<y.first && x.second <y.second &&
-          x.third<y.third && x.fourth < y.fourth);
+  if(x.first< y.first) {
+    return true;
+  }
+  else if (x.first == y.first) {
+    if(x.second < y.second) {
+      return true;
+    }
+    else if(y.second == y.second) {
+      if(x.third < y.third) {
+        return true;
+      }
+      else if (x.fourth < y.fourth) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 template <class T1, class T2, class T3, class T4>
