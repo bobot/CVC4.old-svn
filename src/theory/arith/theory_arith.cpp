@@ -27,6 +27,8 @@
 #include "util/rational.h"
 #include "util/integer.h"
 
+#include "theory/rewriter.h"
+
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/partial_model.h"
@@ -55,13 +57,17 @@ typedef expr::Attribute<SlackAttrID, Node> Slack;
 
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   Theory(THEORY_ARITH, c, out),
-  d_constants(NodeManager::currentNM()),
   d_partialModel(c),
   d_userVariables(),
   d_diseq(c),
   d_tableau(),
+  d_restartsCounter(0),
+  d_initialDensity(1.0),
+  d_tableauResetDensity(2.0),
+  d_tableauResetPeriod(10),
   d_propagator(c, out),
-  d_simplex(d_constants, d_partialModel, d_out, d_tableau),
+  d_simplex(d_partialModel, d_tableau),
+  d_DELTA_ZERO(0),
   d_statistics()
 {}
 
@@ -74,7 +80,11 @@ TheoryArith::Statistics::Statistics():
   d_statDisequalityConflicts("theory::arith::DisequalityConflicts", 0),
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
-  d_presolveTime("theory::arith::presolveTime")
+  d_presolveTime("theory::arith::presolveTime"),
+  d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
+  d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
+  d_tableauResets("theory::arith::tableauResets", 0),
+  d_restartTimer("theory::arith::restartTimer")
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
   StatisticsRegistry::registerStat(&d_statSlackVariables);
@@ -84,6 +94,12 @@ TheoryArith::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::registerStat(&d_presolveTime);
+
+
+  StatisticsRegistry::registerStat(&d_initialTableauDensity);
+  StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::registerStat(&d_tableauResets);
+  StatisticsRegistry::registerStat(&d_restartTimer);
 }
 
 TheoryArith::Statistics::~Statistics(){
@@ -95,116 +111,37 @@ TheoryArith::Statistics::~Statistics(){
 
   StatisticsRegistry::unregisterStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::unregisterStat(&d_presolveTime);
+
+
+  StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
+  StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::unregisterStat(&d_tableauResets);
+  StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_staticLearningTimer);
 
-  vector<TNode> workList;
-  workList.push_back(n);
-  __gnu_cxx::hash_set<TNode, TNodeHashFunction> processed;
-
-  while(!workList.empty()) {
-    n = workList.back();
-
-    bool unprocessedChildren = false;
-    for(TNode::iterator i = n.begin(), iend = n.end(); i != iend; ++i) {
-      if(processed.find(*i) == processed.end()) {
-        // unprocessed child
-        workList.push_back(*i);
-        unprocessedChildren = true;
-      }
-    }
-
-    if(unprocessedChildren) {
-      continue;
-    }
-
-    workList.pop_back();
-    // has node n been processed in the meantime ?
-    if(processed.find(n) != processed.end()) {
-      continue;
-    }
-    processed.insert(n);
-
-    // == MINS ==
-
-    Debug("mins") << "===================== looking at" << endl << n << endl;
-    if(n.getKind() == kind::ITE && n[0].getKind() != EQUAL && isRelationOperator(n[0].getKind())  ){
-      TNode c = n[0];
-      Kind k = simplifiedKind(c);
-      TNode t = n[1];
-      TNode e = n[2];
-      TNode cleft = (c.getKind() == NOT) ? c[0][0] : c[0];
-      TNode cright = (c.getKind() == NOT) ? c[0][1] : c[1];
-
-      if((t == cright) && (e == cleft)){
-        TNode tmp = t;
-        t = e;
-        e = tmp;
-        k = reverseRelationKind(k);
-      }
-      if(t == cleft && e == cright){
-        // t == cleft && e == cright
-        Assert( t == cleft );
-        Assert( e == cright );
-        switch(k){
-        case LT:   // (ite (< x y) x y)
-        case LEQ: { // (ite (<= x y) x y)
-          Node nLeqX = NodeBuilder<2>(LEQ) << n << t;
-          Node nLeqY = NodeBuilder<2>(LEQ) << n << e;
-          Debug("arith::mins") << n << "is a min =>"  << nLeqX << nLeqY << endl;
-          learned << nLeqX << nLeqY;
-          break;
-        }
-        case GT: // (ite (> x y) x y)
-        case GEQ: { // (ite (>= x y) x y)
-          Node nGeqX = NodeBuilder<2>(GEQ) << n << t;
-          Node nGeqY = NodeBuilder<2>(GEQ) << n << e;
-          Debug("arith::mins") << n << "is a max =>"  << nGeqX << nGeqY << endl;
-          learned << nGeqX << nGeqY;
-          break;
-        }
-        default: Unreachable();
-        }
-      }
-    }
-    // == 2-CONSTANTS ==
-
-    if(n.getKind() == ITE &&
-       (n[1].getKind() == CONST_RATIONAL || n[1].getKind() == CONST_INTEGER) &&
-       (n[2].getKind() == CONST_RATIONAL || n[2].getKind() == CONST_INTEGER)) {
-      Rational t = coerceToRational(n[1]);
-      Rational e = coerceToRational(n[2]);
-      TNode min = (t <= e) ? n[1] : n[2];
-      TNode max = (t >= e) ? n[1] : n[2];
-
-      Node nGeqMin = NodeBuilder<2>(GEQ) << n << min;
-      Node nLeqMax = NodeBuilder<2>(LEQ) << n << max;
-      Debug("arith::mins") << n << " is a constant sandwich"  << nGeqMin << nLeqMax << endl;
-      learned << nGeqMin << nLeqMax;
-    }
-  }
+  learner.staticLearning(n, learned);
 }
 
 
 
 ArithVar TheoryArith::findShortestBasicRow(ArithVar variable){
   ArithVar bestBasic = ARITHVAR_SENTINEL;
-  unsigned rowLength = 0;
+  uint64_t rowLength = std::numeric_limits<uint64_t>::max();
 
-  for(ArithVarSet::iterator basicIter = d_tableau.begin();
-      basicIter != d_tableau.end();
-      ++basicIter){
+  Column::iterator basicIter = d_tableau.beginColumn(variable);
+  Column::iterator end = d_tableau.endColumn(variable);
+  for(; basicIter != end; ++basicIter){
     ArithVar x_j = *basicIter;
     ReducedRowVector& row_j = d_tableau.lookup(x_j);
 
-    if(row_j.has(variable)){
-      if((bestBasic == ARITHVAR_SENTINEL) ||
-         (bestBasic != ARITHVAR_SENTINEL && row_j.size() < rowLength)){
-        bestBasic = x_j;
-        rowLength = row_j.size();
-      }
+    Assert(row_j.has(variable));
+    if((row_j.size() < rowLength) ||
+       (row_j.size() == rowLength && x_j < bestBasic)){
+      bestBasic = x_j;
+      rowLength = row_j.size();
     }
   }
   return bestBasic;
@@ -227,8 +164,6 @@ void TheoryArith::preRegisterTerm(TNode n) {
     setupInitialValue(varN);
   }
 
-
-  //TODO is an atom
   if(isRelationOperator(k)){
     Assert(Comparison::isNormalAtom(n));
 
@@ -260,7 +195,6 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
 
   setArithVar(x,varX);
 
-  //d_basicManager.init(varX,basic);
   d_userVariables.init(varX, !basic);
   d_tableau.increaseSize();
 
@@ -316,7 +250,7 @@ void TheoryArith::setupSlack(TNode left){
 void TheoryArith::setupInitialValue(ArithVar x){
 
   if(!d_tableau.isBasic(x)){
-    d_partialModel.initialize(x,d_constants.d_ZERO_DELTA);
+    d_partialModel.initialize(x, d_DELTA_ZERO);
   }else{
     //If the variable is basic, assertions may have already happened and updates
     //may have occured before setting this variable up.
@@ -327,15 +261,6 @@ void TheoryArith::setupInitialValue(ArithVar x){
     DeltaRational assignment = d_simplex.computeRowValue(x, false);
     d_partialModel.initialize(x,safeAssignment);
     d_partialModel.setAssignment(x,assignment);
-
-
-    //d_simplex.checkBasicVariable(x);
-    //Conciously violating unneeded check
-
-    //Strictly speaking checking x is unnessecary as it cannot have an upper or
-    //lower bound. This is done to strongly enforce the notion that basic
-    //variables should not be changed without begin checked.
-
   }
   Debug("arithgc") << "setupVariable("<<x<<")"<<std::endl;
 };
@@ -383,7 +308,14 @@ DeltaRational determineRightConstant(TNode assertion, Kind simpleKind){
   return DeltaRational(noninf, inf);
 }
 
-bool TheoryArith::assertionCases(TNode assertion){
+Node TheoryArith::disequalityConflict(TNode eq, TNode lb, TNode ub){
+  NodeBuilder<3> conflict(kind::AND);
+  conflict << eq << lb << ub;
+  ++(d_statistics.d_statDisequalityConflicts);
+  return conflict;
+}
+
+Node TheoryArith::assertionCases(TNode assertion){
   Kind simpKind = simplifiedKind(assertion);
   Assert(simpKind != UNDEFINED_KIND);
   ArithVar x_i = determineLeftVariable(assertion, simpKind);
@@ -397,24 +329,18 @@ bool TheoryArith::assertionCases(TNode assertion){
     if (d_partialModel.hasLowerBound(x_i) && d_partialModel.getLowerBound(x_i) == c_i) {
       Node diseq = assertion[0].eqNode(assertion[1]).notNode();
       if (d_diseq.find(diseq) != d_diseq.end()) {
-        NodeBuilder<3> conflict(kind::AND);
-        conflict << diseq << assertion << d_partialModel.getLowerConstraint(x_i);
-        ++(d_statistics.d_statDisequalityConflicts);
-        d_out->conflict((TNode)conflict);
-        return true;
+        Node lb = d_partialModel.getLowerConstraint(x_i);
+        return disequalityConflict(diseq, lb , assertion);
       }
     }
   case LT:
-    return d_simplex.AssertUpper(x_i, c_i, assertion);
+    return  d_simplex.AssertUpper(x_i, c_i, assertion);
   case GEQ:
     if (d_partialModel.hasUpperBound(x_i) && d_partialModel.getUpperBound(x_i) == c_i) {
       Node diseq = assertion[0].eqNode(assertion[1]).notNode();
       if (d_diseq.find(diseq) != d_diseq.end()) {
-        NodeBuilder<3> conflict(kind::AND);
-        conflict << diseq << assertion << d_partialModel.getUpperConstraint(x_i);
-        ++(d_statistics.d_statDisequalityConflicts);
-        d_out->conflict((TNode)conflict);
-        return true;
+        Node ub = d_partialModel.getUpperConstraint(x_i);
+        return disequalityConflict(diseq, assertion, ub);
       }
     }
   case GT:
@@ -432,19 +358,23 @@ bool TheoryArith::assertionCases(TNode assertion){
       Assert(rhs.getKind() == CONST_RATIONAL);
       ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
       DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
-      if (d_partialModel.hasLowerBound(lhsVar) && d_partialModel.hasUpperBound(lhsVar) &&
-          d_partialModel.getLowerBound(lhsVar) == rhsValue && d_partialModel.getUpperBound(lhsVar) == rhsValue) {
-        NodeBuilder<3> conflict(kind::AND);
-        conflict << assertion << d_partialModel.getLowerConstraint(lhsVar) << d_partialModel.getUpperConstraint(lhsVar);
-        d_out->conflict((TNode)conflict);
+      if (d_partialModel.hasLowerBound(lhsVar) &&
+          d_partialModel.hasUpperBound(lhsVar) &&
+          d_partialModel.getLowerBound(lhsVar) == rhsValue &&
+          d_partialModel.getUpperBound(lhsVar) == rhsValue) {
+        Node lb = d_partialModel.getLowerConstraint(lhsVar);
+        Node ub = d_partialModel.getUpperConstraint(lhsVar);
+        return disequalityConflict(assertion, lb, ub);
       }
     }
-    return false;
+    return Node::null();
   default:
     Unreachable();
-    return false;
+    return Node::null();
   }
 }
+
+
 
 void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check begun" << std::endl;
@@ -452,34 +382,17 @@ void TheoryArith::check(Effort effortLevel){
   while(!done()){
 
     Node assertion = get();
+    Node possibleConflict = assertionCases(assertion);
 
-    //d_propagator.assertLiteral(assertion);
-    bool conflictDuringAnAssert = assertionCases(assertion);
-
-    if(conflictDuringAnAssert){
+    if(!possibleConflict.isNull()){
       d_partialModel.revertAssignmentChanges();
+      d_out->conflict(possibleConflict);
       return;
     }
   }
 
   if(Debug.isOn("arith::print_assertions") && fullEffort(effortLevel)) {
-    Debug("arith::print_assertions") << "Assertions:" << endl;
-    for (ArithVar i = 0; i < d_variables.size(); ++ i) {
-      if (d_partialModel.hasLowerBound(i)) {
-        Node lConstr = d_partialModel.getLowerConstraint(i);
-        Debug("arith::print_assertions") << lConstr.toString() << endl;
-      }
-
-      if (d_partialModel.hasUpperBound(i)) {
-        Node uConstr = d_partialModel.getUpperConstraint(i);
-        Debug("arith::print_assertions") << uConstr.toString() << endl;
-      }
-    }
-    context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-    context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
-    for(; it != it_end; ++ it) {
-      Debug("arith::print_assertions") << *it << endl;
-    }
+    debugPrintAssertions();
   }
 
   Node possibleConflict = d_simplex.updateInconsistentVars();
@@ -487,84 +400,101 @@ void TheoryArith::check(Effort effortLevel){
 
     d_partialModel.revertAssignmentChanges();
 
-    if(Debug.isOn("arith::print-conflict"))
-      Debug("arith_conflict") << (possibleConflict) << std::endl;
-
     d_out->conflict(possibleConflict);
-
-    Debug("arith_conflict") <<"Found a conflict "<< possibleConflict << endl;
   }else{
     d_partialModel.commitAssignmentChanges();
 
     if (fullEffort(effortLevel)) {
-      context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-      context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
-      for(; it != it_end; ++ it) {
-        TNode eq = (*it)[0];
-        Assert(eq.getKind() == kind::EQUAL);
-        TNode lhs = eq[0];
-        TNode rhs = eq[1];
-        Assert(rhs.getKind() == CONST_RATIONAL);
-        ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
-        DeltaRational lhsValue = d_partialModel.getAssignment(lhsVar);
-        DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
-        if (lhsValue == rhsValue) {
-          Debug("arith_lemma") << "Splitting on " << eq << endl;
-          Debug("arith_lemma") << "LHS value = " << lhsValue << endl;
-          Debug("arith_lemma") << "RHS value = " << rhsValue << endl;
-          Node ltNode = NodeBuilder<2>(kind::LT) << lhs << rhs;
-          Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
-          Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
-
-          // < => !>
-          Node imp1 = NodeBuilder<2>(kind::IMPLIES) << ltNode << gtNode.notNode();
-          // < => !=
-          Node imp2 = NodeBuilder<2>(kind::IMPLIES) << ltNode << eq.notNode();
-          // > => !=
-          Node imp3 = NodeBuilder<2>(kind::IMPLIES) << gtNode << eq.notNode();
-          // All the implication
-          Node impClosure = NodeBuilder<3>(kind::AND) << imp1 << imp2 << imp3;
-
-          ++(d_statistics.d_statDisequalitySplits);
-          d_out->lemma(lemma.andNode(impClosure));
-        }
-      }
+      splitDisequalities();
     }
   }
+
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
-
+  if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
   Debug("arith") << "TheoryArith::check end" << std::endl;
+}
 
-  if(Debug.isOn("arith::print_model")) {
-    Debug("arith::print_model") << "Model:" << endl;
+void TheoryArith::splitDisequalities(){
+  context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
+  context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
+  for(; it != it_end; ++ it) {
+    TNode eq = (*it)[0];
+    Assert(eq.getKind() == kind::EQUAL);
+    TNode lhs = eq[0];
+    TNode rhs = eq[1];
+    Assert(rhs.getKind() == CONST_RATIONAL);
+    ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
+    DeltaRational lhsValue = d_partialModel.getAssignment(lhsVar);
+    DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
+    if (lhsValue == rhsValue) {
+      Debug("arith_lemma") << "Splitting on " << eq << endl;
+      Debug("arith_lemma") << "LHS value = " << lhsValue << endl;
+      Debug("arith_lemma") << "RHS value = " << rhsValue << endl;
+      Node ltNode = NodeBuilder<2>(kind::LT) << lhs << rhs;
+      Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
+      Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
 
-    for (ArithVar i = 0; i < d_variables.size(); ++ i) {
-      Debug("arith::print_model") << d_variables[i] << " : " <<
-        d_partialModel.getAssignment(i);
-      if(d_tableau.isBasic(i))
-        Debug("arith::print_model") << " (basic)";
-      Debug("arith::print_model") << endl;
+      // // < => !>
+      // Node imp1 = NodeBuilder<2>(kind::IMPLIES) << ltNode << gtNode.notNode();
+      // // < => !=
+      // Node imp2 = NodeBuilder<2>(kind::IMPLIES) << ltNode << eq.notNode();
+      // // > => !=
+      // Node imp3 = NodeBuilder<2>(kind::IMPLIES) << gtNode << eq.notNode();
+      // // All the implication
+      // Node impClosure = NodeBuilder<3>(kind::AND) << imp1 << imp2 << imp3;
+
+      ++(d_statistics.d_statDisequalitySplits);
+      d_out->lemma(lemma);
     }
+  }
+}
+
+/**
+ * Should be guarded by at least Debug.isOn("arith::print_assertions").
+ * Prints to Debug("arith::print_assertions")
+ */
+void TheoryArith::debugPrintAssertions() {
+  Debug("arith::print_assertions") << "Assertions:" << endl;
+  for (ArithVar i = 0; i < d_variables.size(); ++ i) {
+    if (d_partialModel.hasLowerBound(i)) {
+      Node lConstr = d_partialModel.getLowerConstraint(i);
+      Debug("arith::print_assertions") << lConstr.toString() << endl;
+    }
+
+    if (d_partialModel.hasUpperBound(i)) {
+      Node uConstr = d_partialModel.getUpperConstraint(i);
+      Debug("arith::print_assertions") << uConstr.toString() << endl;
+    }
+  }
+  context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
+  context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
+  for(; it != it_end; ++ it) {
+    Debug("arith::print_assertions") << *it << endl;
+  }
+}
+
+void TheoryArith::debugPrintModel(){
+  Debug("arith::print_model") << "Model:" << endl;
+
+  for (ArithVar i = 0; i < d_variables.size(); ++ i) {
+    Debug("arith::print_model") << d_variables[i] << " : " <<
+      d_partialModel.getAssignment(i);
+    if(d_tableau.isBasic(i))
+      Debug("arith::print_model") << " (basic)";
+    Debug("arith::print_model") << endl;
   }
 }
 
 void TheoryArith::explain(TNode n) {
-  // Node explanation = d_propagator.explain(n);
-  // Debug("arith") << "arith::explain("<<explanation<<")->"
-  //                << explanation << endl;
-  // d_out->explanation(explanation, true);
 }
 
 void TheoryArith::propagate(Effort e) {
-
-  // if(quickCheckOrMore(e)){
-  //   std::vector<Node> implied = d_propagator.getImpliedLiterals();
-  //   for(std::vector<Node>::iterator i = implied.begin();
-  //       i != implied.end();
-  //       ++i){
-  //     d_out->propagate(*i);
-  //   }
-  // }
+  if(quickCheckOrMore(e)){
+    while(d_simplex.hasMoreLemmas()){
+      Node lemma = d_simplex.popLemma();
+      d_out->lemma(lemma);
+    }
+  }
 }
 
 Node TheoryArith::getValue(TNode n, Valuation* valuation) {
@@ -594,7 +524,7 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
       mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
 
   case kind::PLUS: { // 2+ args
-    Rational value = d_constants.d_ZERO;
+    Rational value(0);
     for(TNode::iterator i = n.begin(),
             iend = n.end();
           i != iend;
@@ -605,7 +535,7 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
   }
 
   case kind::MULT: { // 2+ args
-    Rational value = d_constants.d_ONE;
+    Rational value(1);
     for(TNode::iterator i = n.begin(),
             iend = n.end();
           i != iend;
@@ -650,6 +580,25 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
 
 void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 
+}
+
+void TheoryArith::notifyRestart(){
+  TimerStat::CodeTimer codeTimer(d_statistics.d_restartTimer);
+
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+
+  ++d_restartsCounter;
+  if(d_restartsCounter % d_tableauResetPeriod == 0){
+    double currentDensity = d_tableau.densityMeasure();
+    d_statistics.d_avgTableauDensityAtRestart.addEntry(currentDensity);
+    if(currentDensity >= d_tableauResetDensity * d_initialDensity){
+
+      ++d_statistics.d_tableauResets;
+      d_tableauResetPeriod += s_TABLEAU_RESET_INCREMENT;
+      d_tableauResetDensity += .2;
+      d_tableau = d_initialTableau;
+    }
+  }
 }
 
 bool TheoryArith::entireStateIsConsistent(){
@@ -722,10 +671,16 @@ void TheoryArith::presolve(){
     }
   }
 
-  //Assert(entireStateIsConsistent()); //Boy is this paranoid
+  d_initialTableau = d_tableau;
+  d_initialDensity = d_initialTableau.densityMeasure();
+  d_statistics.d_initialTableauDensity.setData(d_initialDensity);
+
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
 
   static int callCount = 0;
   Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
+
+  learner.clear();
+
   check(FULL_EFFORT);
 }

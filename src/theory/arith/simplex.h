@@ -10,7 +10,6 @@
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
 #include "theory/arith/partial_model.h"
-#include "theory/output_channel.h"
 
 #include "util/options.h"
 
@@ -25,56 +24,50 @@ namespace arith {
 class SimplexDecisionProcedure {
 private:
 
-
-  /** Stores system wide constants to avoid unnessecary reconstruction. */
-  const ArithConstants& d_constants;
-
   /**
    * Manages information about the assignment and upper and lower bounds on
    * variables.
    */
   ArithPartialModel& d_partialModel;
 
-  OutputChannel* d_out;
-
   Tableau& d_tableau;
   ArithPriorityQueue d_queue;
 
   ArithVar d_numVariables;
 
+  std::queue<Node> d_delayedLemmas;
+
+  Rational d_ZERO;
+
 public:
-  SimplexDecisionProcedure(const ArithConstants& constants,
-                           ArithPartialModel& pm,
-                           OutputChannel* out,
+  SimplexDecisionProcedure(ArithPartialModel& pm,
                            Tableau& tableau) :
-    d_constants(constants),
     d_partialModel(pm),
-    d_out(out),
     d_tableau(tableau),
     d_queue(pm, tableau),
-    d_numVariables(0)
+    d_numVariables(0),
+    d_delayedLemmas(),
+    d_ZERO(0)
   {}
-
-  void increaseMax() {d_numVariables++;}
 
   /**
    * Assert*(n, orig) takes an bound n that is implied by orig.
    * and asserts that as a new bound if it is tighter than the current bound
    * and updates the value of a basic variable if needed.
-   * If this new bound is in conflict with the other bound,
-   * a conflict is created and asserted to the output channel.
    *
-   * orig must be an atom in the SAT solver so that it can be used for
+   * orig must be a literal in the SAT solver so that it can be used for
    * conflict analysis.
    *
-   * n is of the form (x =?= c) where x is a variable,
-   * c is a constant and =?= is either LT, LEQ, EQ, GEQ, or GT.
+   * x is the variable getting the new bound,
+   * c is the value of the new bound.
    *
-   * returns true if a conflict was asserted.
+   * If this new bound is in conflict with the other bound,
+   * a node describing this conflict is returned.
+   * If this new bound is not in conflict, Node::null() is returned.
    */
-  bool AssertLower(ArithVar x_i, const DeltaRational& c_i, TNode orig);
-  bool AssertUpper(ArithVar x_i, const DeltaRational& c_i, TNode orig);
-  bool AssertEquality(ArithVar x_i, const DeltaRational& c_i, TNode orig);
+  Node AssertLower(ArithVar x, const DeltaRational& c, TNode orig);
+  Node AssertUpper(ArithVar x, const DeltaRational& c, TNode orig);
+  Node AssertEquality(ArithVar x, const DeltaRational& c, TNode orig);
 
 private:
   /**
@@ -89,6 +82,42 @@ private:
    * Updates the assignment of the other basic variables accordingly.
    */
   void pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaRational& v);
+
+private:
+  /**
+   * A PreferenceFunction takes a const ref to the SimplexDecisionProcedure,
+   * and 2 ArithVar variables and returns one of the ArithVar variables potentially
+   * using the internals of the SimplexDecisionProcedure.
+   *
+   * Both ArithVar must be non-basic in d_tableau.
+   */
+  typedef ArithVar (*PreferenceFunction)(const SimplexDecisionProcedure&, ArithVar, ArithVar);
+
+  /**
+   * minVarOrder is a PreferenceFunction for selecting the smaller of the 2 ArithVars.
+   * This PreferenceFunction is used during the VarOrder stage of
+   * updateInconsistentVars.
+   */
+  static ArithVar minVarOrder(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
+
+  /**
+   * minRowCount is a PreferenceFunction for selecting the variable with the smaller
+   * row count in the tableau.
+   *
+   * This is a hueristic rule and should not be used
+   * during the VarOrder stage of updateInconsistentVars.
+   */
+  static ArithVar minRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
+  /**
+   * minBoundAndRowCount is a PreferenceFunction for preferring a variable
+   * without an asserted bound over variables with an asserted bound.
+   * If both have bounds or both do not have bounds,
+   * the rule falls back to minRowCount(...).
+   *
+   * This is a hueristic rule and should not be used
+   * during the VarOrder stage of updateInconsistentVars.
+   */
+  static ArithVar minBoundAndRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
 
 public:
   /**
@@ -108,34 +137,32 @@ public:
    */
   Node updateInconsistentVars();
 private:
-  template <bool limitIterations> Node searchForFeasibleSolution(uint32_t maxIterations);
+  template <PreferenceFunction> Node searchForFeasibleSolution(uint32_t maxIterations);
 
-  enum SearchPeriod {BeforeDiffSearch, AfterDiffSearch, DuringVarOrderSearch};
+  enum SearchPeriod {BeforeDiffSearch, DuringDiffSearch, AfterDiffSearch, DuringVarOrderSearch, AfterVarOrderSearch};
 
-  Node findConflictOnTheQueue(SearchPeriod period);
+  Node findConflictOnTheQueue(SearchPeriod period, bool returnFirst = true);
 
-private:
+
   /**
    * Given the basic variable x_i,
    * this function finds the smallest nonbasic variable x_j in the row of x_i
    * in the tableau that can "take up the slack" to let x_i satisfy its bounds.
-   * This returns TNode::null() if none exists.
-   *
-   * If first is true, return the first ArithVar in the row to satisfy these conditions.
-   * If first is false, return the ArithVar with the smallest row count.
+   * This returns ARITHVAR_SENTINEL if none exists.
    *
    * More formally one of the following conditions must be satisfied:
    * -  above && a_ij < 0 && assignment(x_j) < upperbound(x_j)
    * -  above && a_ij > 0 && assignment(x_j) > lowerbound(x_j)
    * - !above && a_ij > 0 && assignment(x_j) < upperbound(x_j)
    * - !above && a_ij < 0 && assignment(x_j) > lowerbound(x_j)
+   *
    */
-  template <bool above>  ArithVar selectSlack(ArithVar x_i, bool first);
-  ArithVar selectSlackBelow(ArithVar x_i, bool first) {
-    return selectSlack<false>(x_i, first);
+  template <bool above, PreferenceFunction>  ArithVar selectSlack(ArithVar x_i);
+  template <PreferenceFunction pf> ArithVar selectSlackBelow(ArithVar x_i) {
+    return selectSlack<false, pf>(x_i);
   }
-  ArithVar selectSlackAbove(ArithVar x_i, bool first) {
-    return selectSlack<true>(x_i, first);
+  template <PreferenceFunction pf> ArithVar selectSlackAbove(ArithVar x_i) {
+    return selectSlack<true, pf>(x_i);
   }
   /**
    * Returns the smallest basic variable whose assignment is not consistent
@@ -168,6 +195,8 @@ public:
     }
   }
 
+
+public:
   /**
    * Checks to make sure the assignment is consistent with the tableau.
    * This code is for debugging.
@@ -183,7 +212,33 @@ public:
    */
   DeltaRational computeRowValue(ArithVar x, bool useSafe);
 
+
+  void increaseMax() {d_numVariables++;}
+
+  /** Returns true if the simplex procedure has more delayed lemmas in its queue.*/
+  bool hasMoreLemmas() const {
+    return !d_delayedLemmas.empty();
+  }
+  /** Returns the next delayed lemmas on the queue.*/
+  Node popLemma(){
+    Assert(hasMoreLemmas());
+    Node lemma = d_delayedLemmas.front();
+    d_delayedLemmas.pop();
+    return lemma;
+  }
+
 private:
+  /** Adds a lemma to the queue. */
+  void pushLemma(Node lemma){
+    d_delayedLemmas.push(lemma);
+    ++(d_statistics.d_delayedConflicts);
+  }
+
+  /** Adds a conflict as a lemma to the queue. */
+  void delayConflictAsLemma(Node conflict){
+    Node negatedConflict = negateConjunctionAsClause(conflict);
+    pushLemma(negatedConflict);
+  }
 
   /**
    * Checks a basic variable, b, to see if it is in conflict.
@@ -204,7 +259,11 @@ private:
 
     IntStat d_attemptBeforeDiffSearch, d_successBeforeDiffSearch;
     IntStat d_attemptAfterDiffSearch, d_successAfterDiffSearch;
+    IntStat d_attemptDuringDiffSearch, d_successDuringDiffSearch;
     IntStat d_attemptDuringVarOrderSearch, d_successDuringVarOrderSearch;
+    IntStat d_attemptAfterVarOrderSearch, d_successAfterVarOrderSearch;
+
+    IntStat d_delayedConflicts;
 
     TimerStat d_pivotTime;
 

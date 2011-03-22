@@ -74,6 +74,11 @@ class TheoryEngine {
      */
     std::vector<TNode> d_propagatedLiterals;
 
+    /** Time spent in newFact() (largely spent doing term registration) */
+    KEEP_STATISTIC(TimerStat,
+                   d_newFactTimer,
+                   "theory::newFactTimer");
+
   public:
 
     EngineOutputChannel(TheoryEngine* engine, context::Context* context) :
@@ -104,6 +109,8 @@ class TheoryEngine {
 
     void lemma(TNode node, bool)
       throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::lemma("
+                      << node << ")" << std::endl;
       ++(d_engine->d_statistics.d_statLemma);
       d_engine->newLemma(node);
     }

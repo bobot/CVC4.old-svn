@@ -37,7 +37,7 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-typedef ArithVarSet Column;
+typedef PermissiveBackArithVarSet Column;
 
 typedef std::vector<Column> ColumnMatrix;
 
@@ -63,7 +63,12 @@ public:
     d_rowCount(),
     d_columnMatrix()
   {}
+
+  /** Copy constructor. */
+  Tableau(const Tableau& tab);
   ~Tableau();
+
+  Tableau& operator=(const Tableau& tab);
 
   size_t getNumRows() const {
     return d_basicVariables.size();
@@ -74,15 +79,15 @@ public:
     d_rowsTable.push_back(NULL);
     d_rowCount.push_back(0);
 
-    d_columnMatrix.push_back(ArithVarSet());
+    d_columnMatrix.push_back(PermissiveBackArithVarSet());
 
     //TODO replace with version of ArithVarSet that handles misses as non-entries
     // not as buffer overflows
-    ColumnMatrix::iterator i = d_columnMatrix.begin(), end = d_columnMatrix.end();
-    for(; i != end; ++i){
-      Column& col = *i;
-      col.increaseSize(d_columnMatrix.size());
-    }
+    // ColumnMatrix::iterator i = d_columnMatrix.begin(), end = d_columnMatrix.end();
+    // for(; i != end; ++i){
+    //   Column& col = *i;
+    //   col.increaseSize(d_columnMatrix.size());
+    // }
   }
 
   bool isBasic(ArithVar v) const {
@@ -116,7 +121,6 @@ public:
     return *(d_rowsTable[var]);
   }
 
-public:
   uint32_t getRowCount(ArithVar x){
     Assert(x < d_rowCount.size());
     AlwaysAssert(d_rowCount[x] == getColumn(x).size());
@@ -150,6 +154,44 @@ public:
   void printTableau();
 
   ReducedRowVector* removeRow(ArithVar basic);
+
+
+  /**
+   * Let s = numNonZeroEntries(), n = getNumRows(), and m = d_columnMatrix.size().
+   * When n >= 1,
+   *   densityMeasure() := s / (n*m - n**2 + n)
+   *                    := s / (n *(m - n + 1))
+   * When n = 0, densityMeasure() := 1
+   */
+  double densityMeasure() const{
+    Assert(numNonZeroEntriesByRow() == numNonZeroEntries());
+    uint32_t n = getNumRows();
+    if(n == 0){
+      return 1.0;
+    }else {
+      uint32_t s = numNonZeroEntries();
+      uint32_t m = d_columnMatrix.size();
+      uint32_t divisor = (n *(m - n + 1));
+
+      Assert(n >= 1);
+      Assert(m >= n);
+      Assert(divisor > 0);
+      Assert(divisor >= s);
+
+      return (double(s)) / divisor;
+    }
+  }
+
+private:
+
+  uint32_t numNonZeroEntries() const;
+  uint32_t numNonZeroEntriesByRow() const;
+
+  /** Copies the datastructures in tab to this.*/
+  void internalCopy(const Tableau& tab);
+
+  /** Clears the structures in the tableau. */
+  void clear();
 };
 
 }; /* namespace arith  */

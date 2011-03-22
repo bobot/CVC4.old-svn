@@ -35,6 +35,7 @@
 #include "theory/arith/partial_model.h"
 #include "theory/arith/unate_propagator.h"
 #include "theory/arith/simplex.h"
+#include "theory/arith/arith_static_learner.h"
 
 #include "util/stats.h"
 
@@ -54,34 +55,21 @@ namespace arith {
 class TheoryArith : public Theory {
 private:
 
-  /* TODO Everything in the chopping block needs to be killed. */
-  /* Chopping block begins */
+  /** Static learner. */
+  ArithStaticLearner learner;
 
-  std::vector<Node> d_splits;
-  //This stores the eager splits sent out of the theory.
-
-  /* Chopping block ends */
-
+  /**
+   * List of the variables in the system.
+   * This is needed to keep a positive ref count on slack variables.
+   */
   std::vector<Node> d_variables;
 
   /**
    * If ArithVar v maps to the node n in d_removednode,
    * then n = (= asNode(v) rhs) where rhs is a term that
-   * can be used to determine the value of n uysing getValue().
+   * can be used to determine the value of n using getValue().
    */
   std::map<ArithVar, Node> d_removedRows;
-
-  /**
-   * Priority Queue of the basic variables that may be inconsistent.
-   *
-   * This is required to contain at least 1 instance of every inconsistent
-   * basic variable. This is only required to be a superset though so its
-   * contents must be checked to still be basic and inconsistent.
-   */
-  std::priority_queue<ArithVar> d_possiblyInconsistent;
-
-  /** Stores system wide constants to avoid unnessecary reconstruction. */
-  ArithConstants d_constants;
 
   /**
    * Manages information about the assignment and upper and lower bounds on
@@ -131,6 +119,27 @@ private:
    */
   Tableau d_tableau;
 
+  /**
+   * A copy of the tableau immediately after removing variables
+   * without bounds in presolve().
+   */
+  Tableau d_initialTableau;
+
+  /** Counts the number of notifyRestart() calls to the theory. */
+  uint32_t d_restartsCounter;
+
+  /**
+   * Every number of restarts equal to s_TABLEAU_RESET_PERIOD,
+   * the density of the tableau, d, is computed.
+   * If d >= s_TABLEAU_RESET_DENSITY * d_initialDensity, the tableau
+   * is set to d_initialTableau.
+   */
+  double d_initialDensity;
+  double d_tableauResetDensity;
+  uint32_t d_tableauResetPeriod;
+  static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
+
+
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;
 
@@ -157,7 +166,7 @@ public:
   void shutdown(){ }
 
   void presolve();
-
+  void notifyRestart();
   void staticLearning(TNode in, NodeBuilder<>& learned);
 
   std::string identify() const { return std::string("TheoryArith"); }
@@ -166,9 +175,17 @@ public:
     d_simplex.notifyOptions(opt);
   }
 private:
+  /** The constant zero. */
+  DeltaRational d_DELTA_ZERO;
 
+  /**
+   * Using the simpleKind return the ArithVar associated with the
+   * left hand side of assertion.
+   */
   ArithVar determineLeftVariable(TNode assertion, Kind simpleKind);
 
+  /** Splits the disequalities in d_diseq that are violated using lemmas on demand. */
+  void splitDisequalities();
 
   /**
    * This requests a new unique ArithVar value for x.
@@ -186,9 +203,15 @@ private:
 
   /**
    * Handles the case splitting for check() for a new assertion.
-   * returns true if their is a conflict.
+   * Returns a conflict if one was found.
+   * Returns Node::null if no conflict was found.
    */
-  bool assertionCases(TNode assertion);
+  Node assertionCases(TNode assertion);
+
+  /**
+   * This is used for reporting conflicts caused by disequalities during assertionCases.
+   */
+  Node disequalityConflict(TNode eq, TNode lb, TNode ub);
 
   /**
    * Returns the basic variable with the shorted row containg a non-basic variable.
@@ -213,6 +236,10 @@ private:
                  std::vector<Rational>& coeffs,
                  std::vector<ArithVar>& variables) const;
 
+  /** Routine for debugging. Print the assertions the theory is aware of. */
+  void debugPrintAssertions();
+  /** Debugging only routine. Prints the model. */
+  void debugPrintModel();
 
   /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {
@@ -224,6 +251,12 @@ private:
 
     IntStat d_permanentlyRemovedVariables;
     TimerStat d_presolveTime;
+
+    BackedStat<double> d_initialTableauDensity;
+    AverageStat d_avgTableauDensityAtRestart;
+    IntStat d_tableauResets;
+    TimerStat d_restartTimer;
+
     Statistics();
     ~Statistics();
   };
