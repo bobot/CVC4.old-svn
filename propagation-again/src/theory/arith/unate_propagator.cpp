@@ -247,48 +247,35 @@ Node getUpperBound(const BoundValueSet& bvSet, const Rational& value, bool stric
 // if !strict, get the strongest bound implied by  (>= x value)
 Node getLowerBound(const BoundValueSet& bvSet, const Rational& value, bool strict){
   static int time = 0;
-  cout << ++time << endl;
+  ++time;
+  //cout << time << endl;
+
+  if(bvSet.empty()){
+    //cout << "empty" << endl;
+    return Node::null();
+  }
 
   BoundValueSet::const_iterator bv = bvSet.lower_bound(value);
   if(bv == bvSet.end()){
-    cout << "got end" << endl;
-    return Node::null();
+    //cout << "got end " << value << " " << (bvSet.rbegin()->second).getValue() << endl;
+    Assert(value > (bvSet.rbegin()->second).getValue());
   }else{
-    cout << value << ", " << bv->second.getValue() << endl;
+    //cout << value << ", " << bv->second.getValue() << endl;
     Assert(value <= bv->second.getValue());
   }
 
-
-  if(bv == bvSet.begin()){
-    if((bv->second).getValue() > value){
-      return Node::null();
-    }
-  }
-
-  if(bv == bvSet.end()){
-    --bv;
-    const BoundValueEntry& entry =  bv->second;
-    Assert(value > entry.getValue());
-    if(entry.hasLeq()){
+  if(bv != bvSet.end() && (bv->second).getValue() == value){
+    const BoundValueEntry& entry = bv->second;
+    if(strict && entry.hasLeq()){
       return NodeBuilder<1>(NOT) << entry.getLeq();
-    }else{
+    }else if(entry.hasGeq()){
       return entry.getGeq();
     }
+  }
+  if(bv == bvSet.begin()){
+    return Node::null();
   }else{
-    Assert(bv != bvSet.end());
-    if((bv->second).getValue() == value){
-      const BoundValueEntry& entry = bv->second;
-      if(strict && entry.hasLeq()){
-        return NodeBuilder<1>(NOT) << entry.getLeq();
-      }else if(entry.hasGeq()){
-        return entry.getGeq();
-      }
-      if(bv == bvSet.begin()){
-        return Node::null();
-      }
-      --bv;
-    }
-
+    --bv;
     // (and (>= x v) (>= v v')) then (> x v')
     Assert(bv->second.getValue() < value);
     const BoundValueEntry& entry = bv->second;
@@ -413,6 +400,8 @@ Node ArithUnatePropagator::getBestImpliedUpperBoundUsingLeq(TNode leq) const {
   Assert(leq.getKind() == LEQ);
   Node left = leq[0];
 
+  if(!leftIsSetup(left)) return Node::null();
+
   const Rational& value = rightHandRational(leq);
   const BoundValueSet& bvSet = getBoundValueSet(left);
 
@@ -424,6 +413,8 @@ Node ArithUnatePropagator::getBestImpliedUpperBoundUsingLT(TNode lt) const {
   Assert(lt.getKind() == NOT && lt[0].getKind() == GEQ);
   Node atom = lt[0];
   Node left = atom[0];
+
+  if(!leftIsSetup(left)) return Node::null();
 
   const Rational& value = rightHandRational(atom);
   const BoundValueSet& bvSet = getBoundValueSet(left);
@@ -454,6 +445,8 @@ Node ArithUnatePropagator::getBestImpliedLowerBoundUsingGT(TNode gt) const {
   Node atom = gt[0];
   Node left = atom[0];
 
+  if(!leftIsSetup(left)) return Node::null();
+
   const Rational& value = rightHandRational(atom);
   const BoundValueSet& bvSet = getBoundValueSet(left);
 
@@ -463,6 +456,8 @@ Node ArithUnatePropagator::getBestImpliedLowerBoundUsingGT(TNode gt) const {
 Node ArithUnatePropagator::getBestImpliedLowerBoundUsingGeq(TNode geq) const {
   Assert(geq.getKind() == GEQ);
   Node left = geq[0];
+
+  if(!leftIsSetup(left)) return Node::null();
 
   const Rational& value = rightHandRational(geq);
   const BoundValueSet& bvSet = getBoundValueSet(left);
