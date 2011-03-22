@@ -12,9 +12,58 @@
  ** information.\endverbatim
  **
  ** \brief Theory of arrays.
+ ** TODO: add summary of rules implemented RoW1, RoW2, ext etc with the implemented
  **
  ** Theory of arrays.
  **/
+
+/*
+Overview of decision procedure
+
+Preliminary notation:
+  Stores(a)  = {t | a ~ t and t = store( _ _ _ ) or t = store (a _ _) }
+  Indices(a) = {i | there exists a term a[i]}
+  ~ represents the equivalence relation based on the asserted equalities in the
+  current context.
+
+The rules implemented are the following:
+            store(b i v)
+    RoW1 -------------------
+         store(b i v)[i] = v
+
+          store(b i v)  a'[j]
+    RoW2 ---------------------- [ a' ~ store(b i v) or a' ~ b ]
+          i = j OR a[j] = b[j]
+
+         a  b same kind arrays
+    Ext ------------------------ [ a!= b in current context, k new var]
+          a = b OR a[k] != b[k]
+
+
+ The RoW1 one rule is implemented implicitly as follows:
+    - for each store(b i v) term add the following equality to the congruence
+      closure store(b i v)[i] = v
+    - if one of the literals in a conflict is of the form store(b i v)[i] = v
+      remove it from the conflict
+
+ Because new store terms are not created, we need to check if we need to
+ instantiate a new RoW2 axiom in the following cases:
+    1. the congruence relation changes (i.e. two terms get merged)
+        - when a new equality between array terms a = b is asserted we check if
+          we can instantiate a RoW2 lemma for all pairs of indices i where a is
+          being read and stores
+        - this is only done during full effort check
+    2. a new read term is created either as a consequences of an Ext lemma or a
+       RoW2 lemma
+        - this is implemented in the checkRoWForIndex method which is called
+          when preregistering a term of the form a[i].
+        - as a consequence lemmas are instantiated even before full effort check
+
+ The Ext axiom is instantiated when a disequality is asserted during full effort
+ check. Ext lemmas are stored in a cache to prevent instantiating essentially
+ the same lemma multiple times.
+
+ */
 
 #include "cvc4_private.h"
 
@@ -27,6 +76,7 @@
 #include "array_info.h"
 #include "util/hash.h"
 #include "util/ntuple.h"
+#include "util/stats.h"
 #include <iostream>
 #include <map>
 namespace CVC4 {
@@ -65,30 +115,19 @@ private:
   UnionFind<Node, NodeHashFunction> d_unionFind;
 
   /**
-   * Received a notification from the congruence closure algorithm that the two nodes
-   * a and b have been merged.
+   * Received a notification from the congruence closure algorithm that the two
+   * nodes a and b have become congruent.
    */
-
-  /**
-   * set of store terms
-   */
-  std::set<TNode> d_stores;
-
-  /**
-   * set of select terms
-   */
-
-  std::set<TNode> d_selects;
 
   void notifyCongruent(TNode a, TNode b);
+
 
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > CTNodeListAlloc;
   typedef context::CDMap<Node, CTNodeListAlloc*, NodeHashFunction> CNodeTNodesMap;
 
   /**
-   * List of all disequalities this theory has seen.
-   * Maintaints the invariant that if a is in the
-   * disequality list of b, then b is in that of a.
+   * List of all disequalities this theory has seen. Maintains the invariant that
+   * if a is in the disequality list of b, then b is in that of a.
    * */
   CNodeTNodesMap d_disequalities;
 
@@ -102,45 +141,29 @@ private:
   Node d_conflict;
 
   /**
-   * true constant (sometimes check gets called on a CONST_BOOLEAN)
+   * Context dependent map from a congruence class canonical representative of
+   * type array to an Info pointer that keeps track of information useful to axiom
+   * instantiation
    */
-  Node d_true_const;
 
-  /**
-   * Map from a congruence class canonical representative of type array to a
-   * pointer to Info that stores information useful to axiom instantiation
-   */
   ArrayInfo d_infoMap;
 
   /**
-   * Ext-Lemma and RoW-lemma caches
+   * Extensionality lemma cache which stores the array pair (a,b) for which
+   * a lemma of the form (a = b OR a[k]!= b[k]) has been added to the SAT solver.
    */
   std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction> d_extLemmaCache;
+
+  /**
+   * Read-over-write lemma cache storing a quadruple (a,b,i,j) for which a
+   * the lemma (i = j OR a[j] = b[j]) has been added to the SAT solver. Needed
+   * to prevent infinite recursion in addRoW2Lemma.
+   */
   std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_RoWLemmaCache;
 
-  /* TODO: maybe have them context dependent?
-  void updateLemmaCache(TNode a, TNode b);
-  void updateLemmaCache(TNode i, TNode j, TNode a, TNode b);
-  */
-  /**
-   * Checks if any new RoW lemmas have to be generated after a ~ b.
-   * Preconditions:
-   *      find(a) != find(b)
-   *      after this call setCanon(a,b) will be called
-   *
+  /*
+   * Congruence helper methods
    */
-
-  void checkRoWLemmas(TNode a, TNode b);
-
-    /**
-     * Marking stores and reads that have been already registered
-     */
-    //struct ArrayTestId {};
-    //typedef expr::Attribute<ArrayTestId, bool> ArrayTest;
-
-    /*
-     * Helper methods
-     */
 
   void addDiseq(TNode diseq);
   void appendToDiseqList(TNode of, TNode eq);
@@ -148,8 +171,8 @@ private:
   Node constructConflict(TNode diseq);
 
   /**
-   * Merges two congruence classes in the internal
-   * union-find and checks for a conflict.
+   * Merges two congruence classes in the internal union-find and checks for a
+   * conflict.
    */
 
   void merge(TNode a, TNode b);
@@ -157,16 +180,10 @@ private:
   inline TNode debugFind(TNode a) const;
 
   inline void setCanon(TNode a, TNode b);
-  /**
-   * Add a RoW1 lemma of the form
-   *    read (store(a, i, v) i) = v
-   */
-  void addRoW1Lemma(TNode a);
 
   /**
-   * Adds a RoW lemma of the form:
-   *    i = j OR a[j] = b [j]
-   * Preconditions: ...
+   * Adds a RoW2 lemma of the form:
+   *    i = j OR a[j] = b[j]
    */
   void addRoW2Lemma(TNode a, TNode b, TNode i, TNode j);
 
@@ -174,15 +191,30 @@ private:
    * Adds a new Ext lemma of the form
    *    a = b OR a[k]!=b[k], for a new variable k
    */
-
   void addExtLemma(TNode a, TNode b);
 
   /**
-   *
+   * Because RoW1 axioms of the form (store a i v) [i] = v are not added as
+   * explicitly but are kept track of internally, is axiom recognizez an axiom
+   * of the above form given the two terms in the equality.
+   */
+  bool isAxiom(TNode lhs, TNode rhs);
+
+  /**
+   * Checks if any new RoW lemmas need to be generated after merging arrays a
+   * and b; called after setCanon.
+   */
+  void checkRoWLemmas(TNode a, TNode b);
+
+  /**
+   * Called after a new select term a[i] is created to check whether new RoW2
+   * lemmas need to be instantiated.
    */
   void checkRoWForIndex(TNode i, TNode a);
 
-  //std::set<quad<TNode, TNode, TNode, TNode> > d_RoWLemmaQueue;
+  /**
+   * Lemma helper functions to prevent changing the list we are iterating through.
+   */
 
   void insertInQuadQueue(std::set<quad<TNode, TNode, TNode, TNode> >& queue, TNode a, TNode b, TNode i, TNode j){
     if(i != j) {
@@ -198,26 +230,53 @@ private:
     queue.clear();
   }
 
-  bool isAxiom(TNode a, TNode b);
+  /*
+   * === STATISTICS ===
+   */
+
+  /** number of RoW2 lemmas */
+  IntStat d_numRoW2;
+  /** number of Ext lemmas */
+  IntStat d_numExt;
+
+  /** time spent in check() */
+  TimerStat d_checkTimer;
+
+  /** time spent in preregisterTerm() */
+  TimerStat d_preregisterTimer;
 
 public:
   TheoryArrays(context::Context* c, OutputChannel& out);
   ~TheoryArrays();
 
+  /**
+   * Stores in d_infoMap the following information for each term a of type array:
+   *
+   *    - all i, such that there exists a term a[i] or a = store(b i v)
+   *      (i.e. all indices it is being read atl; store(b i v) is implicitly read at
+   *      position i due to the implicit axiom store(b i v)[i] = v )
+   *
+   *    - all the stores a is congruent to (this information is context dependent)
+   *
+   *    - all store terms of the form store (a i v) (i.e. in which a appears
+   *      directly; this is invariant because no new store terms are created)
+   *
+   * Note: completeness depends on having pre-register called on all the input
+   *       terms before starting to instantiate lemmas.
+   */
   void preRegisterTerm(TNode n) {
+    //TimerStat::CodeTimer codeTimer(d_preregisterTimer);
     Debug("arrays-preregister")<<"Arrays::preRegisterTerm "<<n<<"\n";
 
     switch(n.getKind()) {
     case kind::SELECT:
-      //Debug("arrays-preregister")<<"n[0]"<<n[0]<<" "<<n[1]<<"\n";
       d_infoMap.addIndex(n[0], n[1]);
+      checkRoWForIndex(n[1], find(n[0]));
       break;
 
     case kind::STORE:
     {
-      d_infoMap.addStore(n, n);
-      d_infoMap.addStore(n[0], n);
-
+      TNode a = n[0];
       TNode i = n[1];
       TNode v = n[2];
 
@@ -225,35 +284,43 @@ public:
       Node ni = nm->mkNode(kind::SELECT, n, i);
       Node eq = nm->mkNode(kind::EQUAL, ni, v);
 
-      d_infoMap.addIndex(n, i);
-
       d_cc.addEquality(eq);
-      //d_out->lemma(eq);
+
+      d_infoMap.addIndex(n, i);
+      d_infoMap.addStore(n, n);
+      d_infoMap.addStore(a, n);
+
       break;
     }
     case kind::VARIABLE: {
-      // adding each term of type array to the
+      // adding an empty entry for each term of type array
       if(n.getType().isArray()) {
         d_infoMap.addEmptyEntry(n);
-        //d_infoMap.addEquals(n,n);
       }
     }
     default:
-      Debug("darrays")<<"Arrays::preRegisterTerm \n";
+      Debug("darrays")<<"Arrays::preRegisterTerm non-array term. \n";
     }
   }
 
+  /**
+   * Instantiates RoW2 lemmas for store terms which would be missed otherwise
+   * because we only check for RoW2 lemmas when merging terms or when creating a
+   * new read term.
+   */
   void registerTerm(TNode n) {
     Debug("arrays-register")<<"Arrays::registerTerm "<<n<<"\n";
-
+    /*
     if(n.getKind() == kind::STORE && find(n) == n) {
       const CTNodeList* is = d_infoMap.getIndices(n);
       for(CTNodeList::const_iterator it = is->begin(); it != is->end(); it++) {
         TNode i = (*it);
+        //TODO: think of a way to move this from here, understand the way stuff is called!
         addRoW2Lemma(n, n[0],n[1],i);
       }
 
     }
+    */
   }
 
   void presolve() {
