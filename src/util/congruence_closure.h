@@ -33,6 +33,7 @@
 #include "context/cdmap.h"
 #include "context/cdset.h"
 #include "context/cdlist_context_memory.h"
+#include "context/cdcirclist.h"
 #include "util/exception.h"
 #include "theory/uf/morgan/stacking_map.h"
 #include "util/stats.h"
