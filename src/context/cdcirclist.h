@@ -35,6 +35,42 @@
 namespace CVC4 {
 namespace context {
 
+// CDO for pointers in particular, adds * and -> operators
+template <class T>
+class CDPtr : public CDO<T*> {
+  typedef CDO<T*> super;
+
+  // disallow copy
+  CDPtr(const CDPtr<T>& cdptr) CVC4_UNUSED;
+
+public:
+
+  CDPtr(Context* context, T* data = NULL) :
+    super(context, data) {
+  }
+
+  CDPtr(bool allocatedInCMM, Context* context, T* data = NULL) :
+    super(allocatedInCMM, context, data) {
+  }
+
+  //~CDPtr() throw(AssertionException) { destroy(); }
+
+  CDPtr<T>& operator=(T* data) {
+    super::set(data);
+    return *this;
+  }
+  // assignment is just like using the underlying ptr
+  CDPtr<T>& operator=(const CDPtr<T>& cdptr) {
+    return *this = cdptr.get();
+  }
+
+  T& operator*() { return *super::get(); }
+  T* operator->() { return super::get(); }
+  const T& operator*() const { return *super::get(); }
+  const T* operator->() const { return super::get(); }
+};/* class CDPtr<T> */
+
+
 /**
  * Class representing a single link in a CDCircList<>.
  *
@@ -44,20 +80,20 @@ namespace context {
 template <class T, class AllocatorT>
 class CDCircElement {
   typedef CDCircElement<T, AllocatorT> elt_t;
-  CDO<elt_t*> d_next;
-  CDO<elt_t*> d_prev;
   const T d_t;
+  CDPtr<elt_t> d_prev;
+  CDPtr<elt_t> d_next;
   friend class CDCircList<T, AllocatorT>;
 public:
   CDCircElement(Context* context, const T& t,
-                elt_t* next = NULL, elt_t* prev = NULL) :
+                elt_t* prev = NULL, elt_t* next = NULL) :
     d_t(t),
-    d_next(context, next),
-    d_prev(context, prev) {
+    d_prev(context, prev),
+    d_next(context, next) {
   }
 
-  CDO<elt_t*>& next() { return d_next; }
-  CDO<elt_t*>& prev() { return d_prev; }
+  CDPtr<elt_t>& next() { return d_next; }
+  CDPtr<elt_t>& prev() { return d_prev; }
   elt_t* next() const { return d_next; }
   elt_t* prev() const { return d_prev; }
   T element() const { return d_t; }
@@ -88,11 +124,11 @@ public:
 private:
 
   /** Head element of the circular list */
-  CDO<elt_t*> d_head;
+  CDPtr<elt_t> d_head;
   /** The context with which we're associated */
   Context* d_context;
   /** Our allocator */
-  Allocator d_allocator;
+  typename Allocator::template rebind< CDCircElement<T, AllocatorT> >::other d_allocator;
 
 public:
 
@@ -116,11 +152,19 @@ public:
     return d_head == NULL;
   }
 
-  CDO<elt_t*>& head() {
+  CDPtr<elt_t>& head() {
     return d_head;
   }
 
-  CDO<elt_t*>& tail() {
+  CDPtr<elt_t>& tail() {
+    return empty() ? d_head : d_head->d_prev;
+  }
+
+  elt_t* head() const {
+    return d_head;
+  }
+
+  elt_t* tail() const {
     return empty() ? d_head : d_head->d_prev;
   }
 
@@ -138,10 +182,13 @@ public:
     // FIXME LEAK! (should alloc in CMM, no?)
     elt_t* x = d_allocator.allocate(1);
     if(empty()) {
-      new(x) elt_t(d_context, x, x, t);
+      // zero-element case
+      new(x) elt_t(d_context, t, x, x);
       d_head = x;
     } else {
-      new(x) elt_t(d_context, d_head->d_prev, d_head, t);
+      // N-element case
+      new(x) elt_t(d_context, t, d_head->d_prev, d_head);
+      d_head->d_prev->d_next = x;
       d_head->d_prev = x;
     }
   }
@@ -152,11 +199,121 @@ public:
    * elements in the same (circular) order.
    */
   void concat(CDCircList<T, AllocatorT>& l) {
+    Assert(this != &l, "cannot concat a list with itself");
+
     // splice together the two circular lists
-    tail()->next() = l.head();
-    l.head()->prev() = tail();
-    l.tail()->next() = head();
-    head()->prev() = l.tail();
+    CDPtr<elt_t> &l1head = head(), &l2head = l.head();
+    CDPtr<elt_t> &l1tail = tail(), &l2tail = l.tail();
+    // l2tail will change underneath us in what's below (because it's
+    // the same as l2head->prev()), so we have to keep a regular
+    // pointer to it
+    elt_t* oldl2tail = l2tail;
+
+    l1tail->next() = l2head;
+    l2head->prev() = l1tail;
+
+    oldl2tail->next() = l1head;
+    l1head->prev() = oldl2tail;
+  }
+
+  class iterator {
+    const CDCircList<T, AllocatorT>* d_list;
+    elt_t* d_current;
+    friend class CDCircList<T, AllocatorT>;
+  public:
+    iterator(const CDCircList<T, AllocatorT>* list, elt_t* first) :
+      d_list(list),
+      d_current(first) {
+    }
+    iterator(const iterator& other) :
+      d_list(other.d_list),
+      d_current(other.d_current) {
+    }
+
+    bool operator==(const iterator& other) {
+      return d_list == other.d_list && d_current == other.d_current;
+    }
+    bool operator!=(const iterator& other) {
+      return !(*this == other);
+    }
+    iterator& operator++() {
+      Assert(d_current != NULL, "iterator already off the end");
+      if(d_current == d_list->tail()) {
+        d_current = NULL;
+      } else {
+        d_current = d_current->next();
+      }
+      return *this;
+    }
+    iterator operator++(int) {
+      elt_t* old = d_current;
+      ++*this;
+      return iterator(d_list, old);
+    }
+    iterator& operator--() {
+      // undefined to go off the beginning, but don't have a check for that
+      if(d_current == NULL) {
+        d_current = d_list->tail();
+      } else {
+        d_current = d_current->prev();
+      }
+      return *this;
+    }
+    iterator operator--(int) {
+      elt_t* old = d_current;
+      --*this;
+      return iterator(d_list, old);
+    }
+    T operator*() {
+      Assert(d_current != NULL, "iterator already off the end");
+      return d_current->element();
+    }
+  };/* class CDCircList<>::iterator */
+
+  // list elements are immutable
+  typedef const iterator const_iterator;
+
+  iterator begin() {
+    return iterator(this, head());
+  }
+
+  iterator end() {
+    return iterator(this, NULL);
+  }
+
+  const_iterator begin() const {
+    return const_iterator(this, head());
+  }
+
+  const_iterator end() const {
+    return const_iterator(this, NULL);
+  }
+
+  iterator erase(iterator pos) {
+    Assert(pos.d_current != NULL);
+    if(pos.d_current->prev() == pos.d_current) {
+      // one-elt list
+      d_head = NULL;
+      return iterator(this, NULL);
+    } else {
+      // N-elt list
+      if(pos.d_current == d_head) {
+        // removing list head
+        elt_t *pHead = head(), *pTail = tail();
+        pTail->next() = pHead->next();
+        pHead->next()->prev() = pTail;
+        d_head = pHead->next();
+        return iterator(this, d_head);
+        // can't free old head, because of backtracking
+      } else {
+        // not removing list head
+        elt_t *elt = pos.d_current, *prev = pos.d_current->prev();
+        prev->next() = elt->next();
+        elt->next()->prev() = prev;
+        return iterator(this, elt->next());
+        // can't free elt, because of backtracking
+      }
+    }
   }
 
 private:
@@ -169,13 +326,16 @@ private:
   void debugCheck() const {
     elt_t* p = d_head;
     if(p == NULL) {
+      Debug("cdcirclist") << "head is NULL" << std::endl;
       // empty list
       return;
     }
+    Debug("cdcirclist") << "head is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << p->d_t << std::endl;
     do {
       elt_t* p_last = p;
-      p = p.d_next;
-      Assert(p.d_prev == p_last);
+      p = p->d_next;
+      Debug("cdcirclist") << "   p is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << p->d_t << std::endl;
+      Assert(p->d_prev == p_last);
       Assert(p != NULL);
     } while(p != d_head);
   }
