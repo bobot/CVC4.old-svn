@@ -4,11 +4,12 @@ TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
-	arrays0.smt2 \
-	arrays1.smt2 \
-	arrays2.smt2 \
-	arrays3.smt2 \
-	arrays4.smt2
+	arith.01.cvc \
+	arith.02.cvc \
+	arith.03.cvc \
+	delta-minimized-row-vector-bug.smt \
+	leq.01.smt \
+	miplibtrick.smt
 
 EXTRA_DIST = $(TESTS)
 
@@ -29,4 +30,3 @@ regress regress0 test: check
 # do nothing in this subdir
 .PHONY: regress1 regress2 regress3
 regress1 regress2 regress3:
-
