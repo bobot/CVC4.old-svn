@@ -100,4 +100,16 @@
 		<nature>net.certiv.antlrdt.core.nature</nature>
 		<nature>org.eclipse.pde.PluginNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>test/regress/regress0/arrays</name>
+			<type>2</type>
+			<location>/home/lianah/workspace/cvc4-arrays2/test/regress/regress0/arrays</location>
+		</link>
+		<link>
+			<name>test/regress/regress0/arrays/Makefile.am</name>
+			<type>1</type>
+			<location>/home/lianah/workspace/cvc4-arrays2/test/regress/regress0/arrays/Makefile.am</location>
+		</link>
+	</linkedResources>
 </projectDescription>
