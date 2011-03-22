@@ -41,6 +41,7 @@ CVC_TESTS = \
 	boolean-prec.cvc \
 	hole6.cvc \
 	ite.cvc \
+	let.cvc \
 	logops.01.cvc \
 	logops.02.cvc \
 	logops.03.cvc \
@@ -85,7 +86,8 @@ BUG_TESTS = \
 	bug187.smt2 \
 	bug216.smt2 \
 	bug220.smt2 \
-	bug239.smt
+	bug239.smt \
+	buggy-ite.smt2
 
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 
