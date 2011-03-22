@@ -1,4 +1,4 @@
-SUBDIRS = . arith precedence uf uflra bv lemmas push-pop arrays
+SUBDIRS = . arith precedence uf uflra bv lemmas push-pop arr
 
 TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/cvc4
 MAKEFLAGS = -k
