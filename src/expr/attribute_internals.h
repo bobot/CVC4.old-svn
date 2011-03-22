@@ -554,8 +554,7 @@ public:
       return ConstBitIterator();
     }
     Debug.printf("cdboolattr",
-                 "underlying word at 0x%p looks like 0x%016llx, bit is %u\n",
-                 &(*i).second,
+                 "underlying word at address looks like 0x%016llx, bit is %u\n",
                  (unsigned long long)((*i).second),
                  unsigned(k.first));
     return ConstBitIterator(*i, k.first);

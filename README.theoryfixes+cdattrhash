@@ -21,7 +21,14 @@ Specifically:
   2. Theories now have const access to the fact queue through base
      class functions facts_begin() and facts_end(); again, useful for
      debugging.
+* Fixes for warnings flagged by clang.
 * Minor other adjustments to documentation, coding to be more
   conformant to CVC4 policy.
 
--- Morgan Deters <mdeters@cs.nyu.edu>  Mon, 21 Mar 2011 14:40:48 -0400
+Tests have been performed to demonstrate that these changes have no or
+negligible effect on performance.  In particular, changing the
+CDAttrHash<> doesn't have any real effect on performance or memory right
+now, since there is only one context-dependent boolean flag (as soon
+as another is added, the effect is noticeable).
+
+-- Morgan Deters <mdeters@cs.nyu.edu>  Mon, 21 Mar 2011 21:06:26 -0400
