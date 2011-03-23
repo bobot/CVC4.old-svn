@@ -22,6 +22,9 @@ Specifically:
      class functions facts_begin() and facts_end(); again, useful for
      debugging.
 * Fixes for warnings flagged by clang.
+* System tests have arrived!  So far mainly infrastructure for having
+  system tests, but there is a system test aimed at improving code
+  coverage of the printer package.
 * Minor other adjustments to documentation, coding to be more
   conformant to CVC4 policy.
 
