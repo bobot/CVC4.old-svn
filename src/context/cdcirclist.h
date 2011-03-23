@@ -88,8 +88,8 @@ public:
   CDCircElement(Context* context, const T& t,
                 elt_t* prev = NULL, elt_t* next = NULL) :
     d_t(t),
-    d_prev(context, prev),
-    d_next(context, next) {
+    d_prev(true, context, prev),
+    d_next(true, context, next) {
   }
 
   CDPtr<elt_t>& next() { return d_next; }
@@ -139,6 +139,13 @@ public:
     d_allocator(alloc) {
   }
 
+  CDCircList(bool allocatedInCMM, Context* context, const Allocator& alloc = Allocator()) :
+    ContextObj(allocatedInCMM, context),
+    d_head(allocatedInCMM, context, NULL),
+    d_context(context),
+    d_allocator(alloc) {
+  }
+
   ~CDCircList() throw(AssertionException) {
     // by context contract, call destroy() here
     destroy();
@@ -178,7 +185,10 @@ public:
     return tail()->element();
   }
 
-  void append(const T& t) {
+  void push_back(const T& t) {
+    if(Debug.isOn("cdcirclist:paranoid")) {
+      debugCheck();
+    }
     // FIXME LEAK! (should alloc in CMM, no?)
     elt_t* x = d_allocator.allocate(1);
     if(empty()) {
@@ -230,10 +240,10 @@ public:
       d_current(other.d_current) {
     }
 
-    bool operator==(const iterator& other) {
+    bool operator==(const iterator& other) const {
       return d_list == other.d_list && d_current == other.d_current;
     }
-    bool operator!=(const iterator& other) {
+    bool operator!=(const iterator& other) const {
       return !(*this == other);
     }
     iterator& operator++() {
@@ -271,14 +281,38 @@ public:
   };/* class CDCircList<>::iterator */
 
   // list elements are immutable
-  typedef const iterator const_iterator;
+  typedef iterator const_iterator;
 
   iterator begin() {
+    if(Debug.isOn("cdcirclist:paranoid")) {
+      debugCheck();
+    }
     return iterator(this, head());
   }
 
   iterator end() {
+    if(Debug.isOn("cdcirclist:paranoid")) {
+      debugCheck();
+    }
     return iterator(this, NULL);
+  }
+
+  size_t size() const {
+#warning remove CDCircList<>::size()
+    if(Debug.isOn("cdcirclist:paranoid")) {
+      debugCheck();
+    }
+    const elt_t *const head = d_head;
+    if(head == NULL) {
+      return 0;
+    } else {
+      size_t count = 1;
+      const elt_t* p = head;
+      while((p = p->next()) != head) {
+        ++count;
+      }
+      return count;
+    }
   }
 
   const_iterator begin() const {
@@ -325,16 +359,17 @@ private:
   /** Check internal structure and invariants of the list */
   void debugCheck() const {
     elt_t* p = d_head;
+    Debug("cdcirclist") << "this is " << this << std::endl;
     if(p == NULL) {
       Debug("cdcirclist") << "head is NULL" << std::endl;
       // empty list
       return;
     }
-    Debug("cdcirclist") << "head is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << p->d_t << std::endl;
+    Debug("cdcirclist") << "head is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << std::endl;//p->d_t << std::endl;
     do {
       elt_t* p_last = p;
       p = p->d_next;
-      Debug("cdcirclist") << "   p is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << p->d_t << std::endl;
+      Debug("cdcirclist") << "   p is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << std::endl;//p->d_t << std::endl;
       Assert(p->d_prev == p_last);
       Assert(p != NULL);
     } while(p != d_head);

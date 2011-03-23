@@ -141,7 +141,7 @@ class CongruenceClosure {
 
   // typedef all of these so that iterators are easy to define
   typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> RepresentativeMap;
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > ClassList;
+  typedef context::CDCircList<TNode> ClassList;
   typedef context::CDMap<Node, ClassList*, NodeHashFunction> ClassLists;
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > UseList;
   typedef context::CDMap<TNode, UseList*, TNodeHashFunction> UseLists;
@@ -659,8 +659,7 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::propagate(TNode s
         ClassLists::const_iterator cl_bpi = d_classList.find(bp);
         ClassList* cl_bp;
         if(cl_bpi == d_classList.end()) {
-          cl_bp = new(d_context->getCMM()) ClassList(true, d_context, false,
-                                                     context::ContextMemoryAllocator<TNode>(d_context->getCMM()));
+          cl_bp = new(d_context->getCMM()) ClassList(true, d_context, context::ContextMemoryAllocator<TNode>(d_context->getCMM()));
           d_classList.insertDataFromContextMemory(bp, cl_bp);
           Trace("cc:detail") << "CC in prop alloc classlist for " << bp << std::endl;
         } else {

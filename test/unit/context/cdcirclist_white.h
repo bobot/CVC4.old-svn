@@ -49,26 +49,26 @@ public:
 
   void testSimple() {
     //Debug.on("cdcirclist");
-    CDCircList<int> l(d_context);
+    CDCircList<int> l(d_context, ContextMemoryAllocator<int>(d_context->getCMM()));
 
     TS_ASSERT_THROWS_NOTHING( l.debugCheck() );
 
     d_context->push();
     {
       TS_ASSERT(l.empty());
-      l.append(1);
+      l.push_back(1);
       TS_ASSERT(!l.empty());
       TS_ASSERT_EQUALS(l.front(), 1);
       TS_ASSERT_EQUALS(l.back(), 1);
       TS_ASSERT_THROWS_NOTHING( l.debugCheck() );
 
-      l.append(2);
+      l.push_back(2);
       TS_ASSERT(!l.empty());
       TS_ASSERT_EQUALS(l.front(), 1);
       TS_ASSERT_EQUALS(l.back(), 2);
       TS_ASSERT_THROWS_NOTHING( l.debugCheck() );
 
-      l.append(3);
+      l.push_back(3);
       TS_ASSERT(!l.empty());
       TS_ASSERT_EQUALS(l.front(), 1);
       TS_ASSERT_EQUALS(l.back(), 3);
@@ -78,10 +78,10 @@ public:
       TS_ASSERT_THROWS( l.concat(l), AssertionException );
 #endif /* CVC4_ASSERTIONS */
 
-      CDCircList<int> l2(d_context);
-      l2.append(4);
-      l2.append(5);
-      l2.append(6);
+      CDCircList<int> l2(d_context, ContextMemoryAllocator<int>(d_context->getCMM()));
+      l2.push_back(4);
+      l2.push_back(5);
+      l2.push_back(6);
       TS_ASSERT_EQUALS(l2.front(), 4);
       TS_ASSERT_EQUALS(l2.back(), 6);
       TS_ASSERT_THROWS_NOTHING( l2.debugCheck() );

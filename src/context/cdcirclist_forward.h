@@ -34,7 +34,10 @@ namespace __gnu_cxx {
 
 namespace CVC4 {
   namespace context {
-    template <class T, class Allocator = std::allocator<T> >
+    template <class T>
+    class ContextMemoryAllocator;
+
+    template <class T, class Allocator = ContextMemoryAllocator<T> >
     class CDCircList;
   }/* CVC4::context namespace */
 }/* CVC4 namespace */
