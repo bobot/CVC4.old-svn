@@ -455,7 +455,9 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Assert(a.getType().isArray());
  Assert(b.getType().isArray());
 
- if(d_RoWLemmaCache.count(make_quad(a, b, i, j)) != 0) {
+ if(d_RoWLemmaCache.count(make_quad(a, b, i, j)) != 0 ||
+    d_RoWLemmaCache.count(make_quad(b, a, i, j)) != 0 ) {
+   //Debug("arrays-lem")<<"Arrays::addRoW2Lemma already added "<<a<<" "<<b<<" "<<i<<" "
    return;
  }
 
@@ -470,17 +472,16 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  //TODO: check for find(i) == find(j) ?
  if(i!=j && aj!=bj) {
    Debug("arrays-lem")<<"Arrays::addRoW2Lemma adding "<<lem<<"\n";
+   d_RoWLemmaCache.insert(make_quad(a,b,i,j));
    d_out->lemma(lem);
    ++d_numRoW2;
-
-   d_RoWLemmaCache.insert(make_quad(a,b,i,j));
 
    // created two new read terms a[j] and b[j] so we need to check if new
    // applications of RoW2 are possible now
    //checkRoWForIndex(j, find(a));
    //checkRoWForIndex(j, find(b));
  }
- Debug("arrays-lem")<<"Arrays::addRoW2Lemma done \n";
+ //Debug("arrays-lem")<<"Arrays::addRoW2Lemma done \n";
 }
 
 
@@ -536,9 +537,9 @@ inline void TheoryArrays::addExtLemma(TNode a, TNode b) {
    Node lem = nm->mkNode(kind::OR, eq, neq);
 
    Debug("arrays-lem")<<"Arrays::addExtLemma "<<lem<<"\n";
+   d_extLemmaCache.insert(make_pair(a,b));
    d_out->lemma(lem);
    ++d_numExt;
-   d_extLemmaCache.insert(make_pair(a,b));
 
    // check if we need to generate new RoW lemmas due to this index
    // need to check for a and b
