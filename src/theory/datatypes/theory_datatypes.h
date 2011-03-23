@@ -58,6 +58,8 @@ private:
   context::CDMap< Node, Node, NodeHashFunction > d_drv_map;
   //equalities that are axioms
   context::CDMap< Node, bool, NodeHashFunction > d_axioms;
+  //list of selectors 
+  context::CDList< Node > d_selectors;
   //map from terms to whether they have been instantiated
   context::CDMap< Node, bool, NodeHashFunction > d_inst_map;
   //Type getType( TypeNode t );
@@ -147,11 +149,13 @@ public:
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }
 
+private:
   /* Helper methods */
   void checkTester( Node assertion );
   bool checkTrivialTester( Node assertion );
   void checkInstantiate( Node t );
-  TNode collapseSelector( TNode t, TNode tc, bool useContext = false );
+  Node collapseSelector( TNode t, TNode tc, bool useContext = false );
+  void collectSelectors( TNode t );
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);
@@ -160,7 +164,7 @@ public:
   void appendToDiseqList(TNode of, TNode eq);
   void appendToEqList(TNode of, TNode eq);
   void addDisequality(TNode eq);
-  void addEquality(TNode eq);
+  void addEquality(TNode eq, bool collapseSel = true );
   void registerEqualityForPropagation(TNode eq);
   void convertDerived(Node n, NodeBuilder<>& nb);
   void throwConflict();
