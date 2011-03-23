@@ -288,7 +288,7 @@ void TheoryDatatypes::check(Effort e) {
     Debug("datatypes") << "TheoryDatatypes::check(): " << assertion << endl;
 
     //clear from the derived map
-    if( d_drv_map[assertion].get().isNull() ){
+    if( !d_drv_map[assertion].get().isNull() ){
       d_drv_map[assertion] = Node::null();
     }else{
       collectSelectors( assertion );
@@ -588,6 +588,7 @@ Node TheoryDatatypes::getValue(TNode n, TheoryEngine* engine) {
 
 void TheoryDatatypes::merge(TNode a, TNode b) {
   if( d_noMerge ){
+    Debug("datatypes") << "Append to merge pending list " << d_merge_pending.size() << std::endl;
     d_merge_pending[d_merge_pending.size()-1].push_back( std::pair< Node, Node >( a, b ) );
     return;
   }
@@ -595,11 +596,11 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   Debug("datatypes") << "Merge "<< a << " " << b << std::endl;
 
   //purify selectors
-  Node atmp = a;
-  Node ac = collapseSelector( a, b, true );
-  Node bc = collapseSelector( b, atmp, true );
+  //Node atmp = a;
+  //Node ac = collapseSelector( a, b, true );
+  //Node bc = collapseSelector( b, atmp, true );
 
-  Debug("datatypes") << "After collapse: "<< ac << " " << bc << std::endl;
+  //Debug("datatypes") << "After collapse: "<< ac << " " << bc << std::endl;
 
   // make "a" the one with shorter diseqList
   EqLists::iterator deq_ia = d_disequalities.find(a);
@@ -608,15 +609,14 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   if(deq_ia != d_disequalities.end()) {
     if(deq_ib == d_disequalities.end() ||
        (*deq_ia).second->size() > (*deq_ib).second->size()) {
-      Node tmp = ac;
-      ac = bc;
-      bc = tmp;
+      TNode tmp = a;
+      a = b;
+      b = tmp;
     }
   }
 
-
-  a = find(ac);
-  b = find(bc);
+  a = find(a);
+  b = find(b);
 
   Debug("datatypes") << "After find: "<< a << " " << b << std::endl;
 
@@ -753,6 +753,22 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
 
     }
   }
+  //do unification
+  if( d_conflict.isNull() ){
+    if( a.getKind()==APPLY_CONSTRUCTOR && b.getKind()==APPLY_CONSTRUCTOR &&
+        a.getOperator()==b.getOperator() ){
+      Debug("datatypes") << "Unification: " << a << " and " << b << "." << std::endl;
+      for( int i=0; i<(int)a.getNumChildren(); i++ ) {
+        if( find( a[i] )!=find( b[i] ) ){
+          Node newEq = NodeManager::currentNM()->mkNode( EQUAL, a[i], b[i] );
+          Debug("datatypes") << "UEqual: " << newEq << "." << std::endl;
+          d_drv_map[ newEq ] = d_cc.explain(a, b);
+          addEquality( newEq );
+        }
+      }
+    }
+  }
+
  Debug("datatypes") << "Merge Done" << std::endl;
 }
 
@@ -858,12 +874,6 @@ void TheoryDatatypes::addEquality(TNode eq, bool collapseSel){
   Assert(eq.getKind() == kind::EQUAL ||
          eq.getKind() == kind::IFF);
   Debug("datatypes") << "Add equality " << eq << "." << std::endl;
-  Node teq = eq;
-  if( collapseSel ){
-    //Node a = collapseSelector( a, b, true );
-    //Node b = collapseSelector( a, b, true );
-    //teq = NodeManager::currentNM()->mkNode( EQUAL, a, b );
-  }
   d_merge_pending.push_back( std::vector< std::pair< Node, Node > >() );
   d_noMerge = true;
   d_cc.addEquality(eq);
@@ -875,23 +885,15 @@ void TheoryDatatypes::addEquality(TNode eq, bool collapseSel){
     }
   }
   d_merge_pending.pop_back();
+  Node a = eq[0];
+  Node b = eq[1];
+  if( collapseSel ){
+    Node atmp = a;
+    a = collapseSelector( a, b, true );
+    b = collapseSelector( b, atmp, true );
+  }
   if( d_conflict.isNull() ){
-    merge(eq[0], eq[1]);
-    //do unification
-    if( d_conflict.isNull() ){
-      if( eq[0].getKind()==APPLY_CONSTRUCTOR && eq[1].getKind()==APPLY_CONSTRUCTOR &&
-        eq[0].getOperator()==eq[1].getOperator() ){
-        Debug("datatypes") << "Unification: " << eq[0] << " and " << eq[1] << "." << std::endl;
-        for( int i=0; i<(int)eq[0].getNumChildren(); i++ ) {
-          if( find( eq[0][i] )!=find( eq[1][i] ) ){
-            Node newEq = NodeManager::currentNM()->mkNode( EQUAL, eq[0][i], eq[1][i] );
-            Debug("datatypes") << "UEqual: " << newEq << "." << std::endl;
-            d_drv_map[ newEq ] = eq;
-            addEquality( newEq );
-          }
-        }
-      }
-    }
+    merge(a, b);
   }
 }
 
