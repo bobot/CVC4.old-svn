@@ -26,7 +26,8 @@ Specifically:
      class functions facts_begin() and facts_end(); again, useful for
      debugging.
 * Added an "Asserted" attribute so that theories can check if something
-  has been asserted or not (and therefore not propagate it).
+  has been asserted or not (and therefore not propagate it).  However, this
+  has been disabled for now, pending more data on the overhead of it.
 * Do not defined NDEBUG in MiniSat in assertion-enabled builds (so
   that MiniSat asserts are evaluated).
 * As a result of the new MiniSat assertions, some --incremental
