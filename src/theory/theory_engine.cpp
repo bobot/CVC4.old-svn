@@ -36,12 +36,12 @@ using namespace CVC4::theory;
 
 namespace CVC4 {
 
+namespace theory {
+
 /** Tag for the "registerTerm()-has-been-called" flag on Nodes */
 struct RegisteredAttrTag {};
 /** The "registerTerm()-has-been-called" flag on Nodes */
 typedef CVC4::expr::CDAttribute<RegisteredAttrTag, bool> RegisteredAttr;
-
-namespace theory {
 
 struct PreRegisteredAttrTag {};
 typedef expr::Attribute<PreRegisteredAttrTag, bool> PreRegistered;

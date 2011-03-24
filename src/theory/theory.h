@@ -121,11 +121,6 @@ protected:
    */
   Valuation d_valuation;
 
-  /** Tag for the "preRegisterTerm()-has-been-called" flag on Nodes */
-  struct PreRegistered {};
-  /** The "preRegisterTerm()-has-been-called" flag on Nodes */
-  typedef CVC4::expr::Attribute<PreRegistered, bool> PreRegisteredAttr;
-
   /**
    * Returns the next atom in the assertFact() queue.  Guarantees that
    * registerTerm() has been called on the theory specific subterms.

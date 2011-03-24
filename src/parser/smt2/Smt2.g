@@ -367,9 +367,12 @@ term[CVC4::Expr& expr]
         expr = PARSER_STATE->getVariable(name);
         kind = CVC4::kind::APPLY_UF;
       }
-      args.push_back(Expr()); }
+      args.push_back(expr);
+    }
     termList[args,expr] RPAREN_TOK
-    { args[0] = expr;
+    { Debug("parser") << "args has size " << args.size() << std::endl << "expr is " << expr << std::endl;
+      for(std::vector<Expr>::iterator i = args.begin(); i != args.end(); ++i)
+        Debug("parser") << "++ " << *i << std::endl;
       expr = MK_EXPR(kind, args); }
 
   | /* An indexed function application */
