@@ -7,6 +7,11 @@ These changes are somewhat disparate but belong on the same branch because
 they are held back from trunk all for the same reason (to keep the trunk
 stable for furious bitvector development).
 
+TODO BEFORE MERGE TO TRUNK:
+****implement BitIterator find() in CDAttrHash<bool>.
+****test to make sure less mem used than trunk
+****test to make sure no performance regression
+
 Specifically:
 
 * Added QF_BV support for SMT-LIB v2.
@@ -24,6 +29,8 @@ Specifically:
   has been asserted or not (and therefore not propagate it).
 * Do not defined NDEBUG in MiniSat in assertion-enabled builds (so
   that MiniSat asserts are evaluated).
+* As a result of the new MiniSat assertions, some --incremental
+  regressions had to be disabled; also, some bitvectors ?!!
 * Bug 71 is resolved by adding a specialization for CDAttrHash<> in the
   attribute package.
 * Fixes for warnings flagged by clang.

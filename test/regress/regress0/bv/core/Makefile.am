@@ -41,7 +41,7 @@ TESTS =	\
 	equality-00.smt \
 	equality-01.smt \
 	equality-02.smt \
-  equality-05.smt \
+	equality-05.smt \
 	bv_eq_diamond10.smt \
 	slice-01.smt \
 	slice-02.smt \
@@ -67,11 +67,11 @@ TESTS =	\
 	a78test0002.smt \
 	a95test0002.smt \
 	bitvec0.smt \
-	bitvec2.smt \
+	bitvec2.smt
+
+EXTRA_DIST = $(TESTS) \
 	bitvec3.smt \
-	bitvec5.smt 
-			
-EXTRA_DIST = $(TESTS)
+	bitvec5.smt
 
 # synonyms for "checK" in this directory
 .PHONY: regress regress0 test

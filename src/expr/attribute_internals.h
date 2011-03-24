@@ -411,6 +411,7 @@ class CDAttrHash<bool> :
       d_key(key),
       d_word(word),
       d_bit(bit) {
+      Debug.printf("cdboolattr", "CDAttrHash<bool>::BitAccessor(%p, %p, %lx, %u)\n", &map, key, word, bit);
     }
 
     BitAccessor& operator=(bool b) {
@@ -418,16 +419,19 @@ class CDAttrHash<bool> :
         // set the bit
         d_word |= (1 << d_bit);
         d_map.insert(d_key, d_word);
+        Debug.printf("cdboolattr", "CDAttrHash<bool>::BitAccessor::set(%p, %p, %lx, %u)\n", &d_map, d_key, d_word, d_bit);
       } else {
         // clear the bit
         d_word &= ~(1 << d_bit);
         d_map.insert(d_key, d_word);
+        Debug.printf("cdboolattr", "CDAttrHash<bool>::BitAccessor::clr(%p, %p, %lx, %u)\n", &d_map, d_key, d_word, d_bit);
       }
 
       return *this;
     }
 
     operator bool() const {
+      Debug.printf("cdboolattr", "CDAttrHash<bool>::BitAccessor::toBool(%p, %p, %lx, %u)\n", &d_map, d_key, d_word, d_bit);
       return (d_word & (1 << d_bit)) ? true : false;
     }
   };/* class CDAttrHash<bool>::BitAccessor */
@@ -478,26 +482,26 @@ class CDAttrHash<bool> :
    */
   class ConstBitIterator {
 
-    const std::pair<NodeValue* const, uint64_t>* d_entry;
+    const std::pair<NodeValue* const, uint64_t> d_entry;
 
     unsigned d_bit;
 
   public:
 
     ConstBitIterator() :
-      d_entry(NULL),
+      d_entry(),
       d_bit(0) {
     }
 
     ConstBitIterator(const std::pair<NodeValue* const, uint64_t>& entry,
                      unsigned bit) :
-      d_entry(&entry),
+      d_entry(entry),
       d_bit(bit) {
     }
 
     std::pair<NodeValue* const, bool> operator*() {
-      return std::make_pair(d_entry->first,
-                            (d_entry->second & (1 << d_bit)) ? true : false);
+      return std::make_pair(d_entry.first,
+                            (d_entry.second & (1 << d_bit)) ? true : false);
     }
 
     bool operator==(const ConstBitIterator& b) {
