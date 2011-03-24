@@ -39,6 +39,11 @@ class TheoryEngine;
 
 namespace theory {
 
+/** Tag for the "newFact()-has-been-called-in-this-context" flag on Nodes */
+struct AssertedAttrTag {};
+/** The "newFact()-has-been-called-in-this-context" flag on Nodes */
+typedef CVC4::expr::CDAttribute<AssertedAttrTag, bool> Asserted;
+
 /**
  * Base class for T-solvers.  Abstract DPLL(T).
  *

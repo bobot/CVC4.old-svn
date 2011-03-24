@@ -9,8 +9,7 @@ stable for furious bitvector development).
 
 Specifically:
 
-* Bug 71 is resolved by adding a specialization for CDAttrHash<> in the
-  attribute package.
+* Added QF_BV support for SMT-LIB v2.
 * Two adjustments to the theory interface as requested by Tim King:
   1. Theories get the Valuation proxy object up front.  (This is the
      proxy back to TheoryEngine that theories use to get the value of
@@ -21,6 +20,12 @@ Specifically:
   2. Theories now have const access to the fact queue through base
      class functions facts_begin() and facts_end(); again, useful for
      debugging.
+* Added an "Asserted" attribute so that theories can check if something
+  has been asserted or not (and therefore not propagate it).
+* Do not defined NDEBUG in MiniSat in assertion-enabled builds (so
+  that MiniSat asserts are evaluated).
+* Bug 71 is resolved by adding a specialization for CDAttrHash<> in the
+  attribute package.
 * Fixes for warnings flagged by clang.
 * System tests have arrived!  So far mainly infrastructure for having
   system tests, but there is a system test aimed at improving code

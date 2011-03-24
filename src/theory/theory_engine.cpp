@@ -37,17 +37,17 @@ using namespace CVC4::theory;
 namespace CVC4 {
 
 /** Tag for the "registerTerm()-has-been-called" flag on Nodes */
-struct Registered {};
+struct RegisteredAttrTag {};
 /** The "registerTerm()-has-been-called" flag on Nodes */
-typedef CVC4::expr::CDAttribute<Registered, bool> RegisteredAttr;
+typedef CVC4::expr::CDAttribute<RegisteredAttrTag, bool> RegisteredAttr;
 
 namespace theory {
 
-struct PreRegisteredTag {};
-typedef expr::Attribute<PreRegisteredTag, bool> PreRegistered;
+struct PreRegisteredAttrTag {};
+typedef expr::Attribute<PreRegisteredAttrTag, bool> PreRegistered;
 
-struct IteRewriteTag {};
-typedef expr::Attribute<IteRewriteTag, Node> IteRewriteAttr;
+struct IteRewriteAttrTag {};
+typedef expr::Attribute<IteRewriteAttrTag, Node> IteRewriteAttr;
 
 }/* CVC4::theory namespace */
 

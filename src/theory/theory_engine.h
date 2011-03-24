@@ -252,6 +252,9 @@ public:
   inline void assertFact(TNode node) {
     Debug("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
 
+    // Mark it as asserted in this context
+    node.setAttribute(theory::Asserted(), true);
+
     // Get the atom
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
 
