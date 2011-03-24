@@ -289,6 +289,7 @@ void TheoryDatatypes::check(Effort e) {
 
     //clear from the derived map
     if( !d_drv_map[assertion].get().isNull() ){
+      Debug("datatypes") << "Assertion has already been derived" << endl;
       d_drv_map[assertion] = Node::null();
     }else{
       collectSelectors( assertion );
@@ -357,14 +358,31 @@ void TheoryDatatypes::check(Effort e) {
         return;
       }
 
-      //if( e==FULL_EFFORT ){
-      //  //do splitting
-      //  for( context::CDList< Node >::const_iterator i = d_selectors.begin(); i!= d_selectors.end(); i++ ){
-      //    Node sf = find( *i );
-      //    //examine labels for sf
-      //    
-      //  }
-      //}
+      if( e>=STANDARD ){
+        Debug("datatypes-split") << "Check for splits" << std::endl;
+        ////do splitting
+        //for( BoolMap::iterator i = d_selectors.begin(); i!= d_selectors.end(); i++ ){
+        //  Debug("datatypes-split") << "Selector: " << (*i).first << std::endl;
+        //  if( (*i).second ){
+        //    Node sf = find( ((*i).first)[0] );
+        //    //examine labels for sf
+        //    Debug("datatypes-split") << "Check for splitting " << sf << std::endl;
+        //    Node cons = getPossibleCons( sf, false );
+        //    if( cons.isNull() ){
+        //      (*i).second = false;
+        //    }else{
+        //      Debug("datatypes-split") << "  Possible cons: " << cons << std::endl;
+        //    }
+        //  }
+        //}
+        for( EqLists::iterator i = d_labels.begin(); i!= d_labels.end(); i++ ){
+          Debug("datatypes-split") << "Check for splitting " << (*i).first << std::endl;
+          Node cons = getPossibleCons( (*i).first, false );
+          if( !cons.isNull() ){
+            Debug("datatypes-split") << "Split for possible cons " << cons << std::endl;
+          }
+        }
+      }
     }
   }
   Debug("datatypes") << "TheoryDatatypes::check(): done" << endl;
@@ -482,43 +500,13 @@ bool TheoryDatatypes::checkTrivialTester( Node assertion )
 void TheoryDatatypes::checkInstantiate( Node t ){
   Debug("datatypes") << "Apply instantiation? " << t << std::endl;
 
-  EqLists::iterator lbl_i = d_labels.find( t );
-  EqList* lbl;
-  if(lbl_i == d_labels.end()) {
-    lbl = new(getContext()->getCMM()) EqList(true, getContext(), false,
-                                             ContextMemoryAllocator<TNode>(getContext()->getCMM()));
-    d_labels.insertDataFromContextMemory( t, lbl );
-  }else{
-    lbl = (*lbl_i).second;
-  }
- 
-  //there is one remaining constructor, and t has not been instantiated
+  //if labels were created for t, and t has not been instantiated
   if( d_inst_map.find( t )==d_inst_map.end() ){
-    TypeNode typ = t.getType();
-    Node cons = Node::null();
-    //if ended by one positive tester
-    if( !lbl->empty() && (*lbl)[ lbl->size()-1 ].getKind()!=NOT ){
-      Assert( getTesterIndex( typ, (*lbl)[ lbl->size()-1 ].getOperator() )!=-1 );
-      cons = d_cons[typ][ getTesterIndex( typ, (*lbl)[ lbl->size()-1 ].getOperator() ) ];
-    //if (n-1) negative testers
-    }else if( (*lbl)[ lbl->size()-1 ].getKind()==NOT && (int)lbl->size()==(int)d_cons[ t.getType() ].size()-1 ){
-      std::vector< bool > possibleCons;
-      possibleCons.resize( (int)d_cons[ t.getType() ].size(), true );
-      for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
-        TNode leqn = (*i);
-        Assert( getTesterIndex( typ, leqn[0].getOperator() )!=-1 );
-        possibleCons[ getTesterIndex( typ, leqn[0].getOperator() ) ] = false;
-      }
-      for( int i=0; i<(int)possibleCons.size(); i++ ){
-        if( possibleCons[i] ){
-          Assert( cons.isNull() );
-          cons = d_cons[typ][ i ];
-        }
-      }
-      Assert( !cons.isNull() );
-    }
-
-    if( !cons.isNull() ){
+    Node cons = getPossibleCons( t, true );
+    EqLists::iterator lbl_i = d_labels.find( t );
+    //there is one remaining constructor
+    if( !cons.isNull() && lbl_i != d_labels.end() ){
+      EqList* lbl = (*lbl_i).second;
       //only one constructor possible for term (label is singleton), apply instantiation rule
       bool consFinite = d_cons_finite[cons];
       //find if selectors have been applied to t
@@ -529,13 +517,15 @@ void TheoryDatatypes::checkInstantiate( Node t ){
       for( int i=0; i<(int)d_sels[cons].size(); i++ ){
         Node s = NodeManager::currentNM()->mkNode( APPLY_SELECTOR, d_sels[cons][i], t );
         Debug("datatypes") << "Selector[" << i << "] = " << s << std::endl;
-        Node sf = d_unionFind.find( s );
-        Debug("datatypes") << "Selector value[" << i << "] = " << sf << " " << sf.getKind() << std::endl;
-        if( sf!=s && sf.getKind()!=SKOLEM ){
-          justifyEq << d_cc.explain( sf, s );
+        if( d_selectors.find( s )!=d_selectors.end() ){
+          Node sf = d_unionFind.find( s );
+          if( sf!=s && sf.getKind()!=SKOLEM ){
+            justifyEq << d_cc.explain( sf, s );
+          }
           foundSel = true;
+          s = sf;
         }
-        selectorVals.push_back( sf );
+        selectorVals.push_back( s );
       }
       if( !consFinite && !foundSel ){
         Debug("datatypes") << "infinite constructor, no selectors " << cons << std::endl;
@@ -547,7 +537,6 @@ void TheoryDatatypes::checkInstantiate( Node t ){
       if( find( val )!=find( t ) ){
         Node newEq = NodeManager::currentNM()->mkNode( EQUAL, val, t );
         Debug("datatypes") << "Instantiate Equal: " << newEq << "." << std::endl;
-        Assert( !lbl->empty() );
         if( lbl->size()==1 || (*lbl)[ lbl->size()-1 ].getKind()!=NOT ){
           justifyEq << (*lbl)[ lbl->size()-1 ];
         }else{
@@ -567,6 +556,61 @@ void TheoryDatatypes::checkInstantiate( Node t ){
       }
     }
   }
+}
+
+//checkInst = true is for checkInstantiate, checkInst = false is for splitting
+Node TheoryDatatypes::getPossibleCons( Node t, bool checkInst )
+{
+  EqLists::iterator lbl_i = d_labels.find( t );
+  if( lbl_i != d_labels.end() ){
+    EqList* lbl = (*lbl_i).second;
+    TypeNode typ = t.getType();
+    Assert( !lbl->empty() );
+
+    //if ended by one positive tester
+    if( checkInst && (*lbl)[ lbl->size()-1 ].getKind()!=NOT ){
+      Assert( getTesterIndex( typ, (*lbl)[ lbl->size()-1 ].getOperator() )!=-1 );
+      return d_cons[typ][ getTesterIndex( typ, (*lbl)[ lbl->size()-1 ].getOperator() ) ];
+    //if (n-1) negative testers
+    }else if( (!checkInst || (int)lbl->size()==(int)d_cons[ t.getType() ].size()-1) && 
+              (*lbl)[ lbl->size()-1 ].getKind()==NOT ){
+      std::vector< bool > possibleCons;
+      possibleCons.resize( (int)d_cons[ t.getType() ].size(), true );
+      for( EqList::const_iterator i = lbl->begin(); i!= lbl->end(); i++ ){
+        TNode leqn = (*i);
+        Assert( getTesterIndex( typ, leqn[0].getOperator() )!=-1 );
+        possibleCons[ getTesterIndex( typ, leqn[0].getOperator() ) ] = false;
+      }
+      Node cons = Node::null();
+      for( int i=0; i<(int)possibleCons.size(); i++ ){
+        if( possibleCons[i] ){
+          cons = d_cons[typ][ i ];
+        }
+      }
+      //if no selectors, and a constructor is not finite, do not split
+      if( !checkInst && !cons.isNull() ){
+        bool foundSel = false;
+        for( int i=0; i<(int)d_sels[cons].size(); i++ ){
+          Node s = NodeManager::currentNM()->mkNode( APPLY_SELECTOR, d_sels[cons][i], t );
+          if( d_selectors.find( s )!=d_selectors.end() ){
+            foundSel = true;
+            break;
+          }
+        }
+        if( !foundSel ){
+          for( int i=0; i<(int)possibleCons.size(); i++ ){
+            if( !d_cons_finite[ d_cons[typ][ i ] ] ){
+              return Node::null();
+            }
+          }
+        }
+      }else{
+        Assert( !cons.isNull() );
+      }
+      return cons;
+    }
+  }
+  return Node::null();
 }
 
 Node TheoryDatatypes::getValue(TNode n, TheoryEngine* engine) {
@@ -821,7 +865,12 @@ Node TheoryDatatypes::collapseSelector( TNode t, TNode tc, bool useContext ){
 
 void TheoryDatatypes::collectSelectors( TNode t ){
   if( t.getKind()==APPLY_SELECTOR ){
-    d_selectors.push_back( t );
+    if( d_selectors.find( t )==d_selectors.end() ){
+      Debug("datatypes-split") << "  Found selector " << t << std::endl;
+      d_selectors[ t ] = true;
+      Node tmp = t[0];
+      checkInstantiate( tmp );
+    }
   }
   for( int i=0; i<(int)t.getNumChildren(); i++ ) {
     collectSelectors( t[i] );

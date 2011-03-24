@@ -37,6 +37,7 @@ class TheoryDatatypes : public Theory {
 private:
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
   typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
+  typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
   //a list of types with the list of constructors for that type
   std::map<TypeNode, std::vector<Node> > d_cons;
@@ -57,11 +58,11 @@ private:
   //map from equalties and the equalities they are derived from
   context::CDMap< Node, Node, NodeHashFunction > d_drv_map;
   //equalities that are axioms
-  context::CDMap< Node, bool, NodeHashFunction > d_axioms;
+  BoolMap d_axioms;
   //list of selectors 
-  context::CDList< Node > d_selectors;
+  BoolMap d_selectors;
   //map from terms to whether they have been instantiated
-  context::CDMap< Node, bool, NodeHashFunction > d_inst_map;
+  BoolMap d_inst_map;
   //Type getType( TypeNode t );
   int getConstructorIndex( TypeNode t, Node c );
   int getTesterIndex( TypeNode t, Node c );
@@ -154,6 +155,7 @@ private:
   void checkTester( Node assertion );
   bool checkTrivialTester( Node assertion );
   void checkInstantiate( Node t );
+  Node getPossibleCons( Node t, bool checkInst = false );
   Node collapseSelector( TNode t, TNode tc, bool useContext = false );
   void collectSelectors( TNode t );
 
