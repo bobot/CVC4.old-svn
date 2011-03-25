@@ -75,9 +75,6 @@ private:
    */
   ArithVarContainsSet d_contains;
 
-  std::vector<uint32_t>& d_rowCount;
-  std::vector<PermissiveBackArithVarSet>& d_columnMatrix;
-
 
 public:
 
@@ -91,20 +88,6 @@ public:
   void enqueueNonBasicVariablesAndCoefficients(std::vector< ArithVar >& variables,
                                                std::vector< Rational >& coefficients) const;
 
-  /** Returns the basic variable.*/
-  ArithVar basic() const{
-    Assert(basicIsSet());
-    return d_basic;
-  }
-
-  /** Returns the number of nonzero variables in the vector. */
-  uint32_t size() const {
-    return d_entries.size();
-  }
-
-  /** Iterates over the nonzero entries in the vector. */
-  const_iterator begin() const { return d_entries.begin(); }
-  const_iterator end() const { return d_entries.end(); }
 
   /** Returns true if the variable is in the row. */
   bool has(ArithVar x_j) const{
@@ -119,10 +102,8 @@ public:
    * Returns the coefficient of a variable in the row.
    */
   const Rational& lookup(ArithVar x_j) const{
-    Assert(has(x_j));
-    Assert(hasInEntries(x_j));
-    const_iterator lb = lower_bound(x_j);
-    return (*lb).getCoefficient();
+    Needs to be linear;
+    Unimplemented();
   }
 
 
