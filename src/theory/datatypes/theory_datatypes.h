@@ -37,6 +37,8 @@ class TheoryDatatypes : public Theory {
 private:
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
   typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
+  typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > EqListN;
+  typedef context::CDMap<Node, EqListN*, NodeHashFunction> EqListsN;
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
   //a list of types with the list of constructors for that type
@@ -45,6 +47,8 @@ private:
   std::map<TypeNode, std::vector<Node> > d_testers;
   //a list of constructors with the list of selectors
   std::map<Node, std::vector<Node> > d_sels;
+  //map from selectors to the constructors they are for
+  std::map<Node, Node > d_sel_cons;
   // the distinguished ground term for each type
   std::map<TypeNode, Node > d_distinguishTerms;
   //finite datatypes/constructor
@@ -59,8 +63,10 @@ private:
   context::CDMap< Node, Node, NodeHashFunction > d_drv_map;
   //equalities that are axioms
   BoolMap d_axioms;
-  //list of selectors 
+  //list of all selectors
   BoolMap d_selectors;
+  //map from nodes to a list of selectors whose arguments are in the equivalence class of that node
+  EqListsN d_selector_eq;
   //map from terms to whether they have been instantiated
   BoolMap d_inst_map;
   //Type getType( TypeNode t );
@@ -152,12 +158,12 @@ public:
 
 private:
   /* Helper methods */
-  void checkTester( Node assertion );
+  void checkTester( Node assertion, bool doAdd = true );
   bool checkTrivialTester( Node assertion );
   void checkInstantiate( Node t );
   Node getPossibleCons( Node t, bool checkInst = false );
-  Node collapseSelector( TNode t, TNode tc, bool useContext = false );
-  void collectSelectors( TNode t );
+  Node collapseSelector( TNode t, bool useContext = false );
+  void collectTerms( TNode t );
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);
@@ -166,7 +172,7 @@ private:
   void appendToDiseqList(TNode of, TNode eq);
   void appendToEqList(TNode of, TNode eq);
   void addDisequality(TNode eq);
-  void addEquality(TNode eq, bool collapseSel = true );
+  void addEquality(TNode eq);
   void registerEqualityForPropagation(TNode eq);
   void convertDerived(Node n, NodeBuilder<>& nb);
   void throwConflict();
