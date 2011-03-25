@@ -32,7 +32,7 @@ namespace CVC4 {
 class BooleanSimplification {
 public:
 
-  static const uint32_t DUPLICATE_REMOVAL_THRESHOLD = 100;
+  static const uint32_t DUPLICATE_REMOVAL_THRESHOLD = 10;
 
   static void removeDuplicates(std::vector<Node>& buffer){
     if(buffer.size() < DUPLICATE_REMOVAL_THRESHOLD){

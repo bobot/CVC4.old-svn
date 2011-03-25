@@ -58,7 +58,10 @@ struct SlackAttrID;
 typedef expr::Attribute<SlackAttrID, bool> Slack;
 
 struct PropagatedAttrID;
-typedef expr::CDAttribute<PropagatedAttrID, bool> Propagated;
+typedef expr::CDAttribute<PropagatedAttrID, TNode> Propagated;
+
+struct AssertedAttrID;
+typedef expr::CDAttribute<AssertedAttrID, bool> Asserted;
 
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
   Theory(THEORY_ARITH, c, out),
@@ -385,6 +388,7 @@ void TheoryArith::check(Effort effortLevel){
   while(!done()){
 
     Node assertion = get();
+    assertion.setAttribute(Asserted(), true);
     Node possibleConflict = assertionCases(assertion);
 
     if(!possibleConflict.isNull()){
@@ -518,51 +522,54 @@ bool TheoryArith::isImpliedLowerBound(ArithVar var, Node exp){
 }
 
 void TheoryArith::explain(TNode n) {
-  Assert(n.getAttribute(Propagated()));
+  //cout << "explain @" << getContext()->getLevel() << ": " << n << endl;
+  Assert(n.hasAttribute(Propagated()));
 
   NodeBuilder<> explainBuilder(AND);
   internalExplain(n,explainBuilder);
-
   Node explanation = explainBuilder;
   Node flatExplanation = BooleanSimplification::simplifyConflict(explanation);
 
-  cout << explanation.getNumChildren() << " " << explanation << endl;
-  cout << flatExplanation.getNumChildren() << " " << flatExplanation << endl;
+  //cout << explanation.getNumChildren() << " " << explanation << endl;
+  //cout << flatExplanation.getNumChildren() << " " << flatExplanation << endl;
 
-  d_out->explanation(explanation, true);
+  d_out->explanation(flatExplanation, true);
 }
 
 void TheoryArith::internalExplain(TNode n, NodeBuilder<>& explainBuilder){
-  Assert(n.getAttribute(Propagated()));
+  Assert(n.hasAttribute(Propagated()));
+  Node bound = n.getAttribute(Propagated());
 
-  Kind simpKind = simplifiedKind(n);
-  ArithVar var = determineLeftVariable(n, simpKind);
 
-  TNode bound = TNode::null();
-  switch(simpKind){
-  case LT: case LEQ:
-    Assert(isImpliedUpperBound(var,n));
-    bound = d_partialModel.getUpperConstraint(var);
-    break;
-  case GEQ: case GT:
-    Assert(isImpliedLowerBound(var,n));
-    bound = d_partialModel.getLowerConstraint(var);
-    break;
-  default:
-    Unreachable();
-  }
+  // Kind simpKind = simplifiedKind(n);
+  // ArithVar var = determineLeftVariable(n, simpKind);
+
+  // TNode bound = TNode::null();
+  // switch(simpKind){
+  // case LT: case LEQ:
+  //   Assert(isImpliedUpperBound(var,n));
+  //   bound = d_partialModel.getUpperConstraint(var);
+  //   break;
+  // case GEQ: case GT:
+  //   Assert(isImpliedLowerBound(var,n));
+  //   bound = d_partialModel.getLowerConstraint(var);
+  //   break;
+  // default:
+  //   Unreachable();
+  // }
   AlwaysAssert(bound.getKind() == kind::AND);
 
   for(Node::iterator i = bound.begin(), end = bound.end(); i != end; ++i){
     Node lit = *i;
-    if(lit.getAttribute(Propagated())){
+    if(lit.hasAttribute(Propagated())){
+      cout << "hoop the sadjklasdj" << endl;
       internalExplain(lit, explainBuilder);
     }else{
       explainBuilder << lit;
     }
   }
 }
-
+static const bool EXPORT_LEMMA_INSTEAD_OF_PROPAGATE = false;
 void TheoryArith::propagate(Effort e) {
   if(quickCheckOrMore(e)){
     while(d_simplex.hasMoreLemmas()){
@@ -578,16 +585,23 @@ void TheoryArith::propagate(Effort e) {
       Kind kind = ub.getInfinitesimalPart() < 0 ? LT : LEQ;
       Node ubAsNode = NodeBuilder<2>(kind) << varAsNode << mkRationalNode(ub.getNoninfinitesimalPart());
       Node bestImplied = d_propagator.getBestImpliedUpperBound(ubAsNode);
-      if(!bestImplied.isNull()){
-        //bestImplied.setAttribute(Propagated(), true);
-        //d_out->propagate(bestImplied);
-        cout << "Not noe NAHAH " << endl;
+      if(!bestImplied.isNull() &&
+         !bestImplied.getAttribute(Asserted()) &&
+         !bestImplied.hasAttribute(Propagated())){
 
-        //Temporary
-        Node lemma = NodeBuilder<2>(IMPLIES) << d_partialModel.getUpperConstraint(var)
+        Node reason = d_partialModel.getUpperConstraint(var);
+        Node lemma = NodeBuilder<2>(IMPLIES) << reason
                                              << bestImplied;
-        Node clause = BooleanSimplification::simplifyHornClause(lemma);
-        d_out->lemma(clause);
+        //cout << getContext()->getLevel() << " " << lemma << endl;
+
+        if(EXPORT_LEMMA_INSTEAD_OF_PROPAGATE){
+          //Temporary
+          Node clause = BooleanSimplification::simplifyHornClause(lemma);
+          d_out->lemma(clause);
+        }else{
+          bestImplied.setAttribute(Propagated(), reason);
+          d_out->propagate(bestImplied);
+        }
       }
     }
     while(d_simplex.hasMoreDeducedLowerBounds()){
@@ -598,16 +612,23 @@ void TheoryArith::propagate(Effort e) {
       Kind kind = lb.getInfinitesimalPart() > 0 ? GT : GEQ;
       Node lbAsIneq = NodeBuilder<2>(kind) << varAsNode << mkRationalNode(lb.getNoninfinitesimalPart());
       Node bestImplied = d_propagator.getBestImpliedLowerBound(lbAsIneq);
-      if(!bestImplied.isNull()){
-        //bestImplied.setAttribute(Propagated(), true);
-        //d_out->propagate(bestImplied);
-        cout << "Not noe NAHAH " << endl;
+      if(!bestImplied.isNull()&&
+         !bestImplied.getAttribute(Asserted()) &&
+         !bestImplied.hasAttribute(Propagated())){
 
-        //Temporary
-        Node lemma = NodeBuilder<2>(IMPLIES) << d_partialModel.getLowerConstraint(var)
+        Node reason = d_partialModel.getLowerConstraint(var);
+        Node lemma = NodeBuilder<2>(IMPLIES) << reason
                                              << bestImplied;
-        Node clause = BooleanSimplification::simplifyHornClause(lemma);
-        d_out->lemma(clause);
+
+        //cout << getContext()->getLevel() << " " << lemma << endl;
+        if(EXPORT_LEMMA_INSTEAD_OF_PROPAGATE){
+          //Temporary
+          Node clause = BooleanSimplification::simplifyHornClause(lemma);
+          d_out->lemma(clause);
+        }else{
+          bestImplied.setAttribute(Propagated(), reason);
+          d_out->propagate(bestImplied);
+        }
       }
     }
   }
