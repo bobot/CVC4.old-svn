@@ -69,7 +69,7 @@ std::pair<int,S> runPortfolio(int numThreads,
 
   for(int t=0; t<numThreads; ++t) {
     threads[t].interrupt();
-    //threads[t].join();
+    threads[t].join();
   }
   
   if(not driverFn.empty())
