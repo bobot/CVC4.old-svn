@@ -35,6 +35,8 @@ class ExprManager;
 class TypeNode;
 class VariableTypeMap;
 
+class SmtEngine;
+
 template <bool ref_count>
 class NodeTemplate;
 
@@ -81,11 +83,10 @@ namespace expr {
 class CVC4_PUBLIC Type {
 
   friend class SmtEngine;
-  friend class SmtEnginePrivate;
   friend class ExprManager;
   friend class NodeManager;
   friend class TypeNode;
-  friend class TypeHashStrategy;
+  friend struct TypeHashStrategy;
   friend std::ostream& operator<<(std::ostream& out, const Type& t);
   friend TypeNode expr::exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* nm, VariableTypeMap& vmap);
 

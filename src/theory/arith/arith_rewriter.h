@@ -23,7 +23,6 @@
 #define __CVC4__THEORY__ARITH__ARITH_REWRITER_H
 
 #include "theory/theory.h"
-#include "theory/arith/arith_constants.h"
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/normal_form.h"
 
@@ -34,11 +33,7 @@ namespace theory {
 namespace arith {
 
 class ArithRewriter {
-
 private:
-
-  static CVC4_THREADLOCAL(arith::ArithConstants*) s_constants;
-
   static Node makeSubtractionNode(TNode l, TNode r);
   static Node makeUnaryMinusNode(TNode n);
 
@@ -67,18 +62,9 @@ public:
   static RewriteResponse preRewrite(TNode n);
   static RewriteResponse postRewrite(TNode n);
 
-  static void init() {
-    if (s_constants == NULL) {
-      s_constants = new arith::ArithConstants(NodeManager::currentNM());
-    }
-  }
+  static void init() { }
 
-  static void shutdown() {
-    if (s_constants != NULL) {
-      delete s_constants;
-      s_constants = NULL;
-    }
-  }
+  static void shutdown() { }
 
 private:
 

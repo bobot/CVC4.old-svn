@@ -43,7 +43,7 @@
 
 namespace CVC4 {
 
-class Options;
+struct Options;
 
 namespace expr {
 

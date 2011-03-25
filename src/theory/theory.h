@@ -23,6 +23,7 @@
 
 #include "expr/node.h"
 #include "expr/attribute.h"
+#include "theory/valuation.h"
 #include "theory/output_channel.h"
 #include "context/context.h"
 #include "context/cdlist.h"
@@ -37,10 +38,11 @@ namespace CVC4 {
 class TheoryEngine;
 
 namespace theory {
-  class Valuation;
-}/* CVC4::theory namespace */
 
-namespace theory {
+/** Tag for the "newFact()-has-been-called-in-this-context" flag on Nodes */
+struct AssertedAttrTag {};
+/** The "newFact()-has-been-called-in-this-context" flag on Nodes */
+typedef CVC4::expr::CDAttribute<AssertedAttrTag, bool> Asserted;
 
 /**
  * Base class for T-solvers.  Abstract DPLL(T).
@@ -75,8 +77,8 @@ private:
   /**
    * The assertFact() queue.
    *
-   * These can not be TNodes as some atoms (such as equalities) are sent across theories withouth being stored
-   * in a global map.
+   * These can not be TNodes as some atoms (such as equalities) are sent
+   * across theories without being stored in a global map.
    */
   context::CDList<Node> d_facts;
 
@@ -88,15 +90,14 @@ protected:
   /**
    * Construct a Theory.
    */
-  Theory(TheoryId id, context::Context* ctxt, OutputChannel& out) throw() :
+  Theory(TheoryId id, context::Context* ctxt, OutputChannel& out, Valuation valuation) throw() :
     d_id(id),
     d_context(ctxt),
     d_facts(ctxt),
     d_factsHead(ctxt, 0),
-    d_out(&out) {
+    d_out(&out),
+    d_valuation(valuation) {
   }
-
-
 
   /**
    * This is called at shutdown time by the TheoryEngine, just before
@@ -114,10 +115,11 @@ protected:
    */
   OutputChannel* d_out;
 
-  /** Tag for the "preRegisterTerm()-has-been-called" flag on Nodes */
-  struct PreRegistered {};
-  /** The "preRegisterTerm()-has-been-called" flag on Nodes */
-  typedef CVC4::expr::Attribute<PreRegistered, bool> PreRegisteredAttr;
+  /**
+   * The valuation proxy for the Theory to communicate back with the
+   * theory engine (and other theories).
+   */
+  Valuation d_valuation;
 
   /**
    * Returns the next atom in the assertFact() queue.  Guarantees that
@@ -133,6 +135,26 @@ protected:
                     << "(" << d_facts.size() << " left)" << std::endl;
     d_out->newFact(fact);
     return fact;
+  }
+
+  /**
+   * Provides access to the facts queue, primarily intended for theory
+   * debugging purposes.
+   *
+   * @return the iterator to the beginning of the fact queue
+   */
+  context::CDList<Node>::const_iterator facts_begin() const {
+    return d_facts.begin();
+  }
+
+  /**
+   * Provides access to the facts queue, primarily intended for theory
+   * debugging purposes.
+   *
+   * @return the iterator to the end of the fact queue
+   */
+  context::CDList<Node>::const_iterator facts_end() const {
+    return d_facts.end();
   }
 
 public:
@@ -201,15 +223,19 @@ public:
     FULL_EFFORT = 100
   };/* enum Effort */
 
-  // TODO add compiler annotation "constant function" here
-  static bool minEffortOnly(Effort e)        { return e == MIN_EFFORT; }
-  static bool quickCheckOrMore(Effort e)     { return e >= QUICK_CHECK; }
-  static bool quickCheckOnly(Effort e)       { return e >= QUICK_CHECK &&
-                                                      e <  STANDARD; }
-  static bool standardEffortOrMore(Effort e) { return e >= STANDARD; }
-  static bool standardEffortOnly(Effort e)   { return e >= STANDARD &&
-                                                      e <  FULL_EFFORT; }
-  static bool fullEffort(Effort e)           { return e >= FULL_EFFORT; }
+  // simple, useful predicates for effort values
+  static inline bool minEffortOnly(Effort e) CVC4_CONST_FUNCTION
+    { return e == MIN_EFFORT; }
+  static inline bool quickCheckOrMore(Effort e) CVC4_CONST_FUNCTION
+    { return e >= QUICK_CHECK; }
+  static inline bool quickCheckOnly(Effort e) CVC4_CONST_FUNCTION
+    { return e >= QUICK_CHECK && e <  STANDARD; }
+  static inline bool standardEffortOrMore(Effort e) CVC4_CONST_FUNCTION
+    { return e >= STANDARD; }
+  static inline bool standardEffortOnly(Effort e) CVC4_CONST_FUNCTION
+    { return e >= STANDARD && e <  FULL_EFFORT; }
+  static inline bool fullEffort(Effort e) CVC4_CONST_FUNCTION
+    { return e >= FULL_EFFORT; }
 
   /**
    * Get the id for this Theory.
@@ -236,13 +262,6 @@ public:
    * Get the output channel associated to this theory.
    */
   OutputChannel& getOutputChannel() {
-    return *d_out;
-  }
-
-  /**
-   * Get the output channel associated to this theory [const].
-   */
-  const OutputChannel& getOutputChannel() const {
     return *d_out;
   }
 
@@ -312,7 +331,10 @@ public:
    * (which was previously propagated by this theory).  Report
    * explanations to an output channel.
    */
-  virtual void explain(TNode n) { }
+  virtual void explain(TNode n) {
+    Unimplemented("Theory %s propagated a node but doesn't implement the "
+                  "Theory::explain() interface!", identify().c_str());
+  }
 
   /**
    * Return the value of a node (typically used after a ).  If the
@@ -345,7 +367,11 @@ public:
    * and suspect this situation is the case, return Node::null()
    * rather than throwing an exception.
    */
-  virtual Node getValue(TNode n, Valuation* valuation) = 0;
+  virtual Node getValue(TNode n) {
+    Unimplemented("Theory %s doesn't support Theory::getValue interface",
+                  identify().c_str());
+    return Node::null();
+  }
 
   /**
    * The theory should only add (via .operator<< or .append()) to the
@@ -363,7 +389,7 @@ public:
    * assertFact() queue using get().  A Theory can raise conflicts,
    * add lemmas, and propagate literals during presolve().
    */
-  virtual void presolve() { };
+  virtual void presolve() { }
 
   /**
    * Notification sent to the theory wheneven the search restarts.
@@ -379,51 +405,10 @@ public:
    */
   virtual std::string identify() const = 0;
 
-  virtual void notifyOptions(const Options& opt) {}
-
-  //
-  // CODE INVARIANT CHECKING (used only with CVC4_ASSERTIONS)
-  //
-
   /**
-   * Different states at which invariants are checked.
+   * Notify the theory of the current set of options.
    */
-  enum ReadyState {
-    ABOUT_TO_PUSH,
-    ABOUT_TO_POP
-  };/* enum ReadyState */
-
-  /**
-   * Public invariant checker.  Assert that this theory is in a valid
-   * state for the (external) system state.  This implementation
-   * checks base invariants and then calls theoryReady().  This
-   * function may abort in the case of a failed assert, or return
-   * false (the caller should assert that the return value is true).
-   *
-   * @param s the state about which to check invariants
-   */
-  bool ready(ReadyState s) {
-    if(s == ABOUT_TO_PUSH) {
-      Assert(d_facts.empty(), "Theory base code invariant broken: "
-             "fact queue is nonempty on context push");
-    }
-
-    return theoryReady(s);
-  }
-
-protected:
-
-  /**
-   * Check any invariants at the ReadyState given.  Only called by
-   * Theory class, and then only with CVC4_ASSERTIONS enabled.  This
-   * function may abort in the case of a failed assert, or return
-   * false (the caller should assert that the return value is true).
-   *
-   * @param s the state about which to check invariants
-   */
-  virtual bool theoryReady(ReadyState s) {
-    return true;
-  }
+  virtual void notifyOptions(const Options& opt) { }
 
 };/* class Theory */
 

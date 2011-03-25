@@ -42,6 +42,7 @@ CVC_TESTS = \
 	boolean-prec.cvc \
 	hole6.cvc \
 	ite.cvc \
+	let.cvc \
 	logops.01.cvc \
 	logops.02.cvc \
 	logops.03.cvc \
@@ -84,13 +85,14 @@ BUG_TESTS = \
 	bug167.smt \
 	bug168.smt \
 	bug187.smt2 \
-	bug216.smt2 \
 	bug220.smt2 \
-	bug239.smt
+	bug239.smt \
+	buggy-ite.smt2
 
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 
 EXTRA_DIST = $(TESTS) \
+	bug216.smt2 \
 	bug216.smt2.expect
 
 if CVC4_BUILD_PROFILE_COMPETITION
@@ -103,7 +105,7 @@ endif
 EXTRA_DIST += \
 	error.cvc
 
-# synonyms for "check"
+# synonyms for "checK" in this directory
 .PHONY: regress regress0 test
 regress regress0 test: check
 

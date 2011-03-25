@@ -31,11 +31,21 @@ using namespace std;
 
 void TheoryBV::preRegisterTerm(TNode node) {
 
-  Debug("bitvector") << "TheoryBV::preRegister(" << node << ")" << std::endl;
+  BVDebug("bitvector") << "TheoryBV::preRegister(" << node << ")" << std::endl;
 
   if (node.getKind() == kind::EQUAL) {
     d_eqEngine.addTerm(node[0]);
+    if (node[0].getKind() == kind::BITVECTOR_CONCAT) {
+      for (unsigned i = 0, i_end = node[0].getNumChildren(); i < i_end; ++ i) {
+        d_eqEngine.addTerm(node[0][i]);
+      }
+    }
     d_eqEngine.addTerm(node[1]);
+    if (node[1].getKind() == kind::BITVECTOR_CONCAT) {
+      for (unsigned i = 0, i_end = node[1].getNumChildren(); i < i_end; ++ i) {
+        d_eqEngine.addTerm(node[1][i]);
+      }
+    }
     size_t triggerId = d_eqEngine.addTrigger(node[0], node[1]);
     Assert(triggerId == d_triggers.size());
     d_triggers.push_back(node);
@@ -44,7 +54,7 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 void TheoryBV::check(Effort e) {
 
-  Debug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
+  BVDebug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
 
   while(!done()) {
 
@@ -52,35 +62,35 @@ void TheoryBV::check(Effort e) {
     TNode assertion = get();
     d_assertions.insert(assertion);
 
-    Debug("bitvector") << "TheoryBV::check(" << e << "): asserting: " << assertion << std::endl;
+    BVDebug("bitvector") << "TheoryBV::check(" << e << "): asserting: " << assertion << std::endl;
 
     // Do the right stuff
     switch (assertion.getKind()) {
     case kind::EQUAL: {
-
-      // Slice the equality
-      std::vector<Node> lhsSlices, rhsSlices;
-      d_sliceManager.addEquality(assertion[0], assertion[1], lhsSlices, rhsSlices);
-      Assert(lhsSlices.size() == rhsSlices.size());
-
-      // Add the equality to the equality engine
-      for (int i = 0, i_end = lhsSlices.size(); i != i_end; ++ i) {
-        bool ok = d_eqEngine.addEquality(lhsSlices[i], rhsSlices[i]);
-        if (!ok) return;
-      }
+      // Slice and solve the equality
+      bool ok = d_sliceManager.solveEquality(assertion[0], assertion[1]);
+      if (!ok) return;
       break;
     }
     case kind::NOT: {
       // We need to check this as the equality trigger might have been true when we made it
       TNode equality = assertion[0];
 
+      // Assumptions
+      std::set<TNode> assumptions;
+      Node lhsNormalized = d_eqEngine.normalize(equality[0], assumptions);
+      Node rhsNormalized = d_eqEngine.normalize(equality[1], assumptions);
+
+      BVDebug("bitvector") << "TheoryBV::check(" << e << "): normalizes to " << lhsNormalized << " = " << rhsNormalized << std::endl;
+      
       // No need to slice the equality, the whole thing *should* be deduced
-      if (d_eqEngine.areEqual(equality[0], equality[1])) {
-        vector<TNode> assertions;
-        d_eqEngine.getExplanation(equality[0], equality[1], assertions);
-        assertions.push_back(assertion);
-        d_out->conflict(mkAnd(assertions));
+      if (lhsNormalized == rhsNormalized) {
+        BVDebug("bitvector") << "TheoryBV::check(" << e << "): conflict with " << utils::setToString(assumptions) << std::endl;
+        assumptions.insert(assertion);
+        d_out->conflict(mkConjunction(assumptions));
         return;
+      } else {
+        d_disequalities.push_back(assertion);
       }
       break;
     }
@@ -88,12 +98,38 @@ void TheoryBV::check(Effort e) {
       Unhandled();
     }
   }
+
+  if (fullEffort(e)) {
+
+    BVDebug("bitvector") << "TheoryBV::check(" << e << "): checking dis-equalities" << std::endl;
+
+    for (unsigned i = 0, i_end = d_disequalities.size(); i < i_end; ++ i) {
+
+      BVDebug("bitvector") << "TheoryBV::check(" << e << "): checking " << d_disequalities[i] << std::endl;
+
+      TNode equality = d_disequalities[i][0];
+      // Assumptions
+      std::set<TNode> assumptions;
+      Node lhsNormalized = d_eqEngine.normalize(equality[0], assumptions);
+      Node rhsNormalized = d_eqEngine.normalize(equality[1], assumptions);
+
+      BVDebug("bitvector") << "TheoryBV::check(" << e << "): normalizes to " << lhsNormalized << " = " << rhsNormalized << std::endl;
+
+      // No need to slice the equality, the whole thing *should* be deduced
+      if (lhsNormalized == rhsNormalized) {
+        BVDebug("bitvector") << "TheoryBV::check(" << e << "): conflict with " << utils::setToString(assumptions) << std::endl;
+        assumptions.insert(d_disequalities[i]);
+        d_out->conflict(mkConjunction(assumptions));
+        return;
+      }
+    }
+  }
 }
 
 bool TheoryBV::triggerEquality(size_t triggerId) {
-  Debug("bitvector") << "TheoryBV::triggerEquality(" << triggerId << ")" << std::endl;
+  BVDebug("bitvector") << "TheoryBV::triggerEquality(" << triggerId << ")" << std::endl;
   Assert(triggerId < d_triggers.size());
-  Debug("bitvector") << "TheoryBV::triggerEquality(" << triggerId << "): " << d_triggers[triggerId] << std::endl;
+  BVDebug("bitvector") << "TheoryBV::triggerEquality(" << triggerId << "): " << d_triggers[triggerId] << std::endl;
 
   TNode equality = d_triggers[triggerId];
 
@@ -103,10 +139,12 @@ bool TheoryBV::triggerEquality(size_t triggerId) {
   // If we have a negation asserted, we have a confict
   if (d_assertions.contains(equality.notNode())) {
 
-    vector<TNode> assertions;
-    d_eqEngine.getExplanation(equality[0], equality[1], assertions);
-    assertions.push_back(equality.notNode());
-    d_out->conflict(mkAnd(assertions));
+    std::vector<TNode> explanation;
+    d_eqEngine.getExplanation(equality[0], equality[1], explanation);
+    std::set<TNode> assumptions;
+    assumptions.insert(equality.notNode());
+    utils::getConjuncts(explanation, assumptions);
+    d_out->conflict(utils::mkConjunction(assumptions));
 
     return false;
   }
@@ -117,7 +155,7 @@ bool TheoryBV::triggerEquality(size_t triggerId) {
   return true;
 }
 
-Node TheoryBV::getValue(TNode n, Valuation* valuation) {
+Node TheoryBV::getValue(TNode n) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -127,9 +165,22 @@ Node TheoryBV::getValue(TNode n, Valuation* valuation) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
+      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
 
   default:
     Unhandled(n.getKind());
   }
+}
+
+void TheoryBV::explain(TNode node) {
+  BVDebug("bitvector") << "TheoryBV::explain(" << node << ")" << std::endl;
+  if(node.getKind() == kind::EQUAL) {
+    std::vector<TNode> reasons;
+    d_eqEngine.getExplanation(node[0], node[1], reasons);
+    std::set<TNode> simpleReasons;
+    utils::getConjuncts(reasons, simpleReasons);
+    d_out->explanation(utils::mkConjunction(simpleReasons));
+    return;
+  }
+  Unreachable();
 }
