@@ -38,29 +38,29 @@ using namespace CVC4::main;
 //   boost::exception_ptr exceptionPtr;
 // };
 
-// class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
-//   string d_tag;
-// public:
-//   PortfolioLemmaOutputChannel(string tag) :
-//     d_tag(tag) {
-//   }
+class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
+  string d_tag;
+public:
+  PortfolioLemmaOutputChannel(string tag) :
+    d_tag(tag) {
+  }
 
-//   void notifyNewLemma(Expr lemma) {
-//     //std::cout << d_tag << ": " << lemma << std::endl;
-//   }
+  void notifyNewLemma(Expr lemma) {
+    std::cout << d_tag << ": " << lemma << std::endl;
+  }
 
-// };/* class PortfolioLemmaOutputChannel */
+};/* class PortfolioLemmaOutputChannel */
 
-// /* This function should be moved somewhere else eventuall */
-// std::string intToString(int i)
-// {
-//     std::stringstream ss;
-//     std::string s;
-//     ss << i;
-//     s = ss.str();
+/* This function should be moved somewhere else eventuall */
+std::string intToString(int i)
+{
+    std::stringstream ss;
+    std::string s;
+    ss << i;
+    s = ss.str();
 
-//     return s;
-// }
+    return s;
+}
 
 // bool global_flag_done = false;
 // thread_return_data global_returnData;
@@ -292,15 +292,19 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   stringstream ss_out2(stringstream::out);
   options2.out = &ss_out2;
 
+  /* Lemma output channel */
+  // options.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #0");
+  // options2.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #1");
 
   // Create the SmtEngine(s)
   SmtEngine smt1(&exprMgr, options);
-  SmtEngine smt2(&exprMgr2, options);
+  SmtEngine smt2(&exprMgr2, options2);
 
-  function <int()> fns[2];
+  assert(numThreads == 2);
+  function <int()> fns[numThreads];
   fns[0] = boost::bind(doCommand, boost::ref(smt1), &seq, boost::ref(options));
   fns[1] = boost::bind(doCommand, boost::ref(smt2), seq2, boost::ref(options2));
-  int winner = runPortfolio(2, function<void()>(), fns).first;
+  int winner = runPortfolio(numThreads, function<void()>(), fns).first;
 
   SmtEngine *smt = winner == 0 ? &smt1 : &smt2;
 
@@ -334,6 +338,9 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   // StatisticsRegistry::unregisterStat(&s_statSatResult);
   // StatisticsRegistry::unregisterStat(&s_statFilename);
 
+  // destruction is causing segfaults, let us just exit
+  exit(returnValue);
+  
   return returnValue;
 }
 
@@ -380,6 +387,7 @@ void printUsage(Options& options) {
 
 
 // }
+
 
 /** Executes a command. Deletes the command after execution. */
 int doCommand(SmtEngine& smt, Command* cmd, Options& options) {
