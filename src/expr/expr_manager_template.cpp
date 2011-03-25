@@ -496,6 +496,8 @@ Debug("export") << "type: " << n << std::endl;
          "PARAMETERIZED-kinded types (other than SORT_KIND) not supported");
   if(n.getKind() == kind::TYPE_CONSTANT) {
     return to->mkTypeConst(n.getConst<TypeConstant>());
+  } else if(n.getKind() == kind::BITVECTOR_TYPE) {
+    return to->mkBitVectorType(n.getConst<BitVectorSize>());
   }
   Type from_t = from->toType(n);
   Type& to_t = vmap[from_t];
