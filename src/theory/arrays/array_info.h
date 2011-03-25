@@ -57,18 +57,18 @@ class Info {
 public:
   CTNodeList* indices;
   CTNodeList* stores;
-  //CTNodeList* equals;
+  CTNodeList* in_stores;
 
   Info(context::Context* c) {
     indices = new(true)CTNodeList(c);
     stores = new(true)CTNodeList(c);
-    //equals = new(true)CTNodeList(c);
+    in_stores = new(true)CTNodeList(c);
   }
 
   ~Info() {
     indices->deleteSelf();
     stores->deleteSelf();
-    //equals->deleteSelf();
+    in_stores->deleteSelf();
   }
 
   /**
@@ -93,8 +93,8 @@ public:
     printList(indices);
     Debug("arrays-info")<<"  stores ";
     printList(stores);
-    //Debug("arrays-info")<<"  equals ";
-    //printList(equals);
+    Debug("arrays-info")<<"  in_stores ";
+    printList(in_stores);
   }
 };
 
@@ -153,7 +153,7 @@ public:
    */
   void addIndex(const Node a, const TNode i);
   void addStore(const Node a, const TNode st);
-  //void addEquals(const TNode a, const TNode st);
+  void addInStore(const TNode a, const TNode st);
 
   /**
    * Maps a to the emptyInfo if a is not already in the map
@@ -170,7 +170,7 @@ public:
 
   const CTNodeList* getStores(const TNode a) const;
 
-  //const CTNodeList* getEquals(const TNode a) const;
+  const CTNodeList* getInStores(const TNode a) const;
 
   /**
    * merges the information of  nodes a and b

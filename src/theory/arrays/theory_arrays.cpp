@@ -280,6 +280,16 @@ void TheoryArrays::merge(TNode a, TNode b) {
 
 }
 
+
+bool TheoryArrays::isNonLinear(TNode a) {
+  Assert(a.getType().isArray());
+  const CTNodeList* inst = d_infoMap.getInStores(find(a));
+  if(inst->size()<=1) {
+    return false;
+  }
+  return true;
+}
+
 bool TheoryArrays::isAxiom(TNode t1, TNode t2) {
   Debug("arrays-axiom")<<"Arrays::isAxiom start "<<t1<<" = "<<t2<<"\n";
   if(t1.getKind() == kind::SELECT) {
@@ -418,7 +428,7 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
 
   const CTNodeList* i_a = d_infoMap.getIndices(a);
   const CTNodeList* st_b = d_infoMap.getStores(b);
-
+  const CTNodeList* inst_b = d_infoMap.getStores(b);
 
   CTNodeList::const_iterator it = i_a->begin();
   CTNodeList::const_iterator its;
@@ -438,6 +448,27 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
       insertInQuadQueue(queue, store, c, j, i);
     }
   }
+
+  it = i_a->begin();
+
+  for( ; it != i_a->end(); it++ ) {
+    TNode i = *it;
+    its = inst_b->begin();
+    for ( ; its !=inst_b->end(); its++) {
+      TNode store = *its;
+      Assert(store.getKind() == kind::STORE);
+      TNode j = store[1];
+      TNode c = store[0];
+      if(isNonLinear(c)) {
+        insertInQuadQueue(queue, store, c, j, i);
+      }
+      else {
+        if(store!=c && j!= i)
+          Debug("arrays-lemn")<<"Arrays:: skip linear: "<<c<<"\n";
+      }
+    }
+  }
+
 
   // actually calls d_out->lemma()
   dischargeRoWLemmas(queue);
@@ -470,7 +501,7 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Node lem = nm->mkNode(kind::OR, eq1, eq2);
 
  //TODO: check for find(i) == find(j) ?
- if(i!=j && aj!=bj) {
+ if(i!=j && aj!=bj ) {
    Debug("arrays-lem")<<"Arrays::addRoW2Lemma adding "<<lem<<"\n";
    d_RoWLemmaCache.insert(make_quad(a,b,i,j));
    d_out->lemma(lem);
@@ -498,6 +529,7 @@ void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
   }
 
   const CTNodeList* stores = d_infoMap.getStores(a);
+  const CTNodeList* instores = d_infoMap.getInStores(a);
   CTNodeList::const_iterator it = stores->begin();
 
   std::set<quad<TNode, TNode, TNode, TNode> > queue;
@@ -509,6 +541,16 @@ void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
     Debug("arrays-cri")<<"Arrays::checkRoWForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
     insertInQuadQueue(queue, store, store[0], j, i);
   }
+
+  it = instores->begin();
+  for(; it!= instores->end(); it++) {
+    TNode instore = *it;
+    Assert(instore.getKind()==kind::STORE);
+    TNode j = instore[1];
+    Debug("arrays-cri")<<"Arrays::checkRoWForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
+    insertInQuadQueue(queue, instore, instore[0], j, i);
+  }
+
   dischargeRoWLemmas(queue);
 }
 

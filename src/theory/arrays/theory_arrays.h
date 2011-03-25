@@ -200,6 +200,9 @@ private:
    */
   bool isAxiom(TNode lhs, TNode rhs);
 
+
+  bool isNonLinear(TNode n);
+
   /**
    * Checks if any new RoW lemmas need to be generated after merging arrays a
    * and b; called after setCanon.
@@ -288,7 +291,7 @@ public:
 
       d_infoMap.addIndex(n, i);
       d_infoMap.addStore(n, n);
-      d_infoMap.addStore(a, n);
+      d_infoMap.addInStore(a, n);
 
       break;
     }

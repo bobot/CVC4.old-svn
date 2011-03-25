@@ -94,31 +94,31 @@ void ArrayInfo::addStore(const Node a, const TNode st){
   }
 };
 
-/*
-void ArrayInfo::addEquals(const TNode a, const TNode b){
-  Debug("arrays-addinstore")<<"Arrays::addEquals "<<a<<" ~ "<<b<<"\n";
+
+void ArrayInfo::addInStore(const TNode a, const TNode b){
+  Debug("arrays-addinstore")<<"Arrays::addInStore "<<a<<" ~ "<<b<<"\n";
   Assert(a.getType().isArray());
   Assert(b.getType().isArray());
 
-  CTNodeList* temp_eq;
+  CTNodeList* temp_inst;
   Info* temp_info;
 
   CNodeInfoMap::iterator it = info_map.find(a);
   if(it == info_map.end()) {
-    temp_eq = new(true) CTNodeList(ct);
-    temp_eq->push_back(b);
+    temp_inst = new(true) CTNodeList(ct);
+    temp_inst->push_back(b);
 
     temp_info = new Info(ct);
-    temp_info->equals = temp_eq;
+    temp_info->in_stores = temp_inst;
     info_map.insert(a, temp_info);
   } else {
-    temp_eq = (*it).second->equals;
-    if(! inList(temp_eq, b)) {
-      temp_eq->push_back(b);
+    temp_inst = (*it).second->in_stores;
+    if(! inList(temp_inst, b)) {
+      temp_inst->push_back(b);
     }
   }
 };
-*/
+
 
 /**
  * Maps a to the emptyInfo if a is not already in the map
@@ -157,15 +157,15 @@ const CTNodeList* ArrayInfo::getStores(const TNode a) const{
   }
   return emptyList;
 }
-/*
-const CTNodeList* ArrayInfo::getEquals(const TNode a) const{
+
+const CTNodeList* ArrayInfo::getInStores(const TNode a) const{
   CNodeInfoMap::iterator it = info_map.find(a);
   if(it!= info_map.end()) {
-    return (*it).second->equals;
+    return (*it).second->in_stores;
   }
   return emptyList;
 }
-*/
+
 
 void ArrayInfo::mergeInfo(const TNode a, const TNode b){
   // can't have assertion that find(b) = a !
@@ -187,16 +187,16 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
         (*itb).second->print();
       CTNodeList* lista_i = (*ita).second->indices;
       CTNodeList* lista_st = (*ita).second->stores;
-      //CTNodeList* lista_eq = (*ita).second->equals;
+      CTNodeList* lista_inst = (*ita).second->in_stores;
 
 
       CTNodeList* listb_i = (*itb).second->indices;
       CTNodeList* listb_st = (*itb).second->stores;
-      //CTNodeList* listb_eq = (*itb).second->equals;
+      CTNodeList* listb_inst = (*itb).second->in_stores;
 
       mergeLists(lista_i, listb_i);
       mergeLists(lista_st, listb_st);
-      //mergeLists(lista_eq, listb_eq);
+      mergeLists(lista_inst, listb_inst);
     }
 
   } else {
@@ -207,11 +207,13 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
 
       CTNodeList* listb_i = (*itb).second->indices;
       CTNodeList* listb_st = (*itb).second->stores;
+      CTNodeList* listb_inst = (*itb).second->in_stores;
 
       Info* temp_info = new Info(ct);
 
       mergeLists(temp_info->indices, listb_i);
       mergeLists(temp_info->stores, listb_st);
+      mergeLists(temp_info->in_stores, listb_inst);
       info_map.insert(a, temp_info);
 
     } else {
