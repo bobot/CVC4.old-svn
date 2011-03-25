@@ -143,7 +143,8 @@ std::string intToString(int i)
 //   return global_returnData.returnValue;
 // }
 
-int doCommand(SmtEngine&, Command*, Options&);
+void doCommand(SmtEngine&, Command*, Options&);
+int doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 {
@@ -296,31 +297,16 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   // options.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #0");
   // options2.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #1");
 
-  // Create the SmtEngine(s)
-  SmtEngine smt1(&exprMgr, options);
-  SmtEngine smt2(&exprMgr2, options2);
-
   assert(numThreads == 2);
   function <int()> fns[numThreads];
-  fns[0] = boost::bind(doCommand, boost::ref(smt1), &seq, boost::ref(options));
-  fns[1] = boost::bind(doCommand, boost::ref(smt2), seq2, boost::ref(options2));
-  int winner = runPortfolio(numThreads, function<void()>(), fns).first;
-
-  SmtEngine *smt = winner == 0 ? &smt1 : &smt2;
-
+  fns[0] = boost::bind(doSmt, boost::ref(exprMgr), &seq, boost::ref(options));
+  fns[1] = boost::bind(doSmt, boost::ref(exprMgr2), seq2, boost::ref(options2));
+  
+  pair<int,int> portfolioReturn = runPortfolio(numThreads, function<void()>(), fns);
+  int winner = portfolioReturn.first;
+  int returnValue = portfolioReturn.second;
+  
   cout << (winner == 0 ? ss_out : ss_out2).str();
-
-  //Old stuff
-  string result = smt->getInfo(":status").getValue();
-  int returnValue;
-
-  if(result == "sat") {
-    returnValue = 10;
-  } else if(result == "unsat") {
-    returnValue = 20;
-  } else {
-    returnValue = 0;
-  }
 
 #ifdef CVC4_COMPETITION_MODE
   // exit, don't return
@@ -338,9 +324,6 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   // StatisticsRegistry::unregisterStat(&s_statSatResult);
   // StatisticsRegistry::unregisterStat(&s_statFilename);
 
-  // destruction is causing segfaults, let us just exit
-  exit(returnValue);
-  
   return returnValue;
 }
 
@@ -388,11 +371,30 @@ void printUsage(Options& options) {
 
 // }
 
+/** Create the SMT engine and execute the commands */
+int doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
+  // Create the SmtEngine(s)
+  SmtEngine smt(&exprMgr, options);
+  doCommand(smt, cmd, options);
+  
+  // Old stuff
+  string result = smt.getInfo(":status").getValue();
+  int returnValue;
+
+  if(result == "sat") {
+    returnValue = 10;
+  } else if(result == "unsat") {
+    returnValue = 20;
+  } else {
+    returnValue = 0;
+  }
+  return returnValue;
+}
 
 /** Executes a command. Deletes the command after execution. */
-int doCommand(SmtEngine& smt, Command* cmd, Options& options) {
+void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
   if( options.parseOnly ) {
-    return 0;
+    return;
   }
 
   CommandSequence *seq = dynamic_cast<CommandSequence*>(cmd);
@@ -413,5 +415,4 @@ int doCommand(SmtEngine& smt, Command* cmd, Options& options) {
       cmd->invoke(&smt);
     }
   }
-  return 0;
 }
