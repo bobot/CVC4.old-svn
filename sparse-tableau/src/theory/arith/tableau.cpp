@@ -78,6 +78,7 @@ void Tableau::pivot(ArithVar oldBasic, ArithVar newBasic){
   Assert(!isBasic(newBasic));
   Assert(mergeBufferIsEmpty());
 
+  //cout << oldBasic << "," << newBasic << endl;
   Debug("tableau") << "Tableau::pivot(" <<  oldBasic <<", " << newBasic <<")"  << endl;
 
   rowPivot(oldBasic, newBasic);
@@ -384,7 +385,7 @@ void Tableau::rowPlusRowTimesConstant(ArithVar basicTo, const Rational& c, Arith
 
   clearUsedList();
 
-  printTableau();
+  if(Debug.isOn("tableau")) { printTableau(); }
 }
 
 void Tableau::clearUsedList(){
@@ -405,7 +406,7 @@ void Tableau::addRow(ArithVar basic,
 
   d_basicVariables.add(basic);
 
-  printTableau();
+  if(Debug.isOn("tableau")){ printTableau(); }
 
   addEntry(basic, basic, Rational(-1));
 
@@ -433,7 +434,7 @@ void Tableau::addRow(ArithVar basic,
     }
   }
 
-  printTableau();
+  if(Debug.isOn("tableau")) { printTableau(); }
 
   Assert(debugNoZeroCoefficients(basic));
 
