@@ -27,8 +27,9 @@
 
 #include "theory/arith/row_vector.h"
 
-#include <ext/hash_map>
-#include <set>
+#include <queue>
+#include <vector>
+#include <utility>
 
 #ifndef __CVC4__THEORY__ARITH__TABLEAU_H
 #define __CVC4__THEORY__ARITH__TABLEAU_H
@@ -37,7 +38,7 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-typedef uin32_t EntryID;
+typedef uint32_t EntryID;
 #define ENTRYID_SENTINEL std::numeric_limits<ArithVar>::max()
 
 class TableauEntry {
@@ -54,12 +55,12 @@ public:
   TableauEntry():
     d_rowVar(ARITHVAR_SENTINEL),
     d_colVar(ARITHVAR_SENTINEL),
-    d_nextCol(ENTRYID_SENTINEL),
     d_nextRow(ENTRYID_SENTINEL),
+    d_nextCol(ENTRYID_SENTINEL),
     d_coefficient(0)
   {}
 
-  TableauEntry(ArithVar rowVar, ArithVar colVar,
+  TableauEntry(ArithVar row, ArithVar col,
                EntryID nextRowEntry, EntryID nextColEntry,
                const Rational& coeff):
     d_rowVar(row),
@@ -69,16 +70,57 @@ public:
     d_coefficient(coeff)
   {}
 
+private:
+  bool unusedConsistent() const {
+    return (d_rowVar == ARITHVAR_SENTINEL && d_colVar == ARITHVAR_SENTINEL) ||
+      (d_rowVar != ARITHVAR_SENTINEL && d_colVar != ARITHVAR_SENTINEL);
+  }
+
+public:
+
+  EntryID getNextRowID() const {
+    return d_nextRow;
+  }
+
+  EntryID getNextColID() const {
+    return d_nextRow;
+  }
+
+  EntryID& getNextRowIDRef() {
+    return d_nextRow;
+  }
+
+  EntryID& getNextColIDRef() {
+    return d_nextRow;
+  }
+
+  void setRowVar(ArithVar newRowVar){
+    d_rowVar = newRowVar;
+  }
+
+  ArithVar getRowVar() const{
+    return d_rowVar;
+  }
+  ArithVar getColVar() const{
+    return d_colVar;
+  }
+
+  const Rational& getCoefficient() const {
+    return d_coefficient;
+  }
+
+  Rational& getCoefficient(){
+    return d_coefficient;
+  }
+
   bool isUnused() const{
-    Assert((d_rowvar == ARITHVAR_SENTINEL && d_colVar == ARITHVAR_SENTINEL) ||
-           (d_rowvar != ARITHVAR_SENTINEL && d_colVar != ARITHVAR_SENTINEL));
+    Assert(unusedConsistent());
 
     return d_rowVar == ARITHVAR_SENTINEL;
   }
 
   void markUnused (){
-    Assert((d_rowvar == ARITHVAR_SENTINEL && d_colVar == ARITHVAR_SENTINEL) ||
-           (d_rowvar != ARITHVAR_SENTINEL && d_colVar != ARITHVAR_SENTINEL));
+    Assert(!isUnused());
 
     d_rowVar = ARITHVAR_SENTINEL;
     d_colVar = ARITHVAR_SENTINEL;
@@ -119,11 +161,13 @@ public:
   {}
 
   const TableauEntry& get(EntryID id) const{
-    return d_entries[i];
+    Assert(inBounds(id));
+    return d_entries[id];
   }
 
   TableauEntry& get(EntryID id){
-    return d_entries[i];
+    Assert(inBounds(id));
+    return d_entries[id];
   }
 
   void freeEntry(EntryID id){
@@ -148,6 +192,10 @@ public:
   }
 
   uint32_t size() const{ return d_size; }
+private:
+  bool inBounds(EntryID id) const{
+    return id < size();
+  }
 };
 
 class Tableau {
@@ -182,6 +230,78 @@ public:
   Tableau() {}
   ~Tableau();
 
+private:
+  void addEntry(ArithVar row, ArithVar col, const Rational& coeff);
+  void removeEntry(EntryID id);
+
+  template <bool isRowIterator>
+  class Iterator {
+  private:
+    EntryID d_curr;
+    TableauEntryManager& d_entryManager;
+
+  public:
+    Iterator(ArithVar basic, VectorHeadTable& table, TableauEntryManager& manager) :
+      d_entryManager(manager)
+    {
+      EntryID& head = table[basic];
+      updateNext(head);
+      d_curr = head;
+    }
+
+    /**
+     * Updates both d_curr and start to point to the next entry in the list the is valid.
+     * If this is the end of the list
+     */
+    void updateNext(EntryID& start){
+      while(start != ENTRYID_SENTINEL){
+        TableauEntry& nextEntry = d_entryManager.get(start);
+        if(nextEntry.isUnused()){
+          EntryID tmp = isRowIterator ?
+            nextEntry.unlinkFromRow() :
+            nextEntry.unlinkFromCol();
+
+          if(nextEntry.isUnusedAndUnlinked()){
+            d_entryManager.freeEntry(start);
+          }
+          start = tmp;
+        }else{
+          break;
+        }
+      }
+    }
+
+  public:
+
+    EntryID getID() const {
+      return d_curr;
+    }
+
+    const TableauEntry& operator*() const{
+      Assert(!atEnd());
+      return d_entryManager.get(d_curr);
+    }
+
+    Iterator& operator++(){
+      Assert(!atEnd());
+      TableauEntry& entry = d_entryManager.get(d_curr);
+      EntryID& nextRef = isRowIterator ?
+        entry.getNextRowIDRef() :
+        entry.getNextColIDRef();
+      updateNext(nextRef);
+      d_curr = nextRef;
+      return *this;
+    }
+
+    bool atEnd() const {
+      return d_curr == ENTRYID_SENTINEL;
+    }
+  };
+
+public:
+  typedef Iterator<true> RowIterator;
+  typedef Iterator<false> ColIterator;
+
   size_t getNumRows() const {
     return d_basicVariables.size();
   }
@@ -195,29 +315,29 @@ public:
     d_colLengths.push_back(0);
     d_rowLengths.push_back(0);
 
-    d_mergeBuffer.push_back(make_pair(ENTRYID_SENTINEL, false));
+    d_mergeBuffer.push_back(std::make_pair(ENTRYID_SENTINEL, false));
   }
 
   bool isBasic(ArithVar v) const {
     return d_basicVariables.isMember(v);
   }
 
-  ArithVarSet::iterator beginBasic() const{
+  ArithVarSet::const_iterator beginBasic() const{
     return d_basicVariables.begin();
   }
 
-  ArithVarSet::iterator endBasic() const{
+  ArithVarSet::const_iterator endBasic() const{
     return d_basicVariables.end();
   }
 
-  RowIterator rowIteraor(ArithVar v){
+  RowIterator rowIterator(ArithVar v){
     Assert(v < d_rowHeads.size());
-    return RowIterator(d_rowHeads[v], d_entryManager);
+    return RowIterator(v, d_rowHeads, d_entryManager);
   }
 
   ColIterator colIterator(ArithVar v){
     Assert(v < d_colHeads.size());
-    return RowIterator(d_colHeads[v], d_entryManager);
+    return ColIterator(v, d_colHeads, d_entryManager);
   }
 
 
@@ -252,27 +372,27 @@ public:
    *   x_s is non-basic, and
    *   a_rs != 0.
    */
-  void pivot(ArithVar x_r, ArithVar x_s);
+  void pivot(ArithVar basicOld, ArithVar basicNew);
+private:
+  void rowPivot(ArithVar basicOld, ArithVar basicNew);
+  /** Requires merge buffer to be loaded with basicFrom and used to be empty. */
+  void rowPlusRowTimesConstant(ArithVar basicTo, const Rational& coeff, ArithVar basicFrom);
 
+  EntryID findOnRow(ArithVar basic, ArithVar find);
+public:
+
+  /**
+   * Prints the contents of the Tableau to Debug("tableau::print")
+   */
   void printTableau();
+  void printRow(ArithVar basic);
+  void printEntry(const TableauEntry& entry);
 
 
 private:
-  void loadRowIntoMergeBuffer(ArithVar basic){
-  }
-
-  void emptyRowFromMergeBuffer(ArithVar basic){
-    Assert(isBasic(basic));
-    for(RowIterator i = beginRow(basic); !i.atEnd(); ++i){
-      EntryID id = i.getId();
-      TableauEntry& entry = *i;
-      ArithVar colVar = entry.getColVar();
-      Assert(d_mergeBuffer[colVar].first == id);
-      d_mergeBuffer[colVar] = make_pair(ENTRYID_SENTINEL, false);
-    }
-
-    Assert(mergeBufferIsEmpty());
-  }
+  void loadRowIntoMergeBuffer(ArithVar basic);
+  void emptyRowFromMergeBuffer(ArithVar basic);
+  void clearUsedList();
 
   static bool bufferPairIsNotEmpty(const PosUsedPair& p){
     return !(p.first == ENTRYID_SENTINEL && p.second == false);
@@ -287,73 +407,24 @@ private:
                                                bufferPairIsNotEmpty);
   }
 
+  void setColumnUnused(ArithVar v);
 
-  template <bool isRowIterator>
-  class Iterator {
-  private:
-    EntryID d_curr;
-    TableauEntryManager& d_entryManager;
-
-    Iterator(EntryID start, TableauEntryManager& manager) :
-      d_curr(start), d_entryManager(manager)
-    {}
-
-  public:
-
-    EntryId getId() const {
-      return d_curr;
-    }
-
-    const TableauEntry& operator*() const{
-      Assert(!atEnd());
-      return d_entryManager.get(d_curr);
-    }
-
-    RowIterator& operator++(){
-      Assert(!atEnd());
-      TableauEntry& entry = d_entryManager.get(d_curr);
-      EntryId nextID = isRowIterator ?
-        entry.getNextInRow() :
-        entry.getNextInCol();
-      while(nextID != ENTRYID_SENTINEL){
-        TableauEntry& nextEntry = d_entryManager.get(nextID);
-        if(nextEntry.isUnused()){
-          EntryId tmp = isRowIterator ?
-            nextEntry.unlinkFromRow() :
-            nextEntry.unlinkFromCol();
-
-          if(nextEntry.isUnusedAndUnlinked()){
-            d_entryManager.free(nextID);
-          }
-          nextID = tmp;
-          entry.setNextRow(nextID);
-        }else{
-          break;
-        }
-      }
-      d_curr = nextID;
-      return *this;
-    }
-
-    bool atEnd() const {
-      return d_curr == ENTRYID_SENTINEL;
-    }
-  };
-
-public:
-  typedef Iterator<true> RowIterator;
-  typedef Iterator<false> ColIterator;
-
-  uint32_t getNumNonZeroEntries const {
+  uint32_t getNumNonZeroEntries() const {
     return d_entryManager.size();
   }
 
+  Node rowAsEquality(ArithVar basic, const ArithVarToNodeMap& map);
 private:
   uint32_t numNonZeroEntries() const;
   uint32_t numNonZeroEntriesByRow() const;
+  uint32_t numNonZeroEntriesByCol() const;
 
-  /** Clears the structures in the tableau. */
-  void clear();
+
+  bool debugNoZeroCoefficients(ArithVar basic);
+  bool debugMatchingCountsForRow(ArithVar basic);
+  uint32_t debugCountColLength(ArithVar var);
+  uint32_t debugCountRowLength(ArithVar var);
+
 };
 
 }; /* namespace arith  */

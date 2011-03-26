@@ -209,36 +209,38 @@ Node SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
   return Node::null();
 }
 
-set<ArithVar> tableauAndHasSet(Tableau& tab, ArithVar v){
-  set<ArithVar> has;
-  for(ArithVarSet::iterator basicIter = tab.begin();
-      basicIter != tab.end();
-      ++basicIter){
-    ArithVar basic = *basicIter;
-    ReducedRowVector& row = tab.lookup(basic);
+// set<ArithVar> tableauAndHasSet(Tableau& tab, ArithVar v){
+//   set<ArithVar> has;
+//   for(ArithVarSet::const_iterator basicIter = tab.beginBasic();
+//       basicIter != tab.endBasic();
+//       ++basicIter){
+//     ArithVar basic = *basicIter;
+//     ReducedRowVector& row = tab.lookup(basic);
 
-    if(row.has(v)){
-      has.insert(basic);
-    }
-  }
-  return has;
-}
+//     if(row.has(v)){
+//       has.insert(basic);
+//     }
+//   }
+//   return has;
+// }
 
-set<ArithVar> columnIteratorSet(Tableau& tab,ArithVar v){
-  set<ArithVar> has;
-  Column::iterator basicIter = tab.beginColumn(v);
-  Column::iterator endIter = tab.endColumn(v);
-  for(; basicIter != endIter; ++basicIter){
-    ArithVar basic = *basicIter;
-    has.insert(basic);
-  }
-  return has;
-}
+// set<ArithVar> columnIteratorSet(Tableau& tab,ArithVar v){
+//   set<ArithVar> has;
+//   Column::iterator basicIter = tab.beginColumn(v);
+//   Column::iterator endIter = tab.endColumn(v);
+//   for(; basicIter != endIter; ++basicIter){
+//     ArithVar basic = *basicIter;
+//     has.insert(basic);
+//   }
+//   return has;
+// }
 
 
+/*
 bool matchingSets(Tableau& tab, ArithVar v){
   return tableauAndHasSet(tab, v) == columnIteratorSet(tab, v);
 }
+*/
 
 void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
   Assert(!d_tableau.isBasic(x_i));
@@ -249,7 +251,7 @@ void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
                  << assignment_x_i << "|-> " << v << endl;
   DeltaRational diff = v - assignment_x_i;
 
-  Assert(matchingSets(d_tableau, x_i));
+  //Assert(matchingSets(d_tableau, x_i));
   Column::iterator basicIter = d_tableau.beginColumn(x_i);
   Column::iterator endIter   = d_tableau.endColumn(x_i);
   for(; basicIter != endIter; ++basicIter){
@@ -728,7 +730,7 @@ DeltaRational SimplexDecisionProcedure::computeRowValue(ArithVar x, bool useSafe
  */
 void SimplexDecisionProcedure::checkTableau(){
 
-  for(ArithVarSet::iterator basicIter = d_tableau.begin();
+  for(ArithVarSet::const_iterator basicIter = d_tableau.beginBasic();
       basicIter != d_tableau.end(); ++basicIter){
     ArithVar basic = *basicIter;
     ReducedRowVector& row_k = d_tableau.lookup(basic);

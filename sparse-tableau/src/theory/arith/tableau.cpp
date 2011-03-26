@@ -26,80 +26,7 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
 
-Tableau::Tableau(const Tableau& tab){
-  internalCopy(tab);
-}
-
-void Tableau::internalCopy(const Tableau& tab){
-  uint32_t N = tab.d_rowsTable.size();
-
-  Debug("tableau::copy") << "tableau copy "<< N << endl;
-
-  if(N > 1){
-    d_columnMatrix.insert(d_columnMatrix.end(), N, Column());
-    d_rowsTable.insert(d_rowsTable.end(), N, NULL);
-    d_basicVariables.increaseSize(N-1);
-
-    Assert(d_basicVariables.allocated() == tab.d_basicVariables.allocated());
-
-    d_rowCount.insert(d_rowCount.end(), N, 0);
-  }
-
-  ColumnMatrix::const_iterator otherIter = tab.d_columnMatrix.begin();
-  ColumnMatrix::iterator i_colIter = d_columnMatrix.begin();
-  ColumnMatrix::iterator end_colIter = d_columnMatrix.end();
-  for(; i_colIter != end_colIter; ++i_colIter, ++otherIter){
-    Assert(otherIter != tab.d_columnMatrix.end());
-    Column& col = *i_colIter;
-    const Column& otherCol = *otherIter;
-    col.increaseSize(otherCol.allocated());
-  }
-
-  ArithVarSet::iterator i_basicIter = tab.d_basicVariables.begin();
-  ArithVarSet::iterator i_basicEnd = tab.d_basicVariables.end();
-  for(; i_basicIter != i_basicEnd; ++i_basicIter){
-    ArithVar basicVar = *i_basicIter;
-    const ReducedRowVector* otherRow = tab.d_rowsTable[basicVar];
-
-    Assert(otherRow != NULL);
-
-    std::vector< ArithVar > variables;
-    std::vector< Rational > coefficients;
-    otherRow->enqueueNonBasicVariablesAndCoefficients(variables, coefficients);
-
-    ReducedRowVector* copy = new ReducedRowVector(basicVar, variables, coefficients, d_rowCount, d_columnMatrix);
-
-    Debug("tableau::copy") << "copying " << basicVar << endl;
-    copy->printRow();
-
-    d_basicVariables.add(basicVar);
-    d_rowsTable[basicVar] = copy;
-  }
-}
-
-Tableau& Tableau::operator=(const Tableau& other){
-  clear();
-  internalCopy(other);
-  return (*this);
-}
-
-Tableau::~Tableau(){
-  clear();
-}
-
-void Tableau::clear(){
-  while(!d_basicVariables.empty()){
-    ArithVar curr = *(d_basicVariables.begin());
-    ReducedRowVector* vec = removeRow(curr);
-    delete vec;
-  }
-
-  d_rowsTable.clear();
-  d_basicVariables.clear();
-  d_rowCount.clear();
-  d_columnMatrix.clear();
-}
-
+/*
 void Tableau::addRow(ArithVar basicVar,
                      const std::vector<Rational>& coeffs,
                      const std::vector<ArithVar>& variables){
@@ -121,14 +48,21 @@ void Tableau::addRow(ArithVar basicVar,
     ArithVar var = *varsIter;
 
     if(d_basicVariables.isMember(var)){
-      ReducedRowVector& row_var = lookup(var);
-      row_current->substitute(row_var);
+      EntryID varID = find(basicVar, var);
+      TableauEntry& entry = d_entryManager.get(varID);
+      const Rational& coeff = entry.getCoefficient();
+
+      loadRowIntoMergeBuffer(var);
+      rowPlusRowTimesConstant(coeff, basicVar, var);
+      emptyRowFromMergeBuffer(var);
     }
   }
 }
+*/
 
+/*
 ReducedRowVector* Tableau::removeRow(ArithVar basic){
-  Assert(d_basicVariables.isMember(basic));
+  Assert(isBasic(basic));
 
   ReducedRowVector* row = d_rowsTable[basic];
 
@@ -137,164 +71,214 @@ ReducedRowVector* Tableau::removeRow(ArithVar basic){
 
   return row;
 }
+*/
 
-void Tableau::pivot(ArithVar x_r, ArithVar x_s){
-  Assert(d_basicVariables.isMember(x_r));
-  Assert(!d_basicVariables.isMember(x_s));
+void Tableau::pivot(ArithVar oldBasic, ArithVar newBasic){
+  Assert(isBasic(oldBasic));
+  Assert(isBasic(newBasic));
+  Assert(mergeBufferIsEmpty());
 
-  Debug("tableau") << "Tableau::pivot(" <<  x_r <<", " <<x_s <<")"  << endl;
+  Debug("tableau") << "Tableau::pivot(" <<  oldBasic <<", " << newBasic <<")"  << endl;
 
-  rowPivot(x_r, x_s);
+  rowPivot(oldBasic, newBasic);
+  loadRowIntoMergeBuffer(newBasic);
 
-  ColIterator colIter = getColIterator(x_s);
+  ColIterator colIter = colIterator(newBasic);
   while(!colIter.atEnd()){
     EntryID id = colIter.getID();
     TableauEntry& entry = d_entryManager.get(id);
 
-    ++colIter;
-    if(entry.getRowVar() == x_s){
-      continue;
-    }
-    ArithVar basicTo = entry.getBasic();
-    const Rational& coeff = entry.getCoefficient();
-    rowPlusRowTimesConstant(coeff, basicTo, x_s);
-  }
+    ++colIter; //needs to be incremented before the variable is removed
+    if(entry.getRowVar() == newBasic){ continue; }
 
-  Assert(d_basicVariables.isMember(x_r));
-  Assert(!d_basicVariables.isMember(x_s));
-  Assert(getColLength(x_s) == 1);
+    ArithVar basicTo = entry.getRowVar();
+    const Rational& coeff = entry.getCoefficient();
+    rowPlusRowTimesConstant(basicTo, coeff, newBasic);
+  }
+  emptyRowFromMergeBuffer(newBasic);
+
+  //Clear the column for used for this variable
+  setColumnUnused(newBasic);
+
+
+  Assert(mergeBufferIsEmpty());
+  Assert(d_basicVariables.isMember(oldBasic));
+  Assert(!d_basicVariables.isMember(newBasic));
+  Assert(getColLength(newBasic) == 1);
 }
 
+void Tableau::setColumnUnused(ArithVar v){
+  ColIterator colIter = colIterator(v);
+  while(!colIter.atEnd()){
+    ++colIter;
+  }
+}
 void Tableau::printTableau(){
   Debug("tableau") << "Tableau::d_activeRows"  << endl;
 
-  typedef RowsTable::iterator table_iter;
-  for(table_iter rowIter = d_rowsTable.begin(), end = d_rowsTable.end();
-      rowIter != end; ++rowIter){
-    ReducedRowVector* row_k = *rowIter;
-    if(row_k != NULL){
-      row_k->printRow();
-    }
+  ArithVarSet::const_iterator basicIter = beginBasic(), endIter = endBasic();
+  for(; basicIter != endIter; ++basicIter){
+    ArithVar basic = *basicIter;
+    printRow(basic);
   }
 }
 
-uint32_t Tableau::numNonZeroEntries() const {
-  uint32_t colSum = 0;
-  ColumnMatrix::const_iterator i = d_columnMatrix.begin(), end = d_columnMatrix.end();
-  for(; i != end; ++i){
-    const Column& col = *i;
-    colSum += col.size();
+void Tableau::printRow(ArithVar basic){
+  Debug("tableau") << "{" << basic << ":";
+  for(RowIterator entryIter = rowIterator(basic); !entryIter.atEnd(); ++entryIter){
+    const TableauEntry& entry = *entryIter;
+    printEntry(entry);
+    Debug("tableau") << ",";
   }
-  return colSum;
+  Debug("tableau") << "}";
+}
+
+void Tableau::printEntry(const TableauEntry& entry){
+  Debug("tableau") << entry.getColVar() << "*" << entry.getCoefficient();
 }
 
 uint32_t Tableau::numNonZeroEntriesByRow() const {
   uint32_t rowSum = 0;
-  ArithVarSet::iterator i = d_basicVariables.begin(), end = d_basicVariables.end();
+  ArithVarSet::const_iterator i = d_basicVariables.begin(), end = d_basicVariables.end();
   for(; i != end; ++i){
     ArithVar basic = *i;
-    const ReducedRowVector& row = *(d_rowsTable[basic]);
-    rowSum += row.size();
+    rowSum += getRowLength(basic);
   }
   return rowSum;
 }
 
+uint32_t Tableau::numNonZeroEntriesByCol() const {
+  uint32_t colSum = 0;
+  VectorSizeTable::const_iterator i = d_basicVariables.begin();
+  VectorSizeTable::const_iterator end = d_basicVariables.end();
+  for(; i != end; ++i){
+    colSum += *i;
+  }
+  return colSum;
+}
 
+
+EntryID Tableau::findOnRow(ArithVar basic, ArithVar find){
+  for(RowIterator i = rowIterator(basic); !i.atEnd(); ++i){
+    EntryID id = i.getID();
+    const TableauEntry& entry = *i;
+    ArithVar colVar = entry.getColVar();
+
+    if(colVar == find){
+      return id;
+    }
+  }
+  return ENTRYID_SENTINEL;
+}
+
+void Tableau::loadRowIntoMergeBuffer(ArithVar basic){
+  Assert(mergeBufferIsEmpty());
+  for(RowIterator i = rowIterator(basic); !i.atEnd(); ++i){
+    EntryID id = i.getID();
+    const TableauEntry& entry = *i;
+    ArithVar colVar = entry.getColVar();
+    d_mergeBuffer[colVar] = make_pair(id, false);
+  }
+}
+
+void Tableau::emptyRowFromMergeBuffer(ArithVar basic){
+  Assert(isBasic(basic));
+  for(RowIterator i = rowIterator(basic); !i.atEnd(); ++i){
+    EntryID id = i.getID();
+    const TableauEntry& entry = *i;
+    ArithVar colVar = entry.getColVar();
+    Assert(d_mergeBuffer[colVar].first == id);
+    d_mergeBuffer[colVar] = make_pair(ENTRYID_SENTINEL, false);
+  }
+
+  Assert(mergeBufferIsEmpty());
+}
 
 
 /**
  * Changes basic to newbasic (a variable on the row).
  */
-void Tableau::rowPivot(ArithVar basic, ArithVar newBasic){
+void Tableau::rowPivot(ArithVar basicOld, ArithVar basicNew){
   Assert(mergeBufferIsEmpty());
-  Assert(isBasic(basic));
-  Assert(!isBasic(newBasic));
+  Assert(isBasic(basicOld));
+  Assert(!isBasic(basicNew));
 
-  EntryID newBasicID = ENTRYID_SENTINEL;
+  EntryID newBasicID = findOnRow(basicOld, basicNew);
 
-  for(RowIterator i = beginRow(basic); !i.atEnd(); ++i){
-    EntryID id = i.getId();
-    TableauEntry& entry = *i;
-    ArithVar colVar = entry.getColVar();
-    d_mergeBuffer[colVar] = make_pair(id, false);
-
-    if(colVar == newBasic){
-      Assert(newBasicID == ENTRYID_SENTINEL);
-      newBasicID = id;
-    }
-  }
   Assert(newBasicID != ENTRYID_SENTINEL);
 
-  TableauEntry& newBasicEntry = d_manager.get(newBasicID);
+  TableauEntry& newBasicEntry = d_entryManager.get(newBasicID);
   Rational negInverseA_rs = -(newBasicEntry.getCoefficient().inverse());
 
-  for(RowIterator i = beginRow(basic); !i.atEnd(); ++i){
-    TableauEntry& entry = *i;
+  for(RowIterator i = rowIterator(basicOld); !i.atEnd(); ++i){
+    EntryID id = i.getID();
+    TableauEntry& entry = d_entryManager.get(id);
 
-    entry.getCoefficient() *= c;
-    entry.setBasicVar(newBasic);
+    entry.getCoefficient() *=  negInverseA_rs;
+    entry.setRowVar(basicNew);
   }
 
-  d_rowHeads[newBasic] = d_rowHeads[basic];
-  d_rowsHeads[basic] = ENTRYID_SENTINEL;
+  d_rowHeads[basicNew] = d_rowHeads[basicOld];
+  d_rowHeads[basicOld] = ENTRYID_SENTINEL;
 
-  d_rowLengths[newBasic] = d_rowLengths[basic];
-  d_rowLengths[basic] = 0;
+  d_rowLengths[basicNew] = d_rowLengths[basicOld];
+  d_rowLengths[basicOld] = 0;
 
-  d_basicManager.remove(basic);
-  d_basicManager.add(newBasic);
+  d_basicVariables.remove(basicOld);
+  d_basicVariables.add(basicNew);
 }
 
-void addEntry(ArithVar row, ArithVar col, const Rational& coeff){
+void Tableau::addEntry(ArithVar row, ArithVar col, const Rational& coeff){
   EntryID newId = d_entryManager.newEntry();
-  TableauCoefficient& newEntry =  d_entryManager.get(newId);
+  TableauEntry& newEntry =  d_entryManager.get(newId);
   newEntry = TableauEntry( row, col, d_rowHeads[row], d_colHeads[col], coeff);
   Assert(newEntry.getCoefficient() != 0);
 
   d_rowHeads[row] = newId;
   d_colHeads[col] = newId;
-  ++d_rowLengths;
-  ++d_colLengths;
+  ++d_rowLengths[row];
+  ++d_colLengths[col];
 }
 
-void removeEntry(EntryID id){
-  TableauEntry& entry = d_basicManager.get(id);
-  --d_rowLength[entry.getRowVar()];
-  --d_colLength[entry.getColVar()];
+void Tableau::removeEntry(EntryID id){
+  TableauEntry& entry = d_entryManager.get(id);
+  --d_rowLengths[entry.getRowVar()];
+  --d_colLengths[entry.getColVar()];
   entry.markUnused();
 }
 
-void Tableau::rowPlusRowTimesConstant(const Rational& c, ArithVar basicTo, ArithVar basicFrom){
+void Tableau::rowPlusRowTimesConstant(ArithVar basicTo, const Rational& c, ArithVar basicFrom){
 
   Assert(c != 0);
   Assert(isBasic(basicTo));
   Assert(isBasic(basicFrom));
   Assert( d_usedList.empty() );
 
-  for(RowIterator i = beginRow(basicTo); !i.atEnd(); ++i){
-    TableauEntry& entry = *i;
+  for(RowIterator i = rowIterator(basicTo); !i.atEnd(); ++i){
+    EntryID id = i.getID();
+    TableauEntry& entry = d_entryManager.get(id);
     ArithVar colVar = entry.getColVar();
 
     if(bufferPairIsNotEmpty(d_mergeBuffer[colVar])){
       d_mergeBuffer[colVar].second = true;
-      usedList.push_back(colVar);
+      d_usedList.push_back(colVar);
 
       EntryID inOtherRow = d_mergeBuffer[colVar].first;
       const TableauEntry& other = d_entryManager.get(inOtherRow);
       entry.getCoefficient() += c * other.getCoefficient();
 
       if(entry.getCoefficient().sgn() == 0){
-        removeEntry(i.getId());
+        removeEntry(id);
       }
     }
   }
 
-  for(RowIterator i = beginRow(basicFrom); !i.atEnd(); ++i){
-    TableauEntry& entry = *i;
+  for(RowIterator i = rowIterator(basicFrom); !i.atEnd(); ++i){
+    const TableauEntry& entry = *i;
     ArithVar colVar = entry.getColVar();
 
     if(!(d_mergeBuffer[colVar]).second){
-      Rational newCoeff =  c * other.getCoefficient();
+      Rational newCoeff =  c * entry.getCoefficient();
       addEntry(basicTo, colVar, newCoeff);
     }
   }
@@ -302,8 +286,8 @@ void Tableau::rowPlusRowTimesConstant(const Rational& c, ArithVar basicTo, Arith
   clearUsedList();
 }
 
-void clearUsedList(){
-  ArrithVarArray::iterator i, end;
+void Tableau::clearUsedList(){
+  ArithVarArray::iterator i, end;
   for(i = d_usedList.begin(), end = d_usedList.end(); i != end; ++i){
     ArithVar pos = *i;
     d_mergeBuffer[pos].second = false;
@@ -311,60 +295,85 @@ void clearUsedList(){
   d_usedList.clear();
 }
 
-void addRow(ArithVar basic,
-            const std::vector<ArithVar>& variables,
-            const std::vector<Rational>& coefficients)
+void Tableau::addRow(ArithVar basic,
+                     const std::vector<Rational>& coefficients,
+                     const std::vector<ArithVar>& variables)
 {
   Assert(coefficients.size() == variables.size() );
+  Assert(!isBasic(basic));
+
+  d_basicVariables.add(basic);
 
   addEntry(basic, basic, Rational(-1));
-  d_entries.push_back(VarCoeffPair(basic, Rational(-1)));
 
   vector<Rational>::const_iterator coeffIter = coefficients.begin();
-  vector<Rational>::const_iterator coeffEnd = coefficients.end();
-  vector<ArithVar>::const_iterator varIter = variables.begin();
+  vector<ArithVar>::const_iterator varsIter = variables.begin();
+  vector<ArithVar>::const_iterator varsEnd = variables.end();
 
-  for(; coeffIter != coeffEnd; ++coeffIter, ++varIter){
+  for(; varsIter != varsEnd; ++coeffIter, ++varsIter){
     const Rational& coeff = *coeffIter;
-    ArithVar var_i = *varIter;
+    ArithVar var_i = *varsIter;
     addEntry(basic, var_i, coeff);
   }
 
-  Assert(noZeroCoefficients(basic);
+  varsIter = variables.begin();
+  coeffIter = coefficients.begin();
+  for(; varsIter != varsEnd; ++coeffIter, ++varsIter){
+    ArithVar var = *varsIter;
 
-  Assert(matchingCounts(basic));
-  Assert(wellFormed());
-  Assert(d_rowCount[d_basic] == 1);
-}
+    if(d_basicVariables.isMember(var)){
+      const Rational& coeff = *coeffIter;
 
-
-
-ReducedRowVector::~ReducedRowVector(){
-  //This executes before the super classes destructor RowVector,
-  // which will set this to 0.
-  Assert(d_rowCount[basic()] == 1);
-
-  const_iterator curr = begin();
-  const_iterator endEntries = end();
-  for(;curr != endEntries; ++curr){
-    ArithVar v = (*curr).getArithVar();
-    Assert(d_rowCount[v] >= 1);
-    d_columnMatrix[v].remove(basic());
-    --(d_rowCount[v]);
+      loadRowIntoMergeBuffer(var);
+      rowPlusRowTimesConstant(basic, coeff,  var);
+      emptyRowFromMergeBuffer(var);
+    }
   }
 
-  Assert(matchingCounts());
+  Assert(debugNoZeroCoefficients(basic));
+
+  Assert(debugMatchingCountsForRow(basic));
+  Assert(getColLength(basic) == 1);
 }
 
-bool ReducedRowVector::noZeroCoefficients(const VarCoeffArray& arr){
-  for(const_iterator curr = arr.begin(), endEntries = arr.end();
-      curr != endEntries; ++curr){
-    const Rational& coeff = (*curr).getCoefficient();
-    if(coeff == 0) return false;
+bool Tableau::debugNoZeroCoefficients(ArithVar basic){
+  for(RowIterator i=rowIterator(basic); !i.atEnd(); ++i){
+    const TableauEntry& entry = *i;
+    if(entry.getCoefficient() == 0){
+      return false;
+    }
+  }
+  return true;
+}
+bool Tableau::debugMatchingCountsForRow(ArithVar basic){
+  for(RowIterator i=rowIterator(basic); !i.atEnd(); ++i){
+    const TableauEntry& entry = *i;
+    ArithVar colVar = entry.getColVar();
+    if(debugCountColLength(colVar) != d_colLengths[colVar]){
+      return false;
+    }
   }
   return true;
 }
 
+
+uint32_t Tableau::debugCountColLength(ArithVar var){
+  uint32_t count = 0;
+  for(ColIterator i=colIterator(var); !i.atEnd(); ++i){
+    ++count;
+  }
+  return count;
+}
+
+uint32_t Tableau::debugCountRowLength(ArithVar var){
+  uint32_t count = 0;
+  for(RowIterator i=rowIterator(var); !i.atEnd(); ++i){
+    ++count;
+  }
+  return count;
+}
+
+/*
 void ReducedRowVector::enqueueNonBasicVariablesAndCoefficients(std::vector< ArithVar >& variables,std::vector< Rational >& coefficients) const{
   for(const_iterator i=begin(), endEntries=end(); i != endEntries; ++i){
     ArithVar var = (*i).getArithVar();
@@ -374,19 +383,20 @@ void ReducedRowVector::enqueueNonBasicVariablesAndCoefficients(std::vector< Arit
       coefficients.push_back(q);
     }
   }
-}
+  }*/
 
-Node ReducedRowVector::asEquality(const ArithVarToNodeMap& map) const{
+Node Tableau::rowAsEquality(ArithVar basic, const ArithVarToNodeMap& map){
   using namespace CVC4::kind;
 
-  Assert(size() >= 2);
+  Assert(getRowLength(basic) >= 2);
 
   vector<Node> nonBasicPairs;
-  for(const_iterator i = begin(); i != end(); ++i){
-    ArithVar nb = (*i).getArithVar();
-    if(nb == basic()) continue;
-    Node var = (map.find(nb))->second;
-    Node coeff = mkRationalNode((*i).getCoefficient());
+  for(RowIterator i = rowIterator(basic); !i.atEnd(); ++i){
+    const TableauEntry& entry = *i;
+    ArithVar colVar = entry.getColVar();
+    if(colVar == basic) continue;
+    Node var = (map.find(colVar))->second;
+    Node coeff = mkRationalNode(entry.getCoefficient());
 
     Node mult = NodeBuilder<2>(MULT) << coeff << var;
     nonBasicPairs.push_back(mult);
@@ -401,6 +411,6 @@ Node ReducedRowVector::asEquality(const ArithVarToNodeMap& map) const{
     sumBuilder.append(nonBasicPairs);
     sum = sumBuilder;
   }
-  Node basicVar = (map.find(basic()))->second;
+  Node basicVar = (map.find(basic))->second;
   return NodeBuilder<2>(EQUAL) << basicVar << sum;
 }

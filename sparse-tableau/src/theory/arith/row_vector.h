@@ -13,7 +13,7 @@
 namespace CVC4 {
 namespace theory {
 namespace arith {
-
+/*
 class VarCoeffPair {
 private:
   ArithVar d_variable;
@@ -34,6 +34,7 @@ public:
     return a < b;
   }
 };
+*/
 
 /**
  * ReducedRowVector is a sparse vector representation that represents the
@@ -41,170 +42,176 @@ public:
  * The row has a notion of a basic variable.
  * This is a variable that must have a coefficient of -1 in the array.
  */
-class ReducedRowVector {
-public:
-  typedef std::vector<VarCoeffPair> VarCoeffArray;
-  typedef VarCoeffArray::const_iterator const_iterator;
+// class ReducedRowVector {
+// public:
+//   typedef std::vector<VarCoeffPair> VarCoeffArray;
+//   typedef VarCoeffArray::const_iterator const_iterator;
 
-private:
-  typedef std::vector<bool> ArithVarContainsSet;
-  typedef VarCoeffArray::iterator iterator;
+// private:
+//   typedef std::vector<bool> ArithVarContainsSet;
+//   typedef VarCoeffArray::iterator iterator;
 
-  /**
-   * Invariants:
-   * - isSorted(d_entries, true)
-   * - noZeroCoefficients(d_entries)
-   */
-  VarCoeffArray d_entries;
+//   /**
+//    * Invariants:
+//    * - isSorted(d_entries, true)
+//    * - noZeroCoefficients(d_entries)
+//    */
+//   VarCoeffArray d_entries;
 
-  /**
-   * Buffer for d_entries to reduce allocations by addRowTimesConstant.
-   */
-  VarCoeffArray d_buffer;
+//   /**
+//    * Buffer for d_entries to reduce allocations by addRowTimesConstant.
+//    */
+//   VarCoeffArray d_buffer;
 
-  /**
-   * The basic variable associated with the row.
-   * Must have a coefficient of -1.
-   */
-  ArithVar d_basic;
-
-
-  /**
-   * Invariants:
-   * - This set is the same as the set maintained in d_entries.
-   */
-  ArithVarContainsSet d_contains;
+//   /**
+//    * The basic variable associated with the row.
+//    * Must have a coefficient of -1.
+//    */
+//   ArithVar d_basic;
 
 
-public:
-
-  ReducedRowVector(ArithVar basic,
-                   const std::vector< ArithVar >& variables,
-                   const std::vector< Rational >& coefficients,
-                   std::vector<uint32_t>& count,
-                   std::vector< PermissiveBackArithVarSet >& columnMatrix);
-  ~ReducedRowVector();
-
-  void enqueueNonBasicVariablesAndCoefficients(std::vector< ArithVar >& variables,
-                                               std::vector< Rational >& coefficients) const;
+//   /**
+//    * Invariants:
+//    * - This set is the same as the set maintained in d_entries.
+//    */
+//   ArithVarContainsSet d_contains;
 
 
-  /** Returns true if the variable is in the row. */
-  bool has(ArithVar x_j) const{
-    if(x_j >= d_contains.size()){
-      return false;
-    }else{
-      return d_contains[x_j];
-    }
-  }
+// public:
 
-  /**
-   * Returns the coefficient of a variable in the row.
-   */
-  const Rational& lookup(ArithVar x_j) const{
-    Needs to be linear;
-    Unimplemented();
-  }
+//   ReducedRowVector(ArithVar basic,
+//                    const std::vector< ArithVar >& variables,
+//                    const std::vector< Rational >& coefficients,
+//                    std::vector<uint32_t>& count,
+//                    std::vector< PermissiveBackArithVarSet >& columnMatrix);
+//   ~ReducedRowVector();
+
+//   void enqueueNonBasicVariablesAndCoefficients(std::vector< ArithVar >& variables,
+//                                                std::vector< Rational >& coefficients) const;
 
 
-  /** Prints the row to the buffer Debug("row::print"). */
-  void printRow();
+//   /** Returns true if the variable is in the row. */
+//   bool has(ArithVar x_j) const{
+//     if(x_j >= d_contains.size()){
+//       return false;
+//     }else{
+//       return d_contains[x_j];
+//     }
+//   }
 
-  /**
-   * Changes the basic variable to x_j.
-   * Precondition: has(x_j)
-   */
-  void pivot(ArithVar x_j);
+//   /**
+//    * Returns the coefficient of a variable in the row.
+//    */
+//   const Rational& lookup(ArithVar x_j) const{
+//     Needs to be linear;
+//     Unimplemented();
+//   }
 
-  /**
-   * Replaces other.basic() in the current row using the other row.
-   * This assumes the other row represents an equality equal to zero.
-   *
-   *   \sum(this->entries) -= this->lookup(other.basic()) * (\sum(other.d_entries))
-   * Precondition:
-   *  has(other.basic())
-   *  basic != other.basic()
-   */
-  void substitute(const ReducedRowVector& other);
-
-  /**
-   * Returns the reduced row as an equality with
-   * the basic variable on the lhs equal to the sum of the non-basics variables.
-   * The mapped from ArithVars to Nodes is specificied by map.
-   */
-  Node asEquality(const ArithVarToNodeMap& map) const;
-
-private:
-
-  /**
-   * \sum(this->entries) += c * (\sum(other.d_entries) )
-   *
-   * Updates the current row to be the sum of itself and
-   * another vector times c (c != 0).
-   */
-  void addRowTimesConstant(const Rational& c, const ReducedRowVector& other);
+//   /**
+//    * Changes the basic variable to x_j.
+//    * Precondition: has(x_j)
+//    */
+//   void pivot(ArithVar x_j);
 
 
-  /** Multiplies the coefficients of the RowVector by c (where c != 0). */
-  void multiply(const Rational& c);
+//   /** Prints the row to the buffer Debug("row::print"). */
+//   void printRow();
 
-  /**
-   * Adds v to d_contains.
-   * This may resize d_contains.
-   */
-  static void addArithVar(ArithVarContainsSet& contains, ArithVar v);
+//   /**
+//    * Changes the basic variable to x_j.
+//    * Precondition: has(x_j)
+//    */
+//   void pivot(ArithVar x_j);
 
-  /** Removes v from d_contains. */
-  static void removeArithVar(ArithVarContainsSet& contains, ArithVar v);
+//   /**
+//    * Replaces other.basic() in the current row using the other row.
+//    * This assumes the other row represents an equality equal to zero.
+//    *
+//    *   \sum(this->entries) -= this->lookup(other.basic()) * (\sum(other.d_entries))
+//    * Precondition:
+//    *  has(other.basic())
+//    *  basic != other.basic()
+//    */
+//   void substitute(const ReducedRowVector& other);
+
+//   /**
+//    * Returns the reduced row as an equality with
+//    * the basic variable on the lhs equal to the sum of the non-basics variables.
+//    * The mapped from ArithVars to Nodes is specificied by map.
+//    */
+//   Node asEquality(const ArithVarToNodeMap& map) const;
+
+// private:
+
+//   /**
+//    * \sum(this->entries) += c * (\sum(other.d_entries) )
+//    *
+//    * Updates the current row to be the sum of itself and
+//    * another vector times c (c != 0).
+//    */
+//   void addRowTimesConstant(const Rational& c, const ReducedRowVector& other);
 
 
-  /**
-   * Let c be -1 if strictlySorted is true and c be 0 otherwise.
-   * isSorted(arr, strictlySorted) is then equivalent to
-   * If i<j, cmp(getArithVar(d_entries[i]), getArithVar(d_entries[j])) <= c.
-   */
-  static bool isSorted(const VarCoeffArray& arr, bool strictlySorted);
+//   /** Multiplies the coefficients of the RowVector by c (where c != 0). */
+//   void multiply(const Rational& c);
 
-  /**
-   * Zips together an array of variables and coefficients and appends
-   * it to the end of an output vector.
-   */
-  static void zip(const std::vector< ArithVar >& variables,
-                  const std::vector< Rational >& coefficients,
-                  VarCoeffArray& output);
+//   /**
+//    * Adds v to d_contains.
+//    * This may resize d_contains.
+//    */
+//   static void addArithVar(ArithVarContainsSet& contains, ArithVar v);
 
-  /**
-   * Debugging code.
-   * noZeroCoefficients(arr) is equivalent to
-   *  0 != getCoefficient(arr[i]) for all i.
-   */
-  static bool noZeroCoefficients(const VarCoeffArray& arr);
+//   /** Removes v from d_contains. */
+//   static void removeArithVar(ArithVarContainsSet& contains, ArithVar v);
 
-  /** Debugging code.*/
-  bool matchingCounts() const;
 
-  const_iterator lower_bound(ArithVar x_j) const{
-    return std::lower_bound(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j, 0));
-  }
+//   /**
+//    * Let c be -1 if strictlySorted is true and c be 0 otherwise.
+//    * isSorted(arr, strictlySorted) is then equivalent to
+//    * If i<j, cmp(getArithVar(d_entries[i]), getArithVar(d_entries[j])) <= c.
+//    */
+//   static bool isSorted(const VarCoeffArray& arr, bool strictlySorted);
 
-  /** Debugging code */
-  bool wellFormed() const{
-    return
-      isSorted(d_entries, true) &&
-      noZeroCoefficients(d_entries) &&
-      basicIsSet() &&
-      has(basic()) &&
-      lookup(basic()) == Rational(-1);
-  }
+//   /**
+//    * Zips together an array of variables and coefficients and appends
+//    * it to the end of an output vector.
+//    */
+//   static void zip(const std::vector< ArithVar >& variables,
+//                   const std::vector< Rational >& coefficients,
+//                   VarCoeffArray& output);
 
-  bool basicIsSet() const { return d_basic != ARITHVAR_SENTINEL; }
+//   /**
+//    * Debugging code.
+//    * noZeroCoefficients(arr) is equivalent to
+//    *  0 != getCoefficient(arr[i]) for all i.
+//    */
+//   static bool noZeroCoefficients(const VarCoeffArray& arr);
 
-  /** Debugging code. */
-  bool hasInEntries(ArithVar x_j) const {
-    return std::binary_search(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j,0));
-  }
+//   /** Debugging code.*/
+//   bool matchingCounts() const;
 
-}; /* class ReducedRowVector */
+//   const_iterator lower_bound(ArithVar x_j) const{
+//     return std::lower_bound(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j, 0));
+//   }
+
+//   /** Debugging code */
+//   bool wellFormed() const{
+//     return
+//       isSorted(d_entries, true) &&
+//       noZeroCoefficients(d_entries) &&
+//       basicIsSet() &&
+//       has(basic()) &&
+//       lookup(basic()) == Rational(-1);
+//   }
+
+//   bool basicIsSet() const { return d_basic != ARITHVAR_SENTINEL; }
+
+//   /** Debugging code. */
+//   bool hasInEntries(ArithVar x_j) const {
+//     return std::binary_search(d_entries.begin(), d_entries.end(), VarCoeffPair(x_j,0));
+//   }
+
+// }; /* class ReducedRowVector */
 
 
 }/* namespace CVC4::theory::arith */
@@ -212,3 +219,4 @@ private:
 }/* namespace CVC4 */
 
 #endif /* __CVC4__THEORY__ARITH_ARITH_CONSTANTS_H */
+
