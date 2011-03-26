@@ -309,7 +309,9 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   Result result = portfolioReturn.second;
 
   cout << result << endl;
-  //cout << "The winner is #" << (winner == 0 ? 0 : 1) << endl;
+  if(options.printWinner){
+    cout << "The winner is #" << (winner == 0 ? 0 : 1) << endl;
+  }
 
   Result satRes = result.asSatisfiabilityResult();
   int returnValue;

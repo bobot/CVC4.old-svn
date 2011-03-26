@@ -106,6 +106,9 @@ struct CVC4_PUBLIC Options {
   /** Whether we're in interactive mode or not */
   bool interactive;
 
+  /** Parallel Only: Whether the winner is printed at the end or not. */
+  bool printWinner;
+
   /**
    * Whether we're in interactive mode (or not) due to explicit user
    * setting (if false, we inferred the proper default setting).
@@ -155,6 +158,7 @@ struct CVC4_PUBLIC Options {
     strictParsing(false),
     lazyDefinitionExpansion(false),
     interactive(false),
+    printWinner(false),
     interactiveSetByUser(false),
     segvNoSpin(false),
     produceModels(false),

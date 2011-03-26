@@ -53,6 +53,7 @@ static const string optionsDescription = "\
    --no-type-checking     never type check expressions\n\
    --no-checking          disable ALL semantic checks, including type checks \n\
    --no-theory-registration disable theory reg (not safe for some theories)\n\
+   --print-winner         enable printing the winning thread (pcvc4 only)\n\
    --strict-parsing       fail on non-conformant inputs (SMT2 only)\n\
    --verbose | -v         increase verbosity (repeatable)\n\
    --quiet | -q           decrease verbosity (repeatable)\n\
@@ -121,7 +122,8 @@ enum OptionValue {
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
   INCREMENTAL,
-  PIVOT_RULE
+  PIVOT_RULE,
+  PRINT_WINNER
 };/* enum OptionValue */
 
 /**
@@ -179,6 +181,7 @@ static struct option cmdlineOptions[] = {
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING},
   { "incremental", no_argument, NULL, INCREMENTAL},
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
+  { "print-winner" , no_argument    , NULL, PRINT_WINNER  },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -288,6 +291,10 @@ throw(OptionException) {
 
     case USE_MMAP:
       memoryMap = true;
+      break;
+
+    case PRINT_WINNER:
+      printWinner = true;
       break;
 
     case STRICT_PARSING:
