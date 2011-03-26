@@ -75,7 +75,7 @@ ReducedRowVector* Tableau::removeRow(ArithVar basic){
 
 void Tableau::pivot(ArithVar oldBasic, ArithVar newBasic){
   Assert(isBasic(oldBasic));
-  Assert(isBasic(newBasic));
+  Assert(!isBasic(newBasic));
   Assert(mergeBufferIsEmpty());
 
   Debug("tableau") << "Tableau::pivot(" <<  oldBasic <<", " << newBasic <<")"  << endl;
@@ -92,20 +92,21 @@ void Tableau::pivot(ArithVar oldBasic, ArithVar newBasic){
     if(entry.getRowVar() == newBasic){ continue; }
 
     ArithVar basicTo = entry.getRowVar();
-    const Rational& coeff = entry.getCoefficient();
+    Rational coeff = entry.getCoefficient();
+
     rowPlusRowTimesConstant(basicTo, coeff, newBasic);
   }
   emptyRowFromMergeBuffer(newBasic);
 
   //Clear the column for used for this variable
-  setColumnUnused(newBasic);
-
 
   Assert(mergeBufferIsEmpty());
-  Assert(d_basicVariables.isMember(oldBasic));
-  Assert(!d_basicVariables.isMember(newBasic));
+  Assert(!isBasic(oldBasic));
+  Assert(isBasic(newBasic));
   Assert(getColLength(newBasic) == 1);
 }
+
+Tableau::~Tableau(){}
 
 void Tableau::setColumnUnused(ArithVar v){
   ColIterator colIter = colIterator(v);
@@ -130,7 +131,7 @@ void Tableau::printRow(ArithVar basic){
     printEntry(entry);
     Debug("tableau") << ",";
   }
-  Debug("tableau") << "}";
+  Debug("tableau") << "}" << endl;
 }
 
 void Tableau::printEntry(const TableauEntry& entry){
@@ -149,8 +150,8 @@ uint32_t Tableau::numNonZeroEntriesByRow() const {
 
 uint32_t Tableau::numNonZeroEntriesByCol() const {
   uint32_t colSum = 0;
-  VectorSizeTable::const_iterator i = d_basicVariables.begin();
-  VectorSizeTable::const_iterator end = d_basicVariables.end();
+  VectorSizeTable::const_iterator i = d_colLengths.begin();
+  VectorSizeTable::const_iterator end = d_colLengths.end();
   for(; i != end; ++i){
     colSum += *i;
   }
@@ -158,17 +159,50 @@ uint32_t Tableau::numNonZeroEntriesByCol() const {
 }
 
 
-EntryID Tableau::findOnRow(ArithVar basic, ArithVar find){
-  for(RowIterator i = rowIterator(basic); !i.atEnd(); ++i){
+EntryID Tableau::findOnRow(ArithVar row, ArithVar col){
+  for(RowIterator i = rowIterator(row); !i.atEnd(); ++i){
     EntryID id = i.getID();
     const TableauEntry& entry = *i;
     ArithVar colVar = entry.getColVar();
 
-    if(colVar == find){
+    if(colVar == col){
       return id;
     }
   }
   return ENTRYID_SENTINEL;
+}
+
+EntryID Tableau::findOnCol(ArithVar row, ArithVar col){
+  for(ColIterator i = colIterator(col); !i.atEnd(); ++i){
+    EntryID id = i.getID();
+    const TableauEntry& entry = *i;
+    ArithVar rowVar = entry.getRowVar();
+
+    if(rowVar == row){
+      return id;
+    }
+  }
+  return ENTRYID_SENTINEL;
+}
+
+const TableauEntry& Tableau::findEntry(ArithVar row, ArithVar col){
+  bool colIsShorter = getColLength(col) < getRowLength(row);
+  EntryID id = colIsShorter ? findOnCol(row,col) : findOnRow(row,col);
+  if(id == ENTRYID_SENTINEL){
+    return d_failedFind;
+  }else{
+    return d_entryManager.get(id);
+  }
+}
+
+void Tableau::removeRow(ArithVar basic){
+  RowIterator i = rowIterator(basic);
+  while(!i.atEnd()){
+    EntryID id = i.getID();
+    ++i;
+    removeEntry(id);
+  }
+  d_basicVariables.remove(basic);
 }
 
 void Tableau::loadRowIntoMergeBuffer(ArithVar basic){
@@ -184,10 +218,9 @@ void Tableau::loadRowIntoMergeBuffer(ArithVar basic){
 void Tableau::emptyRowFromMergeBuffer(ArithVar basic){
   Assert(isBasic(basic));
   for(RowIterator i = rowIterator(basic); !i.atEnd(); ++i){
-    EntryID id = i.getID();
     const TableauEntry& entry = *i;
     ArithVar colVar = entry.getColVar();
-    Assert(d_mergeBuffer[colVar].first == id);
+    Assert(d_mergeBuffer[colVar].first == i.getID());
     d_mergeBuffer[colVar] = make_pair(ENTRYID_SENTINEL, false);
   }
 
@@ -229,10 +262,25 @@ void Tableau::rowPivot(ArithVar basicOld, ArithVar basicNew){
 }
 
 void Tableau::addEntry(ArithVar row, ArithVar col, const Rational& coeff){
+  Assert(coeff != 0);
+
   EntryID newId = d_entryManager.newEntry();
   TableauEntry& newEntry =  d_entryManager.get(newId);
-  newEntry = TableauEntry( row, col, d_rowHeads[row], d_colHeads[col], coeff);
+  newEntry = TableauEntry( row, col,
+                           d_rowHeads[row], d_colHeads[col],
+                           ENTRYID_SENTINEL, ENTRYID_SENTINEL,
+                           coeff);
   Assert(newEntry.getCoefficient() != 0);
+
+  Debug("tableau") << "addEntry(" << row << "," << col <<"," << coeff << ")" << endl;
+
+  ++d_entriesInUse;
+
+  if(d_rowHeads[row] != ENTRYID_SENTINEL)
+    d_entryManager.get(d_rowHeads[row]).setPrevRowID(newId);
+
+  if(d_colHeads[col] != ENTRYID_SENTINEL)
+    d_entryManager.get(d_colHeads[col]).setPrevColID(newId);
 
   d_rowHeads[row] = newId;
   d_colHeads[col] = newId;
@@ -241,24 +289,75 @@ void Tableau::addEntry(ArithVar row, ArithVar col, const Rational& coeff){
 }
 
 void Tableau::removeEntry(EntryID id){
+  Assert(d_entriesInUse > 0);
+  --d_entriesInUse;
+
   TableauEntry& entry = d_entryManager.get(id);
-  --d_rowLengths[entry.getRowVar()];
-  --d_colLengths[entry.getColVar()];
-  entry.markUnused();
+
+  ArithVar row = entry.getRowVar();
+  ArithVar col = entry.getColVar();
+
+  Assert(d_rowLengths[row] > 0);
+  Assert(d_colLengths[col] > 0);
+
+
+  --d_rowLengths[row];
+  --d_colLengths[col];
+
+  EntryID prevRow = entry.getPrevRowID();
+  EntryID prevCol = entry.getPrevColID();
+
+  EntryID nextRow = entry.getNextRowID();
+  EntryID nextCol = entry.getNextColID();
+
+  if(d_rowHeads[row] == id){
+    d_rowHeads[row] = nextRow;
+  }
+  if(d_colHeads[col] == id){
+    d_colHeads[col] = nextCol;
+  }
+
+  entry.markBlank();
+
+  if(prevRow != ENTRYID_SENTINEL){
+    d_entryManager.get(prevRow).setNextRowID(nextRow);
+  }
+  if(nextRow != ENTRYID_SENTINEL){
+    d_entryManager.get(nextRow).setPrevRowID(prevRow);
+  }
+
+  if(prevCol != ENTRYID_SENTINEL){
+    d_entryManager.get(prevCol).setNextColID(nextCol);
+  }
+  if(nextCol != ENTRYID_SENTINEL){
+    d_entryManager.get(nextCol).setPrevColID(prevCol);
+  }
+
+  d_entryManager.freeEntry(id);
 }
 
 void Tableau::rowPlusRowTimesConstant(ArithVar basicTo, const Rational& c, ArithVar basicFrom){
+
+  Debug("tableau") << "rowPlusRowTimesConstant("
+                   << basicTo << "," << c << "," << basicFrom << ")"
+                   << endl;
+
+  Assert(debugNoZeroCoefficients(basicTo));
+  Assert(debugNoZeroCoefficients(basicFrom));
 
   Assert(c != 0);
   Assert(isBasic(basicTo));
   Assert(isBasic(basicFrom));
   Assert( d_usedList.empty() );
 
-  for(RowIterator i = rowIterator(basicTo); !i.atEnd(); ++i){
+
+  RowIterator i = rowIterator(basicTo);
+  while(!i.atEnd()){
     EntryID id = i.getID();
     TableauEntry& entry = d_entryManager.get(id);
     ArithVar colVar = entry.getColVar();
 
+    ++i;
     if(bufferPairIsNotEmpty(d_mergeBuffer[colVar])){
       d_mergeBuffer[colVar].second = true;
       d_usedList.push_back(colVar);
@@ -284,6 +383,8 @@ void Tableau::rowPlusRowTimesConstant(ArithVar basicTo, const Rational& c, Arith
   }
 
   clearUsedList();
+
+  printTableau();
 }
 
 void Tableau::clearUsedList(){
@@ -304,6 +405,8 @@ void Tableau::addRow(ArithVar basic,
 
   d_basicVariables.add(basic);
 
+  printTableau();
+
   addEntry(basic, basic, Rational(-1));
 
   vector<Rational>::const_iterator coeffIter = coefficients.begin();
@@ -321,14 +424,16 @@ void Tableau::addRow(ArithVar basic,
   for(; varsIter != varsEnd; ++coeffIter, ++varsIter){
     ArithVar var = *varsIter;
 
-    if(d_basicVariables.isMember(var)){
-      const Rational& coeff = *coeffIter;
+    if(isBasic(var)){
+      Rational coeff = *coeffIter;
 
       loadRowIntoMergeBuffer(var);
       rowPlusRowTimesConstant(basic, coeff,  var);
       emptyRowFromMergeBuffer(var);
     }
   }
+
+  printTableau();
 
   Assert(debugNoZeroCoefficients(basic));
 
@@ -349,7 +454,11 @@ bool Tableau::debugMatchingCountsForRow(ArithVar basic){
   for(RowIterator i=rowIterator(basic); !i.atEnd(); ++i){
     const TableauEntry& entry = *i;
     ArithVar colVar = entry.getColVar();
-    if(debugCountColLength(colVar) != d_colLengths[colVar]){
+    uint32_t count = debugCountColLength(colVar);
+    Debug("tableau") << "debugMatchingCountsForRow "
+                     << basic << ":" << colVar << " " << count
+                     <<" "<< d_colLengths[colVar] << endl;
+    if( count != d_colLengths[colVar] ){
       return false;
     }
   }
@@ -358,10 +467,14 @@ bool Tableau::debugMatchingCountsForRow(ArithVar basic){
 
 
 uint32_t Tableau::debugCountColLength(ArithVar var){
+  Debug("tableau") << var << " ";
   uint32_t count = 0;
   for(ColIterator i=colIterator(var); !i.atEnd(); ++i){
+    const TableauEntry& entry = *i;
+    Debug("tableau") << "(" << entry.getRowVar() << ", " << i.getID() << ") ";
     ++count;
   }
+  Debug("tableau") << endl;
   return count;
 }
 
@@ -413,4 +526,46 @@ Node Tableau::rowAsEquality(ArithVar basic, const ArithVarToNodeMap& map){
   }
   Node basicVar = (map.find(basic))->second;
   return NodeBuilder<2>(EQUAL) << basicVar << sum;
+}
+
+double Tableau::densityMeasure() const{
+  Assert(numNonZeroEntriesByRow() == numNonZeroEntries());
+  Assert(numNonZeroEntriesByCol() == numNonZeroEntries());
+
+  uint32_t n = getNumRows();
+  if(n == 0){
+    return 1.0;
+  }else {
+    uint32_t s = numNonZeroEntries();
+    uint32_t m = d_colHeads.size();
+    uint32_t divisor = (n *(m - n + 1));
+
+    Assert(n >= 1);
+    Assert(m >= n);
+    Assert(divisor > 0);
+    Assert(divisor >= s);
+
+    return (double(s)) / divisor;
+  }
+}
+
+void TableauEntryManager::freeEntry(EntryID id){
+  Assert(get(id).blank());
+  Assert(d_size > 0);
+
+  d_freedEntries.push(id);
+  --d_size;
+}
+
+EntryID TableauEntryManager::newEntry(){
+  EntryID newId;
+  if(d_freedEntries.empty()){
+    newId = d_entries.size();
+    d_entries.push_back(TableauEntry());
+  }else{
+    newId = d_freedEntries.front();
+    d_freedEntries.pop();
+  }
+  ++d_size;
+  return newId;
 }

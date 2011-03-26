@@ -129,21 +129,21 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
 
 ArithVar TheoryArith::findShortestBasicRow(ArithVar variable){
   ArithVar bestBasic = ARITHVAR_SENTINEL;
-  uint64_t rowLength = std::numeric_limits<uint64_t>::max();
+  uint64_t bestRowLength = std::numeric_limits<uint64_t>::max();
 
-  Column::iterator basicIter = d_tableau.beginColumn(variable);
-  Column::iterator end = d_tableau.endColumn(variable);
-  for(; basicIter != end; ++basicIter){
-    ArithVar x_j = *basicIter;
-    ReducedRowVector& row_j = d_tableau.lookup(x_j);
-
-    Assert(row_j.has(variable));
-    if((row_j.size() < rowLength) ||
-       (row_j.size() == rowLength && x_j < bestBasic)){
-      bestBasic = x_j;
-      rowLength = row_j.size();
+  Tableau::ColIterator basicIter = d_tableau.colIterator(variable);
+  for(; !basicIter.atEnd(); ++basicIter){
+    const TableauEntry& entry = *basicIter;
+    Assert(entry.getColVar() == variable);
+    ArithVar basic = entry.getRowVar();
+    uint32_t rowLength = d_tableau.getRowLength(basic);
+    if((rowLength < bestRowLength) ||
+       (rowLength == bestRowLength && basic < bestBasic)){
+      bestBasic = basic;
+      bestRowLength = rowLength;
     }
   }
+  Assert(bestBasic == ARITHVAR_SENTINEL || bestRowLength < std::numeric_limits<uint32_t>::max());
   return bestBasic;
 }
 
@@ -409,7 +409,7 @@ void TheoryArith::check(Effort effortLevel){
     }
   }
 
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
   if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
   Debug("arith") << "TheoryArith::check end" << std::endl;
 }
@@ -585,7 +585,7 @@ void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
 void TheoryArith::notifyRestart(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_restartTimer);
 
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
 
   ++d_restartsCounter;
   if(d_restartsCounter % d_tableauResetPeriod == 0){
@@ -639,15 +639,14 @@ void TheoryArith::permanentlyRemoveVariable(ArithVar v){
     Assert(!noRow);
 
     //remove the row from the tableau
-    ReducedRowVector* row  = d_tableau.removeRow(v);
-    Node eq = row->asEquality(d_arithVarToNodeMap);
+    Node eq =  d_tableau.rowAsEquality(v, d_arithVarToNodeMap);
+    d_tableau.removeRow(v);
 
-    if(Debug.isOn("row::print")) row->printRow();
     if(Debug.isOn("tableau")) d_tableau.printTableau();
     Debug("arith::permanentlyRemoveVariable") << eq << endl;
-    delete row;
 
-    Assert(d_tableau.getRowCount(v) == 0);
+    Assert(d_tableau.getRowLength(v) == 0);
+    Assert(d_tableau.getColLength(v) == 0);
     Assert(d_removedRows.find(v) ==  d_removedRows.end());
     d_removedRows[v] = eq;
   }
@@ -675,7 +674,7 @@ void TheoryArith::presolve(){
   d_initialDensity = d_initialTableau.densityMeasure();
   d_statistics.d_initialTableauDensity.setData(d_initialDensity);
 
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
 
   static int callCount = 0;
   Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;

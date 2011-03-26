@@ -49,6 +49,9 @@ private:
   EntryID d_nextRow;
   EntryID d_nextCol;
 
+  EntryID d_prevRow;
+  EntryID d_prevCol;
+
   Rational d_coefficient;
 
 public:
@@ -57,22 +60,28 @@ public:
     d_colVar(ARITHVAR_SENTINEL),
     d_nextRow(ENTRYID_SENTINEL),
     d_nextCol(ENTRYID_SENTINEL),
+    d_prevRow(ENTRYID_SENTINEL),
+    d_prevCol(ENTRYID_SENTINEL),
     d_coefficient(0)
   {}
 
   TableauEntry(ArithVar row, ArithVar col,
                EntryID nextRowEntry, EntryID nextColEntry,
+               EntryID prevRowEntry, EntryID prevColEntry,
                const Rational& coeff):
     d_rowVar(row),
     d_colVar(col),
     d_nextRow(nextRowEntry),
     d_nextCol(nextColEntry),
+    d_prevRow(prevRowEntry),
+    d_prevCol(prevColEntry),
     d_coefficient(coeff)
   {}
 
 private:
   bool unusedConsistent() const {
-    return (d_rowVar == ARITHVAR_SENTINEL && d_colVar == ARITHVAR_SENTINEL) ||
+    return
+      (d_rowVar == ARITHVAR_SENTINEL && d_colVar == ARITHVAR_SENTINEL) ||
       (d_rowVar != ARITHVAR_SENTINEL && d_colVar != ARITHVAR_SENTINEL);
   }
 
@@ -83,15 +92,27 @@ public:
   }
 
   EntryID getNextColID() const {
-    return d_nextRow;
+    return d_nextCol;
+  }
+  EntryID getPrevRowID() const {
+    return d_prevRow;
   }
 
-  EntryID& getNextRowIDRef() {
-    return d_nextRow;
+  EntryID getPrevColID() const {
+    return d_prevCol;
   }
 
-  EntryID& getNextColIDRef() {
-    return d_nextRow;
+  void setNextRowID(EntryID id) {
+    d_nextRow = id;
+  }
+  void setNextColID(EntryID id) {
+    d_nextCol = id;
+  }
+  void setPrevRowID(EntryID id) {
+    d_prevRow = id;
+  }
+  void setPrevColID(EntryID id) {
+    d_prevCol = id;
   }
 
   void setRowVar(ArithVar newRowVar){
@@ -113,36 +134,15 @@ public:
     return d_coefficient;
   }
 
-  bool isUnused() const{
+  void markBlank() {
+    d_rowVar = ARITHVAR_SENTINEL;
+    d_colVar = ARITHVAR_SENTINEL;
+  }
+
+  bool blank() const{
     Assert(unusedConsistent());
 
     return d_rowVar == ARITHVAR_SENTINEL;
-  }
-
-  void markUnused (){
-    Assert(!isUnused());
-
-    d_rowVar = ARITHVAR_SENTINEL;
-    d_colVar = ARITHVAR_SENTINEL;
-    Assert(isUnused());
-  }
-
-  EntryID unlinkFromRow(){
-    Assert(isUnused());
-    EntryID currNextRow = d_nextRow;
-    d_nextRow = ENTRYID_SENTINEL;
-    return currNextRow;
-  }
-
-  EntryID unlinkFromCol(){
-    Assert(isUnused());
-    EntryID currNextCol = d_nextCol;
-    d_nextCol = ENTRYID_SENTINEL;
-    return currNextCol;
-  }
-
-  bool isUnusedAndUnlinked() const{
-    return isUnused() && d_nextRow == ENTRYID_SENTINEL && d_nextCol == ENTRYID_SENTINEL;
   }
 };
 
@@ -170,31 +170,17 @@ public:
     return d_entries[id];
   }
 
-  void freeEntry(EntryID id){
-    Assert(get(id).isUnusedAndUnlinked());
-    Assert(d_size > 0);
+  void freeEntry(EntryID id);
 
-    d_freedEntries.push(id);
-    --d_size;
-  }
-
-  EntryID newEntry(){
-    EntryID newId;
-    if(d_freedEntries.empty()){
-      newId = d_entries.size();
-      d_entries.push_back(TableauEntry());
-    }else{
-      newId = d_freedEntries.front();
-      d_freedEntries.pop();
-    }
-    ++d_size;
-    return newId;
-  }
+  EntryID newEntry();
 
   uint32_t size() const{ return d_size; }
+  uint32_t capacity() const{ return d_entries.capacity(); }
+
+
 private:
   bool inBounds(EntryID id) const{
-    return id < size();
+    return id <  d_entries.size();
   }
 };
 
@@ -221,13 +207,15 @@ private:
   typedef std::vector<ArithVar> ArithVarArray;
   ArithVarArray d_usedList;
 
+
+  uint32_t d_entriesInUse;
   TableauEntryManager d_entryManager;
 
 public:
   /**
    * Constructs an empty tableau.
    */
-  Tableau() {}
+  Tableau() : d_entriesInUse(0) {}
   ~Tableau();
 
 private:
@@ -241,35 +229,9 @@ private:
     TableauEntryManager& d_entryManager;
 
   public:
-    Iterator(ArithVar basic, VectorHeadTable& table, TableauEntryManager& manager) :
-      d_entryManager(manager)
-    {
-      EntryID& head = table[basic];
-      updateNext(head);
-      d_curr = head;
-    }
-
-    /**
-     * Updates both d_curr and start to point to the next entry in the list the is valid.
-     * If this is the end of the list
-     */
-    void updateNext(EntryID& start){
-      while(start != ENTRYID_SENTINEL){
-        TableauEntry& nextEntry = d_entryManager.get(start);
-        if(nextEntry.isUnused()){
-          EntryID tmp = isRowIterator ?
-            nextEntry.unlinkFromRow() :
-            nextEntry.unlinkFromCol();
-
-          if(nextEntry.isUnusedAndUnlinked()){
-            d_entryManager.freeEntry(start);
-          }
-          start = tmp;
-        }else{
-          break;
-        }
-      }
-    }
+    Iterator(EntryID start, TableauEntryManager& manager) :
+      d_curr(start), d_entryManager(manager)
+    {}
 
   public:
 
@@ -285,11 +247,7 @@ private:
     Iterator& operator++(){
       Assert(!atEnd());
       TableauEntry& entry = d_entryManager.get(d_curr);
-      EntryID& nextRef = isRowIterator ?
-        entry.getNextRowIDRef() :
-        entry.getNextColIDRef();
-      updateNext(nextRef);
-      d_curr = nextRef;
+      d_curr = isRowIterator ? entry.getNextRowID() : entry.getNextColID();
       return *this;
     }
 
@@ -301,6 +259,8 @@ private:
 public:
   typedef Iterator<true> RowIterator;
   typedef Iterator<false> ColIterator;
+
+  double densityMeasure() const;
 
   size_t getNumRows() const {
     return d_basicVariables.size();
@@ -332,12 +292,14 @@ public:
 
   RowIterator rowIterator(ArithVar v){
     Assert(v < d_rowHeads.size());
-    return RowIterator(v, d_rowHeads, d_entryManager);
+    EntryID head = d_rowHeads[v];
+    return RowIterator(head, d_entryManager);
   }
 
   ColIterator colIterator(ArithVar v){
     Assert(v < d_colHeads.size());
-    return ColIterator(v, d_colHeads, d_entryManager);
+    EntryID head = d_colHeads[v];
+    return ColIterator(head, d_entryManager);
   }
 
 
@@ -379,7 +341,13 @@ private:
   void rowPlusRowTimesConstant(ArithVar basicTo, const Rational& coeff, ArithVar basicFrom);
 
   EntryID findOnRow(ArithVar basic, ArithVar find);
+  EntryID findOnCol(ArithVar basic, ArithVar find);
+
+  TableauEntry d_failedFind;
 public:
+
+  /** If the find fails, isUnused is true on the entry. */
+  const TableauEntry& findEntry(ArithVar row, ArithVar col);
 
   /**
    * Prints the contents of the Tableau to Debug("tableau::print")
@@ -409,13 +377,21 @@ private:
 
   void setColumnUnused(ArithVar v);
 
-  uint32_t getNumNonZeroEntries() const {
+public:
+  uint32_t size() const {
+    return d_entriesInUse;
+  }
+  uint32_t getNumEntriesInTableau() const {
     return d_entryManager.size();
   }
+  uint32_t getEntryCapacity() const {
+    return d_entryManager.capacity();
+  }
 
+  void removeRow(ArithVar basic);
   Node rowAsEquality(ArithVar basic, const ArithVarToNodeMap& map);
 private:
-  uint32_t numNonZeroEntries() const;
+  uint32_t numNonZeroEntries() const { return size(); }
   uint32_t numNonZeroEntriesByRow() const;
   uint32_t numNonZeroEntriesByCol() const;
 
