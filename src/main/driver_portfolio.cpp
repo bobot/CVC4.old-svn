@@ -144,7 +144,7 @@ std::string intToString(int i)
 // }
 
 void doCommand(SmtEngine&, Command*, Options&);
-int doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
+Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 {
@@ -244,19 +244,19 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 
 
   // Create the expression manager
-  ExprManager exprMgr(options);
+  ExprManager* exprMgr = new ExprManager(options);
 
   // Parse commands until we are done
   Command* cmd;
-  CommandSequence seq;
+  CommandSequence* seq = new CommandSequence();
   if( options.interactive ) {
-    InteractiveShell shell(exprMgr,options);
+    InteractiveShell shell(*exprMgr,options);
     while((cmd = shell.readCommand())) {
-      seq.addCommand(cmd);
+      seq->addCommand(cmd);
     }
   } else {
     ParserBuilder parserBuilder =
-      ParserBuilder(&exprMgr, filename, options);
+      ParserBuilder(exprMgr, filename, options);
 
     if( inputFromStdin ) {
       parserBuilder.withStreamInput(cin);
@@ -264,7 +264,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 
     Parser *parser = parserBuilder.build();
     while((cmd = parser->nextCommand())) {
-      seq.addCommand(cmd);
+      seq->addCommand(cmd);
       // doCommand(smt, cmd, options);
       // delete cmd;
     }
@@ -280,9 +280,9 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   // - Create a second exprMgr, and import everything there
 
   // Duplication, Individualisation
-  ExprManager exprMgr2;
-  VariableTypeMap vmap;
-  Command *seq2 = seq.exportTo(&exprMgr2, vmap);
+  ExprManager* exprMgr2 = new ExprManager();
+  VariableTypeMap* vmap = new VariableTypeMap();
+  Command *seq2 = seq->exportTo(exprMgr2, *vmap);
   Options options2 = options;
   options.pivotRule = Options::MINIMUM;
   options2.pivotRule = Options::MAXIMUM;
@@ -297,16 +297,29 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   // options.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #0");
   // options2.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #1");
 
+
   assert(numThreads == 2);
-  function <int()> fns[numThreads];
-  fns[0] = boost::bind(doSmt, boost::ref(exprMgr), &seq, boost::ref(options));
-  fns[1] = boost::bind(doSmt, boost::ref(exprMgr2), seq2, boost::ref(options2));
-  
-  pair<int,int> portfolioReturn = runPortfolio(numThreads, function<void()>(), fns);
+  function <Result()> fns[numThreads];
+
+  fns[0] = boost::bind(doSmt, boost::ref(*exprMgr), seq, boost::ref(options));
+  fns[1] = boost::bind(doSmt, boost::ref(*exprMgr2), seq2, boost::ref(options2));
+
+  pair<int, Result> portfolioReturn = runPortfolio(numThreads, function<void()>(), fns);
   int winner = portfolioReturn.first;
-  int returnValue = portfolioReturn.second;
-  
-  cout << (winner == 0 ? ss_out : ss_out2).str();
+  Result result = portfolioReturn.second;
+
+  cout << result << endl;
+  //cout << "The winner is #" << (winner == 0 ? 0 : 1) << endl;
+
+  Result satRes = result.asSatisfiabilityResult();
+  int returnValue;
+  if(satRes.isSat() == Result::SAT) {
+    returnValue = 10;
+  } else if(satRes.isSat() == Result::UNSAT) {
+    returnValue = 20;
+  } else {
+    returnValue = 0;
+  }
 
 #ifdef CVC4_COMPETITION_MODE
   // exit, don't return
@@ -323,6 +336,17 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 
   // StatisticsRegistry::unregisterStat(&s_statSatResult);
   // StatisticsRegistry::unregisterStat(&s_statFilename);
+
+  // destruction is causing segfaults, let us just exit
+  //exit(returnValue);
+
+  delete vmap;
+
+  delete seq;
+  delete exprMgr;
+
+  delete seq2;
+  delete exprMgr2;
 
   return returnValue;
 }
@@ -372,23 +396,12 @@ void printUsage(Options& options) {
 // }
 
 /** Create the SMT engine and execute the commands */
-int doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
+Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
   // Create the SmtEngine(s)
   SmtEngine smt(&exprMgr, options);
   doCommand(smt, cmd, options);
-  
-  // Old stuff
-  string result = smt.getInfo(":status").getValue();
-  int returnValue;
 
-  if(result == "sat") {
-    returnValue = 10;
-  } else if(result == "unsat") {
-    returnValue = 20;
-  } else {
-    returnValue = 0;
-  }
-  return returnValue;
+  return smt.getStatusOfLastCommand();
 }
 
 /** Executes a command. Deletes the command after execution. */

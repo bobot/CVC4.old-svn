@@ -198,6 +198,7 @@ class CVC4_PUBLIC SmtEngine {
    */
   Result quickCheck();
 
+
   /**
    * Fully type-check the argument, and also type-check that it's
    * actually Boolean.
@@ -343,6 +344,9 @@ public:
   /** Disable type checking. */
   void disableTypeChecking() { d_typeChecking = false; }
 
+  Result getStatusOfLastCommand(){
+    return d_status;
+  }
 };/* class SmtEngine */
 
 }/* CVC4 namespace */
