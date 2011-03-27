@@ -22,6 +22,8 @@
 #include "expr/expr_manager_scope.h"
 #include "expr/variable_type_map.h"
 #include "util/Assert.h"
+#include "expr/kind.h"
+#include "expr/metakind.h"
 
 /* Steps
  *
@@ -53,7 +55,7 @@
  * > Operators and Parameterized Operators
  *   - __CVC4__EXPR__NODE_VALUE__NBITS__NCHILDREN = 16 bits, 
  *     the number of children that this node has.
- *   - Child nodes would have preceded this
+ *   - If parameterized a node follows representing the operator
  */
 
 /* Format
@@ -74,13 +76,15 @@
  *     the ID
  *   - Have the address of this node stored in the next block
  * > Operators and Parameterized Operators
+ *   - Add child nodes (in which order?)
  *   - __CVC4__EXPR__NODE_VALUE__NBITS__NCHILDREN = 16 bits, 
  *     the number of blocks to follow.
- *   - Remaning 48 bits are empty (unless we compress?)
- *   - Next block contains the address of current node.
+ *   - Remaning 48 bits are empty
+ *   - If parameterized a node follows representing the operator
  */
 
 
+namespace CVC4{
 
 namespace expr {
 namespace pickle {
@@ -88,37 +92,67 @@ namespace pickle {
 const unsigned NBITS_BLOCK = 64;
 const unsigned NBITS_KIND = __CVC4__EXPR__NODE_VALUE__NBITS__KIND;
 const unsigned NBITS_NCHILDREN = __CVC4__EXPR__NODE_VALUE__NBITS__NCHILDREN;
-const unsigned NBITS_CONSTBLOCKS = NBITS_BLOCK - NBITS_KIND;
+const unsigned NBITS_CONSTBLOCKS = 32;
 
-struct NodePickleBlockHeaderOperator {
-  unsigned d_kind        : NBITS_KIND;
-  unsigned d_nchildren   : NBITS_NCHILDREN;
-  unsigned d_padding     : NBITS_BLOCK - NBITS_KIND - NBITS_NCHILDREN;
+struct BlockHeaderOperator {
+  unsigned d_kind          : NBITS_KIND;
+  unsigned d_nchildren     : NBITS_NCHILDREN;
+  unsigned d_parameterized : 1;
+  unsigned                 : NBITS_BLOCK - (NBITS_KIND + NBITS_NCHILDREN + 1);
+  // WARNING the d_parameterized : 1 may actually take more bits, so the size
+  // of an object may be more that NBITS_BLOCK.
 };
 
-struct NodePickleBlockHeaderConstant {
-  unsigned d_kind        : NBITS_KIND;
-  unsigned d_constblocks : NBITS_CONSTBLOCKS;
-  // the way we have defined NBITS_CONSTBLOCKS, we not need
-  // d_padding. this is to remind us if we change it in future
+struct BlockHeaderConstant {
+  unsigned d_kind          : NBITS_KIND;
+  unsigned d_constblocks   : NBITS_CONSTBLOCKS;
+  unsigned                 : NBITS_BLOCK - (NBITS_KIND + NBITS_CONSTBLOCKS);
 };
 
-stuct NodePickleBlockHeaderVariable {
-  unsigned d_kind        : NBITS_KIND;
-  unsigned d_padding     : NBITS_BLOCK - NBITS_KIND;
+struct BlockHeaderVariable {
+  unsigned d_kind          : NBITS_KIND;
+  unsigned                 : NBITS_BLOCK - NBITS_KIND;
 };
 
-class NodePickler {
+class Pickler {
 private:
-  ostream o;
-public:
-  void pickleNode(TNode n)
-  {
-    Kind k = n.getKind();
-    if(n.getMetaKind() == kind::metakind::CONSTANT)
-  }
   
+public:
+  void operator << (const BlockHeaderConstant &bla) { }
+  void operator << (const BlockHeaderOperator &bla) { }
+  void operator << (const BlockHeaderVariable &bla) { }
 };
+
+void pickleNode(Pickler &p, TNode n)
+{
+  Kind k = n.getKind();
+  kind::MetaKind m = metaKindOf(k);
+  if(m == kind::metakind::CONSTANT) {
+    BlockHeaderConstant blk;
+    blk.d_kind = k;
+    blk.d_constblocks = 0; // TODO: set this before appending
+    p << blk;
+    // TODO: Append constant
+  } else if(m == kind::metakind::VARIABLE) {
+    BlockHeaderVariable blk;
+    blk.d_kind = k;
+    p << blk;
+  } else {
+    for(TNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
+      pickleNode(p, *i);
+    }
+    BlockHeaderOperator blk;
+    blk.d_kind = k;
+    blk.d_nchildren = n.getNumChildren();
+    blk.d_parameterized = (m == kind::metakind::PARAMETERIZED ? 1 : 0);
+    p << blk;
+    if(m == kind::metakind::PARAMETERIZED) {
+      pickleNode(p, n.getOperator());
+    }
+  }
+}
 
 } /* namespace pickle */
 } /* namespace expr */
+
+} /* namespace CVC4 */

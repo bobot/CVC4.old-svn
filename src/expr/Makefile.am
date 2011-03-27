@@ -27,7 +27,8 @@ libexpr_la_SOURCES = \
 	declaration_scope.cpp \
 	expr_manager_scope.h \
 	node_self_iterator.h \
-	variable_type_map.h
+	variable_type_map.h \
+	pickle.cpp
 nodist_libexpr_la_SOURCES = \
 	kind.h \
 	metakind.h \
