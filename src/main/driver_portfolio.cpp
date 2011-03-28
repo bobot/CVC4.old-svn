@@ -287,11 +287,13 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   options.pivotRule = Options::MINIMUM;
   options2.pivotRule = Options::MAXIMUM;
 
-  /* Output to string stream, so that */
-  stringstream ss_out(stringstream::out);
-  options.out = &ss_out;
-  stringstream ss_out2(stringstream::out);
-  options2.out = &ss_out2;
+  /* Output to string stream  */
+  if(options.verbosity == 0) {
+    stringstream ss_out(stringstream::out);
+    options.out = &ss_out;
+    stringstream ss_out2(stringstream::out);
+    options2.out = &ss_out2;
+  }
 
   /* Lemma output channel */
   // options.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #0");

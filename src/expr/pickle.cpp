@@ -28,11 +28,11 @@
 #include "util/Assert.h"
 #include "expr/kind.h"
 #include "expr/metakind.h"
+#include "pickle.h"
 
 /* Format
  *
- * Block size = 64 bits. May be a block is made up of 8-bit
- * chunks?
+ * Block size = 64 bits.
  *
  * First 8 bits: __CVC4__EXPR__NODE_VALUE__NBITS__KIND = 8
  * 
@@ -83,19 +83,6 @@ struct BlockHeaderConstant {
 struct BlockHeaderVariable {
   unsigned d_kind          : NBITS_KIND;
   unsigned                 : NBITS_BLOCK - NBITS_KIND;
-};
-
-class Pickler {
-  std::ostringstream *d_s;
-public:
-  Pickler() {}
-  Pickler(std::ostringstream *s) : d_s(s) {}
-  ~Pickler() { delete d_s; }
-  template <typename T> void operator << (const T &b) {
-    // TOADD: assert(sizeof(b) * 8 == NBITS_BLOCK);
-    d_s->write( (char *) &b, sizeof(b) );
-  }
-  std::ostringstream* getStream() { return d_s; }
 };
 
 void pickleNode(Pickler &p, const TNode &n)
