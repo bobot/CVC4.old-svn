@@ -99,6 +99,7 @@ void pickleNode(Pickler &p, const TNode &n)
     BlockHeaderVariable blk;
     blk.d_kind = k;
     p << blk;
+    p << (&n);
   } else {
     for(TNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
       pickleNode(p, *i);
