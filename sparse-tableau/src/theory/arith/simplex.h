@@ -107,7 +107,7 @@ private:
    * This is a hueristic rule and should not be used
    * during the VarOrder stage of updateInconsistentVars.
    */
-  static ArithVar minRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
+  static ArithVar minColLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
   /**
    * minBoundAndRowCount is a PreferenceFunction for preferring a variable
    * without an asserted bound over variables with an asserted bound.

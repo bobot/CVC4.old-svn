@@ -370,14 +370,18 @@ ArithVar SimplexDecisionProcedure::minVarOrder(const SimplexDecisionProcedure& s
   }
 }
 
-ArithVar SimplexDecisionProcedure::minRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y){
+ArithVar SimplexDecisionProcedure::minColLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y){
   Assert(x != ARITHVAR_SENTINEL);
   Assert(y != ARITHVAR_SENTINEL);
   Assert(!simp.d_tableau.isBasic(x));
   Assert(!simp.d_tableau.isBasic(y));
-  if(simp.d_tableau.getRowLength(x) > simp.d_tableau.getRowLength(y)){
-    return y;
-  } else {
+  uint32_t xLen = simp.d_tableau.getColLength(x);
+  uint32_t yLen = simp.d_tableau.getColLength(y);
+  if( xLen > yLen){
+     return y;
+  } else if( xLen== yLen ){
+    return minVarOrder(simp,x,y);
+  }else{
     return x;
   }
 }
@@ -392,7 +396,7 @@ ArithVar SimplexDecisionProcedure::minBoundAndRowCount(const SimplexDecisionProc
   }else if(!simp.d_partialModel.hasEitherBound(x) && simp.d_partialModel.hasEitherBound(y)){
     return x;
   }else {
-    return minRowCount(simp, x, y);
+    return minColLength(simp, x, y);
   }
 }
 
