@@ -41,7 +41,6 @@
 #include "theory/arith/theory_arith.h"
 #include "theory/arith/normal_form.h"
 
-#include <map>
 #include <stdint.h>
 
 using namespace std;
@@ -62,8 +61,8 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valu
   d_diseq(c),
   d_tableau(),
   d_restartsCounter(0),
-  d_initialDensity(1.0),
-  d_tableauResetDensity(2.0),
+  d_presolveHasBeenCalled(false),
+  d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
   d_propagator(c, out),
   d_simplex(d_partialModel, d_tableau),
@@ -81,8 +80,8 @@ TheoryArith::Statistics::Statistics():
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
-  d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
-  d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
+  d_initialTableauSize("theory::arith::initialTableauSize", 0),
+  d_avgTableauSizeAtRestart("theory::arith::avgTableauSizeAtRestarts"),
   d_tableauResets("theory::arith::tableauResets", 0),
   d_restartTimer("theory::arith::restartTimer")
 {
@@ -96,8 +95,8 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_presolveTime);
 
 
-  StatisticsRegistry::registerStat(&d_initialTableauDensity);
-  StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::registerStat(&d_initialTableauSize);
+  StatisticsRegistry::registerStat(&d_avgTableauSizeAtRestart);
   StatisticsRegistry::registerStat(&d_tableauResets);
   StatisticsRegistry::registerStat(&d_restartTimer);
 }
@@ -113,8 +112,8 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_presolveTime);
 
 
-  StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
-  StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
+  StatisticsRegistry::unregisterStat(&d_initialTableauSize);
+  StatisticsRegistry::unregisterStat(&d_avgTableauSizeAtRestart);
   StatisticsRegistry::unregisterStat(&d_tableauResets);
   StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
@@ -579,7 +578,7 @@ Node TheoryArith::getValue(TNode n) {
 }
 
 void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
-
+  cout << lhs << rhs << endl;
 }
 
 void TheoryArith::notifyRestart(){
@@ -588,6 +587,7 @@ void TheoryArith::notifyRestart(){
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
 
   ++d_restartsCounter;
+  /*
   if(d_restartsCounter % d_tableauResetPeriod == 0){
     double currentDensity = d_tableau.densityMeasure();
     d_statistics.d_avgTableauDensityAtRestart.addEntry(currentDensity);
@@ -597,6 +597,31 @@ void TheoryArith::notifyRestart(){
       d_tableauResetPeriod += s_TABLEAU_RESET_INCREMENT;
       d_tableauResetDensity += .2;
       d_tableau = d_initialTableau;
+    }
+  }
+  */
+  static const bool debugResetPolicy = true;
+
+  uint32_t currSize = d_tableau.size();
+  uint32_t copySize = d_smallTableauCopy.size();
+  d_statistics.d_avgTableauSizeAtRestart.addEntry(currSize);
+  if(debugResetPolicy){
+    cout << "curr " << currSize << " copy " << copySize << endl;
+  }
+  if(d_presolveHasBeenCalled && copySize == 0 && currSize > 0){
+    if(debugResetPolicy){
+      cout << "initial copy " << d_restartsCounter << endl;
+    }
+    d_smallTableauCopy = d_tableau; // The initial copy
+  }
+
+  if(d_presolveHasBeenCalled && d_restartsCounter >= 7){
+    if(copySize >= currSize * 1.2 ){
+      d_smallTableauCopy = d_tableau;
+    }else if(d_tableauResetDensity * copySize <=  currSize){
+      ++d_statistics.d_tableauResets;
+      d_tableauResetDensity += .1;
+      d_tableau = d_smallTableauCopy;
     }
   }
 }
@@ -670,9 +695,7 @@ void TheoryArith::presolve(){
     }
   }
 
-  d_initialTableau = d_tableau;
-  d_initialDensity = d_initialTableau.densityMeasure();
-  d_statistics.d_initialTableauDensity.setData(d_initialDensity);
+  d_statistics.d_initialTableauSize.setData(d_tableau.size());
 
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
 
@@ -681,5 +704,6 @@ void TheoryArith::presolve(){
 
   learner.clear();
 
+  d_presolveHasBeenCalled = true;
   check(FULL_EFFORT);
 }

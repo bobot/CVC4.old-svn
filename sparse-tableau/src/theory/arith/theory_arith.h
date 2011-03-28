@@ -119,11 +119,6 @@ private:
    */
   Tableau d_tableau;
 
-  /**
-   * A copy of the tableau immediately after removing variables
-   * without bounds in presolve().
-   */
-  Tableau d_initialTableau;
 
   /** Counts the number of notifyRestart() calls to the theory. */
   uint32_t d_restartsCounter;
@@ -134,11 +129,16 @@ private:
    * If d >= s_TABLEAU_RESET_DENSITY * d_initialDensity, the tableau
    * is set to d_initialTableau.
    */
-  double d_initialDensity;
+  bool d_presolveHasBeenCalled;
   double d_tableauResetDensity;
   uint32_t d_tableauResetPeriod;
   static const uint32_t s_TABLEAU_RESET_INCREMENT = 5;
 
+  /**
+   * A copy of the tableau immediately after removing variables
+   * without bounds in presolve().
+   */
+  Tableau d_smallTableauCopy;
 
   ArithUnatePropagator d_propagator;
   SimplexDecisionProcedure d_simplex;
@@ -252,8 +252,8 @@ private:
     IntStat d_permanentlyRemovedVariables;
     TimerStat d_presolveTime;
 
-    BackedStat<double> d_initialTableauDensity;
-    AverageStat d_avgTableauDensityAtRestart;
+    IntStat d_initialTableauSize;
+    AverageStat d_avgTableauSizeAtRestart;
     IntStat d_tableauResets;
     TimerStat d_restartTimer;
 
