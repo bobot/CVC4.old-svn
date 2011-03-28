@@ -17,6 +17,10 @@
  ** \todo document this file
  **/
 
+#include <iostream>
+#include <sstream>
+#include <string>
+
 #include "expr/expr.h"
 #include "expr/node.h"
 #include "expr/expr_manager_scope.h"
@@ -24,39 +28,6 @@
 #include "util/Assert.h"
 #include "expr/kind.h"
 #include "expr/metakind.h"
-
-/* Steps
- *
- * Today's goals
- *
- * 1. Decide upon the format exactly
- *    > so-many-bytes-for-so-and-so
- *
- * 2. Pickler:
- *    > some sort of stream to which we can easily
- *      append stuff
- *    > etc.
- */
-
-/* Format'
- *
- * Block size = 8 bits.
- *
- * First block: __CVC4__EXPR__NODE_VALUE__NBITS__KIND = 8 bits
- * 
- * If metakind of kind given by first block is
- * 
- * > Constants
- *   - Next block(s) tell the number of data blocks that hold
- *     the value of the constant
- *   - Required number of data blocks follow.
- * > Variables
- *   - Have the address of this node stored in the next 8 blocks
- * > Operators and Parameterized Operators
- *   - __CVC4__EXPR__NODE_VALUE__NBITS__NCHILDREN = 16 bits, 
- *     the number of children that this node has.
- *   - If parameterized a node follows representing the operator
- */
 
 /* Format
  *
@@ -115,15 +86,19 @@ struct BlockHeaderVariable {
 };
 
 class Pickler {
-private:
-  
+  std::ostringstream *d_s;
 public:
-  void operator << (const BlockHeaderConstant &bla) { }
-  void operator << (const BlockHeaderOperator &bla) { }
-  void operator << (const BlockHeaderVariable &bla) { }
+  Pickler() {}
+  Pickler(std::ostringstream *s) : d_s(s) {}
+  ~Pickler() { delete d_s; }
+  template <typename T> void operator << (const T &b) {
+    // TOADD: assert(sizeof(b) * 8 == NBITS_BLOCK);
+    d_s->write( (char *) &b, sizeof(b) );
+  }
+  std::ostringstream* getStream() { return d_s; }
 };
 
-void pickleNode(Pickler &p, TNode n)
+void pickleNode(Pickler &p, const TNode &n)
 {
   Kind k = n.getKind();
   kind::MetaKind m = metaKindOf(k);
@@ -151,6 +126,15 @@ void pickleNode(Pickler &p, TNode n)
     }
   }
 }
+
+std::string pickleTest(const TNode &n)
+{
+  std::ostringstream s(std::ios_base::binary);
+  Pickler p(&s);
+  pickleNode(p, n);
+  std::ostringstream* dfjk= p.getStream();
+  return dfjk -> str();
+}  
 
 } /* namespace pickle */
 } /* namespace expr */
