@@ -122,7 +122,9 @@ namespace expr {
 static Node exportConstant(TNode n, NodeManager* to);
 
 Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap) {
-Debug("pickle") << "Size of pickled node: " << pickle::pickleTest(n).length() << std::endl;
+  if(Debug.isOn("pickle")){
+    Debug("pickle") << "Size of pickled node: " << pickle::pickleTest(n).length() << std::endl;
+  }
   if(n.getMetaKind() == kind::metakind::CONSTANT) {
     return exportConstant(n, NodeManager::fromExprManager(to));
   } else if(n.getMetaKind() == kind::metakind::VARIABLE) {

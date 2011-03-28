@@ -43,6 +43,7 @@ namespace CVC4 {
 
 class TypeNode;
 class NodeManager;
+namespace expr { namespace pickle { class Pickler; } }
 
 template <bool ref_count>
 class NodeTemplate;
@@ -124,6 +125,9 @@ class NodeTemplate {
    * iterators can can create new nodes.
    */
   friend class expr::NodeValue;
+
+  //TODO: HAHAHA no
+  friend class expr::pickle::Pickler;
 
   /** A convenient null-valued encapsulated pointer */
   static NodeTemplate s_null;
