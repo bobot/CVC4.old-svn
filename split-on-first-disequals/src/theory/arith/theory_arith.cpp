@@ -59,7 +59,6 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valu
   Theory(THEORY_ARITH, c, out, valuation),
   d_partialModel(c),
   d_userVariables(),
-  d_diseq(c),
   d_tableau(),
   d_restartsCounter(0),
   d_initialDensity(1.0),
@@ -308,12 +307,14 @@ DeltaRational determineRightConstant(TNode assertion, Kind simpleKind){
   return DeltaRational(noninf, inf);
 }
 
+/*
 Node TheoryArith::disequalityConflict(TNode eq, TNode lb, TNode ub){
   NodeBuilder<3> conflict(kind::AND);
   conflict << eq << lb << ub;
   ++(d_statistics.d_statDisequalityConflicts);
   return conflict;
 }
+*/
 
 Node TheoryArith::assertionCases(TNode assertion){
   Kind simpKind = simplifiedKind(assertion);
@@ -326,46 +327,16 @@ Node TheoryArith::assertionCases(TNode assertion){
                             <<x_i<<" "<< simpKind <<" "<< c_i << ")" << std::endl;
   switch(simpKind){
   case LEQ:
-    if (d_partialModel.hasLowerBound(x_i) && d_partialModel.getLowerBound(x_i) == c_i) {
-      Node diseq = assertion[0].eqNode(assertion[1]).notNode();
-      if (d_diseq.find(diseq) != d_diseq.end()) {
-        Node lb = d_partialModel.getLowerConstraint(x_i);
-        return disequalityConflict(diseq, lb , assertion);
-      }
-    }
   case LT:
     return  d_simplex.AssertUpper(x_i, c_i, assertion);
   case GEQ:
-    if (d_partialModel.hasUpperBound(x_i) && d_partialModel.getUpperBound(x_i) == c_i) {
-      Node diseq = assertion[0].eqNode(assertion[1]).notNode();
-      if (d_diseq.find(diseq) != d_diseq.end()) {
-        Node ub = d_partialModel.getUpperConstraint(x_i);
-        return disequalityConflict(diseq, assertion, ub);
-      }
-    }
   case GT:
     return d_simplex.AssertLower(x_i, c_i, assertion);
   case EQUAL:
     return d_simplex.AssertEquality(x_i, c_i, assertion);
   case DISTINCT:
-    {
-      d_diseq.insert(assertion);
-      // Check if it conflicts with the the bounds
-      TNode eq = assertion[0];
-      Assert(eq.getKind() == kind::EQUAL);
-      TNode lhs = eq[0];
-      TNode rhs = eq[1];
-      Assert(rhs.getKind() == CONST_RATIONAL);
-      ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
-      DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
-      if (d_partialModel.hasLowerBound(lhsVar) &&
-          d_partialModel.hasUpperBound(lhsVar) &&
-          d_partialModel.getLowerBound(lhsVar) == rhsValue &&
-          d_partialModel.getUpperBound(lhsVar) == rhsValue) {
-        Node lb = d_partialModel.getLowerConstraint(lhsVar);
-        Node ub = d_partialModel.getUpperConstraint(lhsVar);
-        return disequalityConflict(assertion, lb, ub);
-      }
+    if(!hasBeenSplit(assertion)){
+      splitDisequality(assertion);
     }
     return Node::null();
   default:
@@ -403,9 +374,10 @@ void TheoryArith::check(Effort effortLevel){
     d_out->conflict(possibleConflict);
   }else{
     d_partialModel.commitAssignmentChanges();
-
-    if (fullEffort(effortLevel)) {
-      splitDisequalities();
+    while(!d_splitQueue.empty()){
+      Node lemma = d_splitQueue.front();
+      d_splitQueue.pop();
+      d_out->lemma(lemma);
     }
   }
 
@@ -414,39 +386,34 @@ void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check end" << std::endl;
 }
 
-void TheoryArith::splitDisequalities(){
-  context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-  context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
-  for(; it != it_end; ++ it) {
-    TNode eq = (*it)[0];
-    Assert(eq.getKind() == kind::EQUAL);
-    TNode lhs = eq[0];
-    TNode rhs = eq[1];
-    Assert(rhs.getKind() == CONST_RATIONAL);
-    ArithVar lhsVar = determineLeftVariable(eq, kind::EQUAL);
-    DeltaRational lhsValue = d_partialModel.getAssignment(lhsVar);
-    DeltaRational rhsValue = determineRightConstant(eq, kind::EQUAL);
-    if (lhsValue == rhsValue) {
-      Debug("arith_lemma") << "Splitting on " << eq << endl;
-      Debug("arith_lemma") << "LHS value = " << lhsValue << endl;
-      Debug("arith_lemma") << "RHS value = " << rhsValue << endl;
-      Node ltNode = NodeBuilder<2>(kind::LT) << lhs << rhs;
-      Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
-      Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
+void TheoryArith::splitDisequality(TNode disequality){
+  Assert(!hasBeenSplit(disequality));
+  Assert(disequality.getKind() == kind::NOT);
+  TNode eq = disequality[0];
+  Assert(eq.getKind() == kind::EQUAL);
+  TNode lhs = eq[0];
+  TNode rhs = eq[1];
+  Assert(rhs.getKind() == CONST_RATIONAL);
 
-      // // < => !>
-      // Node imp1 = NodeBuilder<2>(kind::IMPLIES) << ltNode << gtNode.notNode();
-      // // < => !=
-      // Node imp2 = NodeBuilder<2>(kind::IMPLIES) << ltNode << eq.notNode();
-      // // > => !=
-      // Node imp3 = NodeBuilder<2>(kind::IMPLIES) << gtNode << eq.notNode();
-      // // All the implication
-      // Node impClosure = NodeBuilder<3>(kind::AND) << imp1 << imp2 << imp3;
+  Debug("arith::split") << "Splitting on " << eq << endl;
 
-      ++(d_statistics.d_statDisequalitySplits);
-      d_out->lemma(lemma);
-    }
-  }
+  Node ltNode = NodeBuilder<2>(kind::LT) << lhs << rhs;
+  Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
+  Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
+
+  // // < => !>
+  // Node imp1 = NodeBuilder<2>(kind::IMPLIES) << ltNode << gtNode.notNode();
+  // // < => !=
+  // Node imp2 = NodeBuilder<2>(kind::IMPLIES) << ltNode << eq.notNode();
+  // // > => !=
+  // Node imp3 = NodeBuilder<2>(kind::IMPLIES) << gtNode << eq.notNode();
+  // // All the implication
+  // Node impClosure = NodeBuilder<3>(kind::AND) << imp1 << imp2 << imp3;
+
+  ++(d_statistics.d_statDisequalitySplits);
+  d_splitQueue.push(lemma);
+  d_split.insert(disequality);
+  Assert(hasBeenSplit(disequality));
 }
 
 /**
@@ -465,11 +432,6 @@ void TheoryArith::debugPrintAssertions() {
       Node uConstr = d_partialModel.getUpperConstraint(i);
       Debug("arith::print_assertions") << uConstr.toString() << endl;
     }
-  }
-  context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-  context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
-  for(; it != it_end; ++ it) {
-    Debug("arith::print_assertions") << *it << endl;
   }
 }
 

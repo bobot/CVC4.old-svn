@@ -112,7 +112,18 @@ private:
   /**
    * List of all of the inequalities asserted in the current context.
    */
-  context::CDSet<Node, NodeHashFunction> d_diseq;
+  //context::CDSet<Node, NodeHashFunction> d_diseq;
+
+  /**
+   * Set of all split disequalities.
+   */
+  typedef __gnu_cxx::hash_set<Node, NodeHashFunction> NodeSet;
+  NodeSet d_split;
+  inline bool hasBeenSplit(Node n) const{
+    return d_split.find(n) != d_split.end();
+  }
+  void splitDisequality(TNode diseq);
+  std::queue<Node> d_splitQueue;
 
   /**
    * The tableau for all of the constraints seen thus far in the system.
@@ -185,7 +196,7 @@ private:
   ArithVar determineLeftVariable(TNode assertion, Kind simpleKind);
 
   /** Splits the disequalities in d_diseq that are violated using lemmas on demand. */
-  void splitDisequalities();
+  //void splitDisequalities();
 
   /**
    * This requests a new unique ArithVar value for x.
