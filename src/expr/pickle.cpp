@@ -31,31 +31,6 @@
 #include "expr/metakind.h"
 #include "pickle.h"
 
-/* Format
- *
- * Block size = 64 bits.
- *
- * First 8 bits: __CVC4__EXPR__NODE_VALUE__NBITS__KIND = 8
- * 
- * If metakind of kind given by first section is
- * 
- * > Constants
- *   - Remaining bits of the block tell number of data blocks
- *     required. (i.e. 64-8=56 bits)
- *   - Required number of data blocks follow.
- * > Variables
- *   - In this block, nothing more to store really, maybe store
- *     the ID
- *   - Have the address of this node stored in the next block
- * > Operators and Parameterized Operators
- *   - Add child nodes (in which order?)
- *   - __CVC4__EXPR__NODE_VALUE__NBITS__NCHILDREN = 16 bits, 
- *     the number of blocks to follow.
- *   - Remaning 48 bits are empty
- *   - If parameterized a node follows representing the operator
- */
-
-
 namespace CVC4{
 
 namespace expr {
@@ -107,51 +82,88 @@ Block mkConstantHeader(Kind k, unsigned numBlocks){
   return newHeader;
 }
 
-
-void Pickler::pickleNode(Pickler &p, TNode n)
-{
-  Kind k = n.getKind();
-  kind::MetaKind m = metaKindOf(k);
-  if(m == kind::metakind::CONSTANT) {
-    // TODO: set this before appending
-    // TODO: test size before appending
-    pickleConstant(p, n);
-  } else if(m == kind::metakind::VARIABLE) {
-    pickleVariable(p, n);
-  } else {
-    Assert(m == kind::metakind::PARAMETERIZED || m == kind::metakind::OPERATOR);
-    if(m == kind::metakind::PARAMETERIZED) {
-      pickleNode(p, n.getOperator());
-    }
-    for(TNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
-      pickleNode(p, *i);
-    }
-    p << mkOperatorHeader(k, n.getNumChildren());
+void Pickle::writeToStringStream(std::ostringstream& oss) const {
+  BlockDeque::const_iterator i = d_blocks.begin(), end = d_blocks.end();
+  for(; i != end; ++i){
+    Block b = *i;
+    Assert(sizeof(b) * 8 == NBITS_BLOCK);
+    oss << b.d_body.d_data << " ";
   }
 }
 
-void Pickler::pickleVariable(Pickler& p, TNode n){
+std::string Pickle::toString() const {
+  std::ostringstream oss;
+  oss.flags(std::ios::hex | std::ios::showbase);
+  writeToStringStream(oss);
+  return oss.str();
+}
+
+void Pickler::toPickle(TNode n, Pickle& p){
+  Assert(atDefaultState());
+
+  d_current.swap(p);
+  toCaseNode(n);
+  d_current.swap(p);
+
+  Assert(atDefaultState());
+}
+
+void Pickler::toCaseNode(TNode n) {
+  Kind k = n.getKind();
+  kind::MetaKind m = metaKindOf(k);
+  switch(m){
+  case kind::metakind::CONSTANT:
+    toCaseConstant(n);
+    break;
+  case kind::metakind::VARIABLE:
+    toCaseVariable(n);
+    break;
+  case kind::metakind::OPERATOR:
+  case kind::metakind::PARAMETERIZED:
+    toCaseOperator(n);
+    break;
+  default:
+    Unimplemented();
+  }
+}
+
+void Pickler::toCaseOperator(TNode n){
+  Kind k = n.getKind();
+  kind::MetaKind m = metaKindOf(k);
+  Assert(m == kind::metakind::PARAMETERIZED || m == kind::metakind::OPERATOR);
+  if(m == kind::metakind::PARAMETERIZED) {
+    toCaseNode(n.getOperator());
+  }
+  for(TNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
+    toCaseNode(*i);
+  }
+  d_current << mkOperatorHeader(k, n.getNumChildren());
+}
+
+void Pickler::toCaseVariable(TNode n){
   Kind k = n.getKind();
   Assert(metaKindOf(k) == kind::metakind::VARIABLE);
 
   const NodeValue* nv = n.d_nv;
   uint64_t asInt = (uint64_t)nv; //TODO: eeeekkkk
-  uint32_t firstHalf = asInt >> 32;
-  uint32_t secondHalf = asInt;
+  uint64_t mapped = variableToMap(asInt);
+
+  uint32_t firstHalf = mapped >> 32;
+  uint32_t secondHalf = mapped;
 
 
   // TODO: replace with NodeValue*
-  p << mkVariableHeader(k);
-  p << mkBlockBody(firstHalf);
-  p << mkBlockBody(secondHalf);
+  d_current << mkVariableHeader(k);
+  d_current << mkBlockBody(firstHalf);
+  d_current << mkBlockBody(secondHalf);
 }
-void Pickler::pickleConstant(Pickler& p, TNode n){
+void Pickler::toCaseConstant(TNode n){
   Kind k = n.getKind();
   Assert(metaKindOf(k) == kind::metakind::CONSTANT);
   switch(k){
   case kind::CONST_BOOLEAN:
-    p << mkConstantHeader(k, 1);
-    p << mkBlockBody(n.getConst<bool>());
+    d_current << mkConstantHeader(k, 1);
+    d_current << mkBlockBody(n.getConst<bool>());
     break;
   case kind::CONST_INTEGER:
   case kind::CONST_RATIONAL:{
@@ -164,7 +176,7 @@ void Pickler::pickleConstant(Pickler& p, TNode n){
       const Rational& q = n.getConst<Rational>();
       asString = q.toString(16);
     }
-    pickleString(p, k, asString);
+    toCaseString(k, asString);
     break;
   }
   default:
@@ -172,58 +184,54 @@ void Pickler::pickleConstant(Pickler& p, TNode n){
   }
 }
 
-void Pickler::pickleString(Pickler& p, Kind k, const std::string& s){
-  p << mkConstantHeader(k, s.size());
+void Pickler::toCaseString(Kind k, const std::string& s){
+  d_current << mkConstantHeader(k, s.size());
 
   unsigned size = s.size();
   unsigned i;
   for(i = 0; i + 4 <= size; i+= 4){
-    p << mkBlockBody4Chars(s[i + 0], s[i + 1],s[i + 2], s[i + 3]);
+    d_current << mkBlockBody4Chars(s[i + 0], s[i + 1],s[i + 2], s[i + 3]);
   }
   switch(size % 4){
   case 0: break;
-  case 1: p << mkBlockBody4Chars(s[i + 0], '\0','\0', '\0'); break;
-  case 2: p << mkBlockBody4Chars(s[i + 0], s[i + 1], '\0', '\0'); break;
-  case 3: p << mkBlockBody4Chars(s[i + 0], s[i + 1],s[i + 2], '\0'); break;
+  case 1: d_current << mkBlockBody4Chars(s[i + 0], '\0','\0', '\0'); break;
+  case 2: d_current << mkBlockBody4Chars(s[i + 0], s[i + 1], '\0', '\0'); break;
+  case 3: d_current << mkBlockBody4Chars(s[i + 0], s[i + 1],s[i + 2], '\0'); break;
   default:
     Unreachable();
   }
 
 }
 
-void StringStreamPickler::append(Block b){
-  Assert(sizeof(b) * 8 == NBITS_BLOCK);
-  Debug("pickle") << "<< :" << sizeof(b) << " : " <<  b.d_body.d_data << std::endl;
-  d_s->write( (char *) &b, sizeof(b) );
+
+void Pickler::debugPickleTest(TNode n){
+  Pickler pickler(NodeManager::currentNM());
+
+  Pickle p;
+  pickler.toPickle(n, p);
+
+  uint32_t size = p.size();
+  std::string str = p.toString();
+
+  Node from = pickler.fromPickle(p);
+
+
+  Debug("pickle") << "before: " << n << std::endl;
+  Debug("pickle") << "after: " << from << std::endl;
+  Debug("pickle") << "pickle: "<<size << " " << str.length() << " " << str << std::endl;
+
+  Assert(p.empty());
+  Assert(n == from);
 }
 
 
-std::string pickleTest(TNode n)
-{
-  DequePickler dp;
-  BlockDeque queue;
-  dp.pickleNode(n);
-  dp.swap(queue);
+Node Pickler::fromPickle(Pickle& p){
+  Assert(atDefaultState());
 
-  Node afterPickle = Pickler::remakeNode(queue);
-  Debug("pickle") << "before " << n << std::endl;
-  Debug("pickle") << "after " << afterPickle << std::endl;
-  Assert(n == afterPickle);
+  d_current.swap(p);
 
-  std::ostringstream s(std::ios_base::binary);
-  StringStreamPickler p(&s);
-  p.pickleNode(n);
-  std::ostringstream* dfjk= p.getStream();
-  return dfjk -> str();
-}
-
-
-Node Pickler::remakeNode(BlockDeque& blocks){
-  NodeStack stack;
-
-  while(!blocks.empty()){
-    Block front = blocks.front();
-    blocks.pop_front();
+  while(!d_current.empty()){
+    Block front = d_current.dequeue();
 
     Kind k = (Kind)front.d_header.d_kind;
     kind::MetaKind m = metaKindOf(k);
@@ -231,40 +239,45 @@ Node Pickler::remakeNode(BlockDeque& blocks){
     Node result = Node::null();
     switch(m){
     case kind::metakind::VARIABLE:
-      result = handleVariable(k, blocks);
+      result = fromCaseVariable(k);
       break;
     case kind::metakind::CONSTANT:
-      result = handleConstant(k, front.d_headerConstant.d_constblocks, blocks);
+      result = fromCaseConstant(k, front.d_headerConstant.d_constblocks);
       break;
     case kind::metakind::OPERATOR:
     case kind::metakind::PARAMETERIZED:
-      result = handleOperator(k, front.d_headerOperator.d_nchildren, blocks, stack);
+      result = fromCaseOperator(k, front.d_headerOperator.d_nchildren);
       break;
     default:
       Unimplemented();
     }
     Assert(result != Node::null());
-    stack.push(result);
+    d_stack.push(result);
   }
-  Assert(stack.size() == 1);
-  Node res = stack.top();
+
+  Assert(d_current.empty());
+  Assert(d_stack.size() == 1);
+  Node res = d_stack.top();
+  d_stack.pop();
+
+  Assert(atDefaultState());
+
   return res;
 }
 
-Node Pickler::handleVariable(Kind k, BlockDeque& blocks){
+Node Pickler::fromCaseVariable(Kind k){
   Assert(metaKindOf(k) == kind::metakind::VARIABLE);
 
-  Block firstHalf = blocks.front();
-  blocks.pop_front();
-
-  Block secondHalf = blocks.front();
-  blocks.pop_front();
+  Block firstHalf = d_current.dequeue();
+  Block secondHalf = d_current.dequeue();
 
   uint64_t asInt = firstHalf.d_body.d_data;
   asInt = asInt << 32;
   asInt = asInt | (secondHalf.d_body.d_data);
 
-  NodeValue* nv = (NodeValue*) asInt;
+  uint64_t mapped = variableFromMap(asInt);
+
+  NodeValue* nv = (NodeValue*) mapped;
   Node fromNodeValue(nv);
 
   Assert(fromNodeValue.getKind() == k);
@@ -272,25 +285,24 @@ Node Pickler::handleVariable(Kind k, BlockDeque& blocks){
   return fromNodeValue;
 }
 
-Node Pickler::handleConstant(Kind k, uint32_t constblocks,  BlockDeque& blocks){
+Node Pickler::fromCaseConstant(Kind k, uint32_t constblocks){
   switch(k){
   case kind::CONST_BOOLEAN:{
     Assert(constblocks == 1);
-    Block val = blocks.front();
-    blocks.pop_front();
+    Block val = d_current.dequeue();
 
     bool b= val.d_body.d_data;
-    return NodeManager::currentNM()->mkConst<bool>(b);
+    return d_nm->mkConst<bool>(b);
   }
   case kind::CONST_INTEGER:
   case kind::CONST_RATIONAL:{
-    std::string s = handleString(constblocks, blocks);
+    std::string s = fromCaseString(constblocks);
     if( k == kind::CONST_INTEGER ){
       Integer i(s, 16);
-      return NodeManager::currentNM()->mkConst<Integer>(i);
+      return d_nm->mkConst<Integer>(i);
     }else{
       Rational q(s, 16);
-      return NodeManager::currentNM()->mkConst<Rational>(q);
+      return d_nm->mkConst<Rational>(q);
     }
   }
   default:
@@ -299,12 +311,11 @@ Node Pickler::handleConstant(Kind k, uint32_t constblocks,  BlockDeque& blocks){
   }
 }
 
-std::string Pickler::handleString(uint32_t size,  BlockDeque& blocks){
+std::string Pickler::fromCaseString(uint32_t size){
   std::stringstream ss;
   unsigned i;
   for(i = 0; i + 4 <= size; i+= 4){
-    Block front = blocks.front();
-    blocks.pop_front();
+    Block front = d_current.dequeue();
     BlockBody body = front.d_body;
 
     ss << getCharBlockBody(body,0)
@@ -314,8 +325,7 @@ std::string Pickler::handleString(uint32_t size,  BlockDeque& blocks){
   }
   Assert(i == size - (size%4) );
   if(size % 4 != 0){
-    Block front = blocks.front();
-    blocks.pop_front();
+    Block front = d_current.dequeue();
     BlockBody body = front.d_body;
     switch(size % 4){
     case 1:
@@ -336,21 +346,22 @@ std::string Pickler::handleString(uint32_t size,  BlockDeque& blocks){
   }
   return ss.str();
 }
-Node Pickler::handleOperator(Kind k, uint32_t nchildren, BlockDeque& blocks, NodeStack& stack){
+
+Node Pickler::fromCaseOperator(Kind k, uint32_t nchildren){
   kind::MetaKind m = metaKindOf(k);
   bool parameterized = (m == kind::metakind::PARAMETERIZED);
   uint32_t npops = nchildren + (parameterized? 1 : 0);
 
   NodeStack aux;
   while(npops > 0){
-    Assert(!stack.empty());
-    Node top = stack.top();
+    Assert(!d_stack.empty());
+    Node top = d_stack.top();
     aux.push(top);
-    stack.pop();
+    d_stack.pop();
     --npops;
   }
 
-  NodeBuilder<> nb(k);
+  NodeBuilder<> nb(d_nm, k);
   while(!aux.empty()){
     Node top = aux.top();
     nb << top;

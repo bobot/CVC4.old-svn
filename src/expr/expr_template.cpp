@@ -123,7 +123,7 @@ static Node exportConstant(TNode n, NodeManager* to);
 
 Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap) {
   if(Debug.isOn("pickle")){
-    Debug("pickle") << "Size of pickled node: " << pickle::pickleTest(n).length() << std::endl;
+    pickle::Pickler::debugPickleTest(n);
   }
   if(n.getMetaKind() == kind::metakind::CONSTANT) {
     return exportConstant(n, NodeManager::fromExprManager(to));
