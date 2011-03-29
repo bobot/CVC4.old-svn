@@ -51,6 +51,8 @@ using namespace CVC4::kind;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
+static const uint32_t RESET_START = 2;
+
 struct SlackAttrID;
 typedef expr::Attribute<SlackAttrID, Node> Slack;
 
@@ -81,8 +83,9 @@ TheoryArith::Statistics::Statistics():
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
   d_initialTableauSize("theory::arith::initialTableauSize", 0),
-  d_avgTableauSizeAtRestart("theory::arith::avgTableauSizeAtRestarts"),
-  d_tableauResets("theory::arith::tableauResets", 0),
+  d_tableauSizeHistory("theory::arith::tableauSizeHistory"),
+  d_currSetToSmaller("theory::arith::currSetToSmaller", 0),
+  d_smallerSetToCurr("theory::arith::smallerSetToCurr", 0),
   d_restartTimer("theory::arith::restartTimer")
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
@@ -96,8 +99,9 @@ TheoryArith::Statistics::Statistics():
 
 
   StatisticsRegistry::registerStat(&d_initialTableauSize);
-  StatisticsRegistry::registerStat(&d_avgTableauSizeAtRestart);
-  StatisticsRegistry::registerStat(&d_tableauResets);
+  StatisticsRegistry::registerStat(&d_tableauSizeHistory);
+  StatisticsRegistry::registerStat(&d_currSetToSmaller);
+  StatisticsRegistry::registerStat(&d_smallerSetToCurr);
   StatisticsRegistry::registerStat(&d_restartTimer);
 }
 
@@ -113,8 +117,9 @@ TheoryArith::Statistics::~Statistics(){
 
 
   StatisticsRegistry::unregisterStat(&d_initialTableauSize);
-  StatisticsRegistry::unregisterStat(&d_avgTableauSizeAtRestart);
-  StatisticsRegistry::unregisterStat(&d_tableauResets);
+  StatisticsRegistry::unregisterStat(&d_tableauSizeHistory);
+  StatisticsRegistry::unregisterStat(&d_currSetToSmaller);
+  StatisticsRegistry::unregisterStat(&d_smallerSetToCurr);
   StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
@@ -604,7 +609,8 @@ void TheoryArith::notifyRestart(){
 
   uint32_t currSize = d_tableau.size();
   uint32_t copySize = d_smallTableauCopy.size();
-  d_statistics.d_avgTableauSizeAtRestart.addEntry(currSize);
+
+  d_statistics.d_tableauSizeHistory << currSize;
   if(debugResetPolicy){
     cout << "curr " << currSize << " copy " << copySize << endl;
   }
@@ -615,12 +621,12 @@ void TheoryArith::notifyRestart(){
     d_smallTableauCopy = d_tableau; // The initial copy
   }
 
-  if(d_presolveHasBeenCalled && d_restartsCounter >= 7){
-    if(copySize >= currSize * 1.2 ){
+  if(d_presolveHasBeenCalled && d_restartsCounter >= RESET_START){
+    if(copySize >= currSize * 1.1 ){
+      ++d_statistics.d_smallerSetToCurr;
       d_smallTableauCopy = d_tableau;
     }else if(d_tableauResetDensity * copySize <=  currSize){
-      ++d_statistics.d_tableauResets;
-      d_tableauResetDensity += .1;
+      ++d_statistics.d_currSetToSmaller;
       d_tableau = d_smallTableauCopy;
     }
   }

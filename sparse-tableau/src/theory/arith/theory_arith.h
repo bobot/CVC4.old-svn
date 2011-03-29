@@ -253,8 +253,9 @@ private:
     TimerStat d_presolveTime;
 
     IntStat d_initialTableauSize;
-    AverageStat d_avgTableauSizeAtRestart;
-    IntStat d_tableauResets;
+    ListStat<uint32_t> d_tableauSizeHistory;
+    IntStat d_currSetToSmaller;
+    IntStat d_smallerSetToCurr;
     TimerStat d_restartTimer;
 
     Statistics();
