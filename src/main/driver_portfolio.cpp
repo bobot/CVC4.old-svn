@@ -33,22 +33,25 @@ using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
 
+/** Function declerations **/
+
 void doCommand(SmtEngine&, Command*, Options&);
+
 Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
 
-/* defined in sharing_manager.cpp */
 template<typename T>
 void sharingManager(int numThreads, 
 		    SharedChannel<T>* channelsOut[], 
 		    SharedChannel<T>* channelsIn[]);
 
-typedef expr::pickle::Pickle channelFormat;	/* Remove once we are using Pickle */
 
-bool global_activity;		// to track activity on output channel
+/** To monitor for activity on shared channels */
+bool global_activity;
 bool global_activity_true() { return global_activity; }
 bool global_activity_false() { return not global_activity; }
-boost::condition global_activitycond;
+boost::condition global_activity_cond;
 
+typedef expr::pickle::Pickle channelFormat;	/* Remove once we are using Pickle */
 class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
   string d_tag;
   SharedChannel<channelFormat> *d_sharedChannel;
@@ -66,10 +69,11 @@ public:
     d_sharedChannel->push(pkl);
     
     global_activity = true;	// HACK
-    global_activitycond.notify_one();
+    global_activity_cond.notify_one();
   }
 
 };/* class PortfolioLemmaOutputChannel */
+
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 {
@@ -197,13 +201,6 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
     delete parser;
   }
 
-  // Brilliant, so what all do we have at this point?
-  // - CommandSequence* seq has the sequence of commands
-  // - ExprManager exprMgr(options) is the main expression manager
-
-  // What do we need to do next?
-  // - Create a second exprMgr, and import everything there
-
   /* Currently all code assumes two threads */
   assert(numThreads == 2);
 
@@ -294,7 +291,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   return returnValue;
 }
 
-/* Code shared with driver.cpp */
+/**** Code shared with driver.cpp ****/
 
 namespace CVC4 {
   namespace main {/* Global options variable */
@@ -308,15 +305,6 @@ namespace CVC4 {
   }
 }
 
-// no more % chars in here without being escaped; it's used as a
-// printf() format string
-/* const string usageMessage = "                 \
-usage: %s [options] [input-file]\n\
-\n\
-Without an input file, or with `-', CVC4 reads from standard input.\n\
-\n\
-CVC4 options:\n";
-*/
 void printUsage(Options& options) {
   stringstream ss;
   ss << "usage: " << options.binary_name << " [options] [input-file]" << endl
@@ -326,14 +314,6 @@ void printUsage(Options& options) {
       << "CVC4 options:" << endl;
   Options::printUsage( ss.str(), *options.out );
 }
-
-// int runCvc4(int argc, char* argv[], Options& options) {
-
-
-//   //doCommand(smt, &seq, options);
-
-
-// }
 
 /** Executes a command. Deletes the command after execution. */
 void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
@@ -361,7 +341,7 @@ void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
   }
 }
 
-/* End of code shared with driver.cpp */
+/**** End of code shared with driver.cpp ****/
 
 /** Create the SMT engine and execute the commands */
 Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
@@ -379,21 +359,33 @@ void sharingManager(int numThreads,
 {
   Debug("sharing") << "sharing: thread started " << std::endl;
   vector <int> cnt(numThreads);	// Debug("sharing")
+  
   boost::mutex mutex_activity;
+  
   while(not boost::this_thread::interruption_requested()) {
-    global_activitycond.wait(mutex_activity, global_activity_true);
+    
+    global_activity_cond.wait(mutex_activity, global_activity_true);
     global_activity = false;
+    
     for(int t=0; t<numThreads; ++t) {
+      
       if(channelsOut[t]->empty()) continue;      /* No activity on this channel */
-      cnt[t] ++;		// Debug("sharing")
+      
       T data = channelsOut[t]->pop();
-      Debug("sharing") << "sharing: Got data. Thread #" << t
-		       << ". Chunk " << cnt[t] << std :: endl;
+      
+      if(Debug.isOn("sharing")) {
+	++cnt[t];
+	Debug("sharing") << "sharing: Got data. Thread #" << t
+			 << ". Chunk " << cnt[t] << std :: endl;
+      }
+      
       for(int u=0; u<numThreads; ++u) {
 	if(u != t)
 	  Debug("sharing") << "sharing: Sending to " << u << std::endl;
       }/* end of inner for: broadcast activity */
+
     } /* end of outer for: look for activity */
+
   } /* end of infinite while */
   Debug("sharing") << "sharing: Interuppted, exiting." << std::endl;
 }

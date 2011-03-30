@@ -38,8 +38,6 @@ public:
 This code is from
 
 http://live.boost.org/doc/libs/1_46_1/libs/circular_buffer/doc/circular_buffer.html#boundedbuffer 
-
-Overkill, it would probably have been better to have written one myself.
 */
 template <typename T>
 class SynchronizedSharedChannel: public SharedChannel<T> {
@@ -90,26 +88,6 @@ private:
   boost::condition m_not_empty;
   boost::condition m_not_full;
 };
-
-
-
-// template <typename T>
-// class SynchronizedSharedChannel : SharedChannel {
-// private:
-//   std::vector <T> d_buffer;
-//   int d_readPtr;
-//   int d_writePtr;
-//   boost::mutex m_buffer;
-//   boost::condition m_notempty; 
-//   boost::condition m_notfull;
-// public:
-//   SharedChannel(int) : d_readPtr(0), d_writePtr(0) { d_buffer.resize(d_maxsize); }
-
-//   bool push(const T&);
-//   T pop();
-// };
-
-
 
 }
 
