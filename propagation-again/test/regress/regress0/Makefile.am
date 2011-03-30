@@ -52,6 +52,7 @@ CVC_TESTS = \
 	test9.cvc \
 	test11.cvc \
 	uf20-03.cvc \
+	uf20-03.tim.cvc \
 	wiki.01.cvc \
 	wiki.02.cvc \
 	wiki.03.cvc \
@@ -84,7 +85,6 @@ BUG_TESTS = \
 	bug167.smt \
 	bug168.smt \
 	bug187.smt2 \
-	bug216.smt2 \
 	bug220.smt2 \
 	bug239.smt \
 	buggy-ite.smt2
@@ -92,6 +92,7 @@ BUG_TESTS = \
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 
 EXTRA_DIST = $(TESTS) \
+	bug216.smt2 \
 	bug216.smt2.expect
 
 if CVC4_BUILD_PROFILE_COMPETITION
@@ -104,7 +105,7 @@ endif
 EXTRA_DIST += \
 	error.cvc
 
-# synonyms for "check"
+# synonyms for "check" in this directory
 .PHONY: regress regress0 test
 regress regress0 test: check
 

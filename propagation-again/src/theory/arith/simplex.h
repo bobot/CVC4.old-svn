@@ -110,7 +110,7 @@ private:
    * This is a hueristic rule and should not be used
    * during the VarOrder stage of updateInconsistentVars.
    */
-  static ArithVar minRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
+  static ArithVar minColLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
   /**
    * minBoundAndRowCount is a PreferenceFunction for preferring a variable
    * without an asserted bound over variables with an asserted bound.
@@ -142,7 +142,7 @@ public:
 private:
   template <PreferenceFunction> Node searchForFeasibleSolution(uint32_t maxIterations);
 
-  enum SearchPeriod {BeforeDiffSearch, DuringDiffSearch, AfterDiffSearch, DuringVarOrderSearch};
+  enum SearchPeriod {BeforeDiffSearch, DuringDiffSearch, AfterDiffSearch, DuringVarOrderSearch, AfterVarOrderSearch};
 
   Node findConflictOnTheQueue(SearchPeriod period, bool returnFirst = true);
 
@@ -221,7 +221,9 @@ public:
    * Checks to make sure the assignment is consistent with the tableau.
    * This code is for debugging.
    */
-  void checkTableau();
+  void debugCheckTableau();
+  void debugPivotSimplex(ArithVar x_i, ArithVar x_j);
+
 
   /**
    * Computes the value of a basic variable using the assignments
@@ -283,6 +285,15 @@ private:
     pushLemma(negatedConflict);
   }
 
+  template <bool above>
+  inline bool isAcceptableSlack(int sgn, ArithVar nonbasic){
+    return
+      ( above && sgn < 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)) ||
+      ( above && sgn > 0 && d_partialModel.strictlyAboveLowerBound(nonbasic)) ||
+      (!above && sgn > 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)) ||
+      (!above && sgn < 0 && d_partialModel.strictlyAboveLowerBound(nonbasic));
+  }
+
   /**
    * Checks a basic variable, b, to see if it is in conflict.
    * If a conflict is discovered a node summarizing the conflict is returned.
@@ -304,6 +315,7 @@ private:
     IntStat d_attemptAfterDiffSearch, d_successAfterDiffSearch;
     IntStat d_attemptDuringDiffSearch, d_successDuringDiffSearch;
     IntStat d_attemptDuringVarOrderSearch, d_successDuringVarOrderSearch;
+    IntStat d_attemptAfterVarOrderSearch, d_successAfterVarOrderSearch;
 
     IntStat d_delayedConflicts;
 

@@ -40,6 +40,45 @@ using namespace CVC4;
 
 namespace CVC4 {
 
+#ifdef CVC4_DEBUG
+#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
+#else /* CVC4_DEBUG */
+#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT false
+#endif /* CVC4_DEBUG */
+
+#if defined(CVC4_MUZZLED) || defined(CVC4_COMPETITION_MODE)
+#  define DO_SEMANTIC_CHECKS_BY_DEFAULT false
+#else /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
+#  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
+#endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
+
+Options::Options() :
+  binary_name(),
+  statistics(false),
+  in(&std::cin),
+  out(&std::cout),
+  err(&std::cerr),
+  verbosity(0),
+  inputLanguage(language::input::LANG_AUTO),
+  uf_implementation(MORGAN),
+  parseOnly(false),
+  semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
+  theoryRegistration(true),
+  memoryMap(false),
+  strictParsing(false),
+  lazyDefinitionExpansion(false),
+  interactive(false),
+  interactiveSetByUser(false),
+  segvNoSpin(false),
+  produceModels(false),
+  produceAssignments(false),
+  typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
+  earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
+  incrementalSolving(false),
+  pivotRule(MINIMUM)
+{
+}
+
 static const string optionsDescription = "\
    --lang | -L            force input language (default is `auto'; see --lang help)\n\
    --version | -V         identify this CVC4 binary\n\
@@ -67,6 +106,7 @@ static const string optionsDescription = "\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
+   --rewrite-arithmetic-equalities rewrite (= x y) to (and (<= x y) (>= x y)) in arithmetic \n\
    --incremental          enable incremental solving\n";
 
 static const string languageDescription = "\
@@ -121,7 +161,8 @@ enum OptionValue {
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
   INCREMENTAL,
-  PIVOT_RULE
+  PIVOT_RULE,
+  REWRITE_ARITHMETIC_EQUALITIES
 };/* enum OptionValue */
 
 /**
@@ -179,6 +220,7 @@ static struct option cmdlineOptions[] = {
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING},
   { "incremental", no_argument, NULL, INCREMENTAL},
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
+  { "rewrite-arithmetic-equalities" , no_argument, NULL, REWRITE_ARITHMETIC_EQUALITIES},
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -376,6 +418,10 @@ throw(OptionException) {
       incrementalSolving = true;
       break;
 
+    case REWRITE_ARITHMETIC_EQUALITIES:
+      rewriteArithEqualities = true;
+      break;
+
     case PIVOT_RULE:
       if(!strcmp(optarg, "min")) {
         pivotRule = MINIMUM;
@@ -437,5 +483,11 @@ throw(OptionException) {
 
   return optind;
 }
+
+bool Options::rewriteArithEqualities = false;
+
+
+#undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT
+#undef DO_SEMANTIC_CHECKS_BY_DEFAULT
 
 }/* CVC4 namespace */

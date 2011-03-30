@@ -43,7 +43,6 @@
 #include "theory/arith/theory_arith.h"
 #include "theory/arith/normal_form.h"
 
-#include <map>
 #include <stdint.h>
 
 using namespace std;
@@ -54,6 +53,8 @@ using namespace CVC4::kind;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
+static const uint32_t RESET_START = 2;
+
 struct SlackAttrID;
 typedef expr::Attribute<SlackAttrID, bool> Slack;
 
@@ -63,15 +64,15 @@ typedef expr::CDAttribute<PropagatedAttrID, TNode> Propagated;
 struct AssertedAttrID;
 typedef expr::CDAttribute<AssertedAttrID, bool> Asserted;
 
-TheoryArith::TheoryArith(context::Context* c, OutputChannel& out) :
-  Theory(THEORY_ARITH, c, out),
+TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valuation) :
+  Theory(THEORY_ARITH, c, out, valuation),
   d_partialModel(c),
   d_userVariables(),
   d_diseq(c),
   d_tableau(),
   d_restartsCounter(0),
-  d_initialDensity(1.0),
-  d_tableauResetDensity(2.0),
+  d_presolveHasBeenCalled(false),
+  d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
   d_propagator(c, out),
   d_simplex(d_partialModel, d_tableau),
@@ -89,9 +90,10 @@ TheoryArith::Statistics::Statistics():
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
-  d_initialTableauDensity("theory::arith::initialTableauDensity", 0.0),
-  d_avgTableauDensityAtRestart("theory::arith::avgTableauDensityAtRestarts"),
-  d_tableauResets("theory::arith::tableauResets", 0),
+  d_initialTableauSize("theory::arith::initialTableauSize", 0),
+  //d_tableauSizeHistory("theory::arith::tableauSizeHistory"),
+  d_currSetToSmaller("theory::arith::currSetToSmaller", 0),
+  d_smallerSetToCurr("theory::arith::smallerSetToCurr", 0),
   d_restartTimer("theory::arith::restartTimer")
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
@@ -104,9 +106,10 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_presolveTime);
 
 
-  StatisticsRegistry::registerStat(&d_initialTableauDensity);
-  StatisticsRegistry::registerStat(&d_avgTableauDensityAtRestart);
-  StatisticsRegistry::registerStat(&d_tableauResets);
+  StatisticsRegistry::registerStat(&d_initialTableauSize);
+  //StatisticsRegistry::registerStat(&d_tableauSizeHistory);
+  StatisticsRegistry::registerStat(&d_currSetToSmaller);
+  StatisticsRegistry::registerStat(&d_smallerSetToCurr);
   StatisticsRegistry::registerStat(&d_restartTimer);
 }
 
@@ -121,9 +124,10 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_presolveTime);
 
 
-  StatisticsRegistry::unregisterStat(&d_initialTableauDensity);
-  StatisticsRegistry::unregisterStat(&d_avgTableauDensityAtRestart);
-  StatisticsRegistry::unregisterStat(&d_tableauResets);
+  StatisticsRegistry::unregisterStat(&d_initialTableauSize);
+  //StatisticsRegistry::unregisterStat(&d_tableauSizeHistory);
+  StatisticsRegistry::unregisterStat(&d_currSetToSmaller);
+  StatisticsRegistry::unregisterStat(&d_smallerSetToCurr);
   StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
@@ -137,21 +141,21 @@ void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
 
 ArithVar TheoryArith::findShortestBasicRow(ArithVar variable){
   ArithVar bestBasic = ARITHVAR_SENTINEL;
-  uint64_t rowLength = std::numeric_limits<uint64_t>::max();
+  uint64_t bestRowLength = std::numeric_limits<uint64_t>::max();
 
-  Column::iterator basicIter = d_tableau.beginColumn(variable);
-  Column::iterator end = d_tableau.endColumn(variable);
-  for(; basicIter != end; ++basicIter){
-    ArithVar x_j = *basicIter;
-    ReducedRowVector& row_j = d_tableau.lookup(x_j);
-
-    Assert(row_j.has(variable));
-    if((row_j.size() < rowLength) ||
-       (row_j.size() == rowLength && x_j < bestBasic)){
-      bestBasic = x_j;
-      rowLength = row_j.size();
+  Tableau::ColIterator basicIter = d_tableau.colIterator(variable);
+  for(; !basicIter.atEnd(); ++basicIter){
+    const TableauEntry& entry = *basicIter;
+    Assert(entry.getColVar() == variable);
+    ArithVar basic = entry.getRowVar();
+    uint32_t rowLength = d_tableau.getRowLength(basic);
+    if((rowLength < bestRowLength) ||
+       (rowLength == bestRowLength && basic < bestBasic)){
+      bestBasic = basic;
+      bestRowLength = rowLength;
     }
   }
+  Assert(bestBasic == ARITHVAR_SENTINEL || bestRowLength < std::numeric_limits<uint32_t>::max());
   return bestBasic;
 }
 
@@ -424,7 +428,7 @@ void TheoryArith::check(Effort effortLevel){
     }
   }
 
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
   if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
   Debug("arith") << "TheoryArith::check end" << std::endl;
 }
@@ -634,7 +638,7 @@ void TheoryArith::propagate(Effort e) {
   }
 }
 
-Node TheoryArith::getValue(TNode n, Valuation* valuation) {
+Node TheoryArith::getValue(TNode n) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -645,7 +649,7 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
       Node eq = d_removedRows.find(var)->second;
       Assert(n == eq[0]);
       Node rhs = eq[1];
-      return getValue(rhs, valuation);
+      return getValue(rhs);
     }
 
     DeltaRational drat = d_partialModel.getAssignment(var);
@@ -658,7 +662,7 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
+      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
 
   case kind::PLUS: { // 2+ args
     Rational value(0);
@@ -666,7 +670,7 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
             iend = n.end();
           i != iend;
           ++i) {
-      value += valuation->getValue(*i).getConst<Rational>();
+      value += d_valuation.getValue(*i).getConst<Rational>();
     }
     return nodeManager->mkConst(value);
   }
@@ -677,7 +681,7 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
             iend = n.end();
           i != iend;
           ++i) {
-      value *= valuation->getValue(*i).getConst<Rational>();
+      value *= d_valuation.getValue(*i).getConst<Rational>();
     }
     return nodeManager->mkConst(value);
   }
@@ -691,24 +695,24 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
     Unreachable();
 
   case kind::DIVISION: // 2 args
-    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() /
-                                 valuation->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() /
+                                 d_valuation.getValue(n[1]).getConst<Rational>() );
 
   case kind::LT: // 2 args
-    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() <
-                                 valuation->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() <
+                                 d_valuation.getValue(n[1]).getConst<Rational>() );
 
   case kind::LEQ: // 2 args
-    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() <=
-                                 valuation->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() <=
+                                 d_valuation.getValue(n[1]).getConst<Rational>() );
 
   case kind::GT: // 2 args
-    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() >
-                                 valuation->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() >
+                                 d_valuation.getValue(n[1]).getConst<Rational>() );
 
   case kind::GEQ: // 2 args
-    return nodeManager->mkConst( valuation->getValue(n[0]).getConst<Rational>() >=
-                                 valuation->getValue(n[1]).getConst<Rational>() );
+    return nodeManager->mkConst( d_valuation.getValue(n[0]).getConst<Rational>() >=
+                                 d_valuation.getValue(n[1]).getConst<Rational>() );
 
   default:
     Unhandled(n.getKind());
@@ -716,15 +720,15 @@ Node TheoryArith::getValue(TNode n, Valuation* valuation) {
 }
 
 void TheoryArith::notifyEq(TNode lhs, TNode rhs) {
-
 }
 
 void TheoryArith::notifyRestart(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_restartTimer);
 
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
 
   ++d_restartsCounter;
+  /*
   if(d_restartsCounter % d_tableauResetPeriod == 0){
     double currentDensity = d_tableau.densityMeasure();
     d_statistics.d_avgTableauDensityAtRestart.addEntry(currentDensity);
@@ -734,6 +738,32 @@ void TheoryArith::notifyRestart(){
       d_tableauResetPeriod += s_TABLEAU_RESET_INCREMENT;
       d_tableauResetDensity += .2;
       d_tableau = d_initialTableau;
+    }
+  }
+  */
+  static const bool debugResetPolicy = false;
+
+  uint32_t currSize = d_tableau.size();
+  uint32_t copySize = d_smallTableauCopy.size();
+
+  //d_statistics.d_tableauSizeHistory << currSize;
+  if(debugResetPolicy){
+    cout << "curr " << currSize << " copy " << copySize << endl;
+  }
+  if(d_presolveHasBeenCalled && copySize == 0 && currSize > 0){
+    if(debugResetPolicy){
+      cout << "initial copy " << d_restartsCounter << endl;
+    }
+    d_smallTableauCopy = d_tableau; // The initial copy
+  }
+
+  if(d_presolveHasBeenCalled && d_restartsCounter >= RESET_START){
+    if(copySize >= currSize * 1.1 ){
+      ++d_statistics.d_smallerSetToCurr;
+      d_smallTableauCopy = d_tableau;
+    }else if(d_tableauResetDensity * copySize <=  currSize){
+      ++d_statistics.d_currSetToSmaller;
+      d_tableau = d_smallTableauCopy;
     }
   }
 }
@@ -776,15 +806,14 @@ void TheoryArith::permanentlyRemoveVariable(ArithVar v){
     Assert(!noRow);
 
     //remove the row from the tableau
-    ReducedRowVector* row  = d_tableau.removeRow(v);
-    Node eq = row->asEquality(d_arithVarToNodeMap);
+    Node eq =  d_tableau.rowAsEquality(v, d_arithVarToNodeMap);
+    d_tableau.removeRow(v);
 
-    if(Debug.isOn("row::print")) row->printRow();
     if(Debug.isOn("tableau")) d_tableau.printTableau();
     Debug("arith::permanentlyRemoveVariable") << eq << endl;
-    delete row;
 
-    Assert(d_tableau.getRowCount(v) == 0);
+    Assert(d_tableau.getRowLength(v) == 0);
+    Assert(d_tableau.getColLength(v) == 0);
     Assert(d_removedRows.find(v) ==  d_removedRows.end());
     d_removedRows[v] = eq;
   }
@@ -808,16 +837,15 @@ void TheoryArith::presolve(){
     }
   }
 
-  d_initialTableau = d_tableau;
-  d_initialDensity = d_initialTableau.densityMeasure();
-  d_statistics.d_initialTableauDensity.setData(d_initialDensity);
+  d_statistics.d_initialTableauSize.setData(d_tableau.size());
 
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.checkTableau(); }
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
 
   static int callCount = 0;
   Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
 
   learner.clear();
 
+  d_presolveHasBeenCalled = true;
   check(FULL_EFFORT);
 }

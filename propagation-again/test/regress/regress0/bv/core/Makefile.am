@@ -41,7 +41,7 @@ TESTS =	\
 	equality-00.smt \
 	equality-01.smt \
 	equality-02.smt \
-  equality-05.smt \
+	equality-05.smt \
 	bv_eq_diamond10.smt \
 	slice-01.smt \
 	slice-02.smt \
@@ -69,11 +69,9 @@ TESTS =	\
 	bitvec0.smt \
 	bitvec2.smt \
 	bitvec3.smt \
-	bitvec5.smt 
-			
-EXTRA_DIST = $(TESTS)
+	bitvec5.smt
 
-# synonyms for "check"
+# synonyms for "check" in this directory
 .PHONY: regress regress0 test
 regress regress0 test: check
 
