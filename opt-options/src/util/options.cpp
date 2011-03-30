@@ -63,7 +63,7 @@ Options::Options() :
   uf_implementation(MORGAN),
   parseOnly(false),
   semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-  theoryRegistration(true),
+  theoryRegistration(false),
   memoryMap(false),
   strictParsing(false),
   lazyDefinitionExpansion(false),
@@ -484,7 +484,7 @@ throw(OptionException) {
   return optind;
 }
 
-bool Options::rewriteArithEqualities = false;
+bool Options::rewriteArithEqualities = true;
 
 
 #undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT

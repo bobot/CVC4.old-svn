@@ -266,11 +266,9 @@ int runCvc4(int argc, char* argv[]) {
     returnValue = 0;
   }
 
-#ifdef CVC4_COMPETITION_MODE
   // exit, don't return
   // (don't want destructors to run)
   exit(returnValue);
-#endif
 
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
   RegisterStatistic statSatResultReg(&s_statSatResult);
