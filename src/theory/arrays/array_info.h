@@ -24,6 +24,7 @@
 #include "context/cdlist.h"
 #include "context/cdmap.h"
 #include "expr/node.h"
+#include "util/stats.h"
 #include <ext/hash_set>
 #include <iostream>
 #include <map>
@@ -117,6 +118,17 @@ private:
   CTNodeList* emptyList;
 
 
+  /* == STATISTICS == */
+
+  /** time spent in preregisterTerm() */
+  TimerStat d_mergeInfoTimer;
+  AverageStat d_avgIndexListLength;
+  AverageStat d_avgStoresListLength;
+  AverageStat d_avgInStoresListLength;
+  IntStat d_listsCount;
+  IntStat d_callsMergeInfo;
+  IntStat d_maxList;
+
   /**
    * checks if a certain element is in the list l
    * FIXME: better way to check for duplicates?
@@ -132,9 +144,23 @@ private:
 public:
   const Info* emptyInfo;
 
-  ArrayInfo(context::Context* c): ct(c), info_map(ct) {
+  ArrayInfo(context::Context* c): ct(c), info_map(ct),
+      d_mergeInfoTimer("theory::arrays::mergeInfoTimer"),
+      d_avgIndexListLength("theory::arrays::avgIndexListLength"),
+      d_avgStoresListLength("theory::arrays::avgStoresListLength"),
+      d_avgInStoresListLength("theory::arrays::avgInStoresListLength"),
+      d_listsCount("theory::arrays::listsCount",0),
+      d_callsMergeInfo("theory::arrays::callsMergeInfo",0),
+      d_maxList("theory::arrays::maxList",0){
     emptyList = new(true) CTNodeList(ct);
     emptyInfo = new Info(ct);
+    StatisticsRegistry::registerStat(&d_mergeInfoTimer);
+    StatisticsRegistry::registerStat(&d_avgIndexListLength);
+    StatisticsRegistry::registerStat(&d_avgStoresListLength);
+    StatisticsRegistry::registerStat(&d_avgInStoresListLength);
+    StatisticsRegistry::registerStat(&d_listsCount);
+    StatisticsRegistry::registerStat(&d_callsMergeInfo);
+    StatisticsRegistry::registerStat(&d_maxList);
   }
   ~ArrayInfo(){
     CNodeInfoMap::iterator it = info_map.begin();
@@ -145,6 +171,13 @@ public:
     }
     emptyList->deleteSelf();
     delete emptyInfo;
+    StatisticsRegistry::unregisterStat(&d_mergeInfoTimer);
+    StatisticsRegistry::unregisterStat(&d_avgIndexListLength);
+    StatisticsRegistry::unregisterStat(&d_avgStoresListLength);
+    StatisticsRegistry::unregisterStat(&d_avgInStoresListLength);
+    StatisticsRegistry::unregisterStat(&d_listsCount);
+    StatisticsRegistry::unregisterStat(&d_callsMergeInfo);
+    StatisticsRegistry::unregisterStat(&d_maxList);
   };
 
   /**

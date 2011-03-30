@@ -169,22 +169,73 @@ const CTNodeList* ArrayInfo::getInStores(const TNode a) const{
 
 void ArrayInfo::mergeInfo(const TNode a, const TNode b){
   // can't have assertion that find(b) = a !
+  TimerStat::CodeTimer codeTimer(d_mergeInfoTimer);
+  ++d_callsMergeInfo;
 
   Debug("arrays-mergei")<<"Arrays::mergeInfo merging "<<a<<"\n";
   Debug("arrays-mergei")<<"                      and "<<b<<"\n";
 
-
   CNodeInfoMap::iterator ita = info_map.find(a);
   CNodeInfoMap::iterator itb = info_map.find(b);
+
   if(ita != info_map.end()) {
     Debug("arrays-mergei")<<"Arrays::mergeInfo info "<<a<<"\n";
     if(Debug.isOn("arrays-mergei"))
       (*ita).second->print();
 
+
+    /* sketchy stats */
+
+    int s = (*ita).second->indices->size();
+    d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
+    if(s!= 0) {
+      d_avgIndexListLength.addEntry(s);
+      ++d_listsCount;
+    }
+    s = (*ita).second->stores->size();
+    d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
+    if(s!= 0) {
+      d_avgStoresListLength.addEntry(s);
+      ++d_listsCount;
+    }
+
+    s = (*ita).second->in_stores->size();
+    d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
+    if(s!=0) {
+      d_avgInStoresListLength.addEntry(s);
+      ++d_listsCount;
+    }
+
+
     if(itb != info_map.end()) {
       Debug("arrays-mergei")<<"Arrays::mergeInfo info "<<b<<"\n";
       if(Debug.isOn("arrays-mergei"))
         (*itb).second->print();
+
+      /* sketchy stats */
+
+      s = (*itb).second->indices->size();
+      d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
+      if(s!= 0) {
+        d_avgIndexListLength.addEntry(s);
+        ++d_listsCount;
+      }
+      s = (*itb).second->stores->size();
+      d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
+      if(s!= 0) {
+        d_avgStoresListLength.addEntry(s);
+        ++d_listsCount;
+      }
+
+      s = (*itb).second->in_stores->size();
+      d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
+
+      if(s!=0) {
+        d_avgInStoresListLength.addEntry(s);
+        ++d_listsCount;
+      }
+
+
       CTNodeList* lista_i = (*ita).second->indices;
       CTNodeList* lista_st = (*ita).second->stores;
       CTNodeList* lista_inst = (*ita).second->in_stores;

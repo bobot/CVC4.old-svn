@@ -41,13 +41,12 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out) :
   d_infoMap(c),
   d_numRoW2("theory::arrays::number of RoW2 lemmas", 0),
   d_numExt("theory::arrays::number of Ext lemmas", 0),
-  d_checkTimer("theory::arrays::checkTime"),
-  d_preregisterTimer("theory::arrays::preregisterTime")
+  d_checkTimer("theory::arrays::checkTime")
 {
   StatisticsRegistry::registerStat(&d_numRoW2);
   StatisticsRegistry::registerStat(&d_numExt);
   StatisticsRegistry::registerStat(&d_checkTimer);
-  StatisticsRegistry::registerStat(&d_preregisterTimer);
+
 
 }
 
@@ -56,7 +55,6 @@ TheoryArrays::~TheoryArrays() {
   StatisticsRegistry::unregisterStat(&d_numRoW2);
   StatisticsRegistry::unregisterStat(&d_numExt);
   StatisticsRegistry::unregisterStat(&d_checkTimer);
-  StatisticsRegistry::unregisterStat(&d_preregisterTimer);
 }
 
 
@@ -180,6 +178,9 @@ void TheoryArrays::merge(TNode a, TNode b) {
    * take care of the congruence closure part
    */
 
+
+  // FIXME: why do check find(a) and do the diseq have to be different?
+
   // make "a" the one with shorter diseqList
   CNodeTNodesMap::iterator deq_ia = d_disequalities.find(a);
   CNodeTNodesMap::iterator deq_ib = d_disequalities.find(b);
@@ -203,6 +204,8 @@ void TheoryArrays::merge(TNode a, TNode b) {
   setCanon(a, b);
 
   //FIXME: do i need to merge these if there is conflict?
+  // check for conflict!!!
+
   if(a.getType().isArray()) {
     checkRoWLemmas(a,b);
     checkRoWLemmas(b,a);
@@ -501,7 +504,7 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Node lem = nm->mkNode(kind::OR, eq1, eq2);
 
  //TODO: check for find(i) == find(j) ?
- if(i!=j && aj!=bj ) {
+ if(find(i)!=find(j) && find(aj)!=find(bj) ) {
    Debug("arrays-lem")<<"Arrays::addRoW2Lemma adding "<<lem<<"\n";
    d_RoWLemmaCache.insert(make_quad(a,b,i,j));
    d_out->lemma(lem);

@@ -245,8 +245,7 @@ private:
   /** time spent in check() */
   TimerStat d_checkTimer;
 
-  /** time spent in preregisterTerm() */
-  TimerStat d_preregisterTimer;
+
 
 public:
   TheoryArrays(context::Context* c, OutputChannel& out);
@@ -297,6 +296,7 @@ public:
     }
     case kind::VARIABLE: {
       // adding an empty entry for each term of type array
+      //TODO: why do i need this?
       if(n.getType().isArray()) {
         d_infoMap.addEmptyEntry(n);
       }
