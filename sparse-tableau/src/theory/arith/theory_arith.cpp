@@ -605,7 +605,7 @@ void TheoryArith::notifyRestart(){
     }
   }
   */
-  static const bool debugResetPolicy = true;
+  static const bool debugResetPolicy = false;
 
   uint32_t currSize = d_tableau.size();
   uint32_t copySize = d_smallTableauCopy.size();
