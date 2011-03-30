@@ -48,7 +48,7 @@ am__v_at_1 =
 # mkinstalldirs (never prefix with @; not a top-level instruction)
 AM_V_mkdir_noat = $(am__v_mkdir_noat_$(V))
 am__v_mkdir_noat_ = $(am__v_mkdir_noat_$(AM_DEFAULT_VERBOSITY))
-am__v_mkdir_noat_0 = $(SHELL) -c 'echo "   MKDIR  " "$$@"; $(mkinstalldirs) "$$@"' bash
+am__v_mkdir_noat_0 = $(SHELL) -c 'echo "   MKDIR $$@"; $(mkinstalldirs) "$$@"' bash
 am__v_mkdir_noat_1 = $(mkinstalldirs)
 # mkinstalldirs (can prefix with @)
 AM_V_mkdir = $(am__v_mkdir_$(V))
@@ -58,17 +58,17 @@ am__v_mkdir_1 = $(am__v_mkdir_noat_1)
 # libtool --mode=install install
 AM_V_ltinstall = $(am__v_ltinstall_$(V))
 am__v_ltinstall_ = $(am__v_ltinstall_$(AM_DEFAULT_VERBOSITY))
-am__v_ltinstall_0 = @$(SHELL) -c 'echo "   LTINSTL" "$$1"; $(LIBTOOL) --silent --mode=install install "$$@"' bash
+am__v_ltinstall_0 = @$(SHELL) -c 'echo "   LTINS $$1"; $(LIBTOOL) --silent --mode=install install "$$@"' bash
 am__v_ltinstall_1 = $(LIBTOOL) --mode=install install
 # install_sh (never prefix with @)
 AM_V_install_sh_noat = $(am__v_install_sh_noat_$(V))
 am__v_install_sh_noat_ = $(am__v_install_sh_noat_$(AM_DEFAULT_VERBOSITY))
-am__v_install_sh_noat_0 = $(SHELL) -c 'echo "   INSTALL" "$$1"; $(install_sh) "$$@"' bash
+am__v_install_sh_noat_0 = $(SHELL) -c 'echo "   INSTL $$1"; $(install_sh) "$$@"' bash
 am__v_install_sh_noat_1 = $(install_sh)
 # relinking
 AM_V_relink = $(am__v_relink_$(V))
 am__v_relink_ = $(am__v_relink_$(AM_DEFAULT_VERBOSITY))
-am__v_relink_0 = echo "   RELINK "
+am__v_relink_0 = echo "   RELNK"
 am__v_relink_1 = :
 
 # all the binaries that might need to be installed

@@ -31,7 +31,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 33 "${template}"
+#line 35 "${template}"
 
 using namespace CVC4::kind;
 
@@ -173,7 +173,7 @@ Debug("export") << "+ child: " << *i << std::endl;
 }/* CVC4::expr namespace */
 
 Expr Expr::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
-  if(Debug.isOn("pickle")){
+  if(Debug.isOn("pickle")) {
     expr::pickle::Pickler::debugPickleTest(*this);
   }
   Assert(d_exprManager != exprManager,

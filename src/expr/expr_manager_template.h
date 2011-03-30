@@ -45,10 +45,10 @@ class IntStat;
 class VariableTypeMap;
 
 namespace expr {
-namespace pickle {
-class Pickler;
-}
-}
+  namespace pickle {
+    class Pickler;
+  }/* CVC4::expr::pickle namespace */
+}/* CVC4::expr namespace */
 
 namespace context {
   class Context;

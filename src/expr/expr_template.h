@@ -51,11 +51,12 @@ class SmtEngine;
 class Type;
 class TypeCheckingException;
 class TypeCheckingExceptionPrivate;
-namespace expr{
-namespace pickle{
-class Pickler;
-}
-}
+
+namespace expr {
+  namespace pickle {
+    class Pickler;
+  }/* CVC4::expr::pickle namespace */
+}/* CVC4::expr namespace */
 
 class VariableTypeMap;
 
@@ -697,7 +698,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 695 "${template}"
+#line 702 "${template}"
 
 namespace expr {
 
