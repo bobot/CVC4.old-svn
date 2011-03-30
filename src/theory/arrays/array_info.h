@@ -76,7 +76,7 @@ public:
    * debug method to print a list
    */
 
-  static void printList (CTNodeList* list) {
+  static void printList (CTNodeList* list) const {
     CTNodeList::const_iterator it = list->begin();
     Debug("arrays-info")<<"   [ ";
     for(; it != list->end(); it++ ) {
