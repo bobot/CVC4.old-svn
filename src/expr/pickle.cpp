@@ -220,9 +220,10 @@ void Pickler::debugPickleTest(Expr e) {
   std::string str = p.toString();
 
   Expr from = pickler.fromPickle(p);
+  ExprManagerScope ems(e);
 
   Debug("pickle") << "before: " << e << std::endl;
-  Debug("pickle") << "after: " << from << std::endl;
+  Debug("pickle") << "after: " << from.getNode() << std::endl;
   Debug("pickle") << "pickle: (oct) "<< size << " " << str.length() << " " << str << std::endl;
 
   Assert(p.empty());
@@ -266,7 +267,7 @@ Expr Pickler::fromPickle(Pickle& p) {
 
   Assert(atDefaultState());
 
-  return Expr(d_em, &res);
+  return d_nm->toExpr(res);
 }
 
 Node Pickler::fromCaseVariable(Kind k) {

@@ -37,30 +37,12 @@ void doCommand(SmtEngine&, Command*, Options&);
 Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
 
 /* defined in sharing_manager.cpp */
-// template<typename T>
-// void sharingManager(int numThreads, 
-// 		    SharedChannel<T>* channelsOut[], 
-// 		    SharedChannel<T>* channelsIn[]);
 template<typename T>
 void sharingManager(int numThreads, 
-		    SharedChannel<T> *channelsOut[], // out and in with respect 
-		    SharedChannel<T> *channelsIn[])  // to smt engines
-{
-  cout << "Sharing Manager thread started " <<endl;
-  while(true) {
-    for(int t=0; t<numThreads; ++t)
-      if(not channelsOut[t]->empty()) {
-	T data = channelsOut[t]->pop();
-	Debug("sharing") << " Got data " << data << std::endl; 
-	for(int u=0; u<numThreads; ++u)
-	  if(u != t)
-	    std::cout << "Sending " << data << " received from " << t 
-		      << " to " << u << std::endl;
-      }
-  }
-}
+		    SharedChannel<T>* channelsOut[], 
+		    SharedChannel<T>* channelsIn[]);
 
-typedef std::string channelFormat;	/* Remove once we are using Pickler */
+typedef expr::pickle::Pickle channelFormat;	/* Remove once we are using Pickle */
 
 class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
   string d_tag;
@@ -72,10 +54,11 @@ public:
   }
 
   void notifyNewLemma(Expr lemma) {
-    std::cout << d_tag << ": " << lemma << std::endl;
-    //expr::pickle::Pickler pklr(lemma.getExprManager());
-    //expr::pickle::Pickle pkl;
-    d_sharedChannel->push(lemma.toString());
+    Debug("sharing") << d_tag << ": " << lemma << std::endl;
+    expr::pickle::Pickler pklr(lemma.getExprManager());
+    expr::pickle::Pickle pkl;
+    pklr.toPickle(lemma, pkl);
+    d_sharedChannel->push(pkl);
   }
 
 };/* class PortfolioLemmaOutputChannel */
@@ -90,87 +73,6 @@ std::string intToString(int i)
 
     return s;
 }
-
-// bool global_flag_done = false;
-// thread_return_data global_returnData;
-
-// boost::mutex mutex_done;
-// boost::mutex mutex_main_wait;
-// boost::condition condition_var_main_wait;
-
-// void runCvc4Thread(int thread_id, int argc, char **argv, Options& options)
-// {
-//   int returnValue;
-
-//   /* Output to string stream, so that */
-//   stringstream ss_out(stringstream::out);
-//   options.out = &ss_out;
-
-//   try {
-//     returnValue = runCvc4(argc, argv, options);
-//   }catch(...){
-//     while(global_flag_done == false)
-//       if( mutex_done.try_lock() ) {
-//         global_returnData.exceptionOccurred = true;
-//         global_returnData.exceptionPtr = boost::current_exception();  // gets rid of exception?
-//         global_returnData.returnValue = 1;
-
-//         global_flag_done = true;
-//         mutex_done.unlock();
-//         condition_var_main_wait.notify_all(); //we want main thread to quit
-//       }
-//   }
-
-//   if(returnValue) {
-//     while(global_flag_done==false)
-//       if( mutex_done.try_lock() ) {
-//         CVC4::Notice("Thread " + intToString(thread_id) + "wins.\n"
-//                      "Returns " + intToString(returnValue) + ".\n");
-
-//         global_returnData.thread_id = thread_id;
-//         global_returnData.returnValue = returnValue;
-//         global_returnData.s_out = ss_out.str();
-
-//         global_flag_done = true;
-//         mutex_done.unlock();
-//         condition_var_main_wait.notify_all(); //we want main thread to quit
-//       }
-//   }
-// }
-
-// int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
-// {
-//   boost::thread threads[numThreads];
-
-//   for(int t=0; t<numThreads; ++t) {
-//     //CVC4::Notice("Driver thread: creating thread " + intToString(t) + "\n" );
-//     Options o = options;
-//     o.pivotRule = t == 0 ? Options::MINIMUM : Options::MAXIMUM;
-//     o.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #" + intToString(t));
-//     threads[t] = boost::thread(runCvc4Thread, t, argc, argv, o);
-//   }
-
-//   while(global_flag_done == false)
-//     condition_var_main_wait.wait(mutex_main_wait);
-
-//   if( global_returnData.exceptionOccurred )
-//     boost::rethrow_exception( global_returnData.exceptionPtr );
-
-//   CVC4::Notice("Driver thread: Exiting program. " + intToString(global_returnData.returnValue)
-//                + " return value of the fastest thread.\n" );
-
-//   cout << global_returnData.s_out;
-
-//   //exit(global_returnData.returnValue);  // Hack, no longer needed, thanks to boost
-
-//   for(int t=0; t<numThreads; ++t) {
-//     CVC4::Notice("Driver thread: cancelling thread " + intToString(t) + "\n");
-//     threads[t].interrupt();
-//     threads[t].join();
-//   }
-
-//   return global_returnData.returnValue;
-// }
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 {
@@ -395,10 +297,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   return returnValue;
 }
 
-/***** ***** ***** Copy from driver.cpp ***** ***** *****
- * Sorry, figured making a copy was best for now
- * Will reduce redundancy later
- */
+/* Code shared with driver.cpp */
 
 namespace CVC4 {
   namespace main {/* Global options variable */
@@ -439,15 +338,6 @@ void printUsage(Options& options) {
 
 // }
 
-/** Create the SMT engine and execute the commands */
-Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
-  // Create the SmtEngine(s)
-  SmtEngine smt(&exprMgr, options);
-  doCommand(smt, cmd, options);
-
-  return smt.getStatusOfLastCommand();
-}
-
 /** Executes a command. Deletes the command after execution. */
 void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
   if( options.parseOnly ) {
@@ -472,4 +362,40 @@ void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
       cmd->invoke(&smt);
     }
   }
+}
+
+/* End of code shared with driver.cpp */
+
+/** Create the SMT engine and execute the commands */
+Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
+  // Create the SmtEngine(s)
+  SmtEngine smt(&exprMgr, options);
+  doCommand(smt, cmd, options);
+
+  return smt.getStatusOfLastCommand();
+}
+
+template<typename T>
+void sharingManager(int numThreads, 
+		    SharedChannel<T> *channelsOut[], // out and in with respect 
+		    SharedChannel<T> *channelsIn[])  // to smt engines
+{
+  Debug("sharing") << "sharing: thread started " << std::endl;
+  vector <int> cnt(numThreads);	// Debug("sharing")
+  while(true) {
+    boost::this_thread::interruption_point();
+    // TODO : Add a condition variable which gets updated when 
+    // an output channel gets updated
+    for(int t=0; t<numThreads; ++t) {
+      if(not channelsOut[t]->empty()) {
+	cnt[t] ++;		// Debug("sharing")
+	T data = channelsOut[t]->pop();
+	Debug("sharing") << "sharing: Got data. Thread #" << t
+			 << ". Chunk " << cnt[t] << std :: endl;
+	for(int u=0; u<numThreads; ++u)
+	  if(u != t)
+	    Debug("sharing") << "sharing: Sending to " << u << std::endl;
+      }
+    } /* end of */
+  } /* end of infinite while */
 }
