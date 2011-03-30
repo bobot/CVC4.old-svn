@@ -166,6 +166,7 @@ void TheoryDatatypes::checkFiniteWellFounded(){
 
 TheoryDatatypes::TheoryDatatypes(int id, Context* c, OutputChannel& out) :
   Theory(id, c, out),
+  d_currAsserts(c),
   d_drv_map(c),
   d_axioms(c),
   d_selectors(c),
@@ -286,10 +287,15 @@ void TheoryDatatypes::presolve() {
 }
 
 void TheoryDatatypes::check(Effort e) {
+  for( int i=0; i<(int)d_currAsserts.size(); i++ ){
+    Debug("datatypes") << "currAsserts[" << i << "] = " << d_currAsserts[i] << std::endl;
+  }
   while(!done()) {
     Node assertion = get();
-    Debug("datatypes") << "TheoryDatatypes::check(): " << assertion << endl;
-    Debug("datatypes-split") << "TheoryDatatypes::check(): " << assertion << endl;
+    if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ){
+      cout << "TheoryDatatypes::check(): " << assertion << endl;
+    }
+    d_currAsserts.push_back( assertion );
 
     //clear from the derived map
     if( !d_drv_map[assertion].get().isNull() ){
@@ -374,7 +380,6 @@ void TheoryDatatypes::check(Effort e) {
           Debug("datatypes-split") << "empty label" << std::endl;
         else
           Debug("datatypes-split") << "label size = " << lbl->size() << std::endl;
-
         Node cons = getPossibleCons( (*i).first, false );
         if( !cons.isNull() ){
           Debug("datatypes-split") << "*************Split for possible constructor " << cons << std::endl;
@@ -393,8 +398,9 @@ void TheoryDatatypes::check(Effort e) {
       }
     }
   }
-  Debug("datatypes") << "TheoryDatatypes::check(): done" << endl;
-  Debug("datatypes-split") << "TheoryDatatypes::check(): done" << endl;
+  if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ){
+    cout << "TheoryDatatypes::check(): done" << endl;
+  }
 }
 
 void TheoryDatatypes::checkTester( Node assertion, bool doAdd ){
@@ -410,13 +416,13 @@ void TheoryDatatypes::checkTester( Node assertion, bool doAdd ){
   Node tRep = tassertion[0];
   //tRep = collapseSelector( tRep, Node::null(), true );
   tRep = find( tRep );
-  //Debug("datatypes") << "tRep is " << tRep << " " << tassertion[0] << std::endl;
+  Debug("datatypes") << "tRep is " << tRep << " " << tassertion[0] << std::endl;
   //add label instead for the representative (if it is different)
   if( tRep!=tassertion[0] ){
     tassertionRep = NodeManager::currentNM()->mkNode( APPLY_TESTER, tassertion.getOperator(), tRep );
     assertionRep = ( assertion.getKind()==NOT ) ? tassertionRep.notNode() : tassertionRep;
+    //add explanation
     if( doAdd ){
-      //add explanation
       Node explanation = d_cc.explain( tRep, tassertion[0] );
       NodeBuilder<> nb(kind::AND);
       nb << explanation << assertion;
@@ -430,12 +436,13 @@ void TheoryDatatypes::checkTester( Node assertion, bool doAdd ){
   //if tRep is a constructor, it is trivial
   if( tRep.getKind()==APPLY_CONSTRUCTOR ){
     if( checkTrivialTester( tassertionRep )==(assertionRep.getKind()==NOT) ){
-      d_conflict = assertionRep;
+      d_conflict = doAdd ? assertionRep : NodeManager::currentNM()->mkConst(true);
       Debug("datatypes") << "Trivial conflict " << assertionRep << std::endl;
     }
     return;
   }
 
+  addTermToLabels( tRep );
   EqLists::iterator lbl_i = d_labels.find(tRep);
   //Debug("datatypes") << "Found " << (lbl_i == d_labels.end()) << std::endl;
   Assert( lbl_i != d_labels.end() );
@@ -503,13 +510,15 @@ void TheoryDatatypes::checkTester( Node assertion, bool doAdd ){
       return;
     }
     //inspect selectors
+#if 0
     EqListsN::iterator sel_i = d_selector_eq.find( tRep );
     if( sel_i!=d_selector_eq.end() ){
       EqListN* sel = (*sel_i).second;
       if( !sel->empty() ){
         for( EqListN::const_iterator i = sel->begin(); i!= sel->end(); i++ ){
           Node s = (*i);
-          Debug("datatypes") << "Collapse selector? " << s << std::endl;
+          tRep = find( tRep );
+          Debug("datatypes") << "Inspect selector " << s << " " << find( s[0] ) << " " << tRep << std::endl;
           Assert( s.getKind()==APPLY_SELECTOR &&
                   find( s[0] )==tRep );
           if( tRep!=s[0] ){
@@ -522,6 +531,9 @@ void TheoryDatatypes::checkTester( Node assertion, bool doAdd ){
         }
       }
     }
+#else
+    updateSelectors( tRep );
+#endif
   }
   return;
 }
@@ -634,7 +646,7 @@ Node TheoryDatatypes::getPossibleCons( Node t, bool checkInst )
             for( int i=0; i<(int)d_sels[cons].size(); i++ ){
               Node s = NodeManager::currentNM()->mkNode( APPLY_SELECTOR, d_sels[cons][i], t );
               if( d_selectors.find( s )!=d_selectors.end() ){
-                Debug("datatypes") << "Found selector " << s << std::endl;
+                Debug("datatypes") << "  getPosCons: found selector " << s << std::endl;
                 return cons;
               }
             }
@@ -729,21 +741,21 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   // b becomes the canon of a
   d_unionFind.setCanon(a, b);
 
-  if( d_unionFind.isInconsistentConstructor( a, b ) ){
+  if( d_unionFind.isInconsistentConstructor( a, b, false, true ) ){
     Debug("datatypes") << "Clash " << a << " " << b << std::endl;
     d_conflict = d_cc.explain( a, b );
     Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
     return;
   }
   //these tests should be unnecessary
-  Node clash = d_unionFind.checkInconsistent( a );
+  Node clash = d_unionFind.checkInconsistent( a, true );
   if( !clash.isNull() ){
     Debug("datatypes") << "ClashA " << a << " " << clash << std::endl;
     d_conflict = d_cc.explain( a, clash );
     Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
     return;
   }
-  clash = d_unionFind.checkInconsistent( b );
+  clash = d_unionFind.checkInconsistent( b, true );
   if( !clash.isNull() ){
     Debug("datatypes") << "ClashB " << b << " " << clash << std::endl;
     d_conflict = d_cc.explain( b, clash );
@@ -753,6 +765,7 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   Debug("datatypes") << "Done clash" << std::endl;
 
   //merge selector lists
+#if 0
   EqListsN::iterator sel_a_i = d_selector_eq.find( a );
   if( sel_a_i!=d_selector_eq.end() ){
     EqListN* sel_a = (*sel_a_i).second;
@@ -765,15 +778,14 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
     }else{
       sel_b = (*sel_b_i).second;
     }
-    Debug("datatypes") << "Here " << sel_a->size() << std::endl;
+    Debug("datatypes") << a << " has " << sel_a->size() << " selectors" << std::endl;
 
     if( !sel_a->empty() ){
       for( EqListN::const_iterator i = sel_a->begin(); i!= sel_a->end(); i++ ){
-        Debug("datatypes") << "in loop" << std::endl;
         Node s = (*i);
         Debug("datatypes") << "Merge selector " << s << " into " << b << std::endl;
         Assert( s.getKind()==APPLY_SELECTOR &&
-                find( s[0] )==b );
+                find( s[0] )==find( b ) );
         if( b!=s[0] ){
           s = NodeManager::currentNM()->mkNode( APPLY_SELECTOR, s.getOperator(), b );
         }
@@ -786,7 +798,12 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
         }
       }
     }
+  }else{
+    Debug("datatypes") << a << " has no selectors" << std::endl;
   }
+#else
+  updateSelectors( a );
+#endif
   Debug("datatypes") << "Done collapse" << std::endl;
 
   //merge labels
@@ -937,14 +954,19 @@ Node TheoryDatatypes::collapseSelector( TNode t, bool useContext ){
         if( !d_conflict.isNull() ){
           Debug("datatypes") << "Applied selector " << t << " to provably wrong constructor." << endl;
           retNode = d_distinguishTerms[ selType[1] ];
-
+          
           Node neq = NodeManager::currentNM()->mkNode( EQUAL, retNode, t );
           NodeBuilder<> nb(kind::AND);
-          nb << d_conflict;
+          Node trueNode = NodeManager::currentNM()->mkConst(true);
+          if( d_conflict!=trueNode ){
+            nb << d_conflict;
+          }
           d_conflict = Node::null();
+          tmp = find( tmp );
           if( tmp!=t[0] ){
             nb << d_cc.explain( tmp, t[0] );
           }
+          Assert( nb.getNumChildren()>0 );
           d_drv_map[neq] = nb.getNumChildren()==1 ? nb.getChild( 0 ) : nb;
           Debug("datatypes-split") << "Collapse selector(2) " << neq << std::endl;
           addEquality( neq );
@@ -957,7 +979,56 @@ Node TheoryDatatypes::collapseSelector( TNode t, bool useContext ){
   return t;
 }
 
+void TheoryDatatypes::updateSelectors( Node a ){
+  EqListsN::iterator sel_a_i = d_selector_eq.find( a );
+  if( sel_a_i!=d_selector_eq.end() ){
+    EqListN* sel_a = (*sel_a_i).second;
+    Debug("datatypes") << a << " has " << sel_a->size() << " selectors" << std::endl;
+    if( !sel_a->empty() ){
+      EqListN* sel_b = NULL;
+      for( EqListN::const_iterator i = sel_a->begin(); i!= sel_a->end(); i++ ){
+        Node s = (*i);
+        Node b = find( a );
+        if( b!=a ){
+          EqListsN::iterator sel_b_i = d_selector_eq.find( b );
+          if( sel_b_i==d_selector_eq.end() ){
+            sel_b = new(getContext()->getCMM()) EqListN(true, getContext(), false,
+                                                  ContextMemoryAllocator<Node>(getContext()->getCMM()));
+            d_selector_eq.insertDataFromContextMemory(b, sel_b);
+          }else{
+            sel_b = (*sel_b_i).second;
+          }
+          a = b;
+        }
+        Debug("datatypes") << "Merge selector " << s << " into " << b << std::endl;
+        Assert( s.getKind()==APPLY_SELECTOR &&
+                find( s[0] )==b );
+        if( b!=s[0] ){
+          Node t = NodeManager::currentNM()->mkNode( APPLY_SELECTOR, s.getOperator(), b );
+          //add to labels
+          addTermToLabels( t );
+          //merge( s, t );
+          s = t;
+          d_selectors[s] = true;
+        }
+        s = collapseSelector( s, true );
+        if( !d_conflict.isNull() ){
+          return;
+        }
+        if( sel_b && s.getKind()==APPLY_SELECTOR ){
+          sel_b->push_back( s );
+        }
+      }
+    }
+  }else{
+    Debug("datatypes") << a << " has no selectors" << std::endl;
+  }
+}
+
 void TheoryDatatypes::collectTerms( TNode t ){
+  for( int i=0; i<(int)t.getNumChildren(); i++ ) {
+    collectTerms( t[i] );
+  }
   if( t.getKind()==APPLY_SELECTOR ){
     if( d_selectors.find( t )==d_selectors.end() ){
       Debug("datatypes-split") << "  Found selector " << t << std::endl;
@@ -965,10 +1036,11 @@ void TheoryDatatypes::collectTerms( TNode t ){
       Node tmp = find( t[0] );
       checkInstantiate( tmp );
 
-      Node s;
+      Node s = t;
       if( tmp!=t[0] ){
         s = NodeManager::currentNM()->mkNode( APPLY_SELECTOR, t.getOperator(), tmp );
       }
+      Debug("datatypes-split") << "  Before collapse: " << s << std::endl;
       s = collapseSelector( s, true );
       if( s.getKind()==APPLY_SELECTOR ){
         //add selector to selector eq list
@@ -983,8 +1055,17 @@ void TheoryDatatypes::collectTerms( TNode t ){
           sel = (*sel_i).second;
         }
         sel->push_back( s );
+      }else{
+        Debug("datatypes") << "  collapsed selector to " << s << std::endl;
       }
     } 
+  }
+  addTermToLabels( t );
+}
+
+void TheoryDatatypes::addTermToLabels( Node t ){
+  if( t.getKind()==APPLY_SELECTOR ){
+    
   }
   if( t.getKind()==VARIABLE || t.getKind()==APPLY_SELECTOR ){
     Node tmp = find( t );
@@ -997,9 +1078,6 @@ void TheoryDatatypes::collectTerms( TNode t ){
         d_labels.insertDataFromContextMemory(tmp, lbl);
       }
     }
-  }
-  for( int i=0; i<(int)t.getNumChildren(); i++ ) {
-    collectTerms( t[i] );
   }
 }
 
@@ -1060,10 +1138,8 @@ void TheoryDatatypes::addEquality(TNode eq){
     }
   }
   d_merge_pending.pop_back();
-  Node a = eq[0];
-  Node b = eq[1];
   if( d_conflict.isNull() ){
-    merge(a, b);
+    merge(eq[0], eq[1]);
   }
 }
 
@@ -1105,8 +1181,9 @@ void TheoryDatatypes::throwConflict(){
   }else{
     d_conflict = nb;
   }
-  Debug("datatypes") << "Conflict constructed : " << d_conflict << endl;
-  Debug("datatypes-split") << "Conflict constructed : " << d_conflict << endl;
+  if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ){
+    cout << "Conflict constructed : " << d_conflict << endl;
+  }
   d_out->conflict( d_conflict, false );
   d_conflict = Node::null();
 }

@@ -41,6 +41,7 @@ private:
   typedef context::CDMap<Node, EqListN*, NodeHashFunction> EqListsN;
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
+  context::CDList<Node> d_currAsserts;
   //a list of types with the list of constructors for that type
   std::map<TypeNode, std::vector<Node> > d_cons;
   //a list of types with the list of constructors for that type
@@ -163,7 +164,9 @@ private:
   void checkInstantiate( Node t );
   Node getPossibleCons( Node t, bool checkInst = false );
   Node collapseSelector( TNode t, bool useContext = false );
+  void updateSelectors( Node a );
   void collectTerms( TNode t );
+  void addTermToLabels( Node t );
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);

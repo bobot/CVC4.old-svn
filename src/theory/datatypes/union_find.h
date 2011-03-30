@@ -87,14 +87,14 @@ public:
 private:
   /**
    */
-  inline bool isClashConstructor( TNode n1, TNode n2 );
-  inline bool isCycleConstructor( TNode n1, TNode n2 );
+  inline bool isClashConstructor( TNode n1, TNode n2, bool useContext = false );
+  inline bool isCycleConstructor( TNode n1, TNode n2, bool useContext = false );
 
 public:
   /**
    */
-  inline bool isInconsistentConstructor( TNode n1, TNode n2, bool checkRecursive = false );
-  inline NodeType checkInconsistent( TNode n );
+  inline bool isInconsistentConstructor( TNode n1, TNode n2, bool checkRecursive = false, bool useContext = false );
+  inline NodeType checkInconsistent( TNode n, bool useContext = false );
 
   /**
    * Called by the Context when a pop occurs.  Cancels everything to the
@@ -152,14 +152,17 @@ inline void UnionFind<NodeType, NodeHash>::setCanon(TNode n, TNode newParent) {
 }
 
 template <class NodeType, class NodeHash>
-inline bool UnionFind<NodeType, NodeHash>::isClashConstructor(TNode n1, TNode n2) {
+inline bool UnionFind<NodeType, NodeHash>::isClashConstructor(TNode n1, TNode n2, bool useContext ) {
+  //if( useContext ){
+  //  n2 = find( n2 );
+  //}
   if( n1.getKind()==kind::APPLY_CONSTRUCTOR && n2.getKind()==kind::APPLY_CONSTRUCTOR ){
     if( n1.getOperator()!=n2.getOperator() ){
       return true;
     }else{
       Assert( n1.getNumChildren()==n2.getNumChildren() );
       for( int i=0; i<(int)n1.getNumChildren(); i++ ){
-        if( isClashConstructor( n1[i], n2[i] ) ){
+        if( isClashConstructor( n1[i], n2[i], useContext ) ){
           return true;
         }
       }
@@ -169,13 +172,18 @@ inline bool UnionFind<NodeType, NodeHash>::isClashConstructor(TNode n1, TNode n2
 }
 
 template <class NodeType, class NodeHash>
-inline bool UnionFind<NodeType, NodeHash>::isCycleConstructor(TNode n1, TNode n2) {
+inline bool UnionFind<NodeType, NodeHash>::isCycleConstructor(TNode n1, TNode n2, bool useContext ) {
   if( n1==n2 ){
     return true;
-  }else if( n2.getKind()==kind::APPLY_CONSTRUCTOR ){
-    for( int i=0; i<(int)n2.getNumChildren(); i++ ){
-      if( isCycleConstructor( n1, n2[i] ) ){
-        return true;
+  }else{
+    //if( useContext ){
+    //  n2 = find( n2 );
+    //}
+    if( n2.getKind()==kind::APPLY_CONSTRUCTOR ){
+      for( int i=0; i<(int)n2.getNumChildren(); i++ ){
+        if( isCycleConstructor( n1, n2[i], useContext ) ){
+          return true;
+        }
       }
     }
   }
@@ -183,8 +191,12 @@ inline bool UnionFind<NodeType, NodeHash>::isCycleConstructor(TNode n1, TNode n2
 }
 
 template <class NodeType, class NodeHash>
-inline bool UnionFind<NodeType, NodeHash>::isInconsistentConstructor(TNode n1, TNode n2, bool checkRecursive ) {
-  if( isClashConstructor( n1, n2 ) || ( n1!=n2 && ( isCycleConstructor( n1, n2 ) || isCycleConstructor( n2, n1 ) ) ) ){
+inline bool UnionFind<NodeType, NodeHash>::isInconsistentConstructor(TNode n1, TNode n2, bool checkRecursive, bool useContext ) {
+  //if( useContext ){
+  //  n2 = find( n2 );
+  //}
+  if( isClashConstructor( n1, n2, useContext ) || 
+      ( n1!=n2 && ( isCycleConstructor( n1, n2, useContext ) || isCycleConstructor( n2, n1, useContext ) ) ) ){
     return true;
   }else if( checkRecursive ){
     if( n1.getKind()==kind::APPLY_CONSTRUCTOR && n2.getKind()==kind::APPLY_CONSTRUCTOR &&
@@ -202,17 +214,17 @@ inline bool UnionFind<NodeType, NodeHash>::isInconsistentConstructor(TNode n1, T
 }
 
 template <class NodeType, class NodeHash>
-inline NodeType UnionFind<NodeType, NodeHash>::checkInconsistent(TNode n) {
+inline NodeType UnionFind<NodeType, NodeHash>::checkInconsistent(TNode n, bool useContext) {
   //check for conflicts
   if( n.getKind()==kind::APPLY_CONSTRUCTOR ){
     TNode parent = find( n ); 
-    if( isInconsistentConstructor( n, parent ) ){
+    if( isInconsistentConstructor( n, parent, false, useContext ) ){
       return parent;
     }
     typename MapType::iterator it;
     for( it = d_map.begin(); it != d_map.end(); ++it ){
       TNode nparent = find( it->first );
-      if( nparent==parent && isInconsistentConstructor( n, it->first ) ){
+      if( nparent==parent && isInconsistentConstructor( n, it->first, false, useContext ) ){
         return it->first;
       }
     }
