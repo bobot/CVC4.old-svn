@@ -203,18 +203,6 @@ void TheoryArrays::merge(TNode a, TNode b) {
   // b becomes the canon of a
   setCanon(a, b);
 
-  //FIXME: do i need to merge these if there is conflict?
-  // check for conflict!!!
-
-  if(a.getType().isArray()) {
-    checkRoWLemmas(a,b);
-    checkRoWLemmas(b,a);
-    Debug("arrays-merge")<<"after \n";
-    // note the change in order, merge info adds the list of
-    // the 2nd argument to the first
-    d_infoMap.mergeInfo(b, a);
-  }
-
   deq_ia = d_disequalities.find(a);
   map<TNode, TNode> alreadyDiseqs;
   if(deq_ia != d_disequalities.end()) {
@@ -280,6 +268,15 @@ void TheoryArrays::merge(TNode a, TNode b) {
 
     }
   }
+
+  if(a.getType().isArray()) {
+    checkRoWLemmas(a,b);
+    checkRoWLemmas(b,a);
+    // note the change in order, merge info adds the list of
+    // the 2nd argument to the first
+    d_infoMap.mergeInfo(b, a);
+  }
+
 
 }
 
@@ -430,8 +427,8 @@ bool TheoryArrays::isRedundandRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
   }
 
   NodeManager* nm = NodeManager::currentNM();
-  TNode aj = nm->mkNode(kind::SELECT, a, j);
-  TNode bj = nm->mkNode(kind::SELECT, b, j);
+  Node aj = nm->mkNode(kind::SELECT, a, j);
+  Node bj = nm->mkNode(kind::SELECT, b, j);
   if(find(i) == find(j) || find(aj) == find(bj)) {
     return true;
   }

@@ -297,10 +297,8 @@ public:
       break;
     }
     case kind::VARIABLE: {
-      // adding an empty entry for each term of type array
-      //TODO: why do i need this?
       if(n.getType().isArray()) {
-        d_infoMap.addEmptyEntry(n);
+       // d_infoMap.addEmptyEntry(n);
       }
     }
     default:

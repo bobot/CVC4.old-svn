@@ -183,58 +183,10 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
     if(Debug.isOn("arrays-mergei"))
       (*ita).second->print();
 
-
-    /* sketchy stats */
-
-    int s = (*ita).second->indices->size();
-    d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
-    if(s!= 0) {
-      d_avgIndexListLength.addEntry(s);
-      ++d_listsCount;
-    }
-    s = (*ita).second->stores->size();
-    d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
-    if(s!= 0) {
-      d_avgStoresListLength.addEntry(s);
-      ++d_listsCount;
-    }
-
-    s = (*ita).second->in_stores->size();
-    d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
-    if(s!=0) {
-      d_avgInStoresListLength.addEntry(s);
-      ++d_listsCount;
-    }
-
-
     if(itb != info_map.end()) {
       Debug("arrays-mergei")<<"Arrays::mergeInfo info "<<b<<"\n";
       if(Debug.isOn("arrays-mergei"))
         (*itb).second->print();
-
-      /* sketchy stats */
-
-      s = (*itb).second->indices->size();
-      d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
-      if(s!= 0) {
-        d_avgIndexListLength.addEntry(s);
-        ++d_listsCount;
-      }
-      s = (*itb).second->stores->size();
-      d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
-      if(s!= 0) {
-        d_avgStoresListLength.addEntry(s);
-        ++d_listsCount;
-      }
-
-      s = (*itb).second->in_stores->size();
-      d_maxList.setData((s > d_maxList.getData())? s : d_maxList.getData());
-
-      if(s!=0) {
-        d_avgInStoresListLength.addEntry(s);
-        ++d_listsCount;
-      }
-
 
       CTNodeList* lista_i = (*ita).second->indices;
       CTNodeList* lista_st = (*ita).second->stores;
@@ -248,6 +200,32 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
       mergeLists(lista_i, listb_i);
       mergeLists(lista_st, listb_st);
       mergeLists(lista_inst, listb_inst);
+
+      /* sketchy stats */
+
+      int s = lista_i->size();
+      d_maxList.maxAssign(s);
+
+      if(s!= 0) {
+        d_avgIndexListLength.addEntry(s);
+        ++d_listsCount;
+      }
+      s = lista_st->size();
+      d_maxList.maxAssign(s);
+      if(s!= 0) {
+        d_avgStoresListLength.addEntry(s);
+        ++d_listsCount;
+      }
+
+      s = lista_inst->size();
+      d_maxList.maxAssign(s);
+      if(s!=0) {
+        d_avgInStoresListLength.addEntry(s);
+        ++d_listsCount;
+      }
+
+      /* end sketchy stats */
+
     }
 
   } else {
@@ -273,8 +251,7 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
 
    }
   Debug("arrays-mergei")<<"Arrays::mergeInfo done \n";
-  //if(Debug.isOn("arrays-mergei"))
-  //  (*ita).second->print();
+
 }
 
 

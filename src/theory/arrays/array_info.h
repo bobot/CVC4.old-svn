@@ -128,6 +128,7 @@ private:
   IntStat d_listsCount;
   IntStat d_callsMergeInfo;
   IntStat d_maxList;
+  SizeStat<CNodeInfoMap > d_tableSize;
 
   /**
    * checks if a certain element is in the list l
@@ -151,7 +152,8 @@ public:
       d_avgInStoresListLength("theory::arrays::avgInStoresListLength"),
       d_listsCount("theory::arrays::listsCount",0),
       d_callsMergeInfo("theory::arrays::callsMergeInfo",0),
-      d_maxList("theory::arrays::maxList",0){
+      d_maxList("theory::arrays::maxList",0),
+      d_tableSize("theory::arrays::infoTableSize", info_map) {
     emptyList = new(true) CTNodeList(ct);
     emptyInfo = new Info(ct);
     StatisticsRegistry::registerStat(&d_mergeInfoTimer);
@@ -161,7 +163,9 @@ public:
     StatisticsRegistry::registerStat(&d_listsCount);
     StatisticsRegistry::registerStat(&d_callsMergeInfo);
     StatisticsRegistry::registerStat(&d_maxList);
+    StatisticsRegistry::registerStat(&d_tableSize);
   }
+
   ~ArrayInfo(){
     CNodeInfoMap::iterator it = info_map.begin();
     for( ; it != info_map.end(); it++ ) {
@@ -178,6 +182,7 @@ public:
     StatisticsRegistry::unregisterStat(&d_listsCount);
     StatisticsRegistry::unregisterStat(&d_callsMergeInfo);
     StatisticsRegistry::unregisterStat(&d_maxList);
+    StatisticsRegistry::unregisterStat(&d_tableSize);
   };
 
   /**
