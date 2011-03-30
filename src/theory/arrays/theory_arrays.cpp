@@ -420,6 +420,25 @@ void TheoryArrays::addRoW1Lemma(TNode a) {
  * RoW2 lemmas need to be instantiated.
  */
 
+bool TheoryArrays::isRedundandRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
+  Assert(a.getType().isArray());
+  Assert(b.getType().isArray());
+
+  if(d_RoWLemmaCache.count(make_quad(a, b, i, j)) != 0 ||
+     d_RoWLemmaCache.count(make_quad(b, a, i, j)) != 0 ) {
+    return true;
+  }
+
+  NodeManager* nm = NodeManager::currentNM();
+  TNode aj = nm->mkNode(kind::SELECT, a, j);
+  TNode bj = nm->mkNode(kind::SELECT, b, j);
+  if(find(i) == find(j) || find(aj) == find(bj)) {
+    return true;
+  }
+
+  return false;
+}
+
 void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
 
   Debug("arrays-crl")<<"Arrays::checkLemmas begin \n"<<a<<"\n";
@@ -448,8 +467,12 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
       Assert(store.getKind() == kind::STORE);
       TNode j = store[1];
       TNode c = store[0];
-      insertInQuadQueue(queue, store, c, j, i);
+
+      if(!isRedundandRoW2Lemma(store, c, j, i)) {
+        insertInQuadQueue(queue, store, c, j, i);
+      }
     }
+
   }
 
   it = i_a->begin();
@@ -462,12 +485,8 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
       Assert(store.getKind() == kind::STORE);
       TNode j = store[1];
       TNode c = store[0];
-      if(isNonLinear(c)) {
+      if(isNonLinear(c) && !isRedundandRoW2Lemma(store, c, j, i)) {
         insertInQuadQueue(queue, store, c, j, i);
-      }
-      else {
-        if(store!=c && j!= i)
-          Debug("arrays-lemn")<<"Arrays:: skip linear: "<<c<<"\n";
       }
     }
   }
@@ -489,12 +508,6 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Assert(a.getType().isArray());
  Assert(b.getType().isArray());
 
- if(d_RoWLemmaCache.count(make_quad(a, b, i, j)) != 0 ||
-    d_RoWLemmaCache.count(make_quad(b, a, i, j)) != 0 ) {
-   //Debug("arrays-lem")<<"Arrays::addRoW2Lemma already added "<<a<<" "<<b<<" "<<i<<" "
-   return;
- }
-
  // construct lemma
  NodeManager* nm = NodeManager::currentNM();
  Node aj = nm->mkNode(kind::SELECT, a, j);
@@ -503,19 +516,11 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Node eq2 = nm->mkNode(kind::EQUAL, i, j);
  Node lem = nm->mkNode(kind::OR, eq1, eq2);
 
- //TODO: check for find(i) == find(j) ?
- if(find(i)!=find(j) && find(aj)!=find(bj) ) {
-   Debug("arrays-lem")<<"Arrays::addRoW2Lemma adding "<<lem<<"\n";
-   d_RoWLemmaCache.insert(make_quad(a,b,i,j));
-   d_out->lemma(lem);
-   ++d_numRoW2;
+ Debug("arrays-lem")<<"Arrays::addRoW2Lemma adding "<<lem<<"\n";
+ d_RoWLemmaCache.insert(make_quad(a,b,i,j));
+ d_out->lemma(lem);
+ ++d_numRoW2;
 
-   // created two new read terms a[j] and b[j] so we need to check if new
-   // applications of RoW2 are possible now
-   //checkRoWForIndex(j, find(a));
-   //checkRoWForIndex(j, find(b));
- }
- //Debug("arrays-lem")<<"Arrays::addRoW2Lemma done \n";
 }
 
 
@@ -542,7 +547,9 @@ void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
     Assert(store.getKind()==kind::STORE);
     TNode j = store[1];
     Debug("arrays-cri")<<"Arrays::checkRoWForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
-    insertInQuadQueue(queue, store, store[0], j, i);
+    if(!isRedundandRoW2Lemma(store, store[0], j, i)) {
+      insertInQuadQueue(queue, store, store[0], j, i);
+    }
   }
 
   it = instores->begin();
@@ -551,7 +558,9 @@ void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
     Assert(instore.getKind()==kind::STORE);
     TNode j = instore[1];
     Debug("arrays-cri")<<"Arrays::checkRoWForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
-    insertInQuadQueue(queue, instore, instore[0], j, i);
+    if(!isRedundandRoW2Lemma(instore, instore[0], j, i)) {
+      insertInQuadQueue(queue, instore, instore[0], j, i);
+    }
   }
 
   dischargeRoWLemmas(queue);

@@ -201,6 +201,8 @@ private:
   bool isAxiom(TNode lhs, TNode rhs);
 
 
+  bool isRedundandRoW2Lemma(TNode a, TNode b, TNode i, TNode j);
+
   bool isNonLinear(TNode n);
 
   /**
@@ -230,7 +232,7 @@ private:
     for( ; it!= queue.end(); it++) {
       addRoW2Lemma((*it).first, (*it).second, (*it).third, (*it).fourth);
     }
-    queue.clear();
+    //queue.clear();
   }
 
   /*
@@ -306,24 +308,8 @@ public:
     }
   }
 
-  /**
-   * Instantiates RoW2 lemmas for store terms which would be missed otherwise
-   * because we only check for RoW2 lemmas when merging terms or when creating a
-   * new read term.
-   */
   void registerTerm(TNode n) {
     Debug("arrays-register")<<"Arrays::registerTerm "<<n<<"\n";
-    /*
-    if(n.getKind() == kind::STORE && find(n) == n) {
-      const CTNodeList* is = d_infoMap.getIndices(n);
-      for(CTNodeList::const_iterator it = is->begin(); it != is->end(); it++) {
-        TNode i = (*it);
-        //TODO: think of a way to move this from here, understand the way stuff is called!
-        addRoW2Lemma(n, n[0],n[1],i);
-      }
-
-    }
-    */
   }
 
   void presolve() {
