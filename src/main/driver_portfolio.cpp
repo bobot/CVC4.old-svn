@@ -44,6 +44,11 @@ void sharingManager(int numThreads,
 
 typedef expr::pickle::Pickle channelFormat;	/* Remove once we are using Pickle */
 
+bool global_activity;		// to track activity on output channel
+bool global_activity_true() { return global_activity; }
+bool global_activity_false() { return not global_activity; }
+boost::condition global_activitycond;
+
 class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
   string d_tag;
   SharedChannel<channelFormat> *d_sharedChannel;
@@ -59,20 +64,12 @@ public:
     expr::pickle::Pickle pkl;
     pklr.toPickle(lemma, pkl);
     d_sharedChannel->push(pkl);
+    
+    global_activity = true;	// HACK
+    global_activitycond.notify_one();
   }
 
 };/* class PortfolioLemmaOutputChannel */
-
-/* This function should be moved somewhere else eventuall */
-std::string intToString(int i)
-{
-    std::stringstream ss;
-    std::string s;
-    ss << i;
-    s = ss.str();
-
-    return s;
-}
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 {
@@ -382,20 +379,21 @@ void sharingManager(int numThreads,
 {
   Debug("sharing") << "sharing: thread started " << std::endl;
   vector <int> cnt(numThreads);	// Debug("sharing")
-  while(true) {
-    boost::this_thread::interruption_point();
-    // TODO : Add a condition variable which gets updated when 
-    // an output channel gets updated
+  boost::mutex mutex_activity;
+  while(not boost::this_thread::interruption_requested()) {
+    global_activitycond.wait(mutex_activity, global_activity_true);
+    global_activity = false;
     for(int t=0; t<numThreads; ++t) {
-      if(not channelsOut[t]->empty()) {
-	cnt[t] ++;		// Debug("sharing")
-	T data = channelsOut[t]->pop();
-	Debug("sharing") << "sharing: Got data. Thread #" << t
-			 << ". Chunk " << cnt[t] << std :: endl;
-	for(int u=0; u<numThreads; ++u)
-	  if(u != t)
-	    Debug("sharing") << "sharing: Sending to " << u << std::endl;
-      }
-    } /* end of */
+      if(channelsOut[t]->empty()) continue;      /* No activity on this channel */
+      cnt[t] ++;		// Debug("sharing")
+      T data = channelsOut[t]->pop();
+      Debug("sharing") << "sharing: Got data. Thread #" << t
+		       << ". Chunk " << cnt[t] << std :: endl;
+      for(int u=0; u<numThreads; ++u) {
+	if(u != t)
+	  Debug("sharing") << "sharing: Sending to " << u << std::endl;
+      }/* end of inner for: broadcast activity */
+    } /* end of outer for: look for activity */
   } /* end of infinite while */
+  Debug("sharing") << "sharing: Interuppted, exiting." << std::endl;
 }
