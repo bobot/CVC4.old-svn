@@ -39,7 +39,9 @@ libutil_la_SOURCES = \
 	dynamic_array.h \
 	language.h \
 	triple.h \
-	lemma_output_channel.h
+	lemma_output_channel.h \
+	channel.h \
+	channel.cpp
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
 libutilcudd_la_SOURCES = \

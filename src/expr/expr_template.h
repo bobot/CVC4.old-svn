@@ -51,6 +51,11 @@ class SmtEngine;
 class Type;
 class TypeCheckingException;
 class TypeCheckingExceptionPrivate;
+namespace expr{
+namespace pickle{
+class Pickler;
+}
+}
 
 class VariableTypeMap;
 
@@ -448,6 +453,7 @@ protected:
   friend class ExprManager;
   friend class NodeManager;
   friend class TypeCheckingException;
+  friend class expr::pickle::Pickler;
   friend NodeTemplate<true> expr::exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap);
 
   friend std::ostream& operator<<(std::ostream& out, const Expr& e);

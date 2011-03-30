@@ -122,9 +122,6 @@ namespace expr {
 static Node exportConstant(TNode n, NodeManager* to);
 
 Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap) {
-  if(Debug.isOn("pickle")){
-    pickle::Pickler::debugPickleTest(n);
-  }
   if(n.getMetaKind() == kind::metakind::CONSTANT) {
     return exportConstant(n, NodeManager::fromExprManager(to));
   } else if(n.getMetaKind() == kind::metakind::VARIABLE) {
@@ -176,6 +173,9 @@ Debug("export") << "+ child: " << *i << std::endl;
 }/* CVC4::expr namespace */
 
 Expr Expr::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
+  if(Debug.isOn("pickle")){
+    expr::pickle::Pickler::debugPickleTest(*this);
+  }
   Assert(d_exprManager != exprManager,
          "No sense in cloning an Expr in the same ExprManager");
   ExprManagerScope ems(*this);

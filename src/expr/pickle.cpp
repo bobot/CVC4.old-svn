@@ -29,7 +29,7 @@
 #include "util/Assert.h"
 #include "expr/kind.h"
 #include "expr/metakind.h"
-#include "pickle.h"
+#include "expr/pickle.h"
 
 namespace CVC4{
 
@@ -93,16 +93,16 @@ void Pickle::writeToStringStream(std::ostringstream& oss) const {
 
 std::string Pickle::toString() const {
   std::ostringstream oss;
-  oss.flags(std::ios::hex | std::ios::showbase);
+  oss.flags(std::ios::oct | std::ios::showbase);
   writeToStringStream(oss);
   return oss.str();
 }
 
-void Pickler::toPickle(TNode n, Pickle& p){
+void Pickler::toPickle(Expr e, Pickle& p){
   Assert(atDefaultState());
 
   d_current.swap(p);
-  toCaseNode(n);
+  toCaseNode(e.getTNode());
   d_current.swap(p);
 
   Assert(atDefaultState());
@@ -204,28 +204,32 @@ void Pickler::toCaseString(Kind k, const std::string& s){
 }
 
 
-void Pickler::debugPickleTest(TNode n){
-  Pickler pickler(NodeManager::currentNM());
+void Pickler::debugPickleTest(Expr e){
+
+  //ExprManager *em = e.getExprManager();
+  //Expr e1 = mkVar("x", makeType());
+  //return ;
+
+  Pickler pickler(e.getExprManager());
 
   Pickle p;
-  pickler.toPickle(n, p);
+  pickler.toPickle(e, p);
 
   uint32_t size = p.size();
   std::string str = p.toString();
 
-  Node from = pickler.fromPickle(p);
+  Expr from = pickler.fromPickle(p);
 
-
-  Debug("pickle") << "before: " << n << std::endl;
+  Debug("pickle") << "before: " << e << std::endl;
   Debug("pickle") << "after: " << from << std::endl;
-  Debug("pickle") << "pickle: "<<size << " " << str.length() << " " << str << std::endl;
+  Debug("pickle") << "pickle: (oct) "<< size << " " << str.length() << " " << str << std::endl;
 
   Assert(p.empty());
-  Assert(n == from);
+  Assert(e == from);
 }
 
 
-Node Pickler::fromPickle(Pickle& p){
+Expr Pickler::fromPickle(Pickle& p){
   Assert(atDefaultState());
 
   d_current.swap(p);
@@ -262,7 +266,7 @@ Node Pickler::fromPickle(Pickle& p){
 
   Assert(atDefaultState());
 
-  return res;
+  return Expr(d_em, &res);
 }
 
 Node Pickler::fromCaseVariable(Kind k){

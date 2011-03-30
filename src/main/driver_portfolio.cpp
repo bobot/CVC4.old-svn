@@ -23,6 +23,9 @@
 #include "util/result.h"
 #include "util/stats.h"
 
+#include "expr/pickle.h"
+#include "util/channel.h"
+
 #include "main/portfolio.h"
 
 using namespace std;
@@ -30,23 +33,49 @@ using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
 
-// struct thread_return_data {
-//   int thread_id;
-//   string s_out;
-//   int returnValue;
-//   bool exceptionOccurred;       // beware: we assume this is false because global variable
-//   boost::exception_ptr exceptionPtr;
-// };
+void doCommand(SmtEngine&, Command*, Options&);
+Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
+
+/* defined in sharing_manager.cpp */
+// template<typename T>
+// void sharingManager(int numThreads, 
+// 		    SharedChannel<T>* channelsOut[], 
+// 		    SharedChannel<T>* channelsIn[]);
+template<typename T>
+void sharingManager(int numThreads, 
+		    SharedChannel<T> *channelsOut[], // out and in with respect 
+		    SharedChannel<T> *channelsIn[])  // to smt engines
+{
+  cout << "Sharing Manager thread started " <<endl;
+  while(true) {
+    for(int t=0; t<numThreads; ++t)
+      if(not channelsOut[t]->empty()) {
+	T data = channelsOut[t]->pop();
+	Debug("sharing") << " Got data " << data << std::endl; 
+	for(int u=0; u<numThreads; ++u)
+	  if(u != t)
+	    std::cout << "Sending " << data << " received from " << t 
+		      << " to " << u << std::endl;
+      }
+  }
+}
+
+typedef std::string channelFormat;	/* Remove once we are using Pickler */
 
 class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
   string d_tag;
+  SharedChannel<channelFormat> *d_sharedChannel;
 public:
-  PortfolioLemmaOutputChannel(string tag) :
-    d_tag(tag) {
+  PortfolioLemmaOutputChannel(string tag, SharedChannel<channelFormat> *c) :
+    d_tag(tag), 
+    d_sharedChannel(c) {
   }
 
   void notifyNewLemma(Expr lemma) {
     std::cout << d_tag << ": " << lemma << std::endl;
+    //expr::pickle::Pickler pklr(lemma.getExprManager());
+    //expr::pickle::Pickle pkl;
+    d_sharedChannel->push(lemma.toString());
   }
 
 };/* class PortfolioLemmaOutputChannel */
@@ -142,9 +171,6 @@ std::string intToString(int i)
 
 //   return global_returnData.returnValue;
 // }
-
-void doCommand(SmtEngine&, Command*, Options&);
-Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 {
@@ -279,7 +305,10 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   // What do we need to do next?
   // - Create a second exprMgr, and import everything there
 
-  // Duplication, Individualisation
+  /* Currently all code assumes two threads */
+  assert(numThreads == 2);
+
+  /* Duplication, Individualisation */
   ExprManager* exprMgr2 = new ExprManager();
   VariableTypeMap* vmap = new VariableTypeMap();
   Command *seq2 = seq->exportTo(exprMgr2, *vmap);
@@ -295,18 +324,29 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
     options2.out = &ss_out2;
   }
 
+  /* Sharing channels */
+  SharedChannel<channelFormat> *channelsOut[2], *channelsIn[2];
+  
+  for(int i=0; i<numThreads; ++i)
+    channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10);
+
+  
   /* Lemma output channel */
-  // options.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #0");
-  // options2.lemmaOutputChannel = new PortfolioLemmaOutputChannel("thread #1");
+  options.lemmaOutputChannel = 
+    new PortfolioLemmaOutputChannel("thread #0", channelsOut[0]);
+  options2.lemmaOutputChannel = 
+    new PortfolioLemmaOutputChannel("thread #1", channelsOut[1]);
 
-
-  assert(numThreads == 2);
+  /* Portfolio */
   function <Result()> fns[numThreads];
 
   fns[0] = boost::bind(doSmt, boost::ref(*exprMgr), seq, boost::ref(options));
   fns[1] = boost::bind(doSmt, boost::ref(*exprMgr2), seq2, boost::ref(options2));
 
-  pair<int, Result> portfolioReturn = runPortfolio(numThreads, function<void()>(), fns);
+  function <void()>
+    smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn);
+  
+  pair<int, Result> portfolioReturn = runPortfolio(numThreads, smFn, fns);
   int winner = portfolioReturn.first;
   Result result = portfolioReturn.second;
 

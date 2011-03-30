@@ -44,6 +44,12 @@ struct Options;
 class IntStat;
 class VariableTypeMap;
 
+namespace expr {
+namespace pickle {
+class Pickler;
+}
+}
+
 namespace context {
   class Context;
 }/* CVC4::context namespace */
@@ -83,6 +89,9 @@ private:
 
   /** NodeManager reaches in to get the NodeManager */
   friend class NodeManager;
+
+  /** expr::pickle::Pickler reaches in to get the NodeManager */
+  friend class expr::pickle::Pickler;
 
   // undefined, private copy constructor and assignment op (disallow copy)
   ExprManager(const ExprManager&) CVC4_UNDEFINED;

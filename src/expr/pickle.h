@@ -6,6 +6,14 @@
 #include <stack>
 #include <map>
 
+#include "expr/expr.h"
+#include "expr/node.h"
+#include "expr/node_manager.h"
+#include "expr/expr_manager.h"
+#include "expr/variable_type_map.h"
+#include "expr/kind.h"
+#include "expr/metakind.h"
+
 namespace CVC4{
 
 namespace expr {
@@ -98,27 +106,31 @@ private:
 
   Pickle d_current;
 
+  ExprManager* d_em;
+  
   NodeManager* d_nm;
 
 public:
-  Pickler(NodeManager* nm) :
-    d_nm(nm)
-  {}
+  Pickler(ExprManager* em) :
+    d_em(em)
+  { d_nm = d_em->getNodeManager(); }
 
   /**
    * Constructs a new Pickle of the node n.
    * n must be a node allocated in the node manager specified at initialization time.
    * The new pickle has variables mapped using the VariableIDMap provided at
    * initialization.
+   * TODO: Fix comment
    */
-  void toPickle(TNode n, Pickle& p);
+  void toPickle(Expr e, Pickle& p);
 
   /**
    * Constructs a node from a Pickle.
    * This destroys the contents of the Pickle.
    * The node is created in the NodeManager getNM();
+   * TODO: Fix comment
    */
-  Node fromPickle(Pickle& p);
+  Expr fromPickle(Pickle& p);
 
 private:
   bool atDefaultState(){
@@ -140,7 +152,7 @@ private:
   Node fromCaseVariable(Kind k);
 
 public:
-  static void debugPickleTest(TNode n);
+  static void debugPickleTest(Expr e);
 };
 
 class MapPickler : public Pickler {
@@ -152,8 +164,8 @@ private:
   const VarMap& d_fromMap;
 
 public:
-  MapPickler(NodeManager* nm, const VarMap& to, const VarMap& from):
-    Pickler(nm), d_toMap(to), d_fromMap(from)
+  MapPickler(ExprManager* em, const VarMap& to, const VarMap& from):
+    Pickler(em), d_toMap(to), d_fromMap(from)
   { }
 
 protected:
