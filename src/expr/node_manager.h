@@ -609,8 +609,12 @@ public:
 
   NodeManagerScope(NodeManager* nm) :
     d_oldNodeManager(NodeManager::s_current) {
+    // There are corner cases where nm can be NULL and it's ok.
+    // For example, if you write { Expr e; }, then when the null
+    // Expr is destructed, there's no active node manager.
+    //Assert(nm != NULL);
     NodeManager::s_current = nm;
-    Options::s_current = nm->d_options;
+    Options::s_current = nm ? nm->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << NodeManager::s_current << "\n";
   }
