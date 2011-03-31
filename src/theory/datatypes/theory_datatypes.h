@@ -175,6 +175,7 @@ private:
   void appendToDiseqList(TNode of, TNode eq);
   void appendToEqList(TNode of, TNode eq);
   void addDisequality(TNode eq);
+  void addDerivedEquality(TNode eq, TNode jeq);
   void addEquality(TNode eq);
   void registerEqualityForPropagation(TNode eq);
   void convertDerived(Node n, NodeBuilder<>& nb);
