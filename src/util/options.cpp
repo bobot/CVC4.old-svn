@@ -108,6 +108,7 @@ static const string optionsDescription = "\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
+   --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
    --rewrite-arithmetic-equalities rewrite (= x y) to (and (<= x y) (>= x y)) in arithmetic\n\
    --incremental          enable incremental solving\n";
 
@@ -490,6 +491,23 @@ throw(OptionException) {
   return optind;
 }
 
+std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {
+  switch(rule) {
+  case Options::MINIMUM:
+    out << "MINIMUM";
+    break;
+  case Options::BREAK_TIES:
+    out << "BREAK_TIES";
+    break;
+  case Options::MAXIMUM:
+    out << "MAXIMUM";
+    break;
+  default:
+    out << "ArithPivotRule!UNKNOWN";
+  }
+
+  return out;
+}
 
 #undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT
 #undef DO_SEMANTIC_CHECKS_BY_DEFAULT

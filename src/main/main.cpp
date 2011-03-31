@@ -171,6 +171,27 @@ int runCvc4(int argc, char* argv[]) {
     options.interactive = inputFromStdin && isatty(fileno(stdin));
   }
 
+  // Determine which messages to show based on smtcomp_mode and verbosity
+  if(Configuration::isMuzzledBuild()) {
+    Debug.setStream(CVC4::null_os);
+    Trace.setStream(CVC4::null_os);
+    Notice.setStream(CVC4::null_os);
+    Chat.setStream(CVC4::null_os);
+    Message.setStream(CVC4::null_os);
+    Warning.setStream(CVC4::null_os);
+  } else {
+    if(options.verbosity < 2) {
+      Chat.setStream(CVC4::null_os);
+    }
+    if(options.verbosity < 1) {
+      Notice.setStream(CVC4::null_os);
+    }
+    if(options.verbosity < 0) {
+      Message.setStream(CVC4::null_os);
+      Warning.setStream(CVC4::null_os);
+    }
+  }
+
   // Create the expression manager
   ExprManager exprMgr(options);
 
@@ -200,26 +221,7 @@ int runCvc4(int argc, char* argv[]) {
     }
   }
 
-  // Determine which messages to show based on smtcomp_mode and verbosity
-  if(Configuration::isMuzzledBuild()) {
-    Debug.setStream(CVC4::null_os);
-    Trace.setStream(CVC4::null_os);
-    Notice.setStream(CVC4::null_os);
-    Chat.setStream(CVC4::null_os);
-    Message.setStream(CVC4::null_os);
-    Warning.setStream(CVC4::null_os);
-  } else {
-    if(options.verbosity < 2) {
-      Chat.setStream(CVC4::null_os);
-    }
-    if(options.verbosity < 1) {
-      Notice.setStream(CVC4::null_os);
-    }
-    if(options.verbosity < 0) {
-      Message.setStream(CVC4::null_os);
-      Warning.setStream(CVC4::null_os);
-    }
-
+  if(!Configuration::isMuzzledBuild()) {
     OutputLanguage language = language::toOutputLanguage(options.inputLanguage);
     Debug.getStream() << Expr::setlanguage(language);
     Trace.getStream() << Expr::setlanguage(language);
@@ -228,7 +230,6 @@ int runCvc4(int argc, char* argv[]) {
     Message.getStream() << Expr::setlanguage(language);
     Warning.getStream() << Expr::setlanguage(language);
   }
-
 
   // Parse and execute commands until we are done
   Command* cmd;

@@ -170,6 +170,8 @@ inline std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
+std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule);
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__OPTIONS_H */

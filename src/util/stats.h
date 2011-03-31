@@ -33,7 +33,6 @@
 
 #include "util/Assert.h"
 #include "lib/clock_gettime.h"
-#include "expr/expr_manager_scope.h"
 
 namespace CVC4 {
 
@@ -42,6 +41,8 @@ namespace CVC4 {
 #else
 #  define __CVC4_USE_STATISTICS false
 #endif
+
+class ExprManager;
 
 class CVC4_PUBLIC Stat;
 
