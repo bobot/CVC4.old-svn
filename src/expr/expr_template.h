@@ -58,6 +58,12 @@ namespace expr {
   }/* CVC4::expr::pickle namespace */
 }/* CVC4::expr namespace */
 
+namespace theory {
+  namespace builtin {
+    class TheoryBuiltin;
+  }/* CVC4::theory::builtin namespace */
+}/* CVC4::theory namespace */
+
 class VariableTypeMap;
 
 struct ExprHashFunction;
@@ -455,6 +461,7 @@ protected:
   friend class NodeManager;
   friend class TypeCheckingException;
   friend class expr::pickle::Pickler;
+  friend class theory::builtin::TheoryBuiltin;
   friend NodeTemplate<true> expr::exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap);
 
   friend std::ostream& operator<<(std::ostream& out, const Expr& e);

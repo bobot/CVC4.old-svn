@@ -39,6 +39,7 @@
 #include "util/exception.h"
 #include "util/language.h"
 #include "util/lemma_output_channel.h"
+#include "util/lemma_input_channel.h"
 
 namespace CVC4 {
 
@@ -138,6 +139,7 @@ struct CVC4_PUBLIC Options {
 
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;
+  LemmaInputChannel* lemmaInputChannel;
 
   Options() :
     binary_name(),
@@ -167,7 +169,8 @@ struct CVC4_PUBLIC Options {
     earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
     incrementalSolving(false),
     pivotRule(MINIMUM),
-    lemmaOutputChannel(NULL) {
+    lemmaOutputChannel(NULL),
+    lemmaInputChannel(NULL) {
   }
 
   /** 

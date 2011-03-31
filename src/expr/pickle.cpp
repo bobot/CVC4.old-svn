@@ -100,6 +100,7 @@ std::string Pickle::toString() const {
 }
 
 void Pickler::toPickle(Expr e, Pickle& p) {
+  Assert(e.getExprManager() == d_em);
   Assert(atDefaultState());
 
   d_current.swap(p);

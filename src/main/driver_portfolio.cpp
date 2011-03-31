@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <iostream>
 
+#include <queue>
+
 #include <boost/thread.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/exception_ptr.hpp>
@@ -40,9 +42,9 @@ void doCommand(SmtEngine&, Command*, Options&);
 Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
 
 template<typename T>
-void sharingManager(int numThreads, 
-		    SharedChannel<T>* channelsOut[], 
-		    SharedChannel<T>* channelsIn[]);
+void sharingManager(int numThreads,
+                    SharedChannel<T>* channelsOut[],
+                    SharedChannel<T>* channelsIn[]);
 
 
 /** To monitor for activity on shared channels */
@@ -51,28 +53,63 @@ bool global_activity_true() { return global_activity; }
 bool global_activity_false() { return not global_activity; }
 boost::condition global_activity_cond;
 
-typedef expr::pickle::Pickle channelFormat;	/* Remove once we are using Pickle */
+typedef expr::pickle::Pickle channelFormat;  /* Remove once we are using Pickle */
 class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
+private:
   string d_tag;
-  SharedChannel<channelFormat> *d_sharedChannel;
+  SharedChannel<channelFormat>* d_sharedChannel;
+  expr::pickle::Pickler d_pickler;
+
 public:
-  PortfolioLemmaOutputChannel(string tag, SharedChannel<channelFormat> *c) :
-    d_tag(tag), 
-    d_sharedChannel(c) {
+  PortfolioLemmaOutputChannel(string tag,
+                              SharedChannel<channelFormat> *c,
+                              ExprManager* em) :
+    d_tag(tag),
+    d_sharedChannel(c),
+    d_pickler(em){
   }
 
   void notifyNewLemma(Expr lemma) {
     Debug("sharing") << d_tag << ": " << lemma << std::endl;
-    expr::pickle::Pickler pklr(lemma.getExprManager());
     expr::pickle::Pickle pkl;
-    pklr.toPickle(lemma, pkl);
+    d_pickler.toPickle(lemma, pkl);
     d_sharedChannel->push(pkl);
-    
-    global_activity = true;	// HACK
-    global_activity_cond.notify_one();
   }
 
-};/* class PortfolioLemmaOutputChannel */
+};
+
+/* class PortfolioLemmaInputChannel */
+class PortfolioLemmaInputChannel : public LemmaInputChannel {
+private:
+  string d_tag;
+  SharedChannel<channelFormat>* d_sharedChannel;
+  expr::pickle::Pickler d_pickler;
+
+public:
+  PortfolioLemmaInputChannel(string tag,
+                             SharedChannel<channelFormat>* c,
+                             ExprManager* em) :
+    d_tag(tag),
+    d_sharedChannel(c),
+    d_pickler(em){
+  }
+
+  bool hasNewLemma(){
+    Debug("lemmaInputChannel") << "hasNewLemma" << endl;
+    return !d_sharedChannel->empty();
+  }
+
+  Expr getNewLemma() {
+    Debug("lemmaInputChannel") << "getNewLemma" << endl;
+    expr::pickle::Pickle pkl = d_sharedChannel->pop();
+
+    Expr e = d_pickler.fromPickle(pkl);
+    return e;
+  }
+
+};/* class PortfolioLemmaInputChannel */
+
+
 
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
@@ -222,16 +259,22 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 
   /* Sharing channels */
   SharedChannel<channelFormat> *channelsOut[2], *channelsIn[2];
-  
-  for(int i=0; i<numThreads; ++i)
-    channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10);
 
-  
+  for(int i=0; i<numThreads; ++i){
+    channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10);
+    channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10);
+  }
+
   /* Lemma output channel */
-  options.lemmaOutputChannel = 
-    new PortfolioLemmaOutputChannel("thread #0", channelsOut[0]);
-  options2.lemmaOutputChannel = 
-    new PortfolioLemmaOutputChannel("thread #1", channelsOut[1]);
+  options.lemmaOutputChannel =
+    new PortfolioLemmaOutputChannel("thread #0", channelsOut[0], exprMgr);
+  options2.lemmaOutputChannel =
+    new PortfolioLemmaOutputChannel("thread #1", channelsOut[1], exprMgr2);
+
+  options.lemmaInputChannel =
+    new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgr);
+  options2.lemmaInputChannel =
+    new PortfolioLemmaInputChannel("thread #1", channelsIn[1], exprMgr2);
 
   /* Portfolio */
   function <Result()> fns[numThreads];
@@ -241,7 +284,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 
   function <void()>
     smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn);
-  
+
   pair<int, Result> portfolioReturn = runPortfolio(numThreads, smFn, fns);
   int winner = portfolioReturn.first;
   Result result = portfolioReturn.second;
@@ -353,39 +396,53 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
 }
 
 template<typename T>
-void sharingManager(int numThreads, 
-		    SharedChannel<T> *channelsOut[], // out and in with respect 
-		    SharedChannel<T> *channelsIn[])  // to smt engines
+void sharingManager(int numThreads,
+                    SharedChannel<T> *channelsOut[], // out and in with respect
+                    SharedChannel<T> *channelsIn[])  // to smt engines
 {
   Debug("sharing") << "sharing: thread started " << std::endl;
-  vector <int> cnt(numThreads);	// Debug("sharing")
-  
+  vector <int> cnt(numThreads); // Debug("sharing")
+
+  vector< queue<T> > queues;
+  for(int i=0; i < numThreads; ++i){
+    queues.push_back(queue<T>());
+  }
+
   boost::mutex mutex_activity;
-  
+
   while(not boost::this_thread::interruption_requested()) {
-    
-    global_activity_cond.wait(mutex_activity, global_activity_true);
-    global_activity = false;
-    
+
+    boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+
     for(int t=0; t<numThreads; ++t) {
-      
+
       if(channelsOut[t]->empty()) continue;      /* No activity on this channel */
-      
+
       T data = channelsOut[t]->pop();
-      
+
       if(Debug.isOn("sharing")) {
-	++cnt[t];
-	Debug("sharing") << "sharing: Got data. Thread #" << t
-			 << ". Chunk " << cnt[t] << std :: endl;
+        ++cnt[t];
+        Debug("sharing") << "sharing: Got data. Thread #" << t
+                         << ". Chunk " << cnt[t] << std :: endl;
       }
-      
+
       for(int u=0; u<numThreads; ++u) {
-	if(u != t)
-	  Debug("sharing") << "sharing: Sending to " << u << std::endl;
+        if(u != t){
+          Debug("sharing") << "sharing: adding to queue " << u << std::endl;
+          queues[u].push(data);
+        }
       }/* end of inner for: broadcast activity */
 
     } /* end of outer for: look for activity */
 
+    for(int t=0; t<numThreads; ++t){
+      while(!queues[t].empty() && !channelsIn[t]->full()){
+        Debug("sharing") << "sharing: pushing on channel " << t << std::endl;
+        T data = queues[t].front();
+        channelsIn[t]->push(data);
+        queues[t].pop();
+      }
+    }
   } /* end of infinite while */
   Debug("sharing") << "sharing: Interuppted, exiting." << std::endl;
 }
