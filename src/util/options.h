@@ -39,13 +39,18 @@ public:
 
 struct CVC4_PUBLIC Options {
 
+  /** Get the current Options in effect */
+  static const Options* current();
+
+  /** The name of the binary (e.g. "cvc4") */
   std::string binary_name;
 
+  /** Whether to collect statistics during this run */
   bool statistics;
 
-  std::istream* in;
-  std::ostream* out;
-  std::ostream* err;
+  std::istream* in; /*< The input stream to use */
+  std::ostream* out; /*< The output stream to use */
+  std::ostream* err; /*< The error stream to use */
 
   /* -1 means no output */
   /* 0 is normal (and default) -- warnings only */
@@ -117,8 +122,10 @@ struct CVC4_PUBLIC Options {
   /** Whether incemental solving (push/pop) */
   bool incrementalSolving;
 
-  static bool rewriteArithEqualities;
+  /** Whether to rewrite equalities in arithmetic theory */
+  bool rewriteArithEqualities;
 
+  /** The pivot rule for arithmetic */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
   ArithPivotRule pivotRule;
 
@@ -130,7 +137,14 @@ struct CVC4_PUBLIC Options {
    * suitable as an argument to printf. */
   std::string getDescription() const;
 
+  /**
+   * Print overall command-line option usage message, prefixed by
+   * "msg"---which could be an error message causing the usage
+   * output in the first place, e.g. "no such option --foo"
+   */
   static void printUsage(const std::string msg, std::ostream& out);
+
+  /** Print help for the --lang command line option */
   static void printLanguageHelp(std::ostream& out);
 
   /**

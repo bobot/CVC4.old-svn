@@ -1,0 +1,4 @@
+This branch adds support for non-static StatisticsRegistry, and "omnipresent"
+Options and StatisticsRegistry (like NodeManager is).
+
+-- Morgan Deters <mdeters@cs.nyu.edu>  Thu, 31 Mar 2011 01:49:08 -0400

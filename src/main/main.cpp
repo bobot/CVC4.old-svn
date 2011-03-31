@@ -175,13 +175,13 @@ int runCvc4(int argc, char* argv[]) {
   ExprManager exprMgr(options);
 
   // Create the SmtEngine
-  SmtEngine smt(&exprMgr, options);
+  SmtEngine smt(&exprMgr);
 
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
-  RegisterStatistic statFilenameReg(&s_statFilename);
+  RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
 
   if(options.inputLanguage == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
@@ -273,7 +273,7 @@ int runCvc4(int argc, char* argv[]) {
 #endif
 
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
-  RegisterStatistic statSatResultReg(&s_statSatResult);
+  RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
 
   if(options.statistics) {
     StatisticsRegistry::flushStatistics(*options.err);
