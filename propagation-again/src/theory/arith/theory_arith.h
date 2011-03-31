@@ -55,6 +55,8 @@ namespace arith {
 class TheoryArith : public Theory {
 private:
 
+  context::CDList<Node> d_reasons;
+
   /** Static learner. */
   ArithStaticLearner learner;
 
@@ -177,6 +179,9 @@ public:
 private:
   /** The constant zero. */
   DeltaRational d_DELTA_ZERO;
+
+  /** propagates an arithvar */
+  void propagateArithVar(bool upperbound, ArithVar var );
 
   /**
    * Using the simpleKind return the ArithVar associated with the

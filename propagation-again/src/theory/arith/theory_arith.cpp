@@ -61,11 +61,9 @@ typedef expr::Attribute<SlackAttrID, bool> Slack;
 struct PropagatedAttrID;
 typedef expr::CDAttribute<PropagatedAttrID, TNode> Propagated;
 
-struct AssertedAttrID;
-typedef expr::CDAttribute<AssertedAttrID, bool> Asserted;
-
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, out, valuation),
+  d_reasons(c, true),
   d_partialModel(c),
   d_userVariables(),
   d_diseq(c),
@@ -392,7 +390,6 @@ void TheoryArith::check(Effort effortLevel){
   while(!done()){
 
     Node assertion = get();
-    assertion.setAttribute(Asserted(), true);
     Node possibleConflict = assertionCases(assertion);
 
     if(!possibleConflict.isNull()){
@@ -526,7 +523,7 @@ bool TheoryArith::isImpliedLowerBound(ArithVar var, Node exp){
 }
 
 void TheoryArith::explain(TNode n) {
-  //cout << "explain @" << getContext()->getLevel() << ": " << n << endl;
+  Debug("explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
   Assert(n.hasAttribute(Propagated()));
 
   NodeBuilder<> explainBuilder(AND);
@@ -574,6 +571,57 @@ void TheoryArith::internalExplain(TNode n, NodeBuilder<>& explainBuilder){
   }
 }
 static const bool EXPORT_LEMMA_INSTEAD_OF_PROPAGATE = false;
+void TheoryArith::propagateArithVar(bool upperbound, ArithVar var ){
+  Node varAsNode = asNode(var);
+  const DeltaRational& b = upperbound ?
+    d_partialModel.getUpperBound(var) : d_partialModel.getLowerBound(var);
+
+  Assert((!upperbound) || (b.getInfinitesimalPart() <= 0) );
+  Assert(upperbound || (b.getInfinitesimalPart() >= 0) );
+  Kind kind;
+  if(upperbound){
+    kind = b.getInfinitesimalPart() < 0 ? LT : LEQ;
+  } else{
+    kind = b.getInfinitesimalPart() > 0 ? GT : GEQ;
+  }
+
+  Node bAsNode = NodeBuilder<2>(kind) << varAsNode
+                                      << mkRationalNode(b.getNoninfinitesimalPart());
+
+  Node bestImplied = upperbound ?
+    d_propagator.getBestImpliedUpperBound(bAsNode):
+    d_propagator.getBestImpliedLowerBound(bAsNode);
+
+  if(!bestImplied.isNull()){
+    Node satValue = d_valuation.getSatValue(bestImplied);
+    if(satValue.isNull()){
+
+      Node reason = upperbound ?
+        d_partialModel.getUpperConstraint(var) :
+        d_partialModel.getLowerConstraint(var);
+
+      //cout << getContext()->getLevel() << " " << bestImplied << " " << reason  << endl;
+      if(EXPORT_LEMMA_INSTEAD_OF_PROPAGATE){
+        Node lemma = NodeBuilder<2>(IMPLIES) << reason
+                                             << bestImplied;
+
+        //Temporary
+        Node clause = BooleanSimplification::simplifyHornClause(lemma);
+        d_out->lemma(clause);
+      }else{
+        Assert(!bestImplied.hasAttribute(Propagated()));
+        bestImplied.setAttribute(Propagated(), reason);
+        d_reasons.push_back(reason);
+        d_out->propagate(bestImplied);
+      }
+    }else{
+      Assert(!satValue.isNull());
+      Assert(satValue.getKind() == CONST_BOOLEAN);
+      Assert(satValue.getConst<bool>());
+    }
+  }
+}
+
 void TheoryArith::propagate(Effort e) {
   if(quickCheckOrMore(e)){
     while(d_simplex.hasMoreLemmas()){
@@ -583,57 +631,11 @@ void TheoryArith::propagate(Effort e) {
     }
     while(d_simplex.hasMoreDeducedUpperBounds()){
       ArithVar var = d_simplex.popDeducedUpperBound();
-      Node varAsNode = asNode(var);
-      const DeltaRational& ub = d_partialModel.getUpperBound(var);
-      Assert(ub.getInfinitesimalPart() <= 0 );
-      Kind kind = ub.getInfinitesimalPart() < 0 ? LT : LEQ;
-      Node ubAsNode = NodeBuilder<2>(kind) << varAsNode << mkRationalNode(ub.getNoninfinitesimalPart());
-      Node bestImplied = d_propagator.getBestImpliedUpperBound(ubAsNode);
-      if(!bestImplied.isNull() &&
-         !bestImplied.getAttribute(Asserted()) &&
-         !bestImplied.hasAttribute(Propagated())){
-
-        Node reason = d_partialModel.getUpperConstraint(var);
-        Node lemma = NodeBuilder<2>(IMPLIES) << reason
-                                             << bestImplied;
-        //cout << getContext()->getLevel() << " " << lemma << endl;
-
-        if(EXPORT_LEMMA_INSTEAD_OF_PROPAGATE){
-          //Temporary
-          Node clause = BooleanSimplification::simplifyHornClause(lemma);
-          d_out->lemma(clause);
-        }else{
-          bestImplied.setAttribute(Propagated(), reason);
-          d_out->propagate(bestImplied);
-        }
-      }
+      propagateArithVar(true, var);
     }
     while(d_simplex.hasMoreDeducedLowerBounds()){
       ArithVar var = d_simplex.popDeducedLowerBound();
-      Node varAsNode = asNode(var);
-      const DeltaRational& lb = d_partialModel.getLowerBound(var);
-      Assert(lb.getInfinitesimalPart() >= 0 );
-      Kind kind = lb.getInfinitesimalPart() > 0 ? GT : GEQ;
-      Node lbAsIneq = NodeBuilder<2>(kind) << varAsNode << mkRationalNode(lb.getNoninfinitesimalPart());
-      Node bestImplied = d_propagator.getBestImpliedLowerBound(lbAsIneq);
-      if(!bestImplied.isNull()&&
-         !bestImplied.getAttribute(Asserted()) &&
-         !bestImplied.hasAttribute(Propagated())){
-
-        Node reason = d_partialModel.getLowerConstraint(var);
-        Node lemma = NodeBuilder<2>(IMPLIES) << reason
-                                             << bestImplied;
-
-        //cout << getContext()->getLevel() << " " << lemma << endl;
-        if(EXPORT_LEMMA_INSTEAD_OF_PROPAGATE){
-          //Temporary
-          Node clause = BooleanSimplification::simplifyHornClause(lemma);
-          d_out->lemma(clause);
-        }else{
-          bestImplied.setAttribute(Propagated(), reason);
-          d_out->propagate(bestImplied);
-        }
-      }
+      propagateArithVar(false, var);
     }
   }
 }
