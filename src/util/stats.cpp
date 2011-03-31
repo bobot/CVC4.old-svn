@@ -47,9 +47,8 @@ void StatisticsRegistry::unregisterStat(Stat* s) throw(AssertionException) {
 
 void StatisticsRegistry::flushStatistics(std::ostream& out) {
 #ifdef CVC4_STATISTICS_ON
-  StatSet& registeredStats = NodeManager::currentNM()->getStatisticsRegistry()->d_registeredStats;
-  for(StatSet::iterator i = registeredStats.begin();
-      i != registeredStats.end();
+  for(StatSet::iterator i = d_registeredStats.begin();
+      i != d_registeredStats.end();
       ++i) {
     Stat* s = *i;
     s->flushStat(out);

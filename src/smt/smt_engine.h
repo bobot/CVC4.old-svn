@@ -49,6 +49,8 @@ class NodeHashFunction;
 
 class TheoryEngine;
 
+class StatisticsRegistry;
+
 namespace context {
   class Context;
 }/* CVC4::context namespace */
@@ -297,6 +299,11 @@ public:
    * Pop a user-level context.  Throws an exception if nothing to pop.
    */
   void pop();
+
+  /**
+   * Permit access to the underlying StatisticsRegistry.
+   */
+  StatisticsRegistry* getStatisticsRegistry() const;
 
 };/* class SmtEngine */
 

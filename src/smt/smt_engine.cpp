@@ -712,4 +712,8 @@ void SmtEngine::internalPush() {
   d_propEngine->push();
 }
 
+StatisticsRegistry* SmtEngine::getStatisticsRegistry() const {
+  return d_exprManager->d_nodeManager->getStatisticsRegistry();
+}
+
 }/* CVC4 namespace */

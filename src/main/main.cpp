@@ -51,7 +51,8 @@ void doCommand(SmtEngine&, Command*);
 void printUsage();
 
 namespace CVC4 {
-  namespace main {/* Global options variable */
+  namespace main {
+    /** Global options variable */
     Options options;
 
     /** Full argv[0] */
@@ -59,6 +60,9 @@ namespace CVC4 {
 
     /** Just the basename component of argv[0] */
     const char *progName;
+
+    /** A pointer to the StatisticsRegistry (the signal handlers need it) */
+    CVC4::StatisticsRegistry* pStatistics;
   }
 }
 
@@ -104,8 +108,8 @@ int main(int argc, char* argv[]) {
     *options.out << "unknown" << endl;
 #endif
     *options.err << "CVC4 Error:" << endl << e << endl;
-    if(options.statistics) {
-      StatisticsRegistry::flushStatistics(*options.err);
+    if(options.statistics && pStatistics != NULL) {
+      pStatistics->flushStatistics(*options.err);
     }
     exit(1);
   } catch(bad_alloc) {
@@ -113,8 +117,8 @@ int main(int argc, char* argv[]) {
     *options.out << "unknown" << endl;
 #endif
     *options.err << "CVC4 ran out of memory." << endl;
-    if(options.statistics) {
-      StatisticsRegistry::flushStatistics(*options.err);
+    if(options.statistics && pStatistics != NULL) {
+      pStatistics->flushStatistics(*options.err);
     }
     exit(1);
   } catch(...) {
@@ -198,6 +202,9 @@ int runCvc4(int argc, char* argv[]) {
   // Create the SmtEngine
   SmtEngine smt(&exprMgr);
 
+  // signal handlers need access
+  pStatistics = smt.getStatisticsRegistry();
+
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
 
@@ -277,7 +284,7 @@ int runCvc4(int argc, char* argv[]) {
   RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
 
   if(options.statistics) {
-    StatisticsRegistry::flushStatistics(*options.err);
+    smt.getStatisticsRegistry()->flushStatistics(*options.err);
   }
 
   return returnValue;

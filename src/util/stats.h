@@ -80,7 +80,7 @@ public:
   static StatisticsRegistry* current();
 
   /** Flush all statistics to the given output stream. */
-  static void flushStatistics(std::ostream& out);
+  void flushStatistics(std::ostream& out);
 
   /** Register a new statistic, making it active. */
   static void registerStat(Stat* s) throw(AssertionException);
