@@ -26,6 +26,7 @@
 
 #include "util/exception.h"
 #include "util/language.h"
+#include "util/tls.h"
 
 namespace CVC4 {
 
@@ -39,8 +40,13 @@ public:
 
 struct CVC4_PUBLIC Options {
 
+  /** The current Options in effect */
+  static CVC4_THREADLOCAL(const Options*) s_current;
+
   /** Get the current Options in effect */
-  static const Options* current();
+  static inline const Options* current() {
+    return s_current;
+  }
 
   /** The name of the binary (e.g. "cvc4") */
   std::string binary_name;

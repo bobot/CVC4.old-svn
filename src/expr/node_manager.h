@@ -39,10 +39,10 @@
 #include "context/context.h"
 #include "util/configuration_private.h"
 #include "util/tls.h"
+#include "util/options.h"
 
 namespace CVC4 {
 
-struct Options;
 class StatisticsRegistry;
 
 namespace expr {
@@ -610,12 +610,14 @@ public:
   NodeManagerScope(NodeManager* nm) :
     d_oldNodeManager(NodeManager::s_current) {
     NodeManager::s_current = nm;
+    Options::s_current = nm->d_options;
     Debug("current") << "node manager scope: "
                      << NodeManager::s_current << "\n";
   }
 
   ~NodeManagerScope() {
     NodeManager::s_current = d_oldNodeManager;
+    Options::s_current = d_oldNodeManager ? d_oldNodeManager->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << "returning to " << NodeManager::s_current << "\n";
   }

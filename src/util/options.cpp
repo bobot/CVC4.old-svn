@@ -27,7 +27,6 @@
 #include <getopt.h>
 
 #include "expr/expr.h"
-#include "expr/node_manager.h"
 #include "util/configuration.h"
 #include "util/exception.h"
 #include "util/language.h"
@@ -40,6 +39,8 @@ using namespace std;
 using namespace CVC4;
 
 namespace CVC4 {
+
+CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
 
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
@@ -132,10 +133,6 @@ void Options::printUsage(const std::string msg, std::ostream& out) {
 
 void Options::printLanguageHelp(std::ostream& out) {
   out << languageDescription << flush;
-}
-
-const Options* Options::current() {
-  return NodeManager::currentNM()->getOptions();
 }
 
 /**
