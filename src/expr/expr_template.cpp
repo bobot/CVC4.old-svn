@@ -121,12 +121,12 @@ namespace expr {
 
 static Node exportConstant(TNode n, NodeManager* to);
 
-Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap) {
+Node exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap) {
   if(n.getMetaKind() == kind::metakind::CONSTANT) {
     return exportConstant(n, NodeManager::fromExprManager(to));
   } else if(n.getMetaKind() == kind::metakind::VARIABLE) {
     Expr from_e(from, new Node(n));
-    Expr& to_e = vmap[from_e];
+    Expr& to_e = vmap.d_typeMap[from_e];
     if(! to_e.isNull()) {
 Debug("export") << "+ mapped `" << from_e << "' to `" << to_e << "'" << std::endl;
       return to_e.getNode();
@@ -142,7 +142,11 @@ Debug("export") << "+ exported var `" << from_e << "'[" << from_e.getId() << "] 
         to_e = to->mkVar(type);// FIXME thread safety
 Debug("export") << "+ exported unnamed var `" << from_e << "' with type `" << from_e.getType() << "' to `" << to_e << "' with type `" << type << "'" << std::endl;
       }
-      vmap[to_e] = from_e;// insert other direction too
+      uint64_t to_int = (uint64_t)(to_e.getNode().d_nv);
+      uint64_t from_int = (uint64_t)(from_e.getNode().d_nv);
+      vmap.d_from[to_int] = from_int;
+      vmap.d_to[from_int] = to_int;
+      vmap.d_typeMap[to_e] = from_e;// insert other direction too
       return Node::fromExpr(to_e);
     }
   } else {
@@ -172,7 +176,7 @@ Debug("export") << "+ child: " << *i << std::endl;
 
 }/* CVC4::expr namespace */
 
-Expr Expr::exportTo(ExprManager* exprManager, VariableTypeMap& variableMap) {
+Expr Expr::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   if(Debug.isOn("pickle")) {
     expr::pickle::Pickler::debugPickleTest(*this);
   }

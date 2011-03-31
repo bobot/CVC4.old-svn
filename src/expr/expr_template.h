@@ -58,13 +58,11 @@ namespace expr {
   }/* CVC4::expr::pickle namespace */
 }/* CVC4::expr namespace */
 
-namespace theory {
-  namespace builtin {
-    class TheoryBuiltin;
-  }/* CVC4::theory::builtin namespace */
-}/* CVC4::theory namespace */
+namespace prop {
+class SatSolver;
+}/* CVC4::prop namespace */
 
-class VariableTypeMap;
+class ExprManagerMapCollection;
 
 struct ExprHashFunction;
 
@@ -77,7 +75,7 @@ namespace expr {
   class CVC4_PUBLIC ExprPrintTypes;
   class CVC4_PUBLIC ExprSetLanguage;
 
-  NodeTemplate<true> exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap);
+  NodeTemplate<true> exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
 }/* CVC4::expr namespace */
 
 /**
@@ -388,7 +386,7 @@ public:
    * variableMap for the translation and extending it with any new
    * mappings.
    */
-  Expr exportTo(ExprManager* exprManager, VariableTypeMap& variableMap);
+  Expr exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
 
   /**
    * IOStream manipulator to set the maximum depth of Exprs when
@@ -461,8 +459,8 @@ protected:
   friend class NodeManager;
   friend class TypeCheckingException;
   friend class expr::pickle::Pickler;
-  friend class theory::builtin::TheoryBuiltin;
-  friend NodeTemplate<true> expr::exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap);
+  friend class prop::SatSolver;
+  friend NodeTemplate<true> expr::exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
 
   friend std::ostream& operator<<(std::ostream& out, const Expr& e);
 

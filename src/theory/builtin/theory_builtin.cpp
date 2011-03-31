@@ -60,18 +60,6 @@ Node TheoryBuiltin::getValue(TNode n) {
   }
 }
 
-void TheoryBuiltin::notifyRestart(){
-  if(d_inputChannel != NULL){
-    while(d_inputChannel->hasNewLemma()){
-      Debug("shared") << "shared" << endl;
-      Expr lemma = d_inputChannel->getNewLemma();
-      Node asNode = lemma.getNode();
-      d_out->lemma(asNode);
-    }
-  }
-
-}
-
 }/* CVC4::theory::builtin namespace */
 }/* CVC4::theory */
 }/* CVC4 namespace */

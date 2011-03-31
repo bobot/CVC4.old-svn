@@ -487,9 +487,9 @@ Context* ExprManager::getContext() const {
 
 namespace expr {
 
-Node exportInternal(TNode n, ExprManager* from, ExprManager* to, VariableTypeMap& vmap);
+Node exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
 
-TypeNode exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* to, VariableTypeMap& vmap) {
+TypeNode exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* to, ExprManagerMapCollection& vmap) {
 Debug("export") << "type: " << n << std::endl;
   Assert(n.getKind() == kind::SORT_TYPE ||
          n.getMetaKind() != kind::metakind::PARAMETERIZED,
@@ -500,7 +500,7 @@ Debug("export") << "type: " << n << std::endl;
     return to->mkBitVectorType(n.getConst<BitVectorSize>());
   }
   Type from_t = from->toType(n);
-  Type& to_t = vmap[from_t];
+  Type& to_t = vmap.d_typeMap[from_t];
   if(! to_t.isNull()) {
 Debug("export") << "+ mapped `" << from_t << "' to `" << to_t << "'" << std::endl;
     return *Type::getTypeNode(to_t);
@@ -523,7 +523,7 @@ Debug("export") << "type: child: " << *i << std::endl;
 
 }/* CVC4::expr namespace */
 
-Type ExprManager::exportType(const Type& t, ExprManager* em, VariableTypeMap& vmap) {
+Type ExprManager::exportType(const Type& t, ExprManager* em, ExprManagerMapCollection& vmap) {
   Assert(t.d_nodeManager != em->d_nodeManager,
          "Can't export a Type to the same ExprManager");
   NodeManagerScope ems(t.d_nodeManager);

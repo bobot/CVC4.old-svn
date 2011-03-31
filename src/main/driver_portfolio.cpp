@@ -58,22 +58,28 @@ class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
 private:
   string d_tag;
   SharedChannel<channelFormat>* d_sharedChannel;
-  expr::pickle::Pickler d_pickler;
+  expr::pickle::MapPickler d_pickler;
 
 public:
   PortfolioLemmaOutputChannel(string tag,
                               SharedChannel<channelFormat> *c,
-                              ExprManager* em) :
+                              ExprManager* em,
+                              VarMap& to,
+                              VarMap& from) :
     d_tag(tag),
     d_sharedChannel(c),
-    d_pickler(em){
-  }
+    d_pickler(em, to, from)
+  {}
 
   void notifyNewLemma(Expr lemma) {
     Debug("sharing") << d_tag << ": " << lemma << std::endl;
-    expr::pickle::Pickle pkl;
-    d_pickler.toPickle(lemma, pkl);
-    d_sharedChannel->push(pkl);
+      expr::pickle::Pickle pkl;
+      try{
+        d_pickler.toPickle(lemma, pkl);
+        d_sharedChannel->push(pkl);
+      }catch(expr::pickle::PicklingException& p){
+        Debug("sharing::blocked") << lemma << std::endl;
+      }
   }
 
 };
@@ -243,8 +249,10 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 
   /* Duplication, Individualisation */
   ExprManager* exprMgr2 = new ExprManager();
-  VariableTypeMap* vmap = new VariableTypeMap();
-  Command *seq2 = seq->exportTo(exprMgr2, *vmap);
+
+  ExprManagerMapCollection* vmaps = new ExprManagerMapCollection();
+
+  Command *seq2 = seq->exportTo(exprMgr2, *vmaps);
   Options options2 = options;
   options.pivotRule = Options::MINIMUM;
   options2.pivotRule = Options::MAXIMUM;
@@ -261,15 +269,23 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   SharedChannel<channelFormat> *channelsOut[2], *channelsIn[2];
 
   for(int i=0; i<numThreads; ++i){
-    channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10);
-    channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10);
+    channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10000);
+    channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10000);
   }
+
+
 
   /* Lemma output channel */
   options.lemmaOutputChannel =
-    new PortfolioLemmaOutputChannel("thread #0", channelsOut[0], exprMgr);
+    new PortfolioLemmaOutputChannel("thread #0",
+                                    channelsOut[0],
+                                    exprMgr,
+                                    vmaps->d_to,
+                                    vmaps->d_from);
   options2.lemmaOutputChannel =
-    new PortfolioLemmaOutputChannel("thread #1", channelsOut[1], exprMgr2);
+    new PortfolioLemmaOutputChannel("thread #1",
+                                    channelsOut[1], exprMgr2,
+                                    vmaps->d_from, vmaps->d_to);
 
   options.lemmaInputChannel =
     new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgr);
@@ -323,7 +339,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   // destruction is causing segfaults, let us just exit
   //exit(returnValue);
 
-  delete vmap;
+  delete vmaps;
 
   delete seq;
   delete exprMgr;

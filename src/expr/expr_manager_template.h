@@ -42,7 +42,7 @@ class SmtEngine;
 class NodeManager;
 struct Options;
 class IntStat;
-class VariableTypeMap;
+class ExprManagerMapCollection;
 
 namespace expr {
   namespace pickle {
@@ -279,7 +279,7 @@ public:
   /** Export an expr to a different ExprManager */
   //static Expr exportExpr(const Expr& e, ExprManager* em);
   /** Export a type to a different ExprManager */
-  static Type exportType(const Type& t, ExprManager* em, VariableTypeMap& vmap);
+  static Type exportType(const Type& t, ExprManager* em, ExprManagerMapCollection& vmap);
 
   /** Returns the minimum arity of the given kind. */
   static unsigned minArity(Kind kind);

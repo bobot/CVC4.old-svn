@@ -99,13 +99,19 @@ std::string Pickle::toString() const {
   return oss.str();
 }
 
-void Pickler::toPickle(Expr e, Pickle& p) {
+void Pickler::toPickle(Expr e, Pickle& p) throw (PicklingException) {
   Assert(e.getExprManager() == d_em);
   Assert(atDefaultState());
 
-  d_current.swap(p);
-  toCaseNode(e.getTNode());
-  d_current.swap(p);
+  try{
+    d_current.swap(p);
+    toCaseNode(e.getTNode());
+    d_current.swap(p);
+  }catch(PicklingException& p){
+    d_current = Pickle();
+    Assert(atDefaultState());
+    throw p;
+  }
 
   Assert(atDefaultState());
 }
@@ -130,7 +136,7 @@ void Pickler::toCaseNode(TNode n) {
   }
 }
 
-void Pickler::toCaseOperator(TNode n) {
+void Pickler::toCaseOperator(TNode n) throw (PicklingException) {
   Kind k = n.getKind();
   kind::MetaKind m = metaKindOf(k);
   Assert(m == kind::metakind::PARAMETERIZED || m == kind::metakind::OPERATOR);
@@ -143,7 +149,7 @@ void Pickler::toCaseOperator(TNode n) {
   d_current << mkOperatorHeader(k, n.getNumChildren());
 }
 
-void Pickler::toCaseVariable(TNode n) {
+void Pickler::toCaseVariable(TNode n) throw (PicklingException){
   Kind k = n.getKind();
   Assert(metaKindOf(k) == kind::metakind::VARIABLE);
 

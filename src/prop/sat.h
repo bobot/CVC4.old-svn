@@ -138,6 +138,8 @@ class SatSolver : public SatInputInterface {
      preprocessor saves us a level of indirection vs, e.g., defining a
      sub-class for each solver. */
 
+  std::hash_set<Node, NodeHashFunction> d_shared;
+
 #ifdef __CVC4_USE_MINISAT
 
   /** Minisat solver */

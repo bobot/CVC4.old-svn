@@ -29,20 +29,11 @@ namespace theory {
 namespace builtin {
 
 class TheoryBuiltin : public Theory {
-private:
-  LemmaInputChannel* d_inputChannel;
-
 public:
   TheoryBuiltin(context::Context* c, OutputChannel& out, Valuation valuation) :
-    Theory(THEORY_BUILTIN, c, out, valuation), d_inputChannel(NULL) {}
+    Theory(THEORY_BUILTIN, c, out, valuation) {}
   Node getValue(TNode n);
   std::string identify() const { return std::string("TheoryBuiltin"); }
-
-  void notifyOptions(const Options& opt) {
-    d_inputChannel = opt.lemmaInputChannel;
-  }
-
-  void notifyRestart();
 };/* class TheoryBuiltin */
 
 }/* CVC4::theory::builtin namespace */

@@ -50,6 +50,14 @@ public:
 
 };/* class VariableTypeMap */
 
+typedef __gnu_cxx::hash_map<uint64_t, uint64_t> VarMap;
+
+struct ExprManagerMapCollection {
+  VariableTypeMap d_typeMap;
+  VarMap d_to;
+  VarMap d_from;
+};
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__VARIABLE_MAP_H */

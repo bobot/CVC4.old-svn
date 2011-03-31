@@ -26,7 +26,7 @@
 #include <sstream>
 #include <deque>
 #include <stack>
-#include <map>
+#include <exception>
 
 #include "expr/expr.h"
 #include "expr/node.h"
@@ -113,9 +113,17 @@ public:
   void writeToStringStream(std::ostringstream& oss) const;
 };/* class Pickle */
 
+class PicklingException : public std::exception {
+  virtual const char* what() const throw()
+  {
+    return "Pickling failed";
+  }
+};
+
 class Pickler {
 protected:
-  virtual uint64_t variableToMap(uint64_t x) const { return x; }
+  virtual uint64_t variableToMap(uint64_t x) const throw (PicklingException)
+  { return x; }
   virtual uint64_t variableFromMap(uint64_t x) const { return x; }
 
 private:
@@ -125,7 +133,7 @@ private:
   Pickle d_current;
 
   ExprManager* d_em;
-  
+
   NodeManager* d_nm;
 
 public:
@@ -140,7 +148,7 @@ public:
    * initialization.
    * TODO: Fix comment
    */
-  void toPickle(Expr e, Pickle& p);
+  void toPickle(Expr e, Pickle& p) throw (PicklingException);
 
   /**
    * Constructs a node from a Pickle.
@@ -157,9 +165,9 @@ private:
 
   /* Helper functions for toPickle */
   void toCaseNode(TNode n);
-  void toCaseVariable(TNode n);
+  void toCaseVariable(TNode n) throw (PicklingException);
   void toCaseConstant(TNode n);
-  void toCaseOperator(TNode n);
+  void toCaseOperator(TNode n) throw (PicklingException);
   void toCaseString(Kind k, const std::string& s);
 
 
@@ -174,9 +182,6 @@ public:
 };/* class Pickler */
 
 class MapPickler : public Pickler {
-public:
-  typedef std::map<uint64_t, uint64_t> VarMap;
-
 private:
   const VarMap& d_toMap;
   const VarMap& d_fromMap;
@@ -187,17 +192,20 @@ public:
   { }
 
 protected:
-  static uint64_t map(const VarMap& map, uint64_t key){
-    VarMap::const_iterator i = map.find(key);
-    Assert(i != map.end());
-    return i->second;
+
+  virtual uint64_t variableToMap(uint64_t x) const throw (PicklingException){
+    VarMap::const_iterator i = d_toMap.find(x);
+    if(i != d_toMap.end()){
+      return i->second;
+    }else{
+      throw PicklingException();
+    }
   }
 
-  virtual uint64_t variableToMap(uint64_t x) const {
-    return map(d_toMap, x);
-  }
   virtual uint64_t variableFromMap(uint64_t x) const {
-    return map(d_fromMap, x);
+    VarMap::const_iterator i = d_fromMap.find(x);
+    Assert(i != d_fromMap.end());
+    return i->second;
   }
 };/* class MapPickler */
 
