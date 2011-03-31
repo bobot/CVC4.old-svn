@@ -19,6 +19,7 @@
 
 #include "util/stats.h"
 #include "expr/node_manager.h"
+#include "expr/expr_manager_scope.h"
 
 using namespace CVC4;
 
@@ -64,3 +65,18 @@ StatisticsRegistry::const_iterator StatisticsRegistry::begin() {
 StatisticsRegistry::const_iterator StatisticsRegistry::end() {
   return NodeManager::currentNM()->getStatisticsRegistry()->d_registeredStats.end();
 }/* StatisticsRegistry::end() */
+
+RegisterStatistic::RegisterStatistic(ExprManager& em, Stat* stat) :
+    d_em(&em), d_stat(stat) {
+  ExprManagerScope ems(*d_em);
+  StatisticsRegistry::registerStat(d_stat);
+}/* RegisterStatistic::RegisterStatistic(ExprManager&, Stat*) */
+
+RegisterStatistic::~RegisterStatistic() {
+  if(d_em != NULL) {
+    ExprManagerScope ems(*d_em);
+    StatisticsRegistry::unregisterStat(d_stat);
+  } else {
+    StatisticsRegistry::unregisterStat(d_stat);
+  }
+}/* RegisterStatistic::~RegisterStatistic() */

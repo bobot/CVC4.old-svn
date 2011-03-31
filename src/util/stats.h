@@ -755,18 +755,11 @@ public:
            "on which to set the statistic");
     StatisticsRegistry::registerStat(d_stat);
   }
-  RegisterStatistic(ExprManager& em, Stat* stat) : d_em(&em), d_stat(stat) {
-    ExprManagerScope ems(*d_em);
-    StatisticsRegistry::registerStat(d_stat);
-  }
-  ~RegisterStatistic() {
-    if(d_em != NULL) {
-      ExprManagerScope ems(*d_em);
-      StatisticsRegistry::unregisterStat(d_stat);
-    } else {
-      StatisticsRegistry::unregisterStat(d_stat);
-    }
-  }
+
+  RegisterStatistic(ExprManager& em, Stat* stat);
+
+  ~RegisterStatistic();
+
 };/* class RegisterStatistic */
 
 #undef __CVC4_USE_STATISTICS
