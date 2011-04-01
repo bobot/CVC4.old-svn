@@ -42,6 +42,7 @@
 
 #include "theory/arith/theory_arith.h"
 #include "theory/arith/normal_form.h"
+#include "theory/arith/arith_prop_manager.h"
 
 #include <stdint.h>
 
@@ -58,12 +59,8 @@ static const uint32_t RESET_START = 2;
 struct SlackAttrID;
 typedef expr::Attribute<SlackAttrID, bool> Slack;
 
-struct PropagatedAttrID;
-typedef expr::CDAttribute<PropagatedAttrID, TNode> Propagated;
-
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, out, valuation),
-  d_reasons(c, true),
   d_partialModel(c),
   d_userVariables(),
   d_diseq(c),
@@ -73,7 +70,8 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valu
   d_tableauResetDensity(1.6),
   d_tableauResetPeriod(10),
   d_propagator(c, out),
-  d_simplex(d_partialModel, d_tableau),
+  d_propManager(c, d_arithvarNodeMap, d_propagator, valuation),
+  d_simplex(d_propManager, d_partialModel, d_tableau),
   d_DELTA_ZERO(0),
   d_statistics()
 {}
@@ -177,6 +175,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
   if(isRelationOperator(k)){
     Assert(Comparison::isNormalAtom(n));
 
+    cout << n << endl;
 
     d_propagator.addAtom(n);
 
@@ -196,14 +195,14 @@ void TheoryArith::preRegisterTerm(TNode n) {
 
 ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   Assert(isLeaf(x) || x.getKind() == PLUS);
-  Assert(!hasArithVar(x));
+  Assert(!d_arithvarNodeMap.hasArithVar(x));
 
   ArithVar varX = d_variables.size();
   d_variables.push_back(Node(x));
 
   d_simplex.increaseMax();
 
-  setArithVar(x,varX);
+  d_arithvarNodeMap.setArithVar(x,varX);
 
   d_userVariables.init(varX, !basic);
   d_tableau.increaseSize();
@@ -224,9 +223,9 @@ void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::v
     Debug("rewriter") << "should be var: " << n << endl;
 
     Assert(isLeaf(n));
-    Assert(hasArithVar(n));
+    Assert(d_arithvarNodeMap.hasArithVar(n));
 
-    ArithVar av = asArithVar(n);
+    ArithVar av = d_arithvarNodeMap.asArithVar(n);
 
     coeffs.push_back(constant.getValue());
     variables.push_back(av);
@@ -299,10 +298,10 @@ ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
   TNode left = getSide<true>(assertion, simpleKind);
 
   if(isLeaf(left)){
-    return asArithVar(left);
+    return d_arithvarNodeMap.asArithVar(left);
   }else{
     Assert(left.hasAttribute(Slack()));
-    return asArithVar(left);
+    return d_arithvarNodeMap.asArithVar(left);
   }
 }
 
@@ -410,7 +409,6 @@ void TheoryArith::check(Effort effortLevel){
   Node possibleConflict = d_simplex.updateInconsistentVars();
   if(possibleConflict != Node::null()){
     d_partialModel.revertAssignmentChanges();
-    d_simplex.clearDeducedBounds();
 
     Node simpleConflict  = BooleanSimplification::simplifyConflict(possibleConflict);
 
@@ -501,6 +499,7 @@ void TheoryArith::debugPrintModel(){
   }
 }
 
+/*
 bool TheoryArith::isImpliedUpperBound(ArithVar var, Node exp){
   Node varAsNode = asNode(var);
   const DeltaRational& ub = d_partialModel.getUpperBound(var);
@@ -521,43 +520,25 @@ bool TheoryArith::isImpliedLowerBound(ArithVar var, Node exp){
   Node bestImplied = d_propagator.getBestImpliedLowerBound(lbAsIneq);
   return bestImplied == exp;
 }
+*/
 
 void TheoryArith::explain(TNode n) {
   Debug("explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
-  Assert(n.hasAttribute(Propagated()));
+  //Assert(n.hasAttribute(Propagated()));
 
-  NodeBuilder<> explainBuilder(AND);
-  internalExplain(n,explainBuilder);
-  Node explanation = explainBuilder;
+  //NodeBuilder<> explainBuilder(AND);
+  //internalExplain(n,explainBuilder);
+  Assert(d_propManager.isPropagated(n));
+  Node explanation = d_propManager.explain(n);
   Node flatExplanation = BooleanSimplification::simplifyConflict(explanation);
-
-  //cout << explanation.getNumChildren() << " " << explanation << endl;
-  //cout << flatExplanation.getNumChildren() << " " << flatExplanation << endl;
 
   d_out->explanation(flatExplanation, true);
 }
-
+/*
 void TheoryArith::internalExplain(TNode n, NodeBuilder<>& explainBuilder){
   Assert(n.hasAttribute(Propagated()));
   Node bound = n.getAttribute(Propagated());
 
-
-  // Kind simpKind = simplifiedKind(n);
-  // ArithVar var = determineLeftVariable(n, simpKind);
-
-  // TNode bound = TNode::null();
-  // switch(simpKind){
-  // case LT: case LEQ:
-  //   Assert(isImpliedUpperBound(var,n));
-  //   bound = d_partialModel.getUpperConstraint(var);
-  //   break;
-  // case GEQ: case GT:
-  //   Assert(isImpliedLowerBound(var,n));
-  //   bound = d_partialModel.getLowerConstraint(var);
-  //   break;
-  // default:
-  //   Unreachable();
-  // }
   AlwaysAssert(bound.getKind() == kind::AND);
 
   for(Node::iterator i = bound.begin(), end = bound.end(); i != end; ++i){
@@ -570,6 +551,8 @@ void TheoryArith::internalExplain(TNode n, NodeBuilder<>& explainBuilder){
     }
   }
 }
+*/
+/*
 static const bool EXPORT_LEMMA_INSTEAD_OF_PROPAGATE = false;
 void TheoryArith::propagateArithVar(bool upperbound, ArithVar var ){
   Node varAsNode = asNode(var);
@@ -621,6 +604,7 @@ void TheoryArith::propagateArithVar(bool upperbound, ArithVar var ){
     }
   }
 }
+*/
 
 void TheoryArith::propagate(Effort e) {
   if(quickCheckOrMore(e)){
@@ -629,13 +613,14 @@ void TheoryArith::propagate(Effort e) {
       Node simpleLemma = BooleanSimplification::simplifyClause(lemma);
       d_out->lemma(simpleLemma);
     }
-    while(d_simplex.hasMoreDeducedUpperBounds()){
-      ArithVar var = d_simplex.popDeducedUpperBound();
-      propagateArithVar(true, var);
-    }
-    while(d_simplex.hasMoreDeducedLowerBounds()){
-      ArithVar var = d_simplex.popDeducedLowerBound();
-      propagateArithVar(false, var);
+    while(d_propManager.hasMorePropagations()){
+      TNode toProp = d_propManager.getPropagation();
+      Node satValue = d_valuation.getSatValue(toProp);
+      if(satValue.isNull()){
+        d_out->propagate(toProp);
+      }else{
+        Unreachable();
+      }
     }
   }
 }
@@ -645,7 +630,7 @@ Node TheoryArith::getValue(TNode n) {
 
   switch(n.getKind()) {
   case kind::VARIABLE: {
-    ArithVar var = asArithVar(n);
+    ArithVar var = d_arithvarNodeMap.asArithVar(n);
 
     if(d_removedRows.find(var) != d_removedRows.end()){
       Node eq = d_removedRows.find(var)->second;
@@ -773,7 +758,7 @@ void TheoryArith::notifyRestart(){
 bool TheoryArith::entireStateIsConsistent(){
   typedef std::vector<Node>::const_iterator VarIter;
   for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
-    ArithVar var = asArithVar(*i);
+    ArithVar var = d_arithvarNodeMap.asArithVar(*i);
     if(!d_partialModel.assignmentIsConsistent(var)){
       d_partialModel.printModel(var);
       cerr << "Assignment is not consistent for " << var << *i << endl;
@@ -808,7 +793,7 @@ void TheoryArith::permanentlyRemoveVariable(ArithVar v){
     Assert(!noRow);
 
     //remove the row from the tableau
-    Node eq =  d_tableau.rowAsEquality(v, d_arithVarToNodeMap);
+    Node eq =  d_tableau.rowAsEquality(v, d_arithvarNodeMap.getArithVarToNodeMap());
     d_tableau.removeRow(v);
 
     if(Debug.isOn("tableau")) d_tableau.printTableau();
@@ -820,8 +805,8 @@ void TheoryArith::permanentlyRemoveVariable(ArithVar v){
     d_removedRows[v] = eq;
   }
 
-  Debug("arith::permanentlyRemoveVariable") << "Permanently removed variable "
-                                            << v << ":" << asNode(v) << endl;
+  Debug("arith::permanentlyRemoveVariable") << "Permanently removed variable " << v
+                                            << ":" << d_arithvarNodeMap.asNode(v) <<endl;
   ++(d_statistics.d_permanentlyRemovedVariables);
 }
 
@@ -831,7 +816,7 @@ void TheoryArith::presolve(){
   typedef std::vector<Node>::const_iterator VarIter;
   for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
     Node variableNode = *i;
-    ArithVar var = asArithVar(variableNode);
+    ArithVar var = d_arithvarNodeMap.asArithVar(variableNode);
     if(d_userVariables.isMember(var) && !d_propagator.hasAnyAtoms(variableNode)){
       //The user variable is unconstrained.
       //Remove this variable permanently

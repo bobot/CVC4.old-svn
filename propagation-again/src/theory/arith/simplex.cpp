@@ -644,6 +644,7 @@ void SimplexDecisionProcedure::explainNonbasics(ArithVar basic, NodeBuilder<>& o
   }
 }
 
+
 Node SimplexDecisionProcedure::deduceUpperBound(ArithVar basicVar){
   Assert(d_tableau.isBasic(basicVar));
   Assert(selectSlackUpperBound<minVarOrder>(basicVar) == ARITHVAR_SENTINEL);
@@ -658,8 +659,8 @@ Node SimplexDecisionProcedure::deduceUpperBound(ArithVar basicVar){
     Node explanation = nb;
     Debug("waka-waka") << basicVar << " ub " << assignment << " "<< explanation << endl;
     Node res = AssertUpper(basicVar, assignment, explanation);
-    if(res.isNull() && !d_deducedUpperBound.isMember(basicVar)){
-      d_deducedUpperBound.add(basicVar);
+    if(res.isNull()){
+      d_propManager.propagateArithVar(true, basicVar, assignment, explanation);
     }
     return res;
   }else{
@@ -682,8 +683,8 @@ Node SimplexDecisionProcedure::deduceLowerBound(ArithVar basicVar){
     Node explanation = nb;
     Debug("waka-waka") << basicVar << " lb " << assignment << " "<< explanation << endl;
     Node res = AssertLower(basicVar, assignment, explanation);
-    if(res.isNull()&& !d_deducedLowerBound.isMember(basicVar)){
-      d_deducedLowerBound.add(basicVar);
+    if(res.isNull()){
+      d_propManager.propagateArithVar(false, basicVar, assignment, explanation);
     }
     return res;
   }else{

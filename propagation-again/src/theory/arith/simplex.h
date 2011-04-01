@@ -10,6 +10,7 @@
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"
 #include "theory/arith/partial_model.h"
+#include "theory/arith/arith_prop_manager.h"
 
 #include "util/options.h"
 
@@ -33,21 +34,22 @@ private:
   Tableau& d_tableau;
   ArithPriorityQueue d_queue;
 
+  ArithPropManager& d_propManager;
+
   ArithVar d_numVariables;
 
   std::queue<Node> d_delayedLemmas;
 
   Rational d_ZERO;
 
-  PermissiveBackArithVarSet d_deducedUpperBound;
-  PermissiveBackArithVarSet d_deducedLowerBound;
-
 public:
-  SimplexDecisionProcedure(ArithPartialModel& pm,
+  SimplexDecisionProcedure(ArithPropManager& propManager,
+                           ArithPartialModel& pm,
                            Tableau& tableau) :
     d_partialModel(pm),
     d_tableau(tableau),
     d_queue(pm, tableau),
+    d_propManager(propManager),
     d_numVariables(0),
     d_delayedLemmas(),
     d_ZERO(0)
@@ -243,29 +245,6 @@ public:
     Node lemma = d_delayedLemmas.front();
     d_delayedLemmas.pop();
     return lemma;
-  }
-
-  bool hasMoreDeducedUpperBounds() const {
-    return !d_deducedUpperBound.empty();
-  }
-
-  ArithVar popDeducedUpperBound() {
-    ArithVar back = d_deducedUpperBound.pop_back();
-    return back;
-  }
-
-  bool hasMoreDeducedLowerBounds() const {
-    return !d_deducedLowerBound.empty();
-  }
-
-  ArithVar popDeducedLowerBound() {
-    ArithVar back = d_deducedLowerBound.pop_back();
-    return back;
-  }
-
-  void clearDeducedBounds() {
-    d_deducedLowerBound.clear();
-    d_deducedUpperBound.clear();
   }
 
 private:
