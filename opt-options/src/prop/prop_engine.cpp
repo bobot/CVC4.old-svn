@@ -56,13 +56,12 @@ public:
   }
 };
 
-PropEngine::PropEngine(TheoryEngine* te,
-                       Context* context, const Options& opts) :
+PropEngine::PropEngine(TheoryEngine* te, Context* context) :
   d_inCheckSat(false),
   d_theoryEngine(te),
   d_context(context) {
   Debug("prop") << "Constructing the PropEngine" << endl;
-  d_satSolver = new SatSolver(this, d_theoryEngine, d_context, opts);
+  d_satSolver = new SatSolver(this, d_theoryEngine, d_context);
   d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver);
   d_satSolver->setCnfStream(d_cnfStream);
 }
@@ -104,7 +103,7 @@ void PropEngine::printSatisfyingAssignment(){
     SatLiteral l = curr.second.literal;
     if(!sign(l)) {
       Node n = curr.first;
-      SatLiteralValue value = d_satSolver->value(l);
+      SatLiteralValue value = d_satSolver->modelValue(l);
       Debug("prop-value") << "'" << l << "' " << value << " " << n << endl;
     }
   }
@@ -138,7 +137,9 @@ Result PropEngine::checkSat() {
 
 Node PropEngine::getValue(TNode node) {
   Assert(node.getType().isBoolean());
-  SatLiteralValue v = d_satSolver->value(d_cnfStream->getLiteral(node));
+  SatLiteral lit = d_cnfStream->getLiteral(node);
+
+  SatLiteralValue v = d_satSolver->value(lit);
   if(v == l_True) {
     return NodeManager::currentNM()->mkConst(true);
   } else if(v == l_False) {
