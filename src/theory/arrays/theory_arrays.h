@@ -150,17 +150,28 @@ private:
   ArrayInfo d_infoMap;
 
   /**
+   * Ext lemma workslist that stores extensionality lemmas that still need to be added
+   */
+  std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction> d_extQueue;
+
+  /**
+   * RoW2 Lemma worklist, stores lemmas that can still be added to the SAT solver
+   * to be emptied during full effort check
+   */
+  std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_rowQueue;
+
+  /**
    * Extensionality lemma cache which stores the array pair (a,b) for which
    * a lemma of the form (a = b OR a[k]!= b[k]) has been added to the SAT solver.
    */
-  std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction> d_extLemmaCache;
+  std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction> d_extAlreadyAdded;
 
   /**
    * Read-over-write lemma cache storing a quadruple (a,b,i,j) for which a
    * the lemma (i = j OR a[j] = b[j]) has been added to the SAT solver. Needed
    * to prevent infinite recursion in addRoW2Lemma.
    */
-  std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_RoWLemmaCache;
+  std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_rowAlreadyAdded;
 
   /*
    * Congruence helper methods
@@ -181,6 +192,9 @@ private:
   inline TNode debugFind(TNode a) const;
 
   inline void setCanon(TNode a, TNode b);
+
+  inline void queueRowLemma(TNode a, TNode b, TNode i, TNode j);
+  inline void queueExtLemma(TNode a, TNode b);
 
   /**
    * Adds a RoW2 lemma of the form:
@@ -228,13 +242,26 @@ private:
     }
   }
 
-  void dischargeRoWLemmas(std::set<quad<TNode, TNode, TNode, TNode> >& queue ) {
-    std::set<quad<TNode, TNode, TNode, TNode> >::const_iterator it = queue.begin();
-    for( ; it!= queue.end(); it++) {
-      addRoW2Lemma((*it).first, (*it).second, (*it).third, (*it).fourth);
+  void dischargeLemmas() {
+    // we need to swap the temporary lists because adding a lemma calls preregister
+    // which might modify the d_rowQueue we would be iterating through
+    std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > temp_row;
+    temp_row.swap(d_rowQueue);
+
+    std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction >::const_iterator it1 = temp_row.begin();
+    for( ; it1!= temp_row.end(); it1++) {
+      addRoW2Lemma((*it1).first, (*it1).second, (*it1).third, (*it1).fourth);
     }
-    //queue.clear();
+
+    std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction>  temp_ext;
+    temp_ext.swap(d_extQueue);
+
+    std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction> ::const_iterator it2 = temp_ext.begin();
+    for(; it2 != temp_ext.end(); it2++) {
+      addExtLemma((*it2).first, (*it2).second);
+    }
   }
+
 
   /*
    * === STATISTICS ===

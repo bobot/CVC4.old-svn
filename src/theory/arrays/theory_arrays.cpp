@@ -93,7 +93,8 @@ void TheoryArrays::check(Effort e) {
   TimerStat::CodeTimer codeTimer(d_checkTimer);
 
   if(!d_donePreregister ) {
-    // only start instantiating lemmas after preregistering everything
+    // only start looking for lemmas after preregister on all input terms
+    // has been called
    return;
   }
 
@@ -142,7 +143,7 @@ void TheoryArrays::check(Effort e) {
         }
       Assert(!d_cc.areCongruent(a,b));
       if(a.getType().isArray()) {
-        addExtLemma(a, b);
+        queueExtLemma(a, b);
       }
       break;
     }
@@ -151,8 +152,15 @@ void TheoryArrays::check(Effort e) {
     }
 
   }
-  // generate lemmas
 
+  if(fullEffort(e)) {
+    // generate the lemmas on the worklist
+    while(!d_rowQueue.empty() || ! d_extQueue.empty()) {
+      // we need to do this up to a fixpoint because adding a lemma
+      // calls preregister which may add new lemmas in the queues
+      dischargeLemmas();
+    }
+  }
   Debug("arrays") << "Arrays::check(): done" << endl;
 }
 
@@ -182,8 +190,6 @@ void TheoryArrays::merge(TNode a, TNode b) {
    * take care of the congruence closure part
    */
 
-
-  // FIXME: why do check find(a) and do the diseq have to be different?
 
   // make "a" the one with shorter diseqList
   CNodeTNodesMap::iterator deq_ia = d_disequalities.find(a);
@@ -399,22 +405,7 @@ void TheoryArrays::appendToEqList(TNode of, TNode eq) {
   eql->push_back(eq);
 
 }
-/*
-void TheoryArrays::addRoW1Lemma(TNode a) {
-  Assert(a.getKind() == kind::STORE);
-  TNode i = a[1];
-  TNode v = a[2];
 
-  NodeManager* nm = NodeManager::currentNM();
-  Node ai = nm->mkNode(kind::SELECT, a, i);
-  Node eq = nm->mkNode(kind::EQUAL, ai, v);
-  // adding read-intro1 lemma
-  Debug("arrays-lem") <<"Arrays::addRoW1Lemma "<<eq<<"\n";
-  d_out->lemma(eq);
-
-  d_cc.addEquality(eq);
-}
-*/
 
 /**
  * Iterates through the indices of a and stores of b and checks if any new
@@ -425,8 +416,8 @@ bool TheoryArrays::isRedundandRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
   Assert(a.getType().isArray());
   Assert(b.getType().isArray());
 
-  if(d_RoWLemmaCache.count(make_quad(a, b, i, j)) != 0 ||
-     d_RoWLemmaCache.count(make_quad(b, a, i, j)) != 0 ) {
+  if(d_rowAlreadyAdded.count(make_quad(a, b, i, j)) != 0 ||
+     d_rowAlreadyAdded.count(make_quad(b, a, i, j)) != 0 ) {
     return true;
   }
 
@@ -456,10 +447,6 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
   CTNodeList::const_iterator it = i_a->begin();
   CTNodeList::const_iterator its;
 
-  // need to store lemmas in a temporary queue because adding lemmas calls
-  // pre-register and may change the lists we are iterating through
-  std::set<quad<TNode, TNode, TNode, TNode> > queue;
-
   for( ; it != i_a->end(); it++ ) {
     TNode i = *it;
     its = st_b->begin();
@@ -470,7 +457,7 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
       TNode c = store[0];
 
       if(!isRedundandRoW2Lemma(store, c, j, i)) {
-        insertInQuadQueue(queue, store, c, j, i);
+        queueRowLemma(store, c, j, i);
       }
     }
 
@@ -487,14 +474,10 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
       TNode j = store[1];
       TNode c = store[0];
       if(isNonLinear(c) && !isRedundandRoW2Lemma(store, c, j, i)) {
-        insertInQuadQueue(queue, store, c, j, i);
+        queueRowLemma(store, c, j, i);
       }
     }
   }
-
-
-  // actually calls d_out->lemma()
-  dischargeRoWLemmas(queue);
 
   Debug("arrays-crl")<<"Arrays::checkLemmas done.\n";
 }
@@ -518,7 +501,7 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Node lem = nm->mkNode(kind::OR, eq1, eq2);
 
  Debug("arrays-lem")<<"Arrays::addRoW2Lemma adding "<<lem<<"\n";
- d_RoWLemmaCache.insert(make_quad(a,b,i,j));
+ d_rowAlreadyAdded.insert(make_quad(a,b,i,j));
  d_out->lemma(lem);
  //++d_numRoW2;
 
@@ -541,15 +524,13 @@ void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
   const CTNodeList* instores = d_infoMap.getInStores(a);
   CTNodeList::const_iterator it = stores->begin();
 
-  std::set<quad<TNode, TNode, TNode, TNode> > queue;
-
   for(; it!= stores->end(); it++) {
     TNode store = *it;
     Assert(store.getKind()==kind::STORE);
     TNode j = store[1];
     Debug("arrays-cri")<<"Arrays::checkRoWForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
     if(!isRedundandRoW2Lemma(store, store[0], j, i)) {
-      insertInQuadQueue(queue, store, store[0], j, i);
+      queueRowLemma(store, store[0], j, i);
     }
   }
 
@@ -560,11 +541,22 @@ void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
     TNode j = instore[1];
     Debug("arrays-cri")<<"Arrays::checkRoWForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
     if(!isRedundandRoW2Lemma(instore, instore[0], j, i)) {
-      insertInQuadQueue(queue, instore, instore[0], j, i);
+      queueRowLemma(instore, instore[0], j, i);
     }
   }
 
-  dischargeRoWLemmas(queue);
+}
+
+
+inline void TheoryArrays::queueExtLemma(TNode a, TNode b) {
+  Assert(a.getType().isArray() && b.getType().isArray());
+
+  d_extQueue.insert(make_pair(a,b));
+}
+
+inline void TheoryArrays::queueRowLemma(TNode a, TNode b, TNode i, TNode j) {
+  Assert(a.getType().isArray() && b.getType().isArray());
+  d_rowQueue.insert(make_quad(a, b, i, j));
 }
 
 /**
@@ -580,8 +572,8 @@ inline void TheoryArrays::addExtLemma(TNode a, TNode b) {
  Debug("arrays-cle")<<"                   and "<<b<<" \n";
 
 
- if(   d_extLemmaCache.count(make_pair(a, b)) == 0
-    && d_extLemmaCache.count(make_pair(b, a)) == 0) {
+ if(   d_extAlreadyAdded.count(make_pair(a, b)) == 0
+    && d_extAlreadyAdded.count(make_pair(b, a)) == 0) {
 
    NodeManager* nm = NodeManager::currentNM();
    Node k = nm->mkVar(a.getType()[0]);
@@ -592,152 +584,12 @@ inline void TheoryArrays::addExtLemma(TNode a, TNode b) {
    Node lem = nm->mkNode(kind::OR, eq, neq);
 
    Debug("arrays-lem")<<"Arrays::addExtLemma "<<lem<<"\n";
-   d_extLemmaCache.insert(make_pair(a,b));
+   d_extAlreadyAdded.insert(make_pair(a,b));
    d_out->lemma(lem);
-   //++d_numExt;
-
-   // check if we need to generate new RoW lemmas due to this index
-   // need to check for a and b
-   //checkRoWForIndex(k, find(a));
-   //checkRoWForIndex(k, find(b));
+   ++d_numExt;
    return;
  }
  Debug("arrays-cle")<<"Arrays::checkExtLemmas lemma already generated. \n";
 
 }
 
-
-/*
-
-inline void TheoryArrays::appendIndex(TNode a, TNode index) {
-  Debug("arrays::index")<<"Arrays::appendIndex a       = "<<a<<" i = "<<index<<"\n";
-  //Assert(a.getKind() == kind::ARRAY_TYPE);
-
-  a = find(a);
-
-  Debug("arrays::index")<<"Arrays::appendIndex find(a) = "<<a<<"\n";
-  CTNodeListAlloc* ilist;
-  CNodeTNodesMap::iterator it = d_readIndicesMap.find(a);
-  if( it == d_readIndicesMap.end()) {
-    ilist = new (getContext()->getCMM()) CTNodeListAlloc(true, getContext(), false,
-                                                    ContextMemoryAllocator<TNode>(getContext()->getCMM()));
-    d_readIndicesMap.insertDataFromContextMemory(a, ilist);
-    Debug("arrays::index")<<"Arrays::appendIndex adding (find(a), [index]) entry \n";
-    ilist->push_back(index);
-  } else {
-    ilist = (*it).second;
-    // check if index already in list
-    //FIXME: maybe do this lazily when merging?
-    CTNodeListAlloc::const_iterator i = ilist->begin();
-    for(; i!= ilist->end(); i++) {
-      if((*i) == index) {
-        Debug("arrays::index")<<"Arrays::appendIndex index already exits \n";
-        return;
-      }
-    }
-    Debug("arrays::index")<<"Arrays::appendIndex appending index to find(a) \n";
-    ilist->push_back(index);
-
-  }
-
-}
-
-inline void TheoryArrays::appendStore(TNode a, TNode st) {
-  Debug("arrays::store")<<"Arrays::appendStore a       = "<<a<<" st = "<<st<<"\n";
-  Assert(st.getKind() == kind::STORE);
-  //TODO: good way to check it's an array?
-  //Assert(a.getKind() == kind::ARRAY_TYPE);
-  a = find(a);
-
-  Debug("arrays::store")<<"Arrays::appendStore find(a) = "<<a<<"\n";
-  CTNodeListAlloc* ilist;
-  CNodeTNodesMap::iterator it = d_storesMap.find(a);
-  if( it == d_storesMap.end()) {
-    ilist = new (getContext()->getCMM()) CTNodeListAlloc(true, getContext(), false,
-                                                    ContextMemoryAllocator<TNode>(getContext()->getCMM()));
-    d_storesMap.insertDataFromContextMemory(a, ilist);
-    Debug("arrays::store")<<"Arrays::appendStore adding (find(a), [st]) entry \n";
-    ilist->push_back(st);
-  } else {
-    ilist = (*it).second;
-    // check if index already in list
-    //FIXME: maybe do this lazily when merging?
-    CTNodeListAlloc::const_iterator i = ilist->begin();
-    for(; i!= ilist->end(); i++) {
-      if((*i) == st) {
-        Debug("arrays::store")<<"Arrays::appendStore store already exits \n";
-        return;
-      }
-    }
-    Debug("arrays::store")<<"Arrays::appendStore appending store to find(a) \n";
-    ilist->push_back(st);
-
-
-  }
-}
-*/
-
-
-// fixme: merge both things at the same time
-// before merge iterate through indices and stores and see if any of them
-
-/*
-void TheoryArrays::mergeInfo(TNode a, TNode b, CNodeTNodesMap& info_map) {
-  Debug("arrays::merge")<<"Arrays::mergeInfo of nodes \n"<<a<<"\n";
-
-  CNodeTNodesMap::iterator iblist = info_map.find(b);
-  CNodeTNodesMap::iterator ialist = info_map.find(a);
-
-  if(ialist != info_map.end()) {
-    debugList((*ialist).second);
-  }
-
-  Debug("arrays::merge")<<b<<"\n";
-  if(iblist != info_map.end()) {
-     debugList((*iblist).second);
-  }
-  Assert(find(a) == find(b) && find(a) == b);
-
-  set<TNode> binfo;
-
-  if(ialist != info_map.end()) {
-    if (iblist != info_map.end()) {
-      // both a and b have info
-      CTNodeListAlloc* blist = (*iblist).second;
-
-      // collect b-info
-
-      CTNodeListAlloc::const_iterator ib = blist->begin();
-      for( ; ib!= blist ->end(); ib++ ) {
-        binfo.insert(*ib);
-      }
-
-      // add a info to the b list of info if they are not already there
-
-      CTNodeListAlloc* alist = (*ialist).second;
-      CTNodeListAlloc::const_iterator ia = alist->begin();
-
-      for( ; ia!= alist ->end(); ia++ ) {
-        if(binfo.find(*ia) == binfo.end()) {
-          blist->push_back(*ia);
-        }
-      }
-
-    }
-    else {
-      // a has info but b has no info so we simply assigned
-      // the info of a to b
-      CTNodeListAlloc* alist = (*ialist).second;
-      info_map.insert(b, alist);
-    }
-  }
-  // if a has no info there's nothing to do because b is the representative
-
-  Debug("arrays::merge")<<"New list of "<<b<<"\n";
-  if(iblist != info_map.end()) {
-     debugList((*iblist).second);
-  }
-  // FIXME: no erasing in CDMap? is that a problem?
-
-}
-*/
