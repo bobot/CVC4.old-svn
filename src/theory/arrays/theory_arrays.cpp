@@ -30,8 +30,8 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arrays;
 
 
-TheoryArrays::TheoryArrays(Context* c, OutputChannel& out) :
-  Theory(THEORY_ARRAY, c, out),
+TheoryArrays::TheoryArrays(Context* c, OutputChannel& out, Valuation valuation) :
+  Theory(THEORY_ARRAY, c, out, valuation),
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
@@ -41,8 +41,10 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out) :
   d_infoMap(c),
   d_numRoW2("theory::arrays::number of RoW2 lemmas", 0),
   d_numExt("theory::arrays::number of Ext lemmas", 0),
-  d_checkTimer("theory::arrays::checkTime")
+  d_checkTimer("theory::arrays::checkTime"),
+  d_donePreregister(false)
 {
+
   StatisticsRegistry::registerStat(&d_numRoW2);
   StatisticsRegistry::registerStat(&d_numExt);
   StatisticsRegistry::registerStat(&d_checkTimer);
@@ -52,9 +54,11 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out) :
 
 
 TheoryArrays::~TheoryArrays() {
+
   StatisticsRegistry::unregisterStat(&d_numRoW2);
   StatisticsRegistry::unregisterStat(&d_numExt);
   StatisticsRegistry::unregisterStat(&d_checkTimer);
+
 }
 
 
@@ -88,8 +92,8 @@ void TheoryArrays::notifyCongruent(TNode a, TNode b) {
 void TheoryArrays::check(Effort e) {
   TimerStat::CodeTimer codeTimer(d_checkTimer);
 
-  if(!fullEffort(e) ) {
-    // only start instantiating lemmas if full effort
+  if(!d_donePreregister ) {
+    // only start instantiating lemmas after preregistering everything
    return;
   }
 
@@ -152,7 +156,7 @@ void TheoryArrays::check(Effort e) {
   Debug("arrays") << "Arrays::check(): done" << endl;
 }
 
-Node TheoryArrays::getValue(TNode n, Valuation* valuation) {
+Node TheoryArrays::getValue(TNode n) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -162,7 +166,7 @@ Node TheoryArrays::getValue(TNode n, Valuation* valuation) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
+      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
 
   default:
     Unhandled(n.getKind());
@@ -516,7 +520,7 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Debug("arrays-lem")<<"Arrays::addRoW2Lemma adding "<<lem<<"\n";
  d_RoWLemmaCache.insert(make_quad(a,b,i,j));
  d_out->lemma(lem);
- ++d_numRoW2;
+ //++d_numRoW2;
 
 }
 
@@ -590,7 +594,7 @@ inline void TheoryArrays::addExtLemma(TNode a, TNode b) {
    Debug("arrays-lem")<<"Arrays::addExtLemma "<<lem<<"\n";
    d_extLemmaCache.insert(make_pair(a,b));
    d_out->lemma(lem);
-   ++d_numExt;
+   //++d_numExt;
 
    // check if we need to generate new RoW lemmas due to this index
    // need to check for a and b

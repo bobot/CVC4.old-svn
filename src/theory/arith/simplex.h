@@ -48,7 +48,21 @@ public:
     d_numVariables(0),
     d_delayedLemmas(),
     d_ZERO(0)
-  {}
+  {
+    switch(Options::ArithPivotRule rule = Options::current()->pivotRule) {
+    case Options::MINIMUM:
+      d_queue.setPivotRule(ArithPriorityQueue::MINIMUM);
+      break;
+    case Options::BREAK_TIES:
+      d_queue.setPivotRule(ArithPriorityQueue::BREAK_TIES);
+      break;
+    case Options::MAXIMUM:
+      d_queue.setPivotRule(ArithPriorityQueue::MAXIMUM);
+      break;
+    default:
+      Unhandled(rule);
+    }
+  }
 
   /**
    * Assert*(n, orig) takes an bound n that is implied by orig.
@@ -107,7 +121,7 @@ private:
    * This is a hueristic rule and should not be used
    * during the VarOrder stage of updateInconsistentVars.
    */
-  static ArithVar minRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
+  static ArithVar minColLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y);
   /**
    * minBoundAndRowCount is a PreferenceFunction for preferring a variable
    * without an asserted bound over variables with an asserted bound.
@@ -179,29 +193,13 @@ private:
   Node generateConflictBelow(ArithVar conflictVar);
 
 public:
-  void notifyOptions(const Options& opt){
-    switch(opt.pivotRule){
-    case Options::MINIMUM:
-      d_queue.setPivotRule(ArithPriorityQueue::MINIMUM);
-      break;
-    case Options::BREAK_TIES:
-      d_queue.setPivotRule(ArithPriorityQueue::BREAK_TIES);
-      break;
-    case Options::MAXIMUM:
-      d_queue.setPivotRule(ArithPriorityQueue::MAXIMUM);
-      break;
-    default:
-      Unhandled(opt.pivotRule);
-    }
-  }
-
-
-public:
   /**
    * Checks to make sure the assignment is consistent with the tableau.
    * This code is for debugging.
    */
-  void checkTableau();
+  void debugCheckTableau();
+  void debugPivotSimplex(ArithVar x_i, ArithVar x_j);
+
 
   /**
    * Computes the value of a basic variable using the assignments
@@ -238,6 +236,15 @@ private:
   void delayConflictAsLemma(Node conflict){
     Node negatedConflict = negateConjunctionAsClause(conflict);
     pushLemma(negatedConflict);
+  }
+
+  template <bool above>
+  inline bool isAcceptableSlack(int sgn, ArithVar nonbasic){
+    return
+      ( above && sgn < 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)) ||
+      ( above && sgn > 0 && d_partialModel.strictlyAboveLowerBound(nonbasic)) ||
+      (!above && sgn > 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)) ||
+      (!above && sgn < 0 && d_partialModel.strictlyAboveLowerBound(nonbasic));
   }
 
   /**

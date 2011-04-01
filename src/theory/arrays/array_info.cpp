@@ -61,7 +61,7 @@ void ArrayInfo::addIndex(const Node a, const TNode i) {
     temp_info = new Info(ct);
     temp_info->indices = temp_indices;
 
-    info_map.insert(a, temp_info);
+    info_map[a] = temp_info;
   } else {
     temp_indices = (*it).second->indices;
     if(! inList(temp_indices, i)) {
@@ -85,7 +85,7 @@ void ArrayInfo::addStore(const Node a, const TNode st){
 
     temp_info = new Info(ct);
     temp_info->stores = temp_store;
-    info_map.insert(a, temp_info);
+    info_map[a]=temp_info;
   } else {
     temp_store = (*it).second->stores;
     if(! inList(temp_store, st)) {
@@ -110,7 +110,7 @@ void ArrayInfo::addInStore(const TNode a, const TNode b){
 
     temp_info = new Info(ct);
     temp_info->in_stores = temp_inst;
-    info_map.insert(a, temp_info);
+    info_map[a] = temp_info;
   } else {
     temp_inst = (*it).second->in_stores;
     if(! inList(temp_inst, b)) {
@@ -120,30 +120,21 @@ void ArrayInfo::addInStore(const TNode a, const TNode b){
 };
 
 
-/**
- * Maps a to the emptyInfo if a is not already in the map
- */
-void ArrayInfo::addEmptyEntry(const TNode a) {
-  Assert(a.getType().isArray());
-
-  if(info_map.find(a) == info_map.end()) {
-    info_map.insert(a, new Info(ct));
-  }
-}
 
 /**
  * Returns the information associated with TNode a
  */
 
 const Info* ArrayInfo::getInfo(const TNode a) const{
-  CNodeInfoMap::iterator it = info_map.find(a);
+  CNodeInfoMap::const_iterator it = info_map.find(a);
+
   if(it!= info_map.end())
       return (*it).second;
   return emptyInfo;
 }
 
 const CTNodeList* ArrayInfo::getIndices(const TNode a) const{
-  CNodeInfoMap::iterator it = info_map.find(a);
+  CNodeInfoMap::const_iterator it = info_map.find(a);
   if(it!= info_map.end()) {
     return (*it).second->indices;
   }
@@ -151,7 +142,7 @@ const CTNodeList* ArrayInfo::getIndices(const TNode a) const{
 }
 
 const CTNodeList* ArrayInfo::getStores(const TNode a) const{
-  CNodeInfoMap::iterator it = info_map.find(a);
+  CNodeInfoMap::const_iterator it = info_map.find(a);
   if(it!= info_map.end()) {
     return (*it).second->stores;
   }
@@ -159,7 +150,7 @@ const CTNodeList* ArrayInfo::getStores(const TNode a) const{
 }
 
 const CTNodeList* ArrayInfo::getInStores(const TNode a) const{
-  CNodeInfoMap::iterator it = info_map.find(a);
+  CNodeInfoMap::const_iterator it = info_map.find(a);
   if(it!= info_map.end()) {
     return (*it).second->in_stores;
   }
@@ -243,7 +234,7 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
       mergeLists(temp_info->indices, listb_i);
       mergeLists(temp_info->stores, listb_st);
       mergeLists(temp_info->in_stores, listb_inst);
-      info_map.insert(a, temp_info);
+      info_map[a] = temp_info;
 
     } else {
     Debug("arrays-mergei")<<" Second element has no info \n";

@@ -248,10 +248,11 @@ private:
   /** time spent in check() */
   TimerStat d_checkTimer;
 
+  bool d_donePreregister;
 
 
 public:
-  TheoryArrays(context::Context* c, OutputChannel& out);
+  TheoryArrays(context::Context* c, OutputChannel& out, Valuation valuation);
   ~TheoryArrays();
 
   /**
@@ -297,11 +298,6 @@ public:
 
       break;
     }
-    case kind::VARIABLE: {
-      if(n.getType().isArray()) {
-       // d_infoMap.addEmptyEntry(n);
-      }
-    }
     default:
       Debug("darrays")<<"Arrays::preRegisterTerm non-array term. \n";
     }
@@ -313,6 +309,7 @@ public:
 
   void presolve() {
     Debug("arrays")<<"Presolving \n";
+    d_donePreregister = true;
   }
 
   void addSharedTerm(TNode t);
@@ -320,7 +317,7 @@ public:
   void check(Effort e);
   void propagate(Effort e) { }
   void explain(TNode n) { }
-  Node getValue(TNode n, Valuation* valuation);
+  Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryArrays"); }
 

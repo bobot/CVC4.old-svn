@@ -26,6 +26,7 @@
 #include "expr/node.h"
 #include "util/stats.h"
 #include <ext/hash_set>
+#include <ext/hash_map>
 #include <iostream>
 #include <map>
 namespace CVC4 {
@@ -76,7 +77,7 @@ public:
    * debug method to print a list
    */
 
-  static void printList (CTNodeList* list) const {
+  static void printList (CTNodeList* list) {
     CTNodeList::const_iterator it = list->begin();
     Debug("arrays-info")<<"   [ ";
     for(; it != list->end(); it++ ) {
@@ -99,7 +100,7 @@ public:
   }
 };
 
-typedef context::CDMap <Node, Info*, NodeHashFunction> CNodeInfoMap;
+typedef __gnu_cxx::hash_map<Node, Info*, NodeHashFunction> CNodeInfoMap;
 
 /**
  * Class keeping track of the following information for canonical
@@ -145,7 +146,7 @@ private:
 public:
   const Info* emptyInfo;
 
-  ArrayInfo(context::Context* c): ct(c), info_map(ct),
+  ArrayInfo(context::Context* c): ct(c), info_map(),
       d_mergeInfoTimer("theory::arrays::mergeInfoTimer"),
       d_avgIndexListLength("theory::arrays::avgIndexListLength"),
       d_avgStoresListLength("theory::arrays::avgStoresListLength"),
@@ -193,10 +194,6 @@ public:
   void addStore(const Node a, const TNode st);
   void addInStore(const TNode a, const TNode st);
 
-  /**
-   * Maps a to the emptyInfo if a is not already in the map
-   */
-  void addEmptyEntry(const TNode a);
 
   /**
    * Returns the information associated with TNode a

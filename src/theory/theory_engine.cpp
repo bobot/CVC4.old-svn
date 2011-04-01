@@ -36,18 +36,18 @@ using namespace CVC4::theory;
 
 namespace CVC4 {
 
-/** Tag for the "registerTerm()-has-been-called" flag on Nodes */
-struct Registered {};
-/** The "registerTerm()-has-been-called" flag on Nodes */
-typedef CVC4::expr::CDAttribute<Registered, bool> RegisteredAttr;
-
 namespace theory {
 
-struct PreRegisteredTag {};
-typedef expr::Attribute<PreRegisteredTag, bool> PreRegistered;
+/** Tag for the "registerTerm()-has-been-called" flag on Nodes */
+struct RegisteredAttrTag {};
+/** The "registerTerm()-has-been-called" flag on Nodes */
+typedef CVC4::expr::CDAttribute<RegisteredAttrTag, bool> RegisteredAttr;
 
-struct IteRewriteTag {};
-typedef expr::Attribute<IteRewriteTag, Node> IteRewriteAttr;
+struct PreRegisteredAttrTag {};
+typedef expr::Attribute<PreRegisteredAttrTag, bool> PreRegistered;
+
+struct IteRewriteAttrTag {};
+typedef expr::Attribute<IteRewriteAttrTag, Node> IteRewriteAttr;
 
 }/* CVC4::theory namespace */
 
@@ -68,7 +68,7 @@ void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
     d_engine->getSharedTermManager()->addEq(fact);
   }
 
-  if(d_engine->d_theoryRegistration && !fact.getAttribute(RegisteredAttr())) {
+  if(Options::current()->theoryRegistration && !fact.getAttribute(RegisteredAttr())) {
     list<TNode> toReg;
     toReg.push_back(fact);
 
@@ -130,18 +130,15 @@ void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
         }
       }
     }
-  }/* d_engine->d_theoryRegistration && !fact.getAttribute(RegisteredAttr()) */
+  }/* Options::current()->theoryRegistration && !fact.getAttribute(RegisteredAttr()) */
 }
 
-TheoryEngine::TheoryEngine(context::Context* ctxt, const Options& opts) :
+TheoryEngine::TheoryEngine(context::Context* ctxt) :
   d_propEngine(NULL),
   d_context(ctxt),
   d_theoryOut(this, ctxt),
-  d_theoryRegistration(opts.theoryRegistration),
   d_hasShutDown(false),
   d_incomplete(ctxt, false),
-  d_valuation(this),
-  d_opts(opts),
   d_statistics() {
 
   Rewriter::init();
@@ -351,7 +348,7 @@ Node TheoryEngine::getValue(TNode node) {
   }
 
   // otherwise ask the theory-in-charge
-  return theoryOf(node)->getValue(node, &d_valuation);
+  return theoryOf(node)->getValue(node);
 }/* TheoryEngine::getValue(TNode node) */
 
 bool TheoryEngine::presolve() {
