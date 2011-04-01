@@ -205,8 +205,8 @@ public:
   };
 
   SatSolver(PropEngine* propEngine,
-                   TheoryEngine* theoryEngine,
-                   context::Context* context);
+            TheoryEngine* theoryEngine,
+            context::Context* context);
 
   ~SatSolver();
 
