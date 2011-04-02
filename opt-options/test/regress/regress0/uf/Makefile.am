@@ -12,7 +12,6 @@ TESTS =	\
 	euf_simp06.smt \
 	euf_simp08.smt \
 	euf_simp09.smt \
-	euf_simp09.tim.smt \
 	euf_simp10.smt \
 	euf_simp11.smt \
 	euf_simp12.smt \
@@ -29,6 +28,7 @@ TESTS =	\
 	simple.02.cvc \
 	simple.03.cvc \
 	simple.04.cvc
+#euf_simp09.tim.smt
 
 EXTRA_DIST = $(TESTS)
 
