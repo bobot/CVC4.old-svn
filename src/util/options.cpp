@@ -40,6 +40,53 @@ using namespace CVC4;
 
 namespace CVC4 {
 
+CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
+
+#ifdef CVC4_DEBUG
+#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
+#else /* CVC4_DEBUG */
+#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT false
+#endif /* CVC4_DEBUG */
+
+#if defined(CVC4_MUZZLED) || defined(CVC4_COMPETITION_MODE)
+#  define DO_SEMANTIC_CHECKS_BY_DEFAULT false
+#else /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
+#  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
+#endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
+
+Options::Options() :
+  binary_name(),
+  statistics(false),
+  in(&std::cin),
+  out(&std::cout),
+  err(&std::cerr),
+  verbosity(0),
+  inputLanguage(language::input::LANG_AUTO),
+  uf_implementation(MORGAN),
+  help(false),
+  version(false),
+  languageHelp(false),
+  parseOnly(false),
+  semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
+  theoryRegistration(true),
+  memoryMap(false),
+  strictParsing(false),
+  lazyDefinitionExpansion(false),
+  printWinner(false),
+  interactive(false),
+  interactiveSetByUser(false),
+  segvNoSpin(false),
+  produceModels(false),
+  produceAssignments(false),
+  typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
+  earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
+  incrementalSolving(false),
+  rewriteArithEqualities(false),
+  pivotRule(MINIMUM),
+  lemmaOutputChannel(NULL),
+  lemmaInputChannel(NULL) {
+}
+
 static const string optionsDescription = "\
    --lang | -L            force input language (default is `auto'; see --lang help)\n\
    --version | -V         identify this CVC4 binary\n\
@@ -49,9 +96,9 @@ static const string optionsDescription = "\
    --show-config          show CVC4 static configuration\n\
    --segv-nospin          don't spin on segfault waiting for gdb\n\
    --lazy-type-checking   type check expressions only when necessary (default)\n\
-   --eager-type-checking  type check expressions immediately on creation\n\
+   --eager-type-checking  type check expressions immediately on creation (debug builds only)\n\
    --no-type-checking     never type check expressions\n\
-   --no-checking          disable ALL semantic checks, including type checks \n\
+   --no-checking          disable ALL semantic checks, including type checks\n\
    --no-theory-registration disable theory reg (not safe for some theories)\n\
    --print-winner         enable printing the winning thread (pcvc4 only)\n\
    --strict-parsing       fail on non-conformant inputs (SMT2 only)\n\
@@ -68,6 +115,8 @@ static const string optionsDescription = "\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
+   --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
+   --rewrite-arithmetic-equalities rewrite (= x y) to (and (<= x y) (>= x y)) in arithmetic\n\
    --incremental          enable incremental solving\n";
 
 static const string languageDescription = "\
@@ -123,6 +172,7 @@ enum OptionValue {
   EAGER_TYPE_CHECKING,
   INCREMENTAL,
   PIVOT_RULE,
+  REWRITE_ARITHMETIC_EQUALITIES,
   PRINT_WINNER
 };/* enum OptionValue */
 
@@ -174,14 +224,15 @@ static struct option cmdlineOptions[] = {
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
-  { "produce-models", no_argument   , NULL, PRODUCE_MODELS},
-  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS},
-  { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING},
-  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING},
-  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING},
-  { "incremental", no_argument, NULL, INCREMENTAL},
+  { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
+  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
+  { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING },
+  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
+  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
+  { "incremental", no_argument, NULL, INCREMENTAL },
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
-  { "print-winner" , no_argument    , NULL, PRINT_WINNER  },
+  { "rewrite-arithmetic-equalities", no_argument, NULL, REWRITE_ARITHMETIC_EQUALITIES },
+  { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -383,6 +434,10 @@ throw(OptionException) {
       incrementalSolving = true;
       break;
 
+    case REWRITE_ARITHMETIC_EQUALITIES:
+      rewriteArithEqualities = true;
+      break;
+
     case PIVOT_RULE:
       if(!strcmp(optarg, "min")) {
         pivotRule = MINIMUM;
@@ -444,5 +499,26 @@ throw(OptionException) {
 
   return optind;
 }
+
+std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {
+  switch(rule) {
+  case Options::MINIMUM:
+    out << "MINIMUM";
+    break;
+  case Options::BREAK_TIES:
+    out << "BREAK_TIES";
+    break;
+  case Options::MAXIMUM:
+    out << "MAXIMUM";
+    break;
+  default:
+    out << "ArithPivotRule!UNKNOWN";
+  }
+
+  return out;
+}
+
+#undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT
+#undef DO_SEMANTIC_CHECKS_BY_DEFAULT
 
 }/* CVC4 namespace */

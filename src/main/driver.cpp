@@ -34,13 +34,16 @@ void doCommand(SmtEngine&, Command*, Options&);
 
 namespace CVC4 {
   namespace main {/* Global options variable */
-    //Options options;
+    CVC4_THREADLOCAL(Options*) pOptions;
 
     /** Full argv[0] */
     const char *progPath;
 
     /** Just the basename component of argv[0] */
     const char *progName;
+
+    /** A pointer to the StatisticsRegistry (the signal handlers need it) */
+    CVC4_THREADLOCAL(CVC4::StatisticsRegistry*) pStatistics;
   }
 }
 
@@ -112,13 +115,16 @@ int runCvc4(int argc, char* argv[], Options& options) {
   ExprManager exprMgr(options);
 
   // Create the SmtEngine
-  SmtEngine smt(&exprMgr, options);
+  SmtEngine smt(&exprMgr);
+
+  // signal handlers need access
+  pStatistics = smt.getStatisticsRegistry();
 
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
-  StatisticsRegistry::registerStat(&s_statFilename);
+  RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
 
   if(options.inputLanguage == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
@@ -210,14 +216,11 @@ int runCvc4(int argc, char* argv[], Options& options) {
 #endif
 
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
-  StatisticsRegistry::registerStat(&s_statSatResult);
+  RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
 
   if(options.statistics) {
-    StatisticsRegistry::flushStatistics(*options.err);
+    pStatistics->flushStatistics(*options.err);
   }
-
-  StatisticsRegistry::unregisterStat(&s_statSatResult);
-  StatisticsRegistry::unregisterStat(&s_statFilename);
 
   return returnValue;
 }

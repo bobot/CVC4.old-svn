@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 #endif
     *options.err << "CVC4 Error:" << endl << e << endl;
     if(options.statistics) {
-      StatisticsRegistry::flushStatistics(*options.err);
+      pStatistics->flushStatistics(*options.err);
     }
     exit(1);
   } catch(bad_alloc) {
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
 #endif
     *options.err << "CVC4 ran out of memory." << endl;
     if(options.statistics) {
-      StatisticsRegistry::flushStatistics(*options.err);
+      pStatistics->flushStatistics(*options.err);
     }
     exit(1);
   } catch(...) {

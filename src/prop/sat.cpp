@@ -110,11 +110,10 @@ void SatSolver::notifyRestart() {
 
   static uint32_t lemmaCount = 0;
 
-
-  if(d_options->lemmaInputChannel != NULL){
-    while(d_options->lemmaInputChannel->hasNewLemma()){
+  if(Options::current()->lemmaInputChannel != NULL){
+    while(Options::current()->lemmaInputChannel->hasNewLemma()) {
       Debug("shared") << "shared" << std::endl;
-      Expr lemma = d_options->lemmaInputChannel->getNewLemma();
+      Expr lemma = Options::current()->lemmaInputChannel->getNewLemma();
       Node asNode = lemma.getNode();
 
       if(d_shared.find(asNode) == d_shared.end()){
@@ -137,9 +136,9 @@ void SatSolver::notifyRestart() {
 
 void SatSolver::notifyNewLemma(SatClause& lemma) {
   Assert(lemma.size() > 0);
-  if(d_options->lemmaOutputChannel != NULL) {
+  if(Options::current()->lemmaOutputChannel != NULL) {
     if(lemma.size() == 1) {
-      //d_options->lemmaOutputChannel->notifyNewLemma(d_cnfStream->getNode(lemma[0]).toExpr());
+      //Options::current()->lemmaOutputChannel->notifyNewLemma(d_cnfStream->getNode(lemma[0]).toExpr());
     } else {
       NodeBuilder<> b(kind::OR);
       for(unsigned i = 0, i_end = lemma.size(); i < i_end; ++i) {
@@ -149,7 +148,7 @@ void SatSolver::notifyNewLemma(SatClause& lemma) {
 
       if(d_shared.find(n) == d_shared.end()){
         d_shared.insert(n);
-        d_options->lemmaOutputChannel->notifyNewLemma(n.toExpr());
+        Options::current()->lemmaOutputChannel->notifyNewLemma(n.toExpr());
       }else{
         Debug("shared") <<"drop new " << n << std::endl;
       }

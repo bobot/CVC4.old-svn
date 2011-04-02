@@ -21,18 +21,6 @@
 #ifndef __CVC4__OPTIONS_H
 #define __CVC4__OPTIONS_H
 
-#ifdef CVC4_DEBUG
-#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
-#else /* CVC4_DEBUG */
-#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT false
-#endif /* CVC4_DEBUG */
-
-#if defined(CVC4_MUZZLED) || defined(CVC4_COMPETITION_MODE)
-#  define DO_SEMANTIC_CHECKS_BY_DEFAULT false
-#else /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
-#  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
-#endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
-
 #include <iostream>
 #include <string>
 
@@ -40,6 +28,7 @@
 #include "util/language.h"
 #include "util/lemma_output_channel.h"
 #include "util/lemma_input_channel.h"
+#include "util/tls.h"
 
 namespace CVC4 {
 
@@ -53,13 +42,23 @@ public:
 
 struct CVC4_PUBLIC Options {
 
+  /** The current Options in effect */
+  static CVC4_THREADLOCAL(const Options*) s_current;
+
+  /** Get the current Options in effect */
+  static inline const Options* current() {
+    return s_current;
+  }
+
+  /** The name of the binary (e.g. "cvc4") */
   std::string binary_name;
 
+  /** Whether to collect statistics during this run */
   bool statistics;
 
-  std::istream* in;
-  std::ostream* out;
-  std::ostream* err;
+  std::istream* in; /*< The input stream to use */
+  std::ostream* out; /*< The output stream to use */
+  std::ostream* err; /*< The error stream to use */
 
   /* -1 means no output */
   /* 0 is normal (and default) -- warnings only */
@@ -104,11 +103,11 @@ struct CVC4_PUBLIC Options {
   /** Should we expand function definitions lazily? */
   bool lazyDefinitionExpansion;
 
-  /** Whether we're in interactive mode or not */
-  bool interactive;
-
   /** Parallel Only: Whether the winner is printed at the end or not. */
   bool printWinner;
+
+  /** Whether we're in interactive mode or not */
+  bool interactive;
 
   /**
    * Whether we're in interactive mode (or not) due to explicit user
@@ -134,6 +133,10 @@ struct CVC4_PUBLIC Options {
   /** Whether incemental solving (push/pop) */
   bool incrementalSolving;
 
+  /** Whether to rewrite equalities in arithmetic theory */
+  bool rewriteArithEqualities;
+
+  /** The pivot rule for arithmetic */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
   ArithPivotRule pivotRule;
 
@@ -141,45 +144,22 @@ struct CVC4_PUBLIC Options {
   LemmaOutputChannel* lemmaOutputChannel;
   LemmaInputChannel* lemmaInputChannel;
 
-  Options() :
-    binary_name(),
-    statistics(false),
-    in(&std::cin),
-    out(&std::cout),
-    err(&std::cerr),
-    verbosity(0),
-    inputLanguage(language::input::LANG_AUTO),
-    uf_implementation(MORGAN),
-    help(false),
-    version(false),
-    languageHelp(false),
-    parseOnly(false),
-    semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-    theoryRegistration(true),
-    memoryMap(false),
-    strictParsing(false),
-    lazyDefinitionExpansion(false),
-    interactive(false),
-    printWinner(false),
-    interactiveSetByUser(false),
-    segvNoSpin(false),
-    produceModels(false),
-    produceAssignments(false),
-    typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-    earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
-    incrementalSolving(false),
-    pivotRule(MINIMUM),
-    lemmaOutputChannel(NULL),
-    lemmaInputChannel(NULL) {
-  }
+  Options();
 
-  /** 
+  /**
    * Get a description of the command-line flags accepted by
    * parseOptions.  The returned string will be escaped so that it is
    * suitable as an argument to printf. */
   std::string getDescription() const;
 
+  /**
+   * Print overall command-line option usage message, prefixed by
+   * "msg"---which could be an error message causing the usage
+   * output in the first place, e.g. "no such option --foo"
+   */
   static void printUsage(const std::string msg, std::ostream& out);
+
+  /** Print help for the --lang command line option */
   static void printLanguageHelp(std::ostream& out);
 
   /**
@@ -205,9 +185,8 @@ inline std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
-}/* CVC4 namespace */
+std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule);
 
-#undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT
-#undef DO_SEMANTIC_CHECKS_BY_DEFAULT
+}/* CVC4 namespace */
 
 #endif /* __CVC4__OPTIONS_H */

@@ -2,10 +2,10 @@
 /*! \file theory_engine.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan, taking
+ ** Major contributors: taking, dejan
  ** Minor contributors (to current version): cconway, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -155,14 +155,12 @@ class TheoryEngine {
    */
   Node removeITEs(TNode t);
 
-  const Options& d_opts;
-
 public:
 
   /**
    * Construct a theory engine.
    */
-  TheoryEngine(context::Context* ctxt, const Options& opts);
+  TheoryEngine(context::Context* ctxt);
 
   /**
    * Destroy a theory engine.
@@ -177,8 +175,6 @@ public:
     TheoryClass* theory = new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
     d_theoryTable[theory->getId()] = theory;
     d_sharedTermManager->registerTheory(static_cast<TheoryClass*>(theory));
-
-    theory->notifyOptions(d_opts);
   }
 
   SharedTermManager* getSharedTermManager() {
@@ -188,6 +184,13 @@ public:
   void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
     d_propEngine = propEngine;
+  }
+
+  /**
+   * Get a pointer to the underlying propositional engine.
+   */
+  prop::PropEngine* getPropEngine() const {
+    return d_propEngine;
   }
 
   /**
@@ -315,8 +318,9 @@ public:
   }
 
   inline void newLemma(TNode node) {
-    if(d_opts.lemmaOutputChannel != NULL && node.getKind() == kind::OR) {
-      d_opts.lemmaOutputChannel->notifyNewLemma(node.toExpr());
+    if(Options::current()->lemmaOutputChannel != NULL &&
+       node.getKind() == kind::OR) {
+      Options::current()->lemmaOutputChannel->notifyNewLemma(node.toExpr());
     }
     d_propEngine->assertLemma(preprocess(node));
   }

@@ -40,10 +40,11 @@
 #include "context/context.h"
 #include "util/configuration_private.h"
 #include "util/tls.h"
+#include "util/options.h"
 
 namespace CVC4 {
 
-struct Options;
+class StatisticsRegistry;
 
 namespace expr {
 
@@ -77,6 +78,10 @@ class NodeManager {
                               expr::NodeValueEq> ZombieSet;
 
   static CVC4_THREADLOCAL(NodeManager*) s_current;
+
+  const Options* d_optionsAllocated;
+  const Options* d_options;
+  StatisticsRegistry* d_statisticsRegistry;
 
   NodeValuePool d_nodeValuePool;
 
@@ -124,12 +129,6 @@ class NodeManager {
    * plusOperator->getConst<CVC4::Kind>(), you get kind::PLUS back.
    */
   Node d_operators[kind::LAST_KIND];
-
-  /**
-   * Whether to do early type checking (only effective in debug
-   * builds; other builds never do early type checking).
-   */
-  bool d_earlyTypeChecking;
 
   /**
    * Look up a NodeValue in the pool associated to this NodeManager.
@@ -253,7 +252,7 @@ class NodeManager {
   TypeNode computeType(TNode n, bool check = false)
     throw (TypeCheckingExceptionPrivate, AssertionException);
 
-  void init(const Options& options);
+  void init();
 
 public:
 
@@ -261,8 +260,18 @@ public:
   explicit NodeManager(context::Context* ctxt, ExprManager* exprManager, const Options& options);
   ~NodeManager();
 
-  /** The node manager in the current context. */
+  /** The node manager in the current public-facing CVC4 library context */
   static NodeManager* currentNM() { return s_current; }
+
+  /** Get this node manager's options */
+  const Options* getOptions() const {
+    return d_options;
+  }
+
+  /** Get this node manager's statistics registry */
+  StatisticsRegistry* getStatisticsRegistry() const {
+    return d_statisticsRegistry;
+  }
 
   // general expression-builders
 
@@ -692,13 +701,19 @@ public:
 
   NodeManagerScope(NodeManager* nm) :
     d_oldNodeManager(NodeManager::s_current) {
+    // There are corner cases where nm can be NULL and it's ok.
+    // For example, if you write { Expr e; }, then when the null
+    // Expr is destructed, there's no active node manager.
+    //Assert(nm != NULL);
     NodeManager::s_current = nm;
+    Options::s_current = nm ? nm->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << NodeManager::s_current << "\n";
   }
 
   ~NodeManagerScope() {
     NodeManager::s_current = d_oldNodeManager;
+    Options::s_current = d_oldNodeManager ? d_oldNodeManager->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << "returning to " << NodeManager::s_current << "\n";
   }

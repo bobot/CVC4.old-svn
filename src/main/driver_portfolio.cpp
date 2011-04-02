@@ -165,9 +165,6 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
 
-  ReferenceStat< const char* > s_statFilename("filename", filename);
-  StatisticsRegistry::registerStat(&s_statFilename);
-
   if(options.inputLanguage == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
       // We can't do any fancy detection on stdin
@@ -214,9 +211,11 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
     Warning.getStream() << Expr::setlanguage(language);
   }
 
-
   // Create the expression manager
   ExprManager* exprMgr = new ExprManager(options);
+
+  ReferenceStat< const char* > s_statFilename("filename", filename);
+  RegisterStatistic* statFilenameReg = new RegisterStatistic(*exprMgr, &s_statFilename);
 
   // Parse commands until we are done
   Command* cmd;
@@ -228,7 +227,8 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
     }
   } else {
     ParserBuilder parserBuilder =
-      ParserBuilder(exprMgr, filename, options);
+      ParserBuilder(exprMgr, filename).
+        withOptions(options);
 
     if( inputFromStdin ) {
       parserBuilder.withStreamInput(cin);
@@ -327,19 +327,18 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 #endif
 
   // ReferenceStat< Result > s_statSatResult("sat/unsat", result);
-  // StatisticsRegistry::registerStat(&s_statSatResult);
+  // RegisterStatistic statSatResultReg(*exprMgr, &s_statSatResult);
 
   // if(options.statistics) {
   //   StatisticsRegistry::flushStatistics(*options.err);
   // }
 
-  // StatisticsRegistry::unregisterStat(&s_statSatResult);
-  // StatisticsRegistry::unregisterStat(&s_statFilename);
-
   // destruction is causing segfaults, let us just exit
   //exit(returnValue);
 
   delete vmaps;
+
+  delete statFilenameReg;
 
   delete seq;
   delete exprMgr;
@@ -354,13 +353,16 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
 
 namespace CVC4 {
   namespace main {/* Global options variable */
-    //Options options;
+    CVC4_THREADLOCAL(Options*) pOptions;
 
     /** Full argv[0] */
     const char *progPath;
 
     /** Just the basename component of argv[0] */
     const char *progName;
+
+    /** A pointer to the StatisticsRegistry (the signal handlers need it) */
+    CVC4_THREADLOCAL(CVC4::StatisticsRegistry*) pStatistics;
   }
 }
 
@@ -405,7 +407,8 @@ void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
 /** Create the SMT engine and execute the commands */
 Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
   // Create the SmtEngine(s)
-  SmtEngine smt(&exprMgr, options);
+  SmtEngine smt(&exprMgr);
+  pStatistics = smt.getStatisticsRegistry();
   doCommand(smt, cmd, options);
 
   return smt.getStatusOfLastCommand();
