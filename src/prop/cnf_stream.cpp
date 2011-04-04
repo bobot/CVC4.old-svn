@@ -34,8 +34,8 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
-CnfStream::CnfStream(SatInputInterface *satSolver, TheoryEngine* te) :
-  d_satSolver(satSolver), d_te(te) {
+CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar reg) :
+  d_satSolver(satSolver), d_registrar(reg) {
 }
 
 void CnfStream::recordTranslation(TNode node) {
@@ -47,8 +47,8 @@ void CnfStream::recordTranslation(TNode node) {
 }
 
 
-TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, TheoryEngine* te) :
-  CnfStream(satSolver, te) {
+TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar reg) :
+  CnfStream(satSolver, reg) {
 }
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
@@ -119,7 +119,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   // have to keep track of this, because with the call to preRegister(),
   // the cnf stream is re-entrant!
   bool wasAssertingLemma = d_assertingLemma;
-  d_te->preRegister(node);
+  d_registrar.preRegister(node);
   d_assertingLemma = wasAssertingLemma;
 
   return lit;

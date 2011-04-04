@@ -29,6 +29,7 @@
 
 #include "expr/node.h"
 #include "prop/sat.h"
+#include "theory/registrar.h"
 
 #include <ext/hash_map>
 
@@ -70,7 +71,7 @@ private:
 
 protected:
 
-  TheoryEngine* d_te;
+  theory::Registrar d_registrar;
 
   /** Top level nodes that we translated */
   std::vector<TNode> d_translationTrail;
@@ -179,7 +180,7 @@ public:
    * set of clauses and sends them to the given sat solver.
    * @param satSolver the sat solver to use
    */
-  CnfStream(SatInputInterface* satSolver, TheoryEngine*);
+  CnfStream(SatInputInterface* satSolver, theory::Registrar r);
 
   /**
    * Destructs a CnfStream.  This implementation does nothing, but we
@@ -254,7 +255,7 @@ public:
    * Constructs the stream to use the given sat solver.
    * @param satSolver the sat solver to use
    */
-  TseitinCnfStream(SatInputInterface* satSolver, TheoryEngine*);
+  TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar reg);
 
 private:
 
