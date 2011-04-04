@@ -251,6 +251,7 @@ public:
    * @param n the node to preprocess
    */
   Node preprocess(TNode n);
+  void preRegister(TNode preprocessed);
 
   /**
    * Assert the formula to the appropriate theory.
