@@ -49,7 +49,7 @@ public:
     d_reasons.push_back(reason);
     d_propagated.push_back(n);
 
-    std::cout << n  << std::endl << "<="<< reason<< std::endl;
+    //std::cout << n  << std::endl << "<="<< reason<< std::endl;
   }
 
   bool hasMorePropagations() const {
@@ -84,7 +84,9 @@ public:
                    Valuation v):
     PropManager(c), d_arithvarNodeMap(map), d_propagator(prop), d_valuation(v)
   {}
-  void propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason);
+
+  /** Returns true if a bound was added. */
+  bool propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason);
 
 };
 

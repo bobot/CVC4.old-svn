@@ -612,6 +612,9 @@ template <bool upperBound>
 void SimplexDecisionProcedure::explainNonbasics(ArithVar basic, NodeBuilder<>& output){
   Assert(d_tableau.isBasic(basic));
 
+  Debug("arith::explainNonbasics") << "SimplexDecisionProcedure::explainNonbasics("
+                                   << basic <<") start" << endl;
+
   Tableau::RowIterator iter = d_tableau.rowIterator(basic);
   for(; !iter.atEnd(); ++iter){
     const TableauEntry& entry = *iter;
@@ -640,8 +643,12 @@ void SimplexDecisionProcedure::explainNonbasics(ArithVar basic, NodeBuilder<>& o
       }
     }
     Assert(!bound.isNull());
+    Debug("arith::explainNonbasics") << "\t" << nonbasic << " " << sgn << " " << bound
+                                     << endl;
     output << bound;
   }
+  Debug("arith::explainNonbasics") << "SimplexDecisionProcedure::explainNonbasics("
+                                   << basic << ") done" << endl;
 }
 
 
@@ -656,7 +663,7 @@ Node SimplexDecisionProcedure::deduceUpperBound(ArithVar basicVar){
   if(d_partialModel.strictlyBelowUpperBound(basicVar, assignment)){
     NodeBuilder<> nb(kind::AND);
     explainNonbasicsUpperBound(basicVar, nb);
-    Node explanation = nb;
+    Node explanation = maybeUnaryConvert(nb);
     Debug("waka-waka") << basicVar << " ub " << assignment << " "<< explanation << endl;
     Node res = AssertUpper(basicVar, assignment, explanation);
     if(res.isNull()){
@@ -680,7 +687,7 @@ Node SimplexDecisionProcedure::deduceLowerBound(ArithVar basicVar){
   if(d_partialModel.strictlyAboveLowerBound(basicVar, assignment)){
     NodeBuilder<> nb(kind::AND);
     explainNonbasicsLowerBound(basicVar, nb);
-    Node explanation = nb;
+    Node explanation = maybeUnaryConvert(nb);
     Debug("waka-waka") << basicVar << " lb " << assignment << " "<< explanation << endl;
     Node res = AssertLower(basicVar, assignment, explanation);
     if(res.isNull()){

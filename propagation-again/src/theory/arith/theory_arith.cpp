@@ -175,7 +175,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
   if(isRelationOperator(k)){
     Assert(Comparison::isNormalAtom(n));
 
-    cout << n << endl;
+    //cout << n << endl;
 
     d_propagator.addAtom(n);
 

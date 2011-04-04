@@ -14,7 +14,8 @@ using namespace CVC4::kind;
 using namespace std;
 
 
-void ArithPropManager::propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason){
+bool ArithPropManager::propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason){
+  bool success = false;
   Node varAsNode = d_arithvarNodeMap.asNode(var);
 
   Assert((!upperbound) || (b.getInfinitesimalPart() <= 0) );
@@ -34,15 +35,17 @@ void ArithPropManager::propagateArithVar(bool upperbound, ArithVar var, const De
     d_propagator.getBestImpliedUpperBound(bAsNode):
     d_propagator.getBestImpliedLowerBound(bAsNode);
 
-  cout << upperbound <<","<< var <<","<< b <<","<< reason << endl;
-  cout << bestImplied << endl;
+  Debug("ArithPropManager") << upperbound <<","<< var <<","<< b <<","<< reason << endl
+                            << bestImplied << endl;
 
   if(!bestImplied.isNull()){
     Node satValue = d_valuation.getSatValue(bestImplied);
     if(satValue.isNull() && !isPropagated(bestImplied)){
       propagate(bestImplied, reason);
+      success = true;
     }else{
       Assert(satValue.getConst<bool>());
     }
   }
+  return false;
 }

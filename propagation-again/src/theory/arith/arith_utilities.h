@@ -236,6 +236,19 @@ inline Node negateConjunctionAsClause(TNode conjunction){
   return orBuilder;
 }
 
+inline Node maybeUnaryConvert(NodeBuilder<>& builder){
+  Assert(builder.getKind() == kind::OR ||
+         builder.getKind() == kind::AND ||
+         builder.getKind() == kind::PLUS ||
+         builder.getKind() == kind::MULT);
+  Assert(builder.getNumChildren() >= 1);
+  if(builder.getNumChildren() == 1){
+    return builder[0];
+  }else{
+    return builder;
+  }
+}
+
 }; /* namesapce arith */
 }; /* namespace theory */
 }; /* namespace CVC4 */
