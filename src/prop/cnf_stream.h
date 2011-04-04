@@ -70,6 +70,8 @@ private:
 
 protected:
 
+  TheoryEngine* d_te;
+
   /** Top level nodes that we translated */
   std::vector<TNode> d_translationTrail;
 
@@ -177,7 +179,7 @@ public:
    * set of clauses and sends them to the given sat solver.
    * @param satSolver the sat solver to use
    */
-  CnfStream(SatInputInterface* satSolver);
+  CnfStream(SatInputInterface* satSolver, TheoryEngine*);
 
   /**
    * Destructs a CnfStream.  This implementation does nothing, but we
@@ -252,7 +254,7 @@ public:
    * Constructs the stream to use the given sat solver.
    * @param satSolver the sat solver to use
    */
-  TseitinCnfStream(SatInputInterface* satSolver);
+  TseitinCnfStream(SatInputInterface* satSolver, TheoryEngine*);
 
 private:
 

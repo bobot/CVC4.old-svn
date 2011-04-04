@@ -62,7 +62,7 @@ PropEngine::PropEngine(TheoryEngine* te, Context* context) :
   d_context(context) {
   Debug("prop") << "Constructing the PropEngine" << endl;
   d_satSolver = new SatSolver(this, d_theoryEngine, d_context);
-  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver);
+  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, d_theoryEngine);
   d_satSolver->setCnfStream(d_cnfStream);
 }
 
