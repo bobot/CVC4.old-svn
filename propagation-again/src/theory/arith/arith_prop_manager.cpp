@@ -18,6 +18,8 @@ bool ArithPropManager::propagateArithVar(bool upperbound, ArithVar var, const De
   bool success = false;
   Node varAsNode = d_arithvarNodeMap.asNode(var);
 
+  ++d_statistics.d_propagateArithVarCalls;
+
   Assert((!upperbound) || (b.getInfinitesimalPart() <= 0) );
   Assert(upperbound || (b.getInfinitesimalPart() >= 0) );
   Kind kind;
@@ -40,12 +42,39 @@ bool ArithPropManager::propagateArithVar(bool upperbound, ArithVar var, const De
 
   if(!bestImplied.isNull()){
     Node satValue = d_valuation.getSatValue(bestImplied);
+
     if(satValue.isNull() && !isPropagated(bestImplied)){
       propagate(bestImplied, reason);
+      ++d_statistics.d_addedPropagation;
       success = true;
+    }else if(satValue.isNull()){
+      ++d_statistics.d_alreadyPropagatedNode;
+    }else if(!isPropagated(bestImplied)){
+      Assert(satValue.getConst<bool>());
+      ++d_statistics.d_alreadySetSatLiteral;
     }else{
       Assert(satValue.getConst<bool>());
     }
   }
-  return false;
+  return success;
+}
+
+ArithPropManager::Statistics::Statistics():
+  d_propagateArithVarCalls("arith::prop-manager::propagateArithVarCalls",0),
+  d_addedPropagation("arith::prop-manager::addedPropagation",0),
+  d_alreadySetSatLiteral("arith::prop-manager::alreadySetSatLiteral",0),
+  d_alreadyPropagatedNode("arith::prop-manager::alreadyPropagatedNode",0)
+{
+  StatisticsRegistry::registerStat(&d_propagateArithVarCalls);
+  StatisticsRegistry::registerStat(&d_alreadySetSatLiteral);
+  StatisticsRegistry::registerStat(&d_alreadyPropagatedNode);
+  StatisticsRegistry::registerStat(&d_addedPropagation);
+}
+
+ArithPropManager::Statistics::~Statistics()
+{
+  StatisticsRegistry::unregisterStat(&d_propagateArithVarCalls);
+  StatisticsRegistry::unregisterStat(&d_alreadySetSatLiteral);
+  StatisticsRegistry::unregisterStat(&d_alreadyPropagatedNode);
+  StatisticsRegistry::unregisterStat(&d_addedPropagation);
 }

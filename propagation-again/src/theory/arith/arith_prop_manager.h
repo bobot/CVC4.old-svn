@@ -13,6 +13,8 @@
 #include "context/cdmap.h"
 #include "context/cdo.h"
 
+#include "util/stats.h"
+
 namespace CVC4 {
 namespace theory {
 namespace arith {
@@ -88,6 +90,18 @@ public:
   /** Returns true if a bound was added. */
   bool propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason);
 
+private:
+  class Statistics {
+  public:
+    IntStat d_propagateArithVarCalls;
+    IntStat d_addedPropagation;
+    IntStat d_alreadySetSatLiteral;
+    IntStat d_alreadyPropagatedNode;
+
+    Statistics();
+    ~Statistics();
+  };
+  Statistics d_statistics;
 };
 
 }/* CVC4::theory::arith namespace */
