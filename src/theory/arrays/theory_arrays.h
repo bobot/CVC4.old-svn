@@ -12,7 +12,7 @@
  ** information.\endverbatim
  **
  ** \brief Theory of arrays.
- ** TODO: add summary of rules implemented RoW1, RoW2, ext etc with the implemented
+ ** TODO: add summary of rules implemented Row1, Row2, ext etc with the implemented
  **
  ** Theory of arrays.
  **/
@@ -29,11 +29,11 @@ Preliminary notation:
 
 The rules implemented are the following:
             store(b i v)
-    RoW1 -------------------
+    Row1 -------------------
          store(b i v)[i] = v
 
           store(b i v)  a'[j]
-    RoW2 ---------------------- [ a' ~ store(b i v) or a' ~ b ]
+    Row2 ---------------------- [ a' ~ store(b i v) or a' ~ b ]
           i = j OR a[j] = b[j]
 
          a  b same kind arrays
@@ -41,22 +41,22 @@ The rules implemented are the following:
           a = b OR a[k] != b[k]p
 
 
- The RoW1 one rule is implemented implicitly as follows:
+ The Row1 one rule is implemented implicitly as follows:
     - for each store(b i v) term add the following equality to the congruence
       closure store(b i v)[i] = v
     - if one of the literals in a conflict is of the form store(b i v)[i] = v
       remove it from the conflict
 
  Because new store terms are not created, we need to check if we need to
- instantiate a new RoW2 axiom in the following cases:
+ instantiate a new Row2 axiom in the following cases:
     1. the congruence relation changes (i.e. two terms get merged)
         - when a new equality between array terms a = b is asserted we check if
-          we can instantiate a RoW2 lemma for all pairs of indices i where a is
+          we can instantiate a Row2 lemma for all pairs of indices i where a is
           being read and stores
         - this is only done during full effort check
     2. a new read term is created either as a consequences of an Ext lemma or a
-       RoW2 lemma
-        - this is implemented in the checkRoWForIndex method which is called
+       Row2 lemma
+        - this is implemented in the checkRowForIndex method which is called
           when preregistering a term of the form a[i].
         - as a consequence lemmas are instantiated even before full effort check
 
@@ -126,14 +126,21 @@ private:
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > CTNodeListAlloc;
   typedef context::CDMap<Node, CTNodeListAlloc*, NodeHashFunction> CNodeTNodesMap;
 
+  typedef __gnu_cxx::hash_map<TNode, CTNodeList*, TNodeHashFunction> NodeTNodesMap;
   /**
    * List of all disequalities this theory has seen. Maintains the invariant that
    * if a is in the disequality list of b, then b is in that of a.
    * */
   CNodeTNodesMap d_disequalities;
 
-  /** List of all (potential) equalities to be propagated. */
-  CNodeTNodesMap d_equalities;
+  /** List of all atoms the SAT solver knows about and are candidates for
+   *  propagation. */
+  __gnu_cxx::hash_set<TNode, TNodeHashFunction> d_atoms;
+
+  /** List of disequalities needed to construct explanations for propagated
+   * row lemmas */
+
+  context::CDMap<TNode, std::pair<TNode, TNode>, TNodeHashFunction> d_explanations;
 
   /**
    * stores the conflicting disequality (still need to call construct
@@ -155,10 +162,10 @@ private:
   std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction> d_extQueue;
 
   /**
-   * RoW2 Lemma worklist, stores lemmas that can still be added to the SAT solver
+   * Row2 Lemma worklist, stores lemmas that can still be added to the SAT solver
    * to be emptied during full effort check
    */
-  std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_rowQueue;
+  std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_RowQueue;
 
   /**
    * Extensionality lemma cache which stores the array pair (a,b) for which
@@ -169,17 +176,19 @@ private:
   /**
    * Read-over-write lemma cache storing a quadruple (a,b,i,j) for which a
    * the lemma (i = j OR a[j] = b[j]) has been added to the SAT solver. Needed
-   * to prevent infinite recursion in addRoW2Lemma.
+   * to prevent infinite recursion in addRow2Lemma.
    */
-  std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_rowAlreadyAdded;
+  std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_RowAlreadyAdded;
 
   /*
    * Congruence helper methods
    */
 
   void addDiseq(TNode diseq);
+  //void addAtom(TNode at);
+
   void appendToDiseqList(TNode of, TNode eq);
-  void appendToEqList(TNode of, TNode eq);
+  //void appendToAtomList(TNode a, TNode b);
   Node constructConflict(TNode diseq);
 
   /**
@@ -197,10 +206,10 @@ private:
   inline void queueExtLemma(TNode a, TNode b);
 
   /**
-   * Adds a RoW2 lemma of the form:
+   * Adds a Row2 lemma of the form:
    *    i = j OR a[j] = b[j]
    */
-  void addRoW2Lemma(TNode a, TNode b, TNode i, TNode j);
+  void addRow2Lemma(TNode a, TNode b, TNode i, TNode j);
 
   /**
    * Adds a new Ext lemma of the form
@@ -209,28 +218,28 @@ private:
   void addExtLemma(TNode a, TNode b);
 
   /**
-   * Because RoW1 axioms of the form (store a i v) [i] = v are not added as
+   * Because Row1 axioms of the form (store a i v) [i] = v are not added as
    * explicitly but are kept track of internally, is axiom recognizez an axiom
    * of the above form given the two terms in the equality.
    */
   bool isAxiom(TNode lhs, TNode rhs);
 
 
-  bool isRedundandRoW2Lemma(TNode a, TNode b, TNode i, TNode j);
+  bool isRedundandRow2Lemma(TNode a, TNode b, TNode i, TNode j);
 
   bool isNonLinear(TNode n);
 
   /**
-   * Checks if any new RoW lemmas need to be generated after merging arrays a
+   * Checks if any new Row lemmas need to be generated after merging arrays a
    * and b; called after setCanon.
    */
-  void checkRoWLemmas(TNode a, TNode b);
+  void checkRowLemmas(TNode a, TNode b);
 
   /**
-   * Called after a new select term a[i] is created to check whether new RoW2
+   * Called after a new select term a[i] is created to check whether new Row2
    * lemmas need to be instantiated.
    */
-  void checkRoWForIndex(TNode i, TNode a);
+  void checkRowForIndex(TNode i, TNode a);
 
   /**
    * Lemma helper functions to prevent changing the list we are iterating through.
@@ -244,13 +253,13 @@ private:
 
   void dischargeLemmas() {
     // we need to swap the temporary lists because adding a lemma calls preregister
-    // which might modify the d_rowQueue we would be iterating through
-    std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > temp_row;
-    temp_row.swap(d_rowQueue);
+    // which might modify the d_RowQueue we would be iterating through
+    std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > temp_Row;
+    temp_Row.swap(d_RowQueue);
 
-    std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction >::const_iterator it1 = temp_row.begin();
-    for( ; it1!= temp_row.end(); it1++) {
-      addRoW2Lemma((*it1).first, (*it1).second, (*it1).third, (*it1).fourth);
+    std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction >::const_iterator it1 = temp_Row.begin();
+    for( ; it1!= temp_Row.end(); it1++) {
+      addRow2Lemma((*it1).first, (*it1).second, (*it1).third, (*it1).fourth);
     }
 
     std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction>  temp_ext;
@@ -262,16 +271,28 @@ private:
     }
   }
 
+  /** Checks if instead of adding a lemma of the form i = j OR  a[j] = b[j]
+   * we can propagate either i = j or NOT a[j] = b[j] and does the propagation.
+   * Returns whether it did propagate.
+   */
+  bool propagateFromRow(TNode a, TNode b, TNode i, TNode j);
+
+  TNode areDisequal(TNode a, TNode b);
+
+
 
   /*
    * === STATISTICS ===
    */
 
-  /** number of RoW2 lemmas */
-  IntStat d_numRoW2;
+  /** number of Row2 lemmas */
+  IntStat d_numRow2;
   /** number of Ext lemmas */
   IntStat d_numExt;
 
+  /** number of propagations */
+  IntStat d_numProp;
+  IntStat d_numExplain;
   /** time spent in check() */
   TimerStat d_checkTimer;
 
@@ -302,9 +323,14 @@ public:
     Debug("arrays-preregister")<<"Arrays::preRegisterTerm "<<n<<"\n";
 
     switch(n.getKind()) {
+    case kind::EQUAL:
+      // stores the seen atoms for propagation
+      Debug("arrays-preregister")<<"atom "<<n<<"\n";
+      d_atoms.insert(n);
+      break;
     case kind::SELECT:
       d_infoMap.addIndex(n[0], n[1]);
-      checkRoWForIndex(n[1], find(n[0]));
+      checkRowForIndex(n[1], find(n[0]));
       break;
 
     case kind::STORE:
@@ -342,8 +368,10 @@ public:
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);
   void check(Effort e);
-  void propagate(Effort e) { }
-  void explain(TNode n) { }
+  void propagate(Effort e) {
+    Debug("arrays-prop")<<"Propagating \n";
+  }
+  void explain(TNode n);
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryArrays"); }

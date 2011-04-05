@@ -36,17 +36,22 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out, Valuation valuation) 
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
   d_disequalities(c),
-  d_equalities(c),
+  d_atoms(),
+  d_explanations(c),
   d_conflict(),
   d_infoMap(c),
-  d_numRoW2("theory::arrays::number of RoW2 lemmas", 0),
+  d_numRow2("theory::arrays::number of Row2 lemmas", 0),
   d_numExt("theory::arrays::number of Ext lemmas", 0),
+  d_numProp("theory::arrays::number of propagations", 0),
+  d_numExplain("theory::arrays::number of explanations", 0),
   d_checkTimer("theory::arrays::checkTime"),
   d_donePreregister(false)
 {
 
-  StatisticsRegistry::registerStat(&d_numRoW2);
+  StatisticsRegistry::registerStat(&d_numRow2);
   StatisticsRegistry::registerStat(&d_numExt);
+  StatisticsRegistry::registerStat(&d_numProp);
+  StatisticsRegistry::registerStat(&d_numExplain);
   StatisticsRegistry::registerStat(&d_checkTimer);
 
 
@@ -55,8 +60,10 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out, Valuation valuation) 
 
 TheoryArrays::~TheoryArrays() {
 
-  StatisticsRegistry::unregisterStat(&d_numRoW2);
+  StatisticsRegistry::unregisterStat(&d_numRow2);
   StatisticsRegistry::unregisterStat(&d_numExt);
+  StatisticsRegistry::unregisterStat(&d_numProp);
+  StatisticsRegistry::unregisterStat(&d_numExplain);
   StatisticsRegistry::unregisterStat(&d_checkTimer);
 
 }
@@ -155,7 +162,7 @@ void TheoryArrays::check(Effort e) {
 
   if(fullEffort(e)) {
     // generate the lemmas on the worklist
-    while(!d_rowQueue.empty() || ! d_extQueue.empty()) {
+    while(!d_RowQueue.empty() || ! d_extQueue.empty()) {
       // we need to do this up to a fixpoint because adding a lemma
       // calls preregister which may add new lemmas in the queues
       dischargeLemmas();
@@ -190,7 +197,6 @@ void TheoryArrays::merge(TNode a, TNode b) {
    * take care of the congruence closure part
    */
 
-
   // make "a" the one with shorter diseqList
   CNodeTNodesMap::iterator deq_ia = d_disequalities.find(a);
   CNodeTNodesMap::iterator deq_ib = d_disequalities.find(b);
@@ -209,6 +215,7 @@ void TheoryArrays::merge(TNode a, TNode b) {
   if( a == b) {
     return;
   }
+
 
   // b becomes the canon of a
   setCanon(a, b);
@@ -279,9 +286,12 @@ void TheoryArrays::merge(TNode a, TNode b) {
     }
   }
 
+  // TODO: check for equality propagations
+
+
   if(a.getType().isArray()) {
-    checkRoWLemmas(a,b);
-    checkRoWLemmas(b,a);
+    checkRowLemmas(a,b);
+    checkRowLemmas(b,a);
     // note the change in order, merge info adds the list of
     // the 2nd argument to the first
     d_infoMap.mergeInfo(b, a);
@@ -353,6 +363,32 @@ Node TheoryArrays::constructConflict(TNode diseq) {
   return conflict;
 }
 
+/*
+void TheoryArrays::addAtom(TNode eq) {
+  Assert(eq.getKind() == kind::EQUAL);
+
+  TNode lhs = eq[0];
+  TNode rhs = eq[1];
+
+  appendToAtomList(find(lhs), rhs);
+  appendToAtomList(find(rhs), lhs);
+}
+
+void TheoryArrays::appendToAtomList(TNode a, TNode b) {
+  Assert(find(a) == a);
+
+  NodeTNodesMap::const_iterator it = d_atoms.find(a);
+  if(it != d_atoms.end()) {
+    (*it).second->push_back(b);
+  }
+  else {
+   CTNodeList* list = new (true)CTNodeList(getContext());
+   list->push_back(b);
+   d_atoms[a] = list;
+  }
+
+}
+*/
 
 void TheoryArrays::addDiseq(TNode diseq) {
   Assert(diseq.getKind() == kind::EQUAL ||
@@ -384,40 +420,18 @@ void TheoryArrays::appendToDiseqList(TNode of, TNode eq) {
   deq->push_back(eq);
 }
 
-void TheoryArrays::appendToEqList(TNode of, TNode eq) {
-  Debug("arrays") << "appending "<< eq << endl
-      << " to equality list of " << of << endl;
-
-  Assert(eq.getKind() == kind::EQUAL ||
-         eq.getKind() == kind::IFF);
-
-  Assert(of == debugFind(of));
-
-  CNodeTNodesMap::iterator eq_i = d_equalities.find(of);
-  CTNodeListAlloc* eql;
-  if(eq_i == d_equalities.end()) {
-    eql = new(getContext()->getCMM()) CTNodeListAlloc(true, getContext(), false,
-                                             ContextMemoryAllocator<TNode>(getContext()->getCMM()));
-    d_equalities.insertDataFromContextMemory(of, eql);
-  } else {
-    eql = (*eq_i).second;
-  }
-  eql->push_back(eq);
-
-}
-
 
 /**
  * Iterates through the indices of a and stores of b and checks if any new
- * RoW2 lemmas need to be instantiated.
+ * Row2 lemmas need to be instantiated.
  */
 
-bool TheoryArrays::isRedundandRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
+bool TheoryArrays::isRedundandRow2Lemma(TNode a, TNode b, TNode i, TNode j) {
   Assert(a.getType().isArray());
   Assert(b.getType().isArray());
 
-  if(d_rowAlreadyAdded.count(make_quad(a, b, i, j)) != 0 ||
-     d_rowAlreadyAdded.count(make_quad(b, a, i, j)) != 0 ) {
+  if(d_RowAlreadyAdded.count(make_quad(a, b, i, j)) != 0 ||
+     d_RowAlreadyAdded.count(make_quad(b, a, i, j)) != 0 ) {
     return true;
   }
 
@@ -431,7 +445,159 @@ bool TheoryArrays::isRedundandRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
   return false;
 }
 
-void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
+TNode TheoryArrays::areDisequal(TNode a, TNode b) {
+  Debug("arrays-prop")<<"Arrays::areDisequal "<<a<<" "<<b<<"\n";
+
+  a = find(a);
+  b = find(b);
+
+  CNodeTNodesMap::const_iterator it = d_disequalities.find(a);
+  if(it!= d_disequalities.end()) {
+    CTNodeListAlloc::const_iterator i = (*it).second->begin();
+    for( ; i!= (*it).second->end(); i++) {
+      Debug("arrays-prop")<<"   "<<*i<<"\n";
+      TNode s = (*i)[0];
+      TNode t = (*i)[1];
+
+      Assert(find(s) == a || find(t) == a);
+      TNode sp, tp;
+      if(find(t) == a) {
+        sp = find(t);
+        tp = find(s);
+      }
+      else {
+        sp = find(s);
+        tp = find(t);
+      }
+
+      if(tp == b) {
+        return *i;
+      }
+
+    }
+  }
+  Debug("arrays-prop")<<"    not disequal \n";
+  return TNode::null();
+}
+
+bool TheoryArrays::propagateFromRow(TNode a, TNode b, TNode i, TNode j) {
+  Debug("arrays-prop")<<"Arrays::propagateFromRow "<<a<<" "<<b<<" "<<i<<" "<<j<<"\n";
+
+  NodeManager* nm = NodeManager::currentNM();
+  Node aj = nm->mkNode(kind::SELECT, a, j);
+  Node bj = nm->mkNode(kind::SELECT, b, j);
+
+  Node eq_aj_bj = nm->mkNode(kind::EQUAL,aj, bj);
+  Node eq_ij = nm->mkNode(kind::EQUAL, i, j);
+
+  // first check if the current context implies NOT (i = j)
+  // in which case we can propagate a[j] = b[j]
+  // FIXME: does i = j need to be a SAT literal or can we propagate anyway?
+
+  // if it does not have an atom we must add the lemma (do we?!)
+  if(d_atoms.count(eq_aj_bj) != 0 ||
+     d_atoms.count(nm->mkNode(kind::EQUAL, bj, aj))!=0) {
+    Node diseq = areDisequal(i, j);
+    // check if the current context implies that (NOT i = j)
+    if(diseq != TNode::null()) {
+      // if it's unassigned
+      Debug("arrays-prop")<<"satValue "<<d_valuation.getSatValue(eq_aj_bj).isNull();
+      if(d_valuation.getSatValue(eq_aj_bj).isNull()) {
+        d_out->propagate(eq_aj_bj);
+        ++d_numProp;
+        // save explanation
+        d_explanations.insert(eq_aj_bj,std::make_pair(eq_ij, diseq));
+        return true;
+      }
+
+    }
+  }
+
+  // now check if the current context implies NOT a[j] = b[j]
+  // in which case we propagate i = j
+
+  // we can't propagate if it does not have an atom
+  if(d_atoms.count(eq_ij) != 0 || d_atoms.count(nm->mkNode(kind::EQUAL, j, i))!= 0) {
+
+    Node diseq = areDisequal(aj, bj);
+    Assert(TNode::null() == Node::null());
+
+    if(diseq != TNode::null()) {
+      if(d_valuation.getSatValue(eq_ij) == Node::null()) {
+        d_out->propagate(eq_ij);
+        ++d_numProp;
+        // save explanation
+        d_explanations.insert(eq_ij, std::make_pair(eq_aj_bj,diseq));
+        return true;
+      }
+    }
+  }
+
+  Debug("arrays-prop")<<"Arrays::propagateFromRow no prop \n";
+  return false;
+}
+
+void TheoryArrays::explain(TNode n) {
+  Debug("arrays")<<"Arrays::explain start for "<<n<<"\n";
+  ++d_numExplain;
+
+  Assert(n.getKind()==kind::EQUAL);
+  context::CDMap<TNode, std::pair<TNode, TNode>, TNodeHashFunction>::const_iterator
+                                                    it = d_explanations.find(n);
+  Assert(it!= d_explanations.end());
+  TNode diseq = (*it).second.second;
+  TNode s = diseq[0];
+  TNode t = diseq[1];
+
+  TNode eq = (*it).second.first;
+  TNode a = eq[0];
+  TNode b = eq[1];
+
+  Assert ((find(a) == find(s) && find(b) == find(t)) ||
+          (find(a) == find(t) && find(b) == find(s)));
+
+
+  if(find(a) == find(t)) {
+    TNode temp = t;
+    t = s;
+    s = temp;
+  }
+
+  // construct the explanation
+
+  NodeBuilder<> nb(kind::AND);
+  Node explanation1 = d_cc.explain(a, s);
+  Node explanation2 = d_cc.explain(b, t);
+
+  if(explanation1.getKind() == kind::AND) {
+    for(TNode::iterator i= TNode(explanation1).begin();
+        i!=TNode(explanation1).end(); ++i) {
+      nb << *i;
+    }
+  } else {
+    Assert(explanation1.getKind() == kind::EQUAL ||
+           explanation1.getKind() == kind::IFF);
+    nb << explanation1;
+  }
+
+  if(explanation2.getKind() == kind::AND) {
+    for(TNode::iterator i= TNode(explanation2).begin();
+        i!=TNode(explanation2).end(); ++i) {
+      nb << *i;
+    }
+  } else {
+    Assert(explanation2.getKind() == kind::EQUAL ||
+           explanation2.getKind() == kind::IFF);
+    nb << explanation2;
+  }
+
+  nb << diseq;
+  Node reason = nb;
+  d_out->explanation(reason);
+  Debug("arrays")<<"explanation "<< reason<<" done \n";
+}
+
+void TheoryArrays::checkRowLemmas(TNode a, TNode b) {
 
   Debug("arrays-crl")<<"Arrays::checkLemmas begin \n"<<a<<"\n";
   if(Debug.isOn("arrays-crl"))
@@ -456,7 +622,8 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
       TNode j = store[1];
       TNode c = store[0];
 
-      if(!isRedundandRoW2Lemma(store, c, j, i)) {
+      if(  !isRedundandRow2Lemma(store, c, j, i)){
+         //&&!propagateFromRow(store, c, j, i)) {
         queueRowLemma(store, c, j, i);
       }
     }
@@ -473,9 +640,13 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
       Assert(store.getKind() == kind::STORE);
       TNode j = store[1];
       TNode c = store[0];
-      if(isNonLinear(c) && !isRedundandRoW2Lemma(store, c, j, i)) {
+
+      if (   isNonLinear(c)
+          &&!isRedundandRow2Lemma(store, c, j, i)){
+          //&&!propagateFromRow(store, c, j, i)) {
         queueRowLemma(store, c, j, i);
       }
+
     }
   }
 
@@ -483,12 +654,12 @@ void TheoryArrays::checkRoWLemmas(TNode a, TNode b) {
 }
 
 /**
- * Adds a new RoW2 lemma of the form i = j OR a[j] = b[j] if i and j are not the
+ * Adds a new Row2 lemma of the form i = j OR a[j] = b[j] if i and j are not the
  * same and a and b are also not identical.
  *
  */
 
-inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
+inline void TheoryArrays::addRow2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Assert(a.getType().isArray());
  Assert(b.getType().isArray());
 
@@ -500,10 +671,10 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Node eq2 = nm->mkNode(kind::EQUAL, i, j);
  Node lem = nm->mkNode(kind::OR, eq1, eq2);
 
- Debug("arrays-lem")<<"Arrays::addRoW2Lemma adding "<<lem<<"\n";
- d_rowAlreadyAdded.insert(make_quad(a,b,i,j));
+ Debug("arrays-lem")<<"Arrays::addRow2Lemma adding "<<lem<<"\n";
+ d_RowAlreadyAdded.insert(make_quad(a,b,i,j));
  d_out->lemma(lem);
- //++d_numRoW2;
+ ++d_numRow2;
 
 }
 
@@ -513,8 +684,8 @@ inline void TheoryArrays::addRoW2Lemma(TNode a, TNode b, TNode i, TNode j) {
  * instantiated for all store terms equal to a and all store terms of the form
  * store(a _ _ )
  */
-void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
-  Debug("arrays-cri")<<"Arrays::checkRoWForIndex "<<a<<"\n";
+void TheoryArrays::checkRowForIndex(TNode i, TNode a) {
+  Debug("arrays-cri")<<"Arrays::checkRowForIndex "<<a<<"\n";
   Debug("arrays-cri")<<"                   index "<<i<<"\n";
   if(Debug.isOn("arrays-cri")) {
     d_infoMap.getInfo(a)->print();
@@ -528,8 +699,8 @@ void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
     TNode store = *it;
     Assert(store.getKind()==kind::STORE);
     TNode j = store[1];
-    Debug("arrays-cri")<<"Arrays::checkRoWForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
-    if(!isRedundandRoW2Lemma(store, store[0], j, i)) {
+    Debug("arrays-cri")<<"Arrays::checkRowForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
+    if(!isRedundandRow2Lemma(store, store[0], j, i)) {
       queueRowLemma(store, store[0], j, i);
     }
   }
@@ -539,8 +710,8 @@ void TheoryArrays::checkRoWForIndex(TNode i, TNode a) {
     TNode instore = *it;
     Assert(instore.getKind()==kind::STORE);
     TNode j = instore[1];
-    Debug("arrays-cri")<<"Arrays::checkRoWForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
-    if(!isRedundandRoW2Lemma(instore, instore[0], j, i)) {
+    Debug("arrays-cri")<<"Arrays::checkRowForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
+    if(!isRedundandRow2Lemma(instore, instore[0], j, i)) {
       queueRowLemma(instore, instore[0], j, i);
     }
   }
@@ -556,7 +727,7 @@ inline void TheoryArrays::queueExtLemma(TNode a, TNode b) {
 
 inline void TheoryArrays::queueRowLemma(TNode a, TNode b, TNode i, TNode j) {
   Assert(a.getType().isArray() && b.getType().isArray());
-  d_rowQueue.insert(make_quad(a, b, i, j));
+  d_RowQueue.insert(make_quad(a, b, i, j));
 }
 
 /**

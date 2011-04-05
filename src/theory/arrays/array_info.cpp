@@ -23,14 +23,7 @@ namespace CVC4 {
 namespace theory {
 namespace arrays {
 
-bool ArrayInfo::inList(const CTNodeList* l, const TNode el) const{
-  CTNodeList::const_iterator it = l->begin();
-  for ( ; it!= l->end(); it ++) {
-    if(*it == el)
-      return true;
-  }
-  return false;
-}
+
 
 void ArrayInfo::mergeLists(CTNodeList* la, const CTNodeList* lb) const{
   std::set<TNode> temp;

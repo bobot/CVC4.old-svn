@@ -49,6 +49,27 @@ struct TNodeQuadHashFunction {
 
 
 
+
+
+
+static void printList (CTNodeList* list) {
+  CTNodeList::const_iterator it = list->begin();
+  Debug("arrays-info")<<"   [ ";
+  for(; it != list->end(); it++ ) {
+    Debug("arrays-info")<<(*it)<<" ";
+  }
+  Debug("arrays-info")<<"] \n";
+}
+
+static bool inList(const CTNodeList* l, const TNode el) {
+  CTNodeList::const_iterator it = l->begin();
+  for ( ; it!= l->end(); it ++) {
+    if(*it == el)
+      return true;
+  }
+  return false;
+}
+
 /**
  * Small class encapsulating the information
  * in the map. It's a class and not a struct to
@@ -74,19 +95,6 @@ public:
   }
 
   /**
-   * debug method to print a list
-   */
-
-  static void printList (CTNodeList* list) {
-    CTNodeList::const_iterator it = list->begin();
-    Debug("arrays-info")<<"   [ ";
-    for(; it != list->end(); it++ ) {
-      Debug("arrays-info")<<(*it)<<" ";
-    }
-    Debug("arrays-info")<<"] \n";
-  }
-
-  /**
    * prints the information
    */
   void print() const {
@@ -99,6 +107,7 @@ public:
     printList(in_stores);
   }
 };
+
 
 typedef __gnu_cxx::hash_map<Node, Info*, NodeHashFunction> CNodeInfoMap;
 
@@ -135,7 +144,6 @@ private:
    * checks if a certain element is in the list l
    * FIXME: better way to check for duplicates?
    */
-  bool inList(const CTNodeList* l, const TNode el) const;
 
   /**
    * helper method that merges two lists into the first

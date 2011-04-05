@@ -141,6 +141,10 @@ TheoryEngine::TheoryEngine(context::Context* ctxt) :
   d_incomplete(ctxt, false),
   d_statistics() {
 
+  for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
+    d_theoryTable[theoryId] = NULL;
+  }
+
   Rewriter::init();
 
   d_sharedTermManager = new SharedTermManager(this, ctxt);
@@ -149,8 +153,8 @@ TheoryEngine::TheoryEngine(context::Context* ctxt) :
 TheoryEngine::~TheoryEngine() {
   Assert(d_hasShutDown);
 
-  for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++ theoryId) {
-    if (d_theoryTable[theoryId]) {
+  for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
+    if(d_theoryTable[theoryId]) {
       delete d_theoryTable[theoryId];
     }
   }
@@ -166,13 +170,15 @@ struct preprocess_stack_element {
 };
 
 Node TheoryEngine::preprocess(TNode node) {
-
   // Remove ITEs and rewrite the node
   Node preprocessed = Rewriter::rewrite(removeITEs(node));
+  return preprocessed;
+}
 
+void TheoryEngine::preRegister(TNode preprocessed) {
   // If we are pre-registered already we are done
   if (preprocessed.getAttribute(PreRegistered())) {
-    return preprocessed;
+    return;
   }
 
   // Do a topological sort of the subexpressions and preregister them
@@ -227,8 +233,6 @@ Node TheoryEngine::preprocess(TNode node) {
       }
     }
   }
-
-  return preprocessed;
 }
 
 /**
