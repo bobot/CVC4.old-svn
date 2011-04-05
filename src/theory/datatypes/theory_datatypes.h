@@ -66,6 +66,8 @@ private:
   BoolMap d_axioms;
   //list of all selectors
   BoolMap d_selectors;
+  //list of all representatives
+  BoolMap d_reps;
   //map from nodes to a list of selectors whose arguments are in the equivalence class of that node
   EqListsN d_selector_eq;
   //map from terms to whether they have been instantiated
@@ -168,6 +170,9 @@ private:
   void collectTerms( TNode t );
   void addTermToLabels( Node t );
 
+  void initializeEqClass( Node t );
+  void collectSubTerms( Node t, EqListN* sbt, bool  isProper = false );
+
   /* from uf_morgan */
   void merge(TNode a, TNode b);
   inline TNode find(TNode a);
@@ -180,6 +185,13 @@ private:
   void registerEqualityForPropagation(TNode eq);
   void convertDerived(Node n, NodeBuilder<>& nb);
   void throwConflict();
+
+  void checkCycles();
+  bool searchForCycle( Node n, Node on, 
+                       std::map< Node, bool >& visited, 
+                       NodeBuilder<>& explanation );
+  bool checkClash( Node n1, Node n2, NodeBuilder<>& explanation );
+  bool checkClashSimple( Node n1, Node n2 );
 };/* class TheoryDatatypes */
 
 inline TNode TheoryDatatypes::find(TNode a) {

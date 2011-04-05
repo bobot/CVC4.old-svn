@@ -170,6 +170,7 @@ TheoryDatatypes::TheoryDatatypes(int id, Context* c, OutputChannel& out) :
   d_drv_map(c),
   d_axioms(c),
   d_selectors(c),
+  d_reps(c),
   d_selector_eq(c),
   d_inst_map(c),
   d_labels(c),
@@ -391,6 +392,7 @@ void TheoryDatatypes::check(Effort e) {
           Node lemma = nb;
           Debug("datatypes-split") << "Lemma is " << lemma << std::endl;
           d_out->lemma( lemma );
+          return;
         }
       }else{
         Debug("datatypes-split") << (*i).first << " is " << sf << std::endl;
@@ -713,6 +715,8 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
 
   // b becomes the canon of a
   d_unionFind.setCanon(a, b);
+  d_reps[a] = false;
+  d_reps[b] = true;
 
  //Debug("datatypes") << "After check 1" << std::endl;
 
@@ -786,28 +790,52 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   }
 
 
-  if( d_unionFind.isInconsistentConstructor( a, b, false, true ) ){
+  //if( d_unionFind.isInconsistentConstructor( a, b, false, true ) ){
+  //  Debug("datatypes") << "Clash " << a << " " << b << std::endl;
+  //  d_conflict = d_cc.explain( a, b );
+  //  Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
+  //  return;
+  //}
+  ////these tests should be unnecessary
+  //Node clash = d_unionFind.checkInconsistent( a, true );
+  //if( !clash.isNull() ){
+  //  Debug("datatypes") << "ClashA " << a << " " << clash << std::endl;
+  //  d_conflict = d_cc.explain( a, clash );
+  //  Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
+  //  return;
+  //}
+  //clash = d_unionFind.checkInconsistent( b, true );
+  //if( !clash.isNull() ){
+  //  Debug("datatypes") << "ClashB " << b << " " << clash << std::endl;
+  //  d_conflict = d_cc.explain( b, clash );
+  //  Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
+  //  return;
+  //}
+  //Debug("datatypes-debug") << "Done clash" << std::endl;
+  NodeBuilder<> explanation(kind::AND); 
+  if( checkClash( a, b, explanation ) ){
+    explanation << d_cc.explain( a, b );
+    d_conflict = explanation.getNumChildren()==1 ? explanation.getChild( 0 ) : explanation;
     Debug("datatypes") << "Clash " << a << " " << b << std::endl;
-    d_conflict = d_cc.explain( a, b );
-    Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
-    return;
-  }
-  //these tests should be unnecessary
-  Node clash = d_unionFind.checkInconsistent( a, true );
-  if( !clash.isNull() ){
-    Debug("datatypes") << "ClashA " << a << " " << clash << std::endl;
-    d_conflict = d_cc.explain( a, clash );
-    Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
-    return;
-  }
-  clash = d_unionFind.checkInconsistent( b, true );
-  if( !clash.isNull() ){
-    Debug("datatypes") << "ClashB " << b << " " << clash << std::endl;
-    d_conflict = d_cc.explain( b, clash );
     Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
     return;
   }
   Debug("datatypes-debug") << "Done clash" << std::endl;
+  checkCycles();
+  if( !d_conflict.isNull() ){
+    return;
+  }
+  Debug("datatypes-debug") << "Done cycles" << std::endl;
+
+  ////merge equivalence classes
+  //initializeEquivClass( a );
+  //initializeEquivClass( b );
+  //EqListN* eqc_a = (*d_equivalence_class.find( a )).second();
+  //EqListN* eqc_b = (*d_equivalence_class.find( b )).second();
+  //for( int i=0; i<(int)eqc_a->size(); i++ ){
+  //  eqc_b->push_back( eqc_a[i] );
+  //}
+
 
   //merge selector lists
   updateSelectors( a );
@@ -1018,6 +1046,36 @@ void TheoryDatatypes::addTermToLabels( Node t ){
   }
 }
 
+void TheoryDatatypes::initializeEqClass( Node t ){
+  //EqListsN::iterator sbt_i = d_subterms.find( t );
+  //if( sbt_i==d_subterms.end() ){
+  //  EqListN* sbt = new(getContext()->getCMM()) EqListN(true, getContext(), false,
+  //                                           ContextMemoryAllocator<Node>(getContext()->getCMM()));
+  //  collectSubTerms( t, sbt );
+  //  d_labels.insertDataFromContextMemory(t, sbt);
+  //}
+  //EqListsN::iterator eqc_i = d_equivalence_class.find( t );
+  //if( eqc_i==d_equivalence_class.end() ){
+  //  EqListN* eqc = new(getContext()->getCMM()) EqListN(true, getContext(), false,
+  //                                        ContextMemoryAllocator<Node>(getContext()->getCMM()));
+  //  eqc->push_back( t );
+  //  d_labels.insertDataFromContextMemory(t, eqc);
+  //}
+}
+//
+//void TheoryDatatypes::collectSubTerms( Node t, EqListN* sbt, bool isProper ){
+//  if( isProper ){
+//    sbt->push_back( t );
+//  }
+//  if( t.getKind()==APPLY_CONSTRUCTOR ){
+//    for( int i=0; i<(int)t.getNumChildren(); i++ ){
+//      collectSubTerms( t[i], sbt, true );
+//    }
+//  }
+//}
+
+
+
 void TheoryDatatypes::appendToDiseqList(TNode of, TNode eq) {
   Debug("datatypes") << "appending " << eq << endl
               << "  to diseq list of " << of << endl;
@@ -1150,4 +1208,94 @@ void TheoryDatatypes::convertDerived(Node n, NodeBuilder<>& nb){
   }else if( d_axioms.find( n )==d_axioms.end() ){
     nb << n;
   }
+}
+
+void TheoryDatatypes::checkCycles()
+{
+  for( BoolMap::iterator i = d_reps.begin(); i!= d_reps.end(); i++ ){
+    if( (*i).second ){
+      std::map< Node, bool > visited;
+      NodeBuilder<> explanation(kind::AND);
+      if( searchForCycle( (*i).first, (*i).first, visited, explanation ) ){
+        Assert( explanation.getNumChildren()>0 );
+        d_conflict = explanation.getNumChildren()==1 ? explanation.getChild( 0 ) : explanation;
+        Debug("datatypes") << "Detected cycle for " << (*i).first << std::endl;
+        Debug("datatypes") << "Conflict is " << d_conflict << std::endl;
+        return;
+      }
+    }
+  }
+}
+
+//postcondition: if cycle detected, explanation is why n is a subterm of on
+bool TheoryDatatypes::searchForCycle( Node n, Node on, 
+                                      std::map< Node, bool >& visited, 
+                                      NodeBuilder<>& explanation )
+{
+  Debug("datatypes") << "Search for cycle " << n << " " << on << std::endl;
+  if( n.getKind()==APPLY_CONSTRUCTOR ){
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      Node nn = find( n[i] );
+      if( visited.find( nn )==visited.end() ){
+        visited[nn] = true;
+        if( nn==on || searchForCycle( nn, on, visited, explanation ) ){
+          if( nn!=n[i] ){
+            explanation << d_cc.explain( nn, n[i] );
+          }
+          return true;
+        }
+      } 
+    }
+  }
+  return false;
+}
+
+//should be called initially with explanation of why n1 and n2 are equal
+bool TheoryDatatypes::checkClash( Node n1, Node n2, NodeBuilder<>& explanation )
+{
+  Debug("datatypes") << "Check clash " << n1 << " " << n2 << std::endl;
+  Node n1f = find( n1 );
+  Node n2f = find( n2 );
+  bool retVal = false;
+  if( n1f!=n2f ){
+    if( n1f.getKind()==kind::APPLY_CONSTRUCTOR && n2f.getKind()==kind::APPLY_CONSTRUCTOR ){
+      if( n1f.getOperator()!=n2f.getOperator() ){
+        retVal =true;
+      }else{
+        Assert( n1f.getNumChildren()==n2f.getNumChildren() );
+        for( int i=0; i<(int)n1f.getNumChildren(); i++ ){
+          if( checkClash( n1f[i], n2f[i], explanation ) ){
+            retVal = true;
+            break;
+          }
+        }
+      }
+    }
+    if( retVal ){
+      if( n1f!=n1 ){
+        explanation << d_cc.explain( n1f, n1 );
+      }
+      if( n2f!=n2 ){
+        explanation << d_cc.explain( n2f, n2 );
+      }
+    }
+  }
+  return retVal;
+}
+
+bool TheoryDatatypes::checkClashSimple( Node n1, Node n2 )
+{
+  if( n1.getKind()==kind::APPLY_CONSTRUCTOR && n2.getKind()==kind::APPLY_CONSTRUCTOR ){
+    if( n1.getOperator()!=n2.getOperator() ){
+      return true;
+    }else{
+      Assert( n1.getNumChildren()==n2.getNumChildren() );
+      for( int i=0; i<(int)n1.getNumChildren(); i++ ){
+        if( checkClashSimple( n1[i], n2[i] ) ){
+          return true;
+        }
+      }
+    }
+  }
+  return false;
 }
