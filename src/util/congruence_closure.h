@@ -147,7 +147,7 @@ class CongruenceClosure {
   typedef context::CDMap<TNode, UseList*, TNodeHashFunction> UseLists;
   typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> LookupMap;
 
-  typedef theory::uf::morgan::StackingMap<TNode, Node, TNodeHashFunction> EqMap;
+  typedef __gnu_cxx::hash_map<TNode, Node, TNodeHashFunction> EqMap;
 
   typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> ProofMap;
   typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> ProofLabel;
@@ -165,6 +165,7 @@ class CongruenceClosure {
   LookupMap d_lookup;
 
   EqMap d_eqMap;
+  context::CDSet<TNode, TNodeHashFunction> d_added;
 
   ProofMap d_proof;
   ProofLabel d_proofLabel;
@@ -204,7 +205,8 @@ public:
     d_classList(ctxt),
     d_useList(ctxt),
     d_lookup(ctxt),
-    d_eqMap(ctxt),
+    d_eqMap(),
+    d_added(ctxt),
     d_proof(ctxt),
     d_proofLabel(ctxt),
     d_proofRewrite(ctxt),
@@ -271,10 +273,16 @@ private:
         ++d_newSkolemVars;
         Node v = NodeManager::currentNM()->mkSkolem(t.getType());
         addEq(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
-        d_eqMap.set(t, v);
+        d_added.insert(v);
+        d_eqMap[t] = v;
         return v;
       } else {
-        return (*i).second;
+        TNode v = (*i).second;
+        if(!d_added.contains(v)) {
+          addEq(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
+          d_added.insert(v);
+        }
+        return v;
       }
     } else {
       return t;
@@ -515,7 +523,6 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addEq(TNode eq, T
   }
   Assert(eq.getKind() == kind::EQUAL ||
          eq.getKind() == kind::IFF);
-  Assert(!isCongruenceOperator(eq[1]));
   if(areCongruent(eq[0], eq[1])) {
     Trace("cc") << "CC -- redundant, ignoring...\n";
     return;
@@ -533,7 +540,7 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addEq(TNode eq, T
   if(!isCongruenceOperator(s)) {
     // s, t are constants
     propagate(eq);
-  } else {
+  } else if(!isCongruenceOperator(t)) {
     // s is an apply, t is a constant
     Node ap = buildRepresentativesOfApply(s);
 
@@ -552,6 +559,36 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addEq(TNode eq, T
       setLookup(ap, eq);
       for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
         appendToUseList(*i, eq);
+      }
+    }
+  } else {
+    Trace("cc") << "BOTH WAYS" << std::endl;
+    // s is an apply, t is an apply
+    for(int i = 0; i < 2; ++i) {
+      if(i == 1) {
+        TNode x = s;
+        s = t;
+        t = x;
+      }
+
+      Node ap = buildRepresentativesOfApply(s);
+
+      Trace("cc:detail") << "CC rewrLHS " << "op_and_args_a == " << t << std::endl;
+      Trace("cc") << "CC ap is   " << ap << std::endl;
+
+      TNode l = lookup(ap);
+      Trace("cc:detail") << "CC lookup(ap): " << l << std::endl;
+      if(!l.isNull()) {
+        // ensure a hard Node link exists to this during the call
+        Node pending = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, l);
+        Trace("cc:detail") << "pending1 " << pending << std::endl;
+        propagate(pending);
+      } else {
+        Trace("cc") << "CC lookup(ap) setting to " << eq << std::endl;
+        setLookup(ap, eq);
+        for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
+          appendToUseList(*i, eq);
+        }
       }
     }
   }
@@ -619,8 +656,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::propagate(TNode s
       a = e[0][1];
       b = e[1][1];
 
-      Assert(!isCongruenceOperator(a));
-      Assert(!isCongruenceOperator(b));
+      //Assert(!isCongruenceOperator(a));
+      //Assert(!isCongruenceOperator(b));
 
       Trace("cc") << "                 ( " << a << " , " << b << " )" << std::endl;
     }
@@ -977,6 +1014,7 @@ Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::explain(Node a, N
   Assert(a != b);
 
   if(!areCongruent(a, b)) {
+    Debug("cc") << "explain: " << a << std::endl << " and   : " << b << std::endl;
     throw CongruenceClosureException("asked to explain() congruence of nodes "
                                      "that aren't congruent");
   }

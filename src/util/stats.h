@@ -676,6 +676,7 @@ public:
       AlwaysAssert(d_running);
       ::timespec end;
       clock_gettime(CLOCK_MONOTONIC, &end);
+      Debug.printf("timer", "  %8lu %8lu\n- %8lu %8lu\n=====================\n  %8lu %8lu\n", end.tv_sec, end.tv_nsec, d_start.tv_sec, d_start.tv_nsec, (end-d_start).tv_sec, (end-d_start).tv_nsec);
       d_data += end - d_start;
       d_running = false;
     }
