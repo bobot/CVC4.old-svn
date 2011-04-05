@@ -184,6 +184,21 @@ bool ArithPartialModel::belowLowerBound(ArithVar x, const DeltaRational& c, bool
   }
 }
 
+bool ArithPartialModel::equalsLowerBound(ArithVar x, const DeltaRational& c){
+  if(!hasLowerBound(x)){
+    return false;
+  }else{
+    return c == d_lowerBound[x];
+  }
+}
+bool ArithPartialModel::equalsUpperBound(ArithVar x, const DeltaRational& c){
+  if(!hasUpperBound(x)){
+    return false;
+  }else{
+    return c == d_upperBound[x];
+  }
+}
+
 bool ArithPartialModel::aboveUpperBound(ArithVar x, const DeltaRational& c, bool strict){
   if(!hasUpperBound(x)){
     // u = \intfy

@@ -125,6 +125,9 @@ public:
    */
   bool aboveUpperBound(ArithVar x, const DeltaRational& c, bool strict);
 
+  bool equalsLowerBound(ArithVar x, const DeltaRational& c);
+  bool equalsUpperBound(ArithVar x, const DeltaRational& c);
+
   /**
    * x <= u
    * ? c < u

@@ -94,9 +94,21 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
 Node SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_i, TNode original){
   Debug("arith") << "AssertLower(" << x_i << " " << c_i << ")"<< std::endl;
 
-  if(d_partialModel.belowLowerBound(x_i, c_i, false)){
+  if(d_partialModel.belowLowerBound(x_i, c_i, true)){
     return Node::null();
   }
+  if(d_partialModel.equalsLowerBound(x_i, c_i) && original.getKind() != AND){
+    TNode prevConstraint =  d_partialModel.getLowerConstraint(x_i);
+    if(prevConstraint.getKind() == EQUAL){
+      return Node::null();
+    }else{
+      cout << x_i << " "<< c_i << original << prevConstraint << endl;
+      Assert(prevConstraint.getKind() == AND);
+      d_partialModel.setLowerConstraint(x_i,original);
+      return Node::null();
+    }
+  }
+
   if(d_partialModel.aboveUpperBound(x_i, c_i, true)){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
@@ -127,8 +139,20 @@ Node SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
 
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
 
-  if(d_partialModel.aboveUpperBound(x_i, c_i, false) ){ // \upperbound(x_i) <= c_i
+  if(d_partialModel.aboveUpperBound(x_i, c_i, true) ){ // \upperbound(x_i) <= c_i
     return Node::null(); //sat
+  }
+
+  if(d_partialModel.equalsUpperBound(x_i, c_i) && original.getKind() != AND){
+    TNode prevConstraint = d_partialModel.getUpperConstraint(x_i);
+    if(prevConstraint.getKind() == EQUAL){
+      return Node::null();
+    }else{
+      cout << x_i << " "<< c_i << original << prevConstraint  << endl;
+      Assert(prevConstraint.getKind() == AND);
+      d_partialModel.setUpperConstraint(x_i,original);
+      return Node::null();
+    }
   }
   if(d_partialModel.belowLowerBound(x_i, c_i, true)){// \lowerbound(x_i) > c_i
     Node lbc = d_partialModel.getLowerConstraint(x_i);
@@ -196,39 +220,6 @@ Node SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
   }
   return Node::null();
 }
-
-// set<ArithVar> tableauAndHasSet(Tableau& tab, ArithVar v){
-//   set<ArithVar> has;
-//   for(ArithVarSet::const_iterator basicIter = tab.beginBasic();
-//       basicIter != tab.endBasic();
-//       ++basicIter){
-//     ArithVar basic = *basicIter;
-//     ReducedRowVector& row = tab.lookup(basic);
-
-//     if(row.has(v)){
-//       has.insert(basic);
-//     }
-//   }
-//   return has;
-// }
-
-// set<ArithVar> columnIteratorSet(Tableau& tab,ArithVar v){
-//   set<ArithVar> has;
-//   Column::iterator basicIter = tab.beginColumn(v);
-//   Column::iterator endIter = tab.endColumn(v);
-//   for(; basicIter != endIter; ++basicIter){
-//     ArithVar basic = *basicIter;
-//     has.insert(basic);
-//   }
-//   return has;
-// }
-
-
-/*
-bool matchingSets(Tableau& tab, ArithVar v){
-  return tableauAndHasSet(tab, v) == columnIteratorSet(tab, v);
-}
-*/
 
 void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
   Assert(!d_tableau.isBasic(x_i));
