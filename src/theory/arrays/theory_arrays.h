@@ -106,8 +106,8 @@ private:
   /**
    * Instance of the congruence closure module.
    */
-  CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_2
-                                 (kind::SELECT, kind::STORE)> d_cc;
+  CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_1
+                                 (kind::SELECT)> d_cc;
 
   /**
    * Union find for storing the equalities.
