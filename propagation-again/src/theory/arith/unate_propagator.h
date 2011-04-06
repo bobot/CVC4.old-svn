@@ -89,9 +89,13 @@ public:
   /** Returns true if v has been added as a left hand side in an atom */
   bool hasAnyAtoms(TNode v) const;
 
+  bool containsLiteral(TNode lit) const;
+  bool containsAtom(TNode atom) const;
   bool containsEquality(TNode atom) const;
   bool containsLeq(TNode atom) const;
   bool containsGeq(TNode atom) const;
+
+
 
 private:
   VariablesSets& getVariablesSets(TNode left);
@@ -139,16 +143,19 @@ private:
 
   bool hasBoundValueEntry(TNode n);
 
-  Node getBestImpliedUpperBoundUsingLeq(TNode leq) const;
-  Node getBestImpliedUpperBoundUsingLT(TNode lt) const;
+  Node getImpliedUpperBoundUsingLeq(TNode leq, bool weaker) const;
+  Node getImpliedUpperBoundUsingLT(TNode lt, bool weaker) const;
 
-  Node getBestImpliedLowerBoundUsingGeq(TNode geq) const;
-  Node getBestImpliedLowerBoundUsingGT(TNode gt) const;
+  Node getImpliedLowerBoundUsingGeq(TNode geq, bool weaker) const;
+  Node getImpliedLowerBoundUsingGT(TNode gt, bool weaker) const;
 
 public:
   Node getBestImpliedUpperBound(TNode upperBound) const;
   Node getBestImpliedLowerBound(TNode lowerBound) const;
 
+
+  Node getWeakerImpliedUpperBound(TNode upperBound) const;
+  Node getWeakerImpliedLowerBound(TNode lowerBound) const;
 };
 
 }/* CVC4::theory::arith namespace */

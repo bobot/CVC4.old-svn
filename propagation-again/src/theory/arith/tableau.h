@@ -280,6 +280,10 @@ public:
     return d_basicVariables.isMember(v);
   }
 
+  const TableauEntry& getEntry(EntryID i) const{
+    return d_entryManager.get(i);
+  }
+
   ArithVarSet::const_iterator beginBasic() const{
     return d_basicVariables.begin();
   }

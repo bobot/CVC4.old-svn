@@ -14,24 +14,37 @@ using namespace CVC4::kind;
 using namespace std;
 
 
-bool ArithPropManager::propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason){
-  bool success = false;
-  Node varAsNode = d_arithvarNodeMap.asNode(var);
-
-  ++d_statistics.d_propagateArithVarCalls;
-
+Node ArithPropManager::boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b){
   Assert((!upperbound) || (b.getInfinitesimalPart() <= 0) );
   Assert(upperbound || (b.getInfinitesimalPart() >= 0) );
+
+  Node varAsNode = d_arithvarNodeMap.asNode(var);
   Kind kind;
+  bool negate;
   if(upperbound){
-    kind = b.getInfinitesimalPart() < 0 ? LT : LEQ;
+    negate = b.getInfinitesimalPart() < 0;
+    kind = negate ? GEQ : LEQ;
   } else{
-    kind = b.getInfinitesimalPart() > 0 ? GT : GEQ;
+    negate = b.getInfinitesimalPart() > 0;
+    kind = negate ? LEQ : GEQ;
   }
 
   Node righthand = mkRationalNode(b.getNoninfinitesimalPart());
-
   Node bAsNode = NodeBuilder<2>(kind) << varAsNode << righthand;
+
+  if(negate){
+    bAsNode = NodeBuilder<1>(NOT) << bAsNode;
+  }
+
+  return bAsNode;
+}
+
+bool ArithPropManager::propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason){
+  bool success = false;
+
+  ++d_statistics.d_propagateArithVarCalls;
+
+  Node bAsNode = boundAsNode(upperbound, var ,b);
 
   Node bestImplied = upperbound ?
     d_propagator.getBestImpliedUpperBound(bAsNode):

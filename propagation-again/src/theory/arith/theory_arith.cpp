@@ -277,22 +277,6 @@ void TheoryArith::registerTerm(TNode tn){
   Debug("arith") << "registerTerm(" << tn << ")" << endl;
 }
 
-template <bool selectLeft>
-TNode getSide(TNode assertion, Kind simpleKind){
-  switch(simpleKind){
-  case LT:
-  case GT:
-  case DISTINCT:
-    return selectLeft ? (assertion[0])[0] : (assertion[0])[1];
-  case LEQ:
-  case GEQ:
-  case EQUAL:
-    return selectLeft ? assertion[0] : assertion[1];
-  default:
-    Unreachable();
-    return TNode::null();
-  }
-}
 
 ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
   TNode left = getSide<true>(assertion, simpleKind);
@@ -305,15 +289,6 @@ ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
   }
 }
 
-DeltaRational determineRightConstant(TNode assertion, Kind simpleKind){
-  TNode right = getSide<false>(assertion, simpleKind);
-
-  Assert(right.getKind() == CONST_RATIONAL);
-  const Rational& noninf = right.getConst<Rational>();
-
-  Rational inf = Rational(Integer(deltaCoeff(simpleKind)));
-  return DeltaRational(noninf, inf);
-}
 
 Node TheoryArith::disequalityConflict(TNode eq, TNode lb, TNode ub){
   NodeBuilder<3> conflict(kind::AND);

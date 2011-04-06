@@ -90,6 +90,20 @@ public:
   /** Returns true if a bound was added. */
   bool propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason);
 
+  Node boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b);
+
+  Node strictlyWeakerLowerBound(TNode n) const{
+    return d_propagator.getWeakerImpliedLowerBound(n);
+  }
+  Node strictlyWeakerUpperBound(TNode n) const{
+    return d_propagator.getWeakerImpliedUpperBound(n);
+  }
+
+
+  bool containsLiteral(TNode n) const {
+    return d_propagator.containsLiteral(n);
+  }
+
 private:
   class Statistics {
   public:

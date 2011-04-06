@@ -14,6 +14,33 @@ static const uint32_t NUM_CHECKS = 10;
 static const bool CHECK_AFTER_PIVOT = true;
 static const uint32_t VARORDER_CHECK_PERIOD = 200;
 
+SimplexDecisionProcedure::SimplexDecisionProcedure(ArithPropManager& propManager,
+                                                   ArithPartialModel& pm,
+                                                   Tableau& tableau) :
+  d_partialModel(pm),
+  d_tableau(tableau),
+  d_queue(pm, tableau),
+  d_propManager(propManager),
+  d_numVariables(0),
+  d_delayedLemmas(),
+  d_ZERO(0),
+  d_DELTA_ZERO(0,0)
+{
+  switch(Options::ArithPivotRule rule = Options::current()->pivotRule) {
+  case Options::MINIMUM:
+    d_queue.setPivotRule(ArithPriorityQueue::MINIMUM);
+    break;
+  case Options::BREAK_TIES:
+    d_queue.setPivotRule(ArithPriorityQueue::BREAK_TIES);
+    break;
+  case Options::MAXIMUM:
+    d_queue.setPivotRule(ArithPriorityQueue::MAXIMUM);
+    break;
+  default:
+    Unhandled(rule);
+  }
+}
+
 SimplexDecisionProcedure::Statistics::Statistics():
   d_statPivots("theory::arith::pivots",0),
   d_statUpdates("theory::arith::updates",0),
@@ -641,7 +668,93 @@ void SimplexDecisionProcedure::explainNonbasics(ArithVar basic, NodeBuilder<>& o
   Debug("arith::explainNonbasics") << "SimplexDecisionProcedure::explainNonbasics("
                                    << basic << ") done" << endl;
 }
+Node SimplexDecisionProcedure::weakenLowerBoundConflict(ArithVar basicVar){
+  return Node::null();
+}
+Node SimplexDecisionProcedure::weakenUpperBoundConflict(ArithVar basicVar){
+  const DeltaRational& assignment = d_partialModel.getAssignment(basicVar);
+  Assert(d_partialModel.hasUpperBound(basicVar));
+  Assert(assignment > d_partialModel.getUpperBound(basicVar));
 
+  DeltaRational slack = assignment - d_partialModel.getUpperBound(basicVar);
+
+  map<ArithVar, Node> boundMap;
+  map<ArithVar, Node> inputMap;
+  queue<EntryID> nontight;
+
+  boundMap.insert(make_pair(basicVar, d_partialModel.getUpperConstraint(basicVar)));
+  inputMap.insert(make_pair(basicVar, d_partialModel.getUpperConstraint(basicVar)));
+  for(Tableau::RowIterator i = d_tableau.rowIterator(basicVar); !i.atEnd(); ++i){
+    const TableauEntry& entry = *i;
+    ArithVar v = entry.getColVar();
+    if(v == basicVar) continue;
+
+    nontight.push(i.getID());
+    int sgn = entry.getCoefficient().sgn();
+    if(sgn < 0){
+      const DeltaRational& ub = d_partialModel.getUpperBound(v);
+      Node currentBound = d_propManager.boundAsNode(true, v, ub);
+      boundMap.insert(make_pair(v, currentBound));
+      inputMap.insert(make_pair(v, d_partialModel.getUpperConstraint(v)));
+    }else{
+      Assert(sgn != 0);
+      const DeltaRational& lb = d_partialModel.getLowerBound(v);
+      Node currentBound = d_propManager.boundAsNode(false, v, lb);
+      boundMap.insert(make_pair(v, currentBound));
+      inputMap.insert(make_pair(v, d_partialModel.getLowerConstraint(v)));
+    }
+  }
+
+  while(!nontight.empty()){
+    EntryID maybeTight = nontight.front();
+    nontight.pop();
+
+    const TableauEntry& entry = d_tableau.getEntry(maybeTight);
+    ArithVar v = entry.getColVar();
+
+    Node currentBound = boundMap[v];
+
+    int sgn = entry.getCoefficient().sgn();
+    Assert(sgn != 0);
+    Node weakerBound = (sgn < 0)?
+      d_propManager.strictlyWeakerUpperBound(currentBound):
+      d_propManager.strictlyWeakerLowerBound(currentBound);
+
+    if(!weakerBound.isNull()){
+      DeltaRational weaker = asDeltaRational(weakerBound);
+      DeltaRational curr = asDeltaRational(currentBound);
+      DeltaRational diff = curr - weaker;
+      diff = diff * entry.getCoefficient();
+      if(slack > diff){
+        slack = slack - diff;
+        cout << slack << " "<< diff << currentBound << " found "<< weakerBound << endl;
+        Assert(diff > d_DELTA_ZERO);
+        boundMap[v] = weakerBound;
+        nontight.push(maybeTight);
+      }
+    }
+    Assert(slack > d_DELTA_ZERO);
+  }
+
+  cout << "(and ";
+  for(map<ArithVar, Node>::const_iterator i = boundMap.begin(), end = boundMap.end();
+      i != end; ++i){
+    Node finalBound = i->second;
+    ArithVar v = i->first;
+    if(v == basicVar){
+      cout <<"\t basic: " << inputMap[basicVar] << endl;
+      continue;
+    }
+    if(d_propManager.containsLiteral(finalBound)){
+      cout <<"\t" <<finalBound << endl;
+    }else{
+      cout <<"\t boo: " << inputMap[v] << finalBound << endl;
+    }
+  }
+  cout << ")" << endl;
+
+  return Node::null();
+}
 
 Node SimplexDecisionProcedure::deduceUpperBound(ArithVar basicVar){
   Assert(d_tableau.isBasic(basicVar));
@@ -696,6 +809,8 @@ Node SimplexDecisionProcedure::generateConflictAboveUpperBound(ArithVar conflict
   nb << d_partialModel.getUpperConstraint(conflictVar);
 
   explainNonbasicsLowerBound(conflictVar, nb);
+
+  weakenUpperBoundConflict(conflictVar);
 
   Node conflict = nb;
   return conflict;

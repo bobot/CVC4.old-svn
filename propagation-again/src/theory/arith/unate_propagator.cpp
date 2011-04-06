@@ -82,6 +82,22 @@ void ArithUnatePropagator::setupLefthand(TNode left){
   d_setsMap[left] = VariablesSets();
 }
 
+bool ArithUnatePropagator::containsLiteral(TNode lit) const{
+  switch(lit.getKind()){
+  case NOT: return containsAtom(lit[0]);
+  default: return containsAtom(lit);
+  }
+}
+
+bool ArithUnatePropagator::containsAtom(TNode atom) const{
+  switch(atom.getKind()){
+  case EQUAL: return containsEquality(atom);
+  case LEQ: return containsLeq(atom);
+  case GEQ: return containsGeq(atom);
+  default:
+    Unreachable();
+  }
+}
 
 bool ArithUnatePropagator::containsEquality(TNode atom) const{
   TNode left = atom[0];
@@ -211,9 +227,10 @@ void ArithUnatePropagator::addImplicationsUsingEqualityAndEqualityValues(TNode a
   }
 }
 
+// if weaker, do not return an equivalent node
 // if strict, get the strongest bound implied by  (< x value)
 // if !strict, get the strongest bound implied by  (<= x value)
-Node getUpperBound(const BoundValueSet& bvSet, const Rational& value, bool strict){
+Node getUpperBound(const BoundValueSet& bvSet, const Rational& value, bool strict, bool weaker){
   BoundValueSet::const_iterator bv = bvSet.lower_bound(value);
   if(bv == bvSet.end()){
     return Node::null();
@@ -221,9 +238,9 @@ Node getUpperBound(const BoundValueSet& bvSet, const Rational& value, bool stric
 
   if((bv->second).getValue() == value){
     const BoundValueEntry& entry = bv->second;
-    if(strict && entry.hasGeq()){
+    if(strict && entry.hasGeq() && !weaker){
       return NodeBuilder<1>(NOT) << entry.getGeq();
-    }else if(entry.hasLeq()){
+    }else if(entry.hasLeq() && (strict || !weaker)){
       return entry.getLeq();
     }
   }
@@ -243,15 +260,15 @@ Node getUpperBound(const BoundValueSet& bvSet, const Rational& value, bool stric
 
 
 
+
+// if weaker, do not return an equivalent node
 // if strict, get the strongest bound implied by  (> x value)
 // if !strict, get the strongest bound implied by  (>= x value)
-Node getLowerBound(const BoundValueSet& bvSet, const Rational& value, bool strict){
+Node getLowerBound(const BoundValueSet& bvSet, const Rational& value, bool strict, bool weaker){
   static int time = 0;
   ++time;
-  //cout << time << endl;
 
   if(bvSet.empty()){
-    //cout << "empty" << endl;
     return Node::null();
   }
 
@@ -266,9 +283,9 @@ Node getLowerBound(const BoundValueSet& bvSet, const Rational& value, bool stric
 
   if(bv != bvSet.end() && (bv->second).getValue() == value){
     const BoundValueEntry& entry = bv->second;
-    if(strict && entry.hasLeq()){
+    if(strict && entry.hasLeq() && !weaker){
       return NodeBuilder<1>(NOT) << entry.getLeq();
-    }else if(entry.hasGeq()){
+    }else if(entry.hasGeq() && (strict || !weaker)){
       return entry.getGeq();
     }
   }
@@ -295,8 +312,8 @@ void ArithUnatePropagator::addImplicationsUsingEqualityAndBoundValues(TNode atom
   const Rational& value = rightHandRational(atom);
 
   BoundValueSet& bvSet = getBoundValueSet(left);
-  Node ub = getUpperBound(bvSet, value, false);
-  Node lb = getLowerBound(bvSet, value, false);
+  Node ub = getUpperBound(bvSet, value, false, false);
+  Node lb = getLowerBound(bvSet, value, false, false);
 
   if(!ub.isNull()){
     addImplication(atom, ub);
@@ -312,8 +329,8 @@ void ArithUnatePropagator::addImplicationsUsingLeqAndBoundValues(TNode atom)
   Assert(atom.getKind() == LEQ);
   Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
 
-  Node ub = getBestImpliedUpperBoundUsingLeq(atom);
-  Node lb = getBestImpliedLowerBoundUsingGT(negation);
+  Node ub = getImpliedUpperBoundUsingLeq(atom, false);
+  Node lb = getImpliedLowerBoundUsingGT(negation, false);
 
   if(!ub.isNull()){
     addImplication(atom, ub);
@@ -352,8 +369,8 @@ void ArithUnatePropagator::addImplicationsUsingGeqAndBoundValues(TNode atom){
   Assert(atom.getKind() == GEQ);
   Node negation = NodeManager::currentNM()->mkNode(NOT, atom);
 
-  Node lb = getBestImpliedLowerBoundUsingGeq(atom); //What is implied by (>= left value)
-  Node ub = getBestImpliedUpperBoundUsingLT(negation);
+  Node lb = getImpliedLowerBoundUsingGeq(atom, false); //What is implied by (>= left value)
+  Node ub = getImpliedUpperBoundUsingLT(negation, false);
 
   if(!lb.isNull()){
     addImplication(atom, lb);
@@ -396,7 +413,7 @@ void ArithUnatePropagator::addImplication(TNode a, TNode b){
 }
 
 
-Node ArithUnatePropagator::getBestImpliedUpperBoundUsingLeq(TNode leq) const {
+Node ArithUnatePropagator::getImpliedUpperBoundUsingLeq(TNode leq, bool weaker) const {
   Assert(leq.getKind() == LEQ);
   Node left = leq[0];
 
@@ -405,11 +422,11 @@ Node ArithUnatePropagator::getBestImpliedUpperBoundUsingLeq(TNode leq) const {
   const Rational& value = rightHandRational(leq);
   const BoundValueSet& bvSet = getBoundValueSet(left);
 
-  Node ub = getUpperBound(bvSet, value, false);
+  Node ub = getUpperBound(bvSet, value, false, weaker);
   return ub;
 }
 
-Node ArithUnatePropagator::getBestImpliedUpperBoundUsingLT(TNode lt) const {
+Node ArithUnatePropagator::getImpliedUpperBoundUsingLT(TNode lt, bool weaker) const {
   Assert(lt.getKind() == NOT && lt[0].getKind() == GEQ);
   Node atom = lt[0];
   Node left = atom[0];
@@ -419,28 +436,46 @@ Node ArithUnatePropagator::getBestImpliedUpperBoundUsingLT(TNode lt) const {
   const Rational& value = rightHandRational(atom);
   const BoundValueSet& bvSet = getBoundValueSet(left);
 
-  return getUpperBound(bvSet, value, true);
+  return getUpperBound(bvSet, value, true, weaker);
 }
 
 Node ArithUnatePropagator::getBestImpliedUpperBound(TNode upperBound) const {
   Node result = Node::null();
   if(upperBound.getKind() == LEQ ){
-    result =  getBestImpliedUpperBoundUsingLeq(upperBound);
+    result = getImpliedUpperBoundUsingLeq(upperBound, false);
   }else if(upperBound.getKind() == NOT && upperBound[0].getKind() == GEQ){
-    result = getBestImpliedUpperBoundUsingLT(upperBound);
+    result = getImpliedUpperBoundUsingLT(upperBound, false);
   }else if(upperBound.getKind() == LT){
     Node geq = NodeBuilder<2>(GEQ) << upperBound[0] << upperBound[1];
     Node lt = NodeBuilder<1>(NOT) << geq;
-    result = getBestImpliedUpperBoundUsingLT(lt);
+    result = getImpliedUpperBoundUsingLT(lt, false);
   }else{
     Unreachable();
   }
-  Debug("arith::unate") << upperBound <<" -> " << result << std::endl;
 
+  Debug("arith::unate") << upperBound <<" -> " << result << std::endl;
   return result;
 }
 
-Node ArithUnatePropagator::getBestImpliedLowerBoundUsingGT(TNode gt) const {
+Node ArithUnatePropagator::getWeakerImpliedUpperBound(TNode upperBound) const {
+  Node result = Node::null();
+  if(upperBound.getKind() == LEQ ){
+    result = getImpliedUpperBoundUsingLeq(upperBound, true);
+  }else if(upperBound.getKind() == NOT && upperBound[0].getKind() == GEQ){
+    result = getImpliedUpperBoundUsingLT(upperBound, true);
+  }else if(upperBound.getKind() == LT){
+    Node geq = NodeBuilder<2>(GEQ) << upperBound[0] << upperBound[1];
+    Node lt = NodeBuilder<1>(NOT) << geq;
+    result = getImpliedUpperBoundUsingLT(lt, true);
+  }else{
+    Unreachable();
+  }
+  Assert(upperBound != result);
+  Debug("arith::unate") << upperBound <<" -> " << result << std::endl;
+  return result;
+}
+
+Node ArithUnatePropagator::getImpliedLowerBoundUsingGT(TNode gt, bool weaker) const {
   Assert(gt.getKind() == NOT && gt[0].getKind() == LEQ);
   Node atom = gt[0];
   Node left = atom[0];
@@ -450,10 +485,10 @@ Node ArithUnatePropagator::getBestImpliedLowerBoundUsingGT(TNode gt) const {
   const Rational& value = rightHandRational(atom);
   const BoundValueSet& bvSet = getBoundValueSet(left);
 
-  return getLowerBound(bvSet, value, true);
+  return getLowerBound(bvSet, value, true, weaker);
 }
 
-Node ArithUnatePropagator::getBestImpliedLowerBoundUsingGeq(TNode geq) const {
+Node ArithUnatePropagator::getImpliedLowerBoundUsingGeq(TNode geq, bool weaker) const {
   Assert(geq.getKind() == GEQ);
   Node left = geq[0];
 
@@ -462,22 +497,41 @@ Node ArithUnatePropagator::getBestImpliedLowerBoundUsingGeq(TNode geq) const {
   const Rational& value = rightHandRational(geq);
   const BoundValueSet& bvSet = getBoundValueSet(left);
 
-  return getLowerBound(bvSet, value, false);
+  return getLowerBound(bvSet, value, false, weaker);
 }
 
 Node ArithUnatePropagator::getBestImpliedLowerBound(TNode lowerBound) const {
   Node result = Node::null();
   if(lowerBound.getKind() == GEQ ){
-    result = getBestImpliedLowerBoundUsingGeq(lowerBound);
+    result = getImpliedLowerBoundUsingGeq(lowerBound, false);
   }else if(lowerBound.getKind() == NOT && lowerBound[0].getKind() == LEQ){
-    result = getBestImpliedLowerBoundUsingGT(lowerBound);
+    result = getImpliedLowerBoundUsingGT(lowerBound, false);
   }else if(lowerBound.getKind() == GT){
     Node leq = NodeBuilder<2>(LEQ)<<lowerBound[0]<< lowerBound[1];
     Node gt = NodeBuilder<1>(NOT) << leq;
-    result = getBestImpliedLowerBoundUsingGT(gt);
+    result = getImpliedLowerBoundUsingGT(gt, false);
   }else{
     Unreachable();
   }
+  Debug("arith::unate") << lowerBound <<" -> " << result << std::endl;
+  return result;
+}
+
+Node ArithUnatePropagator::getWeakerImpliedLowerBound(TNode lowerBound) const {
+  Node result = Node::null();
+  if(lowerBound.getKind() == GEQ ){
+    result = getImpliedLowerBoundUsingGeq(lowerBound, true);
+  }else if(lowerBound.getKind() == NOT && lowerBound[0].getKind() == LEQ){
+    result = getImpliedLowerBoundUsingGT(lowerBound, true);
+  }else if(lowerBound.getKind() == GT){
+    Node leq = NodeBuilder<2>(LEQ)<<lowerBound[0]<< lowerBound[1];
+    Node gt = NodeBuilder<1>(NOT) << leq;
+    result = getImpliedLowerBoundUsingGT(gt, true);
+  }else{
+    Unreachable();
+  }
+  Assert(result != lowerBound);
+
   Debug("arith::unate") << lowerBound <<" -> " << result << std::endl;
   return result;
 }
