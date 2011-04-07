@@ -143,7 +143,7 @@ Node SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_
     if(prevConstraint.getKind() == EQUAL){
       return Node::null();
     }else{
-      cout << x_i << " "<< c_i << original << prevConstraint << endl;
+      Debug("beat::ya") << x_i << " "<< c_i << original << prevConstraint << endl;
       Assert(prevConstraint.getKind() == AND);
       d_partialModel.setLowerConstraint(x_i,original);
       return Node::null();
@@ -189,7 +189,7 @@ Node SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
     if(prevConstraint.getKind() == EQUAL){
       return Node::null();
     }else{
-      cout << x_i << " "<< c_i << original << prevConstraint  << endl;
+      Debug("beat::ya") << x_i << " "<< c_i << original << prevConstraint  << endl;
       Assert(prevConstraint.getKind() == AND);
       d_partialModel.setUpperConstraint(x_i,original);
       return Node::null();
