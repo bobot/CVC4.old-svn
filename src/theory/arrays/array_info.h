@@ -48,10 +48,6 @@ struct TNodeQuadHashFunction {
 };/* struct TNodeQuadHashFunction */
 
 
-
-
-
-
 static void printList (CTNodeList* list) {
   CTNodeList::const_iterator it = list->begin();
   Debug("arrays-info")<<"   [ ";

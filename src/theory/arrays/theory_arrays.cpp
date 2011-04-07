@@ -39,6 +39,7 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out, Valuation valuation) 
   d_atoms(),
   d_explanations(c),
   d_conflict(),
+  d_RowRepr(c),
   d_infoMap(c),
   d_numRow2("theory::arrays::number of Row2 lemmas", 0),
   d_numExt("theory::arrays::number of Ext lemmas", 0),
@@ -162,11 +163,11 @@ void TheoryArrays::check(Effort e) {
 
   if(fullEffort(e)) {
     // generate the lemmas on the worklist
-    while(!d_RowQueue.empty() || ! d_extQueue.empty()) {
+    //while(!d_RowQueue.empty() || ! d_extQueue.empty()) {
       // we need to do this up to a fixpoint because adding a lemma
       // calls preregister which may add new lemmas in the queues
       dischargeLemmas();
-    }
+    //}
   }
   Debug("arrays") << "Arrays::check(): done" << endl;
 }
@@ -438,10 +439,18 @@ bool TheoryArrays::isRedundandRow2Lemma(TNode a, TNode b, TNode i, TNode j) {
   NodeManager* nm = NodeManager::currentNM();
   Node aj = nm->mkNode(kind::SELECT, a, j);
   Node bj = nm->mkNode(kind::SELECT, b, j);
-  if(find(i) == find(j) || find(aj) == find(bj)) {
-    return true;
-  }
 
+  return false;
+}
+
+bool TheoryArrays::isRedundantInContext(TNode a, TNode b, TNode i, TNode j) {
+  NodeManager* nm = NodeManager::currentNM();
+  Node aj = nm->mkNode(kind::SELECT, a, j);
+  Node bj = nm->mkNode(kind::SELECT, b, j);
+
+  if(find(i) == find(j) || find(aj) == find(bj)) {
+      return true;
+    }
   return false;
 }
 
@@ -669,11 +678,13 @@ inline void TheoryArrays::addRow2Lemma(TNode a, TNode b, TNode i, TNode j) {
  Node bj = nm->mkNode(kind::SELECT, b, j);
  Node eq1 = nm->mkNode(kind::EQUAL, aj, bj);
  Node eq2 = nm->mkNode(kind::EQUAL, i, j);
- Node lem = nm->mkNode(kind::OR, eq1, eq2);
+ Node lem = nm->mkNode(kind::OR, eq2, eq1);
 
  Debug("arrays-lem")<<"Arrays::addRow2Lemma adding "<<lem<<"\n";
  d_RowAlreadyAdded.insert(make_quad(a,b,i,j));
  d_out->lemma(lem);
+ //d_atoms.insert(eq2);
+ //d_atoms.insert(eq1);
  ++d_numRow2;
 
 }

@@ -195,19 +195,23 @@ void TheoryEngine::preRegister(TNode preprocessed) {
         current.setAttribute(PreRegistered(), true);
         // Register this node
         if (current.getKind() == kind::EQUAL) {
-          TheoryId theoryLHS = Theory::theoryOf(current[0]);
-          Debug("register") << "preregistering " << current << " with " << theoryLHS << std::endl;
-          d_theoryTable[theoryLHS]->preRegisterTerm(current);
-//          TheoryId theoryRHS = Theory::theoryOf(current[1]);
-//          if (theoryLHS != theoryRHS) {
-//            d_theoryTable[theoryRHS]->preRegisterTerm(current);
-//            Debug("register") << "preregistering " << current << " with " << theoryRHS << std::endl;
-//          }
-//          TheoryId typeTheory = Theory::theoryOf(current[0].getType());
-//          if (typeTheory != theoryLHS && typeTheory != theoryRHS) {
-//            d_theoryTable[typeTheory]->preRegisterTerm(current);
-//            Debug("register") << "preregistering " << current << " with " << typeTheory << std::endl;
-//          }
+          if(d_logic == "QF_AX") {
+            d_theoryTable[theory::THEORY_ARRAY]->preRegisterTerm(current);
+          } else {
+            TheoryId theoryLHS = Theory::theoryOf(current[0]);
+            Debug("register") << "preregistering " << current << " with " << theoryLHS << std::endl;
+            d_theoryTable[theoryLHS]->preRegisterTerm(current);
+  //          TheoryId theoryRHS = Theory::theoryOf(current[1]);
+  //          if (theoryLHS != theoryRHS) {
+  //            d_theoryTable[theoryRHS]->preRegisterTerm(current);
+  //            Debug("register") << "preregistering " << current << " with " << theoryRHS << std::endl;
+  //          }
+  //          TheoryId typeTheory = Theory::theoryOf(current[0].getType());
+  //          if (typeTheory != theoryLHS && typeTheory != theoryRHS) {
+  //            d_theoryTable[typeTheory]->preRegisterTerm(current);
+  //            Debug("register") << "preregistering " << current << " with " << typeTheory << std::endl;
+  //          }
+          }
         } else {
           TheoryId theory = Theory::theoryOf(current);
           Debug("register") << "preregistering " << current << " with " << theory << std::endl;

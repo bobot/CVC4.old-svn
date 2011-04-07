@@ -148,6 +148,34 @@ private:
    */
   Node d_conflict;
 
+  typedef context::CDList< quad<TNode, TNode, TNode, TNode > > QuadCDList;
+
+  QuadCDList d_RowRepr;
+
+
+  void addToRowRepr(quad<TNode, TNode, TNode, TNode> q) {
+    TNode a = find(q.first);
+    TNode b = find(q.second);
+    TNode i = find(q.third);
+    TNode j = find(q.fourth);
+
+    quad<TNode, TNode, TNode, TNode> q2 = make_quad(a,b,i,j);
+    if(!inRowRepr(q2) ) {
+      d_RowRepr.push_back(q2);
+    }
+  }
+
+  bool inRowRepr(quad<TNode, TNode, TNode, TNode> q) {
+    QuadCDList::const_iterator it = d_RowRepr.begin();
+    for( ; it!= d_RowRepr.end(); it++) {
+      if(*it == q) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+
   /**
    * Context dependent map from a congruence class canonical representative of
    * type array to an Info pointer that keeps track of information useful to axiom
@@ -226,6 +254,7 @@ private:
 
 
   bool isRedundandRow2Lemma(TNode a, TNode b, TNode i, TNode j);
+  bool isRedundantInContext(TNode a, TNode b, TNode i, TNode j);
 
   bool isNonLinear(TNode n);
 
@@ -259,7 +288,13 @@ private:
 
     std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction >::const_iterator it1 = temp_Row.begin();
     for( ; it1!= temp_Row.end(); it1++) {
-      addRow2Lemma((*it1).first, (*it1).second, (*it1).third, (*it1).fourth);
+      if(!isRedundantInContext((*it1).first, (*it1).second, (*it1).third, (*it1).fourth)) {
+        addRow2Lemma((*it1).first, (*it1).second, (*it1).third, (*it1).fourth);
+      }
+      else {
+        // add it to queue may be needed later
+        queueRowLemma((*it1).first, (*it1).second, (*it1).third, (*it1).fourth);
+      }
     }
 
     std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction>  temp_ext;
@@ -370,6 +405,19 @@ public:
   void check(Effort e);
   void propagate(Effort e) {
     Debug("arrays-prop")<<"Propagating \n";
+    __gnu_cxx::hash_set<TNode, TNodeHashFunction>::const_iterator it = d_atoms.begin();
+
+    for(; it!= d_atoms.end(); it++) {
+      TNode eq = *it;
+      Assert(eq.getKind()==kind::EQUAL);
+      Debug("arrays-prop")<<"value of "<<eq<<" ";
+      Debug("arrays-prop")<<d_valuation.getSatValue(eq);
+      if(find(eq[0]) == find(eq[1])) {
+        Debug("arrays-prop")<<" eq \n";
+        ++d_numProp;
+      }
+    }
+
   }
   void explain(TNode n);
   Node getValue(TNode n);
