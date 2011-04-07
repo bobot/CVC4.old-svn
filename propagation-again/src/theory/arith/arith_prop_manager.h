@@ -87,10 +87,16 @@ public:
     PropManager(c), d_arithvarNodeMap(map), d_propagator(prop), d_valuation(v)
   {}
 
+  /**
+   * Returns true if the node has a value in sat solver in the current context.
+   * In debug mode this fails an Assert() if the node has a negative assignment.
+   */
+  bool isAsserted(TNode n) const;
+
   /** Returns true if a bound was added. */
   bool propagateArithVar(bool upperbound, ArithVar var, const DeltaRational& b, TNode reason);
 
-  Node boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b);
+  Node boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b) const;
 
   Node strictlyWeakerLowerBound(TNode n) const{
     return d_propagator.getWeakerImpliedLowerBound(n);
@@ -99,6 +105,13 @@ public:
     return d_propagator.getWeakerImpliedUpperBound(n);
   }
 
+
+  //Node strictlyWeakerAssertedUpperBound(TNode n) const;
+  //Node strictlyWeakerAssertedLowerBound(TNode n) const;
+
+  Node strictlyWeakerAssertedUpperBound(ArithVar v, const DeltaRational& b) const;
+
+  Node strictlyWeakerAssertedLowerBound(ArithVar v, const DeltaRational& b) const;
 
   bool containsLiteral(TNode n) const {
     return d_propagator.containsLiteral(n);

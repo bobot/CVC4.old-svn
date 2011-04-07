@@ -14,7 +14,74 @@ using namespace CVC4::kind;
 using namespace std;
 
 
-Node ArithPropManager::boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b){
+bool ArithPropManager::isAsserted(TNode n) const{
+  Node satValue = d_valuation.getSatValue(n);
+  if(satValue.isNull()){
+    return false;
+  }else{
+    //Assert(satValue.getConst<bool>());
+    return true;
+  }
+}
+
+// Node ArithPropManager::strictlyWeakerAssertedUpperBound(TNode n) const{
+//   Node weaker = n;
+//   do {
+//     weaker = d_propagator.getWeakerImpliedUpperBound(weaker);
+//   }while(!weaker.isNull() && !isAsserted(weaker));
+//   Assert(weaker != n);
+//   return weaker;
+// }
+
+// Node ArithPropManager::strictlyWeakerAssertedLowerBound(TNode n) const{
+//   Node weaker = n;
+//   do {
+//     weaker = d_propagator.getWeakerImpliedLowerBound(weaker);
+//   }while(!weaker.isNull() && !isAsserted(weaker));
+//   Assert(weaker != n);
+//   return weaker;
+// }
+
+Node ArithPropManager::strictlyWeakerAssertedUpperBound(ArithVar v, const DeltaRational& b) const{
+  Node bound = boundAsNode(true, v, b);
+
+  Assert(b.getInfinitesimalPart() <= 0);
+  bool largeEpsilon = (b.getInfinitesimalPart() < -1);
+
+  Node weaker = bound;
+  do {
+    if(largeEpsilon){
+      weaker = d_propagator.getBestImpliedUpperBound(weaker);
+      largeEpsilon = false;
+    }else{
+      weaker = d_propagator.getWeakerImpliedUpperBound(weaker);
+    }
+  }while(!weaker.isNull() && !isAsserted(weaker));
+  return weaker;
+}
+
+Node ArithPropManager::strictlyWeakerAssertedLowerBound(ArithVar v, const DeltaRational& b) const{
+  Debug("ArithPropManager") << "strictlyWeakerAssertedLowerBound" << endl;
+  Node bound = boundAsNode(false, v, b);
+
+  Assert(b.getInfinitesimalPart() >= 0);
+  bool largeEpsilon = (b.getInfinitesimalPart() > 1);
+
+  Node weaker = bound;
+  Debug("ArithPropManager") << bound << b << endl;
+  do {
+    if(largeEpsilon){
+      weaker = d_propagator.getBestImpliedLowerBound(weaker);
+      largeEpsilon = false;
+    }else{
+      weaker = d_propagator.getWeakerImpliedLowerBound(weaker);
+    }
+  }while(!weaker.isNull() && !isAsserted(weaker));
+  Debug("ArithPropManager") << "res: " << weaker << endl;
+  return weaker;
+}
+
+Node ArithPropManager::boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b) const {
   Assert((!upperbound) || (b.getInfinitesimalPart() <= 0) );
   Assert(upperbound || (b.getInfinitesimalPart() >= 0) );
 
@@ -54,19 +121,16 @@ bool ArithPropManager::propagateArithVar(bool upperbound, ArithVar var, const De
                             << bestImplied << endl;
 
   if(!bestImplied.isNull()){
-    Node satValue = d_valuation.getSatValue(bestImplied);
+    bool asserted = isAsserted(bestImplied);
 
-    if(satValue.isNull() && !isPropagated(bestImplied)){
+    if( !asserted && !isPropagated(bestImplied)){
       propagate(bestImplied, reason);
       ++d_statistics.d_addedPropagation;
       success = true;
-    }else if(satValue.isNull()){
+    }else if(!asserted){
       ++d_statistics.d_alreadyPropagatedNode;
     }else if(!isPropagated(bestImplied)){
-      Assert(satValue.getConst<bool>());
       ++d_statistics.d_alreadySetSatLiteral;
-    }else{
-      Assert(satValue.getConst<bool>());
     }
   }
   return success;

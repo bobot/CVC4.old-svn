@@ -271,18 +271,20 @@ Node getLowerBound(const BoundValueSet& bvSet, const Rational& value, bool stric
   if(bvSet.empty()){
     return Node::null();
   }
+  Debug("getLowerBound") << "getLowerBound" << bvSet.size() << " " << value << " " << strict << weaker << endl;
 
   BoundValueSet::const_iterator bv = bvSet.lower_bound(value);
   if(bv == bvSet.end()){
-    //cout << "got end " << value << " " << (bvSet.rbegin()->second).getValue() << endl;
+    Debug("getLowerBound") << "got end " << value << " " << (bvSet.rbegin()->second).getValue() << endl;
     Assert(value > (bvSet.rbegin()->second).getValue());
   }else{
-    //cout << value << ", " << bv->second.getValue() << endl;
+    Debug("getLowerBound") << value << ", " << bv->second.getValue() << endl;
     Assert(value <= bv->second.getValue());
   }
 
   if(bv != bvSet.end() && (bv->second).getValue() == value){
     const BoundValueEntry& entry = bv->second;
+    Debug("getLowerBound") << entry.hasLeq() << entry.hasGeq() << endl;
     if(strict && entry.hasLeq() && !weaker){
       return NodeBuilder<1>(NOT) << entry.getLeq();
     }else if(entry.hasGeq() && (strict || !weaker)){

@@ -58,6 +58,10 @@ SimplexDecisionProcedure::Statistics::Statistics():
   d_successDuringVarOrderSearch("theory::arith::qi::DuringVarOrderSearch::success",0),
   d_attemptAfterVarOrderSearch("theory::arith::qi::AfterVarOrderSearch::attempt",0),
   d_successAfterVarOrderSearch("theory::arith::qi::AfterVarOrderSearch::success",0),
+  d_weakeningAttempts("theory::arith::weakening::attempts",0),
+  d_weakeningSuccesses("theory::arith::weakening::success",0),
+  d_weakenings("theory::arith::weakening::total",0),
+  d_weakenTime("theory::arith::weakening::time"),
   d_delayedConflicts("theory::arith::delayedConflicts",0),
   d_pivotTime("theory::arith::pivotTime"),
   d_avgNumRowsNotContainingOnUpdate("theory::arith::avgNumRowsNotContainingOnUpdate"),
@@ -81,6 +85,11 @@ SimplexDecisionProcedure::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_successDuringVarOrderSearch);
   StatisticsRegistry::registerStat(&d_attemptAfterVarOrderSearch);
   StatisticsRegistry::registerStat(&d_successAfterVarOrderSearch);
+
+  StatisticsRegistry::registerStat(&d_weakeningAttempts);
+  StatisticsRegistry::registerStat(&d_weakeningSuccesses);
+  StatisticsRegistry::registerStat(&d_weakenings);
+  StatisticsRegistry::registerStat(&d_weakenTime);
 
   StatisticsRegistry::registerStat(&d_delayedConflicts);
 
@@ -109,6 +118,11 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_successDuringVarOrderSearch);
   StatisticsRegistry::unregisterStat(&d_attemptAfterVarOrderSearch);
   StatisticsRegistry::unregisterStat(&d_successAfterVarOrderSearch);
+
+  StatisticsRegistry::unregisterStat(&d_weakeningAttempts);
+  StatisticsRegistry::unregisterStat(&d_weakeningSuccesses);
+  StatisticsRegistry::unregisterStat(&d_weakenings);
+  StatisticsRegistry::unregisterStat(&d_weakenTime);
 
   StatisticsRegistry::unregisterStat(&d_delayedConflicts);
   StatisticsRegistry::unregisterStat(&d_pivotTime);
@@ -668,92 +682,214 @@ void SimplexDecisionProcedure::explainNonbasics(ArithVar basic, NodeBuilder<>& o
   Debug("arith::explainNonbasics") << "SimplexDecisionProcedure::explainNonbasics("
                                    << basic << ") done" << endl;
 }
-Node SimplexDecisionProcedure::weakenLowerBoundConflict(ArithVar basicVar){
-  return Node::null();
-}
+
+
+struct WeakeningElem {
+  ArithVar var;
+  const Rational* coeff;
+  bool upperBound;
+
+  DeltaRational bound;
+
+  //This is a node that can be used as part of a conflict.
+  // Conflict Tree:
+  // The base case of a conflict tree is a literal that has a sat value and the atom
+  // of the literal is preregistered.
+  // A conflict tree is also an AND of conflict trees.
+  Node explanation; //explanation must imply the current bound.
+
+  WeakeningElem(ArithVar v,const Rational* coefficient, bool u,DeltaRational b,Node exp):
+    var(v), coeff(coefficient), upperBound(u), bound(b), explanation(exp)
+  {}
+};
+
 Node SimplexDecisionProcedure::weakenUpperBoundConflict(ArithVar basicVar){
+  TimerStat::CodeTimer codeTimer(d_statistics.d_weakenTime);
+
+  bool anyWeakenings = false;
   const DeltaRational& assignment = d_partialModel.getAssignment(basicVar);
   Assert(d_partialModel.hasUpperBound(basicVar));
   Assert(assignment > d_partialModel.getUpperBound(basicVar));
 
-  DeltaRational slack = assignment - d_partialModel.getUpperBound(basicVar);
+  DeltaRational surplus = assignment - d_partialModel.getUpperBound(basicVar);
 
-  map<ArithVar, Node> boundMap;
-  map<ArithVar, Node> inputMap;
-  queue<EntryID> nontight;
-
-  boundMap.insert(make_pair(basicVar, d_partialModel.getUpperConstraint(basicVar)));
-  inputMap.insert(make_pair(basicVar, d_partialModel.getUpperConstraint(basicVar)));
+  vector<WeakeningElem> weakeningElements;
+  queue<uint32_t> potentialWeakingings;
   for(Tableau::RowIterator i = d_tableau.rowIterator(basicVar); !i.atEnd(); ++i){
     const TableauEntry& entry = *i;
     ArithVar v = entry.getColVar();
-    if(v == basicVar) continue;
+    const Rational& coeff = entry.getCoefficient();
 
-    nontight.push(i.getID());
-    int sgn = entry.getCoefficient().sgn();
-    if(sgn < 0){
-      const DeltaRational& ub = d_partialModel.getUpperBound(v);
-      Node currentBound = d_propManager.boundAsNode(true, v, ub);
-      boundMap.insert(make_pair(v, currentBound));
-      inputMap.insert(make_pair(v, d_partialModel.getUpperConstraint(v)));
-    }else{
-      Assert(sgn != 0);
-      const DeltaRational& lb = d_partialModel.getLowerBound(v);
-      Node currentBound = d_propManager.boundAsNode(false, v, lb);
-      boundMap.insert(make_pair(v, currentBound));
-      inputMap.insert(make_pair(v, d_partialModel.getLowerConstraint(v)));
-    }
+    int sgn = coeff.sgn();
+    bool ub = (sgn < 0);
+    Node exp = ub ?
+      d_partialModel.getUpperConstraint(v) :
+      d_partialModel.getLowerConstraint(v);
+    DeltaRational bound = ub?
+      d_partialModel.getUpperBound(v) :
+      d_partialModel.getLowerBound(v);
+    potentialWeakingings.push(weakeningElements.size());
+    weakeningElements.push_back(WeakeningElem(v, &coeff, ub, bound, exp));
   }
 
-  while(!nontight.empty()){
-    EntryID maybeTight = nontight.front();
-    nontight.pop();
+  vector<Node> conflict;
 
-    const TableauEntry& entry = d_tableau.getEntry(maybeTight);
-    ArithVar v = entry.getColVar();
 
-    Node currentBound = boundMap[v];
+  Debug("weak") << "weakenUpperBoundConflict" << endl;
+  while(!potentialWeakingings.empty()){
+    uint32_t pos = potentialWeakingings.front();
+    potentialWeakingings.pop();
 
-    int sgn = entry.getCoefficient().sgn();
-    Assert(sgn != 0);
-    Node weakerBound = (sgn < 0)?
-      d_propManager.strictlyWeakerUpperBound(currentBound):
-      d_propManager.strictlyWeakerLowerBound(currentBound);
+    WeakeningElem& curr = weakeningElements[pos];
 
-    if(!weakerBound.isNull()){
-      DeltaRational weaker = asDeltaRational(weakerBound);
-      DeltaRational curr = asDeltaRational(currentBound);
-      DeltaRational diff = curr - weaker;
-      diff = diff * entry.getCoefficient();
-      if(slack > diff){
-        slack = slack - diff;
-        cout << slack << " "<< diff << currentBound << " found "<< weakerBound << endl;
+    Node weaker = curr.upperBound?
+      d_propManager.strictlyWeakerAssertedUpperBound(curr.var, curr.bound):
+      d_propManager.strictlyWeakerAssertedLowerBound(curr.var, curr.bound);
+
+    bool weakened = false;
+    if(!weaker.isNull()){
+      DeltaRational weakerBound = asDeltaRational(weaker);
+      DeltaRational diff = curr.bound - weakerBound;
+      //if var == basic, weakerBound > curr.bound
+      // multiply by -1
+      diff = diff * (*curr.coeff);
+
+      if(surplus > diff){
+        ++d_statistics.d_weakenings;
+        anyWeakenings = true;
+        weakened = true;
+        surplus = surplus - diff;
+
+        Debug("weak") << "found:" << endl;
+        if(curr.var == basicVar){
+          Debug("weak") << "  basic: ";
+        }
+        Debug("weak") << "  " << surplus << " "<< diff  << endl
+                      << "  " << curr.bound << weakerBound << endl
+                      << "  " << curr.explanation << weaker << endl;
+
+        if(curr.explanation.getKind() == AND){
+          Debug("weak") << "VICTORY" << endl;
+        }
+
         Assert(diff > d_DELTA_ZERO);
-        boundMap[v] = weakerBound;
-        nontight.push(maybeTight);
+        curr.explanation = weaker;
+        curr.bound = weakerBound;
       }
     }
-    Assert(slack > d_DELTA_ZERO);
-  }
 
-  cout << "(and ";
-  for(map<ArithVar, Node>::const_iterator i = boundMap.begin(), end = boundMap.end();
-      i != end; ++i){
-    Node finalBound = i->second;
-    ArithVar v = i->first;
-    if(v == basicVar){
-      cout <<"\t basic: " << inputMap[basicVar] << endl;
-      continue;
-    }
-    if(d_propManager.containsLiteral(finalBound)){
-      cout <<"\t" <<finalBound << endl;
+    if(weakened){
+      potentialWeakingings.push(pos);
     }else{
-      cout <<"\t boo: " << inputMap[v] << finalBound << endl;
+      if(curr.explanation.getKind() == AND){
+        Debug("weak") << "boo: " << curr.explanation << endl;
+      }
+      conflict.push_back(curr.explanation);
     }
   }
-  cout << ")" << endl;
 
-  return Node::null();
+  ++d_statistics.d_weakeningAttempts;
+  if(anyWeakenings){
+    ++d_statistics.d_weakeningSuccesses;
+  }
+
+  NodeBuilder<> nb(AND);
+  nb.append(conflict);
+  return nb;
+}
+
+Node SimplexDecisionProcedure::weakenLowerBoundConflict(ArithVar basicVar){
+  TimerStat::CodeTimer codeTimer(d_statistics.d_weakenTime);
+
+  bool anyWeakenings = false;
+  const DeltaRational& assignment = d_partialModel.getAssignment(basicVar);
+  Assert(d_partialModel.hasLowerBound(basicVar));
+  Assert(assignment < d_partialModel.getLowerBound(basicVar));
+
+  DeltaRational surplus = d_partialModel.getLowerBound(basicVar) - assignment;
+
+  vector<WeakeningElem> weakeningElements;
+  queue<uint32_t> potentialWeakingings;
+  for(Tableau::RowIterator i = d_tableau.rowIterator(basicVar); !i.atEnd(); ++i){
+    const TableauEntry& entry = *i;
+    ArithVar v = entry.getColVar();
+    const Rational& coeff = entry.getCoefficient();
+
+    int sgn = coeff.sgn();
+    bool ub = (sgn > 0);
+    Node exp = ub ?
+      d_partialModel.getUpperConstraint(v) :
+      d_partialModel.getLowerConstraint(v);
+    DeltaRational bound = ub?
+      d_partialModel.getUpperBound(v) :
+      d_partialModel.getLowerBound(v);
+    potentialWeakingings.push(weakeningElements.size());
+    weakeningElements.push_back(WeakeningElem(v, &coeff, ub, bound, exp));
+  }
+
+  vector<Node> conflict;
+
+  Debug("weak") << "weakenLowerBoundConflict" << endl;
+  while(!potentialWeakingings.empty()){
+    uint32_t pos = potentialWeakingings.front();
+    potentialWeakingings.pop();
+
+    WeakeningElem& curr = weakeningElements[pos];
+
+    Node weaker = curr.upperBound?
+      d_propManager.strictlyWeakerAssertedUpperBound(curr.var, curr.bound):
+      d_propManager.strictlyWeakerAssertedLowerBound(curr.var, curr.bound);
+
+    bool weakened = false;
+    if(!weaker.isNull()){
+      DeltaRational weakerBound = asDeltaRational(weaker);
+      DeltaRational diff = weakerBound -  curr.bound;
+      //if var == basic, weakerBound < curr.bound
+      // multiply by -1
+      diff = diff * (*curr.coeff);
+
+      if(surplus > diff){
+        ++d_statistics.d_weakenings;
+        anyWeakenings = true;
+        weakened = true;
+        surplus = surplus - diff;
+
+        Debug("weak") << "found:" << endl;
+        if(curr.var == basicVar){
+          Debug("weak") << "  basic: ";
+        }
+        Debug("weak") << "  " << surplus << " "<< diff  << endl
+                      << "  " << curr.bound << weakerBound << endl
+                      << "  " << curr.explanation << weaker << endl;
+
+        if(curr.explanation.getKind() == AND){
+          Debug("weak") << "VICTORY" << endl;
+        }
+
+        Assert(diff > d_DELTA_ZERO);
+        curr.explanation = weaker;
+        curr.bound = weakerBound;
+      }
+    }
+
+    if(weakened){
+      potentialWeakingings.push(pos);
+    }else{
+      if(curr.explanation.getKind() == AND){
+        Debug("weak") << "boo: " << curr.explanation << endl;
+      }
+      conflict.push_back(curr.explanation);
+    }
+  }
+
+  ++d_statistics.d_weakeningAttempts;
+  if(anyWeakenings){
+    ++d_statistics.d_weakeningSuccesses;
+  }
+
+  NodeBuilder<> nb(AND);
+  nb.append(conflict);
+  return nb;
 }
 
 Node SimplexDecisionProcedure::deduceUpperBound(ArithVar basicVar){
@@ -805,24 +941,31 @@ Node SimplexDecisionProcedure::deduceLowerBound(ArithVar basicVar){
 
 Node SimplexDecisionProcedure::generateConflictAboveUpperBound(ArithVar conflictVar){
 
-  NodeBuilder<> nb(kind::AND);
-  nb << d_partialModel.getUpperConstraint(conflictVar);
+  Node conflict = weakenUpperBoundConflict(conflictVar);
 
-  explainNonbasicsLowerBound(conflictVar, nb);
+  // NodeBuilder<> nb(kind::AND);
+  // nb << d_partialModel.getUpperConstraint(conflictVar);
 
-  weakenUpperBoundConflict(conflictVar);
+  // explainNonbasicsLowerBound(conflictVar, nb);
 
-  Node conflict = nb;
+
+  // Node conflict = nb;
   return conflict;
 }
 
 Node SimplexDecisionProcedure::generateConflictBelowLowerBound(ArithVar conflictVar){
-  NodeBuilder<> nb(kind::AND);
-  nb << d_partialModel.getLowerConstraint(conflictVar);
+  // NodeBuilder<> nb(kind::AND);
+  // nb << d_partialModel.getLowerConstraint(conflictVar);
 
-  explainNonbasicsUpperBound(conflictVar, nb);
+  // explainNonbasicsUpperBound(conflictVar, nb);
 
-  Node conflict = nb;
+  // weakenLowerBoundConflict(conflictVar);
+
+  // Node conflict = nb;
+
+
+  Node conflict = weakenLowerBoundConflict(conflictVar);
+
   return conflict;
 }
 

@@ -275,6 +275,9 @@ private:
     IntStat d_attemptDuringVarOrderSearch, d_successDuringVarOrderSearch;
     IntStat d_attemptAfterVarOrderSearch, d_successAfterVarOrderSearch;
 
+    IntStat d_weakeningAttempts, d_weakeningSuccesses, d_weakenings;
+    TimerStat d_weakenTime;
+
     IntStat d_delayedConflicts;
 
     TimerStat d_pivotTime;
