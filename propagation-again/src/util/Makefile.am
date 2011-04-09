@@ -39,6 +39,8 @@ libutil_la_SOURCES = \
 	dynamic_array.h \
 	language.h \
 	triple.h \
+	trans_closure.h \
+	trans_closure.cpp \
 	boolean_simplification.h
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
