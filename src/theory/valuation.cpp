@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -23,8 +23,22 @@
 namespace CVC4 {
 namespace theory {
 
-Node Valuation::getValue(TNode n) {
+Node Valuation::getValue(TNode n) const {
   return d_engine->getValue(n);
+}
+
+Node Valuation::getSatValue(TNode n) const{
+  if(n.getKind() == kind::NOT) {
+    Node atomRes = d_engine->getPropEngine()->getValue(n[0]);
+    if(atomRes.getKind() == kind::CONST_BOOLEAN){
+      return NodeManager::currentNM()->mkConst(!atomRes.getConst<bool>());
+    }else{
+      Assert(atomRes.isNull());
+      return atomRes;
+    }
+  } else {
+    return d_engine->getPropEngine()->getValue(n);
+  }
 }
 
 }/* CVC4::theory namespace */

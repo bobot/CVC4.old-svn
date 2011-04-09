@@ -8,7 +8,8 @@ TESTS =	\
 	arith.02.cvc \
 	arith.03.cvc \
 	delta-minimized-row-vector-bug.smt \
-	leq.01.smt
+	leq.01.smt \
+	miplibtrick.smt
 
 EXTRA_DIST = $(TESTS)
 
@@ -22,7 +23,7 @@ EXTRA_DIST = $(TESTS)
 #EXTRA_DIST += \
 #	error.cvc
 
-# synonyms for "check"
+# synonyms for "check" in this directory
 .PHONY: regress regress0 test
 regress regress0 test: check
 

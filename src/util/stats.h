@@ -29,6 +29,7 @@
 #include <iomanip>
 #include <set>
 #include <ctime>
+#include <vector>
 
 #include "util/Assert.h"
 #include "lib/clock_gettime.h"
@@ -41,14 +42,15 @@ namespace CVC4 {
 #  define __CVC4_USE_STATISTICS false
 #endif
 
+class ExprManager;
+
 class CVC4_PUBLIC Stat;
+
+inline std::ostream& operator<<(std::ostream& os, const ::timespec& t);
 
 /**
  * The main statistics registry.  This registry maintains the list of
  * currently active statistics and is able to "flush" them all.
- *
- * The statistics registry is only used statically; one does not
- * construct a statistics registry.
  */
 class CVC4_PUBLIC StatisticsRegistry {
 private:
@@ -61,42 +63,42 @@ private:
   typedef std::set< Stat*, StatCmp > StatSet;
 
   /** The set of currently active statistics */
-  static StatSet d_registeredStats;
+  StatSet d_registeredStats;
 
-  /** Private default constructor undefined (no construction permitted). */
-  StatisticsRegistry() CVC4_UNDEFINED;
   /** Private copy constructor undefined (no copy permitted). */
   StatisticsRegistry(const StatisticsRegistry&) CVC4_UNDEFINED;
 
 public:
 
+  /** Construct a statistics registry */
+  StatisticsRegistry() { }
+
   /** An iterator type over a set of statistics */
   typedef StatSet::const_iterator const_iterator;
 
+  /** Get a pointer to the current statistics registry */
+  static StatisticsRegistry* current();
+
   /** Flush all statistics to the given output stream. */
-  static void flushStatistics(std::ostream& out);
+  void flushStatistics(std::ostream& out);
 
   /** Register a new statistic, making it active. */
-  static inline void registerStat(Stat* s) throw(AssertionException);
+  static void registerStat(Stat* s) throw(AssertionException);
 
   /** Unregister an active statistic, making it inactive. */
-  static inline void unregisterStat(Stat* s) throw(AssertionException);
+  static void unregisterStat(Stat* s) throw(AssertionException);
 
   /**
    * Get an iterator to the beginning of the range of the set of active
    * (registered) statistics.
    */
-  static inline const_iterator begin() {
-    return d_registeredStats.begin();
-  }
+  static const_iterator begin();
 
   /**
    * Get an iterator to the end of the range of the set of active
    * (registered) statistics.
    */
-  static inline const_iterator end() {
-    return d_registeredStats.end();
-  }
+  static const_iterator end();
 
 };/* class StatisticsRegistry */
 
@@ -172,24 +174,6 @@ inline bool StatisticsRegistry::StatCmp::operator()(const Stat* s1,
   return s1->getName() < s2->getName();
 }
 
-inline void StatisticsRegistry::registerStat(Stat* s)
-  throw(AssertionException) {
-  if(__CVC4_USE_STATISTICS) {
-    AlwaysAssert(d_registeredStats.find(s) == d_registeredStats.end());
-    d_registeredStats.insert(s);
-  }
-}/* StatisticsRegistry::registerStat() */
-
-
-inline void StatisticsRegistry::unregisterStat(Stat* s)
-  throw(AssertionException) {
-  if(__CVC4_USE_STATISTICS) {
-    AlwaysAssert(d_registeredStats.find(s) != d_registeredStats.end());
-    d_registeredStats.erase(s);
-  }
-}/* StatisticsRegistry::unregisterStat() */
-
-
 /**
  * A class to represent a "read-only" data statistic of type T.  Adds to
  * the Stat base class the pure virtual function getData(), which returns
@@ -202,7 +186,7 @@ inline void StatisticsRegistry::unregisterStat(Stat* s)
  * std::ostream& operator<<(std::ostream&, const T&)
  */
 template <class T>
-class ReadOnlyDataStat : public Stat {
+class CVC4_PUBLIC ReadOnlyDataStat : public Stat {
 public:
   /** The "payload" type of this data statistic (that is, T). */
   typedef T payload_t;
@@ -244,7 +228,7 @@ public:
  * std::ostream& operator<<(std::ostream&, const T&)
  */
 template <class T>
-class DataStat : public ReadOnlyDataStat<T> {
+class CVC4_PUBLIC DataStat : public ReadOnlyDataStat<T> {
 public:
 
   /** Construct a data statistic with the given name. */
@@ -274,7 +258,7 @@ public:
  * Template class T must have an assignment operator=().
  */
 template <class T>
-class ReferenceStat : public DataStat<T> {
+class CVC4_PUBLIC ReferenceStat : public DataStat<T> {
 private:
   /** The referenced data cell */
   const T* d_data;
@@ -324,7 +308,7 @@ public:
  * Template class T must have an operator=() and a copy constructor.
  */
 template <class T>
-class BackedStat : public DataStat<T> {
+class CVC4_PUBLIC BackedStat : public DataStat<T> {
 protected:
   /** The internally-kept statistic value */
   T d_data;
@@ -377,7 +361,7 @@ public:
  * giving it a globally unique name.
  */
 template <class Stat>
-class WrappedStat : public ReadOnlyDataStat<typename Stat::payload_t> {
+class CVC4_PUBLIC WrappedStat : public ReadOnlyDataStat<typename Stat::payload_t> {
   typedef typename Stat::payload_t T;
 
   const ReadOnlyDataStat<T>& d_stat;
@@ -415,7 +399,7 @@ public:
  * This doesn't functionally differ from its base class BackedStat<int64_t>,
  * except for adding convenience functions for dealing with integers.
  */
-class IntStat : public BackedStat<int64_t> {
+class CVC4_PUBLIC IntStat : public BackedStat<int64_t> {
 public:
 
   /**
@@ -474,7 +458,7 @@ public:
  * running count, so should generally be avoided.  Call addEntry() to add
  * an entry to the average calculation.
  */
-class AverageStat : public BackedStat<double> {
+class CVC4_PUBLIC AverageStat : public BackedStat<double> {
 private:
   /**
    * The number of accumulations of the running average that we
@@ -500,6 +484,49 @@ public:
 
 };/* class AverageStat */
 
+template <class T>
+class CVC4_PUBLIC ListStat : public Stat{
+private:
+  typedef std::vector<T> List;
+  List d_list;
+public:
+
+  /**
+   * Construct an integer-valued statistic with the given name and
+   * initial value.
+   */
+  ListStat(const std::string& name) : Stat(name) {}
+  ~ListStat() {}
+
+  void flushInformation(std::ostream& out) const{
+    if(__CVC4_USE_STATISTICS) {
+      typename List::const_iterator i = d_list.begin(), end =  d_list.end();
+      out << "[";
+      if(i != end){
+        out << *i;
+        ++i;
+        for(; i != end; ++i){
+          out << ", " << *i;
+        }
+      }
+      out << "]";
+    }
+  }
+
+  ListStat& operator<<(const T& val){
+    if(__CVC4_USE_STATISTICS) {
+      d_list.push_back(val);
+    }
+    return (*this);
+  }
+
+  std::string getValue() const {
+    std::stringstream ss;
+    flushInformation(ss);
+    return ss.str();
+  }
+
+};/* class ListStat */
 
 /****************************************************************************/
 /* Some utility functions for ::timespec                                    */
@@ -509,16 +536,20 @@ public:
 inline ::timespec& operator+=(::timespec& a, const ::timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   const long nsec_per_sec = 1000000000L; // one thousand million
+  Assert(a.tv_nsec >= 0 && a.tv_nsec < nsec_per_sec);
+  Assert(b.tv_nsec >= 0 && b.tv_nsec < nsec_per_sec);
   a.tv_sec += b.tv_sec;
   long nsec = a.tv_nsec + b.tv_nsec;
-  while(nsec < 0) {
+  Assert(nsec >= 0);
+  if(nsec < 0) {
     nsec += nsec_per_sec;
-    ++a.tv_sec;
-  }
-  while(nsec >= nsec_per_sec) {
-    nsec -= nsec_per_sec;
     --a.tv_sec;
   }
+  if(nsec >= nsec_per_sec) {
+    nsec -= nsec_per_sec;
+    ++a.tv_sec;
+  }
+  Assert(nsec >= 0 && nsec < nsec_per_sec);
   a.tv_nsec = nsec;
   return a;
 }
@@ -527,16 +558,19 @@ inline ::timespec& operator+=(::timespec& a, const ::timespec& b) {
 inline ::timespec& operator-=(::timespec& a, const ::timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   const long nsec_per_sec = 1000000000L; // one thousand million
+  Assert(a.tv_nsec >= 0 && a.tv_nsec < nsec_per_sec);
+  Assert(b.tv_nsec >= 0 && b.tv_nsec < nsec_per_sec);
   a.tv_sec -= b.tv_sec;
   long nsec = a.tv_nsec - b.tv_nsec;
-  while(nsec < 0) {
+  if(nsec < 0) {
     nsec += nsec_per_sec;
-    ++a.tv_sec;
-  }
-  while(nsec >= nsec_per_sec) {
-    nsec -= nsec_per_sec;
     --a.tv_sec;
   }
+  if(nsec >= nsec_per_sec) {
+    nsec -= nsec_per_sec;
+    ++a.tv_sec;
+  }
+  Assert(nsec >= 0 && nsec < nsec_per_sec);
   a.tv_nsec = nsec;
   return a;
 }
@@ -604,7 +638,7 @@ inline std::ostream& operator<<(std::ostream& os, const ::timespec& t) {
  * arbitrarily, like a stopwatch; the value of the statistic at the
  * end is the accumulated time over all (start,stop) pairs.
  */
-class TimerStat : public BackedStat< ::timespec > {
+class CVC4_PUBLIC TimerStat : public BackedStat< ::timespec > {
 
   // strange: timespec isn't placed in 'std' namespace ?!
   /** The last start time of this timer */
@@ -702,6 +736,32 @@ public:
       StatisticsRegistry::unregisterStat(this);                         \
     }                                                                   \
   } _StatField
+
+/**
+ * Resource-acquisition-is-initialization idiom for statistics
+ * registry.  Useful for stack-based statistics (like in the driver).
+ * Generally, for statistics kept in a member field of class, it's
+ * better to use the above KEEP_STATISTIC(), which does declaration of
+ * the member, construction of the statistic, and
+ * registration/unregistration.  This RAII class only does
+ * registration and unregistration.
+ */
+class CVC4_PUBLIC RegisterStatistic {
+  ExprManager* d_em;
+  Stat* d_stat;
+public:
+  RegisterStatistic(Stat* stat) : d_stat(stat) {
+    Assert(StatisticsRegistry::current() != NULL,
+           "You need to specify an expression manager "
+           "on which to set the statistic");
+    StatisticsRegistry::registerStat(d_stat);
+  }
+
+  RegisterStatistic(ExprManager& em, Stat* stat);
+
+  ~RegisterStatistic();
+
+};/* class RegisterStatistic */
 
 #undef __CVC4_USE_STATISTICS
 

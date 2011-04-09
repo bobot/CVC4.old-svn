@@ -51,7 +51,8 @@ void doCommand(SmtEngine&, Command*);
 void printUsage();
 
 namespace CVC4 {
-  namespace main {/* Global options variable */
+  namespace main {
+    /** Global options variable */
     Options options;
 
     /** Full argv[0] */
@@ -59,6 +60,9 @@ namespace CVC4 {
 
     /** Just the basename component of argv[0] */
     const char *progName;
+
+    /** A pointer to the StatisticsRegistry (the signal handlers need it) */
+    CVC4::StatisticsRegistry* pStatistics;
   }
 }
 
@@ -104,8 +108,8 @@ int main(int argc, char* argv[]) {
     *options.out << "unknown" << endl;
 #endif
     *options.err << "CVC4 Error:" << endl << e << endl;
-    if(options.statistics) {
-      StatisticsRegistry::flushStatistics(*options.err);
+    if(options.statistics && pStatistics != NULL) {
+      pStatistics->flushStatistics(*options.err);
     }
     exit(1);
   } catch(bad_alloc) {
@@ -113,8 +117,8 @@ int main(int argc, char* argv[]) {
     *options.out << "unknown" << endl;
 #endif
     *options.err << "CVC4 ran out of memory." << endl;
-    if(options.statistics) {
-      StatisticsRegistry::flushStatistics(*options.err);
+    if(options.statistics && pStatistics != NULL) {
+      pStatistics->flushStatistics(*options.err);
     }
     exit(1);
   } catch(...) {
@@ -171,17 +175,41 @@ int runCvc4(int argc, char* argv[]) {
     options.interactive = inputFromStdin && isatty(fileno(stdin));
   }
 
+  // Determine which messages to show based on smtcomp_mode and verbosity
+  if(Configuration::isMuzzledBuild()) {
+    Debug.setStream(CVC4::null_os);
+    Trace.setStream(CVC4::null_os);
+    Notice.setStream(CVC4::null_os);
+    Chat.setStream(CVC4::null_os);
+    Message.setStream(CVC4::null_os);
+    Warning.setStream(CVC4::null_os);
+  } else {
+    if(options.verbosity < 2) {
+      Chat.setStream(CVC4::null_os);
+    }
+    if(options.verbosity < 1) {
+      Notice.setStream(CVC4::null_os);
+    }
+    if(options.verbosity < 0) {
+      Message.setStream(CVC4::null_os);
+      Warning.setStream(CVC4::null_os);
+    }
+  }
+
   // Create the expression manager
   ExprManager exprMgr(options);
 
   // Create the SmtEngine
-  SmtEngine smt(&exprMgr, options);
+  SmtEngine smt(&exprMgr);
+
+  // signal handlers need access
+  pStatistics = smt.getStatisticsRegistry();
 
   // Auto-detect input language by filename extension
   const char* filename = inputFromStdin ? "<stdin>" : argv[firstArgIndex];
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
-  StatisticsRegistry::registerStat(&s_statFilename);
+  RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
 
   if(options.inputLanguage == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
@@ -303,14 +331,11 @@ int runCvc4(int argc, char* argv[]) {
 #endif
 
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
-  StatisticsRegistry::registerStat(&s_statSatResult);
+  RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
 
   if(options.statistics) {
-    StatisticsRegistry::flushStatistics(*options.err);
+    smt.getStatisticsRegistry()->flushStatistics(*options.err);
   }
-
-  StatisticsRegistry::unregisterStat(&s_statSatResult);
-  StatisticsRegistry::unregisterStat(&s_statFilename);
 
   return returnValue;
 }

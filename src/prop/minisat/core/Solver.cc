@@ -266,7 +266,7 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
 
 void Solver::attachClause(CRef cr) {
     const Clause& c = ca[cr];
-    CVC4::Debug("minisat") << "Solver::attachClause(" << c << ")" << std::endl;
+    Debug("minisat") << "Solver::attachClause(" << c << ")" << std::endl;
     Assert(c.size() > 1);
     watches[~c[0]].push(Watcher(cr, c[1]));
     watches[~c[1]].push(Watcher(cr, c[0]));
@@ -276,7 +276,7 @@ void Solver::attachClause(CRef cr) {
 
 void Solver::detachClause(CRef cr, bool strict) {
     const Clause& c = ca[cr];
-    CVC4::Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
+    Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
     assert(c.size() > 1);
     
     if (strict){
@@ -294,7 +294,7 @@ void Solver::detachClause(CRef cr, bool strict) {
 
 void Solver::removeClause(CRef cr) {
     Clause& c = ca[cr];
-    CVC4::Debug("minisat") << "Solver::removeClause(" << c << ")" << std::endl;
+    Debug("minisat") << "Solver::removeClause(" << c << ")" << std::endl;
     detachClause(cr);
     // Don't leave pointers to free'd memory!
     if (locked(c)) vardata[var(c[0])].reason = CRef_Undef;
@@ -312,7 +312,7 @@ bool Solver::satisfied(const Clause& c) const {
 
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
-void Solver::cancelUntil(int level) {
+void Solver::cancelUntil(int level, bool re_propagate) {
     if (decisionLevel() > level){
         // Pop the SMT context
         for (int l = trail_lim.size() - level; l > 0; --l)
@@ -327,29 +327,48 @@ void Solver::cancelUntil(int level) {
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
 
-        // Propagate the lemma literals
-        int i, j;
-        for (i = j = propagating_lemmas_lim[level]; i < propagating_lemmas.size(); ++ i) {
-          Clause& lemma = ca[propagating_lemmas[i]];
-          bool propagating = value(var(lemma[0])) == l_Undef;;
-          for(int lit = 1; lit < lemma.size() && propagating; ++ lit)  {
-            if (value(var(lemma[lit])) != l_False) {
-              propagating = false;
-              break;
-            }
-          }
-          if (propagating) {
-            // Propagate
-            uncheckedEnqueue(lemma[0], propagating_lemmas[i]);
-            // Remember the lemma
-            propagating_lemmas[j++] = propagating_lemmas[i];
-          }
+        // Re-Propagate the lemmas if asked
+        if (re_propagate) {
+          rePropagate(level);
         }
-        Assert(i >= j);
-        propagating_lemmas.shrink(propagating_lemmas.size() - j);
-        Assert(propagating_lemmas_lim.size() >= level);
-        propagating_lemmas_lim.shrink(propagating_lemmas_lim.size() - level);
     }
+}
+
+CRef Solver::rePropagate(int level) {
+  // Propagate the lemma literals
+  int i, j;
+  for (i = j = propagating_lemmas_lim[level]; i < propagating_lemmas.size(); ++ i) {
+    Clause& lemma = ca[propagating_lemmas[i]];
+    bool propagating = value(var(lemma[0])) == l_Undef;;
+    for(int lit = 1; lit < lemma.size() && propagating; ++ lit)  {
+      if (value(var(lemma[lit])) != l_False) {
+        propagating = false;
+        break;
+      }
+    }
+    if (propagating) {
+      if (value(lemma[0]) != l_Undef) {
+        if (value(lemma[0]) == l_False) {
+          // Conflict
+          return propagating_lemmas[i];
+        } else {
+          // Already there
+          continue;
+        }
+      }
+      // Propagate
+      uncheckedEnqueue(lemma[0], propagating_lemmas[i]);
+      // Remember the lemma
+      propagating_lemmas[j++] = propagating_lemmas[i];
+    }
+  }
+  Assert(i >= j);
+  propagating_lemmas.shrink(propagating_lemmas.size() - j);
+  Assert(propagating_lemmas_lim.size() >= level);
+  propagating_lemmas_lim.shrink(propagating_lemmas_lim.size() - level);
+
+  // No conflict
+  return CRef_Undef;
 }
 
 void Solver::popTrail() {
@@ -618,7 +637,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)));
     trail.push_(p);
-    if (theory[var(p)] && from != CRef_Lazy) {
+    if (theory[var(p)]) {
       // Enqueue to the theory
       proxy->enqueueTheoryLiteral(p);
     }
@@ -940,27 +959,34 @@ lbool Solver::search(int nof_conflicts)
 
         CRef confl = propagate(check_type);
         if (confl != CRef_Undef){
-            // CONFLICT
-            conflicts++; conflictC++;
-            if (decisionLevel() == 0) return l_False;
-
-	    // Clear the propagated literals
+            // Clear the propagated literals
             lemma_propagated_literals.clear();
             lemma_propagated_reasons.clear();
-			
-            learnt_clause.clear();
-            int max_level = analyze(confl, learnt_clause, backtrack_level);
-            cancelUntil(backtrack_level);
 
-            if (learnt_clause.size() == 1){
-                uncheckedEnqueue(learnt_clause[0]);
-            }else{
-                CRef cr = ca.alloc(max_level, learnt_clause, true);
-                learnts.push(cr);
-                attachClause(cr);
-                claBumpActivity(ca[cr]);
-                uncheckedEnqueue(learnt_clause[0], cr);
-            }
+            // CONFLICT
+            while (confl != CRef_Undef) {
+              conflicts++; conflictC++;
+              if (decisionLevel() == 0) return l_False;
+
+              // Analyze the conflict
+              learnt_clause.clear();
+              int max_level = analyze(confl, learnt_clause, backtrack_level);
+              cancelUntil(backtrack_level, false);
+
+              // Assert the conflict clause and the asserting literal
+              if (learnt_clause.size() == 1){
+                  uncheckedEnqueue(learnt_clause[0]);
+              }else{
+                  CRef cr = ca.alloc(max_level, learnt_clause, true);
+                  learnts.push(cr);
+                  attachClause(cr);
+                  claBumpActivity(ca[cr]);
+                  uncheckedEnqueue(learnt_clause[0], cr);
+              }
+
+              // We repropagate lemmas
+              confl = rePropagate(backtrack_level);
+            };
 
             varDecayActivity();
             claDecayActivity();
@@ -1261,6 +1287,13 @@ void Solver::relocAll(ClauseAllocator& to)
     //
     for (int i = 0; i < clauses.size(); i++)
         ca.reloc(clauses[i], to);
+
+    // All lemmas
+    //
+    for (int i = 0; i < lemma_propagated_reasons.size(); i ++)
+      ca.reloc(lemma_propagated_reasons[i], to);
+    for (int i = 0; i < propagating_lemmas.size(); i ++)
+      ca.reloc(propagating_lemmas[i], to);
 }
 
 

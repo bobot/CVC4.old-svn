@@ -177,6 +177,9 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     } else {
       out << "(...)";
     }
+    if(n.getNumChildren() > 0) {
+      out << ' ';
+    }
   }
   for(TNode::iterator i = n.begin(),
         iend = n.end();

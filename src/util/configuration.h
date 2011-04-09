@@ -73,6 +73,8 @@ public:
 
   static bool isBuiltWithCln();
 
+  static bool isBuiltWithCudd();
+
   static bool isBuiltWithTlsSupport();
 };
 

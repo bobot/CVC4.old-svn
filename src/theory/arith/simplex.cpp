@@ -9,6 +9,11 @@ using namespace CVC4::kind;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
+
+static const uint32_t NUM_CHECKS = 10;
+static const bool CHECK_AFTER_PIVOT = true;
+static const uint32_t VARORDER_CHECK_PERIOD = 200;
+
 SimplexDecisionProcedure::Statistics::Statistics():
   d_statPivots("theory::arith::pivots",0),
   d_statUpdates("theory::arith::updates",0),
@@ -16,12 +21,17 @@ SimplexDecisionProcedure::Statistics::Statistics():
   d_statAssertLowerConflicts("theory::arith::AssertLowerConflicts", 0),
   d_statUpdateConflicts("theory::arith::UpdateConflicts", 0),
   d_findConflictOnTheQueueTime("theory::arith::findConflictOnTheQueueTime"),
-  d_attemptBeforeDiffSearch("theory::arith::attemptBeforeDiffSearch",0),
-  d_successBeforeDiffSearch("theory::arith::successBeforeDiffSearch",0),
-  d_attemptAfterDiffSearch("theory::arith::attemptAfterDiffSearch",0),
-  d_successAfterDiffSearch("theory::arith::successAfterDiffSearch",0),
-  d_attemptDuringVarOrderSearch("theory::arith::attemptDuringVarOrderSearch",0),
-  d_successDuringVarOrderSearch("theory::arith::successDuringVarOrderSearch",0),
+  d_attemptBeforeDiffSearch("theory::arith::qi::BeforeDiffSearch::attempt",0),
+  d_successBeforeDiffSearch("theory::arith::qi::BeforeDiffSearch::success",0),
+  d_attemptAfterDiffSearch("theory::arith::qi::AfterDiffSearch::attempt",0),
+  d_successAfterDiffSearch("theory::arith::qi::AfterDiffSearch::success",0),
+  d_attemptDuringDiffSearch("theory::arith::qi::DuringDiffSearch::attempt",0),
+  d_successDuringDiffSearch("theory::arith::qi::DuringDiffSearch::success",0),
+  d_attemptDuringVarOrderSearch("theory::arith::qi::DuringVarOrderSearch::attempt",0),
+  d_successDuringVarOrderSearch("theory::arith::qi::DuringVarOrderSearch::success",0),
+  d_attemptAfterVarOrderSearch("theory::arith::qi::AfterVarOrderSearch::attempt",0),
+  d_successAfterVarOrderSearch("theory::arith::qi::AfterVarOrderSearch::success",0),
+  d_delayedConflicts("theory::arith::delayedConflicts",0),
   d_pivotTime("theory::arith::pivotTime"),
   d_avgNumRowsNotContainingOnUpdate("theory::arith::avgNumRowsNotContainingOnUpdate"),
   d_avgNumRowsNotContainingOnPivot("theory::arith::avgNumRowsNotContainingOnPivot")
@@ -38,8 +48,14 @@ SimplexDecisionProcedure::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_successBeforeDiffSearch);
   StatisticsRegistry::registerStat(&d_attemptAfterDiffSearch);
   StatisticsRegistry::registerStat(&d_successAfterDiffSearch);
+  StatisticsRegistry::registerStat(&d_attemptDuringDiffSearch);
+  StatisticsRegistry::registerStat(&d_successDuringDiffSearch);
   StatisticsRegistry::registerStat(&d_attemptDuringVarOrderSearch);
   StatisticsRegistry::registerStat(&d_successDuringVarOrderSearch);
+  StatisticsRegistry::registerStat(&d_attemptAfterVarOrderSearch);
+  StatisticsRegistry::registerStat(&d_successAfterVarOrderSearch);
+
+  StatisticsRegistry::registerStat(&d_delayedConflicts);
 
   StatisticsRegistry::registerStat(&d_pivotTime);
 
@@ -60,9 +76,14 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_successBeforeDiffSearch);
   StatisticsRegistry::unregisterStat(&d_attemptAfterDiffSearch);
   StatisticsRegistry::unregisterStat(&d_successAfterDiffSearch);
+  StatisticsRegistry::unregisterStat(&d_attemptDuringDiffSearch);
+  StatisticsRegistry::unregisterStat(&d_successDuringDiffSearch);
   StatisticsRegistry::unregisterStat(&d_attemptDuringVarOrderSearch);
   StatisticsRegistry::unregisterStat(&d_successDuringVarOrderSearch);
+  StatisticsRegistry::unregisterStat(&d_attemptAfterVarOrderSearch);
+  StatisticsRegistry::unregisterStat(&d_successAfterVarOrderSearch);
 
+  StatisticsRegistry::unregisterStat(&d_delayedConflicts);
   StatisticsRegistry::unregisterStat(&d_pivotTime);
 
   StatisticsRegistry::unregisterStat(&d_avgNumRowsNotContainingOnUpdate);
@@ -70,19 +91,19 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
 }
 
 /* procedure AssertLower( x_i >= c_i ) */
-bool SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_i, TNode original){
+Node SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_i, TNode original){
   Debug("arith") << "AssertLower(" << x_i << " " << c_i << ")"<< std::endl;
 
   if(d_partialModel.belowLowerBound(x_i, c_i, false)){
-    return false; //sat
+    return Node::null();
   }
   if(d_partialModel.aboveUpperBound(x_i, c_i, true)){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
-    d_out->conflict(conflict);
+    //d_out->conflict(conflict);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     ++(d_statistics.d_statAssertLowerConflicts);
-    return true;
+    return conflict;
   }
 
   d_partialModel.setLowerConstraint(x_i,original);
@@ -96,24 +117,28 @@ bool SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_
     d_queue.enqueueIfInconsistent(x_i);
   }
 
-  return false;
+  if(Debug.isOn("model")) { d_partialModel.printModel(x_i); }
+
+  return Node::null();
 }
 
 /* procedure AssertUpper( x_i <= c_i) */
-bool SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_i, TNode original){
+Node SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_i, TNode original){
 
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
 
   if(d_partialModel.aboveUpperBound(x_i, c_i, false) ){ // \upperbound(x_i) <= c_i
-    return false; //sat
+    //return false; //sat
+    return Node::null();
   }
   if(d_partialModel.belowLowerBound(x_i, c_i, true)){// \lowerbound(x_i) > c_i
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     ++(d_statistics.d_statAssertUpperConflicts);
-    d_out->conflict(conflict);
-    return true;
+    //d_out->conflict(conflict);
+    return conflict;
+    //return true;
   }
 
   d_partialModel.setUpperConstraint(x_i,original);
@@ -126,13 +151,16 @@ bool SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
   }else{
     d_queue.enqueueIfInconsistent(x_i);
   }
-  d_partialModel.printModel(x_i);
-  return false;
+
+  if(Debug.isOn("model")) { d_partialModel.printModel(x_i); }
+
+  return Node::null();
+  //return false;
 }
 
 
 /* procedure AssertLower( x_i == c_i ) */
-bool SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational& c_i, TNode original){
+Node SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational& c_i, TNode original){
 
   Debug("arith") << "AssertEquality(" << x_i << " " << c_i << ")"<< std::endl;
 
@@ -140,23 +168,26 @@ bool SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
   // This can happen if both c_i <= x_i and x_i <= c_i are in the system.
   if(d_partialModel.belowLowerBound(x_i, c_i, false) &&
      d_partialModel.aboveUpperBound(x_i, c_i, false)){
-    return false; //sat
+    //return false; //sat
+    return Node::null();
   }
 
   if(d_partialModel.aboveUpperBound(x_i, c_i, true)){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
-    d_out->conflict(conflict);
+    //d_out->conflict(conflict);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
-    return true;
+    //return true;
+    return conflict;
   }
 
   if(d_partialModel.belowLowerBound(x_i, c_i, true)){
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
-    d_out->conflict(conflict);
-    return true;
+    //d_out->conflict(conflict);
+    //return true;
+    return conflict;
   }
 
   d_partialModel.setLowerConstraint(x_i,original);
@@ -174,39 +205,42 @@ bool SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
     //checkBasicVariable(x_i);
   }
 
-  return false;
+  //return false;
+  return Node::null();
 }
 
-set<ArithVar> tableauAndHasSet(Tableau& tab, ArithVar v){
-  set<ArithVar> has;
-  for(ArithVarSet::iterator basicIter = tab.begin();
-      basicIter != tab.end();
-      ++basicIter){
-    ArithVar basic = *basicIter;
-    ReducedRowVector& row = tab.lookup(basic);
+// set<ArithVar> tableauAndHasSet(Tableau& tab, ArithVar v){
+//   set<ArithVar> has;
+//   for(ArithVarSet::const_iterator basicIter = tab.beginBasic();
+//       basicIter != tab.endBasic();
+//       ++basicIter){
+//     ArithVar basic = *basicIter;
+//     ReducedRowVector& row = tab.lookup(basic);
 
-    if(row.has(v)){
-      has.insert(basic);
-    }
-  }
-  return has;
-}
+//     if(row.has(v)){
+//       has.insert(basic);
+//     }
+//   }
+//   return has;
+// }
 
-set<ArithVar> columnIteratorSet(Tableau& tab,ArithVar v){
-  set<ArithVar> has;
-  ArithVarSet::iterator basicIter = tab.beginColumn(v);
-  ArithVarSet::iterator endIter = tab.endColumn(v);
-  for(; basicIter != endIter; ++basicIter){
-    ArithVar basic = *basicIter;
-    has.insert(basic);
-  }
-  return has;
-}
+// set<ArithVar> columnIteratorSet(Tableau& tab,ArithVar v){
+//   set<ArithVar> has;
+//   Column::iterator basicIter = tab.beginColumn(v);
+//   Column::iterator endIter = tab.endColumn(v);
+//   for(; basicIter != endIter; ++basicIter){
+//     ArithVar basic = *basicIter;
+//     has.insert(basic);
+//   }
+//   return has;
+// }
 
 
+/*
 bool matchingSets(Tableau& tab, ArithVar v){
   return tableauAndHasSet(tab, v) == columnIteratorSet(tab, v);
 }
+*/
 
 void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
   Assert(!d_tableau.isBasic(x_i));
@@ -217,15 +251,17 @@ void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
                  << assignment_x_i << "|-> " << v << endl;
   DeltaRational diff = v - assignment_x_i;
 
-  Assert(matchingSets(d_tableau, x_i));
-  ArithVarSet::iterator basicIter = d_tableau.beginColumn(x_i);
-  ArithVarSet::iterator endIter   = d_tableau.endColumn(x_i);
-  for(; basicIter != endIter; ++basicIter){
-    ArithVar x_j = *basicIter;
-    ReducedRowVector& row_j = d_tableau.lookup(x_j);
+  //Assert(matchingSets(d_tableau, x_i));
+  Tableau::ColIterator basicIter = d_tableau.colIterator(x_i);
+  for(; !basicIter.atEnd(); ++basicIter){
+    const TableauEntry& entry = *basicIter;
+    Assert(entry.getColVar() == x_i);
 
-    Assert(row_j.has(x_i));
-    const Rational& a_ji = row_j.lookup(x_i);
+    ArithVar x_j = entry.getRowVar();
+    //ReducedRowVector& row_j = d_tableau.lookup(x_j);
+
+    //const Rational& a_ji = row_j.lookup(x_i);
+    const Rational& a_ji = entry.getCoefficient();
 
     const DeltaRational& assignment = d_partialModel.getAssignment(x_j);
     DeltaRational  nAssignment = assignment+(diff * a_ji);
@@ -236,13 +272,34 @@ void SimplexDecisionProcedure::update(ArithVar x_i, const DeltaRational& v){
 
   d_partialModel.setAssignment(x_i, v);
 
-  Assert(d_tableau.getNumRows() >= d_tableau.getRowCount(x_i));
-  double difference = ((double)d_tableau.getNumRows()) - ((double) d_tableau.getRowCount(x_i));
+  Assert(d_tableau.getNumRows() >= d_tableau.getRowLength(x_i));
+  double difference = ((double)d_tableau.getNumRows()) - ((double) d_tableau.getRowLength(x_i));
 
   (d_statistics.d_avgNumRowsNotContainingOnUpdate).addEntry(difference);
-  if(Debug.isOn("paranoid:check_tableau")){
-    checkTableau();
+  if(Debug.isOn("paranoid:check_tableau")){  debugCheckTableau(); }
+}
+
+void SimplexDecisionProcedure::debugPivotSimplex(ArithVar x_i, ArithVar x_j){
+  Debug("arith::simplex:row") << "debugRowSimplex("
+                              << x_i  << "|->" << x_j
+                              << ")" << endl;
+
+  for(Tableau::RowIterator iter = d_tableau.rowIterator(x_i); !iter.atEnd(); ++iter){
+    const TableauEntry& entry = *iter;
+
+    ArithVar var = entry.getColVar();
+    const Rational& coeff = entry.getCoefficient();
+    DeltaRational beta = d_partialModel.getAssignment(var);
+    Debug("arith::simplex:row") << var << beta << coeff;
+    if(d_partialModel.hasLowerBound(var)){
+      Debug("arith::simplex:row") << "(lb " << d_partialModel.getLowerBound(var) << ")";
+    }
+    if(d_partialModel.hasUpperBound(var)){
+      Debug("arith::simplex:row") << "(up " << d_partialModel.getUpperBound(var) << ")";
+    }
+    Debug("arith::simplex:row") << endl;
   }
+  Debug("arith::simplex:row") << "end row"<< endl;
 }
 
 void SimplexDecisionProcedure::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaRational& v){
@@ -250,32 +307,13 @@ void SimplexDecisionProcedure::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaR
 
   TimerStat::CodeTimer codeTimer(d_statistics.d_pivotTime);
 
-  if(Debug.isOn("arith::pivotAndUpdate")){
-    Debug("arith::pivotAndUpdate") << "x_i " << "|->" << x_j << endl;
-    ReducedRowVector& row_k = d_tableau.lookup(x_i);
-    for(ReducedRowVector::const_iterator varIter = row_k.begin();
-        varIter != row_k.end();
-        ++varIter){
+  if(Debug.isOn("arith::simplex:row")){ debugPivotSimplex(x_i, x_j); }
 
-      ArithVar var = (*varIter).getArithVar();
-      const Rational& coeff = (*varIter).getCoefficient();
-      DeltaRational beta = d_partialModel.getAssignment(var);
-      Debug("arith::pivotAndUpdate") << var << beta << coeff;
-      if(d_partialModel.hasLowerBound(var)){
-        Debug("arith::pivotAndUpdate") << "(lb " << d_partialModel.getLowerBound(var) << ")";
-      }
-      if(d_partialModel.hasUpperBound(var)){
-        Debug("arith::pivotAndUpdate") << "(up " << d_partialModel.getUpperBound(var)
-                                       << ")";
-      }
-      Debug("arith::pivotAndUpdate") << endl;
-    }
-    Debug("arith::pivotAndUpdate") << "end row"<< endl;
-  }
+  const TableauEntry& entry_ij =  d_tableau.findEntry(x_i, x_j);
+  Assert(!entry_ij.blank());
 
 
-  ReducedRowVector& row_i = d_tableau.lookup(x_i);
-  const Rational& a_ij = row_i.lookup(x_j);
+  const Rational& a_ij = entry_ij.getCoefficient();
 
 
   const DeltaRational& betaX_i = d_partialModel.getAssignment(x_i);
@@ -290,16 +328,13 @@ void SimplexDecisionProcedure::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaR
   d_partialModel.setAssignment(x_j, tmp);
 
 
-  Assert(matchingSets(d_tableau, x_j));
-  ArithVarSet::iterator basicIter = d_tableau.beginColumn(x_j);
-  ArithVarSet::iterator endIter   = d_tableau.endColumn(x_j);
-  for(; basicIter != endIter; ++basicIter){
-    ArithVar x_k = *basicIter;
-    ReducedRowVector& row_k = d_tableau.lookup(x_k);
-
-    Assert(row_k.has(x_j));
+  //Assert(matchingSets(d_tableau, x_j));
+  for(Tableau::ColIterator iter = d_tableau.colIterator(x_j); !iter.atEnd(); ++iter){
+    const TableauEntry& entry = *iter;
+    Assert(entry.getColVar() == x_j);
+    ArithVar x_k = entry.getRowVar();
     if(x_k != x_i ){
-      const Rational& a_kj = row_k.lookup(x_j);
+      const Rational& a_kj = entry.getCoefficient();
       DeltaRational nextAssignment = d_partialModel.getAssignment(x_k) + (theta * a_kj);
       d_partialModel.setAssignment(x_k, nextAssignment);
 
@@ -310,8 +345,8 @@ void SimplexDecisionProcedure::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaR
   // Pivots
   ++(d_statistics.d_statPivots);
 
-  Assert(d_tableau.getNumRows() >= d_tableau.getRowCount(x_j));
-  double difference = ((double)d_tableau.getNumRows()) - ((double) d_tableau.getRowCount(x_j));
+  Assert(d_tableau.getNumRows() >= d_tableau.getRowLength(x_j));
+  double difference = ((double)d_tableau.getNumRows()) - ((double) d_tableau.getRowLength(x_j));
   (d_statistics.d_avgNumRowsNotContainingOnPivot).addEntry(difference);
   d_tableau.pivot(x_i, x_j);
 
@@ -323,62 +358,64 @@ void SimplexDecisionProcedure::pivotAndUpdate(ArithVar x_i, ArithVar x_j, DeltaR
   }
 }
 
-template <bool above>
-ArithVar SimplexDecisionProcedure::selectSlack(ArithVar x_i, bool first){
-  ReducedRowVector& row_i = d_tableau.lookup(x_i);
+ArithVar SimplexDecisionProcedure::minVarOrder(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y){
+  Assert(x != ARITHVAR_SENTINEL);
+  Assert(y != ARITHVAR_SENTINEL);
+  Assert(!simp.d_tableau.isBasic(x));
+  Assert(!simp.d_tableau.isBasic(y));
+  if(x <= y){
+    return x;
+  } else {
+    return y;
+  }
+}
 
+ArithVar SimplexDecisionProcedure::minColLength(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y){
+  Assert(x != ARITHVAR_SENTINEL);
+  Assert(y != ARITHVAR_SENTINEL);
+  Assert(!simp.d_tableau.isBasic(x));
+  Assert(!simp.d_tableau.isBasic(y));
+  uint32_t xLen = simp.d_tableau.getColLength(x);
+  uint32_t yLen = simp.d_tableau.getColLength(y);
+  if( xLen > yLen){
+     return y;
+  } else if( xLen== yLen ){
+    return minVarOrder(simp,x,y);
+  }else{
+    return x;
+  }
+}
+
+ArithVar SimplexDecisionProcedure::minBoundAndRowCount(const SimplexDecisionProcedure& simp, ArithVar x, ArithVar y){
+  Assert(x != ARITHVAR_SENTINEL);
+  Assert(y != ARITHVAR_SENTINEL);
+  Assert(!simp.d_tableau.isBasic(x));
+  Assert(!simp.d_tableau.isBasic(y));
+  if(simp.d_partialModel.hasEitherBound(x) && !simp.d_partialModel.hasEitherBound(y)){
+    return y;
+  }else if(!simp.d_partialModel.hasEitherBound(x) && simp.d_partialModel.hasEitherBound(y)){
+    return x;
+  }else {
+    return minColLength(simp, x, y);
+  }
+}
+
+template <bool above, SimplexDecisionProcedure::PreferenceFunction pref>
+ArithVar SimplexDecisionProcedure::selectSlack(ArithVar x_i){
   ArithVar slack = ARITHVAR_SENTINEL;
-  uint32_t numRows = std::numeric_limits<uint32_t>::max();
 
-  bool pivotStage = !first;
-
-  for(ReducedRowVector::const_iterator nbi = row_i.begin(), end = row_i.end();
-      nbi != end; ++nbi){
-    ArithVar nonbasic = (*nbi).getArithVar();
+  for(Tableau::RowIterator iter = d_tableau.rowIterator(x_i); !iter.atEnd();  ++iter){
+    const TableauEntry& entry = *iter;
+    ArithVar nonbasic = entry.getColVar();
     if(nonbasic == x_i) continue;
 
-    const Rational& a_ij = (*nbi).getCoefficient();
-    int cmp = a_ij.cmp(d_constants.d_ZERO);
-    if(above){ // beta(x_i) > u_i
-      if( cmp < 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)){
-        if(pivotStage){
-          if(d_tableau.getRowCount(nonbasic) < numRows){
-            slack = nonbasic;
-            numRows = d_tableau.getRowCount(nonbasic);
-          }
-        }else{
-          slack = nonbasic; break;
-        }
-      }else if( cmp > 0 && d_partialModel.strictlyAboveLowerBound(nonbasic)){
-        if(pivotStage){
-          if(d_tableau.getRowCount(nonbasic) < numRows){
-            slack = nonbasic;
-            numRows = d_tableau.getRowCount(nonbasic);
-          }
-        }else{
-          slack = nonbasic; break;
-        }
-      }
-    }else{ //beta(x_i) < l_i
-      if(cmp > 0 && d_partialModel.strictlyBelowUpperBound(nonbasic)){
-        if(pivotStage){
-          if(d_tableau.getRowCount(nonbasic) < numRows){
-            slack = nonbasic;
-            numRows = d_tableau.getRowCount(nonbasic);
-          }
-        }else{
-          slack = nonbasic; break;
-        }
-      }else if(cmp < 0 && d_partialModel.strictlyAboveLowerBound(nonbasic)){
-        if(pivotStage){
-          if(d_tableau.getRowCount(nonbasic) < numRows){
-            slack = nonbasic;
-            numRows = d_tableau.getRowCount(nonbasic);
-          }
-        }else{
-          slack = nonbasic; break;
-        }
-      }
+    const Rational& a_ij = entry.getCoefficient();
+    int sgn = a_ij.sgn();
+    if(isAcceptableSlack<above>(sgn, nonbasic)){
+      //If one of the above conditions is met, we have found an acceptable
+      //nonbasic variable to pivot x_i with.  We can now choose which one we
+      //prefer the most.
+      slack = (slack == ARITHVAR_SENTINEL) ? nonbasic : pref(*this, slack, nonbasic);
     }
   }
 
@@ -392,16 +429,19 @@ Node betterConflict(TNode x, TNode y){
   else return y;
 }
 
-Node SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
+Node SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type, bool returnFirst) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_findConflictOnTheQueueTime);
 
   switch(type){
   case BeforeDiffSearch:     ++(d_statistics.d_attemptBeforeDiffSearch); break;
+  case DuringDiffSearch:     ++(d_statistics.d_attemptDuringDiffSearch); break;
   case AfterDiffSearch:      ++(d_statistics.d_attemptAfterDiffSearch); break;
   case DuringVarOrderSearch: ++(d_statistics.d_attemptDuringVarOrderSearch); break;
+  case AfterVarOrderSearch:  ++(d_statistics.d_attemptAfterVarOrderSearch); break;
   }
 
-  Node bestConflict = Node::null();
+  bool success = false;
+  Node firstConflict = Node::null();
   ArithPriorityQueue::const_iterator i = d_queue.begin();
   ArithPriorityQueue::const_iterator end = d_queue.end();
   for(; i != end; ++i){
@@ -410,19 +450,25 @@ Node SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type) {
     if(d_tableau.isBasic(x_i)){
       Node possibleConflict = checkBasicForConflict(x_i);
       if(!possibleConflict.isNull()){
-
-        bestConflict = betterConflict(bestConflict, possibleConflict);
+        success = true;
+        if(returnFirst && firstConflict.isNull()){
+          firstConflict = possibleConflict;
+        }else{
+          delayConflictAsLemma(possibleConflict);
+        }
       }
     }
   }
-  if(!bestConflict.isNull()){
+  if(success){
     switch(type){
     case BeforeDiffSearch:     ++(d_statistics.d_successBeforeDiffSearch); break;
+    case DuringDiffSearch:     ++(d_statistics.d_successDuringDiffSearch); break;
     case AfterDiffSearch:      ++(d_statistics.d_successAfterDiffSearch); break;
     case DuringVarOrderSearch: ++(d_statistics.d_successDuringVarOrderSearch); break;
+    case AfterVarOrderSearch:  ++(d_statistics.d_successAfterVarOrderSearch); break;
     }
   }
-  return bestConflict;
+  return firstConflict;
 }
 
 Node SimplexDecisionProcedure::updateInconsistentVars(){
@@ -430,8 +476,8 @@ Node SimplexDecisionProcedure::updateInconsistentVars(){
     return Node::null();
   }
   static unsigned int instance = 0;
-
   ++instance;
+
   Debug("arith::updateInconsistentVars") << "begin updateInconsistentVars() "
                                          << instance << endl;
 
@@ -442,14 +488,37 @@ Node SimplexDecisionProcedure::updateInconsistentVars(){
     possibleConflict = findConflictOnTheQueue(BeforeDiffSearch);
   }
   if(possibleConflict.isNull()){
-    possibleConflict = searchForFeasibleSolution<true>(d_numVariables + 1);
+    uint32_t numHueristicPivots = d_numVariables + 1;
+    uint32_t pivotsRemaining = numHueristicPivots;
+    uint32_t pivotsPerCheck = (numHueristicPivots/NUM_CHECKS) + (NUM_CHECKS-1);
+    while(!d_queue.empty() &&
+          possibleConflict.isNull() &&
+          pivotsRemaining > 0){
+      uint32_t pivotsToDo = min(pivotsPerCheck, pivotsRemaining);
+      possibleConflict = searchForFeasibleSolution<minBoundAndRowCount>(pivotsToDo);
+      pivotsRemaining -= pivotsToDo;
+      //Once every CHECK_PERIOD examine the entire queue for conflicts
+      if(possibleConflict.isNull()){
+        possibleConflict = findConflictOnTheQueue(DuringDiffSearch);
+      }else{
+        findConflictOnTheQueue(AfterDiffSearch, false);
+      }
+    }
   }
-  if(d_queue.size() > 1 && possibleConflict.isNull()){
-    possibleConflict = findConflictOnTheQueue(AfterDiffSearch);
-  }
+
   if(!d_queue.empty() && possibleConflict.isNull()){
     d_queue.transitionToVariableOrderMode();
-    possibleConflict = searchForFeasibleSolution<false>(0);
+
+    while(!d_queue.empty() && possibleConflict.isNull()){
+      possibleConflict = searchForFeasibleSolution<minVarOrder>(VARORDER_CHECK_PERIOD);
+
+      //Once every CHECK_PERIOD examine the entire queue for conflicts
+      if(possibleConflict.isNull()){
+        possibleConflict = findConflictOnTheQueue(DuringVarOrderSearch);
+      }else{
+        findConflictOnTheQueue(AfterVarOrderSearch, false);
+      }
+    }
   }
 
   Assert(!possibleConflict.isNull() || d_queue.empty());
@@ -476,12 +545,12 @@ Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
   const DeltaRational& beta = d_partialModel.getAssignment(basic);
 
   if(d_partialModel.belowLowerBound(basic, beta, true)){
-    ArithVar x_j = selectSlackBelow(basic, true);
+    ArithVar x_j = selectSlackBelow<minVarOrder>(basic);
     if(x_j == ARITHVAR_SENTINEL ){
       return generateConflictBelow(basic);
     }
   }else if(d_partialModel.aboveUpperBound(basic, beta, true)){
-    ArithVar x_j = selectSlackAbove(basic, true);
+    ArithVar x_j = selectSlackAbove<minVarOrder>(basic);
     if(x_j == ARITHVAR_SENTINEL ){
       return generateConflictAbove(basic);
     }
@@ -490,14 +559,13 @@ Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
 }
 
 //corresponds to Check() in dM06
-template <bool limitIterations>
+template <SimplexDecisionProcedure::PreferenceFunction pf>
 Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingIterations){
   Debug("arith") << "updateInconsistentVars" << endl;
+  Assert(remainingIterations > 0);
 
-  static const uint32_t CHECK_PERIOD = 100;
-
-  while(!limitIterations || remainingIterations > 0){
-    if(Debug.isOn("paranoid:check_tableau")){ checkTableau(); }
+  while(remainingIterations > 0){
+    if(Debug.isOn("paranoid:check_tableau")){ debugCheckTableau(); }
 
     ArithVar x_i = d_queue.dequeueInconsistentBasicVariable();
     Debug("arith::update::select") << "selectSmallestInconsistentVar()=" << x_i << endl;
@@ -512,7 +580,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     ArithVar x_j = ARITHVAR_SENTINEL;
 
     if(d_partialModel.belowLowerBound(x_i, beta_i, true)){
-      x_j = selectSlackBelow(x_i, !limitIterations);
+      x_j = selectSlackBelow<pf>(x_i);
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);
         return generateConflictBelow(x_i); //unsat
@@ -521,7 +589,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       pivotAndUpdate(x_i, x_j, l_i);
 
     }else if(d_partialModel.aboveUpperBound(x_i, beta_i, true)){
-      x_j = selectSlackAbove(x_i, !limitIterations);
+      x_j = selectSlackAbove<pf>(x_i);
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);
         return generateConflictAbove(x_i); //unsat
@@ -531,27 +599,20 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     }
     Assert(x_j != ARITHVAR_SENTINEL);
     //Check to see if we already have a conflict with x_j to prevent wasteful work
-    Node earlyConflict = checkBasicForConflict(x_j);
-    if(!earlyConflict.isNull()){
-      return earlyConflict;
-    }
-    //Once every CHECK_PERIOD examine the entire queue for conflicts
-    if(!limitIterations && remainingIterations % CHECK_PERIOD == 0){
-      Node earlyConflict = findConflictOnTheQueue(DuringVarOrderSearch);
+    if(CHECK_AFTER_PIVOT){
+      Node earlyConflict = checkBasicForConflict(x_j);
       if(!earlyConflict.isNull()){
         return earlyConflict;
       }
     }
   }
-  AlwaysAssert(limitIterations && remainingIterations == 0);
+  Assert(remainingIterations == 0);
 
   return Node::null();
 }
 
 
 Node SimplexDecisionProcedure::generateConflictAbove(ArithVar conflictVar){
-
-  ReducedRowVector& row_i = d_tableau.lookup(conflictVar);
 
   NodeBuilder<> nb(kind::AND);
   TNode bound = d_partialModel.getUpperConstraint(conflictVar);
@@ -563,23 +624,25 @@ Node SimplexDecisionProcedure::generateConflictAbove(ArithVar conflictVar){
 
   nb << bound;
 
-  ReducedRowVector::const_iterator nbi = row_i.begin(), end = row_i.end();
-
-  for(; nbi != end; ++nbi){
-    ArithVar nonbasic = (*nbi).getArithVar();
+  Tableau::RowIterator iter = d_tableau.rowIterator(conflictVar);
+  for(; !iter.atEnd(); ++iter){
+    const TableauEntry& entry = *iter;
+    ArithVar nonbasic = entry.getColVar();
     if(nonbasic == conflictVar) continue;
 
-    const Rational& a_ij = (*nbi).getCoefficient();
+    const Rational& a_ij = entry.getCoefficient();
+    Assert(a_ij != d_ZERO);
 
-    Assert(a_ij != d_constants.d_ZERO);
-
-    if(a_ij < d_constants.d_ZERO){
+    int sgn = a_ij.sgn();
+    Assert(sgn != 0);
+    if(sgn < 0){
       bound =  d_partialModel.getUpperConstraint(nonbasic);
       Debug("arith") << "below 0 " << nonbasic << " "
                      << d_partialModel.getAssignment(nonbasic)
                      << " " << bound << endl;
       nb << bound;
     }else{
+      Assert(sgn > 0);
       bound =  d_partialModel.getLowerConstraint(nonbasic);
       Debug("arith") << " above 0 " << nonbasic << " "
                      << d_partialModel.getAssignment(nonbasic)
@@ -592,8 +655,6 @@ Node SimplexDecisionProcedure::generateConflictAbove(ArithVar conflictVar){
 }
 
 Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
-  ReducedRowVector& row_i = d_tableau.lookup(conflictVar);
-
   NodeBuilder<> nb(kind::AND);
   TNode bound = d_partialModel.getLowerConstraint(conflictVar);
 
@@ -604,16 +665,19 @@ Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
   nb << bound;
 
 
-  ReducedRowVector::const_iterator nbi = row_i.begin(), end = row_i.end();
-  for(; nbi != end; ++nbi){
-    ArithVar nonbasic = (*nbi).getArithVar();
+  Tableau::RowIterator iter = d_tableau.rowIterator(conflictVar);
+  for(; !iter.atEnd(); ++iter){
+    const TableauEntry& entry = *iter;
+    ArithVar nonbasic = entry.getColVar();
     if(nonbasic == conflictVar) continue;
 
-    const Rational& a_ij = (*nbi).getCoefficient();
+    const Rational& a_ij = entry.getCoefficient();
 
-    Assert(a_ij != d_constants.d_ZERO);
+    int sgn = a_ij.sgn();
+    Assert(a_ij != d_ZERO);
+    Assert(sgn != 0);
 
-    if(a_ij < d_constants.d_ZERO){
+    if(sgn < 0){
       TNode bound = d_partialModel.getLowerConstraint(nonbasic);
       Debug("arith") << "Lower "<< nonbasic << " "
                      << d_partialModel.getAssignment(nonbasic) << " "
@@ -621,6 +685,7 @@ Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
 
       nb << bound;
     }else{
+      Assert(sgn > 0);
       TNode bound = d_partialModel.getUpperConstraint(nonbasic);
       Debug("arith") << "Upper "<< nonbasic << " "
                      << d_partialModel.getAssignment(nonbasic) << " "
@@ -638,14 +703,13 @@ Node SimplexDecisionProcedure::generateConflictBelow(ArithVar conflictVar){
  */
 DeltaRational SimplexDecisionProcedure::computeRowValue(ArithVar x, bool useSafe){
   Assert(d_tableau.isBasic(x));
-  DeltaRational sum = d_constants.d_ZERO_DELTA;
+  DeltaRational sum(0);
 
-  ReducedRowVector& row = d_tableau.lookup(x);
-  for(ReducedRowVector::const_iterator i = row.begin(), end = row.end();
-      i != end;++i){
-    ArithVar nonbasic = (*i).getArithVar();
-    if(nonbasic == row.basic()) continue;
-    const Rational& coeff = (*i).getCoefficient();
+  for(Tableau::RowIterator i = d_tableau.rowIterator(x); !i.atEnd(); ++i){
+    const TableauEntry& entry = (*i);
+    ArithVar nonbasic = entry.getColVar();
+    if(nonbasic == x) continue;
+    const Rational& coeff = entry.getCoefficient();
 
     const DeltaRational& assignment = d_partialModel.getAssignment(nonbasic, useSafe);
     sum = sum + (assignment * coeff);
@@ -660,21 +724,20 @@ DeltaRational SimplexDecisionProcedure::computeRowValue(ArithVar x, bool useSafe
  *      checkTableau();
  *   }
  */
-void SimplexDecisionProcedure::checkTableau(){
-
-  for(ArithVarSet::iterator basicIter = d_tableau.begin();
-      basicIter != d_tableau.end(); ++basicIter){
+void SimplexDecisionProcedure::debugCheckTableau(){
+  ArithVarSet::const_iterator basicIter = d_tableau.beginBasic();
+  ArithVarSet::const_iterator endIter = d_tableau.endBasic();
+  for(; basicIter != endIter; ++basicIter){
     ArithVar basic = *basicIter;
-    ReducedRowVector& row_k = d_tableau.lookup(basic);
     DeltaRational sum;
     Debug("paranoid:check_tableau") << "starting row" << basic << endl;
-    for(ReducedRowVector::const_iterator nonbasicIter = row_k.begin();
-        nonbasicIter != row_k.end();
-        ++nonbasicIter){
-      ArithVar nonbasic = (*nonbasicIter).getArithVar();
+    Tableau::RowIterator nonbasicIter = d_tableau.rowIterator(basic);
+    for(; !nonbasicIter.atEnd(); ++nonbasicIter){
+      const TableauEntry& entry = *nonbasicIter;
+      ArithVar nonbasic = entry.getColVar();
       if(basic == nonbasic) continue;
 
-      const Rational& coeff = (*nonbasicIter).getCoefficient();
+      const Rational& coeff = entry.getCoefficient();
       DeltaRational beta = d_partialModel.getAssignment(nonbasic);
       Debug("paranoid:check_tableau") << nonbasic << beta << coeff<<endl;
       sum = sum + (beta*coeff);
