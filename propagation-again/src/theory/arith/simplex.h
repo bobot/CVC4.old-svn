@@ -40,6 +40,9 @@ private:
 
   std::queue<Node> d_delayedLemmas;
 
+  PermissiveBackArithVarSet d_updatedBounds;
+  PermissiveBackArithVarSet d_candidateBasics;
+
   Rational d_ZERO;
   DeltaRational d_DELTA_ZERO;
 
@@ -193,9 +196,6 @@ private:
   Node generateConflictAboveUpperBound(ArithVar conflictVar);
   Node generateConflictBelowLowerBound(ArithVar conflictVar);
 
-  Node weakenUpperBoundConflict(ArithVar basicVar);
-  Node weakenLowerBoundConflict(ArithVar basicVar);
-
 
 public:
   /**
@@ -215,6 +215,11 @@ public:
    */
   DeltaRational computeRowValue(ArithVar x, bool useSafe);
 
+  bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
+  void clearUpdates(){
+    d_updatedBounds.purge();
+  }
+  void propagateCandidates();
 
   void increaseMax() {d_numVariables++;}
 
@@ -239,7 +244,7 @@ private:
 
   /** Adds a conflict as a lemma to the queue. */
   void delayConflictAsLemma(Node conflict){
-    Node negatedConflict = negateConjunctionAsClause(conflict);
+   Node negatedConflict = negateConjunctionAsClause(conflict);
     pushLemma(negatedConflict);
   }
 
@@ -259,6 +264,36 @@ private:
    */
   Node checkBasicForConflict(ArithVar b);
 
+  Node weakenConflict(bool aboveUpper, ArithVar basicVar);
+  TNode weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic);
+
+  void propagateCandidate(ArithVar basic);
+  bool propagateCandidateBound(ArithVar basic, bool upperBound);
+
+  inline bool propagateCandidateLowerBound(ArithVar basic){
+    return propagateCandidateBound(basic, false);
+  }
+  inline bool propagateCandidateUpperBound(ArithVar basic){
+    return propagateCandidateBound(basic, true);
+  }
+
+  bool hasBounds(ArithVar basic, bool upperBound);
+  bool hasLowerBounds(ArithVar basic){
+    return hasBounds(basic, false);
+  }
+  bool hasUpperBounds(ArithVar basic){
+    return hasBounds(basic, true);
+  }
+  DeltaRational computeBound(ArithVar basic, bool upperBound);
+
+  inline DeltaRational computeLowerBound(ArithVar basic){
+    return computeBound(basic, false);
+  }
+  inline DeltaRational computeUpperBound(ArithVar basic){
+    return computeBound(basic, true);
+  }
+
+
   /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {
   public:
@@ -277,6 +312,9 @@ private:
 
     IntStat d_weakeningAttempts, d_weakeningSuccesses, d_weakenings;
     TimerStat d_weakenTime;
+
+    TimerStat d_boundComputationTime;
+    IntStat d_boundComputations, d_boundPropagations;
 
     IntStat d_delayedConflicts;
 

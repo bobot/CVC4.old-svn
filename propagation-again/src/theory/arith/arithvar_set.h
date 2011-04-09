@@ -72,10 +72,18 @@ public:
     return d_posVector.size();
   }
 
-  void clear(){
+  void purge() {
+    for(VarList::const_iterator i=d_list.begin(), endIter=d_list.end();i!= endIter; ++i){
+      d_posVector[*i] = ARITHVAR_SENTINEL;
+    }
     d_list.clear();
-    d_posVector.clear();
+    Assert(empty());
   }
+
+  // void clear(){
+  //   d_list.clear();
+  //   d_posVector.clear();
+  // }
 
   void increaseSize(ArithVar max){
     Assert(max >= allocated());
@@ -112,6 +120,16 @@ public:
     }
     d_posVector[x] = size();
     d_list.push_back(x);
+  }
+
+  /**
+   * Invalidates iterators.
+   * Adds x to the set if it is not already in the set.
+   */
+  void softAdd(ArithVar x){
+    if(!isMember(x)){
+      add(x);
+    }
   }
 
   const_iterator begin() const{ return d_list.begin(); }

@@ -372,6 +372,8 @@ void TheoryArith::check(Effort effortLevel){
 
       Debug("arith::conflict") << "conflict   " << possibleConflict << endl
                                << "simplified " << simpleConflict << endl;
+
+      d_simplex.clearUpdates();
       d_out->conflict(simpleConflict);
       return;
     }
@@ -384,6 +386,7 @@ void TheoryArith::check(Effort effortLevel){
   Node possibleConflict = d_simplex.updateInconsistentVars();
   if(possibleConflict != Node::null()){
     d_partialModel.revertAssignmentChanges();
+    d_simplex.clearUpdates();
 
     Node simpleConflict  = BooleanSimplification::simplifyConflict(possibleConflict);
 
@@ -588,14 +591,16 @@ void TheoryArith::propagate(Effort e) {
       Node simpleLemma = BooleanSimplification::simplifyClause(lemma);
       d_out->lemma(simpleLemma);
     }
+
+    if(d_simplex.hasAnyUpdates()){
+      d_simplex.propagateCandidates();
+    }
+
     while(d_propManager.hasMorePropagations()){
       TNode toProp = d_propManager.getPropagation();
       Node satValue = d_valuation.getSatValue(toProp);
-      if(satValue.isNull()){
-        d_out->propagate(toProp);
-      }else{
-        Unreachable();
-      }
+      AlwaysAssert(satValue.isNull());
+      d_out->propagate(toProp);
     }
   }
 }

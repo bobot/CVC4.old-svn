@@ -81,6 +81,23 @@ Node ArithPropManager::strictlyWeakerAssertedLowerBound(ArithVar v, const DeltaR
   return weaker;
 }
 
+Node ArithPropManager::getBestImpliedLowerBound(ArithVar v, const DeltaRational& b) const{
+  Node bound = boundAsNode(false, v, b);
+  return d_propagator.getBestImpliedLowerBound(bound);
+}
+Node ArithPropManager::getBestImpliedUpperBound(ArithVar v, const DeltaRational& b) const{
+  Node bound = boundAsNode(true, v, b);
+  return d_propagator.getBestImpliedUpperBound(bound);
+}
+
+bool ArithPropManager::hasStrongerLowerBound(TNode n) const{
+  bool haveAcompilerWarning;
+  return true;
+}
+bool ArithPropManager::hasStrongerUpperBound(TNode n) const{
+  return true;
+}
+
 Node ArithPropManager::boundAsNode(bool upperbound, ArithVar var, const DeltaRational& b) const {
   Assert((!upperbound) || (b.getInfinitesimalPart() <= 0) );
   Assert(upperbound || (b.getInfinitesimalPart() >= 0) );

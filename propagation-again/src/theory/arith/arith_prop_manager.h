@@ -113,6 +113,12 @@ public:
 
   Node strictlyWeakerAssertedLowerBound(ArithVar v, const DeltaRational& b) const;
 
+  Node getBestImpliedLowerBound(ArithVar v, const DeltaRational& b) const;
+  Node getBestImpliedUpperBound(ArithVar v, const DeltaRational& b) const;
+
+  bool hasStrongerLowerBound(TNode current) const;
+  bool hasStrongerUpperBound(TNode current) const;
+
   bool containsLiteral(TNode n) const {
     return d_propagator.containsLiteral(n);
   }
