@@ -2,10 +2,10 @@
 /*! \file cnf_stream.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: dejan
- ** Minor contributors (to current version): mdeters, cconway
+ ** Major contributors: mdeters, dejan
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -29,6 +29,7 @@
 
 #include "expr/node.h"
 #include "prop/sat.h"
+#include "theory/registrar.h"
 
 #include <ext/hash_map>
 
@@ -69,6 +70,9 @@ private:
   NodeCache d_nodeCache;
 
 protected:
+
+  /** The "registrar" for pre-registration of terms */
+  theory::Registrar d_registrar;
 
   /** Top level nodes that we translated */
   std::vector<TNode> d_translationTrail;
@@ -177,7 +181,7 @@ public:
    * set of clauses and sends them to the given sat solver.
    * @param satSolver the sat solver to use
    */
-  CnfStream(SatInputInterface* satSolver);
+  CnfStream(SatInputInterface* satSolver, theory::Registrar registrar);
 
   /**
    * Destructs a CnfStream.  This implementation does nothing, but we
@@ -252,7 +256,7 @@ public:
    * Constructs the stream to use the given sat solver.
    * @param satSolver the sat solver to use
    */
-  TseitinCnfStream(SatInputInterface* satSolver);
+  TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar);
 
 private:
 

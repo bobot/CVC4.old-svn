@@ -238,9 +238,9 @@ public:
     NodeBuilder<> eqb(inputEq.getKind());
     if(isCongruenceOperator(inputEq[1]) &&
        !isCongruenceOperator(inputEq[0])) {
-      eqb << flatten(inputEq[1]) << inputEq[0];
+      eqb << normalize(inputEq[1]) << normalize(inputEq[0]); //flatten(inputEq[1]) << inputEq[0];
     } else {
-      eqb << flatten(inputEq[0]) << replace(flatten(inputEq[1]));
+      eqb << normalize(inputEq[1]) << normalize(inputEq[0]); //flatten(inputEq[0]) << replace(flatten(inputEq[1]));
     }
     Node eq = eqb;
     addEq(eq, inputEq);
@@ -267,11 +267,11 @@ private:
   }
 
   Node replace(TNode t) {
+    return t;
+    /*
     if(isCongruenceOperator(t)) {
-      EqMap::const_iterator i = d_eqMap.find(t);
-      if(i == d_eqMap.end()) {
-        ++d_newSkolemVars;
-        Node v = NodeManager::currentNM()->mkSkolem(t.getType());
+      Node v = NodeManager::currentNM()->mkNode(kind::TUPLE, t);
+      if(!d_added.contains(v)) {
         addEq(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
         d_added.insert(v);
         d_eqMap[t] = v;
@@ -284,9 +284,11 @@ private:
         }
         return v;
       }
+      return v;
     } else {
       return t;
     }
+    */
   }
 
   TNode proofRewrite(TNode pfStep) const {
@@ -482,13 +484,11 @@ public:
 
 template <class OutputChannel, class CongruenceOperatorList>
 void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addTerm(TNode t) {
-  Node trm = replace(flatten(t));
-  Node trmp = find(trm);
+  Node trm = normalize(t);
 
   if(Debug.isOn("cc")) {
     Debug("cc") << "CC addTerm [" << d_careSet.size() << "] " << d_careSet.contains(t) << ": " << t << std::endl
-                << "           [" << d_careSet.size() << "] " << d_careSet.contains(trm) << ": " << trm << std::endl
-                << "           [" << d_careSet.size() << "] " << d_careSet.contains(trmp) << ": " << trmp << std::endl;
+                << "           [" << d_careSet.size() << "] " << d_careSet.contains(trm) << ": " << trm << std::endl;
   }
 
   if(t != trm && !d_careSet.contains(t)) {
@@ -498,15 +498,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addTerm(TNode t) 
   }
 
   if(!d_careSet.contains(trm)) {
-    if(trm != trmp) {
-      // if part of an equivalence class headed by another node,
-      // notify the client of this merge that's already been
-      // performed..
-      d_out->notifyCongruent(trm, trmp);
-    }
-
     // add its representative to the care set
-    d_careSet.insert(trmp);
+    d_careSet.insert(trm);
   }
 }
 

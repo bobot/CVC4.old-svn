@@ -2,16 +2,16 @@
 /*! \file prop_engine.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway, dejan
- ** Minor contributors (to current version): taking
+ ** Major contributors: taking, cconway, dejan
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Implementation of the propositional engine of CVC4.
+ ** \brief Implementation of the propositional engine of CVC4
  **
  ** Implementation of the propositional engine of CVC4.
  **/
@@ -21,6 +21,7 @@
 #include "sat.h"
 
 #include "theory/theory_engine.h"
+#include "theory/registrar.h"
 #include "util/Assert.h"
 #include "util/options.h"
 #include "util/output.h"
@@ -56,14 +57,17 @@ public:
   }
 };
 
-PropEngine::PropEngine(TheoryEngine* te,
-                       Context* context, const Options& opts) :
+PropEngine::PropEngine(TheoryEngine* te, Context* context) :
   d_inCheckSat(false),
   d_theoryEngine(te),
   d_context(context) {
   Debug("prop") << "Constructing the PropEngine" << endl;
-  d_satSolver = new SatSolver(this, d_theoryEngine, d_context, opts);
-  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver);
+
+  d_satSolver = new SatSolver(this, d_theoryEngine, d_context);
+
+  theory::Registrar registrar(d_theoryEngine);
+  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, registrar);
+
   d_satSolver->setCnfStream(d_cnfStream);
 }
 
@@ -104,7 +108,7 @@ void PropEngine::printSatisfyingAssignment(){
     SatLiteral l = curr.second.literal;
     if(!sign(l)) {
       Node n = curr.first;
-      SatLiteralValue value = d_satSolver->value(l);
+      SatLiteralValue value = d_satSolver->modelValue(l);
       Debug("prop-value") << "'" << l << "' " << value << " " << n << endl;
     }
   }
@@ -137,9 +141,10 @@ Result PropEngine::checkSat() {
 }
 
 Node PropEngine::getValue(TNode node) {
-  Assert(node.getKind() == kind::VARIABLE &&
-         node.getType().isBoolean());
-  SatLiteralValue v = d_satSolver->value(d_cnfStream->getLiteral(node));
+  Assert(node.getType().isBoolean());
+  SatLiteral lit = d_cnfStream->getLiteral(node);
+
+  SatLiteralValue v = d_satSolver->value(lit);
   if(v == l_True) {
     return NodeManager::currentNM()->mkConst(true);
   } else if(v == l_False) {

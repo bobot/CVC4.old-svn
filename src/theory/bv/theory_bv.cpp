@@ -56,11 +56,18 @@ void TheoryBV::check(Effort e) {
 
   BVDebug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
 
-  while(!done()) {
-
+  // Get all the assertions
+  std::vector<TNode> assertionsList;
+  while (!done()) {
     // Get the assertion
     TNode assertion = get();
     d_assertions.insert(assertion);
+    assertionsList.push_back(assertion);
+  }
+
+  for (unsigned i = 0; i < assertionsList.size(); ++ i) {
+
+    TNode assertion = assertionsList[i];
 
     BVDebug("bitvector") << "TheoryBV::check(" << e << "): asserting: " << assertion << std::endl;
 
@@ -155,7 +162,7 @@ bool TheoryBV::triggerEquality(size_t triggerId) {
   return true;
 }
 
-Node TheoryBV::getValue(TNode n, Valuation* valuation) {
+Node TheoryBV::getValue(TNode n) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -165,7 +172,7 @@ Node TheoryBV::getValue(TNode n, Valuation* valuation) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
+      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
 
   default:
     Unhandled(n.getKind());

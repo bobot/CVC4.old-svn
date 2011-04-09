@@ -2,10 +2,10 @@
 /*! \file theory_engine.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan, taking
+ ** Major contributors: taking, dejan
  ** Minor contributors (to current version): cconway, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -85,7 +85,7 @@ class TheoryEngine {
       d_engine(engine),
       d_context(context),
       d_conflictNode(context),
-      d_explanationNode(context){
+      d_explanationNode(context) {
     }
 
     void newFact(TNode n);
@@ -151,24 +151,16 @@ class TheoryEngine {
   context::CDO<bool> d_incomplete;
 
   /**
-   * A "valuation proxy" for this TheoryEngine.  Used only in getValue()
-   * for decoupled Theory-to-TheoryEngine communication.
-   */
-  theory::Valuation d_valuation;
-
-  /**
    * Replace ITE forms in a node.
    */
   Node removeITEs(TNode t);
-
-  const Options& d_opts;
 
 public:
 
   /**
    * Construct a theory engine.
    */
-  TheoryEngine(context::Context* ctxt, const Options& opts);
+  TheoryEngine(context::Context* ctxt);
 
   /**
    * Destroy a theory engine.
@@ -180,11 +172,9 @@ public:
    */
   template <class TheoryClass>
   void addTheory() {
-    TheoryClass* theory = new TheoryClass(d_context, d_theoryOut);
+    TheoryClass* theory = new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
     d_theoryTable[theory->getId()] = theory;
     d_sharedTermManager->registerTheory(static_cast<TheoryClass*>(theory));
-
-    theory->notifyOptions(d_opts);
   }
 
   SharedTermManager* getSharedTermManager() {
@@ -194,6 +184,13 @@ public:
   void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
     d_propEngine = propEngine;
+  }
+
+  /**
+   * Get a pointer to the underlying propositional engine.
+   */
+  prop::PropEngine* getPropEngine() const {
+    return d_propEngine;
   }
 
   /**
@@ -215,8 +212,8 @@ public:
     d_hasShutDown = true;
 
     // Shutdown all the theories
-    for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++ theoryId) {
-      if (d_theoryTable[theoryId]) {
+    for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
+      if(d_theoryTable[theoryId]) {
         d_theoryTable[theoryId]->shutdown();
       }
     }
@@ -250,6 +247,7 @@ public:
    * @param n the node to preprocess
    */
   Node preprocess(TNode n);
+  void preRegister(TNode preprocessed);
 
   /**
    * Assert the formula to the appropriate theory.
@@ -257,6 +255,12 @@ public:
    */
   inline void assertFact(TNode node) {
     Debug("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
+
+    // Mark it as asserted in this context
+    //
+    // [MGD] removed for now, this appears to have a nontrivial
+    // performance penalty
+    // node.setAttribute(theory::Asserted(), true);
 
     // Get the atom
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;

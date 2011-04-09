@@ -53,12 +53,13 @@ class CnfStream;
 /** Type of the SAT variables */
 typedef Minisat::Var SatVariable;
 
-/** Type of the Sat literals */
+/** Type of the SAT literals */
 typedef Minisat::Lit SatLiteral;
 
 /** Type of the SAT clauses */
 typedef Minisat::vec<SatLiteral> SatClause;
 
+/** Type of a SAT variable assignment (T, F, unknown) */
 typedef Minisat::lbool SatLiteralValue;
 
 /**
@@ -129,9 +130,6 @@ class SatSolver : public SatInputInterface {
 
   /** Context we will be using to synchronzie the sat solver */
   context::Context* d_context;
-
-  /** Remember the options */
-  // Options* d_options;
 
   /* Pointer to the concrete SAT solver. Including this via the
      preprocessor saves us a level of indirection vs, e.g., defining a
@@ -207,9 +205,8 @@ public:
   };
 
   SatSolver(PropEngine* propEngine,
-                   TheoryEngine* theoryEngine,
-                   context::Context* context,
-                   const Options& options);
+            TheoryEngine* theoryEngine,
+            context::Context* context);
 
   ~SatSolver();
 
@@ -231,7 +228,11 @@ public:
 
   void setCnfStream(CnfStream* cnfStream);
 
+  /** Call value() during the search.*/
   SatLiteralValue value(SatLiteral l);
+
+  /** Call modelValue() when the search is done.*/
+  SatLiteralValue modelValue(SatLiteral l);
 
   int getLevel() const;
 
@@ -256,7 +257,7 @@ public:
 #ifdef __CVC4_USE_MINISAT
 
 inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
-                     context::Context* context, const Options& options) :
+                     context::Context* context) :
   d_propEngine(propEngine),
   d_cnfStream(NULL),
   d_theoryEngine(theoryEngine),
@@ -264,14 +265,14 @@ inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
   d_statistics()
 {
   // Create the solver
-  d_minisat = new Minisat::SimpSolver(this, d_context, options.incrementalSolving);
+  d_minisat = new Minisat::SimpSolver(this, d_context,
+                                      Options::current()->incrementalSolving);
   // Setup the verbosity
-  d_minisat->verbosity = (options.verbosity > 0) ? 1 : -1;
+  d_minisat->verbosity = (Options::current()->verbosity > 0) ? 1 : -1;
 
-  // No random choices
-  if(Debug.isOn("no_rnd_decisions")){
-    d_minisat->random_var_freq = 0;
-  }
+  // Setup the random decision parameters
+  d_minisat->random_var_freq = Options::current()->satRandomFreq;
+  d_minisat->random_seed = Options::current()->satRandomSeed;
 
   d_statistics.init(d_minisat);
 }
@@ -293,6 +294,10 @@ inline SatVariable SatSolver::newVar(bool theoryAtom) {
 }
 
 inline SatLiteralValue SatSolver::value(SatLiteral l) {
+  return d_minisat->value(l);
+}
+
+inline SatLiteralValue SatSolver::modelValue(SatLiteral l) {
   return d_minisat->modelValue(l);
 }
 
