@@ -67,7 +67,7 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valu
   d_tableau(),
   d_restartsCounter(0),
   d_presolveHasBeenCalled(false),
-  d_tableauResetDensity(1.6),
+  d_tableauResetDensity(2.6),
   d_tableauResetPeriod(10),
   d_propagator(c, out),
   d_propManager(c, d_arithvarNodeMap, d_propagator, valuation),
@@ -368,13 +368,12 @@ void TheoryArith::check(Effort effortLevel){
 
     if(!possibleConflict.isNull()){
       d_partialModel.revertAssignmentChanges();
-      Node simpleConflict  = BooleanSimplification::simplifyConflict(possibleConflict);
+      //Node simpleConflict  = BooleanSimplification::simplifyConflict(possibleConflict);
 
-      Debug("arith::conflict") << "conflict   " << possibleConflict << endl
-                               << "simplified " << simpleConflict << endl;
+      Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
 
       d_simplex.clearUpdates();
-      d_out->conflict(simpleConflict);
+      d_out->conflict(possibleConflict);
       return;
     }
   }
@@ -388,16 +387,22 @@ void TheoryArith::check(Effort effortLevel){
     d_partialModel.revertAssignmentChanges();
     d_simplex.clearUpdates();
 
-    Node simpleConflict  = BooleanSimplification::simplifyConflict(possibleConflict);
+    //Node simpleConflict  = BooleanSimplification::simplifyConflict(possibleConflict);
 
-    Debug("arith::conflict") << "conflict   " << possibleConflict << endl
-                             << "simplified " << simpleConflict << endl;
-    d_out->conflict(simpleConflict);
+    Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
+
+    d_out->conflict(possibleConflict);
   }else{
     d_partialModel.commitAssignmentChanges();
 
     if (fullEffort(effortLevel)) {
       splitDisequalities();
+    }else{
+      //Opportunistically export previous conflicts
+      while(d_simplex.hasMoreLemmas()){
+        Node lemma = d_simplex.popLemma();
+        d_out->lemma(lemma);
+      }
     }
   }
 
@@ -508,9 +513,9 @@ void TheoryArith::explain(TNode n) {
   //internalExplain(n,explainBuilder);
   Assert(d_propManager.isPropagated(n));
   Node explanation = d_propManager.explain(n);
-  Node flatExplanation = BooleanSimplification::simplifyConflict(explanation);
+  //Node flatExplanation = BooleanSimplification::simplifyConflict(explanation);
 
-  d_out->explanation(flatExplanation, true);
+  d_out->explanation(explanation, true);
 }
 /*
 void TheoryArith::internalExplain(TNode n, NodeBuilder<>& explainBuilder){
@@ -586,12 +591,6 @@ void TheoryArith::propagateArithVar(bool upperbound, ArithVar var ){
 
 void TheoryArith::propagate(Effort e) {
   if(quickCheckOrMore(e)){
-    while(d_simplex.hasMoreLemmas()){
-      Node lemma = d_simplex.popLemma();
-      Node simpleLemma = BooleanSimplification::simplifyClause(lemma);
-      d_out->lemma(simpleLemma);
-    }
-
     if(d_simplex.hasAnyUpdates()){
       d_simplex.propagateCandidates();
     }
@@ -600,6 +599,7 @@ void TheoryArith::propagate(Effort e) {
       TNode toProp = d_propManager.getPropagation();
       Node satValue = d_valuation.getSatValue(toProp);
       AlwaysAssert(satValue.isNull());
+      TNode exp = d_propManager.explain(toProp);
       d_out->propagate(toProp);
     }
   }
