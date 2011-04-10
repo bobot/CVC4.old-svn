@@ -28,6 +28,7 @@ UNIT_TESTS = \
 	context/cdo_black \
 	context/cdlist_black \
 	context/cdlist_context_memory_black \
+	context/cdcirclist_white \
 	context/cdmap_black \
 	context/cdmap_white \
 	context/cdvector_black \

@@ -18,4 +18,6 @@ libcontext_la_SOURCES = \
 	cdmap_forward.h \
 	cdset.h \
 	cdset_forward.h \
+	cdcirclist.h \
+	cdcirclist_forward.h \
 	cdvector.h

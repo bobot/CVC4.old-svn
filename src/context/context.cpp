@@ -265,7 +265,7 @@ ContextObj::ContextObj(Context* pContext) :
 
   Assert(pContext != NULL, "NULL context pointer");
 
-  Debug("context") << "create new ContextObj(" << this << ")" << std::endl;
+  Debug("context") << "create new ContextObj(" << this << " inCMM=false)" << std::endl;
   d_pScope = pContext->getBottomScope();
   d_pScope->addToChain(this);
 }
@@ -276,7 +276,7 @@ ContextObj::ContextObj(bool allocatedInCMM, Context* pContext) :
 
   Assert(pContext != NULL, "NULL context pointer");
 
-  Debug("context") << "create new ContextObj(" << this << ")" << std::endl;
+  Debug("context") << "create new ContextObj(" << this << " inCMM=" << allocatedInCMM << ")" << std::endl;
   if(allocatedInCMM) {
     d_pScope = pContext->getTopScope();
   } else {

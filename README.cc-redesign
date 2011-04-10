@@ -1,0 +1,11 @@
+This branch aims to implement CongruenceClosure a little differently.
+Major design changes from trunk include:
+
+1. internal integral "CIDs" (congruence IDs) are used rather than
+   Nodes/TNodes for congruence reasoning
+2. circular lists for equivalence class members (faster merge)
+3. no "flattening" needs to be performed
+4. the notion of "care" terms changes; now you "care" about an equality
+   rather than about a term (and whatever it might become equal to).
+
+-- Morgan Deters <mdeters@cs.nyu.edu>  Sat, 09 Apr 2011 19:22:20 -0400
