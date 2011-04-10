@@ -260,13 +260,13 @@ public:
 
 #ifdef __CVC4_USE_MINISAT
 
-inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
-                     context::Context* context) :
+inline SatSolver::SatSolver(PropEngine* propEngine,
+                            TheoryEngine* theoryEngine,
+                            context::Context* context) :
   d_propEngine(propEngine),
   d_cnfStream(NULL),
   d_theoryEngine(theoryEngine),
   d_context(context),
-  d_options(&options),
   d_statistics()
 {
   // Create the solver

@@ -115,7 +115,7 @@ static const string optionsDescription = "\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
    --replay file          replay decisions from file\n\
-   --replay-log file      log decisions and propagations to file\n";
+   --replay-log file      log decisions and propagations to file\n\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
@@ -176,7 +176,6 @@ enum OptionValue {
   INCREMENTAL,
   REPLAY,
   REPLAY_LOG,
-  PIVOT_RULE
   PIVOT_RULE,
   RANDOM_FREQUENCY,
   RANDOM_SEED,
