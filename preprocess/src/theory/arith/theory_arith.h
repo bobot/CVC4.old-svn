@@ -22,6 +22,8 @@
 #define __CVC4__THEORY__ARITH__THEORY_ARITH_H
 
 #include "theory/theory.h"
+#include "theory/preprocessor.h"
+
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "context/cdset.h"
@@ -167,7 +169,7 @@ public:
 
   void presolve();
   void notifyRestart();
-  void staticLearning(TNode in, NodeBuilder<>& learned);
+  void staticLearning(TNode in, TheoryPreprocessor& p);
 
   std::string identify() const { return std::string("TheoryArith"); }
 

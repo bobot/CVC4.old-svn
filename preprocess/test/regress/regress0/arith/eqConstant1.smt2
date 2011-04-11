@@ -1,0 +1,10 @@
+(set-logic QF_LRA)
+(set-info :status sat)
+(declare-fun x () Real)
+(declare-fun y () Real)
+(declare-fun z () Real)
+
+(assert (= x 7))
+(assert (= y 5))
+(assert (not (= (* (* x y) z) (* 34 z))))
+(check-sat)

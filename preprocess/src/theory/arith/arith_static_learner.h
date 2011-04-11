@@ -5,6 +5,7 @@
 
 
 #include "util/stats.h"
+#include "theory/preprocessor.h"
 #include "theory/arith/arith_utilities.h"
 #include <set>
 
@@ -25,19 +26,20 @@ private:
 
 public:
   ArithStaticLearner();
-  void staticLearning(TNode n, NodeBuilder<>& learned);
+  void staticLearning(TNode n, TheoryPreprocessor& p);
 
   void clear();
 
 private:
-  void process(TNode n, NodeBuilder<>& learned, const TNodeSet& defTrue);
+  void process(TNode n, TheoryPreprocessor& p, const TNodeSet& defTrue);
 
-  void postProcess(NodeBuilder<>& learned);
+  void postProcess(TheoryPreprocessor& p);
 
-  void iteMinMax(TNode n, NodeBuilder<>& learned);
-  void iteConstant(TNode n, NodeBuilder<>& learned);
+  void iteMinMax(TNode n, TheoryPreprocessor& p);
+  void iteConstant(TNode n, TheoryPreprocessor& p);
+  void eqConstant(TNode n, TheoryPreprocessor& p);
 
-  void miplibTrick(TNode var, std::set<Rational>& values, NodeBuilder<>& learned);
+  void miplibTrick(TNode var, std::set<Rational>& values, TheoryPreprocessor& p);
 
   /** These fields are designed to be accessable to ArithStaticLearner methods. */
   class Statistics {

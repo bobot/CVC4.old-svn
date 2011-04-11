@@ -9,6 +9,8 @@ TESTS =	\
 	arith.03.cvc \
 	delta-minimized-row-vector-bug.smt \
 	leq.01.smt \
+	eqConstant0.smt2 \
+	eqConstant1.smt2 \
 	miplibtrick.smt
 
 EXTRA_DIST = $(TESTS)

@@ -123,10 +123,10 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
-void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
+void TheoryArith::staticLearning(TNode n, TheoryPreprocessor& p) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_staticLearningTimer);
 
-  learner.staticLearning(n, learned);
+  learner.staticLearning(n, p);
 }
 
 

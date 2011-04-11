@@ -25,6 +25,7 @@
 #include "expr/attribute.h"
 #include "theory/valuation.h"
 #include "theory/output_channel.h"
+#include "theory/preprocessor.h"
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "context/cdo.h"
@@ -378,7 +379,7 @@ public:
    * "learned" builder.  It is a conjunction to add to the formula at
    * the top-level and may contain other theories' contributions.
    */
-  virtual void staticLearning(TNode in, NodeBuilder<>& learned) { }
+  virtual void staticLearning(TNode in, TheoryPreprocessor& preprocessor) { }
 
   /**
    * A Theory is called with presolve exactly one time per user

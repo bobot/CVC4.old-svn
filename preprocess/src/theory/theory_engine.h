@@ -21,18 +21,20 @@
 #ifndef __CVC4__THEORY_ENGINE_H
 #define __CVC4__THEORY_ENGINE_H
 
-#include <deque>
+#include <queue>
 
 #include "expr/node.h"
 #include "prop/prop_engine.h"
 #include "theory/shared_term_manager.h"
 #include "theory/theory.h"
 #include "theory/rewriter.h"
+#include "theory/preprocessor.h"
 #include "theory/valuation.h"
 #include "util/options.h"
 #include "util/stats.h"
 
 namespace CVC4 {
+
 
 // In terms of abstraction, this is below (and provides services to)
 // PropEngine.
@@ -53,6 +55,10 @@ class TheoryEngine {
 
   /** A table of from theory ifs to theory pointers */
   theory::Theory* d_theoryTable[theory::THEORY_LAST];
+
+  /** Queue of statically learnt facts. */
+  std::queue<Node> d_learnt;
+  theory::TheoryPreprocessor* d_preprocessor;
 
   /**
    * An output channel for Theory that passes messages
@@ -150,11 +156,6 @@ class TheoryEngine {
    */
   context::CDO<bool> d_incomplete;
 
-  /**
-   * Replace ITE forms in a node.
-   */
-  Node removeITEs(TNode t);
-
 public:
 
   /**
@@ -198,6 +199,16 @@ public:
    */
   bool isIncomplete() {
     return d_incomplete;
+  }
+
+  bool hasMoreLearntFacts() const{
+    return !d_learnt.empty();
+  }
+  Node getNextLearntFact() {
+    Assert(hasMoreLearntFacts());
+    Node front =  d_learnt.front();
+    d_learnt.pop();
+    return front;
   }
 
   /**
@@ -297,7 +308,7 @@ public:
    * Calls staticLearning() on all active theories, accumulating their
    * combined contributions in the "learned" builder.
    */
-  void staticLearning(TNode in, NodeBuilder<>& learned);
+  void staticLearning(TNode in);
 
   /**
    * Calls presolve() on all active theories and returns true

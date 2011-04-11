@@ -8,12 +8,16 @@ SUBDIRS = builtin booleans uf arith arrays bv
 noinst_LTLIBRARIES = libtheory.la
 
 libtheory_la_SOURCES = \
-	output_channel.h \
 	interrupted.h \
+	output_channel.h \
+	preprocessor.h \
+	preprocessor.cpp \
+	preregister.h \
 	theory_engine.h \
 	theory_engine.cpp \
 	theory_test_utils.h \
 	theory.h \
+	preprocessor.h \
 	theory.cpp \
 	shared_term_manager.h \
 	shared_term_manager.cpp \

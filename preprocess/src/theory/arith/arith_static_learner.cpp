@@ -58,7 +58,7 @@ ArithStaticLearner::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_avgNumMiplibtrickValues);
 }
 
-void ArithStaticLearner::staticLearning(TNode n, NodeBuilder<>& learned){
+void ArithStaticLearner::staticLearning(TNode n, TheoryPreprocessor& p){
 
   vector<TNode> workList;
   workList.push_back(n);
@@ -97,11 +97,11 @@ void ArithStaticLearner::staticLearning(TNode n, NodeBuilder<>& learned){
     }
     processed.insert(n);
 
-    process(n,learned, defTrue);
+    process(n,p, defTrue);
 
   }
 
-  postProcess(learned);
+  postProcess(p);
 }
 
 void ArithStaticLearner::clear(){
@@ -109,19 +109,38 @@ void ArithStaticLearner::clear(){
 }
 
 
-void ArithStaticLearner::process(TNode n, NodeBuilder<>& learned, const TNodeSet& defTrue){
+
+bool containsItes(TNode n){
+  if(n.getKind() == ITE) return true;
+
+  for(TNode::iterator i=n.begin(), end=n.end(); i != end; ++i){
+    if(containsItes(*i)){
+      return true;
+    }
+  }
+  return false;
+}
+
+void ArithStaticLearner::process(TNode n, TheoryPreprocessor& p, const TNodeSet& defTrue){
   Debug("arith::static") << "===================== looking at" << n << endl;
 
   switch(n.getKind()){
+  case EQUAL:
+    if(n[0].getMetaKind() == kind::metakind::VARIABLE &&
+       defTrue.find(n) != defTrue.end() &&
+       !containsItes(n)){
+      eqConstant(n, p);
+    }
+    break;
   case ITE:
     if(n[0].getKind() != EQUAL &&
        isRelationOperator(n[0].getKind())  ){
-      iteMinMax(n, learned);
+      iteMinMax(n, p);
     }
 
     if((n[1].getKind() == CONST_RATIONAL || n[1].getKind() == CONST_INTEGER) &&
        (n[2].getKind() == CONST_RATIONAL || n[2].getKind() == CONST_INTEGER)) {
-      iteConstant(n, learned);
+      iteConstant(n, p);
     }
     break;
   case IMPLIES:
@@ -147,7 +166,7 @@ void ArithStaticLearner::process(TNode n, NodeBuilder<>& learned, const TNodeSet
   }
 }
 
-void ArithStaticLearner::iteMinMax(TNode n, NodeBuilder<>& learned){
+void ArithStaticLearner::iteMinMax(TNode n, TheoryPreprocessor& p){
   Assert(n.getKind() == kind::ITE);
   Assert(n[0].getKind() != EQUAL);
   Assert(isRelationOperator(n[0].getKind()));
@@ -175,7 +194,8 @@ void ArithStaticLearner::iteMinMax(TNode n, NodeBuilder<>& learned){
       Node nLeqX = NodeBuilder<2>(LEQ) << n << t;
       Node nLeqY = NodeBuilder<2>(LEQ) << n << e;
       Debug("arith::static") << n << "is a min =>"  << nLeqX << nLeqY << endl;
-      learned << nLeqX << nLeqY;
+      p.learn( nLeqX );
+      p.learn( nLeqY );
       ++(d_statistics.d_iteMinMaxApplications);
       break;
     }
@@ -184,7 +204,8 @@ void ArithStaticLearner::iteMinMax(TNode n, NodeBuilder<>& learned){
       Node nGeqX = NodeBuilder<2>(GEQ) << n << t;
       Node nGeqY = NodeBuilder<2>(GEQ) << n << e;
       Debug("arith::static") << n << "is a max =>"  << nGeqX << nGeqY << endl;
-      learned << nGeqX << nGeqY;
+      p.learn( nGeqX) ;
+      p.learn( nGeqY );
       ++(d_statistics.d_iteMinMaxApplications);
       break;
     }
@@ -193,25 +214,44 @@ void ArithStaticLearner::iteMinMax(TNode n, NodeBuilder<>& learned){
   }
 }
 
-void ArithStaticLearner::iteConstant(TNode n, NodeBuilder<>& learned){
+void ArithStaticLearner::eqConstant(TNode n, TheoryPreprocessor& p) {
+  Assert(n.getKind() == EQUAL);
+  Assert(n[0].getMetaKind() == kind::metakind::VARIABLE);
+  Assert(!containsItes(n));
+
+  Node right = Rewriter::rewrite(n[1]);
+  if(right.getKind() == CONST_RATIONAL){
+    bool success = p.requestReplacement(n[0], right);
+    if(!success){
+      Debug("eqConstant") << "failed " << n << endl;
+    }else{
+      Debug("eqConstant") << "success " << n << endl;
+    }
+  }
+}
+
+void ArithStaticLearner::iteConstant(TNode n, TheoryPreprocessor& p){
   Assert(n.getKind() == ITE);
   Assert(n[1].getKind() == CONST_RATIONAL || n[1].getKind() == CONST_INTEGER );
   Assert(n[2].getKind() == CONST_RATIONAL || n[2].getKind() == CONST_INTEGER );
+
+  TNode skolem = p.skolemize(n);
 
   Rational t = coerceToRational(n[1]);
   Rational e = coerceToRational(n[2]);
   TNode min = (t <= e) ? n[1] : n[2];
   TNode max = (t >= e) ? n[1] : n[2];
 
-  Node nGeqMin = NodeBuilder<2>(GEQ) << n << min;
-  Node nLeqMax = NodeBuilder<2>(LEQ) << n << max;
-  Debug("arith::static") << n << " iteConstant"  << nGeqMin << nLeqMax << endl;
-  learned << nGeqMin << nLeqMax;
+  Node skolemGeqMin = NodeBuilder<2>(GEQ) << skolem << min;
+  Node skolemLeqMax = NodeBuilder<2>(LEQ) << skolem << max;
+  Debug("arith::static") << n << " iteConstant"  << skolemGeqMin << skolemLeqMax << endl;
+  p.learn( skolemLeqMax );
+  p.learn( skolemLeqMax );
   ++(d_statistics.d_iteConstantApplications);
 }
 
 
-void ArithStaticLearner::postProcess(NodeBuilder<>& learned){
+void ArithStaticLearner::postProcess(TheoryPreprocessor& p){
   vector<TNode> keys;
   VarToNodeSetMap::iterator mipIter = d_miplibTrick.begin();
   VarToNodeSetMap::iterator endMipLibTrick = d_miplibTrick.end();
@@ -258,14 +298,14 @@ void ArithStaticLearner::postProcess(NodeBuilder<>& learned){
 
     Result isTaut = PropositionalQuery::isTautology(possibleTaut);
     if(isTaut == Result(Result::VALID)){
-      miplibTrick(var, values, learned);
+      miplibTrick(var, values, p);
       d_miplibTrick.erase(var);
     }
   }
 }
 
 
-void ArithStaticLearner::miplibTrick(TNode var, set<Rational>& values, NodeBuilder<>& learned){
+void ArithStaticLearner::miplibTrick(TNode var, set<Rational>& values, TheoryPreprocessor& p){
 
   Debug("arith::miplib") << var << " found a tautology!"<< endl;
 
@@ -282,7 +322,8 @@ void ArithStaticLearner::miplibTrick(TNode var, set<Rational>& values, NodeBuild
   Node nGeqMin = NodeBuilder<2>(GEQ) << var << mkRationalNode(min);
   Node nLeqMax = NodeBuilder<2>(LEQ) << var << mkRationalNode(max);
   Debug("arith::miplib") << nGeqMin << nLeqMax << endl;
-  learned << nGeqMin << nLeqMax;
+  p.learn(nGeqMin);
+  p.learn(nLeqMax);
   set<Rational>::iterator valuesIter = values.begin();
   set<Rational>::iterator valuesEnd = values.end();
   set<Rational>::iterator valuesPrev = valuesIter;
@@ -300,6 +341,6 @@ void ArithStaticLearner::miplibTrick(TNode var, set<Rational>& values, NodeBuild
     Node geqCurr = NodeBuilder<2>(GEQ) << var << mkRationalNode(curr);
     Node excludedMiddle =  NodeBuilder<2>(OR) << leqPrev << geqCurr;
     Debug("arith::miplib") << excludedMiddle << endl;
-    learned << excludedMiddle;
+    p.learn( excludedMiddle );
   }
 }

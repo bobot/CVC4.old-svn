@@ -592,7 +592,7 @@ Node TheoryUFMorgan::getValue(TNode n) {
   }
 }
 
-void TheoryUFMorgan::staticLearning(TNode n, NodeBuilder<>& learned) {
+void TheoryUFMorgan::staticLearning(TNode n, TheoryPreprocessor& preprocessor) {
   TimerStat::CodeTimer codeTimer(d_staticLearningTimer);
 
   vector<TNode> workList;
@@ -693,7 +693,11 @@ void TheoryUFMorgan::staticLearning(TNode n, NodeBuilder<>& learned) {
         Debug("diamonds") << "+ C holds" << endl;
         Node newEquality = a.getType().isBoolean() ? a.iffNode(d) : a.eqNode(d);
         Debug("diamonds") << "  ==> " << newEquality << endl;
-        learned << n.impNode(newEquality);
+        Node imp = n.impNode(newEquality);
+        if(d_diamondImps.find(imp) == d_diamondImps.end()){
+          d_diamondImps.insert(imp);
+          preprocessor.learn(imp);
+        }
       } else {
         Debug("diamonds") << "+ C fails" << endl;
       }

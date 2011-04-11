@@ -36,6 +36,7 @@
 #include "context/context_mm.h"
 #include "context/cdlist.h"
 #include "util/congruence_closure.h"
+#include <ext/hash_map>
 
 namespace CVC4 {
 namespace theory {
@@ -45,6 +46,9 @@ namespace morgan {
 class TheoryUFMorgan : public TheoryUF {
 
 private:
+
+  typedef __gnu_cxx::hash_set<Node, NodeHashFunction> NodeSet;
+  NodeSet d_diamondImps;
 
   class CongruenceChannel {
     TheoryUFMorgan* d_uf;
@@ -190,7 +194,7 @@ public:
    * "learned" builder.  It is a conjunction to add to the formula at
    * the top-level and may contain other theories' contributions.
    */
-  void staticLearning(TNode in, NodeBuilder<>& learned);
+  void staticLearning(TNode in, TheoryPreprocessor& preprocessor);
 
   /**
    * A Theory is called with presolve exactly one time per user

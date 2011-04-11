@@ -117,7 +117,7 @@ void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
        * twice. */
       // FIXME when ExprSets are online, use one of those to avoid
       // duplicates in the above?
-      // Actually, that doesn't work because you have to make sure 
+      // Actually, that doesn't work because you have to make sure
       // that the *last* occurrence is the one that gets processed first @CB
       // This could be a big performance problem though because it requires
       // traversing a DAG as a tree and that can really blow up @CB
@@ -132,6 +132,7 @@ void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
 TheoryEngine::TheoryEngine(context::Context* ctxt) :
   d_propEngine(NULL),
   d_context(ctxt),
+  d_learnt(),
   d_theoryOut(this, ctxt),
   d_hasShutDown(false),
   d_incomplete(ctxt, false),
@@ -142,6 +143,8 @@ TheoryEngine::TheoryEngine(context::Context* ctxt) :
   }
 
   Rewriter::init();
+
+  d_preprocessor = new theory::TheoryPreprocessor(d_learnt);
 
   d_sharedTermManager = new SharedTermManager(this, ctxt);
 }
@@ -166,9 +169,7 @@ struct preprocess_stack_element {
 };
 
 Node TheoryEngine::preprocess(TNode node) {
-  // Remove ITEs and rewrite the node
-  Node preprocessed = Rewriter::rewrite(removeITEs(node));
-  return preprocessed;
+  return d_preprocessor->preprocess(node);
 }
 
 void TheoryEngine::preRegister(TNode preprocessed) {
@@ -274,66 +275,66 @@ void TheoryEngine::propagate() {
   CVC4_FOR_EACH_THEORY
 }
 
-/* Our goal is to tease out any ITE's sitting under a theory operator. */
-Node TheoryEngine::removeITEs(TNode node) {
-  Debug("ite") << "removeITEs(" << node << ")" << endl;
+// /* Our goal is to tease out any ITE's sitting under a theory operator. */
+// Node TheoryEngine::removeITEs(TNode node) {
+//   Debug("ite") << "removeITEs(" << node << ")" << endl;
 
-  /* The result may be cached already */
-  Node cachedRewrite;
-  NodeManager *nodeManager = NodeManager::currentNM();
-  if(nodeManager->getAttribute(node, theory::IteRewriteAttr(), cachedRewrite)) {
-    Debug("ite") << "removeITEs: in-cache: " << cachedRewrite << endl;
-    return cachedRewrite.isNull() ? Node(node) : cachedRewrite;
-  }
+//   /* The result may be cached already */
+//   Node cachedRewrite;
+//   NodeManager *nodeManager = NodeManager::currentNM();
+//   if(nodeManager->getAttribute(node, theory::IteRewriteAttr(), cachedRewrite)) {
+//     Debug("ite") << "removeITEs: in-cache: " << cachedRewrite << endl;
+//     return cachedRewrite.isNull() ? Node(node) : cachedRewrite;
+//   }
 
-  if(node.getKind() == kind::ITE){
-    Assert( node.getNumChildren() == 3 );
-    TypeNode nodeType = node.getType();
-    if(!nodeType.isBoolean()){
-      Node skolem = nodeManager->mkVar(nodeType);
-      Node newAssertion =
-        nodeManager->mkNode(kind::ITE,
-                            node[0],
-                            nodeManager->mkNode(kind::EQUAL, skolem, node[1]),
-                            nodeManager->mkNode(kind::EQUAL, skolem, node[2]));
-      nodeManager->setAttribute(node, theory::IteRewriteAttr(), skolem);
+//   if(node.getKind() == kind::ITE){
+//     Assert( node.getNumChildren() == 3 );
+//     TypeNode nodeType = node.getType();
+//     if(!nodeType.isBoolean()){
+//       Node skolem = nodeManager->mkVar(nodeType);
+//       Node newAssertion =
+//         nodeManager->mkNode(kind::ITE,
+//                             node[0],
+//                             nodeManager->mkNode(kind::EQUAL, skolem, node[1]),
+//                             nodeManager->mkNode(kind::EQUAL, skolem, node[2]));
+//       nodeManager->setAttribute(node, theory::IteRewriteAttr(), skolem);
 
-      Debug("ite") << "removeITEs([" << node.getId() << "," << node << "," << nodeType << "])"
-                   << "->"
-                   << "["<<newAssertion.getId() << "," << newAssertion << "]"
-                   << endl;
+//       Debug("ite") << "removeITEs([" << node.getId() << "," << node << "," << nodeType << "])"
+//                    << "->"
+//                    << "["<<newAssertion.getId() << "," << newAssertion << "]"
+//                    << endl;
 
-      Node preprocessed = preprocess(newAssertion);
-      d_propEngine->assertFormula(preprocessed);
+//       Node preprocessed = preprocess(newAssertion);
+//       d_propEngine->assertFormula(preprocessed);
 
-      return skolem;
-    }
-  }
-  vector<Node> newChildren;
-  bool somethingChanged = false;
-  if(node.getMetaKind() == kind::metakind::PARAMETERIZED) {
-    // Make sure to push operator or it will be missing in new
-    // (reformed) node.  This was crashing on the very simple input
-    // "(f (ite c 0 1))"
-    newChildren.push_back(node.getOperator());
-  }
-  for(TNode::const_iterator it = node.begin(), end = node.end();
-      it != end;
-      ++it) {
-    Node newChild = removeITEs(*it);
-    somethingChanged |= (newChild != *it);
-    newChildren.push_back(newChild);
-  }
+//       return skolem;
+//     }
+//   }
+//   vector<Node> newChildren;
+//   bool somethingChanged = false;
+//   if(node.getMetaKind() == kind::metakind::PARAMETERIZED) {
+//     // Make sure to push operator or it will be missing in new
+//     // (reformed) node.  This was crashing on the very simple input
+//     // "(f (ite c 0 1))"
+//     newChildren.push_back(node.getOperator());
+//   }
+//   for(TNode::const_iterator it = node.begin(), end = node.end();
+//       it != end;
+//       ++it) {
+//     Node newChild = removeITEs(*it);
+//     somethingChanged |= (newChild != *it);
+//     newChildren.push_back(newChild);
+//   }
 
-  if(somethingChanged) {
-    cachedRewrite = nodeManager->mkNode(node.getKind(), newChildren);
-    nodeManager->setAttribute(node, theory::IteRewriteAttr(), cachedRewrite);
-    return cachedRewrite;
-  } else {
-    nodeManager->setAttribute(node, theory::IteRewriteAttr(), Node::null());
-    return node;
-  }
-}
+//   if(somethingChanged) {
+//     cachedRewrite = nodeManager->mkNode(node.getKind(), newChildren);
+//     nodeManager->setAttribute(node, theory::IteRewriteAttr(), cachedRewrite);
+//     return cachedRewrite;
+//   } else {
+//     nodeManager->setAttribute(node, theory::IteRewriteAttr(), Node::null());
+//     return node;
+//   }
+// }
 
 
 Node TheoryEngine::getValue(TNode node) {
@@ -359,7 +360,7 @@ bool TheoryEngine::presolve() {
         d_theoryTable[i]->presolve();
         if(!d_theoryOut.d_conflictNode.get().isNull()) {
           return true;
-	}
+        }
      }
   } catch(const theory::Interrupted&) {
     Debug("theory") << "TheoryEngine::presolve() => interrupted" << endl;
@@ -377,11 +378,24 @@ void TheoryEngine::notifyRestart() {
   }
 }
 
+void TheoryEngine::staticLearning(TNode in) {
+  vector<TNode> effectivelyAsserted;
 
-void TheoryEngine::staticLearning(TNode in, NodeBuilder<>& learned) {
-  for(unsigned i = 0; i < THEORY_LAST; ++ i) {
-    if (d_theoryTable[i]) {
-      d_theoryTable[i]->staticLearning(in, learned);
+  effectivelyAsserted.push_back(in);
+  while(!effectivelyAsserted.empty()) {
+    TNode curr = effectivelyAsserted.back();
+    effectivelyAsserted.pop_back();
+
+    if(curr.getKind() == kind::AND){
+      for(TNode::iterator i = curr.begin(), iend = curr.end(); i != iend; ++i) {
+        effectivelyAsserted.push_back(*i);
+      }
+    }else{
+      for(unsigned i = 0; i < THEORY_LAST; ++ i) {
+        if (d_theoryTable[i]) {
+          d_theoryTable[i]->staticLearning(curr, *d_preprocessor);
+        }
+      }
     }
   }
 }

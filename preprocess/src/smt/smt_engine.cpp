@@ -437,16 +437,49 @@ Node SmtEnginePrivate::preprocess(SmtEngine& smt, TNode in)
   // For now, don't re-statically-learn from learned facts; this could
   // be useful though (e.g., theory T1 could learn something further
   // from something learned previously by T2).
-  NodeBuilder<> learned(kind::AND);
-  learned << n;
-  smt.d_theoryEngine->staticLearning(n, learned);
-  if(learned.getNumChildren() == 1) {
-    learned.clear();
-  } else {
-    n = learned;
+
+  vector<Node> assertions;
+  vector<Node> workList;
+  workList.push_back(n);
+  bool reduced = false;
+  while(!workList.empty() || !reduced){
+    if(!workList.empty()){
+      while(!workList.empty()){
+        Node curr = workList.back();
+        workList.pop_back();
+        smt.d_theoryEngine->staticLearning(curr);
+        assertions.push_back(curr);
+      }
+    }else{
+      Assert(!reduced);
+      reduced = true;
+      for(uint32_t pos = 0; pos < assertions.size(); ++pos){
+        Node curr = assertions[pos];
+        Node preprocessed = smt.d_theoryEngine->preprocess(curr);
+        if(curr != preprocessed){
+          Debug("static-learning") << curr << "->" << preprocessed << endl;
+          assertions[pos] = preprocessed;
+          reduced = false;
+        }
+      }
+    }
+    while(smt.d_theoryEngine->hasMoreLearntFacts()){
+      Node learnt = smt.d_theoryEngine->getNextLearntFact();
+      workList.push_back(learnt);
+      Debug("static-learning") << "learnt" << learnt << endl;
+      reduced = false;
+    }
   }
 
-  return smt.d_theoryEngine->preprocess(n);
+  if(assertions.size() == 1){
+    return assertions.front();
+  }else{
+
+    NodeBuilder<> preprocessed(kind::AND);
+    preprocessed.append(assertions);
+    Node result = preprocessed;
+    return result;
+  }
 }
 
 Result SmtEngine::check() {
