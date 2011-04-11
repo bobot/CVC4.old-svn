@@ -84,18 +84,8 @@ public:
    */
   inline void setCanon(TNode n, TNode newParent);
 
-private:
-  /**
-   */
-  inline bool isClashConstructor( TNode n1, TNode n2, bool useContext = false );
-  inline bool isCycleConstructor( TNode n1, TNode n2, bool useContext = false );
 
 public:
-  /**
-   */
-  inline bool isInconsistentConstructor( TNode n1, TNode n2, bool checkRecursive = false, bool useContext = false );
-  inline NodeType checkInconsistent( TNode n, bool useContext = false );
-
   /**
    * Called by the Context when a pop occurs.  Cancels everything to the
    * current context level.  Overrides ContextNotifyObj::notify().
@@ -149,84 +139,6 @@ inline void UnionFind<NodeType, NodeHash>::setCanon(TNode n, TNode newParent) {
     d_trace.push_back(make_pair(n, TNode::null()));
     d_offset = d_trace.size();
   }
-}
-
-template <class NodeType, class NodeHash>
-inline bool UnionFind<NodeType, NodeHash>::isClashConstructor(TNode n1, TNode n2, bool useContext ) {
-  if( useContext ){
-    n2 = find( n2 );
-  }
-  if( n1.getKind()==kind::APPLY_CONSTRUCTOR && n2.getKind()==kind::APPLY_CONSTRUCTOR ){
-    if( n1.getOperator()!=n2.getOperator() ){
-      return true;
-    }else{
-      Assert( n1.getNumChildren()==n2.getNumChildren() );
-      for( int i=0; i<(int)n1.getNumChildren(); i++ ){
-        if( isClashConstructor( n1[i], n2[i], useContext ) ){
-          return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-template <class NodeType, class NodeHash>
-inline bool UnionFind<NodeType, NodeHash>::isCycleConstructor(TNode n1, TNode n2, bool useContext ) {
-  if( n1==n2 ){
-    return true;
-  }else{
-    if( useContext ){
-      n2 = find( n2 );
-    }
-    if( n2.getKind()==kind::APPLY_CONSTRUCTOR ){
-      for( int i=0; i<(int)n2.getNumChildren(); i++ ){
-        if( isCycleConstructor( n1, n2[i], useContext ) ){
-          return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-template <class NodeType, class NodeHash>
-inline bool UnionFind<NodeType, NodeHash>::isInconsistentConstructor(TNode n1, TNode n2, bool checkRecursive, bool useContext ) {
-  if( isClashConstructor( n1, n2, useContext ) || 
-      ( n1!=n2 && ( isCycleConstructor( n1, n2, useContext ) || isCycleConstructor( n2, n1, useContext ) ) ) ){
-    return true;
-  }else if( checkRecursive ){
-    if( n1.getKind()==kind::APPLY_CONSTRUCTOR && n2.getKind()==kind::APPLY_CONSTRUCTOR &&
-        n1.getOperator()==n2.getOperator() ){
-      for( int i=0; i<(int)n1.getNumChildren(); i++ ) {
-        if( isInconsistentConstructor( n1[i], n2[i], true ) ){
-          return true;
-        }
-      }
-    }
-    return false;
-  }else{
-    return false;
-  }
-}
-
-template <class NodeType, class NodeHash>
-inline NodeType UnionFind<NodeType, NodeHash>::checkInconsistent(TNode n, bool useContext) {
-  //check for conflicts
-  if( n.getKind()==kind::APPLY_CONSTRUCTOR ){
-    TNode parent = find( n ); 
-    if( isInconsistentConstructor( n, parent, false, useContext ) ){
-      return parent;
-    }
-    typename MapType::iterator it;
-    for( it = d_map.begin(); it != d_map.end(); ++it ){
-      TNode nparent = find( it->first );
-      if( nparent==parent && isInconsistentConstructor( n, it->first, false, useContext ) ){
-        return it->first;
-      }
-    }
-  }
-  return Node::null();
 }
 
 }/* CVC4::theory::datatypes namespace */

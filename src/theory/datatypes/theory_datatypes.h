@@ -42,6 +42,7 @@ private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
   context::CDList<Node> d_currAsserts;
+  context::CDList<Node> d_currEqualities;
   //a list of types with the list of constructors for that type
   std::map<TypeNode, std::vector<Node> > d_cons;
   //a list of types with the list of constructors for that type
@@ -70,6 +71,8 @@ private:
   BoolMap d_reps;
   //map from nodes to a list of selectors whose arguments are in the equivalence class of that node
   EqListsN d_selector_eq;
+  //map from node representatives to list of nodes in their eq class
+  EqListsN d_equivalence_class;
   //map from terms to whether they have been instantiated
   BoolMap d_inst_map;
   //Type getType( TypeNode t );
@@ -169,9 +172,7 @@ private:
   void updateSelectors( Node a );
   void collectTerms( TNode t );
   void addTermToLabels( Node t );
-
   void initializeEqClass( Node t );
-  void collectSubTerms( Node t, EqListN* sbt, bool  isProper = false );
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);
