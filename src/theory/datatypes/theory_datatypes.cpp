@@ -1,11 +1,11 @@
 /*********************                                                        */
 /*! \file theory_datatypes.cpp
  ** \verbatim
- ** Original author: barrett
+ ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -256,13 +256,13 @@ void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< TypeNode, s
 
 void TheoryDatatypes::addSharedTerm(TNode t) {
   Debug("datatypes") << "TheoryDatatypes::addSharedTerm(): "
-                  << t << endl;
+                     << t << endl;
 }
 
 
 void TheoryDatatypes::notifyEq(TNode lhs, TNode rhs) {
   Debug("datatypes") << "TheoryDatatypes::notifyEq(): "
-                  << lhs << " = " << rhs << endl;
+                     << lhs << " = " << rhs << endl;
   //if(!d_conflict.isNull()) {
   //  return;
   //}
@@ -275,12 +275,12 @@ void TheoryDatatypes::notifyEq(TNode lhs, TNode rhs) {
 
 void TheoryDatatypes::notifyCongruent(TNode lhs, TNode rhs) {
   Debug("datatypes") << "TheoryDatatypes::notifyCongruent(): "
-                  << lhs << " = " << rhs << endl;
+                     << lhs << " = " << rhs << endl;
   if(d_conflict.isNull()) {
     merge(lhs,rhs);
   }
   Debug("datatypes-debug") << "TheoryDatatypes::notifyCongruent(): done." << std::endl;
-} 
+}
 
 
 void TheoryDatatypes::presolve() {
@@ -740,7 +740,7 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   }
 
 
-  NodeBuilder<> explanation(kind::AND); 
+  NodeBuilder<> explanation(kind::AND);
   if( checkClash( a, b, explanation ) ){
     explanation << d_cc.explain( a, b );
     d_conflict = explanation.getNumChildren()==1 ? explanation.getChild( 0 ) : explanation;
@@ -926,7 +926,7 @@ Node TheoryDatatypes::collapseSelector( TNode t, bool useContext ){
         if( !d_conflict.isNull() ){
           Debug("datatypes") << "Applied selector " << t << " to provably wrong constructor." << endl;
           retNode = d_distinguishTerms[ selType[1] ];
-          
+
           Node neq = NodeManager::currentNM()->mkNode( EQUAL, retNode, t );
           NodeBuilder<> nb(kind::AND);
           Node trueNode = NodeManager::currentNM()->mkConst(true);
@@ -1031,14 +1031,14 @@ void TheoryDatatypes::collectTerms( TNode t ){
       }else{
         Debug("datatypes") << "  collapsed selector to " << s << std::endl;
       }
-    } 
+    }
   }
   addTermToLabels( t );
 }
 
 void TheoryDatatypes::addTermToLabels( Node t ){
   if( t.getKind()==APPLY_SELECTOR ){
-    
+
   }
   if( t.getKind()==VARIABLE || t.getKind()==APPLY_SELECTOR ){
     Node tmp = find( t );
@@ -1221,8 +1221,8 @@ void TheoryDatatypes::checkCycles()
 }
 
 //postcondition: if cycle detected, explanation is why n is a subterm of on
-bool TheoryDatatypes::searchForCycle( Node n, Node on, 
-                                      std::map< Node, bool >& visited, 
+bool TheoryDatatypes::searchForCycle( Node n, Node on,
+                                      std::map< Node, bool >& visited,
                                       NodeBuilder<>& explanation )
 {
   //Debug("datatypes") << "Search for cycle " << n << " " << on << std::endl;
@@ -1237,7 +1237,7 @@ bool TheoryDatatypes::searchForCycle( Node n, Node on,
           }
           return true;
         }
-      } 
+      }
     }
   }
   return false;

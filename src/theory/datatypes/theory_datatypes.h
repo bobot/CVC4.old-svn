@@ -1,11 +1,11 @@
 /*********************                                                        */
 /*! \file theory_datatypes.h
  ** \verbatim
- ** Original author: mdeters
- ** Major contributors: barrett
+ ** Original author: ajreynol
+ ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -43,37 +43,37 @@ private:
 
   context::CDList<Node> d_currAsserts;
   context::CDList<Node> d_currEqualities;
-  //a list of types with the list of constructors for that type
+  /** a list of types with the list of constructors for that type */
   std::map<TypeNode, std::vector<Node> > d_cons;
-  //a list of types with the list of constructors for that type
+  /** a list of types with the list of constructors for that type */
   std::map<TypeNode, std::vector<Node> > d_testers;
-  //a list of constructors with the list of selectors
+  /** a list of constructors with the list of selectors */
   std::map<Node, std::vector<Node> > d_sels;
-  //map from selectors to the constructors they are for
+  /** map from selectors to the constructors they are for */
   std::map<Node, Node > d_sel_cons;
-  // the distinguished ground term for each type
+  /**  the distinguished ground term for each type */
   std::map<TypeNode, Node > d_distinguishTerms;
-  //finite datatypes/constructor
+  /** finite datatypes/constructor */
   std::map< TypeNode, bool > d_finite;
   std::map< Node, bool > d_cons_finite;
-  //well founded datatypes/constructor
+  /** well founded datatypes/constructor */
   std::map< TypeNode, bool > d_wellFounded;
   std::map< Node, bool > d_cons_wellFounded;
-  //whether we need to check finite and well foundedness
+  /** whether we need to check finite and well foundedness */
   bool requiresCheckFiniteWellFounded;
-  //map from equalties and the equalities they are derived from
+  /** map from equalties and the equalities they are derived from */
   context::CDMap< Node, Node, NodeHashFunction > d_drv_map;
-  //equalities that are axioms
+  /** equalities that are axioms */
   BoolMap d_axioms;
-  //list of all selectors
+  /** list of all selectors */
   BoolMap d_selectors;
-  //list of all representatives
+  /** list of all representatives */
   BoolMap d_reps;
-  //map from nodes to a list of selectors whose arguments are in the equivalence class of that node
+  /** map from nodes to a list of selectors whose arguments are in the equivalence class of that node */
   EqListsN d_selector_eq;
-  //map from node representatives to list of nodes in their eq class
+  /** map from node representatives to list of nodes in their eq class */
   EqListsN d_equivalence_class;
-  //map from terms to whether they have been instantiated
+  /** map from terms to whether they have been instantiated */
   BoolMap d_inst_map;
   //Type getType( TypeNode t );
   int getConstructorIndex( TypeNode t, Node c );
@@ -81,12 +81,14 @@ private:
   bool isDatatype( TypeNode t ) { return d_cons.find( t )!=d_cons.end(); }
   void checkFiniteWellFounded();
 
-  //map from terms to testers asserted for that term
-  // for each t, this is either a list of equations of the form 
-  //   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t ), each of which are unique testers,
-  // or a list of equations of the form 
-  //   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t )  followed by
-  //   is_[constructor_(n+1)]( t ), each of which is a unique tester.
+  /**
+   * map from terms to testers asserted for that term
+   * for each t, this is either a list of equations of the form
+   *   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t ), each of which are unique testers,
+   * or a list of equations of the form
+   *   NOT is_[constructor_1]( t )...NOT is_[constructor_n]( t )  followed by
+   *   is_[constructor_(n+1)]( t ), each of which is a unique tester.
+   */
   EqLists d_labels;
 
   class CongruenceChannel {
@@ -97,7 +99,7 @@ private:
     void notifyCongruent(TNode a, TNode b) {
       d_datatypes->notifyCongruent(a, b);
     }
-  }; /* class CongruenceChannel*/
+  };/* class CongruenceChannel */
   friend class CongruenceChannel;
 
   /**
@@ -188,8 +190,8 @@ private:
   void throwConflict();
 
   void checkCycles();
-  bool searchForCycle( Node n, Node on, 
-                       std::map< Node, bool >& visited, 
+  bool searchForCycle( Node n, Node on,
+                       std::map< Node, bool >& visited,
                        NodeBuilder<>& explanation );
   bool checkClash( Node n1, Node n2, NodeBuilder<>& explanation );
   bool checkClashSimple( Node n1, Node n2 );
