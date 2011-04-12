@@ -197,7 +197,16 @@ check_builtin_theory_seen
 ## output
 
 text=$(cat "$template")
-for var in kind_decls kind_printers kind_to_theory_id theory_enum type_constant_list type_constant_descriptions type_constant_to_theory_id theory_descriptions; do
+for var in \
+    template \
+    kind_decls \
+    kind_printers \
+    kind_to_theory_id \
+    theory_enum \
+    type_constant_list \
+    type_constant_descriptions \
+    type_constant_to_theory_id \
+    theory_descriptions; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
 done
 error=`expr "$text" : '.*\${\([^}]*\)}.*'`

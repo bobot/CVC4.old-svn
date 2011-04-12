@@ -28,6 +28,7 @@
 
 #include "expr/node_manager.h"
 #include "expr/node.h"
+#include "expr/kind_map.h"
 #include "context/context_mm.h"
 #include "context/cdo.h"
 #include "context/cdmap.h"
@@ -40,12 +41,12 @@
 
 namespace CVC4 {
 
-template <class OutputChannel, class CongruenceOperatorList>
+template <class OutputChannel>
 class CongruenceClosure;
 
-template <class OutputChannel, class CongruenceOperatorList>
+template <class OutputChannel>
 std::ostream& operator<<(std::ostream& out,
-                         const CongruenceClosure<OutputChannel, CongruenceOperatorList>& cc);
+                         const CongruenceClosure<OutputChannel>& cc);
 
 /**
  * A CongruenceClosureException is thrown by
@@ -60,44 +61,15 @@ public:
     Exception(std::string("Congruence closure exception: ") + msg) {}
 };/* class CongruenceClosureException */
 
-struct EndOfCongruenceOpList;
-template <Kind kind_, class Tail_ = EndOfCongruenceOpList>
-struct CongruenceOperator {
-  enum { kind = kind_ };
-  typedef Tail_ Tail;
-};/* class CongruenceOperator<> */
-
-#define CONGRUENCE_OPERATORS_1(kind1) CongruenceOperator<kind1, EndOfCongruenceOpList>
-#define CONGRUENCE_OPERATORS_2(kind1, kind2) CongruenceOperator<kind1, CONGRUENCE_OPERATORS_1(kind2)>
-#define CONGRUENCE_OPERATORS_3(kind1, kind2, kind3) CongruenceOperator<kind1, CONGRUENCE_OPERATORS_2(kind2, kind3)>
-#define CONGRUENCE_OPERATORS_4(kind1, kind2, kind3, kind4) CongruenceOperator<kind1, CONGRUENCE_OPERATORS_3(kind2, kind3, kind4)>
-#define CONGRUENCE_OPERATORS_5(kind1, kind2, kind3, kind4, kind5) CongruenceOperator<kind1, CONGRUENCE_OPERATORS_4(kind2, kind3, kind4, kind5)>
-
-/**
- * Returns true if the kind k is registered as a congruence operator
- * for this CongruenceClosure.  (That is, if it's in the
- * CongruenceOperatorList template parameter.)  False otherwise.
- */
-template <class CongruenceOperatorList>
-inline bool isInCongruenceOperatorList(Kind k) {
-  typedef typename CongruenceOperatorList::Tail Tail;
-  return k == Kind(CongruenceOperatorList::kind) ||
-    isInCongruenceOperatorList<Tail>(k);
-}
-
-// specialization for empty list
-template <>
-inline bool isInCongruenceOperatorList<EndOfCongruenceOpList>(Kind k) {
-  return false;
-}
-
 /**
  * Congruence closure module for CVC4.
  *
  * This is a service class for theories.  One uses a CongruenceClosure
- * by adding a number of relevant terms with addTerm() and equalities
- * with addEquality().  It then gets notified (through OutputChannel,
- * below), of new equalities.
+ * by adding a number of relevant equality terms with addTerm() and
+ * asserted equalities with addEquality().  It then gets notified
+ * (through OutputChannel, below), of new equality terms that are
+ * implied by the current set of asserted (and implied) equalities.
+
  *
  * OutputChannel is a template argument (it's probably a thin layer,
  * and we want to avoid a virtual call hierarchy in this case, and
@@ -126,18 +98,17 @@ inline bool isInCongruenceOperatorList<EndOfCongruenceOpList>(Kind k) {
  *       // interrupt you.
  *     }
  *   };
- *
- * CongruenceOperatorList is a typelist of congruence Kinds,
- * e.g., CONGRUENCE_OPERATORS_1(kind::APPLY_UF)
- * or CONGRUENCE_OPERATORS_2(kind::SELECT, kind::STORE)
  */
-template <class OutputChannel, class CongruenceOperatorList>
+template <class OutputChannel>
 class CongruenceClosure {
   /** The context */
   context::Context* d_context;
 
   /** The output channel */
   OutputChannel* d_out;
+
+  /** The output channel */
+  const KindMap d_congruenceOperatorMap;
 
   // typedef all of these so that iterators are easy to define
   typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> RepresentativeMap;
@@ -183,7 +154,7 @@ class CongruenceClosure {
   AverageStat d_explanationLength;/**< average explanation length */
   IntStat d_newSkolemVars;/**< new vars created */
 
-  static inline bool isCongruenceOperator(TNode n) {
+  inline bool isCongruenceOperator(TNode n) const {
     // For the datatypes theory, we've removed the invariant that
     // parameterized kinds must have at least one argument.  Consider
     // (CONSTRUCTOR nil) for instance.  So, n here can be an operator
@@ -192,15 +163,16 @@ class CongruenceClosure {
     // operator and no children (like CONSTRUCTOR nil), since we can
     // treat that as a simple variable.
     return n.getNumChildren() > 0 &&
-      isInCongruenceOperatorList<CongruenceOperatorList>(n.getKind());
+      d_congruenceOperatorMap[n.getKind()];
   }
 
 public:
   /** Construct a congruence closure module instance */
-  CongruenceClosure(context::Context* ctxt, OutputChannel* out)
+  CongruenceClosure(context::Context* ctxt, OutputChannel* out, KindMap kinds)
     throw(AssertionException) :
     d_context(ctxt),
     d_out(out),
+    d_congruenceOperatorMap(kinds),
     d_representative(ctxt),
     d_classList(ctxt),
     d_useList(ctxt),
@@ -213,6 +185,7 @@ public:
     d_careSet(ctxt),
     d_explanationLength("congruence_closure::AverageExplanationLength"),
     d_newSkolemVars("congruence_closure::NewSkolemVariables", 0) {
+    CheckArgument(!kinds.isEmpty(), "cannot construct a CongruenceClosure with an empty KindMap");
   }
 
   ~CongruenceClosure() {}
@@ -381,7 +354,7 @@ public:
 private:
 
   friend std::ostream& operator<< <>(std::ostream& out,
-                                     const CongruenceClosure<OutputChannel, CongruenceOperatorList>& cc);
+                                     const CongruenceClosure<OutputChannel>& cc);
 
   /**
    * Internal propagation of information.  Propagation tends to
@@ -480,8 +453,8 @@ public:
 };/* class CongruenceClosure */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addTerm(TNode t) {
+template <class OutputChannel>
+void CongruenceClosure<OutputChannel>::addTerm(TNode t) {
   Node trm = replace(flatten(t));
   Node trmp = find(trm);
 
@@ -511,8 +484,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addTerm(TNode t) 
 }
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addEq(TNode eq, TNode inputEq) {
+template <class OutputChannel>
+void CongruenceClosure<OutputChannel>::addEq(TNode eq, TNode inputEq) {
   Assert(!eq[0].getType().isFunction() && !eq[1].getType().isFunction(),
          "CongruenceClosure:: equality between function symbols not allowed");
 
@@ -566,8 +539,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::addEq(TNode eq, T
 }/* addEq() */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::buildRepresentativesOfApply(TNode apply,
+template <class OutputChannel>
+Node CongruenceClosure<OutputChannel>::buildRepresentativesOfApply(TNode apply,
                                                               Kind kindToBuild)
   throw(AssertionException) {
   Assert(isCongruenceOperator(apply));
@@ -585,8 +558,8 @@ Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::buildRepresentati
 }/* buildRepresentativesOfApply() */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-void CongruenceClosure<OutputChannel, CongruenceOperatorList>::propagate(TNode seed) {
+template <class OutputChannel>
+void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
   Trace("cc:detail") << "=== doing a round of propagation ===" << std::endl
                      << "the \"seed\" propagation is: " << seed << std::endl;
 
@@ -781,8 +754,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::propagate(TNode s
 }/* propagate() */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-void CongruenceClosure<OutputChannel, CongruenceOperatorList>::merge(TNode ec1, TNode ec2) {
+template <class OutputChannel>
+void CongruenceClosure<OutputChannel>::merge(TNode ec1, TNode ec2) {
   /*
   if(Debug.isOn("cc:detail")) {
     Debug("cc:detail") << "  -- merging " << ec1
@@ -815,8 +788,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::merge(TNode ec1, 
 }/* merge() */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-void CongruenceClosure<OutputChannel, CongruenceOperatorList>::mergeProof(TNode a, TNode b, TNode e) {
+template <class OutputChannel>
+void CongruenceClosure<OutputChannel>::mergeProof(TNode a, TNode b, TNode e) {
   Trace("cc") << "  -- merge-proofing " << a << "\n"
               << "                and " << b << "\n"
               << "               with " << e << "\n";
@@ -854,8 +827,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::mergeProof(TNode 
 }/* mergeProof() */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::normalize(TNode t) const
+template <class OutputChannel>
+Node CongruenceClosure<OutputChannel>::normalize(TNode t) const
   throw(AssertionException) {
   Trace("cc:detail") << "normalize " << t << std::endl;
   if(!isCongruenceOperator(t)) {// t is a constant
@@ -905,8 +878,8 @@ Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::normalize(TNode t
 // This is the find() operation for the auxiliary union-find.  This
 // union-find is not context-dependent, as it's used only during
 // explain().  It does path compression.
-template <class OutputChannel, class CongruenceOperatorList>
-Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::highestNode(TNode a, UnionFind_t& unionFind) const
+template <class OutputChannel>
+Node CongruenceClosure<OutputChannel>::highestNode(TNode a, UnionFind_t& unionFind) const
   throw(AssertionException) {
   UnionFind_t::iterator i = unionFind.find(a);
   if(i == unionFind.end()) {
@@ -917,8 +890,8 @@ Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::highestNode(TNode
 }/* highestNode() */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-void CongruenceClosure<OutputChannel, CongruenceOperatorList>::explainAlongPath(TNode a, TNode c, PendingProofList_t& pending, UnionFind_t& unionFind, std::list<Node>& pf)
+template <class OutputChannel>
+void CongruenceClosure<OutputChannel>::explainAlongPath(TNode a, TNode c, PendingProofList_t& pending, UnionFind_t& unionFind, std::list<Node>& pf)
   throw(AssertionException) {
 
   a = highestNode(a, unionFind);
@@ -953,8 +926,8 @@ void CongruenceClosure<OutputChannel, CongruenceOperatorList>::explainAlongPath(
 }/* explainAlongPath() */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::nearestCommonAncestor(TNode a, TNode b, UnionFind_t& unionFind)
+template <class OutputChannel>
+Node CongruenceClosure<OutputChannel>::nearestCommonAncestor(TNode a, TNode b, UnionFind_t& unionFind)
   throw(AssertionException) {
   SeenSet_t seen;
 
@@ -978,8 +951,8 @@ Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::nearestCommonAnce
 }/* nearestCommonAncestor() */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
-Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::explain(Node a, Node b)
+template <class OutputChannel>
+Node CongruenceClosure<OutputChannel>::explain(Node a, Node b)
   throw(CongruenceClosureException, AssertionException) {
 
   Assert(a != b);
@@ -1048,44 +1021,44 @@ Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::explain(Node a, N
 }/* explain() */
 
 
-template <class OutputChannel, class CongruenceOperatorList>
+template <class OutputChannel>
 std::ostream& operator<<(std::ostream& out,
-                         const CongruenceClosure<OutputChannel, CongruenceOperatorList>& cc) {
+                         const CongruenceClosure<OutputChannel>& cc) {
   out << "==============================================" << std::endl;
 
   /*out << "Representatives:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel, CongruenceOperatorList>::RepresentativeMap::const_iterator i = cc.d_representative.begin(); i != cc.d_representative.end(); ++i) {
+  for(typename CongruenceClosure<OutputChannel>::RepresentativeMap::const_iterator i = cc.d_representative.begin(); i != cc.d_representative.end(); ++i) {
     out << "  " << (*i).first << " => " << (*i).second << std::endl;
   }*/
 
   out << "ClassLists:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel, CongruenceOperatorList>::ClassLists::const_iterator i = cc.d_classList.begin(); i != cc.d_classList.end(); ++i) {
+  for(typename CongruenceClosure<OutputChannel>::ClassLists::const_iterator i = cc.d_classList.begin(); i != cc.d_classList.end(); ++i) {
     if(cc.find((*i).first) == (*i).first) {
       out << "  " << (*i).first << " =>" << std::endl;
-      for(typename CongruenceClosure<OutputChannel, CongruenceOperatorList>::ClassList::const_iterator j = (*i).second->begin(); j != (*i).second->end(); ++j) {
+      for(typename CongruenceClosure<OutputChannel>::ClassList::const_iterator j = (*i).second->begin(); j != (*i).second->end(); ++j) {
         out << "      " << *j << std::endl;
       }
     }
   }
 
   out << "UseLists:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel, CongruenceOperatorList>::UseLists::const_iterator i = cc.d_useList.begin(); i != cc.d_useList.end(); ++i) {
+  for(typename CongruenceClosure<OutputChannel>::UseLists::const_iterator i = cc.d_useList.begin(); i != cc.d_useList.end(); ++i) {
     if(cc.find((*i).first) == (*i).first) {
       out << "  " << (*i).first << " =>" << std::endl;
-      for(typename CongruenceClosure<OutputChannel, CongruenceOperatorList>::UseList::const_iterator j = (*i).second->begin(); j != (*i).second->end(); ++j) {
+      for(typename CongruenceClosure<OutputChannel>::UseList::const_iterator j = (*i).second->begin(); j != (*i).second->end(); ++j) {
         out << "      " << *j << std::endl;
       }
     }
   }
 
   out << "Lookup:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel, CongruenceOperatorList>::LookupMap::const_iterator i = cc.d_lookup.begin(); i != cc.d_lookup.end(); ++i) {
+  for(typename CongruenceClosure<OutputChannel>::LookupMap::const_iterator i = cc.d_lookup.begin(); i != cc.d_lookup.end(); ++i) {
     TNode n = (*i).second;
     out << "  " << (*i).first << " => " << n << std::endl;
   }
 
   out << "Care set:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel, CongruenceOperatorList>::CareSet::const_iterator i = cc.d_careSet.begin(); i != cc.d_careSet.end(); ++i) {
+  for(typename CongruenceClosure<OutputChannel>::CareSet::const_iterator i = cc.d_careSet.begin(); i != cc.d_careSet.end(); ++i) {
     out << "  " << *i << std::endl;
   }
 

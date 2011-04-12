@@ -35,7 +35,7 @@ TheoryUFMorgan::TheoryUFMorgan(Context* ctxt, OutputChannel& out, Valuation valu
   TheoryUF(ctxt, out, valuation),
   d_assertions(ctxt),
   d_ccChannel(this),
-  d_cc(ctxt, &d_ccChannel),
+  d_cc(ctxt, &d_ccChannel, kind::APPLY_UF),
   d_unionFind(ctxt),
   d_disequalities(ctxt),
   d_equalities(ctxt),
