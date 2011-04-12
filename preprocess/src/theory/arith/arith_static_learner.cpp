@@ -126,19 +126,18 @@ void ArithStaticLearner::process(TNode n, TheoryPreprocessor& p, const TNodeSet&
 
   switch(n.getKind()){
   case EQUAL:
-    if(n[0].getMetaKind() == kind::metakind::VARIABLE &&
-       defTrue.find(n) != defTrue.end() &&
-       !containsItes(n)){
+    if(defTrue.find(n) != defTrue.end()){
       eqConstant(n, p);
     }
     break;
   case ITE:
-    if(n[0].getKind() != EQUAL &&
+    if(false && n[0].getKind() != EQUAL &&
        isRelationOperator(n[0].getKind())  ){
       iteMinMax(n, p);
     }
 
-    if((n[1].getKind() == CONST_RATIONAL || n[1].getKind() == CONST_INTEGER) &&
+    if(false &&
+       (n[1].getKind() == CONST_RATIONAL || n[1].getKind() == CONST_INTEGER) &&
        (n[2].getKind() == CONST_RATIONAL || n[2].getKind() == CONST_INTEGER)) {
       iteConstant(n, p);
     }
@@ -188,11 +187,13 @@ void ArithStaticLearner::iteMinMax(TNode n, TheoryPreprocessor& p){
     // t == cleft && e == cright
     Assert( t == cleft );
     Assert( e == cright );
+    Node skolem = p.skolemize(n);
+
     switch(k){
     case LT:   // (ite (< x y) x y)
     case LEQ: { // (ite (<= x y) x y)
-      Node nLeqX = NodeBuilder<2>(LEQ) << n << t;
-      Node nLeqY = NodeBuilder<2>(LEQ) << n << e;
+      Node nLeqX = NodeBuilder<2>(LEQ) << skolem << t;
+      Node nLeqY = NodeBuilder<2>(LEQ) << skolem << e;
       Debug("arith::static") << n << "is a min =>"  << nLeqX << nLeqY << endl;
       p.learn( nLeqX );
       p.learn( nLeqY );
@@ -201,8 +202,8 @@ void ArithStaticLearner::iteMinMax(TNode n, TheoryPreprocessor& p){
     }
     case GT: // (ite (> x y) x y)
     case GEQ: { // (ite (>= x y) x y)
-      Node nGeqX = NodeBuilder<2>(GEQ) << n << t;
-      Node nGeqY = NodeBuilder<2>(GEQ) << n << e;
+      Node nGeqX = NodeBuilder<2>(GEQ) << skolem << t;
+      Node nGeqY = NodeBuilder<2>(GEQ) << skolem << e;
       Debug("arith::static") << n << "is a max =>"  << nGeqX << nGeqY << endl;
       p.learn( nGeqX) ;
       p.learn( nGeqY );
@@ -216,12 +217,15 @@ void ArithStaticLearner::iteMinMax(TNode n, TheoryPreprocessor& p){
 
 void ArithStaticLearner::eqConstant(TNode n, TheoryPreprocessor& p) {
   Assert(n.getKind() == EQUAL);
-  Assert(n[0].getMetaKind() == kind::metakind::VARIABLE);
-  Assert(!containsItes(n));
 
-  Node right = Rewriter::rewrite(n[1]);
-  if(right.getKind() == CONST_RATIONAL){
-    bool success = p.requestReplacement(n[0], right);
+  Node rewrite = p.replaceAndRewrite(n);
+
+  Debug("eqConstant") << n << " -> " << rewrite << endl;
+
+  if(rewrite[0].getMetaKind() == metakind::VARIABLE &&
+     rewrite[1].getKind() == CONST_RATIONAL){
+
+    bool success = p.requestReplacement(rewrite[0], rewrite[1]);
     if(!success){
       Debug("eqConstant") << "failed " << n << endl;
     }else{
@@ -235,7 +239,7 @@ void ArithStaticLearner::iteConstant(TNode n, TheoryPreprocessor& p){
   Assert(n[1].getKind() == CONST_RATIONAL || n[1].getKind() == CONST_INTEGER );
   Assert(n[2].getKind() == CONST_RATIONAL || n[2].getKind() == CONST_INTEGER );
 
-  TNode skolem = p.skolemize(n);
+  Node skolem = p.skolemize(n);
 
   Rational t = coerceToRational(n[1]);
   Rational e = coerceToRational(n[2]);

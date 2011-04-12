@@ -88,7 +88,25 @@ Node TheoryBool::getValue(TNode n) {
     Unhandled(n.getKind());
   }
 }
+void TheoryBool::staticLearning(TNode n, TheoryPreprocessor& p){
+  if((n.getKind() == kind::EQUAL || n.getKind() == kind::IFF) && n[0].getType().isBoolean()){
+    if(n[0].getMetaKind() == kind::metakind::VARIABLE){
+      Node preprocessRight = p.replaceAndRewrite(n[1]);
+      std::cout << "replacing " << n[0] << " with " << preprocessRight << std::endl;
+      if(preprocessRight.getKind() == kind::CONST_BOOLEAN){
 
+        p.requestReplacement(n[0], preprocessRight);
+      }
+    }else if(n[1].getMetaKind() == kind::metakind::VARIABLE){
+      Node preprocessLeft = p.replaceAndRewrite(n[0]);
+      std::cout << "replacing " << n[1] << " with " << preprocessLeft << std::endl;
+      if(preprocessLeft.getKind() == kind::CONST_BOOLEAN){
+
+        p.requestReplacement(n[1], preprocessLeft);
+      }
+    }
+  }
+}
 }/* CVC4::theory::booleans namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

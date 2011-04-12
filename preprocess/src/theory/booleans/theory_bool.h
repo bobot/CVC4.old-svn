@@ -45,6 +45,8 @@ public:
 
   Node getValue(TNode n);
 
+  void staticLearning(TNode n, TheoryPreprocessor& p);
+
   std::string identify() const { return std::string("TheoryBool"); }
 };
 

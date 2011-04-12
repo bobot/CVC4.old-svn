@@ -65,7 +65,10 @@ RewriteResponse TheoryBoolRewriter::preRewrite(TNode n) {
   case kind::ITE: {
     // non-Boolean-valued ITEs should have been removed in place of
     // a variable
-    Assert(n.getType().isBoolean());
+
+    //No longer is true.
+    //Assert(n.getType().isBoolean());
+
     // rewrite simple cases of ITE
     if(n[0] == tt) {
       // ITE true x y

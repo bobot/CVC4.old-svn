@@ -43,9 +43,17 @@ public:
 
   /**
    * This is equivalent to:
-   *    Rewriter::rewrite(removeTermITEs(applyReplacmentMap(f))));
+   *    Rewriter::rewrite(removeTermITEs(applyReplacementMap(f))));
    */
   Node preprocess(TNode f);
+
+  /**
+   * This is equivalent to:
+   *    Rewriter::rewrite(applyReplacementMap(f));
+   */
+  Node replaceAndRewrite(TNode f){
+    return Rewriter::rewrite(applyReplacementMap(f));
+  }
 
   Node skolemize(TNode f);
 
