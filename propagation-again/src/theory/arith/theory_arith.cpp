@@ -397,12 +397,6 @@ void TheoryArith::check(Effort effortLevel){
 
     if (fullEffort(effortLevel)) {
       splitDisequalities();
-    }else{
-      //Opportunistically export previous conflicts
-      while(d_simplex.hasMoreLemmas()){
-        Node lemma = d_simplex.popLemma();
-        d_out->lemma(lemma);
-      }
     }
   }
 
@@ -591,8 +585,11 @@ void TheoryArith::propagateArithVar(bool upperbound, ArithVar var ){
 
 void TheoryArith::propagate(Effort e) {
   if(quickCheckOrMore(e)){
-    if(d_simplex.hasAnyUpdates()){
+    bool propagated = false;
+    if(Options::current()->arithPropagation && d_simplex.hasAnyUpdates()){
       d_simplex.propagateCandidates();
+    }else{
+      d_simplex.clearUpdates();
     }
 
     while(d_propManager.hasMorePropagations()){
@@ -600,7 +597,16 @@ void TheoryArith::propagate(Effort e) {
       Node satValue = d_valuation.getSatValue(toProp);
       AlwaysAssert(satValue.isNull());
       TNode exp = d_propManager.explain(toProp);
+      propagated = true;
       d_out->propagate(toProp);
+    }
+
+    if(!propagated){
+      //Opportunistically export previous conflicts
+      while(d_simplex.hasMoreLemmas()){
+        Node lemma = d_simplex.popLemma();
+        d_out->lemma(lemma);
+      }
     }
   }
 }
