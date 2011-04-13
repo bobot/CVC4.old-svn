@@ -72,8 +72,7 @@ CVC_TESTS = \
 	wiki.18.cvc \
 	wiki.19.cvc \
 	wiki.20.cvc \
-	wiki.21.cvc \
-	typed_v1l50016-simp.cvc
+	wiki.21.cvc
 
 # Regression tests derived from bug reports
 BUG_TESTS = \

@@ -283,10 +283,10 @@ public:
     } else {
       theory::Theory* theory = theoryOf(atom);
       Debug("theory") << "asserting " << node << " to " << theory->getId() << std::endl;
-      if( ( node.getKind()==kind::EQUAL ||  //AJR hack
-          ( node.getKind()==kind::NOT && node[0].getKind()==kind::EQUAL ) ) ){
+      if( ( node.getKind() == kind::EQUAL ||  //AJR hack
+            ( node.getKind() == kind::NOT && node[0].getKind() == kind::EQUAL ) ) ) {
         d_theoryTable[theory::THEORY_DATATYPES]->assertFact(node);
-      }else{
+      } else {
         theory->assertFact(node);
       }
     }
