@@ -1,4 +1,5 @@
 % EXPECT: valid
+% EXIT: 20
 
 WordType : TYPE = BITVECTOR(32);
 CharType : TYPE = BITVECTOR(8);

@@ -7,24 +7,24 @@ MAKEFLAGS = -k
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
-	test/regress/regress0/datatypes/datatype.cvc \
-	test/regress/regress0/datatypes/datatype0.cvc \
-	test/regress/regress0/datatypes/datatype1.cvc \
-	test/regress/regress0/datatypes/datatype2.cvc \
-	test/regress/regress0/datatypes/datatype3.cvc \
-	test/regress/regress0/datatypes/datatype4.cvc \
-	test/regress/regress0/datatypes/datatype5.cvc \
-	test/regress/regress0/datatypes/datatype6.cvc \
-	test/regress/regress0/datatypes/datatype7.cvc \
-	test/regress/regress0/datatypes/datatype8.cvc \
-	test/regress/regress0/datatypes/datatype9.cvc \
-	test/regress/regress0/datatypes/datatype10.cvc \
-	test/regress/regress0/datatypes/datatype11.cvc \
-	test/regress/regress0/datatypes/datatype12.cvc \
-	test/regress/regress0/datatypes/datatype13.cvc \
-	test/regress/regress0/datatypes/typed_v1l50016-simp.cvc
+	datatype.cvc \
+	datatype0.cvc \
+	datatype1.cvc \
+	datatype2.cvc \
+	datatype3.cvc \
+	datatype4.cvc \
+	datatype5.cvc \
+	datatype6.cvc \
+	datatype7.cvc \
+	datatype8.cvc \
+	datatype9.cvc \
+	datatype10.cvc \
+	datatype11.cvc \
+	datatype12.cvc \
+	datatype13.cvc
 
-EXTRA_DIST = $(TESTS)
+EXTRA_DIST = $(TESTS) \
+	typed_v1l50016-simp.cvc
 
 #if CVC4_BUILD_PROFILE_COMPETITION
 #else

@@ -1,4 +1,5 @@
 % EXPECT: invalid
+% EXIT: 10
 ObjectValue : TYPE;
 
 DATATYPE
