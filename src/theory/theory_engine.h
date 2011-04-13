@@ -269,7 +269,11 @@ public:
     if (atom.getKind() == kind::EQUAL) {
       theory::TheoryId theoryLHS = theory::Theory::theoryOf(atom[0]);
       Debug("theory") << "asserting " << node << " to " << theoryLHS << std::endl;
-      d_theoryTable[theoryLHS]->assertFact(node);
+
+      //AJR hack
+      //d_theoryTable[theoryLHS]->assertFact(node);
+      d_theoryTable[theory::THEORY_DATATYPES]->assertFact(node);
+
 //      theory::TheoryId theoryRHS = theory::Theory::theoryOf(atom[1]);
 //      if (theoryLHS != theoryRHS) {
 //        Debug("theory") << "asserting " << node << " to " << theoryRHS << std::endl;
@@ -283,12 +287,7 @@ public:
     } else {
       theory::Theory* theory = theoryOf(atom);
       Debug("theory") << "asserting " << node << " to " << theory->getId() << std::endl;
-      if( ( node.getKind() == kind::EQUAL ||  //AJR hack
-            ( node.getKind() == kind::NOT && node[0].getKind() == kind::EQUAL ) ) ) {
-        d_theoryTable[theory::THEORY_DATATYPES]->assertFact(node);
-      } else {
-        theory->assertFact(node);
-      }
+      theory->assertFact(node);
     }
   }
 

@@ -18,7 +18,7 @@
 
 
 #include "theory/datatypes/theory_datatypes.h"
-#include "theory/theory_engine.h"
+#include "theory/valuation.h"
 #include "expr/kind.h"
 
 #include <map>
