@@ -14,17 +14,13 @@ TESTS =	\
 	datatype3.cvc \
 	datatype4.cvc \
 	datatype5.cvc \
-	datatype6.cvc \
-	datatype7.cvc \
-	datatype8.cvc \
 	datatype9.cvc \
 	datatype10.cvc \
 	datatype11.cvc \
-	datatype12.cvc \
-	datatype13.cvc
-
-EXTRA_DIST = $(TESTS) \
+	datatype13.cvc \
 	typed_v1l50016-simp.cvc
+
+EXTRA_DIST = $(TESTS)
 
 #if CVC4_BUILD_PROFILE_COMPETITION
 #else
