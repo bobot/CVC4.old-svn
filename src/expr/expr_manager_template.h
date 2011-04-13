@@ -237,30 +237,32 @@ public:
    */
   TupleType mkTupleType(const std::vector<Type>& types);
 
-  /** Make a type representing a bit-vector of the given size */
+  /** Make a type representing a bit-vector of the given size. */
   BitVectorType mkBitVectorType(unsigned size) const;
 
-  /** Make the type of arrays with the given parameterization */
+  /** Make the type of arrays with the given parameterization. */
   ArrayType mkArrayType(Type indexType, Type constituentType) const;
-  
-  /** Make a type representing a constructor with the given parameterization, 
-      args should be "SelectorType"s */
+
+  /**
+   * Make a type representing a constructor with the given parameterization.
+   * Args should be "SelectorType"s.
+   */
   ConstructorType mkConstructorType(const std::vector<Type>& argTypes, const Type& range) const;
 
-  /** Make a type representing a selector with the given parameterization */
+  /** Make a type representing a selector with the given parameterization. */
   SelectorType mkSelectorType(const Type& domain, const Type& range) const;
 
-  /** Make a type representing a tester with given parameterization */
+  /** Make a type representing a tester with the given parameterization. */
   TesterType mkTesterType(const Type& domain) const;
 
   /** Make a new sort with the given name. */
   SortType mkSort(const std::string& name) const;
 
-  /** Make a new sort from a constructor */
+  /** Make a new sort from a constructor. */
   SortType mkSort(SortConstructorType constructor,
                   const std::vector<TypeNode>& children) const;
 
-  /** Make a sort constructor from a name and arity */
+  /** Make a sort constructor from a name and arity. */
   SortConstructorType mkSortConstructor(const std::string& name,
                                         size_t arity) const;
 

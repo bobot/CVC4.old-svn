@@ -953,8 +953,6 @@ Node CongruenceClosure<OutputChannel, CongruenceOperatorList>::nearestCommonAnce
   throw(AssertionException) {
   SeenSet_t seen;
 
-  Debug("ajr") << "nca: " << a << " " << b << " " << find( a ) << " " << find( b ) << std::endl;
-
   Assert(find(a) == find(b));
 
   do {

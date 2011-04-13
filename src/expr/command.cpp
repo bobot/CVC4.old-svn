@@ -510,6 +510,7 @@ void DatatypeCommand::invoke(SmtEngine* smtEngine) {
 }
 
 void DatatypeCommand::toStream(std::ostream& out) const {
+  out << "DatatypeCommand([])";
 }
 
 void DatatypeCommand::addDefinition( Type t, std::vector< Expr >& cons, std::vector< Expr >& testers,

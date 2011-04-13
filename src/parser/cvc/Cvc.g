@@ -123,17 +123,21 @@ command returns [CVC4::Command* cmd = 0]
     { cmd = new SetOptionCommand(AntlrInput::tokenText($STRING_LITERAL), sexpr); }
   | PUSH_TOK SEMICOLON { cmd = new PushCommand(); }
   | POP_TOK SEMICOLON { cmd = new PopCommand(); }
-  | DATATYPE_TOK datatypeDef[t, cons, testers, sels] { 
-     cmd = new DatatypeCommand;
-     ((DatatypeCommand*)cmd)->addDefinition( t, cons, testers, sels );
-     cons.clear();
-     testers.clear();
-     sels.clear();
-   }( COMMA datatypeDef[t, cons, testers, sels] { ((DatatypeCommand*)cmd)->addDefinition( t, cons, testers, sels );
-                                                  cons.clear();
-                                                  testers.clear();
-                                                  sels.clear(); } )* 
-     END_TOK SEMICOLON
+  | DATATYPE_TOK datatypeDef[t, cons, testers, sels]
+      { cmd = new DatatypeCommand;
+        ((DatatypeCommand*)cmd)->addDefinition( t, cons, testers, sels );
+        cons.clear();
+        testers.clear();
+        sels.clear();
+      }
+      ( COMMA datatypeDef[t, cons, testers, sels]
+        { ((DatatypeCommand*)cmd)->addDefinition( t, cons, testers, sels );
+          cons.clear();
+          testers.clear();
+          sels.clear();
+        }
+      )*
+      END_TOK SEMICOLON
   | declaration[cmd]
   | EOF
   ;
@@ -194,7 +198,7 @@ type[CVC4::Type& t]
   : /* Simple type */
     baseType[t]
   | /* Single-parameter function type */
-    baseType[t] ARROW_TOK baseType[t2] 
+    baseType[t] ARROW_TOK baseType[t2]
     { t = EXPR_MANAGER->mkFunctionType(t,t2); }
   | /* Multi-parameter function type */
     LPAREN baseType[t]
@@ -503,27 +507,26 @@ unaryTerm[CVC4::Expr& f]
   std::vector<Expr> args;
   Debug("parser-extra") << "term: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : /* application */
+  : /* function/constructor application */
     // { isFunction(AntlrInput::tokenText(LT(1))) }?
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]
     { args.push_back( PARSER_STATE->getVariable(name) ); }
     LPAREN formulaList[args] RPAREN
-    { 
-      if( PARSER_STATE->getType(name).isFunction() ){
+    { if( PARSER_STATE->getType(name).isFunction() ) {
         f = MK_EXPR(CVC4::kind::APPLY_UF, args);
-      }else if( PARSER_STATE->getType(name).isConstructor() ){
+      } else if( PARSER_STATE->getType(name).isConstructor() ) {
         Debug("parser-idt") << "apply constructor: " << name.c_str() << " " << args.size() << std::endl;
-        for( int i=0; i<(int)args.size(); i++ ){
+        for(size_t i = 0; i < args.size(); ++i) {
           Debug("parser-idt") << " args[" << i << "]=" << args[i] << std::endl;
         }
         f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, args);
         Debug("parser-idt") << "done." << std::endl;
-      }else if( PARSER_STATE->getType(name).isSelector() ){
+      } else if( PARSER_STATE->getType(name).isSelector() ) {
         Debug("parser-idt") << "apply selector: " << name.c_str() << " " << args.size() << std::endl;
         f = MK_EXPR(CVC4::kind::APPLY_SELECTOR, args);
-      }else if( PARSER_STATE->getType(name).isTester() ){
+      } else if( PARSER_STATE->getType(name).isTester() ) {
         Debug("parser-idt") << "apply tester: " << name.c_str() << " " << args.size() << std::endl;
-        for( int i=0; i<(int)args.size(); i++ ){
+        for(size_t i = 0; i < args.size(); ++i) {
           Debug("parser-idt") << " args[" << i << "]=" << args[i] << std::endl;
         }
         f = MK_EXPR(CVC4::kind::APPLY_TESTER, args);
@@ -549,9 +552,8 @@ unaryTerm[CVC4::Expr& f]
 
   | /* variable */
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]
-    { 
-      f = PARSER_STATE->getVariable(name);
-      //0-ary constructors
+    { f = PARSER_STATE->getVariable(name);
+      // datatypes: 0-ary constructors
       if( PARSER_STATE->getType(name).isConstructor() ){
         args.push_back( f );
         f = MK_EXPR(CVC4::kind::APPLY_CONSTRUCTOR, args);
@@ -615,16 +617,15 @@ readOrDeclBaseType[CVC4::Type& t]
   | INT_TOK { t = EXPR_MANAGER->integerType(); }
   | REAL_TOK { t = EXPR_MANAGER->realType(); }
   | identifier[id,CHECK_NONE,SYM_SORT] 
-  {
-    if( PARSER_STATE->isDeclared( id, SYM_SORT ) ){
-      t = PARSER_STATE->getSort(id); 
-      Debug("parser-idt") << "get datatype: " << id.c_str() << std::endl;
-    }else{
-      t = PARSER_STATE->mkSort(id); 
-      Debug("parser-idt") << "make datatype: " << id.c_str() << std::endl;
+    { if( PARSER_STATE->isDeclared( id, SYM_SORT ) ) {
+        t = PARSER_STATE->getSort(id); 
+        Debug("parser-idt") << "get datatype: " << id.c_str() << std::endl;
+      } else {
+        t = PARSER_STATE->mkSort(id); 
+        Debug("parser-idt") << "make datatype: " << id.c_str() << std::endl;
+      }
     }
-  }
- ;
+  ;
  
 /**
  * Parses a datatype definition
@@ -642,12 +643,15 @@ datatypeDef[CVC4::Type& type, std::vector< CVC4::Expr >& cons, std::vector< CVC4
       { cons.push_back( consExpr );
         testers.push_back( testerExpr );
         sels.push_back( std::vector< Expr >( selExprs ) );
-        selExprs.clear(); }
-    ( BAR_TOK constructorDef[ type, consExpr, testerExpr, selExprs ] 
-      { cons.push_back( consExpr );
-        testers.push_back( testerExpr );
-        sels.push_back( std::vector< Expr >( selExprs ) );
-        selExprs.clear(); } )*
+        selExprs.clear();
+      }
+      ( BAR_TOK constructorDef[ type, consExpr, testerExpr, selExprs ] 
+        { cons.push_back( consExpr );
+          testers.push_back( testerExpr );
+          sels.push_back( std::vector< Expr >( selExprs ) );
+          selExprs.clear();
+        }
+      )*
   ;
   
 /**
@@ -660,26 +664,31 @@ constructorDef[CVC4::Type& type, CVC4::Expr& consExpr, CVC4::Expr& testerExpr, s
   Type selReturnType;
   Expr selExpr;
 }
-  : identifier[id,CHECK_UNDECLARED,SYM_SORT] (LPAREN 
-     selector[type, selReturnType, selExpr] 
+  : identifier[id,CHECK_UNDECLARED,SYM_SORT]
+      ( LPAREN 
+        selector[type, selReturnType, selExpr] 
         { args.push_back(selReturnType); 
-          selExprs.push_back( selExpr ); } 
-     (COMMA selector[type, selReturnType, selExpr] 
-        { args.push_back(selReturnType);
-          selExprs.push_back( selExpr ); } )*
-     RPAREN)?
-     { //make the constructor
-       Type consType = EXPR_MANAGER->mkConstructorType( args, type );
-       consExpr = PARSER_STATE->mkVar( id, consType );
-       Debug("parser-idt") << "constructor: " << id.c_str() << std::endl;
-       
-       //make the tester
-       std::string testerId("is_");
-       testerId.append( id );
-       PARSER_STATE->checkDeclaration(testerId, CHECK_UNDECLARED, SYM_SORT);
-       Type testerType = EXPR_MANAGER->mkTesterType( type );
-       testerExpr = PARSER_STATE->mkVar( testerId, testerType );
-     }
+          selExprs.push_back( selExpr );
+        }
+        ( COMMA selector[type, selReturnType, selExpr] 
+          { args.push_back(selReturnType);
+            selExprs.push_back( selExpr );
+          }
+        )*
+        RPAREN
+      )?
+      { // make the constructor
+        Type consType = EXPR_MANAGER->mkConstructorType( args, type );
+        consExpr = PARSER_STATE->mkVar( id, consType );
+        Debug("parser-idt") << "constructor: " << id.c_str() << std::endl;
+
+        // make the tester
+        std::string testerId("is_");
+        testerId.append( id );
+        PARSER_STATE->checkDeclaration(testerId, CHECK_UNDECLARED, SYM_SORT);
+        Type testerType = EXPR_MANAGER->mkTesterType( type );
+        testerExpr = PARSER_STATE->mkVar( testerId, testerType );
+      }
   ;
   
 selector[CVC4::Type& type, CVC4::Type& selReturnType, CVC4::Expr& selExpr]
@@ -688,11 +697,11 @@ selector[CVC4::Type& type, CVC4::Type& selReturnType, CVC4::Expr& selExpr]
   Type selType;
 }
   : identifier[id,CHECK_UNDECLARED,SYM_SORT] COLON readOrDeclBaseType[selReturnType]
-    { //make the selector
-      selType = EXPR_MANAGER->mkSelectorType( type, selReturnType );
-      selExpr = PARSER_STATE->mkVar( id, selType );
-      Debug("parser-idt") << "selector: " << id.c_str() << std::endl;
-    }
+      { // make the selector
+        selType = EXPR_MANAGER->mkSelectorType( type, selReturnType );
+        selExpr = PARSER_STATE->mkVar( id, selType );
+        Debug("parser-idt") << "selector: " << id.c_str() << std::endl;
+      }
   ;
 
 // Keywords
