@@ -18,7 +18,7 @@
 
 
 #include "theory/arrays/theory_arrays.h"
-#include "theory/theory_engine.h"
+#include "theory/valuation.h"
 #include "expr/kind.h"
 
 
@@ -30,8 +30,8 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arrays;
 
 
-TheoryArrays::TheoryArrays(int id, Context* c, OutputChannel& out) :
-  Theory(id, c, out)
+TheoryArrays::TheoryArrays(Context* c, OutputChannel& out) :
+  Theory(THEORY_ARRAY, c, out)
 {
 }
 
@@ -60,7 +60,7 @@ void TheoryArrays::check(Effort e) {
   Debug("arrays") << "TheoryArrays::check(): done" << endl;
 }
 
-Node TheoryArrays::getValue(TNode n, TheoryEngine* engine) {
+Node TheoryArrays::getValue(TNode n, Valuation* valuation) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -70,7 +70,7 @@ Node TheoryArrays::getValue(TNode n, TheoryEngine* engine) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( engine->getValue(n[0]) == engine->getValue(n[1]) );
+      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
 
   default:
     Unhandled(n.getKind());

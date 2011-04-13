@@ -4,7 +4,11 @@
 # src/theory/builtin/kinds.
 #
 
-theory ::CVC4::theory::datatypes::TheoryDatatypes "theory_datatypes.h"
+theory THEORY_DATATYPES ::CVC4::theory::datatypes::TheoryDatatypes "theory/datatypes/theory_datatypes.h"
+
+properties check presolve 
+
+rewriter ::CVC4::theory::datatypes::DatatypesRewriter "theory/datatypes/datatypes_rewriter.h"
 
 # constructor type has a list of selector types followed by a return type
 operator CONSTRUCTOR_TYPE 1: "constructor"
@@ -23,3 +27,5 @@ parameterized APPLY_TESTER TESTER_TYPE 1: "tester application"
 
 # should have a type, followed by an array of constructors
 operator DATATYPE_DECL 1: "datatype declaration"
+
+endtheory

@@ -5,13 +5,13 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Theory of datatypes.
+ ** \brief Theory of datatypes
  **
  ** Theory of datatypes.
  **/
@@ -31,7 +31,6 @@ struct DatatypeConstructorTypeRule {
     Assert(n.getKind() == kind::APPLY_CONSTRUCTOR);
     TypeNode consType = n.getOperator().getType(check);
     if( check ){
-      //if( !( consType.getNumChildren()==1 && n.getNumChildren()==1 ) ){   //temporary
       Debug("typecheck-idt") << "typecheck cons: " << n << " " << n.getNumChildren() << std::endl;
       Debug("typecheck-idt") << "cons type: " << consType << " " << consType.getNumChildren() << std::endl;
       if( (n.getNumChildren() != consType.getNumChildren() - 1) ){
@@ -48,7 +47,6 @@ struct DatatypeConstructorTypeRule {
         }
         ++tchild_it;
       }
-      //}
     }
     return consType.getConstructorReturnType();
   }

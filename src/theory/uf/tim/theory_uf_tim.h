@@ -20,7 +20,6 @@
  **  (http://portal.acm.org/ft_gateway.cfm?id=322198&type=pdf)
  ** This has been extended to work in a context-dependent way.
  ** This interacts heavily with the data-structures given in ecdata.h .
- **
  **/
 
 #include "cvc4_private.h"
@@ -86,7 +85,7 @@ private:
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-  TheoryUFTim(int id, context::Context* c, OutputChannel& out);
+  TheoryUFTim(context::Context* c, OutputChannel& out);
 
   /** Destructor for the TheoryUF object. */
   ~TheoryUFTim();
@@ -130,20 +129,6 @@ public:
   }
 
   /**
-   * Rewrites a node in the theory of uninterpreted functions.
-   * This is fairly basic and only ensures that atoms that are
-   * unsatisfiable or a valid are rewritten to false or true respectively.
-   */
-  Node rewrite(TNode n);
-
-  /**
-   * Plug in old rewrite to the new (pre,post)rewrite interface.
-   */
-  RewriteResponse postRewrite(TNode n, bool topLevel) {
-    return RewriteComplete(topLevel ? rewrite(n) : Node(n));
-  }
-
-  /**
    * Propagates theory literals. Currently does nothing.
    *
    * Overloads void propagate(Effort level); from theory.h.
@@ -157,7 +142,7 @@ public:
    * Overloads void explain(TNode n, Effort level); from theory.h.
    * See theory/theory.h for more information about this method.
    */
-  void explain(TNode n, Effort level) {}
+  void explain(TNode n) {}
 
   /**
    * Get a theory value.
@@ -165,7 +150,7 @@ public:
    * Overloads Node getValue(TNode n); from theory.h.
    * See theory/theory.h for more information about this method.
    */
-  Node getValue(TNode n, TheoryEngine* engine) {
+  Node getValue(TNode n, Valuation* valuation) {
     Unimplemented("TheoryUFTim doesn't support model generation");
   }
 

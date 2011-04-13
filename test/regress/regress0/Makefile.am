@@ -1,4 +1,4 @@
-SUBDIRS = . arith precedence uf bv lemmas push-pop
+SUBDIRS = . arith precedence uf uflra bv datatypes lemmas push-pop
 
 TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/cvc4
 MAKEFLAGS = -k
@@ -72,7 +72,8 @@ CVC_TESTS = \
 	wiki.18.cvc \
 	wiki.19.cvc \
 	wiki.20.cvc \
-	wiki.21.cvc
+	wiki.21.cvc \
+	typed_v1l50016-simp.cvc
 
 # Regression tests derived from bug reports
 BUG_TESTS = \

@@ -3,6 +3,8 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/..
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
+SUBDIRS = builtin booleans uf arith arrays bv datatypes
+
 noinst_LTLIBRARIES = libtheory.la
 
 libtheory_la_SOURCES = \
@@ -16,9 +18,16 @@ libtheory_la_SOURCES = \
 	shared_term_manager.h \
 	shared_term_manager.cpp \
 	shared_data.h \
-	shared_data.cpp
+	shared_data.cpp \
+	rewriter.h \
+	rewriter_attributes.h \
+	rewriter.cpp \
+	valuation.h \
+	valuation.cpp
+
 nodist_libtheory_la_SOURCES = \
-	theoryof_table.h
+	rewriter_tables.h \
+	theory_traits.h
 
 libtheory_la_LIBADD = \
 	@builddir@/builtin/libbuiltin.la \
@@ -30,24 +39,34 @@ libtheory_la_LIBADD = \
 	@builddir@/datatypes/libdatatypes.la
 
 EXTRA_DIST = \
-	theoryof_table_template.h \
-	mktheoryof \
+	rewriter_tables_template.h \
+	theory_traits_template.h \
+	mktheorytraits \
+	mkrewriter \
 	Makefile.subdirs
 
 BUILT_SOURCES = \
-	theoryof_table.h
+	rewriter_tables.h \
+	theory_traits.h
 
 CLEANFILES = \
-	theoryof_table.h
+	rewriter_tables.h \
+	theory_traits.h
 
 include @top_srcdir@/src/theory/Makefile.subdirs
 
-theoryof_table.h: theoryof_table_template.h mktheoryof @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
-	$(AM_V_at)chmod +x @srcdir@/mktheoryof
+rewriter_tables.h: rewriter_tables_template.h mkrewriter @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkrewriter
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
-	$(AM_V_GEN)(@srcdir@/mktheoryof \
+	$(AM_V_GEN)(@srcdir@/mkrewriter \
 		$< \
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
 
-SUBDIRS = builtin booleans uf arith arrays bv datatypes
+theory_traits.h: theory_traits_template.h mktheorytraits @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mktheorytraits
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mktheorytraits \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)

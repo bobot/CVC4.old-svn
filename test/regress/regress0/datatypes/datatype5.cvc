@@ -1,0 +1,34 @@
+% EXPECT: invalid
+ObjectValue : TYPE;
+
+DATATYPE
+   TypeGeneric = generic(generic_id: INT)
+END;
+
+is_Generic: (TypeGeneric, INT) -> BOOLEAN =
+   LAMBDA (x: TypeGeneric, i: INT): generic_id(x) = i;
+
+witnessTypeGeneric1817 : TypeGeneric;
+ASSERT(is_Generic(witnessTypeGeneric1817, 1817));
+TypeGeneric_1817 : TYPE = SUBTYPE(LAMBDA (x: TypeGeneric): is_Generic(x,
+1817));
+alloc_: TypeGeneric_1817;
+x_RES_1'19_: ObjectValue;
+witnessTypeGeneric1820 : TypeGeneric;
+ASSERT(is_Generic(witnessTypeGeneric1820, 1820));
+TypeGeneric_1820 : TYPE = SUBTYPE(LAMBDA (x: TypeGeneric): is_Generic(x,
+1820));
+allocNew_: TypeGeneric_1820;
+java'lang'Object'Object'49'4 : (TypeGeneric_1817, TypeGeneric_1820) ->
+ObjectValue;
+QUERY
+(
+   (NOT(
+     (
+       ( x_RES_1'19_ =
+         (java'lang'Object'Object'49'4( alloc_, allocNew_)
+         )
+       )
+     ))
+   )
+);

@@ -500,21 +500,20 @@ void GetOptionCommand::toStream(std::ostream& out) const {
 
 /* class DatatypeCommand */
 
-DatatypeCommand::DatatypeCommand(){
-  Debug("datatypes") << "Create datatype command."<< endl;
+DatatypeCommand::DatatypeCommand() {
+  Debug("datatypes") << "Create datatype command." << endl;
 }
 
 void DatatypeCommand::invoke(SmtEngine* smtEngine) {
-  Debug("datatypes") << "Invoke datatype command."<< endl;
+  Debug("datatypes") << "Invoke datatype command." << endl;
   smtEngine->addDatatypeDefinitions( d_cons, d_testers, d_sels );
 }
 
 void DatatypeCommand::toStream(std::ostream& out) const {
-
 }
 
 void DatatypeCommand::addDefinition( Type t, std::vector< Expr >& cons, std::vector< Expr >& testers,
-                                     std::vector< std::vector< Expr > >& sels ){
+                                     std::vector< std::vector< Expr > >& sels ) {
   Assert( cons.size()==sels.size() );
   d_cons.push_back( std::pair< Type, std::vector<Expr> >( t, cons ) );
   d_testers.push_back( std::pair< Type, std::vector<Expr> >( t, testers ) );

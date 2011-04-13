@@ -41,6 +41,7 @@ class Expr;
 class SmtEngine;
 class NodeManager;
 class Options;
+class IntStat;
 
 namespace context {
   class Context;
@@ -53,6 +54,10 @@ private:
 
   /** The internal node manager */
   NodeManager* d_nodeManager;
+
+  /** Counts of expressions and variables created of a given kind */
+  IntStat* d_exprStatisticsVars[LAST_TYPE + 1];
+  IntStat* d_exprStatistics[kind::LAST_KIND];
 
   /**
    * Returns the internal node manager.  This should only be used by
@@ -91,7 +96,7 @@ public:
    * @param options the earlyTypeChecking field is used to configure
    * whether to do at Expr creation time.
    */
-  explicit ExprManager(const Options&);
+  explicit ExprManager(const Options& options);
 
   /**
    * Destroys the expression manager. No will be deallocated at this point, so

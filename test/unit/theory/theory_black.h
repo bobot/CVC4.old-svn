@@ -105,7 +105,7 @@ public:
   vector<Node> d_getSequence;
 
   DummyTheory(Context* ctxt, OutputChannel& out) :
-    Theory(0, ctxt, out) {
+    Theory(theory::THEORY_BUILTIN, ctxt, out) {
   }
 
   void registerTerm(TNode n) {
@@ -142,7 +142,7 @@ public:
   void preRegisterTerm(TNode n) {}
   void propagate(Effort level) {}
   void explain(TNode n, Effort level) {}
-  Node getValue(TNode n, TheoryEngine* engine) { return Node::null(); }
+  Node getValue(TNode n, Valuation* valuation) { return Node::null(); }
   string identify() const { return "DummyTheory"; }
 };
 

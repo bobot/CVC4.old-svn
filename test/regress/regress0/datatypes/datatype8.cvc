@@ -1,0 +1,21 @@
+% EXPECT: valid
+
+DATATYPE
+  IntList = nil | cons (head: INT, tail: IntList)
+END;
+
+elem: (INT,IntList) -> BOOLEAN;
+list,list2 : IntList;
+
+ASSERT list = cons(7,cons(8,cons(9,nil)));
+ASSERT list2 = cons(7,cons(8,cons(9,list)));
+ASSERT FORALL (x:INT,y:IntList):
+  elem(x,y) <=> 
+  IF is_nil(y) THEN FALSE 
+  ELSE
+    IF head(y) = x THEN TRUE 
+    ELSE elem(x,tail(y)) 
+    ENDIF
+  ENDIF;
+QUERY elem(9,list);
+

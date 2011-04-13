@@ -24,7 +24,8 @@
 #include "theory/theory.h"
 #include "context/context.h"
 #include "context/cdset.h"
-#include "equality_engine.h"
+#include "theory/bv/equality_engine.h"
+#include "theory/bv/slice_manager.h"
 
 namespace CVC4 {
 namespace theory {
@@ -45,10 +46,16 @@ public:
     }
   };
 
+  typedef EqualityEngine<TheoryBV, EqualityNotify, true, true> BvEqualityEngine;
+
 private:
 
+
   /** Equality reasoning engine */
-  EqualityEngine<TheoryBV, EqualityNotify> d_eqEngine;
+  BvEqualityEngine d_eqEngine;
+
+  /** Slice manager */
+  SliceManager<TheoryBV> d_sliceManager;
 
   /** Equality triggers indexed by ids from the equality manager */
   std::vector<Node> d_triggers;
@@ -61,8 +68,12 @@ private:
 
 public:
 
-  TheoryBV(int id, context::Context* c, OutputChannel& out) :
-    Theory(id, c, out), d_eqEngine(*this, c), d_assertions(c) {
+  TheoryBV(context::Context* c, OutputChannel& out) :
+    Theory(THEORY_BV, c, out), d_eqEngine(*this, c, "theory::bv::EqualityEngine"), d_sliceManager(*this, c), d_assertions(c) {
+  }
+
+  BvEqualityEngine& getEqualityEngine() {
+    return d_eqEngine;
   }
 
   void preRegisterTerm(TNode n);
@@ -71,17 +82,13 @@ public:
 
   void check(Effort e);
 
-  void presolve(){
-    Unimplemented();
-  }
+  void presolve() { }
 
-  void propagate(Effort e) {}
+  void propagate(Effort e) { }
 
-  void explain(TNode n, Effort e) { }
+  void explain(TNode n) { }
 
-  Node getValue(TNode n, TheoryEngine* engine);
-
-  RewriteResponse postRewrite(TNode n, bool topLevel);
+  Node getValue(TNode n, Valuation* valuation);
 
   std::string identify() const { return std::string("TheoryBV"); }
 };/* class TheoryBV */

@@ -1,17 +1,17 @@
 /*********************                                                        */
 /*! \file theory_datatypes.cpp
  ** \verbatim
- ** Original author: barrett
+ ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Implementation of the theory of datatypes.
+ ** \brief Implementation of the theory of datatypes
  **
  ** Implementation of the theory of datatypes.
  **/
@@ -164,8 +164,8 @@ void TheoryDatatypes::checkFiniteWellFounded(){
   }
 }
 
-TheoryDatatypes::TheoryDatatypes(int id, Context* c, OutputChannel& out) :
-  Theory(id, c, out),
+TheoryDatatypes::TheoryDatatypes(Context* c, OutputChannel& out) :
+  Theory(THEORY_DATATYPES, c, out),
   d_currAsserts(c),
   d_currEqualities(c),
   d_drv_map(c),
@@ -192,46 +192,10 @@ TheoryDatatypes::~TheoryDatatypes() {
 }
 
 
-RewriteResponse TheoryDatatypes::preRewrite(TNode in, bool topLevel) {
-  Debug("datatypes-rewrite") << "pre-rewriting " << in
-                          << " topLevel==" << topLevel << std::endl;
-
-  return RewriteComplete(in);
-}
-
-RewriteResponse TheoryDatatypes::postRewrite(TNode in, bool topLevel) {
-  Debug("datatypes-rewrite") << "post-rewriting " << in
-                          << " topLevel==" << topLevel << std::endl;
-
-  checkFiniteWellFounded();
-
-  if( in.getKind()==APPLY_TESTER ){
-    if( in[0].getKind()==APPLY_CONSTRUCTOR ){
-      bool result = checkTrivialTester( in );
-      Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: Rewrite trivial tester " << in << " " << result << endl;
-      return RewriteComplete(NodeManager::currentNM()->mkConst(result));
-    }else if( d_cons[in[0].getType()].size()==1 ){
-      return RewriteComplete(NodeManager::currentNM()->mkConst(true));  //only one constructor, so it must be
-    }
-  }
-  if( in.getKind()==APPLY_SELECTOR &&
-      in[0].getKind()==APPLY_CONSTRUCTOR ){
-    Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: Rewrite trivial selector " << in << endl;
-    return RewriteComplete( collapseSelector( in ) );
-  }
-  if( in.getKind()==kind::EQUAL && in[0]==in[1] ){
-    return RewriteComplete(NodeManager::currentNM()->mkConst(true));
-  }
-  if( in.getKind()==kind::EQUAL && checkClashSimple( in[0], in[1] ) ){
-    return RewriteComplete(NodeManager::currentNM()->mkConst(false));
-  }
-
-  return RewriteComplete(in);
-}
-
 void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
                                               std::vector<std::pair< TypeNode, std::vector<Node> > >& testers,
-                                              std::vector<std::pair< Node, std::vector<Node> > >& sels ){
+                                              std::vector<std::pair< Node, std::vector<Node> > >& sels ) {
+  Debug("datatypes") << "TheoryDatatypes::addDataTypeDefinitions()" << std::endl;
   std::vector<std::pair< TypeNode, std::vector<Node> > >::iterator it;
   std::vector<Node>::iterator itc;
   for( it = cons.begin(); it!=cons.end(); ++it ){
@@ -252,17 +216,18 @@ void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< TypeNode, s
     }
   }
   requiresCheckFiniteWellFounded = true;
+  checkFiniteWellFounded();
 }
 
 void TheoryDatatypes::addSharedTerm(TNode t) {
   Debug("datatypes") << "TheoryDatatypes::addSharedTerm(): "
-                  << t << endl;
+                     << t << endl;
 }
 
 
 void TheoryDatatypes::notifyEq(TNode lhs, TNode rhs) {
   Debug("datatypes") << "TheoryDatatypes::notifyEq(): "
-                  << lhs << " = " << rhs << endl;
+                     << lhs << " = " << rhs << endl;
   //if(!d_conflict.isNull()) {
   //  return;
   //}
@@ -275,12 +240,12 @@ void TheoryDatatypes::notifyEq(TNode lhs, TNode rhs) {
 
 void TheoryDatatypes::notifyCongruent(TNode lhs, TNode rhs) {
   Debug("datatypes") << "TheoryDatatypes::notifyCongruent(): "
-                  << lhs << " = " << rhs << endl;
+                     << lhs << " = " << rhs << endl;
   if(d_conflict.isNull()) {
     merge(lhs,rhs);
   }
   Debug("datatypes-debug") << "TheoryDatatypes::notifyCongruent(): done." << std::endl;
-} 
+}
 
 
 void TheoryDatatypes::presolve() {
@@ -673,7 +638,7 @@ Node TheoryDatatypes::getPossibleCons( Node t, bool checkInst )
   return Node::null();
 }
 
-Node TheoryDatatypes::getValue(TNode n, TheoryEngine* engine) {
+Node TheoryDatatypes::getValue(TNode n, Valuation* valuation) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -683,7 +648,7 @@ Node TheoryDatatypes::getValue(TNode n, TheoryEngine* engine) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( engine->getValue(n[0]) == engine->getValue(n[1]) );
+      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
 
   default:
     Unhandled(n.getKind());
@@ -740,7 +705,7 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
   }
 
 
-  NodeBuilder<> explanation(kind::AND); 
+  NodeBuilder<> explanation(kind::AND);
   if( checkClash( a, b, explanation ) ){
     explanation << d_cc.explain( a, b );
     d_conflict = explanation.getNumChildren()==1 ? explanation.getChild( 0 ) : explanation;
@@ -926,7 +891,7 @@ Node TheoryDatatypes::collapseSelector( TNode t, bool useContext ){
         if( !d_conflict.isNull() ){
           Debug("datatypes") << "Applied selector " << t << " to provably wrong constructor." << endl;
           retNode = d_distinguishTerms[ selType[1] ];
-          
+
           Node neq = NodeManager::currentNM()->mkNode( EQUAL, retNode, t );
           NodeBuilder<> nb(kind::AND);
           Node trueNode = NodeManager::currentNM()->mkConst(true);
@@ -1031,14 +996,14 @@ void TheoryDatatypes::collectTerms( TNode t ){
       }else{
         Debug("datatypes") << "  collapsed selector to " << s << std::endl;
       }
-    } 
+    }
   }
   addTermToLabels( t );
 }
 
 void TheoryDatatypes::addTermToLabels( Node t ){
   if( t.getKind()==APPLY_SELECTOR ){
-    
+
   }
   if( t.getKind()==VARIABLE || t.getKind()==APPLY_SELECTOR ){
     Node tmp = find( t );
@@ -1221,8 +1186,8 @@ void TheoryDatatypes::checkCycles()
 }
 
 //postcondition: if cycle detected, explanation is why n is a subterm of on
-bool TheoryDatatypes::searchForCycle( Node n, Node on, 
-                                      std::map< Node, bool >& visited, 
+bool TheoryDatatypes::searchForCycle( Node n, Node on,
+                                      std::map< Node, bool >& visited,
                                       NodeBuilder<>& explanation )
 {
   //Debug("datatypes") << "Search for cycle " << n << " " << on << std::endl;
@@ -1237,7 +1202,7 @@ bool TheoryDatatypes::searchForCycle( Node n, Node on,
           }
           return true;
         }
-      } 
+      }
     }
   }
   return false;

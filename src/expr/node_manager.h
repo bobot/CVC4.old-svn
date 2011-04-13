@@ -1000,6 +1000,7 @@ inline TypeNode NodeManager::mkTypeNode(Kind kind,
 
 inline Node NodeManager::mkVar(const std::string& name, const TypeNode& type) {
   Node n = mkVar(type);
+  n.setAttribute(TypeAttr(), type);
   n.setAttribute(expr::VarNameAttr(), name);
   return n;
 }
@@ -1007,6 +1008,7 @@ inline Node NodeManager::mkVar(const std::string& name, const TypeNode& type) {
 inline Node* NodeManager::mkVarPtr(const std::string& name,
                                    const TypeNode& type) {
   Node* n = mkVarPtr(type);
+  n->setAttribute(TypeAttr(), type);
   n->setAttribute(expr::VarNameAttr(), name);
   return n;
 }

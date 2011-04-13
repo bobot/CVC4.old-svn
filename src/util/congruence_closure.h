@@ -178,8 +178,8 @@ class CongruenceClosure {
   CareSet d_careSet;
 
   // === STATISTICS ===
-  AverageStat d_explanationLength;/*! average explanation length */
-  IntStat d_newSkolemVars;/*! new vars created */
+  AverageStat d_explanationLength;/**< average explanation length */
+  IntStat d_newSkolemVars;/**< new vars created */
 
   static inline bool isCongruenceOperator(TNode n) {
     // For the datatypes theory, we've removed the invariant that
