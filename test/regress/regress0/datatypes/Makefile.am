@@ -13,10 +13,6 @@ TESTS =	\
 	datatype2.cvc \
 	datatype3.cvc \
 	datatype4.cvc \
-	datatype5.cvc \
-	datatype9.cvc \
-	datatype10.cvc \
-	datatype11.cvc \
 	datatype13.cvc \
 	typed_v1l50016-simp.cvc
 
