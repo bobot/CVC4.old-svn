@@ -164,8 +164,8 @@ void TheoryDatatypes::checkFiniteWellFounded(){
   }
 }
 
-TheoryDatatypes::TheoryDatatypes(Context* c, OutputChannel& out) :
-  Theory(THEORY_DATATYPES, c, out),
+TheoryDatatypes::TheoryDatatypes(Context* c, OutputChannel& out, Valuation valuation) :
+  Theory(THEORY_DATATYPES, c, out, valuation),
   d_currAsserts(c),
   d_currEqualities(c),
   d_drv_map(c),
@@ -638,7 +638,7 @@ Node TheoryDatatypes::getPossibleCons( Node t, bool checkInst )
   return Node::null();
 }
 
-Node TheoryDatatypes::getValue(TNode n, Valuation* valuation) {
+Node TheoryDatatypes::getValue(TNode n) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
@@ -648,7 +648,7 @@ Node TheoryDatatypes::getValue(TNode n, Valuation* valuation) {
 
   case kind::EQUAL: // 2 args
     return nodeManager->
-      mkConst( valuation->getValue(n[0]) == valuation->getValue(n[1]) );
+      mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
 
   default:
     Unhandled(n.getKind());

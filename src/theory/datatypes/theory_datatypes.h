@@ -141,7 +141,7 @@ private:
   bool d_noMerge;
   std::vector< std::vector< std::pair< Node, Node > > > d_merge_pending;
 public:
-  TheoryDatatypes(context::Context* c, OutputChannel& out);
+  TheoryDatatypes(context::Context* c, OutputChannel& out, Valuation valuation);
   ~TheoryDatatypes();
   void preRegisterTerm(TNode n) { }
   void registerTerm(TNode n) { }
@@ -157,7 +157,7 @@ public:
   void check(Effort e);
   void propagate(Effort e) { }
   void explain(TNode n, Effort e) { }
-  Node getValue(TNode n, Valuation* valuation);
+  Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }
 
