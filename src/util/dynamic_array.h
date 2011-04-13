@@ -82,7 +82,7 @@ public:
     ++d_size;
   }
 
-  T& operator[](unsigned i) {
+  T& operator[](unsigned i) const {
     Assert(i < d_size, "index out of bounds in DynamicArray::operator[]");
     return d_arr[i];
   }

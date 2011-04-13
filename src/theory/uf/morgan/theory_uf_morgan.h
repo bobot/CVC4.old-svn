@@ -126,8 +126,6 @@ private:
                  "theory::uf::morgan::propagations", 0);
   /** CC module expl length */
   WrappedStat<AverageStat> d_ccExplanationLength;
-  /** CC module # skolem vars */
-  WrappedStat<IntStat> d_ccNewSkolemVars;
 
 public:
 

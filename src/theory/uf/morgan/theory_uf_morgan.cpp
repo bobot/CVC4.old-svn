@@ -44,12 +44,9 @@ TheoryUFMorgan::TheoryUFMorgan(Context* ctxt, OutputChannel& out, Valuation valu
   d_falseNode(),
   d_trueEqFalseNode(),
   d_ccExplanationLength("theory::uf::morgan::cc::averageExplanationLength",
-                        d_cc.getExplanationLength()),
-  d_ccNewSkolemVars("theory::uf::morgan::cc::newSkolemVariables",
-                    d_cc.getNewSkolemVars()) {
+                        d_cc.getExplanationLength()) {
 
   StatisticsRegistry::registerStat(&d_ccExplanationLength);
-  StatisticsRegistry::registerStat(&d_ccNewSkolemVars);
 
   NodeManager* nm = NodeManager::currentNM();
   TypeNode boolType = nm->booleanType();
@@ -67,7 +64,6 @@ TheoryUFMorgan::~TheoryUFMorgan() {
   d_trueEqFalseNode = Node::null();
 
   StatisticsRegistry::unregisterStat(&d_ccExplanationLength);
-  StatisticsRegistry::unregisterStat(&d_ccNewSkolemVars);
 }
 
 void TheoryUFMorgan::preRegisterTerm(TNode n) {
