@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -38,6 +38,8 @@
 #include "util/exception.h"
 #include "theory/uf/morgan/stacking_map.h"
 #include "util/stats.h"
+#include "util/hash.h"
+#include "util/dynamic_array.h"
 
 namespace CVC4 {
 
@@ -101,58 +103,95 @@ public:
  */
 template <class OutputChannel>
 class CongruenceClosure {
-  /** The context */
+
+  /**
+   * A Cid is a "Congruence ID", and is a dense, integral
+   * representation of a term.  Positive Cids are for individuals, and
+   * negative Cids are for application-like things (technically: they
+   * are non-nullary applications of operators we have been requested
+   * to compute congruence over).
+   */
+  typedef int32_t Cid;
+
+  std::hash_map<TNode, Cid> d_cidMap;
+  DynamicArray<TNode> d_reverseCidMapIndividuals;
+  DynamicArray<TNode> d_reverseCidMapApplications;
+  Cid d_nextIndividualCid;
+  Cid d_nextApplicationCid;
+
+  inline Cid cid(TNode n) {
+    Cid& cid = d_cidMap[n];
+    if(cid == 0) {
+      if(isCongruenceOperator(n)) {
+        cid = d_nextApplicationCid--;
+        d_reverseCidMapApplications[-cid] = n;
+      } else {
+        cid = d_nextIndividualCid++;
+        d_reverseCidMapIndividuals[cid] = n;
+      }
+    }
+    return cid;
+  }
+  inline TNode node(Cid cid) {
+    return cid > 0 ?
+      d_reverseCidMapIndividuals[cid] :
+      d_reverseCidMapApplications[-cid];
+  }
+  inline bool isApplication(Cid cid) {
+    return cid < 0;
+  }
+  inline bool isIndividual(Cid cid) {
+    return cid > 0;
+  }
+
+  /** The context at play. */
   context::Context* d_context;
 
-  /** The output channel */
+  /**
+   * The output channel, used for notifying the client of new
+   * congruences.  Only terms registered with registerTerm() will
+   * generate notifications.
+   */
   OutputChannel* d_out;
 
-  /** The output channel */
+  /**
+   * The bitmap of Kinds over which we are computing congruence.  It
+   * doesn't really make sense for this list of operators to change,
+   * so we don't allow it to---plus, if it did change, we'd probably
+   * have to recompute everything from scratch anyway.
+   */
   const KindMap d_congruenceOperatorMap;
 
-  // typedef all of these so that iterators are easy to define
-  typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> RepresentativeMap;
-  typedef context::CDCircList<TNode> ClassList;
-  typedef context::CDMap<Node, ClassList*, NodeHashFunction> ClassLists;
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > UseList;
-  typedef context::CDMap<TNode, UseList*, TNodeHashFunction> UseLists;
-  typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> LookupMap;
+  // typedef all of these so that iterators are easy to define, and so
+  // experiments can be run easily with different data structures
+  typedef theory::uf::morgan::StackingMap<Cid, Cid> RepresentativeMap;
+  typedef context::CDCircList<Cid> ClassList;
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > Uses;
+  typedef DynamicArray<Uses> UseList;
+  typedef theory::uf::morgan::StackingMap<Cid, Cid> LookupMap;
 
-  typedef __gnu_cxx::hash_map<TNode, Node, TNodeHashFunction> EqMap;
-
-  typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> ProofMap;
-  typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> ProofLabel;
+  //typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> ProofMap;
+  //typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> ProofLabel;
 
   // Simple, NON-context-dependent pending list, union find and "seen
   // set" types for constructing explanations and
   // nearestCommonAncestor(); see explain().
-  typedef std::list<std::pair<Node, Node> > PendingProofList_t;
-  typedef __gnu_cxx::hash_map<TNode, TNode, TNodeHashFunction> UnionFind_t;
-  typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction> SeenSet_t;
+  //typedef std::list<std::pair<Node, Node> > PendingProofList_t;
+  //typedef __gnu_cxx::hash_map<TNode, TNode, TNodeHashFunction> UnionFind_t;
+  //typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction> SeenSet_t;
 
   RepresentativeMap d_representative;
-  ClassLists d_classList;
-  UseLists d_useList;
+  ClassList d_classList;
+  UseList d_useList;
   LookupMap d_lookup;
 
-  EqMap d_eqMap;
-  context::CDSet<TNode, TNodeHashFunction> d_added;
+  //ProofMap d_proof;
+  //ProofLabel d_proofLabel;
 
-  ProofMap d_proof;
-  ProofLabel d_proofLabel;
-
-  ProofMap d_proofRewrite;
-
-  /**
-   * The set of terms we care about (i.e. those that have been given
-   * us with addTerm() and their representatives).
-   */
-  typedef context::CDSet<TNode, TNodeHashFunction> CareSet;
-  CareSet d_careSet;
+  //ProofMap d_proofRewrite;
 
   // === STATISTICS ===
   AverageStat d_explanationLength;/**< average explanation length */
-  IntStat d_newSkolemVars;/**< new vars created */
 
   inline bool isCongruenceOperator(TNode n) const {
     // For the datatypes theory, we've removed the invariant that
@@ -170,6 +209,10 @@ public:
   /** Construct a congruence closure module instance */
   CongruenceClosure(context::Context* ctxt, OutputChannel* out, KindMap kinds)
     throw(AssertionException) :
+    d_cidMap(),
+    d_reverseCidMap(false),
+    d_nextIndividualCid(1),
+    d_nextApplicationCid(-1),
     d_context(ctxt),
     d_out(out),
     d_congruenceOperatorMap(kinds),
@@ -177,91 +220,57 @@ public:
     d_classList(ctxt),
     d_useList(ctxt),
     d_lookup(ctxt),
-    d_eqMap(),
-    d_added(ctxt),
     d_proof(ctxt),
     d_proofLabel(ctxt),
     d_proofRewrite(ctxt),
-    d_careSet(ctxt),
     d_explanationLength("congruence_closure::AverageExplanationLength"),
-    d_newSkolemVars("congruence_closure::NewSkolemVariables", 0) {
     CheckArgument(!kinds.isEmpty(), "cannot construct a CongruenceClosure with an empty KindMap");
   }
 
   ~CongruenceClosure() {}
 
   /**
-   * Add a term into CC consideration.  This is context-dependent.
-   * Calls OutputChannel::notifyCongruent(), so it can throw anything
-   * that that function can.
+   * Register a term (which should be a node of kind EQUAL or IFF) for
+   * CC consideration, so that CC will push out a notification to its
+   * output channel should the equality become implied by the current
+   * state.  This set of terms is NOT context-dependent, and that's by
+   * design: lemmas added at deep context levels can lead to new,
+   * pre-registered terms which should still be considered for
+   * propagation after that context is popped (since the lemmas, and
+   * therefore their constituent terms, don't go away).
+   *
+   * This function calls OutputChannel::notifyCongruent() for the term
+   * if the equality is already implied by the current partial
+   * assignment, so it can throw anything that that function can.
    */
-  void addTerm(TNode trm);
+  void registerTerm(TNode eq);
 
   /**
-   * Add an equality literal eq into CC consideration.  This is
-   * context-dependent.  Calls OutputChannel::notifyCongruent()
-   * indirectly, so it can throw anything that that function can.
+   * Add an equality literal eq into CC consideration (it should be a
+   * node of kind EQUAL or IFF), asserting that this equality is now
+   * true.  This assertion is context-dependent.  Calls
+   * OutputChannel::notifyCongruent() to notify the client of any
+   * equalities (registered using addTerm()) that are now congruent.
+   * Therefore, it can throw anything that that function can.
+   *
+   * Note that equalities asserted via addEquality() need not have
+   * been registered using addTerm()---the values in those two sets
+   * have no requirements---the two sets can be equal, disjoint,
+   * overlapping, it doesn't matter.
    */
-  void addEquality(TNode inputEq) {
-    if(Debug.isOn("cc")) {
-      Debug("cc") << "CC addEquality[" << d_context->getLevel() << "]: " << inputEq << std::endl;
-    }
-    Assert(inputEq.getKind() == kind::EQUAL ||
-           inputEq.getKind() == kind::IFF);
-    NodeBuilder<> eqb(inputEq.getKind());
-    if(isCongruenceOperator(inputEq[1]) &&
-       !isCongruenceOperator(inputEq[0])) {
-      eqb << flatten(inputEq[1]) << inputEq[0];
-    } else {
-      eqb << flatten(inputEq[0]) << replace(flatten(inputEq[1]));
-    }
-    Node eq = eqb;
-    addEq(eq, inputEq);
+  void assertEquality(TNode inputEq) {
+    Debug("cc") << "CC assertEquality[" << d_context->getLevel() << "]: "
+                << inputEq << std::endl;
+    AssertArgument(inputEq.getKind() == kind::EQUAL ||
+                   inputEq.getKind() == kind::IFF, inputEq);
+
+    addEq(cid(inputEq[0]), cid(inputEq[1]), inputEq);
   }
 
 private:
-  void addEq(TNode eq, TNode inputEq);
+  void addEq(Cid a, Cid b, TNode inputEq);
 
-  Node flatten(TNode t) {
-    if(isCongruenceOperator(t)) {
-      NodeBuilder<> appb(t.getKind());
-      Assert(replace(flatten(t.getOperator())) == t.getOperator(),
-             "CongruenceClosure:: bad state: higher-order term ??");
-      if(t.getMetaKind() == kind::metakind::PARAMETERIZED) {
-	appb << t.getOperator();
-      }
-      for(TNode::iterator i = t.begin(); i != t.end(); ++i) {
-        appb << replace(flatten(*i));
-      }
-      return Node(appb);
-    } else {
-      return t;
-    }
-  }
-
-  Node replace(TNode t) {
-    if(isCongruenceOperator(t)) {
-      EqMap::const_iterator i = d_eqMap.find(t);
-      if(i == d_eqMap.end()) {
-        ++d_newSkolemVars;
-        Node v = NodeManager::currentNM()->mkSkolem(t.getType());
-        addEq(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
-        d_added.insert(v);
-        d_eqMap[t] = v;
-        return v;
-      } else {
-        TNode v = (*i).second;
-        if(!d_added.contains(v)) {
-          addEq(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
-          d_added.insert(v);
-        }
-        return v;
-      }
-    } else {
-      return t;
-    }
-  }
-
+  /*
   TNode proofRewrite(TNode pfStep) const {
     ProofMap::const_iterator i = d_proofRewrite.find(pfStep);
     if(i == d_proofRewrite.end()) {
@@ -270,6 +279,7 @@ private:
       return (*i).second;
     }
   }
+  */
 
 public:
   /**
@@ -341,13 +351,14 @@ public:
    */
   inline Node explain(TNode eq)
     throw(CongruenceClosureException, AssertionException) {
-    Assert(eq.getKind() == kind::EQUAL ||
-           eq.getKind() == kind::IFF);
+    AssertArgument(eq.getKind() == kind::EQUAL ||
+                   eq.getKind() == kind::IFF, eq);
     return explain(eq[0], eq[1]);
   }
 
   /**
-   * Normalization.
+   * Normalization.  Two terms are congruent iff they have the same
+   * normal form.
    */
   Node normalize(TNode t) const throw(AssertionException);
 
@@ -440,18 +451,10 @@ public:
     return d_explanationLength;
   }
 
-  /**
-   * Get access to the new-skolem-vars statistic.  Returns the
-   * statistic itself so that reference-statistics can be wrapped
-   * around it, useful since CongruenceClosure is a client class and
-   * shouldn't be directly registered with the StatisticsRegistry.
-   */
-  const IntStat& getNewSkolemVars() const throw() {
-    return d_newSkolemVars;
-  }
-
 };/* class CongruenceClosure */
 
+
+#if 0
 
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::addTerm(TNode t) {
@@ -1067,6 +1070,7 @@ std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
+#endif /* 0 */
 
 }/* CVC4 namespace */
 

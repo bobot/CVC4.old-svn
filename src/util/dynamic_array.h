@@ -2,10 +2,10 @@
 /*! \file dynamic_array.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -17,11 +17,10 @@
  ** \todo document this file
  **/
 
-
 #include "cvc4_private.h"
 
-#ifndef __CVC4__UTIL__DYNAMICARRAY_H
-#define __CVC4__UTIL__DYNAMICARRAY_H
+#ifndef __CVC4__UTIL__DYNAMIC_ARRAY_H
+#define __CVC4__UTIL__DYNAMIC_ARRAY_H
 
 #include "util/Assert.h"
 
@@ -36,7 +35,7 @@ private:
 
   bool d_callDestructor;
 
-  void grow(){
+  void grow() {
     bool empty = (d_arr == NULL);
     d_allocated = empty ? d_allocated = 15 : d_allocated * 2 + 1;
     unsigned allocSize = sizeof(T) * d_allocated;
@@ -48,14 +47,14 @@ private:
   }
 
 public:
-  DynamicArray(bool deallocate = false):
+  DynamicArray(bool callDestructor = false) :
     d_arr(NULL),
     d_size(0),
     d_allocated(0),
-    d_callDestructor(deallocate){
+    d_callDestructor(callDestructor) {
   }
 
-  ~DynamicArray(){
+  ~DynamicArray() {
     if(d_callDestructor) {
       for(unsigned i = 0; i < d_size; ++i) {
         d_arr[i].~T();
@@ -88,7 +87,7 @@ public:
     return d_arr[i];
   }
 
-  const T& back() const{
+  const T& back() const {
     Assert(d_size > 0, "DynamicArray::back() called on empty list");
     return d_arr[d_size - 1];
   }
@@ -96,12 +95,12 @@ public:
   void pop_back() {
     Assert(d_size > 0, "DynamicArray::back() called on empty list");
     --d_size;
-    if(d_callDestructor){
-      d_arr[d_size].~T();;
+    if(d_callDestructor) {
+      d_arr[d_size].~T();
     }
   }
 };/* CVC4::DynamicArray */
 
 }/* CVC4 namespace */
 
-#endif /* __CVC4__UTIL__DYNAMICARRAY_H */
+#endif /* __CVC4__UTIL__DYNAMIC_ARRAY_H */

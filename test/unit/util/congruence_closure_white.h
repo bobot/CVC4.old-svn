@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -92,8 +92,8 @@ class CongruenceClosureWhite : public CxxTest::TestSuite {
   NodeManager* d_nm;
   NodeManagerScope* d_scope;
   MyOutputChannel* d_out;
-  CongruenceClosure<MyOutputChannel, CongruenceOperator<kind::APPLY_UF> >* d_cc;
-  CongruenceClosure<MyOutputChannel, CONGRUENCE_OPERATORS_2(kind::SELECT, kind::STORE)>* d_ccArray;
+  CongruenceClosure<MyOutputChannel>* d_cc;
+  CongruenceClosure<MyOutputChannel>* d_ccArray;
 
   TypeNode U;
   Node a, f, fa, ffa, fffa, ffffa, b, fb, ffb, fffb, ffffb;
@@ -111,8 +111,8 @@ public:
     d_nm = new NodeManager(d_context);
     d_scope = new NodeManagerScope(d_nm);
     d_out = new MyOutputChannel(d_context, d_nm);
-    d_cc = new CongruenceClosure<MyOutputChannel, CongruenceOperator<kind::APPLY_UF> >(d_context, d_out);
-    d_ccArray = new CongruenceClosure<MyOutputChannel, CONGRUENCE_OPERATORS_2(kind::SELECT, kind::STORE)>(d_context, d_out);
+    d_cc = new CongruenceClosure<MyOutputChannel>(d_context, d_out, kind::APPLY_UF);
+    d_ccArray = new CongruenceClosure<MyOutputChannel>(d_context, d_out, kind::SELECT | kind::STORE);
 
     U = d_nm->mkSort("U");
 

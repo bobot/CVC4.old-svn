@@ -57,8 +57,8 @@ TheoryUFMorgan::TheoryUFMorgan(Context* ctxt, OutputChannel& out, Valuation valu
   d_falseNode = nm->mkVar("FALSE_UF", boolType);
   d_trueEqFalseNode = nm->mkNode(kind::IFF, d_trueNode, d_falseNode);
   addDisequality(d_trueEqFalseNode);
-  d_cc.addTerm(d_trueNode);
-  d_cc.addTerm(d_falseNode);
+  d_cc.registerTerm(d_trueNode);
+  d_cc.registerTerm(d_falseNode);
 }
 
 TheoryUFMorgan::~TheoryUFMorgan() {
@@ -388,7 +388,7 @@ void TheoryUFMorgan::check(Effort level) {
     switch(assertion.getKind()) {
     case kind::EQUAL:
     case kind::IFF:
-      d_cc.addEquality(assertion);
+      d_cc.assertEquality(assertion);
       if(!d_conflict.isNull()) {
         Node conflict = constructConflict(d_conflict);
         d_conflict = Node::null();
@@ -406,8 +406,8 @@ void TheoryUFMorgan::check(Effort level) {
 
         Node eq = NodeManager::currentNM()->mkNode(kind::IFF,
                                                    assertion, d_trueNode);
-        d_cc.addTerm(assertion);
-        d_cc.addEquality(eq);
+        d_cc.registerTerm(assertion);
+        d_cc.assertEquality(eq);
 
         if(!d_conflict.isNull()) {
           Node conflict = constructConflict(d_conflict);
@@ -435,8 +435,8 @@ void TheoryUFMorgan::check(Effort level) {
 
         addDisequality(assertion[0]);
 
-        d_cc.addTerm(a);
-        d_cc.addTerm(b);
+        d_cc.registerTerm(a);
+        d_cc.registerTerm(b);
 
         if(Debug.isOn("uf")) {
           Debug("uf") << "       a  ==> " << a << endl
@@ -449,7 +449,7 @@ void TheoryUFMorgan::check(Effort level) {
         if(!d_conflict.isNull()) {
           // We get a conflict this way if we weren't watching a, b
           // before and we were just now notified (via
-          // notifyCongruent()) when we called addTerm() above that
+          // notifyCongruent()) when we called registerTerm() above that
           // they are congruent.  We make this a separate case (even
           // though the check in the "else if.." below would also
           // catch it, so that we can clear out d_conflict.
@@ -480,8 +480,8 @@ void TheoryUFMorgan::check(Effort level) {
 
         Node eq = NodeManager::currentNM()->mkNode(kind::IFF,
                                                    assertion[0], d_falseNode);
-        d_cc.addTerm(assertion[0]);
-        d_cc.addEquality(eq);
+        d_cc.registerTerm(assertion[0]);
+        d_cc.assertEquality(eq);
 
         if(!d_conflict.isNull()) {
           Node conflict = constructConflict(d_conflict);
