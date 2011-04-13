@@ -2,10 +2,10 @@
 /*! \file interactive_shell.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: 
- ** Minor contributors (to current version): 
+ ** Major contributors: none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -40,7 +40,7 @@ InteractiveShell::InteractiveShell(ExprManager& exprManager,
    ParserBuilder parserBuilder(exprManager,INPUT_FILENAME,options);
    /* Create parser with bogus input. */
    d_parser = parserBuilder.withStringInput("").build();
-}
+}/* InteractiveShell::InteractiveShell() */
 
 
 Command* InteractiveShell::readCommand() {
@@ -98,7 +98,7 @@ Command* InteractiveShell::readCommand() {
     }
 
     /* Extract the newline delimiter from the stream too */
-    int c = d_in.get();
+    int c CVC4_UNUSED = d_in.get();
     Assert( c == '\n' );
 
     // cout << "Next char is '" << (char)c << "'" << endl << flush;
@@ -139,6 +139,7 @@ Command* InteractiveShell::readCommand() {
   // d_lastParser = parser;
 
   return cmd_seq;
-}
+}/* InteractiveShell::readCommand() */
 
-} // CVC4 namespace
+}/* CVC4 namespace */
+

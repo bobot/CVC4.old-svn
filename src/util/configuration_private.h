@@ -2,10 +2,10 @@
 /*! \file configuration_private.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway, acsys
- ** Minor contributors (to current version): none
+ ** Major contributors: acsys
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -33,6 +33,12 @@ namespace CVC4 {
 #else /* CVC4_STATISTICS_ON */
 #  define IS_STATISTICS_BUILD false
 #endif /* CVC4_STATISTICS_ON */
+
+#ifdef CVC4_REPLAY
+#  define IS_REPLAY_BUILD true
+#else /* CVC4_REPLAY */
+#  define IS_REPLAY_BUILD false
+#endif /* CVC4_REPLAY */
 
 #ifdef CVC4_TRACING
 #  define IS_TRACING_BUILD true
@@ -70,6 +76,12 @@ namespace CVC4 {
 #  define IS_COMPETITION_BUILD false
 #endif /* CVC4_COMPETITION_MODE */
 
+#ifdef CVC4_CUDD
+#  define IS_CUDD_BUILD true
+#else /* CVC4_CUDD */
+#  define IS_CUDD_BUILD false
+#endif /* CVC4_CUDD */
+
 #ifdef CVC4_GMP_IMP
 #  define IS_GMP_BUILD true
 #else /* CVC4_GMP_IMP */
@@ -90,7 +102,7 @@ namespace CVC4 {
 
 #define CVC4_ABOUT_STRING string("\
 This is CVC4 version " CVC4_RELEASE_STRING "\n\n\
-Copyright (C) 2009, 2010\n\
+Copyright (C) 2009, 2010, 2011\n\
   The ACSys Group\n\
   Courant Institute of Mathematical Sciences\n\
   New York University\n\

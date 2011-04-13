@@ -104,8 +104,8 @@ public:
   set<Node> d_registered;
   vector<Node> d_getSequence;
 
-  DummyTheory(Context* ctxt, OutputChannel& out) :
-    Theory(theory::THEORY_BUILTIN, ctxt, out) {
+  DummyTheory(Context* ctxt, OutputChannel& out, Valuation valuation) :
+    Theory(theory::THEORY_BUILTIN, ctxt, out, valuation) {
   }
 
   void registerTerm(TNode n) {
@@ -142,7 +142,7 @@ public:
   void preRegisterTerm(TNode n) {}
   void propagate(Effort level) {}
   void explain(TNode n, Effort level) {}
-  Node getValue(TNode n, Valuation* valuation) { return Node::null(); }
+  Node getValue(TNode n) { return Node::null(); }
   string identify() const { return "DummyTheory"; }
 };
 
@@ -165,7 +165,7 @@ public:
     d_ctxt = new Context;
     d_nm = new NodeManager(d_ctxt);
     d_scope = new NodeManagerScope(d_nm);
-    d_dummy = new DummyTheory(d_ctxt, d_outputChannel);
+    d_dummy = new DummyTheory(d_ctxt, d_outputChannel, Valuation(NULL));
     d_outputChannel.clear();
     atom0 = d_nm->mkConst(true);
     atom1 = d_nm->mkConst(false);
@@ -288,5 +288,16 @@ public:
     const OutputChannel& oc = d_dummy->getOutputChannel();
 
     TS_ASSERT_EQUALS(&oc, &theOtherChannel);
+  }
+
+  void testOutputChannel() {
+    Node n = atom0.orNode(atom1);
+    d_outputChannel.lemma(n);
+    d_outputChannel.split(atom0);
+    Node s = atom0.orNode(atom0.notNode());
+    TS_ASSERT_EQUALS(d_outputChannel.d_callHistory.size(), 2u);
+    TS_ASSERT_EQUALS(d_outputChannel.d_callHistory[0], make_pair(LEMMA, n));
+    TS_ASSERT_EQUALS(d_outputChannel.d_callHistory[1], make_pair(LEMMA, s));
+    d_outputChannel.d_callHistory.clear();
   }
 };

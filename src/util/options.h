@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: cconway
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): dejan, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -21,25 +21,17 @@
 #ifndef __CVC4__OPTIONS_H
 #define __CVC4__OPTIONS_H
 
-#ifdef CVC4_DEBUG
-#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
-#else /* CVC4_DEBUG */
-#  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT false
-#endif /* CVC4_DEBUG */
-
-#if defined(CVC4_MUZZLED) || defined(CVC4_COMPETITION_MODE)
-#  define DO_SEMANTIC_CHECKS_BY_DEFAULT false
-#else /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
-#  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
-#endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
-
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include "util/exception.h"
 #include "util/language.h"
+#include "util/tls.h"
 
 namespace CVC4 {
+
+class ExprStream;
 
 /** Class representing an option-parsing exception. */
 class OptionException : public CVC4::Exception {
@@ -51,13 +43,23 @@ public:
 
 struct CVC4_PUBLIC Options {
 
+  /** The current Options in effect */
+  static CVC4_THREADLOCAL(const Options*) s_current;
+
+  /** Get the current Options in effect */
+  static inline const Options* current() {
+    return s_current;
+  }
+
+  /** The name of the binary (e.g. "cvc4") */
   std::string binary_name;
 
+  /** Whether to collect statistics during this run */
   bool statistics;
 
-  std::istream* in;
-  std::ostream* out;
-  std::ostream* err;
+  std::istream* in; /*< The input stream to use */
+  std::ostream* out; /*< The output stream to use */
+  std::ostream* err; /*< The error stream to use */
 
   /* -1 means no output */
   /* 0 is normal (and default) -- warnings only */
@@ -129,44 +131,50 @@ struct CVC4_PUBLIC Options {
   /** Whether incemental solving (push/pop) */
   bool incrementalSolving;
 
+  /** Replay file to use (for decisions); empty if no replay file. */
+  std::string replayFilename;
 
+  /** Replay stream to use (for decisions); NULL if no replay file. */
+  ExprStream* replayStream;
+
+  /** Log to write replay instructions to; NULL if not logging. */
+  std::ostream* replayLog;
+
+  /** Whether to rewrite equalities in arithmetic theory */
+  bool rewriteArithEqualities;
+
+  /**
+   * Frequency for the sat solver to make random decisions.
+   * Should be between 0 and 1.
+   */
+  double satRandomFreq;
+
+  /**
+   * Seed for Minisat's random decision procedure.
+   * If this is 0, no random decisions will occur.
+   **/
+  double satRandomSeed;
+
+  /** The pivot rule for arithmetic */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
   ArithPivotRule pivotRule;
 
-  Options() :
-    binary_name(),
-    statistics(false),
-    in(&std::cin),
-    out(&std::cout),
-    err(&std::cerr),
-    verbosity(0),
-    inputLanguage(language::input::LANG_AUTO),
-    uf_implementation(MORGAN),
-    parseOnly(false),
-    semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-    theoryRegistration(true),
-    memoryMap(false),
-    strictParsing(false),
-    lazyDefinitionExpansion(false),
-    interactive(false),
-    interactiveSetByUser(false),
-    segvNoSpin(false),
-    produceModels(false),
-    produceAssignments(false),
-    typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-    earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
-    incrementalSolving(false),
-    pivotRule(MINIMUM)
-    {
-  }
+  Options();
 
-  /** 
+  /**
    * Get a description of the command-line flags accepted by
    * parseOptions.  The returned string will be escaped so that it is
    * suitable as an argument to printf. */
   std::string getDescription() const;
 
+  /**
+   * Print overall command-line option usage message, prefixed by
+   * "msg"---which could be an error message causing the usage
+   * output in the first place, e.g. "no such option --foo"
+   */
   static void printUsage(const std::string msg, std::ostream& out);
+
+  /** Print help for the --lang command line option */
   static void printLanguageHelp(std::ostream& out);
 
   /**
@@ -192,9 +200,8 @@ inline std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
-}/* CVC4 namespace */
+std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule);
 
-#undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT
-#undef DO_SEMANTIC_CHECKS_BY_DEFAULT
+}/* CVC4 namespace */
 
 #endif /* __CVC4__OPTIONS_H */

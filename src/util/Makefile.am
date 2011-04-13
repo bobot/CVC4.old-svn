@@ -3,8 +3,20 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/..
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-noinst_LTLIBRARIES = libutil.la
+noinst_LTLIBRARIES = libutil.la libutilcudd.la
 
+# libutilcudd.la is a separate library so that we can pass separate
+# compiler flags
+libutilcudd_la_CPPFLAGS = $(CPPFLAGS) $(AM_CPPFLAGS) @CUDD_CPPFLAGS@
+libutilcudd_la_LIBADD = @CUDD_LDFLAGS@
+
+# Do not list built sources (like integer.h, rational.h, and tls.h) here!
+# Rather, list them under BUILT_SOURCES, and their .in versions under
+# EXTRA_DIST.  Otherwise, they're packaged up in the tarball, which is
+# no good---they belong in the configured builds/ directory.  If they
+# end up in the source directory, they build the cvc4 that was
+# configured at the time of the "make dist", which (1) may not be the
+# configuration that the user wants, and (2) might cause link errors.
 libutil_la_SOURCES = \
 	Assert.h \
 	Assert.cpp \
@@ -24,15 +36,21 @@ libutil_la_SOURCES = \
 	configuration.h \
 	configuration_private.h \
 	configuration.cpp \
-	rational.h \
-	integer.h \
 	bitvector.h \
 	gmp_util.h \
 	sexpr.h \
 	stats.h \
 	stats.cpp \
 	dynamic_array.h \
-	language.h
+	language.h \
+	triple.h \
+	trans_closure.h \
+	trans_closure.cpp
+libutil_la_LIBADD = \
+	@builddir@/libutilcudd.la
+libutilcudd_la_SOURCES = \
+	propositional_query.h \
+	propositional_query.cpp
 
 BUILT_SOURCES = \
 	rational.h \
