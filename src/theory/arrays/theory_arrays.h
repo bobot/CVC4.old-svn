@@ -12,7 +12,7 @@
  ** information.\endverbatim
  **
  ** \brief Theory of arrays.
- ** TODO: add summary of rules implemented Row1, Row2, ext etc with the implemented
+ ** TODO: add summary of rules implemented Row1, Row, ext etc with the implemented
  **
  ** Theory of arrays.
  **/
@@ -33,7 +33,7 @@ The rules implemented are the following:
          store(b i v)[i] = v
 
           store(b i v)  a'[j]
-    Row2 ---------------------- [ a' ~ store(b i v) or a' ~ b ]
+    Row ---------------------- [ a' ~ store(b i v) or a' ~ b ]
           i = j OR a[j] = b[j]
 
          a  b same kind arrays
@@ -48,14 +48,14 @@ The rules implemented are the following:
       remove it from the conflict
 
  Because new store terms are not created, we need to check if we need to
- instantiate a new Row2 axiom in the following cases:
+ instantiate a new Row axiom in the following cases:
     1. the congruence relation changes (i.e. two terms get merged)
         - when a new equality between array terms a = b is asserted we check if
-          we can instantiate a Row2 lemma for all pairs of indices i where a is
+          we can instantiate a Row lemma for all pairs of indices i where a is
           being read and stores
         - this is only done during full effort check
     2. a new read term is created either as a consequences of an Ext lemma or a
-       Row2 lemma
+       Row lemma
         - this is implemented in the checkRowForIndex method which is called
           when preregistering a term of the form a[i].
         - as a consequence lemmas are instantiated even before full effort check
@@ -150,30 +150,6 @@ private:
 
   typedef context::CDList< quad<TNode, TNode, TNode, TNode > > QuadCDList;
 
-  QuadCDList d_RowRepr;
-
-
-  void addToRowRepr(quad<TNode, TNode, TNode, TNode> q) {
-    TNode a = find(q.first);
-    TNode b = find(q.second);
-    TNode i = find(q.third);
-    TNode j = find(q.fourth);
-
-    quad<TNode, TNode, TNode, TNode> q2 = make_quad(a,b,i,j);
-    if(!inRowRepr(q2) ) {
-      d_RowRepr.push_back(q2);
-    }
-  }
-
-  bool inRowRepr(quad<TNode, TNode, TNode, TNode> q) {
-    QuadCDList::const_iterator it = d_RowRepr.begin();
-    for( ; it!= d_RowRepr.end(); it++) {
-      if(*it == q) {
-        return true;
-      }
-    }
-    return false;
-  }
 
 
   /**
@@ -190,7 +166,7 @@ private:
   std::hash_set<std::pair<TNode, TNode>, TNodePairHashFunction> d_extQueue;
 
   /**
-   * Row2 Lemma worklist, stores lemmas that can still be added to the SAT solver
+   * Row Lemma worklist, stores lemmas that can still be added to the SAT solver
    * to be emptied during full effort check
    */
   std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_RowQueue;
@@ -204,7 +180,7 @@ private:
   /**
    * Read-over-write lemma cache storing a quadruple (a,b,i,j) for which a
    * the lemma (i = j OR a[j] = b[j]) has been added to the SAT solver. Needed
-   * to prevent infinite recursion in addRow2Lemma.
+   * to prevent infinite recursion in addRowLemma.
    */
   std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction > d_RowAlreadyAdded;
 
@@ -230,14 +206,14 @@ private:
 
   inline void setCanon(TNode a, TNode b);
 
-  inline void queueRowLemma(TNode a, TNode b, TNode i, TNode j);
+  void queueRowLemma(TNode a, TNode b, TNode i, TNode j);
   inline void queueExtLemma(TNode a, TNode b);
 
   /**
-   * Adds a Row2 lemma of the form:
+   * Adds a Row lemma of the form:
    *    i = j OR a[j] = b[j]
    */
-  void addRow2Lemma(TNode a, TNode b, TNode i, TNode j);
+  void addRowLemma(TNode a, TNode b, TNode i, TNode j);
 
   /**
    * Adds a new Ext lemma of the form
@@ -253,8 +229,33 @@ private:
   bool isAxiom(TNode lhs, TNode rhs);
 
 
-  bool isRedundandRow2Lemma(TNode a, TNode b, TNode i, TNode j);
+  bool isRedundandRowLemma(TNode a, TNode b, TNode i, TNode j);
   bool isRedundantInContext(TNode a, TNode b, TNode i, TNode j);
+
+
+
+  bool alreadyAddedRow(TNode a, TNode b, TNode i, TNode j) {
+    //Debug("arrays-lem")<<"alreadyAddedRow check for "<<a<<" "<<b<<" "<<i<<" "<<j<<"\n";
+    std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction >::const_iterator it = d_RowAlreadyAdded.begin();
+    a = find(a);
+    b = find(b);
+    i = find(i);
+    j = find(j);
+
+    for( ; it!= d_RowAlreadyAdded.end(); it++) {
+
+      TNode a_ = find((*it).first);
+      TNode b_ = find((*it).second);
+      TNode i_ = find((*it).third);
+      TNode j_ = find((*it).fourth);
+      if( a == a_ && b == b_ && i==i_ && j==j_) {
+        //Debug("arrays-lem")<<"alreadyAddedRow found "<<a_<<" "<<b_<<" "<<i_<<" "<<j_<<"\n";
+        return true;
+      }
+    }
+    return false;
+  }
+
 
   bool isNonLinear(TNode n);
 
@@ -265,7 +266,7 @@ private:
   void checkRowLemmas(TNode a, TNode b);
 
   /**
-   * Called after a new select term a[i] is created to check whether new Row2
+   * Called after a new select term a[i] is created to check whether new Row
    * lemmas need to be instantiated.
    */
   void checkRowForIndex(TNode i, TNode a);
@@ -289,7 +290,7 @@ private:
     std::hash_set<quad<TNode, TNode, TNode, TNode>, TNodeQuadHashFunction >::const_iterator it1 = temp_Row.begin();
     for( ; it1!= temp_Row.end(); it1++) {
       if(!isRedundantInContext((*it1).first, (*it1).second, (*it1).third, (*it1).fourth)) {
-        addRow2Lemma((*it1).first, (*it1).second, (*it1).third, (*it1).fourth);
+        addRowLemma((*it1).first, (*it1).second, (*it1).third, (*it1).fourth);
       }
       else {
         // add it to queue may be needed later
@@ -320,8 +321,8 @@ private:
    * === STATISTICS ===
    */
 
-  /** number of Row2 lemmas */
-  IntStat d_numRow2;
+  /** number of Row lemmas */
+  IntStat d_numRow;
   /** number of Ext lemmas */
   IntStat d_numExt;
 
@@ -404,7 +405,9 @@ public:
   void notifyEq(TNode lhs, TNode rhs);
   void check(Effort e);
   void propagate(Effort e) {
+
     Debug("arrays-prop")<<"Propagating \n";
+    /*
     __gnu_cxx::hash_set<TNode, TNodeHashFunction>::const_iterator it = d_atoms.begin();
 
     for(; it!= d_atoms.end(); it++) {
@@ -417,6 +420,7 @@ public:
         ++d_numProp;
       }
     }
+    */
 
   }
   void explain(TNode n);
