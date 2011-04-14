@@ -947,6 +947,7 @@ void TheoryDatatypes::updateSelectors( Node a ){
           merge( s, t );
           s = t;
           d_selectors[s] = true;
+          d_cc.addTerm( s );
         }
         s = collapseSelector( s, true );
         if( !d_conflict.isNull() ){
@@ -970,6 +971,7 @@ void TheoryDatatypes::collectTerms( TNode t ){
     if( d_selectors.find( t )==d_selectors.end() ){
       Debug("datatypes-split") << "  Found selector " << t << std::endl;
       d_selectors[ t ] = true;
+      d_cc.addTerm( t );
       Node tmp = find( t[0] );
       checkInstantiate( tmp );
 
