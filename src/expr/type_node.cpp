@@ -81,28 +81,33 @@ TypeNode TypeNode::getConstructorReturnType() const {
   return (*this)[getNumChildren()-1];
 }
 
-/** Is this a function type? */
 bool TypeNode::isFunction() const {
   return getKind() == kind::FUNCTION_TYPE;
 }
 
-/** Is this a predicate type? NOTE: all predicate types are also
-    function types. */
 bool TypeNode::isPredicate() const {
   return isFunction() && getRangeType().isBoolean();
 }
 
-vector<TypeNode> TypeNode::getArgTypes() const {
-  Assert(isFunction());
+std::vector<TypeNode> TypeNode::getArgTypes() const {
   vector<TypeNode> args;
-  for(unsigned i = 0, i_end = getNumChildren() - 1; i < i_end; ++i) {
-    args.push_back((*this)[i]);
+  if(isTester()) {
+    Assert(getNumChildren() == 1);
+    args.push_back((*this)[0]);
+  } else {
+    Assert(isFunction() || isConstructor() || isSelector());
+    for(unsigned i = 0, i_end = getNumChildren() - 1; i < i_end; ++i) {
+      args.push_back((*this)[i]);
+    }
   }
   return args;
 }
 
 TypeNode TypeNode::getRangeType() const {
-  Assert(isFunction());
+  if(isTester()) {
+    return NodeManager::currentNM()->booleanType();
+  }
+  Assert(isFunction() || isConstructor() || isSelector());
   return (*this)[getNumChildren()-1];
 }
 
@@ -141,6 +146,12 @@ bool TypeNode::isKind() const {
 bool TypeNode::isBitVector() const {
   return getKind() == kind::BITVECTOR_TYPE;
 }
+
+/** Is this a datatype type */
+bool TypeNode::isDatatype() const {
+  return getKind() == kind::DATATYPE_TYPE;
+}
+
 /** Is this a constructor type */
 bool TypeNode::isConstructor() const {
   return getKind() == kind::CONSTRUCTOR_TYPE;

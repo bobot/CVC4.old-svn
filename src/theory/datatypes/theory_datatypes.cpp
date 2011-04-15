@@ -192,6 +192,7 @@ TheoryDatatypes::~TheoryDatatypes() {
 }
 
 
+/*
 void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
                                               std::vector<std::pair< TypeNode, std::vector<Node> > >& testers,
                                               std::vector<std::pair< Node, std::vector<Node> > >& sels ) {
@@ -218,6 +219,7 @@ void TheoryDatatypes::addDatatypeDefinitions( std::vector<std::pair< TypeNode, s
   requiresCheckFiniteWellFounded = true;
   checkFiniteWellFounded();
 }
+*/
 
 void TheoryDatatypes::addSharedTerm(TNode t) {
   Debug("datatypes") << "TheoryDatatypes::addSharedTerm(): "

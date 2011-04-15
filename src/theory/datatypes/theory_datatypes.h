@@ -148,10 +148,6 @@ public:
 
   void presolve();
 
-  void addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
-                               std::vector<std::pair< TypeNode, std::vector<Node> > >& testers,
-                               std::vector<std::pair< Node, std::vector<Node> > >& sels  );
-
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);
   void check(Effort e);

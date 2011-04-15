@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Black box testing of CVC4::BitVector.
+ ** \brief Black box testing of CVC4::BitVector
  **
  ** Black box testing of CVC4::BitVector.
  **/

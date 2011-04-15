@@ -27,6 +27,7 @@
 #include <stdint.h>
 
 #include "util/Assert.h"
+#include "util/datatype.h"
 
 namespace CVC4 {
 
@@ -44,6 +45,7 @@ class IntegerType;
 class RealType;
 class BitVectorType;
 class ArrayType;
+class DatatypeType;
 class ConstructorType;
 class SelectorType;
 class TesterType;
@@ -75,6 +77,7 @@ class CVC4_PUBLIC Type {
 
   friend class SmtEngine;
   friend class ExprManager;
+  friend class NodeManager;
   friend class TypeNode;
   friend struct TypeHashStrategy;
   friend std::ostream& operator<<(std::ostream& out, const Type& t);
@@ -142,6 +145,11 @@ public:
    */
   Type substitute(const std::vector<Type>& types,
                   const std::vector<Type>& replacements) const;
+
+  /**
+   * Get this type's ExprManager.
+   */
+  ExprManager* getExprManager() const;
 
   /**
    * Assignment operator.
@@ -254,6 +262,18 @@ public:
    * @return the ArrayType
    */
   operator ArrayType() const throw(AssertionException);
+
+  /**
+   * Is this a datatype type?
+   * @return true if the type is a datatype type
+   */
+  bool isDatatype() const;
+
+  /**
+   * Cast this type to a datatype type
+   * @return the DatatypeType
+   */
+  operator DatatypeType() const throw(AssertionException);
 
   /**
    * Is this a constructor type?
@@ -482,6 +502,23 @@ public:
   unsigned getSize() const;
 };/* class BitVectorType */
 
+
+/**
+ * Class encapsulating the datatype type
+ */
+class CVC4_PUBLIC DatatypeType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  DatatypeType(const Type& type) throw(AssertionException);
+
+  /** Get the underlying datatype */
+  const Datatype& getDatatype() const;
+
+};/* class DatatypeType */
+
+
 /**
  * Class encapsulating the constructor type
  */
@@ -507,6 +544,13 @@ public:
 
   /** Construct from the base type */
   SelectorType(const Type& type) throw(AssertionException);
+
+  /** Get the domain type for this selector (the datatype type) */
+  DatatypeType getDomain() const;
+
+  /** Get the range type for this selector (the field type) */
+  Type getRangeType() const;
+
 };/* class SelectorType */
 
 /**
@@ -518,6 +562,16 @@ public:
 
   /** Construct from the base type */
   TesterType(const Type& type) throw(AssertionException);
+
+  /** Get the type that this tester tests (the datatype type) */
+  DatatypeType getDomain() const;
+
+  /**
+   * Get the range type for this tester (included for sake of
+   * interface completeness), but doesn't give useful information).
+   */
+  BooleanType getRangeType() const;
+
 };/* class TesterType */
 
 }/* CVC4 namespace */

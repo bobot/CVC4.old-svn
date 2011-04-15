@@ -34,6 +34,7 @@
 #include "expr/type.h"
 #include "util/result.h"
 #include "util/sexpr.h"
+#include "util/datatype.h"
 
 namespace CVC4 {
 
@@ -267,16 +268,11 @@ public:
 
 class CVC4_PUBLIC DatatypeCommand : public Command {
 private:
-  std::vector<std::pair< Type, std::vector<Expr> > > d_cons;
-  std::vector<std::pair< Type, std::vector<Expr> > > d_testers;
-  std::vector<std::pair< Expr, std::vector<Expr> > > d_sels;
+  DatatypeType d_datatype;
 public:
-  DatatypeCommand();
+  DatatypeCommand(const DatatypeType& datatype);
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
-
-  void addDefinition( Type t, std::vector< Expr >& cons, std::vector< Expr >& testers,
-                      std::vector< std::vector< Expr > >& sels );
 };/* class DatatypeCommand */
 
 class CVC4_PUBLIC CommandSequence : public Command {

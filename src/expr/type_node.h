@@ -363,18 +363,29 @@ public:
   /** Get the return type (for constructor types) */
   TypeNode getConstructorReturnType() const;
 
-  /** Is this a function type? */
+  /**
+   * Is this a function type?  Function-like things (e.g. datatype
+   * selectors) that aren't actually functions are NOT considered
+   * functions, here.
+   */
   bool isFunction() const;
 
-  /** Get the argument types */
+  /**
+   * Get the argument types of a function, datatype constructor,
+   * datatype selector, or datatype tester.
+   */
   std::vector<TypeNode> getArgTypes() const;
 
-  /** Get the range type (i.e., the type of the result). */
+  /**
+   * Get the range type (i.e., the type of the result) of a function,
+   * datatype constructor, datatype selector, or datatype tester.
+   */
   TypeNode getRangeType() const;
 
   /**
    * Is this a predicate type?
-   * NOTE: all predicate types are also function types.
+   * NOTE: all predicate types are also function types (so datatype
+   * testers are not considered "predicates" for the purpose of this function).
    */
   bool isPredicate() const;
 
@@ -389,6 +400,9 @@ public:
 
   /** Is this a bit-vector type of size <code>size</code> */
   bool isBitVector(unsigned size) const;
+
+  /** Is this a datatype type */
+  bool isDatatype() const;
 
   /** Is this a constructor type */
   bool isConstructor() const;

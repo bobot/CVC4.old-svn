@@ -80,8 +80,12 @@ private:
   /** ExprManagerScope reaches in to get the NodeManager */
   friend class ExprManagerScope;
 
-  // undefined, private copy constructor (disallow copy)
+  /** NodeManager reaches in to get the NodeManager */
+  friend class NodeManager;
+
+  // undefined, private copy constructor and assignment op (disallow copy)
   ExprManager(const ExprManager&) CVC4_UNDEFINED;
+  ExprManager& operator=(const ExprManager&) CVC4_UNDEFINED;
 
 public:
 
@@ -243,11 +247,14 @@ public:
   /** Make the type of arrays with the given parameterization. */
   ArrayType mkArrayType(Type indexType, Type constituentType) const;
 
+  /** Make a type representing the given datatype. */
+  DatatypeType mkDatatypeType(const Datatype& datatype) const;
+
   /**
    * Make a type representing a constructor with the given parameterization.
    * Args should be "SelectorType"s.
    */
-  ConstructorType mkConstructorType(const std::vector<Type>& argTypes, const Type& range) const;
+  ConstructorType mkConstructorType(const Datatype::Constructor& constructor) const;
 
   /** Make a type representing a selector with the given parameterization. */
   SelectorType mkSelectorType(const Type& domain, const Type& range) const;

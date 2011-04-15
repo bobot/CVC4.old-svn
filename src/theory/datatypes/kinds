@@ -6,7 +6,7 @@
 
 theory THEORY_DATATYPES ::CVC4::theory::datatypes::TheoryDatatypes "theory/datatypes/theory_datatypes.h"
 
-properties check presolve 
+properties check presolve
 
 rewriter ::CVC4::theory::datatypes::DatatypesRewriter "theory/datatypes/datatypes_rewriter.h"
 
@@ -25,7 +25,10 @@ parameterized APPLY_SELECTOR SELECTOR_TYPE 1: "selector application"
 
 parameterized APPLY_TESTER TESTER_TYPE 1: "tester application"
 
-# should have a type, followed by an array of constructors
-operator DATATYPE_DECL 1: "datatype declaration"
+constant DATATYPE_TYPE \
+    ::CVC4::Datatype \
+    "::CVC4::DatatypeHashStrategy" \
+    "util/datatype.h" \
+    "datatype type"
 
 endtheory

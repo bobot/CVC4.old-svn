@@ -117,6 +117,10 @@ Type Type::substitute(const std::vector<Type>& types,
                                          replacementsNodes.end()));
 }
 
+ExprManager* Type::getExprManager() const {
+  return d_nodeManager->toExprManager();
+}
+
 void Type::toStream(std::ostream& out) const {
   NodeManagerScope nms(d_nodeManager);
   out << *d_typeNode;
@@ -180,6 +184,19 @@ Type::operator BitVectorType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
   Assert(isBitVector());
   return BitVectorType(*this);
+}
+
+/** Cast to a Constructor type */
+Type::operator DatatypeType() const throw(AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isDatatype());
+  return DatatypeType(*this);
+}
+
+/** Is this the Datatype type? */
+bool Type::isDatatype() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isDatatype();
 }
 
 /** Cast to a Constructor type */
@@ -384,8 +401,13 @@ BitVectorType::BitVectorType(const Type& t) throw(AssertionException) :
   Assert(isBitVector());
 }
 
+DatatypeType::DatatypeType(const Type& t) throw(AssertionException) :
+  Type(t) {
+  Assert(isDatatype());
+}
+
 ConstructorType::ConstructorType(const Type& t) throw(AssertionException) :
-  Type(t){
+  Type(t) {
   Assert(isConstructor());
 }
 
@@ -444,6 +466,26 @@ Type ArrayType::getConstituentType() const {
 
 Type ConstructorType::getReturnType() const {
   return makeType(d_typeNode->getConstructorReturnType());
+}
+
+const Datatype& DatatypeType::getDatatype() const {
+  return d_typeNode->getConst<Datatype>();
+}
+
+DatatypeType SelectorType::getDomain() const {
+  return DatatypeType(makeType((*d_typeNode)[0]));
+}
+
+Type SelectorType::getRangeType() const {
+  return makeType((*d_typeNode)[1]);
+}
+
+DatatypeType TesterType::getDomain() const {
+  return DatatypeType(makeType((*d_typeNode)[0]));
+}
+
+BooleanType TesterType::getRangeType() const {
+  return BooleanType(makeType(d_nodeManager->booleanType()));
 }
 
 size_t TypeHashStrategy::hash(const Type& t) {

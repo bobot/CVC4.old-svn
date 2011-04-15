@@ -351,12 +351,6 @@ Node TheoryEngine::getValue(TNode node) {
   return theoryOf(node)->getValue(node);
 }/* TheoryEngine::getValue(TNode node) */
 
-void TheoryEngine::addDatatypeDefinitions( std::vector<std::pair< TypeNode, std::vector<Node> > >& cons,
-                                           std::vector<std::pair< TypeNode, std::vector<Node> > >& testers,
-                                           std::vector<std::pair< Node, std::vector<Node> > >& sels ) {
-  ((theory::datatypes::TheoryDatatypes*) d_theoryTable[theory::THEORY_DATATYPES])->addDatatypeDefinitions( cons, testers, sels );
-}
-
 bool TheoryEngine::presolve() {
   d_theoryOut.d_conflictNode = Node::null();
   d_theoryOut.d_propagatedLiterals.clear();
