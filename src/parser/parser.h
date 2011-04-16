@@ -337,8 +337,13 @@ public:
   /**
    * Creates new sorts with the given names (all of arity 0).
    */
-  const std::vector<Type>
-  mkSorts(const std::vector<std::string>& names);
+  std::vector<Type> mkSorts(const std::vector<std::string>& names);
+
+  /**
+   * Create sorts of mutually-recursive datatypes.
+   */
+  std::vector<DatatypeType>
+  mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes);
 
   /**
    * Add an operator to the current legal set.

@@ -179,7 +179,7 @@ protected:
 
   /** Set the Parser object for this input. */
   virtual void setParser(Parser& parser) = 0;
-};
+};/* class Input */
 
 }/* CVC4::parser namespace */
 }/* CVC4 namespace */

@@ -82,7 +82,7 @@ public:
   public:
     explicit Constructor(std::string name, std::string tester);
     void addArg(std::string selectorName, Type selectorType);
-    void addArg(std::string selectorName, Datatype::UnresolvedType type);
+    void addArg(std::string selectorName, Datatype::UnresolvedType selectorType);
 
     std::string getName() const throw();
     Expr getTester() const throw();

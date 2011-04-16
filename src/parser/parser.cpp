@@ -200,11 +200,42 @@ Parser::mkSortConstructor(const std::string& name, size_t arity) {
   return type;
 }
 
-const std::vector<Type>
+std::vector<Type>
 Parser::mkSorts(const std::vector<std::string>& names) {
   std::vector<Type> types;
   for(unsigned i = 0; i < names.size(); ++i) {
     types.push_back(mkSort(names[i]));
+  }
+  return types;
+}
+
+std::vector<DatatypeType>
+Parser::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes) {
+  std::vector<DatatypeType> types =
+    d_exprManager->mkMutualDatatypeTypes(datatypes);
+  Assert(datatypes.size() == types.size());
+  for(unsigned i = 0; i < datatypes.size(); ++i) {
+    DatatypeType t = types[i];
+    const Datatype& dt = t.getDatatype();
+    Debug("parser-idt") << "define " << dt.getName() << " as " << t << std::endl;
+    defineType(dt.getName(), t);
+    for(Datatype::const_iterator j = dt.begin(),
+          j_end = dt.end();
+        j != j_end;
+        ++j) {
+      const Datatype::Constructor& ctor = *j;
+      Expr tester = ctor.getTester();
+      Debug("parser-idt") << "+ define " << tester.toString() << " as " << tester << std::endl;
+      defineVar(tester.toString(), tester);
+      for(Datatype::Constructor::const_iterator k = ctor.begin(),
+            k_end = ctor.end();
+          k != k_end;
+          ++k) {
+        Expr selector = (*k).getSelector();
+        Debug("parser-idt") << "+++ define " << selector.toString() << " as " << selector << std::endl;
+        defineVar(selector.toString(), selector);
+      }
+    }
   }
   return types;
 }

@@ -56,6 +56,20 @@ options {
 namespace CVC4 {
   class Expr;
 }/* CVC4 namespace */
+
+namespace CVC4 {
+  namespace parser {
+    namespace cvc {
+      class mystring : public std::string {
+      public:
+        mystring(const std::string& s) : std::string(s) {}
+        mystring(uintptr_t) : std::string() {}
+        mystring() : std::string() {}
+      };/* class mystring */
+    }/* CVC4::parser::cvc namespace */
+  }/* CVC4::parser namespace */
+}/* CVC4 namespace */
+
 }
 
 @parser::postinclude {
@@ -72,7 +86,7 @@ using namespace CVC4::parser;
 
 /* These need to be macros so they can refer to the PARSER macro, which will be defined
  * by ANTLR *after* this section. (If they were functions, PARSER would be undefined.) */
-#undef PARSER_STATE 
+#undef PARSER_STATE
 #define PARSER_STATE ((Parser*)PARSER->super)
 #undef EXPR_MANAGER
 #define EXPR_MANAGER PARSER_STATE->getExprManager()
@@ -110,6 +124,7 @@ command returns [CVC4::Command* cmd = 0]
   SExpr sexpr;
   std::string s;
   Type t;
+  std::vector<CVC4::Datatype> dts;
   Debug("parser-extra") << "command: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : ASSERT_TOK formula[f] SEMICOLON { cmd = new AssertCommand(f);   }
@@ -120,19 +135,13 @@ command returns [CVC4::Command* cmd = 0]
     { cmd = new SetOptionCommand(AntlrInput::tokenText($STRING_LITERAL), sexpr); }
   | PUSH_TOK SEMICOLON { cmd = new PushCommand(); }
   | POP_TOK SEMICOLON { cmd = new PopCommand(); }
-  | DATATYPE_TOK datatypeDef[t]
-      { cmd = new DatatypeCommand(DatatypeType(t)); }
-      ( { CommandSequence* seq = new CommandSequence();
-          seq->addCommand(cmd);
-          cmd = seq;
-        }
-        ( COMMA datatypeDef[t]
-          { Command* cmd2 = new DatatypeCommand(DatatypeType(t));
-            ((CommandSequence*) cmd)->addCommand(cmd2);
-          }
-        )+
-      )?
-      END_TOK SEMICOLON
+    // Datatypes can be mututally-recursive if they're in the same
+    // definition block, separated by a comma.  So we parse everything
+    // and then ask the ExprManager to resolve everything in one go.
+  | DATATYPE_TOK datatypeDef[dts]
+    ( COMMA datatypeDef[dts] )*
+    END_TOK SEMICOLON
+    { cmd = new DatatypeDeclarationCommand(PARSER_STATE->mkMutualDatatypeTypes(dts)); }
   | declaration[cmd]
   | EOF
   ;
@@ -173,8 +182,8 @@ declType[CVC4::Type& t, std::vector<std::string>& idList]
   Debug("parser-extra") << "declType: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : /* A sort declaration (e.g., "T : TYPE") */
-    TYPE_TOK 
-    { PARSER_STATE->mkSorts(idList); 
+    TYPE_TOK
+    { PARSER_STATE->mkSorts(idList);
       t = EXPR_MANAGER->kindType(); }
   | /* A variable declaration */
     type[t] { PARSER_STATE->mkVars(idList,t); }
@@ -232,34 +241,62 @@ identifier[std::string& id,
   ;
 
 /**
- * Matches a type.
- * TODO: parse more types
+ * Matches a type (which MUST be already declared).
+ *
+ * @return the type identifier
  */
 baseType[CVC4::Type& t]
-@init {
-  std::string id;
-  Debug("parser-extra") << "base type: " << AntlrInput::tokenText(LT(1)) << std::endl;
-}
-  : BOOLEAN_TOK { t = EXPR_MANAGER->booleanType(); }
-  | INT_TOK { t = EXPR_MANAGER->integerType(); }
-  | REAL_TOK { t = EXPR_MANAGER->realType(); }
-  | typeSymbol[t]
+  : maybeUndefinedBaseType[t,CHECK_DECLARED]
   ;
 
 /**
- * Matches a type identifier
+ * Matches a type (which may not be declared yet).  Returns the
+ * identifier.  If the type is declared, returns the Type in the 't'
+ * parameter; otherwise a null Type is returned in 't'.  If 'check' is
+ * CHECK_DECLARED and the type is not declared, an exception is
+ * thrown.
+ *
+ * @return the type identifier
+ *
+ * @TODO parse more types
  */
-typeSymbol[CVC4::Type& t]
+maybeUndefinedBaseType[CVC4::Type& t,
+                       CVC4::parser::DeclarationCheck check] returns [CVC4::parser::cvc::mystring id]
 @init {
-  std::string id;
+  Debug("parser-extra") << "base type: " << AntlrInput::tokenText(LT(1)) << std::endl;
+  AssertArgument(check == CHECK_DECLARED || check == CHECK_NONE,
+                 check, "CVC parser: can't use CHECK_UNDECLARED with maybeUndefinedBaseType[]");
+}
+  : BOOLEAN_TOK { t = EXPR_MANAGER->booleanType(); id = AntlrInput::tokenText($BOOLEAN_TOK); }
+  | INT_TOK { t = EXPR_MANAGER->integerType(); id = AntlrInput::tokenText($INT_TOK); }
+  | REAL_TOK { t = EXPR_MANAGER->realType(); id = AntlrInput::tokenText($REAL_TOK); }
+  | typeSymbol[t,check]
+    { id = $typeSymbol.id; }
+  ;
+
+/**
+ * Matches a type identifier.  Returns the identifier.  If the type is
+ * declared, returns the Type in the 't' parameter; otherwise a null
+ * Type is returned in 't'.  If 'check' is CHECK_DECLARED and the type
+ * is not declared, an exception is thrown.
+ *
+ * @return the type identifier
+ */
+typeSymbol[CVC4::Type& t,
+           CVC4::parser::DeclarationCheck check] returns [CVC4::parser::cvc::mystring id]
+@init {
   Debug("parser-extra") << "type symbol: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : identifier[id,CHECK_DECLARED,SYM_SORT]
-    { t = PARSER_STATE->getSort(id); }
+  : identifier[id,check,SYM_SORT]
+    { bool isNew = (check == CHECK_UNDECLARED || check == CHECK_NONE) &&
+                   !PARSER_STATE->isDeclared(id, SYM_SORT);
+      t = isNew ? Type() : PARSER_STATE->getSort(id);
+    }
   ;
 
 /**
  * Matches a CVC4 formula.
+ *
  * @return the expression representing the formula
  */
 formula[CVC4::Expr& formula]
@@ -607,47 +644,22 @@ functionSymbol[CVC4::Expr& f]
   ;
 
 /**
- *
+ * Parses a datatype definition
  */
-readBaseType[CVC4::Type& t]
-@init {
-  std::string id;
-}
-  : BOOLEAN_TOK { t = EXPR_MANAGER->booleanType(); }
-  | INT_TOK { t = EXPR_MANAGER->integerType(); }
-  | REAL_TOK { t = EXPR_MANAGER->realType(); }
-  | identifier[id,CHECK_DECLARED,SYM_SORT]
-    { t = PARSER_STATE->getSort(id);
-      Debug("parser-idt") << "get datatype: " << id.c_str() << std::endl; }
-  ;
-
-declBaseType[CVC4::Datatype* dt]
+datatypeDef[std::vector<CVC4::Datatype>& datatypes]
 @init {
   std::string id;
 }
   : identifier[id,CHECK_UNDECLARED,SYM_SORT]
-    { dt = new Datatype(id);
-      Debug("parser-idt") << "make datatype: " << id.c_str() << std::endl;
-    }
-  ;
-
-/**
- * Parses a datatype definition
- */
-datatypeDef[CVC4::Type& type]
-@init {
-  Datatype* datatype = NULL;
-}
-  : declBaseType[datatype]
-    EQUAL_TOK constructorDef[datatype]
-    ( BAR_TOK constructorDef[datatype] )*
-    { type = EXPR_MANAGER->mkDatatypeType(*datatype); }
+    { datatypes.push_back(Datatype(id)); }
+    EQUAL_TOK constructorDef[datatypes.back()]
+    ( BAR_TOK constructorDef[datatypes.back()] )*
   ;
 
 /**
  * Parses a constructor defintion for type
  */
-constructorDef[CVC4::Datatype* type]
+constructorDef[CVC4::Datatype& type]
 @init {
   std::string id;
   CVC4::Datatype::Constructor* ctor;
@@ -661,27 +673,28 @@ constructorDef[CVC4::Datatype* type]
       ctor = new CVC4::Datatype::Constructor(id, testerId);
     }
     ( LPAREN
-      selector[ctor]
-      ( COMMA selector[ctor] )*
+      selector[*ctor]
+      ( COMMA selector[*ctor] )*
       RPAREN
     )?
     { // make the constructor
-      //consExpr = PARSER_STATE->mkVar(id, consType);
+      type.addConstructor(*ctor);
       Debug("parser-idt") << "constructor: " << id.c_str() << std::endl;
+      delete ctor;
     }
   ;
 
-selector[CVC4::Datatype::Constructor* ctor]
+selector[CVC4::Datatype::Constructor& ctor]
 @init {
   std::string id;
-  Type selType;
-  Type selReturnType;
+  Type type;
 }
-  : identifier[id,CHECK_UNDECLARED,SYM_SORT] COLON readBaseType[selReturnType]
-    { // make the selector
-      //ctor->addArg(id, selReturnType);
-      //selType = EXPR_MANAGER->mkSelectorType(type, selReturnType);
-      //selExpr = PARSER_STATE->mkVar(id, selType);
+  : identifier[id,CHECK_UNDECLARED,SYM_SORT] COLON maybeUndefinedBaseType[type,CHECK_NONE]
+    { if(type.isNull()) {
+        ctor.addArg(id, Datatype::UnresolvedType($maybeUndefinedBaseType.id));
+      } else {
+        ctor.addArg(id, type);
+      }
       Debug("parser-idt") << "selector: " << id.c_str() << std::endl;
     }
   ;

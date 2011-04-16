@@ -266,14 +266,15 @@ public:
   void printResult(std::ostream& out) const;
 };/* class GetOptionCommand */
 
-class CVC4_PUBLIC DatatypeCommand : public Command {
+class CVC4_PUBLIC DatatypeDeclarationCommand : public Command {
 private:
-  DatatypeType d_datatype;
+  std::vector<DatatypeType> d_datatypes;
 public:
-  DatatypeCommand(const DatatypeType& datatype);
+  DatatypeDeclarationCommand(const DatatypeType& datatype);
+  DatatypeDeclarationCommand(const std::vector<DatatypeType>& datatypes);
   void invoke(SmtEngine* smtEngine);
   void toStream(std::ostream& out) const;
-};/* class DatatypeCommand */
+};/* class DatatypeDeclarationCommand */
 
 class CVC4_PUBLIC CommandSequence : public Command {
 private:

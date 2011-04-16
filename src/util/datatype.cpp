@@ -130,9 +130,9 @@ void Datatype::Constructor::resolve(ExprManager* em, DatatypeType self, std::map
   d_name.resize(d_name.find('\0'));
   for(iterator i = begin(), i_end = end(); i != i_end; ++i) {
     if((*i).d_selector.isNull()) {
-      (*i).d_selector = em->mkVar(em->mkSelectorType(self, self));
+      (*i).d_selector = em->mkVar((*i).d_name, em->mkSelectorType(self, self));
     } else {
-      (*i).d_selector = em->mkVar(em->mkSelectorType(self, (*i).d_selector.getType()));
+      (*i).d_selector = em->mkVar((*i).d_name, em->mkSelectorType(self, (*i).d_selector.getType()));
     }
   }
 }
@@ -154,7 +154,7 @@ void Datatype::Constructor::addArg(std::string selectorName, Type selectorType) 
   d_args.push_back(Arg(selectorName, selectorType.getExprManager()->mkVar(selectorType)));
 }
 
-void Datatype::Constructor::addArg(std::string selectorName, Datatype::UnresolvedType type) {
+void Datatype::Constructor::addArg(std::string selectorName, Datatype::UnresolvedType selectorType) {
   CheckArgument(!isResolved(), this, "cannot modify a finalized Datatype constructor");
 # warning do something with unresolved type
   d_args.push_back(Arg(selectorName, Expr()));
