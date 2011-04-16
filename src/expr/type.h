@@ -27,7 +27,6 @@
 #include <stdint.h>
 
 #include "util/Assert.h"
-#include "util/datatype.h"
 
 namespace CVC4 {
 
@@ -36,6 +35,8 @@ class ExprManager;
 class TypeNode;
 
 class SmtEngine;
+
+class Datatype;
 
 template <bool ref_count>
 class NodeTemplate;

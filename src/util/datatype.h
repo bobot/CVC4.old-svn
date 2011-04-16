@@ -25,6 +25,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 
 namespace CVC4 {
   // messy; Expr needs Datatype (because it's the payload of a
@@ -44,7 +45,12 @@ class CVC4_PUBLIC ExprManager;
 
 class CVC4_PUBLIC Datatype {
 public:
-  class CVC4_PUBLIC SelfType { };
+  class CVC4_PUBLIC UnresolvedType {
+    std::string d_name;
+  public:
+    UnresolvedType(std::string name);
+    std::string getName() const throw();
+  };/* class Datatype::UnresolvedType */
 
   class CVC4_PUBLIC Constructor {
   public:
@@ -60,9 +66,6 @@ public:
       std::string getName() const throw();
       Expr getSelector() const throw();
 
-      bool operator==(const Arg& other) const throw();
-      bool operator!=(const Arg& other) const throw();
-
     };/* class Datatype::Constructor::Arg */
 
     typedef std::vector<Arg>::iterator iterator;
@@ -72,22 +75,20 @@ public:
     std::string d_name;
     Expr d_tester;
     std::vector<Arg> d_args;
-    bool d_resolved;
 
-    void resolve(ExprManager* em, DatatypeType self);
+    void resolve(ExprManager* em, DatatypeType self, std::map<std::string, DatatypeType>& resolutions);
     friend class Datatype;
 
   public:
-    explicit Constructor(std::string name, Expr tester);
+    explicit Constructor(std::string name, std::string tester);
     void addArg(std::string selectorName, Type selectorType);
-    void addArg(std::string selectorName, Datatype::SelfType);
+    void addArg(std::string selectorName, Datatype::UnresolvedType type);
 
     std::string getName() const throw();
     Expr getTester() const throw();
     size_t getNumArgs() const throw();
 
-    bool operator==(const Constructor& other) const throw();
-    bool operator!=(const Constructor& other) const throw();
+    bool isResolved() const;
 
     iterator begin() throw();
     iterator end() throw();
@@ -113,7 +114,7 @@ private:
    * the effect of freezing the object, too; that is, addConstructor()
    * will fail after a call to resolve().
    */
-  void resolve(ExprManager* em, DatatypeType self);
+  void resolve(ExprManager* em, std::map<std::string, DatatypeType>& resolutions);
   friend class ExprManager;// for access to resolve()
 
 public:
@@ -135,6 +136,8 @@ public:
   // comparison operators later on.
   bool operator==(const Datatype& other) const throw();
   bool operator!=(const Datatype& other) const throw();
+
+  bool isResolved() const throw();
 
   iterator begin() throw();
   iterator end() throw();

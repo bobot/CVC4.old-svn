@@ -248,7 +248,13 @@ public:
   ArrayType mkArrayType(Type indexType, Type constituentType) const;
 
   /** Make a type representing the given datatype. */
-  DatatypeType mkDatatypeType(const Datatype& datatype) const;
+  DatatypeType mkDatatypeType(const Datatype& datatype);
+
+  /**
+   * Make a set of types representing the given datatypes, which may be
+   * mutually recursive.
+   */
+  std::vector<DatatypeType> mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes);
 
   /**
    * Make a type representing a constructor with the given parameterization.

@@ -22,13 +22,15 @@
 #include "util/options.h"
 #include "util/stats.h"
 
+#include <map>
+
 ${includes}
 
 // This is a hack, but an important one: if there's an error, the
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 32 "${template}"
+#line 34 "${template}"
 
 #ifdef CVC4_STATISTICS_ON
   #define INC_STAT(kind) \
@@ -340,11 +342,50 @@ ArrayType ExprManager::mkArrayType(Type indexType, Type constituentType) const {
   return ArrayType(Type(d_nodeManager, new TypeNode(d_nodeManager->mkArrayType(*indexType.d_typeNode, *constituentType.d_typeNode))));
 }
 
-DatatypeType ExprManager::mkDatatypeType(const Datatype& datatype) const {
-  return Type(d_nodeManager, new TypeNode(d_nodeManager->mkTypeConst(datatype)));
+DatatypeType ExprManager::mkDatatypeType(const Datatype& datatype) {
+  NodeManagerScope nms(d_nodeManager);
+  TypeNode* typeNode = new TypeNode(d_nodeManager->mkTypeConst(datatype));
+  Type type(d_nodeManager, typeNode);
+  DatatypeType dtt(type);
+  const Datatype& dt = typeNode->getConst<Datatype>();
+  if(!dt.isResolved()) {
+    std::map<std::string, DatatypeType> resolutions;
+    resolutions.insert(std::make_pair(datatype.getName(), dtt));
+    const_cast<Datatype&>(dt).resolve(this, resolutions);
+  }
+  return dtt;
+}
+
+std::vector<DatatypeType> ExprManager::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes) {
+  NodeManagerScope nms(d_nodeManager);
+  std::map<std::string, DatatypeType> resolutions;
+  std::vector<DatatypeType> dtts;
+  for(std::vector<Datatype>::const_iterator i = datatypes.begin(), i_end = datatypes.end();
+      i != i_end;
+      ++i) {
+    TypeNode* typeNode = new TypeNode(d_nodeManager->mkTypeConst(*i));
+    Type type(d_nodeManager, typeNode);
+    DatatypeType dtt(type);
+    CheckArgument(resolutions.find((*i).getName()) == resolutions.end(),
+                  datatypes,
+                  "cannot construct two datatypes at the same time with the same name `%s'",
+                  (*i).getName().c_str());
+    resolutions.insert(std::make_pair((*i).getName(), dtt));
+    dtts.push_back(dtt);
+  }
+  for(std::vector<DatatypeType>::iterator i = dtts.begin(), i_end = dtts.end();
+      i != i_end;
+      ++i) {
+    const Datatype& dt = (*i).getDatatype();
+    if(!dt.isResolved()) {
+      const_cast<Datatype&>(dt).resolve(this, resolutions);
+    }
+  }
+  return dtts;
 }
 
 ConstructorType ExprManager::mkConstructorType(const Datatype::Constructor& constructor) const {
+  NodeManagerScope nms(d_nodeManager);
   return Type(d_nodeManager, new TypeNode(d_nodeManager->mkConstructorType(constructor)));
 }
 

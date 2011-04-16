@@ -110,9 +110,6 @@ command returns [CVC4::Command* cmd = 0]
   SExpr sexpr;
   std::string s;
   Type t;
-  std::vector<Expr> cons;
-  std::vector<Expr> testers;
-  std::vector< std::vector< Expr > > sels;
   Debug("parser-extra") << "command: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : ASSERT_TOK formula[f] SEMICOLON { cmd = new AssertCommand(f);   }
@@ -659,11 +656,9 @@ constructorDef[CVC4::Datatype* type]
     {
       // make the tester
       std::string testerId("is_");
-      testerId.append( id );
+      testerId.append(id);
       PARSER_STATE->checkDeclaration(testerId, CHECK_UNDECLARED, SYM_SORT);
-      Type testerType;// = EXPR_MANAGER->mkTesterType(type);
-      Expr testerExpr;// = PARSER_STATE->mkVar(testerId, testerType);
-      ctor = new CVC4::Datatype::Constructor(id, testerExpr);
+      ctor = new CVC4::Datatype::Constructor(id, testerId);
     }
     ( LPAREN
       selector[ctor]

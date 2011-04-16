@@ -14,6 +14,7 @@ TESTS =	\
 	datatype3.cvc \
 	datatype4.cvc \
 	datatype13.cvc \
+	mutually-recursive.cvc \
 	typed_v1l50016-simp.cvc
 
 EXTRA_DIST = $(TESTS)

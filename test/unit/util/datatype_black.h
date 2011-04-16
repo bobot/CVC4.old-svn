@@ -43,7 +43,6 @@ public:
 
   void testTree() {
     Datatype tree("tree");
-    Type treeType = d_em->mkDatatypeType(tree);
 
     Datatype::Constructor node("node", "is_node");
     node.addArg("left", Datatype::SelfType());
@@ -53,12 +52,13 @@ public:
     Datatype::Constructor leaf("leaf", "is_leaf");
     tree.addConstructor(leaf);
 
-    cout << tree;
+    cout << tree << std::endl;
+    DatatypeType treeType = d_em->mkDatatypeType(tree);
+    cout << treeType << std::endl;
   }
 
   void testNat() {
     Datatype nat("nat");
-    Type natType = d_em->mkDatatypeType(nat);
 
     Datatype::Constructor succ("succ", "is_succ");
     succ.addArg("pred", Datatype::SelfType());
@@ -67,12 +67,13 @@ public:
     Datatype::Constructor zero("zero", "is_zero");
     nat.addConstructor(zero);
 
-    cout << nat;
+    cout << nat << std::endl;
+    DatatypeType natType = d_em->mkDatatypeType(nat);
+    cout << natType << std::endl;
   }
 
   void testList() {
     Datatype list("list");
-    //Type listType = d_em->mkDatatypeType(list);
     Type integerType = d_em->integerType();
 
     Datatype::Constructor cons("cons", "is_cons");
@@ -83,7 +84,11 @@ public:
     Datatype::Constructor nil("nil", "is_nil");
     list.addConstructor(nil);
 
-    cout << list;
+    cout << list << std::endl;
+    DatatypeType listType = d_em->mkDatatypeType(list);
+    DatatypeType listType2 = d_em->mkDatatypeType(list);
+    cout << listType << std::endl;
+    TS_ASSERT(listType == listType2);
   }
 
 };
