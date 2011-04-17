@@ -220,8 +220,8 @@ protected:
 
     // Helper structures:
     //
-    struct VarData { CRef reason; int level; int intro_level; };
-    static inline VarData mkVarData(CRef cr, int l, int intro_l){ VarData d = {cr, l, intro_l}; return d; }
+    struct VarData { CRef reason; int level; int real_level; int intro_level; };
+    static inline VarData mkVarData(CRef cr, int l, int real_l, int intro_l){ VarData d = {cr, l, real_l, intro_l}; return d; }
 
     struct Watcher {
         CRef cref;
@@ -316,7 +316,7 @@ protected:
     bool     propagateTheory  ();                                                      // Perform Theory propagation. Return true if any literals were asserted.
     CRef     theoryCheck      (CVC4::theory::Theory::Effort effort);                   // Perform a theory satisfiability check. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
-    CRef     rePropagateUnit  ();                                                      // Re-propagate the unit clauses
+    void     rePropagateUnit  ();                                                      // Re-propagate the unit clauses
     CRef     rePropagate      ();                                                      // Re-propagate on selected clauses, returns a concflict clause if it introduces a conflict
     void     popTrail         ();                                                      // Backtrack the trail to the previous push position
     int      analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel);    // (bt = backtrack)
@@ -354,6 +354,7 @@ protected:
     bool     hasReason        (Var x) const; // Does the variable have a reason
     int      level            (Var x) const;
     int      intro_level      (Var x) const; // Level at which this variable was introduced
+    int      real_level       (Var x) const; // Real level for unit assertions
     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
     bool     withinBudget     ()      const;
 
@@ -382,6 +383,8 @@ inline bool Solver::hasReason(Var x) const { return vardata[x].reason != CRef_Un
 inline int  Solver::level (Var x) const { return vardata[x].level; }
 
 inline int  Solver::intro_level(Var x) const { return vardata[x].intro_level; }
+
+inline int  Solver::real_level(Var x) const { return vardata[x].real_level; }
 
 inline void Solver::insertVarOrder(Var x) {
     if (!order_heap.inHeap(x) && decision[x]) order_heap.insert(x); }
