@@ -316,7 +316,6 @@ protected:
     bool     propagateTheory  ();                                                      // Perform Theory propagation. Return true if any literals were asserted.
     CRef     theoryCheck      (CVC4::theory::Theory::Effort effort);                   // Perform a theory satisfiability check. Returns possibly conflicting clause.
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
-    void     rePropagateUnit  ();                                                      // Re-propagate the unit clauses
     CRef     rePropagate      ();                                                      // Re-propagate on selected clauses, returns a concflict clause if it introduces a conflict
     void     popTrail         ();                                                      // Backtrack the trail to the previous push position
     int      analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel);    // (bt = backtrack)

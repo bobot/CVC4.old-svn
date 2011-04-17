@@ -360,27 +360,23 @@ void Solver::cancelUntil(int level) {
         }
         Debug("minisat") << repropagationInfoAsString() << std::endl;
     }
-
-    // We eagerly repropagate unit assertions, these can not cause conflicts directly
-    rePropagateUnit();
-}
-
-void Solver::rePropagateUnit() {
-  if (unit_assertions_to_repropagate.size() > 0) {
-    int level = decisionLevel();
-    for (int lit = unit_assertions_to_repropagate.size() -1 ; lit >= 0; -- lit) {
-      uncheckedEnqueue(unit_assertions_to_repropagate[lit], CRef_Undef, true);
-      if (level > 0) {
-        propagating_assertions.push(RepropagationInfo(CRef_Undef, level, unit_assertions_to_repropagate[lit]));
-      }
-    }
-    unit_assertions_to_repropagate.clear();
-  }
 }
 
 CRef Solver::rePropagate() {
 
   Debug("minisat") << "Solver::rePropagate()" << trailAsString(trail) << std::endl;
+
+  if (unit_assertions_to_repropagate.size() > 0) {
+      int level = decisionLevel();
+      for (int lit = unit_assertions_to_repropagate.size() -1 ; lit >= 0; -- lit) {
+        uncheckedEnqueue(unit_assertions_to_repropagate[lit], CRef_Undef, true);
+        if (level > 0) {
+          propagating_assertions.push(RepropagationInfo(CRef_Undef, level, unit_assertions_to_repropagate[lit]));
+        }
+      }
+      unit_assertions_to_repropagate.clear();
+      return CRef_Undef;
+  }
 
   CRef conflict = CRef_Undef;
 
