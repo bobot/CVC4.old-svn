@@ -534,14 +534,23 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
             }
         }
         
-        // Select next clause to look at:
-        while (!seen[var(trail[index--])]);
-        p     = trail[index+1];
-        confl = reason(var(p));
-        seen[var(p)] = 0;
-        pathC--;
-
+        // Select next clause to look at (might be that this is a 0-level conflict):
+        if (pathC > 0) {
+            while (!seen[var(trail[index--])]);
+            p     = trail[index+1];
+            confl = reason(var(p));
+            seen[var(p)] = 0;
+            pathC--;
+        }
     }while (pathC > 0);
+
+    // This is actually a 0-level conflict
+    if (p == lit_Undef) {
+      out_learnt.clear();
+      out_btlevel = 0;
+      return 0;
+    }
+
     out_learnt[0] = ~p;
 
     // Simplify conflict clause:
@@ -1050,6 +1059,7 @@ lbool Solver::search(int nof_conflicts)
             // Analyze the conflict
             learnt_clause.clear();
             int max_level = analyze(confl, learnt_clause, backtrack_level);
+            if (learnt_clause.size() == 0) return l_False;
 
             Debug("minisat") << "Solver::search(): learnt " << learnt_clause << std::endl;
 
