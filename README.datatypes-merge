@@ -1,0 +1,2 @@
+"datatypes" is the branch for testing the inductive datatypes theory, created by ajreynol (Andrew Reynolds)
+"datatypes-merge" is a project for bringing it up to speed with changes in trunk since datatypes work started, and is a collaborative project between ajreynol and mdeters.

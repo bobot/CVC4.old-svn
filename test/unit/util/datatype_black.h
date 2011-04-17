@@ -41,22 +41,6 @@ public:
     delete d_em;
   }
 
-  void testTree() {
-    Datatype tree("tree");
-
-    Datatype::Constructor node("node", "is_node");
-    node.addArg("left", Datatype::SelfType());
-    node.addArg("right", Datatype::SelfType());
-    tree.addConstructor(node);
-
-    Datatype::Constructor leaf("leaf", "is_leaf");
-    tree.addConstructor(leaf);
-
-    cout << tree << std::endl;
-    DatatypeType treeType = d_em->mkDatatypeType(tree);
-    cout << treeType << std::endl;
-  }
-
   void testNat() {
     Datatype nat("nat");
 
@@ -70,6 +54,24 @@ public:
     cout << nat << std::endl;
     DatatypeType natType = d_em->mkDatatypeType(nat);
     cout << natType << std::endl;
+  }
+
+  void testTree() {
+    Datatype tree("tree");
+    Type integerType = d_em->integerType();
+
+    Datatype::Constructor node("node", "is_node");
+    node.addArg("left", Datatype::SelfType());
+    node.addArg("right", Datatype::SelfType());
+    tree.addConstructor(node);
+
+    Datatype::Constructor leaf("leaf", "is_leaf");
+    leaf.addArg("leaf", integerType);
+    tree.addConstructor(leaf);
+
+    cout << tree << std::endl;
+    DatatypeType treeType = d_em->mkDatatypeType(tree);
+    cout << treeType << std::endl;
   }
 
   void testList() {
@@ -86,9 +88,69 @@ public:
 
     cout << list << std::endl;
     DatatypeType listType = d_em->mkDatatypeType(list);
-    DatatypeType listType2 = d_em->mkDatatypeType(list);
     cout << listType << std::endl;
-    TS_ASSERT(listType == listType2);
   }
 
-};
+  void testMutualListTrees() {
+    /* Create two mutual datatypes corresponding to this definition
+     * block:
+     *
+     *   DATATYPE
+     *     tree = node(left: tree, right: tree) | leaf(list),
+     *     list = cons(car: tree, cdr: list) | nil
+     *   END;
+     */
+    Datatype tree("tree");
+    Datatype::Constructor node("node", "is_node");
+    node.addArg("left", Datatype::SelfType());
+    node.addArg("right", Datatype::SelfType());
+    tree.addConstructor(node);
+
+    Datatype::Constructor leaf("leaf", "is_leaf");
+    leaf.addArg("leaf", Datatype::UnresolvedType("list"));
+    tree.addConstructor(leaf);
+
+    cout << tree << std::endl;
+
+    Datatype list("list");
+    Datatype::Constructor cons("cons", "is_cons");
+    cons.addArg("car", Datatype::UnresolvedType("tree"));
+    cons.addArg("cdr", Datatype::SelfType());
+    list.addConstructor(cons);
+
+    Datatype::Constructor nil("nil", "is_nil");
+    list.addConstructor(nil);
+
+    cout << list << std::endl;
+
+    TS_ASSERT(! tree.isResolved());
+    TS_ASSERT(! node.isResolved());
+    TS_ASSERT(! leaf.isResolved());
+    TS_ASSERT(! list.isResolved());
+    TS_ASSERT(! cons.isResolved());
+    TS_ASSERT(! nil.isResolved());
+
+    vector<Datatype> dts;
+    dts.push_back(tree);
+    dts.push_back(list);
+    vector<DatatypeType> dtts = d_em->mkMutualDatatypeTypes(dts);
+
+    TS_ASSERT(dtts[0].getDatatype().isResolved());
+    TS_ASSERT(dtts[1].getDatatype().isResolved());
+
+    // add another constructor to list datatype resulting in an
+    // "otherNil-list"
+    Datatype::Constructor otherNil("otherNil", "is_otherNil");
+    dts[1].addConstructor(otherNil);
+
+    // remake the types
+    vector<DatatypeType> dtts2 = d_em->mkMutualDatatypeTypes(dts);
+
+    TS_ASSERT_DIFFERS(dtts, dtts2);
+    TS_ASSERT_DIFFERS(dtts[1], dtts2[1]);
+
+    // tree is also different because it's a tree of otherNil-lists
+    TS_ASSERT_DIFFERS(dtts[0], dtts2[0]);
+  }
+
+};/* class DatatypeBlack */
