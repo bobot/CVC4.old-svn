@@ -24,6 +24,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define Minisat_SolverTypes_h
 
 #include <assert.h>
+#include <iostream>
 
 #include "mtl/IntTypes.h"
 #include "mtl/Alg.h"
@@ -415,5 +416,27 @@ inline void Clause::strengthen(Lit p)
 
 //=================================================================================================
 }
+
+namespace CVC4 {
+
+  inline std::ostream& operator << (std::ostream& out, const Minisat::Lit& l) {
+    out << (Minisat::sign(l) ? "~" : " ") << Minisat::var(l);
+    return out;
+  }
+
+  inline std::ostream& operator << (std::ostream& out, const Minisat::Clause& c) {
+    out << "[";
+    bool first = true;
+    for (int i = 0; i < c.size(); ++ i) {
+      if (!first) { out << ","; }
+      out << c[i];
+      first = false;
+    }
+    out << "]";
+    return out;
+  }
+
+}
+
 
 #endif

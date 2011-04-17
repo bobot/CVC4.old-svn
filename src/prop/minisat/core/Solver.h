@@ -65,16 +65,26 @@ protected:
   /** Do we allow incremental solving */
   bool enable_incremental;  
 
-  /** Did the problem get extended in the meantime (i.e. by adding a lemma) */
-  bool problem_extended;   
+  struct RepropagationInfo {
+    /** Clause that is propagating */
+    CRef cref;
+    /** The last level the clause was propagating */
+    int level;
+    /** Literal that was propagated */
+    Lit lit;
+    RepropagationInfo(CRef cref, int level, Lit lit)
+    : cref(cref), level(level), lit(lit) {}
+  };
 
-  /** Literals propagated by lemmas */
-  vec<Lit> lemma_propagated_literals; 
-  /** Reasons of literals propagated by lemmas */
-  vec<CRef> lemma_propagated_reasons; 
-  /** Lemmas that propagated something, we need to recheck them after backtracking */
-  vec<CRef> propagating_lemmas;
-  vec<int> propagating_lemmas_lim;
+  /** Assertions (lemmas and learned clause) that propagated something, we need to recheck them after backtracking */
+  vec<RepropagationInfo> propagating_assertions;
+
+  /** The assertions that we will be rechecking next time we propagate */
+  vec<RepropagationInfo> assertions_to_repropagate;
+
+  /** Unit assertions that we will be re-asserted next time we propagate */
+  vec<Lit> unit_assertions_to_repropagate;
+
 
   /** Shrink 'cs' to contain only clauses below given level */
   void removeClausesAboveLevel(vec<CRef>& cs, int level); 
@@ -256,6 +266,9 @@ protected:
     double              progress_estimate;// Set by 'search()'.
     bool                remove_satisfied; // Indicates whether possibly inefficient linear scan for satisfied clauses should be performed in 'simplify'.
 
+    std::string trailAsString(const vec<Lit>& trail) const;
+    std::string repropagationInfoAsString() const;
+
     ClauseAllocator     ca;
 
     // CVC4 Stuff
@@ -293,14 +306,15 @@ protected:
     void     insertVarOrder   (Var x);                                                 // Insert a variable in the decision order priority queue.
     Lit      pickBranchLit    ();                                                      // Return the next decision variable.
     void     newDecisionLevel ();                                                      // Begins a new decision level.
-    void     uncheckedEnqueue (Lit p, CRef from = CRef_Undef);                         // Enqueue a literal. Assumes value of literal is undefined.
+    void     uncheckedEnqueue (Lit p, CRef from = CRef_Undef, bool bottom = false);    // Enqueue a literal. Assumes value of literal is undefined.
     bool     enqueue          (Lit p, CRef from = CRef_Undef);                         // Test if fact 'p' contradicts current state, enqueue otherwise.
     CRef     propagate        (TheoryCheckType type);                                  // Perform Boolean and Theory. Returns possibly conflicting clause.
     CRef     propagateBool    ();                                                      // Perform Boolean propagation. Returns possibly conflicting clause.
     bool     propagateTheory  ();                                                      // Perform Theory propagation. Return true if any literals were asserted.
     CRef     theoryCheck      (CVC4::theory::Theory::Effort effort);                   // Perform a theory satisfiability check. Returns possibly conflicting clause.
-    void     cancelUntil      (int level, bool re_propagate = true);                   // Backtrack until a certain level.
-    CRef     rePropagate      (int level);                                             // Re-propagate on lemmas, returns a concflict clause if it introduces a conflict
+    void     cancelUntil      (int level);                                             // Backtrack until a certain level.
+    CRef     rePropagateUnit  ();                                                      // Re-propagate the unit clauses
+    CRef     rePropagate      ();                                                      // Re-propagate on selected clauses, returns a concflict clause if it introduces a conflict
     void     popTrail         ();                                                      // Backtrack the trail to the previous push position
     int      analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel);    // (bt = backtrack)
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
@@ -403,7 +417,7 @@ inline bool     Solver::addClause       (Lit p, ClauseType type)                
 inline bool     Solver::addClause       (Lit p, Lit q, ClauseType type)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, type); }
 inline bool     Solver::addClause       (Lit p, Lit q, Lit r, ClauseType type)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, type); }
 inline bool     Solver::locked          (const Clause& c) const { return value(c[0]) == l_True && reason(var(c[0])) != CRef_Undef && ca.lea(reason(var(c[0]))) == &c; }
-inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); propagating_lemmas_lim.push(propagating_lemmas.size()); context->push(); }
+inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); context->push(); }
 
 inline int      Solver::decisionLevel ()      const   { return trail_lim.size(); }
 inline uint32_t Solver::abstractLevel (Var x) const   { return 1 << (level(x) & 31); }

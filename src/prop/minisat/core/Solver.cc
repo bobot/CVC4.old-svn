@@ -19,6 +19,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 **************************************************************************************************/
 
 #include <math.h>
+#include <sstream>
 
 #include "mtl/Sort.h"
 #include "core/Solver.h"
@@ -55,7 +56,6 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bo
   , context(context)
   , assertionLevel(0)
   , enable_incremental(enable_incremental)
-  , problem_extended(false)
   , in_solve(false)
     // Parameters (user settable):
     //
@@ -133,12 +133,6 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
     trail    .capacity(v+1);
     setDecisionVar(v, dvar);
     theory   .push(theoryAtom);
-
-    // We have extended the problem
-    if (in_solve) {
-      problem_extended = true;
-      insertVarOrder(v);
-    }
 
     return v;
 }
@@ -250,14 +244,8 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
 	attachClause(cr);
         if (propagate_first_literal) {
           Debug("minisat::lemmas") << "Lemma propagating: " << (theory[var(ps[0])] ? proxy->getNode(ps[0]).toString() : "bool") << std::endl;
-          lemma_propagated_literals.push(ps[0]);
-          lemma_propagated_reasons.push(cr);
-          propagating_lemmas.push(cr);
+          assertions_to_repropagate.push(RepropagationInfo(cr, decisionLevel(), ps[0]));
         }
-    }
-
-    if (type == CLAUSE_LEMMA) {
-      problem_extended = true;
     }
 
     return true;
@@ -309,10 +297,31 @@ bool Solver::satisfied(const Clause& c) const {
             return true;
     return false; }
 
+std::string Solver::repropagationInfoAsString() const {
+  std::stringstream ss;
+  ss << "propagating_assertions:" << std::endl;
+  for (int i = 0; i < propagating_assertions.size(); ++ i) {
+    if (propagating_assertions[i].cref == CRef_Undef) {
+      ss << "[" << propagating_assertions[i].lit << "]" << "(" << propagating_assertions[i].level << ")" << std::endl;
+    } else {
+      ss << "[" << propagating_assertions[i].lit << "]" << ca[propagating_assertions[i].cref]<< "(" << propagating_assertions[i].level << ")" << std::endl;
+    }
+  }
+  ss << "assertions_to_repropagate" << std::endl;
+  for (int i = 0; i < assertions_to_repropagate.size(); ++ i) {
+    if (assertions_to_repropagate[i].cref == CRef_Undef) {
+      ss << assertions_to_repropagate[i].lit << "(" << assertions_to_repropagate[i].level << ")" << std::endl;
+    } else {
+      ss << "[" << assertions_to_repropagate[i].lit << "]" << ca[assertions_to_repropagate[i].cref]<< "(" << assertions_to_repropagate[i].level << ")" << std::endl;
+    }
+  }
+  return ss.str();
+}
 
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
-void Solver::cancelUntil(int level, bool re_propagate) {
+void Solver::cancelUntil(int level) {
+    Debug("minisat") << "Solver::cancelUntil(" << level << ")" << std::endl;
     if (decisionLevel() > level){
         // Pop the SMT context
         for (int l = trail_lim.size() - level; l > 0; --l)
@@ -327,48 +336,85 @@ void Solver::cancelUntil(int level, bool re_propagate) {
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
 
-        // Re-Propagate the lemmas if asked
-        if (re_propagate) {
-          rePropagate(level);
+        // Get the clauses to repropagate (reverse order!)
+        Debug("minisat") << repropagationInfoAsString() << std::endl;
+        while (propagating_assertions.size() > 0) {
+          RepropagationInfo info = propagating_assertions.last();
+          if (info.level <= level) break;
+          propagating_assertions.pop();
+          if (info.cref != CRef_Undef) {
+            assertions_to_repropagate.push(info);
+          } else {
+            unit_assertions_to_repropagate.push(info.lit);
+          }
         }
+        Debug("minisat") << repropagationInfoAsString() << std::endl;
     }
 }
 
-CRef Solver::rePropagate(int level) {
-  // Propagate the lemma literals
-  int i, j;
-  for (i = j = propagating_lemmas_lim[level]; i < propagating_lemmas.size(); ++ i) {
-    Clause& lemma = ca[propagating_lemmas[i]];
-    bool propagating = value(var(lemma[0])) == l_Undef;;
-    for(int lit = 1; lit < lemma.size() && propagating; ++ lit)  {
-      if (value(var(lemma[lit])) != l_False) {
+CRef Solver::rePropagate() {
+
+  Debug("minisat") << "Solver::rePropagate()" << trailAsString(trail) << std::endl;
+
+  CRef conflict = CRef_Undef;
+
+  if (unit_assertions_to_repropagate.size() > 0) {
+    for (int lit = unit_assertions_to_repropagate.size() -1 ; lit >= 0; -- lit) {
+      uncheckedEnqueue(unit_assertions_to_repropagate[lit], CRef_Undef, true);
+      propagating_assertions.push(RepropagationInfo(CRef_Undef, decisionLevel(), unit_assertions_to_repropagate[lit]));
+    }
+    unit_assertions_to_repropagate.clear();
+    return CRef_Undef;
+  }
+
+  // Take one assertion that propagates repropagate it
+  while (assertions_to_repropagate.size() > 0) {
+
+    // The clause and literal to be checked for propagation
+    RepropagationInfo info = assertions_to_repropagate.last();
+    assertions_to_repropagate.pop();
+
+    // No unit clauses here
+    Assert(info.cref != CRef_Undef);
+
+    // Otherwise it's a clause, so check if it's propagating
+    Clause& clause = ca[info.cref];
+    Debug("minisat") << "Solver::rePropagate(): " << clause << std::endl;
+    bool propagating = true;
+    // Literal need not be at position 0 at this point! If it's not then it's already been handled by the
+    // authrities on propagation and hence it has backtracked below the (real) initial propagation level.
+    if (info.lit != clause[0]) continue;
+    for(int lit = 1; lit < clause.size() && propagating; ++ lit)  {
+      if (value(clause[lit]) != l_False) {
+        Debug("minisat") << "Solver::rePropagate(): " << clause << " not repropagating" << std::endl;
         propagating = false;
         break;
       }
     }
     if (propagating) {
-      if (value(lemma[0]) != l_Undef) {
-        if (value(lemma[0]) == l_False) {
-          // Conflict
-          return propagating_lemmas[i];
+      if (value(info.lit) != l_Undef) {
+        if (value(info.lit) == l_False) {
+          Debug("minisat") << "Solver::rePropagate(): " << clause << " propagating conflict" << std::endl;
+          conflict = info.cref;
+          break;
         } else {
           // Already there
+          Debug("minisat") << "Solver::rePropagate(): " << clause << " propagating a known value" << std::endl;
           continue;
         }
       }
       // Propagate
-      uncheckedEnqueue(lemma[0], propagating_lemmas[i]);
+      Debug("minisat") << "Solver::rePropagate(): " << clause << " propagating " << info.lit << std::endl;
+      uncheckedEnqueue(info.lit, info.cref);
       // Remember the lemma
-      propagating_lemmas[j++] = propagating_lemmas[i];
+      info.level = decisionLevel();
+      propagating_assertions.push(info);
+      break;
     }
   }
-  Assert(i >= j);
-  propagating_lemmas.shrink(propagating_lemmas.size() - j);
-  Assert(propagating_lemmas_lim.size() >= level);
-  propagating_lemmas_lim.shrink(propagating_lemmas_lim.size() - level);
 
   // No conflict
-  return CRef_Undef;
+  return conflict;
 }
 
 void Solver::popTrail() {
@@ -456,6 +502,8 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
 
+        Debug("minisat") << "Solver::analyze(): analyzing " << c << std::endl;
+
         if (c.level() > max_level) {
           max_level = c.level();
         }
@@ -533,11 +581,12 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     out_learnt.shrink(i - j);
     tot_literals += out_learnt.size();
 
-    // Find correct backtrack level:
-    //
-    if (out_learnt.size() == 1)
-        out_btlevel = 0;
-    else{
+    // Correct backtrack level
+    out_btlevel = level(var(out_learnt[0]))-1;
+    if (out_btlevel < 0) out_btlevel = 0;
+
+    // Put the second literal in place
+    if (out_learnt.size() > 1) {
         int max_i = 1;
         // Find the first literal assigned at the next-highest level:
         for (int i = 2; i < out_learnt.size(); i++)
@@ -547,10 +596,10 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         Lit p             = out_learnt[max_i];
         out_learnt[max_i] = out_learnt[1];
         out_learnt[1]     = p;
-        out_btlevel       = level(var(p));
     }
 
-    for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;    // ('seen[]' is now cleared)
+    // Clear the seen vector
+    for (int j = 0; j < analyze_toclear.size(); j++) seen[var(analyze_toclear[j])] = 0;
 
     // Return the maximal resolution level
     return max_level;
@@ -631,11 +680,13 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 }
 
 
-void Solver::uncheckedEnqueue(Lit p, CRef from)
+void Solver::uncheckedEnqueue(Lit p, CRef from, bool bottom)
 {
+    Debug("minisat") << "Solver::uncheckedEnqueue(" << p << "," << (from == CRef_Undef ? "decision" : "propagation") << ")" << std::endl;
     assert(value(p) == l_Undef);
+    assert(!bottom || from == CRef_Undef);
     assigns[var(p)] = lbool(!sign(p));
-    vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)));
+    vardata[var(p)] = mkVarData(from, bottom ? 0 : decisionLevel(), intro_level(var(p)));
     trail.push_(p);
     if (theory[var(p)]) {
       // Enqueue to the theory
@@ -918,6 +969,19 @@ bool Solver::simplify()
 }
 
 
+std::string Solver::trailAsString(const vec<Lit>& trail) const {
+  std::stringstream ss;
+  int currentLevel = 0;
+  for (int i = 0; i < trail.size(); ++ i) {
+    if (currentLevel < level(var(trail[i]))) {
+      currentLevel = level(var(trail[i]));
+      ss << std::endl << currentLevel << " ** ";
+    }
+    ss << trail[i] << " ";
+  }
+  return ss.str();
+}
+
 /*_________________________________________________________________________________________________
 |
 |  search : (nof_conflicts : int) (params : const SearchParams&)  ->  [lbool]
@@ -942,55 +1006,63 @@ lbool Solver::search(int nof_conflicts)
     TheoryCheckType check_type = CHECK_WITH_PROPAGATION_STANDARD;
     for (;;){
 
-        // If we have more assertions from lemmas, we continue
-        if (problem_extended) {
+        Debug("minisat") << "Solver::search(): main loop" << std::endl;
 
-          Debug("minisat::lemmas") << "Problem extended with lemmas, adding propagations." << std::endl;
-
-          for (int i = 0, i_end = lemma_propagated_literals.size(); i < i_end; ++ i) {
-            if (value(var(lemma_propagated_literals[i])) == l_Undef) {
-              Debug("minisat::lemmas") << "Lemma propagating: " << proxy->getNode(lemma_propagated_literals[i]) << std::endl;
-              uncheckedEnqueue(lemma_propagated_literals[i], lemma_propagated_reasons[i]);
-            }
+        CRef confl = CRef_Undef;
+        // Repropagate assertions added at higher levels
+        do {
+          // Propagate one decision
+          confl = rePropagate();
+          // If no conflict, go into BCP
+          if (confl == CRef_Undef) {
+            confl = propagate(check_type);
           }
-
-          lemma_propagated_literals.clear();
-          lemma_propagated_reasons.clear();
-
-          check_type = CHECK_WITH_PROPAGATION_STANDARD;
-          problem_extended = false;
+        } while (confl == CRef_Undef && assertions_to_repropagate.size() > 0);
+        // If there is something left in the repropagation queue, we need to check when we backtrack
+        if (assertions_to_repropagate.size() > 0) {
+          for (int i = assertions_to_repropagate.size()-1; i >= 0; --i) {
+            assertions_to_repropagate[i].level = decisionLevel();
+            propagating_assertions.push(assertions_to_repropagate[i]);
+          }
+          assertions_to_repropagate.clear();
         }
 
-        CRef confl = propagate(check_type);
         if (confl != CRef_Undef){
-            // Clear the propagated literals
-            lemma_propagated_literals.clear();
-            lemma_propagated_reasons.clear();
 
-            // CONFLICT
-            while (confl != CRef_Undef) {
-              conflicts++; conflictC++;
-              if (decisionLevel() == 0) return l_False;
+            Debug("minisat") << "Solver::search(): conflict " << ca[confl] << std::endl;
+            Debug("minisat") << "Solver::search(): trail " << trailAsString(trail) << std::endl;
 
-              // Analyze the conflict
-              learnt_clause.clear();
-              int max_level = analyze(confl, learnt_clause, backtrack_level);
-              cancelUntil(backtrack_level, false);
+            conflicts++; conflictC++;
+            if (decisionLevel() == 0) return l_False;
 
-              // Assert the conflict clause and the asserting literal
-              if (learnt_clause.size() == 1){
-                  uncheckedEnqueue(learnt_clause[0]);
-              }else{
-                  CRef cr = ca.alloc(max_level, learnt_clause, true);
-                  learnts.push(cr);
-                  attachClause(cr);
-                  claBumpActivity(ca[cr]);
-                  uncheckedEnqueue(learnt_clause[0], cr);
-              }
+            // Analyze the conflict
+            learnt_clause.clear();
+            int max_level = analyze(confl, learnt_clause, backtrack_level);
 
-              // We repropagate lemmas
-              confl = rePropagate(backtrack_level);
-            };
+            Debug("minisat") << "Solver::search(): learnt " << learnt_clause << std::endl;
+
+//            for (int i = 0; i < learnt_clause.size(); ++ i) {
+//              proxy->getNode(learnt_clause[i]).toStream(std::cerr, -1, false, language::output::LANG_CVC4);
+//              std::cerr << " OR ";
+//            }
+//            std::cerr << std::endl;
+
+            cancelUntil(backtrack_level);
+
+            Debug("minisat") << "Solver::search(): trail " << trailAsString(trail) << std::endl;
+
+            // Assert the conflict clause and the asserting literal
+            if (learnt_clause.size() == 1) {
+                uncheckedEnqueue(learnt_clause[0], CRef_Undef, true);
+                propagating_assertions.push(RepropagationInfo(CRef_Undef, decisionLevel(), learnt_clause[0]));
+            }else{
+                CRef cr = ca.alloc(max_level, learnt_clause, true);
+                learnts.push(cr);
+                attachClause(cr);
+                claBumpActivity(ca[cr]);
+                uncheckedEnqueue(learnt_clause[0], cr);
+                propagating_assertions.push(RepropagationInfo(cr, decisionLevel(), learnt_clause[0]));
+            }
 
             varDecayActivity();
             claDecayActivity();
@@ -1010,10 +1082,6 @@ lbool Solver::search(int nof_conflicts)
 		    // We have a conflict so, we are going back to standard checks
             check_type = CHECK_WITH_PROPAGATION_STANDARD;
         }else{
-
-            // NO CONFLICT
-            if (problem_extended)
-              continue;
 
 	    // If this was a final check, we are satisfiable
             if (check_type == CHECK_WITHOUTH_PROPAGATION_FINAL)
@@ -1292,12 +1360,17 @@ void Solver::relocAll(ClauseAllocator& to)
     for (int i = 0; i < clauses.size(); i++)
         ca.reloc(clauses[i], to);
 
-    // All lemmas
-    //
-    for (int i = 0; i < lemma_propagated_reasons.size(); i ++)
-      ca.reloc(lemma_propagated_reasons[i], to);
-    for (int i = 0; i < propagating_lemmas.size(); i ++)
-      ca.reloc(propagating_lemmas[i], to);
+    // All repropagation info
+    for (int i = 0; i < assertions_to_repropagate.size(); i ++) {
+      if (assertions_to_repropagate[i].cref != CRef_Undef) {
+        ca.reloc(assertions_to_repropagate[i].cref, to);
+      }
+    }
+    for (int i = 0; i < propagating_assertions.size(); i ++) {
+      if (propagating_assertions[i].cref != CRef_Undef) {
+        ca.reloc(propagating_assertions[i].cref, to);
+      }
+    }
 }
 
 

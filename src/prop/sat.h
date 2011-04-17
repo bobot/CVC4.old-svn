@@ -335,12 +335,6 @@ SatSolver::SatLiteralHashFunction::operator()(const SatLiteral& literal) const {
 
 }/* CVC4::prop namespace */
 
-inline std::ostream& operator <<(std::ostream& out, prop::SatLiteral lit) {
-  const char * s = (prop::literalSign(lit)) ? "~" : " ";
-  out << s << prop::literalToVariable(lit);
-  return out;
-}
-
 inline std::ostream& operator <<(std::ostream& out, const prop::SatClause& clause) {
   out << "clause:";
   for(int i = 0; i < clause.size(); ++i) {
