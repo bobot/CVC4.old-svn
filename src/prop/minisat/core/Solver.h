@@ -65,6 +65,9 @@ protected:
   /** Do we allow incremental solving */
   bool enable_incremental;  
 
+  /** Did the problem get extended in the meantime (i.e. by adding a lemma) */
+  bool problem_extended;
+
   struct RepropagationInfo {
     /** Clause that is propagating */
     CRef cref;

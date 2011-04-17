@@ -56,6 +56,7 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bo
   , context(context)
   , assertionLevel(0)
   , enable_incremental(enable_incremental)
+  , problem_extended(false)
   , in_solve(false)
     // Parameters (user settable):
     //
@@ -134,6 +135,11 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
     setDecisionVar(v, dvar);
     theory   .push(theoryAtom);
 
+    // We have extended the problem
+    if (in_solve) {
+        problem_extended = true;
+    }
+                     
     return v;
 }
 
@@ -244,8 +250,12 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
 	attachClause(cr);
         if (propagate_first_literal) {
           Debug("minisat::lemmas") << "Lemma propagating: " << (theory[var(ps[0])] ? proxy->getNode(ps[0]).toString() : "bool") << std::endl;
-          assertions_to_repropagate.push(RepropagationInfo(cr, decisionLevel(), ps[0]));
+          propagating_assertions.push(RepropagationInfo(cr, decisionLevel(), ps[0]));
         }
+    }
+    
+    if (type == CLAUSE_LEMMA) {
+        problem_extended = true;
     }
 
     return true;
@@ -1007,6 +1017,8 @@ lbool Solver::search(int nof_conflicts)
     for (;;){
 
         Debug("minisat") << "Solver::search(): main loop" << std::endl;
+        
+        problem_extended = false;
 
         CRef confl = CRef_Undef;
         // Repropagate assertions added at higher levels
@@ -1084,7 +1096,7 @@ lbool Solver::search(int nof_conflicts)
         }else{
 
 	    // If this was a final check, we are satisfiable
-            if (check_type == CHECK_WITHOUTH_PROPAGATION_FINAL)
+            if (!problem_extended && check_type == CHECK_WITHOUTH_PROPAGATION_FINAL)
               return l_True;
 
             if (nof_conflicts >= 0 && conflictC >= nof_conflicts || !withinBudget()){
