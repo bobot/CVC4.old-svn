@@ -29,6 +29,8 @@
 #include "theory/rewriter.h"
 #include "theory/theory_traits.h"
 
+#include "theory/arith/arith_utilities.h"
+
 using namespace std;
 
 using namespace CVC4;
@@ -273,6 +275,50 @@ void TheoryEngine::propagate() {
   CVC4_FOR_EACH_THEORY
 }
 
+int iteDepth(Node n){
+  if(n.getKind() != kind::ITE){
+    return 0;
+  }else{
+    return 1+max(iteDepth(n[1]), iteDepth(n[2]));
+  }
+}
+bool isITEChain(Node n){
+  return iteDepth(n) >= 2;
+}
+
+void blastITEs(Node curr, Node skolem, vector<Node>& conditionStack, vector<Node>& assertions, vector<Node>& leaves){
+  if(curr.getKind() != kind::ITE){
+    Node equality = NodeBuilder<2>(kind::EQUAL) << skolem << curr;
+    Node conditions;
+    Assert(conditionStack.size() >= 1);
+    if(conditionStack.size() == 1){
+      conditions = conditionStack.front();
+    }else{
+      NodeBuilder<> cnd(kind::AND);
+      cnd.append(conditionStack);
+      conditions = cnd;
+    }
+    Node imp = NodeBuilder<2>(kind::IMPLIES) << conditions << equality;
+    //cout << imp << endl;
+    assertions.push_back(imp);
+    leaves.push_back(curr);
+  }else{
+    Assert(curr.getKind() == kind::ITE);
+    Node condition = curr[0];
+    Node notCondition = NodeBuilder<1>(kind::NOT) << condition;
+    Node tBranch = curr[1];
+    Node fBranch = curr[2];
+
+    conditionStack.push_back(condition);
+    blastITEs(tBranch, skolem, conditionStack, assertions, leaves);
+    conditionStack.pop_back();
+
+    conditionStack.push_back(notCondition);
+    blastITEs(fBranch, skolem, conditionStack, assertions, leaves);
+    conditionStack.pop_back();
+  }
+}
+
 /* Our goal is to tease out any ITE's sitting under a theory operator. */
 Node TheoryEngine::removeITEs(TNode node) {
   Debug("ite") << "removeITEs(" << node << ")" << endl;
@@ -289,21 +335,55 @@ Node TheoryEngine::removeITEs(TNode node) {
     Assert( node.getNumChildren() == 3 );
     TypeNode nodeType = node.getType();
     if(!nodeType.isBoolean()){
+      // if(nodeType.isReal() && noSubItes(node) && ArithRewriter::canSimplifyIte(node)){
+      //   Node rewritten = ArithRewriter::simplifyIte(node);
+      //   return removeITEs(rewritten)
+      // }
+
       Node skolem = nodeManager->mkVar(nodeType);
-      Node newAssertion =
-        nodeManager->mkNode(kind::ITE,
-                            node[0],
-                            nodeManager->mkNode(kind::EQUAL, skolem, node[1]),
-                            nodeManager->mkNode(kind::EQUAL, skolem, node[2]));
+      vector<Node> newAssertions, leaves;
+      if(isITEChain(node)){
+        vector<Node> conditions;
+        blastITEs(node, skolem, conditions, newAssertions, leaves);
+        bool success = true;
+        set<Rational> vals;
+        for(vector<Node>::const_iterator i=leaves.begin(), end=leaves.end(); i != end; ++i){
+          Node leaf = *i;
+          if(leaf.getKind() == kind::CONST_INTEGER || leaf.getKind() == kind::CONST_RATIONAL){
+            vals.insert(arith::coerceToRational(leaf));
+          }else{
+            success = false;
+            break;
+          }
+        }
+        if(success){
+          const Rational& min = *(vals.begin());
+          const Rational& max = *(vals.rbegin());
+          newAssertions.push_back(NodeBuilder<2>(kind::LEQ) << skolem << arith::mkRationalNode(max));
+          newAssertions.push_back(NodeBuilder<2>(kind::GEQ) << skolem << arith::mkRationalNode(min));
+        }
+
+      }else{
+        Node newAssertion =
+          nodeManager->mkNode(kind::ITE,
+                              node[0],
+                              nodeManager->mkNode(kind::EQUAL, skolem, node[1]),
+                              nodeManager->mkNode(kind::EQUAL, skolem, node[2]));
+
+        newAssertions.push_back(newAssertion);
+        Debug("ite") << "removeITEs([" << node.getId() << "," << node << "," << nodeType << "])"
+                     << "->"
+                     << "["<<newAssertion.getId() << "," << newAssertion << "]"
+                     << endl;
+      }
       nodeManager->setAttribute(node, theory::IteRewriteAttr(), skolem);
 
-      Debug("ite") << "removeITEs([" << node.getId() << "," << node << "," << nodeType << "])"
-                   << "->"
-                   << "["<<newAssertion.getId() << "," << newAssertion << "]"
-                   << endl;
-
-      Node preprocessed = preprocess(newAssertion);
-      d_propEngine->assertFormula(preprocessed);
+      for(vector<Node>::const_iterator i=newAssertions.begin(), end=newAssertions.end(); i != end; ++i){
+        Node newAssertion = *i;
+        cout << newAssertion << endl;
+        Node preprocessed = preprocess(newAssertion);
+        d_propEngine->assertFormula(preprocessed);
+      }
 
       return skolem;
     }
