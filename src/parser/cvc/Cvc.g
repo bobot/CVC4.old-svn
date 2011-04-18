@@ -37,7 +37,7 @@ options {
 
 @lexer::includes {
 /** This suppresses warnings about the redefinition of token symbols between different
-  * parsers. The redefinitions should be harmless as long as no client: (a) #include's 
+  * parsers. The redefinitions should be harmless as long as no client: (a) #include's
   * the lexer headers for two grammars AND (b) uses the token symbol definitions. */
 #pragma GCC system_header
 
@@ -362,7 +362,7 @@ iffFormula[CVC4::Expr& f]
   Debug("parser-extra") << "<=> formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : impliesFormula[f]
-    ( IFF_TOK 
+    ( IFF_TOK
     	iffFormula[e]
         { f = MK_EXPR(CVC4::kind::IFF, f, e); }
     )?
@@ -422,7 +422,7 @@ andFormula[CVC4::Expr& f]
   std::vector<Expr> exprs;
   Debug("parser-extra") << "AND Formula: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
-  : notFormula[f] 
+  : notFormula[f]
     ( AND_TOK { exprs.push_back(f); }
       notFormula[f] { exprs.push_back(f); } )*
     {
@@ -463,9 +463,9 @@ comparisonFormula[CVC4::Expr& f]
     ( ( EQUAL_TOK { op = CVC4::kind::EQUAL; negate = false; }
       | DISEQUAL_TOK { op = CVC4::kind::EQUAL; negate = true; }
       | GT_TOK { op = CVC4::kind::GT; negate = false; }
-      | GEQ_TOK { op = CVC4::kind::GEQ; negate = false; } 
+      | GEQ_TOK { op = CVC4::kind::GEQ; negate = false; }
       | LT_TOK { op = CVC4::kind::LT; negate = false; }
-      | LEQ_TOK { op = CVC4::kind::LEQ; negate = false; }) 
+      | LEQ_TOK { op = CVC4::kind::LEQ; negate = false; })
       plusTerm[e]
       { f = MK_EXPR(op, f, e);
         if(negate) {
@@ -475,7 +475,7 @@ comparisonFormula[CVC4::Expr& f]
     )?
   ;
 
-/** Parses a plus/minus term (left-associative). 
+/** Parses a plus/minus term (left-associative).
     TODO: This won't take advantage of n-ary PLUS's. */
 plusTerm[CVC4::Expr& f]
 @init {
@@ -486,13 +486,13 @@ plusTerm[CVC4::Expr& f]
 }
   : multTerm[f]
     ( ( PLUS_TOK { op = CVC4::kind::PLUS; }
-      | MINUS_TOK { op = CVC4::kind::MINUS; } ) 
+      | MINUS_TOK { op = CVC4::kind::MINUS; } )
       multTerm[e]
       { f = MK_EXPR(op, f, e); }
     )*
   ;
 
-/** Parses a multiply/divide term (left-associative). 
+/** Parses a multiply/divide term (left-associative).
     TODO: This won't take advantage of n-ary MULT's. */
 multTerm[CVC4::Expr& f]
 @init {
@@ -502,7 +502,7 @@ multTerm[CVC4::Expr& f]
 }
   : expTerm[f]
     ( ( STAR_TOK { op = CVC4::kind::MULT; }
-      | DIV_TOK { op = CVC4::kind::DIVISION; } ) 
+      | DIV_TOK { op = CVC4::kind::DIVISION; } )
       expTerm[e]
       { f = MK_EXPR(op, f, e); }
     )*
@@ -586,6 +586,7 @@ unaryTerm[CVC4::Expr& f]
   | FALSE_TOK { f = MK_CONST(false); }
 
   | INTEGER_LITERAL { f = MK_CONST( AntlrInput::tokenToInteger($INTEGER_LITERAL) ); }
+  | DECIMAL_LITERAL { f = MK_CONST( AntlrInput::tokenToRational($DECIMAL_LITERAL) ); }
 
   | /* variable */
     identifier[name,CHECK_DECLARED,SYM_VARIABLE]

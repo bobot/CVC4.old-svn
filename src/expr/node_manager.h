@@ -55,8 +55,8 @@ namespace attr {
   struct SortArityTag {};
 }/* CVC4::expr::attr namespace */
 
-typedef expr::Attribute<attr::VarNameTag, std::string> VarNameAttr;
-typedef expr::Attribute<attr::SortArityTag, uint64_t> SortArityAttr;
+typedef Attribute<attr::VarNameTag, std::string> VarNameAttr;
+typedef Attribute<attr::SortArityTag, uint64_t> SortArityAttr;
 
 }/* CVC4::expr namespace */
 

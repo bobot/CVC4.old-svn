@@ -15,19 +15,20 @@ TESTS =	\
 	datatype4.cvc \
 	datatype13.cvc \
 	mutually-recursive.cvc \
+	rewriter.cvc \
 	typed_v1l50016-simp.cvc
 
 EXTRA_DIST = $(TESTS)
 
-#if CVC4_BUILD_PROFILE_COMPETITION
-#else
-#TESTS += \
-#	error.cvc
-#endif
-#
+if CVC4_BUILD_PROFILE_COMPETITION
+else
+TESTS += \
+	error.cvc
+endif
+
 # and make sure to distribute it
-#EXTRA_DIST += \
-#	error.cvc
+EXTRA_DIST += \
+	error.cvc
 
 # synonyms for "check"
 .PHONY: regress regress0 test

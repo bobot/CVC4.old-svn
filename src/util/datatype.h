@@ -99,6 +99,9 @@ public:
  */
 class CVC4_PUBLIC Datatype {
 public:
+  static const Datatype& datatypeOf(Expr item);
+  static size_t indexOf(Expr item);
+
   class CVC4_PUBLIC SelfType {
   };/* class Datatype::SelfType */
 
@@ -166,6 +169,8 @@ public:
     inline const_iterator begin() const throw();
     inline const_iterator end() const throw();
 
+    const Arg& operator[](size_t index) const;
+
   };/* class Datatype::Constructor */
 
   typedef std::vector<Constructor>::iterator iterator;
@@ -216,6 +221,8 @@ public:
   inline iterator end() throw();
   inline const_iterator begin() const throw();
   inline const_iterator end() const throw();
+
+  const Constructor& operator[](size_t index) const;
 
 };/* class Datatype */
 

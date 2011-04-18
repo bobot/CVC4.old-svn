@@ -37,27 +37,46 @@ public:
 
     /*
     checkFiniteWellFounded();
+    */
 
-    if( in.getKind() == kind::APPLY_TESTER ) {
-      if( in[0].getKind() == kind::APPLY_CONSTRUCTOR ) {
-        bool result = checkTrivialTester( in );
-        Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: Rewrite trivial tester " << in << " " << result << std::endl;
-        return RewriteResponse(REWRITE_DONE, NodeManager::currentNM()->mkConst(result));
-      } else if( d_cons[in[0].getType()].size() == 1 ) {
-        return RewriteResponse(REWRITE_DONE, NodeManager::currentNM()->mkConst(true));  //only one constructor, so it must be
+    if(in.getKind() == kind::APPLY_TESTER) {
+      if(in[0].getKind() == kind::APPLY_CONSTRUCTOR) {
+        bool result = TheoryDatatypes::checkTrivialTester(in);
+        Debug("datatypes-rewrite") << "DatatypesRewriter::postRewrite: "
+                                   << "Rewrite trivial tester " << in
+                                   << " " << result << std::endl;
+        return RewriteResponse(REWRITE_DONE,
+                               NodeManager::currentNM()->mkConst(result));
+      } else {
+        const Datatype& dt = in[0].getType().getConst<Datatype>();
+        if(dt.getNumConstructors() == 1) {
+          // only one constructor, so it must be
+          Debug("datatypes-rewrite") << "DatatypesRewriter::postRewrite: "
+                                     << "only one ctor for " << dt.getName()
+                                     << " and that is " << dt[0].getName()
+                                     << std::endl;
+          return RewriteResponse(REWRITE_DONE,
+                                 NodeManager::currentNM()->mkConst(true));
+        }
       }
     }
-    if( in.getKind() == kind::APPLY_SELECTOR &&
-        in[0].getKind() == kind::APPLY_CONSTRUCTOR ) {
-      Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: Rewrite trivial selector " << in << std::endl;
-      return RewriteResponse( REWRITE_DONE, collapseSelector( in ) );
+    if(in.getKind() == kind::APPLY_SELECTOR &&
+       in[0].getKind() == kind::APPLY_CONSTRUCTOR) {
+      Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: "
+                                 << "Rewrite trivial selector " << in
+                                 << std::endl;
+      TNode selector = in.getOperator();
+      return RewriteResponse(REWRITE_DONE, in[0][Datatype::indexOf(selector.toExpr())]);
     }
-    */
-    if( in.getKind() == kind::EQUAL && in[0] == in[1] ) {
-      return RewriteResponse( REWRITE_DONE, NodeManager::currentNM()->mkConst(true) );
+
+    if(in.getKind() == kind::EQUAL && in[0] == in[1]) {
+      return RewriteResponse(REWRITE_DONE,
+                             NodeManager::currentNM()->mkConst(true));
     }
-    if( in.getKind() == kind::EQUAL && TheoryDatatypes::checkClashSimple( in[0], in[1] ) ) {
-      return RewriteResponse( REWRITE_DONE, NodeManager::currentNM()->mkConst(false) );
+    if(in.getKind() == kind::EQUAL &&
+       TheoryDatatypes::checkClashSimple(in[0], in[1])) {
+      return RewriteResponse(REWRITE_DONE,
+                             NodeManager::currentNM()->mkConst(false));
     }
 
     return RewriteResponse(REWRITE_DONE, in);

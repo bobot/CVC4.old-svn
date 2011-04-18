@@ -23,10 +23,43 @@
 #include "util/datatype.h"
 #include "expr/type.h"
 #include "expr/expr_manager.h"
+#include "expr/node.h"
 
 using namespace std;
 
 namespace CVC4 {
+
+namespace expr {
+  namespace attr {
+    struct DatatypeIndexTag {};
+  }
+}
+
+typedef expr::Attribute<expr::attr::DatatypeIndexTag, uint64_t> DatatypeIndexAttr;
+
+const Datatype& Datatype::datatypeOf(Expr item) {
+  TypeNode t = Node::fromExpr(item).getType();
+  switch(t.getKind()) {
+  case kind::CONSTRUCTOR_TYPE:
+    return t[t.getNumChildren() - 1].getConst<Datatype>();
+  case kind::SELECTOR_TYPE:
+  case kind::TESTER_TYPE:
+    return t[0].getConst<Datatype>();
+  default:
+    Unhandled("arg must be a datatype constructor, selector, or tester");
+  }
+}
+
+size_t Datatype::indexOf(Expr item) {
+  AssertArgument(item.getType().isConstructor() ||
+                 item.getType().isTester() ||
+                 item.getType().isSelector(),
+                 item,
+                 "arg must be a datatype constructor, selector, or tester");
+  TNode n = Node::fromExpr(item);
+  Assert(n.hasAttribute(DatatypeIndexAttr()));
+  return n.getAttribute(DatatypeIndexAttr());
+}
 
 void Datatype::resolve(ExprManager* em,
                        const std::map<std::string, DatatypeType>& resolutions)
@@ -38,10 +71,14 @@ void Datatype::resolve(ExprManager* em,
   DatatypeType self = (*resolutions.find(d_name)).second;
   CheckArgument(&self.getDatatype() == this, "Datatype::resolve(): resolutions doesn't contain me!");
   d_resolved = true;
+  size_t index = 0;
   for(iterator i = begin(), i_end = end(); i != i_end; ++i) {
     (*i).resolve(em, self, resolutions);
     Assert((*i).isResolved());
+    Node::fromExpr((*i).d_constructor).setAttribute(DatatypeIndexAttr(), index);
+    Node::fromExpr((*i).d_tester).setAttribute(DatatypeIndexAttr(), index++);
   }
+  Assert(index == getNumConstructors());
 }
 
 void Datatype::addConstructor(const Constructor& c) {
@@ -124,6 +161,11 @@ bool Datatype::operator==(const Datatype& other) const throw() {
   return true;
 }
 
+const Datatype::Constructor& Datatype::operator[](size_t index) const {
+  CheckArgument(index < getNumConstructors(), index, "index out of bounds");
+  return d_constructors[index];
+}
+
 void Datatype::Constructor::resolve(ExprManager* em, DatatypeType self,
                                     const std::map<std::string, DatatypeType>& resolutions)
   throw(AssertionException, DatatypeResolutionException) {
@@ -132,6 +174,7 @@ void Datatype::Constructor::resolve(ExprManager* em, DatatypeType self,
                 "cannot resolve a Datatype constructor twice; "
                 "perhaps the same constructor was added twice, "
                 "or to two datatypes?");
+  size_t index = 0;
   for(iterator i = begin(), i_end = end(); i != i_end; ++i) {
     if((*i).d_selector.isNull()) {
       string typeName = (*i).d_name.substr((*i).d_name.find('\0') + 1);
@@ -153,8 +196,11 @@ void Datatype::Constructor::resolve(ExprManager* em, DatatypeType self,
     } else {
       (*i).d_selector = em->mkVar((*i).d_name, em->mkSelectorType(self, (*i).d_selector.getType()));
     }
+    Node::fromExpr((*i).d_selector).setAttribute(DatatypeIndexAttr(), index++);
     (*i).d_resolved = true;
   }
+
+  Assert(index == getNumArgs());
 
   // Set constructor/tester last, since Constructor::isResolved()
   // returns true when d_tester is not the null Expr.  If something
@@ -224,6 +270,11 @@ Expr Datatype::Constructor::getConstructor() const {
 Expr Datatype::Constructor::getTester() const {
   CheckArgument(isResolved(), this, "this datatype constructor not yet resolved");
   return d_tester;
+}
+
+const Datatype::Constructor::Arg& Datatype::Constructor::operator[](size_t index) const {
+  CheckArgument(index < getNumArgs(), index, "index out of bounds");
+  return d_args[index];
 }
 
 Datatype::Constructor::Arg::Arg(std::string name, Expr selector) :

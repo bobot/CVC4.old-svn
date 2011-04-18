@@ -171,7 +171,7 @@ public:
 private:
   /* Helper methods */
   void checkTester( Node assertion, bool doAdd = true );
-  bool checkTrivialTester( Node assertion );
+  static bool checkTrivialTester(Node assertion);
   void checkInstantiate( Node t );
   Node getPossibleCons( Node t, bool checkInst = false );
   Node collapseSelector( TNode t, bool useContext = false );

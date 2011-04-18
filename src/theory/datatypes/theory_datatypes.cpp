@@ -78,18 +78,18 @@ void TheoryDatatypes::checkFiniteWellFounded() {
       changed = false;
       for( it = d_cons.begin(); it != d_cons.end(); ++it ) {
         TypeNode t = it->first;
-        //Debug("datatypes-finite") << "check " << t << endl;
+        Debug("datatypes-finite") << "check " << t << endl;
         bool typeFinite = true;
         for( itc = it->second.begin(); itc != it->second.end(); ++itc ) {
           Node cn = *itc;
           TypeNode ct = cn.getType();
-          //Debug("datatypes-finite") << " check cons " << ct << endl;
+          Debug("datatypes-finite") << " check cons " << ct << endl;
           if( !d_cons_finite[cn] ) {
             int c;
             for( c=0; c<(int)ct.getNumChildren()-1; c++ ) {
-              //Debug("datatypes-finite") << "  check sel " << ct[c] << endl;
+              Debug("datatypes-finite") << "  check sel " << ct[c] << endl;
               TypeNode ts = ct[c];
-              //Debug("datatypes") << "  check : " << ts << endl;
+              Debug("datatypes") << "  check : " << ts << endl;
               if( !isDatatype( ts ) || !d_finite[ ts ] ) {
                 break;
               }
@@ -97,7 +97,7 @@ void TheoryDatatypes::checkFiniteWellFounded() {
             if( c == (int)ct.getNumChildren()-1 ) {
               changed = true;
               d_cons_finite[cn] = true;
-              //Debug("datatypes-finite") << ct << " is finite" << endl;
+              Debug("datatypes-finite") << ct << " is finite" << endl;
             } else {
               typeFinite = false;
             }
@@ -105,9 +105,9 @@ void TheoryDatatypes::checkFiniteWellFounded() {
           if( !d_cons_wellFounded[cn] ) {
             int c;
             for( c=0; c<(int)ct.getNumChildren()-1; c++ ) {
-              //Debug("datatypes") << "  check sel " << ct.d_typeNode[0][c] << endl;
+              Debug("datatypes") << "  check sel " << ct[0][c] << endl;
               TypeNode ts = ct[c];
-              //Debug("datatypes") << "  check : " << ts << endl;
+              Debug("datatypes") << "  check : " << ts << endl;
               if( isDatatype( ts ) && !d_wellFounded[ ts ] ) {
                 break;
               }
@@ -115,16 +115,16 @@ void TheoryDatatypes::checkFiniteWellFounded() {
             if( c == (int)ct.getNumChildren()-1 ) {
               changed = true;
               d_cons_wellFounded[cn] = true;
-              //Debug("datatypes-finite") << ct << " is well founded" << endl;
+              Debug("datatypes-finite") << ct << " is well founded" << endl;
             }
           }
           if( d_cons_wellFounded[cn] ) {
             if( !d_wellFounded[t] ) {
               changed = true;
               d_wellFounded[t] = true;
-              //also set distinguished ground term
-              //Debug("datatypes") << "set distinguished ground term out of " << ct << endl;
-              //Debug("datatypes-finite") << t << " is type wf" << endl;
+              // also set distinguished ground term
+              Debug("datatypes") << "set distinguished ground term out of " << ct << endl;
+              Debug("datatypes-finite") << t << " is type wf" << endl;
               NodeManager* nm = NodeManager::currentNM();
               vector< NodeTemplate<true> > children;
               children.push_back( cn );
@@ -498,13 +498,15 @@ void TheoryDatatypes::checkTester( Node assertion, bool doAdd ) {
   return;
 }
 
-bool TheoryDatatypes::checkTrivialTester( Node assertion ) {
-  Assert( assertion.getKind() == APPLY_TESTER && assertion[0].getKind() == APPLY_CONSTRUCTOR );
-  TypeNode typ = assertion[0].getType();
-  int testIndex = getTesterIndex( typ, assertion.getOperator() );
-  int consIndex = getConstructorIndex( typ, assertion[0].getOperator() );
-  Assert( testIndex != -1 && consIndex != -1 );
-  return testIndex == consIndex;
+bool TheoryDatatypes::checkTrivialTester(Node assertion) {
+  AssertArgument(assertion.getKind() == APPLY_TESTER &&
+                 assertion[0].getKind() == APPLY_CONSTRUCTOR,
+                 assertion, "argument must be a tester-over-constructor");
+  TNode tester = assertion.getOperator();
+  TNode ctor = assertion[0].getOperator();
+  // if they have the same index (and the node has passed
+  // typechecking) then this is a trivial tester
+  return Datatype::indexOf(tester.toExpr()) == Datatype::indexOf(ctor.toExpr());
 }
 
 void TheoryDatatypes::checkInstantiate( Node t ) {
