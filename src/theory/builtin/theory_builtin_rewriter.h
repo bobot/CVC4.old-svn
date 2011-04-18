@@ -36,7 +36,7 @@ class TheoryBuiltinRewriter {
 public:
 
   static inline RewriteResponse postRewrite(TNode node) {
-    if (node.getKind() == kind::EQUAL) {
+    if(node.getKind() == kind::EQUAL) {
       return Rewriter::callPostRewrite(Theory::theoryOf(node[0]), node);
     }
     return RewriteResponse(REWRITE_DONE, node);

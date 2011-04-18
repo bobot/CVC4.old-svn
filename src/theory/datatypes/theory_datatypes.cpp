@@ -87,7 +87,7 @@ void TheoryDatatypes::checkFiniteWellFounded() {
           if( !d_cons_finite[cn] ) {
             int c;
             for( c=0; c<(int)ct.getNumChildren()-1; c++ ) {
-              Debug("datatypes-finite") << "  check sel " << ct[c] << endl;
+              Debug("datatypes-finite") << "  check sel " << c << " of " << ct << ": " << endl << ct[c] << endl;
               TypeNode ts = ct[c];
               Debug("datatypes") << "  check : " << ts << endl;
               if( !isDatatype( ts ) || !d_finite[ ts ] ) {
@@ -105,7 +105,8 @@ void TheoryDatatypes::checkFiniteWellFounded() {
           if( !d_cons_wellFounded[cn] ) {
             int c;
             for( c=0; c<(int)ct.getNumChildren()-1; c++ ) {
-              Debug("datatypes") << "  check sel " << ct[0][c] << endl;
+              Debug("datatypes") << "  check sel " << c << " of " << ct << endl;
+              Debug("datatypes") << ct[c] << endl;
               TypeNode ts = ct[c];
               Debug("datatypes") << "  check : " << ts << endl;
               if( isDatatype( ts ) && !d_wellFounded[ ts ] ) {
