@@ -99,7 +99,7 @@ class SmtEnginePrivate {
 public:
 
   /**
-   * Pre-process an Node.  This is expected to be highly-variable,
+   * Pre-process a Node.  This is expected to be highly-variable,
    * with a lot of "source-level configurability" to add multiple
    * passes over the Node.
    */
@@ -444,29 +444,40 @@ Node SmtEnginePrivate::expandDefinitions(SmtEngine& smt, TNode n,
 Node SmtEnginePrivate::preprocess(SmtEngine& smt, TNode in)
   throw(NoSuchFunctionException, AssertionException) {
 
-  Node n;
-  if(!Options::current()->lazyDefinitionExpansion) {
-    Debug("expand") << "have: " << n << endl;
-    hash_map<TNode, Node, TNodeHashFunction> cache;
-    n = expandDefinitions(smt, in, cache);
-    Debug("expand") << "made: " << n << endl;
-  } else {
-    n = in;
-  }
+  try {
+    Node n;
+    if(!Options::current()->lazyDefinitionExpansion) {
+      Debug("expand") << "have: " << n << endl;
+      hash_map<TNode, Node, TNodeHashFunction> cache;
+      n = expandDefinitions(smt, in, cache);
+      Debug("expand") << "made: " << n << endl;
+    } else {
+      n = in;
+    }
 
-  // For now, don't re-statically-learn from learned facts; this could
-  // be useful though (e.g., theory T1 could learn something further
-  // from something learned previously by T2).
-  NodeBuilder<> learned(kind::AND);
-  learned << n;
-  smt.d_theoryEngine->staticLearning(n, learned);
-  if(learned.getNumChildren() == 1) {
-    learned.clear();
-  } else {
-    n = learned;
-  }
+    // For now, don't re-statically-learn from learned facts; this could
+    // be useful though (e.g., theory T1 could learn something further
+    // from something learned previously by T2).
+    NodeBuilder<> learned(kind::AND);
+    learned << n;
+    smt.d_theoryEngine->staticLearning(n, learned);
+    if(learned.getNumChildren() == 1) {
+      learned.clear();
+    } else {
+      n = learned;
+    }
 
-  return smt.d_theoryEngine->preprocess(n);
+    return smt.d_theoryEngine->preprocess(n);
+  } catch(TypeCheckingExceptionPrivate& tcep) {
+    // Calls to this function should have already weeded out any
+    // typechecking exceptions via (e.g.) ensureBoolean().  But a
+    // theory could still create a new expression that isn't
+    // well-typed, and we don't want the C++ runtime to abort our
+    // process without any error notice.
+    InternalError("A bad expression was produced.  "
+                  "Original exception follows:\n%s",
+                  tcep.toString().c_str());
+  }
 }
 
 Result SmtEngine::check() {
@@ -481,10 +492,21 @@ Result SmtEngine::quickCheck() {
 
 void SmtEnginePrivate::addFormula(SmtEngine& smt, TNode n)
   throw(NoSuchFunctionException, AssertionException) {
-  Debug("smt") << "push_back assertion " << n << endl;
-  smt.d_haveAdditions = true;
-  Node node = SmtEnginePrivate::preprocess(smt, n);
-  smt.d_propEngine->assertFormula(node);
+  try {
+    Debug("smt") << "push_back assertion " << n << endl;
+    smt.d_haveAdditions = true;
+    Node node = SmtEnginePrivate::preprocess(smt, n);
+    smt.d_propEngine->assertFormula(node);
+  } catch(TypeCheckingExceptionPrivate& tcep) {
+    // Calls to this function should have already weeded out any
+    // typechecking exceptions via (e.g.) ensureBoolean().  But a
+    // theory could still create a new expression that isn't
+    // well-typed, and we don't want the C++ runtime to abort our
+    // process without any error notice.
+    InternalError("A bad expression was produced.  "
+                  "Original exception follows:\n%s",
+                  tcep.toString().c_str());
+  }
 }
 
 void SmtEngine::ensureBoolean(const BoolExpr& e) {

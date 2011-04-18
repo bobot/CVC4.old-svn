@@ -733,6 +733,12 @@ DATATYPE_TOK : 'DATATYPE';
 END_TOK : 'END';
 BAR_TOK : '|';
 
+ARRAY_TOK : 'ARRAY';
+OF_TOK : 'OF';
+WITH_TOK : 'WITH';
+
+BITVECTOR_TOK : 'BITVECTOR';
+
 // Symbols
 
 COLON : ':';

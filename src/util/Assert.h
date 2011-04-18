@@ -200,6 +200,29 @@ public:
   }
 };/* class IllegalArgumentException */
 
+class CVC4_PUBLIC InternalErrorException : public AssertionException {
+protected:
+  InternalErrorException() : AssertionException() {}
+
+public:
+  InternalErrorException(const char* function, const char* file, unsigned line) :
+    AssertionException() {
+    construct("Internal error detected", "",
+              function, file, line);
+  }
+
+  InternalErrorException(const char* function, const char* file, unsigned line,
+                         const char* fmt, ...) :
+    AssertionException() {
+    va_list args;
+    va_start(args, fmt);
+    construct("Internal error detected", "",
+              function, file, line, fmt, args);
+    va_end(args);
+  }
+
+};/* class InternalErrorException */
+
 #ifdef CVC4_DEBUG
 
 #ifdef CVC4_DEBUG
@@ -249,6 +272,8 @@ void debugAssertionFailed(const AssertionException& thisException,
   throw UnhandledCaseException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
 #define Unimplemented(msg...) \
   throw UnimplementedOperationException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
+#define InternalError(msg...) \
+  throw InternalErrorException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
 #define IllegalArgument(arg, msg...) \
   throw IllegalArgumentException(#arg, __PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
 #define CheckArgument(cond, arg, msg...)         \

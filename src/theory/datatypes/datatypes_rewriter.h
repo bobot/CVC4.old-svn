@@ -62,11 +62,29 @@ public:
     }
     if(in.getKind() == kind::APPLY_SELECTOR &&
        in[0].getKind() == kind::APPLY_CONSTRUCTOR) {
-      Debug("datatypes-rewrite") << "TheoryDatatypes::postRewrite: "
-                                 << "Rewrite trivial selector " << in
-                                 << std::endl;
+      // Have to be careful not to rewrite well-typed expressions
+      // where the selector doesn't match the constructor,
+      // e.g. "pred(zero)".
       TNode selector = in.getOperator();
-      return RewriteResponse(REWRITE_DONE, in[0][Datatype::indexOf(selector.toExpr())]);
+      TNode constructor = in[0].getOperator();
+      Expr selectorExpr = selector.toExpr();
+      Expr constructorExpr = constructor.toExpr();
+      size_t selectorIndex = Datatype::indexOf(selectorExpr);
+      size_t constructorIndex = Datatype::indexOf(constructorExpr);
+      const Datatype& dt = Datatype::datatypeOf(constructorExpr);
+      const Datatype::Constructor& c = dt[constructorIndex];
+      if(c.getNumArgs() > selectorIndex &&
+         c[selectorIndex].getSelector() == selectorExpr) {
+        Debug("datatypes-rewrite") << "DatatypesRewriter::postRewrite: "
+                                   << "Rewrite trivial selector " << in
+                                   << std::endl;
+        return RewriteResponse(REWRITE_DONE, in[0][selectorIndex]);
+      } else {
+        Debug("datatypes-rewrite") << "DatatypesRewriter::postRewrite: "
+                                   << "Would rewrite trivial selector " << in
+                                   << " but ctor doesn't match stor"
+                                   << std::endl;
+      }
     }
 
     if(in.getKind() == kind::EQUAL && in[0] == in[1]) {

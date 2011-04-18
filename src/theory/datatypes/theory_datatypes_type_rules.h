@@ -27,25 +27,24 @@ namespace datatypes {
 
 struct DatatypeConstructorTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw (TypeCheckingExceptionPrivate) {
+    throw(TypeCheckingExceptionPrivate) {
     Assert(n.getKind() == kind::APPLY_CONSTRUCTOR);
     TypeNode consType = n.getOperator().getType(check);
-    if( check ){
+    if(check) {
       Debug("typecheck-idt") << "typecheck cons: " << n << " " << n.getNumChildren() << std::endl;
       Debug("typecheck-idt") << "cons type: " << consType << " " << consType.getNumChildren() << std::endl;
-      if( (n.getNumChildren() != consType.getNumChildren() - 1) ){
+      if(n.getNumChildren() != consType.getNumChildren() - 1) {
         throw TypeCheckingExceptionPrivate(n, "number of arguments does not match the constructor type");
       }
       TNode::iterator child_it = n.begin();
       TNode::iterator child_it_end = n.end();
       TypeNode::iterator tchild_it = consType.begin();
-      for(; child_it != child_it_end; ++child_it) {
+      for(; child_it != child_it_end; ++child_it, ++tchild_it) {
         TypeNode childType = (*child_it).getType(check);
         Debug("typecheck-idt") << "typecheck cons arg: " << childType << " " << (*tchild_it) << std::endl;
-        if( childType!=(*tchild_it) ){
+        if(childType != *tchild_it) {
           throw TypeCheckingExceptionPrivate(n, "bad type for constructor argument");
         }
-        ++tchild_it;
       }
     }
     return consType.getConstructorReturnType();
@@ -54,17 +53,17 @@ struct DatatypeConstructorTypeRule {
 
 struct DatatypeSelectorTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw (TypeCheckingExceptionPrivate) {
+    throw(TypeCheckingExceptionPrivate) {
     Assert(n.getKind() == kind::APPLY_SELECTOR);
     TypeNode selType = n.getOperator().getType(check);
     Debug("typecheck-idt") << "typecheck sel: " << n << std::endl;
     Debug("typecheck-idt") << "sel type: " << selType << std::endl;
-    if( check ){
+    if(check) {
       if(n.getNumChildren() != 1) {
         throw TypeCheckingExceptionPrivate(n, "number of arguments does not match the selector type");
       }
       TypeNode childType = n[0].getType(check);
-      if( selType[0]!=childType ){
+      if(selType[0] != childType) {
         throw TypeCheckingExceptionPrivate(n, "bad type for selector argument");
       }
     }
@@ -74,9 +73,9 @@ struct DatatypeSelectorTypeRule {
 
 struct DatatypeTesterTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw (TypeCheckingExceptionPrivate) {
+    throw(TypeCheckingExceptionPrivate) {
     Assert(n.getKind() == kind::APPLY_TESTER);
-    if( check ){
+    if(check) {
       if(n.getNumChildren() != 1) {
         throw TypeCheckingExceptionPrivate(n, "number of arguments does not match the tester type");
       }
@@ -84,7 +83,7 @@ struct DatatypeTesterTypeRule {
       TypeNode childType = n[0].getType(check);
       Debug("typecheck-idt") << "typecheck test: " << n << std::endl;
       Debug("typecheck-idt") << "test type: " << testType << std::endl;
-      if( testType[0]!=childType ){
+      if(testType[0] != childType) {
         throw TypeCheckingExceptionPrivate(n, "bad type for tester argument");
       }
     }

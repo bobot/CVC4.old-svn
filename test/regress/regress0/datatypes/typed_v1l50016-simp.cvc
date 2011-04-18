@@ -11,7 +11,7 @@ x1 : nat ;
 x2 : list ;
 x3 : tree ;
 
-QUERY 
+QUERY
 
 (NOT is_zero((LET x154 = (LET x155 = node((LET x156 = (LET x157 = (LET x158 = (LET x159 = (LET x160 = (LET x161 = (LET x162 = cons((LET x163 = (LET x164 = (LET x165 = (LET x166 = (LET x167 = (LET x168 = (LET x169 = (LET x170 = (LET x171 = (LET x172 = (LET x173 = x3 IN
  (IF is_node(x173) THEN children(x173) ELSE null ENDIF)) IN
