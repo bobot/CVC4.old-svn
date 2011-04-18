@@ -82,12 +82,8 @@ protected:
   /** Assertions (lemmas and learned clause) that propagated something, we need to recheck them after backtracking */
   vec<RepropagationInfo> propagating_assertions;
 
-  /** The assertions that we will be rechecking next time we propagate */
+  /** The non-unit assertions that we will be rechecking next time we propagate */
   vec<RepropagationInfo> assertions_to_repropagate;
-
-  /** Unit assertions that we will be re-asserted next time we propagate */
-  vec<Lit> unit_assertions_to_repropagate;
-
 
   /** Shrink 'cs' to contain only clauses below given level */
   void removeClausesAboveLevel(vec<CRef>& cs, int level); 
@@ -220,8 +216,8 @@ protected:
 
     // Helper structures:
     //
-    struct VarData { CRef reason; int level; int real_level; int intro_level; };
-    static inline VarData mkVarData(CRef cr, int l, int real_l, int intro_l){ VarData d = {cr, l, real_l, intro_l}; return d; }
+    struct VarData { CRef reason; int level; int intro_level; };
+    static inline VarData mkVarData(CRef cr, int l, int intro_l){ VarData d = {cr, l, intro_l}; return d; }
 
     struct Watcher {
         CRef cref;
@@ -309,7 +305,7 @@ protected:
     void     insertVarOrder   (Var x);                                                 // Insert a variable in the decision order priority queue.
     Lit      pickBranchLit    ();                                                      // Return the next decision variable.
     void     newDecisionLevel ();                                                      // Begins a new decision level.
-    void     uncheckedEnqueue (Lit p, CRef from = CRef_Undef, bool bottom = false);    // Enqueue a literal. Assumes value of literal is undefined.
+    void     uncheckedEnqueue (Lit p, CRef from = CRef_Undef);                         // Enqueue a literal. Assumes value of literal is undefined.
     bool     enqueue          (Lit p, CRef from = CRef_Undef);                         // Test if fact 'p' contradicts current state, enqueue otherwise.
     CRef     propagate        (TheoryCheckType type);                                  // Perform Boolean and Theory. Returns possibly conflicting clause.
     CRef     propagateBool    ();                                                      // Perform Boolean propagation. Returns possibly conflicting clause.
@@ -353,7 +349,6 @@ protected:
     bool     hasReason        (Var x) const; // Does the variable have a reason
     int      level            (Var x) const;
     int      intro_level      (Var x) const; // Level at which this variable was introduced
-    int      real_level       (Var x) const; // Real level for unit assertions
     double   progressEstimate ()      const; // DELETE THIS ?? IT'S NOT VERY USEFUL ...
     bool     withinBudget     ()      const;
 
@@ -382,8 +377,6 @@ inline bool Solver::hasReason(Var x) const { return vardata[x].reason != CRef_Un
 inline int  Solver::level (Var x) const { return vardata[x].level; }
 
 inline int  Solver::intro_level(Var x) const { return vardata[x].intro_level; }
-
-inline int  Solver::real_level(Var x) const { return vardata[x].real_level; }
 
 inline void Solver::insertVarOrder(Var x) {
     if (!order_heap.inHeap(x) && decision[x]) order_heap.insert(x); }

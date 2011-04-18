@@ -44,7 +44,7 @@ static IntOption     opt_phase_saving      (_cat, "phase-saving", "Controls the 
 static BoolOption    opt_rnd_init_act      (_cat, "rnd-init",    "Randomize the initial activity", false);
 static BoolOption    opt_luby_restart      (_cat, "luby",        "Use the Luby restart sequence", true);
 static IntOption     opt_restart_first     (_cat, "rfirst",      "The base restart interval", 25, IntRange(1, INT32_MAX));
-static DoubleOption  opt_restart_inc       (_cat, "rinc",        "Restart interval increase factor", 2, DoubleRange(1, false, HUGE_VAL, false));
+static DoubleOption  opt_restart_inc       (_cat, "rinc",        "Restart interval increase factor", 3, DoubleRange(1, false, HUGE_VAL, false));
 static DoubleOption  opt_garbage_frac      (_cat, "gc-frac",     "The fraction of wasted memory allowed before a garbage collection is triggered",  0.20, DoubleRange(0, false, HUGE_VAL, false));
 
 
@@ -125,7 +125,7 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
     watches  .init(mkLit(v, false));
     watches  .init(mkLit(v, true ));
     assigns  .push(l_Undef);
-    vardata  .push(mkVarData(CRef_Undef, 0, 0, assertionLevel));
+    vardata  .push(mkVarData(CRef_Undef, 0, assertionLevel));
     //activity .push(0);
     activity .push(rnd_init_act ? drand(random_seed) * 0.00001 : 0);
     seen     .push(0);
@@ -171,7 +171,7 @@ CRef Solver::reason(Var x) const {
     // Construct the reason (level 0)
     // TODO compute the level
     CRef real_reason = nonconst_this->ca.alloc(explLevel, explanation, true);
-    nonconst_this->vardata[x] = mkVarData(real_reason, level(x), real_level(x), intro_level(x));
+    nonconst_this->vardata[x] = mkVarData(real_reason, level(x), intro_level(x));
     nonconst_this->learnts.push(real_reason);
     nonconst_this->attachClause(real_reason);
     return real_reason;
@@ -226,7 +226,7 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
         int max_level_j = -1;
         for (int assigned_i = 0; assigned_i < assigned_lits.size(); ++ assigned_i) {
           ps[j++] = p = assigned_lits[assigned_i];
-          if (real_level(var(p)) > max_level && value(p) == l_False) {
+          if (level(var(p)) > max_level && value(p) == l_False) {
             max_level = level(var(p));
             max_level_j = j - 1;
           }
@@ -352,11 +352,7 @@ void Solver::cancelUntil(int level) {
           RepropagationInfo info = propagating_assertions.last();
           if (info.level <= level) break;
           propagating_assertions.pop();
-          if (info.cref != CRef_Undef) {
-            assertions_to_repropagate.push(info);
-          } else {
-            unit_assertions_to_repropagate.push(info.lit);
-          }
+          assertions_to_repropagate.push(info);
         }
         Debug("minisat") << repropagationInfoAsString() << std::endl;
     }
@@ -365,18 +361,6 @@ void Solver::cancelUntil(int level) {
 CRef Solver::rePropagate() {
 
   Debug("minisat") << "Solver::rePropagate()" << trailAsString(trail) << std::endl;
-
-  if (unit_assertions_to_repropagate.size() > 0) {
-      int level = decisionLevel();
-      for (int lit = unit_assertions_to_repropagate.size() -1 ; lit >= 0; -- lit) {
-        uncheckedEnqueue(unit_assertions_to_repropagate[lit], CRef_Undef, true);
-        if (level > 0) {
-          propagating_assertions.push(RepropagationInfo(CRef_Undef, level, unit_assertions_to_repropagate[lit]));
-        }
-      }
-      unit_assertions_to_repropagate.clear();
-      return CRef_Undef;
-  }
 
   CRef conflict = CRef_Undef;
 
@@ -614,9 +598,6 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     out_learnt.shrink(i - j);
     tot_literals += out_learnt.size();
 
-    // Correct backtrack level
-    out_btlevel = level(var(out_learnt[0]))-1;
-    if (out_btlevel < 0) out_btlevel = 0;
 
     // Put the second literal in place
     if (out_learnt.size() > 1) {
@@ -630,6 +611,11 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         Lit p             = out_learnt[max_i];
         out_learnt[max_i] = out_learnt[1];
         out_learnt[1]     = p;
+        // Correct backtrack level
+        out_btlevel = level(var(out_learnt[0]))-1;
+        if (out_btlevel < 0) out_btlevel = 0;
+    } else {
+      out_btlevel = 0;
     }
 
     // Clear the seen vector
@@ -714,13 +700,12 @@ void Solver::analyzeFinal(Lit p, vec<Lit>& out_conflict)
 }
 
 
-void Solver::uncheckedEnqueue(Lit p, CRef from, bool bottom)
+void Solver::uncheckedEnqueue(Lit p, CRef from)
 {
     Debug("minisat") << "Solver::uncheckedEnqueue(" << p << "," << (from == CRef_Undef ? "decision" : "propagation") << ")" << std::endl;
     assert(value(p) == l_Undef);
-    assert(!bottom || from == CRef_Undef);
     assigns[var(p)] = lbool(!sign(p));
-    vardata[var(p)] = mkVarData(from, bottom ? 0 : decisionLevel(), decisionLevel(), intro_level(var(p)));
+    vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)));
     trail.push_(p);
     if (theory[var(p)]) {
       // Enqueue to the theory
@@ -798,11 +783,11 @@ CRef Solver::theoryCheck(CVC4::theory::Theory::Effort effort)
   if(clause_size > 0)
   {
     // We need to put the two top real-level literals in the fist two position
-    if (clause_size > 1 && real_level(var(clause[0])) < real_level(var(clause[1]))) {
+    if (clause_size > 1 && level(var(clause[0])) < level(var(clause[1]))) {
       std::swap(clause[0], clause[1]);
     }
-    int m1 = real_level(var(clause[0])); // The maximal real level of a literal
-    int m2 = -1;                         // The second maximal real level of a literal
+    int m1 = level(var(clause[0])); // The maximal real level of a literal
+    int m2 = -1;                    // The second maximal real level of a literal
 
     // We also compute the (push-pop) level at which this clause should be introduced
     int max_intro_level = intro_level(var(clause[0]));
@@ -811,7 +796,7 @@ CRef Solver::theoryCheck(CVC4::theory::Theory::Effort effort)
     for (int i = 1; i < clause_size; ++i)
     {
       Var v = var(clause[i]);
-      int current_level = real_level(v);
+      int current_level = level(v);
       int current_intro_level = intro_level(v);
 
       Debug("minisat") << "Literal: " << clause[i] << " with reason " << reason(v) << " at level " << current_level << std::endl;
@@ -1115,8 +1100,7 @@ lbool Solver::search(int nof_conflicts)
 
             // Assert the conflict clause and the asserting literal
             if (learnt_clause.size() == 1) {
-                uncheckedEnqueue(learnt_clause[0], CRef_Undef, true);
-                propagating_assertions.push(RepropagationInfo(CRef_Undef, decisionLevel(), learnt_clause[0]));
+                uncheckedEnqueue(learnt_clause[0], CRef_Undef);
             }else{
                 CRef cr = ca.alloc(max_level, learnt_clause, true);
                 learnts.push(cr);
