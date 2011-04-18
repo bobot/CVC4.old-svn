@@ -1,5 +1,0 @@
-a, b, c : BOOLEAN;
-
-% EXPECT: valid
-QUERY a AND NOT a <=> FALSE;
-% EXIT: 20
