@@ -102,9 +102,23 @@ public:
   static const Datatype& datatypeOf(Expr item);
   static size_t indexOf(Expr item);
 
+  /**
+   * A holder type (used in calls to Datatype::Constructor::addArg())
+   * to allow a Datatype to refer to itself.  Self-typed fields of
+   * Datatypes will be properly typed when a Type is created for the
+   * Datatype by the ExprManager (which calls Datatype::resolve()).
+   */
   class CVC4_PUBLIC SelfType {
   };/* class Datatype::SelfType */
 
+  /**
+   * An unresolved type (used in calls to
+   * Datatype::Constructor::addArg()) to allow a Datatype to refer to
+   * itself or to other mutually-recursive Datatypes.  Unresolved-type
+   * fields of Datatypes will be properly typed when a Type is created
+   * for the Datatype by the ExprManager (which calls
+   * Datatype::resolve()).
+   */
   class CVC4_PUBLIC UnresolvedType {
     std::string d_name;
   public:
@@ -112,8 +126,14 @@ public:
     inline std::string getName() const throw();
   };/* class Datatype::UnresolvedType */
 
+  /**
+   * A constructor for a Datatype.
+   */
   class CVC4_PUBLIC Constructor {
   public:
+    /**
+     * A Datatype constructor argument (i.e., a Datatype field).
+     */
     class CVC4_PUBLIC Arg {
 
       std::string d_name;
@@ -128,15 +148,31 @@ public:
 
     public:
 
+      /** Get the name of this constructor argument. */
       std::string getName() const throw();
+      /**
+       * Get the selector for this constructor argument; this call is
+       * only permitted after resolution.
+       */
       Expr getSelector() const;
+      /**
+       * Get the name of the type of this constructor argument
+       * (Datatype field).  Can be used for not-yet-resolved Datatypes
+       * (in which case the name of the unresolved type, or "[self]"
+       * for a self-referential type is returned).
+       */
       std::string getSelectorTypeName() const;
 
+      /**
+       * Returns true iff this constructor argument has been resolved.
+       */
       bool isResolved() const throw();
 
     };/* class Datatype::Constructor::Arg */
 
+    /** The type for iterators over constructor arguments. */
     typedef std::vector<Arg>::iterator iterator;
+    /** The (const) type for iterators over constructor arguments. */
     typedef std::vector<Arg>::const_iterator const_iterator;
 
   private:
@@ -152,28 +188,78 @@ public:
     friend class Datatype;
 
   public:
+    /**
+     * Create a new Datatype constructor with the given name for the
+     * constructor and the given name for the tester.  The actual
+     * constructor and tester aren't created until resolution time.
+     */
     explicit Constructor(std::string name, std::string tester);
+
+    /**
+     * Add an argument (i.e., a data field) of the given name and type
+     * to this Datatype constructor.
+     */
     void addArg(std::string selectorName, Type selectorType);
+    /**
+     * Add an argument (i.e., a data field) of the given name to this
+     * Datatype constructor that refers to an as-yet-unresolved
+     * Datatype (which may be mutually-recursive).
+     */
     void addArg(std::string selectorName, Datatype::UnresolvedType selectorType);
+    /**
+     * Add a self-referential (i.e., a data field) of the given name
+     * to this Datatype constructor that refers to the enclosing
+     * Datatype.  For example, using the familiar "nat" Datatype, to
+     * create the "pred" field for "succ" constructor, one uses
+     * succ::addArg("pred", Datatype::SelfType())---the actual Type
+     * cannot be passed because the Datatype is still under
+     * construction.
+     *
+     * This is a special case of
+     * Constructor::addArg(std::string, Datatype::UnresolvedType).
+     */
     void addArg(std::string selectorName, Datatype::SelfType);
 
+    /** Get the name of this Datatype constructor. */
     std::string getName() const throw();
+    /**
+     * Get the constructor operator of this Datatype constructor.  The
+     * Datatype must be resolved.
+     */
     Expr getConstructor() const;
+    /**
+     * Get the tester operator of this Datatype constructor.  The
+     * Datatype must be resolved.
+     */
     Expr getTester() const;
+    /**
+     * Get the number of arguments (so far) of this Datatype constructor.
+     */
     inline size_t getNumArgs() const throw();
 
+    /**
+     * Returns true iff this Datatype constructor has already been
+     * resolved.
+     */
     inline bool isResolved() const throw();
 
+    /** Get the beginning iterator over Constructor args. */
     inline iterator begin() throw();
+    /** Get the ending iterator over Constructor args. */
     inline iterator end() throw();
+    /** Get the beginning const_iterator over Constructor args. */
     inline const_iterator begin() const throw();
+    /** Get the ending const_iterator over Constructor args. */
     inline const_iterator end() const throw();
 
+    /** Get the ith Constructor arg. */
     const Arg& operator[](size_t index) const;
 
   };/* class Datatype::Constructor */
 
+  /** The type for iterators over constructors. */
   typedef std::vector<Constructor>::iterator iterator;
+  /** The (const) type for iterators over constructors. */
   typedef std::vector<Constructor>::const_iterator const_iterator;
 
 private:
@@ -197,40 +283,63 @@ private:
 
 public:
 
+  /** Create a new Datatype of the given name. */
   inline explicit Datatype(std::string name);
+
+  /** Add a constructor to this Datatype. */
   void addConstructor(const Constructor& c);
 
+  /** Get the name of this Datatype. */
   inline std::string getName() const throw();
+  /** Get the number of constructors (so far) for this Datatype. */
   inline size_t getNumConstructors() const throw();
 
-  // We need == for mkConst(Datatype) to properly work---since if the
-  // Datatype Expr requested is the same as an already-existing one,
-  // we need to return that one.  For that, we have a hash and
-  // operator==.  We provide != for symmetry.  We don't provide
-  // operator<() etc. because given two Datatype Exprs, you could
-  // simply compare those rather than the (bare) Datatypes.  This
-  // means, though, that Datatype cannot be stored in a sorted list or
-  // RB tree directly, so maybe we can consider adding these
-  // comparison operators later on.
+  /**
+   * Return true iff the two Datatypes are the same.
+   *
+   * We need == for mkConst(Datatype) to properly work---since if the
+   * Datatype Expr requested is the same as an already-existing one,
+   * we need to return that one.  For that, we have a hash and
+   * operator==.  We provide != for symmetry.  We don't provide
+   * operator<() etc. because given two Datatype Exprs, you could
+   * simply compare those rather than the (bare) Datatypes.  This
+   * means, though, that Datatype cannot be stored in a sorted list or
+   * RB tree directly, so maybe we can consider adding these
+   * comparison operators later on.
+   */
   bool operator==(const Datatype& other) const throw();
+  /** Return true iff the two Datatypes are not the same. */
   inline bool operator!=(const Datatype& other) const throw();
 
+  /** Return true iff this Datatype has already been resolved. */
   inline bool isResolved() const throw();
 
+  /** Get the beginning iterator over Constructors. */
   inline iterator begin() throw();
+  /** Get the ending iterator over Constructors. */
   inline iterator end() throw();
+  /** Get the beginning const_iterator over Constructors. */
   inline const_iterator begin() const throw();
+  /** Get the ending const_iterator over Constructors. */
   inline const_iterator end() const throw();
 
+  /** Get the ith Constructor. */
   const Constructor& operator[](size_t index) const;
 
 };/* class Datatype */
 
+
+/**
+ * A hash strategy for Datatypes.  Needed because Datatypes are used
+ * as the constant payload in CONSTANT-kinded TypeNodes (for
+ * DATATYPE_TYPE expressions).
+ */
 struct CVC4_PUBLIC DatatypeHashStrategy {
   static inline size_t hash(const Datatype& dt) {
     return StringHashFunction()(dt.getName());
   }
 };/* struct DatatypeHashStrategy */
+
 
 // FUNCTION DECLARATIONS FOR OUTPUT STREAMS
 
