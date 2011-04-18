@@ -1,4 +1,0 @@
-% EXPECT-ERROR: CVC4 Error:
-% EXPECT-ERROR: Parse Error: error.cvc:3.9: Symbol BOOL not declared
-p : BOOL;
-% EXIT: 1
