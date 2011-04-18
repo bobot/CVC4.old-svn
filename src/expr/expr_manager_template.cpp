@@ -384,17 +384,17 @@ std::vector<DatatypeType> ExprManager::mkMutualDatatypeTypes(const std::vector<D
   return dtts;
 }
 
-ConstructorType ExprManager::mkConstructorType(const Datatype::Constructor& constructor) const {
+ConstructorType ExprManager::mkConstructorType(const Datatype::Constructor& constructor, Type range) const {
   NodeManagerScope nms(d_nodeManager);
-  return Type(d_nodeManager, new TypeNode(d_nodeManager->mkConstructorType(constructor)));
+  return Type(d_nodeManager, new TypeNode(d_nodeManager->mkConstructorType(constructor, *range.d_typeNode)));
 }
 
-SelectorType ExprManager::mkSelectorType(const Type& domain,const Type& range) const {
+SelectorType ExprManager::mkSelectorType(Type domain, Type range) const {
   NodeManagerScope nms(d_nodeManager);
   return Type(d_nodeManager, new TypeNode(d_nodeManager->mkSelectorType(*domain.d_typeNode, *range.d_typeNode)));
 }
 
-TesterType ExprManager::mkTesterType(const Type& domain) const {
+TesterType ExprManager::mkTesterType(Type domain) const {
   NodeManagerScope nms(d_nodeManager);
   return Type(d_nodeManager, new TypeNode(d_nodeManager->mkTesterType(*domain.d_typeNode)));
 }

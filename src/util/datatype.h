@@ -139,6 +139,7 @@ public:
   private:
 
     std::string d_name;
+    Expr d_constructor;
     Expr d_tester;
     std::vector<Arg> d_args;
 
@@ -154,6 +155,7 @@ public:
     void addArg(std::string selectorName, Datatype::SelfType);
 
     std::string getName() const throw();
+    Expr getConstructor() const;
     Expr getTester() const;
     inline size_t getNumArgs() const throw();
 

@@ -520,4 +520,20 @@ TypeNode NodeManager::getType(TNode n, bool check)
   return typeNode;
 }
 
+TypeNode NodeManager::mkConstructorType(const Datatype::Constructor& constructor, TypeNode range) {
+  std::vector<TypeNode> sorts;
+  Debug("datatypes") << "ctor name: " << constructor.getName() << std::endl;
+  for(Datatype::Constructor::const_iterator i = constructor.begin();
+      i != constructor.end();
+      ++i) {
+    Debug("datatypes") << *(*i).getSelector().getType().d_typeNode << std::endl;
+    TypeNode sort = (*(*i).getSelector().getType().d_typeNode)[1];
+    Debug("datatypes") << "ctor sort: " << sort << std::endl;
+    sorts.push_back(sort);
+  }
+  Debug("datatypes") << "ctor range: " << range << std::endl;
+  sorts.push_back(range);
+  return mkTypeNode(kind::CONSTRUCTOR_TYPE, sorts);
+}
+
 }/* CVC4 namespace */

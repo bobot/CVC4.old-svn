@@ -271,7 +271,10 @@ public:
       Debug("theory") << "asserting " << node << " to " << theoryLHS << std::endl;
       d_theoryTable[theoryLHS]->assertFact(node);
       //AJR hack
-      d_theoryTable[theory::THEORY_DATATYPES]->assertFact(node);
+      if(theoryLHS != theory::THEORY_DATATYPES) {
+        Debug("theory") << "asserting also to datatypes: " << node << std::endl;
+        d_theoryTable[theory::THEORY_DATATYPES]->assertFact(node);
+      }
 
 //      theory::TheoryId theoryRHS = theory::Theory::theoryOf(atom[1]);
 //      if (theoryLHS != theoryRHS) {

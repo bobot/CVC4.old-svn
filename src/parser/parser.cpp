@@ -225,6 +225,9 @@ Parser::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes) {
         ++j) {
       const Datatype::Constructor& ctor = *j;
       Expr::printtypes::Scope pts(Debug("parser-idt"), true);
+      Expr constructor = ctor.getConstructor();
+      Debug("parser-idt") << "+ define " << constructor << std::endl;
+      defineVar(constructor.toString(), constructor);
       Expr tester = ctor.getTester();
       Debug("parser-idt") << "+ define " << tester << std::endl;
       defineVar(tester.toString(), tester);

@@ -69,16 +69,22 @@ bool Datatype::operator==(const Datatype& other) const throw() {
   for(const_iterator i = begin(), j = other.begin(); i != end(); ++i, ++j) {
     Assert(j != other.end());
     // two constructors are == iff they have the same name, their
-    // testers are equal and they have exactly matching args (in the
-    // same order)
+    // constructors and testers are equal and they have exactly
+    // matching args (in the same order)
     if((*i).getName() != (*j).getName() ||
        (*i).getNumArgs() != (*j).getNumArgs()) {
       return false;
     }
-    // testing equivalence of testers is harder b/c constructors might
-    // not be resolved yet; only compare them if they are both resolved
-    Assert(isResolved() == !(*i).d_tester.isNull() &&
+    // testing equivalence of constructors and testers is harder b/c
+    // this constructor might not be resolved yet; only compare them
+    // if they are both resolved
+    Assert(isResolved() == !(*i).d_constructor.isNull() &&
+           isResolved() == !(*i).d_tester.isNull() &&
+           (*i).d_constructor.isNull() == (*j).d_constructor.isNull() &&
            (*i).d_tester.isNull() == (*j).d_tester.isNull());
+    if(!(*i).d_constructor.isNull() && (*i).d_constructor != (*j).d_constructor) {
+      return false;
+    }
     if(!(*i).d_tester.isNull() && (*i).d_tester != (*j).d_tester) {
       return false;
     }
@@ -150,11 +156,12 @@ void Datatype::Constructor::resolve(ExprManager* em, DatatypeType self,
     (*i).d_resolved = true;
   }
 
-  // Set tester last, since Constructor::isResolved() returns true
-  // when d_tester is not the null Expr.  If something fails above, we
-  // want Constuctor::isResolved() to remain "false"
+  // Set constructor/tester last, since Constructor::isResolved()
+  // returns true when d_tester is not the null Expr.  If something
+  // fails above, we want Constuctor::isResolved() to remain "false"
   d_tester = em->mkVar(d_name.substr(d_name.find('\0') + 1), em->mkTesterType(self));
   d_name.resize(d_name.find('\0'));
+  d_constructor = em->mkVar(d_name, em->mkConstructorType(*this, self));
 }
 
 Datatype::Constructor::Constructor(std::string name, std::string tester) :
@@ -207,6 +214,11 @@ std::string Datatype::Constructor::getName() const throw() {
     name.resize(name.find('\0'));
   }
   return name;
+}
+
+Expr Datatype::Constructor::getConstructor() const {
+  CheckArgument(isResolved(), this, "this datatype constructor not yet resolved");
+  return d_constructor;
 }
 
 Expr Datatype::Constructor::getTester() const {

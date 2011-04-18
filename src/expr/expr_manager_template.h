@@ -258,15 +258,14 @@ public:
 
   /**
    * Make a type representing a constructor with the given parameterization.
-   * Args should be "SelectorType"s.
    */
-  ConstructorType mkConstructorType(const Datatype::Constructor& constructor) const;
+  ConstructorType mkConstructorType(const Datatype::Constructor& constructor, Type range) const;
 
   /** Make a type representing a selector with the given parameterization. */
-  SelectorType mkSelectorType(const Type& domain, const Type& range) const;
+  SelectorType mkSelectorType(Type domain, Type range) const;
 
   /** Make a type representing a tester with the given parameterization. */
-  TesterType mkTesterType(const Type& domain) const;
+  TesterType mkTesterType(Type domain) const;
 
   /** Make a new sort with the given name. */
   SortType mkSort(const std::string& name) const;

@@ -456,11 +456,11 @@ inline std::ostream& operator<<(std::ostream& out, const TypeNode& n) {
 }
 
 // for hash_maps, hash_sets..
-struct TypeNodeHashStrategy {
-  static inline size_t hash(const TypeNode& node) {
+struct TypeNodeHashFunction {
+  size_t operator()(TypeNode node) const {
     return (size_t) node.getId();
   }
-};/* struct TypeNodeHashStrategy */
+};/* struct TypeNodeHashFunction */
 
 }/* CVC4 namespace */
 

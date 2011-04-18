@@ -58,10 +58,10 @@ class SortConstructorType;
 class Type;
 
 /** Strategy for hashing Types */
-struct CVC4_PUBLIC TypeHashStrategy {
+struct CVC4_PUBLIC TypeHashFunction {
   /** Return a hash code for type t */
-  static size_t hash(const CVC4::Type& t);
-};/* struct TypeHashStrategy */
+  size_t operator()(const CVC4::Type& t);
+};/* struct TypeHashFunction */
 
 /**
  * Output operator for types

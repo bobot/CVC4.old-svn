@@ -23,7 +23,9 @@
 
 #include "theory/theory.h"
 #include "util/congruence_closure.h"
+#include "util/datatype.h"
 #include "theory/datatypes/union_find.h"
+#include "util/hash.h"
 
 #include <ext/hash_set>
 #include <iostream>
@@ -40,6 +42,8 @@ private:
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > EqListN;
   typedef context::CDMap<Node, EqListN*, NodeHashFunction> EqListsN;
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
+
+  std::hash_set<TypeNode, TypeNodeHashFunction> d_addedDatatypes;
 
   context::CDList<Node> d_currAsserts;
   context::CDList<Node> d_currEqualities;
@@ -143,7 +147,12 @@ private:
 public:
   TheoryDatatypes(context::Context* c, OutputChannel& out, Valuation valuation);
   ~TheoryDatatypes();
-  void preRegisterTerm(TNode n) { }
+  void preRegisterTerm(TNode n) {
+    TypeNode type = n.getType();
+    if(type.getKind() == kind::DATATYPE_TYPE) {
+      addDatatypeDefinitions(type);
+    }
+  }
   void registerTerm(TNode n) { }
 
   void presolve();
@@ -156,6 +165,8 @@ public:
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }
+
+  void addDatatypeDefinitions(TypeNode dttn);
 
 private:
   /* Helper methods */

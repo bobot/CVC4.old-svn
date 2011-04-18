@@ -488,8 +488,8 @@ BooleanType TesterType::getRangeType() const {
   return BooleanType(makeType(d_nodeManager->booleanType()));
 }
 
-size_t TypeHashStrategy::hash(const Type& t) {
-  return TypeNodeHashStrategy::hash(*t.d_typeNode);
+size_t TypeHashFunction::operator()(const Type& t) {
+  return TypeNodeHashFunction()(NodeManager::fromType(t));
 }
 
 }/* CVC4 namespace */

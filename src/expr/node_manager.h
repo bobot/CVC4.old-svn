@@ -543,13 +543,13 @@ public:
   inline TypeNode mkArrayType(TypeNode indexType, TypeNode constituentType);
 
   /** Make a type representing a constructor with the given parameterization */
-  inline TypeNode mkConstructorType(const Datatype::Constructor& constructor);
+  TypeNode mkConstructorType(const Datatype::Constructor& constructor, TypeNode range);
 
   /** Make a type representing a selector with the given parameterization */
-  inline TypeNode mkSelectorType(const TypeNode& domain, const TypeNode& range);
+  inline TypeNode mkSelectorType(TypeNode domain, TypeNode range);
 
   /** Make a type representing a tester with given parameterization */
-  inline TypeNode mkTesterType(const TypeNode& domain);
+  inline TypeNode mkTesterType(TypeNode domain);
 
   /** Make a new (anonymous) sort of arity 0. */
   inline TypeNode mkSort();
@@ -805,23 +805,11 @@ inline TypeNode NodeManager::mkArrayType(TypeNode indexType,
   return mkTypeNode(kind::ARRAY_TYPE, indexType, constituentType);
 }
 
-
-inline TypeNode NodeManager::mkConstructorType(const Datatype::Constructor& constructor) {
-  std::vector<TypeNode> sorts;
-  for(Datatype::Constructor::const_iterator i = constructor.begin();
-      i != constructor.end();
-      ++i) {
-    sorts.push_back((*(*i).getSelector().getType().d_typeNode)[2]);
-  }
-  return mkTypeNode(kind::CONSTRUCTOR_TYPE, sorts);
-}
-
-inline TypeNode NodeManager::mkSelectorType( const TypeNode& domain, const TypeNode& range ) {
+inline TypeNode NodeManager::mkSelectorType(TypeNode domain, TypeNode range) {
   return mkTypeNode(kind::SELECTOR_TYPE, domain, range);
 }
 
-
-inline TypeNode NodeManager::mkTesterType( const TypeNode& domain ) {
+inline TypeNode NodeManager::mkTesterType(TypeNode domain) {
   return mkTypeNode(kind::TESTER_TYPE, domain );
 }
 
