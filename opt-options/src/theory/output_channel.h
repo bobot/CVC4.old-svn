@@ -72,7 +72,9 @@ public:
    * @param n - a conflict at the current decision level.  This should
    * be an AND-kinded node of literals that are TRUE in the current
    * assignment and are in conflict (i.e., at least one must be
-   * assigned false).
+   * assigned false), or else a literal by itself (in the case of a
+   * unit conflict) which is assigned TRUE (and T-conflicting) in the
+   * current assignment.
    *
    * @param safe - whether it is safe to be interrupted
    */
@@ -97,6 +99,18 @@ public:
    */
   virtual void lemma(TNode n, bool safe = false)
     throw(Interrupted, AssertionException) = 0;
+
+  /**
+   * Request a split on a new theory atom.  This is equivalent to
+   * calling lemma({OR n (NOT n)}).
+   *
+   * @param n - a theory atom; must be of Boolean type
+   * @param safe - whether it is safe to be interrupted
+   */
+  void split(TNode n, bool safe = false)
+    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) {
+    lemma(n.orNode(n.notNode()));
+  }
 
   /**
    * Provide an explanation in response to an explanation request.

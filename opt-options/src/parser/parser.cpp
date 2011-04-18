@@ -2,10 +2,10 @@
 /*! \file parser.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: mdeters, cconway
+ ** Major contributors: cconway, mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -42,6 +42,8 @@ namespace parser {
 Parser::Parser(ExprManager* exprManager, Input* input, bool strictMode) :
   d_exprManager(exprManager),
   d_input(input),
+  d_declScopeAllocated(),
+  d_declScope(&d_declScopeAllocated),
   d_done(false),
   d_checksEnabled(true),
   d_strictMode(strictMode) {
@@ -54,7 +56,7 @@ Expr Parser::getSymbol(const std::string& name, SymbolType type) {
   switch( type ) {
 
   case SYM_VARIABLE: // Functions share var namespace
-    return d_declScope.lookup(name);
+    return d_declScope->lookup(name);
 
   default:
     Unhandled(type);
@@ -70,8 +72,7 @@ Expr Parser::getFunction(const std::string& name) {
   return getSymbol(name, SYM_VARIABLE);
 }
 
-Type
-Parser::getType(const std::string& var_name,
+Type Parser::getType(const std::string& var_name,
                      SymbolType type) {
   Assert( isDeclared(var_name, type) );
   Type t = getSymbol(var_name, type).getType();
@@ -80,14 +81,14 @@ Parser::getType(const std::string& var_name,
 
 Type Parser::getSort(const std::string& name) {
   Assert( isDeclared(name, SYM_SORT) );
-  Type t = d_declScope.lookupType(name);
+  Type t = d_declScope->lookupType(name);
   return t;
 }
 
 Type Parser::getSort(const std::string& name,
                      const std::vector<Type>& params) {
   Assert( isDeclared(name, SYM_SORT) );
-  Type t = d_declScope.lookupType(name, params);
+  Type t = d_declScope->lookupType(name, params);
   return t;
 }
 
@@ -96,16 +97,22 @@ bool Parser::isBoolean(const std::string& name) {
   return isDeclared(name, SYM_VARIABLE) && getType(name).isBoolean();
 }
 
-/* Returns true if name is bound to a function. */
-bool Parser::isFunction(const std::string& name) {
-  return isDeclared(name, SYM_VARIABLE) && getType(name).isFunction();
+/* Returns true if name is bound to a function-like thing (function,
+ * constructor, tester, or selector). */
+bool Parser::isFunctionLike(const std::string& name) {
+  if(!isDeclared(name, SYM_VARIABLE)) {
+    return false;
+  }
+  Type type = getType(name);
+  return type.isFunction() || type.isConstructor() ||
+    type.isTester() || type.isSelector();
 }
 
 /* Returns true if name is bound to a defined function. */
 bool Parser::isDefinedFunction(const std::string& name) {
   // more permissive in type than isFunction(), because defined
   // functions can be zero-ary and declared functions cannot.
-  return d_declScope.isBoundDefinedFunction(name);
+  return d_declScope->isBoundDefinedFunction(name);
 }
 
 /* Returns true if name is bound to a function returning boolean. */
@@ -141,19 +148,19 @@ Parser::mkVars(const std::vector<std::string> names,
 
 void
 Parser::defineVar(const std::string& name, const Expr& val) {
-  d_declScope.bind(name, val);
+  d_declScope->bind(name, val);
   Assert( isDeclared(name) );
 }
 
 void
 Parser::defineFunction(const std::string& name, const Expr& val) {
-  d_declScope.bindDefinedFunction(name, val);
+  d_declScope->bindDefinedFunction(name, val);
   Assert( isDeclared(name) );
 }
 
 void
 Parser::defineType(const std::string& name, const Type& type) {
-  d_declScope.bindType(name, type);
+  d_declScope->bindType(name, type);
   Assert( isDeclared(name, SYM_SORT) );
 }
 
@@ -161,7 +168,7 @@ void
 Parser::defineType(const std::string& name,
                    const std::vector<Type>& params,
                    const Type& type) {
-  d_declScope.bindType(name, params, type);
+  d_declScope->bindType(name, params, type);
   Assert( isDeclared(name, SYM_SORT) );
 }
 
@@ -198,7 +205,7 @@ Parser::mkSortConstructor(const std::string& name, size_t arity) {
   return type;
 }
 
-const std::vector<Type>
+std::vector<Type>
 Parser::mkSorts(const std::vector<std::string>& names) {
   std::vector<Type> types;
   for(unsigned i = 0; i < names.size(); ++i) {
@@ -207,12 +214,59 @@ Parser::mkSorts(const std::vector<std::string>& names) {
   return types;
 }
 
+std::vector<DatatypeType>
+Parser::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes) {
+  std::vector<DatatypeType> types =
+    d_exprManager->mkMutualDatatypeTypes(datatypes);
+  Assert(datatypes.size() == types.size());
+  for(unsigned i = 0; i < datatypes.size(); ++i) {
+    DatatypeType t = types[i];
+    const Datatype& dt = t.getDatatype();
+    Debug("parser-idt") << "define " << dt.getName() << " as " << t << std::endl;
+    defineType(dt.getName(), t);
+    for(Datatype::const_iterator j = dt.begin(),
+          j_end = dt.end();
+        j != j_end;
+        ++j) {
+      const Datatype::Constructor& ctor = *j;
+      Expr::printtypes::Scope pts(Debug("parser-idt"), true);
+      Expr constructor = ctor.getConstructor();
+      Debug("parser-idt") << "+ define " << constructor << std::endl;
+      string constructorName = constructor.toString();
+      if(isDeclared(constructorName, SYM_VARIABLE)) {
+        throw ParserException(constructorName + " already declared");
+      }
+      defineVar(constructorName, constructor);
+      Expr tester = ctor.getTester();
+      Debug("parser-idt") << "+ define " << tester << std::endl;
+      string testerName = tester.toString();
+      if(isDeclared(testerName, SYM_VARIABLE)) {
+        throw ParserException(testerName + " already declared");
+      }
+      defineVar(testerName, tester);
+      for(Datatype::Constructor::const_iterator k = ctor.begin(),
+            k_end = ctor.end();
+          k != k_end;
+          ++k) {
+        Expr selector = (*k).getSelector();
+        Debug("parser-idt") << "+++ define " << selector << std::endl;
+        string selectorName = selector.toString();
+        if(isDeclared(selectorName, SYM_VARIABLE)) {
+          throw ParserException(selectorName + " already declared");
+        }
+        defineVar(selectorName, selector);
+      }
+    }
+  }
+  return types;
+}
+
 bool Parser::isDeclared(const std::string& name, SymbolType type) {
   switch(type) {
   case SYM_VARIABLE:
-    return d_declScope.isBound(name);
+    return d_declScope->isBound(name);
   case SYM_SORT:
-    return d_declScope.isBoundType(name);
+    return d_declScope->isBoundType(name);
   default:
     Unhandled(type);
   }
@@ -247,10 +301,10 @@ void Parser::checkDeclaration(const std::string& varName,
   }
 }
 
-void Parser::checkFunction(const std::string& name)
+void Parser::checkFunctionLike(const std::string& name)
   throw (ParserException) {
-  if( d_checksEnabled && !isFunction(name) ) {
-    parseError("Expecting function symbol, found '" + name + "'");
+  if( d_checksEnabled && !isFunctionLike(name) ) {
+    parseError("Expecting function-like symbol, found '" + name + "'");
   }
 }
 

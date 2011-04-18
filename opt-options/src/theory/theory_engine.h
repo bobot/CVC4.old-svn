@@ -85,7 +85,7 @@ class TheoryEngine {
       d_engine(engine),
       d_context(context),
       d_conflictNode(context),
-      d_explanationNode(context){
+      d_explanationNode(context) {
     }
 
     void newFact(TNode n);
@@ -103,6 +103,8 @@ class TheoryEngine {
 
     void propagate(TNode lit, bool)
       throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::propagate("
+                      << lit << ")" << std::endl;
       d_propagatedLiterals.push_back(lit);
       ++(d_engine->d_statistics.d_statPropagate);
     }
@@ -117,6 +119,8 @@ class TheoryEngine {
 
     void explanation(TNode explanationNode, bool)
       throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::explanation("
+                      << explanationNode << ")" << std::endl;
       d_explanationNode = explanationNode;
       ++(d_engine->d_statistics.d_statExplanation);
     }
@@ -212,8 +216,8 @@ public:
     d_hasShutDown = true;
 
     // Shutdown all the theories
-    for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++ theoryId) {
-      if (d_theoryTable[theoryId]) {
+    for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
+      if(d_theoryTable[theoryId]) {
         d_theoryTable[theoryId]->shutdown();
       }
     }
@@ -247,6 +251,7 @@ public:
    * @param n the node to preprocess
    */
   Node preprocess(TNode n);
+  void preRegister(TNode preprocessed);
 
   /**
    * Assert the formula to the appropriate theory.
@@ -264,7 +269,7 @@ public:
     // Get the atom
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
 
-    // Again, eqaulity is a special case
+    // Again, equality is a special case
     if (atom.getKind() == kind::EQUAL) {
       theory::TheoryId theoryLHS = theory::Theory::theoryOf(atom[0]);
       Debug("theory") << "asserting " << node << " to " << theoryLHS << std::endl;

@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -74,6 +74,11 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
       }
       break;
     }
+    case kind::CONST_BOOLEAN:
+      // the default would print "1" or "0" for bool, that's not correct
+      // for our purposes
+      out << (n.getConst<bool>() ? "true" : "false");
+      break;
     default:
       // fall back on whatever operator<< does on underlying type; we
       // might luck out and be SMT-LIB v2 compliant
@@ -173,6 +178,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     if(toDepth != 0) {
       n.getOperator().toStream(out, toDepth < 0 ? toDepth : toDepth - 1,
                                types, language::output::LANG_SMTLIB_V2);
+      out << " ";
     } else {
       out << "(...)";
     }

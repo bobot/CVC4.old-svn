@@ -2,10 +2,10 @@
 /*! \file expr_manager_template.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: mdeters, cconway
+ ** Major contributors: cconway, mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -22,13 +22,15 @@
 #include "util/options.h"
 #include "util/stats.h"
 
+#include <map>
+
 ${includes}
 
 // This is a hack, but an important one: if there's an error, the
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 32 "${template}"
+#line 34 "${template}"
 
 #ifdef CVC4_STATISTICS_ON
   #define INC_STAT(kind) \
@@ -57,7 +59,7 @@ ${includes}
     } \
     ++ *(d_exprStatisticsVars[type]); \
   }
-#else 
+#else
   #define INC_STAT(kind)
   #define INC_STAT_VAR(type)
 #endif
@@ -70,8 +72,8 @@ namespace CVC4 {
 
 ExprManager::ExprManager() :
   d_ctxt(new Context),
-  d_nodeManager(new NodeManager(d_ctxt)) {
-#ifdef CVC4_STATISTICS_ON   
+  d_nodeManager(new NodeManager(d_ctxt, this)) {
+#ifdef CVC4_STATISTICS_ON
   for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
     d_exprStatistics[i] = NULL;
   }
@@ -83,8 +85,8 @@ ExprManager::ExprManager() :
 
 ExprManager::ExprManager(const Options& options) :
   d_ctxt(new Context),
-  d_nodeManager(new NodeManager(d_ctxt, options)) {
-#ifdef CVC4_STATISTICS_ON  
+  d_nodeManager(new NodeManager(d_ctxt, this, options)) {
+#ifdef CVC4_STATISTICS_ON
   for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
     d_exprStatisticsVars[i] = NULL;
   }
@@ -95,7 +97,7 @@ ExprManager::ExprManager(const Options& options) :
 }
 
 ExprManager::~ExprManager() {
-#ifdef CVC4_STATISTICS_ON   
+#ifdef CVC4_STATISTICS_ON
   NodeManagerScope nms(d_nodeManager);
   for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
     if (d_exprStatistics[i] != NULL) {
@@ -135,7 +137,7 @@ IntegerType ExprManager::integerType() const {
 }
 
 Expr ExprManager::mkExpr(Kind kind, const Expr& child1) {
-  const unsigned n = 1; 
+  const unsigned n = 1;
   CheckArgument(n >= minArity(kind) && n <= maxArity(kind), kind,
                 "Exprs with kind %s must have at least %u children and "
                 "at most %u children (the one under construction has %u)",
@@ -338,6 +340,63 @@ BitVectorType ExprManager::mkBitVectorType(unsigned size) const {
 ArrayType ExprManager::mkArrayType(Type indexType, Type constituentType) const {
   NodeManagerScope nms(d_nodeManager);
   return ArrayType(Type(d_nodeManager, new TypeNode(d_nodeManager->mkArrayType(*indexType.d_typeNode, *constituentType.d_typeNode))));
+}
+
+DatatypeType ExprManager::mkDatatypeType(const Datatype& datatype) {
+  NodeManagerScope nms(d_nodeManager);
+  TypeNode* typeNode = new TypeNode(d_nodeManager->mkTypeConst(datatype));
+  Type type(d_nodeManager, typeNode);
+  DatatypeType dtt(type);
+  const Datatype& dt = typeNode->getConst<Datatype>();
+  if(!dt.isResolved()) {
+    std::map<std::string, DatatypeType> resolutions;
+    resolutions.insert(std::make_pair(datatype.getName(), dtt));
+    const_cast<Datatype&>(dt).resolve(this, resolutions);
+  }
+  return dtt;
+}
+
+std::vector<DatatypeType> ExprManager::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes) {
+  NodeManagerScope nms(d_nodeManager);
+  std::map<std::string, DatatypeType> resolutions;
+  std::vector<DatatypeType> dtts;
+  for(std::vector<Datatype>::const_iterator i = datatypes.begin(), i_end = datatypes.end();
+      i != i_end;
+      ++i) {
+    TypeNode* typeNode = new TypeNode(d_nodeManager->mkTypeConst(*i));
+    Type type(d_nodeManager, typeNode);
+    DatatypeType dtt(type);
+    CheckArgument(resolutions.find((*i).getName()) == resolutions.end(),
+                  datatypes,
+                  "cannot construct two datatypes at the same time with the same name `%s'",
+                  (*i).getName().c_str());
+    resolutions.insert(std::make_pair((*i).getName(), dtt));
+    dtts.push_back(dtt);
+  }
+  for(std::vector<DatatypeType>::iterator i = dtts.begin(), i_end = dtts.end();
+      i != i_end;
+      ++i) {
+    const Datatype& dt = (*i).getDatatype();
+    if(!dt.isResolved()) {
+      const_cast<Datatype&>(dt).resolve(this, resolutions);
+    }
+  }
+  return dtts;
+}
+
+ConstructorType ExprManager::mkConstructorType(const Datatype::Constructor& constructor, Type range) const {
+  NodeManagerScope nms(d_nodeManager);
+  return Type(d_nodeManager, new TypeNode(d_nodeManager->mkConstructorType(constructor, *range.d_typeNode)));
+}
+
+SelectorType ExprManager::mkSelectorType(Type domain, Type range) const {
+  NodeManagerScope nms(d_nodeManager);
+  return Type(d_nodeManager, new TypeNode(d_nodeManager->mkSelectorType(*domain.d_typeNode, *range.d_typeNode)));
+}
+
+TesterType ExprManager::mkTesterType(Type domain) const {
+  NodeManagerScope nms(d_nodeManager);
+  return Type(d_nodeManager, new TypeNode(d_nodeManager->mkTesterType(*domain.d_typeNode)));
 }
 
 SortType ExprManager::mkSort(const std::string& name) const {

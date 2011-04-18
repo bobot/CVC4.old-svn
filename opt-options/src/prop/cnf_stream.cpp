@@ -5,7 +5,7 @@
  ** Major contributors: dejan
  ** Minor contributors (to current version): cconway, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -21,6 +21,7 @@
 #include "sat.h"
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
+#include "theory/theory_engine.h"
 #include "expr/node.h"
 #include "util/Assert.h"
 #include "util/output.h"
@@ -30,11 +31,18 @@
 using namespace std;
 using namespace CVC4::kind;
 
+#ifdef CVC4_REPLAY
+#  define CVC4_USE_REPLAY true
+#else /* CVC4_REPLAY */
+#  define CVC4_USE_REPLAY false
+#endif /* CVC4_REPLAY */
+
 namespace CVC4 {
 namespace prop {
 
-CnfStream::CnfStream(SatInputInterface *satSolver) :
-  d_satSolver(satSolver) {
+CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) :
+  d_satSolver(satSolver),
+  d_registrar(registrar) {
 }
 
 void CnfStream::recordTranslation(TNode node) {
@@ -45,8 +53,8 @@ void CnfStream::recordTranslation(TNode node) {
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver) :
-  CnfStream(satSolver) {
+TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar) :
+  CnfStream(satSolver, registrar) {
 }
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
@@ -86,7 +94,7 @@ bool CnfStream::hasLiteral(TNode n) const {
 }
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
-  Debug("cnf") << "newLiteral(" << node << ")" << endl;
+  Debug("cnf") << "newLiteral(" << node << ", " << theoryLiteral << ")" << endl;
 
   // Get the literal for this node
   SatLiteral lit;
@@ -106,14 +114,22 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   d_translationCache[node].level = level;
   d_translationCache[node.notNode()].level = level;
 
-  // If it's a theory literal, store it for back queries
-  if (theoryLiteral) {
+  // If it's a theory literal, need to store it for back queries
+  if ( theoryLiteral ||
+       ( CVC4_USE_REPLAY && Options::current()->replayLog != NULL ) ) {
     d_nodeCache[lit] = node;
     d_nodeCache[~lit] = node.notNode();
   }
 
   // Here, you can have it
   Debug("cnf") << "newLiteral(" << node << ") => " << lit << endl;
+
+  // have to keep track of this, because with the call to preRegister(),
+  // the cnf stream is re-entrant!
+  bool wasAssertingLemma = d_assertingLemma;
+  d_registrar.preRegister(node);
+  d_assertingLemma = wasAssertingLemma;
+
   return lit;
 }
 
@@ -147,7 +163,8 @@ SatLiteral CnfStream::convertAtom(TNode node) {
 
 SatLiteral CnfStream::getLiteral(TNode node) {
   TranslationCache::iterator find = d_translationCache.find(node);
-  Assert(find != d_translationCache.end(), "Literal not in the CNF Cache: ", node.toString().c_str());
+  Assert(!node.isNull(), "CnfStream: can't getLiteral() of null node");
+  Assert(find != d_translationCache.end(), "Literal not in the CNF Cache: %s\n", node.toString().c_str());
   SatLiteral literal = find->second.literal;
   Debug("cnf") << "CnfStream::getLiteral(" << node << ") => " << literal << std::endl;
   return literal;
@@ -569,7 +586,7 @@ void TseitinCnfStream::convertAndAssertIte(TNode node, bool lemma, bool negated)
 // not unit, except for the direct assertions. This allows us to remove the
 // clauses later when they are not needed anymore (lemmas for example).
 void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
-  Debug("cnf") << "convertAndAssert(" << node << ", negated = " << (negated ? "true" : "false") << ")" << endl;
+  Debug("cnf") << "convertAndAssert(" << node << ", lemma = " << lemma << ", negated = " << (negated ? "true" : "false") << ")" << endl;
   d_assertingLemma = lemma;
   switch(node.getKind()) {
   case AND:

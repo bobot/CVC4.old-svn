@@ -33,6 +33,7 @@ UNIT_TESTS = \
 	context/cdvector_black \
 	util/assert_white \
 	util/bitvector_black \
+	util/datatype_black \
 	util/configuration_black \
 	util/congruence_closure_white \
 	util/output_black \
@@ -42,6 +43,7 @@ UNIT_TESTS = \
 	util/rational_black \
 	util/rational_white \
 	util/stats_black \
+	util/trans_closure_black \
 	main/interactive_shell_black
 
 export VERBOSE = 1

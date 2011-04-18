@@ -163,7 +163,7 @@ public:
 
   void setUp() {
     d_ctxt = new Context;
-    d_nm = new NodeManager(d_ctxt);
+    d_nm = new NodeManager(d_ctxt, NULL);
     d_scope = new NodeManagerScope(d_nm);
     d_dummy = new DummyTheory(d_ctxt, d_outputChannel, Valuation(NULL));
     d_outputChannel.clear();
@@ -288,5 +288,16 @@ public:
     const OutputChannel& oc = d_dummy->getOutputChannel();
 
     TS_ASSERT_EQUALS(&oc, &theOtherChannel);
+  }
+
+  void testOutputChannel() {
+    Node n = atom0.orNode(atom1);
+    d_outputChannel.lemma(n);
+    d_outputChannel.split(atom0);
+    Node s = atom0.orNode(atom0.notNode());
+    TS_ASSERT_EQUALS(d_outputChannel.d_callHistory.size(), 2u);
+    TS_ASSERT_EQUALS(d_outputChannel.d_callHistory[0], make_pair(LEMMA, n));
+    TS_ASSERT_EQUALS(d_outputChannel.d_callHistory[1], make_pair(LEMMA, s));
+    d_outputChannel.d_callHistory.clear();
   }
 };

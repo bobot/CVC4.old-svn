@@ -5,7 +5,7 @@
  ** Major contributors: taking, cconway, dejan
  ** Minor contributors (to current version): barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -250,14 +250,19 @@ public:
 
   void notifyRestart();
 
+  SatLiteral getNextReplayDecision();
+
+  void logDecision(SatLiteral lit);
+
 };/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */
 
 #ifdef __CVC4_USE_MINISAT
 
-inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
-                     context::Context* context) :
+inline SatSolver::SatSolver(PropEngine* propEngine,
+                            TheoryEngine* theoryEngine,
+                            context::Context* context) :
   d_propEngine(propEngine),
   d_cnfStream(NULL),
   d_theoryEngine(theoryEngine),
@@ -270,10 +275,9 @@ inline SatSolver::SatSolver(PropEngine* propEngine, TheoryEngine* theoryEngine,
   // Setup the verbosity
   d_minisat->verbosity = (Options::current()->verbosity > 0) ? 1 : -1;
 
-  // No random choices
-  if(Debug.isOn("no_rnd_decisions")) {
-    d_minisat->random_var_freq = 0;
-  }
+  // Setup the random decision parameters
+  d_minisat->random_var_freq = Options::current()->satRandomFreq;
+  d_minisat->random_seed = Options::current()->satRandomSeed;
 
   d_statistics.init(d_minisat);
 }
