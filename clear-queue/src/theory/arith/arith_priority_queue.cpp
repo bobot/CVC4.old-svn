@@ -17,7 +17,8 @@ ArithPriorityQueue::Statistics::Statistics():
   d_enqueuesDiffMode("theory::arith::pqueue::enqueuesDiffMode", 0),
   d_enqueuesVarOrderMode("theory::arith::pqueue::enqueuesVarOrderMode", 0),
   d_enqueuesCollectionDuplicates("theory::arith::pqueue::enqueuesCollectionDuplicates", 0),
-  d_enqueuesVarOrderModeDuplicates("theory::arith::pqueue::enqueuesVarOrderModeDuplicates", 0)
+  d_enqueuesVarOrderModeDuplicates("theory::arith::pqueue::enqueuesVarOrderModeDuplicates", 0),
+  d_dropped("theory::arith::pqueue::dropped", 0)
 {
   StatisticsRegistry::registerStat(&d_enqueues);
   StatisticsRegistry::registerStat(&d_enqueuesCollection);
@@ -25,6 +26,7 @@ ArithPriorityQueue::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_enqueuesVarOrderMode);
   StatisticsRegistry::registerStat(&d_enqueuesCollectionDuplicates);
   StatisticsRegistry::registerStat(&d_enqueuesVarOrderModeDuplicates);
+  StatisticsRegistry::registerStat(&d_dropped);
 }
 
 ArithPriorityQueue::Statistics::~Statistics(){
@@ -34,6 +36,7 @@ ArithPriorityQueue::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_enqueuesVarOrderMode);
   StatisticsRegistry::unregisterStat(&d_enqueuesCollectionDuplicates);
   StatisticsRegistry::unregisterStat(&d_enqueuesVarOrderModeDuplicates);
+  StatisticsRegistry::unregisterStat(&d_dropped);
 }
 
 ArithPriorityQueue::ArithPriorityQueue(ArithPartialModel& pm, const Tableau& tableau):
@@ -94,6 +97,33 @@ ArithVar ArithPriorityQueue::dequeueInconsistentBasicVariable(){
     }
   }
   return ARITHVAR_SENTINEL;
+}
+
+
+void ArithPriorityQueue::dropIrrelevantVariables() {
+  Assert(inDifferenceMode());
+
+  uint32_t size = d_diffQueue.size();
+
+  remove_if(d_diffQueue.begin(), d_diffQueue.end(), NotBasicAndInconsistentPair(this));
+
+  uint32_t dropped = size - d_diffQueue.size();
+
+  d_statistics.d_dropped += dropped;
+
+  if(dropped > 0){
+    switch(d_pivotRule){
+    case MINIMUM:
+      make_heap(d_diffQueue.begin(), d_diffQueue.end(), VarDRatPair::minimumRule);
+      break;
+    case BREAK_TIES:
+      make_heap(d_diffQueue.begin(), d_diffQueue.end(), VarDRatPair::breakTiesRules);
+      break;
+    case MAXIMUM:
+      make_heap(d_diffQueue.begin(), d_diffQueue.end(), VarDRatPair::maximumRule);
+      break;
+    }
+  }
 }
 
 ArithPriorityQueue::VarDRatPair ArithPriorityQueue::computeDiff(ArithVar basic){

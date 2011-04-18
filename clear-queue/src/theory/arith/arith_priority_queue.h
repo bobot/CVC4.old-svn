@@ -276,7 +276,22 @@ public:
     }
   }
 
+  void dropIrrelevantVariables();
+
 private:
+  struct NotBasicAndInconsistentPair {
+  private:
+    const ArithPriorityQueue* pq;
+  public:
+    NotBasicAndInconsistentPair(const ArithPriorityQueue* p) : pq(p){}
+
+    bool operator() (const VarDRatPair& p){
+      return !(pq->basicAndInconsistent(p.variable()));
+    }
+  };
+
+  bool notBasicAndInconsistentPair(const VarDRatPair& p);
+
   class Statistics {
   public:
     IntStat d_enqueues;
@@ -286,6 +301,8 @@ private:
 
     IntStat d_enqueuesCollectionDuplicates;
     IntStat d_enqueuesVarOrderModeDuplicates;
+
+    IntStat d_dropped;
 
     Statistics();
     ~Statistics();

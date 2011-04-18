@@ -438,12 +438,14 @@ Node SimplexDecisionProcedure::findConflictOnTheQueue(SearchPeriod type, bool re
   case AfterVarOrderSearch:  ++(d_statistics.d_attemptAfterVarOrderSearch); break;
   }
 
+
   bool success = false;
   Node firstConflict = Node::null();
   ArithPriorityQueue::const_iterator i = d_queue.begin();
   ArithPriorityQueue::const_iterator end = d_queue.end();
   for(; i != end; ++i){
     ArithVar x_i = *i;
+
 
     if(d_tableau.isBasic(x_i)){
       Node possibleConflict = checkBasicForConflict(x_i);
@@ -497,6 +499,7 @@ Node SimplexDecisionProcedure::updateInconsistentVars(){
       pivotsRemaining -= pivotsToDo;
       //Once every CHECK_PERIOD examine the entire queue for conflicts
       if(possibleConflict.isNull()){
+        d_queue.dropIrrelevantVariables();
         possibleConflict = findConflictOnTheQueue(DuringDiffSearch);
       }else{
         findConflictOnTheQueue(AfterDiffSearch, false);
