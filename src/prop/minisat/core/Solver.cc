@@ -385,7 +385,7 @@ CRef Solver::rePropagate() {
       if (value(clause[lit]) != l_False) {
         Debug("minisat") << "Solver::rePropagate(): " << clause << " not repropagating" << std::endl;
         propagating = false;
-        break;
+        continue;
       }
     }
     if (propagating) {
@@ -406,7 +406,6 @@ CRef Solver::rePropagate() {
       // Remember the lemma
       info.level = decisionLevel();
       propagating_assertions.push(info);
-      break;
     }
   }
 
@@ -1056,14 +1055,11 @@ lbool Solver::search(int nof_conflicts)
 
         CRef confl = CRef_Undef;
         // Repropagate assertions added at higher levels
-        do {
-          // Propagate one decision
-          confl = rePropagate();
-          // If no conflict, go into BCP
-          if (confl == CRef_Undef) {
+        confl = rePropagate();
+        // If no conflict, go into BCP
+        if (confl == CRef_Undef) {
             confl = propagate(check_type);
-          }
-        } while (confl == CRef_Undef && assertions_to_repropagate.size() > 0);
+        }
         // If there is something left in the repropagation queue, we need to check when we backtrack
         if (assertions_to_repropagate.size() > 0) {
           for (int i = assertions_to_repropagate.size()-1; i >= 0; --i) {
