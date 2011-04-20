@@ -68,6 +68,8 @@ protected:
   /** Did the problem get extended in the meantime (i.e. by adding a lemma) */
   bool problem_extended;
 
+public:
+
   struct RepropagationInfo {
     /** Clause that is propagating */
     CRef cref;
@@ -75,9 +77,11 @@ protected:
     int level;
     /** Literal that was propagated */
     Lit lit;
-    RepropagationInfo(CRef cref, int level, Lit lit)
+    RepropagationInfo(CRef cref = CRef_Undef, int level = 0, Lit lit = lit_Undef)
     : cref(cref), level(level), lit(lit) {}
   };
+
+protected:
 
   /** Assertions (lemmas and learned clause) that propagated something, we need to recheck them after backtracking */
   vec<RepropagationInfo> propagating_assertions;

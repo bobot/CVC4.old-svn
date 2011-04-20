@@ -352,17 +352,28 @@ void Solver::cancelUntil(int level) {
           RepropagationInfo info = propagating_assertions.last();
           if (info.level <= level) break;
           propagating_assertions.pop();
-          assertions_to_repropagate.push(info);
+          if (level > 0 || info.cref == CRef_Undef) assertions_to_repropagate.push(info);
         }
         Debug("minisat") << repropagationInfoAsString() << std::endl;
     }
 }
+
+struct repropagate_lt { 
+ const vec<double>& activity;
+ repropagate_lt(const vec<double>& activity) : activity(activity) {} 
+ bool operator () (const Solver::RepropagationInfo& x, const Solver::RepropagationInfo& y) {
+  return activity[var(x.lit)] > activity[var(y.lit)];
+ }
+};                    
 
 CRef Solver::rePropagate() {
 
   Debug("minisat") << "Solver::rePropagate()" << trailAsString(trail) << std::endl;
 
   CRef conflict = CRef_Undef;
+
+  // Sort the asseertions based on the activity of the implied literal
+  sort(assertions_to_repropagate, repropagate_lt(activity));
 
   // Take one assertion that propagates repropagate it
   while (assertions_to_repropagate.size() > 0) {
