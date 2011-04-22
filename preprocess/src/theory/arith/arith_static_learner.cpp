@@ -217,15 +217,26 @@ void ArithStaticLearner::iteMinMax(TNode n, TheoryPreprocessor& p){
 
 void ArithStaticLearner::eqConstant(TNode n, TheoryPreprocessor& p) {
   Assert(n.getKind() == EQUAL);
-
   Node rewrite = p.replaceAndRewrite(n);
-
   Debug("eqConstant") << n << " -> " << rewrite << endl;
 
-  if(rewrite[0].getMetaKind() == metakind::VARIABLE &&
-     rewrite[1].getKind() == CONST_RATIONAL){
+  Node left, right;
+  if( Options::current()->rewriteArithEqualities){
+    Assert(rewrite.getKind() == AND);
+    Node first = rewrite[0];
+    Assert(first.getKind() == LEQ || first.getKind() == GEQ );
+    left = first[0];
+    right = first[1];
+  }else{
+    Assert(n.getKind() == EQUAL);
+    left = rewrite[0];
+    right = rewrite[1];
+  }
 
-    bool success = p.requestReplacement(rewrite[0], rewrite[1]);
+  if(left.getMetaKind() == metakind::VARIABLE &&
+     right.getKind() == CONST_RATIONAL){
+
+    bool success = p.requestReplacement(left, right);
     if(!success){
       Debug("eqConstant") << "failed " << n << endl;
     }else{
