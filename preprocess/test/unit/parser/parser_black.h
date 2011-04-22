@@ -2,10 +2,10 @@
 /*! \file parser_black.h
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -67,7 +67,7 @@ protected:
 //        cerr << "Testing good input: <<" << goodInput << ">>" << endl;
 //        istringstream stream(goodInputs[i]);
         Parser *parser =
-          ParserBuilder(*d_exprManager,"test")
+          ParserBuilder(d_exprManager,"test")
             .withStringInput(goodInput)
             .withInputLanguage(d_lang)
             .build();
@@ -94,7 +94,7 @@ protected:
 //      Debug.on("parser");
 
     Parser *parser =
-      ParserBuilder(*d_exprManager,"test")
+      ParserBuilder(d_exprManager,"test")
         .withStringInput(badInput)
         .withInputLanguage(d_lang)
         .withStrictMode(strictMode)
@@ -116,7 +116,7 @@ protected:
 //        istringstream stream(context + goodBooleanExprs[i]);
 
         Parser *parser =
-          ParserBuilder(*d_exprManager,"test")
+          ParserBuilder(d_exprManager,"test")
             .withStringInput(goodExpr)
             .withInputLanguage(d_lang)
             .build();
@@ -153,7 +153,7 @@ protected:
 //      cout << "Testing bad expr: '" << badExpr << "'\n";
 
       Parser *parser =
-        ParserBuilder(*d_exprManager,"test")
+        ParserBuilder(d_exprManager,"test")
           .withStringInput(badExpr)
           .withInputLanguage(d_lang)
           .withStrictMode(strictMode)
@@ -200,27 +200,38 @@ public:
 
   void testGoodCvc4Inputs() {
     tryGoodInput(""); // empty string is OK
+    tryGoodInput(";"); // no command is OK
     tryGoodInput("ASSERT TRUE;");
     tryGoodInput("QUERY TRUE;");
     tryGoodInput("CHECKSAT FALSE;");
     tryGoodInput("a, b : BOOLEAN;");
     tryGoodInput("a, b : BOOLEAN; QUERY (a => b) AND a => b;");
     tryGoodInput("T, U : TYPE; f : T -> U; x : T; y : U; CHECKSAT f(x) = y;");
+    tryGoodInput("T : TYPE = BOOLEAN; x : T; CHECKSAT x;");
+    tryGoodInput("a : ARRAY INT OF REAL; ASSERT (a WITH [1] := 0.0)[1] = a[0];");
+    tryGoodInput("b : BITVECTOR(3); ASSERT b = 0bin101;");
+    tryGoodInput("T : TYPE = BOOLEAN; x : T; CHECKSAT x;");
     tryGoodInput("T : TYPE; x, y : T; a : BOOLEAN; QUERY (IF a THEN x ELSE y ENDIF) = x;");
+    tryGoodInput("CHECKSAT 0bin0000 /= 0hex7;");
     tryGoodInput("%% nothing but a comment");
     tryGoodInput("% a comment\nASSERT TRUE; %a command\n% another comment");
+    tryGoodInput("a : BOOLEAN; a: BOOLEAN;"); // double decl, but compatible
+    tryGoodInput("a : INT = 5; a: INT;"); // decl after define, compatible
   }
 
   void testBadCvc4Inputs() {
-    tryBadInput(";"); // no command
     tryBadInput("ASSERT;"); // no args
     tryBadInput("QUERY");
     tryBadInput("CHECKSAT");
     tryBadInput("a, b : boolean;"); // lowercase boolean isn't a type
     tryBadInput("0x : INT;"); // 0x isn't an identifier
     tryBadInput("a, b : BOOLEAN\nQUERY (a => b) AND a => b;"); // no semicolon after decl
-    tryBadInput("a : BOOLEAN; a: BOOLEAN;"); // double decl
+    tryBadInput("ASSERT 0bin012 /= 0hex0;"); // bad binary literal
     tryBadInput("a, b: BOOLEAN; QUERY a(b);"); // non-function used as function
+    tryBadInput("a : BOOLEAN; a: INT;"); // double decl, incompatible
+    tryBadInput("A : TYPE; A: TYPE;"); // types can't be double-declared
+    tryBadInput("a : INT; a: INT = 5;"); // can't define after decl
+    tryBadInput("a : INT = 5; a: BOOLEAN;"); // decl w/ incompatible type
   }
 
   void testGoodCvc4Exprs() {

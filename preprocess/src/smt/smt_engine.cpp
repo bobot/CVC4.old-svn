@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <ext/hash_map>
 
 #include "context/cdlist.h"
 #include "context/cdset.h"
@@ -36,6 +37,7 @@
 #include "util/exception.h"
 #include "util/options.h"
 #include "util/output.h"
+#include "util/hash.h"
 #include "theory/builtin/theory_builtin.h"
 #include "theory/booleans/theory_bool.h"
 #include "theory/uf/theory_uf.h"
@@ -44,6 +46,7 @@
 #include "theory/arith/theory_arith.h"
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
+#include "theory/datatypes/theory_datatypes.h"
 
 
 using namespace std;
@@ -96,7 +99,7 @@ class SmtEnginePrivate {
 public:
 
   /**
-   * Pre-process an Node.  This is expected to be highly-variable,
+   * Pre-process a Node.  This is expected to be highly-variable,
    * with a lot of "source-level configurability" to add multiple
    * passes over the Node.
    */
@@ -112,7 +115,8 @@ public:
   /**
    * Expand definitions in n.
    */
-  static Node expandDefinitions(SmtEngine& smt, TNode n)
+  static Node expandDefinitions(SmtEngine& smt, TNode n,
+                                hash_map<TNode, Node, TNodeHashFunction>& cache)
     throw(NoSuchFunctionException, AssertionException);
 };/* class SmtEnginePrivate */
 
@@ -138,6 +142,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_theoryEngine->addTheory<theory::arith::TheoryArith>();
   d_theoryEngine->addTheory<theory::arrays::TheoryArrays>();
   d_theoryEngine->addTheory<theory::bv::TheoryBV>();
+  d_theoryEngine->addTheory<theory::datatypes::TheoryDatatypes>();
   switch(Options::current()->uf_implementation) {
   case Options::TIM:
     d_theoryEngine->addTheory<theory::uf::tim::TheoryUFTim>();
@@ -341,7 +346,8 @@ void SmtEngine::defineFunction(Expr func,
     FunctionType(funcType).getRangeType() : funcType;
   if(formulaType != rangeType) {
     stringstream ss;
-    ss << "Defined function's declared type does not match that of body\n"
+    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+       << "Defined function's declared type does not match that of body\n"
        << "The function  : " << func << "\n"
        << "Its range type: " << rangeType << "\n"
        << "The body      : " << formula << "\n"
@@ -364,8 +370,22 @@ void SmtEngine::defineFunction(Expr func,
   d_definedFunctions->insert(funcNode, def);
 }
 
-Node SmtEnginePrivate::expandDefinitions(SmtEngine& smt, TNode n)
+Node SmtEnginePrivate::expandDefinitions(SmtEngine& smt, TNode n,
+                                         hash_map<TNode, Node, TNodeHashFunction>& cache)
   throw(NoSuchFunctionException, AssertionException) {
+
+  if(n.getKind() != kind::APPLY && n.getNumChildren() == 0) {
+    // don't bother putting in the cache
+    return n;
+  }
+
+  // maybe it's in the cache
+  hash_map<TNode, Node, TNodeHashFunction>::iterator cacheHit = cache.find(n);
+  if(cacheHit != cache.end()) {
+    return (*cacheHit).second;
+  }
+
+  // otherwise expand it
   if(n.getKind() == kind::APPLY) {
     TNode func = n.getOperator();
     SmtEngine::DefinedFunctionMap::const_iterator i =
@@ -398,10 +418,9 @@ Node SmtEnginePrivate::expandDefinitions(SmtEngine& smt, TNode n)
                                   n.begin(), n.end());
     Debug("expand") << "made : " << instance << endl;
 
-    Node expanded = expandDefinitions(smt, instance);
+    Node expanded = expandDefinitions(smt, instance, cache);
+    cache[n] = expanded;
     return expanded;
-  } else if(n.getNumChildren() == 0) {
-    return n;
   } else {
     Debug("expand") << "cons : " << n << endl;
     NodeBuilder<> nb(n.getKind());
@@ -413,11 +432,12 @@ Node SmtEnginePrivate::expandDefinitions(SmtEngine& smt, TNode n)
           iend = n.end();
         i != iend;
         ++i) {
-      Node expanded = expandDefinitions(smt, *i);
+      Node expanded = expandDefinitions(smt, *i, cache);
       Debug("expand") << "exchld: " << expanded << endl;
       nb << expanded;
     }
     Node node = nb;
+    cache[n] = node;
     return node;
   }
 }
@@ -425,61 +445,74 @@ Node SmtEnginePrivate::expandDefinitions(SmtEngine& smt, TNode n)
 Node SmtEnginePrivate::preprocess(SmtEngine& smt, TNode in)
   throw(NoSuchFunctionException, AssertionException) {
 
-  Node n;
-  if(!Options::current()->lazyDefinitionExpansion) {
-    Debug("expand") << "have: " << n << endl;
-    n = expandDefinitions(smt, in);
-    Debug("expand") << "made: " << n << endl;
-  } else {
-    n = in;
-  }
+  try {
+    Node n;
+    if(!Options::current()->lazyDefinitionExpansion) {
+      Debug("expand") << "have: " << n << endl;
+      hash_map<TNode, Node, TNodeHashFunction> cache;
+      n = expandDefinitions(smt, in, cache);
+      Debug("expand") << "made: " << n << endl;
+    } else {
+      n = in;
+    }
 
-  // For now, don't re-statically-learn from learned facts; this could
-  // be useful though (e.g., theory T1 could learn something further
-  // from something learned previously by T2).
+    // For now, don't re-statically-learn from learned facts; this could
+    // be useful though (e.g., theory T1 could learn something further
+    // from something learned previously by T2).
 
-  vector<Node> assertions;
-  vector<Node> workList;
-  workList.push_back(n);
-  bool reduced = false;
-  while(!workList.empty() || !reduced){
-    if(!workList.empty()){
-      while(!workList.empty()){
-        Node curr = workList.back();
-        workList.pop_back();
-        smt.d_theoryEngine->staticLearning(curr);
-        assertions.push_back(curr);
-      }
-    }else{
-      Assert(!reduced);
-      reduced = true;
-      for(uint32_t pos = 0; pos < assertions.size(); ++pos){
-        Node curr = assertions[pos];
-        Node preprocessed = smt.d_theoryEngine->preprocess(curr);
-        if(curr != preprocessed){
-          Debug("static-learning") << curr << "->" << preprocessed << endl;
-          assertions[pos] = preprocessed;
-          reduced = false;
+    vector<Node> assertions;
+    vector<Node> workList;
+    workList.push_back(n);
+    bool reduced = false;
+    while(!workList.empty() || !reduced){
+      if(!workList.empty()){
+        while(!workList.empty()){
+          Node curr = workList.back();
+          workList.pop_back();
+          smt.d_theoryEngine->staticLearning(curr);
+          assertions.push_back(curr);
+        }
+      }else{
+        Assert(!reduced);
+        reduced = true;
+        for(uint32_t pos = 0; pos < assertions.size(); ++pos){
+          Node curr = assertions[pos];
+          Node preprocessed = smt.d_theoryEngine->preprocess(curr);
+          if(curr != preprocessed){
+            Debug("static-learning") << curr << "->" << preprocessed << endl;
+            assertions[pos] = preprocessed;
+            reduced = false;
+          }
         }
       }
+      while(smt.d_theoryEngine->hasMoreLearntFacts()){
+        Node learnt = smt.d_theoryEngine->getNextLearntFact();
+        workList.push_back(learnt);
+        Debug("static-learning") << "learnt" << learnt << endl;
+        reduced = false;
+      }
     }
-    while(smt.d_theoryEngine->hasMoreLearntFacts()){
-      Node learnt = smt.d_theoryEngine->getNextLearntFact();
-      workList.push_back(learnt);
-      Debug("static-learning") << "learnt" << learnt << endl;
-      reduced = false;
+    if(assertions.size() == 1){
+      return assertions.front();
+    }else{
+      NodeBuilder<> preprocessed(kind::AND);
+      preprocessed.append(assertions);
+      Node result = preprocessed;
+      return result;
     }
+  } catch(TypeCheckingExceptionPrivate& tcep) {
+    // Calls to this function should have already weeded out any
+    // typechecking exceptions via (e.g.) ensureBoolean().  But a
+    // theory could still create a new expression that isn't
+    // well-typed, and we don't want the C++ runtime to abort our
+    // process without any error notice.
+    stringstream ss;
+    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+       << "A bad expression was produced.  Original exception follows:\n"
+       << tcep;
+    InternalError(ss.str().c_str());
   }
 
-  if(assertions.size() == 1){
-    return assertions.front();
-  }else{
-
-    NodeBuilder<> preprocessed(kind::AND);
-    preprocessed.append(assertions);
-    Node result = preprocessed;
-    return result;
-  }
 }
 
 Result SmtEngine::check() {
@@ -494,10 +527,23 @@ Result SmtEngine::quickCheck() {
 
 void SmtEnginePrivate::addFormula(SmtEngine& smt, TNode n)
   throw(NoSuchFunctionException, AssertionException) {
-  Debug("smt") << "push_back assertion " << n << endl;
-  smt.d_haveAdditions = true;
-  Node node = SmtEnginePrivate::preprocess(smt, n);
-  smt.d_propEngine->assertFormula(node);
+  try {
+    Debug("smt") << "push_back assertion " << n << endl;
+    smt.d_haveAdditions = true;
+    Node node = SmtEnginePrivate::preprocess(smt, n);
+    smt.d_propEngine->assertFormula(node);
+  } catch(TypeCheckingExceptionPrivate& tcep) {
+    // Calls to this function should have already weeded out any
+    // typechecking exceptions via (e.g.) ensureBoolean().  But a
+    // theory could still create a new expression that isn't
+    // well-typed, and we don't want the C++ runtime to abort our
+    // process without any error notice.
+    stringstream ss;
+    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+       << "A bad expression was produced.  Original exception follows:\n"
+       << tcep;
+    InternalError(ss.str().c_str());
+  }
 }
 
 void SmtEngine::ensureBoolean(const BoolExpr& e) {
@@ -505,7 +551,8 @@ void SmtEngine::ensureBoolean(const BoolExpr& e) {
   Type boolType = d_exprManager->booleanType();
   if(type != boolType) {
     stringstream ss;
-    ss << "Expected " << boolType << "\n"
+    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+       << "Expected " << boolType << "\n"
        << "The assertion : " << e << "\n"
        << "Its type      : " << type;
     throw TypeCheckingException(e, ss.str());

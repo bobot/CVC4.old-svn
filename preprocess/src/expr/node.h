@@ -80,9 +80,14 @@ public:
    */
   NodeTemplate<true> getNode() const;
 
-  /** Returns the message corresponding to the type-checking failure */
-  std::string toString() const;
-};
+  /**
+   * Returns the message corresponding to the type-checking failure.
+   * We prefer toStream() to toString() because that keeps the expr-depth
+   * and expr-language settings present in the stream.
+   */
+  void toStream(std::ostream& out) const;
+
+};/* class TypeCheckingExceptionPrivate */
 
 /**
  * \typedef NodeTemplate<true> Node;
@@ -370,6 +375,22 @@ public:
    */
   // bool containsDecision(); // is "atomic"
   // bool properlyContainsDecision(); // maybe not atomic but all children are
+
+  /**
+   * Convert this Node into an Expr using the currently-in-scope
+   * manager.  Essentially this is like an "operator Expr()" but we
+   * don't want it to compete with implicit conversions between e.g.
+   * Node and TNode, and we want internal-to-external interface
+   * (Node -> Expr) points to be explicit.  We could write an
+   * explicit Expr(Node) constructor---but that dirties the public
+   * interface.
+   */
+  inline Expr toExpr();
+
+  /**
+   * Convert an Expr into a Node.
+   */
+  static inline Node fromExpr(const Expr& e);
 
   /**
    * Returns true if this node represents a constant
@@ -704,7 +725,7 @@ public:
   }
 
   /**
-   * Converst this node into a string representation and sends it to the
+   * Converts this node into a string representation and sends it to the
    * given stream
    *
    * @param out the stream to serialize this node to
@@ -774,6 +795,7 @@ public:
 
 /**
  * Serializes a given node to the given stream.
+ *
  * @param out the output stream to use
  * @param n the node to output to the stream
  * @return the stream
@@ -797,7 +819,7 @@ namespace CVC4 {
 
 // for hash_maps, hash_sets..
 struct NodeHashFunction {
-  size_t operator()(const CVC4::Node& node) const {
+  size_t operator()(CVC4::Node node) const {
     return (size_t) node.getId();
   }
 };/* struct NodeHashFunction */
@@ -1174,6 +1196,18 @@ Node NodeTemplate<ref_count>::substitute(Iterator1 nodesBegin,
     Node n = nb;
     return n;
   }
+}
+
+template <bool ref_count>
+inline Expr NodeTemplate<ref_count>::toExpr() {
+  assertTNodeNotExpired();
+  return NodeManager::currentNM()->toExpr(*this);
+}
+
+// intentionally not defined for TNode
+template <>
+inline Node NodeTemplate<true>::fromExpr(const Expr& e) {
+  return NodeManager::fromExpr(e);
 }
 
 #ifdef CVC4_DEBUG

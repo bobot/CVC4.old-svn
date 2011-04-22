@@ -5,7 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -72,10 +72,8 @@ TypeCheckingException::~TypeCheckingException() throw () {
   delete d_expr;
 }
 
-std::string TypeCheckingException::toString() const {
-  std::stringstream ss;
-  ss << "Error type-checking " << d_expr << ": " << d_msg << std::endl << *d_expr;
-  return ss.str();
+void TypeCheckingException::toStream(std::ostream& os) const {
+  os << "Error type-checking " << d_expr << ": " << d_msg << std::endl << *d_expr;
 }
 
 Expr TypeCheckingException::getExpression() const {
@@ -117,10 +115,24 @@ Expr& Expr::operator=(const Expr& e) {
   Assert(d_node != NULL, "Unexpected NULL expression pointer!");
   Assert(e.d_node != NULL, "Unexpected NULL expression pointer!");
 
-  ExprManagerScope ems(*this);
-  *d_node = *e.d_node;
-  d_exprManager = e.d_exprManager;
+  if(this != &e) {
+    if(d_exprManager == e.d_exprManager) {
+      ExprManagerScope ems(*this);
+      *d_node = *e.d_node;
+    } else {
+      // This happens more than you think---every time you set to or
+      // from the null Expr.  It's tricky because each node manager
+      // must be in play at the right time.
 
+      ExprManagerScope ems1(*this);
+      *d_node = Node::null();
+
+      ExprManagerScope ems2(e);
+      *d_node = *e.d_node;
+
+      d_exprManager = e.d_exprManager;
+    }
+  }
   return *this;
 }
 

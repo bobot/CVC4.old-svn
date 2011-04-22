@@ -2,8 +2,8 @@
 /*! \file Smt2.g
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters, taking
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -357,7 +357,7 @@ term[CVC4::Expr& expr]
   | /* A non-built-in function application */
     LPAREN_TOK
     functionName[name,CHECK_DECLARED]
-    { PARSER_STATE->checkFunction(name);
+    { PARSER_STATE->checkFunctionLike(name);
       const bool isDefinedFunction =
         PARSER_STATE->isDefinedFunction(name);
       if(isDefinedFunction) {
@@ -448,6 +448,7 @@ term[CVC4::Expr& expr]
     { Assert( AntlrInput::tokenText($BINARY_LITERAL).find("#b") == 0 );
       std::string binString = AntlrInput::tokenTextSubstr($BINARY_LITERAL, 2);
       expr = MK_CONST( BitVector(binString, 2) ); }
+
     // NOTE: Theory constants go here
   ;
 
@@ -578,7 +579,7 @@ functionSymbol[CVC4::Expr& fun]
 	std::string name;
 }
   : functionName[name,CHECK_DECLARED]
-    { PARSER_STATE->checkFunction(name);
+    { PARSER_STATE->checkFunctionLike(name);
       fun = PARSER_STATE->getVariable(name); }
   ;
 
@@ -672,8 +673,8 @@ symbol[std::string& id,
   : SYMBOL
     { id = AntlrInput::tokenText($SYMBOL);
       Debug("parser") << "symbol: " << id
-                      << " check? " << toString(check)
-                      << " type? " << toString(type) << std::endl;
+                      << " check? " << check
+                      << " type? " << type << std::endl;
       PARSER_STATE->checkDeclaration(id, check, type); }
   ;
 

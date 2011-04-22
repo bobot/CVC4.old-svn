@@ -2,10 +2,10 @@
 /*! \file node_manager.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway, dejan
- ** Minor contributors (to current version): acsys, taking
+ ** Major contributors: cconway
+ ** Minor contributors (to current version): acsys, taking, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -26,6 +26,7 @@
 #include "theory/arith/theory_arith_type_rules.h"
 #include "theory/arrays/theory_arrays_type_rules.h"
 #include "theory/bv/theory_bv_type_rules.h"
+#include "theory/datatypes/theory_datatypes_type_rules.h"
 
 #include "util/Assert.h"
 #include "util/options.h"
@@ -84,23 +85,27 @@ struct NVReclaim {
   }
 };
 
-NodeManager::NodeManager(context::Context* ctxt) :
+NodeManager::NodeManager(context::Context* ctxt,
+                         ExprManager* exprManager) :
   d_optionsAllocated(new Options()),
   d_options(d_optionsAllocated),
   d_statisticsRegistry(new StatisticsRegistry()),
   d_attrManager(ctxt),
+  d_exprManager(exprManager),
   d_nodeUnderDeletion(NULL),
   d_inReclaimZombies(false) {
   init();
 }
 
 
-NodeManager::NodeManager(context::Context* ctxt, 
+NodeManager::NodeManager(context::Context* ctxt,
+                         ExprManager* exprManager,
                          const Options& options) :
   d_optionsAllocated(NULL),
   d_options(&options),
   d_statisticsRegistry(new StatisticsRegistry()),
   d_attrManager(ctxt),
+  d_exprManager(exprManager),
   d_nodeUnderDeletion(NULL),
   d_inReclaimZombies(false) {
   init();
@@ -430,6 +435,15 @@ TypeNode NodeManager::computeType(TNode n, bool check)
   case kind::BITVECTOR_SIGN_EXTEND:
     typeNode = CVC4::theory::bv::BitVectorExtendTypeRule::computeType(this, n, check);
     break;
+  case kind::APPLY_CONSTRUCTOR:
+    typeNode = CVC4::theory::datatypes::DatatypeConstructorTypeRule::computeType(this, n, check);
+    break;
+  case kind::APPLY_SELECTOR:
+    typeNode = CVC4::theory::datatypes::DatatypeSelectorTypeRule::computeType(this, n, check);
+    break;
+  case kind::APPLY_TESTER:
+    typeNode = CVC4::theory::datatypes::DatatypeTesterTypeRule::computeType(this, n, check);
+    break;
   default:
     Debug("getType") << "FAILURE" << std::endl;
     Unhandled(n.getKind());
@@ -444,6 +458,15 @@ TypeNode NodeManager::computeType(TNode n, bool check)
 
 TypeNode NodeManager::getType(TNode n, bool check)
   throw (TypeCheckingExceptionPrivate, AssertionException) {
+  // Many theories' type checkers call Node::getType() directly.
+  // This is incorrect, since "this" might not be the caller's
+  // curent node manager.  Rather than force the individual typecheckers
+  // not to do this (by policy, which would be imperfect and lead
+  // to hard-to-find bugs, which it has in the past), we just
+  // set this node manager to be current for the duration of this
+  // check.
+  NodeManagerScope nms(this);
+
   TypeNode typeNode;
   bool hasType = getAttribute(n, TypeAttr(), typeNode);
   bool needsCheck = check && !getAttribute(n, TypeCheckedAttr());
@@ -494,6 +517,30 @@ TypeNode NodeManager::getType(TNode n, bool check)
 
   Debug("getType") << "type of " << n << " is " << typeNode << std::endl;
   return typeNode;
+}
+
+TypeNode NodeManager::mkConstructorType(const Datatype::Constructor& constructor,
+                                        TypeNode range) {
+  std::vector<TypeNode> sorts;
+  Debug("datatypes") << "ctor name: " << constructor.getName() << std::endl;
+  for(Datatype::Constructor::const_iterator i = constructor.begin();
+      i != constructor.end();
+      ++i) {
+    TypeNode selectorType = *(*i).getSelector().getType().d_typeNode;
+    Debug("datatypes") << selectorType << std::endl;
+    TypeNode sort = selectorType[1];
+
+    // should be guaranteed here already, but just in case
+    Assert(!sort.isFunctionLike());
+
+    Debug("datatypes") << "ctor sort: " << sort << std::endl;
+    sorts.push_back(sort);
+  }
+  Debug("datatypes") << "ctor range: " << range << std::endl;
+  CheckArgument(!range.isFunctionLike(), range,
+                "cannot create higher-order function types");
+  sorts.push_back(range);
+  return mkTypeNode(kind::CONSTRUCTOR_TYPE, sorts);
 }
 
 }/* CVC4 namespace */

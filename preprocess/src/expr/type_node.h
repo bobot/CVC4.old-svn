@@ -5,7 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -360,18 +360,45 @@ public:
   /** Get the element type (for array types) */
   TypeNode getArrayConstituentType() const;
 
-  /** Is this a function type? */
+  /** Get the return type (for constructor types) */
+  TypeNode getConstructorReturnType() const;
+
+  /**
+   * Is this a function type?  Function-like things (e.g. datatype
+   * selectors) that aren't actually functions are NOT considered
+   * functions, here.
+   */
   bool isFunction() const;
 
-  /** Get the argument types */
+  /**
+   * Is this a function-LIKE type?  Function-like things
+   * (e.g. datatype selectors) that aren't actually functions ARE
+   * considered functions, here.  The main point is that this is used
+   * to avoid anything higher-order: anything function-like cannot be
+   * the argument or return value for anything else function-like.
+   *
+   * Arrays are explicitly *not* function-like for the purposes of
+   * this test.  However, functions still cannot contain anything
+   * function-like.
+   */
+  bool isFunctionLike() const;
+
+  /**
+   * Get the argument types of a function, datatype constructor,
+   * datatype selector, or datatype tester.
+   */
   std::vector<TypeNode> getArgTypes() const;
 
-  /** Get the range type (i.e., the type of the result). */
+  /**
+   * Get the range type (i.e., the type of the result) of a function,
+   * datatype constructor, datatype selector, or datatype tester.
+   */
   TypeNode getRangeType() const;
 
   /**
-   * Is this a predicate type?
-   * NOTE: all predicate types are also function types.
+   * Is this a predicate type?  NOTE: all predicate types are also
+   * function types (so datatype testers are NOT considered
+   * "predicates" for the purpose of this function).
    */
   bool isPredicate() const;
 
@@ -386,6 +413,18 @@ public:
 
   /** Is this a bit-vector type of size <code>size</code> */
   bool isBitVector(unsigned size) const;
+
+  /** Is this a datatype type */
+  bool isDatatype() const;
+
+  /** Is this a constructor type */
+  bool isConstructor() const;
+
+  /** Is this a selector type */
+  bool isSelector() const;
+
+  /** Is this a tester type */
+  bool isTester() const;
 
   /** Get the size of this bit-vector type */
   unsigned getBitVectorSize() const;
@@ -425,16 +464,17 @@ private:
 inline std::ostream& operator<<(std::ostream& out, const TypeNode& n) {
   n.toStream(out,
              Node::setdepth::getDepth(out),
-             Node::printtypes::getPrintTypes(out));
+             Node::printtypes::getPrintTypes(out),
+             Node::setlanguage::getLanguage(out));
   return out;
 }
 
 // for hash_maps, hash_sets..
-struct TypeNodeHashStrategy {
-  static inline size_t hash(const TypeNode& node) {
+struct TypeNodeHashFunction {
+  size_t operator()(TypeNode node) const {
     return (size_t) node.getId();
   }
-};/* struct TypeNodeHashStrategy */
+};/* struct TypeNodeHashFunction */
 
 }/* CVC4 namespace */
 

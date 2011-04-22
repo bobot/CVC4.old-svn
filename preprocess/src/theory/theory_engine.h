@@ -109,6 +109,8 @@ class TheoryEngine {
 
     void propagate(TNode lit, bool)
       throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::propagate("
+                      << lit << ")" << std::endl;
       d_propagatedLiterals.push_back(lit);
       ++(d_engine->d_statistics.d_statPropagate);
     }
@@ -123,6 +125,8 @@ class TheoryEngine {
 
     void explanation(TNode explanationNode, bool)
       throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::explanation("
+                      << explanationNode << ")" << std::endl;
       d_explanationNode = explanationNode;
       ++(d_engine->d_statistics.d_statExplanation);
     }
@@ -169,11 +173,13 @@ public:
   ~TheoryEngine();
 
   /**
-   * Adds a theory. Only one theory per theoryId can be present, so if there is another theory it will be deleted.
+   * Adds a theory. Only one theory per theoryId can be present, so if
+   * there is another theory it will be deleted.
    */
   template <class TheoryClass>
   void addTheory() {
-    TheoryClass* theory = new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
+    TheoryClass* theory =
+      new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
     d_theoryTable[theory->getId()] = theory;
     d_sharedTermManager->registerTheory(static_cast<TheoryClass*>(theory));
   }
@@ -276,7 +282,7 @@ public:
     // Get the atom
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
 
-    // Again, eqaulity is a special case
+    // Again, equality is a special case
     if (atom.getKind() == kind::EQUAL) {
       theory::TheoryId theoryLHS = theory::Theory::theoryOf(atom[0]);
       Debug("theory") << "asserting " << node << " to " << theoryLHS << std::endl;

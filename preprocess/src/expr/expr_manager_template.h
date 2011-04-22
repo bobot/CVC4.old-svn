@@ -5,7 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -72,6 +72,11 @@ private:
   context::Context* getContext() const;
 
   /**
+   * Check some things about a newly-created DatatypeType.
+   */
+  void checkResolvedDatatype(DatatypeType dtt) const;
+
+  /**
    * SmtEngine will use all the internals, so it will grab the
    * NodeManager.
    */
@@ -80,8 +85,12 @@ private:
   /** ExprManagerScope reaches in to get the NodeManager */
   friend class ExprManagerScope;
 
-  // undefined, private copy constructor (disallow copy)
+  /** NodeManager reaches in to get the NodeManager */
+  friend class NodeManager;
+
+  // undefined, private copy constructor and assignment op (disallow copy)
   ExprManager(const ExprManager&) CVC4_UNDEFINED;
+  ExprManager& operator=(const ExprManager&) CVC4_UNDEFINED;
 
 public:
 
@@ -123,7 +132,7 @@ public:
    * @param child1 kind the kind of expression
    * @return the expression
    */
-  Expr mkExpr(Kind kind, const Expr& child1);
+  Expr mkExpr(Kind kind, Expr child1);
 
   /**
    * Make a binary expression of a given kind (AND, PLUS, ...).
@@ -132,7 +141,7 @@ public:
    * @param child2 the second child of the new expression
    * @return the expression
    */
-  Expr mkExpr(Kind kind, const Expr& child1, const Expr& child2);
+  Expr mkExpr(Kind kind, Expr child1, Expr child2);
 
   /**
    * Make a 3-ary expression of a given kind (AND, PLUS, ...).
@@ -142,8 +151,7 @@ public:
    * @param child3 the third child of the new expression
    * @return the expression
    */
-  Expr mkExpr(Kind kind, const Expr& child1, const Expr& child2,
-              const Expr& child3);
+  Expr mkExpr(Kind kind, Expr child1, Expr child2, Expr child3);
 
   /**
    * Make a 4-ary expression of a given kind (AND, PLUS, ...).
@@ -154,8 +162,7 @@ public:
    * @param child4 the fourth child of the new expression
    * @return the expression
    */
-  Expr mkExpr(Kind kind, const Expr& child1, const Expr& child2,
-              const Expr& child3, const Expr& child4);
+  Expr mkExpr(Kind kind, Expr child1, Expr child2, Expr child3, Expr child4);
 
   /**
    * Make a 5-ary expression of a given kind (AND, PLUS, ...).
@@ -167,11 +174,13 @@ public:
    * @param child5 the fifth child of the new expression
    * @return the expression
    */
-  Expr mkExpr(Kind kind, const Expr& child1, const Expr& child2,
-              const Expr& child3, const Expr& child4, const Expr& child5);
+  Expr mkExpr(Kind kind, Expr child1, Expr child2, Expr child3, Expr child4,
+              Expr child5);
 
   /**
-   * Make an n-ary expression of given kind given a vector of it's children
+   * Make an n-ary expression of given kind given a vector of its
+   * children
+   *
    * @param kind the kind of expression to build
    * @param children the subexpressions
    * @return the n-ary expression
@@ -179,8 +188,73 @@ public:
   Expr mkExpr(Kind kind, const std::vector<Expr>& children);
 
   /**
-   * Make an n-ary expression of given tre operator to appply and a vector of
-   * it's children
+   * Make a nullary parameterized expression with the given operator.
+   *
+   * @param opExpr the operator expression
+   * @return the nullary expression
+   */
+  Expr mkExpr(Expr opExpr);
+
+  /**
+   * Make a unary parameterized expression with the given operator.
+   *
+   * @param opExpr the operator expression
+   * @param child1 the subexpression
+   * @return the unary expression
+   */
+  Expr mkExpr(Expr opExpr, Expr child1);
+
+  /**
+   * Make a binary parameterized expression with the given operator.
+   *
+   * @param opExpr the operator expression
+   * @param child1 the first subexpression
+   * @param child2 the second subexpression
+   * @return the binary expression
+   */
+  Expr mkExpr(Expr opExpr, Expr child1, Expr child2);
+
+  /**
+   * Make a ternary parameterized expression with the given operator.
+   *
+   * @param opExpr the operator expression
+   * @param child1 the first subexpression
+   * @param child2 the second subexpression
+   * @param child3 the third subexpression
+   * @return the ternary expression
+   */
+  Expr mkExpr(Expr opExpr, Expr child1, Expr child2, Expr child3);
+
+  /**
+   * Make a quaternary parameterized expression with the given operator.
+   *
+   * @param opExpr the operator expression
+   * @param child1 the first subexpression
+   * @param child2 the second subexpression
+   * @param child3 the third subexpression
+   * @param child4 the fourth subexpression
+   * @return the quaternary expression
+   */
+  Expr mkExpr(Expr opExpr, Expr child1, Expr child2, Expr child3, Expr child4);
+
+  /**
+   * Make a quinary parameterized expression with the given operator.
+   *
+   * @param opExpr the operator expression
+   * @param child1 the first subexpression
+   * @param child2 the second subexpression
+   * @param child3 the third subexpression
+   * @param child4 the fourth subexpression
+   * @param child5 the fifth subexpression
+   * @return the quinary expression
+   */
+  Expr mkExpr(Expr opExpr, Expr child1, Expr child2, Expr child3, Expr child4,
+              Expr child5);
+
+  /**
+   * Make an n-ary expression of given operator to apply and a vector
+   * of its children
+   *
    * @param opExpr the operator expression
    * @param children the subexpressions
    * @return the n-ary expression
@@ -206,13 +280,13 @@ public:
 
 
   /** Make a function type from domain to range. */
-  FunctionType mkFunctionType(const Type& domain, const Type& range);
+  FunctionType mkFunctionType(Type domain, Type range);
 
   /**
    * Make a function type with input types from argTypes.
    * <code>argTypes</code> must have at least one element.
    */
-  FunctionType mkFunctionType(const std::vector<Type>& argTypes, const Type& range);
+  FunctionType mkFunctionType(const std::vector<Type>& argTypes, Type range);
 
   /**
    * Make a function type with input types from
@@ -237,30 +311,84 @@ public:
    */
   TupleType mkTupleType(const std::vector<Type>& types);
 
-  /** Make a type representing a bit-vector of the given size */
+  /** Make a type representing a bit-vector of the given size. */
   BitVectorType mkBitVectorType(unsigned size) const;
 
-  /** Make the type of arrays with the given parameterization */
+  /** Make the type of arrays with the given parameterization. */
   ArrayType mkArrayType(Type indexType, Type constituentType) const;
+
+  /** Make a type representing the given datatype. */
+  DatatypeType mkDatatypeType(const Datatype& datatype);
+
+  /**
+   * Make a set of types representing the given datatypes, which may be
+   * mutually recursive.
+   */
+  std::vector<DatatypeType>
+  mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes);
+
+  /**
+   * Make a set of types representing the given datatypes, which may
+   * be mutually recursive.  unresolvedTypes is a set of SortTypes
+   * that were used as placeholders in the Datatypes for the Datatypes
+   * of the same name.  This is just a more complicated version of the
+   * above mkMutualDatatypeTypes() function, but is required to handle
+   * complex types.
+   *
+   * For example, unresolvedTypes might contain the single sort "list"
+   * (with that name reported from SortType::getName()).  The
+   * datatypes list might have the single datatype
+   *
+   *   DATATYPE
+   *     list = cons(car:ARRAY INT OF list, cdr:list) | nil;
+   *   END;
+   *
+   * To represent the Type of the array, the user had to create a
+   * placeholder type (an uninterpreted sort) to stand for "list" in
+   * the type of "car".  It is this placeholder sort that should be
+   * passed in unresolvedTypes.  If the datatype was of the simpler
+   * form:
+   *
+   *   DATATYPE
+   *     list = cons(car:list, cdr:list) | nil;
+   *   END;
+   *
+   * then no complicated Type needs to be created, and the above,
+   * simpler form of mkMutualDatatypeTypes() is enough.
+   */
+  std::vector<DatatypeType>
+  mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes,
+                        const std::set<SortType>& unresolvedTypes);
+
+  /**
+   * Make a type representing a constructor with the given parameterization.
+   */
+  ConstructorType mkConstructorType(const Datatype::Constructor& constructor, Type range) const;
+
+  /** Make a type representing a selector with the given parameterization. */
+  SelectorType mkSelectorType(Type domain, Type range) const;
+
+  /** Make a type representing a tester with the given parameterization. */
+  TesterType mkTesterType(Type domain) const;
 
   /** Make a new sort with the given name. */
   SortType mkSort(const std::string& name) const;
 
-  /** Make a new sort from a constructor */
+  /** Make a new sort from a constructor. */
   SortType mkSort(SortConstructorType constructor,
                   const std::vector<TypeNode>& children) const;
 
-  /** Make a sort constructor from a name and arity */
+  /** Make a sort constructor from a name and arity. */
   SortConstructorType mkSortConstructor(const std::string& name,
                                         size_t arity) const;
 
   /** Get the type of an expression */
-  Type getType(const Expr& e, bool check = false)
+  Type getType(Expr e, bool check = false)
     throw (TypeCheckingException);
 
   // variables are special, because duplicates are permitted
-  Expr mkVar(const std::string& name, const Type& type);
-  Expr mkVar(const Type& type);
+  Expr mkVar(const std::string& name, Type type);
+  Expr mkVar(Type type);
 
   /** Returns the minimum arity of the given kind. */
   static unsigned minArity(Kind kind);
