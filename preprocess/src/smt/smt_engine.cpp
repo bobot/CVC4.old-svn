@@ -628,6 +628,7 @@ Expr SmtEngine::simplify(const Expr& e) {
 Expr SmtEngine::getValue(const Expr& e)
   throw(ModalException, AssertionException) {
   Assert(e.getExprManager() == d_exprManager);
+  NodeManagerScope nms(d_nodeManager);
   Type type = e.getType(Options::current()->typeChecking);// ensure expr is type-checked at this point
   Debug("smt") << "SMT getValue(" << e << ")" << endl;
   if(!Options::current()->produceModels) {
@@ -649,12 +650,13 @@ Expr SmtEngine::getValue(const Expr& e)
     throw ModalException(msg);
   }
 
-  NodeManagerScope nms(d_nodeManager);
   Node eNode = e.getNode();
   Node n = smt::SmtEnginePrivate::preprocess(*this, eNode);
 
   Debug("smt") << "--- getting value of " << n << endl;
-  Node resultNode = d_theoryEngine->getValue(n);
+  Node replaced = d_theoryEngine->rewriteAndReplace(n);
+  Debug("smt") << "--- getting value of " << replaced << endl;
+  Node resultNode = d_theoryEngine->getValue(replaced);
 
   // type-check the result we got
   Assert(resultNode.isNull() || resultNode.getType() == eNode.getType());
@@ -741,6 +743,7 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
 
 vector<Expr> SmtEngine::getAssertions()
   throw(ModalException, AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
   Debug("smt") << "SMT getAssertions()" << endl;
   if(!Options::current()->interactive) {
     const char* msg =

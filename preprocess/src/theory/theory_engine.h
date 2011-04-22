@@ -365,6 +365,15 @@ public:
     return d_theoryOut.d_explanationNode;
   }
 
+  Node rewriteAndReplace(TNode t){
+    Node result = d_preprocessor->replaceAndRewrite(t);
+    if(t != result){
+      return rewriteAndReplace(result);
+    }else{
+      return t;
+    }
+  }
+
   Node getValue(TNode node);
 
 private:
