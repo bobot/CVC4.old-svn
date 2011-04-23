@@ -496,38 +496,30 @@ void TheoryArith::propagate(Effort e) {
   }
 }
 
+Node TheoryArith::getValue(ArithVar var){
+
+  if(d_removedRows.find(var) != d_removedRows.end()){
+    Node eq = d_removedRows.find(var)->second;
+    Node rhs = eq[1];
+    return getValue(rhs);
+  }
+
+  DeltaRational drat = d_partialModel.getAssignment(var);
+  const Rational& delta = d_partialModel.getDelta();
+  Debug("getValue") << var << " " << drat << " " << delta << endl;
+  return NodeManager::currentNM()->
+    mkConst( drat.getNoninfinitesimalPart() +
+             drat.getInfinitesimalPart() * delta );
+}
+
 Node TheoryArith::getValue(TNode n) {
   NodeManager* nodeManager = NodeManager::currentNM();
-
-  if(d_arithvarNodeMap.hasArithVar(n)){
-    ArithVar var = d_arithvarNodeMap.asArithVar(n);
-
-    DeltaRational drat = d_partialModel.getAssignment(var);
-    const Rational& delta = d_partialModel.getDelta();
-    Debug("getValue") << n << " " << drat << " " << delta << endl;
-    return nodeManager->
-      mkConst( drat.getNoninfinitesimalPart() +
-               drat.getInfinitesimalPart() * delta );
-  }
 
 
   switch(n.getKind()) {
   case kind::VARIABLE: {
     ArithVar var = d_arithvarNodeMap.asArithVar(n);
-
-    if(d_removedRows.find(var) != d_removedRows.end()){
-      Node eq = d_removedRows.find(var)->second;
-      Assert(n == eq[0]);
-      Node rhs = eq[1];
-      return getValue(rhs);
-    }
-
-    DeltaRational drat = d_partialModel.getAssignment(var);
-    const Rational& delta = d_partialModel.getDelta();
-    Debug("getValue") << n << " " << drat << " " << delta << endl;
-    return nodeManager->
-      mkConst( drat.getNoninfinitesimalPart() +
-               drat.getInfinitesimalPart() * delta );
+    return getValue(var);
   }
 
   case kind::EQUAL: // 2 args
@@ -535,6 +527,13 @@ Node TheoryArith::getValue(TNode n) {
       mkConst( d_valuation.getValue(n[0]) == d_valuation.getValue(n[1]) );
 
   case kind::PLUS: { // 2+ args
+
+    /** Handle slack variables. */
+    if(d_arithvarNodeMap.hasArithVar(n)){
+      ArithVar var = d_arithvarNodeMap.asArithVar(n);
+      return getValue(var);
+    }
+
     Rational value(0);
     for(TNode::iterator i = n.begin(),
             iend = n.end();

@@ -145,6 +145,7 @@ public:
 
   void notifyEq(TNode lhs, TNode rhs);
 
+  Node getValue(ArithVar v);
   Node getValue(TNode n);
 
   void shutdown(){ }
