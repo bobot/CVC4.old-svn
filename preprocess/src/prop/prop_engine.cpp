@@ -144,7 +144,7 @@ Node PropEngine::getValue(TNode node) {
   Assert(node.getType().isBoolean());
   SatLiteral lit = d_cnfStream->getLiteral(node);
 
-  SatLiteralValue v = d_satSolver->value(lit);
+  SatLiteralValue v = d_inCheckSat ? d_satSolver->value(lit) : d_satSolver->modelValue(lit);
   if(v == l_True) {
     return NodeManager::currentNM()->mkConst(true);
   } else if(v == l_False) {

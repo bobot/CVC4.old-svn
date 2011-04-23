@@ -653,9 +653,8 @@ Expr SmtEngine::getValue(const Expr& e)
   Node eNode = e.getNode();
   Node n = smt::SmtEnginePrivate::preprocess(*this, eNode);
 
-  Debug("smt") << "--- getting value of " << n << endl;
   Node replaced = d_theoryEngine->rewriteAndReplace(n);
-  Debug("smt") << "--- getting value of " << replaced << endl;
+  Debug("smt") << "--- getting value of " << n << ":" << replaced << endl;
   Node resultNode = d_theoryEngine->getValue(replaced);
 
   // type-check the result we got

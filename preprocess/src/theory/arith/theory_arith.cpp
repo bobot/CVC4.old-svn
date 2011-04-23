@@ -499,6 +499,18 @@ void TheoryArith::propagate(Effort e) {
 Node TheoryArith::getValue(TNode n) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
+  if(d_arithvarNodeMap.hasArithVar(n)){
+    ArithVar var = d_arithvarNodeMap.asArithVar(n);
+
+    DeltaRational drat = d_partialModel.getAssignment(var);
+    const Rational& delta = d_partialModel.getDelta();
+    Debug("getValue") << n << " " << drat << " " << delta << endl;
+    return nodeManager->
+      mkConst( drat.getNoninfinitesimalPart() +
+               drat.getInfinitesimalPart() * delta );
+  }
+
+
   switch(n.getKind()) {
   case kind::VARIABLE: {
     ArithVar var = d_arithvarNodeMap.asArithVar(n);
