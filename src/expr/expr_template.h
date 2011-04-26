@@ -267,7 +267,7 @@ public:
    * @param i the index of the child to retrieve
    * @return the child
    */
-  Expr getChild(unsigned int i) const;
+  Expr operator[](unsigned i) const;
 
   /**
    * Check if this is an expression that has an operator.
@@ -758,7 +758,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 758 "${template}"
+#line 762 "${template}"
 
 namespace expr {
 

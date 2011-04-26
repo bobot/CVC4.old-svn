@@ -64,10 +64,12 @@ void TheoryDatatypes::checkFiniteWellFounded() {
     //check well-founded and finite, create distinguished ground terms
     map<TypeNode, vector<Node> >::iterator it;
     vector<Node>::iterator itc;
+    // for each datatype...
     for( it = d_cons.begin(); it != d_cons.end(); ++it ) {
-      d_distinguishTerms[it->first] = Node::null();
+      //d_distinguishTerms[it->first] = Node::null();
       d_finite[it->first] = false;
       d_wellFounded[it->first] = false;
+      // for each ctor of that datatype...
       for( itc = it->second.begin(); itc != it->second.end(); ++itc ) {
         d_cons_finite[*itc] = false;
         d_cons_wellFounded[*itc] = false;
@@ -76,21 +78,24 @@ void TheoryDatatypes::checkFiniteWellFounded() {
     bool changed;
     do{
       changed = false;
+      // for each datatype...
       for( it = d_cons.begin(); it != d_cons.end(); ++it ) {
         TypeNode t = it->first;
-        Debug("datatypes-finite") << "check " << t << endl;
+        Debug("datatypes-finite") << "Check type " << t << endl;
         bool typeFinite = true;
+        // for each ctor of that datatype...
         for( itc = it->second.begin(); itc != it->second.end(); ++itc ) {
           Node cn = *itc;
           TypeNode ct = cn.getType();
-          Debug("datatypes-finite") << " check cons " << ct << endl;
+          Debug("datatypes-finite") << "Check cons " << ct << endl;
           if( !d_cons_finite[cn] ) {
             int c;
             for( c=0; c<(int)ct.getNumChildren()-1; c++ ) {
               Debug("datatypes-finite") << "  check sel " << c << " of " << ct << ": " << endl << ct[c] << endl;
               TypeNode ts = ct[c];
               Debug("datatypes") << "  check : " << ts << endl;
-              if( !isDatatype( ts ) || !d_finite[ ts ] ) {
+              if( !ts.isDatatype() || !d_finite[ ts ] ) {
+                //fix?  this assumes all non-datatype sorts are infinite
                 break;
               }
             }
@@ -109,7 +114,7 @@ void TheoryDatatypes::checkFiniteWellFounded() {
               Debug("datatypes") << ct[c] << endl;
               TypeNode ts = ct[c];
               Debug("datatypes") << "  check : " << ts << endl;
-              if( isDatatype( ts ) && !d_wellFounded[ ts ] ) {
+              if( ts.isDatatype() && !d_wellFounded[ ts ] ) {
                 break;
               }
             }
@@ -131,15 +136,16 @@ void TheoryDatatypes::checkFiniteWellFounded() {
               children.push_back( cn );
               for( int c=0; c<(int)ct.getNumChildren()-1; c++ ) {
                 TypeNode ts = ct[c];
-                if( isDatatype( ts ) ) {
-                  children.push_back( d_distinguishTerms[ts] );
+                if( ts.isDatatype() ) {
+                  //children.push_back( d_distinguishTerms[ts] );
                 } else {
-                  nm->mkVar( ts );
+                  //fix?  this should be a ground term
+                  children.push_back( nm->mkVar( ts ) );
                 }
               }
-              Node dgt = nm->mkNode( APPLY_CONSTRUCTOR, children );
-              Debug("datatypes-finite") << "set distinguished ground term " << t << " to " << dgt << endl;
-              d_distinguishTerms[t] = dgt;
+              //Node dgt = nm->mkNode( APPLY_CONSTRUCTOR, children );
+              //Debug("datatypes-finite") << "set distinguished ground term " << t << " to " << dgt << endl;
+              //d_distinguishTerms[t] = dgt;
             }
           }
         }
@@ -158,8 +164,8 @@ void TheoryDatatypes::checkFiniteWellFounded() {
     for( itb=d_wellFounded.begin(); itb != d_wellFounded.end(); ++itb ) {
       Debug("datatypes-finite") << itb->first << " is ";
       Debug("datatypes-finite") << ( itb->second ? "" : "not ") << "well founded." << endl;
-      if( !itb->second && isDatatype( itb->first ) ) {
-        //throw exception?
+      if( !itb->second && itb->first.isDatatype() ) {
+        //todo: throw exception
       }
     }
     requiresCheckFiniteWellFounded = false;
@@ -273,6 +279,7 @@ void TheoryDatatypes::check(Effort e) {
     }
   }
   while(!done()) {
+    checkFiniteWellFounded();
     Node assertion = get();
     if( Debug.isOn("datatypes") || Debug.isOn("datatypes-split") ) {
       cout << "*** TheoryDatatypes::check(): " << assertion << endl;
@@ -302,7 +309,6 @@ void TheoryDatatypes::check(Effort e) {
               Node a = assertion[0][0];
               Node b = assertion[0][1];
               addDisequality(assertion[0]);
-              Debug("datatypes") << "hello." << endl;
               d_cc.addTerm(a);
               d_cc.addTerm(b);
               if(Debug.isOn("datatypes")) {
@@ -852,6 +858,7 @@ void TheoryDatatypes::merge(TNode a, TNode b) {
 
 Node TheoryDatatypes::collapseSelector( TNode t, bool useContext ) {
   if( t.getKind() == APPLY_SELECTOR ) {
+    checkFiniteWellFounded();
     //collapse constructor
     TypeNode typ = t[0].getType();
     Node sel = t.getOperator();
@@ -875,8 +882,8 @@ Node TheoryDatatypes::collapseSelector( TNode t, bool useContext ) {
       } else {
         Debug("datatypes") << "Applied selector " << t << " to wrong constructor " << endl;
         Debug("datatypes") << "Return distinguished term ";
-        Debug("datatypes") << d_distinguishTerms[ selType[1] ] << " of type " << selType[1] << endl;
-        retNode = d_distinguishTerms[ selType[1] ];
+        Debug("datatypes") << selType[1].mkGroundTerm() << " of type " << selType[1] << endl;
+        retNode = selType[1].mkGroundTerm();
       }
       if( useContext ) {
         Node neq = NodeManager::currentNM()->mkNode( EQUAL, retNode, t );
@@ -893,7 +900,7 @@ Node TheoryDatatypes::collapseSelector( TNode t, bool useContext ) {
         checkTester( tester, false );
         if( !d_conflict.isNull() ) {
           Debug("datatypes") << "Applied selector " << t << " to provably wrong constructor." << endl;
-          retNode = d_distinguishTerms[ selType[1] ];
+          retNode = selType[1].mkGroundTerm();
 
           Node neq = NodeManager::currentNM()->mkNode( EQUAL, retNode, t );
           NodeBuilder<> nb(kind::AND);

@@ -102,6 +102,7 @@ endif
 
 # and make sure to distribute it
 EXTRA_DIST += \
+	subranges.cvc \
 	error.cvc
 
 # synonyms for "check" in this directory

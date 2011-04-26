@@ -45,10 +45,16 @@ libutil_la_SOURCES = \
 	stats.cpp \
 	dynamic_array.h \
 	language.h \
+	language.cpp \
 	triple.h \
+	recursion_breaker.h \
+	subrange_bound.h \
+	cardinality.h \
+	cardinality.cpp \
 	trans_closure.h \
 	trans_closure.cpp \
-	boolean_simplification.h
+	boolean_simplification.h \
+	boolean_simplification.cpp
 
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la

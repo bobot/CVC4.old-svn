@@ -56,7 +56,7 @@ private:
   /** map from selectors to the constructors they are for */
   std::map<Node, Node > d_sel_cons;
   /**  the distinguished ground term for each type */
-  std::map<TypeNode, Node > d_distinguishTerms;
+  //std::map<TypeNode, Node > d_distinguishTerms;
   /** finite datatypes/constructor */
   std::map< TypeNode, bool > d_finite;
   std::map< Node, bool > d_cons_finite;
@@ -82,7 +82,6 @@ private:
   //Type getType( TypeNode t );
   int getConstructorIndex( TypeNode t, Node c );
   int getTesterIndex( TypeNode t, Node c );
-  bool isDatatype( TypeNode t ) { return d_cons.find( t )!=d_cons.end(); }
   void checkFiniteWellFounded();
 
   /**
@@ -153,15 +152,11 @@ public:
       addDatatypeDefinitions(type);
     }
   }
-  void registerTerm(TNode n) { }
-
   void presolve();
 
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);
   void check(Effort e);
-  void propagate(Effort e) { }
-  void explain(TNode n, Effort e) { }
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }

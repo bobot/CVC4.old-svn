@@ -32,6 +32,7 @@
 #include "expr/kind.h"
 #include "expr/metakind.h"
 #include "util/Assert.h"
+#include "util/cardinality.h"
 
 namespace CVC4 {
 
@@ -342,6 +343,40 @@ public:
     return d_nv == &expr::NodeValue::s_null;
   }
 
+  /**
+   * Convert this TypeNode into a Type using the currently-in-scope
+   * manager.
+   */
+  inline Type toType();
+
+  /**
+   * Convert a Type into a TypeNode.
+   */
+  inline static TypeNode fromType(const Type& t);
+
+  /**
+   * Returns the cardinality of this type.
+   *
+   * @return a finite or infinite cardinality
+   */
+  Cardinality getCardinality() const;
+
+  /**
+   * Returns whether this type is well-founded.  A type is
+   * well-founded if there exist ground terms.
+   *
+   * @return true iff the type is well-founded
+   */
+  bool isWellFounded() const;
+
+  /**
+   * Construct and return a ground term of this type.  If the type is
+   * not well founded, this function throws an exception.
+   *
+   * @return a ground term of the type
+   */
+  Node mkGroundTerm() const;
+
   /** Is this the Boolean type? */
   bool isBoolean() const;
 
@@ -361,7 +396,7 @@ public:
   TypeNode getArrayConstituentType() const;
 
   /** Get the return type (for constructor types) */
-  TypeNode getConstructorReturnType() const;
+  TypeNode getConstructorRangeType() const;
 
   /**
    * Is this a function type?  Function-like things (e.g. datatype
@@ -483,6 +518,14 @@ struct TypeNodeHashFunction {
 #include "expr/node_manager.h"
 
 namespace CVC4 {
+
+inline Type TypeNode::toType() {
+  return NodeManager::currentNM()->toType(*this);
+}
+
+inline TypeNode TypeNode::fromType(const Type& t) {
+  return NodeManager::fromType(t);
+}
 
 template <class Iterator1, class Iterator2>
 TypeNode TypeNode::substitute(Iterator1 typesBegin,

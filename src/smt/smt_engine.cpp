@@ -508,7 +508,7 @@ void SmtEnginePrivate::addFormula(SmtEngine& smt, TNode n)
     // process without any error notice.
     stringstream ss;
     ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
-       << "A bad expression was produced.  Original exception follows:\n"
+       << "A bad expression was produced internally.  Original exception follows:\n"
        << tcep;
     InternalError(ss.str().c_str());
   }
@@ -596,6 +596,7 @@ Expr SmtEngine::simplify(const Expr& e) {
 Expr SmtEngine::getValue(const Expr& e)
   throw(ModalException, AssertionException) {
   Assert(e.getExprManager() == d_exprManager);
+  NodeManagerScope nms(d_nodeManager);
   Type type = e.getType(Options::current()->typeChecking);// ensure expr is type-checked at this point
   Debug("smt") << "SMT getValue(" << e << ")" << endl;
   if(!Options::current()->produceModels) {
@@ -617,7 +618,6 @@ Expr SmtEngine::getValue(const Expr& e)
     throw ModalException(msg);
   }
 
-  NodeManagerScope nms(d_nodeManager);
   Node eNode = e.getNode();
   Node n = smt::SmtEnginePrivate::preprocess(*this, eNode);
 
@@ -709,6 +709,7 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
 
 vector<Expr> SmtEngine::getAssertions()
   throw(ModalException, AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
   Debug("smt") << "SMT getAssertions()" << endl;
   if(!Options::current()->interactive) {
     const char* msg =

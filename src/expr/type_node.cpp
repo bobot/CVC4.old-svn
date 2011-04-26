@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "expr/type_node.h"
+#include "expr/type_properties.h"
 
 using namespace std;
 
@@ -44,6 +45,18 @@ TypeNode TypeNode::substitute(const TypeNode& type,
     }
   }
   return nb.constructTypeNode();
+}
+
+Cardinality TypeNode::getCardinality() const {
+  return kind::getCardinality(*this);
+}
+
+bool TypeNode::isWellFounded() const {
+  return kind::isWellFounded(*this);
+}
+
+Node TypeNode::mkGroundTerm() const {
+  return kind::mkGroundTerm(*this);
 }
 
 bool TypeNode::isBoolean() const {
@@ -76,7 +89,7 @@ TypeNode TypeNode::getArrayConstituentType() const {
   return (*this)[1];
 }
 
-TypeNode TypeNode::getConstructorReturnType() const {
+TypeNode TypeNode::getConstructorRangeType() const {
   Assert(isConstructor());
   return (*this)[getNumChildren()-1];
 }

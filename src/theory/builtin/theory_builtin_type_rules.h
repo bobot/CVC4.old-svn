@@ -128,6 +128,77 @@ public:
   }
 };/* class TupleTypeRule */
 
+class FunctionProperties {
+public:
+  inline static Cardinality computeCardinality(TypeNode type) {
+    // Don't assert this; allow other theories to use this cardinality
+    // computation.
+    //
+    // Assert(type.getKind() == kind::FUNCTION_TYPE);
+
+    Cardinality argsCard(1);
+    // get the largest cardinality of function arguments/return type
+    for(unsigned i = 0, i_end = type.getNumChildren() - 1; i < i_end; ++i) {
+      argsCard *= type[i].getCardinality();
+    }
+
+    Cardinality valueCard = type[type.getNumChildren() - 1].getCardinality();
+
+    return valueCard ^ argsCard;
+  }
+};/* class FuctionProperties */
+
+class TupleProperties {
+public:
+  inline static Cardinality computeCardinality(TypeNode type) {
+    // Don't assert this; allow other theories to use this cardinality
+    // computation.
+    //
+    // Assert(type.getKind() == kind::TUPLE_TYPE);
+
+    Cardinality card(1);
+    for(TypeNode::iterator i = type.begin(),
+          i_end = type.end();
+        i != i_end;
+        ++i) {
+      card *= (*i).getCardinality();
+    }
+
+    return card;
+  }
+
+  inline static bool isWellFounded(TypeNode type) {
+    // Don't assert this; allow other theories to use this
+    // wellfoundedness computation.
+    //
+    // Assert(type.getKind() == kind::TUPLE_TYPE);
+
+    for(TypeNode::iterator i = type.begin(),
+          i_end = type.end();
+        i != i_end;
+        ++i) {
+      if(! (*i).isWellFounded()) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  inline static Node mkGroundTerm(TypeNode type) {
+    Assert(type.getKind() == kind::TUPLE_TYPE);
+
+    std::vector<Node> children;
+    for(TypeNode::iterator i = type.begin(),
+          i_end = type.end();
+        i != i_end;
+        ++i) {
+      children.push_back((*i).mkGroundTerm());
+    }
+
+    return NodeManager::currentNM()->mkNode(kind::TUPLE, children);
+  }
+};/* class TupleProperties */
 
 }/* CVC4::theory::builtin namespace */
 }/* CVC4::theory namespace */
