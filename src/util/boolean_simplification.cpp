@@ -30,7 +30,7 @@ BooleanSimplification::push_back_associative_commute_recursive
     if(child.getKind() == k){
       push_back_associative_commute_recursive(child, buffer, k, notK, negateNode);
     }else if(child.getKind() == kind::NOT && child[0].getKind() == notK){
-      push_back_associative_commute_recursive(child, buffer, notK, k, !negateNode);
+      push_back_associative_commute_recursive(child[0], buffer, notK, k, !negateNode);
     }else{
       if(negateNode){
         buffer.push_back(negate(child));

@@ -29,12 +29,29 @@ namespace theory {
 namespace booleans {
 
 class TheoryBool : public Theory {
+  Node d_true, d_false;
+
+  /**
+   * Recursive Boolean simplification.
+   */
+  Node simplifyRecursive(TNode in, Substitutions& outSubstitutions,
+                         bool polarity, bool inAnd);
+
+  /**
+   * Convenience function for simplifyRecursive().
+   */
+  bool addToBuilder(TNode n, NodeBuilder<>& b, Substitutions& outSubstitutions);
+
 public:
   TheoryBool(context::Context* c, OutputChannel& out, Valuation valuation) :
-    Theory(THEORY_BOOL, c, out, valuation) {
+    Theory(THEORY_BOOL, c, out, valuation),
+    d_true(NodeManager::currentNM()->mkConst(true)),
+    d_false(NodeManager::currentNM()->mkConst(false)) {
   }
 
   Node getValue(TNode n);
+
+  Node simplify(TNode in, Substitutions& outSubstitutions);
 
   std::string identify() const { return std::string("TheoryBool"); }
 };

@@ -138,10 +138,14 @@ public:
    * @param k the kind to collapse (should equal the kind of node n)
    * @param notK the "negation" of kind k (e.g. OR's negation is AND),
    * or kind::UNDEFINED_KIND if none.
+   * @param negateChildren true if the children of the resulting node
+   * (that is, the elements in buffer) should all be negated; you want
+   * this if e.g. you're simplifying the (OR...) in (NOT (OR...)),
+   * intending to make the result an AND.
    */
   static inline void
   push_back_associative_commute(Node n, std::vector<Node>& buffer,
-                                Kind k, Kind notK)
+                                Kind k, Kind notK, bool negateChildren = false)
       throw(AssertionException) {
     AssertArgument(buffer.empty(), buffer);
     AssertArgument(!n.isNull(), n);
@@ -167,6 +171,9 @@ public:
     while(base.getKind() == kind::NOT){
       base = base[0];
       polarity = !polarity;
+    }
+    if(n.getMetaKind() == kind::metakind::CONSTANT) {
+      return NodeManager::currentNM()->mkConst(!n.getConst<bool>());
     }
     if(polarity){
       return base.notNode();

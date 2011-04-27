@@ -26,13 +26,17 @@
 
 #line 28 "@srcdir@/tls.h.in"
 
+// A bit obnoxious: we have to take varargs to support multi-argument
+// template types in the threadlocals.
+// E.g. "CVC4_THREADLOCAL(hash_set<type, hasher>*)" fails otherwise,
+// due to the embedded comma.
 #if @CVC4_TLS_SUPPORTED@
-#  define CVC4_THREADLOCAL(__type) @CVC4_TLS@ __type
-#  define CVC4_THREADLOCAL_PUBLIC(__type) @CVC4_TLS@ CVC4_PUBLIC __type
+#  define CVC4_THREADLOCAL(__type...) @CVC4_TLS@ __type
+#  define CVC4_THREADLOCAL_PUBLIC(__type...) @CVC4_TLS@ CVC4_PUBLIC __type
 #else
 #  include <pthread.h>
-#  define CVC4_THREADLOCAL(__type) ::CVC4::ThreadLocal< __type >
-#  define CVC4_THREADLOCAL_PUBLIC(__type) CVC4_PUBLIC ::CVC4::ThreadLocal< __type >
+#  define CVC4_THREADLOCAL(__type...) ::CVC4::ThreadLocal< __type >
+#  define CVC4_THREADLOCAL_PUBLIC(__type...) CVC4_PUBLIC ::CVC4::ThreadLocal< __type >
 
 namespace CVC4 {
 
