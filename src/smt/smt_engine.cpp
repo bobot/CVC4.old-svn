@@ -18,6 +18,7 @@
 
 #include <vector>
 #include <string>
+#include <utility>
 #include <sstream>
 #include <ext/hash_map>
 
@@ -39,6 +40,7 @@
 #include "util/options.h"
 #include "util/output.h"
 #include "util/hash.h"
+#include "theory/substitutions.h"
 #include "theory/builtin/theory_builtin.h"
 #include "theory/booleans/theory_bool.h"
 #include "theory/uf/theory_uf.h"
@@ -101,8 +103,7 @@ class SmtEnginePrivate {
   vector<Node> d_assertionsToSimplify;
   vector<Node> d_assertionsToPushToSat;
 
-  vector<TNode> d_topLevelSubstitutions;
-  vector<TNode> d_topLevelReplacements;
+  theory::Substitutions d_topLevelSubstitutions;
 
   /**
    * Adjust the currently "withheld" assertions for the current
@@ -170,9 +171,16 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_userContext(new Context()),
   d_exprManager(em),
   d_nodeManager(d_exprManager->getNodeManager()),
-  d_private(new smt::SmtEnginePrivate(*this)) {
+  d_private(new smt::SmtEnginePrivate(*this)),
+  d_definitionExpansionTime("smt::SmtEngine::definitionExpansionTime"),
+  d_nonclausalSimplificationTime("smt::SmtEngine::nonclausalSimplificationTime"),
+  d_staticLearningTime("smt::SmtEngine::staticLearningTime") {
 
   NodeManagerScope nms(d_nodeManager);
+
+  StatisticsRegistry::registerStat(&d_definitionExpansionTime);
+  StatisticsRegistry::registerStat(&d_nonclausalSimplificationTime);
+  StatisticsRegistry::registerStat(&d_staticLearningTime);
 
   // We have mutual dependancy here, so we add the prop engine to the theory
   // engine later (it is non-essential there)
@@ -230,6 +238,10 @@ SmtEngine::~SmtEngine() {
   }
 
   d_definedFunctions->deleteSelf();
+
+  StatisticsRegistry::unregisterStat(&d_definitionExpansionTime);
+  StatisticsRegistry::unregisterStat(&d_nonclausalSimplificationTime);
+  StatisticsRegistry::unregisterStat(&d_staticLearningTime);
 
   delete d_userContext;
 
@@ -490,6 +502,7 @@ Node SmtEnginePrivate::simplify(TNode in)
     Node n;
 
     if(!Options::current()->lazyDefinitionExpansion) {
+      TimerStat::CodeTimer codeTimer(d_smt.d_definitionExpansionTime);
       Chat() << "Expanding definitions: " << in << endl;
       Debug("expand") << "have: " << in << endl;
       hash_map<TNode, Node, TNodeHashFunction> cache;
@@ -499,26 +512,68 @@ Node SmtEnginePrivate::simplify(TNode in)
       n = in;
     }
 
-    Chat() << "Simplifying (non-clausally): " << n << endl;
-    Trace("smt-simplify") << "simplifying: " << n << endl;
-    n = n.substitute(d_topLevelSubstitutions.begin(), d_topLevelSubstitutions.end(),
-                     d_topLevelReplacements.begin(), d_topLevelReplacements.end());
-    vector< std::pair<Node, Node> > moreSubstitutions;
-    n = d_smt.d_theoryEngine->simplify(n, moreSubstitutions);
-    for(vector< std::pair<Node, Node> >::const_iterator
-          i = moreSubstitutions.begin(),
-          i_end = moreSubstitutions.end();
-        i != i_end;
-        ++i) {
-      d_topLevelSubstitutions.push_back((*i).first);
-      d_topLevelReplacements.push_back((*i).second);
+    if(Options::current()->simplificationStyle == Options::NO_SIMPLIFICATION_STYLE) {
+      Chat() << "Not doing nonclausal simplification (by user request)" << endl;
+    } else {
+      if(Options::current()->simplificationStyle == Options::TOPLEVEL_SIMPLIFICATION_STYLE) {
+        Unimplemented("can't limit nonclausal simplification to toplevel-only yet");
+      }
+      Chat() << "Simplifying (non-clausally): " << n << endl;
+      TimerStat::CodeTimer codeTimer(d_smt.d_nonclausalSimplificationTime);
+      Trace("smt-simplify") << "simplifying: " << n << endl;
+      n = n.substitute(d_topLevelSubstitutions.begin(), d_topLevelSubstitutions.end());
+      size_t oldSize = d_topLevelSubstitutions.size();
+      n = d_smt.d_theoryEngine->simplify(n, d_topLevelSubstitutions);
+      if(n.getKind() != kind::AND && d_topLevelSubstitutions.size() > oldSize) {
+        Debug("smt-simplify") << "new top level substitutions not incorporated "
+                              << "into assertion ("
+                              << (d_topLevelSubstitutions.size() - oldSize)
+                              << "):" << endl;
+        NodeBuilder<> b(kind::AND);
+        b << n;
+        for(size_t i = oldSize; i < d_topLevelSubstitutions.size(); ++i) {
+          Debug("smt-simplify") << "  " << d_topLevelSubstitutions[i] << endl;
+          TNode x = d_topLevelSubstitutions[i].first;
+          TNode y = d_topLevelSubstitutions[i].second;
+          if(x.getType().isBoolean()) {
+            if(x.getMetaKind() == kind::metakind::CONSTANT) {
+              if(y.getMetaKind() == kind::metakind::CONSTANT) {
+                if(x == y) {
+                  b << d_smt.d_nodeManager->mkConst(true);
+                } else {
+                  b << d_smt.d_nodeManager->mkConst(false);
+                }
+              } else {
+                if(x.getConst<bool>()) {
+                  b << y;
+                } else {
+                  b << BooleanSimplification::negate(y);
+                }
+              }
+            } else if(y.getMetaKind() == kind::metakind::CONSTANT) {
+              if(y.getConst<bool>()) {
+                b << x;
+              } else {
+                b << BooleanSimplification::negate(x);
+              }
+            } else {
+              b << x.iffNode(y);
+            }
+          } else {
+            b << x.eqNode(y);
+          }
+        }
+        n = b;
+        n = BooleanSimplification::simplifyConflict(n);
+      }
+      Trace("smt-simplify") << "+++++++ got: " << n << endl;
     }
-    Trace("smt-simplify") << "+++++++ got: " << n << endl;
 
     // For now, don't re-statically-learn from learned facts; this could
     // be useful though (e.g., theory T1 could learn something further
     // from something learned previously by T2).
     Chat() << "Performing static learning: " << n << endl;
+    TimerStat::CodeTimer codeTimer(d_smt.d_staticLearningTime);
     NodeBuilder<> learned(kind::AND);
     learned << n;
     d_smt.d_theoryEngine->staticLearning(n, learned);

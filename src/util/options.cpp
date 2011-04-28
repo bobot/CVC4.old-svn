@@ -137,18 +137,32 @@ Languages currently supported as arguments to the -L / --lang option:\n\
 static const string simplificationHelp = "\
 Simplification modes currently supported by the --simplification option:\n\
 \n\
-batch\n\
-+ save up all ASSERTions; run nonclausal simplification and clausal\n\
-  (MiniSat) propagation for all of them only after reaching a querying command\n\
-  (CHECKSAT or QUERY or predicate SUBTYPE declaration)\n\
+  batch\n\
+  + save up all ASSERTions; run nonclausal simplification and clausal\n\
+    (MiniSat) propagation for all of them only after reaching a querying command\n\
+    (CHECKSAT or QUERY or predicate SUBTYPE declaration)\n\
 \n\
-incremental (default)\n\
-+ run nonclausal simplification and clausal propagation at each ASSERT\n\
-  (and at CHECKSAT/QUERY/SUBTYPE)\n\
+  incremental (default)\n\
+  + run nonclausal simplification and clausal propagation at each ASSERT\n\
+    (and at CHECKSAT/QUERY/SUBTYPE)\n\
 \n\
-incremental-lazy-sat\n\
-+ run nonclausal simplification at each ASSERT, but delay clausification of\n\
-  ASSERT until reaching a CHECKSAT/QUERY/SUBTYPE, then clausify them all\n\
+  incremental-lazy-sat\n\
+  + run nonclausal simplification at each ASSERT, but delay clausification of\n\
+    ASSERT until reaching a CHECKSAT/QUERY/SUBTYPE, then clausify them all\n\
+\n\
+You can also specify the level of aggressiveness for the simplification\n\
+(by repeating the --simplification option):\n\
+\n\
+  aggressive (default)\n\
+  + do aggressive, local simplification on the entire formula\n\
+\n\
+  toplevel\n\
+  + apply toplevel simplifications (things known true/false at outer level\n\
+    only)\n\
+\n\
+  none\n\
+  + do not perform nonclausal simplification\n\
+\n\
 ";
 
 string Options::getDescription() const {
@@ -437,6 +451,12 @@ throw(OptionException) {
         simplificationMode = INCREMENTAL_MODE;
       } else if(!strcmp(optarg, "incremental-lazy-sat")) {
         simplificationMode = INCREMENTAL_LAZY_SAT_MODE;
+      } else if(!strcmp(optarg, "aggressive")) {
+        simplificationStyle = AGGRESSIVE_SIMPLIFICATION_STYLE;
+      } else if(!strcmp(optarg, "toplevel")) {
+        simplificationStyle = TOPLEVEL_SIMPLIFICATION_STYLE;
+      } else if(!strcmp(optarg, "none")) {
+        simplificationStyle = NO_SIMPLIFICATION_STYLE;
       } else if(!strcmp(optarg, "help")) {
         puts(simplificationHelp.c_str());
         exit(1);

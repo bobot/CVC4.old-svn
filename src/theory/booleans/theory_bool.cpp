@@ -182,6 +182,7 @@ Node TheoryBool::simplifyRecursive(TNode in, Substitutions& outSubstitutions,
 
   case kind::AND:
   case kind::OR: {
+    size_t oldSize = outSubstitutions.size();
     NodeBuilder<> b(polarity ? k : (k == kind::AND ? kind::OR : kind::AND));
     Debug("simplify:bool") << "building an " << b.getKind() << endl;
     for(Node::iterator i = in.begin(), i_end = in.end(); i != i_end; ++i) {
@@ -191,12 +192,25 @@ Node TheoryBool::simplifyRecursive(TNode in, Substitutions& outSubstitutions,
       Debug("simplify:bool") << "+ got: " << n << endl;
       Debug("simplify:bool") << "now simplifying subterm " << n << endl;
       n = simplifyRecursive(n, outSubstitutions, polarity, b.getKind() == kind::AND);
+      if(b.getKind() != kind::AND) {
+        outSubstitutions.resize(oldSize);
+      }
       Debug("simplify:bool") << "+ got: " << n << endl;
 
       addToBuilder(n, b, outSubstitutions);
+
+      Assert(b.getKind() == kind::AND || outSubstitutions.size() == oldSize);
     }
     polarity = true;// it's been handled
-    if(! outSubstitutions.empty()) {
+    if(outSubstitutions.size() > oldSize) {
+      if(Debug.isOn("simplify:bool")) {
+        Debug("simplify:bool") << "** outSubsts GREW !!";
+        for(unsigned i = oldSize; i < outSubstitutions.size(); ++i) {
+          Debug("simplify:bool") << ", " << outSubstitutions[i];
+        }
+        Debug("simplify:bool") << endl;
+      }
+      Assert(b.getKind() == kind::AND);
       NodeBuilder<> b2(b.getKind());
       for(NodeBuilder<>::iterator i = b.begin(),
             i_end = b.end();
@@ -213,7 +227,8 @@ Node TheoryBool::simplifyRecursive(TNode in, Substitutions& outSubstitutions,
       } else if(b2.getNumChildren() == 0) {
         n = b2.getKind() == kind::AND ? d_true : d_false;
       } else {
-        n = Node(b2);
+        n = b2;
+        n = BooleanSimplification::simplify(n);
       }
       // re-add the substitutions we performed (they've been simplified away!)
       b2.clear(b.getKind());
@@ -242,22 +257,25 @@ Node TheoryBool::simplifyRecursive(TNode in, Substitutions& outSubstitutions,
         b2.clear();
       } else {
         if(b2.getNumChildren() == 0) {
+          n = b2.getKind() == kind::AND ? d_true : d_false;
           b2.clear();
-          n = d_true;
         } else {
           n = b2;
+          n = BooleanSimplification::simplify(n);
         }
       }
     } else {
+      Debug("simplify:bool") << "** outSubsts didn't grow" << endl;
       if(b.getNumChildren() == 1) {
         n = b[0];
         b.clear();
       } else {
         if(b.getNumChildren() == 0) {
+          n = b.getKind() == kind::AND ? d_true : d_false;
           b.clear();
-          n = d_true;
         } else {
           n = b;
+          n = BooleanSimplification::simplify(n);
         }
       }
     }
@@ -276,9 +294,13 @@ Node TheoryBool::simplifyRecursive(TNode in, Substitutions& outSubstitutions,
     break;
 
   case kind::ITE: {
+    size_t oldSize = outSubstitutions.size();
     Node cond = simplifyRecursive(in[0], outSubstitutions, true, false);
+    outSubstitutions.resize(oldSize);
     Node then = simplifyRecursive(in[1], outSubstitutions, polarity, false);
+    outSubstitutions.resize(oldSize);
     Node els = simplifyRecursive(in[2], outSubstitutions, polarity, false);
+    outSubstitutions.resize(oldSize);
     if(cond == d_true) {
       n = then;
       polarity = true;// NOT is already handled
@@ -294,8 +316,11 @@ Node TheoryBool::simplifyRecursive(TNode in, Substitutions& outSubstitutions,
 
   case kind::IFF: {
     NodeBuilder<> b(k);
-    b << simplifyRecursive(in[0], outSubstitutions, polarity, false);
-    b << simplifyRecursive(in[1], outSubstitutions, polarity, false);
+    size_t oldSize = outSubstitutions.size();
+    b << simplifyRecursive(in[0], outSubstitutions, true, false);
+    outSubstitutions.resize(oldSize);
+    b << simplifyRecursive(in[1], outSubstitutions, true, false);
+    outSubstitutions.resize(oldSize);
     if(b[0] == b[1]) {
       b.clear();
       n = d_true;
@@ -309,9 +334,12 @@ Node TheoryBool::simplifyRecursive(TNode in, Substitutions& outSubstitutions,
     Debug("simplify:bool") << "in EQUALity" << endl;
     NodeBuilder<> b(k);
     Debug("simplify:bool") << "+simplify " << in[0] << endl;
+    size_t oldSize = outSubstitutions.size();
     b << d_valuation.simplify(in[0], outSubstitutions);
+    outSubstitutions.resize(oldSize);
     Debug("simplify:bool") << "+simplify " << in[1] << endl;
     b << d_valuation.simplify(in[1], outSubstitutions);
+    outSubstitutions.resize(oldSize);
     Debug("simplify:bool") << "+check " << b[0] << " == " << b[1] << endl;
     if(b[0] == b[1]) {
       n = d_true;
