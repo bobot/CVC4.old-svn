@@ -2,10 +2,10 @@
 /*! \file declaration_scope.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: none
- ** Minor contributors (to current version): dejan, mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -70,6 +70,10 @@ bool DeclarationScope::isBoundDefinedFunction(const std::string& name) const thr
   CDMap<std::string, Expr, StringHashFunction>::iterator found =
     d_exprMap->find(name);
   return found != d_exprMap->end() && d_functions->contains((*found).second);
+}
+
+bool DeclarationScope::isBoundDefinedFunction(Expr func) const throw() {
+  return d_functions->contains(func);
 }
 
 Expr DeclarationScope::lookup(const std::string& name) const throw(AssertionException) {
@@ -174,4 +178,8 @@ void DeclarationScope::pushScope() throw() {
   d_context->push();
 }
 
-} // namespace CVC4
+size_t DeclarationScope::getLevel() const throw() {
+  return d_context->getLevel();
+}
+
+}/* CVC4 namespace */

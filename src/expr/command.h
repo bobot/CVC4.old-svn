@@ -2,10 +2,10 @@
 /*! \file command.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway, dejan
- ** Minor contributors (to current version): none
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -28,12 +28,14 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "expr/expr.h"
 #include "expr/type.h"
 #include "expr/variable_type_map.h"
 #include "util/result.h"
 #include "util/sexpr.h"
+#include "util/datatype.h"
 
 namespace CVC4 {
 
@@ -309,6 +311,17 @@ public:
   void printResult(std::ostream& out) const;
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
 };/* class GetOptionCommand */
+
+class CVC4_PUBLIC DatatypeDeclarationCommand : public Command {
+private:
+  std::vector<DatatypeType> d_datatypes;
+public:
+  DatatypeDeclarationCommand(const DatatypeType& datatype);
+  DatatypeDeclarationCommand(const std::vector<DatatypeType>& datatypes);
+  void invoke(SmtEngine* smtEngine);
+  void toStream(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
+};/* class DatatypeDeclarationCommand */
 
 class CVC4_PUBLIC CommandSequence : public Command {
 private:

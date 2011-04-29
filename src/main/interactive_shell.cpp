@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -40,7 +40,7 @@ InteractiveShell::InteractiveShell(ExprManager& exprManager,
    ParserBuilder parserBuilder(&exprManager, INPUT_FILENAME, options);
    /* Create parser with bogus input. */
    d_parser = parserBuilder.withStringInput("").build();
-}
+}/* InteractiveShell::InteractiveShell() */
 
 
 Command* InteractiveShell::readCommand() {
@@ -78,8 +78,8 @@ Command* InteractiveShell::readCommand() {
 
     /* Strip trailing whitespace. */
     int n = line.length() - 1;
-    while( !line.empty() && isspace(line[n]) ) { 
-      line.erase(n,1); 
+    while( !line.empty() && isspace(line[n]) ) {
+      line.erase(n,1);
       n--;
     }
 
@@ -92,7 +92,7 @@ Command* InteractiveShell::readCommand() {
         return NULL;
       }
 
-      /* Some input left to parse, but nothing left to read. 
+      /* Some input left to parse, but nothing left to read.
          Jump out of input loop. */
       break;
     }
@@ -104,7 +104,7 @@ Command* InteractiveShell::readCommand() {
     // cout << "Next char is '" << (char)c << "'" << endl << flush;
 
     input += line;
-    
+
     /* If the last char was a backslash, continue on the next line. */
     n = input.length() - 1;
     if( !line.empty() && input[n] == '\\' ) {
@@ -118,7 +118,7 @@ Command* InteractiveShell::readCommand() {
   }
 
   d_parser->setInput(Input::newStringInput(d_language,input,INPUT_FILENAME));
-  // Parser *parser = 
+  // Parser *parser =
   //   d_parserBuilder
   //       .withStringInput(input)
   //       .withStateFrom(d_lastParser)
@@ -139,6 +139,7 @@ Command* InteractiveShell::readCommand() {
   // d_lastParser = parser;
 
   return cmd_seq;
-}
+}/* InteractiveShell::readCommand() */
 
-} // CVC4 namespace
+}/* CVC4 namespace */
+

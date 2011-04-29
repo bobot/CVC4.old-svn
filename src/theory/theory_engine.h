@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief The theory engine.
+ ** \brief The theory engine
  **
  ** The theory engine.
  **/
@@ -51,8 +51,22 @@ class TheoryEngine {
   /** Our context */
   context::Context* d_context;
 
-  /** A table of from theory ifs to theory pointers */
+  /** A table of from theory IDs to theory pointers */
   theory::Theory* d_theoryTable[theory::THEORY_LAST];
+
+  /**
+   * A bitmap of theories that are "active" for the current run.  We
+   * mark a theory active when we firt see a term or type belonging to
+   * it.  This is important because we can optimize for single-theory
+   * runs (no sharing), can reduce the cost of walking the DAG on
+   * registration, etc.
+   */
+  bool d_theoryIsActive[theory::THEORY_LAST];
+
+  /**
+   * The count of active theories in the d_theoryIsActive bitmap.
+   */
+  size_t d_activeTheories;
 
   /**
    * An output channel for Theory that passes messages
@@ -85,7 +99,7 @@ class TheoryEngine {
       d_engine(engine),
       d_context(context),
       d_conflictNode(context),
-      d_explanationNode(context){
+      d_explanationNode(context) {
     }
 
     void newFact(TNode n);
@@ -103,6 +117,8 @@ class TheoryEngine {
 
     void propagate(TNode lit, bool)
       throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::propagate("
+                      << lit << ")" << std::endl;
       d_propagatedLiterals.push_back(lit);
       ++(d_engine->d_statistics.d_statPropagate);
     }
@@ -117,6 +133,8 @@ class TheoryEngine {
 
     void explanation(TNode explanationNode, bool)
       throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::explanation("
+                      << explanationNode << ")" << std::endl;
       d_explanationNode = explanationNode;
       ++(d_engine->d_statistics.d_statExplanation);
     }
@@ -155,6 +173,17 @@ class TheoryEngine {
    */
   Node removeITEs(TNode t);
 
+  /**
+   * Mark a theory active if it's not already.
+   */
+  void markActive(theory::TheoryId th) {
+    if(!d_theoryIsActive[th]) {
+      d_theoryIsActive[th] = true;
+      ++d_activeTheories;
+      Notice() << "Theory " << th << " has been activated." << std::endl;
+    }
+  }
+
 public:
 
   /**
@@ -168,11 +197,13 @@ public:
   ~TheoryEngine();
 
   /**
-   * Adds a theory. Only one theory per theoryId can be present, so if there is another theory it will be deleted.
+   * Adds a theory. Only one theory per theoryId can be present, so if
+   * there is another theory it will be deleted.
    */
   template <class TheoryClass>
   void addTheory() {
-    TheoryClass* theory = new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
+    TheoryClass* theory =
+      new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
     d_theoryTable[theory->getId()] = theory;
     d_sharedTermManager->registerTheory(static_cast<TheoryClass*>(theory));
   }
@@ -212,8 +243,8 @@ public:
     d_hasShutDown = true;
 
     // Shutdown all the theories
-    for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++ theoryId) {
-      if (d_theoryTable[theoryId]) {
+    for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
+      if(d_theoryTable[theoryId]) {
         d_theoryTable[theoryId]->shutdown();
       }
     }
@@ -243,10 +274,11 @@ public:
 
   /**
    * Preprocess a node.  This involves theory-specific rewriting, then
-   * calling preRegisterTerm() on what's left over.
+   * calling preRegister() on what's left over.
    * @param n the node to preprocess
    */
   Node preprocess(TNode n);
+  void preRegister(TNode preprocessed);
 
   /**
    * Assert the formula to the appropriate theory.
@@ -264,7 +296,7 @@ public:
     // Get the atom
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
 
-    // Again, eqaulity is a special case
+    // Again, equality is a special case
     if (atom.getKind() == kind::EQUAL) {
       theory::TheoryId theoryLHS = theory::Theory::theoryOf(atom[0]);
       Debug("theory") << "asserting " << node << " to " << theoryLHS << std::endl;

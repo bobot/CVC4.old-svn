@@ -2,10 +2,10 @@
 /*! \file declaration_scope.h
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: none
- ** Minor contributors (to current version): dejan, mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -49,7 +49,7 @@ class CVC4_PUBLIC ScopeException : public Exception {
  */
 class CVC4_PUBLIC DeclarationScope {
   /** The context manager for the scope maps. */
-  context::Context *d_context;
+  context::Context* d_context;
 
   /** A map for expressions. */
   context::CDMap<std::string, Expr, StringHashFunction> *d_exprMap;
@@ -134,6 +134,12 @@ public:
   bool isBoundDefinedFunction(const std::string& name) const throw();
 
   /**
+   * Check whether an Expr was bound to a function (i.e., was the
+   * second arg to bindDefinedFunction()).
+   */
+  bool isBoundDefinedFunction(Expr func) const throw();
+
+  /**
    * Check whether a name is bound to a type (or type constructor).
    *
    * @param name the identifier to check.
@@ -179,6 +185,9 @@ public:
 
   /** Push a scope level. */
   void pushScope() throw();
+
+  /** Get the current level of this declaration scope. */
+  size_t getLevel() const throw();
 
 };/* class DeclarationScope */
 

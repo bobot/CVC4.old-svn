@@ -92,8 +92,9 @@ public:
     /* fs.close(); */
 
     checkEmptyInput(
-      ParserBuilder(d_exprManager, filename)
-        .withInputLanguage(LANG_CVC4));
+      ParserBuilder(d_exprManager,filename)
+        .withInputLanguage(LANG_CVC4)
+                    );
 
     remove(filename);
     //    mkfifo(ptr, S_IWUSR | s_IRUSR);
@@ -107,22 +108,23 @@ public:
     fs.close();
 
     checkTrueInput(
-      ParserBuilder(d_exprManager, filename)
-        .withInputLanguage(LANG_CVC4));
+      ParserBuilder(d_exprManager,filename)
+        .withInputLanguage(LANG_CVC4)
+                   );
 
     remove(filename);
   }
 
   void testEmptyStringInput() {
     checkEmptyInput(
-      ParserBuilder(d_exprManager, "foo")
+      ParserBuilder(d_exprManager,"foo")
         .withInputLanguage(LANG_CVC4)
         .withStringInput(""));
   }
 
   void testTrueStringInput() {
     checkTrueInput(
-      ParserBuilder(d_exprManager, "foo")
+      ParserBuilder(d_exprManager,"foo")
         .withInputLanguage(LANG_CVC4)
         .withStringInput("TRUE"));
   }
@@ -130,7 +132,7 @@ public:
   void testEmptyStreamInput() {
     stringstream ss( "", ios_base::in );
     checkEmptyInput(
-      ParserBuilder(d_exprManager, "foo")
+      ParserBuilder(d_exprManager,"foo")
         .withInputLanguage(LANG_CVC4)
         .withStreamInput(ss));
   }
@@ -138,7 +140,7 @@ public:
   void testTrueStreamInput() {
     stringstream ss( "TRUE", ios_base::in );
     checkTrueInput(
-      ParserBuilder(d_exprManager, "foo")
+      ParserBuilder(d_exprManager,"foo")
         .withInputLanguage(LANG_CVC4)
         .withStreamInput(ss));
   }

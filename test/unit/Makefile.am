@@ -19,6 +19,7 @@ UNIT_TESTS = \
 	expr/attribute_black \
 	expr/declaration_scope_black \
 	expr/node_self_iterator_black \
+	expr/type_cardinality_public \
 	parser/parser_black \
 	parser/parser_builder_black \
 	prop/cnf_stream_black \
@@ -33,6 +34,7 @@ UNIT_TESTS = \
 	context/cdvector_black \
 	util/assert_white \
 	util/bitvector_black \
+	util/datatype_black \
 	util/configuration_black \
 	util/congruence_closure_white \
 	util/output_black \
@@ -42,6 +44,11 @@ UNIT_TESTS = \
 	util/rational_black \
 	util/rational_white \
 	util/stats_black \
+	util/trans_closure_black \
+	util/boolean_simplification_black \
+	util/subrange_bound_white \
+	util/cardinality_public \
+	util/recursion_breaker_black \
 	main/interactive_shell_black
 
 export VERBOSE = 1

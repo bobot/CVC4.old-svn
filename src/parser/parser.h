@@ -2,10 +2,10 @@
 /*! \file parser.h
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: none
- ** Minor contributors (to current version): dejan, mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -25,16 +25,17 @@
 #include <set>
 #include <list>
 
-#include "input.h"
-#include "parser_exception.h"
+#include "parser/input.h"
+#include "parser/parser_exception.h"
+#include "expr/expr.h"
 #include "expr/declaration_scope.h"
 #include "expr/kind.h"
+#include "expr/expr_stream.h"
 
 namespace CVC4 {
 
 // Forward declarations
 class BooleanType;
-class Expr;
 class ExprManager;
 class Command;
 class FunctionType;
@@ -54,18 +55,20 @@ enum DeclarationCheck {
   CHECK_NONE
 };
 
-/** Returns a string representation of the given object (for
- debugging). */
-inline std::string toString(DeclarationCheck check) {
+/**
+ * Returns a string representation of the given object (for
+ * debugging).
+ */
+inline std::ostream& operator<<(std::ostream& out, DeclarationCheck check) {
   switch(check) {
   case CHECK_NONE:
-    return "CHECK_NONE";
+    return out << "CHECK_NONE";
   case CHECK_DECLARED:
-    return "CHECK_DECLARED";
+    return out << "CHECK_DECLARED";
   case CHECK_UNDECLARED:
-    return "CHECK_UNDECLARED";
+    return out << "CHECK_UNDECLARED";
   default:
-    Unreachable();
+    return out << "DeclarationCheck!UNKNOWN";
   }
 }
 
@@ -79,16 +82,18 @@ enum SymbolType {
   SYM_SORT
 };
 
-/** Returns a string representation of the given object (for
- debugging). */
-inline std::string toString(SymbolType type) {
+/**
+ * Returns a string representation of the given object (for
+ * debugging).
+ */
+inline std::ostream& operator<<(std::ostream& out, SymbolType type) {
   switch(type) {
   case SYM_VARIABLE:
-    return "SYM_VARIABLE";
+    return out << "SYM_VARIABLE";
   case SYM_SORT:
-    return "SYM_SORT";
+    return out << "SYM_SORT";
   default:
-    Unreachable();
+    return out << "SymbolType!UNKNOWN";
   }
 }
 
@@ -106,11 +111,22 @@ class CVC4_PUBLIC Parser {
   /** The input that we're parsing. */
   Input *d_input;
 
-  /** The symbol table */
-  DeclarationScope d_declScope;
+  /**
+   * The declaration scope that is "owned" by this parser.  May or
+   * may not be the current declaration scope in use.
+   */
+  DeclarationScope d_declScopeAllocated;
 
-  /** The name of the input file. */
-//  std::string d_filename;
+  /**
+   * This current symbol table used by this parser.  Initially points
+   * to d_declScopeAllocated, but can be changed (making this parser
+   * delegate its definitions and lookups to another parser).
+   * See useDeclarationsFrom().
+   */
+  DeclarationScope* d_declScope;
+
+  /** How many anonymous functions we've created. */
+  size_t d_anonymousFunctionCount;
 
   /** Are we done */
   bool d_done;
@@ -121,8 +137,20 @@ class CVC4_PUBLIC Parser {
   /** Are we parsing in strict mode? */
   bool d_strictMode;
 
+  /** Are we only parsing? */
+  bool d_parseOnly;
+
   /** The set of operators available in the current logic. */
   std::set<Kind> d_logicOperators;
+
+  /**
+   * The current set of unresolved types.  We can get by with this NOT
+   * being on the scope, because we can only have one DATATYPE
+   * definition going on at one time.  This is a bit hackish; we
+   * depend on mkMutualDatatypeTypes() to check everything and clear
+   * this out.
+   */
+  std::set<SortType> d_unresolved;
 
   /**
    * "Preemption commands": extra commands implied by subterms that
@@ -143,7 +171,7 @@ protected:
    * @param input the parser input
    * @param strictMode whether to incorporate strict(er) compliance checks
    */
-  Parser(ExprManager* exprManager, Input* input, bool strictMode = false);
+  Parser(ExprManager* exprManager, Input* input, bool strictMode = false, bool parseOnly = false);
 
 public:
 
@@ -243,7 +271,7 @@ public:
    * @throws ParserException if checks are enabled and the check fails
    */
   void checkDeclaration(const std::string& name, DeclarationCheck check,
-                        SymbolType type = SYM_VARIABLE) throw (ParserException);
+                        SymbolType type = SYM_VARIABLE) throw(ParserException);
 
   /**
    * Checks whether the given name is bound to a function.
@@ -251,7 +279,7 @@ public:
    * @throws ParserException if checks are enabled and name is not
    * bound to a function
    */
-  void checkFunction(const std::string& name) throw (ParserException);
+  void checkFunctionLike(const std::string& name) throw(ParserException);
 
   /**
    * Check that <code>kind</code> can accept <code>numArgs</code> arguments.
@@ -261,7 +289,7 @@ public:
    * <code>kind</code> cannot be applied to <code>numArgs</code>
    * arguments.
    */
-  void checkArity(Kind kind, unsigned int numArgs) throw (ParserException);
+  void checkArity(Kind kind, unsigned numArgs) throw(ParserException);
 
   /**
    * Check that <code>kind</code> is a legal operator in the current
@@ -272,7 +300,7 @@ public:
    * @throws ParserException if the parser mode is strict and the
    * operator <code>kind</code> has not been enabled
    */
-  void checkOperator(Kind kind, unsigned int numArgs) throw (ParserException);
+  void checkOperator(Kind kind, unsigned numArgs) throw(ParserException);
 
   /**
    * Returns the type for the variable with the given name.
@@ -288,11 +316,18 @@ public:
   /**
    * Create a set of new CVC4 variable expressions of the given type.
    */
-  const std::vector<Expr>
+  std::vector<Expr>
   mkVars(const std::vector<std::string> names, const Type& type);
 
   /** Create a new CVC4 function expression of the given type. */
   Expr mkFunction(const std::string& name, const Type& type);
+
+  /**
+   * Create a new CVC4 function expression of the given type,
+   * appending a unique index to its name.  (That's the ONLY
+   * difference between mkAnonymousFunction() and mkFunction()).
+   */
+  Expr mkAnonymousFunction(const std::string& prefix, const Type& type);
 
   /** Create a new variable definition (e.g., from a let binding). */
   void defineVar(const std::string& name, const Expr& val);
@@ -315,18 +350,33 @@ public:
   /**
    * Creates a new sort with the given name.
    */
-  Type mkSort(const std::string& name);
+  SortType mkSort(const std::string& name);
 
   /**
    * Creates a new sort constructor with the given name and arity.
    */
-  Type mkSortConstructor(const std::string& name, size_t arity);
+  SortConstructorType mkSortConstructor(const std::string& name, size_t arity);
 
   /**
    * Creates new sorts with the given names (all of arity 0).
    */
-  const std::vector<Type>
-  mkSorts(const std::vector<std::string>& names);
+  std::vector<SortType> mkSorts(const std::vector<std::string>& names);
+
+  /**
+   * Creates a new "unresolved type," used only during parsing.
+   */
+  SortType mkUnresolvedType(const std::string& name);
+
+  /**
+   * Returns true IFF name is an unresolved type.
+   */
+  bool isUnresolvedType(const std::string& name);
+
+  /**
+   * Create sorts of mutually-recursive datatypes.
+   */
+  std::vector<DatatypeType>
+  mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes);
 
   /**
    * Add an operator to the current legal set.
@@ -345,28 +395,110 @@ public:
   /** Is the symbol bound to a boolean variable? */
   bool isBoolean(const std::string& name);
 
-  /** Is the symbol bound to a function? */
-  bool isFunction(const std::string& name);
+  /** Is the symbol bound to a function (or function-like thing)? */
+  bool isFunctionLike(const std::string& name);
 
   /** Is the symbol bound to a defined function? */
   bool isDefinedFunction(const std::string& name);
 
+  /** Is the Expr a defined function? */
+  bool isDefinedFunction(Expr func);
+
   /** Is the symbol bound to a predicate? */
   bool isPredicate(const std::string& name);
 
+  /** Parse and return the next command. */
   Command* nextCommand() throw(ParserException);
+
+  /** Parse and return the next expression. */
   Expr nextExpression() throw(ParserException);
 
-  inline void parseError(const std::string& msg) throw (ParserException) {
+  /** Raise a parse error with the given message. */
+  inline void parseError(const std::string& msg) throw(ParserException) {
     d_input->parseError(msg);
   }
 
-  inline void pushScope() { d_declScope.pushScope(); }
-  inline void popScope() { d_declScope.popScope(); }
-}; // class Parser
+  /**
+   * If we are parsing only, don't raise an exception; if we are not,
+   * raise a parse error with the given message.  There is no actual
+   * parse error, everything is as expected, but we cannot create the
+   * Expr, Type, or other requested thing yet due to internal
+   * limitations.  Even though it's not a parse error, we throw a
+   * parse error so that the input line and column information is
+   * available.
+   *
+   * Think quantifiers.  We don't have a TheoryQuantifiers yet, so we
+   * have no kind::FORALL or kind::EXISTS.  But we might want to
+   * support parsing quantifiers (just not doing anything with them).
+   * So this mechanism gives you a way to do it with --parse-only.
+   */
+  inline void unimplementedFeature(const std::string& msg) throw(ParserException) {
+    if(!d_parseOnly) {
+      parseError("Unimplemented feature: " + msg);
+    }
+  }
 
-} // namespace parser
+  inline void pushScope() { d_declScope->pushScope(); }
+  inline void popScope() { d_declScope->popScope(); }
 
-} // namespace CVC4
+  /**
+   * Set the current symbol table used by this parser.
+   * From now on, this parser will perform its definitions and
+   * lookups in the declaration scope of the "parser" argument
+   * (but doesn't re-delegate if the other parser's declaration scope
+   * changes later).  A NULL argument restores this parser's
+   * "primordial" declaration scope assigned at its creation.  Calling
+   * p->useDeclarationsFrom(p) is a no-op.
+   *
+   * This feature is useful when e.g. reading out-of-band expression data:
+   * 1. Parsing --replay log files produced with --replay-log.
+   * 2. Perhaps a multi-query benchmark file is being single-stepped
+   *    with intervening queries on stdin that must reference
+   *
+   * However, the feature must be used carefully.  Pushes and pops
+   * should be performed with the correct current declaration scope.
+   * Care must be taken to match up declaration scopes, of course;
+   * If variables in the deferred-to parser go out of scope, the
+   * secondary parser will give errors that they are undeclared.
+   * Also, an outer-scope variable shadowed by an inner-scope one of
+   * the same name may be temporarily inaccessible.
+   *
+   * In short, caveat emptor.
+   */
+  inline void useDeclarationsFrom(Parser* parser) {
+    if(parser == NULL) {
+      d_declScope = &d_declScopeAllocated;
+    } else {
+      d_declScope = parser->d_declScope;
+    }
+  }
+
+  /**
+   * Gets the current declaration level.
+   */
+  inline size_t getDeclarationLevel() const throw() {
+    return d_declScope->getLevel();
+  }
+
+  /**
+   * An expression stream interface for a parser.  This stream simply
+   * pulls expressions from the given Parser object.
+   *
+   * Here, the ExprStream base class allows a Parser (from the parser
+   * library) and core components of CVC4 (in the core library) to
+   * communicate without polluting the public interface or having them
+   * reach into private (undocumented) interfaces.
+   */
+  class ExprStream : public CVC4::ExprStream {
+    Parser* d_parser;
+  public:
+    ExprStream(Parser* parser) : d_parser(parser) {}
+    ~ExprStream() { delete d_parser; }
+    Expr nextExpr() { return d_parser->nextExpression(); }
+  };/* class Parser::ExprStream */
+};/* class Parser */
+
+}/* CVC4::parser namespace */
+}/* CVC4 namespace */
 
 #endif /* __CVC4__PARSER__PARSER_STATE_H */

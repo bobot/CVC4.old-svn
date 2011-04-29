@@ -29,10 +29,14 @@ libexpr_la_SOURCES = \
 	node_self_iterator.h \
 	variable_type_map.h \
 	pickle.h \
-	pickle.cpp
+	pickle.cpp \
+	node_self_iterator.h \
+	expr_stream.h
+
 nodist_libexpr_la_SOURCES = \
 	kind.h \
 	metakind.h \
+	type_properties.h \
 	expr.h \
 	expr.cpp \
 	expr_manager.h \
@@ -41,6 +45,7 @@ nodist_libexpr_la_SOURCES = \
 EXTRA_DIST = \
 	kind_template.h \
 	metakind_template.h \
+	type_properties_template.h \
 	expr_manager_template.h \
 	expr_manager_template.cpp \
 	expr_template.h \
@@ -52,6 +57,7 @@ EXTRA_DIST = \
 BUILT_SOURCES = \
 	kind.h \
 	metakind.h \
+	type_properties.h \
 	expr.h \
 	expr.cpp \
 	expr_manager.h \
@@ -81,6 +87,14 @@ metakind.h: metakind_template.h mkmetakind @top_builddir@/src/theory/.subdirs @t
 	$(AM_V_at)chmod +x @srcdir@/mkmetakind
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkmetakind \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+type_properties.h: type_properties_template.h mkkind @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkkind
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkkind \
 		$< \
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)

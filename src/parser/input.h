@@ -2,10 +2,10 @@
 /*! \file input.h
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -142,6 +142,9 @@ public:
   /** Retrieve the remaining text in this input. */
   virtual std::string getUnparsedText() = 0;
 
+  /** Get the language that this Input is reading. */
+  virtual InputLanguage getLanguage() const throw() = 0;
+
 protected:
 
   /** Create an input.
@@ -179,7 +182,7 @@ protected:
 
   /** Set the Parser object for this input. */
   virtual void setParser(Parser& parser) = 0;
-};
+};/* class Input */
 
 }/* CVC4::parser namespace */
 }/* CVC4 namespace */

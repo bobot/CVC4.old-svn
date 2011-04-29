@@ -2,10 +2,10 @@
 /*! \file type.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: mdeters, dejan
+ ** Major contributors: dejan, mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -68,11 +68,42 @@ bool Type::isNull() const {
   return d_typeNode->isNull();
 }
 
+Cardinality Type::getCardinality() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->getCardinality();
+}
+
+bool Type::isWellFounded() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isWellFounded();
+}
+
+Expr Type::mkGroundTerm() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->mkGroundTerm().toExpr();
+}
+
 Type& Type::operator=(const Type& t) {
-  NodeManagerScope nms(t.d_nodeManager);
+  Assert(d_typeNode != NULL, "Unexpected NULL typenode pointer!");
+  Assert(t.d_typeNode != NULL, "Unexpected NULL typenode pointer!");
+
   if(this != &t) {
-    *d_typeNode = *t.d_typeNode;
-    d_nodeManager = t.d_nodeManager;
+    if(d_nodeManager == t.d_nodeManager) {
+      NodeManagerScope nms(d_nodeManager);
+      *d_typeNode = *t.d_typeNode;
+    } else {
+      // This happens more than you think---every time you set to or
+      // from the null Type.  It's tricky because each node manager
+      // must be in play at the right time.
+
+      NodeManagerScope nms1(d_nodeManager);
+      *d_typeNode = TypeNode::null();
+
+      NodeManagerScope nms2(t.d_nodeManager);
+      *d_typeNode = *t.d_typeNode;
+
+      d_nodeManager = t.d_nodeManager;
+    }
   }
   return *this;
 }
@@ -83,6 +114,10 @@ bool Type::operator==(const Type& t) const {
 
 bool Type::operator!=(const Type& t) const {
   return *d_typeNode != *t.d_typeNode;
+}
+
+bool Type::operator<(const Type& t) const {
+  return *d_typeNode < *t.d_typeNode;
 }
 
 Type Type::substitute(const Type& type, const Type& replacement) const {
@@ -116,6 +151,7 @@ Type Type::substitute(const std::vector<Type>& types,
                                          replacementsNodes.begin(),
                                          replacementsNodes.end()));
 }
+
 
 ExprManager* Type::getExprManager() const {
   return d_nodeManager->toExprManager();
@@ -188,6 +224,58 @@ Type::operator BitVectorType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
   Assert(isBitVector());
   return BitVectorType(*this);
+}
+
+/** Cast to a Constructor type */
+Type::operator DatatypeType() const throw(AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isDatatype());
+  return DatatypeType(*this);
+}
+
+/** Is this the Datatype type? */
+bool Type::isDatatype() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isDatatype();
+}
+
+/** Cast to a Constructor type */
+Type::operator ConstructorType() const throw(AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isConstructor());
+  return ConstructorType(*this);
+}
+
+/** Is this the Constructor type? */
+bool Type::isConstructor() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isConstructor();
+}
+
+/** Cast to a Selector type */
+Type::operator SelectorType() const throw(AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isSelector());
+  return SelectorType(*this);
+}
+
+/** Is this the Selector type? */
+bool Type::isSelector() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isSelector();
+}
+
+/** Cast to a Tester type */
+Type::operator TesterType() const throw(AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isTester());
+  return TesterType(*this);
+}
+
+/** Is this the Tester type? */
+bool Type::isTester() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isTester();
 }
 
 /** Is this a function type? */
@@ -353,6 +441,26 @@ BitVectorType::BitVectorType(const Type& t) throw(AssertionException) :
   Assert(isBitVector());
 }
 
+DatatypeType::DatatypeType(const Type& t) throw(AssertionException) :
+  Type(t) {
+  Assert(isDatatype());
+}
+
+ConstructorType::ConstructorType(const Type& t) throw(AssertionException) :
+  Type(t) {
+  Assert(isConstructor());
+}
+
+SelectorType::SelectorType(const Type& t) throw(AssertionException) :
+  Type(t) {
+  Assert(isSelector());
+}
+
+TesterType::TesterType(const Type& t) throw(AssertionException) :
+  Type(t) {
+  Assert(isTester());
+}
+
 FunctionType::FunctionType(const Type& t) throw(AssertionException) :
   Type(t) {
   Assert(isFunction());
@@ -396,8 +504,48 @@ Type ArrayType::getConstituentType() const {
   return makeType(d_typeNode->getArrayConstituentType());
 }
 
-size_t TypeHashStrategy::hash(const Type& t) {
-  return TypeNodeHashStrategy::hash(*t.d_typeNode);
+DatatypeType ConstructorType::getRangeType() const {
+  return DatatypeType(makeType(d_typeNode->getConstructorRangeType()));
+}
+
+size_t ConstructorType::getArity() const {
+  return d_typeNode->getNumChildren() - 1;
+}
+
+std::vector<Type> ConstructorType::getArgTypes() const {
+  NodeManagerScope nms(d_nodeManager);
+  vector<Type> args;
+  vector<TypeNode> argNodes = d_typeNode->getArgTypes();
+  vector<TypeNode>::iterator it = argNodes.begin();
+  vector<TypeNode>::iterator it_end = argNodes.end();
+  for(; it != it_end; ++ it) {
+    args.push_back(makeType(*it));
+  }
+  return args;
+}
+
+const Datatype& DatatypeType::getDatatype() const {
+  return d_typeNode->getConst<Datatype>();
+}
+
+DatatypeType SelectorType::getDomain() const {
+  return DatatypeType(makeType((*d_typeNode)[0]));
+}
+
+Type SelectorType::getRangeType() const {
+  return makeType((*d_typeNode)[1]);
+}
+
+DatatypeType TesterType::getDomain() const {
+  return DatatypeType(makeType((*d_typeNode)[0]));
+}
+
+BooleanType TesterType::getRangeType() const {
+  return BooleanType(makeType(d_nodeManager->booleanType()));
+}
+
+size_t TypeHashFunction::operator()(const Type& t) const{
+  return TypeNodeHashFunction()(NodeManager::fromType(t));
 }
 
 }/* CVC4 namespace */

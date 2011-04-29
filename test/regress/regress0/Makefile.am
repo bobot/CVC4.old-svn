@@ -1,4 +1,4 @@
-SUBDIRS = . arith precedence uf uflra bv lemmas push-pop
+SUBDIRS = . arith precedence uf uflra bv datatypes lemmas push-pop
 
 BINARY = cvc4
 TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/$(BINARY)
@@ -103,6 +103,7 @@ endif
 
 # and make sure to distribute it
 EXTRA_DIST += \
+	subranges.cvc \
 	error.cvc
 
 # synonyms for "check" in this directory

@@ -2,10 +2,10 @@
 /*! \file options.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway
- ** Minor contributors (to current version): dejan, barrett
+ ** Major contributors: taking, cconway
+ ** Minor contributors (to current version): barrett, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -81,10 +81,17 @@ Options::Options() :
   typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
   earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
   incrementalSolving(false),
+  replayFilename(""),
+  replayStream(NULL),
+  replayLog(NULL),
   rewriteArithEqualities(false),
+  arithPropagation(false),
+  satRandomFreq(0.0),
+  satRandomSeed(91648253), //Minisat's default value
   pivotRule(MINIMUM),
   lemmaOutputChannel(NULL),
-  lemmaInputChannel(NULL) {
+  lemmaInputChannel(NULL)
+{
 }
 
 static const string optionsDescription = "\
@@ -115,8 +122,13 @@ static const string optionsDescription = "\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
+   --replay file          replay decisions from file\n\
+   --replay-log file      log decisions and propagations to file\n\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
+   --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
+   --random-seed=S        sets the random seed for the sat solver\n\
    --rewrite-arithmetic-equalities rewrite (= x y) to (and (<= x y) (>= x y)) in arithmetic\n\
+   --enable-arithmetic-propagation turns on arithmetic propagation\n\
    --incremental          enable incremental solving\n";
 
 static const string languageDescription = "\
@@ -171,9 +183,14 @@ enum OptionValue {
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
   INCREMENTAL,
+  REPLAY,
+  REPLAY_LOG,
   PIVOT_RULE,
+  PRINT_WINNER,
+  RANDOM_FREQUENCY,
+  RANDOM_SEED,
   REWRITE_ARITHMETIC_EQUALITIES,
-  PRINT_WINNER
+  ARITHMETIC_PROPAGATION
 };/* enum OptionValue */
 
 /**
@@ -220,19 +237,29 @@ static struct option cmdlineOptions[] = {
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
   { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
   { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
-  { "uf"         , required_argument, NULL, UF_THEORY },
+  { "uf"         , required_argument, NULL, UF_THEORY   },
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
   { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
   { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
+  { "no-type-checking", no_argument , NULL, NO_TYPE_CHECKING },
+  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
+  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
+  { "incremental", no_argument      , NULL, INCREMENTAL },
+  { "replay"     , required_argument, NULL, REPLAY      },
+  { "replay-log" , required_argument, NULL, REPLAY_LOG  },
+  { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
+  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
   { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING },
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
-  { "incremental", no_argument, NULL, INCREMENTAL },
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
+  { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
+  { "random-seed" , required_argument, NULL, RANDOM_SEED  },
   { "rewrite-arithmetic-equalities", no_argument, NULL, REWRITE_ARITHMETIC_EQUALITIES },
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
+  { "enable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -434,8 +461,53 @@ throw(OptionException) {
       incrementalSolving = true;
       break;
 
+    case REPLAY:
+#ifdef CVC4_REPLAY
+      if(optarg == NULL || *optarg == '\0') {
+        throw OptionException(string("Bad file name for --replay"));
+      } else {
+        replayFilename = optarg;
+      }
+#else /* CVC4_REPLAY */
+      throw OptionException("The replay feature was disabled in this build of CVC4.");
+#endif /* CVC4_REPLAY */
+      break;
+
+    case REPLAY_LOG:
+#ifdef CVC4_REPLAY
+      if(optarg == NULL || *optarg == '\0') {
+        throw OptionException(string("Bad file name for --replay-log"));
+      } else if(!strcmp(optarg, "-")) {
+        replayLog = &cout;
+      } else {
+        replayLog = new ofstream(optarg, ofstream::out | ofstream::trunc);
+        if(!*replayLog) {
+          throw OptionException(string("Cannot open replay-log file: `") + optarg + "'");
+        }
+      }
+#else /* CVC4_REPLAY */
+      throw OptionException("The replay feature was disabled in this build of CVC4.");
+#endif /* CVC4_REPLAY */
+      break;
+
     case REWRITE_ARITHMETIC_EQUALITIES:
       rewriteArithEqualities = true;
+      break;
+
+    case ARITHMETIC_PROPAGATION:
+      arithPropagation = true;
+      break;
+
+    case RANDOM_SEED:
+      satRandomSeed = atof(optarg);
+      break;
+
+    case RANDOM_FREQUENCY:
+      satRandomFreq = atof(optarg);
+      if(! (0.0 <= satRandomFreq && satRandomFreq <= 1.0)){
+        throw OptionException(string("--random-freq: `") +
+                              optarg + "' is not between 0.0 and 1.0.");
+      }
       break;
 
     case PIVOT_RULE:
@@ -472,6 +544,7 @@ throw(OptionException) {
       printf("\n");
       printf("debug code : %s\n", Configuration::isDebugBuild() ? "yes" : "no");
       printf("statistics : %s\n", Configuration::isStatisticsBuild() ? "yes" : "no");
+      printf("replay     : %s\n", Configuration::isReplayBuild() ? "yes" : "no");
       printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
       printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
       printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");

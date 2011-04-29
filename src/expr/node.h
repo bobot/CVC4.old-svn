@@ -5,7 +5,7 @@
  ** Major contributors: dejan
  ** Minor contributors (to current version): taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -81,17 +81,54 @@ public:
    */
   NodeTemplate<true> getNode() const;
 
-  /** Returns the message corresponding to the type-checking failure */
-  std::string toString() const;
-};
+  /**
+   * Returns the message corresponding to the type-checking failure.
+   * We prefer toStream() to toString() because that keeps the expr-depth
+   * and expr-language settings present in the stream.
+   */
+  void toStream(std::ostream& out) const;
+
+};/* class TypeCheckingExceptionPrivate */
 
 /**
+ * \typedef NodeTemplate<true> Node;
+ *
  * The Node class encapsulates the NodeValue with reference counting.
+ *
+ * One should use generally use Nodes to manipulate expressions, to be safe.
+ * Every outstanding Node that references a NodeValue is counted in that
+ * NodeValue's reference count.  Reference counts are maintained correctly
+ * on assignment of the Node object (to point to another NodeValue), and,
+ * upon destruction of the Node object, the NodeValue's reference count is
+ * decremented and, if zero, it becomes eligible for reclamation by the
+ * system.
  */
 typedef NodeTemplate<true> Node;
 
 /**
+ * \typedef NodeTemplate<false> TNode;
+ *
  * The TNode class encapsulates the NodeValue but doesn't count references.
+ *
+ * TNodes are just like Nodes, but they don't update the reference count.
+ * Therefore, there is less overhead (copying a TNode is just the cost of
+ * the underlying pointer copy).  Generally speaking, this is unsafe!
+ * However, there are certain situations where a TNode can be used safely.
+ *
+ * The largest class of uses for TNodes are when you need to use them in a
+ * "temporary," scoped fashion (hence the "T" in "TNode").  In general,
+ * it is safe to use TNode as a function parameter type, since the calling
+ * function (or some other function on the call stack) presumably has a Node
+ * reference to the expression data.  It is generally _not_ safe, however,
+ * to return a TNode _from_ a function.  (Functions that return Nodes often
+ * create the expression they return; such new expressions may not be
+ * referenced on the call stack, and have a reference count of 1 on
+ * creation.  If this is returned as a TNode rather than a Node, the
+ * count drops to zero, marking the expression as eligible for reclamation.)
+ *
+ * More guidelines on when to use TNodes is available in the CVC4
+ * Developer's Guide:
+ * http://goedel.cims.nyu.edu/wiki/Developer%27s_Guide#Dealing_with_expressions_.28Nodes_and_TNodes.29
  */
 typedef NodeTemplate<false> TNode;
 
@@ -197,6 +234,14 @@ public:
    * @param node the node to make copy of
    */
   NodeTemplate(const NodeTemplate& node);
+
+  /**
+   * Allow Exprs to become Nodes.  This permits flexible translation of
+   * Exprs -> Nodes inside the CVC4 library without exposing a toNode()
+   * function in the public interface, or requiring lots of "friend"
+   * relationships.
+   */
+  NodeTemplate(const Expr& e);
 
   /**
    * Assignment operator for nodes, copies the relevant information from node
@@ -686,7 +731,7 @@ public:
   }
 
   /**
-   * Converst this node into a string representation and sends it to the
+   * Converts this node into a string representation and sends it to the
    * given stream
    *
    * @param out the stream to serialize this node to
@@ -756,6 +801,7 @@ public:
 
 /**
  * Serializes a given node to the given stream.
+ *
  * @param out the output stream to use
  * @param n the node to output to the stream
  * @return the stream
@@ -779,7 +825,7 @@ namespace CVC4 {
 
 // for hash_maps, hash_sets..
 struct NodeHashFunction {
-  size_t operator()(const CVC4::Node& node) const {
+  size_t operator()(CVC4::Node node) const {
     return (size_t) node.getId();
   }
 };/* struct NodeHashFunction */
@@ -901,6 +947,18 @@ NodeTemplate<ref_count>::NodeTemplate(const NodeTemplate& e) {
     d_nv->inc();
   } else {
     Assert(d_nv->d_rc > 0, "TNode constructed from TNode with rc == 0");
+  }
+}
+
+template <bool ref_count>
+NodeTemplate<ref_count>::NodeTemplate(const Expr& e) {
+  Assert(e.d_node != NULL, "Expecting a non-NULL expression value!");
+  Assert(e.d_node->d_nv != NULL, "Expecting a non-NULL expression value!");
+  d_nv = e.d_node->d_nv;
+  // shouldn't ever fail
+  Assert(d_nv->d_rc > 0, "Node constructed from Expr with rc == 0");
+  if(ref_count) {
+    d_nv->inc();
   }
 }
 
