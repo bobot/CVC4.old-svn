@@ -168,6 +168,11 @@ Node TheoryBool::simplify(TNode in, Substitutions& outSubstitutions) {
 Node TheoryBool::simplifyRecursive(TNode in, Substitutions& outSubstitutions,
                                    bool polarity, bool inAnd) {
 
+  if(kindToTheoryId(in.getKind()) != THEORY_BOOL) {
+    Node n = polarity ? Node(in) : in.notNode();
+    return d_valuation.simplify(n, outSubstitutions);
+  }
+
   Node n;
 
   IndentedScope scope(Debug("simplify:bool"));

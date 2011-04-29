@@ -59,6 +59,12 @@ public:
    */
   Node simplify(TNode in, Substitutions& outSubstitutions);
 
+  /**
+   * Rewrite a node.  Intended to be used by a theory to have the
+   * TheoryEngine fully rewrite a node.
+   */
+  Node rewrite(TNode in);
+
 };/* class Valuation */
 
 }/* CVC4::theory namespace */

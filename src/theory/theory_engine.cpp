@@ -439,17 +439,17 @@ Node TheoryEngine::simplify(TNode in, theory::Substitutions& outSubstitutions) {
 
   theory::Theory* theory = theoryOf(atom);
 
-  Debug("simplify") << "simplifying " << in << " to " << theory->getId() << std::endl;
+  Debug("simplify") << push << "simplifying " << in << " to " << theory->identify() << std::endl;
   Node n = theory->simplify(in, outSubstitutions);
-  Debug("simplify") << "got from " << theory->identify() << " : " << n << std::endl;
+  Debug("simplify") << "got from " << theory->identify() << " : " << n << std::endl << pop;
 
   atom = n.getKind() == kind::NOT ? n[0] : n;
 
   if(atom.getKind() == kind::EQUAL) {
     theory::TheoryId typeTheory = theory::Theory::theoryOf(atom[0].getType());
-    Debug("simplify") << "simplifying " << n << " to " << typeTheory << std::endl;
+    Debug("simplify") << push << "simplifying " << n << " to " << typeTheory << std::endl;
     n = d_theoryTable[typeTheory]->simplify(n, outSubstitutions);
-    Debug("simplify") << "got from " << d_theoryTable[typeTheory]->identify() << " : " << n << std::endl;
+    Debug("simplify") << "got from " << d_theoryTable[typeTheory]->identify() << " : " << n << std::endl << pop;
   }
 
   cache(std::make_pair(n, theory::Substitutions(outSubstitutions.begin() + prevSize, outSubstitutions.end())));
