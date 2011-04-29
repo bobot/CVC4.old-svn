@@ -1,0 +1,34 @@
+Branch to do:
+
+
+* Preprocessing-time, non-clausal, Boolean simplification round to
+  support "quasi-non-linear rewrites" as discussed at last meeting.
+  Three modes, selectable on command-line via --simplification=MODE:
+
+    batch - wait until QUERY/CHECKSAT before *any* preprocessing
+
+    incremental (default) - do nonclausal preprocessing at each
+    ASSERT, and clausify and do a round of propagation in SAT
+
+    incremental-lazy-sat - do nonclausal preprocessing at each ASSERT
+    but wait until QUERY/CHECKSAT before clausifying or involving the
+    SAT solver at all
+
+* RecursionBreaker<T> now uses a hash set for seen trail.
+* Fixes to TLS stuff to support that.
+
+==================
+WHEN DOES TYPE CHECKING OCCUR NOW?  --is it soon enough? in nondebug builds
+==================
+
+==================
+ALL THE BOOLEAN SIMPLIFICATION STUFF should happen in the Boolean
+theory, and the whole simplification engine thingie should apply
+theory stuff.
+==================
+
+==================
+ADD new Cache class to entire ::simplify() infrastructure ? --but that
+might miss new substitutions ?
+==================
+
