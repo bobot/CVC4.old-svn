@@ -1,7 +1,7 @@
 /*********************                                                        */
 /*! \file variable_type_map.h
  ** \verbatim
- ** Original author: 
+ ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
@@ -22,6 +22,7 @@
 #ifndef __CVC4__VARIABLE_TYPE_MAP_H
 #define __CVC4__VARIABLE_TYPE_MAP_H
 
+#include "expr/expr.h"
 #include "util/hash.h"
 
 namespace CVC4 {
@@ -31,7 +32,7 @@ struct ExprHashFunction;
 class Type;
 struct TypeHashFunction;
 
-class VariableTypeMap {
+class CVC4_PUBLIC VariableTypeMap {
   /**
    * A map Expr -> Expr, intended to be used for a mapping of variables
    * between two ExprManagers.
@@ -52,7 +53,7 @@ public:
 
 typedef __gnu_cxx::hash_map<uint64_t, uint64_t> VarMap;
 
-struct ExprManagerMapCollection {
+struct CVC4_PUBLIC ExprManagerMapCollection {
   VariableTypeMap d_typeMap;
   VarMap d_to;
   VarMap d_from;

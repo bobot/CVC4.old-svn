@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file pickle.cpp
+/*! \file pickler.cpp
  ** \verbatim
  ** Original author: kshitij
  ** Major contributors: taking, mdeters
@@ -22,6 +22,8 @@
 #include <sstream>
 #include <string>
 
+#include "expr/pickler.h"
+#include "expr/pickle_data.h"
 #include "expr/expr.h"
 #include "expr/node.h"
 #include "expr/node_manager.h"
@@ -31,11 +33,46 @@
 #include "util/Assert.h"
 #include "expr/kind.h"
 #include "expr/metakind.h"
-#include "expr/pickle.h"
+#include "util/output.h"
 
 namespace CVC4 {
 namespace expr {
 namespace pickle {
+
+class PicklerPrivate {
+public:
+  typedef std::stack<Node> NodeStack;
+  NodeStack d_stack;
+
+  PickleData d_current;
+
+  Pickler& d_pickler;
+
+  NodeManager* const d_nm;
+
+  PicklerPrivate(Pickler& pickler, ExprManager* em) :
+    d_pickler(pickler),
+    d_nm(NodeManager::fromExprManager(em)) {
+  }
+
+  bool atDefaultState(){
+    return d_stack.empty() && d_current.empty();
+  }
+
+  /* Helper functions for toPickle */
+  void toCaseNode(TNode n);
+  void toCaseVariable(TNode n) throw(AssertionException, PicklingException);
+  void toCaseConstant(TNode n);
+  void toCaseOperator(TNode n) throw(AssertionException, PicklingException);
+  void toCaseString(Kind k, const std::string& s);
+
+  /* Helper functions for toPickle */
+  Node fromCaseOperator(Kind k, uint32_t nchildren);
+  Node fromCaseConstant(Kind k, uint32_t nblocks);
+  std::string fromCaseString(uint32_t nblocks);
+  Node fromCaseVariable(Kind k);
+
+};/* class PicklerPrivate */
 
 static Block mkBlockBody4Chars(char a, char b, char c, char d) {
   Block newBody;
@@ -83,40 +120,33 @@ static Block mkConstantHeader(Kind k, unsigned numBlocks) {
   return newHeader;
 }
 
-void Pickle::writeToStringStream(std::ostringstream& oss) const {
-  BlockDeque::const_iterator i = d_blocks.begin(), end = d_blocks.end();
-  for(; i != end; ++i) {
-    Block b = *i;
-    Assert(sizeof(b) * 8 == NBITS_BLOCK);
-    oss << b.d_body.d_data << " ";
-  }
+Pickler::Pickler(ExprManager* em) :
+  d_private(new PicklerPrivate(*this, em)) {
 }
 
-std::string Pickle::toString() const {
-  std::ostringstream oss;
-  oss.flags(std::ios::oct | std::ios::showbase);
-  writeToStringStream(oss);
-  return oss.str();
+Pickler::~Pickler() {
+  delete d_private;
 }
 
-void Pickler::toPickle(Expr e, Pickle& p) throw (PicklingException) {
-  Assert(e.getExprManager() == d_em);
-  Assert(atDefaultState());
+void Pickler::toPickle(Expr e, Pickle& p)
+  throw(AssertionException, PicklingException) {
+  Assert(NodeManager::fromExprManager(e.getExprManager()) == d_private->d_nm);
+  Assert(d_private->atDefaultState());
 
   try{
-    d_current.swap(p);
-    toCaseNode(e.getTNode());
-    d_current.swap(p);
-  }catch(PicklingException& p){
-    d_current = Pickle();
-    Assert(atDefaultState());
-    throw p;
+    d_private->d_current.swap(*p.d_data);
+    d_private->toCaseNode(e.getTNode());
+    d_private->d_current.swap(*p.d_data);
+  }catch(PicklingException& pe){
+    d_private->d_current = PickleData();
+    Assert(d_private->atDefaultState());
+    throw pe;
   }
 
-  Assert(atDefaultState());
+  Assert(d_private->atDefaultState());
 }
 
-void Pickler::toCaseNode(TNode n) {
+void PicklerPrivate::toCaseNode(TNode n) {
   Debug("pickler") << "toCaseNode: " << n << std::endl;
   Kind k = n.getKind();
   kind::MetaKind m = metaKindOf(k);
@@ -132,11 +162,12 @@ void Pickler::toCaseNode(TNode n) {
     toCaseOperator(n);
     break;
   default:
-    Unimplemented();
+    Unhandled(m);
   }
 }
 
-void Pickler::toCaseOperator(TNode n) throw (PicklingException) {
+void PicklerPrivate::toCaseOperator(TNode n)
+  throw(AssertionException, PicklingException) {
   Kind k = n.getKind();
   kind::MetaKind m = metaKindOf(k);
   Assert(m == kind::metakind::PARAMETERIZED || m == kind::metakind::OPERATOR);
@@ -149,13 +180,14 @@ void Pickler::toCaseOperator(TNode n) throw (PicklingException) {
   d_current << mkOperatorHeader(k, n.getNumChildren());
 }
 
-void Pickler::toCaseVariable(TNode n) throw (PicklingException){
+void PicklerPrivate::toCaseVariable(TNode n)
+  throw(AssertionException, PicklingException) {
   Kind k = n.getKind();
   Assert(metaKindOf(k) == kind::metakind::VARIABLE);
 
   const NodeValue* nv = n.d_nv;
   uint64_t asInt = reinterpret_cast<uint64_t>(nv);
-  uint64_t mapped = variableToMap(asInt);
+  uint64_t mapped = d_pickler.variableToMap(asInt);
 
   uint32_t firstHalf = mapped >> 32;
   uint32_t secondHalf = mapped & 0xffffffff;
@@ -166,7 +198,7 @@ void Pickler::toCaseVariable(TNode n) throw (PicklingException){
 }
 
 
-void Pickler::toCaseConstant(TNode n) {
+void PicklerPrivate::toCaseConstant(TNode n) {
   Kind k = n.getKind();
   Assert(metaKindOf(k) == kind::metakind::CONSTANT);
   switch(k) {
@@ -188,12 +220,30 @@ void Pickler::toCaseConstant(TNode n) {
     toCaseString(k, asString);
     break;
   }
+  case kind::BITVECTOR_EXTRACT_OP: {
+    BitVectorExtract bve = n.getConst<BitVectorExtract>();
+    d_current << mkConstantHeader(k, 2);
+    d_current << mkBlockBody(bve.high);
+    d_current << mkBlockBody(bve.low);
+    break;
+  }
+  case kind::CONST_BITVECTOR: {
+    // irritating: we incorporate the size of the string in with the
+    // size of this constant, so it appears as one big constant and
+    // doesn't confuse anybody
+    BitVector bv = n.getConst<BitVector>();
+    std::string asString = bv.getValue().toString(16);
+    d_current << mkConstantHeader(k, 2 + asString.size());
+    d_current << mkBlockBody(bv.getSize());
+    toCaseString(k, asString);
+    break;
+  }
   default:
-    Unimplemented();
+    Unhandled(k);
   }
 }
 
-void Pickler::toCaseString(Kind k, const std::string& s) {
+void PicklerPrivate::toCaseString(Kind k, const std::string& s) {
   d_current << mkConstantHeader(k, s.size());
 
   unsigned size = s.size();
@@ -223,8 +273,8 @@ void Pickler::debugPickleTest(Expr e) {
   Pickle p;
   pickler.toPickle(e, p);
 
-  uint32_t size = p.size();
-  std::string str = p.toString();
+  uint32_t size = p.d_data->size();
+  std::string str = p.d_data->toString();
 
   Expr from = pickler.fromPickle(p);
   ExprManagerScope ems(e);
@@ -233,17 +283,17 @@ void Pickler::debugPickleTest(Expr e) {
   Debug("pickle") << "after: " << from.getNode() << std::endl;
   Debug("pickle") << "pickle: (oct) "<< size << " " << str.length() << " " << str << std::endl;
 
-  Assert(p.empty());
+  Assert(p.d_data->empty());
   Assert(e == from);
 }
 
 Expr Pickler::fromPickle(Pickle& p) {
-  Assert(atDefaultState());
+  Assert(d_private->atDefaultState());
 
-  d_current.swap(p);
+  d_private->d_current.swap(*p.d_data);
 
-  while(!d_current.empty()) {
-    Block front = d_current.dequeue();
+  while(!d_private->d_current.empty()) {
+    Block front = d_private->d_current.dequeue();
 
     Kind k = (Kind)front.d_header.d_kind;
     kind::MetaKind m = metaKindOf(k);
@@ -251,33 +301,33 @@ Expr Pickler::fromPickle(Pickle& p) {
     Node result = Node::null();
     switch(m) {
     case kind::metakind::VARIABLE:
-      result = fromCaseVariable(k);
+      result = d_private->fromCaseVariable(k);
       break;
     case kind::metakind::CONSTANT:
-      result = fromCaseConstant(k, front.d_headerConstant.d_constblocks);
+      result = d_private->fromCaseConstant(k, front.d_headerConstant.d_constblocks);
       break;
     case kind::metakind::OPERATOR:
     case kind::metakind::PARAMETERIZED:
-      result = fromCaseOperator(k, front.d_headerOperator.d_nchildren);
+      result = d_private->fromCaseOperator(k, front.d_headerOperator.d_nchildren);
       break;
     default:
-      Unimplemented();
+      Unhandled(m);
     }
     Assert(result != Node::null());
-    d_stack.push(result);
+    d_private->d_stack.push(result);
   }
 
-  Assert(d_current.empty());
-  Assert(d_stack.size() == 1);
-  Node res = d_stack.top();
-  d_stack.pop();
+  Assert(d_private->d_current.empty());
+  Assert(d_private->d_stack.size() == 1);
+  Node res = d_private->d_stack.top();
+  d_private->d_stack.pop();
 
-  Assert(atDefaultState());
+  Assert(d_private->atDefaultState());
 
-  return d_nm->toExpr(res);
+  return d_private->d_nm->toExpr(res);
 }
 
-Node Pickler::fromCaseVariable(Kind k) {
+Node PicklerPrivate::fromCaseVariable(Kind k) {
   Assert(metaKindOf(k) == kind::metakind::VARIABLE);
 
   Block firstHalf = d_current.dequeue();
@@ -287,7 +337,7 @@ Node Pickler::fromCaseVariable(Kind k) {
   asInt = asInt << 32;
   asInt = asInt | (secondHalf.d_body.d_data);
 
-  uint64_t mapped = variableFromMap(asInt);
+  uint64_t mapped = d_pickler.variableFromMap(asInt);
 
   NodeValue* nv = reinterpret_cast<NodeValue*>(mapped);
   Node fromNodeValue(nv);
@@ -297,7 +347,7 @@ Node Pickler::fromCaseVariable(Kind k) {
   return fromNodeValue;
 }
 
-Node Pickler::fromCaseConstant(Kind k, uint32_t constblocks) {
+Node PicklerPrivate::fromCaseConstant(Kind k, uint32_t constblocks) {
   switch(k) {
   case kind::CONST_BOOLEAN: {
     Assert(constblocks == 1);
@@ -317,13 +367,27 @@ Node Pickler::fromCaseConstant(Kind k, uint32_t constblocks) {
       return d_nm->mkConst<Rational>(q);
     }
   }
+  case kind::BITVECTOR_EXTRACT_OP: {
+    Block high = d_current.dequeue();
+    Block low = d_current.dequeue();
+    BitVectorExtract bve(high.d_body.d_data, low.d_body.d_data);
+    return d_nm->mkConst<BitVectorExtract>(bve);
+  }
+  case kind::CONST_BITVECTOR: {
+    unsigned size = d_current.dequeue().d_body.d_data;
+    Block header = d_current.dequeue();
+    Assert(header.d_headerConstant.d_kind == kind::CONST_BITVECTOR);
+    Assert(header.d_headerConstant.d_constblocks == constblocks - 2);
+    Integer value(fromCaseString(constblocks - 2));
+    BitVector bv(size, value);
+    return d_nm->mkConst(bv);
+  }
   default:
-    Unimplemented();
-    return Node::null();
+    Unhandled(k);
   }
 }
 
-std::string Pickler::fromCaseString(uint32_t size) {
+std::string PicklerPrivate::fromCaseString(uint32_t size) {
   std::stringstream ss;
   unsigned i;
   for(i = 0; i + 4 <= size; i += 4) {
@@ -359,7 +423,7 @@ std::string Pickler::fromCaseString(uint32_t size) {
   return ss.str();
 }
 
-Node Pickler::fromCaseOperator(Kind k, uint32_t nchildren) {
+Node PicklerPrivate::fromCaseOperator(Kind k, uint32_t nchildren) {
   kind::MetaKind m = metaKindOf(k);
   bool parameterized = (m == kind::metakind::PARAMETERIZED);
   uint32_t npops = nchildren + (parameterized? 1 : 0);
@@ -383,6 +447,20 @@ Node Pickler::fromCaseOperator(Kind k, uint32_t nchildren) {
   return nb;
 }
 
+Pickle::Pickle() {
+  d_data = new PickleData();
+}
+
+// Just copying the pointer isn't right, we have to copy the
+// underlying data.  Otherwise user-level Pickles will delete the data
+// twice! (once in each thread)
+Pickle::Pickle(const Pickle& p) {
+  d_data = new PickleData(*p.d_data);
+}
+
+Pickle::~Pickle() {
+  delete d_data;
+}
 
 }/* CVC4::expr::pickle namespace */
 }/* CVC4::expr namespace */

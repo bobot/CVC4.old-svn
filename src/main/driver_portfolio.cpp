@@ -25,7 +25,7 @@
 #include "util/result.h"
 #include "util/stats.h"
 
-#include "expr/pickle.h"
+#include "expr/pickler.h"
 #include "util/channel.h"
 
 #include "main/portfolio.h"
@@ -118,8 +118,11 @@ public:
 
 
 
-int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options)
-{
+int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
+
+  // For the signal handlers' benefit
+  pOptions = &options;
+
   // Initialize the signal handlers
   cvc4_init();
 
@@ -406,6 +409,9 @@ void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
 
 /** Create the SMT engine and execute the commands */
 Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
+  // For the signal handlers' benefit
+  pOptions = &options;
+
   // Create the SmtEngine(s)
   SmtEngine smt(&exprMgr);
   pStatistics = smt.getStatisticsRegistry();

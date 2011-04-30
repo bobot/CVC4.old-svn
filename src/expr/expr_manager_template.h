@@ -95,9 +95,6 @@ private:
   /** NodeManager reaches in to get the NodeManager */
   friend class NodeManager;
 
-  /** expr::pickle::Pickler reaches in to get the NodeManager */
-  friend class expr::pickle::Pickler;
-
   // undefined, private copy constructor and assignment op (disallow copy)
   ExprManager(const ExprManager&) CVC4_UNDEFINED;
   ExprManager& operator=(const ExprManager&) CVC4_UNDEFINED;

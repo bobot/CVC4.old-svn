@@ -21,7 +21,6 @@
 #include "expr/expr_manager_scope.h"
 #include "expr/variable_type_map.h"
 #include "util/Assert.h"
-#include "expr/pickle.h"
 
 #include <vector>
 
@@ -31,7 +30,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 35 "${template}"
+#line 34 "${template}"
 
 using namespace CVC4::kind;
 
@@ -175,9 +174,6 @@ Debug("export") << "+ child: " << *i << std::endl;
 }/* CVC4::expr namespace */
 
 Expr Expr::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
-  if(Debug.isOn("pickle")) {
-    expr::pickle::Pickler::debugPickleTest(*this);
-  }
   Assert(d_exprManager != exprManager,
          "No sense in cloning an Expr in the same ExprManager");
   ExprManagerScope ems(*this);

@@ -69,6 +69,9 @@ void printUsage(Options& options) {
 
 int runCvc4(int argc, char* argv[], Options& options) {
 
+  // For the signal handlers' benefit
+  pOptions = &options;
+
   // Initialize the signal handlers
   cvc4_init();
 

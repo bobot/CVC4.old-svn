@@ -28,8 +28,10 @@ libexpr_la_SOURCES = \
 	expr_manager_scope.h \
 	node_self_iterator.h \
 	variable_type_map.h \
-	pickle.h \
-	pickle.cpp \
+	pickle_data.h \
+	pickle_data.cpp \
+	pickler.h \
+	pickler.cpp \
 	node_self_iterator.h \
 	expr_stream.h
 

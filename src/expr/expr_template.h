@@ -40,7 +40,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 43 "${template}"
+#line 44 "${template}"
 
 namespace CVC4 {
 
@@ -788,7 +788,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 762 "${template}"
+#line 792 "${template}"
 
 namespace expr {
 
