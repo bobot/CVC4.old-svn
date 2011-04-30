@@ -157,8 +157,7 @@ public:
   /**
    * Expand definitions in n.
    */
-  Node expandDefinitions(TNode n,
-                                hash_map<TNode, Node, TNodeHashFunction>& cache)
+  Node expandDefinitions(TNode n, hash_map<TNode, Node, TNodeHashFunction>& cache)
     throw(NoSuchFunctionException, AssertionException);
 };/* class SmtEnginePrivate */
 
@@ -436,7 +435,8 @@ Node SmtEnginePrivate::expandDefinitions(TNode n,
   // maybe it's in the cache
   hash_map<TNode, Node, TNodeHashFunction>::iterator cacheHit = cache.find(n);
   if(cacheHit != cache.end()) {
-    return (*cacheHit).second;
+    TNode ret = (*cacheHit).second;
+    return ret.isNull() ? n : ret;
   }
 
   // otherwise expand it
@@ -452,9 +452,11 @@ Node SmtEnginePrivate::expandDefinitions(TNode n,
       Debug("expand") << " func: " << func << endl;
       string name = func.getAttribute(expr::VarNameAttr());
       Debug("expand") << "     : \"" << name << "\"" << endl;
-      if(i == d_smt.d_definedFunctions->end()) {
-        throw NoSuchFunctionException(Expr(d_smt.d_exprManager, new Node(func)));
-      }
+    }
+    if(i == d_smt.d_definedFunctions->end()) {
+      throw NoSuchFunctionException(Expr(d_smt.d_exprManager, new Node(func)));
+    }
+    if(Debug.isOn("expand")) {
       Debug("expand") << " defn: " << def.getFunction() << endl
                       << "       [";
       if(formals.size() > 0) {
@@ -473,7 +475,7 @@ Node SmtEnginePrivate::expandDefinitions(TNode n,
     Debug("expand") << "made : " << instance << endl;
 
     Node expanded = this->expandDefinitions(instance, cache);
-    cache[n] = expanded;
+    cache[n] = (n == expanded ? Node::null() : expanded);
     return expanded;
   } else {
     Debug("expand") << "cons : " << n << endl;
@@ -491,7 +493,7 @@ Node SmtEnginePrivate::expandDefinitions(TNode n,
       nb << expanded;
     }
     Node node = nb;
-    cache[n] = node;
+    cache[n] = n == node ? Node::null() : node;
     return node;
   }
 }

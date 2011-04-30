@@ -97,7 +97,9 @@ Node TheoryBool::getValue(TNode n) {
   }
 }
 
-static void findAtoms(TNode in, vector<TNode>& atoms, hash_map<TNode, vector<TNode>, TNodeHashFunction>& backEdges) {
+static void
+findAtoms(TNode in, vector<TNode>& atoms,
+          hash_map<TNode, vector<TNode>, TNodeHashFunction>& backEdges) {
   Kind k = in.getKind();
   Assert(kindToTheoryId(k) == THEORY_BOOL);
 
@@ -107,30 +109,32 @@ static void findAtoms(TNode in, vector<TNode>& atoms, hash_map<TNode, vector<TNo
 
   while(!trail.empty()) {
     pair<TNode, TNode::iterator>& pr = trail.top();
+    Debug("simplify") << "looking at: " << pr.first << endl;
     if(pr.second == pr.first.end()) {
       trail.pop();
     } else {
-      TNode n = *pr.second;
       if(pr.second == pr.first.begin()) {
+        Debug("simplify") << "first visit: " << pr.first << endl;
         // first time we've visited this node?
-        if(seen.find(n) == seen.end()) {
-          seen.insert(n);
+        if(seen.find(pr.first) == seen.end()) {
+          Debug("simplify") << "+ haven't seen it yet." << endl;
+          seen.insert(pr.first);
         } else {
+          Debug("simplify") << "+ saw it before." << endl;
           trail.pop();
           continue;
         }
       }
-      ++pr.second;
-      for(TNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
-        backEdges[*i].push_back(n);
-        Kind ck = (*i).getKind();
-        if(kindToTheoryId(ck) == THEORY_BOOL) {
-          if(seen.find(*i) == seen.end()) {
-            trail.push(make_pair(*i, (*i).begin()));
-          }
+      TNode n = *pr.second++;
+      if(seen.find(n) == seen.end()) {
+        Debug("simplify") << "back edge " << n << " to " << pr.first << endl;
+        backEdges[n].push_back(pr.first);
+        Kind nk = n.getKind();
+        if(kindToTheoryId(nk) == THEORY_BOOL) {
+          trail.push(make_pair(n, n.begin()));
         } else {
-          Debug("simplify") << "atom: " << *i << endl;
-          atoms.push_back(*i);
+          Debug("simplify") << "atom: " << n << endl;
+          atoms.push_back(n);
         }
       }
     }
@@ -138,7 +142,14 @@ static void findAtoms(TNode in, vector<TNode>& atoms, hash_map<TNode, vector<TNo
 }
 
 Node TheoryBool::simplify(TNode in, Substitutions& outSubstitutions) {
-  Assert(kindToTheoryId(in.getKind()) == THEORY_BOOL);
+  const unsigned prev = outSubstitutions.size();
+
+  if(kindToTheoryId(in.getKind()) != THEORY_BOOL) {
+    Assert(in.getMetaKind() == kind::metakind::VARIABLE &&
+           in.getType().isBoolean());
+    return in;
+  }
+
   // form back edges and atoms
   vector<TNode> atoms;
   hash_map<TNode, vector<TNode>, TNodeHashFunction> backEdges;
@@ -151,31 +162,59 @@ Node TheoryBool::simplify(TNode in, Substitutions& outSubstitutions) {
   vector<Node> newFacts;
   CircuitPropagator cp(atoms, backEdges);
   Debug("simplify") << "propagate..." << endl;
-  cp.propagate(in, true, newFacts);
+  if(cp.propagate(in, true, newFacts)) {
+    Notice() << "Found a conflict in nonclausal Boolean reasoning" << endl;
+    return NodeManager::currentNM()->mkConst(false);
+  }
   Debug("simplify") << "done w/ propagate..." << endl;
 
   for(vector<Node>::iterator i = newFacts.begin(), i_end = newFacts.end(); i != i_end; ++i) {
     TNode a = *i;
-    if(a.getKind() == kind::NOT && kindToTheoryId(a[0].getKind()) == THEORY_BOOL) {
-      if(a.getMetaKind() == kind::metakind::VARIABLE) {
-        Debug("simplify") << "found bool unit ~" << a << "..." << endl;
-        outSubstitutions.push_back(make_pair(a, NodeManager::currentNM()->mkConst(true)));
-      }
-    } else if(a.getKind() != kind::NOT && kindToTheoryId(a.getKind()) == THEORY_BOOL) {
-      if(a.getMetaKind() == kind::metakind::VARIABLE) {
-        Debug("simplify") << "found bool unit " << a << "..." << endl;
-        outSubstitutions.push_back(make_pair(a, NodeManager::currentNM()->mkConst(false)));
+    if(a.getKind() == kind::NOT) {
+      if(a[0].getMetaKind() == kind::metakind::VARIABLE ) {
+        Debug("simplify") << "found bool unit ~" << a[0] << "..." << endl;
+        outSubstitutions.push_back(make_pair(a[0], NodeManager::currentNM()->mkConst(false)));
+      } else if(kindToTheoryId(a[0].getKind()) != THEORY_BOOL) {
+        Debug("simplify") << "simplifying: " << a << endl;
+        simplified[a] = d_valuation.simplify(a, outSubstitutions);
+        Debug("simplify") << "done simplifying, got: " << simplified[a] << endl;
       }
     } else {
-      Debug("simplify") << "simplifying: " << a << endl;
-      simplified[a] = d_valuation.simplify(a, outSubstitutions);
-      Debug("simplify") << "done simplifying, got: " << simplified[a] << endl;
+      if(a.getMetaKind() == kind::metakind::VARIABLE) {
+        Debug("simplify") << "found bool unit " << a << "..." << endl;
+        outSubstitutions.push_back(make_pair(a, NodeManager::currentNM()->mkConst(true)));
+      } else if(kindToTheoryId(a.getKind()) != THEORY_BOOL) {
+        Debug("simplify") << "simplifying: " << a << endl;
+        simplified[a] = d_valuation.simplify(a, outSubstitutions);
+        Debug("simplify") << "done simplifying, got: " << simplified[a] << endl;
+      }
     }
   }
 
   Debug("simplify") << "substituting in root..." << endl;
   Node n = in.substitute(outSubstitutions.begin(), outSubstitutions.end());
   Debug("simplify") << "got: " << n << endl;
+  if(Debug.isOn("simplify")) {
+    Debug("simplify") << "new substitutions:" << endl;
+    copy(outSubstitutions.begin() + prev, outSubstitutions.end(),
+         ostream_iterator< pair<TNode, TNode> >(Debug("simplify"), "\n"));
+    Debug("simplify") << "done." << endl;
+  }
+  if(outSubstitutions.size() > prev) {
+    NodeBuilder<> b(kind::AND);
+    b << n;
+    for(Substitutions::iterator i = outSubstitutions.begin() + prev,
+          i_end = outSubstitutions.end();
+        i != i_end;
+        ++i) {
+      if((*i).first.getType().isBoolean()) {
+        b << (*i).first.iffNode((*i).second);
+      } else {
+        b << (*i).first.eqNode((*i).second);
+      }
+    }
+    n = b;
+  }
   return n;
 }
 

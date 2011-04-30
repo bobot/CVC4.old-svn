@@ -14,19 +14,19 @@ Mucked up by Tim
 :category { crafted }
 :difficulty { 0 }
 :logic QF_UF
-
-:extrafuns ((f1 U U U))
-:extrafuns ((c6 U))
-:extrafuns ((c3 U))
-:extrafuns ((c7 U))
-:extrafuns ((c5 U))
-:extrafuns ((c2 U))
-:extrafuns ((c4 U))
-:extrafuns ((c8 U))
-:extrafuns ((c9 U))
-:extrafuns ((c_0 U))
-:extrafuns ((c_1 U))
-:extrafuns ((c_2 U))
+:extrasorts (V)
+:extrafuns ((f1 V V V))
+:extrafuns ((c6 V))
+:extrafuns ((c3 V))
+:extrafuns ((c7 V))
+:extrafuns ((c5 V))
+:extrafuns ((c2 V))
+:extrafuns ((c4 V))
+:extrafuns ((c8 V))
+:extrafuns ((c9 V))
+:extrafuns ((c_0 V))
+:extrafuns ((c_1 V))
+:extrafuns ((c_2 V))
 :formula 
 ( and 
   (not (= c_0 c_1))

@@ -43,6 +43,12 @@ class CircuitPropagator {
   const std::vector<TNode>& d_atoms;
   const std::hash_map<TNode, std::vector<TNode>, TNodeHashFunction>& d_backEdges;
 
+  class ConflictException : Exception {
+  public:
+    ConflictException() : Exception("A conflict was found in the CircuitPropagator") {
+    }
+  };/* class ConflictException */
+
   enum {
     ASSIGNMENT_MASK = 1,
     IS_ASSIGNED_MASK = 2,
@@ -64,14 +70,16 @@ class CircuitPropagator {
     unsigned& state = d_state[n];
     if((state & IS_ASSIGNED_MASK) != 0) {// if assigned already
       if(((state & ASSIGNMENT_MASK) != 0) != b) {// conflict
-        Debug("circuit-prop") << "conflicting assignment(" << b << "): " << n << std::endl;
-        Unimplemented("CONFLICT");
+        Debug("circuit-prop") << "while assigning(" << b << "): " << n
+                              << ", got conflicting assignment(" << assignment(n) << "): "
+                              << n << std::endl;
+        throw ConflictException();
       } else {
         Debug("circuit-prop") << "already assigned(" << b << "): " << n << std::endl;
       }
     } else {// if unassigned
       Debug("circuit-prop") << "assigning(" << b << "): " << n << std::endl;
-      state |= b ? ASSIGNMENT_MASK : 0;
+      state |= IS_ASSIGNED_MASK | (b ? ASSIGNMENT_MASK : 0);
       changed.push_back(n);
     }
   }
@@ -172,8 +180,10 @@ public:
    * Propagate new information (in == polarity) through the circuit
    * propagator.  New information discovered by the propagator are put
    * in the (output-only) newFacts vector.
+   *
+   * @return true iff conflict found
    */
-  void propagate(TNode in, bool polarity, std::vector<Node>& newFacts);
+  bool propagate(TNode in, bool polarity, std::vector<Node>& newFacts) CVC4_WARN_UNUSED_RESULT;
 
 };/* class CircuitPropagator */
 

@@ -62,7 +62,7 @@ void CircuitPropagator::propagateBackward(TNode in, bool polarity, vector<TNode>
         // OR = FALSE: forall children c, assign(c = FALSE)
         for(TNode::iterator i = in.begin(), i_end = in.end(); i != i_end; ++i) {
           Debug("circuit-prop") << "bOR2" << endl;
-          assign(*i, true, changed);
+          assign(*i, false, changed);
         }
       }
       break;
@@ -114,7 +114,50 @@ void CircuitPropagator::propagateBackward(TNode in, bool polarity, vector<TNode>
       }
       break;
     case kind::IMPLIES:
+      if(polarity) {
+        if(isAssignedTo(in[0], true)) {
+          // IMPLIES x y = TRUE, and x == TRUE: assign(y = TRUE)
+          Debug("circuit-prop") << "bIMPLIES1" << endl;
+          assign(in[1], true, changed);
+        }
+        if(isAssignedTo(in[1], false)) {
+          // IMPLIES x y = TRUE, and y == FALSE: assign(x = FALSE)
+          Debug("circuit-prop") << "bIMPLIES2" << endl;
+          assign(in[0], false, changed);
+        }
+      } else {
+        // IMPLIES x y = FALSE: assign(x = TRUE) and assign(y = FALSE)
+        Debug("circuit-prop") << "bIMPLIES3" << endl;
+        assign(in[0], true, changed);
+        assign(in[1], false, changed);
+      }
+      break;
     case kind::XOR:
+      if(polarity) {
+        if(isAssigned(in[0])) {
+          // XOR x y = TRUE, and x assigned, assign(y = !assignment(x))
+          Debug("circuit-prop") << "bXOR1" << endl;
+          assign(in[1], !assignment(in[0]), changed);
+        } else if(isAssigned(in[1])) {
+          // XOR x y = TRUE, and y assigned, assign(x = !assignment(y))
+          Debug("circuit-prop") << "bXOR2" << endl;
+          assign(in[0], !assignment(in[1]), changed);
+        }
+      } else {
+        if(isAssigned(in[0])) {
+          // XOR x y = FALSE, and x assigned, assign(y = assignment(x))
+          Debug("circuit-prop") << "bXOR3" << endl;
+          assign(in[1], assignment(in[0]), changed);
+        } else if(isAssigned(in[1])) {
+          // XOR x y = FALSE, and y assigned, assign(x = assignment(y))
+          Debug("circuit-prop") << "bXOR4" << endl;
+          assign(in[0], assignment(in[1]), changed);
+        }
+      }
+      break;
+    case kind::CONST_BOOLEAN:
+      // nothing to do
+      break;
     default:
       Unhandled(k);
     }
@@ -165,9 +208,9 @@ void CircuitPropagator::propagateForward(TNode child, bool polarity, vector<TNod
         break;
       case kind::OR:
         if(polarity) {
-          // OR ...(x=TRUE)...: assign(OR = FALSE)
+          // OR ...(x=TRUE)...: assign(OR = TRUE)
           Debug("circuit-prop") << "fOR1" << endl;
-          assign(in, false, changed);
+          assign(in, true, changed);
         } else {
           TNode::iterator holdout;
           holdout = find_if(in.begin(), in.end(), not1(IsAssignedTo(*this, false)));
@@ -190,7 +233,7 @@ void CircuitPropagator::propagateForward(TNode child, bool polarity, vector<TNod
       case kind::NOT:
         // NOT (x=b): assign(NOT = !b)
         Debug("circuit-prop") << "fNOT" << endl;
-        assign(in[0], !polarity, changed);
+        assign(in, !polarity, changed);
         break;
       case kind::ITE:
         if(child == in[0]) {
@@ -247,7 +290,49 @@ void CircuitPropagator::propagateForward(TNode child, bool polarity, vector<TNod
         }
         break;
       case kind::IMPLIES:
+        if(isAssigned(in[0]) && isAssigned(in[1])) {
+          // IMPLIES (x=v1) (y=v2): assign(IMPLIES = (!v1 || v2))
+          assign(in, !assignment(in[0]) || assignment(in[1]), changed);
+          Debug("circuit-prop") << "fIMPLIES1" << endl;
+        } else {
+          if(child == in[0] && assignment(in[0]) && isAssignedTo(in, true)) {
+            // IMPLIES (x=TRUE) y [with IMPLIES == TRUE]: assign(y = TRUE)
+            Debug("circuit-prop") << "fIMPLIES2" << endl;
+            assign(in[1], true, changed);
+          }
+          if(child == in[1] && !assignment(in[1]) && isAssignedTo(in, true)) {
+            // IMPLIES x (y=FALSE) [with IMPLIES == TRUE]: assign(x = FALSE)
+            Debug("circuit-prop") << "fIMPLIES3" << endl;
+            assign(in[0], false, changed);
+          }
+          // Note that IMPLIES == FALSE doesn't need any cases here
+          // because if that assignment has been done, we've already
+          // propagated all the children (in back-propagation).
+        }
+        break;
       case kind::XOR:
+        if(isAssigned(in)) {
+          if(child == in[0]) {
+            // XOR (x=v) y [with XOR assigned], assign(y = (v ^ XOR)
+            Debug("circuit-prop") << "fXOR1" << endl;
+            assign(in[1], polarity ^ assignment(in), changed);
+          } else {
+            Assert(child == in[1]);
+            // XOR x (y=v) [with XOR assigned], assign(x = (v ^ XOR))
+            Debug("circuit-prop") << "fXOR2" << endl;
+            assign(in[0], polarity ^ assignment(in), changed);
+          }
+        }
+        if( (child == in[0] && isAssigned(in[1])) ||
+            (child == in[1] && isAssigned(in[0])) ) {
+          // XOR (x=v) y [with y assigned], assign(XOR = (v ^ assignment(y))
+          // XOR x (y=v) [with x assigned], assign(XOR = (assignment(x) ^ v)
+          Debug("circuit-prop") << "fXOR3" << endl;
+          assign(in, assignment(in[0]) ^ assignment(in[1]), changed);
+        }
+        break;
+      case kind::CONST_BOOLEAN:
+        InternalError("Forward-propagating a constant Boolean value makes no sense");
       default:
         Unhandled(k);
       }
@@ -256,28 +341,40 @@ void CircuitPropagator::propagateForward(TNode child, bool polarity, vector<TNod
 }
 
 
-void CircuitPropagator::propagate(TNode in, bool polarity, vector<Node>& newFacts) {
-  vector<TNode> changed;
+bool CircuitPropagator::propagate(TNode in, bool polarity, vector<Node>& newFacts) {
+  try {
+    vector<TNode> changed;
 
-  propagateBackward(in, polarity, changed);
-  propagateForward(in, polarity, changed);
+    Assert(kindToTheoryId(in.getKind()) == THEORY_BOOL);
 
-  while(!changed.empty()) {
-    vector<TNode> worklist;
-    worklist.swap(changed);
+    Debug("circuit-prop") << "B: " << (polarity ? "" : "~") << in << endl;
+    propagateBackward(in, polarity, changed);
+    Debug("circuit-prop") << "F: " << (polarity ? "" : "~") << in << endl;
+    propagateForward(in, polarity, changed);
 
-    for(vector<TNode>::iterator i = worklist.begin(), i_end = worklist.end(); i != i_end; ++i) {
-      if(kindToTheoryId((*i).getKind()) != THEORY_BOOL) {
-        if(assignment(*i)) {
-          newFacts.push_back(*i);
+    while(!changed.empty()) {
+      vector<TNode> worklist;
+      worklist.swap(changed);
+
+      for(vector<TNode>::iterator i = worklist.begin(), i_end = worklist.end(); i != i_end; ++i) {
+        if(kindToTheoryId((*i).getKind()) != THEORY_BOOL) {
+          if(assignment(*i)) {
+            newFacts.push_back(*i);
+          } else {
+            newFacts.push_back((*i).notNode());
+          }
         } else {
-          newFacts.push_back((*i).notNode());
+          Debug("circuit-prop") << "B: " << (isAssignedTo(*i, true) ? "" : "~") << *i << endl;
+          propagateBackward(*i, assignment(*i), changed);
+          Debug("circuit-prop") << "F: " << (isAssignedTo(*i, true) ? "" : "~") << *i << endl;
+          propagateForward(*i, assignment(*i), changed);
         }
       }
-      propagateBackward(*i, assignment(*i), changed);
-      propagateForward(*i, assignment(*i), changed);
     }
+  } catch(ConflictException& ce) {
+    return true;
   }
+  return false;
 }
 
 }/* CVC4::theory::booleans namespace */
