@@ -522,9 +522,17 @@ extern NullC nullCvc4Stream CVC4_PUBLIC;
 class IndentedScope {
   CVC4ostream d_out;
 public:
-  IndentedScope(CVC4ostream out) : d_out(out) { d_out << push; }
-  ~IndentedScope() { d_out << pop; }
+  inline IndentedScope(CVC4ostream out);
+  inline ~IndentedScope();
 };/* class IndentedScope */
+
+#ifdef CVC4_DEBUG
+inline IndentedScope::IndentedScope(CVC4ostream out) : d_out(out) { d_out << push; }
+inline IndentedScope::~IndentedScope() { d_out << pop; }
+#else /* CVC4_DEBUG */
+inline IndentedScope::IndentedScope(CVC4ostream out) {}
+inline IndentedScope::~IndentedScope() {}
+#endif /* CVC4_DEBUG */
 
 }/* CVC4 namespace */
 

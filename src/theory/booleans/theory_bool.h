@@ -5,13 +5,13 @@
  ** Major contributors: taking
  ** Minor contributors (to current version): barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief The theory of booleans.
+ ** \brief The theory of booleans
  **
  ** The theory of booleans.
  **/
@@ -29,24 +29,9 @@ namespace theory {
 namespace booleans {
 
 class TheoryBool : public Theory {
-  Node d_true, d_false;
-
-  /**
-   * Recursive Boolean simplification.
-   */
-  Node simplifyRecursive(TNode in, Substitutions& outSubstitutions,
-                         bool polarity, bool inAnd);
-
-  /**
-   * Convenience function for simplifyRecursive().
-   */
-  bool addToBuilder(TNode n, NodeBuilder<>& b, Substitutions& outSubstitutions);
-
 public:
   TheoryBool(context::Context* c, OutputChannel& out, Valuation valuation) :
-    Theory(THEORY_BOOL, c, out, valuation),
-    d_true(NodeManager::currentNM()->mkConst(true)),
-    d_false(NodeManager::currentNM()->mkConst(false)) {
+    Theory(THEORY_BOOL, c, out, valuation) {
   }
 
   Node getValue(TNode n);
@@ -54,7 +39,7 @@ public:
   Node simplify(TNode in, Substitutions& outSubstitutions);
 
   std::string identify() const { return std::string("TheoryBool"); }
-};
+};/* class TheoryBool */
 
 }/* CVC4::theory::booleans namespace */
 }/* CVC4::theory namespace */

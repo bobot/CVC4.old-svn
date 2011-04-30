@@ -51,6 +51,25 @@ struct second_equal_to : std::binary_function<std::pair<T, U>, U, bool> {
 };/* struct first_equal_to<T> */
 
 
+/**
+ * Using std::find_if(), finds the first iterator in [first,last)
+ * range that satisfies predicate.  If none, return last; otherwise,
+ * search for a second one.  If there IS a second one, return last,
+ * otherwise return the first (and unique) iterator satisfying pred().
+ */
+template <class InputIterator, class Predicate>
+inline InputIterator find_if_unique(InputIterator first, InputIterator last, Predicate pred) {
+  InputIterator match = std::find_if(first, last, pred);
+  if(match == last) {
+    return last;
+  }
+
+  InputIterator match2 = match;
+  match2 = std::find_if(++match2, last, pred);
+  return (match2 == last) ? match : last;
+}
+
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__UTILITY_H */
