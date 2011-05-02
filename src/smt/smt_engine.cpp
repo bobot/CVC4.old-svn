@@ -502,7 +502,7 @@ Node SmtEnginePrivate::simplify(TNode in)
     Node n;
 
     if(!Options::current()->lazyDefinitionExpansion) {
-      TimerStat::CodeTimer codeTimer(smt.d_definitionExpansionTime);
+      TimerStat::CodeTimer codeTimer(d_smt.d_definitionExpansionTime);
       //Chat() << "Expanding definitions: " << in << endl;
       Debug("expand") << "have: " << n << endl;
       hash_map<TNode, Node, TNodeHashFunction> cache;
@@ -573,7 +573,7 @@ Node SmtEnginePrivate::simplify(TNode in)
     // be useful though (e.g., theory T1 could learn something further
     // from something learned previously by T2).
     //Chat() << "Performing static learning: " << n << endl;
-    TimerStat::CodeTimer codeTimer(smt.d_staticLearningTime);
+    TimerStat::CodeTimer codeTimer(d_smt.d_staticLearningTime);
     NodeBuilder<> learned(kind::AND);
     learned << n;
     d_smt.d_theoryEngine->staticLearning(n, learned);
