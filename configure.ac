@@ -669,6 +669,9 @@ fi
 AC_CHECK_LIB(z, gzread, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
 AC_CHECK_HEADER(zlib.h, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
 
+# Check for libreadline (defined in config/readline.m4)
+CVC4_CHECK_FOR_READLINE
+
 AC_SEARCH_LIBS([clock_gettime], [rt],
                [AC_DEFINE([HAVE_CLOCK_GETTIME], [1],
                           [Defined to 1 if clock_gettime() is supported by the platform.])],
@@ -929,9 +932,12 @@ Replay       : $enable_replay
 Assertions   : $enable_assertions
 Tracing      : $enable_tracing
 Muzzle       : $enable_muzzle
+
+Unit tests   : $support_unit_tests
 gcov support : $enable_coverage
 gprof support: $enable_profiling
-Unit tests   : $support_unit_tests
+Readline     : $with_readline
+TLS support  : $CVC4_TLS
 
 Static libs  : $enable_static
 Shared libs  : $enable_shared

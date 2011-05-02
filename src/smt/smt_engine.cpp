@@ -128,9 +128,16 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_context(em->getContext()),
   d_userContext(new Context()),
   d_exprManager(em),
-  d_nodeManager(d_exprManager->getNodeManager()) {
+  d_nodeManager(d_exprManager->getNodeManager()),
+  d_definitionExpansionTime("smt::SmtEngine::definitionExpansionTime"),
+  d_nonclausalSimplificationTime("smt::SmtEngine::nonclausalSimplificationTime"),
+  d_staticLearningTime("smt::SmtEngine::staticLearningTime") {
 
   NodeManagerScope nms(d_nodeManager);
+
+  StatisticsRegistry::registerStat(&d_definitionExpansionTime);
+  StatisticsRegistry::registerStat(&d_nonclausalSimplificationTime);
+  StatisticsRegistry::registerStat(&d_staticLearningTime);
 
   // We have mutual dependancy here, so we add the prop engine to the theory
   // engine later (it is non-essential there)
@@ -188,6 +195,10 @@ SmtEngine::~SmtEngine() {
   }
 
   d_definedFunctions->deleteSelf();
+
+  StatisticsRegistry::unregisterStat(&d_definitionExpansionTime);
+  StatisticsRegistry::unregisterStat(&d_nonclausalSimplificationTime);
+  StatisticsRegistry::unregisterStat(&d_staticLearningTime);
 
   delete d_userContext;
 
@@ -448,6 +459,8 @@ Node SmtEnginePrivate::preprocess(SmtEngine& smt, TNode in)
   try {
     Node n;
     if(!Options::current()->lazyDefinitionExpansion) {
+      TimerStat::CodeTimer codeTimer(smt.d_definitionExpansionTime);
+      //Chat() << "Expanding definitions: " << in << endl;
       Debug("expand") << "have: " << n << endl;
       hash_map<TNode, Node, TNodeHashFunction> cache;
       n = expandDefinitions(smt, in, cache);
@@ -459,6 +472,8 @@ Node SmtEnginePrivate::preprocess(SmtEngine& smt, TNode in)
     // For now, don't re-statically-learn from learned facts; this could
     // be useful though (e.g., theory T1 could learn something further
     // from something learned previously by T2).
+    //Chat() << "Performing static learning: " << n << endl;
+    TimerStat::CodeTimer codeTimer(smt.d_staticLearningTime);
     NodeBuilder<> learned(kind::AND);
     learned << n;
     smt.d_theoryEngine->staticLearning(n, learned);

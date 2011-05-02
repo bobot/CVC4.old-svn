@@ -26,6 +26,7 @@
 
 namespace __gnu_cxx {
 
+#if __WORDSIZE == 32
 // on 32-bit, we need a specialization of hash for 64-bit values
 template <>
 struct hash<uint64_t> {
@@ -33,6 +34,7 @@ struct hash<uint64_t> {
     return v;
   }
 };/* struct hash<uint64_t> */
+#endif /* 32-bit */
 
 }/* __gnu_cxx namespace */
 

@@ -186,6 +186,15 @@ Command* QueryCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollecti
   return c;
 }
 
+/* class QuitCommand */
+
+QuitCommand::QuitCommand() {
+}
+
+void QuitCommand::toStream(std::ostream& out) const {
+  out << "Quit()" << endl;
+}
+
 /* class CommandSequence */
 
 CommandSequence::CommandSequence() :
@@ -243,6 +252,14 @@ DeclarationCommand::DeclarationCommand(const std::string& id, Type t) :
 DeclarationCommand::DeclarationCommand(const std::vector<std::string>& ids, Type t) :
   d_declaredSymbols(ids),
   d_type(t) {
+}
+
+const std::vector<std::string>& DeclarationCommand::getDeclaredSymbols() const {
+  return d_declaredSymbols;
+}
+
+Type DeclarationCommand::getDeclaredType() const {
+  return d_type;
 }
 
 void DeclarationCommand::toStream(std::ostream& out) const {

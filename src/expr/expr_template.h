@@ -172,14 +172,6 @@ public:
    */
   Expr(const Expr& e);
 
-  /**
-   * Initialize from an integer. Fails if the integer is not 0.
-   * NOTE: This is here purely to support the auto-initialization
-   * behavior of the ANTLR3 C backend. Should be removed if future
-   * versions of ANTLR fix the problem.
-   */
-  Expr(uintptr_t n);
-
   /** Destructor */
   ~Expr();
 
@@ -788,7 +780,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 792 "${template}"
+#line 784 "${template}"
 
 namespace expr {
 
