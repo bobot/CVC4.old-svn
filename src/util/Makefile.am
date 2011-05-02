@@ -23,6 +23,8 @@ libutil_la_SOURCES = \
 	Makefile.am \
 	Makefile.in \
 	congruence_closure.h \
+	congruence_closure.cpp \
+	congruence_closure_old.h \
 	debug.h \
 	exception.h \
 	hash.h \

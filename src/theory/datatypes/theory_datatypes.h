@@ -22,7 +22,7 @@
 #define __CVC4__THEORY__DATATYPES__THEORY_DATATYPES_H
 
 #include "theory/theory.h"
-#include "util/congruence_closure.h"
+#include "util/congruence_closure_old.h"
 #include "util/datatype.h"
 #include "theory/datatypes/union_find.h"
 #include "util/hash.h"
@@ -98,7 +98,7 @@ private:
   /**
    * Instance of the congruence closure module.
    */
-  CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::APPLY_CONSTRUCTOR, kind::APPLY_SELECTOR)> d_cc;
+  old::CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::APPLY_CONSTRUCTOR, kind::APPLY_SELECTOR)> d_cc;
 
   /**
    * Union find for storing the equalities.

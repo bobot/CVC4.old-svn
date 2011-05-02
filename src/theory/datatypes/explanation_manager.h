@@ -22,7 +22,7 @@
 #define __CVC4__THEORY__DATATYPES__EXPLANATION_MANAGER_H
 
 #include "theory/theory.h"
-#include "util/congruence_closure.h"
+#include "util/congruence_closure_old.h"
 #include "util/datatype.h"
 #include "util/hash.h"
 #include "util/trans_closure.h"
@@ -124,9 +124,9 @@ class CongruenceClosureExplainer : public Explainer
 {
 protected:
   //pointer to the congruence closure module
-  CongruenceClosure<OutputChannel, CongruenceOperatorList>* d_cc;
+  old::CongruenceClosure<OutputChannel, CongruenceOperatorList>* d_cc;
 public:
-  CongruenceClosureExplainer(CongruenceClosure<OutputChannel, CongruenceOperatorList>* cc) :
+  CongruenceClosureExplainer(old::CongruenceClosure<OutputChannel, CongruenceOperatorList>* cc) :
     Explainer(),
     d_cc( cc ){
    }

@@ -71,11 +71,13 @@
 #  define CVC4_NORETURN __attribute__ ((__noreturn__))
 #  define CVC4_CONST_FUNCTION __attribute__ ((__const__))
 #  define CVC4_PURE_FUNCTION __attribute__ ((__pure__))
+#  define CVC4_DEPRECATED __attribute__ ((__deprecated__))
 #else /* ! __GNUC__ */
 #  define CVC4_UNUSED
 #  define CVC4_NORETURN
 #  define CVC4_CONST_FUNCTION
 #  define CVC4_PURE_FUNCTION
+#  define CVC4_DEPRECATED
 #endif /* __GNUC__ */
 
 #define EXPECT_TRUE(x) __builtin_expect( (x), true )
