@@ -506,7 +506,7 @@ Node SmtEnginePrivate::simplify(TNode in)
     if(!Options::current()->lazyDefinitionExpansion) {
       TimerStat::CodeTimer codeTimer(d_smt.d_definitionExpansionTime);
       //Chat() << "Expanding definitions: " << in << endl;
-      Debug("expand") << "have: " << in << endl;
+      Debug("expand") << "have: " << n << endl;
       hash_map<TNode, Node, TNodeHashFunction> cache;
       n = this->expandDefinitions(in, cache);
       Debug("expand") << "made: " << n << endl;
