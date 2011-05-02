@@ -169,6 +169,9 @@ Node TheoryBool::simplifyRecursive(TNode in, Substitutions& outSubstitutions,
                                    bool polarity, bool inAnd) {
 
   if(kindToTheoryId(in.getKind()) != THEORY_BOOL) {
+    if(in.getMetaKind() == kind::metakind::VARIABLE) {
+      return polarity ? Node(in) : in.notNode();
+    }
     Node n = polarity ? Node(in) : in.notNode();
     return d_valuation.simplify(n, outSubstitutions);
   }
