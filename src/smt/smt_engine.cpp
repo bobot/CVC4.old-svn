@@ -505,7 +505,7 @@ Node SmtEnginePrivate::simplify(TNode in)
 
     if(!Options::current()->lazyDefinitionExpansion) {
       TimerStat::CodeTimer codeTimer(d_smt.d_definitionExpansionTime);
-      Chat() << "Expanding definitions: " << in << endl;
+      //Chat() << "Expanding definitions: " << in << endl;
       Debug("expand") << "have: " << in << endl;
       hash_map<TNode, Node, TNodeHashFunction> cache;
       n = this->expandDefinitions(in, cache);
@@ -515,12 +515,12 @@ Node SmtEnginePrivate::simplify(TNode in)
     }
 
     if(Options::current()->simplificationStyle == Options::NO_SIMPLIFICATION_STYLE) {
-      Chat() << "Not doing nonclausal simplification (by user request)" << endl;
+      //Chat() << "Not doing nonclausal simplification (by user request)" << endl;
     } else {
       if(Options::current()->simplificationStyle == Options::TOPLEVEL_SIMPLIFICATION_STYLE) {
         Unimplemented("can't limit nonclausal simplification to toplevel-only yet");
       }
-      Chat() << "Simplifying (non-clausally): " << n << endl;
+      //Chat() << "Simplifying (non-clausally): " << n << endl;
       TimerStat::CodeTimer codeTimer(d_smt.d_nonclausalSimplificationTime);
       Trace("smt-simplify") << "simplifying: " << n << endl;
       n = n.substitute(d_topLevelSubstitutions.begin(), d_topLevelSubstitutions.end());
@@ -574,7 +574,7 @@ Node SmtEnginePrivate::simplify(TNode in)
     // For now, don't re-statically-learn from learned facts; this could
     // be useful though (e.g., theory T1 could learn something further
     // from something learned previously by T2).
-    Chat() << "Performing static learning: " << n << endl;
+    //Chat() << "Performing static learning: " << n << endl;
     TimerStat::CodeTimer codeTimer(d_smt.d_staticLearningTime);
     NodeBuilder<> learned(kind::AND);
     learned << n;
@@ -603,7 +603,7 @@ Node SmtEnginePrivate::simplify(TNode in)
 
 Node SmtEnginePrivate::preprocess(TNode in) throw(AssertionException) {
   try {
-    Chat() << "Preprocessing / rewriting: " << in << endl;
+    //Chat() << "Preprocessing / rewriting: " << in << endl;
     return d_smt.d_theoryEngine->preprocess(in);
   } catch(TypeCheckingExceptionPrivate& tcep) {
     // Calls to this function should have already weeded out any
@@ -671,7 +671,7 @@ void SmtEnginePrivate::adjustAssertions(bool purge) {
         Node n = this->preprocess(*i);
         Trace("smt") << "SMT pushing to MiniSat " << n << endl;
 
-        Chat() << "Pushing to MiniSat: " << n << endl;
+        //Chat() << "Pushing to MiniSat: " << n << endl;
         d_smt.d_propEngine->assertFormula(n);
       }
       d_assertionsToPushToSat.clear();
