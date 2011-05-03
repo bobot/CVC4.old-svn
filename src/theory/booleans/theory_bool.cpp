@@ -160,9 +160,9 @@ Node TheoryBool::simplify(TNode in, Substitutions& outSubstitutions) {
   hash_map<TNode, Node, TNodeHashFunction> simplified;
 
   vector<Node> newFacts;
-  CircuitPropagator cp(atoms, backEdges);
+  CircuitPropagator circuit(atoms, backEdges);
   Debug("simplify") << "propagate..." << endl;
-  if(cp.propagate(in, true, newFacts)) {
+  if(circuit.propagate(in, true, newFacts)) {
     Notice() << "Found a conflict in nonclausal Boolean reasoning" << endl;
     return NodeManager::currentNM()->mkConst(false);
   }
@@ -208,7 +208,15 @@ Node TheoryBool::simplify(TNode in, Substitutions& outSubstitutions) {
         i != i_end;
         ++i) {
       if((*i).first.getType().isBoolean()) {
-        b << (*i).first.iffNode((*i).second);
+        if((*i).second.getMetaKind() == kind::metakind::CONSTANT) {
+          if((*i).second.getConst<bool>()) {
+            return (*i).first;
+          } else {
+            return BooleanSimplification::negate((*i).first);
+          }
+        } else {
+          b << (*i).first.iffNode((*i).second);
+        }
       } else {
         b << (*i).first.eqNode((*i).second);
       }

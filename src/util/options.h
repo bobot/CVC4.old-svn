@@ -105,12 +105,21 @@ struct CVC4_PUBLIC Options {
   bool lazyDefinitionExpansion;
 
   /** Enumeration of simplification modes (when to simplify). */
-  typedef enum { BATCH_MODE, INCREMENTAL_MODE, INCREMENTAL_LAZY_SAT_MODE } SimplificationMode;
+  typedef enum {
+    BATCH_MODE,
+    INCREMENTAL_MODE,
+    INCREMENTAL_LAZY_SAT_MODE
+  } SimplificationMode;
   /** When to perform nonclausal simplifications. */
   SimplificationMode simplificationMode;
 
   /** Enumeration of simplification styles (how much to simplify). */
-  typedef enum { AGGRESSIVE_SIMPLIFICATION_STYLE, TOPLEVEL_SIMPLIFICATION_STYLE, NO_SIMPLIFICATION_STYLE } SimplificationStyle;
+  typedef enum {
+    AGGRESSIVE_SIMPLIFICATION_STYLE,
+    TOPLEVEL_SIMPLIFICATION_STYLE,
+    NO_SIMPLIFICATION_STYLE
+  } SimplificationStyle;
+
   /** Style of nonclausal simplifications to perform. */
   SimplificationStyle simplificationStyle;
 
