@@ -99,10 +99,11 @@ public:
     }
   }
 
-  void flush() {
+  CVC4ostream& flush() {
     if(d_os != NULL) {
       d_os->flush();
     }
+    return *this;
   }
 
   bool isConnected() { return d_os != NULL; }
@@ -212,6 +213,8 @@ public:
 
   std::ostream& setStream(std::ostream& os) { d_os = &os; return os; }
   std::ostream& getStream() { return *d_os; }
+
+  bool isOn() const { return d_os != &null_os; }
 };/* class WarningC */
 
 /** The message output class */
@@ -227,6 +230,8 @@ public:
 
   std::ostream& setStream(std::ostream& os) { d_os = &os; return os; }
   std::ostream& getStream() { return *d_os; }
+
+  bool isOn() const { return d_os != &null_os; }
 };/* class MessageC */
 
 /** The notice output class */
@@ -242,6 +247,8 @@ public:
 
   std::ostream& setStream(std::ostream& os) { d_os = &os; return os; }
   std::ostream& getStream() { return *d_os; }
+
+  bool isOn() const { return d_os != &null_os; }
 };/* class NoticeC */
 
 /** The chat output class */
@@ -257,6 +264,8 @@ public:
 
   std::ostream& setStream(std::ostream& os) { d_os = &os; return os; }
   std::ostream& getStream() { return *d_os; }
+
+  bool isOn() const { return d_os != &null_os; }
 };/* class ChatC */
 
 /** The trace output class */
@@ -301,26 +310,33 @@ public:
 /** The debug output singleton */
 extern DebugC DebugChannel CVC4_PUBLIC;
 #ifdef CVC4_DEBUG
-#  define Debug CVC4::DebugChannel
+#  define Debug ::CVC4::DebugChannel
 #else /* CVC4_DEBUG */
-#  define Debug CVC4::__cvc4_true() ? CVC4::debugNullCvc4Stream : CVC4::DebugChannel
+#  define Debug ::CVC4::__cvc4_true() ? ::CVC4::debugNullCvc4Stream : ::CVC4::DebugChannel
 #endif /* CVC4_DEBUG */
 
 /** The warning output singleton */
 extern WarningC Warning CVC4_PUBLIC;
+#define Warning() (! ::CVC4::Warning.isOn()) ? ::CVC4::debugNullCvc4Stream : ::CVC4::Warning()
+
 /** The message output singleton */
 extern MessageC Message CVC4_PUBLIC;
+#define Message() (! ::CVC4::Message.isOn()) ? ::CVC4::debugNullCvc4Stream : ::CVC4::Message()
+
 /** The notice output singleton */
 extern NoticeC Notice CVC4_PUBLIC;
+#define Notice() (! ::CVC4::Notice.isOn()) ? ::CVC4::debugNullCvc4Stream : ::CVC4::Notice()
+
 /** The chat output singleton */
 extern ChatC Chat CVC4_PUBLIC;
+#define Chat() (! ::CVC4::Chat.isOn()) ? ::CVC4::debugNullCvc4Stream : ::CVC4::Chat()
 
 /** The trace output singleton */
 extern TraceC TraceChannel CVC4_PUBLIC;
 #ifdef CVC4_TRACING
-#  define Trace CVC4::TraceChannel
+#  define Trace ::CVC4::TraceChannel
 #else /* CVC4_TRACING */
-#  define Trace CVC4::__cvc4_true() ? CVC4::debugNullCvc4Stream : CVC4::TraceChannel
+#  define Trace ::CVC4::__cvc4_true() ? ::CVC4::debugNullCvc4Stream : ::CVC4::TraceChannel
 #endif /* CVC4_TRACING */
 
 // Disallow e.g. !Debug("foo").isOn() forms
@@ -460,33 +476,6 @@ extern NullDebugC Trace CVC4_PUBLIC;
  */
 class CVC4_PUBLIC NullDebugC {
 public:
-/*
-  NullDebugC() {}
-  NullDebugC(std::ostream* os) {}
-
-  void operator()(const char* tag, const char*) {}
-  void operator()(const char* tag, std::string) {}
-  void operator()(std::string tag, const char*) {}
-  void operator()(std::string tag, std::string) {}
-
-  int printf(const char* tag, const char* fmt, ...) __attribute__ ((format(printf, 3, 4))) {}
-  int printf(std::string tag, const char* fmt, ...) __attribute__ ((format(printf, 3, 4))) {}
-
-  std::ostream& operator()(const char* tag) { return null_os; }
-  std::ostream& operator()(std::string tag) { return null_os; }
-
-  void on (const char* tag) {}
-  void on (std::string tag) {}
-  void off(const char* tag) {}
-  void off(std::string tag) {}
-
-  bool isOn(const char* tag) { return false; }
-  bool isOn(std::string tag) { return false; }
-
-  void setStream(std::ostream& os) {}
-  std::ostream& getStream() { return null_os; }
-
-*/
   operator bool() { return false; }
   operator CVC4ostream() { return CVC4ostream(); }
   operator std::ostream&() { return null_os; }
@@ -499,6 +488,7 @@ public:
  * complain. */
 class CVC4_PUBLIC NullC {
 public:
+/*
   NullC() {}
   NullC(std::ostream* os) {}
 
@@ -508,6 +498,10 @@ public:
 
   std::ostream& setStream(std::ostream& os) { return null_os; }
   std::ostream& getStream() { return null_os; }
+*/
+  operator bool() { return false; }
+  operator CVC4ostream() { return CVC4ostream(); }
+  operator std::ostream&() { return null_os; }
 };/* class NullC */
 
 extern NullDebugC debugNullCvc4Stream CVC4_PUBLIC;
