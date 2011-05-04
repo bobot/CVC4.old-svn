@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Output utility classes and functions.
+ ** \brief Output utility classes and functions
  **
  ** Output utility classes and functions.
  **/
@@ -59,8 +59,6 @@ extern null_streambuf null_sb;
 /** A null output stream singleton */
 extern std::ostream null_os CVC4_PUBLIC;
 
-#ifndef CVC4_MUZZLE
-
 class CVC4_PUBLIC CVC4ostream {
   static const std::string s_tab;
   static const int s_indentIosIndex;
@@ -99,10 +97,11 @@ public:
     }
   }
 
-  void flush() {
+  CVC4ostream& flush() {
     if(d_os != NULL) {
       d_os->flush();
     }
+    return *this;
   }
 
   bool isConnected() { return d_os != NULL; }
@@ -212,6 +211,8 @@ public:
 
   std::ostream& setStream(std::ostream& os) { d_os = &os; return os; }
   std::ostream& getStream() { return *d_os; }
+
+  bool isOn() const { return d_os != &null_os; }
 };/* class WarningC */
 
 /** The message output class */
@@ -227,6 +228,8 @@ public:
 
   std::ostream& setStream(std::ostream& os) { d_os = &os; return os; }
   std::ostream& getStream() { return *d_os; }
+
+  bool isOn() const { return d_os != &null_os; }
 };/* class MessageC */
 
 /** The notice output class */
@@ -242,6 +245,8 @@ public:
 
   std::ostream& setStream(std::ostream& os) { d_os = &os; return os; }
   std::ostream& getStream() { return *d_os; }
+
+  bool isOn() const { return d_os != &null_os; }
 };/* class NoticeC */
 
 /** The chat output class */
@@ -257,6 +262,8 @@ public:
 
   std::ostream& setStream(std::ostream& os) { d_os = &os; return os; }
   std::ostream& getStream() { return *d_os; }
+
+  bool isOn() const { return d_os != &null_os; }
 };/* class ChatC */
 
 /** The trace output class */
@@ -300,28 +307,57 @@ public:
 
 /** The debug output singleton */
 extern DebugC DebugChannel CVC4_PUBLIC;
-#ifdef CVC4_DEBUG
-#  define Debug CVC4::DebugChannel
-#else /* CVC4_DEBUG */
-#  define Debug CVC4::__cvc4_true() ? CVC4::debugNullCvc4Stream : CVC4::DebugChannel
-#endif /* CVC4_DEBUG */
-
 /** The warning output singleton */
-extern WarningC Warning CVC4_PUBLIC;
+extern WarningC WarningChannel CVC4_PUBLIC;
 /** The message output singleton */
-extern MessageC Message CVC4_PUBLIC;
+extern MessageC MessageChannel CVC4_PUBLIC;
 /** The notice output singleton */
-extern NoticeC Notice CVC4_PUBLIC;
+extern NoticeC NoticeChannel CVC4_PUBLIC;
 /** The chat output singleton */
-extern ChatC Chat CVC4_PUBLIC;
-
+extern ChatC ChatChannel CVC4_PUBLIC;
 /** The trace output singleton */
 extern TraceC TraceChannel CVC4_PUBLIC;
-#ifdef CVC4_TRACING
-#  define Trace CVC4::TraceChannel
-#else /* CVC4_TRACING */
-#  define Trace CVC4::__cvc4_true() ? CVC4::debugNullCvc4Stream : CVC4::TraceChannel
-#endif /* CVC4_TRACING */
+
+#ifdef CVC4_MUZZLE
+
+#  define Debug ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::DebugChannel
+#  define Warning ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::WarningChannel
+#  define Message ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::MessageChannel
+#  define Notice ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::NoticeChannel
+#  define Chat ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::ChatChannel
+#  define Trace ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::TraceChannel
+
+inline int DebugC::printf(const char* tag, const char* fmt, ...) { return 0; }
+inline int DebugC::printf(std::string tag, const char* fmt, ...) { return 0; }
+inline int WarningC::printf(const char* fmt, ...) { return 0; }
+inline int MessageC::printf(const char* fmt, ...) { return 0; }
+inline int NoticeC::printf(const char* fmt, ...) { return 0; }
+inline int ChatC::printf(const char* fmt, ...) { return 0; }
+inline int TraceC::printf(const char* tag, const char* fmt, ...) { return 0; }
+inline int TraceC::printf(std::string tag, const char* fmt, ...) { return 0; }
+
+#else /* CVC4_MUZZLE */
+
+#  ifdef CVC4_DEBUG
+#    define Debug ::CVC4::DebugChannel
+#  else /* CVC4_DEBUG */
+#    define Debug ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::DebugChannel
+inline int DebugC::printf(const char* tag, const char* fmt, ...) { return 0; }
+inline int DebugC::printf(std::string tag, const char* fmt, ...) { return 0; }
+#  endif /* CVC4_DEBUG */
+#  define Warning (! ::CVC4::WarningChannel.isOn()) ? ::CVC4::nullCvc4Stream : ::CVC4::WarningChannel
+#  define Message (! ::CVC4::MessageChannel.isOn()) ? ::CVC4::nullCvc4Stream : ::CVC4::MessageChannel
+#  define Notice (! ::CVC4::NoticeChannel.isOn()) ? ::CVC4::nullCvc4Stream : ::CVC4::NoticeChannel
+#  define Chat (! ::CVC4::ChatChannel.isOn()) ? ::CVC4::nullCvc4Stream : ::CVC4::ChatChannel
+#  ifdef CVC4_TRACING
+#    define Trace ::CVC4::TraceChannel
+#  else /* CVC4_TRACING */
+#    define Trace ::CVC4::__cvc4_true() ? ::CVC4::nullCvc4Stream : ::CVC4::TraceChannel
+inline int TraceC::printf(const char* tag, const char* fmt, ...) { return 0; }
+inline int TraceC::printf(std::string tag, const char* fmt, ...) { return 0; }
+#  endif /* CVC4_TRACING */
+
+#endif /* CVC4_MUZZLE */
 
 // Disallow e.g. !Debug("foo").isOn() forms
 // because the ! will apply before the ? .
@@ -430,87 +466,18 @@ public:
 
 #endif /* CVC4_TRACING */
 
-#else /* ! CVC4_MUZZLE */
-
-class CVC4_PUBLIC ScopedDebug {
-public:
-  ScopedDebug(std::string tag, bool newSetting = true) {}
-  ScopedDebug(const char* tag, bool newSetting = true) {}
-};/* class ScopedDebug */
-
-class CVC4_PUBLIC ScopedTrace {
-public:
-  ScopedTrace(std::string tag, bool newSetting = true) {}
-  ScopedTrace(const char* tag, bool newSetting = true) {}
-};/* class ScopedTrace */
-
-extern NullDebugC Debug CVC4_PUBLIC;
-extern NullC Warning CVC4_PUBLIC;
-extern NullC Message CVC4_PUBLIC;
-extern NullC Notice CVC4_PUBLIC;
-extern NullC Chat CVC4_PUBLIC;
-extern NullDebugC Trace CVC4_PUBLIC;
-
-#endif /* ! CVC4_MUZZLE */
-
 /**
- * Same shape as DebugC/TraceC, but does nothing; designed for
- * compilation of non-debug/non-trace builds.  None of these should ever be called
- * in such builds, but we offer this to the compiler so it doesn't complain.
+ * Does nothing; designed for compilation of non-debug/non-trace
+ * builds.  None of these should ever be called in such builds, but we
+ * offer this to the compiler so it doesn't complain.
  */
-class CVC4_PUBLIC NullDebugC {
+class CVC4_PUBLIC NullC {
 public:
-/*
-  NullDebugC() {}
-  NullDebugC(std::ostream* os) {}
-
-  void operator()(const char* tag, const char*) {}
-  void operator()(const char* tag, std::string) {}
-  void operator()(std::string tag, const char*) {}
-  void operator()(std::string tag, std::string) {}
-
-  int printf(const char* tag, const char* fmt, ...) __attribute__ ((format(printf, 3, 4))) {}
-  int printf(std::string tag, const char* fmt, ...) __attribute__ ((format(printf, 3, 4))) {}
-
-  std::ostream& operator()(const char* tag) { return null_os; }
-  std::ostream& operator()(std::string tag) { return null_os; }
-
-  void on (const char* tag) {}
-  void on (std::string tag) {}
-  void off(const char* tag) {}
-  void off(std::string tag) {}
-
-  bool isOn(const char* tag) { return false; }
-  bool isOn(std::string tag) { return false; }
-
-  void setStream(std::ostream& os) {}
-  std::ostream& getStream() { return null_os; }
-
-*/
   operator bool() { return false; }
   operator CVC4ostream() { return CVC4ostream(); }
   operator std::ostream&() { return null_os; }
-};/* class NullDebugC */
-
-/**
- * Same shape as WarningC/etc., but does nothing; designed for
- * compilation of muzzled builds.  None of these should ever be called
- * in muzzled builds, but we offer this to the compiler so it doesn't
- * complain. */
-class CVC4_PUBLIC NullC {
-public:
-  NullC() {}
-  NullC(std::ostream* os) {}
-
-  int printf(const char* fmt, ...) __attribute__ ((format(printf, 2, 3))) { return 0; }
-
-  std::ostream& operator()() { return null_os; }
-
-  std::ostream& setStream(std::ostream& os) { return null_os; }
-  std::ostream& getStream() { return null_os; }
 };/* class NullC */
 
-extern NullDebugC debugNullCvc4Stream CVC4_PUBLIC;
 extern NullC nullCvc4Stream CVC4_PUBLIC;
 
 /**
