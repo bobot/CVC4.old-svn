@@ -33,7 +33,7 @@
 #include "context/cdo.h"
 #include "context/cdmap.h"
 #include "context/cdset.h"
-#include "context/cdlist_context_memory.h"
+#include "context/cdlist.h"
 #include "context/cdcirclist.h"
 #include "util/exception.h"
 #include "theory/uf/morgan/stacking_map.h"
@@ -192,6 +192,7 @@ class CongruenceClosure {
   typedef context::CDCircList<Cid, context::ContextMemoryAllocator<Cid> > ClassList;
   typedef context::CDList<TNode> Uses;
   typedef DynamicArray<Uses> UseList;
+  typedef DynamicArray< std::vector<Node> > PropagateList;
   typedef context::CDMap<std::vector<Cid>, Node, VectorHashFunction<Cid, CidHashFunction> > LookupMap;
 
   //typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> ProofMap;
@@ -206,6 +207,7 @@ class CongruenceClosure {
 
   RepresentativeMap d_representative;
   ClassList d_classList;
+  PropagateList d_propagate;
   UseList d_useList;
   LookupMap d_lookup;
 
@@ -398,7 +400,7 @@ private:
   /**
    * Internal lookup mapping from tuples to equalities.
    */
-  inline TNode lookup(std::vector<Cid> a) const {
+  inline TNode lookup(const std::vector<Cid>& a) const {
     typename LookupMap::const_iterator i = d_lookup.find(a);
     if(i == d_lookup.end()) {
       return TNode::null();
@@ -413,7 +415,7 @@ private:
   /**
    * Internal lookup mapping.
    */
-  inline void setLookup(std::vector<Cid> a, TNode b) {
+  inline void setLookup(const std::vector<Cid>& a, TNode b) {
     Assert(b.getKind() == kind::EQUAL ||
            b.getKind() == kind::IFF);
     d_lookup[a] = b;
@@ -459,40 +461,23 @@ public:
 
 };/* class CongruenceClosure */
 
-
-#if 0
-
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::registerTerm(TNode t) {
-  Node trm = replace(flatten(t));
-  Node trmp = find(trm);
+  Assert(t.getKind() == kind::EQUAL ||
+         t.getKind() == kind::IFF);
+  TNode a = t[0];
+  TNode b = t[1];
 
-  if(Debug.isOn("cc")) {
-    Debug("cc") << "CC registerTerm [" << d_careSet.size() << "] " << d_careSet.contains(t) << ": " << t << std::endl
-                << "                [" << d_careSet.size() << "] " << d_careSet.contains(trm) << ": " << trm << std::endl
-                << "                [" << d_careSet.size() << "] " << d_careSet.contains(trmp) << ": " << trmp << std::endl;
-  }
+  Debug("cc") << "CC registerTerm " << t << std::endl;
 
-  if(t != trm && !d_careSet.contains(t)) {
+  if(areCongruent(a, b)) {
     // we take care to only notify our client once of congruences
-    d_out->notifyCongruence(t, trm);
-    d_careSet.insert(t);
+    d_out->notifyCongruence(t);
   }
 
-  if(!d_careSet.contains(trm)) {
-    if(trm != trmp) {
-      // if part of an equivalence class headed by another node,
-      // notify the client of this merge that's already been
-      // performed..
-      d_out->notifyCongruence(trm, trmp);
-    }
-
-    // add its representative to the care set
-    d_careSet.insert(trmp);
-  }
+  d_propagate[cid(a)].push_back(t);
+  d_propagate[cid(b)].push_back(t);
 }
-
-#endif /* 0 */
 
 /* From [Nieuwenhuis & Oliveras]
 1. Procedure Merge(s=t)
@@ -578,15 +563,14 @@ std::vector<typename CongruenceClosure<OutputChannel>::Cid> CongruenceClosure<Ou
   return argspb;
 }/* buildRepresentativesOfApply() */
 
-
 #if 0
 
 template <class OutputChannel>
-void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
+void CongruenceClosure<OutputChannel>::propagate(Cid s, Cid t) {
   Trace("cc:detail") << "=== doing a round of propagation ===" << std::endl
                      << "the \"seed\" propagation is: " << seed << std::endl;
 
-  std::list<Node> pending;
+  std::list<Cid> pending;
 
   Trace("cc") << "seed propagation with: " << seed << std::endl;
   pending.push_back(seed);

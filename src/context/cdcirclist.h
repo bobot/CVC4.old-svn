@@ -297,24 +297,6 @@ public:
     return iterator(this, NULL);
   }
 
-  size_t size() const {
-#warning remove CDCircList<>::size()
-    if(Debug.isOn("cdcirclist:paranoid")) {
-      debugCheck();
-    }
-    const elt_t *const head = d_head;
-    if(head == NULL) {
-      return 0;
-    } else {
-      size_t count = 1;
-      const elt_t* p = head;
-      while((p = p->next()) != head) {
-        ++count;
-      }
-      return count;
-    }
-  }
-
   const_iterator begin() const {
     return const_iterator(this, head());
   }

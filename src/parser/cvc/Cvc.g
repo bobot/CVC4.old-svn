@@ -447,35 +447,35 @@ namespace CVC4 {
       /**
        * This class is just here to get around an unfortunate bit of Antlr.
        * We use strings below as return values from rules, which require
-       * them to be constructible by a uintptr_t.  So we derive the string
+       * them to be constructible by a void*.  So we derive the string
        * class to provide just such a conversion.
        */
       class myString : public std::string {
       public:
         myString(const std::string& s) : std::string(s) {}
-        myString(uintptr_t) : std::string() {}
+        myString(void*) : std::string() {}
         myString() : std::string() {}
       };/* class myString */
 
       /**
-       * Just exists to give us the uintptr_t construction that
+       * Just exists to give us the void* construction that
        * ANTLR requires.
        */
       class mySubrangeBound : public CVC4::SubrangeBound {
       public:
         mySubrangeBound() : CVC4::SubrangeBound() {}
-        mySubrangeBound(uintptr_t) : CVC4::SubrangeBound() {}
+        mySubrangeBound(void*) : CVC4::SubrangeBound() {}
         mySubrangeBound(const Integer& i) : CVC4::SubrangeBound(i) {}
         mySubrangeBound(const SubrangeBound& b) : CVC4::SubrangeBound(b) {}
       };/* class mySubrangeBound */
 
       /**
-       * Just exists to give us the uintptr_t construction that
+       * Just exists to give us the void* construction that
        * ANTLR requires.
        */
       struct myExpr : public CVC4::Expr {
         myExpr() : CVC4::Expr() {}
-        myExpr(uintptr_t) : CVC4::Expr() {}
+        myExpr(void*) : CVC4::Expr() {}
         myExpr(const Expr& e) : CVC4::Expr(e) {}
         myExpr(const myExpr& e) : CVC4::Expr(e) {}
       };/* struct myExpr */

@@ -129,7 +129,9 @@ Node TheoryUFMorgan::constructConflict(TNode diseq) {
   return conflict;
 }
 
-void TheoryUFMorgan::notifyCongruent(TNode a, TNode b) {
+void TheoryUFMorgan::notifyCongruence(TNode eq) {
+  TNode a = eq[0];
+  TNode b = eq[1];
   Debug("uf") << "uf: notified of merge " << a << endl
               << "                  and " << b << endl;
   if(!d_conflict.isNull()) {
@@ -146,15 +148,6 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
   // make "a" the one with shorter diseqList
   EqLists::iterator deq_ia = d_disequalities.find(a);
   EqLists::iterator deq_ib = d_disequalities.find(b);
-  if(deq_ia != d_disequalities.end()) {
-    if(deq_ib == d_disequalities.end() ||
-       (*deq_ia).second->size() > (*deq_ib).second->size()) {
-      TNode tmp = a;
-      a = b;
-      b = tmp;
-      Debug("uf") << "    swapping to make a shorter diseqList" << endl;
-    }
-  }
   a = find(a);
   b = find(b);
   Debug("uf") << "uf: uf reps are " << a << endl
