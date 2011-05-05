@@ -434,13 +434,14 @@ bool TheoryArrays::isRedundantInContext(TNode a, TNode b, TNode i, TNode j) {
   Node aj = nm->mkNode(kind::SELECT, a, j);
   Node bj = nm->mkNode(kind::SELECT, b, j);
 
-  // FIXME: why doesn't it work?
-  /*if(find(i) == find(j) || find(aj) == find(bj)) {
-    Debug("arrays-lem")<<"isRedundantInContext valid "<<a<<" "<<b<<" "<<i<<" "<<j<<"\n";
+  if(find(i) == find(j) || find(aj) == find(bj)) {
+    //Debug("arrays-lem")<<"isRedundantInContext valid "<<a<<" "<<b<<" "<<i<<" "<<j<<"\n";
+    checkRowForIndex(j,b); // why am i doing this?
+    checkRowForIndex(i,a);
     return true;
-    }*/
+    }
   if(alreadyAddedRow(a,b,i,j)) {
-    Debug("arrays-lem")<<"isRedundantInContext already added "<<a<<" "<<b<<" "<<i<<" "<<j<<"\n";
+   // Debug("arrays-lem")<<"isRedundantInContext already added "<<a<<" "<<b<<" "<<i<<" "<<j<<"\n";
     return true;
   }
   return false;
@@ -610,11 +611,11 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b) {
   if(Debug.isOn("arrays-crl"))
     d_infoMap.getInfo(b)->print();
 
-  const CTNodeList* i_a = d_infoMap.getIndices(a);
+  List<Node>* i_a = d_infoMap.getIndices(a);
   const CTNodeList* st_b = d_infoMap.getStores(b);
-  const CTNodeList* inst_b = d_infoMap.getStores(b);
+  const CTNodeList* inst_b = d_infoMap.getInStores(b);
 
-  CTNodeList::const_iterator it = i_a->begin();
+  List<Node>::const_iterator it = i_a->begin();
   CTNodeList::const_iterator its;
 
   for( ; it != i_a->end(); it++ ) {
@@ -693,9 +694,11 @@ inline void TheoryArrays::addRowLemma(TNode a, TNode b, TNode i, TNode j) {
 void TheoryArrays::checkRowForIndex(TNode i, TNode a) {
   Debug("arrays-cri")<<"Arrays::checkRowForIndex "<<a<<"\n";
   Debug("arrays-cri")<<"                   index "<<i<<"\n";
+
   if(Debug.isOn("arrays-cri")) {
     d_infoMap.getInfo(a)->print();
   }
+  Assert(a.getType().isArray());
 
   const CTNodeList* stores = d_infoMap.getStores(a);
   const CTNodeList* instores = d_infoMap.getInStores(a);
@@ -705,9 +708,9 @@ void TheoryArrays::checkRowForIndex(TNode i, TNode a) {
     TNode store = *it;
     Assert(store.getKind()==kind::STORE);
     TNode j = store[1];
-
+    //Debug("arrays-lem")<<"Arrays::checkRowForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
     if(!isRedundandRowLemma(store, store[0], j, i)) {
-      Debug("arrays-lem")<<"Arrays::checkRowForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
+      //Debug("arrays-lem")<<"Arrays::checkRowForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
       queueRowLemma(store, store[0], j, i);
     }
   }
@@ -717,15 +720,40 @@ void TheoryArrays::checkRowForIndex(TNode i, TNode a) {
     TNode instore = *it;
     Assert(instore.getKind()==kind::STORE);
     TNode j = instore[1];
-
+    //Debug("arrays-lem")<<"Arrays::checkRowForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
     if(!isRedundandRowLemma(instore, instore[0], j, i)) {
-      Debug("arrays-lem")<<"Arrays::checkRowForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
+      //Debug("arrays-lem")<<"Arrays::checkRowForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
       queueRowLemma(instore, instore[0], j, i);
     }
   }
 
 }
 
+
+void TheoryArrays::checkStore(TNode a) {
+  Debug("arrays-cri")<<"Arrays::checkStore "<<a<<"\n";
+
+  if(Debug.isOn("arrays-cri")) {
+    d_infoMap.getInfo(a)->print();
+  }
+  Assert(a.getType().isArray());
+  Assert(a.getKind()==kind::STORE);
+  TNode b = a[0];
+  TNode i = a[1];
+
+  List<Node>* js = d_infoMap.getIndices(b);
+  List<Node>::const_iterator it = js->begin();
+
+  for(; it!= js->end(); it++) {
+    TNode j = *it;
+
+    if(!isRedundandRowLemma(a, b, i, j)) {
+      //Debug("arrays-lem")<<"Arrays::checkRowStore ("<<a<<", "<<b<<", "<<i<<", "<<j<<")\n";
+      queueRowLemma(a,b,i,j);
+    }
+  }
+
+}
 
 inline void TheoryArrays::queueExtLemma(TNode a, TNode b) {
   Assert(a.getType().isArray() && b.getType().isArray());

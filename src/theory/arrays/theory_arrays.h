@@ -271,6 +271,7 @@ private:
    */
   void checkRowForIndex(TNode i, TNode a);
 
+  void checkStore(TNode a);
   /**
    * Lemma helper functions to prevent changing the list we are iterating through.
    */
@@ -357,20 +358,29 @@ public:
   void preRegisterTerm(TNode n) {
     //TimerStat::CodeTimer codeTimer(d_preregisterTimer);
     Debug("arrays-preregister")<<"Arrays::preRegisterTerm "<<n<<"\n";
+    //TODO: check non-linear arrays with an AlwaysAssert!!!
+    //if(n.getType().isArray())
 
     switch(n.getKind()) {
     case kind::EQUAL:
       // stores the seen atoms for propagation
       Debug("arrays-preregister")<<"atom "<<n<<"\n";
+
       d_atoms.insert(n);
       break;
     case kind::SELECT:
+      //Debug("arrays-preregister")<<"at level "<<getContext()->getLevel()<<"\n";
       d_infoMap.addIndex(n[0], n[1]);
       checkRowForIndex(n[1], find(n[0]));
+      //Debug("arrays-preregister")<<"n[0] \n";
+      //d_infoMap.getInfo(n[0])->print();
+      //Debug("arrays-preregister")<<"find(n[0]) \n";
+      //d_infoMap.getInfo(find(n[0]))->print();
       break;
 
     case kind::STORE:
     {
+      // this should always be called at level0 since we do not create new store terms
       TNode a = n[0];
       TNode i = n[1];
       TNode v = n[2];
@@ -384,6 +394,8 @@ public:
       d_infoMap.addIndex(n, i);
       d_infoMap.addStore(n, n);
       d_infoMap.addInStore(a, n);
+
+      checkStore(n);
 
       break;
     }

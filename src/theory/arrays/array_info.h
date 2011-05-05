@@ -20,7 +20,7 @@
 
 #ifndef __CVC4__THEORY__ARRAYS__ARRAY_INFO_H
 #define __CVC4__THEORY__ARRAYS__ARRAY_INFO_H
-
+#include "util/backtrackable.h"
 #include "context/cdlist.h"
 #include "context/cdmap.h"
 #include "expr/node.h"
@@ -32,6 +32,9 @@
 namespace CVC4 {
 namespace theory {
 namespace arrays {
+
+
+
 
 typedef context::CDList<TNode> CTNodeList;
 
@@ -48,23 +51,10 @@ struct TNodeQuadHashFunction {
 };/* struct TNodeQuadHashFunction */
 
 
-static void printList (CTNodeList* list) {
-  CTNodeList::const_iterator it = list->begin();
-  Debug("arrays-info")<<"   [ ";
-  for(; it != list->end(); it++ ) {
-    Debug("arrays-info")<<(*it)<<" ";
-  }
-  Debug("arrays-info")<<"] \n";
-}
+void printList (CTNodeList* list);
+void printList( List<Node>* list);
 
-static bool inList(const CTNodeList* l, const TNode el) {
-  CTNodeList::const_iterator it = l->begin();
-  for ( ; it!= l->end(); it ++) {
-    if(*it == el)
-      return true;
-  }
-  return false;
-}
+bool inList(const CTNodeList* l, const TNode el);
 
 /**
  * Small class encapsulating the information
@@ -74,18 +64,20 @@ static bool inList(const CTNodeList* l, const TNode el) {
 
 class Info {
 public:
-  CTNodeList* indices;
+  List<Node>* indices;
   CTNodeList* stores;
   CTNodeList* in_stores;
 
-  Info(context::Context* c) {
-    indices = new(true)CTNodeList(c);
+  Info(context::Context* c, Backtracker<Node>* bck) {
+    indices = new List<Node>(bck);
     stores = new(true)CTNodeList(c);
     in_stores = new(true)CTNodeList(c);
+
   }
 
   ~Info() {
-    indices->deleteSelf();
+    //FIXME!
+    //indices->deleteSelf();
     stores->deleteSelf();
     in_stores->deleteSelf();
   }
@@ -119,9 +111,11 @@ typedef __gnu_cxx::hash_map<Node, Info*, NodeHashFunction> CNodeInfoMap;
 class ArrayInfo {
 private:
   context::Context* ct;
+  Backtracker<Node>* bck;
   CNodeInfoMap info_map;
 
   CTNodeList* emptyList;
+  List<Node>* emptyListI;
 
 
   /* == STATISTICS == */
@@ -159,8 +153,10 @@ public:
       d_callsMergeInfo("theory::arrays::callsMergeInfo",0),
       d_maxList("theory::arrays::maxList",0),
       d_tableSize("theory::arrays::infoTableSize", info_map) {
+    bck = new Backtracker<Node>(ct);
     emptyList = new(true) CTNodeList(ct);
-    emptyInfo = new Info(ct);
+    emptyListI = new List<Node>(bck);
+    emptyInfo = new Info(ct, bck);
     StatisticsRegistry::registerStat(&d_mergeInfoTimer);
     StatisticsRegistry::registerStat(&d_avgIndexListLength);
     StatisticsRegistry::registerStat(&d_avgStoresListLength);
@@ -205,7 +201,7 @@ public:
 
   const Info* getInfo(const TNode a) const;
 
-  const CTNodeList* getIndices(const TNode a) const;
+  List<Node>* getIndices(const TNode a) const;
 
   const CTNodeList* getStores(const TNode a) const;
 

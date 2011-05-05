@@ -23,7 +23,32 @@ namespace CVC4 {
 namespace theory {
 namespace arrays {
 
+bool inList(const CTNodeList* l, const TNode el) {
+  CTNodeList::const_iterator it = l->begin();
+  for ( ; it!= l->end(); it ++) {
+    if(*it == el)
+      return true;
+  }
+  return false;
+}
 
+void printList (CTNodeList* list) {
+  CTNodeList::const_iterator it = list->begin();
+  Debug("arrays-info")<<"   [ ";
+  for(; it != list->end(); it++ ) {
+    Debug("arrays-info")<<(*it)<<" ";
+  }
+  Debug("arrays-info")<<"] \n";
+}
+
+void printList (List<Node>* list) {
+  List<Node>::const_iterator it = list->begin();
+  Debug("arrays-info")<<"   [ ";
+  for(; it != list->end(); it++ ) {
+    Debug("arrays-info")<<(*it)<<" ";
+  }
+  Debug("arrays-info")<<"] \n";
+}
 
 void ArrayInfo::mergeLists(CTNodeList* la, const CTNodeList* lb) const{
   std::set<TNode> temp;
@@ -43,23 +68,24 @@ void ArrayInfo::addIndex(const Node a, const TNode i) {
   Assert(a.getType().isArray());
   Assert(!i.getType().isArray()); // temporary for flat arrays
   Debug("arrays-ind")<<"Arrays::addIndex "<<a<<"["<<i<<"]\n";
-  CTNodeList* temp_indices;
+  List<Node>* temp_indices;
   Info* temp_info;
 
   CNodeInfoMap::iterator it = info_map.find(a);
   if(it == info_map.end()) {
-    temp_indices = new(true) CTNodeList(ct);
-    temp_indices->push_back(i);
+    temp_indices = new List<Node>(bck);
+    temp_indices->append(i);
 
-    temp_info = new Info(ct);
+    temp_info = new Info(ct, bck);
     temp_info->indices = temp_indices;
 
     info_map[a] = temp_info;
   } else {
     temp_indices = (*it).second->indices;
-    if(! inList(temp_indices, i)) {
-      temp_indices->push_back(i);
-    }
+    temp_indices->append(i);
+  }
+  if(Debug.isOn("arrays-ind")) {
+    printList((*(info_map.find(a))).second->indices);
   }
 
 }
@@ -76,7 +102,7 @@ void ArrayInfo::addStore(const Node a, const TNode st){
     temp_store = new(true) CTNodeList(ct);
     temp_store->push_back(st);
 
-    temp_info = new Info(ct);
+    temp_info = new Info(ct, bck);
     temp_info->stores = temp_store;
     info_map[a]=temp_info;
   } else {
@@ -101,7 +127,7 @@ void ArrayInfo::addInStore(const TNode a, const TNode b){
     temp_inst = new(true) CTNodeList(ct);
     temp_inst->push_back(b);
 
-    temp_info = new Info(ct);
+    temp_info = new Info(ct, bck);
     temp_info->in_stores = temp_inst;
     info_map[a] = temp_info;
   } else {
@@ -126,12 +152,12 @@ const Info* ArrayInfo::getInfo(const TNode a) const{
   return emptyInfo;
 }
 
-const CTNodeList* ArrayInfo::getIndices(const TNode a) const{
+List<Node>* ArrayInfo::getIndices(const TNode a) const{
   CNodeInfoMap::const_iterator it = info_map.find(a);
   if(it!= info_map.end()) {
     return (*it).second->indices;
   }
-  return emptyList;
+  return emptyListI;
 }
 
 const CTNodeList* ArrayInfo::getStores(const TNode a) const{
@@ -172,23 +198,25 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
       if(Debug.isOn("arrays-mergei"))
         (*itb).second->print();
 
-      CTNodeList* lista_i = (*ita).second->indices;
+      List<Node>* lista_i = (*ita).second->indices;
       CTNodeList* lista_st = (*ita).second->stores;
       CTNodeList* lista_inst = (*ita).second->in_stores;
 
 
-      CTNodeList* listb_i = (*itb).second->indices;
+      List<Node>* listb_i = (*itb).second->indices;
       CTNodeList* listb_st = (*itb).second->stores;
       CTNodeList* listb_inst = (*itb).second->in_stores;
 
-      mergeLists(lista_i, listb_i);
+      lista_i->concat(listb_i);
       mergeLists(lista_st, listb_st);
       mergeLists(lista_inst, listb_inst);
 
       /* sketchy stats */
 
-      int s = lista_i->size();
+      //FIXME
+      int s = 0;//lista_i->size();
       d_maxList.maxAssign(s);
+
 
       if(s!= 0) {
         d_avgIndexListLength.addEntry(s);
@@ -218,13 +246,13 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
       Debug("arrays-mergei")<<" adding second element's info \n";
       (*itb).second->print();
 
-      CTNodeList* listb_i = (*itb).second->indices;
+      List<Node>* listb_i = (*itb).second->indices;
       CTNodeList* listb_st = (*itb).second->stores;
       CTNodeList* listb_inst = (*itb).second->in_stores;
 
-      Info* temp_info = new Info(ct);
+      Info* temp_info = new Info(ct, bck);
 
-      mergeLists(temp_info->indices, listb_i);
+      (temp_info->indices)->concat(listb_i);
       mergeLists(temp_info->stores, listb_st);
       mergeLists(temp_info->in_stores, listb_inst);
       info_map[a] = temp_info;
