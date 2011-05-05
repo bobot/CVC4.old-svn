@@ -67,6 +67,18 @@ class CircuitPropagator {
 
   /** Assign Node in circuit with the value and add it to the changed vector; note conflicts. */
   void assign(TNode n, bool b, std::vector<TNode>& changed) {
+    if(n.getMetaKind() == kind::metakind::CONSTANT) {
+      bool c = n.getConst<bool>();
+      if(c != b) {
+        Debug("circuit-prop") << "while assigning(" << b << "): " << n
+                              << ", constant conflict" << std::endl;
+        throw ConflictException();
+      } else {
+        Debug("circuit-prop") << "assigning(" << b << "): " << n
+                              << ", nothing to do" << std::endl;
+      }
+      return;
+    }
     unsigned& state = d_state[n];
     if((state & IS_ASSIGNED_MASK) != 0) {// if assigned already
       if(((state & ASSIGNMENT_MASK) != 0) != b) {// conflict

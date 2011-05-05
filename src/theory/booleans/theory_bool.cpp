@@ -210,9 +210,9 @@ Node TheoryBool::simplify(TNode in, Substitutions& outSubstitutions) {
       if((*i).first.getType().isBoolean()) {
         if((*i).second.getMetaKind() == kind::metakind::CONSTANT) {
           if((*i).second.getConst<bool>()) {
-            return (*i).first;
+            b << (*i).first;
           } else {
-            return BooleanSimplification::negate((*i).first);
+            b << BooleanSimplification::negate((*i).first);
           }
         } else {
           b << (*i).first.iffNode((*i).second);
@@ -223,6 +223,7 @@ Node TheoryBool::simplify(TNode in, Substitutions& outSubstitutions) {
     }
     n = b;
   }
+  Debug("simplify") << "final boolean simplification returned: " << n << endl;
   return n;
 }
 
