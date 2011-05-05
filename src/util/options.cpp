@@ -70,7 +70,7 @@ Options::Options() :
   strictParsing(false),
   lazyDefinitionExpansion(false),
   simplificationMode(INCREMENTAL_MODE),
-  simplificationStyle(TOPLEVEL_SIMPLIFICATION_STYLE),
+  simplificationStyle(NO_SIMPLIFICATION_STYLE),
   interactive(false),
   interactiveSetByUser(false),
   segvNoSpin(false),
