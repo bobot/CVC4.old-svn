@@ -39,15 +39,11 @@ namespace bv {
 struct BitSizeTraits {
   /** The null id */
   static const size_t id_null; // Defined in the cpp file (GCC bug)
-  /** The null trigger id */
-  static const size_t trigger_id_null;
 
   /** Number of bits we use for the id */
   static const size_t id_bits   = 24;
   /** Number of bits we use for the size the equivalence class */
   static const size_t size_bits = 16;
-  /** Number of bits we use for the trigger id */
-  static const size_t trigger_id_bits = 24;
 };
 
 class EqualityNode {
@@ -116,7 +112,7 @@ public:
   inline void setFind(size_t findId) { d_findId = findId; }
 };
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
+template <typename NotifyClass, typename UnionFindPreferences>
 class EqualityEngine {
 
 public:
@@ -155,7 +151,7 @@ public:
 private:
 
   /** The class to notify when a representative changes for a term */
-  NotifyClass d_notify;
+  NotifyClass& d_notify;
 
   /** Map from nodes to their ids */
   __gnu_cxx::hash_map<TNode, size_t, TNodeHashFunction> d_nodeIds;
@@ -205,10 +201,10 @@ private:
     : d_nodeId(nodeId), d_nextId(nextId) {}
 
     /** Returns the id of the next edge */
-    inline size_t getNext() const { return d_nextId; }
+    size_t getNext() const { return d_nextId; }
 
     /** Returns the id of the target edge node */
-    inline size_t getNodeId() const { return d_nodeId; }
+    size_t getNodeId() const { return d_nodeId; }
   };
 
   /**
@@ -235,19 +231,19 @@ private:
   std::vector<size_t> d_equalityGraph;
 
   /** Add an edge to the equality graph */
-  inline void addGraphEdge(size_t t1, size_t t2, Node reason);
+  void addGraphEdge(size_t t1, size_t t2, Node reason);
 
   /** Returns the equality node of the given node */
-  inline EqualityNode& getEqualityNode(TNode node);
+  EqualityNode& getEqualityNode(TNode node);
 
   /** Returns the equality node of the given node */
-  inline EqualityNode& getEqualityNode(size_t nodeId);
+  EqualityNode& getEqualityNode(size_t nodeId);
 
   /** Returns the id of the node */
-  inline size_t getNodeId(TNode node) const;
+  size_t getNodeId(TNode node) const;
 
   /** Merge the class2 into class1 */
-  void merge(EqualityNode& class1, EqualityNode& class2, std::vector<size_t>& triggers);
+  void merge(EqualityNode& class1, EqualityNode& class2);
 
   /** Undo the mereg of class2 into class1 */
   void undoMerge(EqualityNode& class1, EqualityNode& class2, size_t class2Id);
@@ -271,37 +267,6 @@ private:
     : nodeId(nodeId), edgeId(edgeId), previousIndex(prev) {}
   };
 
-  /**
-   * Trigger that will be updated
-   */
-  struct Trigger {
-    /** The current class id of the LHS of the trigger */
-    size_t classId : BitSizeTraits::id_bits;
-    /** Next trigger for class 1 */
-    size_t nextTrigger : BitSizeTraits::id_bits;
-
-    Trigger(size_t classId, size_t nextTrigger)
-    : classId(classId), nextTrigger(nextTrigger) {}
-  };
-
-  /**
-   * Vector of triggers (persistent and not-backtrackable). Triggers come in pairs for an
-   * equality trigger (t1, t2): one at position 2k for t1, and one at position 2k + 1 for t2. When
-   * updating triggers we always know where the other one is (^1).
-   */
-  std::vector<Trigger> d_equalityTriggers;
-
-  /**
-   * Trigger lists per node. The begin id changes as we merge, but the end always points to
-   * the actual end of the triggers for this node.
-   */
-  std::vector<size_t> d_nodeTriggers;
-
-  /**
-   * Adds the trigger with triggerId to the beginning of the trigger list of the node with id nodeId.
-   */
-  inline void addTriggerToList(size_t nodeId, size_t triggerId);
-
   /** Statistics */
   Statistics d_stats;
 
@@ -311,10 +276,9 @@ public:
    * Initialize the equality engine, given the owning class. This will initialize the notifier with
    * the owner information.
    */
-  EqualityEngine(OwnerClass& owner, context::Context* context, std::string name)
-  : d_notify(owner), d_assertedEqualitiesCount(context, 0), d_stats(name) {
-    BVDebug("equality") << "EqualityEdge::EqualityEdge(): id_null = " << BitSizeTraits::id_null <<
-        ", trigger_id_null = " << BitSizeTraits::trigger_id_null << std::endl;
+  EqualityEngine(NotifyClass& notify, context::Context* context, std::string name)
+  : d_notify(notify), d_assertedEqualitiesCount(context, 0), d_stats(name) {
+    Debug("equality") << "EqualityEdge::EqualityEdge(): id_null = " << BitSizeTraits::id_null << std::endl;
   }
 
   /**
@@ -325,23 +289,22 @@ public:
   /**
    * Check whether the node is already in the database.
    */
-  inline bool hasTerm(TNode t) const;
+  bool hasTerm(TNode t) const;
 
   /**
-   * Adds an equality t1 = t2 to the database. Returns false if any of the triggers failed, or a
-   * conflict was introduced.
+   * Adds an equality t1 = t2 to the database. Notifies the notify class of the merges.
    */
   bool addEquality(TNode t1, TNode t2, Node reason);
 
   /**
    * Returns the representative of the term t.
    */
-  inline TNode getRepresentative(TNode t) const;
+  TNode getRepresentative(TNode t) const;
 
   /**
    * Returns true if the two nodes are in the same class.
    */
-  inline bool areEqual(TNode t1, TNode t2) const;
+  bool areEqual(TNode t1, TNode t2) const;
 
   /**
    * Get an explanation of the equality t1 = t2. Returns the asserted equalities that
@@ -349,12 +312,6 @@ public:
    * else. TODO: mark the phantom equalities (skolems).
    */
   void getExplanation(TNode t1, TNode t2, std::vector<TNode>& equalities) const;
-
-  /**
-   * Adds a notify trigger for equality t1 = t2, i.e. when t1 = t2 the notify will be called with
-   * (t1, t2).
-   */
-  size_t addTrigger(TNode t1, TNode t2);
 
   /**
    * Normalizes a term by finding the representative. If the representative can be decomposed (using
@@ -376,10 +333,10 @@ private:
 
 };
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-size_t EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addTerm(TNode t) {
+template <typename NotifyClass, typename UnionFindPreferences>
+size_t EqualityEngine<NotifyClass, UnionFindPreferences>::addTerm(TNode t) {
 
-  BVDebug("equality") << "EqualityEngine::addTerm(" << t << ")" << std::endl;
+  Debug("equality") << "EqualityEngine::addTerm(" << t << ")" << std::endl;
 
   // If term already added, retrurn it's id
   if (hasTerm(t)) return getNodeId(t);
@@ -391,8 +348,6 @@ size_t EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addTerm(TN
   d_nodeIds[t] = newId;
   // Add the node to it's position
   d_nodes.push_back(t);
-  // Add the trigger list for this node
-  d_nodeTriggers.push_back(BitSizeTraits::trigger_id_null);
   // Add it to the equality graph
   d_equalityGraph.push_back(BitSizeTraits::id_null);
   // Add the equality node to the nodes
@@ -404,32 +359,32 @@ size_t EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addTerm(TN
   return newId;
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::hasTerm(TNode t) const {
+template <typename NotifyClass, typename UnionFindPreferences>
+bool EqualityEngine<NotifyClass, UnionFindPreferences>::hasTerm(TNode t) const {
   return d_nodeIds.find(t) != d_nodeIds.end();
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-size_t EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getNodeId(TNode node) const {
+template <typename NotifyClass, typename UnionFindPreferences>
+size_t EqualityEngine<NotifyClass, UnionFindPreferences>::getNodeId(TNode node) const {
   Assert(hasTerm(node), node.toString().c_str());
   return (*d_nodeIds.find(node)).second;
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-EqualityNode& EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getEqualityNode(TNode t) {
+template <typename NotifyClass, typename UnionFindPreferences>
+EqualityNode& EqualityEngine<NotifyClass, UnionFindPreferences>::getEqualityNode(TNode t) {
   return getEqualityNode(getNodeId(t));
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-EqualityNode& EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getEqualityNode(size_t nodeId) {
+template <typename NotifyClass, typename UnionFindPreferences>
+EqualityNode& EqualityEngine<NotifyClass, UnionFindPreferences>::getEqualityNode(size_t nodeId) {
   Assert(nodeId < d_equalityNodes.size());
   return d_equalityNodes[nodeId];
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addEquality(TNode t1, TNode t2, Node reason) {
+template <typename NotifyClass, typename UnionFindPreferences>
+bool EqualityEngine<NotifyClass, UnionFindPreferences>::addEquality(TNode t1, TNode t2, Node reason) {
 
-  BVDebug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;
+  Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;
 
   // Backtrack if necessary
   backtrack();
@@ -445,17 +400,6 @@ bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addEquality(
   // If already the same, we're done
   if (t1classId == t2classId) return true;
 
-  // Check for constants
-  if (d_nodes[t1classId].getMetaKind() == kind::metakind::CONSTANT &&
-      d_nodes[t2classId].getMetaKind() == kind::metakind::CONSTANT) {
-    std::vector<TNode> reasons;
-    getExplanation(t1, d_nodes[t1classId], reasons);
-    getExplanation(t2, d_nodes[t2classId], reasons);
-    reasons.push_back(reason);
-    d_notify.conflict(utils::mkAnd(reasons));
-    return false;
-  }
-
   // Get the nodes of the representatives
   EqualityNode& node1 = getEqualityNode(t1classId);
   EqualityNode& node2 = getEqualityNode(t2classId);
@@ -464,14 +408,13 @@ bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addEquality(
   Assert(node2.getFind() == t2classId);
 
   // Depending on the merge preference (such as size), merge them
-  std::vector<size_t> triggers;
   if (UnionFindPreferences::mergePreference(d_nodes[t2classId], node2.getSize(), d_nodes[t1classId], node1.getSize())) {
-    BVDebug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t1 << " into " << t2 << std::endl;
-    merge(node2, node1, triggers);
+    Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t1 << " into " << t2 << std::endl;
+    merge(node2, node1);
     d_assertedEqualities.push_back(Equality(t2classId, t1classId));
   } else {
-    BVDebug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t2 << " into " << t1 << std::endl;
-    merge(node1, node2, triggers);
+    Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t2 << " into " << t1 << std::endl;
+    merge(node1, node2);
     d_assertedEqualities.push_back(Equality(t1classId, t2classId));
   }
 
@@ -484,19 +427,13 @@ bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addEquality(
   Assert(2*d_assertedEqualities.size() == d_equalityEdges.size());
   Assert(d_assertedEqualities.size() == d_assertedEqualitiesCount);
 
-  // Notify the triggers
-  for (size_t i = 0, i_end = triggers.size(); i < i_end; ++ i) {
-    // Notify the trigger and exit if it fails
-    if (!d_notify(triggers[i])) return false;
-  }
-
   return true;
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-TNode EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getRepresentative(TNode t) const {
+template <typename NotifyClass, typename UnionFindPreferences>
+TNode EqualityEngine<NotifyClass, UnionFindPreferences>::getRepresentative(TNode t) const {
 
-  BVDebug("equality") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
+  Debug("equality") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
 
   Assert(hasTerm(t));
 
@@ -504,14 +441,14 @@ TNode EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getRepresen
   const_cast<EqualityEngine*>(this)->backtrack();
   size_t representativeId = const_cast<EqualityEngine*>(this)->getEqualityNode(t).getFind();
 
-  BVDebug("equality") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
+  Debug("equality") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
 
   return d_nodes[representativeId];
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::areEqual(TNode t1, TNode t2) const {
-  BVDebug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ")" << std::endl;
+template <typename NotifyClass, typename UnionFindPreferences>
+bool EqualityEngine<NotifyClass, UnionFindPreferences>::areEqual(TNode t1, TNode t2) const {
+  Debug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ")" << std::endl;
 
   Assert(hasTerm(t1));
   Assert(hasTerm(t2));
@@ -521,22 +458,22 @@ bool EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::areEqual(TNo
   size_t rep1 = const_cast<EqualityEngine*>(this)->getEqualityNode(t1).getFind();
   size_t rep2 = const_cast<EqualityEngine*>(this)->getEqualityNode(t2).getFind();
 
-  BVDebug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ") => " << (rep1 == rep2 ? "true" : "false") << std::endl;
+  Debug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ") => " << (rep1 == rep2 ? "true" : "false") << std::endl;
 
   return rep1 == rep2;
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::merge(EqualityNode& class1, EqualityNode& class2, std::vector<size_t>& triggers) {
+template <typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<NotifyClass, UnionFindPreferences>::merge(EqualityNode& class1, EqualityNode& class2) {
 
-  BVDebug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << ")" << std::endl;
-
-  Assert(triggers.empty());
+  Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << ")" << std::endl;
 
   ++ d_stats.mergesCount;
 
   size_t class1Id = class1.getFind();
   size_t class2Id = class2.getFind();
+
+  TNode class1Node = d_nodes[class1Id];
 
   // Update class2 representative information
   size_t currentId = class2Id;
@@ -547,25 +484,8 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::merge(Equali
     // Update it's find to class1 id
     currentNode.setFind(class1Id);
 
-    // Go through the triggers and inform if necessary
-    size_t currentTrigger = d_nodeTriggers[currentId];
-    while (currentTrigger != BitSizeTraits::trigger_id_null) {
-      Trigger& trigger = d_equalityTriggers[currentTrigger];
-      Trigger& otherTrigger = d_equalityTriggers[currentTrigger ^ 1];
-
-      // If the two are not already in the same class
-      if (otherTrigger.classId != trigger.classId) {
-        trigger.classId = class1Id;
-        // If they became the same, call the trigger
-        if (otherTrigger.classId == class1Id) {
-          // Id of the real trigger is half the internal one
-          triggers.push_back(currentTrigger >> 1);
-        }
-      }
-
-      // Go to the next trigger
-      currentTrigger = trigger.nextTrigger;
-    }
+    // Notify whoever is watching this
+    d_notify.addSubstitution(d_nodes[currentId], class1Node);
 
     // Move to the next node
     currentId = currentNode.getNext();
@@ -576,10 +496,10 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::merge(Equali
   class1.merge<true>(class2);
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::undoMerge(EqualityNode& class1, EqualityNode& class2, size_t class2Id) {
+template <typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<NotifyClass, UnionFindPreferences>::undoMerge(EqualityNode& class1, EqualityNode& class2, size_t class2Id) {
 
-  BVDebug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << ")" << std::endl;
+  Debug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << ")" << std::endl;
 
   // Now unmerge the lists (same as merge)
   class1.merge<false>(class2);
@@ -593,14 +513,6 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::undoMerge(Eq
     // Update it's find to class1 id
     currentNode.setFind(class2Id);
 
-    // Go through the trigger list (if any) and undo the class
-    size_t currentTrigger = d_nodeTriggers[currentId];
-    while (currentTrigger != BitSizeTraits::trigger_id_null) {
-      Trigger& trigger = d_equalityTriggers[currentTrigger];
-      trigger.classId = class2Id;
-      currentTrigger = trigger.nextTrigger;
-    }
-
     // Move to the next node
     currentId = currentNode.getNext();
 
@@ -608,15 +520,15 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::undoMerge(Eq
 
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::backtrack() {
+template <typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<NotifyClass, UnionFindPreferences>::backtrack() {
 
   // If we need to backtrack then do it
   if (d_assertedEqualitiesCount < d_assertedEqualities.size()) {
 
     ++ d_stats.backtracksCount;
 
-    BVDebug("equality") << "EqualityEngine::backtrack(): nodes" << std::endl;
+    Debug("equality") << "EqualityEngine::backtrack(): nodes" << std::endl;
 
     for (int i = (int)d_assertedEqualities.size() - 1, i_end = (int)d_assertedEqualitiesCount; i >= i_end; --i) {
       // Get the ids of the merged classes
@@ -627,7 +539,7 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::backtrack() 
 
     d_assertedEqualities.resize(d_assertedEqualitiesCount);
 
-    BVDebug("equality") << "EqualityEngine::backtrack(): edges" << std::endl;
+    Debug("equality") << "EqualityEngine::backtrack(): edges" << std::endl;
 
     for (int i = (int)d_equalityEdges.size() - 2, i_end = (int)(2*d_assertedEqualitiesCount); i >= i_end; i -= 2) {
       EqualityEdge& edge1 = d_equalityEdges[i];
@@ -642,9 +554,9 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::backtrack() 
 
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addGraphEdge(size_t t1, size_t t2, Node reason) {
-  BVDebug("equality") << "EqualityEngine::addGraphEdge(" << d_nodes[t1] << "," << d_nodes[t2] << ")" << std::endl;
+template <typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<NotifyClass, UnionFindPreferences>::addGraphEdge(size_t t1, size_t t2, Node reason) {
+  Debug("equality") << "EqualityEngine::addGraphEdge(" << d_nodes[t1] << "," << d_nodes[t2] << ")" << std::endl;
   size_t edge = d_equalityEdges.size();
   d_equalityEdges.push_back(EqualityEdge(t2, d_equalityGraph[t1]));
   d_equalityEdges.push_back(EqualityEdge(t1, d_equalityGraph[t2]));
@@ -653,8 +565,8 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addGraphEdge
   d_equalityReasons.push_back(reason);
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-std::string EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::edgesToString(size_t edgeId) const {
+template <typename NotifyClass, typename UnionFindPreferences>
+std::string EqualityEngine<NotifyClass, UnionFindPreferences>::edgesToString(size_t edgeId) const {
   std::stringstream out;
   bool first = true;
   while (edgeId != BitSizeTraits::id_null) {
@@ -668,11 +580,11 @@ std::string EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::edges
 }
 
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getExplanation(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
+template <typename NotifyClass, typename UnionFindPreferences>
+void EqualityEngine<NotifyClass, UnionFindPreferences>::getExplanation(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
   Assert(getRepresentative(t1) == getRepresentative(t2));
 
-  BVDebug("equality") << "EqualityEngine::getExplanation(" << t1 << "," << t2 << ")" << std::endl;
+  Debug("equality") << "EqualityEngine::getExplanation(" << t1 << "," << t2 << ")" << std::endl;
 
   // If the nodes are the same, we're done
   if (t1 == t2) return;
@@ -697,12 +609,12 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getExplanati
     BfsData current = bfsQueue[currentIndex];
     size_t currentNode = current.nodeId;
 
-    BVDebug("equality") << "EqualityEngine::getExplanation(): currentNode =  " << d_nodes[currentNode] << std::endl;
+    Debug("equality") << "EqualityEngine::getExplanation(): currentNode =  " << d_nodes[currentNode] << std::endl;
 
     // Go through the equality edges of this node
     size_t currentEdge = d_equalityGraph[currentNode];
 
-    BVDebug("equality") << "EqualityEngine::getExplanation(): edges =  " << edgesToString(currentEdge) << std::endl;
+    Debug("equality") << "EqualityEngine::getExplanation(): edges =  " << edgesToString(currentEdge) << std::endl;
 
     while (currentEdge != BitSizeTraits::id_null) {
       // Get the edge
@@ -711,18 +623,18 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getExplanati
       // If not just the backwards edge
       if ((currentEdge | 1u) != (current.edgeId | 1u)) {
 
-        BVDebug("equality") << "EqualityEngine::getExplanation(): currentEdge = (" << d_nodes[currentNode] << "," << d_nodes[edge.getNodeId()] << ")" << std::endl;
+        Debug("equality") << "EqualityEngine::getExplanation(): currentEdge = (" << d_nodes[currentNode] << "," << d_nodes[edge.getNodeId()] << ")" << std::endl;
 
         // Did we find the path
         if (edge.getNodeId() == t2Id) {
 
-          BVDebug("equality") << "EqualityEngine::getExplanation(): path found: " << std::endl;
+          Debug("equality") << "EqualityEngine::getExplanation(): path found: " << std::endl;
 
           // Reconstruct the path
           do {
             // Add the actual equality to the vector
             equalities.push_back(d_equalityReasons[currentEdge >> 1]);
-            BVDebug("equality") << "EqualityEngine::getExplanation(): adding: " << d_equalityReasons[currentEdge >> 1] << std::endl;
+            Debug("equality") << "EqualityEngine::getExplanation(): adding: " << d_equalityReasons[currentEdge >> 1] << std::endl;
 
             // Go to the previous
             currentEdge = bfsQueue[currentIndex].edgeId;
@@ -746,53 +658,18 @@ void EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::getExplanati
   }
 }
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-size_t EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::addTrigger(TNode t1, TNode t2) {
-
-  BVDebug("equality") << "EqualityEngine::addTrigger(" << t1 << "," << t2 << ")" << std::endl;
-
-  Assert(hasTerm(t1));
-  Assert(hasTerm(t2));
-
-  // Get the information about t1
-  size_t t1Id = getNodeId(t1);
-  size_t t1TriggerId = d_nodeTriggers[t1Id];
-  size_t t1classId = getEqualityNode(t1Id).getFind();
-
-  // Get the information about t2
-  size_t t2Id = getNodeId(t2);
-  size_t t2TriggerId = d_nodeTriggers[t2Id];
-  size_t t2classId = getEqualityNode(t2Id).getFind();
-
-  // Create the triggers
-  size_t t1NewTriggerId = d_equalityTriggers.size();
-  size_t t2NewTriggerId = t1NewTriggerId | 1;
-  d_equalityTriggers.push_back(Trigger(t1classId, t1TriggerId));
-  d_equalityTriggers.push_back(Trigger(t2classId, t2TriggerId));
-
-  // Add the trigger to the trigger graph
-  d_nodeTriggers[t1Id] = t1NewTriggerId;
-  d_nodeTriggers[t2Id] = t2NewTriggerId;
-
-  BVDebug("equality") << "EqualityEngine::addTrigger(" << t1 << "," << t2 << ") => " << t1NewTriggerId / 2 << std::endl;
-
-  // Return the global id of the trigger
-  return t1NewTriggerId / 2;
-}
-
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-Node EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::normalize(TNode node, std::set<TNode>& assumptions) {
+template <typename NotifyClass, typename UnionFindPreferences>
+Node EqualityEngine<NotifyClass, UnionFindPreferences>::normalize(TNode node, std::set<TNode>& assumptions) {
   d_normalizationCache.clear();
   Node result = Rewriter::rewrite(normalizeWithCache(node, assumptions));
   d_normalizationCache.clear();
   return result;
 }
 
+template <typename NotifyClass, typename UnionFindPreferences>
+Node EqualityEngine<NotifyClass, UnionFindPreferences>::normalizeWithCache(TNode node, std::set<TNode>& assumptions) {
 
-template <typename OwnerClass, typename NotifyClass, typename UnionFindPreferences>
-Node EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::normalizeWithCache(TNode node, std::set<TNode>& assumptions) {
-
-  BVDebug("equality") << "EqualityEngine::normalize(" << node << ")" << push << std::endl;
+  Debug("equality") << "EqualityEngine::normalize(" << node << ")" << push << std::endl;
 
   normalization_cache::iterator find = d_normalizationCache.find(node);
   if (find != d_normalizationCache.end()) {
@@ -830,7 +707,7 @@ Node EqualityEngine<OwnerClass, NotifyClass, UnionFindPreferences>::normalizeWit
     result = builder;
   }
 
-  BVDebug("equality") << "EqualityEngine::normalize(" << node << ") => " << result << pop << std::endl;
+  Debug("equality") << "EqualityEngine::normalize(" << node << ") => " << result << pop << std::endl;
 
   // Cache the result for real now
   d_normalizationCache[node] = result;

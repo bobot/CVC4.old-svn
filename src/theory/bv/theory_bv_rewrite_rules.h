@@ -119,11 +119,11 @@ public:
   template<bool checkApplies>
   static inline Node run(Node node) {
     if (!checkApplies || applies(node)) {
-      BVDebug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ")" << std::endl;
+      Debug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ")" << std::endl;
       Assert(checkApplies || applies(node));
       ++ s_statictics->d_ruleApplications;
       Node result = apply(node);
-      BVDebug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ") => " << result << std::endl;
+      Debug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ") => " << result << std::endl;
       return result;
     } else {
       return node;

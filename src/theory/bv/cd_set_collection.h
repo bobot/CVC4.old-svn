@@ -1,9 +1,21 @@
-/*
- * set_collection.h
- *
- *  Created on: Feb 24, 2011
- *      Author: dejan
- */
+/*********************                                                        */
+/*! \file cd_set_collection
+ ** \verbatim
+ ** Original author: dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief [[ Add one-line brief description here ]]
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
+ **/
 
 #pragma once
 
@@ -51,7 +63,7 @@ class BacktrackableSetCollection {
     while (d_nodesInserted < d_memory.size()) {
       const tree_entry_type& node = d_memory.back();
 
-      BVDebug("cd_set_collection") << "BacktrackableSetCollection::backtrack(): removing " << node.getValue()
+      Debug("cd_set_collection") << "BacktrackableSetCollection::backtrack(): removing " << node.getValue()
                                  << " from " << internalToString(getRoot(d_memory.size()-1)) << std::endl;
 
       if (node.hasParent()) {
@@ -257,7 +269,7 @@ public:
 
     // Find the biggest node smaleer than value (it must exist)
     while (set != null) {
-      BVDebug("set_collection") << "BacktrackableSetCollection::getPrev(" << toString(set) << "," << value << ")" << std::endl;
+      Debug("set_collection") << "BacktrackableSetCollection::getPrev(" << toString(set) << "," << value << ")" << std::endl;
       const tree_entry_type& node = d_memory[set];
       if (node.getValue() >= value) {
         // If the node is bigger than the value, we need a smaller one
@@ -284,7 +296,7 @@ public:
 
     // Find the smallest node bigger than value (it must exist)
     while (set != null) {
-      BVDebug("set_collection") << "BacktrackableSetCollection::getNext(" << toString(set) << "," << value << ")" << std::endl;
+      Debug("set_collection") << "BacktrackableSetCollection::getNext(" << toString(set) << "," << value << ")" << std::endl;
       const tree_entry_type& node = d_memory[set];
       if (node.getValue() <= value) {
         // If the node is smaller than the value, we need a bigger one
@@ -351,7 +363,7 @@ public:
     backtrack();
     Assert(isValid(set));
 
-    BVDebug("set_collection") << "BacktrackableSetCollection::getElements(" << toString(set) << "," << lowerBound << "," << upperBound << ")" << std::endl;
+    Debug("set_collection") << "BacktrackableSetCollection::getElements(" << toString(set) << "," << lowerBound << "," << upperBound << ")" << std::endl;
 
     // Empty set no elements
     if (set == null) {

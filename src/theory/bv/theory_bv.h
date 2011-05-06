@@ -27,6 +27,7 @@
 #include "context/cdlist.h"
 #include "theory/bv/equality_engine.h"
 #include "theory/bv/slice_manager.h"
+#include "theory/bv/watch_manager.h"
 
 namespace CVC4 {
 namespace theory {
@@ -36,20 +37,12 @@ class TheoryBV : public Theory {
 
 public:
 
-  class EqualityNotify {
+  class WatchNotify {
     TheoryBV& d_theoryBV;
   public:
-    EqualityNotify(TheoryBV& theoryBV)
-    : d_theoryBV(theoryBV) {}
-
-    bool operator () (size_t triggerId) {
-      return d_theoryBV.triggerEquality(triggerId);
-    }
-    void conflict(Node explanation) {
-      std::set<TNode> assumptions;
-      utils::getConjuncts(explanation, assumptions);
-      d_theoryBV.d_out->conflict(utils::mkConjunction(assumptions));
-    }
+    WatchNotify(TheoryBV& theoryBV) :
+      d_theoryBV(theoryBV)
+    {}
   };
 
   struct BVEqualitySettings {
@@ -79,18 +72,22 @@ public:
     }
   };
 
-  typedef EqualityEngine<TheoryBV, EqualityNotify, BVEqualitySettings> BvEqualityEngine;
-
 private:
 
+  /** Watch manager notify object */
+  WatchNotify d_watchNotify;
+
+  /** Watch manager */
+  typedef ConcatWatchManager<WatchNotify> watch_manager;
+  watch_manager d_watchManager;
+
   /** Equality reasoning engine */
-  BvEqualityEngine d_eqEngine;
+  typedef EqualityEngine<watch_manager, BVEqualitySettings> equality_engine;
+  equality_engine d_eqEngine;
 
   /** Slice manager */
-  SliceManager<TheoryBV> d_sliceManager;
-
-  /** Equality triggers indexed by ids from the equality manager */
-  std::vector<Node> d_triggers;
+  typedef SliceManager<equality_engine> slice_manager;
+  slice_manager d_sliceManager;
   
   /** The context we are using */
   context::Context* d_context;
@@ -98,52 +95,22 @@ private:
   /** The asserted stuff */
   context::CDSet<TNode, TNodeHashFunction> d_assertions;
 
-  /** Asserted dis-equalities */
-  context::CDList<TNode> d_disequalities;
-
-  struct Normalization {
-    context::CDList<Node> equalities;
-    context::CDList< std::set<TNode> > assumptions;
-    Normalization(context::Context* c, TNode eq)
-    : equalities(c), assumptions(c) {
-      equalities.push_back(eq);
-      assumptions.push_back(std::set<TNode>());
-    }
-  };
-
-  /** Map from equalities to their noramlization information */
-  typedef __gnu_cxx::hash_map<TNode, Normalization*, TNodeHashFunction> NormalizationMap;
-  NormalizationMap d_normalization;
-
-  /** Called by the equality managere on triggers */
-  bool triggerEquality(size_t triggerId);
-
-  Node d_true;
-
 public:
 
-  TheoryBV(context::Context* c, OutputChannel& out, Valuation valuation)
-  : Theory(THEORY_BV, c, out, valuation), 
-    d_eqEngine(*this, c, "theory::bv::EqualityEngine"), 
-    d_sliceManager(*this, c), 
+  TheoryBV(context::Context* c, OutputChannel& out, Valuation valuation):
+    Theory(THEORY_BV, c, out, valuation),
+    d_watchNotify(*this),
+    d_watchManager(d_watchNotify, c),
+    d_eqEngine(d_watchManager, c, "bv_eq_engine"),
+    d_sliceManager(d_eqEngine, c), 
     d_context(c),
-    d_assertions(c), 
-    d_disequalities(c)
+    d_assertions(c)
   {
-    d_true = utils::mkTrue();
-  }
-
-  BvEqualityEngine& getEqualityEngine() {
-    return d_eqEngine;
   }
 
   void preRegisterTerm(TNode n);
 
-  //void registerTerm(TNode n) { }
-
   void check(Effort e);
-
-  //void presolve() { }
 
   void propagate(Effort e) { }
 
