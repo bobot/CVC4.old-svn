@@ -73,13 +73,13 @@ public:
 
   void notifyNewLemma(Expr lemma) {
     Debug("sharing") << d_tag << ": " << lemma << std::endl;
-      expr::pickle::Pickle pkl;
-      try{
-        d_pickler.toPickle(lemma, pkl);
-        d_sharedChannel->push(pkl);
-      }catch(expr::pickle::PicklingException& p){
-        Debug("sharing::blocked") << lemma << std::endl;
-      }
+    expr::pickle::Pickle pkl;
+    try{
+      d_pickler.toPickle(lemma, pkl);
+      d_sharedChannel->push(pkl);
+    }catch(expr::pickle::PicklingException& p){
+      Debug("sharing::blocked") << lemma << std::endl;
+    }
   }
 
 };
@@ -250,12 +250,6 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   /* Currently all code assumes two threads */
   assert(numThreads == 2);
 
-  /* Duplication, Individualisation */
-  ExprManager* exprMgr2 = new ExprManager();
-
-  ExprManagerMapCollection* vmaps = new ExprManagerMapCollection();
-
-  Command *seq2 = seq->exportTo(exprMgr2, *vmaps);
   Options options2 = options;
   options.pivotRule = Options::MINIMUM;
   options2.pivotRule = Options::MAXIMUM;
@@ -276,7 +270,12 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
     channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10000);
   }
 
+  /* Duplication, Individualisation */
+  ExprManager* exprMgr2 = new ExprManager(options2);
 
+  ExprManagerMapCollection* vmaps = new ExprManagerMapCollection();
+
+  Command *seq2 = seq->exportTo(exprMgr2, *vmaps);
 
   /* Lemma output channel */
   options.lemmaOutputChannel =
