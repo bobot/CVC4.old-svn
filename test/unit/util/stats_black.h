@@ -30,7 +30,7 @@ class StatsBlack : public CxxTest::TestSuite {
 public:
 
   void testStats() {
-
+#ifdef CVC4_STATISTICS_ON
     // StatisticsRegistry
     //static void flushStatistics(std::ostream& out);
 

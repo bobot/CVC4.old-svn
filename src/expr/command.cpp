@@ -340,6 +340,34 @@ Command* DefineNamedFunctionCommand::exportTo(ExprManager* exprManager, ExprMana
   return new DefineNamedFunctionCommand(func, formals, formula);
 }
 
+/* class Simplify */
+
+SimplifyCommand::SimplifyCommand(Expr term) :
+  d_term(term) {
+}
+
+void SimplifyCommand::invoke(SmtEngine* smtEngine) {
+  d_result = smtEngine->simplify(d_term);
+}
+
+Expr SimplifyCommand::getResult() const {
+  return d_result;
+}
+
+void SimplifyCommand::printResult(std::ostream& out) const {
+  out << d_result << endl;
+}
+
+void SimplifyCommand::toStream(std::ostream& out) const {
+  out << "Simplify( << " << d_term << " >> )";
+}
+
+Command* SimplifyCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  SimplifyCommand* c = new SimplifyCommand(d_term.exportTo(exprManager, variableMap));
+  c->d_result = d_result.exportTo(exprManager, variableMap);
+  return c;
+}
+
 /* class GetValueCommand */
 
 GetValueCommand::GetValueCommand(Expr term) :
