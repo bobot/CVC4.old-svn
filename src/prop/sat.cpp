@@ -125,7 +125,7 @@ void SatSolver::notifyRestart() {
       Expr lemma = Options::current()->lemmaInputChannel->getNewLemma();
       Node asNode = lemma.getNode();
 
-      if(d_shared.find(asNode) == d_shared.end()){
+      if(not Debug.isOn("shared-dropall") and d_shared.find(asNode) == d_shared.end()){
         d_shared.insert(asNode);
         if(asNode.getKind() == kind::OR){
           ++lemmaCount;

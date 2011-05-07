@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <sys/time.h>           // for gettimeofday()
 
 #include <queue>
 
@@ -54,6 +55,17 @@ bool global_activity_false() { return not global_activity; }
 boost::condition global_activity_cond;
 
 typedef expr::pickle::Pickle channelFormat;  /* Remove once we are using Pickle */
+
+template <typename T>
+class EmptySharedChannel: public SharedChannel<T> {
+public:
+  EmptySharedChannel(int) {}
+  bool push(const T&) { return true; }
+  T pop() { return T(); }
+  bool empty() { return true; }
+  bool full() { return false; }
+};
+
 class PortfolioLemmaOutputChannel : public LemmaOutputChannel {
 private:
   string d_tag;
@@ -61,6 +73,7 @@ private:
   expr::pickle::MapPickler d_pickler;
 
 public:
+  int cnt;
   PortfolioLemmaOutputChannel(string tag,
                               SharedChannel<channelFormat> *c,
                               ExprManager* em,
@@ -69,9 +82,12 @@ public:
     d_tag(tag),
     d_sharedChannel(c),
     d_pickler(em, to, from)
+    ,cnt(0)
   {}
 
   void notifyNewLemma(Expr lemma) {
+    if(Debug.isOn("disable-lemma-sharing")) return;
+    ++cnt;
     Debug("sharing") << d_tag << ": " << lemma << std::endl;
     expr::pickle::Pickle pkl;
     try{
@@ -119,6 +135,11 @@ public:
 
 
 int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
+
+  // Timer statistic till we have support in cluster
+  timeval tim;
+  gettimeofday(&tim, NULL);
+  double t_start = tim.tv_sec+(tim.tv_usec/1000000.0);
 
   // For the signal handlers' benefit
   pOptions = &options;
@@ -266,6 +287,10 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   SharedChannel<channelFormat> *channelsOut[2], *channelsIn[2];
 
   for(int i=0; i<numThreads; ++i){
+    if(Debug.isOn("channel-empty")) {
+      channelsOut[i] = new EmptySharedChannel<channelFormat>(10000);
+      channelsIn[i] = new EmptySharedChannel<channelFormat>(10000);
+    }
     channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10000);
     channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10000);
   }
@@ -347,6 +372,20 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
 
   delete seq2;
   delete exprMgr2;
+
+  if(options.statistics) {
+    gettimeofday(&tim, NULL);
+    double t_end=tim.tv_sec+(tim.tv_usec/1000000.0);
+    cout.precision(6);
+    *options.err << "real time: " << t_end-t_start << "s\n";
+    int th0_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(options.lemmaOutputChannel)).cnt;
+    int th1_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(options2.lemmaOutputChannel)).cnt;
+    *options.err << "lemmas shared by thread #0: " << th0_lemcnt << endl;
+    *options.err << "lemmas shared by thread #1: " << th1_lemcnt << endl;
+    *options.err << "sharing rate: " << double(th0_lemcnt+th1_lemcnt)/(t_end-t_start) 
+                 << " lem/sec" << endl;
+    *options.err << "winner: #" << (winner == 0 ? 0 : 1) << endl;
+  }
 
   return returnValue;
 }
