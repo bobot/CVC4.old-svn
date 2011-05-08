@@ -53,6 +53,8 @@ libutil_la_SOURCES = \
 	subrange_bound.h \
 	cardinality.h \
 	cardinality.cpp \
+	cache.h \
+	utility.h \
 	trans_closure.h \
 	trans_closure.cpp \
 	boolean_simplification.h \
