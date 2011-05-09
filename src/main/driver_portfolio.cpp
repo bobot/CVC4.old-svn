@@ -36,7 +36,17 @@ using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
 
-/** Function declerations **/
+/** Global variables */
+namespace CVC4 {
+namespace main {
+  StatisticsRegistry theStatisticsRegistry;
+
+  /** A pointer to the StatisticsRegistry (the signal handlers need it) */
+  CVC4::StatisticsRegistry* pStatistics;
+}
+}
+
+/** Function declerations */
 
 void doCommand(SmtEngine&, Command*, Options&);
 
@@ -235,11 +245,19 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
     Warning.getStream() << Expr::setlanguage(language);
   }
 
+  // Statistics init
+  pStatistics = &theStatisticsRegistry;
+
+  StatisticsRegistry driverStatisticsRegistry;
+  StatsRegistryStat s_driver("driver", &driverStatisticsRegistry);
+  theStatisticsRegistry.registerStat_((Stat*)(&s_driver));
+
   // Create the expression manager
   ExprManager* exprMgr = new ExprManager(options);
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
-  RegisterStatistic* statFilenameReg = new RegisterStatistic(*exprMgr, &s_statFilename);
+  RegisterStatistic_* statFilenameReg = new RegisterStatistic_(&driverStatisticsRegistry, &s_statFilename);
+  //driverStatisticsRegistry.registerStat_((Stat*)(&s_statFilename));
 
   // Parse commands until we are done
   Command* cmd;
@@ -302,6 +320,8 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
 
   Command *seq2 = seq->exportTo(exprMgr2, *vmaps);
 
+  /* Add StatisticRegistries to GlobalRegistry */
+
   /* Lemma output channel */
   options.lemmaOutputChannel =
     new PortfolioLemmaOutputChannel("thread #0",
@@ -356,9 +376,9 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   // ReferenceStat< Result > s_statSatResult("sat/unsat", result);
   // RegisterStatistic statSatResultReg(*exprMgr, &s_statSatResult);
 
-  // if(options.statistics) {
-  //   StatisticsRegistry::flushStatistics(*options.err);
-  // }
+  if(options.statistics) {
+    theStatisticsRegistry.flushStatistics(*options.err);
+  }
 
   // destruction is causing segfaults, let us just exit
   //exit(returnValue);
@@ -401,9 +421,6 @@ namespace CVC4 {
 
     /** Just the basename component of argv[0] */
     const char *progName;
-
-    /** A pointer to the StatisticsRegistry (the signal handlers need it) */
-    CVC4_THREADLOCAL(CVC4::StatisticsRegistry*) pStatistics;
   }
 }
 
@@ -452,7 +469,12 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
 
   // Create the SmtEngine(s)
   SmtEngine smt(&exprMgr);
-  pStatistics = smt.getStatisticsRegistry();
+  StatsRegistryStat *pS_thread;
+  if(options.pivotRule == Options::MINIMUM)
+    pS_thread = new StatsRegistryStat("thread #0", smt.getStatisticsRegistry());
+  else
+    pS_thread = new StatsRegistryStat("thread #1", smt.getStatisticsRegistry());
+  theStatisticsRegistry.registerStat_((Stat*)pS_thread);
   doCommand(smt, cmd, options);
 
   return smt.getStatusOfLastCommand();

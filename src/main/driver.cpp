@@ -43,7 +43,7 @@ namespace CVC4 {
     const char *progName;
 
     /** A pointer to the StatisticsRegistry (the signal handlers need it) */
-    CVC4_THREADLOCAL(CVC4::StatisticsRegistry*) pStatistics;
+    CVC4::StatisticsRegistry* pStatistics;
   }
 }
 

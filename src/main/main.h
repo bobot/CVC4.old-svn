@@ -38,7 +38,7 @@ extern const char* progPath;
 extern const char* progName;
 
 /** A reference to the StatisticsRegistry for use by the signal handlers */
-extern CVC4_THREADLOCAL(CVC4::StatisticsRegistry*) pStatistics;
+extern CVC4::StatisticsRegistry* pStatistics;
 
 /**
  * If true, will not spin on segfault even when CVC4_DEBUG is on.
