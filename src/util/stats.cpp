@@ -66,7 +66,9 @@ void StatisticsRegistry::flushStatistics(std::ostream& out, std::string d_tag) {
       i != d_registeredStats.end();
       ++i) {
     Stat* s = *i;
-    if(d_tag != "") out << d_tag; // Add a delimiter variable?
+    if(d_tag != "") {
+      out << d_tag;
+    }
     s->flushStat(out);
     out << std::endl;
   }

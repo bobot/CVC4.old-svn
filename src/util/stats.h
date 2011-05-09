@@ -112,10 +112,9 @@ public:
 /**
  * The base class for all statistics.
  *
- * This base class keeps the name of the statistic and declares two (pure)
- * virtual functionss flushInformation() and getValue().  Derived classes
- * must implement these functions and pass their name to the base class
- * constructor.
+ * This base class keeps the name of the statistic and declares the (pure)
+ * virtual function flushInformation().  Derived classes must implement
+ * this function and pass their name to the base class constructor.
  *
  * This class also (statically) maintains the delimiter used to separate
  * the name and the value when statistics are output.
@@ -157,7 +156,7 @@ public:
   /**
    * Flush the name,value pair of this statistic to an output stream.
    * Uses the statistic delimiter string between name and value.
-   * 
+   *
    * May be redefined by a child class
    */
   virtual void flushStat(std::ostream& out) const {
@@ -173,7 +172,11 @@ public:
   }
 
   /** Get the value of this statistic as a string. */
-  virtual std::string getValue() const = 0;
+  std::string getValue() const {
+    std::stringstream ss;
+    flushInformation(ss);
+    return ss.str();
+  }
 
 };/* class Stat */
 
@@ -185,9 +188,7 @@ inline bool StatisticsRegistry::StatCmp::operator()(const Stat* s1,
 /**
  * A class to represent a "read-only" data statistic of type T.  Adds to
  * the Stat base class the pure virtual function getData(), which returns
- * type T, along with an implementation of getValue(), which converts the
- * type T to a string using an existing stream insertion operator defined
- * on T, and flushInformation(), which outputs the statistic value to an
+ * type T, and flushInformation(), which outputs the statistic value to an
  * output stream (using the same existing stream insertion operator).
  *
  * Template class T must have stream insertion operation defined:
@@ -212,13 +213,6 @@ public:
     if(__CVC4_USE_STATISTICS) {
       out << getData();
     }
-  }
-
-  /** Get the value of the statistic as a string. */
-  std::string getValue() const {
-    std::stringstream ss;
-    ss << getData();
-    return ss.str();
   }
 
 };/* class DataStat<T> */
@@ -528,37 +522,31 @@ public:
     return (*this);
   }
 
-  std::string getValue() const {
-    std::stringstream ss;
-    flushInformation(ss);
-    return ss.str();
-  }
-
 };/* class ListStat */
 
-class CVC4_PUBLIC StatsRegistryStat : Stat{
+class CVC4_PUBLIC StatsRegistryStat : public Stat {
 private:
   StatisticsRegistry* d_reg;
 public:
   StatsRegistryStat(const std::string& name) : Stat(name) {}
-  StatsRegistryStat(const std::string& name, 
-                   StatisticsRegistry *reg) : 
-    Stat(name), d_reg(reg) { 
-  }
-  
-  std::string getValue() const {
-    return "A StatsRegistry\n";  // why force a getValue to exists for
-                                 // a Stat?
+  StatsRegistryStat(const std::string& name, StatisticsRegistry *reg) :
+    Stat(name),
+    d_reg(reg) {
   }
 
   void flushInformation(std::ostream& out) const {
-    d_reg->flushStatistics(out);
+    if(__CVC4_USE_STATISTICS) {
+      d_reg->flushStatistics(out, getName() + "::");
+    }
   }
 
   void flushStat(std::ostream &out) const {
-    d_reg->flushStatistics(out, getName() + "::");
-  } 
-};/* class StatRegistryStat */
+    // overridden to avoid the name being printed
+    if(__CVC4_USE_STATISTICS) {
+      d_reg->flushStatistics(out, getName() + "::");
+    }
+  }
+};/* class StatsRegistryStat */
 
 /****************************************************************************/
 /* Some utility functions for ::timespec                                    */
