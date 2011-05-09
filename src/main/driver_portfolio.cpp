@@ -259,8 +259,8 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   ExprManager* exprMgr = new ExprManager(options);
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
-  RegisterStatistic* statFilenameReg = new RegisterStatistic(&driverStatisticsRegistry, &s_statFilename);
-  //driverStatisticsRegistry.registerStat_((Stat*)(&s_statFilename));
+  RegisterStatistic* statFilenameReg =
+    new RegisterStatistic(&driverStatisticsRegistry, &s_statFilename);
 
   // Parse commands until we are done
   Command* cmd;
@@ -311,6 +311,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
     if(Debug.isOn("channel-empty")) {
       channelsOut[i] = new EmptySharedChannel<channelFormat>(10000);
       channelsIn[i] = new EmptySharedChannel<channelFormat>(10000);
+      continue;
     }
     channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10000);
     channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10000);
