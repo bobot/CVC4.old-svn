@@ -130,11 +130,11 @@ void SatSolver::notifyRestart() {
         if(asNode.getKind() == kind::OR){
           ++lemmaCount;
           if(lemmaCount % 100 == 0){
-            std::cout << "=) " << asNode << std::endl;
+            Debug("shared-terse") << "=) " << asNode << std::endl;
           }
           d_propEngine->assertLemma(d_theoryEngine->preprocess(asNode));
         }else{
-          std::cout << "=(" << asNode << std::endl;
+          Debug("shared") << "=(" << asNode << std::endl;
         }
       }else{
         Debug("shared") <<"drop shared " << asNode << std::endl;
