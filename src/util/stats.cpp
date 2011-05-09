@@ -37,6 +37,14 @@ void StatisticsRegistry::registerStat(Stat* s) throw(AssertionException) {
 #endif /* CVC4_STATISTICS_ON */
 }/* StatisticsRegistry::registerStat() */
 
+void StatisticsRegistry::registerStat_(Stat* s) throw(AssertionException)
+{
+#ifdef CVC4_STATISTICS_ON
+  AlwaysAssert(d_registeredStats.find(s) == d_registeredStats.end());
+  d_registeredStats.insert(s);
+#endif /* CVC4_STATISTICS_ON */
+}/* StatisticsRegistry::registerStat_() */
+
 void StatisticsRegistry::unregisterStat(Stat* s) throw(AssertionException) {
 #ifdef CVC4_STATISTICS_ON
   StatSet& registeredStats = NodeManager::currentNM()->getStatisticsRegistry()->d_registeredStats;
@@ -45,12 +53,20 @@ void StatisticsRegistry::unregisterStat(Stat* s) throw(AssertionException) {
 #endif /* CVC4_STATISTICS_ON */
 }/* StatisticsRegistry::unregisterStat() */
 
-void StatisticsRegistry::flushStatistics(std::ostream& out) {
+void StatisticsRegistry::unregisterStat_(Stat* s) throw(AssertionException) {
+#ifdef CVC4_STATISTICS_ON
+  AlwaysAssert(d_registeredStats.find(s) != d_registeredStats.end());
+  d_registeredStats.erase(s);
+#endif /* CVC4_STATISTICS_ON */
+}/* StatisticsRegistry::unregisterStat_() */
+
+void StatisticsRegistry::flushStatistics(std::ostream& out, std::string d_tag) {
 #ifdef CVC4_STATISTICS_ON
   for(StatSet::iterator i = d_registeredStats.begin();
       i != d_registeredStats.end();
       ++i) {
     Stat* s = *i;
+    if(d_tag != "") out << d_tag; // Add a delimiter variable?
     s->flushStat(out);
     out << std::endl;
   }

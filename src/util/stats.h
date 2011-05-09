@@ -2,7 +2,7 @@
 /*! \file stats.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters
+ ** Major contributors: mdeters, kshitij
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
@@ -80,13 +80,19 @@ public:
   static StatisticsRegistry* current();
 
   /** Flush all statistics to the given output stream. */
-  void flushStatistics(std::ostream& out);
+  void flushStatistics(std::ostream& out, std::string d_tag = "");
 
   /** Register a new statistic, making it active. */
   static void registerStat(Stat* s) throw(AssertionException);
 
+  /** Register a new statistic */
+  void registerStat_(Stat* s) throw(AssertionException);
+
   /** Unregister an active statistic, making it inactive. */
   static void unregisterStat(Stat* s) throw(AssertionException);
+
+  /** Unregister a new statistic */
+  void unregisterStat_(Stat* s) throw(AssertionException);
 
   /**
    * Get an iterator to the beginning of the range of the set of active
@@ -151,8 +157,10 @@ public:
   /**
    * Flush the name,value pair of this statistic to an output stream.
    * Uses the statistic delimiter string between name and value.
+   * 
+   * May be redefined by a child class
    */
-  void flushStat(std::ostream& out) const {
+  virtual void flushStat(std::ostream& out) const {
     if(__CVC4_USE_STATISTICS) {
       out << d_name << s_delim;
       flushInformation(out);
@@ -465,20 +473,20 @@ private:
    * have seen so far.
    */
   uint32_t d_count;
+  double d_sum;
 
 public:
   /** Construct an average statistic with the given name. */
   AverageStat(const std::string& name) :
-    BackedStat<double>(name, 0.0), d_count(0) {
+    BackedStat<double>(name, 0.0), d_count(0), d_sum(0.0) {
   }
 
   /** Add an entry to the running-average calculation. */
   void addEntry(double e) {
     if(__CVC4_USE_STATISTICS) {
-      double oldSum = d_count * getData();
       ++d_count;
-      double newSum = oldSum + e;
-      setData(newSum / d_count);
+      d_sum += e;
+      setData(d_sum / d_count);
     }
   }
 
@@ -527,6 +535,30 @@ public:
   }
 
 };/* class ListStat */
+
+class CVC4_PUBLIC StatsRegistryStat : Stat{
+private:
+  StatisticsRegistry* d_reg;
+public:
+  StatsRegistryStat(const std::string& name) : Stat(name) {}
+  StatsRegistryStat(const std::string& name, 
+                   StatisticsRegistry *reg) : 
+    Stat(name), d_reg(reg) { 
+  }
+  
+  std::string getValue() const {
+    return "A StatsRegistry\n";  // why force a getValue to exists for
+                                 // a Stat?
+  }
+
+  void flushInformation(std::ostream& out) const {
+    d_reg->flushStatistics(out);
+  }
+
+  void flushStat(std::ostream &out) const {
+    d_reg->flushStatistics(out, getName() + "::");
+  } 
+};/* class StatRegistryStat */
 
 /****************************************************************************/
 /* Some utility functions for ::timespec                                    */
@@ -762,6 +794,24 @@ public:
   ~RegisterStatistic();
 
 };/* class RegisterStatistic */
+
+class CVC4_PUBLIC RegisterStatistic_ {
+  StatisticsRegistry* d_reg;
+  Stat* d_stat;
+public:
+  RegisterStatistic_(StatisticsRegistry* reg, Stat* stat) :
+    d_reg(reg), d_stat(stat) {
+    Assert( d_reg != NULL,
+            "You need to specify a statistics registry"
+            "on which to set the statistic");
+    d_reg->registerStat_(d_stat);
+  }
+
+  ~RegisterStatistic_() {
+    d_reg->unregisterStat_(d_stat);
+  }
+
+};/* class RegisterStatistic_ */
 
 #undef __CVC4_USE_STATISTICS
 
