@@ -60,7 +60,6 @@ public:
     TS_ASSERT_EQUALS(sInt.getName(), "my int");
     TS_ASSERT_EQUALS(sTimer.getName(), "a timer ! for measuring time");
 
-#ifdef CVC4_STATISTICS_ON
     TS_ASSERT_EQUALS(refStr.getData(), empty);
     TS_ASSERT_EQUALS(refStr2.getData(), bar);
     empty = "a different string";

@@ -36,17 +36,20 @@ using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
 
-/** Global variables */
+/* Global variables */
+
 namespace CVC4 {
-namespace main {
-  StatisticsRegistry theStatisticsRegistry;
+  namespace main {
 
-  /** A pointer to the StatisticsRegistry (the signal handlers need it) */
-  CVC4::StatisticsRegistry* pStatistics;
-}
-}
+    StatisticsRegistry theStatisticsRegistry;
 
-/** Function declerations */
+    /** A pointer to the StatisticsRegistry (the signal handlers need it) */
+    CVC4::StatisticsRegistry* pStatistics;
+
+  }/* CVC4::main namespace */
+}/* CVC4 namespace */
+
+/* Function declarations */
 
 void doCommand(SmtEngine&, Command*, Options&);
 
@@ -58,13 +61,13 @@ void sharingManager(int numThreads,
                     SharedChannel<T>* channelsIn[]);
 
 
-/** To monitor for activity on shared channels */
+/* To monitor for activity on shared channels */
 bool global_activity;
 bool global_activity_true() { return global_activity; }
 bool global_activity_false() { return not global_activity; }
 boost::condition global_activity_cond;
 
-typedef expr::pickle::Pickle channelFormat;  /* Remove once we are using Pickle */
+typedef expr::pickle::Pickle channelFormat; /* Remove once we are using Pickle */
 
 template <typename T>
 class EmptySharedChannel: public SharedChannel<T> {
@@ -256,7 +259,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   ExprManager* exprMgr = new ExprManager(options);
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
-  RegisterStatistic_* statFilenameReg = new RegisterStatistic_(&driverStatisticsRegistry, &s_statFilename);
+  RegisterStatistic* statFilenameReg = new RegisterStatistic(&driverStatisticsRegistry, &s_statFilename);
   //driverStatisticsRegistry.registerStat_((Stat*)(&s_statFilename));
 
   // Parse commands until we are done
@@ -402,7 +405,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
     int th1_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(options2.lemmaOutputChannel)).cnt;
     *options.err << "lemmas shared by thread #0: " << th0_lemcnt << endl;
     *options.err << "lemmas shared by thread #1: " << th1_lemcnt << endl;
-    *options.err << "sharing rate: " << double(th0_lemcnt+th1_lemcnt)/(t_end-t_start) 
+    *options.err << "sharing rate: " << double(th0_lemcnt+th1_lemcnt)/(t_end-t_start)
                  << " lem/sec" << endl;
     *options.err << "winner: #" << (winner == 0 ? 0 : 1) << endl;
   }

@@ -84,16 +84,9 @@ StatisticsRegistry::const_iterator StatisticsRegistry::end() {
 }/* StatisticsRegistry::end() */
 
 RegisterStatistic::RegisterStatistic(ExprManager& em, Stat* stat) :
-    d_em(&em), d_stat(stat) {
-  ExprManagerScope ems(*d_em);
-  StatisticsRegistry::registerStat(d_stat);
-}/* RegisterStatistic::RegisterStatistic(ExprManager&, Stat*) */
-
-RegisterStatistic::~RegisterStatistic() {
-  if(d_em != NULL) {
-    ExprManagerScope ems(*d_em);
-    StatisticsRegistry::unregisterStat(d_stat);
-  } else {
-    StatisticsRegistry::unregisterStat(d_stat);
-  }
-}/* RegisterStatistic::~RegisterStatistic() */
+  d_reg(NULL),
+  d_stat(stat) {
+  ExprManagerScope ems(em);
+  d_reg = StatisticsRegistry::current();
+  d_reg->registerStat_(d_stat);
+}

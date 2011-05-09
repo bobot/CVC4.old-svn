@@ -767,39 +767,32 @@ public:
  * registration and unregistration.
  */
 class CVC4_PUBLIC RegisterStatistic {
-  ExprManager* d_em;
+  StatisticsRegistry* d_reg;
   Stat* d_stat;
 public:
-  RegisterStatistic(Stat* stat) : d_stat(stat) {
-    Assert(StatisticsRegistry::current() != NULL,
-           "You need to specify an expression manager "
-           "on which to set the statistic");
+  RegisterStatistic(Stat* stat) :
+      d_reg(StatisticsRegistry::current()),
+      d_stat(stat) {
+    Assert(d_reg != NULL, "There is no current statistics registry!");
     StatisticsRegistry::registerStat(d_stat);
+  }
+
+  RegisterStatistic(StatisticsRegistry* reg, Stat* stat) :
+    d_reg(reg),
+    d_stat(stat) {
+    Assert(d_reg != NULL,
+           "You need to specify a statistics registry"
+           "on which to set the statistic");
+    d_reg->registerStat_(d_stat);
   }
 
   RegisterStatistic(ExprManager& em, Stat* stat);
 
-  ~RegisterStatistic();
-
-};/* class RegisterStatistic */
-
-class CVC4_PUBLIC RegisterStatistic_ {
-  StatisticsRegistry* d_reg;
-  Stat* d_stat;
-public:
-  RegisterStatistic_(StatisticsRegistry* reg, Stat* stat) :
-    d_reg(reg), d_stat(stat) {
-    Assert( d_reg != NULL,
-            "You need to specify a statistics registry"
-            "on which to set the statistic");
-    d_reg->registerStat_(d_stat);
-  }
-
-  ~RegisterStatistic_() {
+  ~RegisterStatistic() {
     d_reg->unregisterStat_(d_stat);
   }
 
-};/* class RegisterStatistic_ */
+};/* class RegisterStatistic */
 
 #undef __CVC4_USE_STATISTICS
 
