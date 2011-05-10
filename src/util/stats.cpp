@@ -24,6 +24,7 @@
 using namespace CVC4;
 
 std::string Stat::s_delim(",");
+std::string StatisticsRegistry::s_regDelim("::");
 
 StatisticsRegistry* StatisticsRegistry::current() {
   return NodeManager::currentNM()->getStatisticsRegistry();
@@ -60,23 +61,31 @@ void StatisticsRegistry::unregisterStat_(Stat* s) throw(AssertionException) {
 #endif /* CVC4_STATISTICS_ON */
 }/* StatisticsRegistry::unregisterStat_() */
 
-void StatisticsRegistry::flushStatistics(std::ostream& out, std::string d_tag) const {
+void StatisticsRegistry::flushStatistics(std::ostream& out) const {
+#ifdef CVC4_STATISTICS_ON
+  flushInformation(out);
+#endif /* CVC4_STATISTICS_ON */
+}/* StatisticsRegistry::flushStatistics() */
+
+void StatisticsRegistry::flushInformation(std::ostream& out) const {
 #ifdef CVC4_STATISTICS_ON
   for(StatSet::iterator i = d_registeredStats.begin();
       i != d_registeredStats.end();
       ++i) {
     Stat* s = *i;
-    if(d_tag != "") {
-      out << d_tag;
+    if(getName() != "") {
+      out << getName() << s_regDelim;
     }
     s->flushStat(out);
     out << std::endl;
   }
 #endif /* CVC4_STATISTICS_ON */
-}/* StatisticsRegistry::flushStatistics() */
+}/* StatisticsRegistry::flushInformation() */
 
-void StatisticsRegistry::flushInformation(std::ostream& out) const {
-  flushStatistics(out, getName() + "::");
+void StatisticsRegistry::flushStat(std::ostream &out) const {;
+#ifdef CVC4_STATISTICS_ON
+  flushInformation(out);
+#endif /* CVC4_STATISTICS_ON */
 }
 
 StatisticsRegistry::const_iterator StatisticsRegistry::begin() {

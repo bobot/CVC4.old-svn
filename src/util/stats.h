@@ -113,6 +113,16 @@ public:
     return d_name;
   }
 
+  /** 
+   * Set the name of this statistic.  
+   *
+   * TODO: Get rid of this function once we have ability to set the
+   * name of StatisticsRegistry at creation time.
+   */
+  void setName(const std::string& name) {
+    d_name = name;
+  }
+
   /** Get the value of this statistic as a string. */
   std::string getValue() const {
     std::stringstream ss;
@@ -469,7 +479,7 @@ public:
  * The main statistics registry.  This registry maintains the list of
  * currently active statistics and is able to "flush" them all.
  */
-class CVC4_PUBLIC StatisticsRegistry : Stat {
+class CVC4_PUBLIC StatisticsRegistry : public Stat {
 private:
   /** A helper class for comparing two statistics */
   struct StatCmp {
@@ -485,10 +495,19 @@ private:
   /** Private copy constructor undefined (no copy permitted). */
   StatisticsRegistry(const StatisticsRegistry&) CVC4_UNDEFINED;
 
+  static std::string s_regDelim;
 public:
 
-  /** Construct a statistics registry */
+  /** Construct an nameless statistics registry */
   StatisticsRegistry() {}
+
+  /** Construct a statistics registry */
+  StatisticsRegistry(const std::string& name) throw(CVC4::AssertionException) :
+    Stat(name) {
+    if(__CVC4_USE_STATISTICS) {
+      AlwaysAssert(getName().find(s_regDelim) == std::string::npos);
+    }
+  }
 
   /** An iterator type over a set of statistics */
   typedef StatSet::const_iterator const_iterator;
@@ -497,9 +516,13 @@ public:
   static StatisticsRegistry* current();
 
   /** Flush all statistics to the given output stream. */
-  void flushStatistics(std::ostream& out, std::string d_tag = "") const;
-
   void flushInformation(std::ostream& out) const;
+
+  /** Obsolete flushStatistics -- use flushInformation */
+  void flushStatistics(std::ostream& out) const;
+
+  /** Overridden to avoid the name being printed */
+  void flushStat(std::ostream &out) const;
 
   /** Register a new statistic, making it active. */
   static void registerStat(Stat* s) throw(AssertionException);
@@ -532,7 +555,7 @@ inline bool StatisticsRegistry::StatCmp::operator()(const Stat* s1,
   return s1->getName() < s2->getName();
 }
 
-class CVC4_PUBLIC StatsRegistryStat : public Stat {
+/*class CVC4_PUBLIC StatsRegistryStat : public Stat {
 private:
   StatisticsRegistry* d_reg;
 public:
@@ -554,7 +577,7 @@ public:
       d_reg->flushStatistics(out, getName() + "::");
     }
   }
-};/* class StatsRegistryStat */
+  };*//* class StatsRegistryStat */
 
 
 /****************************************************************************/

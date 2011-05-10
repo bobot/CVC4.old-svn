@@ -252,8 +252,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   pStatistics = &theStatisticsRegistry;
 
   StatisticsRegistry driverStatisticsRegistry;
-  StatsRegistryStat s_driver("driver", &driverStatisticsRegistry);
-  theStatisticsRegistry.registerStat_((Stat*)(&s_driver));
+  theStatisticsRegistry.registerStat_((&driverStatisticsRegistry));
 
   // Create the expression manager
   ExprManager* exprMgr = new ExprManager(options);
@@ -381,7 +380,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   // RegisterStatistic statSatResultReg(*exprMgr, &s_statSatResult);
 
   if(options.statistics) {
-    theStatisticsRegistry.flushStatistics(*options.err);
+    theStatisticsRegistry.flushInformation(*options.err);
   }
 
   // destruction is causing segfaults, let us just exit
@@ -473,12 +472,15 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
 
   // Create the SmtEngine(s)
   SmtEngine smt(&exprMgr);
-  StatsRegistryStat *pS_thread;
+
+  // Register the statistics registry of the thread
   if(options.pivotRule == Options::MINIMUM)
-    pS_thread = new StatsRegistryStat("thread #0", smt.getStatisticsRegistry());
+    smt.getStatisticsRegistry()->setName("thread #0");
   else
-    pS_thread = new StatsRegistryStat("thread #1", smt.getStatisticsRegistry());
-  theStatisticsRegistry.registerStat_((Stat*)pS_thread);
+    smt.getStatisticsRegistry()->setName("thread #1");
+  theStatisticsRegistry.registerStat_( (Stat*)smt.getStatisticsRegistry() );
+
+  // Execute the commands
   doCommand(smt, cmd, options);
 
   return smt.getStatusOfLastCommand();
