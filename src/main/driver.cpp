@@ -222,7 +222,7 @@ int runCvc4(int argc, char* argv[], Options& options) {
   RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
 
   if(options.statistics) {
-    pStatistics->flushStatistics(*options.err);
+    pStatistics->flushInformation(*options.err);
   }
 
   return returnValue;

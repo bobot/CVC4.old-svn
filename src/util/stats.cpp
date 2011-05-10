@@ -61,20 +61,14 @@ void StatisticsRegistry::unregisterStat_(Stat* s) throw(AssertionException) {
 #endif /* CVC4_STATISTICS_ON */
 }/* StatisticsRegistry::unregisterStat_() */
 
-void StatisticsRegistry::flushStatistics(std::ostream& out) const {
-#ifdef CVC4_STATISTICS_ON
-  flushInformation(out);
-#endif /* CVC4_STATISTICS_ON */
-}/* StatisticsRegistry::flushStatistics() */
-
 void StatisticsRegistry::flushInformation(std::ostream& out) const {
 #ifdef CVC4_STATISTICS_ON
   for(StatSet::iterator i = d_registeredStats.begin();
       i != d_registeredStats.end();
       ++i) {
     Stat* s = *i;
-    if(getName() != "") {
-      out << getName() << s_regDelim;
+    if(d_name != "") {
+      out << d_name << s_regDelim;
     }
     s->flushStat(out);
     out << std::endl;

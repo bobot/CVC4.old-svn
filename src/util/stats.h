@@ -60,14 +60,15 @@ inline std::ostream& operator<<(std::ostream& os, const ::timespec& t);
  */
 class CVC4_PUBLIC Stat {
 private:
-  /** The name of this statistic */
-  std::string d_name;
-
   /**
    * The delimiter between name and value to use when outputting a
    * statistic.
    */
   static std::string s_delim;
+
+protected:
+  /** The name of this statistic */
+  std::string d_name;
 
 public:
 
@@ -111,16 +112,6 @@ public:
   /** Get the name of this statistic. */
   const std::string& getName() const {
     return d_name;
-  }
-
-  /** 
-   * Set the name of this statistic.  
-   *
-   * TODO: Get rid of this function once we have ability to set the
-   * name of StatisticsRegistry at creation time.
-   */
-  void setName(const std::string& name) {
-    d_name = name;
   }
 
   /** Get the value of this statistic as a string. */
@@ -505,8 +496,19 @@ public:
   StatisticsRegistry(const std::string& name) throw(CVC4::AssertionException) :
     Stat(name) {
     if(__CVC4_USE_STATISTICS) {
-      AlwaysAssert(getName().find(s_regDelim) == std::string::npos);
+      AlwaysAssert(d_name.find(s_regDelim) == std::string::npos);
     }
+  }
+
+  /** 
+   * Set the name of this statistic registry, used as prefix during
+   * output.
+   *
+   * TODO: Get rid of this function once we have ability to set the
+   * name of StatisticsRegistry at creation time.
+   */
+  void setName(const std::string& name) {
+    d_name = name;
   }
 
   /** An iterator type over a set of statistics */
@@ -519,7 +521,7 @@ public:
   void flushInformation(std::ostream& out) const;
 
   /** Obsolete flushStatistics -- use flushInformation */
-  void flushStatistics(std::ostream& out) const;
+  //void flushStatistics(std::ostream& out) const;
 
   /** Overridden to avoid the name being printed */
   void flushStat(std::ostream &out) const;
@@ -554,31 +556,6 @@ inline bool StatisticsRegistry::StatCmp::operator()(const Stat* s1,
                                                     const Stat* s2) const {
   return s1->getName() < s2->getName();
 }
-
-/*class CVC4_PUBLIC StatsRegistryStat : public Stat {
-private:
-  StatisticsRegistry* d_reg;
-public:
-  StatsRegistryStat(const std::string& name) : Stat(name) {}
-  StatsRegistryStat(const std::string& name, StatisticsRegistry *reg) :
-    Stat(name),
-    d_reg(reg) {
-  }
-
-  void flushInformation(std::ostream& out) const {
-    if(__CVC4_USE_STATISTICS) {
-      d_reg->flushStatistics(out, getName() + "::");
-    }
-  }
-
-  void flushStat(std::ostream &out) const {
-    // overridden to avoid the name being printed
-    if(__CVC4_USE_STATISTICS) {
-      d_reg->flushStatistics(out, getName() + "::");
-    }
-  }
-  };*//* class StatsRegistryStat */
-
 
 /****************************************************************************/
 /* Some utility functions for ::timespec                                    */

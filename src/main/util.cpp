@@ -52,7 +52,7 @@ bool segvNoSpin = false;
 void timeout_handler(int sig, siginfo_t* info, void*) {
   fprintf(stderr, "CVC4 interrupted by timeout.\n");
   if(pOptions->statistics && pStatistics != NULL) {
-    pStatistics->flushStatistics(cerr);
+    pStatistics->flushInformation(cerr);
   }
   abort();
 }
@@ -61,7 +61,7 @@ void timeout_handler(int sig, siginfo_t* info, void*) {
 void sigint_handler(int sig, siginfo_t* info, void*) {
   fprintf(stderr, "CVC4 interrupted by user.\n");
   if(pOptions->statistics && pStatistics != NULL) {
-    pStatistics->flushStatistics(cerr);
+    pStatistics->flushInformation(cerr);
   }
   abort();
 }
@@ -86,7 +86,7 @@ void segv_handler(int sig, siginfo_t* info, void* c) {
   if(segvNoSpin) {
     fprintf(stderr, "No-spin requested, aborting...\n");
     if(pOptions->statistics && pStatistics != NULL) {
-      pStatistics->flushStatistics(cerr);
+      pStatistics->flushInformation(cerr);
     }
     abort();
   } else {
@@ -106,7 +106,7 @@ void segv_handler(int sig, siginfo_t* info, void* c) {
     cerr << "Looks like a NULL pointer was dereferenced." << endl;
   }
   if(pOptions->statistics && pStatistics != NULL) {
-    pStatistics->flushStatistics(cerr);
+    pStatistics->flushInformation(cerr);
   }
   abort();
 #endif /* CVC4_DEBUG */
@@ -119,7 +119,7 @@ void ill_handler(int sig, siginfo_t* info, void*) {
   if(segvNoSpin) {
     fprintf(stderr, "No-spin requested, aborting...\n");
     if(pOptions->statistics && pStatistics != NULL) {
-      pStatistics->flushStatistics(cerr);
+      pStatistics->flushInformation(cerr);
     }
     abort();
   } else {
@@ -132,7 +132,7 @@ void ill_handler(int sig, siginfo_t* info, void*) {
 #else /* CVC4_DEBUG */
   fprintf(stderr, "CVC4 executed an illegal instruction.\n");
   if(pOptions->statistics && pStatistics != NULL) {
-    pStatistics->flushStatistics(cerr);
+    pStatistics->flushInformation(cerr);
   }
   abort();
 #endif /* CVC4_DEBUG */
@@ -156,7 +156,7 @@ void cvc4unexpected() {
   if(segvNoSpin) {
     fprintf(stderr, "No-spin requested.\n");
     if(pOptions->statistics && pStatistics != NULL) {
-      pStatistics->flushStatistics(cerr);
+      pStatistics->flushInformation(cerr);
     }
     set_terminate(default_terminator);
   } else {
@@ -169,7 +169,7 @@ void cvc4unexpected() {
 #else /* CVC4_DEBUG */
   fprintf(stderr, "CVC4 threw an \"unexpected\" exception.\n");
   if(pOptions->statistics && pStatistics != NULL) {
-    pStatistics->flushStatistics(cerr);
+    pStatistics->flushInformation(cerr);
   }
   set_terminate(default_terminator);
 #endif /* CVC4_DEBUG */
@@ -182,7 +182,7 @@ void cvc4terminate() {
           "Perhaps an exception was thrown during stack unwinding.  "
           "(Don't do that.)\n");
   if(pOptions->statistics && pStatistics != NULL) {
-    pStatistics->flushStatistics(cerr);
+    pStatistics->flushInformation(cerr);
   }
   default_terminator();
 #else /* CVC4_DEBUG */
@@ -190,7 +190,7 @@ void cvc4terminate() {
           "CVC4 was terminated by the C++ runtime.\n"
           "Perhaps an exception was thrown during stack unwinding.\n");
   if(pOptions->statistics && pStatistics != NULL) {
-    pStatistics->flushStatistics(cerr);
+    pStatistics->flushInformation(cerr);
   }
   default_terminator();
 #endif /* CVC4_DEBUG */
