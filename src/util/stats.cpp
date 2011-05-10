@@ -60,7 +60,7 @@ void StatisticsRegistry::unregisterStat_(Stat* s) throw(AssertionException) {
 #endif /* CVC4_STATISTICS_ON */
 }/* StatisticsRegistry::unregisterStat_() */
 
-void StatisticsRegistry::flushStatistics(std::ostream& out, std::string d_tag) {
+void StatisticsRegistry::flushStatistics(std::ostream& out, std::string d_tag) const {
 #ifdef CVC4_STATISTICS_ON
   for(StatSet::iterator i = d_registeredStats.begin();
       i != d_registeredStats.end();
@@ -74,6 +74,10 @@ void StatisticsRegistry::flushStatistics(std::ostream& out, std::string d_tag) {
   }
 #endif /* CVC4_STATISTICS_ON */
 }/* StatisticsRegistry::flushStatistics() */
+
+void StatisticsRegistry::flushInformation(std::ostream& out) const {
+  flushStatistics(out, getName() + "::");
+}
 
 StatisticsRegistry::const_iterator StatisticsRegistry::begin() {
   return NodeManager::currentNM()->getStatisticsRegistry()->d_registeredStats.begin();
