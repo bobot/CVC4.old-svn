@@ -45,11 +45,21 @@ public:
 
   /** The watch element */
   struct Watch {
-    list_collection::reference_type lhsList;
-    list_collection::reference_type rhsList;
-    Watch(list_collection::reference_type lhsList, list_collection::reference_type rhsList):
-      lhsList(lhsList), rhsList(rhsList)
+    list_collection::iterator_reference lhsListIt;
+    list_collection::iterator_reference rhsListIt;
+    Watch(list_collection& listCollection, list_collection::reference_type lhsList, list_collection::reference_type rhsList):
+      lhsListIt(listCollection.begin(lhsList)),
+      rhsListIt(listCollection.begin(rhsList))
     {}
+  };
+
+  /**
+   * Substitution x = t
+   */
+  struct Substitution {
+    TNode x, t;
+    Substitution(TNode x, TNode t):
+      x(x), t(t) {}
   };
 
   /** List of watches */
@@ -78,10 +88,7 @@ private:
   list_collection::reference_type mkList(TNode node);
 
   /** Queue of the left-hand sides to process */
-  std::queue<TNode> d_lhsQueue;
-
-  /** Queue of the right-hand sides to process */
-  std::queue<TNode> d_rhsQueue;
+  std::queue<Substitution> d_queue;
 
 public:
 
@@ -121,7 +128,7 @@ void ConcatWatchManager<EqualityNotify>::addEqualityToWatch(TNode lhs, TNode rhs
   list_collection::reference_type rhsList = mkList(rhs);
 
   // Attach the watches
-  Watch watch(lhsList, rhsList);
+  Watch watch(d_listCollection, lhsList, rhsList);
   d_watches[d_listCollection.getElement(lhsList)].push_back(watch);
   d_watches[d_listCollection.getElement(rhsList)].push_back(watch);
 }
@@ -130,14 +137,17 @@ template <typename EqualityNotify>
 ConcatWatchManager<EqualityNotify>::list_collection::reference_type ConcatWatchManager<EqualityNotify>::mkList(TNode node) {
 
   if (node.getKind() == kind::BITVECTOR_CONCAT) {
-    list_collection::reference_type result = list_collection::null;
+    list_collection::reference_type result = list_collection::null, current = list_collection::null;
     for (unsigned i = 0; i < node.getNumChildren(); ++ i) {
       Assert(node[i].getKind() != kind::BITVECTOR_CONCAT);
-      result = d_listCollection.insert(node[i], result);
+      current = d_listCollection.insert<false>(node[i], current);
+      if (i == 0) {
+        result = current;
+      }
     }
     return result;
   } else {
-    return d_listCollection.insert(node);
+    return d_listCollection.insert<false>(node);
   }
 }
 
@@ -145,13 +155,17 @@ template <typename EqualityNotify>
 void ConcatWatchManager<EqualityNotify>::addSubstitution(TNode solvedLhs, TNode rhs) {
   typename watch_map::iterator find = d_watches.find(solvedLhs);
   if (find != d_watches.end()) {
-    d_lhsQueue.push(solvedLhs);
-    d_rhsQueue.push(rhs);
+    d_queue.push(Substitution(solvedLhs, rhs));
   }
 }
 
 template <typename EqualityNotify>
 bool ConcatWatchManager<EqualityNotify>::propagate() {
+  while (!d_queue.empty()) {
+    // Get the equation x = t which we need to substitute
+    Substitution subst = d_queue.front();
+    d_queue.pop();
+  }
   return true;
 }
 

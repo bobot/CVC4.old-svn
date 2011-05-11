@@ -21,6 +21,7 @@
 
 #include <iostream>
 #include "context/cdo.h"
+#include "theory/bv/generalized_vector.h"
 #include "theory/bv/theory_bv_utils.h"
 
 namespace CVC4 {
@@ -37,10 +38,10 @@ class BacktrackableListCollection {
 public:
 
   /** The type we use to reference the elements */
-  typedef size_t reference_type;
+  typedef ssize_t reference_type;
 
-  /** The null pointer */
-  static const reference_type null = (reference_type)(-1);
+  /** The null pointer (maximal positive value) */
+  static const reference_type null = ((reference_type)(-1)) >> 1;
 
   /** List elements */
   struct list_element
@@ -56,34 +57,46 @@ public:
     {}
   };
 
-  /** Memory for list elements */
-  typedef std::vector<list_element> memory_type;
+  /**
+   * Memory for list elements. It is index with integers, where negative integers are the non-backtrackable ones
+   * and the positive integers are the backtrackable ones.
+   */
+  typedef gvector<list_element> memory_type;
 
 private:
+
+  /** Backtrackable iterator */
+  struct iterator {
+    reference_type list;
+    reference_type current;
+    iterator(reference_type list):
+      list(list), current(list)
+    {}
+  };
 
   /** The memory this set collection will use */
   memory_type d_memory;
 
-  /** Backtrackable number of list elements that have been inserted */
-  context::CDO<unsigned> d_elementsInserted;
+  /** Backtrackable number of backtrackable list elements that have been inserted */
+  context::CDO<unsigned> d_backtrackableInserted;
 
   /** Check if the reference is valid in the current context */
   inline bool isValid(reference_type element) const {
-    return d_elementsInserted == d_memory.size() && (element == null || element < d_memory.size());
+    return d_backtrackableInserted == d_memory.positive_size() && (element == null || element < (reference_type) d_memory.positive_size());
   }
 
   /** Backtrack and notify of the mark changes */
   void backtrack() {
     // Backtrack the lists
-    while (d_elementsInserted < d_memory.size()) {
+    while (d_backtrackableInserted < d_memory.positive_size()) {
       // Get the element
       list_element& element = d_memory.back();
       // Remove it from it's list
       if (element.prev != null) {
-        Assert(element.prev + 1 < d_memory.size());
+        Assert(element.prev + 1 < (reference_type) d_memory.positive_size());
         // If there is a next element, we need to reconnect
         if (element.next != null) {
-          Assert(element.next + 1 < d_memory.size());
+          Assert(element.next + 1 < (reference_type) d_memory.positive_size());
           list_element& next = d_memory[element.next];
           next.prev = element.prev;
         }
@@ -101,10 +114,57 @@ private:
     const_cast<BacktrackableListCollection*>(this)->backtrack();
   }
 
+  /** All the iterators. */
+  std::vector<iterator> d_iterators;
+
 public:
 
+  /**
+   * Since the iterators are managed by the collection, we return references instead of the iterators themself.
+   */
+  class iterator_reference {
+
+    friend class BacktrackableListCollection;
+
+    size_t d_itIndex;
+    BacktrackableListCollection* d_collection;
+
+    iterator_reference(size_t itIndex, BacktrackableListCollection* collection)
+    : d_itIndex(itIndex), d_collection(collection)
+    {}
+
+  public:
+
+    /**
+     * Default constructor.
+     */
+    iterator_reference()
+    : d_itIndex(0), d_collection(0)
+    {}
+
+    /**
+     * Copy constructor.
+     */
+    iterator_reference(const iterator_reference& it):
+      d_itIndex(it.d_itIndex),
+      d_collection(it.d_collection)
+    {}
+
+    /**
+     * Assignment operator.
+     */
+    iterator_reference& operator = (const iterator_reference& it) {
+      if (this != &it) {
+        d_itIndex = it.d_itIndex;
+        d_collection = it.d_collection;
+      }
+      return *this;
+    }
+
+  };
+
   BacktrackableListCollection(context::Context* context)
-  : d_elementsInserted(context, 0) {}
+  : d_backtrackableInserted(context, 0) {}
 
   /**
    * Returns the current size of the memory.
@@ -117,23 +177,34 @@ public:
   /**
    * Insert the given value after the given reference. If after is null, a new list will be created.
    */
+  template<bool backtrackable>
   reference_type insert(const value_type& value, reference_type after = null) {
     backtrack();
     Assert(isValid(after));
 
     // Reference of the new element
-    reference_type newElement = d_memory.size();
+    reference_type newElement = backtrackable ? d_memory.positive_size() : d_memory.negative_size();
 
     if (after == null) {
       // If requested, create a new list
-      d_memory.push_back(list_element(value, null, null));
+      if (backtrackable) {
+        d_memory.push_back(list_element(value, null, null));
+      } else {
+        d_memory.push_front(list_element(value, null, null));
+      }
     } else {
       // Get the previous element
       list_element& prevElement = d_memory[after];
       // Create the new element
-      d_memory.push_back(list_element(value, after, prevElement.next));
-      d_memory.back().prev = after;
-      d_memory.back().next = prevElement.next;
+      if (backtrackable) {
+        d_memory.push_back(list_element(value, after, prevElement.next));
+        d_memory.back().prev = after;
+        d_memory.back().next = prevElement.next;
+      } else {
+        d_memory.push_front(list_element(value, after, prevElement.next));
+        d_memory.front().prev = after;
+        d_memory.front().next = prevElement.next;
+      }
       // Fix up the next element if it's there
       if (prevElement.next != null) {
         d_memory[prevElement.next].prev = newElement;
@@ -177,6 +248,13 @@ public:
     std::stringstream out;
     print(out, list);
     return out.str();
+  }
+
+  iterator_reference begin(reference_type list) {
+    Assert(list != null && list >= 0);
+    size_t index = d_iterators.size();
+    d_iterators.push_back(iterator(list));
+    return iterator_reference(index, this);
   }
 };
 
