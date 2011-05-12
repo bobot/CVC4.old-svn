@@ -67,12 +67,22 @@ private:
 
   /** Backtrackable iterator */
   struct iterator {
+  
+    /** The list we are iterating over */
     reference_type list;
-    reference_type current;
-    iterator(reference_type list):
-      list(list), current(list)
-    {}
+    /** The current list element */
+    context::CDO<reference_type>* current;
+    
+    /** Constructor */ 
+    iterator(reference_type list, context::Context* context):
+      list(list)
+    {
+      current = new (false) context::CDO<reference_type>(context, list);
+    }
   };
+
+  /** The context we are using */
+  context::Context* d_context;
 
   /** The memory this set collection will use */
   memory_type d_memory;
@@ -85,7 +95,7 @@ private:
     return d_backtrackableInserted == d_memory.positive_size() && (element == null || element < (reference_type) d_memory.positive_size());
   }
 
-  /** Backtrack and notify of the mark changes */
+  /** Backtrack  */
   void backtrack() {
     // Backtrack the lists
     while (d_backtrackableInserted < d_memory.positive_size()) {
@@ -119,52 +129,8 @@ private:
 
 public:
 
-  /**
-   * Since the iterators are managed by the collection, we return references instead of the iterators themself.
-   */
-  class iterator_reference {
-
-    friend class BacktrackableListCollection;
-
-    size_t d_itIndex;
-    BacktrackableListCollection* d_collection;
-
-    iterator_reference(size_t itIndex, BacktrackableListCollection* collection)
-    : d_itIndex(itIndex), d_collection(collection)
-    {}
-
-  public:
-
-    /**
-     * Default constructor.
-     */
-    iterator_reference()
-    : d_itIndex(0), d_collection(0)
-    {}
-
-    /**
-     * Copy constructor.
-     */
-    iterator_reference(const iterator_reference& it):
-      d_itIndex(it.d_itIndex),
-      d_collection(it.d_collection)
-    {}
-
-    /**
-     * Assignment operator.
-     */
-    iterator_reference& operator = (const iterator_reference& it) {
-      if (this != &it) {
-        d_itIndex = it.d_itIndex;
-        d_collection = it.d_collection;
-      }
-      return *this;
-    }
-
-  };
-
   BacktrackableListCollection(context::Context* context)
-  : d_backtrackableInserted(context, 0) {}
+  : d_context(context), d_backtrackableInserted(context, 0) {}
 
   /**
    * Returns the current size of the memory.
@@ -250,11 +216,102 @@ public:
     return out.str();
   }
 
+  /**
+   * Since the iterators are managed by the collection, we return references instead of the iterators themself.
+   */
+  class iterator_reference {
+
+    friend class BacktrackableListCollection;
+
+    /** Index of the iterators in the iterators array */
+	size_t d_itIndex;
+
+    /** The responsible list collection */
+    BacktrackableListCollection* d_collection;
+
+    /** Useful constructor */
+    iterator_reference(size_t itIndex, BacktrackableListCollection* collection)
+    : d_itIndex(itIndex), d_collection(collection)
+    {}
+
+  public:
+
+    /**
+     * Default constructor.
+     */
+    iterator_reference()
+    : d_itIndex(0), d_collection(0)
+    {}
+
+    /**
+     * Copy constructor.
+     */
+    iterator_reference(const iterator_reference& it):
+      d_itIndex(it.d_itIndex),
+      d_collection(it.d_collection)
+    {}
+
+    /**
+     * Assignment operator.
+     */
+    iterator_reference& operator = (const iterator_reference& it) {
+      if (this != &it) {
+        d_itIndex = it.d_itIndex;
+        d_collection = it.d_collection;
+      }
+      return *this;
+    }
+
+	/** 
+	 * Dereference operator.
+	 */
+	value_type operator * () const {
+	  const iterator& it = d_collection->d_iterators[d_itIndex];
+	  return d_collection->getElement(*it.current);
+	} 
+	
+	/** 
+	 * Is there a next element of the list.
+	 */
+	bool hasNext() const {
+	  iterator& it = d_collection->d_iterators[d_itIndex];
+	  return d_collection->d_memory[*it.current].next != null;
+	}
+
+	/**
+	 * Move to the next element of the list.
+	 */
+	iterator_reference& operator ++ () {
+	  iterator& it = d_collection->d_iterators[d_itIndex];
+      Assert(hasNext());
+	  *it.current = d_collection->d_memory[*it.current].next;
+	  return *this;
+	}
+	
+	/** 
+	 * Insert a new list element after the iterator (these elements are backtrackable).
+	 */
+	void insert(value_type value) {
+	  iterator& it = d_collection->d_iterators[d_itIndex];
+      d_collection->template insert<true>(value, *it.current);
+	}
+  };
+
+  /**
+   * Get a reference to a fresh iterator for the given list.
+   */
   iterator_reference begin(reference_type list) {
-    Assert(list != null && list >= 0);
+    Assert(list != null && list < 0, "list reference is not a valid static list element");
     size_t index = d_iterators.size();
-    d_iterators.push_back(iterator(list));
+    d_iterators.push_back(iterator(list, d_context));
     return iterator_reference(index, this);
+  }
+  
+  /** 
+   * Ensure that the collection is up-to-date.
+   */
+  void ensureCurrent() {
+    backtrack();
   }
 };
 

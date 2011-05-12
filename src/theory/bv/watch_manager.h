@@ -43,16 +43,6 @@ public:
   /** The memory manager for the context dependent lists */
   typedef context::BacktrackableListCollection<TNode> list_collection;
 
-  /** The watch element */
-  struct Watch {
-    list_collection::iterator_reference lhsListIt;
-    list_collection::iterator_reference rhsListIt;
-    Watch(list_collection& listCollection, list_collection::reference_type lhsList, list_collection::reference_type rhsList):
-      lhsListIt(listCollection.begin(lhsList)),
-      rhsListIt(listCollection.begin(rhsList))
-    {}
-  };
-
   /**
    * Substitution x = t
    */
@@ -60,6 +50,57 @@ public:
     TNode x, t;
     Substitution(TNode x, TNode t):
       x(x), t(t) {}
+  };
+
+  /** The watch element */
+  struct Watch {
+  
+    /** The iterator to the watched left-hand side concat element */
+    list_collection::iterator_reference lhsListIt;
+    /** The iterator to the watched right-hand side concat element */
+    list_collection::iterator_reference rhsListIt;
+    
+    /** Construct the watch */
+    Watch(list_collection& listCollection, list_collection::reference_type lhsList, list_collection::reference_type rhsList):
+      lhsListIt(listCollection.begin(lhsList)),
+      rhsListIt(listCollection.begin(rhsList))
+    {}
+    
+    /** 
+     * Check whether this watch is watching the given term (it might have became irrelevant).
+     */
+    bool isCurrent(TNode x) const {
+    	return *lhsListIt == x || *rhsListIt == x;
+    }
+    
+    /** 
+     * Insert the concatenation after the iterator and move the iterator to the next element.
+     */
+    void substitute(list_collection::iterator_reference& it, TNode concat) {
+      if (concat.getKind() == kind::BITVECTOR_CONCAT) {
+        for(int i = concat.getNumChildren(); i >= 0; -- i) {
+          it.insert(concat[i]);
+        }
+      } else {
+        it.insert(concat);
+      }
+      ++ it;
+    }
+    
+    /**
+     * Try and substitute the given.
+     */
+    bool substitute(const Substitution& subst) {
+      if (*lhsListIt == subst.x) {
+        substitute(lhsListIt, subst.t);
+        return true;  
+      } else if (*rhsListIt == subst.x) {
+        substitute(rhsListIt, subst.t);
+        return true;
+      } else {
+        return false;
+      }
+    }
   };
 
   /** List of watches */
@@ -161,10 +202,27 @@ void ConcatWatchManager<EqualityNotify>::addSubstitution(TNode solvedLhs, TNode 
 
 template <typename EqualityNotify>
 bool ConcatWatchManager<EqualityNotify>::propagate() {
+  // Ensure the list collection is in a good state
+  d_listCollection.ensureCurrent();
+  // Do the work
   while (!d_queue.empty()) {
     // Get the equation x = t which we need to substitute
     Substitution subst = d_queue.front();
     d_queue.pop();
+    // Get the watch-list for x
+    typename watch_map::iterator find = d_watches.find(subst.x);
+    if (find != d_watches.end()) {
+      // Get the watch-list and go through the individual watches
+      watch_list& watches = find->second;
+      typename watch_list::iterator w = watches.begin();
+      typename watch_list::iterator w_end = watches.end();
+      for(; w != w_end; ++ w) {
+        // Try and substitute
+        if (w->substitute(subst)) {
+          // Check for equalitites in order to move the iterators  
+		}
+      }
+    }
   }
   return true;
 }
