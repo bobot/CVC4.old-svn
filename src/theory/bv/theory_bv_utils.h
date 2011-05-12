@@ -75,6 +75,13 @@ inline Node mkConcat(std::vector<Node>& children) {
     return children[0];
 }
 
+inline Node mkConcat(std::vector<TNode>& children) {
+  if (children.size() > 1)
+    return NodeManager::currentNM()->mkNode(kind::BITVECTOR_CONCAT, children);
+  else
+    return children[0];
+}
+
 inline Node mkConcat(TNode t1, TNode t2) {
     return NodeManager::currentNM()->mkNode(kind::BITVECTOR_CONCAT, t1, t2);
 }

@@ -43,6 +43,11 @@ public:
     WatchNotify(TheoryBV& theoryBV) :
       d_theoryBV(theoryBV)
     {}
+
+    /** Propagates that rq is true or false (based on value) */
+    void operator () (TNode eq, bool value) {
+      d_theoryBV.d_out->propagate(value ? eq : (TNode) eq.notNode());
+    }
   };
 
   struct BVEqualitySettings {
