@@ -60,19 +60,22 @@ public:
     /** The iterator to the watched right-hand side concat element */
     list_collection::iterator_reference rhsListIt;
     
+    /** The undefined watch */
+    Watch() {}
+    
     /** Construct the watch */
     Watch(list_collection& listCollection, list_collection::reference_type lhsList, list_collection::reference_type rhsList):
       lhsListIt(listCollection.begin(lhsList)),
       rhsListIt(listCollection.begin(rhsList))
     {}
     
-    /** 
-     * Check whether this watch is watching the given term (it might have became irrelevant).
+    /**
+     * Check whether this watch is done (has propagated)
      */
-    bool isCurrent(TNode x) const {
-    	return *lhsListIt == x || *rhsListIt == x;
+    bool isDone() const {
+      return lhsListIt.isNull();
     }
-    
+        
     /** 
      * Insert the concatenation after the iterator and move the iterator to the next element.
      */
@@ -214,14 +217,53 @@ bool ConcatWatchManager<EqualityNotify>::propagate() {
     if (find != d_watches.end()) {
       // Get the watch-list and go through the individual watches
       watch_list& watches = find->second;
-      typename watch_list::iterator w = watches.begin();
-      typename watch_list::iterator w_end = watches.end();
-      for(; w != w_end; ++ w) {
+      unsigned i, newSize = 0;
+      unsigned i_end = watches.size();
+      for(; i != i_end; ++ i) {
         // Try and substitute
-        if (w->substitute(subst)) {
-          // Check for equalitites in order to move the iterators  
-		}
+        Watch& w = watches[i];
+        // If this watch is done propagating, we just keep it
+        if (w.isDone()) {
+        	watches[newSize++] = w;
+        	continue;
+        }
+        // Otherwise, try to substitute
+        if (w.substitute(subst)) {
+          // Check for equalitites in order to move the iterators
+          if (*w.lhsListIt == *w.rhsListIt) {
+            while (*w.lhsListIt == *w.rhsListIt) {
+              if (!w.lhsListIt.hasNext()) {
+                // OMG, we can propagate
+                w.setDone();
+              }
+              // Move to the next element
+              ++w.lhsListIt;
+              ++w.rhsListIt;
+            }
+            // Add to the updated watches
+            // CASES:
+            // 1) one of them is constant
+            // 2) both are constants, consistent with eachother, but of different sizes
+            // 3) both are constants, inconsistent with eachother
+            // 4) both are not constants
+            if (!w.isDone()) {
+              d_watches[*w.lhsListIt].push_back(w);
+              d_watches[*w.rhsListIt].push_back(w);
+            }
+          } else {
+            // Just add to the watchlist of first of t
+            if (subst.t.getKind() == kind::BITVECTOR_CONCAT) {
+               d_watches[subst.t[0]].push_back(w);
+            } else {
+               d_watches[subst.t].push_back(w);
+            }
+          }
+          // Keep this watch
+          watches[newSize++] = w;
+		} 
       }
+      // Resize the watchlist
+      watches.resize(newSize);
     }
   }
   return true;

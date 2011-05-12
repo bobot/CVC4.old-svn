@@ -295,6 +295,13 @@ public:
 	  iterator& it = d_collection->d_iterators[d_itIndex];
       d_collection->template insert<true>(value, *it.current);
 	}
+	
+	/** 
+	 * Is this iterator at the end.
+	 */
+	bool isNull() const {
+		return *current == null;
+	}
   };
 
   /**
