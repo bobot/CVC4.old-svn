@@ -28,9 +28,7 @@ namespace CVC4 {
 namespace context {
 
 /**
- * A class representing a backtrackable set of slice points. The memory should allow indexing with the TreeEntry.left and
- * TreeEntry.right. TreeEntry should also provide null for the non-existing reference and a constructor with (value,
- * left, right).
+ * A class representing a backtrackable list of elements.
  */
 template<typename value_type>
   class BacktrackableListCollection {
