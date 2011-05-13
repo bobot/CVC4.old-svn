@@ -75,7 +75,7 @@ void TheoryBV::check(Effort e) {
       // Slice and solve the equality, adding the equality information to the watch manager
       d_sliceManager.solveEquality(assertion[0], assertion[1]);
       // Above will add information to the watch manager so we run it now
-      d_watchManager.propagate();
+      d_watchManager.propagate(d_eqEngine);
       break;
     }
     case kind::NOT: {

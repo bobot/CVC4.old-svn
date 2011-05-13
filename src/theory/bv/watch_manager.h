@@ -21,6 +21,7 @@
 
 #include <queue>
 #include <vector>
+#include <sstream>
 #include <ext/hash_map>
 
 #include "theory/bv/theory_bv_utils.h"
@@ -56,9 +57,29 @@ template<typename EqualityNotify>
     struct Watch {
 
       /** The iterator to the watched left-hand side concat element */
-      list_collection::iterator_reference lhsListIt;
+      typename list_collection::iterator_reference lhsListIt;
       /** The iterator to the watched right-hand side concat element */
-      list_collection::iterator_reference rhsListIt;
+      typename list_collection::iterator_reference rhsListIt;
+
+      /**
+       * Print the watch.
+       */
+	  void print(std::ostream& out) const {
+	  	out << "{ ";
+	  	lhsListIt.print(out);
+	  	out << " == ";
+	  	rhsListIt.print(out); 
+	  	out << " }"; 
+	  }
+
+	  /** 
+	   * String representation of the watch.
+	   */
+	  std::string toString() const {
+	  	std::stringstream ss;
+	  	print(ss);
+	  	return ss.str();
+	  }
 
       /** The undefined watch */
       Watch() {
@@ -101,6 +122,44 @@ template<typename EqualityNotify>
         }
       }
 
+      /** 
+       * Normalizes the iterator.
+       */
+	  template<typename EqualityManager>
+	  void normalize(const EqualityManager& eqManager, list_collection::iterator_reference it) {
+	  	while (!it.isNull()) {
+	  	  TNode element = *it;
+	  	  TNode elementRep = eqManager.getRepresentative(element);
+	  	  if (elementRep == element) {
+	  	    // If the current element is it's own representative, we are done
+	  	    break;
+	  	  } else {
+	  	    // Otherwise we must perform a substitution, so get the substitutions
+	  	    std::vector<TNode> equalities;
+	  	    eqManager.getExplanation(element, elementRep, equalities);
+	  	    for (unsigned i = 0; i < equalities.size(); ++ i) {
+	  	      TNode equality = equality[i];
+	  	      if (equality[0] == element) {
+	  	        substitute(it, equality[1]);
+	  	      } else {
+	  	        substitute(it, equality[0]);
+	  	      }
+	          ++ it;
+	        }
+	  	  }
+	  	}
+	  }
+
+	  /**
+	   * Increase the watch pointers by one and normalize (substitute) the first remaining elements. 
+	   */
+	  template<typename EqualityManager>
+	  void next(const EqualityManager& eqManager) {
+	    // Move the iterators
+	  	normalize(eqManager, ++ lhsListIt);
+	  	normalize(eqManager, ++ rhsListIt); 
+	  }
+	  
       /**
        * Get the original equality out of the watch.
        */
@@ -166,7 +225,8 @@ template<typename EqualityNotify>
      * Propagates the information in the queue, trying to deduce any of the watched equalities true or false. Returns
      * true if no conflict was detected.
      */
-    bool propagate();
+    template<typename EqualityManager>
+    bool propagate(EqualityManager& eqManager);
   };
 
 template<typename EqualityNotify>
@@ -213,14 +273,21 @@ template<typename EqualityNotify>
   }
 
 template<typename EqualityNotify>
-  bool ConcatWatchManager<EqualityNotify>::propagate() {
+template<typename EqualityManager>
+  bool ConcatWatchManager<EqualityNotify>::propagate(EqualityManager& eqManager) {
+  
+    Debug("bitvector::watches") << "ConcatWatchManager::propagate()" << std::endl;
+  
     // Ensure the list collection is in a good state
     d_listCollection.ensureCurrent();
     // Do the work
-    while(!d_queue.empty()) {
+    while(!d_queue.empty()) 
+    {
       // Get the equation x = t which we need to substitute
       Substitution subst = d_queue.front();
       d_queue.pop();
+      Debug("bitvector::watches") << "ConcatWatchManager::propagate(): substituting " << subst.x << " with " << subst.t << std::endl;
+      
       // Get the watch-list for x
       typename watch_map::iterator find = d_watches.find(subst.x);
       if(find != d_watches.end()) {
@@ -231,6 +298,8 @@ template<typename EqualityNotify>
         for(; i != i_end; ++i) {
           // Try and substitute
           Watch& w = watches[i];
+	      Debug("bitvector::watches") << "ConcatWatchManager::propagate(): processing watch " << w.toString() << std::endl;
+      
           // Otherwise, try to substitute
           if(w.substitute(subst)) {
             // Check for equalitites in order to move the iterators
@@ -244,8 +313,7 @@ template<typename EqualityNotify>
                   break;
                 }
                 // Move to the next element
-                ++w.lhsListIt;
-                ++w.rhsListIt;
+                w.next(eqManager);
               }
               // Add to the updated watches
               // CASES:

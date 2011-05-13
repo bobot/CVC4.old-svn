@@ -185,11 +185,17 @@ template<typename value_type>
         return newElement;
       }
 
+	/**
+	 * Retrun the element pointed to with the reference.
+	 */
     value_type getElement(reference_type list) const {
       backtrack();
       return d_memory[list].value;
     }
 
+    /** 
+     * Returns all the elements in the list that are not backtrackable.
+     */
     void getStaticElements(reference_type list, std::vector<value_type>& out) const {
       while (list != null) {
         const list_element& element = d_memory[list];
@@ -215,18 +221,6 @@ template<typename value_type>
         first = false;
       }
       out << "]";
-    }
-
-    /**
-     * String representation of a list.
-     */
-    std::string toString(reference_type list) const {
-      backtrack();
-      Assert(isValid(list));
-
-      std::stringstream out;
-      print(out, list);
-      return out.str();
     }
 
     /**
@@ -322,6 +316,24 @@ template<typename value_type>
       void getStaticElements(std::vector<value_type>& out) const {
         d_collection->getStaticElements(d_collection->d_iterators[d_itIndex].list, out);
       }
+      
+      /**
+       * Print the list with the iterator emphasized.
+       */
+      void print(std::ostream& out) const {
+         const iterator& it = d_collection->d_iterators[d_itIndex];
+         reference_type current = it.list;
+         reference_type itReference = *it.current;
+         out << "[";
+         while (current != null) {
+         	if (current == itReference) out << "(";
+         	const list_element& currentElement = d_collection->d_memory[current];
+         	out << currentElement.value;
+         	if (current == itReference) out << ")";
+         	current = currentElement.next;
+         	if (current != null) out << ",";
+         }
+      }
     };
 
     /**
@@ -343,4 +355,4 @@ template<typename value_type>
   };
 
 } // Namespace context
-} // Namespace CVC4s
+} // Namespace CVC4
