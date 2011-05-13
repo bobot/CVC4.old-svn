@@ -304,35 +304,57 @@ template<typename EqualityManager>
           if(w.substitute(subst)) {
             // Check for equalitites in order to move the iterators
             bool propagated = false;
-            if(*w.lhsListIt == *w.rhsListIt) {
-              while(*w.lhsListIt == *w.rhsListIt) {
+            while (true) {
+              // If the current elements are the same we shift
+              if(*w.lhsListIt == *w.rhsListIt) {
                 if(!w.lhsListIt.hasNext()) {
-                  // Propagate
+                  // All elements of the list are equal, propagate
                   d_notifyClass(w.getEquality(), true);
                   propagated = true;
                   break;
                 }
                 // Move to the next element
                 w.next(eqManager);
-              }
-              // Add to the updated watches
-              // CASES:
-              // 1) one of them is constant
-              // 2) both are constants, consistent with eachother, but of different sizes
-              // 3) both are constants, inconsistent with eachother
-              // 4) both are not constants
-              if(!propagated) {
-                d_watches[*w.lhsListIt].push_back(w);
-                d_watches[*w.rhsListIt].push_back(w);
-              }
-            } else {
-              // Just add to the watchlist of first of t
-              if(subst.t.getKind() == kind::BITVECTOR_CONCAT) {
-                d_watches[subst.t[0]].push_back(w);
               } else {
-                d_watches[subst.t].push_back(w);
+                // Get the current elements
+                TNode lhsElement = *w.lhsListIt;
+                TNode rhsElement = *w.rhsListIt;
+                // If both are constants, we need to slice them 
+                if (lhsElement.getKind() == kind::CONST_BITVECTOR && rhsElement.getKind() == kind::CONST_BITVECTOR) {
+                  unsigned lhsSize = utils::getSize(lhsElement);
+              	  unsigned rhsSize = utils::getSize(rhsElement);
+              	  if (lhsSize < rhsSize) {
+              	    TNode rhsHigh = rhsElement.getConst<BitVector>().extract(rhsSize-1, rhsSize-lhsSize);
+              	    TNode rhsLow  = rhsElement.getConst<BitVector>().extract(rhsSize-lhsSize-1, 0);              	     
+              	    w.substitute(w.rhsListIt, utils::mkConcat(rhsHigh, rhsLow));
+              	  } else if (lhsSize > rhsSize) {
+              	    TNode lhsHigh = lhsElement.getConst<BitVector>().extract(lhsSize - 1, lhsSize - rhsSize);
+              	    TNode lhsLow  = lhsElement.getConst<BitVector>().extract(lhsSize - rhsSize - 1, 0);              	     
+              	    w.substitute(w.lhsListIt, utils::mkConcat(lhsHigh, lhsLow));
+              	  } 
+                  // Now they are constants of the same size 
+              	  if (*w.lhsListIt != *w.rhsListIt) {
+              	    // Since they are different this must be a conflict
+              	    d_notifyClass(w.getEquality(), false);
+              	    propagated = true;
+              	    break;
+              	  } 
+                } else {
+                  // Since they are not both constants, it's time to attach
+                  break;
+                }
               }
             }
+            // Add to the updated watches
+            if(!propagated) {
+              // Add to the watch-list of the non-constant
+              if ((*w.lhsListIt).getKind() != kind::CONST_BITVECTOR) {
+                d_watches[*w.lhsListIt].push_back(w);
+              }
+              if ((*w.rhsListIt).getKind() != kind::CONST_BITVECTOR) {
+                d_watches[*w.rhsListIt].push_back(w);
+              }
+            } 
             // Keep this watch
             watches[newSize++] = w;
           }
