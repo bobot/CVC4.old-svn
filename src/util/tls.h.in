@@ -171,6 +171,26 @@ public:
   const T* operator->() const {
     return static_cast<const T*>(*this);
   }
+  T* operator++() {
+    T* p = *this;
+    *this = ++p;
+    return p;
+  }
+  T* operator++(int) {
+    T* p = *this;
+    *this = p + 1;
+    return p;
+  }
+  T* operator--() {
+    T* p = *this;
+    *this = --p;
+    return p;
+  }
+  T* operator--(int) {
+    T* p = *this;
+    *this = p - 1;
+    return p;
+  }
 };/* class ThreadLocal<T*> */
 
 }/* CVC4 namespace */
