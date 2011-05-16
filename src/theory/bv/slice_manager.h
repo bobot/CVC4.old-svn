@@ -215,7 +215,7 @@ bool SliceManager<EqualityEngine>::solveEquality(TNode lhs, TNode rhs) {
 template <class EqualityEngine>
 bool SliceManager<EqualityEngine>::solveEquality(TNode lhs, TNode rhs, const std::set<TNode>& assumptions) {
 
-  Debug("slicing") << "SliceMagager::solveEquality(" << lhs << "," << rhs << "," << utils::setToString(assumptions) << ")" << push << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceMagager::solveEquality(" << lhs << "," << rhs << "," << utils::setToString(assumptions) << ")" << push << std::endl;
 
   bool ok;
 
@@ -242,7 +242,7 @@ bool SliceManager<EqualityEngine>::solveEquality(TNode lhs, TNode rhs, const std
   // Slice the individual terms to align them
   ok = sliceAndSolve(lhsTerms, rhsTerms, assumptions);
 
-  Debug("slicing") << "SliceMagager::solveEquality(" << lhs << "," << rhs << "," << utils::setToString(assumptions) << ")" << pop << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceMagager::solveEquality(" << lhs << "," << rhs << "," << utils::setToString(assumptions) << ")" << pop << std::endl;
 
   return ok;
 }
@@ -252,27 +252,27 @@ template <class EqualityEngine>
 bool SliceManager<EqualityEngine>::sliceAndSolve(std::vector<Node>& lhs, std::vector<Node>& rhs, const std::set<TNode>& assumptions)
 {
 
-  Debug("slicing") << "SliceManager::sliceAndSolve()" << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve()" << std::endl;
 
   // Go through the work-list, solve and align
   while (!lhs.empty()) {
 
     Assert(!rhs.empty());
 
-    Debug("slicing") << "SliceManager::sliceAndSolve(): lhs " << utils::vectorToString(lhs) << std::endl;
-    Debug("slicing") << "SliceManager::sliceAndSolve(): rhs " << utils::vectorToString(rhs) << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): lhs " << utils::vectorToString(lhs) << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): rhs " << utils::vectorToString(rhs) << std::endl;
 
     // The terms that we need to slice
     Node lhsTerm = lhs.back();
     Node rhsTerm = rhs.back();
 
-    Debug("slicing") << "SliceManager::sliceAndSolve(): " << lhsTerm << " : " << rhsTerm << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): " << lhsTerm << " : " << rhsTerm << std::endl;
 
     // If the terms are not sliced wrt the current slicing, we have them sliced
     lhs.pop_back();
     if (!isSliced(lhsTerm)) {
       if (!slice(lhsTerm, lhs)) return false;
-      Debug("slicing") << "SliceManager::sliceAndSolve(): lhs sliced" << std::endl;
+      Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): lhs sliced" << std::endl;
       continue;
     }
     rhs.pop_back();
@@ -280,11 +280,11 @@ bool SliceManager<EqualityEngine>::sliceAndSolve(std::vector<Node>& lhs, std::ve
       if (!slice(rhsTerm, rhs)) return false;
       // We also need to put lhs back
       lhs.push_back(lhsTerm);
-      Debug("slicing") << "SliceManager::sliceAndSolve(): rhs sliced" << std::endl;
+      Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): rhs sliced" << std::endl;
       continue;
     }
 
-    Debug("slicing") << "SliceManager::sliceAndSolve(): both lhs and rhs sliced already" << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): both lhs and rhs sliced already" << std::endl;
 
     // The solving concatenation
     std::vector<Node> concatTerms;
@@ -317,7 +317,7 @@ bool SliceManager<EqualityEngine>::sliceAndSolve(std::vector<Node>& lhs, std::ve
       SOLVING_FOR_RHS
     } solvingFor = sizeDifference < 0 || lhsTerm.getKind() == kind::CONST_BITVECTOR ? SOLVING_FOR_RHS : SOLVING_FOR_LHS;
 
-    Debug("slicing") << "SliceManager::sliceAndSolve(): " << (solvingFor == SOLVING_FOR_LHS ? "solving for LHS" : "solving for RHS") << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): " << (solvingFor == SOLVING_FOR_LHS ? "solving for LHS" : "solving for RHS") << std::endl;
 
     // When we slice in order to align, we might have to reslice the one we are solving for
     bool reslice = false;
@@ -399,7 +399,7 @@ bool SliceManager<EqualityEngine>::sliceAndSolve(std::vector<Node>& lhs, std::ve
     Assert(sizeDifference == 0);
 
     Node concat = utils::mkConcat(concatTerms);
-    Debug("slicing") << "SliceManager::sliceAndSolve(): concatenation " << concat << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): concatenation " << concat << std::endl;
 
     // We have them equal size now. If the base term of the one we are solving is solved into a
     // non-trivial concatenation already, we have to normalize. A concatenation is non-trivial if
@@ -418,7 +418,7 @@ bool SliceManager<EqualityEngine>::sliceAndSolve(std::vector<Node>& lhs, std::ve
         if (!ok) return false;
       } else {
         // We're fine, just add the equality
-        Debug("slicing") << "SliceManager::sliceAndSolve(): adding " << lhsTerm << " = " << concat << " " << utils::setToString(assumptions) << std::endl;
+        Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): adding " << lhsTerm << " = " << concat << " " << utils::setToString(assumptions) << std::endl;
         d_equalityEngine.addTerm(concat);
         bool ok = d_equalityEngine.addEquality(lhsTerm, concat, utils::mkConjunction(assumptions));
         if (!ok) return false;
@@ -438,7 +438,7 @@ bool SliceManager<EqualityEngine>::sliceAndSolve(std::vector<Node>& lhs, std::ve
         if (!ok) return false;
       } else {
         // We're fine, just add the equality
-        Debug("slicing") << "SliceManager::sliceAndSolve(): adding " << rhsTerm << " = " << concat << utils::setToString(assumptions) << std::endl;
+        Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve(): adding " << rhsTerm << " = " << concat << utils::setToString(assumptions) << std::endl;
         d_equalityEngine.addTerm(concat);
         bool ok = d_equalityEngine.addEquality(rhsTerm, concat, utils::mkConjunction(assumptions));
         if (!ok) return false;
@@ -454,7 +454,7 @@ bool SliceManager<EqualityEngine>::sliceAndSolve(std::vector<Node>& lhs, std::ve
 template <class EqualityEngine>
 bool SliceManager<EqualityEngine>::isSliced(TNode node) const {
 
-  Debug("slicing") << "SliceManager::isSliced(" << node << ")" << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::isSliced(" << node << ")" << std::endl;
 
   bool result = false;
 
@@ -488,13 +488,13 @@ bool SliceManager<EqualityEngine>::isSliced(TNode node) const {
     }
   }
 
-  Debug("slicing") << "SliceManager::isSliced(" << node << ") => " << (result ? "true" : "false") << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::isSliced(" << node << ") => " << (result ? "true" : "false") << std::endl;
   return result;
 }
 
 template <class EqualityEngine>
 bool SliceManager<EqualityEngine>::addSlice(Node node, unsigned slicePoint) {
-  Debug("slicing") << "SliceMagager::addSlice(" << node << "," << slicePoint << ")" << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceMagager::addSlice(" << node << "," << slicePoint << ")" << std::endl;
 
   bool ok = true;
 
@@ -523,7 +523,7 @@ bool SliceManager<EqualityEngine>::addSlice(Node node, unsigned slicePoint) {
 
   // Add the slice to the set
   d_setCollection.insert(sliceSet, slicePoint);
-  Debug("slicing") << "SliceMagager::addSlice(" << node << "," << slicePoint << "): current set " << d_setCollection.toString(sliceSet) << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceMagager::addSlice(" << node << "," << slicePoint << "): current set " << d_setCollection.toString(sliceSet) << std::endl;
 
   // Add the terms and the equality to the equality engine
   Node t1 = utils::mkExtract(nodeBase, next - 1, slicePoint);
@@ -551,7 +551,7 @@ bool SliceManager<EqualityEngine>::addSlice(Node node, unsigned slicePoint) {
     ok = solveEquality(nodeSliceRepresentative, concat, assumptions);
   }
 
-  Debug("slicing") << "SliceMagager::addSlice(" << node << "," << slicePoint << ") => " << d_setCollection.toString(d_nodeSlicing[nodeBase]) << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceMagager::addSlice(" << node << "," << slicePoint << ") => " << d_setCollection.toString(d_nodeSlicing[nodeBase]) << std::endl;
 
   return ok;
 }
@@ -559,15 +559,15 @@ bool SliceManager<EqualityEngine>::addSlice(Node node, unsigned slicePoint) {
 template <class EqualityEngine>
 inline bool SliceManager<EqualityEngine>::slice(TNode node, std::vector<Node>& sliced) {
 
-  Debug("slicing") << "SliceManager::slice(" << node << ")" << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << ")" << std::endl;
 
   Assert(!isSliced(node));
 
   // The indices of the beginning and (one past) end
   unsigned high = node.getKind() == kind::BITVECTOR_EXTRACT ? utils::getExtractHigh(node) + 1 : utils::getSize(node);
   unsigned low  = node.getKind() == kind::BITVECTOR_EXTRACT ? utils::getExtractLow(node) : 0;
-  Debug("slicing") << "SliceManager::slice(" << node << "): low: " << low << std::endl;
-  Debug("slicing") << "SliceManager::slice(" << node << "): high: " << high << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << "): low: " << low << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << "): high: " << high << std::endl;
 
   // Get the base term
   TNode nodeBase = baseTerm(node);
@@ -588,7 +588,7 @@ inline bool SliceManager<EqualityEngine>::slice(TNode node, std::vector<Node>& s
 
   Assert(d_setCollection.size(nodeSliceSet) >= 2);
 
-  Debug("slicing") << "SliceManager::slice(" << node << "): current: " << d_setCollection.toString(nodeSliceSet) << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << "): current: " << d_setCollection.toString(nodeSliceSet) << std::endl;
   
   // Go through all the points i_0 <= low < i_1 < ... < i_{n-1} < high <= i_n from the slice set
   // and generate the slices [i_0:low-1][low:i_1-1] [i_1:i2] ... [i_{n-1}:high-1][high:i_n-1]. They are in reverse order,
@@ -596,14 +596,14 @@ inline bool SliceManager<EqualityEngine>::slice(TNode node, std::vector<Node>& s
   
   // The high bound already in the slicing
   size_t i_n = high == utils::getSize(nodeBase) ? high: d_setCollection.next(nodeSliceSet, high - 1);
-  Debug("slicing") << "SliceManager::slice(" << node << "): i_n: " << i_n << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << "): i_n: " << i_n << std::endl;
   // Add the new point to the slice set (they might be there already)
   if (high < i_n) {
     if (!addSlice(nodeBase, high)) return false;
   }
   // The low bound already in the slicing (slicing might have changed after adding high)
   size_t i_0 = low == 0 ? 0 : d_setCollection.prev(nodeSliceSet, low + 1);
-  Debug("slicing") << "SliceManager::slice(" << node << "): i_0: " << i_0 << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << "): i_0: " << i_0 << std::endl;
   // Add the new points to the slice set (they might be there already)
   if (i_0 < low) {
     if (!addSlice(nodeBase, low)) return false;
@@ -617,13 +617,13 @@ inline bool SliceManager<EqualityEngine>::slice(TNode node, std::vector<Node>& s
 
   // Construct the actuall slicing
   if (slicePoints.size() > 0) {
-    Debug("slicing") << "SliceManager::slice(" << node << "): adding" << utils::mkExtract(nodeBase, slicePoints[0] - 1, low) << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << "): adding" << utils::mkExtract(nodeBase, slicePoints[0] - 1, low) << std::endl;
     sliced.push_back(utils::mkExtract(nodeBase, slicePoints[0] - 1, low));
     for (unsigned i = 1; i < slicePoints.size(); ++ i) {
-      Debug("slicing") << "SliceManager::slice(" << node << "): adding" << utils::mkExtract(nodeBase, slicePoints[i] - 1, slicePoints[i-1])<< std::endl;
+      Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << "): adding" << utils::mkExtract(nodeBase, slicePoints[i] - 1, slicePoints[i-1])<< std::endl;
       sliced.push_back(utils::mkExtract(nodeBase, slicePoints[i] - 1, slicePoints[i-1]));
     }
-    Debug("slicing") << "SliceManager::slice(" << node << "): adding" << utils::mkExtract(nodeBase, high-1, slicePoints.back()) << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << "): adding" << utils::mkExtract(nodeBase, high-1, slicePoints.back()) << std::endl;
     sliced.push_back(utils::mkExtract(nodeBase, high-1, slicePoints.back()));
   } else {
     sliced.push_back(utils::mkExtract(nodeBase, high - 1, low));

@@ -31,7 +31,7 @@ using namespace std;
 
 void TheoryBV::preRegisterTerm(TNode node) {
 
-  Debug("bitvector") << "TheoryBV::preRegister(" << node << ")" << std::endl;
+  Debug("theory::bv") << "TheoryBV::preRegister(" << node << ")" << std::endl;
 
   if (node.getKind() == kind::EQUAL) {
 	// Add the terms to the equality manager 
@@ -48,13 +48,13 @@ void TheoryBV::preRegisterTerm(TNode node) {
       }
     }
     // Add to the watch manager
-    d_watchManager.addEqualityToWatch(node[0], node[1]);
+    d_watchManager.addEqualityToWatch(d_eqEngine, node[0], node[1]);
   }
 }
 
 void TheoryBV::check(Effort e) {
 
-  Debug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
+  Debug("theory::bv") << "TheoryBV::check(" << e << ")" << std::endl;
 
   // Get all the assertions
   std::vector<TNode> assertionsList;
@@ -68,7 +68,7 @@ void TheoryBV::check(Effort e) {
   for (unsigned i = 0; i < assertionsList.size(); ++ i) {
     // Get the assertion
     TNode assertion = assertionsList[i];
-    Debug("bitvector") << "TheoryBV::check(" << e << "): asserting: " << assertion << std::endl;
+    Debug("theory::bv") << "TheoryBV::check(" << e << "): asserting: " << assertion << std::endl;
     // Do the right stuff
     switch (assertion.getKind()) {
     case kind::EQUAL: {
@@ -106,6 +106,6 @@ Node TheoryBV::getValue(TNode n) {
 }
 
 void TheoryBV::explain(TNode node) {
-  Debug("bitvector") << "TheoryBV::explain(" << node << ")" << std::endl;
+  Debug("theory::bv") << "TheoryBV::explain(" << node << ")" << std::endl;
   return;
 }

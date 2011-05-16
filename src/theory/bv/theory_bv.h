@@ -46,6 +46,7 @@ public:
 
     /** Propagates that rq is true or false (based on value) */
     void operator () (TNode eq, bool value) {
+      Debug("theory::bv") << "WatchNotify(" << eq << ", " << (value ? "true" : "false") << ")" << std::endl;
       d_theoryBV.d_out->propagate(value ? eq : (TNode) eq.notNode());
     }
   };

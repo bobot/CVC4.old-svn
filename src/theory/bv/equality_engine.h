@@ -278,7 +278,7 @@ public:
    */
   EqualityEngine(NotifyClass& notify, context::Context* context, std::string name)
   : d_notify(notify), d_assertedEqualitiesCount(context, 0), d_stats(name) {
-    Debug("equality") << "EqualityEdge::EqualityEdge(): id_null = " << BitSizeTraits::id_null << std::endl;
+    Debug("theory::bv::eq_engine") << "EqualityEdge::EqualityEdge(): id_null = " << BitSizeTraits::id_null << std::endl;
   }
 
   /**
@@ -336,7 +336,7 @@ private:
 template <typename NotifyClass, typename UnionFindPreferences>
 size_t EqualityEngine<NotifyClass, UnionFindPreferences>::addTerm(TNode t) {
 
-  Debug("equality") << "EqualityEngine::addTerm(" << t << ")" << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::addTerm(" << t << ")" << std::endl;
 
   // If term already added, retrurn it's id
   if (hasTerm(t)) return getNodeId(t);
@@ -384,7 +384,7 @@ EqualityNode& EqualityEngine<NotifyClass, UnionFindPreferences>::getEqualityNode
 template <typename NotifyClass, typename UnionFindPreferences>
 bool EqualityEngine<NotifyClass, UnionFindPreferences>::addEquality(TNode t1, TNode t2, Node reason) {
 
-  Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;
 
   // Backtrack if necessary
   backtrack();
@@ -409,11 +409,11 @@ bool EqualityEngine<NotifyClass, UnionFindPreferences>::addEquality(TNode t1, TN
 
   // Depending on the merge preference (such as size), merge them
   if (UnionFindPreferences::mergePreference(d_nodes[t2classId], node2.getSize(), d_nodes[t1classId], node1.getSize())) {
-    Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t1 << " into " << t2 << std::endl;
+    Debug("theory::bv::eq_engine") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t1 << " into " << t2 << std::endl;
     merge(node2, node1);
     d_assertedEqualities.push_back(Equality(t2classId, t1classId));
   } else {
-    Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t2 << " into " << t1 << std::endl;
+    Debug("theory::bv::eq_engine") << "EqualityEngine::addEquality(" << t1 << "," << t2 << "): merging " << t2 << " into " << t1 << std::endl;
     merge(node1, node2);
     d_assertedEqualities.push_back(Equality(t1classId, t2classId));
   }
@@ -433,7 +433,7 @@ bool EqualityEngine<NotifyClass, UnionFindPreferences>::addEquality(TNode t1, TN
 template <typename NotifyClass, typename UnionFindPreferences>
 TNode EqualityEngine<NotifyClass, UnionFindPreferences>::getRepresentative(TNode t) const {
 
-  Debug("equality") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
 
   Assert(hasTerm(t));
 
@@ -441,14 +441,14 @@ TNode EqualityEngine<NotifyClass, UnionFindPreferences>::getRepresentative(TNode
   const_cast<EqualityEngine*>(this)->backtrack();
   size_t representativeId = const_cast<EqualityEngine*>(this)->getEqualityNode(t).getFind();
 
-  Debug("equality") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
 
   return d_nodes[representativeId];
 }
 
 template <typename NotifyClass, typename UnionFindPreferences>
 bool EqualityEngine<NotifyClass, UnionFindPreferences>::areEqual(TNode t1, TNode t2) const {
-  Debug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ")" << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ")" << std::endl;
 
   Assert(hasTerm(t1));
   Assert(hasTerm(t2));
@@ -458,7 +458,7 @@ bool EqualityEngine<NotifyClass, UnionFindPreferences>::areEqual(TNode t1, TNode
   size_t rep1 = const_cast<EqualityEngine*>(this)->getEqualityNode(t1).getFind();
   size_t rep2 = const_cast<EqualityEngine*>(this)->getEqualityNode(t2).getFind();
 
-  Debug("equality") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ") => " << (rep1 == rep2 ? "true" : "false") << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::areEqual(" << t1 << "," << t2 << ") => " << (rep1 == rep2 ? "true" : "false") << std::endl;
 
   return rep1 == rep2;
 }
@@ -466,7 +466,7 @@ bool EqualityEngine<NotifyClass, UnionFindPreferences>::areEqual(TNode t1, TNode
 template <typename NotifyClass, typename UnionFindPreferences>
 void EqualityEngine<NotifyClass, UnionFindPreferences>::merge(EqualityNode& class1, EqualityNode& class2) {
 
-  Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << ")" << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << ")" << std::endl;
 
   ++ d_stats.mergesCount;
 
@@ -499,7 +499,7 @@ void EqualityEngine<NotifyClass, UnionFindPreferences>::merge(EqualityNode& clas
 template <typename NotifyClass, typename UnionFindPreferences>
 void EqualityEngine<NotifyClass, UnionFindPreferences>::undoMerge(EqualityNode& class1, EqualityNode& class2, size_t class2Id) {
 
-  Debug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << ")" << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << ")" << std::endl;
 
   // Now unmerge the lists (same as merge)
   class1.merge<false>(class2);
@@ -528,7 +528,7 @@ void EqualityEngine<NotifyClass, UnionFindPreferences>::backtrack() {
 
     ++ d_stats.backtracksCount;
 
-    Debug("equality") << "EqualityEngine::backtrack(): nodes" << std::endl;
+    Debug("theory::bv::eq_engine") << "EqualityEngine::backtrack(): nodes" << std::endl;
 
     for (int i = (int)d_assertedEqualities.size() - 1, i_end = (int)d_assertedEqualitiesCount; i >= i_end; --i) {
       // Get the ids of the merged classes
@@ -539,7 +539,7 @@ void EqualityEngine<NotifyClass, UnionFindPreferences>::backtrack() {
 
     d_assertedEqualities.resize(d_assertedEqualitiesCount);
 
-    Debug("equality") << "EqualityEngine::backtrack(): edges" << std::endl;
+    Debug("theory::bv::eq_engine") << "EqualityEngine::backtrack(): edges" << std::endl;
 
     for (int i = (int)d_equalityEdges.size() - 2, i_end = (int)(2*d_assertedEqualitiesCount); i >= i_end; i -= 2) {
       EqualityEdge& edge1 = d_equalityEdges[i];
@@ -556,7 +556,7 @@ void EqualityEngine<NotifyClass, UnionFindPreferences>::backtrack() {
 
 template <typename NotifyClass, typename UnionFindPreferences>
 void EqualityEngine<NotifyClass, UnionFindPreferences>::addGraphEdge(size_t t1, size_t t2, Node reason) {
-  Debug("equality") << "EqualityEngine::addGraphEdge(" << d_nodes[t1] << "," << d_nodes[t2] << ")" << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::addGraphEdge(" << d_nodes[t1] << "," << d_nodes[t2] << ")" << std::endl;
   size_t edge = d_equalityEdges.size();
   d_equalityEdges.push_back(EqualityEdge(t2, d_equalityGraph[t1]));
   d_equalityEdges.push_back(EqualityEdge(t1, d_equalityGraph[t2]));
@@ -584,7 +584,7 @@ template <typename NotifyClass, typename UnionFindPreferences>
 void EqualityEngine<NotifyClass, UnionFindPreferences>::getExplanation(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
   Assert(getRepresentative(t1) == getRepresentative(t2));
 
-  Debug("equality") << "EqualityEngine::getExplanation(" << t1 << "," << t2 << ")" << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::getExplanation(" << t1 << "," << t2 << ")" << std::endl;
 
   // If the nodes are the same, we're done
   if (t1 == t2) return;
@@ -609,12 +609,12 @@ void EqualityEngine<NotifyClass, UnionFindPreferences>::getExplanation(TNode t1,
     BfsData current = bfsQueue[currentIndex];
     size_t currentNode = current.nodeId;
 
-    Debug("equality") << "EqualityEngine::getExplanation(): currentNode =  " << d_nodes[currentNode] << std::endl;
+    Debug("theory::bv::eq_engine") << "EqualityEngine::getExplanation(): currentNode =  " << d_nodes[currentNode] << std::endl;
 
     // Go through the equality edges of this node
     size_t currentEdge = d_equalityGraph[currentNode];
 
-    Debug("equality") << "EqualityEngine::getExplanation(): edges =  " << edgesToString(currentEdge) << std::endl;
+    Debug("theory::bv::eq_engine") << "EqualityEngine::getExplanation(): edges =  " << edgesToString(currentEdge) << std::endl;
 
     while (currentEdge != BitSizeTraits::id_null) {
       // Get the edge
@@ -623,18 +623,18 @@ void EqualityEngine<NotifyClass, UnionFindPreferences>::getExplanation(TNode t1,
       // If not just the backwards edge
       if ((currentEdge | 1u) != (current.edgeId | 1u)) {
 
-        Debug("equality") << "EqualityEngine::getExplanation(): currentEdge = (" << d_nodes[currentNode] << "," << d_nodes[edge.getNodeId()] << ")" << std::endl;
+        Debug("theory::bv::eq_engine") << "EqualityEngine::getExplanation(): currentEdge = (" << d_nodes[currentNode] << "," << d_nodes[edge.getNodeId()] << ")" << std::endl;
 
         // Did we find the path
         if (edge.getNodeId() == t2Id) {
 
-          Debug("equality") << "EqualityEngine::getExplanation(): path found: " << std::endl;
+          Debug("theory::bv::eq_engine") << "EqualityEngine::getExplanation(): path found: " << std::endl;
 
           // Reconstruct the path
           do {
             // Add the actual equality to the vector
             equalities.push_back(d_equalityReasons[currentEdge >> 1]);
-            Debug("equality") << "EqualityEngine::getExplanation(): adding: " << d_equalityReasons[currentEdge >> 1] << std::endl;
+            Debug("theory::bv::eq_engine") << "EqualityEngine::getExplanation(): adding: " << d_equalityReasons[currentEdge >> 1] << std::endl;
 
             // Go to the previous
             currentEdge = bfsQueue[currentIndex].edgeId;
@@ -669,7 +669,7 @@ Node EqualityEngine<NotifyClass, UnionFindPreferences>::normalize(TNode node, st
 template <typename NotifyClass, typename UnionFindPreferences>
 Node EqualityEngine<NotifyClass, UnionFindPreferences>::normalizeWithCache(TNode node, std::set<TNode>& assumptions) {
 
-  Debug("equality") << "EqualityEngine::normalize(" << node << ")" << push << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::normalize(" << node << ")" << push << std::endl;
 
   normalization_cache::iterator find = d_normalizationCache.find(node);
   if (find != d_normalizationCache.end()) {
@@ -707,7 +707,7 @@ Node EqualityEngine<NotifyClass, UnionFindPreferences>::normalizeWithCache(TNode
     result = builder;
   }
 
-  Debug("equality") << "EqualityEngine::normalize(" << node << ") => " << result << pop << std::endl;
+  Debug("theory::bv::eq_engine") << "EqualityEngine::normalize(" << node << ") => " << result << pop << std::endl;
 
   // Cache the result for real now
   d_normalizationCache[node] = result;

@@ -20,6 +20,8 @@
 #pragma once
 
 #include <iostream>
+#include <sstream>
+
 #include "context/cdo.h"
 #include "theory/bv/generalized_vector.h"
 #include "theory/bv/theory_bv_utils.h"
@@ -39,7 +41,7 @@ template<typename value_type>
     typedef ssize_t reference_type;
 
     /** The null pointer (maximal positive value) */
-    static const reference_type null = ((reference_type) (-1)) >> 1;
+    static const reference_type null = (unsigned)((reference_type) (-1)) >> 1;
 
     /** List elements */
     struct list_element {
@@ -49,8 +51,7 @@ template<typename value_type>
       reference_type prev, next;
 
       /** Construct the element */
-      list_element(const value_type& value, reference_type prev,
-                   reference_type next) :
+      list_element(const value_type& value, reference_type prev, reference_type next) :
         value(value), prev(prev), next(next) {
       }
     };
@@ -90,8 +91,8 @@ template<typename value_type>
 
     /** Check if the reference is valid in the current context */
     inline bool isValid(reference_type element) const {
-      return d_backtrackableInserted == d_memory.positive_size() && (element
-          == null || element < (reference_type) d_memory.positive_size());
+      return d_backtrackableInserted == d_memory.positive_size() && (element == null || element
+          < (reference_type) d_memory.positive_size());
     }
 
     /** Backtrack  */
@@ -129,7 +130,10 @@ template<typename value_type>
   public:
 
     BacktrackableListCollection(context::Context* context) :
-      d_context(context), d_backtrackableInserted(context, 0) {
+      d_context(context),
+      d_backtrackableInserted(context, 0)
+    {
+      Debug("context::list_collection") << "BacktrackableListCollection(): null = " << +null << std::endl;
     }
 
     /**
@@ -144,14 +148,18 @@ template<typename value_type>
      * Insert the given value after the given reference. If after is null, a new list will be created.
      */
     template<bool backtrackable>
-      reference_type insert(const value_type& value,
-                            reference_type after = null) {
+      reference_type insert(const value_type& value, reference_type after = null) {
         backtrack();
         Assert(isValid(after));
 
+        Debug("context::list_collection") << "BacktrackableListCollection::insert(" << value << ", " << toString(after) << ")" << std::endl;
+
         // Reference of the new element
-        reference_type newElement = backtrackable ? d_memory.positive_size()
-            : d_memory.negative_size();
+        reference_type newElement = backtrackable ? d_memory.positive_size() : -(d_memory.negative_size()+1);
+
+        if (backtrackable) {
+          d_backtrackableInserted = d_backtrackableInserted + 1;
+        }
 
         if(after == null) {
           // If requested, create a new list
@@ -166,12 +174,8 @@ template<typename value_type>
           // Create the new element
           if(backtrackable) {
             d_memory.push_back(list_element(value, after, prevElement.next));
-            d_memory.back().prev = after;
-            d_memory.back().next = prevElement.next;
           } else {
             d_memory.push_front(list_element(value, after, prevElement.next));
-            d_memory.front().prev = after;
-            d_memory.front().next = prevElement.next;
           }
           // Fix up the next element if it's there
           if(prevElement.next != null) {
@@ -179,15 +183,17 @@ template<typename value_type>
           }
           // Fix up the previous element if it's there
           prevElement.next = newElement;
+
+          Debug("context::list_collection") << "BacktrackableListCollection::insert(" << value << ", " << toString(after) << ")" << std::endl;
         }
 
         // Return the reference
         return newElement;
       }
 
-	/**
-	 * Retrun the element pointed to with the reference.
-	 */
+    /**
+     * Retrun the element pointed to with the reference.
+     */
     value_type getElement(reference_type list) const {
       backtrack();
       return d_memory[list].value;
@@ -197,9 +203,9 @@ template<typename value_type>
      * Returns all the elements in the list that are not backtrackable.
      */
     void getStaticElements(reference_type list, std::vector<value_type>& out) const {
-      while (list != null) {
+      while(list != null) {
         const list_element& element = d_memory[list];
-        if (list < 0) {
+        if(list < 0) {
           out.push_back(element.value);
         }
         list = element.next;
@@ -218,9 +224,19 @@ template<typename value_type>
         if(!first)
           out << ",";
         out << d_memory[list].value;
+        list = d_memory[list].next;
         first = false;
       }
       out << "]";
+    }
+
+    /**
+     * String representation of the list.
+     */
+    std::string toString(reference_type list) const {
+      std::stringstream ss;
+      print(ss, list);
+      return ss.str();
     }
 
     /**
@@ -237,8 +253,7 @@ template<typename value_type>
       BacktrackableListCollection* d_collection;
 
       /** Useful constructor */
-      iterator_reference(size_t itIndex,
-                         BacktrackableListCollection* collection) :
+      iterator_reference(size_t itIndex, BacktrackableListCollection* collection) :
         d_itIndex(itIndex), d_collection(collection) {
       }
 
@@ -248,15 +263,15 @@ template<typename value_type>
        * Default constructor.
        */
       iterator_reference() :
-        d_itIndex(0), d_collection(0) {
-      }
+        d_itIndex(0), d_collection(0)
+      {}
 
       /**
        * Copy constructor.
        */
       iterator_reference(const iterator_reference& it) :
-        d_itIndex(it.d_itIndex), d_collection(it.d_collection) {
-      }
+        d_itIndex(it.d_itIndex), d_collection(it.d_collection)
+      {}
 
       /**
        * Assignment operator.
@@ -281,7 +296,7 @@ template<typename value_type>
        * Is there a next element of the list.
        */
       bool hasNext() const {
-        iterator& it = d_collection->d_iterators[d_itIndex];
+        const iterator& it = d_collection->d_iterators[d_itIndex];
         return d_collection->d_memory[*it.current].next != null;
       }
 
@@ -289,9 +304,16 @@ template<typename value_type>
        * Move to the next element of the list.
        */
       iterator_reference& operator ++() {
+
+        Debug("context::list_collection") << "BacktrackableListCollection::iterator_reference ++ (): " << toString() << std::endl;
+
         iterator& it = d_collection->d_iterators[d_itIndex];
         Assert(hasNext());
+
         *it.current = d_collection->d_memory[*it.current].next;
+
+        Debug("context::list_collection") << "BacktrackableListCollection::iterator_reference ++ (): " << toString() << std::endl;
+
         return *this;
       }
 
@@ -316,23 +338,33 @@ template<typename value_type>
       void getStaticElements(std::vector<value_type>& out) const {
         d_collection->getStaticElements(d_collection->d_iterators[d_itIndex].list, out);
       }
-      
+
       /**
        * Print the list with the iterator emphasized.
        */
       void print(std::ostream& out) const {
-         const iterator& it = d_collection->d_iterators[d_itIndex];
-         reference_type current = it.list;
-         reference_type itReference = *it.current;
-         out << "[";
-         while (current != null) {
-         	if (current == itReference) out << "(";
-         	const list_element& currentElement = d_collection->d_memory[current];
-         	out << currentElement.value;
-         	if (current == itReference) out << ")";
-         	current = currentElement.next;
-         	if (current != null) out << ",";
-         }
+        const iterator& it = d_collection->d_iterators[d_itIndex];
+        reference_type current = it.list;
+        reference_type itReference = *it.current;
+        out << "[";
+        while(current != null) {
+          if(current == itReference)
+            out << "(";
+          const list_element& currentElement = d_collection->d_memory[current];
+          out << currentElement.value;
+          if(current == itReference)
+            out << ")";
+          current = currentElement.next;
+          if(current != null)
+            out << ",";
+        }
+        out << "]";
+      }
+
+      std::string toString() const {
+        std::stringstream ss;
+        print(ss);
+        return ss.str();
       }
     };
 
