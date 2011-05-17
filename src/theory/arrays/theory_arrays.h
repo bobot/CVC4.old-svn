@@ -78,6 +78,7 @@ The rules implemented are the following:
 #include "util/hash.h"
 #include "util/ntuple.h"
 #include "util/stats.h"
+#include "util/backtrackable.h"
 #include <iostream>
 #include <map>
 namespace CVC4 {
@@ -87,6 +88,8 @@ namespace arrays {
 class TheoryArrays : public Theory {
 
 private:
+
+
   class CongruenceChannel {
     TheoryArrays* d_arrays;
 
@@ -97,6 +100,7 @@ private:
     }
   }; /* class CongruenceChannel*/
   friend class CongruenceChannel;
+
 
   /**
    * Output channel connected to the congruence closure module.
@@ -115,6 +119,17 @@ private:
 
   UnionFind<Node, NodeHashFunction> d_unionFind;
 
+  Backtracker<TNode> d_backtracker;
+
+
+  /**
+   * Context dependent map from a congruence class canonical representative of
+   * type array to an Info pointer that keeps track of information useful to axiom
+   * instantiation
+   */
+
+  ArrayInfo d_infoMap;
+
   /**
    * Received a notification from the congruence closure algorithm that the two
    * nodes a and b have become congruent.
@@ -125,13 +140,19 @@ private:
 
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > CTNodeListAlloc;
   typedef context::CDMap<Node, CTNodeListAlloc*, NodeHashFunction> CNodeTNodesMap;
+  typedef context::CDMap<TNode, List<TNode>*, TNodeHashFunction > EqLists;
+
 
   typedef __gnu_cxx::hash_map<TNode, CTNodeList*, TNodeHashFunction> NodeTNodesMap;
   /**
    * List of all disequalities this theory has seen. Maintains the invariant that
-   * if a is in the disequality list of b, then b is in that of a.
+   * if a is in the disequality list of b, then b is in that of a. FIXME? make non context dep map
    * */
   CNodeTNodesMap d_disequalities;
+  EqLists d_equalities;
+  context::CDList<TNode> d_prop_queue;
+
+  void checkPropagations(TNode a, TNode b);
 
   /** List of all atoms the SAT solver knows about and are candidates for
    *  propagation. */
@@ -150,15 +171,6 @@ private:
 
   typedef context::CDList< quad<TNode, TNode, TNode, TNode > > QuadCDList;
 
-
-
-  /**
-   * Context dependent map from a congruence class canonical representative of
-   * type array to an Info pointer that keeps track of information useful to axiom
-   * instantiation
-   */
-
-  ArrayInfo d_infoMap;
 
   /**
    * Ext lemma workslist that stores extensionality lemmas that still need to be added
@@ -189,10 +201,10 @@ private:
    */
 
   void addDiseq(TNode diseq);
-  //void addAtom(TNode at);
+  void addEq(TNode eq);
 
   void appendToDiseqList(TNode of, TNode eq);
-  //void appendToAtomList(TNode a, TNode b);
+  void appendToEqList(TNode a, TNode b);
   Node constructConflict(TNode diseq);
 
   /**
@@ -365,8 +377,9 @@ public:
     case kind::EQUAL:
       // stores the seen atoms for propagation
       Debug("arrays-preregister")<<"atom "<<n<<"\n";
-
       d_atoms.insert(n);
+      // add to proper equality lists
+      addEq(n);
       break;
     case kind::SELECT:
       //Debug("arrays-preregister")<<"at level "<<getContext()->getLevel()<<"\n";
@@ -419,6 +432,18 @@ public:
   void propagate(Effort e) {
 
     Debug("arrays-prop")<<"Propagating \n";
+
+    context::CDList<TNode>::const_iterator it = d_prop_queue.begin();
+    /*
+    for(; it!= d_prop_queue.end(); it++) {
+      TNode eq = *it;
+      if(d_valuation.getSatValue(eq).isNull()) {
+        //FIXME remove already propagated literals?
+        d_out->propagate(eq);
+        ++d_numProp;
+      }
+    }*/
+    //d_prop_queue.deleteSelf();
     /*
     __gnu_cxx::hash_set<TNode, TNodeHashFunction>::const_iterator it = d_atoms.begin();
 

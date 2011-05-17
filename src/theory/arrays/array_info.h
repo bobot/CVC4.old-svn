@@ -52,7 +52,7 @@ struct TNodeQuadHashFunction {
 
 
 void printList (CTNodeList* list);
-void printList( List<Node>* list);
+void printList( List<TNode>* list);
 
 bool inList(const CTNodeList* l, const TNode el);
 
@@ -64,12 +64,12 @@ bool inList(const CTNodeList* l, const TNode el);
 
 class Info {
 public:
-  List<Node>* indices;
+  List<TNode>* indices;
   CTNodeList* stores;
   CTNodeList* in_stores;
 
-  Info(context::Context* c, Backtracker<Node>* bck) {
-    indices = new List<Node>(bck);
+  Info(context::Context* c, Backtracker<TNode>* bck) {
+    indices = new List<TNode>(bck);
     stores = new(true)CTNodeList(c);
     in_stores = new(true)CTNodeList(c);
 
@@ -111,11 +111,11 @@ typedef __gnu_cxx::hash_map<Node, Info*, NodeHashFunction> CNodeInfoMap;
 class ArrayInfo {
 private:
   context::Context* ct;
-  Backtracker<Node>* bck;
+  Backtracker<TNode>* bck;
   CNodeInfoMap info_map;
 
   CTNodeList* emptyList;
-  List<Node>* emptyListI;
+  List<TNode>* emptyListI;
 
 
   /* == STATISTICS == */
@@ -143,8 +143,26 @@ private:
 
 public:
   const Info* emptyInfo;
-
-  ArrayInfo(context::Context* c): ct(c), info_map(),
+/*
+  ArrayInfo(): ct(NULl), info
+    d_mergeInfoTimer("theory::arrays::mergeInfoTimer"),
+    d_avgIndexListLength("theory::arrays::avgIndexListLength"),
+    d_avgStoresListLength("theory::arrays::avgStoresListLength"),
+    d_avgInStoresListLength("theory::arrays::avgInStoresListLength"),
+    d_listsCount("theory::arrays::listsCount",0),
+    d_callsMergeInfo("theory::arrays::callsMergeInfo",0),
+    d_maxList("theory::arrays::maxList",0),
+    d_tableSize("theory::arrays::infoTableSize", info_map) {
+  StatisticsRegistry::registerStat(&d_mergeInfoTimer);
+  StatisticsRegistry::registerStat(&d_avgIndexListLength);
+  StatisticsRegistry::registerStat(&d_avgStoresListLength);
+  StatisticsRegistry::registerStat(&d_avgInStoresListLength);
+  StatisticsRegistry::registerStat(&d_listsCount);
+  StatisticsRegistry::registerStat(&d_callsMergeInfo);
+  StatisticsRegistry::registerStat(&d_maxList);
+  StatisticsRegistry::registerStat(&d_tableSize);
+  }*/
+  ArrayInfo(context::Context* c, Backtracker<TNode>* b): ct(c), bck(b), info_map(),
       d_mergeInfoTimer("theory::arrays::mergeInfoTimer"),
       d_avgIndexListLength("theory::arrays::avgIndexListLength"),
       d_avgStoresListLength("theory::arrays::avgStoresListLength"),
@@ -153,9 +171,8 @@ public:
       d_callsMergeInfo("theory::arrays::callsMergeInfo",0),
       d_maxList("theory::arrays::maxList",0),
       d_tableSize("theory::arrays::infoTableSize", info_map) {
-    bck = new Backtracker<Node>(ct);
     emptyList = new(true) CTNodeList(ct);
-    emptyListI = new List<Node>(bck);
+    emptyListI = new List<TNode>(bck);
     emptyInfo = new Info(ct, bck);
     StatisticsRegistry::registerStat(&d_mergeInfoTimer);
     StatisticsRegistry::registerStat(&d_avgIndexListLength);
@@ -201,7 +218,7 @@ public:
 
   const Info* getInfo(const TNode a) const;
 
-  List<Node>* getIndices(const TNode a) const;
+  List<TNode>* getIndices(const TNode a) const;
 
   const CTNodeList* getStores(const TNode a) const;
 

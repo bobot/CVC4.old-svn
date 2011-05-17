@@ -352,7 +352,12 @@ public:
     d_theoryOut.d_explanationNode = Node::null();
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
     if (atom.getKind() == kind::EQUAL) {
+      if(d_logic == "QF_AX") {
+        //Debug("theory")<< "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays \n";
+        d_theoryTable[theory::THEORY_ARRAY]->explain(node);
+      } else {
       theoryOf(atom[0])->explain(node);
+      }
     } else {
       theoryOf(atom)->explain(node);
     }

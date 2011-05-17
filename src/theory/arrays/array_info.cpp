@@ -41,8 +41,8 @@ void printList (CTNodeList* list) {
   Debug("arrays-info")<<"] \n";
 }
 
-void printList (List<Node>* list) {
-  List<Node>::const_iterator it = list->begin();
+void printList (List<TNode>* list) {
+  List<TNode>::const_iterator it = list->begin();
   Debug("arrays-info")<<"   [ ";
   for(; it != list->end(); it++ ) {
     Debug("arrays-info")<<(*it)<<" ";
@@ -68,12 +68,12 @@ void ArrayInfo::addIndex(const Node a, const TNode i) {
   Assert(a.getType().isArray());
   Assert(!i.getType().isArray()); // temporary for flat arrays
   Debug("arrays-ind")<<"Arrays::addIndex "<<a<<"["<<i<<"]\n";
-  List<Node>* temp_indices;
+  List<TNode>* temp_indices;
   Info* temp_info;
 
   CNodeInfoMap::iterator it = info_map.find(a);
   if(it == info_map.end()) {
-    temp_indices = new List<Node>(bck);
+    temp_indices = new List<TNode>(bck);
     temp_indices->append(i);
 
     temp_info = new Info(ct, bck);
@@ -152,7 +152,7 @@ const Info* ArrayInfo::getInfo(const TNode a) const{
   return emptyInfo;
 }
 
-List<Node>* ArrayInfo::getIndices(const TNode a) const{
+List<TNode>* ArrayInfo::getIndices(const TNode a) const{
   CNodeInfoMap::const_iterator it = info_map.find(a);
   if(it!= info_map.end()) {
     return (*it).second->indices;
@@ -198,12 +198,12 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
       if(Debug.isOn("arrays-mergei"))
         (*itb).second->print();
 
-      List<Node>* lista_i = (*ita).second->indices;
+      List<TNode>* lista_i = (*ita).second->indices;
       CTNodeList* lista_st = (*ita).second->stores;
       CTNodeList* lista_inst = (*ita).second->in_stores;
 
 
-      List<Node>* listb_i = (*itb).second->indices;
+      List<TNode>* listb_i = (*itb).second->indices;
       CTNodeList* listb_st = (*itb).second->stores;
       CTNodeList* listb_inst = (*itb).second->in_stores;
 
@@ -246,7 +246,7 @@ void ArrayInfo::mergeInfo(const TNode a, const TNode b){
       Debug("arrays-mergei")<<" adding second element's info \n";
       (*itb).second->print();
 
-      List<Node>* listb_i = (*itb).second->indices;
+      List<TNode>* listb_i = (*itb).second->indices;
       CTNodeList* listb_st = (*itb).second->stores;
       CTNodeList* listb_inst = (*itb).second->in_stores;
 

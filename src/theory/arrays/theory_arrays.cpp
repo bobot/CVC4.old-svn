@@ -35,11 +35,14 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out, Valuation valuation) 
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
+  d_backtracker(c),
+  d_infoMap(c,&d_backtracker),
   d_disequalities(c),
+  d_equalities(c),
+  d_prop_queue(c),
   d_atoms(),
   d_explanations(c),
   d_conflict(),
-  d_infoMap(c),
   d_numRow("theory::arrays::number of Row lemmas", 0),
   d_numExt("theory::arrays::number of Ext lemmas", 0),
   d_numProp("theory::arrays::number of propagations", 0),
@@ -47,6 +50,8 @@ TheoryArrays::TheoryArrays(Context* c, OutputChannel& out, Valuation valuation) 
   d_checkTimer("theory::arrays::checkTime"),
   d_donePreregister(false)
 {
+  //d_backtracker = new Backtracker<TNode>(c);
+  //d_infoMap = ArrayInfo(c, d_backtracker);
 
   StatisticsRegistry::registerStat(&d_numRow);
   StatisticsRegistry::registerStat(&d_numExt);
@@ -278,7 +283,8 @@ void TheoryArrays::merge(TNode a, TNode b) {
   }
 
   // TODO: check for equality propagations
-
+  // a and b are find(a) and find(b) here
+  checkPropagations(a,b);
 
   if(a.getType().isArray()) {
     checkRowLemmas(a,b);
@@ -289,6 +295,41 @@ void TheoryArrays::merge(TNode a, TNode b) {
   }
 
 
+}
+
+
+void TheoryArrays::checkPropagations(TNode a, TNode b) {
+  EqLists::const_iterator ita = d_equalities.find(a);
+  EqLists::const_iterator itb = d_equalities.find(b);
+
+  if(ita != d_equalities.end()) {
+    if(itb!= d_equalities.end()) {
+      // because b is the canonical representative
+      List<TNode>* eqsa = (*ita).second;
+      List<TNode>* eqsb = (*itb).second;
+
+      for(List<TNode>::const_iterator it = eqsa->begin(); it!= eqsa->end(); ++it) {
+        Node eq = *it;
+        Assert(eq.getKind() == kind::EQUAL || eq.getKind() == kind::IFF);
+        if(find(eq[0])== find(eq[1])) {
+          d_prop_queue.push_back(eq);
+        }
+      }
+     eqsb->concat(eqsa);
+    }
+    else {
+      List<TNode>* eqsb = new List<TNode>(&d_backtracker);
+      List<TNode>* eqsa = (*ita).second;
+      d_equalities.insert(b, eqsb);
+      eqsb->concat(eqsa);
+    }
+  } else {
+    List<TNode>* eqsb = new List<TNode>(&d_backtracker);
+    d_equalities.insert(b, eqsb);
+    List<TNode>* eqsa = new List<TNode>(&d_backtracker);
+    d_equalities.insert(a, eqsa);
+    eqsb->concat(eqsa);
+  }
 }
 
 
@@ -380,6 +421,34 @@ void TheoryArrays::appendToAtomList(TNode a, TNode b) {
 
 }
 */
+
+void TheoryArrays::addEq(TNode eq) {
+  Assert(eq.getKind() == kind::EQUAL ||
+         eq.getKind() == kind::IFF);
+  TNode a = eq[0];
+  TNode b = eq[1];
+
+  // don't need to say find(a) because due to the structure of the lists it gets
+  // automatically added
+  appendToEqList(a, eq);
+  appendToEqList(b, eq);
+
+}
+
+void TheoryArrays::appendToEqList(TNode n, TNode eq) {
+  Assert(eq.getKind() == kind::EQUAL ||
+         eq.getKind() == kind::IFF);
+
+  EqLists::const_iterator it = d_equalities.find(n);
+  if(it == d_equalities.end()) {
+    List<TNode>* eqs = new List<TNode>(&d_backtracker);
+    eqs->append(eq);
+    d_equalities.insert(n, eqs);
+  } else {
+    List<TNode>* eqs = (*it).second;
+    eqs->append(eq);
+  }
+}
 
 void TheoryArrays::addDiseq(TNode diseq) {
   Assert(diseq.getKind() == kind::EQUAL ||
@@ -541,11 +610,38 @@ bool TheoryArrays::propagateFromRow(TNode a, TNode b, TNode i, TNode j) {
 
 void TheoryArrays::explain(TNode n) {
 
-  /*
+
   Debug("arrays")<<"Arrays::explain start for "<<n<<"\n";
   ++d_numExplain;
 
   Assert(n.getKind()==kind::EQUAL);
+
+  Node explanation = d_cc.explain(n[0], n[1]);
+
+  NodeBuilder<> nb(kind::AND);
+
+  if(explanation.getKind() == kind::EQUAL ||
+     explanation.getKind() == kind::IFF) {
+    // if the explanation is only one literal
+    if(!isAxiom(explanation[0], explanation[1]) &&
+       !isAxiom(explanation[1], explanation[0])) {
+      nb<<explanation;
+    }
+  }
+  else {
+    Assert(explanation.getKind() == kind::AND);
+    for(TNode::iterator i  = TNode(explanation).begin();
+        i != TNode(explanation).end(); i++) {
+      if(!isAxiom((*i)[0], (*i)[1]) && !isAxiom((*i)[1], (*i)[0])) {
+        nb<<*i;
+      }
+    }
+  }
+  Node reason = nb;
+
+  d_out->explanation(reason);
+
+  /*
   context::CDMap<TNode, std::pair<TNode, TNode>, TNodeHashFunction>::const_iterator
                                                     it = d_explanations.find(n);
   Assert(it!= d_explanations.end());
@@ -611,11 +707,11 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b) {
   if(Debug.isOn("arrays-crl"))
     d_infoMap.getInfo(b)->print();
 
-  List<Node>* i_a = d_infoMap.getIndices(a);
+  List<TNode>* i_a = d_infoMap.getIndices(a);
   const CTNodeList* st_b = d_infoMap.getStores(b);
   const CTNodeList* inst_b = d_infoMap.getInStores(b);
 
-  List<Node>::const_iterator it = i_a->begin();
+  List<TNode>::const_iterator it = i_a->begin();
   CTNodeList::const_iterator its;
 
   for( ; it != i_a->end(); it++ ) {
@@ -741,8 +837,8 @@ void TheoryArrays::checkStore(TNode a) {
   TNode b = a[0];
   TNode i = a[1];
 
-  List<Node>* js = d_infoMap.getIndices(b);
-  List<Node>::const_iterator it = js->begin();
+  List<TNode>* js = d_infoMap.getIndices(b);
+  List<TNode>::const_iterator it = js->begin();
 
   for(; it!= js->end(); it++) {
     TNode j = *it;
@@ -763,6 +859,7 @@ inline void TheoryArrays::queueExtLemma(TNode a, TNode b) {
 
 void TheoryArrays::queueRowLemma(TNode a, TNode b, TNode i, TNode j) {
   Assert(a.getType().isArray() && b.getType().isArray());
+//if(!isRedundantInContext(a,b,i,j)) {
   d_RowQueue.insert(make_quad(a, b, i, j));
 }
 
