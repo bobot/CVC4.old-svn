@@ -25,9 +25,9 @@
 #include "context/context.h"
 #include "context/cdset.h"
 #include "context/cdlist.h"
-#include "theory/bv/equality_engine.h"
-#include "theory/bv/slice_manager.h"
-#include "theory/bv/watch_manager.h"
+#include "theory/bv/core/equality_engine.h"
+#include "theory/bv/core/slice_manager.h"
+#include "theory/bv/core/watch_manager.h"
 
 namespace CVC4 {
 namespace theory {
@@ -37,17 +37,55 @@ class TheoryBV : public Theory {
 
 public:
 
+  /**
+   * Enumeration of sub-theories of bit-vectors.
+   */
+  enum SubTheory {
+    EQUALITY_CORE
+  };
+
+private:
+
+  /** Information to recover explanations of propagations */
+  struct propagation_info {
+    /** Subtheory that spawned the propagation */
+    SubTheory subTheory;
+    /** Specific information to recover the propagation */
+    unsigned info;
+    /** The propagated literal */
+    TNode literal;
+    /** Constructor */
+    propagation_info(SubTheory subTheory, unsigned info, TNode literal):
+      info(info),
+      literal(literal)
+    {}
+  };
+
+  /** List of things to propagate */
+  context::CDList<propagation_info> d_toPropagateList;
+
+  /** Index of the last propagated node */
+  context::CDO<unsigned> d_toPropagateIndex;
+
+public:
+
+  /**
+   * This is the notify class for the watch manager. All propagated equalities are passed on to the instance
+   * of this class.
+   */
   class WatchNotify {
+    /** The responsible theory instance */
     TheoryBV& d_theoryBV;
   public:
+    /** Construct the notify class with the theory instance */
     WatchNotify(TheoryBV& theoryBV) :
       d_theoryBV(theoryBV)
     {}
 
-    /** Propagates that rq is true or false (based on value) */
-    void operator () (TNode eq, bool value) {
+    /** Propagates that equality is true or false (based on value) */
+    void operator () (unsigned watchIndex, TNode eq, bool value) {
       Debug("theory::bv") << "WatchNotify(" << eq << ", " << (value ? "true" : "false") << ")" << std::endl;
-      d_theoryBV.d_out->propagate(value ? eq : (TNode) eq.notNode());
+      d_theoryBV.d_toPropagateList.push_back(propagation_info(EQUALITY_CORE, watchIndex, value ? eq : (TNode) eq.notNode()));
     }
   };
 
@@ -105,6 +143,8 @@ public:
 
   TheoryBV(context::Context* c, OutputChannel& out, Valuation valuation):
     Theory(THEORY_BV, c, out, valuation),
+    d_toPropagateList(c),
+    d_toPropagateIndex(c, 0),
     d_watchNotify(*this),
     d_watchManager(d_watchNotify, c),
     d_eqEngine(d_watchManager, c, "bv_eq_engine"),

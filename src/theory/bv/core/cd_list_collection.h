@@ -23,8 +23,8 @@
 #include <sstream>
 
 #include "context/cdo.h"
-#include "theory/bv/generalized_vector.h"
 #include "theory/bv/theory_bv_utils.h"
+#include "theory/bv/core/generalized_vector.h"
 
 namespace CVC4 {
 namespace context {

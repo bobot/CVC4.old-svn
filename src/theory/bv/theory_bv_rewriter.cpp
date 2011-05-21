@@ -20,7 +20,7 @@
 #include "theory/theory.h"
 #include "theory/bv/theory_bv_rewriter.h"
 #include "theory/bv/theory_bv_rewrite_rules.h"
-#include "theory/bv/theory_bv_rewrite_rules_core.h"
+#include "theory/bv/core/theory_bv_rewrite_rules_core.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;

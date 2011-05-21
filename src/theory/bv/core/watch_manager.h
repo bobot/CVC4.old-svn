@@ -25,7 +25,7 @@
 #include <ext/hash_map>
 
 #include "theory/bv/theory_bv_utils.h"
-#include "theory/bv/cd_list_collection.h"
+#include "theory/bv/core/cd_list_collection.h"
 
 namespace CVC4 {
 namespace theory {
@@ -55,6 +55,9 @@ template<typename EqualityNotify>
 
     /** The watch element */
     struct Watch {
+
+      /** Id of the watch */
+      unsigned id;
 
       /** The iterator to the watched left-hand side concat element */
       typename list_collection::iterator_reference lhsListIt;
@@ -86,8 +89,8 @@ template<typename EqualityNotify>
       {}
 
       /** Construct the watch */
-      Watch(list_collection& listCollection, list_collection::reference_type lhsList, list_collection::reference_type rhsList) :
-        lhsListIt(listCollection.begin(lhsList)), rhsListIt(listCollection.begin(rhsList))
+      Watch(unsigned id, list_collection& listCollection, list_collection::reference_type lhsList, list_collection::reference_type rhsList) :
+        id(id), lhsListIt(listCollection.begin(lhsList)), rhsListIt(listCollection.begin(rhsList))
       {}
 
       /** Copy constructor */
@@ -176,8 +179,8 @@ template<typename EqualityNotify>
        */
       TNode getEquality() const {
         std::vector<TNode> lhsElements, rhsElements;
-        rhsListIt.getStaticElements(lhsElements);
-        lhsListIt.getStaticElements(rhsElements);
+        lhsListIt.getStaticElements(lhsElements);
+        rhsListIt.getStaticElements(rhsElements);
         return utils::mkConcat(lhsElements).eqNode(utils::mkConcat(rhsElements));
       }
     };
@@ -201,6 +204,9 @@ template<typename EqualityNotify>
 
     /** Map from nodes to watches watching them */
     watch_map d_watches;
+
+    /** List of all watches */
+    std::vector<Watch> d_watchesList;
 
     /**
      * Makes a list out of a concatenation.
@@ -237,7 +243,7 @@ template<typename EqualityNotify>
      * @return true if something has been propagated, false otherwise
      */
     template<typename EqualityManager>
-    bool findNextToWatch(Watch& w, EqualityManager& eqManager);
+    bool findNextToWatch(Watch watch, EqualityManager& eqManager);
 
     /**
      * Propagates the information in the queue, trying to deduce any of the watched equalities true or false. Returns
@@ -245,6 +251,11 @@ template<typename EqualityNotify>
      */
     template<typename EqualityManager>
     void propagate(EqualityManager& eqManager);
+
+    /**
+     * Assumming that the watch has propagated, gatger the reasons behind the propagation.
+     */
+    void explain(unsigned watchId, std::vector<TNode>& assumptions);
   };
 
 template<typename EqualityNotify>
@@ -258,7 +269,9 @@ template<typename EqualityManager>
     list_collection::reference_type rhsList = mkList(rhs);
 
     // Attach the watches
-    Watch watch(d_listCollection, lhsList, rhsList);
+    unsigned watchIndex = d_watchesList.size();
+    Watch watch(watchIndex, d_listCollection, lhsList, rhsList);
+    d_watchesList.push_back(watch);
     watch.normalize(eqManager);
     bool propagated = findNextToWatch(watch, eqManager);
     if(!propagated) {
@@ -301,7 +314,7 @@ template<typename EqualityManager>
 
   template<typename EqualityNotify>
   template<typename EqualityManager>
-  bool ConcatWatchManager<EqualityNotify>::findNextToWatch(Watch& w, EqualityManager& eqManager) {
+  bool ConcatWatchManager<EqualityNotify>::findNextToWatch(Watch w, EqualityManager& eqManager) {
     // Check for equalitites in order to move the iterators
     bool propagated = false;
     while (true) {
@@ -309,7 +322,7 @@ template<typename EqualityManager>
       if(*w.lhsListIt == *w.rhsListIt) {
         if(!w.lhsListIt.hasNext()) {
           // All elements of the list are equal, propagate
-          d_notifyClass(w.getEquality(), true);
+          d_notifyClass(w.id, w.getEquality(), true);
           propagated = true;
           break;
         }
@@ -335,7 +348,7 @@ template<typename EqualityManager>
           // Now they are constants of the same size
           if (*w.lhsListIt != *w.rhsListIt) {
             // Since they are different this must be a conflict
-            d_notifyClass(w.getEquality(), false);
+            d_notifyClass(w.id, w.getEquality(), false);
             propagated = true;
             break;
           }
@@ -399,6 +412,11 @@ template<typename EqualityManager>
         watches.resize(newSize);
       }
     }
+  }
+
+  template<typename EqualityNotify>
+  void ConcatWatchManager<EqualityNotify>::explain(unsigned watchId, std::vector<TNode>& assumptions) {
+
   }
 
 } // Namespace bv

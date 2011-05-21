@@ -56,18 +56,10 @@ void TheoryBV::check(Effort e) {
 
   Debug("theory::bv") << "TheoryBV::check(" << e << ")" << std::endl;
 
-  // Get all the assertions
-  std::vector<TNode> assertionsList;
-  while (!done()) {
+  while(!done()) {
     // Get the assertion
     TNode assertion = get();
     d_assertions.insert(assertion);
-    assertionsList.push_back(assertion);
-  }
-
-  for (unsigned i = 0; i < assertionsList.size(); ++ i) {
-    // Get the assertion
-    TNode assertion = assertionsList[i];
     Debug("theory::bv") << "TheoryBV::check(" << e << "): asserting: " << assertion << std::endl;
     // Do the right stuff
     switch (assertion.getKind()) {
@@ -85,6 +77,27 @@ void TheoryBV::check(Effort e) {
     default:
       Unhandled(assertion.getKind());
     }
+  }
+
+  // Propagate all that is learned
+  for(unsigned i = d_toPropagateIndex; i < d_toPropagateList.size(); ++ i) {
+    // This is what we've learned
+    propagation_info propInfo = d_toPropagateList[i];
+    // If it's already been asserted, we go to the next
+    if (d_assertions.find(propInfo.literal) != d_assertions.end()) {
+      continue;
+    }
+    // If the negation has been asserted, we are in conflict
+    TNode negated = propInfo.literal.getKind() == kind::NOT ? propInfo.literal[0] : (TNode) propInfo.literal.notNode();
+    if (d_assertions.find(negated) != d_assertions.end()) {
+      std::vector<TNode> explanation;
+      explanation.push_back(negated);
+      d_watchManager.explain(propInfo.info, explanation);
+      d_out->conflict(utils::mkAnd(explanation));
+      return;
+    }
+    // Otherwise we propagate
+    d_out->propagate(propInfo.literal);
   }
 }
 

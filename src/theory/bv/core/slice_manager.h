@@ -9,8 +9,8 @@
 
 #include "context/cdo.h"
 #include "theory/bv/theory_bv_utils.h"
-#include "theory/bv/equality_engine.h"
-#include "theory/bv/cd_set_collection.h"
+#include "theory/bv/core/equality_engine.h"
+#include "theory/bv/core/cd_set_collection.h"
 
 #include <map>
 #include <set>
