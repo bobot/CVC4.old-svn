@@ -208,6 +208,9 @@ template<typename EqualityNotify>
     /** List of all watches */
     std::vector<Watch> d_watchesList;
 
+    /** List of original equalities we are watching */
+    std::vector<TNode> d_watchedEqualities;
+
     /**
      * Makes a list out of a concatenation.
      */
@@ -272,6 +275,7 @@ template<typename EqualityManager>
     unsigned watchIndex = d_watchesList.size();
     Watch watch(watchIndex, d_listCollection, lhsList, rhsList);
     d_watchesList.push_back(watch);
+    d_watchedEqualities.push_back(lhs.eqNode(rhs));
     watch.normalize(eqManager);
     bool propagated = findNextToWatch(watch, eqManager);
     if(!propagated) {
@@ -348,7 +352,7 @@ template<typename EqualityManager>
           // Now they are constants of the same size
           if (*w.lhsListIt != *w.rhsListIt) {
             // Since they are different this must be a conflict
-            d_notifyClass(w.id, w.getEquality(), false);
+            d_notifyClass(w.id, d_watchedEqualities[w.id], false);
             propagated = true;
             break;
           }
@@ -416,6 +420,15 @@ template<typename EqualityManager>
 
   template<typename EqualityNotify>
   void ConcatWatchManager<EqualityNotify>::explain(unsigned watchId, std::vector<TNode>& assumptions) {
+    // We only propagate in two cases (1) elements are all the same (2) two constant parts are different
+    // In the first case we pick all the equalities backwards, in the other we pick eqaulitites until the
+    // first original in the watch
+    Watch w = d_watchesList[watchId];
+    if (*w.lhsListIt == *w.rhsListIt) {
+      // Equality
+    } else {
+      // Disequality
+    }
 
   }
 
