@@ -19,8 +19,9 @@
 
 #pragma once
 
-#include <iostream>
+#include <climits>
 #include <sstream>
+#include <iostream>
 
 #include "context/cdo.h"
 #include "theory/bv/theory_bv_utils.h"
@@ -30,7 +31,9 @@ namespace CVC4 {
 namespace context {
 
 /**
- * A class representing a backtrackable list of elements.
+ * A class representing a backtrackable list of elements. The elements of a list can be either static or backtrackable.
+ * The static elements are never removed, and the backtrackable elements are remove (and the enclosing list relinked)
+ * on backtracks according to the context. Additionally, there is each edge can have one flag for user purposes.
  */
 template<typename value_type>
   class BacktrackableListCollection {
@@ -38,10 +41,55 @@ template<typename value_type>
   public:
 
     /** The type we use to reference the elements */
-    typedef ssize_t reference_type;
+    typedef size_t reference_type;
 
-    /** The null pointer (maximal positive value) */
-    static const reference_type null = (unsigned)((reference_type) (-1)) >> 1;
+    /** The size of the the reference type in bits */
+    static const unsigned reference_type_size = CHAR_BIT * sizeof(reference_type);
+    /** The size of the referenct type payload */
+    static const unsigned reference_type_payload_size = reference_type_size - 2;
+    /** Payload mask */
+    static const reference_type reference_type_payload_mask = (unsigned)((reference_type) (-1)) >> 2;
+    /** Backtrackable mask */
+    static const reference_type reference_type_backtrackable_mask = 1 << (reference_type_size - 1);
+    /** Flag mask */
+    static const reference_type reference_type_flag_mask = 1 << (reference_type_size - 2);
+    /** The null pointer is just all 1 */
+    static const reference_type null = -1;
+
+    /**
+     * Is this list edge backtrackable?
+     */
+    static bool isBacktrackable(reference_type ref) {
+      return ref & reference_type_backtrackable_mask;
+    }
+
+    /**
+     * Set the backtrackable flag on.
+     */
+    static void setBacktrackable(reference_type& ref) {
+      ref |= reference_type_backtrackable_mask;
+    }
+
+    /**
+     * Is this edge be flagged.
+     */
+    static bool isFlagged(reference_type ref) {
+      return ref & reference_type_flag_mask;
+    }
+
+    /**
+     * Set the user flag on.
+     */
+    static void setFlag(reference_type& ref) {
+      ref |= reference_type_flag_mask;
+    }
+
+    /**
+     * Returns the edge index.
+     */
+    static size_t getIndex(reference_type ref) {
+      return ref & reference_type_payload_mask;
+    }
 
     /** List elements */
     struct list_element {
@@ -60,7 +108,7 @@ template<typename value_type>
      * Memory for list elements. It is index with integers, where negative integers are the non-backtrackable ones
      * and the positive integers are the backtrackable ones.
      */
-    typedef gvector<list_element> memory_type;
+    typedef std::vector<list_element> memory_type;
 
   private:
 
@@ -83,39 +131,56 @@ template<typename value_type>
     /** The context we are using */
     context::Context* d_context;
 
-    /** The memory this set collection will use */
-    memory_type d_memory;
+    /** The memory this set collection will use (backtrackable elements) */
+    memory_type d_backtrackable_memory;
+    /** The memory this set collection will use (statioc elements) */
+    memory_type d_static_memory;
 
     /** Backtrackable number of backtrackable list elements that have been inserted */
     context::CDO<unsigned> d_backtrackableInserted;
 
     /** Check if the reference is valid in the current context */
     inline bool isValid(reference_type element) const {
-      return d_backtrackableInserted == d_memory.positive_size() && (element == null || element
-          < (reference_type) d_memory.positive_size());
+      if (d_backtrackableInserted != d_backtrackable_memory.size()) return false;
+      if (element == null) return true;
+      if (isBacktrackable(element) && getIndex(element) >= d_backtrackable_memory.size()) return false;
+      if (!isBacktrackable(element) && getIndex(element) >= d_static_memory.size()) return false;
+      return true;
+    }
+
+    /** Get the list element */
+    list_element& getElement(reference_type ref) {
+      Assert(isValid(ref));
+      if (isBacktrackable(ref)) return d_backtrackable_memory[getIndex(ref)];
+      else return d_static_memory[getIndex(ref)];
+    }
+
+    /** Get the list element (const version) */
+    const list_element& getElement(reference_type ref) const {
+      Assert(isValid(ref));
+      if (isBacktrackable(ref)) return d_backtrackable_memory[getIndex(ref)];
+      else return d_static_memory[getIndex(ref)];
     }
 
     /** Backtrack  */
     void backtrack() {
       // Backtrack the lists
-      while(d_backtrackableInserted < d_memory.positive_size()) {
+      while(d_backtrackableInserted < d_backtrackable_memory.size()) {
         // Get the element
-        list_element& element = d_memory.back();
+        list_element& element = d_backtrackable_memory.back();
         // Remove it from it's list
         if(element.prev != null) {
-          Assert(element.prev + 1 < (reference_type) d_memory.positive_size());
           // If there is a next element, we need to reconnect
           if(element.next != null) {
-            Assert(element.next + 1 < (reference_type) d_memory.positive_size());
-            list_element& next = d_memory[element.next];
+            list_element& next = getElement(element.next);
             next.prev = element.prev;
           }
           // Reconnect the previous element to the next
-          list_element& prev = d_memory[element.prev];
+          list_element& prev = getElement(element.prev);
           prev.next = element.next;
         }
         // Remove the element from memory
-        d_memory.pop_back();
+        d_backtrackable_memory.pop_back();
       }
     }
 
@@ -141,13 +206,13 @@ template<typename value_type>
      */
     size_t size() const {
       backtrack();
-      return d_memory.size();
+      return d_backtrackable_memory.size() + d_static_memory.size();
     }
 
     /**
      * Insert the given value after the given reference. If after is null, a new list will be created.
      */
-    template<bool backtrackable>
+    template<bool backtrackable, bool flag>
       reference_type insert(const value_type& value, reference_type after = null) {
         backtrack();
         Assert(isValid(after));
@@ -155,31 +220,36 @@ template<typename value_type>
         Debug("context::list_collection") << "BacktrackableListCollection::insert(" << value << ", " << toString(after) << ")" << std::endl;
 
         // Reference of the new element
-        reference_type newElement = backtrackable ? d_memory.positive_size() : -(d_memory.negative_size()+1);
-
+        reference_type newElement = backtrackable ? d_backtrackable_memory.size() : d_static_memory.size();
         if (backtrackable) {
           d_backtrackableInserted = d_backtrackableInserted + 1;
+          setBacktrackable(newElement);
+        }
+        if (flag) {
+          setFlag(newElement);
+          setFlag(after);
         }
 
         if(after == null) {
           // If requested, create a new list
           if(backtrackable) {
-            d_memory.push_back(list_element(value, null, null));
+            d_backtrackable_memory.push_back(list_element(value, null, null));
           } else {
-            d_memory.push_front(list_element(value, null, null));
+            d_static_memory.push_back(list_element(value, null, null));
           }
         } else {
           // Get the previous element
-          list_element& prevElement = d_memory[after];
+          list_element& prevElement = getElement(after);
           // Create the new element
           if(backtrackable) {
-            d_memory.push_back(list_element(value, after, prevElement.next));
+            d_backtrackable_memory.push_back(list_element(value, after, prevElement.next));
           } else {
-            d_memory.push_front(list_element(value, after, prevElement.next));
+            d_static_memory.push_back(list_element(value, after, prevElement.next));
           }
           // Fix up the next element if it's there
           if(prevElement.next != null) {
-            d_memory[prevElement.next].prev = newElement;
+            list_element& nextElement = getElement(prevElement.next);
+            nextElement.prev = newElement;
           }
           // Fix up the previous element if it's there
           prevElement.next = newElement;
@@ -192,11 +262,11 @@ template<typename value_type>
       }
 
     /**
-     * Retrun the element pointed to with the reference.
+     * Return the element pointed to with the reference.
      */
-    value_type getElement(reference_type list) const {
+    value_type getElementValue(reference_type list) const {
       backtrack();
-      return d_memory[list].value;
+      return getElement(list).value;
     }
 
     /** 
@@ -204,8 +274,8 @@ template<typename value_type>
      */
     void getStaticElements(reference_type list, std::vector<value_type>& out) const {
       while(list != null) {
-        const list_element& element = d_memory[list];
-        if(list < 0) {
+        const list_element& element = getElement(list);
+        if (isBacktrackable(list)) {
           out.push_back(element.value);
         }
         list = element.next;
@@ -223,8 +293,9 @@ template<typename value_type>
       while(list != null) {
         if(!first)
           out << ",";
-        out << d_memory[list].value;
-        list = d_memory[list].next;
+        const list_element& element = getElement(list);
+        out << element.value;
+        list = element.next;
         first = false;
       }
       out << "]";
@@ -289,7 +360,7 @@ template<typename value_type>
        */
       value_type operator *() const {
         const iterator& it = d_collection->d_iterators[d_itIndex];
-        return d_collection->getElement(*it.current);
+        return d_collection->getElementValue(*it.current);
       }
 
       /**
@@ -297,7 +368,7 @@ template<typename value_type>
        */
       bool hasNext() const {
         const iterator& it = d_collection->d_iterators[d_itIndex];
-        return d_collection->d_memory[*it.current].next != null;
+        return d_collection->getElement(*it.current).next != null;
       }
 
       /**
@@ -310,7 +381,7 @@ template<typename value_type>
         iterator& it = d_collection->d_iterators[d_itIndex];
         Assert(hasNext());
 
-        *it.current = d_collection->d_memory[*it.current].next;
+        *it.current = d_collection->getElement(*it.current).next;
 
         Debug("context::list_collection") << "BacktrackableListCollection::iterator_reference ++ (): " << toString() << std::endl;
 
@@ -320,9 +391,10 @@ template<typename value_type>
       /**
        * Insert a new list element after the iterator (these elements are backtrackable).
        */
+      template<bool flag>
       void insert(value_type value) {
         iterator& it = d_collection->d_iterators[d_itIndex];
-        d_collection->template insert<true> (value, *it.current);
+        d_collection->template insert<true, flag> (value, *it.current);
       }
 
       /**
@@ -350,7 +422,7 @@ template<typename value_type>
         while(current != null) {
           if(current == itReference)
             out << "(";
-          const list_element& currentElement = d_collection->d_memory[current];
+          const list_element& currentElement = d_collection->getElement(current);
           out << currentElement.value;
           if(current == itReference)
             out << ")";

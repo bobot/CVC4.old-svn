@@ -105,10 +105,10 @@ template<typename EqualityNotify>
       void substitute(list_collection::iterator_reference& it, TNode concat) {
         if(concat.getKind() == kind::BITVECTOR_CONCAT) {
           for(int i = concat.getNumChildren(); i >= 0; --i) {
-            it.insert(concat[i]);
+            it.insert<true>(concat[i]);
           }
         } else {
-          it.insert(concat);
+          it.insert<true>(concat);
         }
         ++it;
       }
@@ -297,14 +297,14 @@ template<typename EqualityManager>
       list_collection::null;
       for(unsigned i = 0; i < node.getNumChildren(); ++i) {
         Assert(node[i].getKind() != kind::BITVECTOR_CONCAT);
-        current = d_listCollection.insert<false> (node[i], current);
+        current = d_listCollection.insert<false, false> (node[i], current);
         if(i == 0) {
           result = current;
         }
       }
       return result;
     } else {
-      return d_listCollection.insert<false> (node);
+      return d_listCollection.insert<false, false> (node);
     }
   }
 
