@@ -5,13 +5,13 @@
  ** Major contributors: dejan
  ** Minor contributors (to current version): taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Reference-counted encapsulation of a pointer to node information.
+ ** \brief Reference-counted encapsulation of a pointer to node information
  **
  ** Reference-counted encapsulation of a pointer to node information.
  **/
@@ -29,7 +29,7 @@
 #include <iostream>
 #include <stdint.h>
 
-#include "type.h"
+#include "expr/type.h"
 #include "expr/kind.h"
 #include "expr/metakind.h"
 #include "expr/expr.h"
@@ -38,7 +38,9 @@
 #include "util/output.h"
 #include "util/exception.h"
 #include "util/language.h"
-#include "util/ntuple.h"
+#include "util/utility.h"
+#include "util/hash.h"
+
 namespace CVC4 {
 
 class TypeNode;
@@ -80,9 +82,14 @@ public:
    */
   NodeTemplate<true> getNode() const;
 
-  /** Returns the message corresponding to the type-checking failure */
-  std::string toString() const;
-};
+  /**
+   * Returns the message corresponding to the type-checking failure.
+   * We prefer toStream() to toString() because that keeps the expr-depth
+   * and expr-language settings present in the stream.
+   */
+  void toStream(std::ostream& out) const;
+
+};/* class TypeCheckingExceptionPrivate */
 
 /**
  * \typedef NodeTemplate<true> Node;
@@ -151,6 +158,16 @@ namespace kind {
 template <bool ref_count>
 class NodeTemplate {
 
+  // for hash_maps, hash_sets..
+  template <bool ref_count1>
+  struct HashFunction {
+    size_t operator()(CVC4::NodeTemplate<ref_count1> node) const {
+      return (size_t) node.getId();
+    }
+  };/* struct HashFunction */
+
+  typedef HashFunction<false> TNodeHashFunction;
+
   /**
    * The NodeValue has access to the private constructors, so that the
    * iterators can can create new nodes.
@@ -204,6 +221,30 @@ class NodeTemplate {
     }
   }
 
+  /**
+   * Cache-aware, recursive version of substitute() used by the public
+   * member function with a similar signature.
+   */
+  Node substitute(TNode node, TNode replacement,
+                  std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const;
+
+  /**
+   * Cache-aware, recursive version of substitute() used by the public
+   * member function with a similar signature.
+   */
+  template <class Iterator1, class Iterator2>
+  Node substitute(Iterator1 nodesBegin, Iterator1 nodesEnd,
+                  Iterator2 replacementsBegin, Iterator2 replacementsEnd,
+                  std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const;
+
+  /**
+   * Cache-aware, recursive version of substitute() used by the public
+   * member function with a similar signature.
+   */
+  template <class Iterator>
+  Node substitute(Iterator substitutionsBegin, Iterator substitutionsEnd,
+                  std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const;
+
 public:
 
   /** Default constructor, makes a null expression. */
@@ -223,6 +264,14 @@ public:
    * @param node the node to make copy of
    */
   NodeTemplate(const NodeTemplate& node);
+
+  /**
+   * Allow Exprs to become Nodes.  This permits flexible translation of
+   * Exprs -> Nodes inside the CVC4 library without exposing a toNode()
+   * function in the public interface, or requiring lots of "friend"
+   * relationships.
+   */
+  NodeTemplate(const Expr& e);
 
   /**
    * Assignment operator for nodes, copies the relevant information from node
@@ -364,6 +413,22 @@ public:
   // bool properlyContainsDecision(); // maybe not atomic but all children are
 
   /**
+   * Convert this Node into an Expr using the currently-in-scope
+   * manager.  Essentially this is like an "operator Expr()" but we
+   * don't want it to compete with implicit conversions between e.g.
+   * Node and TNode, and we want internal-to-external interface
+   * (Node -> Expr) points to be explicit.  We could write an
+   * explicit Expr(Node) constructor---but that dirties the public
+   * interface.
+   */
+  inline Expr toExpr();
+
+  /**
+   * Convert an Expr into a Node.
+   */
+  static inline Node fromExpr(const Expr& e);
+
+  /**
    * Returns true if this node represents a constant
    * @return true if const
    */
@@ -415,7 +480,7 @@ public:
    * type checking is not requested, getType() will do the minimum
    * amount of checking required to return a valid result.
    *
-   * @param check whether we should check the type as we compute it 
+   * @param check whether we should check the type as we compute it
    * (default: false)
    */
   TypeNode getType(bool check = false) const
@@ -427,13 +492,23 @@ public:
   Node substitute(TNode node, TNode replacement) const;
 
   /**
-   * Simultaneous substitution of Nodes.
+   * Simultaneous substitution of Nodes.  Elements in the Iterator1
+   * range will be replaced by their corresponding element in the
+   * Iterator2 range.  Both ranges should have the same size.
    */
   template <class Iterator1, class Iterator2>
   Node substitute(Iterator1 nodesBegin,
                   Iterator1 nodesEnd,
                   Iterator2 replacementsBegin,
                   Iterator2 replacementsEnd) const;
+
+  /**
+   * Simultaneous substitution of Nodes.  Iterators should be over
+   * pairs (x,y) for the rewrites [x->y].
+   */
+  template <class Iterator>
+  Node substitute(Iterator substitutionsBegin,
+                  Iterator substitutionsEnd) const;
 
   /**
    * Returns the kind of this node.
@@ -696,7 +771,7 @@ public:
   }
 
   /**
-   * Converst this node into a string representation and sends it to the
+   * Converts this node into a string representation and sends it to the
    * given stream
    *
    * @param out the stream to serialize this node to
@@ -766,6 +841,7 @@ public:
 
 /**
  * Serializes a given node to the given stream.
+ *
  * @param out the output stream to use
  * @param n the node to output to the stream
  * @return the stream
@@ -789,7 +865,7 @@ namespace CVC4 {
 
 // for hash_maps, hash_sets..
 struct NodeHashFunction {
-  size_t operator()(const CVC4::Node& node) const {
+  size_t operator()(CVC4::Node node) const {
     return (size_t) node.getId();
   }
 };/* struct NodeHashFunction */
@@ -924,6 +1000,18 @@ NodeTemplate<ref_count>::NodeTemplate(const NodeTemplate& e) {
     d_nv->inc();
   } else {
     Assert(d_nv->d_rc > 0, "TNode constructed from TNode with rc == 0");
+  }
+}
+
+template <bool ref_count>
+NodeTemplate<ref_count>::NodeTemplate(const Expr& e) {
+  Assert(e.d_node != NULL, "Expecting a non-NULL expression value!");
+  Assert(e.d_node->d_nv != NULL, "Expecting a non-NULL expression value!");
+  d_nv = e.d_node->d_nv;
+  // shouldn't ever fail
+  Assert(d_nv->d_rc > 0, "Node constructed from Expr with rc == 0");
+  if(ref_count) {
+    d_nv->inc();
   }
 }
 
@@ -1117,39 +1205,81 @@ TypeNode NodeTemplate<ref_count>::getType(bool check) const
 }
 
 template <bool ref_count>
-Node NodeTemplate<ref_count>::substitute(TNode node,
-                                         TNode replacement) const {
+inline Node
+NodeTemplate<ref_count>::substitute(TNode node, TNode replacement) const {
+  std::hash_map<TNode, TNode, TNodeHashFunction> cache;
+  return substitute(node, replacement, cache);
+}
+
+template <bool ref_count>
+Node
+NodeTemplate<ref_count>::substitute(TNode node, TNode replacement,
+                                    std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const {
+  // in cache?
+  typename std::hash_map<TNode, TNode, TNodeHashFunction>::const_iterator i = cache.find(*this);
+  if(i != cache.end()) {
+    return (*i).second;
+  }
+
+  // otherwise compute
   NodeBuilder<> nb(getKind());
   if(getMetaKind() == kind::metakind::PARAMETERIZED) {
     // push the operator
     nb << getOperator();
   }
-  for(TNode::const_iterator i = begin(),
+  for(const_iterator i = begin(),
         iend = end();
       i != iend;
       ++i) {
     if(*i == node) {
       nb << replacement;
     } else {
-      (*i).substitute(node, replacement);
+      (*i).substitute(node, replacement, cache);
     }
   }
+
+  // put in cache
   Node n = nb;
+  cache[*this] = n;
   return n;
 }
 
 template <bool ref_count>
 template <class Iterator1, class Iterator2>
-Node NodeTemplate<ref_count>::substitute(Iterator1 nodesBegin,
-                                         Iterator1 nodesEnd,
-                                         Iterator2 replacementsBegin,
-                                         Iterator2 replacementsEnd) const {
+inline Node
+NodeTemplate<ref_count>::substitute(Iterator1 nodesBegin,
+                                    Iterator1 nodesEnd,
+                                    Iterator2 replacementsBegin,
+                                    Iterator2 replacementsEnd) const {
+  std::hash_map<TNode, TNode, TNodeHashFunction> cache;
+  return substitute(nodesBegin, nodesEnd,
+                    replacementsBegin, replacementsEnd, cache);
+}
+
+template <bool ref_count>
+template <class Iterator1, class Iterator2>
+Node
+NodeTemplate<ref_count>::substitute(Iterator1 nodesBegin,
+                                    Iterator1 nodesEnd,
+                                    Iterator2 replacementsBegin,
+                                    Iterator2 replacementsEnd,
+                                    std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const {
+  // in cache?
+  typename std::hash_map<TNode, TNode, TNodeHashFunction>::const_iterator i = cache.find(*this);
+  if(i != cache.end()) {
+    return (*i).second;
+  }
+
+  // otherwise compute
   Assert( nodesEnd - nodesBegin == replacementsEnd - replacementsBegin,
           "Substitution iterator ranges must be equal size" );
   Iterator1 j = find(nodesBegin, nodesEnd, *this);
   if(j != nodesEnd) {
-    return *(replacementsBegin + (j - nodesBegin));
+    Node n = *(replacementsBegin + (j - nodesBegin));
+    cache[*this] = n;
+    return n;
   } else if(getNumChildren() == 0) {
+    cache[*this] = *this;
     return *this;
   } else {
     NodeBuilder<> nb(getKind());
@@ -1157,16 +1287,79 @@ Node NodeTemplate<ref_count>::substitute(Iterator1 nodesBegin,
       // push the operator
       nb << getOperator();
     }
-    for(TNode::const_iterator i = begin(),
+    for(const_iterator i = begin(),
           iend = end();
         i != iend;
         ++i) {
       nb << (*i).substitute(nodesBegin, nodesEnd,
-                            replacementsBegin, replacementsEnd);
+                            replacementsBegin, replacementsEnd,
+                            cache);
     }
     Node n = nb;
+    cache[*this] = n;
     return n;
   }
+}
+
+template <bool ref_count>
+template <class Iterator>
+inline Node
+NodeTemplate<ref_count>::substitute(Iterator substitutionsBegin,
+                                    Iterator substitutionsEnd) const {
+  std::hash_map<TNode, TNode, TNodeHashFunction> cache;
+  return substitute(substitutionsBegin, substitutionsEnd, cache);
+}
+
+template <bool ref_count>
+template <class Iterator>
+Node
+NodeTemplate<ref_count>::substitute(Iterator substitutionsBegin,
+                                    Iterator substitutionsEnd,
+                                    std::hash_map<TNode, TNode, TNodeHashFunction>& cache) const {
+  // in cache?
+  typename std::hash_map<TNode, TNode, TNodeHashFunction>::const_iterator i = cache.find(*this);
+  if(i != cache.end()) {
+    return (*i).second;
+  }
+
+  // otherwise compute
+  Iterator j = find_if(substitutionsBegin, substitutionsEnd,
+                       bind2nd(first_equal_to<typename Iterator::value_type::first_type, typename Iterator::value_type::second_type>(), *this));
+  if(j != substitutionsEnd) {
+    Node n = (*j).second;
+    cache[*this] = n;
+    return n;
+  } else if(getNumChildren() == 0) {
+    cache[*this] = *this;
+    return *this;
+  } else {
+    NodeBuilder<> nb(getKind());
+    if(getMetaKind() == kind::metakind::PARAMETERIZED) {
+      // push the operator
+      nb << getOperator();
+    }
+    for(const_iterator i = begin(),
+          iend = end();
+        i != iend;
+        ++i) {
+      nb << (*i).substitute(substitutionsBegin, substitutionsEnd, cache);
+    }
+    Node n = nb;
+    cache[*this] = n;
+    return n;
+  }
+}
+
+template <bool ref_count>
+inline Expr NodeTemplate<ref_count>::toExpr() {
+  assertTNodeNotExpired();
+  return NodeManager::currentNM()->toExpr(*this);
+}
+
+// intentionally not defined for TNode
+template <>
+inline Node NodeTemplate<true>::fromExpr(const Expr& e) {
+  return NodeManager::fromExpr(e);
 }
 
 #ifdef CVC4_DEBUG

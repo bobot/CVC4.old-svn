@@ -185,10 +185,23 @@ public:
     unsigned extendAmount = n.getKind() == kind::BITVECTOR_SIGN_EXTEND ?
         (unsigned) n.getOperator().getConst<BitVectorSignExtend>() :
         (unsigned) n.getOperator().getConst<BitVectorZeroExtend>();
-
-    return nodeManager->mkBitVectorType(extendAmount +  t.getBitVectorSize());
+    return nodeManager->mkBitVectorType(extendAmount + t.getBitVectorSize());
   }
 };
+
+class CardinalityComputer {
+public:
+  inline static Cardinality computeCardinality(TypeNode type) {
+    Assert(type.getKind() == kind::BITVECTOR_TYPE);
+
+    unsigned size = type.getConst<BitVectorSize>();
+    if(size == 0) {
+      return 0;
+    }
+    Integer i = Integer(2).pow(size);
+    return i;
+  }
+};/* class CardinalityComputer */
 
 }/* CVC4::theory::bv namespace */
 }/* CVC4::theory namespace */

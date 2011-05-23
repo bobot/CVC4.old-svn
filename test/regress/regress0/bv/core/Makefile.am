@@ -68,8 +68,10 @@ TESTS =	\
 	a95test0002.smt \
 	bitvec0.smt \
 	bitvec2.smt \
-	bitvec3.smt \
-	bitvec5.smt
+	bitvec5.smt \
+	bitvec7.smt
+
+EXTRA_DIST = $(TESTS)
 
 # synonyms for "check" in this directory
 .PHONY: regress regress0 test

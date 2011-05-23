@@ -2,10 +2,10 @@
 /*! \file Smt.g
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: dejan
- ** Minor contributors (to current version): mdeters, taking
+ ** Major contributors: mdeters, dejan
+ ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -19,21 +19,28 @@
 grammar Smt;
 
 options {
-  language = 'C';                  // C output for antlr
-//  defaultErrorHandler = false;      // Skip the default error handling, just break with exceptions
+  // C output for antlr
+  language = 'C';
+
+  // Skip the default error handling, just break with exceptions
+  // defaultErrorHandler = false;
+
+  // Only lookahead of <= k requested (disable for LL* parsing)
+  // Note that CVC4's BoundedTokenBuffer requires a fixed k !
+  // If you change this k, change it also in smt_input.cpp !
   k = 2;
-}
+}/* options */
 
 @header {
 /**
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.
  **/
-}
+}/* @header */
 
 @lexer::includes {
 /** This suppresses warnings about the redefinition of token symbols between
@@ -49,18 +56,52 @@ options {
  * Otherwise, we have to let the lexer detect the encoding at runtime.
  */
 #define ANTLR3_INLINE_INPUT_ASCII
-}
+
+#include "parser/antlr_tracing.h"
+}/* @lexer::includes */
 
 @parser::includes {
+
+#include <stdint.h>
+
 #include "expr/command.h"
 #include "parser/parser.h"
+#include "parser/antlr_tracing.h"
 
 namespace CVC4 {
   class Expr;
+
+  namespace parser {
+    namespace smt {
+      /**
+       * Just exists to provide the uintptr_t constructor that ANTLR
+       * requires.
+       */
+      struct myExpr : public CVC4::Expr {
+        myExpr() : CVC4::Expr() {}
+        myExpr(void*) : CVC4::Expr() {}
+        myExpr(const Expr& e) : CVC4::Expr(e) {}
+        myExpr(const myExpr& e) : CVC4::Expr(e) {}
+      };/* struct myExpr */
+
+      /**
+       * Just exists to provide the uintptr_t constructor that ANTLR
+       * requires.
+       */
+      struct myType : public CVC4::Type {
+        myType() : CVC4::Type() {}
+        myType(void*) : CVC4::Type() {}
+        myType(const Type& t) : CVC4::Type(t) {}
+        myType(const myType& t) : CVC4::Type(t) {}
+      };/* struct myType */
+    }/* CVC4::parser::smt namespace */
+  }/* CVC4::parser namespace */
 }/* CVC4 namespace */
-}
+
+}/* @parser::includes */
 
 @parser::postinclude {
+
 #include "expr/expr.h"
 #include "expr/kind.h"
 #include "expr/type.h"
@@ -86,14 +127,14 @@ using namespace CVC4::parser;
 #undef MK_CONST
 #define MK_CONST EXPR_MANAGER->mkConst
 
-}
+}/* @parser::postinclude */
 
 
 /**
  * Parses an expression.
  * @return the parsed expression
  */
-parseExpr returns [CVC4::Expr expr]
+parseExpr returns [CVC4::parser::smt::myExpr expr]
   : annotatedFormula[expr]
   | EOF
   ;
@@ -365,7 +406,7 @@ functionSymbol[CVC4::Expr& fun]
 	std::string name;
 }
   : functionName[name,CHECK_DECLARED]
-    { PARSER_STATE->checkFunction(name);
+    { PARSER_STATE->checkFunctionLike(name);
       fun = PARSER_STATE->getVariable(name); }
   ;
 
@@ -435,7 +476,7 @@ sortName[std::string& name, CVC4::parser::DeclarationCheck check]
   : identifier[name,check,SYM_SORT]
   ;
 
-sortSymbol returns [CVC4::Type t]
+sortSymbol returns [CVC4::parser::smt::myType t]
 @declarations {
   std::string name;
 }
@@ -474,8 +515,8 @@ identifier[std::string& id,
   : IDENTIFIER
     { id = AntlrInput::tokenText($IDENTIFIER);
       Debug("parser") << "identifier: " << id
-                      << " check? " << toString(check)
-                      << " type? " << toString(type) << std::endl;
+                      << " check? " << check
+                      << " type? " << type << std::endl;
       PARSER_STATE->checkDeclaration(id, check, type); }
   ;
 
@@ -489,7 +530,7 @@ let_identifier[std::string& id,
   : LET_IDENTIFIER
     { id = AntlrInput::tokenText($LET_IDENTIFIER);
       Debug("parser") << "let_identifier: " << id
-                      << " check? " << toString(check) << std::endl;
+                      << " check? " << check << std::endl;
       PARSER_STATE->checkDeclaration(id, check, SYM_VARIABLE); }
   ;
 
@@ -503,7 +544,7 @@ flet_identifier[std::string& id,
   : FLET_IDENTIFIER
     { id = AntlrInput::tokenText($FLET_IDENTIFIER);
       Debug("parser") << "flet_identifier: " << id
-                      << " check? " << toString(check) << std::endl;
+                      << " check? " << check << std::endl;
       PARSER_STATE->checkDeclaration(id, check); }
   ;
 
@@ -557,7 +598,6 @@ XOR_TOK           : 'xor';
 
 // Bitvector tokens
 BITVECTOR_TOK     : 'BitVec';
-BV_TOK            : 'bv';
 CONCAT_TOK        : 'concat';
 EXTRACT_TOK       : 'extract';
 BVAND_TOK         : 'bvand';
@@ -637,7 +677,7 @@ FLET_IDENTIFIER
  */
 USER_VALUE
   :   '{'
-      ( ~('{' | '}') )*
+      ( '\\{' | '\\}' | ~('{' | '}') )*
     '}'
   ;
 

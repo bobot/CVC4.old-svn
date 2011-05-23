@@ -2,10 +2,10 @@
 /*! \file command.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan
- ** Minor contributors (to current version): none
+ ** Major contributors: none
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -155,9 +155,16 @@ void QueryCommand::printResult(std::ostream& out) const {
 }
 
 void QueryCommand::toStream(std::ostream& out) const {
-  out << "Query(";
-  d_expr.printAst(out, 0);
-  out << ")";
+  out << "Query(" << d_expr << ')';
+}
+
+/* class QuitCommand */
+
+QuitCommand::QuitCommand() {
+}
+
+void QuitCommand::toStream(std::ostream& out) const {
+  out << "Quit()" << endl;
 }
 
 /* class CommandSequence */
@@ -208,6 +215,14 @@ DeclarationCommand::DeclarationCommand(const std::string& id, Type t) :
 DeclarationCommand::DeclarationCommand(const std::vector<std::string>& ids, Type t) :
   d_declaredSymbols(ids),
   d_type(t) {
+}
+
+const std::vector<std::string>& DeclarationCommand::getDeclaredSymbols() const {
+  return d_declaredSymbols;
+}
+
+Type DeclarationCommand::getDeclaredType() const {
+  return d_type;
 }
 
 void DeclarationCommand::toStream(std::ostream& out) const {
@@ -262,6 +277,28 @@ void DefineNamedFunctionCommand::toStream(std::ostream& out) const {
   out << "DefineNamedFunction( ";
   this->DefineFunctionCommand::toStream(out);
   out << " )";
+}
+
+/* class Simplify */
+
+SimplifyCommand::SimplifyCommand(Expr term) :
+  d_term(term) {
+}
+
+void SimplifyCommand::invoke(SmtEngine* smtEngine) {
+  d_result = smtEngine->simplify(d_term);
+}
+
+Expr SimplifyCommand::getResult() const {
+  return d_result;
+}
+
+void SimplifyCommand::printResult(std::ostream& out) const {
+  out << d_result << endl;
+}
+
+void SimplifyCommand::toStream(std::ostream& out) const {
+  out << "Simplify( << " << d_term << " >> )";
 }
 
 /* class GetValueCommand */
@@ -497,6 +534,35 @@ void GetOptionCommand::printResult(std::ostream& out) const {
 
 void GetOptionCommand::toStream(std::ostream& out) const {
   out << "GetOption(" << d_flag << ")";
+}
+
+/* class DatatypeDeclarationCommand */
+
+DatatypeDeclarationCommand::DatatypeDeclarationCommand(const DatatypeType& datatype) :
+  d_datatypes() {
+  d_datatypes.push_back(datatype);
+  Debug("datatypes") << "Create datatype command." << endl;
+}
+
+DatatypeDeclarationCommand::DatatypeDeclarationCommand(const std::vector<DatatypeType>& datatypes) :
+  d_datatypes(datatypes) {
+  Debug("datatypes") << "Create datatype command." << endl;
+}
+
+void DatatypeDeclarationCommand::invoke(SmtEngine* smtEngine) {
+  Debug("datatypes") << "Invoke datatype command." << endl;
+  //smtEngine->addDatatypeDefinitions(d_datatype);
+}
+
+void DatatypeDeclarationCommand::toStream(std::ostream& out) const {
+  out << "DatatypeDeclarationCommand([";
+  for(vector<DatatypeType>::const_iterator i = d_datatypes.begin(),
+        i_end = d_datatypes.end();
+      i != i_end;
+      ++i) {
+    out << *i << ";" << endl;
+  }
+  out << "])";
 }
 
 /* output stream insertion operator for benchmark statuses */

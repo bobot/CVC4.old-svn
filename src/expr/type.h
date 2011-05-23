@@ -5,7 +5,7 @@
  ** Major contributors: mdeters, dejan
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -27,14 +27,18 @@
 #include <stdint.h>
 
 #include "util/Assert.h"
+#include "util/cardinality.h"
 
 namespace CVC4 {
 
 class NodeManager;
 class ExprManager;
+class Expr;
 class TypeNode;
 
 class SmtEngine;
+
+class Datatype;
 
 template <bool ref_count>
 class NodeTemplate;
@@ -44,6 +48,10 @@ class IntegerType;
 class RealType;
 class BitVectorType;
 class ArrayType;
+class DatatypeType;
+class ConstructorType;
+class SelectorType;
+class TesterType;
 class FunctionType;
 class TupleType;
 class KindType;
@@ -52,10 +60,10 @@ class SortConstructorType;
 class Type;
 
 /** Strategy for hashing Types */
-struct CVC4_PUBLIC TypeHashStrategy {
+struct CVC4_PUBLIC TypeHashFunction {
   /** Return a hash code for type t */
-  static size_t hash(const CVC4::Type& t);
-};/* struct TypeHashStrategy */
+  size_t operator()(const CVC4::Type& t);
+};/* struct TypeHashFunction */
 
 /**
  * Output operator for types
@@ -72,6 +80,7 @@ class CVC4_PUBLIC Type {
 
   friend class SmtEngine;
   friend class ExprManager;
+  friend class NodeManager;
   friend class TypeNode;
   friend struct TypeHashStrategy;
   friend std::ostream& operator<<(std::ostream& out, const Type& t);
@@ -103,14 +112,6 @@ protected:
 
 public:
 
-  /**
-   * Initialize from an integer. Fails if the integer is not 0.
-   * NOTE: This is here purely to support the auto-initialization
-   * behavior of the ANTLR3 C backend. Should be removed if future
-   * versions of ANTLR fix the problem.
-   */
-  Type(uintptr_t n);
-
   /** Force a virtual destructor for safety. */
   virtual ~Type();
 
@@ -130,6 +131,23 @@ public:
   bool isNull() const;
 
   /**
+   * Return the cardinality of this type.
+   */
+  Cardinality getCardinality() const;
+
+  /**
+   * Is this a well-founded type?  (I.e., do there exist ground
+   * terms?)
+   */
+  bool isWellFounded() const;
+
+  /**
+   * Construct and return a ground term for this Type.  Throws an
+   * exception if this type is not well-founded.
+   */
+  Expr mkGroundTerm() const;
+
+  /**
    * Substitution of Types.
    */
   Type substitute(const Type& type, const Type& replacement) const;
@@ -139,6 +157,11 @@ public:
    */
   Type substitute(const std::vector<Type>& types,
                   const std::vector<Type>& replacements) const;
+
+  /**
+   * Get this type's ExprManager.
+   */
+  ExprManager* getExprManager() const;
 
   /**
    * Assignment operator.
@@ -160,6 +183,11 @@ public:
    * @returns true if the types are not equal
    */
   bool operator!=(const Type& t) const;
+
+  /**
+   * An ordering on Types so they can be stored in maps, etc.
+   */
+  bool operator<(const Type& t) const;
 
   /**
    * Is this the Boolean type?
@@ -251,6 +279,54 @@ public:
    * @return the ArrayType
    */
   operator ArrayType() const throw(AssertionException);
+
+  /**
+   * Is this a datatype type?
+   * @return true if the type is a datatype type
+   */
+  bool isDatatype() const;
+
+  /**
+   * Cast this type to a datatype type
+   * @return the DatatypeType
+   */
+  operator DatatypeType() const throw(AssertionException);
+
+  /**
+   * Is this a constructor type?
+   * @return true if the type is a constructor type
+   */
+  bool isConstructor() const;
+
+  /**
+   * Cast this type to a constructor type
+   * @return the ConstructorType
+   */
+  operator ConstructorType() const throw(AssertionException);
+
+  /**
+   * Is this a selector type?
+   * @return true if the type is a selector type
+   */
+  bool isSelector() const;
+
+  /**
+   * Cast this type to a selector type
+   * @return the SelectorType
+   */
+  operator SelectorType() const throw(AssertionException);
+
+  /**
+   * Is this a tester type?
+   * @return true if the type is a tester type
+   */
+  bool isTester() const;
+
+  /**
+   * Cast this type to a tester type
+   * @return the TesterType
+   */
+  operator TesterType() const throw(AssertionException);
 
   /**
    * Is this a sort kind?
@@ -393,6 +469,13 @@ public:
 
   /** Get the name of the sort */
   std::string getName() const;
+
+  /** Is this type parameterized? */
+  bool isParameterized() const;
+
+  /** Get the parameter types */
+  std::vector<Type> getParamTypes() const;
+
 };/* class SortType */
 
 /**
@@ -442,6 +525,95 @@ public:
    */
   unsigned getSize() const;
 };/* class BitVectorType */
+
+
+/**
+ * Class encapsulating the datatype type
+ */
+class CVC4_PUBLIC DatatypeType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  DatatypeType(const Type& type) throw(AssertionException);
+
+  /** Get the underlying datatype */
+  const Datatype& getDatatype() const;
+
+  /** Is this this datatype parametric? */
+  bool isParametric() const;
+
+  /** Get the parameter types */
+  std::vector<Type> getParamTypes() const;
+
+  /** Get the arity of the datatype constructor */
+  size_t getArity() const;
+
+  /** Instantiate a datatype using this datatype constructor */
+  DatatypeType instantiate(const std::vector<Type>& params) const;
+
+};/* class DatatypeType */
+
+/**
+ * Class encapsulating the constructor type
+ */
+class CVC4_PUBLIC ConstructorType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  ConstructorType(const Type& type) throw(AssertionException);
+
+  /** Get the range type */
+  DatatypeType getRangeType() const;
+
+  /** Get the argument types */
+  std::vector<Type> getArgTypes() const;
+
+  /** Get the number of constructor arguments */
+  size_t getArity() const;
+
+};/* class ConstructorType */
+
+
+/**
+ * Class encapsulating the Selector type
+ */
+class CVC4_PUBLIC SelectorType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  SelectorType(const Type& type) throw(AssertionException);
+
+  /** Get the domain type for this selector (the datatype type) */
+  DatatypeType getDomain() const;
+
+  /** Get the range type for this selector (the field type) */
+  Type getRangeType() const;
+
+};/* class SelectorType */
+
+/**
+ * Class encapsulating the Tester type
+ */
+class CVC4_PUBLIC TesterType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  TesterType(const Type& type) throw(AssertionException);
+
+  /** Get the type that this tester tests (the datatype type) */
+  DatatypeType getDomain() const;
+
+  /**
+   * Get the range type for this tester (included for sake of
+   * interface completeness), but doesn't give useful information).
+   */
+  BooleanType getRangeType() const;
+
+};/* class TesterType */
 
 }/* CVC4 namespace */
 

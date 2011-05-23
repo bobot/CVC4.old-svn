@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file triple.h
+/*! \file ntuple.h
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: lianah
@@ -11,9 +11,9 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Similar to std::pair<>, for triples and quadruple
+ ** \brief Similar to std::pair<>, for triples and quadruples
  **
- ** Similar to std::pair<>, for triples and quadruple.  Once we move to c++0x, this
+ ** Similar to std::pair<>, for triples and quadruples.  Once we move to c++0x, this
  ** can be removed in favor of (standard-provided) N-ary tuples.
  **/
 
@@ -30,13 +30,13 @@ public:
   T1 first;
   T2 second;
   T3 third;
-};
+};/* class triple<> */
 
 template <class T1, class T2, class T3>
 inline triple<T1, T2, T3>
 make_triple(const T1& t1, const T2& t2, const T3& t3) {
   return triple<T1, T2, T3>(t1, t2, t3);
-}
+}/* make_triple() */
 
 template <class T1, class T2, class T3, class T4>
 class quad {
@@ -51,7 +51,7 @@ public:
     third = t3;
     fourth = t4;
   }
-};
+};/* class quad<> */
 
 template <class T1, class T2, class T3, class T4>
 bool operator==(const quad<T1,T2,T3,T4>& x,
@@ -86,7 +86,7 @@ template <class T1, class T2, class T3, class T4>
 inline quad<T1, T2, T3, T4>
 make_quad(const T1& t1, const T2& t2, const T3& t3, const T4& t4) {
   return quad<T1, T2, T3, T4>(t1, t2, t3, t4);
-}
+}/* make_quad() */
 
 }/* CVC4 namespace */
 

@@ -5,7 +5,7 @@
  ** Major contributors: cconway, dejan
  ** Minor contributors (to current version): acsys, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -25,6 +25,7 @@
 #include "expr/node.h"
 #include "expr/type_node.h"
 #include "expr/expr.h"
+#include "expr/expr_manager.h"
 
 #ifndef __CVC4__NODE_MANAGER_H
 #define __CVC4__NODE_MANAGER_H
@@ -54,8 +55,8 @@ namespace attr {
   struct SortArityTag {};
 }/* CVC4::expr::attr namespace */
 
-typedef expr::Attribute<attr::VarNameTag, std::string> VarNameAttr;
-typedef expr::Attribute<attr::SortArityTag, uint64_t> SortArityAttr;
+typedef Attribute<attr::VarNameTag, std::string> VarNameAttr;
+typedef Attribute<attr::SortArityTag, uint64_t> SortArityAttr;
 
 }/* CVC4::expr namespace */
 
@@ -85,6 +86,9 @@ class NodeManager {
   NodeValuePool d_nodeValuePool;
 
   expr::attr::AttributeManager d_attrManager;
+
+  /** The associated ExprManager */
+  ExprManager* d_exprManager;
 
   /**
    * The node value we're currently freeing.  This unique node value
@@ -250,8 +254,8 @@ class NodeManager {
 
 public:
 
-  explicit NodeManager(context::Context* ctxt);
-  explicit NodeManager(context::Context* ctxt, const Options& options);
+  explicit NodeManager(context::Context* ctxt, ExprManager* exprManager);
+  explicit NodeManager(context::Context* ctxt, ExprManager* exprManager, const Options& options);
   ~NodeManager();
 
   /** The node manager in the current public-facing CVC4 library context */
@@ -299,7 +303,35 @@ public:
   template <bool ref_count>
   Node* mkNodePtr(Kind kind, const std::vector<NodeTemplate<ref_count> >& children);
 
-  /** Create a node by applying an operator to the children */
+  /** Create a node (with no children) by operator. */
+  Node mkNode(TNode opNode);
+  Node* mkNodePtr(TNode opNode);
+
+  /** Create a node with one child by operator. */
+  Node mkNode(TNode opNode, TNode child1);
+  Node* mkNodePtr(TNode opNode, TNode child1);
+
+  /** Create a node with two children by operator. */
+  Node mkNode(TNode opNode, TNode child1, TNode child2);
+  Node* mkNodePtr(TNode opNode, TNode child1, TNode child2);
+
+  /** Create a node with three children by operator. */
+  Node mkNode(TNode opNode, TNode child1, TNode child2, TNode child3);
+  Node* mkNodePtr(TNode opNode, TNode child1, TNode child2, TNode child3);
+
+  /** Create a node with four children by operator. */
+  Node mkNode(TNode opNode, TNode child1, TNode child2, TNode child3,
+              TNode child4);
+  Node* mkNodePtr(TNode opNode, TNode child1, TNode child2, TNode child3,
+              TNode child4);
+
+  /** Create a node with five children by operator. */
+  Node mkNode(TNode opNode, TNode child1, TNode child2, TNode child3,
+              TNode child4, TNode child5);
+  Node* mkNodePtr(TNode opNode, TNode child1, TNode child2, TNode child3,
+              TNode child4, TNode child5);
+
+  /** Create a node by applying an operator to the children. */
   template <bool ref_count>
   Node mkNode(TNode opNode, const std::vector<NodeTemplate<ref_count> >& children);
   template <bool ref_count>
@@ -538,6 +570,15 @@ public:
   /** Make the type of arrays with the given parameterization */
   inline TypeNode mkArrayType(TypeNode indexType, TypeNode constituentType);
 
+  /** Make a type representing a constructor with the given parameterization */
+  TypeNode mkConstructorType(const Datatype::Constructor& constructor, TypeNode range);
+
+  /** Make a type representing a selector with the given parameterization */
+  inline TypeNode mkSelectorType(TypeNode domain, TypeNode range);
+
+  /** Make a type representing a tester with given parameterization */
+  inline TypeNode mkTesterType(TypeNode domain);
+
   /** Make a new (anonymous) sort of arity 0. */
   inline TypeNode mkSort();
 
@@ -578,7 +619,39 @@ public:
    */
   TypeNode getType(TNode n, bool check = false)
     throw (TypeCheckingExceptionPrivate, AssertionException);
-};
+
+  /**
+   * Convert a node to an expression.  Uses the ExprManager
+   * associated to this NodeManager.
+   */
+  inline Expr toExpr(TNode n);
+
+  /**
+   * Convert an expression to a node.
+   */
+  static inline Node fromExpr(const Expr& e);
+
+  /**
+   * Convert a node manager to an expression manager.
+   */
+  inline ExprManager* toExprManager();
+
+  /**
+   * Convert an expression manager to a node manager.
+   */
+  static inline NodeManager* fromExprManager(ExprManager* exprManager);
+
+  /**
+   * Convert a type node to a type.
+   */
+  inline Type toType(TypeNode tn);
+
+  /**
+   * Convert a type to a type node.
+   */
+  static inline TypeNode fromType(Type t);
+
+};/* class NodeManager */
 
 /**
  * This class changes the "current" thread-global
@@ -726,6 +799,8 @@ NodeManager::mkFunctionType(const std::vector<TypeNode>& sorts) {
   Assert(sorts.size() >= 2);
   std::vector<TypeNode> sortNodes;
   for (unsigned i = 0; i < sorts.size(); ++ i) {
+    CheckArgument(!sorts[i].isFunctionLike(), sorts,
+                  "cannot create higher-order function types");
     sortNodes.push_back(sorts[i]);
   }
   return mkTypeNode(kind::FUNCTION_TYPE, sortNodes);
@@ -736,6 +811,8 @@ NodeManager::mkPredicateType(const std::vector<TypeNode>& sorts) {
   Assert(sorts.size() >= 1);
   std::vector<TypeNode> sortNodes;
   for (unsigned i = 0; i < sorts.size(); ++ i) {
+    CheckArgument(!sorts[i].isFunctionLike(), sorts,
+                  "cannot create higher-order function types");
     sortNodes.push_back(sorts[i]);
   }
   sortNodes.push_back(booleanType());
@@ -746,6 +823,10 @@ inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
   Assert(types.size() >= 2);
   std::vector<TypeNode> typeNodes;
   for (unsigned i = 0; i < types.size(); ++ i) {
+    /* FIXME when congruence closure no longer abuses tuples
+    CheckArgument(!types[i].isFunctionLike(), types,
+                  "cannot put function-like types in tuples");
+    */
     typeNodes.push_back(types[i]);
   }
   return mkTypeNode(kind::TUPLE_TYPE, typeNodes);
@@ -757,7 +838,25 @@ inline TypeNode NodeManager::mkBitVectorType(unsigned size) {
 
 inline TypeNode NodeManager::mkArrayType(TypeNode indexType,
                                          TypeNode constituentType) {
+  CheckArgument(!indexType.isFunctionLike(), domain,
+                "cannot index arrays by a function-like type");
+  CheckArgument(!constituentType.isFunctionLike(), domain,
+                "cannot store function-like types in arrays");
   return mkTypeNode(kind::ARRAY_TYPE, indexType, constituentType);
+}
+
+inline TypeNode NodeManager::mkSelectorType(TypeNode domain, TypeNode range) {
+  CheckArgument(!domain.isFunctionLike(), domain,
+                "cannot create higher-order function types");
+  CheckArgument(!range.isFunctionLike(), range,
+                "cannot create higher-order function types");
+  return mkTypeNode(kind::SELECTOR_TYPE, domain, range);
+}
+
+inline TypeNode NodeManager::mkTesterType(TypeNode domain) {
+  CheckArgument(!domain.isFunctionLike(), domain,
+                "cannot create higher-order function types");
+  return mkTypeNode(kind::TESTER_TYPE, domain );
 }
 
 inline expr::NodeValue* NodeManager::poolLookup(expr::NodeValue* nv) const {
@@ -780,6 +879,30 @@ inline void NodeManager::poolRemove(expr::NodeValue* nv) {
          "NodeValue is not in the pool!");
 
   d_nodeValuePool.erase(nv);// FIXME multithreading
+}
+
+inline Expr NodeManager::toExpr(TNode n) {
+  return Expr(d_exprManager, new Node(n));
+}
+
+inline Node NodeManager::fromExpr(const Expr& e) {
+  return e.getNode();
+}
+
+inline ExprManager* NodeManager::toExprManager() {
+  return d_exprManager;
+}
+
+inline NodeManager* NodeManager::fromExprManager(ExprManager* exprManager) {
+  return exprManager->getNodeManager();
+}
+
+inline Type NodeManager::toType(TypeNode tn) {
+  return Type(this, new TypeNode(tn));
+}
+
+inline TypeNode NodeManager::fromType(Type t) {
+  return *Type::getTypeNode(t);
 }
 
 }/* CVC4 namespace */
@@ -944,6 +1067,85 @@ inline Node* NodeManager::mkNodePtr(Kind kind,
   return nb.constructNodePtr();
 }
 
+// for operators
+inline Node NodeManager::mkNode(TNode opNode) {
+  NodeBuilder<1> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode;
+  return nb.constructNode();
+}
+
+inline Node* NodeManager::mkNodePtr(TNode opNode) {
+  NodeBuilder<1> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode;
+  return nb.constructNodePtr();
+}
+
+inline Node NodeManager::mkNode(TNode opNode, TNode child1) {
+  NodeBuilder<2> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1;
+  return nb.constructNode();
+}
+
+inline Node* NodeManager::mkNodePtr(TNode opNode, TNode child1) {
+  NodeBuilder<2> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1;
+  return nb.constructNodePtr();
+}
+
+inline Node NodeManager::mkNode(TNode opNode, TNode child1, TNode child2) {
+  NodeBuilder<3> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1 << child2;
+  return nb.constructNode();
+}
+
+inline Node* NodeManager::mkNodePtr(TNode opNode, TNode child1, TNode child2) {
+  NodeBuilder<3> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1 << child2;
+  return nb.constructNodePtr();
+}
+
+inline Node NodeManager::mkNode(TNode opNode, TNode child1, TNode child2,
+                                TNode child3) {
+  NodeBuilder<4> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1 << child2 << child3;
+  return nb.constructNode();
+}
+
+inline Node* NodeManager::mkNodePtr(TNode opNode, TNode child1, TNode child2,
+                                TNode child3) {
+  NodeBuilder<4> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1 << child2 << child3;
+  return nb.constructNodePtr();
+}
+
+inline Node NodeManager::mkNode(TNode opNode, TNode child1, TNode child2,
+                                TNode child3, TNode child4) {
+  NodeBuilder<5> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1 << child2 << child3 << child4;
+  return nb.constructNode();
+}
+
+inline Node* NodeManager::mkNodePtr(TNode opNode, TNode child1, TNode child2,
+                                TNode child3, TNode child4) {
+  NodeBuilder<5> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1 << child2 << child3 << child4;
+  return nb.constructNodePtr();
+}
+
+inline Node NodeManager::mkNode(TNode opNode, TNode child1, TNode child2,
+                                TNode child3, TNode child4, TNode child5) {
+  NodeBuilder<6> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1 << child2 << child3 << child4 << child5;
+  return nb.constructNode();
+}
+
+inline Node* NodeManager::mkNodePtr(TNode opNode, TNode child1, TNode child2,
+                                    TNode child3, TNode child4, TNode child5) {
+  NodeBuilder<6> nb(this, kind::operatorKindToKind(opNode.getKind()));
+  nb << opNode << child1 << child2 << child3 << child4 << child5;
+  return nb.constructNodePtr();
+}
+
 // N-ary version for operators
 template <bool ref_count>
 inline Node NodeManager::mkNode(TNode opNode,
@@ -957,8 +1159,8 @@ inline Node NodeManager::mkNode(TNode opNode,
 
 template <bool ref_count>
 inline Node* NodeManager::mkNodePtr(TNode opNode,
-                                const std::vector<NodeTemplate<ref_count> >&
-                                children) {
+                                    const std::vector<NodeTemplate<ref_count> >&
+                                    children) {
   NodeBuilder<> nb(this, kind::operatorKindToKind(opNode.getKind()));
   nb << opNode;
   nb.append(children);

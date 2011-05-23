@@ -2,10 +2,10 @@
 /*! \file sat.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: mdeters, taking
- ** Minor contributors (to current version): dejan
+ ** Major contributors: dejan, mdeters, taking
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -17,16 +17,18 @@
  ** \todo document this file
  **/
 
-#include "cnf_stream.h"
-#include "prop_engine.h"
-#include "sat.h"
+#include "prop/cnf_stream.h"
+#include "prop/prop_engine.h"
+#include "prop/sat.h"
 #include "context/context.h"
 #include "theory/theory_engine.h"
+#include "expr/expr_stream.h"
 
 namespace CVC4 {
 namespace prop {
 
 void SatSolver::theoryCheck(theory::Theory::Effort effort, SatClause& conflict) {
+  Assert(conflict.size() == 0);
   // Try theory propagation
   bool ok = d_theoryEngine->check(effort);
   // If in conflict construct the conflict clause
@@ -34,15 +36,22 @@ void SatSolver::theoryCheck(theory::Theory::Effort effort, SatClause& conflict) 
     // We have a conflict, get it
     Node conflictNode = d_theoryEngine->getConflict();
     Debug("prop") << "SatSolver::theoryCheck() => conflict: " << conflictNode << std::endl;
-    // Go through the literals and construct the conflict clause
-    Node::const_iterator literal_it = conflictNode.begin();
-    Node::const_iterator literal_end = conflictNode.end();
-    while (literal_it != literal_end) {
+    if(conflictNode.getKind() == kind::AND) {
+      // Go through the literals and construct the conflict clause
+      Node::const_iterator literal_it = conflictNode.begin();
+      Node::const_iterator literal_end = conflictNode.end();
+      while (literal_it != literal_end) {
+        // Get the literal corresponding to the node
+        SatLiteral l = d_cnfStream->getLiteral(*literal_it);
+        // Add the negation to the conflict clause and continue
+        conflict.push(~l);
+        literal_it ++;
+      }
+    } else { // unit conflict
       // Get the literal corresponding to the node
-      SatLiteral l = d_cnfStream->getLiteral(*literal_it);
-      // Add the negation to the conflict clause and continue
+      SatLiteral l = d_cnfStream->getLiteral(conflictNode);
+      // construct the unit conflict clause
       conflict.push(~l);
-      literal_it ++;
     }
   }
 }
@@ -105,6 +114,29 @@ TNode SatSolver::getNode(SatLiteral lit) {
 void SatSolver::notifyRestart() {
   d_theoryEngine->notifyRestart();
 }
+
+SatLiteral SatSolver::getNextReplayDecision() {
+#ifdef CVC4_REPLAY
+  if(Options::current()->replayStream != NULL) {
+    Expr e = Options::current()->replayStream->nextExpr();
+    if(!e.isNull()) { // we get null node when out of decisions to replay
+      // convert & return
+      return d_cnfStream->getLiteral(e);
+    }
+  }
+#endif /* CVC4_REPLAY */
+  return Minisat::lit_Undef;
+}
+
+void SatSolver::logDecision(SatLiteral lit) {
+#ifdef CVC4_REPLAY
+  if(Options::current()->replayLog != NULL) {
+    Assert(lit != Minisat::lit_Undef, "logging an `undef' decision ?!");
+    *Options::current()->replayLog << d_cnfStream->getNode(lit) << std::endl;
+  }
+#endif /* CVC4_REPLAY */
+}
+
 
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */

@@ -1,4 +1,4 @@
-SUBDIRS = . arith precedence uf uflra bv lemmas push-pop arrays
+SUBDIRS = . arith precedence uf uflra bv arrays datatypes lemmas push-pop
 
 TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/cvc4
 MAKEFLAGS = -k
@@ -20,6 +20,8 @@ SMT_TESTS = \
 	ite_real_valid.smt \
 	let.smt \
 	let2.smt \
+	simplification_bug.smt \
+	simplification_bug2.smt \
 	simple.smt \
 	simple2.smt \
 	simple-lra.smt \
@@ -102,6 +104,7 @@ endif
 
 # and make sure to distribute it
 EXTRA_DIST += \
+	subranges.cvc \
 	error.cvc
 
 # synonyms for "check" in this directory

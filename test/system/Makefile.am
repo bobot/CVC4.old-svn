@@ -22,6 +22,7 @@ TEST_DEPS = \
 	$(TEST_DEPS_NODIST)
 
 EXTRA_DIST = \
+	$(TESTS:%=%.cpp) \
 	$(TEST_DEPS_DIST)
 
 if STATIC_BINARY
@@ -39,6 +40,7 @@ AM_CPPFLAGS = \
 	"-I@top_srcdir@/src/prop/minisat" \
 	-D __STDC_LIMIT_MACROS \
 	-D __STDC_FORMAT_MACROS \
+	-D __BUILDING_CVC4_SYSTEM_TEST \
 	$(TEST_CPPFLAGS)
 LIBADD = \
 	@abs_top_builddir@/src/parser/libcvc4parser.la \

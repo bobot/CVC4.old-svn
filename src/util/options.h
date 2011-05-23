@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: cconway
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): dejan, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -22,6 +22,7 @@
 #define __CVC4__OPTIONS_H
 
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include "util/exception.h"
@@ -30,8 +31,10 @@
 
 namespace CVC4 {
 
+class ExprStream;
+
 /** Class representing an option-parsing exception. */
-class OptionException : public CVC4::Exception {
+class CVC4_PUBLIC OptionException : public CVC4::Exception {
 public:
     OptionException(const std::string& s) throw() :
       CVC4::Exception("Error in option parsing: " + s) {
@@ -101,6 +104,25 @@ struct CVC4_PUBLIC Options {
   /** Should we expand function definitions lazily? */
   bool lazyDefinitionExpansion;
 
+  /** Enumeration of simplification modes (when to simplify). */
+  typedef enum {
+    BATCH_MODE,
+    INCREMENTAL_MODE,
+    INCREMENTAL_LAZY_SAT_MODE
+  } SimplificationMode;
+  /** When to perform nonclausal simplifications. */
+  SimplificationMode simplificationMode;
+
+  /** Enumeration of simplification styles (how much to simplify). */
+  typedef enum {
+    AGGRESSIVE_SIMPLIFICATION_STYLE,
+    TOPLEVEL_SIMPLIFICATION_STYLE,
+    NO_SIMPLIFICATION_STYLE
+  } SimplificationStyle;
+
+  /** Style of nonclausal simplifications to perform. */
+  SimplificationStyle simplificationStyle;
+
   /** Whether we're in interactive mode or not */
   bool interactive;
 
@@ -128,9 +150,20 @@ struct CVC4_PUBLIC Options {
   /** Whether incemental solving (push/pop) */
   bool incrementalSolving;
 
+  /** Replay file to use (for decisions); empty if no replay file. */
+  std::string replayFilename;
+
+  /** Replay stream to use (for decisions); NULL if no replay file. */
+  ExprStream* replayStream;
+
+  /** Log to write replay instructions to; NULL if not logging. */
+  std::ostream* replayLog;
+
   /** Whether to rewrite equalities in arithmetic theory */
   bool rewriteArithEqualities;
 
+  /** Turn on and of arithmetic propagation. */
+  bool arithPropagation;
 
   /**
    * Frequency for the sat solver to make random decisions.
@@ -174,6 +207,9 @@ struct CVC4_PUBLIC Options {
 };/* struct Options */
 
 inline std::ostream& operator<<(std::ostream& out,
+                                Options::UfImplementation uf) CVC4_PUBLIC;
+
+inline std::ostream& operator<<(std::ostream& out,
                                 Options::UfImplementation uf) {
   switch(uf) {
   case Options::TIM:
@@ -189,7 +225,28 @@ inline std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
-std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule);
+inline std::ostream& operator<<(std::ostream& out,
+                                Options::SimplificationMode mode) CVC4_PUBLIC;
+inline std::ostream& operator<<(std::ostream& out,
+                                Options::SimplificationMode mode) {
+  switch(mode) {
+  case Options::BATCH_MODE:
+    out << "BATCH_MODE";
+    break;
+  case Options::INCREMENTAL_MODE:
+    out << "INCREMENTAL_MODE";
+    break;
+  case Options::INCREMENTAL_LAZY_SAT_MODE:
+    out << "INCREMENTAL_LAZY_SAT_MODE";
+    break;
+  default:
+    out << "SimplificationMode:UNKNOWN![" << unsigned(mode) << "]";
+  }
+
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) CVC4_PUBLIC;
 
 }/* CVC4 namespace */
 

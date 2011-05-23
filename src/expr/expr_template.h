@@ -5,7 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -18,6 +18,13 @@
 
 #include "cvc4_public.h"
 
+// putting the constant-payload #includes up here allows circularity
+// (some of them may require a completely-defined Expr type).  This
+// way, those #includes can forward-declare some stuff to get Expr's
+// getConst<> template instantiations correct, and then #include
+// "expr.h" safely, then go on to completely declare their own stuff.
+${includes}
+
 #ifndef __CVC4__EXPR_H
 #define __CVC4__EXPR_H
 
@@ -28,13 +35,11 @@
 #include "util/exception.h"
 #include "util/language.h"
 
-${includes}
-
 // This is a hack, but an important one: if there's an error, the
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 38 "${template}"
+#line 43 "${template}"
 
 namespace CVC4 {
 
@@ -94,8 +99,12 @@ public:
    */
   Expr getExpression() const;
 
-  /** Returns the message corresponding to the type-checking failure */
-  std::string toString() const;
+  /**
+   * Returns the message corresponding to the type-checking failure.
+   * We prefer toStream() to toString() because that keeps the expr-depth
+   * and expr-language settings present in the stream.
+   */
+  void toStream(std::ostream& out) const;
 
   friend class ExprManager;
 };/* class TypeCheckingException */
@@ -143,14 +152,6 @@ public:
    * @param e the expression to copy
    */
   Expr(const Expr& e);
-
-  /**
-   * Initialize from an integer. Fails if the integer is not 0.
-   * NOTE: This is here purely to support the auto-initialization
-   * behavior of the ANTLR3 C backend. Should be removed if future
-   * versions of ANTLR fix the problem.
-   */
-  Expr(uintptr_t n);
 
   /** Destructor */
   ~Expr();
@@ -258,7 +259,7 @@ public:
    * @param i the index of the child to retrieve
    * @return the child
    */
-  Expr getChild(unsigned int i) const;
+  Expr operator[](unsigned i) const;
 
   /**
    * Check if this is an expression that has an operator.
@@ -430,8 +431,10 @@ protected:
   friend class SmtEngine;
   friend class smt::SmtEnginePrivate;
   friend class ExprManager;
+  friend class NodeManager;
   friend class TypeCheckingException;
   friend std::ostream& operator<<(std::ostream& out, const Expr& e);
+  template <bool ref_count> friend class NodeTemplate;
 
 };/* class Expr */
 
@@ -574,6 +577,31 @@ public:
   static inline void setDepth(std::ostream& out, long depth) {
     out.iword(s_iosIndex) = depth;
   }
+
+  /**
+   * Set the expression depth on the output stream for the current
+   * stack scope.  This makes sure the old depth is reset on the stream
+   * after normal OR exceptional exit from the scope, using the RAII
+   * C++ idiom.
+   */
+  class Scope {
+    std::ostream& d_out;
+    long d_oldDepth;
+
+  public:
+
+    inline Scope(std::ostream& out, long depth) :
+      d_out(out),
+      d_oldDepth(ExprSetDepth::getDepth(out)) {
+      ExprSetDepth::setDepth(out, depth);
+    }
+
+    inline ~Scope() {
+      ExprSetDepth::setDepth(d_out, d_oldDepth);
+    }
+
+  };/* class ExprSetDepth::Scope */
+
 };/* class ExprSetDepth */
 
 /**
@@ -619,6 +647,31 @@ public:
   static inline void setPrintTypes(std::ostream& out, bool printTypes) {
     out.iword(s_iosIndex) = printTypes;
   }
+
+  /**
+   * Set the print-types state on the output stream for the current
+   * stack scope.  This makes sure the old state is reset on the
+   * stream after normal OR exceptional exit from the scope, using the
+   * RAII C++ idiom.
+   */
+  class Scope {
+    std::ostream& d_out;
+    bool d_oldPrintTypes;
+
+  public:
+
+    inline Scope(std::ostream& out, bool printTypes) :
+      d_out(out),
+      d_oldPrintTypes(ExprPrintTypes::getPrintTypes(out)) {
+      ExprPrintTypes::setPrintTypes(out, printTypes);
+    }
+
+    inline ~Scope() {
+      ExprPrintTypes::setPrintTypes(d_out, d_oldPrintTypes);
+    }
+
+  };/* class ExprPrintTypes::Scope */
+
 };/* class ExprPrintTypes */
 
 /**
@@ -666,13 +719,38 @@ public:
     // (offset by one to detect whether default has been set yet)
     out.iword(s_iosIndex) = int(l) + 1;
   }
+
+  /**
+   * Set a language on the output stream for the current stack scope.
+   * This makes sure the old language is reset on the stream after
+   * normal OR exceptional exit from the scope, using the RAII C++
+   * idiom.
+   */
+  class Scope {
+    std::ostream& d_out;
+    OutputLanguage d_oldLanguage;
+
+  public:
+
+    inline Scope(std::ostream& out, OutputLanguage language) :
+      d_out(out),
+      d_oldLanguage(ExprSetLanguage::getLanguage(out)) {
+      ExprSetLanguage::setLanguage(out, language);
+    }
+
+    inline ~Scope() {
+      ExprSetLanguage::setLanguage(d_out, d_oldLanguage);
+    }
+
+  };/* class ExprSetLanguage::Scope */
+
 };/* class ExprSetLanguage */
 
 }/* CVC4::expr namespace */
 
 ${getConst_instantiations}
 
-#line 676 "${template}"
+#line 754 "${template}"
 
 namespace expr {
 

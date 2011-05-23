@@ -2,10 +2,10 @@
 /*! \file theory.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): dejan, taking, barrett
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): taking, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -24,6 +24,7 @@
 #include "expr/node.h"
 #include "expr/attribute.h"
 #include "theory/valuation.h"
+#include "theory/substitutions.h"
 #include "theory/output_channel.h"
 #include "context/context.h"
 #include "context/cdlist.h"
@@ -59,10 +60,10 @@ private:
 
   friend class ::CVC4::TheoryEngine;
 
-  /**
-   * Disallow default construction.
-   */
-  Theory();
+  // Disallow default construction, copy, assignment.
+  Theory() CVC4_UNUSED;
+  Theory(const Theory&) CVC4_UNUSED;
+  Theory& operator=(const Theory&) CVC4_UNUSED;
 
   /**
    * A unique integer identifying the theory
@@ -85,6 +86,12 @@ private:
   /** Index into the head of the facts list */
   context::CDO<unsigned> d_factsHead;
 
+  /**
+   * Whether the last retrieved fact via get() was a shared term fact
+   * or not.
+   */
+  bool d_wasSharedTermFact;
+
 protected:
 
   /**
@@ -95,6 +102,7 @@ protected:
     d_context(ctxt),
     d_facts(ctxt),
     d_factsHead(ctxt, 0),
+    d_wasSharedTermFact(false),
     d_out(&out),
     d_valuation(valuation) {
   }
@@ -130,11 +138,24 @@ protected:
   TNode get() {
     Assert( !done(), "Theory::get() called with assertion queue empty!" );
     TNode fact = d_facts[d_factsHead];
+    d_wasSharedTermFact = false;
     d_factsHead = d_factsHead + 1;
     Debug("theory") << "Theory::get() => " << fact
                     << "(" << d_facts.size() << " left)" << std::endl;
     d_out->newFact(fact);
     return fact;
+  }
+
+  /**
+   * Returns whether the last fact retrieved by get() was a shared
+   * term fact.
+   *
+   * @return true if the fact just retrieved via get() was a shared
+   * term fact, false if the fact just retrieved was a "normal channel"
+   * fact.
+   */
+  bool isSharedTermFact() const throw() {
+    return d_wasSharedTermFact;
   }
 
   /**
@@ -159,6 +180,9 @@ protected:
 
 public:
 
+  /**
+   * Return the ID of the theory responsible for the given type.
+   */
   static inline TheoryId theoryOf(TypeNode typeNode) {
     if (typeNode.getKind() == kind::TYPE_CONSTANT) {
       return typeConstantToTheoryId(typeNode.getConst<TypeConstant>());
@@ -168,10 +192,11 @@ public:
   }
 
   /**
-   * Returns the theory responsible for the node.
+   * Returns the ID of the theory responsible for the given node.
    */
   static inline TheoryId theoryOf(TNode node) {
-    if (node.getMetaKind() == kind::metakind::VARIABLE || node.getMetaKind() == kind::metakind::CONSTANT) {
+    if (node.getMetaKind() == kind::metakind::VARIABLE ||
+        node.getMetaKind() == kind::metakind::CONSTANT) {
       // Constants, variables, 0-ary constructors
       return theoryOf(node.getType());
     } else {
@@ -374,11 +399,27 @@ public:
   }
 
   /**
-   * The theory should only add (via .operator<< or .append()) to the
-   * "learned" builder.  It is a conjunction to add to the formula at
+   * Statically learn from assertion "in," which has been asserted
+   * true at the top level.  The theory should only add (via
+   * ::operator<< or ::append()) to the "learned" builder---it should
+   * *never* clear it.  It is a conjunction to add to the formula at
    * the top-level and may contain other theories' contributions.
    */
   virtual void staticLearning(TNode in, NodeBuilder<>& learned) { }
+
+  /**
+   * Simplify a node in a theory-specific way.  The node is a theory
+   * operation or its negation, or an equality between theory-typed
+   * terms or its negation.  Add to "outSubstitutions" any
+   * replacements you want to make for the entire subterm; if you add
+   * [x,y] to the vector, the enclosing Boolean formula (call it
+   * "phi") will be replaced with (AND phi[x->y] (x = y)).  Use
+   * Valuation::simplify() to simplify subterms (it maintains a cache
+   * and dispatches to the appropriate theory).
+   */
+  virtual Node simplify(TNode in, Substitutions& outSubstitutions) {
+    return in;
+  }
 
   /**
    * A Theory is called with presolve exactly one time per user

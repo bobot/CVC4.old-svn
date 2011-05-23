@@ -25,16 +25,15 @@
 #include "context/cdmap.h"
 #include "expr/node.h"
 #include "util/stats.h"
+#include "util/ntuple.h"
 #include <ext/hash_set>
 #include <ext/hash_map>
 #include <iostream>
 #include <map>
+
 namespace CVC4 {
 namespace theory {
 namespace arrays {
-
-
-
 
 typedef context::CDList<TNode> CTNodeList;
 
@@ -49,7 +48,6 @@ struct TNodeQuadHashFunction {
 
   }
 };/* struct TNodeQuadHashFunction */
-
 
 void printList (CTNodeList* list);
 void printList( List<TNode>* list);

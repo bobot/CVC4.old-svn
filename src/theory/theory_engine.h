@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief The theory engine.
+ ** \brief The theory engine
  **
  ** The theory engine.
  **/
@@ -22,15 +22,20 @@
 #define __CVC4__THEORY_ENGINE_H
 
 #include <deque>
+#include <vector>
+#include <utility>
 
 #include "expr/node.h"
 #include "prop/prop_engine.h"
 #include "theory/shared_term_manager.h"
 #include "theory/theory.h"
 #include "theory/rewriter.h"
+#include "theory/substitutions.h"
 #include "theory/valuation.h"
 #include "util/options.h"
 #include "util/stats.h"
+#include "util/hash.h"
+#include "util/cache.h"
 
 namespace CVC4 {
 
@@ -51,8 +56,32 @@ class TheoryEngine {
   /** Our context */
   context::Context* d_context;
 
-  /** A table of from theory ifs to theory pointers */
+  /** A table of from theory IDs to theory pointers */
   theory::Theory* d_theoryTable[theory::THEORY_LAST];
+
+  /**
+   * A bitmap of theories that are "active" for the current run.  We
+   * mark a theory active when we firt see a term or type belonging to
+   * it.  This is important because we can optimize for single-theory
+   * runs (no sharing), can reduce the cost of walking the DAG on
+   * registration, etc.
+   */
+  bool d_theoryIsActive[theory::THEORY_LAST];
+
+  /**
+   * The count of active theories in the d_theoryIsActive bitmap.
+   */
+  size_t d_activeTheories;
+
+  /**
+   * The type of the simplification cache.
+   */
+  typedef Cache<Node, std::pair<Node, theory::Substitutions>, NodeHashFunction> SimplifyCache;
+
+  /**
+   * A cache for simplification.
+   */
+  SimplifyCache d_simplifyCache;
 
   /**
    * An output channel for Theory that passes messages
@@ -103,6 +132,8 @@ class TheoryEngine {
 
     void propagate(TNode lit, bool)
       throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::propagate("
+                      << lit << ")" << std::endl;
       d_propagatedLiterals.push_back(lit);
       ++(d_engine->d_statistics.d_statPropagate);
     }
@@ -117,6 +148,8 @@ class TheoryEngine {
 
     void explanation(TNode explanationNode, bool)
       throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::explanation("
+                      << explanationNode << ")" << std::endl;
       d_explanationNode = explanationNode;
       ++(d_engine->d_statistics.d_statExplanation);
     }
@@ -155,6 +188,17 @@ class TheoryEngine {
    */
   Node removeITEs(TNode t);
 
+  /**
+   * Mark a theory active if it's not already.
+   */
+  void markActive(theory::TheoryId th) {
+    if(!d_theoryIsActive[th]) {
+      d_theoryIsActive[th] = true;
+      ++d_activeTheories;
+      Notice() << "Theory " << th << " has been activated." << std::endl;
+    }
+  }
+
 public:
   /** The logic of the problem
    *
@@ -172,11 +216,13 @@ public:
   ~TheoryEngine();
 
   /**
-   * Adds a theory. Only one theory per theoryId can be present, so if there is another theory it will be deleted.
+   * Adds a theory. Only one theory per theoryId can be present, so if
+   * there is another theory it will be deleted.
    */
   template <class TheoryClass>
   void addTheory() {
-    TheoryClass* theory = new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
+    TheoryClass* theory =
+      new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
     d_theoryTable[theory->getId()] = theory;
     d_sharedTermManager->registerTheory(static_cast<TheoryClass*>(theory));
   }
@@ -246,11 +292,17 @@ public:
   }
 
   /**
-   * Preprocess a node.  This involves theory-specific rewriting, then
-   * calling preRegisterTerm() on what's left over.
+   * Preprocess a node.  This involves ITE removal and theory-specific
+   * rewriting.
+   *
    * @param n the node to preprocess
    */
   Node preprocess(TNode n);
+
+  /**
+   * Preregister a Theory atom with the responsible theory (or
+   * theories).
+   */
   void preRegister(TNode preprocessed);
 
   /**
@@ -269,8 +321,7 @@ public:
     // Get the atom
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
 
-
-    // Again, eqaulity is a special case
+    // Again, equality is a special case
     if (atom.getKind() == kind::EQUAL) {
 
       if(d_logic == "QF_AX") {
@@ -306,10 +357,16 @@ public:
   bool check(theory::Theory::Effort effort);
 
   /**
-   * Calls staticLearning() on all active theories, accumulating their
+   * Calls staticLearning() on all theories, accumulating their
    * combined contributions in the "learned" builder.
    */
   void staticLearning(TNode in, NodeBuilder<>& learned);
+
+  /**
+   * Calls simplify() on all theories, accumulating their combined
+   * contributions in the "outSubstitutions" vector.
+   */
+  Node simplify(TNode in, theory::Substitutions& outSubstitutions);
 
   /**
    * Calls presolve() on all active theories and returns true

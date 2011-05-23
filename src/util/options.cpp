@@ -2,10 +2,10 @@
 /*! \file options.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway
- ** Minor contributors (to current version): dejan, barrett
+ ** Major contributors: taking, cconway
+ ** Minor contributors (to current version): barrett, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -69,6 +69,8 @@ Options::Options() :
   memoryMap(false),
   strictParsing(false),
   lazyDefinitionExpansion(false),
+  simplificationMode(INCREMENTAL_MODE),
+  simplificationStyle(NO_SIMPLIFICATION_STYLE),
   interactive(false),
   interactiveSetByUser(false),
   segvNoSpin(false),
@@ -77,9 +79,13 @@ Options::Options() :
   typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
   earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
   incrementalSolving(false),
+  replayFilename(""),
+  replayStream(NULL),
+  replayLog(NULL),
   rewriteArithEqualities(false),
+  arithPropagation(false),
   satRandomFreq(0.0),
-  satRandomSeed(91648253), //Minisat's default value
+  satRandomSeed(91648253),// Minisat's default value
   pivotRule(MINIMUM)
 {
 }
@@ -98,10 +104,10 @@ static const string optionsDescription = "\
    --no-checking          disable ALL semantic checks, including type checks\n\
    --no-theory-registration disable theory reg (not safe for some theories)\n\
    --strict-parsing       fail on non-conformant inputs (SMT2 only)\n\
-   --verbose | -v         increase verbosity (repeatable)\n\
-   --quiet | -q           decrease verbosity (repeatable)\n\
-   --trace | -t           tracing for something (e.g. --trace pushpop)\n\
-   --debug | -d           debugging for something (e.g. --debug arith), implies -t\n\
+   --verbose | -v         increase verbosity (may be repeated)\n\
+   --quiet | -q           decrease verbosity (may be repeated)\n\
+   --trace | -t           trace something (e.g. -t pushpop), can repeat\n\
+   --debug | -d           debug something (e.g. -d arith), can repeat\n\
    --stats                give statistics on exit\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
    --print-expr-types     print types with variables when printing exprs\n\
@@ -111,10 +117,14 @@ static const string optionsDescription = "\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
+   --simplification=MODE  choose simplification mode, see --simplification=help\n\
+   --replay=file          replay decisions from file\n\
+   --replay-log=file      log decisions and propagations to file\n\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
    --rewrite-arithmetic-equalities rewrite (= x y) to (and (<= x y) (>= x y)) in arithmetic\n\
+   --enable-arithmetic-propagation turns on arithmetic propagation\n\
    --incremental          enable incremental solving\n";
 
 static const string languageDescription = "\
@@ -125,14 +135,42 @@ Languages currently supported as arguments to the -L / --lang option:\n\
   smt2 | smtlib2 SMT-LIB format 2.0\n\
 ";
 
+static const string simplificationHelp = "\
+Simplification modes currently supported by the --simplification option:\n\
+\n\
+batch\n\
++ save up all ASSERTions; run nonclausal simplification and clausal\n\
+  (MiniSat) propagation for all of them only after reaching a querying command\n\
+  (CHECKSAT or QUERY or predicate SUBTYPE declaration)\n\
+\n\
+incremental (default)\n\
++ run nonclausal simplification and clausal propagation at each ASSERT\n\
+  (and at CHECKSAT/QUERY/SUBTYPE)\n\
+\n\
+incremental-lazy-sat\n\
++ run nonclausal simplification at each ASSERT, but delay clausification of\n\
+  ASSERT until reaching a CHECKSAT/QUERY/SUBTYPE, then clausify them all\n\
+\n\
+You can also specify the level of aggressiveness for the simplification\n\
+(by repeating the --simplification option):\n\
+\n\
+toplevel (default)\n\
++ apply toplevel simplifications (things known true/false at outer level\n\
+  only)\n\
+\n\
+aggressive\n\
++ do aggressive, local simplification across the entire formula\n\
+\n\
+none\n\
++ do not perform nonclausal simplification\n\
+";
+
 string Options::getDescription() const {
   return optionsDescription;
 }
 
 void Options::printUsage(const std::string msg, std::ostream& out) {
   out << msg << optionsDescription << endl << flush;
-  // printf(usage + options.getDescription(), options.binary_name.c_str());
-  //     printf(usage, binary_name.c_str());
 }
 
 void Options::printLanguageHelp(std::ostream& out) {
@@ -148,7 +186,7 @@ void Options::printLanguageHelp(std::ostream& out) {
  * any collision.
  */
 enum OptionValue {
-  SMTCOMP = 256, /* no clash with char options */
+  SMTCOMP = 256, /* avoid clashing with char options */
   STATS,
   SEGV_NOSPIN,
   PARSE_ONLY,
@@ -161,6 +199,7 @@ enum OptionValue {
   PRINT_EXPR_TYPES,
   UF_THEORY,
   LAZY_DEFINITION_EXPANSION,
+  SIMPLIFICATION_MODE,
   INTERACTIVE,
   NO_INTERACTIVE,
   PRODUCE_MODELS,
@@ -169,10 +208,13 @@ enum OptionValue {
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
   INCREMENTAL,
+  REPLAY,
+  REPLAY_LOG,
   PIVOT_RULE,
   RANDOM_FREQUENCY,
   RANDOM_SEED,
-  REWRITE_ARITHMETIC_EQUALITIES
+  REWRITE_ARITHMETIC_EQUALITIES,
+  ARITHMETIC_PROPAGATION
 };/* enum OptionValue */
 
 /**
@@ -219,20 +261,29 @@ static struct option cmdlineOptions[] = {
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
   { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
   { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
-  { "uf"         , required_argument, NULL, UF_THEORY },
+  { "uf"         , required_argument, NULL, UF_THEORY   },
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
+  { "simplification", required_argument, NULL, SIMPLIFICATION_MODE },
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
+  { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
+  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
+  { "no-type-checking", no_argument , NULL, NO_TYPE_CHECKING },
+  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
+  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
+  { "incremental", no_argument      , NULL, INCREMENTAL },
+  { "replay"     , required_argument, NULL, REPLAY      },
+  { "replay-log" , required_argument, NULL, REPLAY_LOG  },
   { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
   { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
   { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING },
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
-  { "incremental", no_argument, NULL, INCREMENTAL },
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
   { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
   { "random-seed" , required_argument, NULL, RANDOM_SEED  },
   { "rewrite-arithmetic-equalities", no_argument, NULL, REWRITE_ARITHMETIC_EQUALITIES },
+  { "enable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -379,8 +430,8 @@ throw(OptionException) {
           uf_implementation = Options::MORGAN;
         } else if(!strcmp(optarg, "help")) {
           printf("UF implementations available:\n");
-          printf("tim\n");
-          printf("morgan\n");
+          printf("  tim\n");
+          printf("  morgan\n");
           exit(1);
         } else {
           throw OptionException(string("unknown option for --uf: `") +
@@ -391,6 +442,28 @@ throw(OptionException) {
 
     case LAZY_DEFINITION_EXPANSION:
       lazyDefinitionExpansion = true;
+      break;
+
+    case SIMPLIFICATION_MODE:
+      if(!strcmp(optarg, "batch")) {
+        simplificationMode = BATCH_MODE;
+      } else if(!strcmp(optarg, "incremental")) {
+        simplificationMode = INCREMENTAL_MODE;
+      } else if(!strcmp(optarg, "incremental-lazy-sat")) {
+        simplificationMode = INCREMENTAL_LAZY_SAT_MODE;
+      } else if(!strcmp(optarg, "aggressive")) {
+        simplificationStyle = AGGRESSIVE_SIMPLIFICATION_STYLE;
+      } else if(!strcmp(optarg, "toplevel")) {
+        simplificationStyle = TOPLEVEL_SIMPLIFICATION_STYLE;
+      } else if(!strcmp(optarg, "none")) {
+        simplificationStyle = NO_SIMPLIFICATION_STYLE;
+      } else if(!strcmp(optarg, "help")) {
+        puts(simplificationHelp.c_str());
+        exit(1);
+      } else {
+        throw OptionException(string("unknown option for --simplification: `") +
+                              optarg + "'.  Try --simplification help.");
+      }
       break;
 
     case INTERACTIVE:
@@ -430,8 +503,41 @@ throw(OptionException) {
       incrementalSolving = true;
       break;
 
+    case REPLAY:
+#ifdef CVC4_REPLAY
+      if(optarg == NULL || *optarg == '\0') {
+        throw OptionException(string("Bad file name for --replay"));
+      } else {
+        replayFilename = optarg;
+      }
+#else /* CVC4_REPLAY */
+      throw OptionException("The replay feature was disabled in this build of CVC4.");
+#endif /* CVC4_REPLAY */
+      break;
+
+    case REPLAY_LOG:
+#ifdef CVC4_REPLAY
+      if(optarg == NULL || *optarg == '\0') {
+        throw OptionException(string("Bad file name for --replay-log"));
+      } else if(!strcmp(optarg, "-")) {
+        replayLog = &cout;
+      } else {
+        replayLog = new ofstream(optarg, ofstream::out | ofstream::trunc);
+        if(!*replayLog) {
+          throw OptionException(string("Cannot open replay-log file: `") + optarg + "'");
+        }
+      }
+#else /* CVC4_REPLAY */
+      throw OptionException("The replay feature was disabled in this build of CVC4.");
+#endif /* CVC4_REPLAY */
+      break;
+
     case REWRITE_ARITHMETIC_EQUALITIES:
       rewriteArithEqualities = true;
+      break;
+
+    case ARITHMETIC_PROPAGATION:
+      arithPropagation = true;
       break;
 
     case RANDOM_SEED:
@@ -480,6 +586,7 @@ throw(OptionException) {
       printf("\n");
       printf("debug code : %s\n", Configuration::isDebugBuild() ? "yes" : "no");
       printf("statistics : %s\n", Configuration::isStatisticsBuild() ? "yes" : "no");
+      printf("replay     : %s\n", Configuration::isReplayBuild() ? "yes" : "no");
       printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
       printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
       printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");
@@ -493,14 +600,12 @@ throw(OptionException) {
       printf("tls        : %s\n", Configuration::isBuiltWithTlsSupport() ? "yes" : "no");
       exit(0);
 
-    case '?':
-      throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
-
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
 
+    case '?':
     default:
-      throw OptionException(string("can't understand option:") + argv[optind - 1] + "'");
+      throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
     }
 
   }

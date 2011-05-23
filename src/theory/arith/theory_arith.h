@@ -36,6 +36,8 @@
 #include "theory/arith/unate_propagator.h"
 #include "theory/arith/simplex.h"
 #include "theory/arith/arith_static_learner.h"
+#include "theory/arith/arith_prop_manager.h"
+#include "theory/arith/arithvar_node_map.h"
 
 #include "util/stats.h"
 
@@ -64,6 +66,8 @@ private:
    */
   std::vector<Node> d_variables;
 
+  ArithVarNodeMap d_arithvarNodeMap;
+
   /**
    * If ArithVar v maps to the node n in d_removednode,
    * then n = (= asNode(v) rhs) where rhs is a term that
@@ -82,32 +86,7 @@ private:
    */
   ArithVarSet d_userVariables;
 
-  /**
-   * Bidirectional map between Nodes and ArithVars.
-   */
-  NodeToArithVarMap d_nodeToArithVarMap;
-  ArithVarToNodeMap d_arithVarToNodeMap;
 
-  inline bool hasArithVar(TNode x) const {
-    return d_nodeToArithVarMap.find(x) != d_nodeToArithVarMap.end();
-  }
-
-  inline ArithVar asArithVar(TNode x) const{
-    Assert(hasArithVar(x));
-    Assert((d_nodeToArithVarMap.find(x))->second <= ARITHVAR_SENTINEL);
-    return (d_nodeToArithVarMap.find(x))->second;
-  }
-  inline Node asNode(ArithVar a) const{
-    Assert(d_arithVarToNodeMap.find(a) != d_arithVarToNodeMap.end());
-    return (d_arithVarToNodeMap.find(a))->second;
-  }
-
-  inline void setArithVar(TNode x, ArithVar a){
-    Assert(!hasArithVar(x));
-    Assert(d_arithVarToNodeMap.find(a) == d_arithVarToNodeMap.end());
-    d_arithVarToNodeMap[a] = x;
-    d_nodeToArithVarMap[x] = a;
-  }
 
   /**
    * List of all of the inequalities asserted in the current context.
@@ -141,6 +120,9 @@ private:
   Tableau d_smallTableauCopy;
 
   ArithUnatePropagator d_propagator;
+
+  ArithPropManager d_propManager;
+
   SimplexDecisionProcedure d_simplex;
 
 public:
@@ -167,6 +149,7 @@ public:
 
   void presolve();
   void notifyRestart();
+  Node simplify(TNode in, std::vector< std::pair<Node, Node> >& outSubstitutions);
   void staticLearning(TNode in, NodeBuilder<>& learned);
 
   std::string identify() const { return std::string("TheoryArith"); }
@@ -174,6 +157,9 @@ public:
 private:
   /** The constant zero. */
   DeltaRational d_DELTA_ZERO;
+
+  /** propagates an arithvar */
+  void propagateArithVar(bool upperbound, ArithVar var );
 
   /**
    * Using the simpleKind return the ArithVar associated with the
@@ -228,6 +214,11 @@ private:
    */
   void permanentlyRemoveVariable(ArithVar v);
 
+  bool isImpliedUpperBound(ArithVar var, Node exp);
+  bool isImpliedLowerBound(ArithVar var, Node exp);
+
+  void internalExplain(TNode n, NodeBuilder<>& explainBuilder);
+
 
   void asVectors(Polynomial& p,
                  std::vector<Rational>& coeffs,
@@ -244,6 +235,7 @@ private:
     IntStat d_statUserVariables, d_statSlackVariables;
     IntStat d_statDisequalitySplits;
     IntStat d_statDisequalityConflicts;
+    TimerStat d_simplifyTimer;
     TimerStat d_staticLearningTimer;
 
     IntStat d_permanentlyRemovedVariables;

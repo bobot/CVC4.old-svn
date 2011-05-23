@@ -48,9 +48,15 @@ class ApplyTypeRule {
         TNode::iterator argument_it = n.begin();
         TNode::iterator argument_it_end = n.end();
         TypeNode::iterator argument_type_it = fType.begin();
-        for(; argument_it != argument_it_end; ++argument_it) {
+        for(; argument_it != argument_it_end; ++argument_it, ++argument_type_it) {
           if((*argument_it).getType() != *argument_type_it) {
-            throw TypeCheckingExceptionPrivate(n, "argument types do not match the function type");
+            std::stringstream ss;
+            ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage));
+            ss << "argument types do not match the function type:\n"
+               << "argument:  " << *argument_it << "\n"
+               << "has type:  " << (*argument_it).getType() << "\n"
+               << "not equal: " << *argument_type_it;
+            throw TypeCheckingExceptionPrivate(n, ss.str());
           }
         }
       } else {
@@ -75,6 +81,7 @@ class EqualityTypeRule {
 
       if ( lhsType != rhsType ) {
         std::stringstream ss;
+        ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage));
         ss << "Types do not match in equation ";
         ss << "[" << lhsType << "<>" << rhsType << "]";
 
@@ -121,6 +128,77 @@ public:
   }
 };/* class TupleTypeRule */
 
+class FunctionProperties {
+public:
+  inline static Cardinality computeCardinality(TypeNode type) {
+    // Don't assert this; allow other theories to use this cardinality
+    // computation.
+    //
+    // Assert(type.getKind() == kind::FUNCTION_TYPE);
+
+    Cardinality argsCard(1);
+    // get the largest cardinality of function arguments/return type
+    for(unsigned i = 0, i_end = type.getNumChildren() - 1; i < i_end; ++i) {
+      argsCard *= type[i].getCardinality();
+    }
+
+    Cardinality valueCard = type[type.getNumChildren() - 1].getCardinality();
+
+    return valueCard ^ argsCard;
+  }
+};/* class FuctionProperties */
+
+class TupleProperties {
+public:
+  inline static Cardinality computeCardinality(TypeNode type) {
+    // Don't assert this; allow other theories to use this cardinality
+    // computation.
+    //
+    // Assert(type.getKind() == kind::TUPLE_TYPE);
+
+    Cardinality card(1);
+    for(TypeNode::iterator i = type.begin(),
+          i_end = type.end();
+        i != i_end;
+        ++i) {
+      card *= (*i).getCardinality();
+    }
+
+    return card;
+  }
+
+  inline static bool isWellFounded(TypeNode type) {
+    // Don't assert this; allow other theories to use this
+    // wellfoundedness computation.
+    //
+    // Assert(type.getKind() == kind::TUPLE_TYPE);
+
+    for(TypeNode::iterator i = type.begin(),
+          i_end = type.end();
+        i != i_end;
+        ++i) {
+      if(! (*i).isWellFounded()) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  inline static Node mkGroundTerm(TypeNode type) {
+    Assert(type.getKind() == kind::TUPLE_TYPE);
+
+    std::vector<Node> children;
+    for(TypeNode::iterator i = type.begin(),
+          i_end = type.end();
+        i != i_end;
+        ++i) {
+      children.push_back((*i).mkGroundTerm());
+    }
+
+    return NodeManager::currentNM()->mkNode(kind::TUPLE, children);
+  }
+};/* class TupleProperties */
 
 }/* CVC4::theory::builtin namespace */
 }/* CVC4::theory namespace */

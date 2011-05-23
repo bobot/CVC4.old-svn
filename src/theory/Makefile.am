@@ -3,7 +3,7 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/..
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-SUBDIRS = builtin booleans uf arith arrays bv
+SUBDIRS = builtin booleans uf arith arrays bv datatypes
 
 noinst_LTLIBRARIES = libtheory.la
 
@@ -23,6 +23,7 @@ libtheory_la_SOURCES = \
 	rewriter.h \
 	rewriter_attributes.h \
 	rewriter.cpp \
+	substitutions.h \
 	valuation.h \
 	valuation.cpp
 
@@ -36,7 +37,8 @@ libtheory_la_LIBADD = \
 	@builddir@/uf/libuf.la \
 	@builddir@/arith/libarith.la \
 	@builddir@/arrays/libarrays.la \
-	@builddir@/bv/libbv.la
+	@builddir@/bv/libbv.la \
+	@builddir@/datatypes/libdatatypes.la
 
 EXTRA_DIST = \
 	rewriter_tables_template.h \
@@ -70,3 +72,15 @@ theory_traits.h: theory_traits_template.h mktheorytraits @top_builddir@/src/theo
 		$< \
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
+
+AM_V_CHECK = $(am__v_CHECK_$(V))
+am__v_CHECK_ = $(am__v_CHECK_$(AM_DEFAULT_VERBOSITY))
+am__v_CHECK_0 = @echo "  CHECK " $@;
+
+.PHONY: theory-properties
+theory-properties:
+	$(AM_V_CHECK)@srcdir@/mktheorytraits \
+		theory_traits_template.h \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> /dev/null
+all-local check-local: theory-properties

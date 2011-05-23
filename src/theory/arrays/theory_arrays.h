@@ -417,9 +417,9 @@ public:
     }
   }
 
-  void registerTerm(TNode n) {
-    Debug("arrays-register")<<"Arrays::registerTerm "<<n<<"\n";
-  }
+  //void registerTerm(TNode n) {
+  //  Debug("arrays-register")<<"Arrays::registerTerm "<<n<<"\n";
+  //}
 
   void presolve() {
     Debug("arrays")<<"Presolving \n";
@@ -429,6 +429,7 @@ public:
   void addSharedTerm(TNode t);
   void notifyEq(TNode lhs, TNode rhs);
   void check(Effort e);
+
   void propagate(Effort e) {
 
     Debug("arrays-prop")<<"Propagating \n";
@@ -461,6 +462,7 @@ public:
 
   }
   void explain(TNode n);
+
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryArrays"); }

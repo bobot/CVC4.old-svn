@@ -23,11 +23,11 @@
 namespace CVC4 {
 namespace theory {
 
-Node Valuation::getValue(TNode n) {
+Node Valuation::getValue(TNode n) const {
   return d_engine->getValue(n);
 }
 
-Node Valuation::getSatValue(TNode n) {
+Node Valuation::getSatValue(TNode n) const{
   if(n.getKind() == kind::NOT) {
     Node atomRes = d_engine->getPropEngine()->getValue(n[0]);
     if(atomRes.getKind() == kind::CONST_BOOLEAN){
@@ -39,6 +39,14 @@ Node Valuation::getSatValue(TNode n) {
   } else {
     return d_engine->getPropEngine()->getValue(n);
   }
+}
+
+Node Valuation::simplify(TNode in, Substitutions& outSubstitutions) {
+  return d_engine->simplify(in, outSubstitutions);
+}
+
+Node Valuation::rewrite(TNode in) {
+  return d_engine->preprocess(in);
 }
 
 }/* CVC4::theory namespace */

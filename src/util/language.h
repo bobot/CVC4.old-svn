@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -31,7 +31,7 @@ namespace language {
 
 namespace input {
 
-enum Language {
+enum CVC4_PUBLIC Language {
   // SPECIAL "NON-LANGUAGE" LANGUAGES HAVE ENUM VALUE < 0
 
   /** Auto-detect the language */
@@ -58,6 +58,7 @@ enum Language {
   LANG_MAX
 };/* enum Language */
 
+inline std::ostream& operator<<(std::ostream& out, Language lang) CVC4_PUBLIC;
 inline std::ostream& operator<<(std::ostream& out, Language lang) {
   switch(lang) {
   case LANG_AUTO:
@@ -82,7 +83,7 @@ inline std::ostream& operator<<(std::ostream& out, Language lang) {
 
 namespace output {
 
-enum Language {
+enum CVC4_PUBLIC Language {
   // SPECIAL "NON-LANGUAGE" LANGUAGES HAVE ENUM VALUE < 0
 
   // COMMON INPUT AND OUTPUT LANGUAGES HAVE ENUM VALUES IN [0,9]
@@ -109,6 +110,7 @@ enum Language {
   LANG_MAX
 };/* enum Language */
 
+inline std::ostream& operator<<(std::ostream& out, Language lang) CVC4_PUBLIC;
 inline std::ostream& operator<<(std::ostream& out, Language lang) {
   switch(lang) {
   case LANG_SMTLIB:
@@ -138,22 +140,8 @@ typedef language::output::Language OutputLanguage;
 
 namespace language {
 
-inline OutputLanguage toOutputLanguage(InputLanguage language) {
-  switch(language) {
-  case input::LANG_SMTLIB:
-  case input::LANG_SMTLIB_V2:
-  case input::LANG_CVC4:
-    // these entries correspond
-    return OutputLanguage(int(language));
-
-  default: {
-    std::stringstream ss;
-    ss << "Cannot map input language `" << language
-       << "' to an output language.";
-    throw CVC4::Exception(ss.str());
-  }
-  }/* switch(language) */
-}/* toOutputLanguage() */
+InputLanguage toInputLanguage(OutputLanguage language) CVC4_PUBLIC;
+OutputLanguage toOutputLanguage(InputLanguage language) CVC4_PUBLIC;
 
 }/* CVC4::language namespace */
 }/* CVC4 namespace */

@@ -395,6 +395,13 @@ void Solver::popTrail() {
 
 Lit Solver::pickBranchLit()
 {
+#ifdef CVC4_REPLAY
+    Lit nextLit = proxy->getNextReplayDecision();
+    if (nextLit != lit_Undef) {
+      return nextLit;
+    }
+#endif /* CVC4_REPLAY */
+
     Var next = var_Undef;
 
     // Random decision:
@@ -630,7 +637,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     assigns[var(p)] = lbool(!sign(p));
     vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)));
     trail.push_(p);
-    if (theory[var(p)] && from != CRef_Lazy) {
+    if (theory[var(p)]) {
       // Enqueue to the theory
       proxy->enqueueTheoryLiteral(p);
     }
@@ -702,7 +709,6 @@ CRef Solver::theoryCheck(CVC4::theory::Theory::Effort effort)
   SatClause clause;
   proxy->theoryCheck(effort, clause);
   int clause_size = clause.size();
-  Assert(clause_size != 1, "Can't handle unit clause explanations");
   if(clause_size > 0) {
     // Find the max level of the conflict
     int max_level = 0;
@@ -715,6 +721,11 @@ CRef Solver::theoryCheck(CVC4::theory::Theory::Effort effort)
       Assert(value(clause[i]) != l_Undef, "Got an unassigned literal in conflict!");
       if (current_level > max_level) max_level = current_level;
       if (current_intro_level > max_intro_level) max_intro_level = current_intro_level;
+    }
+    // Unit conflict, we just duplicate the first literal
+    if (clause_size == 1) {
+      clause.push(clause[0]);
+      Debug("unit-conflict") << "Unit conflict" << proxy->getNode(clause[0]) << std::endl;
     }
     // If smaller than the decision level then pop back so we can analyse
     Debug("minisat") << "Max-level is " << max_level << " in decision level " << decisionLevel() << std::endl;
@@ -1051,6 +1062,10 @@ lbool Solver::search(int nof_conflicts)
                     check_type = CHECK_WITHOUTH_PROPAGATION_FINAL;
                     continue;
                 }
+
+#ifdef CVC4_REPLAY
+                proxy->logDecision(next);
+#endif /* CVC4_REPLAY */
             }
 
             // Increase decision level and enqueue 'next'

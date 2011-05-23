@@ -5,7 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -32,6 +32,7 @@
 #include "expr/kind.h"
 #include "expr/metakind.h"
 #include "util/Assert.h"
+#include "util/cardinality.h"
 
 namespace CVC4 {
 
@@ -46,6 +47,17 @@ namespace expr {
  * maintained in the NodeValue.
  */
 class TypeNode {
+
+public:
+
+  // for hash_maps, hash_sets..
+  struct HashFunction {
+    size_t operator()(TypeNode node) const {
+      return (size_t) node.getId();
+    }
+  };/* struct HashFunction */
+
+private:
 
   /**
    * The NodeValue has access to the private constructors, so that the
@@ -77,6 +89,22 @@ class TypeNode {
    * @param ev the expression value to assign
    */
   void assignNodeValue(expr::NodeValue* ev);
+
+  /**
+   * Cache-aware, recursive version of substitute() used by the public
+   * member function with a similar signature.
+   */
+  TypeNode substitute(const TypeNode& type, const TypeNode& replacement,
+                      std::hash_map<TypeNode, TypeNode, HashFunction>& cache) const;
+
+  /**
+   * Cache-aware, recursive version of substitute() used by the public
+   * member function with a similar signature.
+   */
+  template <class Iterator1, class Iterator2>
+  TypeNode substitute(Iterator1 typesBegin, Iterator1 typesEnd,
+                      Iterator2 replacementsBegin, Iterator2 replacementsEnd,
+                      std::hash_map<TypeNode, TypeNode, HashFunction>& cache) const;
 
 public:
 
@@ -113,16 +141,16 @@ public:
   /**
    * Substitution of TypeNodes.
    */
-  TypeNode substitute(const TypeNode& type, const TypeNode& replacement) const;
+  inline TypeNode
+  substitute(const TypeNode& type, const TypeNode& replacement) const;
 
   /**
    * Simultaneous substitution of TypeNodes.
    */
   template <class Iterator1, class Iterator2>
-  TypeNode substitute(Iterator1 typesBegin,
-                      Iterator1 typesEnd,
-                      Iterator2 replacementsBegin,
-                      Iterator2 replacementsEnd) const;
+  inline TypeNode
+  substitute(Iterator1 typesBegin, Iterator1 typesEnd,
+             Iterator2 replacementsBegin, Iterator2 replacementsEnd) const;
 
   /**
    * Structural comparison operator for expressions.
@@ -342,6 +370,40 @@ public:
     return d_nv == &expr::NodeValue::s_null;
   }
 
+  /**
+   * Convert this TypeNode into a Type using the currently-in-scope
+   * manager.
+   */
+  inline Type toType();
+
+  /**
+   * Convert a Type into a TypeNode.
+   */
+  inline static TypeNode fromType(const Type& t);
+
+  /**
+   * Returns the cardinality of this type.
+   *
+   * @return a finite or infinite cardinality
+   */
+  Cardinality getCardinality() const;
+
+  /**
+   * Returns whether this type is well-founded.  A type is
+   * well-founded if there exist ground terms.
+   *
+   * @return true iff the type is well-founded
+   */
+  bool isWellFounded() const;
+
+  /**
+   * Construct and return a ground term of this type.  If the type is
+   * not well founded, this function throws an exception.
+   *
+   * @return a ground term of the type
+   */
+  Node mkGroundTerm() const;
+
   /** Is this the Boolean type? */
   bool isBoolean() const;
 
@@ -360,18 +422,51 @@ public:
   /** Get the element type (for array types) */
   TypeNode getArrayConstituentType() const;
 
-  /** Is this a function type? */
+  /** Get the return type (for constructor types) */
+  TypeNode getConstructorRangeType() const;
+
+  /**
+   * Is this a function type?  Function-like things (e.g. datatype
+   * selectors) that aren't actually functions are NOT considered
+   * functions, here.
+   */
   bool isFunction() const;
 
-  /** Get the argument types */
+  /**
+   * Is this a function-LIKE type?  Function-like things
+   * (e.g. datatype selectors) that aren't actually functions ARE
+   * considered functions, here.  The main point is that this is used
+   * to avoid anything higher-order: anything function-like cannot be
+   * the argument or return value for anything else function-like.
+   *
+   * Arrays are explicitly *not* function-like for the purposes of
+   * this test.  However, functions still cannot contain anything
+   * function-like.
+   */
+  bool isFunctionLike() const;
+
+  /**
+   * Get the argument types of a function, datatype constructor,
+   * datatype selector, or datatype tester.
+   */
   std::vector<TypeNode> getArgTypes() const;
 
-  /** Get the range type (i.e., the type of the result). */
+  /**
+   * Get the paramater types of a parameterized datatype.  Fails an
+   * assertion if this type is not a parametric datatype.
+   */
+  std::vector<TypeNode> getParamTypes() const;
+
+  /**
+   * Get the range type (i.e., the type of the result) of a function,
+   * datatype constructor, datatype selector, or datatype tester.
+   */
   TypeNode getRangeType() const;
 
   /**
-   * Is this a predicate type?
-   * NOTE: all predicate types are also function types.
+   * Is this a predicate type?  NOTE: all predicate types are also
+   * function types (so datatype testers are NOT considered
+   * "predicates" for the purpose of this function).
    */
   bool isPredicate() const;
 
@@ -386,6 +481,21 @@ public:
 
   /** Is this a bit-vector type of size <code>size</code> */
   bool isBitVector(unsigned size) const;
+
+  /** Is this a datatype type */
+  bool isDatatype() const;
+
+  /** Is this a parameterized datatype type */
+  bool isParametricDatatype() const;
+
+  /** Is this a constructor type */
+  bool isConstructor() const;
+
+  /** Is this a selector type */
+  bool isSelector() const;
+
+  /** Is this a tester type */
+  bool isTester() const;
 
   /** Get the size of this bit-vector type */
   unsigned getBitVectorSize() const;
@@ -425,16 +535,12 @@ private:
 inline std::ostream& operator<<(std::ostream& out, const TypeNode& n) {
   n.toStream(out,
              Node::setdepth::getDepth(out),
-             Node::printtypes::getPrintTypes(out));
+             Node::printtypes::getPrintTypes(out),
+             Node::setlanguage::getLanguage(out));
   return out;
 }
 
-// for hash_maps, hash_sets..
-struct TypeNodeHashStrategy {
-  static inline size_t hash(const TypeNode& node) {
-    return (size_t) node.getId();
-  }
-};/* struct TypeNodeHashStrategy */
+typedef TypeNode::HashFunction TypeNodeHashFunction;
 
 }/* CVC4 namespace */
 
@@ -444,17 +550,54 @@ struct TypeNodeHashStrategy {
 
 namespace CVC4 {
 
+inline Type TypeNode::toType() {
+  return NodeManager::currentNM()->toType(*this);
+}
+
+inline TypeNode TypeNode::fromType(const Type& t) {
+  return NodeManager::fromType(t);
+}
+
+inline TypeNode
+TypeNode::substitute(const TypeNode& type,
+                     const TypeNode& replacement) const {
+  std::hash_map<TypeNode, TypeNode, HashFunction> cache;
+  return substitute(type, replacement, cache);
+}
+
+template <class Iterator1, class Iterator2>
+inline TypeNode
+TypeNode::substitute(Iterator1 typesBegin,
+                     Iterator1 typesEnd,
+                     Iterator2 replacementsBegin,
+                     Iterator2 replacementsEnd) const {
+  std::hash_map<TypeNode, TypeNode, HashFunction> cache;
+  return substitute(typesBegin, typesEnd,
+                    replacementsBegin, replacementsEnd, cache);
+}
+
 template <class Iterator1, class Iterator2>
 TypeNode TypeNode::substitute(Iterator1 typesBegin,
                               Iterator1 typesEnd,
                               Iterator2 replacementsBegin,
-                              Iterator2 replacementsEnd) const {
+                              Iterator2 replacementsEnd,
+                              std::hash_map<TypeNode, TypeNode, HashFunction>& cache) const {
+  // in cache?
+  std::hash_map<TypeNode, TypeNode, HashFunction>::const_iterator i = cache.find(*this);
+  if(i != cache.end()) {
+    return (*i).second;
+  }
+
+  // otherwise compute
   Assert( typesEnd - typesBegin == replacementsEnd - replacementsBegin,
           "Substitution iterator ranges must be equal size" );
   Iterator1 j = find(typesBegin, typesEnd, *this);
   if(j != typesEnd) {
-    return *(replacementsBegin + (j - typesBegin));
+    TypeNode tn = *(replacementsBegin + (j - typesBegin));
+    cache[*this] = tn;
+    return tn;
   } else if(getNumChildren() == 0) {
+    cache[*this] = *this;
     return *this;
   } else {
     NodeBuilder<> nb(getKind());
@@ -467,9 +610,11 @@ TypeNode TypeNode::substitute(Iterator1 typesBegin,
         i != iend;
         ++i) {
       nb << (*i).substitute(typesBegin, typesEnd,
-                            replacementsBegin, replacementsEnd);
+                            replacementsBegin, replacementsEnd, cache);
     }
-    return nb.constructTypeNode();
+    TypeNode tn = nb.constructTypeNode();
+    cache[*this] = tn;
+    return tn;
   }
 }
 

@@ -2,8 +2,8 @@
 /*! \file Smt2.g
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters, taking
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -19,10 +19,17 @@
 grammar Smt2;
 
 options {
-  language = 'C'; // C output for antlr
-  //defaultErrorHandler = false; // Skip the default error handling, just break with exceptions
+  // C output for antlr
+  language = 'C';
+
+  // Skip the default error handling, just break with exceptions
+  // defaultErrorHandler = false;
+
+  // Only lookahead of <= k requested (disable for LL* parsing)
+  // Note that CVC4's BoundedTokenBuffer requires a fixed k !
+  // If you change this k, change it also in smt2_input.cpp !
   k = 2;
-}
+}/* options */
 
 @header {
 /**
@@ -33,7 +40,7 @@ options {
  ** See the file COPYING in the top-level source directory for licensing
  ** information.
  **/
-}
+}/* @header */
 
 @lexer::includes {
 
@@ -50,20 +57,24 @@ options {
  * Otherwise, we have to let the lexer detect the encoding at runtime.
  */
 #define ANTLR3_INLINE_INPUT_ASCII
-}
+
+#include "parser/antlr_tracing.h"
+
+}/* @lexer::includes */
 
 @lexer::postinclude {
 #include <stdint.h>
 
 #include "parser/smt2/smt2.h"
 #include "parser/antlr_input.h"
+#include "parser/antlr_tracing.h"
 
 using namespace CVC4;
 using namespace CVC4::parser;
 
 #undef PARSER_STATE
 #define PARSER_STATE ((Smt2*)LEXER->super)
-}
+}/* @lexer::postinclude */
 
 @parser::includes {
 #include "expr/command.h"
@@ -71,10 +82,27 @@ using namespace CVC4::parser;
 
 namespace CVC4 {
   class Expr;
+
+  namespace parser {
+    namespace smt2 {
+      /**
+       * Just exists to provide the uintptr_t constructor that ANTLR
+       * requires.
+       */
+      struct myExpr : public CVC4::Expr {
+        myExpr() : CVC4::Expr() {}
+        myExpr(void*) : CVC4::Expr() {}
+        myExpr(const Expr& e) : CVC4::Expr(e) {}
+        myExpr(const myExpr& e) : CVC4::Expr(e) {}
+      };/* struct myExpr */
+    }/* CVC4::parser::smt2 namespace */
+  }/* CVC4::parser namespace */
 }/* CVC4 namespace */
-}
+
+}/* @parser::includes */
 
 @parser::postinclude {
+
 #include "expr/expr.h"
 #include "expr/kind.h"
 #include "expr/type.h"
@@ -100,13 +128,13 @@ using namespace CVC4::parser;
 #undef MK_CONST
 #define MK_CONST EXPR_MANAGER->mkConst
 
-}
+}/* parser::postinclude */
 
 /**
  * Parses an expression.
  * @return the parsed expression, or the Null Expr if we've reached the end of the input
  */
-parseExpr returns [CVC4::Expr expr]
+parseExpr returns [CVC4::parser::smt2::myExpr expr]
   : term[expr]
   | EOF
   ;
@@ -290,7 +318,7 @@ command returns [CVC4::Command* cmd]
       }
     }
   | EXIT_TOK
-    { cmd = NULL; }
+    { cmd = new QuitCommand; }
   ;
 
 symbolicExpr[CVC4::SExpr& sexpr]
@@ -357,7 +385,7 @@ term[CVC4::Expr& expr]
   | /* A non-built-in function application */
     LPAREN_TOK
     functionName[name,CHECK_DECLARED]
-    { PARSER_STATE->checkFunction(name);
+    { PARSER_STATE->checkFunctionLike(name);
       const bool isDefinedFunction =
         PARSER_STATE->isDefinedFunction(name);
       if(isDefinedFunction) {
@@ -448,6 +476,7 @@ term[CVC4::Expr& expr]
     { Assert( AntlrInput::tokenText($BINARY_LITERAL).find("#b") == 0 );
       std::string binString = AntlrInput::tokenTextSubstr($BINARY_LITERAL, 2);
       expr = MK_CONST( BitVector(binString, 2) ); }
+
     // NOTE: Theory constants go here
   ;
 
@@ -578,7 +607,7 @@ functionSymbol[CVC4::Expr& fun]
 	std::string name;
 }
   : functionName[name,CHECK_DECLARED]
-    { PARSER_STATE->checkFunction(name);
+    { PARSER_STATE->checkFunctionLike(name);
       fun = PARSER_STATE->getVariable(name); }
   ;
 
@@ -672,8 +701,8 @@ symbol[std::string& id,
   : SYMBOL
     { id = AntlrInput::tokenText($SYMBOL);
       Debug("parser") << "symbol: " << id
-                      << " check? " << toString(check)
-                      << " type? " << toString(type) << std::endl;
+                      << " check? " << check
+                      << " type? " << type << std::endl;
       PARSER_STATE->checkDeclaration(id, check, type); }
   ;
 
