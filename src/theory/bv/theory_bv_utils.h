@@ -49,6 +49,14 @@ inline Node mkFalse() {
   return NodeManager::currentNM()->mkConst<bool>(false);
 }
 
+inline TNode negate(TNode node) {
+  if (node.getKind() == kind::NOT) {
+    return node[0];
+  } else {
+    return node.notNode();
+  }
+}
+
 inline Node mkAnd(std::vector<TNode>& children) {
   if (children.size() > 1) {
     return NodeManager::currentNM()->mkNode(kind::AND, children);
@@ -101,7 +109,7 @@ inline void getConjuncts(TNode node, std::set<TNode>& conjuncts) {
   }
 }
 
-inline void getConjuncts(std::vector<TNode>& nodes, std::set<TNode>& conjuncts) {
+inline void getConjuncts(const std::vector<TNode>& nodes, std::set<TNode>& conjuncts) {
   for (unsigned i = 0, i_end = nodes.size(); i < i_end; ++ i) {
     getConjuncts(nodes[i], conjuncts);
   }
@@ -136,6 +144,12 @@ inline Node mkConjunction(const std::set<TNode> nodes) {
   }
 
   return conjunction;
+}
+
+inline Node mkConjunction(const std::vector<TNode>& nodes) {
+  std::set<TNode> conjuncts;
+  getConjuncts(nodes, conjuncts);
+  return mkConjunction(conjuncts);
 }
 
 // Turn a set into a string

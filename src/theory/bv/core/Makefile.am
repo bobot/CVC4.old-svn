@@ -12,5 +12,4 @@ libbvcore_la_SOURCES = \
 	slice_manager.h \
 	cd_set_collection.h \
 	cd_list_collection.h \
-	generalized_vector.h \
 	watch_manager.h  

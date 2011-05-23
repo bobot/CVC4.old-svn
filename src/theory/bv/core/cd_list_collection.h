@@ -25,7 +25,6 @@
 
 #include "context/cdo.h"
 #include "theory/bv/theory_bv_utils.h"
-#include "theory/bv/core/generalized_vector.h"
 
 namespace CVC4 {
 namespace context {
@@ -141,7 +140,6 @@ template<typename value_type>
 
     /** Check if the reference is valid in the current context */
     inline bool isValid(reference_type element) const {
-      if (d_backtrackableInserted != d_backtrackable_memory.size()) return false;
       if (element == null) return true;
       if (isBacktrackable(element) && getIndex(element) >= d_backtrackable_memory.size()) return false;
       if (!isBacktrackable(element) && getIndex(element) >= d_static_memory.size()) return false;
@@ -155,32 +153,28 @@ template<typename value_type>
       else return d_static_memory[getIndex(ref)];
     }
 
-    /** Get the list element (const version) */
-    const list_element& getElement(reference_type ref) const {
-      Assert(isValid(ref));
-      if (isBacktrackable(ref)) return d_backtrackable_memory[getIndex(ref)];
-      else return d_static_memory[getIndex(ref)];
-    }
-
     /** Backtrack  */
     void backtrack() {
-      // Backtrack the lists
-      while(d_backtrackableInserted < d_backtrackable_memory.size()) {
-        // Get the element
-        list_element& element = d_backtrackable_memory.back();
-        // Remove it from it's list
-        if(element.prev != null) {
-          // If there is a next element, we need to reconnect
-          if(element.next != null) {
-            list_element& next = getElement(element.next);
-            next.prev = element.prev;
+      if (d_backtrackableInserted < d_backtrackable_memory.size()) {
+        Debug("context::list_collection") << "BacktrackableListCollection::backtrack()" << std::endl;
+        // Backtrack the lists
+        while(d_backtrackableInserted < d_backtrackable_memory.size()) {
+          // Get the element
+          list_element& element = d_backtrackable_memory.back();
+          // Remove it from it's list
+          if(element.prev != null) {
+            // If there is a next element, we need to reconnect
+            if(element.next != null) {
+              list_element& next = getElement(element.next);
+              next.prev = element.prev;
+            }
+            // Reconnect the previous element to the next
+            list_element& prev = getElement(element.prev);
+            prev.next = element.next;
           }
-          // Reconnect the previous element to the next
-          list_element& prev = getElement(element.prev);
-          prev.next = element.next;
+          // Remove the element from memory
+          d_backtrackable_memory.pop_back();
         }
-        // Remove the element from memory
-        d_backtrackable_memory.pop_back();
       }
     }
 
@@ -198,7 +192,11 @@ template<typename value_type>
       d_context(context),
       d_backtrackableInserted(context, 0)
     {
-      Debug("context::list_collection") << "BacktrackableListCollection(): null = " << +null << std::endl;
+      Debug("context::list_collection") << "BacktrackableListCollection(): " << std::endl
+          << "null = " << +null << std::endl
+          << "reference_size = " << +reference_type_size << std::endl
+          << "payload mask = " << +reference_type_payload_mask << std::endl
+          << "payload size = " << +reference_type_payload_size << std::endl;
     }
 
     /**
@@ -238,15 +236,14 @@ template<typename value_type>
             d_static_memory.push_back(list_element(value, null, null));
           }
         } else {
-          // Get the previous element
-          list_element& prevElement = getElement(after);
           // Create the new element
           if(backtrackable) {
-            d_backtrackable_memory.push_back(list_element(value, after, prevElement.next));
+            d_backtrackable_memory.push_back(list_element(value, after, getElement(after).next));
           } else {
-            d_static_memory.push_back(list_element(value, after, prevElement.next));
+            d_static_memory.push_back(list_element(value, after, getElement(after).next));
           }
           // Fix up the next element if it's there
+          list_element& prevElement = getElement(after);
           if(prevElement.next != null) {
             list_element& nextElement = getElement(prevElement.next);
             nextElement.prev = newElement;
@@ -254,12 +251,19 @@ template<typename value_type>
           // Fix up the previous element if it's there
           prevElement.next = newElement;
 
-          Debug("context::list_collection") << "BacktrackableListCollection::insert(" << value << ", " << toString(after) << ")" << std::endl;
+          Debug("context::list_collection") << "BacktrackableListCollection::insert(" << value << ", " << toString(after) << ") => " << newElement << std::endl;
         }
 
         // Return the reference
         return newElement;
       }
+
+    /** Get the list element (const version) */
+    const list_element& getElement(reference_type ref) const {
+      Assert(isValid(ref));
+      if (isBacktrackable(ref)) return d_backtrackable_memory[getIndex(ref)];
+      else return d_static_memory[getIndex(ref)];
+    }
 
     /**
      * Return the element pointed to with the reference.
@@ -372,6 +376,20 @@ template<typename value_type>
       }
 
       /**
+       * Get the responisble list collection.
+       */
+      const BacktrackableListCollection& getListCollection() const {
+        return *d_collection;
+      }
+
+      /**
+       * Get the enclosing list.
+       */
+      reference_type getList() const {
+        return d_collection->d_iterators[d_itIndex].list;
+      }
+
+      /**
        * Move to the next element of the list.
        */
       iterator_reference& operator ++() {
@@ -444,7 +462,7 @@ template<typename value_type>
      * Get a reference to a fresh iterator for the given list.
      */
     iterator_reference begin(reference_type list) {
-      Assert(list != null && list < 0, "list reference is not a valid static list element");
+      Assert(list != null && !isBacktrackable(list), "list reference is not a valid static list element");
       size_t index = d_iterators.size();
       d_iterators.push_back(iterator(list, d_context));
       return iterator_reference(index, this);

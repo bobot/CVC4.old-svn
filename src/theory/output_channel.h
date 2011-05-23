@@ -67,6 +67,11 @@ public:
   }
 
   /**
+   * Has a conflict been reported.
+   */
+  virtual bool inConflict() const = 0;
+
+  /**
    * Indicate a theory conflict has arisen.
    *
    * @param n - a conflict at the current decision level.  This should

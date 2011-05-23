@@ -95,6 +95,7 @@ template<typename EqualityNotify>
 
       /** Copy constructor */
       Watch(const Watch& w) :
+        id(w.id),
         lhsListIt(w.lhsListIt),
         rhsListIt(w.rhsListIt)
       {}
@@ -117,6 +118,7 @@ template<typename EqualityNotify>
        * Try and substitute the given.
        */
       bool substitute(const Substitution& subst) {
+        Assert(*lhsListIt != subst.x || *rhsListIt != subst.x);
         if(*lhsListIt == subst.x) {
           substitute(lhsListIt, subst.t);
           return true;
@@ -143,9 +145,10 @@ template<typename EqualityNotify>
               // Otherwise we must perform a substitution, so get the substitutions
               std::vector<TNode> equalities;
               eqManager.getExplanation(element, elementRep, equalities);
-              for(unsigned i = 0; i < equalities.size(); ++i) {
+              // We traverse backwards, since the equality engine returns the reversed list
+              for(int i = equalities.size()-1; i >= 0; --i) {
                 TNode equality = equalities[i];
-                if(equality[0] == element) {
+                if(equality[0] == *it) {
                   substitute(it, equality[1]);
                 } else {
                   substitute(it, equality[0]);
@@ -175,13 +178,78 @@ template<typename EqualityNotify>
         }
 
       /**
-       * Get the original equality out of the watch.
+       * Is this watch done, i.e. propagated equality already.
        */
-      TNode getEquality() const {
-        std::vector<TNode> lhsElements, rhsElements;
-        lhsListIt.getStaticElements(lhsElements);
-        rhsListIt.getStaticElements(rhsElements);
-        return utils::mkConcat(lhsElements).eqNode(utils::mkConcat(rhsElements));
+      bool done() const {
+        return (*lhsListIt == *rhsListIt);
+      }
+
+      /**
+       * Returns the assumptions used in normalizing the list.
+       */
+      void getSubstitutions(
+          const list_collection& listCollection, TNode x, list_collection::reference_type& list,
+          std::vector<Substitution>& substitutions)
+      {
+        // Since null is flagged, it will pop up and we ignore it
+        if (list == list_collection::null) {
+          return;
+        }
+
+        Debug("theory::bv::watch_manager") << "ConcatWatchManager::getSubstitutions(" << x << ", " << listCollection.toString(list) << ")" << std::endl;
+
+        // Get the size we are matching
+        unsigned size = utils::getSize(x);
+
+        // Scan until we match the size, and accumulate the nodes in the concat vector
+        std::vector<TNode> concat;
+        while (size > 0) {
+          // Get the current element
+          const list_collection::list_element& current = listCollection.getElement(list);
+          // We add it to the concat at this level
+          concat.push_back(current.value);
+          // Move to the next one
+          Assert(size >= utils::getSize(current.value));
+          size -= utils::getSize(current.value);
+          list = current.next;
+          // If no more to consume, we're done
+          if (list_collection::isFlagged(list)) {
+            getSubstitutions(listCollection, current.value, list, substitutions);
+          }
+        }
+
+        // Add the substitution
+        Debug("theory::bv::watch_manager") << "ConcatWatchManager::getSubstitutions(): adding " << x << " = " << utils::mkConcat(concat) << std::endl;
+        substitutions.push_back(Substitution(x, utils::mkConcat(concat)));
+      }
+
+      /**
+       * Returns the assumptions used in normalizing the watch.
+       */
+      template<typename EqualityManager>
+      void getAssumptions(const EqualityManager& eqManager, TNode lhs, TNode rhs, std::vector<TNode>& assumptions) {
+        Debug("theory::bv::watch_manager") << "ConcatWatchManager::getAssumptions(" << lhs << ", " << rhs << ")" << std::endl;
+        // The responsible list collection
+        const list_collection& listCollection = lhsListIt.getListCollection();
+        // We accumulate the substitutions into this vector
+        std::vector<Substitution> substitutions;
+        // Get the lhs substitutions
+        list_collection::reference_type lhsList = lhsListIt.getList();
+        getSubstitutions(listCollection, lhs, lhsList, substitutions);
+        // Get rid of the last (which is lhs = lhs)
+        Assert(lhs == substitutions.back().t);
+        substitutions.pop_back();
+        // Get the rhs substitutions
+        list_collection::reference_type rhsList = rhsListIt.getList();
+        getSubstitutions(listCollection, rhs, rhsList, substitutions);
+        // Get rid of the last (which is lhs = lhs)
+        Assert(rhs == substitutions.back().t);
+        substitutions.pop_back();
+        // Go through the substitutions and get the reasons
+        for (unsigned i = 0; i < substitutions.size(); ++ i) {
+          const Substitution& substitution = substitutions[i];
+          eqManager.getExplanation(substitution.x, substitution.t, assumptions);
+        }
       }
     };
 
@@ -258,7 +326,8 @@ template<typename EqualityNotify>
     /**
      * Assumming that the watch has propagated, gatger the reasons behind the propagation.
      */
-    void explain(unsigned watchId, std::vector<TNode>& assumptions);
+    template<typename EqualityManager>
+    void explain(const EqualityManager& eqManager, unsigned watchId, std::vector<TNode>& assumptions) const;
   };
 
 template<typename EqualityNotify>
@@ -326,7 +395,7 @@ template<typename EqualityManager>
       if(*w.lhsListIt == *w.rhsListIt) {
         if(!w.lhsListIt.hasNext()) {
           // All elements of the list are equal, propagate
-          d_notifyClass(w.id, w.getEquality(), true);
+          d_notifyClass(w.id, d_watchedEqualities[w.id], true);
           propagated = true;
           break;
         }
@@ -393,9 +462,12 @@ template<typename EqualityManager>
           // Try and substitute
           Watch& w = watches[i];
           Debug("theory::bv::watch_manager") << "ConcatWatchManager::propagate(): processing watch " << w.toString() << std::endl;
-
+          // If the watch is done we keep and continue
+          if (w.done()) {
+            watches[newSize++] = w;
+          }
           // Otherwise, try to substitute
-          if(w.substitute(subst)) {
+          else if(w.substitute(subst)) {
             // Attach to the next element
             bool propagated = findNextToWatch(w, eqManager);
             // Add to the updated watches
@@ -419,13 +491,17 @@ template<typename EqualityManager>
   }
 
   template<typename EqualityNotify>
-  void ConcatWatchManager<EqualityNotify>::explain(unsigned watchId, std::vector<TNode>& assumptions) {
+  template<typename EqualityManager>
+  void ConcatWatchManager<EqualityNotify>::explain(const EqualityManager& eqManager, unsigned watchId, std::vector<TNode>& assumptions) const {
     // We only propagate in two cases (1) elements are all the same (2) two constant parts are different
     // In the first case we pick all the equalities backwards, in the other we pick eqaulitites until the
     // first original in the watch
     Watch w = d_watchesList[watchId];
+    Debug("theory::bv::watch_manager") << "ConcatWatchManager::explain(" << d_watchedEqualities[watchId] << ")" << std::endl;
     if (*w.lhsListIt == *w.rhsListIt) {
       // Equality
+      Assert(!w.lhsListIt.hasNext() && !w.rhsListIt.hasNext());
+      w.getAssumptions(eqManager, d_watchedEqualities[watchId][0], d_watchedEqualities[watchId][1], assumptions);
     } else {
       // Disequality
     }

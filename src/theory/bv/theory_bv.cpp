@@ -56,12 +56,33 @@ void TheoryBV::check(Effort e) {
 
   Debug("theory::bv") << "TheoryBV::check(" << e << ")" << std::endl;
 
-  while(!done()) {
+  while (!done() && !d_out->inConflict()) {
     // Get the assertion
     TNode assertion = get();
-    d_assertions.insert(assertion);
     Debug("theory::bv") << "TheoryBV::check(" << e << "): asserting: " << assertion << std::endl;
-    // Do the right stuff
+
+    // Do initial checks and book-keeping
+    if (d_assertions.find(assertion) != d_assertions.end()) {
+      // Add to the assertion set and continue
+      Debug("theory::bv") << "TheoryBV::check(" << e << "): already propagated." << std::endl;
+      continue;
+    } else {
+      // If the negation is there we have a conflict
+      TNode negation = utils::negate(assertion);
+      if (d_assertions.find(negation) != d_assertions.end()) {
+        Debug("theory::bv") << "TheoryBV::check() => conflict" << std::endl;
+        std::vector<TNode> conflict;
+        conflict.push_back(assertion);
+        explainPropagation(negation, conflict);
+        Debug("theory::bv") << "TheoryBV::check() => " << utils::mkConjunction(conflict) << std::endl;
+        d_out->conflict(utils::mkConjunction(conflict));
+        return;
+      }
+      // No conflict yet, add to the assertion set
+      d_assertions.insert(assertion);
+    }
+
+    // Assert the assertion to the apropriate subtheory
     switch (assertion.getKind()) {
     case kind::EQUAL: {
       // Slice and solve the equality, adding the equality information to the watch manager
@@ -78,25 +99,19 @@ void TheoryBV::check(Effort e) {
       Unhandled(assertion.getKind());
     }
   }
+}
 
+void TheoryBV::propagate(Effort level) {
+  Debug("theory::bv") << "TheoryBV::propagate()" << std::endl;
   // Propagate all that is learned
-  for(unsigned i = d_toPropagateIndex; i < d_toPropagateList.size(); ++ i) {
+  for(; d_toPropagateIndex < d_toPropagateList.size(); d_toPropagateIndex = d_toPropagateIndex + 1) {
     // This is what we've learned
-    propagation_info propInfo = d_toPropagateList[i];
+    propagation_info propInfo = d_toPropagateList[d_toPropagateIndex];
     // If it's already been asserted, we go to the next
     if (d_assertions.find(propInfo.literal) != d_assertions.end()) {
       continue;
     }
-    // If the negation has been asserted, we are in conflict
-    TNode negated = propInfo.literal.getKind() == kind::NOT ? propInfo.literal[0] : (TNode) propInfo.literal.notNode();
-    if (d_assertions.find(negated) != d_assertions.end()) {
-      std::vector<TNode> explanation;
-      explanation.push_back(negated);
-      d_watchManager.explain(propInfo.info, explanation);
-      d_out->conflict(utils::mkAnd(explanation));
-      return;
-    }
-    // Otherwise we propagate
+    // Otherwise propagate
     d_out->propagate(propInfo.literal);
   }
 }
@@ -118,7 +133,47 @@ Node TheoryBV::getValue(TNode n) {
   }
 }
 
+bool TheoryBV::propagate(const propagation_info& prop_info) {
+  Debug("theory::bv") << "TheoryBV::propagate(" << prop_info.literal << ")" << std::endl;
+  if (d_assertions.find(prop_info.literal) != d_assertions.end()) {
+    // If already there, do nothing
+    Debug("theory::bv") << "TheoryBV::propagate(" << prop_info.literal << ") => already propagated" << std::endl;
+    return false;
+  }
+  Assert(d_propagationInfo.find(prop_info.literal) == d_propagationInfo.end());
+  d_toPropagateList.push_back(prop_info);
+  d_propagationInfo[prop_info.literal] = prop_info;
+  d_assertions.insert(prop_info.literal);
+  TNode negatedLiteral = utils::negate(prop_info.literal);
+  if (d_assertions.find(negatedLiteral) != d_assertions.end()) {
+    Debug("theory::bv") << "TheoryBV::propagate(" << prop_info.literal << ") => conflict" << std::endl;
+    std::vector<TNode> conflict;
+    conflict.push_back(negatedLiteral);
+    explainPropagation(prop_info.literal, conflict);
+    Debug("theory::bv") << "TheoryBV::propagate(" << prop_info.literal << ") => " << utils::mkConjunction(conflict) << std::endl;
+    d_out->conflict(utils::mkConjunction(conflict));
+    return true;
+  }
+  return false;
+}
+
+void TheoryBV::explainPropagation(TNode node, std::vector<TNode>& explanation) {
+  // Get the propagation info
+  Debug("theory::bv") << "TheoryBV::explainPropagation(" << node << ")" << std::endl;
+  Assert(d_propagationInfo.find(node) != d_propagationInfo.end());
+  propagation_info propInfo = d_propagationInfo[node];
+  switch(propInfo.subTheory) {
+  case EQUALITY_CORE:
+    d_watchManager.explain(d_eqEngine, propInfo.info, explanation);
+    break;
+  default:
+    Unreachable();
+  }
+}
+
 void TheoryBV::explain(TNode node) {
   Debug("theory::bv") << "TheoryBV::explain(" << node << ")" << std::endl;
-  return;
+  std::vector<TNode> explanation;
+  explainPropagation(node, explanation);
+  d_out->explanation(utils::mkConjunction(explanation));
 }

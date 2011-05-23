@@ -104,6 +104,10 @@ class TheoryEngine {
 
     void newFact(TNode n);
 
+    bool inConflict() const {
+      return !d_conflictNode.get().isNull();
+    }
+
     void conflict(TNode conflictNode, bool safe)
       throw(theory::Interrupted, AssertionException) {
       Debug("theory") << "EngineOutputChannel::conflict("

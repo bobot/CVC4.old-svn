@@ -475,6 +475,9 @@ void EqualityEngine<NotifyClass, UnionFindPreferences>::merge(EqualityNode& clas
 
   TNode class1Node = d_nodes[class1Id];
 
+  // Notify whoever is watching this
+  d_notify.addSubstitution(d_nodes[class2Id], class1Node);
+
   // Update class2 representative information
   size_t currentId = class2Id;
   do {
@@ -483,9 +486,6 @@ void EqualityEngine<NotifyClass, UnionFindPreferences>::merge(EqualityNode& clas
 
     // Update it's find to class1 id
     currentNode.setFind(class1Id);
-
-    // Notify whoever is watching this
-    d_notify.addSubstitution(d_nodes[currentId], class1Node);
 
     // Move to the next node
     currentId = currentNode.getNext();

@@ -41,7 +41,8 @@ public:
    * Enumeration of sub-theories of bit-vectors.
    */
   enum SubTheory {
-    EQUALITY_CORE
+    EQUALITY_CORE,
+    SUBTHEORY_LAST
   };
 
 private:
@@ -56,8 +57,13 @@ private:
     TNode literal;
     /** Constructor */
     propagation_info(SubTheory subTheory, unsigned info, TNode literal):
+      subTheory(subTheory),
       info(info),
       literal(literal)
+    {}
+    /** Default constructor for maps */
+    propagation_info():
+      subTheory(SUBTHEORY_LAST)
     {}
   };
 
@@ -82,10 +88,10 @@ public:
       d_theoryBV(theoryBV)
     {}
 
-    /** Propagates that equality is true or false (based on value) */
-    void operator () (unsigned watchIndex, TNode eq, bool value) {
+    /** Propagates that equality is true or false (based on value), return true if in conflict */
+    bool operator () (unsigned watchIndex, TNode eq, bool value) {
       Debug("theory::bv") << "WatchNotify(" << eq << ", " << (value ? "true" : "false") << ")" << std::endl;
-      d_theoryBV.d_toPropagateList.push_back(propagation_info(EQUALITY_CORE, watchIndex, value ? eq : (TNode) eq.notNode()));
+      return d_theoryBV.propagate(propagation_info(EQUALITY_CORE, watchIndex, value ? eq : (TNode) eq.notNode()));
     }
   };
 
@@ -139,6 +145,15 @@ private:
   /** The asserted stuff */
   context::CDSet<TNode, TNodeHashFunction> d_assertions;
 
+  /** Map from propagated literal to their propagation information */
+  context::CDMap<TNode, propagation_info, TNodeHashFunction> d_propagationInfo;
+
+  /** Explain the reason why node is true */
+  void explainPropagation(TNode node, std::vector<TNode>& reasons);
+
+  /** Called by a sub-theory to propagate, return true if in conflict */
+  bool propagate(const propagation_info& propInfo);
+
 public:
 
   TheoryBV(context::Context* c, OutputChannel& out, Valuation valuation):
@@ -150,7 +165,8 @@ public:
     d_eqEngine(d_watchManager, c, "bv_eq_engine"),
     d_sliceManager(d_eqEngine, c), 
     d_context(c),
-    d_assertions(c)
+    d_assertions(c),
+    d_propagationInfo(c)
   {
   }
 
@@ -158,11 +174,11 @@ public:
 
   void check(Effort e);
 
-  void propagate(Effort e) { }
-
   void explain(TNode n);
 
   Node getValue(TNode n);
+
+  void propagate(Effort level);
 
   std::string identify() const { return std::string("TheoryBV"); }
 };/* class TheoryBV */
