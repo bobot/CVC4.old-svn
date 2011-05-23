@@ -226,6 +226,9 @@ template<typename value_type>
         if (flag) {
           setFlag(newElement);
           setFlag(after);
+          Assert(isFlagged(newElement));
+        } else {
+          Assert(!isFlagged(newElement));
         }
 
         if(after == null) {

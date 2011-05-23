@@ -202,6 +202,48 @@ private:
    * Adds a new slice to the slice set of the given term.
    */
   bool addSlice(Node term, unsigned slicePoint);
+
+public:
+
+  /**
+   * This is an equality of value and we wan't it to be represented correcty in the slicing, so we add it.
+   */
+  void slice(TNode eq) {
+    Debug("theory::bv::slice_manager") << "SliceMagager::slice(" << eq << ")" << std::endl;
+
+    std::vector<Node> sliced;
+
+    // Slice the left-hand side
+    TNode lhs = eq[0];
+    Debug("theory::bv::slice_manager") << "SliceMagager::slice(" << eq << "): slicing " << lhs << push << std::endl;
+    if (lhs.getKind() == kind::BITVECTOR_CONCAT) {
+      for (unsigned i = 0; i < lhs.getNumChildren(); ++ i) {
+        if (!isSliced(lhs[i])) {
+          slice(lhs[i], sliced);
+        }
+      }
+    } else {
+      if (!isSliced(lhs)) {
+        slice(lhs, sliced);
+      }
+    }
+
+    // Slice the right-hand side
+    TNode rhs = eq[1];
+    Debug("theory::bv::slice_manager") << "SliceMagager::slice(" << eq << "): slicing " << rhs << push << std::endl;
+    if (rhs.getKind() == kind::BITVECTOR_CONCAT) {
+      for (unsigned i = 0; i < rhs.getNumChildren(); ++ i) {
+        if (!isSliced(rhs[i])) {
+          slice(rhs[i], sliced);
+        }
+      }
+    } else {
+      if (!isSliced(rhs)) {
+        slice(rhs, sliced);
+      }
+    }
+  }
+
 };
 
 template <class EqualityEngine>

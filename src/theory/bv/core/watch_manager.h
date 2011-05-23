@@ -105,8 +105,12 @@ template<typename EqualityNotify>
        */
       void substitute(list_collection::iterator_reference& it, TNode concat) {
         if(concat.getKind() == kind::BITVECTOR_CONCAT) {
-          for(int i = concat.getNumChildren(); i >= 0; --i) {
-            it.insert<true>(concat[i]);
+          for(int i = concat.getNumChildren() - 1; i >= 0; --i) {
+            if (i == 0) {
+              it.insert<true>(concat[i]);
+            } else {
+              it.insert<false>(concat[i]);
+            }
           }
         } else {
           it.insert<true>(concat);
@@ -136,6 +140,7 @@ template<typename EqualityNotify>
       template<typename EqualityManager>
         void normalize(const EqualityManager& eqManager, list_collection::iterator_reference it) {
           while(!it.isNull()) {
+            Debug("theory::bv::watch_manager") << "ConcatWatchManager::normalize(): normalizing " << it.toString() << std::endl;
             TNode element = *it;
             TNode elementRep = eqManager.getRepresentative(element);
             if(elementRep == element) {
@@ -143,17 +148,7 @@ template<typename EqualityNotify>
               break;
             } else {
               // Otherwise we must perform a substitution, so get the substitutions
-              std::vector<TNode> equalities;
-              eqManager.getExplanation(element, elementRep, equalities);
-              // We traverse backwards, since the equality engine returns the reversed list
-              for(int i = equalities.size()-1; i >= 0; --i) {
-                TNode equality = equalities[i];
-                if(equality[0] == *it) {
-                  substitute(it, equality[1]);
-                } else {
-                  substitute(it, equality[0]);
-                }
-              }
+              substitute(it, elementRep);
             }
           }
         }
@@ -205,6 +200,7 @@ template<typename EqualityNotify>
         std::vector<TNode> concat;
         while (size > 0) {
           // Get the current element
+          Debug("theory::bv::watch_manager") << "ConcatWatchManager::getSubstitutions(): processing" << listCollection.toString(list) << ", size = " << size << std::endl;
           const list_collection::list_element& current = listCollection.getElement(list);
           // We add it to the concat at this level
           concat.push_back(current.value);
@@ -379,16 +375,15 @@ template<typename EqualityManager>
 
   template<typename EqualityNotify>
   void ConcatWatchManager<EqualityNotify>::addSubstitution(TNode solvedLhs, TNode rhs) {
-    typename watch_map::iterator find = d_watches.find(solvedLhs);
-    if(find != d_watches.end()) {
-      d_queue.push(Substitution(solvedLhs, rhs));
-    }
+    Debug("theory::bv::watch_manager") << "ConcatWatchManager::addSubstitution(" << solvedLhs << "," << rhs << ")" << std::endl;
+    d_queue.push(Substitution(solvedLhs, rhs));
   }
 
   template<typename EqualityNotify>
   template<typename EqualityManager>
   bool ConcatWatchManager<EqualityNotify>::findNextToWatch(Watch w, EqualityManager& eqManager) {
     // Check for equalitites in order to move the iterators
+    Debug("theory::bv::watch_manager") << "ConcatWatchManager::findNextToWatch(" << w.toString() << ")" << std::endl;
     bool propagated = false;
     while (true) {
       // If the current elements are the same we shift
@@ -432,6 +427,7 @@ template<typename EqualityManager>
       }
     }
     // Nothing propagated
+    Debug("theory::bv::watch_manager") << "ConcatWatchManager::findNextToWatch() => " << w.toString() << std::endl;
     return propagated;
   }
 

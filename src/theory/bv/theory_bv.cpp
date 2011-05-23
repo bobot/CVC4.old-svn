@@ -92,7 +92,10 @@ void TheoryBV::check(Effort e) {
       break;
     }
     case kind::NOT: {
-      // These will get propagated, so we do nothing
+      // These will get propagated, so we do nothing, but we still need to slice it to maintain completeness
+      d_sliceManager.slice(assertion[0]);
+      // The slicing might have introduced some new equalities
+      d_watchManager.propagate(d_eqEngine);
       break;
     }
     default:
