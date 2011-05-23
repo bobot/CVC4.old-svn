@@ -190,6 +190,9 @@ struct CVC4_PUBLIC Options {
   LemmaOutputChannel* lemmaOutputChannel;
   LemmaInputChannel* lemmaInputChannel;
 
+  /** Thread ID, for internal use in case of multi-threaded run */
+  int thread_id;
+
   Options();
 
   /**

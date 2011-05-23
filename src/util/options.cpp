@@ -92,7 +92,8 @@ Options::Options() :
   satRandomSeed(91648253),// Minisat's default value
   pivotRule(MINIMUM),
   lemmaOutputChannel(NULL),
-  lemmaInputChannel(NULL)
+  lemmaInputChannel(NULL),
+  thread_id(-1)
 {
 }
 

@@ -8,6 +8,7 @@
 #include <boost/thread.hpp>
 #include <boost/thread/condition.hpp>
 #include <boost/exception_ptr.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "cvc4autoconfig.h"
 #include "main/main.h"
@@ -294,6 +295,8 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   Options options2 = options;
   options.pivotRule = Options::MINIMUM;
   options2.pivotRule = Options::MAXIMUM;
+  options.thread_id = 0;
+  options2.thread_id = 1;
 
   /* Output to string stream  */
   if(options.verbosity == 0) {
@@ -474,11 +477,7 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
   SmtEngine smt(&exprMgr);
 
   // Register the statistics registry of the thread
-  if(options.pivotRule == Options::MINIMUM)
-    smt.getStatisticsRegistry()->setName("thread #0");
-  else
-    smt.getStatisticsRegistry()->setName("thread #1");
-  theStatisticsRegistry.registerStat_( (Stat*)smt.getStatisticsRegistry() );
+  smt.getStatisticsRegistry()->setName("thread #" + boost::lexical_cast<string>(options.thread_id));
 
   // Execute the commands
   doCommand(smt, cmd, options);
