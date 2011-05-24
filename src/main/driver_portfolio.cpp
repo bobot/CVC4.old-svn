@@ -478,6 +478,7 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
 
   // Register the statistics registry of the thread
   smt.getStatisticsRegistry()->setName("thread #" + boost::lexical_cast<string>(options.thread_id));
+  theStatisticsRegistry.registerStat_( (Stat*)smt.getStatisticsRegistry() );
 
   // Execute the commands
   doCommand(smt, cmd, options);
