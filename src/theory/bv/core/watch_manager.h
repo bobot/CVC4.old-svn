@@ -244,7 +244,10 @@ template<typename EqualityNotify>
         // Go through the substitutions and get the reasons
         for (unsigned i = 0; i < substitutions.size(); ++ i) {
           const Substitution& substitution = substitutions[i];
-          eqManager.getExplanation(substitution.x, substitution.t, assumptions);
+          // If this is a contant that's sliced, there is no explanation
+          if (substitution.x.getKind() != kind::CONST_BITVECTOR) {
+            eqManager.getExplanation(substitution.x, substitution.t, assumptions);
+          }
         }
       }
     };
@@ -262,6 +265,9 @@ template<typename EqualityNotify>
 
     /** The context we are using */
     context::Context* d_context;
+
+    /** List of terms that we need to ensure are referenced */
+    context::CDList<Node> d_termTracker;
 
     /** The CD collection of lists we are using */
     list_collection d_listCollection;
@@ -289,7 +295,7 @@ template<typename EqualityNotify>
      * Constructs a watch manager.
      */
     ConcatWatchManager(EqualityNotify& notify, context::Context* context) :
-      d_notifyClass(notify), d_context(context), d_listCollection(context) {
+      d_notifyClass(notify), d_context(context), d_termTracker(context), d_listCollection(context) {
     }
 
     /**
@@ -405,13 +411,19 @@ template<typename EqualityManager>
           unsigned lhsSize = utils::getSize(lhsElement);
           unsigned rhsSize = utils::getSize(rhsElement);
           if (lhsSize < rhsSize) {
-            TNode rhsHigh = utils::mkConst(rhsElement.getConst<BitVector>().extract(rhsSize-1, rhsSize-lhsSize));
-            TNode rhsLow = utils::mkConst(rhsElement.getConst<BitVector>().extract(rhsSize-lhsSize-1, 0));
-            w.substitute(w.rhsListIt, utils::mkConcat(rhsHigh, rhsLow));
+            Node rhsHigh = utils::mkConst(rhsElement.getConst<BitVector>().extract(rhsSize-1, rhsSize-lhsSize));
+            Node rhsLow = utils::mkConst(rhsElement.getConst<BitVector>().extract(rhsSize-lhsSize-1, 0));
+            Node concat = utils::mkConcat(rhsHigh, rhsLow);
+            w.substitute(w.rhsListIt, concat);
+            // Since this node might not exist, we need to track it
+            d_termTracker.push_back(concat);
           } else if (lhsSize > rhsSize) {
-            TNode lhsHigh = utils::mkConst(lhsElement.getConst<BitVector>().extract(lhsSize - 1, lhsSize - rhsSize));
-            TNode lhsLow = utils::mkConst(lhsElement.getConst<BitVector>().extract(lhsSize - rhsSize - 1, 0));
-            w.substitute(w.lhsListIt, utils::mkConcat(lhsHigh, lhsLow));
+            Node lhsHigh = utils::mkConst(lhsElement.getConst<BitVector>().extract(lhsSize - 1, lhsSize - rhsSize));
+            Node lhsLow = utils::mkConst(lhsElement.getConst<BitVector>().extract(lhsSize - rhsSize - 1, 0));
+            Node concat = utils::mkConcat(lhsHigh, lhsLow);
+            // Since this node might not exist, we need to track it
+            d_termTracker.push_back(concat);
+            w.substitute(w.lhsListIt, concat);
           }
           // Now they are constants of the same size
           if (*w.lhsListIt != *w.rhsListIt) {
