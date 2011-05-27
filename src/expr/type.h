@@ -469,6 +469,13 @@ public:
 
   /** Get the name of the sort */
   std::string getName() const;
+
+  /** Is this type parameterized? */
+  bool isParameterized() const;
+
+  /** Get the parameter types */
+  std::vector<Type> getParamTypes() const;
+
 };/* class SortType */
 
 /**
@@ -533,8 +540,19 @@ public:
   /** Get the underlying datatype */
   const Datatype& getDatatype() const;
 
-};/* class DatatypeType */
+  /** Is this this datatype parametric? */
+  bool isParametric() const;
 
+  /** Get the parameter types */
+  std::vector<Type> getParamTypes() const;
+
+  /** Get the arity of the datatype constructor */
+  size_t getArity() const;
+
+  /** Instantiate a datatype using this datatype constructor */
+  DatatypeType instantiate(const std::vector<Type>& params) const;
+
+};/* class DatatypeType */
 
 /**
  * Class encapsulating the constructor type

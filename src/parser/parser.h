@@ -150,7 +150,7 @@ class CVC4_PUBLIC Parser {
    * depend on mkMutualDatatypeTypes() to check everything and clear
    * this out.
    */
-  std::set<SortType> d_unresolved;
+  std::set<Type> d_unresolved;
 
   /**
    * "Preemption commands": extra commands implied by subterms that
@@ -164,12 +164,17 @@ class CVC4_PUBLIC Parser {
 
 protected:
   /**
-   * Create a parser state. NOTE: The parser takes "ownership" of the given
+   * Create a parser state.
+   *
+   * @attention The parser takes "ownership" of the given
    * input and will delete it on destruction.
    *
    * @param exprManager the expression manager to use when creating expressions
    * @param input the parser input
    * @param strictMode whether to incorporate strict(er) compliance checks
+   * @param parseOnly whether we are parsing only (and therefore certain checks
+   * need not be performed, like those about unimplemented features, @see
+   * unimplementedFeature())
    */
   Parser(ExprManager* exprManager, Input* input, bool strictMode = false, bool parseOnly = false);
 
@@ -253,6 +258,11 @@ public:
    */
   Type getSort(const std::string& sort_name,
                const std::vector<Type>& params);
+
+  /**
+   * Returns arity of a (parameterized) sort, given a name and args.
+   */
+  size_t getArity(const std::string& sort_name);
 
   /**
    * Checks if a symbol has been declared.
@@ -366,6 +376,19 @@ public:
    * Creates a new "unresolved type," used only during parsing.
    */
   SortType mkUnresolvedType(const std::string& name);
+
+  /**
+   * Creates a new unresolved (parameterized) type constructor of the given
+   * arity.
+   */
+  SortConstructorType mkUnresolvedTypeConstructor(const std::string& name, 
+                                                  size_t arity);
+  /**
+   * Creates a new unresolved (parameterized) type constructor given the type
+   * parameters.
+   */
+  SortConstructorType mkUnresolvedTypeConstructor(const std::string& name, 
+                                                  const std::vector<Type>& params);
 
   /**
    * Returns true IFF name is an unresolved type.
