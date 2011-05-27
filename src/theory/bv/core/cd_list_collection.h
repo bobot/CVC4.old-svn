@@ -32,9 +32,9 @@ namespace context {
 /**
  * A class representing a backtrackable list of elements. The elements of a list can be either static or backtrackable.
  * The static elements are never removed, and the backtrackable elements are remove (and the enclosing list relinked)
- * on backtracks according to the context. Additionally, there is each edge can have one flag for user purposes.
+ * on backtracks according to the context. Additionally, there is each edge can have a type for user purposes.
  */
-template<typename value_type>
+template<typename value_type, typename edge_type, unsigned edge_type_size>
   class BacktrackableListCollection {
 
   public:
@@ -42,16 +42,17 @@ template<typename value_type>
     /** The type we use to reference the elements */
     typedef size_t reference_type;
 
+    // data layout for references:
+    // type | backtrackable | reference
+
     /** The size of the the reference type in bits */
     static const unsigned reference_type_size = CHAR_BIT * sizeof(reference_type);
     /** The size of the referenct type payload */
-    static const unsigned reference_type_payload_size = reference_type_size - 2;
+    static const unsigned reference_type_payload_size = reference_type_size - edge_type_size - 1;
     /** Payload mask */
-    static const reference_type reference_type_payload_mask = (unsigned)((reference_type) (-1)) >> 2;
+    static const reference_type reference_type_payload_mask = ((reference_type) (-1)) >> (edge_type_size + 1);
     /** Backtrackable mask */
-    static const reference_type reference_type_backtrackable_mask = 1 << (reference_type_size - 1);
-    /** Flag mask */
-    static const reference_type reference_type_flag_mask = 1 << (reference_type_size - 2);
+    static const reference_type reference_type_backtrackable_mask = 1 << (reference_type_size - reference_type_payload_size);
     /** The null pointer is just all 1 */
     static const reference_type null = -1;
 
@@ -72,15 +73,16 @@ template<typename value_type>
     /**
      * Is this edge be flagged.
      */
-    static bool isFlagged(reference_type ref) {
-      return ref & reference_type_flag_mask;
+    static edge_type getType(reference_type ref) {
+      return (edge_type) (ref >> (reference_type_payload_size + 1));
     }
 
     /**
-     * Set the user flag on.
+     * Set the user flag on, can only be used once.
      */
-    static void setFlag(reference_type& ref) {
-      ref |= reference_type_flag_mask;
+    static void setType(reference_type& ref, edge_type type) {
+      Assert(getType(ref) == (edge_type)0);
+      ref |= ((reference_type) type << (reference_type_payload_size + 1));
     }
 
     /**
@@ -210,7 +212,7 @@ template<typename value_type>
     /**
      * Insert the given value after the given reference. If after is null, a new list will be created.
      */
-    template<bool backtrackable, bool flag>
+    template<bool backtrackable, edge_type type>
       reference_type insert(const value_type& value, reference_type after = null) {
         backtrack();
         Assert(isValid(after));
@@ -223,13 +225,10 @@ template<typename value_type>
           d_backtrackableInserted = d_backtrackableInserted + 1;
           setBacktrackable(newElement);
         }
-        if (flag) {
-          setFlag(newElement);
-          setFlag(after);
-          Assert(isFlagged(newElement));
-        } else {
-          Assert(!isFlagged(newElement));
-        }
+
+        // Set the edge type
+        setType(newElement, type);
+        setType(after, type);
 
         if(after == null) {
           // If requested, create a new list
@@ -412,10 +411,10 @@ template<typename value_type>
       /**
        * Insert a new list element after the iterator (these elements are backtrackable).
        */
-      template<bool flag>
+      template<edge_type type>
       void insert(value_type value) {
         iterator& it = d_collection->d_iterators[d_itIndex];
-        d_collection->template insert<true, flag> (value, *it.current);
+        d_collection->template insert<true, type> (value, *it.current);
       }
 
       /**

@@ -34,21 +34,8 @@ void TheoryBV::preRegisterTerm(TNode node) {
   Debug("theory::bv") << "TheoryBV::preRegister(" << node << ")" << std::endl;
 
   if (node.getKind() == kind::EQUAL) {
-	// Add the terms to the equality manager 
-    d_eqEngine.addTerm(node[0]);
-    if (node[0].getKind() == kind::BITVECTOR_CONCAT) {
-      for (unsigned i = 0, i_end = node[0].getNumChildren(); i < i_end; ++ i) {
-        d_eqEngine.addTerm(node[0][i]);
-      }
-    }
-    d_eqEngine.addTerm(node[1]);
-    if (node[1].getKind() == kind::BITVECTOR_CONCAT) {
-      for (unsigned i = 0, i_end = node[1].getNumChildren(); i < i_end; ++ i) {
-        d_eqEngine.addTerm(node[1][i]);
-      }
-    }
     // Add to the watch manager
-    d_watchManager.addEqualityToWatch(d_eqEngine, node[0], node[1]);
+    d_watchManager.addEqualityToWatch(node[0], node[1]);
   }
 }
 
@@ -88,14 +75,11 @@ void TheoryBV::check(Effort e) {
       // Slice and solve the equality, adding the equality information to the watch manager
       d_sliceManager.solveEquality(assertion[0], assertion[1]);
       // Above will add information to the watch manager so we run it now
-      d_watchManager.propagate(d_eqEngine);
+      d_watchManager.propagate();
       break;
     }
     case kind::NOT: {
-      // These will get propagated, so we do nothing, but we still need to slice it to maintain completeness
-      d_sliceManager.slice(assertion[0]);
-      // The slicing might have introduced some new equalities
-      d_watchManager.propagate(d_eqEngine);
+      // These will get propagated for now, so we do nothing
       break;
     }
     default:
@@ -167,7 +151,7 @@ void TheoryBV::explainPropagation(TNode node, std::vector<TNode>& explanation) {
   propagation_info propInfo = d_propagationInfo[node];
   switch(propInfo.subTheory) {
   case EQUALITY_CORE:
-    d_watchManager.explain(d_eqEngine, propInfo.info, explanation);
+    d_watchManager.explain(propInfo.info, explanation);
     break;
   default:
     Unreachable();

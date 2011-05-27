@@ -25,7 +25,6 @@
 #include "context/context.h"
 #include "context/cdset.h"
 #include "context/cdlist.h"
-#include "theory/bv/core/equality_engine.h"
 #include "theory/bv/core/slice_manager.h"
 #include "theory/bv/core/watch_manager.h"
 
@@ -67,14 +66,6 @@ private:
     {}
   };
 
-  /** List of things to propagate */
-  context::CDList<propagation_info> d_toPropagateList;
-
-  /** Index of the last propagated node */
-  context::CDO<unsigned> d_toPropagateIndex;
-
-public:
-
   /**
    * This is the notify class for the watch manager. All propagated equalities are passed on to the instance
    * of this class.
@@ -85,42 +76,21 @@ public:
   public:
     /** Construct the notify class with the theory instance */
     WatchNotify(TheoryBV& theoryBV) :
-      d_theoryBV(theoryBV)
-    {}
+      d_theoryBV(theoryBV) {
+    }
 
     /** Propagates that equality is true or false (based on value), return true if in conflict */
-    bool operator () (unsigned watchIndex, TNode eq, bool value) {
+    bool operator ()(unsigned watchIndex, TNode eq, bool value) {
       Debug("theory::bv") << "WatchNotify(" << eq << ", " << (value ? "true" : "false") << ")" << std::endl;
       return d_theoryBV.propagate(propagation_info(EQUALITY_CORE, watchIndex, value ? eq : (TNode) eq.notNode()));
     }
   };
 
-  struct BVEqualitySettings {
-    static inline bool descend(TNode node) {
-      return node.getKind() == kind::BITVECTOR_CONCAT || node.getKind() == kind::BITVECTOR_EXTRACT;
-    }
+  /** List of things to propagate */
+  context::CDList<propagation_info> d_toPropagateList;
 
-    /** Returns true if node1 has preference to node2 as a representative, otherwise node2 is used */
-    static inline bool mergePreference(TNode node1, unsigned node1size, TNode node2, unsigned node2size) {
-      if (node1.getKind() == kind::CONST_BITVECTOR) {
-        Assert(node2.getKind() != kind::CONST_BITVECTOR);
-        return true;
-      }
-      if (node2.getKind() == kind::CONST_BITVECTOR) {
-        Assert(node1.getKind() != kind::CONST_BITVECTOR);
-        return false;
-      }
-      if (node1.getKind() == kind::BITVECTOR_CONCAT) {
-        Assert(node2.getKind() != kind::BITVECTOR_CONCAT);
-        return true;
-      }
-      if (node2.getKind() == kind::BITVECTOR_CONCAT) {
-        Assert(node1.getKind() != kind::BITVECTOR_CONCAT);
-        return false;
-      }
-      return node2size < node1size;
-    }
-  };
+  /** Index of the last propagated node */
+  context::CDO<unsigned> d_toPropagateIndex;
 
 private:
 
@@ -128,16 +98,10 @@ private:
   WatchNotify d_watchNotify;
 
   /** Watch manager */
-  typedef ConcatWatchManager<WatchNotify> watch_manager;
-  watch_manager d_watchManager;
-
-  /** Equality reasoning engine */
-  typedef EqualityEngine<watch_manager, BVEqualitySettings> equality_engine;
-  equality_engine d_eqEngine;
+  ConcatWatchManager<WatchNotify> d_watchManager;
 
   /** Slice manager */
-  typedef SliceManager<equality_engine> slice_manager;
-  slice_manager d_sliceManager;
+  SliceManager< ConcatWatchManager<WatchNotify> > d_sliceManager;
   
   /** The context we are using */
   context::Context* d_context;
@@ -162,8 +126,7 @@ public:
     d_toPropagateIndex(c, 0),
     d_watchNotify(*this),
     d_watchManager(d_watchNotify, c),
-    d_eqEngine(d_watchManager, c, "bv_eq_engine"),
-    d_sliceManager(d_eqEngine, c), 
+    d_sliceManager(d_watchManager.getEqualityManager(), c),
     d_context(c),
     d_assertions(c),
     d_propagationInfo(c)

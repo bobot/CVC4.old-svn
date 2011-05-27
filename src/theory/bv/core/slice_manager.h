@@ -1,15 +1,28 @@
-/*
- * slice_manager.h
- *
- *  Created on: Feb 16, 2011
- *      Author: dejan
- */
+/*********************                                                        */
+/*! \file slice_manager.h
+ ** \verbatim
+ ** Original author: dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief [[ Add one-line brief description here ]]
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
+ **/
 
 #pragma once
 
 #include "context/cdo.h"
 #include "theory/bv/theory_bv_utils.h"
 #include "theory/bv/core/equality_engine.h"
+#include "theory/bv/core/equality_settings.h"
 #include "theory/bv/core/cd_set_collection.h"
 
 #include <map>
@@ -110,10 +123,13 @@ public:
  * z[31:16], z[15:0]).
  *
  */
-template <class EqualityEngine>
+template<typename WatchManager>
 class SliceManager {
 
 public:
+
+  /** The equality engine that is being used */
+  typedef typename WatchManager::equality_manager EqualityEngine;
 
   /** The references to backtrackable sets */
   typedef slice_point::reference_type set_reference;
@@ -209,13 +225,13 @@ public:
    * This is an equality of value and we wan't it to be represented correcty in the slicing, so we add it.
    */
   void slice(TNode eq) {
-    Debug("theory::bv::slice_manager") << "SliceMagager::slice(" << eq << ")" << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::slice(" << eq << ")" << std::endl;
 
     std::vector<Node> sliced;
 
     // Slice the left-hand side
     TNode lhs = eq[0];
-    Debug("theory::bv::slice_manager") << "SliceMagager::slice(" << eq << "): slicing " << lhs << push << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::slice(" << eq << "): slicing " << lhs << push << std::endl;
     if (lhs.getKind() == kind::BITVECTOR_CONCAT) {
       for (unsigned i = 0; i < lhs.getNumChildren(); ++ i) {
         if (!isSliced(lhs[i])) {
@@ -230,7 +246,7 @@ public:
 
     // Slice the right-hand side
     TNode rhs = eq[1];
-    Debug("theory::bv::slice_manager") << "SliceMagager::slice(" << eq << "): slicing " << rhs << push << std::endl;
+    Debug("theory::bv::slice_manager") << "SliceManager::slice(" << eq << "): slicing " << rhs << push << std::endl;
     if (rhs.getKind() == kind::BITVECTOR_CONCAT) {
       for (unsigned i = 0; i < rhs.getNumChildren(); ++ i) {
         if (!isSliced(rhs[i])) {
@@ -246,18 +262,18 @@ public:
 
 };
 
-template <class EqualityEngine>
-bool SliceManager<EqualityEngine>::solveEquality(TNode lhs, TNode rhs) {
+template <typename WatchManager>
+bool SliceManager<WatchManager>::solveEquality(TNode lhs, TNode rhs) {
   std::set<TNode> assumptions;
   assumptions.insert(lhs.eqNode(rhs));
   bool ok = solveEquality(lhs, rhs, assumptions);
   return ok;
 }
 
-template <class EqualityEngine>
-bool SliceManager<EqualityEngine>::solveEquality(TNode lhs, TNode rhs, const std::set<TNode>& assumptions) {
+template <typename WatchManager>
+bool SliceManager<WatchManager>::solveEquality(TNode lhs, TNode rhs, const std::set<TNode>& assumptions) {
 
-  Debug("theory::bv::slice_manager") << "SliceMagager::solveEquality(" << lhs << "," << rhs << "," << utils::setToString(assumptions) << ")" << push << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::solveEquality(" << lhs << "," << rhs << "," << utils::setToString(assumptions) << ")" << push << std::endl;
 
   bool ok;
 
@@ -284,14 +300,14 @@ bool SliceManager<EqualityEngine>::solveEquality(TNode lhs, TNode rhs, const std
   // Slice the individual terms to align them
   ok = sliceAndSolve(lhsTerms, rhsTerms, assumptions);
 
-  Debug("theory::bv::slice_manager") << "SliceMagager::solveEquality(" << lhs << "," << rhs << "," << utils::setToString(assumptions) << ")" << pop << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::solveEquality(" << lhs << "," << rhs << "," << utils::setToString(assumptions) << ")" << pop << std::endl;
 
   return ok;
 }
 
 
-template <class EqualityEngine>
-bool SliceManager<EqualityEngine>::sliceAndSolve(std::vector<Node>& lhs, std::vector<Node>& rhs, const std::set<TNode>& assumptions)
+template <typename WatchManager>
+bool SliceManager<WatchManager>::sliceAndSolve(std::vector<Node>& lhs, std::vector<Node>& rhs, const std::set<TNode>& assumptions)
 {
 
   Debug("theory::bv::slice_manager") << "SliceManager::sliceAndSolve()" << std::endl;
@@ -493,8 +509,8 @@ bool SliceManager<EqualityEngine>::sliceAndSolve(std::vector<Node>& lhs, std::ve
   return true;
 }
 
-template <class EqualityEngine>
-bool SliceManager<EqualityEngine>::isSliced(TNode node) const {
+template <typename WatchManager>
+bool SliceManager<WatchManager>::isSliced(TNode node) const {
 
   Debug("theory::bv::slice_manager") << "SliceManager::isSliced(" << node << ")" << std::endl;
 
@@ -534,9 +550,9 @@ bool SliceManager<EqualityEngine>::isSliced(TNode node) const {
   return result;
 }
 
-template <class EqualityEngine>
-bool SliceManager<EqualityEngine>::addSlice(Node node, unsigned slicePoint) {
-  Debug("theory::bv::slice_manager") << "SliceMagager::addSlice(" << node << "," << slicePoint << ")" << std::endl;
+template <typename WatchManager>
+bool SliceManager<WatchManager>::addSlice(Node node, unsigned slicePoint) {
+  Debug("theory::bv::slice_manager") << "SliceManager::addSlice(" << node << "," << slicePoint << ")" << std::endl;
 
   bool ok = true;
 
@@ -565,7 +581,7 @@ bool SliceManager<EqualityEngine>::addSlice(Node node, unsigned slicePoint) {
 
   // Add the slice to the set
   d_setCollection.insert(sliceSet, slicePoint);
-  Debug("theory::bv::slice_manager") << "SliceMagager::addSlice(" << node << "," << slicePoint << "): current set " << d_setCollection.toString(sliceSet) << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::addSlice(" << node << "," << slicePoint << "): current set " << d_setCollection.toString(sliceSet) << std::endl;
 
   // Add the terms and the equality to the equality engine
   Node t1 = utils::mkExtract(nodeBase, next - 1, slicePoint);
@@ -593,13 +609,13 @@ bool SliceManager<EqualityEngine>::addSlice(Node node, unsigned slicePoint) {
     ok = solveEquality(nodeSliceRepresentative, concat, assumptions);
   }
 
-  Debug("theory::bv::slice_manager") << "SliceMagager::addSlice(" << node << "," << slicePoint << ") => " << d_setCollection.toString(d_nodeSlicing[nodeBase]) << std::endl;
+  Debug("theory::bv::slice_manager") << "SliceManager::addSlice(" << node << "," << slicePoint << ") => " << d_setCollection.toString(d_nodeSlicing[nodeBase]) << std::endl;
 
   return ok;
 }
 
-template <class EqualityEngine>
-inline bool SliceManager<EqualityEngine>::slice(TNode node, std::vector<Node>& sliced) {
+template <typename WatchManager>
+inline bool SliceManager<WatchManager>::slice(TNode node, std::vector<Node>& sliced) {
 
   Debug("theory::bv::slice_manager") << "SliceManager::slice(" << node << ")" << std::endl;
 
@@ -674,8 +690,8 @@ inline bool SliceManager<EqualityEngine>::slice(TNode node, std::vector<Node>& s
   return true;
 }
 
-template <class EqualityEngine>
-TNode SliceManager<EqualityEngine>::baseTerm(TNode node) {
+template <typename WatchManager>
+TNode SliceManager<WatchManager>::baseTerm(TNode node) {
   if (node.getKind() == kind::BITVECTOR_EXTRACT) {
     Assert(node[0].getKind() != kind::BITVECTOR_EXTRACT);
     Assert(node[0].getKind() != kind::CONST_BITVECTOR);

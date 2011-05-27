@@ -435,7 +435,10 @@ TNode EqualityEngine<NotifyClass, UnionFindPreferences>::getRepresentative(TNode
 
   Debug("theory::bv::eq_engine") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
 
-  Assert(hasTerm(t));
+  // If the term is not managed yet, it is it's own representative
+  if (!hasTerm(t)) {
+    return t;
+  }
 
   // Both following commands are semantically const
   const_cast<EqualityEngine*>(this)->backtrack();

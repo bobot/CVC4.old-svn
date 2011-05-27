@@ -26,6 +26,8 @@
 
 #include "theory/bv/theory_bv_utils.h"
 #include "theory/bv/core/cd_list_collection.h"
+#include "theory/bv/core/equality_engine.h"
+#include "theory/bv/core/equality_settings.h"
 
 namespace CVC4 {
 namespace theory {
@@ -40,8 +42,46 @@ template<typename EqualityNotify>
 
   public:
 
+    /**
+     * The class to be notified of substitutions.
+     */
+    class SubstitutionNotify {
+      ConcatWatchManager& d_concatWatchManager;
+    public:
+      SubstitutionNotify(ConcatWatchManager& wm) :
+        d_concatWatchManager(wm) {
+      }
+      void addSubstitution(TNode solvedLhs, TNode rhs) {
+        d_concatWatchManager.addSubstitution(solvedLhs, rhs);
+      }
+    };
+
+    /** The equality engine we are using */
+    typedef EqualityEngine<SubstitutionNotify, BVEqualitySettings> equality_manager;
+
+    /**
+     * Type of list insertion
+     */
+    enum InsertionType {
+      /** Plain insertion when adding concatenation */
+      INSERTION_PLAIN,
+      /** We substitute the term itself */
+      INSERTION_TERM_SUBSTITUTION,
+      /** We substitute the subterm, i.e. x in x[i:j] */
+      INSERTION_SUBTERM_SUBSTIITUTION
+    };
+
     /** The memory manager for the context dependent lists */
-    typedef context::BacktrackableListCollection<TNode> list_collection;
+    typedef context::BacktrackableListCollection<TNode, InsertionType, 2> list_collection;
+
+    /** The list reference type */
+    typedef typename list_collection::reference_type reference_type;
+
+    /** The list iterator reference type */
+    typedef typename list_collection::iterator_reference iterator_reference;
+
+    /** The list element type */
+    typedef typename list_collection::list_element list_element;
 
     /**
      * Substitution x = t
@@ -60,9 +100,9 @@ template<typename EqualityNotify>
       unsigned id;
 
       /** The iterator to the watched left-hand side concat element */
-      typename list_collection::iterator_reference lhsListIt;
+      iterator_reference lhsListIt;
       /** The iterator to the watched right-hand side concat element */
-      typename list_collection::iterator_reference rhsListIt;
+      iterator_reference rhsListIt;
 
       /**
        * Print the watch.
@@ -85,35 +125,36 @@ template<typename EqualityNotify>
       }
 
       /** The undefined watch */
-      Watch()
-      {}
+      Watch() {
+      }
 
       /** Construct the watch */
-      Watch(unsigned id, list_collection& listCollection, list_collection::reference_type lhsList, list_collection::reference_type rhsList) :
-        id(id), lhsListIt(listCollection.begin(lhsList)), rhsListIt(listCollection.begin(rhsList))
-      {}
+      Watch(unsigned id, list_collection& listCollection, reference_type lhsList,
+            reference_type rhsList) :
+        id(id), lhsListIt(listCollection.begin(lhsList)), rhsListIt(listCollection.begin(rhsList)) {
+      }
 
       /** Copy constructor */
       Watch(const Watch& w) :
-        id(w.id),
-        lhsListIt(w.lhsListIt),
-        rhsListIt(w.rhsListIt)
-      {}
+        id(w.id), lhsListIt(w.lhsListIt), rhsListIt(w.rhsListIt) {
+      }
 
       /**
        * Insert the concatenation after the iterator and move the iterator to the next element.
        */
-      void substitute(list_collection::iterator_reference& it, TNode concat) {
+      template <InsertionType type>
+      void iteratorSubstitute(iterator_reference& it, TNode concat) {
+        Assert(type != INSERTION_PLAIN);
         if(concat.getKind() == kind::BITVECTOR_CONCAT) {
           for(int i = concat.getNumChildren() - 1; i >= 0; --i) {
-            if (i == 0) {
-              it.insert<true>(concat[i]);
+            if(i == 0) {
+              it.template insert<type>(concat[i]);
             } else {
-              it.insert<false>(concat[i]);
+              it.template insert<INSERTION_PLAIN> (concat[i]);
             }
           }
         } else {
-          it.insert<true>(concat);
+          it.template insert<type> (concat);
         }
         ++it;
       }
@@ -122,42 +163,67 @@ template<typename EqualityNotify>
        * Try and substitute the given.
        */
       bool substitute(const Substitution& subst) {
-        Assert(*lhsListIt != subst.x || *rhsListIt != subst.x);
-        if(*lhsListIt == subst.x) {
-          substitute(lhsListIt, subst.t);
+
+        // Check if we can substitute the left-hand side
+        TNode lhsNode = *lhsListIt;
+        if (lhsNode == subst.x) {
+          iteratorSubstitute<INSERTION_TERM_SUBSTITUTION>(lhsListIt, subst.t);
           return true;
-        } else if(*rhsListIt == subst.x) {
-          substitute(rhsListIt, subst.t);
-          return true;
-        } else {
-          return false;
         }
+        if (lhsNode.getKind() == kind::BITVECTOR_EXTRACT && lhsNode[0] == subst.x) {
+          iteratorSubstitute<INSERTION_SUBTERM_SUBSTIITUTION>(lhsListIt, subst.t);
+          return true;
+        }
+
+        // Check if we can substitute the right-hand side
+        TNode rhsNode = *rhsListIt;
+        if (rhsNode == subst.x) {
+          iteratorSubstitute<INSERTION_TERM_SUBSTITUTION>(rhsListIt, subst.t);
+          return true;
+        }
+        if (rhsNode.getKind() == kind::BITVECTOR_EXTRACT && rhsNode[0] == subst.x) {
+          iteratorSubstitute<INSERTION_SUBTERM_SUBSTIITUTION>(rhsListIt, subst.t);
+          return true;
+        }
+
+        // No substitution possible
+        return false;
       }
 
       /** 
        * Normalizes the iterator.
        */
-      template<typename EqualityManager>
-        void normalize(const EqualityManager& eqManager, list_collection::iterator_reference it) {
-          while(!it.isNull()) {
-            Debug("theory::bv::watch_manager") << "ConcatWatchManager::normalize(): normalizing " << it.toString() << std::endl;
-            TNode element = *it;
+      void normalize(const equality_manager& eqManager, iterator_reference it) {
+        while(!it.isNull()) {
+          Debug("theory::bv::watch_manager") << "ConcatWatchManager::normalize(): normalizing " << it.toString() << std::endl;
+          TNode element = *it;
+
+          // If the element is managed (solved) by the equality manager we substitute directly
+          if (eqManager.hasTerm(element) || element.getKind() != kind::BITVECTOR_CONCAT) {
             TNode elementRep = eqManager.getRepresentative(element);
             if(elementRep == element) {
               // If the current element is it's own representative, we are done
               break;
             } else {
               // Otherwise we must perform a substitution, so get the substitutions
-              substitute(it, elementRep);
+              iteratorSubstitute<INSERTION_TERM_SUBSTITUTION>(it, elementRep);
+            }
+          } else {
+            TNode elementRep = eqManager.getRepresentative(element[0]);
+            if (elementRep == element[0]) {
+              // If the current element is it's own representative, we are done
+              break;
+            } else {
+              iteratorSubstitute<INSERTION_SUBTERM_SUBSTIITUTION>(it, elementRep);
             }
           }
         }
+      }
 
       /**
        * Normalize the watch.
        */
-      template<typename EqualityManager>
-        void normalize(const EqualityManager& eqManager) {
+      void normalize(const equality_manager& eqManager) {
         normalize(eqManager, lhsListIt);
         normalize(eqManager, rhsListIt);
       }
@@ -165,12 +231,11 @@ template<typename EqualityNotify>
       /**
        * Increase the watch pointers by one and normalize (substitute) the first remaining elements.
        */
-      template<typename EqualityManager>
-        void next(const EqualityManager& eqManager) {
-          // Move the iterators
-          normalize(eqManager, ++lhsListIt);
-          normalize(eqManager, ++rhsListIt);
-        }
+      void next(const equality_manager& eqManager) {
+        // Move the iterators
+        normalize(eqManager, ++lhsListIt);
+        normalize(eqManager, ++rhsListIt);
+      }
 
       /**
        * Is this watch done, i.e. propagated equality already.
@@ -183,7 +248,7 @@ template<typename EqualityNotify>
        * Returns the assumptions used in normalizing the list.
        */
       void getSubstitutions(
-          const list_collection& listCollection, TNode x, list_collection::reference_type& list,
+          const list_collection& listCollection, TNode x, reference_type& list,
           std::vector<Substitution>& substitutions)
       {
         // Since null is flagged, it will pop up and we ignore it
@@ -201,7 +266,7 @@ template<typename EqualityNotify>
         while (size > 0) {
           // Get the current element
           Debug("theory::bv::watch_manager") << "ConcatWatchManager::getSubstitutions(): processing" << listCollection.toString(list) << ", size = " << size << std::endl;
-          const list_collection::list_element& current = listCollection.getElement(list);
+          const list_element& current = listCollection.getElement(list);
           // We add it to the concat at this level
           concat.push_back(current.value);
           // Move to the next one
@@ -209,7 +274,7 @@ template<typename EqualityNotify>
           size -= utils::getSize(current.value);
           list = current.next;
           // If no more to consume, we're done
-          if (list_collection::isFlagged(list)) {
+          if (list_collection::getType(list) != INSERTION_PLAIN) {
             getSubstitutions(listCollection, current.value, list, substitutions);
           }
         }
@@ -222,21 +287,20 @@ template<typename EqualityNotify>
       /**
        * Returns the assumptions used in normalizing the watch.
        */
-      template<typename EqualityManager>
-      void getAssumptions(const EqualityManager& eqManager, TNode lhs, TNode rhs, std::vector<TNode>& assumptions) {
+      void getAssumptions(const equality_manager& eqManager, TNode lhs, TNode rhs, std::vector<TNode>& assumptions) {
         Debug("theory::bv::watch_manager") << "ConcatWatchManager::getAssumptions(" << lhs << ", " << rhs << ")" << std::endl;
         // The responsible list collection
         const list_collection& listCollection = lhsListIt.getListCollection();
         // We accumulate the substitutions into this vector
         std::vector<Substitution> substitutions;
         // Get the lhs substitutions
-        list_collection::reference_type lhsList = lhsListIt.getList();
+        reference_type lhsList = lhsListIt.getList();
         getSubstitutions(listCollection, lhs, lhsList, substitutions);
         // Get rid of the last (which is lhs = lhs)
         Assert(lhs == substitutions.back().t);
         substitutions.pop_back();
         // Get the rhs substitutions
-        list_collection::reference_type rhsList = rhsListIt.getList();
+        reference_type rhsList = rhsListIt.getList();
         getSubstitutions(listCollection, rhs, rhsList, substitutions);
         // Get rid of the last (which is lhs = lhs)
         Assert(rhs == substitutions.back().t);
@@ -259,6 +323,12 @@ template<typename EqualityNotify>
     typedef __gnu_cxx ::hash_map<TNode, watch_list, TNodeHashFunction> watch_map;
 
   private:
+
+    /** The notifier class for substitutions from the equality manager */
+    SubstitutionNotify d_substitutionNotify;
+
+    /** The equality manager */
+    equality_manager d_eqManager;
 
     /** The class to notify when an equality becomes true or false */
     EqualityNotify& d_notifyClass;
@@ -284,26 +354,36 @@ template<typename EqualityNotify>
     /**
      * Makes a list out of a concatenation.
      */
-    list_collection::reference_type mkList(TNode node);
+    reference_type mkList(TNode node);
 
     /** Queue of the left-hand sides to process */
     std::queue<Substitution> d_queue;
 
-  public:
-
     /**
-     * Constructs a watch manager.
+     * Attach the watch.
      */
-    ConcatWatchManager(EqualityNotify& notify, context::Context* context) :
-      d_notifyClass(notify), d_context(context), d_termTracker(context), d_listCollection(context) {
+    void attachWatch(const Watch& watch) {
+      TNode lhsNode = *watch.lhsListIt;
+      if (lhsNode.getKind() != kind::CONST_BITVECTOR) {
+        if (d_eqManager.hasTerm(lhsNode) || lhsNode.getKind() != kind::BITVECTOR_EXTRACT) {
+          // We're watching the term itself
+          d_watches[lhsNode].push_back(watch);
+        } else {
+          // It's an extract x[i:j], and we're watching x
+          d_watches[lhsNode[0]].push_back(watch);
+        }
+      }
+      TNode rhsNode = *watch.rhsListIt;
+      if (rhsNode.getKind() != kind::CONST_BITVECTOR) {
+        if (d_eqManager.hasTerm(rhsNode) || rhsNode.getKind() != kind::BITVECTOR_EXTRACT) {
+          // We're watching the term itself
+          d_watches[rhsNode].push_back(watch);
+        } else {
+          // It's an extract x[i:j], and we're watching x
+          d_watches[rhsNode[0]].push_back(watch);
+        }
+      }
     }
-
-    /**
-     * Add an equality to the watch manager (not context-dependent). The equalities should be over bit-vector normalized
-     * core terms, i.e. pure vairables, or concatenations.
-     */
-    template<typename EqualityManager>
-    void addEqualityToWatch(EqualityManager& eq, TNode lhs, TNode rhs);
 
     /**
      * Adds an solved equality to the context. This might trigger two registered (via addEqualityToWathc) equalities
@@ -315,67 +395,87 @@ template<typename EqualityNotify>
      * Given a watch finds the next elements to watch. If a propagatio is found it is sent to the notify.
      * @return true if something has been propagated, false otherwise
      */
-    template<typename EqualityManager>
-    bool findNextToWatch(Watch watch, EqualityManager& eqManager);
+    bool findNextToWatch(Watch watch);
+
+  public:
+
+    /**
+     * Constructs a watch manager.
+     */
+    ConcatWatchManager(EqualityNotify& notify, context::Context* context) :
+      d_substitutionNotify(*this),
+      d_eqManager(d_substitutionNotify, context, "theory::bv::core"),
+      d_notifyClass(notify),
+      d_context(context),
+      d_termTracker(context),
+      d_listCollection(context)
+    {
+    }
+
+    /**
+     * Add an equality to the watch manager (not context-dependent). The equalities should be over bit-vector normalized
+     * core terms, i.e. pure vairables, or concatenations.
+     */
+    void addEqualityToWatch(TNode lhs, TNode rhs);
 
     /**
      * Propagates the information in the queue, trying to deduce any of the watched equalities true or false. Returns
      * true if no conflict was detected.
      */
-    template<typename EqualityManager>
-    void propagate(EqualityManager& eqManager);
+    void propagate();
 
     /**
      * Assumming that the watch has propagated, gatger the reasons behind the propagation.
      */
-    template<typename EqualityManager>
-    void explain(const EqualityManager& eqManager, unsigned watchId, std::vector<TNode>& assumptions) const;
+    void explain(unsigned watchId, std::vector<TNode>& assumptions) const;
+
+    /**
+     * Returns the equality manager the watch is using.
+     */
+    equality_manager& getEqualityManager() {
+      return d_eqManager;
+    }
   };
 
-template<typename EqualityNotify>
-template<typename EqualityManager>
-  void ConcatWatchManager<EqualityNotify>::addEqualityToWatch(EqualityManager& eqManager, TNode lhs, TNode rhs) {
+  template<typename EqualityNotify>
+  void ConcatWatchManager<EqualityNotify>::addEqualityToWatch(TNode lhs, TNode rhs) {
 
     Debug("theory::bv::watch_manager") << "ConcatWatchManager::addEqualityToWatch(" << lhs << ", " << rhs << ")" << std::endl;
 
     // Make lists of lhs and rhs elements
-    list_collection::reference_type lhsList = mkList(lhs);
-    list_collection::reference_type rhsList = mkList(rhs);
+    reference_type lhsList = mkList(lhs);
+    reference_type rhsList = mkList(rhs);
 
-    // Attach the watches
+    // Create the watch
     unsigned watchIndex = d_watchesList.size();
     Watch watch(watchIndex, d_listCollection, lhsList, rhsList);
     d_watchesList.push_back(watch);
     d_watchedEqualities.push_back(lhs.eqNode(rhs));
-    watch.normalize(eqManager);
-    bool propagated = findNextToWatch(watch, eqManager);
+
+    // Attach the watch
+    watch.normalize(d_eqManager);
+    bool propagated = findNextToWatch(watch);
     if(!propagated) {
-      // Add to the watch-list of the non-constant
-      if ((*watch.lhsListIt).getKind() != kind::CONST_BITVECTOR) {
-        d_watches[*watch.lhsListIt].push_back(watch);
-      }
-      if ((*watch.rhsListIt).getKind() != kind::CONST_BITVECTOR) {
-        d_watches[*watch.rhsListIt].push_back(watch);
-      }
+      // Add to the watch-list
+      attachWatch(watch);
     }
   }
 
   template<typename EqualityNotify>
-  ConcatWatchManager<EqualityNotify>::list_collection::reference_type ConcatWatchManager<EqualityNotify>::mkList(TNode node) {
+  typename ConcatWatchManager<EqualityNotify>::reference_type ConcatWatchManager<EqualityNotify>::mkList(TNode node) {
 
     if(node.getKind() == kind::BITVECTOR_CONCAT) {
-      list_collection::reference_type result = list_collection::null, current =
-      list_collection::null;
+      reference_type result = list_collection::null, current = list_collection::null;
       for(unsigned i = 0; i < node.getNumChildren(); ++i) {
         Assert(node[i].getKind() != kind::BITVECTOR_CONCAT);
-        current = d_listCollection.insert<false, false> (node[i], current);
+        current = d_listCollection.template insert<false, INSERTION_PLAIN> (node[i], current);
         if(i == 0) {
           result = current;
         }
       }
       return result;
     } else {
-      return d_listCollection.insert<false, false> (node);
+      return d_listCollection.template insert<false, INSERTION_PLAIN> (node);
     }
   }
 
@@ -386,8 +486,7 @@ template<typename EqualityManager>
   }
 
   template<typename EqualityNotify>
-  template<typename EqualityManager>
-  bool ConcatWatchManager<EqualityNotify>::findNextToWatch(Watch w, EqualityManager& eqManager) {
+  bool ConcatWatchManager<EqualityNotify>::findNextToWatch(Watch w) {
     // Check for equalitites in order to move the iterators
     Debug("theory::bv::watch_manager") << "ConcatWatchManager::findNextToWatch(" << w.toString() << ")" << std::endl;
     bool propagated = false;
@@ -401,7 +500,7 @@ template<typename EqualityManager>
           break;
         }
         // Move to the next element
-        w.next(eqManager);
+        w.next(d_eqManager);
       } else {
         // Get the current elements
         TNode lhsElement = *w.lhsListIt;
@@ -414,7 +513,7 @@ template<typename EqualityManager>
             Node rhsHigh = utils::mkConst(rhsElement.getConst<BitVector>().extract(rhsSize-1, rhsSize-lhsSize));
             Node rhsLow = utils::mkConst(rhsElement.getConst<BitVector>().extract(rhsSize-lhsSize-1, 0));
             Node concat = utils::mkConcat(rhsHigh, rhsLow);
-            w.substitute(w.rhsListIt, concat);
+            w.template iteratorSubstitute<INSERTION_TERM_SUBSTITUTION>(w.rhsListIt, concat);
             // Since this node might not exist, we need to track it
             d_termTracker.push_back(concat);
           } else if (lhsSize > rhsSize) {
@@ -423,7 +522,7 @@ template<typename EqualityManager>
             Node concat = utils::mkConcat(lhsHigh, lhsLow);
             // Since this node might not exist, we need to track it
             d_termTracker.push_back(concat);
-            w.substitute(w.lhsListIt, concat);
+            w.template iteratorSubstitute<INSERTION_TERM_SUBSTITUTION>(w.lhsListIt, concat);
           }
           // Now they are constants of the same size
           if (*w.lhsListIt != *w.rhsListIt) {
@@ -444,8 +543,7 @@ template<typename EqualityManager>
   }
 
   template<typename EqualityNotify>
-  template<typename EqualityManager>
-  void ConcatWatchManager<EqualityNotify>::propagate(EqualityManager& eqManager) {
+  void ConcatWatchManager<EqualityNotify>::propagate() {
 
     Debug("theory::bv::watch_manager") << "ConcatWatchManager::propagate()" << std::endl;
 
@@ -477,7 +575,7 @@ template<typename EqualityManager>
           // Otherwise, try to substitute
           else if(w.substitute(subst)) {
             // Attach to the next element
-            bool propagated = findNextToWatch(w, eqManager);
+            bool propagated = findNextToWatch(w);
             // Add to the updated watches
             if(!propagated) {
               // Add to the watch-list of the non-constant
@@ -499,8 +597,7 @@ template<typename EqualityManager>
   }
 
   template<typename EqualityNotify>
-  template<typename EqualityManager>
-  void ConcatWatchManager<EqualityNotify>::explain(const EqualityManager& eqManager, unsigned watchId, std::vector<TNode>& assumptions) const {
+  void ConcatWatchManager<EqualityNotify>::explain(unsigned watchId, std::vector<TNode>& assumptions) const {
     // We only propagate in two cases (1) elements are all the same (2) two constant parts are different
     // In the first case we pick all the equalities backwards, in the other we pick eqaulitites until the
     // first original in the watch
@@ -509,11 +606,10 @@ template<typename EqualityManager>
     if (*w.lhsListIt == *w.rhsListIt) {
       // Equality
       Assert(!w.lhsListIt.hasNext() && !w.rhsListIt.hasNext());
-      w.getAssumptions(eqManager, d_watchedEqualities[watchId][0], d_watchedEqualities[watchId][1], assumptions);
+      w.getAssumptions(d_eqManager, d_watchedEqualities[watchId][0], d_watchedEqualities[watchId][1], assumptions);
     } else {
       // Disequality
     }
-
   }
 
 } // Namespace bv
