@@ -470,20 +470,51 @@ void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
 
 /** Create the SMT engine and execute the commands */
 Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
-  // For the signal handlers' benefit
-  pOptions = &options;
+  try {
+    // For the signal handlers' benefit
+    pOptions = &options;
 
-  // Create the SmtEngine(s)
-  SmtEngine smt(&exprMgr);
+    // Create the SmtEngine(s)
+    SmtEngine smt(&exprMgr);
 
-  // Register the statistics registry of the thread
-  smt.getStatisticsRegistry()->setName("thread #" + boost::lexical_cast<string>(options.thread_id));
-  theStatisticsRegistry.registerStat_( (Stat*)smt.getStatisticsRegistry() );
+    // Register the statistics registry of the thread
+    smt.getStatisticsRegistry()->setName("thread #" + boost::lexical_cast<string>(options.thread_id));
+    theStatisticsRegistry.registerStat_( (Stat*)smt.getStatisticsRegistry() );
 
-  // Execute the commands
-  doCommand(smt, cmd, options);
+    // Execute the commands
+    doCommand(smt, cmd, options);
 
-  return smt.getStatusOfLastCommand();
+    return smt.getStatusOfLastCommand();
+  } catch(OptionException& e) {
+    *pOptions->out << "unknown" << endl;
+    cerr << "CVC4 Error:" << endl << e << endl;
+    printUsage(*pOptions);
+    exit(1);
+  } catch(Exception& e) {
+#ifdef CVC4_COMPETITION_MODE
+    *pOptions->out << "unknown" << endl;
+#endif
+    *pOptions->err << "CVC4 Error:" << endl << e << endl;
+    if(pOptions->statistics) {
+      pStatistics->flushInformation(*pOptions->err);
+    }
+    exit(1);
+  } catch(bad_alloc) {
+#ifdef CVC4_COMPETITION_MODE
+    *pOptions->out << "unknown" << endl;
+#endif
+    *pOptions->err << "CVC4 ran out of memory." << endl;
+    if(pOptions->statistics) {
+      pStatistics->flushInformation(*pOptions->err);
+    }
+    exit(1);
+  } catch(...) {
+#ifdef CVC4_COMPETITION_MODE
+    *pOptions->out << "unknown" << endl;
+#endif
+    *pOptions->err << "CVC4 threw an exception of unknown type." << endl;
+    exit(1);
+  }
 }
 
 template<typename T>
