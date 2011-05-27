@@ -395,7 +395,10 @@ private:
    * so it can throw anything that that function can.
    */
   void propagate(Cid seed1, Cid seed2);
-  void propagate(TNode seed1, TNode seed2);
+  void propagate(TNode seed1, TNode seed2) {
+#   warning FIXME remove this function
+    propagate(cid(seed1), cid(seed2));
+  }
 
   /**
    * Internal lookup mapping from tuples to equalities.
@@ -563,10 +566,9 @@ std::vector<typename CongruenceClosure<OutputChannel>::Cid> CongruenceClosure<Ou
   return argspb;
 }/* buildRepresentativesOfApply() */
 
-#if 0
-
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::propagate(Cid s, Cid t) {
+#if 0
   Trace("cc:detail") << "=== doing a round of propagation ===" << std::endl
                      << "the \"seed\" propagation is: " << seed << std::endl;
 
@@ -758,8 +760,10 @@ void CongruenceClosure<OutputChannel>::propagate(Cid s, Cid t) {
     }
     Assert(areCongruent(a, b));
   } while(!pending.empty());
+#endif /* 0 */
 }/* propagate() */
 
+#if 0
 
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::ufmerge(TNode ec1, TNode ec2) {
@@ -833,11 +837,13 @@ void CongruenceClosure<OutputChannel>::mergeProof(TNode a, TNode b, TNode e) {
   d_proofLabel.set(a, e);
 }/* mergeProof() */
 
+#endif /* 0 */
 
 template <class OutputChannel>
-Cid CongruenceClosure<OutputChannel>::normalize(Cid t) const
+typename CongruenceClosure<OutputChannel>::Cid CongruenceClosure<OutputChannel>::normalize(Cid t) const
   throw(AssertionException) {
   Trace("cc:detail") << "normalize " << t << std::endl;
+#if 0
   if(!isCongruenceOperator(t)) {// t is a constant
     t = find(t);
     Trace("cc:detail") << "  find " << t << std::endl;
@@ -879,8 +885,12 @@ Cid CongruenceClosure<OutputChannel>::normalize(Cid t) const
       return n;
     }
   }
+#else /* 0 */
+  return t;
+#endif /* 0 */
 }/* normalize() */
 
+#if 0
 
 // This is the find() operation for the auxiliary union-find.  This
 // union-find is not context-dependent, as it's used only during
@@ -957,11 +967,13 @@ Node CongruenceClosure<OutputChannel>::nearestCommonAncestor(TNode a, TNode b, U
   }
 }/* nearestCommonAncestor() */
 
+#endif /* 0 */
+
 
 template <class OutputChannel>
 Node CongruenceClosure<OutputChannel>::explain(Node a, Node b)
   throw(CongruenceClosureException, AssertionException) {
-
+#if 0
   Assert(a != b);
 
   if(!areCongruent(a, b)) {
@@ -1025,6 +1037,9 @@ Node CongruenceClosure<OutputChannel>::explain(Node a, Node b)
     d_explanationLength.addEntry(double(pf.getNumChildren()));
     return pf;
   }
+#else /* 0 */
+  return Node();
+#endif /* 0 */
 }/* explain() */
 
 
@@ -1073,8 +1088,6 @@ std::ostream& operator<<(std::ostream& out,
 
   return out;
 }
-
-#endif /* 0 */
 
 }/* CVC4 namespace */
 
