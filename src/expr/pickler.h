@@ -50,6 +50,7 @@ public:
   Pickle();
   Pickle(const Pickle& p);
   ~Pickle();
+  Pickle& operator = (const Pickle& other);
 };/* class Pickle */
 
 class CVC4_PUBLIC PicklingException : public Exception {

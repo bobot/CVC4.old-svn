@@ -458,6 +458,14 @@ Pickle::Pickle(const Pickle& p) {
   d_data = new PickleData(*p.d_data);
 }
 
+Pickle& Pickle::operator = (const Pickle& other) {
+  if (this != &other) {
+    delete d_data;
+    d_data = new PickleData(*other.d_data);
+  }
+}
+
+
 Pickle::~Pickle() {
   delete d_data;
 }
