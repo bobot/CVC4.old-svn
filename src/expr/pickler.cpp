@@ -463,6 +463,7 @@ Pickle& Pickle::operator = (const Pickle& other) {
     delete d_data;
     d_data = new PickleData(*other.d_data);
   }
+  return *this;
 }
 
 
