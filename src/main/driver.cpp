@@ -179,7 +179,20 @@ int runCvc4(int argc, char* argv[], Options& options) {
   // Parse and execute commands until we are done
   Command* cmd;
   if( options.interactive ) {
-    InteractiveShell shell(exprMgr,options);
+    InteractiveShell shell(exprMgr, options);
+    Message() << Configuration::getPackageName()
+              << " " << Configuration::getVersionString();
+    if(Configuration::isSubversionBuild()) {
+      Message() << " [subversion " << Configuration::getSubversionBranchName()
+                << " r" << Configuration::getSubversionRevision()
+                << (Configuration::hasSubversionModifications() ?
+                    " (with modifications)" : "")
+                << "]";
+    }
+    Message() << (Configuration::isDebugBuild() ? " DEBUG" : "")
+              << " assertions:"
+              << (Configuration::isAssertionBuild() ? "on" : "off")
+              << endl;
     while((cmd = shell.readCommand())) {
       doCommand(smt,cmd, options);
       delete cmd;

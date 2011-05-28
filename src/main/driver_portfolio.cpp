@@ -266,7 +266,20 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   Command* cmd;
   CommandSequence* seq = new CommandSequence();
   if( options.interactive ) {
-    InteractiveShell shell(*exprMgr,options);
+    InteractiveShell shell(*exprMgr, options);
+    Message() << Configuration::getPackageName()
+              << " " << Configuration::getVersionString();
+    if(Configuration::isSubversionBuild()) {
+      Message() << " [subversion " << Configuration::getSubversionBranchName()
+                << " r" << Configuration::getSubversionRevision()
+                << (Configuration::hasSubversionModifications() ?
+                    " (with modifications)" : "")
+                << "]";
+    }
+    Message() << (Configuration::isDebugBuild() ? " DEBUG" : "")
+              << " assertions:"
+              << (Configuration::isAssertionBuild() ? "on" : "off")
+              << endl;
     while((cmd = shell.readCommand())) {
       seq->addCommand(cmd);
     }
