@@ -240,7 +240,7 @@ void NodeManager::reclaimZombies() {
 }/* NodeManager::reclaimZombies() */
 
 TypeNode NodeManager::computeType(TNode n, bool check)
-  throw (TypeCheckingExceptionPrivate, AssertionException) {  
+  throw (TypeCheckingExceptionPrivate, AssertionException) {
   TypeNode typeNode;
 Debug("export") << "computeType: " << n << std::endl;
   // Infer the type
@@ -445,6 +445,9 @@ Debug("export") << "computeType: " << n << std::endl;
     break;
   case kind::APPLY_TESTER:
     typeNode = CVC4::theory::datatypes::DatatypeTesterTypeRule::computeType(this, n, check);
+    break;
+  case kind::APPLY_TYPE_ASCRIPTION:
+    typeNode = CVC4::theory::datatypes::DatatypeAscriptionTypeRule::computeType(this, n, check);
     break;
   default:
     Debug("getType") << "FAILURE" << std::endl;

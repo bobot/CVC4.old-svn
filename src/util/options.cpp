@@ -86,7 +86,7 @@ Options::Options() :
   replayFilename(""),
   replayStream(NULL),
   replayLog(NULL),
-  rewriteArithEqualities(false),
+  variableRemovalEnabled(false),
   arithPropagation(false),
   satRandomFreq(0.0),
   satRandomSeed(91648253),// Minisat's default value
@@ -131,7 +131,7 @@ static const string optionsDescription = "\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
-   --rewrite-arithmetic-equalities rewrite (= x y) to (and (<= x y) (>= x y)) in arithmetic\n\
+   --variable-removal-enables enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --enable-arithmetic-propagation turns on arithmetic propagation\n\
    --incremental          enable incremental solving\n";
 
@@ -222,7 +222,7 @@ enum OptionValue {
   PRINT_WINNER,
   RANDOM_FREQUENCY,
   RANDOM_SEED,
-  REWRITE_ARITHMETIC_EQUALITIES,
+  ENABLE_VARIABLE_REMOVAL,
   ARITHMETIC_PROPAGATION
 };/* enum OptionValue */
 
@@ -291,7 +291,7 @@ static struct option cmdlineOptions[] = {
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
   { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
   { "random-seed" , required_argument, NULL, RANDOM_SEED  },
-  { "rewrite-arithmetic-equalities", no_argument, NULL, REWRITE_ARITHMETIC_EQUALITIES },
+  { "enable-variable-removel", no_argument, NULL, ENABLE_VARIABLE_REMOVAL },
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "enable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { NULL         , no_argument      , NULL, '\0'        }
@@ -546,8 +546,8 @@ throw(OptionException) {
 #endif /* CVC4_REPLAY */
       break;
 
-    case REWRITE_ARITHMETIC_EQUALITIES:
-      rewriteArithEqualities = true;
+    case ENABLE_VARIABLE_REMOVAL:
+      variableRemovalEnabled = true;
       break;
 
     case ARITHMETIC_PROPAGATION:

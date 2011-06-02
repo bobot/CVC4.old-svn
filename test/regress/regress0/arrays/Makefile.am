@@ -1,17 +1,14 @@
-BINARY = cvc4
-TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/$(BINARY)
+TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
 
 # These are run for all build profiles.
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
-	arith.01.cvc \
-	arith.02.cvc \
-	arith.03.cvc \
-	delta-minimized-row-vector-bug.smt \
-	fuzz_3-eq.smt \
-	leq.01.smt \
-	miplibtrick.smt
+	arrays0.smt2 \
+	arrays1.smt2 \
+	arrays2.smt2 \
+	arrays3.smt2 \
+	arrays4.smt2
 
 EXTRA_DIST = $(TESTS)
 
@@ -25,7 +22,7 @@ EXTRA_DIST = $(TESTS)
 #EXTRA_DIST += \
 #	error.cvc
 
-# synonyms for "check" in this directory
+# synonyms for "check"
 .PHONY: regress regress0 test
 regress regress0 test: check
 
