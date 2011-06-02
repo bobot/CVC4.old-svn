@@ -38,9 +38,7 @@ public:
 
   static RewriteResponse postRewrite(TNode node);
 
-  static inline RewriteResponse preRewrite(TNode node) {
-    return RewriteResponse(REWRITE_DONE, node);
-  }
+  static RewriteResponse preRewrite(TNode node);
 
   static void init();
   static void shutdown();

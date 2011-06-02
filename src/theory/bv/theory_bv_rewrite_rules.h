@@ -150,12 +150,12 @@ struct AllRewriteRules {
 };
 
 template<>
-bool RewriteRule<EmptyRule>::applies(Node node) {
+inline bool RewriteRule<EmptyRule>::applies(Node node) {
   return false;
 }
 
 template<>
-Node RewriteRule<EmptyRule>::apply(Node node) {
+inline Node RewriteRule<EmptyRule>::apply(Node node) {
   Unreachable();
   return node;
 }

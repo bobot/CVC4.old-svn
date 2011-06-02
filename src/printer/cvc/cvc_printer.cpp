@@ -280,9 +280,10 @@ void CvcPrinter::toStream(std::ostream& out, TNode n,
     case kind::BITVECTOR_CONCAT:
       out << '(';
       for(unsigned i = 0; i < n.getNumChildren() - 1; ++i) {
-        out << n[i] << ' ' << n.getOperator();
+        out << n[i] << ' ' << n.getOperator() << ' ';
       }
       out << n[n.getNumChildren() - 1] << ')';
+      break;
 
     default:
       if(k == kind::NOT && n[0].getKind() == kind::EQUAL) {

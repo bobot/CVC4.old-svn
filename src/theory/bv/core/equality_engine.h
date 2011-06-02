@@ -159,6 +159,9 @@ private:
   /** Map from ids to the nodes */
   std::vector<Node> d_nodes;
 
+  /** Number of nodes we are tracking */
+  context::CDO<size_t> d_nodesCount;
+
   /** Map from ids to the equality nodes */
   std::vector<EqualityNode> d_equalityNodes;
 
@@ -276,8 +279,12 @@ public:
    * Initialize the equality engine, given the owning class. This will initialize the notifier with
    * the owner information.
    */
-  EqualityEngine(NotifyClass& notify, context::Context* context, std::string name)
-  : d_notify(notify), d_assertedEqualitiesCount(context, 0), d_stats(name) {
+  EqualityEngine(NotifyClass& notify, context::Context* context, std::string name):
+    d_notify(notify),
+    d_nodesCount(context, 0),
+    d_assertedEqualitiesCount(context, 0),
+    d_stats(name)
+  {
     Debug("theory::bv::eq_engine") << "EqualityEdge::EqualityEdge(): id_null = " << BitSizeTraits::id_null << std::endl;
   }
 
@@ -348,6 +355,7 @@ size_t EqualityEngine<NotifyClass, UnionFindPreferences>::addTerm(TNode t) {
   d_nodeIds[t] = newId;
   // Add the node to it's position
   d_nodes.push_back(t);
+  d_nodesCount = d_nodesCount + 1;
   // Add it to the equality graph
   d_equalityGraph.push_back(BitSizeTraits::id_null);
   // Add the equality node to the nodes
@@ -434,14 +442,14 @@ template <typename NotifyClass, typename UnionFindPreferences>
 TNode EqualityEngine<NotifyClass, UnionFindPreferences>::getRepresentative(TNode t) const {
 
   Debug("theory::bv::eq_engine") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
+  // Both following commands are semantically const
+  const_cast<EqualityEngine*>(this)->backtrack();
 
   // If the term is not managed yet, it is it's own representative
   if (!hasTerm(t)) {
     return t;
   }
 
-  // Both following commands are semantically const
-  const_cast<EqualityEngine*>(this)->backtrack();
   size_t representativeId = const_cast<EqualityEngine*>(this)->getEqualityNode(t).getFind();
 
   Debug("theory::bv::eq_engine") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
@@ -553,6 +561,15 @@ void EqualityEngine<NotifyClass, UnionFindPreferences>::backtrack() {
 
     d_equalityEdges.resize(2 * d_assertedEqualitiesCount);
     d_equalityReasons.resize(d_assertedEqualitiesCount);
+  }
+
+  if (UnionFindPreferences::backtrackNodes && d_nodesCount < d_nodes.size()) {
+    // Get rid of the nodes we are not tracking anymore
+    for (int i = (int) d_nodes.size() - 1, i_end = (int) d_nodesCount; i >= i_end; -- i) {
+      d_nodeIds.erase(d_nodes[i]);
+    }
+    // Resize the nodes vector
+    d_nodes.resize(d_nodesCount);
   }
 
 }

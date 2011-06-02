@@ -28,6 +28,8 @@
 #include "theory/bv/core/cd_list_collection.h"
 #include "theory/bv/core/equality_engine.h"
 #include "theory/bv/core/equality_settings.h"
+#include "theory/bv/theory_bv_rewrite_rules.h"
+#include "theory/bv/core/theory_bv_rewrite_rules_core.h"
 
 namespace CVC4 {
 namespace theory {
@@ -144,19 +146,56 @@ template<typename EqualityNotify>
        */
       template <InsertionType type>
       void iteratorSubstitute(iterator_reference& it, TNode concat) {
-        Assert(type != INSERTION_PLAIN);
-        if(concat.getKind() == kind::BITVECTOR_CONCAT) {
-          for(int i = concat.getNumChildren() - 1; i >= 0; --i) {
-            if(i == 0) {
-              it.template insert<type>(concat[i]);
-            } else {
-              it.template insert<INSERTION_PLAIN> (concat[i]);
+        Assert(*it != concat);
+        switch(type) {
+        case INSERTION_TERM_SUBSTITUTION:
+          if(concat.getKind() == kind::BITVECTOR_CONCAT) {
+            for(int i = concat.getNumChildren() - 1; i >= 0; --i) {
+              if(i == 0) {
+                it.template insert<type> (concat[i]);
+              } else {
+                it.template insert<INSERTION_PLAIN> (concat[i]);
+              }
             }
+          } else {
+            it.template insert<type> (concat);
           }
-        } else {
-          it.template insert<type> (concat);
+          ++it;
+          break;
+        case INSERTION_SUBTERM_SUBSTIITUTION:
+        {
+          // The extract node we are substituting
+          TNode extract = *it;
+          Assert(extract.getKind() == kind::BITVECTOR_EXTRACT);
+          // Get the extract bits and construct the extract over the concat we are substituting
+          unsigned extractLow = utils::getExtractLow(extract);
+          unsigned extractHigh = utils::getExtractHigh(extract);
+          Node extractedConcat = utils::mkExtract(concat, extractHigh, extractLow);
+
+          // Normalize
+          if (concat.getKind() == kind::BITVECTOR_CONCAT) {
+            // If we have an extract over a concat go through
+            extractedConcat = RewriteRule<ExtractConcat>::run<false>(extractedConcat);
+          }
+
+          // Now perform the actual substitution
+          if(extractedConcat.getKind() == kind::BITVECTOR_CONCAT) {
+            for(int i = extractedConcat.getNumChildren() - 1; i >= 0; --i) {
+              if(i == 0) {
+                it.template insert<type> (extractedConcat[i]);
+              } else {
+                it.template insert<INSERTION_PLAIN> (extractedConcat[i]);
+              }
+            }
+          } else {
+            it.template insert<type> (extractedConcat);
+          }
+          ++it;
+          break;
         }
-        ++it;
+        default:
+          Unreachable();
+        }
       }
 
       /**
@@ -199,7 +238,7 @@ template<typename EqualityNotify>
           TNode element = *it;
 
           // If the element is managed (solved) by the equality manager we substitute directly
-          if (eqManager.hasTerm(element) || element.getKind() != kind::BITVECTOR_CONCAT) {
+          if (eqManager.hasTerm(element)) {
             TNode elementRep = eqManager.getRepresentative(element);
             if(elementRep == element) {
               // If the current element is it's own representative, we are done
@@ -208,7 +247,7 @@ template<typename EqualityNotify>
               // Otherwise we must perform a substitution, so get the substitutions
               iteratorSubstitute<INSERTION_TERM_SUBSTITUTION>(it, elementRep);
             }
-          } else {
+          } else if (element.getKind() == kind::BITVECTOR_EXTRACT) {
             TNode elementRep = eqManager.getRepresentative(element[0]);
             if (elementRep == element[0]) {
               // If the current element is it's own representative, we are done
@@ -216,6 +255,9 @@ template<typename EqualityNotify>
             } else {
               iteratorSubstitute<INSERTION_SUBTERM_SUBSTIITUTION>(it, elementRep);
             }
+          } else {
+            // If the term is not manages, and it's not an extract, we are done
+            break;
           }
         }
       }

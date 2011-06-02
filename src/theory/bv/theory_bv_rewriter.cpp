@@ -26,6 +26,24 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::bv;
 
+RewriteResponse TheoryBVRewriter::preRewrite(TNode node) {
+  Debug("theory::bv::rewriter") << "TheoryBV::preRewrite(" << node << ")" << std::endl;
+
+  Node result;
+
+  // We only push extract downhill through concats
+  if (node.getKind() == kind::BITVECTOR_EXTRACT && node[0].getKind() == kind::BITVECTOR_CONCAT) {
+    result = RewriteRule<ExtractConcat>::run<false>(node);
+  } else {
+    result = node;
+  }
+
+  Debug("theory::bv::rewriter") << "TheoryBV::preRewrite(" << node << ") => " << result << std::endl;
+
+  return RewriteResponse(REWRITE_DONE, result);
+}
+
+
 RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
 
   Debug("theory::bv::rewriter") << "TheoryBV::postRewrite(" << node << ")" << std::endl;
@@ -51,11 +69,9 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
       break;
     case kind::BITVECTOR_EXTRACT:
       result = LinearRewriteStrategy<
-                  // Extract over a concatenation is distributed to the appropriate concatenations
-                  RewriteRule<ExtractConcat>,
                   // Extract over a constant gives a constant
                   RewriteRule<ExtractConstant>,
-                  // We could get another extract over extract
+                  // Extract over another extract
                   RewriteRule<ExtractExtract>,
                   // At this point only Extract-Whole could apply
                   RewriteRule<ExtractWhole>

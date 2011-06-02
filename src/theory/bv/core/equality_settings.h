@@ -29,6 +29,9 @@ namespace bv {
  */
 struct BVEqualitySettings {
 
+  /** We also backtrack the nodes, as they represent the solved equations */
+  static const bool backtrackNodes = true;
+
   /** Normalization preferences */
   static inline bool descend(TNode node) {
     return node.getKind() == kind::BITVECTOR_CONCAT || node.getKind() == kind::BITVECTOR_EXTRACT;
