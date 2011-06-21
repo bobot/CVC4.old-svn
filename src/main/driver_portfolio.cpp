@@ -400,7 +400,7 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
   }
 
   // destruction is causing segfaults, let us just exit
-  //exit(returnValue);
+  exit(returnValue);
 
   delete vmaps;
 
