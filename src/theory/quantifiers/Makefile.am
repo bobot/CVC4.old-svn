@@ -1,0 +1,14 @@
+AM_CPPFLAGS = \
+	-D__BUILDING_CVC4LIB \
+	-I@srcdir@/../../include -I@srcdir@/../.. -I@builddir@/../..
+AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
+
+noinst_LTLIBRARIES = libquantifiers.la
+
+libquantifiers_la_SOURCES = \
+	theory_quantifiers_type_rules.h \
+	theory_quantifiers.h \
+	quantifiers_rewriter.h \
+	theory_quantifiers.cpp 
+
+EXTRA_DIST = kinds
