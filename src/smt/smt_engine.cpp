@@ -50,6 +50,7 @@
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
 #include "theory/datatypes/theory_datatypes.h"
+#include "theory/quantifiers/theory_quantifiers.h"
 
 using namespace std;
 using namespace CVC4;
@@ -192,6 +193,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_theoryEngine->addTheory<theory::arrays::TheoryArrays>();
   d_theoryEngine->addTheory<theory::bv::TheoryBV>();
   d_theoryEngine->addTheory<theory::datatypes::TheoryDatatypes>();
+  d_theoryEngine->addTheory<theory::quantifiers::TheoryQuantifiers>();
   switch(Options::current()->uf_implementation) {
   case Options::TIM:
     d_theoryEngine->addTheory<theory::uf::tim::TheoryUFTim>();

@@ -224,7 +224,7 @@ void TheoryEngine::preRegister(TNode preprocessed) {
           }
         } else {
           TheoryId theory = Theory::theoryOf(current);
-          Debug("register") << "preregistering " << current << " with " << theory << std::endl;
+          Debug("register") << "preregistering " << current << " with " << theory << " " << theory << " " << d_theoryTable[theory] << std::endl;
           markActive(theory);
           d_theoryTable[theory]->preRegisterTerm(current);
           TheoryId typeTheory = Theory::theoryOf(current.getType());

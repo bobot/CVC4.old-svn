@@ -27,6 +27,7 @@
 #include "theory/arrays/theory_arrays_type_rules.h"
 #include "theory/bv/theory_bv_type_rules.h"
 #include "theory/datatypes/theory_datatypes_type_rules.h"
+#include "theory/quantifiers/theory_quantifiers_type_rules.h"
 
 #include "util/Assert.h"
 #include "util/options.h"
@@ -450,6 +451,15 @@ TypeNode NodeManager::computeType(TNode n, bool check)
     break;
   case kind::APPLY_TYPE_ASCRIPTION:
     typeNode = CVC4::theory::datatypes::DatatypeAscriptionTypeRule::computeType(this, n, check);
+    break;
+  case kind::FORALL:
+    typeNode = CVC4::theory::quantifiers::QuantifierForallTypeRule::computeType(this, n, check);
+    break;
+  case kind::EXISTS:
+    typeNode = CVC4::theory::quantifiers::QuantifierExistsTypeRule::computeType(this, n, check);
+    break;
+  case kind::NO_COUNTEREXAMPLE:
+    typeNode = CVC4::theory::quantifiers::QuantifierCounterexampleTypeRule::computeType(this, n, check);
     break;
   default:
     Debug("getType") << "FAILURE" << std::endl;

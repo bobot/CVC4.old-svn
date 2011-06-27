@@ -34,18 +34,22 @@ namespace quantifiers {
 
 class TheoryQuantifiers : public Theory {
 private:
+  typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
+
   /** list of universally quantifiers currently asserted */
-  context::CDList<Node> d_forall_asserts;
+  BoolMap d_forall_asserts;
   /** list of existential quantifiers currently asserted */
-  context::CDList<Node> d_exists_asserts;
+  BoolMap d_exists_asserts;
   /** list of counterexamples currently asserted */
-  context::CDList<Node> d_counterexample_asserts;
-  /** quantifiers that have been skolemized */
-  std::map< Node, bool > d_skolemized;
+  BoolMap d_counterexample_asserts;
   /** quantifiers that have been abstractly instantiated */
   std::map< Node, bool > d_abstract_inst;
-  /** map from quantifiers to their counterexample literals */
+  /** quantifiers that have been skolemized */
+  std::map< Node, bool > d_skolemized;
+  /** map from universal quantifiers to their counterexample literals */
   std::map< Node, Node > d_counterexamples;
+  /** map from universal quantifiers to the list of instantiation constants */
+  std::map< Node, std::vector< Node > > d_inst_constants;
 public:
   TheoryQuantifiers(context::Context* c, OutputChannel& out, Valuation valuation);
   ~TheoryQuantifiers();
@@ -58,6 +62,13 @@ public:
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
+
+  Node getCounterexampleLiteralFor( Node n );
+
+private:
+  void assertUniversal( Node n );
+  void assertExistential( Node n );
+  void assertCounterexample( Node n );
 
 };/* class TheoryQuantifiers */
 

@@ -353,6 +353,9 @@ term[CVC4::Expr& expr]
   std::string name;
   std::vector<Expr> args;
   SExpr sexpr;
+  std::string id;
+  std::vector<std::pair<std::string, Type> > sortedVarNames;
+  Expr f;
 }
   : /* a built-in operator application */
     LPAREN_TOK builtinOp[kind] termList[args,expr] RPAREN_TOK
@@ -381,7 +384,23 @@ term[CVC4::Expr& expr]
         expr = MK_EXPR(kind, args);
       }
     }
-
+  | LPAREN_TOK quantOp[kind]
+      LPAREN_TOK sortedVarList[sortedVarNames] RPAREN_TOK
+    {
+      PARSER_STATE->pushScope();
+      for(std::vector<std::pair<std::string, CVC4::Type> >::const_iterator i =
+            sortedVarNames.begin(), iend = sortedVarNames.end();
+          i != iend;
+          ++i) {
+        args.push_back(PARSER_STATE->mkVar((*i).first, (*i).second));
+      }
+    }
+      term[f] RPAREN_TOK
+    {
+      PARSER_STATE->popScope();
+      args.push_back( f );
+      expr = MK_EXPR(kind, args);
+    }
   | /* A non-built-in function application */
     LPAREN_TOK
     functionName[name,CHECK_DECLARED]
@@ -590,7 +609,15 @@ builtinOp[CVC4::Kind& kind]
 
   // NOTE: Theory operators go here
   ;
-
+  
+quantOp[CVC4::Kind& kind]
+@init {
+  Debug("parser") << "quant: " << AntlrInput::tokenText(LT(1)) << std::endl;
+}
+  : EXISTS_TOK      { $kind = CVC4::kind::EXISTS; }
+  | FORALL_TOK    { $kind = CVC4::kind::FORALL; }
+  ;
+  
 /**
  * Matches a (possibly undeclared) function symbol (returning the string)
  * @param check what kind of check to do with the symbol

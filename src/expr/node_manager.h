@@ -355,6 +355,9 @@ public:
   /** Create a skolem constant with the given type. */
   Node mkSkolem(const TypeNode& type);
 
+  /** Create a instantiation constant with the given type. */
+  Node mkInstConstant(const TypeNode& type);
+
   /**
    * Create a constant of type T.  It will have the appropriate
    * CONST_* kind defined for T.
@@ -1227,6 +1230,14 @@ inline Node NodeManager::mkSkolem(const TypeNode& type) {
   n.setAttribute(TypeCheckedAttr(), true);
   return n;
 }
+
+inline Node NodeManager::mkInstConstant(const TypeNode& type) {
+  Node n = NodeBuilder<0>(this, kind::INST_CONSTANT);
+  n.setAttribute(TypeAttr(), type);
+  n.setAttribute(TypeCheckedAttr(), true);
+  return n;
+}
+
 
 template <class T>
 Node NodeManager::mkConst(const T& val) {

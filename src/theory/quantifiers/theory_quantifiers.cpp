@@ -2,7 +2,7 @@
 /*! \file theory_quantifiers.cpp
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: mdeters
+ ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -63,24 +63,39 @@ void TheoryQuantifiers::presolve() {
   Debug("quantifiers") << "TheoryQuantifiers::presolve()" << endl;
 }
 
+Node TheoryQuantifiers::getValue(TNode n) {
+  //NodeManager* nodeManager = NodeManager::currentNM();
+  switch(n.getKind()) {
+  default:
+    Unhandled(n.getKind());
+  }
+}
+
 void TheoryQuantifiers::check(Effort e) {
   while(!done()) {
     Node assertion = get();
+    Debug("quantifiers") << "quantifiers::check(): " << assertion << std::endl;
     switch(assertion.getKind()) {
     case kind::FORALL:
-
+      assertUniversal( assertion );
       break;
     case kind::EXISTS:
-
+      assertExistential( assertion );
+      break;
+    case kind::NO_COUNTEREXAMPLE:
+      assertCounterexample( assertion );
       break;
     case kind::NOT:
       {
         switch( assertion[0].getKind()) {
         case kind::FORALL:
-
+          assertExistential( assertion );
           break;
         case kind::EXISTS:
-
+          assertUniversal( assertion );
+          break;
+        case kind::NO_COUNTEREXAMPLE:
+          assertCounterexample( assertion );
           break;
         default:
           Unhandled(assertion[0].getKind());
@@ -94,14 +109,87 @@ void TheoryQuantifiers::check(Effort e) {
     }
   }
   if( e == FULL_EFFORT ) {
-
+    //for each n in d_forall_asserts, 
+    // such that CE( n ) is not in positive in d_counterexample_asserts
+    for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
+      if( (*i).second ) {
+        Node n = (*i).first;
+        Node cen = getCounterexampleLiteralFor( n );
+        if( d_counterexample_asserts.find( n )==d_counterexample_asserts.end() ||
+            !d_counterexample_asserts[n] ){
+          //find instantiations
+          
+        }
+      }
+    }
   }
 }
 
-Node TheoryQuantifiers::getValue(TNode n) {
-  //NodeManager* nodeManager = NodeManager::currentNM();
-  switch(n.getKind()) {
-  default:
-    Unhandled(n.getKind());
+Node TheoryQuantifiers::getCounterexampleLiteralFor( Node n ){
+  Assert( n.getKind()==FORALL || ( n.getKind()==NOT && n[0].getKind()==EXISTS ) );
+  if( d_counterexamples.find( n )==d_counterexamples.end() ){
+    d_counterexamples[n] = NodeManager::currentNM()->mkNode( NO_COUNTEREXAMPLE, n );
+  }
+  return d_counterexamples[n];
+}
+
+void TheoryQuantifiers::assertUniversal( Node n ){
+  if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
+    //abstract instantiate, add lemmas
+    std::vector< Node > vars;
+    std::vector< Node > inst_constants;
+    Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
+    for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
+      vars.push_back( quant[i] );
+      inst_constants.push_back( NodeManager::currentNM()->mkInstConstant( quant[i].getType() ) );
+    }
+    Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
+                                                                inst_constants.begin(), inst_constants.end() ); 
+    d_inst_constants[ n ].insert( d_inst_constants[ n ].begin(), 
+                                  inst_constants.begin(), 
+                                  inst_constants.end() );
+    NodeBuilder<> nb(kind::OR);
+    nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
+    nb << getCounterexampleLiteralFor( n );
+    nb << NodeManager::currentNM()->mkNode( NOT, body );
+    Node lem = nb;
+    Debug("quantifiers") << "Abstract instantiation lemma : " << lem << std::endl;
+    d_out->lemma( lem );
+
+    d_abstract_inst[n] = true;
+  }
+  d_forall_asserts[n] = true;
+}
+
+void TheoryQuantifiers::assertExistential( Node n ){
+  if( d_skolemized.find( n )==d_skolemized.end() ){
+    //skolemize, add lemmas
+    std::vector< Node > vars;
+    std::vector< Node > skolems;
+    Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
+    for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
+      vars.push_back( quant[i] );
+      skolems.push_back( NodeManager::currentNM()->mkInstConstant( quant[i].getType() ) );
+    }
+    Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
+                                                                skolems.begin(), skolems.end() );
+    NodeBuilder<> nb(kind::OR);
+    nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
+    nb << body;
+    Node lem = nb;
+    Debug("quantifiers") << "Skolemize lemma : " << lem << std::endl;
+    d_out->lemma( lem );
+
+    d_skolemized[n] = true;
+  }
+  d_exists_asserts[n] = true;
+}
+
+void TheoryQuantifiers::assertCounterexample( Node n ){
+  if( n.getKind()==NO_COUNTEREXAMPLE ){
+    d_counterexample_asserts[ n ] = true;
+  }else{
+    Assert( n.getKind()==NOT );
+    d_counterexample_asserts[ n[0] ] = false;
   }
 }

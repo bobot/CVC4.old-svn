@@ -30,6 +30,7 @@ namespace quantifiers {
 struct QuantifierForallTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
     throw(TypeCheckingExceptionPrivate) {
+    Debug("typecheck-q") << "type check for fa " << n << std::endl;
     Assert(n.getKind() == kind::FORALL && n.getNumChildren()>0 );
     if( check ){
       if( n[ n.getNumChildren() - 1 ].getType(check)!=nodeManager->booleanType() ){
@@ -43,6 +44,7 @@ struct QuantifierForallTypeRule {
 struct QuantifierExistsTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
     throw(TypeCheckingExceptionPrivate) {
+    Debug("typecheck-q") << "type check for ex " << n << std::endl;
     Assert(n.getKind() == kind::EXISTS && n.getNumChildren()>0 );
     if( check ){
       if( n[ n.getNumChildren() - 1 ].getType(check)!=nodeManager->booleanType() ){
@@ -56,8 +58,9 @@ struct QuantifierExistsTypeRule {
 struct QuantifierCounterexampleTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
     throw(TypeCheckingExceptionPrivate) {
-    Assert(n.getKind() == kind::COUNTEREXAMPLE && n.getNumChildren()==1 && 
-           ( n[0].getKind()==FORALL || ( n[0].getKind()==NOT && n[0][0].getKind()==EXISTS ) );
+    Debug("typecheck-q") << "type check for ce " << n << std::endl;
+    Assert(n.getKind() == kind::NO_COUNTEREXAMPLE && n.getNumChildren()==1 && 
+      ( n[0].getKind()==kind::FORALL || ( n[0].getKind()==kind::NOT && n[0][0].getKind()==kind::EXISTS )) );
     if( check ){
       if( n[ 0 ].getType(check)!=nodeManager->booleanType() ){
         throw TypeCheckingExceptionPrivate(n, "body of counterexample is not boolean");
