@@ -86,7 +86,8 @@ Options::Options() :
   arithPropagation(false),
   satRandomFreq(0.0),
   satRandomSeed(91648253),// Minisat's default value
-  pivotRule(MINIMUM)
+  pivotRule(MINIMUM),
+  arithPivotThreshold(10)
 {
 }
 
@@ -121,6 +122,7 @@ static const string optionsDescription = "\
    --replay=file          replay decisions from file\n\
    --replay-log=file      log decisions and propagations to file\n\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
+   --pivot-thresholds=N   sets the number of heuristic pivots per variable per simplex instance\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
    --variable-removal-enables enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
@@ -214,7 +216,8 @@ enum OptionValue {
   RANDOM_FREQUENCY,
   RANDOM_SEED,
   ENABLE_VARIABLE_REMOVAL,
-  ARITHMETIC_PROPAGATION
+  ARITHMETIC_PROPAGATION,
+  ARITHMETIC_PIVOT_THRESHOLD
 };/* enum OptionValue */
 
 /**
@@ -280,6 +283,7 @@ static struct option cmdlineOptions[] = {
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
+  { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
   { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
   { "random-seed" , required_argument, NULL, RANDOM_SEED  },
   { "enable-variable-removel", no_argument, NULL, ENABLE_VARIABLE_REMOVAL },
@@ -572,6 +576,10 @@ throw(OptionException) {
         throw OptionException(string("unknown option for --pivot-rule: `") +
                               optarg + "'.  Try --pivot-rule help.");
       }
+      break;
+
+    case ARITHMETIC_PIVOT_THRESHOLD:
+      arithPivotThreshold = atoi(optarg);
       break;
 
     case SHOW_CONFIG:

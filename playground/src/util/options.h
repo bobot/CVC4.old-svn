@@ -181,6 +181,12 @@ struct CVC4_PUBLIC Options {
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
   ArithPivotRule pivotRule;
 
+  /**
+   * The number of pivots before Bland's pivot rule is used on a basic
+   * variable in arithmetic.
+   */
+  uint16_t arithPivotThreshold;
+
   Options();
 
   /**
