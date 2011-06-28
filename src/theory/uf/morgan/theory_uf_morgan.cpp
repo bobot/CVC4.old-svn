@@ -112,11 +112,10 @@ Node TheoryUFMorgan::constructConflict(TNode diseq) {
       nb << explanation;
     }
   }
-  /*
+
   if(diseq != d_trueEqFalseNode) {
     nb << diseq.notNode();
   }
-  */
 
   // by construction this should be true
   Assert(nb.getNumChildren() > 1);
@@ -268,7 +267,7 @@ void TheoryUFMorgan::propagate(Effort level) {
       Debug("uf") << "uf: deferred literal is TRUE: " << *i << endl;
     } else {
       Debug("uf") << "uf: deferred literal is FALSE: " << *i << endl;
-      d_out->conflict(d_cc.explain(*i));
+      d_out->conflict(constructConflict(*i));
       return;// for now, just do one explanation
     }
   }
