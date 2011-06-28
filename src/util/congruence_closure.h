@@ -226,7 +226,7 @@ class CongruenceClosure {
 
   RepresentativeMap d_representative;
   ClassLists d_classLists;
-  PropagateList d_propagate;
+  PropagateList d_propagate, d_dispropagate;
   UseLists d_useLists;
   //LookupMap d_lookup;
 
@@ -244,6 +244,10 @@ class CongruenceClosure {
 
   inline std::vector<Node>& propagateList(Cid c) {
     return d_propagate[cidIndex(c)];
+  }
+
+  inline std::vector<Node>& dispropagateList(Cid c) {
+    return d_dispropagate[cidIndex(c)];
   }
 
   inline ClassList& classList(Cid c) {
@@ -326,6 +330,19 @@ public:
                    inputEq.getKind() == kind::IFF, inputEq);
 
     merge(cid(inputEq[0]), cid(inputEq[1]), inputEq);
+  }
+
+  void assertDisequality(TNode inputDiseq) {
+    Debug("cc") << "CC assertDisequality[" << d_context->getLevel() << "]: "
+                << inputDiseq << std::endl;
+    AssertArgument(inputDiseq.getKind() == kind::EQUAL ||
+                   inputDiseq.getKind() == kind::IFF, inputDiseq);
+    Assert(!areCongruent(inputDiseq[0], inputDiseq[1]));
+
+    TNode l = inputDiseq[0], r = inputDiseq[1];
+    Cid s = cid(l), t = cid(r);
+    dispropagateList(s).push_back(r);
+    dispropagateList(t).push_back(l);
   }
 
 private:

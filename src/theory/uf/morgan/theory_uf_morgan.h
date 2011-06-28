@@ -77,7 +77,9 @@ private:
    */
   CongruenceClosure<CongruenceChannel> d_cc;
 
-  Node d_trueNode, d_falseNode;
+  Node d_trueNode, d_falseNode, d_trueEqFalseNode;
+
+  std::vector<Node> d_toPropagate;
 
   // === STATISTICS ===
   /** time spent in check() */

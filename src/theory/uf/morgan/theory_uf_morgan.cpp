@@ -38,6 +38,8 @@ TheoryUFMorgan::TheoryUFMorgan(Context* ctxt, OutputChannel& out, Valuation valu
   d_cc(ctxt, &d_ccChannel, kind::APPLY_UF),
   d_trueNode(),
   d_falseNode(),
+  d_trueEqFalseNode(),
+  d_toPropagate(),
   d_ccExplanationLength("theory::uf::morgan::cc::averageExplanationLength",
                         d_cc.getExplanationLength()) {
 
@@ -47,8 +49,9 @@ TheoryUFMorgan::TheoryUFMorgan(Context* ctxt, OutputChannel& out, Valuation valu
   TypeNode boolType = nm->booleanType();
   d_trueNode = nm->mkVar("TRUE_UF", boolType);
   d_falseNode = nm->mkVar("FALSE_UF", boolType);
-  //d_trueEqFalseNode = nm->mkNode(kind::IFF, d_trueNode, d_falseNode);
-  //addDisequality(d_trueEqFalseNode);
+  d_trueEqFalseNode = nm->mkNode(kind::IFF, d_trueNode, d_falseNode);
+  d_cc.registerTerm(d_trueEqFalseNode);
+  d_cc.assertDisequality(d_trueEqFalseNode);
   //d_cc.registerTerm(d_trueNode);
   //d_cc.registerTerm(d_falseNode);
 }
@@ -56,7 +59,7 @@ TheoryUFMorgan::TheoryUFMorgan(Context* ctxt, OutputChannel& out, Valuation valu
 TheoryUFMorgan::~TheoryUFMorgan() {
   d_trueNode = Node::null();
   d_falseNode = Node::null();
-  //  d_trueEqFalseNode = Node::null();
+  d_trueEqFalseNode = Node::null();
 
   StatisticsRegistry::unregisterStat(&d_ccExplanationLength);
 }
@@ -128,7 +131,7 @@ Node TheoryUFMorgan::constructConflict(TNode diseq) {
 
 void TheoryUFMorgan::notifyCongruence(TNode n) {
   Debug("uf") << "uf: notified of congruence " << n << endl;
-  d_out->propagate(n);
+  d_toPropagate.push_back(n);
 }
 
 /*
@@ -219,9 +222,10 @@ void TheoryUFMorgan::check(Effort level) {
     case kind::NOT:
       if(assertion[0].getKind() == kind::EQUAL ||
          assertion[0].getKind() == kind::IFF) {
-#warning fixme register disequality with CC for additional propagation opportunities
         if(d_cc.areCongruent(assertion[0][0], assertion[0][1])) {
           d_out->conflict(constructConflict(assertion[0]));
+        } else {
+          d_cc.assertDisequality(assertion[0]);
         }
       } else {
         // negation of a predicate
@@ -239,6 +243,12 @@ void TheoryUFMorgan::check(Effort level) {
       Unhandled(assertion.getKind());
     }
   }
+
+  if(level == FULL_EFFORT) {
+    // need to do this to ensure we find all conflicts
+    propagate(level);
+  }
+
   Debug("uf") << "uf check() done = " << (done() ? "true" : "false") << endl;
   Debug("uf") << "uf: end check(" << level << ")" << endl;
 }
@@ -247,8 +257,21 @@ void TheoryUFMorgan::propagate(Effort level) {
   TimerStat::CodeTimer codeTimer(d_propagateTimer);
 
   Debug("uf") << "uf: begin propagate(" << level << ")" << endl;
-  // propagation is done in check(), for now
-  // FIXME need to find a slick way to propagate predicates
+  vector<Node> list;
+  list.swap(d_toPropagate);
+  for(vector<Node>::iterator i = list.begin(); i != list.end(); ++i) {
+    Node value = d_valuation.getSatValue(*i);
+    if(value.isNull()) {
+      Debug("uf") << "uf: propagating deferred literal " << *i << endl;
+      d_out->propagate(*i);
+    } else if(value.getConst<bool>()) {
+      Debug("uf") << "uf: deferred literal is TRUE: " << *i << endl;
+    } else {
+      Debug("uf") << "uf: deferred literal is FALSE: " << *i << endl;
+      d_out->conflict(d_cc.explain(*i));
+      return;// for now, just do one explanation
+    }
+  }
   Debug("uf") << "uf: end propagate(" << level << ")" << endl;
 }
 
