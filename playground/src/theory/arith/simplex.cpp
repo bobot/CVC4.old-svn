@@ -378,7 +378,8 @@ void SimplexDecisionProcedure::propagateCandidates(){
   PermissiveBackArithVarSet::const_iterator end = d_updatedBounds.end();
   for(; i != end; ++i){
     ArithVar var = *i;
-    if(d_tableau.isBasic(var)){
+    if(d_tableau.isBasic(var) &&
+       d_tableau.getRowLength(var) <= Options::current()->arithPropagateMaxLength){
       d_candidateBasics.softAdd(var);
     }else{
       Tableau::ColIterator basicIter = d_tableau.colIterator(var);
@@ -387,7 +388,9 @@ void SimplexDecisionProcedure::propagateCandidates(){
         ArithVar rowVar = entry.getRowVar();
         Assert(entry.getColVar() == var);
         Assert(d_tableau.isBasic(rowVar));
-        d_candidateBasics.softAdd(rowVar);
+        if(d_tableau.getRowLength(rowVar) <= Options::current()->arithPropagateMaxLength){
+          d_candidateBasics.softAdd(rowVar);
+        }
       }
     }
   }
@@ -396,7 +399,7 @@ void SimplexDecisionProcedure::propagateCandidates(){
   while(!d_candidateBasics.empty()){
     ArithVar candidate = d_candidateBasics.pop_back();
     Assert(d_tableau.isBasic(candidate));
-    propagateCandidate(candidate);
+    propagateCandidate(candidate); 
   }
 }
 

@@ -187,6 +187,11 @@ struct CVC4_PUBLIC Options {
    */
   uint16_t arithPivotThreshold;
 
+  /**
+   * The maximum row length that arithmetic will use for propagation.
+   */
+  uint16_t arithPropagateMaxLength;
+
   Options();
 
   /**
