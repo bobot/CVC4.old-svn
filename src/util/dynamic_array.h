@@ -28,7 +28,7 @@ namespace CVC4 {
 
 template <class T>
 class DynamicArray {
-private:
+protected:
   T* d_arr;
   unsigned d_size;
   unsigned d_allocated;
@@ -54,7 +54,7 @@ public:
     d_callDestructor(callDestructor) {
   }
 
-  ~DynamicArray() {
+  virtual ~DynamicArray() {
     if(d_callDestructor) {
       for(unsigned i = 0; i < d_size; ++i) {
         d_arr[i].~T();
@@ -82,7 +82,12 @@ public:
     ++d_size;
   }
 
-  T& operator[](unsigned i) const {
+  const T& operator[](unsigned i) const {
+    Assert(i < d_size, "index out of bounds in DynamicArray::operator[]");
+    return d_arr[i];
+  }
+
+  T& operator[](unsigned i) {
     Assert(i < d_size, "index out of bounds in DynamicArray::operator[]");
     return d_arr[i];
   }
@@ -99,7 +104,43 @@ public:
       d_arr[d_size].~T();
     }
   }
-};/* CVC4::DynamicArray */
+
+  typedef T* iterator;
+  typedef const T* const_iterator;
+
+  iterator begin() { return d_arr; }
+  iterator end() { return d_arr + d_size; }
+  const_iterator begin() const { return d_arr; }
+  const_iterator end() const { return d_arr + d_size; }
+
+};/* class DynamicArray<T> */
+
+template <class T, class Ctor = T>
+class DynamicGrowingArray : public DynamicArray<T> {
+  Ctor d_ctor;
+
+public:
+  DynamicGrowingArray(bool callDestructor, const Ctor& c) :
+    DynamicArray<T>(callDestructor),
+    d_ctor(c) {
+  }
+
+  DynamicGrowingArray(bool callDestructor = false) :
+    DynamicArray<T>(callDestructor),
+    d_ctor() {
+  }
+
+  T& operator[](unsigned i) {
+    while(this->d_allocated <= i) {
+      this->grow();
+    }
+    while(this->d_size <= i) {
+      ::new((void*)(this->d_arr + this->d_size)) T(d_ctor);
+      ++this->d_size;
+    }
+    return this->d_arr[i];
+  }
+};/* CVC4::DynamicGrowingArray */
 
 }/* CVC4 namespace */
 
