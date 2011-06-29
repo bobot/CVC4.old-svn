@@ -123,11 +123,11 @@ static const string optionsDescription = "\
    --replay=file          replay decisions from file\n\
    --replay-log=file      log decisions and propagations to file\n\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
-   --pivot-thresholds=N   sets the number of heuristic pivots per variable per simplex instance\n\
+   --pivot-threshold=N   sets the number of heuristic pivots per variable per simplex instance\n\
    --prop-row-length=N    sets the maximum row length to be used in propagation\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
-   --variable-removal-enables enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
+   --enable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --enable-arithmetic-propagation turns on arithmetic propagation\n\
    --incremental          enable incremental solving\n";
 
