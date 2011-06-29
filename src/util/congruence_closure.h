@@ -604,10 +604,12 @@ void CongruenceClosure<OutputChannel>::propagate() {
 
       Trace("cc:detail") << "going through propagation list of " << node(bp) << std::endl;
       ClassList& cl = classList(bp);
+#warning fixme remove
+      cl.debugCheck();
 
       for(ClassList::iterator cli = cl.begin(); cli != cl.end(); ++cli) {
+        Trace("cc:detail") << "==> at node " << node(*cli) << " in class list of " << node(bp) << std::endl;
         Assert(find(*cli) == bp);
-        Trace("cc:detail") << "==> at node " << node(*cli) << " in prop list of " << node(bp) << std::endl;
         std::vector<Node>& plist = propagateList(*cli);
         for(std::vector<Node>::iterator i = plist.begin(); i != plist.end(); ++i) {
           Assert((*i).getKind() == kind::EQUAL || (*i).getKind() == kind::IFF);

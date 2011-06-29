@@ -340,6 +340,7 @@ private:
   CDCircList(const CDCircList<T, AllocatorT>&) CVC4_UNUSED;
   CDCircList<T, AllocatorT>& operator=(const CDCircList<T, AllocatorT>&) CVC4_UNUSED;
 
+public:
   /** Check internal structure and invariants of the list */
   void debugCheck() const {
     elt_t* p = d_head;
@@ -358,6 +359,7 @@ private:
       Assert(p != NULL);
     } while(p != d_head);
   }
+private:
 
   // Nothing to save; the elements take care of themselves
   virtual ContextObj* save(ContextMemoryManager* pCMM) {

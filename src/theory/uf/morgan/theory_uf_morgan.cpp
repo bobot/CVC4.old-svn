@@ -130,6 +130,13 @@ Node TheoryUFMorgan::constructConflict(TNode diseq) {
 
 bool TheoryUFMorgan::notifyCongruence(TNode n) {
   Debug("uf") << "uf: notified of congruence " << n << endl;
+  if(n == d_trueEqFalseNode) {
+    d_toPropagate.clear();
+    d_toPropagate.push_back(n);
+    d_inConflict = true;
+    return true;
+  }
+
   Node v = d_valuation.getSatValue(n);
   if(!v.isNull() && v.getConst<bool>() == false) {
     d_toPropagate.clear();
@@ -256,7 +263,12 @@ void TheoryUFMorgan::check(Effort level) {
 
   if(d_inConflict) {
     // process the conflict
-    propagate(level);
+    Debug("uf") << "uf: we're in conflict" << std::endl;
+    Assert(d_toPropagate.size() == 1);
+    Assert(d_toPropagate.front() == d_trueEqFalseNode ||
+           d_valuation.getSatValue(d_toPropagate.front()).getConst<bool>() == false);
+    d_out->conflict(constructConflict(d_toPropagate.front()));
+    d_toPropagate.clear();
   }
 
   Debug("uf") << "uf check() done = " << (done() ? "true" : "false") << endl;
@@ -277,9 +289,7 @@ void TheoryUFMorgan::propagate(Effort level) {
     } else if(value.getConst<bool>()) {
       Debug("uf") << "uf: deferred literal is TRUE: " << *i << endl;
     } else {
-      Debug("uf") << "uf: deferred literal is FALSE: " << *i << endl;
-      d_out->conflict(constructConflict(*i));
-      return;// for now, just do one explanation
+      InternalError("conflict missed: %s", (*i).toString().c_str());
     }
   }
   Debug("uf") << "uf: end propagate(" << level << ")" << endl;
