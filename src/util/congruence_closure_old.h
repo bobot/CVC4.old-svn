@@ -34,7 +34,7 @@
 #include "context/cdset.h"
 #include "context/cdlist_context_memory.h"
 #include "util/exception.h"
-#include "theory/uf/morgan/stacking_map.h"
+#include "context/stacking_map.h"
 #include "util/stats.h"
 
 namespace CVC4 {
@@ -140,7 +140,7 @@ class CongruenceClosure {
   OutputChannel* d_out;
 
   // typedef all of these so that iterators are easy to define
-  typedef theory::uf::morgan::StackingMap<Node, Node, NodeHashFunction> RepresentativeMap;
+  typedef context::StackingMap<Node, Node, NodeHashFunction> RepresentativeMap;
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > ClassList;
   typedef context::CDMap<Node, ClassList*, NodeHashFunction> ClassLists;
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > UseList;

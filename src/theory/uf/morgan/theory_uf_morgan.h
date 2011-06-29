@@ -52,8 +52,8 @@ private:
 
   public:
     CongruenceChannel(TheoryUFMorgan* uf) : d_uf(uf) {}
-    void notifyCongruence(TNode eq) {
-      d_uf->notifyCongruence(eq);
+    bool notifyCongruence(TNode eq) {
+      return d_uf->notifyCongruence(eq);
     }
   };/* class CongruenceChannel */
   friend class CongruenceChannel;
@@ -80,6 +80,7 @@ private:
   Node d_trueNode, d_falseNode, d_trueEqFalseNode;
 
   std::vector<Node> d_toPropagate;
+  bool d_inConflict;
 
   // === STATISTICS ===
   /** time spent in check() */
@@ -202,7 +203,7 @@ private:
    * Receives a notification from the congruence closure module that
    * two nodes have been merged into the same congruence class.
    */
-  void notifyCongruence(TNode eq);
+  bool notifyCongruence(TNode eq);
 
   void dump();
 

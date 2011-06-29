@@ -581,11 +581,11 @@ Node SmtEnginePrivate::simplify(TNode in, bool noPersist)
     Chat() << "Performing static learning: " << n << endl;
     TimerStat::CodeTimer codeTimer(d_smt.d_staticLearningTime);
     NodeBuilder<> learned(kind::AND);
-    learned << n;
     d_smt.d_theoryEngine->staticLearning(n, learned);
-    if(learned.getNumChildren() == 1) {
+    if(learned.getNumChildren() == 0) {
       learned.clear();
     } else {
+      learned << n;
       n = learned;
     }
 

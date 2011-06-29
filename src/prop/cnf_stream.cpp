@@ -588,6 +588,15 @@ void TseitinCnfStream::convertAndAssertIte(TNode node, bool lemma, bool negated)
 void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
   Debug("cnf") << "convertAndAssert(" << node << ", lemma = " << lemma << ", negated = " << (negated ? "true" : "false") << ")" << endl;
   d_assertingLemma = lemma;
+
+  if(hasLiteral(node)) {
+    Debug("cnf") << "==> fortunate literal detected!" << endl;
+    ++d_fortunateLiterals;
+    SatLiteral lit = getLiteral(node);
+    //d_satSolver->renewVar(lit);
+    assertClause(node, negated ? ~lit : lit);
+  }
+
   switch(node.getKind()) {
   case AND:
     convertAndAssertAnd(node, lemma, negated);

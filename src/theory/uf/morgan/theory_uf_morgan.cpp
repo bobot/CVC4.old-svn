@@ -128,9 +128,17 @@ Node TheoryUFMorgan::constructConflict(TNode diseq) {
   return conflict;
 }
 
-void TheoryUFMorgan::notifyCongruence(TNode n) {
+bool TheoryUFMorgan::notifyCongruence(TNode n) {
   Debug("uf") << "uf: notified of congruence " << n << endl;
+  Node v = d_valuation.getSatValue(n);
+  if(!v.isNull() && v.getConst<bool>() == false) {
+    d_toPropagate.clear();
+    d_toPropagate.push_back(n);
+    d_inConflict = true;
+    return true;
+  }
   d_toPropagate.push_back(n);
+  return false;
 }
 
 /*
@@ -193,7 +201,9 @@ void TheoryUFMorgan::check(Effort level) {
 
   Debug("uf") << "uf: begin check(" << level << ")" << endl;
 
-  while(!done()) {
+  d_inConflict = false;
+
+  while(!done() && !d_inConflict) {
     //Assert(d_conflict.isNull());
 
     Node assertion = get();
@@ -223,6 +233,7 @@ void TheoryUFMorgan::check(Effort level) {
          assertion[0].getKind() == kind::IFF) {
         if(d_cc.areCongruent(assertion[0][0], assertion[0][1])) {
           d_out->conflict(constructConflict(assertion[0]));
+          return;
         } else {
           d_cc.assertDisequality(assertion[0]);
         }
@@ -243,8 +254,8 @@ void TheoryUFMorgan::check(Effort level) {
     }
   }
 
-  if(level == FULL_EFFORT) {
-    // need to do this to ensure we find all conflicts
+  if(d_inConflict) {
+    // process the conflict
     propagate(level);
   }
 
