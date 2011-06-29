@@ -216,7 +216,7 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
             p = ps[i];
             if (value(p) == l_True) lemmaSatisfied = true;
             assigned_lits.push(p);
-            Debug("minisat::lemmas") << proxy->getNode(p) << " has value " << value(p) << std::endl;
+            Debug("minisat::lemmas") << (theory[var(p)] ? proxy->getNode(p).toString() : "bool") << " has value " << value(p) << std::endl;
           }
         }
         Assert(j >= 1 || lemmaSatisfied, "You are asserting a falsified lemma, produce a conflict instead!");
@@ -949,7 +949,7 @@ lbool Solver::search(int nof_conflicts)
 
           for (int i = 0, i_end = lemma_propagated_literals.size(); i < i_end; ++ i) {
             if (value(var(lemma_propagated_literals[i])) == l_Undef) {
-              Debug("minisat::lemmas") << "Lemma propagating: " << proxy->getNode(lemma_propagated_literals[i]) << std::endl;
+              Debug("minisat::lemmas") << "Lemma propagating: " << (theory[var(lemma_propagated_literals[i])] ? proxy->getNode(lemma_propagated_literals[i]).toString() : "bool") << std::endl;
               uncheckedEnqueue(lemma_propagated_literals[i], lemma_propagated_reasons[i]);
             }
           }
