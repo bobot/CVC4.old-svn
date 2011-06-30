@@ -21,6 +21,8 @@
 #ifndef __CVC4__THEORY__DATATYPES__THEORY_DATATYPES_TYPE_RULES_H
 #define __CVC4__THEORY__DATATYPES__THEORY_DATATYPES_TYPE_RULES_H
 
+#include "util/matcher.h"
+
 namespace CVC4 {
 
 namespace expr {
@@ -31,69 +33,6 @@ namespace expr {
 
 namespace theory {
 namespace datatypes {
-
-class Matcher {
-private:
-  std::vector< TypeNode > d_types;
-  std::vector< TypeNode > d_match;
-public:
-  Matcher(){}
-  Matcher( DatatypeType dt ){
-    std::vector< Type > argTypes = dt.getParamTypes();
-    addTypes( argTypes );
-  }
-  ~Matcher(){}
-
-  void addType( Type t ){
-    d_types.push_back( TypeNode::fromType( t ) );
-    d_match.push_back( TypeNode::null() );
-  }
-  void addTypes( std::vector< Type > types ){
-    for( int i=0; i<(int)types.size(); i++ ){
-      addType( types[i] );
-    }
-  }
-
-  bool doMatching( TypeNode base, TypeNode match ){
-    std::vector< TypeNode >::iterator i = std::find( d_types.begin(), d_types.end(), base );
-    if( i!=d_types.end() ){
-      int index = i - d_types.begin();
-      if( !d_match[index].isNull() && d_match[index]!=match ){
-        return false;
-      }else{
-        d_match[ i - d_types.begin() ] = match;
-        return true;
-      }
-    }else if( base==match ){
-      return true;
-    }else if( base.getKind()!=match.getKind() || base.getNumChildren()!=match.getNumChildren() ){
-      return false;
-    }else{
-      for( int i=0; i<(int)base.getNumChildren(); i++ ){
-        if( !doMatching( base[i], match[i] ) ){
-          return false;
-        }
-      }
-      return true;
-    }
-  }
-
-  TypeNode getMatch( unsigned int i ){ return d_match[i]; }
-  void getTypes( std::vector<Type>& types ) { 
-    types.clear();
-    for( int i=0; i<(int)d_match.size(); i++ ){
-      types.push_back( d_types[i].toType() );
-    }
-  }
-  void getMatches( std::vector<Type>& types ) { 
-    types.clear();
-    for( int i=0; i<(int)d_match.size(); i++ ){
-      Assert( !d_match[i].isNull() ); //verify that all types have been set
-      types.push_back( d_match[i].toType() );
-    }
-  }
-};
-
 
 typedef expr::Attribute<expr::attr::DatatypeConstructorTypeGroundTermTag, Node> GroundTermAttr;
 
@@ -157,6 +96,9 @@ struct DatatypeSelectorTypeRule {
       Debug("typecheck-idt") << "typecheck parameterized sel: " << n << std::endl;
       Matcher m( dt );
       TypeNode childType = n[0].getType(check);
+      if(! childType.isInstantiatedDatatype()) {
+        throw TypeCheckingExceptionPrivate(n, "Datatype type not fully instantiated");
+      }
       if( !m.doMatching( selType[0], childType ) ){
         throw TypeCheckingExceptionPrivate(n, "matching failed for selector argument of parameterized datatype");
       }
@@ -211,7 +153,47 @@ struct DatatypeTesterTypeRule {
     }
     return nodeManager->booleanType();
   }
-};/* struct DatatypeSelectorTypeRule */
+};/* struct DatatypeTesterTypeRule */
+
+struct DatatypeAscriptionTypeRule {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
+    throw(TypeCheckingExceptionPrivate) {
+    Debug("typecheck-idt") << "typechecking ascription: " << n << std::endl;
+    Assert(n.getKind() == kind::APPLY_TYPE_ASCRIPTION);
+    TypeNode t = TypeNode::fromType(n.getOperator().getConst<AscriptionType>().getType());
+    if(check) {
+      TypeNode childType = n[0].getType(check);
+      //if(!t.getKind() == kind::DATATYPE_TYPE) {
+      //  throw TypeCheckingExceptionPrivate(n, "bad type for datatype type ascription");
+      //}
+      //DatatypeType dt = DatatypeType(childType.toType());
+      //if( dt.isParametric() ){
+      //  Debug("typecheck-idt") << "typecheck parameterized ascription: " << n << std::endl;
+      //  Matcher m( dt );
+      //  if( !m.doMatching( childType, t ) ){
+      //    throw TypeCheckingExceptionPrivate(n, "matching failed for type ascription argument of parameterized datatype");
+      //  }
+      //}else{
+      //  Debug("typecheck-idt") << "typecheck test: " << n << std::endl;
+      //  if(t != childType) {
+      //    throw TypeCheckingExceptionPrivate(n, "bad type for type ascription argument");
+      //  }
+      //}
+
+      Matcher m;
+      if( childType.getKind() == kind::CONSTRUCTOR_TYPE ){
+        m.addTypesFromDatatype( ConstructorType(childType.toType()).getRangeType() );
+      }else if( childType.getKind() == kind::DATATYPE_TYPE ){
+        m.addTypesFromDatatype( DatatypeType(childType.toType()) );
+      }
+      if( !m.doMatching( childType, t ) ){
+        throw TypeCheckingExceptionPrivate(n, "matching failed for type ascription argument of parameterized datatype");
+      }
+
+    }
+    return t;
+  }
+};/* struct DatatypeAscriptionTypeRule */
 
 struct ConstructorProperties {
   inline static Cardinality computeCardinality(TypeNode type) {
@@ -260,7 +242,7 @@ struct ConstructorProperties {
         i != i_end;
         ++i) {
       if(TypeNode::fromType((*i).getConstructor().getType()) == type) {
-        groundTerm = Node::fromExpr((*i).mkGroundTerm());
+        groundTerm = Node::fromExpr((*i).mkGroundTerm( type.toType() ));
         type.setAttribute(GroundTermAttr(), groundTerm);
         return groundTerm;
       }

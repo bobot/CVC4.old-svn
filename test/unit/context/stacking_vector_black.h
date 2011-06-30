@@ -32,7 +32,7 @@ using namespace std;
  */
 class StackingVectorBlack : public CxxTest::TestSuite {
   Context* d_ctxt;
-  StackingVector<TNode, TNode, TNodeHashFunction>* d_vectorPtr;
+  StackingVector<TNode>* d_vectorPtr;
   NodeManager* d_nm;
   NodeManagerScope* d_scope;
 
@@ -123,11 +123,11 @@ public:
         TS_ASSERT(d_vector[6] == e);
         TS_ASSERT(d_vector[7].isNull());
 
-        d_vector.set(a, c);
-        d_vector.set(f, f);
-        d_vector.set(e, d);
-        d_vector.set(c, Node::null());
-        d_vector.set(g, a);
+        d_vector.set(1, c);
+        d_vector.set(6, f);
+        d_vector.set(5, d);
+        d_vector.set(3, Node::null());
+        d_vector.set(7, a);
 
         TS_ASSERT(d_vector[1] == c);
         TS_ASSERT(d_vector[2].isNull());

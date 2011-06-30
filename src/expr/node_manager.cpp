@@ -202,8 +202,12 @@ void NodeManager::reclaimZombies() {
 
     // collect ONLY IF still zero
     if(nv->d_rc == 0) {
-      Debug("gc") << "deleting node value " << nv
-                  << " [" << nv->d_id << "]: " << *nv << "\n";
+      if(Debug.isOn("gc")) {
+        Debug("gc") << "deleting node value " << nv
+                    << " [" << nv->d_id << "]: ";
+        nv->printAst(Debug("gc"));
+        Debug("gc") << std::endl;
+      }
 
       // remove from the pool
       kind::MetaKind mk = nv->getMetaKind();
@@ -238,7 +242,7 @@ void NodeManager::reclaimZombies() {
 }/* NodeManager::reclaimZombies() */
 
 TypeNode NodeManager::computeType(TNode n, bool check)
-  throw (TypeCheckingExceptionPrivate, AssertionException) {  
+  throw (TypeCheckingExceptionPrivate, AssertionException) {
   TypeNode typeNode;
 
   // Infer the type
@@ -443,6 +447,9 @@ TypeNode NodeManager::computeType(TNode n, bool check)
     break;
   case kind::APPLY_TESTER:
     typeNode = CVC4::theory::datatypes::DatatypeTesterTypeRule::computeType(this, n, check);
+    break;
+  case kind::APPLY_TYPE_ASCRIPTION:
+    typeNode = CVC4::theory::datatypes::DatatypeAscriptionTypeRule::computeType(this, n, check);
     break;
   default:
     Debug("getType") << "FAILURE" << std::endl;

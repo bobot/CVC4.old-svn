@@ -169,8 +169,8 @@ public:
       Expr getSelector() const;
 
       /**
-       * Get the associated constructor for this constructor argument; this call is
-       * only permitted after resolution.
+       * Get the associated constructor for this constructor argument;
+       * this call is only permitted after resolution.
        */
       Expr getConstructor() const;
 
@@ -216,10 +216,10 @@ public:
       throw(AssertionException, DatatypeResolutionException);
     friend class Datatype;
 
-    /** */
-    Type doParametricSubstitution( Type range, 
-                                   const std::vector< SortConstructorType >& paramTypes, 
-                                   const std::vector< DatatypeType >& paramReplacements );
+    /** @FIXME document this! */
+    Type doParametricSubstitution(Type range,
+                                  const std::vector< SortConstructorType >& paramTypes,
+                                  const std::vector< DatatypeType >& paramReplacements);
   public:
     /**
      * Create a new Datatype constructor with the given name for the
@@ -273,6 +273,12 @@ public:
     inline size_t getNumArgs() const throw();
 
     /**
+     * Get the specialized constructor type for a parametric
+     * constructor; this call is only permitted after resolution.
+     */
+    Type getSpecializedConstructorType(Type returnType) const;
+
+    /**
      * Return the cardinality of this constructor (the product of the
      * cardinalities of its arguments).
      */
@@ -297,7 +303,7 @@ public:
      * constructor must be both resolved and well-founded, or else an
      * exception is thrown.
      */
-    Expr mkGroundTerm() const throw(AssertionException);
+    Expr mkGroundTerm( Type t ) const throw(AssertionException);
 
     /**
      * Returns true iff this Datatype constructor has already been
@@ -369,11 +375,17 @@ public:
   /** Get the number of constructors (so far) for this Datatype. */
   inline size_t getNumConstructors() const throw();
 
-  /** Get the nubmer of parameters */
+  /** Is this datatype parametric? */
+  inline bool isParametric() const throw();
+
+  /** Get the nubmer of type parameters */
   inline size_t getNumParameters() const throw();
 
   /** Get parameter */
   inline Type getParameter( unsigned int i ) const;
+
+  /** Get parameters */
+  inline std::vector<Type> getParameters() const;
 
   /**
    * Return the cardinality of this datatype (the sum of the
@@ -401,7 +413,7 @@ public:
    * Datatype must be both resolved and well-founded, or else an
    * exception is thrown.
    */
-  Expr mkGroundTerm() const throw(AssertionException);
+  Expr mkGroundTerm( Type t ) const throw(AssertionException);
 
   /**
    * Get the DatatypeType associated to this Datatype.  Can only be
@@ -524,12 +536,23 @@ inline size_t Datatype::getNumConstructors() const throw() {
   return d_constructors.size();
 }
 
+inline bool Datatype::isParametric() const throw() {
+  return d_params.size() > 0;
+}
+
 inline size_t Datatype::getNumParameters() const throw() {
   return d_params.size();
 }
 
 inline Type Datatype::getParameter( unsigned int i ) const {
+  CheckArgument(isParametric(), this, "cannot get type parameter of a non-parametric datatype");
+  CheckArgument(i < d_params.size(), i, "type parameter index out of range for datatype");
   return d_params[i];
+}
+
+inline std::vector<Type> Datatype::getParameters() const {
+  CheckArgument(isParametric(), this, "cannot get type parameters of a non-parametric datatype");
+  return d_params;
 }
 
 inline bool Datatype::operator!=(const Datatype& other) const throw() {
