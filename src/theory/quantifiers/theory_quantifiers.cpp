@@ -75,61 +75,61 @@ void TheoryQuantifiers::check(Effort e) {
   while(!done()) {
     Node assertion = get();
     Debug("quantifiers") << "quantifiers::check(): " << assertion << std::endl;
-    switch(assertion.getKind()) {
-    case kind::FORALL:
-      assertUniversal( assertion );
-      break;
-    case kind::EXISTS:
-      assertExistential( assertion );
-      break;
-    case kind::NO_COUNTEREXAMPLE:
-      assertCounterexample( assertion );
-      break;
-    case kind::NOT:
-      {
-        switch( assertion[0].getKind()) {
-        case kind::FORALL:
-          assertExistential( assertion );
-          break;
-        case kind::EXISTS:
-          assertUniversal( assertion );
-          break;
-        case kind::NO_COUNTEREXAMPLE:
-          assertCounterexample( assertion );
-          break;
-        default:
-          Unhandled(assertion[0].getKind());
-          break;
-        }
-      }
-      break;
-    default:
-      Unhandled(assertion.getKind());
-      break;
-    }
+    //switch(assertion.getKind()) {
+    //case kind::FORALL:
+    //  assertUniversal( assertion );
+    //  break;
+    //case kind::EXISTS:
+    //  assertExistential( assertion );
+    //  break;
+    //case kind::NO_COUNTEREXAMPLE:
+    //  assertCounterexample( assertion );
+    //  break;
+    //case kind::NOT:
+    //  {
+    //    switch( assertion[0].getKind()) {
+    //    case kind::FORALL:
+    //      assertExistential( assertion );
+    //      break;
+    //    case kind::EXISTS:
+    //      assertUniversal( assertion );
+    //      break;
+    //    case kind::NO_COUNTEREXAMPLE:
+    //      assertCounterexample( assertion );
+    //      break;
+    //    default:
+    //      Unhandled(assertion[0].getKind());
+    //      break;
+    //    }
+    //  }
+    //  break;
+    //default:
+    //  Unhandled(assertion.getKind());
+    //  break;
+    //}
   }
   if( e == FULL_EFFORT ) {
-    //for each n in d_forall_asserts, 
-    // such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
-    for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
-      if( (*i).second ) {
-        Node n = (*i).first;
-        Node cen = getCounterexampleLiteralFor( n );
-        if( d_counterexample_asserts.find( n )==d_counterexample_asserts.end() ||
-            !d_counterexample_asserts[n] ){
-          //find instantiations
-          
-        }
-      }
-    }
+    ////for each n in d_forall_asserts, 
+    //// such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
+    //for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
+    //  if( (*i).second ) {
+    //    Node n = (*i).first;
+    //    Node cen = getCounterexampleLiteralFor( n );
+    //    if( d_counterexample_asserts.find( n )==d_counterexample_asserts.end() ||
+    //        !d_counterexample_asserts[n] ){
+    //      //find instantiations
+    //      
+    //    }
+    //  }
+    //}
   }
 }
 
 Node TheoryQuantifiers::getCounterexampleLiteralFor( Node n ){
-  Assert( n.getKind()==FORALL || ( n.getKind()==NOT && n[0].getKind()==EXISTS ) );
-  if( d_counterexamples.find( n )==d_counterexamples.end() ){
-    d_counterexamples[n] = NodeManager::currentNM()->mkNode( NO_COUNTEREXAMPLE, n );
-  }
+  //Assert( n.getKind()==FORALL || ( n.getKind()==NOT && n[0].getKind()==EXISTS ) );
+  //if( d_counterexamples.find( n )==d_counterexamples.end() ){
+  //  d_counterexamples[n] = NodeManager::currentNM()->mkNode( NO_COUNTEREXAMPLE, n );
+  //}
   return d_counterexamples[n];
 }
 

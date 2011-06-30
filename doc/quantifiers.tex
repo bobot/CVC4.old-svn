@@ -355,28 +355,100 @@ Section~\ref{sec:search-strategies} will examine fair strategies for how to expl
 
 We begin with a few motivating examples.
 
-{\bf Example 2}
-Consider the set of asserted literals $M = \{ f( a, c ) = d, f( c, a ) = b, d = a, (\psi :) \forall xy. (f( x, y ) = a \Rightarrow f( y, x ) \neq b), \neg ( \bot^{\neg \psi} )^d \}$.
-After applying Counterexample $\forall$-Inst to $\psi$ and after unit propagation, we will obtain $M' = M \cup \{ (f( e_1, e_2 ) = a), (f( e_2, e_1 ) = b) \}$ where $e_1, e_2 \mapsto^I \psi$.
-In $M'$, the $EUF$-solver can deduce the pairs $( f( a, c ) = a, f( e_1, e_2 ) = a )$ and $( f( c, a ) = b,  f( e_2, e_1 ) = b )$.
-Here, we can immediately see that $a, c$ is a relevant instantiation for $x, y$ by noticing the fact that for each pair $( l, l')$, we have that $l$ is syntactically equivalent to $l'$ for the substitution $\{ e_1 \rightarrow a, e_2 \rightarrow c \}$.
-By applying $\forall$-Inst, we obtain the lemma $(\neg \forall xy. (f( x, y ) = a \Rightarrow f( y, x ) \neq b) \vee ( f( a, c ) = a \Rightarrow f( c, a ) \neq b ))$, which after propagating gives us a contradiction. \\
-
-{\bf Example 3} 
+{\bf Example 2} 
 Say we wish to determine the satisfiability of the formula $(\psi :) \forall x, y. ( y = c \Rightarrow x \neq y )$.
-In a similar manner to Example 2, we will arrive in the DPLL(T) state $\psi^d, (\bot^{ \neg \psi })^d, e_1 = c, e_1 = e_2 \parallel S \cup \ldots$.
+After applying Decide twice, Counterexample $\forall$-Inst to $\psi$ and unit propagation, we will arrive in the DPLL(T) state $\psi^d, (\bot^{ \neg \psi })^d, e_1 = c, e_1 = e_2 \parallel S \cup \ldots$.
 Here we have that $e_1 = e_2 = c$, thus we should try the instantiation $\{ x \rightarrow c, y \rightarrow c \}$, giving us the contradiction $( c = c \Rightarrow c \neq c )$ after instantiation of $\psi$. \\
 
-Example 3 shows the importance of knowing theory-specific information about the relationships between instantiation constants.  
+Example 2 shows the importance of knowing theory-specific information about the relationships between instantiation constants.  
 In this example, it was noted that in order for a counterexample to $\psi$ to exist, an instantiation must be such that $x = y$.
 
-In this section, we describe an efficient method for $Match_{EUF}$, which is capable of determining relavant instanatiations for the theory of equality and uninterpretted function symbols (EUF) in a given context $M$.
+{\bf Example 3}
+Consider the set of asserted literals $M = \{ f( a, c ) = d, f( c, a ) = b, d = a, (\psi :) \forall xy. (f( x, y ) = a \Rightarrow f( y, x ) \neq b), \neg ( \bot^{\neg \psi} )^d \}$.
+In a similar manner to Example 3, we will obtain $M' = M \cup \{ (f( e_1, e_2 ) = a), (f( e_2, e_1 ) = b) \}$ where $e_1, e_2 \mapsto^I \psi$.
+In $M'$, the $EUF$-solver can deduce $f( a, c ) = a = f( e_1, e_2 )$ and $f( c, a ) = b = f( e_2, e_1 )$.
+We will see that this will signal that $a, c$ is a relevant instantiation for $x, y$. \\
+
+In this section, we describe an efficient method for $Match_{EUF}$, which is capable of determining relavant instanatiations for the theory of equality and uninterpretted function symbols (EUF) in a given context $M$, as well as determining when relevant instantiations do not exist.
 Note that the relevance of these instantations depends on the set of theory literals currently asserted in $M$ to the $EUF$ theory solver, where $M$ contains both (1) equalities and disequalities between ground (concrete) terms, and (2) equalities and disequalities between terms involving instantiation constants.
 
-We assume a theory solver for $EUF$ which maintains a set of equivalence classes $E_1 \ldots E_n$ and set $D$ of disequalities between these equivalence classes.  
-We write $D( E_i, E_j )$ to denote that there exists a disequality between equivalence classes $E_i$ and $E_j$.
+We assume a theory solver for $EUF$ which maintains a set of equivalence classes $\bar{E} = E_1 \ldots E_n$ and (symmetric) relation $D \subseteq \bar{E} \times \bar{E}$ representing disequalities between these equivalence classes.  
+In the following, we write $t$ to denote a ground term containing no instantiation constants and $t^e$ to denote a ground term containing instantiation constants.
 
-[do this]
+The idea behind $Match_{EUF}$ for $\bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{x} )$ will be to try to show (A) a model $M^n$ exists such that all concrete ground literals are satisified and all literals involving instantiation constants are falsified for all values of $\bar{e}$.
+If this is the case, we have shown a model $M^n$ which satisifies all ground clauses and for which $\forall \bar{x}. \varphi( \bar{x} )$ holds.
+If we cannot find such a model in (A), we alternatively will (B) give a set of terms $\bar{t}$ to use as an instantiation for $\bar{x}$.
+The algorithm will proceed by trying to find a model such that we may answer in the form of (A), only resorting to (B) if such a model does not exist.
+
+We are looking for a model $M^n$ such that every literal $t \sim s$ is satisified and every literal involving instantiation constants is falsified for all values of $\bar{e}$.
+For all symbols $f$ where $f( t_1, \ldots t_n )$ is in some non-singleton equivalence class and $f( t_1, \ldots t_n )$ contains at least one instantiation constant as a subterm, we will require an interpretation for $f$ in our model $M^n$.
+The following examples show simple cases in which this process may succeed or fail. \\
+
+{\bf Example 4(a)}
+Say we wish to determine the satisifiability of $a = b \wedge (\psi:) \forall x. f( x ) \neq a$.
+After Decide (twice), Counterexample $\forall$-Inst and unit propagation, we will obtain a state in which $a = b$ and $f( e ) = a$ are asserted.
+We must constrain $M^n$ such that $\forall x. f( x ) \neq a$ and $a = b$.
+This model satisifies $\psi$. \\
+
+{\bf Example 4(b)}
+Say we wish to determine the satisifiability of $(\psi:) \forall x. f( x ) \neq f( b )$.
+Similarly, we will obtain a state in which $f( e ) = f( b )$ is asserted.
+We wish to contrain $M^n$ such that $\forall x. f( x ) \neq f( b )$, which is impossible since $x$ can be equal $b$.
+As we will see, this will signal for $Match_{EUF}$ to return the substitution $\{ x \rightarrow b \}$. \\
+
+Let us consider all cases in which a conflict may arise when building a candidate model $M^n$ during $Match_{EUF}( \bar{e} )$ where $\bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{x} )$.
+These are as follows: \\
+
+(1) Terms $f( t_1, \ldots t_n )$ and $f( s_1, \ldots s_n )$ are in the same equivalence class, where $f( t_1, \ldots t_n )$ or $f( s_1, \ldots s_n )$ contains at least one instantiation constant.  In this case, we require that $\forall \bar{x}. (f( t_1, \ldots t_n ) \neq f( s_1, \ldots s_n ))[\bar{x}/\bar{e}]$. 
+This further requires that $\forall \bar{x}. (t_1 \neq s_1 \vee \ldots \vee t_n \neq s_n)[\bar{x}/\bar{e}]$. \\
+
+(2) Term $f( t_1, \ldots t_n ) \in E_i$, term $f( s_1, \ldots s_n ) \in E_j$, $( E_i, E_k ) \in D$, and $( E_j, E_k ) \in D$, where $f( t_1, \ldots t_n )$ contains at least one instantiation constant and $f( s_1, \ldots s_n )$ does not.
+In this case we require an interprettation for $f$ in which $\forall \bar{x}. f( t_1, \ldots t_n )[\bar{x}/\bar{e}] \neq f( s_1, \ldots s_n )$, since $f( s_1, \ldots s_n )$ must be equal to some term in $E_k$ and $f( t_1, \ldots t_n )$ cannot.
+This further requires that $\forall \bar{x}. (t_1 \neq s_1 \vee \ldots \vee t_n \neq s_n)[\bar{x}/\bar{e}]$. \\
+
+(3) Term $t \in E_i$, term $s \in E_j$, where both $t$ and $s$ contain at least one instantiation constant, and either (a) $( E_i, E_k ) \in D$ and $( E_j, E_k ) \in D$, or (b) $( E_i, E_j ) \in D$.
+In this case, we require that $\forall \bar{x}. (t = s)[\bar{x}/\bar{e}]$. \\
+
+(4) An instantiation constant $e$ exists in the same equivalence class as a concrete ground term $t$.
+Here, we cannot form a model $M^n$, since we cannot rule out the case that $e = t$. \\
+
+(5) An instantiation constant $e$ exists as a singleton equivalence class $E_i$ where $( E_i, E_j ) \in D$, $( E_i, E_k ) \in D$ for equivalence classes $E_j, E_k$ both containing concrete ground terms.
+Here, we have that $\forall x. (x = t_j \wedge x = t_k)$ where $t_j$ is some term in $E_j$ and $t_k$ is some term in $E_k$.  
+In other words, we must merge the equivalance classes $E_j$ and $E_k$ in our model.
+Note that in the case where $( E_j, E_k ) \in D$, we cannot form a model $M^n$ since $E_j$ and $E_k$ cannot be merged. \\
+
+If none of these cases apply, we may construct the following well-formed model $M^n$: 
+
+For $Match_{EUF}( M, \bar{e} )$, where $\bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{x} )$ and cases (1)-(5) do not apply, for each equivalence class $E_i = \{ t_1, \ldots t_n, t^e_1, \ldots t^e_m \}$, where $t_1 \ldots t_n$ are concrete ground terms and $t^e_1, \ldots t^e_m$ are terms containing instantiation constants: \\
+(1) $M^n( t_1 ) = \ldots = M^n( t_n )$, \\
+(2) $\forall \bar{x}. ( M^n( t^e_1[\bar{x}/\bar{e}] ) \neq M^n( t_1 ) \wedge \ldots \wedge M^n( t^e_m[\bar{x}/\bar{e}] ) \neq M^n( t_1 ) )$, and \\
+(3) For all equivalence classes $E_j = \{ t'_1 \ldots t'_k \}$ such that $( E_i, E_j ) \in D$ and $t'_1 \ldots t'_k$ are concrete ground terms:
+
+(a) $M^n( t_1 ) \neq M^n( t'_1 )$,
+
+(b) $\forall \bar{x}. ( M^n( t^e_1[\bar{x}/\bar{e}] ) = M^n( t'_1 ) \wedge \ldots \wedge M^n( t^e_m[\bar{x}/\bar{e}] ) = M^n( t'_k ) )$. \\
+
+It can be shown that $M^n$ satisifies all ground clauses in $M$ and moreover $\forall \bar{x}. \varphi( \bar{x} )$ holds in $M^n$. 
+
+Otherwise, we applying the following algorithm, which can be thought of as performing unification for all terms involving instantiation constants: \\
+
+(U0) Input set of equivalence classes $\bar{E}$, disequalities between equivalence classes $D \subseteq \bar{E} \times \bar{E}$, and instantiation constants $\bar{e}$,
+
+(U1)  If some terms $f( t_1, \ldots t_n )$ and $f( s_1, \ldots s_n )$ are in the same equivalence class, then for each $t_i, s_i$ such that $t_i$ or $s_i$ contain one or more active instantiation constants from $\bar{e}$, merge the equivalence classes of $t_i$ and $s_i$,
+
+(U2)  If some term $f( t_1, \ldots t_n ) \in E_i$ and some term $f( s_1, \ldots s_n ) \in E_j$ and $( E_i, E_k ) \in D$ and $( E_j, E_k ) \in D$ for some equivalence class $E_k$, then for each $t_i, s_i$ such that $t_i$ or $s_i$ contain one or more active instantiation constants from $\bar{e}$, merge the equivalence classes of $t_i$ and $s_i$,
+
+(U3) Repeat (U1) and (U2) until a fix point is reached,
+
+(U4)  If all instantiation constants $e_i \in \bar{e}$ reside in equivalence classes with no other terms, return $NULL$.
+Otherwise, while there exists an $e_i \in \bar{e}$ such that $e_i$ exists in an equivalence class with no concrete terms, merge the equivalence class of $e_i$ with an arbitrary equivalence class that contains a concrete term,
+
+(U5) For each $e_i \in \bar{e}$, chose $t_i$ to be the representative concrete term in the same equivalence class of $e_i$. 
+Output $\bar{t}$.  \\
+
+%\paragraph{Extracting Models from Modified Congruence Graph}
+
+%In the case when $Match_{EUF}$ returns $NULL$ in step (U4), it can be shown that a model can be constructed from the resulting congruence graph that satisifies $\forall \bar{x}. \varphi( \bar{x} )$, and thus we are sound.
 
 
 %The method described in this section can be thought of as an improvement to $E$-matching.
@@ -387,7 +459,7 @@ We write $D( E_i, E_j )$ to denote that there exists a disequality between equiv
 %Note that this disregards the logical structure of the counterexample for $\forall \bar{ x }. \varphi( \bar{ x } )$ in the current context, and as such does not guarentee that $\bar{ t }/\bar{ x }$ will rule out any relevant counterexamples.
 
 We claim that the relevant subset of substitutions $E$-matching produces can be thought of as a special case of $Match_{EUF}$.
-That is, $Match_{EUF}$ is equivalent to $E$-matching if we restrict ourselves to use the metric $( l, l'[ \bar{ t }/\bar{ e }]  )$ are similar if $l$ and $l'[ \bar{ t }/\bar{ e }]$ share a common subterm $t$.
+That is, $Match_{EUF}$ is equivalent to $E$-matching if we restrict ourselves to
 [do this]
 
 \subsection{$Match_{LRA}$}
