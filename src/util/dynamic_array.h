@@ -140,6 +140,11 @@ public:
     }
     return this->d_arr[i];
   }
+
+  const T& operator[](unsigned i) const {
+    Assert(this->d_size > i);
+    return this->d_arr[i];
+  }
 };/* CVC4::DynamicGrowingArray */
 
 }/* CVC4 namespace */

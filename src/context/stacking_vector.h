@@ -69,6 +69,16 @@ public:
   void set(size_t n, const T& newValue);
 
   /**
+   * Return the current size of the vector.  Note that once a certain
+   * size is achieved, the size never goes down again, although the
+   * elements off the old end of the vector will be replaced with
+   * default-constructed T values.
+   */
+  size_t size() const {
+    return d_map.size();
+  }
+
+  /**
    * Called by the Context when a pop occurs.  Cancels everything to the
    * current context level.  Overrides ContextNotifyObj::notify().
    */
@@ -93,6 +103,7 @@ void StackingVector<T>::notify() {
   Trace("sv") << "SV cancelling : " << d_offset << " < " << d_trace.size() << " ?" << std::endl;
   while(d_offset < d_trace.size()) {
     std::pair<size_t, T> p = d_trace.back();
+    Trace("sv") << "SV cancelling: " << p.first << " back to " << p.second << std::endl;
     d_map[p.first] = p.second;
     d_trace.pop_back();
   }

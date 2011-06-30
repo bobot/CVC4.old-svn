@@ -154,7 +154,7 @@ class CongruenceClosure {
       d_reverseCidMap.push_back(n);
       if(isCongruenceOperator(n)) {
         for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
-          Trace("cc") << "adding " << n << "(" << cid << ") to use list of " << *i << "(" << this->cid(*i) << ":" << cidIndex(this->cid(*i)) << ")" << std::endl;
+          Trace("cc") << "adding " << n << "(" << cid << ") to use list of " << *i << "(" << this->cid(*i) << ")" << std::endl;
           useList(this->cid(*i)).push_back(cid);
         }
         Node rewritten = rewriteWithRepresentatives(n);
@@ -167,7 +167,7 @@ class CongruenceClosure {
 
       ClassList* cl = new(d_context->getCMM()) ClassList(true, d_context, context::ContextMemoryAllocator<Cid>(d_context->getCMM()));
       cl->push_back(cid);
-      d_classLists[cidIndex(cid)] = cl;
+      d_classLists[cid] = cl;
     }
     return cid;
   }
@@ -238,24 +238,36 @@ class CongruenceClosure {
   // === STATISTICS ===
   AverageStat d_explanationLength;/**< average explanation length */
 
-  static inline Cid cidIndex(Cid c) {
-    return c;
+  inline std::vector<Node>& propagateList(Cid c) {
+    return d_propagate[c];
   }
 
-  inline std::vector<Node>& propagateList(Cid c) {
-    return d_propagate[cidIndex(c)];
+  inline const std::vector<Node>& propagateList(Cid c) const {
+    return d_propagate[c];
   }
 
   inline std::vector<Node>& dispropagateList(Cid c) {
-    return d_dispropagate[cidIndex(c)];
+    return d_dispropagate[c];
+  }
+
+  inline const std::vector<Node>& dispropagateList(Cid c) const {
+    return d_dispropagate[c];
   }
 
   inline ClassList& classList(Cid c) {
-    return *d_classLists[cidIndex(c)];
+    return *d_classLists[c];
+  }
+
+  inline const ClassList& classList(Cid c) const {
+    return *d_classLists[c];
   }
 
   inline UseList& useList(Cid c) {
-    return d_useLists[cidIndex(c)];
+    return d_useLists[c];
+  }
+
+  inline const UseList& useList(Cid c) const {
+    return d_useLists[c];
   }
 
   inline bool isCongruenceOperator(TNode n) const {
@@ -349,17 +361,6 @@ public:
 private:
   void merge(Cid a, Cid b, TNode inputEq);
 
-  /*
-  TNode proofRewrite(TNode pfStep) const {
-    ProofMap::const_iterator i = d_proofRewrite.find(pfStep);
-    if(i == d_proofRewrite.end()) {
-      return pfStep;
-    } else {
-      return (*i).second;
-    }
-  }
-  */
-
 public:
   /**
    * Inquire whether two expressions are congruent in the current
@@ -396,7 +397,7 @@ private:
    * Find the EC representative for a term t in the current context.
    */
   inline Cid find(Cid c) const throw(AssertionException) {
-    Cid p = d_representative[cidIndex(c)];
+    Cid p = d_representative[c];
     return p == 0 ? c : p;
   }
 
@@ -426,6 +427,19 @@ private:
   }
 
 public:
+
+  void debug() const {
+    if(Debug.isOn("cc:detail") && d_reverseCidMap.size() > 152) {
+      Cid i = find(152);
+      Debug("cc:detail") << "parent of 152 (" << node(152) << ") is " << i << " (" << node(i) << ")" << std::endl;
+      Debug("cc:detail") << "  " << node(i) << " =>" << std::endl;
+      const ClassList& cl = classList(i);
+      for(typename ClassList::const_iterator j = cl.begin(); j != cl.end(); ++j) {
+        Debug("cc:detail") << "      " << node(*j) << " ==> " << node(find(*j)) << std::endl;
+      }
+      cl.debugCheck();
+    }
+  }
 
   /**
    * Request an explanation for why a and b are in the same EC in the
@@ -489,13 +503,6 @@ private:
   }
   */
 
-  /**
-   * Merge equivalence class ec1 under ec2.  ec1's new union-find
-   * representative becomes ec2.  Calls
-   * OutputChannel::notifyCongruent(), so it can throw anything that
-   * that function can.
-   */
-  //void ufmerge(TNode ec1, TNode ec2);
   void mergeProof(Cid a, Cid b, TNode e);
 
 public:
@@ -588,6 +595,8 @@ void CongruenceClosure<OutputChannel>::merge(Cid s, Cid t, TNode inputEq) {
 
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::propagate() {
+  Debug("cc:detail") << *this;
+
   while(!d_pending.empty()) {
     bool cancel = false;
 
@@ -609,6 +618,7 @@ void CongruenceClosure<OutputChannel>::propagate() {
                          << "b          :" << node(t) << std::endl
                          << "alreadyCongruent?:" << areCongruent(node(s), node(t)) << std::endl;
     }
+    debug();
 
     Cid ap = find(s), bp = find(t);
     if(ap != bp) {
@@ -620,8 +630,6 @@ void CongruenceClosure<OutputChannel>::propagate() {
 
       Trace("cc:detail") << "going through propagation list of " << node(bp) << std::endl;
       ClassList& cl = classList(bp);
-#warning fixme remove
-      cl.debugCheck();
 
       for(ClassList::iterator cli = cl.begin(); cli != cl.end(); ++cli) {
         Trace("cc:detail") << "==> at node " << node(*cli) << " in class list of " << node(bp) << std::endl;
@@ -663,7 +671,7 @@ void CongruenceClosure<OutputChannel>::propagate() {
 
       for(ClassList::iterator cli = cl.begin(); cli != cl.end(); ++cli) {
         Assert(find(*cli) == bp);
-        d_representative.set(cidIndex(*cli), ap);
+        d_representative.set(*cli, ap);
       }
 
       if(!cancel) {
@@ -674,7 +682,7 @@ void CongruenceClosure<OutputChannel>::propagate() {
         for(ClassList::iterator cli = cl.begin(); cli != cl.end(); ++cli) {
           Assert(find(*cli) == ap);
           UseList& ul = useList(*cli);
-          Trace("cc:detail") << "CC  -- useList: [" << node(*cli) << "(" << *cli << ":" << cidIndex(*cli) << ")]: " << ul.size() << std::endl;
+          Trace("cc:detail") << "CC  -- useList: [" << node(*cli) << "(" << *cli << ":" << *cli << ")]: " << ul.size() << std::endl;
           for(UseList::const_iterator i = ul.begin(); i != ul.end(); ++i) {
             Trace("cc:detail") << "CC  -- useList: [" << node(*cli) << "(" << *cli << ")] " << node(*i) << "(" << *i << ")" << std::endl;
 
@@ -720,6 +728,7 @@ void CongruenceClosure<OutputChannel>::propagate() {
         }
       }
 
+      Debug("cc:detail") << "concat class lists of " << node(ap) << " and " << node(bp) << std::endl;
       classList(ap).concat(classList(bp));
       mergeProof(s, t, e);
 
@@ -741,10 +750,13 @@ void CongruenceClosure<OutputChannel>::propagate() {
     if(Trace.isOn("cc:detail")) {
       Trace("cc:detail") << "=====at end=====" << std::endl
                          << "a          :" << node(s) << std::endl
+                         << "a'         :" << node(find(s)) << std::endl
                          << "b          :" << node(t) << std::endl
+                         << "b'         :" << node(find(t)) << std::endl
                          << "alreadyCongruent?:" << areCongruent(node(s), node(t)) << std::endl;
     }
     Assert(areCongruent(node(s), node(t)));
+    debug();
   }
 }/* propagate() */
 
@@ -760,8 +772,8 @@ void CongruenceClosure<OutputChannel>::mergeProof(Cid a, Cid b, TNode e) {
   // first reverse all the edges in proof forest to root of this proof tree
   Trace("cc") << "CC PROOF reversing proof tree\n";
   // c and p are child and parent in (old) proof tree
-  Cid c = a, p = d_proof[cidIndex(a)];
-  Node edgePf = d_proofLabel[cidIndex(a)];
+  Cid c = a, p = d_proof[a];
+  Node edgePf = d_proofLabel[a];
   // when we hit null p, we're at the (former) root
   Trace("cc") << "CC PROOF start at c == " << c << std::endl
               << "                  p == " << p << std::endl
@@ -771,10 +783,10 @@ void CongruenceClosure<OutputChannel>::mergeProof(Cid a, Cid b, TNode e) {
     // we have edge   c --edgePf-> p
     // turn it into   c <-edgePf-- p
 
-    Cid pParSave = d_proof[cidIndex(p)];
-    Node pLabelSave = d_proofLabel[cidIndex(p)];
-    d_proof.set(cidIndex(p), c);
-    d_proofLabel.set(cidIndex(p), edgePf);
+    Cid pParSave = d_proof[p];
+    Node pLabelSave = d_proofLabel[p];
+    d_proof.set(p, c);
+    d_proofLabel.set(p, edgePf);
     c = p;
     p = pParSave;
     edgePf = pLabelSave;
@@ -784,8 +796,8 @@ void CongruenceClosure<OutputChannel>::mergeProof(Cid a, Cid b, TNode e) {
   }
 
   // add an edge from a to b
-  d_proof.set(cidIndex(a), b);
-  d_proofLabel.set(cidIndex(a), e);
+  d_proof.set(a, b);
+  d_proofLabel.set(a, e);
 }/* mergeProof() */
 
 
@@ -813,8 +825,8 @@ void CongruenceClosure<OutputChannel>::explainAlongPath(Cid a, Cid c, PendingPro
   Assert(c == highestNode(c, unionFind));
 
   while(a != c) {
-    Cid b = d_proof[cidIndex(a)];
-    Node e = d_proofLabel[cidIndex(a)];
+    Cid b = d_proof[a];
+    Node e = d_proofLabel[a];
     if(e.getKind() == kind::EQUAL ||
        e.getKind() == kind::IFF) {
       pf.push_back(e);
@@ -846,7 +858,7 @@ CongruenceClosure<OutputChannel>::nearestCommonAncestor(Cid a, Cid b, UnionFind_
   do {
     a = highestNode(a, unionFind);
     seen.insert(a);
-    a = d_proof[cidIndex(a)];
+    a = d_proof[a];
   } while(a != 0);
 
   for(;;) {
@@ -854,7 +866,7 @@ CongruenceClosure<OutputChannel>::nearestCommonAncestor(Cid a, Cid b, UnionFind_
     if(seen.find(b) != seen.end()) {
       return b;
     }
-    b = d_proof[cidIndex(b)];
+    b = d_proof[b];
 
     Assert(b != 0);
   }
@@ -925,24 +937,35 @@ Node CongruenceClosure<OutputChannel>::explain(Node an, Node bn)
 template <class OutputChannel>
 std::ostream& operator<<(std::ostream& out,
                          const CongruenceClosure<OutputChannel>& cc) {
+  typedef typename CongruenceClosure<OutputChannel>::Cid Cid;
+
+  cc.debug();
+
   out << "==============================================" << std::endl;
 
-  /*out << "Representatives:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel>::RepresentativeMap::const_iterator i = cc.d_representative.begin(); i != cc.d_representative.end(); ++i) {
-    out << "  " << (*i).first << " => " << (*i).second << std::endl;
-  }*/
+  out << "Representatives:" << std::endl;
+  for(Cid i = 1; i < cc.d_representative.size(); ++i) {
+    typename CongruenceClosure<OutputChannel>::Cid p = cc.d_representative[i];
+    if(p != 0) {
+      out << "  " << cc.node(i) << " => " << cc.node(p) << std::endl;
+    }
+  }
 
   out << "ClassLists:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel>::ClassLists::const_iterator i = cc.d_classList.begin(); i != cc.d_classList.end(); ++i) {
-    if(cc.find((*i).first) == (*i).first) {
-      out << "  " << (*i).first << " =>" << std::endl;
-      for(typename CongruenceClosure<OutputChannel>::ClassList::const_iterator j = (*i).second->begin(); j != (*i).second->end(); ++j) {
-        out << "      " << *j << std::endl;
+  for(Cid i = 1; i < cc.d_reverseCidMap.size(); ++i) {
+    if(cc.find(i) == i) {
+      out << "  " << cc.node(i) << " =>" << std::endl;
+      typedef typename CongruenceClosure<OutputChannel>::ClassList ClassList;
+      const ClassList& cl = cc.classList(i);
+      for(typename ClassList::const_iterator j = cl.begin(); j != cl.end(); ++j) {
+        out << "      " << cc.node(*j) << std::endl;
       }
+      cl.debugCheck();
     }
   }
 
   out << "UseLists:" << std::endl;
+  /*
   for(typename CongruenceClosure<OutputChannel>::UseLists::const_iterator i = cc.d_useList.begin(); i != cc.d_useList.end(); ++i) {
     if(cc.find((*i).first) == (*i).first) {
       out << "  " << (*i).first << " =>" << std::endl;
@@ -951,16 +974,13 @@ std::ostream& operator<<(std::ostream& out,
       }
     }
   }
-
-  out << "Lookup:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel>::LookupMap::const_iterator i = cc.d_lookup.begin(); i != cc.d_lookup.end(); ++i) {
-    TNode n = (*i).second;
-    out << "  " << (*i).first << " => " << n << std::endl;
-  }
+  */
 
   out << "Care set:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel>::CareSet::const_iterator i = cc.d_careSet.begin(); i != cc.d_careSet.end(); ++i) {
-    out << "  " << *i << std::endl;
+  for(Cid i = 1; i < cc.d_reverseCidMap.size(); ++i) {
+    if(cc.d_careTerms.find(i) != cc.d_careTerms.end()) {
+      out << "  " << cc.node(i) << std::endl;
+    }
   }
 
   out << "==============================================" << std::endl;

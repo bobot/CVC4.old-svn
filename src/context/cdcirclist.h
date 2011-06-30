@@ -53,7 +53,8 @@ public:
     super(allocatedInCMM, context, data) {
   }
 
-  //~CDPtr() throw(AssertionException) { destroy(); }
+  // undesirable to put this here, since CDO<> does it already (?)
+  //~CDPtr() throw(AssertionException) { this->destroy(); }
 
   CDPtr<T>& operator=(T* data) {
     super::set(data);
