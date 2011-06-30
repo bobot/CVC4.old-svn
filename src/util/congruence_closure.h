@@ -68,11 +68,10 @@ public:
  * Congruence closure module for CVC4.
  *
  * This is a service class for theories.  One uses a CongruenceClosure
- * by adding a number of relevant equality terms with registerTerm() and
+ * by adding a number of relevant equality terms with registerEquality() and
  * asserted equalities with addEquality().  It then gets notified
  * (through OutputChannel, below), of new equality terms that are
  * implied by the current set of asserted (and implied) equalities.
-
  *
  * OutputChannel is a template argument (it's probably a thin layer,
  * and we want to avoid a virtual call hierarchy in this case, and
@@ -81,11 +80,11 @@ public:
  *
  *   class MyOutputChannel {
  *   public:
- *     bool notifyCongruence(TNode eq) {
+ *     bool notifyEntailedEquality(TNode eq) {
  *       // CongruenceClosure is notifying us that "a" is now the EC
  *       // representative for "b" in this context.  After a pop, "a"
  *       // will be its own representative again.  Note that "a" and
- *       // "b" might never have been added with registerTerm().  However,
+ *       // "b" might never have been added with registerEquality().  However,
  *       // something in their equivalence class was (for which a
  *       // previous notifyCongruent() would have notified you of
  *       // their EC representative, which is now "a" or "b").
@@ -99,6 +98,17 @@ public:
  *       // good (former) state.  Keep this in mind if a
  *       // CVC4::Interrupted that *doesn't* lead to a backjump can
  *       // interrupt you.
+ *     }
+ *
+ *     bool notifyDisentailedEquality(TNode eq) {
+ *       // Similar, but "eq" must be false, given the set of
+ *       // constraints
+ *     }
+ *
+ *     bool notifyMerge(TNode a, TNode b) {
+ *       // a (previously a representative of an equivalence class) is
+ *       // now a member of b's equivalence class.  b is the
+ *       // representative.
  *     }
  *   };
  */
@@ -134,16 +144,15 @@ class CongruenceClosure {
   };/* struct CongruenceClosure<>::VectorHashFunction<> */
 
   std::hash_map<TNode, Cid, TNodeHashFunction> d_cidMap;
-  DynamicArray<TNode> d_reverseCidMapIndividuals;
-  DynamicArray<TNode> d_reverseCidMapApplications;
+  DynamicArray<TNode> d_reverseCidMap;
   std::list< triple<Cid, Cid, Node> > d_pending;
 
   inline Cid cid(TNode n) {
     Cid& cid = d_cidMap[n];
     if(cid == 0) {
+      cid = d_reverseCidMap.size();
+      d_reverseCidMap.push_back(n);
       if(isCongruenceOperator(n)) {
-        cid = -d_reverseCidMapApplications.size();
-        d_reverseCidMapApplications.push_back(n);
         for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
           Trace("cc") << "adding " << n << "(" << cid << ") to use list of " << *i << "(" << this->cid(*i) << ":" << cidIndex(this->cid(*i)) << ")" << std::endl;
           useList(this->cid(*i)).push_back(cid);
@@ -154,9 +163,6 @@ class CongruenceClosure {
           Node eq = NodeManager::currentNM()->mkNode(kind::TUPLE, n, rewritten);
           d_pending.push_back(make_triple(cid, this->cid(rewritten), eq));
         }
-      } else {
-        cid = d_reverseCidMapIndividuals.size();
-        d_reverseCidMapIndividuals.push_back(n);
       }
 
       ClassList* cl = new(d_context->getCMM()) ClassList(true, d_context, context::ContextMemoryAllocator<Cid>(d_context->getCMM()));
@@ -175,15 +181,7 @@ class CongruenceClosure {
     return i != d_cidMap.end();
   }
   inline TNode node(Cid cid) const {
-    return cid > 0 ?
-      d_reverseCidMapIndividuals[cid] :
-      d_reverseCidMapApplications[-cid];
-  }
-  static inline bool isApplication(Cid cid) {
-    return cid < 0;
-  }
-  static inline bool isIndividual(Cid cid) {
-    return cid > 0;
+    return d_reverseCidMap[cid];
   }
 
   /** The context at play. */
@@ -191,7 +189,7 @@ class CongruenceClosure {
 
   /**
    * The output channel, used for notifying the client of new
-   * congruences.  Only terms registered with registerTerm() will
+   * congruences.  Only terms registered with registerEquality() will
    * generate notifications.
    */
   OutputChannel* d_out;
@@ -224,6 +222,8 @@ class CongruenceClosure {
   typedef __gnu_cxx::hash_map<Cid, Cid> UnionFind_t;
   typedef __gnu_cxx::hash_set<Cid> SeenSet_t;
 
+  typedef __gnu_cxx::hash_set<Cid> CareSet_t;
+
   RepresentativeMap d_representative;
   ClassLists d_classLists;
   PropagateList d_propagate, d_dispropagate;
@@ -233,13 +233,13 @@ class CongruenceClosure {
   ProofMap d_proof;
   ProofLabel d_proofLabel;
 
-  //ProofMap d_proofRewrite;
+  CareSet_t d_careTerms;
 
   // === STATISTICS ===
   AverageStat d_explanationLength;/**< average explanation length */
 
   static inline Cid cidIndex(Cid c) {
-    return c < 0 ? 2 * -c + 1 : 2 * c;
+    return c;
   }
 
   inline std::vector<Node>& propagateList(Cid c) {
@@ -274,8 +274,7 @@ public:
   CongruenceClosure(context::Context* ctxt, OutputChannel* out, KindMap kinds)
     throw(AssertionException) :
     d_cidMap(),
-    d_reverseCidMapIndividuals(false),
-    d_reverseCidMapApplications(false),
+    d_reverseCidMap(false),
     d_context(ctxt),
     d_out(out),
     d_congruenceOperatorMap(kinds),
@@ -288,8 +287,7 @@ public:
     //d_proofRewrite(ctxt),
     d_explanationLength("congruence_closure::AverageExplanationLength") {
     CheckArgument(!kinds.isEmpty(), "cannot construct a CongruenceClosure with an empty KindMap");
-    d_reverseCidMapIndividuals.push_back(Node::null());
-    d_reverseCidMapApplications.push_back(Node::null());
+    d_reverseCidMap.push_back(Node::null());
   }
 
   ~CongruenceClosure() {}
@@ -308,18 +306,19 @@ public:
    * if the equality is already implied by the current partial
    * assignment, so it can throw anything that that function can.
    */
-  void registerTerm(TNode eq);
+  void registerEquality(TNode eq);
+  void registerTerm(TNode trm);
 
   /**
    * Add an equality literal eq into CC consideration (it should be a
    * node of kind EQUAL or IFF), asserting that this equality is now
    * true.  This assertion is context-dependent.  Calls
    * OutputChannel::notifyCongruent() to notify the client of any
-   * equalities (registered using registerTerm()) that are now congruent.
+   * equalities (registered using registerEquality()) that are now congruent.
    * Therefore, it can throw anything that that function can.
    *
    * Note that equalities asserted via assertEquality() need not have
-   * been registered using registerTerm()---the values in those two sets
+   * been registered using registerEquality()---the values in those two sets
    * have no requirements---the two sets can be equal, disjoint,
    * overlapping, it doesn't matter.
    */
@@ -516,25 +515,42 @@ public:
 };/* class CongruenceClosure */
 
 template <class OutputChannel>
-void CongruenceClosure<OutputChannel>::registerTerm(TNode t) {
+void CongruenceClosure<OutputChannel>::registerEquality(TNode t) {
   AssertArgument(t.getKind() == kind::EQUAL || t.getKind() == kind::IFF,
                  t, "expected an EQUAL or IFF, got: %s", t.toString().c_str());
   TNode a = t[0];
   TNode b = t[1];
 
-  Debug("cc") << "CC registerTerm " << t << std::endl;
+  Debug("cc") << "CC registerEquality " << t << std::endl;
 
   Cid ca = cid(a), cb = cid(b);
 
   if(areCongruent(a, b)) {
     // we take care to only notify our client once of congruences
-    d_out->notifyCongruence(t);// intentionally ignore cancelation request here
+    d_out->notifyEntailedEquality(t);// intentionally ignore cancelation request here
   }
 
   propagateList(ca).push_back(t);
   propagateList(cb).push_back(t);
 
   propagate();
+}
+
+template <class OutputChannel>
+void CongruenceClosure<OutputChannel>::registerTerm(TNode t) {
+  AssertArgument(t.getKind() != kind::EQUAL && t.getKind() != kind::IFF,
+                 t, "expected something other than EQUAL or IFF, got: %s", t.toString().c_str());
+  Debug("cc") << "CC registerTerm " << t << std::endl;
+
+  Cid c = cid(t);
+  Cid p = find(c);
+
+  if(c != p) {
+    d_out->notifyMerge(c, p);
+    d_careTerms.insert(p);
+  } else {
+    d_careTerms.insert(c);
+  }
 }
 
 /* From [Nieuwenhuis & Oliveras]
@@ -620,7 +636,7 @@ void CongruenceClosure<OutputChannel>::propagate() {
             // something they notified US of.
             if(find(cid((*i)[1])) == bp && *i != e) {
               Trace("cc:detail") << "        HIT!! ECs are " << node(ap) << " and " << node(bp) << std::endl;
-              if(d_out->notifyCongruence(*i)) {
+              if(d_out->notifyEntailedEquality(*i)) {
                 Trace("cc:detail") << "        in conflict, will CANCEL further propagation" << std::endl;
                 cancel = true;
                 d_pending.clear();
@@ -629,7 +645,7 @@ void CongruenceClosure<OutputChannel>::propagate() {
             }
           } else if(c == bp && find(cid((*i)[1])) == ap && *i != e) {
             Trace("cc:detail") << "        HIT!! ECs are " << node(bp) << " and " << node(ap) << std::endl;
-            if(d_out->notifyCongruence(*i)) {
+            if(d_out->notifyEntailedEquality(*i)) {
               Trace("cc:detail") << "        in conflict, CANCELING further propagation" << std::endl;
               cancel = true;
               d_pending.clear();
@@ -677,6 +693,12 @@ void CongruenceClosure<OutputChannel>::propagate() {
           }
         }
         Trace("cc:detail") << "CC in prop done with useList of " << ap << std::endl;
+
+        // finally, notify client if bp was cared about, and care about ap
+        if(d_careTerms.find(bp) != d_careTerms.end()) {
+          d_out->notifyMerge(node(bp), node(ap));
+          d_careTerms.insert(ap);
+        }
       }
 
       Assert(&classList(ap) != &classList(bp));

@@ -5,7 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -30,7 +30,6 @@
 
 #include "theory/theory.h"
 #include "theory/uf/theory_uf.h"
-#include "theory/uf/morgan/union_find.h"
 
 #include "context/context.h"
 #include "context/context_mm.h"
@@ -52,8 +51,14 @@ private:
 
   public:
     CongruenceChannel(TheoryUFMorgan* uf) : d_uf(uf) {}
-    bool notifyCongruence(TNode eq) {
+    bool notifyEntailedEquality(TNode eq) {
       return d_uf->notifyCongruence(eq);
+    }
+    bool notifyDisentailedEquality(TNode eq) {
+      Unimplemented();
+    }
+    bool notifyMerge(TNode a, TNode b) {
+      Unimplemented();
     }
   };/* class CongruenceChannel */
   friend class CongruenceChannel;

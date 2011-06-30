@@ -5,7 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -50,7 +50,7 @@ TheoryUFMorgan::TheoryUFMorgan(Context* ctxt, OutputChannel& out, Valuation valu
   d_trueNode = nm->mkVar("TRUE_UF", boolType);
   d_falseNode = nm->mkVar("FALSE_UF", boolType);
   d_trueEqFalseNode = nm->mkNode(kind::IFF, d_trueNode, d_falseNode);
-  d_cc.registerTerm(d_trueEqFalseNode);
+  d_cc.registerEquality(d_trueEqFalseNode);
   d_cc.assertDisequality(d_trueEqFalseNode);
   //d_cc.registerTerm(d_trueNode);
   //d_cc.registerTerm(d_falseNode);
@@ -67,9 +67,9 @@ TheoryUFMorgan::~TheoryUFMorgan() {
 void TheoryUFMorgan::preRegisterTerm(TNode n) {
   Debug("uf") << "uf: preRegisterTerm(" << n << ")" << endl;
   if(n.getKind() == kind::EQUAL || n.getKind() == kind::IFF) {
-    d_cc.registerTerm(n);
+    d_cc.registerEquality(n);
   } else if(n.getKind() == kind::APPLY_UF && n.getOperator().getType().isPredicate()) {
-    d_cc.registerTerm(NodeManager::currentNM()->mkNode(kind::IFF, n, d_trueNode));
+    d_cc.registerEquality(NodeManager::currentNM()->mkNode(kind::IFF, n, d_trueNode));
   }
 }
 

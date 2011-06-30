@@ -334,7 +334,7 @@ private:
    * Find the EC representative for a term t in the current context.
    */
   inline TNode find(TNode t) const throw(AssertionException) {
-    TNode rep1 = (*d_representative.find(t)).second;
+    TNode rep1 = d_representative[t];
     return rep1.isNull() ? t : rep1;
   }
 
