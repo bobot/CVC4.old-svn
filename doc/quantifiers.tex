@@ -56,7 +56,7 @@ Note that in the case of $\exists$-Inst, there is no benefit of instantiating mo
 
 Note that the $\forall$-Inst rule always applies in DPLL(T) when a universal quantified formula is asserted, thus restricting the SMT solver from answering SAT.
 Typically, repeated applications of $\forall$-Inst are tried until a conflict is discovered, or else the solver returns UNKNOWN.
-The main challenges here are (1) determining relevant instantiations to use for the rule $\forall$-Inst, (2) determining when it is no longer worthwhile to apply $\forall$-Inst for a given quantifier, as well as (3) recognizing cases where all necessary instantiation have been tried.
+The main challenges here are (1) determining relevant instantiations to use for the rule $\forall$-Inst, (2) determining when it is no longer worthwhile to apply $\forall$-Inst for a given quantifier, as well as (3) recognizing cases where all necessary instantiations have been tried.
 
 In current approaches, $E$-matching has been used as a method of addressing challenge (1).
 An instantiation method based on matching is the following.
@@ -233,13 +233,13 @@ Let us first consider when we are in a state $M, \psi, \neg( \bot^{\neg \varphi}
 In the case that $l_1$ is asserted positively (possibly as a decision) in $M = M_1, l^{(d)}_1, M_2$, we have that $C_1$ is falsified and we will backjump to the state $M, \psi, \bot^{\neg \varphi} \parallel F$.
 This corresponds to saying that a counterexample cannot exist to $\psi$ in the context $M$ where $l_1$ is true.
 
-In the case that $l_1$ is asserted positively as a decision literal in $N = N_1, l^d_1, N_2$, we have that $C_1$ is falsified and we will backjump to the state $M, \psi, \neg( \bot^{\neg \varphi} )^d,$ $N_1, \neg l_1$ $\parallel F$.
+In the case that $l_1$ is not asserted in $M$, we will apply Unit Propagation to $C_1$ and arrive in the state $M, \psi, \neg( \bot^{\neg \varphi} )^d, \neg l_1$ $\parallel F$.
 This corresponds to saying that $l_1$ must be false if a counterexample to $\psi$ exists.
 Note here that we are preferring to constrain ourselves to states in which a counterexample is more likely to occur.
 This makes sense, both semantically since we have decided that a counterexample may exist (i.e. $\neg( \bot^{\neg \varphi} )^d$), and operationally since the DPLL(T) will reach a non-terminating state if it cannot prove that a counterexample exists.
 
-In the case that $l_1$ is asserted positively as a non-decision literal in $N = N_1, l_1, N_2$, we have that $C_1$ is falsified and conflict analysis should proceed in the standard way to backjump to a state of the form $M, \psi, \neg( \bot^{\neg \varphi} )^d, N' \parallel F$ or $M, \psi, \neg( \bot^{\neg \varphi} )  \parallel F$.
-In the former case, we have determined that some decision in $N_1$ has led us to require $l_1$ to be true thereby conflicting with our decision that a counterexample exists.
+Otherwise, ignoring Unit Propagation, if $l_1^{(d)}$ had been asserted positively as a decision in $N$, $C_1$ is falsified and conflict analysis would proceed in the standard way to backjump to a state of the form $M, \psi, \neg( \bot^{\neg \varphi} )^d, N', \neg l_1 \parallel F$ or $M, \psi, \neg( \bot^{\neg \varphi} )  \parallel F$.
+In the former case, we have determined that some decision in $N$ has led us to require $l_1$ to be true thereby conflicting with our decision that a counterexample exists.
 In the latter case, we have determined that assuming a counterexample exists means that $l_1$ must be true and thus a counterexample cannot exist.
 \footnote{ While this behavior is desirable, this case will never occur due to Invariant 1.}
 
@@ -248,9 +248,8 @@ Now consider the case where we are in a state $M, \psi^d, \neg( \bot^{\neg \varp
 The cases here are identical with one notable exception.
 Take the case where we have encountered a conflict and backjumped to the state $M, \psi^d, \bot^{\neg \varphi} \parallel F$, that is, we know that $\psi$ does not have a counterexample.
 Note the lemma $(\neg (\bot^{\neg \psi}) \vee \psi)$, that is, either $\psi$ has a counterexample or $\psi$ holds.
-If this clause were in $F$, we could apply Backjump with $C' \vee l' = \neg (\bot^{\neg \psi}) \vee \psi$ to arrive at the state $M, \psi \parallel F$.
-Note, however that this lemma is exactly what we \emph{do not} want to tell the SAT-solver, as it encodes the trick of our approach.
-Thus, we must perform this Backjump implicitly, as will be shown in the next section in the rule \emph{Counterexample Backjump} [do this].
+We can apply Backjump with $C' \vee l' = \neg (\bot^{\neg \psi}) \vee \psi$ to arrive at the state $M, \psi \parallel F$.
+Note, however that this lemma should not be added $F$, as it is exactly what we \emph{do not} want to tell the SAT-solver, as it encodes the trick of our approach.
 
 The analysis for $C_2$ and $C_3$ are similar, where now the DPLL(T) engine may give partial truth assignments to $e = a$, $e = b$ and $e = c$ which will be useful for determining instantiations.
 Note in the context $M, \psi, \neg( \bot^{\neg \varphi} )^d$, the literal $e = c$ will be unit propagated within $C_3$, thereby signalling that we should only be searching for counterexamples where $e = c$.
