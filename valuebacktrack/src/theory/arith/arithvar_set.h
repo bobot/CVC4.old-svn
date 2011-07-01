@@ -130,6 +130,13 @@ public:
     }
   }
 
+  /** Removes x from the set if x is a member of the set. */
+  void softRemove(ArithVar x){
+    if(isMember(x)){
+      remove(x);
+    }
+  }
+
   const VarList& getList() const{
     return d_list;
   }

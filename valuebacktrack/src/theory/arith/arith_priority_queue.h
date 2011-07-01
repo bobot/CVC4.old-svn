@@ -92,10 +92,34 @@ private:
 
   PivotRule d_pivotRule;
 
+
+  /**
+   * The set of variables in the queue at any point.
+   * TODO: merge varOrderQueue into arithvar set
+   */
+  PermissiveBackArithVarSet d_varSet;
+  /**
+   * Let I be the set of inconsistent basic variables
+   * Let V be the set of variables in d_varSet.
+   * Let D be the set of variables in d_diffQueue.
+   * Let O be the set of variables in d_varOrderQueue.
+   * In all modes:
+   *    I <= V
+   * In collection mode:
+   *    D = \empty
+   *    O = \empty
+   * In diff mode:
+   *    V <= D
+   *    O = \empty
+   * In var order mode:
+   *    D = \empty
+   *    V = O
+   */
+
   /**
    * An unordered array with no heap structure for use during collection mode.
    */
-  ArithVarArray d_candidates;
+  //ArithVarArray d_candidates;
 
   /**
    * Priority Queue of the basic variables that may be inconsistent.
@@ -117,7 +141,6 @@ private:
    */
   ArithVarArray d_varOrderQueue;
 
-  PermissiveBackArithVarSet d_varSet;
 
   /**
    * Reference to the arithmetic partial model for checking if a variable
@@ -172,27 +195,31 @@ public:
   }
 
   inline bool empty() const{
-    switch(d_modeInUse){
-    case Collection:    return d_candidates.empty();
-    case VariableOrder: return d_varOrderQueue.empty();
-    case Difference:    return d_diffQueue.empty();
-    default: Unreachable();
-    }
+    return d_varSet.empty();
+    /* switch(d_modeInUse){ */
+    /* case Collection:    return d_candidates.empty(); */
+    /* case VariableOrder: return d_varOrderQueue.empty(); */
+    /* case Difference:    return d_diffQueue.empty(); */
+    /* default: Unreachable(); */
+    /* } */
   }
 
   inline size_t size() const {
-    switch(d_modeInUse){
-    case Collection:    return d_candidates.size();
-    case VariableOrder: return d_varOrderQueue.size();
-    case Difference:    return d_diffQueue.size();
-    default: Unreachable();
-    }
+    return d_varSet.size();
+    /* switch(d_modeInUse){ */
+    /* case Collection:    return d_candidates.size(); */
+    /* case VariableOrder: return d_varOrderQueue.size(); */
+    /* case Difference:    return d_diffQueue.size(); */
+    /* default: Unreachable(); */
+    /* } */
   }
 
   /** Clears the queue. */
   void clear();
 
 
+  typedef PermissiveBackArithVarSet::const_iterator const_iterator;
+  /*
   class const_iterator {
   private:
     Mode d_mode;
@@ -275,8 +302,16 @@ public:
         Unreachable();
     }
   }
-
+*/
+  const_iterator begin() const{
+    return d_varSet.begin();
+  }
+  const_iterator end() const {
+    return d_varSet.end();
+  }
 private:
+  void purgeInconsistents(bool clearVQO);
+
   class Statistics {
   public:
     IntStat d_enqueues;

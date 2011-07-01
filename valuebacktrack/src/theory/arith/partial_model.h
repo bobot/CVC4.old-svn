@@ -40,11 +40,11 @@ private:
   unsigned d_mapSize;
   //Maps from ArithVar -> T
 
-  std::vector<bool> d_hasHadABound;
+  //std::vector<bool> d_hasHadABound;
 
-  std::vector<bool> d_hasSafeAssignment;
+  //std::vector<bool> d_hasSafeAssignment;
   std::vector<DeltaRational> d_assignment;
-  std::vector<DeltaRational> d_safeAssignment;
+  //std::vector<DeltaRational> d_safeAssignment;
 
   context::CDVector<DeltaRational> d_upperBound;
   context::CDVector<DeltaRational> d_lowerBound;
@@ -57,24 +57,23 @@ private:
   /**
    * List contains all of the variables that have an unsafe assignment.
    */
-  typedef std::vector<ArithVar> HistoryList;
-  HistoryList d_history;
+  //typedef std::vector<ArithVar> HistoryList;
+  //HistoryList d_history;
 
 public:
 
-  ArithPartialModel(context::Context* c):
+ ArithPartialModel(context::Context* c):
     d_mapSize(0),
-    d_hasHadABound(),
-    d_hasSafeAssignment(),
+      //d_hasSafeAssignment(),
     d_assignment(),
-    d_safeAssignment(),
+      //d_safeAssignment(),
     d_upperBound(c, true),
     d_lowerBound(c, true),
     d_upperConstraint(c,true),
     d_lowerConstraint(c,true),
     d_deltaIsSafe(false),
-    d_delta(-1,1),
-    d_history()
+    d_delta(-1,1)
+      //d_history()
   { }
 
   void setLowerConstraint(ArithVar x, TNode constraint);
@@ -87,14 +86,14 @@ public:
   void initialize(ArithVar x, const DeltaRational& r);
 
   /* Gets the last assignment to a variable that is known to be conistent. */
-  const DeltaRational& getSafeAssignment(ArithVar x) const;
-  const DeltaRational& getAssignment(ArithVar x, bool safe) const;
+  //const DeltaRational& getSafeAssignment(ArithVar x) const;
+  //const DeltaRational& getAssignment(ArithVar x, bool safe) const;
 
   /* Reverts all variable assignments to their safe values. */
-  void revertAssignmentChanges();
+  //void revertAssignmentChanges();
 
   /* Commits all variables assignments as safe.*/
-  void commitAssignmentChanges();
+  //void commitAssignmentChanges();
 
 
 
@@ -155,9 +154,9 @@ public:
     return !d_upperConstraint[x].isNull();
   }
 
-  bool hasEverHadABound(ArithVar var){
-    return d_hasHadABound[var];
-  }
+  /* bool hasEverHadABound(ArithVar var){ */
+  /*   return d_hasHadABound[var]; */
+  /* } */
 
   const Rational& getDelta(){
     if(!d_deltaIsSafe){
@@ -175,7 +174,7 @@ private:
    * This function implements the mostly identical:
    * revertAssignmentChanges() and commitAssignmentChanges().
    */
-  void clearSafeAssignments(bool revert);
+  //void clearSafeAssignments(bool revert);
 
   bool equalSizes();
 

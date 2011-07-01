@@ -31,52 +31,52 @@ void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
   d_deltaIsSafe = false;
 
   Debug("partial_model") << "setUpperBound(" << x << "," << r << ")" << endl;
-  d_hasHadABound[x] = true;
+  //d_hasHadABound[x] = true;
   d_upperBound.set(x,r);
 }
 
 void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
   d_deltaIsSafe = false;
 
-  d_hasHadABound[x] = true;
+  //d_hasHadABound[x] = true;
   d_lowerBound.set(x,r);
 }
 
 void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& r){
-   Debug("partial_model") << "pm: updating the assignment to" << x
-                          << " now " << r <<endl;
-  if(!d_hasSafeAssignment[x]){
-    d_safeAssignment[x] = d_assignment[x];
-    d_hasSafeAssignment[x] = true;
-    d_history.push_back(x);
-  }
+  Debug("partial_model") << "pm: updating the assignment to" << x
+                         << " now " << r <<endl;
+  // if(!d_hasSafeAssignment[x]){
+  //   d_safeAssignment[x] = d_assignment[x];
+  //   d_hasSafeAssignment[x] = true;
+  //   d_history.push_back(x);
+  // }
 
   d_deltaIsSafe = false;
   d_assignment[x] = r;
 }
-void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& safe, const DeltaRational& r){
-   Debug("partial_model") << "pm: updating the assignment to" << x
-                          << " now " << r <<endl;
-  if(safe == r){
-    d_hasSafeAssignment[x] = false;
-  }else{
-    d_safeAssignment[x] = safe;
+// void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& safe, const DeltaRational& r){
+//    Debug("partial_model") << "pm: updating the assignment to" << x
+//                           << " now " << r <<endl;
+//   if(safe == r){
+//     d_hasSafeAssignment[x] = false;
+//   }else{
+//     d_safeAssignment[x] = safe;
 
-    if(!d_hasSafeAssignment[x]){
-      d_hasSafeAssignment[x] = true;
-      d_history.push_back(x);
-    }
-  }
+//     if(!d_hasSafeAssignment[x]){
+//       d_hasSafeAssignment[x] = true;
+//       d_history.push_back(x);
+//     }
+//   }
 
-  d_deltaIsSafe = false;
-  d_assignment[x] = r;
-}
+//   d_deltaIsSafe = false;
+//   d_assignment[x] = r;
+// }
 
 bool ArithPartialModel::equalSizes(){
-  return d_mapSize == d_hasHadABound.size() &&
-    d_mapSize == d_hasSafeAssignment.size() &&
+  return //d_mapSize == d_hasHadABound.size() &&
+    //d_mapSize == d_hasSafeAssignment.size() &&
     d_mapSize == d_assignment.size() &&
-    d_mapSize == d_safeAssignment.size() &&
+    //d_mapSize == d_safeAssignment.size() &&
     d_mapSize == d_upperBound.size() &&
     d_mapSize == d_lowerBound.size() &&
     d_mapSize == d_upperConstraint.size() &&
@@ -89,11 +89,11 @@ void ArithPartialModel::initialize(ArithVar x, const DeltaRational& r){
   ++d_mapSize;
 
 
-  d_hasHadABound.push_back( false );
+  //d_hasHadABound.push_back( false );
 
-  d_hasSafeAssignment.push_back( false );
+  //d_hasSafeAssignment.push_back( false );
   d_assignment.push_back( r );
-  d_safeAssignment.push_back( DeltaRational(0) );
+  //d_safeAssignment.push_back( DeltaRational(0) );
 
   d_upperBound.push_back( DeltaRational(0) );
   d_lowerBound.push_back( DeltaRational(0) );
@@ -117,23 +117,23 @@ const DeltaRational& ArithPartialModel::getLowerBound(ArithVar x) {
   return d_lowerBound[x];
 }
 
-const DeltaRational& ArithPartialModel::getSafeAssignment(ArithVar x) const{
-  Assert(inMaps(x));
-  if(d_hasSafeAssignment[x]){
-    return d_safeAssignment[x];
-  }else{
-    return d_assignment[x];
-  }
-}
+// const DeltaRational& ArithPartialModel::getSafeAssignment(ArithVar x) const{
+//   Assert(inMaps(x));
+//   if(d_hasSafeAssignment[x]){
+//     return d_safeAssignment[x];
+//   }else{
+//     return d_assignment[x];
+//   }
+// }
 
-const DeltaRational& ArithPartialModel::getAssignment(ArithVar x, bool safe) const{
-  Assert(inMaps(x));
-  if(safe && d_hasSafeAssignment[x]){
-    return d_safeAssignment[x];
-  }else{
-    return d_assignment[x];
-  }
-}
+// const DeltaRational& ArithPartialModel::getAssignment(ArithVar x, bool safe) const{
+//   Assert(inMaps(x));
+//   if(safe && d_hasSafeAssignment[x]){
+//     return d_safeAssignment[x];
+//   }else{
+//     return d_assignment[x];
+//   }
+// }
 
 const DeltaRational& ArithPartialModel::getAssignment(ArithVar x) const{
   Assert(inMaps(x));
@@ -263,31 +263,31 @@ bool ArithPartialModel::assignmentIsConsistent(ArithVar x){
 }
 
 
-void ArithPartialModel::clearSafeAssignments(bool revert){
+// void ArithPartialModel::clearSafeAssignments(bool revert){
 
-  for(HistoryList::iterator i = d_history.begin(); i != d_history.end(); ++i){
-    ArithVar x = *i;
-    Assert(d_hasSafeAssignment[x]);
-    d_hasSafeAssignment[x] = false;
+//   for(HistoryList::iterator i = d_history.begin(); i != d_history.end(); ++i){
+//     ArithVar x = *i;
+//     Assert(d_hasSafeAssignment[x]);
+//     d_hasSafeAssignment[x] = false;
 
-    if(revert){
-      d_assignment[x] = d_safeAssignment[x];
-    }
-  }
+//     if(revert){
+//       d_assignment[x] = d_safeAssignment[x];
+//     }
+//   }
 
-  if(revert && !d_history.empty()){
-    d_deltaIsSafe = true;
-  }
+//   if(revert && !d_history.empty()){
+//     d_deltaIsSafe = true;
+//   }
 
-  d_history.clear();
-}
+//   d_history.clear();
+// }
 
-void ArithPartialModel::revertAssignmentChanges(){
-  clearSafeAssignments(true);
-}
-void ArithPartialModel::commitAssignmentChanges(){
-  clearSafeAssignments(false);
-}
+// void ArithPartialModel::revertAssignmentChanges(){
+//   clearSafeAssignments(true);
+// }
+// void ArithPartialModel::commitAssignmentChanges(){
+//   clearSafeAssignments(false);
+// }
 
 void ArithPartialModel::printModel(ArithVar x){
   Debug("model") << "model" << x << ":"<< getAssignment(x) << " ";

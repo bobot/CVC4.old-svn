@@ -650,7 +650,7 @@ Node SimplexDecisionProcedure::updateInconsistentVars(){
 
   // Curiously the invariant that we always do a full check
   // means that the assignment we can always empty these queues.
-  d_queue.clear();
+  //d_queue.clear();
   d_pivotsInRound.purge();
 
   Assert(!d_queue.inCollectionMode());
@@ -906,7 +906,7 @@ DeltaRational SimplexDecisionProcedure::computeRowValue(ArithVar x, bool useSafe
     if(nonbasic == x) continue;
     const Rational& coeff = entry.getCoefficient();
 
-    const DeltaRational& assignment = d_partialModel.getAssignment(nonbasic, useSafe);
+    const DeltaRational& assignment = d_partialModel.getAssignment(nonbasic);
     sum = sum + (assignment * coeff);
   }
   return sum;

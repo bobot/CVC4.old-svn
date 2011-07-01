@@ -448,17 +448,18 @@ Node TheoryArith::assertionCases(TNode assertion){
 void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
-  while(!done()){
+  Node possibleConflict = Node::null();
+
+  while(possibleConflict.isNull() && !done()){
 
     Node assertion = get();
-    Node possibleConflict = assertionCases(assertion);
+    possibleConflict = assertionCases(assertion);
 
     if(!possibleConflict.isNull()){
-      d_partialModel.revertAssignmentChanges();
+      //d_partialModel.revertAssignmentChanges();
       Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
       d_simplex.clearUpdates();
       d_out->conflict(possibleConflict);
-      return;
     }
   }
 
@@ -466,19 +467,18 @@ void TheoryArith::check(Effort effortLevel){
     debugPrintAssertions();
   }
 
-  Node possibleConflict = d_simplex.updateInconsistentVars();
-  if(possibleConflict != Node::null()){
-    d_partialModel.revertAssignmentChanges();
-    d_simplex.clearUpdates();
+  if(possibleConflict.isNull()){
+    possibleConflict = d_simplex.updateInconsistentVars();
+  } 
+  if(!possibleConflict.isNull()){
+    //d_partialModel.revertAssignmentChanges();
+    //d_simplex.clearUpdates();
     Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
 
     d_out->conflict(possibleConflict);
-  }else{
-    d_partialModel.commitAssignmentChanges();
-
-    if (fullEffort(effortLevel)) {
-      splitDisequalities();
-    }
+  }else if(fullEffort(effortLevel)){
+    //d_partialModel.commitAssignmentChanges();
+    splitDisequalities();
   }
 
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }

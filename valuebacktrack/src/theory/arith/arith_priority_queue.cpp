@@ -71,7 +71,14 @@ ArithVar ArithPriorityQueue::dequeueInconsistentBasicVariable(){
       }
       d_diffQueue.pop_back();
       Debug("arith_update") << "possiblyInconsistentGriggio var" << var << endl;
+      if(d_varSet.isMember(var)){
+        d_varSet.remove(var);
+      }
       if(basicAndInconsistent(var)){
+
+        Debug("test") << d_varSet.size() << ", "
+                      << d_diffQueue.size() << endl;
+        Assert(d_varSet.size() <= d_diffQueue.size());
         return var;
       }
     }
@@ -85,10 +92,10 @@ ArithVar ArithPriorityQueue::dequeueInconsistentBasicVariable(){
       pop_heap(d_varOrderQueue.begin(), d_varOrderQueue.end(), std::greater<ArithVar>());
       d_varOrderQueue.pop_back();
 
-      d_varSet.remove(var);
-
       Debug("arith_update") << "possiblyInconsistent var" << var << endl;
       if(basicAndInconsistent(var)){
+        d_varSet.remove(var);
+        Assert(d_varSet.size() == d_varOrderQueue.size());
         return var;
       }
     }
@@ -118,7 +125,7 @@ void ArithPriorityQueue::enqueueIfInconsistent(ArithVar basic){
       ++d_statistics.d_enqueuesCollection;
       if(!d_varSet.isMember(basic)){
         d_varSet.add(basic);
-        d_candidates.push_back(basic);
+        //d_candidates.push_back(basic);
       }else{
         ++d_statistics.d_enqueuesCollectionDuplicates;
       }
@@ -132,9 +139,12 @@ void ArithPriorityQueue::enqueueIfInconsistent(ArithVar basic){
       }else{
         ++d_statistics.d_enqueuesVarOrderModeDuplicates;
       }
+
+      Assert(d_varSet.size() == d_varOrderQueue.size());
       break;
     case Difference:
       ++d_statistics.d_enqueuesDiffMode;
+      d_varSet.softAdd(basic);
       d_diffQueue.push_back(computeDiff(basic));
       switch(d_pivotRule){
       case MINIMUM:
@@ -147,6 +157,7 @@ void ArithPriorityQueue::enqueueIfInconsistent(ArithVar basic){
         push_heap(d_diffQueue.begin(), d_diffQueue.end(), VarDRatPair::maximumRule);
         break;
       }
+      Assert(d_varSet.size() <= d_diffQueue.size());
       break;
     default:
       Unreachable();
@@ -154,20 +165,40 @@ void ArithPriorityQueue::enqueueIfInconsistent(ArithVar basic){
   }
 }
 
+void ArithPriorityQueue::purgeInconsistents(bool clearVQO) {
+  Assert(d_varOrderQueue.empty());
+  ArithVarArray::const_iterator i = d_varSet.begin(), end = d_varSet.end();
+  for(; i != end; ++i){
+    if(basicAndInconsistent(*i)){
+      d_varOrderQueue.push_back(*i);
+    }
+  }
+  d_varSet.purge();
+
+  i = d_varOrderQueue.begin(), end = d_varOrderQueue.end();
+  for(; i != end; ++i){
+    ArithVar var = *i;
+    Assert(basicAndInconsistent(var));
+    d_varSet.add(var);
+  }
+  if(clearVQO){
+    d_varOrderQueue.clear();
+  }
+  Assert(!clearVQO || d_varOrderQueue.empty());
+}
 void ArithPriorityQueue::transitionToDifferenceMode() {
   Assert(inCollectionMode());
   Assert(d_varOrderQueue.empty());
   Assert(d_diffQueue.empty());
 
   Debug("arith::priorityqueue") << "transitionToDifferenceMode()" << endl;
-  d_varSet.purge();
+  //Fixme up!
+  //d_varSet.purge();
 
-  ArithVarArray::const_iterator i = d_candidates.begin(), end = d_candidates.end();
+  purgeInconsistents(true);
+  ArithVarArray::const_iterator i = d_varSet.begin(), end = d_varSet.end();
   for(; i != end; ++i){
-    ArithVar var = *i;
-    if(basicAndInconsistent(var)){
-      d_diffQueue.push_back(computeDiff(var));
-    }
+    d_diffQueue.push_back(computeDiff(*i));
   }
 
   switch(d_pivotRule){
@@ -182,79 +213,104 @@ void ArithPriorityQueue::transitionToDifferenceMode() {
     break;
   }
 
-  d_candidates.clear();
+  //d_candidates.clear();
   d_modeInUse = Difference;
 
-  Assert(d_varSet.empty());
+  Assert(d_varSet.size() == d_diffQueue.size());
   Assert(inDifferenceMode());
   Assert(d_varOrderQueue.empty());
-  Assert(d_candidates.empty());
+  //Assert(d_candidates.empty());
 }
 
 void ArithPriorityQueue::transitionToVariableOrderMode() {
   Assert(inDifferenceMode());
   Assert(d_varOrderQueue.empty());
-  Assert(d_candidates.empty());
-  Assert(d_varSet.empty());
+  //Assert(d_candidates.empty());
+  //Assert(d_varSet.empty());
 
   Debug("arith::priorityqueue") << "transitionToVariableOrderMode()" << endl;
+  purgeInconsistents(false);
 
-  DifferenceArray::const_iterator i = d_diffQueue.begin(), end = d_diffQueue.end();
-  for(; i != end; ++i){
-    ArithVar var = (*i).variable();
-    if(basicAndInconsistent(var) && !d_varSet.isMember(var)){
-      d_varSet.add(var);
-      d_varOrderQueue.push_back(var);
-    }
-  }
+  // DifferenceArray::const_iterator i = d_diffQueue.begin(), end = d_diffQueue.end();
+  // for(; i != end; ++i){
+  //   ArithVar var = (*i).variable();
+  //   if(basicAndInconsistent(var) && !d_varSet.isMember(var)){
+  //     d_varSet.add(var);
+  //     d_varOrderQueue.push_back(var);
+  //   }
+  // }
   make_heap(d_varOrderQueue.begin(), d_varOrderQueue.end(), std::greater<ArithVar>());
+
   d_diffQueue.clear();
   d_modeInUse = VariableOrder;
 
   Assert(inVariableOrderMode());
   Assert(d_diffQueue.empty());
-  Assert(d_candidates.empty());
+  Assert(d_varSet.size() == d_varOrderQueue.size());
+  //Assert(d_candidates.empty());
 }
 
 void ArithPriorityQueue::transitionToCollectionMode() {
   Assert(inDifferenceMode() || inVariableOrderMode());
-  Assert(d_diffQueue.empty());
-  Assert(d_candidates.empty());
-  Assert(d_varOrderQueue.empty());
-  Assert(d_varSet.empty());
+  //Assert(d_diffQueue.empty());
+  //Assert(d_candidates.empty());
+  //Assert(d_varOrderQueue.empty());
+  //Assert(d_varSet.empty());
 
   Debug("arith::priorityqueue") << "transitionToCollectionMode()" << endl;
 
-  d_modeInUse = Collection;
-}
+  if(inDifferenceMode()){
+    d_diffQueue.clear();
 
-void ArithPriorityQueue::clear(){
-  switch(d_modeInUse){
-  case Collection:
-    d_candidates.clear();
-    d_varSet.purge();
-    break;
-  case VariableOrder:
-    if(!d_varOrderQueue.empty()) {
-      d_varOrderQueue.clear();
-      d_varSet.purge();
-    }
-    break;
-  case Difference:
-    if(!d_diffQueue.empty()){
-      d_diffQueue.clear();
-      d_varSet.purge();
-    }
-    break;
-  default:
-    Unreachable();
+    // DifferenceArray::const_iterator i = d_diffQueue.begin(), end = d_diffQueue.end();
+    // for(; i != end; ++i){
+    //   ArithVar var = (*i).variable();
+    //   if(basicAndInconsistent(var) && !d_varSet.isMember(var)){
+    //     d_varSet.add(var);
+    //     d_varOrderQueue.push_back(var);
+    //   }
+    // }
+    //     d_varSet.add(basic);
+    //     d_candidates.push_back(basic);
+  }else{
+    Assert(inVariableOrderMode());
+    d_varOrderQueue.clear();
   }
 
-  Assert(d_varSet.empty());
-  Assert(d_candidates.empty());
-  Assert(d_varOrderQueue.empty());
+  d_modeInUse = Collection;
   Assert(d_diffQueue.empty());
+  Assert(d_varOrderQueue.empty());
+  //Assert(d_candidates.empty());
+  //Assert(d_varSet.empty());
 }
+
+// void ArithPriorityQueue::clear(){
+//   switch(d_modeInUse){
+//   case Collection:
+//     d_candidates.clear();
+//     d_varSet.purge();
+//     break;
+//   case VariableOrder:
+//     if(!d_varOrderQueue.empty()) {
+//       d_varOrderQueue.clear();
+//       d_varSet.purge();
+//     }
+//     break;
+//   case Difference:
+//     if(!d_diffQueue.empty()){
+//       d_diffQueue.clear();
+//       d_varSet.purge();
+//     }
+//     break;
+//   default:
+//     Unreachable();
+//   }
+
+//   Assert(d_varSet.empty());
+//   Assert(d_candidates.empty());
+//   Assert(d_varOrderQueue.empty());
+//   Assert(d_diffQueue.empty());
+// }
 
 std::ostream& CVC4::theory::arith::operator<<(std::ostream& out, ArithPriorityQueue::PivotRule rule) {
   switch(rule) {
