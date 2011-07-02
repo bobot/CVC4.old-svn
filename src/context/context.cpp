@@ -263,7 +263,10 @@ void ContextObj::destroy() throw(AssertionException) {
 
 
 ContextObj::ContextObj(Context* pContext) :
-  d_pContextObjRestore(NULL) {
+  d_pScope(NULL),
+  d_pContextObjRestore(NULL),
+  d_pContextObjNext(NULL),
+  d_ppContextObjPrev(NULL) {
 
   Assert(pContext != NULL, "NULL context pointer");
 
@@ -274,7 +277,10 @@ ContextObj::ContextObj(Context* pContext) :
 
 
 ContextObj::ContextObj(bool allocatedInCMM, Context* pContext) :
-  d_pContextObjRestore(NULL) {
+  d_pScope(NULL),
+  d_pContextObjRestore(NULL),
+  d_pContextObjNext(NULL),
+  d_ppContextObjPrev(NULL) {
 
   Assert(pContext != NULL, "NULL context pointer");
 
@@ -328,12 +334,15 @@ std::ostream& operator<<(std::ostream& out,
 
 std::ostream& operator<<(std::ostream& out,
                          const Scope& scope) throw(AssertionException) {
-  out << "Scope " << scope.d_level << ":";
+  out << "Scope " << scope.d_level << " [" << &scope << "]:";
   ContextObj* pContextObj = scope.d_pContextObjList;
   Assert(pContextObj == NULL ||
          pContextObj->prev() == &scope.d_pContextObjList);
   while(pContextObj != NULL) {
     out << " <--> " << pContextObj;
+    if(pContextObj->d_pScope != &scope) {
+      out << " XXX bad scope" << std::endl;
+    }
     Assert(pContextObj->d_pScope == &scope);
     Assert(pContextObj->next() == NULL ||
            pContextObj->next()->prev() == &pContextObj->next());

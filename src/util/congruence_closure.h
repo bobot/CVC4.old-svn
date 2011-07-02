@@ -144,7 +144,7 @@ class CongruenceClosure {
   };/* struct CongruenceClosure<>::VectorHashFunction<> */
 
   std::hash_map<TNode, Cid, TNodeHashFunction> d_cidMap;
-  DynamicArray<TNode> d_reverseCidMap;
+  DynamicArray<Node> d_reverseCidMap;
   std::list< triple<Cid, Cid, Node> > d_pending;
 
   inline Cid cid(TNode n) {
@@ -170,6 +170,9 @@ class CongruenceClosure {
       ClassList* cl = new(true) ClassList(d_context, context::ContextMemoryAllocator<Cid>(d_context->getCMM()));
       cl->push_back(cid);
       d_classLists[cid] = cl;
+      if(Debug.isOn("cc:detail")) {
+        debug();
+      }
     }
     return cid;
   }
@@ -435,18 +438,22 @@ public:
       Cid i = find(152);
       Debug("cc:detail") << "parent of 152 (" << node(152) << ") is " << i << " (" << node(i) << ")" << std::endl;
       typename ClassList::const_iterator it = classList(152).begin();
-      Debug("cc:detail") << "[" << d_context->getLevel() << "] cl of 152 is " << node(*it);
-      if(++it == classList(152).end()) {
-        Debug("cc:detail") << "xxx" << std::endl;
+      if(it != classList(152).end()) {
+        Debug("cc:detail") << "[" << d_context->getLevel() << "] cl of 152 is " << node(*it);
+        if(++it == classList(152).end()) {
+          Debug("cc:detail") << "xxx" << std::endl;
+        } else {
+          Debug("cc:detail") << " and " << node(*it) << ")" << std::endl;
+        }
+        Debug("cc:detail") << "  " << node(i) << " =>" << std::endl;
+        const ClassList& cl = classList(i);
+        for(typename ClassList::const_iterator j = cl.begin(); j != cl.end(); ++j) {
+          Debug("cc:detail") << "      " << node(*j) << " ==> " << node(find(*j)) << std::endl;
+        }
+        cl.debugCheck();
       } else {
-        Debug("cc:detail") << " and " << node(*it) << ")" << std::endl;
+        Debug("cc:detail") << "[" << d_context->getLevel() << "] cl of 152 is EMPTY" << std::endl;
       }
-      Debug("cc:detail") << "  " << node(i) << " =>" << std::endl;
-      const ClassList& cl = classList(i);
-      for(typename ClassList::const_iterator j = cl.begin(); j != cl.end(); ++j) {
-        Debug("cc:detail") << "      " << node(*j) << " ==> " << node(find(*j)) << std::endl;
-      }
-      cl.debugCheck();
     }
   }
 
@@ -642,6 +649,17 @@ void CongruenceClosure<OutputChannel>::propagate() {
       Trace("cc:detail") << "going through propagation list of " << node(bp) << std::endl;
       ClassList& cl = classList(bp);
 
+      if(cl.empty()) {
+        // An empty class list means it's the single-entry class list
+        // containing the thing itself.  So we patch it up, here.
+        //
+        // This can happen since we lazily create the single-entry
+        // class listss, but they're context-dependent: once we pop
+        // above that level, the list is cleared out.
+        cl.push_back(bp);
+        Trace("cc:detail") << "bp was nullified, fixed" << std::endl;
+      }
+
       for(ClassList::iterator cli = cl.begin(); cli != cl.end(); ++cli) {
         Trace("cc:detail") << "==> at node " << node(*cli) << " in class list of " << node(bp) << std::endl;
         Assert(find(*cli) == bp);
@@ -746,10 +764,9 @@ void CongruenceClosure<OutputChannel>::propagate() {
       ClassList& clbp = classList(bp);
       if(clap.empty()) {
         clap.push_back(ap);
+        Trace("cc:detail") << "ap was nullified, fixed" << std::endl;
       }
-      if(clbp.empty()) {
-        clbp.push_back(bp);
-      }
+      Assert(!clbp.empty()); // should have been fixed above
       clap.concat(clbp);
       mergeProof(s, t, e);
 

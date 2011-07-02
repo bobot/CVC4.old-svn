@@ -1,5 +1,6 @@
 (benchmark fuzzsmt
 :logic QF_UF
+:status sat
 :extrasorts (S1)
 :extrasorts (S0)
 :extrafuns ((v0 S0))
@@ -11,7 +12,6 @@
 :extrafuns ((f0 S0 S0 S1 S0))
 :extrapreds ((p1 S0 S1 S1))
 :extrapreds ((p4 S1))
-:status unknown
 :formula
 (flet ($n1 (p4 v3))
 (let (?n2 (f4 v2))

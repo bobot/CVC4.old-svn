@@ -59,11 +59,14 @@ public:
   virtual ~CDPtr() throw(AssertionException) { this->destroy(); }
 
   virtual ContextObj* save(ContextMemoryManager* pCMM) {
-    return new(pCMM) CDPtr<T>(*this);
+    Debug("context") << "save cdptr " << this << " (value " << super::get() << ")";
+    ContextObj* p = new(pCMM) CDPtr<T>(*this);
+    Debug("context") << " to " << p << std::endl;
+    return p;
   }
 
   virtual void restore(ContextObj* pContextObj) {
-    Debug("context") << "restore cdptr " << this << " from " << super::get();
+    Debug("context") << "restore cdptr " << this << " (using " << pContextObj << ") from " << super::get();
     this->super::restore(pContextObj);
     Debug("context") << " to " << super::get() << std::endl;
   }
@@ -159,6 +162,7 @@ public:
     d_head(allocatedInCMM, context, NULL),
     d_context(context),
     d_allocator(alloc) {
+    Debug("cdcirclist") << "head " << &d_head << " in cmm ? " << allocatedInCMM << std::endl;
   }
 
   ~CDCircList() throw(AssertionException) {
@@ -374,6 +378,10 @@ public:
     do {
       elt_t* p_last = p;
       p = p->d_next;
+      if(p == NULL) {
+        Debug("cdcirclist") << "****** ERROR ON LINE ABOVE, next == NULL ******" << std::endl;
+        break;
+      }
       Debug("cdcirclist") << "   p is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << std::endl;//p->d_t << std::endl;
       if(p->d_prev != p_last) {
         Debug("cdcirclist") << "****** ERROR ON LINE ABOVE, prev != last ******" << std::endl;
@@ -382,6 +390,7 @@ public:
       Assert(p != NULL);
     } while(p != d_head);
   }
+
 private:
 
   // Nothing to save; the elements take care of themselves
