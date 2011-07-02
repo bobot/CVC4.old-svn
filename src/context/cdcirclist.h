@@ -63,7 +63,7 @@ public:
   }
 
   virtual void restore(ContextObj* pContextObj) {
-    Debug("context") << "restore " << this << " from " << super::get();
+    Debug("context") << "restore cdptr " << this << " from " << super::get();
     this->super::restore(pContextObj);
     Debug("context") << " to " << super::get() << std::endl;
   }
@@ -182,11 +182,11 @@ public:
     return empty() ? d_head : d_head->d_prev;
   }
 
-  elt_t* head() const {
+  const elt_t* head() const {
     return d_head;
   }
 
-  elt_t* tail() const {
+  const elt_t* tail() const {
     return empty() ? d_head : d_head->d_prev;
   }
 
@@ -250,10 +250,10 @@ public:
 
   class iterator {
     const CDCircList<T, AllocatorT>* d_list;
-    elt_t* d_current;
+    const elt_t* d_current;
     friend class CDCircList<T, AllocatorT>;
   public:
-    iterator(const CDCircList<T, AllocatorT>* list, elt_t* first) :
+    iterator(const CDCircList<T, AllocatorT>* list, const elt_t* first) :
       d_list(list),
       d_current(first) {
     }
@@ -366,11 +366,11 @@ public:
     elt_t* p = d_head;
     Debug("cdcirclist") << "this is " << this << std::endl;
     if(p == NULL) {
-      Debug("cdcirclist") << "head is NULL" << std::endl;
+      Debug("cdcirclist") << "head[" << &d_head << "] is NULL : " << d_context->getLevel() << std::endl;
       // empty list
       return;
     }
-    Debug("cdcirclist") << "head is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << d_context->getLevel() << std::endl;//p->d_t << std::endl;
+    Debug("cdcirclist") << "head[" << &d_head << "] is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << d_context->getLevel() << std::endl;//p->d_t << std::endl;
     do {
       elt_t* p_last = p;
       p = p->d_next;

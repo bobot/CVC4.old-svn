@@ -197,4 +197,27 @@ public:
     TS_ASSERT_THROWS_NOTHING( l.debugCheck() );
   }
 
+  void testCDPtr() {
+    int* x = (int*)0x12345678;
+    int* y = (int*)0x87654321;
+    CDPtr<int> p(d_context, NULL);
+    TS_ASSERT(p == NULL);
+    d_context->push();
+    TS_ASSERT(p == NULL);
+    d_context->push();
+    TS_ASSERT(p == NULL);
+    p = x;
+    TS_ASSERT(p == x);
+    d_context->push();
+    TS_ASSERT(p == x);
+    p = y;
+    TS_ASSERT(p == y);
+    d_context->pop();
+    TS_ASSERT(p == x);
+    d_context->pop();
+    TS_ASSERT(p == NULL);
+    d_context->pop();
+    TS_ASSERT(p == NULL);
+  }
+
 };/* class CDCircListWhite */
