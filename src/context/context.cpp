@@ -204,6 +204,7 @@ ContextObj* ContextObj::restoreAndContinue() throw(AssertionException) {
     // Assert(d_pScope == d_pScope->getContext()->getBottomScope(),
     //        "Expected bottom scope");
 
+    Debug("context") << "NULL restore object! " << this << std::endl;
     pContextObjNext = d_pContextObjNext;
 
     // Nothing else to do

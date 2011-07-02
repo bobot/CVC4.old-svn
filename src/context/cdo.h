@@ -67,7 +67,9 @@ protected:
    * saved data back from the saved copy using operator= for T.
    */
   virtual void restore(ContextObj* pContextObj) {
+    Debug("context") << "restore cdo " << this << " from " << get();
     d_data = ((CDO<T>*) pContextObj)->d_data;
+    Debug("context") << " to " << get() << std::endl;
   }
 
 public:

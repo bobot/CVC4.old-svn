@@ -165,7 +165,9 @@ class CongruenceClosure {
         }
       }
 
-      ClassList* cl = new(d_context->getCMM()) ClassList(true, d_context, context::ContextMemoryAllocator<Cid>(d_context->getCMM()));
+      // I would kinda like this to be in CMM, but then d_classLists[]
+      // has to be context dependent (to switch back to NULL). :(
+      ClassList* cl = new(true) ClassList(d_context, context::ContextMemoryAllocator<Cid>(d_context->getCMM()));
       cl->push_back(cid);
       d_classLists[cid] = cl;
     }
@@ -738,7 +740,17 @@ void CongruenceClosure<OutputChannel>::propagate() {
       }
 
       Debug("cc:detail") << "concat class lists of " << node(ap) << " and " << node(bp) << std::endl;
-      classList(ap).concat(classList(bp));
+      // hack to get around the fact that lists empty themselves on
+      // backtrack (but should always contain themselves)
+      ClassList& clap = classList(ap);
+      ClassList& clbp = classList(bp);
+      if(clap.empty()) {
+        clap.push_back(ap);
+      }
+      if(clbp.empty()) {
+        clbp.push_back(bp);
+      }
+      clap.concat(clbp);
       mergeProof(s, t, e);
 
       if(Trace.isOn("cc:detail")) {
