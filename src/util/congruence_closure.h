@@ -970,11 +970,11 @@ std::ostream& operator<<(std::ostream& out,
       out << "  " << cc.node(i) << " =>" << std::endl;
       typedef typename CongruenceClosure<OutputChannel>::ClassList ClassList;
       const ClassList& cl = cc.classList(i);
-      for(typename ClassList::const_iterator j = cl.begin(); j != cl.end(); ++j) {
-        out << "      " << cc.node(*j) << std::endl;
-      }
       if(Debug.isOn("cc:detail")) {
         cl.debugCheck();
+      }
+      for(typename ClassList::const_iterator j = cl.begin(); j != cl.end(); ++j) {
+        out << "      " << cc.node(*j) << std::endl;
       }
     }
   }

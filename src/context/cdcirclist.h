@@ -63,11 +63,15 @@ public:
   }
 
   virtual void restore(ContextObj* pContextObj) {
+    Debug("context") << "restore " << this << " from " << super::get();
     this->super::restore(pContextObj);
+    Debug("context") << " to " << super::get() << std::endl;
   }
 
   CDPtr<T>& operator=(T* data) {
+    Debug("context") << "set " << this << " from " << super::get();
     super::set(data);
+    Debug("context") << " to " << super::get() << std::endl;
     return *this;
   }
   // assignment is just like using the underlying ptr
@@ -232,11 +236,16 @@ public:
     // pointer to it
     elt_t* oldl2tail = l2tail;
 
+    Debug("cdcirclist") << "concat1 " << this << " " << &l << std::endl;
     l1tail->next() = l2head;
+    Debug("cdcirclist") << "concat2" << std::endl;
     l2head->prev() = l1tail;
 
+    Debug("cdcirclist") << "concat3" << std::endl;
     oldl2tail->next() = l1head;
+    Debug("cdcirclist") << "concat4" << std::endl;
     l1head->prev() = oldl2tail;
+    Debug("cdcirclist") << "concat5" << std::endl;
   }
 
   class iterator {
@@ -361,12 +370,15 @@ public:
       // empty list
       return;
     }
-    Debug("cdcirclist") << "head is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << std::endl;//p->d_t << std::endl;
+    Debug("cdcirclist") << "head is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << d_context->getLevel() << std::endl;//p->d_t << std::endl;
     do {
       elt_t* p_last = p;
       p = p->d_next;
       Debug("cdcirclist") << "   p is " << p << " next " << p->d_next << " prev " << p->d_prev << " : " << std::endl;//p->d_t << std::endl;
-      Assert(p->d_prev == p_last);
+      if(p->d_prev != p_last) {
+        Debug("cdcirclist") << "****** ERROR ON LINE ABOVE, prev != last ******" << std::endl;
+      }
+      //Assert(p->d_prev == p_last);
       Assert(p != NULL);
     } while(p != d_head);
   }
