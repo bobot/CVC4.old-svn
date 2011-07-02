@@ -22,6 +22,7 @@ TESTS =	\
 	eq_diamond23.smt \
 	NEQ016_size5_reduced2a.smt \
 	NEQ016_size5_reduced2b.smt \
+	ccredesign-fuzz.smt \
 	dead_dnd002.smt \
 	iso_brn001.smt \
 	simple.01.cvc \

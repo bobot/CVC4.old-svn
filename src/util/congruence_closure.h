@@ -122,7 +122,7 @@ class CongruenceClosure {
    * are non-nullary applications of operators we have been requested
    * to compute congruence over).
    */
-  typedef int32_t Cid;
+  typedef uint32_t Cid;
 
   struct CidHashFunction {
     inline size_t operator()(Cid c) const { return c; }
@@ -432,6 +432,13 @@ public:
     if(Debug.isOn("cc:detail") && d_reverseCidMap.size() > 152) {
       Cid i = find(152);
       Debug("cc:detail") << "parent of 152 (" << node(152) << ") is " << i << " (" << node(i) << ")" << std::endl;
+      typename ClassList::const_iterator it = classList(152).begin();
+      Debug("cc:detail") << "[" << d_context->getLevel() << "] cl of 152 is " << node(*it);
+      if(++it == classList(152).end()) {
+        Debug("cc:detail") << "xxx" << std::endl;
+      } else {
+        Debug("cc:detail") << " and " << node(*it) << ")" << std::endl;
+      }
       Debug("cc:detail") << "  " << node(i) << " =>" << std::endl;
       const ClassList& cl = classList(i);
       for(typename ClassList::const_iterator j = cl.begin(); j != cl.end(); ++j) {
@@ -553,7 +560,7 @@ void CongruenceClosure<OutputChannel>::registerTerm(TNode t) {
   Cid p = find(c);
 
   if(c != p) {
-    d_out->notifyMerge(c, p);
+    d_out->notifyMerge(t, node(p));
     d_careTerms.insert(p);
   } else {
     d_careTerms.insert(c);
@@ -618,7 +625,9 @@ void CongruenceClosure<OutputChannel>::propagate() {
                          << "b          :" << node(t) << std::endl
                          << "alreadyCongruent?:" << areCongruent(node(s), node(t)) << std::endl;
     }
-    debug();
+    if(Debug.isOn("cc:detail")) {
+      debug();
+    }
 
     Cid ap = find(s), bp = find(t);
     if(ap != bp) {
@@ -756,7 +765,9 @@ void CongruenceClosure<OutputChannel>::propagate() {
                          << "alreadyCongruent?:" << areCongruent(node(s), node(t)) << std::endl;
     }
     Assert(areCongruent(node(s), node(t)));
-    debug();
+    if(Debug.isOn("cc:detail")) {
+      debug();
+    }
   }
 }/* propagate() */
 
@@ -939,7 +950,9 @@ std::ostream& operator<<(std::ostream& out,
                          const CongruenceClosure<OutputChannel>& cc) {
   typedef typename CongruenceClosure<OutputChannel>::Cid Cid;
 
-  cc.debug();
+  if(Debug.isOn("cc:detail")) {
+    cc.debug();
+  }
 
   out << "==============================================" << std::endl;
 
@@ -960,7 +973,9 @@ std::ostream& operator<<(std::ostream& out,
       for(typename ClassList::const_iterator j = cl.begin(); j != cl.end(); ++j) {
         out << "      " << cc.node(*j) << std::endl;
       }
-      cl.debugCheck();
+      if(Debug.isOn("cc:detail")) {
+        cl.debugCheck();
+      }
     }
   }
 

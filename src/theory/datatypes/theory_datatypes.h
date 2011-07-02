@@ -22,8 +22,9 @@
 #define __CVC4__THEORY__DATATYPES__THEORY_DATATYPES_H
 
 #include "theory/theory.h"
-#include "util/congruence_closure_old.h"
+#include "util/congruence_closure.h"
 #include "util/datatype.h"
+#include "context/cdlist_context_memory.h"
 #include "theory/datatypes/union_find.h"
 #include "util/hash.h"
 #include "util/trans_closure.h"
@@ -85,8 +86,16 @@ private:
 
   public:
     CongruenceChannel(TheoryDatatypes* datatypes) : d_datatypes(datatypes) {}
-    void notifyCongruent(TNode a, TNode b) {
+    bool notifyMerge(TNode a, TNode b) {
       d_datatypes->notifyCongruent(a, b);
+#warning fixme in case of conflict
+      return false;
+    }
+    bool notifyEntailedEquality(TNode eq) {
+      Unimplemented();
+    }
+    bool notifyDisentailedEquality(TNode eq) {
+      Unimplemented();
     }
   };/* class CongruenceChannel */
   friend class CongruenceChannel;
@@ -99,7 +108,7 @@ private:
   /**
    * Instance of the congruence closure module.
    */
-  old::CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::APPLY_CONSTRUCTOR, kind::APPLY_SELECTOR)> d_cc;
+  CongruenceClosure<CongruenceChannel> d_cc;
 
   /**
    * Union find for storing the equalities.
@@ -137,7 +146,7 @@ private:
   /**
    * explanation manager for the congruence closure module
    */
-  CongruenceClosureExplainer<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::APPLY_CONSTRUCTOR, kind::APPLY_SELECTOR)> d_cce;
+  CongruenceClosureExplainer<CongruenceChannel> d_cce;
 
 public:
   TheoryDatatypes(context::Context* c, OutputChannel& out, Valuation valuation);

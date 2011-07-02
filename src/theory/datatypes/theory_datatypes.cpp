@@ -66,7 +66,7 @@ TheoryDatatypes::TheoryDatatypes(Context* c, OutputChannel& out, Valuation valua
   d_hasSeenCycle(c, false),
   d_labels(c),
   d_ccChannel(this),
-  d_cc(c, &d_ccChannel),
+  d_cc(c, &d_ccChannel, kind::APPLY_CONSTRUCTOR | kind::APPLY_SELECTOR),
   d_unionFind(c),
   d_disequalities(c),
   d_em(c),
@@ -150,8 +150,8 @@ void TheoryDatatypes::check(Effort e) {
                 Node a = assertion[0][0];
                 Node b = assertion[0][1];
                 addDisequality(assertion[0]);
-                d_cc.addTerm(a);
-                d_cc.addTerm(b);
+                d_cc.registerTerm(a);
+                d_cc.registerTerm(b);
                 if(Debug.isOn("datatypes")) {
                   Debug("datatypes") << "       a  == > " << a << endl
                               << "       b  == > " << b << endl
@@ -343,7 +343,7 @@ void TheoryDatatypes::addTester( Node assertion ){
   //preprocess the tester
   Node tassertion = ( assertion.getKind() == NOT ) ? assertion[0] : assertion;
   //add the term into congruence closure consideration
-  d_cc.addTerm( tassertion[0] );
+  d_cc.registerTerm( tassertion[0] );
 
   Node assertionRep;
   Node tassertionRep;
@@ -902,7 +902,7 @@ void TheoryDatatypes::collectTerms( Node n, bool recurse ) {
     if( n.getKind() == APPLY_SELECTOR && d_selectors.find( n ) == d_selectors.end() ) {
       Debug("datatypes") << "  Found selector " << n << endl;
       d_selectors[ n ] = false;
-      d_cc.addTerm( n );
+      d_cc.registerTerm( n );
       Node tmp = find( n[0] );
       d_checkMap[ tmp ] = true;
 
@@ -955,8 +955,8 @@ void TheoryDatatypes::addEquality(TNode eq) {
     d_merge_pending.push_back( vector< pair< Node, Node > >() );
 
     d_cce.assert(eq);
-    d_cc.addTerm(eq[0]);
-    d_cc.addTerm(eq[1]);
+    d_cc.registerTerm(eq[0]);
+    d_cc.registerTerm(eq[1]);
 
     //record which nodes are waiting to be merged
     vector< pair< Node, Node > > mp;
@@ -985,16 +985,16 @@ void TheoryDatatypes::addEquality(TNode eq) {
     //merge original nodes
     merge( eq[0], eq[1] );
     d_cce.assert(eq);
-    d_cc.addTerm(eq[0]);
-    d_cc.addTerm(eq[1]);
+    d_cc.registerTerm(eq[0]);
+    d_cc.registerTerm(eq[1]);
 #else
     Debug("datatypes-ae") << "Add equality " << eq << "." << endl;
     Debug("datatypes-ae") << "   Find is " << find( eq[0] ) << " = " << find( eq[1] ) << std::endl;
     merge( eq[0], eq[1] );
     if( !hasConflict() ){
       d_cce.assert(eq);
-      d_cc.addTerm(eq[0]);
-      d_cc.addTerm(eq[1]);
+      d_cc.registerTerm(eq[0]);
+      d_cc.registerTerm(eq[1]);
     }
 #endif
     if( Debug.isOn("datatypes") || Debug.isOn("datatypes-cycles") ){

@@ -135,6 +135,7 @@ void Context::addNotifyObjPost(ContextNotifyObj* pCNO) {
 
 void ContextObj::update() throw(AssertionException) {
   Debug("context") << "before update(" << this << "):" << std::endl
+                   << "context is " << getContext() << std::endl
                    << *getContext() << std::endl;
 
   // Call save() to save the information in the current object

@@ -33,7 +33,7 @@ using namespace CVC4::theory::arrays;
 TheoryArrays::TheoryArrays(Context* c, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARRAY, c, out, valuation),
   d_ccChannel(this),
-  d_cc(c, &d_ccChannel),
+  d_cc(c, &d_ccChannel, kind::SELECT),
   d_unionFind(c),
   d_backtracker(c),
   d_infoMap(c,&d_backtracker),
@@ -110,9 +110,9 @@ void TheoryArrays::check(Effort e) {
     switch(assertion.getKind()) {
     case kind::EQUAL:
     case kind::IFF:
-      d_cc.addEquality(assertion);
+      d_cc.assertEquality(assertion);
       if(!d_conflict.isNull()) {
-        // addEquality can cause a notify congruent which calls merge
+        // assertEquality can cause a notify congruent which calls merge
         // which can lead to a conflict
         Node conflict = constructConflict(d_conflict);
         d_conflict = Node::null();
@@ -129,8 +129,8 @@ void TheoryArrays::check(Effort e) {
       Node b = assertion[0][1];
       addDiseq(assertion[0]);
 
-      d_cc.addTerm(a);
-      d_cc.addTerm(b);
+      d_cc.registerTerm(a);
+      d_cc.registerTerm(b);
 
       if(!d_conflict.isNull()) {
         // we got notified through notifyCongruent which called merge

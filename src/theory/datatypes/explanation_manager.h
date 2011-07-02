@@ -22,7 +22,7 @@
 #define __CVC4__THEORY__DATATYPES__EXPLANATION_MANAGER_H
 
 #include "theory/theory.h"
-#include "util/congruence_closure_old.h"
+#include "util/congruence_closure.h"
 #include "util/datatype.h"
 #include "util/hash.h"
 #include "util/trans_closure.h"
@@ -121,14 +121,14 @@ public:
   virtual Node explain( Node n, ProofManager* pm ) = 0;
 };
 
-template <class OutputChannel, class CongruenceOperatorList>
+template <class OutputChannel>
 class CongruenceClosureExplainer : public Explainer
 {
 protected:
   //pointer to the congruence closure module
-  old::CongruenceClosure<OutputChannel, CongruenceOperatorList>* d_cc;
+  CongruenceClosure<OutputChannel>* d_cc;
 public:
-  CongruenceClosureExplainer(old::CongruenceClosure<OutputChannel, CongruenceOperatorList>* cc) :
+  CongruenceClosureExplainer(CongruenceClosure<OutputChannel>* cc) :
     Explainer(),
     d_cc( cc ){
    }
@@ -136,7 +136,7 @@ public:
   /** assert that n is true */
   void assert( Node n ){
     Assert( n.getKind() == kind::EQUAL || n.getKind() == kind::IFF );
-    d_cc->addEquality( n );
+    d_cc->assertEquality( n );
   }
   /** get the explanation for n */
   Node explain( Node n, ProofManager* pm ){

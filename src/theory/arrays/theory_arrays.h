@@ -23,8 +23,9 @@
 
 #include "theory/theory.h"
 #include "theory/arrays/union_find.h"
-#include "util/congruence_closure_old.h"
-#include "array_info.h"
+#include "theory/arrays/array_info.h"
+#include "util/congruence_closure.h"
+#include "context/cdlist_context_memory.h"
 #include "util/hash.h"
 #include "util/ntuple.h"
 #include "util/stats.h"
@@ -96,8 +97,16 @@ private:
 
   public:
     CongruenceChannel(TheoryArrays* arrays) : d_arrays(arrays) {}
-    void notifyCongruent(TNode a, TNode b) {
+    bool notifyMerge(TNode a, TNode b) {
       d_arrays->notifyCongruent(a, b);
+#warning fixme in case of conflict
+      return false;
+    }
+    bool notifyEntailedEquality(TNode n) {
+      Unimplemented();
+    }
+    bool notifyDisentailedEquality(TNode n) {
+      Unimplemented();
     }
   }; /* class CongruenceChannel*/
   friend class CongruenceChannel;
@@ -110,7 +119,7 @@ private:
   /**
    * Instance of the congruence closure module.
    */
-  old::CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_1(kind::SELECT)> d_cc;
+  CongruenceClosure<CongruenceChannel> d_cc;
 
   /**
    * Union find for storing the equalities.
@@ -401,7 +410,7 @@ public:
       Node ni = nm->mkNode(kind::SELECT, n, i);
       Node eq = nm->mkNode(kind::EQUAL, ni, v);
 
-      d_cc.addEquality(eq);
+      d_cc.assertEquality(eq);
 
       d_infoMap.addIndex(n, i);
       d_infoMap.addStore(n, n);

@@ -40,8 +40,10 @@ template <class T>
 class CDPtr : public CDO<T*> {
   typedef CDO<T*> super;
 
-  // disallow copy
-  CDPtr(const CDPtr<T>& cdptr) CVC4_UNUSED;
+  // private copy ctor
+  CDPtr(const CDPtr<T>& cdptr) :
+    super(cdptr) {
+  }
 
 public:
 
@@ -54,7 +56,15 @@ public:
   }
 
   // undesirable to put this here, since CDO<> does it already (?)
-  //~CDPtr() throw(AssertionException) { this->destroy(); }
+  virtual ~CDPtr() throw(AssertionException) { this->destroy(); }
+
+  virtual ContextObj* save(ContextMemoryManager* pCMM) {
+    return new(pCMM) CDPtr<T>(*this);
+  }
+
+  virtual void restore(ContextObj* pContextObj) {
+    this->super::restore(pContextObj);
+  }
 
   CDPtr<T>& operator=(T* data) {
     super::set(data);

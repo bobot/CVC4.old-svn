@@ -40,6 +40,19 @@ class CDO : public ContextObj {
    */
   T d_data;
 
+protected:
+
+  /**
+   * Copy constructor - it's private to ensure it is only used by save().
+   * Basic CDO objects, cannot be copied-they have to be unique.
+   */
+  CDO(const CDO<T>& cdo) : ContextObj(cdo), d_data(cdo.d_data) {}
+
+  /**
+   * operator= for CDO is private to ensure CDO object is not copied.
+   */
+  CDO<T>& operator=(const CDO<T>& cdo) CVC4_UNUSED;
+
   /**
    * Implementation of mandatory ContextObj method save: simply copies the
    * current data to a copy using the copy constructor.  Memory is allocated
@@ -56,17 +69,6 @@ class CDO : public ContextObj {
   virtual void restore(ContextObj* pContextObj) {
     d_data = ((CDO<T>*) pContextObj)->d_data;
   }
-
-  /**
-   * Copy constructor - it's private to ensure it is only used by save().
-   * Basic CDO objects, cannot be copied-they have to be unique.
-   */
-  CDO(const CDO<T>& cdo) : ContextObj(cdo), d_data(cdo.d_data) {}
-
-  /**
-   * operator= for CDO is private to ensure CDO object is not copied.
-   */
-  CDO<T>& operator=(const CDO<T>& cdo) CVC4_UNUSED;
 
 public:
 
