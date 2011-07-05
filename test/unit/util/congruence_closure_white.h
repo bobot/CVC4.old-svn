@@ -27,6 +27,9 @@
 #include "expr/node_manager.h"
 #include "util/congruence_closure.h"
 
+#warning hack
+#include "util/congruence_closure.cpp"
+
 
 using namespace CVC4;
 using namespace CVC4::context;
@@ -70,7 +73,7 @@ struct MyOutputChannel {
     return find(a) == find(b);
   }
 
-  void notifyCongruent(TNode a, TNode b) {
+  bool notifyMerge(TNode a, TNode b) {
     Debug("cc") << "======OI!  I've been notified of: "
                 << a << " == " << b << std::endl;
 
@@ -83,6 +86,18 @@ struct MyOutputChannel {
     d_notifications.insert(eq);
 
     d_equivalences.insert(a, b);
+
+    return false;
+  }
+
+  bool notifyEntailedEquality(TNode eq) {
+    TS_FAIL("notifyEntailedEquality() called unexpectedly");
+    return false;
+  }
+
+  bool notifyDisentailedEquality(TNode eq) {
+    TS_FAIL("notifyDisentailedEquality() called unexpectedly");
+    return false;
   }
 };/* class MyOutputChannel */
 
@@ -185,10 +200,10 @@ public:
     //Debug.on("cc");
     // add terms, then add equalities
 
-    d_cc->addTerm(fa);
-    d_cc->addTerm(fb);
+    d_cc->registerTerm(fa);
+    d_cc->registerTerm(fb);
 
-    d_cc->addEquality(a_eq_b);
+    d_cc->assertEquality(a_eq_b);
 
     TS_ASSERT(d_out->areCongruent(fa, fb));
     TS_ASSERT(d_cc->areCongruent(fa, fb));
@@ -201,10 +216,10 @@ public:
     // add equalities, then add terms; should get the same as
     // testSimple()
 
-    d_cc->addEquality(a_eq_b);
+    d_cc->assertEquality(a_eq_b);
 
-    d_cc->addTerm(fa);
-    d_cc->addTerm(fb);
+    d_cc->registerTerm(fa);
+    d_cc->registerTerm(fb);
 
     TS_ASSERT(d_out->areCongruent(fa, fb));
     TS_ASSERT(d_cc->areCongruent(fa, fb));
@@ -223,8 +238,8 @@ public:
     {
       d_context->push();
 
-      d_cc->addTerm(fa);
-      d_cc->addTerm(fb);
+      d_cc->registerTerm(fa);
+      d_cc->registerTerm(fb);
 
       TS_ASSERT(!d_out->areCongruent(fa, fb));
       TS_ASSERT(!d_cc->areCongruent(fa, fb));
@@ -235,7 +250,7 @@ public:
       {
         d_context->push();
 
-        d_cc->addEquality(a_eq_b);
+        d_cc->assertEquality(a_eq_b);
 
         TS_ASSERT(d_out->areCongruent(fa, fb));
         TS_ASSERT(d_cc->areCongruent(fa, fb));
@@ -272,7 +287,7 @@ public:
     {
       d_context->push();
 
-      d_cc->addEquality(a_eq_b);
+      d_cc->assertEquality(a_eq_b);
 
       TS_ASSERT(!d_out->areCongruent(fa, fb));
       TS_ASSERT(d_cc->areCongruent(fa, fb));
@@ -283,8 +298,8 @@ public:
       {
         d_context->push();
 
-        d_cc->addTerm(fa);
-        d_cc->addTerm(fb);
+        d_cc->registerTerm(fa);
+        d_cc->registerTerm(fb);
 
         TS_ASSERT(d_out->areCongruent(fa, fb));
         TS_ASSERT(d_cc->areCongruent(fa, fb));
@@ -312,10 +327,10 @@ public:
   }
 
   void test_f_of_f_of_something() {
-    d_cc->addTerm(ffa);
-    d_cc->addTerm(ffb);
+    d_cc->registerTerm(ffa);
+    d_cc->registerTerm(ffb);
 
-    d_cc->addEquality(a_eq_b);
+    d_cc->assertEquality(a_eq_b);
 
     TS_ASSERT(d_out->areCongruent(ffa, ffb));
     TS_ASSERT(d_cc->areCongruent(ffa, ffb));
@@ -328,10 +343,10 @@ public:
   }
 
   void test_f4_of_something() {
-    d_cc->addTerm(ffffa);
-    d_cc->addTerm(ffffb);
+    d_cc->registerTerm(ffffa);
+    d_cc->registerTerm(ffffb);
 
-    d_cc->addEquality(a_eq_b);
+    d_cc->assertEquality(a_eq_b);
 
     TS_ASSERT(d_out->areCongruent(ffffa, ffffb));
     TS_ASSERT(d_cc->areCongruent(ffffa, ffffb));
@@ -350,10 +365,10 @@ public:
   }
 
   void testSimpleBinaryFunction() {
-    d_cc->addTerm(gab);
-    d_cc->addTerm(gba);
+    d_cc->registerTerm(gab);
+    d_cc->registerTerm(gba);
 
-    d_cc->addEquality(a_eq_b);
+    d_cc->assertEquality(a_eq_b);
 
     TS_ASSERT(d_out->areCongruent(gab, gba));
     TS_ASSERT(d_cc->areCongruent(gab, gba));
@@ -364,13 +379,13 @@ public:
     //Debug.on("cc");
     try {
 
-    d_cc->addTerm(gfafb);
-    d_cc->addTerm(gba);
-    d_cc->addTerm(gfaa);
-    d_cc->addTerm(hfaa);
+    d_cc->registerTerm(gfafb);
+    d_cc->registerTerm(gba);
+    d_cc->registerTerm(gfaa);
+    d_cc->registerTerm(hfaa);
 
-    d_cc->addEquality(a_eq_fb);
-    d_cc->addEquality(fa_eq_b);
+    d_cc->assertEquality(a_eq_fb);
+    d_cc->assertEquality(fa_eq_b);
 
     TS_ASSERT(d_cc->areCongruent(a, fb));
     TS_ASSERT(d_cc->areCongruent(b, fa));
@@ -423,31 +438,31 @@ public:
     vector<TypeNode> args2U(2, U);
     Node f1 = d_nm->mkVar("f1", d_nm->mkFunctionType(args2U, U));
 
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0))));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_2))));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_1),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_1))));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2))));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2))));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_0),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0))));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_1),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1))));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0)))),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_2))))));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c2,c8),d_nm->mkNode(kind::APPLY_UF, f1,c4,c9)));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c9,c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c8,c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c4,c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c2,c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c5,c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c7,c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c3,c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, c6,c_1));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1),c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0),c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2),c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_1),c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_0),c_1));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_0));
-    d_cc->addEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0))));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_2))));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_1),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_1))));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2))));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1),c_2),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2))));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_0),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0))));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_1),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1))));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0)))),d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_0,d_nm->mkNode(kind::APPLY_UF, f1,c_2,d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_2))))));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c2,c8),d_nm->mkNode(kind::APPLY_UF, f1,c4,c9)));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, c9,c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, c8,c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, c4,c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, c2,c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, c5,c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, c7,c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, c3,c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, c6,c_1));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_2),c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_1),c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_2,c_0),c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_2),c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_1),c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_1,c_0),c_1));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_1),c_0));
+    d_cc->assertEquality(d_nm->mkNode(kind::EQUAL, d_nm->mkNode(kind::APPLY_UF, f1,c_0,c_0),c_0));
     } catch(Exception& e) {
       cout << "\n\n" << e << "\n\n";
       throw e;
@@ -466,19 +481,19 @@ public:
     Node ffx_eq_y = ffx.eqNode(y);
     Node ffffx_eq_z = ffffx.eqNode(z);
 
-    d_cc->addEquality(ffx_eq_fffx);
-    d_cc->addEquality(ffx_eq_y);
-    d_cc->addEquality(ffffx_eq_z);
+    d_cc->assertEquality(ffx_eq_fffx);
+    d_cc->assertEquality(ffx_eq_y);
+    d_cc->assertEquality(ffffx_eq_z);
   }
 
   void testSimpleArray() {
     //Debug.on("cc");
     // add terms, then add equalities
     try {
-    d_ccArray->addTerm(ar_a);
-    d_ccArray->addTerm(ar_b);
+    d_ccArray->registerTerm(ar_a);
+    d_ccArray->registerTerm(ar_b);
 
-    d_ccArray->addEquality(a_eq_b);
+    d_ccArray->assertEquality(a_eq_b);
 
     TS_ASSERT(d_out->areCongruent(ar_a, ar_b));
     TS_ASSERT(d_ccArray->areCongruent(ar_a, ar_b));
@@ -495,10 +510,10 @@ public:
     // add equalities, then add terms; should get the same as
     // testSimple()
 
-    d_ccArray->addEquality(a_eq_b);
+    d_ccArray->assertEquality(a_eq_b);
 
-    d_ccArray->addTerm(ar_a);
-    d_ccArray->addTerm(ar_b);
+    d_ccArray->registerTerm(ar_a);
+    d_ccArray->registerTerm(ar_b);
 
     TS_ASSERT(d_out->areCongruent(ar_a, ar_b));
     TS_ASSERT(d_ccArray->areCongruent(ar_a, ar_b));
@@ -516,11 +531,11 @@ public:
     Node select__store_arar_b_ar2__a__eq__arar_a =
       d_nm->mkNode(kind::EQUAL, select__store_arar_b_ar2__a, arar_a);
 
-    d_ccArray->addTerm(ar);
-    d_ccArray->addTerm(select__store_arar_b_ar2__a);
+    d_ccArray->registerTerm(ar);
+    d_ccArray->registerTerm(select__store_arar_b_ar2__a);
 
-    d_ccArray->addEquality(ar_eq_arar_a);
-    d_ccArray->addEquality(select__store_arar_b_ar2__a__eq__arar_a);
+    d_ccArray->assertEquality(ar_eq_arar_a);
+    d_ccArray->assertEquality(select__store_arar_b_ar2__a__eq__arar_a);
 
     TS_ASSERT(d_ccArray->areCongruent(ar, select__store_arar_b_ar2__a));
     TS_ASSERT(d_out->areCongruent(ar, select__store_arar_b_ar2__a));

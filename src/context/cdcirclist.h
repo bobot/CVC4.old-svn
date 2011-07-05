@@ -288,7 +288,7 @@ public:
       return *this;
     }
     iterator operator++(int) {
-      elt_t* old = d_current;
+      const elt_t* old = d_current;
       ++*this;
       return iterator(d_list, old);
     }
@@ -302,7 +302,7 @@ public:
       return *this;
     }
     iterator operator--(int) {
-      elt_t* old = d_current;
+      const elt_t* old = d_current;
       --*this;
       return iterator(d_list, old);
     }
