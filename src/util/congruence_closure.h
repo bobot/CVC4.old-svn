@@ -157,9 +157,9 @@ class CongruenceClosure {
       d_reverseCidMap.push_back(n);
       Debug("cc") << "new cid! " << cid << " for " << n << std::endl;
 
-      //Assert(d_useLists[cid] == NULL);
-      //d_useLists[cid] = new(true) UseList(d_context, context::ContextMemoryAllocator<Cid>(d_context->getCMM()));
-      //Debug("cc") << "--allocate uselist for cid " << cid << " ==> " << d_useLists[cid] << std::endl;
+      Assert(d_useLists[cid] == NULL);
+      d_useLists[cid] = new(true) UseList(d_context, context::ContextMemoryAllocator<Cid>(d_context->getCMM()));
+      Debug("cc") << "--allocate uselist for cid " << cid << " ==> " << d_useLists[cid] << std::endl;
 
       if(isCongruenceOperator(n)) {
         if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
@@ -212,8 +212,8 @@ class CongruenceClosure {
   typedef context::StackingVector<Cid> RepresentativeMap;
   typedef context::CDCircList<Cid, context::ContextMemoryAllocator<Cid> > ClassList;
   typedef DynamicGrowingArray<ClassList*> ClassLists;
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > UseList;
-  typedef context::CDMap<TNode, UseList*, TNodeHashFunction> UseLists;
+  typedef context::CDCircList<Node, context::ContextMemoryAllocator<Node> > UseList;
+  typedef DynamicGrowingArray<UseList*> UseLists;
   typedef DynamicGrowingArray< std::vector<Node> > PropagateList;
   typedef context::CDMap<Node, Node, NodeHashFunction> LookupMap;
 
@@ -236,7 +236,7 @@ class CongruenceClosure {
   RepresentativeMap d_representative;
   ClassLists d_classLists;
   PropagateList d_propagate;
-  UseLists d_useList;
+  UseLists d_useLists;
   LookupMap d_lookup;
 
   EqMap d_eqMap;
@@ -273,6 +273,14 @@ class CongruenceClosure {
     return *d_classLists[c];
   }
 
+  inline UseList& useList(Cid c) {
+    return *d_useLists[c];
+  }
+
+  inline const UseList& useList(Cid c) const {
+    return *d_useLists[c];
+  }
+
   inline bool isCongruenceOperator(TNode n) const {
     // For the datatypes theory, we've removed the invariant that
     // parameterized kinds must have at least one argument.  Consider
@@ -295,7 +303,8 @@ public:
     d_congruenceOperatorMap(kinds),
     d_representative(ctxt),
     d_classLists(),
-    d_useList(ctxt),
+    d_propagate(true),
+    d_useLists(true),
     d_lookup(ctxt),
     d_added(ctxt),
     d_proof(ctxt),
@@ -312,6 +321,11 @@ public:
     for(unsigned i = 0; i < d_classLists.size(); ++i) {
       if(d_classLists[i] != NULL) {
         ::delete d_classLists[i];
+      }
+    }
+    for(unsigned i = 0; i < d_useLists.size(); ++i) {
+      if(d_useLists[i] != NULL) {
+        ::delete d_useLists[i];
       }
     }
   }
@@ -545,26 +559,6 @@ private:
    */
   Node buildRepresentativesOfApply(TNode apply, Kind kindToBuild = kind::TUPLE)
     throw(AssertionException);
-
-  /**
-   * Append equality "eq" to uselist of "of".
-   */
-  inline void appendToUseList(TNode of, TNode eq) {
-    Trace("cc") << "adding " << eq << " to use list of " << of << std::endl;
-    Assert(eq.getKind() == kind::EQUAL ||
-           eq.getKind() == kind::IFF);
-    Assert(of == node(find(cid(of))));
-    UseLists::iterator usei = d_useList.find(of);
-    UseList* ul;
-    if(usei == d_useList.end()) {
-      ul = new(d_context->getCMM()) UseList(true, d_context, false,
-                                            context::ContextMemoryAllocator<TNode>(d_context->getCMM()));
-      d_useList.insertDataFromContextMemory(of, ul);
-    } else {
-      ul = (*usei).second;
-    }
-    ul->push_back(eq);
-  }
 
   /**
    * Merge equivalence class proofs.

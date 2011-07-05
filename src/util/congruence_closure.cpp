@@ -83,7 +83,7 @@ void CongruenceClosure<OutputChannel>::merge(TNode eq, TNode inputEq) {
       Trace("cc") << "CC lookup(ap) setting to " << eq << std::endl;
       setLookup(ap, eq);
       for(Node::iterator i = ap.begin(); i != ap.end(); ++i) {
-        appendToUseList(*i, eq);
+        useList(cid(*i)).push_back(eq);
       }
     }
   }
@@ -257,53 +257,48 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
         Debug("cc:detail") << "find(ap) is " << node(find(cid(ap))) << std::endl;
         Debug("cc:detail") << "CC in prop go through useList of " << ap << std::endl;
       }
-      UseLists::iterator usei = d_useList.find(ap);
-      if(usei != d_useList.end()) {
-        UseList* ul = (*usei).second;
-        //for( f(c1,c2)=c in UseList(ap) )
-        for(UseList::const_iterator i = ul->begin();
-            i != ul->end();
-            ++i) {
-          TNode eq = *i;
-          Trace("cc") << "CC  -- useList: " << eq << std::endl;
-          Assert(eq.getKind() == kind::EQUAL ||
-                 eq.getKind() == kind::IFF);
-          // change from paper
-          // use list elts can have form (apply c..) = x  OR  x = (apply c..)
-          Assert(isCongruenceOperator(eq[0]) ||
-                 isCongruenceOperator(eq[1]));
-          // do for each side that is an application
-          for(int side = 0; side <= 1; ++side) {
-            if(!isCongruenceOperator(eq[side])) {
-              continue;
-            }
+      UseList& ul = useList(cid(ap));
+      //for( f(c1,c2)=c in UseList(ap) )
+      for(UseList::const_iterator i = ul.begin(); i != ul.end(); ++i) {
+        TNode eq = *i;
+        Trace("cc") << "CC  -- useList: " << eq << std::endl;
+        Assert(eq.getKind() == kind::EQUAL ||
+               eq.getKind() == kind::IFF);
+        // change from paper
+        // use list elts can have form (apply c..) = x  OR  x = (apply c..)
+        Assert(isCongruenceOperator(eq[0]) ||
+               isCongruenceOperator(eq[1]));
+        // do for each side that is an application
+        for(int side = 0; side <= 1; ++side) {
+          if(!isCongruenceOperator(eq[side])) {
+            continue;
+          }
 
-            Node cp = buildRepresentativesOfApply(eq[side]);
+          Node cp = buildRepresentativesOfApply(eq[side]);
 
-            // if lookup(c1',c2') is some f(d1,d2)=d then
-            TNode n = lookup(cp);
+          // if lookup(c1',c2') is some f(d1,d2)=d then
+          TNode n = lookup(cp);
 
-            Trace("cc:detail") << "CC     -- c' is " << cp << std::endl;
+          Trace("cc:detail") << "CC     -- c' is " << cp << std::endl;
 
-            if(!n.isNull()) {
-              Trace("cc:detail") << "CC     -- lookup(c') is " << n << std::endl;
-              // add (f(c1,c2)=c,f(d1,d2)=d) to pending
-              Node tuple = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, n);
-              Trace("cc") << "CC add tuple to pending: " << tuple << std::endl;
-              pending.push_back(tuple);
-              // remove f(c1,c2)=c from UseList(ap)
-              Trace("cc:detail") << "supposed to remove " << eq << std::endl
-                                 << "  from UseList of " << ap << std::endl;
-              //i = ul.erase(i);// difference from paper: don't need to erase
-            } else {
-              Trace("cc") << "CC     -- lookup(c') is null" << std::endl;
-              Trace("cc") << "CC     -- setlookup(c') to " << eq << std::endl;
-              // set lookup(c1',c2') to f(c1,c2)=c
-              setLookup(cp, eq);
-              // move f(c1,c2)=c from UseList(ap) to UseList(b')
-              //i = ul.erase(i);// difference from paper: don't need to erase
-              appendToUseList(bp, eq);
-            }
+          if(!n.isNull()) {
+            Trace("cc:detail") << "CC     -- lookup(c') is " << n << std::endl;
+            // add (f(c1,c2)=c,f(d1,d2)=d) to pending
+            Node tuple = NodeManager::currentNM()->mkNode(kind::TUPLE, eq, n);
+            Trace("cc") << "CC add tuple to pending: " << tuple << std::endl;
+            pending.push_back(tuple);
+            // remove f(c1,c2)=c from UseList(ap)
+            Trace("cc:detail") << "supposed to remove " << eq << std::endl
+                               << "  from UseList of " << ap << std::endl;
+            //i = ul.erase(i);// difference from paper: don't need to erase
+          } else {
+            Trace("cc") << "CC     -- lookup(c') is null" << std::endl;
+            Trace("cc") << "CC     -- setlookup(c') to " << eq << std::endl;
+            // set lookup(c1',c2') to f(c1,c2)=c
+            setLookup(cp, eq);
+            // move f(c1,c2)=c from UseList(ap) to UseList(b')
+            //i = ul.erase(i);// difference from paper: don't need to erase
+            useList(cid(bp)).push_back(eq);
           }
         }
       }
@@ -658,11 +653,15 @@ std::ostream& operator<<(std::ostream& out,
   }
 
   out << "UseLists:" << std::endl;
-  for(typename CongruenceClosure<OutputChannel>::UseLists::const_iterator i = cc.d_useList.begin(); i != cc.d_useList.end(); ++i) {
-    if(cc.node(cc.find(cc.cid((*i).first))) == (*i).first) {
-      out << "  " << (*i).first << " =>" << std::endl;
-      for(typename CongruenceClosure<OutputChannel>::UseList::const_iterator j = (*i).second->begin(); j != (*i).second->end(); ++j) {
-        out << "      " << *j << std::endl;
+  for(Cid i = 1; i < cc.d_useLists.size(); ++i) {
+    if(cc.find(i) == i && cc.d_useLists[i] != NULL && cc.d_useLists[i]->begin() != cc.d_useLists[i]->end()) {
+      out << "  " << cc.node(i) << " =>" << std::endl;
+      const ClassList& cl = cc.classList(i);
+      for(typename ClassList::iterator cli = cl.begin(); cli != cl.end(); ++cli) {
+        const UseList& ul = cc.useList(*cli);
+        for(typename UseList::const_iterator i = ul.begin(); i != ul.end(); ++i) {
+          out << "      " << *i << std::endl;
+        }
       }
     }
   }
