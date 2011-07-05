@@ -355,7 +355,8 @@ public:
         // can't free old head, because of backtracking
       } else {
         // not removing list head
-        const elt_t *elt = pos.d_current, *prev = pos.d_current->prev();
+        const elt_t *elt = pos.d_current;
+        elt_t *prev = pos.d_current->prev();
         prev->next() = elt->next();
         elt->next()->prev() = prev;
         return iterator(this, elt->next());
