@@ -217,17 +217,19 @@ class CongruenceClosure {
   typedef DynamicGrowingArray< std::vector<Node> > PropagateList;
   typedef context::CDMap<Node, Node, NodeHashFunction> LookupMap;
 
-  typedef __gnu_cxx::hash_map<TNode, Node, TNodeHashFunction> EqMap;
+  typedef DynamicGrowingArray<Cid> EqMap;
 
-  typedef context::CDMap<Node, Node, NodeHashFunction> ProofMap;
-  typedef context::CDMap<Node, Node, NodeHashFunction> ProofLabel;
+  typedef context::StackingVector<Cid> ProofMap;
+  typedef context::StackingVector<Node> ProofLabel;
+
+  typedef context::CDMap<Node, Node, NodeHashFunction> ProofRewriteMap;
 
   // Simple, NON-context-dependent pending list, union find and "seen
   // set" types for constructing explanations and
   // nearestCommonAncestor(); see explain().
   typedef std::list<std::pair<Node, Node> > PendingProofList_t;
-  typedef __gnu_cxx::hash_map<TNode, TNode, TNodeHashFunction> UnionFind_t;
-  typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction> SeenSet_t;
+  typedef DynamicGrowingArray<Cid> UnionFind_t;
+  typedef DynamicGrowingArray<bool> SeenSet_t;
 
   typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction> CareSet_t;
 
@@ -238,12 +240,12 @@ class CongruenceClosure {
   LookupMap d_lookup;
 
   EqMap d_eqMap;
-  context::CDSet<TNode, TNodeHashFunction> d_added;
+  context::StackingVector<uint8_t> d_added;
 
   ProofMap d_proof;
   ProofLabel d_proofLabel;
 
-  ProofMap d_proofRewrite;
+  ProofRewriteMap d_proofRewrite;
 
   /**
    * The set of terms we care about (i.e. those that have been given
@@ -387,19 +389,23 @@ private:
 
   Node replace(TNode t) {
     if(isCongruenceOperator(t)) {
-      EqMap::iterator i = d_eqMap.find(t);
-      if(i == d_eqMap.end()) {
+      Cid ct = cid(t);
+      Cid i = d_eqMap[ct];
+      if(i == 0) {
         ++d_newSkolemVars;
         Node v = NodeManager::currentNM()->mkSkolem(t.getType());
-        merge(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
-        d_added.insert(v);
-        d_eqMap[t] = v;
+        Node eq = NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v);
+        merge(eq, TNode::null());
+        Cid cv = cid(v);
+        d_added.set(cv, 1);
+        d_eqMap[ct] = cv;
         return v;
       } else {
-        TNode v = (*i).second;
-        if(!d_added.contains(v)) {
-          merge(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
-          d_added.insert(v);
+        TNode v = node(i);
+        if(!d_added[i]) {
+          Node eq = NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v);
+          merge(eq, TNode::null());
+          d_added.set(i, 1);
         }
         return v;
       }
@@ -409,7 +415,7 @@ private:
   }
 
   TNode proofRewrite(TNode pfStep) const {
-    ProofMap::const_iterator i = d_proofRewrite.find(pfStep);
+    ProofRewriteMap::const_iterator i = d_proofRewrite.find(pfStep);
     if(i == d_proofRewrite.end()) {
       return pfStep;
     } else {
@@ -459,13 +465,13 @@ private:
     return p == 0 ? c : p;
   }
 
-  void explainAlongPath(TNode a, TNode c, PendingProofList_t& pending, UnionFind_t& unionFind, std::list<Node>& pf)
+  void explainAlongPath(Cid a, Cid c, PendingProofList_t& pending, UnionFind_t& unionFind, std::list<Node>& pf)
     throw(AssertionException);
 
-  Node highestNode(TNode a, UnionFind_t& unionFind) const
+  Cid highestNode(Cid a, UnionFind_t& unionFind) const
     throw(AssertionException);
 
-  Node nearestCommonAncestor(TNode a, TNode b, UnionFind_t& unionFind)
+  Cid nearestCommonAncestor(Cid a, Cid b, UnionFind_t& unionFind)
     throw(AssertionException);
 
 public:
@@ -563,7 +569,7 @@ private:
   /**
    * Merge equivalence class proofs.
    */
-  void mergeProof(TNode a, TNode b, TNode e);
+  void mergeProof(Cid a, Cid b, TNode e);
 
 public:
 

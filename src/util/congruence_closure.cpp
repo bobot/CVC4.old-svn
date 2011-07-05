@@ -347,7 +347,7 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
       }
       Assert(!clap.empty()); // should have been fixed above
       clbp.concat(clap);
-      mergeProof(a, b, e);
+      mergeProof(cid(a), cid(b), e);
 
       if(Trace.isOn("cc:detail")) {
         Trace("cc:detail") << "post-concat:::" << std::endl;
@@ -380,41 +380,42 @@ void CongruenceClosure<OutputChannel>::propagate(TNode seed) {
 
 
 template <class OutputChannel>
-void CongruenceClosure<OutputChannel>::mergeProof(TNode a, TNode b, TNode e) {
-  Trace("cc") << "  -- merge-proofing " << a << "\n"
-              << "                and " << b << "\n"
-              << "               with " << e << "\n";
+void CongruenceClosure<OutputChannel>::mergeProof(Cid a, Cid b, TNode e) {
+  Trace("cc:proof") << "  -- merge-proofing " << node(a) << "\n"
+                    << "                and " << node(b) << "\n"
+                    << "               with " << e << "\n";
 
   // proof forest gets a -> b labeled with e
 
   // first reverse all the edges in proof forest to root of this proof tree
-  Trace("cc") << "CC PROOF reversing proof tree\n";
+  Trace("cc:proof") << "CC PROOF reversing proof tree\n";
   // c and p are child and parent in (old) proof tree
-  Node c = a, p = d_proof[a], edgePf = d_proofLabel[a];
+  Cid c = a, p = d_proof[a];
+  Node edgePf = d_proofLabel[a];
   // when we hit null p, we're at the (former) root
-  Trace("cc") << "CC PROOF start at c == " << c << std::endl
-              << "                  p == " << p << std::endl
-              << "             edgePf == " << edgePf << std::endl;
-  while(!p.isNull()) {
+  Trace("cc:proof") << "CC PROOF start at c == " << c << std::endl
+                    << "                  p == " << p << std::endl
+                    << "             edgePf == " << edgePf << std::endl;
+  while(p != 0) {
     // in proof forest,
     // we have edge   c --edgePf-> p
     // turn it into   c <-edgePf-- p
 
-    Node pParSave = d_proof[p];
+    Cid pParSave = d_proof[p];
     Node pLabelSave = d_proofLabel[p];
-    d_proof[p] = c;
-    d_proofLabel[p] = edgePf;
+    d_proof.set(p, c);
+    d_proofLabel.set(p, edgePf);
     c = p;
     p = pParSave;
     edgePf = pLabelSave;
-    Trace("cc") << "CC PROOF now   at c == " << c << std::endl
-                << "                  p == " << p << std::endl
-                << "             edgePf == " << edgePf << std::endl;
+    Trace("cc:proof") << "CC PROOF now   at c == " << c << std::endl
+                      << "                  p == " << p << std::endl
+                      << "             edgePf == " << edgePf << std::endl;
   }
 
   // add an edge from a to b
-  d_proof[a] = b;
-  d_proofLabel[a] = e;
+  d_proof.set(a, b);
+  d_proofLabel.set(a, e);
 }/* mergeProof() */
 
 
@@ -472,26 +473,27 @@ Node CongruenceClosure<OutputChannel>::normalize(TNode t) const
 // union-find is not context-dependent, as it's used only during
 // explain().  It does path compression.
 template <class OutputChannel>
-Node CongruenceClosure<OutputChannel>::highestNode(TNode a, UnionFind_t& unionFind) const
+typename CongruenceClosure<OutputChannel>::Cid
+CongruenceClosure<OutputChannel>::highestNode(Cid a, UnionFind_t& unionFind) const
   throw(AssertionException) {
-  UnionFind_t::iterator i = unionFind.find(a);
-  if(i == unionFind.end()) {
+  Cid i = unionFind[a];
+  if(i == 0) {
     return a;
   } else {
-    return unionFind[a] = highestNode((*i).second, unionFind);
+    return unionFind[a] = highestNode(i, unionFind);
   }
 }/* highestNode() */
 
 
 template <class OutputChannel>
-void CongruenceClosure<OutputChannel>::explainAlongPath(TNode a, TNode c, PendingProofList_t& pending, UnionFind_t& unionFind, std::list<Node>& pf)
+void CongruenceClosure<OutputChannel>::explainAlongPath(Cid a, Cid c, PendingProofList_t& pending, UnionFind_t& unionFind, std::list<Node>& pf)
   throw(AssertionException) {
 
   a = highestNode(a, unionFind);
   Assert(c == highestNode(c, unionFind));
 
   while(a != c) {
-    Node b = d_proof[a];
+    Cid b = d_proof[a];
     Node e = d_proofLabel[a];
     if(e.getKind() == kind::EQUAL ||
        e.getKind() == kind::IFF) {
@@ -520,26 +522,27 @@ void CongruenceClosure<OutputChannel>::explainAlongPath(TNode a, TNode c, Pendin
 
 
 template <class OutputChannel>
-Node CongruenceClosure<OutputChannel>::nearestCommonAncestor(TNode a, TNode b, UnionFind_t& unionFind)
+typename CongruenceClosure<OutputChannel>::Cid
+CongruenceClosure<OutputChannel>::nearestCommonAncestor(Cid a, Cid b, UnionFind_t& unionFind)
   throw(AssertionException) {
   SeenSet_t seen;
 
-  Assert(find(cid(a)) == find(cid(b)));
+  Assert(find(a) == find(b));
 
   do {
     a = highestNode(a, unionFind);
-    seen.insert(a);
+    seen[a] = true;
     a = d_proof[a];
-  } while(!a.isNull());
+  } while(a != 0);
 
   for(;;) {
     b = highestNode(b, unionFind);
-    if(seen.find(b) != seen.end()) {
+    if(seen[b]) {
       return b;
     }
     b = d_proof[b];
 
-    Assert(!b.isNull());
+    Assert(b != 0);
   }
 }/* nearestCommonAncestor() */
 
@@ -581,10 +584,10 @@ Node CongruenceClosure<OutputChannel>::explain(Node a, Node b)
     a = eq.first;
     b = eq.second;
 
-    Node c = nearestCommonAncestor(a, b, unionFind);
+    Cid c = nearestCommonAncestor(cid(a), cid(b), unionFind);
 
-    explainAlongPath(a, c, pending, unionFind, terms);
-    explainAlongPath(b, c, pending, unionFind, terms);
+    explainAlongPath(cid(a), c, pending, unionFind, terms);
+    explainAlongPath(cid(b), c, pending, unionFind, terms);
   } while(!pending.empty());
 
   if(Trace.isOn("cc")) {
