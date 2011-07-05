@@ -82,11 +82,13 @@ Options::Options() :
   replayFilename(""),
   replayStream(NULL),
   replayLog(NULL),
-  variableRemovalEnabled(false),
-  arithPropagation(false),
+  variableRemovalEnabled(true),
+  arithPropagation(true),
   satRandomFreq(0.0),
   satRandomSeed(91648253),// Minisat's default value
-  pivotRule(MINIMUM)
+  pivotRule(MINIMUM),
+  arithPivotThreshold(16),
+  arithPropagateMaxLength(16)
 {
 }
 
@@ -121,10 +123,12 @@ static const string optionsDescription = "\
    --replay=file          replay decisions from file\n\
    --replay-log=file      log decisions and propagations to file\n\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
+   --pivot-threshold=N   sets the number of heuristic pivots per variable per simplex instance\n\
+   --prop-row-length=N    sets the maximum row length to be used in propagation\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
-   --enable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
-   --enable-arithmetic-propagation turns on arithmetic propagation\n\
+   --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
+   --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --incremental          enable incremental solving\n";
 
 static const string languageDescription = "\
@@ -213,8 +217,10 @@ enum OptionValue {
   PIVOT_RULE,
   RANDOM_FREQUENCY,
   RANDOM_SEED,
-  ENABLE_VARIABLE_REMOVAL,
-  ARITHMETIC_PROPAGATION
+  ARITHMETIC_VARIABLE_REMOVAL,
+  ARITHMETIC_PROPAGATION,
+  ARITHMETIC_PIVOT_THRESHOLD,
+  ARITHMETIC_PROP_MAX_LENGTH
 };/* enum OptionValue */
 
 /**
@@ -280,10 +286,12 @@ static struct option cmdlineOptions[] = {
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
+  { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
+  { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
   { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
   { "random-seed" , required_argument, NULL, RANDOM_SEED  },
-  { "enable-variable-removal", no_argument, NULL, ENABLE_VARIABLE_REMOVAL },
-  { "enable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
+  { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
+  { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -532,12 +540,12 @@ throw(OptionException) {
 #endif /* CVC4_REPLAY */
       break;
 
-    case ENABLE_VARIABLE_REMOVAL:
-      variableRemovalEnabled = true;
+    case ARITHMETIC_VARIABLE_REMOVAL:
+      variableRemovalEnabled = false;
       break;
 
     case ARITHMETIC_PROPAGATION:
-      arithPropagation = true;
+      arithPropagation = false;
       break;
 
     case RANDOM_SEED:
@@ -572,6 +580,14 @@ throw(OptionException) {
         throw OptionException(string("unknown option for --pivot-rule: `") +
                               optarg + "'.  Try --pivot-rule help.");
       }
+      break;
+
+    case ARITHMETIC_PIVOT_THRESHOLD:
+      arithPivotThreshold = atoi(optarg);
+      break;
+
+    case ARITHMETIC_PROP_MAX_LENGTH:
+      arithPropagateMaxLength = atoi(optarg);
       break;
 
     case SHOW_CONFIG:
