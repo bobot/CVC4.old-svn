@@ -52,8 +52,6 @@ TheoryUFMorgan::TheoryUFMorgan(Context* ctxt, OutputChannel& out, Valuation valu
   d_trueEqFalseNode = nm->mkNode(kind::IFF, d_trueNode, d_falseNode);
   d_cc.registerEquality(d_trueEqFalseNode);
   d_cc.assertDisequality(d_trueEqFalseNode);
-  //d_cc.registerTerm(d_trueNode);
-  //d_cc.registerTerm(d_falseNode);
 }
 
 TheoryUFMorgan::~TheoryUFMorgan() {

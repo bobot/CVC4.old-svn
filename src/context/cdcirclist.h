@@ -229,8 +229,14 @@ public:
    */
   void concat(CDCircList<T, AllocatorT>& l) {
     Assert(this != &l, "cannot concat a list with itself");
-    Assert(d_head != NULL, "cannot concat an empty list");
-    Assert(l.d_head != NULL, "cannot concat an empty list");
+
+    if(d_head == NULL) {
+      d_head = l.d_head;
+      return;
+    } else if(l.d_head == NULL) {
+      l.d_head = d_head;
+      return;
+    }
 
     // splice together the two circular lists
     CDPtr<elt_t> &l1head = head(), &l2head = l.head();

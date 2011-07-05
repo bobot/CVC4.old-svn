@@ -78,8 +78,10 @@ void Context::pop() {
   // Notify the (pre-pop) ContextNotifyObj objects
   ContextNotifyObj* pCNO = d_pCNOpre;
   while(pCNO != NULL) {
+    // pre-store the "next" pointer in case pCNO deletes itself on notify()
+    ContextNotifyObj* next = pCNO->d_pCNOnext;
     pCNO->notify();
-    pCNO = pCNO->d_pCNOnext;
+    pCNO = next;
   }
 
   // Grab the top Scope
@@ -97,8 +99,10 @@ void Context::pop() {
   // Notify the (post-pop) ContextNotifyObj objects
   pCNO = d_pCNOpost;
   while(pCNO != NULL) {
+    // pre-store the "next" pointer in case pCNO deletes itself on notify()
+    ContextNotifyObj* next = pCNO->d_pCNOnext;
     pCNO->notify();
-    pCNO = pCNO->d_pCNOnext;
+    pCNO = next;
   }
 
   Trace("pushpop") << std::string(2 * getLevel(), ' ') << "} Pop [to "
