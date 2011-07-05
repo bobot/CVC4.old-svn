@@ -148,46 +148,6 @@ class CongruenceClosure {
   DynamicArray<Node> d_reverseCidMap;
   std::list< triple<Cid, Cid, Node> > d_pending;
 
-  class InstallHook : public context::ContextNotifyObj {
-    CongruenceClosure<OutputChannel>& d_cc;
-    size_t d_level;
-    Cid d_x;
-    Cid d_y;
-
-  public:
-    InstallHook(CongruenceClosure<OutputChannel>& cc, Cid x, Cid y) :
-      context::ContextNotifyObj(cc.d_context, false),
-      d_cc(cc),
-      d_level(cc.d_context->getLevel()),
-      d_x(x),
-      d_y(y) {
-      Trace("cc") << "CCHOOK creating install hook " << this << " for (" << x << ", " << y << ") after level " << d_cc.d_context->getLevel() << std::endl;
-    }
-    void notify() {
-      size_t level = d_cc.d_context->getLevel();
-      Trace("cc") << "CCHOOK on backtrack of install hook " << this << " context level is " << level << " currently" << std::endl;
-      if(level < d_level) {
-        Trace("cc") << "CCHOOK ==> firing (" << d_x << ", " << d_y << ")" << std::endl;
-        d_cc.useList(d_x).push_back(d_y);
-        if(level == 0) {
-          Trace("cc") << "CCHOOK ==> self-destruct" << std::endl;
-          delete this;
-        } else {
-          d_level = level;
-        }
-      } else {
-        Trace("cc") << "CCHOOK ==> ignoring (level threshold is " << d_level << ")" << std::endl;
-      }
-    }
-  };/* class CongruenceClosure<OutputChannel>::InstallHook */
-  friend class InstallHook;
-
-  inline void installUseListAdditionHook(Cid x, Cid y) {
-    // on backtrack, y comes out of x's use list.  we have to re-add it.
-    Assert(d_context->getLevel() > 0);
-    new InstallHook(*this, x, y);
-  }
-
   inline Cid cid(TNode n) {
     Cid& cid = d_cidMap[n];
     if(cid == 0) {
@@ -204,6 +164,7 @@ class CongruenceClosure {
           // make sure operator is cid-ified for lookup map
           this->cid(n.getOperator());
         }
+        /*
         for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
           Trace("cc") << "adding " << n << "(" << cid << ") to use list of " << *i << "(" << this->cid(*i) << ")" << std::endl;
           Cid ic = this->cid(*i);
@@ -213,6 +174,7 @@ class CongruenceClosure {
             installUseListAdditionHook(ic, cid);
           }
         }
+        */
         /*
         Node rewritten = rewriteWithRepresentatives(n);
         Trace("cc") << "rewrote " << n << " to " << rewritten << std::endl;
@@ -277,7 +239,7 @@ class CongruenceClosure {
   typedef context::StackingVector<Cid> RepresentativeMap;
   typedef context::CDCircList<Cid, context::ContextMemoryAllocator<Cid> > ClassList;
   typedef DynamicGrowingArray<ClassList*> ClassLists;
-  typedef context::CDCircList<Cid, context::ContextMemoryAllocator<Cid> > UseList;
+  typedef context::CDCircList<std::pair<Node, Node>, context::ContextMemoryAllocator<std::pair<Node, Node> > > UseList;
   typedef DynamicGrowingArray<UseList*> UseLists;
   typedef DynamicGrowingArray< std::vector<Node> > PropagateList;
   typedef context::CDMap<std::vector<Cid>, std::pair<Node, Cid>, VectorHashFunction<Cid, CidHashFunction> > LookupMap;
@@ -427,7 +389,13 @@ public:
     AssertArgument(inputEq.getKind() == kind::EQUAL ||
                    inputEq.getKind() == kind::IFF, inputEq);
 
-    merge(cid(inputEq[0]), cid(inputEq[1]), inputEq);
+    if(isCongruenceOperator(inputEq[0])) {
+      merge(inputEq[0], cid(inputEq[1]), inputEq);
+    } else if(isCongruenceOperator(inputEq[1])) {
+      merge(inputEq[1], cid(inputEq[0]), inputEq);
+    } else {
+      merge(cid(inputEq[0]), cid(inputEq[1]), inputEq);
+    }
   }
 
   void assertDisequality(TNode inputDiseq) {
@@ -441,12 +409,11 @@ public:
     Cid s = cid(l), t = cid(r);
     dispropagateList(s).push_back(r);
     dispropagateList(t).push_back(l);
-
-    propagate();
   }
 
 private:
   void merge(Cid a, Cid b, TNode inputEq);
+  void merge(TNode a, Cid b, TNode inputEq);
 
 public:
   /**
@@ -700,8 +667,6 @@ void CongruenceClosure<OutputChannel>::registerEquality(TNode t) {
 
   propagateList(ca).push_back(t);
   propagateList(cb).push_back(t);
-
-  propagate();
 }
 
 template <class OutputChannel>
