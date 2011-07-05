@@ -826,8 +826,10 @@ inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
   Assert(types.size() >= 2);
   std::vector<TypeNode> typeNodes;
   for (unsigned i = 0; i < types.size(); ++ i) {
+    /*
     CheckArgument(!types[i].isFunctionLike(), types,
                   "cannot put function-like types in tuples");
+    */
     typeNodes.push_back(types[i]);
   }
   return mkTypeNode(kind::TUPLE_TYPE, typeNodes);

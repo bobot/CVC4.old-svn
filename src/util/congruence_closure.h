@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -35,8 +35,10 @@
 #include "context/cdmap.h"
 #include "context/cdset.h"
 #include "context/cdlist.h"
+#include "context/cdlist_context_memory.h"
 #include "context/cdcirclist.h"
 #include "context/stacking_vector.h"
+#include "context/stacking_map.h"
 #include "util/exception.h"
 #include "util/stats.h"
 #include "util/hash.h"
@@ -155,34 +157,15 @@ class CongruenceClosure {
       d_reverseCidMap.push_back(n);
       Debug("cc") << "new cid! " << cid << " for " << n << std::endl;
 
-      Assert(d_useLists[cid] == NULL);
-      d_useLists[cid] = new(true) UseList(d_context, context::ContextMemoryAllocator<Cid>(d_context->getCMM()));
-      Debug("cc") << "--allocate uselist for cid " << cid << " ==> " << d_useLists[cid] << std::endl;
+      //Assert(d_useLists[cid] == NULL);
+      //d_useLists[cid] = new(true) UseList(d_context, context::ContextMemoryAllocator<Cid>(d_context->getCMM()));
+      //Debug("cc") << "--allocate uselist for cid " << cid << " ==> " << d_useLists[cid] << std::endl;
 
       if(isCongruenceOperator(n)) {
         if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
           // make sure operator is cid-ified for lookup map
           this->cid(n.getOperator());
         }
-        /*
-        for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
-          Trace("cc") << "adding " << n << "(" << cid << ") to use list of " << *i << "(" << this->cid(*i) << ")" << std::endl;
-          Cid ic = this->cid(*i);
-          Debug("cc") << " == under-cid ic " << ic << " uselist is " << d_useLists[ic] << std::endl;
-          useList(ic).push_back(cid);
-          if(d_context->getLevel() > 0) {
-            installUseListAdditionHook(ic, cid);
-          }
-        }
-        */
-        /*
-        Node rewritten = rewriteWithRepresentatives(n);
-        Trace("cc") << "rewrote " << n << " to " << rewritten << std::endl;
-        if(n != rewritten) {
-          Node eq = NodeManager::currentNM()->mkNode(kind::TUPLE, n, rewritten);
-          d_pending.push_back(make_triple(cid, this->cid(rewritten), eq));
-        }
-        */
       }
 
       // I would kinda like this to be in CMM, but then d_classLists[]
@@ -191,11 +174,6 @@ class CongruenceClosure {
       cl->push_back(cid);
       Assert(d_classLists[cid] == NULL);
       d_classLists[cid] = cl;
-      /*
-      if(Debug.isOn("cc:detail")) {
-        debug();
-      }
-      */
     }
     return cid;
   }
@@ -219,11 +197,7 @@ class CongruenceClosure {
   /** The context at play. */
   context::Context* d_context;
 
-  /**
-   * The output channel, used for notifying the client of new
-   * congruences.  Only terms registered with registerEquality() will
-   * generate notifications.
-   */
+  /** The output channel */
   OutputChannel* d_out;
 
   /**
@@ -234,41 +208,52 @@ class CongruenceClosure {
    */
   const KindMap d_congruenceOperatorMap;
 
-  // typedef all of these so that iterators are easy to define, and so
-  // experiments can be run easily with different data structures
+  // typedef all of these so that iterators are easy to define
   typedef context::StackingVector<Cid> RepresentativeMap;
   typedef context::CDCircList<Cid, context::ContextMemoryAllocator<Cid> > ClassList;
   typedef DynamicGrowingArray<ClassList*> ClassLists;
-  typedef context::CDCircList<std::pair<Node, Node>, context::ContextMemoryAllocator<std::pair<Node, Node> > > UseList;
-  typedef DynamicGrowingArray<UseList*> UseLists;
+  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > UseList;
+  typedef context::CDMap<TNode, UseList*, TNodeHashFunction> UseLists;
   typedef DynamicGrowingArray< std::vector<Node> > PropagateList;
-  typedef context::CDMap<std::vector<Cid>, std::pair<Node, Cid>, VectorHashFunction<Cid, CidHashFunction> > LookupMap;
+  typedef context::CDMap<Node, Node, NodeHashFunction> LookupMap;
 
-  typedef context::StackingVector<Cid> ProofMap;
-  typedef context::StackingVector<Node> ProofLabel;
+  typedef __gnu_cxx::hash_map<TNode, Node, TNodeHashFunction> EqMap;
+
+  typedef context::CDMap<Node, Node, NodeHashFunction> ProofMap;
+  typedef context::CDMap<Node, Node, NodeHashFunction> ProofLabel;
 
   // Simple, NON-context-dependent pending list, union find and "seen
   // set" types for constructing explanations and
   // nearestCommonAncestor(); see explain().
-  typedef std::list<std::pair<Cid, Cid> > PendingProofList_t;
-  typedef __gnu_cxx::hash_map<Cid, Cid> UnionFind_t;
-  typedef __gnu_cxx::hash_set<Cid> SeenSet_t;
+  typedef std::list<std::pair<Node, Node> > PendingProofList_t;
+  typedef __gnu_cxx::hash_map<TNode, TNode, TNodeHashFunction> UnionFind_t;
+  typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction> SeenSet_t;
 
-  typedef __gnu_cxx::hash_set<Cid> CareSet_t;
+  typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction> CareSet_t;
 
   RepresentativeMap d_representative;
   ClassLists d_classLists;
-  PropagateList d_propagate, d_dispropagate;
-  UseLists d_useLists;
+  PropagateList d_propagate;
+  UseLists d_useList;
   LookupMap d_lookup;
+
+  EqMap d_eqMap;
+  context::CDSet<TNode, TNodeHashFunction> d_added;
 
   ProofMap d_proof;
   ProofLabel d_proofLabel;
 
-  CareSet_t d_careTerms;
+  ProofMap d_proofRewrite;
+
+  /**
+   * The set of terms we care about (i.e. those that have been given
+   * us with registerTerm() and their representatives).
+   */
+  CareSet_t d_careSet;
 
   // === STATISTICS ===
   AverageStat d_explanationLength;/**< average explanation length */
+  IntStat d_newSkolemVars;/**< new vars created */
 
   inline std::vector<Node>& propagateList(Cid c) {
     return d_propagate[c];
@@ -278,32 +263,12 @@ class CongruenceClosure {
     return d_propagate[c];
   }
 
-  inline std::vector<Node>& dispropagateList(Cid c) {
-    return d_dispropagate[c];
-  }
-
-  inline const std::vector<Node>& dispropagateList(Cid c) const {
-    return d_dispropagate[c];
-  }
-
   inline ClassList& classList(Cid c) {
     return *d_classLists[c];
   }
 
   inline const ClassList& classList(Cid c) const {
     return *d_classLists[c];
-  }
-
-  inline UseList& useList(Cid c) {
-    return *d_useLists[c];
-  }
-
-  inline const UseList& useList(Cid c) const {
-    return *d_useLists[c];
-  }
-
-  inline void concatUseLists(Cid a, Cid b) {
-    useList(a).concat(useList(b));
   }
 
   inline bool isCongruenceOperator(TNode n) const {
@@ -328,14 +293,15 @@ public:
     d_congruenceOperatorMap(kinds),
     d_representative(ctxt),
     d_classLists(),
-    d_propagate(true),
-    d_dispropagate(true),
-    d_useLists(true),
+    d_useList(ctxt),
     d_lookup(ctxt),
+    d_added(ctxt),
     d_proof(ctxt),
     d_proofLabel(ctxt),
-    //d_proofRewrite(ctxt),
-    d_explanationLength("congruence_closure::AverageExplanationLength") {
+    d_proofRewrite(ctxt),
+    d_careSet(),
+    d_explanationLength("congruence_closure::AverageExplanationLength"),
+    d_newSkolemVars("congruence_closure::NewSkolemVariables", 0) {
     CheckArgument(!kinds.isEmpty(), "cannot construct a CongruenceClosure with an empty KindMap");
     d_reverseCidMap.push_back(Node::null());
   }
@@ -344,11 +310,6 @@ public:
     for(unsigned i = 0; i < d_classLists.size(); ++i) {
       if(d_classLists[i] != NULL) {
         ::delete d_classLists[i];
-      }
-    }
-    for(unsigned i = 0; i < d_useLists.size(); ++i) {
-      if(d_useLists[i] != NULL) {
-        ::delete d_useLists[i];
       }
     }
   }
@@ -384,46 +345,110 @@ public:
    * overlapping, it doesn't matter.
    */
   void assertEquality(TNode inputEq) {
-    Debug("cc") << "CC assertEquality[" << d_context->getLevel() << "]: "
-                << inputEq << std::endl;
-    AssertArgument(inputEq.getKind() == kind::EQUAL ||
-                   inputEq.getKind() == kind::IFF, inputEq);
-
-    if(isCongruenceOperator(inputEq[0])) {
-      merge(inputEq[0], cid(inputEq[1]), inputEq);
-    } else if(isCongruenceOperator(inputEq[1])) {
-      merge(inputEq[1], cid(inputEq[0]), inputEq);
-    } else {
-      merge(cid(inputEq[0]), cid(inputEq[1]), inputEq);
+    if(Debug.isOn("cc")) {
+      Debug("cc") << "CC assertEquality[" << d_context->getLevel() << "]: " << inputEq << std::endl;
     }
+    Assert(inputEq.getKind() == kind::EQUAL ||
+           inputEq.getKind() == kind::IFF);
+    NodeBuilder<> eqb(inputEq.getKind());
+    if(isCongruenceOperator(inputEq[1]) &&
+       !isCongruenceOperator(inputEq[0])) {
+      eqb << flatten(inputEq[1]) << inputEq[0];
+    } else {
+      eqb << flatten(inputEq[0]) << replace(flatten(inputEq[1]));
+    }
+    Node eq = eqb;
+    merge(eq, inputEq);
   }
 
   void assertDisequality(TNode inputDiseq) {
-    Debug("cc") << "CC assertDisequality[" << d_context->getLevel() << "]: "
-                << inputDiseq << std::endl;
-    AssertArgument(inputDiseq.getKind() == kind::EQUAL ||
-                   inputDiseq.getKind() == kind::IFF, inputDiseq);
-    Assert(!areCongruent(inputDiseq[0], inputDiseq[1]));
-
-    TNode l = inputDiseq[0], r = inputDiseq[1];
-    Cid s = cid(l), t = cid(r);
-    dispropagateList(s).push_back(r);
-    dispropagateList(t).push_back(l);
+    //Unimplemented();
   }
 
 private:
-  void merge(Cid a, Cid b, TNode inputEq);
-  void merge(TNode a, Cid b, TNode inputEq);
+  void merge(TNode eq, TNode inputEq);
+
+  Node flatten(TNode t) {
+    if(isCongruenceOperator(t)) {
+      NodeBuilder<> appb(t.getKind());
+      Assert(replace(flatten(t.getOperator())) == t.getOperator(),
+             "CongruenceClosure:: bad state: higher-order term ??");
+      if(t.getMetaKind() == kind::metakind::PARAMETERIZED) {
+	appb << t.getOperator();
+      }
+      for(TNode::iterator i = t.begin(); i != t.end(); ++i) {
+        appb << replace(flatten(*i));
+      }
+      return Node(appb);
+    } else {
+      return t;
+    }
+  }
+
+  Node replace(TNode t) {
+    if(isCongruenceOperator(t)) {
+      EqMap::iterator i = d_eqMap.find(t);
+      if(i == d_eqMap.end()) {
+        ++d_newSkolemVars;
+        Node v = NodeManager::currentNM()->mkSkolem(t.getType());
+        merge(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
+        d_added.insert(v);
+        d_eqMap[t] = v;
+        return v;
+      } else {
+        TNode v = (*i).second;
+        if(!d_added.contains(v)) {
+          merge(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
+          d_added.insert(v);
+        }
+        return v;
+      }
+    } else {
+      return t;
+    }
+  }
+
+  TNode proofRewrite(TNode pfStep) const {
+    ProofMap::const_iterator i = d_proofRewrite.find(pfStep);
+    if(i == d_proofRewrite.end()) {
+      return pfStep;
+    } else {
+      return (*i).second;
+    }
+  }
 
 public:
   /**
    * Inquire whether two expressions are congruent in the current
    * context.
    */
-  bool areCongruent(TNode a, TNode b) throw(AssertionException);
+  inline bool areCongruent(TNode a, TNode b) const throw(AssertionException) {
+    if(Debug.isOn("cc")) {
+      Debug("cc") << "CC areCongruent? " << a << "  ==  " << b << std::endl;
+      Debug("cc") << "  a  " << a << std::endl;
+      Debug("cc") << "  a' " << normalize(a) << std::endl;
+      Debug("cc") << "  b  " << b << std::endl;
+      Debug("cc") << "  b' " << normalize(b) << std::endl;
+    }
 
-  // FIXME probably this isn't sufficient as a canonizer
-  Node normalize(TNode n) const;
+    Node ap = hasCid(a) ? node(find(cid(a))) : a;
+    Node bp = hasCid(b) ? node(find(cid(b))) : b;
+
+    // areCongruent() works fine as just find(a) == find(b) _except_
+    // for terms not appearing in equalities.  For example, let's say
+    // you have unary f and binary g, h, and
+    //
+    //   a == f(b) ; f(a) == b ; g == h
+    //
+    // it's clear that h(f(a),a) == g(b,a), but it's not in the
+    // union-find even if you addTerm() on those two.
+    //
+    // we implement areCongruent() to handle more general
+    // queries---i.e., to check for new congruences---but shortcut a
+    // cheap & common case
+    //
+    return ap == bp || normalize(ap) == normalize(bp);
+  }
 
 private:
   /**
@@ -434,61 +459,16 @@ private:
     return p == 0 ? c : p;
   }
 
-  void debugProof(const std::list<Node>& pf, TNode a, TNode b) const throw(AssertionException);
-
-  void explainAlongPath(Cid a, Cid c, PendingProofList_t& pending, UnionFind_t& unionFind, std::list<Node>& pf)
+  void explainAlongPath(TNode a, TNode c, PendingProofList_t& pending, UnionFind_t& unionFind, std::list<Node>& pf)
     throw(AssertionException);
 
-  Cid highestNode(Cid a, UnionFind_t& unionFind) const
+  Node highestNode(TNode a, UnionFind_t& unionFind) const
     throw(AssertionException);
 
-  Cid nearestCommonAncestor(Cid a, Cid b, UnionFind_t& unionFind)
+  Node nearestCommonAncestor(TNode a, TNode b, UnionFind_t& unionFind)
     throw(AssertionException);
-
-  Node rewriteWithRepresentatives(TNode in) const {
-    NodeBuilder<> nb(in.getKind());
-    if(in.getMetaKind() == kind::metakind::PARAMETERIZED) {
-      nb << in.getOperator();
-    }
-    for(TNode::iterator i = in.begin(); i != in.end(); ++i) {
-      if(hasCid(*i)) {
-        nb << normalize(*i);
-      } else {
-        nb << *i;
-      }
-    }
-
-    return Node(nb);
-  }
 
 public:
-
-  /*
-  void debug() const {
-    if(Debug.isOn("cc:detail") && d_reverseCidMap.size() > 152) {
-      Cid i = find(152);
-      Debug("cc:detail") << "parent of 152 (" << node(152) << ") is " << i << " (" << node(i) << ")" << std::endl;
-      typename ClassList::const_iterator it = classList(152).begin();
-      if(it != classList(152).end()) {
-        Debug("cc:detail") << "[" << d_context->getLevel() << "] cl of 152 is " << node(*it);
-        if(++it == classList(152).end()) {
-          Debug("cc:detail") << "xxx" << std::endl;
-        } else {
-          Debug("cc:detail") << " and " << node(*it) << ")" << std::endl;
-        }
-        Debug("cc:detail") << "  " << node(i) << " =>" << std::endl;
-        const ClassList& cl = classList(i);
-        for(typename ClassList::const_iterator j = cl.begin(); j != cl.end(); ++j) {
-          Debug("cc:detail") << "      " << node(*j) << " ==> " << node(find(*j)) << std::endl;
-        }
-        cl.debugCheck();
-      } else {
-        Debug("cc:detail") << "[" << d_context->getLevel() << "] cl of 152 is EMPTY" << std::endl;
-      }
-    }
-  }
-  */
-
   /**
    * Request an explanation for why a and b are in the same EC in the
    * current context.  Throws a CongruenceClosureException if they
@@ -504,10 +484,15 @@ public:
    */
   inline Node explain(TNode eq)
     throw(CongruenceClosureException, AssertionException) {
-    AssertArgument(eq.getKind() == kind::EQUAL ||
-                   eq.getKind() == kind::IFF, eq);
+    Assert(eq.getKind() == kind::EQUAL ||
+           eq.getKind() == kind::IFF);
     return explain(eq[0], eq[1]);
   }
+
+  /**
+   * Normalization.
+   */
+  Node normalize(TNode t) const throw(AssertionException);
 
 private:
 
@@ -521,117 +506,64 @@ private:
    * first one).  Calls OutputChannel::notifyCongruent() indirectly,
    * so it can throw anything that that function can.
    */
-  void propagate();
+  void propagate(TNode seed);
 
   /**
    * Internal lookup mapping from tuples to equalities.
    */
-  inline Cid lookup(const std::vector<Cid>& a) const {
-    typename LookupMap::const_iterator i = d_lookup.find(a);
-    if(i == d_lookup.end()) {
-      return 0;
-    } else {
-      return (*i).second.second;
-    }
-  }
-
-  Cid lookup(Cid a) const {
-    Assert(isApplication(a));
-    TNode n = node(a);
-    std::vector<Cid> v;
-    if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
-      v.push_back(/*find(*/cid(n.getOperator())/*)*/);
-    }
-    for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
-      v.push_back(find(cid(*i)));
-    }
-    return lookup(v);
-  }
-
-  /**
-   * Internal lookup mapping from tuples to equalities.
-   */
-  inline TNode lookupReason(const std::vector<Cid>& a) const {
-    typename LookupMap::const_iterator i = d_lookup.find(a);
+  inline TNode lookup(TNode a) const {
+    LookupMap::iterator i = d_lookup.find(a);
     if(i == d_lookup.end()) {
       return TNode::null();
     } else {
-      return (*i).second.first;
+      TNode l = (*i).second;
+      Assert(l.getKind() == kind::EQUAL ||
+             l.getKind() == kind::IFF);
+      return l;
     }
-  }
-
-  TNode lookupReason(Cid a) const {
-    Assert(isApplication(a));
-    TNode n = node(a);
-    std::vector<Cid> v;
-    if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
-      v.push_back(/*find(*/cid(n.getOperator())/*)*/);
-    }
-    for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
-      v.push_back(find(cid(*i)));
-    }
-    return lookupReason(v);
   }
 
   /**
    * Internal lookup mapping.
    */
-  void setLookup(const std::vector<Cid>& a, TNode b, Cid c);
-
-  void setLookup(Cid a, TNode b, Cid c) {
-    Assert(isApplication(a));
-    TNode n = node(a);
-    std::vector<Cid> v;
-    if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
-      v.push_back(/*find(*/cid(n.getOperator())/*)*/);
-    }
-    for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
-      v.push_back(find(cid(*i)));
-    }
-    setLookup(v, b, c);
+  inline void setLookup(TNode a, TNode b) {
+    Assert(a.getKind() == kind::TUPLE);
+    Assert(b.getKind() == kind::EQUAL ||
+           b.getKind() == kind::IFF);
+    d_lookup[a] = b;
   }
 
-  // When we have the special transitivity reasons in CC, we have
-  // something of the form u = v /\ v = w /\ w = x /\ x = y /\ y = z,
-  // so it's simple to return the pair (u,z) here, since we can just
-  // scan the conjunction once, from left to right.  This is only
-  // complicated by the fact that we can group conjunctions together
-  // (i.e., it's not necessarily a flat conjunction), and each
-  // equality can be oriented in either direction.
-  std::pair<TNode, TNode> whatIsProvenWithTransitivity(TNode n) const {
-    if(n.getKind() == kind::IFF || n.getKind() == kind::EQUAL) {
-      return std::make_pair(n[0], n[1]);
-    }
+  /**
+   * Given an apply (f a1 a2...), build a TUPLE expression
+   * (f', a1', a2', ...) suitable for a lookup() key.
+   */
+  Node buildRepresentativesOfApply(TNode apply, Kind kindToBuild = kind::TUPLE)
+    throw(AssertionException);
 
-    Assert(n.getKind() == kind::AND);
-    TNode::iterator ni = n.begin();
-    Debug("cc-wip") << "CC whatIsProvenWithTransitivity: looking at " << *ni << std::endl;
-    std::pair<TNode, TNode> pr = whatIsProvenWithTransitivity(*ni);
-    Assert(pr.first != pr.second);
-    while(++ni != n.end()) {
-      Debug("cc-wip") << "CC whatIsProvenWithTransitivity: already have that " << pr.first << " == " << pr.second << std::endl;
-      Debug("cc-wip") << "CC whatIsProvenWithTransitivity: looking at " << *ni << std::endl;
-      std::pair<TNode, TNode> pr2 = whatIsProvenWithTransitivity(*ni);
-      if(pr.first == pr2.first) {
-        pr.first = pr2.second;
-      } else if(pr.first == pr2.second) {
-        pr.first = pr2.first;
-      } else if(pr.second == pr2.first) {
-        pr.second = pr2.second;
-      } else {
-        Assert(pr.second == pr2.second);
-        pr.second = pr2.first;
-      }
-      // transitivity shouldn't ever reduce to reflexivity
-      Assert(pr.first != pr.second);
+  /**
+   * Append equality "eq" to uselist of "of".
+   */
+  inline void appendToUseList(TNode of, TNode eq) {
+    Trace("cc") << "adding " << eq << " to use list of " << of << std::endl;
+    Assert(eq.getKind() == kind::EQUAL ||
+           eq.getKind() == kind::IFF);
+    Assert(of == node(find(cid(of))));
+    UseLists::iterator usei = d_useList.find(of);
+    UseList* ul;
+    if(usei == d_useList.end()) {
+      ul = new(d_context->getCMM()) UseList(true, d_context, false,
+                                            context::ContextMemoryAllocator<TNode>(d_context->getCMM()));
+      d_useList.insertDataFromContextMemory(of, ul);
+    } else {
+      ul = (*usei).second;
     }
-    Debug("cc-wip") << "CC whatIsProvenWithTransitivity: final result is that " << pr.first << " == " << pr.second << std::endl;
-    return pr;
+    ul->push_back(eq);
   }
 
-  void mergeProof(Cid a, Cid b, TNode e);
-
-  void breakLookupCycle(Cid ind, Cid app, TNode inputEq);
+  /**
+   * Merge equivalence class proofs.
+   */
+  void mergeProof(TNode a, TNode b, TNode e);
 
 public:
 
@@ -647,42 +579,65 @@ public:
     return d_explanationLength;
   }
 
+  /**
+   * Get access to the new-skolem-vars statistic.  Returns the
+   * statistic itself so that reference-statistics can be wrapped
+   * around it, useful since CongruenceClosure is a client class and
+   * shouldn't be directly registered with the StatisticsRegistry.
+   */
+  const IntStat& getNewSkolemVars() const throw() {
+    return d_newSkolemVars;
+  }
+
 };/* class CongruenceClosure */
 
 template <class OutputChannel>
-void CongruenceClosure<OutputChannel>::registerEquality(TNode t) {
-  AssertArgument(t.getKind() == kind::EQUAL || t.getKind() == kind::IFF,
-                 t, "expected an EQUAL or IFF, got: %s", t.toString().c_str());
-  TNode a = t[0];
-  TNode b = t[1];
+void CongruenceClosure<OutputChannel>::registerEquality(TNode eq) {
+  Assert(eq.getKind() == kind::IFF || eq.getKind() == kind::EQUAL);
 
-  Debug("cc") << "CC registerEquality " << t << std::endl;
+  Trace("cc") << "CC registerEquality: " << eq << std::endl;
 
-  Cid ca = cid(a), cb = cid(b);
+  Node l = replace(flatten(eq[0]));
+  Node r = replace(flatten(eq[1]));
 
-  if(areCongruent(a, b)) {
+  Cid cl = cid(l), cr = cid(r);
+
+  if(areCongruent(l, r)) {
     // we take care to only notify our client once of congruences
-    d_out->notifyEntailedEquality(t);// intentionally ignore cancelation request here
+    d_out->notifyEntailedEquality(eq);// intentionally ignore cancelation request here
   }
 
-  propagateList(ca).push_back(t);
-  propagateList(cb).push_back(t);
+  propagateList(cl).push_back(eq);
+  propagateList(cr).push_back(eq);
 }
 
 template <class OutputChannel>
 void CongruenceClosure<OutputChannel>::registerTerm(TNode t) {
-  AssertArgument(t.getKind() != kind::EQUAL && t.getKind() != kind::IFF,
-                 t, "expected something other than EQUAL or IFF, got: %s", t.toString().c_str());
-  Debug("cc") << "CC registerTerm " << t << std::endl;
+  Node trm = replace(flatten(t));
+  Node trmp = node(find(cid(trm)));
 
-  Cid c = cid(t);
-  Cid p = find(c);
+  if(Debug.isOn("cc")) {
+    Debug("cc") << "CC addTerm [" << d_careSet.size() << "] " << !(d_careSet.find(t) == d_careSet.end()) << ": " << t << std::endl
+                << "           [" << d_careSet.size() << "] " << !(d_careSet.find(trm) == d_careSet.end()) << ": " << trm << std::endl
+                << "           [" << d_careSet.size() << "] " << !(d_careSet.find(trmp) == d_careSet.end()) << ": " << trmp << std::endl;
+  }
 
-  if(c != p) {
-    d_out->notifyMerge(t, node(p));
-    d_careTerms.insert(p);
-  } else {
-    d_careTerms.insert(c);
+  if(t != trm && d_careSet.find(t) == d_careSet.end()) {
+    // we take care to only notify our client once of congruences
+    d_out->notifyMerge(t, trm);
+    d_careSet.insert(t);
+  }
+
+  if(d_careSet.find(trm) == d_careSet.end()) {
+    if(trm != trmp) {
+      // if part of an equivalence class headed by another node,
+      // notify the client of this merge that's already been
+      // performed..
+      d_out->notifyMerge(trm, trmp);
+    }
+
+    // add its representative to the care set
+    d_careSet.insert(trmp);
   }
 }
 

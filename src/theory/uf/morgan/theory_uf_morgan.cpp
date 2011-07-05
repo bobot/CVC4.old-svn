@@ -127,12 +127,23 @@ Node TheoryUFMorgan::constructConflict(TNode diseq) {
 }
 
 bool TheoryUFMorgan::notifyCongruence(TNode n) {
+  Assert(n.getKind() == kind::IFF || n.getKind() == kind::EQUAL);
   Debug("uf") << "uf: notified of congruence " << n << endl;
-  if(n == d_trueEqFalseNode) {
-    d_toPropagate.clear();
-    d_toPropagate.push_back(n);
-    d_inConflict = true;
-    return true;
+  if(n.getKind() == kind::IFF) {
+    if(n == d_trueEqFalseNode) {
+      d_toPropagate.clear();
+      d_toPropagate.push_back(n);
+      d_inConflict = true;
+      return true;
+    } else if(n[0] == d_trueNode) {
+      n = n[1];
+    } else if(n[1] == d_trueNode) {
+      n = n[0];
+    } else if(n[0] == d_falseNode) {
+      n = n[1].notNode();
+    } else if(n[1] == d_falseNode) {
+      n = n[0].notNode();
+    }
   }
 
   Node v = d_valuation.getSatValue(n);
@@ -204,7 +215,7 @@ void TheoryUFMorgan::addDisequality(TNode eq) {
 void TheoryUFMorgan::check(Effort level) {
   TimerStat::CodeTimer codeTimer(d_checkTimer);
 
-  Debug("uf") << "uf: begin check(" << level << ")" << endl;
+  Debug("uf") << "uf: begin check[" << getContext()->getLevel() << "](" << level << ")" << endl;
 
   d_inConflict = false;
 
