@@ -699,6 +699,9 @@ void TheoryUFMorgan::staticLearning(TNode n, NodeBuilder<>& learned) {
       }
     }
   }
+
+  SymmetryBreaker symb(n);
+  symb.apply(learned);
 }
 
 /*
