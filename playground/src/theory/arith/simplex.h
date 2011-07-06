@@ -40,9 +40,23 @@ private:
 
   std::queue<Node> d_delayedLemmas;
 
-  PermissiveBackArithVarSet d_updatedBounds;
-  PermissiveBackArithVarSet d_candidateBasics;
 
+  //d_updatedXB is a superset of the variables that have had their
+  //bounds that have been updated during the current check.
+  PermissiveBackArithVarSet d_updatedLB;
+  PermissiveBackArithVarSet d_updatedUB;
+
+  //The set of basic values to investigate for propagation
+  PermissiveBackArithVarSet d_candidateBasicsLB;
+  PermissiveBackArithVarSet d_candidateBasicsUB;
+
+  //This maps variables to a heuristic penalty value for delaying unneeded
+  //propagation attempts.
+  ArithVarMultiset d_propPenaltyDelayLB;
+  ArithVarMultiset d_propPenaltyDelayUB;
+
+  // Keeps track of the number of pivots each variable has been used in
+  // (up to a cap) in the current iteration of simplex.
   ArithVarMultiset d_pivotsInRound;
 
   Rational d_ZERO;
@@ -168,6 +182,7 @@ private:
   ArithVar selectSlackUpperBound(ArithVar x_i, PreferenceFunction pf = minVarOrder) {
     return selectSlack<false>(x_i, pf);
   }
+
   /**
    * Returns the smallest basic variable whose assignment is not consistent
    * with its upper and lower bounds.
@@ -217,9 +232,12 @@ public:
    */
   DeltaRational computeRowValue(ArithVar x, bool useSafe);
 
-  bool hasAnyUpdates() { return !d_updatedBounds.empty(); }
+  bool hasAnyUpdates() {
+    return !d_updatedLB.empty() || !d_updatedUB.empty();
+  }
   void clearUpdates(){
-    d_updatedBounds.purge();
+    d_updatedLB.purge();
+    d_updatedUB.purge();
   }
   void propagateCandidates();
 
@@ -269,8 +287,11 @@ private:
   Node weakenConflict(bool aboveUpper, ArithVar basicVar);
   TNode weakestExplanation(bool aboveUpper, DeltaRational& surplus, ArithVar v, const Rational& coeff, bool& anyWeakening, ArithVar basic);
 
-  void propagateCandidate(ArithVar basic);
+  void propagateCandidate(ArithVar basic, bool upperBound);
   bool propagateCandidateBound(ArithVar basic, bool upperBound);
+  void determineCandidates(bool upperBound);
+  void propagateBoundCandidates(bool upperBound);
+
 
   inline bool propagateCandidateLowerBound(ArithVar basic){
     return propagateCandidateBound(basic, false);
@@ -278,6 +299,9 @@ private:
   inline bool propagateCandidateUpperBound(ArithVar basic){
     return propagateCandidateBound(basic, true);
   }
+
+
+  unsigned countMissingBounds(ArithVar basic, bool upperBound);
 
   bool hasBounds(ArithVar basic, bool upperBound);
   bool hasLowerBounds(ArithVar basic){

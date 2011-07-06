@@ -266,6 +266,11 @@ public:
     d_counts[x]++;
   }
 
+  void addK(ArithVar x, unsigned int k){
+    addMultiset(x);
+    d_counts[x]+= k-1;
+  }
+
   unsigned count(ArithVar x){
     if( x >=  allocated()){
       return 0;
@@ -281,12 +286,18 @@ public:
     return d_list;
   }
 
+
+
   /** Invalidates iterators */
   void remove(ArithVar x){
     Assert(isMember(x));
-    swapToBack(x);
-    Assert(d_list.back() == x);
-    pop_back();
+    if(count(x) > 1){
+      d_counts[x]--;
+    }else{
+      swapToBack(x);
+      Assert(d_list.back() == x);
+      pop_back();
+    }
   }
 
   ArithVar pop_back() {

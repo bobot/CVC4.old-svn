@@ -163,7 +163,7 @@ Node SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_
   d_partialModel.setLowerConstraint(x_i,original);
   d_partialModel.setLowerBound(x_i, c_i);
 
-  d_updatedBounds.softAdd(x_i);
+  d_updatedLB.softAdd(x_i);
 
   if(!d_tableau.isBasic(x_i)){
     if(d_partialModel.getAssignment(x_i) < c_i){
@@ -198,7 +198,7 @@ Node SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
   d_partialModel.setUpperConstraint(x_i,original);
   d_partialModel.setUpperBound(x_i, c_i);
 
-  d_updatedBounds.softAdd(x_i);
+  d_updatedUB.softAdd(x_i);
 
   if(!d_tableau.isBasic(x_i)){
     if(d_partialModel.getAssignment(x_i) > c_i){
@@ -246,7 +246,8 @@ Node SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
   d_partialModel.setUpperConstraint(x_i,original);
   d_partialModel.setUpperBound(x_i, c_i);
 
-  d_updatedBounds.softAdd(x_i);
+  d_updatedLB.softAdd(x_i);
+  d_updatedUB.softAdd(x_i);
 
   if(!d_tableau.isBasic(x_i)){
     if(!(d_partialModel.getAssignment(x_i) == c_i)){
@@ -330,6 +331,28 @@ bool SimplexDecisionProcedure::propagateCandidateBound(ArithVar basic, bool uppe
   return false;
 }
 
+unsigned SimplexDecisionProcedure::countMissingBounds(ArithVar basic, bool upperBound){
+  unsigned bounds = 0;
+  for(Tableau::RowIterator iter = d_tableau.rowIterator(basic); !iter.atEnd(); ++iter){
+    const TableauEntry& entry = *iter;
+
+    ArithVar var = entry.getColVar();
+    if(var == basic) continue;
+    int sgn = entry.getCoefficient().sgn();
+    if(upperBound){
+      if( (sgn < 0 && !d_partialModel.hasLowerBound(var)) ||
+          (sgn > 0 && !d_partialModel.hasUpperBound(var))){
+        bounds++;
+      }
+    }else{
+      if( (sgn < 0 && !d_partialModel.hasUpperBound(var)) ||
+          (sgn > 0 && !d_partialModel.hasLowerBound(var))){
+        bounds++;
+      }
+    }
+  }
+  return bounds;
+}
 
 bool SimplexDecisionProcedure::hasBounds(ArithVar basic, bool upperBound){
   for(Tableau::RowIterator iter = d_tableau.rowIterator(basic); !iter.atEnd(); ++iter){
@@ -352,36 +375,92 @@ bool SimplexDecisionProcedure::hasBounds(ArithVar basic, bool upperBound){
   }
   return true;
 }
-void SimplexDecisionProcedure::propagateCandidate(ArithVar basic){
-  bool success = false;
-  if(d_partialModel.strictlyAboveLowerBound(basic) && hasLowerBounds(basic)){
-    ++d_statistics.d_boundComputations;
-    success |= propagateCandidateLowerBound(basic);
+
+void SimplexDecisionProcedure::propagateCandidate(ArithVar basic, bool upperBound){
+  ArithVarMultiset& propPenaltyDelay = upperBound ? d_propPenaltyDelayUB : d_propPenaltyDelayLB;
+
+  if(propPenaltyDelay.count(basic) > 0){
+    Debug("arith::propDelay") << "delayed : " << basic << endl;
+    propPenaltyDelay.remove(basic);
+  }else{
+    bool offBound = upperBound ?
+      d_partialModel.strictlyBelowUpperBound(basic) : d_partialModel.strictlyAboveLowerBound(basic);
+    if(offBound){
+      unsigned missing = countMissingBounds(basic, upperBound);
+      if(missing == 0){
+        Assert(!upperBound || hasUpperBounds(basic));
+        Assert(upperBound || hasLowerBounds(basic));
+
+        ++d_statistics.d_boundComputations;
+        bool success = upperBound ? propagateCandidateUpperBound(basic):propagateCandidateLowerBound(basic);
+        if(success){
+          ++d_statistics.d_boundPropagations;
+        }else{
+          propPenaltyDelay.addK(basic, 3);
+        }
+      }else{
+        Debug("arith::propDelay") << "prop delay : " << basic << " missing " << missing << "."<< endl;
+        propPenaltyDelay.addK(basic, missing);
+      }
+    }
   }
-  if(d_partialModel.strictlyBelowUpperBound(basic) && hasUpperBounds(basic)){
-    ++d_statistics.d_boundComputations;
-    success |= propagateCandidateUpperBound(basic);
-  }
-  if(success){
-    ++d_statistics.d_boundPropagations;
-  }
+
+  // if(upperBound &&  d_propPenaltyDelayUB.count(basic) > 0){
+  //   d_propPenaltyDelayUB.remove(basic);
+  //   return;
+  // }else if(!upperBound )
+
+  // if(upperBound){
+  //   if(d_propPenaltyDelayUB.count(basic) > 0){
+  //     d_propPenaltyDelayUB.remove(basic);
+  //   }else{
+  //     if(d_partialModel.strictlyBelowUpperBound(basic)){
+  //       unsigned nonubs = countMissingBounds(basic, true);
+  //       if(nonubs == 0){
+  //         Assert(hasUpperBounds(basic));
+  //         ++d_statistics.d_boundComputations;
+  //         success = propagateCandidateUpperBound(basic);
+  //         if(success){
+  //           ++d_statistics.d_boundPropagations;
+  //         }
+  //       }else{
+  //         Debug("arith::propDelay") << "prop delay : " << basic << "nonubs " << nonubs << endl;
+  //         d_propPenaltyDelayUB.addK(basic, nonubs/2+1);
+  //       }
+  //     }
+  //   }
+  // }else{
+  //   if(d_propPenaltyDelayLB.count(basic) > 0){
+  //     d_propPenaltyDelayLB.remove(basic);
+  //   }else{
+  //     if(d_partialModel.strictlyAboveLowerBound(basic)){
+  //       unsigned nonlbs = countMissingBounds(basic, false);
+  //       if(nonlbs == 0){
+  //         Assert(hasLowerBounds(basic));
+  //         ++d_statistics.d_boundComputations;
+  //         success = propagateCandidateLowerBound(basic);
+  //         if(success){
+  //           ++d_statistics.d_boundPropagations;
+  //         }
+  //       }else{
+  //         d_propPenaltyDelayLB.addK(basic, nonlbs/2 + 1);
+  //       }
+  //     }
+  //   }
+  // }
 }
 
-void SimplexDecisionProcedure::propagateCandidates(){
-  TimerStat::CodeTimer codeTimer(d_statistics.d_boundComputationTime);
+void SimplexDecisionProcedure::determineCandidates(bool upperBound){
 
-  Assert(d_candidateBasics.empty());
+  PermissiveBackArithVarSet& updated = upperBound ? d_updatedUB: d_updatedLB;
+  //This maps variables to a heuristic penalty value for delaying unneeded
+  //propagation attempts.
 
-  if(d_updatedBounds.empty()){ return; }
-
-  PermissiveBackArithVarSet::const_iterator i = d_updatedBounds.begin();
-  PermissiveBackArithVarSet::const_iterator end = d_updatedBounds.end();
+  PermissiveBackArithVarSet::const_iterator i = updated.begin();
+  PermissiveBackArithVarSet::const_iterator end = updated.end();
   for(; i != end; ++i){
     ArithVar var = *i;
-    if(d_tableau.isBasic(var) &&
-       d_tableau.getRowLength(var) <= Options::current()->arithPropagateMaxLength){
-      d_candidateBasics.softAdd(var);
-    }else{
+    if(!d_tableau.isBasic(var)){
       Tableau::ColIterator basicIter = d_tableau.colIterator(var);
       for(; !basicIter.atEnd(); ++basicIter){
         const TableauEntry& entry = *basicIter;
@@ -389,18 +468,82 @@ void SimplexDecisionProcedure::propagateCandidates(){
         Assert(entry.getColVar() == var);
         Assert(d_tableau.isBasic(rowVar));
         if(d_tableau.getRowLength(rowVar) <= Options::current()->arithPropagateMaxLength){
-          d_candidateBasics.softAdd(rowVar);
+          int sgn = entry.getCoefficient().sgn();
+          if(upperBound){
+            if(sgn > 0){
+              d_candidateBasicsUB.softAdd(rowVar);
+            }else{
+              d_candidateBasicsLB.softAdd(rowVar);
+            }
+          }else{
+            if(sgn > 0){
+              d_candidateBasicsLB.softAdd(rowVar);
+            }else{
+              d_candidateBasicsUB.softAdd(rowVar);
+            }
+          }
         }
       }
     }
   }
-  d_updatedBounds.purge();
+}
 
-  while(!d_candidateBasics.empty()){
-    ArithVar candidate = d_candidateBasics.pop_back();
+void SimplexDecisionProcedure::propagateBoundCandidates(bool upperBound){
+
+  PermissiveBackArithVarSet& candidates = upperBound?
+    d_candidateBasicsUB : d_candidateBasicsLB;
+
+  while(!candidates.empty()){
+    ArithVar candidate = candidates.pop_back();
     Assert(d_tableau.isBasic(candidate));
-    propagateCandidate(candidate); 
+    propagateCandidate(candidate, upperBound); 
   }
+}
+void SimplexDecisionProcedure::propagateCandidates(){
+  TimerStat::CodeTimer codeTimer(d_statistics.d_boundComputationTime);
+
+
+  if(!hasAnyUpdates()){ return; }
+
+  // PermissiveBackArithVarSet::const_iterator i = d_updatedBounds.begin();
+  // PermissiveBackArithVarSet::const_iterator end = d_updatedBounds.end();
+  // for(; i != end; ++i){
+  //   ArithVar var = *i;
+  //   if(d_tableau.isBasic(var) &&
+  //      d_tableau.getRowLength(var) <= Options::current()->arithPropagateMaxLength){
+  //     d_candidateBasics.softAdd(var);
+  //   }else{
+  //     Tableau::ColIterator basicIter = d_tableau.colIterator(var);
+  //     for(; !basicIter.atEnd(); ++basicIter){
+  //       const TableauEntry& entry = *basicIter;
+  //       ArithVar rowVar = entry.getRowVar();
+  //       Assert(entry.getColVar() == var);
+  //       Assert(d_tableau.isBasic(rowVar));
+  //       if(d_tableau.getRowLength(rowVar) <= Options::current()->arithPropagateMaxLength){
+  //         d_candidateBasics.softAdd(rowVar);
+  //       }
+  //     }
+  //   }
+  // }
+  //d_updatedBounds.purge();
+
+  Assert(d_candidateBasicsUB.empty());
+  Assert(d_candidateBasicsLB.empty());
+
+  determineCandidates(true);
+  determineCandidates(false);
+
+  clearUpdates();
+
+  propagateBoundCandidates(true);
+  propagateBoundCandidates(false);
+
+
+  // while(!d_candidateBasics.empty()){
+  //   ArithVar candidate = d_candidateBasics.pop_back();
+  //   Assert(d_tableau.isBasic(candidate));
+  //   propagateCandidate(candidate); 
+  // }
 }
 
 
