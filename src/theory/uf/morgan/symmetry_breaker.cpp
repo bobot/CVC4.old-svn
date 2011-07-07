@@ -313,6 +313,7 @@ void SymmetryBreaker::apply(std::vector<Node>& newClauses) {
           }
           Debug("ufsymm") << "UFSYMM clause: " << d << endl;
           newClauses.push_back(d);
+          ++d_clauses;
         } else {
           Debug("ufsymm") << "UFSYMM cts == p" << endl;
         }

@@ -99,6 +99,12 @@ private:
   Terms::iterator selectMostPromisingTerm(Terms& terms);
   void insertUsedIn(Term term, const Permutation& p, std::set<Node>& cts);
 
+  // === STATISTICS ===
+  /** number of new clauses that come from the SymmetryBreaker */
+  KEEP_STATISTIC(IntStat,
+                 d_clauses,
+                 "theory::uf::morgan::symmetry_breaker::clauses", 0);
+
 public:
 
   SymmetryBreaker() : d_phi(), d_permutations(), d_terms() {}
