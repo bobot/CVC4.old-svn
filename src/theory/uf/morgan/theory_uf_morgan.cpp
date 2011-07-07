@@ -20,6 +20,7 @@
 #include "theory/valuation.h"
 #include "expr/kind.h"
 #include "util/congruence_closure.h"
+#include "theory/uf/morgan/symmetry_breaker.h"
 
 #include <map>
 

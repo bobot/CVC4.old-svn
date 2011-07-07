@@ -47,6 +47,8 @@
 #define __CVC4__THEORY__UF__MORGAN__SYMMETRY_BREAKER_H
 
 #include <vector>
+#include <list>
+
 #include "expr/node.h"
 #include "expr/node_builder.h"
 
@@ -60,7 +62,8 @@ class SymmetryBreaker {
 
   typedef std::vector<TNode> Permutation;
   typedef std::vector<Permutation> Permutations;
-  typedef std::list<TNode> Terms;
+  typedef TNode Term;
+  typedef std::list<Term> Terms;
 
   Permutations d_permutations;
   Terms d_terms;
