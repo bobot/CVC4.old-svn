@@ -307,13 +307,14 @@ void SymmetryBreaker::apply(std::vector<Node>& newClauses) {
           Node d;
           if(disj.getNumChildren() > 1) {
             d = disj;
+            ++d_clauses;
           } else {
             d = disj[0];
             disj.clear();
+            ++d_units;
           }
           Debug("ufsymm") << "UFSYMM clause: " << d << endl;
           newClauses.push_back(d);
-          ++d_clauses;
         } else {
           Debug("ufsymm") << "UFSYMM cts == p" << endl;
         }

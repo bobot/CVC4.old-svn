@@ -52,6 +52,7 @@
 
 #include "expr/node.h"
 #include "expr/node_builder.h"
+#include "util/stats.h"
 
 namespace CVC4 {
 namespace theory {
@@ -104,6 +105,10 @@ private:
   KEEP_STATISTIC(IntStat,
                  d_clauses,
                  "theory::uf::morgan::symmetry_breaker::clauses", 0);
+  /** number of new clauses that come from the SymmetryBreaker */
+  KEEP_STATISTIC(IntStat,
+                 d_units,
+                 "theory::uf::morgan::symmetry_breaker::units", 0);
 
 public:
 
