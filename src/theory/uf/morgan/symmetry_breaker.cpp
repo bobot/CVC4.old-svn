@@ -82,8 +82,13 @@ bool SymmetryBreaker::Template::matchRecursive(TNode t, TNode n) {
   }
 
   if(t.getNumChildren() == 0) {
-    Assert(t.getMetaKind() == kind::metakind::VARIABLE);
-    Assert(n.getMetaKind() == kind::metakind::VARIABLE);
+    if(t.getMetaKind() == kind::metakind::CONSTANT) {
+      Assert(n.getMetaKind() == kind::metakind::CONSTANT);
+      Debug("ufsymm:match") << "UFSYMM we have constants, failing match" << endl;
+      return false;
+    }
+    Assert(t.getMetaKind() == kind::metakind::VARIABLE &&
+           n.getMetaKind() == kind::metakind::VARIABLE);
     t = find(t);
     n = find(n);
     Debug("ufsymm:match") << "UFSYMM variable match " << t << " , " << n << endl;
@@ -124,7 +129,12 @@ bool SymmetryBreaker::Template::matchRecursive(TNode t, TNode n) {
     return true;
   }
 
-  Assert(t.getMetaKind() != kind::metakind::PARAMETERIZED);
+  if(t.getMetaKind() == kind::metakind::PARAMETERIZED) {
+    if(t.getOperator() != n.getOperator()) {
+      Debug("ufsymm:match") << "UFSYMM BAD MATCH on operators: " << t.getOperator() << " != " << n.getOperator() << endl;
+      return false;
+    }
+  }
   TNode::iterator ti = t.begin();
   TNode::iterator ni = n.begin();
   while(ti != t.end()) {
@@ -216,6 +226,7 @@ void SymmetryBreaker::assertFormula(TNode phi) {
     // we hit a bad match, extract the partitions and reset the template
     Debug("ufsymm") << "UFSYMM hit a bad match---have partitions:" << endl;
     hash_map<TNode, set<TNode>, TNodeHashFunction>& ps = d_template.partitions();
+    Node assertions = d_template.assertions();
     for(hash_map<TNode, set<TNode>, TNodeHashFunction>::iterator i = ps.begin();
         i != ps.end();
         ++i) {
@@ -228,7 +239,7 @@ void SymmetryBreaker::assertFormula(TNode phi) {
       }
       Debug("ufsymm") << endl;
       p.insert((*i).first);
-      d_permutations.insert(make_pair(p, d_template.assertions()));
+      d_permutations.insert(make_pair(p, assertions));
     }
     d_template.reset();
     bool good CVC4_UNUSED = d_template.match(phi);

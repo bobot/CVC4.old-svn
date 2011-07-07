@@ -74,7 +74,13 @@ class SymmetryBreaker {
     Template();
     bool match(TNode n);
     std::hash_map<TNode, std::set<TNode>, TNodeHashFunction>& partitions() { return d_sets; }
-    Node assertions() { return Node(d_assertions); }
+    Node assertions() {
+      switch(d_assertions.getNumChildren()) {
+      case 0: return Node::null();
+      case 1: return d_assertions[0];
+      default: return Node(d_assertions);
+      }
+    }
     void reset();
   };/* class SymmetryBreaker::Template */
 
