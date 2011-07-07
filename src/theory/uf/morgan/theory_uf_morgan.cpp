@@ -560,6 +560,15 @@ void TheoryUFMorgan::presolve() {
   TimerStat::CodeTimer codeTimer(d_presolveTimer);
 
   Debug("uf") << "uf: begin presolve()" << endl;
+  if(Options::current()->d_ufSymmetryBreaker) {
+    vector<Node> newClauses;
+    d_symb.apply(newClauses);
+    for(vector<Node>::const_iterator i = newClauses.begin();
+        i != newClauses.end();
+        ++i) {
+      d_out->lemma(*i);
+    }
+  }
   Debug("uf") << "uf: end presolve()" << endl;
 }
 
@@ -701,8 +710,9 @@ void TheoryUFMorgan::staticLearning(TNode n, NodeBuilder<>& learned) {
     }
   }
 
-  SymmetryBreaker symb(n);
-  symb.apply(learned);
+  if(Options::current()->d_ufSymmetryBreaker) {
+    d_symb.assertFormula(n);
+  }
 }
 
 /*

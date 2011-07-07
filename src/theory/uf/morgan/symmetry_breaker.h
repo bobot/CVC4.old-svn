@@ -46,8 +46,9 @@
 #ifndef __CVC4__THEORY__UF__MORGAN__SYMMETRY_BREAKER_H
 #define __CVC4__THEORY__UF__MORGAN__SYMMETRY_BREAKER_H
 
-#include <vector>
+#include <iostream>
 #include <list>
+#include <vector>
 
 #include "expr/node.h"
 #include "expr/node_builder.h"
@@ -58,32 +59,60 @@ namespace uf {
 namespace morgan {
 
 class SymmetryBreaker {
-  Node d_phi;
 
-  typedef std::vector<TNode> Permutation;
-  typedef std::vector<Permutation> Permutations;
-  typedef TNode Term;
-  typedef std::list<Term> Terms;
+  class Template {
+    Node d_template;
+    NodeBuilder<> d_assertions;
+    std::hash_map<TNode, std::set<TNode>, TNodeHashFunction> d_sets;
+    std::hash_map<TNode, TNode, TNodeHashFunction> d_reps;
 
-  Permutations d_permutations;
-  Terms d_terms;
+    TNode find(TNode n);
+    bool matchRecursive(TNode t, TNode n);
 
-  void guessPermutations();
-  bool invariantByPermutations(const Permutation& p);
-  void selectTerms(const Permutation& p);
-  Terms::iterator selectMostPromisingTerm(Terms& terms);
-  Node usedIn(Term& term);
+  public:
+    Template();
+    bool match(TNode n);
+    std::hash_map<TNode, std::set<TNode>, TNodeHashFunction>& partitions() { return d_sets; }
+    Node assertions() { return Node(d_assertions); }
+    void reset();
+  };/* class SymmetryBreaker::Template */
 
 public:
 
-  SymmetryBreaker(TNode phi) : d_phi(phi) {}
-  void apply(NodeBuilder<>& newClauses);
+  typedef std::set<TNode> Permutation;
+  typedef std::map<Permutation, Node> Permutations;
+  typedef TNode Term;
+  typedef std::list<Term> Terms;
+
+private:
+
+  std::vector<Node> d_phi;
+  Permutations d_permutations;
+  Terms d_terms;
+  Template d_template;
+
+  void clear();
+
+  void guessPermutations();
+  bool invariantByPermutations(const Permutation& p);
+  void selectTerms(const Permutation& p, TNode reason);
+  Terms::iterator selectMostPromisingTerm(Terms& terms);
+  void insertUsedIn(Term term, const Permutation& p, std::set<Node>& cts);
+
+public:
+
+  SymmetryBreaker() : d_phi(), d_permutations(), d_terms() {}
+  void assertFormula(TNode phi);
+  void apply(std::vector<Node>& newClauses);
 
 };/* class SymmetryBreaker */
 
 }/* CVC4::theory::uf::morgan namespace */
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */
+
+std::ostream& operator<<(std::ostream& out, const ::CVC4::theory::uf::morgan::SymmetryBreaker::Permutation& p);
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__THEORY__UF__MORGAN__SYMMETRY_BREAKER_H */

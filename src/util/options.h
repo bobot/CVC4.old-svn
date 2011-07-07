@@ -194,6 +194,12 @@ struct CVC4_PUBLIC Options {
    */
   uint16_t arithPropagateMaxLength;
 
+  /**
+   * Whether to do the symmetry-breaking preprocessing in UF as
+   * described by Deharbe et al. in CADE 2011 (on by default).
+   */
+  bool ufSymmetryBreaker;
+
   Options();
 
   /**
