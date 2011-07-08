@@ -1,44 +1,129 @@
 AM_CPPFLAGS = \
 	-D__BUILDING_CVC4LIB \
-	-I@srcdir@/../include -I@srcdir@/..
-AM_CXXFLAGS = -Wall -fvisibility=hidden
+	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/..
+AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
 noinst_LTLIBRARIES = libexpr.la
 
 libexpr_la_SOURCES = \
-	attr_type.h \
-	attr_var_name.h \
 	node.h \
+	node.cpp \
+	type_node.h \
+	type_node.cpp \
 	node_builder.h \
-	expr.h \
+	convenience_node_builders.h \	
 	type.h \
+	type.cpp \
 	node_value.h \
 	node_manager.h \
-	expr_manager.h \
-	node_attribute.h \
-	@srcdir@/kind.h \
-	node.cpp \
-	node_builder.cpp \
+	attribute.h \
+	attribute_internals.h \
+	attribute.cpp \
 	node_manager.cpp \
-	expr_manager.cpp \
 	node_value.cpp \
-	expr.cpp \
-	type.cpp \
 	command.h \
-	command.cpp
+	command.cpp \
+	declaration_scope.h \
+	declaration_scope.cpp \
+	expr_manager_scope.h \
+	node_self_iterator.h \
+	expr_stream.h \
+	kind_map.h
+	
+nodist_libexpr_la_SOURCES = \
+	kind.h \
+	metakind.h \
+	type_properties.h \
+	expr.h \
+	expr.cpp \
+	expr_manager.h \
+	expr_manager.cpp
 
-EXTRA_DIST = @srcdir@/kind.h kind_prologue.h kind_middle.h kind_epilogue.h
+EXTRA_DIST = \
+	kind_template.h \
+	metakind_template.h \
+	type_properties_template.h \
+	expr_manager_template.h \
+	expr_manager_template.cpp \
+	expr_template.h \
+	expr_template.cpp \
+	mkkind \
+	mkmetakind \
+	mkexpr
 
-@srcdir@/kind.h: @srcdir@/mkkind kind_prologue.h kind_middle.h kind_epilogue.h @top_srcdir@/src/theory/Makefile.in @top_srcdir@/src/theory/*/kinds
-	chmod +x @srcdir@/mkkind
-	(@srcdir@/mkkind \
-		@srcdir@/kind_prologue.h \
-		@srcdir@/kind_middle.h \
-		@srcdir@/kind_epilogue.h \
-		@srcdir@/builtin_kinds \
-		`grep '^SUBDIRS = ' @top_srcdir@/src/theory/Makefile.in | cut -d' ' -f3- | tr ' ' "\n" | xargs -i__D__ echo @top_srcdir@/src/theory/__D__/kinds` \
-	> @srcdir@/kind.h) || (rm -f @srcdir@/kind.h && exit 1)
+BUILT_SOURCES = \
+	kind.h \
+	metakind.h \
+	type_properties.h \
+	expr.h \
+	expr.cpp \
+	expr_manager.h \
+	expr_manager.cpp \
+	$(top_builddir)/src/theory/.subdirs
 
-BUILT_SOURCES = @srcdir@/kind.h
-dist-hook: @srcdir@/kind.h
-MAINTAINERCLEANFILES = @srcdir@/kind.h
+CLEANFILES = \
+	kind.h \
+	metakind.h \
+	expr.h \
+	expr.cpp \
+	expr_manager.h \
+	expr_manager.cpp \
+	$(top_builddir)/src/theory/.subdirs
+
+include @top_srcdir@/src/theory/Makefile.subdirs
+
+kind.h: kind_template.h mkkind @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkkind
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkkind \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+metakind.h: metakind_template.h mkmetakind @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkmetakind
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkmetakind \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+type_properties.h: type_properties_template.h mkkind @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkkind
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkkind \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+expr.h: expr_template.h mkexpr @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkexpr
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkexpr \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+expr.cpp: expr_template.cpp mkexpr @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkexpr
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkexpr \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+expr_manager.h: expr_manager_template.h mkexpr @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkexpr
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkexpr \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+expr_manager.cpp: expr_manager_template.cpp mkexpr @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkexpr
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkexpr \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)

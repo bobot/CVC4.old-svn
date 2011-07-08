@@ -1,8 +1,0 @@
-% EXPECT: VALID
-x : REAL;
-y : REAL;
-f : REAL -> REAL;
-ASSERT ((x > y) => f(x) > f (y));
-ASSERT (x = 3);
-ASSERT (y = 2);
-QUERY(f(x) > f (y));

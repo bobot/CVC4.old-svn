@@ -1,5 +1,6 @@
 /*********************                                                        */
-/** debug.h
+/*! \file debug.h
+ ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
@@ -8,7 +9,9 @@
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
+ **
+ ** \brief Debugging things.
  **
  ** Debugging things.
  **
@@ -17,10 +20,10 @@
  ** util/Assert.h.
  **/
 
+#include "cvc4_private.h"
+
 #ifndef __CVC4__DEBUG_H
 #define __CVC4__DEBUG_H
-
-#include "cvc4_config.h"
 
 #include <cassert>
 

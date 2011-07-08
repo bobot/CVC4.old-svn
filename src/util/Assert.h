@@ -1,17 +1,22 @@
 /*********************                                                        */
-/** Assert.h
+/*! \file Assert.h
+ ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): acsys
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
+ **
+ ** \brief Assertion utility classes, functions, exceptions, and macros.
  **
  ** Assertion utility classes, functions, exceptions, and macros.
  **/
+
+#include "cvc4_public.h"
 
 #ifndef __CVC4__ASSERT_H
 #define __CVC4__ASSERT_H
@@ -19,10 +24,15 @@
 #include <string>
 #include <sstream>
 #include <cstdio>
+#include <cstdlib>
 #include <cstdarg>
+
 #include "util/exception.h"
-#include "cvc4_config.h"
-#include "config.h"
+#include "util/tls.h"
+
+// output.h not strictly needed for this header, but it _is_ needed to
+// actually _use_ anything in this header, so let's include it.
+#include "util/output.h"
 
 namespace CVC4 {
 
@@ -153,7 +163,7 @@ public:
     va_list args;
     va_start(args, fmt);
     construct("Illegal argument detected",
-              ( std::string(argDesc) + " invalid" ).c_str(),
+              ( std::string("`") + argDesc + "' is a bad argument" ).c_str(),
               function, file, line, fmt, args);
     va_end(args);
   }
@@ -162,7 +172,7 @@ public:
                            const char* file, unsigned line) :
     AssertionException() {
     construct("Illegal argument detected",
-              ( std::string(argDesc) + " invalid" ).c_str(),
+              ( std::string("`") + argDesc + "' is a bad argument" ).c_str(),
               function, file, line);
   }
 
@@ -173,7 +183,7 @@ public:
     va_list args;
     va_start(args, fmt);
     construct("Illegal argument detected",
-              ( std::string(argDesc) + " invalid; expected " +
+              ( std::string("`") + argDesc + "' is a bad argument; expected " +
                 condStr + " to hold" ).c_str(),
               function, file, line, fmt, args);
     va_end(args);
@@ -184,32 +194,104 @@ public:
                            unsigned line) :
     AssertionException() {
     construct("Illegal argument detected",
-              ( std::string(argDesc) + " invalid; expected " +
+              ( std::string("`") + argDesc + "' is a bad argument; expected " +
                 condStr + " to hold" ).c_str(),
               function, file, line);
   }
 };/* class IllegalArgumentException */
 
-#define AlwaysAssert(cond, msg...) \
-  do { \
-    if(EXPECT_FALSE( ! (cond) )) { \
-      throw AssertionException(#cond, __PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg); \
-    } \
-  } while(0)
+class CVC4_PUBLIC InternalErrorException : public AssertionException {
+protected:
+  InternalErrorException() : AssertionException() {}
+
+public:
+  InternalErrorException(const char* function, const char* file, unsigned line) :
+    AssertionException() {
+    construct("Internal error detected", "",
+              function, file, line);
+  }
+
+  InternalErrorException(const char* function, const char* file, unsigned line,
+                         const char* fmt, ...) :
+    AssertionException() {
+    va_list args;
+    va_start(args, fmt);
+    construct("Internal error detected", "",
+              function, file, line, fmt, args);
+    va_end(args);
+  }
+
+  InternalErrorException(const char* function, const char* file, unsigned line,
+                         std::string fmt, ...) :
+    AssertionException() {
+    va_list args;
+    va_start(args, fmt);
+    construct("Internal error detected", "",
+              function, file, line, fmt.c_str(), args);
+    va_end(args);
+  }
+
+};/* class InternalErrorException */
+
+#ifdef CVC4_DEBUG
+
+#ifdef CVC4_DEBUG
+extern CVC4_THREADLOCAL_PUBLIC(const char*) s_debugLastException;
+#endif /* CVC4_DEBUG */
+
+/**
+ * Special assertion failure handling in debug mode; in non-debug
+ * builds, the exception is thrown from the macro.  We factor out this
+ * additional logic so as not to bloat the code at every Assert()
+ * expansion.
+ *
+ * Note this name is prefixed with "debug" because it is included in
+ * debug builds only; in debug builds, it handles all assertion
+ * failures (even those that exist in non-debug builds).
+ */
+void debugAssertionFailed(const AssertionException& thisException,
+                          const char* lastException) CVC4_PUBLIC;
+
+// If we're currently handling an exception, print a warning instead;
+// otherwise std::terminate() is called by the runtime and we lose
+// details of the exception
+#  define AlwaysAssert(cond, msg...)                                    \
+    do {                                                                \
+      if(EXPECT_FALSE( ! (cond) )) {                                    \
+        /* save the last assertion failure */                           \
+        const char* lastException = s_debugLastException;               \
+        CVC4::AssertionException exception(#cond, __PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg); \
+        CVC4::debugAssertionFailed(exception, lastException);                 \
+      }                                                                 \
+    } while(0)
+
+#else /* CVC4_DEBUG */
+// These simpler (but less useful) versions for non-debug builds fails
+// will terminate() if thrown during stack unwinding.
+#  define AlwaysAssert(cond, msg...)                                    \
+     do {                                                               \
+       if(EXPECT_FALSE( ! (cond) )) {                                   \
+         throw CVC4::AssertionException(#cond, __PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg); \
+       }                                                                \
+     } while(0)
+#endif /* CVC4_DEBUG */
+
 #define Unreachable(msg...) \
-  throw UnreachableCodeException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
+  throw CVC4::UnreachableCodeException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
 #define Unhandled(msg...) \
-  throw UnhandledCaseException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
+  throw CVC4::UnhandledCaseException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
 #define Unimplemented(msg...) \
-  throw UnimplementedOperationException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
+  throw CVC4::UnimplementedOperationException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
+#define InternalError(msg...) \
+  throw CVC4::InternalErrorException(__PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
 #define IllegalArgument(arg, msg...) \
-  throw IllegalArgumentException(#arg, __PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
+  throw CVC4::IllegalArgumentException(#arg, __PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg)
 #define CheckArgument(cond, arg, msg...)         \
   AlwaysAssertArgument(cond, arg, ## msg)
 #define AlwaysAssertArgument(cond, arg, msg...)  \
   do { \
     if(EXPECT_FALSE( ! (cond) )) { \
-      throw IllegalArgumentException(#cond, #arg, __PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg); \
+      throw CVC4::IllegalArgumentException(#cond, #arg, __PRETTY_FUNCTION__, __FILE__, __LINE__, ## msg); \
     } \
   } while(0)
 

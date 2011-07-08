@@ -12,49 +12,91 @@
 #
 LIBCVC4_VERSION = @CVC4_LIBRARY_VERSION@
 
-AM_CPPFLAGS =
+AM_CPPFLAGS = \
 	-D__BUILDING_CVC4LIB \
-	-I@srcdir@/include -I@srcdir@
-AM_CXXFLAGS = -Wall -fvisibility=hidden
+	-I@srcdir@/include -I@srcdir@ -I@builddir@
+AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-SUBDIRS = expr util context prop smt theory . parser main
+SUBDIRS = lib expr util context theory prop smt printer . parser main
 
 lib_LTLIBRARIES = libcvc4.la
-
 noinst_LTLIBRARIES = libcvc4_noinst.la
 
 libcvc4_la_LDFLAGS = -version-info $(LIBCVC4_VERSION)
-libcvc4_la_LINK = $(CXXLINK)
 
-libcvc4_la_SOURCES =
-libcvc4_la_LIBADD = libcvc4_noinst.la
-
-# empty.cpp is a fake file added to "trick" automake into linking us as a
-# C++ library (rather than as a C library, which messes up exception
-# handling support)
-libcvc4_noinst_la_SOURCES = empty.cpp
+# This "tricks" automake into linking us as a C++ library (rather than
+# as a C library, which messes up exception handling support)
+nodist_EXTRA_libcvc4_noinst_la_SOURCES = dummy.cpp
+nodist_EXTRA_libcvc4_la_SOURCES = dummy.cpp
+libcvc4_noinst_la_SOURCES = subversion_versioninfo.cpp
+libcvc4_la_SOURCES = subversion_versioninfo.cpp
+libcvc4_la_LIBADD = \
+	@builddir@/util/libutil.la \
+	@builddir@/expr/libexpr.la \
+	@builddir@/context/libcontext.la \
+	@builddir@/prop/libprop.la \
+	@builddir@/prop/minisat/libminisat.la \
+	@builddir@/printer/libprinter.la \
+	@builddir@/smt/libsmt.la \
+	@builddir@/theory/libtheory.la \
+	@builddir@/lib/libreplacements.la
 libcvc4_noinst_la_LIBADD = \
 	@builddir@/util/libutil.la \
 	@builddir@/expr/libexpr.la \
 	@builddir@/context/libcontext.la \
 	@builddir@/prop/libprop.la \
 	@builddir@/prop/minisat/libminisat.la \
+	@builddir@/printer/libprinter.la \
 	@builddir@/smt/libsmt.la \
-	@builddir@/theory/libtheory.la
+	@builddir@/theory/libtheory.la \
+	@builddir@/lib/libreplacements.la
 
-# empty.cpp hack; see above
-empty.cpp:; touch empty.cpp
+EXTRA_DIST = \
+	include/cvc4parser_private.h \
+	include/cvc4parser_public.h \
+	include/cvc4_private.h \
+	include/cvc4_public.h
 
 publicheaders = \
-	include/cvc4_config.h
+	include/cvc4_public.h \
+	include/cvc4parser_public.h
+
+subversion_versioninfo.cpp: svninfo
+	$(AM_V_GEN)( \
+	  if test -s svninfo; then \
+	    issvn=true; \
+	    branch=`grep '^URL: ' svninfo | sed 's,.*/cvc4/,,'`; \
+	    rev=`grep '^Revision: ' svninfo | awk '{print$$2}'`; \
+	    mods=`grep '^Modifications: ' svninfo | awk '{print$$2}'`; \
+	  else \
+	    issvn=false; \
+	    branch=unknown; \
+	    rev=0; \
+	    mods=false; \
+	  fi; \
+	  echo "#include \"util/configuration.h\""; \
+	  echo "const bool ::CVC4::Configuration::IS_SUBVERSION_BUILD = $$issvn;"; \
+	  echo "const char* const ::CVC4::Configuration::SUBVERSION_BRANCH_NAME = \"$$branch\";"; \
+	  echo "const unsigned ::CVC4::Configuration::SUBVERSION_REVISION = $$rev;"; \
+	  echo "const bool ::CVC4::Configuration::SUBVERSION_HAS_MODIFICATIONS = $$mods;"; \
+	) >"$@"
+svninfo: svninfo.tmp
+	$(AM_V_GEN)diff -q svninfo.tmp svninfo &>/dev/null || mv svninfo.tmp svninfo || true
+# .PHONY ensures it's always rebuilt
+.PHONY: svninfo.tmp
+svninfo.tmp:
+	$(AM_V_GEN)(cd "$(top_srcdir)" && svn info && echo "Modifications: `test -z \"\`svn status -q\`\" && echo false || echo true`") >"$@" 2>/dev/null || true
 
 install-data-local: $(publicheaders)
-	$(mkinstalldirs) $(DESTDIR)$(includedir)/cvc4
+	$(mkinstalldirs) $(DESTDIR)$(prefix)$(includedir)/cvc4
 	@for f in $(publicheaders); do \
-		echo $(INSTALL_DATA) "$(srcdir)/$$f" "$(DESTDIR)/$(includedir)/cvc4"; \
-		$(INSTALL_DATA) "$(srcdir)/$$f" "$(DESTDIR)/$(includedir)/cvc4"; \
+		echo $(INSTALL_DATA) "$(srcdir)/$$f" "$(DESTDIR)$(prefix)$(includedir)/cvc4"; \
+		$(INSTALL_DATA) "$(srcdir)/$$f" "$(DESTDIR)$(prefix)$(includedir)/cvc4"; \
 	done
 
-include/cvc4.h: smt/smt_engine.h
-	@srcdir@/headergen.pl $< $@
-include/cvc4_expr.h: expr/expr.h
+uninstall-local:
+	@for f in $(publicheaders); do \
+		f=`echo "$$f" | sed 's,.*/,,'`; \
+		rm -f "$(DESTDIR)$(prefix)$(includedir)/cvc4/$$f"; \
+	done
+	@rmdir "$(DESTDIR)$(prefix)$(includedir)/cvc4"

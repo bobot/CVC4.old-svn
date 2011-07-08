@@ -1,61 +1,56 @@
 ##
-# Check for ANTLR's runantlr script. Will set ANTLR to the location of the
-# runantlr script
+# Check for ANTLR's antlr3 script.
+# Will set ANTLR to the location of the script.
 ##
 AC_DEFUN([AC_PROG_ANTLR], [
-  AC_ARG_VAR([ANTLR],[location of the runantlr script])
+  AC_ARG_VAR([ANTLR],[location of the antlr3 script])
 
-  # Get the location of the runantlr script
-  # AC_ARG_WITH(
-  #   [antlr],
-  #   AS_HELP_STRING(
-  #     [--with-antlr=RUNANTLR],
-  #     [location of the ANTLR's `runantlr` script]
-  #   ),
-  #   ANTLR="$withval",
-  # )
-
-  # Check the existance of the runantlr script
-  if test -z "$ANTLR"; then
-    AC_CHECK_PROGS(ANTLR, [runantlr antlr])
+  # Check the existence of the runantlr script
+  if test "x$ANTLR" = "x"; then
+    AC_PATH_PROG(ANTLR, [antlr3])
   else
-    AC_CHECK_PROG(ANTLR, "$ANTLR", "$ANTLR", [])
+    AC_MSG_CHECKING([antlr3 script ($ANTLR)])
+    if test ! -e "$ANTLR"; then
+      AC_MSG_RESULT([not found])
+      unset ANTLR
+    elif test ! -x "$ANTLR"; then
+      AC_MSG_RESULT([not executable])
+      unset ANTLR
+    else
+      AC_MSG_RESULT([OK])
+    fi
   fi
-  if test no$ANTLR = "no";
-  then
+  if test "x$ANTLR" = "x"; then
     AC_MSG_WARN(
-      [Couldn't find the runantlr script, make sure that the parser code has
-      been generated already. To obtain ANTLR see <http://www.antlr.org/>.]
+[No usable antlr3 script found. Make sure that the parser code has
+been generated already. To obtain ANTLR see <http://www.antlr.org/>.]
     )
-    AC_MSG_RESULT(no)
   fi
-
-  # Define the ANTL related variables
-  # AC_SUBST(ANTLR)
 ])
 
 ##
-# Check the existnace of the ANTLR C++ runtime library and headers
-# Will set ANTLR_CPPFLAGS and ANTLR_LIBS to the location of the ANTLR headers
-# and library respectively
+# Check the existence of the ANTLR3 C runtime library and headers
+# Will set ANTLR_INCLUDES and ANTLR_LIBS to the location of the ANTLR
+# headers and library respectively
 ##
 AC_DEFUN([AC_LIB_ANTLR],[
+  AC_ARG_VAR(ANTLR_HOME, [path to libantlr3c installation])
 
-  # Get the location of the  ANTLR c++ includes and libraries
+  # Get the location of the ANTLR3 C includes and libraries
   AC_ARG_WITH(
     [antlr-dir],
     AS_HELP_STRING(
       [--with-antlr-dir=PATH],
-      [path to ANTLR C++ headers and libraries]
+      [path to ANTLR C headers and libraries]
     ),
     ANTLR_PREFIXES="$withval",
-    ANTLR_PREFIXES="/usr/local /usr /opt/local /opt"
+    ANTLR_PREFIXES="$ANTLR_HOME /usr/local /usr /opt/local /opt"
   )
 
-  AC_MSG_CHECKING(for antlr C++ runtime library)
+  AC_MSG_CHECKING(for ANTLR3 C runtime library)
 
-  # Use C++ and remember the variables we are changing
-  AC_LANG_PUSH(C++)
+  # Use C and remember the variables we are changing
+  AC_LANG_PUSH(C)
   OLD_CPPFLAGS="$CPPFLAGS"
   OLD_LIBS="$LIBS"
 
@@ -63,46 +58,27 @@ AC_DEFUN([AC_LIB_ANTLR],[
   for antlr_prefix in $ANTLR_PREFIXES
   do
     CPPFLAGS="$OLD_CPPFLAGS -I$antlr_prefix/include"
-    LIBS="$OLD_LIBS -L$antlr_prefix/lib -lantlr-pic"
+    LIBS="$OLD_LIBS -L$antlr_prefix/lib -lantlr3c"
     AC_LINK_IFELSE(
       [
-        #include <antlr/CommonAST.hpp>
-        class MyAST : public ANTLR_USE_NAMESPACE(antlr)CommonAST {
-        };
+        #include <antlr3.h>
+
         int main() {
-          MyAST ast;
+          pANTLR3_UINT8 fName = (pANTLR3_UINT8)"foo";
+          pANTLR3_INPUT_STREAM input = antlr3AsciiFileStreamNew(fName);
+          return 0;
         }
       ],
       [
         AC_MSG_RESULT(found in $antlr_prefix)
         ANTLR_INCLUDES="-I$antlr_prefix/include"
-        ANTLR_LDFLAGS="-L$antlr_prefix/lib -lantlr-pic"
+        ANTLR_LDFLAGS="-L$antlr_prefix/lib -lantlr3c"
         break
       ],
-      [
-        CPPFLAGS="$OLD_CPPFLAGS -I$antlr_prefix/include"
-        LIBS="$OLD_LIBS -L$antlr_prefix/lib -lantlr"
-        AC_LINK_IFELSE(
-          [
-            #include <antlr/CommonAST.hpp>
-            class MyAST : public ANTLR_USE_NAMESPACE(antlr)CommonAST {
-            };
-            int main() {
-              MyAST ast;
-            }
-          ],
-          [
-            AC_MSG_RESULT(found in $antlr_prefix)
-            ANTLR_INCLUDES="-I$antlr_prefix/include"
-            ANTLR_LDFLAGS="-L$antlr_prefix/lib -lantlr"
-            break
-          ],
           [
             AC_MSG_RESULT(no)
-            AC_MSG_ERROR([ANTLR C++ runtime not found, see <http://www.antlr.org/>])
+            AC_MSG_ERROR([ANTLR3 C runtime not found, see <http://www.antlr.org/>])
           ]
-        )
-      ]
     )
   done
 

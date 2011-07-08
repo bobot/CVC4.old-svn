@@ -1,5 +1,6 @@
 /*********************                                                        */
-/** decision_engine.h
+/*! \file decision_engine.h
+ ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
@@ -8,15 +9,18 @@
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
+ **
+ ** \brief A decision engine for CVC4
  **
  ** A decision engine for CVC4.
  **/
 
+#include "cvc4_private.h"
+
 #ifndef __CVC4__DECISION_ENGINE_H
 #define __CVC4__DECISION_ENGINE_H
 
-#include "cvc4_config.h"
 #include "expr/node.h"
 
 namespace CVC4 {
@@ -27,7 +31,7 @@ namespace CVC4 {
 /**
  * A decision mechanism for the next decision.
  */
-class CVC4_PUBLIC DecisionEngine {
+class DecisionEngine {
 public:
   /**
    * Destructor.
@@ -38,6 +42,15 @@ public:
    * Get the next decision.
    */
   virtual Node nextDecision();// = 0
+
+  /**
+   * This is called by SmtEngine, at shutdown time, just before
+   * destruction.  It is important because there are destruction
+   * ordering issues between some parts of the system.  For now,
+   * there's nothing to do here in the DecisionEngine.
+   */
+  virtual void shutdown() {
+  }
 
   // TODO: design decision: decision engine should be notified of
   // propagated lits, and also why(?) (so that it can make decisions

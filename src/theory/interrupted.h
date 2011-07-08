@@ -1,5 +1,6 @@
 /*********************                                                        */
-/** interrupted.h
+/*! \file interrupted.h
+ ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
@@ -8,10 +9,24 @@
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
  **
- ** The theory output channel interface.
+ ** \brief An exception signaling that a Theory should immediately
+ ** stop performing processing
+ **
+ ** An exception signaling that a Theory should immediately stop
+ ** performing processing and relinquish control to its caller (e.g.,
+ ** in a parallel environment).  A Theory might be interrupted if it
+ ** calls into its CVC4::theory::OutputChannel, and it should only
+ ** catch this exception to perform emergency repair of any invariants
+ ** it must re-establish.  Further, if this exception is caught by a
+ ** Theory, the Theory should rethrow the same exception (via "throw;"
+ ** in the exception block) rather than return, as the Interrupted
+ ** instance might contain additional information needed for the
+ ** proper management of CVC4 components.
  **/
+
+#include "cvc4_private.h"
 
 #ifndef __CVC4__THEORY__INTERRUPTED_H
 #define __CVC4__THEORY__INTERRUPTED_H
@@ -21,14 +36,7 @@
 namespace CVC4 {
 namespace theory {
 
-class CVC4_PUBLIC Interrupted : public CVC4::Exception {
-public:
-
-  // Constructors
-  Interrupted() : CVC4::Exception("CVC4::Theory::Interrupted") {}
-  Interrupted(const std::string& msg) : CVC4::Exception(msg) {}
-  Interrupted(const char* msg) : CVC4::Exception(msg) {}
-
+class Interrupted : public CVC4::Exception {
 };/* class Interrupted */
 
 }/* CVC4::theory namespace */

@@ -1,18 +1,23 @@
 /*********************                                                        */
-/** context_mm.h
+/*! \file context_mm.h
+ ** \verbatim
  ** Original author: barrett
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
+ **
+ ** \brief Region-based memory manager with stack-based push and pop.
  **
  ** Region-based memory manager with stack-based push and pop.  Designed
  ** for use by ContextManager.
  **/
+
+#include "cvc4_private.h"
 
 #ifndef __CVC4__CONTEXT__CONTEXT_MM_H
 #define __CVC4__CONTEXT__CONTEXT_MM_H
@@ -23,17 +28,16 @@
 namespace CVC4 {
 namespace context {
 
-
-  /**
-   * Region-based memory manager for contexts.  Calls to newData provide memory
-   * from the current region.  This memory will persist until the entire
-   * region is deallocated (by calling pop).
-   *
-   * If push is called, the current region is deactivated and pushed on a
-   * stack, and a new current region is created.  A subsequent call to pop
-   * releases the new region and restores the top region from the stack.
-   *
-   */
+/**
+ * Region-based memory manager for contexts.  Calls to newData provide memory
+ * from the current region.  This memory will persist until the entire
+ * region is deallocated (by calling pop).
+ *
+ * If push is called, the current region is deactivated and pushed on a
+ * stack, and a new current region is created.  A subsequent call to pop
+ * releases the new region and restores the top region from the stack.
+ *
+ */
 class ContextMemoryManager {
 
   /**
@@ -99,7 +103,15 @@ class ContextMemoryManager {
    */
   void newChunk();
 
- public:
+public:
+
+  /**
+   * Get the maximum allocation size for this memory manager.
+   */
+  static unsigned getMaxAllocationSize() {
+    return chunkSizeBytes;
+  }
+
   /**
    * Constructor - creates an initial region and an empty stack
    */
@@ -108,7 +120,7 @@ class ContextMemoryManager {
   /**
    * Destructor - deletes all memory in all regions
    */
-  ~ContextMemoryManager();
+  ~ContextMemoryManager() throw();
 
   /**
    * Allocate size bytes from the current region
@@ -126,7 +138,63 @@ class ContextMemoryManager {
    */
   void pop();
 
-}; /* class ContextMemoryManager */
+};/* class ContextMemoryManager */
+
+/**
+ * An STL-like allocator class for allocating from context memory.
+ */
+template <class T>
+class ContextMemoryAllocator {
+  ContextMemoryManager* d_mm;
+
+public:
+
+  typedef size_t size_type;
+  typedef std::ptrdiff_t difference_type;
+  typedef T* pointer;
+  typedef T const* const_pointer;
+  typedef T& reference;
+  typedef T const& const_reference;
+  typedef T value_type;
+  template <class U> struct rebind {
+    typedef ContextMemoryAllocator<U> other;
+  };
+
+  ContextMemoryAllocator(ContextMemoryManager* mm) throw() : d_mm(mm) {}
+  ContextMemoryAllocator(const ContextMemoryAllocator& alloc) throw() : d_mm(alloc.d_mm) {}
+  ~ContextMemoryAllocator() throw() {}
+
+  ContextMemoryManager* getCMM() { return d_mm; }
+  T* address(T& v) const { return &v; }
+  T const* address(T const& v) const { return &v; }
+  size_t max_size() const throw() {
+    return ContextMemoryManager::getMaxAllocationSize() / sizeof(T);
+  }
+  T* allocate(size_t n, const void* = 0) const {
+    return static_cast<T*>(d_mm->newData(n * sizeof(T)));
+  }
+  void deallocate(T* p, size_t n) const {
+    /* no explicit delete */
+  }
+  void construct(T* p, T const& v) const {
+    ::new(reinterpret_cast<void*>(p)) T(v);
+  }
+  void destroy(T* p) const {
+    p->~T();
+  }
+};/* class ContextMemoryAllocator<T> */
+
+template <class T>
+inline bool operator==(const ContextMemoryAllocator<T>& a1,
+                       const ContextMemoryAllocator<T>& a2) {
+  return a1.d_mm == a2.d_mm;
+}
+
+template <class T>
+inline bool operator!=(const ContextMemoryAllocator<T>& a1,
+                       const ContextMemoryAllocator<T>& a2) {
+  return a1.d_mm != a2.d_mm;
+}
 
 }/* CVC4::context namespace */
 }/* CVC4 namespace */

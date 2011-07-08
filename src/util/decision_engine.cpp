@@ -1,5 +1,6 @@
 /*********************                                                        */
-/** decision_engine.cpp
+/*! \file decision_engine.cpp
+ ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
@@ -8,13 +9,15 @@
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
  **
+ ** \brief A decision engine for CVC4
+ **
+ ** A decision engine for CVC4.
  **/
 
 #include "util/decision_engine.h"
 #include "util/Assert.h"
-#include "expr/node.h"
 
 namespace CVC4 {
 
@@ -26,7 +29,7 @@ DecisionEngine::~DecisionEngine() {
  * virtual in the final design (?)
  */
 Node DecisionEngine::nextDecision() {
-  Unreachable();
+  Unimplemented();
 }
 
 }/* CVC4 namespace */

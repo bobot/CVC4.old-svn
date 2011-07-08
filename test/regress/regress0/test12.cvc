@@ -1,33 +1,34 @@
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: VALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: VALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: INVALID
-% EXPECT: VALID
-% EXPECT: VALID
-% EXPECT: VALID
+% COMMAND-LINE: --incremental
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: valid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: valid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: invalid
+% EXPECT: valid
+% EXPECT: valid
+% EXPECT: valid
 A: TYPE;
 P_1: BOOLEAN;
 P_2: BOOLEAN;
@@ -175,3 +176,4 @@ QUERY NOT P_10;
 POP;
 PUSH;
 QUERY FALSE;
+% EXIT: 20

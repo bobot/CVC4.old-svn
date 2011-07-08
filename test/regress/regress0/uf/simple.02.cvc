@@ -1,0 +1,8 @@
+% EXPECT: invalid
+A: TYPE;
+x, y: A;
+f: A -> A;
+g: (A, A) -> A;
+QUERY (f(f(x)) = g(x, y));
+
+% EXIT: 10

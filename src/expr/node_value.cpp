@@ -1,5 +1,6 @@
 /*********************                                                        */
-/** node_value.cpp
+/*! \file node_value.cpp
+ ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): dejan
@@ -8,7 +9,9 @@
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
+ **
+ ** \brief An expression node.
  **
  ** An expression node.
  **
@@ -17,81 +20,22 @@
  ** reference count on NodeValue instances and
  **/
 
-#include "node_value.h"
+#include "expr/node_value.h"
+#include "expr/node.h"
+#include "expr/kind.h"
+#include "expr/metakind.h"
+#include "util/language.h"
+#include "printer/printer.h"
 #include <sstream>
 
 using namespace std;
 
 namespace CVC4 {
+namespace expr {
 
 size_t NodeValue::next_id = 1;
 
-NodeValue::NodeValue() :
-  d_id(0), d_rc(MAX_RC), d_kind(NULL_EXPR), d_nchildren(0) {
-}
-
-NodeValue::NodeValue(int) :
-  d_id(0), d_rc(0), d_kind(unsigned(UNDEFINED_KIND)), d_nchildren(0) {
-}
-
-NodeValue::~NodeValue() {
-  for(ev_iterator i = ev_begin(); i != ev_end(); ++i) {
-    (*i)->dec();
-  }
-}
-
-uint64_t NodeValue::hash() const {
-  return computeHash(d_kind, ev_begin(), ev_end());
-}
-
-void NodeValue::inc() {
-  // FIXME multithreading
-  if(EXPECT_TRUE( d_rc < MAX_RC )) {
-    ++d_rc;
-  }
-}
-
-void NodeValue::dec() {
-  // FIXME multithreading
-  if(EXPECT_TRUE( d_rc < MAX_RC )) {
-    --d_rc;
-    if(EXPECT_FALSE( d_rc == 0 )) {
-      // FIXME gc
-    }
-  }
-}
-
-NodeValue::iterator NodeValue::begin() {
-  return node_iterator(d_children);
-}
-
-NodeValue::iterator NodeValue::end() {
-  return node_iterator(d_children + d_nchildren);
-}
-
-NodeValue::const_iterator NodeValue::begin() const {
-  return const_node_iterator(d_children);
-}
-
-NodeValue::const_iterator NodeValue::end() const {
-  return const_node_iterator(d_children + d_nchildren);
-}
-
-NodeValue::ev_iterator NodeValue::ev_begin() {
-  return d_children;
-}
-
-NodeValue::ev_iterator NodeValue::ev_end() {
-  return d_children + d_nchildren;
-}
-
-NodeValue::const_ev_iterator NodeValue::ev_begin() const {
-  return d_children;
-}
-
-NodeValue::const_ev_iterator NodeValue::ev_end() const {
-  return d_children + d_nchildren;
-}
+NodeValue NodeValue::s_null(0);
 
 string NodeValue::toString() const {
   stringstream ss;
@@ -99,19 +43,32 @@ string NodeValue::toString() const {
   return ss.str();
 }
 
-void NodeValue::toStream(std::ostream& out) const {
-  out << "(" << Kind(d_kind);
-  if(d_kind == VARIABLE) {
-    out << ":" << this;
-  } else {
-    for(const_ev_iterator i = ev_begin(); i != ev_end(); ++i) {
-      if(i != ev_end()) {
-        out << " ";
-      }
-      out << *i;
-    }
-  }
-  out << ")";
+void NodeValue::toStream(std::ostream& out, int toDepth, bool types,
+                         OutputLanguage language) const {
+  Printer::getPrinter(language)->toStream(out, TNode(this), toDepth, types);
 }
 
+void NodeValue::printAst(std::ostream& out, int ind) const {
+  indent(out, ind);
+  out << '(';
+  out << getKind();
+  if(getMetaKind() == kind::metakind::VARIABLE) {
+    out << ' ' << getId();
+  } else if(getMetaKind() == kind::metakind::CONSTANT) {
+    out << ' ';
+    kind::metakind::NodeValueConstPrinter::toStream(out, this);
+  } else {
+    if(nv_begin() != nv_end()) {
+      for(const_nv_iterator child = nv_begin(); child != nv_end(); ++child) {
+        out << std::endl;
+        (*child)->printAst(out, ind + 1);
+      }
+      out << std::endl;
+      indent(out, ind);
+    }
+  }
+  out << ')';
+}
+
+}/* CVC4::expr namespace */
 }/* CVC4 namespace */

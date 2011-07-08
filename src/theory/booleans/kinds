@@ -1,0 +1,34 @@
+# kinds                                                               -*- sh -*-
+#
+# For documentation on this file format, please refer to
+# src/theory/builtin/kinds.
+#
+
+theory THEORY_BOOL ::CVC4::theory::booleans::TheoryBool "theory/booleans/theory_bool.h"
+
+properties finite
+
+rewriter ::CVC4::theory::booleans::TheoryBoolRewriter "theory/booleans/theory_bool_rewriter.h"
+
+sort BOOLEAN_TYPE \
+    2 \
+    well-founded \
+        "NodeManager::currentNM()->mkConst(false)" \
+        "expr/node_manager.h" \
+    "Boolean type"
+
+constant CONST_BOOLEAN \
+    bool \
+    ::CVC4::BoolHashStrategy \
+    "util/bool.h" \
+    "truth and falsity"
+
+operator NOT 1 "logical not"
+operator AND 2: "logical and"
+operator IFF 2 "logical equivalence"
+operator IMPLIES 2 "logical implication"
+operator OR 2: "logical or"
+operator XOR 2 "exclusive or"
+operator ITE 3 "if-then-else"
+
+endtheory

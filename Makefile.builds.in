@@ -29,11 +29,13 @@ prefix = @prefix@
 bindir = @bindir@
 libdir = @libdir@
 abs_builddir = @abs_builddir@
+distdir = @PACKAGE@-@VERSION@
 
-# Are we building static/dynamic libraries?  One or the other can be
+# Are we building static/dynamic libraries/binaries?  One or the other can be
 # on, or both.
 BUILDING_STATIC = @BUILDING_STATIC@
 BUILDING_SHARED = @BUILDING_SHARED@
+STATIC_BINARY = @STATIC_BINARY@
 
 .PHONY: _default_build_ all
 _default_build_: all
@@ -51,15 +53,25 @@ all:
 	$(CURRENT_BUILD)/libtool --mode=install install -v \
 		$(CURRENT_BUILD)/src/parser/libcvc4parser.la \
 		"$(abs_builddir)$(libdir)"
-ifeq ($(BUILDING_SHARED),1)
-#	if we're building shared libs, relink
+ifeq ($(BUILDING_SHARED)$(STATIC_BINARY),10)
+#	if we're building shared libs and the binary is not static, relink
+#	the handling with empty $relink_command is a hack for Mac OS
 	thelibdir="$(abs_builddir)$(libdir)"; \
 	progdir="$(abs_builddir)$(bindir)"; file=cvc4; \
 		eval `grep '^relink_command=' $(CURRENT_BUILD)/src/main/cvc4 | sed 's:-Wl,-rpath:-Wl,-rpath -Wl,\\\\$$thelibdir -Wl,-rpath:'`; \
-		eval "(cd $(CURRENT_BUILD)/src/main && $$relink_command)"
-endif
-ifeq ($(BUILDING_STATIC),1)
-#	if we're building static libs, just install them directly
+		if test -z "$$relink_command"; then \
+			$(mkinstalldirs) "$(CURRENT_BUILD)$(bindir)/.libs"; \
+			$(install_sh) \
+				$(CURRENT_BUILD)/src/main/.libs/cvc4 \
+				"$(abs_builddir)$(bindir)/.libs"; \
+			$(install_sh) \
+				$(CURRENT_BUILD)/src/main/cvc4 \
+				"$(abs_builddir)$(bindir)"; \
+		else \
+			eval "(cd $(CURRENT_BUILD)/src/main && $$relink_command)"; \
+		fi
+else
+#	if we're building static libs only, just install the driver binary directly
 	$(install_sh) \
 		$(CURRENT_BUILD)/src/main/cvc4 \
 		"$(abs_builddir)$(bindir)"
@@ -73,19 +85,54 @@ endif
 	$(CURRENT_BUILD)/libtool --mode=install install -v $(CURRENT_BUILD)/src/libcvc4.la "`pwd`$(libdir)"
 #	install libcvc4parser
 	$(CURRENT_BUILD)/libtool --mode=install install -v $(CURRENT_BUILD)/src/parser/libcvc4parser.la "`pwd`$(libdir)"
-ifeq ($(BUILDING_SHARED),1)
-#	if we're building shared libs, relink
+ifeq ($(BUILDING_SHARED)$(STATIC_BINARY),10)
+#	if we're building shared libs and the binary is not static, relink
+#	the handling with empty $relink_command is a hack for Mac OS
 	thelibdir="`pwd`$(libdir)"; progdir="`pwd`$(bindir)"; file=cvc4; \
 		eval `grep '^relink_command=' $(CURRENT_BUILD)/src/main/cvc4 | sed 's:-Wl,-rpath:-Wl,-rpath -Wl,\\\\$$thelibdir -Wl,-rpath:'`; \
-		eval "(cd $(CURRENT_BUILD)/src/main && $$relink_command)"
-endif
-ifeq ($(BUILDING_STATIC),1)
-#	if we're building static libs, just install them directly
+		if test -z "$$relink_command"; then \
+			$(mkinstalldirs) ".$(bindir)/.libs"; \
+			$(install_sh) \
+				$(CURRENT_BUILD)/src/main/.libs/cvc4 \
+				"`pwd`$(bindir)/.libs"; \
+			$(install_sh) \
+				$(CURRENT_BUILD)/src/main/cvc4 \
+				"`pwd`$(bindir)"; \
+		else \
+			eval "(cd $(CURRENT_BUILD)/src/main && $$relink_command)"; \
+		fi
+else
+#	if we're building static libs only, just install the driver binary directly
 	$(install_sh) $(CURRENT_BUILD)/src/main/cvc4 "`pwd`$(bindir)"
 endif
 #	set up builds/bin and builds/lib
 	test -e lib || ln -sfv ".$(libdir)" lib
 	test -e bin || ln -sfv ".$(bindir)" bin
+
+check test units regress: all
+	(cd $(CURRENT_BUILD)/test && $(MAKE) $@)
+units%:
+	(cd $(CURRENT_BUILD)/test && $(MAKE) units TEST_PREFIX=$(subst units:,,$@))
+regress%: all
+	(cd $(CURRENT_BUILD)/test && $(MAKE) $@)
+
+dist:
+	(cd $(CURRENT_BUILD) && $(MAKE) $@)
+	$(install_sh) \
+		$(CURRENT_BUILD)/$(distdir).tar.gz \
+		"`pwd`"
+
+TAGS tags:
+	(cd $(CURRENT_BUILD) && $(MAKE) $@)
+	ln -sf $(CURRENT_BUILD)/TAGS .
+
+.PHONY: TAGS tags
+
+.PHONY: doc-builds doc-prereq
+doc-builds: doc-prereq
+	(cd $(CURRENT_BUILD) && $(MAKE) doxygen-doc)
+doc-prereq:
+	(cd $(CURRENT_BUILD) && for dir in `find . -name Makefile | xargs grep -l BUILT_SOURCES`; do (cd `dirname "$$dir"`; (cat Makefile; echo 'doc-prereq: $$(BUILT_SOURCES)') | make -f- doc-prereq); done)
 
 # any other target than the default doesn't do the extra stuff above
 %:

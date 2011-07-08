@@ -1,14 +1,17 @@
 /*********************                                                        */
-/** main.h
+/*! \file main.h
+ ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): dejan, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
- ** information.
+ ** information.\endverbatim
+ **
+ ** \brief Header for main CVC4 driver
  **
  ** Header for main CVC4 driver.
  **/
@@ -16,31 +19,25 @@
 #include <exception>
 #include <string>
 
-#include "config.h"
+#include "util/options.h"
 #include "util/exception.h"
+#include "util/stats.h"
+#include "cvc4autoconfig.h"
 
 #ifndef __CVC4__MAIN__MAIN_H
 #define __CVC4__MAIN__MAIN_H
 
 namespace CVC4 {
-
-struct Options;
-
 namespace main {
 
-/** Class representing an option-parsing exception. */
-class OptionException : public CVC4::Exception {
-public:
-  OptionException(const std::string& s) throw() :
-    CVC4::Exception("Error in option parsing: " + s) {
-  }
-};/* class OptionException */
-
 /** Full argv[0] */
-extern const char *progPath;
+extern const char* progPath;
 
 /** Just the basename component of argv[0] */
-extern const char *progName;
+extern const char* progName;
+
+/** A reference to the StatisticsRegistry for use by the signal handlers */
+extern CVC4::StatisticsRegistry* pStatistics;
 
 /**
  * If true, will not spin on segfault even when CVC4_DEBUG is on.
@@ -49,11 +46,11 @@ extern const char *progName;
  */
 extern bool segvNoSpin;
 
-/** Parse argc/argv and put the result into a CVC4::Options struct. */
-int parseOptions(int argc, char** argv, CVC4::Options*) throw(OptionException);
+/** The options currently in play */
+extern Options options;
 
 /** Initialize the driver.  Sets signal handlers for SIGINT and SIGSEGV. */
-void cvc4_init() throw();
+void cvc4_init() throw(Exception);
 
 }/* CVC4::main namespace */
 }/* CVC4 namespace */

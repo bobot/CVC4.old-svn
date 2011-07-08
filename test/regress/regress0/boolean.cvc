@@ -1,4 +1,4 @@
-% EXPECT: VALID
+% EXPECT: valid
 p : BOOLEAN;
 q : BOOLEAN;
 r : BOOLEAN;
@@ -804,3 +804,4 @@ a288 : BOOLEAN =
         ELSE FALSE
         ENDIF;
 QUERY a288;
+% EXIT: 20
