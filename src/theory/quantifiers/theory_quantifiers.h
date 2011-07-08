@@ -32,6 +32,8 @@ namespace CVC4 {
 namespace theory {
 namespace quantifiers {
 
+class TheoryEngine;
+
 class TheoryQuantifiers : public Theory {
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
@@ -62,14 +64,12 @@ public:
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
-
+  /** get the corresponding counterexample literal for quantified formula node n */
   Node getCounterexampleLiteralFor( Node n );
-
 private:
   void assertUniversal( Node n );
   void assertExistential( Node n );
   void assertCounterexample( Node n );
-
 };/* class TheoryQuantifiers */
 
 }/* CVC4::theory::quantifiers namespace */

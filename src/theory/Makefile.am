@@ -24,8 +24,11 @@ libtheory_la_SOURCES = \
 	rewriter_attributes.h \
 	rewriter.cpp \
 	substitutions.h \
+	substitutions.cpp \
 	valuation.h \
-	valuation.cpp
+	valuation.cpp \
+	instantiation_engine.h \
+	instantiation_engine.cpp
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \
