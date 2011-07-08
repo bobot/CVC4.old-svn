@@ -75,121 +75,122 @@ void TheoryQuantifiers::check(Effort e) {
   while(!done()) {
     Node assertion = get();
     Debug("quantifiers") << "quantifiers::check(): " << assertion << std::endl;
-    //switch(assertion.getKind()) {
-    //case kind::FORALL:
-    //  assertUniversal( assertion );
-    //  break;
-    //case kind::EXISTS:
-    //  assertExistential( assertion );
-    //  break;
-    //case kind::NO_COUNTEREXAMPLE:
-    //  assertCounterexample( assertion );
-    //  break;
-    //case kind::NOT:
-    //  {
-    //    switch( assertion[0].getKind()) {
-    //    case kind::FORALL:
-    //      assertExistential( assertion );
-    //      break;
-    //    case kind::EXISTS:
-    //      assertUniversal( assertion );
-    //      break;
-    //    case kind::NO_COUNTEREXAMPLE:
-    //      assertCounterexample( assertion );
-    //      break;
-    //    default:
-    //      Unhandled(assertion[0].getKind());
-    //      break;
-    //    }
-    //  }
-    //  break;
-    //default:
-    //  Unhandled(assertion.getKind());
-    //  break;
-    //}
+    switch(assertion.getKind()) {
+    case kind::FORALL:
+      assertUniversal( assertion );
+      break;
+    case kind::EXISTS:
+      assertExistential( assertion );
+      break;
+    case kind::NO_COUNTEREXAMPLE:
+      assertCounterexample( assertion );
+      break;
+    case kind::NOT:
+      {
+        switch( assertion[0].getKind()) {
+        case kind::FORALL:
+          assertExistential( assertion );
+          break;
+        case kind::EXISTS:
+          assertUniversal( assertion );
+          break;
+        case kind::NO_COUNTEREXAMPLE:
+          assertCounterexample( assertion );
+          break;
+        default:
+          Unhandled(assertion[0].getKind());
+          break;
+        }
+      }
+      break;
+    default:
+      Unhandled(assertion.getKind());
+      break;
+    }
   }
   if( e == FULL_EFFORT ) {
-    ////for each n in d_forall_asserts, 
-    //// such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
-    //for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
-    //  if( (*i).second ) {
-    //    Node n = (*i).first;
-    //    Node cen = getCounterexampleLiteralFor( n );
-    //    if( d_counterexample_asserts.find( n )==d_counterexample_asserts.end() ||
-    //        !d_counterexample_asserts[n] ){
-    //      //find instantiations
-    //      
-    //    }
-    //  }
-    //}
+    //for each n in d_forall_asserts, 
+    // such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
+    for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
+      if( (*i).second ) {
+        Node n = (*i).first;
+        if( d_counterexample_asserts.find( n )==d_counterexample_asserts.end() ||
+            !d_counterexample_asserts[n] ){   //TODO: make sure that NO_COUNTEREXAMPLE is not a decision
+          //find instantiations
+          Debug("quantifiers") << "Instantiate " << n << std::endl;
+          
+
+        }
+      }
+    }
   }
 }
 
 Node TheoryQuantifiers::getCounterexampleLiteralFor( Node n ){
-  //Assert( n.getKind()==FORALL || ( n.getKind()==NOT && n[0].getKind()==EXISTS ) );
-  //if( d_counterexamples.find( n )==d_counterexamples.end() ){
-  //  d_counterexamples[n] = NodeManager::currentNM()->mkNode( NO_COUNTEREXAMPLE, n );
-  //}
+  Assert( n.getKind()==FORALL || ( n.getKind()==NOT && n[0].getKind()==EXISTS ) );
+  if( d_counterexamples.find( n )==d_counterexamples.end() ){
+    d_counterexamples[n] = NodeManager::currentNM()->mkNode( NO_COUNTEREXAMPLE, n );
+  }
   return d_counterexamples[n];
 }
 
 void TheoryQuantifiers::assertUniversal( Node n ){
-  //if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
-  //  //counterexample instantiate, add lemma
-  //  std::vector< Node > vars;
-  //  std::vector< Node > inst_constants;
-  //  Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-  //  for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
-  //    vars.push_back( quant[i] );
-  //    inst_constants.push_back( NodeManager::currentNM()->mkInstConstant( quant[i].getType() ) );
-  //  }
-  //  Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
-  //                                                              inst_constants.begin(), inst_constants.end() ); 
-  //  d_inst_constants[ n ].insert( d_inst_constants[ n ].begin(), 
-  //                                inst_constants.begin(), 
-  //                                inst_constants.end() );
-  //  NodeBuilder<> nb(kind::OR);
-  //  nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
-  //  nb << getCounterexampleLiteralFor( n );
-  //  nb << ( n.getKind()==kind::NOT ? body : NodeManager::currentNM()->mkNode( NOT, body ) );
-  //  Node lem = nb;
-  //  //Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
-  //  //d_out->lemma( lem );
+  if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
+    //counterexample instantiate, add lemma
+    std::vector< Node > vars;
+    std::vector< Node > inst_constants;
+    Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
+    for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
+      vars.push_back( quant[i] );
+      inst_constants.push_back( NodeManager::currentNM()->mkInstConstant( quant[i].getType() ) );
+    }
+    Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
+                                                                inst_constants.begin(), inst_constants.end() ); 
+    d_inst_constants[ n ].insert( d_inst_constants[ n ].begin(), 
+                                  inst_constants.begin(), 
+                                  inst_constants.end() );
+    NodeBuilder<> nb(kind::OR);
+    nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
+    nb << getCounterexampleLiteralFor( n );
+    nb << ( n.getKind()==kind::NOT ? body : NodeManager::currentNM()->mkNode( NOT, body ) );
+    Node lem = nb;
+    Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
+    d_out->lemma( lem );
 
-  //  d_abstract_inst[n] = true;
-  //}
+    d_abstract_inst[n] = true;
+  }
   d_forall_asserts[n] = true;
 }
 
 void TheoryQuantifiers::assertExistential( Node n ){
-  //if( d_skolemized.find( n )==d_skolemized.end() ){
-  //  //skolemize, add lemma
-  //  std::vector< Node > vars;
-  //  std::vector< Node > skolems;
-  //  Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-  //  for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
-  //    vars.push_back( quant[i] );
-  //    skolems.push_back( NodeManager::currentNM()->mkInstConstant( quant[i].getType() ) );
-  //  }
-  //  Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
-  //                                                              skolems.begin(), skolems.end() );
-  //  NodeBuilder<> nb(kind::OR);
-  //  nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
-  //  nb << ( n.getKind()==kind::NOT ? NodeManager::currentNM()->mkNode( NOT, body ) : body );
-  //  Node lem = nb;
-  //  //Debug("quantifiers") << "Skolemize lemma : " << lem << std::endl;
-  //  //d_out->lemma( lem );
+  if( d_skolemized.find( n )==d_skolemized.end() ){
+    //skolemize, add lemma
+    std::vector< Node > vars;
+    std::vector< Node > skolems;
+    Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
+    for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
+      vars.push_back( quant[i] );
+      skolems.push_back( NodeManager::currentNM()->mkInstConstant( quant[i].getType() ) );
+    }
+    Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
+                                                                skolems.begin(), skolems.end() );
+    NodeBuilder<> nb(kind::OR);
+    nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
+    nb << ( n.getKind()==kind::NOT ? NodeManager::currentNM()->mkNode( NOT, body ) : body );
+    Node lem = nb;
+    Debug("quantifiers") << "Skolemize lemma : " << lem << std::endl;
+    d_out->lemma( lem );
 
-  //  d_skolemized[n] = true;
-  //}
+    d_skolemized[n] = true;
+  }
   d_exists_asserts[n] = true;
 }
 
 void TheoryQuantifiers::assertCounterexample( Node n ){
   if( n.getKind()==NO_COUNTEREXAMPLE ){
-    d_counterexample_asserts[ n ] = true;
+    d_counterexample_asserts[ n[0] ] = true;
   }else{
     Assert( n.getKind()==NOT );
-    d_counterexample_asserts[ n[0] ] = false;
+    d_counterexample_asserts[ n[0][0] ] = false;
   }
 }
