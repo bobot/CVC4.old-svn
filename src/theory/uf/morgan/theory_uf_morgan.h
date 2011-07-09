@@ -31,7 +31,7 @@
 #include "theory/theory.h"
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/morgan/union_find.h"
-#include "theory/uf/morgan/symmetry_breaker.h"
+#include "theory/uf/symmetry_breaker.h"
 
 #include "context/context.h"
 #include "context/context_mm.h"

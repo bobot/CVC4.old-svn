@@ -43,8 +43,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__THEORY__UF__MORGAN__SYMMETRY_BREAKER_H
-#define __CVC4__THEORY__UF__MORGAN__SYMMETRY_BREAKER_H
+#ifndef __CVC4__THEORY__UF__SYMMETRY_BREAKER_H
+#define __CVC4__THEORY__UF__SYMMETRY_BREAKER_H
 
 #include <iostream>
 #include <list>
@@ -57,7 +57,6 @@
 namespace CVC4 {
 namespace theory {
 namespace uf {
-namespace morgan {
 
 class SymmetryBreaker {
 
@@ -117,31 +116,31 @@ private:
   /** number of new clauses that come from the SymmetryBreaker */
   KEEP_STATISTIC(IntStat,
                  d_clauses,
-                 "theory::uf::morgan::symmetry_breaker::clauses", 0);
+                 "theory::uf::symmetry_breaker::clauses", 0);
   /** number of new clauses that come from the SymmetryBreaker */
   KEEP_STATISTIC(IntStat,
                  d_units,
-                 "theory::uf::morgan::symmetry_breaker::units", 0);
+                 "theory::uf::symmetry_breaker::units", 0);
   /** number of potential permutation sets we found */
   KEEP_STATISTIC(IntStat,
                  d_permutationSetsConsidered,
-                 "theory::uf::morgan::symmetry_breaker::permutationSetsConsidered", 0);
+                 "theory::uf::symmetry_breaker::permutationSetsConsidered", 0);
   /** number of invariant permutation sets we found */
   KEEP_STATISTIC(IntStat,
                  d_permutationSetsInvariant,
-                 "theory::uf::morgan::symmetry_breaker::permutationSetsInvariant", 0);
+                 "theory::uf::symmetry_breaker::permutationSetsInvariant", 0);
   /** time spent in invariantByPermutations() */
   KEEP_STATISTIC(TimerStat,
                  d_invariantByPermutationsTimer,
-                 "theory::uf::morgan::symmetry_breaker::timers::invariantByPermutations");
+                 "theory::uf::symmetry_breaker::timers::invariantByPermutations");
   /** time spent in selectTerms() */
   KEEP_STATISTIC(TimerStat,
                  d_selectTermsTimer,
-                 "theory::uf::morgan::symmetry_breaker::timers::selectTerms");
+                 "theory::uf::symmetry_breaker::timers::selectTerms");
   /** time spent in initial round of normalization */
   KEEP_STATISTIC(TimerStat,
                  d_initNormalizationTimer,
-                 "theory::uf::morgan::symmetry_breaker::timers::initNormalization");
+                 "theory::uf::symmetry_breaker::timers::initNormalization");
 
 public:
 
@@ -151,12 +150,11 @@ public:
 
 };/* class SymmetryBreaker */
 
-}/* CVC4::theory::uf::morgan namespace */
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */
 
-std::ostream& operator<<(std::ostream& out, const ::CVC4::theory::uf::morgan::SymmetryBreaker::Permutation& p);
+std::ostream& operator<<(std::ostream& out, const ::CVC4::theory::uf::SymmetryBreaker::Permutation& p);
 
 }/* CVC4 namespace */
 
-#endif /* __CVC4__THEORY__UF__MORGAN__SYMMETRY_BREAKER_H */
+#endif /* __CVC4__THEORY__UF__SYMMETRY_BREAKER_H */

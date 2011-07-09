@@ -41,7 +41,7 @@
  ** </pre>
  **/
 
-#include "theory/uf/morgan/symmetry_breaker.h"
+#include "theory/uf/symmetry_breaker.h"
 #include "theory/rewriter.h"
 #include "util/hash.h"
 
@@ -53,7 +53,6 @@ using namespace std;
 namespace CVC4 {
 namespace theory {
 namespace uf {
-namespace morgan {
 
 SymmetryBreaker::Template::Template() :
   d_template(),
@@ -537,11 +536,10 @@ void SymmetryBreaker::insertUsedIn(Term term, const Permutation& p, set<Node>& c
   }
 }
 
-}/* CVC4::theory::uf::morgan namespace */
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */
 
-std::ostream& operator<<(std::ostream& out, const theory::uf::morgan::SymmetryBreaker::Permutation& p) {
+std::ostream& operator<<(std::ostream& out, const theory::uf::SymmetryBreaker::Permutation& p) {
   out << "{";
   set<TNode>::const_iterator i = p.begin();
   while(i != p.end()) {

@@ -11,8 +11,11 @@ nodist_EXTRA_libuf_la_SOURCES = \
 
 libuf_la_SOURCES = \
 	theory_uf.h \
+	theory_uf.cpp \
 	theory_uf_type_rules.h \
-	theory_uf_rewriter.h
+	theory_uf_rewriter.h \
+	symmetry_breaker.h \
+	symmetry_breaker.cpp
 
 libuf_la_LIBADD = \
 	@builddir@/tim/libuftim.la \
