@@ -125,8 +125,6 @@ public:
     return "THEORY_UF";
   }
 
-  void staticLearning(TNode in, NodeBuilder<>& learned);
-
 };/* class TheoryUF */
 
 }/* CVC4::theory::uf namespace */
