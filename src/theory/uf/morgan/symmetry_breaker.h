@@ -87,24 +87,31 @@ class SymmetryBreaker {
 public:
 
   typedef std::set<TNode> Permutation;
-  typedef std::map<Permutation, Node> Permutations;
+  typedef std::set<Permutation> Permutations;
   typedef TNode Term;
   typedef std::list<Term> Terms;
+  typedef std::set<Term> TermEq;
+  typedef std::hash_map<Term, TermEq, TNodeHashFunction> TermEqs;
 
 private:
 
   std::vector<Node> d_phi;
+  std::set<TNode> d_phiSet;
   Permutations d_permutations;
   Terms d_terms;
   Template d_template;
+  std::hash_map<Node, Node, NodeHashFunction> d_normalizationCache;
+  TermEqs d_termEqs;
 
   void clear();
 
   void guessPermutations();
   bool invariantByPermutations(const Permutation& p);
-  void selectTerms(const Permutation& p, TNode reason);
+  void selectTerms(const Permutation& p);
   Terms::iterator selectMostPromisingTerm(Terms& terms);
   void insertUsedIn(Term term, const Permutation& p, std::set<Node>& cts);
+  Node normInternal(TNode phi);
+  Node norm(TNode n);
 
   // === STATISTICS ===
   /** number of new clauses that come from the SymmetryBreaker */
@@ -115,10 +122,30 @@ private:
   KEEP_STATISTIC(IntStat,
                  d_units,
                  "theory::uf::morgan::symmetry_breaker::units", 0);
+  /** number of potential permutation sets we found */
+  KEEP_STATISTIC(IntStat,
+                 d_permutationSetsConsidered,
+                 "theory::uf::morgan::symmetry_breaker::permutationSetsConsidered", 0);
+  /** number of invariant permutation sets we found */
+  KEEP_STATISTIC(IntStat,
+                 d_permutationSetsInvariant,
+                 "theory::uf::morgan::symmetry_breaker::permutationSetsInvariant", 0);
+  /** time spent in invariantByPermutations() */
+  KEEP_STATISTIC(TimerStat,
+                 d_invariantByPermutationsTimer,
+                 "theory::uf::morgan::symmetry_breaker::timers::invariantByPermutations");
+  /** time spent in selectTerms() */
+  KEEP_STATISTIC(TimerStat,
+                 d_selectTermsTimer,
+                 "theory::uf::morgan::symmetry_breaker::timers::selectTerms");
+  /** time spent in initial round of normalization */
+  KEEP_STATISTIC(TimerStat,
+                 d_initNormalizationTimer,
+                 "theory::uf::morgan::symmetry_breaker::timers::initNormalization");
 
 public:
 
-  SymmetryBreaker() : d_phi(), d_permutations(), d_terms() {}
+  SymmetryBreaker();
   void assertFormula(TNode phi);
   void apply(std::vector<Node>& newClauses);
 

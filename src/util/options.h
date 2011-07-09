@@ -89,6 +89,9 @@ struct CVC4_PUBLIC Options {
   /** Should we exit after parsing? */
   bool parseOnly;
 
+  /** Should we exit after preprocessing? */
+  bool preprocessOnly;
+
   /** Should the parser do semantic checks? */
   bool semanticChecks;
 

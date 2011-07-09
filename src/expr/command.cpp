@@ -286,7 +286,7 @@ SimplifyCommand::SimplifyCommand(Expr term) :
 }
 
 void SimplifyCommand::invoke(SmtEngine* smtEngine) {
-#warning TODO: what is this
+  d_result = smtEngine->simplify(d_term);
 }
 
 Expr SimplifyCommand::getResult() const {

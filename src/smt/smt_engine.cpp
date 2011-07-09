@@ -680,6 +680,17 @@ void SmtEnginePrivate::processAssertions() {
   // Simplify the assertions
   simplifyAssertions();
 
+  if(Options::current()->preprocessOnly) {
+    if(Message.isOn()) {
+      // Push the formula to the Message() stream
+      for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
+        Message() << d_assertionsToCheck[i] << endl;
+      }
+    }
+    // We still call into SAT so that we can output top-level BCP and
+    // also theory contributions that come from presolve().
+  }
+
   // Push the formula to SAT
   for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
     d_smt.d_propEngine->assertFormula(d_assertionsToCheck[i]);

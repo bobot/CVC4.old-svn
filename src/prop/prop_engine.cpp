@@ -124,6 +124,10 @@ Result PropEngine::checkSat() {
   // TODO This currently ignores conflicts (a dangerous practice).
   d_theoryEngine->presolve();
 
+  if(Options::current()->preprocessOnly) {
+    return Result(Result::SAT_UNKNOWN, Result::REQUIRES_FULL_CHECK);
+  }
+
   // Check the problem
   bool result = d_satSolver->solve();
 
