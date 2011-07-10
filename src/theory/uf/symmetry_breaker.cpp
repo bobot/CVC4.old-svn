@@ -204,7 +204,7 @@ Node SymmetryBreaker::normInternal(TNode n) {
     kids.reserve(n.getNumChildren());
     queue<TNode> work;
     work.push(n);
-    Debug("ufsymm") << "UFSYMM processing " << n << endl;
+    Debug("ufsymm:norm") << "UFSYMM processing " << n << endl;
     do {
       TNode m = work.front();
       work.pop();
@@ -218,13 +218,11 @@ Node SymmetryBreaker::normInternal(TNode n) {
           } else if((*i).getKind() == kind::IFF ||
                     (*i).getKind() == kind::EQUAL) {
             kids.push_back(normInternal(*i));
-            if((*i)[0].getMetaKind() == kind::metakind::VARIABLE) {
+            if((*i)[0].getMetaKind() == kind::metakind::VARIABLE ||
+               (*i)[1].getMetaKind() == kind::metakind::VARIABLE) {
               d_termEqs[(*i)[0]].insert((*i)[1]);
-              Debug("ufsymm:eq") << "UFSYMM " << (*i)[0] << " ==> " << (*i)[1] << endl;
-            }
-            if((*i)[1].getMetaKind() == kind::metakind::VARIABLE) {
               d_termEqs[(*i)[1]].insert((*i)[0]);
-              Debug("ufsymm:eq") << "UFSYMM " << (*i)[1] << " ==> " << (*i)[0] << endl;
+              Debug("ufsymm:eq") << "UFSYMM " << (*i)[0] << " <==> " << (*i)[1] << endl;
             }
           } else {
             kids.push_back(*i);
@@ -232,20 +230,18 @@ Node SymmetryBreaker::normInternal(TNode n) {
         }
       }
     } while(!work.empty());
-    Debug("ufsymm") << "UFSYMM got " << kids.size() << " kids for the " << k << "-kinded Node" << endl;
+    Debug("ufsymm:norm") << "UFSYMM got " << kids.size() << " kids for the " << k << "-kinded Node" << endl;
     sort(kids.begin(), kids.end());
     return result = NodeManager::currentNM()->mkNode(k, kids);
   }
 
   case kind::IFF:
   case kind::EQUAL:
-    if(n[0].getMetaKind() == kind::metakind::VARIABLE) {
+    if(n[0].getMetaKind() == kind::metakind::VARIABLE ||
+       n[1].getMetaKind() == kind::metakind::VARIABLE) {
       d_termEqs[n[0]].insert(n[1]);
-      Debug("ufsymm:eq") << "UFSYMM " << n[0] << " ==> " << n[1] << endl;
-    }
-    if(n[1].getMetaKind() == kind::metakind::VARIABLE) {
       d_termEqs[n[1]].insert(n[0]);
-      Debug("ufsymm:eq") << "UFSYMM " << n[1] << " ==> " << n[0] << endl;
+      Debug("ufsymm:eq") << "UFSYMM " << n[0] << " <==> " << n[1] << endl;
     }
     /* intentional fall-through! */
   case kind::XOR:
@@ -339,8 +335,8 @@ void SymmetryBreaker::apply(std::vector<Node>& newClauses) {
         Node n = *i;
         *i = norm(n);
         d_phiSet.insert(*i);
-        Debug("ufsymm") << "UFSYMM init-norm-rewrite " << n << endl
-                        << "UFSYMM                to " << *i << endl;
+        Debug("ufsymm:norm") << "UFSYMM init-norm-rewrite " << n << endl
+                             << "UFSYMM                to " << *i << endl;
       }
     }
 
@@ -443,7 +439,7 @@ bool SymmetryBreaker::invariantByPermutations(const Permutation& p) {
   TimerStat::CodeTimer codeTimer(d_invariantByPermutationsTimer);
 
   // use d_phi
-  Debug("ufsymm") << "UFSYMM invariantByPermutations(): " << p << endl;
+  Debug("ufsymm") << "UFSYMM invariantByPermutations()? " << p << endl;
 
   Assert(p.size() > 1);
 
@@ -458,13 +454,22 @@ bool SymmetryBreaker::invariantByPermutations(const Permutation& p) {
   repls.push_back(p1);
   repls.push_back(p0);
   for(vector<Node>::iterator i = d_phi.begin(); i != d_phi.end(); ++i) {
-    Node n = norm((*i).substitute(subs.begin(), subs.end(), repls.begin(), repls.end()));
+    Node s = (*i).substitute(subs.begin(), subs.end(), repls.begin(), repls.end());
+    Node n = norm(s);
     if(*i != n && d_phiSet.find(n) == d_phiSet.end()) {
       Debug("ufsymm") << "UFSYMM P_swap is NOT an inv perm op for " << p << endl
                       << "UFSYMM because this node: " << *i << endl
                       << "UFSYMM rewrite-norms to : " << n << endl
                       << "UFSYMM which is not in our set of normalized assertions" << endl;
       return false;
+    } else if(Debug.isOn("ufsymm:p")) {
+      if(*i == s) {
+        Debug("ufsymm:p") << "UFSYMM P_swap passes trivially: " << *i << endl;
+      } else {
+        Debug("ufsymm:p") << "UFSYMM P_swap passes: " << *i << endl
+                          << "UFSYMM      rewrites: " << s << endl
+                          << "UFSYMM         norms: " << n << endl;
+      }
     }
   }
   Debug("ufsymm") << "UFSYMM P_swap is an inv perm op for " << p << endl;
@@ -485,13 +490,22 @@ bool SymmetryBreaker::invariantByPermutations(const Permutation& p) {
     repls.push_back(*p.begin());
     Assert(subs.size() == repls.size());
     for(vector<Node>::iterator i = d_phi.begin(); i != d_phi.end(); ++i) {
-      Node n = norm((*i).substitute(subs.begin(), subs.end(), repls.begin(), repls.end()));
+      Node s = (*i).substitute(subs.begin(), subs.end(), repls.begin(), repls.end());
+      Node n = norm(s);
       if(*i != n && d_phiSet.find(n) == d_phiSet.end()) {
         Debug("ufsymm") << "UFSYMM P_circ is NOT an inv perm op for " << p << endl
                         << "UFSYMM because this node: " << *i << endl
                         << "UFSYMM rewrite-norms to : " << n << endl
                         << "UFSYMM which is not in our set of normalized assertions" << endl;
         return false;
+      } else if(Debug.isOn("ufsymm:p")) {
+        if(*i == s) {
+          Debug("ufsymm:p") << "UFSYMM P_circ passes trivially: " << *i << endl;
+        } else {
+          Debug("ufsymm:p") << "UFSYMM P_circ passes: " << *i << endl
+                            << "UFSYMM      rewrites: " << s << endl
+                            << "UFSYMM         norms: " << n << endl;
+        }
       }
     }
     Debug("ufsymm") << "UFSYMM P_circ is an inv perm op for " << p << endl;
@@ -499,6 +513,27 @@ bool SymmetryBreaker::invariantByPermutations(const Permutation& p) {
     Debug("ufsymm") << "UFSYMM no need to check P_circ, since P_circ == P_swap for perm sets of size 2" << endl;
   }
 
+  return true;
+}
+
+// debug-assertion-only function
+template <class T1, class T2>
+static bool isSubset(const T1& s, const T2& t) {
+  if(s.size() > t.size()) {
+    Debug("ufsymm") << "DEBUG ASSERTION FAIL: s not a subset of t "
+                    << "because size(s) > size(t)" << endl;
+    return false;
+  }
+  for(typename T1::const_iterator si = s.begin(); si != s.end(); ++si) {
+    if(t.find(*si) == t.end()) {
+      Debug("ufsymm") << "DEBUG ASSERTION FAIL: s not a subset of t "
+                      << "because s element \"" << *si << "\" not in t" << endl;
+      return false;
+    }
+  }
+
+  // At this point, didn't find any elements from s not in t, so
+  // conclude that s \subseteq t
   return true;
 }
 
@@ -513,7 +548,30 @@ void SymmetryBreaker::selectTerms(const Permutation& p) {
     const TermEq& teq = d_termEqs[*i];
     terms.insert(teq.begin(), teq.end());
   }
-  d_terms.insert(d_terms.end(), terms.begin(), terms.end());
+  for(set<Node>::iterator i = terms.begin(); i != terms.end(); ++i) {
+    const TermEq& teq = d_termEqs[*i];
+    if(p.size() >= teq.size()) {
+      Assert(isSubset(teq, p));
+      d_terms.insert(d_terms.end(), *i);
+    } else {
+      if(Debug.isOn("ufsymm")) {
+        Debug("ufsymm") << "UFSYMM selectTerms() threw away candidate: " << *i << endl;
+        Debug("ufsymm:eq") << "UFSYMM selectTerms() #teq == " << teq.size() << " #p == " << p.size() << endl;
+        TermEq::iterator j;
+        for(j = teq.begin(); j != teq.end(); ++j) {
+          Debug("ufsymm:eq") << "UFSYMM              -- teq " << *j << " in " << p << " ?" << endl;
+          if(p.find(*j) == p.end()) {
+            Debug("ufsymm") << "UFSYMM              -- because its teq " << *j
+                            << " isn't in " << p << endl;
+            break;
+          } else {
+            Debug("ufsymm:eq") << "UFSYMM              -- yep" << endl;
+          }
+        }
+        Assert(j != teq.end(), "failed to find a difference between p and teq ?!");
+      }
+    }
+  }
   if(Debug.isOn("ufsymm")) {
     for(list<Term>::iterator i = d_terms.begin(); i != d_terms.end(); ++i) {
       Debug("ufsymm") << "UFSYMM selectTerms() returning: " << *i << endl;

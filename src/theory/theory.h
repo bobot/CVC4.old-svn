@@ -428,6 +428,7 @@ public:
       }
       if (in[1].getMetaKind() == kind::metakind::VARIABLE && !in[0].hasSubterm(in[1])) {
         outSubstitutions.addSubstitution(in[1], in[0]);
+        return SOLVE_STATUS_SOLVED;
       }
       if (in[0].getMetaKind() == kind::metakind::CONSTANT && in[1].getMetaKind() == kind::metakind::CONSTANT) {
         if (in[0] != in[1]) {
