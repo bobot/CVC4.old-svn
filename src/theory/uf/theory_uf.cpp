@@ -62,9 +62,20 @@ void TheoryUF::check(Effort level) {
       break;
     case kind::APPLY_UF:
       d_equalityEngine.addEquality(assertion, d_true, assertion);
+      break;
     case kind::NOT:
       if (assertion[0].getKind() == kind::APPLY_UF) {
         d_equalityEngine.addEquality(assertion[0], d_false, assertion);
+      } else {
+        // disequality
+        TNode equality = assertion[0];
+        if (d_equalityEngine.getRepresentative(equality[0]) == d_equalityEngine.getRepresentative(equality[1])) {
+          std::vector<TNode> assumptions;
+          assumptions.push_back(assertion);
+          explain(equality, assumptions);
+          d_conflictNode = mkAnd(assumptions);
+          d_conflict = true;
+        }
       }
       break;
     default:
@@ -97,15 +108,20 @@ void TheoryUF::propagate(Effort level) {
       if (!d_valuation.hasSatValue(literal, satValue)) {
         d_out->propagate(literal);
       } else {
-        std::vector<TNode> assumptions;
-        if (literal != d_false) {
-          TNode negatedLiteral = literal.getKind() == kind::NOT ? literal[0] : (TNode) literal.notNode();
-          assumptions.push_back(negatedLiteral);
+        if (!satValue) {
+          Debug("uf") << "TheoryUF::propagate(): in conflict" << std::endl;
+          std::vector<TNode> assumptions;
+          if (literal != d_false) {
+            TNode negatedLiteral = literal.getKind() == kind::NOT ? literal[0] : (TNode) literal.notNode();
+            assumptions.push_back(negatedLiteral);
+          }
+          explain(literal, assumptions);
+          d_conflictNode = mkAnd(assumptions);
+          d_conflict = true;
+          break;
+        } else {
+          Debug("uf") << "TheoryUF::propagate(): already asserted" << std::endl;
         }
-        explain(literal, assumptions);
-        d_conflictNode = mkAnd(assumptions);
-        d_conflict = true;
-        break;
       }
     }
   }
@@ -139,17 +155,14 @@ void TheoryUF::preRegisterTerm(TNode node) {
   }
 }
 
-bool TheoryUF::propagate(TNode atom, bool isTrue) {
-  Debug("uf") << "TheoryUF::propagate(" << atom << ", " << (isTrue ? "true" : "false" ) << ")" << std::endl;
+bool TheoryUF::propagate(TNode literal) {
+  Debug("uf") << "TheoryUF::propagate(" << literal  << ")" << std::endl;
 
   // If already in conflict, no more propagation
   if (d_conflict) {
-    Debug("uf") << "TheoryUF::propagate(" << atom << ", " << (isTrue ? "true" : "false" ) << "): already in conflict" << std::endl;
+    Debug("uf") << "TheoryUF::propagate(" << literal << "): already in conflict" << std::endl;
     return false;
   }
-
-  // The literal
-  TNode literal = isTrue ? (Node) atom : atom.notNode();
 
   // See if the literal has been asserted already
   bool satValue = false;
@@ -158,13 +171,13 @@ bool TheoryUF::propagate(TNode atom, bool isTrue) {
   // If asserted, we're done or in conflict
   if (isAsserted) {
     if (satValue) {
-      Debug("uf") << "TheoryUF::propagate(" << atom << ", " << (isTrue ? "true" : "false" ) << ") => already known" << std::endl;
+      Debug("uf") << "TheoryUF::propagate(" << literal << ") => already known" << std::endl;
       return true;
     } else {
-      Debug("uf") << "TheoryUF::propagate(" << atom << ", " << (isTrue ? "true" : "false" ) << ") => conflict" << std::endl;
+      Debug("uf") << "TheoryUF::propagate(" << literal << ") => conflict" << std::endl;
       std::vector<TNode> assumptions;
       if (literal != d_false) {
-        TNode negatedLiteral = isTrue ? atom.notNode() : (Node) atom;
+        TNode negatedLiteral = literal.getKind() == kind::NOT ? literal[0] : (TNode) literal.notNode();
         assumptions.push_back(negatedLiteral);
       }
       explain(literal, assumptions);
@@ -175,7 +188,7 @@ bool TheoryUF::propagate(TNode atom, bool isTrue) {
   }
 
   // Nothing, just enqueue it for propagation and mark it as asserted already
-  Debug("uf") << "TheoryUF::propagate(" << atom << ", " << (isTrue ? "true" : "false" ) << ") => enqueuing for propagation" << std::endl;
+  Debug("uf") << "TheoryUF::propagate(" << literal << ") => enqueuing for propagation" << std::endl;
   d_literalsToPropagate.push_back(literal);
 
   return true;
@@ -195,6 +208,7 @@ void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
     case kind::NOT:
       lhs = literal[0];
       rhs = d_false;
+      break;
     case kind::CONST_BOOLEAN:
       // we get to explain true = false, since we set false to be the trigger of this
       lhs = d_true;

@@ -372,6 +372,7 @@ void SymmetryBreaker::apply(std::vector<Node>& newClauses) {
             }
           }
           TNode c;
+          Debug("ufsymm") << "UFSYMM looking for c \\in " << p << " \\ cts" << endl;
           set<TNode>::const_iterator i;
           for(i = p.begin(); i != p.end(); ++i) {
             if(cts.find(*i) == cts.end()) {
@@ -384,7 +385,10 @@ void SymmetryBreaker::apply(std::vector<Node>& newClauses) {
               }
             }
           }
-          Assert(!c.isNull());
+          if(c.isNull()) {
+            Debug("ufsymm") << "UFSYMM can't find a c, restart outer loop" << endl;
+            break;
+          }
           Debug("ufsymm") << "UFSYMM inserting into cts: " << c << endl;
           cts.insert(c);
           // This tests cts != p: if "i == p.end()", we got all the way

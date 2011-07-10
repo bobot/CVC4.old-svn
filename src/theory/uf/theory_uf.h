@@ -45,10 +45,10 @@ public:
   public:
     NotifyClass(TheoryUF& uf): d_uf(uf) {}
 
-    bool notifyEquality(TNode eq) {
-      Debug("uf") << "NotifyClass::notifyEquality(" << eq << ")" << std::endl;
+    bool notifyEquality(TNode reason) {
+      Debug("uf") << "NotifyClass::notifyEquality(" << reason << ")" << std::endl;
       // Just forward to uf
-      return d_uf.propagate(eq, true);
+      return d_uf.propagate(reason);
     }
   };
 
@@ -70,10 +70,9 @@ private:
   Node d_conflictNode;
 
   /**
-   * Should be called to propagate the atom. If isTrue is true, the atom should be propagated,
-   * otherwise the negated atom should be propagated.
+   * Should be called to propagate the literal. 
    */
-  bool propagate(TNode atom, bool isTrue);
+  bool propagate(TNode literal);
 
   /**
    * Explain why this literal is true by adding assumptions
