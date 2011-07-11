@@ -16,9 +16,9 @@
  ** Implementation of the propositional engine of CVC4.
  **/
 
-#include "cnf_stream.h"
-#include "prop_engine.h"
-#include "sat.h"
+#include "prop/cnf_stream.h"
+#include "prop/prop_engine.h"
+#include "prop/sat.h"
 
 #include "theory/theory_engine.h"
 #include "theory/registrar.h"
@@ -26,6 +26,8 @@
 #include "util/options.h"
 #include "util/output.h"
 #include "util/result.h"
+#include "expr/expr.h"
+#include "expr/command.h"
 
 #include <utility>
 #include <map>
@@ -87,6 +89,16 @@ void PropEngine::assertFormula(TNode node) {
 void PropEngine::assertLemma(TNode node) {
   //Assert(d_inCheckSat, "Sat solver should be in solve()!");
   Debug("prop::lemmas") << "assertLemma(" << node << ")" << endl;
+
+  if(Options::current()->preprocessOnly) {
+    if(Message.isOn()) {
+      // If "preprocess only" mode is in effect, the lemmas we get
+      // here are due to theory reasoning during preprocessing.  So
+      // push the lemma to the Message() stream.
+      expr::ExprSetDepth::Scope sdScope(Message.getStream(), -1);
+      Message() << AssertCommand(BoolExpr(node.toExpr())) << endl;
+    }
+  }
 
   //TODO This comment is now false
   // Assert as removable

@@ -673,11 +673,12 @@ void SmtEnginePrivate::processAssertions() {
     if(Message.isOn()) {
       // Push the formula to the Message() stream
       for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
-        Message() << d_assertionsToCheck[i] << endl;
+        expr::ExprSetDepth::Scope sdScope(Message.getStream(), -1);
+        Message() << AssertCommand(BoolExpr(d_assertionsToCheck[i].toExpr())) << endl;
       }
     }
-    // We still call into SAT so that we can output top-level BCP and
-    // also theory contributions that come from presolve().
+    // We still call into SAT below so that we can output theory
+    // contributions that come from presolve().
   }
 
   // Push the formula to SAT
