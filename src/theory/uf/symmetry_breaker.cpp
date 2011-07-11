@@ -520,14 +520,14 @@ bool SymmetryBreaker::invariantByPermutations(const Permutation& p) {
 template <class T1, class T2>
 static bool isSubset(const T1& s, const T2& t) {
   if(s.size() > t.size()) {
-    Debug("ufsymm") << "DEBUG ASSERTION FAIL: s not a subset of t "
-                    << "because size(s) > size(t)" << endl;
+    //Debug("ufsymm") << "DEBUG ASSERTION FAIL: s not a subset of t "
+    //                << "because size(s) > size(t)" << endl;
     return false;
   }
   for(typename T1::const_iterator si = s.begin(); si != s.end(); ++si) {
     if(t.find(*si) == t.end()) {
-      Debug("ufsymm") << "DEBUG ASSERTION FAIL: s not a subset of t "
-                      << "because s element \"" << *si << "\" not in t" << endl;
+      //Debug("ufsymm") << "DEBUG ASSERTION FAIL: s not a subset of t "
+      //                << "because s element \"" << *si << "\" not in t" << endl;
       return false;
     }
   }
@@ -550,8 +550,7 @@ void SymmetryBreaker::selectTerms(const Permutation& p) {
   }
   for(set<Node>::iterator i = terms.begin(); i != terms.end(); ++i) {
     const TermEq& teq = d_termEqs[*i];
-    if(p.size() >= teq.size()) {
-      Assert(isSubset(teq, p));
+    if(isSubset(teq, p)) {
       d_terms.insert(d_terms.end(), *i);
     } else {
       if(Debug.isOn("ufsymm")) {
