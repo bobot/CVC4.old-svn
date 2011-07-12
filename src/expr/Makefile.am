@@ -29,6 +29,7 @@ libexpr_la_SOURCES = \
 	node_self_iterator.h \
 	expr_stream.h \
 	kind_map.h
+
 nodist_libexpr_la_SOURCES = \
 	kind.h \
 	metakind.h \

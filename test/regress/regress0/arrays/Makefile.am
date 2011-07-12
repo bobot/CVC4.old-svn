@@ -8,9 +8,24 @@ TESTS =	\
 	arrays1.smt2 \
 	arrays2.smt2 \
 	arrays3.smt2 \
-	arrays4.smt2
+	arrays4.smt2 \
+	incorrect1.smt \
+	incorrect2.smt \
+	incorrect2.minimized.smt \
+	incorrect3.smt \
+	incorrect4.smt \
+	incorrect5.smt \
+	incorrect6.smt \
+	incorrect7.smt \
+	incorrect8.smt \
+	incorrect8.minimized.smt \
+	incorrect9.smt \
+	incorrect10.smt \
+	incorrect11.smt
 
-EXTRA_DIST = $(TESTS)
+EXTRA_DIST = $(TESTS) \
+	unsound1.smt \
+	unsound1.minimized.smt
 
 #if CVC4_BUILD_PROFILE_COMPETITION
 #else

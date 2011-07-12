@@ -41,6 +41,11 @@ public:
 
   Node getValue(TNode n) const;
 
+  /*
+   * Return true if n has an associated SAT literal
+   */
+  bool isSatLiteral(TNode n) const;
+
   /**
    * Get the current SAT assignment to the node n.
    *
@@ -52,18 +57,9 @@ public:
   Node getSatValue(TNode n) const;
 
   /**
-   * Simplify a node.  Intended to be used by a theory's simplify()
-   * function to simplify subterms (TheoryEngine will cache the
-   * results and make sure that the request is directed to the correct
-   * theory).
+   * Returns true if the node has a sat value. If yes value is set to it's value.
    */
-  Node simplify(TNode in, Substitutions& outSubstitutions);
-
-  /**
-   * Rewrite a node.  Intended to be used by a theory to have the
-   * TheoryEngine fully rewrite a node.
-   */
-  Node rewrite(TNode in);
+  bool hasSatValue(TNode n, bool& value) const;
 
 };/* class Valuation */
 

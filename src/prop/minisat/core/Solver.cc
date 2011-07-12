@@ -75,7 +75,7 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bo
 
     // Parameters (the rest):
     //
-  , learntsize_factor((double)1/(double)3), learntsize_inc(1.1)
+  , learntsize_factor(1), learntsize_inc(1.5)
 
     // Parameters (experimental):
     //
@@ -240,8 +240,18 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
     if (ps.size() == 0)
         return ok = false;
     else if (ps.size() == 1){
-        assert(type != CLAUSE_LEMMA);
-        assert(value(ps[0]) == l_Undef);
+        if(in_solve) {
+          assert(type != CLAUSE_LEMMA);
+          assert(value(ps[0]) == l_Undef);
+        } else {
+          // [MGD] at "pre-solve" time we allow unit T-lemmas
+          if(value(ps[0]) == l_True) {
+            // this unit T-lemma is extraneous (perhaps it was
+            // discovered twice at presolve time)
+            return true;
+          }
+          assert(value(ps[0]) == l_Undef);
+        }
         uncheckedEnqueue(ps[0]);
         return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
     }else{
@@ -567,14 +577,19 @@ int Solver::litRedundant(Lit p, uint32_t abstract_levels)
     int top = analyze_toclear.size();
     int max_level = 0;
     while (analyze_stack.size() > 0){
-        assert(reason(var(analyze_stack.last())) != CRef_Undef);
-        Clause& c = ca[reason(var(analyze_stack.last()))]; analyze_stack.pop();
+        CRef c_reason = reason(var(analyze_stack.last()));
+        assert(c_reason != CRef_Undef);
+        Clause& c = ca[c_reason];
+        int c_size = c.size();
+        analyze_stack.pop();
         if (c.level() > max_level) {
             max_level = c.level();
         }
 
-        for (int i = 1; i < c.size(); i++){
-            Lit p  = c[i];
+        // Since calling reason might relocate to resize, c is not necesserily the right reference, we must
+        // use the allocator each time
+        for (int i = 1; i < c_size; i++){
+            Lit p  = ca[c_reason][i];
             if (!seen[var(p)] && level(var(p)) > 0){
                 if (reason(var(p)) != CRef_Undef && (abstractLevel(var(p)) & abstract_levels) != 0){
                     seen[var(p)] = 1;
