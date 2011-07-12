@@ -90,7 +90,7 @@ AC_ARG_WITH([build],
 if test -z "${with_build+set}" -o "$with_build" = default; then
   with_build=default
 fi
-if test -z "${enable_optimized+set}" -a -z "${enable_debug_symbols+set}" -a -z "${enable_assertions+set}" -a -z "${enable_tracing+set}" -a -z "${enable_muzzle+set}" -a -z "${enable_coverage+set}" -a -z "${enable_profiling+set}" -a -z "${enable_statistics+set}" -a -z "${enable_replay+set}" -a -z "${with_gmp+set}" -a -z "${with_cln+set}"; then
+if test -z "${enable_optimized+set}" -a -z "${enable_debug_symbols+set}" -a -z "${enable_assertions+set}" -a -z "${enable_tracing+set}" -a -z "${enable_dumping+set}" -a -z "${enable_muzzle+set}" -a -z "${enable_coverage+set}" -a -z "${enable_profiling+set}" -a -z "${enable_statistics+set}" -a -z "${enable_replay+set}" -a -z "${with_gmp+set}" -a -z "${with_cln+set}"; then
   custom_build_profile=no
 else
   custom_build_profile=yes
@@ -129,6 +129,13 @@ if test -n "${enable_tracing+set}"; then
     btargs="$btargs tracing"
   else
     btargs="$btargs notracing"
+  fi
+fi
+if test -n "${enable_dumping+set}"; then
+  if test "$enable_dumping" = yes; then
+    btargs="$btargs dumping"
+  else
+    btargs="$btargs nodumping"
   fi
 fi
 if test -n "${enable_muzzle+set}"; then
@@ -330,7 +337,7 @@ fi
 # Unpack standard build types. Any particular options can be overriden with
 # --enable/disable-X options
 case "$with_build" in
-  production) # highly optimized, no assertions, no tracing
+  production) # highly optimized, no assertions, no tracing, dumping
     CVC4CPPFLAGS=
     CVC4CXXFLAGS=
     CVC4CFLAGS=
@@ -343,9 +350,10 @@ case "$with_build" in
     if test -z "${enable_replay+set}"       ; then enable_replay=no                 ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=no             ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=no                ; fi
+    if test -z "${enable_dumping+set}"      ; then enable_dumping=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
     ;;
-  debug) # unoptimized, debug symbols, assertions, tracing
+  debug) # unoptimized, debug symbols, assertions, tracing, dumping
     CVC4CPPFLAGS=-DCVC4_DEBUG
     CVC4CXXFLAGS='-fno-inline'
     CVC4CFLAGS='-fno-inline'
@@ -357,9 +365,10 @@ case "$with_build" in
     if test -z "${enable_replay+set}"       ; then enable_replay=yes                ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=yes            ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=yes               ; fi
+    if test -z "${enable_dumping+set}"      ; then enable_dumping=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
     ;;
-  default) # moderately optimized, assertions, tracing
+  default) # moderately optimized, assertions, tracing, dumping
     CVC4CPPFLAGS=
     CVC4CXXFLAGS=
     CVC4CFLAGS=
@@ -372,9 +381,10 @@ case "$with_build" in
     if test -z "${enable_replay+set}"       ; then enable_replay=yes                ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=yes            ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=yes               ; fi
+    if test -z "${enable_dumping+set}"      ; then enable_dumping=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
     ;;
-  competition) # maximally optimized, no assertions, no tracing, muzzled
+  competition) # maximally optimized, no assertions, no tracing, no dumping, muzzled
     CVC4CPPFLAGS='-DCVC4_COMPETITION_MODE'
     CVC4CXXFLAGS='-funroll-all-loops -fexpensive-optimizations -fno-enforce-eh-specs'
     CVC4CFLAGS='-funroll-all-loops -fexpensive-optimizations -fno-enforce-eh-specs'
@@ -387,6 +397,7 @@ case "$with_build" in
     if test -z "${enable_replay+set}"       ; then enable_replay=no                 ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=no             ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=no                ; fi
+    if test -z "${enable_dumping+set}"      ; then enable_dumping=no                ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=yes                ; fi
     if test -z "${user_specified_enable_or_disable_shared}"; then enable_shared=no; fi
     if test -z "${user_specified_enable_or_disable_static}"; then enable_static=yes; fi
@@ -518,6 +529,21 @@ AC_MSG_RESULT([$enable_tracing])
 
 if test "$enable_tracing" = yes; then
   CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_TRACING"
+fi
+
+AC_MSG_CHECKING([whether to do a dump-capable build of CVC4])
+AC_ARG_ENABLE([dumping],
+  [AS_HELP_STRING([--disable-dumping],
+     [remove all dumping code from CVC4])])
+
+if test -z "${enable_dumping+set}"; then
+  enable_dumping=yes
+fi
+
+AC_MSG_RESULT([$enable_dumping])
+
+if test "$enable_dumping" = yes; then
+  CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_DUMPING"
 fi
 
 AC_MSG_CHECKING([whether to do a muzzled build of CVC4])
@@ -924,6 +950,7 @@ Statistics   : $enable_statistics
 Replay       : $enable_replay
 Assertions   : $enable_assertions
 Tracing      : $enable_tracing
+Dumping      : $enable_dumping
 Muzzle       : $enable_muzzle
 
 Unit tests   : $support_unit_tests

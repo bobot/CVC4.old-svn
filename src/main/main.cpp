@@ -183,6 +183,7 @@ int runCvc4(int argc, char* argv[]) {
     Chat.setStream(CVC4::null_os);
     Message.setStream(CVC4::null_os);
     Warning.setStream(CVC4::null_os);
+    Dump.setStream(CVC4::null_os);
   } else {
     if(options.verbosity < 2) {
       Chat.setStream(CVC4::null_os);
@@ -237,6 +238,7 @@ int runCvc4(int argc, char* argv[]) {
     Chat.setStream(CVC4::null_os);
     Message.setStream(CVC4::null_os);
     Warning.setStream(CVC4::null_os);
+    Dump.setStream(CVC4::null_os);
   } else {
     if(options.verbosity < 2) {
       Chat.setStream(CVC4::null_os);
@@ -255,6 +257,7 @@ int runCvc4(int argc, char* argv[]) {
     Chat.getStream() << Expr::setlanguage(outLang);
     Message.getStream() << Expr::setlanguage(outLang);
     Warning.getStream() << Expr::setlanguage(outLang);
+    Dump.getStream() << Expr::setlanguage(outLang);
   }
 
   Parser* replayParser = NULL;

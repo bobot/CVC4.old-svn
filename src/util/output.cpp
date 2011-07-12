@@ -40,6 +40,7 @@ MessageC MessageChannel CVC4_PUBLIC (&cout);
 NoticeC NoticeChannel CVC4_PUBLIC (&cout);
 ChatC ChatChannel CVC4_PUBLIC (&cout);
 TraceC TraceChannel CVC4_PUBLIC (&cout);
+DumpC DumpChannel CVC4_PUBLIC (&cout);
 
 #ifndef CVC4_MUZZLE
 

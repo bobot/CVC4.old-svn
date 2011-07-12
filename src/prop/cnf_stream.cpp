@@ -61,7 +61,7 @@ TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registr
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
   Debug("cnf") << "Inserting into stream " << c << endl;
-  if(Options::current()->dump == Options::CLAUSES) {
+  if(Dump.isOn("clauses")) {
     if(Message.isOn()) {
       NodeBuilder<> b(kind::OR);
       for(int i = 0; i < c.size(); ++i) {

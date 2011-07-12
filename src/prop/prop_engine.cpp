@@ -90,14 +90,10 @@ void PropEngine::assertLemma(TNode node) {
   //Assert(d_inCheckSat, "Sat solver should be in solve()!");
   Debug("prop::lemmas") << "assertLemma(" << node << ")" << endl;
 
-  if(Options::current()->dump == Options::LEARNED) {
-    if(Message.isOn()) {
-      // If "preprocess only" mode is in effect, the lemmas we get
-      // here are due to theory reasoning during preprocessing.  So
-      // push the lemma to the Message() stream.
-      expr::ExprSetDepth::Scope sdScope(Message.getStream(), -1);
-      Message() << AssertCommand(BoolExpr(node.toExpr())) << endl;
-    }
+  if(!d_inCheckSat && Dump.isOn("learned")) {
+    Dump("learned") << AssertCommand(BoolExpr(node.toExpr())) << endl;
+  } else if(Dump.isOn("lemmas")) {
+    Dump("lemmas") << AssertCommand(BoolExpr(node.toExpr())) << endl;
   }
 
   //TODO This comment is now false
@@ -136,7 +132,7 @@ Result PropEngine::checkSat() {
   // TODO This currently ignores conflicts (a dangerous practice).
   d_theoryEngine->presolve();
 
-  if(Options::current()->dump != Options::NOTHING) {
+  if(Options::current()->preprocessOnly) {
     return Result(Result::SAT_UNKNOWN, Result::REQUIRES_FULL_CHECK);
   }
 

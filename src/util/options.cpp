@@ -63,7 +63,7 @@ Options::Options() :
   verbosity(0),
   inputLanguage(language::input::LANG_AUTO),
   parseOnly(false),
-  dump(NOTHING),
+  preprocessOnly(false),
   semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
   theoryRegistration(true),
   memoryMap(false),
@@ -98,7 +98,8 @@ static const string optionsDescription = "\
    --version | -V         identify this CVC4 binary\n\
    --help | -h            this command line reference\n\
    --parse-only           exit after parsing input\n\
-   --dump=MODE            exit after preprocessing (and dump preprocessed assertions, see --dump=help)\n\
+   --preprocess-only      exit after preprocessing (useful with --stats or --dump)\n\
+   --dump=MODE            dump preprocessed assertions, T-propagations, etc., see --dump=help\n\
    --mmap                 memory map file input\n\
    --show-config          show CVC4 static configuration\n\
    --segv-nospin          don't spin on segfault waiting for gdb\n\
@@ -172,7 +173,8 @@ Dump modes currently supported by the --dump option:\n\
 \n\
 assertions\n\
 + output the assertions after non-clausal simplification.  If non-clausal\n\
-  simplification is off, the output will closely resemble the input.\n\
+  simplification is off (--simplification=none), the output will closely\n\
+  resemble the input.  Implies 'benchmark'.\n\
 \n\
 learned\n\
 + output the assertions after non-clausal simplification and\n\
@@ -181,9 +183,14 @@ learned\n\
   includes level-0 BCP done by Minisat.\n\
 \n\
 clauses\n\
-\n\
 + do all the preprocessing outlined above, and dump the CNF-converted\n\
   output\n\
+\n\
+propagations\n\
++ output all theory propagations\n\
+\n\
+Dump modes can be combined with multiple uses of --dump.  For example,\n\
+'--dump clauses --dump propagations' can be useful.\n\
 ";
 
 string Options::getDescription() const {
@@ -211,6 +218,7 @@ enum OptionValue {
   STATS,
   SEGV_NOSPIN,
   PARSE_ONLY,
+  PREPROCESS_ONLY,
   DUMP,
   NO_CHECKING,
   NO_THEORY_REGISTRATION,
@@ -282,6 +290,7 @@ static struct option cmdlineOptions[] = {
   { "about"      , no_argument      , NULL, 'V'         },
   { "lang"       , required_argument, NULL, 'L'         },
   { "parse-only" , no_argument      , NULL, PARSE_ONLY  },
+  { "preprocess-only", no_argument      , NULL, PREPROCESS_ONLY },
   { "dump"       , required_argument, NULL, DUMP        },
   { "mmap"       , no_argument      , NULL, USE_MMAP    },
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
@@ -410,20 +419,13 @@ throw(OptionException) {
       parseOnly = true;
       break;
 
+    case PREPROCESS_ONLY:
+      preprocessOnly = true;
+      break;
+
     case DUMP:
-      if(!strcmp(optarg, "assertions")) {
-        dump = Options::ASSERTIONS;
-      } else if(!strcmp(optarg, "learned")) {
-        dump = Options::LEARNED;
-      } else if(!strcmp(optarg, "clauses")) {
-        dump = Options::CLAUSES;
-      } else if(!strcmp(optarg, "help")) {
-        puts(dumpHelp.c_str());
-        exit(1);
-      } else {
-        throw OptionException(string("unknown mode for --dump: `") +
-                              optarg + "'.  Try --dump help.");
-      }
+      Dump.on(optarg);
+      Dump.on("benchmark");// for declarations, etc.
       break;
 
     case NO_THEORY_REGISTRATION:

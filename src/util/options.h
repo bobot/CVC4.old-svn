@@ -83,19 +83,8 @@ struct CVC4_PUBLIC Options {
   /** Should we exit after parsing? */
   bool parseOnly;
 
-  /**
-   * What to dump, if anything.  Useful for targetting CVC4 as a
-   * preprocessor, or for debugging.
-   */
-  enum Dump {
-    NOTHING,
-    ASSERTIONS,
-    LEARNED,
-    CLAUSES
-  };/* enum Options::Dump */
-
-  /** The dumping we should do. */
-  Dump dump;
+  /** Should we exit after preprocessing? */
+  bool preprocessOnly;
 
   /** Should the parser do semantic checks? */
   bool semanticChecks;
@@ -246,30 +235,6 @@ inline std::ostream& operator<<(std::ostream& out,
     break;
   default:
     out << "SimplificationMode:UNKNOWN![" << unsigned(mode) << "]";
-  }
-
-  return out;
-}
-
-inline std::ostream& operator<<(std::ostream& out,
-                                Options::Dump mode) CVC4_PUBLIC;
-inline std::ostream& operator<<(std::ostream& out,
-                                Options::Dump mode) {
-  switch(mode) {
-  case Options::NOTHING:
-    out << "NOTHING";
-    break;
-  case Options::ASSERTIONS:
-    out << "ASSERTIONS";
-    break;
-  case Options::LEARNED:
-    out << "LEARNED";
-    break;
-  case Options::CLAUSES:
-    out << "CLAUSES";
-    break;
-  default:
-    out << "Dump:UNKNOWN![" << unsigned(mode) << "]";
   }
 
   return out;
