@@ -7,7 +7,7 @@
 theory THEORY_UF ::CVC4::theory::uf::TheoryUF "theory/uf/theory_uf.h"
 
 properties stable-infinite
-properties check propagate staticLearning presolve notifyRestart
+properties check propagate staticLearning presolve
 
 rewriter ::CVC4::theory::uf::TheoryUfRewriter "theory/uf/theory_uf_rewriter.h"
 

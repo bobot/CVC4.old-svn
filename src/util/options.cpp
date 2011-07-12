@@ -62,7 +62,6 @@ Options::Options() :
   err(&std::cerr),
   verbosity(0),
   inputLanguage(language::input::LANG_AUTO),
-  uf_implementation(MORGAN),
   parseOnly(false),
   dump(NOTHING),
   semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
@@ -116,7 +115,6 @@ static const string optionsDescription = "\
    --stats                give statistics on exit\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
    --print-expr-types     print types with variables when printing exprs\n\
-   --uf=morgan|tim        select uninterpreted function theory implementation\n\
    --interactive          run interactively\n\
    --no-interactive       do not run interactively\n\
    --produce-models       support the get-value command\n\
@@ -466,24 +464,6 @@ throw(OptionException) {
         Chat.getStream() << Expr::printtypes(true);
         Message.getStream() << Expr::printtypes(true);
         Warning.getStream() << Expr::printtypes(true);
-      }
-      break;
-
-    case UF_THEORY:
-      {
-        if(!strcmp(optarg, "tim")) {
-          uf_implementation = Options::TIM;
-        } else if(!strcmp(optarg, "morgan")) {
-          uf_implementation = Options::MORGAN;
-        } else if(!strcmp(optarg, "help")) {
-          printf("UF implementations available:\n");
-          printf("  tim\n");
-          printf("  morgan\n");
-          exit(1);
-        } else {
-          throw OptionException(string("unknown option for --uf: `") +
-                                optarg + "'.  Try --uf help.");
-        }
       }
       break;
 

@@ -323,6 +323,8 @@ bool Solver::satisfied(const Clause& c) const {
 // Revert to the state at given level (keeping all assignment at 'level' but not beyond).
 //
 void Solver::cancelUntil(int level, bool re_propagate) {
+    Debug("minisat") << "minisat::cancelUntil(" << level << " re_prop == " << re_propagate << std::endl;
+
     if (decisionLevel() > level){
         // Pop the SMT context
         for (int l = trail_lim.size() - level; l > 0; --l)

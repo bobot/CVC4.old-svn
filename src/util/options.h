@@ -71,12 +71,6 @@ struct CVC4_PUBLIC Options {
   /** The input language */
   InputLanguage inputLanguage;
 
-  /** Enumeration of UF implementation choices */
-  typedef enum { TIM, MORGAN } UfImplementation;
-
-  /** Which implementation of uninterpreted function theory to use */
-  UfImplementation uf_implementation;
-
   /** Should we print the help message? */
   bool help;
 
@@ -240,25 +234,6 @@ struct CVC4_PUBLIC Options {
 };/* struct Options */
 
 inline std::ostream& operator<<(std::ostream& out,
-                                Options::UfImplementation uf) CVC4_PUBLIC;
-
-inline std::ostream& operator<<(std::ostream& out,
-                                Options::UfImplementation uf) {
-  switch(uf) {
-  case Options::TIM:
-    out << "TIM";
-    break;
-  case Options::MORGAN:
-    out << "MORGAN";
-    break;
-  default:
-    out << "UfImplementation:UNKNOWN![" << unsigned(uf) << "]";
-  }
-
-  return out;
-}
-
-inline std::ostream& operator<<(std::ostream& out,
                                 Options::SimplificationMode mode) CVC4_PUBLIC;
 inline std::ostream& operator<<(std::ostream& out,
                                 Options::SimplificationMode mode) {
@@ -271,6 +246,30 @@ inline std::ostream& operator<<(std::ostream& out,
     break;
   default:
     out << "SimplificationMode:UNKNOWN![" << unsigned(mode) << "]";
+  }
+
+  return out;
+}
+
+inline std::ostream& operator<<(std::ostream& out,
+                                Options::Dump mode) CVC4_PUBLIC;
+inline std::ostream& operator<<(std::ostream& out,
+                                Options::Dump mode) {
+  switch(mode) {
+  case Options::NOTHING:
+    out << "NOTHING";
+    break;
+  case Options::ASSERTIONS:
+    out << "ASSERTIONS";
+    break;
+  case Options::LEARNED:
+    out << "LEARNED";
+    break;
+  case Options::CLAUSES:
+    out << "CLAUSES";
+    break;
+  default:
+    out << "Dump:UNKNOWN![" << unsigned(mode) << "]";
   }
 
   return out;

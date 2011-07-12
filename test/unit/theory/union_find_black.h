@@ -11,19 +11,19 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Black box testing of CVC4::theory::uf::morgan::UnionFind
+ ** \brief Black box testing of CVC4::datatypes::UnionFind
  **
- ** Black box testing of CVC4::theory::uf::morgan::UnionFind.
+ ** Black box testing of CVC4::theory::datatypes::UnionFind.
  **/
 
 #include <cxxtest/TestSuite.h>
 
 #include "context/context.h"
 #include "expr/node.h"
-#include "theory/uf/morgan/union_find.h"
+#include "theory/datatypes/union_find.h"
 
 using namespace CVC4;
-using namespace CVC4::theory::uf::morgan;
+using namespace CVC4::theory::datatypes;
 using namespace CVC4::context;
 
 using namespace std;
