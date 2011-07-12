@@ -18,13 +18,15 @@
  ** of given an equisatisfiable stream of assertions to PropEngine.
  **/
 
-#include "sat.h"
+#include "prop/sat.h"
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
 #include "theory/theory_engine.h"
 #include "expr/node.h"
 #include "util/Assert.h"
 #include "util/output.h"
+#include "expr/command.h"
+#include "expr/expr.h"
 
 #include <queue>
 
@@ -59,6 +61,16 @@ TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registr
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
   Debug("cnf") << "Inserting into stream " << c << endl;
+  if(Options::current()->dump == Options::CLAUSES) {
+    if(Message.isOn()) {
+      NodeBuilder<> b(kind::OR);
+      for(int i = 0; i < c.size(); ++i) {
+        b << getNode(c[i]);
+      }
+      Node n = b;
+      Message() << AssertCommand(BoolExpr(n.toExpr())) << endl;
+    }
+  }
   d_satSolver->addClause(c, d_assertingLemma);
 }
 

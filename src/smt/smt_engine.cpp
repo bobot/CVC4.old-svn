@@ -669,7 +669,8 @@ void SmtEnginePrivate::processAssertions() {
   // Simplify the assertions
   simplifyAssertions();
 
-  if(Options::current()->preprocessOnly) {
+  if(Options::current()->dump == Options::ASSERTIONS ||
+     Options::current()->dump == Options::LEARNED) {
     if(Message.isOn()) {
       // Push the formula to the Message() stream
       for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {

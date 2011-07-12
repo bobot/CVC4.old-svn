@@ -89,8 +89,19 @@ struct CVC4_PUBLIC Options {
   /** Should we exit after parsing? */
   bool parseOnly;
 
-  /** Should we exit after preprocessing? */
-  bool preprocessOnly;
+  /**
+   * What to dump, if anything.  Useful for targetting CVC4 as a
+   * preprocessor, or for debugging.
+   */
+  enum Dump {
+    NOTHING,
+    ASSERTIONS,
+    LEARNED,
+    CLAUSES
+  };/* enum Options::Dump */
+
+  /** The dumping we should do. */
+  Dump dump;
 
   /** Should the parser do semantic checks? */
   bool semanticChecks;

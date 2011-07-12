@@ -11,10 +11,10 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief The PropEngine (proposiitonal engine); main interface point
- ** between CVC4's SMT infrastructure and the SAT solver.
+ ** \brief The PropEngine (propositional engine); main interface point
+ ** between CVC4's SMT infrastructure and the SAT solver
  **
- ** The PropEngine (proposiitonal engine); main interface point
+ ** The PropEngine (propositional engine); main interface point
  ** between CVC4's SMT infrastructure and the SAT solver.
  **/
 

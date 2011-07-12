@@ -1,0 +1,9 @@
+TODO on this post-competition cleanup branch:
+
+preprocess dumping --dump={assertions,learned,clauses}
+portfolio issues
+bug 272
+arrays and CC module
+svn / git bridge ?
+
+-- Morgan Deters <mdeters@cs.nyu.edu>  Mon, 11 Jul 2011 20:26:48 -0400
