@@ -2,8 +2,8 @@
 /*! \file cnf_stream.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: dejan
- ** Minor contributors (to current version): cconway, mdeters
+ ** Major contributors: mdeters, dejan
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences

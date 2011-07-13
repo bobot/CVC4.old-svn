@@ -2,8 +2,8 @@
 /*! \file theory_engine.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: taking, barrett, dejan
- ** Minor contributors (to current version): cconway
+ ** Major contributors: barrett, dejan
+ ** Minor contributors (to current version): cconway, taking
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences

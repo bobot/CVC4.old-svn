@@ -2,8 +2,8 @@
 /*! \file options.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway
- ** Minor contributors (to current version): dejan, taking
+ ** Major contributors: taking, cconway
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences

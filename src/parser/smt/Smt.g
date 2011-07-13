@@ -2,7 +2,7 @@
 /*! \file Smt.g
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: mdeters, dejan
+ ** Major contributors: dejan, mdeters
  ** Minor contributors (to current version): taking
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)

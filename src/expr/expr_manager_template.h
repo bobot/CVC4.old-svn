@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): taking, cconway
+ ** Minor contributors (to current version): ajreynol, taking, cconway
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences

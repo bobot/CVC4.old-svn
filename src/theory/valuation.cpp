@@ -2,8 +2,8 @@
 /*! \file valuation.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: taking
+ ** Minor contributors (to current version): barrett, dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
