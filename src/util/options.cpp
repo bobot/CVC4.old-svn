@@ -708,6 +708,7 @@ throw(OptionException) {
       printf("statistics : %s\n", Configuration::isStatisticsBuild() ? "yes" : "no");
       printf("replay     : %s\n", Configuration::isReplayBuild() ? "yes" : "no");
       printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
+      printf("dumping    : %s\n", Configuration::isDumpingBuild() ? "yes" : "no");
       printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
       printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");
       printf("coverage   : %s\n", Configuration::isCoverageBuild() ? "yes" : "no");
