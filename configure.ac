@@ -711,7 +711,7 @@ AC_SEARCH_LIBS([clock_gettime], [rt],
                [AC_LIBOBJ([clock_gettime])])
 
 # Check for the presence of CUDD libraries
-CVC4_CUDD
+CVC4_CHECK_CUDD
 
 # Check for antlr C++ runtime (defined in config/antlr.m4)
 AC_LIB_ANTLR

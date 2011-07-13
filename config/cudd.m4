@@ -1,8 +1,8 @@
-# CVC4_CUDD
+# CVC4_CHECK_CUDD
 # ---------
 # Check for CUDD libraries and headers.  Complicated because different
 # packagers have packaged it differently.
-AC_DEFUN([CVC4_CUDD], [
+AC_DEFUN([CVC4_CHECK_CUDD], [
 CUDD_CPPFLAGS=
 CUDD_LDFLAGS=
 cvc4cudd=no
@@ -60,4 +60,4 @@ AC_SUBST([CUDD_LDFLAGS])
 if test "$with_cudd" = yes -a "$cvc4cudd" = no; then
   AC_ERROR([--with-cudd was given, but cudd not available])
 fi
-])# CVC4_CUDD
+])# CVC4_CHECK_CUDD
