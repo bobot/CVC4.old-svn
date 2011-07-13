@@ -253,16 +253,17 @@ public:
   Result assertFormula(const BoolExpr& e);
 
   /**
-   * Add a formula to the current context and call check().  Returns
-   * true iff consistent.
+   * Check validity of an expression with respect to the current set
+   * of assertions by asserting the query expression's negation and
+   * calling check().  Returns valid, invalid, or unknown result.
    */
   Result query(const BoolExpr& e);
 
   /**
-   * Add a formula to the current context and call check().  Returns
-   * true iff consistent.
+   * Assert a formula (if provided) to the current context and call
+   * check().  Returns sat, unsat, or unknown result.
    */
-  Result checkSat(const BoolExpr& e);
+  Result checkSat(const BoolExpr& e = BoolExpr());
 
   /**
    * Simplify a formula without doing "much" work.  Does not involve

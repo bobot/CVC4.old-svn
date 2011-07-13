@@ -22,6 +22,7 @@
 #include "expr/kind.h"
 #include <map>
 #include "theory/rewriter.h"
+#include "expr/command.h"
 
 using namespace std;
 using namespace CVC4;
@@ -757,8 +758,8 @@ bool TheoryArrays::isRedundantInContext(TNode a, TNode b, TNode i, TNode j) {
       Assert(!satValue1 && !satValue2);
       Assert(literal1.getKind() == kind::EQUAL && literal2.getKind() == kind::EQUAL);
       NodeBuilder<2> nb(kind::AND);
-      //literal1 = areDisequal(literal1[0], literal1[1]);
-      //literal2 = areDisequal(literal2[0], literal2[1]);
+      literal1 = areDisequal(literal1[0], literal1[1]);
+      literal2 = areDisequal(literal2[0], literal2[1]);
       Assert(!literal1.isNull() && !literal2.isNull());
       nb << literal1.notNode() << literal2.notNode();
       literal1 = nb;
@@ -1141,7 +1142,15 @@ inline void TheoryArrays::addExtLemma(TNode a, TNode b) {
     && d_extAlreadyAdded.count(make_pair(b, a)) == 0) {
 
    NodeManager* nm = NodeManager::currentNM();
-   Node k = nm->mkVar(a.getType()[0]);
+   TypeNode ixType = a.getType()[0];
+   Node k = nm->mkVar(ixType);
+   if(Dump.isOn("declarations")) {
+     stringstream kss;
+     kss << Expr::setlanguage(Expr::setlanguage::getLanguage(Dump("declarations"))) << k;
+     string ks = kss.str();
+     Dump("declarations") << CommentCommand(ks + " is an extensional lemma index variable from the theory of arrays") << endl
+                          << DeclareFunctionCommand(ks, ixType.toType()) << endl;
+   }
    Node eq = nm->mkNode(kind::EQUAL, a, b);
    Node ak = nm->mkNode(kind::SELECT, a, k);
    Node bk = nm->mkNode(kind::SELECT, b, k);

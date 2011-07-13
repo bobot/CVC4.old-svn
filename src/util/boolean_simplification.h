@@ -198,6 +198,16 @@ public:
   }
 
   /**
+   * Negates an Expr, doing all the double-negation elimination that's
+   * possible.
+   *
+   * @param e the Expr to negate (cannot be the null Expr)
+   */
+  static Expr negate(Expr e) throw(AssertionException) {
+    return negate(Node::fromExpr(e)).toExpr();
+  }
+
+  /**
    * Simplify an OR, AND, or IMPLIES.  This function is the identity
    * for all other kinds.
    */

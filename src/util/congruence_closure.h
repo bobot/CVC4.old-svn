@@ -270,6 +270,7 @@ private:
       if(i == d_eqMap.end()) {
         ++d_newSkolemVars;
         Node v = NodeManager::currentNM()->mkSkolem(t.getType());
+        Debug("cc") << "CC made skolem " << v << std::endl;
         addEq(NodeManager::currentNM()->mkNode(t.getType().isBoolean() ? kind::IFF : kind::EQUAL, t, v), TNode::null());
         d_added.insert(v);
         d_eqMap[t] = v;

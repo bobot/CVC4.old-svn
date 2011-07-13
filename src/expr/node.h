@@ -832,16 +832,23 @@ public:
    */
   inline bool hasSubterm(NodeTemplate<false> t, bool strict = false) const;
 
-  NodeTemplate<true> eqNode(const NodeTemplate& right) const;
+  template <bool ref_count2>
+  NodeTemplate<true> eqNode(const NodeTemplate<ref_count2>& right) const;
 
   NodeTemplate<true> notNode() const;
-  NodeTemplate<true> andNode(const NodeTemplate& right) const;
-  NodeTemplate<true> orNode(const NodeTemplate& right) const;
-  NodeTemplate<true> iteNode(const NodeTemplate& thenpart,
-                             const NodeTemplate& elsepart) const;
-  NodeTemplate<true> iffNode(const NodeTemplate& right) const;
-  NodeTemplate<true> impNode(const NodeTemplate& right) const;
-  NodeTemplate<true> xorNode(const NodeTemplate& right) const;
+  template <bool ref_count2>
+  NodeTemplate<true> andNode(const NodeTemplate<ref_count2>& right) const;
+  template <bool ref_count2>
+  NodeTemplate<true> orNode(const NodeTemplate<ref_count2>& right) const;
+  template <bool ref_count2, bool ref_count3>
+  NodeTemplate<true> iteNode(const NodeTemplate<ref_count2>& thenpart,
+                             const NodeTemplate<ref_count3>& elsepart) const;
+  template <bool ref_count2>
+  NodeTemplate<true> iffNode(const NodeTemplate<ref_count2>& right) const;
+  template <bool ref_count2>
+  NodeTemplate<true> impNode(const NodeTemplate<ref_count2>& right) const;
+  template <bool ref_count2>
+  NodeTemplate<true> xorNode(const NodeTemplate<ref_count2>& right) const;
 
 };/* class NodeTemplate<ref_count> */
 
@@ -1085,8 +1092,9 @@ operator=(const NodeTemplate<!ref_count>& e) {
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::eqNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::eqNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::EQUAL, *this, right);
 }
@@ -1098,44 +1106,50 @@ NodeTemplate<true> NodeTemplate<ref_count>::notNode() const {
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::andNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::andNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::AND, *this, right);
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::orNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::orNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::OR, *this, right);
 }
 
 template <bool ref_count>
+template <bool ref_count2, bool ref_count3>
 NodeTemplate<true>
-NodeTemplate<ref_count>::iteNode(const NodeTemplate<ref_count>& thenpart,
-                                 const NodeTemplate<ref_count>& elsepart) const {
+NodeTemplate<ref_count>::iteNode(const NodeTemplate<ref_count2>& thenpart,
+                                 const NodeTemplate<ref_count3>& elsepart) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::ITE, *this, thenpart, elsepart);
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::iffNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::iffNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::IFF, *this, right);
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::impNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::impNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::IMPLIES, *this, right);
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::xorNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::xorNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::XOR, *this, right);
 }

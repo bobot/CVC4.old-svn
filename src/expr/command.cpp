@@ -114,6 +114,10 @@ void PopCommand::invoke(SmtEngine* smtEngine) {
 
 /* class CheckSatCommand */
 
+CheckSatCommand::CheckSatCommand() :
+  d_expr() {
+}
+
 CheckSatCommand::CheckSatCommand(const BoolExpr& expr) :
   d_expr(expr) {
 }

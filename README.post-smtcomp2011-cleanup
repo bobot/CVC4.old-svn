@@ -1,8 +1,7 @@
 TODO on this post-competition cleanup branch:
 
-preprocess dumping --dump={assertions,learned,clauses}
+preprocess dumping --dump=XX
 portfolio issues
-bug 272
 arrays and CC module
 svn / git bridge ?
 

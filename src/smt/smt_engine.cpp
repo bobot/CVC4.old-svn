@@ -767,7 +767,7 @@ void SmtEngine::ensureBoolean(const BoolExpr& e) {
 
 Result SmtEngine::checkSat(const BoolExpr& e) {
 
-  Assert(e.getExprManager() == d_exprManager);
+  Assert(e.isNull() || e.getExprManager() == d_exprManager);
 
   NodeManagerScope nms(d_nodeManager);
 
@@ -780,7 +780,9 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
   }
 
   // Ensure that the expression is type-checked at this point, and Boolean
-  ensureBoolean(e);
+  if(!e.isNull()) {
+    ensureBoolean(e);
+  }
 
   // Push the context
   internalPush();
@@ -789,15 +791,18 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
   d_queryMade = true;
 
   // Add the formula
-  d_problemExtended = true;
-  d_private->addFormula(e.getNode());
+  if(!e.isNull()) {
+    d_problemExtended = true;
+    d_private->addFormula(e.getNode());
+  }
 
   // Run the check
   Result r = check().asSatisfiabilityResult();
 
   // Dump the query if requested
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << CheckSatCommand(e) << endl;
+    // the expr already got dumped out if assertion-dumping is on
+    Dump("benchmark") << CheckSatCommand() << endl;
   }
 
   // Pop the context
@@ -815,6 +820,7 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
 
 Result SmtEngine::query(const BoolExpr& e) {
 
+  Assert(!e.isNull());
   Assert(e.getExprManager() == d_exprManager);
 
   NodeManagerScope nms(d_nodeManager);
@@ -845,7 +851,8 @@ Result SmtEngine::query(const BoolExpr& e) {
 
   // Dump the query if requested
   if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << QueryCommand(e) << endl;
+    // the expr already got dumped out if assertion-dumping is on
+    Dump("benchmark") << CheckSatCommand() << endl;
   }
 
   // Pop the context

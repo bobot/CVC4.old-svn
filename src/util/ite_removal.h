@@ -11,10 +11,9 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Representation of cardinality
+ ** \brief Removal of term ITEs
  **
- ** Simple class to represent a cardinality; used by the CVC4 type system
- ** give the cardinality of sorts.
+ ** Removal of term ITEs.
  **/
 
 #pragma once
@@ -38,7 +37,6 @@ public:
    */
   static Node run(TNode node, std::vector<Node>& additionalAssertions);
 
-};
+};/* class RemoveTTE */
 
-
-}
+}/* CVC4 namespace */

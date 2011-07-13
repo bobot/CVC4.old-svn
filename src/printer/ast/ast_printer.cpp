@@ -112,6 +112,7 @@ void AstPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<CheckSatCommand>(out, c) ||
      tryToStream<QueryCommand>(out, c) ||
      tryToStream<QuitCommand>(out, c) ||
+     tryToStream<DeclarationSequence>(out, c) ||
      tryToStream<CommandSequence>(out, c) ||
      tryToStream<DeclareFunctionCommand>(out, c) ||
      tryToStream<DefineFunctionCommand>(out, c) ||
@@ -128,7 +129,8 @@ void AstPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<GetInfoCommand>(out, c) ||
      tryToStream<SetOptionCommand>(out, c) ||
      tryToStream<GetOptionCommand>(out, c) ||
-     tryToStream<DatatypeDeclarationCommand>(out, c)) {
+     tryToStream<DatatypeDeclarationCommand>(out, c) ||
+     tryToStream<CommentCommand>(out, c)) {
     return;
   }
 
@@ -167,6 +169,16 @@ static void toStream(std::ostream& out, const QueryCommand* c) {
 
 static void toStream(std::ostream& out, const QuitCommand* c) {
   out << "Quit()";
+}
+
+static void toStream(std::ostream& out, const DeclarationSequence* c) {
+  out << "DeclarationSequence[" << endl;
+  for(CommandSequence::const_iterator i = c->begin();
+      i != c->end();
+      ++i) {
+    out << *i << endl;
+  }
+  out << "]";
 }
 
 static void toStream(std::ostream& out, const CommandSequence* c) {
@@ -263,6 +275,10 @@ static void toStream(std::ostream& out, const DatatypeDeclarationCommand* c) {
     out << *i << ";" << endl;
   }
   out << "])";
+}
+
+static void toStream(std::ostream& out, const CommentCommand* c) {
+  out << "CommentCommand([" << c->getComment() << "])";
 }
 
 template <class T>

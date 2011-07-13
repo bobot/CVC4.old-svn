@@ -23,6 +23,8 @@
 #include <string>
 #include <typeinfo>
 
+#include "util/boolean_simplification.h"
+
 using namespace std;
 
 namespace CVC4 {
@@ -312,13 +314,25 @@ static void toStream(std::ostream& out, const PopCommand* c) {
 static void toStream(std::ostream& out, const CheckSatCommand* c) {
   BoolExpr e = c->getExpr();
   if(!e.isNull()) {
-    out << "(assert " << e << ")";
+    out << PushCommand() << endl
+        << AssertCommand(e) << endl
+        << CheckSatCommand() << endl
+        << PopCommand() << endl;
+  } else {
+    out << "(check-sat)";
   }
-  out << "(check-sat)";
 }
 
 static void toStream(std::ostream& out, const QueryCommand* c) {
-  Unhandled("query command");
+  BoolExpr e = c->getExpr();
+  if(!e.isNull()) {
+    out << PushCommand() << endl
+        << AssertCommand(BooleanSimplification::negate(e)) << endl
+        << CheckSatCommand() << endl
+        << PopCommand() << endl;
+  } else {
+    out << "(check-sat)";
+  }
 }
 
 static void toStream(std::ostream& out, const QuitCommand* c) {

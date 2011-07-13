@@ -182,8 +182,10 @@ benchAttribute returns [CVC4::Command* smt_command]
   Command* c;
 }
   : LOGIC_TOK identifier[name,CHECK_NONE,SYM_VARIABLE]
-    { PARSER_STATE->setLogic(name);
-      smt_command = new SetBenchmarkLogicCommand(name); }
+    { PARSER_STATE->preemptCommand(new SetBenchmarkLogicCommand(name));
+      PARSER_STATE->setLogic(name);
+      smt_command = new EmptyCommand();
+    }
   | ASSUMPTION_TOK annotatedFormula[expr]
     { smt_command = new AssertCommand(expr); }
   | FORMULA_TOK annotatedFormula[expr]
@@ -433,6 +435,7 @@ functionSymbol[CVC4::Expr& fun]
  */
 attribute[std::string& s]
   :  ATTR_IDENTIFIER
+    { s = AntlrInput::tokenText($ATTR_IDENTIFIER); }
   ;
 
 functionDeclaration[CVC4::Command*& smt_command]
@@ -524,11 +527,18 @@ status[ CVC4::BenchmarkStatus& status ]
  * Matches an annotation, which is an attribute name, with an optional user
  */
 annotation[CVC4::Command*& smt_command]
-@declarations {
+@init {
   std::string key;
+  smt_command = NULL;
 }
-  : attribute[key] (USER_VALUE)?
-    { smt_command = new SetInfoCommand(key, AntlrInput::tokenText($USER_VALUE)); }
+  : attribute[key]
+    ( USER_VALUE
+      { smt_command = new SetInfoCommand(key, AntlrInput::tokenText($USER_VALUE)); }
+    )?
+    { if(smt_command == NULL) {
+        smt_command = new EmptyCommand(std::string("annotation: ") + key);
+      }
+    }
   ;
 
 /**
@@ -700,21 +710,20 @@ FLET_IDENTIFIER
   ;
 
 /**
- * Matches the value of user-defined annotations or attributes. The only constraint imposed on a user-defined value is that it start with
- * an open brace and end with closed brace.
+ * Matches the value of user-defined annotations or attributes. The
+ * only constraint imposed on a user-defined value is that it start
+ * with an open brace and end with closed brace.
  */
 USER_VALUE
-  :   '{'
-      ( '\\{' | '\\}' | ~('{' | '}') )*
-    '}'
+  : '{' ( '\\{' | '\\}' | ~('{' | '}') )* '}'
   ;
-
 
 /**
  * Matches and skips whitespace in the input.
  */
 WHITESPACE
-  :  (' ' | '\t' | '\f' | '\r' | '\n')+             { SKIP();; }
+  : (' ' | '\t' | '\f' | '\r' | '\n')+
+    { SKIP(); }
   ;
 
 /**
@@ -740,7 +749,8 @@ STRING_LITERAL
  * Matches the comments and ignores them
  */
 COMMENT
-  : ';' (~('\n' | '\r'))*                    { SKIP();; }
+  : ';' (~('\n' | '\r'))*
+    { SKIP(); }
   ;
 
 

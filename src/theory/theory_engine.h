@@ -131,8 +131,8 @@ class TheoryEngine {
                       << conflictNode << ")" << std::endl;
       d_conflictNode = conflictNode;
       if(Dump.isOn("t-conflicts")) {
-        Dump("t-conflicts") << AssertCommand(conflictNode.toExpr())
-                            << std::endl;
+        Dump("t-conflicts") << CommentCommand("theory conflict: expect unsat") << std::endl
+                            << CheckSatCommand(conflictNode.toExpr()) << std::endl;
       }
       ++(d_engine->d_statistics.d_statConflicts);
       if(safe) {
@@ -145,7 +145,8 @@ class TheoryEngine {
       Trace("theory") << "EngineOutputChannel::propagate("
                       << lit << ")" << std::endl;
       if(Dump.isOn("t-propagations")) {
-        Dump("t-propagations") << AssertCommand(lit.toExpr()) << std::endl;
+        Dump("t-propagations") << CommentCommand("negation of theory propagation: expect valid") << std::endl
+                               << QueryCommand(lit.toExpr()) << std::endl;
       }
       d_propagatedLiterals.push_back(lit);
       ++(d_engine->d_statistics.d_statPropagate);
@@ -156,7 +157,8 @@ class TheoryEngine {
       Trace("theory") << "EngineOutputChannel::lemma("
                       << node << ")" << std::endl;
       if(Dump.isOn("t-lemmas")) {
-        Dump("t-lemmas") << AssertCommand(node.toExpr()) << std::endl;
+        Dump("t-lemmas") << CommentCommand("theory lemma: expect valid") << std::endl
+                         << QueryCommand(node.toExpr()) << std::endl;
       }
       ++(d_engine->d_statistics.d_statLemma);
       d_engine->newLemma(node);
@@ -166,10 +168,7 @@ class TheoryEngine {
       throw(theory::Interrupted, AssertionException) {
       Trace("theory") << "EngineOutputChannel::explanation("
                       << explanationNode << ")" << std::endl;
-      if(Dump.isOn("t-explanations")) {
-        Dump("t-explanations") << AssertCommand(explanationNode.toExpr())
-                               << std::endl;
-      }
+      // handle dumping of explanations elsewhere..
       d_explanationNode = explanationNode;
       ++(d_engine->d_statistics.d_statExplanation);
     }
@@ -449,21 +448,38 @@ public:
 
   inline Node getExplanation(TNode node, theory::Theory* theory) {
     theory->explain(node);
+    if(Dump.isOn("t-explanations")) {
+      Dump("t-explanations")
+        << CommentCommand(std::string("theory explanation from ") +
+                          theory->identify() + ": expect valid") << std::endl
+        << QueryCommand(d_theoryOut.d_explanationNode.get().impNode(node).toExpr())
+        << std::endl;
+    }
     return d_theoryOut.d_explanationNode;
   }
 
   inline Node getExplanation(TNode node) {
     d_theoryOut.d_explanationNode = Node::null();
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
+    theory::Theory* th;
     if (atom.getKind() == kind::EQUAL) {
       if(d_logic == "QF_AX") {
-        Trace("theory") << "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays" << std::endl;
-        d_theoryTable[theory::THEORY_ARRAY]->explain(node);
+        Trace("theory") << "TheoryEngine::assertFact QF_AX logic; "
+                        << "everything goes to Arrays" << std::endl;
+        th = d_theoryTable[theory::THEORY_ARRAY];
       } else {
-        theoryOf(atom[0])->explain(node);
+        th = theoryOf(atom[0]);
       }
     } else {
-      theoryOf(atom)->explain(node);
+      th = theoryOf(atom);
+    }
+    th->explain(node);
+    if(Dump.isOn("t-explanations")) {
+      Dump("t-explanations")
+        << CommentCommand(std::string("theory explanation from ") +
+                          th->identify() + ": expect valid") << std::endl
+        << QueryCommand(d_theoryOut.d_explanationNode.get().impNode(node).toExpr())
+        << std::endl;
     }
     Assert(!d_theoryOut.d_explanationNode.get().isNull());
     return d_theoryOut.d_explanationNode;

@@ -239,7 +239,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n,
       out << n[0] << '[' << n[1] << ']';
       break;
     case kind::STORE:
-      out << n[0] << " WITH [" << n[1] << "] = " << n[2];
+      out << '(' << n[0] << " WITH [" << n[1] << "] := " << n[2] << ')';
       break;
 
     case kind::TUPLE_TYPE:
@@ -354,8 +354,8 @@ void CvcPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<CheckSatCommand>(out, c) ||
      tryToStream<QueryCommand>(out, c) ||
      tryToStream<QuitCommand>(out, c) ||
-     tryToStream<CommandSequence>(out, c) ||
      tryToStream<DeclarationSequence>(out, c) ||
+     tryToStream<CommandSequence>(out, c) ||
      tryToStream<DeclareFunctionCommand>(out, c) ||
      tryToStream<DefineFunctionCommand>(out, c) ||
      tryToStream<DeclareTypeCommand>(out, c) ||
@@ -396,16 +396,22 @@ static void toStream(std::ostream& out, const CheckSatCommand* c) {
   BoolExpr e = c->getExpr();
   if(!e.isNull()) {
     out << "CHECKSAT " << e << ";";
+  } else {
+    out << "CHECKSAT;";
   }
-  out << "CHECKSAT;";
 }
 
 static void toStream(std::ostream& out, const QueryCommand* c) {
-  out << "QUERY " << c->getExpr() << ";";
+  BoolExpr e = c->getExpr();
+  if(!e.isNull()) {
+    out << "QUERY " << e << ";";
+  } else {
+    out << "QUERY TRUE;";
+  }
 }
 
 static void toStream(std::ostream& out, const QuitCommand* c) {
-  out << "EXIT;";
+  //out << "EXIT;";
 }
 
 static void toStream(std::ostream& out, const CommandSequence* c) {

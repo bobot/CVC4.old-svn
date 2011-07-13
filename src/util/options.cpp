@@ -469,10 +469,21 @@ throw(OptionException) {
 
     case DUMP:
 #ifdef CVC4_DUMPING
-      if(!strcmp(optarg, "help")) {
+      if(!strcmp(optarg, "assertions")) {
+      } else if(!strcmp(optarg, "learned")) {
+      } else if(!strcmp(optarg, "clauses")) {
+      } else if(!strcmp(optarg, "t-conflicts")) {
+      } else if(!strcmp(optarg, "t-propagations")) {
+      } else if(!strcmp(optarg, "t-lemmas")) {
+      } else if(!strcmp(optarg, "t-explanations")) {
+      } else if(!strcmp(optarg, "help")) {
         puts(dumpHelp.c_str());
         exit(1);
+      } else {
+        throw OptionException(string("unknown option for --dump: `") +
+                              optarg + "'.  Try --dump help.");
       }
+
       Dump.on(optarg);
       Dump.on("benchmark");
       Dump.on("declarations");

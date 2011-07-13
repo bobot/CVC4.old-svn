@@ -177,6 +177,7 @@ protected:
   BoolExpr d_expr;
   Result d_result;
 public:
+  CheckSatCommand();
   CheckSatCommand(const BoolExpr& expr);
   BoolExpr getExpr() const;
   void invoke(SmtEngine* smtEngine);
@@ -364,7 +365,6 @@ public:
 };/* class CommandSequence */
 
 class CVC4_PUBLIC DeclarationSequence : public CommandSequence {
-  /* simply a marker class */
 };/* class DeclarationSequence */
 
 }/* CVC4 namespace */
