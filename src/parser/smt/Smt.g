@@ -179,21 +179,35 @@ benchAttribute returns [CVC4::Command* smt_command]
   std::string name;
   BenchmarkStatus b_status;
   Expr expr;
+  Command* c;
 }
   : LOGIC_TOK identifier[name,CHECK_NONE,SYM_VARIABLE]
     { PARSER_STATE->setLogic(name);
-      smt_command = new SetBenchmarkLogicCommand(name);   }
+      smt_command = new SetBenchmarkLogicCommand(name); }
   | ASSUMPTION_TOK annotatedFormula[expr]
-    { smt_command = new AssertCommand(expr);   }
+    { smt_command = new AssertCommand(expr); }
   | FORMULA_TOK annotatedFormula[expr]
     { smt_command = new CheckSatCommand(expr); }
   | STATUS_TOK status[b_status]
     { smt_command = new SetBenchmarkStatusCommand(b_status); }
-  | EXTRAFUNS_TOK LPAREN_TOK (functionDeclaration)+ RPAREN_TOK
-  | EXTRAPREDS_TOK LPAREN_TOK (predicateDeclaration)+ RPAREN_TOK
-  | EXTRASORTS_TOK LPAREN_TOK sortDeclaration+ RPAREN_TOK
+  | EXTRAFUNS_TOK LPAREN_TOK
+    ( { smt_command = new CommandSequence(); }
+      functionDeclaration[c]
+      { ((CommandSequence*) smt_command)->addCommand(c); }
+    )+ RPAREN_TOK
+  | EXTRAPREDS_TOK LPAREN_TOK
+    ( { smt_command = new CommandSequence(); }
+      predicateDeclaration[c]
+      { ((CommandSequence*) smt_command)->addCommand(c); }
+    )+ RPAREN_TOK
+  | EXTRASORTS_TOK LPAREN_TOK
+    ( { smt_command = new CommandSequence(); }
+      sortDeclaration[c]
+      { ((CommandSequence*) smt_command)->addCommand(c); }
+    )+ RPAREN_TOK
   | NOTES_TOK STRING_LITERAL
-  | annotation
+    { smt_command = new CommentCommand(AntlrInput::tokenText($STRING_LITERAL)); }
+  | annotation[smt_command]
   ;
 
 /**
@@ -417,11 +431,11 @@ functionSymbol[CVC4::Expr& fun]
 /**
  * Matches an attribute name from the input (:attribute_name).
  */
-attribute
+attribute[std::string& s]
   :  ATTR_IDENTIFIER
   ;
 
-functionDeclaration
+functionDeclaration[CVC4::Command*& smt_command]
 @declarations {
   std::string name;
   std::vector<Type> sorts;
@@ -435,13 +449,15 @@ functionDeclaration
       } else {
         t = EXPR_MANAGER->mkFunctionType(sorts);
       }
-      PARSER_STATE->mkVar(name, t); }
+      PARSER_STATE->mkVar(name, t);
+      smt_command = new DeclareFunctionCommand(name, t);
+    }
   ;
 
 /**
  * Matches the declaration of a predicate and declares it
  */
-predicateDeclaration
+predicateDeclaration[CVC4::Command*& smt_command]
 @declarations {
   std::string name;
   std::vector<Type> p_sorts;
@@ -453,16 +469,20 @@ predicateDeclaration
       } else {
         t = EXPR_MANAGER->mkPredicateType(p_sorts);
       }
-      PARSER_STATE->mkVar(name, t); }
+      PARSER_STATE->mkVar(name, t);
+      smt_command = new DeclareFunctionCommand(name, t);
+    }
   ;
 
-sortDeclaration
+sortDeclaration[CVC4::Command*& smt_command]
 @declarations {
   std::string name;
 }
   : sortName[name,CHECK_UNDECLARED]
     { Debug("parser") << "sort decl: '" << name << "'" << std::endl;
-      PARSER_STATE->mkSort(name); }
+      Type type = PARSER_STATE->mkSort(name);
+      smt_command = new DeclareTypeCommand(name, 0, type);
+    }
   ;
 
 /**
@@ -503,8 +523,12 @@ status[ CVC4::BenchmarkStatus& status ]
 /**
  * Matches an annotation, which is an attribute name, with an optional user
  */
-annotation
-  : attribute (USER_VALUE)?
+annotation[CVC4::Command*& smt_command]
+@declarations {
+  std::string key;
+}
+  : attribute[key] (USER_VALUE)?
+    { smt_command = new SetInfoCommand(key, AntlrInput::tokenText($USER_VALUE)); }
   ;
 
 /**

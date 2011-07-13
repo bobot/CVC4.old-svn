@@ -224,35 +224,96 @@ CommandSequence::iterator CommandSequence::end() {
   return d_commandSequence.end();
 }
 
-/* class DeclarationCommand */
+/* class DeclarationDefinitionCommand */
 
-DeclarationCommand::DeclarationCommand(const std::string& id, Type t) :
+DeclarationDefinitionCommand::DeclarationDefinitionCommand(const std::string& id) :
+  d_symbol(id) {
+}
+
+std::string DeclarationDefinitionCommand::getSymbol() const {
+  return d_symbol;
+}
+
+/* class DeclareFunctionCommand */
+
+DeclareFunctionCommand::DeclareFunctionCommand(const std::string& id, Type t) :
+  DeclarationDefinitionCommand(id),
   d_type(t) {
-  d_declaredSymbols.push_back(id);
 }
 
-DeclarationCommand::DeclarationCommand(const std::vector<std::string>& ids, Type t) :
-  d_declaredSymbols(ids),
-  d_type(t) {
-}
-
-const std::vector<std::string>& DeclarationCommand::getDeclaredSymbols() const {
-  return d_declaredSymbols;
-}
-
-Type DeclarationCommand::getDeclaredType() const {
+Type DeclareFunctionCommand::getType() const {
   return d_type;
 }
 
-void DeclarationCommand::invoke(SmtEngine* smtEngine) {
+void DeclareFunctionCommand::invoke(SmtEngine* smtEngine) {
+  Dump("declarations") << *this << endl;
+}
+
+/* class DeclareTypeCommand */
+
+DeclareTypeCommand::DeclareTypeCommand(const std::string& id, size_t arity, Type t) :
+  DeclarationDefinitionCommand(id),
+  d_arity(arity),
+  d_type(t) {
+}
+
+size_t DeclareTypeCommand::getArity() const {
+  return d_arity;
+}
+
+Type DeclareTypeCommand::getType() const {
+  return d_type;
+}
+
+void DeclareTypeCommand::invoke(SmtEngine* smtEngine) {
+  Dump("declarations") << *this << endl;
+}
+
+/* class DefineTypeCommand */
+
+DefineTypeCommand::DefineTypeCommand(const std::string& id,
+                                     Type t) :
+  DeclarationDefinitionCommand(id),
+  d_params(),
+  d_type(t) {
+}
+
+DefineTypeCommand::DefineTypeCommand(const std::string& id,
+                                     const std::vector<Type>& params,
+                                     Type t) :
+  DeclarationDefinitionCommand(id),
+  d_params(params),
+  d_type(t) {
+}
+
+const std::vector<Type>& DefineTypeCommand::getParameters() const {
+  return d_params;
+}
+
+Type DefineTypeCommand::getType() const {
+  return d_type;
+}
+
+void DefineTypeCommand::invoke(SmtEngine* smtEngine) {
   Dump("declarations") << *this << endl;
 }
 
 /* class DefineFunctionCommand */
 
-DefineFunctionCommand::DefineFunctionCommand(Expr func,
+DefineFunctionCommand::DefineFunctionCommand(const std::string& id,
+                                             Expr func,
+                                             Expr formula) :
+  DeclarationDefinitionCommand(id),
+  d_func(func),
+  d_formals(),
+  d_formula(formula) {
+}
+
+DefineFunctionCommand::DefineFunctionCommand(const std::string& id,
+                                             Expr func,
                                              const std::vector<Expr>& formals,
                                              Expr formula) :
+  DeclarationDefinitionCommand(id),
   d_func(func),
   d_formals(formals),
   d_formula(formula) {
@@ -271,20 +332,24 @@ Expr DefineFunctionCommand::getFormula() const {
 }
 
 void DefineFunctionCommand::invoke(SmtEngine* smtEngine) {
-  smtEngine->defineFunction(d_func, d_formals, d_formula);
+  Dump("declarations") << *this << endl;
+  if(!d_func.isNull()) {
+    smtEngine->defineFunction(d_func, d_formals, d_formula);
+  }
 }
 
-/* class DefineFunctionCommand */
+/* class DefineNamedFunctionCommand */
 
-DefineNamedFunctionCommand::DefineNamedFunctionCommand(Expr func,
+DefineNamedFunctionCommand::DefineNamedFunctionCommand(const std::string& id,
+                                                       Expr func,
                                                        const std::vector<Expr>& formals,
                                                        Expr formula) :
-  DefineFunctionCommand(func, formals, formula) {
+  DefineFunctionCommand(id, func, formals, formula) {
 }
 
 void DefineNamedFunctionCommand::invoke(SmtEngine* smtEngine) {
   this->DefineFunctionCommand::invoke(smtEngine);
-  if(d_func.getType().isBoolean()) {
+  if(!d_func.isNull() && d_func.getType().isBoolean()) {
     smtEngine->addToAssignment(d_func.getExprManager()->mkExpr(kind::APPLY,
                                                                d_func));
   }

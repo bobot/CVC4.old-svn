@@ -59,18 +59,23 @@ std::ostream& operator<<(std::ostream& out,
 
 class CVC4_PUBLIC Command {
 public:
+  virtual ~Command() {}
+
   virtual void invoke(SmtEngine* smtEngine) = 0;
   virtual void invoke(SmtEngine* smtEngine, std::ostream& out);
-  virtual ~Command() {};
+
   virtual void toStream(std::ostream& out, int toDepth = -1, bool types = false,
                         OutputLanguage language = language::output::LANG_AST) const;
+
   std::string toString() const;
+
   virtual void printResult(std::ostream& out) const;
+
 };/* class Command */
 
 /**
- * EmptyCommands (and its subclasses) are the residue of a command
- * after the parser handles them (and there's nothing left to do).
+ * EmptyCommands are the residue of a command after the parser handles
+ * them (and there's nothing left to do).
  */
 class CVC4_PUBLIC EmptyCommand : public Command {
 protected:
@@ -100,27 +105,55 @@ public:
   void invoke(SmtEngine* smtEngine);
 };/* class PopCommand */
 
-class CVC4_PUBLIC DeclarationCommand : public EmptyCommand {
+class CVC4_PUBLIC DeclarationDefinitionCommand : public Command {
 protected:
-  std::vector<std::string> d_declaredSymbols;
+  std::string d_symbol;
+public:
+  DeclarationDefinitionCommand(const std::string& id);
+  std::string getSymbol() const;
+};/* class DeclarationDefinitionCommand */
+
+class CVC4_PUBLIC DeclareFunctionCommand : public DeclarationDefinitionCommand {
+protected:
   Type d_type;
 public:
-  DeclarationCommand(const std::string& id, Type t);
-  DeclarationCommand(const std::vector<std::string>& ids, Type t);
-  const std::vector<std::string>& getDeclaredSymbols() const;
-  Type getDeclaredType() const;
+  DeclareFunctionCommand(const std::string& id, Type type);
+  Type getType() const;
   void invoke(SmtEngine* smtEngine);
-};/* class DeclarationCommand */
+};/* class DeclareFunctionCommand */
 
-class CVC4_PUBLIC DefineFunctionCommand : public Command {
+class CVC4_PUBLIC DeclareTypeCommand : public DeclarationDefinitionCommand {
+protected:
+  size_t d_arity;
+  Type d_type;
+public:
+  DeclareTypeCommand(const std::string& id, size_t arity, Type t);
+  size_t getArity() const;
+  Type getType() const;
+  void invoke(SmtEngine* smtEngine);
+};/* class DeclareTypeCommand */
+
+class CVC4_PUBLIC DefineTypeCommand : public DeclarationDefinitionCommand {
+protected:
+  std::vector<Type> d_params;
+  Type d_type;
+public:
+  DefineTypeCommand(const std::string& id, Type t);
+  DefineTypeCommand(const std::string& id, const std::vector<Type>& params, Type t);
+  const std::vector<Type>& getParameters() const;
+  Type getType() const;
+  void invoke(SmtEngine* smtEngine);
+};/* class DefineTypeCommand */
+
+class CVC4_PUBLIC DefineFunctionCommand : public DeclarationDefinitionCommand {
 protected:
   Expr d_func;
   std::vector<Expr> d_formals;
   Expr d_formula;
 public:
-  DefineFunctionCommand(Expr func,
-                        const std::vector<Expr>& formals,
-                        Expr formula);
+  DefineFunctionCommand(const std::string& id, Expr func, Expr formula);
+  DefineFunctionCommand(const std::string& id, Expr func,
+                        const std::vector<Expr>& formals, Expr formula);
   Expr getFunction() const;
   const std::vector<Expr>& getFormals() const;
   Expr getFormula() const;
@@ -134,9 +167,8 @@ public:
  */
 class CVC4_PUBLIC DefineNamedFunctionCommand : public DefineFunctionCommand {
 public:
-  DefineNamedFunctionCommand(Expr func,
-                             const std::vector<Expr>& formals,
-                             Expr formula);
+  DefineNamedFunctionCommand(const std::string& id, Expr func,
+                             const std::vector<Expr>& formals, Expr formula);
   void invoke(SmtEngine* smtEngine);
 };/* class DefineNamedFunctionCommand */
 
@@ -291,13 +323,13 @@ public:
   void invoke(SmtEngine* smtEngine);
 };/* class DatatypeDeclarationCommand */
 
-class CVC4_PUBLIC QuitCommand : public EmptyCommand {
+class CVC4_PUBLIC QuitCommand : public Command {
 public:
   QuitCommand();
   void invoke(SmtEngine* smtEngine);
 };/* class QuitCommand */
 
-class CVC4_PUBLIC CommentCommand : public EmptyCommand {
+class CVC4_PUBLIC CommentCommand : public Command {
   std::string d_comment;
 public:
   CommentCommand(std::string comment);
@@ -330,6 +362,10 @@ public:
   iterator end();
 
 };/* class CommandSequence */
+
+class CVC4_PUBLIC DeclarationSequence : public CommandSequence {
+  /* simply a marker class */
+};/* class DeclarationSequence */
 
 }/* CVC4 namespace */
 

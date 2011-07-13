@@ -237,11 +237,14 @@ Command* InteractiveShell::readCommand() {
         break;
       } else {
 #if HAVE_LIBREADLINE
-        DeclarationCommand* dcmd =
-          dynamic_cast<DeclarationCommand*>(cmd);
-        if(dcmd != NULL) {
-          const vector<string>& ids = dcmd->getDeclaredSymbols();
-          s_declarations.insert(ids.begin(), ids.end());
+        if(dynamic_cast<DeclareFunctionCommand*>(cmd) != NULL) {
+          s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
+        } else if(dynamic_cast<DefineFunctionCommand*>(cmd) != NULL) {
+          s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
+        } else if(dynamic_cast<DeclareTypeCommand*>(cmd) != NULL) {
+          s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
+        } else if(dynamic_cast<DefineTypeCommand*>(cmd) != NULL) {
+          s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
         }
 #endif /* HAVE_LIBREADLINE */
       }

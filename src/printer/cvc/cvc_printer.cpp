@@ -169,6 +169,15 @@ void CvcPrinter::toStream(std::ostream& out, TNode n,
     return;
   } else if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
     switch(n.getKind()) {
+    case kind::SORT_TYPE: {
+      std::string name;
+      if(n.getAttribute(expr::VarNameAttr(), name)) {
+        out << name;
+      } else {
+        goto default_case;
+      }
+      break;
+    }
     case kind::BITVECTOR_EXTRACT:
       out << n[0] << n.getOperator().getConst<BitVectorExtract>();
       break;
@@ -189,6 +198,7 @@ void CvcPrinter::toStream(std::ostream& out, TNode n,
       break;
 
     default:
+    default_case:
       out << n.getOperator();
       if(n.getNumChildren() > 0) {
         out << '(';
@@ -345,8 +355,11 @@ void CvcPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<QueryCommand>(out, c) ||
      tryToStream<QuitCommand>(out, c) ||
      tryToStream<CommandSequence>(out, c) ||
-     tryToStream<DeclarationCommand>(out, c) ||
+     tryToStream<DeclarationSequence>(out, c) ||
+     tryToStream<DeclareFunctionCommand>(out, c) ||
      tryToStream<DefineFunctionCommand>(out, c) ||
+     tryToStream<DeclareTypeCommand>(out, c) ||
+     tryToStream<DefineTypeCommand>(out, c) ||
      tryToStream<DefineNamedFunctionCommand>(out, c) ||
      tryToStream<SimplifyCommand>(out, c) ||
      tryToStream<GetValueCommand>(out, c) ||
@@ -358,7 +371,8 @@ void CvcPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<GetInfoCommand>(out, c) ||
      tryToStream<SetOptionCommand>(out, c) ||
      tryToStream<GetOptionCommand>(out, c) ||
-     tryToStream<DatatypeDeclarationCommand>(out, c)) {
+     tryToStream<DatatypeDeclarationCommand>(out, c) ||
+     tryToStream<CommentCommand>(out, c)) {
     return;
   }
 
@@ -402,14 +416,22 @@ static void toStream(std::ostream& out, const CommandSequence* c) {
   }
 }
 
-static void toStream(std::ostream& out, const DeclarationCommand* c) {
-  const vector<string>& declaredSymbols = c->getDeclaredSymbols();
-  Type declaredType = c->getDeclaredType();
-  Assert(declaredSymbols.size() > 0);
-  copy( declaredSymbols.begin(), declaredSymbols.end() - 1,
-        ostream_iterator<string>(out, ", ") );
-  out << declaredSymbols.back();
-  out << " : " << declaredType << ";";
+static void toStream(std::ostream& out, const DeclarationSequence* c) {
+  DeclarationSequence::const_iterator i = c->begin();
+  for(;;) {
+    DeclarationDefinitionCommand* dd =
+      static_cast<DeclarationDefinitionCommand*>(*i++);
+    if(i != c->end()) {
+      out << dd->getSymbol() << ", ";
+    } else {
+      out << *dd;
+      break;
+    }
+  }
+}
+
+static void toStream(std::ostream& out, const DeclareFunctionCommand* c) {
+  out << c->getSymbol() << " : " << c->getType() << ";";
 }
 
 static void toStream(std::ostream& out, const DefineFunctionCommand* c) {
@@ -425,6 +447,22 @@ static void toStream(std::ostream& out, const DefineFunctionCommand* c) {
     }
   }
   out << "): " << formula << ";";
+}
+
+static void toStream(std::ostream& out, const DeclareTypeCommand* c) {
+  if(c->getArity() > 0) {
+    Unhandled("Don't know how to print parameterized type declaration "
+              "in CVC language:\n%s", c->toString().c_str());
+  }
+  out << c->getSymbol() << " : TYPE;";
+}
+
+static void toStream(std::ostream& out, const DefineTypeCommand* c) {
+  if(c->getParameters().size() > 0) {
+    Unhandled("Don't know how to print parameterized type definition "
+              "in CVC language:\n%s", c->toString().c_str());
+  }
+  out << c->getSymbol() << " : TYPE = " << c->getType() << ";";
 }
 
 static void toStream(std::ostream& out, const DefineNamedFunctionCommand* c) {
@@ -479,6 +517,10 @@ static void toStream(std::ostream& out, const DatatypeDeclarationCommand* c) {
       ++i) {
     out << *i;
   }
+}
+
+static void toStream(std::ostream& out, const CommentCommand* c) {
+  out << "% " << c->getComment();
 }
 
 template <class T>

@@ -192,11 +192,11 @@ command returns [CVC4::Command* cmd]
                       << "' arity=" << n << std::endl;
       unsigned arity = AntlrInput::tokenToUnsigned(n);
       if(arity == 0) {
-        PARSER_STATE->mkSort(name);
-        $cmd = new DeclarationCommand(name, EXPR_MANAGER->kindType());
+        Type type = PARSER_STATE->mkSort(name);
+        $cmd = new DeclareTypeCommand(name, 0, type);
       } else {
-        PARSER_STATE->mkSortConstructor(name, arity);
-        $cmd = new DeclarationCommand(name, EXPR_MANAGER->kindType());
+        Type type = PARSER_STATE->mkSortConstructor(name, arity);
+        $cmd = new DeclareTypeCommand(name, arity, type);
       }
     }
   | /* sort definition */
@@ -216,7 +216,7 @@ command returns [CVC4::Command* cmd]
       // Do NOT call mkSort, since that creates a new sort!
       // This name is not its own distinct sort, it's an alias.
       PARSER_STATE->defineParameterizedType(name, sorts, t);
-      $cmd = new EmptyCommand;
+      $cmd = new DefineTypeCommand(name, sorts, t);
     }
   | /* function declaration */
     DECLARE_FUN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
@@ -227,7 +227,7 @@ command returns [CVC4::Command* cmd]
         t = EXPR_MANAGER->mkFunctionType(sorts, t);
       }
       PARSER_STATE->mkVar(name, t);
-      $cmd = new DeclarationCommand(name,t); }
+      $cmd = new DeclareFunctionCommand(name, t); }
   | /* function definition */
     DEFINE_FUN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE]
     LPAREN_TOK sortedVarList[sortedVarNames] RPAREN_TOK
@@ -259,7 +259,7 @@ command returns [CVC4::Command* cmd]
       // must not be extended with the name itself; no recursion
       // permitted)
       Expr func = PARSER_STATE->mkFunction(name, t);
-      $cmd = new DefineFunctionCommand(func, terms, expr);
+      $cmd = new DefineFunctionCommand(name, func, terms, expr);
     }
   | /* value query */
     GET_VALUE_TOK LPAREN_TOK termList[terms,expr] RPAREN_TOK
@@ -441,7 +441,7 @@ term[CVC4::Expr& expr]
         Expr func = PARSER_STATE->mkFunction(name, expr.getType());
         // bind name to expr with define-fun
         Command* c =
-          new DefineNamedFunctionCommand(func, std::vector<Expr>(), expr);
+          new DefineNamedFunctionCommand(name, func, std::vector<Expr>(), expr);
         PARSER_STATE->preemptCommand(c);
       } else {
         std::stringstream ss;

@@ -752,15 +752,15 @@ toplevelDeclaration[CVC4::Command*& cmd]
   Debug("parser-extra") << "declaration: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
   : identifierList[ids,CHECK_NONE,SYM_VARIABLE] COLON
-    ( declareVariables[t,ids,true] { cmd = new DeclarationCommand(ids, t); }
-    | declareTypes[ids] { cmd = new DeclarationCommand(ids, EXPR_MANAGER->kindType()); } )
+    ( declareVariables[cmd,t,ids,true]
+    | declareTypes[cmd,ids] )
   ;
 
 /**
  * A bound variable declaration.
  */
 boundVarDecl[std::vector<std::string>& ids, CVC4::Type& t]
-  : identifierList[ids,CHECK_NONE,SYM_VARIABLE] COLON declareVariables[t,ids,false]
+  : identifierList[ids,CHECK_NONE,SYM_VARIABLE] COLON declareVariables[*(Command**)NULL,t,ids,false]
   ;
 
 /**
@@ -808,13 +808,14 @@ boundVarDeclReturn[std::vector<CVC4::Expr>& terms,
  * because type declarations are always top-level, except for
  * type-lets, which don't use this rule.
  */
-declareTypes[const std::vector<std::string>& idList]
+declareTypes[CVC4::Command*& cmd, const std::vector<std::string>& idList]
 @init {
   Type t;
 }
     /* A sort declaration (e.g., "T : TYPE") */
   : TYPE_TOK
-    { for(std::vector<std::string>::const_iterator i = idList.begin();
+    { DeclarationSequence* seq = new DeclarationSequence();
+      for(std::vector<std::string>::const_iterator i = idList.begin();
           i != idList.end();
           ++i) {
         // Don't allow a type variable to clash with a previously
@@ -822,8 +823,15 @@ declareTypes[const std::vector<std::string>& idList]
         // non-type variable can clash unambiguously.  Break from CVC3
         // behavior here.
         PARSER_STATE->checkDeclaration(*i, CHECK_UNDECLARED, SYM_SORT);
+        for(std::vector<std::string>::const_iterator i = idList.begin();
+            i != idList.end();
+            ++i) {
+          Type sort = PARSER_STATE->mkSort(*i);
+          Command* decl = new DeclareTypeCommand(*i, 0, sort);
+          seq->addCommand(decl);
+        }
       }
-      PARSER_STATE->mkSorts(idList);
+      cmd = seq;
     }
 
     /* A type alias "T : TYPE = foo..." */
@@ -843,16 +851,20 @@ declareTypes[const std::vector<std::string>& idList]
  * re-declared if topLevel is true (CVC allows re-declaration if the
  * types are compatible---if they aren't compatible, an error is
  * thrown).  Also if topLevel is true, variable definitions are
- * permitted.
+ * permitted and "cmd" is output.
  */
-declareVariables[CVC4::Type& t, const std::vector<std::string>& idList, bool topLevel]
+declareVariables[CVC4::Command*& cmd, CVC4::Type& t, const std::vector<std::string>& idList, bool topLevel]
 @init {
   Expr f;
   Debug("parser-extra") << "declType: " << AntlrInput::tokenText(LT(1)) << std::endl;
 }
     /* A variable declaration (or definition) */
   : type[t,CHECK_DECLARED] ( EQUAL_TOK formula[f] )?
-    { if(f.isNull()) {
+    { DeclarationSequence* seq = NULL;
+      if(topLevel) {
+        cmd = seq = new DeclarationSequence();
+      }
+      if(f.isNull()) {
         Debug("parser") << "working on " << idList.front() << " : " << t << std::endl;
         // CVC language allows redeclaration of variables if types are the same
         for(std::vector<std::string>::const_iterator i = idList.begin(),
@@ -877,6 +889,10 @@ declareVariables[CVC4::Type& t, const std::vector<std::string>& idList, bool top
           } else {
             Debug("parser") << "  " << *i << " not declared" << std::endl;
             PARSER_STATE->mkVar(*i, t);
+            if(topLevel) {
+              Command* decl = new DeclareFunctionCommand(*i, t);
+              seq->addCommand(decl);
+            }
           }
         }
       } else {
@@ -892,6 +908,8 @@ declareVariables[CVC4::Type& t, const std::vector<std::string>& idList, bool top
             ++i) {
           PARSER_STATE->checkDeclaration(*i, CHECK_UNDECLARED, SYM_VARIABLE);
           PARSER_STATE->defineFunction(*i, f);
+          Command* decl = new DefineFunctionCommand(*i, Expr(), f);
+          seq->addCommand(decl);
         }
       }
     }
@@ -1208,8 +1226,9 @@ prefixFormula[CVC4::Expr& f]
     RPAREN COLON formula[f]
     { PARSER_STATE->popScope();
       Type t = EXPR_MANAGER->mkFunctionType(types, f.getType());
-      Expr func = PARSER_STATE->mkAnonymousFunction("lambda", t);
-      Command* cmd = new DefineFunctionCommand(func, terms, f);
+      std::string name = "lambda";
+      Expr func = PARSER_STATE->mkAnonymousFunction(name, t);
+      Command* cmd = new DefineFunctionCommand(name, func, terms, f);
       PARSER_STATE->preemptCommand(cmd);
       f = func;
     }

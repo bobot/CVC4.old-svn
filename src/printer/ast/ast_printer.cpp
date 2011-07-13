@@ -113,8 +113,10 @@ void AstPrinter::toStream(std::ostream& out, const Command* c,
      tryToStream<QueryCommand>(out, c) ||
      tryToStream<QuitCommand>(out, c) ||
      tryToStream<CommandSequence>(out, c) ||
-     tryToStream<DeclarationCommand>(out, c) ||
+     tryToStream<DeclareFunctionCommand>(out, c) ||
      tryToStream<DefineFunctionCommand>(out, c) ||
+     tryToStream<DeclareTypeCommand>(out, c) ||
+     tryToStream<DefineTypeCommand>(out, c) ||
      tryToStream<DefineNamedFunctionCommand>(out, c) ||
      tryToStream<SimplifyCommand>(out, c) ||
      tryToStream<GetValueCommand>(out, c) ||
@@ -177,13 +179,8 @@ static void toStream(std::ostream& out, const CommandSequence* c) {
   out << "]";
 }
 
-static void toStream(std::ostream& out, const DeclarationCommand* c) {
-  const vector<string>& declaredSymbols = c->getDeclaredSymbols();
-  out << "Declare([";
-  copy( declaredSymbols.begin(), declaredSymbols.end() - 1,
-        ostream_iterator<string>(out, ", ") );
-  out << declaredSymbols.back();
-  out << "])";
+static void toStream(std::ostream& out, const DeclareFunctionCommand* c) {
+  out << "Declare(" << c->getSymbol() << "," << c->getType() << ")";
 }
 
 static void toStream(std::ostream& out, const DefineFunctionCommand* c) {
@@ -197,6 +194,22 @@ static void toStream(std::ostream& out, const DefineFunctionCommand* c) {
     out << formals.back();
   }
   out << "], << " << formula << " >> )";
+}
+
+static void toStream(std::ostream& out, const DeclareTypeCommand* c) {
+  out << "DeclareType(" << c->getSymbol() << "," << c->getArity() << ","
+      << c->getType() << ")";
+}
+
+static void toStream(std::ostream& out, const DefineTypeCommand* c) {
+  const vector<Type>& params = c->getParameters();
+  out << "DefineType(" << c->getSymbol() << ",[";
+  if(params.size() > 0) {
+    copy( params.begin(), params.end() - 1,
+          ostream_iterator<Type>(out, ", ") );
+    out << params.back();
+  }
+  out << "]," << c->getType() << ")";
 }
 
 static void toStream(std::ostream& out, const DefineNamedFunctionCommand* c) {
