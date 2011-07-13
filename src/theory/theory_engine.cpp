@@ -253,6 +253,12 @@ bool TheoryEngine::check(theory::Theory::Effort effort) {
   // Do the checking
   try {
     CVC4_FOR_EACH_THEORY;
+
+    if(Dump.isOn("missed-t-conflicts")) {
+      Dump("missed-t-conflicts")
+        << CommentCommand("Completeness check for T-conflicts; expect sat") << endl
+        << CheckSatCommand() << endl;
+    }
   } catch(const theory::Interrupted&) {
     Trace("theory") << "TheoryEngine::check() => conflict" << std::endl;
   }

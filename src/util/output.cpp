@@ -40,7 +40,8 @@ MessageC MessageChannel CVC4_PUBLIC (&cout);
 NoticeC NoticeChannel CVC4_PUBLIC (&cout);
 ChatC ChatChannel CVC4_PUBLIC (&cout);
 TraceC TraceChannel CVC4_PUBLIC (&cout);
-DumpC DumpChannel CVC4_PUBLIC (&cout);
+std::ostream DumpC::dump_cout(cout.rdbuf());// copy cout stream buffer
+DumpC DumpChannel CVC4_PUBLIC (&DumpC::dump_cout);
 
 #ifndef CVC4_MUZZLE
 

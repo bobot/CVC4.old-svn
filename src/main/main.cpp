@@ -229,7 +229,7 @@ int runCvc4(int argc, char* argv[]) {
     }
   }
 
-  if(options.outputLanguage == language::input::LANG_AUTO) {
+  if(options.outputLanguage == language::output::LANG_AUTO) {
     options.outputLanguage = language::toOutputLanguage(options.inputLanguage);
   }
 
@@ -260,7 +260,9 @@ int runCvc4(int argc, char* argv[]) {
     Chat.getStream() << Expr::setlanguage(options.outputLanguage);
     Message.getStream() << Expr::setlanguage(options.outputLanguage);
     Warning.getStream() << Expr::setlanguage(options.outputLanguage);
-    Dump.getStream() << Expr::setlanguage(options.outputLanguage);
+    Dump.getStream() << Expr::setlanguage(options.outputLanguage)
+                     << Expr::setdepth(-1)
+                     << Expr::printtypes(false);
   }
 
   Parser* replayParser = NULL;

@@ -311,6 +311,12 @@ class CVC4_PUBLIC DumpC {
   std::ostream* d_os;
 
 public:
+  /**
+   * A copy of cout for use by the dumper.  This is important because
+   * it has different settings (e.g., the expr printing depth is always
+   * unlimited). */
+  static std::ostream dump_cout;
+
   explicit DumpC(std::ostream* os) : d_os(os) {}
 
   int printf(const char* tag, const char* fmt, ...) __attribute__ ((format(printf, 3, 4)));

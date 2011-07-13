@@ -172,6 +172,13 @@ none\n\
 static const string dumpHelp = "\
 Dump modes currently supported by the --dump option:\n\
 \n\
+benchmark\n\
++ dump the benchmark structure (set-logic, push/pop, queries, etc.), but\n\
+  does not include any declarations or assertions.  Implied by all following.\n\
+\n\
+declarations\n\
++ dump declarations.  Implied by all following.\n\
+\n\
 assertions\n\
 + output the assertions after non-clausal simplification and static\n\
   learning phases, but before presolve-time T-lemmas arrive.  If\n\
@@ -190,19 +197,36 @@ clauses\n\
   output\n\
 \n\
 t-conflicts\n\
-+ output all theory conflicts\n\
++ output correctness queries for all theory conflicts\n\
+\n\
+missed-t-conflicts\n\
++ output completeness queries for theory conflicts\n\
 \n\
 t-propagations\n\
-+ output all theory propagations\n\
++ output correctness queries for all theory propagations\n\
+\n\
+missed-t-propagations\n\
++ output completeness queries for theory propagations (LARGE and EXPENSIVE)\n\
 \n\
 t-lemmas\n\
-+ output all theory propagations\n\
++ output correctness queries for all theory lemmas\n\
 \n\
 t-explanations\n\
-+ output all theory explanations\n\
++ output correctness queries for all theory explanations\n\
 \n\
-Dump modes can be combined with multiple uses of --dump.  For example,\n\
-'--dump clauses --dump propagations' can be useful.\n\
+Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
+one from the assertions category (either asertions, learned, or clauses), and\n\
+perhaps one from the theory category ().  More than one from the assertions\n\
+category leads to confused output, but more than one from the theory category\n\
+interlaces the queries.  This is sometimes desirable, and sometimes not.  For\n\
+example, if you interlace conflict correctness checking and propagation\n\
+correctness checking, they interfere, since propagation checking uses\n\
+contextual assertions and conflict-checking does not.\n\
+\n\
+The --output-language option controls the language used for dumping, and\n\
+this allows you to connect CVC4 to another solver implementation via a UNIX\n\
+pipe to perform on-line checking.  The --dump-to option can be used to dump\n\
+to a file.\n\
 ";
 
 string Options::getDescription() const {
@@ -469,11 +493,15 @@ throw(OptionException) {
 
     case DUMP:
 #ifdef CVC4_DUMPING
-      if(!strcmp(optarg, "assertions")) {
+      if(!strcmp(optarg, "benchmark")) {
+      } else if(!strcmp(optarg, "declarations")) {
+      } else if(!strcmp(optarg, "assertions")) {
       } else if(!strcmp(optarg, "learned")) {
       } else if(!strcmp(optarg, "clauses")) {
       } else if(!strcmp(optarg, "t-conflicts")) {
+      } else if(!strcmp(optarg, "missed-t-conflicts")) {
       } else if(!strcmp(optarg, "t-propagations")) {
+      } else if(!strcmp(optarg, "missed-t-propagations")) {
       } else if(!strcmp(optarg, "t-lemmas")) {
       } else if(!strcmp(optarg, "t-explanations")) {
       } else if(!strcmp(optarg, "help")) {
@@ -486,7 +514,9 @@ throw(OptionException) {
 
       Dump.on(optarg);
       Dump.on("benchmark");
-      Dump.on("declarations");
+      if(strcmp(optarg, "benchmark")) {
+        Dump.on("declarations");
+      }
 #else /* CVC4_DUMPING */
       throw OptionException("The replay feature was disabled in this build of CVC4.");
 #endif /* CVC4_DUMPING */
@@ -497,7 +527,7 @@ throw(OptionException) {
       if(optarg == NULL || *optarg == '\0') {
         throw OptionException(string("Bad file name for --dump-to"));
       } else if(!strcmp(optarg, "-")) {
-        Dump.setStream(cout);
+        Dump.setStream(DumpC::dump_cout);
       } else {
         ostream* dumpTo = new ofstream(optarg, ofstream::out | ofstream::trunc);
         if(!*dumpTo) {
