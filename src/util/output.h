@@ -190,6 +190,7 @@ public:
   bool on (std::string tag) { d_tags.insert(tag); return true; }
   bool off(const char* tag) { d_tags.erase (std::string(tag)); return false; }
   bool off(std::string tag) { d_tags.erase (tag); return false; }
+  bool off()                { d_tags.clear(); return false; }
 
   bool isOn(const char* tag) { return d_tags.find(std::string(tag)) != d_tags.end(); }
   bool isOn(std::string tag) { return d_tags.find(tag) != d_tags.end(); }
@@ -297,6 +298,7 @@ public:
   bool on (std::string tag) { d_tags.insert(tag); return true; }
   bool off(const char* tag) { d_tags.erase (std::string(tag)); return false; }
   bool off(std::string tag) { d_tags.erase (tag); return false; }
+  bool off()                { d_tags.clear(); return false; }
 
   bool isOn(const char* tag) { return d_tags.find(std::string(tag)) != d_tags.end(); }
   bool isOn(std::string tag) { return d_tags.find(tag) != d_tags.end(); }
@@ -341,6 +343,7 @@ public:
   bool on (std::string tag) { d_tags.insert(tag); return true; }
   bool off(const char* tag) { d_tags.erase (std::string(tag)); return false; }
   bool off(std::string tag) { d_tags.erase (tag); return false; }
+  bool off()                { d_tags.clear(); return false; }
 
   bool isOn(const char* tag) { return d_tags.find(std::string(tag)) != d_tags.end(); }
   bool isOn(std::string tag) { return d_tags.find(tag) != d_tags.end(); }

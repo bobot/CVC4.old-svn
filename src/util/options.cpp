@@ -173,55 +173,61 @@ static const string dumpHelp = "\
 Dump modes currently supported by the --dump option:\n\
 \n\
 benchmark\n\
-+ dump the benchmark structure (set-logic, push/pop, queries, etc.), but\n\
-  does not include any declarations or assertions.  Implied by all following.\n\
++ Dump the benchmark structure (set-logic, push/pop, queries, etc.), but\n\
+  does not include any declarations or assertions.  Implied by all following\n\
+  modes.\n\
 \n\
 declarations\n\
-+ dump declarations.  Implied by all following.\n\
++ Dump declarations.  Implied by all following modes.\n\
 \n\
 assertions\n\
-+ output the assertions after non-clausal simplification and static\n\
++ Output the assertions after non-clausal simplification and static\n\
   learning phases, but before presolve-time T-lemmas arrive.  If\n\
   non-clausal simplification and static learning are off\n\
   (--simplification=none --no-static-learning), the output\n\
   will closely resemble the input (with term-level ITEs removed).\n\
 \n\
 learned\n\
-+ output the assertions after non-clausal simplification, static\n\
++ Output the assertions after non-clausal simplification, static\n\
   learning, and presolve-time T-lemmas.  This should include all eager\n\
   T-lemmas (in the form provided by the theory, which my or may not be\n\
   clausal).  Also includes level-0 BCP done by Minisat.\n\
 \n\
 clauses\n\
-+ do all the preprocessing outlined above, and dump the CNF-converted\n\
++ Do all the preprocessing outlined above, and dump the CNF-converted\n\
   output\n\
 \n\
-t-conflicts\n\
-+ output correctness queries for all theory conflicts\n\
+state\n\
++ Dump all contextual assertions (e.g., SAT decisions, propagations..).\n\
+  Implied by all \"stateful\" modes below and conflicts with all\n\
+  non-stateful modes below.\n\
 \n\
-missed-t-conflicts\n\
-+ output completeness queries for theory conflicts\n\
+t-conflicts [non-stateful]\n\
++ Output correctness queries for all theory conflicts\n\
 \n\
-t-propagations\n\
-+ output correctness queries for all theory propagations\n\
+missed-t-conflicts [stateful]\n\
++ Output completeness queries for theory conflicts\n\
 \n\
-missed-t-propagations\n\
-+ output completeness queries for theory propagations (LARGE and EXPENSIVE)\n\
+t-propagations [stateful]\n\
++ Output correctness queries for all theory propagations\n\
 \n\
-t-lemmas\n\
-+ output correctness queries for all theory lemmas\n\
+missed-t-propagations [stateful]\n\
++ Output completeness queries for theory propagations (LARGE and EXPENSIVE)\n\
 \n\
-t-explanations\n\
-+ output correctness queries for all theory explanations\n\
+t-lemmas [non-stateful]\n\
++ Output correctness queries for all theory lemmas\n\
+\n\
+t-explanations [non-stateful]\n\
++ Output correctness queries for all theory explanations\n\
 \n\
 Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
 one from the assertions category (either asertions, learned, or clauses), and\n\
-perhaps one from the theory category ().  More than one from the assertions\n\
-category leads to confused output, but more than one from the theory category\n\
-interlaces the queries.  This is sometimes desirable, and sometimes not.  For\n\
-example, if you interlace conflict correctness checking and propagation\n\
-correctness checking, they interfere, since propagation checking uses\n\
-contextual assertions and conflict-checking does not.\n\
+perhaps one or more stateful or non-stateful modes for checking correctness\n\
+and completeness of decision procedure implementations.  Stateful modes dump\n\
+the contextual assertions made by the core solver (all decisions and propagations\n\
+as assertions; that affects the validity of the resulting correctness and\n\
+completeness queries, so of course stateful and non-stateful modes cannot\n\
+be mixed in the same run.\n\
 \n\
 The --output-language option controls the language used for dumping, and\n\
 this allows you to connect CVC4 to another solver implementation via a UNIX\n\
@@ -491,36 +497,67 @@ throw(OptionException) {
       preprocessOnly = true;
       break;
 
-    case DUMP:
+    case DUMP: {
 #ifdef CVC4_DUMPING
-      if(!strcmp(optarg, "benchmark")) {
-      } else if(!strcmp(optarg, "declarations")) {
-      } else if(!strcmp(optarg, "assertions")) {
-      } else if(!strcmp(optarg, "learned")) {
-      } else if(!strcmp(optarg, "clauses")) {
-      } else if(!strcmp(optarg, "t-conflicts")) {
-      } else if(!strcmp(optarg, "missed-t-conflicts")) {
-      } else if(!strcmp(optarg, "t-propagations")) {
-      } else if(!strcmp(optarg, "missed-t-propagations")) {
-      } else if(!strcmp(optarg, "t-lemmas")) {
-      } else if(!strcmp(optarg, "t-explanations")) {
-      } else if(!strcmp(optarg, "help")) {
-        puts(dumpHelp.c_str());
-        exit(1);
-      } else {
-        throw OptionException(string("unknown option for --dump: `") +
-                              optarg + "'.  Try --dump help.");
-      }
-
-      Dump.on(optarg);
-      Dump.on("benchmark");
-      if(strcmp(optarg, "benchmark")) {
-        Dump.on("declarations");
+      char* tokstr = optarg;
+      char* toksave;
+      while((optarg = strtok_r(tokstr, ",", &toksave)) != NULL) {
+        tokstr = NULL;
+        if(!strcmp(optarg, "benchmark")) {
+        } else if(!strcmp(optarg, "declarations")) {
+        } else if(!strcmp(optarg, "assertions")) {
+        } else if(!strcmp(optarg, "learned")) {
+        } else if(!strcmp(optarg, "clauses")) {
+        } else if(!strcmp(optarg, "t-conflicts") ||
+                  !strcmp(optarg, "t-lemmas") ||
+                  !strcmp(optarg, "t-explanations")) {
+          // These are "non-state-dumping" modes.  If state (SAT decisions,
+          // propagations, etc.) is dumped, it will interfere with the validity
+          // of these generated queries.
+          if(Dump.isOn("state")) {
+            throw OptionException(string("dump option `") + optarg +
+                                  "' conflicts with a previous, "
+                                  "state-dumping dump option.  You cannot "
+                                  "mix stateful and non-stateful dumping modes; "
+                                  "see --dump help.");
+          } else {
+            Dump.on("no-permit-state");
+          }
+        } else if(!strcmp(optarg, "state") ||
+                  !strcmp(optarg, "missed-t-conflicts") ||
+                  !strcmp(optarg, "t-propagations") ||
+                  !strcmp(optarg, "missed-t-propagations")) {
+          // These are "state-dumping" modes.  If state (SAT decisions,
+          // propagations, etc.) is not dumped, it will interfere with the
+          // validity of these generated queries.
+          if(Dump.isOn("no-permit-state")) {
+            throw OptionException(string("dump option `") + optarg +
+                                  "' conflicts with a previous, "
+                                  "non-state-dumping dump option.  You cannot "
+                                  "mix stateful and non-stateful dumping modes; "
+                                  "see --dump help.");
+          } else {
+            Dump.on("state");
+          }
+        } else if(!strcmp(optarg, "help")) {
+          puts(dumpHelp.c_str());
+          exit(1);
+        } else {
+          throw OptionException(string("unknown option for --dump: `") +
+                                optarg + "'.  Try --dump help.");
+        }
+  
+        Dump.on(optarg);
+        Dump.on("benchmark");
+        if(strcmp(optarg, "benchmark")) {
+          Dump.on("declarations");
+        }
       }
 #else /* CVC4_DUMPING */
-      throw OptionException("The replay feature was disabled in this build of CVC4.");
+      throw OptionException("The dumping feature was disabled in this build of CVC4.");
 #endif /* CVC4_DUMPING */
       break;
+    }
 
     case DUMP_TO: {
 #ifdef CVC4_DUMPING
