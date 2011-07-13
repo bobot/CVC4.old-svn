@@ -28,6 +28,7 @@
 #include <typeinfo>
 #include <algorithm>
 #include <iterator>
+#include <stack>
 
 using namespace std;
 
@@ -238,9 +239,24 @@ void CvcPrinter::toStream(std::ostream& out, TNode n,
     case kind::SELECT:
       out << n[0] << '[' << n[1] << ']';
       break;
-    case kind::STORE:
-      out << '(' << n[0] << " WITH [" << n[1] << "] := " << n[2] << ')';
+    case kind::STORE: {
+      stack<TNode> stk;
+      stk.push(n);
+      while(stk.top()[0].getKind() == kind::STORE) {
+        stk.push(stk.top()[0]);
+      }
+      out << '(';
+      TNode x = stk.top();
+      out << x[0] << " WITH [" << x[1] << "] := " << x[2];
+      stk.pop();
+      while(!stk.empty()) {
+        x = stk.top();
+        out << ", [" << x[1] << "] := " << x[2];
+        stk.pop();
+      }
+      out << ')';
       break;
+    }
 
     case kind::TUPLE_TYPE:
       out << '[';
@@ -308,7 +324,9 @@ void CvcPrinter::toStream(std::ostream& out, TNode n,
         // infix binary operator
         out << '(' << n[0] << ' ' << n.getOperator() << ' ' << n[1] << ')';
       } else if(n.getKind() == kind::AND ||
-                n.getKind() == kind::OR) {
+                n.getKind() == kind::OR ||
+                n.getKind() == kind::PLUS ||
+                n.getKind() == kind::MULT) {
         // infix N-ary operator
         TNode::iterator i = n.begin();
         out << '(' << *i++;

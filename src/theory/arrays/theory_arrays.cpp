@@ -690,7 +690,7 @@ void TheoryArrays::appendToDiseqList(TNode of, TNode eq) {
  * Iterates through the indices of a and stores of b and checks if any new
  * Row lemmas need to be instantiated.
  */
-bool TheoryArrays::isRedundandRowLemma(TNode a, TNode b, TNode i, TNode j) {
+bool TheoryArrays::isRedundantRowLemma(TNode a, TNode b, TNode i, TNode j) {
   Assert(a.getType().isArray());
   Assert(b.getType().isArray());
 
@@ -985,7 +985,7 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b) {
       TNode j = store[1];
       TNode c = store[0];
 
-      if(  !isRedundandRowLemma(store, c, j, i)){
+      if(  !isRedundantRowLemma(store, c, j, i)){
          //&&!propagateFromRow(store, c, j, i)) {
         queueRowLemma(store, c, j, i);
       }
@@ -1005,7 +1005,7 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b) {
       TNode c = store[0];
 
       if (   isNonLinear(c)
-          &&!isRedundandRowLemma(store, c, j, i)){
+          &&!isRedundantRowLemma(store, c, j, i)){
           //&&!propagateFromRow(store, c, j, i)) {
         queueRowLemma(store, c, j, i);
       }
@@ -1067,7 +1067,7 @@ void TheoryArrays::checkRowForIndex(TNode i, TNode a) {
     Assert(store.getKind()==kind::STORE);
     TNode j = store[1];
     //Trace("arrays-lem")<<"Arrays::checkRowForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
-    if(!isRedundandRowLemma(store, store[0], j, i)) {
+    if(!isRedundantRowLemma(store, store[0], j, i)) {
       //Trace("arrays-lem")<<"Arrays::checkRowForIndex ("<<store<<", "<<store[0]<<", "<<j<<", "<<i<<")\n";
       queueRowLemma(store, store[0], j, i);
     }
@@ -1079,7 +1079,7 @@ void TheoryArrays::checkRowForIndex(TNode i, TNode a) {
     Assert(instore.getKind()==kind::STORE);
     TNode j = instore[1];
     //Trace("arrays-lem")<<"Arrays::checkRowForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
-    if(!isRedundandRowLemma(instore, instore[0], j, i)) {
+    if(!isRedundantRowLemma(instore, instore[0], j, i)) {
       //Trace("arrays-lem")<<"Arrays::checkRowForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
       queueRowLemma(instore, instore[0], j, i);
     }
@@ -1105,7 +1105,7 @@ void TheoryArrays::checkStore(TNode a) {
   for(; it!= js->end(); it++) {
     TNode j = *it;
 
-    if(!isRedundandRowLemma(a, b, i, j)) {
+    if(!isRedundantRowLemma(a, b, i, j)) {
       //Trace("arrays-lem")<<"Arrays::checkRowStore ("<<a<<", "<<b<<", "<<i<<", "<<j<<")\n";
       queueRowLemma(a,b,i,j);
     }
@@ -1148,8 +1148,10 @@ inline void TheoryArrays::addExtLemma(TNode a, TNode b) {
      stringstream kss;
      kss << Expr::setlanguage(Expr::setlanguage::getLanguage(Dump("declarations"))) << k;
      string ks = kss.str();
-     Dump("declarations") << CommentCommand(ks + " is an extensional lemma index variable from the theory of arrays") << endl
-                          << DeclareFunctionCommand(ks, ixType.toType()) << endl;
+     Dump("declarations")
+       << CommentCommand(ks + " is an extensional lemma index variable "
+                         "from the theory of arrays") << endl
+       << DeclareFunctionCommand(ks, ixType.toType()) << endl;
    }
    Node eq = nm->mkNode(kind::EQUAL, a, b);
    Node ak = nm->mkNode(kind::SELECT, a, k);
@@ -1163,7 +1165,7 @@ inline void TheoryArrays::addExtLemma(TNode a, TNode b) {
    ++d_numExt;
    return;
  }
- Trace("arrays-cle")<<"Arrays::checkExtLemmas lemma already generated. \n";
 
+ Trace("arrays-cle")<<"Arrays::checkExtLemmas lemma already generated. \n";
 }
 

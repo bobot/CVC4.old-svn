@@ -254,7 +254,7 @@ private:
   bool isAxiom(TNode lhs, TNode rhs);
 
 
-  bool isRedundandRowLemma(TNode a, TNode b, TNode i, TNode j);
+  bool isRedundantRowLemma(TNode a, TNode b, TNode i, TNode j);
   bool isRedundantInContext(TNode a, TNode b, TNode i, TNode j);
 
 
