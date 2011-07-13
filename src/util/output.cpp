@@ -156,6 +156,40 @@ int TraceC::printf(std::string tag, const char* fmt, ...) {
 
 #  endif /* CVC4_TRACING */
 
+#  ifdef CVC4_DUMPING
+
+int DumpC::printf(const char* tag, const char* fmt, ...) {
+  if(d_tags.find(string(tag)) == d_tags.end()) {
+    return 0;
+  }
+
+  // chop off output after 1024 bytes
+  char buf[1024];
+  va_list vl;
+  va_start(vl, fmt);
+  int retval = vsnprintf(buf, sizeof(buf), fmt, vl);
+  va_end(vl);
+  *d_os << buf;
+  return retval;
+}
+
+int DumpC::printf(std::string tag, const char* fmt, ...) {
+  if(d_tags.find(tag) == d_tags.end()) {
+    return 0;
+  }
+
+  // chop off output after 1024 bytes
+  char buf[1024];
+  va_list vl;
+  va_start(vl, fmt);
+  int retval = vsnprintf(buf, sizeof(buf), fmt, vl);
+  va_end(vl);
+  *d_os << buf;
+  return retval;
+}
+
+#  endif /* CVC4_DUMPING */
+
 #endif /* ! CVC4_MUZZLE */
 
 }/* CVC4 namespace */

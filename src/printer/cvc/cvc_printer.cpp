@@ -391,7 +391,7 @@ static void toStream(std::ostream& out, const QueryCommand* c) {
 }
 
 static void toStream(std::ostream& out, const QuitCommand* c) {
-  Unhandled("quit command");
+  out << "EXIT;";
 }
 
 static void toStream(std::ostream& out, const CommandSequence* c) {

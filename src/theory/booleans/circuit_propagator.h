@@ -189,20 +189,16 @@ private:
   bool d_forwardPropagation;
   /** Whether to perform backward propagation */
   bool d_backwardPropagation;
-  /** Whether to perform expensive propagations */
-  bool d_expensivePropagation;
 
 public:
   /**
    * Construct a new CircuitPropagator with the given atoms and backEdges.
    */
-  CircuitPropagator(std::vector<Node>& outLearnedLiterals, bool enableForward = true, bool enableBackward = true, bool enableExpensive = true) :
+  CircuitPropagator(std::vector<Node>& outLearnedLiterals, bool enableForward = true, bool enableBackward = true) :
     d_conflict(false),
     d_learnedLiterals(outLearnedLiterals),
     d_forwardPropagation(enableForward),
-    d_backwardPropagation(enableBackward),
-    d_expensivePropagation(enableExpensive)
-  {
+    d_backwardPropagation(enableBackward) {
   }
 
   /** Assert for propagation */

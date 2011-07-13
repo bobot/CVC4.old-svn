@@ -63,6 +63,7 @@ tokens {
   PRINT_TYPE_TOK = 'PRINT_TYPE';
   CALL_TOK = 'CALL';
   ECHO_TOK = 'ECHO';
+  EXIT_TOK = 'EXIT';
   INCLUDE_TOK = 'INCLUDE';
   DUMP_PROOF_TOK = 'DUMP_PROOF';
   DUMP_ASSUMPTIONS_TOK = 'DUMP_ASSUMPTIONS';
@@ -691,6 +692,9 @@ mainCommand[CVC4::Command*& cmd]
       { Message() << s << std::endl; }
     | { Message() << std::endl; }
     )
+
+  | EXIT_TOK
+    { cmd = new QuitCommand(); }
 
   | INCLUDE_TOK
     ( ( str[s] | IDENTIFIER { s = AntlrInput::tokenText($IDENTIFIER); } )

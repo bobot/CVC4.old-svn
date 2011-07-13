@@ -78,6 +78,10 @@ EmptyCommand::EmptyCommand(std::string name) :
   d_name(name) {
 }
 
+std::string EmptyCommand::getName() const {
+  return d_name;
+}
+
 void EmptyCommand::invoke(SmtEngine* smtEngine) {
   /* empty commands have no implementation */
 }
@@ -86,6 +90,10 @@ void EmptyCommand::invoke(SmtEngine* smtEngine) {
 
 AssertCommand::AssertCommand(const BoolExpr& e) :
   d_expr(e) {
+}
+
+BoolExpr AssertCommand::getExpr() const {
+  return d_expr;
 }
 
 void AssertCommand::invoke(SmtEngine* smtEngine) {
@@ -110,6 +118,10 @@ CheckSatCommand::CheckSatCommand(const BoolExpr& expr) :
   d_expr(expr) {
 }
 
+BoolExpr CheckSatCommand::getExpr() const {
+  return d_expr;
+}
+
 void CheckSatCommand::invoke(SmtEngine* smtEngine) {
   d_result = smtEngine->checkSat(d_expr);
 }
@@ -128,6 +140,10 @@ QueryCommand::QueryCommand(const BoolExpr& e) :
   d_expr(e) {
 }
 
+BoolExpr QueryCommand::getExpr() const {
+  return d_expr;
+}
+
 void QueryCommand::invoke(SmtEngine* smtEngine) {
   d_result = smtEngine->query(d_expr);
 }
@@ -143,6 +159,23 @@ void QueryCommand::printResult(std::ostream& out) const {
 /* class QuitCommand */
 
 QuitCommand::QuitCommand() {
+}
+
+void QuitCommand::invoke(SmtEngine* smtEngine) {
+  Dump("benchmark") << *this;
+}
+
+/* class CommentCommand */
+
+CommentCommand::CommentCommand(std::string comment) : d_comment(comment) {
+}
+
+std::string CommentCommand::getComment() const {
+  return d_comment;
+}
+
+void CommentCommand::invoke(SmtEngine* smtEngine) {
+  Dump("benchmark") << *this;
 }
 
 /* class CommandSequence */
@@ -175,6 +208,22 @@ void CommandSequence::invoke(SmtEngine* smtEngine, std::ostream& out) {
   }
 }
 
+CommandSequence::const_iterator CommandSequence::begin() const {
+  return d_commandSequence.begin();
+}
+
+CommandSequence::const_iterator CommandSequence::end() const {
+  return d_commandSequence.end();
+}
+
+CommandSequence::iterator CommandSequence::begin() {
+  return d_commandSequence.begin();
+}
+
+CommandSequence::iterator CommandSequence::end() {
+  return d_commandSequence.end();
+}
+
 /* class DeclarationCommand */
 
 DeclarationCommand::DeclarationCommand(const std::string& id, Type t) :
@@ -195,6 +244,10 @@ Type DeclarationCommand::getDeclaredType() const {
   return d_type;
 }
 
+void DeclarationCommand::invoke(SmtEngine* smtEngine) {
+  Dump("declarations") << *this << endl;
+}
+
 /* class DefineFunctionCommand */
 
 DefineFunctionCommand::DefineFunctionCommand(Expr func,
@@ -203,6 +256,18 @@ DefineFunctionCommand::DefineFunctionCommand(Expr func,
   d_func(func),
   d_formals(formals),
   d_formula(formula) {
+}
+
+Expr DefineFunctionCommand::getFunction() const {
+  return d_func;
+}
+
+const std::vector<Expr>& DefineFunctionCommand::getFormals() const {
+  return d_formals;
+}
+
+Expr DefineFunctionCommand::getFormula() const {
+  return d_formula;
 }
 
 void DefineFunctionCommand::invoke(SmtEngine* smtEngine) {
@@ -231,6 +296,10 @@ SimplifyCommand::SimplifyCommand(Expr term) :
   d_term(term) {
 }
 
+Expr SimplifyCommand::getTerm() const {
+  return d_term;
+}
+
 void SimplifyCommand::invoke(SmtEngine* smtEngine) {
   d_result = smtEngine->simplify(d_term);
 }
@@ -247,6 +316,10 @@ void SimplifyCommand::printResult(std::ostream& out) const {
 
 GetValueCommand::GetValueCommand(Expr term) :
   d_term(term) {
+}
+
+Expr GetValueCommand::getTerm() const {
+  return d_term;
 }
 
 void GetValueCommand::invoke(SmtEngine* smtEngine) {
@@ -305,6 +378,10 @@ SetBenchmarkStatusCommand::SetBenchmarkStatusCommand(BenchmarkStatus status) :
   d_status(status) {
 }
 
+BenchmarkStatus SetBenchmarkStatusCommand::getStatus() const {
+  return d_status;
+}
+
 void SetBenchmarkStatusCommand::invoke(SmtEngine* smtEngine) {
   stringstream ss;
   ss << d_status;
@@ -326,6 +403,10 @@ SetBenchmarkLogicCommand::SetBenchmarkLogicCommand(std::string logic) :
   d_logic(logic) {
 }
 
+std::string SetBenchmarkLogicCommand::getLogic() const {
+  return d_logic;
+}
+
 void SetBenchmarkLogicCommand::invoke(SmtEngine* smtEngine) {
   try {
     smtEngine->setLogic(d_logic);
@@ -337,9 +418,17 @@ void SetBenchmarkLogicCommand::invoke(SmtEngine* smtEngine) {
 
 /* class SetInfoCommand */
 
-SetInfoCommand::SetInfoCommand(std::string flag, SExpr& sexpr) :
+SetInfoCommand::SetInfoCommand(std::string flag, const SExpr& sexpr) :
   d_flag(flag),
   d_sexpr(sexpr) {
+}
+
+std::string SetInfoCommand::getFlag() const {
+  return d_flag;
+}
+
+SExpr SetInfoCommand::getSExpr() const {
+  return d_sexpr;
 }
 
 void SetInfoCommand::invoke(SmtEngine* smtEngine) {
@@ -369,6 +458,10 @@ GetInfoCommand::GetInfoCommand(std::string flag) :
   d_flag(flag) {
 }
 
+std::string GetInfoCommand::getFlag() const {
+  return d_flag;
+}
+
 void GetInfoCommand::invoke(SmtEngine* smtEngine) {
   try {
     stringstream ss;
@@ -391,9 +484,17 @@ void GetInfoCommand::printResult(std::ostream& out) const {
 
 /* class SetOptionCommand */
 
-SetOptionCommand::SetOptionCommand(std::string flag, SExpr& sexpr) :
+SetOptionCommand::SetOptionCommand(std::string flag, const SExpr& sexpr) :
   d_flag(flag),
   d_sexpr(sexpr) {
+}
+
+std::string SetOptionCommand::getFlag() const {
+  return d_flag;
+}
+
+SExpr SetOptionCommand::getSExpr() const {
+  return d_sexpr;
 }
 
 void SetOptionCommand::invoke(SmtEngine* smtEngine) {
@@ -423,6 +524,10 @@ GetOptionCommand::GetOptionCommand(std::string flag) :
   d_flag(flag) {
 }
 
+std::string GetOptionCommand::getFlag() const {
+  return d_flag;
+}
+
 void GetOptionCommand::invoke(SmtEngine* smtEngine) {
   try {
     d_result = smtEngine->getOption(d_flag).getValue();
@@ -446,17 +551,19 @@ void GetOptionCommand::printResult(std::ostream& out) const {
 DatatypeDeclarationCommand::DatatypeDeclarationCommand(const DatatypeType& datatype) :
   d_datatypes() {
   d_datatypes.push_back(datatype);
-  Debug("datatypes") << "Create datatype command." << endl;
 }
 
 DatatypeDeclarationCommand::DatatypeDeclarationCommand(const std::vector<DatatypeType>& datatypes) :
   d_datatypes(datatypes) {
-  Debug("datatypes") << "Create datatype command." << endl;
+}
+
+const std::vector<DatatypeType>&
+DatatypeDeclarationCommand::getDatatypes() const {
+  return d_datatypes;
 }
 
 void DatatypeDeclarationCommand::invoke(SmtEngine* smtEngine) {
-  Debug("datatypes") << "Invoke datatype command." << endl;
-  //smtEngine->addDatatypeDefinitions(d_datatype);
+  Dump("declarations") << *this << endl;
 }
 
 /* output stream insertion operator for benchmark statuses */

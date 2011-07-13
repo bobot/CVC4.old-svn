@@ -77,8 +77,8 @@ protected:
   std::string d_name;
 public:
   EmptyCommand(std::string name = "");
+  std::string getName() const;
   void invoke(SmtEngine* smtEngine);
-  std::string getName() const { return d_name; }
 };/* class EmptyCommand */
 
 class CVC4_PUBLIC AssertCommand : public Command {
@@ -86,8 +86,8 @@ protected:
   BoolExpr d_expr;
 public:
   AssertCommand(const BoolExpr& e);
+  BoolExpr getExpr() const;
   void invoke(SmtEngine* smtEngine);
-  BoolExpr getExpr() const { return d_expr; }
 };/* class AssertCommand */
 
 class CVC4_PUBLIC PushCommand : public Command {
@@ -109,6 +109,7 @@ public:
   DeclarationCommand(const std::vector<std::string>& ids, Type t);
   const std::vector<std::string>& getDeclaredSymbols() const;
   Type getDeclaredType() const;
+  void invoke(SmtEngine* smtEngine);
 };/* class DeclarationCommand */
 
 class CVC4_PUBLIC DefineFunctionCommand : public Command {
@@ -120,10 +121,10 @@ public:
   DefineFunctionCommand(Expr func,
                         const std::vector<Expr>& formals,
                         Expr formula);
+  Expr getFunction() const;
+  const std::vector<Expr>& getFormals() const;
+  Expr getFormula() const;
   void invoke(SmtEngine* smtEngine);
-  Expr getFunction() const { return d_func; }
-  const std::vector<Expr>& getFormals() const { return d_formals; }
-  Expr getFormula() const { return d_formula; }
 };/* class DefineFunctionCommand */
 
 /**
@@ -145,8 +146,8 @@ protected:
   Result d_result;
 public:
   CheckSatCommand(const BoolExpr& expr);
+  BoolExpr getExpr() const;
   void invoke(SmtEngine* smtEngine);
-  BoolExpr getExpr() const { return d_expr; }
   Result getResult() const;
   void printResult(std::ostream& out) const;
 };/* class CheckSatCommand */
@@ -157,8 +158,8 @@ protected:
   Result d_result;
 public:
   QueryCommand(const BoolExpr& e);
+  BoolExpr getExpr() const;
   void invoke(SmtEngine* smtEngine);
-  BoolExpr getExpr() const { return d_expr; }
   Result getResult() const;
   void printResult(std::ostream& out) const;
 };/* class QueryCommand */
@@ -170,8 +171,8 @@ protected:
   Expr d_result;
 public:
   SimplifyCommand(Expr term);
+  Expr getTerm() const;
   void invoke(SmtEngine* smtEngine);
-  Expr getTerm() const { return d_term; }
   Expr getResult() const;
   void printResult(std::ostream& out) const;
 };/* class SimplifyCommand */
@@ -182,8 +183,8 @@ protected:
   Expr d_result;
 public:
   GetValueCommand(Expr term);
+  Expr getTerm() const;
   void invoke(SmtEngine* smtEngine);
-  Expr getTerm() const { return d_term; }
   Expr getResult() const;
   void printResult(std::ostream& out) const;
 };/* class GetValueCommand */
@@ -214,8 +215,8 @@ protected:
   BenchmarkStatus d_status;
 public:
   SetBenchmarkStatusCommand(BenchmarkStatus status);
+  BenchmarkStatus getStatus() const;
   void invoke(SmtEngine* smtEngine);
-  BenchmarkStatus getStatus() const { return d_status; }
 };/* class SetBenchmarkStatusCommand */
 
 class CVC4_PUBLIC SetBenchmarkLogicCommand : public Command {
@@ -224,8 +225,8 @@ protected:
   std::string d_logic;
 public:
   SetBenchmarkLogicCommand(std::string logic);
+  std::string getLogic() const;
   void invoke(SmtEngine* smtEngine);
-  std::string getLogic() const { return d_logic; }
 };/* class SetBenchmarkLogicCommand */
 
 class CVC4_PUBLIC SetInfoCommand : public Command {
@@ -234,10 +235,10 @@ protected:
   SExpr d_sexpr;
   std::string d_result;
 public:
-  SetInfoCommand(std::string flag, SExpr& sexpr);
+  SetInfoCommand(std::string flag, const SExpr& sexpr);
+  std::string getFlag() const;
+  SExpr getSExpr() const;
   void invoke(SmtEngine* smtEngine);
-  std::string getFlag() const { return d_flag; }
-  SExpr getSExpr() const { return d_sexpr; }
   std::string getResult() const;
   void printResult(std::ostream& out) const;
 };/* class SetInfoCommand */
@@ -248,8 +249,8 @@ protected:
   std::string d_result;
 public:
   GetInfoCommand(std::string flag);
+  std::string getFlag() const;
   void invoke(SmtEngine* smtEngine);
-  std::string getFlag() const { return d_flag; }
   std::string getResult() const;
   void printResult(std::ostream& out) const;
 };/* class GetInfoCommand */
@@ -260,10 +261,10 @@ protected:
   SExpr d_sexpr;
   std::string d_result;
 public:
-  SetOptionCommand(std::string flag, SExpr& sexpr);
+  SetOptionCommand(std::string flag, const SExpr& sexpr);
+  std::string getFlag() const;
+  SExpr getSExpr() const;
   void invoke(SmtEngine* smtEngine);
-  std::string getFlag() const { return d_flag; }
-  SExpr getSExpr() const { return d_sexpr; }
   std::string getResult() const;
   void printResult(std::ostream& out) const;
 };/* class SetOptionCommand */
@@ -274,8 +275,8 @@ protected:
   std::string d_result;
 public:
   GetOptionCommand(std::string flag);
+  std::string getFlag() const;
   void invoke(SmtEngine* smtEngine);
-  std::string getFlag() const { return d_flag; }
   std::string getResult() const;
   void printResult(std::ostream& out) const;
 };/* class GetOptionCommand */
@@ -286,14 +287,23 @@ private:
 public:
   DatatypeDeclarationCommand(const DatatypeType& datatype);
   DatatypeDeclarationCommand(const std::vector<DatatypeType>& datatypes);
+  const std::vector<DatatypeType>& getDatatypes() const;
   void invoke(SmtEngine* smtEngine);
-  const std::vector<DatatypeType>& getDatatypes() const { return d_datatypes; }
 };/* class DatatypeDeclarationCommand */
 
 class CVC4_PUBLIC QuitCommand : public EmptyCommand {
 public:
   QuitCommand();
+  void invoke(SmtEngine* smtEngine);
 };/* class QuitCommand */
+
+class CVC4_PUBLIC CommentCommand : public EmptyCommand {
+  std::string d_comment;
+public:
+  CommentCommand(std::string comment);
+  std::string getComment() const;
+  void invoke(SmtEngine* smtEngine);
+};/* class CommentCommand */
 
 class CVC4_PUBLIC CommandSequence : public Command {
 private:
@@ -304,18 +314,21 @@ private:
 public:
   CommandSequence();
   ~CommandSequence();
+
+  void addCommand(Command* cmd);
+
   void invoke(SmtEngine* smtEngine);
   void invoke(SmtEngine* smtEngine, std::ostream& out);
-  void addCommand(Command* cmd);
 
   typedef std::vector<Command*>::iterator iterator;
   typedef std::vector<Command*>::const_iterator const_iterator;
 
-  const_iterator begin() const { return d_commandSequence.begin(); }
-  const_iterator end() const { return d_commandSequence.end(); }
+  const_iterator begin() const;
+  const_iterator end() const;
 
-  iterator begin() { return d_commandSequence.begin(); }
-  iterator end() { return d_commandSequence.end(); }
+  iterator begin();
+  iterator end();
+
 };/* class CommandSequence */
 
 }/* CVC4 namespace */

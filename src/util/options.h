@@ -71,6 +71,9 @@ struct CVC4_PUBLIC Options {
   /** The input language */
   InputLanguage inputLanguage;
 
+  /** The output language */
+  OutputLanguage outputLanguage;
+
   /** Should we print the help message? */
   bool help;
 
@@ -106,21 +109,16 @@ struct CVC4_PUBLIC Options {
     /** Simplify the assertions as they come in */
     SIMPLIFICATION_MODE_INCREMENTAL,
     /** Simplify the assertions all together once a check is requested */
-    SIMPLIFICATION_MODE_BATCH
+    SIMPLIFICATION_MODE_BATCH,
+    /** Don't do simplification */
+    SIMPLIFICATION_MODE_NONE
   } SimplificationMode;
 
-  /** When to perform nonclausal simplifications. */
+  /** When/whether to perform nonclausal simplifications. */
   SimplificationMode simplificationMode;
 
-  /** Enumeration of simplification styles (how much to simplify). */
-  typedef enum {
-    AGGRESSIVE_SIMPLIFICATION_STYLE,
-    TOPLEVEL_SIMPLIFICATION_STYLE,
-    NO_SIMPLIFICATION_STYLE
-  } SimplificationStyle;
-
-  /** Style of nonclausal simplifications to perform. */
-  SimplificationStyle simplificationStyle;
+  /** Whether to perform the static learning pass. */
+  bool doStaticLearning;
 
   /** Whether we're in interactive mode or not */
   bool interactive;
@@ -227,11 +225,14 @@ inline std::ostream& operator<<(std::ostream& out,
 inline std::ostream& operator<<(std::ostream& out,
                                 Options::SimplificationMode mode) {
   switch(mode) {
+  case Options::SIMPLIFICATION_MODE_INCREMENTAL:
+    out << "SIMPLIFICATION_MODE_INCREMENTAL";
+    break;
   case Options::SIMPLIFICATION_MODE_BATCH:
     out << "SIMPLIFICATION_MODE_BATCH";
     break;
-  case Options::SIMPLIFICATION_MODE_INCREMENTAL:
-    out << "SIMPLIFICATION_MODE_INCREMENTAL";
+  case Options::SIMPLIFICATION_MODE_NONE:
+    out << "SIMPLIFICATION_MODE_NONE";
     break;
   default:
     out << "SimplificationMode:UNKNOWN![" << unsigned(mode) << "]";

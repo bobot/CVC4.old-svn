@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "expr/node.h"
+#include "expr/command.h"
 #include "prop/prop_engine.h"
 #include "theory/shared_term_manager.h"
 #include "theory/theory.h"
@@ -129,6 +130,10 @@ class TheoryEngine {
       Trace("theory") << "EngineOutputChannel::conflict("
                       << conflictNode << ")" << std::endl;
       d_conflictNode = conflictNode;
+      if(Dump.isOn("t-conflicts")) {
+        Dump("t-conflicts") << AssertCommand(conflictNode.toExpr())
+                            << std::endl;
+      }
       ++(d_engine->d_statistics.d_statConflicts);
       if(safe) {
         throw theory::Interrupted();
@@ -139,6 +144,9 @@ class TheoryEngine {
       throw(theory::Interrupted, AssertionException) {
       Trace("theory") << "EngineOutputChannel::propagate("
                       << lit << ")" << std::endl;
+      if(Dump.isOn("t-propagations")) {
+        Dump("t-propagations") << AssertCommand(lit.toExpr()) << std::endl;
+      }
       d_propagatedLiterals.push_back(lit);
       ++(d_engine->d_statistics.d_statPropagate);
     }
@@ -147,6 +155,9 @@ class TheoryEngine {
       throw(theory::Interrupted, AssertionException) {
       Trace("theory") << "EngineOutputChannel::lemma("
                       << node << ")" << std::endl;
+      if(Dump.isOn("t-lemmas")) {
+        Dump("t-lemmas") << AssertCommand(node.toExpr()) << std::endl;
+      }
       ++(d_engine->d_statistics.d_statLemma);
       d_engine->newLemma(node);
     }
@@ -155,12 +166,15 @@ class TheoryEngine {
       throw(theory::Interrupted, AssertionException) {
       Trace("theory") << "EngineOutputChannel::explanation("
                       << explanationNode << ")" << std::endl;
+      if(Dump.isOn("t-explanations")) {
+        Dump("t-explanations") << AssertCommand(explanationNode.toExpr())
+                               << std::endl;
+      }
       d_explanationNode = explanationNode;
       ++(d_engine->d_statistics.d_statExplanation);
     }
 
-    void setIncomplete()
-      throw(theory::Interrupted, AssertionException) {
+    void setIncomplete() throw(theory::Interrupted, AssertionException) {
       d_engine->d_incomplete = true;
     }
   };/* class EngineOutputChannel */
