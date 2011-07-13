@@ -758,8 +758,8 @@ bool TheoryArrays::isRedundantInContext(TNode a, TNode b, TNode i, TNode j) {
       Assert(!satValue1 && !satValue2);
       Assert(literal1.getKind() == kind::EQUAL && literal2.getKind() == kind::EQUAL);
       NodeBuilder<2> nb(kind::AND);
-      literal1 = areDisequal(literal1[0], literal1[1]);
-      literal2 = areDisequal(literal2[0], literal2[1]);
+      //literal1 = areDisequal(literal1[0], literal1[1]);
+      //literal2 = areDisequal(literal2[0], literal2[1]);
       Assert(!literal1.isNull() && !literal2.isNull());
       nb << literal1.notNode() << literal2.notNode();
       literal1 = nb;
