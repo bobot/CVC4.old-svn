@@ -11,9 +11,9 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Multi-precision rational constants.
+ ** \brief A multi-precision rational constant
  **
- ** Multi-precision rational constants.
+ ** A multi-precision rational constant.
  **/
 
 // this is used to avoid a public header dependence on cvc4autoconfig.h

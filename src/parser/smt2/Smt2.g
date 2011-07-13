@@ -143,7 +143,7 @@ parseExpr returns [CVC4::parser::smt2::myExpr expr]
  * Parses a command
  * @return the parsed command, or NULL if we've reached the end of the input
  */
-parseCommand returns [CVC4::Command* cmd]
+parseCommand returns [CVC4::Command* cmd = NULL]
   : LPAREN_TOK c = command RPAREN_TOK { $cmd = c; }
   | EOF { $cmd = 0; }
   ;
@@ -151,7 +151,7 @@ parseCommand returns [CVC4::Command* cmd]
 /**
  * Parse the internal portion of the command, ignoring the surrounding parentheses.
  */
-command returns [CVC4::Command* cmd]
+command returns [CVC4::Command* cmd = NULL]
 @declarations {
   std::string name;
   std::vector<std::string> names;

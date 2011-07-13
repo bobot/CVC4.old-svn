@@ -480,6 +480,7 @@ namespace CVC4 {
         myExpr(const Expr& e) : CVC4::Expr(e) {}
         myExpr(const myExpr& e) : CVC4::Expr(e) {}
       };/* struct myExpr */
+
     }/* CVC4::parser::cvc namespace */
   }/* CVC4::parser namespace */
 }/* CVC4 namespace */
@@ -532,7 +533,7 @@ using namespace CVC4::parser;
  * Parses an expression.
  * @return the parsed expression
  */
-parseExpr returns [CVC4::parser::cvc::myExpr expr]
+parseExpr returns [CVC4::Expr expr = CVC4::Expr()]
   : formula[expr]
   | EOF
   ;
@@ -541,7 +542,7 @@ parseExpr returns [CVC4::parser::cvc::myExpr expr]
  * Parses a command (the whole benchmark)
  * @return the command of the benchmark
  */
-parseCommand returns [CVC4::Command* cmd]
+parseCommand returns [CVC4::Command* cmd = NULL]
   : c=command { $cmd = c; }
   | EOF { $cmd = NULL; }
   ;
@@ -580,7 +581,6 @@ mainCommand[CVC4::Command*& cmd]
   std::vector<CVC4::Datatype> dts;
   Debug("parser-extra") << "command: " << AntlrInput::tokenText(LT(1)) << std::endl;
   std::string s;
-  k = 0;
 }
     /* our bread & butter */
   : ASSERT_TOK formula[f] { cmd = new AssertCommand(f); }
@@ -1113,7 +1113,7 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
     }
   ;
 
-parameterization[CVC4::parser::DeclarationCheck check, 
+parameterization[CVC4::parser::DeclarationCheck check,
                  std::vector<CVC4::Type>& params]
 @init {
   Type t;
@@ -1164,7 +1164,7 @@ formula[CVC4::Expr& f]
   ;
 
 morecomparisons[std::vector<CVC4::Expr>& expressions,
-                std::vector<unsigned>& operators] returns [size_t i]
+                std::vector<unsigned>& operators] returns [size_t i = 0]
 @init {
   unsigned op;
   Expr f;
@@ -1183,10 +1183,7 @@ morecomparisons[std::vector<CVC4::Expr>& expressions,
   ;
 
 /** Matches 0 or more NOTs. */
-nots returns [size_t n]
-@init {
-  $n = 0;
-}
+nots returns [size_t n = 0]
   : ( NOT_TOK { ++$n; } )*
   ;
 
@@ -1845,7 +1842,7 @@ DECIMAL_LITERAL
  * in the BVPLUS/BVMINUS/BVMULT rules where $INTEGER_LITERAL was
  * returning a reference to the wrong token?!
  */
-numeral returns [unsigned k]
+numeral returns [unsigned k = 0]
   : INTEGER_LITERAL
     { $k = AntlrInput::tokenToUnsigned($INTEGER_LITERAL); }
   ;
@@ -1853,7 +1850,7 @@ numeral returns [unsigned k]
 /**
  * Similar to numeral but for arbitrary-precision, signed integer.
  */
-integer returns [CVC4::Integer k]
+integer returns [CVC4::Integer k = 0]
   : INTEGER_LITERAL
     { $k = AntlrInput::tokenToInteger($INTEGER_LITERAL); }
   | MINUS_TOK INTEGER_LITERAL

@@ -365,6 +365,7 @@ public:
 };/* class CommandSequence */
 
 class CVC4_PUBLIC DeclarationSequence : public CommandSequence {
+public:
 };/* class DeclarationSequence */
 
 }/* CVC4 namespace */

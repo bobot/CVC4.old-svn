@@ -1,6 +1,9 @@
 TODO on this post-competition cleanup branch:
 
 preprocess dumping --dump=XX
+** current issues with lemmas:
+   symmetry breaker lemmas aren't valid
+   ext lemmas aren't valid
 portfolio issues
 arrays and CC module
 svn / git bridge ?

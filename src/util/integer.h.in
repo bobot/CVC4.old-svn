@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief A multiprecision integer constant.
+ ** \brief A multiprecision integer constant
  **
  ** A multiprecision integer constant.
  **/

@@ -228,6 +228,8 @@ CommandSequence::iterator CommandSequence::end() {
   return d_commandSequence.end();
 }
 
+/* class DeclarationSequenceCommand */
+
 /* class DeclarationDefinitionCommand */
 
 DeclarationDefinitionCommand::DeclarationDefinitionCommand(const std::string& id) :

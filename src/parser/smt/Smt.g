@@ -143,7 +143,7 @@ parseExpr returns [CVC4::parser::smt::myExpr expr]
  * Parses a command (the whole benchmark)
  * @return the command of the benchmark
  */
-parseCommand returns [CVC4::Command* cmd]
+parseCommand returns [CVC4::Command* cmd = NULL]
   : b = benchmark { $cmd = b; }
   ;
 
@@ -151,7 +151,7 @@ parseCommand returns [CVC4::Command* cmd]
  * Matches the whole SMT-LIB benchmark.
  * @return the sequence command containing the whole problem
  */
-benchmark returns [CVC4::Command* cmd]
+benchmark returns [CVC4::Command* cmd = NULL]
   : LPAREN_TOK BENCHMARK_TOK IDENTIFIER c = benchAttributes RPAREN_TOK
   	{ $cmd = c; }
   | EOF { $cmd = 0; }
@@ -162,7 +162,7 @@ benchmark returns [CVC4::Command* cmd]
  * command sequence.
  * @return the command sequence
  */
-benchAttributes returns [CVC4::CommandSequence* cmd_seq]
+benchAttributes returns [CVC4::CommandSequence* cmd_seq = NULL]
 @init {
   cmd_seq = new CommandSequence();
 }
@@ -174,7 +174,7 @@ benchAttributes returns [CVC4::CommandSequence* cmd_seq]
  * a corresponding command
  * @return a command corresponding to the attribute
  */
-benchAttribute returns [CVC4::Command* smt_command]
+benchAttribute returns [CVC4::Command* smt_command = NULL]
 @declarations {
   std::string name;
   BenchmarkStatus b_status;
