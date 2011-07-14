@@ -35,18 +35,23 @@ XCFLAGS="$XCFLAGS"
 
 version_info=0:0:0
 
-prefix=/usr
-eprefix=$prefix
-bindir=$eprefix/bin
-datadir=$prefix/share
-includedir=$prefix/include/cudd
-libdir=$prefix/lib
-mandir=$datadir/man/man1
-docdir=$datadir/doc
+prefix="$cudd_dir"
+eprefix="$prefix"
+bindir="$eprefix/bin"
+datadir="$prefix/share"
+includedir="$prefix/include"
+libdir="$prefix/lib"
+mandir="$datadir/man/man1"
+docdir="$datadir/doc"
 
 cd "$cudd_dir"
 patch -p1 < "$patch"
 make "XCFLAGS=$XCFLAGS" "CC=libtool --mode=compile gcc" "CPP=libtool --mode=compile g++" libdir="$libdir" version_info="$version_info" DDDEBUG= MTRDEBUG= ICFLAGS=-O2
+mkdir -p "$libdir"
+libtool --mode=install cp libcudd.la "$libdir/libcudd.la"
+libtool --mode=install cp libcuddxx.la "$libdir/libcuddxx.la"
+libtool --mode=install cp libdddmp.la "$libdir/libdddmp.la"
+libtool --finish "$libdir"
 patch -p1 -R < "$patch"
 exit
 
