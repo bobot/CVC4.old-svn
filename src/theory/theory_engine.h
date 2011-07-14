@@ -28,6 +28,7 @@
 #include "expr/node.h"
 #include "expr/command.h"
 #include "prop/prop_engine.h"
+#include "context/cdset.h"
 #include "theory/shared_term_manager.h"
 #include "theory/theory.h"
 #include "theory/substitutions.h"
@@ -90,6 +91,19 @@ class TheoryEngine {
   NodeMap d_atomPreprocessingCache;
 
   /**
+   * Used for "missed-t-propagations" dumping mode only.  A set of all
+   * theory-propagable literals.
+   */
+  std::vector<TNode> d_possiblePropagations;
+
+  /**
+   * Used for "missed-t-propagations" dumping mode only.  A
+   * context-dependent set of those theory-propagable literals that
+   * have been propagated.
+   */
+  context::CDSet<TNode, TNodeHashFunction> d_hasPropagated;
+
+  /**
    * An output channel for Theory that passes messages
    * back to a TheoryEngine.
    */
@@ -134,6 +148,7 @@ class TheoryEngine {
         Dump("t-conflicts") << CommentCommand("theory conflict: expect unsat") << std::endl
                             << CheckSatCommand(conflictNode.toExpr()) << std::endl;
       }
+      Assert(d_engine->properConflict(conflictNode));
       ++(d_engine->d_statistics.d_statConflicts);
       if(safe) {
         throw theory::Interrupted();
@@ -145,9 +160,14 @@ class TheoryEngine {
       Trace("theory") << "EngineOutputChannel::propagate("
                       << lit << ")" << std::endl;
       if(Dump.isOn("t-propagations")) {
-        Dump("t-propagations") << CommentCommand("negation of theory propagation: expect valid") << std::endl
-                               << QueryCommand(lit.toExpr()) << std::endl;
+        Dump("t-propagations")
+          << CommentCommand("negation of theory propagation: expect valid") << std::endl
+          << QueryCommand(lit.toExpr()) << std::endl;
       }
+      if(Dump.isOn("missed-t-propagations")) {
+        d_engine->d_hasPropagated.insert(lit);
+      }
+      Assert(d_engine->properPropagation(lit));
       d_propagatedLiterals.push_back(lit);
       ++(d_engine->d_statistics.d_statPropagate);
     }
@@ -184,12 +204,6 @@ class TheoryEngine {
   SharedTermManager* d_sharedTermManager;
 
   /**
-   * Whether or not theory registration is on.  May not be safe to
-   * turn off with some theories.
-   */
-  bool d_theoryRegistration;
-
-  /**
    * Debugging flag to ensure that shutdown() is called before the
    * destructor.
    */
@@ -204,22 +218,7 @@ class TheoryEngine {
   /**
    * Mark a theory active if it's not already.
    */
-  void markActive(theory::TheoryId th) {
-    if(!d_theoryIsActive[th]) {
-      d_theoryIsActive[th] = true;
-      if(th != theory::THEORY_BUILTIN && th != theory::THEORY_BOOL) {
-        if(++d_activeTheories == 1) {
-          // theory requests registration
-          d_needRegistration = hasRegisterTerm(th);
-        } else {
-          // need it for sharing
-          d_needRegistration = true;
-        }
-      }
-      Notice() << "Theory " << th << " has been activated (registration is "
-               << (d_needRegistration ? "on" : "off") << ")." << std::endl;
-    }
-  }
+  void markActive(theory::TheoryId th);
 
   bool hasRegisterTerm(theory::TheoryId th) const;
 
@@ -238,18 +237,18 @@ public:
    * there is another theory it will be deleted.
    */
   template <class TheoryClass>
-  void addTheory() {
+  inline void addTheory() {
     TheoryClass* theory =
       new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
     d_theoryTable[theory->getId()] = theory;
     d_sharedTermManager->registerTheory(static_cast<TheoryClass*>(theory));
   }
 
-  SharedTermManager* getSharedTermManager() {
+  inline SharedTermManager* getSharedTermManager() {
     return d_sharedTermManager;
   }
 
-  void setPropEngine(prop::PropEngine* propEngine) {
+  inline void setPropEngine(prop::PropEngine* propEngine) {
     Assert(d_propEngine == NULL);
     d_propEngine = propEngine;
   }
@@ -257,7 +256,7 @@ public:
   /**
    * Get a pointer to the underlying propositional engine.
    */
-  prop::PropEngine* getPropEngine() const {
+  inline prop::PropEngine* getPropEngine() const {
     return d_propEngine;
   }
 
@@ -270,7 +269,7 @@ public:
   /**
    * Return whether or not we are incomplete (in the current context).
    */
-  bool isIncomplete() {
+  inline bool isIncomplete() {
     return d_incomplete;
   }
 
@@ -279,21 +278,7 @@ public:
    * destruction.  It is important because there are destruction
    * ordering issues between PropEngine and Theory.
    */
-  void shutdown() {
-    // Set this first; if a Theory shutdown() throws an exception,
-    // at least the destruction of the TheoryEngine won't confound
-    // matters.
-    d_hasShutDown = true;
-
-    // Shutdown all the theories
-    for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
-      if(d_theoryTable[theoryId]) {
-        d_theoryTable[theoryId]->shutdown();
-      }
-    }
-
-    theory::Rewriter::shutdown();
-  }
+  void shutdown();
 
   /**
    * Get the theory associated to a given Node.
@@ -367,34 +352,7 @@ public:
    * Assert the formula to the appropriate theory.
    * @param node the assertion
    */
-  inline void assertFact(TNode node) {
-    Trace("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
-
-    // Mark it as asserted in this context
-    //
-    // [MGD] removed for now, this appears to have a nontrivial
-    // performance penalty
-    // node.setAttribute(theory::Asserted(), true);
-
-    // Get the atom
-    TNode atom = node.getKind() == kind::NOT ? node[0] : node;
-
-    // Again, equality is a special case
-    if (atom.getKind() == kind::EQUAL) {
-      if(d_logic == "QF_AX") {
-        Trace("theory") << "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays" << std::endl;
-        d_theoryTable[theory::THEORY_ARRAY]->assertFact(node);
-      } else {
-        theory::Theory* theory = theoryOf(atom);
-        Trace("theory") << "asserting " << node << " to " << theory->getId() << std::endl;
-        theory->assertFact(node);
-      }
-    } else {
-      theory::Theory* theory = theoryOf(atom);
-      Trace("theory") << "asserting " << node << " to " << theory->getId() << std::endl;
-      theory->assertFact(node);
-    }
-  }
+  void assertFact(TNode node);
 
   /**
    * Check all (currently-active) theories for conflicts.
@@ -423,7 +381,7 @@ public:
     return d_theoryOut.d_propagatedLiterals;
   }
 
-  void clearPropagatedLiterals() {
+  inline void clearPropagatedLiterals() {
     d_theoryOut.d_propagatedLiterals.clear();
   }
 
@@ -446,44 +404,12 @@ public:
 
   void propagate();
 
-  inline Node getExplanation(TNode node, theory::Theory* theory) {
-    theory->explain(node);
-    if(Dump.isOn("t-explanations")) {
-      Dump("t-explanations")
-        << CommentCommand(std::string("theory explanation from ") +
-                          theory->identify() + ": expect valid") << std::endl
-        << QueryCommand(d_theoryOut.d_explanationNode.get().impNode(node).toExpr())
-        << std::endl;
-    }
-    return d_theoryOut.d_explanationNode;
-  }
+  Node getExplanation(TNode node, theory::Theory* theory);
+  Node getExplanation(TNode node);
 
-  inline Node getExplanation(TNode node) {
-    d_theoryOut.d_explanationNode = Node::null();
-    TNode atom = node.getKind() == kind::NOT ? node[0] : node;
-    theory::Theory* th;
-    if (atom.getKind() == kind::EQUAL) {
-      if(d_logic == "QF_AX") {
-        Trace("theory") << "TheoryEngine::assertFact QF_AX logic; "
-                        << "everything goes to Arrays" << std::endl;
-        th = d_theoryTable[theory::THEORY_ARRAY];
-      } else {
-        th = theoryOf(atom[0]);
-      }
-    } else {
-      th = theoryOf(atom);
-    }
-    th->explain(node);
-    if(Dump.isOn("t-explanations")) {
-      Dump("t-explanations")
-        << CommentCommand(std::string("theory explanation from ") +
-                          th->identify() + ": expect valid") << std::endl
-        << QueryCommand(d_theoryOut.d_explanationNode.get().impNode(node).toExpr())
-        << std::endl;
-    }
-    Assert(!d_theoryOut.d_explanationNode.get().isNull());
-    return d_theoryOut.d_explanationNode;
-  }
+  bool properConflict(TNode conflict) const;
+  bool properPropagation(TNode lit) const;
+  bool properExplanation(TNode node, TNode expl) const;
 
   Node getValue(TNode node);
 

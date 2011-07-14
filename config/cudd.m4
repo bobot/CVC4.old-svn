@@ -47,7 +47,10 @@ else
       [AC_LANG_PROGRAM([
 #include <stdio.h>
 #include "cuddObj.hh"],
-         [Cudd c;])],
+         [
+Cudd c;
+BDD b = c.bddVar() | c.bddOne();
+])],
       [ CUDD_CPPFLAGS="-I$cuddinc"
         result="$cuddinc"
         cvc4cudd=yes
@@ -64,32 +67,38 @@ else
     CPPFLAGS="$CPPFLAGS $CUDD_CPPFLAGS"
     cvc4save_LDFLAGS="$LDFLAGS"
     cvc4save_LIBS="$LIBS"
+    cvc4save_ac_link="$ac_link"
+    ac_link="libtool --mode=link $ac_link"
     dnl This is messy.  We try to find Fedora packages, Debian packages, and
     dnl a built CUDD source directory.  We can't -lutil or -lst because these
     dnl names of CUDD libraries conflict with other libraries commonly
     dnl installed.  So we fall back to naming them directly.  The CUDD
     dnl sources build static libs only, so we go with that.
-    for cuddlibdirs in "-L$CUDD_DIR/lib" "-L$CUDD_DIR/lib/cudd" "-L$CUDD_DIR" \
-        "-L$CUDD_DIR/obj -L$CUDD_DIR/cudd -L$CUDD_DIR/mtr -L$CUDD_DIR/epd -L$CUDD_DIR/st"; do
-      for cuddlibs in -lcuddxx -lcuddobj "-lobj -lcudd $CUDD_DIR/util/libutil.a $CUDD_DIR/st/libst.a -lepd -lmtr"; do
+    for cuddlibdirs in "-L$CUDD_DIR/lib" "-L$CUDD_DIR/lib/cudd" "-L$CUDD_DIR"; do
+      for cuddlibs in -lcuddxx -lcuddobj; do
         LDFLAGS="$cvc4save_LDFLAGS $cuddlibdirs"
         LIBS="$cvc4save_LIBS $cuddlibs"
         AC_LINK_IFELSE(
           [AC_LANG_PROGRAM([
 #include <stdio.h>
 #include "cuddObj.hh"],
-             [Cudd c;])],
+             [
+Cudd c;
+BDD b = c.bddVar() | c.bddOne();
+])],
           [ CUDD_LDFLAGS="$cuddlibdirs"
             CUDD_LIBS="$cuddlibs"
-            result="$cuddlibdirs"
+            result="$cuddlibdirs $cuddlibs"
             cvc4cudd=yes
             break
           ])
       done
+      if test -n "$CUDD_LDFLAGS"; then break; fi
     done
     CPPFLAGS="$cvc4save_CPPFLAGS"
     LDFLAGS="$cvc4save_LDFLAGS"
     LIBS="$cvc4save_LIBS"
+    ac_link="$cvc4save_ac_link"
     AC_MSG_RESULT([$result]);
     if test $cvc4cudd = yes; then
       AC_DEFINE_UNQUOTED(CVC4_CUDD, [], [Defined if using the CU Decision Diagram package (cudd).])

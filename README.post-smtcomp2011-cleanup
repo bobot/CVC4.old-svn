@@ -4,10 +4,20 @@ preprocess dumping --dump=XX
 ** current issues with lemmas:
    symmetry breaker lemmas aren't valid
    ext lemmas aren't valid
+   missed-t-propagations: "TRUE" is preregistered to THEORY_BOOL ??
 ** include level 0 BCP ?
-** cudd cleanup
-portfolio issues
+** proper checking of properConflict() etc.
+type checker cleanup
+portfolio issues?
 arrays and CC module
 svn / git bridge ?
+
+LOG OF CHANGES ON THIS BRANCH SO FAR
+====================================
+entire dumping infrastructure
+CUDD building much cleaner
+documentation, assertion fixes
+copyright and file headers regenerated
+printer improvements, printing of commands in language-defined way, etc.
 
 -- Morgan Deters <mdeters@cs.nyu.edu>  Mon, 11 Jul 2011 20:26:48 -0400

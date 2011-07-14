@@ -2,6 +2,9 @@
 #
 # Patch to cudd build system to build everything with libtool, supporting
 # shared libraries.  Also all libraries are combined into a single one.
+#
+# This script applies the patch, builds cudd, and, assuming there are no
+# errors, reverses the patch.
 # 
 # -- Morgan Deters <mdeters@cs.nyu.edu>  Wed, 13 Jul 2011 18:03:11 -0400
 #
@@ -19,13 +22,12 @@ if [ ! -r "$patch" ]; then
 fi
 cudd_dir="$1"
 
-../config/config.guess -
-i386
-XCFLAGS = -mtune=pentium4 -malign-double -DHAVE_IEEE_754 -DBSD
-amd64
-XCFLAGS = -mtune=native -DHAVE_IEEE_754 -DBSD -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8
-other
-XCFLAGS=
+arch=$(../config/config.guess | cut -f1 -d-)
+case "$arch" in
+  i?86)   XCFLAGS='-mtune=pentium4 -malign-double -DHAVE_IEEE_754 -DBSD' ;;
+  x86_64) XCFLAGS='-mtune=native -DHAVE_IEEE_754 -DBSD -DSIZEOF_VOID_P=8 -DSIZEOF_LONG=8' ;;
+  *)      XCFLAGS= ;;
+esac
 
 set -ex
 

@@ -546,7 +546,7 @@ throw(OptionException) {
           throw OptionException(string("unknown option for --dump: `") +
                                 optarg + "'.  Try --dump help.");
         }
-  
+
         Dump.on(optarg);
         Dump.on("benchmark");
         if(strcmp(optarg, "benchmark")) {

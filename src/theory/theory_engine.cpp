@@ -53,6 +53,10 @@ typedef expr::Attribute<PreRegisteredAttrTag, bool> PreRegistered;
 void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
   TimerStat::CodeTimer codeTimer(d_newFactTimer);
 
+  if(Dump.isOn("state")) {
+    Dump("state") << AssertCommand(fact.toExpr()) << endl;
+  }
+
   //FIXME: Assert(fact.isLiteral(), "expected literal");
   if (fact.getKind() == kind::NOT) {
     // No need to register negations - only atoms
@@ -135,9 +139,14 @@ TheoryEngine::TheoryEngine(context::Context* ctxt) :
   d_context(ctxt),
   d_activeTheories(0),
   d_needRegistration(false),
+  d_atomPreprocessingCache(),
+  d_possiblePropagations(),
+  d_hasPropagated(ctxt),
   d_theoryOut(this, ctxt),
+  d_sharedTermManager(NULL),
   d_hasShutDown(false),
   d_incomplete(ctxt, false),
+  d_logic(""),
   d_statistics() {
 
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
@@ -175,6 +184,10 @@ void TheoryEngine::preRegister(TNode preprocessed) {
     return;
   }
 
+  if(Dump.isOn("missed-t-propagations")) {
+    d_possiblePropagations.push_back(preprocessed);
+  }
+
   // Do a topological sort of the subexpressions and preregister them
   vector<preregister_stack_element> toVisit;
   toVisit.push_back((TNode) preprocessed);
@@ -196,20 +209,20 @@ void TheoryEngine::preRegister(TNode preprocessed) {
             Theory* theory = theoryOf(current);
             TheoryId theoryLHS = theory->getId();
             Trace("register") << "preregistering " << current
-                              << " with " << theoryLHS << std::endl;
+                              << " with " << theoryLHS << endl;
             markActive(theoryLHS);
             theory->preRegisterTerm(current);
           }
         } else {
           TheoryId theory = theoryIdOf(current);
           Trace("register") << "preregistering " << current
-                            << " with " << theory << std::endl;
+                            << " with " << theory << endl;
           markActive(theory);
           d_theoryTable[theory]->preRegisterTerm(current);
           TheoryId typeTheory = theoryIdOf(current.getType());
           if (theory != typeTheory) {
             Trace("register") << "preregistering " << current
-                              << " with " << typeTheory << std::endl;
+                              << " with " << typeTheory << endl;
             markActive(typeTheory);
             d_theoryTable[typeTheory]->preRegisterTerm(current);
           }
@@ -228,6 +241,35 @@ void TheoryEngine::preRegister(TNode preprocessed) {
         }
       }
     }
+  }
+}
+
+void TheoryEngine::assertFact(TNode node) {
+  Trace("theory") << "TheoryEngine::assertFact(" << node << ")" << endl;
+
+  // Mark it as asserted in this context
+  //
+  // [MGD] removed for now, this appears to have a nontrivial
+  // performance penalty
+  // node.setAttribute(theory::Asserted(), true);
+
+  // Get the atom
+  TNode atom = node.getKind() == kind::NOT ? node[0] : node;
+
+  // Again, equality is a special case
+  if (atom.getKind() == kind::EQUAL) {
+    if(d_logic == "QF_AX") {
+      Trace("theory") << "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays" << endl;
+      d_theoryTable[theory::THEORY_ARRAY]->assertFact(node);
+    } else {
+      theory::Theory* theory = theoryOf(atom);
+      Trace("theory") << "asserting " << node << " to " << theory->getId() << endl;
+      theory->assertFact(node);
+    }
+  } else {
+    theory::Theory* theory = theoryOf(atom);
+    Trace("theory") << "asserting " << node << " to " << theory->getId() << endl;
+    theory->assertFact(node);
   }
 }
 
@@ -260,7 +302,7 @@ bool TheoryEngine::check(theory::Theory::Effort effort) {
         << CheckSatCommand() << endl;
     }
   } catch(const theory::Interrupted&) {
-    Trace("theory") << "TheoryEngine::check() => conflict" << std::endl;
+    Trace("theory") << "TheoryEngine::check() => conflict" << endl;
   }
 
   return true;
@@ -278,6 +320,76 @@ void TheoryEngine::propagate() {
 
   // Propagate for each theory using the statement above
   CVC4_FOR_EACH_THEORY;
+
+  if(Dump.isOn("missed-t-propagations")) {
+    for(vector<TNode>::iterator i = d_possiblePropagations.begin();
+        i != d_possiblePropagations.end();
+        ++i) {
+      if(d_hasPropagated.find(*i) == d_hasPropagated.end()) {
+        Dump("missed-t-propagations")
+          << CommentCommand("Completeness check for T-propagations; expect invalid") << endl
+          << QueryCommand((*i).toExpr()) << endl;
+      }
+    }
+  }
+}
+
+Node TheoryEngine::getExplanation(TNode node, theory::Theory* theory) {
+  theory->explain(node);
+  if(Dump.isOn("t-explanations")) {
+    Dump("t-explanations")
+      << CommentCommand(string("theory explanation from ") +
+                        theory->identify() + ": expect valid") << endl
+      << QueryCommand(d_theoryOut.d_explanationNode.get().impNode(node).toExpr())
+      << endl;
+  }
+  Assert(properExplanation(node, d_theoryOut.d_explanationNode.get()));
+  return d_theoryOut.d_explanationNode;
+}
+
+Node TheoryEngine::getExplanation(TNode node) {
+  d_theoryOut.d_explanationNode = Node::null();
+  TNode atom = node.getKind() == kind::NOT ? node[0] : node;
+  theory::Theory* th;
+  if (atom.getKind() == kind::EQUAL) {
+    if(d_logic == "QF_AX") {
+      Trace("theory") << "TheoryEngine::assertFact QF_AX logic; "
+                      << "everything goes to Arrays" << endl;
+      th = d_theoryTable[theory::THEORY_ARRAY];
+    } else {
+      th = theoryOf(atom[0]);
+    }
+  } else {
+    th = theoryOf(atom);
+  }
+  th->explain(node);
+  if(Dump.isOn("t-explanations")) {
+    Dump("t-explanations")
+      << CommentCommand(string("theory explanation from ") +
+                        th->identify() + ": expect valid") << endl
+      << QueryCommand(d_theoryOut.d_explanationNode.get().impNode(node).toExpr())
+      << endl;
+  }
+  Assert(properExplanation(node, d_theoryOut.d_explanationNode.get()));
+  return d_theoryOut.d_explanationNode;
+}
+
+bool TheoryEngine::properConflict(TNode conflict) const {
+  Assert(!conflict.isNull());
+#warning fixme
+  return true;
+}
+
+bool TheoryEngine::properPropagation(TNode lit) const {
+  Assert(!lit.isNull());
+#warning fixme
+  return true;
+}
+
+bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
+  Assert(!node.isNull() && !expl.isNull());
+#warning fixme
+  return true;
 }
 
 Node TheoryEngine::getValue(TNode node) {
@@ -362,6 +474,39 @@ void TheoryEngine::staticLearning(TNode in, NodeBuilder<>& learned) {
   CVC4_FOR_EACH_THEORY;
 }
 
+void TheoryEngine::markActive(theory::TheoryId th) {
+  if(!d_theoryIsActive[th]) {
+    d_theoryIsActive[th] = true;
+    if(th != theory::THEORY_BUILTIN && th != theory::THEORY_BOOL) {
+      if(++d_activeTheories == 1) {
+        // theory requests registration
+        d_needRegistration = hasRegisterTerm(th);
+      } else {
+        // need it for sharing
+        d_needRegistration = true;
+      }
+    }
+    Notice() << "Theory " << th << " has been activated (registration is "
+             << (d_needRegistration ? "on" : "off") << ")." << endl;
+  }
+}
+
+void TheoryEngine::shutdown() {
+  // Set this first; if a Theory shutdown() throws an exception,
+  // at least the destruction of the TheoryEngine won't confound
+  // matters.
+  d_hasShutDown = true;
+
+  // Shutdown all the theories
+  for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
+    if(d_theoryTable[theoryId]) {
+      d_theoryTable[theoryId]->shutdown();
+    }
+  }
+
+  theory::Rewriter::shutdown();
+}
+
 bool TheoryEngine::hasRegisterTerm(TheoryId th) const {
   switch(th) {
   // Definition of the statement that is to be run by every theory
@@ -380,9 +525,9 @@ bool TheoryEngine::hasRegisterTerm(TheoryId th) const {
 
 theory::Theory::SolveStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitionOut) {
   TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
-  Trace("theory") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << std::endl;
+  Trace("theory") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << endl;
   Theory::SolveStatus solveStatus = theoryOf(atom)->solve(literal, substitionOut);
-  Trace("theory") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << std::endl;
+  Trace("theory") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << endl;
   return solveStatus;
 }
 
@@ -396,7 +541,7 @@ struct preprocess_stack_element {
 
 Node TheoryEngine::preprocess(TNode assertion) {
 
-  Trace("theory") << "TheoryEngine::preprocess(" << assertion << ")" << std::endl;
+  Trace("theory") << "TheoryEngine::preprocess(" << assertion << ")" << endl;
 
     // Do a topological sort of the subexpressions and substitute them
   vector<preprocess_stack_element> toVisit;
@@ -408,7 +553,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
     preprocess_stack_element& stackHead = toVisit.back();
     TNode current = stackHead.node;
 
-    Debug("theory::internal") << "TheoryEngine::preprocess(" << assertion << "): processing " << current << std::endl;
+    Debug("theory::internal") << "TheoryEngine::preprocess(" << assertion << "): processing " << current << endl;
 
     // If node already in the cache we're done, pop from the stack
     NodeMap::iterator find = d_atomPreprocessingCache.find(current);
@@ -436,7 +581,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
       }
       // Mark the substitution and continue
       Node result = builder;
-      Debug("theory::internal") << "TheoryEngine::preprocess(" << assertion << "): setting " << current << " -> " << result << std::endl;
+      Debug("theory::internal") << "TheoryEngine::preprocess(" << assertion << "): setting " << current << " -> " << result << endl;
       d_atomPreprocessingCache[current] = result;
       toVisit.pop_back();
     } else {
@@ -453,7 +598,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
         }
       } else {
         // No children, so we're done
-        Debug("substitution::internal") << "SubstitutionMap::internalSubstitute(" << assertion << "): setting " << current << " -> " << current << std::endl;
+        Debug("substitution::internal") << "SubstitutionMap::internalSubstitute(" << assertion << "): setting " << current << " -> " << current << endl;
         d_atomPreprocessingCache[current] = current;
         toVisit.pop_back();
       }

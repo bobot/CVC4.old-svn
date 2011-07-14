@@ -23,6 +23,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "cvc4_private.h"
 
+#include <iostream>
+
 #include "mtl/Vec.h"
 #include "mtl/Heap.h"
 #include "mtl/Alg.h"
@@ -31,12 +33,14 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "context/context.h"
 #include "theory/theory.h"
+#include "util/output.h"
+#include "expr/command.h"
 
 namespace CVC4 {
 namespace prop {
   class SatSolver;
-}
-}
+}/* CVC4::prop namespace */
+}/* CVC4 namespace */
 
 namespace Minisat {
 
@@ -403,7 +407,7 @@ inline bool     Solver::addClause       (Lit p, ClauseType type)                
 inline bool     Solver::addClause       (Lit p, Lit q, ClauseType type)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, type); }
 inline bool     Solver::addClause       (Lit p, Lit q, Lit r, ClauseType type)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, type); }
 inline bool     Solver::locked          (const Clause& c) const { return value(c[0]) == l_True && reason(var(c[0])) != CRef_Undef && ca.lea(reason(var(c[0]))) == &c; }
-inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); propagating_lemmas_lim.push(propagating_lemmas.size()); context->push(); }
+inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); propagating_lemmas_lim.push(propagating_lemmas.size()); context->push(); if(Dump.isOn("state")) { Dump("state") << CVC4::PushCommand() << std::endl; } }
 
 inline int      Solver::decisionLevel ()      const   { return trail_lim.size(); }
 inline uint32_t Solver::abstractLevel (Var x) const   { return 1 << (level(x) & 31); }
@@ -457,6 +461,6 @@ inline void     Solver::toDimacs     (const char* file, Lit p, Lit q, Lit r){ ve
 
 
 //=================================================================================================
-}
+}/* Minisat namespace */
 
 #endif

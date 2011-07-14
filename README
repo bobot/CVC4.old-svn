@@ -41,10 +41,14 @@ when you download and build the CUDD sources directly.  If you install
 from Fedora RPMs or our Debian packages (remember, you need the C++
 development package for CVC4), the process should be completely
 automatic, since the libraries and headers are installed in a standard
-location.  If you download the sources and build them yourself (again,
-make sure to "make objlib" to build the C++ library, it's not built
-by default), you'll need to provide --with-cudd-dir=/PATH/TO/SOURCES
-to the configure script.
+location.  If you download the sources yourself, you need to build
+them in a special way.  Fortunately, the "contrib/build-cudd-with-libtool.sh"
+script in the CVC4 source tree does exactly what you need: it patches
+the CUDD makefiles to use libtool, builds the libtool libraries, then
+reverses the patch to leave the makefiles as they were.  Once you
+run this script on an unpacked CUDD 2.4.2 source distribution, then
+CVC4's configure script should pick up the libraries if you provide
+--with-cudd-dir=/PATH/TO/CUDD/SOURCES.
 
 If you want to force linking to CUDD, provide --with-cudd to the
 configure script; this makes it a hard requirement rather than an
