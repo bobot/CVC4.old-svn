@@ -93,6 +93,24 @@ void PropEngine::assertLemma(TNode node) {
   d_cnfStream->convertAndAssert(node, true, false);
 }
 
+void PropEngine::requirePhase(TNode n, bool phase) {
+  Debug("prop") << "requirePhase(" << n << ", " << phase << ")" << endl;
+
+  Assert(n.getType().isBoolean());
+  SatLiteral lit = d_cnfStream->getLiteral(n);
+  d_satSolver->requirePhasedDecision(phase ? lit : ~lit);
+}
+
+void PropEngine::dependentDecision(TNode depends, TNode decision) {
+  Debug("prop") << "dependentDecision(" << depends << ", " << decision << ")" << endl;
+
+  Assert(depends.getType().isBoolean());
+  Assert(decision.getType().isBoolean());
+  SatVariable vdep = Minisat::var(d_cnfStream->getLiteral(depends));
+  SatVariable vdec = Minisat::var(d_cnfStream->getLiteral(decision));
+  d_satSolver->dependentDecision(vdep, vdec);
+}
+
 void PropEngine::printSatisfyingAssignment(){
   const CnfStream::TranslationCache& transCache =
     d_cnfStream->getTranslationCache();

@@ -130,6 +130,8 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
     seen     .push(0);
     polarity .push(sign);
     decision .push();
+    depends  .push(-1);
+    dependsOn.push(-1);
     trail    .capacity(v+1);
     setDecisionVar(v, dvar);
     theory   .push(theoryAtom);
@@ -320,6 +322,15 @@ void Solver::cancelUntil(int level, bool re_propagate) {
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
             Var      x  = var(trail[c]);
             assigns [x] = l_Undef;
+            if(dependsOn[x] >= 0 && depends[x] >= 0) {
+              Var v = dependsOn[x];
+              do {
+                assert(depends[v] == x);
+                if(decision[v]) dec_vars--;
+                insertVarOrder(v);
+                v = dependsOn[v];
+              } while(v >= 0);
+            }
             if (phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
                 polarity[x] = sign(trail[c]);
             insertVarOrder(x); }
@@ -381,6 +392,15 @@ void Solver::popTrail() {
     for (int c = trail.size()-1; c >= target_size; c--){
       Var      x  = var(trail[c]);
       assigns [x] = l_Undef;
+      if(dependsOn[x] >= 0 && depends[x] >= 0) {
+        Var v = dependsOn[x];
+        do {
+          assert(depends[v] == x);
+          if(decision[v]) dec_vars--;
+          insertVarOrder(v);
+          v = dependsOn[v];
+        } while(v >= 0);
+      }
       if (phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
         polarity[x] = sign(trail[c]);
       insertVarOrder(x); }
@@ -411,7 +431,8 @@ Lit Solver::pickBranchLit()
             rnd_decisions++; }
 
     // Activity based decision:
-    while (next == var_Undef || value(next) != l_Undef || !decision[next])
+    while (next == var_Undef || value(next) != l_Undef || !decision[next] ||
+           (depends[next] >= 0 && value(depends[next]) == l_Undef))
         if (order_heap.empty()){
             next = var_Undef;
             break;
@@ -640,6 +661,15 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
 {
     assert(value(p) == l_Undef);
     assigns[var(p)] = lbool(!sign(p));
+    if(dependsOn[var(p)] >= 0 && depends[var(p)] >= 0) {
+      Var v = dependsOn[var(p)];
+      do {
+        assert(depends[v] == var(p));
+        if(decision[v]) dec_vars++;
+        insertVarOrder(v);
+        v = dependsOn[v];
+      } while(v >= 0);
+    }
     vardata[var(p)] = mkVarData(from, decisionLevel(), intro_level(var(p)));
     trail.push_(p);
     if (theory[var(p)]) {
@@ -1061,6 +1091,8 @@ lbool Solver::search(int nof_conflicts)
                 // New variable decision:
                 decisions++;
                 next = pickBranchLit();
+
+                Debug("mgd") << "branch lit: " << next << " depends on " << (var(next) == var_Undef ? var_Undef : depends[var(next)]) << " with value " << (depends[var(next)] == var_Undef ? l_Undef : value(depends[var(next)])) << std::endl;
 
                 if (next == lit_Undef) {
                     // We need to do a full theory check to confirm

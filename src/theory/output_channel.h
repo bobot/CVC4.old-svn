@@ -113,6 +113,29 @@ public:
   }
 
   /**
+   * If a decision is made on n, it must be in the phase specified.
+   *
+   * @param n - a theory atom with a SAT literal assigned; must have
+   * been pre-registered
+   * @param phase - the phase to decide on n
+   * @param safe - whether it is safe to be interrupted
+   */
+  virtual void requirePhase(TNode n, bool phase, bool safe = false)
+    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
+
+  /**
+   * Tell the SAT solver that "decision" can never be decided until
+   * "depends" has been assigned.  Both must have a SAT literal.
+   *
+   * @param depends - the literal that must be assigned
+   * @param decision - the literal that cannot be decided until "depends" 
+   * has an assignment
+   * @param safe - whether it is safe to be interrupted
+   */
+  virtual void dependentDecision(TNode depends, TNode decision, bool safe = false)
+    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
+
+  /**
    * Provide an explanation in response to an explanation request.
    *
    * @param n - an explanation

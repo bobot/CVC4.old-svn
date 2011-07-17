@@ -143,6 +143,7 @@ public:
     // 
     void    setPolarity    (Var v, bool b); // Declare which polarity the decision heuristic should use for a variable. Requires mode 'polarity_user'.
     void    setDecisionVar (Var v, bool b); // Declare if a variable should be eligible for selection in the decision heuristic.
+    void    dependentDecision(Var dep, Var dec); // Declare that deciding on "dec" depends on "dep" having an assignment
 
     // Read state:
     //
@@ -244,6 +245,8 @@ protected:
     vec<lbool>          assigns;          // The current assignments.
     vec<char>           polarity;         // The preferred polarity of each variable.
     vec<char>           decision;         // Declares if a variable is eligible for selection in the decision heuristic.
+    vec<Var>            depends;          // The variable (if any) that a decision on this variable depends on
+    vec<Var>            dependsOn;        // Variables whose decision depends on this variable
     vec<Lit>            trail;            // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;        // Separator indices for different decision levels in 'trail'.
     vec<int>            trail_user_lim;   // Separator indices for different user push levels in 'trail'.
@@ -419,12 +422,24 @@ inline int      Solver::nFreeVars     ()      const   { return (int)dec_vars - (
 inline void     Solver::setPolarity   (Var v, bool b) { polarity[v] = b; }
 inline void     Solver::setDecisionVar(Var v, bool b) 
 { 
-    if      ( b && !decision[v]) dec_vars++;
-    else if (!b &&  decision[v]) dec_vars--;
+    if      ( b && !decision[v] &&  (depends[v] == -1 || value(depends[v]) != l_Undef)) dec_vars++;
+    else if (!b &&  decision[v] && !(depends[v] == -1 || value(depends[v]) != l_Undef)) dec_vars--;
 
     decision[v] = b;
     insertVarOrder(v);
 }
+inline void     Solver::dependentDecision(Var dep, Var dec)
+{
+    assert(dep >= 0 && dec >= 0);// can't "un-depend"
+    assert(depends[dep] == -1);
+    assert(depends[dec] == -1);
+    assert(dependsOn[dep] == -1);
+    if(value(dep) == l_Undef && decision[dec]) dec_vars--;
+    depends[dep] = dec;
+    dependsOn[dep] = dependsOn[dec];
+    dependsOn[dec] = dep;
+}
+
 inline void     Solver::setConfBudget(int64_t x){ conflict_budget    = conflicts    + x; }
 inline void     Solver::setPropBudget(int64_t x){ propagation_budget = propagations + x; }
 inline void     Solver::interrupt(){ asynch_interrupt = true; }

@@ -254,6 +254,10 @@ public:
 
   void logDecision(SatLiteral lit);
 
+  void requirePhasedDecision(SatLiteral lit);
+
+  void dependentDecision(SatVariable dep, SatVariable dec);
+
 };/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */

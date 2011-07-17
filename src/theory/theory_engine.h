@@ -157,6 +157,22 @@ class TheoryEngine {
       d_engine->newLemma(node);
     }
 
+    void requirePhase(TNode n, bool phase, bool)
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::requirePhase("
+                      << n << ", " << phase << ")" << std::endl;
+      ++(d_engine->d_statistics.d_statRequirePhase);
+      d_engine->d_propEngine->requirePhase(n, phase);
+    }
+
+    void dependentDecision(TNode depends, TNode decision, bool)
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::dependentDecision("
+                      << depends << ", " << decision << ")" << std::endl;
+      ++(d_engine->d_statistics.d_statDependentDecision);
+      d_engine->d_propEngine->dependentDecision(depends, decision);
+    }
+
     void explanation(TNode explanationNode, bool)
       throw(theory::Interrupted, AssertionException) {
       Debug("theory") << "EngineOutputChannel::explanation("
@@ -442,17 +458,21 @@ public:
 private:
   class Statistics {
   public:
-    IntStat d_statConflicts, d_statPropagate, d_statLemma, d_statAugLemma, d_statExplanation;
+    IntStat d_statConflicts, d_statPropagate, d_statLemma, d_statAugLemma, d_statRequirePhase, d_statDependentDecision, d_statExplanation;
     Statistics():
       d_statConflicts("theory::conflicts", 0),
       d_statPropagate("theory::propagate", 0),
       d_statLemma("theory::lemma", 0),
       d_statAugLemma("theory::aug_lemma", 0),
+      d_statRequirePhase("theory::require_phase", 0),
+      d_statDependentDecision("theory::dependent_decision", 0),
       d_statExplanation("theory::explanation", 0) {
       StatisticsRegistry::registerStat(&d_statConflicts);
       StatisticsRegistry::registerStat(&d_statPropagate);
       StatisticsRegistry::registerStat(&d_statLemma);
       StatisticsRegistry::registerStat(&d_statAugLemma);
+      StatisticsRegistry::registerStat(&d_statRequirePhase);
+      StatisticsRegistry::registerStat(&d_statDependentDecision);
       StatisticsRegistry::registerStat(&d_statExplanation);
     }
 
@@ -461,6 +481,8 @@ private:
       StatisticsRegistry::unregisterStat(&d_statPropagate);
       StatisticsRegistry::unregisterStat(&d_statLemma);
       StatisticsRegistry::unregisterStat(&d_statAugLemma);
+      StatisticsRegistry::unregisterStat(&d_statRequirePhase);
+      StatisticsRegistry::unregisterStat(&d_statDependentDecision);
       StatisticsRegistry::unregisterStat(&d_statExplanation);
     }
   };/* class TheoryEngine::Statistics */

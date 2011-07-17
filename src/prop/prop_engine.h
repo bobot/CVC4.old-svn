@@ -102,6 +102,25 @@ public:
   void assertLemma(TNode node);
 
   /**
+   * If ever n is decided upon, it must be in the given phase.
+   *
+   * @param n the node in question; must have an associated SAT literal
+   * @param phase the phase to use
+   */
+  void requirePhase(TNode n, bool phase);
+
+  /**
+   * For "decision" to be decided upon, "depends" must already have an
+   * assignment.
+   *
+   * @param depends the dependent node; "decision" cannot be decided upon
+   * without this one having a value; must have an associated SAT literal
+   * @param decision the decision node; "depends" must have a value for
+   * this one to be decided upon; must have an associated SAT literal
+   */
+  void dependentDecision(TNode depends, TNode decision);
+
+  /**
    * Checks the current context for satisfiability.
    */
   Result checkSat();
