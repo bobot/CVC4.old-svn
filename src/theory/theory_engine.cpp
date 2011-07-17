@@ -219,6 +219,12 @@ void TheoryEngine::preRegister(TNode preprocessed) {
     } else {
       // Mark that we have added the children
       stackHead.children_added = true;
+
+      // If this is a quantifier, don't dig into it
+      if(current.getKind() == kind::FORALL || current.getKind() == kind::EXISTS) {
+        continue;
+      }
+
       // We need to add the children
       for(TNode::iterator child_it = current.begin(); child_it != current.end(); ++ child_it) {
         TNode childNode = *child_it;

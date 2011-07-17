@@ -71,6 +71,16 @@ public:
     Unreachable();
   }
 
+  void requirePhase(TNode, bool, bool = false)
+    throw(Interrupted, AssertionException) {
+    Unreachable();
+  }
+
+  void dependentDecision(TNode, TNode, bool = false)
+    throw(Interrupted, AssertionException) {
+    Unreachable();
+  }
+
   void explanation(TNode n, bool safe = false)
     throw(Interrupted, AssertionException) {
     push(EXPLANATION, n);

@@ -60,6 +60,12 @@ class FakeOutputChannel : public OutputChannel {
   void augmentingLemma(TNode n, bool safe) throw(AssertionException) {
     Unimplemented();
   }
+  void requirePhase(TNode, bool, bool) throw(AssertionException) {
+    Unimplemented();
+  }
+  void dependentDecision(TNode, TNode, bool) throw(AssertionException) {
+    Unimplemented();
+  }
   void explanation(TNode n, bool safe) throw(AssertionException) {
     Unimplemented();
   }

@@ -84,14 +84,17 @@ public:
   void lemma(TNode n, bool safe = false) throw(Interrupted, AssertionException) {
     push(LEMMA, n);
   }
-  void augmentingLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException){
+  void augmentingLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException) {
     push(AUG_LEMMA, n);
   }
-  void explanation(TNode n, bool safe = false)  throw(Interrupted, AssertionException) {
+  void explanation(TNode n, bool safe = false) throw(Interrupted, AssertionException) {
     push(EXPLANATION, n);
   }
 
-  void setIncomplete() throw(Interrupted, AssertionException) {}
+  void requirePhase(TNode, bool, bool = false) throw(Interrupted, AssertionException) { }
+  void dependentDecision(TNode, TNode, bool = false) throw(Interrupted, AssertionException) { }
+
+  void setIncomplete() throw(Interrupted, AssertionException) { }
 
   void clear() {
     d_callHistory.clear();
