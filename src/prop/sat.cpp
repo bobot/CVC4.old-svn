@@ -139,12 +139,12 @@ void SatSolver::logDecision(SatLiteral lit) {
 
 void SatSolver::requirePhasedDecision(SatLiteral lit) {
   Assert(!d_minisat->rnd_pol);
-  Debug("mgd") << "requirePhasedDecision(" << lit << ")" << std::endl;
+  Debug("minisat") << "requirePhasedDecision(" << lit << ")" << std::endl;
   d_minisat->setPolarity(Minisat::var(lit), Minisat::sign(lit));
 }
 
 void SatSolver::dependentDecision(SatVariable dep, SatVariable dec) {
-  Debug("mgd") << "dependentDecision(" << dep << ", " << dec << ")" << std::endl;
+  Debug("minisat") << "dependentDecision(" << dep << ", " << dec << ")" << std::endl;
   d_minisat->dependentDecision(dep, dec);
 }
 

@@ -433,11 +433,11 @@ inline void     Solver::dependentDecision(Var dep, Var dec)
     assert(dep >= 0 && dec >= 0);// can't "un-depend"
     assert(depends[dep] == -1);
     assert(depends[dec] == -1);
-    assert(dependsOn[dep] == -1);
+    assert(dependsOn[dec] == -1);
     if(value(dep) == l_Undef && decision[dec]) dec_vars--;
-    depends[dep] = dec;
-    dependsOn[dep] = dependsOn[dec];
-    dependsOn[dec] = dep;
+    depends[dec] = dep;
+    dependsOn[dec] = dependsOn[dep];
+    dependsOn[dep] = dec;
 }
 
 inline void     Solver::setConfBudget(int64_t x){ conflict_budget    = conflicts    + x; }
