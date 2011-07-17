@@ -5,6 +5,7 @@
 #
 
 theory THEORY_UF ::CVC4::theory::uf::TheoryUF "theory/uf/theory_uf.h"
+typechecker "theory/uf/theory_uf_type_rules.h"
 
 properties stable-infinite
 properties check propagate staticLearning presolve
@@ -27,5 +28,7 @@ parameterized SORT_TYPE SORT_TAG 0: "sort type"
 # this..
 cardinality SORT_TYPE "Cardinality(Cardinality::INTEGERS)"
 well-founded SORT_TYPE false
+
+typerule APPLY_UF ::CVC4::theory::uf::UfTypeRule
 
 endtheory

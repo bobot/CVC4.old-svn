@@ -823,13 +823,9 @@ declareTypes[CVC4::Command*& cmd, const std::vector<std::string>& idList]
         // non-type variable can clash unambiguously.  Break from CVC3
         // behavior here.
         PARSER_STATE->checkDeclaration(*i, CHECK_UNDECLARED, SYM_SORT);
-        for(std::vector<std::string>::const_iterator i = idList.begin();
-            i != idList.end();
-            ++i) {
-          Type sort = PARSER_STATE->mkSort(*i);
-          Command* decl = new DeclareTypeCommand(*i, 0, sort);
-          seq->addCommand(decl);
-        }
+        Type sort = PARSER_STATE->mkSort(*i);
+        Command* decl = new DeclareTypeCommand(*i, 0, sort);
+        seq->addCommand(decl);
       }
       cmd = seq;
     }

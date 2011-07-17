@@ -3,7 +3,6 @@ UNIT_TESTS = \
 	theory/shared_term_manager_black \
 	theory/theory_engine_white \
 	theory/theory_black \
-	theory/theory_uf_tim_white \
 	theory/theory_arith_white \
 	theory/union_find_black \
 	expr/expr_public \

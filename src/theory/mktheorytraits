@@ -172,6 +172,17 @@ struct TheoryTraits<${theory_id}> {
   lineno=${BASH_LINENO[0]}
 }
 
+function typechecker {
+  # typechecker header
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
+}
+
+function typerule {
+  # typerule OPERATOR typechecking-class
+  lineno=${BASH_LINENO[0]}
+  check_theory_seen
+}
 
 function properties {
   # properties property*

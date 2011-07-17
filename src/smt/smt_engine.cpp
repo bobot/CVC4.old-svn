@@ -114,7 +114,7 @@ class SmtEnginePrivate {
   theory::SubstitutionMap d_topLevelSubstitutions;
 
   /**
-   * Runs the nonslausal solver and tries to solve all the assigned
+   * Runs the nonclausal solver and tries to solve all the assigned
    * theory literals.
    */
   void nonClausalSimplify();
@@ -727,7 +727,7 @@ void SmtEnginePrivate::processAssertions() {
     // Push the simplified assertions to the dump output stream
     for (unsigned i = 0; i < d_assertionsToCheck.size(); ++ i) {
       Dump("assertions")
-        << "Assertion #" << i << " " << AssertCommand(BoolExpr(d_assertionsToCheck[i].toExpr())) << endl;
+        << AssertCommand(BoolExpr(d_assertionsToCheck[i].toExpr())) << endl;
     }
   }
 
