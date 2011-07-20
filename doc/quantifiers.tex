@@ -413,28 +413,29 @@ We call a set of assertions $M$ \emph{terminal for quantifier instantiation with
 
 (3) $P(M)$ holds. \\
 
-A relation $\rightarrow$ is \emph{terminiating for quantifier instantiation with respect to $P$} if there does not exist an infinite chain between sets of assertions $M \rightarrow M_1 \rightarrow \ldots,$ such that $M, M_1, \ldots$ are non-terminal for quantifier instantiation with respect to $P$.
+A relation $\rightarrow$ is \emph{terminiating for quantifier instantiation with respect to $P$} if there does not exist an infinite chain $M \rightarrow M_1 \rightarrow \ldots,$ such that $M, M_1, \ldots$ are non-terminal for quantifier instantiation with respect to $P$.
 
-Define the set of instantiations $Inst( \rightarrow, M )$ as $\{ [\varepsilon_{M'}(\bar{e})/\bar{x}] \mid \exists M'. \ M \rightarrow^\ast M', \psi \ is \ instantiation \ ready \ in \ M', \bar{e} \mapsto^I \psi \}$.
+Define the set of instantiations $Inst( \rightarrow, P, M )$ where $[\varepsilon_{M'}(\bar{e})/\bar{x}] \in Inst( \rightarrow, P, M )$ if and only if there exists an $M'$ such that $M \rightarrow^\ast M'$, $\psi$ is instantiation-ready in $M'$ and $\bar{e} \mapsto^I \psi$.
 A relation $\rightarrow$ \emph{logically complete} if $\bigvee \{ M' \backslash M \mid M \rightarrow M' \}$ is a tautology.
 Note that by Theorem~\ref{thm:instready}, a candidate-satisfiable state $M \parallel F$ is in conflict if there exists a relation $\rightarrow$ that is logically complete and terminating for quantifier instantiation with respect to $P$, and there does not exist a $M'$ such that $M \rightarrow^\ast M'$ and $P(M)$ holds.
 Here, $P$ represents a termination condition for our search, or in other words, $P(M)$ holds when we decide that it is no longer useful for search for instantiations.
 
-Our search strategies collect sets of relevant instantiations $Inst( \rightarrow, M )$ that are used for generating instantiation clauses.
+Our search strategies collect sets of relevant instantiations $Inst( \rightarrow, P, M )$ that are used for generating instantiation clauses.
 We use the following rule for $\forall$-Inst, now with the specification of how our instantiations are constructed: \\
 
 \noindent $\forall$-Inst (Counterexample Restricted, Instantiation Search): \\
 
 $M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi( \bar{ x } ) \vee \varphi( \bar{ s } )$, if   
 $\begin{cases}
-  [\bar{ s }/\bar{e}] \in Inst( \rightarrow, M ), \bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{ x } ), \\
+  M \parallel F \text{ is candidate-satisfiable}, \\
+  [\bar{ s }/\bar{e}] \in Inst( \rightarrow, P, M ), \bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{ x } ), \\
   \bot^{\neg \forall \bar{x}. \varphi( \bar{ x } )} \text{ is not asserted positively }\\
   \text{ \ \ \ as a non-decision literal in $M$ } \\    
 \end{cases}$ \\
 
 \ \\
 
-It is recommended that all instantiations computed by $Inst( \rightarrow, M )$ are applied at the same time.
+It is recommended that all instantiations computed by $Inst( \rightarrow, P, M )$ are applied at the same time.
 Depending on the strategy used, a large or small number of instantiations may be generated.
 In the case in which no instantiations are generated, the SMT solver must either answer unknown, or backtrack and reverse some decision $l^d$ to $\neg l^d$.
 
@@ -464,17 +465,15 @@ We will see that this will cause our search procedure add the splitting lemma $(
 
 First, we begin with the following terminology.
 A term $f( t_1, \ldots, t_n ) \mapsto^I \psi$ is \emph{equality-compatible with term $s$ in $M$} if and only if $s$ is of the form $f( s_1, \ldots s_n )$ and $M \models_T t_1 = s_1 \wedge \ldots \wedge t_n = s_n$.
-Similarly, a term $t \mapsto^I \psi$ is \emph{equality-independent from term $s$ in $M$} if: 
-
-(1) $t := f( t_1, \ldots, t_n )$, and $s := g( s_1, \ldots s_m )$, or
- 
-(2) $t := f( t_1, \ldots, t_n )$, $s := f( s_1, \ldots s_n )$ in $M$, and $M \models_T t_i \neq s_i$ for some $i$. 
+Similarly, a term $f( t_1, \ldots, t_n ) \mapsto^I \psi$ is \emph{equality-independent from term $s$ in $M$} if (a) $s$ is of the form $g( s_1, \ldots s_m )$, or (b) $s$ is of the form $f( s_1, \ldots s_n )$ in $M$, and $M \models_T t_i \neq s_i$ for some $i$. 
 
 For a term $t \mapsto^I \psi$, $t$ is simply \emph{equality-independent in $M$} if $t$ is equality-independent from all other terms $s \in M$.  
 A pair of terms of the form $t, s$ is \emph{equality-ambiguous} if $t$ is neither equality-compatible nor equality-independent from $s$.
-For an equality-ambiguous pair of terms $t := f( t_1, \ldots, t_n )$, $s := f( s_1, \ldots s_n )$, we define $NArgs( t, s )$ as the number of arguments of $t$ and $s$ such that $M \models (t_i = s_i)$, and $NArgs'( t, s )$ as the number of arguments of $t$ and $s$ such that $M \not\models (t_i = s_i)$
+Note that all instantiation constants $e \mapsto^I \psi$ are equality-ambiguous from all other terms $s$.
 
-We will define a search strategy that leads to states $M'$ in which some quantified formula $\psi \in M'$ is instantiation-ready, or that for each $\psi \in M'$, some $t \mapsto^I \psi$ is equality-independent in $M'$.
+For an equality-ambiguous pair of terms $t, s$ of the form $f( t_1, \ldots, t_n ), f( s_1, \ldots s_n )$, we define $NArgs( t, s )$ as the number of arguments of $t$ and $s$ such that $M \models (t_i = s_i)$, and $NArgs'( t, s )$ as the number of arguments of $t$ and $s$ such that $M \not\models (t_i = s_i)$
+
+We will define a search strategy that leads to states $M'$ in which some quantified formula $\psi \in M'$ is instantiation-ready, or that no sufficient pair of equality-ambiguous terms $t, s$ can be found.
 
 We first informally describe the strategy in general terms and discuss the heuristics we use for guiding our search.
 As eluded to, the idea behind our search is to find equality-ambiguous pairs of terms $t, s$ where $t \mapsto^I \psi$ and add splitting lemmas that either will drive $t$ to be equality-compatible or equality-independent from $s$.
@@ -485,35 +484,32 @@ For this purpose, we first prefer $s$ such that $M \models_T t = s$, then those 
 In the latter case, we may prefer $s$ such that $M \models_T t \neq c_1 \neq \ldots \neq c_n \neq s$, with a minimal length $n \geq 2$.
 As secondary and tertiary heuristics, we chose $s$ such that $NArgs'( t, s )$ is minimized, and pairs that where $t, s$ are of minimum size.
 
-Once we have chosen an equality-ambiguous pair of terms $t,s$ that is maximal with respect to this heuristic, if $t$ is of the form $f( t_1, \ldots t_n )$ and $s$ is of the form $f( s_1 \ldots s_n)$, we chose subterms $t_i', s_i'$ of arguments $t_i, s_i$ such that $M \not\models ( t_i' = s_i' )$ and $t_i'$ and $s_i'$ share a common prefix in $t_i$ and $s_i$ that is maximized.
+Once we have chosen an equality-ambiguous pair of terms $t,s$ that is maximal with respect to this heuristic, if $t, s$ are of the form $f( t_1, \ldots t_n ), f( s_1 \ldots s_n)$, we chose subterms $t_i', s_i'$ of arguments $t_i, s_i$ such that $M \not\models ( t_i' = s_i' )$ and $t_i'$ and $s_i'$ share a common prefix in $t_i$ and $s_i$ that is maximized.
 We then chose to split our search by exploring both $t_i' = s_i'$ and $t_i' \neq s_i'$.
 For example, if we have the equality-ambiguous pair $f( g( e ), e ), f( g( a ), g( b ) )$, we will chose to explore $e = a$ and $e \neq a$ in the case that $M \not\models e = a$.
 We call the terms $t_i', s_i'$ the \emph{maximum depth ambiguity for $t, s$}.
 %The maximum depth ambiguity for the equality-ambiguous pair $e, s$ is simply $e = s$.
 
-If we chose the equality-ambiguous pair of terms $t,s$ such that $t$ is an instantiation constant, if $s$ is concrete, we split on $t = s$.
-If $s$ contains instantiation constants, then we split on $t = c$ for a fresh constant $c$.
+If we chose the equality-ambiguous pair of terms $t,s$ such that $t$ is an instantiation constant, then we split on $t = c$ for a fresh constant $c$.
 
 Formally, we define a total ordering $\succeq$ between equality-ambiguous pairs of terms, where $t,s \succeq t',s'$ in $M$ if $t,s$ satisfy a higher lexical combination than $t',s'$ of the following properties in descending order of importance:  \\
 (P1) $M \not\models_T (t \neq s)$, \\
 (P2) $t$ is not an instantiation constant, \\ 
 (P3) $M \models_T (t = s)$, \\
-(P4) $s$ is a concrete ground term, or \\
-if $t,s$ and $t',s'$ satisfy the same subset of (P1)-(P4), then $t,s \succeq t',s'$ if and only if $t,s$ is greater according to the following metric in descending order of importance: \\
+(P4) $s$ is a concrete ground term. \\
+Otherwise, if $t,s$ and $t',s'$ satisfy the same subset of (P1)-(P4), then $t,s \succeq t',s'$ if and only if $t,s$ is greater according to the following metric in descending order of importance: \\
 (N1) (minimum) value of $NArgs'( t, s )$, \\
 (N2) (minimum) maximum of the number of symbols in of $s$ and $t$. \\
 
-We are now ready to define the following search procedure $\rightarrow_{eamb}$ that is based on resolving equality-ambiguous pairs of terms in a state $M$: \\
+We are now ready to define the following search procedure $\rightarrow_{eamb}$ that is based on resolving equality-ambiguous pairs of terms in a state $M$ according to this ordering: \\
 
 Say $t, s$ are maximum with respect to $\succeq$ in $M$.
 If $t$ is not an instantiation-constant, then $M \rightarrow_{eamb} M'$ if and only if $M' = M, (\neg)(t_i' = s_i')$, where $t_i', s_i'$ is the maximum depth ambiguity of terms $t, s$.
-Otherwise, if $t$ is an instantiation constant such that $M \models t = s$, then $M \rightarrow_{eamb} M'$ if and only if $M' = M, (t = c)$ for fresh constant $c$. \\
+Otherwise, if $t$ is an instantiation constant, then $M \rightarrow_{eamb} M'$ if and only if $M' = M, (t = c)$ for fresh constant $c$. \\
 
-We define the following termination condition $P_{1,3}$: \\
-
+We define the following termination condition $P_{1,3}$ as the following:
 Say $t, s$ are maximum with respect to $\succeq$ in $M$.
-$P_{1,3}(M)$ holds if and only if $t, s$ satisify at least a higher lexical combination than \{ (P1), (P3) \}. \\
-
+$P_{1,3}(M)$ holds if and only if $t, s$ satisify at least a higher lexical combination than \{ (P1), (P3) \}.
 Note that $\rightarrow_{eamb}$ is logically complete and terminating for quantifier instantiation with respect to $P_{1,3}$.
 
 \begin{comment}
@@ -534,16 +530,10 @@ Therefore, since each $e_i$ is in $M$, it must be the case that either $M \model
 \end{proof}
 \end{comment}
 
-\paragraph{Implementation}
-
-We require an efficient method for computing $P_{1,3}(M)$ as well as finding a pair $t, s$ that is maximum with respect to $\succeq$ in $M$.
-[do this] \\
-
-
 {\bf Example 3, Continued}
 Given the set of clauses $S = \{ (\psi :)\forall x. (f( x ) = x) \wedge f( f( a ) ) \neq a \}$, say we reach the DPLL(T) state $f( f( a ) ) \neq a, \psi, \neg (\bot^{\neg \psi})^d, f(e) \neq e \parallel (S':)S \cup \{ ( \neg \psi \vee \bot^{\neg \psi } \vee f( e ) \neq e ) \}$.
 Our maximum pair of equality-ambiguous terms is $f( e ), f( f( a ) )$ and our maximum depth ambiguity is $e = f( a )$.
-Searching the branch $e = f( a )$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[f(a)/x]$ and $e \neq f( a )$ leads us to a state in which $f( e )$ is equality-independent.
+Searching the branch $e = f( a )$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[f(a)/x]$ and $e \neq f( a )$ leads us to a state in which $f( e )$ is equality-independent and our search terminates.
 Our search has thus calculated the set $\{ [f(a)/x] \}$.
 
 By applying this instantiation, we obtain the clause $( \neg \psi \vee f( f( a ) ) = f( a ) )$, and after unit propagation we are in the state $f( f( a ) ) \neq a, \psi, \neg (\bot^{\neg \psi})^d, f(e) \neq e, f( f( a ) ) = f( a ) \parallel S'$.
@@ -553,8 +543,8 @@ Our maximum pair of equality-ambiguous terms is $f( e ), f( a )$ and our maximum
 Searching the branch $e = a$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[a/x]$.
 Otherwise, searching the branch $e \neq a$ leads us to state where we again will split on $e = f( a )$.
 In the branch $e = f( a )$, we get the theory conflict $e = f( a ), f( f( a ) ) = f( a ), f( e ) \neq e \models \bot$.
-In the branch $e \neq f( a )$, we have that $f( e )$ is equality-independent.
-Our search has thus calculated the set $\{ [a/x] \}$ and after adding the instantiation clause $( \neg \psi \vee f( a ) = a )$, the solver answers UNSAT. \\
+In the branch $e \neq f( a )$, we have that $f( e )$ is equality-independent and our search terminates.
+Our search has thus calculated the set $\{ [a/x] \}$, and after adding the instantiation clause $( \neg \psi \vee f( a ) = a )$, the solver answers UNSAT. \\
 
 In the previous example, we have found the relavant instantiations $[f(a)/x]$ and $[a/x]$, which has led us to contradict the ground clause $f( f( a ) ) \neq a$.
 This was accomplished by using splitting lemmas to explore our search space, and identifying cases in which we can generate unsatisfiable instantiation clauses. \\
@@ -563,12 +553,28 @@ This was accomplished by using splitting lemmas to explore our search space, and
 Consider the set of clauses $S = \{ (\psi_1 :)\forall x. f(x) \neq a, (\psi_2 :)\forall y. f(y) = a \}$.
 After applying unit propagation twice, Counterexample $\forall$-Inst twice, after unit propagation we arrive in the DPLL(T) state $\psi_1, \psi_2,$ $\neg (\bot^{\neg \psi_1})^d, \neg (\bot^{\neg \psi_2})^d,$ $f(e_1) = a, f(e_2) \neq a \parallel S'$.
 Let us say we decide to perform quantifier instantiation.
-We add the splitting lemma $( e_1 = e_2 \vee e_1 \neq e_2 )$, and after deciding on $e_1 = e_2$, we have that our maximum pair of equality-ambiguous terms is $e_1$ and $e_2$.
+After determining the maximum pair $f(e_1),f(e_2)$, we split on $( e_1 = e_2 )$.
+
+In the branch where $e_1 = e_2$, we have that our maximum pair of equality-ambiguous terms is $e_1$ and $e_2$.
 We explore the branch $e_1 = c$ for fresh constant $c$, and after deciding on $e_1 = c$, we have that $\psi_1$ and $\psi_2$ are both instantiation ready with instantiations $[c/x]$ and $[c/y]$.
-In the branch where $e_1 \neq e_2$, both $f( e_1 )$ and $f( e_2 )$ are equality-independent.
+In the branch where $e_1 \neq e_2$, both $f( e_1 )$ and $f( e_2 )$ are equality-independent and our search terminates.
 Our search has computed the set $\{ [c/x], [c/y] \}$.
 
 After applying the instantiations $\psi_1[c/x]$ and $\psi_2[c/x]$ we obtain the conflict $f( c ) = a, f( c ) \neq a \models \bot$, and the solver will answer UNSAT. \\
+
+%The following example demonstrates the importance of performing a search to find relevant instantiations:
+
+%{\bf Example 5}
+
+
+\paragraph{Implementation}
+
+We require an efficient method for (1) computing $P_{1,3}(M)$, (2) finding a pair $t, s$ that is maximum with respect to $\succeq$ in $M$, and (3) determining if any $\psi$ is instantiation-ready.
+We describe a method for incrementally maintaining a best fit for each term $t \mapsto^I \psi$ with respect to $\succeq$.
+In other words, for each $t \mapsto^I \psi$, we maintain a corresponing $s$ such that $t,s \succeq t,s'$ for all other terms $s'$.
+By looking at the best fit for our terms $t$, we will be able to compute (1), (2) and (3) in an efficient manner.
+
+[do this] \\
 
 \begin{comment}
 Let us now focus our attention to identifying cases in which we can show there \emph{does not} exist instantiations for $\psi$ that lead to conflicts.
@@ -653,7 +659,7 @@ After unit propagation in the second clause, we obtain $( e \neq b )$.
 Now, in the first clause, the solver has a choice which literal to apply Decide to.
 Say for the sake of argument we have that the solver chooses to assert $( f(e) = c )^d$.
 Here we know that our counterexample must be such that $f( e ) = c$ and $e \neq b$.
-We could suggest possible instantiations for $x$, but these may be fruitless since $e$ is somewhat unconstrained.
+We could suggest possible instantiations for $x$, but these may be unhelpful since $e$ is somewhat unconstrained.
 However, if we had decided instead to assert $( e = a )^d$, we would immediately have discovered a theory conflict, thus determining that $\psi$ is valid and returning SAT. \\
 
 The previous example illustrates the importance of exploring multiple partial truth assignments for literals involving instantiation constants.
