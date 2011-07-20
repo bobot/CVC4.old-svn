@@ -716,6 +716,31 @@ CVC4_CHECK_CUDD
 # Check for antlr C++ runtime (defined in config/antlr.m4)
 AC_LIB_ANTLR
 
+# Check for SWIG (for building language bindings)
+CVC4_LANGUAGE_BINDINGS='c++'
+noswig=no
+AC_ARG_VAR(SWIG, [SWIG binary (used to generate language bindings)])
+AC_ARG_WITH([swig],
+  [AS_HELP_STRING([--with-swig=BINARY], [path to swig binary])],
+  [if test "$withval" = no; then noswig=yes; else SWIG="$withval"; fi])
+if test "$noswig" = yes; then
+  AC_MSG_WARN([language bindings disabled by user.])
+  SWIG=
+else
+  if test -z "$SWIG"; then
+    AC_CHECK_PROGS(SWIG, swig, swig, [])
+  else
+    AC_CHECK_PROG(SWIG, "$SWIG", "$SWIG", [])
+  fi
+  if test -z "$SWIG"; then
+    AC_MSG_WARN([language bindings disabled, swig not found.])
+  else
+    CVC4_LANGUAGE_BINDINGS='c++ c perl php tcl java'
+  fi
+fi
+AC_SUBST(SWIG)
+AC_SUBST(CVC4_LANGUAGE_BINDINGS)
+
 # Checks for header files.
 AC_CHECK_HEADERS([getopt.h unistd.h])
 
@@ -908,6 +933,7 @@ TLS support  : $CVC4_TLS
 Static libs  : $enable_static
 Shared libs  : $enable_shared
 Static binary: $enable_static_binary
+Bindings     : $CVC4_LANGUAGE_BINDINGS
 
 MP library   : $mplibrary
 
