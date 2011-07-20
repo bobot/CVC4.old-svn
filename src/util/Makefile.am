@@ -24,6 +24,7 @@ libutil_la_SOURCES = \
 	Makefile.am \
 	Makefile.in \
 	congruence_closure.h \
+	cvc3_compat.cpp \
 	debug.h \
 	exception.h \
 	hash.h \
