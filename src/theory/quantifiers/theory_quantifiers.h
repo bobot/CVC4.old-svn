@@ -70,6 +70,9 @@ private:
   void assertUniversal( Node n );
   void assertExistential( Node n );
   void assertCounterexample( Node n );
+
+  /** returns if n has instantiation constant */
+  bool markLiteralsAsDependent( Node n, Node cel );
 };/* class TheoryQuantifiers */
 
 }/* CVC4::theory::quantifiers namespace */

@@ -145,8 +145,7 @@ TheoryEngine::TheoryEngine(context::Context* ctxt) :
     d_theoryIsActive[theoryId] = false;
   }
   //initialize the instantiation engine
-  d_ie = new InstantiationEngine( ctxt, this );
-  Theory::d_ie = d_ie;
+  d_instEngine = new InstantiationEngine( ctxt, this );
 
   Rewriter::init();
 
@@ -457,5 +456,13 @@ Node TheoryEngine::preprocess(TNode assertion) {
   return d_atomPreprocessingCache[assertion];
 }
 
+void TheoryEngine::makeInstantiators(){
+  for( int i=0; i<theory::THEORY_LAST; i++ ){
+    if( d_theoryTable[i] ){
+      d_theoryTable[i]->d_instEngine = d_instEngine;
+      d_instEngine->d_instTable[i] = d_theoryTable[i]->makeInstantiator();
+    }
+  }
+}
 
 }/* CVC4 namespace */

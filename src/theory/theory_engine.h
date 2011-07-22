@@ -79,7 +79,7 @@ class TheoryEngine {
   /**
    * The instantiation engine
    */
-  theory::InstantiationEngine* d_ie;
+  theory::InstantiationEngine* d_instEngine;
 
   /**
    * Need the registration infrastructure when theory sharing is on
@@ -271,6 +271,13 @@ public:
   }
 
   /**
+   * Get a pointer to the instantiation engine
+   */
+  theory::InstantiationEngine* getInstantiationEngine() const {
+    return d_instEngine;
+  }
+
+  /**
    * Runs theory specific preprocesssing on the non-Boolean parts of the formula.
    * This is only called on input assertions, after ITEs have been removed.
    */
@@ -454,6 +461,8 @@ public:
   }
 
   Node getValue(TNode node);
+
+  void makeInstantiators();
 
 private:
   class Statistics {

@@ -40,6 +40,7 @@ class TheoryEngine;
 
 namespace theory {
 
+class TheoryInstantiatior;
 class InstantiationEngine;
 
 /** Tag for the "newFact()-has-been-called-in-this-context" flag on Nodes */
@@ -128,7 +129,7 @@ protected:
   /**
    * reference to the instantiation engine
    */
-  static InstantiationEngine* d_ie;
+  InstantiationEngine* d_instEngine;
 
   /**
    * The valuation proxy for the Theory to communicate back with the
@@ -476,6 +477,11 @@ public:
    * etc..)
    */
   virtual std::string identify() const = 0;
+
+  /**
+   * Get the associated theory instantiator
+   */
+  virtual TheoryInstantiatior* makeInstantiator() { return NULL; }
 
 };/* class Theory */
 

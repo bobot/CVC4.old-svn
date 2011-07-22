@@ -212,6 +212,9 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
     Unhandled(Options::current()->uf_implementation);
   }
 
+  //set the instantiator for all theories
+  d_theoryEngine->makeInstantiators();
+
   d_propEngine = new PropEngine(d_theoryEngine, d_context);
   d_theoryEngine->setPropEngine(d_propEngine);
 

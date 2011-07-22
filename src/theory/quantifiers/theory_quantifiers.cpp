@@ -110,41 +110,39 @@ void TheoryQuantifiers::check(Effort e) {
     }
   }
   if( e == FULL_EFFORT ) {
+    bool quantActive = false;
     //for each n in d_forall_asserts, 
     // such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
-    bool lemmaAdded = false;
-    bool activeQuant = false;
     for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
       if( (*i).second ) {
         Node n = (*i).first;
         if( d_counterexample_asserts.find( n )==d_counterexample_asserts.end() ||
             !d_counterexample_asserts[n] ){   //DO_THIS: make sure that NO_COUNTEREXAMPLE is not a decision
-          activeQuant = true;
-          int numInst = 1;  //DO_THIS
-          for( int j=0; j<numInst; j++ ){
-            //find instantiations
-            Debug("quantifiers") << "Instantiate " << n << std::endl;
-            std::vector< Node > vars;
-            std::vector< Node > terms;
-            if( d_ie->getInstantiationFor( n, vars, terms ) ){
-              Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-              Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
-                                                                          terms.begin(), terms.end() ); 
-              NodeBuilder<> nb(kind::OR);
-              nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
-              nb << ( n.getKind()==kind::NOT ? body : NodeManager::currentNM()->mkNode( NOT, body ) );
-              Node lem = nb;
-              Debug("quantifiers") << "Instantiation lemma : " << lem << std::endl;
-              d_out->lemma( lem );
-              lemmaAdded = true;
-            }
-          }
+          quantActive = true;
         }
       }
     }
-    if( activeQuant && !lemmaAdded ){
-      //return UNKNOWN  //DO_THIS
+    if( quantActive && !d_instEngine->doInstantiation( d_out ) ){
+      //instantiation did not add a lemma to d_out
+      Debug("quantifiers") << "Return unknown." << std::endl;
+      d_out->setIncomplete();
     }
+
+          //Debug("quantifiers") << "Instantiate " << n << "?" << std::endl;
+          //std::vector< Node > vars;
+          //std::vector< Node > terms;
+          //if( d_ie->getInstantiationFor( n, vars, terms ) ){
+          //  Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
+          //  Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
+          //                                                              terms.begin(), terms.end() ); 
+          //  NodeBuilder<> nb(kind::OR);
+          //  nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
+          //  nb << ( n.getKind()==kind::NOT ? body : NodeManager::currentNM()->mkNode( NOT, body ) );
+          //  Node lem = nb;
+          //  Debug("quantifiers") << "Instantiation lemma : " << lem << std::endl;
+          //  d_out->lemma( lem );
+          //  lemmaAdded = true;
+          //}
   }
 }
 
@@ -161,17 +159,26 @@ void TheoryQuantifiers::assertUniversal( Node n ){
     //counterexample instantiate, add lemma
     std::vector< Node > vars;
     std::vector< Node > inst_constants;
-    d_ie->getInstantiationConstantsFor( n, vars, inst_constants );
+    d_instEngine->getInstantiationConstantsFor( n, vars, inst_constants );
     Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
     Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
                                                                 inst_constants.begin(), inst_constants.end() ); 
+    Node cel = getCounterexampleLiteralFor( n );
+
     NodeBuilder<> nb(kind::OR);
-    nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
-    nb << getCounterexampleLiteralFor( n );
+    nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) ) << cel;
     nb << ( n.getKind()==kind::NOT ? body : NodeManager::currentNM()->mkNode( NOT, body ) );
     Node lem = nb;
     Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
     d_out->lemma( lem );
+
+    //mark all literals in the body of n as dependent on cel
+    markLiteralsAsDependent( body, cel );
+    //mark cel as dependent on n
+    //d_out->dependentDecision( cel, quant);
+    //require any decision on cel to be phase=false
+    d_out->requirePhase( cel, false );
+
 
     d_abstract_inst[n] = true;
   }
@@ -208,5 +215,24 @@ void TheoryQuantifiers::assertCounterexample( Node n ){
   }else{
     Assert( n.getKind()==NOT );
     d_counterexample_asserts[ n[0][0] ] = false;
+  }
+}
+
+bool TheoryQuantifiers::markLiteralsAsDependent( Node n, Node cel )
+{
+  if( n.getKind()==INST_CONSTANT ){
+    return true;
+  }else{
+    bool retVal = false;
+    for( int i=0; i<n.getNumChildren(); i++ ){
+      retVal = retVal || markLiteralsAsDependent( n[i], cel );
+    }
+    if( retVal && n.getType()==NodeManager::currentNM()->booleanType() ){
+      Debug("quantifiers-ce") << "Make " << n << " dependent on " << cel << std::endl;
+      d_out->dependentDecision( n, cel );
+      return false;
+    }else{
+      return retVal;
+    }
   }
 }

@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Theory matcher, Instantiation Engine classes
+ ** \brief Theory instantiator, Instantiation Engine classes
  **/
 
 #include "cvc4_private.h"
@@ -29,28 +29,31 @@
 namespace CVC4 {
 
 class TheoryEngine;
+class SmtEngine;
 
 namespace theory {
 
 class InstantiationEngine;
 
-class TheoryMatcher{
+class TheoryInstantiatior{
 protected:
   /** reference to the instantiation engine */
   InstantiationEngine* d_ie;
 public:
-  TheoryMatcher(context::Context* c, InstantiationEngine* ie);
-  ~TheoryMatcher();
+  TheoryInstantiatior(context::Context* c, InstantiationEngine* ie);
+  TheoryInstantiatior(){}
+  ~TheoryInstantiatior();
 
-  virtual bool getInstantiation( std::map< Node, Node >& inst ){ return false; }
+  virtual bool doInstantiation( OutputChannel* out ){ return false; }
   virtual Theory* getTheory() = 0;
-};/* class TheoryMatcher */
+};/* class TheoryInstantiatior */
 
 class InstantiationEngine
 {
+  friend class ::CVC4::TheoryEngine;
 private:
-  /** theory matcher objects for each theory */
-  theory::TheoryMatcher* d_matcherTable[theory::THEORY_LAST];
+  /** theory instantiator objects for each theory */
+  theory::TheoryInstantiatior* d_instTable[theory::THEORY_LAST];
   /** reference to theory engine object */
   TheoryEngine* d_te;
   /** map from universal quantifiers to the list of instantiation constants */
@@ -65,10 +68,11 @@ public:
   InstantiationEngine(context::Context* c, TheoryEngine* te);
   ~InstantiationEngine();
   
-  theory::TheoryMatcher* getTheoryMatcher( Theory* t );
+  theory::TheoryInstantiatior* getTheoryMatcher( Theory* t ) { return d_instTable[t->getId()]; }
 
   void getInstantiationConstantsFor( Node f, std::vector< Node >& vars, std::vector< Node >& ics );
   bool getInstantiationFor( Node f, std::vector< Node >& vars, std::vector< Node >& terms );
+  bool doInstantiation( OutputChannel* out );
 };/* class InstantiationEngine */
 
 }/* CVC4::theory namespace */

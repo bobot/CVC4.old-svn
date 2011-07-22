@@ -11,6 +11,8 @@ libufmorgan_la_SOURCES = \
 	union_find.h \
 	union_find.cpp \
 	stacking_map.h \
-	stacking_map.cpp
+	stacking_map.cpp \
+	theory_uf_instantiator.h \
+	theory_uf_instantiator.cpp
 
 EXTRA_DIST =

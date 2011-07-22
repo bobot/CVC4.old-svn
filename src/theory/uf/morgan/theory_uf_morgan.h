@@ -42,8 +42,10 @@ namespace theory {
 namespace uf {
 namespace morgan {
 
-class TheoryUFMorgan : public TheoryUF {
+class TheoryUfInstantiatior;
 
+class TheoryUFMorgan : public TheoryUF {
+  friend class TheoryUfInstantiatior;
 private:
 
   class CongruenceChannel {
@@ -218,6 +220,8 @@ public:
 
   std::string identify() const { return std::string("TheoryUFMorgan"); }
 
+  /** Gets the associated theory instantiator */
+  TheoryInstantiatior* makeInstantiator();
 private:
 
   /** Constructs a conflict from an inconsistent disequality. */

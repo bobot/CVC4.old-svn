@@ -20,6 +20,7 @@
 #include "theory/valuation.h"
 #include "expr/kind.h"
 #include "util/congruence_closure.h"
+#include "theory/uf/morgan/theory_uf_instantiator.h"
 
 #include <map>
 
@@ -699,6 +700,12 @@ void TheoryUFMorgan::staticLearning(TNode n, NodeBuilder<>& learned) {
       }
     }
   }
+}
+
+TheoryInstantiatior* TheoryUFMorgan::makeInstantiator()
+{
+  Debug("quant-uf") << "Make UF instantiator" << endl;
+  return new TheoryUfInstantiatior( getContext(), d_instEngine, this );
 }
 
 /*

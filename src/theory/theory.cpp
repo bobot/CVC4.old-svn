@@ -26,8 +26,6 @@ using namespace std;
 namespace CVC4 {
 namespace theory {
 
-InstantiationEngine* Theory::d_ie = NULL;
-
 std::ostream& operator<<(std::ostream& os, Theory::Effort level){
   switch(level){
   case Theory::MIN_EFFORT:

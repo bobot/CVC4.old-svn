@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Implementation of theory matcher and instantiation engine classes
+ ** \brief Implementation of instantiation engine class
  **/
 
 #include "theory/instantiation_engine.h"
@@ -23,24 +23,16 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-TheoryMatcher::TheoryMatcher(context::Context* c, InstantiationEngine* ie) : 
+TheoryInstantiatior::TheoryInstantiatior(context::Context* c, InstantiationEngine* ie) : 
 d_ie( ie ){
+
 }
 
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
 d_te( te ){
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
-    d_matcherTable[theoryId] = NULL;
+    d_instTable[theoryId] = NULL;
   }
-}
-
-theory::TheoryMatcher* InstantiationEngine::getTheoryMatcher( Theory* t ){
-  TheoryId th = t->getId();
-  if( !d_matcherTable[th] ){
-    //switch( th ){
-    //}
-  }
-  return d_matcherTable[th];
 }
 
 void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Node >& vars, 
@@ -68,30 +60,40 @@ bool InstantiationEngine::getInstantiationFor( Node f, std::vector< Node >& vars
   Assert( vars.empty() && terms.empty() );
   Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==EXISTS ) );
  
-  getInstantiationConstantsFor( f, vars, terms );
+  //getInstantiationConstantsFor( f, vars, terms );
 
-  //get the instantiation table
-  std::map< Theory*, std::map< Node, Node > > instMap;
-  if( d_inst_map.find( f )==d_inst_map.end() ){
-    for( int i=0; i<(int)vars.size(); i++ ){
-      Assert( d_te->theoryOf( vars[i] )!=NULL );
-      instMap[ d_te->theoryOf( vars[i] ) ][ vars[i] ] = Node::null();
+  ////get the instantiation table
+  //std::map< Theory*, std::map< Node, Node > > instMap;
+  //if( d_inst_map.find( f )==d_inst_map.end() ){
+  //  for( int i=0; i<(int)vars.size(); i++ ){
+  //    Assert( d_te->theoryOf( vars[i] )!=NULL );
+  //    instMap[ d_te->theoryOf( vars[i] ) ][ vars[i] ] = Node::null();
+  //  }
+  //  d_inst_map[f] = instMap;
+  //}else{
+  //  instMap = d_inst_map[f];
+  //}
+
+  ////request instantiations from theory insts
+  //for( std::map< Theory*, std::map< Node, Node > >::iterator it = instMap.begin(); it!=instMap.end(); ++it ){
+  //  if( !d_instTable[ it->first->getId() ] || !d_instTable[ it->first->getId() ]->getInstantiation( it->second ) ){
+  //    return false;
+  //  }
+  //}
+
+  ////construct instantiation
+  //for( int i=0; i<(int)vars.size(); i++ ){
+  //  terms[i] = instMap[ d_te->theoryOf( vars[i] ) ][ vars[i] ];
+  //}
+  return false;
+}
+
+bool InstantiationEngine::doInstantiation( OutputChannel* out ){
+  bool retVal = false;
+  for( int i=0; i<theory::THEORY_LAST; i++ ){
+    if( d_instTable[i] && d_instTable[i]->doInstantiation( out ) ){
+      retVal = true;
     }
-    d_inst_map[f] = instMap;
-  }else{
-    instMap = d_inst_map[f];
   }
-
-  //request instantiations from theory matchers
-  for( std::map< Theory*, std::map< Node, Node > >::iterator it = instMap.begin(); it!=instMap.end(); ++it ){
-    if( !getTheoryMatcher( it->first ) || !getTheoryMatcher( it->first )->getInstantiation( it->second ) ){
-      return false;
-    }
-  }
-
-  //construct instantiation
-  for( int i=0; i<(int)vars.size(); i++ ){
-    terms[i] = instMap[ d_te->theoryOf( vars[i] ) ][ vars[i] ];
-  }
-  return true;
+  return retVal;
 }
