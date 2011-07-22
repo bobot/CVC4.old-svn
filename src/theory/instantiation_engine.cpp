@@ -28,11 +28,40 @@ d_ie( ie ){
 
 }
 
+TheoryInstantiatior::~TheoryInstantiatior(){
+}
+
+bool TheoryInstantiatior::isInstantiationReady( Node n ){
+  Assert( d_inst_constants.find( n )!=d_inst_constants.end() );
+  for( int i=0; i<(int)d_inst_constants[n].size(); i++ ){
+    if( d_solved_ic[d_inst_constants[n][i]]==Node::null() ){
+      return false;
+    }
+  }
+  return true;
+}
+
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
 d_te( te ){
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
     d_instTable[theoryId] = NULL;
   }
+}
+
+void InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, OutputChannel* out )
+{
+  Debug("quantifiers") << "Instantiate " << f << "." << std::endl;
+  Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==EXISTS ) );
+  Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
+  Assert( d_vars[f].size()==terms.size() && d_vars[f].size()==(quant.getNumChildren()-1) );
+  Node body = quant[ quant.getNumChildren() - 1 ].substitute( d_vars[f].begin(), d_vars[f].end(), 
+                                                              terms.begin(), terms.end() ); 
+  NodeBuilder<> nb(kind::OR);
+  nb << ( f.getKind()==kind::NOT ? f[0] : NodeManager::currentNM()->mkNode( NOT, f ) );
+  nb << ( f.getKind()==kind::NOT ? body : NodeManager::currentNM()->mkNode( NOT, body ) );
+  Node lem = nb;
+  Debug("quantifiers") << "Instantiation lemma : " << lem << std::endl;
+  out->lemma( lem );
 }
 
 void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Node >& vars, 
@@ -41,11 +70,19 @@ void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Nod
   Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==EXISTS ) );
   if( d_inst_constants.find( f )==d_inst_constants.end() ){
     Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
+    std::map< Theory*, std::map< Node, Node > > instMap;
     for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
       vars.push_back( quant[i] );
       Node ic = NodeManager::currentNM()->mkInstConstant( quant[i].getType() );
       d_inst_constants_map[ic] = f;
       ics.push_back( ic );
+      //store in the instantiation constant for the proper instantiator
+      Assert( d_te->theoryOf( ic )!=NULL );
+      theory::TheoryInstantiatior* tinst = d_instTable[ d_te->theoryOf( ic )->getId() ];
+      if( tinst ){
+        tinst->d_inst_constants[ f ].push_back( ic );
+        tinst->d_solved_ic[ ic ] = Node::null();
+      }
     }
     d_vars[ f ].insert( d_vars[ f ].begin(), vars.begin(), vars.end() );
     d_inst_constants[ f ].insert( d_inst_constants[ f ].begin(), ics.begin(), ics.end() );
@@ -55,44 +92,43 @@ void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Nod
   }
 }
 
-bool InstantiationEngine::getInstantiationFor( Node f, std::vector< Node >& vars, 
-                                               std::vector< Node >& terms ){
-  Assert( vars.empty() && terms.empty() );
-  Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==EXISTS ) );
- 
-  //getInstantiationConstantsFor( f, vars, terms );
-
-  ////get the instantiation table
-  //std::map< Theory*, std::map< Node, Node > > instMap;
-  //if( d_inst_map.find( f )==d_inst_map.end() ){
-  //  for( int i=0; i<(int)vars.size(); i++ ){
-  //    Assert( d_te->theoryOf( vars[i] )!=NULL );
-  //    instMap[ d_te->theoryOf( vars[i] ) ][ vars[i] ] = Node::null();
-  //  }
-  //  d_inst_map[f] = instMap;
-  //}else{
-  //  instMap = d_inst_map[f];
-  //}
-
-  ////request instantiations from theory insts
-  //for( std::map< Theory*, std::map< Node, Node > >::iterator it = instMap.begin(); it!=instMap.end(); ++it ){
-  //  if( !d_instTable[ it->first->getId() ] || !d_instTable[ it->first->getId() ]->getInstantiation( it->second ) ){
-  //    return false;
-  //  }
-  //}
-
-  ////construct instantiation
-  //for( int i=0; i<(int)vars.size(); i++ ){
-  //  terms[i] = instMap[ d_te->theoryOf( vars[i] ) ][ vars[i] ];
-  //}
-  return false;
-}
-
 bool InstantiationEngine::doInstantiation( OutputChannel* out ){
-  bool retVal = false;
+  //call instantiators to search for an instantiation
   for( int i=0; i<theory::THEORY_LAST; i++ ){
-    if( d_instTable[i] && d_instTable[i]->doInstantiation( out ) ){
+    if( d_instTable[i] ){
+      d_instTable[i]->prepareInstantiation();
+    }
+  }
+  //check whether any quantifier is instantiation-ready, and if so, add the instantiation clause as a lemma
+  bool retVal = false;
+  for( std::map< Node, std::vector< Node > >::iterator it = d_inst_constants.begin(); it!=d_inst_constants.end(); ++it ){
+    bool instReady = true;
+    for( std::vector< Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
+      Assert( d_te->theoryOf( *it2 )!=NULL );
+      if( d_instTable[ d_te->theoryOf( *it2 )->getId() ]->d_solved_ic[ *it2 ]==Node::null() ){
+        instReady = false;
+        break;
+      }
+    }
+    if( instReady ){
+      std::vector< Node > terms;
+      for( std::vector< Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
+        terms.push_back( d_instTable[ d_te->theoryOf( *it2 )->getId() ]->d_solved_ic[ *it2 ] );
+      }
+      instantiate( it->first, terms, out );
       retVal = true;
+    }
+  }
+  //otherwise, add splitting lemmas
+  if( !retVal ){
+    for( int i=0; i<theory::THEORY_LAST; i++ ){
+      if( d_instTable[i] ){
+        for( int j=0; j<(int)d_instTable[i]->getNumLemmas(); j++ ){
+          out->lemma( d_instTable[i]->getLemma( j ) );
+          retVal = true;
+        }
+        d_instTable[i]->clearLemmas();
+      }
     }
   }
   return retVal;

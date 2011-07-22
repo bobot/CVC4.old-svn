@@ -31,21 +31,44 @@ namespace CVC4 {
 class TheoryEngine;
 class SmtEngine;
 
+// attribute for "contains instantiation constants from"
+struct InstantitionConstantAttributeId {};
+typedef expr::Attribute<InstantitionConstantAttributeId, Node> InstantitionConstantAttribute;
+
 namespace theory {
 
 class InstantiationEngine;
 
 class TheoryInstantiatior{
+  friend class InstantiationEngine;
 protected:
   /** reference to the instantiation engine */
   InstantiationEngine* d_ie;
+  /** map from quantified formulas to list of instantiation constants */
+  std::map< Node, std::vector< Node > > d_inst_constants;
+  /** solutions for instantiation constants */
+  std::map< Node, Node > d_solved_ic;
+  /** list of lemmas */
+  std::vector< Node > d_lemmas;
 public:
   TheoryInstantiatior(context::Context* c, InstantiationEngine* ie);
-  TheoryInstantiatior(){}
   ~TheoryInstantiatior();
 
-  virtual bool doInstantiation( OutputChannel* out ){ return false; }
+  /** get corresponding theory for this instantiator */
   virtual Theory* getTheory() = 0;
+  /** check function, assertion is asserted to theory */
+  virtual void check( Node assertion ){}
+
+  /** prepare instantiation method
+    * post condition: set d_solved_ic and d_lemmas fields */
+  virtual bool prepareInstantiation(){ return false; }
+  /** node n is instantiation-ready */
+  bool isInstantiationReady( Node n );
+
+  /** helper functions for lemmas */
+  unsigned int getNumLemmas() { return d_lemmas.size(); }
+  Node getLemma( int i ) { return d_lemmas[i]; }
+  void clearLemmas() { d_lemmas.clear(); }
 };/* class TheoryInstantiatior */
 
 class InstantiationEngine
@@ -56,22 +79,21 @@ private:
   theory::TheoryInstantiatior* d_instTable[theory::THEORY_LAST];
   /** reference to theory engine object */
   TheoryEngine* d_te;
-  /** map from universal quantifiers to the list of instantiation constants */
+  /** map from universal quantifiers to the list of variables */
   std::map< Node, std::vector< Node > > d_vars;
   /** map from universal quantifiers to the list of instantiation constants */
   std::map< Node, std::vector< Node > > d_inst_constants;
   /** instantiation constants to universal quantifiers */
   std::map< Node, Node > d_inst_constants_map;
-  /** map from universal quantifiers to list of instantiations per theory */
-  std::map< Node, std::map< Theory*, std::map< Node, Node > > > d_inst_map;
 public:
   InstantiationEngine(context::Context* c, TheoryEngine* te);
   ~InstantiationEngine();
   
-  theory::TheoryInstantiatior* getTheoryMatcher( Theory* t ) { return d_instTable[t->getId()]; }
+  theory::TheoryInstantiatior* getInstantiator( Theory* t ) { return d_instTable[t->getId()]; }
+
+  void instantiate( Node f, std::vector< Node >& terms, OutputChannel* out );
 
   void getInstantiationConstantsFor( Node f, std::vector< Node >& vars, std::vector< Node >& ics );
-  bool getInstantiationFor( Node f, std::vector< Node >& vars, std::vector< Node >& terms );
   bool doInstantiation( OutputChannel* out );
 };/* class InstantiationEngine */
 

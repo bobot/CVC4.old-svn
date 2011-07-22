@@ -452,7 +452,7 @@ In this approach, $t$ represents a guess for $e$.
 %Define the relation $M \rightarrow_\psi M'$ as $\rightarrow_{\psi+} \cup \rightarrow_{\psi-}$. 
 
 One might also wish to perform the instantiations encountered in this strategy immediately.
-Instead of the previous rule which computes the instantiations $Inst( \rightarrow, P, M )$ at once, we may instead use the following rules for implementing an instantiation search according to $\rightarrow$ and $P$: \\
+Instead of the previous rule which computes the instantiations $Inst( \rightarrow, P, M )$ and applies them all at once, we may instead use the following rules for implementing an instantiation search according to $\rightarrow$ and $P$: \\
 
 \noindent $\forall$-Inst (Incremental Instantiation for $\rightarrow,P$): \\
 
@@ -590,7 +590,7 @@ The following example demonstrates how this heuristic can be an improvement over
 Consider the set of clauses $S = \{ (\psi :) \ \forall xy. g( x ) \neq f( y ), g( a_1 ) = f( b_1 ), \ldots, g( a_n ) = f( b_n ) \}$.
 In E-matching, we have $n$ possible matches for both $x$ and $y$ and potentially $O(n^2)$ pairs of matches can be tried until a proper instantiation is found. 
 \footnote{ In this example, the structure of the input may lead us to find a proper instantiation.
-However, one could envision a similar example in which we have a set of clauses in $F$ such that $F \models g( a_1 ) = f( b_1 ), \ldots, g( a_n ) = f( b_n )$, and a quantifier $\forall xy. \varphi(x,y)$ such that $\neg \varphi( x, y ) \models g( x ) = f( y )$ and no structural information about the input is helfpul. }
+However, one could envision a similar example in which we have a set of clauses in $F$ such that $F \models g( a_1 ) = f( b_1 ), \ldots, g( a_n ) = f( b_n )$, and a quantifier $\forall xy. \varphi(x,y)$ such that $\neg \varphi( x, y ) \models g( x ) = f( y )$ and no structural information about the input is helpful. }
 In constrast, it can be shown that the first instantiation tried by the strategy $( \rightarrow_{eamb}, \rightarrow_{e=c} )$ leads to a conflict.
 
 After applying unit propagation and Counterexample $\forall$-Inst to $\psi$, we reach the DPLL(T) state $\psi, \neg (\bot^{\neg \psi})^d, g( e_1 ) = f( e_2 ), g( a_1 ) = f( b_1 ), \ldots, g( a_n ) = f( b_n ) \parallel S'$.
@@ -608,12 +608,12 @@ Consider the set of clauses $S = \{ (\psi_1 :) \ \forall x. G( S( x ), x), (\psi
 Note that $S$ represents a successor function and $G$ represents ``is greater than".  
 In other words, this set of clauses says that $a + 2 > a$ for some constant $a$.
 
-After unit propagations and Counterexample $\forall$-Inst, we arrive in the DPLL(T) state $\psi_1, \psi_2, \neg ( \bot^{\neg \psi_1 })^d, \neg ( \bot^{\neg \psi_2 })^d, G( S(S(a)), a) \neq \top, G( S(e_1), e_1) \neq \top, G( e_2, e_4 ) \neq \top, G( e_2, e_3 ) = \top, G( e_3, e_4 ) = \top \parallel S'$, where $\top$ is the distinguished free boolean constant representing true, $e_1 \mapsto^I \psi_1$ and $e_2, e_3, e_4 \mapsto^I \psi_2$.
+After unit propagations and Counterexample $\forall$-Inst, we arrive in the DPLL(T) state $\psi_1, \psi_2, \neg ( \bot^{\neg \psi_1 })^d, \neg ( \bot^{\neg \psi_2 })^d, G( S(S(a)), a) = \bot, G( S(e_1), e_1) = \bot, G( e_2, e_4 ) = \bot, G( e_2, e_3 ) = \top, G( e_3, e_4 ) = \top \parallel S'$, where $\top$ and $\bot$ are the distinguished free boolean constant representing true and false, $e_1 \mapsto^I \psi_1$ and $e_2, e_3, e_4 \mapsto^I \psi_2$.
 Our maximum equality-ambiguous pair is $G( S(S(a)), a), G( S(e_1), e_1)$ with maximum depth ambiguity $e_1 = S( a )$.
 In the branch $e_1 = S( a )$, $\psi_1$ is instantiation-ready, and we add the instantiation $[S(a)/e_1]$.
 
-In the branch $e_1 \neq S(a)$, our maximum equality-ambiguous pair is $G(e2, e4), G( S(S(a)), a)$, and we explore the branch $e_4 = a$.
-
+In the branch $e_1 \neq S(a)$, our maximum equality-ambiguous pair is $G(e_2, e_4)$, $G( S(S(a)), a)$, and we explore the branch $e_4 = a$.
+[do this] \\
 
 The search strategy $( \rightarrow_{eamb}, \rightarrow_{e=c} )$ is useful for finding relevant instantiations based on the relationships between values in our counterexample.
 It is based on finding two terms that are likely to be equal in a real counterexample, and resolving such the ambiguity between them.

@@ -143,16 +143,7 @@ protected:
    *
    * @return the next atom in the assertFact() queue.
    */
-  TNode get() {
-    Assert( !done(), "Theory::get() called with assertion queue empty!" );
-    TNode fact = d_facts[d_factsHead];
-    d_wasSharedTermFact = false;
-    d_factsHead = d_factsHead + 1;
-    Debug("theory") << "Theory::get() => " << fact
-                    << " (" << d_facts.size() << " left)" << std::endl;
-    d_out->newFact(fact);
-    return fact;
-  }
+  TNode get();
 
   /**
    * Returns whether the last fact retrieved by get() was a shared
@@ -482,7 +473,10 @@ public:
    * Get the associated theory instantiator
    */
   virtual TheoryInstantiatior* makeInstantiator() { return NULL; }
-
+  /**
+   * Get the theory instantiator
+   */
+  TheoryInstantiatior* getInstantiator();
 };/* class Theory */
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level);

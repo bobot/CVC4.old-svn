@@ -18,6 +18,7 @@
 
 #include "theory/theory.h"
 #include "util/Assert.h"
+#include "theory/instantiation_engine.h"
 
 #include <vector>
 
@@ -41,6 +42,27 @@ std::ostream& operator<<(std::ostream& os, Theory::Effort level){
   }
   return os;
 }/* ostream& operator<<(ostream&, Theory::Effort) */
+
+TNode Theory::get() {
+  Assert( !done(), "Theory::get() called with assertion queue empty!" );
+  TNode fact = d_facts[d_factsHead];
+  d_wasSharedTermFact = false;
+  d_factsHead = d_factsHead + 1;
+  Debug("theory") << "Theory::get() => " << fact
+                  << " (" << d_facts.size() << " left)" << std::endl;
+  d_out->newFact(fact);
+
+  //AJR-hack
+  if( getInstantiator() ){
+    getInstantiator()->check( fact );
+  }
+  //---AJR-hack
+  return fact;
+}
+
+TheoryInstantiatior* Theory::getInstantiator(){
+  return d_instEngine->getInstantiator( this );
+}
 
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

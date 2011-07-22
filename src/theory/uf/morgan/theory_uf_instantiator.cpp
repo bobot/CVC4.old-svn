@@ -27,17 +27,89 @@ using namespace CVC4::theory::uf;
 using namespace CVC4::theory::uf::morgan;
 
 TheoryUfInstantiatior::TheoryUfInstantiatior(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th) :
-TheoryInstantiatior( c, ie ), 
-d_th( th ){
+TheoryInstantiatior( c, ie ),
+d_th(th),
+d_nodes(c){
+  
   
 }
 
-bool TheoryUfInstantiatior::doInstantiation( OutputChannel* out )
+Theory* TheoryUfInstantiatior::getTheory() { 
+  return d_th; 
+}
+
+void TheoryUfInstantiatior::check( Node assertion )
 {
-  Debug("quant-uf") << "Get instantiation for UF:" << std::endl;
-  
   TheoryUFMorgan* t = (TheoryUFMorgan*)d_th;
-  UnionFind<TNode, TNodeHashFunction>* u = &t->d_unionFind;
+  Debug("quant-uf") << "TheoryUfInstantiatior::check: " << assertion << std::endl;
+  switch(assertion.getKind()) {
+  case kind::EQUAL:
+  case kind::IFF:
+    assertEqual(assertion[0], assertion[1]);
+    break;
+  case kind::APPLY_UF:
+    { // assert it's a predicate
+      Assert(assertion.getOperator().getType().getRangeType().isBoolean());
+      assertEqual(assertion, t->d_trueNode);
+    }
+    break;
+  case kind::NOT:
+    if(assertion[0].getKind() == kind::EQUAL ||
+       assertion[0].getKind() == kind::IFF) {
+      assertDisequal(assertion[0][0], assertion[0][1]);
+    } else {
+      // negation of a predicate
+      Assert(assertion[0].getKind() == kind::APPLY_UF);
+      // assert it's a predicate
+      Assert(assertion[0].getOperator().getType().getRangeType().isBoolean());
+      assertEqual(assertion[0], t->d_falseNode);
+    }
+    break;
+  default:
+    Unhandled(assertion.getKind());
+  }
+}
+
+void TheoryUfInstantiatior::assertEqual( Node a, Node b )
+{
+  if( b.getKind()==INST_CONSTANT){
+    Node t = a;
+    a = b;
+    b = t;
+  }
+  TheoryUFMorgan* t = (TheoryUFMorgan*)d_th;
+  registerTerm( a );
+  registerTerm( b );
+}
+
+void TheoryUfInstantiatior::assertDisequal( Node a, Node b )
+{
+  if( b.getKind()==INST_CONSTANT){
+    Node t = a;
+    a = b;
+    b = t;
+  }
+  TheoryUFMorgan* t = (TheoryUFMorgan*)d_th;
+  registerTerm( a );
+  registerTerm( b );
+}
+
+void TheoryUfInstantiatior::registerTerm( Node n )
+{
+  d_nodes[n] = true;
+}
+
+bool TheoryUfInstantiatior::prepareInstantiation()
+{
+  Debug("quant-uf") << "Search for instantiation for UF:" << std::endl;
+
+  //find all instantiation constants that are solved
+
+
+  //we're done if some node is instantiation-ready
+
+
+  //otherwise, add possible splitting lemma
 
 
   return false;

@@ -72,7 +72,7 @@ private:
   void assertCounterexample( Node n );
 
   /** returns if n has instantiation constant */
-  bool markLiteralsAsDependent( Node n, Node cel );
+  bool markLiteralsAsDependent( Node n, Node f, Node cel );
 };/* class TheoryQuantifiers */
 
 }/* CVC4::theory::quantifiers namespace */

@@ -26,16 +26,25 @@ namespace theory {
 namespace uf {
 namespace morgan {
 
+class TheoryUfMorgan;
+
 class TheoryUfInstantiatior : public TheoryInstantiatior{
 protected:
   /** reference to the theory that it looks at */
   Theory* d_th;
+
+  context::CDMap< Node, bool, NodeHashFunction > d_nodes;
 public:
   TheoryUfInstantiatior(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~TheoryUfInstantiatior() {}
 
-  bool doInstantiation( OutputChannel* out );
-  Theory* getTheory() { return d_th; }
+  Theory* getTheory();
+  void check( Node assertion );
+  bool prepareInstantiation();
+private:
+  void assertEqual( Node a, Node b );
+  void assertDisequal( Node a, Node b );
+  void registerTerm( Node n );
 };/* class TheoryUfInstantiatior */
 
 }

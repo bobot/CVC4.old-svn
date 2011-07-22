@@ -73,6 +73,7 @@ Node TheoryQuantifiers::getValue(TNode n) {
 }
 
 void TheoryQuantifiers::check(Effort e) {
+  Debug("quantifiers") << "quantifiers::check(" << e << ")" << std::endl;
   while(!done()) {
     Node assertion = get();
     Debug("quantifiers") << "quantifiers::check(): " << assertion << std::endl;
@@ -124,25 +125,12 @@ void TheoryQuantifiers::check(Effort e) {
     }
     if( quantActive && !d_instEngine->doInstantiation( d_out ) ){
       //instantiation did not add a lemma to d_out
+
+      //flip a previous decision? DO_THIS
+
       Debug("quantifiers") << "Return unknown." << std::endl;
       d_out->setIncomplete();
     }
-
-          //Debug("quantifiers") << "Instantiate " << n << "?" << std::endl;
-          //std::vector< Node > vars;
-          //std::vector< Node > terms;
-          //if( d_ie->getInstantiationFor( n, vars, terms ) ){
-          //  Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-          //  Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
-          //                                                              terms.begin(), terms.end() ); 
-          //  NodeBuilder<> nb(kind::OR);
-          //  nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
-          //  nb << ( n.getKind()==kind::NOT ? body : NodeManager::currentNM()->mkNode( NOT, body ) );
-          //  Node lem = nb;
-          //  Debug("quantifiers") << "Instantiation lemma : " << lem << std::endl;
-          //  d_out->lemma( lem );
-          //  lemmaAdded = true;
-          //}
   }
 }
 
@@ -173,7 +161,7 @@ void TheoryQuantifiers::assertUniversal( Node n ){
     d_out->lemma( lem );
 
     //mark all literals in the body of n as dependent on cel
-    markLiteralsAsDependent( body, cel );
+    markLiteralsAsDependent( body, n, cel );
     //mark cel as dependent on n
     //d_out->dependentDecision( cel, quant);
     //require any decision on cel to be phase=false
@@ -211,6 +199,7 @@ void TheoryQuantifiers::assertExistential( Node n ){
 
 void TheoryQuantifiers::assertCounterexample( Node n ){
   if( n.getKind()==NO_COUNTEREXAMPLE ){
+    Debug("quantifiers") << n << " is valid in current context!" << std::endl;
     d_counterexample_asserts[ n[0] ] = true;
   }else{
     Assert( n.getKind()==NOT );
@@ -218,19 +207,29 @@ void TheoryQuantifiers::assertCounterexample( Node n ){
   }
 }
 
-bool TheoryQuantifiers::markLiteralsAsDependent( Node n, Node cel )
+bool TheoryQuantifiers::markLiteralsAsDependent( Node n, Node f, Node cel )
 {
   if( n.getKind()==INST_CONSTANT ){
     return true;
   }else{
     bool retVal = false;
-    for( int i=0; i<n.getNumChildren(); i++ ){
-      retVal = retVal || markLiteralsAsDependent( n[i], cel );
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( markLiteralsAsDependent( n[i], f, cel ) ){
+        retVal = true;
+      }
     }
-    if( retVal && n.getType()==NodeManager::currentNM()->booleanType() ){
-      Debug("quantifiers-ce") << "Make " << n << " dependent on " << cel << std::endl;
-      d_out->dependentDecision( n, cel );
-      return false;
+    if( retVal ){
+      if( n.getType()==NodeManager::currentNM()->booleanType() ){
+        //Assert( Valuation::isSatLiteral( n ) );
+        Debug("quantifiers-ce") << "Make " << n << " dependent on " << cel << std::endl;
+        d_out->dependentDecision( n, cel );
+        return false;
+      }else{
+        //set n to have instantiation constants from f
+        InstantitionConstantAttribute icai;
+        n.setAttribute(icai,f);
+        return true;
+      }
     }else{
       return retVal;
     }
