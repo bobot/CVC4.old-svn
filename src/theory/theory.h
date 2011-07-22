@@ -107,7 +107,8 @@ protected:
     d_factsHead(ctxt, 0),
     d_wasSharedTermFact(false),
     d_out(&out),
-    d_valuation(valuation) {
+    d_valuation(valuation),
+    d_instEngine( NULL ){
   }
 
   /**

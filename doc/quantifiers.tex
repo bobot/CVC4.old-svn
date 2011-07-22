@@ -362,6 +362,9 @@ Given a quantified formula $\psi$ is \emph{instantiation-ready in $M$} if and on
 For an instantiation-ready quantified formula $\psi$, define $\varepsilon_M( \bar{e} )$ for $\bar{e} \mapsto^I \psi$ as a vector of concrete ground terms $t_1 \ldots t_n$ such that if $e_i$ is in $M$, then $M \models_T (e_i = t_i)$.
 %For instantiation-ready $\psi$, we call $\psi$ instantiation-potent in $M$ if $\bar{e} = \varepsilon_M( \bar{e} ) \models M \mid_\psi$.
 
+The usefulness of determining whether a quantified formula $(\psi:) \ \forall \bar{x}. \varphi( \bar{x} )$ is instantiation-ready is immediate:  if $\psi$ is counterexample active, we know that $\neg \varphi( \bar{e} )$ is entailed in our current mdoel, where $\bar{e}$ are the instantiation constants of $\psi$.
+When we have solved for values of $\bar{e} = \bar{s}$, then we know that the instantiation $\varphi( \bar{s} )$ must be \emph{unsatisfiable} in the current state.
+
 The following theorem describes cases when we can construct a useful instantiation:
 
 \begin{thm}
@@ -541,7 +544,7 @@ Formally, we define a total ordering $\succeq$ between equality-ambiguous pairs 
 (P3) $M \models_T (t = s)$, \\
 (P4) (minimum) value of $NArgs'( t, s )$, \\
 (P5) (maximum) prefix size for maximal depth ambiguity for $t,s$, \\
-(P6) (minimum) maximum of the number of symbols in of $t$ and $s$. \\
+(P6) (minimum) number of symbols in of the maximal depth ambiguity for $t,s$. \\
 
 We are now ready to define the following search procedure $\rightarrow_{eamb}$ that is based on resolving equality-ambiguous pairs of terms in a state $M$ according to this ordering: \\
 
@@ -555,6 +558,8 @@ We will first consider the search strategy $( \rightarrow_{eamb} \mid_{Pemb}, \r
 Given the set of clauses $S = \{ (\psi :)\forall x. (f( x ) = x) \wedge f( f( a ) ) \neq a \}$, say we reach the DPLL(T) state $f( f( a ) ) \neq a, \psi, \neg (\bot^{\neg \psi})^d, f(e) \neq e \parallel (S':)S \cup \{ ( \neg \psi \vee \bot^{\neg \psi } \vee f( e ) \neq e ) \}$.
 Let us say we decide to perform quantifier instantiation according to $( \rightarrow_{eamb}, \rightarrow_{e=c} )$.
 
+\begin{comment}
+THIS IS FOR COLLECTED INSTANTIATION
 Our maximum pair of equality-ambiguous terms is $f( e ), f( f( a ) )$ and our maximal depth ambiguity is $e = f( a )$.
 Searching the branch $e = f( a )$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[f(a)/e]$ and $e \neq f( a )$ leads us to a state in which $f( e )$ is equality-independent and our search terminates.
 Our search has thus calculated the set $\{ [f(a)/e] \}$.
@@ -567,6 +572,17 @@ Otherwise, searching the branch $e \neq a$ leads us to state where we again will
 In the branch $e = f( a )$, we get the theory conflict $e = f( a ), f( f( a ) ) = f( a ), f( e ) \neq e \models \bot$.
 In the branch $e \neq f( a )$, we have that $f( e )$ is equality-independent and our search terminates.
 Our search has thus calculated the set $\{ [a/e] \}$, and after adding the instantiation clause $( \neg \psi \vee f( a ) = a )$, the solver answers UNSAT. \\
+\end{comment}
+
+Our maximum pair of equality-ambiguous terms is $f( e ), f( f( a ) )$ and our maximal depth ambiguity is $e = f( a )$.
+Searching the branch $e = f( a )$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[f(a)/e]$.
+By applying $\forall$-Inst to $\psi$, we obtain the clause $( \neg \psi \vee f( f( a ) ) = f( a ) )$, and after unit propagation we have the theory conflict $f( f( a ) ) = f( a ), e = f( a ), f( e ) \neq e \models \bot$.
+After conflict analysis, we backjump to the state $f( f( a ) ) \neq a, \psi, \neg (\bot^{\neg \psi})^d, f(e) \neq e, e \neq f( a ), f( f( a ) ) = f( a ) \parallel S''$.
+Again, $\psi$ is not instantiation-ready, and we may chose to perform another split.
+
+Our maximum pair of equality-ambiguous terms is $f( e ), f( a )$ and our maximal depth ambiguity is $e = a$.
+Searching the branch $e = a$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[a/e]$.
+After adding the instantiation clause $( \neg \psi \vee f( a ) = a )$, the solver answers UNSAT. \\
 
 In the previous example, we have found the relevant instantiations $[f(a)/x]$ and $[a/x]$, which has led us to contradict the ground clause $f( f( a ) ) \neq a$.
 This was accomplished by using splitting lemmas to explore our search space, and identifying cases in which we can generate unsatisfiable instantiation clauses. \\
@@ -579,9 +595,8 @@ After determining the maximum pair $f(e_1),f(e_2)$, we split on $( e_1 = e_2 )$.
 
 In the branch where $e_1 = e_2$, we have that $\rightarrow_{e=c}$ applies.
 We explore the branch $e_1 = c$ for fresh constant $c$, and immediately we have that $\psi_1$ and $\psi_2$ are both instantiation ready with instantiations $[c/e_1]$ and $[c/e_2]$.
-In the branch where $e_1 \neq e_2$, both $f( e_1 )$ and $f( e_2 )$ are equality-independent and our search terminates.
-Our search has computed the set $\{ [c/e_1], [c/e_2] \}$.
-
+%In the branch where $e_1 \neq e_2$, both $f( e_1 )$ and $f( e_2 )$ are equality-independent and our search terminates.
+%Our search has computed the set $\{ [c/e_1], [c/e_2] \}$.
 After applying the instantiations $\psi_1[c/x]$ and $\psi_2[c/x]$ we obtain the conflict $f( c ) = a, f( c ) \neq a \models \bot$, and the solver will answer UNSAT. \\
 
 The following example demonstrates how this heuristic can be an improvement over simple E-matching: \\
@@ -598,7 +613,7 @@ Note that all equality-ambiguous pairs $(g( e_1 ), g( a_1 )),$ $\ldots$ $(g( e_1
 
 Say we chose some $(g( e_1 ), g( a_i ))$, and thus are interested in splitting on $e_1 = a_i$.
 In the branch $e_1 = a_i$, we will find that $f( e_2 ) = g( e_1 ) = g( a_i ) = f( b_i )$, and thus $(f( e_2 ), f( b_i ))$ becomes maximal with respect to our ordering.
-Our search will explore $e_2 = b_i$ and subsequently record the instantiation $[ a_i/e_1, b_i/e_2]$. 
+Our search will explore $e_2 = b_i$ and subsequently apply the instantiation $[ a_i/e_1, b_i/e_2]$. 
 This instantiation leads to a conflict, and the solver answers UNSAT.  \\
 
 The following example demonstrates how this heuristic can be used to instantiate axioms representing the encoding of simple arithmetic functions: \\
@@ -608,11 +623,12 @@ Consider the set of clauses $S = \{ (\psi_1 :) \ \forall x. G( S( x ), x), (\psi
 Note that $S$ represents a successor function and $G$ represents ``is greater than".  
 In other words, this set of clauses says that $a + 2 > a$ for some constant $a$.
 
-After unit propagations and Counterexample $\forall$-Inst, we arrive in the DPLL(T) state $\psi_1, \psi_2, \neg ( \bot^{\neg \psi_1 })^d, \neg ( \bot^{\neg \psi_2 })^d, G( S(S(a)), a) = \bot, G( S(e_1), e_1) = \bot, G( e_2, e_4 ) = \bot, G( e_2, e_3 ) = \top, G( e_3, e_4 ) = \top \parallel S'$, where $\top$ and $\bot$ are the distinguished free boolean constant representing true and false, $e_1 \mapsto^I \psi_1$ and $e_2, e_3, e_4 \mapsto^I \psi_2$.
+After unit propagations and Counterexample $\forall$-Inst, we have the set of assertions $\psi_1, \psi_2, \neg ( \bot^{\neg \psi_1 })^d, \neg ( \bot^{\neg \psi_2 })^d$, $G( S(S(a)), a) =$ $G( S(e_1), e_1) =$ $G( e_2, e_4 ) =$ $\bot$, $G( e_2, e_3 ) =$ $G( e_3, e_4 ) =$ $\top$, where $\top$ and $\bot$ are the distinguished free boolean constant representing true and false, $e_1 \mapsto^I \psi_1$ and $e_2, e_3, e_4 \mapsto^I \psi_2$.
 Our maximum equality-ambiguous pair is $G( S(S(a)), a), G( S(e_1), e_1)$ with maximum depth ambiguity $e_1 = S( a )$.
-In the branch $e_1 = S( a )$, $\psi_1$ is instantiation-ready, and we add the instantiation $[S(a)/e_1]$.
+In the branch $e_1 = S( a )$, $\psi_1$ is instantiation-ready, and we apply the instantiation $[S(a)/e_1]$.
 
-In the branch $e_1 \neq S(a)$, our maximum equality-ambiguous pair is $G(e_2, e_4)$, $G( S(S(a)), a)$, and we explore the branch $e_4 = a$.
+After conflict analysis and backjump, we have the set of assertions $G( S(S(a)), a) =$ $G( S(e_1), e_1) =$ $G( e_2, e_4 ) =$ $\bot$, $G( e_2, e_3 ) =$ $G( e_3, e_4 ) =$ $G( S( S( a ) ), S( a )) =$ $\top$, and $e_1 \neq S( a )$.
+
 [do this] \\
 
 The search strategy $( \rightarrow_{eamb}, \rightarrow_{e=c} )$ is useful for finding relevant instantiations based on the relationships between values in our counterexample.

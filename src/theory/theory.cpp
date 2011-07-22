@@ -61,7 +61,7 @@ TNode Theory::get() {
 }
 
 TheoryInstantiatior* Theory::getInstantiator(){
-  return d_instEngine->getInstantiator( this );
+  return d_instEngine ? d_instEngine->getInstantiator( this ) : NULL;
 }
 
 }/* CVC4::theory namespace */
