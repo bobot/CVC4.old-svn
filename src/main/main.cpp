@@ -304,8 +304,7 @@ int runCvc4(int argc, char* argv[]) {
       delete cmd;
     }
   } else {
-    ParserBuilder parserBuilder =
-      ParserBuilder(&exprMgr, filename, options);
+    ParserBuilder parserBuilder(&exprMgr, filename, options);
 
     if( inputFromStdin ) {
       parserBuilder.withStreamInput(cin);

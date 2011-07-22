@@ -384,7 +384,7 @@ class CVC4_PUBLIC BooleanType : public Type {
 public:
 
   /** Construct from the base type */
-  BooleanType(const Type& type) throw(AssertionException);
+  BooleanType(const Type& type = Type()) throw(AssertionException);
 };/* class BooleanType */
 
 /**
@@ -395,7 +395,7 @@ class CVC4_PUBLIC IntegerType : public Type {
 public:
 
   /** Construct from the base type */
-  IntegerType(const Type& type) throw(AssertionException);
+  IntegerType(const Type& type = Type()) throw(AssertionException);
 };/* class IntegerType */
 
 /**
@@ -406,7 +406,7 @@ class CVC4_PUBLIC RealType : public Type {
 public:
 
   /** Construct from the base type */
-  RealType(const Type& type) throw(AssertionException);
+  RealType(const Type& type = Type()) throw(AssertionException);
 };/* class RealType */
 
 /**
@@ -417,7 +417,7 @@ class CVC4_PUBLIC FunctionType : public Type {
 public:
 
   /** Construct from the base type */
-  FunctionType(const Type& type) throw(AssertionException);
+  FunctionType(const Type& type = Type()) throw(AssertionException);
 
   /** Get the argument types */
   std::vector<Type> getArgTypes() const;
@@ -434,7 +434,7 @@ class CVC4_PUBLIC TupleType : public Type {
 public:
 
   /** Construct from the base type */
-  TupleType(const Type& type) throw(AssertionException);
+  TupleType(const Type& type = Type()) throw(AssertionException);
 
   /** Get the constituent types */
   std::vector<Type> getTypes() const;
@@ -448,7 +448,7 @@ class CVC4_PUBLIC ArrayType : public Type {
 public:
 
   /** Construct from the base type */
-  ArrayType(const Type& type) throw(AssertionException);
+  ArrayType(const Type& type = Type()) throw(AssertionException);
 
   /** Get the index type */
   Type getIndexType() const;
@@ -465,7 +465,7 @@ class CVC4_PUBLIC SortType : public Type {
 public:
 
   /** Construct from the base type */
-  SortType(const Type& type) throw(AssertionException);
+  SortType(const Type& type = Type()) throw(AssertionException);
 
   /** Get the name of the sort */
   std::string getName() const;
@@ -486,7 +486,7 @@ class CVC4_PUBLIC SortConstructorType : public Type {
 public:
 
   /** Construct from the base type */
-  SortConstructorType(const Type& type) throw(AssertionException);
+  SortConstructorType(const Type& type = Type()) throw(AssertionException);
 
   /** Get the name of the sort constructor */
   std::string getName() const;
@@ -506,7 +506,7 @@ class CVC4_PUBLIC KindType : public Type {
 public:
 
   /** Construct from the base type */
-  KindType(const Type& type) throw(AssertionException);
+  KindType(const Type& type = Type()) throw(AssertionException);
 };/* class KindType */
 
 /**
@@ -517,7 +517,7 @@ class CVC4_PUBLIC BitVectorType : public Type {
 public:
 
   /** Construct from the base type */
-  BitVectorType(const Type& type) throw(AssertionException);
+  BitVectorType(const Type& type = Type()) throw(AssertionException);
 
   /**
    * Returns the size of the bit-vector type.
@@ -535,7 +535,7 @@ class CVC4_PUBLIC DatatypeType : public Type {
 public:
 
   /** Construct from the base type */
-  DatatypeType(const Type& type) throw(AssertionException);
+  DatatypeType(const Type& type = Type()) throw(AssertionException);
 
   /** Get the underlying datatype */
   const Datatype& getDatatype() const;
@@ -575,7 +575,7 @@ class CVC4_PUBLIC ConstructorType : public Type {
 public:
 
   /** Construct from the base type */
-  ConstructorType(const Type& type) throw(AssertionException);
+  ConstructorType(const Type& type = Type()) throw(AssertionException);
 
   /** Get the range type */
   DatatypeType getRangeType() const;
@@ -597,7 +597,7 @@ class CVC4_PUBLIC SelectorType : public Type {
 public:
 
   /** Construct from the base type */
-  SelectorType(const Type& type) throw(AssertionException);
+  SelectorType(const Type& type = Type()) throw(AssertionException);
 
   /** Get the domain type for this selector (the datatype type) */
   DatatypeType getDomain() const;
@@ -615,7 +615,7 @@ class CVC4_PUBLIC TesterType : public Type {
 public:
 
   /** Construct from the base type */
-  TesterType(const Type& type) throw(AssertionException);
+  TesterType(const Type& type = Type()) throw(AssertionException);
 
   /** Get the type that this tester tests (the datatype type) */
   DatatypeType getDomain() const;

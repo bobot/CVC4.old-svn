@@ -114,6 +114,9 @@ public:
    */
   ~ExprManager();
 
+  /** Get this node manager's options */
+  const Options* getOptions() const;
+
   /** Get the type for booleans */
   BooleanType booleanType() const;
 

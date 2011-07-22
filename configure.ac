@@ -43,6 +43,8 @@ CVC4_RELEASE_STRING=_CVC4_RELEASE_STRING
 
 CVC4_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
 CVC4_PARSER_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
+CVC4_COMPAT_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
+CVC4_BINDINGS_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
 
 # Using the AC_CANONICAL_* macros destroy the command line you get
 # from $@, which we want later for determining the build profile.  So
@@ -716,30 +718,11 @@ CVC4_CHECK_CUDD
 # Check for antlr C++ runtime (defined in config/antlr.m4)
 AC_LIB_ANTLR
 
-# Check for SWIG (for building language bindings)
-CVC4_LANGUAGE_BINDINGS='c++'
-noswig=no
-AC_ARG_VAR(SWIG, [SWIG binary (used to generate language bindings)])
-AC_ARG_WITH([swig],
-  [AS_HELP_STRING([--with-swig=BINARY], [path to swig binary])],
-  [if test "$withval" = no; then noswig=yes; else SWIG="$withval"; fi])
-if test "$noswig" = yes; then
-  AC_MSG_WARN([language bindings disabled by user.])
-  SWIG=
-else
-  if test -z "$SWIG"; then
-    AC_CHECK_PROGS(SWIG, swig, swig, [])
-  else
-    AC_CHECK_PROG(SWIG, "$SWIG", "$SWIG", [])
-  fi
-  if test -z "$SWIG"; then
-    AC_MSG_WARN([language bindings disabled, swig not found.])
-  else
-    CVC4_LANGUAGE_BINDINGS='c++ c perl php tcl java'
-  fi
-fi
-AC_SUBST(SWIG)
-AC_SUBST(CVC4_LANGUAGE_BINDINGS)
+# Check for user preferences for language bindings to build, and for
+# build support.  The arg list is the default set if unspecified by
+# the user (the actual built set is the subset that appears to be
+# supported by the build host).
+CVC4_CHECK_BINDINGS dnl ([java csharp perl php python ruby tcl ocaml])
 
 # Checks for header files.
 AC_CHECK_HEADERS([getopt.h unistd.h])
@@ -752,28 +735,18 @@ AC_CHECK_HEADERS([getopt.h unistd.h])
 #AC_TYPE_UINT64_T
 #AC_TYPE_SIZE_T
 
-# Whether to compile with google profiling tools
-cvc4_use_google_perftools=0
-AC_ARG_WITH(
-    [google_perftools],
-    AS_HELP_STRING(
-        [--with-google-perftools],
-        [use Google Performance Tools]
-    ),
-    [if test "$withval" != no; then
-        cvc4_use_google_perftools=1
-     fi
-    ]
-)
-
-AC_MSG_CHECKING([whether to link in google perftools libraries])
-if test $cvc4_use_google_perftools = 1; then
+# Whether to build compatibility library
+cvc4_build_compat=yes
+AC_ARG_WITH([compat],
+    AS_HELP_STRING([--with-compat], [build compatibility library (CVC3 API layer)]),
+    [if test "$withval" = no; then cvc4_build_compat=no; fi])
+AC_MSG_CHECKING([whether to build compatibility library (CVC3 API layer)])
+if test "$cvc4_build_compat" = yes; then
   AC_MSG_RESULT([yes])
-  AC_CHECK_LIB([tcmalloc], [MallocExtension_GetAllocatedSize], , [AC_MSG_ERROR([cannot link google-perftools test program with -ltcmalloc])], [-lpthread])
-  AC_CHECK_LIB([profiler], [ProfilerStart], , [AC_MSG_ERROR([cannot link google-perftools test program with -lprofiler])], [-lpthread])
 else
-  AC_MSG_RESULT([no (user didn't request it)])
+  AC_MSG_RESULT([no, disabled by user])
 fi
+AM_CONDITIONAL([CVC4_BUILD_LIBCOMPAT], [test "$cvc4_build_compat" = yes])
 
 # Check for availability of TLS support (e.g. __thread storage class)
 AC_MSG_CHECKING([whether to use compiler-supported TLS if available])
@@ -794,11 +767,27 @@ fi
 AC_SUBST([CVC4_TLS])
 AC_SUBST([CVC4_TLS_SUPPORTED])
 
-# Checks for library functions.
-# (empty)
-
-# Some definitions for config.h
-# (empty)
+# Whether to compile with google profiling tools
+cvc4_use_google_perftools=0
+AC_ARG_WITH(
+    [google_perftools],
+    AS_HELP_STRING(
+        [--with-google-perftools],
+        [use Google Performance Tools]
+    ),
+    [if test "$withval" != no; then
+        cvc4_use_google_perftools=1
+     fi
+    ]
+)
+AC_MSG_CHECKING([whether to link in google perftools libraries])
+if test $cvc4_use_google_perftools = 1; then
+  AC_MSG_RESULT([yes])
+  AC_CHECK_LIB([tcmalloc], [MallocExtension_GetAllocatedSize], , [AC_MSG_ERROR([cannot link google-perftools test program with -ltcmalloc])], [-lpthread])
+  AC_CHECK_LIB([profiler], [ProfilerStart], , [AC_MSG_ERROR([cannot link google-perftools test program with -lprofiler])], [-lpthread])
+else
+  AC_MSG_RESULT([no (user didn't request it)])
+fi
 
 # Prepare configure output
 
@@ -813,6 +802,8 @@ AM_CONDITIONAL([COVERAGE_ENABLED], [test "$enable_coverage" = yes])
 
 AC_SUBST(CVC4_LIBRARY_VERSION)
 AC_SUBST(CVC4_PARSER_LIBRARY_VERSION)
+AC_SUBST(CVC4_COMPAT_LIBRARY_VERSION)
+AC_SUBST(CVC4_BINDINGS_LIBRARY_VERSION)
 
 AC_DEFINE_UNQUOTED(CVC4_MAJOR, ${CVC4_MAJOR}, [Major component of the version of CVC4.])
 AC_DEFINE_UNQUOTED(CVC4_MINOR, ${CVC4_MINOR}, [Minor component of the version of CVC4.])
@@ -933,7 +924,8 @@ TLS support  : $CVC4_TLS
 Static libs  : $enable_static
 Shared libs  : $enable_shared
 Static binary: $enable_static_binary
-Bindings     : $CVC4_LANGUAGE_BINDINGS
+Compat lib   : $cvc4_build_compat
+Bindings     : ${CVC4_LANGUAGE_BINDINGS:-none}
 
 MP library   : $mplibrary
 
@@ -943,8 +935,10 @@ CFLAGS       : $CFLAGS
 LIBS         : $LIBS
 LDFLAGS      : $LDFLAGS
 
-libcvc4 version      : $CVC4_LIBRARY_VERSION
-libcvc4parser version: $CVC4_PARSER_LIBRARY_VERSION
+libcvc4 version        : $CVC4_LIBRARY_VERSION
+libcvc4parser version  : $CVC4_PARSER_LIBRARY_VERSION
+libcvc4compat version  : $CVC4_COMPAT_LIBRARY_VERSION
+libcvc4bindings version: $CVC4_BINDINGS_LIBRARY_VERSION
 
 ${licensewarn}Now just type make, followed by make check or make install, as you like.
 

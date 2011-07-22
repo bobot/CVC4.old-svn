@@ -1033,6 +1033,12 @@ vector<Expr> SmtEngine::getAssertions()
   return vector<Expr>(d_assertionList->begin(), d_assertionList->end());
 }
 
+size_t SmtEngine::getStackLevel() const {
+  NodeManagerScope nms(d_nodeManager);
+  Trace("smt") << "SMT getStackLevel()" << endl;
+  return d_context->getLevel();
+}
+
 void SmtEngine::push() {
   NodeManagerScope nms(d_nodeManager);
   Trace("smt") << "SMT push()" << endl;

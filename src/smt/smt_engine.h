@@ -23,6 +23,26 @@
 
 #include <vector>
 
+#if SWIG
+%include "cvc4_public.h"
+%include "util/rational.h"
+%include "util/exception.h"
+%include "expr/kind.h"
+%include "util/integer.h"
+%include "util/cardinality.h"
+%include "util/sexpr.h"
+%include "util/language.h"
+%include "expr/type.h"
+%include "expr/expr.h"
+%include "expr/expr_manager.h"
+%{
+#include "util/integer.h"
+#include "expr/expr_manager.h"
+#include "expr/type.h"
+#include "expr/expr.h"
+%}
+#endif
+
 #include "context/cdlist_forward.h"
 #include "context/cdmap_forward.h"
 #include "context/cdset_forward.h"
@@ -306,6 +326,11 @@ public:
    * SmtEngine is set to operate interactively.
    */
   std::vector<Expr> getAssertions() throw(ModalException, AssertionException);
+
+  /**
+   * Get the current context level.
+   */
+  size_t getStackLevel() const;
 
   /**
    * Push a user-level context.

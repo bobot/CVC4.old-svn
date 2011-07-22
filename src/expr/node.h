@@ -28,6 +28,8 @@
 #include <string>
 #include <iostream>
 #include <utility>
+#include <algorithm>
+#include <functional>
 #include <stdint.h>
 
 #include "expr/type.h"
@@ -1287,11 +1289,13 @@ NodeTemplate<ref_count>::substitute(Iterator1 nodesBegin,
   }
 
   // otherwise compute
-  Assert( nodesEnd - nodesBegin == replacementsEnd - replacementsBegin,
+  Assert( std::distance(nodesBegin, nodesEnd) == std::distance(replacementsBegin, replacementsEnd),
           "Substitution iterator ranges must be equal size" );
-  Iterator1 j = find(nodesBegin, nodesEnd, *this);
+  Iterator1 j = find(nodesBegin, nodesEnd, TNode(*this));
   if(j != nodesEnd) {
-    Node n = *(replacementsBegin + (j - nodesBegin));
+    Iterator2 b = replacementsBegin;
+    std::advance(b, std::distance(nodesBegin, j));
+    Node n = *b;
     cache[*this] = n;
     return n;
   } else if(getNumChildren() == 0) {

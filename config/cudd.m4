@@ -1,5 +1,5 @@
 # CVC4_CHECK_CUDD
-# ---------
+# ---------------
 # Check for CUDD libraries and headers.  Complicated because different
 # packagers have packaged it differently.
 AC_DEFUN([CVC4_CHECK_CUDD], [
