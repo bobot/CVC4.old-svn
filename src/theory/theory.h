@@ -128,15 +128,15 @@ protected:
   OutputChannel* d_out;
 
   /**
-   * reference to the instantiation engine
-   */
-  InstantiationEngine* d_instEngine;
-
-  /**
    * The valuation proxy for the Theory to communicate back with the
    * theory engine (and other theories).
    */
   Valuation d_valuation;
+
+  /**
+   * reference to the instantiation engine
+   */
+  InstantiationEngine* d_instEngine;
 
   /**
    * Returns the next atom in the assertFact() queue.  Guarantees that

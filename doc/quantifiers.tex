@@ -124,7 +124,7 @@ The key idea here is that although this entails the literal $\forall \bar{ x }. 
 
 We will write $\bot^{\neg \psi}$ as shorthand for the counterexample literal $(\neg \psi \Rightarrow \bot)$.
 
-For a DPLL(T) state $M \parallel F$ and for each quantified formula $\psi = \forall \bar{ x }. \varphi( \bar{ x } ) \in M$, we have three intended configurations for $\psi$ and its counterexample literal $\bot^{\neg \psi}$: \\
+For a DPLL(T) state $M \parallel F$ and for each quantified formula $\psi = \forall \bar{ x }. \varphi( \bar{ x } ) \in F$, we have three intended configurations for $\psi$ and its counterexample literal $\bot^{\neg \psi}$: \\
 
 (1) $\psi$ is not asserted positively in $M$, 
 
@@ -538,18 +538,24 @@ For example, if we have the equality-ambiguous pair $f( g( e ), e ), f( g( a ), 
 We call the terms $t_i', s_i'$ the \emph{maximal depth ambiguity for $t, s$}.
 %The maximal depth ambiguity for the equality-ambiguous pair $e, s$ is simply $e = s$.
 
-Formally, we define a total ordering $\succeq$ between equality-ambiguous pairs of terms, where $t,s \succeq t',s'$ in $M$ if $t,s$ satisfy a higher lexical combination than $t',s'$ of the following properties in descending order of importance:  \\
+Define a total ordering $\succeq$ between equality-ambiguous pairs of terms:
+
+\begin{definition}
+Define an ordering $\succeq$ between equality-ambiguous pairs of terms, such that $t,s \succeq t',s'$ in $M$ if $t,s$ satisfy a higher lexical combination than $t',s'$ of the following properties in descending order of importance:  \\
 (P1) $M \not\models_T (t \neq s)$, \\
 (P2) $s$ is a concrete ground term, \\
 (P3) $M \models_T (t = s)$, \\
 (P4) (minimum) value of $NArgs'( t, s )$, \\
 (P5) (maximum) prefix size for maximal depth ambiguity for $t,s$, \\
-(P6) (minimum) number of symbols in of the maximal depth ambiguity for $t,s$. \\
+(P6) (minimum) number of symbols in of the maximal depth ambiguity for $t,s$.
+\end{definition}
 
-We are now ready to define the following search procedure $\rightarrow_{eamb}$ that is based on resolving equality-ambiguous pairs of terms in a state $M$ according to this ordering: \\
+We are now ready to define the following search procedure $\rightarrow_{eamb}$ that is based on resolving equality-ambiguous pairs of terms in a state $M$ according to this ordering:
 
+\begin{definition}
 If there exists a pair of equality-ambiguous terms in $M$, then say $t, s$ is the maximal pair with respect to $\succeq$.
-Then, $M \rightarrow_{eamb} M'$ if and only if $M' = M, (\neg)(t_i' = s_i')$, where $t_i', s_i'$ is the maximal depth ambiguity of $t, s$. \\
+Then, $M \rightarrow_{eamb} M'$ if and only if $M' = M, (\neg)(t_i' = s_i')$, where $t_i', s_i'$ is the maximal depth ambiguity of $t, s$. 
+\end{definition}
 
 In other words, if an equality-ambiguous pair of terms $t,s$ exist in $M$, then attempt to resolve them. 
 We will first consider the search strategy $( \rightarrow_{eamb} \mid_{Pemb}, \rightarrow_{e=c} )$ for EUF with termination condition $P^2_{e=c}$, where $P_{emb}$ is a requirement on how helpful it is to resolve equality-ambigity between $t$ and $s$. \\
@@ -609,10 +615,10 @@ However, one could envision a similar example in which we have a set of clauses 
 In constrast, it can be shown that the first instantiation tried by the strategy $( \rightarrow_{eamb}, \rightarrow_{e=c} )$ leads to a conflict.
 
 After applying unit propagation and Counterexample $\forall$-Inst to $\psi$, we reach the DPLL(T) state $\psi, \neg (\bot^{\neg \psi})^d, g( e_1 ) = f( e_2 ), g( a_1 ) = f( b_1 ), \ldots, g( a_n ) = f( b_n ) \parallel S'$.
-Note that all equality-ambiguous pairs $(g( e_1 ), g( a_1 )),$ $\ldots$ $(g( e_1 ), g( a_n ))$ and $(f( e_2 ), f( b_1 )),$ $\ldots$ $(f( e_2 ), f( b_n ))$ are equivalent with respect to our ordering.
+Note that all equality-ambiguous pairs $g( e_i ), g( a_i )$ and $f( e_j ), f( b_j )$ are equivalent with respect to our ordering for all $i,j$.
 
-Say we chose some $(g( e_1 ), g( a_i ))$, and thus are interested in splitting on $e_1 = a_i$.
-In the branch $e_1 = a_i$, we will find that $f( e_2 ) = g( e_1 ) = g( a_i ) = f( b_i )$, and thus $(f( e_2 ), f( b_i ))$ becomes maximal with respect to our ordering.
+Say we chose some $g( e_1 ), g( a_i )$, and thus are interested in splitting on $e_1 = a_i$.
+In the branch $e_1 = a_i$, we will find that $f( e_2 ) = g( e_1 ) = g( a_i ) = f( b_i )$, and thus $f( e_2 ), f( b_i )$ becomes maximal with respect to our ordering.
 Our search will explore $e_2 = b_i$ and subsequently apply the instantiation $[ a_i/e_1, b_i/e_2]$. 
 This instantiation leads to a conflict, and the solver answers UNSAT.  \\
 
@@ -625,11 +631,22 @@ In other words, this set of clauses says that $a + 2 > a$ for some constant $a$.
 
 After unit propagations and Counterexample $\forall$-Inst, we have the set of assertions $\psi_1, \psi_2, \neg ( \bot^{\neg \psi_1 })^d, \neg ( \bot^{\neg \psi_2 })^d$, $G( S(S(a)), a) =$ $G( S(e_1), e_1) =$ $G( e_2, e_4 ) =$ $\bot$, $G( e_2, e_3 ) =$ $G( e_3, e_4 ) =$ $\top$, where $\top$ and $\bot$ are the distinguished free boolean constant representing true and false, $e_1 \mapsto^I \psi_1$ and $e_2, e_3, e_4 \mapsto^I \psi_2$.
 Our maximum equality-ambiguous pair is $G( S(S(a)), a), G( S(e_1), e_1)$ with maximum depth ambiguity $e_1 = S( a )$.
-In the branch $e_1 = S( a )$, $\psi_1$ is instantiation-ready, and we apply the instantiation $[S(a)/e_1]$.
+In the branch $e_1 = S( a )$, $\psi_1$ is instantiation-ready, and we apply the instantiation $\psi_1[S(a)/e_1]$.
 
 After conflict analysis and backjump, we have the set of assertions $G( S(S(a)), a) =$ $G( S(e_1), e_1) =$ $G( e_2, e_4 ) =$ $\bot$, $G( e_2, e_3 ) =$ $G( e_3, e_4 ) =$ $G( S( S( a ) ), S( a )) =$ $\top$, and $e_1 \neq S( a )$.
+Our maximum equality-ambiguous pair is $G( S(S(a)), a), G( e_2, e_4 )$ and we branch on $e_4 = a$.
+After branching, this pair is again maximal (because of $NArgs'$) and we branch on $e_2 = S( S( a ) )$.
+After this, our maximal pair is $G( e_2, e_3 ), G( S( S( a ) ), S( a ))$ by $NArgs'$ and we branch on $e_3 = S( a )$.
+Now, $\psi_2$ is instantiation-ready and we obtain the instantiation clause $( \neg \psi_2 \vee \neg G(S( S( a ) ),S( a )) \vee \neg G(S( a ),a) \vee G(S( S( a ) ),a))$.
 
-[do this] \\
+After conflict analysis and backjump, we have the set of assertions $G( S(S(a)), a) =$ $G( S(e_1), e_1) =$ $G( e_2, e_4 ) =$ $G(S( a ),a) =$ $\bot$, $G( e_2, e_3 ) =$ $G( e_3, e_4 ) =$ $G( S( S( a ) ), S( a )) =$ $\top$, $e_1 \neq S( a )$, and $e_3 \neq S( a )$.
+Our maximal pair is $G( S(e_1), e_1), G( S( a ), a )$ and we split on $e_1 = a$.
+In the branch $e_1 = a$, $\psi_1$ is instantiation-ready, and we apply the instantiation $\psi_1[a/e_1]$ and the solver will answer UNSAT. \\
+
+The default behavior of our search strategy has calculated three instantiations, representing $a + 2 > a + 1$, $a + 2 > a + 1 > a$ and $a + 1 > a$.
+These instantiations were judged on relevance, taking precise relationships between concrete ground terms into account when chosing which axiom to instantiate.
+
+\paragraph{Other heuristics}
 
 The search strategy $( \rightarrow_{eamb}, \rightarrow_{e=c} )$ is useful for finding relevant instantiations based on the relationships between values in our counterexample.
 It is based on finding two terms that are likely to be equal in a real counterexample, and resolving such the ambiguity between them.

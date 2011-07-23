@@ -28,12 +28,38 @@ namespace morgan {
 
 class TheoryUfMorgan;
 
+/** represents a prefix */
+class EMatchTreeNode
+{
+public:
+  typedef context::CDList<int, context::ContextMemoryAllocator<int> > IndexList;
+  typedef context::CDMap<Node, IndexList*, NodeHashFunction > IndexMap;
+  typedef context::CDMap<Node, EMatchTreeNode*, NodeHashFunction > ChildMap;
+public:
+  EMatchTreeNode( context::Context* c, EMatchTreeNode* p = NULL );
+  ~EMatchTreeNode(){}
+
+  EMatchTreeNode* d_parent;
+  /** for (n,i) node n has this as node with prefix at argument i */
+  IndexMap d_nodes;
+  /** children nodes */
+  ChildMap d_children;
+
+  void debugPrint( int ind = 0 );
+};
+
+
 class TheoryUfInstantiatior : public TheoryInstantiatior{
 protected:
+  typedef context::CDMap<Node, EMatchTreeNode*, NodeHashFunction > EMatchMap;
+  typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
+
+  //typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
   /** reference to the theory that it looks at */
   Theory* d_th;
-
-  context::CDMap< Node, bool, NodeHashFunction > d_nodes;
+  /** equivalence classes for active instantiation constants */
+  EMatchMap d_ematch_tree;
+  BoolMap d_registered;
 public:
   TheoryUfInstantiatior(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~TheoryUfInstantiatior() {}
@@ -45,6 +71,7 @@ private:
   void assertEqual( Node a, Node b );
   void assertDisequal( Node a, Node b );
   void registerTerm( Node n );
+  void buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active );
 };/* class TheoryUfInstantiatior */
 
 }
