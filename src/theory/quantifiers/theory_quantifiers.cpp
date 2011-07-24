@@ -210,6 +210,8 @@ void TheoryQuantifiers::assertCounterexample( Node n ){
 bool TheoryQuantifiers::markLiteralsAsDependent( Node n, Node f, Node cel )
 {
   if( n.getKind()==INST_CONSTANT ){
+    InstantitionConstantAttribute icai;
+    n.setAttribute(icai,f);
     return true;
   }else{
     bool retVal = false;
@@ -219,19 +221,14 @@ bool TheoryQuantifiers::markLiteralsAsDependent( Node n, Node f, Node cel )
       }
     }
     if( retVal ){
-      if( n.getType()==NodeManager::currentNM()->booleanType() ){
-        //Assert( Valuation::isSatLiteral( n ) );
+      //set n to have instantiation constants from f
+      InstantitionConstantAttribute icai;
+      n.setAttribute(icai,f);
+      if( d_valuation.isSatLiteral( n ) ){
         Debug("quantifiers-ce") << "Make " << n << " dependent on " << cel << std::endl;
-        d_out->dependentDecision( n, cel );
-        return false;
-      }else{
-        //set n to have instantiation constants from f
-        InstantitionConstantAttribute icai;
-        n.setAttribute(icai,f);
-        return true;
+        d_out->dependentDecision( cel, n );
       }
-    }else{
-      return retVal;
     }
+    return retVal;
   }
 }

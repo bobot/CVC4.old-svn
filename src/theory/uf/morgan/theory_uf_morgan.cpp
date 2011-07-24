@@ -172,6 +172,14 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
   // should have already found such a conflict
   Assert(find(d_trueNode) != find(d_falseNode));
 
+  //AJR-hack
+  if( !a.hasAttribute(InstantitionConstantAttribute()) && b.hasAttribute(InstantitionConstantAttribute()) ){
+    TNode t = a;
+    a = b;
+    b = t;
+  }
+  //---AJR-hack
+
   d_unionFind.setCanon(a, b);
 
   EqLists::iterator deq_i = d_disequalities.find(a);

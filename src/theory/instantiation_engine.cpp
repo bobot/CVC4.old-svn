@@ -50,7 +50,10 @@ d_te( te ){
 
 void InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, OutputChannel* out )
 {
-  Debug("quantifiers") << "Instantiate " << f << "." << std::endl;
+  Debug("quantifiers") << "Instantiate " << f << " with " << std::endl;
+  for( int i=0; i<(int)terms.size(); i++ ){
+    Debug("quantifiers") << "   " << terms[i] << std::endl;
+  }
   Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==EXISTS ) );
   Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
   Assert( d_vars[f].size()==terms.size() && d_vars[f].size()==(quant.getNumChildren()-1) );
@@ -58,7 +61,7 @@ void InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, Outpu
                                                               terms.begin(), terms.end() ); 
   NodeBuilder<> nb(kind::OR);
   nb << ( f.getKind()==kind::NOT ? f[0] : NodeManager::currentNM()->mkNode( NOT, f ) );
-  nb << ( f.getKind()==kind::NOT ? body : NodeManager::currentNM()->mkNode( NOT, body ) );
+  nb << ( f.getKind()==kind::NOT ? NodeManager::currentNM()->mkNode( NOT, body ) : body );
   Node lem = nb;
   Debug("quantifiers") << "Instantiation lemma : " << lem << std::endl;
   out->lemma( lem );
@@ -94,6 +97,7 @@ void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Nod
 
 bool InstantiationEngine::doInstantiation( OutputChannel* out ){
   //call instantiators to search for an instantiation
+  Debug("quantifiers") << "Prepare instantiation." << std::endl;
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_instTable[i] ){
       d_instTable[i]->prepareInstantiation();
@@ -124,7 +128,10 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
         for( int j=0; j<(int)d_instTable[i]->getNumLemmas(); j++ ){
-          out->lemma( d_instTable[i]->getLemma( j ) );
+          Node lem = d_instTable[i]->getLemma( j );
+          Debug("quantifiers") << "Add splitting lemma : " << lem << std::endl;
+          out->lemma( lem );
+          out->requirePhase( lem[0], true );
           retVal = true;
         }
         d_instTable[i]->clearLemmas();

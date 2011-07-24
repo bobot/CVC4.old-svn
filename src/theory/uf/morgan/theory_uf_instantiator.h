@@ -52,14 +52,24 @@ public:
 class TheoryUfInstantiatior : public TheoryInstantiatior{
 protected:
   typedef context::CDMap<Node, EMatchTreeNode*, NodeHashFunction > EMatchMap;
+  typedef context::CDList<EMatchTreeNode*, context::ContextMemoryAllocator<EMatchTreeNode*> > EMatchList;
+  typedef context::CDMap<Node, EMatchList*, NodeHashFunction > EMatchListMap;
   typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
 
   //typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
   /** reference to the theory that it looks at */
   Theory* d_th;
   /** equivalence classes for active instantiation constants */
-  EMatchMap d_ematch_tree;
-  BoolMap d_registered;
+  EMatchMap d_ematch;
+  EMatchListMap d_ematch_list;
+  BoolMap d_inst_terms;
+  BoolMap d_concrete_terms;
+  /** map from terms to the instantiation constants they contain */
+  std::map< Node, std::vector< Node > > d_term_ics;
+  bool isSolved( Node n );
+  /** current best */
+  Node d_best;
+  int d_best_heuristic[10];
 public:
   TheoryUfInstantiatior(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~TheoryUfInstantiatior() {}
@@ -71,7 +81,12 @@ private:
   void assertEqual( Node a, Node b );
   void assertDisequal( Node a, Node b );
   void registerTerm( Node n );
+  void collectInstConstants( Node n, std::vector< Node >& ics );
   void buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active );
+  void processAmbiguity( Node c, Node i, bool eq, bool diseq, int depth = 0 );
+
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
 };/* class TheoryUfInstantiatior */
 
 }

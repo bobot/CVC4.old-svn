@@ -27,6 +27,10 @@ Node Valuation::getValue(TNode n) const {
   return d_engine->getValue(n);
 }
 
+bool Valuation::isSatLiteral(TNode n) const {
+  return d_engine->getPropEngine()->isSatLiteral(n);
+}
+
 Node Valuation::getSatValue(TNode n) const{
   if(n.getKind() == kind::NOT) {
     Node atomRes = d_engine->getPropEngine()->getValue(n[0]);

@@ -133,6 +133,11 @@ public:
    */
   Node getValue(TNode node);
 
+  /*
+   * Return true if node has an associated SAT literal
+   */
+  bool isSatLiteral(TNode node);
+
   /**
    * Push the context level.
    */

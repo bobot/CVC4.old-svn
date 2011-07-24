@@ -546,8 +546,9 @@ Define an ordering $\succeq$ between equality-ambiguous pairs of terms, such tha
 (P2) $s$ is a concrete ground term, \\
 (P3) $M \models_T (t = s)$, \\
 (P4) (minimum) value of $NArgs'( t, s )$, \\
-(P5) (maximum) prefix size for maximal depth ambiguity for $t,s$, \\
-(P6) (minimum) number of symbols in of the maximal depth ambiguity for $t,s$.
+(P5) (maximum) value of $NArgs( t, s )$, \\
+(P6) (maximum) prefix size for maximal depth ambiguity for $t,s$, \\
+(P7) (minimum) number of symbols in of the maximal depth ambiguity for $t,s$.
 \end{definition}
 
 We are now ready to define the following search procedure $\rightarrow_{eamb}$ that is based on resolving equality-ambiguous pairs of terms in a state $M$ according to this ordering:
