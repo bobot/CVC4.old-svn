@@ -355,8 +355,10 @@ In this section, we describe search methods for determining relevant instantiati
 Our goal will be to find states $M \parallel F$ in which we can construct a concrete ground instantiation $\bar{s}$ for some quantified formula $\psi \in M$ such that $\psi [\bar{s}/\bar{x}]$ \emph{must be} unsatisfiable in $M$.
 
 We begin with the following definitions:
-We say an instantiation constant $e$ is \emph{solved in $M$} if there exists a concrete ground term $s$ such that $M \models_T (e = s)$.
-We say an instantiation constant $e$ is \emph{unsolved in $M$} if $e$ is in $M$ and there does not exist a concrete ground term $s$ such that $M \models_T (e = s)$.
+An instantiation constant $e$ is \emph{solved in $M$} if there exists a concrete ground term $s$ such that $M \models_T (e = s)$.
+An instantiation constant $e$ is \emph{unsolved in $M$} if $e$ is in $M$ and there does not exist a concrete ground term $s$ such that $M \models_T (e = s)$.
+Similarly, a term $t$ is \emph{unsolved in $M$} if it contains instantiation constants that are unsolved in $M$; a term $t$ is \emph{solved in $M$} otherwise.
+Note that concrete ground terms $t$ are solved for all $M$.
 
 Given a quantified formula $\psi$ is \emph{instantiation-ready in $M$} if and only if $M$ is $T$-consistent and all $e_i \mapsto^I \psi$ in $M$ are solved in $M$.
 For an instantiation-ready quantified formula $\psi$, define $\varepsilon_M( \bar{e} )$ for $\bar{e} \mapsto^I \psi$ as a vector of concrete ground terms $t_1 \ldots t_n$ such that if $e_i$ is in $M$, then $M \models_T (e_i = t_i)$.
@@ -543,12 +545,13 @@ Define a total ordering $\succeq$ between equality-ambiguous pairs of terms:
 \begin{definition}
 Define an ordering $\succeq$ between equality-ambiguous pairs of terms, such that $t,s \succeq t',s'$ in $M$ if $t,s$ satisfy a higher lexical combination than $t',s'$ of the following properties in descending order of importance:  \\
 (P1) $M \not\models_T (t \neq s)$, \\
-(P2) $s$ is a concrete ground term, \\
-(P3) $M \models_T (t = s)$, \\
-(P4) (minimum) value of $NArgs'( t, s )$, \\
-(P5) (maximum) value of $NArgs( t, s )$, \\
-(P6) (maximum) prefix size for maximal depth ambiguity for $t,s$, \\
-(P7) (minimum) number of symbols in of the maximal depth ambiguity for $t,s$.
+(P2) $t$ is unsolved in $M$, \\
+(P3) $s$ is solved in $M$, \\
+(P4) $M \models_T (t = s)$, \\
+(P5) (minimum) value of $NArgs'( t, s )$, \\
+(P6) (maximum) value of $NArgs( t, s )$, \\
+(P7) (maximum) prefix size for maximal depth ambiguity for $t,s$, \\
+(P8) (minimum) number of symbols in the maximal depth ambiguity for $t,s$.
 \end{definition}
 
 We are now ready to define the following search procedure $\rightarrow_{eamb}$ that is based on resolving equality-ambiguous pairs of terms in a state $M$ according to this ordering:

@@ -223,11 +223,11 @@ bool TheoryQuantifiers::markLiteralsAsDependent( Node n, Node f, Node cel )
     if( retVal ){
       //set n to have instantiation constants from f
       InstantitionConstantAttribute icai;
-      n.setAttribute(icai,f);
-      if( d_valuation.isSatLiteral( n ) ){
+      if( d_valuation.isSatLiteral( n ) && n.getKind()!=NOT && !n.hasAttribute(icai) ){
         Debug("quantifiers-ce") << "Make " << n << " dependent on " << cel << std::endl;
         d_out->dependentDecision( cel, n );
       }
+      n.setAttribute(icai,f);
     }
     return retVal;
   }
