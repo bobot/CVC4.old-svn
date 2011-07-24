@@ -19,6 +19,7 @@
 #include "compat/cvc3_compat.h"
 
 #include "expr/kind.h"
+#include "expr/command.h"
 
 #include "util/rational.h"
 #include "util/integer.h"
@@ -349,7 +350,7 @@ bool Expr::isInitialized() const {
 }
 
 Type Expr::getType() const {
-  return Type(getType());
+  return Type(this->CVC4::Expr::getType());
 }
 
 Type Expr::lookupType() const {
@@ -1293,7 +1294,7 @@ Expr ValidityChecker::newBVConstExpr(const std::vector<bool>& bits) {
 Expr ValidityChecker::newBVConstExpr(const Rational& r, int len) {
   // implementation based on CVC3's TheoryBitvector::newBVConstExpr()
 
-  CheckArgument(r.getDenominator() != 1, r, "ValidityChecker::newBVConstExpr: "
+  CheckArgument(r.getDenominator() == 1, r, "ValidityChecker::newBVConstExpr: "
                 "not an integer: `%s'", r.toString().c_str());
   CheckArgument(len > 0, len, "ValidityChecker::newBVConstExpr: "
                 "len = %d", len);
@@ -1318,6 +1319,8 @@ Expr ValidityChecker::newBVConstExpr(const Rational& r, int len) {
 }
 
 Expr ValidityChecker::newConcatExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only concat a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only concat a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_CONCAT, t1, t2);
 }
 
@@ -1328,16 +1331,23 @@ Expr ValidityChecker::newConcatExpr(const std::vector<Expr>& kids) {
 }
 
 Expr ValidityChecker::newBVExtractExpr(const Expr& e, int hi, int low) {
+  CheckArgument(e.getType().isBitVector(), e, "can only bvextract from a bitvector, not a `%s'", e.getType().toString().c_str());
+  CheckArgument(hi >= low, hi, "extraction [%d:%d] is bad; possibly inverted?", hi, low);
+  CheckArgument(low >= 0, low, "extraction [%d:%d] is bad (negative)", hi, low);
+  CheckArgument(CVC4::BitVectorType(e.getType()).getSize() > unsigned(hi), hi, "bitvector is of size %u, extraction [%d:%d] is off-the-end", CVC4::BitVectorType(e.getType()).getSize(), hi, low);
   return d_em.mkExpr(CVC4::kind::BITVECTOR_EXTRACT,
                      d_em.mkConst(CVC4::BitVectorExtract(hi, low)), e);
 }
 
 Expr ValidityChecker::newBVNegExpr(const Expr& t1) {
   // CVC3's BVNEG => SMT-LIBv2 bvnot
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvneg a bitvector, not a `%s'", t1.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_NOT, t1);
 }
 
 Expr ValidityChecker::newBVAndExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvand a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvand a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_AND, t1, t2);
 }
 
@@ -1347,6 +1357,8 @@ Expr ValidityChecker::newBVAndExpr(const std::vector<Expr>& kids) {
 }
 
 Expr ValidityChecker::newBVOrExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvor a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvor a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_OR, t1, t2);
 }
 
@@ -1356,6 +1368,8 @@ Expr ValidityChecker::newBVOrExpr(const std::vector<Expr>& kids) {
 }
 
 Expr ValidityChecker::newBVXorExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvxor a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvxor a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_XOR, t1, t2);
 }
 
@@ -1365,6 +1379,8 @@ Expr ValidityChecker::newBVXorExpr(const std::vector<Expr>& kids) {
 }
 
 Expr ValidityChecker::newBVXnorExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvxnor a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvxnor a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_XNOR, t1, t2);
 }
 
@@ -1374,44 +1390,64 @@ Expr ValidityChecker::newBVXnorExpr(const std::vector<Expr>& kids) {
 }
 
 Expr ValidityChecker::newBVNandExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvnand a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvnand a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_NAND, t1, t2);
 }
 
 Expr ValidityChecker::newBVNorExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvnor a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvnor a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_NOR, t1, t2);
 }
 
 Expr ValidityChecker::newBVCompExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvcomp a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvcomp a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_COMP, t1, t2);
 }
 
 Expr ValidityChecker::newBVLTExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvlt a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvlt a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_ULT, t1, t2);
 }
 
 Expr ValidityChecker::newBVLEExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvle a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvle a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_ULE, t1, t2);
 }
 
 Expr ValidityChecker::newBVSLTExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvslt a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvslt a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_SLT, t1, t2);
 }
 
 Expr ValidityChecker::newBVSLEExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvsle a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvsle a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_SLE, t1, t2);
 }
 
 Expr ValidityChecker::newSXExpr(const Expr& t1, int len) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only sx a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(len >= 0, len, "must sx by a positive integer");
+  CheckArgument(unsigned(len) >= CVC4::BitVectorType(t1.getType()).getSize(), len, "cannot sx by something smaller than the bitvector (%d < %u)", len, CVC4::BitVectorType(t1.getType()).getSize());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_SIGN_EXTEND,
                      d_em.mkConst(CVC4::BitVectorSignExtend(len)), t1);
 }
 
 Expr ValidityChecker::newBVUminusExpr(const Expr& t1) {
   // CVC3's BVUMINUS => SMT-LIBv2 bvneg
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvuminus a bitvector, not a `%s'", t1.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_NEG, t1);
 }
 
 Expr ValidityChecker::newBVSubExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvsub a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvsub by a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_SUB, t1, t2);
 }
 
@@ -1421,6 +1457,8 @@ Expr ValidityChecker::newBVPlusExpr(int numbits, const std::vector<Expr>& k) {
 }
 
 Expr ValidityChecker::newBVPlusExpr(int numbits, const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvplus a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvplus a bitvector, not a `%s'", t2.getType().toString().c_str());
   Expr e = d_em.mkExpr(CVC4::kind::BITVECTOR_PLUS, t1, t2);
   unsigned size = CVC4::BitVectorType(e.getType()).getSize();
   CheckArgument(numbits > 0, numbits,
@@ -1432,6 +1470,8 @@ Expr ValidityChecker::newBVPlusExpr(int numbits, const Expr& t1, const Expr& t2)
 }
 
 Expr ValidityChecker::newBVMultExpr(int numbits, const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvmult a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvmult by a bitvector, not a `%s'", t2.getType().toString().c_str());
   Expr e = d_em.mkExpr(CVC4::kind::BITVECTOR_MULT, t1, t2);
   unsigned size = CVC4::BitVectorType(e.getType()).getSize();
   CheckArgument(numbits > 0, numbits,
@@ -1443,46 +1483,74 @@ Expr ValidityChecker::newBVMultExpr(int numbits, const Expr& t1, const Expr& t2)
 }
 
 Expr ValidityChecker::newBVUDivExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvudiv a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvudiv by a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_UDIV, t1, t2);
 }
 
 Expr ValidityChecker::newBVURemExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvurem a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvurem by a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_UREM, t1, t2);
 }
 
 Expr ValidityChecker::newBVSDivExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvsdiv a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvsdiv by a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_SDIV, t1, t2);
 }
 
 Expr ValidityChecker::newBVSRemExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvsrem a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvsrem by a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_SREM, t1, t2);
 }
 
 Expr ValidityChecker::newBVSModExpr(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only bvsmod a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only bvsmod by a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_SMOD, t1, t2);
 }
 
 Expr ValidityChecker::newFixedLeftShiftExpr(const Expr& t1, int r) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  CheckArgument(t1.getType().isBitVector(), t1, "can only left-shift a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(r >= 0, r, "left shift amount must be >= 0 (you passed %d)", r);
+  // Defined in:
+  // http://www.cs.nyu.edu/acsys/cvc3/doc/user_doc.html#user_doc_pres_lang_expr_bit
+  return d_em.mkExpr(CVC4::kind::BITVECTOR_CONCAT, t1, d_em.mkConst(CVC4::BitVector(r)));
 }
 
 Expr ValidityChecker::newFixedConstWidthLeftShiftExpr(const Expr& t1, int r) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  CheckArgument(t1.getType().isBitVector(), t1, "can only right-shift a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(r >= 0, r, "const-width left shift amount must be >= 0 (you passed %d)", r);
+  // just turn it into a BVSHL
+  return d_em.mkExpr(CVC4::kind::BITVECTOR_SHL, t1, d_em.mkConst(CVC4::BitVector(CVC4::BitVectorType(t1.getType()).getSize(), unsigned(r))));
 }
 
 Expr ValidityChecker::newFixedRightShiftExpr(const Expr& t1, int r) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  CheckArgument(t1.getType().isBitVector(), t1, "can only right-shift a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(r >= 0, r, "right shift amount must be >= 0 (you passed %d)", r);
+  // Defined in:
+  // http://www.cs.nyu.edu/acsys/cvc3/doc/user_doc.html#user_doc_pres_lang_expr_bit
+  // Should be equivalent to a BVLSHR; just turn it into that.
+  return d_em.mkExpr(CVC4::kind::BITVECTOR_LSHR, t1, d_em.mkConst(CVC4::BitVector(CVC4::BitVectorType(t1.getType()).getSize(), unsigned(r))));
 }
 
 Expr ValidityChecker::newBVSHL(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only right-shift a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only right-shift by a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_SHL, t1, t2);
 }
 
 Expr ValidityChecker::newBVLSHR(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only right-shift a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only right-shift by a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_LSHR, t1, t2);
 }
 
 Expr ValidityChecker::newBVASHR(const Expr& t1, const Expr& t2) {
+  CheckArgument(t1.getType().isBitVector(), t1, "can only right-shift a bitvector, not a `%s'", t1.getType().toString().c_str());
+  CheckArgument(t2.getType().isBitVector(), t2, "can only right-shift by a bitvector, not a `%s'", t2.getType().toString().c_str());
   return d_em.mkExpr(CVC4::kind::BITVECTOR_ASHR, t1, t2);
 }
 
@@ -1771,6 +1839,17 @@ void ValidityChecker::logAnnotation(const Expr& annot) {
   Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
 }
 
+static void doCommands(CVC4::parser::Parser* parser, CVC4::SmtEngine& smt, CVC4::Options& opts) {
+  while(CVC4::Command* cmd = parser->nextCommand()) {
+    if(opts.verbosity >= 0) {
+      cmd->invoke(&smt, *opts.out);
+    } else {
+      cmd->invoke(&smt);
+    }
+    delete cmd;
+  }
+}
+
 void ValidityChecker::loadFile(const std::string& fileName,
                                InputLanguage lang,
                                bool interactive,
@@ -1779,15 +1858,21 @@ void ValidityChecker::loadFile(const std::string& fileName,
   opts.inputLanguage = lang;
   opts.interactive = interactive;
   CVC4::parser::ParserBuilder parserBuilder(&d_em, fileName, opts);
-  CVC4::parser::Parser *parser = parserBuilder.build();
-#warning fixme
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  CVC4::parser::Parser* parser = parserBuilder.build();
+  doCommands(parser, d_smt, opts);
+  delete parser;
 }
 
 void ValidityChecker::loadFile(std::istream& is,
                                InputLanguage lang,
                                bool interactive) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  CVC4::Options opts = *d_em.getOptions();
+  opts.inputLanguage = lang;
+  opts.interactive = interactive;
+  CVC4::parser::ParserBuilder parserBuilder(&d_em, "[stream]", opts);
+  CVC4::parser::Parser* parser = parserBuilder.withStreamInput(is).build();
+  doCommands(parser, d_smt, opts);
+  delete parser;
 }
 
 Statistics& ValidityChecker::getStatistics() {

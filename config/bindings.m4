@@ -20,9 +20,9 @@ AC_ARG_VAR(SWIG, [SWIG binary (used to generate language bindings)])
 AC_ARG_WITH([swig],
   [AS_HELP_STRING([--with-swig=BINARY], [path to swig binary])],
   [if test "$withval" = no; then noswig=yes; else SWIG="$withval"; fi])
-AC_ARG_WITH([language-bindings],
-  [AS_HELP_STRING([--with-language-bindings=][CVC4_SUPPORTED_BINDINGS], [specify language bindings to build])],
-  [cvc4_check_for_bindings=no; if test "$withval" = no; then try_bindings=; else try_bindings="$withval"; fi],
+AC_ARG_ENABLE([language-bindings],
+  [AS_HELP_STRING([--enable-language-bindings=][CVC4_SUPPORTED_BINDINGS], [specify language bindings to build])],
+  [cvc4_check_for_bindings=no; if test "$enableval" = no; then try_bindings=; else try_bindings="$enableval"; fi],
   [cvc4_check_for_bindings=yes; try_bindings=])
 CVC4_LANGUAGE_BINDINGS=
 if test "$noswig" = yes; then
@@ -60,12 +60,24 @@ else
           JAVA_INCLUDES="-I/usr/lib/jvm/java-6-sun-1.6.0.26/include -I/usr/lib/jvm/java-6-sun-1.6.0.26/include/linux"
           cvc4_build_java_binding=yes
           AC_MSG_RESULT([Java support will be built]);;
-        csharp) ;&
-        perl) ;&
-        php) ;&
-        python) ;&
-        ruby) ;&
-        tcl) ;&
+        csharp)
+          binding_error=yes
+          AC_MSG_RESULT([$binding not supported yet]);;
+        perl)
+          binding_error=yes
+          AC_MSG_RESULT([$binding not supported yet]);;
+        php)
+          binding_error=yes
+          AC_MSG_RESULT([$binding not supported yet]);;
+        python)
+          binding_error=yes
+          AC_MSG_RESULT([$binding not supported yet]);;
+        ruby)
+          binding_error=yes
+          AC_MSG_RESULT([$binding not supported yet]);;
+        tcl)
+          binding_error=yes
+          AC_MSG_RESULT([$binding not supported yet]);;
         ocaml)
           binding_error=yes
           AC_MSG_RESULT([$binding not supported yet]);;

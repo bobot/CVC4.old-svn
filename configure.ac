@@ -736,17 +736,18 @@ AC_CHECK_HEADERS([getopt.h unistd.h])
 #AC_TYPE_SIZE_T
 
 # Whether to build compatibility library
-cvc4_build_compat=yes
+CVC4_BUILD_LIBCOMPAT=yes
 AC_ARG_WITH([compat],
     AS_HELP_STRING([--with-compat], [build compatibility library (CVC3 API layer)]),
-    [if test "$withval" = no; then cvc4_build_compat=no; fi])
+    [if test "$withval" = no; then CVC4_BUILD_LIBCOMPAT=no; fi])
 AC_MSG_CHECKING([whether to build compatibility library (CVC3 API layer)])
-if test "$cvc4_build_compat" = yes; then
+if test "$CVC4_BUILD_LIBCOMPAT" = yes; then
   AC_MSG_RESULT([yes])
 else
   AC_MSG_RESULT([no, disabled by user])
 fi
-AM_CONDITIONAL([CVC4_BUILD_LIBCOMPAT], [test "$cvc4_build_compat" = yes])
+AC_SUBST(CVC4_BUILD_LIBCOMPAT)
+AM_CONDITIONAL([CVC4_BUILD_LIBCOMPAT], [test "$CVC4_BUILD_LIBCOMPAT" = yes])
 
 # Check for availability of TLS support (e.g. __thread storage class)
 AC_MSG_CHECKING([whether to use compiler-supported TLS if available])
@@ -899,6 +900,15 @@ else
   mplibrary='gmp (LGPL)'
 fi
 
+CVC4_COMPAT_LIBRARY_VERSION_or_nobuild="$CVC4_COMPAT_LIBRARY_VERSION"
+CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild="$CVC4_BINDINGS_LIBRARY_VERSION"
+if test "$cvc4_build_compat" = no; then
+  CVC4_COMPAT_LIBRARY_VERSION_or_nobuild="N/A"
+fi
+if test -z "$CVC4_LANGUAGE_BINDINGS"; then
+  CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild="N/A"
+fi
+
 cat <<EOF
 
 CVC4 $VERSION
@@ -937,8 +947,8 @@ LDFLAGS      : $LDFLAGS
 
 libcvc4 version        : $CVC4_LIBRARY_VERSION
 libcvc4parser version  : $CVC4_PARSER_LIBRARY_VERSION
-libcvc4compat version  : $CVC4_COMPAT_LIBRARY_VERSION
-libcvc4bindings version: $CVC4_BINDINGS_LIBRARY_VERSION
+libcvc4compat version  : $CVC4_COMPAT_LIBRARY_VERSION_or_nobuild
+libcvc4bindings version: $CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild
 
 ${licensewarn}Now just type make, followed by make check or make install, as you like.
 
