@@ -25,51 +25,52 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 using namespace CVC4::theory::uf::morgan;
+//
+//EMatchTreeNode::EMatchTreeNode( context::Context* c, EMatchTreeNode* p ) : 
+//d_parent( p ),
+//d_nodes( c ),
+//d_children( c ){
+//
+//}
+//
+//void EMatchTreeNode::debugPrint( int ind )
+//{
+//  for( IndexMap::iterator it = d_nodes.begin(); it!=d_nodes.end(); ++it ){
+//    for( int i=0; i<ind; i++ ) { Debug("quant-uf") << " "; }
+//    Debug("quant-uf") << (*it).first << ": ";
+//    IndexList* il = (*it).second;
+//    for( IndexList::const_iterator it2 = il->begin(); it2!=il->end(); ++it2 ){
+//      Debug("quant-uf") << (*it2) << " ";
+//    }
+//    Debug("quant-uf") << std::endl;
+//  }
+//  for( ChildMap::const_iterator it = d_children.begin(); it!=d_children.end(); ++it ){
+//    for( int i=0; i<ind; i++ ) { Debug("quant-uf") << " "; }
+//    Debug("quant-uf") << (*it).first << ": " << std::endl;
+//    (*it).second->debugPrint( ind+1 );
+//  }
+//}
 
-EMatchTreeNode::EMatchTreeNode( context::Context* c, EMatchTreeNode* p ) : 
-d_parent( p ),
-d_nodes( c ),
-d_children( c ){
-
-}
-
-void EMatchTreeNode::debugPrint( int ind )
-{
-  for( IndexMap::iterator it = d_nodes.begin(); it!=d_nodes.end(); ++it ){
-    for( int i=0; i<ind; i++ ) { Debug("quant-uf") << " "; }
-    Debug("quant-uf") << (*it).first << ": ";
-    IndexList* il = (*it).second;
-    for( IndexList::const_iterator it2 = il->begin(); it2!=il->end(); ++it2 ){
-      Debug("quant-uf") << (*it2) << " ";
-    }
-    Debug("quant-uf") << std::endl;
-  }
-  for( ChildMap::const_iterator it = d_children.begin(); it!=d_children.end(); ++it ){
-    for( int i=0; i<ind; i++ ) { Debug("quant-uf") << " "; }
-    Debug("quant-uf") << (*it).first << ": " << std::endl;
-    (*it).second->debugPrint( ind+1 );
-  }
-}
-
-TheoryUfInstantiatior::TheoryUfInstantiatior(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th) :
-TheoryInstantiatior( c, ie ),
+InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th) :
+Instantiatior( c, ie ),
 d_th(th),
-d_ematch( c ),
-d_ematch_list( c ),
+//d_ematch( c ),
+//d_ematch_list( c ),
 d_inst_terms( c ),
-d_concrete_terms( c ){
+d_concrete_terms( c ),
+d_active_ic( c ){
   
   
 }
 
-Theory* TheoryUfInstantiatior::getTheory() { 
+Theory* InstantiatorTheoryUf::getTheory() { 
   return d_th; 
 }
 
-void TheoryUfInstantiatior::check( Node assertion )
+void InstantiatorTheoryUf::check( Node assertion )
 {
   TheoryUFMorgan* t = (TheoryUFMorgan*)d_th;
-  Debug("quant-uf") << "TheoryUfInstantiatior::check: " << assertion << std::endl;
+  Debug("quant-uf") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
   switch(assertion.getKind()) {
   case kind::EQUAL:
   case kind::IFF:
@@ -98,27 +99,32 @@ void TheoryUfInstantiatior::check( Node assertion )
   }
 }
 
-void TheoryUfInstantiatior::assertEqual( Node a, Node b )
+void InstantiatorTheoryUf::assertEqual( Node a, Node b )
 {
   registerTerm( a );
   registerTerm( b );
 }
 
-void TheoryUfInstantiatior::assertDisequal( Node a, Node b )
+void InstantiatorTheoryUf::assertDisequal( Node a, Node b )
 {
   registerTerm( a );
   registerTerm( b );
 }
 
-void TheoryUfInstantiatior::registerTerm( Node n )
+void InstantiatorTheoryUf::registerTerm( Node n )
 {
-  if( n.hasAttribute(InstantitionConstantAttribute()) ){
+  if( n.getKind()==INST_CONSTANT ){
+    //do nothing
+  }else if( n.hasAttribute(InstantitionConstantAttribute()) ){
     if( d_inst_terms.find( n )==d_inst_terms.end() ){
-      std::vector< EMatchTreeNode* > active;
-      buildEMatchTree( n, active );
+      //std::vector< EMatchTreeNode* > active;
+      //buildEMatchTree( n, active );
       //collect instantiation constants
       std::vector< Node > ics;
       collectInstConstants( n, ics );
+      for( int i=0; i<(int)d_term_ics[n].size(); i++ ){
+        d_active_ic[ d_term_ics[n][i] ] = true;
+      }
     }
   }else{
     if( n.getNumChildren()>0 ){
@@ -127,109 +133,99 @@ void TheoryUfInstantiatior::registerTerm( Node n )
   }
 }
 
-void TheoryUfInstantiatior::collectInstConstants( Node n, std::vector< Node >& ics ){
+void InstantiatorTheoryUf::collectInstConstants( Node n, std::vector< Node >& ics ){
+  Assert( n.hasAttribute(InstantitionConstantAttribute()) );
   if( n.getKind()==INST_CONSTANT ){
     ics.push_back( n );
-  }else if( n.hasAttribute(InstantitionConstantAttribute()) ){
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      if( n[i].hasAttribute(InstantitionConstantAttribute()) ){
-        std::vector< Node > cics;
-        collectInstConstants( n[i], cics );
-        ics.insert( ics.end(), cics.begin(), cics.end() );
+  }else{
+    if( d_inst_terms.find( n )==d_inst_terms.end() ){
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        if( n[i].hasAttribute(InstantitionConstantAttribute()) ){
+          std::vector< Node > cics;
+          collectInstConstants( n[i], cics );
+          ics.insert( ics.end(), cics.begin(), cics.end() );
+        }
       }
-    }
-    for( int i=0; i<(int)ics.size(); i++ ){
-      if( std::find( d_term_ics[n].begin(), d_term_ics[n].end(), ics[i] )==d_term_ics[n].end() ){
-        d_term_ics[n].push_back( ics[i] );
+      if( d_term_ics.find( n )==d_term_ics.end() ){
+        for( int i=0; i<(int)ics.size(); i++ ){
+          if( std::find( d_term_ics[n].begin(), d_term_ics[n].end(), ics[i] )==d_term_ics[n].end() ){
+            d_term_ics[n].push_back( ics[i] );
+          }
+        }
       }
+      d_inst_terms[n] = true;
+    }else{
+      ics.insert( ics.begin(), d_term_ics[n].begin(), d_term_ics[n].end() );
     }
   }
 }
 
-void TheoryUfInstantiatior::buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active )
-{
-  if( n.getKind()==INST_CONSTANT ){
-    if( d_ematch.find( n )==d_ematch.end() ){
-      d_ematch[n] = new EMatchTreeNode( d_th->getContext() );
-    }
-    active.push_back( d_ematch[n] );
-  }else if( n.hasAttribute(InstantitionConstantAttribute()) ){
-    Assert( n.getKind()==APPLY_UF );
-    Node op = n.getOperator();
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      //build e-match tree for the child
-      if( n[i].hasAttribute(InstantitionConstantAttribute()) ){
-        std::vector< EMatchTreeNode* > cactive;
-        buildEMatchTree( n[i], cactive );
-        
-        EMatchList* eml;
-        if( d_inst_terms.find( n )==d_inst_terms.end() ){
-          EMatchListMap::iterator eml_i = d_ematch_list.find( n );
-          if( eml_i==d_ematch_list.end() ){
-            eml = new(d_th->getContext()->getCMM()) EMatchList(true, d_th->getContext(), false,
-                                                    ContextMemoryAllocator<EMatchTreeNode*>(d_th->getContext()->getCMM()));
-            d_ematch_list.insertDataFromContextMemory(n, eml);
-          }else{
-            eml = (*eml_i).second;
-          }
-        }
-        //for each e-match tree that we are extending
-        for( int j=0; j<(int)cactive.size(); j++ ){
-          //this node at argument i is dependent upon cactive[j]
-          if( d_inst_terms.find( n )==d_inst_terms.end() ){
-            //add argument index
-            EMatchTreeNode::IndexList* nodes;
-            EMatchTreeNode::IndexMap::iterator n_i = cactive[j]->d_nodes.find(n);
-            if( n_i==cactive[j]->d_nodes.end() ){
-              nodes = new(d_th->getContext()->getCMM()) EMatchTreeNode::IndexList(true, d_th->getContext(), false,
-                                                        ContextMemoryAllocator<int>(d_th->getContext()->getCMM()));
-              cactive[j]->d_nodes.insertDataFromContextMemory(n, nodes);
-            }else{
-              nodes = (*n_i).second;
-            }
-            nodes->push_back( i );
-            //add child node
-            if( cactive[j]->d_children.find( op )==cactive[j]->d_children.end() ){
-              EMatchTreeNode* em = new EMatchTreeNode( d_th->getContext(), cactive[j] );
-              cactive[j]->d_children[op] = em;
-              //add this node to list of ematch tree nodes for n
-              eml->push_back( em );
-            }
-          }
-          EMatchTreeNode* emtn = cactive[j]->d_children[op];
-          //add it to active if not already done so
-          if( std::find( active.begin(), active.end(), emtn )==active.end() ){
-            active.push_back( emtn );
-          }
-        }
-      }
-    }
-    d_inst_terms[n] = true;
-  }
-}
+//void InstantiatorTheoryUf::buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active )
+//{
+//  if( n.getKind()==INST_CONSTANT ){
+//    if( d_ematch.find( n )==d_ematch.end() ){
+//      d_ematch[n] = new EMatchTreeNode( d_th->getContext() );
+//    }
+//    active.push_back( d_ematch[n] );
+//  }else if( n.hasAttribute(InstantitionConstantAttribute()) ){
+//    Assert( n.getKind()==APPLY_UF );
+//    Node op = n.getOperator();
+//    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+//      //build e-match tree for the child
+//      if( n[i].hasAttribute(InstantitionConstantAttribute()) ){
+//        std::vector< EMatchTreeNode* > cactive;
+//        buildEMatchTree( n[i], cactive );
+//        
+//        EMatchList* eml;
+//        if( d_inst_terms.find( n )==d_inst_terms.end() ){
+//          EMatchListMap::iterator eml_i = d_ematch_list.find( n );
+//          if( eml_i==d_ematch_list.end() ){
+//            eml = new(d_th->getContext()->getCMM()) EMatchList(true, d_th->getContext(), false,
+//                                                    ContextMemoryAllocator<EMatchTreeNode*>(d_th->getContext()->getCMM()));
+//            d_ematch_list.insertDataFromContextMemory(n, eml);
+//          }else{
+//            eml = (*eml_i).second;
+//          }
+//        }
+//        //for each e-match tree that we are extending
+//        for( int j=0; j<(int)cactive.size(); j++ ){
+//          //this node at argument i is dependent upon cactive[j]
+//          if( d_inst_terms.find( n )==d_inst_terms.end() ){
+//            //add argument index
+//            EMatchTreeNode::IndexList* nodes;
+//            EMatchTreeNode::IndexMap::iterator n_i = cactive[j]->d_nodes.find(n);
+//            if( n_i==cactive[j]->d_nodes.end() ){
+//              nodes = new(d_th->getContext()->getCMM()) EMatchTreeNode::IndexList(true, d_th->getContext(), false,
+//                                                        ContextMemoryAllocator<int>(d_th->getContext()->getCMM()));
+//              cactive[j]->d_nodes.insertDataFromContextMemory(n, nodes);
+//            }else{
+//              nodes = (*n_i).second;
+//            }
+//            nodes->push_back( i );
+//            //add child node
+//            if( cactive[j]->d_children.find( op )==cactive[j]->d_children.end() ){
+//              EMatchTreeNode* em = new EMatchTreeNode( d_th->getContext(), cactive[j] );
+//              cactive[j]->d_children[op] = em;
+//              //add this node to list of ematch tree nodes for n
+//              eml->push_back( em );
+//            }
+//          }
+//          EMatchTreeNode* emtn = cactive[j]->d_children[op];
+//          //add it to active if not already done so
+//          if( std::find( active.begin(), active.end(), emtn )==active.end() ){
+//            active.push_back( emtn );
+//          }
+//        }
+//      }
+//    }
+//    d_inst_terms[n] = true;
+//  }
+//}
 
-bool TheoryUfInstantiatior::prepareInstantiation()
+bool InstantiatorTheoryUf::prepareInstantiation()
 {
   Debug("quant-uf") << "Search for instantiation for UF:" << std::endl;
   TheoryUFMorgan* t = (TheoryUFMorgan*)d_th;
-
-  //for( EMatchMap::const_iterator it = d_ematch.begin(); it!=d_ematch.end(); ++it ){
-  //  Debug("quant-uf") << (*it).first << ": " << std::endl;
-  //  (*it).second->debugPrint( 1 );
-  //  Debug("quant-uf") << std::endl;
-  //}
-  Debug("quant-uf") << "Instantiation terms:" << std::endl;
-  for( BoolMap::const_iterator it = d_inst_terms.begin(); it!=d_inst_terms.end(); ++it ){
-    Debug("quant-uf") << "   " << (*it).first;
-    Debug("quant-uf") << "  ->  " << t->find( (*it).first );
-    Debug("quant-uf") << std::endl;
-  }
-  Debug("quant-uf") << "Concrete terms:" << std::endl;
-  for( BoolMap::const_iterator it = d_concrete_terms.begin(); it!=d_concrete_terms.end(); ++it ){
-    Debug("quant-uf") << "   " << (*it).first;
-    Debug("quant-uf") << "  ->  " << t->find( (*it).first );
-    Debug("quant-uf") << std::endl;
-  }
 
   //find all instantiation constants that are solved
   bool solved = false;
@@ -240,7 +236,7 @@ bool TheoryUfInstantiatior::prepareInstantiation()
       if( !qSolved ){
         d_solved_ic[ *it2 ] = Node::null();
       }else{
-        if( d_ematch.find( *it2 )==d_ematch.end() ){
+        if( d_active_ic.find( *it2 )==d_active_ic.end() ){
           //instantiation constant does not exist in the current context
           d_solved_ic[ *it2 ] = (*it2).getType().mkGroundTerm(); 
         }else{
@@ -269,7 +265,26 @@ bool TheoryUfInstantiatior::prepareInstantiation()
   //we're done if some node is instantiation-ready
   if( !solved ){
     Debug("quant-uf") << "No quantifier is instantiation-ready." << std::endl;
-    //otherwise, add possible splitting lemma
+
+    Debug("quant-uf") << "Instantiation constants:" << std::endl;
+    for( BoolMap::const_iterator it = d_active_ic.begin(); it!=d_active_ic.end(); ++it ){
+      Debug("quant-uf") << "   " << (*it).first;
+      Debug("quant-uf") << "  ->  " << d_solved_ic[(*it).first];
+      Debug("quant-uf") << std::endl;
+    }
+    Debug("quant-uf") << "Instantiation terms:" << std::endl;
+    for( BoolMap::const_iterator it = d_inst_terms.begin(); it!=d_inst_terms.end(); ++it ){
+      Debug("quant-uf") << "   " << (*it).first;
+      //Debug("quant-uf") << "  ->  " << t->find( (*it).first );
+      Debug("quant-uf") << std::endl;
+    }
+    Debug("quant-uf") << "Concrete terms:" << std::endl;
+    for( BoolMap::const_iterator it = d_concrete_terms.begin(); it!=d_concrete_terms.end(); ++it ){
+      Debug("quant-uf") << "   " << (*it).first;
+      //Debug("quant-uf") << "  ->  " << t->find( (*it).first );
+      Debug("quant-uf") << std::endl;
+    }
+    //add possible splitting lemma
     
     //process ambiguity between concrete term and instantiation term
     d_best = Node::null();
@@ -283,6 +298,7 @@ bool TheoryUfInstantiatior::prepareInstantiation()
       }
     }
     //if not satisfied, process ambiguity between instantiation terms
+#if 0
     for( BoolMap::const_iterator iit = d_inst_terms.begin(); iit!=d_inst_terms.end(); ++iit ){
       BoolMap::const_iterator iit2 = iit;
       ++iit2;
@@ -292,18 +308,32 @@ bool TheoryUfInstantiatior::prepareInstantiation()
         processAmbiguity( (*iit).first, (*iit2).first, eq, diseq );
       }
     }
+#endif
     if( d_best!=Node::null() ){
-      NodeBuilder<> nb(kind::OR);
-      nb << d_best << d_best.notNode();
-      d_best = nb;
+      Debug("quant-uf") << "Split, from : " << d_best_eq << std::endl;
+      Debug("quant-uf") << "Split: " << d_best << std::endl;
+      for( int i=0; i<7; i++ ){
+        Debug("quant-uf") << "   ";
+        switch( i ){ 
+          case 0: Debug("quant-uf") << "  not disequal: ";break;
+          case 1: Debug("quant-uf") << "  LHS unsolved: ";break;
+          case 2: Debug("quant-uf") << "    RHS solved: ";break;
+          case 3: Debug("quant-uf") << "         equal: ";break;
+          case 4: Debug("quant-uf") << "non-equal args: ";break;
+          case 5: Debug("quant-uf") << "    equal args: ";break;
+          case 6: Debug("quant-uf") << "     amb depth: ";break;
+        }
+        Debug("quant-uf") << d_best_heuristic[i] << std::endl;
+      }
+      Debug("quant-uf") << std::endl;
+
       d_lemmas.push_back( d_best );
-      Debug("quant-uf") << "lemma is " << d_best << std::endl;
     }
   }
   return false;
 }
 
-void TheoryUfInstantiatior::processAmbiguity( Node c, Node i, bool eq, bool diseq, int depth )
+void InstantiatorTheoryUf::processAmbiguity( Node c, Node i, bool eq, bool diseq, int depth )
 {
   Assert( !eq || !diseq );
   if( c.getKind()!=APPLY_UF || i.getKind()!=APPLY_UF ){
@@ -315,6 +345,8 @@ void TheoryUfInstantiatior::processAmbiguity( Node c, Node i, bool eq, bool dise
       Assert( c.getNumChildren()==i.getNumChildren() );
       int nEqArgs = 0;
       Node argC, argI;
+      bool isSlvC = false;
+      bool isSlvI = true;
       for( int j=0; j<(int)c.getNumChildren(); j++ ){
         if( areDisequal( c[j], i[j] ) ){
           Debug("quant-uf-amb-detail") << "-> Equality independent, arguments" << std::endl;
@@ -323,14 +355,18 @@ void TheoryUfInstantiatior::processAmbiguity( Node c, Node i, bool eq, bool dise
           nEqArgs++;
         }else{
           processAmbiguity( c[j], i[j], eq, diseq, depth+1 );
-          argC = c[j];
-          argI = i[j];
+          bool tIsSlvC = isSolved( c[j] );
+          bool tIsSlvI = isSolved( i[j] );
+          if( isSlvI || ( !tIsSlvI && tIsSlvC ) ){
+            isSlvI = tIsSlvI;
+            isSlvC = tIsSlvC;
+            argC = c[j];
+            argI = i[j];
+          }
         }
       }
       if( nEqArgs!=c.getNumChildren() ){
         Debug("quant-uf-amb") << c << " and " << i << " are equality-ambiguous." << std::endl;
-        bool isSlvC = isSolved( c );
-        bool isSlvI = isSolved( i );
         int nNEqArgs = c.getNumChildren()-nEqArgs;
         Debug("quant-uf-amb") << "Heuristics = " << !diseq << " " << !isSlvI << " " << isSlvC << " ";
         Debug("quant-uf-amb") << eq << " " << nNEqArgs << "< " << nEqArgs << " ";
@@ -360,6 +396,11 @@ void TheoryUfInstantiatior::processAmbiguity( Node c, Node i, bool eq, bool dise
           }else{
             d_best = NodeManager::currentNM()->mkNode( EQUAL, argC, argI );
           }
+          if( c.getType()==NodeManager::currentNM()->booleanType() ){
+            d_best_eq = NodeManager::currentNM()->mkNode( IFF, c, i );
+          }else{
+            d_best_eq = NodeManager::currentNM()->mkNode( EQUAL, c, i );
+          }
           Debug("quant-uf-amb") << "Set best " << d_best << std::endl;
         }
       }else{
@@ -369,7 +410,7 @@ void TheoryUfInstantiatior::processAmbiguity( Node c, Node i, bool eq, bool dise
   }
 }
 //
-//int TheoryUfInstantiatior::maximumDepthAmbiguity( Node c, Node i, Node& ci, Node& ii, int& depth )
+//int InstantiatorTheoryUf::maximumDepthAmbiguity( Node c, Node i, Node& ci, Node& ii, int& depth )
 //{
 //  if( c.getKind()!=APPLY_UF || i.getKind()!=APPLY_UF || c.getOperator()!=i.getOperator() ){
 //    depth = 0;
@@ -401,12 +442,12 @@ void TheoryUfInstantiatior::processAmbiguity( Node c, Node i, bool eq, bool dise
 //  }
 //}
 
-bool TheoryUfInstantiatior::areEqual( Node a, Node b ){
+bool InstantiatorTheoryUf::areEqual( Node a, Node b ){
   TheoryUFMorgan* t = ((TheoryUFMorgan*)d_th);
   return t->find( a )==t->find( b );
 }
 
-bool TheoryUfInstantiatior::areDisequal( Node a, Node b ){
+bool InstantiatorTheoryUf::areDisequal( Node a, Node b ){
   TheoryUFMorgan* t = ((TheoryUFMorgan*)d_th);
   a = t->find( a );
   b = t->find( b );
@@ -428,14 +469,18 @@ bool TheoryUfInstantiatior::areDisequal( Node a, Node b ){
   }
 }
 
-bool TheoryUfInstantiatior::isSolved( Node n )
+bool InstantiatorTheoryUf::isSolved( Node n )
 {
-  if( d_term_ics.find( n )!=d_term_ics.end() ){
-    for( int i=0; i<(int)d_term_ics[n].size(); i++ ){
-      if( d_solved_ic[ d_term_ics[n][i] ]==Node::null() ){
-        return false;
+  if( n.getKind()==INST_CONSTANT ){
+    return d_solved_ic[ n ]!=Node::null();
+  }else{
+    if( d_term_ics.find( n )!=d_term_ics.end() ){
+      for( int i=0; i<(int)d_term_ics[n].size(); i++ ){
+        if( d_solved_ic[ d_term_ics[n][i] ]==Node::null() ){
+          return false;
+        }
       }
     }
+    return true;
   }
-  return true;
 }

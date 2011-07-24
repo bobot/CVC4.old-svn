@@ -48,10 +48,6 @@ private:
   std::map< Node, bool > d_abstract_inst;
   /** quantifiers that have been skolemized */
   std::map< Node, bool > d_skolemized;
-  /** map from universal quantifiers to their counterexample literals */
-  std::map< Node, Node > d_counterexamples;
-  /** map from universal quantifiers to the list of instantiation constants */
-  std::map< Node, std::vector< Node > > d_inst_constants;
 public:
   TheoryQuantifiers(context::Context* c, OutputChannel& out, Valuation valuation);
   ~TheoryQuantifiers();
@@ -64,15 +60,10 @@ public:
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
-  /** get the corresponding counterexample literal for quantified formula node n */
-  Node getCounterexampleLiteralFor( Node n );
 private:
   void assertUniversal( Node n );
   void assertExistential( Node n );
   void assertCounterexample( Node n );
-
-  /** returns if n has instantiation constant */
-  bool markLiteralsAsDependent( Node n, Node f, Node cel );
 };/* class TheoryQuantifiers */
 
 }/* CVC4::theory::quantifiers namespace */

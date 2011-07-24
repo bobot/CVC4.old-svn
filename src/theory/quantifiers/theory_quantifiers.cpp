@@ -44,13 +44,13 @@ TheoryQuantifiers::~TheoryQuantifiers() {
 }
 
 void TheoryQuantifiers::addSharedTerm(TNode t) {
-  Debug("quantifiers") << "TheoryQuantifiers::addSharedTerm(): "
+  Debug("quantifiers-other") << "TheoryQuantifiers::addSharedTerm(): "
                      << t << endl;
 }
 
 
 void TheoryQuantifiers::notifyEq(TNode lhs, TNode rhs) {
-  Debug("quantifiers") << "TheoryQuantifiers::notifyEq(): "
+  Debug("quantifiers-other") << "TheoryQuantifiers::notifyEq(): "
                      << lhs << " = " << rhs << endl;
   
 }
@@ -61,7 +61,7 @@ void TheoryQuantifiers::preRegisterTerm(TNode n) {
 
 
 void TheoryQuantifiers::presolve() {
-  Debug("quantifiers") << "TheoryQuantifiers::presolve()" << endl;
+  Debug("quantifiers-other") << "TheoryQuantifiers::presolve()" << endl;
 }
 
 Node TheoryQuantifiers::getValue(TNode n) {
@@ -134,14 +134,6 @@ void TheoryQuantifiers::check(Effort e) {
   }
 }
 
-Node TheoryQuantifiers::getCounterexampleLiteralFor( Node n ){
-  Assert( n.getKind()==FORALL || ( n.getKind()==NOT && n[0].getKind()==EXISTS ) );
-  if( d_counterexamples.find( n )==d_counterexamples.end() ){
-    d_counterexamples[n] = NodeManager::currentNM()->mkNode( NO_COUNTEREXAMPLE, n );
-  }
-  return d_counterexamples[n];
-}
-
 void TheoryQuantifiers::assertUniversal( Node n ){
   if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
     //counterexample instantiate, add lemma
@@ -151,7 +143,7 @@ void TheoryQuantifiers::assertUniversal( Node n ){
     Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
     Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
                                                                 inst_constants.begin(), inst_constants.end() ); 
-    Node cel = getCounterexampleLiteralFor( n );
+    Node cel = d_instEngine->getCounterexampleLiteralFor( n );
 
     NodeBuilder<> nb(kind::OR);
     nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) ) << cel;
@@ -161,7 +153,7 @@ void TheoryQuantifiers::assertUniversal( Node n ){
     d_out->lemma( lem );
 
     //mark all literals in the body of n as dependent on cel
-    markLiteralsAsDependent( body, n, cel );
+    d_instEngine->markLiteralsAsDependent( body, n, cel, d_out );
     //mark cel as dependent on n
     //d_out->dependentDecision( cel, quant);
     //require any decision on cel to be phase=false
@@ -199,36 +191,10 @@ void TheoryQuantifiers::assertExistential( Node n ){
 
 void TheoryQuantifiers::assertCounterexample( Node n ){
   if( n.getKind()==NO_COUNTEREXAMPLE ){
-    Debug("quantifiers") << n << " is valid in current context!" << std::endl;
+    Debug("quantifiers") << n << " is valid in current context." << std::endl;
     d_counterexample_asserts[ n[0] ] = true;
   }else{
     Assert( n.getKind()==NOT );
     d_counterexample_asserts[ n[0][0] ] = false;
-  }
-}
-
-bool TheoryQuantifiers::markLiteralsAsDependent( Node n, Node f, Node cel )
-{
-  if( n.getKind()==INST_CONSTANT ){
-    InstantitionConstantAttribute icai;
-    n.setAttribute(icai,f);
-    return true;
-  }else{
-    bool retVal = false;
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      if( markLiteralsAsDependent( n[i], f, cel ) ){
-        retVal = true;
-      }
-    }
-    if( retVal ){
-      //set n to have instantiation constants from f
-      InstantitionConstantAttribute icai;
-      if( d_valuation.isSatLiteral( n ) && n.getKind()!=NOT && !n.hasAttribute(icai) ){
-        Debug("quantifiers-ce") << "Make " << n << " dependent on " << cel << std::endl;
-        d_out->dependentDecision( cel, n );
-      }
-      n.setAttribute(icai,f);
-    }
-    return retVal;
   }
 }

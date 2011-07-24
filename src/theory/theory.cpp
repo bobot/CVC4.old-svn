@@ -60,7 +60,7 @@ TNode Theory::get() {
   return fact;
 }
 
-TheoryInstantiatior* Theory::getInstantiator(){
+Instantiatior* Theory::getInstantiator(){
   return d_instEngine ? d_instEngine->getInstantiator( this ) : NULL;
 }
 

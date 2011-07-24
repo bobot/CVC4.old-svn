@@ -23,15 +23,15 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-TheoryInstantiatior::TheoryInstantiatior(context::Context* c, InstantiationEngine* ie) : 
+Instantiatior::Instantiatior(context::Context* c, InstantiationEngine* ie) : 
 d_ie( ie ){
 
 }
 
-TheoryInstantiatior::~TheoryInstantiatior(){
+Instantiatior::~Instantiatior(){
 }
 
-bool TheoryInstantiatior::isInstantiationReady( Node n ){
+bool Instantiatior::isInstantiationReady( Node n ){
   Assert( d_inst_constants.find( n )!=d_inst_constants.end() );
   for( int i=0; i<(int)d_inst_constants[n].size(); i++ ){
     if( d_solved_ic[d_inst_constants[n][i]]==Node::null() ){
@@ -50,9 +50,13 @@ d_te( te ){
 
 void InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, OutputChannel* out )
 {
-  Debug("quantifiers") << "Instantiate " << f << " with " << std::endl;
+  //TODO: assert that no t in terms has instantiation constants from f
+
+  bool hasInstConst = f.hasAttribute(InstantitionConstantAttribute());
+  Debug("inst-engine") << "Instantiate " << f << " with " << std::endl;
   for( int i=0; i<(int)terms.size(); i++ ){
-    Debug("quantifiers") << "   " << terms[i] << std::endl;
+    Debug("inst-engine") << "   " << terms[i] << std::endl;
+    hasInstConst = hasInstConst || terms[i].hasAttribute(InstantitionConstantAttribute());
   }
   Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==EXISTS ) );
   Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
@@ -63,8 +67,14 @@ void InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, Outpu
   nb << ( f.getKind()==kind::NOT ? f[0] : NodeManager::currentNM()->mkNode( NOT, f ) );
   nb << ( f.getKind()==kind::NOT ? NodeManager::currentNM()->mkNode( NOT, body ) : body );
   Node lem = nb;
-  Debug("quantifiers") << "Instantiation lemma : " << lem << std::endl;
+  Debug("inst-engine-debug") << "Instantiation lemma : " << lem << std::endl;
   out->lemma( lem );
+
+  //if the quantifier or any term has instantiation constants, then mark terms as dependent
+  if( hasInstConst ){
+    Node cel = getCounterexampleLiteralFor( f );
+    markLiteralsAsDependent( body, f, cel, out );
+  }
 }
 
 void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Node >& vars, 
@@ -81,7 +91,7 @@ void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Nod
       ics.push_back( ic );
       //store in the instantiation constant for the proper instantiator
       Assert( d_te->theoryOf( ic )!=NULL );
-      theory::TheoryInstantiatior* tinst = d_instTable[ d_te->theoryOf( ic )->getId() ];
+      theory::Instantiatior* tinst = d_instTable[ d_te->theoryOf( ic )->getId() ];
       if( tinst ){
         tinst->d_inst_constants[ f ].push_back( ic );
         tinst->d_solved_ic[ ic ] = Node::null();
@@ -97,7 +107,7 @@ void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Nod
 
 bool InstantiationEngine::doInstantiation( OutputChannel* out ){
   //call instantiators to search for an instantiation
-  Debug("quantifiers") << "Prepare instantiation." << std::endl;
+  Debug("inst-engine") << "Prepare instantiation." << std::endl;
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_instTable[i] ){
       d_instTable[i]->prepareInstantiation();
@@ -129,9 +139,15 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
       if( d_instTable[i] ){
         for( int j=0; j<(int)d_instTable[i]->getNumLemmas(); j++ ){
           Node lem = d_instTable[i]->getLemma( j );
-          Debug("quantifiers") << "Add splitting lemma : " << lem << std::endl;
+          Debug("inst-engine") << "Split on : " << lem << std::endl;
+
+          NodeBuilder<> nb(kind::OR);
+          nb << lem << lem.notNode();
+          lem = nb;
           out->lemma( lem );
+          Debug("inst-engine-debug") << "require phase for " << lem[0] << std::endl;
           out->requirePhase( lem[0], true );
+
           retVal = true;
         }
         d_instTable[i]->clearLemmas();
@@ -139,4 +155,38 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
     }
   }
   return retVal;
+}
+
+Node InstantiationEngine::getCounterexampleLiteralFor( Node n ){
+  Assert( n.getKind()==FORALL || ( n.getKind()==NOT && n[0].getKind()==EXISTS ) );
+  if( d_counterexamples.find( n )==d_counterexamples.end() ){
+    d_counterexamples[n] = NodeManager::currentNM()->mkNode( NO_COUNTEREXAMPLE, n );
+  }
+  return d_counterexamples[n];
+}
+
+bool InstantiationEngine::markLiteralsAsDependent( Node n, Node f, Node cel, OutputChannel* out )
+{
+  if( n.getKind()==INST_CONSTANT ){
+    InstantitionConstantAttribute icai;
+    n.setAttribute(icai,f);
+    return true;
+  }else{
+    bool retVal = false;
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( markLiteralsAsDependent( n[i], f, cel, out ) ){
+        retVal = true;
+      }
+    }
+    if( retVal ){
+      //set n to have instantiation constants from f
+      InstantitionConstantAttribute icai;
+      if( d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT && !n.hasAttribute(icai) ){
+        Debug("inst-engine-debug") << "Make " << n << " dependent on " << cel << std::endl;
+        out->dependentDecision( cel, n );
+      }
+      n.setAttribute(icai,f);
+    }
+    return retVal;
+  }
 }

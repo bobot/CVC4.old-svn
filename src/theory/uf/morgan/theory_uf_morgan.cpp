@@ -710,10 +710,10 @@ void TheoryUFMorgan::staticLearning(TNode n, NodeBuilder<>& learned) {
   }
 }
 
-TheoryInstantiatior* TheoryUFMorgan::makeInstantiator()
+Instantiatior* TheoryUFMorgan::makeInstantiator()
 {
   Debug("quant-uf") << "Make UF instantiator" << endl;
-  return new TheoryUfInstantiatior( getContext(), d_instEngine, this );
+  return new InstantiatorTheoryUf( getContext(), d_instEngine, this );
 }
 
 /*
