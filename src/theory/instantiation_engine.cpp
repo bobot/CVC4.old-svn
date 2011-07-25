@@ -141,12 +141,12 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
           Node lem = d_instTable[i]->getLemma( j );
           Debug("inst-engine") << "Split on : " << lem << std::endl;
 
-          NodeBuilder<> nb(kind::OR);
-          nb << lem << lem.notNode();
-          lem = nb;
-          out->lemma( lem );
-          Debug("inst-engine-debug") << "require phase for " << lem[0] << std::endl;
-          out->requirePhase( lem[0], true );
+         //NodeBuilder<> nb(kind::OR);
+         // nb << lem << lem.notNode();
+         // lem = nb; 
+          out->split( lem );
+          Debug("inst-engine-debug") << "require phase for " << lem << std::endl;
+          out->requirePhase( lem, true );
 
           retVal = true;
         }

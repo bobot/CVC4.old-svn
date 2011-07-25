@@ -83,6 +83,7 @@ private:
   void assertDisequal( Node a, Node b );
   void registerTerm( Node n );
   void collectInstConstants( Node n, std::vector< Node >& ics );
+  void setConcreteTerms( Node n );
   //void buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active );
   void processAmbiguity( Node c, Node i, bool eq, bool diseq, int depth = 0 );
 

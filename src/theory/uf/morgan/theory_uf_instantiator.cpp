@@ -122,14 +122,12 @@ void InstantiatorTheoryUf::registerTerm( Node n )
       //collect instantiation constants
       std::vector< Node > ics;
       collectInstConstants( n, ics );
-      for( int i=0; i<(int)d_term_ics[n].size(); i++ ){
-        d_active_ic[ d_term_ics[n][i] ] = true;
-      }
     }
   }else{
-    if( n.getNumChildren()>0 ){
-      d_concrete_terms[n] = true;
-    }
+    setConcreteTerms( n );
+    //if( n.getNumChildren()>0 ){
+    //  d_concrete_terms[n] = true;
+    //}
   }
 }
 
@@ -137,26 +135,39 @@ void InstantiatorTheoryUf::collectInstConstants( Node n, std::vector< Node >& ic
   Assert( n.hasAttribute(InstantitionConstantAttribute()) );
   if( n.getKind()==INST_CONSTANT ){
     ics.push_back( n );
+    d_active_ic[ n ] = true;
   }else{
     if( d_inst_terms.find( n )==d_inst_terms.end() ){
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
         if( n[i].hasAttribute(InstantitionConstantAttribute()) ){
           std::vector< Node > cics;
           collectInstConstants( n[i], cics );
-          ics.insert( ics.end(), cics.begin(), cics.end() );
+          for( int j=0; j<(int)cics.size(); j++ ){
+            if( std::find( ics.begin(), ics.end(), cics[j] )==ics.end() ){
+              ics.push_back( cics[j] );
+            }
+          }
+        }else{
+          setConcreteTerms( n[i] );
         }
       }
       if( d_term_ics.find( n )==d_term_ics.end() ){
-        for( int i=0; i<(int)ics.size(); i++ ){
-          if( std::find( d_term_ics[n].begin(), d_term_ics[n].end(), ics[i] )==d_term_ics[n].end() ){
-            d_term_ics[n].push_back( ics[i] );
-          }
-        }
+        d_term_ics[n].insert( d_term_ics[n].begin(), ics.begin(), ics.end() );
       }
       d_inst_terms[n] = true;
     }else{
       ics.insert( ics.begin(), d_term_ics[n].begin(), d_term_ics[n].end() );
     }
+  }
+}
+
+void InstantiatorTheoryUf::setConcreteTerms( Node n )
+{
+  if( n.getNumChildren()>0 && d_concrete_terms.find( n )==d_concrete_terms.end() ){
+    for( int i=0; i<n.getNumChildren(); i++ ){
+      setConcreteTerms( n[i] );
+    }
+    d_concrete_terms[n] = true;
   }
 }
 
@@ -328,6 +339,8 @@ bool InstantiatorTheoryUf::prepareInstantiation()
       Debug("quant-uf") << std::endl;
 
       d_lemmas.push_back( d_best );
+    }else{
+      Debug("quant-uf") << "QUANT-UF: Could not find instantiation." << std::endl;
     }
   }
   return false;
@@ -372,9 +385,9 @@ void InstantiatorTheoryUf::processAmbiguity( Node c, Node i, bool eq, bool diseq
         Debug("quant-uf-amb") << eq << " " << nNEqArgs << "< " << nEqArgs << " ";
         Debug("quant-uf-amb") << depth << " ?" << std::endl;
         bool setBest = false;
-        for( int i=0; i<7; i++ ){
+        for( int j=0; j<7; j++ ){
           int val;
-          switch( i ){
+          switch( j ){
             case 0: val = (int)!diseq;break;
             case 1: val = (int)!isSlvI;break;
             case 2: val = (int)isSlvC;break;
@@ -383,10 +396,10 @@ void InstantiatorTheoryUf::processAmbiguity( Node c, Node i, bool eq, bool diseq
             case 5: val = nEqArgs;break;
             case 6: val = depth;break;
           }
-          if( d_best==Node::null() || setBest || val>d_best_heuristic[i] ){
-            d_best_heuristic[i] = val;
+          if( d_best==Node::null() || setBest || val>d_best_heuristic[j] ){
+            d_best_heuristic[j] = val;
             setBest = true;
-          }else if( val<d_best_heuristic[i] ){
+          }else if( val<d_best_heuristic[j] ){
             break;
           }
         }
