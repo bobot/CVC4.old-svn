@@ -1,6 +1,6 @@
-This is a prerelease version of CVC4; distribution is restricted.
+This is a prerelease version of CVC4.
 
-For a suggestion of editing CVC4 code with emacs, see README.emacs.
+*** Quick-start instructions
 
 To build, you'll need reasonably new automake, autoconf, and libtool
 installed (see below). Execute,
@@ -70,4 +70,8 @@ Automake v1.11
 Autoconf v2.61 
 Libtool v2.2
 ANTLR3 v3.2
+
+*** Emacs mode
+
+For a suggestion of editing CVC4 code with emacs, see README.emacs.
 
