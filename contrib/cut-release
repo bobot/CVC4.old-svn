@@ -75,19 +75,22 @@ if [ -z "$(svn status -q configure.ac)" ]; then
   exit 1
 fi
 
-(
-	set -ex
-	./autogen.sh
-	mkdir "release-$version"
-	cd "release-$version"
-	../configure production-cln-staticbinary --disable-shared
-	make dist "$@"
-	tar xf "cvc4-$version.tar.gz"
-	cd "cvc4-$version"
-	./configure production-cln-staticbinary --disable-shared
-	#make check "$@"
-	#make distcheck "$@"
-) || exit 1
+if ! $SHELL -c '\
+	version="'$version'"; \
+	set -ex; \
+	./autogen.sh; \
+	mkdir "release-$version"; \
+	cd "release-$version"; \
+	../configure production-cln-staticbinary --disable-shared; \
+	make dist "$@"; \
+	tar xf "cvc4-$version.tar.gz"; \
+	cd "cvc4-$version"; \
+	./configure production-cln-staticbinary --disable-shared; \
+	make check "$@"; \
+	make distcheck "$@"; \
+'; then
+  exit 1
+fi
 
 if ! [ -e release-$version/cvc4-$version.tar.gz ]; then
   echo "$(basename "$0"): INTERNAL ERROR: cannot find the binary I just built" >&2
