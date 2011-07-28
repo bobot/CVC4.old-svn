@@ -3,6 +3,18 @@
 # usage: cut-release version# [make-args...]
 #
 
+function isthatright {
+  echo -n "Does that look right? [y/n] "
+  while read yn; do
+    if [ "$yn" = y -o "$yn" = Y -o "$yn" = yes -o "$yn" = YES -o "$yn" = Yes ]; then
+      break
+    elif [ "$yn" = n -o "$yn" = N -o "$yn" = no -o "$yn" = NO -o "$yn" = No ]; then
+      echo "Aborting as per user request." >&2
+      exit 1
+    fi
+  done
+}
+
 if [ $# -lt 1 ]; then
   echo "Usage: $(basename "$0") version-designation [make-args...]" >&2
   exit 1
@@ -42,7 +54,7 @@ if ! grep '^m4_define(_CVC4_RELEASE_STRING, \[.*\])' configure.ac &>/dev/null; t
   echo "$(basename "$0"): ERROR: cannot locate the RELEASE_STRING line of configure.ac" >&2
   exit 1
 fi
-perl -pi -e 's,^m4_define\(_CVC4_RELEASE_STRING, \[.*\]\),m4_define(_CVC4_RELEASE_STRING, ['"$version"']),' configure.ac
+echo perl -pi -e 's,^m4_define\(_CVC4_RELEASE_STRING, \[.*\]\),m4_define(_CVC4_RELEASE_STRING, ['"$version"']),' configure.ac
 
 if ! grep '^m4_define(_CVC4_RELEASE_STRING, \['"$version"'\])' configure.ac &>/dev/null; then
   echo "$(basename "$0"): INTERNAL ERROR: cannot find the modified RELEASE_STRING line in configure.ac, bailing..." >&2
@@ -55,34 +67,48 @@ fi
 
 set -ex
 
-#./autogen.sh
-#./configure production-cln-staticbinary --disable-shared
+./autogen.sh
+./configure production-cln-staticbinary --disable-shared
+make dist "$@"
+cd builds
+tar xf "cvc4-$version.tar.gz"
+cd "cvc4-$version"
+./configure production-cln-staticbinary --disable-shared
 #make check "$@"
-#make dist "$@"
 #make distcheck "$@"
 
 set +ex
 
-#echo
-#echo "Signing tarball..."
-#cp -p "builds/cvc4-$version.tar.gz" .
-#gpg -b --armor "cvc4-$version.tar.gz"
-
-#echo
-#echo "Signing binary..."
-#cp -p "builds/bin/cvc4" "cvc4-$version"
-#gpg -b --armor "cvc4-$version"
+echo
+echo 'This release of CVC4 will identify itself as:'
+echo
+builds/cvc4-$version/builds/bin/cvc4 --version
+echo
+isthatright
 
 echo
-echo "About to run: svn cp -m \"Cutting release $version.\" \"$root\" \"https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version\""
-echo -n "Does that look right? [y/n] "
-while read yn; do
-  if [ "$yn" = y -o "$yn" = Y -o "$yn" = yes -o "$yn" = YES -o "$yn" = Yes ]; then
-    break
-  elif [ "$yn" = n -o "$yn" = N -o "$yn" = no -o "$yn" = NO -o "$yn" = No ]; then
-    echo "Aborting as per user request." >&2
-    exit 1
-  fi
-done
+echo 'This binary release of CVC4 will identify itself as being configured like this:'
+echo
+builds/cvc4-$version/builds/bin/cvc4 --version
+echo
+isthatright
 
-: svn cp -m "Cutting release $version." "$root" "https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version"
+echo
+echo "Signing tarball..."
+cp -p "builds/cvc4-$version.tar.gz" .
+gpg -b --armor "cvc4-$version.tar.gz"
+
+echo
+echo "Signing binary..."
+cp -p "builds/cvc4-$version/builds/bin/cvc4" "cvc4-$version"
+gpg -b --armor "cvc4-$version"
+
+echo
+echo "About to run: svn commit -m \"Cutting release $version.\""
+isthatright
+: svn commit -m "Cutting release $version."
+
+echo
+echo "About to run: svn copy -m \"Cutting release $version.\" \"$root\" \"https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version\""
+isthatright
+: svn copy -m "Cutting release $version." "$root" "https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version"
