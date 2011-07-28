@@ -79,12 +79,13 @@ set -ex
 ./autogen.sh
 ./configure production-cln-staticbinary --disable-shared
 make dist "$@"
-cd builds
+(cd builds
 tar xf "cvc4-$version.tar.gz"
 cd "cvc4-$version"
 ./configure production-cln-staticbinary --disable-shared
 #make check "$@"
 #make distcheck "$@"
+)
 
 set +ex
 
