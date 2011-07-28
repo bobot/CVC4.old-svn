@@ -88,6 +88,15 @@ fi
 	#make distcheck "$@"
 )
 
+if ! [ -e release-$version/cvc4-$version.tar.gz ]; then
+  echo "$(basename "$0"): INTERNAL ERROR: cannot find the binary I just built" >&2
+  exit 1
+fi
+if ! [ -e release-$version/src/main/cvc4 ]; then
+  echo "$(basename "$0"): INTERNAL ERROR: cannot find the binary I just built" >&2
+  exit 1
+fi
+
 echo
 echo 'This release of CVC4 will identify itself as:'
 echo
