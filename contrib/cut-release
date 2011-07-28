@@ -56,7 +56,7 @@ if ! grep '^m4_define(_CVC4_RELEASE_STRING, \[.*\])' configure.ac &>/dev/null; t
 fi
 perl -pi -e 's/^m4_define\(_CVC4_RELEASE_STRING, \[.*\]\)/m4_define(_CVC4_RELEASE_STRING, ['"$version"'])/' configure.ac
 
-trap 'svn revert configure.ac' EXIT
+trap 'echo; echo; svn revert configure.ac; echo' EXIT
 
 echo
 echo 'Made the following change to configure.ac:'
