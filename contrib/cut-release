@@ -51,9 +51,8 @@ if [ -z "$root" ]; then
   exit 1
 fi
 
-rev="$(svn info | grep "^Revision: .*" | cut -f2 -d' ')"
-if [ -z "$rev" ]; then
-  echo "$(basename "$0"): ERROR: can't get revision of working directory" 2>&1
+if [ `svn -uq status | wc -l` -ne 1 ]; then
+  echo "$(basename "$0"): ERROR: this working directory isn't up-to-date" 2>&1
   exit 1
 fi
 
