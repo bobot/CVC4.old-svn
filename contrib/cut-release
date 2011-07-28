@@ -52,7 +52,7 @@ if [ -z "$root" ]; then
 fi
 
 rev="$(svn info | grep "^Revision: .*" | cut -f2 -d' ')"
-if [ -z "$root" ]; then
+if [ -z "$rev" ]; then
   echo "$(basename "$0"): ERROR: can't get revision of working directory" 2>&1
   exit 1
 fi
