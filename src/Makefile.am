@@ -20,7 +20,9 @@ AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 SUBDIRS = lib expr util context theory prop smt printer bindings . parser compat main
 
 lib_LTLIBRARIES = libcvc4.la
+if HAVE_CXXTESTGEN
 noinst_LTLIBRARIES = libcvc4_noinst.la
+endif
 
 libcvc4_la_LDFLAGS = -version-info $(LIBCVC4_VERSION)
 

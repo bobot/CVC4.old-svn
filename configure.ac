@@ -79,6 +79,8 @@ AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
+as_me=configure
+
 if test "$enable_shared" = no -a "$user_specified_enable_or_disable_shared" = yes; then
   enable_static=yes
 fi
@@ -335,6 +337,8 @@ EOF
 else
   AC_MSG_RESULT([this one (user-specified)])
 fi
+
+as_me=configure
 
 # Unpack standard build types. Any particular options can be overriden with
 # --enable/disable-X options
@@ -636,6 +640,7 @@ DX_PS_FEATURE(OFF)
 DX_DOT_FEATURE(OFF)
 DX_INIT_DOXYGEN($PACKAGE_NAME, config/doxygen.cfg, $srcdir/doc)
 
+AC_ARG_ENABLE([unit-testing], AS_HELP_STRING([--disable-unit-testing], [don't build support for unit testing, even if available]), , [enable_unit_testing=check])
 AC_ARG_VAR(CXXTEST, [path to CxxTest installation])
 
 AC_SUBST([CXXTEST])
@@ -659,7 +664,11 @@ AC_PATH_PROG(CXXTESTGEN, cxxtestgen.pl, [], [$CXXTEST:$PATH])
 if test -z "$CXXTESTGEN"; then
   AC_PATH_PROG(CXXTESTGEN, cxxtestgen.py, [], [$CXXTEST:$PATH])
 fi
-if test -z "$CXXTESTGEN"; then
+if test "$enable_unit_testing" = "no"; then
+  AC_MSG_NOTICE([unit tests disabled by user request.])
+  CXXTESTGEN=
+  CXXTEST=
+elif test -z "$CXXTESTGEN"; then
   AC_MSG_NOTICE([unit tests disabled, neither cxxtestgen.pl nor cxxtestgen.py found.])
 elif test -z "$CXXTEST"; then
   CXXTEST=`dirname "$CXXTESTGEN"`
@@ -676,6 +685,10 @@ elif test -z "$CXXTEST"; then
       CXXTEST=
     fi
   fi
+fi
+
+if test "$enable_unit_testing" = yes -a -z "$CXXTESTGEN"; then
+  AC_MSG_ERROR([--enable-unit-testing given but cxxtest not found.])
 fi
 
 AM_CONDITIONAL([HAVE_CXXTESTGEN], [test -n "$CXXTESTGEN"])
@@ -877,6 +890,8 @@ fi
 support_unit_tests='cxxtest not found; unit tests not supported'
 if test -n "$CXXTEST"; then
   support_unit_tests='unit testing infrastructure enabled in build directory'
+elif test "$enable_unit_testing" = no; then
+  support_unit_tests='unit testing disabled by user'
 fi
 
 if test "$enable_optimized" = yes; then
@@ -902,7 +917,7 @@ fi
 
 CVC4_COMPAT_LIBRARY_VERSION_or_nobuild="$CVC4_COMPAT_LIBRARY_VERSION"
 CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild="$CVC4_BINDINGS_LIBRARY_VERSION"
-if test "$cvc4_build_compat" = no; then
+if test "$CVC4_BUILD_LIBCOMPAT" = no; then
   CVC4_COMPAT_LIBRARY_VERSION_or_nobuild="N/A"
 fi
 if test -z "$CVC4_LANGUAGE_BINDINGS"; then
@@ -934,7 +949,7 @@ TLS support  : $CVC4_TLS
 Static libs  : $enable_static
 Shared libs  : $enable_shared
 Static binary: $enable_static_binary
-Compat lib   : $cvc4_build_compat
+Compat lib   : $CVC4_BUILD_LIBCOMPAT
 Bindings     : ${CVC4_LANGUAGE_BINDINGS:-none}
 
 MP library   : $mplibrary

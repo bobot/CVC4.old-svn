@@ -20,17 +20,17 @@ AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 if CVC4_BUILD_LIBCOMPAT
 
 nobase_lib_LTLIBRARIES = libcvc4compat.la
+if HAVE_CXXTESTGEN
 noinst_LTLIBRARIES = libcvc4compat_noinst.la
+endif
 
-libcvc4compat_la_LDFLAGS = $(ANTLR_LDFLAGS) \
+libcvc4compat_la_LDFLAGS = \
 	-version-info $(LIBCVC4COMPAT_VERSION)
-libcvc4compat_noinst_la_LDFLAGS = $(ANTLR_LDFLAGS)
+libcvc4compat_noinst_la_LDFLAGS =
 
 libcvc4compat_la_LIBADD = \
-	@builddir@/../parser/libcvc4parser.la \
 	@builddir@/../lib/libreplacements.la
 libcvc4compat_noinst_la_LIBADD = \
-	@builddir@/../parser/libcvc4parser.la \
 	@builddir@/../lib/libreplacements.la
 
 libcvc4compat_la_SOURCES = \
