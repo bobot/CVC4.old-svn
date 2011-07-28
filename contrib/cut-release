@@ -4,14 +4,15 @@
 #
 
 function isthatright {
-  echo -n "Does that look right? "
+  echo -n "Does that look right? [y/n] "
   while read yn; do
-    echo -n "[y/n] "
     if [ "$yn" = y -o "$yn" = Y -o "$yn" = yes -o "$yn" = YES -o "$yn" = Yes ]; then
       break
     elif [ "$yn" = n -o "$yn" = N -o "$yn" = no -o "$yn" = NO -o "$yn" = No ]; then
       echo "Aborting as per user request." >&2
       exit 1
+    else
+      echo -n "[y/n] "
     fi
   done
 }
