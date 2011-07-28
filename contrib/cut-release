@@ -52,7 +52,7 @@ if [ -z "$root" ]; then
 fi
 
 if [ `svn -uq status | wc -l` -ne 1 ]; then
-  echo "$(basename "$0"): ERROR: this working directory isn't up-to-date" 2>&1
+  echo "$(basename "$0"): ERROR: this working directory isn't up to date" 2>&1
   exit 1
 fi
 
