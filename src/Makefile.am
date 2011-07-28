@@ -59,10 +59,6 @@ EXTRA_DIST = \
 	include/cvc4_private.h \
 	include/cvc4_public.h
 
-publicheaders = \
-	include/cvc4_public.h \
-	include/cvc4parser_public.h
-
 subversion_versioninfo.cpp: svninfo
 	$(AM_V_GEN)( \
 	  if test -s svninfo; then \
@@ -95,6 +91,9 @@ install-data-local:
 	(cd "$(srcdir)" && find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"')) | \
 	while read f; do \
+		if expr "foo/bar_private.h" : ".*_\(template\|private\)\.h$" &>/dev/null; then \
+			continue; \
+		fi; \
 		$(mkinstalldirs) "$$(dirname "$(DESTDIR)$(includedir)/cvc4/$$f")"; \
 		if [ -e "$$f" ]; then \
 			path="$$f"; \
@@ -111,6 +110,9 @@ uninstall-local:
 	(cd "$(srcdir)" && find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"')) | \
 	while read f; do \
+		if expr "foo/bar_private.h" : ".*_\(template\|private\)\.h$" &>/dev/null; then \
+			continue; \
+		fi; \
 		rm -f "$(DESTDIR)$(includedir)/cvc4/$$f"; \
 		rmdir -p "$$(dirname "$(DESTDIR)$(includedir)/cvc4/$$f")" 2>/dev/null; \
 	done

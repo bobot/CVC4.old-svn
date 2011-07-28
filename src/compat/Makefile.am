@@ -41,9 +41,6 @@ libcvc4compat_noinst_la_SOURCES = \
 	cvc3_compat.h \
 	cvc3_compat.cpp
 
-include_HEADERS = \
-	cvc3_compat.h
-
 else
 
 EXTRA_DIST = \

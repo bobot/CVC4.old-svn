@@ -84,7 +84,6 @@ tokens {
 
   AND_TOK = 'AND';
   BOOLEAN_TOK = 'BOOLEAN';
-  ECHO_TOK = 'ECHO';
   ELSEIF_TOK = 'ELSIF';
   ELSE_TOK = 'ELSE';
   ENDIF_TOK = 'ENDIF';
@@ -1021,10 +1020,10 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
     /* named types */
   : identifier[id,check,SYM_SORT]
     parameterization[check,types]?
-    { 
+    {
       if(check == CHECK_DECLARED ||
          PARSER_STATE->isDeclared(id, SYM_SORT)) {
-        Debug("parser-param") << "param: getSort " << id << " " << types.size() << " " << PARSER_STATE->getArity( id ) 
+        Debug("parser-param") << "param: getSort " << id << " " << types.size() << " " << PARSER_STATE->getArity( id )
                               << " " << PARSER_STATE->isDeclared(id, SYM_SORT) << std::endl;
         if( types.size()>0 ){
           t = PARSER_STATE->getSort(id, types);
@@ -1038,7 +1037,7 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
         }else{
           t = PARSER_STATE->mkUnresolvedTypeConstructor(id,types);
           t = SortConstructorType(t).instantiate( types );
-          Debug("parser-param") << "param: make unres param type " << id << " " << types.size() << " " 
+          Debug("parser-param") << "param: make unres param type " << id << " " << types.size() << " "
                                 << PARSER_STATE->getArity( id ) << std::endl;
         }
       }
@@ -1747,17 +1746,18 @@ datatypeDef[std::vector<CVC4::Datatype>& datatypes]
   Type t;
   std::vector< Type > params;
 }
-    /* This really needs to be CHECK_NONE, or mutually-recursive datatypes
-     * won't work, because this type will already be "defined" as an
-     * unresolved type; don't worry, we check below. */
+    /* This really needs to be CHECK_NONE, or mutually-recursive
+     * datatypes won't work, because this type will already be
+     * "defined" as an unresolved type; don't worry, we check
+     * below. */
   : identifier[id,CHECK_NONE,SYM_SORT] { PARSER_STATE->pushScope(); }
-    ( LBRACKET identifier[id2,CHECK_UNDECLARED,SYM_SORT] { 
+    ( LBRACKET identifier[id2,CHECK_UNDECLARED,SYM_SORT] {
         t = PARSER_STATE->mkSort(id2);
-        params.push_back( t ); 
+        params.push_back( t );
       }
-      ( COMMA identifier[id2,CHECK_UNDECLARED,SYM_SORT] { 
+      ( COMMA identifier[id2,CHECK_UNDECLARED,SYM_SORT] {
         t = PARSER_STATE->mkSort(id2);
-        params.push_back( t ); } 
+        params.push_back( t ); }
       )* RBRACKET
     )?
     { datatypes.push_back(Datatype(id,params));
@@ -1780,8 +1780,7 @@ constructorDef[CVC4::Datatype& type]
   CVC4::Datatype::Constructor* ctor = NULL;
 }
   : identifier[id,CHECK_UNDECLARED,SYM_SORT]
-    {
-      // make the tester
+    { // make the tester
       std::string testerId("is_");
       testerId.append(id);
       PARSER_STATE->checkDeclaration(testerId, CHECK_UNDECLARED, SYM_SORT);
