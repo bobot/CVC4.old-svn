@@ -56,10 +56,12 @@ if ! grep '^m4_define(_CVC4_RELEASE_STRING, \[.*\])' configure.ac &>/dev/null; t
 fi
 perl -pi -e 's/^m4_define\(_CVC4_RELEASE_STRING, \[.*\]\)/m4_define(_CVC4_RELEASE_STRING, ['"$version"'])/' configure.ac
 
+trap 'svn revert configure.ac' EXIT
+
 echo
 echo 'Made the following change to configure.ac:'
 echo
-svn diff -U 0 configure.ac
+svn diff configure.ac
 echo
 isthatright
 
