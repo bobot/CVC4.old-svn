@@ -51,6 +51,12 @@ if [ -z "$root" ]; then
   exit 1
 fi
 
+rev="$(svn info | grep "^Revision: .*" | cut -f2 -d' ')"
+if [ -z "$root" ]; then
+  echo "$(basename "$0"): ERROR: can't get revision of working directory" 2>&1
+  exit 1
+fi
+
 if ! grep '^m4_define(_CVC4_RELEASE_STRING, \[.*\])' configure.ac &>/dev/null; then
   echo "$(basename "$0"): ERROR: cannot locate the RELEASE_STRING line of configure.ac" >&2
   exit 1
@@ -81,11 +87,11 @@ if ! $SHELL -c '\
 	./autogen.sh; \
 	mkdir "release-$version"; \
 	cd "release-$version"; \
-	../configure production-cln-staticbinary --disable-shared; \
+	../configure production-cln-staticbinary --disable-shared --enable-unit-testing --with-cudd --with-readline; \
 	make dist "$@"; \
 	tar xf "cvc4-$version.tar.gz"; \
 	cd "cvc4-$version"; \
-	./configure production-cln-staticbinary --disable-shared; \
+	./configure production-cln-staticbinary --disable-shared --enable-unit-testing --with-cudd --with-readline; \
 	make check "$@"; \
 	make distcheck "$@"; \
 '; then
