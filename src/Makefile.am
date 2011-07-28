@@ -86,34 +86,38 @@ svninfo.tmp:
 	$(AM_V_GEN)(cd "$(top_srcdir)" && svn info && echo "Modifications: `test -z \"\`svn status -q\`\" && echo false || echo true`") >"$@" 2>/dev/null || true
 
 install-data-local:
-	(find * -name '*.h' | \
+	(echo include/cvc4_public.h; \
+	 find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
 	(cd "$(srcdir)" && find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"')) | \
 	while read f; do \
-		if expr "foo/bar_private.h" : ".*_\(template\|private\)\.h$" &>/dev/null; then \
+		if expr "$$f" : ".*_\(template\|private\|test_utils\)\.h$$" &>/dev/null; then \
 			continue; \
 		fi; \
-		$(mkinstalldirs) "$$(dirname "$(DESTDIR)$(includedir)/cvc4/$$f")"; \
+		d="$$(echo "$$f" | sed 's,^include/,,')"; \
+		$(mkinstalldirs) "$$(dirname "$(DESTDIR)$(includedir)/cvc4/$$d")"; \
 		if [ -e "$$f" ]; then \
 			path="$$f"; \
 		else \
 			path="$(srcdir)/$$f"; \
 		fi; \
-		echo $(INSTALL_DATA) "$$path" "$(DESTDIR)$(includedir)/cvc4/$$f"; \
-		$(INSTALL_DATA) "$$path" "$(DESTDIR)$(includedir)/cvc4/$$f"; \
+		echo $(INSTALL_DATA) "$$path" "$(DESTDIR)$(includedir)/cvc4/$$d"; \
+		$(INSTALL_DATA) "$$path" "$(DESTDIR)$(includedir)/cvc4/$$d"; \
 	done
 
 uninstall-local:
-	-(find * -name '*.h' | \
+	-(echo include/cvc4_public.h; \
+	  find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
 	(cd "$(srcdir)" && find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"')) | \
 	while read f; do \
-		if expr "foo/bar_private.h" : ".*_\(template\|private\)\.h$" &>/dev/null; then \
+		if expr "$$f" : ".*_\(template\|private\|test_utils\)\.h$$" &>/dev/null; then \
 			continue; \
 		fi; \
-		rm -f "$(DESTDIR)$(includedir)/cvc4/$$f"; \
-		rmdir -p "$$(dirname "$(DESTDIR)$(includedir)/cvc4/$$f")" 2>/dev/null; \
+		d="$$(echo "$$f" | sed 's,^include/,,')"; \
+		rm -f "$(DESTDIR)$(includedir)/cvc4/$$d"; \
+		rmdir -p "$$(dirname "$(DESTDIR)$(includedir)/cvc4/$$d")" 2>/dev/null; \
 	done
 	-rmdir "$(DESTDIR)$(includedir)/cvc4"

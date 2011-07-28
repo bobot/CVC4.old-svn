@@ -43,7 +43,12 @@ if echo "$version" | grep '[^a-zA-Z0-9_.+(){}^%#-]' &>/dev/null; then
   exit 1
 fi
 
-echo "$version" | sed 's,^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)\(.*\),\1 \2 \3 \4,' | while read major minor release extra; do :; done
+vs=($(echo "$version" | sed 's,^\([0-9]*\)\.\([0-9]*\)\(\.\([0-9]*\)\)\?\(.*\),\1 \2 \4 \5,'))
+major=${vs[0]}
+minor=${vs[1]}
+release=${vs[2]-0}
+extra=${vs[3]}
+echo
 echo "Major  : $major"
 echo "Minor  : $minor"
 echo "Release: $release"
@@ -84,14 +89,17 @@ if [ `svn -uq status | wc -l` -ne 1 ]; then
   $dryrun || exit 1
 fi
 
-if ! grep '^m4_define(_CVC4_RELEASE_STRING, \[.*\])' configure.ac &>/dev/null; then
-  echo "$(basename "$0"): ERROR: cannot locate the RELEASE_STRING line of configure.ac" >&2
+if ! grep '^m4_define(_CVC4_MAJOR,  *[0-9][0-9]* *)' configure.ac &>/dev/null ||
+   ! grep '^m4_define(_CVC4_MINOR,  *[0-9][0-9]* *)' configure.ac &>/dev/null ||
+   ! grep '^m4_define(_CVC4_RELEASE,  *[0-9][0-9]* *)' configure.ac &>/dev/null ||
+   ! grep '^m4_define(_CVC4_EXTRAVERSION,  *\[.*\] *)' configure.ac &>/dev/null; then
+  echo "$(basename "$0"): ERROR: cannot locate the version info lines of configure.ac" >&2
   $dryrun || exit 1
 fi
-perl -pi -e 's/^m4_define\(_CVC4_MAJOR, \[.*\]\)/m4_define(_CVC4_MAJOR, ['"$major"'])/;
-             s/^m4_define\(_CVC4_MINOR, \[.*\]\)/m4_define(_CVC4_MINOR, ['"$minor"'])/;
-             s/^m4_define\(_CVC4_RELEASE, \[.*\]\)/m4_define(_CVC4_RELEASE, ['"$release"'])/;
-             s/^m4_define\(_CVC4_EXTRAVERSION, \[.*\]\)/m4_define(_CVC4_EXTRAVERSION, ['"$extra"'])/' configure.ac
+perl -pi -e 's/^m4_define\(_CVC4_MAJOR, ( *)[0-9]+( *)\)/m4_define(_CVC4_MAJOR, ${1}'"$major"'$2)/;
+             s/^m4_define\(_CVC4_MINOR, ( *)[0-9]+( *)\)/m4_define(_CVC4_MINOR, ${1}'"$minor"'$2)/;
+             s/^m4_define\(_CVC4_RELEASE, ( *)[0-9]+( *)\)/m4_define(_CVC4_RELEASE, ${1}'"$release"'$2)/;
+             s/^m4_define\(_CVC4_EXTRAVERSION, ( *)\[.*\]( *)\)/m4_define(_CVC4_EXTRAVERSION, $1\['"$extra"'\]$2)/' configure.ac
 
 trap 'echo; echo; echo "Aborting in error."; svn revert configure.ac; echo' EXIT
 
@@ -102,10 +110,10 @@ svn diff configure.ac
 echo
 isthatright
 
-if ! grep '^m4_define(_CVC4_MAJOR, \['"$major"'\])' configure.ac &>/dev/null ||
-   ! grep '^m4_define(_CVC4_MINOR, \['"$minor"'\])' configure.ac &>/dev/null ||
-   ! grep '^m4_define(_CVC4_RELEASE, \['"$release"'\])' configure.ac &>/dev/null ||
-   ! grep '^m4_define(_CVC4_EXTRAVERSION, \['"$extra"'\])' configure.ac &>/dev/null; then
+if ! grep '^m4_define(_CVC4_MAJOR,  *'"$major"' *)' configure.ac &>/dev/null ||
+   ! grep '^m4_define(_CVC4_MINOR,  *'"$minor"' *)' configure.ac &>/dev/null ||
+   ! grep '^m4_define(_CVC4_RELEASE,  *'"$release"' *)' configure.ac &>/dev/null ||
+   ! grep '^m4_define(_CVC4_EXTRAVERSION,  *\['"$extra"'\] *)' configure.ac &>/dev/null; then
   echo "$(basename "$0"): INTERNAL ERROR: cannot find the modified version info lines in configure.ac, bailing..." >&2
   exit 1
 fi
