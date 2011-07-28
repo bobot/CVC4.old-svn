@@ -75,6 +75,8 @@ public:
 
   static unsigned getVersionRelease();
 
+  static std::string getVersionExtra();
+
   static std::string about();
 
   static bool isBuiltWithGmp();

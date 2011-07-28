@@ -4,7 +4,8 @@
 m4_define(_CVC4_MAJOR,          0 )      dnl version (major)
 m4_define(_CVC4_MINOR,          0 )      dnl version (minor)
 m4_define(_CVC4_RELEASE,        0 )      dnl version (alpha)
-m4_define(_CVC4_RELEASE_STRING, [prerelease]) dnl version string
+m4_define(_CVC4_EXTRAVERSION,   [prerelease] )     dnl version (extra)
+m4_define(_CVC4_RELEASE_STRING, _CVC4_MAJOR[.]_CVC4_MINOR[]m4_if(_CVC4_RELEASE,[0],,[.]_CVC4_RELEASE)_CVC4_EXTRAVERSION) dnl version string
 
 dnl Preprocess CL args. Defined in config/cvc4.m4
 CVC4_AC_INIT
@@ -21,6 +22,7 @@ m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 CVC4_MAJOR=_CVC4_MAJOR
 CVC4_MINOR=_CVC4_MINOR
 CVC4_RELEASE=_CVC4_RELEASE
+CVC4_EXTRAVERSION=_CVC4_EXTRAVERSION
 CVC4_RELEASE_STRING=_CVC4_RELEASE_STRING
 
 # Libtool version numbers for libraries
@@ -41,10 +43,10 @@ CVC4_RELEASE_STRING=_CVC4_RELEASE_STRING
 # For guidance on when to change the version number, refer to the
 # developer's guide.
 
-CVC4_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
-CVC4_PARSER_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
-CVC4_COMPAT_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
-CVC4_BINDINGS_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
+CVC4_LIBRARY_VERSION=0:0:0
+CVC4_PARSER_LIBRARY_VERSION=0:0:0
+CVC4_COMPAT_LIBRARY_VERSION=0:0:0
+CVC4_BINDINGS_LIBRARY_VERSION=0:0:0
 
 # Using the AC_CANONICAL_* macros destroy the command line you get
 # from $@, which we want later for determining the build profile.  So
@@ -822,6 +824,7 @@ AC_SUBST(CVC4_BINDINGS_LIBRARY_VERSION)
 AC_DEFINE_UNQUOTED(CVC4_MAJOR, ${CVC4_MAJOR}, [Major component of the version of CVC4.])
 AC_DEFINE_UNQUOTED(CVC4_MINOR, ${CVC4_MINOR}, [Minor component of the version of CVC4.])
 AC_DEFINE_UNQUOTED(CVC4_RELEASE, ${CVC4_RELEASE}, [Release component of the version of CVC4.])
+AC_DEFINE_UNQUOTED(CVC4_EXTRAVERSION, ${CVC4_EXTRAVERSION}, [Extraversion component of the version of CVC4.])
 AC_DEFINE_UNQUOTED(CVC4_RELEASE_STRING, ["${CVC4_RELEASE_STRING}"], [Full release string for CVC4.])
 
 CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }$CVC4CPPFLAGS"
@@ -964,6 +967,8 @@ libcvc4 version        : $CVC4_LIBRARY_VERSION
 libcvc4parser version  : $CVC4_PARSER_LIBRARY_VERSION
 libcvc4compat version  : $CVC4_COMPAT_LIBRARY_VERSION_or_nobuild
 libcvc4bindings version: $CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild
+
+Install into : $prefix
 
 ${licensewarn}Now just type make, followed by make check or make install, as you like.
 

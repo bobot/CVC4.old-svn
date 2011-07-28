@@ -93,7 +93,11 @@ unsigned Configuration::getVersionRelease() {
   return CVC4_RELEASE;
 }
 
-string Configuration::about() {
+std::string Configuration::getVersionExtra() {
+  return CVC4_EXTRAVERSION;
+}
+
+std::string Configuration::about() {
   return CVC4_ABOUT_STRING;
 }
 

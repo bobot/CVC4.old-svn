@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# usage: cut-release version# [make-args...]
+# usage: cut-release [-n] version-designation [make-args...]
 #
 
 function isthatright {
@@ -17,8 +17,16 @@ function isthatright {
   done
 }
 
+if [ "$1" = -n ]; then
+  dryrun=true
+  shift
+else
+  dryrun=false
+fi
+
 if [ $# -lt 1 ]; then
-  echo "Usage: $(basename "$0") version-designation [make-args...]" >&2
+  echo "Usage: $(basename "$0") [-n] version-designation [make-args...]" >&2
+  echo "-n does a dry run (i.e., do sanity checks and build but don't touch the repository)"
   exit 1
 fi
 
@@ -35,12 +43,32 @@ if echo "$version" | grep '[^a-zA-Z0-9_.+(){}^%#-]' &>/dev/null; then
   exit 1
 fi
 
+echo "$version" | sed 's,^\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)\(.*\),\1 \2 \3 \4,' | while read major minor release extra; do :; done
+echo "Major  : $major"
+echo "Minor  : $minor"
+echo "Release: $release"
+echo "Extra  : $extra"
+echo
+version="$major.$minor"
+if [ "$release" != 0 ]; then
+  version="$version.$release"
+fi
+version="$version$extra"
+echo "Version: $version"
+echo
+isthatright
+
 if ! svn ls "https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version" 2>&1 >/dev/null | grep non-existent >/dev/null; then
   echo "$(basename "$0"): ERROR: subversion repo already contains a release \`$version'" >&2
-  exit 1
+  $dryrun || exit 1
 fi
 
-if [ -n "$(svn status -q)" ]; then
+if $dryrun; then
+  if [ -n "$(svn status -q configure.ac)" ]; then
+    echo "$(basename "$0"): ERROR: in dry-run mode, cannot operate properly with local modifications to \"configure.ac\", sorry" >&2
+    exit 1
+  fi
+elif [ -n "$(svn status -q)" ]; then
   echo "$(basename "$0"): ERROR: \"svn status\" indicates there are local modifications; please commit first" >&2
   exit 1
 fi
@@ -48,19 +76,22 @@ fi
 root="$(svn info | grep "^Repository Root: https://subversive.cims.nyu.edu/.*" | cut -f3 -d' ')"
 if [ -z "$root" ]; then
   echo "$(basename "$0"): ERROR: can't get repository root URL" 2>&1
-  exit 1
+  $dryrun || exit 1
 fi
 
 if [ `svn -uq status | wc -l` -ne 1 ]; then
   echo "$(basename "$0"): ERROR: this working directory isn't up to date" 2>&1
-  exit 1
+  $dryrun || exit 1
 fi
 
 if ! grep '^m4_define(_CVC4_RELEASE_STRING, \[.*\])' configure.ac &>/dev/null; then
   echo "$(basename "$0"): ERROR: cannot locate the RELEASE_STRING line of configure.ac" >&2
-  exit 1
+  $dryrun || exit 1
 fi
-perl -pi -e 's/^m4_define\(_CVC4_RELEASE_STRING, \[.*\]\)/m4_define(_CVC4_RELEASE_STRING, ['"$version"'])/' configure.ac
+perl -pi -e 's/^m4_define\(_CVC4_MAJOR, \[.*\]\)/m4_define(_CVC4_MAJOR, ['"$major"'])/;
+             s/^m4_define\(_CVC4_MINOR, \[.*\]\)/m4_define(_CVC4_MINOR, ['"$minor"'])/;
+             s/^m4_define\(_CVC4_RELEASE, \[.*\]\)/m4_define(_CVC4_RELEASE, ['"$release"'])/;
+             s/^m4_define\(_CVC4_EXTRAVERSION, \[.*\]\)/m4_define(_CVC4_EXTRAVERSION, ['"$extra"'])/' configure.ac
 
 trap 'echo; echo; echo "Aborting in error."; svn revert configure.ac; echo' EXIT
 
@@ -71,12 +102,15 @@ svn diff configure.ac
 echo
 isthatright
 
-if ! grep '^m4_define(_CVC4_RELEASE_STRING, \['"$version"'\])' configure.ac &>/dev/null; then
-  echo "$(basename "$0"): INTERNAL ERROR: cannot find the modified RELEASE_STRING line in configure.ac, bailing..." >&2
+if ! grep '^m4_define(_CVC4_MAJOR, \['"$major"'\])' configure.ac &>/dev/null ||
+   ! grep '^m4_define(_CVC4_MINOR, \['"$minor"'\])' configure.ac &>/dev/null ||
+   ! grep '^m4_define(_CVC4_RELEASE, \['"$release"'\])' configure.ac &>/dev/null ||
+   ! grep '^m4_define(_CVC4_EXTRAVERSION, \['"$extra"'\])' configure.ac &>/dev/null; then
+  echo "$(basename "$0"): INTERNAL ERROR: cannot find the modified version info lines in configure.ac, bailing..." >&2
   exit 1
 fi
 if [ -z "$(svn status -q configure.ac)" ]; then
-  echo "$(basename "$0"): INTERNAL ERROR: \"svn status\" indicates there are no local modifications to configure.ac; I expected the one I just made!" >&2
+  echo "$(basename "$0"): INTERNAL ERROR: \"svn status\" indicates there are no local modifications to configure.ac; I expected the ones I just made!" >&2
   exit 1
 fi
 
@@ -98,7 +132,7 @@ if ! $SHELL -c '\
 fi
 
 if ! [ -e release-$version/cvc4-$version.tar.gz ]; then
-  echo "$(basename "$0"): INTERNAL ERROR: cannot find the binary I just built" >&2
+  echo "$(basename "$0"): INTERNAL ERROR: cannot find the distribution tarball I just built" >&2
   exit 1
 fi
 if ! [ -e release-$version/src/main/cvc4 ]; then
@@ -133,12 +167,12 @@ gpg -b --armor "cvc4-$version"
 echo
 echo "About to run: svn commit -m \"Cutting release $version.\""
 isthatright
-: svn commit -m "Cutting release $version."
+$dryrun || svn commit -m "Cutting release $version."
 
 echo
 echo "About to run: svn copy -m \"Cutting release $version.\" \"$root\" \"https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version\""
 isthatright
-: svn copy -m "Cutting release $version." "$root" "https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version"
+$dryrun || svn copy -m "Cutting release $version." "$root" "https://subversive.cims.nyu.edu/cvc4/cvc4/tags/releases/$version"
 
 trap '' EXIT
 
