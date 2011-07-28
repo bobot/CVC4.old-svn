@@ -45,7 +45,6 @@ if [ -n "$(svn status -q)" ]; then
   exit 1
 fi
 
-echo "Please take a moment to run the following command:"
 root="$(svn info | grep "^Repository Root: https://subversive.cims.nyu.edu/.*" | cut -f3 -d' ')"
 if [ -z "$root" ]; then
   echo "$(basename "$0"): ERROR: can't get repository root URL" 2>&1
@@ -88,7 +87,7 @@ fi
 	./configure production-cln-staticbinary --disable-shared
 	#make check "$@"
 	#make distcheck "$@"
-)
+) || exit 1
 
 if ! [ -e release-$version/cvc4-$version.tar.gz ]; then
   echo "$(basename "$0"): INTERNAL ERROR: cannot find the binary I just built" >&2
