@@ -54,7 +54,14 @@ if ! grep '^m4_define(_CVC4_RELEASE_STRING, \[.*\])' configure.ac &>/dev/null; t
   echo "$(basename "$0"): ERROR: cannot locate the RELEASE_STRING line of configure.ac" >&2
   exit 1
 fi
-echo perl -pi -e 's,^m4_define\(_CVC4_RELEASE_STRING, \[.*\]\),m4_define(_CVC4_RELEASE_STRING, ['"$version"']),' configure.ac
+perl -pi -e 's/^m4_define\(_CVC4_RELEASE_STRING, \[.*\]\)/m4_define(_CVC4_RELEASE_STRING, ['"$version"'])/' configure.ac
+
+echo
+echo 'Made the following change to configure.ac:'
+echo
+svn diff -U 0 configure.ac
+echo
+isthatright
 
 if ! grep '^m4_define(_CVC4_RELEASE_STRING, \['"$version"'\])' configure.ac &>/dev/null; then
   echo "$(basename "$0"): INTERNAL ERROR: cannot find the modified RELEASE_STRING line in configure.ac, bailing..." >&2
