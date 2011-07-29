@@ -258,6 +258,8 @@ public:
 
   void dependentDecision(SatVariable dep, SatVariable dec);
 
+  bool flipDecision();
+
 };/* class SatSolver */
 
 /* Functions that delegate to the concrete SAT solver. */

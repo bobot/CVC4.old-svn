@@ -66,6 +66,9 @@ class FakeOutputChannel : public OutputChannel {
   void dependentDecision(TNode, TNode, bool) throw(AssertionException) {
     Unimplemented();
   }
+  bool flipDecision(bool) throw(AssertionException) {
+    Unimplemented();
+  }
   void explanation(TNode n, bool safe) throw(AssertionException) {
     Unimplemented();
   }

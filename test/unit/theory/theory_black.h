@@ -81,6 +81,11 @@ public:
     Unreachable();
   }
 
+  bool flipDecision(bool = false)
+    throw(Interrupted, AssertionException) {
+    Unreachable();
+  }
+
   void explanation(TNode n, bool safe = false)
     throw(Interrupted, AssertionException) {
     push(EXPLANATION, n);

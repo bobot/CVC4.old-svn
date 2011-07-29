@@ -93,6 +93,7 @@ public:
 
   void requirePhase(TNode, bool, bool = false) throw(Interrupted, AssertionException) { }
   void dependentDecision(TNode, TNode, bool = false) throw(Interrupted, AssertionException) { }
+  bool flipDecision(bool = false) throw(Interrupted, AssertionException) { }
 
   void setIncomplete() throw(Interrupted, AssertionException) { }
 

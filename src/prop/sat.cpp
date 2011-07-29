@@ -24,6 +24,8 @@
 #include "theory/theory_engine.h"
 #include "expr/expr_stream.h"
 
+using namespace std;
+
 namespace CVC4 {
 namespace prop {
 
@@ -35,7 +37,7 @@ void SatSolver::theoryCheck(theory::Theory::Effort effort, SatClause& conflict) 
   if (!ok) {
     // We have a conflict, get it
     Node conflictNode = d_theoryEngine->getConflict();
-    Debug("prop") << "SatSolver::theoryCheck() => conflict: " << conflictNode << std::endl;
+    Debug("prop") << "SatSolver::theoryCheck() => conflict: " << conflictNode << endl;
     if(conflictNode.getKind() == kind::AND) {
       // Go through the literals and construct the conflict clause
       Node::const_iterator literal_it = conflictNode.begin();
@@ -60,11 +62,11 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
   // Propagate
   d_theoryEngine->propagate();
   // Get the propagated literals
-  const std::vector<TNode>& outputNodes = d_theoryEngine->getPropagatedLiterals();
+  const vector<TNode>& outputNodes = d_theoryEngine->getPropagatedLiterals();
   // If any literals, make a clause
   const unsigned i_end = outputNodes.size();
   for (unsigned i = 0; i < i_end; ++ i) {
-    Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i].toString() << std::endl;
+    Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i].toString() << endl;
     SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
     output.push_back(l);
   }
@@ -72,9 +74,9 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
 
 void SatSolver::explainPropagation(SatLiteral l, SatClause& explanation) {
   TNode lNode = d_cnfStream->getNode(l);
-  Debug("prop-explain") << "explainPropagation(" << lNode << ")" << std::endl;
+  Debug("prop-explain") << "explainPropagation(" << lNode << ")" << endl;
   Node theoryExplanation = d_theoryEngine->getExplanation(lNode);
-  Debug("prop-explain") << "explainPropagation() => " <<  theoryExplanation << std::endl;
+  Debug("prop-explain") << "explainPropagation() => " <<  theoryExplanation << endl;
   if (theoryExplanation.getKind() == kind::AND) {
     Node::const_iterator it = theoryExplanation.begin();
     Node::const_iterator it_end = theoryExplanation.end();
@@ -94,7 +96,7 @@ void SatSolver::clearPropagatedLiterals() {
 
 void SatSolver::enqueueTheoryLiteral(const SatLiteral& l) {
   Node literalNode = d_cnfStream->getNode(l);
-  Debug("prop") << "enqueueing theory literal " << l << " " << literalNode << std::endl;
+  Debug("prop") << "enqueueing theory literal " << l << " " << literalNode << endl;
   Assert(!literalNode.isNull());
   d_theoryEngine->assertFact(literalNode);
 }
@@ -132,20 +134,27 @@ void SatSolver::logDecision(SatLiteral lit) {
 #ifdef CVC4_REPLAY
   if(Options::current()->replayLog != NULL) {
     Assert(lit != Minisat::lit_Undef, "logging an `undef' decision ?!");
-    *Options::current()->replayLog << d_cnfStream->getNode(lit) << std::endl;
+    *Options::current()->replayLog << d_cnfStream->getNode(lit) << endl;
   }
 #endif /* CVC4_REPLAY */
 }
 
 void SatSolver::requirePhasedDecision(SatLiteral lit) {
   Assert(!d_minisat->rnd_pol);
-  Debug("minisat") << "requirePhasedDecision(" << lit << ")" << std::endl;
-  d_minisat->setPolarity(Minisat::var(lit), Minisat::sign(lit));
+  Debug("minisat") << "requirePhasedDecision(" << lit << ")" << endl;
+  SatVariable v = Minisat::var(lit);
+  d_minisat->setPolarity(v, Minisat::sign(lit));
+  d_minisat->setFlipVar(v, false); // not eligible for flipping
 }
 
 void SatSolver::dependentDecision(SatVariable dep, SatVariable dec) {
-  Debug("minisat") << "dependentDecision(" << dep << ", " << dec << ")" << std::endl;
+  Debug("minisat") << "dependentDecision(" << dep << ", " << dec << ")" << endl;
   d_minisat->dependentDecision(dep, dec);
+}
+
+bool SatSolver::flipDecision() {
+  Debug("minisat") << "flipDecision()" << endl;
+  return d_minisat->flipDecision();
 }
 
 }/* CVC4::prop namespace */

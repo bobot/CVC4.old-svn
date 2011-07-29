@@ -144,6 +144,8 @@ public:
     void    setPolarity    (Var v, bool b); // Declare which polarity the decision heuristic should use for a variable. Requires mode 'polarity_user'.
     void    setDecisionVar (Var v, bool b); // Declare if a variable should be eligible for selection in the decision heuristic.
     void    dependentDecision(Var dep, Var dec); // Declare that deciding on "dec" depends on "dep" having an assignment
+    void    setFlipVar     (Var v, bool b); // Declare if a variable is eligible for flipping
+    bool    flipDecision   ();              // Backtrack and flip most recent decision
 
     // Read state:
     //
@@ -245,10 +247,12 @@ protected:
     vec<lbool>          assigns;          // The current assignments.
     vec<char>           polarity;         // The preferred polarity of each variable.
     vec<char>           decision;         // Declares if a variable is eligible for selection in the decision heuristic.
+    vec<char>           flippable;        // Declares if a variable is eligible for flipping with flipDecision().
     vec<Var>            depends;          // The variable (if any) that a decision on this variable depends on
     vec<Var>            dependsOn;        // Variables whose decision depends on this variable
     vec<Lit>            trail;            // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;        // Separator indices for different decision levels in 'trail'.
+    vec<int>            flipped;          // Which trail_lim decisions have been flipped in this context.
     vec<int>            trail_user_lim;   // Separator indices for different user push levels in 'trail'.
     vec<VarData>        vardata;          // Stores reason and level for each variable.
     int                 qhead;            // Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
@@ -266,11 +270,11 @@ protected:
 
     enum TheoryCheckType {
       // Quick check, but don't perform theory propagation
-      CHECK_WITHOUTH_PROPAGATION_QUICK,
+      CHECK_WITHOUT_PROPAGATION_QUICK,
       // Check and perform theory propagation
       CHECK_WITH_PROPAGATION_STANDARD,
       // The SAT problem is satisfiable, perform a full theory check
-      CHECK_WITHOUTH_PROPAGATION_FINAL
+      CHECK_WITHOUT_PROPAGATION_FINAL
     };
 
     // Temporaries (to reduce allocation overhead). Each variable is prefixed by the method in which it is
@@ -406,7 +410,7 @@ inline bool     Solver::addClause       (Lit p, ClauseType type)                
 inline bool     Solver::addClause       (Lit p, Lit q, ClauseType type)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, type); }
 inline bool     Solver::addClause       (Lit p, Lit q, Lit r, ClauseType type)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, type); }
 inline bool     Solver::locked          (const Clause& c) const { return value(c[0]) == l_True && reason(var(c[0])) != CRef_Undef && ca.lea(reason(var(c[0]))) == &c; }
-inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); propagating_lemmas_lim.push(propagating_lemmas.size()); context->push(); }
+inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); flipped.push(false); propagating_lemmas_lim.push(propagating_lemmas.size()); context->push(); }
 
 inline int      Solver::decisionLevel ()      const   { return trail_lim.size(); }
 inline uint32_t Solver::abstractLevel (Var x) const   { return 1 << (level(x) & 31); }
@@ -438,6 +442,10 @@ inline void     Solver::dependentDecision(Var dep, Var dec)
     depends[dec] = dep;
     dependsOn[dec] = dependsOn[dep];
     dependsOn[dep] = dec;
+}
+inline void     Solver::setFlipVar(Var v, bool b) 
+{
+    flippable[v] = b;
 }
 
 inline void     Solver::setConfBudget(int64_t x){ conflict_budget    = conflicts    + x; }

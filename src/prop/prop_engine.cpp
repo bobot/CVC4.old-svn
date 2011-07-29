@@ -111,6 +111,11 @@ void PropEngine::dependentDecision(TNode depends, TNode decision) {
   d_satSolver->dependentDecision(vdep, vdec);
 }
 
+bool PropEngine::flipDecision() {
+  Debug("prop") << "flipDecision()" << endl;
+  return d_satSolver->flipDecision();
+}
+
 void PropEngine::printSatisfyingAssignment(){
   const CnfStream::TranslationCache& transCache =
     d_cnfStream->getTranslationCache();

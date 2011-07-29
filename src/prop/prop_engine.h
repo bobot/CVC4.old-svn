@@ -121,6 +121,19 @@ public:
   void dependentDecision(TNode depends, TNode decision);
 
   /**
+   * Backtracks to and flips the most recent unflipped decision, and
+   * returns TRUE.  If the decision stack is nonempty but all
+   * decisions have been flipped already, the state is backtracked to
+   * the root decision, which is re-flipped to the original phase (and
+   * FALSE is returned).  If the decision stack is empty, the state is
+   * unchanged and FALSE is returned.
+   *
+   * @return true if a decision was flipped as requested; false if the
+   * root decision was reflipped, or if no decisions are on the stack.
+   */
+  bool flipDecision();
+
+  /**
    * Checks the current context for satisfiability.
    */
   Result checkSat();
