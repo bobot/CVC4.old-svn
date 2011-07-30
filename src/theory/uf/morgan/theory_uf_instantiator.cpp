@@ -1144,6 +1144,49 @@ void InstantiatorTheoryUf::doEMatching( Node i, Node c, Node f, bool moduloEq )
   }
 }
 
+void InstantiatorTheoryUf::unify( std::vector< std::map< Node, Node > >& target,
+                                  std::vector< std::map< Node, Node > >& matches )
+{
+  if( target.empty() ){
+    target.insert( target.begin(), matches.begin(), matches.end() );
+  }else{
+    std::vector< std::map< Node, Node > > newMatches;
+    std::vector< std::map< Node, Node > > tempMatches;
+    tempMatches.insert( tempMatches.begin(), target.begin(), target.end() );
+    for( int k=0; k<(int)matches.size(); k++ ){
+      for( int l=0; l<(int)tempMatches.size(); l++ ){
+        if( unify( tempMatches[l], matches[k] ) ){
+          newMatches.push_back( tempMatches[l] );
+        }
+      }
+    }
+    target.clear();
+    target.insert( target.begin(), newMatches.begin(), newMatches.end() );
+    removeRedundant( target );
+  }
+}
+
+bool InstantiatorTheoryUf::unify( std::map< Node, Node >& target, std::map< Node, Node >& matches ){
+  for( std::map< Node, Node >::iterator it = matches.begin(); it!=matches.end(); ++it ){
+    if( target.find( it->first )!=target.end() ){
+      if( target[it->first]!=it->second ){
+        return false;
+      }
+    }else{
+      target[ it->first ] = it->second;
+    }
+  }
+  return true;
+}
+
+int InstantiatorTheoryUf::numMatches( std::vector< std::map< Node, Node > >& m1, std::vector< std::map< Node, Node > >& m2 )
+{
+  std::vector< std::map< Node, Node > > m3;
+  m3.insert( m3.begin(), m1.begin(), m1.end() );
+  unify( m3, m2 );
+  return (int)m3.size();
+}
+
 void InstantiatorTheoryUf::removeRedundant( std::vector< std::map< Node, Node > >& matches ){
   std::vector< bool > active;
   active.resize( matches.size(), true );
@@ -1192,48 +1235,3 @@ int InstantiatorTheoryUf::checkSubsume( std::map< Node, Node >& m1, std::map< No
     return 0;
   }
 }
-
-void InstantiatorTheoryUf::unify( std::vector< std::map< Node, Node > >& target,
-                                  std::vector< std::map< Node, Node > >& matches )
-{
-  if( target.empty() ){
-    target.insert( target.begin(), matches.begin(), matches.end() );
-  }else{
-    std::vector< std::map< Node, Node > > newMatches;
-    std::vector< std::map< Node, Node > > tempMatches;
-    tempMatches.insert( tempMatches.begin(), target.begin(), target.end() );
-    for( int k=0; k<(int)matches.size(); k++ ){
-      for( int l=0; l<(int)tempMatches.size(); l++ ){
-        if( unify( tempMatches[l], matches[k] ) ){
-          newMatches.push_back( tempMatches[l] );
-        }
-      }
-    }
-    target.clear();
-    target.insert( target.begin(), newMatches.begin(), newMatches.end() );
-    removeRedundant( target );
-  }
-}
-
-bool InstantiatorTheoryUf::unify( std::map< Node, Node >& target, std::map< Node, Node >& matches ){
-  for( std::map< Node, Node >::iterator it = matches.begin(); it!=matches.end(); ++it ){
-    if( target.find( it->first )!=target.end() ){
-      if( target[it->first]!=it->second ){
-        return false;
-      }
-    }else{
-      target[ it->first ] = it->second;
-    }
-  }
-  return true;
-}
-
-int InstantiatorTheoryUf::numMatches( std::vector< std::map< Node, Node > >& m1, std::vector< std::map< Node, Node > >& m2 )
-{
-  std::vector< std::map< Node, Node > > m3;
-  m3.insert( m3.begin(), m1.begin(), m1.end() );
-  unify( m3, m2 );
-  return (int)m3.size();
-}
-
-

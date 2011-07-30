@@ -8,7 +8,8 @@ TESTS =	\
 	ex1.smt2 \
 	ex3.smt2 \
 	ex6.smt2 \
-	array-unsat-simp3.smt2 
+	array-unsat-simp3.smt2 \
+	ex7.smt2
 
 EXTRA_DIST = $(TESTS)
 

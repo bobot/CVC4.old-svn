@@ -138,12 +138,11 @@ void TheoryQuantifiers::check(Effort e) {
       if( doInst && d_instEngine->doInstantiation( d_out ) ){
         d_numInstantiations.set( d_numInstantiations.get() + 1 );
       }else{
-        //try to flip a previous decision
+        //instantiation did not add a lemma to d_out, try to flip a previous decision
         if( !d_out->flipDecision() ){
-          //maybe restart
+          //maybe restart?
           static int restartLimit = 1;
           if( d_numRestarts==restartLimit ){
-            //instantiation did not add a lemma to d_out
             Debug("quantifiers") << "Return unknown." << std::endl;
             d_out->setIncomplete();
           }else{

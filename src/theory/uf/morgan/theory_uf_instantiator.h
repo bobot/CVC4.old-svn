@@ -131,13 +131,13 @@ private:
   std::map< Node, std::map< Node, std::vector< std::map< Node, Node > > > > d_ematch_mod;
   std::map< Node, std::map< Node, bool > > d_eq_independent_em;
   void doEMatching( Node i, Node c, Node f,  bool moduloEq = false );
-  void removeRedundant( std::vector< std::map< Node, Node > >& matches );
-  int checkSubsume( std::map< Node, Node >& m1, std::map< Node, Node >& m2 );
   void unify( std::vector< std::map< Node, Node > >& target,
               std::vector< std::map< Node, Node > >& matches );
   bool unify( std::map< Node, Node >& target, std::map< Node, Node >& matches );
   int numMatches( std::vector< std::map< Node, Node > >& target,
                   std::vector< std::map< Node, Node > >& matches );
+  void removeRedundant( std::vector< std::map< Node, Node > >& matches );
+  int checkSubsume( std::map< Node, Node >& m1, std::map< Node, Node >& m2 );
 
   Node d_best;
   std::map< Node, Node > d_best_subs;
