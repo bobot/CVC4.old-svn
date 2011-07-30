@@ -566,7 +566,7 @@ We will first consider the search strategy $( \rightarrow_{eamb} \mid_{Pemb}, \r
 
 {\bf Example 3, Continued}
 Given the set of clauses $S = \{ (\psi :)\forall x. (f( x ) = x) \wedge f( f( a ) ) \neq a \}$, say we reach the DPLL(T) state $f( f( a ) ) \neq a, \psi, \neg (\bot^{\neg \psi})^d, f(e) \neq e \parallel (S':)S \cup \{ ( \neg \psi \vee \bot^{\neg \psi } \vee f( e ) \neq e ) \}$.
-Let us say we decide to perform quantifier instantiation according to $( \rightarrow_{eamb}, \rightarrow_{e=c} )$.
+Let us say we decide to perform incremental quantifier instantiation according to $( \rightarrow_{eamb}, \rightarrow_{e=c} )$.
 
 \begin{comment}
 THIS IS FOR COLLECTED INSTANTIATION
@@ -631,7 +631,7 @@ The following example demonstrates how this heuristic can be used to instantiate
 {\bf Example 6}
 Consider the set of clauses $S = \{ (\psi_1 :) \ \forall x. G( S( x ), x), (\psi_2 :) \forall xyz. (G(x,y) \wedge G(y,z)) \Rightarrow G(x,z), \neg G( S(S(a)), a) \}$.
 Note that $S$ represents a successor function and $G$ represents ``is greater than".  
-In other words, this set of clauses says that $a + 2 > a$ for some constant $a$.
+In other words, this set of clauses says that $a + 2 > a$ is not true for some constant $a$.
 
 After unit propagations and Counterexample $\forall$-Inst, we have the set of assertions $\psi_1, \psi_2, \neg ( \bot^{\neg \psi_1 })^d, \neg ( \bot^{\neg \psi_2 })^d$, $G( S(S(a)), a) =$ $G( S(e_1), e_1) =$ $G( e_2, e_4 ) =$ $\bot$, $G( e_2, e_3 ) =$ $G( e_3, e_4 ) =$ $\top$, where $\top$ and $\bot$ are the distinguished free boolean constant representing true and false, $e_1 \mapsto^I \psi_1$ and $e_2, e_3, e_4 \mapsto^I \psi_2$.
 Our maximum equality-ambiguous pair is $G( S(S(a)), a), G( S(e_1), e_1)$ with maximum depth ambiguity $e_1 = S( a )$.

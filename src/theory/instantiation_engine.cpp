@@ -42,7 +42,8 @@ bool Instantiatior::isInstantiationReady( Node n ){
 }
 
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
-d_te( te ){
+d_te( te ),
+d_active( c ){
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
     d_instTable[theoryId] = NULL;
   }
@@ -50,13 +51,10 @@ d_te( te ){
 
 void InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, OutputChannel* out )
 {
-  //TODO: assert that no t in terms has instantiation constants from f
-
-  bool hasInstConst = f.hasAttribute(InstantitionConstantAttribute());
   Debug("inst-engine") << "Instantiate " << f << " with " << std::endl;
   for( int i=0; i<(int)terms.size(); i++ ){
+    Assert( !terms[i].hasAttribute(InstantitionConstantAttribute()) );
     Debug("inst-engine") << "   " << terms[i] << std::endl;
-    hasInstConst = hasInstConst || terms[i].hasAttribute(InstantitionConstantAttribute());
   }
   Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==EXISTS ) );
   Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
@@ -71,21 +69,20 @@ void InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, Outpu
   out->lemma( lem );
 
   //if the quantifier or any term has instantiation constants, then mark terms as dependent
-  if( hasInstConst ){
-    Node cel = getCounterexampleLiteralFor( f );
-    markLiteralsAsDependent( body, f, cel, out );
+  if( f.hasAttribute(InstantitionConstantAttribute()) ){
+    registerLiterals( body, f, out );
   }
+
+  //associate all nested quantifiers with their counterexample equivalents
+  associateNestedQuantifiers( body, d_counterexample_body[f] );
 }
 
-void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Node >& vars, 
-                                                        std::vector< Node >& ics ){
-  Assert( vars.empty() && ics.empty() );
+void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Node >& ics, Node& cebody ){
+  Assert( ics.empty() );
   Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==EXISTS ) );
   if( d_inst_constants.find( f )==d_inst_constants.end() ){
     Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
-    std::map< Theory*, std::map< Node, Node > > instMap;
     for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
-      vars.push_back( quant[i] );
       Node ic = NodeManager::currentNM()->mkInstConstant( quant[i].getType() );
       d_inst_constants_map[ic] = f;
       ics.push_back( ic );
@@ -97,11 +94,48 @@ void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Nod
         tinst->d_solved_ic[ ic ] = Node::null();
       }
     }
-    d_vars[ f ].insert( d_vars[ f ].begin(), vars.begin(), vars.end() );
     d_inst_constants[ f ].insert( d_inst_constants[ f ].begin(), ics.begin(), ics.end() );
+
+    //set the counterexample body
+    std::vector< Node > vars;
+    getVariablesFor( f, vars );
+    cebody = quant[ quant.getNumChildren() - 1 ].substitute( d_vars[f].begin(), d_vars[f].end(), 
+                                                             d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() ); 
+    d_counterexample_body[ f ] = cebody;
+  }else{
+    ics.insert( ics.begin(), d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() );
+    cebody = d_counterexample_body[ f ];
+  }
+}
+
+void InstantiationEngine::getSkolemConstantsFor( Node f, std::vector< Node >& scs ){
+  Assert( scs.empty() );
+  Assert( f.getKind()==EXISTS || ( f.getKind()==NOT && f[0].getKind()==FORALL ) );
+  if( d_skolem_constants.find( f )==d_skolem_constants.end() ){
+    Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
+    for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
+      Node ic = NodeManager::currentNM()->mkSkolem( quant[i].getType() );
+      scs.push_back( ic );
+    }
+    d_skolem_constants[ f ].insert( d_skolem_constants[ f ].begin(), scs.begin(), scs.end() );
+  }else{
+    scs.insert( scs.begin(), d_skolem_constants[ f ].begin(), d_skolem_constants[ f ].end() );
+  }
+}
+
+void InstantiationEngine::getVariablesFor( Node f, std::vector< Node >& vars )
+{
+  Assert( vars.empty() );
+  Assert( f.getKind()==FORALL || f.getKind()==EXISTS ||
+          ( f.getKind()==NOT && ( f[0].getKind()==FORALL || f[0].getKind()==EXISTS ) ) );
+  if( d_vars.find( f )==d_vars.end() ){
+    Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
+    for( int i=0; i<(int)quant.getNumChildren()-1; i++ ){
+      vars.push_back( quant[i] );
+    }
+    d_vars[ f ].insert( d_vars[ f ].begin(), vars.begin(), vars.end() );
   }else{
     vars.insert( vars.begin(), d_vars[ f ].begin(), d_vars[ f ].end() );
-    ics.insert( ics.begin(), d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() );
   }
 }
 
@@ -116,21 +150,26 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
   //check whether any quantifier is instantiation-ready, and if so, add the instantiation clause as a lemma
   bool retVal = false;
   for( std::map< Node, std::vector< Node > >::iterator it = d_inst_constants.begin(); it!=d_inst_constants.end(); ++it ){
-    bool instReady = true;
-    for( std::vector< Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
-      Assert( d_te->theoryOf( *it2 )!=NULL );
-      if( d_instTable[ d_te->theoryOf( *it2 )->getId() ]->d_solved_ic[ *it2 ]==Node::null() ){
-        instReady = false;
-        break;
-      }
-    }
-    if( instReady ){
-      std::vector< Node > terms;
+    if( getActive( it->first ) ){
+      bool instReady = true;
       for( std::vector< Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
-        terms.push_back( d_instTable[ d_te->theoryOf( *it2 )->getId() ]->d_solved_ic[ *it2 ] );
+        Assert( d_te->theoryOf( *it2 )!=NULL );
+        if( d_instTable[ d_te->theoryOf( *it2 )->getId() ]->d_solved_ic[ *it2 ]==Node::null() ){
+          Debug("inst-engine") << it->first << " is not ready because of " << *it2 << std::endl;
+          instReady = false;
+          break;
+        }
       }
-      instantiate( it->first, terms, out );
-      retVal = true;
+      if( instReady ){
+        std::vector< Node > terms;
+        for( std::vector< Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
+          terms.push_back( d_instTable[ d_te->theoryOf( *it2 )->getId() ]->d_solved_ic[ *it2 ] );
+        }
+        instantiate( it->first, terms, out );
+        retVal = true;
+      }
+    }else{
+      Debug("inst-engine") << it->first << " is not active" << std::endl;
     }
   }
   //otherwise, add splitting lemmas
@@ -138,13 +177,14 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
         for( int j=0; j<(int)d_instTable[i]->getNumLemmas(); j++ ){
-          Node lem = d_instTable[i]->getLemma( j );
+          Node lem = Rewriter::rewrite(d_instTable[i]->getLemma( j ));
           Debug("inst-engine") << "Split on : " << lem << std::endl;
 
          //NodeBuilder<> nb(kind::OR);
          // nb << lem << lem.notNode();
          // lem = nb; 
           out->split( lem );
+          Assert( d_te->getPropEngine()->isSatLiteral( lem ) );
           Debug("inst-engine-debug") << "require phase for " << lem << std::endl;
           out->requirePhase( lem, true );
 
@@ -165,28 +205,50 @@ Node InstantiationEngine::getCounterexampleLiteralFor( Node n ){
   return d_counterexamples[n];
 }
 
-bool InstantiationEngine::markLiteralsAsDependent( Node n, Node f, Node cel, OutputChannel* out )
+void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
 {
   if( n.getKind()==INST_CONSTANT ){
-    InstantitionConstantAttribute icai;
-    n.setAttribute(icai,f);
-    return true;
-  }else{
-    bool retVal = false;
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      if( markLiteralsAsDependent( n[i], f, cel, out ) ){
-        retVal = true;
-      }
-    }
-    if( retVal ){
-      //set n to have instantiation constants from f
+    if( !n.hasAttribute(InstantitionConstantAttribute()) ){
       InstantitionConstantAttribute icai;
-      if( d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT && !n.hasAttribute(icai) ){
-        Debug("inst-engine-debug") << "Make " << n << " dependent on " << cel << std::endl;
-        out->dependentDecision( cel, n );
-      }
       n.setAttribute(icai,f);
     }
-    return retVal;
+  }else{
+    Node fa;
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      registerLiterals( n[i], f, out );
+      if( n[i].hasAttribute(InstantitionConstantAttribute()) ){
+        if( fa!=f ){
+          fa = n[i].getAttribute(InstantitionConstantAttribute());
+        }
+      }
+    }
+    if( fa!=Node::null() ){
+      //set n to have instantiation constants from f
+      Node nr = Rewriter::rewrite( n );
+      if( !nr.hasAttribute(InstantitionConstantAttribute()) ){
+        if( d_te->getPropEngine()->isSatLiteral( nr ) && n.getKind()!=NOT ){
+          Node cel = getCounterexampleLiteralFor( fa );
+          Debug("inst-engine-debug") << "Make " << nr << " dependent on " << cel << std::endl;
+          out->dependentDecision( cel, nr );
+        }
+        InstantitionConstantAttribute icai;
+        nr.setAttribute(icai,fa);
+      }
+    }
+  }
+}
+
+void InstantiationEngine::associateNestedQuantifiers( Node n, Node cen )
+{
+  if( n.getKind()==FORALL || n.getKind()==EXISTS ){
+    d_quant_to_ceq[n] = cen.notNode();
+    d_quant_to_ceq[n.notNode()] = cen; 
+  }else if (n.getKind()==NOT && ( n[0].getKind()==FORALL || n[0].getKind()==EXISTS ) ){
+    d_quant_to_ceq[n] = cen[0];
+    d_quant_to_ceq[n[0]] = cen; 
+  }else if( n.getKind()==cen.getKind() && n.getNumChildren()==cen.getNumChildren() ){
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      associateNestedQuantifiers( n[i], cen[i] );
+    }
   }
 }

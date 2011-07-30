@@ -246,6 +246,12 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
     Debug("uf") << "end diseq-list." << endl;
   }
 
+  //AJR-hack
+  if( getInstantiator() ){
+    ((InstantiatorTheoryUf*)getInstantiator())->assertEqual( a, b );
+  }
+  //---AJR-hack
+
   // Note that at this point, alreadyDiseqs contains everything we're
   // disequal to, and the attendant disequality
 
@@ -360,6 +366,12 @@ void TheoryUFMorgan::addDisequality(TNode eq) {
 
   appendToDiseqList(find(a), eq);
   appendToDiseqList(find(b), eq);
+
+  //AJR-hack
+  if( getInstantiator() ){
+    ((InstantiatorTheoryUf*)getInstantiator())->assertDisequal( find( a ), find( b ) );
+  }
+  //---AJR-hack
 }
 
 void TheoryUFMorgan::registerEqualityForPropagation(TNode eq) {
@@ -402,6 +414,7 @@ void TheoryUFMorgan::check(Effort level) {
         Node conflict = constructConflict(d_conflict);
         d_conflict = Node::null();
         ++d_conflicts;
+        Debug("uf-conflict") << "uf-conflict: " << conflict << endl;
         d_out->conflict(conflict, false);
         return;
       }
@@ -422,6 +435,7 @@ void TheoryUFMorgan::check(Effort level) {
           Node conflict = constructConflict(d_conflict);
           d_conflict = Node::null();
           ++d_conflicts;
+          Debug("uf-conflict") << "uf-conflict: " << conflict << endl;
           d_out->conflict(conflict, false);
           return;
         }
@@ -465,6 +479,7 @@ void TheoryUFMorgan::check(Effort level) {
           Node conflict = constructConflict(d_conflict);
           d_conflict = Node::null();
           ++d_conflicts;
+          Debug("uf-conflict") << "uf-conflict: " << conflict << endl;
           d_out->conflict(conflict, false);
           return;
         } else if(find(a) == find(b)) {
@@ -473,6 +488,7 @@ void TheoryUFMorgan::check(Effort level) {
           // that they were congruent.
           Node conflict = constructConflict(assertion[0]);
           ++d_conflicts;
+          Debug("uf-conflict") << "uf-conflict: " << conflict << endl;
           d_out->conflict(conflict, false);
           return;
         }
@@ -496,6 +512,7 @@ void TheoryUFMorgan::check(Effort level) {
           Node conflict = constructConflict(d_conflict);
           d_conflict = Node::null();
           ++d_conflicts;
+          Debug("uf-conflict") << "uf-conflict: " << conflict << endl;
           d_out->conflict(conflict, false);
           return;
         }

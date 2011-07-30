@@ -48,6 +48,10 @@ private:
   std::map< Node, bool > d_abstract_inst;
   /** quantifiers that have been skolemized */
   std::map< Node, bool > d_skolemized;
+  /** number of instantiations */
+  int d_numInstantiations;
+  /** number of restarts */
+  int d_numRestarts;
 public:
   TheoryQuantifiers(context::Context* c, OutputChannel& out, Valuation valuation);
   ~TheoryQuantifiers();

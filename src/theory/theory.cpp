@@ -52,11 +52,11 @@ TNode Theory::get() {
                   << " (" << d_facts.size() << " left)" << std::endl;
   d_out->newFact(fact);
 
-  //AJR-hack
-  if( getInstantiator() ){
-    getInstantiator()->check( fact );
-  }
-  //---AJR-hack
+  ////AJR-hack
+  //if( getInstantiator() ){
+  //  getInstantiator()->check( fact );
+  //}
+  ////---AJR-hack
   return fact;
 }
 

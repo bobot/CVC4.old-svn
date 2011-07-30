@@ -75,6 +75,8 @@ class InstantiationEngine
 {
   friend class ::CVC4::TheoryEngine;
 private:
+  typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
+
   /** theory instantiator objects for each theory */
   theory::Instantiatior* d_instTable[theory::THEORY_LAST];
   /** reference to theory engine object */
@@ -83,10 +85,20 @@ private:
   std::map< Node, std::vector< Node > > d_vars;
   /** map from universal quantifiers to the list of instantiation constants */
   std::map< Node, std::vector< Node > > d_inst_constants;
+  /** map from universal quantifiers to the list of skolem constants */
+  std::map< Node, std::vector< Node > > d_skolem_constants;
   /** instantiation constants to universal quantifiers */
   std::map< Node, Node > d_inst_constants_map;
   /** map from universal quantifiers to their counterexample literals */
   std::map< Node, Node > d_counterexamples;
+  /** map from universal quantifiers to their counterexample body */
+  std::map< Node, Node > d_counterexample_body;
+  /** map from quantifiers to their counterexample equivalents */
+  std::map< Node, Node > d_quant_to_ceq;
+  /** map from quantifiers to whether they are active */
+  BoolMap d_active;
+
+  void associateNestedQuantifiers( Node n, Node cen );
 public:
   InstantiationEngine(context::Context* c, TheoryEngine* te);
   ~InstantiationEngine();
@@ -95,13 +107,22 @@ public:
 
   void instantiate( Node f, std::vector< Node >& terms, OutputChannel* out );
 
-  void getInstantiationConstantsFor( Node f, std::vector< Node >& vars, std::vector< Node >& ics );
+  void getInstantiationConstantsFor( Node f, std::vector< Node >& ics, Node& cebody );
+  void getSkolemConstantsFor( Node f, std::vector< Node >& scs );
+  void getVariablesFor( Node f, std::vector< Node >& vars );
   bool doInstantiation( OutputChannel* out );
 
   /** get the corresponding counterexample literal for quantified formula node n */
   Node getCounterexampleLiteralFor( Node n );
+  /** get the corresponding countexample equivalent for quantified formula, 
+      where n is a nested quantifier */
+  Node getCounterexampleQuantifier( Node n ) { return d_quant_to_ceq[n]; }
   /** mark literals as dependent */
-  bool markLiteralsAsDependent( Node n, Node f, Node cel, OutputChannel* out );
+  void registerLiterals( Node n, Node f, OutputChannel* out );
+  /** set active */
+  void setActive( Node n, bool val ) { d_active[n] = val; }
+  /** get active */
+  bool getActive( Node n ) { return d_active[n]; }
 };/* class InstantiationEngine */
 
 }/* CVC4::theory namespace */
