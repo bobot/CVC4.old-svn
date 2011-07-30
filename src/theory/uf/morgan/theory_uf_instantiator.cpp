@@ -103,7 +103,7 @@ void InstantiatorTheoryUf::check( Node assertion )
 
 void InstantiatorTheoryUf::assertEqual( Node a, Node b )
 {
-  Debug("quant-uf") << "InstantiatorTheoryUf::equal: " << a << " == " << b << std::endl;
+  Debug("inst-uf") << "InstantiatorTheoryUf::equal: " << a << " == " << b << std::endl;
   registerTerm( a );
   registerTerm( b );
 
@@ -134,7 +134,7 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
 
 void InstantiatorTheoryUf::assertDisequal( Node a, Node b )
 {
-  Debug("quant-uf") << "InstantiatorTheoryUf::disequal: " << a << " != " << b << std::endl;
+  Debug("inst-uf") << "InstantiatorTheoryUf::disequal: " << a << " != " << b << std::endl;
   registerTerm( a );
   registerTerm( b );
 
@@ -291,7 +291,7 @@ bool InstantiatorTheoryUf::prepareInstantiation()
         if( d_active_ic.find( *it2 )==d_active_ic.end() ){
           Debug("quant-uf") << *it2 << " is not active in this context. " << std::endl;
           //instantiation constant does not exist in the current context
-          d_solved_ic[ *it2 ] = (*it2).getType().mkGroundTerm(); 
+          d_solved_ic[ *it2 ] = NodeManager::currentNM()->mkVar( (*it2).getType() ); 
         }else{
           Node ns = find( *it2 );
           if( !ns.hasAttribute(InstantitionConstantAttribute()) ){
@@ -340,8 +340,9 @@ bool InstantiatorTheoryUf::prepareInstantiation()
         Debug("quant-uf") << "Set " << i << " to " << d_best_subs[i] << std::endl;
         d_solved_ic[ i ] = d_best_subs[i];
       }else{
-        Debug("quant-uf") << "Set " << i << " to random ground term " << std::endl;
-        d_solved_ic[ i ] = i.getType().mkGroundTerm(); 
+        Node c = NodeManager::currentNM()->mkVar( i.getType() );
+        Debug("quant-uf") << "Set " << i << " to random ground term " << c << std::endl;
+        d_solved_ic[ i ] = c; 
       }
     }
   }

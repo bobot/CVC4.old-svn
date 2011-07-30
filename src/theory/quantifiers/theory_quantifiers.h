@@ -49,7 +49,7 @@ private:
   /** quantifiers that have been skolemized */
   std::map< Node, bool > d_skolemized;
   /** number of instantiations */
-  int d_numInstantiations;
+  context::CDO< int > d_numInstantiations;
   /** number of restarts */
   int d_numRestarts;
 public:

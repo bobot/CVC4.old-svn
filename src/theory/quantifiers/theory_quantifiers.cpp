@@ -36,7 +36,7 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, OutputChannel& out, Valuation v
   d_forall_asserts(c),
   d_exists_asserts(c),
   d_counterexample_asserts(c),
-  d_numInstantiations(0),
+  d_numInstantiations(c,0),
   d_numRestarts(0){
 
 }
@@ -127,15 +127,16 @@ void TheoryQuantifiers::check(Effort e) {
       }
     }
     if( quantActive ){  
-      static bool enableDebugLimit = true;
-      static int debugLimitInst = 100;
-      if( enableDebugLimit && d_numInstantiations==debugLimitInst ){
-        Debug("quantifiers") << "Exiting via debug." << std::endl;
-        exit( -1 );
+      static bool enableLimit = true;
+      static int limitInst = 5;
+      bool doInst = true;
+      if( enableLimit && d_numInstantiations.get()==limitInst ){
+        Debug("quantifiers") << "Give up in current branch." << std::endl;
+        doInst = false;
       }
 
-      if( d_instEngine->doInstantiation( d_out ) ){
-        d_numInstantiations++;
+      if( doInst && d_instEngine->doInstantiation( d_out ) ){
+        d_numInstantiations.set( d_numInstantiations.get() + 1 );
       }else{
         //try to flip a previous decision
         if( !d_out->flipDecision() ){
@@ -225,7 +226,7 @@ void TheoryQuantifiers::assertExistential( Node n ){
 
 void TheoryQuantifiers::assertCounterexample( Node n ){
   if( n.getKind()==NO_COUNTEREXAMPLE ){
-    Debug("quantifiers") << n << " is valid in current context." << std::endl;
+    Debug("quantifiers") << n[0] << " is valid in current context." << std::endl;
     d_counterexample_asserts[ n[0] ] = true;
     d_instEngine->setActive( n, false );
   }else{
