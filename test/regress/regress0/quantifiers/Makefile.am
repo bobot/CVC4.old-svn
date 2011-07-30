@@ -4,7 +4,11 @@ TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
-	bug269.smt2
+	bug269.smt2 \
+	ex1.smt2 \
+	ex3.smt2 \
+	ex6.smt2 \
+	array-unsat-simp3.smt2 
 
 EXTRA_DIST = $(TESTS)
 

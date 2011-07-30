@@ -128,18 +128,27 @@ void TheoryQuantifiers::check(Effort e) {
     }
     if( quantActive ){  
       static bool enableDebugLimit = true;
-      static int debugLimitInst = 2;
+      static int debugLimitInst = 100;
+      if( enableDebugLimit && d_numInstantiations==debugLimitInst ){
+        Debug("quantifiers") << "Exiting via debug." << std::endl;
+        exit( -1 );
+      }
+
       if( d_instEngine->doInstantiation( d_out ) ){
         d_numInstantiations++;
-        if( enableDebugLimit && d_numInstantiations==debugLimitInst ){
-          std::cout << "Exiting via debug." << std::endl;
-          exit( -1 );
-        }
       }else{
-        //instantiation did not add a lemma to d_out
-        //flip a previous decision DO_THIS
-        std::cout << "Return unknown." << std::endl;
-        d_out->setIncomplete();
+        //try to flip a previous decision
+        if( !d_out->flipDecision() ){
+          //maybe restart
+          static int restartLimit = 1;
+          if( d_numRestarts==restartLimit ){
+            //instantiation did not add a lemma to d_out
+            Debug("quantifiers") << "Return unknown." << std::endl;
+            d_out->setIncomplete();
+          }else{
+            d_numRestarts++;
+          }
+        }
       }
     }
   }
