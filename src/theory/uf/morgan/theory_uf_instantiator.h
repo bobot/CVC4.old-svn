@@ -28,35 +28,47 @@ namespace morgan {
 
 class TheoryUfMorgan;
 
-///** represents a prefix (also called inverted path tree?) */
-//class EMatchTreeNode
-//{
-//public:
-//  typedef context::CDList<int, context::ContextMemoryAllocator<int> > IndexList;
-//  typedef context::CDMap<Node, IndexList*, NodeHashFunction > IndexMap;
-//  typedef context::CDMap<Node, EMatchTreeNode*, NodeHashFunction > ChildMap;
-//public:
-//  EMatchTreeNode( context::Context* c, EMatchTreeNode* p = NULL );
-//  ~EMatchTreeNode(){}
-//
-//  EMatchTreeNode* d_parent;
-//  /** for (n,i) node n has this as node with prefix at argument i */
-//  IndexMap d_nodes;
-//  /** children nodes */
-//  ChildMap d_children;
-//
-//  void debugPrint( int ind = 0 );
-//};
+class GMatchNode
+{
+private:
+  typedef context::CDList<GMatchNode* > GmnList;
+  typedef context::CDList<Node > ObList;
+  GmnList d_parents;
+  ObList d_obligations_eq;
+  ObList d_obligations_deq;
+  Node d_node;
+  Node d_match;
+public:
+  GMatchNode( context::Context* c, Node n );
+  ~GMatchNode(){}
+
+  void addParent( GMatchNode* g );
+  int getNumParents() { return d_parents.size(); }
+  GMatchNode* getParent( int i ) { return d_parents[i]; }
+
+  void addObligation( Node n, bool eq );
+  int getNumObligations( bool eq ) { return eq ? d_obligations_eq.size() : d_obligations_deq.size(); }
+  Node getObligation( int i, bool eq ) { return eq ? d_obligations_eq[i] : d_obligations_deq[i]; }
+
+  Node getNode() { return d_node; }
+
+  void setMatch( Node n ) { d_match = n; }
+  Node getMatch() { return d_match; }
+};
 
 
 class InstantiatorTheoryUf : public Instantiatior{
 protected:
-  //typedef context::CDMap<Node, EMatchTreeNode*, NodeHashFunction > EMatchMap;
-  //typedef context::CDList<EMatchTreeNode*, context::ContextMemoryAllocator<EMatchTreeNode*> > EMatchList;
-  //typedef context::CDMap<Node, EMatchList*, NodeHashFunction > EMatchListMap;
   typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
+  typedef context::CDMap<Node, int, NodeHashFunction> IntMap;
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
   typedef context::CDMap<Node, NodeList*, NodeHashFunction> NodeLists;
+  typedef context::CDMap<Node, GMatchNode*, NodeHashFunction > GMatchMap;
+
+  GMatchMap d_gmatches;
+  IntMap d_gmatch_size;
+  void buildGMatches( Node n );
+  GMatchNode* getGMatch( Node n );
 
   //AJR-hack
   Node getConcreteTerm( Node rep );
@@ -100,66 +112,55 @@ private:
   //void buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active );
   void initializeEqClass( Node t );
   void initializeDisequalityList( Node t );
-  int getNumSharedDisequalities( Node a, Node b );
-  bool eqClassContainsInstConstantsFromFormula( Node c, Node f );
 
+  //class Counterexample 
+  //{
+  //public:
+  //  //node that it is for
+  //  Node d_formula;
+  //  //nodes that are currently involved in counterexample
+  //  std::vector< Node > d_ce;
+  //  //nodes that are interior
+  //  std::map< Node, bool > d_interior;
+  //  //model requirements
+  //  std::map< Node, std::vector< Node > > d_model;
+  //  //current graphs to process
+  //  std::vector< GMatchNode* > d_curr;
+
+  //  void addToCounterexample( Node i, Node c );
+  //  void removeFromCounterexample( Node i );
+  //};
+
+  std::map< Node, bool > d_interior;
+  std::map< Node, std::vector< Node > > d_model;
   void calculateBestMatch( Node f );
-  //map from pairs of non-equality independent nodes to the # of arguments they match on
-  std::map< Node, std::map< Node, int > > d_equalArgs;
-  std::map< Node, std::map< Node, bool > > d_eq_independent;
-  void getNumEqualArgs( Node i, Node c );
-  void addToGraphMatchScore( Node i,
-                             std::map< Node, int >& gmatchScore,
-                             std::map< Node, std::vector< Node > >& contradict,
-                             std::map< Node, std::vector< Node > >& support,
-                             std::map< Node, std::vector< Node > >& support_terms );
-  void addToGraphMatchScore( Node i, Node c,
-                             std::map< Node, int >& gmatchScore,
-                             std::map< Node, std::vector< Node > >& contradict,
-                             std::map< Node, std::vector< Node > >& support,
-                             std::map< Node, std::vector< Node > >& support_terms );
-  void removeFromGraphMatchScore( Node eq,
-                                  std::map< Node, int >& gmatchScore,
-                                  std::map< Node, std::vector< Node > >& contradict,
-                                  std::map< Node, std::vector< Node > >& support,
-                                  std::map< Node, std::vector< Node > >& support_terms );
-  void doEMatchMerge( std::vector< Node >& eqs, std::vector< std::map< Node, Node > >& ematches,
-                      std::vector< Node >& terms, std::map< Node, bool >& terms_ematched );
+  void addToCounterexample( Node i, Node c, Node f, std::vector< Node >& ce, 
+                            std::vector< GMatchNode* >& curr );
+  void removeFromCounterexample( Node i, Node f, std::vector< Node >& ce, 
+                                 std::vector< GMatchNode* >& curr );
+  Node getValueInCounterexample( Node i, Node f, std::vector< Node >& ce );
+  Node getValueInCounterexample( Node i, Node f, std::vector< Node >& ce, std::map< Node, Node >& curr_tasks );
+  bool isConsistent( Node i, Node c, Node f, std::vector< Node >& ce );
+  bool isConsistent( Node i, Node c, Node f, std::vector< Node >& ce, std::map< Node, Node >& curr_tasks );
+
+  void propagateCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
+  bool propagateCounterexample( Node i, Node f, std::vector< Node >& ce, 
+                                std::vector< GMatchNode* >& curr );
+
+  bool refineCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
+  bool getSuggestion( Node& is, Node& cs, Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr, 
+                      std::map< Node, Node >& curr_tasks, std::map< Node, std::vector< Node > >& failed_suggestions );
+
+  bool decideCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
 
 
-  std::map< Node, std::map< Node, std::vector< std::map< Node, Node > > > > d_ematch;
-  std::map< Node, std::map< Node, std::vector< std::map< Node, Node > > > > d_ematch_mod;
-  std::map< Node, std::map< Node, bool > > d_eq_independent_em;
-  void doEMatching( Node i, Node c, Node f,  bool moduloEq = false );
-  void unify( std::vector< std::map< Node, Node > >& target,
-              std::vector< std::map< Node, Node > >& matches );
-  bool unify( std::map< Node, Node >& target, std::map< Node, Node >& matches );
-  int numMatches( std::vector< std::map< Node, Node > >& target,
-                  std::vector< std::map< Node, Node > >& matches );
-  void removeRedundant( std::vector< std::map< Node, Node > >& matches );
-  int checkSubsume( std::map< Node, Node >& m1, std::map< Node, Node >& m2 );
+  std::map< Node, std::vector< Node > > d_matches;
+  std::map< Node, std::map< Node, std::vector< Node > > > d_model_req;
+  void getMatches( Node i );
 
-  Node d_best;
-  std::map< Node, Node > d_best_subs;
   double d_heuristic;
+  Node d_best;
 };/* class InstantiatorTheoryUf */
-
-
-//class EMatchState 
-//{
-//private:
-//  std::vector< Node > termsToMatch;
-//  std::vector< Node > termsMatched;
-//  std::vector< std::map< Node, Node > > matches;   
-//  std::map< Node, int > ematches;
-//  std::map< Node, std::vector< Node > > contradict;  //map from ematches to other ematches that they contradict
-//  std::map< Node, std::vector< Node > > support;  //map from ematches to other ematches that they support
-//public:
-//  EMatchState(){}
-//  ~EMatchState(){}
-//
-//  void addTerm( Node n );
-//};
 
 }
 }

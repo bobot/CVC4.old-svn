@@ -25,37 +25,48 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 using namespace CVC4::theory::uf::morgan;
-//
-//EMatchTreeNode::EMatchTreeNode( context::Context* c, EMatchTreeNode* p ) : 
-//d_parent( p ),
-//d_nodes( c ),
-//d_children( c ){
-//
-//}
-//
-//void EMatchTreeNode::debugPrint( int ind )
-//{
-//  for( IndexMap::iterator it = d_nodes.begin(); it!=d_nodes.end(); ++it ){
-//    for( int i=0; i<ind; i++ ) { Debug("quant-uf") << " "; }
-//    Debug("quant-uf") << (*it).first << ": ";
-//    IndexList* il = (*it).second;
-//    for( IndexList::const_iterator it2 = il->begin(); it2!=il->end(); ++it2 ){
-//      Debug("quant-uf") << (*it2) << " ";
-//    }
-//    Debug("quant-uf") << std::endl;
-//  }
-//  for( ChildMap::const_iterator it = d_children.begin(); it!=d_children.end(); ++it ){
-//    for( int i=0; i<ind; i++ ) { Debug("quant-uf") << " "; }
-//    Debug("quant-uf") << (*it).first << ": " << std::endl;
-//    (*it).second->debugPrint( ind+1 );
-//  }
-//}
+
+
+GMatchNode::GMatchNode( context::Context* c, Node n ) :
+d_parents( c ),
+d_obligations_eq( c ),
+d_obligations_deq( c ),
+d_node( n ){
+  
+}
+
+void GMatchNode::addParent( GMatchNode* g ) { 
+  for( GmnList::const_iterator it = d_parents.begin(); it!=d_parents.end(); ++it ){
+    if( *it == g ){
+      return;
+    }
+  }
+  d_parents.push_back( g ); 
+}
+
+void GMatchNode::addObligation( Node n, bool eq ) { 
+  if( eq ){
+    for( ObList::const_iterator it = d_obligations_eq.begin(); it!=d_obligations_eq.end(); ++it ){
+      if( *it == n ){
+        return;
+      }
+    }
+    d_obligations_eq.push_back( n ); 
+  }else{
+    for( ObList::const_iterator it = d_obligations_deq.begin(); it!=d_obligations_deq.end(); ++it ){
+      if( *it == n ){
+        return;
+      }
+    }
+    d_obligations_deq.push_back( n ); 
+  }
+}
 
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th) :
 Instantiatior( c, ie ),
+d_gmatches( c ),
+d_gmatch_size( c ),
 d_th(th),
-//d_ematch( c ),
-//d_ematch_list( c ),
 d_inst_terms( c ),
 d_concrete_terms( c ),
 d_active_ic( c ),
@@ -106,6 +117,12 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
   Debug("inst-uf") << "InstantiatorTheoryUf::equal: " << a << " == " << b << std::endl;
   registerTerm( a );
   registerTerm( b );
+  if( a.hasAttribute(InstantitionConstantAttribute()) ){
+    getGMatch( a )->addObligation( b, true );
+  }
+  if( b.hasAttribute(InstantitionConstantAttribute()) ){
+    getGMatch( b )->addObligation( a, true );
+  }
 
   //merge equivalence classes
   initializeEqClass( b );
@@ -137,6 +154,12 @@ void InstantiatorTheoryUf::assertDisequal( Node a, Node b )
   Debug("inst-uf") << "InstantiatorTheoryUf::disequal: " << a << " != " << b << std::endl;
   registerTerm( a );
   registerTerm( b );
+  if( a.hasAttribute(InstantitionConstantAttribute()) ){
+    getGMatch( a )->addObligation( b, false );
+  }
+  if( b.hasAttribute(InstantitionConstantAttribute()) ){
+    getGMatch( b )->addObligation( a, false );
+  }
 
   initializeEqClass( a );
   initializeEqClass( b );
@@ -163,6 +186,45 @@ void InstantiatorTheoryUf::registerTerm( Node n )
     //if( n.getNumChildren()>0 ){
     //  d_concrete_terms[n] = true;
     //}
+  }
+  if( n.hasAttribute(InstantitionConstantAttribute()) ){
+    buildGMatches( n );
+  }
+}
+
+void InstantiatorTheoryUf::buildGMatches( Node n )
+{
+  GMatchMap::iterator it = d_gmatches.find( n );
+  if( it==d_gmatches.end() ){
+    GMatchNode* g = getGMatch( n );
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( n[i].hasAttribute(InstantitionConstantAttribute()) ){
+        buildGMatches( n[i] );
+        if( n[i].getAttribute(InstantitionConstantAttribute())==
+            n.getAttribute(InstantitionConstantAttribute()) ){
+          getGMatch( n[i] )->addParent( g );
+        }
+      }
+    }
+  }
+}
+
+GMatchNode* InstantiatorTheoryUf::getGMatch( Node n )
+{
+  GMatchMap::iterator gm_i = d_gmatches.find( n );
+  if( gm_i == d_gmatches.end() ) {
+    GMatchNode* g = new GMatchNode( d_th->getContext(), n );
+    d_gmatches[n] = g;
+    //add to count for the counterexample of its quantifier
+    Node f = n.getAttribute(InstantitionConstantAttribute());
+    IntMap::iterator gms_i = d_gmatch_size.find( f );
+    if( gms_i==d_gmatch_size.end() ){
+      d_gmatch_size[f] = 0;
+    }
+    d_gmatch_size[f] = d_gmatch_size[f] + 1;
+    return g;
+  }else{
+    return (*gm_i).second;
   }
 }
 
@@ -192,67 +254,6 @@ void InstantiatorTheoryUf::setConcreteTerms( Node n )
   }
 }
 
-//void InstantiatorTheoryUf::buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active )
-//{
-//  if( n.getKind()==INST_CONSTANT ){
-//    if( d_ematch.find( n )==d_ematch.end() ){
-//      d_ematch[n] = new EMatchTreeNode( d_th->getContext() );
-//    }
-//    active.push_back( d_ematch[n] );
-//  }else if( n.hasAttribute(InstantitionConstantAttribute()) ){
-//    Assert( n.getKind()==APPLY_UF );
-//    Node op = n.getOperator();
-//    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-//      //build e-match tree for the child
-//      if( n[i].hasAttribute(InstantitionConstantAttribute()) ){
-//        std::vector< EMatchTreeNode* > cactive;
-//        buildEMatchTree( n[i], cactive );
-//        
-//        EMatchList* eml;
-//        if( d_inst_terms.find( n )==d_inst_terms.end() ){
-//          EMatchListMap::iterator eml_i = d_ematch_list.find( n );
-//          if( eml_i==d_ematch_list.end() ){
-//            eml = new(d_th->getContext()->getCMM()) EMatchList(true, d_th->getContext(), false,
-//                                                    ContextMemoryAllocator<EMatchTreeNode*>(d_th->getContext()->getCMM()));
-//            d_ematch_list.insertDataFromContextMemory(n, eml);
-//          }else{
-//            eml = (*eml_i).second;
-//          }
-//        }
-//        //for each e-match tree that we are extending
-//        for( int j=0; j<(int)cactive.size(); j++ ){
-//          //this node at argument i is dependent upon cactive[j]
-//          if( d_inst_terms.find( n )==d_inst_terms.end() ){
-//            //add argument index
-//            EMatchTreeNode::IndexList* nodes;
-//            EMatchTreeNode::IndexMap::iterator n_i = cactive[j]->d_nodes.find(n);
-//            if( n_i==cactive[j]->d_nodes.end() ){
-//              nodes = new(d_th->getContext()->getCMM()) EMatchTreeNode::IndexList(true, d_th->getContext(), false,
-//                                                        ContextMemoryAllocator<int>(d_th->getContext()->getCMM()));
-//              cactive[j]->d_nodes.insertDataFromContextMemory(n, nodes);
-//            }else{
-//              nodes = (*n_i).second;
-//            }
-//            nodes->push_back( i );
-//            //add child node
-//            if( cactive[j]->d_children.find( op )==cactive[j]->d_children.end() ){
-//              EMatchTreeNode* em = new EMatchTreeNode( d_th->getContext(), cactive[j] );
-//              cactive[j]->d_children[op] = em;
-//              //add this node to list of ematch tree nodes for n
-//              eml->push_back( em );
-//            }
-//          }
-//          EMatchTreeNode* emtn = cactive[j]->d_children[op];
-//          //add it to active if not already done so
-//          if( std::find( active.begin(), active.end(), emtn )==active.end() ){
-//            active.push_back( emtn );
-//          }
-//        }
-//      }
-//    }
-//    d_inst_terms[n] = true;
-//  }
-//}
 Node InstantiatorTheoryUf::getConcreteTerm( Node rep ){
   Assert( !rep.hasAttribute(InstantitionConstantAttribute()) );
   if( rep.getKind()==SKOLEM ){
@@ -317,32 +318,21 @@ bool InstantiatorTheoryUf::prepareInstantiation()
 
     debugPrint();
     refreshMaps();
+
     d_best = Node::null();
-    d_equalArgs.clear();
-    d_eq_independent.clear();
     for( std::map< Node, std::vector< Node > >::iterator it = d_inst_constants.begin(); 
-        it !=d_inst_constants.end(); ++it ){
+         it !=d_inst_constants.end(); ++it ){
       if( d_ie->getActive( it->first ) ){
-        d_ematch.clear();
-        d_ematch_mod.clear();
-        d_eq_independent_em.clear();
         calculateBestMatch( it->first );
       }
     }
-    Debug("quant-uf") << "The best instantiation is for " << d_best;
-    Debug("quant-uf") << ", heuristic = " << d_heuristic << std::endl;
-    for( std::map< Node, Node >::iterator it = d_best_subs.begin(); it!=d_best_subs.end(); ++it ){
-      Debug("quant-uf") << "      " << it->first << " -> " << it->second << std::endl;
-    }
-    for( int j = 0; j<(int)d_inst_constants[d_best].size(); j++ ){
-      Node i = d_inst_constants[d_best][j];
-      if( d_best_subs.find( i )!=d_best_subs.end() ){
-        Debug("quant-uf") << "Set " << i << " to " << d_best_subs[i] << std::endl;
-        d_solved_ic[ i ] = d_best_subs[i];
-      }else{
-        Node c = NodeManager::currentNM()->mkVar( i.getType() );
-        Debug("quant-uf") << "Set " << i << " to random ground term " << c << std::endl;
-        d_solved_ic[ i ] = c; 
+    if( d_best!=Node::null() ){
+      Debug("quant-uf") << "The most relevant quantifier is " << d_best << std::endl;
+      for( int j = 0; j<(int)d_inst_constants[ d_best ].size(); j++ ){
+        Node i = d_inst_constants[ d_best ][j];
+        Debug("quant-uf") << "   ---> Set " << i << " to " << getGMatch( i )->getMatch() << std::endl;
+        Assert( getGMatch( i )->getMatch()!=Node::null() );
+        d_solved_ic[ i ] = getGMatch( i )->getMatch();
       }
     }
   }
@@ -403,6 +393,25 @@ void InstantiatorTheoryUf::debugPrint()
     }
     ++counter;
     Debug("quant-uf") << std::endl;
+  }
+  Debug("quant-uf") << std::endl;
+
+  Debug("quant-uf") << "G-matching: " << std::endl;
+  for( GMatchMap::iterator it = d_gmatches.begin(); it!=d_gmatches.end(); ++it ){
+    GMatchNode* g = (*it).second;
+    Debug("quant-uf") << (*it).first;
+    if( g->getNumObligations( true ) + g->getNumObligations( false )>0 ){
+      Debug("quant-uf") << ", obligations : ";
+      for( int d=0; d<2; d++ ){
+        for( int i=0; i<g->getNumObligations( d==0 ); i++ ){
+          Debug("quant-uf") << (d==0 ? "= " : "!= ") << g->getObligation( i, d==0 ) << " ";
+        }
+      }
+    }
+    Debug("quant-uf") << std::endl;
+    for( int i=0; i<g->getNumParents(); i++ ){
+      Debug("quant-uf") << "   " << g->getParent( i )->getNode() << std::endl;
+    }
   }
 
   //Debug("quant-uf") << "E-matching: " << std::endl;
@@ -491,9 +500,6 @@ void InstantiatorTheoryUf::refreshMaps()
       }
     }
   }
-  d_ematch.clear();
-  d_ematch_mod.clear();
-  d_eq_independent.clear();
 }
 
 bool InstantiatorTheoryUf::areEqual( Node a, Node b ){
@@ -560,43 +566,6 @@ Node InstantiatorTheoryUf::find( Node a ){
   return a;
 }
 
-int InstantiatorTheoryUf::getNumSharedDisequalities( Node a, Node b )
-{
-  int numD = 0;
-  std::map< Node, std::vector< Node > >::iterator itd = d_dmap.find( find( a ) );
-  if( itd!=d_dmap.end() ){
-    for( int i=0; i<(int)itd->second.size(); i++ ){
-      if( areDisequal( itd->second[i], b ) ){
-        numD++;
-      }
-    }
-  }
-  return numD;
-}
-
-bool InstantiatorTheoryUf::eqClassContainsInstConstantsFromFormula( Node c, Node f )
-{
-  if( c.getAttribute(InstantitionConstantAttribute())==f ){
-    return true;
-  }else{
-    std::map< Node, std::vector< Node > >::iterator itd = d_emap.find( find( c ) );
-    if( itd!=d_emap.end() ){
-      for( int i=0; i<(int)itd->second.size(); i++ ){
-        if( itd->second[i].getAttribute(InstantitionConstantAttribute())==f ){
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-}
-
-
-
-
-
-
-
 
 
 
@@ -604,634 +573,673 @@ bool InstantiatorTheoryUf::eqClassContainsInstConstantsFromFormula( Node c, Node
 
 void InstantiatorTheoryUf::calculateBestMatch( Node f )
 {
+  d_model.clear();
+  d_interior.clear();
+  d_matches.clear();
+  d_model_req.clear();
   Debug("quant-uf") << "Try to solve for " << f << "." << std::endl;
   Debug("quant-uf") << "Terms:" << std::endl;
-  std::vector< Node > terms;   //list of terms for f
-  std::vector< Node > origTerms;
-  std::map< Node, int > gmatchScore;
-  std::map< Node, std::vector< Node > > contradict;  //map from ematches to other ematches that they contradict
-  std::map< Node, std::vector< Node > > support;  //map from ematches to other ematches that they support
-  std::map< Node, std::vector< Node > > support_terms;
   for( BoolMap::const_iterator iti = d_inst_terms.begin(); iti!=d_inst_terms.end(); ++iti ){
     if( (*iti).first.getAttribute(InstantitionConstantAttribute())==f ){
       Debug("quant-uf") << "   " << (*iti).first << std::endl;
-      terms.push_back( (*iti).first );
-      origTerms.push_back( (*iti).first );
-      addToGraphMatchScore( (*iti).first, gmatchScore, contradict, support, support_terms );
     }
   }
-  //for( std::map< Node, int >::iterator it = gmatchScore.begin(); it!=gmatchScore.end(); ++it ){
-  //  Debug("quant-uf") << "   GM: " << it->first << " score: " << it->second << std::endl;
-  //}
-
-
-  int level = 0;
-  std::vector< std::map< Node, Node > > ematches;
-  std::vector< Node > gmatches;
-  std::map< Node, Node > term_gmatches;
-  std::map< Node, int > term_level;
-  std::map< Node, bool > terms_ematched;
-  while( !terms.empty() ){
-    Node best;
-    int heuristics[5];    //add heuristic for "this term generalizes the other"
-    for( std::map< Node, int >::iterator it = gmatchScore.begin(); it!=gmatchScore.end(); ++it ){
-      bool setBest = false;
-      for( int h=0; h<5; h++ ){
-        int val;
-        switch( h ){
-          case 0: val = (int)(it->first[0].getKind()!=INST_CONSTANT);break;
-          case 1: val = it->second;break;
-          case 2: 
-            doEMatching( it->first[0], it->first[1], f, false );
-            val = (int)( numMatches( ematches, d_ematch[ it->first[0] ][ it->first[1] ] )>0 );
-            break;
-          case 3: val = (d_equalArgs[it->first[0]][it->first[1]] - it->first[0].getNumChildren());break;
-          case 4: val = d_equalArgs[it->first[0]][it->first[1]];break;
-        }
-        if( best==Node::null() || setBest || val>heuristics[h] ){
-          setBest = true;
-          heuristics[h] = val;
-        }else if( val<heuristics[h] ){
-          break;
-        }
-      }
-      if( setBest ){
-        best = it->first;
-      }
+  std::vector< Node > ce;
+  std::vector< GMatchNode* > curr;
+  std::map< Node, std::vector< Node > > matches;
+  std::vector< GMatchNode* > unmatched;
+  for( int j = 0; j<(int)d_inst_constants[f].size(); j++ ){
+    Node i = d_inst_constants[f][j];
+    curr.push_back( getGMatch( i ) );
+    getMatches( getGMatch( i )->getNode() );
+    //add all solved instantiation constants to counterexample
+    if( d_solved_ic[ i ]!=Node::null() ){
+      addToCounterexample( i, d_solved_ic[ i ], f, ce, curr );
     }
-    bool doNextLevel = false;
-    if( best!=Node::null() ){
-      Debug("quant-uf-alg") << "Best current graph match is " << best << std::endl;
-      //for( int h=0; h<4; h++ ){
-      //  switch( h ){
-      //    case 0: Debug("quant-uf-alg") << " IsInstConstant: ";break;
-      //    case 1: Debug("quant-uf-alg") << "          Score: ";break;
-      //    case 2: Debug("quant-uf-alg") << "      E-matches: ";break;
-      //    case 3: Debug("quant-uf-alg") << "  NumNEqualArgs: ";break;
-      //    case 4: Debug("quant-uf-alg") << "   NumEqualArgs: ";break;
-      //  }
-      //  Debug("quant-uf-alg") << heuristics[h] << std::endl;
-      //}
-      //store in term matches
-      Assert( std::find( gmatches.begin(), gmatches.end(), best )==gmatches.end() );
-      Assert( term_gmatches.find( best[0] )==term_gmatches.end() );
-      gmatches.push_back( best );
-      term_gmatches[ best[0] ] = best[1];
-      term_level[ best[0] ] = level;
-      //terms have been E-matched
-      Assert( d_eq_independent_em.find( best[0] )!=d_eq_independent_em.end() &&
-              d_eq_independent_em[ best[0] ].find( best[1] )!=d_eq_independent_em[ best[0] ].end() );
-        //Debug("quant-uf") << "Remove from terms" << std::endl;
-      //remove best[0] from terms
-      for( int i=0; i<(int)terms.size(); i++ ){
-        if( terms[i]==best[0] ){
-          terms.erase( terms.begin() + i, terms.begin() + i + 1 );
-          break;
-        }
+  }
+  
+  while( !curr.empty() ){
+    propagateCounterexample( f, ce, curr );
+
+    Debug("quant-uf") << "* Current terms to work into counterexample: " << std::endl;
+    for( int j=0; j<(int)curr.size(); j++ ){
+      Node i = curr[j]->getNode();
+      Debug("quant-uf") << "   " << i << ", matches : ";
+      for( int k=0; k<(int)d_matches[i].size(); k++ ){
+        Debug("quant-uf") << d_matches[i][k] << " ";
       }
-        //Debug("quant-uf") << "Remove from graph score" << std::endl;
-      //update all matches in gmatchScore      
-      removeFromGraphMatchScore( best, gmatchScore, contradict, support, support_terms );
-      //Debug("quant-uf") << "Scores are now: " << std::endl;
-      //for( std::map< Node, int >::iterator it = gmatchScore.begin(); it!=gmatchScore.end(); ++it ){
-      //  Debug("quant-uf") << it->first << " " << it->second << std::endl;
-      //}
-      if( terms.empty() ){
-        Debug("quant-uf-alg") << "All terms graph matched, now try to E-match." << std::endl;
-        doNextLevel = true;
-      }
-    }else{
-      Assert( gmatchScore.empty() && contradict.empty() && support.empty() && support_terms.empty() );
-      Debug("quant-uf-alg") << "No graph matches for ";
-      for( int i=0; i<(int)terms.size(); i++ ){
-        if( i!=0 ){
-          Debug("quant-uf-alg") << ", ";
-        }
-        Debug("quant-uf-alg") << terms[i];
-      }
-      Debug("quant-uf-alg") << ", break up into arguments" << std::endl;
-      doNextLevel = true;
+      Debug("quant-uf") << std::endl;
     }
-    if( doNextLevel ){
-      std::vector< Node > newTerms;
-      //attempt to unify each term at current level
-      //DO_THIS smarter: decide first by consensus
-      std::vector< Node > eqs;
-      for( int j=0; j<(int)gmatches.size(); j++ ){
-        if( term_level[ gmatches[j][0] ]==level ){
-          eqs.push_back( gmatches[j] );
-        }
-      }
-      doEMatchMerge( eqs, ematches, terms, terms_ematched );
 
-      if( !terms.empty() ){
-        //add all previous matches back in for the sake of relevance finding (they will be immediately removed)
-        for( int i=0; i<(int)gmatches.size(); i++ ){
-          newTerms.push_back( gmatches[i][0] );
-          addToGraphMatchScore( gmatches[i][0], gmatches[i][1], gmatchScore, contradict, support, support_terms );
-        }
-        //break up all terms into arguments
-        for( int i=0; i<(int)terms.size(); i++ ){
-          for( int j=0; j<(int)terms[i].getNumChildren(); j++ ){
-            if( terms[i][j].getAttribute(InstantitionConstantAttribute())==f ){
-              if( std::find( newTerms.begin(), newTerms.end(), terms[i][j] )==newTerms.end() &&
-                  term_level.find( terms[i][j] )==term_level.end() ){
-                newTerms.push_back( terms[i][j] );
-                addToGraphMatchScore( terms[i][j], gmatchScore, contradict, support, support_terms );
-              }
-            }
-          }
-        }
-        //remove all previous matches
-        for( int i=0; i<(int)gmatches.size(); i++ ){
-          removeFromGraphMatchScore( gmatches[i], gmatchScore, contradict, support, support_terms );
-          for( int j=0; j<(int)newTerms.size(); j++ ){
-            if( newTerms[j]==gmatches[i][0] ){
-              newTerms.erase( newTerms.begin() + j, newTerms.begin() + j + 1 );
-              break;
-            }
-          }
-        }
-
-        terms.clear();
-        terms.insert( terms.begin(), newTerms.begin(), newTerms.end() );
-
-        level++;
-        //Debug("quant-uf") << "Terms are now ";
-        //for( int i=0; i<(int)terms.size(); i++ ){
-        //  if( i!=0 ){
-        //    Debug("quant-uf") << ", ";
-        //  }
-        //  Debug("quant-uf") << terms[i];
-        //}
-        //Debug("quant-uf") << std::endl;
-      }
+    //refine the counterexample
+    while( refineCounterexample( f, ce, curr ) ){
+      propagateCounterexample( f, ce, curr );
+    }
+    
+    //decide
+    if( !decideCounterexample( f, ce, curr ) ){
+      unmatched.insert( unmatched.begin(), curr.begin(), curr.end() );
+      curr.clear();
     }
   }
 
-  Debug("quant-uf") << "Graph matches for each term: " << std::endl;
-  for( std::map< Node, Node >::iterator it = term_gmatches.begin(); it!=term_gmatches.end(); ++it ){
-    Debug("quant-uf") << "   ";
-    if( term_level[it->first]>0 ){
-      Debug("quant-uf") << "(Level " << term_level[it->first]+1 << "): ";
-    }
-    Debug("quant-uf") << it->first << " -> " << it->second << std::endl;
+  int numMatches = ce.size();
+  int numDecisions = 0;
+  int numTotal = d_gmatch_size[f];
+  Debug("quant-uf") << "**** Here are the matches: " << std::endl;
+  for( int j = 0; j<(int)d_inst_constants[f].size(); j++ ){
+    Node i = d_inst_constants[f][j];
+    Debug("quant-uf") << "   " << i << " : " << getGMatch( i )->getMatch() << std::endl;
   }
-
-  //calculate the quality of the graph match
-  int irrelevant = 0;
-  int irrelevantSum = 0;
-  int gscore = 0;
-  int gscoreSum = 0;
-  int escore = 0;
-  int escoreSum = 0;
-  // note this is difficult to do well.  technically, rewards should be given for larger portions of the graph
-  for( int i=0; i<(int)origTerms.size(); i++ ){
-    //check its relationship between it and other terms in this eq class
-    for( int j=i+1; j<(int)origTerms.size(); j++ ){
-      if( areEqual( origTerms[i], origTerms[j] ) ){
-        if( term_gmatches[ origTerms[i] ]!=Node::null() &&
-            term_gmatches[ origTerms[j] ]!=Node::null() && 
-            areEqual( term_gmatches[ origTerms[i] ], term_gmatches[ origTerms[j] ] ) ){
-          gscore += 2;
-        }else{
-          Debug("quant-uf-alg") << "  --->Does not match with " << origTerms[i] << " = " << origTerms[j] << std::endl;
-        }
-        gscoreSum += 2;
-      }else if( areDisequal( origTerms[i], origTerms[j] ) ){
-        if( term_gmatches[ origTerms[i] ]!=Node::null() &&
-            term_gmatches[ origTerms[j] ]!=Node::null() && 
-            areDisequal( term_gmatches[ origTerms[i] ], term_gmatches[ origTerms[j] ] ) ){
-          gscore += 2;
-        }else{
-          Debug("quant-uf-alg") << "  --->Does not match with " << origTerms[i] << " != " << origTerms[j] << std::endl;
-        }
-        gscoreSum += 2;
+  Debug("quant-uf") << "The following terms were matched : " << std::endl;
+  for( int i=0; i<(int)ce.size(); i++ ){
+    Debug("quant-uf") << "   " << ce[i] << " : " << getGMatch( ce[i] )->getMatch() << std::endl;
+    if( !d_model[ ce[i] ].empty() ){
+      Debug("quant-uf") << "      This required me to assume: " << std::endl;
+      for( int j=0; j<(int)d_model[ ce[i] ].size(); j++ ){
+        Debug("quant-uf") << "         " << d_model[ ce[i] ][j] << std::endl;
       }
-    }
-    if( term_gmatches[ origTerms[i] ]!=Node::null() &&
-        areEqual( origTerms[i], term_gmatches[ origTerms[i] ] ) ){
-      gscore += 1;
-      gscoreSum += 1;
-    }
-    //check its relationship with disequalities with ground terms
-    std::map< Node, std::vector< Node > >::iterator itd = d_dmap.find( find( origTerms[i] ) );
-    if( itd!=d_dmap.end() ){
-      for( int j=0; j<(int)itd->second.size(); j++ ){
-        if( !eqClassContainsInstConstantsFromFormula( itd->second[j], f ) ){
-          if( term_gmatches[ origTerms[i] ]!=Node::null() &&
-              areDisequal( term_gmatches[ origTerms[i] ], itd->second[j] ) ){
-            gscore += 1;
-          }else{
-            Debug("quant-uf-alg") << "  --->Does not match with " << origTerms[i] << " != " << itd->second[j] << std::endl;
-          }
-          gscoreSum += 1;
-        }
-      }
-    }
-    if( term_gmatches[ origTerms[i] ]==Node::null() ){
-      irrelevant++;
-    }else{
-      Assert( terms_ematched.find( origTerms[i] )!=terms_ematched.end() );
-      escore += (int)terms_ematched[ origTerms[i] ];
-    }
-    irrelevantSum++;
-    escoreSum++;
-  }
-  Debug("quant-uf") << "Graph Match score is " << gscore << " / " << gscoreSum;
-  Debug("quant-uf") <<  ", E-match score = " << escore << " / " << escoreSum;
-  Debug("quant-uf") <<  ", irrelevant score = " << irrelevant << " / " << irrelevantSum;
-  Debug("quant-uf") << std::endl;
-  double heuristic = 0.0;
-  if( irrelevantSum>0 ){
-    double graphFactor = gscoreSum>0 ? double( gscore )/double( gscoreSum ) : 1.0;
-    double ematchFactor = ( 1.0 + (escoreSum>0 ? double( escore )/double( escoreSum ) : 1.0 ))/2.0;
-    heuristic = graphFactor * ematchFactor * double( irrelevantSum - irrelevant )/double(irrelevantSum);
-  }
-  Debug("quant-uf") << "Unified heuristic = " << heuristic << std::endl;
-
-  Debug("quant-uf") << "Here are the ground substitutions: " << std::endl;
-  for( int i=0; i<(int)ematches.size(); i++ ){
-    Debug("quant-uf") << "   Substitution #" << (i+1) << ":" << std::endl;
-    for( std::map< Node, Node >::iterator it = ematches[i].begin(); it!=ematches[i].end(); ++it ){
-      Debug("quant-uf") << "      " << it->first << " -> " << it->second << std::endl;
+      numDecisions++;
+      numMatches--;
     }
   }
-
-  Debug("quant-uf") << std::endl;
+  if( !unmatched.empty() ){
+    Debug("quant-uf") << "I gave up on fitting these terms into the counterexample: " << std::endl;
+    for( int j=0; j<(int)unmatched.size(); j++ ){
+      Debug("quant-uf") << "   " << unmatched[j]->getNode() << std::endl;
+    }
+  }
+  //rank how well we did
+  double heuristic = double( numMatches + numDecisions*.5 )/double( numTotal );
+  Debug("quant-uf") << "**** Here is a summary of the results: " << std::endl;
+  Debug("quant-uf") << "  Matches : " << numMatches << std::endl;
+  Debug("quant-uf") << "Decisions : " << numDecisions << std::endl;
+  Debug("quant-uf") << " Unsolved : " << (numTotal - ( numMatches + numDecisions ) ) << std::endl;
+  Debug("quant-uf") << "------------" << std::endl;
+  Debug("quant-uf") << "Heuristic : " << heuristic << std::endl;
   if( d_best==Node::null() || heuristic>d_heuristic ){
-    d_best = f;
     d_heuristic = heuristic;
-    d_best_subs.clear();
-    if( !ematches.empty() ){
-      d_best_subs = ematches[0];
-    }
+    d_best = f;
   }
+
+  Debug("quant-uf") << std::endl;
 }
 
-void InstantiatorTheoryUf::getNumEqualArgs( Node i, Node c )
+void InstantiatorTheoryUf::addToCounterexample( Node i, Node c, Node f, std::vector< Node >& ce, 
+                                                std::vector< GMatchNode* >& curr )
 {
-  Assert( i.hasAttribute(InstantitionConstantAttribute()) && !c.hasAttribute(InstantitionConstantAttribute()) );
-  //if not already generated
-  if( d_eq_independent.find( i )==d_eq_independent.end() || 
-      d_eq_independent[i].find( c )==d_eq_independent[i].end() ){
-    d_eq_independent[i][c] = false;
-    if( i.getKind()==INST_CONSTANT ){
-      if( !areDisequal( i, c ) ){
-        d_equalArgs[i][c] = 0;
-      }else{
-        d_eq_independent[i][c] = true;
-      }
-    }else if( c.getKind()!=APPLY_UF || i.getOperator()!=c.getOperator() ){
-      //equality independent, do nothing
-      d_eq_independent[i][c] = true;
-    }else{
-      Assert( i.getNumChildren()==c.getNumChildren() );
-      int numEqArgs = 0;
-      for( int j=0; j<(int)c.getNumChildren(); j++ ){
-        if( areDisequal( i[j], c[j] ) ){
-          d_eq_independent[i][c] = true;
+  Debug("quant-uf") << "--> Add " << i << " = " << c << " to the counterexample." << std::endl;
+  //set the value of the match in the counterexample
+  GMatchNode* g = getGMatch( i );
+  //set match
+  g->setMatch( c );
+  //add to counterexample
+  ce.push_back( i );
+  //add parents to current
+  for( int j=0; j<g->getNumParents(); j++ ){
+    //Debug("quant-uf") << "--> Add parent " << g->getParent( j )->getNode() << std::endl;
+    Assert( std::find( ce.begin(), ce.end(), g->getParent( j )->getNode() )==ce.end() ); 
+    Assert( std::find( curr.begin(), curr.end(), g->getParent( j ) )==curr.end() );
+    //make sure all arguments for parent are already solved in the counterexample
+    Node n = g->getParent( j )->getNode();
+    if( n.getAttribute(InstantitionConstantAttribute())==f ){
+      bool add = true;
+      for( int k=0; k<(int)n.getNumChildren(); k++ ){
+        if( n[k].getAttribute(InstantitionConstantAttribute())==f &&
+            std::find( ce.begin(), ce.end(), n[k] )==ce.end() ){
+          //have not solved for an argument, wait to add this node
+          add = false;
           break;
-        }else if( areEqual( i[j], c[j] ) ){
-          numEqArgs++;
         }
       }
-      if( !d_eq_independent[i][c] ){
-        d_equalArgs[i][c] = numEqArgs;
+      if( add ){
+        curr.push_back( g->getParent( j ) );
+        getMatches( n );
       }
+    }
+  }
+  //remove from current
+  std::vector< GMatchNode* >::iterator it = std::find( curr.begin(), curr.end(), g );
+  Assert( it!=curr.end() );
+  curr.erase( it );
+  //add residual equalities/disequalities that this necessitates
+  for( int j=0; j<(int)d_model_req[i][c].size(); j++ ){
+    Node e = d_model_req[i][c][j].getKind()==NOT ? d_model_req[i][c][j][0] : d_model_req[i][c][j];
+    Node ir = getValueInCounterexample( e[0], f, ce );
+    Node cr = e[1];
+    if( ir!=Node::null() &&
+        ( ( d_model_req[i][c][j].getKind()==NOT && !areDisequal( ir, cr ) ) ||
+          ( d_model_req[i][c][j].getKind()==EQUAL && !areEqual( ir, cr ) ) ) ){
+      Kind knd = ir.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
+      Node ep = NodeManager::currentNM()->mkNode( knd, ir, cr );
+      Debug("quant-uf") << "   Model requires: " << ep << std::endl;
+      d_model[i].push_back( ep );
+    }
+  }
+  //set nodes to be interior
+  for( int j=0; j<(int)i.getNumChildren(); j++ ){
+    if( i[j].getAttribute(InstantitionConstantAttribute())==f ){
+      //Debug("quant-uf") << "   " << i[j] << " is now interior." << std::endl;
+      d_interior[ i[j] ] = true;
     }
   }
 }
 
-void InstantiatorTheoryUf::addToGraphMatchScore( Node i,
-                                                 std::map< Node, int >& gmatchScore,
-                                                 std::map< Node, std::vector< Node > >& contradict,
-                                                 std::map< Node, std::vector< Node > >& support,
-                                                 std::map< Node, std::vector< Node > >& support_terms )
+void InstantiatorTheoryUf::removeFromCounterexample( Node i, Node f, std::vector< Node >& ce, 
+                                                     std::vector< GMatchNode* >& curr )
 {
-  //get terms that are not equality-independent (i.e. there is a chance that this term is equal to it in a real model
-  for( BoolMap::const_iterator itc = d_concrete_terms.begin(); itc!=d_concrete_terms.end(); ++itc ){
-    if( i.getType()==(*itc).first.getType() && !areDisequal( i, (*itc).first ) &&
-        ( i.getKind()!=INST_CONSTANT || find( (*itc).first )==(*itc).first ) ){
-      //Debug("quant-uf") << "Do equality independence check for " << terms[i] << " " << (*itc).first << std::endl;
-      getNumEqualArgs( i, (*itc).first );
-      if( !d_eq_independent[ i ][ (*itc).first ] ){
-        addToGraphMatchScore( i, (*itc).first, gmatchScore, contradict, support, support_terms );
+  Debug("quant-uf") << "<-- Remove " << i << " from counterexample." << std::endl;
+  GMatchNode* g = getGMatch( i );
+  //set nodes to be interior
+  for( int j=0; j<(int)i.getNumChildren(); j++ ){
+    if( i[j].getAttribute(InstantitionConstantAttribute())==f ){
+      GMatchNode* ga = getGMatch( i[j] );
+      d_interior[ i[j] ] = false;
+      //if there are no parents in ce
+      for( int k=0; k<ga->getNumParents(); k++ ){
+        if( g!=ga->getParent( k ) &&
+            std::find( ce.begin(), ce.end(), ga->getParent( k )->getNode() )!=ce.end() ){
+          d_interior[ i[j] ] = true;
+        }
       }
     }
   }
+  //clear model
+  d_model[i].clear();
+  //add to current
+  curr.push_back( g );
+  //remove parents from current
+  for( int j=0; j<g->getNumParents(); j++ ){
+    if( g->getParent( j )->getNode().getAttribute(InstantitionConstantAttribute())==f ){
+      //if parent exists in current, erase it
+      std::vector< GMatchNode* >::iterator it = std::find( curr.begin(), curr.end(), g->getParent( j ) );
+      if( it!=curr.end() ){
+        curr.erase( it );
+      }
+    }
+  }
+  //remove from counterexample
+  std::vector< Node >::iterator it = std::find( ce.begin(), ce.end(), i );
+  Assert( it!=ce.end() );
+  ce.erase( it );
+  //set match
+  g->setMatch( Node::null() );
 }
 
-void InstantiatorTheoryUf::addToGraphMatchScore( Node i, Node c,
-                                                 std::map< Node, int >& gmatchScore,
-                                                 std::map< Node, std::vector< Node > >& contradict,
-                                                 std::map< Node, std::vector< Node > >& support,
-                                                 std::map< Node, std::vector< Node > >& support_terms )
+Node InstantiatorTheoryUf::getValueInCounterexample( Node i, Node f, std::vector< Node >& ce )
 {
-  Kind k = i.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
-  Node e = NodeManager::currentNM()->mkNode( k, i, c );
-  //get the score. note if areEqual holds, shared disequalities is maximized
-  int score = ( areEqual( i, c ) + getNumSharedDisequalities( i, c ) )*2;   
-
-  //combine with other scores in gmatchScore
-  for( std::map< Node, int >::iterator it = gmatchScore.begin(); it!=gmatchScore.end(); ++it ){
-    if( i != it->first[0] ){
-      if( ( areEqual( i, it->first[0] ) && areEqual( c, it->first[1] ) ) ||
-          ( areDisequal( i, it->first[0] ) && areDisequal( c, it->first[1] ) ) ){
-        //Debug("quant-uf") << i << " " << it->first << " are supportive" << std::endl;
-        //if not already in support, then up the score
-        for( int r=0; r<2; r++ ){
-          Node n1 = (r==0) ? e : it->first;
-          Node n2 = (r==0) ? it->first : e;
-          if( std::find( support_terms[ n1 ].begin(), support_terms[ n1 ].end(), n2[0] )==support_terms[ n1 ].end() ){
-            support_terms[ n1 ].push_back( n2[0] );
-            //Debug("quant-uf") << n1 << " is supported by matches from term " << n2[0] << std::endl;
-            if( r==0 ){
-              score = score + 1;
-            }else{
-              it->second = it->second + 1;
-            }
-          }
-          support[ n1 ].push_back( n2 );
-        }
-      }else if( ( areEqual( i, it->first[0] ) && areDisequal( c, it->first[1] ) ) ||
-                ( areDisequal( i, it->first[0] ) && areEqual( c, it->first[1] ) ) ){
-        //Debug("quant-uf") << it1->first << " " << it->first << " are contradictory" << std::endl;
-        contradict[ e ].push_back( it->first );
-        contradict[ it->first ].push_back( e );
-      }
-    }
-  }
-  gmatchScore[ e ] = score;
-}
-
-void InstantiatorTheoryUf::removeFromGraphMatchScore( Node eq,
-                                                      std::map< Node, int >& gmatchScore,
-                                                      std::map< Node, std::vector< Node > >& contradict,
-                                                      std::map< Node, std::vector< Node > >& support,
-                                                      std::map< Node, std::vector< Node > >& support_terms )
-{
-  //enhance scores for those that are supported
-  for( int i=0; i<(int)support[eq].size(); i++ ){
-    if( gmatchScore.find( support[eq][i] )!=gmatchScore.end() ){
-      gmatchScore[ support[eq][i] ] = gmatchScore[ support[eq][i] ] + 3;
-    }
-  }
-  //remove all irrelevant matches
-  std::map< Node, int > gmatchTemp;
-  gmatchTemp = gmatchScore;
-  for( std::map< Node, int >::iterator it = gmatchTemp.begin(); it!=gmatchTemp.end(); ++it ){
-    if( it->first!=eq ){
-      //removed if the term is being set or the graph match is now contradicted
-      bool remove = ( it->first[0]== eq[0] || 
-                      std::find( contradict[eq].begin(), contradict[eq].end(), it->first )!=contradict[eq].end() );
-      if( remove ){
-        contradict.erase( it->first );
-        support.erase( it->first );
-        support_terms.erase( it->first );
-        gmatchScore.erase( it->first );
-      }else{
-        //diminish scores for those previously supported but no more
-        if( std::find( support_terms[eq].begin(), support_terms[eq].end(), it->first[0] )!=support_terms[eq].end() ){
-          it->second = it->second - 1;
-        }
-      }
-    }
-  }
-  contradict.erase( eq );
-  support.erase( eq );
-  support_terms.erase( eq );
-  gmatchScore.erase( eq );
-
-  for( std::map< Node, int >::iterator it = gmatchScore.begin(); it!=gmatchScore.end(); ++it ){
-    if( it->first[0]==eq[0] ){
-      Debug("quant-uf") << "While breaking up " << eq << ", " << it->first << std::endl;
-    }
-    Assert( it->first[0]!=eq[0] );
-  }
-}
-
-void InstantiatorTheoryUf::doEMatchMerge( std::vector< Node >& eqs, std::vector< std::map< Node, Node > >& ematches,
-                                          std::vector< Node >& terms, std::map< Node, bool >& terms_ematched )
-{
-  for( int j=0; j<(int)eqs.size(); j++ ){
-    Node i = eqs[j][0];
-    Node c = eqs[j][1];
-    //terms have been E-matched
-    Assert( d_eq_independent_em.find( i )!=d_eq_independent_em.end() &&
-            d_eq_independent_em[ i ].find( c )!=d_eq_independent_em[ i ].end() );
-
-    Debug("quant-uf-alg") << "E-matching for " << i << " " << c << " : ";
-    Assert( !d_eq_independent_em[i][c] );
-    if( d_ematch[i][c].empty() ){
-      Debug("quant-uf-alg") << "none.";
-    }else{
-      for( int k=0; k<(int)d_ematch[i][c].size(); k++ ){
-        if( k!=0 ){
-          Debug("quant-uf-alg") << ", or ";
-        }
-        for( std::map< Node, Node >::iterator it = d_ematch[i][c][k].begin(); 
-            it!=d_ematch[i][c][k].end(); ++it ){
-          if( it!=d_ematch[i][c][k].begin() ){
-            Debug("quant-uf-alg") << ", ";
-          }
-          Debug("quant-uf-alg") << it->first << " = " << it->second;
-        }
-      }
-    }
-    Debug("quant-uf-alg") << std::endl;
-    terms_ematched[ i ] = (numMatches( ematches, d_ematch[ i ][ c ] )>0);
-    if( terms_ematched[ i ] ){
-      unify( ematches, d_ematch[ i ][ c ] );
-      Assert( ematches.size()>0 );
-    }else{
-      Debug("quant-uf-alg") << "Could not unify " << eqs[j] << "." << std::endl;
-      Assert( std::find( terms.begin(), terms.end(), i )==terms.end() );
-      if( i.getKind()!=INST_CONSTANT ){
-        terms.push_back( i );
-      }
-    }
-  }
-}
-
-
-
-
-
-void InstantiatorTheoryUf::doEMatching( Node i, Node c, Node f, bool moduloEq )
-{
-  if( !areDisequal( i, c ) ){
-    //modulo equality
-    if( moduloEq ){
-      i = find( i );
-      c = find( c );
-      if( d_ematch_mod.find( i )==d_ematch_mod.end() ||
-          d_ematch_mod[i].find( c )==d_ematch_mod[i].end() ){
-        if( d_emap[i].empty() ){
-          d_emap[i].push_back( i );
-        }
-        if( d_emap[c].empty() ){
-          d_emap[c].push_back( c );
-        }
-        d_ematch_mod[i][c] = std::vector< std::map< Node, Node > >();
-        std::map< Node, std::vector< Node > >::iterator iti = d_emap.find( i );
-        std::map< Node, std::vector< Node > >::iterator itc = d_emap.find( c );
-        for( int j=0; j<(int)iti->second.size(); j++ ){
-          for( int k=0; k<(int)itc->second.size(); k++ ){
-            Node i1;
-            Node c1;
-            if( iti->second[j].getAttribute(InstantitionConstantAttribute())==f &&
-                !itc->second[k].hasAttribute(InstantitionConstantAttribute()) ){
-              i1 = iti->second[j];
-              c1 = itc->second[k];
-            }else if( itc->second[k].getAttribute(InstantitionConstantAttribute())==f &&
-                      !iti->second[j].hasAttribute(InstantitionConstantAttribute()) ){
-              i1 = itc->second[k];
-              c1 = iti->second[j];
-            }
-            if( i1!=Node::null() &&
-                ( i1.getKind()!=INST_CONSTANT || find( c1 )==c1 ) ){
-              doEMatching( i1, c1, f, false );
-              d_ematch_mod[i][c].insert( d_ematch_mod[i][c].begin(), d_ematch[i1][c1].begin(), d_ematch[i1][c1].end() );
-            }
-          }
-        }
-        removeRedundant( d_ematch_mod[i][c] );
-      }
-    }else{
-      Assert( i.getAttribute(InstantitionConstantAttribute())==f && !c.hasAttribute(InstantitionConstantAttribute()) );
-      //if not already generated
-      if( d_eq_independent_em.find( i )==d_eq_independent_em.end() || 
-          d_eq_independent_em[i].find( c )==d_eq_independent_em[i].end() ){
-        if( i.getKind()==INST_CONSTANT ){
-          if( areDisequal( i, c ) ){
-            d_eq_independent_em[i][c] = true;
-          }else{
-            d_ematch[i][c].push_back( std::map< Node, Node >() );
-            if( !areEqual( i, c ) ){
-              d_ematch[i][c][0][i] = find( c );
-            }
-            d_eq_independent_em[i][c] = false;
-          }
-        }else if( c.getKind()!=APPLY_UF || i.getOperator()!=c.getOperator() ){
-          //equality independent, do nothing
-          d_eq_independent_em[i][c] = true;
-        }else{
-          Assert( i.getNumChildren()==c.getNumChildren() );
-          d_eq_independent_em[i][c] = false;
-          for( int j=0; j<(int)c.getNumChildren(); j++ ){
-            if( areDisequal( i[j], c[j] ) ){
-              d_eq_independent_em[i][c] = true;
-            }
-          }
-          if( !d_eq_independent_em[i][c] ){
-            std::vector< std::map< Node, Node > > matches;
-            for( int j=0; j<(int)c.getNumChildren(); j++ ){
-              if( !areEqual( i[j], c[j] ) ){
-                doEMatching( i[j], c[j], f, true );
-                unify( matches, d_ematch_mod[i[j]][c[j]] );
-                if( matches.empty() ){
-                  //there exists no matches, or in other words, i and c do not E-match
-                  break;
-                }
-              }
-            }
-            d_ematch[i][c].insert( d_ematch[i][c].begin(), matches.begin(), matches.end() );
-          }
-        }
-      }
-    }
-  }
-}
-
-void InstantiatorTheoryUf::unify( std::vector< std::map< Node, Node > >& target,
-                                  std::vector< std::map< Node, Node > >& matches )
-{
-  if( target.empty() ){
-    target.insert( target.begin(), matches.begin(), matches.end() );
+  if( i.getAttribute(InstantitionConstantAttribute())!=f ){
+    return i;
+  }else if( std::find( ce.begin(), ce.end(), i )!=ce.end() ){
+    return getGMatch( i )->getMatch();
   }else{
-    std::vector< std::map< Node, Node > > newMatches;
-    std::vector< std::map< Node, Node > > tempMatches;
-    tempMatches.insert( tempMatches.begin(), target.begin(), target.end() );
-    for( int k=0; k<(int)matches.size(); k++ ){
-      for( int l=0; l<(int)tempMatches.size(); l++ ){
-        if( unify( tempMatches[l], matches[k] ) ){
-          newMatches.push_back( tempMatches[l] );
-        }
-      }
-    }
-    target.clear();
-    target.insert( target.begin(), newMatches.begin(), newMatches.end() );
-    removeRedundant( target );
+    return Node::null();
   }
 }
 
-bool InstantiatorTheoryUf::unify( std::map< Node, Node >& target, std::map< Node, Node >& matches ){
-  for( std::map< Node, Node >::iterator it = matches.begin(); it!=matches.end(); ++it ){
-    if( target.find( it->first )!=target.end() ){
-      if( target[it->first]!=it->second ){
-        return false;
-      }
-    }else{
-      target[ it->first ] = it->second;
+Node InstantiatorTheoryUf::getValueInCounterexample( Node i, Node f, std::vector< Node >& ce, 
+                                                     std::map< Node, Node >& curr_tasks )
+{
+  if( curr_tasks.find( i )!=curr_tasks.end() ){
+    return curr_tasks[i];
+  }else{
+    return getValueInCounterexample( i, f, ce );
+  }
+}
+
+bool InstantiatorTheoryUf::isConsistent( Node i, Node c, Node f, std::vector< Node >& ce ){
+  for( int j=0; j<(int)d_model_req[i][c].size(); j++ ){
+    Node e = d_model_req[i][c][j].getKind()==NOT ? d_model_req[i][c][j][0] : d_model_req[i][c][j];
+    Node ir = getValueInCounterexample( e[0], f, ce );
+    Node cr = e[1];
+    if( ir!=Node::null() &&
+        ( ( d_model_req[i][c][j].getKind()==NOT && areEqual( ir, cr ) ) ||
+          ( d_model_req[i][c][j].getKind()==EQUAL && areDisequal( ir, cr ) ) ) ){
+      return false;
     }
   }
   return true;
 }
 
-int InstantiatorTheoryUf::numMatches( std::vector< std::map< Node, Node > >& m1, std::vector< std::map< Node, Node > >& m2 )
-{
-  std::vector< std::map< Node, Node > > m3;
-  m3.insert( m3.begin(), m1.begin(), m1.end() );
-  unify( m3, m2 );
-  return (int)m3.size();
+bool InstantiatorTheoryUf::isConsistent( Node i, Node c, Node f, std::vector< Node >& ce, 
+                                         std::map< Node, Node >& curr_tasks ){
+  for( int j=0; j<(int)d_model_req[i][c].size(); j++ ){
+    Node e = d_model_req[i][c][j].getKind()==NOT ? d_model_req[i][c][j][0] : d_model_req[i][c][j];
+    Node ir = getValueInCounterexample( e[0], f, ce, curr_tasks );
+    Node cr = e[1];
+    if( ir!=Node::null() &&
+        ( ( d_model_req[i][c][j].getKind()==NOT && areEqual( ir, cr ) ) ||
+          ( d_model_req[i][c][j].getKind()==EQUAL && areDisequal( ir, cr ) ) ) ){
+      return false;
+    }
+  }
+  return true;
 }
 
-void InstantiatorTheoryUf::removeRedundant( std::vector< std::map< Node, Node > >& matches ){
-  std::vector< bool > active;
-  active.resize( matches.size(), true );
-  for( int k=0; k<(int)matches.size(); k++ ){
-    for( int l=(k+1); l<(int)matches.size(); l++ ){
-      if( k!=l && active[k] && active[l] ){
-        int result = checkSubsume( matches[k], matches[l] );
-        if( result==1 ){
-          active[k] = false;
-        }else if( result==-1 ){
-          active[l] = false;
+
+void InstantiatorTheoryUf::propagateCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr )
+{
+  Debug("quant-uf") << "Propagate counterexample." << std::endl;
+  bool success = true;
+  while( success ){
+    success = false;
+    for( int j=0; j<(int)curr.size(); j++ ){
+      if( propagateCounterexample( curr[j]->getNode(), f, ce, curr ) ){
+        success = true;
+        break;
+      }
+    }
+  }
+}
+
+bool InstantiatorTheoryUf::propagateCounterexample( Node i, Node f, std::vector< Node >& ce, 
+                                                    std::vector< GMatchNode* >& curr )
+{
+  //try to find a term that i has no obligations in the current counterexample
+  for( int j = 0; j<(int)d_matches[i].size(); j++ ){
+    Node c = d_matches[i][j];
+    bool success = true;
+    for( int j=0; j<(int)d_model_req[i][c].size(); j++ ){
+      Node e = d_model_req[i][c][j].getKind()==NOT ? d_model_req[i][c][j][0] : d_model_req[i][c][j];
+      Node ir = getValueInCounterexample( e[0], f, ce );
+      Node cr = e[1];
+      if( ir!=Node::null() && 
+          ( ( d_model_req[i][c][j].getKind()==EQUAL && !areEqual( ir, cr ) ) ||
+            ( d_model_req[i][c][j].getKind()==NOT && !areDisequal( ir, cr ) ) ) ){
+        //Debug("quant-uf") << "The match " << i << " = " << c << " does not propagate because of " << e << std::endl;
+        success = false;
+        break;
+      }
+    }
+    if( success ){
+      Debug("quant-uf") << "Propagate: " << i << " = " << c << std::endl;
+      addToCounterexample( i, c, f, ce, curr );
+      return true;
+    }
+  }
+  return false;
+}
+
+bool InstantiatorTheoryUf::refineCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr )
+{
+  Debug("quant-uf") << "Refine counterexample." << std::endl;
+
+  std::vector< Node > cancelling_tasks;
+  std::map< Node, std::vector< Node > > failed_suggestions;       //n1 cannot change to n2
+  std::map< Node, Node > curr_tasks;                              //n1 has been requested to change to n2
+  std::map< Node, Node > revert_tasks;                            //if in previous map n1 cannot be changed to n2, then change to this
+  std::map< Node, std::map< Node, Node > > tasks;                 //n1 is dependent upon these tasks succeeding
+  std::map< Node, bool > processing_tasks;
+  bool refine = false;
+
+  bool newSuggestion = true;
+  while( newSuggestion ){
+    newSuggestion = false;
+
+    //for( std::map< Node, Node >::iterator it = curr_tasks.begin(); it!=curr_tasks.end(); ++it ){
+    //  Debug("quant-uf") << "Current task : " << it->first << " = " << it->second << std::endl;
+    //}
+
+    //check for failed/succeeded tasks
+    bool processTask = true;
+    while( processTask ){
+      processTask = false;
+      for( std::map< Node, std::map< Node, Node > >::iterator it = tasks.begin(); it != tasks.end(); ++it ){
+        //Debug("quant-uf") << "Check if task for " << it->first << " is finished" << std::endl;
+        bool failedSubtask = false;
+        bool unfinishedSubtask = false;
+        for( std::map< Node, Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
+          if( curr_tasks.find( it2->first )!=curr_tasks.end() ){
+            unfinishedSubtask = true;
+            break;
+          }else if( std::find( failed_suggestions[ it2->first ].begin(), 
+                    failed_suggestions[ it2->first ].end(), it2->second )!=
+                    failed_suggestions[ it2->first ].end() ){
+            failedSubtask = true;
+          }
+        }
+        if( !unfinishedSubtask ){
+          Node n = it->first;
+          if( failedSubtask ){
+            Debug("quant-uf") << "FAIL: The task " << it->first << " = " << curr_tasks[ it->first ];
+            Debug("quant-uf") << " has failed due to a subtask failing." << std::endl;
+            failed_suggestions[ it->first ].push_back( curr_tasks[ it->first ] );
+            //check if we can revert it in the counterexample
+            bool canRevert = true;
+            for( int i=0; i<(int)it->first.getNumChildren(); i++ ){
+              if( it->first[i].getAttribute(InstantitionConstantAttribute())==f ){
+                Node val = getValueInCounterexample( it->first[i], f, ce );
+                if( val!=Node::null() && !areEqual( val, revert_tasks[ it->first ][i] ) ){
+                  canRevert = false;
+                  break;
+                }
+              }
+            }
+            if( canRevert ){
+              Debug("quant-uf") << "Revert " << it->first << " = " << revert_tasks[ it->first ] << std::endl;
+              //revert to previous value in counterexample
+              addToCounterexample( it->first, revert_tasks[ it->first ], f, ce, curr );
+            }
+          }else{
+            Debug("quant-uf") << "SUCCESS: The task " << n << " = " << curr_tasks[n] << " has succeeded." << std::endl;
+            addToCounterexample( n, curr_tasks[n], f, ce, curr );
+            refine = true;
+          }
+          curr_tasks.erase( n );
+          tasks.erase( n );
+          processTask = true;
+          break;
+        }
+      }
+    }
+
+    //check if we can process a new task
+    for( std::map< Node, Node >::iterator it = curr_tasks.begin(); it!=curr_tasks.end(); ++it ){
+      if( !processing_tasks[ it->first ] &&
+          ( d_interior.find( it->first )==d_interior.end() || !d_interior[ it->first ] ) ){
+        //it->first is on the exterior of the counterexample, try to change to it->second
+        Node node = it->first;
+        Node nodeTarget = it->second;
+        //Debug("quant-uf") << "The task " << node << " = " << nodeTarget << " is ready to process." << std::endl;
+        Assert( getGMatch( node )->getMatch()!=Node::null() );
+        revert_tasks[ node ] = getGMatch( node )->getMatch();
+        removeFromCounterexample( node, f, ce, curr );
+        processing_tasks[ node ] = true;
+        //check if it is consistent to switch node to nodeTarget
+        if( isConsistent( node, nodeTarget, f, ce ) ){
+          if( node.getKind()==INST_CONSTANT ){
+            tasks[node].clear();
+          }else{
+            Assert( node.getNumChildren()==nodeTarget.getNumChildren() );
+            for( int j=0; j<(int)node.getNumChildren(); j++ ){
+              if( node[j].getAttribute(InstantitionConstantAttribute())==f ){
+                if( curr_tasks.find( node[j] )==curr_tasks.end() ){
+                  curr_tasks[ node[j] ] = nodeTarget[j];
+                  processing_tasks[ node[j] ] = false;
+                  tasks[ node ][ node[j] ] = nodeTarget[j];
+                }else{
+                  Assert( !areDisequal( curr_tasks[ node[j] ], nodeTarget[j] ) );
+                }
+              }
+            }
+          }
+        }else{
+          Debug("quant-uf") << "FAIL: the task " << node << " = " << nodeTarget << " has failed due to inconsistency." << std::endl;
+          failed_suggestions[node].push_back( nodeTarget );
+          //revert to previous value in counterexample
+          addToCounterexample( node, revert_tasks[ node ], f, ce, curr );
+        }
+        newSuggestion = true;
+        break;
+      }
+    }
+    if( !newSuggestion ){
+      Node is;
+      Node cs;
+      if( getSuggestion( is, cs, f, ce, curr, curr_tasks, failed_suggestions ) ){
+        Debug("quant-uf") << "The suggestion " << is << " = " << cs << " is pertinent." << std::endl;
+        curr_tasks[ is ] = cs;
+        processing_tasks[ is ] = false;
+        newSuggestion = true;
+      }else if( !curr_tasks.empty() ){
+        //consider that all outstanding suggestions have failed
+        for( std::map< Node, Node >::iterator it = curr_tasks.begin(); it!=curr_tasks.end(); ++it ){
+          Debug("quant-uf") << "FAIL: the task " << it->first << " = " << curr_tasks[ it->first ];
+          Debug("quant-uf") << " has failed due to no progress begin made." << std::endl;
+          failed_suggestions[ it->first ].push_back( it->second );
+        }
+        curr_tasks.clear();
+        newSuggestion = true;
+      }
+    }
+  }
+  return refine;
+}
+
+bool InstantiatorTheoryUf::getSuggestion( Node& is, Node& cs, Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr, 
+                                          std::map< Node, Node >& curr_tasks, std::map< Node, std::vector< Node > >& failed_suggestions )
+{
+  std::map< Node, std::map< Node, std::vector< Node > > > suggests;
+  std::map< Node, std::vector< Node > > demands;
+  std::map< Node, std::vector< Node > > supports;
+  std::map< Node, std::map< Node, std::vector< Node > > > suggests_t;
+  std::map< Node, std::vector< Node > > demands_t;
+  std::map< Node, std::vector< Node > > supports_t;
+
+  for( int j=0; j<(int)curr.size(); j++ ){
+    Node i = curr[j]->getNode();
+    for( int k = 0; k<(int)d_matches[i].size(); k++ ){
+      Node c = d_matches[i][k];
+
+      //Debug("quant-uf") << "Check if the match " << i << " = " << c << " is consistent " << std::endl;
+      if( isConsistent( i, c, f, ce, curr_tasks ) ){
+        Kind knd = i.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
+        Node m = NodeManager::currentNM()->mkNode( knd, i, c );
+        for( int r=0; r<(int)d_model_req[i][c].size(); r++ ){
+          //Debug("quant-uf") << "Check " << i << " " << c << " " << d_model_req[i][c][r] << std::endl;
+          Node e = d_model_req[i][c][r].getKind()==NOT ? d_model_req[i][c][r][0] : d_model_req[i][c][r];
+          Node ir = e[0];
+          Node cr = e[1];
+          if( d_interior.find( ir )==d_interior.end() || !d_interior[ir] ){
+            Node irv = getValueInCounterexample( ir, f, ce );
+            if( ir.getAttribute(InstantitionConstantAttribute())==f && irv!=Node::null() ){
+              if( d_model_req[i][c][r].getKind()==NOT ){
+                if( areDisequal( irv, cr ) ){
+                  //Debug("quant-uf") << "  " << m << " SUPPORTS: " << ir << " == " << irv << std::endl;
+                  supports[ir].push_back( m );
+                  if( std::find( supports_t[ir].begin(), supports_t[ir].end(), i )==supports_t[ir].end() ){
+                    supports_t[ir].push_back( i );
+                  }
+                }else{
+                  if( areEqual( irv, cr ) ){
+                    //Debug("quant-uf") << "  " << m << " DEMANDS: " << ir << " != " << irv << std::endl;
+                    demands[ir].push_back( m );
+                    if( std::find( demands_t[ir].begin(), demands_t[ir].end(), i )==demands_t[ir].end() ){
+                      demands_t[ir].push_back( i );
+                    }
+                  }
+                  //if it is a disequality, then convert it to a set of equalities
+                  std::map< Node, std::vector< Node > >::iterator itd = d_dmap.find( find( cr ) );
+                  if( itd!=d_dmap.end() ){
+                    for( int d=0; d<(int)itd->second.size(); d++ ){
+                      Node crp = find( itd->second[d] );
+                      //Debug("quant-uf") << "  " << m << " suggests: " << ir << " = " << crp << std::endl;
+                      suggests[ir][crp].push_back( m );
+                      if( std::find( suggests_t[ir][crp].begin(), suggests_t[ir][crp].end(), i )==suggests_t[ir][crp].end() ){
+                        suggests_t[ir][crp].push_back( i );
+                      }
+                    }
+                  }
+                }
+              }else{
+                if( areEqual( irv, cr ) ){
+                  //Debug("quant-uf") << "  " << m << " SUPPORTS: " << ir << " == " << irv << std::endl;
+                  supports[ir].push_back( m );
+                  if( std::find( supports_t[ir].begin(), supports_t[ir].end(), i )==supports_t[ir].end() ){
+                    supports_t[ir].push_back( i );
+                  }
+                }else{
+                  if( areDisequal( irv, cr ) ){
+                    //Debug("quant-uf") << "  " << m << " DEMANDS: " << ir << " != " << irv << std::endl;
+                    demands[ir].push_back( m );
+                    if( std::find( demands_t[ir].begin(), demands_t[ir].end(), i )==demands_t[ir].end() ){
+                      demands_t[ir].push_back( i );
+                    }
+                  }
+                  //Debug("quant-uf") << "  " << m << " suggests: " << ir << " = " << cr << std::endl;
+                  suggests[ir][cr].push_back( m );
+                  if( std::find( suggests_t[ir][cr].begin(), suggests_t[ir][cr].end(), i )==suggests_t[ir][cr].end() ){
+                    suggests_t[ir][cr].push_back( i );
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
   }
-  std::vector< std::map< Node, Node > > temp;
-  temp.insert( temp.begin(), matches.begin(), matches.end() );
-  matches.clear();
-  for( int i=0; i<(int)temp.size(); i++ ){
-    if( active[i] ){
-      matches.push_back( temp[i] );
+  //for( int i=0; i<(int)ce.size(); i++ ){
+  //  Debug("quant-uf") << "Analysis for " << ce[i] << " (current match: " << getGMatch( ce[i] )->getMatch() << ") ";
+  //  Debug("quant-uf") << std::endl;
+  //  if( supports.find( ce[i] )!=supports.end() ){
+  //    Debug("quant-uf") << "   Supported by ";
+  //    for( int j=0; j<(int)supports[ ce[i] ].size(); j++ ){
+  //      if( j!=0 ){
+  //        Debug("quant-uf") << ", ";
+  //      }
+  //      Debug("quant-uf") << supports[ ce[i] ][j];
+  //    }
+  //    Debug("quant-uf") << std::endl;
+  //  }
+  //  if( demands.find( ce[i] )!=demands.end() ){
+  //    Debug("quant-uf") << "   Demanded to change by ";
+  //    for( int j=0; j<(int)demands[ ce[i] ].size(); j++ ){
+  //      if( j!=0 ){
+  //        Debug("quant-uf") << ", ";
+  //      }
+  //      Debug("quant-uf") << demands[ ce[i] ][j];
+  //    }
+  //    Debug("quant-uf") << std::endl;
+  //  }
+  //  if( suggests.find( ce[i] )!=suggests.end() ){
+  //    Debug("quant-uf") << "   Suggested to change to: " << std::endl;
+  //    for( std::map< Node, std::vector< Node > >::iterator it = suggests[ ce[i] ].begin();
+  //      it!=suggests[ ce[i] ].end(); ++it ){
+  //      Debug("quant-uf") << "      " << it->first << ", (by : ";
+  //      for( int j=0; j<(int)it->second.size(); j++ ){
+  //        if( j!=0 ){
+  //          Debug("quant-uf") << ", ";
+  //        }
+  //        Debug("quant-uf") << it->second[j];
+  //      }
+  //      Debug("quant-uf") << ")" << std::endl;
+  //    }
+  //  }
+  //}
+
+  for( int i=0; i<(int)ce.size(); i++ ){
+    //check if there exists a suggestion t in which every node n that supports ce[i] also suggests t
+    //  and at least one n not supporting ce[i] also suggests it
+    if( d_interior.find( ce[i] )==d_interior.end() || !d_interior[ ce[i] ] ){
+      for( std::map< Node, std::vector< Node > >::iterator it = suggests_t[ ce[i] ].begin();
+          it!=suggests_t[ ce[i] ].end(); ++it ){
+        if( std::find( failed_suggestions[ ce[i] ].begin(), failed_suggestions[ ce[i] ].end(), it->first )==
+            failed_suggestions[ ce[i] ].end() ){
+          //find if all supporters also suggest
+          bool success = true;
+          for( int j=0; j<(int)supports_t[ ce[i] ].size(); j++ ){
+            if( std::find( it->second.begin(), it->second.end(), supports_t[ ce[i] ][j] )==it->second.end() ){
+              success = false;
+              break;
+            }
+          }
+          if( success ){
+            //find if at least one non-supporter suggests
+            success = false;
+            for( int j=0; j<(int)it->second.size(); j++ ){
+              if( std::find( supports_t[ ce[i] ].begin(), supports_t[ ce[i] ].end(), it->second[j] )==supports_t[ ce[i] ].end() ){
+                success = true;
+                break;
+              }
+            }
+            if( success ){
+              is = ce[i];
+              cs = it->first;
+              //TODO: find *best* suggestion
+              return true;
+            }
+          }
+        }
+      }
     }
   }
+  return false;
 }
 
-int InstantiatorTheoryUf::checkSubsume( std::map< Node, Node >& m1, std::map< Node, Node >& m2 ){
-  bool nsubset1 = true;
-  bool nsubset2 = true;
-  for( std::map< Node, Node >::iterator it = m1.begin(); it!=m1.end(); ++it ){
-    if( m2.find( it->first )==m2.end() || m2[ it->first ]!=it->second ){
-      nsubset1 = false;
-      break;
+bool InstantiatorTheoryUf::decideCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr )
+{
+  //decide one term to match with another 
+  std::random_shuffle( curr.begin(), curr.end() );
+  for( int j=0; j<(int)curr.size(); j++ ){
+    Node i = curr[j]->getNode();
+    for( int j = 0; j<(int)d_matches[i].size(); j++ ){
+      Node c = d_matches[i][j];
+      if( isConsistent( i, c, f, ce ) ){
+              //TODO: find *best* decision
+              // also, only decide on i = c where i and c's arguments match
+        Debug("quant-uf") << "Decide: " << i << " = " << c << std::endl;
+        addToCounterexample( i, c, f, ce, curr );
+        return true;
+      }
     }
   }
-  for( std::map< Node, Node >::iterator it = m2.begin(); it!=m2.end(); ++it ){
-    if( m1.find( it->first )==m1.end() || m1[ it->first ]!=it->second ){
-      nsubset2 = false;
-      break;
+  for( int j=0; j<(int)curr.size(); j++ ){
+    Node i = curr[j]->getNode();
+    if( i.getKind()==INST_CONSTANT && ce.empty() ){
+      Node c = NodeManager::currentNM()->mkVar( i.getType() ); 
+      d_concrete_terms[c] = true;
+      Debug("quant-uf") << "Decide, fresh constant: " << i << " = " << c << std::endl;
+      addToCounterexample( i, c, f, ce, curr );
+      return true;
     }
   }
-  if( nsubset1 ){
-    return -1;
-  }else if( nsubset2 ){
-    return 1;
-  }else{
-    return 0;
+
+  return false;
+}
+
+void InstantiatorTheoryUf::getMatches( Node i )
+{
+  if( d_matches.find( i )==d_matches.end() ){
+    for( BoolMap::const_iterator itc = d_concrete_terms.begin(); itc!=d_concrete_terms.end(); ++itc ){
+      Node c = (*itc).first;
+      if( i.getType()==c.getType() && ( i.getKind()!=INST_CONSTANT || find( c )==c ) &&
+          !areDisequal( i, c ) ){
+        //Debug("quant-uf") << "Get model requirements for " << i << " " << c << std::endl;
+        bool success = true;
+        if( i.getKind()!=INST_CONSTANT && 
+            ( c.getKind()!=APPLY_UF || i.getOperator()!=c.getOperator() ) ){
+          success = false;
+        }else{
+          if( !areEqual( i, c ) ){
+            d_model_req[i][c].clear();
+            GMatchNode* g = getGMatch( i );
+            for( int d=0; d<2; d++ ){
+              for( int j=0; j<g->getNumObligations( d==0 ); j++ ){
+                Node b = g->getObligation( j, d==0 );
+                if( ( d==0 && areDisequal( b, c ) ) || ( d==1 && areEqual( b, c ) ) ){
+                  success = false;
+                }else if( ( d==0 && !areEqual( b, c ) ) || ( d==1 && !areDisequal( b, c ) ) ){
+                  Kind knd = i.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
+                  Node e = NodeManager::currentNM()->mkNode( knd, b, c );
+                  //Debug("quant-uf") << "  R " << e << std::endl;
+                  d_model_req[i][c].push_back( d==0 ? e : e.notNode() );
+                }
+              }
+            }
+          }
+          if( i.getKind()!=INST_CONSTANT ){
+            Assert( i.getNumChildren()==c.getNumChildren() );
+            for( int j=0; j<(int)i.getNumChildren(); j++ ){
+              if( areDisequal( i[j], c[j] ) ){
+                success = false;
+                break;
+              }else if( !areEqual( i[j], c[j] ) ){
+                Kind knd = i[j].getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
+                Node e = NodeManager::currentNM()->mkNode( knd, i[j], c[j] );
+                //Debug("quant-uf") << "  Rarg " << e << std::endl;
+                d_model_req[i][c].push_back( e );
+              }
+            }
+          }
+        }
+        if( success ){
+          d_matches[i].push_back( c );
+        }else{
+          d_model_req[i].erase( c );
+        }
+      }
+    }
+    std::random_shuffle( d_matches[i].begin(), d_matches[i].end() );
   }
 }
