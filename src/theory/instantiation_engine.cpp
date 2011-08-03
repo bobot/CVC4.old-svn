@@ -24,7 +24,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 Instantiatior::Instantiatior(context::Context* c, InstantiationEngine* ie) : 
-d_ie( ie ){
+d_instEngine( ie ){
 
 }
 
@@ -155,7 +155,7 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
       for( std::vector< Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
         Assert( d_te->theoryOf( *it2 )!=NULL );
         if( d_instTable[ d_te->theoryOf( *it2 )->getId() ]->d_solved_ic[ *it2 ]==Node::null() ){
-          Debug("inst-engine") << it->first << " is not ready because of " << *it2 << std::endl;
+          Debug("inst-engine-debug") << it->first << " is not ready because of " << *it2 << std::endl;
           instReady = false;
           break;
         }
@@ -169,7 +169,7 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
         retVal = true;
       }
     }else{
-      Debug("inst-engine") << it->first << " is not active" << std::endl;
+      Debug("inst-engine-debug") << it->first << " is not active" << std::endl;
     }
   }
   //otherwise, add splitting lemmas
@@ -251,4 +251,10 @@ void InstantiationEngine::associateNestedQuantifiers( Node n, Node cen )
       associateNestedQuantifiers( n[i], cen[i] );
     }
   }
+}
+
+bool InstantiationEngine::isSubQuantifier( Node sub, Node f )
+{
+  //DO_THIS
+  return sub==f;
 }

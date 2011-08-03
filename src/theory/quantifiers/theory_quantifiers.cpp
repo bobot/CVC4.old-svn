@@ -128,7 +128,7 @@ void TheoryQuantifiers::check(Effort e) {
     }
     if( quantActive ){  
       static bool enableLimit = true;
-      static int limitInst = 2;
+      static int limitInst = 100;
       bool doInst = true;
       if( enableLimit && d_numInstantiations.get()==limitInst ){
         Debug("quantifiers") << "Give up in current branch." << std::endl;
@@ -206,7 +206,7 @@ void TheoryQuantifiers::assertExistential( Node n ){
                                                                 skolems.begin(), skolems.end() );
     NodeBuilder<> nb(kind::OR);
     nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
-    nb << body;
+    nb << ( n.getKind()==kind::NOT ? NodeManager::currentNM()->mkNode( NOT, body ) : body );
     Node lem = nb;
     Debug("quantifiers") << "Skolemize lemma : " << lem << std::endl;
     d_out->lemma( lem );

@@ -65,10 +65,15 @@ protected:
   typedef context::CDMap<Node, NodeList*, NodeHashFunction> NodeLists;
   typedef context::CDMap<Node, GMatchNode*, NodeHashFunction > GMatchMap;
 
+  std::map< Node, int > d_choice_counter;
+  int d_numChoices;
+
   GMatchMap d_gmatches;
   IntMap d_gmatch_size;
   void buildGMatches( Node n );
   GMatchNode* getGMatch( Node n );
+  IntMap d_obligation_size;
+  void addObligation( Node n1, Node n2, bool eq );
 
   //AJR-hack
   Node getConcreteTerm( Node rep );
@@ -140,12 +145,12 @@ private:
                                  std::vector< GMatchNode* >& curr );
   Node getValueInCounterexample( Node i, Node f, std::vector< Node >& ce );
   Node getValueInCounterexample( Node i, Node f, std::vector< Node >& ce, std::map< Node, Node >& curr_tasks );
-  bool isConsistent( Node i, Node c, Node f, std::vector< Node >& ce );
-  bool isConsistent( Node i, Node c, Node f, std::vector< Node >& ce, std::map< Node, Node >& curr_tasks );
+  bool isConsistent( Node i, Node c, Node f, std::vector< Node >& ce,
+                     int& numEntailed, int& numNEntailed );
+  bool isConsistent( Node i, Node c, Node f, std::vector< Node >& ce, std::map< Node, Node >& curr_tasks,
+                     int& numEntailed, int& numNEntailed );
 
   void propagateCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
-  bool propagateCounterexample( Node i, Node f, std::vector< Node >& ce, 
-                                std::vector< GMatchNode* >& curr );
 
   bool refineCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
   bool getSuggestion( Node& is, Node& cs, Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr, 
@@ -160,6 +165,8 @@ private:
 
   double d_heuristic;
   Node d_best;
+
+  bool hasInstantiationConstantsFrom( Node i, Node f );
 };/* class InstantiatorTheoryUf */
 
 }

@@ -43,7 +43,7 @@ class Instantiatior{
   friend class InstantiationEngine;
 protected:
   /** reference to the instantiation engine */
-  InstantiationEngine* d_ie;
+  InstantiationEngine* d_instEngine;
   /** map from quantified formulas to list of instantiation constants */
   std::map< Node, std::vector< Node > > d_inst_constants;
   /** solutions for instantiation constants */
@@ -95,6 +95,8 @@ private:
   std::map< Node, Node > d_counterexample_body;
   /** map from quantifiers to their counterexample equivalents */
   std::map< Node, Node > d_quant_to_ceq;
+  /** stores whether a quantifier is a subquantifier of another */
+  std::map< Node, std::vector< Node > > d_subquant;   //DO_THIS
   /** map from quantifiers to whether they are active */
   BoolMap d_active;
 
@@ -123,6 +125,8 @@ public:
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */
   bool getActive( Node n ) { return d_active[n]; }
+  /** is subquantifier */
+  bool isSubQuantifier( Node sub, Node f );
 };/* class InstantiationEngine */
 
 }/* CVC4::theory namespace */
