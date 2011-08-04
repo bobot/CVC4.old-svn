@@ -72,8 +72,9 @@ protected:
   IntMap d_gmatch_size;
   void buildGMatches( Node n );
   GMatchNode* getGMatch( Node n );
-  IntMap d_obligation_size;
+  NodeLists d_obligations;
   void addObligation( Node n1, Node n2, bool eq );
+  void initializeObligationList( Node f );
 
   //AJR-hack
   Node getConcreteTerm( Node rep );
@@ -138,6 +139,7 @@ private:
 
   std::map< Node, bool > d_interior;
   std::map< Node, std::vector< Node > > d_model;
+  std::map< Node, std::vector< Node > > d_failed_suggestions;
   void calculateBestMatch( Node f );
   void addToCounterexample( Node i, Node c, Node f, std::vector< Node >& ce, 
                             std::vector< GMatchNode* >& curr );
@@ -154,7 +156,7 @@ private:
 
   bool refineCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
   bool getSuggestion( Node& is, Node& cs, Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr, 
-                      std::map< Node, Node >& curr_tasks, std::map< Node, std::vector< Node > >& failed_suggestions );
+                      std::map< Node, Node >& curr_tasks );
 
   bool decideCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
 
