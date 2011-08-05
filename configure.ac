@@ -1,10 +1,10 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-m4_define(_CVC4_MAJOR,          0 )      dnl version (major)
-m4_define(_CVC4_MINOR,          0 )      dnl version (minor)
-m4_define(_CVC4_RELEASE,        0 )      dnl version (alpha)
-m4_define(_CVC4_EXTRAVERSION,   [prerelease] )     dnl version (extra)
+m4_define(_CVC4_MAJOR,          0)       dnl version (major)
+m4_define(_CVC4_MINOR,          0)       dnl version (minor)
+m4_define(_CVC4_RELEASE,        0)       dnl version (alpha)
+m4_define(_CVC4_EXTRAVERSION,   [prerelease])      dnl version (extra)
 m4_define(_CVC4_RELEASE_STRING, _CVC4_MAJOR[.]_CVC4_MINOR[]m4_if(_CVC4_RELEASE,[0],,[.]_CVC4_RELEASE)_CVC4_EXTRAVERSION) dnl version string
 
 dnl Preprocess CL args. Defined in config/cvc4.m4
@@ -637,6 +637,21 @@ fi
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
+# Doxygen configuration
+AC_ARG_ENABLE([internals-documentation],
+  [AS_HELP_STRING([--enable-internals-documentation],
+     [build Doxygen documentation for static and private member functions])])
+if test "$enable_internals_documentation" = yes; then
+  DOXYGEN_EXTRACT_PRIVATE=YES
+  DOXYGEN_EXTRACT_STATIC=YES
+else
+  DOXYGEN_EXTRACT_PRIVATE=NO
+  DOXYGEN_EXTRACT_STATIC=NO
+fi
+AC_SUBST([DOXYGEN_EXTRACT_PRIVATE])
+AC_SUBST([DOXYGEN_EXTRACT_STATIC])
+
+DX_MAN_FEATURE(OFF)
 DX_PDF_FEATURE(OFF)
 DX_PS_FEATURE(OFF)
 DX_DOT_FEATURE(OFF)
@@ -867,6 +882,9 @@ fi
 AC_SUBST(CVC4_USE_CLN_IMP)
 AC_SUBST(CVC4_USE_GMP_IMP)
 
+MAN_DATE=`date '+%B %Y'`
+AC_SUBST(MAN_DATE)
+
 AC_CONFIG_FILES([
   Makefile.builds
   Makefile]
@@ -876,6 +894,12 @@ AC_CONFIG_FILES([
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/integer.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/tls.h])
+
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.1])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.5])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4parser.3])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4compat.3])
 
 AC_OUTPUT
 
