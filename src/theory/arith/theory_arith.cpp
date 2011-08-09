@@ -582,11 +582,21 @@ void TheoryArith::check(Effort effortLevel){
             TNode var = d_arithvarNodeMap.asNode(v);
             Node nrMinus1 = NodeManager::currentNM()->mkConst(r - 1);
             Node nr = NodeManager::currentNM()->mkConst(r);
-            Node leq = NodeManager::currentNM()->mkNode(kind::LEQ, var, nrMinus1);
-            Node geq = NodeManager::currentNM()->mkNode(kind::GEQ, var, nr);
+            Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, nrMinus1));
+            Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, nr));
 
             Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
             Trace("integers") << "integers: branch & bound: " << lem << endl;
+            if(d_valuation.isSatLiteral(lem[0])) {
+              Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;
+            } else {
+              Debug("integers") << "    " << lem[0] << " is not assigned a SAT literal" << endl;
+            }
+            if(d_valuation.isSatLiteral(lem[1])) {
+              Debug("integers") << "    " << lem[1] << " == " << d_valuation.getSatValue(lem[1]) << endl;
+            } else {
+              Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
+            }
             d_out->lemma(lem);
 
             // split only on one var
@@ -597,11 +607,21 @@ void TheoryArith::check(Effort effortLevel){
             TNode var = d_arithvarNodeMap.asNode(v);
             Node nr = NodeManager::currentNM()->mkConst(r);
             Node nrPlus1 = NodeManager::currentNM()->mkConst(r + 1);
-            Node leq = NodeManager::currentNM()->mkNode(kind::LEQ, var, nr);
-            Node geq = NodeManager::currentNM()->mkNode(kind::GEQ, var, nrPlus1);
+            Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, nr));
+            Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, nrPlus1));
 
             Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
             Trace("integers") << "integers: branch & bound: " << lem << endl;
+            if(d_valuation.isSatLiteral(lem[0])) {
+              Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;
+            } else {
+              Debug("integers") << "    " << lem[0] << " is not assigned a SAT literal" << endl;
+            }
+            if(d_valuation.isSatLiteral(lem[1])) {
+              Debug("integers") << "    " << lem[1] << " == " << d_valuation.getSatValue(lem[1]) << endl;
+            } else {
+              Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
+            }
             d_out->lemma(lem);
 
             // split only on one var
@@ -613,11 +633,21 @@ void TheoryArith::check(Effort effortLevel){
           TNode var = d_arithvarNodeMap.asNode(v);
           Node floor = NodeManager::currentNM()->mkConst(r.floor());
           Node ceiling = NodeManager::currentNM()->mkConst(r.ceiling());
-          Node leq = NodeManager::currentNM()->mkNode(kind::LEQ, var, floor);
-          Node geq = NodeManager::currentNM()->mkNode(kind::GEQ, var, ceiling);
+          Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, floor));
+          Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, ceiling));
 
           Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
           Trace("integers") << "integers: branch & bound: " << lem << endl;
+          if(d_valuation.isSatLiteral(lem[0])) {
+            Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;
+          } else {
+            Debug("integers") << "    " << lem[0] << " is not assigned a SAT literal" << endl;
+          }
+          if(d_valuation.isSatLiteral(lem[1])) {
+            Debug("integers") << "    " << lem[1] << " == " << d_valuation.getSatValue(lem[1]) << endl;
+          } else {
+            Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
+          }
           d_out->lemma(lem);
 
           // split only on one var
@@ -923,7 +953,9 @@ void TheoryArith::presolve(){
     for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
       Node variableNode = *i;
       ArithVar var = d_arithvarNodeMap.asArithVar(variableNode);
-      if(d_userVariables.isMember(var) && !d_atomDatabase.hasAnyAtoms(variableNode)){
+      if(d_userVariables.isMember(var) &&
+         !d_atomDatabase.hasAnyAtoms(variableNode) &&
+         !variableNode.getType().isInteger()){
 	//The user variable is unconstrained.
 	//Remove this variable permanently
 	permanentlyRemoveVariable(var);
