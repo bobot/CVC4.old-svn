@@ -69,6 +69,12 @@ private:
   ArithVarNodeMap d_arithvarNodeMap;
 
   /**
+   * List of the types of variables in the system.
+   * "True" means integer, "false" means (non-integer) real.
+   */
+  std::vector<bool> d_integerVars;
+
+  /**
    * If ArithVar v maps to the node n in d_removednode,
    * then n = (= asNode(v) rhs) where rhs is a term that
    * can be used to determine the value of n using getValue().
