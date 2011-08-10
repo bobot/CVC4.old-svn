@@ -63,7 +63,7 @@ void GMatchNode::addObligation( Node n, bool eq ) {
 }
 
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th) :
-Instantiatior( c, ie ),
+Instantiator( c, ie ),
 d_gmatches( c ),
 d_gmatch_size( c ),
 d_obligations( c ),
@@ -1268,6 +1268,9 @@ bool InstantiatorTheoryUf::getSuggestion( Node& is, Node& cs, Node f, std::vecto
         }
       }
     }
+  }
+  if( is!=Node::null() ){
+    Debug("quant-uf") << "Suggest: " << is << " = " << cs << std::endl;
   }
   return is!=Node::null();
 }

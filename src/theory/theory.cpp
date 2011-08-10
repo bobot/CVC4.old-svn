@@ -19,6 +19,7 @@
 #include "theory/theory.h"
 #include "util/Assert.h"
 #include "theory/instantiation_engine.h"
+#include "theory/instantiator_default.h"
 
 #include <vector>
 
@@ -60,7 +61,11 @@ TNode Theory::get() {
   return fact;
 }
 
-Instantiatior* Theory::getInstantiator(){
+Instantiator* Theory::makeInstantiator(){
+  return new InstantiatorDefault( d_context, d_instEngine, this );
+}
+
+Instantiator* Theory::getInstantiator(){
   return d_instEngine ? d_instEngine->getInstantiator( this ) : NULL;
 }
 

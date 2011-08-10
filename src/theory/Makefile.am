@@ -28,7 +28,9 @@ libtheory_la_SOURCES = \
 	valuation.h \
 	valuation.cpp \
 	instantiation_engine.h \
-	instantiation_engine.cpp
+	instantiation_engine.cpp \
+	instantiator_default.h \
+	instantiator_default.cpp
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \

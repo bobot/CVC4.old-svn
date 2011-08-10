@@ -23,15 +23,15 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-Instantiatior::Instantiatior(context::Context* c, InstantiationEngine* ie) : 
+Instantiator::Instantiator(context::Context* c, InstantiationEngine* ie) : 
 d_instEngine( ie ){
 
 }
 
-Instantiatior::~Instantiatior(){
+Instantiator::~Instantiator(){
 }
 
-bool Instantiatior::isInstantiationReady( Node n ){
+bool Instantiator::isInstantiationReady( Node n ){
   Assert( d_inst_constants.find( n )!=d_inst_constants.end() );
   for( int i=0; i<(int)d_inst_constants[n].size(); i++ ){
     if( d_solved_ic[d_inst_constants[n][i]]==Node::null() ){
@@ -88,7 +88,7 @@ void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Nod
       ics.push_back( ic );
       //store in the instantiation constant for the proper instantiator
       Assert( d_te->theoryOf( ic )!=NULL );
-      theory::Instantiatior* tinst = d_instTable[ d_te->theoryOf( ic )->getId() ];
+      theory::Instantiator* tinst = d_instTable[ d_te->theoryOf( ic )->getId() ];
       if( tinst ){
         tinst->d_inst_constants[ f ].push_back( ic );
         tinst->d_solved_ic[ ic ] = Node::null();

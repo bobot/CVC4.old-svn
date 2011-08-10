@@ -40,7 +40,7 @@ class TheoryEngine;
 
 namespace theory {
 
-class Instantiatior;
+class Instantiator;
 class InstantiationEngine;
 
 /** Tag for the "newFact()-has-been-called-in-this-context" flag on Nodes */
@@ -473,11 +473,11 @@ public:
   /**
    * Get the associated theory instantiator
    */
-  virtual Instantiatior* makeInstantiator() { return NULL; }
+  virtual Instantiator* makeInstantiator();
   /**
    * Get the theory instantiator
    */
-  Instantiatior* getInstantiator();
+  Instantiator* getInstantiator();
 };/* class Theory */
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level);

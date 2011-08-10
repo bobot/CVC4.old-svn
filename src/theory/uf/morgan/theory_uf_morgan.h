@@ -221,7 +221,7 @@ public:
   std::string identify() const { return std::string("TheoryUFMorgan"); }
 
   /** Gets the associated theory instantiator */
-  Instantiatior* makeInstantiator();
+  Instantiator* makeInstantiator();
 private:
 
   /** Constructs a conflict from an inconsistent disequality. */

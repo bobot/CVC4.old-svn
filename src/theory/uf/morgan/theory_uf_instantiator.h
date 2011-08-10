@@ -57,7 +57,7 @@ public:
 };
 
 
-class InstantiatorTheoryUf : public Instantiatior{
+class InstantiatorTheoryUf : public Instantiator{
 protected:
   typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
   typedef context::CDMap<Node, int, NodeHashFunction> IntMap;

@@ -39,7 +39,7 @@ namespace theory {
 
 class InstantiationEngine;
 
-class Instantiatior{
+class Instantiator{
   friend class InstantiationEngine;
 protected:
   /** reference to the instantiation engine */
@@ -51,8 +51,8 @@ protected:
   /** list of lemmas */
   std::vector< Node > d_lemmas;
 public:
-  Instantiatior(context::Context* c, InstantiationEngine* ie);
-  ~Instantiatior();
+  Instantiator(context::Context* c, InstantiationEngine* ie);
+  ~Instantiator();
 
   /** get corresponding theory for this instantiator */
   virtual Theory* getTheory() = 0;
@@ -69,7 +69,7 @@ public:
   unsigned int getNumLemmas() { return d_lemmas.size(); }
   Node getLemma( int i ) { return d_lemmas[i]; }
   void clearLemmas() { d_lemmas.clear(); }
-};/* class Instantiatior */
+};/* class Instantiator */
 
 class InstantiationEngine
 {
@@ -78,7 +78,7 @@ private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
   /** theory instantiator objects for each theory */
-  theory::Instantiatior* d_instTable[theory::THEORY_LAST];
+  theory::Instantiator* d_instTable[theory::THEORY_LAST];
   /** reference to theory engine object */
   TheoryEngine* d_te;
   /** map from universal quantifiers to the list of variables */
@@ -105,7 +105,7 @@ public:
   InstantiationEngine(context::Context* c, TheoryEngine* te);
   ~InstantiationEngine();
   
-  theory::Instantiatior* getInstantiator( Theory* t ) { return d_instTable[t->getId()]; }
+  theory::Instantiator* getInstantiator( Theory* t ) { return d_instTable[t->getId()]; }
 
   void instantiate( Node f, std::vector< Node >& terms, OutputChannel* out );
 
