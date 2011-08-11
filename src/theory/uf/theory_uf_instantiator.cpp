@@ -14,9 +14,9 @@
  ** \brief Implementation of theory uf instantiator class
  **/
 
-#include "theory/uf/morgan/theory_uf_instantiator.h"
+#include "theory/uf/theory_uf_instantiator.h"
 #include "theory/theory_engine.h"
-#include "theory/uf/morgan/theory_uf_morgan.h"
+#include "theory/uf/theory_uf.h"
 
 using namespace std;
 using namespace CVC4;
@@ -24,7 +24,6 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
-using namespace CVC4::theory::uf::morgan;
 
 
 GMatchNode::GMatchNode( context::Context* c, Node n ) :
@@ -76,7 +75,7 @@ d_disequality( c ){
   
   d_numChoices = 0;
 
-  assertDisequal( ((TheoryUFMorgan*)d_th)->d_trueNode, ((TheoryUFMorgan*)d_th)->d_falseNode );
+  //assertDisequal( ((TheoryUF*)d_th)->d_trueNode, ((TheoryUF*)d_th)->d_falseNode );
 }
 
 Theory* InstantiatorTheoryUf::getTheory() { 
@@ -85,34 +84,34 @@ Theory* InstantiatorTheoryUf::getTheory() {
 
 void InstantiatorTheoryUf::check( Node assertion )
 {
-  TheoryUFMorgan* t = (TheoryUFMorgan*)d_th;
-  Debug("quant-uf") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
-  switch(assertion.getKind()) {
-  case kind::EQUAL:
-  case kind::IFF:
-    assertEqual(assertion[0], assertion[1]);
-    break;
-  case kind::APPLY_UF:
-    { // assert it's a predicate
-      Assert(assertion.getOperator().getType().getRangeType().isBoolean());
-      assertEqual(assertion, t->d_trueNode);
-    }
-    break;
-  case kind::NOT:
-    if(assertion[0].getKind() == kind::EQUAL ||
-       assertion[0].getKind() == kind::IFF) {
-      assertDisequal(assertion[0][0], assertion[0][1]);
-    } else {
-      // negation of a predicate
-      Assert(assertion[0].getKind() == kind::APPLY_UF);
-      // assert it's a predicate
-      Assert(assertion[0].getOperator().getType().getRangeType().isBoolean());
-      assertEqual(assertion[0], t->d_falseNode);
-    }
-    break;
-  default:
-    Unhandled(assertion.getKind());
-  }
+  //TheoryUF* t = (TheoryUF*)d_th;
+  //Debug("quant-uf") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
+  //switch(assertion.getKind()) {
+  //case kind::EQUAL:
+  //case kind::IFF:
+  //  assertEqual(assertion[0], assertion[1]);
+  //  break;
+  //case kind::APPLY_UF:
+  //  { // assert it's a predicate
+  //    Assert(assertion.getOperator().getType().getRangeType().isBoolean());
+  //    assertEqual(assertion, t->d_trueNode);
+  //  }
+  //  break;
+  //case kind::NOT:
+  //  if(assertion[0].getKind() == kind::EQUAL ||
+  //     assertion[0].getKind() == kind::IFF) {
+  //    assertDisequal(assertion[0][0], assertion[0][1]);
+  //  } else {
+  //    // negation of a predicate
+  //    Assert(assertion[0].getKind() == kind::APPLY_UF);
+  //    // assert it's a predicate
+  //    Assert(assertion[0].getOperator().getType().getRangeType().isBoolean());
+  //    assertEqual(assertion[0], t->d_falseNode);
+  //  }
+  //  break;
+  //default:
+  //  Unhandled(assertion.getKind());
+  //}
 }
 
 void InstantiatorTheoryUf::assertEqual( Node a, Node b )
@@ -122,29 +121,29 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
   registerTerm( b );
   addObligation( a, b, true );
 
-  //merge equivalence classes
-  initializeEqClass( b );
-  NodeList* eqc_b = (*d_equivalence_class.find( b )).second;
-  NodeLists::iterator eqc_a_i = d_equivalence_class.find( a );
-  if( eqc_a_i!=d_equivalence_class.end() ){
-    NodeList* eqc_a = (*eqc_a_i).second;
-    for( NodeList::const_iterator i = eqc_a->begin(); i != eqc_a->end(); i++ ) {
-      eqc_b->push_back( *i );
-    }
-  }else{
-    eqc_b->push_back( a );
-  }
+  ////merge equivalence classes
+  //initializeEqClass( b );
+  //NodeList* eqc_b = (*d_equivalence_class.find( b )).second;
+  //NodeLists::iterator eqc_a_i = d_equivalence_class.find( a );
+  //if( eqc_a_i!=d_equivalence_class.end() ){
+  //  NodeList* eqc_a = (*eqc_a_i).second;
+  //  for( NodeList::const_iterator i = eqc_a->begin(); i != eqc_a->end(); i++ ) {
+  //    eqc_b->push_back( *i );
+  //  }
+  //}else{
+  //  eqc_b->push_back( a );
+  //}
 
-  //merge disequality lists
-  NodeLists::iterator d_a_i = d_disequality.find( a );
-  if( d_a_i!=d_disequality.end() ){
-    NodeList* d_a = (*d_a_i).second;
-    initializeDisequalityList( b );
-    NodeList* d_b = (*d_disequality.find( b )).second;
-    for( NodeList::const_iterator i = d_a->begin(); i != d_a->end(); i++ ) {
-      d_b->push_back( *i );
-    }
-  }
+  ////merge disequality lists
+  //NodeLists::iterator d_a_i = d_disequality.find( a );
+  //if( d_a_i!=d_disequality.end() ){
+  //  NodeList* d_a = (*d_a_i).second;
+  //  initializeDisequalityList( b );
+  //  NodeList* d_b = (*d_disequality.find( b )).second;
+  //  for( NodeList::const_iterator i = d_a->begin(); i != d_a->end(); i++ ) {
+  //    d_b->push_back( *i );
+  //  }
+  //}
 }
 
 void InstantiatorTheoryUf::assertDisequal( Node a, Node b )
@@ -154,14 +153,14 @@ void InstantiatorTheoryUf::assertDisequal( Node a, Node b )
   registerTerm( b );
   addObligation( a, b, false );
 
-  initializeEqClass( a );
-  initializeEqClass( b );
-  initializeDisequalityList( a );
-  NodeList* d_a = (*d_disequality.find( a )).second;
-  d_a->push_back( b );
-  initializeDisequalityList( b );
-  NodeList* d_b = (*d_disequality.find( b )).second;
-  d_b->push_back( a );
+  //initializeEqClass( a );
+  //initializeEqClass( b );
+  //initializeDisequalityList( a );
+  //NodeList* d_a = (*d_disequality.find( a )).second;
+  //d_a->push_back( b );
+  //initializeDisequalityList( b );
+  //NodeList* d_b = (*d_disequality.find( b )).second;
+  //d_b->push_back( a );
 }
 
 void InstantiatorTheoryUf::registerTerm( Node n )
@@ -315,6 +314,7 @@ Node InstantiatorTheoryUf::getConcreteTerm( Node rep ){
 bool InstantiatorTheoryUf::prepareInstantiation()
 {
   Debug("quant-uf") << "Search for instantiation for UF:" << std::endl;
+  exit( -1 );
 
   //set all solved to null
   for( std::map< Node, Node >::iterator it = d_solved_ic.begin(); it!=d_solved_ic.end(); ++it ){
@@ -466,52 +466,52 @@ void InstantiatorTheoryUf::debugPrint()
 }
 
 void InstantiatorTheoryUf::initializeEqClass( Node t ) {
-  NodeLists::iterator eqc_i = d_equivalence_class.find( t );
-  if( eqc_i == d_equivalence_class.end() ) {
-    NodeList* eqc = new(d_th->getContext()->getCMM()) NodeList(true, d_th->getContext(), false,
-                                                      ContextMemoryAllocator<Node>(d_th->getContext()->getCMM()));
-    eqc->push_back( t );
-    d_equivalence_class.insertDataFromContextMemory(t, eqc);
-  }
+  //NodeLists::iterator eqc_i = d_equivalence_class.find( t );
+  //if( eqc_i == d_equivalence_class.end() ) {
+  //  NodeList* eqc = new(d_th->getContext()->getCMM()) NodeList(true, d_th->getContext(), false,
+  //                                                    ContextMemoryAllocator<Node>(d_th->getContext()->getCMM()));
+  //  eqc->push_back( t );
+  //  d_equivalence_class.insertDataFromContextMemory(t, eqc);
+  //}
 }
 
 void InstantiatorTheoryUf::initializeDisequalityList( Node t )
 {
-  NodeLists::iterator d_i = d_disequality.find( t );
-  if( d_i == d_disequality.end() ) {
-    NodeList* d = new(d_th->getContext()->getCMM()) NodeList(true, d_th->getContext(), false,
-                                                    ContextMemoryAllocator<Node>(d_th->getContext()->getCMM()));
-    d_disequality.insertDataFromContextMemory(t, d);
-  }
+  //NodeLists::iterator d_i = d_disequality.find( t );
+  //if( d_i == d_disequality.end() ) {
+  //  NodeList* d = new(d_th->getContext()->getCMM()) NodeList(true, d_th->getContext(), false,
+  //                                                  ContextMemoryAllocator<Node>(d_th->getContext()->getCMM()));
+  //  d_disequality.insertDataFromContextMemory(t, d);
+  //}
 }
 
 void InstantiatorTheoryUf::refreshMaps()
 {
-  TheoryUFMorgan* t = ((TheoryUFMorgan*)d_th);
-  //copy equivalence class, disequality information to temporary map
-  d_emap.clear();
-  for( NodeLists::iterator ite = d_equivalence_class.begin(); ite!=d_equivalence_class.end(); ++ite ){
-    Node n = (*ite).first;
-    if( t->find( n )==n ){
-      NodeList* el = (*ite).second;
-      for( NodeList::const_iterator it = el->begin(); it!=el->end(); ++it ){
-        d_emap[n].push_back( *it );
-      }
-    }
-  }
-  d_dmap.clear();
-  for( NodeLists::iterator itd = d_disequality.begin(); itd!=d_disequality.end(); ++itd ){
-    Node n = (*itd).first;
-    if( t->find( n )==n ){
-      NodeList* dl = (*itd).second;
-      for( NodeList::const_iterator it = dl->begin(); it!=dl->end(); ++it ){
-        Node dn = t->find( *it );
-        if( std::find( d_dmap[n].begin(), d_dmap[n].end(), dn )==d_dmap[n].end() ){
-          d_dmap[n].push_back( dn );
-        }
-      }
-    }
-  }
+  //TheoryUF* t = ((TheoryUF*)d_th);
+  ////copy equivalence class, disequality information to temporary map
+  //d_emap.clear();
+  //for( NodeLists::iterator ite = d_equivalence_class.begin(); ite!=d_equivalence_class.end(); ++ite ){
+  //  Node n = (*ite).first;
+  //  if( t->find( n )==n ){
+  //    NodeList* el = (*ite).second;
+  //    for( NodeList::const_iterator it = el->begin(); it!=el->end(); ++it ){
+  //      d_emap[n].push_back( *it );
+  //    }
+  //  }
+  //}
+  //d_dmap.clear();
+  //for( NodeLists::iterator itd = d_disequality.begin(); itd!=d_disequality.end(); ++itd ){
+  //  Node n = (*itd).first;
+  //  if( t->find( n )==n ){
+  //    NodeList* dl = (*itd).second;
+  //    for( NodeList::const_iterator it = dl->begin(); it!=dl->end(); ++it ){
+  //      Node dn = t->find( *it );
+  //      if( std::find( d_dmap[n].begin(), d_dmap[n].end(), dn )==d_dmap[n].end() ){
+  //        d_dmap[n].push_back( dn );
+  //      }
+  //    }
+  //  }
+  //}
 }
 
 bool InstantiatorTheoryUf::areEqual( Node a, Node b ){
@@ -570,8 +570,8 @@ bool InstantiatorTheoryUf::areDisequal( Node a, Node b ){
 //}
 
 Node InstantiatorTheoryUf::find( Node a ){
-  TheoryUFMorgan* t = ((TheoryUFMorgan*)d_th);
-  a = t->find( a );
+  //TheoryUF* t = ((TheoryUF*)d_th);
+  //a = t->find( a );
   //while( d_eq_find[a]!=Node::null() ){
   //  a = d_eq_find[a];
   //}

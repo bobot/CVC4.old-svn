@@ -150,6 +150,10 @@ public:
    * Return true if node has an associated SAT literal
    */
   bool isSatLiteral(TNode node);
+  /**
+   * Check if the node has a value and return it if yes.
+   */
+  bool hasValue(TNode node, bool& value);
 
   /**
    * Push the context level.

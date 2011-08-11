@@ -20,7 +20,7 @@
 #include "theory/valuation.h"
 #include "expr/kind.h"
 #include "util/congruence_closure.h"
-#include "theory/uf/morgan/theory_uf_instantiator.h"
+#include "theory/uf/symmetry_breaker.h"
 
 #include <map>
 
@@ -172,13 +172,13 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
   // should have already found such a conflict
   Assert(find(d_trueNode) != find(d_falseNode));
 
-  //AJR-hack
-  if( !a.hasAttribute(InstantitionConstantAttribute()) && b.hasAttribute(InstantitionConstantAttribute()) ){
-    TNode t = a;
-    a = b;
-    b = t;
-  }
-  //---AJR-hack
+  ////AJR-hack
+  //if( !a.hasAttribute(InstantitionConstantAttribute()) && b.hasAttribute(InstantitionConstantAttribute()) ){
+  //  TNode t = a;
+  //  a = b;
+  //  b = t;
+  //}
+  ////---AJR-hack
 
   d_unionFind.setCanon(a, b);
 
@@ -246,11 +246,11 @@ void TheoryUFMorgan::merge(TNode a, TNode b) {
     Debug("uf") << "end diseq-list." << endl;
   }
 
-  //AJR-hack
-  if( getInstantiator() ){
-    ((InstantiatorTheoryUf*)getInstantiator())->assertEqual( a, b );
-  }
-  //---AJR-hack
+  ////AJR-hack
+  //if( getInstantiator() ){
+  //  ((InstantiatorTheoryUf*)getInstantiator())->assertEqual( a, b );
+  //}
+  ////---AJR-hack
 
   // Note that at this point, alreadyDiseqs contains everything we're
   // disequal to, and the attendant disequality
@@ -367,11 +367,11 @@ void TheoryUFMorgan::addDisequality(TNode eq) {
   appendToDiseqList(find(a), eq);
   appendToDiseqList(find(b), eq);
 
-  //AJR-hack
-  if( getInstantiator() ){
-    ((InstantiatorTheoryUf*)getInstantiator())->assertDisequal( find( a ), find( b ) );
-  }
-  //---AJR-hack
+  ////AJR-hack
+  //if( getInstantiator() ){
+  //  ((InstantiatorTheoryUf*)getInstantiator())->assertDisequal( find( a ), find( b ) );
+  //}
+  ////---AJR-hack
 }
 
 void TheoryUFMorgan::registerEqualityForPropagation(TNode eq) {
@@ -585,6 +585,15 @@ void TheoryUFMorgan::presolve() {
   TimerStat::CodeTimer codeTimer(d_presolveTimer);
 
   Debug("uf") << "uf: begin presolve()" << endl;
+  if(Options::current()->ufSymmetryBreaker) {
+    vector<Node> newClauses;
+    d_symb.apply(newClauses);
+    for(vector<Node>::const_iterator i = newClauses.begin();
+        i != newClauses.end();
+        ++i) {
+      d_out->lemma(*i);
+    }
+  }
   Debug("uf") << "uf: end presolve()" << endl;
 }
 
@@ -725,12 +734,10 @@ void TheoryUFMorgan::staticLearning(TNode n, NodeBuilder<>& learned) {
       }
     }
   }
-}
 
-Instantiator* TheoryUFMorgan::makeInstantiator()
-{
-  Debug("quant-uf") << "Make UF instantiator" << endl;
-  return new InstantiatorTheoryUf( getContext(), d_instEngine, this );
+  if(Options::current()->ufSymmetryBreaker) {
+    d_symb.assertFormula(n);
+  }
 }
 
 /*

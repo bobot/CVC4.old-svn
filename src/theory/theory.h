@@ -144,7 +144,16 @@ protected:
    *
    * @return the next atom in the assertFact() queue.
    */
-  TNode get();
+  TNode get() {
+    Assert( !done(), "Theory::get() called with assertion queue empty!" );
+    TNode fact = d_facts[d_factsHead];
+    d_wasSharedTermFact = false;
+    d_factsHead = d_factsHead + 1;
+    Trace("theory") << "Theory::get() => " << fact
+                    << " (" << d_facts.size() - d_factsHead << " left)" << std::endl;
+    d_out->newFact(fact);
+    return fact;
+  }
 
   /**
    * Returns whether the last fact retrieved by get() was a shared
@@ -312,7 +321,7 @@ public:
    * Assert a fact in the current context.
    */
   void assertFact(TNode node) {
-    Debug("theory") << "Theory::assertFact(" << node << ")" << std::endl;
+    Trace("theory") << "Theory::assertFact(" << node << ")" << std::endl;
     d_facts.push_back(node);
   }
 
@@ -428,6 +437,7 @@ public:
       }
       if (in[1].getMetaKind() == kind::metakind::VARIABLE && !in[0].hasSubterm(in[1])) {
         outSubstitutions.addSubstitution(in[1], in[0]);
+        return SOLVE_STATUS_SOLVED;
       }
       if (in[0].getMetaKind() == kind::metakind::CONSTANT && in[1].getMetaKind() == kind::metakind::CONSTANT) {
         if (in[0] != in[1]) {

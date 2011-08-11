@@ -73,7 +73,7 @@ void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
     list<TNode> toReg;
     toReg.push_back(fact);
 
-    Debug("theory") << "Theory::get(): registering new atom" << endl;
+    Trace("theory") << "Theory::get(): registering new atom" << endl;
 
     /* Essentially this is doing a breadth-first numbering of
      * non-registered subterms with children.  Any non-registered
@@ -184,7 +184,8 @@ void TheoryEngine::preRegister(TNode preprocessed) {
     preregister_stack_element& stackHead = toVisit.back();
     // The current node we are processing
     TNode current = stackHead.node;
-    // If we already added all the children its time to register or just pop from the stack
+    // If we already added all the children its time to register or just
+    // pop from the stack
     if (stackHead.children_added || current.getAttribute(PreRegistered())) {
       if (!current.getAttribute(PreRegistered())) {
         // Mark it as registered
@@ -196,18 +197,21 @@ void TheoryEngine::preRegister(TNode preprocessed) {
           } else {
             Theory* theory = theoryOf(current);
             TheoryId theoryLHS = theory->getId();
-            Debug("register") << "preregistering " << current << " with " << theoryLHS << std::endl;
+            Trace("register") << "preregistering " << current
+                              << " with " << theoryLHS << std::endl;
             markActive(theoryLHS);
             theory->preRegisterTerm(current);
           }
         } else {
-          TheoryId theory = Theory::theoryOf(current);
-          Debug("register") << "preregistering " << current << " with " << theory << " " << theory << " " << d_theoryTable[theory] << std::endl;
+          TheoryId theory = theoryIdOf(current);
+          Trace("register") << "preregistering " << current
+                            << " with " << theory << std::endl;
           markActive(theory);
           d_theoryTable[theory]->preRegisterTerm(current);
-          TheoryId typeTheory = Theory::theoryOf(current.getType());
+          TheoryId typeTheory = theoryIdOf(current.getType());
           if (theory != typeTheory) {
-            Debug("register") << "preregistering " << current << " with " << typeTheory << std::endl;
+            Trace("register") << "preregistering " << current
+                              << " with " << typeTheory << std::endl;
             markActive(typeTheory);
             d_theoryTable[typeTheory]->preRegisterTerm(current);
           }
@@ -258,7 +262,7 @@ bool TheoryEngine::check(theory::Theory::Effort effort) {
   try {
     CVC4_FOR_EACH_THEORY;
   } catch(const theory::Interrupted&) {
-    Debug("theory") << "TheoryEngine::check() => conflict" << std::endl;
+    Trace("theory") << "TheoryEngine::check() => conflict" << std::endl;
   }
 
   return true;
@@ -294,6 +298,12 @@ Node TheoryEngine::getValue(TNode node) {
 }/* TheoryEngine::getValue(TNode node) */
 
 bool TheoryEngine::presolve() {
+  // NOTE that we don't look at d_theoryIsActive[] here.  First of
+  // all, we haven't done any pre-registration yet, so we don't know
+  // which theories are active.  Second, let's give each theory a shot
+  // at doing something with the input formula, even if it wouldn't
+  // otherwise be active.
+
   d_theoryOut.d_conflictNode = Node::null();
   d_theoryOut.d_propagatedLiterals.clear();
 
@@ -303,7 +313,7 @@ bool TheoryEngine::presolve() {
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-    if (theory::TheoryTraits<THEORY>::hasPresolve && d_theoryIsActive[THEORY]) { \
+    if (theory::TheoryTraits<THEORY>::hasPresolve) { \
       reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(d_theoryTable[THEORY])->presolve(); \
       if(!d_theoryOut.d_conflictNode.get().isNull()) { \
         return true; \
@@ -313,7 +323,7 @@ bool TheoryEngine::presolve() {
     // Presolve for each theory using the statement above
     CVC4_FOR_EACH_THEORY;
   } catch(const theory::Interrupted&) {
-    Debug("theory") << "TheoryEngine::presolve() => interrupted" << endl;
+    Trace("theory") << "TheoryEngine::presolve() => interrupted" << endl;
   }
   // return whether we have a conflict
   return !d_theoryOut.d_conflictNode.get().isNull();
@@ -372,9 +382,9 @@ bool TheoryEngine::hasRegisterTerm(TheoryId th) const {
 
 theory::Theory::SolveStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitionOut) {
   TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
-  Debug("theory") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << std::endl;
+  Trace("theory") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << std::endl;
   Theory::SolveStatus solveStatus = theoryOf(atom)->solve(literal, substitionOut);
-  Debug("theory") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << std::endl;
+  Trace("theory") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << std::endl;
   return solveStatus;
 }
 
@@ -388,7 +398,7 @@ struct preprocess_stack_element {
 
 Node TheoryEngine::preprocess(TNode assertion) {
 
-  Debug("theory") << "TheoryEngine::preprocess(" << assertion << ")" << std::endl;
+  Trace("theory") << "TheoryEngine::preprocess(" << assertion << ")" << std::endl;
 
     // Do a topological sort of the subexpressions and substitute them
   vector<preprocess_stack_element> toVisit;
@@ -410,7 +420,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
     }
 
     // If this is an atom, we preprocess it with the theory
-    if (Theory::theoryOf(current) != THEORY_BOOL) {
+    if (theoryIdOf(current) != THEORY_BOOL) {
       d_atomPreprocessingCache[current] = theoryOf(current)->preprocess(current);
       continue;
     }

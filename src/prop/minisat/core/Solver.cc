@@ -75,7 +75,7 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bo
 
     // Parameters (the rest):
     //
-  , learntsize_factor((double)1/(double)3), learntsize_inc(1.1)
+  , learntsize_factor(1), learntsize_inc(1.5)
 
     // Parameters (experimental):
     //
@@ -243,8 +243,18 @@ bool Solver::addClause_(vec<Lit>& ps, ClauseType type)
     if (ps.size() == 0)
         return ok = false;
     else if (ps.size() == 1){
-        assert(type != CLAUSE_LEMMA);
-        assert(value(ps[0]) == l_Undef);
+        if(in_solve) {
+          assert(type != CLAUSE_LEMMA);
+          assert(value(ps[0]) == l_Undef);
+        } else {
+          // [MGD] at "pre-solve" time we allow unit T-lemmas
+          if(value(ps[0]) == l_True) {
+            // this unit T-lemma is extraneous (perhaps it was
+            // discovered twice at presolve time)
+            return true;
+          }
+          assert(value(ps[0]) == l_Undef);
+        }
         uncheckedEnqueue(ps[0]);
         return ok = (propagate(CHECK_WITHOUT_PROPAGATION_QUICK) == CRef_Undef);
     }else{

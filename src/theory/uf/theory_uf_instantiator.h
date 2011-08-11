@@ -21,12 +21,14 @@
 
 #include "theory/instantiation_engine.h"
 
+#include "context/context.h"
+#include "context/context_mm.h"
+#include "context/cdlist.h"
+#include "context/cdlist_context_memory.h"
+
 namespace CVC4 {
 namespace theory {
 namespace uf {
-namespace morgan {
-
-class TheoryUfMorgan;
 
 class GMatchNode
 {
@@ -171,7 +173,6 @@ private:
   bool hasInstantiationConstantsFrom( Node i, Node f );
 };/* class InstantiatorTheoryUf */
 
-}
 }
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
