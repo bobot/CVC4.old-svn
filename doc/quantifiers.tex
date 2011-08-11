@@ -716,6 +716,43 @@ Note that $f( e )$ is disequality combatible since $e \neq a$.
 Therefore, by our theorem, $S$ is a satisifiable. \\
 \end{comment}
 
+\begin{comment}
+\subsection{Counterexample Refinement}
+
+A counterexample state is given by $M \parallel E \parallel P$, where $M$ is the current set of asserted $T$-literals, $E$ is a set of equalities representing the model for our counterexample, and $P$ is a set of equalities that we are currently wishing to add to $E$.
+Initially, we start with $M \parallel \bar{s} = \bar{s} \parallel \emptyset$, where $\bar{s}$ is the set of all concrete ground terms.
+For a term $t$, we define $V( E, t )$ as either the term $s$ if $t = s \in E$, or NULL otherwise.
+For each pair of terms $t,s$, we define the constraint $R( E, t, s )$ as the conjunction of the constraints $\{ . \\
+
+\noindent Decide: \\
+
+$M \parallel E \parallel P \Longrightarrow M, R( E, t, s ) \parallel E, t = s \parallel P$, if   
+$\begin{cases}
+  \text{ All subchildren of $t$ are in $E$, } \\
+  \text{ $t$ is not in $E$, } \\
+  M \not\models \neg R( E, t, s ). \\
+\end{cases}$ \\
+
+\noindent Suggest: \\
+
+$M, R( E', t, s ) \parallel E, t = s \parallel P \Longrightarrow M \parallel E \parallel P, t = s'$. \\
+
+\noindent Process: \\
+
+$M \parallel E \parallel P, e = s \Longrightarrow M, R( E, e, s ) \parallel E, e = s \parallel P$, if   
+$\begin{cases}
+  \text{ No term in $E$ contains} \\
+  \text{ \ \ \ $e$ as a subchild,} \\
+  M \not\models \neg R( E, e, s ). \\
+\end{cases}$ \\
+
+$M \parallel E \parallel P, f( \bar{t} ) = f( \bar{s} ) \Longrightarrow M \parallel E \parallel P, \bar{t} = \bar{s}$, if   
+$\begin{cases}
+  \text{ No term in $E$ contains} \\
+  \text{ \ \ \ $f( \bar{t} )$ as a subchild.} \\
+\end{cases}$ \\
+\end{comment}
+
 \subsection{Search Strategies for LRA}
 
 We assume a theory solver for $LRA$ which maintains a set of inequalities of the form:

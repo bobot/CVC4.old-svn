@@ -172,7 +172,6 @@ void InstantiatorTheoryUf::registerTerm( Node n )
       //buildEMatchTree( n, active );
       //set instantiation terms
       setInstTerms( n );
-      d_inst_terms[n] = true;
     }
   }else{
     setConcreteTerms( n );
@@ -273,6 +272,7 @@ void InstantiatorTheoryUf::setInstTerms( Node n ){
   Assert( n.hasAttribute(InstantitionConstantAttribute()) );
   if( n.getKind()==INST_CONSTANT ){
     d_active_ic[ n ] = true;
+    d_inst_terms[n] = true;
   }else{
     if( d_inst_terms.find( n )==d_inst_terms.end() ){
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
@@ -280,7 +280,7 @@ void InstantiatorTheoryUf::setInstTerms( Node n ){
           setInstTerms( n[i] );
         }
       }
-      //d_inst_terms[n] = true;
+      d_inst_terms[n] = true;
     }
   }
 }
@@ -343,12 +343,12 @@ bool InstantiatorTheoryUf::prepareInstantiation()
             qSolved = false;
           }
         }else{
-          //Debug("quant-uf") << *it2 << " is not active in this context. " << std::endl;
+          //Debug("quant-uf") << "UF: " << *it2 << " is not active in this context. " << std::endl;
         }
       }
     }
     if( d_instEngine->getActive( it->first ) && qSolved ){
-      Debug("quant-uf") << "Quantifer " << it->first << " is instantiation-ready: " << std::endl;
+      Debug("quant-uf") << "UF: Quantifer " << it->first << " is instantiation-ready: " << std::endl;
       for( std::vector< Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
         if( d_active_ic.find( *it2 )==d_active_ic.end() ){
           d_solved_ic[ *it2 ] = NodeManager::currentNM()->mkVar( (*it2).getType() ); 
@@ -360,7 +360,7 @@ bool InstantiatorTheoryUf::prepareInstantiation()
     }
   }
   if( !solved ){
-    Debug("quant-uf") << "No quantifiers are instantiation ready" << std::endl;
+    Debug("quant-uf") << "UF: No quantifiers are instantiation ready" << std::endl;
 
     debugPrint();
     refreshMaps();
@@ -373,7 +373,7 @@ bool InstantiatorTheoryUf::prepareInstantiation()
       }
     }
     if( d_best!=Node::null() ){
-      Debug("quant-uf") << "The most relevant quantifier is " << d_best << std::endl;
+      Debug("quant-uf") << "UF: The most relevant quantifier is " << d_best << std::endl;
       d_choice_counter[d_best]++;
       d_numChoices++;
       for( int j = 0; j<(int)d_inst_constants[ d_best ].size(); j++ ){
@@ -592,11 +592,12 @@ void InstantiatorTheoryUf::calculateBestMatch( Node f )
   d_model_req.clear();
   Debug("quant-uf") << "Try to solve for " << f << "." << std::endl;
   //Debug("quant-uf") << "Terms:" << std::endl;
-  //for( BoolMap::const_iterator iti = d_inst_terms.begin(); iti!=d_inst_terms.end(); ++iti ){
-  //  if( hasInstantiationConstantsFrom( (*iti).first, f ) ){
-  //    Debug("quant-uf") << "   " << (*iti).first << std::endl;
-  //  }
-  //}
+  for( BoolMap::const_iterator iti = d_inst_terms.begin(); iti!=d_inst_terms.end(); ++iti ){
+    if( hasInstantiationConstantsFrom( (*iti).first, f ) ){
+      //Debug("quant-uf") << "   " << (*iti).first << std::endl;
+      getMatches( (*iti).first ); 
+    }
+  }
   Debug("quant-uf") << "Obligations:" << std::endl;
   initializeObligationList( f );
   NodeList* ob = (*d_obligations.find( f )).second;
@@ -610,7 +611,6 @@ void InstantiatorTheoryUf::calculateBestMatch( Node f )
   for( int j = 0; j<(int)d_inst_constants[f].size(); j++ ){
     Node i = d_inst_constants[f][j];
     curr.push_back( getGMatch( i ) );
-    getMatches( getGMatch( i )->getNode() );
     //add all solved instantiation constants to counterexample
     if( d_solved_ic[ i ]!=Node::null() ){
       addToCounterexample( i, d_solved_ic[ i ], f, ce, curr );
@@ -705,6 +705,8 @@ void InstantiatorTheoryUf::addToCounterexample( Node i, Node c, Node f, std::vec
                                                 std::vector< GMatchNode* >& curr )
 {
   Debug("quant-uf") << "--> Add " << i << " = " << c << " to the counterexample." << std::endl;
+  Assert( i!=Node::null() );
+  Assert( c!=Node::null() );
   //set the value of the match in the counterexample
   GMatchNode* g = getGMatch( i );
   //set match
@@ -730,7 +732,6 @@ void InstantiatorTheoryUf::addToCounterexample( Node i, Node c, Node f, std::vec
       }
       if( add ){
         curr.push_back( g->getParent( j ) );
-        getMatches( n );
       }
     }
   }
@@ -800,6 +801,8 @@ void InstantiatorTheoryUf::removeFromCounterexample( Node i, Node f, std::vector
   std::vector< Node >::iterator it = std::find( ce.begin(), ce.end(), i );
   Assert( it!=ce.end() );
   ce.erase( it );
+  //add to failed suggestions?
+  //d_failed_suggestions[ i ].push_back( g->getMatch() );
   //set match
   g->setMatch( Node::null() );
 }
@@ -1031,7 +1034,9 @@ bool InstantiatorTheoryUf::refineCounterexample( Node f, std::vector< Node >& ce
                   processing_tasks[ node[j] ] = false;
                   tasks[ node ][ node[j] ] = nodeTarget[j];
                 }else{
-                  Assert( !areDisequal( curr_tasks[ node[j] ], nodeTarget[j] ) );
+                  if( curr_tasks.find( node[j] )!=curr_tasks.end() ){
+                    Assert( !areDisequal( curr_tasks[ node[j] ], nodeTarget[j] ) );
+                  }
                 }
               }
             }
@@ -1052,6 +1057,8 @@ bool InstantiatorTheoryUf::refineCounterexample( Node f, std::vector< Node >& ce
       Node cs;
       if( getSuggestion( is, cs, f, ce, curr, curr_tasks ) ){
         Debug("quant-uf-refine") << "The suggestion " << is << " = " << cs << " has been made." << std::endl;
+        Assert( is!=Node::null() );
+        Assert( cs!=Node::null() );
         curr_tasks[ is ] = cs;
         revert_tasks[ is ] = getGMatch( is )->getMatch();
         processing_tasks[ is ] = false;
@@ -1108,81 +1115,83 @@ bool InstantiatorTheoryUf::getSuggestion( Node& is, Node& cs, Node f, std::vecto
   std::map< Node, std::vector< Node > > demands_t;
   std::map< Node, std::vector< Node > > supports_t;
   //find if there any suggestions from parents
-  for( int j=0; j<(int)curr.size(); j++ ){
-    Node i = curr[j]->getNode();
-    for( int k = 0; k<(int)d_matches[i].size(); k++ ){
-      Node c = d_matches[i][k];
+  for( BoolMap::const_iterator iti = d_inst_terms.begin(); iti!=d_inst_terms.end(); ++iti ){
+    Node i = (*iti).first;
+    if( hasInstantiationConstantsFrom( i, f ) && std::find( ce.begin(), ce.end(), i )==ce.end() ){
+      for( int k = 0; k<(int)d_matches[i].size(); k++ ){
+        Node c = d_matches[i][k];
 
-      //Debug("quant-uf-suggest") << "Check if the match " << i << " = " << c << " is consistent " << std::endl;
-      int numEntailed, numNEntailed;
-      if( isConsistent( i, c, f, ce, curr_tasks, numEntailed, numNEntailed ) ){
-        Kind knd = i.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
-        Node m = NodeManager::currentNM()->mkNode( knd, i, c );
-        for( int r=0; r<(int)d_model_req[i][c].size(); r++ ){
-          //Debug("quant-uf-suggest") << "Check " << i << " " << c << " " << d_model_req[i][c][r] << std::endl;
-          Node e = d_model_req[i][c][r].getKind()==NOT ? d_model_req[i][c][r][0] : d_model_req[i][c][r];
-          Node ir = e[0];
-          Node cr = e[1];
-          if( d_interior.find( ir )==d_interior.end() || !d_interior[ir] ){
-            Node irv = getValueInCounterexample( ir, f, ce, curr_tasks );
-            if( hasInstantiationConstantsFrom( ir, f ) && irv!=Node::null() ){
-              if( d_model_req[i][c][r].getKind()==NOT ){
-                if( areDisequal( irv, cr ) ){
-                  //Debug("quant-uf-suggest") << "  " << m << " SUPPORTS: " << ir << " == " << irv << std::endl;
-                  supports[ir].push_back( m );
-                  if( std::find( supports_t[ir].begin(), supports_t[ir].end(), i )==supports_t[ir].end() ){
-                    supports_t[ir].push_back( i );
-                  }
-                }else{
-                  if( areEqual( irv, cr ) ){
-                    //Debug("quant-uf-suggest") << "  " << m << " DEMANDS: " << ir << " != " << irv << std::endl;
-                    demands[ir].push_back( m );
-                    if( std::find( demands_t[ir].begin(), demands_t[ir].end(), i )==demands_t[ir].end() ){
-                      demands_t[ir].push_back( i );
+        //Debug("quant-uf-suggest") << "Check if the match " << i << " = " << c << " is consistent " << std::endl;
+        int numEntailed, numNEntailed;
+        if( isConsistent( i, c, f, ce, curr_tasks, numEntailed, numNEntailed ) ){
+          Kind knd = i.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
+          Node m = NodeManager::currentNM()->mkNode( knd, i, c );
+          for( int r=0; r<(int)d_model_req[i][c].size(); r++ ){
+            //Debug("quant-uf-suggest") << "Check " << i << " " << c << " " << d_model_req[i][c][r] << std::endl;
+            Node e = d_model_req[i][c][r].getKind()==NOT ? d_model_req[i][c][r][0] : d_model_req[i][c][r];
+            Node ir = e[0];
+            Node cr = e[1];
+            if( d_interior.find( ir )==d_interior.end() || !d_interior[ir] ){
+              Node irv = getValueInCounterexample( ir, f, ce, curr_tasks );
+              if( hasInstantiationConstantsFrom( ir, f ) && irv!=Node::null() ){
+                if( d_model_req[i][c][r].getKind()==NOT ){
+                  if( areDisequal( irv, cr ) ){
+                    //Debug("quant-uf-suggest") << "  " << m << " SUPPORTS: " << ir << " == " << irv << std::endl;
+                    supports[ir].push_back( m );
+                    if( std::find( supports_t[ir].begin(), supports_t[ir].end(), i )==supports_t[ir].end() ){
+                      supports_t[ir].push_back( i );
                     }
-                  }
-                  //if it is a disequality, then convert it to a set of equalities
-                  std::map< Node, std::vector< Node > >::iterator itd = d_dmap.find( find( cr ) );
-                  if( itd!=d_dmap.end() ){
-                    for( int d=0; d<(int)itd->second.size(); d++ ){
-                      Node crp = find( itd->second[d] );
-                      //must find all matches ir/crp
-                      for( int j=0; j<(int)d_matches[ir].size(); j++ ){
-                        if( areEqual( d_matches[ir][j], crp ) ){
-                          //Debug("quant-uf-suggest") << "  " << m << " suggests: " << ir << " = " << d_matches[ir][j] << std::endl;
-                          suggests[ir][ d_matches[ir][j] ].push_back( m );
-                          if( std::find( suggests_t[ir][ d_matches[ir][j] ].begin(), 
-                                         suggests_t[ir][ d_matches[ir][j] ].end(), i )==suggests_t[ir][ d_matches[ir][j] ].end() ){
-                            suggests_t[ir][ d_matches[ir][j] ].push_back( i );
+                  }else{
+                    if( areEqual( irv, cr ) ){
+                      //Debug("quant-uf-suggest") << "  " << m << " DEMANDS: " << ir << " != " << irv << std::endl;
+                      demands[ir].push_back( m );
+                      if( std::find( demands_t[ir].begin(), demands_t[ir].end(), i )==demands_t[ir].end() ){
+                        demands_t[ir].push_back( i );
+                      }
+                    }
+                    //if it is a disequality, then convert it to a set of equalities
+                    std::map< Node, std::vector< Node > >::iterator itd = d_dmap.find( find( cr ) );
+                    if( itd!=d_dmap.end() ){
+                      for( int d=0; d<(int)itd->second.size(); d++ ){
+                        Node crp = find( itd->second[d] );
+                        //must find all matches ir/crp
+                        for( int j=0; j<(int)d_matches[ir].size(); j++ ){
+                          if( areEqual( d_matches[ir][j], crp ) ){
+                            //Debug("quant-uf-suggest") << "  " << m << " suggests: " << ir << " = " << d_matches[ir][j] << std::endl;
+                            suggests[ir][ d_matches[ir][j] ].push_back( m );
+                            if( std::find( suggests_t[ir][ d_matches[ir][j] ].begin(), 
+                                          suggests_t[ir][ d_matches[ir][j] ].end(), i )==suggests_t[ir][ d_matches[ir][j] ].end() ){
+                              suggests_t[ir][ d_matches[ir][j] ].push_back( i );
+                            }
                           }
                         }
                       }
                     }
                   }
-                }
-              }else{
-                if( areEqual( irv, cr ) ){
-                  //Debug("quant-uf-suggest") << "  " << m << " SUPPORTS: " << ir << " == " << irv << std::endl;
-                  supports[ir].push_back( m );
-                  if( std::find( supports_t[ir].begin(), supports_t[ir].end(), i )==supports_t[ir].end() ){
-                    supports_t[ir].push_back( i );
-                  }
                 }else{
-                  if( areDisequal( irv, cr ) ){
-                    //Debug("quant-uf-suggest") << "  " << m << " DEMANDS: " << ir << " != " << irv << std::endl;
-                    demands[ir].push_back( m );
-                    if( std::find( demands_t[ir].begin(), demands_t[ir].end(), i )==demands_t[ir].end() ){
-                      demands_t[ir].push_back( i );
+                  if( areEqual( irv, cr ) ){
+                    //Debug("quant-uf-suggest") << "  " << m << " SUPPORTS: " << ir << " == " << irv << std::endl;
+                    supports[ir].push_back( m );
+                    if( std::find( supports_t[ir].begin(), supports_t[ir].end(), i )==supports_t[ir].end() ){
+                      supports_t[ir].push_back( i );
                     }
-                  }
-                  //TODO: must find all matches ir/cr
-                  for( int j=0; j<(int)d_matches[ir].size(); j++ ){
-                    if( areEqual( d_matches[ir][j], cr ) ){
-                      //Debug("quant-uf-suggest") << "  " << m << " suggests: " << ir << " = " << d_matches[ir][j] << std::endl;
-                      suggests[ir][ d_matches[ir][j] ].push_back( m );
-                      if( std::find( suggests_t[ir][ d_matches[ir][j] ].begin(), 
-                                     suggests_t[ir][ d_matches[ir][j] ].end(), i )==suggests_t[ir][ d_matches[ir][j] ].end() ){
-                        suggests_t[ir][ d_matches[ir][j] ].push_back( i );
+                  }else{
+                    if( areDisequal( irv, cr ) ){
+                      //Debug("quant-uf-suggest") << "  " << m << " DEMANDS: " << ir << " != " << irv << std::endl;
+                      demands[ir].push_back( m );
+                      if( std::find( demands_t[ir].begin(), demands_t[ir].end(), i )==demands_t[ir].end() ){
+                        demands_t[ir].push_back( i );
+                      }
+                    }
+                    //TODO: must find all matches ir/cr
+                    for( int j=0; j<(int)d_matches[ir].size(); j++ ){
+                      if( areEqual( d_matches[ir][j], cr ) ){
+                        //Debug("quant-uf-suggest") << "  " << m << " suggests: " << ir << " = " << d_matches[ir][j] << std::endl;
+                        suggests[ir][ d_matches[ir][j] ].push_back( m );
+                        if( std::find( suggests_t[ir][ d_matches[ir][j] ].begin(), 
+                                      suggests_t[ir][ d_matches[ir][j] ].end(), i )==suggests_t[ir][ d_matches[ir][j] ].end() ){
+                          suggests_t[ir][ d_matches[ir][j] ].push_back( i );
+                        }
                       }
                     }
                   }
@@ -1196,44 +1205,44 @@ bool InstantiatorTheoryUf::getSuggestion( Node& is, Node& cs, Node f, std::vecto
   }
 
 
-  //for( int i=0; i<(int)ce.size(); i++ ){
-  //  Debug("quant-uf-suggest") << "Analysis for " << ce[i] << " (current match: " << getGMatch( ce[i] )->getMatch() << "): ";
-  //  Debug("quant-uf-suggest") << std::endl;
-  //  if( supports.find( ce[i] )!=supports.end() ){
-  //    Debug("quant-uf-suggest") << "   Supported by ";
-  //    for( int j=0; j<(int)supports[ ce[i] ].size(); j++ ){
-  //      if( j!=0 ){
-  //        Debug("quant-uf-suggest") << ", ";
-  //      }
-  //      Debug("quant-uf-suggest") << supports[ ce[i] ][j];
-  //    }
-  //    Debug("quant-uf-suggest") << std::endl;
-  //  }
-  //  if( demands.find( ce[i] )!=demands.end() ){
-  //    Debug("quant-uf-suggest") << "   Demanded to change by ";
-  //    for( int j=0; j<(int)demands[ ce[i] ].size(); j++ ){
-  //      if( j!=0 ){
-  //        Debug("quant-uf-suggest") << ", ";
-  //      }
-  //      Debug("quant-uf-suggest") << demands[ ce[i] ][j];
-  //    }
-  //    Debug("quant-uf-suggest") << std::endl;
-  //  }
-  //  if( suggests.find( ce[i] )!=suggests.end() ){
-  //    Debug("quant-uf-suggest") << "   Suggested to change to: " << std::endl;
-  //    for( std::map< Node, std::vector< Node > >::iterator it = suggests[ ce[i] ].begin();
-  //      it!=suggests[ ce[i] ].end(); ++it ){
-  //      Debug("quant-uf-suggest") << "      " << it->first << ", (by : ";
-  //      for( int j=0; j<(int)it->second.size(); j++ ){
-  //        if( j!=0 ){
-  //          Debug("quant-uf-suggest") << ", ";
-  //        }
-  //        Debug("quant-uf-suggest") << it->second[j];
-  //      }
-  //      Debug("quant-uf-suggest") << ")" << std::endl;
-  //    }
-  //  }
-  //}
+  for( int i=0; i<(int)ce.size(); i++ ){
+    Debug("quant-uf-suggest") << "Analysis for " << ce[i] << " (current match: " << getGMatch( ce[i] )->getMatch() << "): ";
+    Debug("quant-uf-suggest") << std::endl;
+    if( supports.find( ce[i] )!=supports.end() ){
+      Debug("quant-uf-suggest") << "   Supported by ";
+      for( int j=0; j<(int)supports[ ce[i] ].size(); j++ ){
+        if( j!=0 ){
+          Debug("quant-uf-suggest") << ", ";
+        }
+        Debug("quant-uf-suggest") << supports[ ce[i] ][j];
+      }
+      Debug("quant-uf-suggest") << std::endl;
+    }
+    if( demands.find( ce[i] )!=demands.end() ){
+      Debug("quant-uf-suggest") << "   Demanded to change by ";
+      for( int j=0; j<(int)demands[ ce[i] ].size(); j++ ){
+        if( j!=0 ){
+          Debug("quant-uf-suggest") << ", ";
+        }
+        Debug("quant-uf-suggest") << demands[ ce[i] ][j];
+      }
+      Debug("quant-uf-suggest") << std::endl;
+    }
+    if( suggests.find( ce[i] )!=suggests.end() ){
+      Debug("quant-uf-suggest") << "   Suggested to change to: " << std::endl;
+      for( std::map< Node, std::vector< Node > >::iterator it = suggests[ ce[i] ].begin();
+        it!=suggests[ ce[i] ].end(); ++it ){
+        Debug("quant-uf-suggest") << "      " << it->first << ", (by : ";
+        for( int j=0; j<(int)it->second.size(); j++ ){
+          if( j!=0 ){
+            Debug("quant-uf-suggest") << ", ";
+          }
+          Debug("quant-uf-suggest") << it->second[j];
+        }
+        Debug("quant-uf-suggest") << ")" << std::endl;
+      }
+    }
+  }
 
   for( int i=0; i<(int)ce.size(); i++ ){
     //check if there exists a suggestion t in which every node n that supports ce[i] also suggests t

@@ -660,9 +660,10 @@ void TheoryArith::propagate(Effort e) {
 
 Node TheoryArith::getValue(TNode n) {
   NodeManager* nodeManager = NodeManager::currentNM();
-
+//cout << "get value " << n << std::endl;
   switch(n.getKind()) {
-  case kind::VARIABLE: {
+  case kind::VARIABLE: 
+  case kind::INST_CONSTANT:{
     ArithVar var = d_arithvarNodeMap.asArithVar(n);
 
     if(d_removedRows.find(var) != d_removedRows.end()){
@@ -701,6 +702,7 @@ Node TheoryArith::getValue(TNode n) {
             iend = n.end();
           i != iend;
           ++i) {
+            //cout << "getConst " << *i << std::endl;
       value *= d_valuation.getValue(*i).getConst<Rational>();
     }
     return nodeManager->mkConst(value);

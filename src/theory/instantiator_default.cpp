@@ -33,9 +33,12 @@ void InstantiatorDefault::check( Node assertion ){
 }
 
 bool InstantiatorDefault::prepareInstantiation(){
+  Debug("quant-default") << "Default Prepare Instantiation" << std::endl;
   for( std::map< Node, std::vector< Node > >::iterator it = d_inst_constants.begin(); 
       it !=d_inst_constants.end(); ++it ){
+    Debug("quant-default") << "Process " << it->first << " : " << std::endl;
     for( std::vector< Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
+      Debug("quant-default") << "Getting value for " << *it2 << std::endl;
       Node val = d_th->getValue( *it2 );
       Debug("quant-default") << "Default Instantiate for " << d_th->getId() << ", setting " << *it2 << " = " << val << std::endl;
       d_solved_ic[ *it2 ] = val;
