@@ -38,6 +38,7 @@
 #include "theory/arith/arith_static_learner.h"
 #include "theory/arith/arith_prop_manager.h"
 #include "theory/arith/arithvar_node_map.h"
+#include "theory/arith/dio_solver.h"
 
 #include "util/stats.h"
 
@@ -92,8 +93,6 @@ private:
    */
   ArithVarSet d_userVariables;
 
-
-
   /**
    * List of all of the inequalities asserted in the current context.
    */
@@ -104,6 +103,11 @@ private:
    */
   Tableau d_tableau;
 
+  /**
+   * A Diophantine equation solver.  Accesses the tableau and partial
+   * model (each in a read-only fashion).
+   */
+  DioSolver d_diosolver;
 
   /** Counts the number of notifyRestart() calls to the theory. */
   uint32_t d_restartsCounter;

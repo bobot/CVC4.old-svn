@@ -65,6 +65,7 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valu
   d_userVariables(),
   d_diseq(c),
   d_tableau(),
+  d_diosolver(c, d_tableau, d_partialModel),
   d_restartsCounter(0),
   d_rowHasBeenAdded(false),
   d_tableauResetDensity(1.6),
@@ -574,6 +575,16 @@ void TheoryArith::check(Effort effortLevel){
         const Rational& r = d.getNoninfinitesimalPart();
         const Rational& i = d.getInfinitesimalPart();
         Trace("integers") << "integers: assignment to [[" << d_arithvarNodeMap.asNode(v) << "]] is " << r << "[" << i << "]" << endl;
+        if(r.getDenominator() == 1 && i.getNumerator() == 0) {
+          // already an integer assignment; skip
+          continue;
+        }
+
+        // otherwise, try the Diophantine equation solver
+        bool result = d_diosolver.solve();
+        Debug("integers") << "the dio solver returned " << (result ? "true" : "false") << endl;
+
+        // branch and bound
         if(r.getDenominator() == 1) {
           // r is an integer, but the infinitesimal might not be
           if(i.getNumerator() < 0) {
@@ -626,6 +637,8 @@ void TheoryArith::check(Effort effortLevel){
 
             // split only on one var
             break;
+          } else {
+            Unreachable();
           }
         } else {
           // lemma: v <= floor(r) || v >= ceil(r)
