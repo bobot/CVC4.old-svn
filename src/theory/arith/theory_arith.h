@@ -76,6 +76,15 @@ private:
   std::vector<bool> d_integerVars;
 
   /**
+   * On full effort checks (after determining LA(Q) satisfiability), we
+   * consider integer vars, but we make sure to do so fairly to avoid
+   * nontermination (although this isn't a guarantee).  To do it fairly,
+   * we consider variables in round-robin fashion.  This is the
+   * round-robin index.
+   */
+  ArithVar d_nextIntegerCheckVar;
+
+  /**
    * If ArithVar v maps to the node n in d_removednode,
    * then n = (= asNode(v) rhs) where rhs is a term that
    * can be used to determine the value of n using getValue().

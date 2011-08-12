@@ -61,6 +61,7 @@ typedef expr::Attribute<SlackAttrID, bool> Slack;
 
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, out, valuation),
+  d_nextIntegerCheckVar(0),
   d_partialModel(c),
   d_userVariables(),
   d_diseq(c),
@@ -569,7 +570,9 @@ void TheoryArith::check(Effort effortLevel){
   }
 
   if(fullEffort(effortLevel)) {
-    for(ArithVar v = 0; v < d_variables.size(); ++v) {
+    const ArithVar rrEnd = d_nextIntegerCheckVar;
+    do {
+      ArithVar v = d_nextIntegerCheckVar;
       if(d_integerVars[v]) {
         const DeltaRational& d = d_partialModel.getAssignment(v);
         const Rational& r = d.getNoninfinitesimalPart();
@@ -581,8 +584,8 @@ void TheoryArith::check(Effort effortLevel){
         }
 
         // otherwise, try the Diophantine equation solver
-        bool result = d_diosolver.solve();
-        Debug("integers") << "the dio solver returned " << (result ? "true" : "false") << endl;
+        //bool result = d_diosolver.solve();
+        //Debug("integers") << "the dio solver returned " << (result ? "true" : "false") << endl;
 
         // branch and bound
         if(r.getDenominator() == 1) {
@@ -667,7 +670,7 @@ void TheoryArith::check(Effort effortLevel){
           break;
         }
       }// if(arithvar is integer-typed)
-    }// for(each arithvar)
+    } while((d_nextIntegerCheckVar = (1 + d_nextIntegerCheckVar == d_variables.size() ? 0 : 1 + d_nextIntegerCheckVar)) != rrEnd);
   }// if(full effort)
 
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
