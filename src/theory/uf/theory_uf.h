@@ -36,8 +36,10 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
-class TheoryUF : public Theory {
+class InstantiatorTheoryUf;
 
+class TheoryUF : public Theory {
+  friend class InstantiatorTheoryUf;
 public:
 
   class NotifyClass {

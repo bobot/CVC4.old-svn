@@ -36,8 +36,7 @@ private:
   typedef context::CDList<GMatchNode* > GmnList;
   typedef context::CDList<Node > ObList;
   GmnList d_parents;
-  ObList d_obligations_eq;
-  ObList d_obligations_deq;
+  ObList d_obligations;
   Node d_node;
   Node d_match;
 public:
@@ -48,9 +47,9 @@ public:
   int getNumParents() { return d_parents.size(); }
   GMatchNode* getParent( int i ) { return d_parents[i]; }
 
-  void addObligation( Node n, bool eq );
-  int getNumObligations( bool eq ) { return eq ? d_obligations_eq.size() : d_obligations_deq.size(); }
-  Node getObligation( int i, bool eq ) { return eq ? d_obligations_eq[i] : d_obligations_deq[i]; }
+  void addObligation( Node n );
+  int getNumObligations() { return d_obligations.size(); }
+  Node getObligation( int i ) { return d_obligations[i]; }
 
   Node getNode() { return d_node; }
 
@@ -75,7 +74,7 @@ protected:
   void buildGMatches( Node n );
   GMatchNode* getGMatch( Node n );
   NodeLists d_obligations;
-  void addObligation( Node n1, Node n2, bool eq );
+  void addObligation( Node n1, Node n2 );
   void initializeObligationList( Node f );
 
   //AJR-hack
@@ -90,19 +89,19 @@ protected:
   BoolMap d_concrete_terms;
   BoolMap d_active_ic;
   /** map from (representative) nodes to list of nodes in their eq class */
-  NodeLists d_equivalence_class;
+  //NodeLists d_equivalence_class;
   /** map from (representative) nodes to list of representative nodes they are disequal from */
-  NodeLists d_disequality;
+  //NodeLists d_disequality;
 
-  /** used eq classes */
-  std::map< Node, std::vector< Node > > d_emap;
-  std::map< Node, std::vector< Node > > d_dmap;
-  //std::map< Node, Node > d_eq_find;
-  void refreshMaps();
+  ///** used eq classes */
+  //std::map< Node, std::vector< Node > > d_emap;
+  //std::map< Node, std::vector< Node > > d_dmap;
+  ////std::map< Node, Node > d_eq_find;
+  //void refreshMaps();
   //bool decideEqual( Node a, Node b );
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
-  Node find( Node a );
+  Node getRepresentative( Node a );
   void debugPrint();
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
@@ -111,15 +110,14 @@ public:
   Theory* getTheory();
   void check( Node assertion );
   void assertEqual( Node a, Node b );
-  void assertDisequal( Node a, Node b );
   bool prepareInstantiation();
 private:
   void registerTerm( Node n );
   void setInstTerms( Node n );
   void setConcreteTerms( Node n );
   //void buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active );
-  void initializeEqClass( Node t );
-  void initializeDisequalityList( Node t );
+  //void initializeEqClass( Node t );
+  //void initializeDisequalityList( Node t );
 
   //class Counterexample 
   //{

@@ -128,7 +128,7 @@ void TheoryQuantifiers::check(Effort e) {
     }
     if( quantActive ){  
       static bool enableLimit = true;
-      static int limitInst = 100;
+      static int limitInst = 3;
       bool doInst = true;
       if( enableLimit && d_numInstantiations.get()==limitInst ){
         Debug("quantifiers") << "Give up in current branch." << std::endl;

@@ -60,13 +60,28 @@ void TheoryUF::check(Effort level) {
     switch (assertion.getKind()) {
     case kind::EQUAL:
       d_equalityEngine.addEquality(assertion[0], assertion[1], assertion);
+      //AJR-hack
+      if( getInstantiator() ){
+        ((InstantiatorTheoryUf*)getInstantiator())->assertEqual( assertion[0], assertion[1] );
+      }
+      //AJR-hack-end
       break;
     case kind::APPLY_UF:
       d_equalityEngine.addEquality(assertion, d_true, assertion);
+      //AJR-hack
+      if( getInstantiator() ){
+        ((InstantiatorTheoryUf*)getInstantiator())->assertEqual( assertion, d_true );
+      }
+      //AJR-hack-end
       break;
     case kind::NOT:
       if (assertion[0].getKind() == kind::APPLY_UF) {
         d_equalityEngine.addEquality(assertion[0], d_false, assertion);
+        //AJR-hack
+        if( getInstantiator() ){
+          ((InstantiatorTheoryUf*)getInstantiator())->assertEqual( assertion[0], d_false );
+        }
+        //AJR-hack-end
       } else {
         // Disequality check
         TNode equality = assertion[0];
@@ -79,6 +94,11 @@ void TheoryUF::check(Effort level) {
         }
         // Assert the dis-equality
         d_equalityEngine.addEquality(assertion[0], d_false, assertion);
+        //AJR-hack
+        if( getInstantiator() ){
+          ((InstantiatorTheoryUf*)getInstantiator())->assertEqual( assertion[0], d_false );
+        }
+        //AJR-hack-end
       }
       break;
     default:
