@@ -89,15 +89,16 @@ protected:
   BoolMap d_concrete_terms;
   BoolMap d_active_ic;
   /** map from (representative) nodes to list of nodes in their eq class */
-  //NodeLists d_equivalence_class;
+  NodeLists d_equivalence_class;
+  BoolMap d_is_rep;
   /** map from (representative) nodes to list of representative nodes they are disequal from */
-  //NodeLists d_disequality;
+  NodeLists d_disequality;
 
   ///** used eq classes */
-  //std::map< Node, std::vector< Node > > d_emap;
-  //std::map< Node, std::vector< Node > > d_dmap;
+  std::map< Node, std::vector< Node > > d_emap;
+  std::map< Node, std::vector< Node > > d_dmap;
   ////std::map< Node, Node > d_eq_find;
-  //void refreshMaps();
+  void refreshMaps();
   //bool decideEqual( Node a, Node b );
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
@@ -116,9 +117,16 @@ private:
   void setInstTerms( Node n );
   void setConcreteTerms( Node n );
   //void buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active );
-  //void initializeEqClass( Node t );
-  //void initializeDisequalityList( Node t );
+  void initializeEqClass( Node t );
+  void initializeDisequalityList( Node t );
 
+  bool hasInstantiationConstantsFrom( Node i, Node f );
+  void calculateBestMatch( Node f );
+  double d_heuristic;
+  Node d_best;
+
+
+#ifdef COUNTEREXAMPLE_REFINE_QUANT
   //class Counterexample 
   //{
   //public:
@@ -140,7 +148,6 @@ private:
   std::map< Node, bool > d_interior;
   std::map< Node, std::vector< Node > > d_model;
   std::map< Node, std::vector< Node > > d_failed_suggestions;
-  void calculateBestMatch( Node f );
   void addToCounterexample( Node i, Node c, Node f, std::vector< Node >& ce, 
                             std::vector< GMatchNode* >& curr );
   void removeFromCounterexample( Node i, Node f, std::vector< Node >& ce, 
@@ -164,11 +171,8 @@ private:
   std::map< Node, std::vector< Node > > d_matches;
   std::map< Node, std::map< Node, std::vector< Node > > > d_model_req;
   void getMatches( Node i );
+#endif
 
-  double d_heuristic;
-  Node d_best;
-
-  bool hasInstantiationConstantsFrom( Node i, Node f );
 };/* class InstantiatorTheoryUf */
 
 }
