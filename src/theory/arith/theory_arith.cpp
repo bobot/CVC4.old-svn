@@ -61,6 +61,7 @@ typedef expr::Attribute<SlackAttrID, bool> Slack;
 
 TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, out, valuation),
+  learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
   d_partialModel(c),
   d_userVariables(),
@@ -133,13 +134,26 @@ TheoryArith::Statistics::~Statistics(){
 }
 
 Node TheoryArith::preprocess(TNode atom) {
-  if (atom.getKind() == kind::EQUAL) {
-    Node leq = NodeBuilder<2>(kind::LEQ) << atom[0] << atom[1];
-    Node geq = NodeBuilder<2>(kind::GEQ) << atom[0] << atom[1];
-    return Rewriter::rewrite(leq.andNode(geq));
-  } else {
-    return atom;
+  Debug("arith::preprocess") << "arith::preprocess() : " << atom << endl;
+
+  Node a = d_pbSubstitutions.apply(atom);
+
+  if (a != atom) {
+    Debug("pb") << "arith::preprocess() : after pb substitutions: " << a << endl;
+    a = Rewriter::rewrite(a);
+    Debug("pb") << "arith::preprocess() : after pb substitutions and rewriting: " << a << endl;
+    Debug("arith::preprocess") << "arith::preprocess() : after pb substitutions and rewriting: " << a << endl;
   }
+
+  if (a.getKind() == kind::EQUAL) {
+    Node leq = NodeBuilder<2>(kind::LEQ) << a[0] << a[1];
+    Node geq = NodeBuilder<2>(kind::GEQ) << a[0] << a[1];
+    Node rewritten = Rewriter::rewrite(leq.andNode(geq));
+    Debug("arith::preprocess") << "arith::preprocess() : returning " << rewritten << endl;
+    return rewritten;
+  }
+
+  return a;
 }
 
 Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutions) {
@@ -209,7 +223,7 @@ Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutio
   case kind::LT:
   case kind::GEQ:
   case kind::GT:
-    if (in[0].getKind() == kind::VARIABLE) {
+    if (in[0].getMetaKind() == kind::metakind::VARIABLE) {
       learner.addBound(in);
     }
     break;
@@ -305,7 +319,7 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   ArithVar varX = d_variables.size();
   d_variables.push_back(Node(x));
   Debug("integers") << "isInteger[[" << x << "]]: " << x.getType().isInteger() << endl;
-  d_integerVars.push_back(x.getType().isInteger());
+  d_integerVars.push_back(x.getType().isPseudoboolean() ? 2 : (x.getType().isInteger() ? 1 : 0));
 
   d_simplex.increaseMax();
 
@@ -573,11 +587,30 @@ void TheoryArith::check(Effort effortLevel){
     const ArithVar rrEnd = d_nextIntegerCheckVar;
     do {
       ArithVar v = d_nextIntegerCheckVar;
-      if(d_integerVars[v]) {
+      short type = d_integerVars[v];
+      if(type > 0) { // integer
         const DeltaRational& d = d_partialModel.getAssignment(v);
         const Rational& r = d.getNoninfinitesimalPart();
         const Rational& i = d.getInfinitesimalPart();
         Trace("integers") << "integers: assignment to [[" << d_arithvarNodeMap.asNode(v) << "]] is " << r << "[" << i << "]" << endl;
+        if(type == 2) {
+          // pseudoboolean
+          if(r.getDenominator() == 1 && i.getNumerator() == 0 &&
+             (r.getNumerator() == 0 || r.getNumerator() == 1)) {
+            // already pseudoboolean; skip
+            continue;
+          }
+
+          TNode var = d_arithvarNodeMap.asNode(v);
+          Node zero = NodeManager::currentNM()->mkConst(Integer(0));
+          Node one = NodeManager::currentNM()->mkConst(Integer(1));
+          Node eq0 = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::EQUAL, var, zero));
+          Node eq1 = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::EQUAL, var, one));
+          Node lem = NodeManager::currentNM()->mkNode(kind::OR, eq0, eq1);
+          Trace("pb") << "pseudobooleans: branch & bound: " << lem << endl;
+          Trace("integers") << "pseudobooleans: branch & bound: " << lem << endl;
+          //d_out->lemma(lem);
+        }
         if(r.getDenominator() == 1 && i.getNumerator() == 0) {
           // already an integer assignment; skip
           continue;
