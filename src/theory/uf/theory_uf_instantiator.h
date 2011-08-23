@@ -124,54 +124,22 @@ private:
   void calculateBestMatch( Node f );
   double d_heuristic;
   Node d_best;
+  std::map< Node, Node > d_matches;
 
+  std::map< Node, std::map< Node, bool > > d_generalizes;
 
-#ifdef COUNTEREXAMPLE_REFINE_QUANT
-  //class Counterexample 
-  //{
-  //public:
-  //  //node that it is for
-  //  Node d_formula;
-  //  //nodes that are currently involved in counterexample
-  //  std::vector< Node > d_ce;
-  //  //nodes that are interior
-  //  std::map< Node, bool > d_interior;
-  //  //model requirements
-  //  std::map< Node, std::vector< Node > > d_model;
-  //  //current graphs to process
-  //  std::vector< GMatchNode* > d_curr;
-
-  //  void addToCounterexample( Node i, Node c );
-  //  void removeFromCounterexample( Node i );
-  //};
-
-  std::map< Node, bool > d_interior;
-  std::map< Node, std::vector< Node > > d_model;
-  std::map< Node, std::vector< Node > > d_failed_suggestions;
-  void addToCounterexample( Node i, Node c, Node f, std::vector< Node >& ce, 
-                            std::vector< GMatchNode* >& curr );
-  void removeFromCounterexample( Node i, Node f, std::vector< Node >& ce, 
-                                 std::vector< GMatchNode* >& curr );
-  Node getValueInCounterexample( Node i, Node f, std::vector< Node >& ce );
-  Node getValueInCounterexample( Node i, Node f, std::vector< Node >& ce, std::map< Node, Node >& curr_tasks );
-  bool isConsistent( Node i, Node c, Node f, std::vector< Node >& ce,
-                     int& numEntailed, int& numNEntailed );
-  bool isConsistent( Node i, Node c, Node f, std::vector< Node >& ce, std::map< Node, Node >& curr_tasks,
-                     int& numEntailed, int& numNEntailed );
-
-  void propagateCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
-
-  bool refineCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
-  bool getSuggestion( Node& is, Node& cs, Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr, 
-                      std::map< Node, Node >& curr_tasks );
-
-  bool decideCounterexample( Node f, std::vector< Node >& ce, std::vector< GMatchNode* >& curr );
-
-
-  std::map< Node, std::vector< Node > > d_matches;
-  std::map< Node, std::map< Node, std::vector< Node > > > d_model_req;
-  void getMatches( Node i );
-#endif
+  std::map< Node, std::map< Node, std::vector< std::map< Node, Node > > > > d_ematch;
+  std::map< Node, std::map< Node, std::vector< std::map< Node, Node > > > > d_ematch_mod;
+  std::map< Node, std::map< Node, bool > > d_does_ematch;
+  bool addToEMatching( std::vector< std::map< Node, Node > >& curr_matches, Node i, Node f, bool onlyCheckEq );
+  void doEMatching( Node i, Node c, Node f,  bool moduloEq = false );
+  bool mergeMatch( std::vector< std::map< Node, Node > >& target,
+                   std::vector< std::map< Node, Node > >& matches );
+  bool mergeMatch( std::map< Node, Node >& target, std::map< Node, Node >& matches );
+  int numMatches( std::vector< std::map< Node, Node > >& target,
+                  std::vector< std::map< Node, Node > >& matches );
+  void removeRedundant( std::vector< std::map< Node, Node > >& matches );
+  int checkSubsume( std::map< Node, Node >& m1, std::map< Node, Node >& m2 );
 
 };/* class InstantiatorTheoryUf */
 
