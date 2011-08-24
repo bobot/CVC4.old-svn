@@ -243,8 +243,8 @@ void TheoryEngine::preRegister(TNode preprocessed) {
  * Check all (currently-active) theories for conflicts.
  * @param effort the effort level to use
  */
-bool TheoryEngine::check(theory::Theory::Effort effort) {
-  d_theoryOut.d_conflictNode = Node::null();
+void TheoryEngine::check(theory::Theory::Effort effort) {
+
   d_theoryOut.d_propagatedLiterals.clear();
 
 #ifdef CVC4_FOR_EACH_THEORY_STATEMENT
@@ -253,8 +253,8 @@ bool TheoryEngine::check(theory::Theory::Effort effort) {
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
   if (theory::TheoryTraits<THEORY>::hasCheck && d_theoryIsActive[THEORY]) { \
      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(d_theoryTable[THEORY])->check(effort); \
-     if (!d_theoryOut.d_conflictNode.get().isNull()) { \
-       return false; \
+     if (d_theoryOut.d_inConflict) { \
+       return; \
      } \
   }
 
@@ -264,8 +264,6 @@ bool TheoryEngine::check(theory::Theory::Effort effort) {
   } catch(const theory::Interrupted&) {
     Trace("theory") << "TheoryEngine::check() => conflict" << std::endl;
   }
-
-  return true;
 }
 
 void TheoryEngine::propagate() {
@@ -304,7 +302,6 @@ bool TheoryEngine::presolve() {
   // at doing something with the input formula, even if it wouldn't
   // otherwise be active.
 
-  d_theoryOut.d_conflictNode = Node::null();
   d_theoryOut.d_propagatedLiterals.clear();
 
   try {
@@ -315,7 +312,7 @@ bool TheoryEngine::presolve() {
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
     if (theory::TheoryTraits<THEORY>::hasPresolve) { \
       reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(d_theoryTable[THEORY])->presolve(); \
-      if(!d_theoryOut.d_conflictNode.get().isNull()) { \
+      if(d_theoryOut.d_inConflict) { \
         return true; \
       } \
     }
@@ -326,7 +323,7 @@ bool TheoryEngine::presolve() {
     Trace("theory") << "TheoryEngine::presolve() => interrupted" << endl;
   }
   // return whether we have a conflict
-  return !d_theoryOut.d_conflictNode.get().isNull();
+  return false;
 }
 
 

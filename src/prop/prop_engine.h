@@ -99,7 +99,7 @@ public:
    *
    * @param node the formula to assert
    */
-  void assertLemma(TNode node);
+  void assertLemma(TNode node, bool negated, bool removable);
 
   /**
    * If ever n is decided upon, it must be in the given phase.

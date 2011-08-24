@@ -404,7 +404,7 @@ bool InstantiatorTheoryUf::prepareInstantiation()
         Assert( d_matches[i]!=Node::null() );
         d_solved_ic[ i ] = d_matches[i];
       }
-      exit( -1 );
+      //exit( -1 );
       return true;
     }
   }
