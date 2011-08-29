@@ -63,7 +63,8 @@ d_concrete_terms( c ),
 d_active_ic( c ),
 d_equivalence_class( c ),
 d_is_rep( c ),
-d_disequality( c )
+d_disequality( c ),
+d_ematch_done( c )
 {
   
   d_numChoices = 0;
@@ -470,6 +471,13 @@ void InstantiatorTheoryUf::debugPrint()
   }
   Debug("quant-uf") << std::endl;
 
+  for( NodeLists::iterator it = d_ematch_done.begin(); it!=d_ematch_done.end(); ++ it ){
+    NodeList* nl = (*it).second;
+    for( NodeList::const_iterator it2 = nl->begin(); it2!=nl->end(); ++it2 ){
+      Debug("quant-uf" ) << (*it).first << " ematched " << (*it2) << std::endl;
+    }
+  }
+
   Debug("quant-uf") << std::endl;
 }
 
@@ -626,10 +634,12 @@ void InstantiatorTheoryUf::calculateBestMatch( Node f )
   std::map< Node, Node > final_matches;
   std::vector< Node >::iterator term_it = curr_terms.begin();
   bool checkEq = true;
+  bool firstTime = true;
   int level = 0;
   bool success = false;
   while( !success ){
-    if( addToEMatching( curr_matches, *term_it, f, checkEq ) ){
+    if( addToEMatching( curr_matches, *term_it, f, checkEq, firstTime ) ){
+      //firstTime = false;
       //check if some match has all instantiation constants
       for( int i=0; i<(int)curr_matches.size(); i++ ){
         if( curr_matches[i].size()==d_inst_constants[f].size() ){
@@ -699,17 +709,21 @@ void InstantiatorTheoryUf::calculateBestMatch( Node f )
 }
 
 
-bool InstantiatorTheoryUf::addToEMatching( std::vector< std::map< Node, Node > >& curr_matches, Node i, Node f, bool onlyCheckEq ){
+bool InstantiatorTheoryUf::addToEMatching( std::vector< std::map< Node, Node > >& curr_matches, Node i, Node f, 
+                                           bool onlyCheckEq, bool firstTime ){
   if( onlyCheckEq ){
     Node r = getRepresentative( i );
     std::map< Node, std::vector< Node > >::iterator itr = d_emap.find( r );
+    //std::random_shuffle( itr->second.begin(), itr->second.end() );
     for( int j=0; j<(int)itr->second.size(); j++ ){
       if( !itr->second[j].hasAttribute(InstantitionConstantAttribute()) ){
         doEMatching( i, itr->second[j], f, false );
         if( d_does_ematch[ i ][ itr->second[j] ] ){
           //try to merge with curr_matches
           if( mergeMatch( curr_matches, d_ematch[ i ][ itr->second[j] ] ) ){
-            Debug("quant-uf") << i << " = " << itr->second[j] << " was added to E-match." << std::endl;
+            setEmatchDone( i, itr->second[j] );
+            Assert( isEmatchDone( i, itr->second[j] ) );
+            Debug("quant-uf") << i << " = " << itr->second[j] << " was added to E-match. " << isEmatchDone( i, itr->second[j] ) << std::endl;
             return true;
           }
         }
@@ -718,11 +732,13 @@ bool InstantiatorTheoryUf::addToEMatching( std::vector< std::map< Node, Node > >
     return false;
   }else{
     for( BoolMap::const_iterator it = d_concrete_terms.begin(); it!=d_concrete_terms.end(); ++it ){
+      //DO_THIS : shuffle concrete terms
       if( i.getType()==(*it).first.getType() && !areEqual( i, (*it).first ) ){    //already handled for onlyCheckEq = true
         doEMatching( i, (*it).first, f, false );
         if( d_does_ematch[ i ][ (*it).first ] ){
           //try to merge with curr_matches
           if( mergeMatch( curr_matches, d_ematch[ i ][ (*it).first ] ) ){
+            setEmatchDone( i, (*it).first );
             //if so, consider the equivalence classes merged (and reset E-matches?) DO_THIS
             Debug("quant-uf") << i << " and " << (*it).first << " were added to E-match." << std::endl;
             return true;
@@ -943,4 +959,50 @@ int InstantiatorTheoryUf::checkSubsume( std::map< Node, Node >& m1, std::map< No
   }else{
     return 0;
   }
+}
+
+void InstantiatorTheoryUf::setEmatchDone( Node i, Node c ){
+  NodeLists::iterator emdi_i = d_ematch_done.find( i );
+  NodeList* emdi;
+  if( emdi_i == d_ematch_done.end() ) {
+    emdi = new(d_th->getContext()->getCMM()) NodeList(true, d_th->getContext(), false,
+                                                      ContextMemoryAllocator<Node>(d_th->getContext()->getCMM()));
+    d_ematch_done.insertDataFromContextMemory(i, emdi);
+  }else{
+    emdi = (*emdi_i).second;
+  }
+  emdi->push_back( c );
+  Assert( isEmatchDone( i, c ) );
+}
+
+bool InstantiatorTheoryUf::isEmatchDone( Node i, Node c ){
+  NodeLists::iterator emdi_i = d_ematch_done.find( i );
+  if( emdi_i != d_ematch_done.end() ){
+    NodeList* emdi = (*emdi_i).second;
+    for( NodeList::const_iterator it = emdi->begin(); it != emdi->end(); it++ ) {
+      if( *it == c ){
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool InstantiatorTheoryUf::isGeneralization( Node i1, Node i2 )
+{
+  if( i1==i2 ){
+    return true;
+  }else if( i1.getKind()==INST_CONSTANT ){
+    return i2.getKind()!=INST_CONSTANT;
+  }else if( i1.getKind()==APPLY_UF ){
+    if( i2.getKind()==APPLY_UF && i1.getOperator()==i2.getOperator() ){
+      for( int i=0; i<(int)i1.getNumChildren(); i++ ){
+        if( !isGeneralization( i1[i], i2[i] ) ){
+          return false;
+        }
+      }
+      return true;
+    }
+  }
+  return false;
 }

@@ -93,6 +93,8 @@ protected:
   BoolMap d_is_rep;
   /** map from (representative) nodes to list of representative nodes they are disequal from */
   NodeLists d_disequality;
+  /** map from patterns to nodes that they have ematched against */
+  NodeLists d_ematch_done;
 
   ///** used eq classes */
   std::map< Node, std::vector< Node > > d_emap;
@@ -126,12 +128,11 @@ private:
   Node d_best;
   std::map< Node, Node > d_matches;
 
-  std::map< Node, std::map< Node, bool > > d_generalizes;
-
   std::map< Node, std::map< Node, std::vector< std::map< Node, Node > > > > d_ematch;
   std::map< Node, std::map< Node, std::vector< std::map< Node, Node > > > > d_ematch_mod;
   std::map< Node, std::map< Node, bool > > d_does_ematch;
-  bool addToEMatching( std::vector< std::map< Node, Node > >& curr_matches, Node i, Node f, bool onlyCheckEq );
+  bool addToEMatching( std::vector< std::map< Node, Node > >& curr_matches, Node i, Node f, 
+                       bool onlyCheckEq, bool firstTime );
   void doEMatching( Node i, Node c, Node f,  bool moduloEq = false );
   bool mergeMatch( std::vector< std::map< Node, Node > >& target,
                    std::vector< std::map< Node, Node > >& matches );
@@ -141,6 +142,11 @@ private:
   void removeRedundant( std::vector< std::map< Node, Node > >& matches );
   int checkSubsume( std::map< Node, Node >& m1, std::map< Node, Node >& m2 );
 
+  void setEmatchDone( Node i, Node c );
+  bool isEmatchDone( Node i, Node c );
+
+  std::map< Node, std::map< Node, bool > > d_generalizes;
+  bool isGeneralization( Node i1, Node i2 );
 };/* class InstantiatorTheoryUf */
 
 }

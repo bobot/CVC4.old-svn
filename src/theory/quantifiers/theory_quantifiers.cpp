@@ -69,6 +69,16 @@ void TheoryQuantifiers::presolve() {
 Node TheoryQuantifiers::getValue(TNode n) {
   //NodeManager* nodeManager = NodeManager::currentNM();
   switch(n.getKind()) {
+  case FORALL:
+  case EXISTS:
+  case NO_COUNTEREXAMPLE:
+    bool value;
+    if( d_valuation.hasSatValue( n, value ) ){
+      return NodeManager::currentNM()->mkConst(value);
+    }else{
+      return NodeManager::currentNM()->mkConst(false);
+    }
+    break;
   default:
     Unhandled(n.getKind());
   }
