@@ -198,14 +198,6 @@ An expression $E$ is \emph{concrete} if $E \mapsto^I \emptyset$.
 
 In this section, we present a particular type of lemma for quantified formulas, which we will refer to as the \emph{counterexample lemma} for a quantified formula.
 The counterexample lemma of a formula $\forall \bar{x}. \varphi( \bar{ x } )$ is defined to be $\bot^{\neg \forall \bar{x}. \varphi( \bar{x} )} \vee \neg \varphi( \bar{e} )$, where $\bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{x} )$.
-This formula is valid since:
-
-\begin{tabular}{llll}
-$\neg \forall \bar{x}. \varphi( \bar{ x } )$ & $\Rightarrow$ & $\exists \bar{x}. \neg \varphi( \bar{x} )$ \\
-$\neg \forall \bar{x}. \varphi( \bar{ x } )$ & $\Rightarrow$ & $\neg \varphi( \bar{e} )$  & where $\bar{e}$ are fresh constants \\
-$\bot^{\neg \forall \bar{x}. \varphi( \bar{x} )}$ & $\vee$ & $\neg \varphi( \bar{e} )$. \\
-\end{tabular}
-
 We call $\bar{e}$ the instantiation constants for $\forall \bar{x}. \varphi( \bar{ x } )$.
 Note that $\varphi(\bar{e})$ may contain quantifiers.
 

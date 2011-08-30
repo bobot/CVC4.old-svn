@@ -66,7 +66,7 @@ void InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, Outpu
   nb << ( f.getKind()==kind::NOT ? NodeManager::currentNM()->mkNode( NOT, body ) : body );
   Node lem = nb;
   Debug("inst-engine-debug") << "Instantiation lemma : " << lem << std::endl;
-  std::cout << theory::Valuation(d_te).getValue(lem) << std::endl;
+  //std::cout << theory::Valuation(d_te).getValue(lem) << std::endl;
   out->lemma( lem );
 
   //if the quantifier or any term has instantiation constants, then mark terms as dependent

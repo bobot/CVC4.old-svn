@@ -76,7 +76,7 @@ Node TheoryQuantifiers::getValue(TNode n) {
     if( d_valuation.hasSatValue( n, value ) ){
       return NodeManager::currentNM()->mkConst(value);
     }else{
-      return NodeManager::currentNM()->mkConst(false);
+      return NodeManager::currentNM()->mkConst(false);  //FIX_THIS?
     }
     break;
   default:
