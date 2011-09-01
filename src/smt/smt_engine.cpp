@@ -255,7 +255,12 @@ void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
     Dump("benchmark") << SetBenchmarkLogicCommand(s) << endl;
   }
   d_logic = s;
-  d_theoryEngine->d_logic = s;
+  d_theoryEngine->setLogic(s);
+
+  // If in arrays, set the UF handler to arrays
+  if (s == "QF_AX") {
+    theory::Theory::setUninterpretedSortOwner(theory::THEORY_ARRAY);
+  }
 }
 
 void SmtEngine::setInfo(const std::string& key, const SExpr& value)

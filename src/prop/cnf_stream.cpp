@@ -48,9 +48,7 @@ CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) 
 }
 
 void CnfStream::recordTranslation(TNode node) {
-  if (d_assertingLemma) {
-    d_lemmas.push_back(stripNot(node));
-  } else {
+  if (!d_removable) {
     d_translationTrail.push_back(stripNot(node));
   }
 }
@@ -76,7 +74,7 @@ void CnfStream::assertClause(TNode node, SatClause& c) {
       }
     }
   }
-  d_satSolver->addClause(c, d_assertingLemma);
+  d_satSolver->addClause(c, d_removable);
 }
 
 void CnfStream::assertClause(TNode node, SatLiteral a) {
@@ -141,9 +139,9 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
 
   // If a theory literal, we pre-register it
   if (theoryLiteral) {
-    bool backup = d_assertingLemma;
+    bool backup = d_removable;
     d_registrar.preRegister(node);
-    d_assertingLemma = backup;
+    d_removable = backup;
   }
 
   // Here, you can have it
@@ -390,10 +388,6 @@ SatLiteral TseitinCnfStream::toCNF(TNode node, bool negated) {
   // If the non-negated node has already been translated, get the translation
   if(isTranslated(node)) {
     nodeLit = getLiteral(node);
-    // If we are asserting a lemma, we need to take the whole tree to level 0
-    if (d_assertingLemma) {
-      moveToBaseLevel(node);
-    }
   } else {
     // Handle each Boolean operator case
     switch(node.getKind()) {
@@ -443,13 +437,13 @@ SatLiteral TseitinCnfStream::toCNF(TNode node, bool negated) {
   else return ~nodeLit;
 }
 
-void TseitinCnfStream::convertAndAssertAnd(TNode node, bool lemma, bool negated) {
+void TseitinCnfStream::convertAndAssertAnd(TNode node, bool negated) {
   Assert(node.getKind() == AND);
   if (!negated) {
     // If the node is a conjunction, we handle each conjunct separately
     for(TNode::const_iterator conjunct = node.begin(), node_end = node.end();
         conjunct != node_end; ++conjunct ) {
-      convertAndAssert(*conjunct, lemma, false);
+      convertAndAssert(*conjunct, false);
     }
   } else {
     // If the node is a disjunction, we construct a clause and assert it
@@ -466,7 +460,7 @@ void TseitinCnfStream::convertAndAssertAnd(TNode node, bool lemma, bool negated)
   }
 }
 
-void TseitinCnfStream::convertAndAssertOr(TNode node, bool lemma, bool negated) {
+void TseitinCnfStream::convertAndAssertOr(TNode node, bool negated) {
   Assert(node.getKind() == OR);
   if (!negated) {
     // If the node is a disjunction, we construct a clause and assert it
@@ -484,12 +478,12 @@ void TseitinCnfStream::convertAndAssertOr(TNode node, bool lemma, bool negated) 
     // If the node is a conjunction, we handle each conjunct separately
     for(TNode::const_iterator conjunct = node.begin(), node_end = node.end();
         conjunct != node_end; ++conjunct ) {
-      convertAndAssert(*conjunct, lemma, true);
+      convertAndAssert(*conjunct, true);
     }
   }
 }
 
-void TseitinCnfStream::convertAndAssertXor(TNode node, bool lemma, bool negated) {
+void TseitinCnfStream::convertAndAssertXor(TNode node, bool negated) {
   if (!negated) {
     // p XOR q
     SatLiteral p = toCNF(node[0], false);
@@ -521,7 +515,7 @@ void TseitinCnfStream::convertAndAssertXor(TNode node, bool lemma, bool negated)
   recordTranslation(node[1]);
 }
 
-void TseitinCnfStream::convertAndAssertIff(TNode node, bool lemma, bool negated) {
+void TseitinCnfStream::convertAndAssertIff(TNode node, bool negated) {
   if (!negated) {
     // p <=> q
     SatLiteral p = toCNF(node[0], false);
@@ -553,7 +547,7 @@ void TseitinCnfStream::convertAndAssertIff(TNode node, bool lemma, bool negated)
   recordTranslation(node[1]);
 }
 
-void TseitinCnfStream::convertAndAssertImplies(TNode node, bool lemma, bool negated) {
+void TseitinCnfStream::convertAndAssertImplies(TNode node, bool negated) {
   if (!negated) {
     // p => q
     SatLiteral p = toCNF(node[0], false);
@@ -567,12 +561,12 @@ void TseitinCnfStream::convertAndAssertImplies(TNode node, bool lemma, bool nega
     recordTranslation(node[1]);
   } else {// Construct the
     // !(p => q) is the same as (p && ~q)
-    convertAndAssert(node[0], lemma, false);
-    convertAndAssert(node[1], lemma, true);
+    convertAndAssert(node[0], false);
+    convertAndAssert(node[1], true);
   }
 }
 
-void TseitinCnfStream::convertAndAssertIte(TNode node, bool lemma, bool negated) {
+void TseitinCnfStream::convertAndAssertIte(TNode node, bool negated) {
   // ITE(p, q, r)
   SatLiteral p = toCNF(node[0], false);
   SatLiteral q = toCNF(node[1], negated);
@@ -596,9 +590,14 @@ void TseitinCnfStream::convertAndAssertIte(TNode node, bool lemma, bool negated)
 // At the top level we must ensure that all clauses that are asserted are
 // not unit, except for the direct assertions. This allows us to remove the
 // clauses later when they are not needed anymore (lemmas for example).
-void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
-  Debug("cnf") << "convertAndAssert(" << node << ", lemma = " << lemma << ", negated = " << (negated ? "true" : "false") << ")" << endl;
-  d_assertingLemma = lemma;
+void TseitinCnfStream::convertAndAssert(TNode node, bool removable, bool negated) {
+  Debug("cnf") << "convertAndAssert(" << node << ", removable = " << (removable ? "true" : "false") << ", negated = " << (negated ? "true" : "false") << ")" << endl;
+  d_removable = removable;
+  convertAndAssert(node, negated);
+}
+
+void TseitinCnfStream::convertAndAssert(TNode node, bool negated) {
+  Debug("cnf") << "convertAndAssert(" << node << ", negated = " << (negated ? "true" : "false") << ")" << endl;
 
   if(hasLiteral(node)) {
     Debug("cnf") << "==> fortunate literal detected!" << endl;
@@ -610,25 +609,25 @@ void TseitinCnfStream::convertAndAssert(TNode node, bool lemma, bool negated) {
 
   switch(node.getKind()) {
   case AND:
-    convertAndAssertAnd(node, lemma, negated);
+    convertAndAssertAnd(node, negated);
     break;
   case OR:
-    convertAndAssertOr(node, lemma, negated);
+    convertAndAssertOr(node, negated);
     break;
   case IFF:
-    convertAndAssertIff(node, lemma, negated);
+    convertAndAssertIff(node, negated);
     break;
   case XOR:
-    convertAndAssertXor(node, lemma, negated);
+    convertAndAssertXor(node, negated);
     break;
   case IMPLIES:
-    convertAndAssertImplies(node, lemma, negated);
+    convertAndAssertImplies(node, negated);
     break;
   case ITE:
-    convertAndAssertIte(node, lemma, negated);
+    convertAndAssertIte(node, negated);
     break;
   case NOT:
-    convertAndAssert(node[0], lemma, !negated);
+    convertAndAssert(node[0], !negated);
     break;
   default:
     // Atoms

@@ -29,6 +29,7 @@
 #include "theory/rewriter.h"
 #include "theory/theory_traits.h"
 
+#include "util/node_visitor.h"
 #include "util/ite_removal.h"
 
 using namespace std;
@@ -36,109 +37,15 @@ using namespace std;
 using namespace CVC4;
 using namespace CVC4::theory;
 
-namespace CVC4 {
-
-namespace theory {
-
-/** Tag for the "registerTerm()-has-been-called" flag on Nodes */
-struct RegisteredAttrTag {};
-/** The "registerTerm()-has-been-called" flag on Nodes */
-typedef CVC4::expr::CDAttribute<RegisteredAttrTag, bool> RegisteredAttr;
-
+/** Tag for the "preregisterTerm()-has-benn-called" flag on nodes */
 struct PreRegisteredAttrTag {};
-typedef expr::Attribute<PreRegisteredAttrTag, bool> PreRegistered;
-
-}/* CVC4::theory namespace */
-
-void TheoryEngine::EngineOutputChannel::newFact(TNode fact) {
-  TimerStat::CodeTimer codeTimer(d_newFactTimer);
-
-  if(Dump.isOn("state")) {
-    Dump("state") << AssertCommand(fact.toExpr()) << endl;
-  }
-
-  //FIXME: Assert(fact.isLiteral(), "expected literal");
-  if (fact.getKind() == kind::NOT) {
-    // No need to register negations - only atoms
-    fact = fact[0];
-// FIXME: In future, might want to track disequalities in shared term manager
-//     if (fact.getKind() == kind::EQUAL) {
-//       d_engine->getSharedTermManager()->addDiseq(fact);
-//     }
-  }
-  else if (fact.getKind() == kind::EQUAL) {
-    // Automatically track all asserted equalities in the shared term manager
-    d_engine->getSharedTermManager()->addEq(fact);
-  }
-
-  if(Options::current()->theoryRegistration &&
-     !fact.getAttribute(RegisteredAttr()) &&
-     d_engine->d_needRegistration) {
-    list<TNode> toReg;
-    toReg.push_back(fact);
-
-    Trace("theory") << "Theory::get(): registering new atom" << endl;
-
-    /* Essentially this is doing a breadth-first numbering of
-     * non-registered subterms with children.  Any non-registered
-     * leaves are immediately registered. */
-    for(list<TNode>::iterator workp = toReg.begin();
-        workp != toReg.end();
-        ++workp) {
-
-      TNode n = *workp;
-      Theory* thParent = d_engine->theoryOf(n);
-
-      for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
-        TNode c = *i;
-        Theory* thChild = d_engine->theoryOf(c);
-
-        if (thParent != thChild) {
-          d_engine->getSharedTermManager()->addTerm(c, thParent, thChild);
-        }
-        if(! c.getAttribute(RegisteredAttr())) {
-          if(c.getNumChildren() == 0) {
-            c.setAttribute(RegisteredAttr(), true);
-            thChild->registerTerm(c);
-          } else {
-            toReg.push_back(c);
-          }
-        }
-      }
-    }
-
-    /* Now register the list of terms in reverse order.  Between this
-     * and the above registration of leaves, this should ensure that
-     * all subterms in the entire tree were registered in
-     * reverse-topological order. */
-    for(list<TNode>::reverse_iterator i = toReg.rbegin();
-        i != toReg.rend();
-        ++i) {
-
-      TNode n = *i;
-
-      /* Note that a shared TNode in the DAG rooted at "fact" could
-       * appear twice on the list, so we have to avoid hitting it
-       * twice. */
-      // FIXME when ExprSets are online, use one of those to avoid
-      // duplicates in the above?
-      // Actually, that doesn't work because you have to make sure
-      // that the *last* occurrence is the one that gets processed first @CB
-      // This could be a big performance problem though because it requires
-      // traversing a DAG as a tree and that can really blow up @CB
-      if(! n.getAttribute(RegisteredAttr())) {
-        n.setAttribute(RegisteredAttr(), true);
-        d_engine->theoryOf(n)->registerTerm(n);
-      }
-    }
-  }/* Options::current()->theoryRegistration && !fact.getAttribute(RegisteredAttr()) */
-}
+/** The "preregisterTerm()-has-been-called" flag on Nodes */
+typedef expr::Attribute<PreRegisteredAttrTag, Theory::Set> PreRegisteredAttr;
 
 TheoryEngine::TheoryEngine(context::Context* ctxt) :
   d_propEngine(NULL),
   d_context(ctxt),
   d_activeTheories(0),
-  d_needRegistration(false),
   d_atomPreprocessingCache(),
   d_possiblePropagations(),
   d_hasPropagated(ctxt),
@@ -147,11 +54,11 @@ TheoryEngine::TheoryEngine(context::Context* ctxt) :
   d_hasShutDown(false),
   d_incomplete(ctxt, false),
   d_logic(""),
-  d_statistics() {
+  d_statistics(),
+  d_preRegistrationVisitor(*this) {
 
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
     d_theoryTable[theoryId] = NULL;
-    d_theoryIsActive[theoryId] = false;
   }
 
   Rewriter::init();
@@ -171,6 +78,12 @@ TheoryEngine::~TheoryEngine() {
   delete d_sharedTermManager;
 }
 
+void TheoryEngine::setLogic(std::string logic) {
+  Assert(d_logic.empty());
+  // Set the logic
+  d_logic = logic;
+}
+
 struct preregister_stack_element {
   TNode node;
   bool children_added;
@@ -179,116 +92,25 @@ struct preregister_stack_element {
 };/* struct preprocess_stack_element */
 
 void TheoryEngine::preRegister(TNode preprocessed) {
-  // If we are pre-registered already we are done
-  if (preprocessed.getAttribute(PreRegistered())) {
-    return;
-  }
-
-  if(Dump.isOn("missed-t-propagations")) {
-    d_possiblePropagations.push_back(preprocessed);
-  }
-
-  // Do a topological sort of the subexpressions and preregister them
-  vector<preregister_stack_element> toVisit;
-  toVisit.push_back((TNode) preprocessed);
-  while (!toVisit.empty()) {
-    preregister_stack_element& stackHead = toVisit.back();
-    // The current node we are processing
-    TNode current = stackHead.node;
-    // If we already added all the children its time to register or just
-    // pop from the stack
-    if (stackHead.children_added || current.getAttribute(PreRegistered())) {
-      if (!current.getAttribute(PreRegistered())) {
-        // Mark it as registered
-        current.setAttribute(PreRegistered(), true);
-        // Register this node
-        if (current.getKind() == kind::EQUAL) {
-          if(d_logic == "QF_AX") {
-            d_theoryTable[theory::THEORY_ARRAY]->preRegisterTerm(current);
-          } else {
-            Theory* theory = theoryOf(current);
-            TheoryId theoryLHS = theory->getId();
-            Trace("register") << "preregistering " << current
-                              << " with " << theoryLHS << endl;
-            markActive(theoryLHS);
-            theory->preRegisterTerm(current);
-          }
-        } else {
-          TheoryId theory = theoryIdOf(current);
-          Trace("register") << "preregistering " << current
-                            << " with " << theory << endl;
-          markActive(theory);
-          d_theoryTable[theory]->preRegisterTerm(current);
-          TheoryId typeTheory = theoryIdOf(current.getType());
-          if (theory != typeTheory) {
-            Trace("register") << "preregistering " << current
-                              << " with " << typeTheory << endl;
-            markActive(typeTheory);
-            d_theoryTable[typeTheory]->preRegisterTerm(current);
-          }
-        }
-      }
-      // Done with this node, remove from the stack
-      toVisit.pop_back();
-    } else {
-      // Mark that we have added the children
-      stackHead.children_added = true;
-      // We need to add the children
-      for(TNode::iterator child_it = current.begin(); child_it != current.end(); ++ child_it) {
-        TNode childNode = *child_it;
-        if (!childNode.getAttribute(PreRegistered())) {
-          toVisit.push_back(childNode);
-        }
-      }
-    }
-  }
-}
-
-void TheoryEngine::assertFact(TNode node) {
-  Trace("theory") << "TheoryEngine::assertFact(" << node << ")" << endl;
-
-  // Mark it as asserted in this context
-  //
-  // [MGD] removed for now, this appears to have a nontrivial
-  // performance penalty
-  // node.setAttribute(theory::Asserted(), true);
-
-  // Get the atom
-  TNode atom = node.getKind() == kind::NOT ? node[0] : node;
-
-  // Again, equality is a special case
-  if (atom.getKind() == kind::EQUAL) {
-    if(d_logic == "QF_AX") {
-      Trace("theory") << "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays" << endl;
-      d_theoryTable[theory::THEORY_ARRAY]->assertFact(node);
-    } else {
-      theory::Theory* theory = theoryOf(atom);
-      Trace("theory") << "asserting " << node << " to " << theory->getId() << endl;
-      theory->assertFact(node);
-    }
-  } else {
-    theory::Theory* theory = theoryOf(atom);
-    Trace("theory") << "asserting " << node << " to " << theory->getId() << endl;
-    theory->assertFact(node);
-  }
+  NodeVisitor<PreRegisterVisitor>::run(d_preRegistrationVisitor, preprocessed);
 }
 
 /**
  * Check all (currently-active) theories for conflicts.
  * @param effort the effort level to use
  */
-bool TheoryEngine::check(theory::Theory::Effort effort) {
-  d_theoryOut.d_conflictNode = Node::null();
+void TheoryEngine::check(theory::Theory::Effort effort) {
+
   d_theoryOut.d_propagatedLiterals.clear();
 
 #ifdef CVC4_FOR_EACH_THEORY_STATEMENT
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-  if (theory::TheoryTraits<THEORY>::hasCheck && d_theoryIsActive[THEORY]) { \
+  if (theory::TheoryTraits<THEORY>::hasCheck && isActive(THEORY)) { \
      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(d_theoryTable[THEORY])->check(effort); \
-     if (!d_theoryOut.d_conflictNode.get().isNull()) { \
-       return false; \
+     if (d_theoryOut.d_inConflict) { \
+       return; \
      } \
   }
 
@@ -304,8 +126,6 @@ bool TheoryEngine::check(theory::Theory::Effort effort) {
   } catch(const theory::Interrupted&) {
     Trace("theory") << "TheoryEngine::check() => conflict" << endl;
   }
-
-  return true;
 }
 
 void TheoryEngine::propagate() {
@@ -314,7 +134,7 @@ void TheoryEngine::propagate() {
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-  if (theory::TheoryTraits<THEORY>::hasPropagate && d_theoryIsActive[THEORY]) { \
+  if (theory::TheoryTraits<THEORY>::hasPropagate && isActive(THEORY)) { \
     reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(d_theoryTable[THEORY])->propagate(theory::Theory::FULL_EFFORT); \
   }
 
@@ -340,33 +160,6 @@ Node TheoryEngine::getExplanation(TNode node, theory::Theory* theory) {
     Dump("t-explanations")
       << CommentCommand(string("theory explanation from ") +
                         theory->identify() + ": expect valid") << endl
-      << QueryCommand(d_theoryOut.d_explanationNode.get().impNode(node).toExpr())
-      << endl;
-  }
-  Assert(properExplanation(node, d_theoryOut.d_explanationNode.get()));
-  return d_theoryOut.d_explanationNode;
-}
-
-Node TheoryEngine::getExplanation(TNode node) {
-  d_theoryOut.d_explanationNode = Node::null();
-  TNode atom = node.getKind() == kind::NOT ? node[0] : node;
-  theory::Theory* th;
-  if (atom.getKind() == kind::EQUAL) {
-    if(d_logic == "QF_AX") {
-      Trace("theory") << "TheoryEngine::assertFact QF_AX logic; "
-                      << "everything goes to Arrays" << endl;
-      th = d_theoryTable[theory::THEORY_ARRAY];
-    } else {
-      th = theoryOf(atom[0]);
-    }
-  } else {
-    th = theoryOf(atom);
-  }
-  th->explain(node);
-  if(Dump.isOn("t-explanations")) {
-    Dump("t-explanations")
-      << CommentCommand(string("theory explanation from ") +
-                        th->identify() + ": expect valid") << endl
       << QueryCommand(d_theoryOut.d_explanationNode.get().impNode(node).toExpr())
       << endl;
   }
@@ -414,7 +207,6 @@ bool TheoryEngine::presolve() {
   // at doing something with the input formula, even if it wouldn't
   // otherwise be active.
 
-  d_theoryOut.d_conflictNode = Node::null();
   d_theoryOut.d_propagatedLiterals.clear();
 
   try {
@@ -425,7 +217,7 @@ bool TheoryEngine::presolve() {
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
     if (theory::TheoryTraits<THEORY>::hasPresolve) { \
       reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(d_theoryTable[THEORY])->presolve(); \
-      if(!d_theoryOut.d_conflictNode.get().isNull()) { \
+      if(d_theoryOut.d_inConflict) { \
         return true; \
       } \
     }
@@ -436,7 +228,7 @@ bool TheoryEngine::presolve() {
     Trace("theory") << "TheoryEngine::presolve() => interrupted" << endl;
   }
   // return whether we have a conflict
-  return !d_theoryOut.d_conflictNode.get().isNull();
+  return false;
 }
 
 
@@ -446,7 +238,7 @@ void TheoryEngine::notifyRestart() {
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-  if (theory::TheoryTraits<THEORY>::hasNotifyRestart && d_theoryIsActive[THEORY]) { \
+  if (theory::TheoryTraits<THEORY>::hasNotifyRestart && isActive(THEORY)) { \
     reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(d_theoryTable[THEORY])->notifyRestart(); \
   }
 
@@ -474,23 +266,6 @@ void TheoryEngine::staticLearning(TNode in, NodeBuilder<>& learned) {
   CVC4_FOR_EACH_THEORY;
 }
 
-void TheoryEngine::markActive(theory::TheoryId th) {
-  if(!d_theoryIsActive[th]) {
-    d_theoryIsActive[th] = true;
-    if(th != theory::THEORY_BUILTIN && th != theory::THEORY_BOOL) {
-      if(++d_activeTheories == 1) {
-        // theory requests registration
-        d_needRegistration = hasRegisterTerm(th);
-      } else {
-        // need it for sharing
-        d_needRegistration = true;
-      }
-    }
-    Notice() << "Theory " << th << " has been activated (registration is "
-             << (d_needRegistration ? "on" : "off") << ")." << endl;
-  }
-}
-
 void TheoryEngine::shutdown() {
   // Set this first; if a Theory shutdown() throws an exception,
   // at least the destruction of the TheoryEngine won't confound
@@ -505,22 +280,6 @@ void TheoryEngine::shutdown() {
   }
 
   theory::Rewriter::shutdown();
-}
-
-bool TheoryEngine::hasRegisterTerm(TheoryId th) const {
-  switch(th) {
-  // Definition of the statement that is to be run by every theory
-#ifdef CVC4_FOR_EACH_THEORY_STATEMENT
-#undef CVC4_FOR_EACH_THEORY_STATEMENT
-#endif
-#define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
-  case THEORY: \
-    return theory::TheoryTraits<THEORY>::hasRegisterTerm;
-
-    CVC4_FOR_EACH_THEORY
-  default:
-    Unhandled(th);
-  }
 }
 
 theory::Theory::SolveStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitionOut) {
@@ -543,7 +302,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
 
   Trace("theory") << "TheoryEngine::preprocess(" << assertion << ")" << endl;
 
-    // Do a topological sort of the subexpressions and substitute them
+  // Do a topological sort of the subexpressions and substitute them
   vector<preprocess_stack_element> toVisit;
   toVisit.push_back(assertion);
 
@@ -563,7 +322,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
     }
 
     // If this is an atom, we preprocess it with the theory
-    if (theoryIdOf(current) != THEORY_BOOL) {
+    if (Theory::theoryOf(current) != THEORY_BOOL) {
       d_atomPreprocessingCache[current] = theoryOf(current)->preprocess(current);
       continue;
     }
@@ -609,5 +368,3 @@ Node TheoryEngine::preprocess(TNode assertion) {
   return d_atomPreprocessingCache[assertion];
 }
 
-
-}/* CVC4 namespace */
