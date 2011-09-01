@@ -305,6 +305,13 @@ void TheoryArith::preRegisterTerm(TNode n) {
       if(!left.getAttribute(Slack())){
         setupSlack(left);
       }
+    } else {
+      if (theoryOf(left) != THEORY_ARITH && !d_arithvarNodeMap.hasArithVar(left)) {
+        // The only way not to get it through pre-register is if it's a foreign term
+        ++(d_statistics.d_statUserVariables);
+        ArithVar av = requestArithVar(left, false);
+        setupInitialValue(av);
+      } 
     }
   }
   Debug("arith_preregister") << "end arith::preRegisterTerm(" << n <<")" << endl;
@@ -333,7 +340,7 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   return varX;
 }
 
-void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::vector<ArithVar>& variables) const{
+void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::vector<ArithVar>& variables) {
   for(Polynomial::iterator i = p.begin(), end = p.end(); i != end; ++i){
     const Monomial& mono = *i;
     const Constant& constant = mono.getConstant();
@@ -344,10 +351,19 @@ void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::v
     Debug("rewriter") << "should be var: " << n << endl;
 
     Assert(isLeaf(n));
-    Assert(d_arithvarNodeMap.hasArithVar(n));
+    Assert(theoryOf(n) != THEORY_ARITH || d_arithvarNodeMap.hasArithVar(n));
 
-    ArithVar av = d_arithvarNodeMap.asArithVar(n);
-
+    ArithVar av;
+    if (theoryOf(n) != THEORY_ARITH && !d_arithvarNodeMap.hasArithVar(n)) {
+      // The only way not to get it through pre-register is if it's a foreign term
+      ++(d_statistics.d_statUserVariables);
+      av = requestArithVar(n,false);
+      setupInitialValue(av);
+    } else {
+      // Otherwise, we already have it's variable
+      av = d_arithvarNodeMap.asArithVar(n);
+    }
+    
     coeffs.push_back(constant.getValue());
     variables.push_back(av);
   }
@@ -361,8 +377,6 @@ void TheoryArith::setupSlack(TNode left){
 
   d_rowHasBeenAdded = true;
 
-  ArithVar varSlack = requestArithVar(left, true);
-
   Polynomial polyLeft = Polynomial::parsePolynomial(left);
 
   vector<ArithVar> variables;
@@ -370,8 +384,8 @@ void TheoryArith::setupSlack(TNode left){
 
   asVectors(polyLeft, coefficients, variables);
 
+  ArithVar varSlack = requestArithVar(left, true);
   d_tableau.addRow(varSlack, coefficients, variables);
-
   setupInitialValue(varSlack);
 }
 
@@ -583,7 +597,7 @@ void TheoryArith::check(Effort effortLevel){
     }
   }
 
-  if(fullEffort(effortLevel)) {
+  if(fullEffort(effortLevel) && d_integerVars.size() > 0) {
     const ArithVar rrEnd = d_nextIntegerCheckVar;
     do {
       ArithVar v = d_nextIntegerCheckVar;

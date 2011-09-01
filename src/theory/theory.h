@@ -40,11 +40,6 @@ class TheoryEngine;
 
 namespace theory {
 
-/** Tag for the "newFact()-has-been-called-in-this-context" flag on Nodes */
-struct AssertedAttrTag {};
-/** The "newFact()-has-been-called-in-this-context" flag on Nodes */
-typedef CVC4::expr::CDAttribute<AssertedAttrTag, bool> Asserted;
-
 /**
  * Base class for T-solvers.  Abstract DPLL(T).
  *
@@ -142,7 +137,6 @@ protected:
     d_factsHead = d_factsHead + 1;
     Trace("theory") << "Theory::get() => " << fact
                     << " (" << d_facts.size() - d_factsHead << " left)" << std::endl;
-    d_out->newFact(fact);
     return fact;
   }
 
@@ -178,31 +172,51 @@ protected:
     return d_facts.end();
   }
 
+  /**
+   * The theory that owns the uninterpreted sort.
+   */
+  static TheoryId d_uninterpretedSortOwner;
+
 public:
 
   /**
    * Return the ID of the theory responsible for the given type.
    */
   static inline TheoryId theoryOf(TypeNode typeNode) {
+    TheoryId id;
     if (typeNode.getKind() == kind::TYPE_CONSTANT) {
-      return typeConstantToTheoryId(typeNode.getConst<TypeConstant>());
+      id = typeConstantToTheoryId(typeNode.getConst<TypeConstant>());
     } else {
-      return kindToTheoryId(typeNode.getKind());
+      id = kindToTheoryId(typeNode.getKind());
     }
+    if (id == THEORY_BUILTIN) {
+      return d_uninterpretedSortOwner;
+    }
+    return id;
   }
+
 
   /**
    * Returns the ID of the theory responsible for the given node.
    */
   static inline TheoryId theoryOf(TNode node) {
-    if (node.getMetaKind() == kind::metakind::VARIABLE ||
-        node.getMetaKind() == kind::metakind::CONSTANT) {
-      // Constants, variables, 0-ary constructors
+    // Constants, variables, 0-ary constructors
+    if (node.getMetaKind() == kind::metakind::VARIABLE || node.getMetaKind() == kind::metakind::CONSTANT) {
       return theoryOf(node.getType());
-    } else {
-      // Regular nodes
-      return kindToTheoryId(node.getKind());
     }
+    // Equality is owned by the theory that owns the domain
+    if (node.getKind() == kind::EQUAL) {
+      return theoryOf(node[0].getType());
+    }
+    // Regular nodes are owned by the kind
+    return kindToTheoryId(node.getKind());
+  }
+
+  /**
+   * Set the owner of the uninterpreted sort.
+   */
+  static void setUninterpretedSortOwner(TheoryId theory) {
+    d_uninterpretedSortOwner = theory;
   }
 
   /**
@@ -294,19 +308,6 @@ public:
    * Pre-register a term.  Done one time for a Node, ever.
    */
   virtual void preRegisterTerm(TNode) { }
-
-  /**
-   * Register a term.
-   *
-   * When get() is called to get the next thing off the theory queue,
-   * setup() is called on its subterms (in TheoryEngine).  Then setup()
-   * is called on this node.
-   *
-   * This is done in a "context escape" -- that is, at context level 0.
-   * setup() MUST NOT MODIFY context-dependent objects that it hasn't
-   * itself just created.
-   */
-  virtual void registerTerm(TNode) { }
 
   /**
    * Assert a fact in the current context.
@@ -472,6 +473,35 @@ public:
    * etc..)
    */
   virtual std::string identify() const = 0;
+
+  /** A set of theories */
+  typedef uint32_t Set;
+
+  /** Add the theory to the set. If no set specified, just returns a singleton set */
+  static inline Set setInsert(TheoryId theory, Set set = 0) {
+    return set | (1 << theory);
+  }
+
+  /** Check if the set containt the theory */
+  static inline bool setContains(TheoryId theory, Set set) {
+    return set & (1 << theory);
+  }
+
+  static inline Set setUnion(Set a, Set b) {
+    return a | b;
+  }
+
+  static inline std::string setToString(theory::Theory::Set theorySet) {
+    std::stringstream ss;
+    ss << "[";
+    for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
+      if (theory::Theory::setContains((theory::TheoryId)theoryId, theorySet)) {
+        ss << (theory::TheoryId) theoryId << " ";
+      }
+    }
+    ss << "]";
+    return ss.str();
+  }
 
 };/* class Theory */
 

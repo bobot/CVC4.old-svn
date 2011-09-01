@@ -68,19 +68,7 @@ class TheoryEngine {
    * runs (no sharing), can reduce the cost of walking the DAG on
    * registration, etc.
    */
-  bool d_theoryIsActive[theory::THEORY_LAST];
-
-  /**
-   * The count of active theories in the d_theoryIsActive bitmap.
-   */
-  size_t d_activeTheories;
-
-  /**
-   * Need the registration infrastructure when theory sharing is on
-   * (>=2 active theories) or when the sole active theory has
-   * requested it.
-   */
-  bool d_needRegistration;
+  theory::Theory::Set d_activeTheories;
 
   /**
    * Cache from proprocessing of atoms.
@@ -107,11 +95,6 @@ class TheoryEngine {
      * sat solver and are hence referenced in the SAT solver.
      */
     std::vector<TNode> d_propagatedLiterals;
-
-    /** Time spent in newFact() (largely spent doing term registration) */
-    KEEP_STATISTIC(TimerStat,
-                   d_newFactTimer,
-                   "theory::newFactTimer");
 
     /**
      * Check if the node is in conflict for debug purposes
@@ -150,7 +133,7 @@ class TheoryEngine {
 
       // Construct the lemma (note that no CNF caching should happen as all the literals already exists)
       Assert(isProperConflict(conflictNode));
-      d_engine->newLemma(conflictNode, true, true);
+      d_engine->newLemma(conflictNode, true, false);
 
       if(safe) {
         throw theory::Interrupted();
@@ -214,28 +197,21 @@ class TheoryEngine {
   /**
    * Mark a theory active if it's not already.
    */
-  void markActive(theory::TheoryId th) {
-    if(!d_theoryIsActive[th]) {
-      d_theoryIsActive[th] = true;
-      if(th != theory::THEORY_BUILTIN && th != theory::THEORY_BOOL) {
-        if(++d_activeTheories == 1) {
-          // theory requests registration
-          d_needRegistration = hasRegisterTerm(th);
-        } else {
-          // need it for sharing
-          d_needRegistration = true;
-        }
-      }
-      Notice() << "Theory " << th << " has been activated (registration is "
-               << (d_needRegistration ? "on" : "off") << ")." << std::endl;
-    }
+  void markActive(theory::Theory::Set theories) {
+    d_activeTheories = theory::Theory::setUnion(d_activeTheories, theories);
   }
 
-  bool hasRegisterTerm(theory::TheoryId th) const;
+  /**
+   * Is the theory active.
+   */
+  bool isActive(theory::TheoryId theory) {
+    return theory::Theory::setContains(theory, d_activeTheories);
+  }
 
-public:
   /** The logic of the problem */
   std::string d_logic;
+
+public:
 
   /** Constructs a theory engine */
   TheoryEngine(context::Context* ctxt);
@@ -249,11 +225,15 @@ public:
    */
   template <class TheoryClass>
   void addTheory() {
-    TheoryClass* theory =
-      new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
+    TheoryClass* theory = new TheoryClass(d_context, d_theoryOut, theory::Valuation(this));
     d_theoryTable[theory->getId()] = theory;
     d_sharedTermManager->registerTheory(static_cast<TheoryClass*>(theory));
   }
+
+  /**
+   * Set's the logic (smt-lib format). All theory specific setup/hacks should go in here.
+   */
+  void setLogic(std::string logic);
 
   SharedTermManager* getSharedTermManager() {
     return d_sharedTermManager;
@@ -312,45 +292,17 @@ public:
    * of built-in type.
    */
   inline theory::Theory* theoryOf(TNode node) {
-    if (node.getKind() == kind::EQUAL) {
-      return d_theoryTable[theoryIdOf(node[0])];
-    } else {
-      return d_theoryTable[theoryIdOf(node)];
-    }
+    return d_theoryTable[theory::Theory::theoryOf(node)];
   }
 
   /**
-   * Wrapper for theory::Theory::theoryOf() that implements the
-   * array/EUF hack.
-   */
-  inline theory::TheoryId theoryIdOf(TNode node) {
-    theory::TheoryId id = theory::Theory::theoryOf(node);
-    if(d_logic == "QF_AX" && id == theory::THEORY_UF) {
-      id = theory::THEORY_ARRAY;
-    }
-    return id;
-  }
-
-  /**
-   * Get the theory associated to a given Node.
+   * Get the theory associated to a the given theory id.
    *
    * @returns the theory, or NULL if the TNode is
    * of built-in type.
    */
-  inline theory::Theory* theoryOf(const TypeNode& typeNode) {
-    return d_theoryTable[theoryIdOf(typeNode)];
-  }
-
-  /**
-   * Wrapper for theory::Theory::theoryOf() that implements the
-   * array/EUF hack.
-   */
-  inline theory::TheoryId theoryIdOf(const TypeNode& typeNode) {
-    theory::TheoryId id = theory::Theory::theoryOf(typeNode);
-    if(d_logic == "QF_AX" && id == theory::THEORY_UF) {
-      id = theory::THEORY_ARRAY;
-    }
-    return id;
+  inline theory::Theory* theoryOf(theory::TheoryId theoryId) {
+    return d_theoryTable[theoryId];
   }
 
   /**
@@ -380,30 +332,12 @@ public:
   inline void assertFact(TNode node) {
     Trace("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
 
-    // Mark it as asserted in this context
-    //
-    // [MGD] removed for now, this appears to have a nontrivial
-    // performance penalty
-    // node.setAttribute(theory::Asserted(), true);
-
     // Get the atom
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
 
-    // Again, equality is a special case
-    if (atom.getKind() == kind::EQUAL) {
-      if(d_logic == "QF_AX") {
-        Trace("theory") << "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays" << std::endl;
-        d_theoryTable[theory::THEORY_ARRAY]->assertFact(node);
-      } else {
-        theory::Theory* theory = theoryOf(atom);
-        Trace("theory") << "asserting " << node << " to " << theory->getId() << std::endl;
-        theory->assertFact(node);
-      }
-    } else {
-      theory::Theory* theory = theoryOf(atom);
-      Trace("theory") << "asserting " << node << " to " << theory->getId() << std::endl;
-      theory->assertFact(node);
-    }
+    theory::Theory* theory = theoryOf(atom);
+    Trace("theory") << "asserting " << node << " to " << theory->getId() << std::endl;
+    theory->assertFact(node);
   }
 
   /**
@@ -458,16 +392,7 @@ public:
   inline Node getExplanation(TNode node) {
     d_theoryOut.d_explanationNode = Node::null();
     TNode atom = node.getKind() == kind::NOT ? node[0] : node;
-    if (atom.getKind() == kind::EQUAL) {
-      if(d_logic == "QF_AX") {
-        Trace("theory") << "TheoryEngine::assertFact QF_AX logic; everything goes to Arrays" << std::endl;
-        d_theoryTable[theory::THEORY_ARRAY]->explain(node);
-      } else {
-        theoryOf(atom[0])->explain(node);
-      }
-    } else {
-      theoryOf(atom)->explain(node);
-    }
+    theoryOf(atom)->explain(node);
     Assert(!d_theoryOut.d_explanationNode.get().isNull());
     return d_theoryOut.d_explanationNode;
   }
@@ -500,6 +425,142 @@ private:
     }
   };/* class TheoryEngine::Statistics */
   Statistics d_statistics;
+
+  ///////////////////////////
+  // Visitors
+  ///////////////////////////
+
+  /**
+   * Visitor that calls the apropriate theory to preregister the term.
+   */
+  class PreRegisterVisitor {
+
+    /** The engine */
+    TheoryEngine& d_engine;
+
+    /**
+     * Cache from proprocessing of atoms.
+     */
+    typedef std::hash_map<TNode, theory::Theory::Set, TNodeHashFunction> TNodeVisitedMap;
+    TNodeVisitedMap d_visited;
+
+    /**
+     * All the theories of the visitation.
+     */
+    theory::Theory::Set d_theories;
+
+    std::string toString() const {
+      std::stringstream ss;
+      TNodeVisitedMap::const_iterator it = d_visited.begin();
+      for (; it != d_visited.end(); ++ it) {
+        ss << it->first << ": " << theory::Theory::setToString(it->second) << std::endl;
+      }
+      return ss.str();
+    }
+
+  public:
+
+    PreRegisterVisitor(TheoryEngine& engine): d_engine(engine), d_theories(0) {}
+
+    bool alreadyVisited(TNode current, TNode parent) {
+
+      Debug("register::internal") << "PreRegisterVisitor::alreadyVisited(" << current << "," << parent << ") => ";
+
+      using namespace theory;
+
+      TNodeVisitedMap::iterator find = d_visited.find(current);
+
+      // If node is not visited at all, just return false
+      if (find == d_visited.end()) {
+        Debug("register::internal") << "1:false" << std::endl;
+        return false;
+      }
+
+      TheoryId currentTheoryId = Theory::theoryOf(current);
+      if (Theory::setContains(currentTheoryId, find->second)) {
+        // The current theory has already visited it, so now it depends on the parent
+        TheoryId parentTheoryId = Theory::theoryOf(parent);
+        if (parentTheoryId == currentTheoryId) {
+          // If it's the same theory, we've visited it already
+          Debug("register::internal") << "2:true" << std::endl;
+          return true;
+        }
+        // If not the same theory, we might have visited it, just check
+        Debug("register::internal") << (Theory::setContains(parentTheoryId, find->second) ? "3:true" : "3:false") << std::endl;
+        return Theory::setContains(parentTheoryId, find->second);
+      } else {
+        // If the current theory is not registered, it still needs to be visited
+        Debug("register::internal") << "4:false" << std::endl;
+        return false;
+      }
+    }
+
+    void visit(TNode current, TNode parent) {
+
+      Debug("register") << "PreRegisterVisitor::visit(" << current << "," << parent << ")" << std::endl;
+      Debug("register::internal") << toString() << std::endl;
+
+      using namespace theory;
+
+      // Get the theories of the terms
+      TheoryId currentTheoryId = Theory::theoryOf(current);
+      TheoryId parentTheoryId  = Theory::theoryOf(parent);
+
+      if (currentTheoryId == parentTheoryId) {
+        // If it's the same theory we just add it
+        TNodeVisitedMap::iterator find = d_visited.find(current);
+        if (find == d_visited.end()) {
+          d_visited[current] = Theory::setInsert(currentTheoryId);
+        } else {
+          find->second = Theory::setInsert(currentTheoryId, find->second);
+        }
+        // Visit it
+        d_engine.theoryOf(currentTheoryId)->preRegisterTerm(current);
+        // Mark the theory as active
+        d_theories = Theory::setInsert(currentTheoryId, d_theories);
+      } else {
+        // If two theories, one might have visited it already
+        // If it's the same theory we just add it
+        TNodeVisitedMap::iterator find = d_visited.find(current);
+        if (find == d_visited.end()) {
+          // If not in the map at all, we just add both
+          d_visited[current] = Theory::setInsert(parentTheoryId, Theory::setInsert(currentTheoryId));
+          // And visit both
+          d_engine.theoryOf(currentTheoryId)->preRegisterTerm(current);
+          d_engine.theoryOf(parentTheoryId)->preRegisterTerm(current);
+          // Mark both theories as active
+          d_theories = Theory::setInsert(currentTheoryId, d_theories);
+          d_theories = Theory::setInsert(parentTheoryId, d_theories);
+        } else {
+          if (!Theory::setContains(currentTheoryId, find->second)) {
+            find->second = Theory::setInsert(currentTheoryId, find->second);
+            d_engine.theoryOf(currentTheoryId)->preRegisterTerm(current);
+            d_theories = Theory::setInsert(currentTheoryId, d_theories);
+          }
+          if (!Theory::setContains(parentTheoryId, find->second)) {
+            find->second = Theory::setInsert(parentTheoryId, find->second);
+            d_engine.theoryOf(parentTheoryId)->preRegisterTerm(current);
+            d_theories = Theory::setInsert(parentTheoryId, d_theories);
+          }
+        }
+      }
+
+      Assert(d_visited.find(current) != d_visited.end());
+      Assert(alreadyVisited(current, parent));
+    }
+
+    void start(TNode node) {
+      d_theories = 0;
+    }
+
+    void done(TNode node) {
+      d_engine.markActive(d_theories);
+    }
+
+  };
+
+  /** Default visitor for pre-registration */
+  PreRegisterVisitor d_preRegistrationVisitor;
 
 };/* class TheoryEngine */
 

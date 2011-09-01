@@ -63,7 +63,8 @@ libutil_la_SOURCES = \
 	ite_removal.h \
 	ite_removal.cpp \
 	pseudoboolean.h \
-	pseudoboolean.cpp
+	pseudoboolean.cpp \
+	node_visitor.h
 
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
