@@ -451,8 +451,10 @@ public:
   }
 
   /**
-   * Given an atom of the theory, that comes from the input formula, this is method can rewrite the atom
-   * into an equivalent form. This is only called just before an input atom to the engine.
+   * Given an atom of the theory coming from the input formula, this
+   * method can be overridden in a theory implementation to rewrite
+   * the atom into an equivalent form.  This is only called just
+   * before an input atom to the engine.
    */
   virtual Node preprocess(TNode atom) { return atom; }
 
@@ -498,7 +500,7 @@ public:
     return set | (1 << theory);
   }
 
-  /** Check if the set containt the theory */
+  /** Check if the set contains the theory */
   static inline bool setContains(TheoryId theory, Set set) {
     return set & (1 << theory);
   }

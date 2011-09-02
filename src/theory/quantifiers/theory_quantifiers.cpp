@@ -138,7 +138,7 @@ void TheoryQuantifiers::check(Effort e) {
     }
     if( quantActive ){  
       static bool enableLimit = true;
-      static int limitInst = 3;
+      static int limitInst = 100;
       bool doInst = true;
       if( enableLimit && d_numInstantiations.get()==limitInst ){
         Debug("quantifiers") << "Give up in current branch." << std::endl;
@@ -147,8 +147,10 @@ void TheoryQuantifiers::check(Effort e) {
       }
 
       if( doInst && d_instEngine->doInstantiation( d_out ) ){
+        Debug("quantifiers") << "Done instantiation." << std::endl;
         d_numInstantiations.set( d_numInstantiations.get() + 1 );
       }else{
+        Debug("quantifiers") << "No instantiation given." << std::endl;
         //instantiation did not add a lemma to d_out, try to flip a previous decision
         if( !d_out->flipDecision() ){
           //maybe restart?
