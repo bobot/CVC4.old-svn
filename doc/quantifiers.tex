@@ -118,16 +118,16 @@ While modern SMT solvers can compute E-matches in an efficient manner, a weaknes
 In particular, a basic implementation of E-matching does not consider the logical structure of the body of the quantifier $\varphi$.
 Instead, triggers are chosen from $\varphi$ at random.
 
-For example, say we have the quantified formula $\forall x. ( f(x) \neq g(x) \Rightarrow P( x ) )$ and set of ground literals $L$ asserted in a particular context. 
+For example, say we have the quantified formula $\forall x. ( f(x) \neq g(x) \Rightarrow P( x ) )$ and ground literal $f( a ) = g( a )$ asserted in a particular context. 
 An implementation of E-matching may choose $f( x )$ as a trigger and will instantiate this formula with ground terms $a$ such $f( a )$ exists in $L$.
-However, such instantiations are only useful in cases where $f( a ) \neq g( a )$.
+However, note in this case that this instantiation is useless since $f( a ) = g( a )$.
 
-For this reason, it is useful to reason about the negated body of the quantifier for a fresh instantiation constant $e$, where in this case the literals $f( e ) \neq g( e )$ and $\neg P( e )$ will be asserted.
-This will signify that we must find a ground term $a$ such that $f( a ) \neq g( a )$, and ideally an $a$ in which $\neg P( a )$ holds as well.
+For this reason, it is useful to reason about the negated body of the quantifier for a fresh instantiation constant $e$, where in this case the SMT solver will assert the literals $f( e ) \neq g( e )$ and $\neg P( e )$ to find a satisifying assignment.
+This will signify that we should be looking for a ground term $a$ such that $f( a ) \neq g( a )$, and ideally an $a$ in which $\neg P( a )$ holds as well.
 
 The technique in the following can be thought of as an extension to E-matching, where now equalities and disequalities between triggers \footnote{We now consider a trigger as a ground term $t[e/x]$ containing a distinguished instantiation constant $e$. }
  are considered.
-This information provides a criteria for filtering E-matches.
+This information provides a criteria for filtering irrelevant E-matches.
 
 \section{DPLL(T) with Counterexample Literals}
 \label{dpll-ce-lit}

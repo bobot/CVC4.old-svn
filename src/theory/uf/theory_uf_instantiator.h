@@ -30,32 +30,32 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
-class GMatchNode
-{
-private:
-  typedef context::CDList<GMatchNode* > GmnList;
-  typedef context::CDList<Node > ObList;
-  GmnList d_parents;
-  ObList d_obligations;
-  Node d_node;
-  Node d_match;
-public:
-  GMatchNode( context::Context* c, Node n );
-  ~GMatchNode(){}
-
-  void addParent( GMatchNode* g );
-  int getNumParents() { return d_parents.size(); }
-  GMatchNode* getParent( int i ) { return d_parents[i]; }
-
-  void addObligation( Node n );
-  int getNumObligations() { return d_obligations.size(); }
-  Node getObligation( int i ) { return d_obligations[i]; }
-
-  Node getNode() { return d_node; }
-
-  void setMatch( Node n ) { d_match = n; }
-  Node getMatch() { return d_match; }
-};
+//class SubTermNode
+//{
+//private:
+//  typedef context::CDList<SubTermNode* > GmnList;
+//  typedef context::CDList<Node > ObList;
+//  GmnList d_parents;
+//  ObList d_obligations;
+//  Node d_node;
+//  Node d_match;
+//public:
+//  SubTermNode( context::Context* c, Node n );
+//  ~SubTermNode(){}
+//
+//  void addParent( SubTermNode* g );
+//  int getNumParents() { return d_parents.size(); }
+//  SubTermNode* getParent( int i ) { return d_parents[i]; }
+//
+//  void addObligation( Node n );
+//  int getNumObligations() { return d_obligations.size(); }
+//  Node getObligation( int i ) { return d_obligations[i]; }
+//
+//  Node getNode() { return d_node; }
+//
+//  void setMatch( Node n ) { d_match = n; }
+//  Node getMatch() { return d_match; }
+//};
 
 
 class InstantiatorTheoryUf : public Instantiator{
@@ -64,23 +64,20 @@ protected:
   typedef context::CDMap<Node, int, NodeHashFunction> IntMap;
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
   typedef context::CDMap<Node, NodeList*, NodeHashFunction> NodeLists;
-  typedef context::CDMap<Node, GMatchNode*, NodeHashFunction > GMatchMap;
+  //typedef context::CDMap<Node, SubTermNode*, NodeHashFunction > SubTermMap;
 
-  std::map< Node, int > d_choice_counter;
-  int d_numChoices;
-
-  GMatchMap d_gmatches;
-  IntMap d_gmatch_size;
-  void buildGMatches( Node n );
-  GMatchNode* getGMatch( Node n );
   NodeLists d_obligations;
-  void addObligation( Node n1, Node n2 );
-  void initializeObligationList( Node f );
+  //std::map< Node, int > d_choice_counter;
+  //int d_numChoices;
+
+  //SubTermMap d_subterms;
+  //IntMap d_subterm_size;
+  //void buildSubTerms( Node n );
+  //SubTermNode* getSubTerm( Node n );
 
   //AJR-hack
-  Node getConcreteTerm( Node rep );
+  //Node getConcreteTerm( Node rep );
 
-  //typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
   /** reference to the theory that it looks at */
   Theory* d_th;
   //EMatchMap d_ematch;
@@ -113,40 +110,37 @@ public:
   Theory* getTheory();
   void check( Node assertion );
   void assertEqual( Node a, Node b );
-  bool prepareInstantiation();
+  void resetInstantiation();
+  bool prepareInstantiation( Effort e );
 private:
   void registerTerm( Node n );
-  void setInstTerms( Node n );
-  void setConcreteTerms( Node n );
-  //void buildEMatchTree( Node n, std::vector< EMatchTreeNode* >& active );
   void initializeEqClass( Node t );
   void initializeDisequalityList( Node t );
 
   bool hasInstantiationConstantsFrom( Node i, Node f );
-  void calculateBestMatch( Node f );
-  double d_heuristic;
-  Node d_best;
-  std::map< Node, Node > d_matches;
+  void calculateMatches( Node f, Effort e );
 
-  std::map< Node, std::map< Node, std::vector< std::map< Node, Node > > > > d_ematch;
-  std::map< Node, std::map< Node, std::vector< std::map< Node, Node > > > > d_ematch_mod;
+  std::map< Node, std::map< Node, InstMatchGroup* > > d_ematch;
   std::map< Node, std::map< Node, bool > > d_does_ematch;
-  bool addToEMatching( std::vector< std::map< Node, Node > >& curr_matches, Node i, Node f, 
-                       bool onlyCheckEq, bool firstTime );
+  std::map< Node, std::map< Node, bool > > d_eq_amb;
+  std::map< Node, std::map< Node, InstMatchGroup* > > d_ematch_mod;
+  std::map< Node, std::map< Node, bool > > d_did_ematch_mod;
   void doEMatching( Node i, Node c, Node f,  bool moduloEq = false );
-  bool mergeMatch( std::vector< std::map< Node, Node > >& target,
-                   std::vector< std::map< Node, Node > >& matches );
-  bool mergeMatch( std::map< Node, Node >& target, std::map< Node, Node >& matches );
-  int numMatches( std::vector< std::map< Node, Node > >& target,
-                  std::vector< std::map< Node, Node > >& matches );
-  void removeRedundant( std::vector< std::map< Node, Node > >& matches );
-  int checkSubsume( std::map< Node, Node >& m1, std::map< Node, Node >& m2 );
+  void getPartialMatches( Node i, Node c, Node f, InstMatchGroup* mg );
+  void partialMerge( InstMatchGroup* m1, InstMatchGroup* m2, InstMatchGroup* prod );
+  bool isIntersectionConsistent( InstMatch* m1, InstMatch* m2 );
+  void addEMatch( InstMatchGroup* mg, Node i, Node c, Node f, bool partialMatch = false );
+  void addEMatch( InstMatchGroup* mg, Node i, Node f, bool partialMatch = false );
+  void addEqualityEMatch( InstMatchGroup* mg, Node i, Node f, bool partialMatch = false );
 
-  void setEmatchDone( Node i, Node c );
-  bool isEmatchDone( Node i, Node c );
+  void filterInconsistent( InstMatchGroup* mg );
+  bool isConsistent( InstMatch* m );
 
-  std::map< Node, std::map< Node, bool > > d_generalizes;
-  bool isGeneralization( Node i1, Node i2 );
+  //void setEmatchDone( Node i, Node c );
+  //bool isEmatchDone( Node i, Node c );
+
+  //std::map< Node, std::map< Node, bool > > d_generalizes;
+  //bool isGeneralization( Node i1, Node i2 );
 };/* class InstantiatorTheoryUf */
 
 }

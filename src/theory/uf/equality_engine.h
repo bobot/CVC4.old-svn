@@ -429,7 +429,7 @@ private:
   /**
    * Vector of original equalities of the triggers.
    */
-  std::vector<TNode> d_equalityTriggersOriginal;
+  std::vector<Node> d_equalityTriggersOriginal;
 
   /**
    * Trigger lists per node. The begin id changes as we merge, but the end always points to

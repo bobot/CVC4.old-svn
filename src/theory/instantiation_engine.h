@@ -39,17 +39,78 @@ namespace theory {
 
 class InstantiationEngine;
 
+class InstMatch
+{
+public:
+  std::map< Node, Node > d_map;
+  std::vector< Node > d_vars;
+  std::vector< Node > d_match;
+  bool d_computeVec;
+
+  InstMatch( Node f, InstantiationEngine* ie );
+  InstMatch( InstMatch* m );
+
+  void setMatch( Node v, Node m ){
+    d_map[v] = m;
+    d_computeVec = true;
+  }
+  void add( InstMatch* m );
+  bool merge( InstMatch* m );
+  // -1 : keep this, 1 : keep m, 0 : keep both
+  int checkSubsume( InstMatch* m );
+  bool isEqual( InstMatch* m );
+  bool isComplete();
+  void computeTermVec();
+  Node substitute( Node n ){
+    computeTermVec();
+    return n.substitute( d_vars.begin(), d_vars.end(), d_match.begin(), d_match.end() ); 
+  }
+  Node getQuantifier() { return d_vars[0].getAttribute(InstantitionConstantAttribute()); }
+  void debugPrint( const char* c );
+};
+
+class InstMatchGroup
+{
+public:
+  InstMatchGroup(){}
+  InstMatchGroup( InstMatchGroup* mg ){
+    for( int i=0; i<(int)mg->getNumMatches(); i++ ){
+      d_matches.push_back( new InstMatch( mg->getMatch( i ) ) );
+    }
+  }
+  ~InstMatchGroup(){}
+  std::vector< InstMatch* > d_matches;
+
+  bool merge( InstMatchGroup* mg );
+  void add( InstMatchGroup* mg );
+  void addComplete( InstMatchGroup* mg );
+  void removeRedundant();
+  void removeDuplicate();
+  unsigned int getNumMatches() { return d_matches.size(); }
+  InstMatch* getMatch( int i ) { return d_matches[i]; }
+  void clear(){
+    //for( int i=0; i<(int)d_matches.size(); i++ ){
+      //delete d_matches[i];
+    //}
+    d_matches.clear();
+  }
+  void debugPrint( const char* c );
+};
+
 class Instantiator{
   friend class InstantiationEngine;
 protected:
   /** reference to the instantiation engine */
   InstantiationEngine* d_instEngine;
-  /** map from quantified formulas to list of instantiation constants */
-  std::map< Node, std::vector< Node > > d_inst_constants;
-  /** solutions for instantiation constants */
-  std::map< Node, Node > d_solved_ic;
   /** list of lemmas */
   std::vector< Node > d_lemmas;
+public:
+  enum Effort {
+    MIN_EFFORT = 0,
+    QUICK_EFFORT = 1,
+    STANDARD_EFFORT = 2,
+    FULL_EFFORT = 3
+  };/* enum Effort */
 public:
   Instantiator(context::Context* c, InstantiationEngine* ie);
   ~Instantiator();
@@ -59,21 +120,40 @@ public:
   /** check function, assertion is asserted to theory */
   virtual void check( Node assertion ){}
 
+  /** reset instantiation */
+  virtual void resetInstantiation() {}
   /** prepare instantiation method
-    * post condition: set d_solved_ic and d_lemmas fields */
-  virtual bool prepareInstantiation(){ return false; }
+    * post condition: set d_inst_matches and d_lemmas fields */
+  virtual bool prepareInstantiation( Effort e ){ return false; }
   /** node n is instantiation-ready */
-  bool isInstantiationReady( Node n );
+  //bool isInstantiationReady( Node n );
 
   /** helper functions for lemmas */
   unsigned int getNumLemmas() { return d_lemmas.size(); }
   Node getLemma( int i ) { return d_lemmas[i]; }
   void clearLemmas() { d_lemmas.clear(); }
+
+protected:
+  /** list of matches */
+  InstMatchGroup* d_inst_matches;
+public:
+  /** matches */
+  unsigned int getNumMatches() { return d_inst_matches->getNumMatches(); }
+  InstMatch* getMatch( int i ) { return d_inst_matches->getMatch( i ); }
+  void clearMatches() { d_inst_matches->clear(); }
 };/* class Instantiator */
+
+class InstantiatorDefault;
+namespace uf {
+  class InstantiatorTheoryUf;
+}
 
 class InstantiationEngine
 {
   friend class ::CVC4::TheoryEngine;
+  friend class InstantiatorDefault;
+  friend class uf::InstantiatorTheoryUf;
+  friend class InstMatch;
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
@@ -83,12 +163,12 @@ private:
   TheoryEngine* d_te;
   /** map from universal quantifiers to the list of variables */
   std::map< Node, std::vector< Node > > d_vars;
-  /** map from universal quantifiers to the list of instantiation constants */
-  std::map< Node, std::vector< Node > > d_inst_constants;
   /** map from universal quantifiers to the list of skolem constants */
   std::map< Node, std::vector< Node > > d_skolem_constants;
   /** instantiation constants to universal quantifiers */
   std::map< Node, Node > d_inst_constants_map;
+  /** map from universal quantifiers to the list of instantiation constants */
+  std::map< Node, std::vector< Node > > d_inst_constants;
   /** map from universal quantifiers to their counterexample literals */
   std::map< Node, Node > d_counterexamples;
   /** map from universal quantifiers to their counterexample body */
@@ -96,9 +176,11 @@ private:
   /** map from quantifiers to their counterexample equivalents */
   std::map< Node, Node > d_quant_to_ceq;
   /** stores whether a quantifier is a subquantifier of another */
-  std::map< Node, std::vector< Node > > d_subquant;   //DO_THIS
+  std::map< Node, Node > d_subquant;
   /** map from quantifiers to whether they are active */
   BoolMap d_active;
+  /** lemmas produced */
+  std::map< Node, bool > d_lemmas_produced;
 
   void associateNestedQuantifiers( Node n, Node cen );
 public:
@@ -106,8 +188,9 @@ public:
   ~InstantiationEngine();
   
   theory::Instantiator* getInstantiator( Theory* t ) { return d_instTable[t->getId()]; }
+  TheoryEngine* getTheoryEngine() { return d_te; }
 
-  void instantiate( Node f, std::vector< Node >& terms, OutputChannel* out );
+  bool instantiate( Node f, std::vector< Node >& terms, OutputChannel* out );
 
   void getInstantiationConstantsFor( Node f, std::vector< Node >& ics, Node& cebody );
   void getSkolemConstantsFor( Node f, std::vector< Node >& scs );
