@@ -36,7 +36,6 @@
 #       check             the theory supports the check() function
 #       propagate         the theory supports propagate() (and explain())
 #       staticLearning    the theory supports staticLearning()
-#       registerTerm      the theory supports registerTerm()
 #       notifyRestart     the theory supports notifyRestart()
 #       presolve          the theory supports presolve()
 #

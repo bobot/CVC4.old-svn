@@ -37,11 +37,6 @@ using namespace std;
 using namespace CVC4;
 using namespace CVC4::theory;
 
-/** Tag for the "preregisterTerm()-has-benn-called" flag on nodes */
-struct PreRegisteredAttrTag {};
-/** The "preregisterTerm()-has-been-called" flag on Nodes */
-typedef expr::Attribute<PreRegisteredAttrTag, Theory::Set> PreRegisteredAttr;
-
 TheoryEngine::TheoryEngine(context::Context* ctxt) :
   d_propEngine(NULL),
   d_context(ctxt),
@@ -55,7 +50,7 @@ TheoryEngine::TheoryEngine(context::Context* ctxt) :
   d_incomplete(ctxt, false),
   d_logic(""),
   d_statistics(),
-  d_preRegistrationVisitor(*this) {
+  d_preRegistrationVisitor(*this, ctxt) {
 
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
     d_theoryTable[theoryId] = NULL;
@@ -92,6 +87,10 @@ struct preregister_stack_element {
 };/* struct preprocess_stack_element */
 
 void TheoryEngine::preRegister(TNode preprocessed) {
+  if(Dump.isOn("missed-t-propagations")) {
+    d_possiblePropagations.push_back(preprocessed);
+  }
+
   NodeVisitor<PreRegisterVisitor>::run(d_preRegistrationVisitor, preprocessed);
 }
 

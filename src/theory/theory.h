@@ -126,10 +126,9 @@ protected:
   Valuation d_valuation;
 
   /**
-   * Returns the next atom in the assertFact() queue.  Guarantees that
-   * registerTerm() has been called on the theory specific subterms.
+   * Returns the next atom in the assertFact() queue.
    *
-   * @return the next atom in the assertFact() queue.
+   * @return the next atom in the assertFact() queue
    */
   TNode get() {
     Assert( !done(), "Theory::get() called with assertion queue empty!" );
@@ -485,7 +484,7 @@ public:
     return set | (1 << theory);
   }
 
-  /** Check if the set containt the theory */
+  /** Check if the set contains the theory */
   static inline bool setContains(TheoryId theory, Set set) {
     return set & (1 << theory);
   }
