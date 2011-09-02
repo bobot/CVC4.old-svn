@@ -17,12 +17,13 @@
  ** \todo document this file
  **/
 
-#include <vector>
-#include "theory/arith/arith_utilities.h"
-
+#include "cvc4_private.h"
 
 #ifndef __CVC4__THEORY__ARITH__ARTIHVAR_SET_H
 #define __CVC4__THEORY__ARITH__ARTIHVAR_SET_H
+
+#include <vector>
+#include "theory/arith/arith_utilities.h"
 
 namespace CVC4 {
 namespace theory {
@@ -33,7 +34,7 @@ namespace arith {
  * This class is designed to provide constant time insertion, deletion, and element_of
  * and fast iteration.
  *
- * ArithVarSets come in 2 varieties ArithVarSet, and PermissiveBackArithVarSet.
+ * ArithVarSets come in 2 varieties: ArithVarSet, and PermissiveBackArithVarSet.
  * The default ArithVarSet assumes that there is no knowledge assumed about ArithVars
  * that are greater than allocated(). Asking isMember() of such an ArithVar
  * is an assertion failure. The cost of doing this is that it takes O(M)
@@ -324,8 +325,8 @@ public:
   }
 };
 
-}; /* namespace arith */
-}; /* namespace theory */
-}; /* namespace CVC4 */
+}/* CVC4::theory::arith namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
 
 #endif /* __CVC4__THEORY__ARITH__ARTIHVAR_SET_H */

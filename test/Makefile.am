@@ -32,6 +32,7 @@ subdirs_to_check = \
 	system \
 	regress/regress0 \
 	regress/regress0/arith \
+	regress/regress0/arith/integers \
 	regress/regress0/uf \
 	regress/regress0/uflra \
 	regress/regress0/bv \

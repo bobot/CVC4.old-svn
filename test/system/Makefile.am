@@ -1,12 +1,13 @@
 TESTS_ENVIRONMENT =
 TESTS = \
 	boilerplate \
-	ouroborous \
-	cvc3_main
+	ouroborous
+#	cvc3_main.cpp
 
 # Things that aren't tests but that tests rely on and need to
 # go into the distribution
 TEST_DEPS_DIST = \
+	cvc3_main.cpp \
 	cvc3_george.h \
 	cvc3_george.cpp
 

@@ -176,7 +176,7 @@ class TheoryEngine {
     }
 
     void lemma(TNode node, bool removable = false)
-      throw(theory::Interrupted, AssertionException) {
+      throw(theory::Interrupted, TypeCheckingExceptionPrivate, AssertionException) {
       Trace("theory") << "EngineOutputChannel::lemma("
                       << node << ")" << std::endl;
       if(Dump.isOn("t-lemmas")) {
