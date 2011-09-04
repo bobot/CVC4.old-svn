@@ -142,7 +142,9 @@ bool InstMatchGroup::merge( InstMatchGroup* mg )
 }
 
 void InstMatchGroup::add( InstMatchGroup* mg ){
-  d_matches.insert( d_matches.end(), mg->d_matches.begin(), mg->d_matches.end() );
+  if( !mg->d_matches.empty() ){
+    d_matches.insert( d_matches.end(), mg->d_matches.begin(), mg->d_matches.end() );
+  }
 }
 
 void InstMatchGroup::addComplete( InstMatchGroup* mg ){
@@ -215,7 +217,7 @@ void InstMatchGroup::debugPrint( const char* c ){
 
 Instantiator::Instantiator(context::Context* c, InstantiationEngine* ie) : 
 d_instEngine( ie ){
-  d_inst_matches = new InstMatchGroup;
+
 }
 
 Instantiator::~Instantiator(){
@@ -338,13 +340,14 @@ void InstantiationEngine::getVariablesFor( Node f, std::vector< Node >& vars )
 
 bool InstantiationEngine::doInstantiation( OutputChannel* out ){
   //call instantiators to search for an instantiation
-  Debug("inst-engine") << "Prepare instantiation." << std::endl;
+  Debug("inst-engine") << "Reset instantiation." << std::endl;
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_instTable[i] ){
       d_instTable[i]->resetInstantiation();
     }
   }
   for( int e=0; e<=3; e++ ){
+    Debug("inst-engine") << "Prepare instantiation (" << e << ")." << std::endl;
     bool retVal = false;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){

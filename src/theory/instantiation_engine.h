@@ -135,12 +135,12 @@ public:
 
 protected:
   /** list of matches */
-  InstMatchGroup* d_inst_matches;
+  InstMatchGroup d_inst_matches;
 public:
   /** matches */
-  unsigned int getNumMatches() { return d_inst_matches->getNumMatches(); }
-  InstMatch* getMatch( int i ) { return d_inst_matches->getMatch( i ); }
-  void clearMatches() { d_inst_matches->clear(); }
+  unsigned int getNumMatches() { return d_inst_matches.getNumMatches(); }
+  InstMatch* getMatch( int i ) { return d_inst_matches.getMatch( i ); }
+  void clearMatches() { d_inst_matches.clear(); }
 };/* class Instantiator */
 
 class InstantiatorDefault;

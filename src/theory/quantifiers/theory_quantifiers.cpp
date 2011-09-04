@@ -160,7 +160,10 @@ void TheoryQuantifiers::check(Effort e) {
             d_out->setIncomplete();
           }else{
             d_numRestarts++;
+            Debug("quantifiers") << "Do restart." << std::endl;
           }
+        }else{
+          Debug("quantifiers") << "Flipped decision." << std::endl;
         }
       }
     }
