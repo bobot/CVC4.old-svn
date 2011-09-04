@@ -130,6 +130,11 @@ protected:
   Valuation d_valuation;
 
   /**
+   * reference to the instantiation engine
+   */
+  InstantiationEngine* d_instEngine;
+
+  /**
    * Returns the next atom in the assertFact() queue.
    *
    * @return the next atom in the assertFact() queue

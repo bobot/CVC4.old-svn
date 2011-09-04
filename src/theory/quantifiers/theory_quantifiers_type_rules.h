@@ -55,7 +55,7 @@ struct QuantifierExistsTypeRule {
   }
 };/* struct QuantifierExistsTypeRule */
 
-struct QuantifierCounterexampleTypeRule {
+struct QuantifierNoCounterexampleTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
     throw(TypeCheckingExceptionPrivate) {
     Debug("typecheck-q") << "type check for ce " << n << std::endl;
@@ -68,7 +68,7 @@ struct QuantifierCounterexampleTypeRule {
     }
     return nodeManager->booleanType();
   }
-};/* struct QuantifierCounterexampleTypeRule */
+};/* struct QuantifierNoCounterexampleTypeRule */
 
 }/* CVC4::theory::quantifiers namespace */
 }/* CVC4::theory namespace */
