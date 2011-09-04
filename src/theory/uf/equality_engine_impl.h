@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -385,7 +385,6 @@ void EqualityEngine<NotifyClass>::undoMerge(EqualityNode& class1, EqualityNode& 
       EqualityNodeId bNormalized = getEqualityNode(fun.b).getFind();
       FunctionApplication funNormalized(aNormalized, bNormalized);
       typename ApplicationIdsMap::iterator find = d_applicationLookup.find(funNormalized);
-      Assert(find != d_applicationLookup.end());
       // If the id doesn't exist, we'll set it
       if (find == d_applicationLookup.end()) {
         d_applicationLookup[funNormalized] = funId;
@@ -488,7 +487,7 @@ void EqualityEngine<NotifyClass>::getExplanation(EqualityNodeId t1Id, EqualityNo
   if (t1Id == t2Id) return;
 
   if (Debug.isOn("equality::internal")) {
-    const_cast<EqualityEngine*>(this)->debugPrintGraph();
+    debugPrintGraph();
   }
 
   // Queue for the BFS containing nodes
