@@ -223,17 +223,6 @@ d_instEngine( ie ){
 Instantiator::~Instantiator(){
 }
 
-//bool Instantiator::isInstantiationReady( Node n ){
-//  Assert( d_inst_constants.find( n )!=d_inst_constants.end() );
-//  for( int i=0; i<(int)d_inst_constants[n].size(); i++ ){
-//    if( d_solved_ic[d_inst_constants[n][i]]==Node::null() ){
-//      return false;
-//    }
-//  }
-//  return true;
-//}
-
-
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_active( c ){
@@ -260,7 +249,6 @@ bool InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, Outpu
       Debug("inst-engine") << "   " << terms[i] << std::endl;
     }
     Debug("inst-engine-debug") << "Instantiation lemma : " << lem << std::endl;
-    //std::cout << theory::Valuation(d_te).getValue(lem) << std::endl;
     out->lemma( lem );
     d_lemmas_produced[ lem ] = true;
     //if the quantifier or any term has instantiation constants, then mark terms as dependent
@@ -439,8 +427,7 @@ void InstantiationEngine::associateNestedQuantifiers( Node n, Node cen )
   }
 }
 
-bool InstantiationEngine::isSubQuantifier( Node sub, Node f )
-{
+bool InstantiationEngine::isSubQuantifier( Node sub, Node f ){
   //DO_THIS
   return sub==f;
 }

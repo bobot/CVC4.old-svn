@@ -104,6 +104,8 @@ protected:
   InstantiationEngine* d_instEngine;
   /** list of lemmas */
   std::vector< Node > d_lemmas;
+  /** list of matches */
+  InstMatchGroup d_inst_matches;
 public:
   enum Effort {
     MIN_EFFORT = 0,
@@ -125,18 +127,12 @@ public:
   /** prepare instantiation method
     * post condition: set d_inst_matches and d_lemmas fields */
   virtual bool prepareInstantiation( Effort e ){ return false; }
-  /** node n is instantiation-ready */
-  //bool isInstantiationReady( Node n );
 
   /** helper functions for lemmas */
   unsigned int getNumLemmas() { return d_lemmas.size(); }
   Node getLemma( int i ) { return d_lemmas[i]; }
   void clearLemmas() { d_lemmas.clear(); }
 
-protected:
-  /** list of matches */
-  InstMatchGroup d_inst_matches;
-public:
   /** matches */
   unsigned int getNumMatches() { return d_inst_matches.getNumMatches(); }
   InstMatch* getMatch( int i ) { return d_inst_matches.getMatch( i ); }

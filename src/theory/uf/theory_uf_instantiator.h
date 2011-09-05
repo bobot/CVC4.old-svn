@@ -75,13 +75,8 @@ protected:
   //void buildSubTerms( Node n );
   //SubTermNode* getSubTerm( Node n );
 
-  //AJR-hack
-  //Node getConcreteTerm( Node rep );
-
   /** reference to the theory that it looks at */
   Theory* d_th;
-  //EMatchMap d_ematch;
-  //EMatchListMap d_ematch_list;
   BoolMap d_inst_terms;
   BoolMap d_concrete_terms;
   BoolMap d_active_ic;
@@ -91,18 +86,19 @@ protected:
   /** map from (representative) nodes to list of representative nodes they are disequal from */
   NodeLists d_disequality;
   /** map from patterns to nodes that they have ematched against */
-  NodeLists d_ematch_done;
+  //NodeLists d_ematch_done;
 
   ///** used eq classes */
   std::map< Node, std::vector< Node > > d_emap;
   std::map< Node, std::vector< Node > > d_dmap;
-  ////std::map< Node, Node > d_eq_find;
   void refreshMaps();
-  //bool decideEqual( Node a, Node b );
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
   void debugPrint();
+
+  ////std::map< Node, Node > d_eq_find;
+  //bool decideEqual( Node a, Node b );
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}

@@ -63,8 +63,8 @@ d_concrete_terms( c ),
 d_active_ic( c ),
 d_equivalence_class( c ),
 d_is_rep( c ),
-d_disequality( c ),
-d_ematch_done( c )
+d_disequality( c )
+//d_ematch_done( c )
 {
 
   d_is_rep[ ((TheoryUF*)d_th)->d_true ] = true;
@@ -120,10 +120,6 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
 
   Debug("inst-uf") << "InstantiatorTheoryUf::equal: " << a << " == " << b << std::endl;
   registerTerm( a );
-  //if( a.getKind()==EQUAL ){
-  //  registerTerm( a[0] );
-  //  registerTerm( a[1] );
-  //}
   registerTerm( b );
   if( a.hasAttribute(InstantitionConstantAttribute()) || b.hasAttribute(InstantitionConstantAttribute()) ){
     //add to obligation list
@@ -390,16 +386,6 @@ void InstantiatorTheoryUf::debugPrint()
         Debug("quant-uf") << "      " << *it << std::endl;
       }
     }
-    //Debug("quant-uf") << "   Terms:" << std::endl;
-    //std::vector< Node > curr_terms;
-    //NodeLists::iterator il_i = d_inst_list.find( f );
-    //if( il_i!=d_inst_list.end() ){
-    //  NodeList* il = (*il_i).second;
-    //  for( NodeList::const_iterator it = il->begin(); it != il->end(); ++it ){
-    //    Debug("quant-uf") << "      " << *it << std::endl;
-    //    curr_terms.push_back( *it );
-    //  }
-    //}
   }
 
   Debug("quant-uf") << std::endl;
@@ -743,39 +729,26 @@ void InstantiatorTheoryUf::doEMatching( Node i, Node c, Node f, bool moduloEq ){
           d_does_ematch[i][c] = true;
           d_eq_amb[i][c] = true;
           d_ematch[i][c] = d_ematch[i][c] ? d_ematch[i][c] : new InstMatchGroup;
-          bool firstTime = true;
+          d_ematch[i][c]->d_matches.push_back( new InstMatch( f, d_instEngine ) );
           for( int j=0; j<(int)c.getNumChildren(); j++ ){
-            if( !areEqual( i[j], c[j] ) ){
-              if( i[j].getAttribute(InstantitionConstantAttribute())==f ){
-                if( d_does_ematch[i][c] ){
-                  doEMatching( i[j], c[j], f, true );
-                  if( d_does_ematch[i[j]][c[j]] ){
-                    if( firstTime ){
-                      d_ematch[i][c]->add( d_ematch_mod[i[j]][c[j]] );
-                      firstTime = false;
-                      d_does_ematch[i][c] = d_ematch[i][c]->getNumMatches()>0;
-                      if( !d_does_ematch[i][c] ){ 
-                        Debug("quant-uf-ematch") << i << " and " << c << " FAILED no init match. " << j << std::endl;
-                      }
-                    }else{
-                      if( !d_ematch[i][c]->merge( d_ematch_mod[i[j]][c[j]] ) ){
-                        Debug("quant-uf-ematch") << i << " and " << c << " FAILED incompatible match. " << j << std::endl;
-                        d_does_ematch[i][c] = false;
-                      }
-                    }
-                  }else{
-                    Debug("quant-uf-ematch") << i << " and " << c << " FAILED argument. " << j << std::endl;
-                    d_does_ematch[i][c] = false;
-                  }
-                }
-              }else{
-                d_eq_amb[i][c] = false;
-              }
-            }else if( areDisequal( i[j], c[j] ) ){
+            if( areDisequal( i[j], c[j] ) ){
               Debug("quant-uf-ematch") << i << " and " << c << " FAILED disequal arg." << std::endl;
               d_does_ematch[i][c] = false;
               d_eq_amb[i][c] = false;
               break;
+            }else if( !areEqual( i[j], c[j] ) ){
+              if( d_does_ematch[i][c] ){
+                doEMatching( i[j], c[j], f, true );
+                if( d_does_ematch[i[j]][c[j]] ){
+                  if( !d_ematch[i][c]->merge( d_ematch_mod[i[j]][c[j]] ) ){
+                    Debug("quant-uf-ematch") << i << " and " << c << " FAILED incompatible match. " << j << std::endl;
+                    d_does_ematch[i][c] = false;
+                  }
+                }else{
+                  Debug("quant-uf-ematch") << i << " and " << c << " FAILED argument. " << j << std::endl;
+                  d_does_ematch[i][c] = false;
+                }
+              }
             }
           }
         }

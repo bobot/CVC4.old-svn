@@ -9,6 +9,7 @@
 \usepackage[pdftex]{graphicx}
 \usepackage[usenames]{color}
 \usepackage{capt-of}
+\usepackage{program}
 
 \newtheorem{thm}{Theorem}
 \newtheorem{cor}{Corollary}
@@ -17,6 +18,34 @@
 
 \newcommand{\ednote}[1]{{\bf [#1]}\message{ednote!}}
 
+\newcommand{\bassert}{|assert|_\mathrm{base}}
+\newcommand{\iassert}{|assert|_\mathrm{ind}}
+\newcommand{\bentail}{|entailed|_\mathrm{base}}
+\newcommand{\ientail}{|entailed|_\mathrm{ind}}
+\newcommand{\breset}{|reset|_\mathrm{base}}
+\newcommand{\ireset}{|reset|_\mathrm{ind}}
+\newcommand{\bcex}{|cex|_\mathrm{base}}
+\newcommand{\icex}{|cex|_\mathrm{ind}}
+\def\LOOP{\qtab\keyword{loop}\ }
+\def\ENDLOOP{\untab}
+\def\REPEAT{\qtab\keyword{repeat}\ }
+\def\UNTIL{\untab\keyword{until}\ }
+\def\IF{\qtab\keyword{if}\ }
+\def\THEN{\ \keyword{then}\ }
+\def\ELSE{\untab\qtab\keyword{else}\ }
+\def\ELSEIF{\untab\qtab\keyword{else if}\ }
+\def\FI{\untab}
+\def\RETURN{\keyword{return}\ }
+\def\ENDPROC{\untab}
+\def\DOFOR{\qtab\keyword{for}\ }
+\def\ENDFOR{\untab}
+\def\COMMENT#1{\texttt{// #1}}
+\def\keyword#1{\mbox{\normalshape\bf #1}}
+\def\MATCH{\qtab\keyword{match}\ }
+\def\WITH{\ \keyword{with}\ }
+\def\ENDMATCH{\untab}
+%\def\WHILE{\qtab\keyword{while}\ }
+\def\ENDWHILE{\untab}
 
 \newcommand{\To}{\Rightarrow}
 
@@ -199,7 +228,7 @@ Note that $\neg \psi[\bar{e}/\bar{x}]$ may contain quantifiers.
 
 {\bf Example 0}
 Consider the formula $\psi = \forall x. ( l_1 \vee ( l_2 \vee x = a ) \Rightarrow \neg P( x ) )$.
-Its counterexample lemma after conversion to CNF is $( \neg \psi \vee \bot^{\neg \psi} \vee \neg l_1 ) \wedge ( \neg \psi \vee \bot^{\neg \psi} \vee l_2 \vee e = a ) \wedge ( \neg \psi \vee \bot^{\neg \psi} \vee \neg R( e ) ) $. \\
+Its counterexample lemma after conversion to CNF is $( \neg \psi \vee \bot^{\neg \psi} \vee \neg l_1 ) \wedge ( \neg \psi \vee \bot^{\neg \psi} \vee l_2 \vee e = a ) \wedge ( \neg \psi \vee \bot^{\neg \psi} \vee \neg P( e ) ) $. \\
 
 In Example 0, we have produced three clauses.
 The first says that either $l_1$ is false or a counterexample does not exist to $\psi$.
@@ -227,7 +256,7 @@ $C_1 : ( \neg \psi \vee \bot^{\neg \psi} \vee \neg l_1 )$,
 
 $C_2 : ( \neg \psi \vee \bot^{\neg \psi} \vee l_2 \vee e = a )$, and
 
-$C_3 : ( \neg \psi \vee \bot^{\neg \psi} \vee \neg R( e ) )$.
+$C_3 : ( \neg \psi \vee \bot^{\neg \psi} \vee \neg P( e ) )$.
 
 If we force the SMT solver to assert $\neg( \bot^{\neg \varphi} )^d$, it can be shown that the default behavior of DPLL(T) is sufficient and desirable for reasoning about clauses containing counterexample literals and literals with instantiation constants.
 
@@ -417,16 +446,151 @@ Similar to E-matching, we may be interested in determining if a term $t[q]$ exis
 
 In relation to E-matching, a term containing instantiation constants can be thought of as a trigger for instantiation.
 In contrast, however, we also are able to consider entailed equalities and disequalities in this approach.
-This enables a powerful method for determining relavant instantiations, as well as a criteria for judging the relevance of determined instantiations.
-For example, we can imagine an approach in which we first search only the equivalence class of $t[e]$ for another term of the form $t[s]$, and if none can be found, search the remainder of the concrete ground terms existing in the current context.
+This enables a powerful search method for determining relavant instantiations, as well as a criteria for judging the relevance of determined instantiations.
+For the former, we can imagine an approach in which we first search only the equivalence class of $t[e]$ for another term of the form $t[s]$, and if none can be found, search the remainder of the concrete ground terms existing in the current context.
 This is the idea of the approach proposed in the following section.
+In addition, for the latter, we may filter instantiations $s$ if, for example, $s = e$ is unsatisifiable in the current context.
 
-\subsubsection{E-Matching (Extended)}
+Our approach for quantifier instantiation for EUF will be divided into multiple iterations, where on each subsequent iteration, less restrictions are imposed upon the terms that are matched.
+On the final iteration, our approach will be roughly equivalent to E-matching, where all triggers $f( \bar{t} )[\bar{e}]$ are matched against all concrete ground terms $g$ such that $M \not\models f( \bar{t} )[\bar{e}] \neq g$.
 
-In this section, we present an approach for quantifier instantiation for EUF that is based upon filtering relevant E-matches.
-This approach will work in multiple iterations, where on each subsequent iteration, less restrictions are imposed upon the terms that are E-matched.
+We begin our discussion by introducing necesary terminology.
+We first describe the notion of a literal being induced by a set of equalities $E$.
 
+Say we have an equality $f( \bar{t} )[\bar{e}] = g$ in $M$.
+Our goal will be to find a set of equalities $\bar{e} = \bar{s}$ that are sufficient to show that $t[\bar{e}] = g$ must be true.
+In other words, we want to find $\bar{s}$ such that $M \backslash f( \bar{t} )[\bar{e}] = g, \bar{e} = \bar{s} \models f( \bar{t} )[\bar{e}] = g$.
+Note the subtle difference between this and E-matching.
+In E-matching, we are searching for a substitution $\bar{s}$ such that $f( \bar{t} )[\bar{s}]$ is equivalent to $g$ modulo our set of ground equalities.
+In this approach, we need only consider the equalities necessary to induce $f( \bar{t} )[\bar{e}]$ to be equal to $g$.
 
+Consider the following simple example.
+Say we have the quantifier $\psi$ of the form $\forall x. (g(x) = a \Rightarrow f( x, g( x ) ) \neq f( b, a ))$.
+After applying Counterexample $\forall$-Inst, we will have the literals $g(e) = a$ and $f( e, g( e ) ) = f( b, a )$ asserted in the current context for $e \mapsto^I \psi$.
+Note that now $e = b$ suffices to show that $f( e, g( e ) ) = f( b, a )$, thus suggesting that we may wish to use $b$ to instantiate $\psi$.
+In a basic implementation of E-matching, $f( x, g( x ) )$ and $f( b, a )$ do not E-match.
+
+More generally, we will say that a literal $t \sim s$ is $E$-induced in $M$ if $M \backslash t \sim s, E \models t \sim s$, where $E$ is a set of equalities of the form $e_1 = s_1 \ldots e_n = s_n$, that is, equalities whose left hand sides are instantiation constants.
+
+To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by a set of equalities $\bar{s} = \bar{e}$, we use the following method $calc\_e\_ind$:
+
+\begin{minipage}[t]{.4\linewidth}
+\begin{program}
+\PROC |calc\_e\_ind|(t,g,M) \BODY
+  \IF t \text{ is ground } \text{ or } M \models t \neq g \THEN
+    \RETURN \emptyset;
+  \ELSEIF t \text{ is inst. constant } \THEN
+    \IF M \models t = g \THEN
+      \RETURN \{ \emptyset \};
+    \ELSE
+      \RETURN \{ t = rep(g) \};
+    \FI
+  \ELSEIF t, g \text{ are $f( \bar{t_a} )$, $f( \bar{g_a} )$ } \THEN
+    S := \{ \emptyset \};
+    \DOFOR \text{each } t_i \text{ in } \bar{t_a} 
+      \IF M \models t \neq g \THEN
+        \RETURN \emptyset;
+      \ELSEIF M \not\models t_i = g_i
+        S' = calc\_e\_ind\_mod( t_i, g_i );
+        merge( S, S' );
+      \FI
+    \ENDFOR
+    \RETURN S;
+  \ELSE
+    \RETURN \emptyset;
+  \FI
+\ENDPROC
+\end{program}
+\end{minipage}
+\begin{minipage}[t]{.4\linewidth}
+\begin{program}
+\PROC |calc\_e\_ind\_mod|(t,g,M) \BODY
+  E := \emptyset;
+  \DOFOR \text{each pair } t_i, g_i = t, g
+    E := E \cup calc\_e\_ind( t_i, g_i, M );
+  \ENDFOR
+  \RETURN E;
+\ENDPROC
+\end{program}
+\begin{program}
+\PROC |merge|(S,S') \BODY
+  S'' := \emptyset;
+  \DOFOR E \in S, E' \in S'
+    \IF E \text{ and } E' \text{ are compatible }
+      S'' := S'' \cup \{ E \cup E' \}
+    \FI
+  \ENDFOR
+  \RETURN S'';
+\ENDPROC
+\end{program}
+
+\end{minipage}
+
+The method $calc\_e\_ind(t,g,M)$ returns a set of equality sets each that induce $t = g$ in $M$.
+In the case that $t$ is ground or disequal from $g$, the method returns the empty set.
+In the case that $t$ is an instantiation constant, the method returns the set containg one set of equalities, containing $t = g$ if necessary.
+If $t$ is of the form $f(\bar{t})$ and g is of the form $f(\bar{g})$, then the method computes the set $S$ such that $t = g$ is $E$-induced in $M$ for each $E \in S$.
+
+In this case, the method scans each pair of arguments $t_i, g_i$ and computes, modulo equality, a set of equality sets $S'$ such that $t_i = g_i$ is $E$-induced in $M$ for each $E \in S'$, using the method $calc\_e\_ind\_mod$.
+For each set $S'$ produced in this way, it merges this set with $S$ using the method $merge$.
+This method pairwise combines compatible equality sets $E$ and $E'$ together, that is, it takes the union of equalities in $E$ and $E'$ where there does not exist an equality $e = t$ in $E$ and $e = t'$ in $E'$ and $t$ is not syntactically equivalent to $t'$.
+
+Otherwise, if $t$ is of the form $f(\bar{t})$ and $g$ is not of the form $f( \bar{g})$, the method $calc\_e\_ind(t,g,M)$ returns the empty set.
+
+We will also be interested in classifying which pairs of terms may potentially be $E$-induced.
+For a quantified formula $\psi$, a term $f( t_1, \ldots, t_n ) \mapsto^I \psi$ is \emph{equality-compatible with term $s$ in $M$} if and only if $s$ is of the form $f( s_1, \ldots s_n )$ and $M \models_T t_1 = s_1 \wedge \ldots \wedge t_n = s_n$.
+A term $f( t_1, \ldots, t_n ) \mapsto^I \psi$ is \emph{equality-independent from term $s$ in $M$} if (a) $s$ is of the form $g( s_1, \ldots s_m )$, or (b) $s$ is of the form $f( s_1, \ldots s_n )$ in $M$, and $M \models_T t_i \neq s_i$ for some $i$. 
+A pair of terms $t, s$ where $t \mapsto^I \psi$ is \emph{equality-ambiguous} if $t$ is neither equality-compatible nor equality-independent from $s$.
+
+\subsubsection{E-Matching Using Equalities and Disequalities Between Triggers}
+
+We now describe the iterations used when determining instantiations for a quantified formula $\psi$ of the form $\forall \bar{x}. \varphi[\bar{x}]$, where $\bar{x}$ are of uninterpretted sorts.
+We are interested in finding an instantiation $\bar{s}$ for $\psi$ in a candidate-satisfiable DPLL(T) state $M \parallel F$, where $\psi$ is counterexample-active in $M$ for $\bar{e} \mapsto^I \psi$.
+In this case, a set of literals $L_1[\bar{e}] \ldots L_n[\bar{e}]$ have been asserted in $M$ according to Theorem~\ref{thm:cerep}.
+
+Our strategy for instantiation will consist of four iterations.
+On the first iteration, we return the instantiation $\varepsilon_M( \bar{e} )$ if and only if $\psi$ is instantiation-ready.
+On the second iteration, we determine if there exists a set of terms $\bar{s}$ such that we can determine that at least one of $L_1[\bar{e}] \ldots L_n[\bar{e}]$ is $\bar{s} = \bar{e}$-induced in $M$.
+On the third iteration, we will search for equality-ambiguous pairs of terms $t[\bar{e}]$ and $s$ in the same equivalence classes.  
+We construct an instantiation $\bar{s}$ such that an equality between a subterm position of $t[\bar{e}]$ and $s$ is induced by $\bar{s} = \bar{e}$.
+On the fourth iteration, we find a set of terms $\bar{s}$ that induce at least one equality between a pair of terms $t[\bar{e}]$ and $g$.
+Note that this is roughly equivalent to basic E-matching.
+
+\paragraph{First Iteration: Instantiation-Ready}
+
+On the first iteration of quantifier instantiation for $\psi$, we check to see if each $e_i$ in $\bar{e}$ that is present in $M$ exists in the same equivalence class as a concrete ground term $t$.
+For each $e_i$ not present in $M$, we pick an arbitrary concrete ground term if one exists, or a fresh constant otherwise.
+If we can construct a vector of terms of this form, we return only this instantiation.
+By Theorem~\ref{thm:instready}, this instantiation is \emph{guarenteed} to lead to a conflict, and the DPLL(T) engine will backtrack.
+
+\paragraph{Second Iteration: A Literal is E-Induced in M}
+
+On the second iteration of quantifier instantiation for $\psi$, we wish to determine if any literal can be induced by a set of equalities $\bar{e} = \bar{s}$.
+We will first describe how to generate a set of equality sets $S_L$ such that $L[\bar{e}]$ is $E$-induced in $M$ for each $E \in S$ using the method $calc\_e\_ind$ as described previously, for each literal $L[\bar{e}]$ in the current context.
+
+Note that the method $calc\_e\_ind$ generates \emph{partial} sets of equalities, or in other words, $calc\_e\_ind$ generates equality sets $E$ such that $e_i = t$ need not be in $E$ for each $e_i$ in $\bar{e}$.
+For this reason, we describe how to combine equality sets to construct fully specified instantiations $\bar{s}/\bar{e}$.
+In terms of E-matching, we will see that this serves a similar purpose as \emph{multi-triggers}.
+
+Consider when $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = g$, where $g$ is a concrete ground term.
+In this case, we take $S_L$ to be the union of $calc\_e\_ind( t[\bar{e}], h, M )$ for each term $h$ in the equivalence class of $g$.
+
+Otherwise consider when $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = s[\bar{e}]$.
+In this case, we scan each equivalence class and determine if there exists a pair of terms $g$ and $h$ in that equivalence class such that $t[\bar{e}] = g$ and $s[\bar{e}] = h$ are induced by sets of equality sets $S$ and $S'$.
+If this is the case, we add $merge( S, S')$ to $S_L$.
+
+Consider when $L[\bar{e}]$ is a disequality of the form $t[\bar{e}] \neq s$, the literal is converted to an equality between $Eq( t[\bar{e}], s )$ and $\bot$, where $Eq$ is a binary predicate representing equality between terms of boolean type, and $\bot$ is the distinguished boolean term representing false.
+To determine $S_L$, we take $S$ to be the union of $calc\_e\_ind( Eq( t[\bar{e}], s ), h, M ) \cup calc\_e\_ind( Eq( s, t[\bar{e}] ), h, M )$ for each $h = \bot$.
+
+After the set of equality sets $S_L$ is computed for each $L[\bar{e}]$, we wish to determine if any instantiations can be constructed from these sets.
+We say an equality set $E$ is \emph{complete for $\psi$} if it contains an equality $e_i = t_i$ for each $e_i \in \bar{e} \mapsto^I \psi$, \emph{incomplete for $\psi$} otherwise.
+The following method constructs a set of equality sets that are complete for $\psi$ from the sets $S_{L1} \ldots S_{Ln}$ of possibly incomplete equality sets:
+
+[do this]
+
+\paragraph{Third Iteration: A Literal is Partially $E$-Induced}
+
+On the third iteration, we determine if there exists a candidate term that may eventually produce $E$-induce $L[\bar{e}]$.
 
 
 \end{document}
