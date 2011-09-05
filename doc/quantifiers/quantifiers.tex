@@ -41,17 +41,17 @@ When extending the DPPL(T) framework to handle formuls involving quantifiers, we
 
 \noindent $\exists$-Inst: \\
 
-$M \parallel F \Longrightarrow M \parallel F, \neg \exists \bar{x}. \varphi( \bar{ x } ) \vee \varphi( \bar{ c } )$, if   
+$M \parallel F \Longrightarrow M \parallel F, \neg \exists \bar{x}. \varphi[ \bar{ x } ] \vee \varphi( \bar{ c } )$, if   
 $\begin{cases}
-  \exists \bar{x}. \varphi( \bar{ x } ) \in M \\
+  \exists \bar{x}. \varphi[ \bar{ x } ] \in M \\
   \bar{ c } \text{ are fresh constants} \\
 \end{cases}$ \\
 
 \noindent $\forall$-Inst: \\
 
-$M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi( \bar{ x } ) \vee \varphi( \bar{ s } )$, if   
+$M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi[ \bar{ x } ] \vee \varphi( \bar{ s } )$, if   
 $\begin{cases}
-  \forall \bar{x}. \varphi( \bar{ x } ) \in M \\
+  \forall \bar{x}. \varphi[ \bar{ x } ] \in M \\
   \bar{ s } \text{ are ground terms} \\
 \end{cases}$ \\
 
@@ -60,7 +60,7 @@ Note that in the case of $\exists$-Inst, there is no benefit of instantiating mo
 
 Note that the $\forall$-Inst rule always applies in DPLL(T) when a universal quantified formula is asserted, thus restricting the SMT solver from answering SAT.
 Typically, repeated applications of $\forall$-Inst are tried until a conflict is discovered, or else the solver returns UNKNOWN.
-The main challenges here are (1) determining relevant instantiations to use for the rule $\forall$-Inst, (2) determining when it is no longer worthwhile to apply $\forall$-Inst for a given quantifier, as well as (3) recognizing cases where all necessary instantiations have been tried.
+The main challenges here are (1) determining relevant instantiations to use for the rule $\forall$-Inst, (2) determining when it is no longer worthwhile to apply $\forall$-Inst for a given quantifier, and furthermore (3) recognizing cases where \emph{all} necessary instantiations have been tried.
 
 In current approaches, $E$-matching has been used as a method of addressing challenge (1).
 
@@ -69,23 +69,23 @@ Note that based on a particular matching scheme, a \emph{matching loop} may occu
 Heuristics have been used to address the challenges of (2), including assigning an instantiation level to each ground term produced as a result of an instantiation.
 By giving preference to matches using ground terms of a lower instantiation level, our instantiations effectively can be thought of as a bredth-first search.
 
-With regards to challenge (3), some SMT solvers employ what is known as \emph{complete instantiation} when dealing with quantifiers.
-If the solver can recognize that the body of a quantifier occurs in a decidable fragment of first order logic, then the solver may only need to try a finite number of instantiations before either finding a contradiction or determining the quantified formula is valid.
+With regards to challenge (3), some SMT solvers employ what is known as \emph{complete instantiation} when dealing with problems containing quantifiers.
+If the solver can recognize that the quantifier occurs in a decidable fragment of first order logic, then the solver may only need to try a finite number of instantiations before either finding a contradiction or determining the quantified formula is valid.
 In the cases where the formula is found to be valid, then the solver may be able to answer SAT.
 
 The following document reexamines challenges (1)-(3).
-Following the recent advances of symbolic model checking, we present a scheme for symbolically reasoning about counterexamples to quantified formulas within the DPLL(T) framework.
-Intuitively, for every (universally) quantified formula asserted in a given context, the solver will assume that a counterexample exists, and reason about possible values for this counterexample.
+We present a scheme for symbolically reasoning about counterexamples to quantified formulas within the DPLL(T) framework.
+At a high level, for every (universally) quantified formula asserted in a given context, the solver will assume that a counterexample exists, and reason about possible values for this counterexample.
 
-For challenge (1), the goal of this approach will be to leverage theory-specific information to aid in selecting instantiations.
-Say we have a universally quantified formula $\forall \bar{x}. \varphi$ where $x$ is of a sort belonging to theory $T$.
-The SMT solver will be interested in finding a satisifying assignment for $ \neg \varphi[\bar{e}/\bar{x}]$ where $\bar{e}$ are fresh constants.
-In other words, the value of $\bar{e}$ will represent the possible values for which our quantified formula can be falsified.
-The theory solver for $T$ will suggest instantiations for $\bar{x}$ based on the internal information it has deduced involving $\bar{e}$.
+In terms of challenge (1), the goal of this approach will be to leverage theory-specific information to aid in selecting instantiations.
+Say we have a universally quantified formula $\forall x. \varphi[x]$ where $x$ is of a sort belonging to theory $T$.
+The SMT solver will be interested in finding a satisifying assignment for $ \neg \varphi[e]$ where $e$ is a fresh constant of the same sort as $x$.
+In other words, the value of $e$ will represent the possible values for which our quantified formula can be falsified.
+The theory solver for $T$ will suggest instantiations for $x$ based on the internal information it has deduced involving $e$.
 For the theory of $EUF$, this can be thought of as an extension to E-matching.
 
-For challenge (3), it can be shown that if $\neg \varphi[\bar{e}/\bar{x}]$ is unsatisfiable in the current context for fresh constants $\bar{e}$, then our quantified formula is valid in the current context and need not be instantiated further.
-This comes as an added benefit, and while not as powerful as techniques using complete instantiation, may lead to SAT instances when it is shown, for example, that a particular axiom does not apply.
+For challenge (3), it can be shown that if $\neg \varphi[e]$ is unsatisfiable in the current context for fresh constants $\bar{e}$, then our quantified formula is valid in the current context and need not be instantiated further.
+This comes as an added benefit, and while not as powerful as techniques using complete instantiation, may lead to SAT instances when it is shown that a particular axiom does not apply in a particular context.
 
 \subsection{Related Work}
 
@@ -95,28 +95,29 @@ For a quantified formula $\forall \bar{x}. \varphi(\bar{x})$
 The goal of MBQI is to determine relevant instantiations using models to ground clauses in the current context.
 More specifically, given a set of clauses $F$, we determine a candidate model $M^I$ for the ground clauses in $F$, as well as other restrictions $R$ on potential models.
 For each non-ground clause $C[x] \in F$, we check the satisifiability of $R \wedge \neg C^I[e]$, where $C^I[e]$ is generated by replacing all uninterpretted symbols in $C[x]$ with the interpretation in our model $M^I$.
-In the case that this formula is satisfiable for some $C^I[e]$, we use a model for this formula to instantiate $C[x]$, thereby ruling out the model on future iterations.
+In the case that this formula is satisfiable for some $C^I[e]$, we use a model for this formula to instantiate $C[x]$, thereby ruling out the model $M^I$ on future iterations.
 In the case that each of these formulas $R \wedge \neg C^I[e]$ are unsatisifiable, then we know that our formula is SAT.
 
 %However, a weakness of this approach is that it is not incremental.
 %In other words, testing the satisfiability of formulas $R \wedge \neg C^I[e]$ potentially comes at a large cost to the solver.
 
 The technique proposed in this document takes a similar approach to quantifier instantiation, and is intended to simplify this scheme.
-Instead of explicitly building models $M^I$ and reasoning about the interpretted form of clauses $\neg C^I[e]$, we instead reason \emph{incrementally} about the negated body of non-ground clauses $\neg C[e]$ as they are, for a fresh (distinguished) constant $e$ (which we will call \emph{instantiation constants}).
-In this approach, when we have reached a DPLL(T) state $M \parallel F$, our current set of asserted literals $M$ can be considered the implicit specification of our current model.
+Instead of explicitly building models $M^I$ and reasoning about the interpretted form of clauses $\neg C^I[e]$, we instead reason \emph{incrementally} about the negated body of non-ground clauses $\neg C[e]$ as they are, for a fresh (distinguished) constant $e$ \footnote{ We will refer to these constants $\bar{e}$ as \emph{instantiation constants} }.
+This is done using the same instance of the SMT solver, that is, we may use an SMT solver to simultaneously reason about constructing satisfying assignments for ground clauses existing in a particular problem as well as clauses $\neg C[e]$.
+In this approach, when we have reached a DPLL(T) state $M \parallel F$, our current set of asserted literals $M$ not containing $\bar{e}$ can be considered the implicit specification of a current model.
 
 Based on possible values we find for $e$, our procedure will construct instantiations that are likely to be relevant in the current context, as well as decide when no helpful instantiations exist.
-In the same manner as model-based quantifier instantiation, if we show that $\neg C[e]$ is unsatisifiable in the current context for the fresh constant $e$, then we have shown that $C[x]$ is valid and need not be instantiated further.
+In the same manner as model-based quantifier instantiation, if we show that $\neg C[e]$ is unsatisifiable in the current context for the fresh constant $e$, then we have shown that $C[x]$ is valid and need not be instantiated further in the current context.
 
 \paragraph{E-matching}
 E-matching is a powerful method for generating relevant instantiations based on matching \emph{triggers} with concrete ground terms. 
 Say we have ground assertions $L$ and quantified assertion $\forall \bar{x}. \varphi$.
-The idea of E-matching is to find a subterm $t$ of $\varphi$ (called a \emph{trigger}), such that $\bar{x} \in FV( t )$ and ground terms $s$ such that $t[\bar{s}/\bar{x}]$ is equivalent to a ground subterm $t'$ of $L$ modulo a set of ground equalities entailed by $L$.
-In this case, we say $t$ E-matches $t'$ and $\bar{s}$ is used to instantiate $\forall \bar{x}. \varphi$.
+The idea of E-matching is to find a subterm (or set of subterms) $t$ of $\varphi$, called a \emph{trigger}, such that $\bar{x} \in FV( t )$ and ground terms $s$ such that $t[\bar{s}/\bar{x}]$ is equivalent to a ground subterm $t'$ of $L$ modulo a set of ground equalities entailed by $L$.
+In this case, we say that term $t$ E-matches term $t'$ and subsequently the set of ground terms $\bar{s}$ is used to instantiate the quantifier $\forall \bar{x}. \varphi$.
 
-While modern SMT solvers can compute E-matches in an efficient manner, a weakness of E-matching is its ability to recognize the relavance of instantiations.
+While modern methods can be used to compute E-matches in a highly efficient manner, a weakness of E-matching is its ability to recognize the relavance of instantiations.
 In particular, a basic implementation of E-matching does not consider the logical structure of the body of the quantifier $\varphi$.
-Instead, triggers are chosen from $\varphi$ at random.
+As a result, many instantiations may potentially be needed to generate a conflict if one exists.
 
 For example, say we have the quantified formula $\forall x. ( f(x) \neq g(x) \Rightarrow P( x ) )$ and ground literal $f( a ) = g( a )$ asserted in a particular context. 
 An implementation of E-matching may choose $f( x )$ as a trigger and will instantiate this formula with ground terms $a$ such $f( a )$ exists in $L$.
@@ -134,107 +135,99 @@ This information provides a criteria for filtering irrelevant E-matches.
 
 In this section, we propose a scheme for reasoning about quantified formulas in SMT within the existing DPLL(T) framework.
 This scheme will supplement DPLL(T) with additional rules that provide ways for finding relevant instantiations.
-These additions are done without breaking any currently existing invariants of the DPLL(T) framework.
 
 \subsection{Counterexample Literals}
 
-Firstly, let us introduce the notion of a counterexample literal.
-For a quantified formula $\forall \bar{ x }. \varphi( \bar{ x } )$, its corresponding counterexample literal is formula $(\neg \forall \bar{ x }. \varphi( \bar{ x } ) \Rightarrow \bot)$.
-This literal states that ``a counterexample to $\forall \bar{ x }. \varphi( \bar{ x } )$ does not exist", or in other words $\forall \bar{ x }. \varphi( \bar{ x } )$ is valid.
-The key idea here is that although this entails the literal $\forall \bar{ x }. \varphi( \bar{ x } )$, we will in a sense trick the SAT-solver into believing they are in fact independent literals.
+Given an asserted quantifier $\forall \bar{x}. \varphi[\bar{x}]$ (call this formula $\psi$) and a DPLL(T) context $M \parallel F$, we are interested in finding a satisifying assignment for $ \neg \psi[\bar{e}/\bar{x}]$ for fresh constants $\bar{e}$.
+To do this, we will insert a valid lemma into $F$ that can be thought of saying that either (a) $\psi$ is not asserted, (b) $\psi$ does not have a counterexample, or (c) $\psi$ has a counterexample, call it $\bar{e}$ such that $\neg \varphi[\bar{e}]$ holds.
+For this purpose, we will first introduce the notion of a \emph{counterexample literal}.
 
-We will write $\bot^{\neg \psi}$ as shorthand for the counterexample literal $(\neg \psi \Rightarrow \bot)$.
+For a quantified formula $\psi$ of the form $\forall \bar{ x }. \varphi$, we will associate a distinguished (boolean) literal called the \emph{counterexample literal of $\psi$}, and write $\bot^{\neg \psi}$ to denote this literal.
+This literal states that ``a counterexample to $\psi$ does not exist", or in other words $\psi$ is valid in the current context.
+The idea here is that although this entails the literal $\psi$ itself, we will in a sense trick the SAT-solver into believing they are in fact independent literals.
 
-For a DPLL(T) state $M \parallel F$ and for each quantified formula $\psi = \forall \bar{ x }. \varphi( \bar{ x } ) \in F$, we have three intended configurations for $\psi$ and its counterexample literal $\bot^{\neg \psi}$: \\
+For a DPLL(T) state $M \parallel F$ and for each quantified formula $\psi = \forall \bar{ x }. \varphi[ \bar{ x } ] \in F$, we have three intended configurations for $\psi$ and its counterexample literal $\bot^{\neg \psi}$: \\
 
 (1) $\psi$ is not asserted positively in $M$, 
 
 (2) $\psi^{(d)}$ and $\neg (\bot^{\neg \psi})^d$ are asserted in $M$, 
 
-(3) $\psi$ and $\bot^{\neg \psi}$ are asserted in $M$. \\
-
-Accordingly, we give the following recommendations for the DPLL(T) engine: (A1) \emph{$(\bot^{\neg \psi})^d$ should never be asserted}, and (A2) \emph{ $\neg (\bot^{\neg \psi})^d$ should only be asserted when $\psi^{(d)}$ is asserted}.
-Note that neither of these are required for soundness.
+(3) $\psi^{(d)}$ and $\bot^{\neg \psi}$ are asserted in $M$. \\
 
 In case (1), our configuration does not claim $\psi$ to be true.
 In case (2), our configuration has asserted (perhaps as a decision) that $\psi$ is true, but also has decided that it will find a counterexample.
 In case (3), our configuration has asserted that $\psi$ is true, and moreover knows that $\psi$ does not have a counterexample.
 
-We will see in the following sections that lemmas of the form $( \neg \psi \vee \bot^{\neg \psi} \vee C(\bar{e}))$ will be added to our set of clauses $F$.
-Each of these clauses tell us that either $\psi$ does not hold, a counterexample does not exist for $\psi$, or the contraint $C(\bar{e})$ holds for the counterexample $\bar{e}$ of $\psi$,  where $\bar{e}$ are distinguished free constants of the same sorts as $\bar{x}$.
-In other words, if there exists a $\bar{t}$ such that $\psi[\bar{t}/\bar{x}]$ is unsatisifiable in $M$, then $C( \bar{t})$ is satisfiable in $M$.
-Note the contrapositive: if $C( \bar{e} )$ is unsatisfiable in $M$, then $\psi[\bar{t}/\bar{x}]$ is satisifiable in $M$ for all $\bar{t}$, or in other words, $\psi$ does not have a counterexample and $\psi$ is valid.
+To enforce this schema, we require that the DPLL(T) engine never assert $(\bot^{\neg \psi})^d$ as a decision, and that $\neg (\bot^{\neg \psi})^d$ should be asserted only after $\psi$ is asserted.
+Both these requirements can be addressed within the core of the SAT solver with only a limited impact on performance.
+It also should be noted that neither of these are required to maintain soundness of the overall DPLL(T) system.
 
-Consider the possible states (1)-(3) of our configuration.
-In case (1), if $\psi$ is asserted negatively, then the remainder of the clause $( \neg \psi \vee \bot^{\neg \psi} \vee C(\bar{e}))$ is ignored.
-In the case of (3), the clause is satisfied by $\bot^{\neg \psi}$ and the solver will again ignore the information contained in $C(\bar{e})$.
+%In the following sections, lemmas of the form $( \neg \psi \vee \bot^{\neg \psi} \vee \neg \psi[\bar{e}/\bar{x}])$ will be added to our set of clauses $F$.
+%Each of these clauses tell us that either $\psi$ does not hold, a counterexample does not exist for $\psi$, or the contraint $C(\bar{e})$ holds for the counterexample $\bar{e}$ of $\psi$,  where $\bar{e}$ are distinguished free constants of the same sorts as $\bar{x}$.
+%In other words, if there exists a $\bar{t}$ such that $\psi[\bar{t}/\bar{x}]$ is unsatisifiable in $M$, then $C( \bar{t})$ is satisfiable in $M$.
+%Note the contrapositive: if $C( \bar{e} )$ is unsatisfiable in $M$, then $\psi[\bar{t}/\bar{x}]$ is satisifiable in $M$ for all $\bar{t}$, or in other words, $\psi$ does not have a counterexample and $\psi$ is valid.
 
-More interestingly, in the case of (2), the SAT-solver must find a satisfying assignment for $C(\bar{e})$.
+Consider the possible states (1), (2) and (3) of our configuration.
+In case (1), if $\psi$ is asserted negatively, then the remainder of the clause $( \neg \psi \vee \bot^{\neg \psi} \vee \neg \psi[\bar{e}/\bar{x}])$ is ignored.
+In the case of (3), the clause is satisfied by $\bot^{\neg \psi}$ and the solver will again ignore the information contained in $\neg \psi[\bar{e}/\bar{x}]$.
+
+More interestingly, in the case of (2), the SAT-solver must find a satisfying assignment for $\neg \psi[\bar{e}/\bar{x}]$.
 In particular, we will see that this will force the DPLL(T) engine to reason about models for our counterexample $\bar{e}$.
-Furthermore, in the case where $C(\bar{e})$ is unsatisifiable, this will signal for the SAT-solver to backjump and assert $\bot^{\neg \psi}$ positively as a non-decision literal, or in other words, a counterexample to $\psi$ cannot exist in the current context.
-If this is the case, we are further able to drop the decision annotation from $\psi^{(d)}$ if it exists, and enter into case (3).
-
-Note that applying $\forall$-Inst to $\psi$ in case (3) is futile, since we are sure that a counterexample to $\psi$ cannot exist in the current context.
+Furthermore, in the case where $\neg \psi[\bar{e}/\bar{x}]$ is unsatisifiable, this will signal for the SAT-solver to backjump and assert $\bot^{\neg \psi}$ positively as a non-decision literal, or in other words, a counterexample to $\psi$ cannot exist in the current context.
 We will see that this will allow us to answer SAT instead of UNKNOWN in some cases.
 
 \subsection{Instantiation Constants}
 
-In the following, we will use distinguished free constants to refer to the value of a (possibly non-existant) counterexamples.
-For convienience, we will refer to such constants as \emph{instantiation constants}, and use $e$ possibly with subscripts to refer to such constants.
-Note that for each $e$ of a sort $s$, we allow that $s$ may be interpretted or uninterpretted.
+We will refer to distinguished free constants $\bar{e}$ as introduced in the previous section as \emph{instantiation constants}.
 It is important to note that instantiation constants will have identical logical semantics as free constants of the same sort.
 In other words, our scheme assumes no information about the value of an instantiation constant $e$, and simply uses this terminology as a way of referring such constants.
 
-We write $e \mapsto^I_i \forall \bar{x}. \varphi( \bar{x} )$ to denote that $e$ is the i$^{th}$ instantiation constant for the formula $\forall \bar{x}. \varphi( \bar{x} ) $, and write $\bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{x} )$ to denote that $e_1 \mapsto^I_1 \varphi \ldots e_n \mapsto^I_n \forall \bar{x}. \varphi( \bar{x} )$.
-For a literal $l$, we write $l \mapsto^I S$ to denote that $S = \{ \forall \bar{x}. \varphi( \bar{x} ) \mid \exists e \in l. e \mapsto^I \forall \bar{x}. \varphi( \bar{x} ) \}$, or in other words, all instantiation constants in $l$ refer to a quantified formula in $S$.
+We write $e \mapsto^I_i \forall \bar{x}. \varphi[ \bar{x} ]$ to denote that $e$ is the i$^{th}$ instantiation constant for the formula $\forall \bar{x}. \varphi[ \bar{x} ] $, and write $\bar{e} \mapsto^I \forall \bar{x}. \varphi[ \bar{x} ]$ to denote that $e_1 \mapsto^I_1 \varphi \ldots e_n \mapsto^I_n \forall \bar{x}. \varphi[ \bar{x} ]$.
+For a literal $l$, we write $l \mapsto^I S$ to denote that $S = \{ \forall \bar{x}. \varphi[ \bar{x} ] \mid \exists e \in l. e \mapsto^I \forall \bar{x}. \varphi[ \bar{x} ] \}$, or in other words, all instantiation constants in $l$ refer to a quantified formula in $S$.
 Furthermore write $C \mapsto^I S$ to denote that $S$ is the union of the sets $S_1 \ldots S_n$ for $l_i \in C$, $l_i \mapsto^I S_i$.
 A concrete literal (clause) is one that contains no instantiation constants.
 We consider a literal (clause) to be pure with respect to quantifiers if it contains instantiation constants from at most one quantified formula.
-For convienience, we simply write $E \mapsto^I \forall \bar{x}. \varphi( \bar{x} )$ in the case that expression $E$ contains instantiation constants from exactly one.
+For convienience, we simply write $E \mapsto^I \forall \bar{x}. \varphi[ \bar{x} ]$ in the case that expression $E$ contains instantiation constants from exactly one.
 An expression $E$ is \emph{concrete} if $E \mapsto^I \emptyset$.
 
-\subsection{Counterexample Lemmas for Quantified Formulas}
-\label{sec:CENF}
+\subsection{Counterexample Lemma for Quantified Formulas}
 
-In this section, we present a particular type of lemma for quantified formulas, which we will refer to as the \emph{counterexample lemma} for a quantified formula.
-The counterexample lemma of a formula $\forall \bar{x}. \varphi( \bar{ x } )$ is defined to be $\bot^{\neg \forall \bar{x}. \varphi( \bar{x} )} \vee \neg \varphi( \bar{e} )$, where $\bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{x} )$.
-We call $\bar{e}$ the instantiation constants for $\forall \bar{x}. \varphi( \bar{ x } )$.
-Note that $\varphi(\bar{e})$ may contain quantifiers.
+Consider the lemma $( \neg \psi \vee \bot^{\neg \psi} \vee \neg \psi[\bar{e}/\bar{x}])$, where $\bar{e} \mapsto^I \psi$.
+We will refer to this formula as the \emph{counterexample lemma for $\psi$}.
+Informally, this lemma is valid since $\bot^{\neg \psi}$ entails $\psi$, and thus $( \neg \psi \vee \bot^{\neg \psi} )$ is a tautology.
+Note that $\neg \psi[\bar{e}/\bar{x}]$ may contain quantifiers.
 
 {\bf Example 0}
-Consider the formula $\psi = \forall x. (l_1 \vee (( l_2 \vee x = a \vee x = b ) \Rightarrow x \neq c))$.
-Its counterexample lemma after conversion to CNF is $( \neg l_1 \vee \bot^{\neg \psi}) \wedge ( l_2 \vee e = a \vee e = b \vee \bot^{\neg \psi} ) \wedge ( e = c \vee \bot^{\neg \psi})$. \\
+Consider the formula $\psi = \forall x. ( l_1 \vee ( l_2 \vee x = a ) \Rightarrow \neg P( x ) )$.
+Its counterexample lemma after conversion to CNF is $( \neg \psi \vee \bot^{\neg \psi} \vee \neg l_1 ) \wedge ( \neg \psi \vee \bot^{\neg \psi} \vee l_2 \vee e = a ) \wedge ( \neg \psi \vee \bot^{\neg \psi} \vee \neg R( e ) ) $. \\
 
 In Example 0, we have produced three clauses.
 The first says that either $l_1$ is false or a counterexample does not exist to $\psi$.
-The second says that either $l_2$ is true, a counterexample $\psi[e/x]$ exists such that $e$ is equal to $a$ or $b$, or a counterexample does not exist to $\psi$. 
-Similarly, the third says that either a counterexample $\psi[e/x]$ exists such that $e$ is equal to $c$, or one does not exist.
+The second says that either $l_2$ is true, a counterexample $\psi[e/x]$ exists such that $e = a$, or a counterexample does not exist to $\psi$. 
+Similarly, the third says that either a counterexample $\psi[e/x]$ exists such that $P( e )$, or one does not exist.
 
 \subsection{Counterexample $\forall$-Inst}
 
 The transformation described in Section~\ref{sec:CENF} can be used to introduce clauses containing instantiation constants into the DPLL(T) framework.
-Conceptually, the following rule constructs a lemma that describes a counterexample $\bar{e}$ for the universally quantified formula $\forall \bar{x}. \varphi( \bar{ x } )$, and adds it as a lemma to $F$.
+Conceptually, the following rule constructs a lemma that describes a counterexample $\bar{e}$ for the universally quantified formula $\forall \bar{x}. \varphi[ \bar{ x } ]$, and adds it as a lemma to $F$.
 This rule represents the central idea behind our approach: \\
 
 \noindent Counterexample $\forall$-Inst: \\
 
-$M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi( \bar{x} ) \vee \bot^{\neg \forall \bar{x}. \varphi( \bar{x} )} \vee \neg \varphi( \bar{ e } )$, if   
+$M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi[ \bar{x} ] \vee \bot^{\neg \forall \bar{x}. \varphi[ \bar{x} ]} \vee \neg \varphi[ \bar{ e } ]$, if   
 $\begin{cases}
-  \forall \bar{x}. \varphi( \bar{ x } ) \in M \\
-  \bar{ e } \mapsto^I \forall \bar{x}. \varphi( \bar{ x } ) \\
+  \forall \bar{x}. \varphi[ \bar{ x } ] \in M \\
+  \bar{ e } \mapsto^I \forall \bar{x}. \varphi[ \bar{ x } ] \\
 \end{cases}$ \\
-
-Since we only care about finding a counterexample for $\forall \bar{x}. \varphi( \bar{x} )$ when it is asserted, we add its negation into the disjunction of the counterexample lemma for $\forall \bar{x}. \varphi( \bar{x} )$.
-Clearly, this rule is sound since $\bot^{\neg \forall \bar{x}. \varphi( \bar{x} )} \vee \neg \varphi( \bar{ e } )$ is tautological.
 
 Let us again consider Example 0.
 By applying Counterexample $\forall$-Inst to $\psi$, we will produce three clauses $C_1, C_2, C_3$ after CNF-conversion:
 
-$C_1 : ( \neg \psi \vee \bot^{\neg \psi} \vee \neg l_1)$,
+$C_1 : ( \neg \psi \vee \bot^{\neg \psi} \vee \neg l_1 )$,
 
-$C_2 : ( \neg \psi \vee \bot^{\neg \psi} \vee l_2 \vee e = a \vee e = b )$, and
+$C_2 : ( \neg \psi \vee \bot^{\neg \psi} \vee l_2 \vee e = a )$, and
 
-$C_3 : ( \neg \psi \vee \bot^{\neg \psi} \vee e = c )$.
+$C_3 : ( \neg \psi \vee \bot^{\neg \psi} \vee \neg R( e ) )$.
 
 If we force the SMT solver to assert $\neg( \bot^{\neg \varphi} )^d$, it can be shown that the default behavior of DPLL(T) is sufficient and desirable for reasoning about clauses containing counterexample literals and literals with instantiation constants.
 
@@ -252,17 +245,16 @@ Otherwise, if $l_1^d$ had been asserted positively as a decision in $N$, $C_1$ i
 In the former case, we have determined that some decision in $N$ has led us to require $l_1$ to be true thereby conflicting with our decision that a counterexample exists.
 In the latter case, we have determined that assuming a counterexample exists means that $l_1$ must be true and thus a counterexample cannot exist.
 
-Now consider the case where we are in a state $M, \psi^d, \neg( \bot^{\neg \varphi} )^d, N  \parallel F$ where now $\psi$ has been asserted as a decision literal.
+%Now consider the case where we are in a state $M, \psi^d, \neg( \bot^{\neg \varphi} )^d, N  \parallel F$ where now $\psi$ has been asserted as a decision literal.
 
-The cases here are identical with one notable exception.
-Take the case where we have encountered a conflict and backjumped to the state $M, \psi^d, \bot^{\neg \varphi} \parallel F$, that is, we know that $\psi$ does not have a counterexample.
-Note the lemma $(\neg (\bot^{\neg \psi}) \vee \psi)$, that is, either $\psi$ has a counterexample or $\psi$ holds.
-We can apply Backjump with $C' \vee l' = \neg (\bot^{\neg \psi}) \vee \psi$ to arrive at the state $M, \psi \parallel F$.
-Note, however that this lemma should not be added $F$, as it is exactly what we \emph{do not} want to tell the SAT-solver, as it encodes the trick of our approach.
+%The cases here are identical with one notable exception.
+%Take the case where we have encountered a conflict and backjumped to the state $M, \psi^d, \bot^{\neg \varphi} \parallel F$, that is, we know that $\psi$ does not have a counterexample.
+%Note the lemma $(\neg (\bot^{\neg \psi}) \vee \psi)$, that is, either $\psi$ has a counterexample or $\psi$ holds.
+%We can apply Backjump with $C' \vee l' = \neg (\bot^{\neg \psi}) \vee \psi$ to arrive at the state $M, \psi \parallel F$.
+%Note, however that this lemma should not be added $F$, as it is exactly what we \emph{do not} want to tell the SAT-solver, as it encodes the trick of our approach.
 
-The analysis for $C_2$ and $C_3$ are as expected, where now the DPLL(T) engine may give partial truth assignments to $e = a$, $e = b$ and $e = c$ which will be useful for determining instantiations.
-Note in the context $M, \psi, \neg( \bot^{\neg \varphi} )^d$, the literal $e = c$ will be unit propagated within $C_3$, thereby signalling that we should only be searching for counterexamples where $e = c$.
-Moreover, it is easy to see that $c$ is the \emph{only} instantiation we need to try for $x$ in this example.
+The analysis for $C_2$ and $C_3$ are as expected, where now the DPLL(T) engine may give partial truth assignments to $l_2$, $e = a$ and $P( e )$ which will be useful for determining instantiations.
+Note in the context $M, \psi, \neg( \bot^{\neg \varphi} )^d, \neg l_2$, the literal $e = a$ will be unit propagated within $C_3$, thereby signalling that $\psi[ a/x]$ is the \emph{only} instantiation we need to try in this example.
 
 We formally define the following invariants for DPLL(T): \\
 
@@ -274,34 +266,11 @@ For all DPLL(T) states $M \parallel F$, all clauses $C \mapsto^I \psi$ in $F$ ar
 
 By definition, counterexample $\forall$-Inst maintains Invariants 1 and 2.
 In addition, since counterexample literals $\bot^{ \neg \psi }$ have no meaning apart from representing boolean values, no lemma added to $F$ by $T$-Learn will violate Invariant 1.
-[do this: Boolean Learning?]
-
-\subsection{Representation of Counterexamples}
-
-It is important to note that in the DPLL(T) search we branch on literals involving instantiation constants.
-Thus, at any given point we are searching for only one possibility of how a counterexample to a quantified formula $\psi$ can look.
-In this section, we describe precisely what is said about our counterexample to $\psi$.
-
-We say a DPLL(T) state $M \parallel F$ is \emph{candidate-satisifiable} if all clauses in $F$ are satisified and $M$ is $T$-consistent.
-We say a quantified formula $\psi \in M$ is \emph{counterexample-active} in $M \parallel F$ if Counterexample $\forall$-Inst has been applied to $\psi$ and $\neg (\bot^{\neg \psi})^d \in M$.
-The following theorem tells us what formulas are asserted for counterexample-active $\psi$ in candidate-satisifiable DPLL(T) states:
-
-\begin{thm}
-\label{thm:cerep}
-Given a candidate-satisifiable DPLL(T) state $M \parallel F$ and a quantified formula $\psi \in M$ whose DNF-conversion is $\forall \bar{x}. (S_1 \vee \ldots \vee S_n)$.
-If $\psi$ is counterexample-active in $M \parallel F$, then $\neg l_1 [\bar{e}/\bar{x}] \ldots \neg l_n [\bar{e}/\bar{x}] \in M$ where $\bar{e} \mapsto^I \psi$, for some $l_1 \in S_1, \ldots l_n \in S_n$.
-\end{thm}
-\begin{proof}
-Say $(\psi :) \ \forall \bar{x}. (S_1 \vee \ldots \vee S_n)$ is asserted in $M$ where $S_1, \ldots S_n$ are conjunctions of literals, and say Counterexample $\forall$-Inst has been applied to $\psi$ and $\neg (\bot^{\neg \psi}) \in M$.
-By definition of Counterexample $\forall$-Inst, we have added the lemma $( \neg \psi \vee \bot^{\neg \psi} \vee \neg (S_1 \vee \ldots \vee S_n )[\bar{e}/\bar{x}] )$ where $\bar{e} \mapsto^I \psi$.
-Thus $F \models ( \neg \psi \vee \bot^{\neg \psi} \vee (\neg S_i)[\bar{e}/\bar{x}])$ for all $1 \leq i \leq n$.
-Since $\psi$ and $\neg \bot^{\neg \psi}$ are asserted in $M$, at least one literal of the form $l_i[\bar{e}/\bar{x}]$ is asserted negatively in $M$ for each $S_i$ containing $l_i$. $\Box$
-\end{proof}
 
 \subsection{Enhancements for DPLL(T) Rules}
 
 First, let us revisit the rule for $\forall$-Inst.
-Note that we may restrict this rule to only be applicable to formulas $\forall \bar{x}. \varphi( \bar{ x } )$ in cases where a counterexample can exist to $\forall \bar{x}. \varphi( \bar{ x } )$.
+Note that we may restrict this rule to only be applicable to formulas $\forall \bar{x}. \varphi[ \bar{ x } ]$ in cases where a counterexample can exist to $\forall \bar{x}. \varphi[ \bar{ x } ]$.
 Such cases can be easily recognized due to the following theorem:
 
 \begin{thm}
@@ -323,18 +292,17 @@ Consider the case where $\bot^{\neg \psi}$ was asserted due to a backjump.
 [do this] $\Box$
 \end{proof}
 
-Accordingly, we add the following restriction to our DPLL(T) engine: (A3) \emph{if $(\bot^{\neg \psi})^d$ is not asserted, then no literal $l^d$ can be asserted such that $l \mapsto^I \psi$}.
-We will see an alternative implementation in Section~\ref{sec:implementation} which handles this restriction explicitly and without modification to the SAT solver.
+Accordingly, we add the following restriction to our DPLL(T) engine: \emph{if $(\bot^{\neg \psi})^d$ is not asserted, then no literal $l^d$ can be asserted such that $l \mapsto^I \psi$}.
 
 Our updated rule for $\forall$-Inst becomes the following: \\
 
 \noindent $\forall$-Inst (Counterexample Restricted): \\
 
-$M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi( \bar{ x } ) \vee \varphi( \bar{ s } )$, if   
+$M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi[ \bar{ x } ] \vee \varphi( \bar{ s } )$, if   
 $\begin{cases}
-  \forall \bar{x}. \varphi( \bar{ x } ) \in M \\
+  \forall \bar{x}. \varphi[ \bar{ x } ] \in M \\
   \bar{ s } \text{ are \emph{concrete} ground terms} \\
-  \bot^{\neg \forall \bar{x}. \varphi( \bar{ x } )} \text{ is not asserted positively }\\
+  \bot^{\neg \forall \bar{x}. \varphi[ \bar{ x } ]} \text{ is not asserted positively }\\
   \text{ \ \ \ as a non-decision literal in $M$ } \\    
 \end{cases}$ \\
 
@@ -352,6 +320,30 @@ The solver answers SAT. \\
 
 Here, we have determined $S$ is satisfiable by noting that any model where $a = b$ is true also satisfies $\psi$ for all possible values for $x$.
 
+
+\subsection{Representation of Counterexamples}
+
+It is important to note that in the DPLL(T) search we branch on literals involving instantiation constants.
+Thus, at any given point we are searching for only one possibility of how a counterexample to a quantified formula $\psi$ can look.
+In this section, we describe precisely what is said about our counterexample to $\psi$.
+
+We say a DPLL(T) state $M \parallel F$ is \emph{candidate-satisifiable} if all clauses in $F$ are satisified and $M$ is $T$-consistent.
+We say a quantified formula $\psi \in M$ is \emph{counterexample-active} in $M \parallel F$ if Counterexample $\forall$-Inst has been applied to $\psi$ and $\neg (\bot^{\neg \psi})^d \in M$.
+The following theorem tells us what formulas are asserted for counterexample-active $\psi$ in candidate-satisifiable DPLL(T) states:
+
+\begin{thm}
+\label{thm:cerep}
+Given a candidate-satisifiable DPLL(T) state $M \parallel F$ and a quantified formula $\psi \in M$ whose CNF-conversion is $\forall \bar{x}. (C_1 \wedge \ldots \wedge C_n)$.
+If $\psi$ is counterexample-active in $M \parallel F$ for $\bar{e} \mapsto^I \psi$, then there exists a clause $C_i$ such that each literal in $C_i[ \bar{e}/\bar{x}]$ is asserted falsely in $M$.
+\end{thm}
+
+\subsection{Learned Lemmas Containing Instantiation Constants}
+
+It is also important to note that learned lemmas can involve instantiation constants.
+In Example 1, after the theory conlifct, we could have added the lemma $(\varphi_1 : ) ( f( e ) \neq a \vee f( e ) = b \vee a \neq b )$ to $S'$.
+For a larger example, this lemma may potentially be useful in pruning the search space of subsequent searches.
+
+\begin{comment}
 It is also important to note that learned lemmas can involve instantiation constants.
 In this example, after the theory conlifct, we could have added the lemma $(\varphi_1 : ) ( f( e ) \neq a \vee f( e ) = b \vee a \neq b )$ to $S'$.
 In this case, we may apply Decide to come to the state $( a = b ), \psi, (\bot^{\neg \psi}), (f( e ) \neq a)^d \parallel S' \cup \varphi$, where again all clauses are satisfied, and the solver answers SAT in the same manner.
@@ -361,11 +353,11 @@ In other words, the solver should not be searching for values of counterexamples
 We will see in Section~\ref{sec:implementation} a recommended implementation for which this concern is addressed.
 [do this: do these lemmas pollute the DPLL(T) space?  When should we forget them?  Should we give them to minisat?]
 [do this: examine elaborating lemmas involving instantiation constants as being lemmas involving universal statements, justify as well]
+\end{comment}
 
-\section{Search Strategies for Quantifier Instantiation}
+\section{Quantifier Instantiation Using Instantiation Constants}
 
 In this section, we describe search methods for determining relevant instantiations using theory-specific information we have deduced about instantiation constants $\bar{e}$.
-Our goal will be to find states $M \parallel F$ in which we can construct a concrete ground instantiation $\bar{s}$ for some quantified formula $\psi \in M$ such that $\psi [\bar{s}/\bar{x}]$ \emph{must be} unsatisfiable in $M$.
 
 We begin with the following definitions:
 An instantiation constant $e$ is \emph{solved in $M$} if there exists a concrete ground term $s$ such that $M \models_T (e = s)$.
@@ -374,502 +366,68 @@ Similarly, a term $t$ is \emph{unsolved in $M$} if it contains instantiation con
 Note that concrete ground terms $t$ are solved for all $M$.
 
 Given a quantified formula $\psi$ is \emph{instantiation-ready in $M$} if and only if $M$ is $T$-consistent and all $e_i \mapsto^I \psi$ in $M$ are solved in $M$.
-For an instantiation-ready quantified formula $\psi$, define $\varepsilon_M( \bar{e} )$ for $\bar{e} \mapsto^I \psi$ as a vector of concrete ground terms $t_1 \ldots t_n$ such that if $e_i$ is in $M$, then $M \models_T (e_i = t_i)$.
-%For instantiation-ready $\psi$, we call $\psi$ instantiation-potent in $M$ if $\bar{e} = \varepsilon_M( \bar{e} ) \models M \mid_\psi$.
+For an instantiation-ready quantified formula $\psi$, define $\varepsilon_M( e_1 ) \ldots \varepsilon_M( e_n )$ as a vector of concrete ground terms such that if $e_i$ is in $M$, then $M \models_T (e_i = \varepsilon_M( e_1 ))$.
 
-The usefulness of determining whether a quantified formula $(\psi:) \ \forall \bar{x}. \varphi( \bar{x} )$ is instantiation-ready is immediate:  if $\psi$ is counterexample active, we know that $\neg \varphi( \bar{e} )$ is entailed in our current mdoel, where $\bar{e}$ are the instantiation constants of $\psi$.
-When we have solved for values of $\bar{e} = \bar{s}$, then we know that the instantiation $\varphi( \bar{s} )$ must be \emph{unsatisfiable} in the current state.
+The usefulness of determining whether a quantified formula $(\psi:) \ \forall \bar{x}. \varphi[ \bar{x} ]$ is instantiation-ready is immediate:  if $\psi$ is counterexample active in candidate satsifiable $M \parallel F$, we know that $\neg \varphi( \bar{e} )$ is entailed in our current model.
+If we also know that $\bar{e} = \bar{s}$, then we know that the instantiation $\varphi[ \bar{s} ]$ must be \emph{unsatisfiable} in the current state.
 
 The following theorem describes cases when we can construct a useful instantiation:
 
 \begin{thm}
 \label{thm:instready}
-Given a candidate-satisifiable DPLL(T) state $M \parallel F$, for all quantified formula $\psi \in M$, if $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in $M'$ where $M \subseteq M'$, then $\psi[\varepsilon_{M'}( \bar{e} )/\bar{x}]$ is $T$-unsatisfiable in $M'$, where $\bar{e} \mapsto^I \psi$.
+Given a candidate-satisifiable DPLL(T) state $M \parallel F$, for all quantified formula $\psi \in M$, if $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in $M$, then $\psi[\varepsilon_{M'}( \bar{e} )/\bar{x}]$ is $T$-unsatisfiable in $M$, where $\bar{e} \mapsto^I \psi$.
 \end{thm}
 \begin{proof}
-Consider the quantified formula $\psi \in M$ whose DNF conversion is $\forall \bar{x}. S_1 \vee \ldots \vee S_n$, where $S_1 \ldots S_n$ are conjunctions of $T$-literals.
-Assume $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in $M'$ where $M \subseteq M'$, and that $\bar{e} = \bar{e_1} \cup \bar{e_2}$, where $\bar{e_1}$ are in $M'$ and $\bar{e_2}$ are not in $M'$.
-Note by Theorem~\ref{thm:cerep}, literals $\neg l_1 [\bar{e_1}/\bar{x_1}] \ldots \neg l_n [ \bar{e_1}/\bar{x_1} ]$ are asserted in $M$ for some $l_1 \in S_1, \ldots l_n \in S_n$, where $\bar{x_1}$ are the corresponding variables of $\psi$ for $\bar{e_1}$.
+Consider the quantified formula $\psi \in M$ whose CNF conversion is $\forall \bar{x}. C_1 \wedge \ldots \wedge C_n$.
+Assume $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in $M$.
+Note by Theorem~\ref{thm:cerep}, literals $\neg l_1 [\bar{e}/\bar{x}] \ldots \neg l_n [ \bar{e}/\bar{x} ]$ are asserted in $M$ for some $C_i = ( l_1 \wedge \ldots l_n )$
 
-Using proof by contradiction, let us assume that $\psi[\varepsilon_{M'}( \bar{e} )/\bar{x}]$ is $T$-satisfiable in $M'$, and thus $S_i[\varepsilon_{M'}( \bar{e} )/\bar{x}]$ is $T$-satisifiable for some $i$.
-Since $S_i[\varepsilon_{M'}(\bar{e})/\bar{x}]$ is $T$-satisfiable in $M'$, then $l_i[\varepsilon_{M'}( \bar{e} )/\bar{x}]$ is $T$-satisifiable as well.
-Note that $M' \models_T (\varepsilon_{M'}(\bar{e_1}) = \bar{e_1}) \wedge \neg l_i[\bar{e_1}/\bar{x_1}]$ and therefore $M' \models_T \neg l_i[\varepsilon_{M'}(\bar{e})/\bar{x}]$.
-This means that $l_i[\varepsilon_{M'}(\bar{e})/\bar{x}]$ is $T$-unsatisifiable in $M'$, and that $S_i[\varepsilon_{M'}(\bar{e})/\bar{x}]$ is $T$-unsatisfiable in $M'$ for all $i$.
-
-Therefore, $\psi[\varepsilon_{M'}( \bar{e} )/\bar{x}]$ is $T$-unsatisfiable in $M'$. $\Box$
+Using proof by contradiction, let us assume that $\psi[\varepsilon_{M}( \bar{e} )/\bar{x}]$ is $T$-satisfiable in $M'$.
+Thus, at least one literal $l_j[ \varepsilon_{M}( \bar{e} )/\bar{x}] \in C_i$ must be $T$-satisfiable in $M$.
+However, we have that $\neg l_j [\bar{e}/\bar{x}] \in M$ and since $\varepsilon_{M}( e ) = e$ for all $e \in M$, we know that $\neg l_j [\varepsilon_{M}( \bar{e} )/\bar{x}]$ is entailed by $M$.
+Thus, $l_j[ \varepsilon_{M}( \bar{e} )/\bar{x}]$ is $T$-satisfiable in $M$, and $\psi[\varepsilon_{M}( \bar{e} )/\bar{x}]$ is $T$-unsatisfiable in $M'$. $\Box$
 \end{proof}
 
 \begin{cor}
 \label{cor:instready}
 Given a candidate-satisifiable DPLL(T) state $M \parallel F$, for all quantified formula $\psi \in M$,
-if $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in $M'$ where $M \subseteq M'$, then the instantiation clause $( \neg \psi$ $\vee$ $\psi[\varepsilon_{M'}( \bar{e} )/\bar{x}])$ has not been added to $F$.
+if $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in $M$, then the instantiation clause $( \neg \psi$ $\vee$ $\psi[\varepsilon_{M}( \bar{e} )/\bar{x}])$ has not been added to $F$.
 \end{cor}
 \begin{proof}
-The proof is immediate, noting that by Theorem~\ref{thm:instready}, $( \neg \psi \vee \psi[\varepsilon_{M'}( \bar{e} )/\bar{x}])$ is $T$-unsatisifiable in $M'$, and therefore cannot be satisfied in $M \parallel F$. $\Box$
+The proof is immediate, noting that by Theorem~\ref{thm:instready}, $( \neg \psi \vee \psi[\varepsilon_{M}( \bar{e} )/\bar{x}])$ is $T$-unsatisifiable in $M$, and therefore cannot be satisfied in $M \parallel F$. $\Box$
 \end{proof}
 
-In other words, Theorem~\ref{thm:instready} states that if we can find a state $M'$ in which we have solved for values of all instantiation constants for $\psi$, we can construct an instantiation for $\psi$ that leads to a conflict in $M'$.
+In other words, Theorem~\ref{thm:instready} states that if we can find a state $M$ in which we have solved for values of all instantiation constants for $\psi$, we can construct an instantiation for $\psi$ that leads to a conflict in $M$.
 Corollary~\ref{cor:instready} states that if we can find such an instantiation, then it has not yet been applied.
 This fact guarentees that no redundant instantiations are used in our instantiation scheme.
 
-\begin{comment}
-Now, let us focus on identifying states in which there does not exist any useful instantiations with regards to assumptions about our counterexample.
-The basic idea is to find a literal $\l \mapsto^I \psi$ in $M$ such that $\forall \bar{x}. \neg l[\bar{x}/\bar{e}]$ is satisifiable in $M$.
-We call such a literal to be $\emph{compatible}$ in $M$.
-For example, a EUF literal $f( t_1, \ldots, t_n ) = s$ is compatible if for all terms of the form $f( s_1, \ldots, s_n )$, we have that $t_1 \neq s_1, \ldots t_n \neq s_n$.
-That is, the domain of $f( t_1, \ldots, t_n )$ is disjoint from all other terms with top symbol $f$.
+\subsection{Quantifier Instantiation for EUF}
 
-Given a theory $T$, we will define search method that will drive the DPLL(T) search with splitting lemmas of the form $( l \vee \neg l )$.
-The idea is to chose such lemmas such that the DPLL(T) search will either reach a state $M \parallel F$ such that $\psi$ is instantiation-ready in $M$, or there exists some literal $l \mapsto^I \psi$ that is compatible in $M$.
-\end{comment}
+A method for quantifier instantiation in EUF is presented here.
+This method uses information that is asserted as a result of searching for satisifying assignments to the negated bodies of quantifiers.
+Given a quantified formula $\psi$ of the form $\forall x. \varphi[x]$ where $x$ is of an uninterpretted sort, searching for a satisfying assignment to $\neg \varphi[e]$, where $e$ is an instantiation constant, will provide a basis for determining what values should be used to instantiate $\psi$.
 
-We will describe search strategies for instantiations in terms of transition relations $\rightarrow$ between sets of assertions.
-We call a set of assertions $M$ \emph{terminal for quantifier instantiation with repect to $P$} if one of the following hold:
+The EUF theory solver will process equalities and disequalities both between terms containing instantiation constants and those without.
+Since instantiation constants have identical logical semantics to non-instantiation constants, equalities between terms containing instantiation constants may be treated identically, that is, the EUF theory solver is used as is.
 
-(1) $M$ is $T$-inconsistent,
+Say the equality $t[e] = t'$ is entailed in the current context.
+Here, we are interested in finding a ground term $r$ such that $M \models t[r] = s$ has maximum likelihood to hold.
+If $M \models t[s] = t'$, then $s$ is a strong candidate for instantiation, if $M \models t[s] \neq t'$, then $s$ is useless as an instantiation for $x$, and otherwise if $t[s] = t'$ is satisifiable in $M$, then $s$ is potentially useful as an instantiation.
+Similar to E-matching, we may be interested in determining if a term $t[q]$ exists as a subterm in another equality, regardless of whether it is equal to $t'$.
 
-(2) there exists a $\psi$ that is instantiation-ready in $M$, or
+In relation to E-matching, a term containing instantiation constants can be thought of as a trigger for instantiation.
+In contrast, however, we also are able to consider entailed equalities and disequalities in this approach.
+This enables a powerful method for determining relavant instantiations, as well as a criteria for judging the relevance of determined instantiations.
+For example, we can imagine an approach in which we first search only the equivalence class of $t[e]$ for another term of the form $t[s]$, and if none can be found, search the remainder of the concrete ground terms existing in the current context.
+This is the idea of the approach proposed in the following section.
 
-(3) $P(M)$ holds.
+\subsubsection{E-Matching (Extended)}
 
-A relation $\rightarrow$ is \emph{terminiating for quantifier instantiation with respect to $P$} if there does not exist an infinite chain $M \rightarrow M_1 \rightarrow \ldots,$ such that $M, M_1, \ldots$ are non-terminal for quantifier instantiation with respect to $P$.
-Here, $P$ represents a termination condition for our search, or in other words, $P(M)$ holds when we decide that it is no longer useful for search for instantiations.
+In this section, we present an approach for quantifier instantiation for EUF that is based upon filtering relevant E-matches.
+This approach will work in multiple iterations, where on each subsequent iteration, less restrictions are imposed upon the terms that are E-matched.
 
-Define $Inst( \rightarrow, P, M )$ as the set of instantiations collected by searching $M$ by relation $\rightarrow$ with termination condition $P$.
-In other words, $Inst( \rightarrow, P, M )$ contains all $[\varepsilon_{M'}(\bar{e})/\bar{e}]$ such that $\rightarrow$ reaches a state $M'$ in which some $\psi$ is instantiation-ready in $M'$ where $\bar{e} \mapsto^I \psi$.
 
-A relation $\rightarrow$ \emph{logically complete} if $\bigvee \{ M' \backslash M \mid M \rightarrow M' \}$ is a tautology for all $M$.
-Note that by Theorem~\ref{thm:instready}, a candidate-satisfiable state $M \parallel F$ is in conflict if there exists a relation $\rightarrow$ that is logically complete and terminating for quantifier instantiation with respect to $P$, and there does not exist a $M'$ such that $M \rightarrow^\ast M'$ and $P(M)$ holds.
 
-Our search strategies collect sets of relevant instantiations $Inst( \rightarrow, P, M )$ that are used for generating instantiation clauses.
-We use the following rule for $\forall$-Inst, now with the specification of how our instantiations are constructed: \\
-
-\noindent $\forall$-Inst (Collected Instantiation for $\rightarrow,P$): \\
-
-$M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi( \bar{ x } ) \vee \varphi( \bar{ s } )$, if   
-$\begin{cases}
-  M \parallel F \text{ is candidate-satisfiable}, \\
-  [\bar{ s }/\bar{e}] \in Inst( \rightarrow, P, M ), \\ 
-  \bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{ x } ), \\
-  P( M ) \text{ does not hold}. \\ 
-\end{cases}$ \\
-
-We call this approach the \emph{collected instantiation search} approach for quantifier instantiation.
-In this approach, it is recommended that all instantiations computed by $Inst( \rightarrow, P, M )$ are applied at the same time.
-Depending on the strategy used, a large or small number of instantiations may be generated.
-In the case in which no instantiations are generated, the SMT solver must either answer unknown, or backtrack and reverse some decision $l^d$ to $\neg l^d$.
-
-It may also be helpful to add learned lemmas in cases in which our instantiation search reaches $T$-inconsistent states $M'$, as such lemmas will help prune the search space of subsequent searches.
-
-As a naive approach, one could use an incomplete search strategy $\rightarrow$ for guessing instantiations for $\psi$, such that $M \rightarrow M'$ if and only if $M' = M, (e = t)$ for some concrete ground term $t$ and instantiation constant $e \mapsto^I \psi$ that is not equal to any concrete ground term.
-In this approach, $t$ represents a guess for $e$.
-
-%Define the termination predicate $P_{\mid Inst \mid = n}$ as 
-%We will define a terminating search strategy $\rightarrow_\psi$ by the use of splitting literals $l^\psi_M$.
-%Define the relation $\rightarrow_{\psi+}$ between sets of assertions such that $M \rightarrow_{\psi+} M'$ if and only if $M' = M, l^\psi_M$, and similarly $M \rightarrow_{\psi-} M'$ if and only if $M' = M, \neg l^\psi_M$.
-%Define the relation $M \rightarrow_\psi M'$ as $\rightarrow_{\psi+} \cup \rightarrow_{\psi-}$. 
-
-One might also wish to perform the instantiations encountered in this strategy immediately.
-Instead of the previous rule which computes the instantiations $Inst( \rightarrow, P, M )$ and applies them all at once, we may instead use the following rules for implementing an instantiation search according to $\rightarrow$ and $P$: \\
-
-\noindent $\forall$-Inst (Incremental Instantiation for $\rightarrow,P$): \\
-
-$M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi( \bar{ x } ) \vee \varphi( \varepsilon_M( \bar{ e } ) )$, if   
-$\begin{cases}
-  M \parallel F \text{ is candidate-satisfiable}, \\
-  \forall \bar{x}. \varphi( \bar{ x } ) \text{ is instantiation-ready in $M$}, \\
-  \bar{e} \mapsto^I \forall \bar{x}. \varphi( \bar{ x } ). \\
-\end{cases}$ \\
-
-$M \parallel F \Longrightarrow M \parallel F, C$, if   
-$\begin{cases}
-  M \parallel F \text{ is candidate-satisfiable}, \\
-  C = \bigvee \{ l \mid \exists M' = M, l. \ M \rightarrow M' \}, \\ 
-  P( M ) \text{ does not hold}. \\
-\end{cases}$ \\
-
-We call this the \emph{incremental instantiation search} approach for quantifier instantiation.
-An obvious advantage to this approach is that instantiations are performed immediately, which subsequently can be used to determine new instantiations.
-In addition, we avoid repeating a lot of work if the instantiations are found deep in a search.
-
-However, there are two possible downsides to this approach.
-First, adding splitting lemmas may pollute the search space of the SMT solver, and may be burdensome to the system.
-A possibly stronger downside is that a matching loop may occur, where instantiation clauses in the first rule creates terms that lead to splitting lemmas in the second rule, and splitting in the second rule leads to an instantiation in the first rule, and so on.
-A stronger notion of fairness needs to be considered in this approach as compared to collected instantiation search.
-
-\paragraph{Generic Search Strategies}
-
-Here, we define several search strategies and termination conditions that are generic.
-
-Say we wish to assign a fresh constant to the value of unsolved instantiation constants.
-Define the relation $\rightarrow_{e=c}$ as the following: 
-Find the maximal $n$ for which $M \models e_1 = \ldots = e_n$ and $e_1$ is unsolved in $M$.  
-Then, $M \rightarrow_{e=c} M'$ if and only if $M' = M, (e_1 = c)$ for fresh constant $c$.
-
-Define a corresponding termination condition.
-We say $P^n_{e=c}$ holds for $M$ if there does not exist instantiation constants $e_1, \ldots, e_n$ that are unsolved in $M$ and are such that $M \models e_1 = \ldots = e_n$.  
-For example, $P^2_{e=c}$ corresponds to the condition that no unsolved instantiation constants are equivalent in $M$.
-
-A composition of relations $(\rightarrow, \rightarrow')$ describes a search strategy in which the second relation is applied only when the first one is not applicable.
-Formally, $M (\rightarrow, \rightarrow') M'$ if and only if (a) $M \rightarrow M'$ or (b) $M \not\rightarrow M''$ for all $M''$ and $M \rightarrow' M'$.
-
-It may be helpful to restrict a relation to a termination condition.
-We say that $M \rightarrow \mid_P M'$ if and only if $M \rightarrow M'$ and $P( M )$ does not hold.
-
-\subsection{Search Strategy for Quantifier Instantiation in EUF}
-
-We begin with a motivating example: \\
-
-{\bf Example 3}
-Consider the set of clauses $S = \{ (\psi :)\forall x. (f( x ) = x) \wedge f( f( a ) ) \neq a \}$.  Note that this formula is unsatisifiable.
-After applying unit propagation twice, Counterexample $\forall$-Inst, deciding $\neg (\bot^{\neg \psi})^d$, after unit propagation we arrive at the DPLL(T) state $f( f( a ) ) \neq a, \psi, \neg (\bot^{\neg \psi})^d, f(e) \neq e \parallel (S':)S \cup \{ ( \neg \psi \vee \bot^{\neg \psi } \vee f( e ) \neq e ) \}$.
-Note that $M \parallel F$ is candidate-satisfiable and $\psi$ is not instantiation-ready. \\
-
-The idea behind our instantiation search in EUF is to resolve ambiguity between concrete ground terms and terms with instantiation constants with the same top symbol.
-In Example 3, we do not know whether $f( f( a ) )$ and $f( e )$ represent the same term, since conceptually the value of the (potential) counterexample $e$ to $\psi$ is undetermined.
-We will see that this will cause our search procedure add the splitting lemma $( e = f( a ) \vee e \neq f( a ) )$, for which $\psi$ is instantiation-ready in the former case.
-
-First, we begin with the following terminology for non-instantiation constant terms $t \mapsto^ \psi$.
-A term $f( t_1, \ldots, t_n ) \mapsto^I \psi$ is \emph{equality-compatible with term $s$ in $M$} if and only if $s$ is of the form $f( s_1, \ldots s_n )$ and $M \models_T t_1 = s_1 \wedge \ldots \wedge t_n = s_n$.
-Similarly, a term $f( t_1, \ldots, t_n ) \mapsto^I \psi$ is \emph{equality-independent from term $s$ in $M$} if (a) $s$ is of the form $g( s_1, \ldots s_m )$, or (b) $s$ is of the form $f( s_1, \ldots s_n )$ in $M$, and $M \models_T t_i \neq s_i$ for some $i$. 
-
-A term $t$ is simply \emph{equality-independent in $M$} if $t$ is equality-independent from all other terms $s \in M$.  
-A pair of terms $t, s$ is \emph{equality-ambiguous} if $t$ is neither equality-compatible nor equality-independent from $s$.
-
-For an equality-ambiguous pair of terms $t, s$ of the form $f( t_1, \ldots, t_n ), f( s_1, \ldots s_n )$, we define $NArgs( t, s )$ as the number of arguments of $t$ and $s$ such that $M \models (t_i = s_i)$, and $NArgs'( t, s )$ as the number of arguments of $t$ and $s$ such that $M \not\models (t_i = s_i)$
-
-We will define a search strategy that leads to states $M'$ in which some quantified formula $\psi \in M'$ is instantiation-ready, or that no sufficient pair of equality-ambiguous terms $t, s$ can be found.
-We first informally describe the strategy in general terms and discuss the heuristics we use for guiding our search.
-
-As eluded to, the idea behind our search is to find equality-ambiguous pairs of terms $t, s$ where $t \mapsto^I \psi$ and add splitting lemmas that either will drive $t$ to be equality-compatible or equality-independent from $s$.
-We prefer pairs $t, s$ such that $s$ is a concrete ground term with maximum likelihood that $t$ is equal to $s$ in a real counterexample.
-Thus, we first prefer $s$ such that $M \models_T t = s$, then those in which $M \not\models_T t \neq s$.
-In the latter case, we may prefer $s$ such that $M \models_T t \neq c_1 \neq \ldots \neq c_n \neq s$, with a minimal length $n \geq 2$.
-As additional heuristics, we chose $s$ such that $NArgs'( t, s )$ is minimized, and pairs that where $t, s$ are of minimum size.
-
-Once we have chosen an equality-ambiguous pair of terms $t,s$ that is maximal with respect to this heuristic, if $t, s$ are of the form $f( t_1, \ldots t_n ), f( s_1 \ldots s_n)$, we chose subterms $t_i', s_i'$ of arguments $t_i, s_i$ such that $M \not\models ( t_i' = s_i' )$ and $t_i'$ and $s_i'$ share a common prefix in $t_i$ and $s_i$ that is maximized.
-We then chose to split our search by exploring both $t_i' = s_i'$ and $t_i' \neq s_i'$.
-For example, if we have the equality-ambiguous pair $f( g( e ), e ), f( g( a ), g( b ) )$, we will chose to explore $e = a$ and $e \neq a$ in the case that $M \not\models e = a$.
-We call the terms $t_i', s_i'$ the \emph{maximal depth ambiguity for $t, s$}.
-%The maximal depth ambiguity for the equality-ambiguous pair $e, s$ is simply $e = s$.
-
-Define a total ordering $\succeq$ between equality-ambiguous pairs of terms:
-
-\begin{definition}
-Define an ordering $\succeq$ between equality-ambiguous pairs of terms, such that $t,s \succeq t',s'$ in $M$ if $t,s$ satisfy a higher lexical combination than $t',s'$ of the following properties in descending order of importance:  \\
-(P1) $M \not\models_T (t \neq s)$, \\
-(P2) $t$ is unsolved in $M$, \\
-(P3) $s$ is solved in $M$, \\
-(P4) $M \models_T (t = s)$, \\
-(P5) (minimum) value of $NArgs'( t, s )$, \\
-(P6) (maximum) value of $NArgs( t, s )$, \\
-(P7) (maximum) prefix size for maximal depth ambiguity for $t,s$, \\
-(P8) (minimum) number of symbols in the maximal depth ambiguity for $t,s$.
-\end{definition}
-
-We are now ready to define the following search procedure $\rightarrow_{eamb}$ that is based on resolving equality-ambiguous pairs of terms in a state $M$ according to this ordering:
-
-\begin{definition}
-If there exists a pair of equality-ambiguous terms in $M$, then say $t, s$ is the maximal pair with respect to $\succeq$.
-Then, $M \rightarrow_{eamb} M'$ if and only if $M' = M, (\neg)(t_i' = s_i')$, where $t_i', s_i'$ is the maximal depth ambiguity of $t, s$. 
-\end{definition}
-
-In other words, if an equality-ambiguous pair of terms $t,s$ exist in $M$, then attempt to resolve them. 
-We will first consider the search strategy $( \rightarrow_{eamb} \mid_{Pemb}, \rightarrow_{e=c} )$ for EUF with termination condition $P^2_{e=c}$, where $P_{emb}$ is a requirement on how helpful it is to resolve equality-ambigity between $t$ and $s$. \\
-
-{\bf Example 3, Continued}
-Given the set of clauses $S = \{ (\psi :)\forall x. (f( x ) = x) \wedge f( f( a ) ) \neq a \}$, say we reach the DPLL(T) state $f( f( a ) ) \neq a, \psi, \neg (\bot^{\neg \psi})^d, f(e) \neq e \parallel (S':)S \cup \{ ( \neg \psi \vee \bot^{\neg \psi } \vee f( e ) \neq e ) \}$.
-Let us say we decide to perform incremental quantifier instantiation according to $( \rightarrow_{eamb}, \rightarrow_{e=c} )$.
-
-\begin{comment}
-THIS IS FOR COLLECTED INSTANTIATION
-Our maximum pair of equality-ambiguous terms is $f( e ), f( f( a ) )$ and our maximal depth ambiguity is $e = f( a )$.
-Searching the branch $e = f( a )$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[f(a)/e]$ and $e \neq f( a )$ leads us to a state in which $f( e )$ is equality-independent and our search terminates.
-Our search has thus calculated the set $\{ [f(a)/e] \}$.
-By applying this instantiation, we obtain the clause $( \neg \psi \vee f( f( a ) ) = f( a ) )$, and after unit propagation we are in the state $f( f( a ) ) \neq a, \psi, \neg (\bot^{\neg \psi})^d, f(e) \neq e, f( f( a ) ) = f( a ) \parallel S'$.
-Again, $\psi$ is not instantiation-ready, and we may chose to perform another round of instantiation.
-
-Our maximum pair of equality-ambiguous terms is $f( e ), f( a )$ and our maximal depth ambiguity is $e = a$.
-Searching the branch $e = a$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[a/e]$.
-Otherwise, searching the branch $e \neq a$ leads us to state where we again will split on $e = f( a )$.
-In the branch $e = f( a )$, we get the theory conflict $e = f( a ), f( f( a ) ) = f( a ), f( e ) \neq e \models \bot$.
-In the branch $e \neq f( a )$, we have that $f( e )$ is equality-independent and our search terminates.
-Our search has thus calculated the set $\{ [a/e] \}$, and after adding the instantiation clause $( \neg \psi \vee f( a ) = a )$, the solver answers UNSAT. \\
-\end{comment}
-
-Our maximum pair of equality-ambiguous terms is $f( e ), f( f( a ) )$ and our maximal depth ambiguity is $e = f( a )$.
-Searching the branch $e = f( a )$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[f(a)/e]$.
-By applying $\forall$-Inst to $\psi$, we obtain the clause $( \neg \psi \vee f( f( a ) ) = f( a ) )$, and after unit propagation we have the theory conflict $f( f( a ) ) = f( a ), e = f( a ), f( e ) \neq e \models \bot$.
-After conflict analysis, we backjump to the state $f( f( a ) ) \neq a, \psi, \neg (\bot^{\neg \psi})^d, f(e) \neq e, e \neq f( a ), f( f( a ) ) = f( a ) \parallel S''$.
-Again, $\psi$ is not instantiation-ready, and we may chose to perform another split.
-
-Our maximum pair of equality-ambiguous terms is $f( e ), f( a )$ and our maximal depth ambiguity is $e = a$.
-Searching the branch $e = a$ leads us to a state in which $\psi$ is instantiation-ready with the instantiation $[a/e]$.
-After adding the instantiation clause $( \neg \psi \vee f( a ) = a )$, the solver answers UNSAT. \\
-
-In the previous example, we have found the relevant instantiations $[f(a)/x]$ and $[a/x]$, which has led us to contradict the ground clause $f( f( a ) ) \neq a$.
-This was accomplished by using splitting lemmas to explore our search space, and identifying cases in which we can generate unsatisfiable instantiation clauses. \\
-
-{\bf Example 4}
-Consider the set of clauses $S = \{ (\psi_1 :)\forall x. f(x) \neq a, (\psi_2 :)\forall y. f(y) = a \}$.
-After applying unit propagation twice, Counterexample $\forall$-Inst twice, after unit propagation we arrive in the DPLL(T) state $\psi_1, \psi_2,$ $\neg (\bot^{\neg \psi_1})^d$, $\neg (\bot^{\neg \psi_2})^d$, $f(e_1) = a, f(e_2) \neq a \parallel S'$.
-Again, let us say we decide to perform quantifier instantiation according to $( \rightarrow_{eamb}, \rightarrow_{e=c} )$.
-After determining the maximum pair $f(e_1),f(e_2)$, we split on $( e_1 = e_2 )$.
-
-In the branch where $e_1 = e_2$, we have that $\rightarrow_{e=c}$ applies.
-We explore the branch $e_1 = c$ for fresh constant $c$, and immediately we have that $\psi_1$ and $\psi_2$ are both instantiation ready with instantiations $[c/e_1]$ and $[c/e_2]$.
-%In the branch where $e_1 \neq e_2$, both $f( e_1 )$ and $f( e_2 )$ are equality-independent and our search terminates.
-%Our search has computed the set $\{ [c/e_1], [c/e_2] \}$.
-After applying the instantiations $\psi_1[c/x]$ and $\psi_2[c/x]$ we obtain the conflict $f( c ) = a, f( c ) \neq a \models \bot$, and the solver will answer UNSAT. \\
-
-The following example demonstrates how this heuristic can be an improvement over simple E-matching: \\
-
-{\bf Example 5}
-Consider the set of clauses $S = \{ (\psi :) \ \forall xy. g( x ) \neq f( y ), g( a_1 ) = f( b_1 ), \ldots, g( a_n ) = f( b_n ) \}$.
-In E-matching, we have $n$ possible matches for both $x$ and $y$ and potentially $O(n^2)$ pairs of matches can be tried until a proper instantiation is found. 
-\footnote{ In this example, the structure of the input may lead us to find a proper instantiation.
-However, one could envision a similar example in which we have a set of clauses in $F$ such that $F \models g( a_1 ) = f( b_1 ), \ldots, g( a_n ) = f( b_n )$, and a quantifier $\forall xy. \varphi(x,y)$ such that $\neg \varphi( x, y ) \models g( x ) = f( y )$ and no structural information about the input is helpful. }
-In constrast, it can be shown that the first instantiation tried by the strategy $( \rightarrow_{eamb}, \rightarrow_{e=c} )$ leads to a conflict.
-
-After applying unit propagation and Counterexample $\forall$-Inst to $\psi$, we reach the DPLL(T) state $\psi, \neg (\bot^{\neg \psi})^d, g( e_1 ) = f( e_2 ), g( a_1 ) = f( b_1 ), \ldots, g( a_n ) = f( b_n ) \parallel S'$.
-Note that all equality-ambiguous pairs $g( e_i ), g( a_i )$ and $f( e_j ), f( b_j )$ are equivalent with respect to our ordering for all $i,j$.
-
-Say we chose some $g( e_1 ), g( a_i )$, and thus are interested in splitting on $e_1 = a_i$.
-In the branch $e_1 = a_i$, we will find that $f( e_2 ) = g( e_1 ) = g( a_i ) = f( b_i )$, and thus $f( e_2 ), f( b_i )$ becomes maximal with respect to our ordering.
-Our search will explore $e_2 = b_i$ and subsequently apply the instantiation $[ a_i/e_1, b_i/e_2]$. 
-This instantiation leads to a conflict, and the solver answers UNSAT.  \\
-
-The following example demonstrates how this heuristic can be used to instantiate axioms representing the encoding of simple arithmetic functions: \\
-
-{\bf Example 6}
-Consider the set of clauses $S = \{ (\psi_1 :) \ \forall x. G( S( x ), x), (\psi_2 :) \forall xyz. (G(x,y) \wedge G(y,z)) \Rightarrow G(x,z), \neg G( S(S(a)), a) \}$.
-Note that $S$ represents a successor function and $G$ represents ``is greater than".  
-In other words, this set of clauses says that $a + 2 > a$ is not true for some constant $a$.
-
-After unit propagations and Counterexample $\forall$-Inst, we have the set of assertions $\psi_1, \psi_2, \neg ( \bot^{\neg \psi_1 })^d, \neg ( \bot^{\neg \psi_2 })^d$, $G( S(S(a)), a) =$ $G( S(e_1), e_1) =$ $G( e_2, e_4 ) =$ $\bot$, $G( e_2, e_3 ) =$ $G( e_3, e_4 ) =$ $\top$, where $\top$ and $\bot$ are the distinguished free boolean constant representing true and false, $e_1 \mapsto^I \psi_1$ and $e_2, e_3, e_4 \mapsto^I \psi_2$.
-Our maximum equality-ambiguous pair is $G( S(S(a)), a), G( S(e_1), e_1)$ with maximum depth ambiguity $e_1 = S( a )$.
-In the branch $e_1 = S( a )$, $\psi_1$ is instantiation-ready, and we apply the instantiation $\psi_1[S(a)/e_1]$.
-
-After conflict analysis and backjump, we have the set of assertions $G( S(S(a)), a) =$ $G( S(e_1), e_1) =$ $G( e_2, e_4 ) =$ $\bot$, $G( e_2, e_3 ) =$ $G( e_3, e_4 ) =$ $G( S( S( a ) ), S( a )) =$ $\top$, and $e_1 \neq S( a )$.
-Our maximum equality-ambiguous pair is $G( S(S(a)), a), G( e_2, e_4 )$ and we branch on $e_4 = a$.
-After branching, this pair is again maximal (because of $NArgs'$) and we branch on $e_2 = S( S( a ) )$.
-After this, our maximal pair is $G( e_2, e_3 ), G( S( S( a ) ), S( a ))$ by $NArgs'$ and we branch on $e_3 = S( a )$.
-Now, $\psi_2$ is instantiation-ready and we obtain the instantiation clause $( \neg \psi_2 \vee \neg G(S( S( a ) ),S( a )) \vee \neg G(S( a ),a) \vee G(S( S( a ) ),a))$.
-
-After conflict analysis and backjump, we have the set of assertions $G( S(S(a)), a) =$ $G( S(e_1), e_1) =$ $G( e_2, e_4 ) =$ $G(S( a ),a) =$ $\bot$, $G( e_2, e_3 ) =$ $G( e_3, e_4 ) =$ $G( S( S( a ) ), S( a )) =$ $\top$, $e_1 \neq S( a )$, and $e_3 \neq S( a )$.
-Our maximal pair is $G( S(e_1), e_1), G( S( a ), a )$ and we split on $e_1 = a$.
-In the branch $e_1 = a$, $\psi_1$ is instantiation-ready, and we apply the instantiation $\psi_1[a/e_1]$ and the solver will answer UNSAT. \\
-
-The default behavior of our search strategy has calculated three instantiations, representing $a + 2 > a + 1$, $a + 2 > a + 1 > a$ and $a + 1 > a$.
-These instantiations were judged on relevance, taking precise relationships between concrete ground terms into account when chosing which axiom to instantiate.
-
-\paragraph{Other heuristics}
-
-The search strategy $( \rightarrow_{eamb}, \rightarrow_{e=c} )$ is useful for finding relevant instantiations based on the relationships between values in our counterexample.
-It is based on finding two terms that are likely to be equal in a real counterexample, and resolving such the ambiguity between them.
-In the following, we describe similar heuristics based on looking at relationships between terms on a larger scope.
-
-Say we are in a state $M$ where there does not exist an equality-ambiguous pair of terms $t,s$ such that $M \models t = s$.
-Instead of finding a maximal pair of terms $t',s'$ in $M$, we could chose to look for a pair of equivalence classes $E_1, E_2$ such that $E_1$ and $E_2$ contain a maximal number of equality-ambiguous terms.
-We may then chose the maximal pair of equality-ambiguous terms $t,s$ where $t \in E_1$ and $s \in E_2$ or vice versa.
-We call this strategy $\rightarrow_{Eamb}$.
-
-Yet another heuristic is to find splits $( t_i = s_i \vee t_i \neq s_i )$ that resolve ambiguity in a maximal number of arguments in all pairs of terms.
-For example, if our state $M$ contains many pairs of terms of the form $f_1( a ), f_1( b )$ $\ldots$ $f_n( a ), f_n( b )$, then it may be helpful to search $( a = b \vee a \neq b )$ even if $f_i( a )$ and $f_i( b )$ are not equal in $M$ for any $i$.
-
-\paragraph{Implementation}
-
-%We require an efficient method for finding a pair $t, s$ that is maximum with respect to $\succeq$ in $M$, if one exists.
-%We describe a method for incrementally maintaining a best fit $s$ for each term $t \mapsto^I \psi$ with respect to $\succeq$.
-%In other words, for relevant terms $t \mapsto^I \psi$, we maintain a term $s$ such that $t,s \succeq t,s'$ for all other terms $s'$.
-%In doing so, we will easily be able to compute our maximum pair $t,s$ in an efficient manner.
-
-%Our best fit may be changed in two ways: either an equality $t_1 = t_2$ or a disequality $t_1 \neq t_2$ is added in $M$.
-
-[do this] \\
-
-\begin{comment}
-Let us now focus our attention to identifying cases in which we can show there \emph{does not} exist instantiations for $\psi$ that lead to conflicts.
-By the following lemma, we need only consider the case when all formulas $\psi \in M$ are disequality-compatible in $M$:
-
-\begin{lemma}
-For all contexts $M$, there exists a $M'$ such that $M' \models M$, and for all quantified formulas $\psi \in M$, $\psi$ is either equality-compatible or disequality-compatible in $M'$.
-\end{lemma}
-\begin{proof}
-The aforementioned method (as demonstrated in Examples 5 and 6) can be thought of as a constructive proof of this lemma.
-For each $\psi$, we split on equalities until all terms $t \mapsto^I \psi$ are equality-compatible, or there exists a term $t \mapsto^I \psi$ such that $t$ is disequality-compatible.
-Note that by induction, all instantiation constants $e \mapsto^I \psi$ in $M$ are in non-singleton equivalence classes.
-If the equivalence class of $e$ contains no concrete terms, we may introduce a fresh constant $c$ and add this to the equivalence class of $e$ via the splitting lemma $( e = c \vee e \neq c )$.
-\end{proof}
-
-\begin{lemma}
-Given a consistent set of assertions $M$, if $t \mapsto^I \psi$ is disequality-compatible in $M$, then $M \not\models t[\varepsilon(\bar{e})/\bar{e}] = s'$ for any ground term $s'$.
-\end{lemma}
-\begin{proof}
-
-\end{proof}
-
-We can claim the following theorem, by noting that the property of term being disequality-compatible gives us the ability to construct a well formed model for quantified formulas.
-
-\begin{thm}
-Given a DPLL(T) state $M \parallel F$ where all clauses $F$ are satisfied, say for all asserted formula $(\psi :) \forall \bar{x}. \varphi(\bar{x} )$.
-Then, if all quantified formulae $\psi \in M$ are disequality-compatible, then
-
-\end{thm}
-\begin{proof}
-
-\end{proof}
-
-The following example shows use of this theorem:
-
-{\bf Example 6}
-Say we wish to determine the satisfiability of the set of formulas $S = \{ a \neq b, f( a ) \neq d, (\psi :) \forall \bar{x}. (x = b \Rightarrow f( x ) = d) \}$.
-After applying Unit propagation, applying Decide for $\bot^{\neg \psi}$, applying Counterexample $\forall$-Inst, after unit propagation we arrive in the DPLL(T) state $a \neq b, f( a ) \neq d, \neg( \bot^{\neg \psi} )^d, e = b, f( e ) \neq d \parallel S$.
-Note that $f( e )$ is disequality combatible since $e \neq a$.
-Therefore, by our theorem, $S$ is a satisifiable. \\
-\end{comment}
-
-\begin{comment}
-\subsection{Counterexample Refinement}
-
-A counterexample state is given by $M \parallel E \parallel P$, where $M$ is the current set of asserted $T$-literals, $E$ is a set of equalities representing the model for our counterexample, and $P$ is a set of equalities that we are currently wishing to add to $E$.
-Initially, we start with $M \parallel \bar{s} = \bar{s} \parallel \emptyset$, where $\bar{s}$ is the set of all concrete ground terms.
-For a term $t$, we define $V( E, t )$ as either the term $s$ if $t = s \in E$, or NULL otherwise.
-For each pair of terms $t,s$, we define the constraint $R( E, t, s )$ as the conjunction of the constraints $\{ . \\
-
-\noindent Decide: \\
-
-$M \parallel E \parallel P \Longrightarrow M, R( E, t, s ) \parallel E, t = s \parallel P$, if   
-$\begin{cases}
-  \text{ All subchildren of $t$ are in $E$, } \\
-  \text{ $t$ is not in $E$, } \\
-  M \not\models \neg R( E, t, s ). \\
-\end{cases}$ \\
-
-\noindent Suggest: \\
-
-$M, R( E', t, s ) \parallel E, t = s \parallel P \Longrightarrow M \parallel E \parallel P, t = s'$. \\
-
-\noindent Process: \\
-
-$M \parallel E \parallel P, e = s \Longrightarrow M, R( E, e, s ) \parallel E, e = s \parallel P$, if   
-$\begin{cases}
-  \text{ No term in $E$ contains} \\
-  \text{ \ \ \ $e$ as a subchild,} \\
-  M \not\models \neg R( E, e, s ). \\
-\end{cases}$ \\
-
-$M \parallel E \parallel P, f( \bar{t} ) = f( \bar{s} ) \Longrightarrow M \parallel E \parallel P, \bar{t} = \bar{s}$, if   
-$\begin{cases}
-  \text{ No term in $E$ contains} \\
-  \text{ \ \ \ $f( \bar{t} )$ as a subchild.} \\
-\end{cases}$ \\
-\end{comment}
-
-\subsection{Search Strategies for LRA}
-
-We assume a theory solver for $LRA$ which maintains a set of inequalities of the form:
-
-\begin{tabular}{rl}
- & $\displaystyle\sum\limits_{i=0}^n C_{i1} \cdot a_i \geq 0$ \\
- & $\vdots$ \\
- & $\displaystyle\sum\limits_{i=0}^n C_{ij} \cdot a_i \geq 0$ \\
- $\displaystyle\sum\limits_{i=0}^m E_{i1} \cdot e_i +$ & $\displaystyle\sum\limits_{i=0}^n D_{i1} \cdot a_i \geq 0$ \\
- & $\vdots$ \\
- $\displaystyle\sum\limits_{i=0}^m E_{ik} \cdot e_i +$ & $\displaystyle\sum\limits_{i=0}^n D_{ik} \cdot a_i \geq 0$ \\
- \end{tabular} \\
-
-where $a_1 \ldots a_n$ are ground constants of type $Real$ and $e_1 \ldots e_m$ are instantiation constants of type $Real$.
-
-[do this]
-
-\subsection{Search Strategies for IDT}
-
-\subsection{Search Strategies for Combined Theories $T$}
-
-\section{Exploring the Counterexample}
-
-In section~\ref{dpll-ce-lit}, we described an approach for handling quantifiers using counterexample literals.
-Among the benefits of this approach was recognizing cases when quantified formulas $\forall \bar{x}. \varphi( \bar{x} )$ are valid, thus signalling that they do not need to be instantiated further.
-In the case that all clauses are satisified and all universally quantified assertions are found to be valid, the solver can answer SAT.
-
-The previous section focused on the opposite goal: we described methods for finding relevant instantiations that are capable of falsifying some or all of the current state.
-If this state contains no decision literals and the current state is falsified by our instantiations, we may answer UNSAT.
-
-In this section, we will consider how to proceed in states where a quantified formula $\forall \bar{x}. \varphi( \bar{x} )$ is neither valid nor easily shown to be unsatisfiable. \\
-
-{\bf Example 7} 
-Say we wish to determine the satisfiability of the set of formulas $S = \{ a = b, (\psi :) \forall x. ((f(x) = c \vee x = a) \Rightarrow x = b) \}$.
-After applying Unit Propagation twice, applying Decide on $\neg (\bot^{ \neg \psi })^d$, and applying Counterexample $\forall$-Inst, we obtain the clauses $( \neg \psi \vee \bot^{ \neg \psi } \vee f(e) = c \vee e = a )$ and $( \neg \psi \vee \bot^{ \neg \psi } \vee e \neq b )$.
-After unit propagation in the second clause, we obtain $( e \neq b )$.
-Now, in the first clause, the solver has a choice which literal to apply Decide to.
-Say for the sake of argument we have that the solver chooses to assert $( f(e) = c )^d$.
-Here we know that our counterexample must be such that $f( e ) = c$ and $e \neq b$.
-We could suggest possible instantiations for $x$, but these may be unhelpful since $e$ is somewhat unconstrained.
-However, if we had decided instead to assert $( e = a )^d$, we would immediately have discovered a theory conflict, thus determining that $\psi$ is valid and returning SAT. \\
-
-The previous example illustrates the importance of exploring multiple partial truth assignments for literals involving instantiation constants.
-We will formalize a fair search strategy that is capable of reasoning about all possible variations of how counterexamples to universal formulas may look.
-
-\subsection{Enumerating Decisions on Literals with Instantiation Constants}
-
-[do this]
-
-\section{Recognizing Other SAT Instances}
-
-[this section needs work]
-
-\subsection{Decidable Fragments in SMT}
-
-Some approaches to SMT with quantifiers rely on \emph{complete instantiation}, that is, recognizing when a quantified formula $\forall \bar{ x }. \varphi( \bar{ x } )$ is a part of a \emph{deciable fragment} of first order logic.
-In some cases, a set of ground terms $t_1 \ldots t_n$ is sufficient for instantiating $\forall \bar{ x }. \varphi( \bar{ x } )$, and in the case that $\varphi( \bar{ t_1 } ) \wedge \ldots \wedge \varphi( \bar{ t_n } )$ is satisfiable, then $\forall \bar{ x }. \varphi( \bar{ x } )$ can be considered valid.
-
-This section describes methods for recognizing other cases where only a finite number of instantiations need be applied to a particular formula $\forall \bar{ x }. \varphi( \bar{ x } )$ \emph{within a context $M$}.
-These cases are made possible by realizing that in a DPLL(T) state $M \parallel F$, the instantiations required for $\forall \bar{ x }. \varphi( \bar{ x } )$ is dependent upon our current assertions $M$.
-%In cases where only a finite number of instantiations need be applied to $(\psi:) \forall \bar{ x }. \varphi( \bar{ x } )$ in a particular context $M$, we will say $\psi$ is decidable in $M$.  [formalize this in a better way?]
-
-\section{Alternative Implementations}
-\label{sec:implementation}
-
-This document has outlined the following suggestions (A1)-(A2) and requirement (A3) for the DPLL(T) solver: \\
-
-\noindent (A1) $(\bot^{\neg \psi})^d$ should never be asserted, \\
-(A2) $\neg (\bot^{\neg \psi})^d$ should only be asserted when $\psi^{(d)}$ is asserted, and \\
-(A3) if $(\bot^{\neg \psi})^d$ is not asserted, then no literal $l^d$ can be asserted such that $l \mapsto^I \psi$. \\
-
-Ideally, the internal strategies of the SAT-solver should not have to be modified to enforce this schema.
-For this reason, we may employ the following alternative recommendations, for which (A1), (A2) and (A3) hold as a consequence.
-
-\subsection{Via Clause Forgetting}
-
-\noindent (B1) For a quantified formula $\psi$, maintain a set $S^\psi$ of all lemmas $C_1, \ldots C_n$ added to $F$ for which $C_i \mapsto^I \psi$, $1 \leq i \leq n$, \\
-(B2) When $\psi^{(d)}$ is asserted to $M$, first assert $\neg (\bot^{\neg \psi})^d$ and then add all lemmas $S^\psi$ to $F$, \\
-(B3) When $\psi^{(d)}$ removed from $M$, remove each of $S^\psi$ from $F$. \\
-
-Note that (B2) consists of applying Decide (twice) and $n$ applications of $T$-Learn, and (B3) consists of $n$ applications of $T$-Forget.
-We know that each of these steps can be executed if we add each lemma in the same order/remove each lemma in the reverse order as it was learned.
-
-This gives us the following improved invariant: \\
-
-{\bf Invariant 1 (Revised)}:
-For all DPLL(T) states $M \parallel F$,
-(a) all instances of counterexample literals $\bot^{\neg \psi}$ in $F$ reside in clauses of the form $( \neg \psi \vee \bot^{\neg \psi} \vee C(\bar{e}) )$ where if $C(e)$ is unsatisifiable, then $\psi$ is valid, and
-(b) if $\psi^{(d)} \not\in M$, then $F$ contains no counterexample literals or literals $l$ such that $l \mapsto^I \psi$. \\
-
-We have that (A1) holds since by Invariant 1(b) (Revised), $\bot^{\neg \psi}$ will only occur in $F$ when $\psi^{(d)}$ is asserted in $M$, and by (B2), only after $\neg (\bot^{\neg \psi})^d$ is asserted.
-We have that (A2) holds by (B2) and using similar reasoning.
-We have that (A3) also holds similarly to (A1) by noting that literals $l$ such that $l \mapsto^I \psi$ only occur in $F$ when $\psi^{(d)}$ is asserted in $M$.
-
-This implementation scheme requires the ability to remove clauses from the SAT-solver database as well as a special instance of a forced decision.
-
-\begin{comment}
-\subsection{Via Controlling Decisions}
-
-\noindent (C1) For a quantified formula $\psi$, maintain a set $L^\psi$ of literals $l_1, \ldots l_n, \bot^{\neg \psi} \in F$ such that $l_i \mapsto^I \psi$, $1 \leq i \leq n$, \\
-(C2) When $\psi \not\in M$, mark literals, \\
-(C3)
-(C4) When $\psi^{(d)}$ is asserted to $M$, assert $\neg (\bot^{\neg \psi})^d$, \\
-\end{comment}
 
 \end{document}
 
