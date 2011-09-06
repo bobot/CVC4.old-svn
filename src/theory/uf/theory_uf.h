@@ -127,6 +127,7 @@ public:
     return "THEORY_UF";
   }
 
+  Instantiator* makeInstantiator();
 };/* class TheoryUF */
 
 }/* CVC4::theory::uf namespace */

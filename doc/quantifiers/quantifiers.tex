@@ -652,6 +652,10 @@ First, let us define the method $partial\_calc\_e\_ind$:
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
 \PROC |partial\_calc\_e\_ind|(t,g,M) \BODY
+\IF calc\_e\_ind( t, g, M ) \neq \emptyset \THEN
+  \RETURN calc\_e\_ind( t, g, M );
+\ELSE
+\FI
 \ENDPROC
 \end{program}
 \end{minipage}

@@ -444,7 +444,7 @@ private:
   /**
    * Vector of original equalities of the triggers.
    */
-  std::vector<TNode> d_equalityTriggersOriginal;
+  std::vector<Node> d_equalityTriggersOriginal;
 
   /**
    * Context dependent count of triggers
