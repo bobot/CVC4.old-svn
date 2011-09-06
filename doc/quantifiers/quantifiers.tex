@@ -474,7 +474,7 @@ In a basic implementation of E-matching, $f( x, g( x ) )$ and $f( b, a )$ do not
 
 More generally, we will say that a literal $t \sim s$ is $E$-induced in $M$ if $M \backslash t \sim s, E \models t \sim s$, where $E$ is a set of equalities of the form $e_1 = s_1 \ldots e_n = s_n$, that is, equalities whose left hand sides are instantiation constants.
 
-To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by a set of equalities $\bar{s} = \bar{e}$, we use the following method $calc\_e\_ind$:
+To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by an equality set $\bar{s} = \bar{e}$, we use the following method $calc\_e\_ind$, which computes a set of such equality sets:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
@@ -485,7 +485,7 @@ To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by a set of 
     \IF M \models t = g \THEN
       \RETURN \{ \emptyset \};
     \ELSE
-      \RETURN \{ t = rep(g) \};
+      \RETURN \{ \{ t = rep(g) \} \};
     \FI
   \ELSEIF t, g \text{ are $f( \bar{t_a} )$, $f( \bar{g_a} )$ } \THEN
     S := \{ \emptyset \};
@@ -654,7 +654,17 @@ First, let us define the method $partial\_calc\_e\_ind$:
 \PROC |partial\_calc\_e\_ind|(t,g,M) \BODY
 \IF calc\_e\_ind( t, g, M ) \neq \emptyset \THEN
   \RETURN calc\_e\_ind( t, g, M );
-\ELSE
+\ELSEIF t, g \text{ are $f( \bar{t_a} )$, $f( \bar{g_a} )$ } \THEN
+  S := \{ \emptyset \};
+  \DOFOR \text{each } t_i \text{ in } \bar{t_a} 
+    \IF M \models t \neq g \THEN
+      \RETURN \emptyset;
+    \ELSEIF M \not\models t_i = g_i
+      S' := calc\_e\_ind\_mod( t_i, g_i );
+      S := merge( S, S' );
+    \FI
+  \ENDFOR
+  \RETURN S;
 \FI
 \ENDPROC
 \end{program}
