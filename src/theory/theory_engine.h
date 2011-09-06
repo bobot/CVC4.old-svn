@@ -535,6 +535,11 @@ private:
       Debug("register::internal") << "PreRegisterVisitor::alreadyVisited(" << current << "," << parent << ") => ";
 
       using namespace theory;
+      TheoryId currentTheoryId = Theory::theoryOf(current);
+      TheoryId parentTheoryId  = Theory::theoryOf(parent);
+      //if( current.getKind() == kind::FORALL || current.getKind() == kind::EXISTS ){
+      //  return true;
+      //}
 
       TNodeVisitedMap::iterator find = d_visited.find(current);
 
@@ -545,9 +550,6 @@ private:
       }
 
       Theory::Set theories = (*find).second;
-
-      TheoryId currentTheoryId = Theory::theoryOf(current);
-      TheoryId parentTheoryId  = Theory::theoryOf(parent);
 
       if (Theory::setContains(currentTheoryId, theories)) {
         // The current theory has already visited it, so now it depends on the parent

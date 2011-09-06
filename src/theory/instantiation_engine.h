@@ -54,18 +54,27 @@ public:
     d_map[v] = m;
     d_computeVec = true;
   }
+  /** fill all unfilled values with m */
   void add( InstMatch* m );
+  /** if compatible, fill all unfilled values with m and return true 
+      return false otherwise */
   bool merge( InstMatch* m );
-  // -1 : keep this, 1 : keep m, 0 : keep both
+  /** -1 : keep this, 1 : keep m, 0 : keep both */
   int checkSubsume( InstMatch* m );
+  /** return if d_maps are equivalent */
   bool isEqual( InstMatch* m );
-  bool isComplete();
+  /** mbase is used if no value given in d_map */
+  bool isComplete( InstMatch* mbase = NULL );
+  /** compute d_match */
   void computeTermVec();
+  /** make substitution for Node */
   Node substitute( Node n ){
     computeTermVec();
     return n.substitute( d_vars.begin(), d_vars.end(), d_match.begin(), d_match.end() ); 
   }
+  /** get associated quantifier */
   Node getQuantifier() { return d_vars[0].getAttribute(InstantitionConstantAttribute()); }
+  /** debug print method */
   void debugPrint( const char* c );
 };
 
@@ -83,7 +92,7 @@ public:
 
   bool merge( InstMatchGroup* mg );
   void add( InstMatchGroup* mg );
-  void addComplete( InstMatchGroup* mg );
+  void addComplete( InstMatchGroup* mg, InstMatch* mbase = NULL );
   void removeRedundant();
   void removeDuplicate();
   unsigned int getNumMatches() { return d_matches.size(); }

@@ -89,9 +89,11 @@ bool InstMatch::isEqual( InstMatch* m ){
   }
   return true;
 }
-bool InstMatch::isComplete(){
+bool InstMatch::isComplete( InstMatch* mbase ){
+  Assert( !mbase || getQuantifier()==mbase->getQuantifier() );
   for( int i=0; i<(int)d_vars.size(); i++ ){
-    if( d_map[ d_vars[i] ]==Node::null() ){
+    if( d_map[ d_vars[i] ]==Node::null() &&
+        ( !mbase || mbase->d_map[ d_vars[i] ]==Node::null() ) ){
       return false;
     }
   }
@@ -147,9 +149,12 @@ void InstMatchGroup::add( InstMatchGroup* mg ){
   }
 }
 
-void InstMatchGroup::addComplete( InstMatchGroup* mg ){
+void InstMatchGroup::addComplete( InstMatchGroup* mg, InstMatch* mbase ){
   for( int i=0; i<(int)mg->d_matches.size(); i++ ){
-    if( mg->d_matches[i]->isComplete() ){
+    if( mg->d_matches[i]->isComplete( mbase ) ){
+      if( mbase ){
+        mg->d_matches[i]->add( mbase );
+      }
       d_matches.push_back( mg->d_matches[i] );
       mg->d_matches.erase( mg->d_matches.begin() + i, mg->d_matches.begin() + i + 1 );
       i--;

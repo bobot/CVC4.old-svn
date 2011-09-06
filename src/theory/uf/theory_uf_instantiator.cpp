@@ -209,8 +209,10 @@ void InstantiatorTheoryUf::registerTerm( Node n )
     if( d_inst_terms.find( n )==d_inst_terms.end() ){
       d_inst_terms[n] = true;
       recurse = true;
+      if( n.getKind()==INST_CONSTANT ){
+        d_active_ic[ n ] = true;
+      }
     }
-    //buildSubTerms( n );
   }else{
     if( d_concrete_terms.find( n )==d_concrete_terms.end() ){
       d_concrete_terms[n] = true;
@@ -320,12 +322,12 @@ bool InstantiatorTheoryUf::prepareInstantiation( Effort e )
 
 void InstantiatorTheoryUf::debugPrint()
 {
-  //Debug("quant-uf") << "Instantiation constants:" << std::endl;
-  //for( BoolMap::const_iterator it = d_active_ic.begin(); it!=d_active_ic.end(); ++it ){
-  //  Debug("quant-uf") << "   " << (*it).first;
-  //  //Debug("quant-uf") << "  ->  " << d_solved_ic[(*it).first];
-  //  Debug("quant-uf") << std::endl;
-  //}
+  Debug("quant-uf") << "Instantiation constants:" << std::endl;
+  for( BoolMap::const_iterator it = d_active_ic.begin(); it!=d_active_ic.end(); ++it ){
+    Debug("quant-uf") << "   " << (*it).first;
+    //Debug("quant-uf") << "  ->  " << d_solved_ic[(*it).first];
+    Debug("quant-uf") << std::endl;
+  }
   //Debug("quant-uf") << "Instantiation terms:" << std::endl;
   //for( BoolMap::const_iterator it = d_inst_terms.begin(); it!=d_inst_terms.end(); ++it ){
   //  Debug("quant-uf") << "   " << (*it).first;
@@ -519,18 +521,22 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
   //check if any instantiation constants are solved for
   for( int j = 0; j<(int)d_instEngine->d_inst_constants[f].size(); j++ ){
     Node i = d_instEngine->d_inst_constants[f][j];
-    Node ns = getRepresentative( i );
     Node c;
-    if( !ns.hasAttribute(InstantitionConstantAttribute()) ){
-      c = ns;
+    if( d_active_ic.find( i )==d_active_ic.end() ){
+      c = NodeManager::currentNM()->mkVar( i.getType() ); 
     }else{
-      NodeLists::iterator eqc_ns_i = d_equivalence_class.find( ns );
-      if( eqc_ns_i!=d_equivalence_class.end() ){
-        NodeList* eqc_ns = (*eqc_ns_i).second;
-        for( NodeList::const_iterator it = eqc_ns->begin(); it != eqc_ns->end(); ++it ){
-          if( !(*it).hasAttribute(InstantitionConstantAttribute()) ){
-            c = *it;
-            break;
+      Node ns = getRepresentative( i );
+      if( !ns.hasAttribute(InstantitionConstantAttribute()) ){
+        c = ns;
+      }else{
+        NodeLists::iterator eqc_ns_i = d_equivalence_class.find( ns );
+        if( eqc_ns_i!=d_equivalence_class.end() ){
+          NodeList* eqc_ns = (*eqc_ns_i).second;
+          for( NodeList::const_iterator it = eqc_ns->begin(); it != eqc_ns->end(); ++it ){
+            if( !(*it).hasAttribute(InstantitionConstantAttribute()) ){
+              c = *it;
+              break;
+            }
           }
         }
       }
@@ -576,11 +582,8 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
           Debug("quant-uf-alg") << "Finished creating obligation matches" << std::endl;
           obMatches[ (*it) ]->removeRedundant();
           if( obMatches[ (*it) ]->d_matches.size()>0 ){
-            Debug("quant-uf") << "(Partial) matches for " << (*it) << " : " << std::endl;
-            obMatches[ (*it) ]->debugPrint( "quant-uf" );
-          }
-          for( int i=0; i<(int)obMatches[ (*it) ]->getNumMatches(); i++ ){
-            obMatches[ (*it) ]->getMatch( i )->add( base );
+            Debug("quant-uf-ematch") << "(Partial) matches for " << (*it) << " : " << std::endl;
+            obMatches[ (*it) ]->debugPrint( "quant-uf-ematch" );
           }
         }
         Debug("quant-uf-alg") << "Build combined matches..." << std::endl;
@@ -598,10 +601,10 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
             combined = temp;
             combined->removeDuplicate();
           }
+          d_inst_matches.addComplete( combined, base );
         }
-        Debug("quant-uf") << "Combined matches : " << std::endl;
-        combined->debugPrint( "quant-uf" );
-        d_inst_matches.addComplete( combined );
+        Debug("quant-uf-ematch") << "Combined matches : " << std::endl;
+        combined->debugPrint( "quant-uf-ematch" );
       }
     }
   }
