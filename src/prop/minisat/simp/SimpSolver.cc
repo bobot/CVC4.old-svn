@@ -52,7 +52,7 @@ SimpSolver::SimpSolver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* con
   , simp_garbage_frac  (opt_simp_garbage_frac)
   , use_asymm          (opt_use_asymm)
   , use_rcheck         (opt_use_rcheck)
-  , use_elim           (!enableIncremental)
+  , use_elim           (false)
   , merges             (0)
   , asymm_lits         (0)
   , eliminated_vars    (0)
@@ -212,7 +212,7 @@ bool SimpSolver::strengthenClause(CRef cr, Lit l)
         updateElimHeap(var(l));
     }
 
-    return c.size() == 1 ? enqueue(c[0]) && propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef : true;
+    return c.size() == 1 ? enqueue(c[0]) && propagate(CHECK_WITHOUT_PROPAGATION_QUICK) == CRef_Undef : true;
 }
 
 
@@ -319,7 +319,7 @@ bool SimpSolver::implied(const vec<Lit>& c)
             uncheckedEnqueue(~c[i]);
         }
 
-    bool result = propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) != CRef_Undef;
+    bool result = propagate(CHECK_WITHOUT_PROPAGATION_QUICK) != CRef_Undef;
     cancelUntil(0);
     return result;
 }
@@ -408,7 +408,7 @@ bool SimpSolver::asymm(Var v, CRef cr)
         else
             l = c[i];
 
-    if (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) != CRef_Undef){
+    if (propagate(CHECK_WITHOUT_PROPAGATION_QUICK) != CRef_Undef){
         cancelUntil(0);
         asymm_lits++;
         if (!strengthenClause(cr, l))

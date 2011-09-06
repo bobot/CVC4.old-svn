@@ -55,6 +55,8 @@ TheoryEngine::TheoryEngine(context::Context* ctxt) :
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
     d_theoryTable[theoryId] = NULL;
   }
+  //initialize the instantiation engine
+  d_instEngine = new InstantiationEngine( ctxt, this );
 
   Rewriter::init();
 
@@ -365,5 +367,14 @@ Node TheoryEngine::preprocess(TNode assertion) {
 
   // Return the substituted version
   return d_atomPreprocessingCache[assertion];
+}
+
+void TheoryEngine::makeInstantiators(){
+  for( int i=0; i<theory::THEORY_LAST; i++ ){
+    if( d_theoryTable[i] ){
+      d_theoryTable[i]->d_instEngine = d_instEngine;
+      d_instEngine->d_instTable[i] = d_theoryTable[i]->makeInstantiator();
+    }
+  }
 }
 

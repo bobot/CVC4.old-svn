@@ -3,7 +3,7 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/..
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-SUBDIRS = builtin booleans uf arith arrays bv datatypes
+SUBDIRS = builtin booleans uf arith arrays bv datatypes quantifiers
 
 noinst_LTLIBRARIES = libtheory.la
 
@@ -26,7 +26,11 @@ libtheory_la_SOURCES = \
 	substitutions.h \
 	substitutions.cpp \
 	valuation.h \
-	valuation.cpp
+	valuation.cpp \
+	instantiation_engine.h \
+	instantiation_engine.cpp \
+	instantiator_default.h \
+	instantiator_default.cpp	
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \
@@ -39,7 +43,8 @@ libtheory_la_LIBADD = \
 	@builddir@/arith/libarith.la \
 	@builddir@/arrays/libarrays.la \
 	@builddir@/bv/libbv.la \
-	@builddir@/datatypes/libdatatypes.la
+	@builddir@/datatypes/libdatatypes.la \
+	@builddir@/quantifiers/libquantifiers.la 
 
 EXTRA_DIST = \
 	rewriter_tables_template.h \

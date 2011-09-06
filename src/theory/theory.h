@@ -41,6 +41,9 @@ class TheoryEngine;
 
 namespace theory {
 
+class Instantiator;
+class InstantiationEngine;
+
 /**
  * Base class for T-solvers.  Abstract DPLL(T).
  *
@@ -100,7 +103,8 @@ protected:
     d_factsHead(ctxt, 0),
     d_wasSharedTermFact(false),
     d_out(&out),
-    d_valuation(valuation) {
+    d_valuation(valuation),
+    d_instEngine( NULL ) {
   }
 
   /**
@@ -124,6 +128,11 @@ protected:
    * theory engine (and other theories).
    */
   Valuation d_valuation;
+
+  /**
+   * reference to the instantiation engine
+   */
+  InstantiationEngine* d_instEngine;
 
   /**
    * Returns the next atom in the assertFact() queue.
@@ -477,6 +486,15 @@ public:
    * etc..)
    */
   virtual std::string identify() const = 0;
+
+  /**
+   * Get the associated theory instantiator
+   */
+  virtual Instantiator* makeInstantiator();
+  /**
+   * Get the theory instantiator
+   */
+  Instantiator* getInstantiator();
 
   /** A set of theories */
   typedef uint32_t Set;

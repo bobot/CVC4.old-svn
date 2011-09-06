@@ -13,6 +13,8 @@ libuf_la_SOURCES = \
 	equality_engine.h \
 	equality_engine_impl.h \
 	symmetry_breaker.h \
-	symmetry_breaker.cpp
+	symmetry_breaker.cpp \
+	theory_uf_instantiator.h \
+	theory_uf_instantiator.cpp
 
 EXTRA_DIST = kinds

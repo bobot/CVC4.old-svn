@@ -49,6 +49,7 @@
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
 #include "theory/datatypes/theory_datatypes.h"
+#include "theory/quantifiers/theory_quantifiers.h"
 #include "util/ite_removal.h"
 
 using namespace std;
@@ -197,7 +198,11 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_theoryEngine->addTheory<theory::arrays::TheoryArrays>();
   d_theoryEngine->addTheory<theory::bv::TheoryBV>();
   d_theoryEngine->addTheory<theory::datatypes::TheoryDatatypes>();
+  d_theoryEngine->addTheory<theory::quantifiers::TheoryQuantifiers>();
   d_theoryEngine->addTheory<theory::uf::TheoryUF>();
+
+  //set the instantiator for all theories
+  d_theoryEngine->makeInstantiators();
 
   d_propEngine = new PropEngine(d_theoryEngine, d_context);
   d_theoryEngine->setPropEngine(d_propEngine);

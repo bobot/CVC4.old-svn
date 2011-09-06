@@ -61,13 +61,13 @@ protected:
   CVC4::context::Context* context;
 
   /** The current assertion level (user) */
-  int assertionLevel; 
+  int assertionLevel;
 
   /** Returns the current user assertion level */
   int getAssertionLevel() const { return assertionLevel; }
 
   /** Do we allow incremental solving */
-  bool enable_incremental;  
+  bool enable_incremental;
 
   /** Literals propagated by lemmas */
   vec< vec<Lit> > lemmas;
@@ -79,7 +79,7 @@ protected:
   bool recheck;
 
   /** Shrink 'cs' to contain only clauses below given level */
-  void removeClausesAboveLevel(vec<CRef>& cs, int level); 
+  void removeClausesAboveLevel(vec<CRef>& cs, int level);
 
   /** True if we are currently solving. */
   bool minisat_busy;
@@ -170,11 +170,14 @@ public:
     void    toDimacs     (const char* file, Lit p);
     void    toDimacs     (const char* file, Lit p, Lit q);
     void    toDimacs     (const char* file, Lit p, Lit q, Lit r);
-    
+
     // Variable mode:
-    // 
+    //
     void    setPolarity    (Var v, bool b); // Declare which polarity the decision heuristic should use for a variable. Requires mode 'polarity_user'.
     void    setDecisionVar (Var v, bool b); // Declare if a variable should be eligible for selection in the decision heuristic.
+    void    dependentDecision(Var dep, Var dec); // Declare that deciding on "dec" depends on "dep" having an assignment
+    void    setFlipVar     (Var v, bool b); // Declare if a variable is eligible for flipping
+    bool    flipDecision   ();              // Backtrack and flip most recent decision
 
     // Read state:
     //
@@ -276,6 +279,10 @@ protected:
     vec<lbool>          assigns;            // The current assignments.
     vec<char>           polarity;           // The preferred polarity of each variable.
     vec<char>           decision;           // Declares if a variable is eligible for selection in the decision heuristic.
+    vec<char>           flippable;        // Declares if a variable is eligible for flipping with flipDecision().
+    vec<Var>            depends;          // The variable (if any) that a decision on this variable depends on
+    vec<Var>            dependsOn;        // Variables whose decision depends on this variable
+    vec<int>            flipped;          // Which trail_lim decisions have been flipped in this context.
     vec<Lit>            trail;              // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;          // Separator indices for different decision levels in 'trail'.
     vec<int>            trail_user_lim;     // Separator indices for different user push levels in 'trail'.
@@ -295,11 +302,11 @@ protected:
 
     enum TheoryCheckType {
       // Quick check, but don't perform theory propagation
-      CHECK_WITHOUTH_PROPAGATION_QUICK,
+      CHECK_WITHOUT_PROPAGATION_QUICK,
       // Check and perform theory propagation
       CHECK_WITH_PROPAGATION_STANDARD,
       // The SAT problem is satisfiable, perform a full theory check
-      CHECK_WITHOUTH_PROPAGATION_FINAL
+      CHECK_WITHOUT_PROPAGATION_FINAL
     };
 
     // Temporaries (to reduce allocation overhead). Each variable is prefixed by the method in which it is
@@ -459,14 +466,30 @@ inline int      Solver::nLearnts      ()      const   { return clauses_removable
 inline int      Solver::nVars         ()      const   { return vardata.size(); }
 inline int      Solver::nFreeVars     ()      const   { return (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]); }
 inline void     Solver::setPolarity   (Var v, bool b) { polarity[v] = b; }
-inline void     Solver::setDecisionVar(Var v, bool b) 
-{ 
-    if      ( b && !decision[v]) dec_vars++;
-    else if (!b &&  decision[v]) dec_vars--;
+inline void     Solver::setDecisionVar(Var v, bool b)
+{
+    if      ( b && !decision[v] &&  (depends[v] == -1 || value(depends[v]) != l_Undef)) dec_vars++;
+    else if (!b &&  decision[v] && !(depends[v] == -1 || value(depends[v]) != l_Undef)) dec_vars--;
 
     decision[v] = b;
     insertVarOrder(v);
 }
+inline void     Solver::dependentDecision(Var dep, Var dec)
+{
+    assert(dep >= 0 && dec >= 0);// can't "un-depend"
+    assert(depends[dep] == -1);
+    assert(depends[dec] == -1);
+    assert(dependsOn[dec] == -1);
+    if(value(dep) == l_Undef && decision[dec]) dec_vars--;
+    depends[dec] = dep;
+    dependsOn[dec] = dependsOn[dep];
+    dependsOn[dep] = dec;
+}
+inline void     Solver::setFlipVar(Var v, bool b)
+{
+    flippable[v] = b;
+}
+
 inline void     Solver::setConfBudget(int64_t x){ conflict_budget    = conflicts    + x; }
 inline void     Solver::setPropBudget(int64_t x){ propagation_budget = propagations + x; }
 inline void     Solver::interrupt(){ asynch_interrupt = true; }

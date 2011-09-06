@@ -24,6 +24,8 @@
 #include "theory/theory_engine.h"
 #include "expr/expr_stream.h"
 
+using namespace std;
+
 namespace CVC4 {
 namespace prop {
 
@@ -116,6 +118,23 @@ void SatSolver::logDecision(SatLiteral lit) {
 #endif /* CVC4_REPLAY */
 }
 
+void SatSolver::requirePhasedDecision(SatLiteral lit) {
+  Assert(!d_minisat->rnd_pol);
+  Debug("minisat") << "requirePhasedDecision(" << lit << ")" << endl;
+  SatVariable v = Minisat::var(lit);
+  d_minisat->setPolarity(v, Minisat::sign(lit));
+  d_minisat->setFlipVar(v, false); // not eligible for flipping
+}
+
+void SatSolver::dependentDecision(SatVariable dep, SatVariable dec) {
+  Debug("minisat") << "dependentDecision(" << dep << ", " << dec << ")" << endl;
+  d_minisat->dependentDecision(dep, dec);
+}
+
+bool SatSolver::flipDecision() {
+  Debug("minisat") << "flipDecision()" << endl;
+  return d_minisat->flipDecision();
+}
 
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */

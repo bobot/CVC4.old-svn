@@ -148,6 +148,9 @@ Var Solver::newVar(bool sign, bool dvar, bool theoryAtom)
     seen     .push(0);
     polarity .push(sign);
     decision .push();
+    depends  .push(-1);
+    dependsOn.push(-1);
+    flippable.push(true);
     trail    .capacity(v+1);
     theory   .push(theoryAtom);
 
@@ -231,7 +234,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable)
           return ok = false;
       } else if (ps.size() == 1) {
         uncheckedEnqueue(ps[0]);
-        return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
+        return ok = (propagate(CHECK_WITHOUT_PROPAGATION_QUICK) == CRef_Undef);
       } else {
         CRef cr = ca.alloc(assertionLevel, ps, false);
         clauses_persistent.push(cr);
@@ -305,6 +308,16 @@ void Solver::cancelUntil(int level) {
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
             Var      x  = var(trail[c]);
             assigns [x] = l_Undef;
+            if(dependsOn[x] != var_Undef && depends[x] == var_Undef) {
+              // things depend on x
+              Var v = dependsOn[x];
+              do {
+                assert(depends[v] == x);
+                if(decision[v]) dec_vars--;
+                insertVarOrder(v);
+                v = dependsOn[v];
+              } while(v >= 0);
+            }
             if (phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
                 polarity[x] = sign(trail[c]);
             insertVarOrder(x); }
@@ -331,6 +344,16 @@ void Solver::popTrail() {
     for (int c = trail.size()-1; c >= target_size; c--){
       Var      x  = var(trail[c]);
       assigns [x] = l_Undef;
+      if(dependsOn[x] != var_Undef && depends[x] == var_Undef) {
+        // things depend on x
+        Var v = dependsOn[x];
+        do {
+          assert(depends[v] == x);
+          if(decision[v]) dec_vars--;
+          insertVarOrder(v);
+          v = dependsOn[v];
+        } while(v >= 0);
+      }
       if (phase_saving > 1 || (phase_saving == 1) && c > trail_lim.last())
         polarity[x] = sign(trail[c]);
       insertVarOrder(x); }
@@ -361,7 +384,8 @@ Lit Solver::pickBranchLit()
             rnd_decisions++; }
 
     // Activity based decision:
-    while (next == var_Undef || value(next) != l_Undef || !decision[next])
+    while (next == var_Undef || value(next) != l_Undef || !decision[next] ||
+           (depends[next] >= 0 && value(depends[next]) == l_Undef))
         if (order_heap.empty()){
             next = var_Undef;
             break;
@@ -607,7 +631,7 @@ CRef Solver::propagate(TheoryCheckType type)
     ScopedBool scoped_bool(minisat_busy, true);
 
     // If we are not in the quick mode add the lemmas that were left begind
-    if (type != CHECK_WITHOUTH_PROPAGATION_QUICK && lemmas.size() > 0) {
+    if (type != CHECK_WITHOUT_PROPAGATION_QUICK && lemmas.size() > 0) {
       confl = updateLemmas();
       if (confl != CRef_Undef) {
         return confl;
@@ -616,7 +640,7 @@ CRef Solver::propagate(TheoryCheckType type)
 
     // If this is the final check, no need for Boolean propagation and
     // theory propagation
-    if (type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
+    if (type == CHECK_WITHOUT_PROPAGATION_FINAL) {
       // Do the theory check
       theoryCheck(CVC4::theory::Theory::FULL_EFFORT);
       // If there are lemmas (or conflicts) update them
@@ -627,7 +651,7 @@ CRef Solver::propagate(TheoryCheckType type)
     }
 
     // The effort we will be using to theory check
-    CVC4::theory::Theory::Effort effort = type == CHECK_WITHOUTH_PROPAGATION_QUICK ?
+    CVC4::theory::Theory::Effort effort = type == CHECK_WITHOUT_PROPAGATION_QUICK ?
     		CVC4::theory::Theory::QUICK_CHECK : 
     		CVC4::theory::Theory::STANDARD;
 
@@ -844,7 +868,7 @@ bool Solver::simplify()
 {
     assert(decisionLevel() == 0);
 
-    if (!ok || propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) != CRef_Undef)
+    if (!ok || propagate(CHECK_WITHOUT_PROPAGATION_QUICK) != CRef_Undef)
         return ok = false;
 
     if (nAssigns() == simpDB_assigns || (simpDB_props > 0))
@@ -934,7 +958,7 @@ lbool Solver::search(int nof_conflicts)
         } else {
 
 	    // If this was a final check, we are satisfiable
-            if (check_type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
+            if (check_type == CHECK_WITHOUT_PROPAGATION_FINAL) {
               // Unless a lemma has added more stuff to the queues
               if (!order_heap.empty() || qhead < trail.size()) {
                 check_type = CHECK_WITH_PROPAGATION_STANDARD;
@@ -989,9 +1013,18 @@ lbool Solver::search(int nof_conflicts)
                 decisions++;
                 next = pickBranchLit();
 
+                Debug("minisat::decdep")
+                  << "branch lit: " << next << " depends on "
+                  << (var(next) == var_Undef ?  var_Undef : depends[var(next)])
+                  << " with value "
+                  << (var(next) == var_Undef ||
+                      depends[var(next)] == var_Undef ?
+                        l_Undef : value(depends[var(next)]))
+                  << std::endl;
+
                 if (next == lit_Undef) {
                     // We need to do a full theory check to confirm
-                    check_type = CHECK_WITHOUTH_PROPAGATION_FINAL;
+                    check_type = CHECK_WITHOUT_PROPAGATION_FINAL;
                     continue;
                 }
 
@@ -1271,8 +1304,48 @@ void Solver::unregisterVar(Lit lit) {
 void Solver::renewVar(Lit lit, int level) {
   Var v = var(lit);
   vardata[v].intro_level = level == -1 ? getAssertionLevel() : level;
+  depends[v] = -1;
+  dependsOn[v] = -1;
   setDecisionVar(v, true);
+  setFlipVar(v, true);
 }
+
+bool Solver::flipDecision() {
+  Debug("flipdec") << "FLIP: decision level is " << decisionLevel() << std::endl;
+  if(decisionLevel() == 0) {
+    Debug("flipdec") << "FLIP: no decisions, returning false" << std::endl;
+    return false;
+  }
+
+  // find the level to cancel until
+  int level = trail_lim.size() - 1;
+  Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << (flippable[var(trail[trail_lim[level]])] ? 1 : 0) << " flipped?" << flipped[level] << std::endl;
+  while(level > 0 && (flipped[level] || !flippable[var(trail[trail_lim[level]])])) {
+    --level;
+    Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << (flippable[var(trail[trail_lim[level]])] ? 1 : 0) << " flipped?" << flipped[level] << std::endl;
+  }
+  if(level < 0) {
+    Lit l = trail[trail_lim[0]];
+    Debug("flipdec") << "FLIP: canceling everything, flipping root decision " << l << std::endl;
+    cancelUntil(0);
+    newDecisionLevel();
+    Debug("flipdec") << "FLIP: enqueuing " << ~l << std::endl;
+    uncheckedEnqueue(~l);
+    flipped[0] = true;
+    Debug("flipdec") << "FLIP: returning false" << std::endl;
+    return false;
+  }
+  Lit l = trail[trail_lim[level]];
+  Debug("flipdec") << "FLIP: canceling to level " << level << ", flipping decision " << l << std::endl;
+  cancelUntil(level);
+  newDecisionLevel();
+  Debug("flipdec") << "FLIP: enqueuing " << ~l << std::endl;
+  uncheckedEnqueue(~l);
+  flipped[level] = true;
+  Debug("flipdec") << "FLIP: returning true" << std::endl;
+  return true;
+}
+
 
 CRef Solver::updateLemmas() {
 

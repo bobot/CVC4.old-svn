@@ -87,6 +87,9 @@ public:
   void augmentingLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException){
     push(AUG_LEMMA, n);
   }
+  void requirePhase(TNode, bool, bool = false) throw(Interrupted, AssertionException) { }
+  void dependentDecision(TNode, TNode, bool = false) throw(Interrupted, AssertionException) { }
+  bool flipDecision(bool = false) throw(Interrupted, AssertionException) { return true; }
   void explanation(TNode n, bool safe = false)  throw(Interrupted, AssertionException) {
     push(EXPLANATION, n);
   }
