@@ -533,14 +533,16 @@ private:
     bool alreadyVisited(TNode current, TNode parent) {
 
       Debug("register::internal") << "PreRegisterVisitor::alreadyVisited(" << current << "," << parent << ") => ";
-
+      
       using namespace theory;
+
+      if (current.getKind() == kind::FORALL || current.getKind() == kind::EXISTS) {
+        d_theories = Theory::setInsert(THEORY_QUANTIFIERS, d_theories);
+        return true;
+      }
 
       TheoryId currentTheoryId = Theory::theoryOf(current);
       TheoryId parentTheoryId  = Theory::theoryOf(parent);
-      //if( current.getKind() == kind::FORALL || current.getKind() == kind::EXISTS ){
-      //  return true;    
-      //}
 
       TNodeVisitedMap::iterator find = d_visited.find(current);
 
