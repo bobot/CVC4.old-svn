@@ -119,9 +119,8 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
           ( a.getKind()!=EQUAL && a.getKind()!=IFF && b.getKind()!=EQUAL && b.getKind()!=IFF ) );
 
   Debug("inst-uf") << "InstantiatorTheoryUf::equal: " << a << " == " << b << std::endl;
-  registerTerm( a );
-  registerTerm( b );
-  if( a.hasAttribute(InstantitionConstantAttribute()) || b.hasAttribute(InstantitionConstantAttribute()) ){
+  if( a.hasAttribute(InstantitionConstantAttribute()) || 
+      b.hasAttribute(InstantitionConstantAttribute()) ){
     //add to obligation list
     Node formula;
     Node f;
@@ -134,6 +133,16 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
       //swap sides
       Kind knd = a.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
       formula = NodeManager::currentNM()->mkNode( knd, b, a );
+    }
+    //swap sides for a disequality
+    if( a.getKind()==EQUAL || a.getKind()==IFF ){
+      if( !a[0].hasAttribute(InstantitionConstantAttribute()) ){
+        Assert( a[1].hasAttribute(InstantitionConstantAttribute()) );
+        a = NodeManager::currentNM()->mkNode( a.getKind(), a[1], a[0] );
+        InstantitionConstantAttribute icai;
+        a.setAttribute(icai,f);
+      }
+      formula = NodeManager::currentNM()->mkNode( NOT, a );
     }
     Assert( f!=Node::null() );
     NodeList* ob;
@@ -151,55 +160,63 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
     ob->push_back( formula );
     //DO_THIS: sub quantifiers?  add to their obligation list too?
   }
-  //merge equivalence classes
-  Node c = getRepresentative( a );
-  initializeEqClass( c );
-  NodeList* eqc_c = (*d_equivalence_class.find( c )).second;
-  initializeDisequalityList( c );
-  NodeList* d_c = (*d_disequality.find( c )).second;
-  for( int i=0; i<2; i++ ){
-    Node d = i==0 ? a : b;
-    if( c!=d ){
-      BoolMap::iterator isr_d_i = d_is_rep.find( d );
-      if( isr_d_i!=d_is_rep.end() ){
-        if( (*isr_d_i).second ){
-          //add equalities
-          NodeLists::iterator eqc_d_i = d_equivalence_class.find( d );
-          NodeList* eqc_d = (*eqc_d_i).second;
-          for( NodeList::const_iterator i = eqc_d->begin(); i != eqc_d->end(); i++ ) {
-            eqc_c->push_back( *i );
-          }
-          //add disequalities
-          NodeLists::iterator d_d_i = d_disequality.find( d );
-          if( d_d_i!=d_disequality.end() ){
-            NodeList* d_d = (*d_d_i).second;
-            for( NodeList::const_iterator i = d_d->begin(); i != d_d->end(); i++ ) {
-              d_c->push_back( *i );
+  if( a.getKind()==EQUAL || a.getKind()==IFF ){
+    registerTerm( a[0] );
+    registerTerm( a[1] );
+    Node r1 = getRepresentative( a[0] );
+    initializeEqClass( r1 );
+    Node r2 = getRepresentative( a[1] );
+    initializeEqClass( r2 );
+
+    initializeDisequalityList( r1 );
+    NodeList* d_r1 = (*d_disequality.find( r1 )).second;
+    d_r1->push_back( r2 );
+
+    initializeDisequalityList( r2 );
+    NodeList* d_r2 = (*d_disequality.find( r2 )).second;
+    d_r2->push_back( r1 );
+
+    d_is_rep[ r1 ] = true;
+    d_is_rep[ r2 ] = true;
+  }else{
+    registerTerm( a );
+    registerTerm( b );
+    //merge equivalence classes
+    Node c = getRepresentative( a );
+    initializeEqClass( c );
+    NodeList* eqc_c = (*d_equivalence_class.find( c )).second;
+    initializeDisequalityList( c );
+    NodeList* d_c = (*d_disequality.find( c )).second;
+    for( int i=0; i<2; i++ ){
+      Node d = i==0 ? a : b;
+      if( c!=d ){
+        BoolMap::iterator isr_d_i = d_is_rep.find( d );
+        if( isr_d_i!=d_is_rep.end() ){
+          if( (*isr_d_i).second ){
+            //add equalities
+            NodeLists::iterator eqc_d_i = d_equivalence_class.find( d );
+            NodeList* eqc_d = (*eqc_d_i).second;
+            for( NodeList::const_iterator i = eqc_d->begin(); i != eqc_d->end(); i++ ) {
+              eqc_c->push_back( *i );
+            }
+            //add disequalities
+            NodeLists::iterator d_d_i = d_disequality.find( d );
+            if( d_d_i!=d_disequality.end() ){
+              NodeList* d_d = (*d_d_i).second;
+              for( NodeList::const_iterator i = d_d->begin(); i != d_d->end(); i++ ) {
+                d_c->push_back( *i );
+              }
             }
           }
+        }else{
+          eqc_c->push_back( d );
         }
-      }else{
-        eqc_c->push_back( d );
       }
     }
+    d_is_rep[ a ] = false;
+    d_is_rep[ b ] = false;
+    d_is_rep[ c ] = true;
   }
-  //add disequality
-  if( a.getKind()==EQUAL || a.getKind()==IFF ){
-    Node c1 = getRepresentative( a[0] );
-    Node c2 = getRepresentative( a[1] );
-
-    initializeDisequalityList( c1 );
-    NodeList* d_c1 = (*d_disequality.find( c1 )).second;
-    d_c1->push_back( c2 );
-
-    initializeDisequalityList( c2 );
-    NodeList* d_c2 = (*d_disequality.find( c2 )).second;
-    d_c2->push_back( c1 );
-  }
-
-  d_is_rep[ a ] = false;
-  d_is_rep[ b ] = false;
-  d_is_rep[ c ] = true;
 }
 
 void InstantiatorTheoryUf::registerTerm( Node n )
@@ -282,20 +299,55 @@ void InstantiatorTheoryUf::resetInstantiation()
 {
   d_does_ematch.clear();
   d_eq_amb.clear();
-  d_did_ematch_mod.clear();
-  for( std::map< Node, std::map< Node, InstMatchGroup* > >::iterator it = d_ematch.begin();
+  for( std::map< Node, std::map< Node, InstMatchGroup > >::iterator it = d_ematch.begin();
       it != d_ematch.end(); ++it ){
-    for( std::map< Node, InstMatchGroup* >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
-      it2->second->clear();
+    for( std::map< Node, InstMatchGroup >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
+      it2->second.reset();
     }
   }
-  for( std::map< Node, std::map< Node, InstMatchGroup* > >::iterator it = d_ematch_mod.begin();
+  for( std::map< Node, std::map< Node, InstMatchGroup > >::iterator it = d_ematch_mod.begin();
       it != d_ematch_mod.end(); ++it ){
-    for( std::map< Node, InstMatchGroup* >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
-      it2->second->clear();
+    for( std::map< Node, InstMatchGroup >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
+      it2->second.reset();
     }
   }
-  refreshMaps();
+  for( std::map< Node, std::map< Node, InstMatchGroup > >::iterator it = d_partial_ematch.begin();
+      it != d_partial_ematch.end(); ++it ){
+    for( std::map< Node, InstMatchGroup >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
+      it2->second.reset();
+    }
+  }
+  for( std::map< Node, std::map< Node, InstMatchGroup > >::iterator it = d_partial_ematch_mod.begin();
+      it != d_partial_ematch_mod.end(); ++it ){
+    for( std::map< Node, InstMatchGroup >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
+      it2->second.reset();
+    }
+  }
+  for( std::map< Node, InstMatchGroup >::iterator it = d_ematch_full.begin(); 
+       it != d_ematch_full.end(); ++it ){
+    it->second.reset();
+  }
+  //copy equivalence class, disequality information to temporary map
+  d_emap.clear();
+  for( NodeLists::iterator ite = d_equivalence_class.begin(); ite!=d_equivalence_class.end(); ++ite ){
+    Node n = (*ite).first;
+    if( getRepresentative( n )==n ){
+      NodeList* el = (*ite).second;
+      for( NodeList::const_iterator it = el->begin(); it!=el->end(); ++it ){
+        d_emap[n].push_back( *it );
+      }
+    }
+  }
+  d_dmap.clear();
+  for( NodeLists::iterator itd = d_disequality.begin(); itd!=d_disequality.end(); ++itd ){
+    Node n = (*itd).first;
+    if( getRepresentative( n )==n ){
+      NodeList* dl = (*itd).second;
+      for( NodeList::const_iterator it = dl->begin(); it!=dl->end(); ++it ){
+        d_dmap[n].push_back( *it );
+      }
+    }
+  }
 }
 
 bool InstantiatorTheoryUf::prepareInstantiation( Effort e )
@@ -413,27 +465,21 @@ void InstantiatorTheoryUf::initializeDisequalityList( Node t )
   }
 }
 
-void InstantiatorTheoryUf::refreshMaps(){
-  //copy equivalence class, disequality information to temporary map
-  d_emap.clear();
-  for( NodeLists::iterator ite = d_equivalence_class.begin(); ite!=d_equivalence_class.end(); ++ite ){
-    Node n = (*ite).first;
-    if( getRepresentative( n )==n ){
-      NodeList* el = (*ite).second;
-      for( NodeList::const_iterator it = el->begin(); it!=el->end(); ++it ){
-        d_emap[n].push_back( *it );
+Node InstantiatorTheoryUf::getConcreteTermEqualTo( Node n ){
+  Node ns = getRepresentative( n );
+  if( !ns.hasAttribute(InstantitionConstantAttribute()) ){
+    return ns;
+  }else{
+    NodeLists::iterator eqc_ns_i = d_equivalence_class.find( ns );
+    if( eqc_ns_i!=d_equivalence_class.end() ){
+      NodeList* eqc_ns = (*eqc_ns_i).second;
+      for( NodeList::const_iterator it = eqc_ns->begin(); it != eqc_ns->end(); ++it ){
+        if( !(*it).hasAttribute(InstantitionConstantAttribute()) ){
+          return *it;
+        }
       }
     }
-  }
-  d_dmap.clear();
-  for( NodeLists::iterator itd = d_disequality.begin(); itd!=d_disequality.end(); ++itd ){
-    Node n = (*itd).first;
-    if( getRepresentative( n )==n ){
-      NodeList* dl = (*itd).second;
-      for( NodeList::const_iterator it = dl->begin(); it!=dl->end(); ++it ){
-        d_dmap[n].push_back( *it );
-      }
-    }
+    return Node::null();
   }
 }
 
@@ -462,7 +508,14 @@ bool InstantiatorTheoryUf::areDisequal( Node a, Node b ){
 
 Node InstantiatorTheoryUf::getRepresentative( Node a ){
   if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( a ) ){
-    return ((TheoryUF*)d_th)->d_equalityEngine.getRepresentative( a );
+    Node n = ((TheoryUF*)d_th)->d_equalityEngine.getRepresentative( a );
+    //if( n.hasAttribute(InstantitionConstantAttribute()) ){
+    //  Node nc = getConcreteTermEqualTo( n );
+    //  if( nc!=Node::null() ){
+    //    return nc;
+    //  }
+    //}
+    return n;
   }else{
     return a;
   }
@@ -525,21 +578,7 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
     if( d_active_ic.find( i )==d_active_ic.end() ){
       c = NodeManager::currentNM()->mkVar( i.getType() ); 
     }else{
-      Node ns = getRepresentative( i );
-      if( !ns.hasAttribute(InstantitionConstantAttribute()) ){
-        c = ns;
-      }else{
-        NodeLists::iterator eqc_ns_i = d_equivalence_class.find( ns );
-        if( eqc_ns_i!=d_equivalence_class.end() ){
-          NodeList* eqc_ns = (*eqc_ns_i).second;
-          for( NodeList::const_iterator it = eqc_ns->begin(); it != eqc_ns->end(); ++it ){
-            if( !(*it).hasAttribute(InstantitionConstantAttribute()) ){
-              c = *it;
-              break;
-            }
-          }
-        }
-      }
+      c = getConcreteTermEqualTo( i );
     }
     if( c!=Node::null() ){
       base->setMatch( i, c );
@@ -553,58 +592,136 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
       NodeLists::iterator ob_i = d_obligations.find( f );
       if( ob_i!=d_obligations.end() ){
         NodeList* ob = (*ob_i).second;
-        std::map< Node, InstMatchGroup* > obMatches;
+        std::map< Node, InstMatchGroup > obMatches;
         // for each literal asserted about the negation of the body of f
         for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
-          Assert( (*it).getKind()==IFF || (*it).getKind()==EQUAL );
           Debug("quant-uf-alg") << "Process obligation " << (*it) << std::endl;
-          obMatches[ (*it) ] = new InstMatchGroup;
-          if( !(*it)[1].hasAttribute(InstantitionConstantAttribute()) ){
-            // E-match on the LHS of the equality
-            if( e<FULL_EFFORT ){
-              //build E-matches with terms in the same equivalence class
-              addEMatch( obMatches[ (*it) ], (*it)[0], (*it)[0], f, e==STANDARD_EFFORT );
+
+          if( (*it).getKind()==NOT ){
+            Assert( (*it)[0][0].getAttribute(InstantitionConstantAttribute())==f );
+            if( !(*it)[0][1].hasAttribute(InstantitionConstantAttribute()) ){
+              //a disequality between a trigger and ground term
+              Node i = (*it)[0][0];
+              Node c = getRepresentative( (*it)[0][1] );
+              if( e<FULL_EFFORT ){
+                //match against all equivalence classes disequal from c
+                for( int j=0; j<(int)d_dmap[c].size(); j++ ){
+                  Node ci = d_dmap[c][j];
+                  if( e==QUICK_EFFORT ){
+                    doEMatchMod( i, ci, f );  
+                    obMatches[ (*it) ].add( d_ematch_mod[i][ci] );
+                  }else{
+                    doPartialEMatchMod( i, ci, f );
+                    obMatches[ (*it) ].add( d_partial_ematch_mod[i][ci] );
+                  }
+                }
+              }else{
+                //find all matches that are not equal to c
+                doEMatchFull( i, f );
+                obMatches[ (*it) ].add( d_ematch_full[i] );
+              }
             }else{
-              //build E-matches with any term
-              addEMatch( obMatches[ (*it) ], (*it)[0], f, true );
+              //a disequality between two triggers
+              Node i1 = (*it)[0][0];
+              Node i2 = (*it)[0][1];
+              if( e<FULL_EFFORT ){
+                //for each equivalence class E
+                for( BoolMap::iterator itb = d_is_rep.begin(); itb!=d_is_rep.end(); ++itb ){
+                  if( (*itb).second && (*itb).first.getType()==i1.getType() ){
+                    Node ci1 = (*itb).first;
+                    //for each equivalence class disequal from E
+                    for( int j=0; j<(int)d_dmap[ci1].size(); j++ ){
+                      Node ci2 = d_dmap[ci1][j];
+                      InstMatchGroup mg;
+                      if( e==QUICK_EFFORT ){
+                        doEMatchMod( i1, ci1, f );
+                        mg.add( d_ematch_mod[i1][ci1] );
+                        doEMatchMod( i2, ci2, f );
+                        mg.merge( d_ematch_mod[i2][ci2] );
+                      }else{
+                        doPartialEMatchMod( i1, ci1, f );
+                        mg.add( d_partial_ematch_mod[i1][ci1] );
+                        doPartialEMatchMod( i2, ci2, f );
+                        mg.combine( d_partial_ematch_mod[i2][ci2] );
+                      }
+                      obMatches[ (*it) ].add( mg );
+                    }
+                  }
+                }
+              }else{
+                //E-match any two terms
+                doEMatchFull( i1, f );
+                obMatches[ (*it) ].add( d_ematch_full[ i1 ] );
+                doEMatchFull( i2, f );
+                obMatches[ (*it) ].combine( d_ematch_full[ i2 ] );
+              }
             }
           }else{
-            // E-match both sides of the equality
-            if( e<FULL_EFFORT ){
-              //build E-matches with 2 terms in same equivalence class
-              addEqualityEMatch( obMatches[ (*it) ], (*it), f, e==STANDARD_EFFORT );
+            Assert( (*it).getKind()==IFF || (*it).getKind()==EQUAL );
+            if( !(*it)[1].hasAttribute(InstantitionConstantAttribute()) ){
+              //equality between trigger and concrete ground term
+              Node i = (*it)[0];
+              Node c = getRepresentative( (*it)[1] );
+              if( e==QUICK_EFFORT ){
+                //build E-matches with terms in the same equivalence class
+                doEMatchMod( i, c, f );
+                obMatches[ (*it) ].add( d_ematch_mod[i][c] );
+              }else if( e==STANDARD_EFFORT ){
+                doPartialEMatchMod( i, c, f );
+                obMatches[ (*it) ].add( d_partial_ematch_mod[i][c] );
+              }else{
+                doEMatchFull( i, f );
+                obMatches[ (*it) ].add( d_ematch_full[i] );
+              }
             }else{
-              //E-match any two terms
-              addEMatch( obMatches[ (*it) ], (*it)[0], f, true );
-              addEMatch( obMatches[ (*it) ], (*it)[1], f, true );
+              //equality between two triggers
+              Node i1 = (*it)[0];
+              Node i2 = (*it)[1];
+              if( e<FULL_EFFORT ){
+                //for each equivalence class
+                for( BoolMap::iterator itb = d_is_rep.begin(); itb!=d_is_rep.end(); ++itb ){
+                  if( (*itb).second && (*itb).first.getType()==i1.getType() ){
+                    Node c = (*itb).first;
+                    InstMatchGroup mg;
+                    if( e==QUICK_EFFORT ){
+                      doEMatchMod( i1, c, f );
+                      mg.add( d_ematch_mod[i1][c] );
+                      doEMatchMod( i2, c, f );
+                      mg.merge( d_ematch_mod[i2][c] );
+                    }else{
+                      doPartialEMatchMod( i1, c, f );
+                      mg.add( d_partial_ematch_mod[i1][c] );
+                      doPartialEMatchMod( i2, c, f );
+                      mg.combine( d_partial_ematch_mod[i2][c] );
+                    }
+                    obMatches[ (*it) ].add( mg );
+                  }
+                }
+              }else{
+                //E-match any two terms
+                doEMatchFull( i1, f );
+                obMatches[ (*it) ].add( d_ematch_full[ i1 ] );
+                doEMatchFull( i2, f );
+                obMatches[ (*it) ].combine( d_ematch_full[ i2 ] );
+              }
             }
           }
+          obMatches[ (*it) ].removeDuplicate();
           Debug("quant-uf-alg") << "Finished creating obligation matches" << std::endl;
-          obMatches[ (*it) ]->removeRedundant();
-          if( obMatches[ (*it) ]->d_matches.size()>0 ){
+          if( obMatches[ (*it) ].d_matches.size()>0 ){
             Debug("quant-uf-ematch") << "(Partial) matches for " << (*it) << " : " << std::endl;
-            obMatches[ (*it) ]->debugPrint( "quant-uf-ematch" );
+            obMatches[ (*it) ].debugPrint( "quant-uf-ematch" );
           }
         }
         Debug("quant-uf-alg") << "Build combined matches..." << std::endl;
         //build complete matches
-        InstMatchGroup* combined = new InstMatchGroup;
-        for( std::map< Node, InstMatchGroup* >::iterator it = obMatches.begin(); it != obMatches.end(); ++it ){
-          if( combined->getNumMatches()==0 ){
-            combined->add( it->second );
-          }else{
-            InstMatchGroup* temp = new InstMatchGroup( combined );
-            if( temp->merge( it->second ) ){
-              temp->add( combined );
-            }
-            temp->add( it->second );
-            combined = temp;
-            combined->removeDuplicate();
-          }
+        InstMatchGroup combined;
+        for( std::map< Node, InstMatchGroup >::iterator it = obMatches.begin(); it != obMatches.end(); ++it ){
+          combined.combine( it->second );
           d_inst_matches.addComplete( combined, base );
         }
         Debug("quant-uf-ematch") << "Combined matches : " << std::endl;
-        combined->debugPrint( "quant-uf-ematch" );
+        combined.debugPrint( "quant-uf-ematch" );
       }
     }
   }
@@ -613,276 +730,214 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
   Debug("quant-uf") << std::endl;
 }
 
-void InstantiatorTheoryUf::doEMatching( Node i, Node c, Node f, bool moduloEq ){
+void InstantiatorTheoryUf::doEMatch( Node i, Node c, Node f ){
   //Node oi = i;
   //Node oc = c;
-  //std::cout << "--> " << oi << " " << oc << " " << moduloEq << std::endl;
-
-  bool alreadyProcessed = false;
-  if( moduloEq ){
-    i = getRepresentative( i );
-    c = getRepresentative( c );
-    alreadyProcessed = ( d_did_ematch_mod.find( i )!=d_did_ematch_mod.end() &&
-                         d_did_ematch_mod[i].find( c )!=d_did_ematch_mod[i].end() );
-  }else{
-    alreadyProcessed = ( d_does_ematch.find( i )!=d_does_ematch.end() &&
-                         d_does_ematch[i].find( c )!=d_does_ematch[i].end() );
-  }
-  if( alreadyProcessed ){
-    Debug("quant-uf-ematch") << "already processed " << i << " " << c << std::endl;
-  }else{
-    Debug("quant-uf-ematch") << "do E-matching " << i << " " << c << " " << moduloEq << std::endl;
+  //std::cout << "--> " << oi << " " << oc << std::endl;
+  Assert( i.getType()==c.getType() );
+  Assert( i.getAttribute(InstantitionConstantAttribute())==f );
+  Assert( !c.hasAttribute(InstantitionConstantAttribute()) );
+  if( !d_ematch[i][c].d_is_set ){
+    d_ematch[i][c].d_is_set = true;
+    Debug("quant-uf-ematch") << "E-match " << i << " " << c << std::endl;
     if( !areDisequal( i, c ) ){
       //modulo equality
-      if( moduloEq ){
-        d_did_ematch_mod[i][c] = true;
-        //Debug("quant-uf-ematch") << "doEMM " << i << " " << c << std::endl;
-        if( d_emap[i].empty() ){
-          d_emap[i].push_back( i );
+      //if not already generated
+      if( i.getKind()==INST_CONSTANT ){
+        InstMatch* m = new InstMatch( f, d_instEngine );
+        if( !areEqual( i, c ) ){
+          m->setMatch( i, getRepresentative( c ) );
         }
-        if( d_emap[c].empty() ){
-          d_emap[c].push_back( c );
-        }
-        d_ematch_mod[i][c] = d_ematch_mod[i][c] ? d_ematch_mod[i][c] : new InstMatchGroup;
-        std::map< Node, std::vector< Node > >::iterator iti = d_emap.find( i );
-        std::map< Node, std::vector< Node > >::iterator itc = d_emap.find( c );
-        for( int j=0; j<(int)iti->second.size(); j++ ){
-          for( int k=0; k<(int)itc->second.size(); k++ ){
-            Node i1;
-            Node c1;
-            if( iti->second[j].getAttribute(InstantitionConstantAttribute())==f &&
-                !itc->second[k].hasAttribute(InstantitionConstantAttribute()) ){
-              i1 = iti->second[j];
-              c1 = itc->second[k];
-            }else if( itc->second[k].getAttribute(InstantitionConstantAttribute())==f &&
-                      !iti->second[j].hasAttribute(InstantitionConstantAttribute()) ){
-              i1 = itc->second[k];
-              c1 = iti->second[j];
-            }
-            //Debug("quant-uf-ematch") << "mod-doEM : " << i1 << " " << c1 << std::endl;
-            if( i1!=Node::null() &&
-                ( i1.getKind()!=INST_CONSTANT || getRepresentative( c1 )==c1 ) ){
-              doEMatching( i1, c1, f );
-              if( d_does_ematch[i1][c1] ){
-                d_ematch_mod[i][c]->add( d_ematch[i1][c1] );
-              }
-            }
-            //Debug("quant-uf-ematch") << "mod-doEM done " << i1 << " " << c1 << std::endl;
-          }
-        }
-        //Debug("quant-uf-ematch") << "doEMM done " << i << " " << c << std::endl;
-        d_ematch_mod[i][c]->removeRedundant();
-        Assert( d_did_ematch_mod[i][c] && d_ematch_mod[i][c]!=NULL );
+        Debug("quant-uf-ematch") << i << " and " << c << " Ematched." << std::endl;
+        d_does_ematch[i][c] = true;
+        d_ematch[i][c].d_matches.push_back( m );
+      }else if( c.getKind()!=APPLY_UF || i.getOperator()!=c.getOperator() ){
+        //equality independent, do nothing
+        d_does_ematch[i][c] = false;
+        d_eq_amb[i][c] = false;
+        Debug("quant-uf-ematch") << i << " and " << c << " FAILED operators." << std::endl;
       }else{
-        Assert( i.getAttribute(InstantitionConstantAttribute())==f && !c.hasAttribute(InstantitionConstantAttribute()) );
-        //if not already generated
-        if( i.getKind()==INST_CONSTANT ){
-          if( areDisequal( i, c ) ){
-            Debug("quant-uf-ematch") << i << " and " << c << " FAILED disequal iconst." << std::endl;
+        Assert( i.getNumChildren()==c.getNumChildren() );
+        d_does_ematch[i][c] = true;
+        d_eq_amb[i][c] = true;
+        d_ematch[i][c].d_matches.push_back( new InstMatch( f, d_instEngine ) );
+        for( int j=0; j<(int)c.getNumChildren(); j++ ){
+          if( areDisequal( i[j], c[j] ) ){
+            Debug("quant-uf-ematch") << i << " and " << c << " FAILED disequal arg." << std::endl;
             d_does_ematch[i][c] = false;
             d_eq_amb[i][c] = false;
-          }else{
-            InstMatch* m = new InstMatch( f, d_instEngine );
-            if( !areEqual( i, c ) ){
-              m->setMatch( i, getRepresentative( c ) );
-            }
-            Debug("quant-uf-ematch") << i << " and " << c << " Ematched." << std::endl;
-            d_does_ematch[i][c] = true;
-            d_ematch[i][c] = d_ematch[i][c] ? d_ematch[i][c] : new InstMatchGroup;
-            d_ematch[i][c]->d_matches.push_back( m );
-          }
-        }else if( i.getKind()==EQUAL || i.getKind()==IFF ){
-          if( c.getKind()!=i.getKind() || i[0].getType()!=c[0].getType() ){
-            Debug("quant-uf-ematch") << i << " and " << c << " FAILED kinds." << std::endl;
-            d_does_ematch[i][c] = false;
-            d_eq_amb[i][c] = false;
-          }else{
-            //check both ways
-            bool foundMatch = false;
-            d_does_ematch[i][c] = true;
-            d_ematch[i][c] = d_ematch[i][c] ? d_ematch[i][c] : new InstMatchGroup;
-            for( int s=0; s<2; s++ ){
-              Node c1 = s==0 ? c[0] : c[1];
-              Node c2 = s==0 ? c[1] : c[0];
-              doEMatching( i[0], c1, f, true );
-              doEMatching( i[1], c2, f, true );
-              if( d_does_ematch[i[0]][c1] && d_does_ematch[i[1]][c2] ){
-                d_ematch[i][c]->add( d_ematch_mod[i[0]][c1] );
-                if( d_ematch[i][c]->merge( d_ematch_mod[i[1]][c2] ) ){
-                  foundMatch = true;
-                  break;
-                }else{
-                  d_ematch[i][c]->clear();
-                }
+            d_ematch[i][c].clear();
+            break;
+          }else if( !areEqual( i[j], c[j] ) && d_does_ematch[i][c] && !d_ematch[i][c].empty() ){
+            if( i[j].getAttribute(InstantitionConstantAttribute())==f ){
+              doEMatchMod( i[j], c[j], f );
+              if( !d_ematch[i][c].merge( d_ematch_mod[i[j]][c[j]] ) ){
+                Debug("quant-uf-ematch") << i << " and " << c << " FAILED incompatible match." << std::endl;
+                d_does_ematch[i][c] = false;
+                d_ematch[i][c].clear();
               }
-            }
-            if( !foundMatch ){
-              Debug("quant-uf-ematch") << i << " and " << c << " FAILED incompat equal." << std::endl;
+            }else{
+              Debug("quant-uf-ematch") << i << " and " << c << " FAILED unequal arg." << std::endl;
               d_does_ematch[i][c] = false;
-              d_eq_amb[i][c] = true;
-            }
-          }
-        }else if( c.getKind()!=APPLY_UF || i.getOperator()!=c.getOperator() ){
-          //equality independent, do nothing
-          d_does_ematch[i][c] = false;
-          d_eq_amb[i][c] = false;
-          Debug("quant-uf-ematch") << i << " and " << c << " FAILED operators." << std::endl;
-        }else{
-          Assert( i.getNumChildren()==c.getNumChildren() );
-          d_does_ematch[i][c] = true;
-          d_eq_amb[i][c] = true;
-          d_ematch[i][c] = d_ematch[i][c] ? d_ematch[i][c] : new InstMatchGroup;
-          d_ematch[i][c]->d_matches.push_back( new InstMatch( f, d_instEngine ) );
-          for( int j=0; j<(int)c.getNumChildren(); j++ ){
-            if( areDisequal( i[j], c[j] ) ){
-              Debug("quant-uf-ematch") << i << " and " << c << " FAILED disequal arg." << std::endl;
-              d_does_ematch[i][c] = false;
-              d_eq_amb[i][c] = false;
-              break;
-            }else if( !areEqual( i[j], c[j] ) ){
-              if( d_does_ematch[i][c] ){
-                doEMatching( i[j], c[j], f, true );
-                if( d_does_ematch[i[j]][c[j]] ){
-                  if( !d_ematch[i][c]->merge( d_ematch_mod[i[j]][c[j]] ) ){
-                    Debug("quant-uf-ematch") << i << " and " << c << " FAILED incompatible match. " << j << std::endl;
-                    d_does_ematch[i][c] = false;
-                  }
-                }else{
-                  Debug("quant-uf-ematch") << i << " and " << c << " FAILED argument. " << j << std::endl;
-                  d_does_ematch[i][c] = false;
-                }
-              }
+              d_ematch[i][c].clear();
             }
           }
         }
-        Assert( d_does_ematch.find( i )!=d_does_ematch.end() );
-        Assert( d_does_ematch[i].find( c )!=d_does_ematch[i].end() );
-        Assert( !d_does_ematch[i][c] || d_ematch[i][c]!=NULL );
-        Assert( d_does_ematch[i][c] || ( d_eq_amb.find( i )!=d_eq_amb.end() && d_eq_amb[i].find( c )!=d_eq_amb[i].end() ) );
       }
     }else{
       Debug("quant-uf-ematch") << i << " and " << c << " FAILED disequal." << std::endl;
       d_does_ematch[i][c] = false;
       d_eq_amb[i][c] = false;
     }
+    Assert( d_does_ematch.find( i )!=d_does_ematch.end() );
+    Assert( d_does_ematch[i].find( c )!=d_does_ematch[i].end() );
+    Assert( d_does_ematch[i][c] || ( d_eq_amb.find( i )!=d_eq_amb.end() && d_eq_amb[i].find( c )!=d_eq_amb[i].end() ) );
   }
   //std::cout << "<-- " << oi << " " << oc << " " << moduloEq << std::endl;
 }
 
-void InstantiatorTheoryUf::getPartialMatches( Node i, Node c, Node f, InstMatchGroup* mg ){
-  //std::cout << "get pm " << i << " " << c << std::endl;
-  doEMatching( i, c, f );
-  if( d_does_ematch[i][c] ){
-    mg->add( d_ematch[i][c] );
-  }else if( d_eq_amb[i][c] ){
-    Assert( i.getNumChildren()==c.getNumChildren() );
-    for( int j=0; j<(int)i.getNumChildren(); j++ ){
-      if( !areEqual( i[j], c[j] ) && i[j].getAttribute(InstantitionConstantAttribute())==f ){
-        getPartialMatches( i[j], c[j], f, mg );
-      }
-    }
-    if( i.getKind()==EQUAL || i.getKind()==IFF ){
-      getPartialMatches( i[0], c[1], f, mg );
-      getPartialMatches( i[1], c[0], f, mg );
-    }
-  }
-}
-void InstantiatorTheoryUf::partialMerge( InstMatchGroup* m1, InstMatchGroup* m2, InstMatchGroup* prod ){
-  //do partial merge DO_THIS
-  for( int i=0; i<(int)m1->getNumMatches(); i++ ){
-    for( int j=0; j<(int)m2->getNumMatches(); j++ ){
-      if( isIntersectionConsistent( m1->getMatch( i ), m2->getMatch( j ) ) ){
-
+void InstantiatorTheoryUf::doEMatchMod( Node i, Node c, Node f ){
+  Assert( i.getType()==c.getType() );
+  Assert( c==getRepresentative( c ) ); 
+  if( !d_ematch_mod[i][c].d_is_set ){
+    d_ematch_mod[i][c].d_is_set = true;
+    Debug("quant-uf-ematch") << "E-match mod " << i << " " << c << std::endl;
+    if( !areDisequal( i, c ) ){
+      if( i.getKind()==INST_CONSTANT || d_emap[c].empty() ){
+        if( !c.hasAttribute(InstantitionConstantAttribute()) ){
+          doEMatch( i, c, f );
+          if( d_does_ematch[i][c] ){
+            d_ematch_mod[i][c].add( d_ematch[i][c] );
+          }
+        }
       }else{
-        prod->d_matches.push_back( m1->getMatch( i ) );
-        prod->d_matches.push_back( m2->getMatch( j ) );
+        for( int j=0; j<(int)d_emap[c].size(); j++ ){
+          Node ca = d_emap[c][j];
+          if( !ca.hasAttribute(InstantitionConstantAttribute()) ){
+            doEMatch( i, ca, f );
+            if( d_does_ematch[i][ca] ){
+              d_ematch_mod[i][c].add( d_ematch[i][ca] );
+            }
+          }
+        }
+        d_ematch_mod[i][c].removeRedundant();
       }
     }
   }
 }
-bool InstantiatorTheoryUf::isIntersectionConsistent( InstMatch* m1, InstMatch* m2 ){
-  for( int i=0; i<(int)m1->d_vars.size(); i++ ){
-    Assert( m1->d_vars[i]==m2->d_vars[i] );
-    if( m1->d_map[ m1->d_vars[i] ]!=Node::null() &&
-        m2->d_map[ m2->d_vars[i] ]!=Node::null() && 
-        m1->d_map[ m1->d_vars[i] ]!=m2->d_map[ m2->d_vars[i] ] &&
-        areDisequal( m1->d_map[ m1->d_vars[i] ], m2->d_map[ m1->d_vars[i] ] ) ){
-      return false;
+
+
+void InstantiatorTheoryUf::doPartialEMatch( Node i, Node c, Node f ){
+  Assert( i.getType()==c.getType() );
+  Assert( i.getAttribute(InstantitionConstantAttribute())==f );
+  Assert( !c.hasAttribute(InstantitionConstantAttribute()) );
+  if( !d_partial_ematch[i][c].d_is_set ){
+    d_partial_ematch[i][c].d_is_set = true;
+    Debug("quant-uf-ematch") << "Partial E-match " << i << " " << c << std::endl;
+    doEMatch( i, c, f );
+    if( d_does_ematch[i][c] ){
+      Debug("quant-uf-ematch") << i << " and " << c << " fully match." << std::endl;
+      d_partial_ematch[i][c].add( d_ematch[i][c] );
+    }else if( d_eq_amb[i][c] ){
+      Debug("quant-uf-ematch") << i << " and " << c << " are ambiguous." << std::endl;
+      Assert( i.getKind()==APPLY_UF && c.getKind()==APPLY_UF );
+      Assert( i.getOperator()==c.getOperator() );
+      Assert( i.getNumChildren()==c.getNumChildren() );
+      for( int j=0; j<(int)c.getNumChildren(); j++ ){
+        Assert( !areDisequal( i[j], c[j] ) );
+        if( !areEqual( i[j], c[j] ) && i[j].getAttribute(InstantitionConstantAttribute())==f ){
+          doPartialEMatchMod( i[j], c[j], f );
+          d_partial_ematch[i][c].combine( d_partial_ematch_mod[i[j]][c[j]] );
+        }
+      }
     }
   }
-  return true;
 }
 
-void InstantiatorTheoryUf::addEMatch( InstMatchGroup* mg, Node i, Node c, Node f, bool partialMatch ){
-  std::map< Node, std::vector< Node > >::iterator itr = d_emap.find( getRepresentative( c ) );
-  for( int k=0; k<(int)itr->second.size(); k++ ){
-    if( !itr->second[k].hasAttribute(InstantitionConstantAttribute()) ){
-      doEMatching( i, itr->second[k], f, false );
-      if( d_does_ematch[ i ][ itr->second[k] ] ){
-        Debug("quant-uf-ematch") << i << " and " << itr->second[k] << " were E-matched." << std::endl;
-        mg->add( d_ematch[ i ][ itr->second[k] ] );
-      }else if( partialMatch && d_eq_amb[ i ][ itr->second[k] ] ){
-        Debug("quant-uf-ematch") << i << " and " << itr->second[k] << " were partially E-matched." << std::endl;
-        getPartialMatches( i, itr->second[k], f, mg );
+void InstantiatorTheoryUf::doPartialEMatchMod( Node i, Node c, Node f ){
+  if( !d_partial_ematch_mod[i][c].d_is_set ){
+    d_partial_ematch_mod[i][c].d_is_set = true;
+    if( !areDisequal( i, c ) ){
+      if( i.getKind()==INST_CONSTANT || d_emap[c].empty() ){
+        if( !c.hasAttribute(InstantitionConstantAttribute()) ){
+          doPartialEMatch( i, c, f );
+          d_partial_ematch_mod[i][c].add( d_partial_ematch[i][c] );
+        }
       }else{
-        Debug("quant-uf-ematch") << i << " and " << itr->second[k] << " FAILED to E-match." << std::endl;
+        for( int j=0; j<(int)d_emap[c].size(); j++ ){
+          Node ca = d_emap[c][j];
+          if( !ca.hasAttribute(InstantitionConstantAttribute()) ){
+            doPartialEMatch( i, ca, f );
+            d_partial_ematch_mod[i][c].add( d_partial_ematch[i][ca] );
+          }
+        }
+        d_partial_ematch_mod[i][c].removeDuplicate();
       }
     }
   }
 }
 
-void InstantiatorTheoryUf::addEMatch( InstMatchGroup* mg, Node i, Node f, bool partialMatch ){
-  for( BoolMap::const_iterator it = d_concrete_terms.begin(); it!=d_concrete_terms.end(); ++it ){
-    if( i.getType()==(*it).first.getType() && !areEqual( i, (*it).first ) ){    //already handled for STANDARD_EFFORT
-      doEMatching( i, (*it).first, f, false );
-      if( d_does_ematch[ i ][ (*it).first ] ){
-        Debug("quant-uf-ematch") << i << " and " << (*it).first << " were E-matched." << std::endl;
-        mg->add( d_ematch[ i ][ (*it).first ] );
-      }else if( partialMatch && d_eq_amb[ i ][ (*it).first ] ){
-        Debug("quant-uf-ematch") << i << " and " << (*it).first << " were partially E-matched." << std::endl;
-        getPartialMatches( i, (*it).first, f, mg );
+void InstantiatorTheoryUf::doEMatchFull( Node i, Node f ){
+  Assert( i.getAttribute(InstantitionConstantAttribute())==f );
+  if( !d_ematch_full[i].d_is_set ){
+    d_ematch_full[i].d_is_set = true;
+    for( BoolMap::iterator itb = d_is_rep.begin(); itb!=d_is_rep.end(); ++itb ){
+      if( (*itb).second && i.getType()==(*itb).first.getType() ){
+        doPartialEMatchMod( i, (*itb).first, f );
+        d_ematch_full[i].add( d_partial_ematch_mod[i][(*itb).first] );
       }
     }
+    d_ematch_full[i].removeDuplicate();
   }
 }
 
-void InstantiatorTheoryUf::addEqualityEMatch( InstMatchGroup* mg, Node i, Node f, bool partialMatch ){
-  for( BoolMap::iterator it = d_is_rep.begin(); it!=d_is_rep.end(); ++it ){
-    if( (*it).second ){
-      InstMatchGroup* mgt1 = new InstMatchGroup;
-      addEMatch( mgt1, i[0], (*it).first, f, partialMatch );
-      InstMatchGroup* mgt2 = new InstMatchGroup;
-      addEMatch( mgt2, i[1], (*it).first, f, partialMatch );
-      if( mgt1->merge( mgt2 ) ){
-        mg->add( mgt1 );
-      }
-      //delete mgt1;
-      //delete mgt2;
-    }
-  }
-}
-
-void InstantiatorTheoryUf::filterInconsistent( InstMatchGroup* mg ){
-  for( int i=0; i<(int)mg->d_matches.size(); i++ ){
-    if( !isConsistent( mg->d_matches[i] ) ){
-      //delete mg->d_matches[i];
-      mg->d_matches.erase( mg->d_matches.begin() + i, mg->d_matches.begin() + i + 1 );
-      i--;
-    }
-  }
-}
-
-bool InstantiatorTheoryUf::isConsistent( InstMatch* m ){
-  Node f = m->getQuantifier();
-  NodeLists::iterator ob_i = d_obligations.find( f );
-  if( ob_i!=d_obligations.end() ){
-    NodeList* ob = (*ob_i).second;
-    for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
-      
-    }
-  }
-  return true;
-}
+//void InstantiatorTheoryUf::partialMerge( InstMatchGroup* m1, InstMatchGroup* m2, InstMatchGroup* prod ){
+//  //do partial merge DO_THIS
+//  for( int i=0; i<(int)m1->getNumMatches(); i++ ){
+//    for( int j=0; j<(int)m2->getNumMatches(); j++ ){
+//      if( isIntersectionConsistent( m1->getMatch( i ), m2->getMatch( j ) ) ){
+//
+//      }else{
+//        prod->d_matches.push_back( m1->getMatch( i ) );
+//        prod->d_matches.push_back( m2->getMatch( j ) );
+//      }
+//    }
+//  }
+//}
+//bool InstantiatorTheoryUf::isIntersectionConsistent( InstMatch* m1, InstMatch* m2 ){
+//  for( int i=0; i<(int)m1->d_vars.size(); i++ ){
+//    Assert( m1->d_vars[i]==m2->d_vars[i] );
+//    if( m1->d_map[ m1->d_vars[i] ]!=Node::null() &&
+//        m2->d_map[ m2->d_vars[i] ]!=Node::null() && 
+//        m1->d_map[ m1->d_vars[i] ]!=m2->d_map[ m2->d_vars[i] ] &&
+//        areDisequal( m1->d_map[ m1->d_vars[i] ], m2->d_map[ m1->d_vars[i] ] ) ){
+//      return false;
+//    }
+//  }
+//  return true;
+//}
+//
+//void InstantiatorTheoryUf::filterInconsistent( InstMatchGroup* mg ){
+//  for( int i=0; i<(int)mg->d_matches.size(); i++ ){
+//    if( !isConsistent( mg->d_matches[i] ) ){
+//      //delete mg->d_matches[i];
+//      mg->d_matches.erase( mg->d_matches.begin() + i, mg->d_matches.begin() + i + 1 );
+//      i--;
+//    }
+//  }
+//}
+//
+//bool InstantiatorTheoryUf::isConsistent( InstMatch* m ){
+//  Node f = m->getQuantifier();
+//  NodeLists::iterator ob_i = d_obligations.find( f );
+//  if( ob_i!=d_obligations.end() ){
+//    NodeList* ob = (*ob_i).second;
+//    for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
+//      
+//    }
+//  }
+//  return true;
+//}
 //
 //void InstantiatorTheoryUf::setEmatchDone( Node i, Node c ){
 //  NodeLists::iterator emdi_i = d_ematch_done.find( i );

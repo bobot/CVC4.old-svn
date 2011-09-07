@@ -91,7 +91,6 @@ protected:
   ///** used eq classes */
   std::map< Node, std::vector< Node > > d_emap;
   std::map< Node, std::vector< Node > > d_dmap;
-  void refreshMaps();
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
@@ -112,25 +111,33 @@ private:
   void registerTerm( Node n );
   void initializeEqClass( Node t );
   void initializeDisequalityList( Node t );
+  Node getConcreteTermEqualTo( Node n );
 
   bool hasInstantiationConstantsFrom( Node i, Node f );
   void calculateMatches( Node f, Effort e );
 
-  std::map< Node, std::map< Node, InstMatchGroup* > > d_ematch;
+  /** match terms i and c */
+  std::map< Node, std::map< Node, InstMatchGroup > > d_ematch;
   std::map< Node, std::map< Node, bool > > d_does_ematch;
   std::map< Node, std::map< Node, bool > > d_eq_amb;
-  std::map< Node, std::map< Node, InstMatchGroup* > > d_ematch_mod;
-  std::map< Node, std::map< Node, bool > > d_did_ematch_mod;
-  void doEMatching( Node i, Node c, Node f,  bool moduloEq = false );
-  void getPartialMatches( Node i, Node c, Node f, InstMatchGroup* mg );
-  void partialMerge( InstMatchGroup* m1, InstMatchGroup* m2, InstMatchGroup* prod );
-  bool isIntersectionConsistent( InstMatch* m1, InstMatch* m2 );
-  void addEMatch( InstMatchGroup* mg, Node i, Node c, Node f, bool partialMatch = false );
-  void addEMatch( InstMatchGroup* mg, Node i, Node f, bool partialMatch = false );
-  void addEqualityEMatch( InstMatchGroup* mg, Node i, Node f, bool partialMatch = false );
+  void doEMatch( Node i, Node c, Node f );
+  /** match modulo equivalence class c */
+  std::map< Node, std::map< Node, InstMatchGroup > > d_ematch_mod;
+  void doEMatchMod( Node i, Node c, Node f ); 
+  /** do partial E-match */
+  std::map< Node, std::map< Node, InstMatchGroup > > d_partial_ematch;
+  void doPartialEMatch( Node i, Node c, Node f );
+  /** do partial E-match mod */
+  std::map< Node, std::map< Node, InstMatchGroup > > d_partial_ematch_mod;
+  void doPartialEMatchMod( Node i, Node c, Node f );
+  /** match for any concrete ground term */
+  std::map< Node, InstMatchGroup > d_ematch_full;
+  void doEMatchFull( Node i, Node f );
 
-  void filterInconsistent( InstMatchGroup* mg );
-  bool isConsistent( InstMatch* m );
+  //void partialMerge( InstMatchGroup* m1, InstMatchGroup* m2, InstMatchGroup* prod );
+  //bool isIntersectionConsistent( InstMatch* m1, InstMatch* m2 );
+  //void filterInconsistent( InstMatchGroup* mg );
+  //bool isConsistent( InstMatch* m );
 
   //void setEmatchDone( Node i, Node c );
   //bool isEmatchDone( Node i, Node c );

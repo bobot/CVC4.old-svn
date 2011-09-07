@@ -117,13 +117,13 @@ void InstMatch::debugPrint( const char* c ){
   }
 }
 
-bool InstMatchGroup::merge( InstMatchGroup* mg )
+bool InstMatchGroup::merge( InstMatchGroup& mg )
 {
   std::vector< InstMatch* > newMatches;
   for( int l=0; l<(int)d_matches.size(); l++ ){
     InstMatch* temp = new InstMatch( d_matches[l] );
-    for( int k=0; k<(int)mg->d_matches.size(); k++ ){
-      if( temp->merge( mg->d_matches[k] ) ){
+    for( int k=0; k<(int)mg.d_matches.size(); k++ ){
+      if( temp->merge( mg.d_matches[k] ) ){
         newMatches.push_back( temp );
         temp = new InstMatch( d_matches[l] );
       }
@@ -143,20 +143,29 @@ bool InstMatchGroup::merge( InstMatchGroup* mg )
   }
 }
 
-void InstMatchGroup::add( InstMatchGroup* mg ){
-  if( !mg->d_matches.empty() ){
-    d_matches.insert( d_matches.end(), mg->d_matches.begin(), mg->d_matches.end() );
+void InstMatchGroup::add( InstMatchGroup& mg ){
+  if( !mg.d_matches.empty() ){
+    d_matches.insert( d_matches.end(), mg.d_matches.begin(), mg.d_matches.end() );
   }
 }
 
-void InstMatchGroup::addComplete( InstMatchGroup* mg, InstMatch* mbase ){
-  for( int i=0; i<(int)mg->d_matches.size(); i++ ){
-    if( mg->d_matches[i]->isComplete( mbase ) ){
+void InstMatchGroup::combine( InstMatchGroup& mg ){
+  InstMatchGroup temp( this );
+  if( merge( mg ) ){
+    add( temp );
+  }
+  add( mg );
+  removeDuplicate();
+}
+
+void InstMatchGroup::addComplete( InstMatchGroup& mg, InstMatch* mbase ){
+  for( int i=0; i<(int)mg.d_matches.size(); i++ ){
+    if( mg.d_matches[i]->isComplete( mbase ) ){
       if( mbase ){
-        mg->d_matches[i]->add( mbase );
+        mg.d_matches[i]->add( mbase );
       }
-      d_matches.push_back( mg->d_matches[i] );
-      mg->d_matches.erase( mg->d_matches.begin() + i, mg->d_matches.begin() + i + 1 );
+      d_matches.push_back( mg.d_matches[i] );
+      mg.d_matches.erase( mg.d_matches.begin() + i, mg.d_matches.begin() + i + 1 );
       i--;
     }
   }

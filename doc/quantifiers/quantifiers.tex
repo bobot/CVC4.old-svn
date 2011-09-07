@@ -54,7 +54,7 @@
 \pagenumbering{arabic}
 \pagestyle{plain}
 
-\title{Counterexample-Based Quantifier Instantiation for SMT}
+\title{A Counterexample-Based Approach for Quantifier Instantiation in SMT}
 
 \author{Andrew Reynolds}
 \institute{Computer Science, The University of Iowa, USA}
@@ -106,7 +106,7 @@ In the cases where the formula is found to be valid, then the solver may be able
 
 The following document reexamines challenges (1), (2) and (3).
 We present a scheme for symbolically reasoning about counterexamples to quantified formulas within the DPLL(T) framework.
-At a high level, for every (universally) quantified formula asserted in a given context, the solver will assume that a counterexample exists, and reason about possible values for this counterexample.
+At a high level, for every (universally) quantified formula $\psi$ asserted in a given context, the solver will assume that a counterexample to $\psi$ exists, and reason about possible values for this counterexample.
 
 In terms of challenge (1), the goal of this approach will be to leverage theory-specific information to aid in selecting instantiations.
 Say we have a universally quantified formula $\forall x. \varphi[x]$ where $x$ is of a sort belonging to theory $T$.
@@ -133,8 +133,9 @@ In the case that each of these formulas $R \wedge \neg C^I[e]$ are unsatisifiabl
 %In other words, testing the satisfiability of formulas $R \wedge \neg C^I[e]$ potentially comes at a large cost to the solver.
 
 The technique proposed in this document takes a similar approach to quantifier instantiation, and is intended to simplify this scheme.
-Instead of explicitly building models $M^I$ and reasoning about the interpretted form of clauses $\neg C^I[e]$, we instead reason \emph{incrementally} about the negated body of non-ground clauses $\neg C[e]$ as they are, for a fresh (distinguished) constant $e$ \footnote{ We will refer to these constants $\bar{e}$ as \emph{instantiation constants} }.
+Instead of explicitly building models $M^I$ and reasoning about the interpretted form of clauses $\neg C^I[e]$, we instead reason  about the negated body of non-ground clauses $\neg C[e]$ for a fresh (distinguished) constant $e$ \footnote{ We will refer to these constants $\bar{e}$ as \emph{instantiation constants} }.
 This is done using the same instance of the SMT solver, that is, we may use an SMT solver to simultaneously reason about constructing satisfying assignments for ground clauses existing in a particular problem as well as clauses $\neg C[e]$.
+An immediate advantage here is that reasoning about the negated body of the quantifier is performed incrementally.
 In this approach, when we have reached a DPLL(T) state $M \parallel F$, our current set of asserted literals $M$ not containing $\bar{e}$ can be considered the implicit specification of a current model.
 
 Based on possible values we find for $e$, our procedure will construct instantiations that are likely to be relevant in the current context, as well as decide when no helpful instantiations exist.
@@ -142,36 +143,35 @@ In the same manner as model-based quantifier instantiation, if we show that $\ne
 
 \paragraph{E-matching}
 E-matching is a powerful method for generating relevant instantiations based on matching \emph{triggers} with concrete ground terms. 
-Say we have ground assertions $L$ and quantified assertion $\forall \bar{x}. \varphi$.
-The idea of E-matching is to find a subterm (or set of subterms) $t$ of $\varphi$, called a \emph{trigger}, such that $\bar{x} \in FV( t )$ and ground terms $s$ such that $t[\bar{s}/\bar{x}]$ is equivalent to a ground subterm $t'$ of $L$ modulo a set of ground equalities entailed by $L$.
-In this case, we say that term $t$ E-matches term $t'$ and subsequently the set of ground terms $\bar{s}$ is used to instantiate the quantifier $\forall \bar{x}. \varphi$.
+Say we have ground assertions $M$ and quantified assertion $\forall \bar{x}. \varphi$.
+The idea of E-matching is to find a subterm (or set of subterms) $t$ of $\varphi$, called a \emph{trigger}, such that all variables $\bar{x}$ are contained in the free variables of $t$, and a vector of ground terms $\bar{s}$ such that $t[\bar{s}/\bar{x}]$ is equivalent to a ground subterm $g$ of $M$ modulo a set of ground equalities entailed by $M$.
+In this case, we say that term $t$ \emph{E-matches} term $g$ and subsequently the set of ground terms $\bar{s}$ is used to instantiate the quantifier $\forall \bar{x}. \varphi$.
 
-While modern methods can be used to compute E-matches in a highly efficient manner, a weakness of E-matching is its ability to recognize the relavance of instantiations.
+While modern methods can be used to compute E-matches in a highly efficient manner, a weakness of E-matching is its ability to recognize the relevance of instantiations in a precise way.
 In particular, a basic implementation of E-matching does not consider the logical structure of the body of the quantifier $\varphi$.
 As a result, many instantiations may potentially be needed to generate a conflict if one exists.
 
-For example, say we have the quantified formula $\forall x. ( f(x) \neq g(x) \Rightarrow P( x ) )$ and ground literal $f( a ) = g( a )$ asserted in a particular context. 
-An implementation of E-matching may choose $f( x )$ as a trigger and will instantiate this formula with ground terms $a$ such $f( a )$ exists in $L$.
-However, note in this case that this instantiation is useless since $f( a ) = g( a )$.
+For example, say we have the literals $f( a ) = g( a )$ and $\forall x. ( f(x) \neq g(x) \Rightarrow P( x ) )$ asserted in a particular context. 
+An implementation of E-matching may choose $f( x )$ as a trigger and use $a$ as an instantiation for the quantifier.
+However, this instantiation is useless since it falsifies the antecedant of the body of the quantifier.
+To recognize such cases, it is useful to reason about the negated body of the quantifier for a fresh constant $e$, where in this case the SMT solver will assert the literals $f( e ) \neq g( e )$ and $\neg P( e )$ to find a satisifying assignment.
+This will suggest that we should be looking for a ground term $a$ such that $f( a ) \neq g( a )$, and ideally an $a$ in which $\neg P( a )$ holds as well.
 
-For this reason, it is useful to reason about the negated body of the quantifier for a fresh instantiation constant $e$, where in this case the SMT solver will assert the literals $f( e ) \neq g( e )$ and $\neg P( e )$ to find a satisifying assignment.
-This will signify that we should be looking for a ground term $a$ such that $f( a ) \neq g( a )$, and ideally an $a$ in which $\neg P( a )$ holds as well.
-
-The technique in the following can be thought of as an extension to E-matching, where now equalities and disequalities between triggers \footnote{We now consider a trigger as a ground term $t[e/x]$ containing a distinguished instantiation constant $e$. }
- are considered.
-This information provides a criteria for filtering irrelevant E-matches.
+The technique in the following can be thought of as an extension to E-matching, where now equalities and disequalities between triggers are considered.
+This information provides a criteria for filtering irrelevant E-matches, as well as a way of quickly finding instantiations that are more likely to be relevant.
 
 \section{DPLL(T) with Counterexample Literals}
 \label{dpll-ce-lit}
 
 In this section, we propose a scheme for reasoning about quantified formulas in SMT within the existing DPLL(T) framework.
-This scheme will supplement DPLL(T) with additional rules that provide ways for finding relevant instantiations.
+This scheme will supplement DPLL(T) with an additional rule (Counterexample $\forall$-Inst) as well as enhancements for existing DPLL(T) rules related to quantifiers.
+The core semantics of the DPLL(T) architechture will remain the same, that is, we still consider states of the form $M \parallel F$, where $M$ is a set of asserted literals and $F$ is a set of clauses.
 
 \subsection{Counterexample Literals}
 
-Given an asserted quantifier $\forall \bar{x}. \varphi[\bar{x}]$ (call this formula $\psi$) and a DPLL(T) context $M \parallel F$, we are interested in finding a satisifying assignment for $ \neg \psi[\bar{e}/\bar{x}]$ for fresh constants $\bar{e}$.
-To do this, we will insert a valid lemma into $F$ that can be thought of saying that either (a) $\psi$ is not asserted, (b) $\psi$ does not have a counterexample, or (c) $\psi$ has a counterexample, call it $\bar{e}$ such that $\neg \varphi[\bar{e}]$ holds.
-For this purpose, we will first introduce the notion of a \emph{counterexample literal}.
+Given an asserted quantifier $\forall \bar{x}. \varphi[\bar{x}]$ (call this formula $\psi$) and a DPLL(T) context $M \parallel F$, we are interested in finding a satisifying assignment for $ \neg \psi[\bar{e}]$ for fresh constants $\bar{e}$.
+To do this, we will insert a valid lemma into $F$ that gives three possibilities for $\psi$: either $\psi$ is not asserted, $\psi$ does not have a counterexample, or $\psi$ has a counterexample, call it $\bar{e}$ such that $\neg \varphi[\bar{e}]$ holds.
+We will first introduce the notion of a \emph{counterexample literal}.
 
 For a quantified formula $\psi$ of the form $\forall \bar{ x }. \varphi$, we will associate a distinguished (boolean) literal called the \emph{counterexample literal of $\psi$}, and write $\bot^{\neg \psi}$ to denote this literal.
 This literal states that ``a counterexample to $\psi$ does not exist", or in other words $\psi$ is valid in the current context.
@@ -188,10 +188,8 @@ For a DPLL(T) state $M \parallel F$ and for each quantified formula $\psi = \for
 In case (1), our configuration does not claim $\psi$ to be true.
 In case (2), our configuration has asserted (perhaps as a decision) that $\psi$ is true, but also has decided that it will find a counterexample.
 In case (3), our configuration has asserted that $\psi$ is true, and moreover knows that $\psi$ does not have a counterexample.
-
 To enforce this schema, we require that the DPLL(T) engine never assert $(\bot^{\neg \psi})^d$ as a decision, and that $\neg (\bot^{\neg \psi})^d$ should be asserted only after $\psi$ is asserted.
-Both these requirements can be addressed within the core of the SAT solver with only a limited impact on performance.
-It also should be noted that neither of these are required to maintain soundness of the overall DPLL(T) system.
+Both these requirements can be addressed within the core of the SAT solver with only a limited impact on performance, and neither of these are required to maintain soundness of the overall DPLL(T) system.
 
 %In the following sections, lemmas of the form $( \neg \psi \vee \bot^{\neg \psi} \vee \neg \psi[\bar{e}/\bar{x}])$ will be added to our set of clauses $F$.
 %Each of these clauses tell us that either $\psi$ does not hold, a counterexample does not exist for $\psi$, or the contraint $C(\bar{e})$ holds for the counterexample $\bar{e}$ of $\psi$,  where $\bar{e}$ are distinguished free constants of the same sorts as $\bar{x}$.
@@ -213,7 +211,7 @@ We will refer to distinguished free constants $\bar{e}$ as introduced in the pre
 It is important to note that instantiation constants will have identical logical semantics as free constants of the same sort.
 In other words, our scheme assumes no information about the value of an instantiation constant $e$, and simply uses this terminology as a way of referring such constants.
 
-We write $e \mapsto^I_i \forall \bar{x}. \varphi[ \bar{x} ]$ to denote that $e$ is the i$^{th}$ instantiation constant for the formula $\forall \bar{x}. \varphi[ \bar{x} ] $, and write $\bar{e} \mapsto^I \forall \bar{x}. \varphi[ \bar{x} ]$ to denote that $e_1 \mapsto^I_1 \varphi \ldots e_n \mapsto^I_n \forall \bar{x}. \varphi[ \bar{x} ]$.
+We write $e \mapsto^I_i \forall \bar{x}. \varphi[ \bar{x} ]$ to denote that $e$ is the i$^{th}$ instantiation constant for the formula $\forall \bar{x}. \varphi[ \bar{x} ] $, and write $\bar{e} \mapsto^I \forall \bar{x}. \varphi[ \bar{x} ]$ to denote that $e_i \mapsto^I_i \forall \bar{x}. \varphi[ \bar{x} ]$ for all $e_i$ in $\bar{e}$.
 For a literal $l$, we write $l \mapsto^I S$ to denote that $S = \{ \forall \bar{x}. \varphi[ \bar{x} ] \mid \exists e \in l. e \mapsto^I \forall \bar{x}. \varphi[ \bar{x} ] \}$, or in other words, all instantiation constants in $l$ refer to a quantified formula in $S$.
 Furthermore write $C \mapsto^I S$ to denote that $S$ is the union of the sets $S_1 \ldots S_n$ for $l_i \in C$, $l_i \mapsto^I S_i$.
 A concrete literal (clause) is one that contains no instantiation constants.
@@ -239,13 +237,13 @@ Similarly, the third says that either a counterexample $\psi[e/x]$ exists such t
 
 \subsection{Counterexample $\forall$-Inst}
 
-The transformation described in Section~\ref{sec:CENF} can be used to introduce clauses containing instantiation constants into the DPLL(T) framework.
+The counterexample lemma for a quantified formula $\psi$ is used to introduce clauses containing instantiation constants into the DPLL(T) framework.
 Conceptually, the following rule constructs a lemma that describes a counterexample $\bar{e}$ for the universally quantified formula $\forall \bar{x}. \varphi[ \bar{ x } ]$, and adds it as a lemma to $F$.
 This rule represents the central idea behind our approach: \\
 
 \noindent Counterexample $\forall$-Inst: \\
 
-$M \parallel F \Longrightarrow M \parallel F, \neg \forall \bar{x}. \varphi[ \bar{x} ] \vee \bot^{\neg \forall \bar{x}. \varphi[ \bar{x} ]} \vee \neg \varphi[ \bar{ e } ]$, if   
+$M \parallel F \Longrightarrow M \parallel F, (\neg \forall \bar{x}. \varphi[ \bar{x} ] \vee \bot^{\neg \forall \bar{x}. \varphi[ \bar{x} ]} \vee \neg \varphi[ \bar{ e } ])$, if   
 $\begin{cases}
   \forall \bar{x}. \varphi[ \bar{ x } ] \in M \\
   \bar{ e } \mapsto^I \forall \bar{x}. \varphi[ \bar{ x } ] \\
@@ -263,7 +261,6 @@ $C_3 : ( \neg \psi \vee \bot^{\neg \psi} \vee \neg P( e ) )$.
 If we force the SMT solver to assert $\neg( \bot^{\neg \varphi} )^d$, it can be shown that the default behavior of DPLL(T) is sufficient and desirable for reasoning about clauses containing counterexample literals and literals with instantiation constants.
 
 Let us first consider when we are in a state $M, \psi, \neg( \bot^{\neg \varphi} )^d, N \parallel F$, were $\psi$ has been asserted as a non-decision literal and its counterexample literal has been decided upon negatively.
-
 In the case that $l_1$ is asserted positively (possibly as a decision) in $M = M_1, l^{(d)}_1, M_2$, we have that $C_1$ is falsified and we will backjump to the state $M, \psi, \bot^{\neg \varphi} \parallel F$.
 This corresponds to saying that a counterexample cannot exist to $\psi$ in the context $M$ where $l_1$ is true.
 
@@ -285,18 +282,18 @@ In the latter case, we have determined that assuming a counterexample exists mea
 %Note, however that this lemma should not be added $F$, as it is exactly what we \emph{do not} want to tell the SAT-solver, as it encodes the trick of our approach.
 
 The analysis for $C_2$ and $C_3$ are as expected, where now the DPLL(T) engine may give partial truth assignments to $l_2$, $e = a$ and $P( e )$ which will be useful for determining instantiations.
-Note in the context $M, \psi, \neg( \bot^{\neg \varphi} )^d, \neg l_2$, the literal $e = a$ will be unit propagated within $C_3$, thereby signalling that $\psi[ a/x]$ is the \emph{only} instantiation we need to try in this example.
+Note in the context $M, \psi, \neg( \bot^{\neg \varphi} )^d, \neg l_2$, the literal $e = a$ will be unit propagated within $C_3$, thereby signalling that $\psi[a/x]$ is the \emph{only} instantiation we need to try in this example.
 
-We formally define the following invariants for DPLL(T): \\
+We define the following invariants for DPLL(T): \\
 
 {\bf Invariant 1}:
-For all DPLL(T) states $M \parallel F$, the only instance of literal $\bot^{\neg \psi}$ in $F$ occur in clauses $C_1 \ldots C_n$ such that $C_1 \ldots C_n$ is logically equivalent to $( \neg \psi \vee \bot^{\neg \psi} \vee \neg \psi[\bar{e}/\bar{x}] )$ where $\bar{e} \mapsto^I \bar{x}$.
+For all DPLL(T) states $M \parallel F$, the only instance of literal $\bot^{\neg \psi}$ in $F$ occur in clauses $C_1 \ldots C_n$ such that $C_1 \ldots C_n$ is logically equivalent to $( \neg \psi \vee \bot^{\neg \psi} \vee \neg \psi[\bar{e}/\bar{x}] )$ where $\bar{e} \mapsto^I \psi$.
 
 {\bf Invariant 2}:
 For all DPLL(T) states $M \parallel F$, all clauses $C \mapsto^I \psi$ in $F$ are tautological. \\
 
-By definition, counterexample $\forall$-Inst maintains Invariants 1 and 2.
-In addition, since counterexample literals $\bot^{ \neg \psi }$ have no meaning apart from representing boolean values, no lemma added to $F$ by $T$-Learn will violate Invariant 1.
+It can be shown that counterexample $\forall$-Inst maintains Invariants 1 and 2.
+Also note that since counterexample literals $\bot^{ \neg \psi }$ have no meaning apart from representing boolean values, no lemma added to $F$ by $T$-Learn will violate Invariant 1.
 
 \subsection{Enhancements for DPLL(T) Rules}
 
@@ -305,26 +302,28 @@ Note that we may restrict this rule to only be applicable to formulas $\forall \
 Such cases can be easily recognized due to the following theorem:
 
 \begin{thm}
-For all DPLL(T) states of the form $M, \bot^{\neg \psi}, M' \parallel F$, if no literal $l \mapsto^I \psi$ is asserted as a decision in $M$, then $M, \bot^{\neg \psi}, M' \models_T \psi[\bar{t}/\bar{x}]$ for all $\bar{t}$.
+For all DPLL(T) states of the form $M, \bot^{\neg \psi} \parallel F$, if no literal $l \mapsto^I \psi$ is asserted as a decision in $M$, then $M \models_T \psi[\bar{t}/\bar{x}]$ for all $\bar{t}$, or in other words, $\psi$ is valid in the context $M$.
 \end{thm}
 \begin{proof}
-Assume we have a DPLL(T) state $M, \bot^{\neg \psi}, M' \parallel F$, where $\bot^{\neg \psi}$ is asserted as a non-decision literal.
-Say that $\psi$ has DNF-conversion $\forall \bar{x}. (S_1 \vee \ldots \vee S_n)$, and thus $F \models ( \neg \psi \vee \bot^{\neg \psi} \vee (\neg S_i)[\bar{e}/\bar{x}])$ for all $1 \leq i \leq n$.
-By Invariant 1, the literal $\bot^{\neg \psi}$ only occurs in such clauses in $F$.
+Assume we have a DPLL(T) state $M, \bot^{\neg \psi} \parallel F$, where $\bot^{\neg \psi}$ is asserted as a non-decision literal.
+%Say that $\psi$ has CNF-conversion $\forall \bar{x}. (C_1 \wedge \ldots \wedge C_n)$, and thus $F \models ( \neg \psi \vee \bot^{\neg \psi} \vee (\neg C_i)[\bar{e}/\bar{x}])$ for some $1 \leq i \leq n$.
+%By Invariant 1, the literal $\bot^{\neg \psi}$ only occurs in such clauses in $F$.
 
 Consider the case where $\bot^{\neg \psi}$ was asserted by unit-propagation.
-Then $M \models \neg ( \neg \psi \vee (\neg S_i)[\bar{e}/\bar{x}])$ for some $S_i$.
-Therefore, we know $\psi \in M$, and since no literal $l \mapsto^I \psi$ is asserted as a decision in $M$, 
-we can construct an explanation $M'' \subseteq M$ such that $M''$ does not contain $\bar{e}$, and $M'' \models_T \neg (\neg S_i)[\bar{e}/\bar{x}]$.
-Therefore, we know that $M'' \models_T \neg \exists \bar{x}. (\neg S_i)$ since $\bar{e} \not\in M''$, and thus $M'' \models_T \forall \bar{x}. S_i$.
-Since $M'' \subseteq M$, we have that $M, \bot^{\neg \psi}, M' \models_T \psi[\bar{t}/\bar{x}]$ for all $\bar{t}$.
+[do this]
+%Then $M \models \neg ( \neg \psi \vee (\neg C_i)[\bar{e}/\bar{x}])$ for some $C_i$.
+%Therefore, we know $\psi \in M$, and since no literal $l \mapsto^I \psi$ is asserted as a decision in $M$, we can construct an explanation $M'' \subseteq M$ such that $M''$ does not contain $\bar{e}$, and $M'' \models_T \neg (\neg C_i)[\bar{e}/\bar{x}]$.
+%Therefore, we know that $M'' \models_T \neg \exists \bar{x}. (\neg S_i)$ since $\bar{e} \not\in M''$, and thus $M'' \models_T \forall \bar{x}. C_i$.
+%Since $M'' \subseteq M$, we have that $M, \bot^{\neg \psi}, M' \models_T \psi[\bar{t}/\bar{x}]$ for all $\bar{t}$.
 
 Consider the case where $\bot^{\neg \psi}$ was asserted due to a backjump.
 [do this] $\Box$
 \end{proof}
 
-Accordingly, we add the following restriction to our DPLL(T) engine: \emph{if $(\bot^{\neg \psi})^d$ is not asserted, then no literal $l^d$ can be asserted such that $l \mapsto^I \psi$}.
+Accordingly, we will require that no literal $l^d$ can be asserted such that $l \mapsto^I \psi$ when $(\bot^{\neg \psi})^d$ is not asserted.
+This schema can be enforced within the core of the SAT solver when chosing a decision literal, again with only a limited impact on performance.
 
+We also require that no terms used to instantiate a quantifier contain instantiation constants, as this violates Invariant 1.
 Our updated rule for $\forall$-Inst becomes the following: \\
 
 \noindent $\forall$-Inst (Counterexample Restricted): \\
@@ -337,7 +336,7 @@ $\begin{cases}
   \text{ \ \ \ as a non-decision literal in $M$ } \\    
 \end{cases}$ \\
 
-Note that these restrictions are helpful when trying to establish a satisifiable instance of a formula involving quantifiers.
+The restricted form for this rule is helpful when trying to establish a satisifiable instance of a formula involving quantifiers.
 The following example shows an instance where the solver may return SAT by determining that a counterexample cannot exist to a universally quantified formula in a particular context. \\
 
 {\bf Example 1}
@@ -350,7 +349,7 @@ After conflict analysis, we will backtrack to the state $( a = b ), \psi, (\bot^
 The solver answers SAT. \\
 
 Here, we have determined $S$ is satisfiable by noting that any model where $a = b$ is true also satisfies $\psi$ for all possible values for $x$.
-
+One can also view this scenario as determining that the axiom $\psi$ is not applicable in the context where $a = b$.
 
 \subsection{Representation of Counterexamples}
 
@@ -360,18 +359,16 @@ In this section, we describe precisely what is said about our counterexample to 
 
 We say a DPLL(T) state $M \parallel F$ is \emph{candidate-satisifiable} if all clauses in $F$ are satisified and $M$ is $T$-consistent.
 We say a quantified formula $\psi \in M$ is \emph{counterexample-active} in $M \parallel F$ if Counterexample $\forall$-Inst has been applied to $\psi$ and $\neg (\bot^{\neg \psi})^d \in M$.
-The following theorem tells us what formulas are asserted for counterexample-active $\psi$ in candidate-satisifiable DPLL(T) states:
 
 \begin{thm}
 \label{thm:cerep}
-Given a candidate-satisifiable DPLL(T) state $M \parallel F$ and a quantified formula $\psi \in M$ whose CNF-conversion is $\forall \bar{x}. (C_1 \wedge \ldots \wedge C_n)$.
-If $\psi$ is counterexample-active in $M \parallel F$ for $\bar{e} \mapsto^I \psi$, then there exists a clause $C_i$ such that each literal in $C_i[ \bar{e}/\bar{x}]$ is asserted falsely in $M$.
+Given a candidate-satisifiable DPLL(T) state $M \parallel F$ and a quantified formula $\forall \bar{x}. \varphi[ \bar{x} ] \in M$ that is counterexample-active in $M$, we have that $M \models \neg \varphi[\bar{e}]$.
 \end{thm}
 
 \subsection{Learned Lemmas Containing Instantiation Constants}
 
 It is also important to note that learned lemmas can involve instantiation constants.
-In Example 1, after the theory conlifct, we could have added the lemma $(\varphi_1 : ) ( f( e ) \neq a \vee f( e ) = b \vee a \neq b )$ to $S'$.
+In Example 1, after the theory conlifct, we could have added the lemma $( f( e ) \neq a \vee f( e ) = b \vee a \neq b )$ to $S'$.
 For a larger example, this lemma may potentially be useful in pruning the search space of subsequent searches.
 
 \begin{comment}
@@ -391,8 +388,8 @@ We will see in Section~\ref{sec:implementation} a recommended implementation for
 In this section, we describe search methods for determining relevant instantiations using theory-specific information we have deduced about instantiation constants $\bar{e}$.
 
 We begin with the following definitions:
-An instantiation constant $e$ is \emph{solved in $M$} if there exists a concrete ground term $s$ such that $M \models_T (e = s)$.
-An instantiation constant $e$ is \emph{unsolved in $M$} if $e$ is in $M$ and there does not exist a concrete ground term $s$ such that $M \models_T (e = s)$.
+An instantiation constant $e$ is \emph{solved in $M$} if there exists a concrete ground term $s$ such that $M \models_T (e = s)$, or $e$ does not exist in $M$.
+An instantiation constant $e$ is \emph{unsolved in $M$} otherwise.
 Similarly, a term $t$ is \emph{unsolved in $M$} if it contains instantiation constants that are unsolved in $M$; a term $t$ is \emph{solved in $M$} otherwise.
 Note that concrete ground terms $t$ are solved for all $M$.
 
@@ -402,21 +399,15 @@ For an instantiation-ready quantified formula $\psi$, define $\varepsilon_M( e_1
 The usefulness of determining whether a quantified formula $(\psi:) \ \forall \bar{x}. \varphi[ \bar{x} ]$ is instantiation-ready is immediate:  if $\psi$ is counterexample active in candidate satsifiable $M \parallel F$, we know that $\neg \varphi( \bar{e} )$ is entailed in our current model.
 If we also know that $\bar{e} = \bar{s}$, then we know that the instantiation $\varphi[ \bar{s} ]$ must be \emph{unsatisfiable} in the current state.
 
-The following theorem describes cases when we can construct a useful instantiation:
-
 \begin{thm}
 \label{thm:instready}
-Given a candidate-satisifiable DPLL(T) state $M \parallel F$, for all quantified formula $\psi \in M$, if $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in $M$, then $\psi[\varepsilon_{M'}( \bar{e} )/\bar{x}]$ is $T$-unsatisfiable in $M$, where $\bar{e} \mapsto^I \psi$.
+Given a candidate-satisifiable DPLL(T) state $M \parallel F$, for all quantified formula $\psi$ of the form $\forall \bar{x}. \varphi[ \bar{x} ]$, if $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in $M$, then $\psi[\varepsilon_M( \bar{e} )/\bar{x}]$ is $T$-unsatisfiable in $M$, where $\bar{e} \mapsto^I \psi$.
 \end{thm}
 \begin{proof}
-Consider the quantified formula $\psi \in M$ whose CNF conversion is $\forall \bar{x}. C_1 \wedge \ldots \wedge C_n$.
+Consider the quantified formula $\psi$ of the form $\forall \bar{x}. \varphi[ \bar{x} ]$.
 Assume $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in $M$.
-Note by Theorem~\ref{thm:cerep}, literals $\neg l_1 [\bar{e}/\bar{x}] \ldots \neg l_n [ \bar{e}/\bar{x} ]$ are asserted in $M$ for some $C_i = ( l_1 \wedge \ldots l_n )$
-
-Using proof by contradiction, let us assume that $\psi[\varepsilon_{M}( \bar{e} )/\bar{x}]$ is $T$-satisfiable in $M'$.
-Thus, at least one literal $l_j[ \varepsilon_{M}( \bar{e} )/\bar{x}] \in C_i$ must be $T$-satisfiable in $M$.
-However, we have that $\neg l_j [\bar{e}/\bar{x}] \in M$ and since $\varepsilon_{M}( e ) = e$ for all $e \in M$, we know that $\neg l_j [\varepsilon_{M}( \bar{e} )/\bar{x}]$ is entailed by $M$.
-Thus, $l_j[ \varepsilon_{M}( \bar{e} )/\bar{x}]$ is $T$-satisfiable in $M$, and $\psi[\varepsilon_{M}( \bar{e} )/\bar{x}]$ is $T$-unsatisfiable in $M'$. $\Box$
+By Theorem~\ref{thm:cerep}, we have that $M \models \neg \varphi[\bar{e}]$.
+Since $\varepsilon_{M}( e ) = e$ for all $e \in M$, we know that $M \models \neg \varphi[\varepsilon_M( \bar{e} )]$ and thus $\psi[\varepsilon_M( \bar{e} )/\bar{x}]$ is $T$-unsatisfiable in $M$. $\Box$
 \end{proof}
 
 \begin{cor}
@@ -428,40 +419,37 @@ if $\psi$ is counterexample-active in $M \parallel F$ and instantiation-ready in
 The proof is immediate, noting that by Theorem~\ref{thm:instready}, $( \neg \psi \vee \psi[\varepsilon_{M}( \bar{e} )/\bar{x}])$ is $T$-unsatisifiable in $M$, and therefore cannot be satisfied in $M \parallel F$. $\Box$
 \end{proof}
 
-In other words, Theorem~\ref{thm:instready} states that if we can find a state $M$ in which we have solved for values of all instantiation constants for $\psi$, we can construct an instantiation for $\psi$ that leads to a conflict in $M$.
+In other words, Theorem~\ref{thm:instready} states that if we can find a state $M$ in which we have solved for values of all instantiation constants for $\psi$, we can construct an instantiation for $\psi$ that is guarenteed to lead to a conflict in $M$.
 Corollary~\ref{cor:instready} states that if we can find such an instantiation, then it has not yet been applied.
-This fact guarentees that no redundant instantiations are used in our instantiation scheme.
+This fact guarentees that no redundant instantiations are used.
 
 \subsection{Quantifier Instantiation for EUF}
 
-A method for quantifier instantiation in EUF is presented here.
-This method uses information that is asserted as a result of searching for satisifying assignments to the negated bodies of quantifiers.
-Given a quantified formula $\psi$ of the form $\forall x. \varphi[x]$ where $x$ is of an uninterpretted sort, searching for a satisfying assignment to $\neg \varphi[e]$, where $e$ is an instantiation constant, will provide a basis for determining what values should be used to instantiate $\psi$.
-
-The EUF theory solver will process equalities and disequalities both between terms containing instantiation constants and those without.
+A method for quantifier instantiation in EUF is presented here, which uses information that is asserted as a result of searching for satisifying assignments to the negated bodies of quantifiers.
+Say we are given a quantified formula $\psi$ of the form $\forall x. \varphi[x]$ where $x$ is of an uninterpretted sort.
+We will search for a satisfying assignment to $\neg \varphi[e]$, and use information asserted about $e$ a basis for determining what values should be used for $x$ to instantiate $\psi$.
+The EUF theory solver will process equalities and disequalities between both terms containing instantiation constants and those without.
 Since instantiation constants have identical logical semantics to non-instantiation constants, equalities between terms containing instantiation constants may be treated identically, that is, the EUF theory solver is used as is.
 
-Say the equality $t[e] = t'$ is entailed in the current context.
-Here, we are interested in finding a ground term $r$ such that $M \models t[r] = s$ has maximum likelihood to hold.
-If $M \models t[s] = t'$, then $s$ is a strong candidate for instantiation, if $M \models t[s] \neq t'$, then $s$ is useless as an instantiation for $x$, and otherwise if $t[s] = t'$ is satisifiable in $M$, then $s$ is potentially useful as an instantiation.
-Similar to E-matching, we may be interested in determining if a term $t[q]$ exists as a subterm in another equality, regardless of whether it is equal to $t'$.
+Say the equality $t[e] = s$ is entailed in the current context.
+The goal of this approach will be to find a ground term $g$ such that $M \models t[g] = s$ has maximum likelihood to hold.
+If $M \models t[g] = s$ for some $g$, then $g$ is a strong candidate for instantiating $\psi$ in the current context.
+On the other hand, if $M \models t[g] \neq s$, then $g$ is useless as an instantiation in the current context with respect to $t[e] = s$.
+Otherwise if $t[g] = s$ is satisifiable in $M$, then $g$ is potentially useful as an instantiation in the current context.
 
-In relation to E-matching, a term containing instantiation constants can be thought of as a trigger for instantiation.
-In contrast, however, we also are able to consider entailed equalities and disequalities in this approach.
-This enables a powerful search method for determining relavant instantiations, as well as a criteria for judging the relevance of determined instantiations.
+In terms of $E$-matching, this approach treats terms containing instantiation constants as triggers for instantiation.
+In addition, it also takes into consideration entailed equalities and disequalities between such triggers.
+This enables a powerful search method for determining relevant instantiations, as well as a criteria for judging the relevance of instantiations that are produced.
 For the former, we can imagine an approach in which we first search only the equivalence class of $t[e]$ for another term of the form $t[s]$, and if none can be found, search the remainder of the concrete ground terms existing in the current context.
-This is the idea of the approach proposed in the following section.
-In addition, for the latter, we may filter instantiations $s$ if, for example, $s = e$ is unsatisifiable in the current context.
+For the latter, we may filter instantiations $g$ if, for example, $e = g$ is unsatisifiable in the current context.
 
 Our approach for quantifier instantiation for EUF will be divided into multiple iterations, where on each subsequent iteration, less restrictions are imposed upon the terms that are matched.
-On the final iteration, our approach will be roughly equivalent to E-matching, where all triggers $f( \bar{t} )[\bar{e}]$ are matched against all concrete ground terms $g$ such that $M \not\models f( \bar{t} )[\bar{e}] \neq g$.
-
+On the final iteration, our approach will be roughly equivalent to E-matching, where all triggers $t[\bar{e}]$ are matched against all concrete ground terms $g$.
 We begin our discussion by introducing necesary terminology.
-We first describe the notion of a literal being induced by a set of equalities $E$.
+We first describe how to determine if a literal is induced by a set of equalities between instantiation constants and concrete ground terms.
 
-Say we have an equality $f( \bar{t} )[\bar{e}] = g$ in $M$.
-Our goal will be to find a set of equalities $\bar{e} = \bar{s}$ that are sufficient to show that $t[\bar{e}] = g$ must be true.
-In other words, we want to find $\bar{s}$ such that $M \backslash f( \bar{t} )[\bar{e}] = g, \bar{e} = \bar{s} \models f( \bar{t} )[\bar{e}] = g$.
+Say we have an equality of the form $f( \bar{t} )[\bar{e}] = g$ in $M$, and we wish to find a set of equalities $\bar{e} = \bar{s}$ that are sufficient to show that $t[\bar{e}] = g$ must be true.
+In other words, we want to find $\bar{s}$ such that $M \backslash (f( \bar{t} )[\bar{e}] = g), \bar{e} = \bar{s} \models (f( \bar{t} )[\bar{e}] = g)$.
 Note the subtle difference between this and E-matching.
 In E-matching, we are searching for a substitution $\bar{s}$ such that $f( \bar{t} )[\bar{s}]$ is equivalent to $g$ modulo our set of ground equalities.
 In this approach, we need only consider the equalities necessary to induce $f( \bar{t} )[\bar{e}]$ to be equal to $g$.
@@ -469,12 +457,11 @@ In this approach, we need only consider the equalities necessary to induce $f( \
 Consider the following simple example.
 Say we have the quantifier $\psi$ of the form $\forall x. (g(x) = a \Rightarrow f( x, g( x ) ) \neq f( b, a ))$.
 After applying Counterexample $\forall$-Inst, we will have the literals $g(e) = a$ and $f( e, g( e ) ) = f( b, a )$ asserted in the current context for $e \mapsto^I \psi$.
-Note that now $e = b$ suffices to show that $f( e, g( e ) ) = f( b, a )$, thus suggesting that we may wish to use $b$ to instantiate $\psi$.
+Note that $e = b$ suffices to show that $f( e, g( e ) ) = f( b, a )$ in this example, suggesting that we may wish to use $b$ to instantiate $\psi$.
 In a basic implementation of E-matching, $f( x, g( x ) )$ and $f( b, a )$ do not E-match.
 
-More generally, we will say that a literal $t \sim s$ is $E$-induced in $M$ if $M \backslash t \sim s, E \models t \sim s$, where $E$ is a set of equalities of the form $e_1 = s_1 \ldots e_n = s_n$, that is, equalities whose left hand sides are instantiation constants.
-
-To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by an equality set $\bar{s} = \bar{e}$, we use the following method $e\_ind$, which computes a set of such equality sets:
+For an equality $f( \bar{t} )[\bar{e}] = g$ asserted in $M$, we wish to find a set of equalities of the form $\bar{e_1} = \bar{s_1}$ where $\bar{e_1}$ is a subset of $\bar{e}$ that are sufficient for showing this equality.
+The following method $e\_ind$ computes a set of such equality sets:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
@@ -508,8 +495,8 @@ To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by an equali
 \begin{program}
 \PROC |e\_ind\_mod|(t,g,M,\psi) \BODY
   S := \emptyset;
-  \DOFOR \text{each pair } t_i, g_i = t, g
-    S := S \cup e\_ind( t_i, g_i, M,\psi );
+  \DOFOR \text{each } g_i = g
+    S := S \cup e\_ind( t, g_i, M,\psi );
   \ENDFOR
   \RETURN S;
 \ENDPROC
@@ -527,15 +514,17 @@ To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by an equali
 \end{program}
 \end{minipage}
 
-The method $e\_ind(t,g,M)$ returns a set of equality sets each that induce $t = g$ in $M$.
-In the case that $t$ is ground or disequal from $g$, the method returns the empty set.
-In the case that $t$ is an instantiation constant, the method returns the set containg one set of equalities, containing $t = rep( g )$ if necessary, where $rep( g )$ denotes the (concrete ground) representative term of the equivalence class containing $g$.
-If $t$ is of the form $f(\bar{t})$ and g is of the form $f(\bar{g})$, then the method scans each pair of arguments $t_i, g_i$ and computes, modulo equality, a set of equality sets $S'$ such that $t_i = g_i$ is $E$-induced in $M$ for each $E \in S'$, using the method $e\_ind\_mod$.
+The method $e\_ind(t,g,M,\psi)$ is intended that $t$ contains instantiation constants from $\psi$ and $g$ is a concrete ground term.
+If these preconditions are not met or if $t$ is disequal from $g$, the method returns the empty set.
+In the case that $t$ is an instantiation constant, the method returns the set containg a single set of equalities, containing $t = rep( g )$ if necessary, where $rep( g )$ denotes the (concrete ground) representative term of the equivalence class containing $g$.
+If $t$ is of the form $f(\bar{t})$ and g is of the form $f(\bar{g})$, then the method scans each pair of arguments $t_i, g_i$ and computes, modulo equality, a set of equality sets $S'$ such that $t_i = g_i$ is induced in $M$.
 For each set $S'$ produced in this way, it merges this set with $S$ using the method $merge$.
-This method pairwise combines $S_1$ and $S_2$ together to form a new set $S''$.
-For each pair $E_1, E_2$ where $E_1 \in S_1$ and $E_2 \in S_2$, if $E_1$ and $E_2$ are compatible, that is, there does not exist an equality $e = t_1$ in $E_1$ and $e = t_2$ in $E_2$ and $t_1$ is not syntactically equivalent to $t_2$, then the union of $E_1$ and $E_2$ is added to $S''$.
+This method pairwise combines $S_1$ and $S_2$ to form the set $S''$.
+For each pair $E_1 \in S_1$, $E_2 \in S_2$, if $E_1$ and $E_2$ are compatible, that is, there does not exist an equality $e = t_1$ in $E_1$ and $e = t_2$ in $E_2$ and $t_1$ is not syntactically equivalent to $t_2$, then the union of $E_1$ and $E_2$ is added to $S''$.
 
-Otherwise, if $t$ is of the form $f(\bar{t})$ and $g$ is not of the form $f( \bar{g})$, the method $e\_ind(t,g,M)$ returns the empty set, or in other words $t$ and $g$ do not match.
+Otherwise, if $t$ is of the form $f(\bar{t})$ and $g$ is not of the form $f( \bar{g})$ for some $\bar{g}$, the method $e\_ind(t,g,M)$ returns the empty set, or in other words $t$ and $g$ do not match.
+
+%More generally, we will say that a literal $L$ is $E$-induced in $M$ if $M \backslash L, E \models L$, where $E$ is a set of equalities of the form $e_1 = s_1 \ldots e_n = s_n$, that is, equalities whose left hand sides are instantiation constants.
 
 \begin{comment}
 We will also be interested in classifying which pairs of terms may potentially be $E$-induced.
@@ -546,13 +535,12 @@ A pair of terms $t, s$ where $t \mapsto^I \psi$ is \emph{equality-ambiguous} if 
 
 \subsubsection{E-Matching Using Equalities and Disequalities Between Triggers}
 
-We now describe the iterations used when determining instantiations for a quantified formula $\psi$ of the form $\forall \bar{x}. \varphi[\bar{x}]$, where $\bar{x}$ are of uninterpretted sorts.
+We now describe a method for determining instantiations for a quantified formula $\psi$ of the form $\forall \bar{x}. \varphi[\bar{x}]$, where $\bar{x}$ are of uninterpretted sorts.
 We are interested in finding an instantiation $\bar{s}$ for $\psi$ in a candidate-satisfiable DPLL(T) state $M \parallel F$, where $\psi$ is counterexample-active in $M$ for $\bar{e} \mapsto^I \psi$.
-In this case, a set of literals $L_1[\bar{e}] \ldots L_n[\bar{e}]$ have been asserted in $M$ according to Theorem~\ref{thm:cerep}.
 
 Our method for quantifier instantiation in EUF will consist of four iterations, where in each iteration we relax the constraints we place on constructing instantiations.
 In particular, each iteration can be shown to produce a superset of instantiations produced on the previous step.
-The method terminates when one of these iterations successfully produces an instantiation.
+The method terminates when an iteration successfully produces an instantiation, or when the last iteration has completed.
 
 \begin{comment}
 On the first iteration, we return the instantiation $\varepsilon_M( \bar{e} )$ if and only if $\psi$ is instantiation-ready.
@@ -572,9 +560,8 @@ By Theorem~\ref{thm:instready}, this instantiation is \emph{guarenteed} to lead 
 
 \paragraph{Second Iteration: A Literal is E-Induced in M}
 
-If $\psi$ is not instantiation ready, we determine if any literal can be induced by a set of equalities $\bar{e} = \bar{s}$.
-Here, we describe how to generate a set of equality sets $S_L$ for each literal $L[\bar{e}]$ such that $L[\bar{e}]$ is $E$-induced in $M$ for each $E \in S_L$.
-This can be summarized in the following method:
+If $\psi$ is not instantiation ready, we determine if any literal $L \mapsto^I \psi$ can be induced by a set of equalities $\bar{e} = \bar{s}$.
+This can be summarized in the following method, which generates a set of equality sets $S$ for $L$ such that $L$ is $E$-induced in $M$ for each $E$ in $S$:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
@@ -586,13 +573,13 @@ This can be summarized in the following method:
         S := S \cup e\_ind( t[\bar{e}], g, M, \psi );
       \ENDFOR
     \ELSEIF s \mapsto^I \psi
-      \DOFOR \text{each } g, h \text{ where } h = g
+      \DOFOR \text{each } g, h \text{ where } g = h
         S := S \cup merge( e\_ind( t[\bar{e}], g, M, \psi ), e\_ind( s, h, M, \psi ) );
       \ENDFOR 
     \FI
-  \ELSEIF L \text{ is } Eq( t[\bar{e}], s ) = \bot \THEN
-    \DOFOR \text{each } t', s' \text{ where } Eq( t', s' ) \text{ or } Eq( s', t' ) = \bot
-      S := S \cup merge( e\_ind( t[\bar{e}], t', M, \psi ), e\_ind( s, s', M, \psi ) );
+  \ELSEIF L \text{ is } t[\bar{e}] \neq s \THEN
+    \DOFOR \text{each } g, h \text{ where } g \neq h
+      S := S \cup merge( e\_ind( t[\bar{e}], g, M, \psi ), e\_ind( s, h, M, \psi ) );
     \ENDFOR
   \FI
   \RETURN S;
@@ -600,26 +587,14 @@ This can be summarized in the following method:
 \end{program}
 \end{minipage}
 
-When $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = s$, where $s$ is a concrete ground term.
-In this case, we take $S_L$ to be the union of $e\_ind( t[\bar{e}], g, M )$ for each term $g$ in the equivalence class of $s$.
+When $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = s$, where $s$ is a concrete ground term, we return the union of $e\_ind( t[\bar{e}], g, M, \psi )$ for each term $g$ in the equivalence class of $s$.
+Otherwise when $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = s$ where $s$ also contains instantiation constants from $\psi$, we scan each pair of equivalent terms $g$ and $h$ such that $t[\bar{e}] = g$ and $s = h$ are induced by sets of equality sets.
+If this is the case, we merge these sets and add them to $S$.
+Similarly, when $L[\bar{e}]$ is a disequality of the form $t[\bar{e}] \neq s$, we scan each pair of disequal terms $g$ and $h$ such that $t[\bar{e}] = g$ and $s = h$ are induced by sets of equality sets and add the merge of these sets to $S$.
 
-Otherwise when $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = s[\bar{e}]$.
-In this case, we scan each pair of equivalent terms $g$ and $h$ such that $t[\bar{e}] = g$ and $s[\bar{e}] = h$ are induced by sets of equality sets $S$ and $S'$.
-If this is the case, we add $merge( S, S')$ to $S_L$.
-
-When $L[\bar{e}]$ is a disequality of the form $t[\bar{e}] \neq s$, the literal is converted to an equality between $Eq( t[\bar{e}], s )$ and $\bot$, where $Eq$ is a binary predicate representing equality between terms of boolean type, and $\bot$ is the distinguished boolean term representing false.
-To determine $S_L$, we take $S$ to be the union of $e\_ind( Eq( t[\bar{e}], s ), h, M )$ merged with $e\_ind( Eq( s, t[\bar{e}] ), h, M )$ for each $h = \bot$.
-
-The method $e\_ind\_lit$ generates \emph{partial} equality sets for $\psi$, or in other words, equality sets $E$ where $e_i = t$ need not be in $E$ for each $e_i$ in $\bar{e}$.
+Note that the method $e\_ind\_lit$ generates \emph{partial} equality sets for $\psi$, or in other words, equality sets $E$ where $e_i = t$ need not be in $E$ for each $e_i$ in $\bar{e}$.
 To construct a full instantiation $\bar{e} = \bar{s}$ from $E$, we must add equalities for each instantiation constant $e_i$ not existing in $E$.
-
-Thus, after the set of equality sets $S_L$ is computed for each $L[\bar{e}]$, we wish to determine if any instantiations can be constructed from these sets.
-We perform a step in which equality sets are combined to construct sets that contain all instantiation constants $\bar{e} \mapsto^I \psi$, so that an instantiation can be constructed.
-In terms of E-matching, this serves a similar purpose as \emph{multi-triggers}.
-We call an equality set $E$ \emph{complete for $\psi$} if it contains an equality $e_i = t_i$ for each unsolved $e_i \mapsto^I \psi$, \emph{incomplete for $\psi$} otherwise.
-For a complete equality set $E$, we define the equality set $E^\varepsilon$ as the equality set containing $E$ as well as equalities $ e = \varepsilon_M( e )$ for each solved $e \mapsto^I \psi$ not existing in $E$.
-
-Overall, the second iteration computes $e\_ind\_lit$ for each literal $L[\bar{e}]$ asserted in $M$, combines these sets to form a set of equality sets that are complete for $\psi$, and generates an instantiation for each equality set produced in this manner.
+The following method describes the overall procedure used in the second iteration for generating instantiations:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
@@ -645,15 +620,23 @@ S := \emptyset;
 \end{program}
 \end{minipage}
 
+After computing a set of equality sets $S_L$ for each literal $L$, we combine these sets so that equality sets containing all instantiation constants $\bar{e} \mapsto^I \psi$ are constructed.
+In terms of E-matching, this serves a similar purpose as \emph{multi-triggers}.
+We call an equality set $E$ \emph{complete for $\psi$} if it contains an equality $e_i = t_i$ for each unsolved $e_i \mapsto^I \psi$, \emph{incomplete for $\psi$} otherwise.
+For a complete equality set $E$, we define the equality set $E^\varepsilon$ as the equality set containing $E$ as well as equalities $ e = \varepsilon_M( e )$ for each solved $e \mapsto^I \psi$ not existing in $E$.
+
+In particular, our method uses the $combine$ method to generate all possible combinations of equality sets that induce a subset of the literals $L_1 \ldots L_n$.
+The method then returns an instantiation for each equality set $E$ produced as a result of our combination step that is complete for $\psi$.
+
 \paragraph{Third Iteration: A Literal is Partially Matched}
 
-If no instantiations are produced on the second iteration, we try to find an instantiation that is relevant in finding a match for $L[\bar{e}]$.
-In this iteration, we do not require that $L[\bar{e}]$ is $E$-induced in $M$ for some $E$.
-For example, say we have that $f( a, e )$ and $f( b, c )$ are in the same equivalence class and that $M \not\models a = b$.  
+If no instantiations are produced on the second iteration, we try to find an instantiation that is relevant in finding a match for a literal $L \mapsto^I \psi$.
+In this iteration, we do not require that $L$ is $E$-induced in $M$, but we do require that a partial match has been found for the topmost symbol of a term in $L$.
+For example, say we have that $f( a, e )$ and $f( b, c )$ are in the same equivalence class and that neither $a = b$ or $a \neq b$ is entailed in $M$.  
 Here, we may wish to try the instantiation $c/e$, since doing partially matches our pattern to a relevant concrete ground term.
 
-This iteration works in a similar fashion to the previous one, where instead of generating equality sets $E$ that induce $L_i$, we generate equality sets for which part of $L_i$ is matched to a concrete ground term.
-First, let us define the method $partial\_e\_ind$, which returns a set of equality sets that are helpful for showing $t = g$:
+Overall, this iteration uses a similar approach as the previous one, where instead of generating equality sets $E$ that induce $L_i$, we generate equality sets for which part of $L_i$ is matched to a concrete ground term.
+First, let us define the method $partial\_e\_ind$, which returns a set of equality sets that are relevant for showing $t = g$:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
@@ -678,11 +661,10 @@ First, let us define the method $partial\_e\_ind$, which returns a set of equali
 \end{program}
 \end{minipage}
 
-This method returns a set of equality sets that induce $t = g$, if one exists.
-Otherwise, it will attempt to construct a set of equalities for which a subterm position (or set of subterm positions) of $t$ and $g$ match.
+This method will first check to see if there is a set of equality sets that induce $t = g$, and if successful, return this set.
+Otherwise, it will construct a set of equalities for which a subterm position (or set of subterm positions) of $t$ and $g$ are induced to be equal.
 The definition of $partial\_e\_ind\_mod$ is analogous to $e\_ind\_mod$, where now partial matches are calculated modulo equality.
-
-The key difference between this function and $e\_ind( t, g, M )$ is that in the second case we take the union of sets $S$ and $S'$ instead of merging them together.
+The key difference between this function and $e\_ind( t, g, M )$ is that in the application case we take the union of sets $S$ and $S'$ instead of merging them together.
 In other words, we do not require that equalities residing in $S$ and $S'$ match, and instead consider both possibilities.
 
 Overall, the third iteration can be described by the following method, which produces a set of instantiations for $\psi$:
@@ -721,6 +703,53 @@ S := combine( S_{L1}, \ldots, S_{Ln} );
 \ENDPROC
 \end{program}
 \end{minipage}
+
+Note that we only consider the top-most terms of instantiation literals as triggers in this step.
+Since we only require partial matches here, this iteration will in most cases produce an instantiation. \\
+
+{\bf Example 1}
+Consider the set of clauses $S = \{ (\psi_1 :) \ \forall x. G( S( x ), x), (\psi_2 :) \forall xyz. (G(x,y) \wedge G(y,z)) \Rightarrow G(x,z), \neg G( S(S(a)), a) \}$.
+Note that $S$ represents a successor function and $G$ represents ``is greater than".  
+In other words, this set of clauses says that $a + 2 > a$ is not true for some constant $a$.
+
+After unit propagations and Counterexample $\forall$-Inst, we have the set of assertions $\psi_1$, $\psi_2$, $G( S(S(a)), a)$ = $G( S(e_1), e_1)$ = $G( e_2, e_4 )$ = $\bot$, $G( e_2, e_3 )$ = $G( e_3, e_4 )$ = $\top$, where $\top$ and $\bot$ are the distinguished free boolean constant representing true and false, $e_1 \mapsto^I \psi_1$ and $e_2, e_3, e_4 \mapsto^I \psi_2$.
+
+Say we wish to perform a round of instantiation for $\psi_1, \psi_2$.
+In the first iteration, neither $\psi_1$ or $\psi_2$ are instantiation ready.
+In the second iteration, we find that $G( e_2, e_4 ) = \top$ is induced by $e_2, e_4 = S(S(a)), a$, but this does not produce an instantiation since $e_3$ is unspecified and a complete equality set cannot be produced for $\psi_2$.
+In the third iteration, we find that the term $G( S(e_1), e_1)$ partially matches with the term $G( S(S(a)), a)$ for $S(a)/e_1$ and $a/e_1$.
+This iteration succeeds and adds the instantiation clauses $( \neg \psi_1 \vee \psi_1[S(a)/x])$ and $( \neg \psi_2 \vee \psi_2[a/x])$ to $F$.
+
+After finding a satisfying assignment for these clauses by Unit propagation, we are in the state where $G( S(S(a)), a)$ = $G( S(e_1), e_1)$ = $G( e_2, e_4 )$ = $\bot$, $G( e_2, e_3 )$ = $G( e_3, e_4 )$ = $G(S(S(a)), S(a))$ = $G( S(a), a)$ = $\top$.
+Again, neither $\psi_1$ and $\psi_2$ is instantiation ready.
+In the second iteration, we find that $G( e_2, e_3 ) = \top$ is induced by $e_2,e_3$ = $S(S(a)), S(a)$, and $G( e_3, e_4 )$ is induced by $e_3, e_4$ = $S(a), a$.
+During our combination step, we find that the equality set $e_2, e_3, e_4$ = $S(S(a)), S(a), a$ is complete for $\psi_2$, and use these values to instantiate $\psi_2$.
+In fact, all instantiation literals from $\psi_2$ are induced by this instantiation, and as a result a conflict is discovered at the top level and the solver answers UNSAT.
+
+\section{Enumerating Values for Decision Literals}
+
+We have an approach for quantifier instantiation in SMT that is capable of producing relevant instantiations as well as recognizing certain cases in which a quantifier is guarenteed to have no relevant instantiations. 
+In this section, we will consider how to proceed in states where a quantified formula $\forall \bar{x}. \varphi[ \bar{x} ]$ is neither valid nor easily shown to be unsatisfiable. \\
+
+{\bf Example 3} 
+Say we wish to determine the satisfiability of the set of clauses $S = \{ a = b, (\psi :) \forall x. ((f(x) = c \vee x = a) \Rightarrow x = b) \}$.
+After applying Unit Propagation twice, applying Decide on $\neg (\bot^{ \neg \psi })^d$, and applying Counterexample $\forall$-Inst, we obtain the clauses $( \neg \psi \vee \bot^{ \neg \psi } \vee f(e) = c \vee e = a )$ and $( \neg \psi \vee \bot^{ \neg \psi } \vee e \neq b )$.
+After unit propagation in the second clause, we obtain $( e \neq b )$.
+Now, in the first clause, the solver has a choice which literal to apply Decide to.
+Say for the sake of argument we have that the solver chooses to assert $( f(e) = c )^d$.
+Here we know that our counterexample must be such that $f( e ) = c$ and $e \neq b$.
+We could suggest possible instantiations for $x$, but these may be unhelpful since $e$ is somewhat unconstrained.
+However, if we had decided instead to assert $( e = a )^d$, we would immediately have discovered a theory conflict, thus determining that $\psi$ is valid and returning SAT. \\
+
+The previous example illustrates the importance of exploring multiple partial truth assignments for literals involving instantiation constants.
+More generally, when we reach a candidate-satisfiable state $M \parallel F$ in which the SMT solver believes it cannot proceed in a useful way, it may be beneficial for the SMT solver to backtrack and reverse the polarity of a decision in $M$ instead of answering UNKNOWN or exploring futile instantiations.
+
+For this reason, we provide a method for flipping the polarity of the last eligible decision literal.
+In particular, we are interested in reversing that last decision literal that has not already been flipped.
+To enforce this scheme, we store a bit for each SAT literal saying whether or not it has been flipped.
+When the quantifier instantiation module is stuck and requests a literal to be flipped, we scan $M$ in reverse order until it finds a literal $l$ for which this bit has not been set, backtracks to this decision, asserts $\neg l^d$, and sets the flipped bit for $l$.
+For each literal $l'$ backtracked upon, it resets the flipped bit of $l'$ to false.
+If no such literal $l$ exists, the quantifier instantiation module has the option of either restarting or answering UNKNOWN.
 
 \end{document}
 

@@ -81,22 +81,32 @@ public:
 class InstMatchGroup
 {
 public:
-  InstMatchGroup(){}
+  InstMatchGroup(){
+    d_is_set = false;
+  }
   InstMatchGroup( InstMatchGroup* mg ){
+    d_is_set = true;
     for( int i=0; i<(int)mg->getNumMatches(); i++ ){
       d_matches.push_back( new InstMatch( mg->getMatch( i ) ) );
     }
   }
   ~InstMatchGroup(){}
   std::vector< InstMatch* > d_matches;
+  bool d_is_set;
 
-  bool merge( InstMatchGroup* mg );
-  void add( InstMatchGroup* mg );
-  void addComplete( InstMatchGroup* mg, InstMatch* mbase = NULL );
+  bool empty() { return d_matches.empty(); }
+  bool merge( InstMatchGroup& mg );
+  void add( InstMatchGroup& mg );
+  void combine( InstMatchGroup& mg );
+  void addComplete( InstMatchGroup& mg, InstMatch* mbase = NULL );
   void removeRedundant();
   void removeDuplicate();
   unsigned int getNumMatches() { return d_matches.size(); }
   InstMatch* getMatch( int i ) { return d_matches[i]; }
+  void reset(){
+    d_is_set = false;
+    clear();
+  }
   void clear(){
     //for( int i=0; i<(int)d_matches.size(); i++ ){
       //delete d_matches[i];
