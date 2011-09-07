@@ -474,12 +474,12 @@ In a basic implementation of E-matching, $f( x, g( x ) )$ and $f( b, a )$ do not
 
 More generally, we will say that a literal $t \sim s$ is $E$-induced in $M$ if $M \backslash t \sim s, E \models t \sim s$, where $E$ is a set of equalities of the form $e_1 = s_1 \ldots e_n = s_n$, that is, equalities whose left hand sides are instantiation constants.
 
-To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by an equality set $\bar{s} = \bar{e}$, we use the following method $calc\_e\_ind$, which computes a set of such equality sets:
+To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by an equality set $\bar{s} = \bar{e}$, we use the following method $e\_ind$, which computes a set of such equality sets:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |calc\_e\_ind|(t,g,M) \BODY
-  \IF t \not\mapsto^I \psi \text{ or } M \models t \neq g \THEN
+\PROC |e\_ind|(t,g,M,\psi) \BODY
+  \IF t \not\mapsto^I \psi, g \not\mapsto^I \emptyset \text{ or } M \models t \neq g \THEN
     \RETURN \emptyset;
   \ELSEIF t \text{ is inst. constant } \THEN
     \IF M \models t = g \THEN
@@ -493,7 +493,7 @@ To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by an equali
       \IF M \models t \neq g \THEN
         \RETURN \emptyset;
       \ELSEIF M \not\models t_i = g_i
-        S' := calc\_e\_ind\_mod( t_i, g_i );
+        S' := e\_ind\_mod( t_i, g_i );
         S := merge( S, S' );
       \FI
     \ENDFOR
@@ -506,20 +506,20 @@ To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by an equali
 \end{minipage}
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |calc\_e\_ind\_mod|(t,g,M) \BODY
-  E := \emptyset;
+\PROC |e\_ind\_mod|(t,g,M,\psi) \BODY
+  S := \emptyset;
   \DOFOR \text{each pair } t_i, g_i = t, g
-    E := E \cup calc\_e\_ind( t_i, g_i, M );
+    S := S \cup e\_ind( t_i, g_i, M,\psi );
   \ENDFOR
-  \RETURN E;
+  \RETURN S;
 \ENDPROC
 \end{program}
 \begin{program}
-\PROC |merge|(S,S') \BODY
+\PROC |merge|(S_1,S_2) \BODY
   S'' := \emptyset;
-  \DOFOR E \in S, E' \in S'
-    \IF E \text{ and } E' \text{ are compatible }
-      S'' := S'' \cup \{ E \cup E' \}
+  \DOFOR E_1 \in S_1, E_2 \in S_2
+    \IF E_1 \text{ and } E_2 \text{ are compatible }
+      S'' := S'' \cup \{ E_1 \cup E_2 \}
     \FI
   \ENDFOR
   \RETURN S'';
@@ -527,21 +527,22 @@ To calculate if the equality $f( \bar{t} )[\bar{e}] = g$ is induced by an equali
 \end{program}
 \end{minipage}
 
-The method $calc\_e\_ind(t,g,M)$ returns a set of equality sets each that induce $t = g$ in $M$.
+The method $e\_ind(t,g,M)$ returns a set of equality sets each that induce $t = g$ in $M$.
 In the case that $t$ is ground or disequal from $g$, the method returns the empty set.
-In the case that $t$ is an instantiation constant, the method returns the set containg one set of equalities, containing $t = g$ if necessary.
-If $t$ is of the form $f(\bar{t})$ and g is of the form $f(\bar{g})$, then the method computes the set $S$ such that $t = g$ is $E$-induced in $M$ for each $E \in S$.
-
-In this case, the method scans each pair of arguments $t_i, g_i$ and computes, modulo equality, a set of equality sets $S'$ such that $t_i = g_i$ is $E$-induced in $M$ for each $E \in S'$, using the method $calc\_e\_ind\_mod$.
+In the case that $t$ is an instantiation constant, the method returns the set containg one set of equalities, containing $t = rep( g )$ if necessary, where $rep( g )$ denotes the (concrete ground) representative term of the equivalence class containing $g$.
+If $t$ is of the form $f(\bar{t})$ and g is of the form $f(\bar{g})$, then the method scans each pair of arguments $t_i, g_i$ and computes, modulo equality, a set of equality sets $S'$ such that $t_i = g_i$ is $E$-induced in $M$ for each $E \in S'$, using the method $e\_ind\_mod$.
 For each set $S'$ produced in this way, it merges this set with $S$ using the method $merge$.
-This method pairwise combines compatible equality sets $E$ and $E'$ together, that is, it takes the union of equalities in $E$ and $E'$ where there does not exist an equality $e = t$ in $E$ and $e = t'$ in $E'$ and $t$ is not syntactically equivalent to $t'$.
+This method pairwise combines $S_1$ and $S_2$ together to form a new set $S''$.
+For each pair $E_1, E_2$ where $E_1 \in S_1$ and $E_2 \in S_2$, if $E_1$ and $E_2$ are compatible, that is, there does not exist an equality $e = t_1$ in $E_1$ and $e = t_2$ in $E_2$ and $t_1$ is not syntactically equivalent to $t_2$, then the union of $E_1$ and $E_2$ is added to $S''$.
 
-Otherwise, if $t$ is of the form $f(\bar{t})$ and $g$ is not of the form $f( \bar{g})$, the method $calc\_e\_ind(t,g,M)$ returns the empty set.
+Otherwise, if $t$ is of the form $f(\bar{t})$ and $g$ is not of the form $f( \bar{g})$, the method $e\_ind(t,g,M)$ returns the empty set, or in other words $t$ and $g$ do not match.
 
+\begin{comment}
 We will also be interested in classifying which pairs of terms may potentially be $E$-induced.
 For a quantified formula $\psi$, a term $f( t_1, \ldots, t_n ) \mapsto^I \psi$ is \emph{equality-compatible with term $s$ in $M$} if and only if $s$ is of the form $f( s_1, \ldots s_n )$ and $M \models_T t_1 = s_1 \wedge \ldots \wedge t_n = s_n$.
 A term $f( t_1, \ldots, t_n ) \mapsto^I \psi$ is \emph{equality-independent from term $s$ in $M$} if (a) $s$ is of the form $g( s_1, \ldots s_m )$, or (b) $s$ is of the form $f( s_1, \ldots s_n )$ in $M$, and $M \models_T t_i \neq s_i$ for some $i$. 
 A pair of terms $t, s$ where $t \mapsto^I \psi$ is \emph{equality-ambiguous} if $t$ is neither equality-compatible nor equality-independent from $s$.
+\end{comment}
 
 \subsubsection{E-Matching Using Equalities and Disequalities Between Triggers}
 
@@ -549,13 +550,18 @@ We now describe the iterations used when determining instantiations for a quanti
 We are interested in finding an instantiation $\bar{s}$ for $\psi$ in a candidate-satisfiable DPLL(T) state $M \parallel F$, where $\psi$ is counterexample-active in $M$ for $\bar{e} \mapsto^I \psi$.
 In this case, a set of literals $L_1[\bar{e}] \ldots L_n[\bar{e}]$ have been asserted in $M$ according to Theorem~\ref{thm:cerep}.
 
-Our strategy for instantiation will consist of four iterations.
+Our method for quantifier instantiation in EUF will consist of four iterations, where in each iteration we relax the constraints we place on constructing instantiations.
+In particular, each iteration can be shown to produce a superset of instantiations produced on the previous step.
+The method terminates when one of these iterations successfully produces an instantiation.
+
+\begin{comment}
 On the first iteration, we return the instantiation $\varepsilon_M( \bar{e} )$ if and only if $\psi$ is instantiation-ready.
 On the second iteration, we determine if there exists a set of terms $\bar{s}$ such that we can determine that at least one of $L_1[\bar{e}] \ldots L_n[\bar{e}]$ is $(\bar{s} = \bar{e})$-induced in $M$.
 On the third iteration, we will search for equality-ambiguous pairs of terms $t[\bar{e}]$ and $s$ in the same equivalence classes.  
 Specifically, we will construct an instantiation $\bar{s}$ such that an equality between a subterm position of $t[\bar{e}]$ and $s$ is induced by $\bar{s} = \bar{e}$ on this step.
 On the fourth iteration, we find a set of terms $\bar{s}$ that induce at least one equality between a pair of terms $t[\bar{e}]$ and $g$.
 Note that this step is roughly equivalent to basic E-matching.
+\end{comment}
 
 \paragraph{First Iteration: Instantiation-Ready}
 
@@ -568,59 +574,59 @@ By Theorem~\ref{thm:instready}, this instantiation is \emph{guarenteed} to lead 
 
 If $\psi$ is not instantiation ready, we determine if any literal can be induced by a set of equalities $\bar{e} = \bar{s}$.
 Here, we describe how to generate a set of equality sets $S_L$ for each literal $L[\bar{e}]$ such that $L[\bar{e}]$ is $E$-induced in $M$ for each $E \in S_L$.
-
-Consider when $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = s$, where $s$ is a concrete ground term.
-In this case, we take $S_L$ to be the union of $calc\_e\_ind( t[\bar{e}], g, M )$ for each term $g$ in the equivalence class of $s$.
-
-Otherwise consider when $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = s[\bar{e}]$.
-In this case, we scan each equivalence class and determine if there exists a pair of terms $g$ and $h$ in that equivalence class such that $t[\bar{e}] = g$ and $s[\bar{e}] = h$ are induced by sets of equality sets $S$ and $S'$.
-If this is the case, we add $merge( S, S')$ to $S_L$.
-
-Consider when $L[\bar{e}]$ is a disequality of the form $t[\bar{e}] \neq s$, the literal is converted to an equality between $Eq( t[\bar{e}], s )$ and $\bot$, where $Eq$ is a binary predicate representing equality between terms of boolean type, and $\bot$ is the distinguished boolean term representing false.
-To determine $S_L$, we take $S$ to be the union of $calc\_e\_ind( Eq( t[\bar{e}], s ), h, M )$ merged with $calc\_e\_ind( Eq( s, t[\bar{e}] ), h, M )$ for each $h = \bot$.
-
 This can be summarized in the following method:
 
+\begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |calc\_e\_ind\_lit|(L,M) \BODY
+\PROC |e\_ind\_lit|(L,M,\psi) \BODY
   S := \emptyset;
   \IF L \text{ is } t[\bar{e}] = s \THEN
-    \IF s \text{ is concrete ground } \THEN
+    \IF s \mapsto^I \emptyset \THEN
       \DOFOR \text{each $g$, where $g = s$ } 
-        S := S \cup calc\_e\_ind( t[\bar{e}], g );
+        S := S \cup e\_ind( t[\bar{e}], g, M, \psi );
       \ENDFOR
-    \ELSEIF s \text{ is ground }
+    \ELSEIF s \mapsto^I \psi
       \DOFOR \text{each } g, h \text{ where } h = g
-        S := S \cup merge( calc\_e\_ind( t[\bar{e}], g ), calc\_e\_ind( s, h ) );
+        S := S \cup merge( e\_ind( t[\bar{e}], g, M, \psi ), e\_ind( s, h, M, \psi ) );
       \ENDFOR 
     \FI
   \ELSEIF L \text{ is } Eq( t[\bar{e}], s ) = \bot \THEN
     \DOFOR \text{each } t', s' \text{ where } Eq( t', s' ) \text{ or } Eq( s', t' ) = \bot
-      S := S \cup merge( calc\_e\_ind( t[\bar{e}], t' ), calc\_e\_ind( s, s' ) );
+      S := S \cup merge( e\_ind( t[\bar{e}], t', M, \psi ), e\_ind( s, s', M, \psi ) );
     \ENDFOR
   \FI
   \RETURN S;
 \ENDPROC
 \end{program}
+\end{minipage}
 
-Note that the method $calc\_e\_ind\_lit$ generates \emph{partial} sets of equalities, or in other words, equality sets $E$ where $e_i = t$ need not be in $E$ for each $e_i$ in $\bar{e}$.
-To construct a full instantiation $\bar{e} = \bar{s}$, we potentially need to add equalities for each instantiation constant $e_i$ not existing in $E$.
+When $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = s$, where $s$ is a concrete ground term.
+In this case, we take $S_L$ to be the union of $e\_ind( t[\bar{e}], g, M )$ for each term $g$ in the equivalence class of $s$.
+
+Otherwise when $L[\bar{e}]$ is an equality of the form $t[\bar{e}] = s[\bar{e}]$.
+In this case, we scan each pair of equivalent terms $g$ and $h$ such that $t[\bar{e}] = g$ and $s[\bar{e}] = h$ are induced by sets of equality sets $S$ and $S'$.
+If this is the case, we add $merge( S, S')$ to $S_L$.
+
+When $L[\bar{e}]$ is a disequality of the form $t[\bar{e}] \neq s$, the literal is converted to an equality between $Eq( t[\bar{e}], s )$ and $\bot$, where $Eq$ is a binary predicate representing equality between terms of boolean type, and $\bot$ is the distinguished boolean term representing false.
+To determine $S_L$, we take $S$ to be the union of $e\_ind( Eq( t[\bar{e}], s ), h, M )$ merged with $e\_ind( Eq( s, t[\bar{e}] ), h, M )$ for each $h = \bot$.
+
+The method $e\_ind\_lit$ generates \emph{partial} equality sets for $\psi$, or in other words, equality sets $E$ where $e_i = t$ need not be in $E$ for each $e_i$ in $\bar{e}$.
+To construct a full instantiation $\bar{e} = \bar{s}$ from $E$, we must add equalities for each instantiation constant $e_i$ not existing in $E$.
 
 Thus, after the set of equality sets $S_L$ is computed for each $L[\bar{e}]$, we wish to determine if any instantiations can be constructed from these sets.
 We perform a step in which equality sets are combined to construct sets that contain all instantiation constants $\bar{e} \mapsto^I \psi$, so that an instantiation can be constructed.
 In terms of E-matching, this serves a similar purpose as \emph{multi-triggers}.
-
 We call an equality set $E$ \emph{complete for $\psi$} if it contains an equality $e_i = t_i$ for each unsolved $e_i \mapsto^I \psi$, \emph{incomplete for $\psi$} otherwise.
 For a complete equality set $E$, we define the equality set $E^\varepsilon$ as the equality set containing $E$ as well as equalities $ e = \varepsilon_M( e )$ for each solved $e \mapsto^I \psi$ not existing in $E$.
 
-Overall, the second iteration computes $calc\_e\_ind\_lit$ for each literal $L[\bar{e}]$ asserted in $M$, combines these sets to form a set of equality sets that are complete for $\psi$, and generates an instantiation for each equality set produced in this manner.
+Overall, the second iteration computes $e\_ind\_lit$ for each literal $L[\bar{e}]$ asserted in $M$, combines these sets to form a set of equality sets that are complete for $\psi$, and generates an instantiation for each equality set produced in this manner.
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |generate\_inst|(L_1, \ldots, L_n, M) \BODY
+\PROC |generate\_inst_2|(M, \psi) \BODY
 S_{L1} \ldots S_{Ln};
-\DOFOR i=1 \TO n
-  S_{Li} := calc\_e\_ind\_lit( L_i, M );
+\DOFOR \text{each } L_i \in M \text{, where } L_i \mapsto^I \psi
+  S_{Li} := e\_ind\_lit( L_i, M, \psi );
 \ENDFOR
 S := combine( S_{L1}, \ldots, S_{Ln} );
 \RETURN \{ E^\varepsilon \mid E \in S, E \text{ is complete for $\psi$ } \};
@@ -632,14 +638,14 @@ S := combine( S_{L1}, \ldots, S_{Ln} );
 \PROC |combine|(S_1, \ldots, S_n) \BODY
 S := \emptyset;
 \DOFOR i=1 \TO n
-  S := S \cup S_i \cup merge( S, S_i )
+  S := S \cup S_i \cup merge( S, S_i );
 \ENDFOR
 \RETURN S;
 \ENDPROC
 \end{program}
 \end{minipage}
 
-\paragraph{Third Iteration: A Literal is Partially $E$-Induced}
+\paragraph{Third Iteration: A Literal is Partially Matched}
 
 If no instantiations are produced on the second iteration, we try to find an instantiation that is relevant in finding a match for $L[\bar{e}]$.
 In this iteration, we do not require that $L[\bar{e}]$ is $E$-induced in $M$ for some $E$.
@@ -647,31 +653,74 @@ For example, say we have that $f( a, e )$ and $f( b, c )$ are in the same equiva
 Here, we may wish to try the instantiation $c/e$, since doing partially matches our pattern to a relevant concrete ground term.
 
 This iteration works in a similar fashion to the previous one, where instead of generating equality sets $E$ that induce $L_i$, we generate equality sets for which part of $L_i$ is matched to a concrete ground term.
-First, let us define the method $partial\_calc\_e\_ind$:
+First, let us define the method $partial\_e\_ind$, which returns a set of equality sets that are helpful for showing $t = g$:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |partial\_calc\_e\_ind|(t,g,M) \BODY
-\IF calc\_e\_ind( t, g, M ) \neq \emptyset \THEN
-  \RETURN calc\_e\_ind( t, g, M );
+\PROC |partial\_e\_ind|(t,g,M, \psi) \BODY
+\IF e\_ind( t, g, M, \psi ) \neq \emptyset \THEN
+  \RETURN e\_ind( t, g, M, \psi );
 \ELSEIF t, g \text{ are $f( \bar{t_a} )$, $f( \bar{g_a} )$ } \THEN
-  S := \{ \emptyset \};
+  S := \emptyset;
   \DOFOR \text{each } t_i \text{ in } \bar{t_a} 
     \IF M \models t \neq g \THEN
       \RETURN \emptyset;
     \ELSEIF M \not\models t_i = g_i
-      S' := calc\_e\_ind\_mod( t_i, g_i );
-      S := merge( S, S' );
+      S' := partial\_e\_ind\_mod( t_i, g_i, M, \psi );
+      S := S \cup S';
     \FI
   \ENDFOR
   \RETURN S;
+\ELSE
+  \RETURN \emptyset;
 \FI
 \ENDPROC
 \end{program}
 \end{minipage}
 
+This method returns a set of equality sets that induce $t = g$, if one exists.
+Otherwise, it will attempt to construct a set of equalities for which a subterm position (or set of subterm positions) of $t$ and $g$ match.
+The definition of $partial\_e\_ind\_mod$ is analogous to $e\_ind\_mod$, where now partial matches are calculated modulo equality.
+
+The key difference between this function and $e\_ind( t, g, M )$ is that in the second case we take the union of sets $S$ and $S'$ instead of merging them together.
+In other words, we do not require that equalities residing in $S$ and $S'$ match, and instead consider both possibilities.
+
+Overall, the third iteration can be described by the following method, which produces a set of instantiations for $\psi$:
+
+\begin{minipage}[t]{.4\linewidth}
+\begin{program}
+\PROC |generate\_inst_3|(M, \psi) \BODY
+S_{L1} \ldots S_{Ln};
+\DOFOR \text{each } L_i \in M \text{, where } L_i \mapsto^I \psi
+  S_{Li} := partial\_e\_ind\_lit( L_i, M, \psi );
+\ENDFOR
+S := combine( S_{L1}, \ldots, S_{Ln} );
+\RETURN \{ E^\varepsilon \mid E \in S, E \text{ is complete for $\psi$ } \};
+\ENDPROC
+\end{program}
+\end{minipage}
 
 \paragraph{Fourth Iteration: Match all Triggers with all Ground Terms}
+
+If we are unable to produce an instantiation in the third iteration, we know that no pair of terms is relevant for matching with respect to equalities and disequalities.
+In this case, we must search all concrete ground terms for matches against our triggers.
+This can be summarized in the following method:
+
+\begin{minipage}[t]{.4\linewidth}
+\begin{program}
+\PROC |generate\_inst_4|(M, \psi) \BODY
+S_{L1} \ldots S_{Ln};
+\DOFOR \text{each } L_i \in M \text{, where } L_i \mapsto^I \psi
+  L_i \text{ is } t \sim s;
+  \DOFOR \text{each } g \mapsto^I \emptyset
+    S_{Li} := S_{Li} \cup partial\_e\_ind( t, g, M, \psi ) \cup partial\_e\_ind( s, g, M, \psi );
+  \ENDFOR
+\ENDFOR
+S := combine( S_{L1}, \ldots, S_{Ln} );
+\RETURN \{ E^\varepsilon \mid E \in S, E \text{ is complete for $\psi$ } \};
+\ENDPROC
+\end{program}
+\end{minipage}
 
 \end{document}
 
