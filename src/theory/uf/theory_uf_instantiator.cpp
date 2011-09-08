@@ -58,23 +58,15 @@ Instantiator( c, ie ),
 //d_subterm_size( c ),
 d_obligations( c ),
 d_th(th),
-d_inst_terms( c ),
-d_concrete_terms( c ),
-d_active_ic( c ),
-d_equivalence_class( c ),
-d_is_rep( c ),
+d_terms( c ),
+d_terms_full( c ),
 d_disequality( c )
 //d_ematch_done( c )
 {
-
-  d_is_rep[ ((TheoryUF*)d_th)->d_true ] = true;
-  d_is_rep[ ((TheoryUF*)d_th)->d_false ] = true;
-  initializeEqClass( ((TheoryUF*)d_th)->d_true );
-  initializeEqClass( ((TheoryUF*)d_th)->d_false );
-  initializeDisequalityList( ((TheoryUF*)d_th)->d_true );
-  initializeDisequalityList( ((TheoryUF*)d_th)->d_false );
-  (*d_disequality.find( ((TheoryUF*)d_th)->d_true )).second->push_back( ((TheoryUF*)d_th)->d_false );
-  (*d_disequality.find( ((TheoryUF*)d_th)->d_false )).second->push_back( ((TheoryUF*)d_th)->d_true );
+  registerTerm( ((TheoryUF*)d_th)->d_true );
+  registerTerm( ((TheoryUF*)d_th)->d_false );
+  Node eq = NodeManager::currentNM()->mkNode( IFF, ((TheoryUF*)d_th)->d_true, ((TheoryUF*)d_th)->d_false );
+  d_disequality.push_back( eq );
 }
 
 Theory* InstantiatorTheoryUf::getTheory() { 
@@ -115,9 +107,6 @@ void InstantiatorTheoryUf::check( Node assertion )
 
 void InstantiatorTheoryUf::assertEqual( Node a, Node b )
 {
-  Assert( ( ( a.getKind()==EQUAL || a.getKind()==IFF ) && b==((TheoryUF*)d_th)->d_false ) ||
-          ( a.getKind()!=EQUAL && a.getKind()!=IFF && b.getKind()!=EQUAL && b.getKind()!=IFF ) );
-
   Debug("inst-uf") << "InstantiatorTheoryUf::equal: " << a << " == " << b << std::endl;
   if( a.hasAttribute(InstantitionConstantAttribute()) || 
       b.hasAttribute(InstantitionConstantAttribute()) ){
@@ -161,84 +150,35 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
     //DO_THIS: sub quantifiers?  add to their obligation list too?
   }
   if( a.getKind()==EQUAL || a.getKind()==IFF ){
+    Assert( b==((TheoryUF*)d_th)->d_false );
+    d_disequality.push_back( a );
     registerTerm( a[0] );
     registerTerm( a[1] );
-    Node r1 = getRepresentative( a[0] );
-    initializeEqClass( r1 );
-    Node r2 = getRepresentative( a[1] );
-    initializeEqClass( r2 );
-
-    initializeDisequalityList( r1 );
-    NodeList* d_r1 = (*d_disequality.find( r1 )).second;
-    d_r1->push_back( r2 );
-
-    initializeDisequalityList( r2 );
-    NodeList* d_r2 = (*d_disequality.find( r2 )).second;
-    d_r2->push_back( r1 );
-
-    d_is_rep[ r1 ] = true;
-    d_is_rep[ r2 ] = true;
   }else{
+    Assert( b.getKind()!=EQUAL && b.getKind()!=IFF );
     registerTerm( a );
     registerTerm( b );
-    //merge equivalence classes
-    Node c = getRepresentative( a );
-    initializeEqClass( c );
-    NodeList* eqc_c = (*d_equivalence_class.find( c )).second;
-    initializeDisequalityList( c );
-    NodeList* d_c = (*d_disequality.find( c )).second;
-    for( int i=0; i<2; i++ ){
-      Node d = i==0 ? a : b;
-      if( c!=d ){
-        BoolMap::iterator isr_d_i = d_is_rep.find( d );
-        if( isr_d_i!=d_is_rep.end() ){
-          if( (*isr_d_i).second ){
-            //add equalities
-            NodeLists::iterator eqc_d_i = d_equivalence_class.find( d );
-            NodeList* eqc_d = (*eqc_d_i).second;
-            for( NodeList::const_iterator i = eqc_d->begin(); i != eqc_d->end(); i++ ) {
-              eqc_c->push_back( *i );
-            }
-            //add disequalities
-            NodeLists::iterator d_d_i = d_disequality.find( d );
-            if( d_d_i!=d_disequality.end() ){
-              NodeList* d_d = (*d_d_i).second;
-              for( NodeList::const_iterator i = d_d->begin(); i != d_d->end(); i++ ) {
-                d_c->push_back( *i );
-              }
-            }
-          }
-        }else{
-          eqc_c->push_back( d );
-        }
-      }
-    }
-    d_is_rep[ a ] = false;
-    d_is_rep[ b ] = false;
-    d_is_rep[ c ] = true;
   }
 }
 
-void InstantiatorTheoryUf::registerTerm( Node n )
+void InstantiatorTheoryUf::registerTerm( Node n, bool isTop )
 {
   bool recurse = false;
-  if( n.hasAttribute(InstantitionConstantAttribute()) ){
-    if( d_inst_terms.find( n )==d_inst_terms.end() ){
-      d_inst_terms[n] = true;
+  if( isTop ){
+    if( d_terms.find( n )==d_terms.end() ){
+      d_terms[n] = true;
+      d_terms_full[n] = true;
       recurse = true;
-      if( n.getKind()==INST_CONSTANT ){
-        d_active_ic[ n ] = true;
-      }
     }
   }else{
-    if( d_concrete_terms.find( n )==d_concrete_terms.end() ){
-      d_concrete_terms[n] = true;
+    if( d_terms_full.find( n )==d_terms_full.end() ){
+      d_terms_full[n] = true;
       recurse = true;
     }
   }
   if( recurse ){
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      registerTerm( n[i] );
+      registerTerm( n[i], false );
     }
   }
 }
@@ -327,25 +267,26 @@ void InstantiatorTheoryUf::resetInstantiation()
        it != d_ematch_full.end(); ++it ){
     it->second.reset();
   }
-  //copy equivalence class, disequality information to temporary map
+  //build equivalence classes
   d_emap.clear();
-  for( NodeLists::iterator ite = d_equivalence_class.begin(); ite!=d_equivalence_class.end(); ++ite ){
-    Node n = (*ite).first;
-    if( getRepresentative( n )==n ){
-      NodeList* el = (*ite).second;
-      for( NodeList::const_iterator it = el->begin(); it!=el->end(); ++it ){
-        d_emap[n].push_back( getRepresentative( *it ) );
-      }
+  for( BoolMap::iterator it = d_terms.begin(); it!=d_terms.end(); ++it ){
+    Node n = (*it).first;
+    Node r = getRepresentative( n );
+    if( std::find( d_emap[r].begin(), d_emap[r].end(), n )==d_emap[r].end() ){
+      d_emap[r].push_back( n );
     }
   }
+  //build disequality lists
   d_dmap.clear();
-  for( NodeLists::iterator itd = d_disequality.begin(); itd!=d_disequality.end(); ++itd ){
-    Node n = (*itd).first;
-    if( getRepresentative( n )==n ){
-      NodeList* dl = (*itd).second;
-      for( NodeList::const_iterator it = dl->begin(); it!=dl->end(); ++it ){
-        d_dmap[n].push_back( getRepresentative( *it ) );
-      }
+  for( NodeList::const_iterator it = d_disequality.begin(); it!=d_disequality.end(); ++it ){
+    Node n = (*it);
+    Node r1 = getRepresentative( n[0] );
+    Node r2 = getRepresentative( n[1] );
+    if( std::find( d_dmap[r1].begin(), d_dmap[r1].end(), r2 )==d_dmap[r1].end() ){
+      d_dmap[r1].push_back( r2 );
+    }
+    if( std::find( d_dmap[r2].begin(), d_dmap[r2].end(), r1 )==d_dmap[r2].end() ){
+      d_dmap[r2].push_back( r1 );
     }
   }
 }
@@ -374,24 +315,12 @@ bool InstantiatorTheoryUf::prepareInstantiation( Effort e )
 
 void InstantiatorTheoryUf::debugPrint()
 {
-  Debug("quant-uf") << "Instantiation constants:" << std::endl;
-  for( BoolMap::const_iterator it = d_active_ic.begin(); it!=d_active_ic.end(); ++it ){
-    Debug("quant-uf") << "   " << (*it).first;
-    //Debug("quant-uf") << "  ->  " << d_solved_ic[(*it).first];
-    Debug("quant-uf") << std::endl;
-  }
-  //Debug("quant-uf") << "Instantiation terms:" << std::endl;
-  //for( BoolMap::const_iterator it = d_inst_terms.begin(); it!=d_inst_terms.end(); ++it ){
+  //Debug("quant-uf") << "Terms:" << std::endl;
+  //for( BoolMap::const_iterator it = d_terms.begin(); it!=d_terms.end(); ++it ){
   //  Debug("quant-uf") << "   " << (*it).first;
   //  //Debug("quant-uf") << "  ->  " << getRepresentative( (*it).first );
   //  Debug("quant-uf") << std::endl;
   //}
-  Debug("quant-uf") << "Concrete terms:" << std::endl;
-  for( BoolMap::const_iterator it = d_concrete_terms.begin(); it!=d_concrete_terms.end(); ++it ){
-    Debug("quant-uf") << "   " << (*it).first;
-    //Debug("quant-uf") << "  ->  " << getRepresentative( (*it).first );
-    Debug("quant-uf") << std::endl;
-  }
   Debug("quant-uf") << "Equalivalence classes:" << std::endl;
   int counter = 1;
   for( std::map< Node, std::vector< Node > >::iterator it = d_emap.begin(); it!=d_emap.end(); ++it ){
@@ -432,6 +361,18 @@ void InstantiatorTheoryUf::debugPrint()
         it != d_instEngine->d_inst_constants.end(); ++it ){
     Node f = it->first;
     Debug("quant-uf") << f << std::endl;
+    Debug("quant-uf") << "   Inst constants:" << std::endl;
+    Debug("quant-uf") << "      ";
+    for( int i=0; i<(int)it->second.size(); i++ ){
+      if( i>0 ){
+        Debug("quant-uf") << ", ";
+      }
+      Debug("quant-uf") << it->second[i];
+      if(d_terms_full.find( it->second[i] )==d_terms_full.end()){
+        Debug("quant-uf") << " (inactive)";
+      }
+    }
+    Debug("quant-uf") << std::endl;
     Debug("quant-uf") << "   Obligations:" << std::endl;
     NodeLists::iterator ob_i = d_obligations.find( f );
     if( ob_i!=d_obligations.end() ){
@@ -445,37 +386,15 @@ void InstantiatorTheoryUf::debugPrint()
   Debug("quant-uf") << std::endl;
 }
 
-void InstantiatorTheoryUf::initializeEqClass( Node t ) {
-  NodeLists::iterator eqc_i = d_equivalence_class.find( t );
-  if( eqc_i == d_equivalence_class.end() ) {
-    NodeList* eqc = new(d_th->getContext()->getCMM()) NodeList(true, d_th->getContext(), false,
-                                                      ContextMemoryAllocator<Node>(d_th->getContext()->getCMM()));
-    eqc->push_back( t );
-    d_equivalence_class.insertDataFromContextMemory(t, eqc);
-  }
-}
-
-void InstantiatorTheoryUf::initializeDisequalityList( Node t )
-{
-  NodeLists::iterator d_i = d_disequality.find( t );
-  if( d_i == d_disequality.end() ) {
-    NodeList* d = new(d_th->getContext()->getCMM()) NodeList(true, d_th->getContext(), false,
-                                                    ContextMemoryAllocator<Node>(d_th->getContext()->getCMM()));
-    d_disequality.insertDataFromContextMemory(t, d);
-  }
-}
-
 Node InstantiatorTheoryUf::getConcreteTermEqualTo( Node n ){
   Node ns = getRepresentative( n );
   if( !ns.hasAttribute(InstantitionConstantAttribute()) ){
     return ns;
   }else{
-    NodeLists::iterator eqc_ns_i = d_equivalence_class.find( ns );
-    if( eqc_ns_i!=d_equivalence_class.end() ){
-      NodeList* eqc_ns = (*eqc_ns_i).second;
-      for( NodeList::const_iterator it = eqc_ns->begin(); it != eqc_ns->end(); ++it ){
-        if( !(*it).hasAttribute(InstantitionConstantAttribute()) ){
-          return *it;
+    if( d_emap.find( ns )!=d_emap.end() ){
+      for( int i=0; i<(int)d_emap[ ns ].size(); i++ ){
+        if( !d_emap[ns][i].hasAttribute(InstantitionConstantAttribute()) ){
+          return d_emap[ns][i];
         }
       }
     }
@@ -508,14 +427,7 @@ bool InstantiatorTheoryUf::areDisequal( Node a, Node b ){
 
 Node InstantiatorTheoryUf::getRepresentative( Node a ){
   if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( a ) ){
-    Node n = ((TheoryUF*)d_th)->d_equalityEngine.getRepresentative( a );
-    //if( n.hasAttribute(InstantitionConstantAttribute()) ){
-    //  Node nc = getConcreteTermEqualTo( n );
-    //  if( nc!=Node::null() ){
-    //    return nc;
-    //  }
-    //}
-    return n;
+    return ((TheoryUF*)d_th)->d_equalityEngine.getRepresentative( a );
   }else{
     return a;
   }
@@ -575,7 +487,7 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
   for( int j = 0; j<(int)d_instEngine->d_inst_constants[f].size(); j++ ){
     Node i = d_instEngine->d_inst_constants[f][j];
     Node c;
-    if( d_active_ic.find( i )==d_active_ic.end() ){
+    if( d_terms_full.find( i )==d_terms_full.end() ){
       c = NodeManager::currentNM()->mkVar( i.getType() ); 
     }else{
       c = getConcreteTermEqualTo( i );
@@ -627,9 +539,10 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
               Node i2 = (*it)[0][1];
               if( e<FULL_EFFORT ){
                 //for each equivalence class E
-                for( BoolMap::iterator itb = d_is_rep.begin(); itb!=d_is_rep.end(); ++itb ){
-                  if( (*itb).second && (*itb).first.getType()==i1.getType() ){
-                    Node ci1 = getRepresentative( (*itb).first );
+                for( std::map< Node, std::vector< Node > > ::iterator it1 = d_emap.begin(); it1!=d_emap.end(); ++it1 ){
+                  Node ci1 = (*it1).first;
+                  Assert( ci1==getRepresentative( ci1 ) );
+                  if( ci1.getType()==i1.getType() ){
                     //for each equivalence class disequal from E
                     for( int j=0; j<(int)d_dmap[ci1].size(); j++ ){
                       Node ci2 = d_dmap[ci1][j];
@@ -681,10 +594,9 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
               Node i2 = (*it)[1];
               if( e<FULL_EFFORT ){
                 //for each equivalence class
-                for( BoolMap::iterator itb = d_is_rep.begin(); itb!=d_is_rep.end(); ++itb ){
-                  if( (*itb).second && (*itb).first.getType()==i1.getType() ){
-                    Node c = getRepresentative( (*itb).first );
-                    Assert( c==getRepresentative( c ) );
+                for( std::map< Node, std::vector< Node > > ::iterator it1 = d_emap.begin(); it1!=d_emap.end(); ++it1 ){
+                  Node c = (*it1).first;
+                  if( c.getType()==i1.getType() ){
                     InstMatchGroup mg;
                     if( e==QUICK_EFFORT ){
                       doEMatchMod( i1, c, f );
@@ -889,11 +801,11 @@ void InstantiatorTheoryUf::doEMatchFull( Node i, Node f ){
   Assert( i.getAttribute(InstantitionConstantAttribute())==f );
   if( !d_ematch_full[i].d_is_set ){
     d_ematch_full[i].d_is_set = true;
-    for( BoolMap::iterator itb = d_is_rep.begin(); itb!=d_is_rep.end(); ++itb ){
-      if( (*itb).second && i.getType()==(*itb).first.getType() ){
-        Node c = getRepresentative( (*itb).first );
-        doPartialEMatchMod( i, c, f );
-        d_ematch_full[i].add( d_partial_ematch_mod[i][c] );
+    for( BoolMap::const_iterator it = d_terms.begin(); it!=d_terms.end(); ++it ){
+      Node c = (*it).first;
+      if( !c.hasAttribute(InstantitionConstantAttribute()) && i.getType()==c.getType() ){
+        doPartialEMatch( i, c, f );
+        d_ematch_full[i].add( d_partial_ematch[i][c] );
       }
     }
     d_ematch_full[i].removeDuplicate();

@@ -94,24 +94,19 @@ public:
   std::vector< InstMatch* > d_matches;
   bool d_is_set;
 
-  bool empty() { return d_matches.empty(); }
   bool merge( InstMatchGroup& mg );
   void add( InstMatchGroup& mg );
   void combine( InstMatchGroup& mg );
   void addComplete( InstMatchGroup& mg, InstMatch* mbase = NULL );
   void removeRedundant();
   void removeDuplicate();
+  bool empty() { return d_matches.empty(); }
   unsigned int getNumMatches() { return d_matches.size(); }
   InstMatch* getMatch( int i ) { return d_matches[i]; }
+  void clear(){ d_matches.clear(); }
   void reset(){
     d_is_set = false;
     clear();
-  }
-  void clear(){
-    //for( int i=0; i<(int)d_matches.size(); i++ ){
-      //delete d_matches[i];
-    //}
-    d_matches.clear();
   }
   void debugPrint( const char* c );
 };
@@ -153,9 +148,9 @@ public:
   void clearLemmas() { d_lemmas.clear(); }
 
   /** matches */
-  unsigned int getNumMatches() { return d_inst_matches.getNumMatches(); }
+  unsigned int getNumMatches() { return d_inst_matches.d_matches.size(); }
   InstMatch* getMatch( int i ) { return d_inst_matches.getMatch( i ); }
-  void clearMatches() { d_inst_matches.clear(); }
+  void clearMatches() { d_inst_matches.d_matches.clear(); }
 };/* class Instantiator */
 
 class InstantiatorDefault;

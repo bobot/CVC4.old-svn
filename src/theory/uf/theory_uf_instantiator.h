@@ -77,14 +77,10 @@ protected:
 
   /** reference to the theory that it looks at */
   Theory* d_th;
-  BoolMap d_inst_terms;
-  BoolMap d_concrete_terms;
-  BoolMap d_active_ic;
-  /** map from (representative) nodes to list of nodes in their eq class */
-  NodeLists d_equivalence_class;
-  BoolMap d_is_rep;
+  BoolMap d_terms;
+  BoolMap d_terms_full;
   /** map from (representative) nodes to list of representative nodes they are disequal from */
-  NodeLists d_disequality;
+  NodeList d_disequality;
   /** map from patterns to nodes that they have ematched against */
   //NodeLists d_ematch_done;
 
@@ -108,11 +104,8 @@ public:
   void resetInstantiation();
   bool prepareInstantiation( Effort e );
 private:
-  void registerTerm( Node n );
-  void initializeEqClass( Node t );
-  void initializeDisequalityList( Node t );
+  void registerTerm( Node n, bool isTop = true );
   Node getConcreteTermEqualTo( Node n );
-
   bool hasInstantiationConstantsFrom( Node i, Node f );
   void calculateMatches( Node f, Effort e );
 

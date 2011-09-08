@@ -356,9 +356,9 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
         d_instTable[i]->prepareInstantiation( (Instantiator::Effort)e );
         //do instantiations
         for( int j=0; j<(int)d_instTable[i]->getNumMatches(); j++ ){
-          Assert( d_instTable[i]->getMatch( j )->isComplete() );
           //do instantiation
           InstMatch* m = d_instTable[i]->getMatch( j );
+          Assert( m->isComplete() );
           m->computeTermVec();
           if( instantiate( m->getQuantifier(), m->d_match, out ) ){
             retVal = true;

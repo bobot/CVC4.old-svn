@@ -85,10 +85,10 @@ Node TheoryQuantifiers::getValue(TNode n) {
 }
 
 void TheoryQuantifiers::check(Effort e) {
-  Debug("quantifiers") << "quantifiers::check(" << e << ")" << std::endl;
+  Debug("quantifiers-check") << "quantifiers::check(" << e << ")" << std::endl;
   while(!done()) {
     Node assertion = get();
-    Debug("quantifiers") << "quantifiers::check(): " << assertion << std::endl;
+    Debug("quantifiers-check") << "quantifiers::check(): " << assertion << std::endl;
     switch(assertion.getKind()) {
     case kind::FORALL:
       assertUniversal( assertion );
@@ -123,17 +123,32 @@ void TheoryQuantifiers::check(Effort e) {
     }
   }
   if( e == FULL_EFFORT ) {
+    Debug("quantifiers") << "quantifiers: FULL_EFFORT check" << std::endl;
     bool quantActive = false;
     //for each n in d_forall_asserts, 
     // such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
     for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
       if( (*i).second ) {
         Node n = (*i).first;
-        if( d_counterexample_asserts.find( n )==d_counterexample_asserts.end() ||
-            !d_counterexample_asserts[n] ){   
-          //DO_THIS: make sure that NO_COUNTEREXAMPLE is not a decision
-          quantActive = true;
+        Node cel = d_instEngine->getCounterexampleLiteralFor( n );
+        bool active, value;
+        if( d_valuation.hasSatValue( cel, value ) ){
+          active = !value;
+        }else{
+          active = true;
         }
+        d_instEngine->setActive( n, active );
+        if( active ){
+          Debug("quantifiers") << "  Active : " << n;
+          quantActive = true;
+        }else{
+          Debug("quantifiers") << "  NOT active : " << n;
+          //note that NO_COUNTEREXAMPLE must not be a decision
+        }
+        if( d_valuation.hasSatValue( n, value ) ){
+          Debug("quantifiers") << ", value = " << value; 
+        }
+        Debug("quantifiers") << std::endl;
       }
     }
     if( quantActive ){  
@@ -189,7 +204,8 @@ void TheoryQuantifiers::assertUniversal( Node n ){
     //mark all literals in the body of n as dependent on cel
     d_instEngine->registerLiterals( body, n, d_out );
     //mark cel as dependent on n
-    //d_out->dependentDecision( cel, quant);
+    //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
+    //d_out->dependentDecision( cel, quant);    //FIXME
     //require any decision on cel to be phase=false
     d_out->requirePhase( cel, false );
 
@@ -203,10 +219,9 @@ void TheoryQuantifiers::assertUniversal( Node n ){
       std::vector< Node > scs;
       d_instEngine->getSkolemConstantsFor( cen, scs );
       d_instEngine->instantiate( n, scs, d_out );
-    }
+    } 
   }
   d_forall_asserts[n] = true;
-  d_instEngine->setActive( n, true );
 }
 
 void TheoryQuantifiers::assertExistential( Node n ){
@@ -243,7 +258,6 @@ void TheoryQuantifiers::assertCounterexample( Node n ){
   if( n.getKind()==NO_COUNTEREXAMPLE ){
     Debug("quantifiers") << n[0] << " is valid in current context." << std::endl;
     d_counterexample_asserts[ n[0] ] = true;
-    d_instEngine->setActive( n, false );
   }else{
     Assert( n.getKind()==NOT );
     d_counterexample_asserts[ n[0][0] ] = false;

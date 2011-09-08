@@ -324,7 +324,7 @@ Specifically, when the SAT solver decides on a literal $l \mapsto^I \psi$, it ch
 If it has not, then it chooses another literal to decide upon.
 This restriction gives only a small impact on performance [determine this].
 
-We also require that no terms used to instantiate a quantifier contain instantiation constants, as this violates Invariant 2.
+We also require that no terms used to instantiate a quantifier contain instantiation constants.
 Our updated rule for $\forall$-Inst becomes the following: \\
 
 \noindent $\forall$-Inst (Counterexample Restricted): \\
@@ -632,11 +632,11 @@ For example, say we have that $M \models f( a, e ) = f( b, c )$ and that neither
 Here, we may wish to try the instantiation $c/e$, since doing partially matches our pattern to a concrete ground term that is relevant with respect to the equality $f( a, e ) = f( b, c )$.
 
 Overall, this iteration uses a similar approach as the previous one, where instead of generating equality sets $E$ that induce $L_i$, we generate equality sets for which part of $L_i$ is matched to a concrete ground term.
-First, let us define the method $partial\_e\_ind$, which returns a set of equality sets which give a partial match for $t = g$:
+First, let us define the method $part\_e\_ind$, which returns a set of equality sets which give a partial match for $t = g$:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |partial\_e\_ind|(t,g,M, \psi) \BODY
+\PROC |part\_e\_ind|(t,g,M, \psi) \BODY
 \IF e\_ind( t, g, M, \psi ) \neq \emptyset \THEN
   \RETURN e\_ind( t, g, M, \psi );
 \ELSEIF t, g \text{ are $f( \bar{t_a} )$, $f( \bar{g_a} )$ } \THEN
@@ -645,8 +645,7 @@ First, let us define the method $partial\_e\_ind$, which returns a set of equali
     \IF M \models t \neq g \THEN
       \RETURN \emptyset;
     \ELSEIF M \not\models t_i = g_i
-      S' := partial\_e\_ind\_mod( t_i, g_i, M, \psi );
-      S := S \cup S';
+      S := S \cup part\_e\_ind\_mod( t_i, g_i, M, \psi );
     \FI
   \ENDFOR
   \RETURN S;
@@ -658,10 +657,10 @@ First, let us define the method $partial\_e\_ind$, which returns a set of equali
 \end{minipage}
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |partial\_e\_ind\_mod|(t,g,M,\psi) \BODY
+\PROC |part\_e\_ind\_mod|(t,g,M,\psi) \BODY
   S := \emptyset;
   \DOFOR \text{each } g_i = g
-    S := S \cup partial\_e\_ind( t, g_i, M,\psi );
+    S := S \cup part\_e\_ind( t, g_i, M,\psi );
   \ENDFOR
   \RETURN S;
 \ENDPROC
@@ -670,18 +669,18 @@ First, let us define the method $partial\_e\_ind$, which returns a set of equali
 
 This method will first check to see if there is a set of equality sets that induce $t = g$, and if successful, return this set.
 Otherwise, it will construct a set of equalities for which a subterm position (or set of subterm positions) of $t$ and $g$ are induced to be equal.
-The definition of $partial\_e\_ind\_mod$ is analogous to $e\_ind\_mod$, where now partial matches are calculated modulo equality.
-The key difference between the method for generating partial matches and $e\_ind( t, g, M )$ is that in the application case we take the union of sets $S$ and $S'$, or in other words, the union $S \cup S' \cup merge( S, S' )$.
+The definition of $part\_e\_ind\_mod$ is analogous to $e\_ind\_mod$, where now partial matches are calculated modulo equality.
+The key difference between the method for generating partial matches and $e\_ind( t, g, M )$ is that in the application case we take the union of $S$ and the partial match for each argument, or in other words, we do not require the matches found for the arguments match.
 
 Overall, the third iteration can be described by the following method, which produces a set of instantiations for $\psi$.
-The definition of $partial\_e\_ind\_lit$ is similar $e\_ind\_lit$ as described earlier, where instead partial matches are allowed.
+The definition of $part\_e\_ind\_lit$ is similar $e\_ind\_lit$ as described earlier, where instead partial matches are allowed.
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
 \PROC |generate\_inst_3|(M, \psi) \BODY
 S_{L1} \ldots S_{Ln};
 \DOFOR \text{each } L_i \in M \text{, where } L_i \mapsto^I \psi
-  S_{Li} := partial\_e\_ind\_lit( L_i, M, \psi );
+  S_{Li} := part\_e\_ind\_lit( L_i, M, \psi );
 \ENDFOR
 S := combine( S_{L1}, \ldots, S_{Ln} );
 \RETURN \{ E^\varepsilon \mid E \in S, E \text{ is complete for $\psi$ } \};
@@ -702,7 +701,7 @@ S_{L1} \ldots S_{Ln};
 \DOFOR \text{each } L_i \in M \text{, where } L_i \mapsto^I \psi
   L_i \text{ is } t \sim s;
   \DOFOR \text{each } g \mapsto^I \emptyset
-    S_{Li} := S_{Li} \cup partial\_e\_ind( t, g, M, \psi ) \cup partial\_e\_ind( s, g, M, \psi );
+    S_{Li} := S_{Li} \cup part\_e\_ind( t, g, M, \psi ) \cup part\_e\_ind( s, g, M, \psi );
   \ENDFOR
 \ENDFOR
 S := combine( S_{L1}, \ldots, S_{Ln} );
