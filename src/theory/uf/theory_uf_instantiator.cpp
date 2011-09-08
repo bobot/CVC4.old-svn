@@ -334,7 +334,7 @@ void InstantiatorTheoryUf::resetInstantiation()
     if( getRepresentative( n )==n ){
       NodeList* el = (*ite).second;
       for( NodeList::const_iterator it = el->begin(); it!=el->end(); ++it ){
-        d_emap[n].push_back( *it );
+        d_emap[n].push_back( getRepresentative( *it ) );
       }
     }
   }
@@ -344,7 +344,7 @@ void InstantiatorTheoryUf::resetInstantiation()
     if( getRepresentative( n )==n ){
       NodeList* dl = (*itd).second;
       for( NodeList::const_iterator it = dl->begin(); it!=dl->end(); ++it ){
-        d_dmap[n].push_back( *it );
+        d_dmap[n].push_back( getRepresentative( *it ) );
       }
     }
   }
@@ -607,6 +607,7 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
                 //match against all equivalence classes disequal from c
                 for( int j=0; j<(int)d_dmap[c].size(); j++ ){
                   Node ci = d_dmap[c][j];
+                  Assert( ci==getRepresentative( ci ) );
                   if( e==QUICK_EFFORT ){
                     doEMatchMod( i, ci, f );  
                     obMatches[ (*it) ].add( d_ematch_mod[i][ci] );
@@ -628,10 +629,11 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
                 //for each equivalence class E
                 for( BoolMap::iterator itb = d_is_rep.begin(); itb!=d_is_rep.end(); ++itb ){
                   if( (*itb).second && (*itb).first.getType()==i1.getType() ){
-                    Node ci1 = (*itb).first;
+                    Node ci1 = getRepresentative( (*itb).first );
                     //for each equivalence class disequal from E
                     for( int j=0; j<(int)d_dmap[ci1].size(); j++ ){
                       Node ci2 = d_dmap[ci1][j];
+                      Assert( ci2==getRepresentative( ci2 ) );
                       InstMatchGroup mg;
                       if( e==QUICK_EFFORT ){
                         doEMatchMod( i1, ci1, f );
@@ -681,7 +683,8 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
                 //for each equivalence class
                 for( BoolMap::iterator itb = d_is_rep.begin(); itb!=d_is_rep.end(); ++itb ){
                   if( (*itb).second && (*itb).first.getType()==i1.getType() ){
-                    Node c = (*itb).first;
+                    Node c = getRepresentative( (*itb).first );
+                    Assert( c==getRepresentative( c ) );
                     InstMatchGroup mg;
                     if( e==QUICK_EFFORT ){
                       doEMatchMod( i1, c, f );
@@ -763,21 +766,22 @@ void InstantiatorTheoryUf::doEMatch( Node i, Node c, Node f ){
         d_ematch[i][c].d_matches.push_back( new InstMatch( f, d_instEngine ) );
         for( int j=0; j<(int)c.getNumChildren(); j++ ){
           if( areDisequal( i[j], c[j] ) ){
-            Debug("quant-uf-ematch") << i << " and " << c << " FAILED disequal arg." << std::endl;
+            Debug("quant-uf-ematch") << i << " and " << c << " FAILED disequal arg. " << j << std::endl;
             d_does_ematch[i][c] = false;
             d_eq_amb[i][c] = false;
             d_ematch[i][c].clear();
             break;
           }else if( !areEqual( i[j], c[j] ) && d_does_ematch[i][c] && !d_ematch[i][c].empty() ){
             if( i[j].getAttribute(InstantitionConstantAttribute())==f ){
-              doEMatchMod( i[j], c[j], f );
-              if( !d_ematch[i][c].merge( d_ematch_mod[i[j]][c[j]] ) ){
-                Debug("quant-uf-ematch") << i << " and " << c << " FAILED incompatible match." << std::endl;
+              Node ca = getRepresentative( c[j] );
+              doEMatchMod( i[j], ca, f );
+              if( !d_ematch[i][c].merge( d_ematch_mod[i[j]][ca] ) ){
+                Debug("quant-uf-ematch") << i << " and " << c << " FAILED incompatible match. " << j << std::endl;
                 d_does_ematch[i][c] = false;
                 d_ematch[i][c].clear();
               }
             }else{
-              Debug("quant-uf-ematch") << i << " and " << c << " FAILED unequal arg." << std::endl;
+              Debug("quant-uf-ematch") << i << " and " << c << " FAILED unequal arg." << j << std::endl;
               d_does_ematch[i][c] = false;
               d_ematch[i][c].clear();
             }
@@ -797,6 +801,7 @@ void InstantiatorTheoryUf::doEMatch( Node i, Node c, Node f ){
 }
 
 void InstantiatorTheoryUf::doEMatchMod( Node i, Node c, Node f ){
+  Debug("quant-uf-ematch") << "E-match moddd " << i << " " << c << " " << getRepresentative( c ) << std::endl;
   Assert( i.getType()==c.getType() );
   Assert( c==getRepresentative( c ) ); 
   if( !d_ematch_mod[i][c].d_is_set ){
@@ -846,8 +851,9 @@ void InstantiatorTheoryUf::doPartialEMatch( Node i, Node c, Node f ){
       for( int j=0; j<(int)c.getNumChildren(); j++ ){
         Assert( !areDisequal( i[j], c[j] ) );
         if( !areEqual( i[j], c[j] ) && i[j].getAttribute(InstantitionConstantAttribute())==f ){
-          doPartialEMatchMod( i[j], c[j], f );
-          d_partial_ematch[i][c].combine( d_partial_ematch_mod[i[j]][c[j]] );
+          Node cj = getRepresentative( c[j] );
+          doPartialEMatchMod( i[j], cj, f );
+          d_partial_ematch[i][c].add( d_partial_ematch_mod[i[j]][cj] );
         }
       }
     }
@@ -855,6 +861,8 @@ void InstantiatorTheoryUf::doPartialEMatch( Node i, Node c, Node f ){
 }
 
 void InstantiatorTheoryUf::doPartialEMatchMod( Node i, Node c, Node f ){
+  Assert( i.getType()==c.getType() );
+  Assert( c==getRepresentative( c ) ); 
   if( !d_partial_ematch_mod[i][c].d_is_set ){
     d_partial_ematch_mod[i][c].d_is_set = true;
     if( !areDisequal( i, c ) ){
@@ -883,8 +891,9 @@ void InstantiatorTheoryUf::doEMatchFull( Node i, Node f ){
     d_ematch_full[i].d_is_set = true;
     for( BoolMap::iterator itb = d_is_rep.begin(); itb!=d_is_rep.end(); ++itb ){
       if( (*itb).second && i.getType()==(*itb).first.getType() ){
-        doPartialEMatchMod( i, (*itb).first, f );
-        d_ematch_full[i].add( d_partial_ematch_mod[i][(*itb).first] );
+        Node c = getRepresentative( (*itb).first );
+        doPartialEMatchMod( i, c, f );
+        d_ematch_full[i].add( d_partial_ematch_mod[i][c] );
       }
     }
     d_ematch_full[i].removeDuplicate();
