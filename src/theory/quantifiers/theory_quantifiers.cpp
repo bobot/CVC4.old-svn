@@ -132,9 +132,13 @@ void TheoryQuantifiers::check(Effort e) {
         Node n = (*i).first;
         Node cel = d_instEngine->getCounterexampleLiteralFor( n );
         bool active, value;
+        bool ceValue = false;
         if( d_valuation.hasSatValue( cel, value ) ){
           active = !value;
+          ceValue = true;
         }else{
+          //this should only happen if we have a set of ground terms that suffices 
+          // to show the negation of the body of n
           active = true;
         }
         d_instEngine->setActive( n, active );
@@ -147,6 +151,9 @@ void TheoryQuantifiers::check(Effort e) {
         }
         if( d_valuation.hasSatValue( n, value ) ){
           Debug("quantifiers") << ", value = " << value; 
+        }
+        if( ceValue ){
+          Debug("quantifiers") << ", ce is asserted";
         }
         Debug("quantifiers") << std::endl;
       }
@@ -203,9 +210,10 @@ void TheoryQuantifiers::assertUniversal( Node n ){
 
     //mark all literals in the body of n as dependent on cel
     d_instEngine->registerLiterals( body, n, d_out );
-    //mark cel as dependent on n
+    ////mark cel as dependent on n
     //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-    //d_out->dependentDecision( cel, quant);    //FIXME
+    //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
+    //d_out->dependentDecision( quant, cel );    //FIXME
     //require any decision on cel to be phase=false
     d_out->requirePhase( cel, false );
 

@@ -55,14 +55,14 @@ public:
     d_computeVec = true;
   }
   /** fill all unfilled values with m */
-  void add( InstMatch* m );
+  void add( InstMatch& m );
   /** if compatible, fill all unfilled values with m and return true 
       return false otherwise */
-  bool merge( InstMatch* m );
+  bool merge( InstMatch& m );
   /** -1 : keep this, 1 : keep m, 0 : keep both */
-  int checkSubsume( InstMatch* m );
+  int checkSubsume( InstMatch& m );
   /** return if d_maps are equivalent */
-  bool isEqual( InstMatch* m );
+  bool isEqual( InstMatch& m );
   /** mbase is used if no value given in d_map */
   bool isComplete( InstMatch* mbase = NULL );
   /** compute d_match */
@@ -87,11 +87,12 @@ public:
   InstMatchGroup( InstMatchGroup* mg ){
     d_is_set = true;
     for( int i=0; i<(int)mg->getNumMatches(); i++ ){
-      d_matches.push_back( new InstMatch( mg->getMatch( i ) ) );
+      InstMatch m( mg->getMatch( i ) );
+      d_matches.push_back( m );
     }
   }
   ~InstMatchGroup(){}
-  std::vector< InstMatch* > d_matches;
+  std::vector< InstMatch > d_matches;
   bool d_is_set;
 
   bool merge( InstMatchGroup& mg );
@@ -102,7 +103,7 @@ public:
   void removeDuplicate();
   bool empty() { return d_matches.empty(); }
   unsigned int getNumMatches() { return d_matches.size(); }
-  InstMatch* getMatch( int i ) { return d_matches[i]; }
+  InstMatch* getMatch( int i ) { return &d_matches[i]; }
   void clear(){ d_matches.clear(); }
   void reset(){
     d_is_set = false;

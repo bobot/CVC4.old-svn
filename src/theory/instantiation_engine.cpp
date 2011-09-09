@@ -30,10 +30,6 @@ InstMatch::InstMatch( Node f, InstantiationEngine* ie ){
 }
 InstMatch::InstMatch( InstMatch* m ){
   d_vars.insert( d_vars.begin(), m->d_vars.begin(), m->d_vars.end() );
-  add( m );
-}
-
-void InstMatch::add( InstMatch* m ){
   for( int i=0; i<(int)d_vars.size(); i++ ){
     if( d_map[ d_vars[i] ]==Node::null() ){
       setMatch( d_vars[i], m->d_map[ d_vars[i] ] );
@@ -41,15 +37,22 @@ void InstMatch::add( InstMatch* m ){
   }
 }
 
-bool InstMatch::merge( InstMatch* m ){
-  std::map< Node, Node > temp = d_map;
+void InstMatch::add( InstMatch& m ){
   for( int i=0; i<(int)d_vars.size(); i++ ){
     if( d_map[ d_vars[i] ]==Node::null() ){
-      setMatch( d_vars[i], m->d_map[ d_vars[i] ] );
+      setMatch( d_vars[i], m.d_map[ d_vars[i] ] );
+    }
+  }
+}
+
+bool InstMatch::merge( InstMatch& m ){
+  for( int i=0; i<(int)d_vars.size(); i++ ){
+    if( d_map[ d_vars[i] ]==Node::null() ){
+      setMatch( d_vars[i], m.d_map[ d_vars[i] ] );
     }else{
-      if( m->d_map[ d_vars[i] ]!=Node::null() &&
-          d_map[ d_vars[i] ]!=m->d_map[ d_vars[i] ] ){
-        d_map = temp;
+      if( m.d_map[ d_vars[i] ]!=Node::null() &&
+          d_map[ d_vars[i] ]!=m.d_map[ d_vars[i] ] ){
+        d_map.clear();
         return false;
       }
     }
@@ -58,16 +61,16 @@ bool InstMatch::merge( InstMatch* m ){
 }
 
 // -1 : keep this, 1 : keep m, 0 : keep both
-int InstMatch::checkSubsume( InstMatch* m ){
+int InstMatch::checkSubsume( InstMatch& m ){
   bool nsubset1 = true;
   bool nsubset2 = true;
   for( int i=0; i<(int)d_vars.size(); i++ ){
-    if( m->d_map[ d_vars[i] ]!=d_map[ d_vars[i] ] ){
+    if( m.d_map[ d_vars[i] ]!=d_map[ d_vars[i] ] ){
       if( d_map[ d_vars[i] ]!=Node::null() ){
         nsubset1 = false;
         if( !nsubset2 ) break;
       }
-      if( m->d_map[ d_vars[i] ]!=Node::null() ){
+      if( m.d_map[ d_vars[i] ]!=Node::null() ){
         nsubset2 = false;
         if( !nsubset1 ) break;
       }
@@ -81,9 +84,9 @@ int InstMatch::checkSubsume( InstMatch* m ){
     return 0;
   }
 }
-bool InstMatch::isEqual( InstMatch* m ){
+bool InstMatch::isEqual( InstMatch& m ){
   for( int i=0; i<(int)d_vars.size(); i++ ){
-    if( m->d_map[ d_vars[i] ]!=d_map[ d_vars[i] ] ){
+    if( m.d_map[ d_vars[i] ]!=d_map[ d_vars[i] ] ){
       return false;
     }
   }
@@ -119,21 +122,16 @@ void InstMatch::debugPrint( const char* c ){
 
 bool InstMatchGroup::merge( InstMatchGroup& mg )
 {
-  std::vector< InstMatch* > newMatches;
+  std::vector< InstMatch > newMatches;
   for( int l=0; l<(int)d_matches.size(); l++ ){
-    InstMatch* temp = new InstMatch( d_matches[l] );
     for( int k=0; k<(int)mg.d_matches.size(); k++ ){
-      if( temp->merge( mg.d_matches[k] ) ){
+      InstMatch temp( &d_matches[l] );
+      if( temp.merge( mg.d_matches[k] ) ){
         newMatches.push_back( temp );
-        temp = new InstMatch( d_matches[l] );
       }
     }
-    //delete temp;
   }
   if( newMatches.size()>0 ){
-    //for( int i=0; i<(int)d_matches.size(); i++ ){
-    //  delete d_matches[i];
-    //}
     d_matches.clear();
     d_matches.insert( d_matches.begin(), newMatches.begin(), newMatches.end() );
     removeRedundant();
@@ -151,18 +149,17 @@ void InstMatchGroup::add( InstMatchGroup& mg ){
 
 void InstMatchGroup::combine( InstMatchGroup& mg ){
   InstMatchGroup temp( this );
-  if( merge( mg ) ){
-    add( temp );
-  }
+  merge( mg );
+  add( temp );
   add( mg );
   removeDuplicate();
 }
 
 void InstMatchGroup::addComplete( InstMatchGroup& mg, InstMatch* mbase ){
   for( int i=0; i<(int)mg.d_matches.size(); i++ ){
-    if( mg.d_matches[i]->isComplete( mbase ) ){
+    if( mg.d_matches[i].isComplete( mbase ) ){
       if( mbase ){
-        mg.d_matches[i]->add( mbase );
+        mg.d_matches[i].add( *mbase );
       }
       d_matches.push_back( mg.d_matches[i] );
       mg.d_matches.erase( mg.d_matches.begin() + i, mg.d_matches.begin() + i + 1 );
@@ -177,7 +174,7 @@ void InstMatchGroup::removeRedundant(){
   for( int k=0; k<(int)d_matches.size(); k++ ){
     for( int l=(k+1); l<(int)d_matches.size(); l++ ){
       if( k!=l && active[k] && active[l] ){
-        int result = d_matches[k]->checkSubsume( d_matches[l] );
+        int result = d_matches[k].checkSubsume( d_matches[l] );
         if( result==1 ){
           active[k] = false;
         }else if( result==-1 ){
@@ -186,14 +183,12 @@ void InstMatchGroup::removeRedundant(){
       }
     }
   }
-  std::vector< InstMatch* > temp;
+  std::vector< InstMatch > temp;
   temp.insert( temp.begin(), d_matches.begin(), d_matches.end() );
   d_matches.clear();
   for( int i=0; i<(int)temp.size(); i++ ){
     if( active[i] ){
       d_matches.push_back( temp[i] );
-    }else{
-      //delete temp[i];
     }
   }
 }
@@ -203,20 +198,18 @@ void InstMatchGroup::removeDuplicate(){
   for( int k=0; k<(int)d_matches.size(); k++ ){
     for( int l=(k+1); l<(int)d_matches.size(); l++ ){
       if( k!=l && active[k] && active[l] ){
-        if( d_matches[k]->isEqual( d_matches[l] ) ){
+        if( d_matches[k].isEqual( d_matches[l] ) ){
           active[l] = false;
         }
       }
     }
   }
-  std::vector< InstMatch* > temp;
+  std::vector< InstMatch > temp;
   temp.insert( temp.begin(), d_matches.begin(), d_matches.end() );
   d_matches.clear();
   for( int i=0; i<(int)temp.size(); i++ ){
     if( active[i] ){
       d_matches.push_back( temp[i] );
-    }else{
-      //delete temp[i];
     }
   }
 }
@@ -224,7 +217,7 @@ void InstMatchGroup::removeDuplicate(){
 void InstMatchGroup::debugPrint( const char* c ){
   for( int j=0; j<(int)d_matches.size(); j++ ){
     Debug( c ) << "Match " << j << " : " << std::endl;
-    d_matches[j]->debugPrint( c );
+    d_matches[j].debugPrint( c );
   }
 }
 
@@ -416,7 +409,7 @@ void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
       if( !nr.hasAttribute(InstantitionConstantAttribute()) ){
         if( d_te->getPropEngine()->isSatLiteral( nr ) && n.getKind()!=NOT ){
           Node cel = getCounterexampleLiteralFor( fa );
-          Debug("inst-engine-debug") << "Make " << nr << " dependent on " << cel << std::endl;
+          Debug("quant-dep-dec") << "Make " << nr << " dependent on " << cel << std::endl;
           out->dependentDecision( cel, nr );
         }
         InstantitionConstantAttribute icai;

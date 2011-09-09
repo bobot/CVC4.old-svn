@@ -482,7 +482,7 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
 {
   Debug("quant-uf") << "Try to solve (" << e << ") for " << f << "... " << std::endl;
   //calculate base matches
-  InstMatch* base = new InstMatch( f, d_instEngine );
+  InstMatch base( f, d_instEngine );
   //check if any instantiation constants are solved for
   for( int j = 0; j<(int)d_instEngine->d_inst_constants[f].size(); j++ ){
     Node i = d_instEngine->d_inst_constants[f][j];
@@ -493,10 +493,10 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
       c = getConcreteTermEqualTo( i );
     }
     if( c!=Node::null() ){
-      base->setMatch( i, c );
+      base.setMatch( i, c );
     }
   }
-  if( base->isComplete() ){
+  if( base.isComplete() ){
     //f is instantiation ready
     d_inst_matches.d_matches.push_back( base );
   }else{
@@ -633,7 +633,7 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Effort e )
         InstMatchGroup combined;
         for( std::map< Node, InstMatchGroup >::iterator it = obMatches.begin(); it != obMatches.end(); ++it ){
           combined.combine( it->second );
-          d_inst_matches.addComplete( combined, base );
+          d_inst_matches.addComplete( combined, &base );
         }
         Debug("quant-uf-ematch") << "Combined matches : " << std::endl;
         combined.debugPrint( "quant-uf-ematch" );
@@ -659,9 +659,9 @@ void InstantiatorTheoryUf::doEMatch( Node i, Node c, Node f ){
       //modulo equality
       //if not already generated
       if( i.getKind()==INST_CONSTANT ){
-        InstMatch* m = new InstMatch( f, d_instEngine );
+        InstMatch m( f, d_instEngine );
         if( !areEqual( i, c ) ){
-          m->setMatch( i, getRepresentative( c ) );
+          m.setMatch( i, getRepresentative( c ) );
         }
         Debug("quant-uf-ematch") << i << " and " << c << " Ematched." << std::endl;
         d_does_ematch[i][c] = true;
@@ -675,7 +675,8 @@ void InstantiatorTheoryUf::doEMatch( Node i, Node c, Node f ){
         Assert( i.getNumChildren()==c.getNumChildren() );
         d_does_ematch[i][c] = true;
         d_eq_amb[i][c] = true;
-        d_ematch[i][c].d_matches.push_back( new InstMatch( f, d_instEngine ) );
+        InstMatch m( f, d_instEngine );
+        d_ematch[i][c].d_matches.push_back( m );
         for( int j=0; j<(int)c.getNumChildren(); j++ ){
           if( areDisequal( i[j], c[j] ) ){
             Debug("quant-uf-ematch") << i << " and " << c << " FAILED disequal arg. " << j << std::endl;
