@@ -24,11 +24,13 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 InstMatch::InstMatch( Node f, InstantiationEngine* ie ){
+  d_computeVec = true;
   for( int i=0; i<(int)ie->d_inst_constants[f].size(); i++ ){
     d_vars.push_back( ie->d_inst_constants[f][i] );
   }
 }
 InstMatch::InstMatch( InstMatch* m ){
+  d_computeVec = true;
   d_vars.insert( d_vars.begin(), m->d_vars.begin(), m->d_vars.end() );
   for( int i=0; i<(int)d_vars.size(); i++ ){
     if( d_map[ d_vars[i] ]==Node::null() ){
@@ -37,12 +39,13 @@ InstMatch::InstMatch( InstMatch* m ){
   }
 }
 
-void InstMatch::add( InstMatch& m ){
+bool InstMatch::add( InstMatch& m ){
   for( int i=0; i<(int)d_vars.size(); i++ ){
     if( d_map[ d_vars[i] ]==Node::null() ){
       setMatch( d_vars[i], m.d_map[ d_vars[i] ] );
     }
   }
+  return true;
 }
 
 bool InstMatch::merge( InstMatch& m ){
@@ -92,6 +95,11 @@ bool InstMatch::isEqual( InstMatch& m ){
   }
   return true;
 }
+void InstMatch::debugPrint( const char* c ){
+  for( int i=0; i<(int)d_vars.size(); i++ ){
+    Debug( c )  << "   " << d_vars[i] << " -> " << d_map[ d_vars[i] ] << std::endl;
+  }
+}
 bool InstMatch::isComplete( InstMatch* mbase ){
   Assert( !mbase || getQuantifier()==mbase->getQuantifier() );
   for( int i=0; i<(int)d_vars.size(); i++ ){
@@ -114,9 +122,17 @@ void InstMatch::computeTermVec(){
   }
 }
 
-void InstMatch::debugPrint( const char* c ){
+void InstMatch::partialMerge( InstMatch& m, std::map< Node, Node >& splits ){
   for( int i=0; i<(int)d_vars.size(); i++ ){
-    Debug( c )  << "   " << d_vars[i] << " -> " << d_map[ d_vars[i] ] << std::endl;
+    Node n1 = d_map[ d_vars[i] ];
+    Node n2 = m.d_map[ d_vars[i] ];
+    if( n1!=Node::null() && n2!=Node::null() && n1!=n2 ){
+      if( n1>n2 ){
+        splits[n1] = n2;
+      }else{
+        splits[n2] = n1;
+      }
+    }
   }
 }
 
@@ -131,14 +147,10 @@ bool InstMatchGroup::merge( InstMatchGroup& mg )
       }
     }
   }
-  if( newMatches.size()>0 ){
-    d_matches.clear();
-    d_matches.insert( d_matches.begin(), newMatches.begin(), newMatches.end() );
-    removeRedundant();
-    return true;
-  }else{
-    return false;
-  }
+  d_matches.clear();
+  d_matches.insert( d_matches.begin(), newMatches.begin(), newMatches.end() );
+  removeRedundant();
+  return (d_matches.size()>0);
 }
 
 void InstMatchGroup::add( InstMatchGroup& mg ){
@@ -221,7 +233,6 @@ void InstMatchGroup::debugPrint( const char* c ){
   }
 }
 
-
 Instantiator::Instantiator(context::Context* c, InstantiationEngine* ie) : 
 d_instEngine( ie ){
 
@@ -249,6 +260,8 @@ bool InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, Outpu
   nb << ( f.getKind()==kind::NOT ? f[0] : NodeManager::currentNM()->mkNode( NOT, f ) );
   nb << ( f.getKind()==kind::NOT ? NodeManager::currentNM()->mkNode( NOT, body ) : body );
   Node lem = nb;
+  //AJR: the following two lines are necessary until FULL_CHECK is guarenteed after d_out->lemma(...)
+  lem = Rewriter::rewrite( lem );
   if( d_lemmas_produced.find( lem )==d_lemmas_produced.end() ){
     Debug("inst-engine") << "Instantiate " << f << " with " << std::endl;
     for( int i=0; i<(int)terms.size(); i++ ){

@@ -57,7 +57,6 @@ namespace uf {
 //  Node getMatch() { return d_match; }
 //};
 
-
 class InstantiatorTheoryUf : public Instantiator{
 protected:
   typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
@@ -127,14 +126,9 @@ private:
   std::map< Node, InstMatchGroup > d_ematch_full;
   void doEMatchFull( Node i, Node f );
 
-  //void partialMerge( InstMatchGroup* m1, InstMatchGroup* m2, InstMatchGroup* prod );
-  //bool isIntersectionConsistent( InstMatch* m1, InstMatch* m2 );
-  //void filterInconsistent( InstMatchGroup* mg );
-  //bool isConsistent( InstMatch* m );
-
+  //void partialMerge( InstMatchGroup& m1, InstMatchGroup& m2, std::map< Node, Node >& splits );
   //void setEmatchDone( Node i, Node c );
   //bool isEmatchDone( Node i, Node c );
-
   //std::map< Node, std::map< Node, bool > > d_generalizes;
   //bool isGeneralization( Node i1, Node i2 );
 };/* class InstantiatorTheoryUf */

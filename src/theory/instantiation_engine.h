@@ -38,6 +38,7 @@ typedef expr::Attribute<InstantitionConstantAttributeId, Node> InstantitionConst
 namespace theory {
 
 class InstantiationEngine;
+class PartialInstMatch;
 
 class InstMatch
 {
@@ -49,20 +50,24 @@ public:
 
   InstMatch( Node f, InstantiationEngine* ie );
   InstMatch( InstMatch* m );
+  virtual PartialInstMatch* asPartialInstMatch() { return NULL; }
 
+  /** fill all unfilled values with m */
+  virtual bool add( InstMatch& m );
+  /** if compatible, fill all unfilled values with m and return true 
+      return false otherwise */
+  virtual bool merge( InstMatch& m );
+  /** -1 : keep this, 1 : keep m, 0 : keep both */
+  virtual int checkSubsume( InstMatch& m );
+  /** return if d_maps are equivalent */
+  virtual bool isEqual( InstMatch& m );
+  /** debug print method */
+  virtual void debugPrint( const char* c );
+  /** set the match of v to m */
   void setMatch( Node v, Node m ){
     d_map[v] = m;
     d_computeVec = true;
   }
-  /** fill all unfilled values with m */
-  void add( InstMatch& m );
-  /** if compatible, fill all unfilled values with m and return true 
-      return false otherwise */
-  bool merge( InstMatch& m );
-  /** -1 : keep this, 1 : keep m, 0 : keep both */
-  int checkSubsume( InstMatch& m );
-  /** return if d_maps are equivalent */
-  bool isEqual( InstMatch& m );
   /** mbase is used if no value given in d_map */
   bool isComplete( InstMatch* mbase = NULL );
   /** compute d_match */
@@ -74,8 +79,8 @@ public:
   }
   /** get associated quantifier */
   Node getQuantifier() { return d_vars[0].getAttribute(InstantitionConstantAttribute()); }
-  /** debug print method */
-  void debugPrint( const char* c );
+  /** partial merge */
+  void partialMerge( InstMatch& m, std::map< Node, Node >& splits );
 };
 
 class InstMatchGroup
@@ -93,6 +98,7 @@ public:
   }
   ~InstMatchGroup(){}
   std::vector< InstMatch > d_matches;
+  std::map< Node, Node > d_splits;
   bool d_is_set;
 
   bool merge( InstMatchGroup& mg );
