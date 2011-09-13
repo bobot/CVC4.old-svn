@@ -36,7 +36,7 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, OutputChannel& out, Valuation v
   d_forall_asserts(c),
   d_exists_asserts(c),
   d_counterexample_asserts(c),
-  d_numInstantiations(c,0),
+  d_numInstantiations(0),
   d_numRestarts(0){
 
 }
@@ -160,18 +160,19 @@ void TheoryQuantifiers::check(Effort e) {
     }
     if( quantActive ){  
       static bool enableLimit = true;
-      static int limitInst = 100;
+      static int limitInst = 20;
       bool doInst = true;
-      if( enableLimit && d_numInstantiations.get()==limitInst ){
+      if( enableLimit && d_numInstantiations==limitInst ){
         Debug("quantifiers") << "Give up in current branch." << std::endl;
         doInst = false;
-        exit( -1 );
       }
 
       if( doInst && d_instEngine->doInstantiation( d_out ) ){
-        Debug("quantifiers") << "Done instantiation." << std::endl;
-        d_numInstantiations.set( d_numInstantiations.get() + 1 );
+        Debug("quantifiers") << "Done instantiation " << d_numInstantiations << "." << std::endl;
+        d_numInstantiations++;
+        Debug("quantifiers") << "Done instantiation2 " << d_numInstantiations << "." << std::endl;
       }else{
+        d_numInstantiations = 0;
         Debug("quantifiers") << "No instantiation given." << std::endl;
         //instantiation did not add a lemma to d_out, try to flip a previous decision
         if( !d_out->flipDecision() ){
