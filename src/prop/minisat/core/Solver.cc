@@ -324,6 +324,7 @@ void Solver::cancelUntil(int level) {
         qhead = trail_lim[level];
         trail.shrink(trail.size() - trail_lim[level]);
         trail_lim.shrink(trail_lim.size() - level);
+        flipped.shrink(flipped.size() - level);
 
         // Register variables that have not been registered yet
         int currentLevel = decisionLevel();
