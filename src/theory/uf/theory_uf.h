@@ -72,7 +72,7 @@ private:
   Node d_conflictNode;
 
   /**
-   * Should be called to propagate the literal. 
+   * Should be called to propagate the literal.
    */
   bool propagate(TNode literal);
 
