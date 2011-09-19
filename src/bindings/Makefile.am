@@ -54,5 +54,11 @@ python.cpp::
 ocaml.cpp::
 ruby.cpp::
 tcl.cpp::
-$(patsubst %,%.cpp,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))):: %.cpp: @srcdir@/../smt/smt_engine.h
-	$(AM_V_GEN)$(SWIG) -w503 -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -module cvc4 -c++ -$(patsubst %.cpp,%,$@) -o $@ $<
+$(patsubst %,%.cpp,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))):: %.cpp: @srcdir@/../cvc4.i
+	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -module cvc4 -c++ -$(patsubst %.cpp,%,$@) -outdir $(patsubst %.cpp,%,$@) -o $@ $<
+
+$(patsubst %,%.cpp,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))):: %.d: .swig_deps
+	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -module cvc4 -c++ -MM -o $(patsubst %.d,%.cpp,$@) $<
+.PHONY: .swig_deps
+.swig_deps:; touch .swig_deps
+@mk_include@ .swig_deps
