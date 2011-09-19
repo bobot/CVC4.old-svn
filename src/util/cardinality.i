@@ -2,6 +2,8 @@
 #include "util/cardinality.h"
 %}
 
+%feature("valuewrapper") CVC4::Cardinality::Beth;
+
 %rename(plusAssign) CVC4::Cardinality::operator+=(const Cardinality&);
 %rename(timesAssign) CVC4::Cardinality::operator*=(const Cardinality&);
 %rename(powerAssign) CVC4::Cardinality::operator^=(const Cardinality&);
