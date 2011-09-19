@@ -153,6 +153,7 @@ EXTRA_DIST = \
 	bitvector.i \
 	subrange_bound.i \
 	exception.i \
+	language.i \
 	array.i \
 	options.i \
 	ascription_type.i \

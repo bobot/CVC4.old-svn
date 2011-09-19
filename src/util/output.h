@@ -71,6 +71,9 @@ class CVC4_PUBLIC CVC4ostream {
   /** The endl manipulator (why do we need to keep this?) */
   std::ostream& (*const d_endl)(std::ostream&);
 
+  // do not allow use
+  CVC4ostream& operator=(const CVC4ostream&);
+
 public:
   CVC4ostream() :
     d_os(NULL),

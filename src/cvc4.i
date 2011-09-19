@@ -1,10 +1,17 @@
 %import "bindings/swig.h"
 
 %module cvc4
+%nspace;
+
+%{
+namespace CVC4 {}
+using namespace CVC4;
+%}
 
 %include "util/integer.i"
 %include "util/rational.i"
 %include "util/exception.i"
+%include "util/language.i"
 %include "util/options.i"
 %include "util/cardinality.i"
 %include "util/stats.i"

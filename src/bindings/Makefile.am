@@ -36,16 +36,10 @@ BUILT_SOURCES = \
 
 CLEANFILES = \
 	$(BUILT_SOURCES) \
-	cvc4.java \
-	cvc4.cs \
-	cvc4JNI.java \
-	cvc4.php \
-	cvc4PINVOKE.cs \
-	cvc4.pm \
-	cvc4.py \
-	php_cvc4.h
+        .swig_deps \
+	$(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS)))
 
-java.lo: java.cpp; $(AM_V_CXX)$(LTCXXCOMPILE) $(JAVA_INCLUDES) -o $@ $<
+java.lo: java.cpp; $(AM_V_CXX)$(LTCXXCOMPILE) -c $(JAVA_INCLUDES) -o $@ $<
 java.cpp:
 csharp.cpp:
 perl.cpp:
@@ -56,7 +50,7 @@ ruby.cpp:
 tcl.cpp:
 $(patsubst %,%.cpp,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))): %.cpp: @srcdir@/../cvc4.i
 	$(AM_V_at)mkdir -p $(patsubst %.cpp,%,$@)
-	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -module cvc4 -c++ -$(patsubst %.cpp,%,$@) -outdir $(patsubst %.cpp,%,$@) -o $@ $<
+	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -module cvc4 -c++ -$(patsubst %.cpp,%,$@) -outdir $(patsubst %.cpp,%,$@) -package edu.nyu.acsys -o $@ $<
 
 $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))): %.d: @srcdir@/../cvc4.i
 	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -module cvc4 -c++ -MM -o $(patsubst %.d,%.cpp,$@) $<
@@ -66,4 +60,4 @@ $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))): %.d: @srcdir@/.
 	$(AM_V_GEN)cat $+ >$@
 @mk_include@ .swig_deps
 
-clean-local:; rm -f .swig_deps $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS)))
+clean-local:; rm -fr $(patsubst %.cpp,%,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS)))
