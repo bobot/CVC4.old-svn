@@ -30,7 +30,9 @@
 %import "cvc4_public.h"
 %import "util/tls.h"
 
-// swig doesn't like the __thread storage class
+// swig doesn't like the __thread storage class...
 #define __thread
+// ...or GCC attributes
+#define __attribute__(x)
 
 #endif /* __CVC4__BINDINGS__SWIG_H */

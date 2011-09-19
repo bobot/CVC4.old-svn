@@ -45,20 +45,25 @@ CLEANFILES = \
 	cvc4.py \
 	php_cvc4.h
 
-java.lo: java.cpp; $(LTCXXCOMPILE) $(JAVA_INCLUDES) -o $@ $<
-java.cpp::
-csharp.cpp::
-perl.cpp::
-php.cpp::
-python.cpp::
-ocaml.cpp::
-ruby.cpp::
-tcl.cpp::
-$(patsubst %,%.cpp,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))):: %.cpp: @srcdir@/../cvc4.i
+java.lo: java.cpp; $(AM_V_CXX)$(LTCXXCOMPILE) $(JAVA_INCLUDES) -o $@ $<
+java.cpp:
+csharp.cpp:
+perl.cpp:
+php.cpp:
+python.cpp:
+ocaml.cpp:
+ruby.cpp:
+tcl.cpp:
+$(patsubst %,%.cpp,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))): %.cpp: @srcdir@/../cvc4.i
+	$(AM_V_at)mkdir -p $(patsubst %.cpp,%,$@)
 	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -module cvc4 -c++ -$(patsubst %.cpp,%,$@) -outdir $(patsubst %.cpp,%,$@) -o $@ $<
 
-$(patsubst %,%.cpp,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))):: %.d: .swig_deps
+$(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))): %.d: @srcdir@/../cvc4.i
 	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -module cvc4 -c++ -MM -o $(patsubst %.d,%.cpp,$@) $<
-.PHONY: .swig_deps
-.swig_deps:; touch .swig_deps
+# .PHONY so they get rebuilt each time
+.PHONY: .swig_deps $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS)))
+.swig_deps: $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS)))
+	$(AM_V_GEN)cat $+ >$@
 @mk_include@ .swig_deps
+
+clean-local:; rm -f .swig_deps $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS)))
