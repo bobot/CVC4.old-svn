@@ -2,7 +2,9 @@
 #include "util/language.h"
 %}
 
-%nspace CVC4::language::input::Language;
-%nspace CVC4::language::output::Language;
+%import "util/language.h"
+
+%ignore CVC4::operator<<(std::ostream&, CVC4::language::input::Language);
+%ignore CVC4::operator<<(std::ostream&, CVC4::language::output::Language);
 
 %include "util/language.h"
