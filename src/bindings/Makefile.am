@@ -4,8 +4,10 @@ AM_CPPFLAGS = \
 AM_CXXFLAGS = -Wall $(FLAG_VISIBILITY_HIDDEN)
 
 lib_LTLIBRARIES =
+data_DATA =
 if CVC4_LANGUAGE_BINDING_JAVA
 lib_LTLIBRARIES += libcvc4bindings_java.la
+data_DATA += cvc4.jar
 endif
 #	cvc4bindings_csharp.so \
 #	cvc4bindings_perl.so \
@@ -37,9 +39,11 @@ BUILT_SOURCES = \
 CLEANFILES = \
 	$(BUILT_SOURCES) \
         .swig_deps \
-	$(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS)))
+	$(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))) \
+	cvc4.jar
 
 java.lo: java.cpp; $(AM_V_CXX)$(LTCXXCOMPILE) -c $(JAVA_INCLUDES) -o $@ $<
+cvc4.jar: java.cpp; $(AM_V_GEN)jar cf $@ -C java .
 java.cpp:
 csharp.cpp:
 perl.cpp:
