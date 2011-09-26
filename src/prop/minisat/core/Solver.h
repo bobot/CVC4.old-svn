@@ -40,6 +40,8 @@ namespace CVC4 {
 namespace prop {
   class SatSolver;
 }/* CVC4::prop namespace */
+
+class ResolutionProof; 
 }/* CVC4 namespace */
 
 namespace Minisat {
@@ -49,9 +51,9 @@ namespace Minisat {
 
 class Solver {
 
-  /** The only CVC4 entry point to the private solver data */
+  /** The only two CVC4 entry points to the private solver data */
   friend class CVC4::prop::SatSolver;
-
+  friend class CVC4::ResolutionProof; 
 protected:
 
   /** The pointer to the proxy that provides interfaces to the SMT engine */
@@ -94,6 +96,8 @@ protected:
 
   /** Variables to re-register with theory solvers on backtracks */
   vec<VarIntroInfo> variables_to_register;
+
+  CVC4::ResolutionProof* proof; 
 
 public:
 

@@ -28,10 +28,13 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "prop/sat.h"
 #include "util/output.h"
 #include "expr/command.h"
+#include "proof/sat_proof.h"
 
 using namespace Minisat;
 using namespace CVC4;
 using namespace CVC4::prop;
+
+int ResolutionProof::d_idCounter = 0;
 
 //=================================================================================================
 // Options:
@@ -121,7 +124,9 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bo
   , conflict_budget    (-1)
   , propagation_budget (-1)
   , asynch_interrupt   (false)
-{}
+{
+  proof = new CVC4::ResolutionProof(this, true); 
+}
 
 
 Solver::~Solver()
@@ -230,12 +235,14 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable)
       if (ps.size() == 0) {
           return ok = false;
       } else if (ps.size() == 1) {
+        proof->registerUnitClause(ps[0], true); 
         uncheckedEnqueue(ps[0]);
         return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
       } else {
         CRef cr = ca.alloc(assertionLevel, ps, false);
         clauses_persistent.push(cr);
 	attachClause(cr);
+        proof->registerClause(cr, true); 
       }
     }
 
@@ -254,6 +261,7 @@ void Solver::attachClause(CRef cr) {
 
 
 void Solver::detachClause(CRef cr, bool strict) {
+    // TODO: proof.markDeleted(cr); 
     const Clause& c = ca[cr];
     Debug("minisat") << "Solver::detachClause(" << c << ")" << std::endl;
     assert(c.size() > 1);
@@ -401,11 +409,11 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     int index   = trail.size() - 1;
 
     int max_level = 0; // Maximal level of the resolved clauses
+    // proof.newResChain(confl); 
 
     do{
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
-
         if (c.level() > max_level) {
           max_level = c.level();
         }
@@ -423,6 +431,10 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
                     pathC++;
                 else
                     out_learnt.push(q);
+            } else {
+              // TODO: if (level(var(q) == 0) proof.addResStep(q);
+              // (resolve out literal propagated at level 0, need to construct resolution tree)
+              // or... we can do it lazily if we actually need the proof 
             }
         }
         
@@ -432,6 +444,11 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         confl = reason(var(p));
         seen[var(p)] = 0;
         pathC--;
+        /* TODO:
+        if ( pathC > 0 && confl != CRef_Undef ) {
+        proof.addResStep(p, confl); 
+        }
+        */
 
     }while (pathC > 0);
     out_learnt[0] = ~p;
@@ -443,7 +460,7 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
         uint32_t abstract_level = 0;
         for (i = 1; i < out_learnt.size(); i++)
             abstract_level |= abstractLevel(var(out_learnt[i])); // (maintain an abstraction of levels involved in conflict)
-
+        
         for (i = j = 1; i < out_learnt.size(); i++) {
             if (reason(var(out_learnt[i])) == CRef_Undef) {
                 out_learnt[j++] = out_learnt[i];
@@ -799,8 +816,14 @@ void Solver::removeSatisfied(vec<CRef>& cs)
     int i, j;
     for (i = j = 0; i < cs.size(); i++){
         Clause& c = ca[cs[i]];
-        if (satisfied(c))
+        if (satisfied(c)) {
+          // TODO:
+          // if (locked(c)) {
+          //   proof.getLiteralReason(~c[0]); 
+          //   store a resolution of the literal c propagated
+          // }
             removeClause(cs[i]);
+        }
         else
             cs[j++] = cs[i];
     }
@@ -894,8 +917,11 @@ lbool Solver::search(int nof_conflicts)
 
           conflicts++; conflictC++;
 
-          if (decisionLevel() == 0) return l_False;
-
+          if (decisionLevel() == 0) {
+            // TODO: print the proof proof.printProof(confl)
+            return l_False;
+          }
+          // TODO: proof.newResolution(confl); 
             // Analyze the conflict
             learnt_clause.clear();
             int max_level = analyze(confl, learnt_clause, backtrack_level);
@@ -904,12 +930,14 @@ lbool Solver::search(int nof_conflicts)
             // Assert the conflict clause and the asserting literal
             if (learnt_clause.size() == 1) {
                 uncheckedEnqueue(learnt_clause[0]);
+                // TODO: proof.registerCurrentResolution(learnt_clause[0]); 
             } else {
                 CRef cr = ca.alloc(max_level, learnt_clause, true);
                 clauses_removable.push(cr);
                 attachClause(cr);
                 claBumpActivity(ca[cr]);
                 uncheckedEnqueue(learnt_clause[0], cr);
+                // TODO: proof.registerCurrentResolution(cr); 
             }
 
             varDecayActivity();
@@ -1199,6 +1227,7 @@ void Solver::relocAll(ClauseAllocator& to)
             vec<Watcher>& ws = watches[p];
             for (int j = 0; j < ws.size(); j++)
                 ca.reloc(ws[j].cref, to);
+                // TODO: modify reloc to notify the proof manager
         }
 
     // All reasons:
@@ -1208,16 +1237,19 @@ void Solver::relocAll(ClauseAllocator& to)
 
         if (hasReasonClause(v) && (ca[reason(v)].reloced() || locked(ca[reason(v)])))
             ca.reloc(vardata[v].reason, to);
+            // TODO: modify reloc to notify the proof manager
     }
 
     // All learnt:
     //
     for (int i = 0; i < clauses_removable.size(); i++)
+        // TODO: modify reloc to notify the proof manager
         ca.reloc(clauses_removable[i], to);
 
     // All original:
     //
     for (int i = 0; i < clauses_persistent.size(); i++)
+        // TODO: modify reloc to notify the proof manager
         ca.reloc(clauses_persistent[i], to);
 }
 

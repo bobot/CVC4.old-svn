@@ -115,11 +115,17 @@ public:
 inline int   toInt  (lbool l) { return l.value; }
 inline lbool toLbool(int   v) { return lbool((uint8_t)v);  }
 
-//=================================================================================================
-// Clause -- a simple class for representing a clause:
 
 class Clause;
 typedef RegionAllocator<uint32_t>::Ref CRef;
+
+} /* ends MiniSat */
+
+#include "proof/sat_proof.h"
+
+namespace Minisat {
+//=================================================================================================
+// Clause -- a simple class for representing a clause:
 
 class Clause {
     struct {
@@ -238,6 +244,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
 
     void reloc(CRef& cr, ClauseAllocator& to)
     {
+      // TODO: proof.updateId(); 
         if (cr == CRef_Lazy) return;
 
         Clause& c = operator[](cr);
