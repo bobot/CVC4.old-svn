@@ -1,4 +1,4 @@
-(set-logic QF_UF)
+(set-logic AUFLIA)
 (set-info :smt-lib-version 2.0)
 (set-info :category "crafted")
 (set-info :status unsat)

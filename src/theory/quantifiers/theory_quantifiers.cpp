@@ -36,7 +36,7 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, OutputChannel& out, Valuation v
   d_forall_asserts(c),
   d_exists_asserts(c),
   d_counterexample_asserts(c),
-  d_numInstantiations(0),
+  d_numInstantiations(c,0),
   d_numRestarts(0){
 
 }
@@ -162,31 +162,32 @@ void TheoryQuantifiers::check(Effort e) {
       static bool enableLimit = true;
       static int limitInst = 20;
       bool doInst = true;
-      if( enableLimit && d_numInstantiations==limitInst ){
+      if( enableLimit && d_numInstantiations.get()==limitInst ){
         Debug("quantifiers") << "Give up in current branch." << std::endl;
         doInst = false;
       }
 
       if( doInst && d_instEngine->doInstantiation( d_out ) ){
-        Debug("quantifiers") << "Done instantiation " << d_numInstantiations << "." << std::endl;
-        d_numInstantiations++;
-        Debug("quantifiers") << "Done instantiation2 " << d_numInstantiations << "." << std::endl;
+        d_numInstantiations.set( d_numInstantiations.get() + 1 );
+        Debug("quantifiers") << "Done instantiation " << d_numInstantiations.get() << "." << std::endl;
       }else{
-        d_numInstantiations = 0;
         Debug("quantifiers") << "No instantiation given." << std::endl;
-        //instantiation did not add a lemma to d_out, try to flip a previous decision
-        if( !d_out->flipDecision() ){
-          //maybe restart?
-          static int restartLimit = 1;
-          if( d_numRestarts==restartLimit ){
-            Debug("quantifiers") << "Return unknown." << std::endl;
-            d_out->setIncomplete();
+        if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
+          exit( -1 );
+          //instantiation did not add a lemma to d_out, try to flip a previous decision
+          if( !d_out->flipDecision() ){
+            //maybe restart?
+            static int restartLimit = 1;
+            if( d_numRestarts==restartLimit ){
+              Debug("quantifiers") << "Return unknown." << std::endl;
+              d_out->setIncomplete();
+            }else{
+              d_numRestarts++;
+              Debug("quantifiers") << "Do restart." << std::endl;
+            }
           }else{
-            d_numRestarts++;
-            Debug("quantifiers") << "Do restart." << std::endl;
+            Debug("quantifiers") << "Flipped decision." << std::endl;
           }
-        }else{
-          Debug("quantifiers") << "Flipped decision." << std::endl;
         }
       }
     }
@@ -194,6 +195,10 @@ void TheoryQuantifiers::check(Effort e) {
 }
 
 void TheoryQuantifiers::assertUniversal( Node n ){
+  if( n.hasAttribute(InstConstantAttribute()) ){
+    Debug("quantifiers") << "Ignoring nested quantifier for counterexample: " << n << std::endl;
+    return;
+  }
   if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
     //counterexample instantiate, add lemma
     std::vector< Node > inst_constants;
@@ -214,26 +219,20 @@ void TheoryQuantifiers::assertUniversal( Node n ){
     ////mark cel as dependent on n
     //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
     //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
-    //d_out->dependentDecision( quant, cel );    //FIXME
+    //d_out->dependentDecision( quant, cel );    //FIXME?
     //require any decision on cel to be phase=false
     d_out->requirePhase( cel, false );
 
     d_abstract_inst[n] = true;
-
-    //if there is an associated counterexample quantifier, use its skolem constants to instantiate
-    Node cen = d_instEngine->getCounterexampleQuantifier( n );
-    if( cen!=Node::null() ){
-      Debug("quantifiers") << "Associated counterexample quantifier: " << cen << ", ";
-      Debug("quantifiers") << "Instantiate this with its skolem constants." << std::endl;
-      std::vector< Node > scs;
-      d_instEngine->getSkolemConstantsFor( cen, scs );
-      d_instEngine->instantiate( n, scs, d_out );
-    } 
   }
   d_forall_asserts[n] = true;
 }
 
 void TheoryQuantifiers::assertExistential( Node n ){
+  if( n.hasAttribute(InstConstantAttribute()) ){
+    Debug("quantifiers") << "Ignoring nested quantifier for counterexample: " << n << std::endl;
+    return;
+  }
   if( d_skolemized.find( n )==d_skolemized.end() ){
     //skolemize, add lemma
     std::vector< Node > vars;
@@ -249,14 +248,6 @@ void TheoryQuantifiers::assertExistential( Node n ){
     Node lem = nb;
     Debug("quantifiers") << "Skolemize lemma : " << lem << std::endl;
     d_out->lemma( lem );
-
-    //if there is an associated counterexample quantifier, instantiate it with these skolem constant
-    Node cen = d_instEngine->getCounterexampleQuantifier( n );
-    if( cen!=Node::null() ){
-      Debug("quantifiers") << "Associated counterexample quantifier: " << cen << ", ";
-      Debug("quantifiers") << "Instantiate it with these skolem constants." << std::endl;
-      d_instEngine->instantiate( cen, skolems, d_out );
-    }
 
     d_skolemized[n] = true;
   }

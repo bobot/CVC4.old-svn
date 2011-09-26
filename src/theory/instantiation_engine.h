@@ -32,8 +32,8 @@ class TheoryEngine;
 class SmtEngine;
 
 // attribute for "contains instantiation constants from"
-struct InstantitionConstantAttributeId {};
-typedef expr::Attribute<InstantitionConstantAttributeId, Node> InstantitionConstantAttribute;
+struct InstConstantAttributeId {};
+typedef expr::Attribute<InstConstantAttributeId, Node> InstConstantAttribute;
 
 namespace theory {
 
@@ -48,6 +48,7 @@ public:
   std::vector< Node > d_match;
   bool d_computeVec;
 
+  InstMatch(){}
   InstMatch( Node f, InstantiationEngine* ie );
   InstMatch( InstMatch* m );
   virtual PartialInstMatch* asPartialInstMatch() { return NULL; }
@@ -78,7 +79,7 @@ public:
     return n.substitute( d_vars.begin(), d_vars.end(), d_match.begin(), d_match.end() ); 
   }
   /** get associated quantifier */
-  Node getQuantifier() { return d_vars[0].getAttribute(InstantitionConstantAttribute()); }
+  Node getQuantifier() { return d_vars[0].getAttribute(InstConstantAttribute()); }
   /** partial merge */
   void partialMerge( InstMatch& m, std::map< Node, Node >& splits );
 };
@@ -98,7 +99,6 @@ public:
   }
   ~InstMatchGroup(){}
   std::vector< InstMatch > d_matches;
-  std::map< Node, Node > d_splits;
   bool d_is_set;
 
   bool merge( InstMatchGroup& mg );
@@ -121,18 +121,15 @@ public:
 class Instantiator{
   friend class InstantiationEngine;
 protected:
+  /** status */
+  int d_status;
   /** reference to the instantiation engine */
   InstantiationEngine* d_instEngine;
-  /** list of lemmas */
-  std::vector< Node > d_lemmas;
-  /** list of matches */
-  InstMatchGroup d_inst_matches;
 public:
-  enum Effort {
-    MIN_EFFORT = 0,
-    QUICK_EFFORT = 1,
-    STANDARD_EFFORT = 2,
-    FULL_EFFORT = 3
+  enum Status {
+    STATUS_UNFINISHED,
+    STATUS_UNKNOWN,
+    STATUS_SAT,
   };/* enum Effort */
 public:
   Instantiator(context::Context* c, InstantiationEngine* ie);
@@ -144,20 +141,13 @@ public:
   virtual void check( Node assertion ){}
 
   /** reset instantiation */
-  virtual void resetInstantiation() {}
+  virtual void resetInstantiation() { d_status = STATUS_UNFINISHED; }
   /** prepare instantiation method
     * post condition: set d_inst_matches and d_lemmas fields */
-  virtual bool prepareInstantiation( Effort e ){ return false; }
+  virtual bool doInstantiation( int effort ){ return false; }
 
-  /** helper functions for lemmas */
-  unsigned int getNumLemmas() { return d_lemmas.size(); }
-  Node getLemma( int i ) { return d_lemmas[i]; }
-  void clearLemmas() { d_lemmas.clear(); }
-
-  /** matches */
-  unsigned int getNumMatches() { return d_inst_matches.d_matches.size(); }
-  InstMatch* getMatch( int i ) { return d_inst_matches.getMatch( i ); }
-  void clearMatches() { d_inst_matches.d_matches.clear(); }
+  /** get status */
+  int getStatus() { return d_status; }
 };/* class Instantiator */
 
 class InstantiatorDefault;
@@ -174,6 +164,8 @@ class InstantiationEngine
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
+  /** current output */
+  OutputChannel* d_curr_out;
   /** theory instantiator objects for each theory */
   theory::Instantiator* d_instTable[theory::THEORY_LAST];
   /** reference to theory engine object */
@@ -198,6 +190,10 @@ private:
   BoolMap d_active;
   /** lemmas produced */
   std::map< Node, bool > d_lemmas_produced;
+  /** status */
+  int d_status;
+  /** whether a lemma has been added */
+  bool d_addedLemma;
 
   void associateNestedQuantifiers( Node n, Node cen );
 public:
@@ -207,11 +203,18 @@ public:
   theory::Instantiator* getInstantiator( Theory* t ) { return d_instTable[t->getId()]; }
   TheoryEngine* getTheoryEngine() { return d_te; }
 
-  bool instantiate( Node f, std::vector< Node >& terms, OutputChannel* out );
+  bool addInstantiation( Node f, std::vector< Node >& terms );
+  bool addInstantiation( InstMatch* m );
+  bool addLemma( Node f );
+  bool addSplit( Node f );
 
+  /** get the instantiation constants for quantifier f, and ce body ~f[e/x] */
   void getInstantiationConstantsFor( Node f, std::vector< Node >& ics, Node& cebody );
+  /** get the skolem constants for quantifier f */
   void getSkolemConstantsFor( Node f, std::vector< Node >& scs );
+  /** get the quantified variables for quantifier f */
   void getVariablesFor( Node f, std::vector< Node >& vars );
+  /** do a round of instantiation */
   bool doInstantiation( OutputChannel* out );
 
   /** get the corresponding counterexample literal for quantified formula node n */
@@ -225,8 +228,10 @@ public:
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */
   bool getActive( Node n ) { return d_active[n]; }
-  /** is subquantifier */
-  bool isSubQuantifier( Node sub, Node f );
+  /** get status */
+  int getStatus() { return d_status; }
+  /** has added lemma */
+  bool hasAddedLemma() { return d_addedLemma; }
 };/* class InstantiationEngine */
 
 }/* CVC4::theory namespace */

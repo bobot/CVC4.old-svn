@@ -234,6 +234,7 @@ void InstMatchGroup::debugPrint( const char* c ){
 }
 
 Instantiator::Instantiator(context::Context* c, InstantiationEngine* ie) : 
+d_status( STATUS_UNFINISHED ),
 d_instEngine( ie ){
 
 }
@@ -249,9 +250,10 @@ d_active( c ){
   }
 }
 
-bool InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, OutputChannel* out )
+bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
 {
   Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==EXISTS ) );
+  Assert( !f.hasAttribute(InstConstantAttribute()) );
   Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
   Assert( d_vars[f].size()==terms.size() && d_vars[f].size()==(quant.getNumChildren()-1) );
   Node body = quant[ quant.getNumChildren() - 1 ].substitute( d_vars[f].begin(), d_vars[f].end(), 
@@ -261,27 +263,43 @@ bool InstantiationEngine::instantiate( Node f, std::vector< Node >& terms, Outpu
   nb << ( f.getKind()==kind::NOT ? NodeManager::currentNM()->mkNode( NOT, body ) : body );
   Node lem = nb;
   //AJR: the following two lines are necessary until FULL_CHECK is guarenteed after d_out->lemma(...)
-  lem = Rewriter::rewrite( lem );
-  if( d_lemmas_produced.find( lem )==d_lemmas_produced.end() ){
+  if( addLemma( lem ) ){
     Debug("inst-engine") << "Instantiate " << f << " with " << std::endl;
     for( int i=0; i<(int)terms.size(); i++ ){
-      Assert( !terms[i].hasAttribute(InstantitionConstantAttribute()) );
+      Assert( !terms[i].hasAttribute(InstConstantAttribute()) );
       Debug("inst-engine") << "   " << terms[i] << std::endl;
     }
-    Debug("inst-engine-debug") << "Instantiation lemma : " << lem << std::endl;
-    out->lemma( lem );
-    d_lemmas_produced[ lem ] = true;
-    //if the quantifier or any term has instantiation constants, then mark terms as dependent
-    if( f.hasAttribute(InstantitionConstantAttribute()) ){
-      registerLiterals( body, f, out );
-    }
-
     //associate all nested quantifiers with their counterexample equivalents
     associateNestedQuantifiers( body, d_counterexample_body[f] );
     return true;
   }else{
     return false;
   }
+}
+
+bool InstantiationEngine::addInstantiation( InstMatch* m ){
+  Assert( m->isComplete() );
+  m->computeTermVec();
+  return addInstantiation( m->getQuantifier(), m->d_match );
+}
+
+bool InstantiationEngine::addLemma( Node lem ){
+  lem = Rewriter::rewrite(lem);
+  if( d_lemmas_produced.find( lem )==d_lemmas_produced.end() ){
+    d_addedLemma = true;
+    d_curr_out->lemma( lem );
+    d_lemmas_produced[ lem ] = true;
+    Debug("inst-engine-debug") << "Added lemma : " << lem << std::endl;
+    return true;
+  }else{
+    return false;
+  }
+}
+
+bool InstantiationEngine::addSplit( Node n ){
+  Node lem = NodeManager::currentNM()->mkNode( OR, n, n.notNode() );
+  lem = Rewriter::rewrite( lem );
+  return addLemma( lem );
 }
 
 void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Node >& ics, Node& cebody ){
@@ -347,6 +365,7 @@ void InstantiationEngine::getVariablesFor( Node f, std::vector< Node >& vars )
 }
 
 bool InstantiationEngine::doInstantiation( OutputChannel* out ){
+  d_curr_out = out;
   //call instantiators to search for an instantiation
   Debug("inst-engine") << "Reset instantiation." << std::endl;
   for( int i=0; i<theory::THEORY_LAST; i++ ){
@@ -354,39 +373,30 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
       d_instTable[i]->resetInstantiation();
     }
   }
-  for( int e=0; e<=3; e++ ){
+  int e = 0;
+  d_status = Instantiator::STATUS_UNFINISHED;
+  d_addedLemma = false;
+  while( d_status==Instantiator::STATUS_UNFINISHED ){
     Debug("inst-engine") << "Prepare instantiation (" << e << ")." << std::endl;
-    bool retVal = false;
+    d_status = Instantiator::STATUS_SAT;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
-        d_instTable[i]->prepareInstantiation( (Instantiator::Effort)e );
-        //do instantiations
-        for( int j=0; j<(int)d_instTable[i]->getNumMatches(); j++ ){
-          //do instantiation
-          InstMatch* m = d_instTable[i]->getMatch( j );
-          Assert( m->isComplete() );
-          m->computeTermVec();
-          if( instantiate( m->getQuantifier(), m->d_match, out ) ){
-            retVal = true;
+        d_instTable[i]->doInstantiation( e );
+        //update status
+        if( d_instTable[i]->getStatus()==Instantiator::STATUS_UNFINISHED ){
+          d_status = Instantiator::STATUS_UNFINISHED;
+        }else if( d_instTable[i]->getStatus()==Instantiator::STATUS_UNKNOWN ){
+          if( d_status==Instantiator::STATUS_SAT ){
+            d_status = Instantiator::STATUS_UNKNOWN;
           }
         }
-        d_instTable[i]->clearMatches();
-        //add lemmas
-        for( int j=0; j<(int)d_instTable[i]->getNumLemmas(); j++ ){
-          Node lem = Rewriter::rewrite(d_instTable[i]->getLemma( j ));
-          if( d_lemmas_produced.find( lem )==d_lemmas_produced.end() ){
-            Debug("inst-engine") << "Add lemma : " << lem << std::endl;
-            d_lemmas_produced[ lem ] = true;
-            out->split( lem );
-            retVal = true;
-          }
-        }
-        d_instTable[i]->clearLemmas();
       }
     }
-    if( retVal ){
+    if( d_addedLemma ){
+      d_status = Instantiator::STATUS_UNKNOWN;
       return true;
     }
+    e++;
   }
   return false;
 }
@@ -402,30 +412,30 @@ Node InstantiationEngine::getCounterexampleLiteralFor( Node n ){
 void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
 {
   if( n.getKind()==INST_CONSTANT ){
-    if( !n.hasAttribute(InstantitionConstantAttribute()) ){
-      InstantitionConstantAttribute icai;
+    if( !n.hasAttribute(InstConstantAttribute()) ){
+      InstConstantAttribute icai;
       n.setAttribute(icai,f);
     }
   }else{
     Node fa;
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
       registerLiterals( n[i], f, out );
-      if( n[i].hasAttribute(InstantitionConstantAttribute()) ){
+      if( n[i].hasAttribute(InstConstantAttribute()) ){
         if( fa!=f ){
-          fa = n[i].getAttribute(InstantitionConstantAttribute());
+          fa = n[i].getAttribute(InstConstantAttribute());
         }
       }
     }
     if( fa!=Node::null() ){
       //set n to have instantiation constants from f
       Node nr = Rewriter::rewrite( n );
-      if( !nr.hasAttribute(InstantitionConstantAttribute()) ){
+      if( !nr.hasAttribute(InstConstantAttribute()) ){
         if( d_te->getPropEngine()->isSatLiteral( nr ) && n.getKind()!=NOT ){
           Node cel = getCounterexampleLiteralFor( fa );
           Debug("quant-dep-dec") << "Make " << nr << " dependent on " << cel << std::endl;
           out->dependentDecision( cel, nr );
         }
-        InstantitionConstantAttribute icai;
+        InstConstantAttribute icai;
         nr.setAttribute(icai,fa);
       }
     }
@@ -445,9 +455,4 @@ void InstantiationEngine::associateNestedQuantifiers( Node n, Node cen )
       associateNestedQuantifiers( n[i], cen[i] );
     }
   }
-}
-
-bool InstantiationEngine::isSubQuantifier( Node sub, Node f ){
-  //DO_THIS
-  return sub==f;
 }
