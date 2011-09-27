@@ -67,6 +67,10 @@ private:
   Rational d_ZERO;
   DeltaRational d_DELTA_ZERO;
 
+  uint32_t d_numPivotsInCurrentRound; //TK: DO NOT CHECK THIS IN!
+  uint32_t d_numErrorIncreasingPivotsInCurrentRound; //TK: DO NOT CHECK THIS IN!
+  uint32_t d_numErrorDecreasingPivotsInCurrentRound; //TK: DO NOT CHECK THIS IN!
+
 public:
   SimplexDecisionProcedure(ArithPropManager& propManager,
                            ArithPartialModel& pm,
@@ -314,6 +318,7 @@ private:
     return computeBound(basic, true);
   }
 
+  DeltaRational computeError();
 
   /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {
@@ -343,6 +348,10 @@ private:
 
     AverageStat d_avgNumRowsNotContainingOnUpdate;
     AverageStat d_avgNumRowsNotContainingOnPivot;
+
+    ListStat<uint32_t> d_pivotsHistory;
+    ListStat<uint32_t> d_errorDecreasingPivotsHistory;
+    ListStat<uint32_t> d_errorIncreaingPivotsHistory;
 
     Statistics();
     ~Statistics();

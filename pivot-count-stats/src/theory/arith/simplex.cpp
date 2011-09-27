@@ -88,7 +88,10 @@ SimplexDecisionProcedure::Statistics::Statistics():
   d_delayedConflicts("theory::arith::delayedConflicts",0),
   d_pivotTime("theory::arith::pivotTime"),
   d_avgNumRowsNotContainingOnUpdate("theory::arith::avgNumRowsNotContainingOnUpdate"),
-  d_avgNumRowsNotContainingOnPivot("theory::arith::avgNumRowsNotContainingOnPivot")
+  d_avgNumRowsNotContainingOnPivot("theory::arith::avgNumRowsNotContainingOnPivot"),
+  d_pivotsHistory("theory::arith::numPivotsHistory"),
+  d_errorDecreasingPivotsHistory("theory::arith::numErrorDecreasingPivotsHistory"),
+  d_errorIncreaingPivotsHistory("theory::arith::numErrorIncreaingPivotsHistory")
 {
   StatisticsRegistry::registerStat(&d_statPivots);
   StatisticsRegistry::registerStat(&d_statUpdates);
@@ -124,6 +127,10 @@ SimplexDecisionProcedure::Statistics::Statistics():
 
   StatisticsRegistry::registerStat(&d_avgNumRowsNotContainingOnUpdate);
   StatisticsRegistry::registerStat(&d_avgNumRowsNotContainingOnPivot);
+
+  StatisticsRegistry::registerStat(&d_pivotsHistory);
+  StatisticsRegistry::registerStat(&d_errorDecreasingPivotsHistory);
+  StatisticsRegistry::registerStat(&d_errorIncreaingPivotsHistory);
 }
 
 SimplexDecisionProcedure::Statistics::~Statistics(){
@@ -160,6 +167,10 @@ SimplexDecisionProcedure::Statistics::~Statistics(){
 
   StatisticsRegistry::unregisterStat(&d_avgNumRowsNotContainingOnUpdate);
   StatisticsRegistry::unregisterStat(&d_avgNumRowsNotContainingOnPivot);
+
+  StatisticsRegistry::unregisterStat(&d_pivotsHistory);
+  StatisticsRegistry::unregisterStat(&d_errorDecreasingPivotsHistory);
+  StatisticsRegistry::unregisterStat(&d_errorIncreaingPivotsHistory);
 }
 
 /* procedure AssertLower( x_i >= c_i ) */
@@ -627,6 +638,10 @@ Node SimplexDecisionProcedure::updateInconsistentVars(){
 
   d_queue.transitionToDifferenceMode();
 
+  d_numPivotsInCurrentRound = 0;
+  d_numErrorIncreasingPivotsInCurrentRound = 0;
+  d_numErrorDecreasingPivotsInCurrentRound = 0;
+
   Node possibleConflict = Node::null();
   if(d_queue.size() > 1){
     possibleConflict = findConflictOnTheQueue(BeforeDiffSearch);
@@ -681,6 +696,10 @@ Node SimplexDecisionProcedure::updateInconsistentVars(){
   Debug("arith::updateInconsistentVars") << "end updateInconsistentVars() "
                                          << instance << endl;
 
+  d_statistics.d_pivotsHistory << d_numPivotsInCurrentRound;
+  d_statistics.d_errorIncreaingPivotsHistory << d_numErrorIncreasingPivotsInCurrentRound;
+  d_statistics.d_errorDecreasingPivotsHistory << d_numErrorDecreasingPivotsInCurrentRound;
+
   return possibleConflict;
 }
 
@@ -703,11 +722,25 @@ Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
   return Node::null();
 }
 
+DeltaRational SimplexDecisionProcedure::computeError(){
+  DeltaRational error(0);
+
+  ArithVarSet::const_iterator basicIter = d_tableau.beginBasic();
+  ArithVarSet::const_iterator endIter = d_tableau.endBasic();
+  for(; basicIter != endIter; ++basicIter){
+    ArithVar basic = *basicIter;
+    error = error + d_partialModel.error(basic);
+  }
+  return error;
+}
+
 //corresponds to Check() in dM06
 //template <SimplexDecisionProcedure::PreferenceFunction pf>
 Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingIterations){
   Debug("arith") << "updateInconsistentVars" << endl;
   Assert(remainingIterations > 0);
+
+  DeltaRational currError = computeError();
 
   while(remainingIterations > 0){
     if(Debug.isOn("paranoid:check_tableau")){ debugCheckTableau(); }
@@ -737,6 +770,8 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     DeltaRational beta_i = d_partialModel.getAssignment(x_i);
     ArithVar x_j = ARITHVAR_SENTINEL;
 
+    DeltaRational error_i = d_partialModel.error(x_i);
+
     if(d_partialModel.belowLowerBound(x_i, beta_i, true)){
       x_j = selectSlackUpperBound(x_i, pf);
       if(x_j == ARITHVAR_SENTINEL ){
@@ -756,6 +791,15 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       pivotAndUpdate(x_i, x_j, u_i);
     }
     Assert(x_j != ARITHVAR_SENTINEL);
+
+    d_numPivotsInCurrentRound++;
+    DeltaRational error_j = d_partialModel.error(x_j);
+    if(error_j < error_i){
+      d_numErrorDecreasingPivotsInCurrentRound++;
+    }else if(error_j > error_i){
+      d_numErrorIncreasingPivotsInCurrentRound++;
+    }
+    currError = currError - error_i + error_j;
 
     //Check to see if we already have a conflict with x_j to prevent wasteful work
     if(CHECK_AFTER_PIVOT){

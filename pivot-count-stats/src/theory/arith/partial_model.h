@@ -144,6 +144,8 @@ public:
   bool strictlyAboveLowerBound(ArithVar x);
   bool assignmentIsConsistent(ArithVar x);
 
+  DeltaRational error(ArithVar x);
+
   void printModel(ArithVar x);
 
   /** returns true iff x has both a lower and upper bound. */
