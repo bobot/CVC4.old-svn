@@ -343,7 +343,8 @@ DeltaRational ArithPartialModel::error(ArithVar x){
     if(beta > d_upperBound[x] ){
       return beta - d_upperBound[x];
     }
-  }else if(hasLowerBound(x)){
+  }
+  if(hasLowerBound(x)){
     if(beta < d_lowerBound[x] ){
       return d_lowerBound[x] - beta;
     }

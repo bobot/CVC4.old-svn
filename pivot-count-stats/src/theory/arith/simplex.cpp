@@ -734,6 +734,17 @@ DeltaRational SimplexDecisionProcedure::computeError(){
   return error;
 }
 
+void summarize(ArithVar x, ArithPartialModel& pm){
+  Debug("arith::error") << x << " assignment(" << pm.getAssignment(x) << ")" << endl;
+  if(pm.hasLowerBound(x)){
+    Debug("arith::error") << "  lb(" << pm.getLowerBound(x) << ")" << endl;
+  }
+  if(pm.hasUpperBound(x)){
+    Debug("arith::error") << "  ub(" << pm.getUpperBound(x) << ")" << endl;
+  }
+  Debug("arith::error") << "  error(" << pm.error(x) << ")" << endl;
+}
+
 //corresponds to Check() in dM06
 //template <SimplexDecisionProcedure::PreferenceFunction pf>
 Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingIterations){
@@ -771,6 +782,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     ArithVar x_j = ARITHVAR_SENTINEL;
 
     DeltaRational error_i = d_partialModel.error(x_i);
+    summarize(x_i, d_partialModel);
 
     if(d_partialModel.belowLowerBound(x_i, beta_i, true)){
       x_j = selectSlackUpperBound(x_i, pf);
@@ -796,10 +808,15 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     DeltaRational error_j = d_partialModel.error(x_j);
     if(error_j < error_i){
       d_numErrorDecreasingPivotsInCurrentRound++;
+      Debug("arith::error") << "\\|/" << endl;
     }else if(error_j > error_i){
+      Debug("arith::error") << "^" << endl;
       d_numErrorIncreasingPivotsInCurrentRound++;
     }
     currError = currError - error_i + error_j;
+
+    summarize(x_j, d_partialModel);
+    Debug("arith::error") << "currError " << currError << endl;
 
     //Check to see if we already have a conflict with x_j to prevent wasteful work
     if(CHECK_AFTER_PIVOT){
