@@ -242,6 +242,16 @@ d_instEngine( ie ){
 Instantiator::~Instantiator(){
 }
 
+void Instantiator::updateStatus( int& currStatus, int addStatus ){
+  if( addStatus==Instantiator::STATUS_UNFINISHED ){
+    currStatus = Instantiator::STATUS_UNFINISHED;
+  }else if( addStatus==Instantiator::STATUS_UNKNOWN ){
+    if( currStatus==Instantiator::STATUS_SAT ){
+      currStatus = Instantiator::STATUS_UNKNOWN;
+    }
+  }
+}
+
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_active( c ){
@@ -264,7 +274,7 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
   Node lem = nb;
   //AJR: the following two lines are necessary until FULL_CHECK is guarenteed after d_out->lemma(...)
   if( addLemma( lem ) ){
-    Debug("inst-engine") << "Instantiate " << f << " with " << std::endl;
+    Debug("inst-engine") << "*** Instantiate " << f << " with " << std::endl;
     for( int i=0; i<(int)terms.size(); i++ ){
       Assert( !terms[i].hasAttribute(InstConstantAttribute()) );
       Debug("inst-engine") << "   " << terms[i] << std::endl;
@@ -298,7 +308,6 @@ bool InstantiationEngine::addLemma( Node lem ){
 
 bool InstantiationEngine::addSplit( Node n ){
   Node lem = NodeManager::currentNM()->mkNode( OR, n, n.notNode() );
-  lem = Rewriter::rewrite( lem );
   return addLemma( lem );
 }
 
@@ -383,13 +392,7 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
       if( d_instTable[i] ){
         d_instTable[i]->doInstantiation( e );
         //update status
-        if( d_instTable[i]->getStatus()==Instantiator::STATUS_UNFINISHED ){
-          d_status = Instantiator::STATUS_UNFINISHED;
-        }else if( d_instTable[i]->getStatus()==Instantiator::STATUS_UNKNOWN ){
-          if( d_status==Instantiator::STATUS_SAT ){
-            d_status = Instantiator::STATUS_UNKNOWN;
-          }
-        }
+        Instantiator::updateStatus( d_status, d_instTable[i]->getStatus() );
       }
     }
     if( d_addedLemma ){

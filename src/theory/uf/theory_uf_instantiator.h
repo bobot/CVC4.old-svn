@@ -82,14 +82,17 @@ protected:
   NodeList d_disequality;
   /** map from patterns to nodes that they have ematched against */
   //NodeLists d_eind_done;
+  /** quantifier status */
+  int d_quantStatus;
 
   ///** used eq classes */
+  std::map< Node, Node > d_reps;
   std::map< Node, std::vector< Node > > d_emap;
   std::map< Node, std::vector< Node > > d_dmap;
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
-  void debugPrint();
+  void debugPrint( const char* c );
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
@@ -101,7 +104,6 @@ public:
   bool doInstantiation( int effort );
 private:
   void registerTerm( Node n, bool isTop = true );
-  Node getConcreteTermEqualTo( Node n );
 
   /** calculate matches for quantifier f at effort */
   std::map< Node, InstMatch > d_baseMatch;
@@ -109,7 +111,7 @@ private:
   /** determine why t did not match with g */
   void resolveMatch( Node t, Node g, Node f );
   /** determine why inst match groups did not merge */
-  void resolveMerge( std::vector< InstMatchGroup* >& matches );
+  void resolveMerge( std::vector< InstMatchGroup* >& matches, Node f );
   /** resolve counterexamples */
   void resolveModel( Node f, Node t );
   /** calculate unifiers that induce lit */
@@ -117,7 +119,7 @@ private:
   void calculateEIndLit( Node lit, Node f );
   /** find best match */
   std::map< Node, std::map< Node, Node > > d_bestLitMatch[2];
-  void findBestLiteralMatch( Node f, Node t, Node s, bool isEq );
+  void findBestLiteralMatch( Node f, Node t, Node s, bool isEq, bool rhsPat = false );
   /** find best match to any term */
   std::map< Node, Node > d_bestMatch;
   std::map< Node, Node > d_anyMatch;

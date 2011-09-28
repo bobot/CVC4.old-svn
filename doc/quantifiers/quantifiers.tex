@@ -215,25 +215,23 @@ We will see that this will allow us to answer SAT instead of UNKNOWN in some cas
 We will refer to distinguished free constants $\bar{e}$ as introduced in the previous section as \emph{instantiation constants}.
 It is important to note that instantiation constants will have identical logical semantics as free constants of the same sort.
 In other words, our scheme assumes no information about the value of an instantiation constant $e$, and uses this terminology as a way of referring to such constants.
+In this document, we assume a fixed signature $\Sigma$ of function symbols.
+For each quantified formula $\psi$, we define the set of variables $\mathcal{I}( \psi )$, called the instantiation constants of $\psi$.
 
-We write $e \mapsto^I_i \forall \bar{x}. \varphi[ \bar{x} ]$ to denote that $e$ is the i$^{th}$ instantiation constant for the formula $\forall \bar{x}. \varphi[ \bar{x} ] $, and write $\bar{e} \mapsto^I \forall \bar{x}. \varphi[ \bar{x} ]$ to denote that $e_i \mapsto^I_i \forall \bar{x}. \varphi[ \bar{x} ]$ for all $e_i$ in $\bar{e}$.
-For a literal $l$, we write $l \mapsto^I S$ to denote that $S = \{ \forall \bar{x}. \varphi[ \bar{x} ] \mid \exists e \in l. e \mapsto^I \forall \bar{x}. \varphi[ \bar{x} ] \}$, or in other words, all instantiation constants in $l$ refer to a quantified formula in $S$.
-Furthermore write $C \mapsto^I S$ to denote that $S$ is the union of the sets $S_1 \ldots S_n$ for $l_i \in C$, $l_i \mapsto^I S_i$.
-A concrete literal (clause) is one that contains no instantiation constants.
-We consider a literal (clause) to be pure with respect to quantifiers if it contains instantiation constants from at most one quantified formula.
-For convienience, we simply write $E \mapsto^I \forall \bar{x}. \varphi[ \bar{x} ]$ in the case that expression $E$ contains instantiation constants from exactly one.
-An expression $E$ is \emph{concrete} if $E \mapsto^I \emptyset$.
+Define the set $T( \Sigma, X )$ as the set of terms over signature $\Sigma$ and variables $X$.
+We will only consider terms containing variables from at most one quantifier.
+For convienience, we will write $T( \Sigma )$ to denote the set $T( \Sigma, \emptyset )$.
 
 \subsection{Counterexample Lemma for Quantified Formulas}
 
-Consider the lemma $( \neg \psi \vee \neg \bot^\psi \vee \neg \psi[\bar{e}/\bar{x}])$, where $\bar{e} \mapsto^I \psi$.
+Consider the lemma $( \neg \psi \vee \neg \bot^\psi \vee \neg \psi[\bar{e}/\bar{x}])$, where $\bar{e} = \mathcal{I}( \psi )$.
 We will refer to this formula as the \emph{counterexample lemma for $\psi$}.
 Informally, this lemma is valid since either $\psi$ is not true or $\psi$ does not have a counterexample.
 Note that $\neg \psi[\bar{e}/\bar{x}]$ may contain quantifiers.
 
 {\bf Example 0}
 Consider the formula $\psi = \forall x. ( l_1 \vee ( l_2 \vee x = a ) \Rightarrow \neg P( x ) )$.
-Its counterexample lemma after conversion to CNF is $( \neg \psi \vee \neg \bot^\psi \vee \neg l_1 ) \wedge ( \neg \psi \vee \neg \bot^\psi \vee l_2 \vee e = a ) \wedge ( \neg \psi \vee \neg \bot^\psi \vee P( e ) ) $. \\
+Its counterexample lemma after conversion to CNF is $( \neg \psi \vee \neg \bot^\psi \vee \neg l_1 ) \wedge ( \neg \psi \vee \neg \bot^\psi \vee l_2 \vee e = a ) \wedge ( \neg \psi \vee \neg \bot^\psi \vee P( e ) ) $, where $e = \mathcal{I}( \psi )$. \\
 
 In Example 0, we have produced three clauses.
 The first says that either $l_1$ is false or a counterexample does not exist to $\psi$.
@@ -251,7 +249,7 @@ This rule represents the central idea behind our approach: \\
 $M \parallel F \Longrightarrow M \parallel F, (\neg \forall \bar{x}. \varphi[ \bar{x} ] \vee \neg \bot^{\forall \bar{x}. \varphi[ \bar{x} ]} \vee \neg \varphi[ \bar{ e }/\bar{x} ])$, if   
 $\begin{cases}
   \forall \bar{x}. \varphi[ \bar{ x } ] \in M \\
-  \bar{ e } \mapsto^I \forall \bar{x}. \varphi[ \bar{ x } ] \\
+  \bar{ e } = \mathcal{I}( \forall \bar{x}. \varphi[ \bar{ x } ] ) \\
 \end{cases}$ \\
 
 Let us again consider Example 0.
@@ -294,10 +292,7 @@ Note in the context $M, \psi, ( \bot^\psi )^d, \neg l_2$, the literal $e = a$ wi
 We define the following invariant for DPLL(T): \\
 
 {\bf Invariant 1}:
-For all DPLL(T) states $M \parallel F$, the only instance of literal $\bot^\psi$ in $F$ occur in clauses $C_1 \ldots C_n$ such that $C_1 \ldots C_n$ is logically equivalent to $( \neg \psi \vee \neg \bot^\psi \vee \neg \psi[\bar{e}/\bar{x}] )$ where $\bar{e} \mapsto^I \psi$.
-
-%{\bf Invariant 2}:
-%For all DPLL(T) states $M \parallel F$, all clauses $C \mapsto^I \psi$ in $F$ are tautological. \\
+For all DPLL(T) states $M \parallel F$, the only instance of literal $\bot^\psi$ in $F$ occur in clauses $C_1 \ldots C_n$ such that $C_1 \ldots C_n$ is logically equivalent to $( \neg \psi \vee \neg \bot^\psi \vee \neg \psi[\bar{e}/\bar{x}] )$ where $\bar{e} = \mathcal{I}( \psi )$.
 
 It can be shown that counterexample $\forall$-Inst maintains Invariants 1.
 Also note that since counterexample literals $\bot^\psi$ have no meaning apart from representing boolean values, no lemma added to $F$ by $T$-Learn will violate Invariant 1.
@@ -314,25 +309,25 @@ Such cases can be easily recognized by checking if $\neg \bot^\psi$ is asserted 
 Such cases can be easily recognized due to the following theorem:
 
 \begin{thm}
-For all DPLL(T) states of the form $M, \neg \bot^\psi \parallel F$, if no literal $l \mapsto^I \psi$ is asserted as a decision in $M$, then $M \models_T \psi[\bar{t}/\bar{x}]$ for all $\bar{t}$, or in other words, $\psi$ is valid in the context $M$.
+For all DPLL(T) states of the form $M, \neg \bot^\psi \parallel F$, if no literal $l \in M^\psi$ is asserted as a decision, then $M \models_T \psi[\bar{t}/\bar{x}]$ for all $\bar{t}$, or in other words, $\psi$ is valid in the context $M$.
 \end{thm}
 \begin{proof}
 Assume we have a DPLL(T) state $M, \neg \bot^\psi \parallel F$, where $\neg \bot^\psi$ is asserted as a non-decision literal.
 
 Consider the case where $\neg \bot^\psi$ was asserted by unit-propagation.
 Since $\psi$ is in $M$, by Invariant 1, it must be the case that $M \models \psi[\bar{e}/\bar{x}]$.
-Since no literal $l \mapsto^I \psi$ is asserted as a decision in $M$, we can construct an explanation $N \subseteq M$ such that $N \models \psi[\bar{e}/\bar{x}]$ and $N$ does not contain $\bar{e}$.
+Since no literal $l \in M^\psi$ is asserted as a decision, we can construct an explanation $N \subseteq M'$ such that $N \models \psi[\bar{e}/\bar{x}]$ and $N$ does not contain $\bar{e}$.
 Since $\bar{e}$ do not occur in $N$, we have $N \models \psi[\bar{t}/\bar{x}]$ for all vectors of terms $\bar{t}$, and therefore $M \models \psi[\bar{t}/\bar{x}]$ as well.
 
 Consider the case where $\neg \bot^\psi$ was asserted due to a backjump.
 The reasoning here is similar, where now a conflict was discovered for a clause of the form $( \neg \psi \vee \neg \bot^\psi \vee l_1[\bar{e}] \vee \ldots \vee l_n[\bar{e}])$, where $\neg l_1[\bar{e}] \wedge \ldots \wedge \neg l_n[\bar{e}] \Rightarrow \psi$.
-If no literal $l \mapsto^I \psi$ is asserted as a decision literal in $M$, we construct an explanation as before to show $\psi$ is valid in $M$.
+If no instantiation literal $l$ of $\psi$ is asserted as a decision literal in $M$, we construct an explanation as before to show $\psi$ is valid in $M$.
 $\Box$
 \end{proof}
 
-Accordingly, we wish to use a search strategy in which no literal $l \mapsto^I \psi$ should be asserted as a decision when $\neg \bot^\psi$ is not asserted.
+Accordingly, we wish to use a search strategy in which no instantiation literal $l$ of $\psi$ should be asserted as a decision when $\neg \bot^\psi$ is not asserted.
 This scheme may be enforced within the core of the SAT solver when chosing a decision literal.
-When the SAT solver decides on a literal $l \mapsto^I \psi$, it checks if a value has been given to $\neg \bot^\psi$.
+When the SAT solver decides on an instantiation literal $l$ of $\psi$, it checks if a value has been given to $\neg \bot^\psi$.
 If it has not, then it chooses another literal to decide upon.
 This is discussed in more detail in Section~\ref{sec:sat-add}.
 \end{comment}
@@ -343,7 +338,7 @@ Our updated rule for $\forall$-Inst becomes the following: \\
 
 $M \parallel F \Longrightarrow M \parallel F, (\neg \forall \bar{x}. \varphi[ \bar{ x } ] \vee \varphi[ \bar{ s }/\bar{x} ])$, if   
 $\begin{cases}
-  \forall \bar{x}. \varphi[ \bar{ x } ] \in M, \bar{ s } \mapsto^I \emptyset, \\
+  \forall \bar{x}. \varphi[ \bar{ x } ] \in M, \bar{ s } \in T( \Sigma ), \\
   \bot^{\forall \bar{x}. \varphi[ \bar{ x } ]} \text{ is not asserted negatively }\\
   \text{ \ \ \ as a non-decision literal in $M$ } \\    
 \end{cases}$ \\
@@ -356,7 +351,7 @@ The following example shows a simple instance where the solver can return SAT by
 {\bf Example 1}
 Say we wish to determine the satisifiability of the set of formulas $S = \{ a = b, (\psi :) \forall x. ((f(x) = a \wedge f(x) \neq b) \Rightarrow l) \}$.
 After two applications of Unit Propagation, we arrive in the DPLL(T) state $( a = b ), \psi \parallel S$.
-After using Counterexample $\forall$-Inst, our state becomes $( a = b ), \psi \parallel (S':) S \cup \{ (\neg \psi \vee \neg \bot^\psi \vee f( e ) = a), (\neg \psi \vee \neg \bot^\psi \vee f( e ) \neq b)), (\neg \psi \vee \neg \bot^\psi \vee \neg l) \}$.
+After using Counterexample $\forall$-Inst for $e = \mathcal{I}( \psi )$, our state becomes $( a = b ), \psi \parallel (S':) S \cup \{ (\neg \psi \vee \neg \bot^\psi \vee f( e ) = a), (\neg \psi \vee \neg \bot^\psi \vee f( e ) \neq b)), (\neg \psi \vee \neg \bot^\psi \vee \neg l) \}$.
 Say the solver decides that $\psi$ has a counterexample, and our state becomes $( a = b ), \psi, (\bot^\psi)^d \parallel S'$. 
 After unit propagation our state becomes $\ldots, f( e ) = a, f( e ) \neq b \parallel S'$, and we encounter the EUF theory conflict $a = b, f( e ) = a, f( e ) \neq b \models \bot$.
 After conflict analysis, we will backtrack to the state $( a = b ), \psi, \neg \bot^\psi \parallel S'$, and now notice that all clauses in $S'$ are satisfied and $\forall$-Inst does not apply to $\psi$.
@@ -370,7 +365,7 @@ We say a quantified formula $\psi \in M$ is \emph{counterexample-active} in $M \
 
 \begin{thm}
 \label{thm:cerep}
-Given a candidate-satisifiable DPLL(T) state $M \parallel F$ and a quantified formula $\psi$ that is counterexample-active in $M$, we have that $M \models \neg \psi[\bar{e}/\bar{x}]$.
+Given a candidate-satisifiable DPLL(T) state $M \parallel F$ and a quantified formula $\psi$ that is counterexample-active in $M$, we have that $M \models \neg \psi[\bar{e}/\bar{x}]$, where $\bar{e} = \mathcal{I}( \psi )$.
 \end{thm}
 
 \subsection{Learned Lemmas Containing Instantiation Constants}
@@ -400,7 +395,7 @@ An instantiation constant $e$ is \emph{solved in $M$} if $e$ does not exist in $
 An instantiation constant $e$ is \emph{unsolved in $M$} otherwise.
 Similarly, a term $t$ is \emph{unsolved in $M$} if it contains instantiation constants that are unsolved in $M$; a term $t$ is \emph{solved in $M$} otherwise.
 Note that concrete ground terms $t$ are solved for all $M$.
-Given a quantified formula $\psi$ is \emph{solved in $M$} if and only if $M$ is $T$-consistent and all $e_i \mapsto^I \psi$ in $M$ are solved in $M$.
+Given a quantified formula $\psi$ is \emph{solved in $M$} if and only if $M$ is $T$-consistent and all $e_i \in \mathcal{I}( \psi )$ in $M$ are solved in $M$.
 If $e$ is solved, we define $rep_M( e )$ as the concrete ground representative term existing in the same equivalence class as $e$ if one exists, or a fresh constant otherwise.
 
 The usefulness of determining whether a quantified formula $\psi$ is solved is immediate:  if $\psi$ is counterexample active in candidate satsifiable $M \parallel F$, we know that $\neg \psi[ \bar{e}/\bar{x} ]$ is entailed in our current model.
@@ -441,24 +436,21 @@ Note the following definition.
 
 \begin{definition}[E-induced]
 Say we are in a candidate satisfiable DPLL(T) state $M \parallel F$, and $\psi$ is counterexample-active for $\bar{e}$.
-We say \emph{$\psi$ is $E$-induced in $M$} if and only if $M', E \models M^\psi$, where $E$ is a set of equalities of the form $\bar{e} = \bar{s}$, and $M$ is of the form $M' \cup M^\psi$ where $M^\psi$ are the instantiation literals of $\psi$.
+We say \emph{$\psi$ is $E$-induced in $M$} if and only if $M \backslash M^\psi, E \models M^\psi$, where $E$ is a set of equalities of the form $\bar{e} = \bar{s}$, and $M^\psi \subseteq M$ are the instantiation literals of $\psi$.
 \end{definition}
 
 Futhermore, we say a literal \emph{$L$ is $E$-induced in $M$} if and only if $M \backslash L, E \models L$ where $L \in M^\psi$.
-Note that if all literals of $\psi$ are $E$-induced in $M$, this does not necessarily imply that $\psi$ is $E$-induced in $M$.
 
 \begin{thm}
 \label{thm:einduce}
-Given a candidate-satisifiable DPLL(T) state $M \parallel F$, for all quantified formula $\psi$, if $\psi$ is counterexample-active in $M \parallel F$ for $\bar{e}$, and $\psi$ is $\bar{e} = \bar{s}$-induced in $M$, then $\psi[\bar{s}/\bar{x}]$ is $T$-unsatisfiable in $M$.
+Given a candidate-satisifiable DPLL(T) state $M \parallel F$, for all quantified formula $\psi$, if $\psi$ is counterexample-active for $\bar{e}$, and $\psi$ is $\bar{e} = \bar{s}$-induced in $M$, then $\psi[\bar{s}/\bar{x}]$ is $T$-unsatisfiable in $M$.
 \end{thm}
 \begin{proof}
-Consider the quantified formula $\psi$ of the form $\forall \bar{x}. \varphi[ \bar{x} ]$.
-Assume $\psi$ is counterexample-active in $M \parallel F$ for $\bar{e}$ and $\bar{e}=\bar{s}$-induced in $M$.
+Consider the quantified formula $\psi$, where $\psi$ is counterexample-active for $\bar{e}$ and $\bar{e}=\bar{s}$-induced in $M$.
 By Theorem~\ref{thm:cerep}, we have that (1) $M \models \neg \psi[\bar{e}/\bar{x}]$.
-Say $M = M' \cup M^\psi$, where $M^\psi$ are the instantiation literals of $\psi$.
-By the defintion of $E$-induced, we have that $M', \bar{e}=\bar{s} \models_T M^\psi$, and thus $M' \models_T (M^\psi)[\bar{s}/\bar{e}]$.
-Thus, for all models, we can use the value for $\bar{s}$ for $\bar{e}$.
-Together with (1), this implies that $M' \models_T \neg \psi[\bar{s}/\bar{x}]$, and thus $\psi[\bar{s}/\bar{x}]$ is $T$-unsatisfiable in $M$.
+Say $M^\psi \subseteq M$ are the instantiation literals of $\psi$.
+By the defintion of $E$-induced, we have that $M \backslash M^\psi, \bar{e}=\bar{s} \models_T M^\psi$, and thus $M \backslash M^\psi \models_T (M^\psi)[\bar{s}/\bar{e}]$.
+Together with (1), this implies that $M \backslash M^\psi \models_T \neg \psi[\bar{s}/\bar{x}]$, and thus $\psi[\bar{s}/\bar{x}]$ is $T$-unsatisfiable in $M$.
 $\Box$
 \end{proof}
 
@@ -501,18 +493,19 @@ In this approach, we need only consider the equalities necessary to force $t[\ba
 
 Consider the following illustrative example.
 Say we have the quantifier $\psi$ of the form $\forall x. (g(x) = a \Rightarrow f( x, g( x ) ) \neq f( b, a ))$.
-After applying Counterexample $\forall$-Inst, we will have the literals $g(e) = a$ and $f( e, g( e ) ) = f( b, a )$ asserted in the current context for $e \mapsto^I \psi$.
+After applying Counterexample $\forall$-Inst, we will have the literals $g(e) = a$ and $f( e, g( e ) ) = f( b, a )$ asserted in the current context for $e \in \mathcal{I}( \psi )$.
 Note that $e = b$ suffices to show that $f( e, g( e ) ) = f( b, a )$ in this example, suggesting that we may wish to use $b$ to instantiate $\psi$.
 In a basic implementation of E-matching, $f( x, g( x ) )$ and $f( b, a )$ do not E-match.
 
-Let us first consider equalities of the form $t = g$, where $t \mapsto^I \psi$ and $g \mapsto^I \emptyset$.
+Let us first consider equalities of the form $t = g$, where $t \in T( \Sigma, \mathcal{I}( \psi ) )$ and $g \in T( \Sigma )$.
 We are interested in finding a unifier $\bar{e} = \bar{s}$ that induces the equality $t = g$.
 The following method $e\_ind$ computes an over-approximation of the set of such unifiers:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
 \PROC |e\_ind|(t,g,M,\psi) \BODY
-  \IF t \not\mapsto^I \psi, g \not\mapsto^I \emptyset \text{ or } M \models_T t \neq g \THEN
+  \IF FV( t ) \cap \mathcal{I}( \psi ) = \emptyset, FV( g ) \cap \mathcal{I}( \psi ) \neq \emptyset,
+      \text{ or } M \models_T t \neq g \THEN
     \RETURN \emptyset;
   \ELSEIF t \text{ is inst. constant } \THEN
     %\IF M \models_T t = g' \text{ where } g, g' \text{ are distinct }
@@ -557,6 +550,8 @@ The following method $e\_ind$ computes an over-approximation of the set of such 
 \end{program}
 \end{minipage}
 
+\ \\
+
 The method $e\_ind(t,g,M,\psi)$ is intended to be applied where $t$ contains instantiation constants from $\psi$ and $g$ is a concrete ground term.
 If these preconditions are not met or if $t$ is disequal from $g$, the method returns the empty set.
 In the case that $t$ is an instantiation constant, the method returns the set containg a single unifier containing $t = rep_M( g )$.
@@ -591,25 +586,30 @@ Since each $E \in S_i$ contains all equalities from some $E_1 \in S_{i-1}$ and s
 \end{proof}
 \end{comment}
 
-In this secion, we will be interested in classifying which pairs of terms may potentially be $E$-induced to be equal.
-A term $f( t_1, \ldots, t_n )$ is \emph{equality-independent from term $s$ in $M$} if either (a) $s$ is of the form $g( s_1, \ldots s_m )$, or (b) $s$ is of the form $f( s_1, \ldots s_n )$ in $M$, and $M \models_T t_i \neq s_i$ for some $i$, and equality-dependent otherwise.
-For a pair of equality-dependent terms $t,s$ of the form $f( t_1, \ldots, t_n )$, $f( s_1, \ldots s_n )$, define $NEqArgs_M( t, s )$ to be equal to the number of pairs $t_i, s_i$ such that $M \models t_i = s_i$.
+In this section, we will be interested in classifying which pairs of terms may potentially be $E$-induced to be equal.
+A term $f( t_1, \ldots, t_n )$ is \emph{equality-independent from term $s$ in $M$} if either (a) $s$ is of the form $g( s_1, \ldots s_m )$, or (b) $s$ is of the form $f( s_1, \ldots s_n )$ in $M$, and $M \models_T t_i \neq s_i$ for some $i$.
+Terms that are not equality independent we will call \emph{equality-dependent}.
+For a pair of equality-dependent terms $t,s$ of the form $f( t_1, \ldots, t_n )$, $f( s_1, \ldots s_n )$, define $NeqArgs_M( t, s )$ to be equal to the number of pairs $t_i, s_i$ such that $M \not\models t_i = s_i$.
 %For a quantified formula $\psi$, a term $f( t_1, \ldots, t_n )$ is \emph{equality-compatible with term $s$ in $M$} if and only if $s$ is of the form $f( s_1, \ldots s_n )$ and $M \models_T t_1 = s_1 \wedge \ldots \wedge t_n = s_n$.
 %A pair of terms $t, s$ is \emph{equality-ambiguous} if $t$ is neither equality-compatible nor equality-independent from $s$.
 
-Given a term $t \mapsto^I \psi$, we say that $t$ is \emph{unmatchable} in $M$ if all terms $t'$ in $M$ are equality-independent from $t$.
+Given a term $t \in T( \Sigma, \mathcal{I}( \psi ) )$, we say that $t$ is \emph{unmatchable} in $M$ if all terms $t'$ in $M$ are equality-independent from $t$.
 A literal $t \sim s$ is unmatchable if either $t$ or $s$ is unmatchable.
-Otherwise, for a literal $t \sim s$, where $t \mapsto^I \psi$, we will be interested in finding corresponding concrete ground terms, call them $t_{\sim s}$ and $s_{\sim t}$, that represent the best match for $t$ and $s$ respectively, with regard to the equality or disequality $t \sim s$.
-We require that $t$ and $t_{\sim s}$ are equality-dependent and similarly for $s_{\sim t}$ and $s$.
-Formally, define $t_{\sim s}$ and $s_{\sim t}$ as the pair of terms in $M$ that are maximal with respect to the following metrics in descending order of importance: 
+Otherwise, for a literal $t \sim s$, consider the case when $s$ does not contain instantiation constants.
+We will be interested in finding a corresponding concrete ground term, call it $t_{\sim s}$, that represents the best match for $t$ with regard to literal $t \sim s$.
+We require that $t$ and $t_{\sim s}$ are equality-dependent.
+Formally, define $t_{\sim s}$ as the term in $M$ that is maximal with respect to the following metrics in descending order of importance: 
 
-(1) $M \not\models_T t_{\sim s} \not\sim s_{\sim t}$, 
+(1) $M \not\models_T t_{\sim s} \not\sim s$, 
 
-(2) $M \models_T t_{\sim s} \sim s_{\sim t}$,
+(2) $M \models_T t_{\sim s} \sim s$,
 
-(3) value of $NEqArgs_M( t, t_{\sim s} ) + NEqArgs_M( s, s_{\sim t} )$.
+(3) $t \sim t_{\sim s}$ is $E$-induced in $M$ for some $E$,
 
-If it is the case that $M \models_T t_{\sim s} \sim s_{\sim t}$, we say that $t \sim s$ is \emph{literal-matched}, that is, a candidate match at the literal level has been found.
+(4) minimum value of $NeqArgs_M( t, t_{\sim s} )$.
+
+In the case that we have a matchable literal $t \sim s$ where both $t$ and $s$ contain instantiation constants, we define $t_{\sim s}$ and $s_{\sim t}$ similarly.
+In the case that $M \models_T t_{\sim s} \sim s_{\sim t}$, we say that $t \sim s$ is \emph{literal-matched}, that is, a candidate match at the literal level has been found.
 
 \subsubsection{E-Matching Using Equalities and Disequalities Between Triggers}
 
@@ -625,7 +625,7 @@ For each $e_i$ not present in $M$, we pick an arbitrary concrete ground term if 
 If we can construct a vector of terms of this form, we return only this instantiation.
 By Theorem~\ref{thm:instready}, this instantiation is \emph{guarenteed} to generate a conflict if all literals existing in $\psi$ belong to the equality and uninterpretted functions theory.
 
-\paragraph{Second Iteration: $\psi$ is E-Induced in M}
+\paragraph{Second Iteration: $\psi$ is E-Induced}
 
 If $\psi$ is not solved, we determine whether each instantiation literal $L$ of $\psi$ can be induced by a unifier $\bar{e} = \bar{s}$.
 The following method generates a set of equality sets $S$ for a literal $L$ such that $L$ is $E$-induced in $M$ for each $E$ in $S$:
@@ -634,12 +634,12 @@ The following method generates a set of equality sets $S$ for a literal $L$ such
 \begin{program}
 \PROC |e\_ind\_lit|(L,M,\psi) \BODY
   S := \emptyset;
-  \IF L \text{ is } t \sim s, t \mapsto^I \psi \THEN
-    \IF s \mapsto^I \emptyset \THEN
+  \IF L \text{ is } t \sim s, FV( t ) \cap \mathcal{I}( \psi ) \neq \emptyset \THEN
+    \IF FV( s ) \cap \mathcal{I}( \psi ) = \emptyset \THEN
       \DOFOR \text{each $g$, where } M \models_T g \sim s
         S := S \cup e\_ind( t, g, M, \psi );
       \ENDFOR
-    \ELSEIF s \mapsto^I \psi
+    \ELSE
       \DOFOR \text{each } g, h \text{ where } M \models_T g \sim h
         S := S \cup merge( e\_ind( t, g, M, \psi ), e\_ind( s, h, M, \psi ) );
       \ENDFOR 
@@ -650,149 +650,152 @@ The following method generates a set of equality sets $S$ for a literal $L$ such
 \end{program}
 \end{minipage}
 
+\ \\
+
 When $L$ is an equality or disequality of the form $t \sim s$, where $t$ contains instantiation constants from $\psi$ and $s$ is a concrete ground term, we return the union of $e\_ind( t, g, M, \psi )$ for each term $g$ such that $g \sim s$.
 Otherwise if $s$ also contains instantiation constants from $\psi$, we wish to find pairs of terms $g$ and $h$ such that $g \sim h$ and $t = g$ and $s = h$ are induced by sets of unifiers.
 If this is the case, we merge these sets and add them to our overall set $S$.
-Note that the method $e\_ind\_lit$ will generate unifiers where $e_i = t$ need not be in $E$ for each $e_i$ in $\bar{e}$.
-
-The following method describes the overall procedure used in the second iteration for generating instantiations:
+The following method describes the overall procedure used in the second iteration:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |generate\_inst\_2|(M, \psi) \BODY
-S^\ast := \{ \emptyset \};
-\DOFOR \text{each } L_i \in M^\psi
-  S_{Li} := merge( S^\ast, e\_ind\_lit( L_i, M, \psi ) );
-\ENDFOR
-\RETURN \{ E^c \mid E \in S^\ast \};
+\PROC |generate\_lemmas\_2|(M, \psi) \BODY
+  S := \{ \emptyset \};
+  \DOFOR \text{each } L_i \in M^\psi
+    S := merge( S, e\_ind\_lit( L_i, M, \psi ) );
+  \ENDFOR
+  \text{construct instantiations } \{ E^c \mid E \in S \}
+  \RETURN;
 \ENDPROC
 \end{program}
 \end{minipage}
 
-The method $generate\_inst\_2$ determines the set of unifiers that induce each $L_i \in M^\psi$.
-It constructs a set of unifiers $S^\ast$ by merging of each of these sets.
+\ \\
+
+The method $generate\_lemmas\_2$ constructs a set of unifiers $S$ by merging sets that induce each $L_i \in M^\psi$.
 In terms of E-matching, this serves a similar purpose as \emph{multi-triggers}.
-For each $E \in S^\ast$, we construct an instantiation $E^c$ where $E^c$ is the unifier containing unifier $E$ as well as equalities $e_i = c_i$ for each $e_i \mapsto^I \psi$ not existing in $E$, where $c_i$ is a fresh constant.
+For each $E \in S$, we construct an instantiation $E^c$ where $E^c$ is the unifier containing unifier $E$ as well as equalities $e_i = c_i$ for each $e_i \in \mathcal{I}( \psi )$ not existing in $E$, where $c_i$ is a fresh constant.
 
 \begin{comment}
-
 \begin{thm}
 \label{thm:eind-ready}
 Given a candidate-satisifiable DPLL(T) state $M \parallel F$, and a formula $\psi$ of the form $\forall \bar{x}. \varphi[ \bar{x} ]$ that is counterexample-active in $M \parallel F$ for $\bar{e}.
 For all unifiers $\bar{e} = \bar{s}$ returned by the function $generate\_inst\_2$, we have that $\psi$ is $\bar{e}-\bar{s}$-induced in $M$.
 \end{thm}
 \begin{proof}
-Say $M = M' \cup M^\psi$, where $M^\psi$ are the instantiation literals of $\psi$.
-We must show $M', \bar{e} = \bar{s} \models M^\psi$.
+We must show $M \backslash M^\psi, \bar{e} = \bar{s} \models M^\psi$.
 
 \end{proof}
-
-Theorem~\ref{thm:eind-ready} states that if all instantiation literals for $\psi$ are induced by some equality set $E$, then the corresponding instantiation for $E$ is guarenteed to lead to a conflict.
-In particular, it can be shown that each unifier $\bar{e} = \bar{s}$ produced by $generate\_inst\_2( M, \psi )$ is such that all literals of $\psi$ are $\bar{e} = \bar{s}$-induced in $M$.
-Thus, if any instantiations are returned on this iteration, we are guarenteed to encounter a conflict.
-In particular, this means we need only perform \emph{one} such instantiation.
+Theorem~\ref{thm:eind-ready} states that if all instantiation literals for $\psi$ are induced by the same equality set $E$, then the corresponding instantiation $E^c$ is guarenteed to lead to a conflict.
 \end{comment}
 
-\paragraph{Third Iteration: All Literals are Literal-Matched}
+\paragraph{Third Iteration: All Literals of $\psi$ are E-Induced}
 
 If no instantiations are produced on the second iteration, we must determine the reason why our procedure failed.
-We could have failed to produce an instantiation for a variety of reasons: a pair of terms $g \sim h$ could not be found to match some literal $t \sim s$, the matches for two literals $t_1 \sim s_1$ and $t_2 \sim s_2$ were incompatible, the matches for two subterms of $t$ were incompatible for matching, etc.
-Here, we consider quantifiers where our procedure found a candidate match at the literal level for each instantiation literal, but failed to produce an instantiation, that is, we only consider quantifiers $\psi$ such that for all $t \sim s \mapsto^I \psi$, $M \models_T t_{\sim s} \sim s_{\sim t}$.
-The following gives an overview of the procedure used on the third iteration:
+We could have failed to produce an instantiation for a variety of reasons: a pair of terms $g \sim h$ could not be found to match some literal $t \sim s$, the unifiers for two literals $t_1 \sim s_1$ and $t_2 \sim s_2$ were incompatible, the unifiers for two subterms of $t$ were incompatible and so on.
+Here, we consider quantifiers $\psi$ where all instantiation literals $L_i$ of $\psi$ where $E$-induced in $M$ for some non-empty set of unifiers $S_i$, but we failed to merge the sets $S_1 \ldots S_n$.
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |iteration\_3|(M, \psi) \BODY
-S := \emptyset
-\DOFOR \text{each } L_i \in M \text{, where } L_i \mapsto^I \psi
-  S := S \cup ( L_i, e\_ind\_lit( L_i, M, \psi ) );
-\ENDFOR
-S^\ast := combine( S );
-\DOFOR \text{each } ( G, E ) \in S^\ast 
-  \DOFOR \text{each } t \sim s \not\in G, \in M \text{, where } t \sim s \mapsto^I \psi
-    resolve\_unmatched( t, t_{\sim s}, E, M, \psi );
-    resolve\_unmatched( s, s_{\sim t}, E, M, \psi );
+\PROC |generate\_lemmas\_3|(M, \psi) \BODY
+  S_1 \ldots S_n;
+  \DOFOR \text{each } L_i \in M^\psi
+    S_i := e\_ind\_lit( L_i, M, \psi );
+    \IF S_i = \emptyset \THEN
+      \RETURN;
+    \FI
   \ENDFOR
-\ENDFOR
-\RETURN \emptyset;
-\ENDPROC
-\end{program}
-\begin{program}
-\PROC |combine|( ( L_1, S_1 ), \ldots ( L_n, S_n ) ) \BODY
-S^\ast := \emptyset;
-\DOFOR i=1 \TO n
-  \DOFOR \text{each } E_j \in S_i
-    S^e_i := S^e_i \cup \{ ( \{ L_i \}, E_j ) \};
-    S^m_i := S^m_i \cup \{ ( G \cup \{ L_i \}, E \cup E_j ) \mid ( G, E ) \in S^\ast \wedge E, E_j \text{ compatible} \};
-  \ENDFOR
-  S^\ast := S^\ast \cup S^e_i \cup S^m_i;
-\ENDFOR
-\RETURN S^\ast;
+  resolve\_merge( \{ S_1, \ldots, S_n \}, M, \psi )
+  \RETURN;
 \ENDPROC
 \end{program}
 \end{minipage}
 
-We begin in the same way as the last iteration, computing sets of unifiers that induce each $L \mapsto^I \psi$.
-However, this time we explicitly record the literals that are $E$-induced for each set of unifiers, in pairs of the form ( \emph{literal}, \emph{set of unifiers} ).
-We then perform a combination step where we construct merged unifiers that induce a (proper) subset of the literals $L_1 \ldots L_n \mapsto^I \psi$.
-The procedure $combine$ returns a set of pairs of the form ( \emph{set of literals}, \emph{unifier} ), where for each pair ( $\{ t_1 \sim s_1, \ldots, t_n \sim s_n \}$, $E$ ) constructed in this way, we have that $t_i \sim s_i$ is $E$-induced in $M$ for each $i$.
+\ \\
 
-After we have computed the set $S^\ast$, for each $(G, E)$ in this set, we want to process each $t_j \sim s_j$ that is not $E$-induced in $M$, using the procedure $resolve\_unmatched$.
-At a high level, this procedure determines the root cause for why matching $t_j \sim s_j$ failed with $E$, and takes appropriate action.
-In particular, we will add splitting lemmas of the form $( g = h \vee g \neq h )$, where in one brach, we are more likely to successfully fit our match for $t_j \sim s_j$ into $E$, and on the other branch, we are less likely to find ambiguous pairs of terms for $t_j \sim s_j$.
-Note that a counterexample is more likely to be found in the former, and a model is more likely to be found in the latter.
-The procedure $resolve\_unmatched$ takes as input two terms $t$ and $s$, where $s \mapsto^I \emptyset$, and an equality set $E$.
-Conceptually, $t$ and $s$ represent a pair of equality ambiguous terms that we want to find a match $E'$ for, such that $E'$ is compatible with $E$.
+An overview of the procedure used on the third iteration is summarized in the method $generate\_lemmas\_3$.
+We produce the set of unifiers that induce each $L_i$, and call the method $resolve\_merge$.
+This method constructs relevant splits for determining why we were unable to merge the sets of unifiers $\{ S_1, \ldots, S_n \}$.
+Consider the case where $n = 2$ and there exists an $E_1 \in S_1$ and $E_2 \in S_2$ that differ only on the value of one instantiation constant $e_i$, say $e_i = t_1 \in E_1$ and $e_i = t_2 \in E_2$ where $M \not\models_T t_1 = t_2$.
+In the case that $M \not\models t_1 \neq t_2$, we add the splitting lemma $( t_1 = t_2 \vee t_1 \neq t_2 )$ to $M$.
+The usefulness of this lemma is two-fold: in the case where $t_1 = t_2$, we will be able to merge the unifiers $E_1$ and $E_2$ and will be closer to finding an instantiation that leads to a conflict.
+In the case that $t_1 \neq t_2$, we are more likely to force instantiation terms to be unmatchable, in which case we are closer to finding a model.
+
+\paragraph{Fourth Iteration: All Literals of $\psi$ are Literal-Matchable}
+
+If some literal is not E-induced, we consider quantifiers where our procedure found a candidate match at the literal level for each instantiation literal.
+The following gives an overview of the procedure used on the fourth iteration:
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |resolve\_unmatched|(t, s, E, M, \psi) \BODY
-\IF t \mapsto^I \emptyset
-  \text{split on } t = s
-\ELSE
-  t, s \text{ are } f( \bar{ t } ), f( \bar{ s } );
-  \text{find a minimal disagreement } E' \in e\_ind\_mod( t, s, M, \psi ) \text{ w.r.t. E}
-  \IF E' \text{ exists and is consistent with } E
-    \DOFOR \text{each } e = g \in E, e = g' \in E' \text{ where } g, g' \text{ distinct}
-      \text{split on } g = g'
-    \ENDFOR
-  \ELSE
-    \DOFOR \text{each } t_i \in \bar{t}
-      \IF M \not\models_T t_i = s_i
-        resolve\_unmatched( t_i, (t_i)_{= si}, E, M, \psi );
+\PROC |generate\_lemmas\_4|(M, \psi) \BODY
+  \DOFOR \text{each } t \sim s \in M^\psi
+    \IF t \text{ unmatchable, } s \text{ unmatchable, or } M \not\models_T t_{\sim s} \sim s_{\sim t} \THEN
+      \RETURN;
+    \FI
+  \ENDFOR
+  \DOFOR \text{each } t \sim s \in M^\psi
+    \IF e\_ind\_lit( t \sim s, M, \psi ) = \emptyset \THEN
+      S_t := e\_ind\_lit( t = t_{\sim s}, M, \psi );
+      \IF S_t = \emptyset \THEN
+        resolve\_match( t, t_{\sim s}, M, \psi )
       \FI
-    \ENDFOR 
-  \FI
-\FI
+      \IF FV( s ) \cap \mathcal{I}( \psi ) \neq \emptyset \THEN
+        S_s := e\_ind\_lit( s = s_{\sim t}, M, \psi );
+        \IF S_s = \emptyset \THEN
+          resolve\_match( s, s_{\sim t}, M, \psi )
+        \ELSEIF S_t \neq \emptyset
+          resolve\_merge( \{ S_t, S_s \}, M, \psi )
+        \FI
+      \FI
+    \FI
+  \ENDFOR
+  \RETURN;
 \ENDPROC
 \end{program}
 \end{minipage}
 
-\paragraph{Fourth Iteration: All Literals are Matchable}
+\ \\
+
+On this iteration, we are interested in finding why we were not able to $E$-induce individual literals.
+We look at the best match for terms $t$ and $s$ with respect to the literal $t \sim s$.
+In the case that we were able to induce each of $t$ and $s$ to be equal to their respective matches via the sets of unifiers $S_t$ and $S_s$, then we attempt to determine why these sets did not merge using the method $resolve\_merge$.
+Otherwise, if we determine why $t = t_{\sim s}$ was not induced using the method $resolve\_match$ and similarly for $s = s_{\sim t}$, if applicable.
+
+\paragraph{Fifth Iteration: All Literals of $\psi$ are Matchable}
 
 If the previous iteration failed to add a splitting lemma, we proceed to the fourth iteration.
-In this iteration, we process quantifiers $\psi$ such that for each $t \sim s \mapsto^I \psi$, the terms $t_{\sim s}$ and $s_{\sim t}$ are defined.
-In other words, there exists a ground term that is not equality independent from $t$ and $s$ for each instantiation literal $t \sim s$ of $\psi$.
-This iteration splits on equalities between terms $t$ and $s$ and their corresponding best matches.
+In this iteration, we process quantifiers $\psi$ such that for each $t \sim s \in T( \Sigma, \mathcal{I}( \psi ) )$, the terms $t_{\sim s}$ and $s_{\sim t}$ are defined.
+In other words, there exists a ground terms that are equality dependent to $t$ and $s$ for each instantiation literal $t \sim s$ of $\psi$.
 
 \begin{minipage}[t]{.4\linewidth}
 \begin{program}
-\PROC |iteration\_4|(M, \psi) \BODY
-S := \emptyset
-\DOFOR \text{each } t \sim s \in M \text{, where } t \mapsto^I \psi
-  \IF M \not\models_T t_{\sim s} \sim s_{\sim t}
-    \text{split on } t_{\sim s} = s_{\sim t}
-  \FI
-\ENDFOR
-\RETURN \emptyset;
+\PROC |generate\_lemmas\_5|(M, \psi) \BODY
+  \DOFOR \text{each } t \sim s \in M^\psi
+    \IF t \text{ unmatchable, or } s \text{ unmatchable } \THEN
+      \RETURN;
+    \FI
+  \ENDFOR
+  \DOFOR \text{each } t \sim s \in M^\psi
+    \IF e\_ind\_lit( t \sim s, M, \psi ) = \emptyset \THEN
+      \IF M \not\models_T t_{\sim s} \sim s_{\sim t} \THEN
+        \text{split on } t_{\sim s} = s_{\sim t};
+      \FI
+    \FI
+  \ENDFOR
+  \RETURN;
 \ENDPROC
 \end{program}
 \end{minipage}
+
+\ \\
+
+This iteration splits on equalities between terms $t$ and $s$ and their corresponding best matches, for each literal $t \sim s$ of $\psi$ that is not literal-matched.
 
 \paragraph{Recognizing Other SAT instances}
 
-In the case when the fourth iteration fails to produce an instantiation or add a splitting lemma, we know that we are close to finding a model that universally satisifies each quantifier.
-The idea is that if no matches can be found for some term $f( \bar{t} ) \mapsto^I \psi$, then the interpretation of the symbol $f$ over arguments $\bar{t}$ is unconstrained.
+In the case when the fifth iteration fails to add a lemma, we know that we are close to finding a model that universally satisifies each quantifier.
+The idea is that if no matches can be found for some instantiation term $f( \bar{t} )$ of $\psi$, then the interpretation of the symbol $f$ over arguments $\bar{t}$ is unconstrained.
 In particular, if we know that $f( \bar{t} )$ is equality-independent from all other terms $f( \bar{ s } )$, we know that the domain of $f( \bar{t} )$ does not overlap with any other constrained term.
 Thus, we may by construction give an interpretation explicitly that shows that $f( \bar{ t } ) \sim s$ is always false where $f( \bar{t} ) \sim s$ is required by our counterexample to $\psi$. 
 This interprettation is constructed directly by giving an interprettation to a symbol that \emph{falsifies} an instantiation literal for all possible values of $\bar{e}$.
@@ -805,7 +808,7 @@ Consider the set of clauses $S = \{ (\psi_1 :) \ \forall x. G( S( x ), x), (\psi
 Note that $S$ represents a successor function and $G$ represents ``is greater than".  
 In other words, this set of clauses says that $a + 2 > a$ is not true for some constant $a$.
 
-After unit propagations and Counterexample $\forall$-Inst, we have the set of assertions $\psi_1$, $\psi_2$, $G( S(S(a)), a)$ = $G( S(e_1), e_1)$ = $G( e_2, e_4 )$ = $\bot$, $G( e_2, e_3 )$ = $G( e_3, e_4 )$ = $\top$, where $\top$ and $\bot$ are the distinguished free boolean constant representing true and false, $e_1 \mapsto^I \psi_1$ and $e_2, e_3, e_4 \mapsto^I \psi_2$.
+After unit propagations and Counterexample $\forall$-Inst, we have the set of assertions $\psi_1$, $\psi_2$, $G( S(S(a)), a)$ = $G( S(e_1), e_1)$ = $G( e_2, e_4 )$ = $\bot$, $G( e_2, e_3 )$ = $G( e_3, e_4 )$ = $\top$, where $\top$ and $\bot$ are the distinguished free boolean constant representing true and false, $e_1 = \mathcal{I}( \psi_1 )$ and $e_2, e_3, e_4 = \mathcal{I}( \psi_2 )$.
 
 Say we wish to perform a round of instantiation for $\psi_1, \psi_2$.
 In the first iteration, neither $\psi_1$ or $\psi_2$ are solved.
@@ -920,7 +923,7 @@ We have introduced a method for reasoning about counterexamples to quantified fo
 Recall that this literal operationally has the meaning that ``a counterexample to $\psi$ does not exist."
 It is preferrable (although not required for soundness) that $\neg \bot^\psi$ is never asserted positively as a decision.
 Doing so is unhelpful:  if we reach a candidate satisfiable state, we cannot answer SAT since the validity of $\psi$ is unproven.
-Additionally, such an assertion will cause the solver to ignore information regarding the counterexample $\bar{e} \mapsto^I \psi$, and limit our ability to recognize useful instantiations.
+Additionally, such an assertion will cause the solver to ignore information regarding the counterexample $\bar{e} = \mathcal{I}( \psi )$, and limit our ability to recognize useful instantiations.
 
 For the reason, we supplement the SAT solver with the abitility to restrict the polarity for decisions of SAT literals.
 This requires at most two bits per SAT variable and a constant time lookup for each decision made.

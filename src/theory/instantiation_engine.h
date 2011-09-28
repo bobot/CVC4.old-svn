@@ -148,6 +148,8 @@ public:
 
   /** get status */
   int getStatus() { return d_status; }
+  /** update status */
+  static void updateStatus( int& currStatus, int addStatus );
 };/* class Instantiator */
 
 class InstantiatorDefault;
