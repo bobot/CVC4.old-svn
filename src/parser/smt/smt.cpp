@@ -29,6 +29,10 @@ namespace parser {
 
 std::hash_map<const std::string, Smt::Logic, CVC4::StringHashFunction> Smt::newLogicMap() {
   std::hash_map<const std::string, Smt::Logic, CVC4::StringHashFunction> logicMap;
+  logicMap["AUFLIA"] = AUFLIA;
+  logicMap["AUFLIRA"] = AUFLIRA;
+  logicMap["AUFNIRA"] = AUFNIRA;
+  logicMap["LRA"] = LRA;
   logicMap["QF_AX"] = QF_AX;
   logicMap["QF_BV"] = QF_BV;
   logicMap["QF_IDL"] = QF_IDL;
@@ -40,6 +44,8 @@ std::hash_map<const std::string, Smt::Logic, CVC4::StringHashFunction> Smt::newL
   logicMap["QF_UF"] = QF_UF;
   logicMap["QF_UFIDL"] = QF_UFIDL;
   logicMap["QF_UFLRA"] = QF_UFLRA;
+  logicMap["UFNIA"] = UFNIA;
+
   return logicMap;
 }
 

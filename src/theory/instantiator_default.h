@@ -27,15 +27,10 @@ namespace theory {
 
 class InstantiatorDefault : public Instantiator{
   friend class InstantiationEngine;
-protected:
-  /** the theory */
-  Theory* d_th;
 public:
   InstantiatorDefault(context::Context* c, InstantiationEngine* ie, Theory* th);
   ~InstantiatorDefault() {}
 
-  /** get corresponding theory for this instantiator */
-  Theory* getTheory() { return d_th; }
   /** check function, assertion is asserted to theory */
   void check( Node assertion );
 

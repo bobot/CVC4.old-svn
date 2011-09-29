@@ -15,6 +15,7 @@
  **/
 
 #include "theory/arith/theory_arith_instantiator.h"
+#include "theory/arith/theory_arith.h"
 #include "theory/theory_engine.h"
 
 using namespace std;
@@ -25,8 +26,7 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
 InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th) :
-Instantiator( c, ie ),
-d_th( th ){
+Instantiator( c, ie, th ){
 
 }
 
@@ -35,7 +35,7 @@ void InstantiatorTheoryArith::check( Node assertion ){
 }
 
 void InstantiatorTheoryArith::resetInstantiation(){
-
+  
 }
 
 bool InstantiatorTheoryArith::doInstantiation( int effort ){

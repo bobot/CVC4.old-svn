@@ -74,8 +74,6 @@ protected:
   //void buildSubTerms( Node n );
   //SubTermNode* getSubTerm( Node n );
 
-  /** reference to the theory that it looks at */
-  Theory* d_th;
   BoolMap d_terms;
   BoolMap d_terms_full;
   /** map from (representative) nodes to list of representative nodes they are disequal from */
@@ -97,7 +95,6 @@ public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
 
-  Theory* getTheory();
   void check( Node assertion );
   void assertEqual( Node a, Node b );
   void resetInstantiation();
@@ -109,36 +106,31 @@ private:
   std::map< Node, InstMatch > d_baseMatch;
   void process( Node f, int effort );
   /** determine why t did not match with g */
-  void resolveMatch( Node t, Node g, Node f );
+  bool resolveLitMatch( Node t, Node g, Node f, bool isEq );
+  bool resolveMatchPair( Node t, Node mt, Node s, Node ms, Node f );
+  bool resolveMatch( Node t, Node g, Node f );
   /** determine why inst match groups did not merge */
-  void resolveMerge( std::vector< InstMatchGroup* >& matches, Node f );
+  bool resolveMerge( std::vector< InstMatchGroup* >& matches, Node f );
   /** resolve counterexamples */
-  void resolveModel( Node f, Node t );
+  bool resolveModel( Node f, Node t );
   /** calculate unifiers that induce lit */
-  std::map< Node, InstMatchGroup > d_litMatches;
-  void calculateEIndLit( Node lit, Node f );
-  /** find best match */
-  std::map< Node, std::map< Node, Node > > d_bestLitMatch[2];
-  void findBestLiteralMatch( Node f, Node t, Node s, bool isEq, bool rhsPat = false );
+  std::map< Node, std::map< Node, InstMatchGroup > > d_litMatches[2];
+  std::map< Node, std::map< Node, std::vector< Node > > > d_litMatchCandidates[2];
+  void calculateEIndLit( Node t, Node s, Node f, bool isEq );
   /** find best match to any term */
-  std::map< Node, Node > d_bestMatch;
-  std::map< Node, Node > d_anyMatch;
-  void findBestMatch( Node f, Node t, bool any = false );
-  bool isBetterMatch( Node t, Node t1, Node t2 );
+  std::map< Node, std::vector< Node > > d_matches;
+  std::map< Node, std::vector< Node > > d_anyMatches;
+  void calculateMatches( Node f, Node t, bool any = false );
 
   /** match terms i and c */
   std::map< Node, std::map< Node, InstMatchGroup > > d_eind;
-  std::map< Node, std::map< Node, bool > > d_does_eind;
   std::map< Node, std::map< Node, bool > > d_eq_amb;
   void calculateEInd( Node i, Node c, Node f );
   void calculateEqAmb( Node i, Node c, Node f );
-  /** match modulo equivalence class c */
-  std::map< Node, std::map< Node, InstMatchGroup > > d_eind_mod;
-  void calculateEIndMod( Node i, Node c, Node f ); 
 
-  /** get number of equal arguments */
-  std::map< Node, std::map< Node, int > > d_numEqArg;
-  int getNumNeqArgs( Node i, Node c );
+  ///** get number of equal arguments */
+  //std::map< Node, std::map< Node, int > > d_numEqArg;
+  //int getNumNeqArgs( Node i, Node c );
 
   /** add split equality */
   bool addSplitEquality( Node n1, Node n2 );

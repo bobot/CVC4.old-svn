@@ -50,12 +50,15 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
+class InstantiatorTheoryArith;
+
 /**
  * Implementation of QF_LRA.
  * Based upon:
  * http://research.microsoft.com/en-us/um/people/leonardo/cav06.pdf
  */
 class TheoryArith : public Theory {
+  friend class InstantiatorTheoryArith;
 private:
 
   /** Static learner. */
@@ -302,7 +305,7 @@ private:
 
   Statistics d_statistics;
 
-
+  Instantiator* makeInstantiator();
 };/* class TheoryArith */
 
 }/* CVC4::theory::arith namespace */

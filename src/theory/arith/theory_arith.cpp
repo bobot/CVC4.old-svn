@@ -43,6 +43,7 @@
 #include "theory/arith/theory_arith.h"
 #include "theory/arith/normal_form.h"
 #include "theory/arith/arith_prop_manager.h"
+#include "theory/arith/theory_arith_instantiator.h"
 
 #include <stdint.h>
 
@@ -1035,4 +1036,9 @@ void TheoryArith::presolve(){
 
   learner.clear();
   check(FULL_EFFORT);
+}
+
+Instantiator* TheoryArith::makeInstantiator(){
+  Debug("quant-arith") << "Make Arith instantiator" << endl;
+  return new InstantiatorTheoryArith( getContext(), d_instEngine, this );
 }

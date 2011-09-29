@@ -233,9 +233,10 @@ void InstMatchGroup::debugPrint( const char* c ){
   }
 }
 
-Instantiator::Instantiator(context::Context* c, InstantiationEngine* ie) : 
+Instantiator::Instantiator(context::Context* c, InstantiationEngine* ie, Theory* th) : 
 d_status( STATUS_UNFINISHED ),
-d_instEngine( ie ){
+d_instEngine( ie ),
+d_th( th ){
 
 }
 

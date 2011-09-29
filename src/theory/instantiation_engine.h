@@ -38,7 +38,6 @@ typedef expr::Attribute<InstConstantAttributeId, Node> InstConstantAttribute;
 namespace theory {
 
 class InstantiationEngine;
-class PartialInstMatch;
 
 class InstMatch
 {
@@ -51,7 +50,6 @@ public:
   InstMatch(){}
   InstMatch( Node f, InstantiationEngine* ie );
   InstMatch( InstMatch* m );
-  virtual PartialInstMatch* asPartialInstMatch() { return NULL; }
 
   /** fill all unfilled values with m */
   virtual bool add( InstMatch& m );
@@ -87,11 +85,8 @@ public:
 class InstMatchGroup
 {
 public:
-  InstMatchGroup(){
-    d_is_set = false;
-  }
+  InstMatchGroup(){}
   InstMatchGroup( InstMatchGroup* mg ){
-    d_is_set = true;
     for( int i=0; i<(int)mg->getNumMatches(); i++ ){
       InstMatch m( mg->getMatch( i ) );
       d_matches.push_back( m );
@@ -99,7 +94,6 @@ public:
   }
   ~InstMatchGroup(){}
   std::vector< InstMatch > d_matches;
-  bool d_is_set;
 
   bool merge( InstMatchGroup& mg );
   void add( InstMatchGroup& mg );
@@ -111,10 +105,6 @@ public:
   unsigned int getNumMatches() { return d_matches.size(); }
   InstMatch* getMatch( int i ) { return &d_matches[i]; }
   void clear(){ d_matches.clear(); }
-  void reset(){
-    d_is_set = false;
-    clear();
-  }
   void debugPrint( const char* c );
 };
 
@@ -125,6 +115,8 @@ protected:
   int d_status;
   /** reference to the instantiation engine */
   InstantiationEngine* d_instEngine;
+  /** reference to the theory that it looks at */
+  Theory* d_th;
 public:
   enum Status {
     STATUS_UNFINISHED,
@@ -132,11 +124,11 @@ public:
     STATUS_SAT,
   };/* enum Effort */
 public:
-  Instantiator(context::Context* c, InstantiationEngine* ie);
+  Instantiator(context::Context* c, InstantiationEngine* ie, Theory* th);
   ~Instantiator();
 
   /** get corresponding theory for this instantiator */
-  virtual Theory* getTheory() = 0;
+  Theory* getTheory() { return d_th; }
   /** check function, assertion is asserted to theory */
   virtual void check( Node assertion ){}
 

@@ -28,15 +28,10 @@ namespace arith {
 
 class InstantiatorTheoryArith : public Instantiator{
   friend class InstantiationEngine;
-protected:
-  /** the theory */
-  Theory* d_th;
 public:
   InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryArith() {}
 
-  /** get corresponding theory for this instantiator */
-  Theory* getTheory() { return d_th; }
   /** check function, assertion is asserted to theory */
   void check( Node assertion );
   /**  reset instantiation */
