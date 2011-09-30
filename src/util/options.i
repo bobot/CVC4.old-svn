@@ -5,5 +5,6 @@
 %ignore CVC4::operator<<(std::ostream&, Options::SimplificationMode);
 %ignore CVC4::operator<<(std::ostream&, Options::ArithPivotRule);
 
-%import "util/exception.h"
+%apply char** STRING_ARRAY { char* argv[] }
 %include "util/options.h"
+%clear char* argv[];

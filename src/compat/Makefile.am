@@ -19,9 +19,9 @@ AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
 if CVC4_BUILD_LIBCOMPAT
 
-nobase_lib_LTLIBRARIES = libcvc4compat.la
+lib_LTLIBRARIES = libcvc4compat.la
 if HAVE_CXXTESTGEN
-noinst_LTLIBRARIES = libcvc4compat_noinst.la
+check_LTLIBRARIES = libcvc4compat_noinst.la
 endif
 
 libcvc4compat_la_LDFLAGS = \
@@ -29,9 +29,13 @@ libcvc4compat_la_LDFLAGS = \
 libcvc4compat_noinst_la_LDFLAGS =
 
 libcvc4compat_la_LIBADD = \
-	@builddir@/../lib/libreplacements.la
+	@builddir@/../lib/libreplacements.la \
+	-L@builddir@/.. -lcvc4 \
+	-L@builddir@/../parser -lcvc4parser
 libcvc4compat_noinst_la_LIBADD = \
-	@builddir@/../lib/libreplacements.la
+	@builddir@/../lib/libreplacements.la \
+	-L@builddir@/.. -lcvc4 \
+	-L@builddir@/../parser -lcvc4parser
 
 libcvc4compat_la_SOURCES = \
 	cvc3_compat.h \
@@ -44,6 +48,7 @@ libcvc4compat_noinst_la_SOURCES = \
 else
 
 EXTRA_DIST = \
+	cvc3_kinds.h \
 	cvc3_compat.h \
 	cvc3_compat.cpp
 

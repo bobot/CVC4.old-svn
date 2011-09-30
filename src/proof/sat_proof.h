@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
- ** Minor contributors (to current version): dejan
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -25,7 +25,7 @@
 #include <set>
 #include <ext/hash_map>
 #include <ext/hash_set>
-
+#include <sstream>
 namespace Minisat {
 class Solver;
 typedef uint32_t CRef;
@@ -42,11 +42,21 @@ namespace CVC4 {
  * Helper debugging functions
  * 
  */
-void print(Minisat::Lit l);
-void print(Minisat::Clause& c); 
-// TODO: move in resolution proof class? 
+void printDebug(Minisat::Lit l);
+void printDebug(Minisat::Clause& c); 
+
 typedef int ClauseId;
-typedef std::pair < Minisat::Lit, ClauseId > ResStep; 
+struct ResStep {
+  Minisat::Lit lit;
+  ClauseId id;
+  bool sign;
+  ResStep(Minisat::Lit l, ClauseId i, bool s) :
+    lit(l),
+    id(i),
+    sign(s)
+  {}
+};
+
 typedef std::vector< ResStep > ResSteps; 
 typedef std::set < Minisat::Lit> LitSet; 
 
@@ -57,7 +67,7 @@ private:
   LitSet*        d_redundantLits;
 public:
   ResChain(ClauseId start);
-  void addStep(Minisat::Lit, ClauseId);
+  void addStep(Minisat::Lit, ClauseId, bool);
   void finalizeRes();
   void addRedundantLit(Minisat::Lit lit); 
   ~ResChain();
@@ -65,46 +75,75 @@ public:
   ClauseId  getStart() { return d_start; }
   ResSteps& getSteps() { return d_steps; }
 };
+
+
 typedef std::hash_map < ClauseId, Minisat::CRef > IdClauseMap;
 typedef std::hash_map < Minisat::CRef, ClauseId > ClauseIdMap;
 typedef std::hash_map < ClauseId, Minisat::Lit>   IdUnitMap;
 typedef std::hash_map < int, ClauseId>            UnitIdMap; //FIXME 
 typedef std::hash_map < ClauseId, ResChain*>      IdResMap; 
-typedef std::hash_set < ClauseId >                IdSet;
+typedef std::hash_set < ClauseId >                IdHashSet;
 typedef std::vector   < ResChain* >               ResStack; 
 
+typedef std::hash_set < int >                     VarSet; 
+typedef std::set < ClauseId >                     IdSet; 
+
+class ResolutionProof; 
+
+class ProofProxy : public ProofProxyAbstract {
+private:
+  ResolutionProof* d_proof;
+public:
+  ProofProxy(ResolutionProof* pf);
+  void updateCRef(Minisat::CRef oldref, Minisat::CRef newref);
+};
 
 class ResolutionProof {
-private:
-  Minisat::Solver*     d_solver; 
-  IdClauseMap d_idClause;
-  ClauseIdMap d_clauseId;
-  IdUnitMap   d_idUnit;
-  UnitIdMap   d_unitId;
-  IdResMap    d_resChains;
-  IdSet       d_deletedIds;
-  IdSet       d_inputClauses; 
-  ResStack    d_resStack; 
-  bool        d_checkRes; 
-  static ClauseId d_idCounter; 
-  const ClauseId  d_emptyClauseId;
-  const ClauseId  d_nullId; 
+protected:
+  Minisat::Solver*    d_solver;
+  // clauses 
+  IdClauseMap         d_idClause;
+  ClauseIdMap         d_clauseId;
+  IdUnitMap           d_idUnit;
+  UnitIdMap           d_unitId;
+  IdHashSet           d_deleted;
+  IdHashSet           d_inputClauses; 
+  
+  // resolutions 
+  IdResMap            d_resChains;
+  ResStack            d_resStack; 
+  bool                d_checkRes;
+  
+  static ClauseId     d_idCounter; 
+  const ClauseId      d_emptyClauseId;
+  const ClauseId      d_nullId;
+  // proxy class to break circular dependencies 
+  ProofProxy*         d_proxy;
+  
+  // temporary map for updating CRefs
+  ClauseIdMap         d_temp_clauseId;
+  IdClauseMap         d_temp_idClause; 
 public:  
   ResolutionProof(Minisat::Solver* solver, bool checkRes = false);
-private:
-  bool isInputClause(ClauseId id) {
-    return (d_inputClauses.find(id) != d_inputClauses.end()); 
-  }
+protected:
+  void print(ClauseId id); 
+  void printRes(ClauseId id);
+  void printRes(ResChain* res); 
+  
+  bool isInputClause(ClauseId id); 
   bool isUnit(ClauseId id);
+  bool isUnit(Minisat::Lit lit); 
   bool hasResolution(ClauseId id); 
   void createLitSet(ClauseId id, LitSet& set); 
+  void registerResolution(ClauseId id, ResChain* res);
   
-  void     registerResolution(ClauseId id, ResChain* res);
-
   ClauseId      getClauseId(Minisat::CRef clause);
+  ClauseId      getClauseId(Minisat::Lit lit); 
   Minisat::CRef getClauseRef(ClauseId id);
-  Minisat::Lit  getUnit(ClauseId id); 
-  void printLFSCProof() const;
+  Minisat::Lit  getUnit(ClauseId id);
+  Minisat::Clause& getClause(ClauseId id);
+  virtual void printProof();
+  
   bool checkResolution(ClauseId id);
   /** 
    * Constructs a resolution tree that proves lit
@@ -113,26 +152,94 @@ private:
    * 
    * @return 
    */
-  ClauseId resolveUnit(Minisat::Lit lit); 
+  ClauseId resolveUnit(Minisat::Lit lit);
+  ClauseId resolveRedundant(ResChain* res); 
 public:
   void startResChain(Minisat::CRef start);
-  void addResolutionStep(Minisat::Lit lit, Minisat::CRef clause);
+  void addResolutionStep(Minisat::Lit lit, Minisat::CRef clause, bool sign);
+  /** 
+   * Pops the current resolution of the stack and stores it
+   * in the resolution map. Also registers the @param clause. 
+   * @param clause the clause the resolution is proving 
+   */
   void endResChain(Minisat::CRef clause);
-  void endUnitResChain(Minisat::Lit lit); 
-  
-  void updateCRef(Minisat::CRef old_ref, Minisat::CRef new_ref);
-  void finishUpdateCRef();
+  void endResChain(Minisat::Lit lit);
+  /** 
+   * Stores in the current derivation the redundant literals that were 
+   * eliminated from the conflict clause during conflict clause minimization. 
+   * @param lit the eliminated literal 
+   */
   void storeLitRedundant(Minisat::Lit lit);
 
-  void finalizeProof(Minisat::CRef conflict);
+  /// update the CRef Id maps when Minisat does memory reallocation 
+  void updateCRef(Minisat::CRef old_ref, Minisat::CRef new_ref);
+  void finishUpdateCRef();
+  
+  /** 
+   * Constructs the empty clause resolution from the final conflict
+   * 
+   * @param conflict 
+   */void finalizeProof(Minisat::CRef conflict);
 
-  void markDeleted(Minisat::CRef clause); 
-
+  /// clause registration methods 
   ClauseId registerClause(const Minisat::CRef clause, bool isInput = false);
   ClauseId registerUnitClause(const Minisat::Lit lit, bool isInput = false);
-
-};
+  /** 
+   * Marks the deleted clauses as deleted. Note we may still use them in the final
+   * resolution. 
+   * @param clause 
+   */
+  void markDeleted(Minisat::CRef clause);
+  /** 
+   * Constructs the resolution of ~q and resolves it with the current
+   * resolution thus eliminating q from the current clause
+   * @param q the literal to be resolved out
+   */
+  void     resolveOutUnit(Minisat::Lit q);
+  /** 
+   * Constructs the resolution of the literal lit. Called when a clause
+   * containing lit becomes satisfied and is removed. 
+   * @param lit 
+   */
+  void     storeUnitResolution(Minisat::Lit lit); 
   
+  ProofProxy* getProxy() {return d_proxy; } 
+};
+
+class LFSCResolutionProof: public ResolutionProof {
+private:
+  VarSet             d_seenVars; 
+  std::ostringstream d_varSS;
+  std::ostringstream d_lemmaSS;
+  std::ostringstream d_clauseSS;
+  std::ostringstream d_paren; 
+  IdSet              d_seenLemmas;
+  IdHashSet          d_seenInput; 
+
+  inline std::string varName(Minisat::Lit lit);
+  inline std::string clauseName(ClauseId id); 
+
+  void collectLemmas(ClauseId id);
+  void printResolution(ClauseId id);
+  void printInputClause(ClauseId id);
+
+  void printVariables();
+  void printClauses();
+  void flush();
+  
+public:
+  LFSCResolutionProof(Minisat::Solver* solver, bool checkRes = false):
+    ResolutionProof(solver, checkRes),
+    d_seenVars(),
+    d_varSS(),
+    d_lemmaSS(),
+    d_paren(),
+    d_seenLemmas(),
+    d_seenInput()
+  {} 
+  void printProof();  
+};
+
 }
 
 #endif

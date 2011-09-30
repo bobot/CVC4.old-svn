@@ -24,12 +24,13 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define Minisat_SolverTypes_h
 
 #include <assert.h>
-
+#include "util/output.h"
 #include "mtl/IntTypes.h"
 #include "mtl/Alg.h"
 #include "mtl/Vec.h"
 #include "mtl/Map.h"
 #include "mtl/Alloc.h"
+
 
 namespace Minisat {
 
@@ -42,6 +43,7 @@ namespace Minisat {
 
 typedef int Var;
 #define var_Undef (-1)
+
 
 
 struct Lit {
@@ -118,12 +120,18 @@ inline lbool toLbool(int   v) { return lbool((uint8_t)v);  }
 
 class Clause;
 typedef RegionAllocator<uint32_t>::Ref CRef;
+} /* Minisat */
 
-} /* ends MiniSat */
+namespace CVC4 {
+class ProofProxyAbstract {
+public:
+  virtual void updateCRef(Minisat::CRef oldref, Minisat::CRef newref) = 0; 
+};
+}
 
-#include "proof/sat_proof.h"
 
-namespace Minisat {
+namespace Minisat{
+
 //=================================================================================================
 // Clause -- a simple class for representing a clause:
 
@@ -242,18 +250,21 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::free(clauseWord32Size(c.size(), c.has_extra()));
     }
 
-    void reloc(CRef& cr, ClauseAllocator& to)
+  void reloc(CRef& cr, ClauseAllocator& to, CVC4::ProofProxyAbstract* proxy = NULL)
     {
-      // TODO: proof.updateId(); 
+
+        // FIXME what is this CRef_lazy
         if (cr == CRef_Lazy) return;
 
+        CRef old = cr;  // save the old reference
         Clause& c = operator[](cr);
-        
         if (c.reloced()) { cr = c.relocation(); return; }
         
         cr = to.alloc(c.level(), c, c.removable());
         c.relocate(cr);
-        
+        if (proxy) {
+          proxy->updateCRef(old, cr); 
+        }
         // Copy extra data-fields: 
         // (This could be cleaned-up. Generalize Clause-constructor to be applicable here instead?)
         to[cr].mark(c.mark());
