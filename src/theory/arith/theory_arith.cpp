@@ -577,6 +577,11 @@ void TheoryArith::check(Effort effortLevel){
       d_out->conflict(possibleConflict);
       return;
     }
+    //AJR-hack
+    if( getInstantiator() ){
+      getInstantiator()->check( assertion );
+    }
+    //AJR-hack-end
   }
 
   if(Debug.isOn("arith::print_assertions")) {

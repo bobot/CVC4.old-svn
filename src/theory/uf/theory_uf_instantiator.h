@@ -96,10 +96,10 @@ public:
   ~InstantiatorTheoryUf() {}
 
   void check( Node assertion );
-  void assertEqual( Node a, Node b );
   void resetInstantiation();
   bool doInstantiation( int effort );
 private:
+  void assertEqual( Node a, Node b );
   void registerTerm( Node n, bool isTop = true );
 
   /** calculate matches for quantifier f at effort */

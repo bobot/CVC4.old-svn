@@ -41,7 +41,7 @@ bool InstantiatorDefault::doInstantiation( int effort ){
       InstMatch* m = new InstMatch( it->first, d_instEngine );
       for( std::vector< Node >::iterator it2 = it->second.begin(); it2!=it->second.end(); ++it2 ){
         Debug("quant-default") << "Getting value for " << *it2 << std::endl;
-        if( d_instEngine->getTheoryEngine()->theoryOf( *it2 )==d_th ){    //if it belongs to this theory
+        if( d_instEngine->getTheoryEngine()->theoryOf( *it2 )==getTheory() ){    //if it belongs to this theory
           Node val = d_th->getValue( *it2 );
           Debug("quant-default") << "Default Instantiate for " << d_th->getId() << ", setting " << *it2 << " = " << val << std::endl;
           m->setMatch( *it2, val );

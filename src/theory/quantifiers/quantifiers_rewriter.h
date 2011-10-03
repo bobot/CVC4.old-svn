@@ -38,6 +38,18 @@ public:
 
   static RewriteResponse preRewrite(TNode in) {
     Debug("quantifiers-rewrite") << "pre-rewriting " << in << std::endl;
+    if( in.getKind()==kind::EXISTS ){
+      std::vector< Node > children;
+      for( int i=0; i<(int)in.getNumChildren(); i++ ){
+        if( i==(int)in.getNumChildren()-1 ){
+          children.push_back( in[i].notNode() );
+        }else{
+          children.push_back( in[i] );
+        }
+      }
+      Node n = NodeManager::currentNM()->mkNode(kind::FORALL, children );
+      return RewriteResponse(REWRITE_DONE, n.notNode() );
+    }
     return RewriteResponse(REWRITE_DONE, in);
   }
 

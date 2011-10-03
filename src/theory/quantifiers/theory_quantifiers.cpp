@@ -93,9 +93,6 @@ void TheoryQuantifiers::check(Effort e) {
     case kind::FORALL:
       assertUniversal( assertion );
       break;
-    case kind::EXISTS:
-      assertExistential( assertion );
-      break;
     case kind::NO_COUNTEREXAMPLE:
       assertCounterexample( assertion );
       break;
@@ -104,9 +101,6 @@ void TheoryQuantifiers::check(Effort e) {
         switch( assertion[0].getKind()) {
         case kind::FORALL:
           assertExistential( assertion );
-          break;
-        case kind::EXISTS:
-          assertUniversal( assertion );
           break;
         case kind::NO_COUNTEREXAMPLE:
           assertCounterexample( assertion );
@@ -195,6 +189,7 @@ void TheoryQuantifiers::check(Effort e) {
 }
 
 void TheoryQuantifiers::assertUniversal( Node n ){
+  Assert( n.getKind()==FORALL );
   if( n.hasAttribute(InstConstantAttribute()) ){
     Debug("quantifiers") << "Ignoring nested quantifier for counterexample: " << n << std::endl;
     return;
@@ -208,8 +203,7 @@ void TheoryQuantifiers::assertUniversal( Node n ){
     Node cel = d_instEngine->getCounterexampleLiteralFor( n );
 
     NodeBuilder<> nb(kind::OR);
-    nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) ) << cel;
-    nb << ( n.getKind()==kind::NOT ? body : NodeManager::currentNM()->mkNode( NOT, body ) );
+    nb << n.notNode() << cel << body.notNode();
     Node lem = nb;
     Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
     d_out->lemma( lem );
@@ -229,8 +223,9 @@ void TheoryQuantifiers::assertUniversal( Node n ){
 }
 
 void TheoryQuantifiers::assertExistential( Node n ){
-  if( n.hasAttribute(InstConstantAttribute()) ){
-    Debug("quantifiers") << "Ignoring nested quantifier for counterexample: " << n << std::endl;
+  Assert( n.getKind()== NOT && n[0].getKind()==FORALL );
+  if( n[0].hasAttribute(InstConstantAttribute()) ){
+    Debug("quantifiers") << "Ignoring nested quantifier for counterexample: " << n[0] << std::endl;
     return;
   }
   if( d_skolemized.find( n )==d_skolemized.end() ){
@@ -239,12 +234,10 @@ void TheoryQuantifiers::assertExistential( Node n ){
     d_instEngine->getVariablesFor( n, vars );
     std::vector< Node > skolems;
     d_instEngine->getSkolemConstantsFor( n, skolems );
-    Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-    Node body = quant[ quant.getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
-                                                                skolems.begin(), skolems.end() );
+    Node body = n[0][ n[0].getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
+                                                              skolems.begin(), skolems.end() );
     NodeBuilder<> nb(kind::OR);
-    nb << ( n.getKind()==kind::NOT ? n[0] : NodeManager::currentNM()->mkNode( NOT, n ) );
-    nb << ( n.getKind()==kind::NOT ? NodeManager::currentNM()->mkNode( NOT, body ) : body );
+    nb << n[0] << body.notNode();
     Node lem = nb;
     Debug("quantifiers") << "Skolemize lemma : " << lem << std::endl;
     d_out->lemma( lem );

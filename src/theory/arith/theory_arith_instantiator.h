@@ -39,6 +39,8 @@ public:
   /** prepare instantiation method
     * post condition: set d_solved_ic and d_lemmas fields */
   bool doInstantiation( int effort );
+private:
+  void printDebug();
 };/* class Instantiatior */
 
 }

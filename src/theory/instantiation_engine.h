@@ -129,7 +129,7 @@ public:
 
   /** get corresponding theory for this instantiator */
   Theory* getTheory() { return d_th; }
-  /** check function, assertion is asserted to theory */
+  /** check function, assertion was asserted to theory */
   virtual void check( Node assertion ){}
 
   /** reset instantiation */
@@ -148,12 +148,16 @@ class InstantiatorDefault;
 namespace uf {
   class InstantiatorTheoryUf;
 }
+namespace arith {
+  class InstantiatorTheoryArith;
+}
 
 class InstantiationEngine
 {
   friend class ::CVC4::TheoryEngine;
   friend class InstantiatorDefault;
   friend class uf::InstantiatorTheoryUf;
+  friend class arith::InstantiatorTheoryArith;
   friend class InstMatch;
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
@@ -182,6 +186,8 @@ private:
   std::map< Node, Node > d_subquant;
   /** map from quantifiers to whether they are active */
   BoolMap d_active;
+  /** map from instantiation constants to whether they are active */
+  BoolMap d_ic_active;
   /** lemmas produced */
   std::map< Node, bool > d_lemmas_produced;
   /** status */
