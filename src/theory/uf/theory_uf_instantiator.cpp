@@ -469,7 +469,7 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
             lit = lit[0];
             isEq = false;
           }
-          Debug("quant-uf-alg-2") << "Process obligation " << (*it) << std::endl;
+          Debug("quant-uf-alg") << "Process obligation " << (*it) << std::endl;
           calculateEIndLit( lit[0], lit[1], f, isEq );
           int ind = isEq ? 0 : 1;
           if( firstTime ){
@@ -524,9 +524,8 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
                   Debug("quant-uf-alg") << "-> No literal matches found." << std::endl;
                   break;
                 }else{
-                  Node amb_t[2];
                   for( int i=0; i<2; i++ ){
-                    if( lit[i].getAttribute(InstConstantAttribute())==f ){
+                    if( lit[i].hasAttribute(InstConstantAttribute()) ){
                       calculateMatches( f, lit[i] );
                       if( d_matches[ lit[i] ].empty() ){
                         //is lit[i] unconstrained in M?
@@ -535,29 +534,12 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
                           //model can be generated?
                           //d_quantStatus = STATUS_SAT;
                         }
-                      }else{
-                        //maybe do all?
-                        //sortMatches( f, lit[i] );
-                        Debug("quant-uf-alg") << "-> " << lit[i] << " matchable with ";
-                        Debug("quant-uf-alg") << d_matches[ lit[i] ][0] << "." << std::endl;
-                        amb_t[i] = d_matches[ lit[i] ][0];
                       }
-                    }else{
-                      amb_t[i] = lit[i];
                     }
-                  }
-                  if( amb_t[0]!=Node::null() && amb_t[1]!=Node::null() ){
-                    //t and t_{~s} are eq-dep, s and s_{~t} are eq-dep, but t_{~s} !~ s_{~t}
-                    if( !areEqual( amb_t[0], amb_t[1] ) && !areDisequal( amb_t[0], amb_t[1] ) ){
-                      addSplitEquality( amb_t[0], amb_t[1] );
-                    }
-                    //alternatively, we could try to ensure that t and t_{~s} match
-                    // and similarly for s and s_{~t}.
                   }
                 }
-              }else{
-                matchFails[ ind ].push_back( std::pair< Node, Node >( lit[0], lit[1] ) );
               }
+              matchFails[ ind ].push_back( std::pair< Node, Node >( lit[0], lit[1] ) );
             }
           }
         }
@@ -583,64 +565,84 @@ bool InstantiatorTheoryUf::resolveLitMatch( Node t, Node s, Node f, bool isEq ){
   Debug("quant-uf-alg") << t << ( !isEq ? " != " : " = " ) << s << "?" << std::endl;
   bool addedLemma = false;
   int ind = isEq ? 0 : 1;
-  Assert( !d_litMatchCandidates[ind][t][s].empty() );
-  if( !isEq ){
-    if( s.getAttribute(InstConstantAttribute())==f ){
-      for( int i=0; i<(int)d_litMatchCandidates[1][t][s].size(); i++ ){
-        Node mt = d_litMatchCandidates[1][t][s][i][0];
-        Node ms = d_litMatchCandidates[1][t][s][i][1];
-        if( resolveMatchPair( t, mt, s, ms, f ) ){
-          addedLemma = true;
-          break;
-        }
-      }
-    }else{
-      for( int i=0; i<(int)d_litMatchCandidates[ 1 ][ t ][ s ].size(); i++ ){
-        if( resolveLitMatch( t, d_litMatchCandidates[ 1 ][ t ][ s ][i], f, true ) ){
-          addedLemma = true;
-          break;
-        }
-      }
-    }
-  }else{
-    //if have same top symbol, look at arguments directly
-    if( t.getKind()==APPLY_UF && s.getKind()==APPLY_UF && 
-        t.getOperator()==s.getOperator() ){
-      for( int j=0; j<(int)t.getNumChildren(); j++ ){
-        Node n1 = t[j];
-        Node n2 = s[j];
-        if( !areEqual( n1, n2 ) ){
-          if( n2.getAttribute(InstConstantAttribute())==f && !n1.hasAttribute(InstConstantAttribute()) ){
-            Node temp = n2;
-            n2 = n1;
-            n1 = temp;
-          }
-          if( n1.getAttribute(InstConstantAttribute())==f ){
-            if( resolveLitMatch( n1, n2, f, true ) ){
-              addedLemma = true;
-            }
-          }else{
-            if( addSplitEquality( n1, n2 ) ){
-              addedLemma = true;
-            }
-          }
-        }
-      }
-    }else{
+  if( d_litMatchCandidates[ind][t][s].empty() ){
+    if( !isEq ){
       if( s.getAttribute(InstConstantAttribute())==f ){
-        for( int i=0; i<(int)d_litMatchCandidates[0][t][s].size(); i++ ){
-          Node m = d_litMatchCandidates[0][t][s][i];
-          if( resolveMatchPair( t, m, s, m, f ) ){
+        for( int i=0; i<(int)d_litMatchCandidates[1][t][s].size(); i++ ){
+          Node mt = d_litMatchCandidates[1][t][s][i][0];
+          Node ms = d_litMatchCandidates[1][t][s][i][1];
+          if( resolveMatchPair( t, mt, s, ms, f ) ){
             addedLemma = true;
             break;
           }
         }
       }else{
-        for( int i=0; i<(int)d_litMatchCandidates[0][t][s].size(); i++ ){
-          if( resolveMatch( t, d_litMatchCandidates[0][t][s][i], f ) ){
+        for( int i=0; i<(int)d_litMatchCandidates[ 1 ][ t ][ s ].size(); i++ ){
+          if( resolveLitMatch( t, d_litMatchCandidates[ 1 ][ t ][ s ][i], f, true ) ){
             addedLemma = true;
             break;
           }
+        }
+      }
+    }else{
+      //if have same top symbol, look at arguments directly
+      if( t.getKind()==APPLY_UF && s.getKind()==APPLY_UF && 
+          t.getOperator()==s.getOperator() ){
+        for( int j=0; j<(int)t.getNumChildren(); j++ ){
+          Node n1 = t[j];
+          Node n2 = s[j];
+          if( !areEqual( n1, n2 ) ){
+            if( n2.getAttribute(InstConstantAttribute())==f && !n1.hasAttribute(InstConstantAttribute()) ){
+              Node temp = n2;
+              n2 = n1;
+              n1 = temp;
+            }
+            if( n1.getAttribute(InstConstantAttribute())==f ){
+              if( resolveLitMatch( n1, n2, f, true ) ){
+                addedLemma = true;
+              }
+            }else{
+              if( addSplitEquality( n1, n2 ) ){
+                addedLemma = true;
+              }
+            }
+          }
+        }
+      }else{
+        if( s.getAttribute(InstConstantAttribute())==f ){
+          for( int i=0; i<(int)d_litMatchCandidates[0][t][s].size(); i++ ){
+            Node m = d_litMatchCandidates[0][t][s][i];
+            if( resolveMatchPair( t, m, s, m, f ) ){
+              addedLemma = true;
+              break;
+            }
+          }
+        }else{
+          for( int i=0; i<(int)d_litMatchCandidates[0][t][s].size(); i++ ){
+            if( resolveMatch( t, d_litMatchCandidates[0][t][s][i], f ) ){
+              addedLemma = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }else{
+    //add splits at the literal level
+    for( int i=0; i<(int)d_matches[t].size(); i++ ){
+      Node mt = d_matches[t][i];
+      if( s.getAttribute(InstConstantAttribute())==f ){
+        for( int j=0; j<(int)d_matches[t].size(); j++ ){
+          Node ms = d_matches[s][i];
+          if( !areEqual( mt, ms ) && !areDisequal( mt, ms ) && addSplitEquality( mt, ms ) ){
+            addedLemma = true;
+            break;
+          }
+        }
+      }else{
+        if( !areEqual( mt, s ) && !areDisequal( mt, s ) && addSplitEquality( mt, s ) ){
+          addedLemma = true;
+          break;
         }
       }
     }
@@ -1181,7 +1183,7 @@ void InstantiatorTheoryUf::calculateEqAmb( Node i, Node c, Node f ){
 //  }
 //}
 
-bool InstantiatorTheoryUf::addSplitEquality( Node n1, Node n2 ){
+bool InstantiatorTheoryUf::addSplitEquality( Node n1, Node n2, bool reqPhase, bool reqPhasePol ){
   Assert( !n1.hasAttribute(InstConstantAttribute()) );
   Assert( !n2.hasAttribute(InstConstantAttribute()) );
   Assert( !areEqual( n1, n2 ) );
@@ -1192,7 +1194,9 @@ bool InstantiatorTheoryUf::addSplitEquality( Node n1, Node n2 ){
   if( d_instEngine->addSplit( fm ) ){
     Debug("quant-uf-split") << "*** Add split " << n1 << " = " << n2 << std::endl;
     //require phase?
-    d_instEngine->d_curr_out->requirePhase( fm, true );
+    if( reqPhase ){
+      d_instEngine->d_curr_out->requirePhase( fm, reqPhasePol );
+    }
     return true;
   }else{
     return false;

@@ -122,20 +122,6 @@ void InstMatch::computeTermVec(){
   }
 }
 
-void InstMatch::partialMerge( InstMatch& m, std::map< Node, Node >& splits ){
-  for( int i=0; i<(int)d_vars.size(); i++ ){
-    Node n1 = d_map[ d_vars[i] ];
-    Node n2 = m.d_map[ d_vars[i] ];
-    if( n1!=Node::null() && n2!=Node::null() && n1!=n2 ){
-      if( n1>n2 ){
-        splits[n1] = n2;
-      }else{
-        splits[n2] = n1;
-      }
-    }
-  }
-}
-
 bool InstMatchGroup::merge( InstMatchGroup& mg )
 {
   std::vector< InstMatch > newMatches;
@@ -244,11 +230,11 @@ Instantiator::~Instantiator(){
 }
 
 void Instantiator::updateStatus( int& currStatus, int addStatus ){
-  if( addStatus==Instantiator::STATUS_UNFINISHED ){
-    currStatus = Instantiator::STATUS_UNFINISHED;
-  }else if( addStatus==Instantiator::STATUS_UNKNOWN ){
-    if( currStatus==Instantiator::STATUS_SAT ){
-      currStatus = Instantiator::STATUS_UNKNOWN;
+  if( addStatus==STATUS_UNFINISHED ){
+    currStatus = STATUS_UNFINISHED;
+  }else if( addStatus==STATUS_UNKNOWN ){
+    if( currStatus==STATUS_SAT ){
+      currStatus = STATUS_UNKNOWN;
     }
   }
 }
@@ -259,6 +245,19 @@ d_active( c ),
 d_ic_active( c ){
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
     d_instTable[theoryId] = NULL;
+  }
+}
+
+bool InstantiationEngine::addLemma( Node lem ){
+  lem = Rewriter::rewrite(lem);
+  if( d_lemmas_produced.find( lem )==d_lemmas_produced.end() ){
+    d_addedLemma = true;
+    d_curr_out->lemma( lem );
+    d_lemmas_produced[ lem ] = true;
+    Debug("inst-engine-debug") << "Added lemma : " << lem << std::endl;
+    return true;
+  }else{
+    return false;
   }
 }
 
@@ -279,8 +278,6 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
       Assert( !terms[i].hasAttribute(InstConstantAttribute()) );
       Debug("inst-engine") << "   " << terms[i] << std::endl;
     }
-    //associate all nested quantifiers with their counterexample equivalents
-    associateNestedQuantifiers( body, d_counterexample_body[f] );
     return true;
   }else{
     return false;
@@ -291,19 +288,6 @@ bool InstantiationEngine::addInstantiation( InstMatch* m ){
   Assert( m->isComplete() );
   m->computeTermVec();
   return addInstantiation( m->getQuantifier(), m->d_match );
-}
-
-bool InstantiationEngine::addLemma( Node lem ){
-  lem = Rewriter::rewrite(lem);
-  if( d_lemmas_produced.find( lem )==d_lemmas_produced.end() ){
-    d_addedLemma = true;
-    d_curr_out->lemma( lem );
-    d_lemmas_produced[ lem ] = true;
-    Debug("inst-engine-debug") << "Added lemma : " << lem << std::endl;
-    return true;
-  }else{
-    return false;
-  }
 }
 
 bool InstantiationEngine::addSplit( Node n ){
@@ -394,11 +378,10 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
     }
     if( d_addedLemma ){
       d_status = Instantiator::STATUS_UNKNOWN;
-      return true;
     }
     e++;
   }
-  return false;
+  return d_addedLemma;
 }
 
 Node InstantiationEngine::getCounterexampleLiteralFor( Node n ){
@@ -438,21 +421,6 @@ void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
         InstConstantAttribute icai;
         n.setAttribute(icai,fa);
       }
-    }
-  }
-}
-
-void InstantiationEngine::associateNestedQuantifiers( Node n, Node cen )
-{
-  if( n.getKind()==FORALL ){
-    d_quant_to_ceq[n] = cen.notNode();
-    d_quant_to_ceq[n.notNode()] = cen; 
-  }else if (n.getKind()==NOT && n[0].getKind()==FORALL ){
-    d_quant_to_ceq[n] = cen[0];
-    d_quant_to_ceq[n[0]] = cen; 
-  }else if( n.getKind()==cen.getKind() && n.getNumChildren()==cen.getNumChildren() ){
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      associateNestedQuantifiers( n[i], cen[i] );
     }
   }
 }

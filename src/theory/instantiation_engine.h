@@ -78,8 +78,6 @@ public:
   }
   /** get associated quantifier */
   Node getQuantifier() { return d_vars[0].getAttribute(InstConstantAttribute()); }
-  /** partial merge */
-  void partialMerge( InstMatch& m, std::map< Node, Node >& splits );
 };
 
 class InstMatchGroup
@@ -203,10 +201,13 @@ public:
   theory::Instantiator* getInstantiator( Theory* t ) { return d_instTable[t->getId()]; }
   TheoryEngine* getTheoryEngine() { return d_te; }
 
+  /** add lemma lem */
+  bool addLemma( Node lem );
+  /** instantiate f with arguments terms */
   bool addInstantiation( Node f, std::vector< Node >& terms );
   bool addInstantiation( InstMatch* m );
-  bool addLemma( Node f );
-  bool addSplit( Node f );
+  /** split on node n */
+  bool addSplit( Node n );
 
   /** get the instantiation constants for quantifier f, and ce body ~f[e/x] */
   void getInstantiationConstantsFor( Node f, std::vector< Node >& ics, Node& cebody );
@@ -219,9 +220,6 @@ public:
 
   /** get the corresponding counterexample literal for quantified formula node n */
   Node getCounterexampleLiteralFor( Node n );
-  /** get the corresponding countexample equivalent for quantified formula, 
-      where n is a nested quantifier */
-  Node getCounterexampleQuantifier( Node n ) { return d_quant_to_ceq[n]; }
   /** mark literals as dependent */
   void registerLiterals( Node n, Node f, OutputChannel* out );
   /** set active */

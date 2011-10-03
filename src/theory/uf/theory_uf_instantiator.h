@@ -133,7 +133,7 @@ private:
   //int getNumNeqArgs( Node i, Node c );
 
   /** add split equality */
-  bool addSplitEquality( Node n1, Node n2 );
+  bool addSplitEquality( Node n1, Node n2, bool reqPhase = false, bool reqPhasePol = true );
 
 };/* class InstantiatorTheoryUf */
 

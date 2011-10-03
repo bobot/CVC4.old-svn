@@ -320,6 +320,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
 
 
 ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
+  Debug("quant-arith-error") << "x = " << x << std::endl;
   Assert(isLeaf(x) || x.getKind() == PLUS);
   Assert(!d_arithvarNodeMap.hasArithVar(x));
   Assert(x.getType().isReal());// real or integer

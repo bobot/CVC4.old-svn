@@ -21,6 +21,7 @@
 #define __CVC4__INSTANTIATOR_ARITH_H
 
 #include "theory/instantiation_engine.h"
+#include "theory/arith/arithvar_node_map.h"
 
 namespace CVC4 {
 namespace theory {
@@ -28,6 +29,16 @@ namespace arith {
 
 class InstantiatorTheoryArith : public Instantiator{
   friend class InstantiationEngine;
+private:
+  /** delta */
+  std::map< TypeNode, Node > d_deltas;
+  /** for each quantifier, simplex rows */
+  std::map< Node, std::vector< ArithVar > > d_instRows;
+  /** tableaux */
+  std::map< ArithVar, Node > d_tableaux_term;
+  std::map< ArithVar, std::map< Node, Node > > d_tableaux;
+  /** ce tableaux */
+  std::map< ArithVar, std::map< Node, Node > > d_ceTableaux;
 public:
   InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryArith() {}
@@ -40,8 +51,15 @@ public:
     * post condition: set d_solved_ic and d_lemmas fields */
   bool doInstantiation( int effort );
 private:
+  /** add term to row */
+  void addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t );
+  /** print debug */
   void printDebug();
-};/* class Instantiatior */
+  /** process at effort */
+  void process( Node f, int effort );
+  /** get delta for node */
+  Node getDelta( Node n );
+};/* class InstantiatiorTheoryArith  */
 
 }
 }
