@@ -111,10 +111,17 @@ class Instantiator{
 protected:
   /** status */
   int d_status;
+  /** quant status */
+  int d_quantStatus;
   /** reference to the instantiation engine */
   InstantiationEngine* d_instEngine;
   /** reference to the theory that it looks at */
   Theory* d_th;
+
+  /** has constraints from quantifier */
+  std::map< Node, bool > d_hasConstraints;
+  /** is full owner of quantifier f? */
+  bool isOwnerOf( Node f );
 public:
   enum Status {
     STATUS_UNFINISHED,
@@ -132,14 +139,21 @@ public:
 
   /** reset instantiation */
   virtual void resetInstantiation() { d_status = STATUS_UNFINISHED; }
-  /** prepare instantiation method
-    * post condition: set d_inst_matches and d_lemmas fields */
-  virtual bool doInstantiation( int effort ){ return false; }
+  /** do instantiation method*/
+  virtual void doInstantiation( int effort );
+  /** process quantifier */
+  virtual void process( Node f, int effort ) {}
+  /** identify */
+  virtual std::string identify() const { return std::string("Unknown"); }
 
   /** get status */
   int getStatus() { return d_status; }
   /** update status */
   static void updateStatus( int& currStatus, int addStatus );
+  /** set has constraints from quantifier f */
+  void setHasConstraintsFrom( Node f );
+  /** has constraints from */
+  bool hasConstraintsFrom( Node f );
 };/* class Instantiator */
 
 class InstantiatorDefault;
@@ -152,6 +166,7 @@ namespace arith {
 
 class InstantiationEngine
 {
+  friend class Instantiator;
   friend class ::CVC4::TheoryEngine;
   friend class InstantiatorDefault;
   friend class uf::InstantiatorTheoryUf;
@@ -192,8 +207,17 @@ private:
   int d_status;
   /** whether a lemma has been added */
   bool d_addedLemma;
-
-  void associateNestedQuantifiers( Node n, Node cen );
+  
+  /** owner of quantifiers */
+  std::map< Node, Theory* > d_owner;
+  /** instantiation queue */
+  std::map< Node, std::map< Theory*, std::vector< InstMatch* > > > d_instQueue;
+  /** enqueue instantiation specified by m */
+  void enqueueInstantiation( InstMatch* m, Theory* t ){
+    d_instQueue[ m->getQuantifier() ][ t ].push_back( m );
+  }
+  /** process enqueued instantiations */
+  void processEnqueuedInstantiations();
 public:
   InstantiationEngine(context::Context* c, TheoryEngine* te);
   ~InstantiationEngine();
@@ -205,6 +229,7 @@ public:
   bool addLemma( Node lem );
   /** instantiate f with arguments terms */
   bool addInstantiation( Node f, std::vector< Node >& terms );
+  /** do instantiation specified by m */
   bool addInstantiation( InstMatch* m );
   /** split on node n */
   bool addSplit( Node n );

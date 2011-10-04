@@ -31,7 +31,7 @@ Instantiator( c, ie, th ){
 }
 
 void InstantiatorTheoryArith::check( Node assertion ){
-  Debug("quant-arith") << "Assert " << assertion << std::endl;
+  Debug("quant-arith-assert") << "Assert " << assertion << std::endl;
 }
 
 void InstantiatorTheoryArith::resetInstantiation(){
@@ -56,6 +56,8 @@ void InstantiatorTheoryArith::resetInstantiation(){
       }
       if( f!=Node::null() ){
         d_instRows[f].push_back( x );
+        //this theory has constraints from f
+        setHasConstraintsFrom( f );
       }
       if( t.getNumChildren()==0 ){
         d_tableaux_term[x] = NodeManager::currentNM()->mkConst( Rational(0) ); 
@@ -66,6 +68,8 @@ void InstantiatorTheoryArith::resetInstantiation(){
       }
     }
   }
+  //print debug
+  printDebug();
 }
 
 void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){
@@ -86,25 +90,6 @@ void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBui
       t << n;
     }
   }
-}
-
-bool InstantiatorTheoryArith::doInstantiation( int effort ){
-  Debug("quant-arith") << "Search (" << effort << ") for instantiation for Arith: " << std::endl;
-  if( effort==0 ){
-    printDebug();
-  }
-  for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
-        it != d_instEngine->d_inst_constants.end(); ++it ){
-    if( d_instEngine->getActive( it->first ) ){
-      process( it->first, effort );
-    }
-  }
-
-  Debug("quant-arith") << std::endl;
-  if( effort==2 && d_status==STATUS_UNFINISHED ){
-    d_status = STATUS_UNKNOWN;
-  }
-  return true;
 }
 
 void InstantiatorTheoryArith::printDebug(){
@@ -165,7 +150,10 @@ void InstantiatorTheoryArith::printDebug(){
 
 void InstantiatorTheoryArith::process( Node f, int effort ){
   Debug("quant-arith") << "Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  if( effort==0 ){
+  if( effort>1 ){
+    d_quantStatus = STATUS_UNKNOWN;
+  }else if( effort==0 ){
+
   }else{
     ArithVarToNodeMap avtnm = ((TheoryArith*)getTheory())->d_arithvarNodeMap.getArithVarToNodeMap();
     for( int j=0; j<(int)d_instRows[f].size(); j++ ){
@@ -184,7 +172,7 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
       Node coeff = NodeManager::currentNM()->mkConst( value / d_ceTableaux[x].begin()->second.getConst<Rational>() );
       instVal = NodeManager::currentNM()->mkNode( MULT, coeff, instVal );
       instVal = Rewriter::rewrite( instVal );
-      Debug("quant-arith") << "   suggest " << instVal << " for " << d_ceTableaux[x].begin()->first << std::endl;
+      Debug("quant-arith") << "   Suggest " << instVal << " for " << d_ceTableaux[x].begin()->first << std::endl;
       InstMatch m( f, d_instEngine );
       for( int k=0; k<(int)d_instEngine->d_inst_constants[f].size(); k++ ){
         Rational z(0);

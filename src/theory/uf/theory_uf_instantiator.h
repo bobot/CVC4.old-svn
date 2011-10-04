@@ -80,8 +80,6 @@ protected:
   NodeList d_disequality;
   /** map from patterns to nodes that they have ematched against */
   //NodeLists d_eind_done;
-  /** quantifier status */
-  int d_quantStatus;
 
   ///** used eq classes */
   std::map< Node, Node > d_reps;
@@ -94,16 +92,21 @@ protected:
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
-
+  /** check method */
   void check( Node assertion );
+  /** reset instantiation */
   void resetInstantiation();
-  bool doInstantiation( int effort );
+  /** identify */
+  std::string identify() const { return std::string("InstantiatorTheoryUf"); }
 private:
+  /** assert terms are equal */
   void assertEqual( Node a, Node b );
+  /** register terms */
   void registerTerm( Node n, bool isTop = true );
 
   /** calculate matches for quantifier f at effort */
   std::map< Node, InstMatch > d_baseMatch;
+  std::map< Node, InstMatch > d_baseMatchFull;
   void process( Node f, int effort );
   /** determine why t did not match with g */
   bool resolveLitMatch( Node t, Node g, Node f, bool isEq );

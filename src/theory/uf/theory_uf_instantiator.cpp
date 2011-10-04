@@ -87,7 +87,7 @@ void InstantiatorTheoryUf::check( Node assertion )
 
 void InstantiatorTheoryUf::assertEqual( Node a, Node b )
 {
-  Debug("inst-uf") << "InstantiatorTheoryUf::equal: " << a << " == " << b << std::endl;
+  Debug("quant-uf-assert") << "InstantiatorTheoryUf::equal: " << a << " == " << b << std::endl;
   if( a.hasAttribute(InstConstantAttribute()) || 
       b.hasAttribute(InstConstantAttribute()) ){
     //add to obligation list
@@ -127,7 +127,8 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
       Assert( *it != formula );
     }
     ob->push_back( formula );
-    //DO_THIS: sub quantifiers?  add to their obligation list too?
+    //this theory has constraints from f
+    setHasConstraintsFrom( f );
   }
   if( a.getKind()==EQUAL || a.getKind()==IFF ){
     Assert( b==((TheoryUF*)d_th)->d_false );
@@ -289,35 +290,8 @@ void InstantiatorTheoryUf::resetInstantiation()
       d_dmap[r2].push_back( r1 );
     }
   }
-}
-
-bool InstantiatorTheoryUf::doInstantiation( int effort )
-{
-  if( effort==0 ){
-    debugPrint("quant-uf");
-  }
-  Debug("quant-uf") << "Search (" << effort << ") for instantiation for UF: " << std::endl;
-
-  d_status = STATUS_SAT;
-  for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
-        it != d_instEngine->d_inst_constants.end(); ++it ){
-    if( d_instEngine->getActive( it->first ) ){
-      d_quantStatus = STATUS_UNFINISHED;
-      process( it->first, effort );
-      Instantiator::updateStatus( d_status, d_quantStatus );
-    }
-  }
-  //if( d_inst_matches.getNumMatches()>0 ){
-  //  Debug("quant-uf") << "*** I produced these matches (" << e << ") : " << std::endl;
-  //  d_inst_matches.debugPrint("quant-uf");
-  //  Debug("quant-uf") << std::endl;
-  //}
-  if( effort==4 && d_status==STATUS_UNFINISHED ){
-    d_status = STATUS_UNKNOWN;
-    Debug("quant-uf-debug") << "Stuck at this state:" << std::endl;
-    debugPrint("quant-uf-debug");
-  }
-  return false;
+  //debug print
+  debugPrint("quant-uf");
 }
 
 void InstantiatorTheoryUf::debugPrint( const char* c )
@@ -427,31 +401,35 @@ Node InstantiatorTheoryUf::getRepresentative( Node a ){
 
 void InstantiatorTheoryUf::process( Node f, int effort ){
   Debug("quant-uf") << "Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  if( effort==0 ){
+  if( effort>4 ){
+    if( d_status==STATUS_SAT ){
+      Debug("quant-uf-debug") << "Stuck at this state:" << std::endl;
+      debugPrint("quant-uf-debug");
+    }
+    d_quantStatus = STATUS_UNKNOWN;
+  }else if( effort==0 ){
     //calculate base matches
     d_baseMatch[f] = InstMatch( f, d_instEngine );
+    d_baseMatchFull[f] = InstMatch( f, d_instEngine );
     //check if any instantiation constants are solved for
     for( int j = 0; j<(int)d_instEngine->d_inst_constants[f].size(); j++ ){
       Node i = d_instEngine->d_inst_constants[f][j];
-      if(  d_instEngine->getTheoryEngine()->theoryOf( i )==getTheory() ){
-        Node c;
-        if( d_instEngine->d_ic_active.find( i )==d_instEngine->d_ic_active.end() ){
+      if( d_instEngine->getTheoryEngine()->theoryOf( i )==getTheory() ){
+        if( d_terms_full.find( i )==d_terms_full.end() ){
           //i does not exist in a literal in the current context, can use fresh constant
-          c = NodeManager::currentNM()->mkVar( i.getType() ); 
+          d_baseMatchFull[f].setMatch( i, NodeManager::currentNM()->mkVar( i.getType() ) ); 
           //c = d_instEngine->d_skolem_constants[f][j];  //for convience/performance, use skolem constant?
         }else{
           Node rep = getRepresentative( i );
           if( !rep.hasAttribute(InstConstantAttribute()) ){
-            c = rep;
+            d_baseMatch[f].setMatch( i, rep );
+            d_baseMatchFull[f].setMatch( i, rep );
           }
-        }
-        if( c!=Node::null() ){
-          d_baseMatch[f].setMatch( i, c );
         }
       }
     }
     if( d_baseMatch[f].isComplete() ){
-      //f is solved
+      //f is counterexample-solved
       d_instEngine->addInstantiation( &d_baseMatch[f] );
     }
   }else{
@@ -483,12 +461,21 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
           }
         }
         for( int i=0; i<(int)combined.d_matches.size(); i++ ){
-          if( combined.d_matches[i].isComplete( &d_baseMatch[f] ) ){
-            //psi is E-induced
-            combined.d_matches[i].add( d_baseMatch[f] );
-            if( d_instEngine->addInstantiation( &combined.d_matches[i] ) ){
-              break;
+          if( isOwnerOf( f ) ){
+            //this theory owns the quantifier of f, add instantiation directly
+            if( combined.d_matches[i].isComplete( &d_baseMatchFull[f] ) ){
+              //psi is E-induced
+              combined.d_matches[i].add( d_baseMatchFull[f] );
+              if( d_instEngine->addInstantiation( &combined.d_matches[i] ) ){
+                break;
+              }
             }
+          }else{
+#if 0
+            //this theory only partially owns the quantifier of f
+            combined.d_matches[i].add( d_baseMatch[f] );
+            d_instEngine->enqueueInstantiation( combined.d_matches[i], getTheory() );
+#endif
           }
         }
       }else{
@@ -518,6 +505,8 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
               Debug("quant-uf-alg") << "-> Literal is not induced." << std::endl;
               break;
             }else{
+              bool unmatched = false;
+              bool matchable = true;
               if( d_litMatchCandidates[ind][lit[0]][lit[1]].empty() ){
                 if( effort==3 ){
                   resolveMatches = false;
@@ -528,18 +517,28 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
                     if( lit[i].hasAttribute(InstConstantAttribute()) ){
                       calculateMatches( f, lit[i] );
                       if( d_matches[ lit[i] ].empty() ){
+                        matchable = false;
                         //is lit[i] unconstrained in M?
                         resolveModel( f, lit[i] );
                         if( d_anyMatches[ lit[i] ].empty() ){
+                          unmatched = true;
                           //model can be generated?
                           //d_quantStatus = STATUS_SAT;
+                          Debug("quant-uf-alg") << "-> Literal is unmatchable." << std::endl;
                         }
                       }
                     }
                   }
                 }
+                if( matchable && !unmatched ){
+                  Debug("quant-uf-alg") << "-> Literal is matchable." << std::endl;
+                }
+              }else{
+                Debug("quant-uf-alg") << "-> Literal is literal-matched." << std::endl;
               }
-              matchFails[ ind ].push_back( std::pair< Node, Node >( lit[0], lit[1] ) );
+              if( matchable ){
+                matchFails[ ind ].push_back( std::pair< Node, Node >( lit[0], lit[1] ) );
+              }
             }
           }
         }
@@ -565,7 +564,7 @@ bool InstantiatorTheoryUf::resolveLitMatch( Node t, Node s, Node f, bool isEq ){
   Debug("quant-uf-alg") << t << ( !isEq ? " != " : " = " ) << s << "?" << std::endl;
   bool addedLemma = false;
   int ind = isEq ? 0 : 1;
-  if( d_litMatchCandidates[ind][t][s].empty() ){
+  if( !d_litMatchCandidates[ind][t][s].empty() ){
     if( !isEq ){
       if( s.getAttribute(InstConstantAttribute())==f ){
         for( int i=0; i<(int)d_litMatchCandidates[1][t][s].size(); i++ ){
@@ -847,6 +846,9 @@ bool InstantiatorTheoryUf::resolveMerge( std::vector< InstMatchGroup* >& matches
     //  }
     //}
   }else if( matches.size()==1 ){
+    Debug("quant-uf-alg") << "Single set of unifiers to merge:  " << std::endl;
+    matches[0]->debugPrint( "quant-uf-alg" );
+    Debug("quant-uf-alg") << std::endl;
     ////add complete instantiations such that psi is partially induced??
     //for( int i=0; i<(int)matches[0]->getNumMatches(); i++ ){
     //  if( matches[0]->getMatch( i )->isComplete( &d_baseMatch[f] ) ){

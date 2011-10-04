@@ -47,9 +47,8 @@ public:
   void check( Node assertion );
   /**  reset instantiation */
   void resetInstantiation();
-  /** prepare instantiation method
-    * post condition: set d_solved_ic and d_lemmas fields */
-  bool doInstantiation( int effort );
+  /** identify */
+  std::string identify() const { return std::string("InstantiatorTheoryArith"); }
 private:
   /** add term to row */
   void addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t );

@@ -192,6 +192,10 @@ void TheoryQuantifiers::assertUniversal( Node n ){
   Assert( n.getKind()==FORALL );
   if( n.hasAttribute(InstConstantAttribute()) ){
     Debug("quantifiers") << "Ignoring nested quantifier for counterexample: " << n << std::endl;
+    //the quantifiers instantiator has constraints from n
+    if( getInstantiator() ){
+      getInstantiator()->setHasConstraintsFrom( n.getAttribute(InstConstantAttribute()) );
+    }
     return;
   }
   if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
@@ -226,6 +230,10 @@ void TheoryQuantifiers::assertExistential( Node n ){
   Assert( n.getKind()== NOT && n[0].getKind()==FORALL );
   if( n[0].hasAttribute(InstConstantAttribute()) ){
     Debug("quantifiers") << "Ignoring nested quantifier for counterexample: " << n[0] << std::endl;
+    //the quantifiers instantiator has constraints from n[0]
+    if( getInstantiator() ){
+      getInstantiator()->setHasConstraintsFrom( n[0].getAttribute(InstConstantAttribute()) );
+    }
     return;
   }
   if( d_skolemized.find( n )==d_skolemized.end() ){

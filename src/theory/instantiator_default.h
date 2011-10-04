@@ -30,13 +30,12 @@ class InstantiatorDefault : public Instantiator{
 public:
   InstantiatorDefault(context::Context* c, InstantiationEngine* ie, Theory* th);
   ~InstantiatorDefault() {}
-
   /** check function, assertion is asserted to theory */
   void check( Node assertion );
-
-  /** prepare instantiation method
-    * post condition: set d_solved_ic and d_lemmas fields */
-  bool doInstantiation( int effort );
+  /** process quantifier */
+  void process( Node f, int effort );
+  /** identify */
+  std::string identify() const { return std::string("InstantiatorDefault"); }
 };/* class Instantiatior */
 
 

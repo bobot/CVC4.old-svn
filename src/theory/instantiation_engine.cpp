@@ -229,6 +229,18 @@ d_th( th ){
 Instantiator::~Instantiator(){
 }
 
+void Instantiator::doInstantiation( int effort ){
+  d_status = STATUS_SAT;
+  for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
+        it != d_instEngine->d_inst_constants.end(); ++it ){
+    if( d_instEngine->getActive( it->first ) ){
+      d_quantStatus = STATUS_UNFINISHED;
+      process( it->first, effort );
+      updateStatus( d_status, d_quantStatus );
+    }
+  }
+}
+
 void Instantiator::updateStatus( int& currStatus, int addStatus ){
   if( addStatus==STATUS_UNFINISHED ){
     currStatus = STATUS_UNFINISHED;
@@ -237,6 +249,24 @@ void Instantiator::updateStatus( int& currStatus, int addStatus ){
       currStatus = STATUS_UNKNOWN;
     }
   }
+}
+
+bool Instantiator::isOwnerOf( Node f ){
+  return d_instEngine->d_owner.find( f )!=d_instEngine->d_owner.end() &&
+         d_instEngine->d_owner[f]==getTheory();
+}
+
+void Instantiator::setHasConstraintsFrom( Node f ){
+  d_hasConstraints[f] = true;
+  if( d_instEngine->d_owner.find( f )==d_instEngine->d_owner.end() ){
+    d_instEngine->d_owner[f] = getTheory();
+  }else if( d_instEngine->d_owner[f]!=getTheory() ){
+    d_instEngine->d_owner[f] = NULL;
+  }
+}
+
+bool Instantiator::hasConstraintsFrom( Node f ) { 
+  return d_hasConstraints.find( f )!=d_hasConstraints.end() && d_hasConstraints[f]; 
 }
 
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
@@ -372,16 +402,26 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
         d_instTable[i]->doInstantiation( e );
+        //Debug("inst-engine-debug") << e << " " << d_instTable[i]->identify() << " is " << d_instTable[i]->getStatus() << std::endl;
         //update status
         Instantiator::updateStatus( d_status, d_instTable[i]->getStatus() );
       }
     }
+    //try to piece together instantiations across theories
+    processEnqueuedInstantiations();
     if( d_addedLemma ){
       d_status = Instantiator::STATUS_UNKNOWN;
     }
     e++;
   }
   return d_addedLemma;
+}
+
+void InstantiationEngine::processEnqueuedInstantiations(){
+  for( std::map< Node, std::map< Theory*, std::vector< InstMatch* > > >::iterator it = d_instQueue.begin(); 
+       it != d_instQueue.end(); ++it ){
+    
+  }
 }
 
 Node InstantiationEngine::getCounterexampleLiteralFor( Node n ){
