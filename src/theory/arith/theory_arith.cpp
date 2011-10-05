@@ -2,10 +2,10 @@
 /*! \file theory_arith.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
- ** Minor contributors (to current version): barrett, dejan, mdeters
+ ** Major contributors: mdeters, dejan
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -59,12 +59,16 @@ static const uint32_t RESET_START = 2;
 struct SlackAttrID;
 typedef expr::Attribute<SlackAttrID, bool> Slack;
 
-TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_ARITH, c, out, valuation),
+TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
+  Theory(THEORY_ARITH, c, u, out, valuation),
+  learner(d_pbSubstitutions),
+  d_nextIntegerCheckVar(0),
   d_partialModel(c),
   d_userVariables(),
   d_diseq(c),
   d_tableau(),
+  d_diosolver(c, d_tableau, d_partialModel),
+  d_pbSubstitutions(u),
   d_restartsCounter(0),
   d_rowHasBeenAdded(false),
   d_tableauResetDensity(1.6),
@@ -130,10 +134,106 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
-Node TheoryArith::simplify(TNode in, std::vector< std::pair<Node, Node> >& outSubstitutions) {
+Node TheoryArith::preprocess(TNode atom) {
+  Debug("arith::preprocess") << "arith::preprocess() : " << atom << endl;
+
+  Node a = d_pbSubstitutions.apply(atom);
+
+  if (a != atom) {
+    Debug("pb") << "arith::preprocess() : after pb substitutions: " << a << endl;
+    a = Rewriter::rewrite(a);
+    Debug("pb") << "arith::preprocess() : after pb substitutions and rewriting: " << a << endl;
+    Debug("arith::preprocess") << "arith::preprocess() : after pb substitutions and rewriting: " << a << endl;
+  }
+
+  if (a.getKind() == kind::EQUAL) {
+    Node leq = NodeBuilder<2>(kind::LEQ) << a[0] << a[1];
+    Node geq = NodeBuilder<2>(kind::GEQ) << a[0] << a[1];
+    Node rewritten = Rewriter::rewrite(leq.andNode(geq));
+    Debug("arith::preprocess") << "arith::preprocess() : returning " << rewritten << endl;
+    return rewritten;
+  }
+
+  return a;
+}
+
+Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutions) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_simplifyTimer);
-  Trace("simplify:arith") << "arith-simplifying: " << in << endl;
-  return d_valuation.rewrite(in);
+  Debug("simplify") << "TheoryArith::solve(" << in << ")" << endl;
+
+  // Solve equalities
+  Rational minConstant = 0;
+  Node minMonomial;
+  Node minVar;
+  unsigned nVars = 0;
+  if (in.getKind() == kind::EQUAL) {
+    Assert(in[1].getKind() == kind::CONST_RATIONAL);
+    // Find the variable with the smallest coefficient
+    Polynomial p = Polynomial::parsePolynomial(in[0]);
+    Polynomial::iterator it = p.begin(), it_end = p.end();
+    for (; it != it_end; ++ it) {
+      Monomial m = *it;
+      // Skip the constant
+      if (m.isConstant()) continue;
+      // This is a ''variable''
+      nVars ++;
+      // Skip the non-linear stuff
+      if (!m.getVarList().singleton()) continue;
+      // Get the minimal one
+      Rational constant = m.getConstant().getValue();
+      Rational absSconstant = constant > 0 ? constant : -constant;
+      if (minVar.isNull() || absSconstant < minConstant) {
+        Node var = m.getVarList().getNode();
+        if (var.getKind() == kind::VARIABLE) {
+          minVar = var;
+          minMonomial = m.getNode();
+          minConstant = constant;
+        }
+      }
+    }
+
+    // Solve for variable
+    if (!minVar.isNull()) {
+      // ax + p = c -> (ax + p) -ax - c = -ax
+      Node eliminateVar = NodeManager::currentNM()->mkNode(kind::MINUS, in[0], minMonomial);
+      if (in[1].getConst<Rational>() != 0) {
+        eliminateVar = NodeManager::currentNM()->mkNode(kind::MINUS, eliminateVar, in[1]);
+      }
+      // x = (p - ax - c) * -1/a
+      eliminateVar = NodeManager::currentNM()->mkNode(kind::MULT, eliminateVar, mkRationalNode(- minConstant.inverse()));
+      // Add the substitution if not recursive
+      Node rewritten = Rewriter::rewrite(eliminateVar);
+      if (!rewritten.hasSubterm(minVar)) {
+        Node elim = Rewriter::rewrite(eliminateVar);
+        if (!minVar.getType().isInteger() || elim.getType().isInteger()) {
+          // cannot eliminate integers here unless we know the resulting
+          // substitution is integral
+          Debug("simplify") << "TheoryArith::solve(): substitution " << minVar << " |-> " << elim << endl;
+          outSubstitutions.addSubstitution(minVar, elim);
+          return SOLVE_STATUS_SOLVED;
+        } else {
+          Debug("simplify") << "TheoryArith::solve(): can't substitute b/c it's integer: " << minVar << ":" << minVar.getType() << " |-> " << elim << ":" << elim.getType() << endl;
+        }
+      }
+    }
+  }
+
+  // If a relation, remember the bound
+  switch(in.getKind()) {
+  case kind::LEQ:
+  case kind::LT:
+  case kind::GEQ:
+  case kind::GT:
+    if (in[0].getMetaKind() == kind::metakind::VARIABLE) {
+      learner.addBound(in);
+    }
+    break;
+  default:
+    // Do nothing
+    break;
+  }
+
+  return SOLVE_STATUS_UNSOLVED;
 }
 
 void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
@@ -187,13 +287,13 @@ void TheoryArith::preRegisterTerm(TNode n) {
     d_out->setIncomplete();
   }
 
-  if(Variable::isMember(n) || isStrictlyVarList){
+  if((Variable::isMember(n) || isStrictlyVarList) && !d_arithvarNodeMap.hasArithVar(n)){
     ++(d_statistics.d_statUserVariables);
     ArithVar varN = requestArithVar(n,false);
     setupInitialValue(varN);
   }
 
-  if(isRelationOperator(k)){
+  if(isRelationOperator(k) && (!d_atomDatabase.leftIsSetup(n[0]) || !d_atomDatabase.containsAtom(n))) {
     Assert(Comparison::isNormalAtom(n));
 
     d_atomDatabase.addAtom(n);
@@ -206,18 +306,28 @@ void TheoryArith::preRegisterTerm(TNode n) {
       if(!left.getAttribute(Slack())){
         setupSlack(left);
       }
+    } else {
+      if (theoryOf(left) != THEORY_ARITH && !d_arithvarNodeMap.hasArithVar(left)) {
+        // The only way not to get it through pre-register is if it's a foreign term
+        ++(d_statistics.d_statUserVariables);
+        ArithVar av = requestArithVar(left, false);
+        setupInitialValue(av);
+      } 
     }
   }
-  Debug("arith_preregister") << "end arith::preRegisterTerm("<< n <<")"<< endl;
+  Debug("arith_preregister") << "end arith::preRegisterTerm(" << n <<")" << endl;
 }
 
 
 ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   Assert(isLeaf(x) || x.getKind() == PLUS);
   Assert(!d_arithvarNodeMap.hasArithVar(x));
+  Assert(x.getType().isReal());// real or integer
 
   ArithVar varX = d_variables.size();
   d_variables.push_back(Node(x));
+  Debug("integers") << "isInteger[[" << x << "]]: " << x.getType().isInteger() << endl;
+  d_integerVars.push_back(x.getType().isPseudoboolean() ? 2 : (x.getType().isInteger() ? 1 : 0));
 
   d_simplex.increaseMax();
 
@@ -231,7 +341,7 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   return varX;
 }
 
-void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::vector<ArithVar>& variables) const{
+void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::vector<ArithVar>& variables) {
   for(Polynomial::iterator i = p.begin(), end = p.end(); i != end; ++i){
     const Monomial& mono = *i;
     const Constant& constant = mono.getConstant();
@@ -242,10 +352,19 @@ void TheoryArith::asVectors(Polynomial& p, std::vector<Rational>& coeffs, std::v
     Debug("rewriter") << "should be var: " << n << endl;
 
     Assert(isLeaf(n));
-    Assert(d_arithvarNodeMap.hasArithVar(n));
+    Assert(theoryOf(n) != THEORY_ARITH || d_arithvarNodeMap.hasArithVar(n));
 
-    ArithVar av = d_arithvarNodeMap.asArithVar(n);
-
+    ArithVar av;
+    if (theoryOf(n) != THEORY_ARITH && !d_arithvarNodeMap.hasArithVar(n)) {
+      // The only way not to get it through pre-register is if it's a foreign term
+      ++(d_statistics.d_statUserVariables);
+      av = requestArithVar(n,false);
+      setupInitialValue(av);
+    } else {
+      // Otherwise, we already have it's variable
+      av = d_arithvarNodeMap.asArithVar(n);
+    }
+    
     coeffs.push_back(constant.getValue());
     variables.push_back(av);
   }
@@ -259,8 +378,6 @@ void TheoryArith::setupSlack(TNode left){
 
   d_rowHasBeenAdded = true;
 
-  ArithVar varSlack = requestArithVar(left, true);
-
   Polynomial polyLeft = Polynomial::parsePolynomial(left);
 
   vector<ArithVar> variables;
@@ -268,8 +385,8 @@ void TheoryArith::setupSlack(TNode left){
 
   asVectors(polyLeft, coefficients, variables);
 
+  ArithVar varSlack = requestArithVar(left, true);
   d_tableau.addRow(varSlack, coefficients, variables);
-
   setupInitialValue(varSlack);
 }
 
@@ -292,12 +409,7 @@ void TheoryArith::setupInitialValue(ArithVar x){
     d_partialModel.setAssignment(x,assignment);
   }
   Debug("arithgc") << "setupVariable("<<x<<")"<<std::endl;
-};
-
-void TheoryArith::registerTerm(TNode tn){
-  Debug("arith") << "registerTerm(" << tn << ")" << endl;
 }
-
 
 ArithVar TheoryArith::determineLeftVariable(TNode assertion, Kind simpleKind){
   TNode left = getSide<true>(assertion, simpleKind);
@@ -486,6 +598,129 @@ void TheoryArith::check(Effort effortLevel){
     }
   }
 
+  if(fullEffort(effortLevel) && d_integerVars.size() > 0) {
+    const ArithVar rrEnd = d_nextIntegerCheckVar;
+    do {
+      ArithVar v = d_nextIntegerCheckVar;
+      short type = d_integerVars[v];
+      if(type > 0) { // integer
+        const DeltaRational& d = d_partialModel.getAssignment(v);
+        const Rational& r = d.getNoninfinitesimalPart();
+        const Rational& i = d.getInfinitesimalPart();
+        Trace("integers") << "integers: assignment to [[" << d_arithvarNodeMap.asNode(v) << "]] is " << r << "[" << i << "]" << endl;
+        if(type == 2) {
+          // pseudoboolean
+          if(r.getDenominator() == 1 && i.getNumerator() == 0 &&
+             (r.getNumerator() == 0 || r.getNumerator() == 1)) {
+            // already pseudoboolean; skip
+            continue;
+          }
+
+          TNode var = d_arithvarNodeMap.asNode(v);
+          Node zero = NodeManager::currentNM()->mkConst(Integer(0));
+          Node one = NodeManager::currentNM()->mkConst(Integer(1));
+          Node eq0 = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::EQUAL, var, zero));
+          Node eq1 = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::EQUAL, var, one));
+          Node lem = NodeManager::currentNM()->mkNode(kind::OR, eq0, eq1);
+          Trace("pb") << "pseudobooleans: branch & bound: " << lem << endl;
+          Trace("integers") << "pseudobooleans: branch & bound: " << lem << endl;
+          //d_out->lemma(lem);
+        }
+        if(r.getDenominator() == 1 && i.getNumerator() == 0) {
+          // already an integer assignment; skip
+          continue;
+        }
+
+        // otherwise, try the Diophantine equation solver
+        //bool result = d_diosolver.solve();
+        //Debug("integers") << "the dio solver returned " << (result ? "true" : "false") << endl;
+
+        // branch and bound
+        if(r.getDenominator() == 1) {
+          // r is an integer, but the infinitesimal might not be
+          if(i.getNumerator() < 0) {
+            // lemma: v <= r - 1 || v >= r
+
+            TNode var = d_arithvarNodeMap.asNode(v);
+            Node nrMinus1 = NodeManager::currentNM()->mkConst(r - 1);
+            Node nr = NodeManager::currentNM()->mkConst(r);
+            Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, nrMinus1));
+            Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, nr));
+
+            Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
+            Trace("integers") << "integers: branch & bound: " << lem << endl;
+            if(d_valuation.isSatLiteral(lem[0])) {
+              Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;
+            } else {
+              Debug("integers") << "    " << lem[0] << " is not assigned a SAT literal" << endl;
+            }
+            if(d_valuation.isSatLiteral(lem[1])) {
+              Debug("integers") << "    " << lem[1] << " == " << d_valuation.getSatValue(lem[1]) << endl;
+            } else {
+              Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
+            }
+            d_out->lemma(lem);
+
+            // split only on one var
+            break;
+          } else if(i.getNumerator() > 0) {
+            // lemma: v <= r || v >= r + 1
+
+            TNode var = d_arithvarNodeMap.asNode(v);
+            Node nr = NodeManager::currentNM()->mkConst(r);
+            Node nrPlus1 = NodeManager::currentNM()->mkConst(r + 1);
+            Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, nr));
+            Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, nrPlus1));
+
+            Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
+            Trace("integers") << "integers: branch & bound: " << lem << endl;
+            if(d_valuation.isSatLiteral(lem[0])) {
+              Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;
+            } else {
+              Debug("integers") << "    " << lem[0] << " is not assigned a SAT literal" << endl;
+            }
+            if(d_valuation.isSatLiteral(lem[1])) {
+              Debug("integers") << "    " << lem[1] << " == " << d_valuation.getSatValue(lem[1]) << endl;
+            } else {
+              Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
+            }
+            d_out->lemma(lem);
+
+            // split only on one var
+            break;
+          } else {
+            Unreachable();
+          }
+        } else {
+          // lemma: v <= floor(r) || v >= ceil(r)
+
+          TNode var = d_arithvarNodeMap.asNode(v);
+          Node floor = NodeManager::currentNM()->mkConst(r.floor());
+          Node ceiling = NodeManager::currentNM()->mkConst(r.ceiling());
+          Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, floor));
+          Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, ceiling));
+
+          Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
+          Trace("integers") << "integers: branch & bound: " << lem << endl;
+          if(d_valuation.isSatLiteral(lem[0])) {
+            Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;
+          } else {
+            Debug("integers") << "    " << lem[0] << " is not assigned a SAT literal" << endl;
+          }
+          if(d_valuation.isSatLiteral(lem[1])) {
+            Debug("integers") << "    " << lem[1] << " == " << d_valuation.getSatValue(lem[1]) << endl;
+          } else {
+            Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
+          }
+          d_out->lemma(lem);
+
+          // split only on one var
+          break;
+        }
+      }// if(arithvar is integer-typed)
+    } while((d_nextIntegerCheckVar = (1 + d_nextIntegerCheckVar == d_variables.size() ? 0 : 1 + d_nextIntegerCheckVar)) != rrEnd);
+  }// if(full effort)
+
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
   if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
   Debug("arith") << "TheoryArith::check end" << std::endl;
@@ -552,12 +787,10 @@ void TheoryArith::debugPrintModel(){
   }
 }
 
-void TheoryArith::explain(TNode n) {
+Node TheoryArith::explain(TNode n) {
   Debug("explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
-
   Assert(d_propManager.isPropagated(n));
-  Node explanation = d_propManager.explain(n);
-  d_out->explanation(explanation, true);
+  return d_propManager.explain(n);
 }
 
 void TheoryArith::propagate(Effort e) {
@@ -782,7 +1015,9 @@ void TheoryArith::presolve(){
     for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
       Node variableNode = *i;
       ArithVar var = d_arithvarNodeMap.asArithVar(variableNode);
-      if(d_userVariables.isMember(var) && !d_atomDatabase.hasAnyAtoms(variableNode)){
+      if(d_userVariables.isMember(var) &&
+         !d_atomDatabase.hasAnyAtoms(variableNode) &&
+         !variableNode.getType().isInteger()){
 	//The user variable is unconstrained.
 	//Remove this variable permanently
 	permanentlyRemoveVariable(var);

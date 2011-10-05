@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -140,7 +140,7 @@ private:
   CongruenceClosureExplainer<CongruenceChannel, CONGRUENCE_OPERATORS_2 (kind::APPLY_CONSTRUCTOR, kind::APPLY_SELECTOR)> d_cce;
 
 public:
-  TheoryDatatypes(context::Context* c, OutputChannel& out, Valuation valuation);
+  TheoryDatatypes(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
   ~TheoryDatatypes();
   void preRegisterTerm(TNode n);
   void presolve();
@@ -178,7 +178,6 @@ private:
   bool searchForCycle( Node n, Node on,
                        std::map< Node, bool >& visited,
                        NodeBuilder<>& explanation );
-  Node doTypeAscription( Node t, TypeNode typ );
 };/* class TheoryDatatypes */
 
 inline bool TheoryDatatypes::hasConflict() { 

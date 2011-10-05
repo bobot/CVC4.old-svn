@@ -5,6 +5,7 @@
 # Copyright (c) 2009, 2010, 2011  The CVC4 Project
 #
 # usage: update-copyright [-m] [files/directories...]
+#        update-copyright [-h | --help]
 #
 # This script goes through a source directory rewriting the top bits of
 # source files to match a template (inline, below).  For files with no
@@ -29,11 +30,10 @@
 # It ignores any directory matching $excluded_directories
 # (so, you should add here any sources imported but not covered under
 # the license.)
+#
 
 my $excluded_directories = '^(minisat|CVS|generated)$';
-# re-include bounded_token_buffer.{h,cpp}
-#my $excluded_paths = '^(src/parser/bounded_token_buffer\.(h|cpp))|(src/parser/antlr_input_imports.cpp)$';
-my $excluded_paths = '^src/parser/antlr_input_imports.cpp$';
+my $excluded_paths = '^(src/parser/antlr_input_imports.cpp|src/bindings/compat/.*)$';
 
 # Years of copyright for the template.  E.g., the string
 # "1985, 1987, 1992, 1997, 2008" or "2006-2009" or whatever.
@@ -64,6 +64,16 @@ use Fcntl ':mode';
 
 my $dir = $0;
 $dir =~ s,/[^/]+/*$,,;
+
+if($#ARGV >= 0 && $ARGV[0] eq '-h' || $ARGV[0] eq '--help') {
+  open(my $SELF, $0) || die "error opening $0 for reading";
+  while($_ = <$SELF>) {
+    last if !/^#/;
+    print;
+  }
+  close $SELF;
+  exit;
+}
 
 # whether we ONLY process files with svn status "M"
 my $modonly = 0;
@@ -123,7 +133,7 @@ while($#searchdirs >= 0) {
 
 sub handleFile {
   my ($srcdir, $file) = @_;
-  return if !($file =~ /\.(c|cc|cpp|C|h|hh|hpp|H|y|yy|ypp|Y|l|ll|lpp|L|g)$/);
+  return if !($file =~ /\.(c|cc|cpp|C|h|hh|hpp|H|y|yy|ypp|Y|l|ll|lpp|L|g|java)$/);
   return if ($srcdir.'/'.$file) =~ /$excluded_paths/;
   return if $modonly  &&`svn status "$srcdir/$file" 2>/dev/null` !~ /^M/;
   print "$srcdir/$file...";
@@ -158,6 +168,12 @@ sub handleFile {
     print $OUT " **\n";
     while(my $line = <$IN>) {
       last if $line =~ /^ \*\*\s*$/;
+      if($line =~ /\*\//) {
+        print $OUT " ** [[ Add lengthier description here ]]\n";
+        print $OUT " ** \\todo document this file\n";
+        print $OUT $line;
+        last;
+      }
     }
   } else {
     my $line = $_;

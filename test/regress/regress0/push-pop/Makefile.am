@@ -10,12 +10,14 @@ MAKEFLAGS = -k
 
 # Regression tests for SMT inputs
 CVC_TESTS = \
-	test.00.cvc
+	test.00.cvc \
+	test.01.cvc \
+	units.cvc \
+	incremental-subst-bug.cvc
 
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 
-EXTRA_DIST = $(TESTS) \
-	test.01.cvc
+EXTRA_DIST = $(TESTS) 
 
 # synonyms for "check" in this directory
 .PHONY: regress regress0 test

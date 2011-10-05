@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): taking, barrett, dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -41,6 +41,11 @@ public:
 
   Node getValue(TNode n) const;
 
+  /*
+   * Return true if n has an associated SAT literal
+   */
+  bool isSatLiteral(TNode n) const;
+
   /**
    * Get the current SAT assignment to the node n.
    *
@@ -52,18 +57,17 @@ public:
   Node getSatValue(TNode n) const;
 
   /**
-   * Simplify a node.  Intended to be used by a theory's simplify()
-   * function to simplify subterms (TheoryEngine will cache the
-   * results and make sure that the request is directed to the correct
-   * theory).
+   * Returns true if the node has a current SAT assignment. If yes, the
+   * argument "value" is set to its value.
+   *
+   * This is only permitted if n is a theory atom that has an associated
+   * SAT literal.
+   *
+   * @return true if the literal has a current assignment, and returns the
+   * value in the "value" argument; otherwise false and the "value"
+   * argument is unmodified.
    */
-  Node simplify(TNode in, Substitutions& outSubstitutions);
-
-  /**
-   * Rewrite a node.  Intended to be used by a theory to have the
-   * TheoryEngine fully rewrite a node.
-   */
-  Node rewrite(TNode in);
+  bool hasSatValue(TNode n, bool& value) const;
 
 };/* class Valuation */
 

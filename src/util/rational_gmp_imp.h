@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -151,7 +151,7 @@ public:
    * Returns the value of denominator of the Rational.
    * Note that this makes a deep copy of the denominator.
    */
-  Integer getDenominator() const{
+  Integer getDenominator() const {
     return Integer(d_value.get_den());
   }
 
@@ -165,9 +165,20 @@ public:
     return mpq_cmp(d_value.get_mpq_t(), x.d_value.get_mpq_t());
   }
 
-
   int sgn() const {
     return mpq_sgn(d_value.get_mpq_t());
+  }
+
+  Integer floor() const {
+    mpz_class q;
+    mpz_fdiv_q(q.get_mpz_t(), d_value.get_num_mpz_t(), d_value.get_den_mpz_t());
+    return Integer(q);
+  }
+
+  Integer ceiling() const {
+    mpz_class q;
+    mpz_cdiv_q(q.get_mpz_t(), d_value.get_num_mpz_t(), d_value.get_den_mpz_t());
+    return Integer(q);
   }
 
   Rational& operator=(const Rational& x){
@@ -204,9 +215,6 @@ public:
     return d_value >= y.d_value;
   }
 
-
-  
-
   Rational operator+(const Rational& y) const{
     return Rational( d_value + y.d_value );
   }
@@ -228,6 +236,11 @@ public:
 
   Rational& operator*=(const Rational& y){
     d_value *= y.d_value;
+    return (*this);
+  }
+
+  Rational& operator/=(const Rational& y){
+    d_value /= y.d_value;
     return (*this);
   }
 

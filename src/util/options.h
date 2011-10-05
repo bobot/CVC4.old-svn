@@ -2,8 +2,8 @@
 /*! \file options.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway
- ** Minor contributors (to current version): dejan, taking
+ ** Major contributors: taking, cconway
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -73,11 +73,8 @@ struct CVC4_PUBLIC Options {
   /** The input language */
   InputLanguage inputLanguage;
 
-  /** Enumeration of UF implementation choices */
-  typedef enum { TIM, MORGAN } UfImplementation;
-
-  /** Which implementation of uninterpreted function theory to use */
-  UfImplementation uf_implementation;
+  /** The output language */
+  OutputLanguage outputLanguage;
 
   /** Should we print the help message? */
   bool help;
@@ -90,6 +87,9 @@ struct CVC4_PUBLIC Options {
 
   /** Should we exit after parsing? */
   bool parseOnly;
+
+  /** Should we exit after preprocessing? */
+  bool preprocessOnly;
 
   /** Should the parser do semantic checks? */
   bool semanticChecks;
@@ -111,22 +111,19 @@ struct CVC4_PUBLIC Options {
 
   /** Enumeration of simplification modes (when to simplify). */
   typedef enum {
-    BATCH_MODE,
-    INCREMENTAL_MODE,
-    INCREMENTAL_LAZY_SAT_MODE
+    /** Simplify the assertions as they come in */
+    SIMPLIFICATION_MODE_INCREMENTAL,
+    /** Simplify the assertions all together once a check is requested */
+    SIMPLIFICATION_MODE_BATCH,
+    /** Don't do simplification */
+    SIMPLIFICATION_MODE_NONE
   } SimplificationMode;
-  /** When to perform nonclausal simplifications. */
+
+  /** When/whether to perform nonclausal simplifications. */
   SimplificationMode simplificationMode;
 
-  /** Enumeration of simplification styles (how much to simplify). */
-  typedef enum {
-    AGGRESSIVE_SIMPLIFICATION_STYLE,
-    TOPLEVEL_SIMPLIFICATION_STYLE,
-    NO_SIMPLIFICATION_STYLE
-  } SimplificationStyle;
-
-  /** Style of nonclausal simplifications to perform. */
-  SimplificationStyle simplificationStyle;
+  /** Whether to perform the static learning pass. */
+  bool doStaticLearning;
 
   /** Whether we're in interactive mode or not */
   bool interactive;
@@ -186,6 +183,23 @@ struct CVC4_PUBLIC Options {
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
   ArithPivotRule pivotRule;
 
+  /**
+   * The number of pivots before Bland's pivot rule is used on a basic
+   * variable in arithmetic.
+   */
+  uint16_t arithPivotThreshold;
+
+  /**
+   * The maximum row length that arithmetic will use for propagation.
+   */
+  uint16_t arithPropagateMaxLength;
+
+  /**
+   * Whether to do the symmetry-breaking preprocessing in UF as
+   * described by Deharbe et al. in CADE 2011 (on by default).
+   */
+  bool ufSymmetryBreaker;
+
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;
   LemmaInputChannel* lemmaInputChannel;
@@ -214,42 +228,33 @@ struct CVC4_PUBLIC Options {
   /**
    * Initialize the options based on the given command-line arguments.
    */
-  int parseOptions(int argc, char* argv[])
-    throw(OptionException);
+  int parseOptions(int argc, char* argv[]) throw(OptionException);
+
+  /**
+   * Set the output language based on the given string.
+   */
+  void setOutputLanguage(const char* str) throw(OptionException);
+
+  /**
+   * Set the input language based on the given string.
+   */
+  void setInputLanguage(const char* str) throw(OptionException);
+
 };/* struct Options */
-
-inline std::ostream& operator<<(std::ostream& out,
-                                Options::UfImplementation uf) CVC4_PUBLIC;
-
-inline std::ostream& operator<<(std::ostream& out,
-                                Options::UfImplementation uf) {
-  switch(uf) {
-  case Options::TIM:
-    out << "TIM";
-    break;
-  case Options::MORGAN:
-    out << "MORGAN";
-    break;
-  default:
-    out << "UfImplementation:UNKNOWN![" << unsigned(uf) << "]";
-  }
-
-  return out;
-}
 
 inline std::ostream& operator<<(std::ostream& out,
                                 Options::SimplificationMode mode) CVC4_PUBLIC;
 inline std::ostream& operator<<(std::ostream& out,
                                 Options::SimplificationMode mode) {
   switch(mode) {
-  case Options::BATCH_MODE:
-    out << "BATCH_MODE";
+  case Options::SIMPLIFICATION_MODE_INCREMENTAL:
+    out << "SIMPLIFICATION_MODE_INCREMENTAL";
     break;
-  case Options::INCREMENTAL_MODE:
-    out << "INCREMENTAL_MODE";
+  case Options::SIMPLIFICATION_MODE_BATCH:
+    out << "SIMPLIFICATION_MODE_BATCH";
     break;
-  case Options::INCREMENTAL_LAZY_SAT_MODE:
-    out << "INCREMENTAL_LAZY_SAT_MODE";
+  case Options::SIMPLIFICATION_MODE_NONE:
+    out << "SIMPLIFICATION_MODE_NONE";
     break;
   default:
     out << "SimplificationMode:UNKNOWN![" << unsigned(mode) << "]";

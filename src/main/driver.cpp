@@ -114,6 +114,28 @@ int runCvc4(int argc, char* argv[], Options& options) {
     options.interactive = inputFromStdin && isatty(fileno(stdin));
   }
 
+  // Determine which messages to show based on smtcomp_mode and verbosity
+  if(Configuration::isMuzzledBuild()) {
+    Debug.setStream(CVC4::null_os);
+    Trace.setStream(CVC4::null_os);
+    Notice.setStream(CVC4::null_os);
+    Chat.setStream(CVC4::null_os);
+    Message.setStream(CVC4::null_os);
+    Warning.setStream(CVC4::null_os);
+    Dump.setStream(CVC4::null_os);
+  } else {
+    if(options.verbosity < 2) {
+      Chat.setStream(CVC4::null_os);
+    }
+    if(options.verbosity < 1) {
+      Notice.setStream(CVC4::null_os);
+    }
+    if(options.verbosity < 0) {
+      Message.setStream(CVC4::null_os);
+      Warning.setStream(CVC4::null_os);
+    }
+  }
+
   // Create the expression manager
   ExprManager exprMgr(options);
 
@@ -146,6 +168,10 @@ int runCvc4(int argc, char* argv[], Options& options) {
     }
   }
 
+  if(options.outputLanguage == language::output::LANG_AUTO) {
+    options.outputLanguage = language::toOutputLanguage(options.inputLanguage);
+  }
+
   // Determine which messages to show based on smtcomp_mode and verbosity
   if(Configuration::isMuzzledBuild()) {
     Debug.setStream(CVC4::null_os);
@@ -154,6 +180,7 @@ int runCvc4(int argc, char* argv[], Options& options) {
     Chat.setStream(CVC4::null_os);
     Message.setStream(CVC4::null_os);
     Warning.setStream(CVC4::null_os);
+    Dump.setStream(CVC4::null_os);
   } else {
     if(options.verbosity < 2) {
       Chat.setStream(CVC4::null_os);
@@ -166,15 +193,33 @@ int runCvc4(int argc, char* argv[], Options& options) {
       Warning.setStream(CVC4::null_os);
     }
 
-    OutputLanguage language = language::toOutputLanguage(options.inputLanguage);
-    Debug.getStream() << Expr::setlanguage(language);
-    Trace.getStream() << Expr::setlanguage(language);
-    Notice.getStream() << Expr::setlanguage(language);
-    Chat.getStream() << Expr::setlanguage(language);
-    Message.getStream() << Expr::setlanguage(language);
-    Warning.getStream() << Expr::setlanguage(language);
+    Debug.getStream() << Expr::setlanguage(options.outputLanguage);
+    Trace.getStream() << Expr::setlanguage(options.outputLanguage);
+    Notice.getStream() << Expr::setlanguage(options.outputLanguage);
+    Chat.getStream() << Expr::setlanguage(options.outputLanguage);
+    Message.getStream() << Expr::setlanguage(options.outputLanguage);
+    Warning.getStream() << Expr::setlanguage(options.outputLanguage);
+    Dump.getStream() << Expr::setlanguage(options.outputLanguage)
+                     << Expr::setdepth(-1)
+                     << Expr::printtypes(false);
   }
 
+  Parser* replayParser = NULL;
+  if( options.replayFilename != "" ) {
+    ParserBuilder replayParserBuilder(&exprMgr, options.replayFilename, options);
+
+    if( options.replayFilename == "-") {
+      if( inputFromStdin ) {
+        throw OptionException("Replay file and input file can't both be stdin.");
+      }
+      replayParserBuilder.withStreamInput(cin);
+    }
+    replayParser = replayParserBuilder.build();
+    options.replayStream = new Parser::ExprStream(replayParser);
+  }
+  if( options.replayLog != NULL ) {
+    *options.replayLog << Expr::setlanguage(options.outputLanguage) << Expr::setdepth(-1);
+  }
 
   // Parse and execute commands until we are done
   Command* cmd;
@@ -183,35 +228,44 @@ int runCvc4(int argc, char* argv[], Options& options) {
     Message() << Configuration::getPackageName()
               << " " << Configuration::getVersionString();
     if(Configuration::isSubversionBuild()) {
-      Message() << " [subversion " << Configuration::getSubversionBranchName()
-                << " r" << Configuration::getSubversionRevision()
-                << (Configuration::hasSubversionModifications() ?
-                    " (with modifications)" : "")
-                << "]";
+      Message() << " [" << Configuration::getSubversionId() << "]";
     }
     Message() << (Configuration::isDebugBuild() ? " DEBUG" : "")
               << " assertions:"
               << (Configuration::isAssertionBuild() ? "on" : "off")
               << endl;
+    if(replayParser != NULL) {
+      // have the replay parser use the declarations input interactively
+      replayParser->useDeclarationsFrom(shell.getParser());
+    }
     while((cmd = shell.readCommand())) {
       doCommand(smt,cmd, options);
       delete cmd;
     }
   } else {
-    ParserBuilder parserBuilder =
-      ParserBuilder(&exprMgr, filename, options);
+    ParserBuilder parserBuilder(&exprMgr, filename, options);
 
     if( inputFromStdin ) {
       parserBuilder.withStreamInput(cin);
     }
 
     Parser *parser = parserBuilder.build();
+    if(replayParser != NULL) {
+      // have the replay parser use the file's declarations
+      replayParser->useDeclarationsFrom(parser);
+    }
     while((cmd = parser->nextCommand())) {
       doCommand(smt, cmd, options);
       delete cmd;
     }
     // Remove the parser
     delete parser;
+  }
+
+  if( options.replayStream != NULL ) {
+    // this deletes the expression parser too
+    delete options.replayStream;
+    options.replayStream = NULL;
   }
 
   string result = smt.getInfo(":status").getValue();

@@ -28,6 +28,8 @@
 #include <string>
 #include <iostream>
 #include <utility>
+#include <algorithm>
+#include <functional>
 #include <stdint.h>
 
 #include "expr/type.h"
@@ -623,7 +625,7 @@ public:
 
   public:
     typedef NodeTemplate<ref_count> value_type;
-    typedef ptrdiff_t difference_type;
+    typedef std::ptrdiff_t difference_type;
     typedef NodeTemplate<ref_count>* pointer;
     typedef NodeTemplate<ref_count>& reference;
 
@@ -838,16 +840,28 @@ public:
    */
   inline void printAst(std::ostream& out, int indent = 0) const;
 
-  NodeTemplate<true> eqNode(const NodeTemplate& right) const;
+  /**
+   * Check if the node has a subterm t.
+   */
+  inline bool hasSubterm(NodeTemplate<false> t, bool strict = false) const;
+
+  template <bool ref_count2>
+  NodeTemplate<true> eqNode(const NodeTemplate<ref_count2>& right) const;
 
   NodeTemplate<true> notNode() const;
-  NodeTemplate<true> andNode(const NodeTemplate& right) const;
-  NodeTemplate<true> orNode(const NodeTemplate& right) const;
-  NodeTemplate<true> iteNode(const NodeTemplate& thenpart,
-                             const NodeTemplate& elsepart) const;
-  NodeTemplate<true> iffNode(const NodeTemplate& right) const;
-  NodeTemplate<true> impNode(const NodeTemplate& right) const;
-  NodeTemplate<true> xorNode(const NodeTemplate& right) const;
+  template <bool ref_count2>
+  NodeTemplate<true> andNode(const NodeTemplate<ref_count2>& right) const;
+  template <bool ref_count2>
+  NodeTemplate<true> orNode(const NodeTemplate<ref_count2>& right) const;
+  template <bool ref_count2, bool ref_count3>
+  NodeTemplate<true> iteNode(const NodeTemplate<ref_count2>& thenpart,
+                             const NodeTemplate<ref_count3>& elsepart) const;
+  template <bool ref_count2>
+  NodeTemplate<true> iffNode(const NodeTemplate<ref_count2>& right) const;
+  template <bool ref_count2>
+  NodeTemplate<true> impNode(const NodeTemplate<ref_count2>& right) const;
+  template <bool ref_count2>
+  NodeTemplate<true> xorNode(const NodeTemplate<ref_count2>& right) const;
 
 };/* class NodeTemplate<ref_count> */
 
@@ -1091,8 +1105,9 @@ operator=(const NodeTemplate<!ref_count>& e) {
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::eqNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::eqNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::EQUAL, *this, right);
 }
@@ -1104,44 +1119,50 @@ NodeTemplate<true> NodeTemplate<ref_count>::notNode() const {
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::andNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::andNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::AND, *this, right);
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::orNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::orNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::OR, *this, right);
 }
 
 template <bool ref_count>
+template <bool ref_count2, bool ref_count3>
 NodeTemplate<true>
-NodeTemplate<ref_count>::iteNode(const NodeTemplate<ref_count>& thenpart,
-                                 const NodeTemplate<ref_count>& elsepart) const {
+NodeTemplate<ref_count>::iteNode(const NodeTemplate<ref_count2>& thenpart,
+                                 const NodeTemplate<ref_count3>& elsepart) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::ITE, *this, thenpart, elsepart);
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::iffNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::iffNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::IFF, *this, right);
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::impNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::impNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::IMPLIES, *this, right);
 }
 
 template <bool ref_count>
+template <bool ref_count2>
 NodeTemplate<true>
-NodeTemplate<ref_count>::xorNode(const NodeTemplate<ref_count>& right) const {
+NodeTemplate<ref_count>::xorNode(const NodeTemplate<ref_count2>& right) const {
   assertTNodeNotExpired();
   return NodeManager::currentNM()->mkNode(kind::XOR, *this, right);
 }
@@ -1242,7 +1263,7 @@ NodeTemplate<ref_count>::substitute(TNode node, TNode replacement,
     if(*i == node) {
       nb << replacement;
     } else {
-      (*i).substitute(node, replacement, cache);
+      nb << (*i).substitute(node, replacement, cache);
     }
   }
 
@@ -1279,11 +1300,13 @@ NodeTemplate<ref_count>::substitute(Iterator1 nodesBegin,
   }
 
   // otherwise compute
-  Assert( nodesEnd - nodesBegin == replacementsEnd - replacementsBegin,
+  Assert( std::distance(nodesBegin, nodesEnd) == std::distance(replacementsBegin, replacementsEnd),
           "Substitution iterator ranges must be equal size" );
-  Iterator1 j = find(nodesBegin, nodesEnd, *this);
+  Iterator1 j = find(nodesBegin, nodesEnd, TNode(*this));
   if(j != nodesEnd) {
-    Node n = *(replacementsBegin + (j - nodesBegin));
+    Iterator2 b = replacementsBegin;
+    std::advance(b, std::distance(nodesBegin, j));
+    Node n = *b;
     cache[*this] = n;
     return n;
   } else if(getNumChildren() == 0) {
@@ -1368,6 +1391,38 @@ inline Expr NodeTemplate<ref_count>::toExpr() {
 template <>
 inline Node NodeTemplate<true>::fromExpr(const Expr& e) {
   return NodeManager::fromExpr(e);
+}
+
+template<bool ref_count>
+bool NodeTemplate<ref_count>::hasSubterm(NodeTemplate<false> t, bool strict) const {
+  typedef std::hash_set<TNode, TNodeHashFunction> node_set;
+
+  if (!strict && *this == t) {
+    return true;
+  }
+
+  node_set visited;
+  std::vector<TNode> toProcess;
+
+  toProcess.push_back(*this);
+
+  for (unsigned i = 0; i < toProcess.size(); ++ i) {
+    TNode current = toProcess[i];
+    for(unsigned j = 0, j_end = current.getNumChildren(); j < j_end; ++ j) {
+      TNode child = current[j];
+      if (child == t) {
+        return true;
+      }
+      if (visited.find(child) != visited.end()) {
+        continue;
+      } else {
+        visited.insert(child);
+        toProcess.push_back(child);
+      }
+    }
+  }
+
+  return false;
 }
 
 #ifdef CVC4_DEBUG

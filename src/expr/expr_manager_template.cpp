@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: cconway, mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -72,7 +72,7 @@ using namespace CVC4::kind;
 namespace CVC4 {
 
 ExprManager::ExprManager() :
-  d_ctxt(new Context),
+  d_ctxt(new Context()),
   d_nodeManager(new NodeManager(d_ctxt, this)) {
 #ifdef CVC4_STATISTICS_ON
   for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
@@ -85,7 +85,7 @@ ExprManager::ExprManager() :
 }
 
 ExprManager::ExprManager(const Options& options) :
-  d_ctxt(new Context),
+  d_ctxt(new Context()),
   d_nodeManager(new NodeManager(d_ctxt, this, options)) {
 #ifdef CVC4_STATISTICS_ON
   for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
@@ -115,6 +115,10 @@ ExprManager::~ExprManager() {
 #endif
   delete d_nodeManager;
   delete d_ctxt;
+}
+
+const Options* ExprManager::getOptions() const {
+  return d_nodeManager->getOptions();
 }
 
 BooleanType ExprManager::booleanType() const {

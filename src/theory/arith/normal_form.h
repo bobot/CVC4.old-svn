@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -62,7 +62,7 @@ namespace arith {
  *
  * monomial := constant | var_list | (* constant' var_list')
  *   where
- *     constant' \not\in {0,1}
+ *     \f$ constant' \not\in {0,1} \f$
  *
  * polynomial := monomial' | (+ [monomial])
  *   where
@@ -702,6 +702,22 @@ private:
   Comparison(TNode n, Kind k, const Polynomial& l, const Constant& r):
     NodeWrapper(n), oper(k), left(l), right(r)
   { }
+
+  /**
+   * Possibly simplify a comparison with a pseudoboolean-typed LHS.  k
+   * is one of LT, LEQ, EQUAL, GEQ, GT, and left must be PB-typed.  If
+   * possible, "left k right" is fully evaluated, "true" is returned,
+   * and the result of the evaluation is returned in "result".  If no
+   * evaluation is possible, false is returned and "result" is
+   * untouched.
+   *
+   * For example, pbComparison(kind::EQUAL, "x", 0.5, result) returns
+   * true, and updates "result" to false, since pseudoboolean variable
+   * "x" can never equal 0.5.  pbComparison(kind::GEQ, "x", 1, result)
+   * returns false, since "x" can be >= 1, but could also be less.
+   */
+  static bool pbComparison(Kind k, TNode left, const Rational& right, bool& result);
+
 public:
   Comparison(bool val) :
     NodeWrapper(NodeManager::currentNM()->mkConst(val)),

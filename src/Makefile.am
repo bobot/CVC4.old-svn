@@ -17,10 +17,12 @@ AM_CPPFLAGS = \
 	-I@srcdir@/include -I@srcdir@ -I@builddir@
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-SUBDIRS = lib expr util context theory prop smt printer . parser main
+SUBDIRS = lib expr util context theory prop smt printer . parser compat bindings main
 
 lib_LTLIBRARIES = libcvc4.la
-noinst_LTLIBRARIES = libcvc4_noinst.la
+if HAVE_CXXTESTGEN
+check_LTLIBRARIES = libcvc4_noinst.la
+endif
 
 libcvc4_la_LDFLAGS = -version-info $(LIBCVC4_VERSION)
 
@@ -51,15 +53,18 @@ libcvc4_noinst_la_LIBADD = \
 	@builddir@/theory/libtheory.la \
 	@builddir@/lib/libreplacements.la
 
+CLEANFILES = \
+	subversion_versioninfo.cpp \
+	svninfo.tmp \
+	svninfo
+
 EXTRA_DIST = \
 	include/cvc4parser_private.h \
 	include/cvc4parser_public.h \
 	include/cvc4_private.h \
-	include/cvc4_public.h
-
-publicheaders = \
 	include/cvc4_public.h \
-	include/cvc4parser_public.h
+	include/cvc4.h \
+	cvc4.i
 
 subversion_versioninfo.cpp: svninfo
 	$(AM_V_GEN)( \
@@ -80,23 +85,50 @@ subversion_versioninfo.cpp: svninfo
 	  echo "const unsigned ::CVC4::Configuration::SUBVERSION_REVISION = $$rev;"; \
 	  echo "const bool ::CVC4::Configuration::SUBVERSION_HAS_MODIFICATIONS = $$mods;"; \
 	) >"$@"
+# This .tmp business is to keep from having to re-compile options.cpp
+# (and then re-link the libraries) if nothing has changed.
 svninfo: svninfo.tmp
 	$(AM_V_GEN)diff -q svninfo.tmp svninfo &>/dev/null || mv svninfo.tmp svninfo || true
-# .PHONY ensures it's always rebuilt
+# .PHONY ensures the .tmp version is always rebuilt (to check for any changes)
 .PHONY: svninfo.tmp
 svninfo.tmp:
 	$(AM_V_GEN)(cd "$(top_srcdir)" && svn info && echo "Modifications: `test -z \"\`svn status -q\`\" && echo false || echo true`") >"$@" 2>/dev/null || true
 
-install-data-local: $(publicheaders)
-	$(mkinstalldirs) $(DESTDIR)$(prefix)$(includedir)/cvc4
-	@for f in $(publicheaders); do \
-		echo $(INSTALL_DATA) "$(srcdir)/$$f" "$(DESTDIR)$(prefix)$(includedir)/cvc4"; \
-		$(INSTALL_DATA) "$(srcdir)/$$f" "$(DESTDIR)$(prefix)$(includedir)/cvc4"; \
+install-data-local:
+	(echo include/cvc4.h; \
+	 echo include/cvc4_public.h; \
+	 find * -name '*.h' | \
+		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
+	(cd "$(srcdir)" && find * -name '*.h' | \
+		xargs grep -l '^# *include  *"cvc4.*_public\.h"')) | \
+	while read f; do \
+		if expr "$$f" : ".*_\(template\|private\|test_utils\)\.h$$" &>/dev/null; then \
+			continue; \
+		fi; \
+		d="$$(echo "$$f" | sed 's,^include/,,')"; \
+		$(mkinstalldirs) "$$(dirname "$(DESTDIR)$(includedir)/cvc4/$$d")"; \
+		if [ -e "$$f" ]; then \
+			path="$$f"; \
+		else \
+			path="$(srcdir)/$$f"; \
+		fi; \
+		echo $(INSTALL_DATA) "$$path" "$(DESTDIR)$(includedir)/cvc4/$$d"; \
+		$(INSTALL_DATA) "$$path" "$(DESTDIR)$(includedir)/cvc4/$$d"; \
 	done
 
 uninstall-local:
-	@for f in $(publicheaders); do \
-		f=`echo "$$f" | sed 's,.*/,,'`; \
-		rm -f "$(DESTDIR)$(prefix)$(includedir)/cvc4/$$f"; \
+	-(echo include/cvc4.h; \
+	  echo include/cvc4_public.h; \
+	  find * -name '*.h' | \
+		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
+	(cd "$(srcdir)" && find * -name '*.h' | \
+		xargs grep -l '^# *include  *"cvc4.*_public\.h"')) | \
+	while read f; do \
+		if expr "$$f" : ".*_\(template\|private\|test_utils\)\.h$$" &>/dev/null; then \
+			continue; \
+		fi; \
+		d="$$(echo "$$f" | sed 's,^include/,,')"; \
+		rm -f "$(DESTDIR)$(includedir)/cvc4/$$d"; \
+		rmdir -p "$$(dirname "$(DESTDIR)$(includedir)/cvc4/$$d")" 2>/dev/null; \
 	done
-	@rmdir "$(DESTDIR)$(prefix)$(includedir)/cvc4"
+	-rmdir "$(DESTDIR)$(includedir)/cvc4"

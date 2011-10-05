@@ -1,3 +1,22 @@
+/*********************                                                        */
+/*! \file simplex.h
+ ** \verbatim
+ ** Original author: taking
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief [[ Add one-line brief description here ]]
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
+ **/
+
 
 #include "cvc4_private.h"
 
@@ -42,6 +61,8 @@ private:
 
   PermissiveBackArithVarSet d_updatedBounds;
   PermissiveBackArithVarSet d_candidateBasics;
+
+  ArithVarMultiset d_pivotsInRound;
 
   Rational d_ZERO;
   DeltaRational d_DELTA_ZERO;
@@ -139,7 +160,7 @@ public:
    */
   Node updateInconsistentVars();
 private:
-  template <PreferenceFunction> Node searchForFeasibleSolution(uint32_t maxIterations);
+  Node searchForFeasibleSolution(uint32_t maxIterations);
 
   enum SearchPeriod {BeforeDiffSearch, DuringDiffSearch, AfterDiffSearch, DuringVarOrderSearch, AfterVarOrderSearch};
 
@@ -159,12 +180,12 @@ private:
    * - !lowerBound && a_ij < 0 && assignment(x_j) > lowerbound(x_j)
    *
    */
-  template <bool lowerBound, PreferenceFunction>  ArithVar selectSlack(ArithVar x_i);
-  template <PreferenceFunction pf> ArithVar selectSlackLowerBound(ArithVar x_i) {
-    return selectSlack<true, pf>(x_i);
+  template <bool lowerBound>  ArithVar selectSlack(ArithVar x_i, PreferenceFunction pf);
+  ArithVar selectSlackLowerBound(ArithVar x_i, PreferenceFunction pf = minVarOrder) {
+    return selectSlack<true>(x_i, pf);
   }
-  template <PreferenceFunction pf> ArithVar selectSlackUpperBound(ArithVar x_i) {
-    return selectSlack<false, pf>(x_i);
+  ArithVar selectSlackUpperBound(ArithVar x_i, PreferenceFunction pf = minVarOrder) {
+    return selectSlack<false>(x_i, pf);
   }
   /**
    * Returns the smallest basic variable whose assignment is not consistent

@@ -2,7 +2,7 @@
 /*! \file rewriter_tables_template.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -16,6 +16,8 @@
  ** This file contains template code for the rewriter tables that are generated
  ** from the Theory kinds files.
  **/
+
+#include "cvc4_private.h"
 
 #pragma once
 

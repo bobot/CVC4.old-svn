@@ -2,7 +2,7 @@
 /*! \file options.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: taking, cconway
+ ** Major contributors: cconway, taking
  ** Minor contributors (to current version): barrett, dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -62,19 +62,20 @@ Options::Options() :
   err(&std::cerr),
   verbosity(0),
   inputLanguage(language::input::LANG_AUTO),
-  uf_implementation(MORGAN),
+  outputLanguage(language::output::LANG_AUTO),
   help(false),
   version(false),
   languageHelp(false),
   parseOnly(false),
+  preprocessOnly(false),
   semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
   theoryRegistration(true),
   memoryMap(false),
   strictParsing(false),
   lazyDefinitionExpansion(false),
   printWinner(false),
-  simplificationMode(INCREMENTAL_MODE),
-  simplificationStyle(NO_SIMPLIFICATION_STYLE),
+  simplificationMode(SIMPLIFICATION_MODE_BATCH),
+  doStaticLearning(true),
   interactive(false),
   interactiveSetByUser(false),
   segvNoSpin(false),
@@ -87,10 +88,13 @@ Options::Options() :
   replayStream(NULL),
   replayLog(NULL),
   variableRemovalEnabled(false),
-  arithPropagation(false),
+  arithPropagation(true),
   satRandomFreq(0.0),
   satRandomSeed(91648253),// Minisat's default value
   pivotRule(MINIMUM),
+  arithPivotThreshold(16),
+  arithPropagateMaxLength(16),
+  ufSymmetryBreaker(true),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
   thread_id(-1)
@@ -99,9 +103,13 @@ Options::Options() :
 
 static const string optionsDescription = "\
    --lang | -L            force input language (default is `auto'; see --lang help)\n\
+   --output-lang          force output language (default is `auto'; see --lang help)\n\
    --version | -V         identify this CVC4 binary\n\
    --help | -h            this command line reference\n\
    --parse-only           exit after parsing input\n\
+   --preprocess-only      exit after preprocessing (useful with --stats or --dump)\n\
+   --dump=MODE            dump preprocessed assertions, T-propagations, etc., see --dump=help\n\
+   --dump-to=FILE         all dumping goes to FILE (instead of stdout)\n\
    --mmap                 memory map file input\n\
    --show-config          show CVC4 static configuration\n\
    --segv-nospin          don't spin on segfault waiting for gdb\n\
@@ -116,24 +124,31 @@ static const string optionsDescription = "\
    --quiet | -q           decrease verbosity (may be repeated)\n\
    --trace | -t           trace something (e.g. -t pushpop), can repeat\n\
    --debug | -d           debug something (e.g. -d arith), can repeat\n\
+   --show-debug-tags      show all avalable tags for debugging\n\
+   --show-trace-tags      show all avalable tags for tracing\n\
    --stats                give statistics on exit\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
    --print-expr-types     print types with variables when printing exprs\n\
-   --uf=morgan|tim        select uninterpreted function theory implementation\n\
    --interactive          run interactively\n\
    --no-interactive       do not run interactively\n\
-   --produce-models       support the get-value command\n\
+   --produce-models | -m  support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
+   --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
    --replay=file          replay decisions from file\n\
    --replay-log=file      log decisions and propagations to file\n\
    --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
+   --pivot-threshold=N   sets the number of heuristic pivots per variable per simplex instance\n\
+   --prop-row-length=N    sets the maximum row length to be used in propagation\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
-   --variable-removal-enables enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
-   --enable-arithmetic-propagation turns on arithmetic propagation\n\
-   --incremental          enable incremental solving\n";
+   --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
+   --disable-arithmetic-propagation turns on arithmetic propagation\n\
+   --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
+   --incremental | -i     enable incremental solving\n";
+
+#warning "Change CL options as --disable-variable-removal cannot do anything currently."
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -141,36 +156,95 @@ Languages currently supported as arguments to the -L / --lang option:\n\
   pl | cvc4      CVC4 presentation language\n\
   smt | smtlib   SMT-LIB format 1.2\n\
   smt2 | smtlib2 SMT-LIB format 2.0\n\
+\n\
+Languages currently supported as arguments to the --output-lang option:\n\
+  auto           match the output language to the input language\n\
+  pl | cvc4      CVC4 presentation language\n\
+  smt | smtlib   SMT-LIB format 1.2\n\
+  smt2 | smtlib2 SMT-LIB format 2.0\n\
+  ast            internal format (simple syntax-tree language)\n\
 ";
 
 static const string simplificationHelp = "\
 Simplification modes currently supported by the --simplification option:\n\
 \n\
-batch\n\
+batch (default) \n\
 + save up all ASSERTions; run nonclausal simplification and clausal\n\
   (MiniSat) propagation for all of them only after reaching a querying command\n\
   (CHECKSAT or QUERY or predicate SUBTYPE declaration)\n\
 \n\
-incremental (default)\n\
+incremental\n\
 + run nonclausal simplification and clausal propagation at each ASSERT\n\
   (and at CHECKSAT/QUERY/SUBTYPE)\n\
 \n\
-incremental-lazy-sat\n\
-+ run nonclausal simplification at each ASSERT, but delay clausification of\n\
-  ASSERT until reaching a CHECKSAT/QUERY/SUBTYPE, then clausify them all\n\
-\n\
-You can also specify the level of aggressiveness for the simplification\n\
-(by repeating the --simplification option):\n\
-\n\
-toplevel (default)\n\
-+ apply toplevel simplifications (things known true/false at outer level\n\
-  only)\n\
-\n\
-aggressive\n\
-+ do aggressive, local simplification across the entire formula\n\
-\n\
 none\n\
 + do not perform nonclausal simplification\n\
+";
+
+static const string dumpHelp = "\
+Dump modes currently supported by the --dump option:\n\
+\n\
+benchmark\n\
++ Dump the benchmark structure (set-logic, push/pop, queries, etc.), but\n\
+  does not include any declarations or assertions.  Implied by all following\n\
+  modes.\n\
+\n\
+declarations\n\
++ Dump declarations.  Implied by all following modes.\n\
+\n\
+assertions\n\
++ Output the assertions after non-clausal simplification and static\n\
+  learning phases, but before presolve-time T-lemmas arrive.  If\n\
+  non-clausal simplification and static learning are off\n\
+  (--simplification=none --no-static-learning), the output\n\
+  will closely resemble the input (with term-level ITEs removed).\n\
+\n\
+learned\n\
++ Output the assertions after non-clausal simplification, static\n\
+  learning, and presolve-time T-lemmas.  This should include all eager\n\
+  T-lemmas (in the form provided by the theory, which my or may not be\n\
+  clausal).  Also includes level-0 BCP done by Minisat.\n\
+\n\
+clauses\n\
++ Do all the preprocessing outlined above, and dump the CNF-converted\n\
+  output\n\
+\n\
+state\n\
++ Dump all contextual assertions (e.g., SAT decisions, propagations..).\n\
+  Implied by all \"stateful\" modes below and conflicts with all\n\
+  non-stateful modes below.\n\
+\n\
+t-conflicts [non-stateful]\n\
++ Output correctness queries for all theory conflicts\n\
+\n\
+missed-t-conflicts [stateful]\n\
++ Output completeness queries for theory conflicts\n\
+\n\
+t-propagations [stateful]\n\
++ Output correctness queries for all theory propagations\n\
+\n\
+missed-t-propagations [stateful]\n\
++ Output completeness queries for theory propagations (LARGE and EXPENSIVE)\n\
+\n\
+t-lemmas [non-stateful]\n\
++ Output correctness queries for all theory lemmas\n\
+\n\
+t-explanations [non-stateful]\n\
++ Output correctness queries for all theory explanations\n\
+\n\
+Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
+one from the assertions category (either asertions, learned, or clauses), and\n\
+perhaps one or more stateful or non-stateful modes for checking correctness\n\
+and completeness of decision procedure implementations.  Stateful modes dump\n\
+the contextual assertions made by the core solver (all decisions and propagations\n\
+as assertions; that affects the validity of the resulting correctness and\n\
+completeness queries, so of course stateful and non-stateful modes cannot\n\
+be mixed in the same run.\n\
+\n\
+The --output-language option controls the language used for dumping, and\n\
+this allows you to connect CVC4 to another solver implementation via a UNIX\n\
+pipe to perform on-line checking.  The --dump-to option can be used to dump\n\
+to a file.\n\
 ";
 
 string Options::getDescription() const {
@@ -197,10 +271,16 @@ enum OptionValue {
   SMTCOMP = 256, /* avoid clashing with char options */
   STATS,
   SEGV_NOSPIN,
+  OUTPUT_LANGUAGE,
   PARSE_ONLY,
+  PREPROCESS_ONLY,
+  DUMP,
+  DUMP_TO,
   NO_CHECKING,
   NO_THEORY_REGISTRATION,
   USE_MMAP,
+  SHOW_DEBUG_TAGS,
+  SHOW_TRACE_TAGS,
   SHOW_CONFIG,
   STRICT_PARSING,
   DEFAULT_EXPR_DEPTH,
@@ -208,22 +288,24 @@ enum OptionValue {
   UF_THEORY,
   LAZY_DEFINITION_EXPANSION,
   SIMPLIFICATION_MODE,
+  NO_STATIC_LEARNING,
   INTERACTIVE,
   NO_INTERACTIVE,
-  PRODUCE_MODELS,
   PRODUCE_ASSIGNMENTS,
   NO_TYPE_CHECKING,
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
-  INCREMENTAL,
   REPLAY,
   REPLAY_LOG,
   PIVOT_RULE,
   PRINT_WINNER,
   RANDOM_FREQUENCY,
   RANDOM_SEED,
-  ENABLE_VARIABLE_REMOVAL,
-  ARITHMETIC_PROPAGATION
+  ARITHMETIC_VARIABLE_REMOVAL,
+  ARITHMETIC_PROPAGATION,
+  ARITHMETIC_PIVOT_THRESHOLD,
+  ARITHMETIC_PROP_MAX_LENGTH,
+  DISABLE_SYMMETRY_BREAKER
 };/* enum OptionValue */
 
 /**
@@ -259,13 +341,19 @@ static struct option cmdlineOptions[] = {
   { "stats"      , no_argument      , NULL, STATS       },
   { "no-checking", no_argument      , NULL, NO_CHECKING },
   { "no-theory-registration", no_argument, NULL, NO_THEORY_REGISTRATION },
+  { "show-debug-tags", no_argument  , NULL, SHOW_DEBUG_TAGS },
+  { "show-trace-tags", no_argument  , NULL, SHOW_TRACE_TAGS },
   { "show-config", no_argument      , NULL, SHOW_CONFIG },
   { "segv-nospin", no_argument      , NULL, SEGV_NOSPIN },
   { "help"       , no_argument      , NULL, 'h'         },
   { "version"    , no_argument      , NULL, 'V'         },
   { "about"      , no_argument      , NULL, 'V'         },
   { "lang"       , required_argument, NULL, 'L'         },
+  { "output-lang", required_argument, NULL, OUTPUT_LANGUAGE },
   { "parse-only" , no_argument      , NULL, PARSE_ONLY  },
+  { "preprocess-only", no_argument      , NULL, PREPROCESS_ONLY },
+  { "dump"       , required_argument, NULL, DUMP        },
+  { "dump-to"    , required_argument, NULL, DUMP_TO     },
   { "mmap"       , no_argument      , NULL, USE_MMAP    },
   { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
   { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
@@ -273,27 +361,26 @@ static struct option cmdlineOptions[] = {
   { "uf"         , required_argument, NULL, UF_THEORY   },
   { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
   { "simplification", required_argument, NULL, SIMPLIFICATION_MODE },
+  { "no-static-learning", no_argument, NULL, NO_STATIC_LEARNING },
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
-  { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
+  { "produce-models", no_argument   , NULL, 'm' },
   { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
   { "no-type-checking", no_argument , NULL, NO_TYPE_CHECKING },
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
-  { "incremental", no_argument      , NULL, INCREMENTAL },
+  { "incremental", no_argument      , NULL, 'i' },
   { "replay"     , required_argument, NULL, REPLAY      },
   { "replay-log" , required_argument, NULL, REPLAY_LOG  },
-  { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
-  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
-  { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING },
-  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
-  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
+  { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
+  { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
   { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
   { "random-seed" , required_argument, NULL, RANDOM_SEED  },
-  { "enable-variable-removel", no_argument, NULL, ENABLE_VARIABLE_REMOVAL },
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
-  { "enable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
+  { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
+  { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
+  { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -311,33 +398,29 @@ throw(OptionException) {
   }
   binary_name = string(progName);
 
-  // The strange string in this call is the short option string.  The
+  // The strange string in this call is the short option string.  An
   // initial '+' means that option processing stops as soon as a
-  // non-option argument is encountered.  The initial ':' indicates
-  // that getopt_long() should return ':' instead of '?' for a missing
-  // option argument.  Then, each letter is a valid short option for
-  // getopt_long(), and if it's encountered, getopt_long() returns
-  // that character.  A ':' after an option character means an
-  // argument is required; two colons indicates an argument is
-  // optional; no colons indicate an argument is not permitted.
-  // cmdlineOptions specifies all the long-options and the return
-  // value for getopt_long() should they be encountered.
+  // non-option argument is encountered (it is not present, by design).
+  // The initial ':' indicates that getopt_long() should return ':'
+  // instead of '?' for a missing option argument.  Then, each letter
+  // is a valid short option for getopt_long(), and if it's encountered,
+  // getopt_long() returns that character.  A ':' after an option
+  // character means an argument is required; two colons indicates an
+  // argument is optional; no colons indicate an argument is not
+  // permitted.  cmdlineOptions specifies all the long-options and the
+  // return value for getopt_long() should they be encountered.
   while((c = getopt_long(argc, argv,
-                         "+:hVvqL:d:t:",
+                         ":himVvqL:d:t:",
                          cmdlineOptions, NULL)) != -1) {
     switch(c) {
 
     case 'h':
       help = true;
       break;
-      // options.printUsage(usage);
-      // exit(1);
 
     case 'V':
       version = true;
       break;
-      // fputs(Configuration::about().c_str(), stdout);
-      // exit(0);
 
     case 'v':
       ++verbosity;
@@ -348,26 +431,11 @@ throw(OptionException) {
       break;
 
     case 'L':
-      if(!strcmp(optarg, "cvc4") || !strcmp(optarg, "pl")) {
-        inputLanguage = language::input::LANG_CVC4;
-        break;
-      } else if(!strcmp(optarg, "smtlib") || !strcmp(optarg, "smt")) {
-        inputLanguage = language::input::LANG_SMTLIB;
-        break;
-      } else if(!strcmp(optarg, "smtlib2") || !strcmp(optarg, "smt2")) {
-        inputLanguage = language::input::LANG_SMTLIB_V2;
-        break;
-      } else if(!strcmp(optarg, "auto")) {
-        inputLanguage = language::input::LANG_AUTO;
-        break;
-      }
+      setInputLanguage(optarg);
+      break;
 
-      if(strcmp(optarg, "help")) {
-        throw OptionException(string("unknown language for --lang: `") +
-                              optarg + "'.  Try --lang help.");
-      }
-
-      languageHelp = true;
+    case OUTPUT_LANGUAGE:
+      setOutputLanguage(optarg);
       break;
 
     case 't':
@@ -389,6 +457,91 @@ throw(OptionException) {
 
     case PARSE_ONLY:
       parseOnly = true;
+      break;
+
+    case PREPROCESS_ONLY:
+      preprocessOnly = true;
+      break;
+
+    case DUMP: {
+#ifdef CVC4_DUMPING
+      char* tokstr = optarg;
+      char* toksave;
+      while((optarg = strtok_r(tokstr, ",", &toksave)) != NULL) {
+        tokstr = NULL;
+        if(!strcmp(optarg, "benchmark")) {
+        } else if(!strcmp(optarg, "declarations")) {
+        } else if(!strcmp(optarg, "assertions")) {
+        } else if(!strcmp(optarg, "learned")) {
+        } else if(!strcmp(optarg, "clauses")) {
+        } else if(!strcmp(optarg, "t-conflicts") ||
+                  !strcmp(optarg, "t-lemmas") ||
+                  !strcmp(optarg, "t-explanations")) {
+          // These are "non-state-dumping" modes.  If state (SAT decisions,
+          // propagations, etc.) is dumped, it will interfere with the validity
+          // of these generated queries.
+          if(Dump.isOn("state")) {
+            throw OptionException(string("dump option `") + optarg +
+                                  "' conflicts with a previous, "
+                                  "state-dumping dump option.  You cannot "
+                                  "mix stateful and non-stateful dumping modes; "
+                                  "see --dump help.");
+          } else {
+            Dump.on("no-permit-state");
+          }
+        } else if(!strcmp(optarg, "state") ||
+                  !strcmp(optarg, "missed-t-conflicts") ||
+                  !strcmp(optarg, "t-propagations") ||
+                  !strcmp(optarg, "missed-t-propagations")) {
+          // These are "state-dumping" modes.  If state (SAT decisions,
+          // propagations, etc.) is not dumped, it will interfere with the
+          // validity of these generated queries.
+          if(Dump.isOn("no-permit-state")) {
+            throw OptionException(string("dump option `") + optarg +
+                                  "' conflicts with a previous, "
+                                  "non-state-dumping dump option.  You cannot "
+                                  "mix stateful and non-stateful dumping modes; "
+                                  "see --dump help.");
+          } else {
+            Dump.on("state");
+          }
+        } else if(!strcmp(optarg, "help")) {
+          puts(dumpHelp.c_str());
+          exit(1);
+        } else {
+          throw OptionException(string("unknown option for --dump: `") +
+                                optarg + "'.  Try --dump help.");
+        }
+
+        Dump.on(optarg);
+        Dump.on("benchmark");
+        if(strcmp(optarg, "benchmark")) {
+          Dump.on("declarations");
+        }
+      }
+#else /* CVC4_DUMPING */
+      throw OptionException("The dumping feature was disabled in this build of CVC4.");
+#endif /* CVC4_DUMPING */
+      break;
+    }
+
+    case DUMP_TO: {
+#ifdef CVC4_DUMPING
+      if(optarg == NULL || *optarg == '\0') {
+        throw OptionException(string("Bad file name for --dump-to"));
+      } else if(!strcmp(optarg, "-")) {
+        Dump.setStream(DumpC::dump_cout);
+      } else {
+        ostream* dumpTo = new ofstream(optarg, ofstream::out | ofstream::trunc);
+        if(!*dumpTo) {
+          throw OptionException(string("Cannot open dump-to file (maybe it exists): `") + optarg + "'");
+        }
+        Dump.setStream(*dumpTo);
+      }
+#else /* CVC4_DUMPING */
+      throw OptionException("The dumping feature was disabled in this build of CVC4.");
+#endif /* CVC4_DUMPING */
+    }
       break;
 
     case NO_THEORY_REGISTRATION:
@@ -436,41 +589,17 @@ throw(OptionException) {
       }
       break;
 
-    case UF_THEORY:
-      {
-        if(!strcmp(optarg, "tim")) {
-          uf_implementation = Options::TIM;
-        } else if(!strcmp(optarg, "morgan")) {
-          uf_implementation = Options::MORGAN;
-        } else if(!strcmp(optarg, "help")) {
-          printf("UF implementations available:\n");
-          printf("  tim\n");
-          printf("  morgan\n");
-          exit(1);
-        } else {
-          throw OptionException(string("unknown option for --uf: `") +
-                                optarg + "'.  Try --uf help.");
-        }
-      }
-      break;
-
     case LAZY_DEFINITION_EXPANSION:
       lazyDefinitionExpansion = true;
       break;
 
     case SIMPLIFICATION_MODE:
       if(!strcmp(optarg, "batch")) {
-        simplificationMode = BATCH_MODE;
+        simplificationMode = SIMPLIFICATION_MODE_BATCH;
       } else if(!strcmp(optarg, "incremental")) {
-        simplificationMode = INCREMENTAL_MODE;
-      } else if(!strcmp(optarg, "incremental-lazy-sat")) {
-        simplificationMode = INCREMENTAL_LAZY_SAT_MODE;
-      } else if(!strcmp(optarg, "aggressive")) {
-        simplificationStyle = AGGRESSIVE_SIMPLIFICATION_STYLE;
-      } else if(!strcmp(optarg, "toplevel")) {
-        simplificationStyle = TOPLEVEL_SIMPLIFICATION_STYLE;
+        simplificationMode = SIMPLIFICATION_MODE_INCREMENTAL;
       } else if(!strcmp(optarg, "none")) {
-        simplificationStyle = NO_SIMPLIFICATION_STYLE;
+        simplificationMode = SIMPLIFICATION_MODE_NONE;
       } else if(!strcmp(optarg, "help")) {
         puts(simplificationHelp.c_str());
         exit(1);
@@ -478,6 +607,10 @@ throw(OptionException) {
         throw OptionException(string("unknown option for --simplification: `") +
                               optarg + "'.  Try --simplification help.");
       }
+      break;
+
+    case NO_STATIC_LEARNING:
+      doStaticLearning = false;
       break;
 
     case INTERACTIVE:
@@ -490,7 +623,7 @@ throw(OptionException) {
       interactiveSetByUser = true;
       break;
 
-    case PRODUCE_MODELS:
+    case 'm':
       produceModels = true;
       break;
 
@@ -513,7 +646,7 @@ throw(OptionException) {
       earlyTypeChecking = true;
       break;
 
-    case INCREMENTAL:
+    case 'i':
       incrementalSolving = true;
       break;
 
@@ -546,12 +679,16 @@ throw(OptionException) {
 #endif /* CVC4_REPLAY */
       break;
 
-    case ENABLE_VARIABLE_REMOVAL:
-      variableRemovalEnabled = true;
+    case ARITHMETIC_VARIABLE_REMOVAL:
+      variableRemovalEnabled = false;
       break;
 
     case ARITHMETIC_PROPAGATION:
-      arithPropagation = true;
+      arithPropagation = false;
+      break;
+
+    case DISABLE_SYMMETRY_BREAKER:
+      ufSymmetryBreaker = false;
       break;
 
     case RANDOM_SEED:
@@ -588,6 +725,44 @@ throw(OptionException) {
       }
       break;
 
+    case ARITHMETIC_PIVOT_THRESHOLD:
+      arithPivotThreshold = atoi(optarg);
+      break;
+
+    case ARITHMETIC_PROP_MAX_LENGTH:
+      arithPropagateMaxLength = atoi(optarg);
+      break;
+
+    case SHOW_DEBUG_TAGS:
+      if(Configuration::isDebugBuild()) {
+        printf("available tags:");
+        unsigned ntags = Configuration::getNumDebugTags();
+        char const* const* tags = Configuration::getDebugTags();
+        for(unsigned i = 0; i < ntags; ++ i) {
+          printf(" %s", tags[i]);
+        }
+        printf("\n");
+      } else {
+        throw OptionException("debug tags not available in non-debug build");
+      }
+      exit(0);
+      break;
+
+    case SHOW_TRACE_TAGS:
+      if(Configuration::isTracingBuild()) {
+        printf("available tags:");
+        unsigned ntags = Configuration::getNumTraceTags();
+        char const* const* tags = Configuration::getTraceTags();
+        for (unsigned i = 0; i < ntags; ++ i) {
+          printf(" %s", tags[i]);
+        }
+        printf("\n");
+      } else {
+        throw OptionException("trace tags not available in non-tracing build");
+      }
+      exit(0);
+      break;
+
     case SHOW_CONFIG:
       fputs(Configuration::about().c_str(), stdout);
       printf("\n");
@@ -611,6 +786,7 @@ throw(OptionException) {
       printf("statistics : %s\n", Configuration::isStatisticsBuild() ? "yes" : "no");
       printf("replay     : %s\n", Configuration::isReplayBuild() ? "yes" : "no");
       printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
+      printf("dumping    : %s\n", Configuration::isDumpingBuild() ? "yes" : "no");
       printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
       printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");
       printf("coverage   : %s\n", Configuration::isCoverageBuild() ? "yes" : "no");
@@ -630,10 +806,58 @@ throw(OptionException) {
     default:
       throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
     }
-
   }
 
   return optind;
+}
+
+void Options::setOutputLanguage(const char* str) throw(OptionException) {
+  if(!strcmp(str, "cvc4") || !strcmp(str, "pl")) {
+    outputLanguage = language::output::LANG_CVC4;
+    return;
+  } else if(!strcmp(str, "smtlib") || !strcmp(str, "smt")) {
+    outputLanguage = language::output::LANG_SMTLIB;
+    return;
+  } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
+    outputLanguage = language::output::LANG_SMTLIB_V2;
+    return;
+  } else if(!strcmp(str, "ast")) {
+    outputLanguage = language::output::LANG_AST;
+    return;
+  } else if(!strcmp(str, "auto")) {
+    outputLanguage = language::output::LANG_AUTO;
+    return;
+  }
+
+  if(strcmp(str, "help")) {
+    throw OptionException(string("unknown language for --output-lang: `") +
+                          str + "'.  Try --output-lang help.");
+  }
+
+  languageHelp = true;
+}
+
+void Options::setInputLanguage(const char* str) throw(OptionException) {
+  if(!strcmp(str, "cvc4") || !strcmp(str, "pl") || !strcmp(str, "presentation")) {
+    inputLanguage = language::input::LANG_CVC4;
+    return;
+  } else if(!strcmp(str, "smtlib") || !strcmp(str, "smt")) {
+    inputLanguage = language::input::LANG_SMTLIB;
+    return;
+  } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
+    inputLanguage = language::input::LANG_SMTLIB_V2;
+    return;
+  } else if(!strcmp(str, "auto")) {
+    inputLanguage = language::input::LANG_AUTO;
+    return;
+  }
+
+  if(strcmp(str, "help")) {
+    throw OptionException(string("unknown language for --lang: `") +
+                          str + "'.  Try --lang help.");
+  }
+
+  languageHelp = true;
 }
 
 std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {

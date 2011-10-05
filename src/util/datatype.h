@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -169,8 +169,8 @@ public:
       Expr getSelector() const;
 
       /**
-       * Get the associated constructor for this constructor argument; this call is
-       * only permitted after resolution.
+       * Get the associated constructor for this constructor argument;
+       * this call is only permitted after resolution.
        */
       Expr getConstructor() const;
 
@@ -216,10 +216,10 @@ public:
       throw(AssertionException, DatatypeResolutionException);
     friend class Datatype;
 
-    /** */
-    Type doParametricSubstitution( Type range, 
-                                   const std::vector< SortConstructorType >& paramTypes, 
-                                   const std::vector< DatatypeType >& paramReplacements );
+    /** @FIXME document this! */
+    Type doParametricSubstitution(Type range,
+                                  const std::vector< SortConstructorType >& paramTypes,
+                                  const std::vector< DatatypeType >& paramReplacements);
   public:
     /**
      * Create a new Datatype constructor with the given name for the
@@ -271,6 +271,12 @@ public:
      * Get the number of arguments (so far) of this Datatype constructor.
      */
     inline size_t getNumArgs() const throw();
+
+    /**
+     * Get the specialized constructor type for a parametric
+     * constructor; this call is only permitted after resolution.
+     */
+    Type getSpecializedConstructorType(Type returnType) const;
 
     /**
      * Return the cardinality of this constructor (the product of the
@@ -369,6 +375,9 @@ public:
   /** Get the number of constructors (so far) for this Datatype. */
   inline size_t getNumConstructors() const throw();
 
+  /** Is this datatype parametric? */
+  inline bool isParametric() const throw();
+
   /** Get the nubmer of type parameters */
   inline size_t getNumParameters() const throw();
 
@@ -439,13 +448,13 @@ public:
   inline bool isResolved() const throw();
 
   /** Get the beginning iterator over Constructors. */
-  inline iterator begin() throw();
+  inline std::vector<Constructor>::iterator begin() throw();
   /** Get the ending iterator over Constructors. */
-  inline iterator end() throw();
+  inline std::vector<Constructor>::iterator end() throw();
   /** Get the beginning const_iterator over Constructors. */
-  inline const_iterator begin() const throw();
+  inline std::vector<Constructor>::const_iterator begin() const throw();
   /** Get the ending const_iterator over Constructors. */
-  inline const_iterator end() const throw();
+  inline std::vector<Constructor>::const_iterator end() const throw();
 
   /** Get the ith Constructor. */
   const Constructor& operator[](size_t index) const;
@@ -527,15 +536,22 @@ inline size_t Datatype::getNumConstructors() const throw() {
   return d_constructors.size();
 }
 
+inline bool Datatype::isParametric() const throw() {
+  return d_params.size() > 0;
+}
+
 inline size_t Datatype::getNumParameters() const throw() {
   return d_params.size();
 }
 
 inline Type Datatype::getParameter( unsigned int i ) const {
+  CheckArgument(isParametric(), this, "cannot get type parameter of a non-parametric datatype");
+  CheckArgument(i < d_params.size(), i, "type parameter index out of range for datatype");
   return d_params[i];
 }
 
 inline std::vector<Type> Datatype::getParameters() const {
+  CheckArgument(isParametric(), this, "cannot get type parameters of a non-parametric datatype");
   return d_params;
 }
 

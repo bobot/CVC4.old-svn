@@ -70,6 +70,10 @@ inline SatVariable literalToVariable(SatLiteral lit) {
   return Minisat::var(lit);
 }
 
+inline SatLiteral variableToLiteral(SatVariable var) {
+  return Minisat::mkLit(var);
+}
+
 inline bool literalSign(SatLiteral lit) {
   return Minisat::sign(lit);
 }
@@ -101,7 +105,7 @@ public:
   /** Virtual destructor to make g++ happy */
   virtual ~SatInputInterface() { }
   /** Assert a clause in the solver. */
-  virtual void addClause(SatClause& clause, bool lemma) = 0;
+  virtual void addClause(SatClause& clause, bool removable) = 0;
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
   /** Get the current decision level of the solver */
@@ -210,21 +214,19 @@ public:
             TheoryEngine* theoryEngine,
             context::Context* context);
 
-  ~SatSolver();
+  virtual ~SatSolver();
 
   bool solve();
 
-  void addClause(SatClause& clause, bool lemma);
+  void addClause(SatClause& clause, bool removable);
 
   SatVariable newVar(bool theoryAtom = false);
 
-  void theoryCheck(theory::Theory::Effort effort, SatClause& conflict);
+  void theoryCheck(theory::Theory::Effort effort);
 
   void explainPropagation(SatLiteral l, SatClause& explanation);
 
   void theoryPropagate(std::vector<SatLiteral>& output);
-
-  void clearPropagatedLiterals();
 
   void enqueueTheoryLiteral(const SatLiteral& l);
 
@@ -243,6 +245,11 @@ public:
   void pop();
 
   void removeClausesAboveLevel(int level);
+
+  /**
+   * Notifies of a new variable at a decision level.
+   */
+  void variableNotify(SatVariable var);
 
   void unregisterVar(SatLiteral lit);
 
@@ -293,8 +300,8 @@ inline bool SatSolver::solve() {
   return d_minisat->solve();
 }
 
-inline void SatSolver::addClause(SatClause& clause, bool lemma) {
-  d_minisat->addClause(clause, lemma ? Minisat::Solver::CLAUSE_LEMMA : Minisat::Solver::CLAUSE_PROBLEM);
+inline void SatSolver::addClause(SatClause& clause, bool removable) {
+  d_minisat->addClause(clause, removable);
 }
 
 inline SatVariable SatSolver::newVar(bool theoryAtom) {

@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters, dejan
- ** Minor contributors (to current version): cconway
+ ** Minor contributors (to current version): barrett, cconway
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -84,8 +84,23 @@ protected:
   /** Top level nodes that we translated */
   std::vector<TNode> d_translationTrail;
 
-  /** Nodes belonging to asserted lemmas */
-  std::vector<Node> d_lemmas;
+  /**
+   * How many literals were already mapped at the top-level when we
+   * tried to convertAndAssert() something.  This
+   * achieves early detection of units and leads to fewer
+   * clauses.  It's motivated by the following pattern:
+   *
+   *   ASSERT  BIG FORMULA => x
+   *   (and then later...)
+   *   ASSERT  BIG FORMULA
+   *
+   * With the first assert, BIG FORMULA is clausified, and a literal
+   * is assigned for the top level so that the final clause for the
+   * implication is "lit => x".  But without "fortunate literal
+   * detection," when BIG FORMULA is later asserted, it is clausified
+   * separately, and "lit" is never asserted as a unit clause.
+   */
+  KEEP_STATISTIC(IntStat, d_fortunateLiterals, "prop::CnfStream::fortunateLiterals", 0);
 
   /** Remove nots from the node */
   TNode stripNot(TNode node) {
@@ -109,11 +124,11 @@ protected:
   void undoTranslate(TNode node, int level);
 
   /**
-   * Are we asserting a lemma (true) or a permanent clause (false).
+   * Are we asserting a removable clause (true) or a permanent clause (false).
    * This is set at the begining of convertAndAssert so that it doesn't
    * need to be passed on over the stack.
    */
-  bool d_assertingLemma;
+  bool d_removable;
 
   /**
    * Asserts the given clause to the sat solver.
@@ -152,14 +167,6 @@ protected:
    * @return true if the node has been cached
    */
   bool isTranslated(TNode node) const;
-
-  /**
-   * Returns true if the node has an assigned literal (it might not be translated).
-   * Caches the pair of the node and the literal corresponding to the
-   * translation.
-   * @param node the node
-   */
-  bool hasLiteral(TNode node) const;
 
   /**
    * Acquires a new variable from the SAT solver to represent the node
@@ -202,10 +209,10 @@ public:
   /**
    * Converts and asserts a formula.
    * @param node node to convert and assert
-   * @param lemma whether the sat solver can choose to remove the clauses
+   * @param removable whether the sat solver can choose to remove the clauses
    * @param negated wheather we are asserting the node negated
    */
-  virtual void convertAndAssert(TNode node, bool lemma, bool negated = false) = 0;
+  virtual void convertAndAssert(TNode node, bool removable, bool negated) = 0;
 
   /**
    * Get the node that is represented by the given SatLiteral.
@@ -213,6 +220,18 @@ public:
    * @return the actual node
    */
   TNode getNode(const SatLiteral& literal);
+
+  /**
+   * Returns true iff the node has an assigned literal (it might not be translated).
+   * @param node the node
+   */
+  bool hasEverHadLiteral(TNode node) const;
+
+  /**
+   * Returns true iff the node has an assigned literal and it's translated.
+   * @param node the node
+   */
+  bool currentlyHasLiteral(TNode node) const;
 
   /**
    * Returns the literal that represents the given node in the SAT CNF
@@ -255,10 +274,10 @@ public:
   /**
    * Convert a given formula to CNF and assert it to the SAT solver.
    * @param node the formula to assert
-   * @param lemma is this a lemma that is erasable
+   * @param removable is this something that can be erased
    * @param negated true if negated
    */
-  void convertAndAssert(TNode node, bool lemma, bool negated = false);
+  void convertAndAssert(TNode node, bool removable, bool negated);
 
   /**
    * Constructs the stream to use the given sat solver.
@@ -268,6 +287,11 @@ public:
   TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar);
 
 private:
+
+  /**
+   * Same as above, except that removable is rememebered.
+   */
+  void convertAndAssert(TNode node, bool negated);
 
   // Each of these formulas handles takes care of a Node of each Kind.
   //
@@ -287,12 +311,12 @@ private:
   SatLiteral handleAnd(TNode node);
   SatLiteral handleOr(TNode node);
 
-  void convertAndAssertAnd(TNode node, bool lemma, bool negated);
-  void convertAndAssertOr(TNode node, bool lemma, bool negated);
-  void convertAndAssertXor(TNode node, bool lemma, bool negated);
-  void convertAndAssertIff(TNode node, bool lemma, bool negated);
-  void convertAndAssertImplies(TNode node, bool lemma, bool negated);
-  void convertAndAssertIte(TNode node, bool lemma, bool negated);
+  void convertAndAssertAnd(TNode node, bool negated);
+  void convertAndAssertOr(TNode node, bool negated);
+  void convertAndAssertXor(TNode node, bool negated);
+  void convertAndAssertIff(TNode node, bool negated);
+  void convertAndAssertImplies(TNode node, bool negated);
+  void convertAndAssertIte(TNode node, bool negated);
 
   /**
    * Transforms the node into CNF recursively.

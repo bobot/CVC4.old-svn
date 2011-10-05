@@ -2,10 +2,10 @@
 /*! \file tableau.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: mdeters
- ** Minor contributors (to current version): dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -17,6 +17,7 @@
  ** \todo document this file
  **/
 
+#include "cvc4_private.h"
 
 #include "expr/node.h"
 #include "expr/attribute.h"
@@ -224,10 +225,10 @@ private:
   class Iterator {
   private:
     EntryID d_curr;
-    TableauEntryManager& d_entryManager;
+    const TableauEntryManager& d_entryManager;
 
   public:
-    Iterator(EntryID start, TableauEntryManager& manager) :
+    Iterator(EntryID start, const TableauEntryManager& manager) :
       d_curr(start), d_entryManager(manager)
     {}
 
@@ -244,7 +245,7 @@ private:
 
     Iterator& operator++(){
       Assert(!atEnd());
-      TableauEntry& entry = d_entryManager.get(d_curr);
+      const TableauEntry& entry = d_entryManager.get(d_curr);
       d_curr = isRowIterator ? entry.getNextRowID() : entry.getNextColID();
       return *this;
     }
@@ -288,13 +289,13 @@ public:
     return d_basicVariables.end();
   }
 
-  RowIterator rowIterator(ArithVar v){
+  RowIterator rowIterator(ArithVar v) const {
     Assert(v < d_rowHeads.size());
     EntryID head = d_rowHeads[v];
     return RowIterator(head, d_entryManager);
   }
 
-  ColIterator colIterator(ArithVar v){
+  ColIterator colIterator(ArithVar v) const {
     Assert(v < d_colHeads.size());
     EntryID head = d_colHeads[v];
     return ColIterator(head, d_entryManager);
@@ -314,7 +315,7 @@ public:
   /**
    * Adds a row to the tableau.
    * The new row is equivalent to:
-   *   basicVar = \sum_i coeffs[i] * variables[i]
+   *   basicVar = \f$\sum_i\f$ coeffs[i] * variables[i]
    * preconditions:
    *   basicVar is already declared to be basic
    *   basicVar does not have a row associated with it in the tableau.
@@ -350,9 +351,9 @@ public:
   /**
    * Prints the contents of the Tableau to Debug("tableau::print")
    */
-  void printTableau();
-  void printRow(ArithVar basic);
-  void printEntry(const TableauEntry& entry);
+  void printTableau() const;
+  void printRow(ArithVar basic) const;
+  void printEntry(const TableauEntry& entry) const;
 
 
 private:
@@ -399,10 +400,10 @@ private:
   uint32_t debugCountColLength(ArithVar var);
   uint32_t debugCountRowLength(ArithVar var);
 
-};
+};/* class Tableau */
 
-}; /* namespace arith  */
-}; /* namespace theory */
-}; /* namespace CVC4   */
+}/* CVC4::theory::arith namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
 
 #endif /* __CVC4__THEORY__ARITH__TABLEAU_H */

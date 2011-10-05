@@ -140,6 +140,11 @@ public:
     return d_card > 0;
   }
 
+  /** Returns true iff this cardinality is infinite. */
+  bool isInfinite() const throw() {
+    return d_card < 0;
+  }
+
   /**
    * Returns true iff this cardinality is finite or countably
    * infinite.

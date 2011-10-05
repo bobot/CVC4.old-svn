@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief A manager for Nodes.
+ ** \brief A manager for Nodes
  **
  ** A manager for Nodes.
  **
@@ -48,6 +48,8 @@ class StatisticsRegistry;
 
 namespace expr {
 
+class TypeChecker;
+
 // Definition of an attribute for the variable name.
 // TODO: hide this attribute behind a NodeManager interface.
 namespace attr {
@@ -64,6 +66,7 @@ class NodeManager {
   template <unsigned nchild_thresh> friend class CVC4::NodeBuilder;
   friend class NodeManagerScope;
   friend class expr::NodeValue;
+  friend class expr::TypeChecker;
 
   /** Predicate for use with STL algorithms */
   struct NodeValueReferenceCountNonZero {
@@ -187,10 +190,13 @@ class NodeManager {
 
     // if d_reclaiming is set, make sure we don't call
     // reclaimZombies(), because it's already running.
-    Debug("gc") << "zombifying node value " << nv
-                << " [" << nv->d_id << "]: " << *nv
-                << (d_inReclaimZombies ? " [CURRENTLY-RECLAIMING]" : "")
-                << std::endl;
+    if(Debug.isOn("gc")) {
+      Debug("gc") << "zombifying node value " << nv
+                  << " [" << nv->d_id << "]: ";
+      nv->printAst(Debug("gc"));
+      Debug("gc") << (d_inReclaimZombies ? " [CURRENTLY-RECLAIMING]" : "")
+                  << std::endl;
+    }
     d_zombies.insert(nv);// FIXME multithreading
 
     if(!d_inReclaimZombies) {// FIXME multithreading
@@ -248,9 +254,6 @@ class NodeManager {
 
   // undefined private copy constructor (disallow copy)
   NodeManager(const NodeManager&) CVC4_UNDEFINED;
-
-  TypeNode computeType(TNode n, bool check = false)
-    throw (TypeCheckingExceptionPrivate, AssertionException);
 
   void init();
 
@@ -562,8 +565,11 @@ public:
   /** Get the (singleton) type for integers. */
   inline TypeNode integerType();
 
-  /** Get the (singleton) type for booleans. */
+  /** Get the (singleton) type for reals. */
   inline TypeNode realType();
+
+  /** Get the (singleton) type for pseudobooleans. */
+  inline TypeNode pseudobooleanType();
 
   /** Get the (singleton) type for sorts. */
   inline TypeNode kindType();
@@ -851,6 +857,11 @@ inline TypeNode NodeManager::realType() {
   return TypeNode(mkTypeConst<TypeConstant>(REAL_TYPE));
 }
 
+/** Get the (singleton) type for pseudobooleans. */
+inline TypeNode NodeManager::pseudobooleanType() {
+  return TypeNode(mkTypeConst<TypeConstant>(PSEUDOBOOLEAN_TYPE));
+}
+
 /** Get the (singleton) type for sorts. */
 inline TypeNode NodeManager::kindType() {
   return TypeNode(mkTypeConst<TypeConstant>(KIND_TYPE));
@@ -905,10 +916,11 @@ inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
   Assert(types.size() >= 2);
   std::vector<TypeNode> typeNodes;
   for (unsigned i = 0; i < types.size(); ++ i) {
-    /* FIXME when congruence closure no longer abuses tuples
+    /* FIXME when congruence closure no longer abuses tuples */
+#if 0
     CheckArgument(!types[i].isFunctionLike(), types,
                   "cannot put function-like types in tuples");
-    */
+#endif /* 0 */
     typeNodes.push_back(types[i]);
   }
   return mkTypeNode(kind::TUPLE_TYPE, typeNodes);
@@ -1351,8 +1363,12 @@ NodeClass NodeManager::mkConstInternal(const T& val) {
   new (&nv->d_children) T(val);
 
   poolInsert(nv);
-  Debug("gc") << "creating node value " << nv
-              << " [" << nv->d_id << "]: " << *nv << "\n";
+  if(Debug.isOn("gc")) {
+    Debug("gc") << "creating node value " << nv
+                << " [" << nv->d_id << "]: ";
+    nv->printAst(Debug("gc"));
+    Debug("gc") << std::endl;
+  }
 
   return NodeClass(nv);
 }

@@ -2,10 +2,10 @@
 /*! \file theory_engine_white.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
- ** Minor contributors (to current version): barrett, cconway
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -48,19 +48,16 @@ using namespace CVC4::kind;
 using namespace std;
 
 class FakeOutputChannel : public OutputChannel {
-  void conflict(TNode n, bool safe) throw(AssertionException) {
+  void conflict(TNode n) throw(AssertionException) {
     Unimplemented();
   }
-  void propagate(TNode n, bool safe) throw(AssertionException) {
+  void propagate(TNode n) throw(AssertionException) {
     Unimplemented();
   }
-  void lemma(TNode n, bool safe) throw(AssertionException) {
+  void lemma(TNode n, bool removable) throw(AssertionException) {
     Unimplemented();
   }
-  void augmentingLemma(TNode n, bool safe) throw(AssertionException) {
-    Unimplemented();
-  }
-  void explanation(TNode n, bool safe) throw(AssertionException) {
+  void explanation(TNode n) throw(AssertionException) {
     Unimplemented();
   }
   void setIncomplete() throw(AssertionException) {
@@ -107,8 +104,8 @@ class FakeTheory : public Theory {
   // static std::deque<RewriteItem> s_expected;
 
 public:
-  FakeTheory(context::Context* ctxt, OutputChannel& out, Valuation valuation) :
-    Theory(theoryId, ctxt, out, valuation)
+  FakeTheory(context::Context* ctxt, context::UserContext* uctxt, OutputChannel& out, Valuation valuation) :
+    Theory(theoryId, ctxt, uctxt, out, valuation)
   { }
 
   /** Register an expected rewrite call */
@@ -225,6 +222,7 @@ public:
  */
 class TheoryEngineWhite : public CxxTest::TestSuite {
   Context* d_ctxt;
+  UserContext* d_uctxt;
 
   NodeManager* d_nm;
   NodeManagerScope* d_scope;
@@ -234,22 +232,23 @@ class TheoryEngineWhite : public CxxTest::TestSuite {
 public:
 
   void setUp() {
-    d_ctxt = new Context;
+    d_ctxt = new Context();
+    d_uctxt = new UserContext();
 
     d_nm = new NodeManager(d_ctxt, NULL);
     d_scope = new NodeManagerScope(d_nm);
 
-    d_nullChannel = new FakeOutputChannel;
+    d_nullChannel = new FakeOutputChannel();
 
     // create the TheoryEngine
-    d_theoryEngine = new TheoryEngine(d_ctxt);
+    d_theoryEngine = new TheoryEngine(d_ctxt, d_uctxt);
 
-    d_theoryEngine->addTheory< FakeTheory<THEORY_BUILTIN> >();
-    d_theoryEngine->addTheory< FakeTheory<THEORY_BOOL> >();
-    d_theoryEngine->addTheory< FakeTheory<THEORY_UF> >();
-    d_theoryEngine->addTheory< FakeTheory<THEORY_ARITH> >();
-    d_theoryEngine->addTheory< FakeTheory<THEORY_ARRAY> >();
-    d_theoryEngine->addTheory< FakeTheory<THEORY_BV> >();
+    d_theoryEngine->addTheory< FakeTheory<THEORY_BUILTIN> >(THEORY_BUILTIN);
+    d_theoryEngine->addTheory< FakeTheory<THEORY_BOOL> >(THEORY_BOOL);
+    d_theoryEngine->addTheory< FakeTheory<THEORY_UF> >(THEORY_UF);
+    d_theoryEngine->addTheory< FakeTheory<THEORY_ARITH> >(THEORY_ARITH);
+    d_theoryEngine->addTheory< FakeTheory<THEORY_ARRAY> >(THEORY_ARRAY);
+    d_theoryEngine->addTheory< FakeTheory<THEORY_BV> >(THEORY_BV);
 
     //Debug.on("theory-rewrite");
   }
@@ -263,6 +262,7 @@ public:
     delete d_scope;
     delete d_nm;
 
+    delete d_uctxt;
     delete d_ctxt;
   }
 

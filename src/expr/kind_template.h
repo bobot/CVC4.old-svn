@@ -62,6 +62,8 @@ ${kind_printers}
   return out;
 }
 
+#line 66 "${template}"
+
 /** Returns true if the given kind is associative. This is used by ExprManager to
  * decide whether it's safe to modify big expressions by changing the grouping of
  * the arguments. */
@@ -124,6 +126,12 @@ enum TheoryId {
 ${theory_enum}
   THEORY_LAST
 };
+
+const TheoryId THEORY_FIRST = static_cast<TheoryId>(0);
+
+inline TheoryId& operator ++ (TheoryId& id) {
+  return id = static_cast<TheoryId>(((int)id) + 1);
+}
 
 inline std::ostream& operator<<(std::ostream& out, TheoryId theoryId) {
   switch(theoryId) {

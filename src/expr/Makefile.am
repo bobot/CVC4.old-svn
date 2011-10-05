@@ -16,6 +16,7 @@ libexpr_la_SOURCES = \
 	type.cpp \
 	node_value.h \
 	node_manager.h \
+	type_checker.h \
 	attribute.h \
 	attribute_internals.h \
 	attribute.cpp \
@@ -33,7 +34,8 @@ libexpr_la_SOURCES = \
 	pickler.h \
 	pickler.cpp \
 	node_self_iterator.h \
-	expr_stream.h
+	expr_stream.h \
+	kind_map.h
 
 nodist_libexpr_la_SOURCES = \
 	kind.h \
@@ -42,7 +44,8 @@ nodist_libexpr_la_SOURCES = \
 	expr.h \
 	expr.cpp \
 	expr_manager.h \
-	expr_manager.cpp
+	expr_manager.cpp \
+	type_checker.cpp
 
 EXTRA_DIST = \
 	kind_template.h \
@@ -52,9 +55,17 @@ EXTRA_DIST = \
 	expr_manager_template.cpp \
 	expr_template.h \
 	expr_template.cpp \
+	type_checker_template.cpp \
 	mkkind \
 	mkmetakind \
-	mkexpr
+	mkexpr \
+	expr_stream.i \
+	expr_manager.i \
+	declaration_scope.i \
+	command.i \
+	type.i \
+	kind.i \
+	expr.i
 
 BUILT_SOURCES = \
 	kind.h \
@@ -64,6 +75,7 @@ BUILT_SOURCES = \
 	expr.cpp \
 	expr_manager.h \
 	expr_manager.cpp \
+	type_checker.cpp \
 	$(top_builddir)/src/theory/.subdirs
 
 CLEANFILES = \
@@ -73,6 +85,8 @@ CLEANFILES = \
 	expr.cpp \
 	expr_manager.h \
 	expr_manager.cpp \
+	type_checker.cpp \
+	type_properties.h \
 	$(top_builddir)/src/theory/.subdirs
 
 include @top_srcdir@/src/theory/Makefile.subdirs
@@ -126,6 +140,14 @@ expr_manager.h: expr_manager_template.h mkexpr @top_builddir@/src/theory/.subdir
 	> $@) || (rm -f $@ && exit 1)
 
 expr_manager.cpp: expr_manager_template.cpp mkexpr @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
+	$(AM_V_at)chmod +x @srcdir@/mkexpr
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkexpr \
+		$< \
+		`cat @top_builddir@/src/theory/.subdirs` \
+	> $@) || (rm -f $@ && exit 1)
+
+type_checker.cpp: type_checker_template.cpp mkexpr @top_builddir@/src/theory/.subdirs @top_srcdir@/src/theory/*/kinds
 	$(AM_V_at)chmod +x @srcdir@/mkexpr
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkexpr \

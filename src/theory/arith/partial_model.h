@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -17,6 +17,7 @@
  ** \todo document this file
  **/
 
+#include "cvc4_private.h"
 
 #include "context/context.h"
 #include "context/cdvector.h"
@@ -86,7 +87,7 @@ public:
   /* Initializes a variable to a safe value.*/
   void initialize(ArithVar x, const DeltaRational& r);
 
-  /* Gets the last assignment to a variable that is known to be conistent. */
+  /* Gets the last assignment to a variable that is known to be consistent. */
   const DeltaRational& getSafeAssignment(ArithVar x) const;
   const DeltaRational& getAssignment(ArithVar x, bool safe) const;
 
@@ -183,14 +184,12 @@ private:
     return 0 <= x && x < d_mapSize;
   }
 
-};
+};/* class ArithPartialModel */
 
 
-
-
-}; /* namesapce arith */
-}; /* namespace theory */
-}; /* namespace CVC4 */
+}/* CVC4::theory::arith namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
 
 
 

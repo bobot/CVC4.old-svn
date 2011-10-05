@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: taking
- ** Minor contributors (to current version): barrett
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -38,6 +38,7 @@
 #include "theory/arith/arith_static_learner.h"
 #include "theory/arith/arith_prop_manager.h"
 #include "theory/arith/arithvar_node_map.h"
+#include "theory/arith/dio_solver.h"
 
 #include "util/stats.h"
 
@@ -69,6 +70,21 @@ private:
   ArithVarNodeMap d_arithvarNodeMap;
 
   /**
+   * List of the types of variables in the system.
+   * "True" means integer, "false" means (non-integer) real.
+   */
+  std::vector<short> d_integerVars;
+
+  /**
+   * On full effort checks (after determining LA(Q) satisfiability), we
+   * consider integer vars, but we make sure to do so fairly to avoid
+   * nontermination (although this isn't a guarantee).  To do it fairly,
+   * we consider variables in round-robin fashion.  This is the
+   * round-robin index.
+   */
+  ArithVar d_nextIntegerCheckVar;
+
+  /**
    * If ArithVar v maps to the node n in d_removednode,
    * then n = (= asNode(v) rhs) where rhs is a term that
    * can be used to determine the value of n using getValue().
@@ -86,8 +102,6 @@ private:
    */
   ArithVarSet d_userVariables;
 
-
-
   /**
    * List of all of the inequalities asserted in the current context.
    */
@@ -98,6 +112,23 @@ private:
    */
   Tableau d_tableau;
 
+  /**
+   * A Diophantine equation solver.  Accesses the tableau and partial
+   * model (each in a read-only fashion).
+   */
+  DioSolver d_diosolver;
+
+  /**
+   * Some integer variables can be replaced with pseudoboolean
+   * variables internally.  This map is built up at static learning
+   * time for top-level asserted expressions of the shape "x = 0 OR x
+   * = 1".  This substitution map is then applied in preprocess().
+   *
+   * Note that expressions of the shape "x >= 0 AND x <= 1" are
+   * already substituted for PB versions at solve() time and won't
+   * appear here.
+   */
+  SubstitutionMap d_pbSubstitutions;
 
   /** Counts the number of notifyRestart() calls to the theory. */
   uint32_t d_restartsCounter;
@@ -132,20 +163,17 @@ private:
   SimplexDecisionProcedure d_simplex;
 
 public:
-  TheoryArith(context::Context* c, OutputChannel& out, Valuation valuation);
-  ~TheoryArith();
+  TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  virtual ~TheoryArith();
 
   /**
    * Does non-context dependent setup for a node connected to a theory.
    */
   void preRegisterTerm(TNode n);
 
-  /** CD setup for a node. Currently does nothing. */
-  void registerTerm(TNode n);
-
   void check(Effort e);
   void propagate(Effort e);
-  void explain(TNode n);
+  Node explain(TNode n);
 
   void notifyEq(TNode lhs, TNode rhs);
 
@@ -155,7 +183,8 @@ public:
 
   void presolve();
   void notifyRestart();
-  Node simplify(TNode in, std::vector< std::pair<Node, Node> >& outSubstitutions);
+  SolveStatus solve(TNode in, SubstitutionMap& outSubstitutions);
+  Node preprocess(TNode atom);
   void staticLearning(TNode in, NodeBuilder<>& learned);
 
   std::string identify() const { return std::string("TheoryArith"); }
@@ -242,7 +271,7 @@ private:
 
   void asVectors(Polynomial& p,
                  std::vector<Rational>& coeffs,
-                 std::vector<ArithVar>& variables) const;
+                 std::vector<ArithVar>& variables);
 
   /** Routine for debugging. Print the assertions the theory is aware of. */
   void debugPrintAssertions();

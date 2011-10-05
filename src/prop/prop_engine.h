@@ -3,18 +3,18 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: taking, dejan
- ** Minor contributors (to current version): cconway
+ ** Minor contributors (to current version): cconway, barrett
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief The PropEngine (proposiitonal engine); main interface point
- ** between CVC4's SMT infrastructure and the SAT solver.
+ ** \brief The PropEngine (propositional engine); main interface point
+ ** between CVC4's SMT infrastructure and the SAT solver
  **
- ** The PropEngine (proposiitonal engine); main interface point
+ ** The PropEngine (propositional engine); main interface point
  ** between CVC4's SMT infrastructure and the SAT solver.
  **/
 
@@ -98,8 +98,10 @@ public:
    * than the (SAT and SMT) level at which it was asserted.
    *
    * @param node the formula to assert
+   * @param negated whether the node should be considered to be negated at the top level (or not)
+   * @param removable whether this lemma can be quietly removed based on an activity heuristic (or not)
    */
-  void assertLemma(TNode node);
+  void assertLemma(TNode node, bool negated, bool removable);
 
   /**
    * Checks the current context for satisfiability.
@@ -113,6 +115,16 @@ public:
    * unassigned.
    */
   Node getValue(TNode node);
+
+  /*
+   * Return true if node has an associated SAT literal
+   */
+  bool isSatLiteral(TNode node);
+
+  /**
+   * Check if the node has a value and return it if yes.
+   */
+  bool hasValue(TNode node, bool& value);
 
   /**
    * Push the context level.

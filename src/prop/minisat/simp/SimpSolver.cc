@@ -57,7 +57,7 @@ SimpSolver::SimpSolver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* con
   , asymm_lits         (0)
   , eliminated_vars    (0)
   , elimorder          (1)
-  , use_simplification (true)
+  , use_simplification (!enableIncremental)
   , occurs             (ClauseDeleted(ca))
   , elim_heap          (ElimLt(n_occ))
   , bwdsub_assigns     (0)
@@ -94,6 +94,8 @@ Var SimpSolver::newVar(bool sign, bool dvar, bool theoryAtom) {
 
 lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 {
+    popTrail();
+
     vec<Var> extra_frozen;
     lbool    result = l_True;
 
@@ -134,23 +136,23 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 
 
 
-bool SimpSolver::addClause_(vec<Lit>& ps, ClauseType type)
+bool SimpSolver::addClause_(vec<Lit>& ps, bool removable)
 {
 #ifndef NDEBUG
     for (int i = 0; i < ps.size(); i++)
       assert(!isEliminated(var(ps[i])));
 #endif
 
-    int nclauses = clauses.size();
+    int nclauses = clauses_persistent.size();
 
     if (use_rcheck && implied(ps))
         return true;
 
-    if (!Solver::addClause_(ps, type))
+    if (!Solver::addClause_(ps, removable))
         return false;
 
-    if (use_simplification && clauses.size() == nclauses + 1){
-        CRef          cr = clauses.last();
+    if (use_simplification && clauses_persistent.size() == nclauses + 1){
+        CRef          cr = clauses_persistent.last();
         const Clause& c  = ca[cr];
 
         // NOTE: the clause is added to the queue immediately and then
@@ -516,9 +518,12 @@ bool SimpSolver::eliminateVar(Var v)
     // Produce clauses in cross product:
     vec<Lit>& resolvent = add_tmp;
     for (int i = 0; i < pos.size(); i++)
-        for (int j = 0; j < neg.size(); j++)
-            if (merge(ca[pos[i]], ca[neg[j]], v, resolvent) && !addClause_(resolvent, CLAUSE_CONFLICT))
+        for (int j = 0; j < neg.size(); j++) {
+            bool removable = ca[pos[i]].removable() && ca[pos[neg[j]]].removable();
+            if (merge(ca[pos[i]], ca[neg[j]], v, resolvent) && !addClause_(resolvent, removable)) {
                 return false;
+            }
+        }
 
     // Free occurs list for this variable:
     occurs[v].clear(true);
@@ -555,8 +560,9 @@ bool SimpSolver::substitute(Var v, Lit x)
 
         removeClause(cls[i]);
 
-        if (!addClause_(subst_clause, CLAUSE_PROBLEM))
+        if (!addClause_(subst_clause, c.removable())) {
             return ok = false;
+        }
     }
 
     return true;
@@ -669,10 +675,10 @@ void SimpSolver::cleanUpClauses()
 {
     occurs.cleanAll();
     int i,j;
-    for (i = j = 0; i < clauses.size(); i++)
-        if (ca[clauses[i]].mark() == 0)
-            clauses[j++] = clauses[i];
-    clauses.shrink(i - j);
+    for (i = j = 0; i < clauses_persistent.size(); i++)
+        if (ca[clauses_persistent[i]].mark() == 0)
+            clauses_persistent[j++] = clauses_persistent[i];
+    clauses_persistent.shrink(i - j);
 }
 
 

@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -68,7 +68,12 @@ AntlrInputStream::newFileInputStream(const std::string& name,
   if( useMmap ) {
     input = MemoryMappedInputBufferNew(name);
   } else {
+    // libantlr3c v3.2 isn't source-compatible with v3.4
+#ifdef CVC4_ANTLR3_OLD_INPUT_STREAM
     input = antlr3AsciiFileStreamNew((pANTLR3_UINT8) name.c_str());
+#else /* CVC4_ANTLR3_OLD_INPUT_STREAM */
+    input = antlr3FileStreamNew((pANTLR3_UINT8) name.c_str(), ANTLR3_ENC_8BIT);
+#endif /* CVC4_ANTLR3_OLD_INPUT_STREAM */
   }
   if( input == NULL ) {
     throw InputStreamException("Couldn't open file: " + name);
@@ -112,10 +117,18 @@ AntlrInputStream::newStreamInputStream(std::istream& input,
   }
 
   /* Create an ANTLR input backed by the buffer. */
+#ifdef CVC4_ANTLR3_OLD_INPUT_STREAM
   pANTLR3_INPUT_STREAM inputStream =
       antlr3NewAsciiStringInPlaceStream((pANTLR3_UINT8) basep,
                                         cp - basep,
                                         (pANTLR3_UINT8) strdup(name.c_str()));
+#else /* CVC4_ANTLR3_OLD_INPUT_STREAM */
+  pANTLR3_INPUT_STREAM inputStream =
+      antlr3StringStreamNew((pANTLR3_UINT8) basep,
+                            ANTLR3_ENC_8BIT,
+                            cp - basep,
+                            (pANTLR3_UINT8) strdup(name.c_str()));
+#endif /* CVC4_ANTLR3_OLD_INPUT_STREAM */
   if( inputStream==NULL ) {
     throw InputStreamException("Couldn't initialize input: " + name);
   }
@@ -130,10 +143,18 @@ AntlrInputStream::newStringInputStream(const std::string& input,
   char* inputStr = strdup(input.c_str());
   char* nameStr = strdup(name.c_str());
   AlwaysAssert( inputStr!=NULL && nameStr!=NULL );
+#ifdef CVC4_ANTLR3_OLD_INPUT_STREAM
   pANTLR3_INPUT_STREAM inputStream =
       antlr3NewAsciiStringInPlaceStream((pANTLR3_UINT8) inputStr,
                                         input.size(),
                                         (pANTLR3_UINT8) nameStr);
+#else /* CVC4_ANTLR3_OLD_INPUT_STREAM */
+  pANTLR3_INPUT_STREAM inputStream =
+      antlr3StringStreamNew((pANTLR3_UINT8) inputStr,
+                            ANTLR3_ENC_8BIT,
+                            input.size(),
+                            (pANTLR3_UINT8) nameStr);
+#endif /* CVC4_ANTLR3_OLD_INPUT_STREAM */
   if( inputStream==NULL ) {
     throw InputStreamException("Couldn't initialize string input: '" + input + "'");
   }

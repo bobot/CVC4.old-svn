@@ -2,7 +2,7 @@
 /*! \file rewriter_attributes.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -15,6 +15,8 @@
  **
  ** Rewriter attributes.
  **/
+
+#include "cvc4_private.h"
 
 #pragma once
 
@@ -51,7 +53,7 @@ struct RewriteAttibute {
    * Set the value of the pre-rewrite cache.
    */
   static void setPreRewriteCache(TNode node, TNode cache) throw() {
-    Debug("rewriter") << "setting pre-rewrite of " << node << " to " << cache << std::endl;
+    Trace("rewriter") << "setting pre-rewrite of " << node << " to " << cache << std::endl;
     Assert(!cache.isNull());
     if (node == cache) {
       node.setAttribute(pre_rewrite(), Node::null());
@@ -83,7 +85,7 @@ struct RewriteAttibute {
    */
   static void setPostRewriteCache(TNode node, TNode cache) throw() {
     Assert(!cache.isNull());
-    Debug("rewriter") << "setting rewrite of " << node << " to " << cache << std::endl;
+    Trace("rewriter") << "setting rewrite of " << node << " to " << cache << std::endl;
     if (node == cache) {
       node.setAttribute(post_rewrite(), Node::null());
     } else {

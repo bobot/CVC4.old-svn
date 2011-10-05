@@ -2,10 +2,10 @@
 /*! \file theory_bv.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -138,7 +138,7 @@ void TheoryBV::check(Effort e) {
       normalization.assumptions.push_back(assumptions);
 
       BVDebug("bitvector") << "Adding normalization " << lhsNormalized.eqNode(rhsNormalized) << std::endl;
-      BVDebug("bitvector") << "       assumptions   " << setToString(assumptions) << std::endl;
+      BVDebug("bitvector") << "       assumptions   " << utils::setToString(assumptions) << std::endl;
 
 
       BVDebug("bitvector") << "TheoryBV::check(" << e << "): normalizes to " << lhsNormalized << " = " << rhsNormalized << std::endl;
@@ -224,7 +224,7 @@ Node TheoryBV::getValue(TNode n) {
   }
 }
 
-void TheoryBV::explain(TNode node) {
+Node TheoryBV::explain(TNode node) {
   BVDebug("bitvector") << "TheoryBV::explain(" << node << ")" << std::endl;
 
   TNode equality = node.getKind() == kind::NOT ? node[0] : node;
@@ -234,9 +234,8 @@ void TheoryBV::explain(TNode node) {
   std::set<TNode> assumptions;
   for (unsigned i = 0; i < vec.size(); ++ i) {
     BVDebug("bitvector") << "Adding normalization " << d_normalization[equality]->equalities[i] << std::endl;
-    BVDebug("bitvector") << "       assumptions   " << setToString(d_normalization[equality]->assumptions[i]) << std::endl;
+    BVDebug("bitvector") << "       assumptions   " << utils::setToString(d_normalization[equality]->assumptions[i]) << std::endl;
     assumptions.insert(vec[i].begin(), vec[i].end());
   }
-  d_out->explanation(utils::mkConjunction(assumptions));
-  return;
+  return utils::mkConjunction(assumptions);
 }

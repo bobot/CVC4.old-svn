@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): taking, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -364,6 +364,10 @@ public:
     return d_map.size();
   }
 
+  bool empty() const {
+    return d_map.empty();
+  }
+
   size_t count(const Key& k) const {
     return d_map.count(k);
   }
@@ -514,8 +518,8 @@ public:
     }
 
     // Dereference operators.
-    std::pair<const Key, Data> operator*() const {
-      return std::pair<const Key, Data>(d_it->getKey(), d_it->get());
+    std::pair<const Key, const Data> operator*() const {
+      return std::pair<const Key, const Data>(d_it->getKey(), d_it->get());
     }
 
     // Prefix increment

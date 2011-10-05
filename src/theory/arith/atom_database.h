@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -96,9 +96,11 @@ public:
   bool containsLeq(TNode atom) const;
   bool containsGeq(TNode atom) const;
 
-
+  /** Check to make sure an lhs has been properly set-up. */
+  bool leftIsSetup(TNode left) const;
 
 private:
+
   VariablesSets& getVariablesSets(TNode left);
   BoundValueSet& getBoundValueSet(TNode left);
   EqualValueSet& getEqualValueSet(TNode left);
@@ -109,9 +111,6 @@ private:
 
   /** Sends an implication (=> a b) to the PropEngine via d_arithOut. */
   void addImplication(TNode a, TNode b);
-
-  /** Check to make sure an lhs has been properly set-up. */
-  bool leftIsSetup(TNode left) const;
 
   /** Initializes the lists associated with a unique lhs. */
   void setupLefthand(TNode left);

@@ -2,10 +2,10 @@
 /*! \file node_value.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: dejan
- ** Minor contributors (to current version): cconway, taking
+ ** Major contributors: none
+ ** Minor contributors (to current version): cconway, taking, dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -150,7 +150,7 @@ private:
   public:
     typedef std::random_access_iterator_tag iterator_category;
     typedef T value_type;
-    typedef ptrdiff_t difference_type;
+    typedef std::ptrdiff_t difference_type;
     typedef T* pointer;
     typedef T& reference;
 
@@ -288,6 +288,7 @@ public:
   template <class T>
   inline const T& getConst() const;
 
+  NodeValue* getOperator() const;
   NodeValue* getChild(int i) const;
 
   void printAst(std::ostream& out, int indent = 0) const;
@@ -428,6 +429,11 @@ inline NodeValue::iterator<T> NodeValue::end() const {
 inline bool NodeValue::isBeingDeleted() const {
   return NodeManager::currentNM() != NULL &&
     NodeManager::currentNM()->isCurrentlyDeleting(this);
+}
+
+inline NodeValue* NodeValue::getOperator() const {
+  Assert(getMetaKind() == kind::metakind::PARAMETERIZED);
+  return d_children[0];
 }
 
 inline NodeValue* NodeValue::getChild(int i) const {

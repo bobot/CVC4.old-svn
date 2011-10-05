@@ -2,10 +2,10 @@
 /*! \file integer_cln_imp.h
  ** \verbatim
  ** Original author: taking
- ** Major contributors: none
- ** Minor contributors (to current version): mdeters, dejan
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -36,7 +36,7 @@ namespace CVC4 {
 
 class Rational;
 
-class Integer {
+class CVC4_PUBLIC Integer {
 private:
   /**
    * Stores the value of the rational is stored in a C++ GMP integer class.
@@ -182,7 +182,8 @@ public:
     return *this;
   }
 
-  /** Raise this Integer to the power <code>exp</code>.
+  /**
+   * Raise this Integer to the power <code>exp</code>.
    *
    * @param exp the exponent
    */
@@ -195,6 +196,21 @@ public:
     }else{
       Unimplemented();
     }
+  }
+
+  /**
+   * Return the greatest common divisor of this integer with another.
+   */
+  Integer gcd(const Integer& y) const {
+    cln::cl_I result = cln::gcd(d_value, y.d_value);
+    return Integer(result);
+  }
+
+  /**
+   * Return the absolute value of this integer.
+   */
+  Integer abs() const {
+    return d_value >= 0 ? *this : -*this;
   }
 
   std::string toString(int base = 10) const{

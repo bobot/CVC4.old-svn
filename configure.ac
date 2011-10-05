@@ -1,10 +1,11 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-m4_define(_CVC4_MAJOR,          0 )      dnl version (major)
-m4_define(_CVC4_MINOR,          0 )      dnl version (minor)
-m4_define(_CVC4_RELEASE,        0 )      dnl version (alpha)
-m4_define(_CVC4_RELEASE_STRING, [prerelease]) dnl version string
+m4_define(_CVC4_MAJOR,          0)       dnl version (major)
+m4_define(_CVC4_MINOR,          0)       dnl version (minor)
+m4_define(_CVC4_RELEASE,        0)       dnl version (alpha)
+m4_define(_CVC4_EXTRAVERSION,   [prerelease])      dnl version (extra)
+m4_define(_CVC4_RELEASE_STRING, _CVC4_MAJOR[.]_CVC4_MINOR[]m4_if(_CVC4_RELEASE,[0],,[.]_CVC4_RELEASE)_CVC4_EXTRAVERSION) dnl version string
 
 dnl Preprocess CL args. Defined in config/cvc4.m4
 CVC4_AC_INIT
@@ -21,6 +22,7 @@ m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 CVC4_MAJOR=_CVC4_MAJOR
 CVC4_MINOR=_CVC4_MINOR
 CVC4_RELEASE=_CVC4_RELEASE
+CVC4_EXTRAVERSION=_CVC4_EXTRAVERSION
 CVC4_RELEASE_STRING=_CVC4_RELEASE_STRING
 
 # Libtool version numbers for libraries
@@ -41,15 +43,32 @@ CVC4_RELEASE_STRING=_CVC4_RELEASE_STRING
 # For guidance on when to change the version number, refer to the
 # developer's guide.
 
-CVC4_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
-CVC4_PARSER_LIBRARY_VERSION=$CVC4_MAJOR:$CVC4_MINOR:$CVC4_RELEASE
+m4_define([library_version], [m4_esyscmd([grep -F "$(grep -v '^#' library_versions | awk '{print$][1}' | sed 's,\\,\\\\\\,g' | (while read r; do if echo "]_CVC4_RELEASE_STRING[" | grep -q "^$r\$"; then echo "$r"; exit; fi; done; echo NO_MATCH_FOUND)) " library_versions | awk 'BEGIN {FS=":";OFS=":";RS=" "} /^$1:/ {print$][2,$][3,$][4}' | head -1])])
+
+m4_define(_CVC4_LIBRARY_VERSION, library_version([libcvc4]))dnl
+m4_define(_CVC4_PARSER_LIBRARY_VERSION, library_version([libcvc4parser]))dnl
+m4_define(_CVC4_COMPAT_LIBRARY_VERSION, library_version([libcvc4compat]))dnl
+m4_define(_CVC4_BINDINGS_LIBRARY_VERSION, library_version([libcvc4bindings]))dnl
+
+m4_define([fatal_error], [m4_errprint(__program__:__file__:__line__[: fatal error: $*
+])m4_exit(1)])dnl
+
+m4_ifblank(_CVC4_LIBRARY_VERSION,[fatal_error([no CVC4_LIBRARY_VERSION defined for release version "]_CVC4_RELEASE_STRING[" in library_versions file])])dnl
+m4_ifblank(_CVC4_PARSER_LIBRARY_VERSION,[fatal_error([no CVC4_PARSER_LIBRARY_VERSION defined for release version "]_CVC4_RELEASE_STRING[" in library_versions file])])dnl
+m4_ifblank(_CVC4_COMPAT_LIBRARY_VERSION,[fatal_error([no CVC4_COMPAT_LIBRARY_VERSION defined for release version "]_CVC4_RELEASE_STRING[" in library_versions file])])dnl
+m4_ifblank(_CVC4_BINDINGS_LIBRARY_VERSION,[fatal_error([no CVC4_BINDINGS_LIBRARY_VERSION defined for release version "]_CVC4_RELEASE_STRING[" in library_versions file])])dnl
+
+CVC4_LIBRARY_VERSION=_CVC4_LIBRARY_VERSION
+CVC4_PARSER_LIBRARY_VERSION=_CVC4_PARSER_LIBRARY_VERSION
+CVC4_COMPAT_LIBRARY_VERSION=_CVC4_COMPAT_LIBRARY_VERSION
+CVC4_BINDINGS_LIBRARY_VERSION=_CVC4_BINDINGS_LIBRARY_VERSION
 
 # Using the AC_CANONICAL_* macros destroy the command line you get
 # from $@, which we want later for determining the build profile.  So
 # we save it.  (We can't do our build profile stuff here, or it's not
 # included in the output... autoconf overrides us on the orderings of
 # some things.)
-config_cmdline="$@"
+config_cmdline=("$@")
 
 # remember if the user set these explicitly (or whether autoconf does)
 user_specified_enable_or_disable_static=${enable_static+yes}
@@ -77,6 +96,8 @@ AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
+as_me=configure
+
 if test "$enable_shared" = no -a "$user_specified_enable_or_disable_shared" = yes; then
   enable_static=yes
 fi
@@ -90,7 +111,7 @@ AC_ARG_WITH([build],
 if test -z "${with_build+set}" -o "$with_build" = default; then
   with_build=default
 fi
-if test -z "${enable_optimized+set}" -a -z "${enable_debug_symbols+set}" -a -z "${enable_assertions+set}" -a -z "${enable_tracing+set}" -a -z "${enable_muzzle+set}" -a -z "${enable_coverage+set}" -a -z "${enable_profiling+set}" -a -z "${enable_statistics+set}" -a -z "${enable_replay+set}" -a -z "${with_gmp+set}" -a -z "${with_cln+set}"; then
+if test -z "${enable_optimized+set}" -a -z "${enable_debug_symbols+set}" -a -z "${enable_assertions+set}" -a -z "${enable_tracing+set}" -a -z "${enable_dumping+set}" -a -z "${enable_muzzle+set}" -a -z "${enable_coverage+set}" -a -z "${enable_profiling+set}" -a -z "${enable_statistics+set}" -a -z "${enable_replay+set}" -a -z "${with_gmp+set}" -a -z "${with_cln+set}"; then
   custom_build_profile=no
 else
   custom_build_profile=yes
@@ -129,6 +150,13 @@ if test -n "${enable_tracing+set}"; then
     btargs="$btargs tracing"
   else
     btargs="$btargs notracing"
+  fi
+fi
+if test -n "${enable_dumping+set}"; then
+  if test "$enable_dumping" = yes; then
+    btargs="$btargs dumping"
+  else
+    btargs="$btargs nodumping"
   fi
 fi
 if test -n "${enable_muzzle+set}"; then
@@ -297,8 +325,8 @@ elif test "$CVC4_CONFIGURE_AT_TOP_LEVEL" = yes; then
   $as_echo "cd builds/$target/$build_type"
   cd "builds/$target/$build_type"
   CVC4_CONFIGURE_IN_BUILDS=yes; export CVC4_CONFIGURE_IN_BUILDS
-  $as_echo "../../../configure $config_cmdline"
-  `pwd`/../../../configure $config_cmdline
+  echo "../../../configure ${config_cmdline[[@]]}"
+  `pwd`/../../../configure "${config_cmdline[[@]]}"
   exitval=$?
   cd ../../..
   if test $exitval -eq 0; then
@@ -327,10 +355,12 @@ else
   AC_MSG_RESULT([this one (user-specified)])
 fi
 
+as_me=configure
+
 # Unpack standard build types. Any particular options can be overriden with
 # --enable/disable-X options
 case "$with_build" in
-  production) # highly optimized, no assertions, no tracing
+  production) # highly optimized, no assertions, no tracing, dumping
     CVC4CPPFLAGS=
     CVC4CXXFLAGS=
     CVC4CFLAGS=
@@ -343,9 +373,10 @@ case "$with_build" in
     if test -z "${enable_replay+set}"       ; then enable_replay=no                 ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=no             ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=no                ; fi
+    if test -z "${enable_dumping+set}"      ; then enable_dumping=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
     ;;
-  debug) # unoptimized, debug symbols, assertions, tracing
+  debug) # unoptimized, debug symbols, assertions, tracing, dumping
     CVC4CPPFLAGS=-DCVC4_DEBUG
     CVC4CXXFLAGS='-fno-inline'
     CVC4CFLAGS='-fno-inline'
@@ -357,9 +388,10 @@ case "$with_build" in
     if test -z "${enable_replay+set}"       ; then enable_replay=yes                ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=yes            ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=yes               ; fi
+    if test -z "${enable_dumping+set}"      ; then enable_dumping=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
     ;;
-  default) # moderately optimized, assertions, tracing
+  default) # moderately optimized, assertions, tracing, dumping
     CVC4CPPFLAGS=
     CVC4CXXFLAGS=
     CVC4CFLAGS=
@@ -372,9 +404,10 @@ case "$with_build" in
     if test -z "${enable_replay+set}"       ; then enable_replay=yes                ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=yes            ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=yes               ; fi
+    if test -z "${enable_dumping+set}"      ; then enable_dumping=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
     ;;
-  competition) # maximally optimized, no assertions, no tracing, muzzled
+  competition) # maximally optimized, no assertions, no tracing, no dumping, muzzled
     CVC4CPPFLAGS='-DCVC4_COMPETITION_MODE'
     CVC4CXXFLAGS='-funroll-all-loops -fexpensive-optimizations -fno-enforce-eh-specs'
     CVC4CFLAGS='-funroll-all-loops -fexpensive-optimizations -fno-enforce-eh-specs'
@@ -387,6 +420,7 @@ case "$with_build" in
     if test -z "${enable_replay+set}"       ; then enable_replay=no                 ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=no             ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=no                ; fi
+    if test -z "${enable_dumping+set}"      ; then enable_dumping=no                ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=yes                ; fi
     if test -z "${user_specified_enable_or_disable_shared}"; then enable_shared=no; fi
     if test -z "${user_specified_enable_or_disable_static}"; then enable_static=yes; fi
@@ -520,6 +554,21 @@ if test "$enable_tracing" = yes; then
   CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_TRACING"
 fi
 
+AC_MSG_CHECKING([whether to do a dump-capable build of CVC4])
+AC_ARG_ENABLE([dumping],
+  [AS_HELP_STRING([--disable-dumping],
+     [remove all dumping code from CVC4])])
+
+if test -z "${enable_dumping+set}"; then
+  enable_dumping=yes
+fi
+
+AC_MSG_RESULT([$enable_dumping])
+
+if test "$enable_dumping" = yes; then
+  CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_DUMPING"
+fi
+
 AC_MSG_CHECKING([whether to do a muzzled build of CVC4])
 AC_ARG_ENABLE([muzzle],
   [AS_HELP_STRING([--enable-muzzle],
@@ -603,11 +652,30 @@ fi
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
+CVC4_CXX_OPTION([-Wno-conversion-null], [WNO_CONVERSION_NULL])
+AC_SUBST([WNO_CONVERSION_NULL])
+
+# Doxygen configuration
+AC_ARG_ENABLE([internals-documentation],
+  [AS_HELP_STRING([--enable-internals-documentation],
+     [build Doxygen documentation for static and private member functions])])
+if test "$enable_internals_documentation" = yes; then
+  DOXYGEN_EXTRACT_PRIVATE=YES
+  DOXYGEN_EXTRACT_STATIC=YES
+else
+  DOXYGEN_EXTRACT_PRIVATE=NO
+  DOXYGEN_EXTRACT_STATIC=NO
+fi
+AC_SUBST([DOXYGEN_EXTRACT_PRIVATE])
+AC_SUBST([DOXYGEN_EXTRACT_STATIC])
+
+DX_MAN_FEATURE(OFF)
 DX_PDF_FEATURE(OFF)
 DX_PS_FEATURE(OFF)
 DX_DOT_FEATURE(OFF)
-DX_INIT_DOXYGEN($PACKAGE_NAME, config/doxygen.cfg, $srcdir/doc)
+DX_INIT_DOXYGEN($PACKAGE_NAME, config/doxygen.cfg, $srcdir/doc/doxygen)
 
+AC_ARG_ENABLE([unit-testing], AS_HELP_STRING([--disable-unit-testing], [don't build support for unit testing, even if available]), , [enable_unit_testing=check])
 AC_ARG_VAR(CXXTEST, [path to CxxTest installation])
 
 AC_SUBST([CXXTEST])
@@ -629,18 +697,33 @@ fi
 CXXTESTGEN=
 AC_PATH_PROG(CXXTESTGEN, cxxtestgen.pl, [], [$CXXTEST:$PATH])
 if test -z "$CXXTESTGEN"; then
-  AC_MSG_NOTICE([unit tests disabled, cxxtestgen.pl not found.])
+  AC_PATH_PROG(CXXTESTGEN, cxxtestgen.py, [], [$CXXTEST:$PATH])
+fi
+if test "$enable_unit_testing" = "no"; then
+  AC_MSG_NOTICE([unit tests disabled by user request.])
+  CXXTESTGEN=
+  CXXTEST=
+elif test -z "$CXXTESTGEN"; then
+  AC_MSG_NOTICE([unit tests disabled, neither cxxtestgen.pl nor cxxtestgen.py found.])
 elif test -z "$CXXTEST"; then
   CXXTEST=`dirname "$CXXTESTGEN"`
   AC_MSG_CHECKING([for location of CxxTest headers])
   if test -e "$CXXTEST/cxxtest/TestRunner.h"; then
     AC_MSG_RESULT([$CXXTEST])
   else
-    AC_MSG_RESULT([not found])
-    AC_MSG_WARN([unit tests disabled, CxxTest headers not found.])
-    CXXTESTGEN=
-    CXXTEST=
+    if test -e "/usr/include/cxxtest/TestRunner.h"; then
+      AC_MSG_RESULT([/usr/include])
+    else
+      AC_MSG_RESULT([not found])
+      AC_MSG_WARN([unit tests disabled, CxxTest headers not found.])
+      CXXTESTGEN=
+      CXXTEST=
+    fi
   fi
+fi
+
+if test "$enable_unit_testing" = yes -a -z "$CXXTESTGEN"; then
+  AC_MSG_ERROR([--enable-unit-testing given but cxxtest not found.])
 fi
 
 AM_CONDITIONAL([HAVE_CXXTESTGEN], [test -n "$CXXTESTGEN"])
@@ -665,6 +748,20 @@ if test -n "$CXXTEST"; then
   fi
 fi
 
+AC_ARG_VAR(PYTHON, [PYTHON interpreter (used for building legacy Java library interface)])
+
+if test -z "$PYTHON"; then
+  AC_CHECK_PROGS(PYTHON, python, python, [])
+else
+  AC_CHECK_PROG(PYTHON, "$PYTHON", "$PYTHON", [])
+fi
+
+if test -z "$PYTHON"; then
+  AC_MSG_WARN([python not found, cannot build libcvc4compat_java (the legacy Java interface).])
+  CXXTESTGEN=
+  CXXTEST=
+fi
+
 # Checks for libraries.
 AC_CHECK_LIB(z, gzread, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
 AC_CHECK_HEADER(zlib.h, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
@@ -677,51 +774,17 @@ AC_SEARCH_LIBS([clock_gettime], [rt],
                           [Defined to 1 if clock_gettime() is supported by the platform.])],
                [AC_LIBOBJ([clock_gettime])])
 
-AC_ARG_WITH([cudd-dir],
-  [AS_HELP_STRING([--with-cudd-dir=DIR], [path to cudd installation])],
-  [CUDD_DIR="$withval"])
-if test -z "$CUDD_DIR"; then
-  CUDD_DIR=/usr
-fi
-AC_MSG_CHECKING([for cudd includes under $CUDD_DIR])
-CUDD_CPPFLAGS=
-CUDD_LDFLAGS=
-cvc4cudd=no
-result="not found"
-for cuddinc in "$CUDD_DIR/include" "$CUDD_DIR/include/cudd" "$CUDD_DIR"; do
-  if test -r "$cuddinc/cudd.h"; then
-    dnl TODO - should do a TRY_COMPILE instead
-    CUDD_CPPFLAGS="\"-I$cuddinc\""
-    result="$cuddinc"
-    cvc4cudd=yes
-    break
-  fi
-done
-AC_MSG_RESULT([$result])
-if test $cvc4cudd = yes; then
-  AC_MSG_CHECKING([for cudd libraries under $CUDD_DIR])
-  cvc4cudd=no
-  result="not found"
-  for cuddlib in "$CUDD_DIR/lib" "$CUDD_DIR/lib/cudd" "$CUDD_DIR"; do
-    if test -r "$cuddlib/libcuddxx.la"; then
-      dnl TODO - should do a TRY_LINK instead, that has the extra benefit
-      dnl of making sure both shared & static work
-      CUDD_LDFLAGS="\"-L$cuddlib\" -lcuddxx"
-      result="$cuddlib"
-      cvc4cudd=yes
-      break
-    fi
-  done
-  AC_MSG_RESULT([$result]);
-  if test $cvc4cudd = yes; then
-    AC_DEFINE_UNQUOTED(CVC4_CUDD, [], [Defined if using the CU Decision Diagram package (cudd).])
-  fi
-fi
-AC_SUBST([CUDD_CPPFLAGS])
-AC_SUBST([CUDD_LDFLAGS])
+# Check for the presence of CUDD libraries
+CVC4_CHECK_CUDD
 
 # Check for antlr C++ runtime (defined in config/antlr.m4)
 AC_LIB_ANTLR
+
+# Check for user preferences for language bindings to build, and for
+# build support.  The arg list is the default set if unspecified by
+# the user (the actual built set is the subset that appears to be
+# supported by the build host).
+CVC4_CHECK_BINDINGS([c java])dnl csharp perl php python ruby tcl ocaml])
 
 # Checks for header files.
 AC_CHECK_HEADERS([getopt.h unistd.h])
@@ -749,28 +812,19 @@ else
   fi
 fi
 
-# Whether to compile with google profiling tools
-cvc4_use_google_perftools=0
-AC_ARG_WITH(
-    [google_perftools],
-    AS_HELP_STRING(
-        [--with-google-perftools],
-        [use Google Performance Tools]
-    ),
-    [if test "$withval" != no; then
-        cvc4_use_google_perftools=1
-     fi
-    ]
-)
-
-AC_MSG_CHECKING([whether to link in google perftools libraries])
-if test $cvc4_use_google_perftools = 1; then
+# Whether to build compatibility library
+CVC4_BUILD_LIBCOMPAT=yes
+AC_ARG_WITH([compat],
+    AS_HELP_STRING([--with-compat], [build compatibility library (CVC3 API layer)]),
+    [if test "$withval" = no; then CVC4_BUILD_LIBCOMPAT=no; fi])
+AC_MSG_CHECKING([whether to build compatibility library (CVC3 API layer)])
+if test "$CVC4_BUILD_LIBCOMPAT" = yes; then
   AC_MSG_RESULT([yes])
-  AC_CHECK_LIB([tcmalloc], [MallocExtension_GetAllocatedSize], , [AC_MSG_ERROR([cannot link google-perftools test program with -ltcmalloc])], [-lpthread])
-  AC_CHECK_LIB([profiler], [ProfilerStart], , [AC_MSG_ERROR([cannot link google-perftools test program with -lprofiler])], [-lpthread])
 else
-  AC_MSG_RESULT([no (user didn't request it)])
+  AC_MSG_RESULT([no, disabled by user])
 fi
+AC_SUBST(CVC4_BUILD_LIBCOMPAT)
+AM_CONDITIONAL([CVC4_BUILD_LIBCOMPAT], [test "$CVC4_BUILD_LIBCOMPAT" = yes])
 
 # Check for availability of TLS support (e.g. __thread storage class)
 AC_MSG_CHECKING([whether to use compiler-supported TLS if available])
@@ -801,6 +855,58 @@ fi
 AC_SUBST([CVC4_TLS])
 AC_SUBST([CVC4_TLS_SUPPORTED])
 
+# Whether to compile with google profiling tools
+cvc4_use_google_perftools=0
+AC_ARG_WITH(
+    [google_perftools],
+    AS_HELP_STRING(
+        [--with-google-perftools],
+        [use Google Performance Tools]
+    ),
+    [if test "$withval" != no; then
+        cvc4_use_google_perftools=1
+     fi
+    ]
+)
+AC_MSG_CHECKING([whether to link in google perftools libraries])
+if test $cvc4_use_google_perftools = 1; then
+  AC_MSG_RESULT([yes])
+  AC_CHECK_LIB([tcmalloc], [MallocExtension_GetAllocatedSize], , [AC_MSG_ERROR([cannot link google-perftools test program with -ltcmalloc])], [-lpthread])
+  AC_CHECK_LIB([profiler], [ProfilerStart], , [AC_MSG_ERROR([cannot link google-perftools test program with -lprofiler])], [-lpthread])
+else
+  AC_MSG_RESULT([no (user didn't request it)])
+fi
+
+# Java
+AC_ARG_VAR(JAVA, [Java interpreter (used when testing Java interface)])
+AC_ARG_VAR(JAVAC, [Java compiler (used when building and testing Java interface)])
+AC_ARG_VAR(JAVAH, [Java compiler (used when building and testing Java interface)])
+AC_ARG_VAR(JAR, [Jar archiver (used when building Java interface)])
+if test "$cvc4_build_java_bindings"; then
+  dnl AM_PROG_GCJ
+  if test -z "$JAVA"; then
+    AC_CHECK_PROGS(JAVA, java, java, [])
+  else
+    AC_CHECK_PROG(JAVA, "$JAVA", "$JAVA", [])
+  fi
+  if test -z "$JAVAC"; then
+    AC_CHECK_PROGS(JAVAC, javac gcj, javac, [])
+    if test "$JAVAC" = gcj; then JAVAC='gcj -C'; fi
+  else
+    AC_CHECK_PROG(JAVAC, "$JAVAC", "$JAVAC", [])
+  fi
+  if test -z "$JAVAH"; then
+    AC_CHECK_PROGS(JAVAH, javah gcjh, javah, [])
+  else
+    AC_CHECK_PROG(JAVAH, "$JAVAH", "$JAVAH", [])
+  fi
+  if test -z "$JAR"; then
+    AC_CHECK_PROGS(JAR, jar, jar, [])
+  else
+    AC_CHECK_PROG(JAR, "$JAR", "$JAR", [])
+  fi
+fi
+
 # Prepare configure output
 
 if test "$enable_shared" = yes; then BUILDING_SHARED=1; else BUILDING_SHARED=0; fi
@@ -812,12 +918,18 @@ AC_SUBST(STATIC_BINARY)
 AM_CONDITIONAL([STATIC_BINARY], [test "$enable_static_binary" = yes])
 AM_CONDITIONAL([COVERAGE_ENABLED], [test "$enable_coverage" = yes])
 
+AM_CONDITIONAL([CVC4_DEBUG], [test "$with_build" = debug])
+AM_CONDITIONAL([CVC4_TRACING], [test "$enable_tracing" = yes])
+
 AC_SUBST(CVC4_LIBRARY_VERSION)
 AC_SUBST(CVC4_PARSER_LIBRARY_VERSION)
+AC_SUBST(CVC4_COMPAT_LIBRARY_VERSION)
+AC_SUBST(CVC4_BINDINGS_LIBRARY_VERSION)
 
 AC_DEFINE_UNQUOTED(CVC4_MAJOR, ${CVC4_MAJOR}, [Major component of the version of CVC4.])
 AC_DEFINE_UNQUOTED(CVC4_MINOR, ${CVC4_MINOR}, [Minor component of the version of CVC4.])
 AC_DEFINE_UNQUOTED(CVC4_RELEASE, ${CVC4_RELEASE}, [Release component of the version of CVC4.])
+AC_DEFINE_UNQUOTED(CVC4_EXTRAVERSION, ["${CVC4_EXTRAVERSION}"], [Extraversion component of the version of CVC4.])
 AC_DEFINE_UNQUOTED(CVC4_RELEASE_STRING, ["${CVC4_RELEASE_STRING}"], [Full release string for CVC4.])
 
 CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }$CVC4CPPFLAGS"
@@ -860,10 +972,13 @@ fi
 AC_SUBST(CVC4_USE_CLN_IMP)
 AC_SUBST(CVC4_USE_GMP_IMP)
 
+MAN_DATE=`date '+%B %Y'`
+AC_SUBST(MAN_DATE)
+
 AC_CONFIG_FILES([
   Makefile.builds
   Makefile]
-  m4_esyscmd([find contrib lib src test -name Makefile.am | sort | sed 's,\.am$,,'])
+  m4_esyscmd([find contrib src test examples -name Makefile.am | sort | sed 's,\.am$,,'])
 )
 
 if test $cvc4_has_threads = yes; then
@@ -879,6 +994,12 @@ fi
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/integer.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/tls.h])
+
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.1])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/cvc4.5])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4.3])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4parser.3])
+CVC4_CONFIG_FILE_ONLY_IF_CHANGED([doc/libcvc4compat.3])
 
 AC_OUTPUT
 
@@ -896,6 +1017,8 @@ fi
 support_unit_tests='cxxtest not found; unit tests not supported'
 if test -n "$CXXTEST"; then
   support_unit_tests='unit testing infrastructure enabled in build directory'
+elif test "$enable_unit_testing" = no; then
+  support_unit_tests='unit testing disabled by user'
 fi
 
 if test "$enable_optimized" = yes; then
@@ -919,6 +1042,15 @@ else
   mplibrary='gmp (LGPL)'
 fi
 
+CVC4_COMPAT_LIBRARY_VERSION_or_nobuild="$CVC4_COMPAT_LIBRARY_VERSION"
+CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild="$CVC4_BINDINGS_LIBRARY_VERSION"
+if test "$CVC4_BUILD_LIBCOMPAT" = no; then
+  CVC4_COMPAT_LIBRARY_VERSION_or_nobuild="N/A"
+fi
+if test -z "$CVC4_LANGUAGE_BINDINGS"; then
+  CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild="N/A"
+fi
+
 cat <<EOF
 
 CVC4 $VERSION
@@ -931,17 +1063,21 @@ Statistics   : $enable_statistics
 Replay       : $enable_replay
 Assertions   : $enable_assertions
 Tracing      : $enable_tracing
+Dumping      : $enable_dumping
 Muzzle       : $enable_muzzle
 
 Unit tests   : $support_unit_tests
 gcov support : $enable_coverage
 gprof support: $enable_profiling
+CUDD         : $cvc4cudd
 Readline     : $with_readline
 TLS support  : $CVC4_TLS
 
 Static libs  : $enable_static
 Shared libs  : $enable_shared
 Static binary: $enable_static_binary
+Compat lib   : $CVC4_BUILD_LIBCOMPAT
+Bindings     : ${CVC4_LANGUAGE_BINDINGS:-none}
 
 Multithreaded: $support_multithreaded
 TLS support  : $CVC4_TLS_explanation
@@ -954,8 +1090,12 @@ CFLAGS       : $CFLAGS
 LIBS         : $LIBS
 LDFLAGS      : $LDFLAGS
 
-libcvc4 version      : $CVC4_LIBRARY_VERSION
-libcvc4parser version: $CVC4_PARSER_LIBRARY_VERSION
+libcvc4 version        : $CVC4_LIBRARY_VERSION
+libcvc4parser version  : $CVC4_PARSER_LIBRARY_VERSION
+libcvc4compat version  : $CVC4_COMPAT_LIBRARY_VERSION_or_nobuild
+libcvc4bindings version: $CVC4_BINDINGS_LIBRARY_VERSION_or_nobuild
+
+Install into : $prefix
 
 ${licensewarn}Now just type make, followed by make check or make install, as you like.
 

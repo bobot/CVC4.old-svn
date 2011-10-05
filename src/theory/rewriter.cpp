@@ -2,7 +2,7 @@
 /*! \file rewriter.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
+ ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -64,7 +64,7 @@ Node Rewriter::rewrite(Node node) {
 
 Node Rewriter::rewriteTo(theory::TheoryId theoryId, Node node) {
 
-  Debug("rewriter") << "Rewriter::rewriteTo(" << theoryId << "," << node << ")"<< std::endl;
+  Trace("rewriter") << "Rewriter::rewriteTo(" << theoryId << "," << node << ")"<< std::endl;
 
   // Put the node on the stack in order to start the "recursive" rewrite
   vector<RewriteStackElement> rewriteStack;
@@ -76,7 +76,7 @@ Node Rewriter::rewriteTo(theory::TheoryId theoryId, Node node) {
     // Get the top of the recursion stack
     RewriteStackElement& rewriteStackTop = rewriteStack.back();
 
-    Debug("rewriter") << "Rewriter::rewriting: " << (TheoryId) rewriteStackTop.theoryId << "," << rewriteStackTop.node << std::endl;
+    Trace("rewriter") << "Rewriter::rewriting: " << (TheoryId) rewriteStackTop.theoryId << "," << rewriteStackTop.node << std::endl;
 
     // Before rewriting children we need to do a pre-rewrite of the node
     if (rewriteStackTop.nextChild == 0) {

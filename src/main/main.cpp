@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
       pStatistics->flushInformation(*options.err);
     }
     exit(1);
-  } catch(bad_alloc) {
+  } catch(bad_alloc&) {
 #ifdef CVC4_COMPETITION_MODE
     *options.out << "unknown" << endl;
 #endif

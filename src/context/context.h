@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: barrett
- ** Minor contributors (to current version): taking, dejan
+ ** Minor contributors (to current version): dejan, taking
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -26,6 +26,7 @@
 #include <cstring>
 #include <vector>
 #include <new>
+#include <typeinfo>
 
 #include "context/context_mm.h"
 #include "util/Assert.h"
@@ -94,6 +95,10 @@ class Context {
   friend std::ostream&
   operator<<(std::ostream&, const Context&) throw(AssertionException);
 
+  // disable copy, assignment
+  Context(const Context&) CVC4_UNUSED;
+  Context& operator=(const Context&) CVC4_UNUSED;
+
 public:
   /**
    * Constructor: create ContextMemoryManager and initial Scope
@@ -151,6 +156,22 @@ public:
   void addNotifyObjPost(ContextNotifyObj* pCNO);
 
 };/* class Context */
+
+
+/**
+ * A UserContext is different from a Context only because it's used for
+ * different purposes---so separating the two types gives type errors where
+ * appropriate.
+ */
+class UserContext : public Context {
+private:
+  // disable copy, assignment
+  UserContext(const UserContext&) CVC4_UNUSED;
+  UserContext& operator=(const UserContext&) CVC4_UNUSED;
+public:
+  UserContext() {}
+};/* class UserContext */
+
 
 /**
  * Conceptually, a Scope encapsulates that portion of the context that
@@ -577,7 +598,7 @@ public:
    * ContextMemoryManager as an argument.
    */
   void deleteSelf() {
-    Debug("context") << "deleteSelf(" << this << ")" << std::endl;
+    Debug("context") << "deleteSelf(" << this << ") " << typeid(*this).name() << std::endl;
     this->~ContextObj();
     ::operator delete(this);
   }

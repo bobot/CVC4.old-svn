@@ -2,8 +2,8 @@
 /*! \file arith_rewriter.cpp
  ** \verbatim
  ** Original author: taking
- ** Major contributors: dejan
- ** Minor contributors (to current version): mdeters
+ ** Major contributors: none
+ ** Minor contributors (to current version): mdeters, dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -183,7 +183,6 @@ RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
   TNode left  = t[0];
   TNode right = t[1];
 
-
   Comparison cmp = Comparison::mkComparison(t.getKind(), Polynomial::parsePolynomial(left), Constant(right));
 
   if(cmp.isBoolean()){
@@ -235,6 +234,7 @@ RewriteResponse ArithRewriter::postRewriteAtom(TNode atom){
 
 RewriteResponse ArithRewriter::preRewriteAtom(TNode atom){
   Assert(isAtom(atom));
+
   NodeManager* currNM = NodeManager::currentNM();
 
   if(atom.getKind() == kind::EQUAL) {
@@ -245,7 +245,7 @@ RewriteResponse ArithRewriter::preRewriteAtom(TNode atom){
 
   Node reduction = atom;
 
-  if(atom[1].getMetaKind() != kind::metakind::CONSTANT){
+  if(atom[1].getMetaKind() != kind::metakind::CONSTANT) {
     // left |><| right
     TNode left = atom[0];
     TNode right = atom[1];

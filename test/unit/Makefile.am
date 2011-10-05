@@ -1,17 +1,15 @@
 # All unit tests
 UNIT_TESTS = \
-	theory/shared_term_manager_black \
 	theory/theory_engine_white \
 	theory/theory_black \
-	theory/theory_uf_tim_white \
 	theory/theory_arith_white \
-	theory/stacking_map_black \
 	theory/union_find_black \
 	expr/expr_public \
-        expr/expr_manager_public \
+	expr/expr_manager_public \
 	expr/node_white \
 	expr/node_black \
 	expr/kind_black \
+	expr/kind_map_black \
 	expr/node_builder_black \
 	expr/node_manager_black \
 	expr/node_manager_white \
@@ -29,9 +27,12 @@ UNIT_TESTS = \
 	context/cdo_black \
 	context/cdlist_black \
 	context/cdlist_context_memory_black \
+	context/cdcirclist_white \
 	context/cdmap_black \
 	context/cdmap_white \
 	context/cdvector_black \
+	context/stacking_map_black \
+	context/stacking_vector_black \
 	util/assert_white \
 	util/bitvector_black \
 	util/datatype_black \
@@ -184,7 +185,7 @@ endif
 units test: check
 
 # no-ops here
-.PHONY: regress regress0 regress1 regress2 regress3
+.PHONY: systemtests regress regress0 regress1 regress2 regress3
 regress regress0 regress1 regress2 regress3:
 
 if HAVE_CXXTESTGEN

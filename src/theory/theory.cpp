@@ -5,7 +5,7 @@
  ** Major contributors: taking
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -26,6 +26,9 @@ using namespace std;
 namespace CVC4 {
 namespace theory {
 
+/** Default value for the uninterpreted sorts is the UF theory */
+TheoryId Theory::d_uninterpretedSortOwner = THEORY_UF;
+
 std::ostream& operator<<(std::ostream& os, Theory::Effort level){
   switch(level){
   case Theory::MIN_EFFORT:
@@ -41,6 +44,36 @@ std::ostream& operator<<(std::ostream& os, Theory::Effort level){
   }
   return os;
 }/* ostream& operator<<(ostream&, Theory::Effort) */
+
+void Theory::addSharedTermInternal(TNode n) {
+  Debug("sharing") << "Theory::addSharedTerm<" << getId() << ">(" << n << ")" << std::endl;
+  d_sharedTerms.push_back(n);
+  addSharedTerm(n);
+}
+
+void Theory::computeCareGraph(CareGraph& careGraph) {
+  for (; d_sharedTermsIndex < d_sharedTerms.size(); d_sharedTermsIndex = d_sharedTermsIndex + 1) {
+    TNode a = d_sharedTerms[d_sharedTermsIndex];
+    TypeNode aType = a.getType();
+    for (unsigned i = 0; i < d_sharedTermsIndex; ++ i) {
+      TNode b = d_sharedTerms[i];
+      if (b.getType() != aType) {
+        // We don't care about the terms of different types
+        continue;
+      }
+      switch (equalityStatus(a, b)) {
+      case EQUALITY_TRUE:
+      case EQUALITY_FALSE:
+  	// If we know about it, we should have propagated it, so we can skip
+  	break;
+      default:
+  	// Let's split on it
+  	careGraph.push_back(CarePair(a, b, getId()));
+  	break;
+      }
+    }  
+  }
+}
 
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

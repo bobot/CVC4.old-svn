@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -54,6 +54,7 @@ class StatisticsRegistry;
 
 namespace context {
   class Context;
+  class UserContext;
 }/* CVC4::context namespace */
 
 namespace prop {
@@ -99,7 +100,7 @@ class CVC4_PUBLIC SmtEngine {
   /** The context levels of user pushes */
   std::vector<int> d_userLevels;
   /** User level context */
-  context::Context* d_userContext;
+  context::UserContext* d_userContext;
 
   /** Our expression manager */
   ExprManager* d_exprManager;
@@ -132,11 +133,11 @@ class CVC4_PUBLIC SmtEngine {
    * since the last checkSat/query (and therefore we're not responsible
    * for an assignment).
    */
-  bool d_haveAdditions;
+  bool d_problemExtended;
 
   /**
    * Whether or not a query() or checkSat() has already been made through
-   * this SmtEngine.  If true, and d_incrementalSolving is false, then
+   * this SmtEngine.  If true, and incrementalSolving is false, then
    * attempting an additional query() or checkSat() will fail with a
    * ModalException.
    */
@@ -254,16 +255,17 @@ public:
   Result assertFormula(const BoolExpr& e);
 
   /**
-   * Add a formula to the current context and call check().  Returns
-   * true iff consistent.
+   * Check validity of an expression with respect to the current set
+   * of assertions by asserting the query expression's negation and
+   * calling check().  Returns valid, invalid, or unknown result.
    */
   Result query(const BoolExpr& e);
 
   /**
-   * Add a formula to the current context and call check().  Returns
-   * true iff consistent.
+   * Assert a formula (if provided) to the current context and call
+   * check().  Returns sat, unsat, or unknown result.
    */
-  Result checkSat(const BoolExpr& e);
+  Result checkSat(const BoolExpr& e = BoolExpr());
 
   /**
    * Simplify a formula without doing "much" work.  Does not involve
@@ -306,6 +308,11 @@ public:
    * SmtEngine is set to operate interactively.
    */
   std::vector<Expr> getAssertions() throw(ModalException, AssertionException);
+
+  /**
+   * Get the current context level.
+   */
+  size_t getStackLevel() const;
 
   /**
    * Push a user-level context.

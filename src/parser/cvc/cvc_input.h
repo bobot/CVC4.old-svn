@@ -5,7 +5,7 @@
  ** Major contributors: mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -51,7 +51,7 @@ public:
   CvcInput(AntlrInputStream& inputStream);
 
   /** Destructor. Frees the lexer and the parser. */
-  ~CvcInput();
+  virtual ~CvcInput();
 
   /** Get the language that this Input is reading. */
   InputLanguage getLanguage() const throw() {

@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): barrett, mdeters
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -43,6 +43,7 @@ using namespace std;
 class TheoryArithWhite : public CxxTest::TestSuite {
 
   Context* d_ctxt;
+  UserContext* d_uctxt;
   NodeManager* d_nm;
   NodeManagerScope* d_scope;
 
@@ -92,11 +93,12 @@ public:
   }
 
   void setUp() {
-    d_ctxt = new Context;
+    d_ctxt = new Context();
+    d_uctxt = new UserContext();
     d_nm = new NodeManager(d_ctxt, NULL);
     d_scope = new NodeManagerScope(d_nm);
     d_outputChannel.clear();
-    d_arith = new TheoryArith(d_ctxt, d_outputChannel, Valuation(NULL));
+    d_arith = new TheoryArith(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL));
 
     preregistered = new std::set<Node>();
 
@@ -115,6 +117,7 @@ public:
     d_outputChannel.clear();
     delete d_scope;
     delete d_nm;
+    delete d_uctxt;
     delete d_ctxt;
   }
 

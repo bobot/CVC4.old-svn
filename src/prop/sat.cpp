@@ -2,7 +2,7 @@
 /*! \file sat.cpp
  ** \verbatim
  ** Original author: cconway
- ** Major contributors: dejan, mdeters, taking
+ ** Major contributors: dejan, taking, mdeters
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -27,49 +27,21 @@
 namespace CVC4 {
 namespace prop {
 
-void SatSolver::theoryCheck(theory::Theory::Effort effort, SatClause& conflict) {
-  Assert(conflict.size() == 0);
-  // Try theory propagation
-  bool ok = d_theoryEngine->check(effort);
-  // If in conflict construct the conflict clause
-  if (!ok) {
-    // We have a conflict, get it
-    Node conflictNode = d_theoryEngine->getConflict();
-    Debug("prop") << "SatSolver::theoryCheck() => conflict: " << conflictNode << std::endl;
-    if(conflictNode.getKind() == kind::AND) {
-      // Go through the literals and construct the conflict clause
-      Node::const_iterator literal_it = conflictNode.begin();
-      Node::const_iterator literal_end = conflictNode.end();
-      while (literal_it != literal_end) {
-        // Get the literal corresponding to the node
-        SatLiteral l = d_cnfStream->getLiteral(*literal_it);
-        // Add the negation to the conflict clause and continue
-        conflict.push(~l);
-        literal_it ++;
-      }
-    } else { // unit conflict
-      // Get the literal corresponding to the node
-      SatLiteral l = d_cnfStream->getLiteral(conflictNode);
-      // construct the unit conflict clause
-      conflict.push(~l);
-    }
-  }
+void SatSolver::variableNotify(SatVariable var) {
+  d_theoryEngine->preRegister(getNode(variableToLiteral(var)));
+}
+
+void SatSolver::theoryCheck(theory::Theory::Effort effort) {
+  d_theoryEngine->check(effort);
 }
 
 void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
-  // Propagate
-  d_theoryEngine->propagate();
   // Get the propagated literals
-  const std::vector<TNode>& outputNodes = d_theoryEngine->getPropagatedLiterals();
-  // If any literals, make a clause
-  const unsigned i_end = outputNodes.size();
-  for (unsigned i = 0; i < i_end; ++ i) {
+  std::vector<TNode> outputNodes;
+  d_theoryEngine->getPropagatedLiterals(outputNodes);
+  for (unsigned i = 0, i_end = outputNodes.size(); i < i_end; ++ i) {
     Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i].toString() << std::endl;
-    SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
-    if(d_minisat->value(l) != l_True) {
-      Assert(d_minisat->value(l) == l_Undef, "tried to theory-propagate something already defined");
-      output.push_back(l);
-    }
+    output.push_back(d_cnfStream->getLiteral(outputNodes[i]));
   }
 }
 
@@ -89,10 +61,6 @@ void SatSolver::explainPropagation(SatLiteral l, SatClause& explanation) {
     explanation.push(l);
     explanation.push(~d_cnfStream->getLiteral(theoryExplanation));
   }
-}
-
-void SatSolver::clearPropagatedLiterals() {
-  d_theoryEngine->clearPropagatedLiterals();
 }
 
 void SatSolver::enqueueTheoryLiteral(const SatLiteral& l) {
@@ -119,24 +87,24 @@ void SatSolver::notifyRestart() {
 
   static uint32_t lemmaCount = 0;
 
-  if(Options::current()->lemmaInputChannel != NULL){
+  if(Options::current()->lemmaInputChannel != NULL) {
     while(Options::current()->lemmaInputChannel->hasNewLemma()) {
       Debug("shared") << "shared" << std::endl;
       Expr lemma = Options::current()->lemmaInputChannel->getNewLemma();
       Node asNode = lemma.getNode();
 
-      if(d_shared.find(asNode) == d_shared.end()){
+      if(d_shared.find(asNode) == d_shared.end()) {
         d_shared.insert(asNode);
-        if(asNode.getKind() == kind::OR){
+        if(asNode.getKind() == kind::OR) {
           ++lemmaCount;
-          if(lemmaCount % 1 == 0){
+          if(lemmaCount % 1 == 0) {
             Debug("shared") << "=) " << asNode << std::endl;
           }
-          d_propEngine->assertLemma(d_theoryEngine->preprocess(asNode));
-        }else{
+          d_propEngine->assertLemma(d_theoryEngine->preprocess(asNode), false, true);
+        } else {
           Debug("shared") << "=(" << asNode << std::endl;
         }
-      }else{
+      } else {
         Debug("shared") <<"drop shared " << asNode << std::endl;
       }
     }

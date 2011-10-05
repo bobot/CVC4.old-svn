@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -115,7 +115,7 @@ void Tableau::setColumnUnused(ArithVar v){
     ++colIter;
   }
 }
-void Tableau::printTableau(){
+void Tableau::printTableau() const {
   Debug("tableau") << "Tableau::d_activeRows"  << endl;
 
   ArithVarSet::const_iterator basicIter = beginBasic(), endIter = endBasic();
@@ -125,7 +125,7 @@ void Tableau::printTableau(){
   }
 }
 
-void Tableau::printRow(ArithVar basic){
+void Tableau::printRow(ArithVar basic) const {
   Debug("tableau") << "{" << basic << ":";
   for(RowIterator entryIter = rowIterator(basic); !entryIter.atEnd(); ++entryIter){
     const TableauEntry& entry = *entryIter;
@@ -135,7 +135,7 @@ void Tableau::printRow(ArithVar basic){
   Debug("tableau") << "}" << endl;
 }
 
-void Tableau::printEntry(const TableauEntry& entry){
+void Tableau::printEntry(const TableauEntry& entry) const {
   Debug("tableau") << entry.getColVar() << "*" << entry.getCoefficient();
 }
 

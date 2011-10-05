@@ -39,9 +39,9 @@ endif
 cvc4_SOURCES = main.cpp driver.cpp
 cvc4_LDADD = \
 	libmain.a \
-	../parser/libcvc4parser.la \
-	../libcvc4.la \
-	../lib/libreplacements.la \
+	@builddir@/../parser/libcvc4parser.la \
+	@builddir@/../libcvc4.la \
+	@builddir@/../lib/libreplacements.la \
 	$(READLINE_LDFLAGS)
 
 BUILT_SOURCES = \

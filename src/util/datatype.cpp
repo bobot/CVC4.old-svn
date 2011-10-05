@@ -2,7 +2,7 @@
 /*! \file datatype.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: none
+ ** Major contributors: ajreynol
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -27,6 +27,7 @@
 #include "expr/node_manager.h"
 #include "expr/node.h"
 #include "util/recursion_breaker.h"
+#include "util/matcher.h"
 
 using namespace std;
 
@@ -51,6 +52,7 @@ typedef expr::Attribute<expr::attr::DatatypeWellFoundedComputedTag, bool> Dataty
 typedef expr::Attribute<expr::attr::DatatypeGroundTermTag, Node> DatatypeGroundTermAttr;
 
 const Datatype& Datatype::datatypeOf(Expr item) {
+  ExprManagerScope ems(item);
   TypeNode t = Node::fromExpr(item).getType();
   switch(t.getKind()) {
   case kind::CONSTRUCTOR_TYPE:
@@ -64,14 +66,19 @@ const Datatype& Datatype::datatypeOf(Expr item) {
 }
 
 size_t Datatype::indexOf(Expr item) {
+  ExprManagerScope ems(item);
   AssertArgument(item.getType().isConstructor() ||
                  item.getType().isTester() ||
                  item.getType().isSelector(),
                  item,
                  "arg must be a datatype constructor, selector, or tester");
   TNode n = Node::fromExpr(item);
-  Assert(n.hasAttribute(DatatypeIndexAttr()));
-  return n.getAttribute(DatatypeIndexAttr());
+  if( item.getKind()==kind::APPLY_TYPE_ASCRIPTION ){
+    return indexOf( item[0] );
+  }else{
+    Assert(n.hasAttribute(DatatypeIndexAttr()));
+    return n.getAttribute(DatatypeIndexAttr());
+  }
 }
 
 void Datatype::resolve(ExprManager* em,
@@ -200,7 +207,8 @@ Expr Datatype::mkGroundTerm( Type t ) const throw(AssertionException) {
     for(const_iterator i = begin(), i_end = end(); i != i_end; ++i) {
       // prefer the nullary constructor
       if( groundTerm.isNull() && (*i).getNumArgs() == 0) {
-        groundTerm = (*i).getConstructor().getExprManager()->mkExpr(kind::APPLY_CONSTRUCTOR, (*i).getConstructor());
+        groundTerm = d_constructors[indexOf((*i).getConstructor())].mkGroundTerm( t );
+        //groundTerm = (*i).getConstructor().getExprManager()->mkExpr(kind::APPLY_CONSTRUCTOR, (*i).getConstructor());
         self.setAttribute(DatatypeGroundTermAttr(), groundTerm);
         Debug("datatypes-gt") << "constructed nullary: " << getName() << " => " << groundTerm << std::endl;
       }
@@ -260,10 +268,6 @@ Expr Datatype::mkGroundTerm( Type t ) const throw(AssertionException) {
     // if we get all the way here, we aren't well-founded
     CheckArgument(false, *this, "this datatype is not well-founded, cannot construct a ground term!");
   }else{
-    if( t!=groundTerm.getType() ){
-      groundTerm = NodeManager::currentNM()->mkNode(kind::APPLY_TYPE_ASCRIPTION, 
-                                                    NodeManager::currentNM()->mkConst(AscriptionType(t)), groundTerm).toExpr();
-    }
     return groundTerm;
   }
 }
@@ -511,6 +515,19 @@ Expr Datatype::Constructor::getConstructor() const {
   return d_constructor;
 }
 
+Type Datatype::Constructor::getSpecializedConstructorType(Type returnType) const {
+  CheckArgument(isResolved(), this, "this datatype constructor is not yet resolved");
+  const Datatype& dt = Datatype::datatypeOf(d_constructor);
+  CheckArgument(dt.isParametric(), this, "this datatype constructor is not yet resolved");
+  DatatypeType dtt = DatatypeType(dt.d_self);
+  Matcher m(dtt);
+  m.doMatching( TypeNode::fromType(dtt), TypeNode::fromType(returnType) );
+  vector<Type> subst;
+  m.getMatches(subst);
+  vector<Type> params = dt.getParameters();
+  return d_constructor.getType().substitute(params, subst);
+}
+
 Expr Datatype::Constructor::getTester() const {
   CheckArgument(isResolved(), this, "this datatype constructor is not yet resolved");
   return d_tester;
@@ -601,7 +618,6 @@ bool Datatype::Constructor::isWellFounded() const throw(AssertionException) {
 Expr Datatype::Constructor::mkGroundTerm( Type t ) const throw(AssertionException) {
   CheckArgument(isResolved(), this, "this datatype constructor is not yet resolved");
 
-  Debug("datatypes-gt") << "mkGroundTerm " << t << std::endl;
   // we're using some internals, so we have to set up this library context
   ExprManagerScope ems(d_constructor);
 
@@ -625,9 +641,10 @@ Expr Datatype::Constructor::mkGroundTerm( Type t ) const throw(AssertionExceptio
 
   // for each selector, get a ground term
   Assert( t.isDatatype() );
-  std::vector< Type > instTypes; 
-  std::vector< Type > paramTypes = DatatypeType(t).getDatatype().getParameters();
+  std::vector< Type > instTypes;
+  std::vector< Type > paramTypes;
   if( DatatypeType(t).isParametric() ){
+    paramTypes = DatatypeType(t).getDatatype().getParameters();
     instTypes = DatatypeType(t).getParamTypes();
   }
   for(const_iterator i = begin(), i_end = end(); i != i_end; ++i) {
@@ -637,8 +654,17 @@ Expr Datatype::Constructor::mkGroundTerm( Type t ) const throw(AssertionExceptio
     }
     groundTerms.push_back(selType.mkGroundTerm());
   }
-
+  
   groundTerm = getConstructor().getExprManager()->mkExpr(kind::APPLY_CONSTRUCTOR, groundTerms);
+  if( groundTerm.getType()!=t ){
+    Assert( Datatype::datatypeOf( d_constructor ).isParametric() );
+    //type is ambiguous, must apply type ascription
+    Debug("datatypes-gt") << "ambiguous type for " << groundTerm << ", ascribe to " << t << std::endl;
+    groundTerms[0] = getConstructor().getExprManager()->mkExpr(kind::APPLY_TYPE_ASCRIPTION,
+                       getConstructor().getExprManager()->mkConst(AscriptionType(getSpecializedConstructorType(t))),
+                       groundTerms[0]);
+    groundTerm = getConstructor().getExprManager()->mkExpr(kind::APPLY_CONSTRUCTOR, groundTerms);
+  }
   self.setAttribute(DatatypeGroundTermAttr(), groundTerm);
   return groundTerm;
 }

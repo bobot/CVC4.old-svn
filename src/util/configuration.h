@@ -53,6 +53,8 @@ public:
 
   static bool isTracingBuild();
 
+  static bool isDumpingBuild();
+
   static bool isMuzzledBuild();
 
   static bool isAssertionBuild();
@@ -73,6 +75,8 @@ public:
 
   static unsigned getVersionRelease();
 
+  static std::string getVersionExtra();
+
   static std::string about();
 
   static bool isBuiltWithGmp();
@@ -83,10 +87,17 @@ public:
 
   static bool isBuiltWithTlsSupport();
 
+  static unsigned getNumDebugTags();
+  static char const* const* getDebugTags();
+
+  static unsigned getNumTraceTags();
+  static char const* const* getTraceTags();
+
   static bool isSubversionBuild();
   static const char* getSubversionBranchName();
   static unsigned getSubversionRevision();
   static bool hasSubversionModifications();
+  static std::string getSubversionId();
 
 };/* class Configuration */
 

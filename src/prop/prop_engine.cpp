@@ -2,8 +2,8 @@
 /*! \file prop_engine.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: taking, cconway, dejan
- ** Minor contributors (to current version): none
+ ** Major contributors: dejan
+ ** Minor contributors (to current version): barrett, taking, cconway
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -16,9 +16,9 @@
  ** Implementation of the propositional engine of CVC4.
  **/
 
-#include "cnf_stream.h"
-#include "prop_engine.h"
-#include "sat.h"
+#include "prop/cnf_stream.h"
+#include "prop/prop_engine.h"
+#include "prop/sat.h"
 
 #include "theory/theory_engine.h"
 #include "theory/registrar.h"
@@ -26,6 +26,8 @@
 #include "util/options.h"
 #include "util/output.h"
 #include "util/result.h"
+#include "expr/expr.h"
+#include "expr/command.h"
 
 #include <utility>
 #include <map>
@@ -81,18 +83,23 @@ void PropEngine::assertFormula(TNode node) {
   Assert(!d_inCheckSat, "Sat solver in solve()!");
   Debug("prop") << "assertFormula(" << node << ")" << endl;
   // Assert as non-removable
-  d_cnfStream->convertAndAssert(node, false, false);
+  d_cnfStream->convertAndAssert(d_theoryEngine->preprocess(node), false, false);
 }
 
-void PropEngine::assertLemma(TNode node) {
+void PropEngine::assertLemma(TNode node, bool negated, bool removable) {
   //Assert(d_inCheckSat, "Sat solver should be in solve()!");
   Debug("prop::lemmas") << "assertLemma(" << node << ")" << endl;
 
+  if(!d_inCheckSat && Dump.isOn("learned")) {
+    Dump("learned") << AssertCommand(BoolExpr(node.toExpr())) << endl;
+  } else if(Dump.isOn("lemmas")) {
+    Dump("lemmas") << AssertCommand(BoolExpr(node.toExpr())) << endl;
+  }
+
   //TODO This comment is now false
   // Assert as removable
-  d_cnfStream->convertAndAssert(node, true, false);
+  d_cnfStream->convertAndAssert(node, removable, negated);
 }
-
 
 void PropEngine::printSatisfyingAssignment(){
   const CnfStream::TranslationCache& transCache =
@@ -125,6 +132,10 @@ Result PropEngine::checkSat() {
   // TODO This currently ignores conflicts (a dangerous practice).
   d_theoryEngine->presolve();
 
+  if(Options::current()->preprocessOnly) {
+    return Result(Result::SAT_UNKNOWN, Result::REQUIRES_FULL_CHECK);
+  }
+
   // Check the problem
   bool result = d_satSolver->solve();
 
@@ -154,6 +165,28 @@ Node PropEngine::getValue(TNode node) {
     return Node::null();
   }
 }
+
+bool PropEngine::isSatLiteral(TNode node) {
+  return d_cnfStream->hasEverHadLiteral(node);
+}
+
+bool PropEngine::hasValue(TNode node, bool& value) {
+  Assert(node.getType().isBoolean());
+  SatLiteral lit = d_cnfStream->getLiteral(node);
+
+  SatLiteralValue v = d_satSolver->value(lit);
+  if(v == l_True) {
+    value = true;
+    return true;
+  } else if(v == l_False) {
+    value = false;
+    return true;
+  } else {
+    Assert(v == l_Undef);
+    return false;
+  }
+}
+
 
 void PropEngine::push() {
   Assert(!d_inCheckSat, "Sat solver in solve()!");

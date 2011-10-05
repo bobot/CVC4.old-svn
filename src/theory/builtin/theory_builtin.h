@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
- ** Minor contributors (to current version): barrett
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -30,9 +30,8 @@ namespace builtin {
 
 class TheoryBuiltin : public Theory {
 public:
-  TheoryBuiltin(context::Context* c, OutputChannel& out, Valuation valuation) :
-    Theory(THEORY_BUILTIN, c, out, valuation) {}
-  Node simplify(TNode in, Substitutions& outSubstitutions);
+  TheoryBuiltin(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
+    Theory(THEORY_BUILTIN, c, u, out, valuation) {}
   Node getValue(TNode n);
   std::string identify() const { return std::string("TheoryBuiltin"); }
 };/* class TheoryBuiltin */

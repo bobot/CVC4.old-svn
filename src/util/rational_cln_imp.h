@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -192,6 +192,14 @@ public:
     }
   }
 
+  Integer floor() const {
+    return Integer(cln::floor1(d_value));
+  }
+
+  Integer ceiling() const {
+    return Integer(cln::ceiling1(d_value));
+  }
+
   Rational& operator=(const Rational& x){
     if(this == &x) return *this;
     d_value = x.d_value;
@@ -226,9 +234,6 @@ public:
     return d_value >= y.d_value;
   }
 
-
-  
-
   Rational operator+(const Rational& y) const{
     return Rational( d_value + y.d_value );
   }
@@ -250,6 +255,11 @@ public:
 
   Rational& operator*=(const Rational& y){
     d_value *= y.d_value;
+    return (*this);
+  }
+
+  Rational& operator/=(const Rational& y){
+    d_value /= y.d_value;
     return (*this);
   }
 

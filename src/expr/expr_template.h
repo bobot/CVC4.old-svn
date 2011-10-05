@@ -30,6 +30,7 @@ ${includes}
 
 #include <string>
 #include <iostream>
+#include <iterator>
 #include <stdint.h>
 
 #include "util/exception.h"
@@ -40,7 +41,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 44 "${template}"
+#line 45 "${template}"
 
 namespace CVC4 {
 
@@ -138,6 +139,11 @@ std::ostream& operator<<(std::ostream& out,
  * @return the stream
  */
 std::ostream& operator<<(std::ostream& out, const Expr& e) CVC4_PUBLIC;
+
+// for hash_maps, hash_sets..
+struct ExprHashFunction {
+  size_t operator()(CVC4::Expr e) const;
+};/* struct ExprHashFunction */
 
 /**
  * Class encapsulating CVC4 expressions and methods for constructing new
@@ -281,6 +287,46 @@ public:
   Expr operator[](unsigned i) const;
 
   /**
+   * Returns the children of this Expr.
+   */
+  std::vector<Expr> getChildren() const {
+    return std::vector<Expr>(begin(), end());
+  }
+
+  /**
+   * Iterator type for the children of an Expr.
+   */
+  class const_iterator : public std::iterator<std::input_iterator_tag, Expr> {
+    void* d_iterator;
+    explicit const_iterator(void*);
+
+    friend class Expr;// to access void* constructor
+
+  public:
+    const_iterator();
+    const_iterator(const const_iterator& it);
+    const_iterator& operator=(const const_iterator& it);
+    ~const_iterator();
+    bool operator==(const const_iterator& it) const;
+    bool operator!=(const const_iterator& it) const {
+      return !(*this == it);
+    }
+    const_iterator& operator++();
+    const_iterator operator++(int);
+    Expr operator*() const;
+  };/* class Expr::const_iterator */
+
+  /**
+   * Returns an iterator to the first child of this Expr.
+   */
+  const_iterator begin() const;
+
+  /**
+   * Returns an iterator to one-off-the-last child of this Expr.
+   */
+  const_iterator end() const;
+
+  /**
    * Check if this is an expression that has an operator.
    *
    * @return true if this expression has an operator
@@ -322,6 +368,22 @@ public:
   Type getType(bool check = false) const throw (TypeCheckingException);
 
   /**
+   * Substitute "replacement" in for "e".
+   */
+  Expr substitute(Expr e, Expr replacement) const;
+
+  /**
+   * Substitute "replacements" in for "exes".
+   */
+  Expr substitute(const std::vector<Expr> exes,
+                  const std::vector<Expr>& replacements) const;
+
+  /**
+   * Substitute pairs of (ex,replacement) from the given map.
+   */
+  Expr substitute(const std::hash_map<Expr, Expr, ExprHashFunction> map) const;
+
+  /**
    * Returns the string representation of the expression.
    * @return a string representation of the expression
    */
@@ -343,18 +405,28 @@ public:
 
   /**
    * Check if this is a null expression.
+   *
    * @return true if a null expression
    */
   bool isNull() const;
 
   /**
    * Check if this is a null expression.
+   *
    * @return true if NOT a null expression
    */
   operator bool() const;
 
   /**
+   * Check if this is an expression representing a variable.
+   *
+   * @return true if a variable expression
+   */
+  bool isVariable() const;
+
+  /**
    * Check if this is an expression representing a constant.
+   *
    * @return true if a constant expression
    */
   bool isConst() const;
@@ -463,7 +535,7 @@ protected:
   friend class prop::SatSolver;
   friend NodeTemplate<true> expr::exportInternal(NodeTemplate<false> n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
 
-  friend std::ostream& operator<<(std::ostream& out, const Expr& e);
+  friend std::ostream& CVC4::operator<<(std::ostream& out, const Expr& e);
   template <bool ref_count> friend class NodeTemplate;
 
 };/* class Expr */
@@ -530,7 +602,7 @@ public:
 
   /**
    * Make a Boolean if-then-else expression using this expression as the
-   * condition, and given the then and else parts
+   * condition, and given the then and else parts.
    * @param then_e the then branch expression
    * @param else_e the else branch expression
    * @return the if-then-else expression
@@ -539,13 +611,14 @@ public:
 
   /**
    * Make a term if-then-else expression using this expression as the
-   * condition, and given the then and else parts
+   * condition, and given the then and else parts.
    * @param then_e the then branch expression
    * @param else_e the else branch expression
    * @return the if-then-else expression
    */
   Expr iteExpr(const Expr& then_e, const Expr& else_e) const;
-};
+
+};/* class BoolExpr */
 
 namespace expr {
 
@@ -780,7 +853,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 784 "${template}"
+#line 857 "${template}"
 
 namespace expr {
 
@@ -828,12 +901,9 @@ inline std::ostream& operator<<(std::ostream& out, ExprSetLanguage l) {
 
 }/* CVC4::expr namespace */
 
-// for hash_maps, hash_sets..
-struct ExprHashFunction {
-  size_t operator()(CVC4::Expr e) const {
-    return (size_t) e.getId();
-  }
-};/* struct ExprHashFunction */
+inline size_t ExprHashFunction::operator()(CVC4::Expr e) const {
+  return (size_t) e.getId();
+}
 
 }/* CVC4 namespace */
 

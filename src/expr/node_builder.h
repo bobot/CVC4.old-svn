@@ -5,7 +5,7 @@
  ** Major contributors: dejan
  ** Minor contributors (to current version): taking, cconway
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -459,9 +459,9 @@ public:
   inline const_iterator begin() const {
     Assert(!isUsed(), "NodeBuilder is one-shot only; "
            "attempt to access it after conversion");
-    CheckArgument(getKind() != kind::UNDEFINED_KIND,
-                  "Iterators over NodeBuilder<> are undefined "
-                  "until a Kind is set");
+    Assert(getKind() != kind::UNDEFINED_KIND,
+           "Iterators over NodeBuilder<> are undefined "
+           "until a Kind is set");
     return d_nv->begin< NodeTemplate<true> >();
   }
 
@@ -469,9 +469,9 @@ public:
   inline const_iterator end() const {
     Assert(!isUsed(), "NodeBuilder is one-shot only; "
            "attempt to access it after conversion");
-    CheckArgument(getKind() != kind::UNDEFINED_KIND,
-                  "Iterators over NodeBuilder<> are undefined "
-                  "until a Kind is set");
+    Assert(getKind() != kind::UNDEFINED_KIND,
+           "Iterators over NodeBuilder<> are undefined "
+           "until a Kind is set");
     return d_nv->end< NodeTemplate<true> >();
   }
 
@@ -486,9 +486,9 @@ public:
   inline kind::MetaKind getMetaKind() const {
     Assert(!isUsed(), "NodeBuilder is one-shot only; "
            "attempt to access it after conversion");
-    CheckArgument(getKind() != kind::UNDEFINED_KIND,
-                  "The metakind of a NodeBuilder<> is undefined "
-                  "until a Kind is set");
+    Assert(getKind() != kind::UNDEFINED_KIND,
+           "The metakind of a NodeBuilder<> is undefined "
+           "until a Kind is set");
     return d_nv->getMetaKind();
   }
 
@@ -496,19 +496,40 @@ public:
   inline unsigned getNumChildren() const {
     Assert(!isUsed(), "NodeBuilder is one-shot only; "
            "attempt to access it after conversion");
-    CheckArgument(getKind() != kind::UNDEFINED_KIND,
-                  "The number of children of a NodeBuilder<> is undefined "
-                  "until a Kind is set");
+    Assert(getKind() != kind::UNDEFINED_KIND,
+           "The number of children of a NodeBuilder<> is undefined "
+           "until a Kind is set");
     return d_nv->getNumChildren();
   }
 
-  /** Access to children of this Node-under-construction. */
+  /**
+   * Access to the operator of this Node-under-construction.  Only
+   * allowed if this NodeBuilder is unused, and has a defined kind
+   * that is of PARAMETERIZED metakind.
+   */
+  inline Node getOperator() const {
+    Assert(!isUsed(), "NodeBuilder is one-shot only; "
+           "attempt to access it after conversion");
+    Assert(getKind() != kind::UNDEFINED_KIND,
+           "NodeBuilder<> operator access is not permitted "
+           "until a Kind is set");
+    Assert(getMetaKind() == kind::metakind::PARAMETERIZED,
+           "NodeBuilder<> operator access is only permitted "
+           "on parameterized kinds, not `%s'",
+           kind::kindToString(getKind()).c_str());
+    return Node(d_nv->getOperator());
+  }
+
+  /**
+   * Access to children of this Node-under-construction.  Only allowed
+   * if this NodeBuilder is unused and has a defined kind.
+   */
   inline Node getChild(int i) const {
     Assert(!isUsed(), "NodeBuilder is one-shot only; "
            "attempt to access it after conversion");
-    CheckArgument(getKind() != kind::UNDEFINED_KIND,
-                  "NodeBuilder<> child access is not permitted "
-                  "until a Kind is set");
+    Assert(getKind() != kind::UNDEFINED_KIND,
+           "NodeBuilder<> child access is not permitted "
+           "until a Kind is set");
     Assert(i >= 0 && unsigned(i) < d_nv->getNumChildren(),
            "index out of range for NodeBuilder::getChild()");
     return Node(d_nv->getChild(i));
@@ -900,8 +921,12 @@ expr::NodeValue* NodeBuilder<nchild_thresh>::constructNV() {
     nv->d_id = d_nm->next_id++;// FIXME multithreading
     nv->d_rc = 0;
     setUsed();
-    Debug("gc") << "creating node value " << nv
-                << " [" << nv->d_id << "]: " << *nv << "\n";
+    if(Debug.isOn("gc")) {
+      Debug("gc") << "creating node value " << nv
+                  << " [" << nv->d_id << "]: ";
+      nv->printAst(Debug("gc"));
+      Debug("gc") << std::endl;
+    }
     return nv;
   }
 
@@ -920,6 +945,16 @@ expr::NodeValue* NodeBuilder<nchild_thresh>::constructNV() {
          kind::kindToString(getKind()).c_str(),
          kind::metakind::getUpperBoundForKind(getKind()),
          getNumChildren());
+
+#if 0
+  // if the kind is PARAMETERIZED, check that the operator is correctly-kinded
+  Assert(kind::metaKindOf(getKind()) != kind::metakind::PARAMETERIZED ||
+         kind::operatorKindToKind(getOperator().getKind()) == getKind(),
+         "Attempted to construct a parameterized kind `%s' with "
+         "incorrectly-kinded operator `%s'",
+         kind::kindToString(getKind()).c_str(),
+         kind::kindToString(getOperator().getKind()).c_str());
+#endif /* 0 */
 
   // Implementation differs depending on whether the NodeValue was
   // malloc'ed or not and whether or not it's in the already-been-seen
@@ -982,8 +1017,12 @@ expr::NodeValue* NodeBuilder<nchild_thresh>::constructNV() {
 
       //poolNv = nv;
       d_nm->poolInsert(nv);
-      Debug("gc") << "creating node value " << nv
-                  << " [" << nv->d_id << "]: " << *nv << "\n";
+      if(Debug.isOn("gc")) {
+        Debug("gc") << "creating node value " << nv
+                    << " [" << nv->d_id << "]: ";
+        nv->printAst(Debug("gc"));
+        Debug("gc") << std::endl;
+      }
       return nv;
     }
   } else {
@@ -1091,6 +1130,16 @@ expr::NodeValue* NodeBuilder<nchild_thresh>::constructNV() const {
          kind::kindToString(getKind()).c_str(),
          kind::metakind::getUpperBoundForKind(getKind()),
          getNumChildren());
+
+#if 0
+  // if the kind is PARAMETERIZED, check that the operator is correctly-kinded
+  Assert(kind::metaKindOf(getKind()) != kind::metakind::PARAMETERIZED ||
+         kind::operatorKindToKind(getOperator().getKind()) == getKind(),
+         "Attempted to construct a parameterized kind `%s' with "
+         "incorrectly-kinded operator `%s'",
+         kind::kindToString(getKind()).c_str(),
+         kind::kindToString(getOperator().getKind()).c_str());
+#endif /* 0 */
 
   // Implementation differs depending on whether the NodeValue was
   // malloc'ed or not and whether or not it's in the already-been-seen

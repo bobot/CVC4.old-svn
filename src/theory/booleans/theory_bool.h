@@ -2,8 +2,8 @@
 /*! \file theory_bool.h
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: taking
- ** Minor contributors (to current version): barrett
+ ** Major contributors: none
+ ** Minor contributors (to current version): dejan
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -30,13 +30,13 @@ namespace booleans {
 
 class TheoryBool : public Theory {
 public:
-  TheoryBool(context::Context* c, OutputChannel& out, Valuation valuation) :
-    Theory(THEORY_BOOL, c, out, valuation) {
+  TheoryBool(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
+    Theory(THEORY_BOOL, c, u, out, valuation) {
   }
 
   Node getValue(TNode n);
 
-  Node simplify(TNode in, Substitutions& outSubstitutions);
+  SolveStatus solve(TNode in, SubstitutionMap& outSubstitutions);
 
   std::string identify() const { return std::string("TheoryBool"); }
 };/* class TheoryBool */

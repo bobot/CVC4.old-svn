@@ -7,9 +7,8 @@
 #
 builddir = builds
 
-.PHONY: _default_build_ all
-_default_build_: all
-all %:
+.PHONY: all
+all .DEFAULT:
 	@if test -d $(builddir); then \
 		echo cd $(builddir); \
 		cd $(builddir); \
@@ -28,10 +27,20 @@ test: check
 .PHONY: doc
 doc: doc-builds
 
+.PHONY: examples
+examples: all
+	(cd examples && $(MAKE) $(AM_MAKEFLAGS))
+
+YEAR := $(shell date +%Y)
 submission:
 	if [ ! -e configure ]; then ./autogen.sh; fi
-	./configure competition --disable-shared --enable-static-binary
+	./configure competition --disable-shared --enable-static-binary --with-cln
 	$(MAKE)
-	mkdir -p cvc4-smtcomp-2011
-	cp -p $(top_builddir)/bin/cvc4 cvc4-smtcomp-2011/run
-	tar cfz cvc4-smtcomp-2011.tgz cvc4-smtcomp-2011
+	strip builds/bin/cvc4
+	$(MAKE) regress1
+	mkdir -p cvc4-smtcomp-$(YEAR)
+	cp -p builds/bin/cvc4 cvc4-smtcomp-$(YEAR)/cvc4
+	( echo '#!/bin/sh'; \
+	  echo 'exec ./cvc4 -L smt2 --no-interactive' ) > cvc4-smtcomp-$(YEAR)/run
+	chmod 755 cvc4-smtcomp-$(YEAR)/run
+	tar cf cvc4-smtcomp-$(YEAR).tar cvc4-smtcomp-$(YEAR)

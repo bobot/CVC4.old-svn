@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -23,6 +23,7 @@
 
 #include "util/language.h"
 #include "expr/node.h"
+#include "expr/command.h"
 
 namespace CVC4 {
 
@@ -44,6 +45,10 @@ public:
 
   /** Write a Node out to a stream with this Printer. */
   virtual void toStream(std::ostream& out, TNode n,
+                        int toDepth, bool types) const = 0;
+
+  /** Write a Command out to a stream with this Printer. */
+  virtual void toStream(std::ostream& out, const Command* c,
                         int toDepth, bool types) const = 0;
 };/* class Printer */
 

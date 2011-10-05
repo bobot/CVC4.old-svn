@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: taking
  ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Minor contributors (to current version): dejan, mdeters
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -89,7 +89,7 @@ inline Node coerceToRationalNode(TNode constant){
 
 
 
-/** is k \in {LT, LEQ, EQ, GEQ, GT} */
+/** \f$ k \in {LT, LEQ, EQ, GEQ, GT} \f$ */
 inline bool isRelationOperator(Kind k){
   using namespace kind;
 
@@ -143,10 +143,10 @@ inline bool evaluateConstantPredicate(Kind k, const Rational& left, const Ration
 }
 
 /**
- * Returns the appropraite coefficient for the infinitesimal given the kind
+ * Returns the appropriate coefficient for the infinitesimal given the kind
  * for an arithmetic atom inorder to represent strict inequalities as inequalities.
- *   x < c  becomes  x <= c + (-1) * \delta
- *   x > c  becomes  x >= x + ( 1) * \delta
+ *   x < c  becomes  x <= c + (-1) * \f$ \delta \f$
+ *   x > c  becomes  x >= x + ( 1) * \f$ \delta \f$
  * Non-strict inequalities have a coefficient of zero.
  */
 inline int deltaCoeff(Kind k){

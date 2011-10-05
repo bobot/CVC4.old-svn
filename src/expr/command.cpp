@@ -27,21 +27,26 @@
 #include "smt/bad_option_exception.h"
 #include "util/output.h"
 #include "util/sexpr.h"
+#include "expr/node.h"
+#include "printer/printer.h"
 
 using namespace std;
 
 namespace CVC4 {
 
 std::ostream& operator<<(std::ostream& out, const Command& c) {
-  c.toStream(out);
+  c.toStream(out,
+             Node::setdepth::getDepth(out),
+             Node::printtypes::getPrintTypes(out),
+             Node::setlanguage::getLanguage(out));
   return out;
 }
 
-ostream& operator<<(ostream& out, const Command* command) {
-  if(command == NULL) {
+ostream& operator<<(ostream& out, const Command* c) {
+  if(c == NULL) {
     out << "null";
   } else {
-    command->toStream(out);
+    out << *c;
   }
   return out;
 }
@@ -59,6 +64,11 @@ std::string Command::toString() const {
   return ss.str();
 }
 
+void Command::toStream(std::ostream& out, int toDepth, bool types,
+                       OutputLanguage language) const {
+  Printer::getPrinter(language)->toStream(out, this, toDepth, types);
+}
+
 void Command::printResult(std::ostream& out) const {
 }
 
@@ -68,12 +78,12 @@ EmptyCommand::EmptyCommand(std::string name) :
   d_name(name) {
 }
 
-void EmptyCommand::invoke(SmtEngine* smtEngine) {
-  /* empty commands have no implementation */
+std::string EmptyCommand::getName() const {
+  return d_name;
 }
 
-void EmptyCommand::toStream(std::ostream& out) const {
-  out << "EmptyCommand(" << d_name << ")";
+void EmptyCommand::invoke(SmtEngine* smtEngine) {
+  /* empty commands have no implementation */
 }
 
 Command* EmptyCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
@@ -86,12 +96,12 @@ AssertCommand::AssertCommand(const BoolExpr& e) :
   d_expr(e) {
 }
 
-void AssertCommand::invoke(SmtEngine* smtEngine) {
-  smtEngine->assertFormula(d_expr);
+BoolExpr AssertCommand::getExpr() const {
+  return d_expr;
 }
 
-void AssertCommand::toStream(std::ostream& out) const {
-  out << "Assert(" << d_expr << ")";
+void AssertCommand::invoke(SmtEngine* smtEngine) {
+  smtEngine->assertFormula(d_expr);
 }
 
 Command* AssertCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
@@ -104,10 +114,6 @@ void PushCommand::invoke(SmtEngine* smtEngine) {
   smtEngine->push();
 }
 
-void PushCommand::toStream(std::ostream& out) const {
-  out << "Push()";
-}
-
 Command* PushCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   return new PushCommand;
 }
@@ -118,12 +124,14 @@ void PopCommand::invoke(SmtEngine* smtEngine) {
   smtEngine->pop();
 }
 
-void PopCommand::toStream(std::ostream& out) const {
-  out << "Pop()";
+/* class CheckSatCommand */
+
+CheckSatCommand::CheckSatCommand() :
+  d_expr() {
 }
 
 Command* PopCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
-  return new PopCommand;
+  return new PopCommand();
 }
 
 /* class CheckSatCommand */
@@ -132,16 +140,12 @@ CheckSatCommand::CheckSatCommand(const BoolExpr& expr) :
   d_expr(expr) {
 }
 
-void CheckSatCommand::invoke(SmtEngine* smtEngine) {
-  d_result = smtEngine->checkSat(d_expr);
+BoolExpr CheckSatCommand::getExpr() const {
+  return d_expr;
 }
 
-void CheckSatCommand::toStream(std::ostream& out) const {
-  if(d_expr.isNull()) {
-    out << "CheckSat()";
-  } else {
-    out << "CheckSat(" << d_expr << ")";
-  }
+void CheckSatCommand::invoke(SmtEngine* smtEngine) {
+  d_result = smtEngine->checkSat(d_expr);
 }
 
 Result CheckSatCommand::getResult() const {
@@ -164,6 +168,10 @@ QueryCommand::QueryCommand(const BoolExpr& e) :
   d_expr(e) {
 }
 
+BoolExpr QueryCommand::getExpr() const {
+  return d_expr;
+}
+
 void QueryCommand::invoke(SmtEngine* smtEngine) {
   d_result = smtEngine->query(d_expr);
 }
@@ -174,10 +182,6 @@ Result QueryCommand::getResult() const {
 
 void QueryCommand::printResult(std::ostream& out) const {
   out << d_result << endl;
-}
-
-void QueryCommand::toStream(std::ostream& out) const {
-  out << "Query(" << d_expr << ')';
 }
 
 Command* QueryCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
@@ -191,8 +195,29 @@ Command* QueryCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollecti
 QuitCommand::QuitCommand() {
 }
 
-void QuitCommand::toStream(std::ostream& out) const {
-  out << "Quit()" << endl;
+void QuitCommand::invoke(SmtEngine* smtEngine) {
+  Dump("benchmark") << *this;
+}
+
+Command* QuitCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  return new QuitCommand();
+}
+
+/* class CommentCommand */
+
+CommentCommand::CommentCommand(std::string comment) : d_comment(comment) {
+}
+
+std::string CommentCommand::getComment() const {
+  return d_comment;
+}
+
+void CommentCommand::invoke(SmtEngine* smtEngine) {
+  Dump("benchmark") << *this;
+}
+
+Command* CommentCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  return new CommentCommand(d_comment);
 }
 
 /* class CommandSequence */
@@ -225,12 +250,8 @@ void CommandSequence::invoke(SmtEngine* smtEngine, std::ostream& out) {
   }
 }
 
-void CommandSequence::toStream(std::ostream& out) const {
-  out << "CommandSequence[" << endl;
-  for(unsigned i = d_index; i < d_commandSequence.size(); ++i) {
-    out << *d_commandSequence[i] << endl;
-  }
-  out << "]";
+CommandSequence::const_iterator CommandSequence::begin() const {
+  return d_commandSequence.begin();
 }
 
 Command* CommandSequence::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
@@ -242,62 +263,152 @@ Command* CommandSequence::exportTo(ExprManager* exprManager, ExprManagerMapColle
   return seq;
 }
 
-/* class DeclarationCommand */
+CommandSequence::const_iterator CommandSequence::end() const {
+  return d_commandSequence.end();
+}
 
-DeclarationCommand::DeclarationCommand(const std::string& id, Type t) :
+CommandSequence::iterator CommandSequence::begin() {
+  return d_commandSequence.begin();
+}
+
+CommandSequence::iterator CommandSequence::end() {
+  return d_commandSequence.end();
+}
+
+/* class DeclarationSequenceCommand */
+
+/* class DeclarationDefinitionCommand */
+
+DeclarationDefinitionCommand::DeclarationDefinitionCommand(const std::string& id) :
+  d_symbol(id) {
+}
+
+std::string DeclarationDefinitionCommand::getSymbol() const {
+  return d_symbol;
+}
+
+/* class DeclareFunctionCommand */
+
+DeclareFunctionCommand::DeclareFunctionCommand(const std::string& id, Type t) :
+  DeclarationDefinitionCommand(id),
   d_type(t) {
-  d_declaredSymbols.push_back(id);
 }
 
-DeclarationCommand::DeclarationCommand(const std::vector<std::string>& ids, Type t) :
-  d_declaredSymbols(ids),
-  d_type(t) {
-}
-
-const std::vector<std::string>& DeclarationCommand::getDeclaredSymbols() const {
-  return d_declaredSymbols;
-}
-
-Type DeclarationCommand::getDeclaredType() const {
+Type DeclareFunctionCommand::getType() const {
   return d_type;
 }
 
-void DeclarationCommand::toStream(std::ostream& out) const {
-  out << "Declare([";
-  copy( d_declaredSymbols.begin(), d_declaredSymbols.end() - 1,
-        ostream_iterator<string>(out, ", ") );
-  out << d_declaredSymbols.back();
-  out << "])";
+void DeclareFunctionCommand::invoke(SmtEngine* smtEngine) {
+  Dump("declarations") << *this << endl;
 }
 
-Command* DeclarationCommand::exportTo(ExprManager* exprManager,
-                                   ExprManagerMapCollection& variableMap) {
-  return new DeclarationCommand(d_declaredSymbols,
+Command* DeclareFunctionCommand::exportTo(ExprManager* exprManager,
+                                          ExprManagerMapCollection& variableMap) {
+  return new DeclareFunctionCommand(d_symbol,
+                                    d_type.exportTo(exprManager, variableMap));
+}
+
+/* class DeclareTypeCommand */
+
+DeclareTypeCommand::DeclareTypeCommand(const std::string& id, size_t arity, Type t) :
+  DeclarationDefinitionCommand(id),
+  d_arity(arity),
+  d_type(t) {
+}
+
+size_t DeclareTypeCommand::getArity() const {
+  return d_arity;
+}
+
+Type DeclareTypeCommand::getType() const {
+  return d_type;
+}
+
+void DeclareTypeCommand::invoke(SmtEngine* smtEngine) {
+  Dump("declarations") << *this << endl;
+}
+
+Command* DeclareTypeCommand::exportTo(ExprManager* exprManager,
+                                      ExprManagerMapCollection& variableMap) {
+  return new DeclareTypeCommand(d_symbol, d_arity,
                                 d_type.exportTo(exprManager, variableMap));
+}
+
+/* class DefineTypeCommand */
+
+DefineTypeCommand::DefineTypeCommand(const std::string& id,
+                                     Type t) :
+  DeclarationDefinitionCommand(id),
+  d_params(),
+  d_type(t) {
+}
+
+DefineTypeCommand::DefineTypeCommand(const std::string& id,
+                                     const std::vector<Type>& params,
+                                     Type t) :
+  DeclarationDefinitionCommand(id),
+  d_params(params),
+  d_type(t) {
+}
+
+const std::vector<Type>& DefineTypeCommand::getParameters() const {
+  return d_params;
+}
+
+Type DefineTypeCommand::getType() const {
+  return d_type;
+}
+
+void DefineTypeCommand::invoke(SmtEngine* smtEngine) {
+  Dump("declarations") << *this << endl;
+}
+
+Command* DefineTypeCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  vector<Type> params;
+  transform(d_params.begin(), d_params.end(), back_inserter(params),
+            ExportTransformer(exprManager, variableMap));
+  Type type = d_type.exportTo(exprManager, variableMap);
+  return new DefineTypeCommand(d_symbol, params, type);
 }
 
 /* class DefineFunctionCommand */
 
-DefineFunctionCommand::DefineFunctionCommand(Expr func,
+DefineFunctionCommand::DefineFunctionCommand(const std::string& id,
+                                             Expr func,
+                                             Expr formula) :
+  DeclarationDefinitionCommand(id),
+  d_func(func),
+  d_formals(),
+  d_formula(formula) {
+}
+
+DefineFunctionCommand::DefineFunctionCommand(const std::string& id,
+                                             Expr func,
                                              const std::vector<Expr>& formals,
                                              Expr formula) :
+  DeclarationDefinitionCommand(id),
   d_func(func),
   d_formals(formals),
   d_formula(formula) {
 }
 
-void DefineFunctionCommand::invoke(SmtEngine* smtEngine) {
-  smtEngine->defineFunction(d_func, d_formals, d_formula);
+Expr DefineFunctionCommand::getFunction() const {
+  return d_func;
 }
 
-void DefineFunctionCommand::toStream(std::ostream& out) const {
-  out << "DefineFunction( \"" << d_func << "\", [";
-  if(d_formals.size() > 0) {
-    copy( d_formals.begin(), d_formals.end() - 1,
-          ostream_iterator<Expr>(out, ", ") );
-    out << d_formals.back();
+const std::vector<Expr>& DefineFunctionCommand::getFormals() const {
+  return d_formals;
+}
+
+Expr DefineFunctionCommand::getFormula() const {
+  return d_formula;
+}
+
+void DefineFunctionCommand::invoke(SmtEngine* smtEngine) {
+  //Dump("declarations") << *this << endl; -- done by SmtEngine
+  if(!d_func.isNull()) {
+    smtEngine->defineFunction(d_func, d_formals, d_formula);
   }
-  out << "], << " << d_formula << " >> )";
 }
 
 Command* DefineFunctionCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
@@ -306,29 +417,24 @@ Command* DefineFunctionCommand::exportTo(ExprManager* exprManager, ExprManagerMa
   transform(d_formals.begin(), d_formals.end(), back_inserter(formals),
             ExportTransformer(exprManager, variableMap));
   Expr formula = d_formula.exportTo(exprManager, variableMap);
-  return new DefineFunctionCommand(func, formals, formula);
+  return new DefineFunctionCommand(d_symbol, func, formals, formula);
 }
 
-/* class DefineFunctionCommand */
+/* class DefineNamedFunctionCommand */
 
-DefineNamedFunctionCommand::DefineNamedFunctionCommand(Expr func,
+DefineNamedFunctionCommand::DefineNamedFunctionCommand(const std::string& id,
+                                                       Expr func,
                                                        const std::vector<Expr>& formals,
                                                        Expr formula) :
-  DefineFunctionCommand(func, formals, formula) {
+  DefineFunctionCommand(id, func, formals, formula) {
 }
 
 void DefineNamedFunctionCommand::invoke(SmtEngine* smtEngine) {
   this->DefineFunctionCommand::invoke(smtEngine);
-  if(d_func.getType().isBoolean()) {
+  if(!d_func.isNull() && d_func.getType().isBoolean()) {
     smtEngine->addToAssignment(d_func.getExprManager()->mkExpr(kind::APPLY,
                                                                d_func));
   }
-}
-
-void DefineNamedFunctionCommand::toStream(std::ostream& out) const {
-  out << "DefineNamedFunction( ";
-  this->DefineFunctionCommand::toStream(out);
-  out << " )";
 }
 
 Command* DefineNamedFunctionCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
@@ -337,13 +443,17 @@ Command* DefineNamedFunctionCommand::exportTo(ExprManager* exprManager, ExprMana
   transform(d_formals.begin(), d_formals.end(), back_inserter(formals),
             ExportTransformer(exprManager, variableMap));
   Expr formula = d_formula.exportTo(exprManager, variableMap);
-  return new DefineNamedFunctionCommand(func, formals, formula);
+  return new DefineNamedFunctionCommand(d_symbol, func, formals, formula);
 }
 
 /* class Simplify */
 
 SimplifyCommand::SimplifyCommand(Expr term) :
   d_term(term) {
+}
+
+Expr SimplifyCommand::getTerm() const {
+  return d_term;
 }
 
 void SimplifyCommand::invoke(SmtEngine* smtEngine) {
@@ -358,10 +468,6 @@ void SimplifyCommand::printResult(std::ostream& out) const {
   out << d_result << endl;
 }
 
-void SimplifyCommand::toStream(std::ostream& out) const {
-  out << "Simplify( << " << d_term << " >> )";
-}
-
 Command* SimplifyCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   SimplifyCommand* c = new SimplifyCommand(d_term.exportTo(exprManager, variableMap));
   c->d_result = d_result.exportTo(exprManager, variableMap);
@@ -372,6 +478,10 @@ Command* SimplifyCommand::exportTo(ExprManager* exprManager, ExprManagerMapColle
 
 GetValueCommand::GetValueCommand(Expr term) :
   d_term(term) {
+}
+
+Expr GetValueCommand::getTerm() const {
+  return d_term;
 }
 
 void GetValueCommand::invoke(SmtEngine* smtEngine) {
@@ -385,10 +495,6 @@ Expr GetValueCommand::getResult() const {
 
 void GetValueCommand::printResult(std::ostream& out) const {
   out << d_result << endl;
-}
-
-void GetValueCommand::toStream(std::ostream& out) const {
-  out << "GetValue( << " << d_term << " >> )";
 }
 
 Command* GetValueCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
@@ -412,10 +518,6 @@ SExpr GetAssignmentCommand::getResult() const {
 
 void GetAssignmentCommand::printResult(std::ostream& out) const {
   out << d_result << endl;
-}
-
-void GetAssignmentCommand::toStream(std::ostream& out) const {
-  out << "GetAssignment()";
 }
 
 Command* GetAssignmentCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
@@ -444,10 +546,6 @@ void GetAssertionsCommand::printResult(std::ostream& out) const {
   out << d_result;
 }
 
-void GetAssertionsCommand::toStream(std::ostream& out) const {
-  out << "GetAssertions()";
-}
-
 Command* GetAssertionsCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   GetAssertionsCommand* c = new GetAssertionsCommand;
   c->d_result = d_result;
@@ -458,6 +556,10 @@ Command* GetAssertionsCommand::exportTo(ExprManager* exprManager, ExprManagerMap
 
 SetBenchmarkStatusCommand::SetBenchmarkStatusCommand(BenchmarkStatus status) :
   d_status(status) {
+}
+
+BenchmarkStatus SetBenchmarkStatusCommand::getStatus() const {
+  return d_status;
 }
 
 void SetBenchmarkStatusCommand::invoke(SmtEngine* smtEngine) {
@@ -475,10 +577,6 @@ void SetBenchmarkStatusCommand::invoke(SmtEngine* smtEngine) {
   }
 }
 
-void SetBenchmarkStatusCommand::toStream(std::ostream& out) const {
-  out << "SetBenchmarkStatus(" << d_status << ")";
-}
-
 Command* SetBenchmarkStatusCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   SetBenchmarkStatusCommand* c = new SetBenchmarkStatusCommand(d_status);
   c->d_result = d_result;
@@ -491,6 +589,10 @@ SetBenchmarkLogicCommand::SetBenchmarkLogicCommand(std::string logic) :
   d_logic(logic) {
 }
 
+std::string SetBenchmarkLogicCommand::getLogic() const {
+  return d_logic;
+}
+
 void SetBenchmarkLogicCommand::invoke(SmtEngine* smtEngine) {
   try {
     smtEngine->setLogic(d_logic);
@@ -498,10 +600,6 @@ void SetBenchmarkLogicCommand::invoke(SmtEngine* smtEngine) {
   } catch(ModalException&) {
     d_result = "error";
   }
-}
-
-void SetBenchmarkLogicCommand::toStream(std::ostream& out) const {
-  out << "SetBenchmarkLogic(" << d_logic << ")";
 }
 
 Command* SetBenchmarkLogicCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
@@ -512,9 +610,17 @@ Command* SetBenchmarkLogicCommand::exportTo(ExprManager* exprManager, ExprManage
 
 /* class SetInfoCommand */
 
-SetInfoCommand::SetInfoCommand(std::string flag, SExpr& sexpr) :
+SetInfoCommand::SetInfoCommand(std::string flag, const SExpr& sexpr) :
   d_flag(flag),
   d_sexpr(sexpr) {
+}
+
+std::string SetInfoCommand::getFlag() const {
+  return d_flag;
+}
+
+SExpr SetInfoCommand::getSExpr() const {
+  return d_sexpr;
 }
 
 void SetInfoCommand::invoke(SmtEngine* smtEngine) {
@@ -538,10 +644,6 @@ void SetInfoCommand::printResult(std::ostream& out) const {
   }
 }
 
-void SetInfoCommand::toStream(std::ostream& out) const {
-  out << "SetInfo(" << d_flag << ", " << d_sexpr << ")";
-}
-
 Command* SetInfoCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   SetInfoCommand* c = new SetInfoCommand(d_flag, d_sexpr);
   c->d_result = d_result;
@@ -552,6 +654,10 @@ Command* SetInfoCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollec
 
 GetInfoCommand::GetInfoCommand(std::string flag) :
   d_flag(flag) {
+}
+
+std::string GetInfoCommand::getFlag() const {
+  return d_flag;
 }
 
 void GetInfoCommand::invoke(SmtEngine* smtEngine) {
@@ -574,10 +680,6 @@ void GetInfoCommand::printResult(std::ostream& out) const {
   }
 }
 
-void GetInfoCommand::toStream(std::ostream& out) const {
-  out << "GetInfo(" << d_flag << ")";
-}
-
 Command* GetInfoCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   GetInfoCommand* c = new GetInfoCommand(d_flag);
   c->d_result = d_result;
@@ -586,9 +688,17 @@ Command* GetInfoCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollec
 
 /* class SetOptionCommand */
 
-SetOptionCommand::SetOptionCommand(std::string flag, SExpr& sexpr) :
+SetOptionCommand::SetOptionCommand(std::string flag, const SExpr& sexpr) :
   d_flag(flag),
   d_sexpr(sexpr) {
+}
+
+std::string SetOptionCommand::getFlag() const {
+  return d_flag;
+}
+
+SExpr SetOptionCommand::getSExpr() const {
+  return d_sexpr;
 }
 
 void SetOptionCommand::invoke(SmtEngine* smtEngine) {
@@ -612,10 +722,6 @@ void SetOptionCommand::printResult(std::ostream& out) const {
   }
 }
 
-void SetOptionCommand::toStream(std::ostream& out) const {
-  out << "SetOption(" << d_flag << ", " << d_sexpr << ")";
-}
-
 Command* SetOptionCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   SetOptionCommand* c = new SetOptionCommand(d_flag, d_sexpr);
   c->d_result = d_result;
@@ -626,6 +732,10 @@ Command* SetOptionCommand::exportTo(ExprManager* exprManager, ExprManagerMapColl
 
 GetOptionCommand::GetOptionCommand(std::string flag) :
   d_flag(flag) {
+}
+
+std::string GetOptionCommand::getFlag() const {
+  return d_flag;
 }
 
 void GetOptionCommand::invoke(SmtEngine* smtEngine) {
@@ -646,10 +756,6 @@ void GetOptionCommand::printResult(std::ostream& out) const {
   }
 }
 
-void GetOptionCommand::toStream(std::ostream& out) const {
-  out << "GetOption(" << d_flag << ")";
-}
-
 Command* GetOptionCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
   GetOptionCommand* c = new GetOptionCommand(d_flag);
   c->d_result = d_result;
@@ -661,28 +767,19 @@ Command* GetOptionCommand::exportTo(ExprManager* exprManager, ExprManagerMapColl
 DatatypeDeclarationCommand::DatatypeDeclarationCommand(const DatatypeType& datatype) :
   d_datatypes() {
   d_datatypes.push_back(datatype);
-  Debug("datatypes") << "Create datatype command." << endl;
 }
 
 DatatypeDeclarationCommand::DatatypeDeclarationCommand(const std::vector<DatatypeType>& datatypes) :
   d_datatypes(datatypes) {
-  Debug("datatypes") << "Create datatype command." << endl;
+}
+
+const std::vector<DatatypeType>&
+DatatypeDeclarationCommand::getDatatypes() const {
+  return d_datatypes;
 }
 
 void DatatypeDeclarationCommand::invoke(SmtEngine* smtEngine) {
-  Debug("datatypes") << "Invoke datatype command." << endl;
-  //smtEngine->addDatatypeDefinitions(d_datatype);
-}
-
-void DatatypeDeclarationCommand::toStream(std::ostream& out) const {
-  out << "DatatypeDeclarationCommand([";
-  for(vector<DatatypeType>::const_iterator i = d_datatypes.begin(),
-        i_end = d_datatypes.end();
-      i != i_end;
-      ++i) {
-    out << *i << ";" << endl;
-  }
-  out << "])";
+  Dump("declarations") << *this << endl;
 }
 
 Command* DatatypeDeclarationCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {

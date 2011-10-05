@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
- ** Minor contributors (to current version): taking
+ ** Minor contributors (to current version): taking, ajreynol
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -179,10 +179,43 @@ public:
    * that subexpressions have to be smaller than the enclosing expressions.
    *
    * @param typeNode the node to compare to
-   * @return true if this expression is smaller
+   * @return true if this expression is lesser
    */
   inline bool operator<(const TypeNode& typeNode) const {
     return d_nv->d_id < typeNode.d_nv->d_id;
+  }
+
+  /**
+   * We compare by expression ids so, keeping things deterministic and having
+   * that subexpressions have to be smaller than the enclosing expressions.
+   *
+   * @param typeNode the node to compare to
+   * @return true if this expression is lesser or equal
+   */
+  inline bool operator<=(const TypeNode& typeNode) const {
+    return d_nv->d_id <= typeNode.d_nv->d_id;
+  }
+
+  /**
+   * We compare by expression ids so, keeping things deterministic and having
+   * that subexpressions have to be smaller than the enclosing expressions.
+   *
+   * @param typeNode the node to compare to
+   * @return true if this expression is greater
+   */
+  inline bool operator>(const TypeNode& typeNode) const {
+    return d_nv->d_id > typeNode.d_nv->d_id;
+  }
+
+  /**
+   * We compare by expression ids so, keeping things deterministic and having
+   * that subexpressions have to be smaller than the enclosing expressions.
+   *
+   * @param typeNode the node to compare to
+   * @return true if this expression is greater or equal
+   */
+  inline bool operator>=(const TypeNode& typeNode) const {
+    return d_nv->d_id >= typeNode.d_nv->d_id;
   }
 
   /**
@@ -422,6 +455,9 @@ public:
 
   /** Is this the Real type? */
   bool isReal() const;
+
+  /** Is this the Pseudoboolean type? */
+  bool isPseudoboolean() const;
 
   /** Is this an array type? */
   bool isArray() const;

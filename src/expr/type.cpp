@@ -3,7 +3,7 @@
  ** \verbatim
  ** Original author: cconway
  ** Major contributors: dejan, mdeters
- ** Minor contributors (to current version): none
+ ** Minor contributors (to current version): ajreynol
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -114,6 +114,18 @@ bool Type::operator<(const Type& t) const {
   return *d_typeNode < *t.d_typeNode;
 }
 
+bool Type::operator<=(const Type& t) const {
+  return *d_typeNode <= *t.d_typeNode;
+}
+
+bool Type::operator>(const Type& t) const {
+  return *d_typeNode > *t.d_typeNode;
+}
+
+bool Type::operator>=(const Type& t) const {
+  return *d_typeNode >= *t.d_typeNode;
+}
+
 Type Type::substitute(const Type& type, const Type& replacement) const {
   NodeManagerScope nms(d_nodeManager);
   return makeType(d_typeNode->substitute(*type.d_typeNode,
@@ -177,7 +189,7 @@ bool Type::isBoolean() const {
 /** Cast to a Boolean type */
 Type::operator BooleanType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isBoolean());
+  Assert(isNull() || isBoolean());
   return BooleanType(*this);
 }
 
@@ -190,7 +202,7 @@ bool Type::isInteger() const {
 /** Cast to a integer type */
 Type::operator IntegerType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isInteger());
+  Assert(isNull() || isInteger());
   return IntegerType(*this);
 }
 
@@ -203,8 +215,21 @@ bool Type::isReal() const {
 /** Cast to a real type */
 Type::operator RealType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isReal());
+  Assert(isNull() || isReal());
   return RealType(*this);
+}
+
+/** Is this the pseudoboolean type? */
+bool Type::isPseudoboolean() const {
+  NodeManagerScope nms(d_nodeManager);
+  return d_typeNode->isPseudoboolean();
+}
+
+/** Cast to a pseudoboolean type */
+Type::operator PseudobooleanType() const throw(AssertionException) {
+  NodeManagerScope nms(d_nodeManager);
+  Assert(isNull() || isPseudoboolean());
+  return PseudobooleanType(*this);
 }
 
 /** Is this the bit-vector type? */
@@ -216,14 +241,14 @@ bool Type::isBitVector() const {
 /** Cast to a bit-vector type */
 Type::operator BitVectorType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isBitVector());
+  Assert(isNull() || isBitVector());
   return BitVectorType(*this);
 }
 
 /** Cast to a Constructor type */
 Type::operator DatatypeType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isDatatype());
+  Assert(isNull() || isDatatype());
   return DatatypeType(*this);
 }
 
@@ -236,7 +261,7 @@ bool Type::isDatatype() const {
 /** Cast to a Constructor type */
 Type::operator ConstructorType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isConstructor());
+  Assert(isNull() || isConstructor());
   return ConstructorType(*this);
 }
 
@@ -249,7 +274,7 @@ bool Type::isConstructor() const {
 /** Cast to a Selector type */
 Type::operator SelectorType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isSelector());
+  Assert(isNull() || isSelector());
   return SelectorType(*this);
 }
 
@@ -262,7 +287,7 @@ bool Type::isSelector() const {
 /** Cast to a Tester type */
 Type::operator TesterType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isTester());
+  Assert(isNull() || isTester());
   return TesterType(*this);
 }
 
@@ -290,7 +315,7 @@ bool Type::isPredicate() const {
 /** Cast to a function type */
 Type::operator FunctionType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isFunction());
+  Assert(isNull() || isFunction());
   return FunctionType(*this);
 }
 
@@ -303,7 +328,7 @@ bool Type::isTuple() const {
 /** Cast to a tuple type */
 Type::operator TupleType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isTuple());
+  Assert(isNull() || isTuple());
   return TupleType(*this);
 }
 
@@ -328,7 +353,7 @@ bool Type::isSort() const {
 /** Cast to a sort type */
 Type::operator SortType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isSort());
+  Assert(isNull() || isSort());
   return SortType(*this);
 }
 
@@ -341,7 +366,7 @@ bool Type::isSortConstructor() const {
 /** Cast to a sort type */
 Type::operator SortConstructorType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isSortConstructor());
+  Assert(isNull() || isSortConstructor());
   return SortConstructorType(*this);
 }
 
@@ -354,7 +379,7 @@ bool Type::isKind() const {
 /** Cast to a kind type */
 Type::operator KindType() const throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isKind());
+  Assert(isNull() || isKind());
   return KindType(*this);
 }
 
@@ -372,7 +397,7 @@ vector<Type> FunctionType::getArgTypes() const {
 
 Type FunctionType::getRangeType() const {
   NodeManagerScope nms(d_nodeManager);
-  Assert(isFunction());
+  Assert(isNull() || isFunction());
   return makeType(d_typeNode->getRangeType());
 }
 
@@ -427,73 +452,78 @@ SortType SortConstructorType::instantiate(const std::vector<Type>& params) const
 
 BooleanType::BooleanType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isBoolean());
+  Assert(isNull() || isBoolean());
 }
 
 IntegerType::IntegerType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isInteger());
+  Assert(isNull() || isInteger());
 }
 
 RealType::RealType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isReal());
+  Assert(isNull() || isReal());
+}
+
+PseudobooleanType::PseudobooleanType(const Type& t) throw(AssertionException) :
+  Type(t) {
+  Assert(isNull() || isPseudoboolean());
 }
 
 BitVectorType::BitVectorType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isBitVector());
+  Assert(isNull() || isBitVector());
 }
 
 DatatypeType::DatatypeType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isDatatype());
+  Assert(isNull() || isDatatype());
 }
 
 ConstructorType::ConstructorType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isConstructor());
+  Assert(isNull() || isConstructor());
 }
 
 SelectorType::SelectorType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isSelector());
+  Assert(isNull() || isSelector());
 }
 
 TesterType::TesterType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isTester());
+  Assert(isNull() || isTester());
 }
 
 FunctionType::FunctionType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isFunction());
+  Assert(isNull() || isFunction());
 }
 
 TupleType::TupleType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isTuple());
+  Assert(isNull() || isTuple());
 }
 
 ArrayType::ArrayType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isArray());
+  Assert(isNull() || isArray());
 }
 
 KindType::KindType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isKind());
+  Assert(isNull() || isKind());
 }
 
 SortType::SortType(const Type& t) throw(AssertionException) :
   Type(t) {
-  Assert(isSort());
+  Assert(isNull() || isSort());
 }
 
 SortConstructorType::SortConstructorType(const Type& t)
   throw(AssertionException) :
   Type(t) {
-  Assert(isSortConstructor());
+  Assert(isNull() || isSortConstructor());
 }
 
 unsigned BitVectorType::getSize() const {
@@ -597,7 +627,7 @@ BooleanType TesterType::getRangeType() const {
   return BooleanType(makeType(d_nodeManager->booleanType()));
 }
 
-size_t TypeHashFunction::operator()(const Type& t) const{
+size_t TypeHashFunction::operator()(const Type& t) const {
   return TypeNodeHashFunction()(NodeManager::fromType(t));
 }
 

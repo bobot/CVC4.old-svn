@@ -5,6 +5,7 @@
 #
 
 theory THEORY_DATATYPES ::CVC4::theory::datatypes::TheoryDatatypes "theory/datatypes/theory_datatypes.h"
+typechecker "theory/datatypes/theory_datatypes_type_rules.h"
 
 properties check presolve
 
@@ -34,7 +35,7 @@ cardinality TESTER_TYPE \
     "::CVC4::theory::builtin::FunctionProperties::computeCardinality(%TYPE%)" \
     "theory/builtin/theory_builtin_type_rules.h"
 
-parameterized APPLY_CONSTRUCTOR CONSTRUCTOR_TYPE 0: "constructor application"
+parameterized APPLY_CONSTRUCTOR APPLY_TYPE_ASCRIPTION 0: "constructor application"
 
 parameterized APPLY_SELECTOR SELECTOR_TYPE 1: "selector application"
 
@@ -63,11 +64,16 @@ well-founded PARAMETRIC_DATATYPE\
     "util/datatype.h"
 
 parameterized APPLY_TYPE_ASCRIPTION ASCRIPTION_TYPE 1 \
-    "type ascription, for nullary, parameteric datatype constructors"
+    "type ascription, for datatype constructor applications"
 constant ASCRIPTION_TYPE \
     ::CVC4::AscriptionType \
     ::CVC4::AscriptionTypeHashStrategy \
     "util/ascription_type.h" \
     "a type parameter for type ascription"
+
+typerule APPLY_CONSTRUCTOR ::CVC4::theory::datatypes::DatatypeConstructorTypeRule
+typerule APPLY_SELECTOR ::CVC4::theory::datatypes::DatatypeSelectorTypeRule
+typerule APPLY_TESTER ::CVC4::theory::datatypes::DatatypeTesterTypeRule
+typerule APPLY_TYPE_ASCRIPTION ::CVC4::theory::datatypes::DatatypeAscriptionTypeRule
 
 endtheory

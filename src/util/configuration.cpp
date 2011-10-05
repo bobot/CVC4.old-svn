@@ -19,10 +19,19 @@
  **/
 
 #include <string>
+#include <sstream>
 
 #include "util/configuration.h"
 #include "util/configuration_private.h"
 #include "cvc4autoconfig.h"
+
+#ifdef CVC4_DEBUG
+#  include "util/Debug_tags.h"
+#endif /* CVC4_DEBUG */
+
+#ifdef CVC4_TRACING
+#  include "util/Trace_tags.h"
+#endif /* CVC4_TRACING */
 
 using namespace std;
 
@@ -46,6 +55,10 @@ bool Configuration::isReplayBuild() {
 
 bool Configuration::isTracingBuild() {
   return IS_TRACING_BUILD;
+}
+
+bool Configuration::isDumpingBuild() {
+  return IS_DUMPING_BUILD;
 }
 
 bool Configuration::isMuzzledBuild() {
@@ -88,7 +101,11 @@ unsigned Configuration::getVersionRelease() {
   return CVC4_RELEASE;
 }
 
-string Configuration::about() {
+std::string Configuration::getVersionExtra() {
+  return CVC4_EXTRAVERSION;
+}
+
+std::string Configuration::about() {
   return CVC4_ABOUT_STRING;
 }
 
@@ -108,6 +125,40 @@ bool Configuration::isBuiltWithTlsSupport() {
   return USING_TLS;
 }
 
+unsigned Configuration::getNumDebugTags() {
+#if CVC4_DEBUG
+  return sizeof(Debug_tags) / sizeof(Debug_tags[0]);
+#else /* CVC4_DEBUG */
+  return 0;
+#endif /* CVC4_DEBUG */
+}
+
+char const* const* Configuration::getDebugTags() {
+#if CVC4_DEBUG
+  return Debug_tags;
+#else /* CVC4_DEBUG */
+  static char const* no_tags[] = { NULL };
+  return no_tags;
+#endif /* CVC4_DEBUG */
+}
+
+unsigned Configuration::getNumTraceTags() {
+#if CVC4_TRACING
+  return sizeof(Trace_tags) / sizeof(Trace_tags[0]);
+#else /* CVC4_TRACING */
+  return 0;
+#endif /* CVC4_TRACING */
+}
+
+char const* const* Configuration::getTraceTags() {
+#if CVC4_TRACING
+  return Trace_tags;
+#else /* CVC4_TRACING */
+  static char const* no_tags[] = { NULL };
+  return no_tags;
+#endif /* CVC4_TRACING */
+}
+
 bool Configuration::isSubversionBuild() {
   return IS_SUBVERSION_BUILD;
 }
@@ -122,6 +173,17 @@ unsigned Configuration::getSubversionRevision() {
 
 bool Configuration::hasSubversionModifications() {
   return SUBVERSION_HAS_MODIFICATIONS;
+}
+
+string Configuration::getSubversionId() {
+  if(! isSubversionBuild()) {
+    return "";
+  }
+
+  stringstream ss;
+  ss << "subversion " << getSubversionBranchName() << " r" << getSubversionRevision()
+     << ( ::CVC4::Configuration::hasSubversionModifications() ? " (with modifications)" : "" );
+  return ss.str();
 }
 
 }/* CVC4 namespace */

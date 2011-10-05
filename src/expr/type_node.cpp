@@ -2,8 +2,8 @@
 /*! \file type_node.cpp
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
- ** Minor contributors (to current version): none
+ ** Major contributors: mdeters
+ ** Minor contributors (to current version): taking, ajreynol
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -73,18 +73,26 @@ Node TypeNode::mkGroundTerm() const {
 
 bool TypeNode::isBoolean() const {
   return getKind() == kind::TYPE_CONSTANT &&
-    getConst<TypeConstant>() == BOOLEAN_TYPE;
+    ( getConst<TypeConstant>() == BOOLEAN_TYPE ||
+      getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE );
 }
 
 bool TypeNode::isInteger() const {
   return getKind() == kind::TYPE_CONSTANT &&
-    getConst<TypeConstant>() == INTEGER_TYPE;
+    ( getConst<TypeConstant>() == INTEGER_TYPE ||
+      getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE );
 }
 
 bool TypeNode::isReal() const {
-  return getKind() == kind::TYPE_CONSTANT
-    && ( getConst<TypeConstant>() == REAL_TYPE ||
-         getConst<TypeConstant>() == INTEGER_TYPE );
+  return getKind() == kind::TYPE_CONSTANT &&
+    ( getConst<TypeConstant>() == REAL_TYPE ||
+      getConst<TypeConstant>() == INTEGER_TYPE ||
+      getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE );
+}
+
+bool TypeNode::isPseudoboolean() const {
+  return getKind() == kind::TYPE_CONSTANT &&
+    getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE;
 }
 
 bool TypeNode::isArray() const {

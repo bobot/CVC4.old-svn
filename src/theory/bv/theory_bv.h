@@ -3,9 +3,9 @@
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: dejan
- ** Minor contributors (to current version): barrett
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -122,8 +122,8 @@ private:
 
 public:
 
-  TheoryBV(context::Context* c, OutputChannel& out, Valuation valuation)
-  : Theory(THEORY_BV, c, out, valuation), 
+  TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation)
+  : Theory(THEORY_BV, c, u, out, valuation), 
     d_eqEngine(*this, c, "theory::bv::EqualityEngine"), 
     d_sliceManager(*this, c), 
     d_context(c),
@@ -143,11 +143,9 @@ public:
 
   void check(Effort e);
 
-  //void presolve() { }
-
   void propagate(Effort e) { }
 
-  void explain(TNode n);
+  Node explain(TNode n);
 
   Node getValue(TNode n);
 
