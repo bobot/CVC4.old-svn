@@ -86,8 +86,8 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bo
   , random_var_freq  (opt_random_var_freq)
   , random_seed      (opt_random_seed)
   , luby_restart     (opt_luby_restart)
-    //  , ccmin_mode       (opt_ccmin_mode)
-  , ccmin_mode       (0) // FIXME
+  , ccmin_mode       (opt_ccmin_mode)
+    //, ccmin_mode       (0) // FIXME
   , phase_saving     (opt_phase_saving)
   , rnd_pol          (false)
   , rnd_init_act     (opt_rnd_init_act)
@@ -472,6 +472,8 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
                 // Literal is not redundant
                 out_learnt[j++] = out_learnt[i];
               } else {
+                //
+                proof->storeLitRedundant(out_learnt[i]); 
                 // Literal is redundant, mark the level of the redundancy derivation
                 if (max_level < red_level) {
                   max_level = red_level;

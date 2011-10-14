@@ -68,12 +68,13 @@ private:
 public:
   ResChain(ClauseId start);
   void addStep(Minisat::Lit, ClauseId, bool);
-  void finalizeRes();
+  bool redundantRemoved() { return (d_redundantLits == NULL || d_redundantLits->empty()); }
   void addRedundantLit(Minisat::Lit lit); 
   ~ResChain();
   // accessor methods
-  ClauseId  getStart() { return d_start; }
-  ResSteps& getSteps() { return d_steps; }
+  ClauseId  getStart()     { return d_start; }
+  ResSteps& getSteps()     { return d_steps; }
+  LitSet*   getRedundant() { return d_redundantLits; }
 };
 
 
@@ -87,7 +88,7 @@ typedef std::vector   < ResChain* >               ResStack;
 
 typedef std::hash_set < int >                     VarSet; 
 typedef std::set < ClauseId >                     IdSet; 
-
+typedef std::vector < Minisat::Lit >              LitVector; 
 class ResolutionProof; 
 
 class ProofProxy : public ProofProxyAbstract {
@@ -141,6 +142,7 @@ protected:
   ClauseId      getClauseId(Minisat::Lit lit); 
   Minisat::CRef getClauseRef(ClauseId id);
   Minisat::Lit  getUnit(ClauseId id);
+  ClauseId      getUnitId(Minisat::Lit lit); 
   Minisat::Clause& getClause(ClauseId id);
   virtual void printProof();
   
@@ -153,7 +155,18 @@ protected:
    * @return 
    */
   ClauseId resolveUnit(Minisat::Lit lit);
-  ClauseId resolveRedundant(ResChain* res); 
+  ClauseId resolveRedundant(ResChain* res);
+  /** 
+   * Does a depth first search on removed literals and adds the literals
+   * to be removed in the proper order to the stack. 
+   * 
+   * @param lit the literal we are recusing on
+   * @param removedSet the previously computed set of redundantant literals
+   * @param removeStack the stack of literals in reverse order of resolution
+   */
+  void removedDfs(Minisat::Lit lit, LitSet* removedSet, LitVector& removeStack, LitSet& inClause, LitSet& seen);
+  void removeRedundantFromRes(ResChain* res, ClauseId id);
+  void resolveOutRedundant(ResChain* res, Minisat::CRef reason_ref, LitSet* removed, LitSet& inClause, LitSet& seen);
 public:
   void startResChain(Minisat::CRef start);
   void addResolutionStep(Minisat::Lit lit, Minisat::CRef clause, bool sign);
