@@ -85,9 +85,11 @@ class InstMatchGroup
 public:
   InstMatchGroup(){}
   InstMatchGroup( InstMatchGroup* mg ){
-    for( int i=0; i<(int)mg->getNumMatches(); i++ ){
-      InstMatch m( mg->getMatch( i ) );
-      d_matches.push_back( m );
+    add( *mg );
+  }
+  InstMatchGroup( std::vector< InstMatchGroup* >& mgg ){
+    for( int i=0; i<(int)mgg.size(); i++ ){
+      add( *mgg[i] );
     }
   }
   ~InstMatchGroup(){}
@@ -97,6 +99,7 @@ public:
   void add( InstMatchGroup& mg );
   void combine( InstMatchGroup& mg );
   void addComplete( InstMatchGroup& mg, InstMatch* mbase = NULL );
+  bool contains( InstMatch& m );
   void removeRedundant();
   void removeDuplicate();
   bool empty() { return d_matches.empty(); }
@@ -120,8 +123,6 @@ protected:
 
   /** has constraints from quantifier */
   std::map< Node, bool > d_hasConstraints;
-  /** is full owner of quantifier f? */
-  bool isOwnerOf( Node f );
 public:
   enum Status {
     STATUS_UNFINISHED,
@@ -154,6 +155,8 @@ public:
   void setHasConstraintsFrom( Node f );
   /** has constraints from */
   bool hasConstraintsFrom( Node f );
+  /** is full owner of quantifier f? */
+  bool isOwnerOf( Node f );
 };/* class Instantiator */
 
 class InstantiatorDefault;
@@ -193,10 +196,6 @@ private:
   std::map< Node, Node > d_counterexamples;
   /** map from universal quantifiers to their counterexample body */
   std::map< Node, Node > d_counterexample_body;
-  /** map from quantifiers to their counterexample equivalents */
-  std::map< Node, Node > d_quant_to_ceq;
-  /** stores whether a quantifier is a subquantifier of another */
-  std::map< Node, Node > d_subquant;
   /** map from quantifiers to whether they are active */
   BoolMap d_active;
   /** map from instantiation constants to whether they are active */
@@ -211,13 +210,11 @@ private:
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
   /** instantiation queue */
-  std::map< Node, std::map< Theory*, std::vector< InstMatch* > > > d_instQueue;
-  /** enqueue instantiation specified by m */
-  void enqueueInstantiation( InstMatch* m, Theory* t ){
-    d_instQueue[ m->getQuantifier() ][ t ].push_back( m );
-  }
-  /** process enqueued instantiations */
-  void processEnqueuedInstantiations();
+  std::map< Node, std::map< Instantiator*, InstMatchGroup > > d_instQueue;
+  /** add partial instantiation specified by m */
+  bool addPartialInstantiation( InstMatch& m, Instantiator* i );
+  /** process partial instantiations */
+  void processPartialInstantiations();
 public:
   InstantiationEngine(context::Context* c, TheoryEngine* te);
   ~InstantiationEngine();

@@ -115,8 +115,11 @@ void InstMatch::computeTermVec(){
   if( d_computeVec ){
     d_match.clear();
     for( int i=0; i<(int)d_vars.size(); i++ ){
-      Assert( d_map[ d_vars[i] ]!=Node::null() );
-      d_match.push_back( d_map[ d_vars[i] ] );
+      if( d_map[ d_vars[i] ]!=Node::null() ){
+        d_match.push_back( d_map[ d_vars[i] ] );
+      }else{
+        d_match.push_back( NodeManager::currentNM()->mkVar( d_vars[i].getType() ) );
+      }
     }
     d_computeVec = false;
   }
@@ -190,6 +193,14 @@ void InstMatchGroup::removeRedundant(){
     }
   }
 }
+bool InstMatchGroup::contains( InstMatch& m ){
+  for( int k=0; k<(int)d_matches.size(); k++ ){
+    if( d_matches[k].isEqual( m ) ){
+      return true;
+    }
+  }
+  return false;
+}
 void InstMatchGroup::removeDuplicate(){
   std::vector< bool > active;
   active.resize( d_matches.size(), true );
@@ -233,7 +244,7 @@ void Instantiator::doInstantiation( int effort ){
   d_status = STATUS_SAT;
   for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
         it != d_instEngine->d_inst_constants.end(); ++it ){
-    if( d_instEngine->getActive( it->first ) ){
+    if( d_instEngine->getActive( it->first ) && hasConstraintsFrom( it->first ) ){
       d_quantStatus = STATUS_UNFINISHED;
       process( it->first, effort );
       updateStatus( d_status, d_quantStatus );
@@ -251,11 +262,6 @@ void Instantiator::updateStatus( int& currStatus, int addStatus ){
   }
 }
 
-bool Instantiator::isOwnerOf( Node f ){
-  return d_instEngine->d_owner.find( f )!=d_instEngine->d_owner.end() &&
-         d_instEngine->d_owner[f]==getTheory();
-}
-
 void Instantiator::setHasConstraintsFrom( Node f ){
   d_hasConstraints[f] = true;
   if( d_instEngine->d_owner.find( f )==d_instEngine->d_owner.end() ){
@@ -269,6 +275,11 @@ bool Instantiator::hasConstraintsFrom( Node f ) {
   return d_hasConstraints.find( f )!=d_hasConstraints.end() && d_hasConstraints[f]; 
 }
 
+bool Instantiator::isOwnerOf( Node f ){
+  return d_instEngine->d_owner.find( f )!=d_instEngine->d_owner.end() &&
+         d_instEngine->d_owner[f]==getTheory();
+}
+
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_active( c ),
@@ -279,6 +290,7 @@ d_ic_active( c ){
 }
 
 bool InstantiationEngine::addLemma( Node lem ){
+  //AJR: the following check is necessary until FULL_CHECK is guarenteed after d_out->lemma(...)
   lem = Rewriter::rewrite(lem);
   if( d_lemmas_produced.find( lem )==d_lemmas_produced.end() ){
     d_addedLemma = true;
@@ -301,7 +313,6 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
   NodeBuilder<> nb(kind::OR);
   nb << f.notNode() << body;
   Node lem = nb;
-  //AJR: the following two lines are necessary until FULL_CHECK is guarenteed after d_out->lemma(...)
   if( addLemma( lem ) ){
     Debug("inst-engine") << "*** Instantiate " << f << " with " << std::endl;
     for( int i=0; i<(int)terms.size(); i++ ){
@@ -398,6 +409,7 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
   d_addedLemma = false;
   while( d_status==Instantiator::STATUS_UNFINISHED ){
     Debug("inst-engine") << "Prepare instantiation (" << e << ")." << std::endl;
+    d_instQueue.clear();
     d_status = Instantiator::STATUS_SAT;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
@@ -408,7 +420,7 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
       }
     }
     //try to piece together instantiations across theories
-    processEnqueuedInstantiations();
+    processPartialInstantiations();
     if( d_addedLemma ){
       d_status = Instantiator::STATUS_UNKNOWN;
     }
@@ -417,10 +429,46 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
   return d_addedLemma;
 }
 
-void InstantiationEngine::processEnqueuedInstantiations(){
-  for( std::map< Node, std::map< Theory*, std::vector< InstMatch* > > >::iterator it = d_instQueue.begin(); 
+bool InstantiationEngine::addPartialInstantiation( InstMatch& m, Instantiator* i ){
+  if( i->isOwnerOf( m.getQuantifier() ) ){
+    return addInstantiation( &m );
+  }else{
+    d_instQueue[ m.getQuantifier() ][ i ].d_matches.push_back( m );
+    return false;
+  }
+}
+
+void InstantiationEngine::processPartialInstantiations(){
+  for( std::map< Node, std::map< Instantiator*, InstMatchGroup > >::iterator it = d_instQueue.begin(); 
        it != d_instQueue.end(); ++it ){
-    
+    std::vector< InstMatchGroup* > merges;
+    //try to piece together instantiations produced over multiple theories
+    for( int i=0; i<theory::THEORY_LAST; i++ ){
+      if( d_instTable[i] && d_instTable[i]->hasConstraintsFrom( it->first ) ){
+        if( it->second[ d_instTable[i] ].getNumMatches()>0 ){
+          merges.push_back( &it->second[ d_instTable[i] ] );
+        }else{
+          merges.clear();
+          break;
+        }
+      }
+    }
+    if( !merges.empty() ){
+      //try to merge each instantiation across theories
+      InstMatchGroup combined;
+      InstMatch m( it->first, this );
+      combined.d_matches.push_back( m );
+      for( int i=0; i<(int)merges.size(); i++ ){
+        InstMatchGroup mg( merges[i] );
+        combined.merge( mg );
+        if( combined.empty() ){
+          break;
+        }
+      }
+      for( int i=0; i<(int)combined.d_matches.size(); i++ ){
+        addInstantiation( &combined.d_matches[i] );
+      }
+    }
   }
 }
 

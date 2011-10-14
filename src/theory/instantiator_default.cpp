@@ -47,9 +47,6 @@ void InstantiatorDefault::process( Node f, int effort ){
         m.setMatch( *it2, val );
       }
     }
-#if 0
-    //need to concatenate instantiations across theories
-    d_instEngine->enqueueInstantiation( &m, getTheory() );
-#endif
+    d_instEngine->addPartialInstantiation( m, this );
   }
 }

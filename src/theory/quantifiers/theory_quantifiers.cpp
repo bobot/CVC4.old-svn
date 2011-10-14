@@ -163,7 +163,7 @@ void TheoryQuantifiers::check(Effort e) {
 
       if( doInst && d_instEngine->doInstantiation( d_out ) ){
         d_numInstantiations.set( d_numInstantiations.get() + 1 );
-        Debug("quantifiers") << "Done instantiation " << d_numInstantiations.get() << "." << std::endl;
+        //Debug("quantifiers") << "Done instantiation " << d_numInstantiations.get() << "." << std::endl;
       }else{
         Debug("quantifiers") << "No instantiation given." << std::endl;
         if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
@@ -196,34 +196,34 @@ void TheoryQuantifiers::assertUniversal( Node n ){
     if( getInstantiator() ){
       getInstantiator()->setHasConstraintsFrom( n.getAttribute(InstConstantAttribute()) );
     }
-    return;
+  }else{
+    if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
+      //counterexample instantiate, add lemma
+      std::vector< Node > inst_constants;
+      Node body;
+      d_instEngine->getInstantiationConstantsFor( n, inst_constants, body );
+      //get the counterexample literal
+      Node cel = d_instEngine->getCounterexampleLiteralFor( n );
+
+      NodeBuilder<> nb(kind::OR);
+      nb << n.notNode() << cel << body.notNode();
+      Node lem = nb;
+      Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
+      d_out->lemma( lem );
+
+      //mark all literals in the body of n as dependent on cel
+      d_instEngine->registerLiterals( body, n, d_out );
+      ////mark cel as dependent on n
+      //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
+      //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
+      //d_out->dependentDecision( quant, cel );    //FIXME?
+      //require any decision on cel to be phase=false
+      d_out->requirePhase( cel, false );
+
+      d_abstract_inst[n] = true;
+    }
+    d_forall_asserts[n] = true;
   }
-  if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
-    //counterexample instantiate, add lemma
-    std::vector< Node > inst_constants;
-    Node body;
-    d_instEngine->getInstantiationConstantsFor( n, inst_constants, body );
-    //get the counterexample literal
-    Node cel = d_instEngine->getCounterexampleLiteralFor( n );
-
-    NodeBuilder<> nb(kind::OR);
-    nb << n.notNode() << cel << body.notNode();
-    Node lem = nb;
-    Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
-    d_out->lemma( lem );
-
-    //mark all literals in the body of n as dependent on cel
-    d_instEngine->registerLiterals( body, n, d_out );
-    ////mark cel as dependent on n
-    //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-    //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
-    //d_out->dependentDecision( quant, cel );    //FIXME?
-    //require any decision on cel to be phase=false
-    d_out->requirePhase( cel, false );
-
-    d_abstract_inst[n] = true;
-  }
-  d_forall_asserts[n] = true;
 }
 
 void TheoryQuantifiers::assertExistential( Node n ){
@@ -234,25 +234,25 @@ void TheoryQuantifiers::assertExistential( Node n ){
     if( getInstantiator() ){
       getInstantiator()->setHasConstraintsFrom( n[0].getAttribute(InstConstantAttribute()) );
     }
-    return;
-  }
-  if( d_skolemized.find( n )==d_skolemized.end() ){
-    //skolemize, add lemma
-    std::vector< Node > vars;
-    d_instEngine->getVariablesFor( n, vars );
-    std::vector< Node > skolems;
-    d_instEngine->getSkolemConstantsFor( n, skolems );
-    Node body = n[0][ n[0].getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
-                                                              skolems.begin(), skolems.end() );
-    NodeBuilder<> nb(kind::OR);
-    nb << n[0] << body.notNode();
-    Node lem = nb;
-    Debug("quantifiers") << "Skolemize lemma : " << lem << std::endl;
-    d_out->lemma( lem );
+  }else{
+    if( d_skolemized.find( n )==d_skolemized.end() ){
+      //skolemize, add lemma
+      std::vector< Node > vars;
+      d_instEngine->getVariablesFor( n, vars );
+      std::vector< Node > skolems;
+      d_instEngine->getSkolemConstantsFor( n, skolems );
+      Node body = n[0][ n[0].getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
+                                                                skolems.begin(), skolems.end() );
+      NodeBuilder<> nb(kind::OR);
+      nb << n[0] << body.notNode();
+      Node lem = nb;
+      Debug("quant-uf") << "Skolemize lemma : " << lem << std::endl;
+      d_out->lemma( lem );
 
-    d_skolemized[n] = true;
+      d_skolemized[n] = true;
+    }
+    d_exists_asserts[n] = true;
   }
-  d_exists_asserts[n] = true;
 }
 
 void TheoryQuantifiers::assertCounterexample( Node n ){

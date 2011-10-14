@@ -593,10 +593,10 @@ In this section, we will be interested in classifying which pairs of terms may p
 A term $f( t_1, \ldots, t_n )$ is \emph{equality-independent from term $s$ in $M$} if either (a) $s$ is of the form $g( s_1, \ldots s_m )$, or (b) $s$ is of the form $f( s_1, \ldots s_n )$, and $M \models_T t_i \neq s_i$ for some $i$.
 Terms that are not equality independent we will call \emph{equality-dependent}.
 Define the set $Q^t_M$ as the set of non-instantiation terms in $M$ that are equality dependent with $t$.
-If $Q^t_M$ is empty, we say that $t$ is \emph{unmatchable in} $M$.
-A literal $t \sim s$ is unmatchable in $M$ if either $t$ or $s$ is unmatchable in $M$.
-We say $t \sim s$ is \emph{literal-matchable in} $M$ if there exists a $g \in Q^t_M$ and $h \in Q^s_M$ such that $M \models_T g \sim h$.
-Note that all literals not containing instantiation constants that are entailed in $M$ are literal-matchable.
+We say that $t$ is \emph{unmatchable in} $M$ if and only if $Q^t_M$ is empty, and \emph{matchable in} $M$ otherwise.
+A literal $t \sim s$ is unmatchable in $M$ if either $t$ or $s$ is unmatchable in $M$, and matchable in $M$ otherwise.
+We say $t \sim s$ is \emph{literal-matched in} $M$ if there exists a $g \in Q^t_M$ and $h \in Q^s_M$ such that $M \models_T g \sim h$.
+%Note that all literals not containing instantiation constants that are entailed in $M$ are literal-matchable.
 
 \begin{comment}
 %For a pair of equality-dependent terms $t,s$ of the form $f( t_1, \ldots, t_n )$, $f( s_1, \ldots s_n )$, define $NeqArgs_M( t, s )$ to be equal to the number of pairs $t_i, s_i$ such that $M \not\models t_i = s_i$.
@@ -732,7 +732,7 @@ In the case that $M \not\models t_1 \neq t_2$, we may choose to add the splittin
 The usefulness of this lemma is two-fold: in the case where $t_1 = t_2$, we are able to merge the unifiers $E_1$ and $E_2$ and will be closer to finding an instantiation that leads to a conflict.
 In the case that $t_1 \neq t_2$, we are more likely to force instantiation terms to be unmatchable, in which case we are closer to finding a model.
 
-\paragraph{Fourth Iteration: All Literals of $\psi$ are Literal-Matchable}
+\paragraph{Fourth Iteration: All Literals of $\psi$ are Literal-Matched}
 
 If some literal is not E-induced, we consider quantifiers where our procedure found a candidate match at the literal level for each instantiation literal.
 The following gives an overview of the procedure used on the fourth iteration:
@@ -898,18 +898,20 @@ We wish to determine the satisfiability of the formula $2 \cdot D_{11} + D_{21} 
 After finding the satisfying assignment $\{$ $D_{11} \mapsto \frac{1}{2}$, $D_{12} \mapsto 2$, $D_{21} \mapsto -1$, $D_{22} \mapsto 0$ $\}$ we construct the instantiation $[(\frac{1}{2} \cdot c + 2)/x, -c/y]$.
 This instantiation falsifies $\psi$. $\Box$
 
-Note the following theorem.
+%Note the following theorem.
 
-\begin{thm}
-Given a candidate-satisifiable DPLL(T) state $M \parallel F$, and a formula $\psi$ that is counterexample-active in $M \parallel F$ for $\bar{e}$,
-$\ldots$ [do this] $\ldots$
-Then, $\psi$ is $\bar{e} = \bar{s^D}$-induced in $M$.
-\end{thm}
-\begin{proof}
-[do this]
-\end{proof}
+%\begin{thm}
+%Given a candidate-satisifiable DPLL(T) state $M \parallel F$, and a formula $\psi$ that is counterexample-active in $M \parallel F$ for $\bar{e}$,
+%$\ldots$ [do this] $\ldots$
+%Then, $\psi$ is $\bar{e} = \bar{s^D}$-induced in $M$.
+%\end{thm}
+%\begin{proof}
+%[do this]
+%\end{proof}
 
-If formula (\ref{eq:e-ind-lit-lra}) is unsatisfiable, then we may wish to find a subset $S$ of $1 \ldots r$ such that 
+Note that since we are determining the satisfiability of a conjunction of $r \cdot m$ equalities over $m \cdot n$ variables, we are guarenteed to find a satisifying assignment when $n \geq r$, or in other words, when the number of instantiation constants is greater than or equal to the number of instantiation rows.
+However, in most cases, we should expect cases finding a satisfying assigment to (~\ref{eq:e-ind-lit-lra}) to be rare.
+If indeed formula (\ref{eq:e-ind-lit-lra}) is unsatisfiable, then we may wish to find a subset $S$ of $1 \ldots r$ such that 
 \begin{eqnarray}
 \displaystyle\bigwedge\limits_{i \in S} \displaystyle\bigwedge\limits_{j=1}^m \displaystyle\sum\limits_{k=1}^n D_{jk} \cdot B_{ij} = -A_{ij}
 \end{eqnarray}
