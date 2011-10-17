@@ -52,25 +52,20 @@ public:
 
   void safePoint() throw(Interrupted, AssertionException) {}
 
-  void conflict(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException) {
+  void conflict(TNode n)
+    throw(AssertionException) {
     push(CONFLICT, n);
   }
 
-  void propagate(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException) {
+  void propagate(TNode n)
+    throw(AssertionException) {
     push(PROPAGATE, n);
   }
 
-  void lemma(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException) {
+  void lemma(TNode n, bool removable)
+    throw(AssertionException) {
     push(LEMMA, n);
   }
-  void augmentingLemma(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException) {
-    Unreachable();
-  }
-
   void requirePhase(TNode, bool, bool = false)
     throw(Interrupted, AssertionException) {
     Unreachable();
@@ -86,13 +81,8 @@ public:
     Unreachable();
   }
 
-  void explanation(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException) {
-    push(EXPLANATION, n);
-  }
-
   void setIncomplete()
-    throw(Interrupted, AssertionException) {
+    throw(AssertionException) {
     Unreachable();
   }
 
@@ -119,8 +109,8 @@ public:
   set<Node> d_registered;
   vector<Node> d_getSequence;
 
-  DummyTheory(Context* ctxt, OutputChannel& out, Valuation valuation) :
-    Theory(theory::THEORY_BUILTIN, ctxt, out, valuation) {
+  DummyTheory(Context* ctxt, UserContext* uctxt, OutputChannel& out, Valuation valuation) :
+    Theory(theory::THEORY_BUILTIN, ctxt, uctxt, out, valuation) {
   }
 
   void registerTerm(TNode n) {
@@ -159,11 +149,12 @@ public:
   void explain(TNode n, Effort level) {}
   Node getValue(TNode n) { return Node::null(); }
   string identify() const { return "DummyTheory"; }
-};
+};/* class DummyTheory */
 
 class TheoryBlack : public CxxTest::TestSuite {
 
   Context* d_ctxt;
+  UserContext* d_uctxt;
   NodeManager* d_nm;
   NodeManagerScope* d_scope;
 
@@ -177,10 +168,11 @@ class TheoryBlack : public CxxTest::TestSuite {
 public:
 
   void setUp() {
-    d_ctxt = new Context;
+    d_ctxt = new Context();
+    d_uctxt = new UserContext();
     d_nm = new NodeManager(d_ctxt, NULL);
     d_scope = new NodeManagerScope(d_nm);
-    d_dummy = new DummyTheory(d_ctxt, d_outputChannel, Valuation(NULL));
+    d_dummy = new DummyTheory(d_ctxt, d_uctxt, d_outputChannel, Valuation(NULL));
     d_outputChannel.clear();
     atom0 = d_nm->mkConst(true);
     atom1 = d_nm->mkConst(false);
@@ -192,6 +184,7 @@ public:
     delete d_dummy;
     delete d_scope;
     delete d_nm;
+    delete d_uctxt;
     delete d_ctxt;
   }
 
@@ -235,8 +228,8 @@ public:
   void testDone() {
     TS_ASSERT(d_dummy->doneWrapper());
 
-    d_dummy->assertFact(atom0);
-    d_dummy->assertFact(atom1);
+    d_dummy->assertFact(atom0, true);
+    d_dummy->assertFact(atom1, true);
 
     TS_ASSERT(!d_dummy->doneWrapper());
 
@@ -307,7 +300,7 @@ public:
 
   void testOutputChannel() {
     Node n = atom0.orNode(atom1);
-    d_outputChannel.lemma(n);
+    d_outputChannel.lemma(n, false);
     d_outputChannel.split(atom0);
     Node s = atom0.orNode(atom0.notNode());
     TS_ASSERT_EQUALS(d_outputChannel.d_callHistory.size(), 2u);

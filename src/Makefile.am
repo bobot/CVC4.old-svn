@@ -17,11 +17,11 @@ AM_CPPFLAGS = \
 	-I@srcdir@/include -I@srcdir@ -I@builddir@
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-SUBDIRS = lib expr util context theory prop smt printer bindings . parser compat main
+SUBDIRS = lib expr util context theory prop smt printer . parser compat bindings main
 
 lib_LTLIBRARIES = libcvc4.la
 if HAVE_CXXTESTGEN
-noinst_LTLIBRARIES = libcvc4_noinst.la
+check_LTLIBRARIES = libcvc4_noinst.la
 endif
 
 libcvc4_la_LDFLAGS = -version-info $(LIBCVC4_VERSION)
@@ -53,11 +53,18 @@ libcvc4_noinst_la_LIBADD = \
 	@builddir@/theory/libtheory.la \
 	@builddir@/lib/libreplacements.la
 
+CLEANFILES = \
+	subversion_versioninfo.cpp \
+	svninfo.tmp \
+	svninfo
+
 EXTRA_DIST = \
 	include/cvc4parser_private.h \
 	include/cvc4parser_public.h \
 	include/cvc4_private.h \
-	include/cvc4_public.h
+	include/cvc4_public.h \
+	include/cvc4.h \
+	cvc4.i
 
 subversion_versioninfo.cpp: svninfo
 	$(AM_V_GEN)( \
@@ -78,15 +85,18 @@ subversion_versioninfo.cpp: svninfo
 	  echo "const unsigned ::CVC4::Configuration::SUBVERSION_REVISION = $$rev;"; \
 	  echo "const bool ::CVC4::Configuration::SUBVERSION_HAS_MODIFICATIONS = $$mods;"; \
 	) >"$@"
+# This .tmp business is to keep from having to re-compile options.cpp
+# (and then re-link the libraries) if nothing has changed.
 svninfo: svninfo.tmp
 	$(AM_V_GEN)diff -q svninfo.tmp svninfo &>/dev/null || mv svninfo.tmp svninfo || true
-# .PHONY ensures it's always rebuilt
+# .PHONY ensures the .tmp version is always rebuilt (to check for any changes)
 .PHONY: svninfo.tmp
 svninfo.tmp:
 	$(AM_V_GEN)(cd "$(top_srcdir)" && svn info && echo "Modifications: `test -z \"\`svn status -q\`\" && echo false || echo true`") >"$@" 2>/dev/null || true
 
 install-data-local:
-	(echo include/cvc4_public.h; \
+	(echo include/cvc4.h; \
+	 echo include/cvc4_public.h; \
 	 find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
 	(cd "$(srcdir)" && find * -name '*.h' | \
@@ -107,7 +117,8 @@ install-data-local:
 	done
 
 uninstall-local:
-	-(echo include/cvc4_public.h; \
+	-(echo include/cvc4.h; \
+	  echo include/cvc4_public.h; \
 	  find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
 	(cd "$(srcdir)" && find * -name '*.h' | \

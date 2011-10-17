@@ -31,8 +31,8 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-TheoryQuantifiers::TheoryQuantifiers(Context* c, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_QUANTIFIERS, c, out, valuation),
+TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
+  Theory(THEORY_QUANTIFIERS, c, u, out, valuation),
   d_forall_asserts(c),
   d_exists_asserts(c),
   d_counterexample_asserts(c),

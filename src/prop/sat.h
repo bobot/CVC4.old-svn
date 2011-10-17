@@ -114,6 +114,8 @@ public:
   virtual void unregisterVar(SatLiteral lit) = 0;
   /** Register the variable (of the literal) for solving */
   virtual void renewVar(SatLiteral lit, int level = -1) = 0;
+  /** Interrupt the solver */
+  virtual void interrupt() = 0;
 };
 
 /**
@@ -214,7 +216,7 @@ public:
 
   virtual ~SatSolver();
 
-  bool solve();
+  SatLiteralValue solve(unsigned long& resource);
 
   void addClause(SatClause& clause, bool removable);
 
@@ -225,8 +227,6 @@ public:
   void explainPropagation(SatLiteral l, SatClause& explanation);
 
   void theoryPropagate(std::vector<SatLiteral>& output);
-
-  void clearPropagatedLiterals();
 
   void enqueueTheoryLiteral(const SatLiteral& l);
 
@@ -255,6 +255,8 @@ public:
 
   void renewVar(SatLiteral lit, int level = -1);
 
+  void interrupt();
+
   TNode getNode(SatLiteral lit);
 
   void notifyRestart();
@@ -268,6 +270,8 @@ public:
   void dependentDecision(SatVariable dep, SatVariable dec);
 
   bool flipDecision();
+
+  void checkTime();
 
 };/* class SatSolver */
 
@@ -301,8 +305,20 @@ inline SatSolver::~SatSolver() {
   delete d_minisat;
 }
 
-inline bool SatSolver::solve() {
-  return d_minisat->solve();
+inline SatLiteralValue SatSolver::solve(unsigned long& resource) {
+  Trace("limit") << "SatSolver::solve(): have limit of " << resource << " conflicts" << std::endl;
+  if(resource == 0) {
+    d_minisat->budgetOff();
+  } else {
+    d_minisat->setConfBudget(resource);
+  }
+  Minisat::vec<SatLiteral> empty;
+  unsigned long conflictsBefore = d_minisat->conflicts;
+  SatLiteralValue result = d_minisat->solveLimited(empty);
+  d_minisat->clearInterrupt();
+  resource = d_minisat->conflicts - conflictsBefore;
+  Trace("limit") << "SatSolver::solve(): it took " << resource << " conflicts" << std::endl;
+  return result;
 }
 
 inline void SatSolver::addClause(SatClause& clause, bool removable) {
@@ -339,6 +355,10 @@ inline void SatSolver::unregisterVar(SatLiteral lit) {
 
 inline void SatSolver::renewVar(SatLiteral lit, int level) {
   d_minisat->renewVar(lit, level);
+}
+
+inline void SatSolver::interrupt() {
+  d_minisat->interrupt();
 }
 
 #endif /* __CVC4_USE_MINISAT */

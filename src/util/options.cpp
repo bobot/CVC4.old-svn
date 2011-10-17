@@ -83,7 +83,7 @@ Options::Options() :
   replayFilename(""),
   replayStream(NULL),
   replayLog(NULL),
-  variableRemovalEnabled(true),
+  variableRemovalEnabled(false),
   arithPropagation(true),
   satRandomFreq(0.0),
   satRandomSeed(91648253),// Minisat's default value
@@ -116,12 +116,14 @@ static const string optionsDescription = "\
    --quiet | -q           decrease verbosity (may be repeated)\n\
    --trace | -t           trace something (e.g. -t pushpop), can repeat\n\
    --debug | -d           debug something (e.g. -d arith), can repeat\n\
+   --show-debug-tags      show all avalable tags for debugging\n\
+   --show-trace-tags      show all avalable tags for tracing\n\
    --stats                give statistics on exit\n\
    --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
    --print-expr-types     print types with variables when printing exprs\n\
    --interactive          run interactively\n\
    --no-interactive       do not run interactively\n\
-   --produce-models       support the get-value command\n\
+   --produce-models | -m  support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
@@ -136,7 +138,13 @@ static const string optionsDescription = "\
    --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
-   --incremental          enable incremental solving\n";
+   --incremental | -i     enable incremental solving\n\
+   --time-limit=MS        enable time limiting (give milliseconds)\n\
+   --time-limit-per=MS    enable time limiting per query (give milliseconds)\n\
+   --limit=N              enable resource limiting\n\
+   --limit-per=N          enable resource limiting per query\n";
+
+#warning "Change CL options as --disable-variable-removal cannot do anything currently."
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -267,6 +275,8 @@ enum OptionValue {
   NO_CHECKING,
   NO_THEORY_REGISTRATION,
   USE_MMAP,
+  SHOW_DEBUG_TAGS,
+  SHOW_TRACE_TAGS,
   SHOW_CONFIG,
   STRICT_PARSING,
   DEFAULT_EXPR_DEPTH,
@@ -277,12 +287,10 @@ enum OptionValue {
   NO_STATIC_LEARNING,
   INTERACTIVE,
   NO_INTERACTIVE,
-  PRODUCE_MODELS,
   PRODUCE_ASSIGNMENTS,
   NO_TYPE_CHECKING,
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
-  INCREMENTAL,
   REPLAY,
   REPLAY_LOG,
   PIVOT_RULE,
@@ -292,7 +300,11 @@ enum OptionValue {
   ARITHMETIC_PROPAGATION,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
-  DISABLE_SYMMETRY_BREAKER
+  DISABLE_SYMMETRY_BREAKER,
+  TIME_LIMIT,
+  TIME_LIMIT_PER,
+  LIMIT,
+  LIMIT_PER
 };/* enum OptionValue */
 
 /**
@@ -328,6 +340,8 @@ static struct option cmdlineOptions[] = {
   { "stats"      , no_argument      , NULL, STATS       },
   { "no-checking", no_argument      , NULL, NO_CHECKING },
   { "no-theory-registration", no_argument, NULL, NO_THEORY_REGISTRATION },
+  { "show-debug-tags", no_argument  , NULL, SHOW_DEBUG_TAGS },
+  { "show-trace-tags", no_argument  , NULL, SHOW_TRACE_TAGS },
   { "show-config", no_argument      , NULL, SHOW_CONFIG },
   { "segv-nospin", no_argument      , NULL, SEGV_NOSPIN },
   { "help"       , no_argument      , NULL, 'h'         },
@@ -349,19 +363,14 @@ static struct option cmdlineOptions[] = {
   { "no-static-learning", no_argument, NULL, NO_STATIC_LEARNING },
   { "interactive", no_argument      , NULL, INTERACTIVE },
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
-  { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
+  { "produce-models", no_argument   , NULL, 'm' },
   { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
   { "no-type-checking", no_argument , NULL, NO_TYPE_CHECKING },
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
-  { "incremental", no_argument      , NULL, INCREMENTAL },
+  { "incremental", no_argument      , NULL, 'i' },
   { "replay"     , required_argument, NULL, REPLAY      },
   { "replay-log" , required_argument, NULL, REPLAY_LOG  },
-  { "produce-models", no_argument   , NULL, PRODUCE_MODELS },
-  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
-  { "no-type-checking", no_argument, NULL, NO_TYPE_CHECKING },
-  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
-  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
   { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
   { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
   { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
@@ -370,6 +379,10 @@ static struct option cmdlineOptions[] = {
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
+  { "time-limit" , required_argument, NULL, TIME_LIMIT  },
+  { "time-limit-per", required_argument, NULL, TIME_LIMIT_PER },
+  { "limit"      , required_argument, NULL, LIMIT       },
+  { "limit-per"  , required_argument, NULL, LIMIT_PER   },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -387,33 +400,29 @@ throw(OptionException) {
   }
   binary_name = string(progName);
 
-  // The strange string in this call is the short option string.  The
+  // The strange string in this call is the short option string.  An
   // initial '+' means that option processing stops as soon as a
-  // non-option argument is encountered.  The initial ':' indicates
-  // that getopt_long() should return ':' instead of '?' for a missing
-  // option argument.  Then, each letter is a valid short option for
-  // getopt_long(), and if it's encountered, getopt_long() returns
-  // that character.  A ':' after an option character means an
-  // argument is required; two colons indicates an argument is
-  // optional; no colons indicate an argument is not permitted.
-  // cmdlineOptions specifies all the long-options and the return
-  // value for getopt_long() should they be encountered.
+  // non-option argument is encountered (it is not present, by design).
+  // The initial ':' indicates that getopt_long() should return ':'
+  // instead of '?' for a missing option argument.  Then, each letter
+  // is a valid short option for getopt_long(), and if it's encountered,
+  // getopt_long() returns that character.  A ':' after an option
+  // character means an argument is required; two colons indicates an
+  // argument is optional; no colons indicate an argument is not
+  // permitted.  cmdlineOptions specifies all the long-options and the
+  // return value for getopt_long() should they be encountered.
   while((c = getopt_long(argc, argv,
-                         "+:hVvqL:d:t:",
+                         ":himVvqL:d:t:",
                          cmdlineOptions, NULL)) != -1) {
     switch(c) {
 
     case 'h':
       help = true;
       break;
-      // options.printUsage(usage);
-      // exit(1);
 
     case 'V':
       version = true;
       break;
-      // fputs(Configuration::about().c_str(), stdout);
-      // exit(0);
 
     case 'v':
       ++verbosity;
@@ -424,52 +433,11 @@ throw(OptionException) {
       break;
 
     case 'L':
-      if(!strcmp(optarg, "cvc4") || !strcmp(optarg, "pl")) {
-        inputLanguage = language::input::LANG_CVC4;
-        break;
-      } else if(!strcmp(optarg, "smtlib") || !strcmp(optarg, "smt")) {
-        inputLanguage = language::input::LANG_SMTLIB;
-        break;
-      } else if(!strcmp(optarg, "smtlib2") || !strcmp(optarg, "smt2")) {
-        inputLanguage = language::input::LANG_SMTLIB_V2;
-        break;
-      } else if(!strcmp(optarg, "auto")) {
-        inputLanguage = language::input::LANG_AUTO;
-        break;
-      }
-
-      if(strcmp(optarg, "help")) {
-        throw OptionException(string("unknown language for --lang: `") +
-                              optarg + "'.  Try --lang help.");
-      }
-
-      languageHelp = true;
+      setInputLanguage(optarg);
       break;
 
     case OUTPUT_LANGUAGE:
-      if(!strcmp(optarg, "cvc4") || !strcmp(optarg, "pl")) {
-        outputLanguage = language::output::LANG_CVC4;
-        break;
-      } else if(!strcmp(optarg, "smtlib") || !strcmp(optarg, "smt")) {
-        outputLanguage = language::output::LANG_SMTLIB;
-        break;
-      } else if(!strcmp(optarg, "smtlib2") || !strcmp(optarg, "smt2")) {
-        outputLanguage = language::output::LANG_SMTLIB_V2;
-        break;
-      } else if(!strcmp(optarg, "ast")) {
-        outputLanguage = language::output::LANG_AST;
-        break;
-      } else if(!strcmp(optarg, "auto")) {
-        outputLanguage = language::output::LANG_AUTO;
-        break;
-      }
-
-      if(strcmp(optarg, "help")) {
-        throw OptionException(string("unknown language for --output-lang: `") +
-                              optarg + "'.  Try --output-lang help.");
-      }
-
-      languageHelp = true;
+      setOutputLanguage(optarg);
       break;
 
     case 't':
@@ -653,7 +621,7 @@ throw(OptionException) {
       interactiveSetByUser = true;
       break;
 
-    case PRODUCE_MODELS:
+    case 'm':
       produceModels = true;
       break;
 
@@ -676,7 +644,7 @@ throw(OptionException) {
       earlyTypeChecking = true;
       break;
 
-    case INCREMENTAL:
+    case 'i':
       incrementalSolving = true;
       break;
 
@@ -721,6 +689,43 @@ throw(OptionException) {
       ufSymmetryBreaker = false;
       break;
 
+    case TIME_LIMIT:
+      {
+        int i = atoi(optarg);
+        if(i < 0) {
+          throw OptionException("--time-limit requires a nonnegative argument.");
+        }
+        cumulativeMillisecondLimit = (unsigned long) i;
+      }
+      break;
+    case TIME_LIMIT_PER:
+      {
+        int i = atoi(optarg);
+        if(i < 0) {
+          throw OptionException("--time-limit-per requires a nonnegative argument.");
+        }
+        perCallMillisecondLimit = (unsigned long) i;
+      }
+      break;
+    case LIMIT:
+      {
+        int i = atoi(optarg);
+        if(i < 0) {
+          throw OptionException("--limit requires a nonnegative argument.");
+        }
+        cumulativeResourceLimit = (unsigned long) i;
+      }
+      break;
+    case LIMIT_PER:
+      {
+        int i = atoi(optarg);
+        if(i < 0) {
+          throw OptionException("--limit-per requires a nonnegative argument.");
+        }
+        perCallResourceLimit = (unsigned long) i;
+        break;
+      }
+
     case RANDOM_SEED:
       satRandomSeed = atof(optarg);
       break;
@@ -761,6 +766,36 @@ throw(OptionException) {
 
     case ARITHMETIC_PROP_MAX_LENGTH:
       arithPropagateMaxLength = atoi(optarg);
+      break;
+
+    case SHOW_DEBUG_TAGS:
+      if(Configuration::isDebugBuild()) {
+        printf("available tags:");
+        unsigned ntags = Configuration::getNumDebugTags();
+        char const* const* tags = Configuration::getDebugTags();
+        for(unsigned i = 0; i < ntags; ++ i) {
+          printf(" %s", tags[i]);
+        }
+        printf("\n");
+      } else {
+        throw OptionException("debug tags not available in non-debug build");
+      }
+      exit(0);
+      break;
+
+    case SHOW_TRACE_TAGS:
+      if(Configuration::isTracingBuild()) {
+        printf("available tags:");
+        unsigned ntags = Configuration::getNumTraceTags();
+        char const* const* tags = Configuration::getTraceTags();
+        for (unsigned i = 0; i < ntags; ++ i) {
+          printf(" %s", tags[i]);
+        }
+        printf("\n");
+      } else {
+        throw OptionException("trace tags not available in non-tracing build");
+      }
+      exit(0);
       break;
 
     case SHOW_CONFIG:
@@ -806,10 +841,58 @@ throw(OptionException) {
     default:
       throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
     }
-
   }
 
   return optind;
+}
+
+void Options::setOutputLanguage(const char* str) throw(OptionException) {
+  if(!strcmp(str, "cvc4") || !strcmp(str, "pl")) {
+    outputLanguage = language::output::LANG_CVC4;
+    return;
+  } else if(!strcmp(str, "smtlib") || !strcmp(str, "smt")) {
+    outputLanguage = language::output::LANG_SMTLIB;
+    return;
+  } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
+    outputLanguage = language::output::LANG_SMTLIB_V2;
+    return;
+  } else if(!strcmp(str, "ast")) {
+    outputLanguage = language::output::LANG_AST;
+    return;
+  } else if(!strcmp(str, "auto")) {
+    outputLanguage = language::output::LANG_AUTO;
+    return;
+  }
+
+  if(strcmp(str, "help")) {
+    throw OptionException(string("unknown language for --output-lang: `") +
+                          str + "'.  Try --output-lang help.");
+  }
+
+  languageHelp = true;
+}
+
+void Options::setInputLanguage(const char* str) throw(OptionException) {
+  if(!strcmp(str, "cvc4") || !strcmp(str, "pl") || !strcmp(str, "presentation")) {
+    inputLanguage = language::input::LANG_CVC4;
+    return;
+  } else if(!strcmp(str, "smtlib") || !strcmp(str, "smt")) {
+    inputLanguage = language::input::LANG_SMTLIB;
+    return;
+  } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
+    inputLanguage = language::input::LANG_SMTLIB_V2;
+    return;
+  } else if(!strcmp(str, "auto")) {
+    inputLanguage = language::input::LANG_AUTO;
+    return;
+  }
+
+  if(strcmp(str, "help")) {
+    throw OptionException(string("unknown language for --lang: `") +
+                          str + "'.  Try --lang help.");
+  }
+
+  languageHelp = true;
 }
 
 std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {

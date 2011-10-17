@@ -53,12 +53,13 @@ enum DeclarationCheck {
   CHECK_UNDECLARED,
   /** Don't check anything */
   CHECK_NONE
-};
+};/* enum DeclarationCheck */
 
 /**
  * Returns a string representation of the given object (for
  * debugging).
  */
+inline std::ostream& operator<<(std::ostream& out, DeclarationCheck check) CVC4_PUBLIC;
 inline std::ostream& operator<<(std::ostream& out, DeclarationCheck check) {
   switch(check) {
   case CHECK_NONE:
@@ -80,12 +81,13 @@ enum SymbolType {
   SYM_VARIABLE,
   /** Sorts */
   SYM_SORT
-};
+};/* enum SymbolType */
 
 /**
  * Returns a string representation of the given object (for
  * debugging).
  */
+inline std::ostream& operator<<(std::ostream& out, SymbolType type) CVC4_PUBLIC;
 inline std::ostream& operator<<(std::ostream& out, SymbolType type) {
   switch(type) {
   case SYM_VARIABLE:
@@ -471,7 +473,8 @@ public:
    * This feature is useful when e.g. reading out-of-band expression data:
    * 1. Parsing --replay log files produced with --replay-log.
    * 2. Perhaps a multi-query benchmark file is being single-stepped
-   *    with intervening queries on stdin that must reference
+   *    with intervening queries on stdin that must reference the same
+   *    declaration scope(s).
    *
    * However, the feature must be used carefully.  Pushes and pops
    * should be performed with the correct current declaration scope.

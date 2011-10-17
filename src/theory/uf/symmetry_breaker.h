@@ -14,30 +14,30 @@
  ** \brief Implementation of algorithm suggested by Deharbe, Fontaine,
  ** Merz, and Paleo, "Exploiting symmetry in SMT problems," CADE 2011
  **
- ** Implementation of algorithm suggested by Deharbe, Fontaine,
- ** Merz, and Paleo, "Exploiting symmetry in SMT problems," CADE 2011.
+ ** Implementation of algorithm suggested by Deharbe, Fontaine, Merz,
+ ** and Paleo, "Exploiting symmetry in SMT problems," CADE 2011.
  **
  ** From the paper:
  **
  ** <pre>
- **   P := guess_permutations(phi)
- **   foreach {c_0, ..., c_n} \in P do
- **     if invariant_by_permutations(phi, {c_0, ..., c_n}) then
- **       T := select_terms(phi, {c_0, ..., c_n})
- **       cts := \empty
- **       while T != \empty && |cts| <= n do
- **         t := select_most_promising_term(T, phi)
- **         T := T \ {t}
- **         cts := cts \cup used_in(t, {c_0, ..., c_n})
- **         let c \in {c_0, ..., c_n} \ cts
- **         cts := cts \cup {c}
- **         if cts != {c_0, ..., c_n} then
- **           phi := phi /\ ( \vee_{c_i \in cts} t = c_i )
+ **   \f$ P := guess\_permutations(\phi) \f$
+ **   foreach \f$ {c_0, ..., c_n} \in P \f$ do
+ **     if \f$ invariant\_by\_permutations(\phi, {c_0, ..., c_n}) \f$ then
+ **       T := \f$ select\_terms(\phi, {c_0, ..., c_n}) \f$
+ **       cts := \f$ \emptyset \f$
+ **       while T != \f$ \empty \wedge |cts| <= n \f$ do
+ **         \f$ t := select\_most\_promising\_term(T, \phi) \f$
+ **         \f$ T := T \setminus {t} \f$
+ **         cts := cts \f$ \cup used\_in(t, {c_0, ..., c_n}) \f$
+ **         let \f$ c \in {c_0, ..., c_n} \setminus cts \f$
+ **         cts := cts \f$ \cup {c} \f$
+ **         if cts != \f$ {c_0, ..., c_n} \f$ then
+ **           \f$ \phi := \phi \wedge ( \vee_{c_i \in cts} t = c_i ) \f$
  **         end
  **       end
  **     end
  **   end
- **   return phi
+ **   return \f$ \phi \f$
  ** </pre>
  **/
 

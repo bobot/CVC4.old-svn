@@ -17,6 +17,8 @@
  ** \todo document this file
  **/
 
+#include "cvc4_private.h"
+
 #pragma once
 
 #include "theory/bv/theory_bv_rewrite_rules.h"
@@ -275,7 +277,7 @@ bool RewriteRule<ReflexivityEq>::applies(Node node) {
 template<>
 Node RewriteRule<ReflexivityEq>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<ReflexivityEq>(" << node << ")" << std::endl;
-  return node[1].eqNode(node[0]);;
+  return node[1].eqNode(node[0]);
 }
 
 }

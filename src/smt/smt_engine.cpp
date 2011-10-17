@@ -102,11 +102,14 @@ public:
 class SmtEnginePrivate {
   SmtEngine& d_smt;
 
-  /** The assertions yet to be preprecessed */
+  /** The assertions yet to be preprocessed */
   vector<Node> d_assertionsToPreprocess;
 
   /** Learned literals */
   vector<Node> d_nonClausalLearnedLiterals;
+
+  /** A circuit propagator for non-clausal propositional deduction */
+  booleans::CircuitPropagator d_propagator;
 
   /** Assertions to push to sat */
   vector<Node> d_assertionsToCheck;
@@ -139,7 +142,12 @@ class SmtEnginePrivate {
 
 public:
 
-  SmtEnginePrivate(SmtEngine& smt) : d_smt(smt) { }
+  SmtEnginePrivate(SmtEngine& smt) :
+    d_smt(smt),
+    d_nonClausalLearnedLiterals(),
+    d_propagator(smt.d_userContext, d_nonClausalLearnedLiterals, true, true),
+    d_topLevelSubstitutions(smt.d_userContext) {
+  }
 
   Node applySubstitutions(TNode node) const {
     return Rewriter::rewrite(d_topLevelSubstitutions.apply(node));
@@ -173,9 +181,25 @@ using namespace CVC4::smt;
 
 SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_context(em->getContext()),
-  d_userContext(new Context()),
+  d_userLevels(),
+  d_userContext(new UserContext()),
   d_exprManager(em),
   d_nodeManager(d_exprManager->getNodeManager()),
+  d_theoryEngine(NULL),
+  d_propEngine(NULL),
+  d_definedFunctions(NULL),
+  d_assertionList(NULL),
+  d_assignments(NULL),
+  d_logic(""),
+  d_problemExtended(false),
+  d_queryMade(false),
+  d_timeBudgetCumulative(0),
+  d_timeBudgetPerCall(0),
+  d_resourceBudgetCumulative(0),
+  d_resourceBudgetPerCall(0),
+  d_cumulativeTimeUsed(0),
+  d_cumulativeResourceUsed(0),
+  d_status(),
   d_private(new smt::SmtEnginePrivate(*this)),
   d_definitionExpansionTime("smt::SmtEngine::definitionExpansionTime"),
   d_nonclausalSimplificationTime("smt::SmtEngine::nonclausalSimplificationTime"),
@@ -187,19 +211,19 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   StatisticsRegistry::registerStat(&d_nonclausalSimplificationTime);
   StatisticsRegistry::registerStat(&d_staticLearningTime);
 
-  // We have mutual dependancy here, so we add the prop engine to the theory
+  // We have mutual dependency here, so we add the prop engine to the theory
   // engine later (it is non-essential there)
-  d_theoryEngine = new TheoryEngine(d_context);
+  d_theoryEngine = new TheoryEngine(d_context, d_userContext);
 
   // Add the theories
-  d_theoryEngine->addTheory<theory::builtin::TheoryBuiltin>();
-  d_theoryEngine->addTheory<theory::booleans::TheoryBool>();
-  d_theoryEngine->addTheory<theory::arith::TheoryArith>();
-  d_theoryEngine->addTheory<theory::arrays::TheoryArrays>();
-  d_theoryEngine->addTheory<theory::bv::TheoryBV>();
-  d_theoryEngine->addTheory<theory::datatypes::TheoryDatatypes>();
-  d_theoryEngine->addTheory<theory::quantifiers::TheoryQuantifiers>();
-  d_theoryEngine->addTheory<theory::uf::TheoryUF>();
+  d_theoryEngine->addTheory<theory::builtin::TheoryBuiltin>(theory::THEORY_BUILTIN);
+  d_theoryEngine->addTheory<theory::booleans::TheoryBool>(theory::THEORY_BOOL);
+  d_theoryEngine->addTheory<theory::arith::TheoryArith>(theory::THEORY_ARITH);
+  d_theoryEngine->addTheory<theory::arrays::TheoryArrays>(theory::THEORY_ARRAY);
+  d_theoryEngine->addTheory<theory::bv::TheoryBV>(theory::THEORY_BV);
+  d_theoryEngine->addTheory<theory::datatypes::TheoryDatatypes>(theory::THEORY_DATATYPES);
+  d_theoryEngine->addTheory<theory::quantifiers::TheoryQuantifiers>(theory::THEORY_QUANTIFIERS);
+  d_theoryEngine->addTheory<theory::uf::TheoryUF>(theory::THEORY_UF);
 
   //set the instantiator for all theories
   d_theoryEngine->makeInstantiators();
@@ -209,14 +233,22 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
 
   d_definedFunctions = new(true) DefinedFunctionMap(d_userContext);
 
-  d_assertionList = NULL;
   if(Options::current()->interactive) {
     d_assertionList = new(true) AssertionList(d_userContext);
   }
 
-  d_assignments = NULL;
-  d_problemExtended = false;
-  d_queryMade = false;
+  if(Options::current()->perCallResourceLimit != 0) {
+    setResourceLimit(Options::current()->perCallResourceLimit, false);
+  }
+  if(Options::current()->cumulativeResourceLimit != 0) {
+    setResourceLimit(Options::current()->cumulativeResourceLimit, true);
+  }
+  if(Options::current()->perCallMillisecondLimit != 0) {
+    setTimeLimit(Options::current()->perCallMillisecondLimit, false);
+  }
+  if(Options::current()->cumulativeMillisecondLimit != 0) {
+    setTimeLimit(Options::current()->cumulativeMillisecondLimit, true);
+  }
 }
 
 void SmtEngine::shutdown() {
@@ -246,6 +278,8 @@ SmtEngine::~SmtEngine() {
   StatisticsRegistry::unregisterStat(&d_nonclausalSimplificationTime);
   StatisticsRegistry::unregisterStat(&d_staticLearningTime);
 
+  // Deletion order error: circuit propagator has some unsafe TNodes ?!
+  // delete d_private;
   delete d_userContext;
 
   delete d_theoryEngine;
@@ -414,7 +448,6 @@ void SmtEngine::defineFunction(Expr func,
                                const std::vector<Expr>& formals,
                                Expr formula) {
   Trace("smt") << "SMT defineFunction(" << func << ")" << endl;
-  /*
   if(Dump.isOn("declarations")) {
     stringstream ss;
     ss << Expr::setlanguage(Expr::setlanguage::getLanguage(Dump("declarations")))
@@ -422,7 +455,6 @@ void SmtEngine::defineFunction(Expr func,
     Dump("declarations") << DefineFunctionCommand(ss.str(), func, formals, formula)
                          << endl;
   }
-  */
   NodeManagerScope nms(d_nodeManager);
 
   // type check body
@@ -563,7 +595,7 @@ void SmtEnginePrivate::staticLearning() {
 
 void SmtEnginePrivate::nonClausalSimplify() {
 
-  TimerStat::CodeTimer nonclauselTimer(d_smt.d_nonclausalSimplificationTime);
+  TimerStat::CodeTimer nonclausalTimer(d_smt.d_nonclausalSimplificationTime);
 
   Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify()" << endl;
 
@@ -571,26 +603,27 @@ void SmtEnginePrivate::nonClausalSimplify() {
   Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                     << "applying substitutions" << endl;
   for (unsigned i = 0; i < d_assertionsToPreprocess.size(); ++ i) {
+    Trace("simplify") << "applying to " << d_assertionsToPreprocess[i] << std::endl;
     d_assertionsToPreprocess[i] =
       theory::Rewriter::rewrite(d_topLevelSubstitutions.apply(d_assertionsToPreprocess[i]));
+    Trace("simplify") << "  got " << d_assertionsToPreprocess[i] << std::endl;
   }
-
-  d_nonClausalLearnedLiterals.clear();
-  booleans::CircuitPropagator propagator(d_nonClausalLearnedLiterals, true, true);
 
   // Assert all the assertions to the propagator
   Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                     << "asserting to propagator" << endl;
   for (unsigned i = 0; i < d_assertionsToPreprocess.size(); ++ i) {
-    propagator.assert(d_assertionsToPreprocess[i]);
+    Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): asserting " << d_assertionsToPreprocess[i] << std::endl;
+    d_propagator.assert(d_assertionsToPreprocess[i]);
   }
 
   Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                     << "propagating" << endl;
-  if (propagator.propagate()) {
+  if (d_propagator.propagate()) {
     // If in conflict, just return false
     Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                       << "conflict in non-clausal propagation" << endl;
+    d_assertionsToPreprocess.clear();
     d_assertionsToCheck.push_back(NodeManager::currentNM()->mkConst<bool>(false));
     return;
   } else {
@@ -610,6 +643,7 @@ void SmtEnginePrivate::nonClausalSimplify() {
           Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                             << "conflict with "
                             << d_nonClausalLearnedLiterals[i] << endl;
+          d_assertionsToPreprocess.clear();
           d_assertionsToCheck.push_back(NodeManager::currentNM()->mkConst<bool>(false));
           return;
         }
@@ -625,6 +659,7 @@ void SmtEnginePrivate::nonClausalSimplify() {
         Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                           << "conflict while solving "
                           << learnedLiteral << endl;
+        d_assertionsToPreprocess.clear();
         d_assertionsToCheck.push_back(NodeManager::currentNM()->mkConst<bool>(false));
         return;
       case Theory::SOLVE_STATUS_SOLVED:
@@ -713,12 +748,44 @@ void SmtEnginePrivate::simplifyAssertions()
 Result SmtEngine::check() {
   Trace("smt") << "SmtEngine::check()" << endl;
 
-  // make sure the prop layer has all assertions
-  Trace("smt") << "SmtEngine::check(): processing assertion" << endl;
+  // Make sure the prop layer has all of the assertions
+  Trace("smt") << "SmtEngine::check(): processing assertions" << endl;
   d_private->processAssertions();
 
+  unsigned long millis = 0;
+  if(d_timeBudgetCumulative != 0) {
+    millis = getTimeRemaining();
+    if(millis == 0) {
+      return Result(Result::VALIDITY_UNKNOWN, Result::TIMEOUT);
+    }
+  }
+  if(d_timeBudgetPerCall != 0 && (millis == 0 || d_timeBudgetPerCall < millis)) {
+    millis = d_timeBudgetPerCall;
+  }
+
+  unsigned long resource = 0;
+  if(d_resourceBudgetCumulative != 0) {
+    resource = getResourceRemaining();
+    if(resource == 0) {
+      return Result(Result::VALIDITY_UNKNOWN, Result::RESOURCEOUT);
+    }
+  }
+  if(d_resourceBudgetPerCall != 0 && (resource == 0 || d_resourceBudgetPerCall < resource)) {
+    resource = d_resourceBudgetPerCall;
+  }
+
   Trace("smt") << "SmtEngine::check(): running check" << endl;
-  return d_propEngine->checkSat();
+  Result result = d_propEngine->checkSat(millis, resource);
+
+  // PropEngine::checkSat() returns the actual amount used in these
+  // variables.
+  d_cumulativeTimeUsed += millis;
+  d_cumulativeResourceUsed += resource;
+
+  Trace("limit") << "SmtEngine::check(): cumulative millis " << d_cumulativeTimeUsed
+                 << ", conflicts " << d_cumulativeResourceUsed << std::endl;
+
+  return result;
 }
 
 Result SmtEngine::quickCheck() {
@@ -934,8 +1001,11 @@ Expr SmtEngine::getValue(const Expr& e)
     throw ModalException(msg);
   }
 
+  // Apply what was learned from preprocessing
+  Node n = d_private->applySubstitutions(e.getNode());
+
   // Normalize for the theories
-  Node n = theory::Rewriter::rewrite(e.getNode());
+  n = theory::Rewriter::rewrite(n);
 
   Trace("smt") << "--- getting value of " << n << endl;
   Node resultNode = d_theoryEngine->getValue(n);
@@ -1073,6 +1143,9 @@ void SmtEngine::pop() {
   if(!Options::current()->incrementalSolving) {
     throw ModalException("Cannot pop when not solving incrementally (use --incremental)");
   }
+  if(d_userContext->getLevel() == 0) {
+    throw ModalException("Cannot pop beyond the first user frame");
+  }
   AlwaysAssert(d_userLevels.size() > 0 && d_userLevels.back() < d_userContext->getLevel());
   while (d_userLevels.back() < d_userContext->getLevel()) {
     internalPop();
@@ -1083,22 +1156,75 @@ void SmtEngine::pop() {
                        << d_userContext->getLevel() << endl;
   // FIXME: should we reset d_status here?
   // SMT-LIBv2 spec seems to imply no, but it would make sense to..
-}
-
-void SmtEngine::internalPop() {
-  Trace("smt") << "internalPop()" << endl;
-  d_propEngine->pop();
-  d_userContext->pop();
+  // Still, we want the right exit status after any final sequence
+  // of pops... hm.
 }
 
 void SmtEngine::internalPush() {
-  Trace("smt") << "internalPush()" << endl;
-  // TODO: this is the right thing to do, but needs serious thinking
-  // to keep completeness
-  //
-  // d_private->processAssertions();
-  d_userContext->push();
-  d_propEngine->push();
+  Trace("smt") << "SmtEngine::internalPush()" << endl;
+  if(Options::current()->incrementalSolving) {
+    d_private->processAssertions();
+    d_userContext->push();
+    d_propEngine->push();
+  }
+}
+
+void SmtEngine::internalPop() {
+  Trace("smt") << "SmtEngine::internalPop()" << endl;
+  if(Options::current()->incrementalSolving) {
+    d_propEngine->pop();
+    d_userContext->pop();
+  }
+}
+
+void SmtEngine::interrupt() throw(ModalException) {
+  d_propEngine->interrupt();
+}
+
+void SmtEngine::setResourceLimit(unsigned long units, bool cumulative) {
+  if(cumulative) {
+    Trace("limit") << "SmtEngine: setting cumulative resource limit to " << units << std::endl;
+    d_resourceBudgetCumulative = (units == 0) ? 0 : (d_cumulativeResourceUsed + units);
+  } else {
+    Trace("limit") << "SmtEngine: setting per-call resource limit to " << units << std::endl;
+    d_resourceBudgetPerCall = units;
+  }
+}
+
+void SmtEngine::setTimeLimit(unsigned long millis, bool cumulative) {
+  if(cumulative) {
+    Trace("limit") << "SmtEngine: setting cumulative time limit to " << millis << " ms" << std::endl;
+    d_timeBudgetCumulative = (millis == 0) ? 0 : (d_cumulativeTimeUsed + millis);
+  } else {
+    Trace("limit") << "SmtEngine: setting per-call time limit to " << millis << " ms" << std::endl;
+    d_timeBudgetPerCall = millis;
+  }
+}
+
+unsigned long SmtEngine::getResourceUsage() const {
+  return d_cumulativeResourceUsed;
+}
+
+unsigned long SmtEngine::getTimeUsage() const {
+  return d_cumulativeTimeUsed;
+}
+
+unsigned long SmtEngine::getResourceRemaining() const throw(ModalException) {
+  if(d_resourceBudgetCumulative == 0) {
+    throw ModalException("No cumulative resource limit is currently set");
+  }
+
+  return d_resourceBudgetCumulative <= d_cumulativeResourceUsed ? 0 :
+    d_resourceBudgetCumulative - d_cumulativeResourceUsed;
+}
+
+unsigned long SmtEngine::getTimeRemaining() const throw(ModalException) {
+  if(d_timeBudgetCumulative == 0) {
+    throw ModalException("No cumulative time limit is currently set");
+  }
+
+  return d_timeBudgetCumulative <= d_cumulativeTimeUsed ? 0 :
+    d_timeBudgetCumulative - d_cumulativeTimeUsed;
 }
 
 StatisticsRegistry* SmtEngine::getStatisticsRegistry() const {

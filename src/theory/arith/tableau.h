@@ -17,6 +17,7 @@
  ** \todo document this file
  **/
 
+#include "cvc4_private.h"
 
 #include "expr/node.h"
 #include "expr/attribute.h"
@@ -314,7 +315,7 @@ public:
   /**
    * Adds a row to the tableau.
    * The new row is equivalent to:
-   *   basicVar = \sum_i coeffs[i] * variables[i]
+   *   basicVar = \f$\sum_i\f$ coeffs[i] * variables[i]
    * preconditions:
    *   basicVar is already declared to be basic
    *   basicVar does not have a row associated with it in the tableau.
@@ -399,10 +400,10 @@ private:
   uint32_t debugCountColLength(ArithVar var);
   uint32_t debugCountRowLength(ArithVar var);
 
-};
+};/* class Tableau */
 
-}; /* namespace arith  */
-}; /* namespace theory */
-}; /* namespace CVC4   */
+}/* CVC4::theory::arith namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
 
 #endif /* __CVC4__THEORY__ARITH__TABLEAU_H */

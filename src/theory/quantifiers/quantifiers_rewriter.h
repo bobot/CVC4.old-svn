@@ -53,6 +53,10 @@ public:
     return RewriteResponse(REWRITE_DONE, in);
   }
 
+  static Node rewriteEquality(TNode equality) {
+    return postRewrite(equality).node;
+  }
+
   static inline void init() {}
   static inline void shutdown() {}
 

@@ -19,9 +19,42 @@
 #include "expr/node.h"
 #include "theory/valuation.h"
 #include "theory/theory_engine.h"
+#include "theory/rewriter.h"
 
 namespace CVC4 {
 namespace theory {
+
+bool equalityStatusCompatible(EqualityStatus s1, EqualityStatus s2) {
+ switch (s1) {
+ case EQUALITY_TRUE:
+ case EQUALITY_TRUE_IN_MODEL:
+ case EQUALITY_TRUE_AND_PROPAGATED:
+   switch (s2) {
+   case EQUALITY_TRUE:
+   case EQUALITY_TRUE_IN_MODEL:
+   case EQUALITY_TRUE_AND_PROPAGATED:
+     return true;
+   default:
+     return false;
+   }
+   break;
+ case EQUALITY_FALSE:
+ case EQUALITY_FALSE_IN_MODEL:
+ case EQUALITY_FALSE_AND_PROPAGATED:
+   switch (s2) {
+   case EQUALITY_FALSE:
+   case EQUALITY_FALSE_IN_MODEL:
+   case EQUALITY_FALSE_AND_PROPAGATED:
+     return true;
+   default:
+     return false;
+   }
+   break;
+ default:
+   return false;
+ }
+}
+
 
 Node Valuation::getValue(TNode n) const {
   return d_engine->getValue(n);
@@ -46,7 +79,26 @@ Node Valuation::getSatValue(TNode n) const {
 }
 
 bool Valuation::hasSatValue(TNode n, bool& value) const {
-  return d_engine->getPropEngine()->hasValue(n, value);
+  Node normalized = Rewriter::rewrite(n);
+  if (d_engine->getPropEngine()->isSatLiteral(normalized)) {
+    return d_engine->getPropEngine()->hasValue(normalized, value);
+  } else {
+    return false;
+  }
+}
+
+EqualityStatus Valuation::getEqualityStatus(TNode a, TNode b) {
+  return d_engine->getEqualityStatus(a, b);
+}
+
+Node Valuation::ensureLiteral(TNode n) {
+  Debug("ensureLiteral") << "rewriting: " << n << std::endl;
+  Node rewritten = Rewriter::rewrite(n);
+  Debug("ensureLiteral") << "      got: " << rewritten << std::endl;
+  Node preprocessed = d_engine->preprocess(rewritten);
+  Debug("ensureLiteral") << "preproced: " << preprocessed << std::endl;
+  d_engine->getPropEngine()->ensureLiteral(preprocessed);
+  return preprocessed;
 }
 
 }/* CVC4::theory namespace */

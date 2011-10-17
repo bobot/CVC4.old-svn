@@ -52,7 +52,14 @@ EXTRA_DIST = \
 	type_checker_template.cpp \
 	mkkind \
 	mkmetakind \
-	mkexpr
+	mkexpr \
+	expr_stream.i \
+	expr_manager.i \
+	declaration_scope.i \
+	command.i \
+	type.i \
+	kind.i \
+	expr.i
 
 BUILT_SOURCES = \
 	kind.h \
@@ -73,6 +80,7 @@ CLEANFILES = \
 	expr_manager.h \
 	expr_manager.cpp \
 	type_checker.cpp \
+	type_properties.h \
 	$(top_builddir)/src/theory/.subdirs
 
 include @top_srcdir@/src/theory/Makefile.subdirs

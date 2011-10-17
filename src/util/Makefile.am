@@ -39,6 +39,7 @@ libutil_la_SOURCES = \
 	configuration.cpp \
 	bitvector.h \
 	ascription_type.h \
+	array.h \
 	datatype.h \
 	datatype.cpp \
 	matcher.h \
@@ -76,6 +77,50 @@ BUILT_SOURCES = \
 	rational.h \
 	integer.h \
 	tls.h
+if CVC4_DEBUG
+# listing Debug_tags too ensures that make doesn't auto-remove it
+# after building (if it does, we don't get the "cached" effect with
+# the .tmp files below, and we have to re-compile and re-link each
+# time, even when there are no changes).
+BUILT_SOURCES += \
+	Debug_tags.h \
+	Debug_tags
+endif
+if CVC4_TRACING
+# listing Trace_tags too ensures that make doesn't auto-remove it
+# after building (if it does, we don't get the "cached" effect with
+# the .tmp files below, and we have to re-compile and re-link each
+# time, even when there are no changes).
+BUILT_SOURCES += \
+	Trace_tags.h \
+	Trace_tags
+endif
+
+%_tags.h: %_tags
+	$(AM_V_GEN)( \
+	  echo 'static char const* const $^[] = {'; \
+	  for tag in `cat $^`; do \
+	    echo "\"$$tag\","; \
+	  done; \
+	  echo 'NULL'; \
+	  echo '};' \
+	) >"$@"
+
+# This .tmp business is to keep from having to re-compile options.cpp
+# (and then re-link the libraries) if nothing has changed.
+%_tags: %_tags.tmp
+	$(AM_V_GEN)\
+	diff -q "$^" "$@" &>/dev/null || mv "$^" "$@" || true
+# .PHONY ensures the .tmp version is always rebuilt (to check for any changes)
+.PHONY: Debug_tags.tmp Trace_tags.tmp
+# The "sed" invocation below is particularly obnoxious, but it works around
+# inconsistencies in REs on different platforms, using only a basic regular
+# expression (no |, no \<, ...).
+Debug_tags.tmp Trace_tags.tmp:
+	$(AM_V_GEN)\
+	grep '\<$(@:_tags.tmp=) *( *\".*\" *)' \
+		`find @srcdir@/../ -name "*.cpp" -or -name "*.h" -or -name "*.cc" -or -name "*.g"` | \
+	sed 's/^$(@:_tags.tmp=) *( *\"\([^"]*\)\".*/\1/;s/.*[^a-zA-Z0-9_]$(@:_tags.tmp=) *( *\"\([^"]*\)\".*/\1/' | sort | uniq >"$@"
 
 if CVC4_CLN_IMP
 libutil_la_SOURCES += \
@@ -95,4 +140,40 @@ EXTRA_DIST = \
 	rational_gmp_imp.cpp \
 	rational.h.in \
 	integer.h.in \
-	tls.h.in
+	tls.h.in \
+	integer.i \
+	stats.i \
+	bool.i \
+	sexpr.i \
+	datatype.i \
+	output.i \
+	cardinality.i \
+	result.i \
+	configuration.i \
+	Assert.i \
+	bitvector.i \
+	subrange_bound.i \
+	exception.i \
+	language.i \
+	array.i \
+	options.i \
+	ascription_type.i \
+	rational.i \
+	pseudoboolean.i \
+	hash.i
+
+MOSTLYCLEANFILES = \
+	Debug_tags \
+	Trace_tags \
+	Debug_tags.tmp \
+	Trace_tags.tmp \
+	Debug_tags.h \
+	Trace_tags.h
+
+DISTCLEANFILES = \
+	integer.h.tmp \
+	rational.h.tmp \
+	tls.h.tmp \
+	integer.h \
+	rational.h \
+	tls.h

@@ -47,10 +47,16 @@ public:
   public:
     NotifyClass(TheoryUF& uf): d_uf(uf) {}
 
-    bool notifyEquality(TNode reason) {
-      Debug("uf") << "NotifyClass::notifyEquality(" << reason << ")" << std::endl;
+    bool notify(TNode propagation) {
+      Debug("uf") << "NotifyClass::notify(" << propagation << ")" << std::endl;
       // Just forward to uf
-      return d_uf.propagate(reason);
+      return d_uf.propagate(propagation);
+    }
+    
+    void notify(TNode t1, TNode t2) {
+      Debug("uf") << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
+      Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
+      d_uf.propagate(equality);
     }
   };
 
@@ -61,9 +67,6 @@ private:
 
   /** Equaltity engine */
   EqualityEngine<NotifyClass> d_equalityEngine;
-
-  /** All the literals known to be true */
-  context::CDSet<TNode, TNodeHashFunction> d_knownFacts;
 
   /** Are we in conflict */
   context::CDO<bool> d_conflict;
@@ -82,11 +85,13 @@ private:
   void explain(TNode literal, std::vector<TNode>& assumptions);
 
   /** Literals to propagate */
-  context::CDList<TNode> d_literalsToPropagate;
+  context::CDList<Node> d_literalsToPropagate;
 
   /** Index of the next literal to propagate */
   context::CDO<unsigned> d_literalsToPropagateIndex;
 
+  /** All the function terms that the theory has seen */
+  context::CDList<TNode> d_functionsTerms;
 
   /** True node for predicates = true */
   Node d_true;
@@ -100,14 +105,14 @@ private:
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-  TheoryUF(context::Context* ctxt, OutputChannel& out, Valuation valuation):
-    Theory(THEORY_UF, ctxt, out, valuation),
+  TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation):
+    Theory(THEORY_UF, c, u, out, valuation),
     d_notify(*this),
-    d_equalityEngine(d_notify, ctxt, "theory::uf::TheoryUF"),
-    d_knownFacts(ctxt),
-    d_conflict(ctxt, false),
-    d_literalsToPropagate(ctxt),
-    d_literalsToPropagateIndex(ctxt, 0)
+    d_equalityEngine(d_notify, c, "theory::uf::TheoryUF"),
+    d_conflict(c, false),
+    d_literalsToPropagate(c),
+    d_literalsToPropagateIndex(c, 0),
+    d_functionsTerms(c)
   {
     // The kinds we are treating as function application in congruence
     d_equalityEngine.addFunctionKind(kind::APPLY_UF);
@@ -124,10 +129,15 @@ public:
   void check(Effort);
   void propagate(Effort);
   void preRegisterTerm(TNode term);
-  void explain(TNode n);
+  Node explain(TNode n);
 
   void staticLearning(TNode in, NodeBuilder<>& learned);
   void presolve();
+
+  void addSharedTerm(TNode n);
+  void computeCareGraph(CareGraph& careGraph);
+
+  EqualityStatus getEqualityStatus(TNode a, TNode b);
 
   std::string identify() const {
     return "THEORY_UF";

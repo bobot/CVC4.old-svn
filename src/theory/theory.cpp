@@ -55,5 +55,35 @@ Instantiator* Theory::getInstantiator(){
   return d_instEngine ? d_instEngine->getInstantiator( this ) : NULL;
 }
 
+void Theory::addSharedTermInternal(TNode n) {
+  Debug("sharing") << "Theory::addSharedTerm<" << getId() << ">(" << n << ")" << std::endl;
+  d_sharedTerms.push_back(n);
+  addSharedTerm(n);
+}
+
+void Theory::computeCareGraph(CareGraph& careGraph) {
+  for (; d_sharedTermsIndex < d_sharedTerms.size(); d_sharedTermsIndex = d_sharedTermsIndex + 1) {
+    TNode a = d_sharedTerms[d_sharedTermsIndex];
+    TypeNode aType = a.getType();
+    for (unsigned i = 0; i < d_sharedTermsIndex; ++ i) {
+      TNode b = d_sharedTerms[i];
+      if (b.getType() != aType) {
+        // We don't care about the terms of different types
+        continue;
+      }
+      switch (getEqualityStatus(a, b)) {
+      case EQUALITY_TRUE_AND_PROPAGATED:
+      case EQUALITY_FALSE_AND_PROPAGATED:
+  	// If we know about it, we should have propagated it, so we can skip
+  	break;
+      default:
+  	// Let's split on it
+  	careGraph.push_back(CarePair(a, b, getId()));
+  	break;
+      }
+    }  
+  }
+}
+
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

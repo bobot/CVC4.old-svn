@@ -17,6 +17,8 @@
  ** from the Theory kinds files.
  **/
 
+#include "cvc4_private.h"
+
 #pragma once
 
 #include "theory/rewriter.h"
@@ -38,6 +40,14 @@ ${pre_rewrite_calls}
 RewriteResponse Rewriter::callPostRewrite(theory::TheoryId theoryId, TNode node) {
   switch(theoryId) {
 ${post_rewrite_calls}
+  default:
+    Unreachable();
+  }
+}
+
+Node Rewriter::callRewriteEquality(theory::TheoryId theoryId, TNode node) {
+  switch(theoryId) {
+${rewrite_equality_calls}
   default:
     Unreachable();
   }

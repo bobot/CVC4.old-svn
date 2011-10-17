@@ -71,30 +71,23 @@ public:
 
   void safePoint()  throw(Interrupted, AssertionException) {}
 
-  void conflict(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException) {
+  void conflict(TNode n)
+    throw(AssertionException) {
     push(CONFLICT, n);
   }
 
-  void propagate(TNode n, bool safe = false)
-    throw(Interrupted, AssertionException) {
+  void propagate(TNode n)
+    throw(AssertionException) {
     push(PROPAGATE, n);
   }
 
-  void lemma(TNode n, bool safe = false) throw(Interrupted, AssertionException) {
+  void lemma(TNode n, bool removable) throw(AssertionException) {
     push(LEMMA, n);
-  }
-  void augmentingLemma(TNode n, bool safe = false) throw(Interrupted, AssertionException){
-    push(AUG_LEMMA, n);
   }
   void requirePhase(TNode, bool, bool = false) throw(Interrupted, AssertionException) { }
   void dependentDecision(TNode, TNode, bool = false) throw(Interrupted, AssertionException) { }
   bool flipDecision(bool = false) throw(Interrupted, AssertionException) { return true; }
-  void explanation(TNode n, bool safe = false)  throw(Interrupted, AssertionException) {
-    push(EXPLANATION, n);
-  }
-
-  void setIncomplete() throw(Interrupted, AssertionException) {}
+  void setIncomplete() throw(AssertionException) {}
 
   void clear() {
     d_callHistory.clear();

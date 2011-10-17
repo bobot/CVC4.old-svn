@@ -43,17 +43,32 @@ CVC4_RELEASE_STRING=_CVC4_RELEASE_STRING
 # For guidance on when to change the version number, refer to the
 # developer's guide.
 
-CVC4_LIBRARY_VERSION=0:0:0
-CVC4_PARSER_LIBRARY_VERSION=0:0:0
-CVC4_COMPAT_LIBRARY_VERSION=0:0:0
-CVC4_BINDINGS_LIBRARY_VERSION=0:0:0
+m4_define([library_version], [m4_esyscmd([grep -F "$(grep -v '^#' library_versions | awk '{print$][1}' | sed 's,\\,\\\\\\,g' | (while read r; do if echo "]_CVC4_RELEASE_STRING[" | grep -q "^$r\$"; then echo "$r"; exit; fi; done; echo NO_MATCH_FOUND)) " library_versions | awk 'BEGIN {FS=":";OFS=":";RS=" "} /^$1:/ {print$][2,$][3,$][4}' | head -1])])
+
+m4_define(_CVC4_LIBRARY_VERSION, library_version([libcvc4]))dnl
+m4_define(_CVC4_PARSER_LIBRARY_VERSION, library_version([libcvc4parser]))dnl
+m4_define(_CVC4_COMPAT_LIBRARY_VERSION, library_version([libcvc4compat]))dnl
+m4_define(_CVC4_BINDINGS_LIBRARY_VERSION, library_version([libcvc4bindings]))dnl
+
+m4_define([fatal_error], [m4_errprint(__program__:__file__:__line__[: fatal error: $*
+])m4_exit(1)])dnl
+
+m4_ifblank(_CVC4_LIBRARY_VERSION,[fatal_error([no CVC4_LIBRARY_VERSION defined for release version "]_CVC4_RELEASE_STRING[" in library_versions file])])dnl
+m4_ifblank(_CVC4_PARSER_LIBRARY_VERSION,[fatal_error([no CVC4_PARSER_LIBRARY_VERSION defined for release version "]_CVC4_RELEASE_STRING[" in library_versions file])])dnl
+m4_ifblank(_CVC4_COMPAT_LIBRARY_VERSION,[fatal_error([no CVC4_COMPAT_LIBRARY_VERSION defined for release version "]_CVC4_RELEASE_STRING[" in library_versions file])])dnl
+m4_ifblank(_CVC4_BINDINGS_LIBRARY_VERSION,[fatal_error([no CVC4_BINDINGS_LIBRARY_VERSION defined for release version "]_CVC4_RELEASE_STRING[" in library_versions file])])dnl
+
+CVC4_LIBRARY_VERSION=_CVC4_LIBRARY_VERSION
+CVC4_PARSER_LIBRARY_VERSION=_CVC4_PARSER_LIBRARY_VERSION
+CVC4_COMPAT_LIBRARY_VERSION=_CVC4_COMPAT_LIBRARY_VERSION
+CVC4_BINDINGS_LIBRARY_VERSION=_CVC4_BINDINGS_LIBRARY_VERSION
 
 # Using the AC_CANONICAL_* macros destroy the command line you get
 # from $@, which we want later for determining the build profile.  So
 # we save it.  (We can't do our build profile stuff here, or it's not
 # included in the output... autoconf overrides us on the orderings of
 # some things.)
-config_cmdline="$@"
+config_cmdline=("$@")
 
 # remember if the user set these explicitly (or whether autoconf does)
 user_specified_enable_or_disable_static=${enable_static+yes}
@@ -310,8 +325,8 @@ elif test "$CVC4_CONFIGURE_AT_TOP_LEVEL" = yes; then
   $as_echo "cd builds/$target/$build_type"
   cd "builds/$target/$build_type"
   CVC4_CONFIGURE_IN_BUILDS=yes; export CVC4_CONFIGURE_IN_BUILDS
-  $as_echo "../../../configure $config_cmdline"
-  `pwd`/../../../configure $config_cmdline
+  echo "../../../configure ${config_cmdline[[@]]}"
+  `pwd`/../../../configure "${config_cmdline[[@]]}"
   exitval=$?
   cd ../../..
   if test $exitval -eq 0; then
@@ -637,6 +652,9 @@ fi
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
+CVC4_CXX_OPTION([-Wno-conversion-null], [WNO_CONVERSION_NULL])
+AC_SUBST([WNO_CONVERSION_NULL])
+
 # Doxygen configuration
 AC_ARG_ENABLE([internals-documentation],
   [AS_HELP_STRING([--enable-internals-documentation],
@@ -730,6 +748,20 @@ if test -n "$CXXTEST"; then
   fi
 fi
 
+AC_ARG_VAR(PYTHON, [PYTHON interpreter (used for building legacy Java library interface)])
+
+if test -z "$PYTHON"; then
+  AC_CHECK_PROGS(PYTHON, python, python, [])
+else
+  AC_CHECK_PROG(PYTHON, "$PYTHON", "$PYTHON", [])
+fi
+
+if test -z "$PYTHON"; then
+  AC_MSG_WARN([python not found, cannot build libcvc4compat_java (the legacy Java interface).])
+  CXXTESTGEN=
+  CXXTEST=
+fi
+
 # Checks for libraries.
 AC_CHECK_LIB(z, gzread, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
 AC_CHECK_HEADER(zlib.h, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
@@ -752,7 +784,7 @@ AC_LIB_ANTLR
 # build support.  The arg list is the default set if unspecified by
 # the user (the actual built set is the subset that appears to be
 # supported by the build host).
-CVC4_CHECK_BINDINGS dnl ([java csharp perl php python ruby tcl ocaml])
+CVC4_CHECK_BINDINGS([c java])dnl csharp perl php python ruby tcl ocaml])
 
 # Checks for header files.
 AC_CHECK_HEADERS([getopt.h unistd.h])
@@ -820,6 +852,36 @@ else
   AC_MSG_RESULT([no (user didn't request it)])
 fi
 
+# Java
+AC_ARG_VAR(JAVA, [Java interpreter (used when testing Java interface)])
+AC_ARG_VAR(JAVAC, [Java compiler (used when building and testing Java interface)])
+AC_ARG_VAR(JAVAH, [Java compiler (used when building and testing Java interface)])
+AC_ARG_VAR(JAR, [Jar archiver (used when building Java interface)])
+if test "$cvc4_build_java_bindings"; then
+  dnl AM_PROG_GCJ
+  if test -z "$JAVA"; then
+    AC_CHECK_PROGS(JAVA, java, java, [])
+  else
+    AC_CHECK_PROG(JAVA, "$JAVA", "$JAVA", [])
+  fi
+  if test -z "$JAVAC"; then
+    AC_CHECK_PROGS(JAVAC, javac gcj, javac, [])
+    if test "$JAVAC" = gcj; then JAVAC='gcj -C'; fi
+  else
+    AC_CHECK_PROG(JAVAC, "$JAVAC", "$JAVAC", [])
+  fi
+  if test -z "$JAVAH"; then
+    AC_CHECK_PROGS(JAVAH, javah gcjh, javah, [])
+  else
+    AC_CHECK_PROG(JAVAH, "$JAVAH", "$JAVAH", [])
+  fi
+  if test -z "$JAR"; then
+    AC_CHECK_PROGS(JAR, jar, jar, [])
+  else
+    AC_CHECK_PROG(JAR, "$JAR", "$JAR", [])
+  fi
+fi
+
 # Prepare configure output
 
 if test "$enable_shared" = yes; then BUILDING_SHARED=1; else BUILDING_SHARED=0; fi
@@ -830,6 +892,9 @@ AC_SUBST(BUILDING_STATIC)
 AC_SUBST(STATIC_BINARY)
 AM_CONDITIONAL([STATIC_BINARY], [test "$enable_static_binary" = yes])
 AM_CONDITIONAL([COVERAGE_ENABLED], [test "$enable_coverage" = yes])
+
+AM_CONDITIONAL([CVC4_DEBUG], [test "$with_build" = debug])
+AM_CONDITIONAL([CVC4_TRACING], [test "$enable_tracing" = yes])
 
 AC_SUBST(CVC4_LIBRARY_VERSION)
 AC_SUBST(CVC4_PARSER_LIBRARY_VERSION)
@@ -888,7 +953,7 @@ AC_SUBST(MAN_DATE)
 AC_CONFIG_FILES([
   Makefile.builds
   Makefile]
-  m4_esyscmd([find contrib lib src test -name Makefile.am | sort | sed 's,\.am$,,'])
+  m4_esyscmd([find contrib src test examples -name Makefile.am | sort | sed 's,\.am$,,'])
 )
 
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])

@@ -166,7 +166,7 @@ private:
   SimplexDecisionProcedure d_simplex;
 
 public:
-  TheoryArith(context::Context* c, OutputChannel& out, Valuation valuation);
+  TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
   virtual ~TheoryArith();
 
   /**
@@ -176,7 +176,7 @@ public:
 
   void check(Effort e);
   void propagate(Effort e);
-  void explain(TNode n);
+  Node explain(TNode n);
 
   void notifyEq(TNode lhs, TNode rhs);
 
@@ -191,6 +191,8 @@ public:
   void staticLearning(TNode in, NodeBuilder<>& learned);
 
   std::string identify() const { return std::string("TheoryArith"); }
+
+  EqualityStatus getEqualityStatus(TNode a, TNode b);
 
 private:
   /** The constant zero. */

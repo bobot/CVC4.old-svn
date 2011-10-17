@@ -45,8 +45,6 @@ class ExprManager;
 
 class CVC4_PUBLIC Stat;
 
-inline std::ostream& operator<<(std::ostream& os, const ::timespec& t);
-
 /**
  * The main statistics registry.  This registry maintains the list of
  * currently active statistics and is able to "flush" them all.
@@ -212,7 +210,7 @@ public:
     return ss.str();
   }
 
-};/* class DataStat<T> */
+};/* class ReadOnlyDataStat<T> */
 
 
 /**
@@ -546,11 +544,11 @@ public:
 };/* class ListStat */
 
 /****************************************************************************/
-/* Some utility functions for ::timespec                                    */
+/* Some utility functions for timespec                                    */
 /****************************************************************************/
 
 /** Compute the sum of two timespecs. */
-inline ::timespec& operator+=(::timespec& a, const ::timespec& b) {
+inline timespec& operator+=(timespec& a, const timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   const long nsec_per_sec = 1000000000L; // one thousand million
   Assert(a.tv_nsec >= 0 && a.tv_nsec < nsec_per_sec);
@@ -572,7 +570,7 @@ inline ::timespec& operator+=(::timespec& a, const ::timespec& b) {
 }
 
 /** Compute the difference of two timespecs. */
-inline ::timespec& operator-=(::timespec& a, const ::timespec& b) {
+inline timespec& operator-=(timespec& a, const timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   const long nsec_per_sec = 1000000000L; // one thousand million
   Assert(a.tv_nsec >= 0 && a.tv_nsec < nsec_per_sec);
@@ -593,109 +591,91 @@ inline ::timespec& operator-=(::timespec& a, const ::timespec& b) {
 }
 
 /** Add two timespecs. */
-inline ::timespec operator+(const ::timespec& a, const ::timespec& b) {
-  ::timespec result = a;
+inline timespec operator+(const timespec& a, const timespec& b) {
+  timespec result = a;
   return result += b;
 }
 
 /** Subtract two timespecs. */
-inline ::timespec operator-(const ::timespec& a, const ::timespec& b) {
-  ::timespec result = a;
+inline timespec operator-(const timespec& a, const timespec& b) {
+  timespec result = a;
   return result -= b;
 }
 
 /** Compare two timespecs for equality. */
-inline bool operator==(const ::timespec& a, const ::timespec& b) {
+inline bool operator==(const timespec& a, const timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   return a.tv_sec == b.tv_sec && a.tv_nsec == b.tv_nsec;
 }
 
 /** Compare two timespecs for disequality. */
-inline bool operator!=(const ::timespec& a, const ::timespec& b) {
+inline bool operator!=(const timespec& a, const timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   return !(a == b);
 }
 
 /** Compare two timespecs, returning true iff a < b. */
-inline bool operator<(const ::timespec& a, const ::timespec& b) {
+inline bool operator<(const timespec& a, const timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   return a.tv_sec < b.tv_sec ||
     (a.tv_sec == b.tv_sec && a.tv_nsec < b.tv_nsec);
 }
 
 /** Compare two timespecs, returning true iff a > b. */
-inline bool operator>(const ::timespec& a, const ::timespec& b) {
+inline bool operator>(const timespec& a, const timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   return a.tv_sec > b.tv_sec ||
     (a.tv_sec == b.tv_sec && a.tv_nsec > b.tv_nsec);
 }
 
 /** Compare two timespecs, returning true iff a <= b. */
-inline bool operator<=(const ::timespec& a, const ::timespec& b) {
+inline bool operator<=(const timespec& a, const timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   return !(a > b);
 }
 
 /** Compare two timespecs, returning true iff a >= b. */
-inline bool operator>=(const ::timespec& a, const ::timespec& b) {
+inline bool operator>=(const timespec& a, const timespec& b) {
   // assumes a.tv_nsec and b.tv_nsec are in range
   return !(a < b);
 }
 
 /** Output a timespec on an output stream. */
-inline std::ostream& operator<<(std::ostream& os, const ::timespec& t) {
+inline std::ostream& operator<<(std::ostream& os, const timespec& t) CVC4_PUBLIC;
+inline std::ostream& operator<<(std::ostream& os, const timespec& t) {
   // assumes t.tv_nsec is in range
   return os << t.tv_sec << "."
             << std::setfill('0') << std::setw(8) << std::right << t.tv_nsec;
 }
 
+class CVC4_PUBLIC CodeTimer;
 
 /**
  * A timer statistic.  The timer can be started and stopped
  * arbitrarily, like a stopwatch; the value of the statistic at the
  * end is the accumulated time over all (start,stop) pairs.
  */
-class CVC4_PUBLIC TimerStat : public BackedStat< ::timespec > {
+class CVC4_PUBLIC TimerStat : public BackedStat< timespec > {
 
   // strange: timespec isn't placed in 'std' namespace ?!
   /** The last start time of this timer */
-  ::timespec d_start;
+  timespec d_start;
 
   /** Whether this timer is currently running */
   bool d_running;
 
 public:
 
-  /**
-   * Utility class to make it easier to call stop() at the end of a
-   * code block.  When constructed, it starts the timer.  When
-   * destructed, it stops the timer.
-   */
-  class CodeTimer {
-    TimerStat& d_timer;
-
-    /** Private copy constructor undefined (no copy permitted). */
-    CodeTimer(const CodeTimer& timer) CVC4_UNDEFINED;
-    /** Private assignment operator undefined (no copy permitted). */
-    CodeTimer& operator=(const CodeTimer& timer) CVC4_UNDEFINED;
-
-  public:
-    CodeTimer(TimerStat& timer) : d_timer(timer) {
-      d_timer.start();
-    }
-    ~CodeTimer() {
-      d_timer.stop();
-    }
-  };/* class TimerStat::CodeTimer */
+  typedef CVC4::CodeTimer CodeTimer;
 
   /**
    * Construct a timer statistic with the given name.  Newly-constructed
    * timers have a 0.0 value and are not running.
    */
   TimerStat(const std::string& name) :
-    BackedStat< ::timespec >(name, ::timespec()),
+    BackedStat< timespec >(name, timespec()),
     d_running(false) {
-    /* ::timespec is POD and so may not be initialized to zero;
+    /* timespec is POD and so may not be initialized to zero;
      * here, ensure it is */
     d_data.tv_sec = d_data.tv_nsec = 0;
   }
@@ -710,6 +690,29 @@ public:
   void stop();
 
 };/* class TimerStat */
+
+
+/**
+ * Utility class to make it easier to call stop() at the end of a
+ * code block.  When constructed, it starts the timer.  When
+ * destructed, it stops the timer.
+ */
+class CVC4_PUBLIC CodeTimer {
+  TimerStat& d_timer;
+
+  /** Private copy constructor undefined (no copy permitted). */
+  CodeTimer(const CodeTimer& timer) CVC4_UNDEFINED;
+  /** Private assignment operator undefined (no copy permitted). */
+  CodeTimer& operator=(const CodeTimer& timer) CVC4_UNDEFINED;
+
+public:
+  CodeTimer(TimerStat& timer) : d_timer(timer) {
+    d_timer.start();
+  }
+  ~CodeTimer() {
+    d_timer.stop();
+  }
+};/* class CodeTimer */
 
 
 /**

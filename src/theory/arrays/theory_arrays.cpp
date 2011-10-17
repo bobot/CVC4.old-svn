@@ -32,8 +32,8 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arrays;
 
 
-TheoryArrays::TheoryArrays(Context* c, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_ARRAY, c, out, valuation),
+TheoryArrays::TheoryArrays(Context* c, UserContext* u, OutputChannel& out, Valuation valuation) :
+  Theory(THEORY_ARRAY, c, u, out, valuation),
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
@@ -118,7 +118,7 @@ void TheoryArrays::check(Effort e) {
         // which can lead to a conflict
         Node conflict = constructConflict(d_conflict);
         d_conflict = Node::null();
-        d_out->conflict(conflict, false);
+        d_out->conflict(conflict);
         return;
       }
       merge(assertion[0], assertion[1]);
@@ -139,13 +139,13 @@ void TheoryArrays::check(Effort e) {
         // after addTerm since we weren't watching a or b before
         Node conflict = constructConflict(d_conflict);
         d_conflict = Node::null();
-        d_out->conflict(conflict, false);
+        d_out->conflict(conflict);
         return;
       }
       else if(find(a) == find(b)) {
         Node conflict = constructConflict(assertion[0]);
         d_conflict = Node::null();
-        d_out->conflict(conflict, false);
+        d_out->conflict(conflict);
         return;
         }
       Assert(!d_cc.areCongruent(a,b));
@@ -384,7 +384,7 @@ Node TheoryArrays::recursivePreprocessTerm(TNode term) {
 
 Node TheoryArrays::preprocess(TNode atom) {
   if (d_donePreregister) return atom;
-  Assert(atom.getKind() == kind::EQUAL);
+  Assert(atom.getKind() == kind::EQUAL, "expected EQUAL, got %s", atom.toString().c_str());
   return recursivePreprocessTerm(atom);
 }
 
@@ -764,7 +764,7 @@ bool TheoryArrays::isRedundantInContext(TNode a, TNode b, TNode i, TNode j) {
       nb << literal1.notNode() << literal2.notNode();
       literal1 = nb;
       d_conflict = Node::null();
-      d_out->conflict(literal1, false);
+      d_out->conflict(literal1);
       Trace("arrays") << "TheoryArrays::isRedundantInContext() "
                       << "conflict via lemma: " << literal1 << endl;
       return true;
@@ -870,7 +870,7 @@ bool TheoryArrays::propagateFromRow(TNode a, TNode b, TNode i, TNode j) {
   return false;
 }
 
-void TheoryArrays::explain(TNode n) {
+Node TheoryArrays::explain(TNode n) {
 
 
   Trace("arrays")<<"Arrays::explain start for "<<n<<"\n";
@@ -901,7 +901,7 @@ void TheoryArrays::explain(TNode n) {
   }
   Node reason = nb;
 
-  d_out->explanation(reason);
+  return reason;
 
   /*
   context::CDMap<TNode, std::pair<TNode, TNode>, TNodeHashFunction>::const_iterator

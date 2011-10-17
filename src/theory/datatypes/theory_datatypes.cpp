@@ -53,8 +53,8 @@ Node TheoryDatatypes::getConstructorForSelector( Node sel )
 }
 
 
-TheoryDatatypes::TheoryDatatypes(Context* c, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_DATATYPES, c, out, valuation),
+TheoryDatatypes::TheoryDatatypes(Context* c, UserContext* u, OutputChannel& out, Valuation valuation) :
+  Theory(THEORY_DATATYPES, c, u, out, valuation),
   d_currAsserts(c),
   d_currEqualities(c),
   d_selectors(c),
@@ -223,7 +223,7 @@ void TheoryDatatypes::check(Effort e) {
       //if( conflict.getKind()!=kind::AND ){
       //  conflict = NodeManager::currentNM()->mkNode(kind::AND, conflict, conflict);
       //}
-      d_out->conflict( conflict, false );
+      d_out->conflict(conflict);
       return;
     }
   }

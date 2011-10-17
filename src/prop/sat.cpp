@@ -38,16 +38,12 @@ void SatSolver::theoryCheck(theory::Theory::Effort effort) {
 }
 
 void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
-  // Propagate
-  d_theoryEngine->propagate();
   // Get the propagated literals
-  const std::vector<TNode>& outputNodes = d_theoryEngine->getPropagatedLiterals();
-  // If any literals, make a clause
-  const unsigned i_end = outputNodes.size();
-  for (unsigned i = 0; i < i_end; ++ i) {
+  std::vector<TNode> outputNodes;
+  d_theoryEngine->getPropagatedLiterals(outputNodes);
+  for (unsigned i = 0, i_end = outputNodes.size(); i < i_end; ++ i) {
     Debug("prop-explain") << "theoryPropagate() => " << outputNodes[i].toString() << std::endl;
-    SatLiteral l = d_cnfStream->getLiteral(outputNodes[i]);
-    output.push_back(l);
+    output.push_back(d_cnfStream->getLiteral(outputNodes[i]));
   }
 }
 
@@ -67,10 +63,6 @@ void SatSolver::explainPropagation(SatLiteral l, SatClause& explanation) {
     explanation.push(l);
     explanation.push(~d_cnfStream->getLiteral(theoryExplanation));
   }
-}
-
-void SatSolver::clearPropagatedLiterals() {
-  d_theoryEngine->clearPropagatedLiterals();
 }
 
 void SatSolver::enqueueTheoryLiteral(const SatLiteral& l) {
@@ -93,6 +85,7 @@ TNode SatSolver::getNode(SatLiteral lit) {
 }
 
 void SatSolver::notifyRestart() {
+  d_propEngine->checkTime();
   d_theoryEngine->notifyRestart();
 }
 
@@ -134,6 +127,10 @@ void SatSolver::dependentDecision(SatVariable dep, SatVariable dec) {
 bool SatSolver::flipDecision() {
   Debug("minisat") << "flipDecision()" << endl;
   return d_minisat->flipDecision();
+}
+
+void SatSolver::checkTime() {
+  d_propEngine->checkTime();
 }
 
 }/* CVC4::prop namespace */

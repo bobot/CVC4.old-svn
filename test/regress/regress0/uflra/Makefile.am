@@ -7,6 +7,10 @@ MAKEFLAGS = -k
 
 # Regression tests for SMT inputs
 SMT_TESTS = \
+	simple.01.cvc \
+	simple.02.cvc \
+	simple.03.cvc \
+	simple.04.cvc \
 	pb_real_10_0100_10_10.smt \
 	pb_real_10_0100_10_11.smt \
 	pb_real_10_0100_10_15.smt \
@@ -14,7 +18,7 @@ SMT_TESTS = \
 	pb_real_10_0100_10_19.smt \
 	pb_real_10_0200_10_22.smt \
 	pb_real_10_0200_10_26.smt \
-	pb_real_10_0200_10_29.smt
+	pb_real_10_0200_10_29.smt 
 
 # Regression tests for SMT2 inputs
 SMT2_TESTS =

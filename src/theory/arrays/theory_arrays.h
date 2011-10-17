@@ -364,7 +364,7 @@ private:
   Node recursivePreprocessTerm(TNode term);
 
 public:
-  TheoryArrays(context::Context* c, OutputChannel& out, Valuation valuation);
+  TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
   ~TheoryArrays();
 
   /**
@@ -476,7 +476,7 @@ public:
     */
 
   }
-  void explain(TNode n);
+  Node explain(TNode n);
 
   Node getValue(TNode n);
   SolveStatus solve(TNode in, SubstitutionMap& outSubstitutions);

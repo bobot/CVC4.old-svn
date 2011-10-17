@@ -6,11 +6,19 @@ AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I config
 
 SUBDIRS = src test contrib
+DIST_SUBDIRS = $(SUBDIRS) examples
+
+.PHONY: examples
+examples: all
+	(cd examples && $(MAKE) $(AM_MAKEFLAGS))
 
 .PHONY: units systemtests regress regress0 regress1 regress2 regress3
 systemtests regress regress0 regress1 regress2 regress3: all
 	+(cd test && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1
-units: all
+# We descend into "src" with the "check" target here to ensure that
+# the test prerequisites are all built.
+units:
+	(cd src && $(MAKE) $(AM_MAKEFLAGS) check)
 	+(cd test && $(MAKE) $(AM_MAKEFLAGS) $@) || exit 1
 
 LCOV = lcov
@@ -29,7 +37,8 @@ if COVERAGE_ENABLED
 # work...)
 lcov: all
 	$(LCOV) -z -d .
-	+$(MAKE) check -C test/unit
+	(cd src && $(MAKE) $(AM_MAKEFLAGS) check)
+	+(cd test/unit && $(MAKE) $(AM_MAKEFLAGS) check)
 	$(LCOV) -c -d . -t cvc4_units -o cvc4-coverage-full.info
 	$(LCOV) -o cvc4-coverage.info -r cvc4-coverage-full.info $(LCOV_EXCLUDES)
 	mkdir -p "@top_srcdir@/html"
@@ -40,7 +49,8 @@ lcov: all
 
 lcov-all: all
 	$(LCOV) -z -d .
-	+$(MAKE) check -C test
+	(cd src && $(MAKE) $(AM_MAKEFLAGS) check)
+	+(cd test && $(MAKE) $(AM_MAKEFLAGS) check)
 	$(LCOV) -c -d . -t cvc4_units -o cvc4-coverage-full.info
 	$(LCOV) -o cvc4-coverage.info -r cvc4-coverage-full.info $(LCOV_EXCLUDES)
 	mkdir -p "@top_srcdir@/html"
@@ -57,8 +67,10 @@ lcov18: all
 		echo; echo "=== Collecting coverage data from $$testtype unit tests ==="; \
 		echo $(LCOV) -z -d .; \
 		$(LCOV) -z -d . || exit 1; \
-		echo $(MAKE) check -C test/unit TEST_SUFFIX=_$$testtype || exit 1; \
-		$(MAKE) check -C test/unit TEST_SUFFIX=_$$testtype || exit 1; \
+		echo "(cd src && $(MAKE) $(AM_MAKEFLAGS) check) || exit 1"; \
+		(cd src && $(MAKE) $(AM_MAKEFLAGS) check) || exit 1; \
+		echo "(cd test/unit && $(MAKE) $(AM_MAKEFLAGS) check TEST_SUFFIX=_$$testtype) || exit 1"; \
+		(cd test/unit && $(MAKE) $(AM_MAKEFLAGS) check TEST_SUFFIX=_$$testtype) || exit 1; \
 		echo $(LCOV) -c -d . -t $$testtype -o cvc4-coverage-$$testtype-full.info || exit 1; \
 		$(LCOV) -c -d . -t $$testtype -o cvc4-coverage-$$testtype-full.info || exit 1; \
 		echo $(LCOV) -o cvc4-coverage-$$testtype.info -r cvc4-coverage-$$testtype-full.info $(LCOV_EXCLUDES); \
@@ -88,6 +100,7 @@ endif
 EXTRA_DIST = \
 	Makefile.builds.in \
 	Makefile.subdir \
+	library_versions \
 	config/build-type \
 	config/mkbuilddir \
 	config/doxygen.cfg \

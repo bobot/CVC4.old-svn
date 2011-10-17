@@ -60,8 +60,8 @@ static const uint32_t RESET_START = 2;
 struct SlackAttrID;
 typedef expr::Attribute<SlackAttrID, bool> Slack;
 
-TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_ARITH, c, out, valuation),
+TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
+  Theory(THEORY_ARITH, c, u, out, valuation),
   learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
   d_partialModel(c),
@@ -69,6 +69,7 @@ TheoryArith::TheoryArith(context::Context* c, OutputChannel& out, Valuation valu
   d_diseq(c),
   d_tableau(),
   d_diosolver(c, d_tableau, d_partialModel),
+  d_pbSubstitutions(u),
   d_restartsCounter(0),
   d_rowHasBeenAdded(false),
   d_tableauResetDensity(1.6),
@@ -287,13 +288,13 @@ void TheoryArith::preRegisterTerm(TNode n) {
     d_out->setIncomplete();
   }
 
-  if(Variable::isMember(n) || isStrictlyVarList){
+  if((Variable::isMember(n) || isStrictlyVarList) && !d_arithvarNodeMap.hasArithVar(n)){
     ++(d_statistics.d_statUserVariables);
     ArithVar varN = requestArithVar(n,false);
     setupInitialValue(varN);
   }
 
-  if(isRelationOperator(k)){
+  if(isRelationOperator(k) && (!d_atomDatabase.leftIsSetup(n[0]) || !d_atomDatabase.containsAtom(n))) {
     Assert(Comparison::isNormalAtom(n));
 
     d_atomDatabase.addAtom(n);
@@ -793,12 +794,10 @@ void TheoryArith::debugPrintModel(){
   }
 }
 
-void TheoryArith::explain(TNode n) {
+Node TheoryArith::explain(TNode n) {
   Debug("explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
-
   Assert(d_propManager.isPropagated(n));
-  Node explanation = d_propManager.explain(n);
-  d_out->explanation(explanation, true);
+  return d_propManager.explain(n);
 }
 
 void TheoryArith::propagate(Effort e) {
@@ -1044,7 +1043,17 @@ void TheoryArith::presolve(){
   check(FULL_EFFORT);
 }
 
+EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
+  if (getValue(a) == getValue(b)) {
+    return EQUALITY_TRUE_IN_MODEL;
+  } else {
+    return EQUALITY_FALSE_IN_MODEL;
+  }
+
+}
+
 Instantiator* TheoryArith::makeInstantiator(){
   Debug("quant-arith") << "Make Arith instantiator" << endl;
   return new InstantiatorTheoryArith( getContext(), d_instEngine, this );
 }
+

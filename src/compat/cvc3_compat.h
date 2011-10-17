@@ -60,19 +60,21 @@
 #include "util/exception.h"
 #include "util/hash.h"
 
+#include "parser/parser.h"
+
 #include <stdlib.h>
 #include <map>
 #include <utility>
 
 // some #defines that CVC3 exported to userspace :(
 #ifdef CVC4_DEBUG
-#  define DebugAssert(cond, ...) Assert(cond, "CVC3-style assertion failed");
+#  define DebugAssert(cond, str) Assert((cond), "CVC3-style assertion failed: %s", std::string(str).c_str());
 #  define IF_DEBUG(x) x
 #else
 #  define DebugAssert(...)
 #  define IF_DEBUG(x)
 #endif
-#define FatalAssert(cond, ...) AlwaysAssert(cond, "CVC3-style assertion failed");
+#define FatalAssert(cond, str) AlwaysAssert((cond), "CVC3-style assertion failed: %s", std::string(str).c_str());
 
 //class CInterface;
 
@@ -228,8 +230,8 @@ class Proof {};
 
 using CVC4::ExprManager;
 using CVC4::InputLanguage;
-using CVC4::Rational;
 using CVC4::Integer;
+using CVC4::Rational;
 using CVC4::Exception;
 using CVC4::Cardinality;
 using namespace CVC4::kind;
@@ -299,6 +301,9 @@ public:
 
 };/* class CVC3::Type */
 
+class Expr;
+typedef Expr Op;
+
 /**
  * Expr class for CVC3 compatibility layer.
  *
@@ -341,6 +346,11 @@ public:
   bool isTrue() const;
   bool isBoolConst() const;
   bool isVar() const;
+  bool isString() const;
+  bool isApply() const;
+  bool isTheorem() const;
+  bool isConstant() const;
+  bool isRawList() const;
 
   bool isEq() const;
   bool isNot() const;
@@ -353,6 +363,14 @@ public:
 
   bool isRational() const;
   bool isSkolem() const;
+
+  Rational getRational() const;
+
+  Op mkOp() const;
+  Op getOp() const;
+  Expr getOpExpr() const;
+  int getOpKind() const;
+  Expr getExpr() const;// since people are used to doing getOp().getExpr() in CVC3
 
   //! Get the manual triggers of the closure Expr
   std::vector< std::vector<Expr> > getTriggers() const;
@@ -389,7 +407,6 @@ public:
 
 };/* class CVC3::Expr */
 
-typedef Expr Op;
 typedef CVC4::StatisticsRegistry Statistics;
 
 #define PRESENTATION_LANG ::CVC4::language::input::LANG_CVC4
@@ -413,6 +430,7 @@ typedef enum QueryResult {
 } QueryResult;
 
 std::ostream& operator<<(std::ostream& out, QueryResult qr);
+std::string QueryResultToString(QueryResult query_result);
 
 /*****************************************************************************/
 /*
@@ -443,10 +461,14 @@ std::ostream& operator<<(std::ostream& out, FormulaValue fv);
 class CVC4_PUBLIC ValidityChecker {
 
   CLFlags* d_clflags;
-  CVC4::ExprManager d_em;
-  CVC4::SmtEngine d_smt;
+  CVC4::Options d_options;
+  CVC4::ExprManager* d_em;
+  CVC4::SmtEngine* d_smt;
+  CVC4::parser::Parser* d_parserContext;
 
   ValidityChecker(const CLFlags& clflags);
+
+  void setUpOptions(CVC4::Options& options, const CLFlags& clflags);
 
 public:
   //! Constructor
@@ -729,7 +751,11 @@ public:
                               InputLanguage lang = PRESENTATION_LANG);
 
   //! Parse an expression from a presentation language string
-  virtual Expr exprFromString(const std::string& e);
+  /*! Only PRESENTATION_LANG and SMTLIB_V2_LANG are supported. Any other
+   *  value for lang will raise an exception.
+   */
+  virtual Expr exprFromString(const std::string& e,
+                              InputLanguage lang = PRESENTATION_LANG);
 
   /*@}*/ // End of General Expr Methods
 
@@ -1458,6 +1484,9 @@ template <class T>
 void ExprHashMap<T>::insert(Expr a, Expr b) {
   (*this)[a] = b;
 }
+
+// Comparison (the way that CVC3 does it)
+int compare(const Expr& e1, const Expr& e2);
 
 }/* CVC3 namespace */
 
