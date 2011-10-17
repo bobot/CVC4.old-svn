@@ -46,6 +46,7 @@ public:
   std::vector< Node > d_vars;
   std::vector< Node > d_match;
   bool d_computeVec;
+  std::map< Node, Node > d_splits;
 
   InstMatch(){}
   InstMatch( Node f, InstantiationEngine* ie );
@@ -55,7 +56,7 @@ public:
   virtual bool add( InstMatch& m );
   /** if compatible, fill all unfilled values with m and return true 
       return false otherwise */
-  virtual bool merge( InstMatch& m );
+  virtual bool merge( InstMatch& m, bool allowSplit = false );
   /** -1 : keep this, 1 : keep m, 0 : keep both */
   virtual int checkSubsume( InstMatch& m );
   /** return if d_maps are equivalent */
@@ -78,6 +79,8 @@ public:
   }
   /** get associated quantifier */
   Node getQuantifier() { return d_vars[0].getAttribute(InstConstantAttribute()); }
+  /** add split */
+  void addSplit( Node n1, Node n2 );
 };
 
 class InstMatchGroup

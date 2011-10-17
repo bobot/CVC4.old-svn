@@ -37,6 +37,7 @@ InstMatch::InstMatch( InstMatch* m ){
       setMatch( d_vars[i], m->d_map[ d_vars[i] ] );
     }
   }
+  d_splits = m->d_splits;
 }
 
 bool InstMatch::add( InstMatch& m ){
@@ -48,16 +49,26 @@ bool InstMatch::add( InstMatch& m ){
   return true;
 }
 
-bool InstMatch::merge( InstMatch& m ){
+bool InstMatch::merge( InstMatch& m, bool allowSplit ){
   for( int i=0; i<(int)d_vars.size(); i++ ){
     if( d_map[ d_vars[i] ]==Node::null() ){
       setMatch( d_vars[i], m.d_map[ d_vars[i] ] );
-    }else{
-      if( m.d_map[ d_vars[i] ]!=Node::null() &&
-          d_map[ d_vars[i] ]!=m.d_map[ d_vars[i] ] ){
-        d_map.clear();
-        return false;
+    }else if( m.d_map[ d_vars[i] ]!=Node::null() ){
+      if( d_map[ d_vars[i] ]!=m.d_map[ d_vars[i] ] ){
+        //split?
+        if( allowSplit ){
+          addSplit( d_map[ d_vars[i] ], m.d_map[ d_vars[i] ] );
+        }else{
+          d_map.clear();
+          return false;
+        }
       }
+    }
+  }
+  if( allowSplit ){
+    //also add splits
+    for( std::map< Node, Node >::iterator it = m.d_splits.begin(); it != m.d_splits.end(); ++it ){
+      addSplit( it->first, it->second );
     }
   }
   return true;
@@ -97,7 +108,14 @@ bool InstMatch::isEqual( InstMatch& m ){
 }
 void InstMatch::debugPrint( const char* c ){
   for( int i=0; i<(int)d_vars.size(); i++ ){
-    Debug( c )  << "   " << d_vars[i] << " -> " << d_map[ d_vars[i] ] << std::endl;
+    Debug( c ) << "   " << d_vars[i] << " -> " << d_map[ d_vars[i] ] << std::endl;
+  }
+  if( !d_splits.empty() ){
+    Debug( c ) << "   Conditions: ";
+    for( std::map< Node, Node >::iterator it = d_splits.begin(); it !=d_splits.end(); ++it ){
+      Debug( c ) << it->first << " = " << it->second << " ";
+    }
+    Debug( c ) << std::endl;
   }
 }
 bool InstMatch::isComplete( InstMatch* mbase ){
@@ -122,6 +140,21 @@ void InstMatch::computeTermVec(){
       }
     }
     d_computeVec = false;
+  }
+}
+
+void InstMatch::addSplit( Node n1, Node n2 ){
+  if( n2<n1 ){
+    Node ntemp = n1;
+    n1 = n2;
+    n2 = ntemp;
+  }
+  if( d_splits.find( n1 )!=d_splits.end() ){
+    if( d_splits[n1]!=n2 ){
+      addSplit( d_splits[n1], n2 );
+    }
+  }else{
+    d_splits[n1] = n2;
   }
 }
 
