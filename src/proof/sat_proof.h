@@ -155,7 +155,6 @@ protected:
    * @return 
    */
   ClauseId resolveUnit(Minisat::Lit lit);
-  ClauseId resolveRedundant(ResChain* res);
   /** 
    * Does a depth first search on removed literals and adds the literals
    * to be removed in the proper order to the stack. 
@@ -166,7 +165,6 @@ protected:
    */
   void removedDfs(Minisat::Lit lit, LitSet* removedSet, LitVector& removeStack, LitSet& inClause, LitSet& seen);
   void removeRedundantFromRes(ResChain* res, ClauseId id);
-  void resolveOutRedundant(ResChain* res, Minisat::CRef reason_ref, LitSet* removed, LitSet& inClause, LitSet& seen);
 public:
   void startResChain(Minisat::CRef start);
   void addResolutionStep(Minisat::Lit lit, Minisat::CRef clause, bool sign);
@@ -184,7 +182,7 @@ public:
    */
   void storeLitRedundant(Minisat::Lit lit);
 
-  /// update the CRef Id maps when Minisat does memory reallocation 
+  /// update the CRef Id maps when Minisat does memory reallocation x
   void updateCRef(Minisat::CRef old_ref, Minisat::CRef new_ref);
   void finishUpdateCRef();
   

@@ -378,32 +378,6 @@ void ResolutionProof::removedDfs(Lit lit, LitSet* removedSet, LitVector& removeS
   }
 }
 
-// FIXME: problem with the seen, too strict. Need to fix removing the same literal twice:
-
-
-// void ResolutionProof::resolveOutRedundant(ResChain* res, CRef reason_ref, LitSet* removed, LitSet& inClause, LitSet& seen) {
-//   Assert (reason_ref != CRef_Undef);
-  
-//   int size = d_solver->ca[reason_ref].size(); 
-//   for (int i = 1; i < size; ++i) {
-//     Lit v = d_solver->ca[reason_ref][i];
-//     if (removed->count(v) == 0 && inClause.count(v) == 0 && seen.count(v) == 0) {
-//       CRef cl_ref = d_solver->reason(var(v));
-//       if(cl_ref != CRef_Undef) {
-//         ClauseId cl_id = registerClause(cl_ref);
-//         res->addStep(v, cl_id, !sign(v));
-//         seen.insert(v); 
-//         resolveOutRedundant(res, cl_ref, removed, inClause, seen);
-//       } else {
-//         Assert(isUnit(~v));
-//         ClauseId cl_id = getUnitId(~v);
-//         res->addStep(v, cl_id, !sign(v));
-//         seen.insert(v); 
-//       }
-//     }
-    
-//   }
-// }
 
 void ResolutionProof::removeRedundantFromRes(ResChain* res, ClauseId id) {
   LitSet* removed = res->getRedundant();
@@ -445,9 +419,6 @@ void ResolutionProof::registerResolution(ClauseId id, ResChain* res) {
   d_resChains[id] = res;
   printRes(id); 
   if (d_checkRes) {
-    if (!checkResolution(id)) {
-      Debug("proof:sat") << "Failed resolution \n"; 
-    }
     Assert(checkResolution(id));
   }
 }
@@ -493,11 +464,6 @@ void ResolutionProof::storeLitRedundant(Lit lit) {
 }
 
 /// constructing resolutions 
-
-ClauseId ResolutionProof::resolveRedundant(ResChain* res) {
-  // TODO 
-  return d_nullId; 
-}
 
 void ResolutionProof::resolveOutUnit(Lit lit) {
   ClauseId id = resolveUnit(~lit);
