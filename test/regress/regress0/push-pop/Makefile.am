@@ -8,7 +8,11 @@ MAKEFLAGS = -k
 # put it below in "TESTS +="
 
 # Regression tests for SMT inputs
-CVC_TESTS = 
+CVC_TESTS = \
+	test.00.cvc \
+	test.01.cvc \
+	units.cvc \
+	incremental-subst-bug.cvc
 
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 

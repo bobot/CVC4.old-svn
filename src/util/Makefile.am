@@ -39,6 +39,7 @@ libutil_la_SOURCES = \
 	configuration.cpp \
 	bitvector.h \
 	ascription_type.h \
+	array.h \
 	datatype.h \
 	datatype.cpp \
 	matcher.h \
@@ -112,11 +113,14 @@ endif
 	diff -q "$^" "$@" &>/dev/null || mv "$^" "$@" || true
 # .PHONY ensures the .tmp version is always rebuilt (to check for any changes)
 .PHONY: Debug_tags.tmp Trace_tags.tmp
+# The "sed" invocation below is particularly obnoxious, but it works around
+# inconsistencies in REs on different platforms, using only a basic regular
+# expression (no |, no \<, ...).
 Debug_tags.tmp Trace_tags.tmp:
 	$(AM_V_GEN)\
 	grep '\<$(@:_tags.tmp=) *( *\".*\" *)' \
 		`find @srcdir@/../ -name "*.cpp" -or -name "*.h" -or -name "*.cc" -or -name "*.g"` | \
-	sed 's/.*\<$(@:_tags.tmp=) *( *\"\([^"]*\)\".*/\1/g' | sort | uniq >"$@"
+	sed 's/^$(@:_tags.tmp=) *( *\"\([^"]*\)\".*/\1/;s/.*[^a-zA-Z0-9_]$(@:_tags.tmp=) *( *\"\([^"]*\)\".*/\1/' | sort | uniq >"$@"
 
 if CVC4_CLN_IMP
 libutil_la_SOURCES += \
@@ -157,3 +161,19 @@ EXTRA_DIST = \
 	rational.i \
 	pseudoboolean.i \
 	hash.i
+
+MOSTLYCLEANFILES = \
+	Debug_tags \
+	Trace_tags \
+	Debug_tags.tmp \
+	Trace_tags.tmp \
+	Debug_tags.h \
+	Trace_tags.h
+
+DISTCLEANFILES = \
+	integer.h.tmp \
+	rational.h.tmp \
+	tls.h.tmp \
+	integer.h \
+	rational.h \
+	tls.h

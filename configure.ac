@@ -652,6 +652,9 @@ fi
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
+CVC4_CXX_OPTION([-Wno-conversion-null], [WNO_CONVERSION_NULL])
+AC_SUBST([WNO_CONVERSION_NULL])
+
 # Doxygen configuration
 AC_ARG_ENABLE([internals-documentation],
   [AS_HELP_STRING([--enable-internals-documentation],
@@ -781,7 +784,7 @@ AC_LIB_ANTLR
 # build support.  The arg list is the default set if unspecified by
 # the user (the actual built set is the subset that appears to be
 # supported by the build host).
-CVC4_CHECK_BINDINGS dnl ([java csharp perl php python ruby tcl ocaml])
+CVC4_CHECK_BINDINGS([c java])dnl csharp perl php python ruby tcl ocaml])
 
 # Checks for header files.
 AC_CHECK_HEADERS([getopt.h unistd.h])
@@ -854,7 +857,6 @@ AC_ARG_VAR(JAVA, [Java interpreter (used when testing Java interface)])
 AC_ARG_VAR(JAVAC, [Java compiler (used when building and testing Java interface)])
 AC_ARG_VAR(JAVAH, [Java compiler (used when building and testing Java interface)])
 AC_ARG_VAR(JAR, [Jar archiver (used when building Java interface)])
-AC_ARG_VAR(JAVA_INCLUDES, [flags to pass to C compiler when building JNI libraries])
 if test "$cvc4_build_java_bindings"; then
   dnl AM_PROG_GCJ
   if test -z "$JAVA"; then
@@ -951,7 +953,7 @@ AC_SUBST(MAN_DATE)
 AC_CONFIG_FILES([
   Makefile.builds
   Makefile]
-  m4_esyscmd([find contrib src test -name Makefile.am | sort | sed 's,\.am$,,'])
+  m4_esyscmd([find contrib src test examples -name Makefile.am | sort | sed 's,\.am$,,'])
 )
 
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])

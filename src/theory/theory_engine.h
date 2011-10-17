@@ -80,6 +80,9 @@ class TheoryEngine {
   /** Our context */
   context::Context* d_context;
 
+  /** Our user context */
+  context::UserContext* d_userContext;
+
   /**
    * A table of from theory IDs to theory pointers. Never use this table
    * directly, use theoryOf() instead.
@@ -206,6 +209,11 @@ class TheoryEngine {
     void setIncomplete() throw(AssertionException) {
       d_engine->setIncomplete(d_theory);
     }
+
+    void spendResource() throw() {
+      d_engine->spendResource();
+    }
+
   };/* class EngineOutputChannel */
 
   /**
@@ -220,7 +228,7 @@ class TheoryEngine {
 
   void conflict(TNode conflict) {
 
-    Assert(properConflict(conflict));
+    Assert(properConflict(conflict), "not a proper conflict: %s", conflict.toString().c_str());
 
     // Mark that we are in conflict
     d_inConflict = true;
@@ -251,6 +259,13 @@ class TheoryEngine {
    */
   void setIncomplete(theory::TheoryId theory) {
     d_incomplete = true;
+  }
+
+  /**
+   * "Spend" a resource during a search or preprocessing.
+   */
+  void spendResource() throw() {
+    d_propEngine->spendResource();
   }
 
   /**
@@ -343,7 +358,7 @@ class TheoryEngine {
 public:
 
   /** Constructs a theory engine */
-  TheoryEngine(context::Context* ctxt);
+  TheoryEngine(context::Context* context, context::UserContext* userContext);
 
   /** Destroys a theory engine */
   ~TheoryEngine();
@@ -356,7 +371,7 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, *d_theoryOut[theoryId], theory::Valuation(this));
+    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this));
   }
 
   /**
@@ -407,7 +422,8 @@ public:
   /**
    * Solve the given literal with a theory that owns it.
    */
-  theory::Theory::SolveStatus solve(TNode literal, theory::SubstitutionMap& substitionOut);
+  theory::Theory::SolveStatus solve(TNode literal,
+                                    theory::SubstitutionMap& substitutionOut);
 
   /**
    * Preregister a Theory atom with the responsible theory (or

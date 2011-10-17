@@ -22,6 +22,7 @@
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
 #include "theory/theory_engine.h"
+#include "theory/theory.h"
 #include "expr/node.h"
 #include "util/Assert.h"
 #include "util/output.h"
@@ -100,12 +101,59 @@ void CnfStream::assertClause(TNode node, SatLiteral a, SatLiteral b, SatLiteral 
 
 bool CnfStream::isTranslated(TNode n) const {
   TranslationCache::const_iterator find = d_translationCache.find(n);
-  return find != d_translationCache.end() && find->second.level >= 0;
+  return find != d_translationCache.end() && (*find).second.level >= 0;
 }
 
 bool CnfStream::hasLiteral(TNode n) const {
   TranslationCache::const_iterator find = d_translationCache.find(n);
   return find != d_translationCache.end();
+}
+
+void TseitinCnfStream::ensureLiteral(TNode n) {
+  if(hasLiteral(n)) {
+    // Already a literal!
+    SatLiteral lit = getLiteral(n);
+    NodeCache::iterator i = d_nodeCache.find(lit);
+    if(i == d_nodeCache.end()) {
+      // Store backward-mappings
+      d_nodeCache[lit] = n;
+      d_nodeCache[~lit] = n.notNode();
+    }
+    return;
+  }
+
+  CheckArgument(n.getType().isBoolean(), n,
+                "CnfStream::ensureLiteral() requires a node of Boolean type.\n"
+                "got node: %s\n"
+                "its type: %s\n",
+                n.toString().c_str(),
+                n.getType().toString().c_str());
+
+  bool negated = false;
+  SatLiteral lit;
+
+  if(n.getKind() == kind::NOT) {
+    negated = true;
+    n = n[0];
+  }
+
+  if( theory::Theory::theoryOf(n) == theory::THEORY_BOOL &&
+      n.getMetaKind() != kind::metakind::VARIABLE ) {
+    // If we were called with something other than a theory atom (or
+    // Boolean variable), we get a SatLiteral that is definitionally
+    // equal to it.
+    lit = toCNF(n, false);
+
+    // Store backward-mappings
+    d_nodeCache[lit] = n;
+    d_nodeCache[~lit] = n.notNode();
+  } else {
+    // We have a theory atom or variable.
+    lit = convertAtom(n);
+  }
+
+  Assert(hasLiteral(n) && getNode(lit) == n);
+  Debug("ensureLiteral") << "CnfStream::ensureLiteral(): out lit is " << lit << std::endl;
 }
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
@@ -599,13 +647,16 @@ void TseitinCnfStream::convertAndAssert(TNode node, bool removable, bool negated
 void TseitinCnfStream::convertAndAssert(TNode node, bool negated) {
   Debug("cnf") << "convertAndAssert(" << node << ", negated = " << (negated ? "true" : "false") << ")" << endl;
 
-  if(hasLiteral(node)) {
+  /*
+  if(isTranslated(node)) {
     Debug("cnf") << "==> fortunate literal detected!" << endl;
     ++d_fortunateLiterals;
     SatLiteral lit = getLiteral(node);
     //d_satSolver->renewVar(lit);
     assertClause(node, negated ? ~lit : lit);
+    return;
   }
+  */
 
   switch(node.getKind()) {
   case AND:
@@ -654,24 +705,50 @@ void CnfStream::removeClausesAboveLevel(int level) {
 }
 
 void CnfStream::undoTranslate(TNode node, int level) {
+  Debug("cnf") << "undoTranslate(): " << node << " (level " << level << ")" << endl;
+
+  TranslationCache::iterator it = d_translationCache.find(node);
+
+  // If not in translation cache, done (the parent was an atom)
+  if (it == d_translationCache.end()) {
+    Debug("cnf") << "                 ==> not in cache, ignore" << endl;
+    return;
+  }
+
   // Get the translation information
-  TranslationInfo& infoPos = d_translationCache.find(node)->second;
+  TranslationInfo& infoPos = (*it).second;
+
   // If already untranslated, we are done
-  if (infoPos.level == -1) return;
+  if (infoPos.level == -1) {
+    Debug("cnf") << "                 ==> already untranslated, ignore" << endl;
+    return;
+  }
+
   // If under the given level we're also done
-  if (infoPos.level <= level) return;
+  if (infoPos.level <= level) {
+    Debug("cnf") << "                 ==> level too low, ignore" << endl;
+    return;
+  }
+
+  Debug("cnf") << "                 ==> untranslating" << endl;
+
   // Untranslate
   infoPos.level = -1;
+
   // Untranslate the negation node
   // If not a not node, unregister it from sat and untranslate the negation
   if (node.getKind() != kind::NOT) {
     // Unregister the literal from SAT
     SatLiteral lit = getLiteral(node);
     d_satSolver->unregisterVar(lit);
+    Debug("cnf") << "                 ==> untranslating negation, too" << endl;
     // Untranslate the negation
-    TranslationInfo& infoNeg = d_translationCache.find(node.notNode())->second;
+    it = d_translationCache.find(node.notNode());
+    Assert(it != d_translationCache.end());
+    TranslationInfo& infoNeg = (*it).second;
     infoNeg.level = -1;
   }
+
   // undoTranslate the children
   TNode::iterator child = node.begin();
   TNode::iterator child_end = node.end();
@@ -679,6 +756,8 @@ void CnfStream::undoTranslate(TNode node, int level) {
     undoTranslate(*child, level);
     ++ child;
   }
+
+  Debug("cnf") << "undoTranslate(): finished untranslating " << node << " (level " << level << ")" << endl;
 }
 
 void CnfStream::moveToBaseLevel(TNode node) {
@@ -703,7 +782,6 @@ void CnfStream::moveToBaseLevel(TNode node) {
     moveToBaseLevel(*child);
     ++ child;
   }
-
 }
 
 }/* CVC4::prop namespace */

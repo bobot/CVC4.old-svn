@@ -129,6 +129,16 @@ struct CVC4_PUBLIC Options {
    */
   bool interactiveSetByUser;
 
+  /** Per-query resource limit. */
+  unsigned long perCallResourceLimit;
+  /** Cumulative resource limit. */
+  unsigned long cumulativeResourceLimit;
+
+  /** Per-query time limit in milliseconds. */
+  unsigned long perCallMillisecondLimit;
+  /** Cumulative time limit in milliseconds. */
+  unsigned long cumulativeMillisecondLimit;
+
   /** Whether we should "spin" on a SIG_SEGV. */
   bool segvNoSpin;
 
@@ -216,8 +226,18 @@ struct CVC4_PUBLIC Options {
   /**
    * Initialize the options based on the given command-line arguments.
    */
-  int parseOptions(int argc, char* argv[])
-    throw(OptionException);
+  int parseOptions(int argc, char* argv[]) throw(OptionException);
+
+  /**
+   * Set the output language based on the given string.
+   */
+  void setOutputLanguage(const char* str) throw(OptionException);
+
+  /**
+   * Set the input language based on the given string.
+   */
+  void setInputLanguage(const char* str) throw(OptionException);
+
 };/* struct Options */
 
 inline std::ostream& operator<<(std::ostream& out,

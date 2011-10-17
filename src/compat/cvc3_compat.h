@@ -60,6 +60,8 @@
 #include "util/exception.h"
 #include "util/hash.h"
 
+#include "parser/parser.h"
+
 #include <stdlib.h>
 #include <map>
 #include <utility>
@@ -428,6 +430,7 @@ typedef enum QueryResult {
 } QueryResult;
 
 std::ostream& operator<<(std::ostream& out, QueryResult qr);
+std::string QueryResultToString(QueryResult query_result);
 
 /*****************************************************************************/
 /*
@@ -461,8 +464,11 @@ class CVC4_PUBLIC ValidityChecker {
   CVC4::Options d_options;
   CVC4::ExprManager* d_em;
   CVC4::SmtEngine* d_smt;
+  CVC4::parser::Parser* d_parserContext;
 
   ValidityChecker(const CLFlags& clflags);
+
+  void setUpOptions(CVC4::Options& options, const CLFlags& clflags);
 
 public:
   //! Constructor
@@ -745,7 +751,11 @@ public:
                               InputLanguage lang = PRESENTATION_LANG);
 
   //! Parse an expression from a presentation language string
-  virtual Expr exprFromString(const std::string& e);
+  /*! Only PRESENTATION_LANG and SMTLIB_V2_LANG are supported. Any other
+   *  value for lang will raise an exception.
+   */
+  virtual Expr exprFromString(const std::string& e,
+                              InputLanguage lang = PRESENTATION_LANG);
 
   /*@}*/ // End of General Expr Methods
 

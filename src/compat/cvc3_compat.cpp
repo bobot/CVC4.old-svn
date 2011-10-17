@@ -67,6 +67,12 @@ std::ostream& operator<<(std::ostream& out, QueryResult qr) {
   return out;
 }
 
+std::string QueryResultToString(QueryResult qr) {
+  stringstream sstr;
+  sstr << qr;
+  return sstr.str();
+}
+
 std::ostream& operator<<(std::ostream& out, FormulaValue fv) {
   switch(fv) {
   case TRUE_VAL: out << "TRUE_VAL"; break;
@@ -648,25 +654,46 @@ void CLFlags::setFlag(const std::string& name,
   (*i).second = sv;
 }
 
+void ValidityChecker::setUpOptions(CVC4::Options& options, const CLFlags& clflags) {
+  // always incremental and model-producing in CVC3 compatibility mode
+  options.incrementalSolving = true;
+  options.produceModels = true;
+
+  options.statistics = clflags["stats"].getBool();
+  options.satRandomSeed = double(clflags["seed"].getInt());
+  options.interactive = clflags["interactive"].getBool();
+  if(options.interactive) {
+    options.interactiveSetByUser = true;
+  }
+  options.parseOnly = clflags["parse-only"].getBool();
+  options.setInputLanguage(clflags["lang"].getString().c_str());
+  if(clflags["output-lang"].getString() == "") {
+    options.outputLanguage = CVC4::language::toOutputLanguage(options.inputLanguage);
+  } else {
+    options.setOutputLanguage(clflags["output-lang"].getString().c_str());
+  }
+}
+
 ValidityChecker::ValidityChecker() :
   d_clflags(new CLFlags()),
   d_options() {
-  d_options.incrementalSolving = true;
-#warning fixme other options from clflags ??
+  setUpOptions(d_options, *d_clflags);
   d_em = new CVC4::ExprManager(d_options);
   d_smt = new CVC4::SmtEngine(d_em);
+  d_parserContext = CVC4::parser::ParserBuilder(d_em, "<internal>").withInputLanguage(CVC4::language::input::LANG_CVC4).withStringInput("").build();
 }
 
 ValidityChecker::ValidityChecker(const CLFlags& clflags) :
   d_clflags(new CLFlags(clflags)),
   d_options() {
-  d_options.incrementalSolving = true;
-#warning fixme other options from clflags ??
+  setUpOptions(d_options, *d_clflags);
   d_em = new CVC4::ExprManager(d_options);
   d_smt = new CVC4::SmtEngine(d_em);
+  d_parserContext = CVC4::parser::ParserBuilder(d_em, "<internal>").withInputLanguage(CVC4::language::input::LANG_CVC4).withStringInput("").build();
 }
 
 ValidityChecker::~ValidityChecker() {
+  delete d_parserContext;
   delete d_clflags;
 }
 
@@ -696,7 +723,7 @@ CLFlags ValidityChecker::createFlags() {
   flags.addFlag("version",CLFlag(true, "print version information and exit"));
   flags.addFlag("interactive", CLFlag(false, "Interactive mode"));
   flags.addFlag("stats", CLFlag(false, "Print run-time statistics"));
-  flags.addFlag("seed", CLFlag(1, "Set the seed for random sequence"));
+  flags.addFlag("seed", CLFlag(91648253, "Set the seed for random sequence"));
   flags.addFlag("printResults", CLFlag(true, "Print results of interactive commands."));
   flags.addFlag("dump-log", CLFlag("", "Dump API call log in CVC3 input "
                                    "format to given file "
@@ -924,11 +951,11 @@ Type ValidityChecker::intType() {
 }
 
 Type ValidityChecker::subrangeType(const Expr& l, const Expr& r) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Subranges not supported by CVC4 yet (sorry!)");
 }
 
 Type ValidityChecker::subtypeType(const Expr& pred, const Expr& witness) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Predicate subtyping not supported by CVC4 yet (sorry!)");
 }
 
 Type ValidityChecker::tupleType(const Type& type0, const Type& type1) {
@@ -953,23 +980,23 @@ Type ValidityChecker::tupleType(const std::vector<Type>& types) {
 }
 
 Type ValidityChecker::recordType(const std::string& field, const Type& type) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Type ValidityChecker::recordType(const std::string& field0, const Type& type0,
                                  const std::string& field1, const Type& type1) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Type ValidityChecker::recordType(const std::string& field0, const Type& type0,
                                  const std::string& field1, const Type& type1,
                                  const std::string& field2, const Type& type2) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Type ValidityChecker::recordType(const std::vector<std::string>& fields,
                                  const std::vector<Type>& types) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Type ValidityChecker::dataType(const std::string& name,
@@ -1018,11 +1045,11 @@ Type ValidityChecker::createType(const std::string& typeName) {
 }
 
 Type ValidityChecker::createType(const std::string& typeName, const Type& def) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  d_parserContext->defineType(typeName, def);
 }
 
 Type ValidityChecker::lookupType(const std::string& typeName) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  return d_parserContext->getSort(typeName);
 }
 
 ExprManager* ValidityChecker::getEM() {
@@ -1030,16 +1057,17 @@ ExprManager* ValidityChecker::getEM() {
 }
 
 Expr ValidityChecker::varExpr(const std::string& name, const Type& type) {
-  return d_em->mkVar(name, type);
+  return d_parserContext->mkVar(name, type);
 }
 
 Expr ValidityChecker::varExpr(const std::string& name, const Type& type,
                               const Expr& def) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  FatalAssert(def.getType() == type, "expected types to match");
+  d_parserContext->defineVar(name, def);
 }
 
 Expr ValidityChecker::lookupVar(const std::string& name, Type* type) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  return d_parserContext->getVariable(name);
 }
 
 Type ValidityChecker::getType(const Expr& e) {
@@ -1114,7 +1142,7 @@ void ValidityChecker::printExpr(const Expr& e, std::ostream& os) {
 }
 
 Expr ValidityChecker::parseExpr(const Expr& e) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  return e;
 }
 
 Type ValidityChecker::parseType(const Expr& e) {
@@ -1130,11 +1158,28 @@ Type ValidityChecker::importType(const Type& t) {
 }
 
 void ValidityChecker::cmdsFromString(const std::string& s, InputLanguage lang) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  std::stringstream ss(s, std::stringstream::in);
+  return loadFile(ss, lang, false);
 }
 
-Expr ValidityChecker::exprFromString(const std::string& e) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+Expr ValidityChecker::exprFromString(const std::string& s, InputLanguage lang) {
+  std::stringstream ss;
+
+  if( lang != PRESENTATION_LANG && lang != SMTLIB_V2_LANG ) {
+    ss << lang;
+    throw Exception("Unsupported language in exprFromString: " + ss.str());
+  }
+
+  CVC4::parser::Parser* p = CVC4::parser::ParserBuilder(d_em, "<internal>").withStringInput(s).withInputLanguage(lang).build();
+  p->useDeclarationsFrom(d_parserContext);
+  Expr e = p->nextExpression();
+  if( e.isNull() ) {
+    throw CVC4::parser::ParserException("Parser result is null: '" + s + "'");
+  }
+
+  delete p;
+
+  return e;
 }
 
 Expr ValidityChecker::trueExpr() {
@@ -1193,7 +1238,7 @@ Expr ValidityChecker::distinctExpr(const std::vector<Expr>& children) {
 }
 
 Op ValidityChecker::createOp(const std::string& name, const Type& type) {
-  return d_em->mkVar(name, type);
+  return d_parserContext->mkVar(name, type);
 }
 
 Op ValidityChecker::createOp(const std::string& name, const Type& type,
@@ -1202,7 +1247,9 @@ Op ValidityChecker::createOp(const std::string& name, const Type& type,
 }
 
 Op ValidityChecker::lookupOp(const std::string& name, Type* type) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Op op = d_parserContext->getFunction(name);
+  *type = op.getType();
+  return op;
 }
 
 Expr ValidityChecker::funExpr(const Op& op, const Expr& child) {
@@ -1289,32 +1336,32 @@ Expr ValidityChecker::geExpr(const Expr& left, const Expr& right) {
 }
 
 Expr ValidityChecker::recordExpr(const std::string& field, const Expr& expr) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::recordExpr(const std::string& field0, const Expr& expr0,
                                  const std::string& field1, const Expr& expr1) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::recordExpr(const std::string& field0, const Expr& expr0,
                                  const std::string& field1, const Expr& expr1,
                                  const std::string& field2, const Expr& expr2) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::recordExpr(const std::vector<std::string>& fields,
                                  const std::vector<Expr>& exprs) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::recSelectExpr(const Expr& record, const std::string& field) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::recUpdateExpr(const Expr& record, const std::string& field,
                                     const Expr& newValue) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Records not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::readExpr(const Expr& array, const Expr& index) {
@@ -1613,12 +1660,12 @@ Expr ValidityChecker::tupleExpr(const std::vector<Expr>& exprs) {
 }
 
 Expr ValidityChecker::tupleSelectExpr(const Expr& tuple, int index) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Tuples not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::tupleUpdateExpr(const Expr& tuple, int index,
                                       const Expr& newValue) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Tuples not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::datatypeConsExpr(const std::string& constructor, const std::vector<Expr>& args) {
@@ -1635,50 +1682,50 @@ Expr ValidityChecker::datatypeTestExpr(const std::string& constructor, const Exp
 
 Expr ValidityChecker::boundVarExpr(const std::string& name, const std::string& uid,
                                    const Type& type) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::forallExpr(const std::vector<Expr>& vars, const Expr& body) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::forallExpr(const std::vector<Expr>& vars, const Expr& body,
                                  const Expr& trigger) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::forallExpr(const std::vector<Expr>& vars, const Expr& body,
                                  const std::vector<Expr>& triggers) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::forallExpr(const std::vector<Expr>& vars, const Expr& body,
                                  const std::vector<std::vector<Expr> >& triggers) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 void ValidityChecker::setTriggers(const Expr& e, const std::vector<std::vector<Expr> > & triggers) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 void ValidityChecker::setTriggers(const Expr& e, const std::vector<Expr>& triggers) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 void ValidityChecker::setTrigger(const Expr& e, const Expr& trigger) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 void ValidityChecker::setMultiTrigger(const Expr& e, const std::vector<Expr>& multiTrigger) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::existsExpr(const std::vector<Expr>& vars, const Expr& body) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
 }
 
 Op ValidityChecker::lambdaExpr(const std::vector<Expr>& vars, const Expr& body) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Lambda expressions not supported by CVC4 yet (sorry!)");
 }
 
 Op ValidityChecker::transClosure(const Op& op) {
@@ -1860,23 +1907,35 @@ void ValidityChecker::popto(int stackLevel) {
 }
 
 int ValidityChecker::scopeLevel() {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  return d_parserContext->getDeclarationLevel();
 }
 
 void ValidityChecker::pushScope() {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  d_parserContext->pushScope();
 }
 
 void ValidityChecker::popScope() {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  d_parserContext->popScope();
 }
 
 void ValidityChecker::poptoScope(int scopeLevel) {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  CheckArgument(scopeLevel >= 0, scopeLevel,
+                "Cannot pop to a negative scope level %u", scopeLevel);
+  CheckArgument(unsigned(scopeLevel) <= d_parserContext->getDeclarationLevel(),
+                scopeLevel,
+                "Cannot pop to a scope level higher than the current one!  "
+                "At scope level %u, user requested scope level %d",
+                d_parserContext->getDeclarationLevel(), scopeLevel);
+  CheckArgument(scopeLevel <= d_parserContext->getDeclarationLevel(),
+                scopeLevel,
+                "Cannot pop to a higher scope level");
+  while(unsigned(scopeLevel) < d_parserContext->getDeclarationLevel()) {
+    popScope();
+  }
 }
 
 Context* ValidityChecker::getCurrentContext() {
-  Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
+  Unimplemented("Contexts are not part of the public interface of CVC4");
 }
 
 void ValidityChecker::reset() {
@@ -1905,10 +1964,12 @@ void ValidityChecker::loadFile(const std::string& fileName,
   CVC4::Options opts = *d_em->getOptions();
   opts.inputLanguage = lang;
   opts.interactive = interactive;
+  opts.interactiveSetByUser = true;
   CVC4::parser::ParserBuilder parserBuilder(d_em, fileName, opts);
-  CVC4::parser::Parser* parser = parserBuilder.build();
-  doCommands(parser, d_smt, opts);
-  delete parser;
+  CVC4::parser::Parser* p = parserBuilder.build();
+  p->useDeclarationsFrom(d_parserContext);
+  doCommands(p, d_smt, opts);
+  delete p;
 }
 
 void ValidityChecker::loadFile(std::istream& is,
@@ -1917,10 +1978,13 @@ void ValidityChecker::loadFile(std::istream& is,
   CVC4::Options opts = *d_em->getOptions();
   opts.inputLanguage = lang;
   opts.interactive = interactive;
+  opts.interactiveSetByUser = true;
   CVC4::parser::ParserBuilder parserBuilder(d_em, "[stream]", opts);
-  CVC4::parser::Parser* parser = parserBuilder.withStreamInput(is).build();
-  doCommands(parser, d_smt, opts);
-  delete parser;
+  CVC4::parser::Parser* p = parserBuilder.withStreamInput(is).build();
+  d_parserContext = p;
+  p->useDeclarationsFrom(d_parserContext);
+  doCommands(p, d_smt, opts);
+  delete p;
 }
 
 Statistics& ValidityChecker::getStatistics() {

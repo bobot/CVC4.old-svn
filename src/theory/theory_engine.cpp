@@ -37,22 +37,24 @@ using namespace std;
 using namespace CVC4;
 using namespace CVC4::theory;
 
-TheoryEngine::TheoryEngine(context::Context* ctxt)
+TheoryEngine::TheoryEngine(context::Context* context,
+                           context::UserContext* userContext)
 : d_propEngine(NULL),
-  d_context(ctxt),
+  d_context(context),
+  d_userContext(userContext),
   d_activeTheories(0),
-  d_sharedTerms(ctxt),
+  d_sharedTerms(context),
   d_atomPreprocessingCache(),
   d_possiblePropagations(),
-  d_hasPropagated(ctxt),
-  d_inConflict(ctxt, false),
+  d_hasPropagated(context),
+  d_inConflict(context, false),
   d_hasShutDown(false),
-  d_incomplete(ctxt, false),
-  d_sharedAssertions(ctxt),
+  d_incomplete(context, false),
+  d_sharedAssertions(context),
   d_logic(""),
-  d_propagatedLiterals(ctxt),
-  d_propagatedLiteralsIndex(ctxt, 0),
-  d_preRegistrationVisitor(this, ctxt),
+  d_propagatedLiterals(context),
+  d_propagatedLiteralsIndex(context, 0),
+  d_preRegistrationVisitor(this, context),
   d_sharedTermsVisitor(d_sharedTerms)
 {
   for(TheoryId theoryId = theory::THEORY_FIRST; theoryId != theory::THEORY_LAST; ++ theoryId) {
@@ -97,6 +99,8 @@ void TheoryEngine::preRegister(TNode preprocessed) {
  * @param effort the effort level to use
  */
 void TheoryEngine::check(Theory::Effort effort) {
+
+  d_propEngine->checkTime();
 
 #ifdef CVC4_FOR_EACH_THEORY_STATEMENT
 #undef CVC4_FOR_EACH_THEORY_STATEMENT
@@ -197,7 +201,7 @@ void TheoryEngine::combineTheories() {
 
   CVC4_FOR_EACH_THEORY;
     
-  // Now add splitters for the ones we are interested in 
+  // Now add splitters for the ones we are interested in
   for (unsigned i = 0; i < careGraph.size(); ++ i) {
     const CarePair& carePair = careGraph[i];
 
@@ -261,25 +265,43 @@ bool TheoryEngine::properConflict(TNode conflict) const {
   bool value;
   if (conflict.getKind() == kind::AND) {
     for (unsigned i = 0; i < conflict.getNumChildren(); ++ i) {
-      if (!getPropEngine()->hasValue(conflict[i], value)) return false;
-      if (!value) return false;
+      if (! getPropEngine()->hasValue(conflict[i], value)) {
+        Debug("properConflict") << "Bad conflict is due to unassigned atom: "
+                                << conflict[i] << endl;
+        return false;
+      }
+      if (! value) {
+        Debug("properConflict") << "Bad conflict is due to false atom: "
+                                << conflict[i] << endl;
+        return false;
+      }
     }
   } else {
-    if (!getPropEngine()->hasValue(conflict, value)) return false;
-    return value;
+    if (! getPropEngine()->hasValue(conflict, value)) {
+      Debug("properConflict") << "Bad conflict is due to unassigned atom: "
+                              << conflict << endl;
+      return false;
+    }
+    if(! value) {
+      Debug("properConflict") << "Bad conflict is due to false atom: "
+                              << conflict << endl;
+      return false;
+    }
   }
   return true;
 }
 
 bool TheoryEngine::properPropagation(TNode lit) const {
-  Assert(!lit.isNull());
-#warning fixme
-  return true;
+  if(!getPropEngine()->isTranslatedSatLiteral(lit)) {
+    return false;
+  }
+  bool b;
+  return !getPropEngine()->hasValue(lit, b);
 }
 
 bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
   Assert(!node.isNull() && !expl.isNull());
-#warning fixme
+#warning implement TheoryEngine::properExplanation()
   return true;
 }
 
@@ -296,6 +318,7 @@ Node TheoryEngine::getValue(TNode node) {
 
   // otherwise ask the theory-in-charge
   return theoryOf(node)->getValue(node);
+
 }/* TheoryEngine::getValue(TNode node) */
 
 bool TheoryEngine::presolve() {
@@ -378,10 +401,10 @@ void TheoryEngine::shutdown() {
   theory::Rewriter::shutdown();
 }
 
-theory::Theory::SolveStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitionOut) {
+theory::Theory::SolveStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitutionOut) {
   TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
   Trace("theory") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << endl;
-  Theory::SolveStatus solveStatus = theoryOf(atom)->solve(literal, substitionOut);
+  Theory::SolveStatus solveStatus = theoryOf(atom)->solve(literal, substitutionOut);
   Trace("theory") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << endl;
   return solveStatus;
 }
@@ -468,6 +491,8 @@ void TheoryEngine::assertFact(TNode node)
 {
   Trace("theory") << "TheoryEngine::assertFact(" << node << ")" << std::endl;
 
+  d_propEngine->checkTime();
+
   // Get the atom
   TNode atom = node.getKind() == kind::NOT ? node[0] : node;
 
@@ -494,6 +519,8 @@ void TheoryEngine::assertFact(TNode node)
 void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
       
   Debug("theory") << "EngineOutputChannel::propagate(" << literal << ")" << std::endl;
+
+  d_propEngine->checkTime();
       
   if(Dump.isOn("t-propagations")) {
     Dump("t-propagations") << CommentCommand("negation of theory propagation: expect valid") << std::endl

@@ -17,7 +17,8 @@ TEST_DEPS_DIST = \
 	cvc3_main.cpp \
 	cvc3_george.h \
 	cvc3_george.cpp \
-	CVC4JavaTest.java
+	CVC4JavaTest.java \
+	run_java_test
 
 # Make-level dependencies; these don't go in the source distribution
 # but should trigger a re-compile of all unit tests.  Libraries are
@@ -70,12 +71,6 @@ cvc3_main: cvc3_george.lo $(LIBADD)
 	$(AM_V_CXXLD)$(system_LINK) $(LIBADD) $(AM_LDFLAGS) $+
 CVC4JavaTest.class: CVC4JavaTest.java @abs_top_builddir@/src/bindings/cvc4.jar @abs_top_builddir@/src/bindings/libcvc4bindings_java.la
 	$(AM_V_JAVAC)$(JAVAC) -classpath @abs_top_builddir@/src/bindings/cvc4.jar -d $(builddir) $<
-#CVC4JavaTest: CVC4JavaTest.class
-#	$(AM_V_GEN)( \
-#	echo "#!/bin/bash"; \
-#	echo "exec $(JAVA) -classpath @abs_top_builddir@/src/bindings/cvc4.jar -Djava.library.path=@abs_top_builddir@/src/bindings/.libs CVC4JavaTest"; \
-#	) >$@; \
-#	chmod +x $@
 
 # for silent automake rules
 AM_V_JAVAC = $(am__v_JAVAC_$(V))
