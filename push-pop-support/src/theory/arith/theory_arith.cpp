@@ -1101,3 +1101,12 @@ void TheoryArith::presolve(){
   d_learner.clear();
   check(FULL_EFFORT);
 }
+
+EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
+  if (getValue(a) == getValue(b)) {
+    return EQUALITY_TRUE_IN_MODEL;
+  } else {
+    return EQUALITY_FALSE_IN_MODEL;
+  }
+
+}
