@@ -51,7 +51,7 @@ public:
   std::string identify() const { return std::string("InstantiatorTheoryArith"); }
 private:
   /** add term to row */
-  void addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t );
+  bool addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t );
   /** print debug */
   void printDebug();
   /** process at effort */

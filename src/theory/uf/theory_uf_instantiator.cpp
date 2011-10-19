@@ -541,6 +541,7 @@ d_disequality( c )
 
 void InstantiatorTheoryUf::check( Node assertion )
 {
+  Debug("quant-uf-assert") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
   switch (assertion.getKind()) {
   case kind::EQUAL:
     assertEqual( assertion[0], assertion[1] );
@@ -558,7 +559,6 @@ void InstantiatorTheoryUf::check( Node assertion )
 
 void InstantiatorTheoryUf::assertEqual( Node a, Node b )
 {
-  Debug("quant-uf-assert") << "InstantiatorTheoryUf::equal: " << a << " == " << b << std::endl;
   if( a.hasAttribute(InstConstantAttribute()) || 
       b.hasAttribute(InstConstantAttribute()) ){
     //add to obligation list
@@ -873,7 +873,7 @@ Node InstantiatorTheoryUf::getRepresentative( Node a ){
 }
 
 void InstantiatorTheoryUf::process( Node f, int effort ){
-  Debug("quant-uf") << "Try to solve (" << effort << ") for " << f << "... " << std::endl;
+  Debug("quant-uf") << "UF: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   if( effort>4 ){
     if( d_status==STATUS_SAT ){
       Debug("quant-uf-debug") << "Stuck at this state:" << std::endl;
@@ -933,7 +933,7 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
             temp.debugPrint( "quant-uf" );
             //add corresponding splits
             for( std::map< Node, Node >::iterator it = temp.d_splits.begin(); it != temp.d_splits.end(); ++it ){
-              addSplitEquality( it->first, it->second );
+              addSplitEquality( it->first, it->second, true, true );
             }
             break;
           }

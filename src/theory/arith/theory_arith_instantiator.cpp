@@ -31,7 +31,7 @@ Instantiator( c, ie, th ){
 }
 
 void InstantiatorTheoryArith::check( Node assertion ){
-  Debug("quant-arith-assert") << "Assert " << assertion << std::endl;
+  Debug("quant-arith-assert") << "InstantiatorTheoryArith::check: " << assertion << std::endl;
 }
 
 void InstantiatorTheoryArith::resetInstantiation(){
@@ -46,25 +46,34 @@ void InstantiatorTheoryArith::resetInstantiation(){
     if( ((TheoryArith*)getTheory())->d_partialModel.hasEitherBound( x ) ){
       Node n = (*it).second;
       Node f;
+      bool success = true;
       NodeBuilder<> t(kind::PLUS);
       if( n.getKind()==PLUS ){
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          addTermToRow( x, n[i], f, t );
+          if( !addTermToRow( x, n[i], f, t ) ){
+            success = false;
+            break;
+          }
         }
       }else{
-        addTermToRow( x, n, f, t );
+        if( !addTermToRow( x, n, f, t ) ){
+          success = false;
+          break;
+        }
       }
-      if( f!=Node::null() ){
-        d_instRows[f].push_back( x );
-        //this theory has constraints from f
-        setHasConstraintsFrom( f );
-      }
-      if( t.getNumChildren()==0 ){
-        d_tableaux_term[x] = NodeManager::currentNM()->mkConst( Rational(0) ); 
-      }else if( t.getNumChildren()==1 ){
-        d_tableaux_term[x] = t.getChild( 0 );
-      }else{
-        d_tableaux_term[x] = t;
+      if( success ){
+        if( f!=Node::null() ){
+          d_instRows[f].push_back( x );
+          //this theory has constraints from f
+          setHasConstraintsFrom( f );
+        }
+        if( t.getNumChildren()==0 ){
+          d_tableaux_term[x] = NodeManager::currentNM()->mkConst( Rational(0) ); 
+        }else if( t.getNumChildren()==1 ){
+          d_tableaux_term[x] = t.getChild( 0 );
+        }else{
+          d_tableaux_term[x] = t;
+        }
       }
     }
   }
@@ -72,24 +81,35 @@ void InstantiatorTheoryArith::resetInstantiation(){
   printDebug();
 }
 
-void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){
+bool InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){
   if( n.getKind()==MULT ){
     if( n[1].hasAttribute(InstConstantAttribute()) ){
-      f = n[1].getAttribute(InstConstantAttribute());
-      d_ceTableaux[x][ n[1] ] = n[0];
+      if( n[1].getKind()!=INST_CONSTANT ){
+        //cannot build instantiations for composite instantiation term
+        return false;
+      }else{
+        f = n[1].getAttribute(InstConstantAttribute());
+        d_ceTableaux[x][ n[1] ] = n[0];
+      }
     }else{
       d_tableaux[x][ n[1] ] = n[0];
       t << n;
     }
   }else{
     if( n.hasAttribute(InstConstantAttribute()) ){
-      f = n.getAttribute(InstConstantAttribute());
-      d_ceTableaux[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
+      if( n.getKind()!=INST_CONSTANT ){
+        //cannot build instantiations for composite instantiation term
+        return false;
+      }else{
+        f = n.getAttribute(InstConstantAttribute());
+        d_ceTableaux[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
+      }
     }else{
       d_tableaux[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
       t << n;
     }
   }
+  return true;
 }
 
 void InstantiatorTheoryArith::printDebug(){
@@ -149,7 +169,7 @@ void InstantiatorTheoryArith::printDebug(){
 }
 
 void InstantiatorTheoryArith::process( Node f, int effort ){
-  Debug("quant-arith") << "Try to solve (" << effort << ") for " << f << "... " << std::endl;
+  Debug("quant-arith") << "Arith: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   if( effort>1 ){
     d_quantStatus = STATUS_UNKNOWN;
   }else if( effort==0 ){

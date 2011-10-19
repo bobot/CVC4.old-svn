@@ -411,6 +411,7 @@ term[CVC4::Expr& expr]
   SExpr sexpr;
   std::vector<std::pair<std::string, Type> > sortedVarNames;
   Expr f;
+  std::string attr;
 }
   : /* a built-in operator application */
     LPAREN_TOK builtinOp[kind] termList[args,expr] RPAREN_TOK
@@ -504,25 +505,7 @@ term[CVC4::Expr& expr]
     }
 
     /* attributed expressions */
-  | LPAREN_TOK ATTRIBUTE_TOK term[expr] KEYWORD symbolicExpr[sexpr] RPAREN_TOK
-    { std::string attr = AntlrInput::tokenText($KEYWORD);
-      if(attr == ":named") {
-        name = sexpr.getValue();
-        // FIXME ensure expr is a closed subterm
-        // check that sexpr is a fresh function symbol
-        PARSER_STATE->checkDeclaration(name, CHECK_UNDECLARED, SYM_VARIABLE);
-        // define it
-        Expr func = PARSER_STATE->mkFunction(name, expr.getType());
-        // bind name to expr with define-fun
-        Command* c =
-          new DefineNamedFunctionCommand(name, func, std::vector<Expr>(), expr);
-        PARSER_STATE->preemptCommand(c);
-      } else {
-        std::stringstream ss;
-        ss << "Attribute `" << attr << "' not supported";
-        PARSER_STATE->parseError(ss.str());
-      }
-    }
+  | LPAREN_TOK ATTRIBUTE_TOK term[expr] (attribute[expr])+ RPAREN_TOK
 
     /* constants */
   | INTEGER_LITERAL
@@ -554,6 +537,38 @@ term[CVC4::Expr& expr]
     // NOTE: Theory constants go here
   ;
 
+/** 
+ * Read attribute 
+ */
+attribute[CVC4::Expr& expr]
+@init {
+  SExpr sexpr;
+  std::string attr;
+} 
+: KEYWORD 
+  { attr = AntlrInput::tokenText($KEYWORD); }
+  symbolicExpr[sexpr]
+  { if(attr == ":named") {
+      std::string name = sexpr.getValue();
+      // FIXME ensure expr is a closed subterm
+      // check that sexpr is a fresh function symbol
+      PARSER_STATE->checkDeclaration(name, CHECK_UNDECLARED, SYM_VARIABLE);
+      // define it
+      Expr func = PARSER_STATE->mkFunction(name, expr.getType());
+      // bind name to expr with define-fun
+      Command* c =
+        new DefineNamedFunctionCommand(name, func, std::vector<Expr>(), expr);
+      PARSER_STATE->preemptCommand(c);
+    } else if(attr == ":pattern") {
+      //notify quantifiers?
+    } else {
+      std::stringstream ss;
+      ss << "Attribute `" << attr << "' not supported";
+      PARSER_STATE->parseError(ss.str());
+    }
+  }
+  ;
+  
 /**
  * Matches a bit-vector operator (the ones parametrized by numbers)
  */

@@ -246,7 +246,7 @@ void TheoryQuantifiers::assertExistential( Node n ){
       NodeBuilder<> nb(kind::OR);
       nb << n[0] << body.notNode();
       Node lem = nb;
-      Debug("quant-uf") << "Skolemize lemma : " << lem << std::endl;
+      Debug("quantifiers-sk") << "Skolemize lemma : " << lem << std::endl;
       d_out->lemma( lem );
 
       d_skolemized[n] = true;
