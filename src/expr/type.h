@@ -546,6 +546,7 @@ public:
 
   /** Instantiate a sort using this sort constructor */
   SortType instantiate(const std::vector<Type>& params) const;
+
 };/* class SortConstructorType */
 
 /**
@@ -574,6 +575,7 @@ public:
    * @return the width of the bit-vector type (> 0)
    */
   unsigned getSize() const;
+
 };/* class BitVectorType */
 
 
@@ -592,6 +594,12 @@ public:
 
   /** Is this datatype parametric? */
   bool isParametric() const;
+
+  /**
+   * Get the constructor operator associated to the given constructor
+   * name in this datatype.
+   */
+  Expr getConstructor(std::string name) const;
 
   /**
    * Has this datatype been fully instantiated ?

@@ -152,7 +152,11 @@ static const string optionsDescription = "\
    --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
    --incremental | -i     enable incremental solving\n\
    --threads=N            sets the number of solver threads\n\
-   --filter-lemma-length=N don't share lemmas strictly longer than N\n";
+   --filter-lemma-length=N don't share lemmas strictly longer than N\n\
+   --time-limit=MS        enable time limiting (give milliseconds)\n\
+   --time-limit-per=MS    enable time limiting per query (give milliseconds)\n\
+   --limit=N              enable resource limiting\n\
+   --limit-per=N          enable resource limiting per query\n";
 
 
 #warning "Change CL options as --disable-variable-removal cannot do anything currently."
@@ -312,10 +316,18 @@ enum OptionValue {
   ARITHMETIC_PROPAGATION,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
+<<<<<<< .working
   DISABLE_SYMMETRY_BREAKER,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
   PORTFOLIO_FILTER_LENGTH
+=======
+  DISABLE_SYMMETRY_BREAKER,
+  TIME_LIMIT,
+  TIME_LIMIT_PER,
+  LIMIT,
+  LIMIT_PER
+>>>>>>> .merge-right.r2285
 };/* enum OptionValue */
 
 /**
@@ -391,9 +403,16 @@ static struct option cmdlineOptions[] = {
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
+<<<<<<< .working
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
+=======
+  { "time-limit" , required_argument, NULL, TIME_LIMIT  },
+  { "time-limit-per", required_argument, NULL, TIME_LIMIT_PER },
+  { "limit"      , required_argument, NULL, LIMIT       },
+  { "limit-per"  , required_argument, NULL, LIMIT_PER   },
+>>>>>>> .merge-right.r2285
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -703,6 +722,43 @@ throw(OptionException) {
     case DISABLE_SYMMETRY_BREAKER:
       ufSymmetryBreaker = false;
       break;
+
+    case TIME_LIMIT:
+      {
+        int i = atoi(optarg);
+        if(i < 0) {
+          throw OptionException("--time-limit requires a nonnegative argument.");
+        }
+        cumulativeMillisecondLimit = (unsigned long) i;
+      }
+      break;
+    case TIME_LIMIT_PER:
+      {
+        int i = atoi(optarg);
+        if(i < 0) {
+          throw OptionException("--time-limit-per requires a nonnegative argument.");
+        }
+        perCallMillisecondLimit = (unsigned long) i;
+      }
+      break;
+    case LIMIT:
+      {
+        int i = atoi(optarg);
+        if(i < 0) {
+          throw OptionException("--limit requires a nonnegative argument.");
+        }
+        cumulativeResourceLimit = (unsigned long) i;
+      }
+      break;
+    case LIMIT_PER:
+      {
+        int i = atoi(optarg);
+        if(i < 0) {
+          throw OptionException("--limit-per requires a nonnegative argument.");
+        }
+        perCallResourceLimit = (unsigned long) i;
+        break;
+      }
 
     case RANDOM_SEED:
       satRandomSeed = atof(optarg);

@@ -83,6 +83,7 @@ TNode SatSolver::getNode(SatLiteral lit) {
 }
 
 void SatSolver::notifyRestart() {
+  d_propEngine->checkTime();
   d_theoryEngine->notifyRestart();
 
   static uint32_t lemmaCount = 0;
@@ -155,6 +156,9 @@ void SatSolver::logDecision(SatLiteral lit) {
 #endif /* CVC4_REPLAY */
 }
 
+void SatSolver::checkTime() {
+  d_propEngine->checkTime();
+}
 
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */
