@@ -58,7 +58,6 @@ void cvc4_init() throw(Exception);
 
 /** Actual Cvc4 driver functions **/
 int runCvc4(int argc, char* argv[], CVC4::Options& );
-int runCvc4Portfolio(int NUM_THREADS, int argc, char *argv[], CVC4::Options& );
 void printUsage(CVC4::Options& );
 
 #endif /* __CVC4__MAIN__MAIN_H */

@@ -148,7 +148,7 @@ public:
 
 
 
-int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
+int runCvc4(int argc, char *argv[], Options& options) {
 
   // Timer statistic till we have support in cluster
   timeval tim;
@@ -178,6 +178,8 @@ int runCvc4Portfolio(int numThreads, int argc, char *argv[], Options& options) {
     *options.out << Configuration::about().c_str() << flush;
     exit(0);
   }
+
+  int numThreads = options.threads;
 
   segvNoSpin = options.segvNoSpin;
 

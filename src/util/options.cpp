@@ -97,6 +97,8 @@ Options::Options() :
   ufSymmetryBreaker(true),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
+  threads(2),			// default should be 1 probably, but
+				// say 2 for now
   thread_id(-1)
 {
 }
@@ -146,7 +148,8 @@ static const string optionsDescription = "\
    --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
-   --incremental | -i     enable incremental solving\n";
+   --incremental | -i     enable incremental solving\n\
+   --threads=N            sets the number of solver threads\n";
 
 #warning "Change CL options as --disable-variable-removal cannot do anything currently."
 
@@ -306,6 +309,7 @@ enum OptionValue {
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   DISABLE_SYMMETRY_BREAKER
+  THREADS
 };/* enum OptionValue */
 
 /**
@@ -381,6 +385,7 @@ static struct option cmdlineOptions[] = {
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
+  { "threads", required_argument, NULL, THREADS },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -798,6 +803,10 @@ throw(OptionException) {
       printf("gmp        : %s\n", Configuration::isBuiltWithGmp() ? "yes" : "no");
       printf("tls        : %s\n", Configuration::isBuiltWithTlsSupport() ? "yes" : "no");
       exit(0);
+
+    case THREADS:
+      threads = atoi(optarg);
+      break;
 
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
