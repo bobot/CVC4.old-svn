@@ -316,18 +316,14 @@ enum OptionValue {
   ARITHMETIC_PROPAGATION,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
-<<<<<<< .working
   DISABLE_SYMMETRY_BREAKER,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
-  PORTFOLIO_FILTER_LENGTH
-=======
-  DISABLE_SYMMETRY_BREAKER,
+  PORTFOLIO_FILTER_LENGTH,
   TIME_LIMIT,
   TIME_LIMIT_PER,
   LIMIT,
   LIMIT_PER
->>>>>>> .merge-right.r2285
 };/* enum OptionValue */
 
 /**
@@ -403,16 +399,13 @@ static struct option cmdlineOptions[] = {
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
-<<<<<<< .working
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
-=======
   { "time-limit" , required_argument, NULL, TIME_LIMIT  },
   { "time-limit-per", required_argument, NULL, TIME_LIMIT_PER },
   { "limit"      , required_argument, NULL, LIMIT       },
   { "limit-per"  , required_argument, NULL, LIMIT_PER   },
->>>>>>> .merge-right.r2285
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 

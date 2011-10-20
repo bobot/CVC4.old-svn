@@ -24,7 +24,7 @@ pcvc4_LDADD = \
 	../parser/libcvc4parser.la \
 	../libcvc4.la \
 	../lib/libreplacements.la \
-	$(READLINE_LDFLAGS)
+	$(READLINE_LIBS)
 pcvc4_CPPFLAGS = $(AM_CPPFLAGS) $(BOOST_CPPFLAGS)
 pcvc4_LDADD += $(BOOST_THREAD_LIBS) -lpthread
 pcvc4_LDADD += $(BOOST_THREAD_LDFLAGS)
