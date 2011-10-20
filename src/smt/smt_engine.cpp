@@ -117,6 +117,17 @@ class SmtEnginePrivate {
   theory::SubstitutionMap d_topLevelSubstitutions;
 
   /**
+   * The last substition that the SAT layer was told about.
+   * In incremental settings, substitutions cannot be performed
+   * "backward," only forward.  So SAT needs to be told of all
+   * substitutions that are going to be done.  This iterator
+   * holds the last substitution from d_topLevelSubstitutions
+   * that was pushed out to SAT.
+   * If d_lastSubstitutionPos == d_topLevelSubstitutions.end(),
+   * then nothing has been pushed out yet. */
+  context::CDO<theory::SubstitutionMap::iterator> d_lastSubstitutionPos;
+
+  /**
    * Runs the nonclausal solver and tries to solve all the assigned
    * theory literals.
    */
@@ -145,7 +156,8 @@ public:
     d_smt(smt),
     d_nonClausalLearnedLiterals(),
     d_propagator(smt.d_userContext, d_nonClausalLearnedLiterals, true, true),
-    d_topLevelSubstitutions(smt.d_userContext) {
+    d_topLevelSubstitutions(smt.d_userContext),
+    d_lastSubstitutionPos(smt.d_userContext, d_topLevelSubstitutions.end()) {
   }
 
   Node applySubstitutions(TNode node) const {
@@ -228,7 +240,12 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
 
   d_definedFunctions = new(true) DefinedFunctionMap(d_userContext);
 
-  if(Options::current()->interactive) {
+  // [MGD 10/20/2011] keep around in incremental mode, due to a
+  // cleanup ordering issue and Nodes/TNodes.  If SAT is popped
+  // first, some user-context-dependent TNodes might still exist
+  // with rc == 0.
+  if(Options::current()->interactive ||
+     Options::current()->incrementalSolving) {
     d_assertionList = new(true) AssertionList(d_userContext);
   }
 
@@ -648,6 +665,30 @@ void SmtEnginePrivate::nonClausalSimplify() {
                         << "solving " << learnedLiteral << endl;
       Theory::SolveStatus solveStatus =
         d_smt.d_theoryEngine->solve(learnedLiteral, d_topLevelSubstitutions);
+
+      if( Options::current()->incrementalSolving ||
+          Options::current()->simplificationMode == Options::SIMPLIFICATION_MODE_INCREMENTAL ) {
+        // Tell PropEngine about new substitutions
+        SubstitutionMap::iterator pos = d_lastSubstitutionPos;
+        if(pos == d_topLevelSubstitutions.end()) {
+           pos = d_topLevelSubstitutions.begin();
+        } else {
+          ++pos;
+        }
+
+        while(pos != d_topLevelSubstitutions.end()) {
+          // Push out this substitution
+          TNode lhs = (*pos).first, rhs = (*pos).second;
+          if(lhs.getType().isBoolean()) {
+            d_assertionsToCheck.push_back(NodeManager::currentNM()->mkNode(kind::IFF, lhs, rhs));
+          } else {
+            d_assertionsToCheck.push_back(NodeManager::currentNM()->mkNode(kind::EQUAL, lhs, rhs));
+          }
+          d_lastSubstitutionPos = pos;
+          ++pos;
+        }
+      }
+
       switch (solveStatus) {
       case Theory::SOLVE_STATUS_CONFLICT:
         // If in conflict, we return false
@@ -1160,6 +1201,7 @@ void SmtEngine::internalPush() {
   if(Options::current()->incrementalSolving) {
     d_private->processAssertions();
     d_userContext->push();
+    d_context->push();
     d_propEngine->push();
   }
 }
@@ -1168,6 +1210,7 @@ void SmtEngine::internalPop() {
   Trace("smt") << "SmtEngine::internalPop()" << endl;
   if(Options::current()->incrementalSolving) {
     d_propEngine->pop();
+    d_context->pop();
     d_userContext->pop();
   }
 }

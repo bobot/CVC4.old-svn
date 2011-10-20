@@ -36,7 +36,8 @@ SMT2_TESTS = \
 	simple-lra.smt2 \
 	simple-rdl.smt2 \
 	simple-rdl-definefun.smt2 \
-	simple-uf.smt2
+	simple-uf.smt2 \
+	simplification_bug4.smt2
 
 # Regression tests for PL inputs
 CVC_TESTS = \
@@ -94,7 +95,8 @@ TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 
 EXTRA_DIST = $(TESTS) \
 	bug216.smt2 \
-	bug216.smt2.expect
+	bug216.smt2.expect \
+	simplification_bug4.smt2.expect
 
 if CVC4_BUILD_PROFILE_COMPETITION
 else

@@ -31,6 +31,7 @@ namespace booleans {
 
 void CircuitPropagator::assert(TNode assertion)
 {
+  Trace("cprop-assert") << "CircuitPropagator::assert() : " << assertion << std::endl;
   if (assertion.getKind() == kind::AND) {
     for (unsigned i = 0; i < assertion.getNumChildren(); ++ i) {
       assert(assertion[i]);
