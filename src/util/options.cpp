@@ -100,7 +100,8 @@ Options::Options() :
   threads(2),			// default should be 1 probably, but
 				// say 2 for now
   thread_id(-1),
-  separateOutput(false)
+  separateOutput(false),
+  sharingFilterByLength(-1)
 {
 }
 
@@ -311,7 +312,8 @@ enum OptionValue {
   ARITHMETIC_PROP_MAX_LENGTH,
   DISABLE_SYMMETRY_BREAKER,
   PARALLEL_THREADS,
-  PARALLEL_SEPARATE_OUTPUT
+  PARALLEL_SEPARATE_OUTPUT,
+  PORTFOLIO_FILTER_LENGTH
 };/* enum OptionValue */
 
 /**
@@ -389,6 +391,7 @@ static struct option cmdlineOptions[] = {
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
+  { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -814,6 +817,10 @@ throw(OptionException) {
     case PARALLEL_SEPARATE_OUTPUT:
       separateOutput = true;
       break;
+
+    case PORTFOLIO_FILTER_LENGTH:
+      sharingFilterByLength = atoi(optarg);
+      break; 
 
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");

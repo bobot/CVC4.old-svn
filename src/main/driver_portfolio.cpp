@@ -101,13 +101,18 @@ public:
 
   void notifyNewLemma(Expr lemma) {
     if(Debug.isOn("disable-lemma-sharing")) return;
+    const Options *options = Options::current();
+    if(options->sharingFilterByLength > 0) {
+      if(lemma.getNumChildren() > options->sharingFilterByLength)
+        return;
+    }
     ++cnt;
     Debug("sharing") << d_tag << ": " << lemma << std::endl;
     expr::pickle::Pickle pkl;
     try{
       d_pickler.toPickle(lemma, pkl);
       d_sharedChannel->push(pkl);
-      if(Trace.isOn("showSharing") and Options::current()->thread_id == 0) {
+      if(Trace.isOn("showSharing") and options->thread_id == 0) {
 	*(Options::current()->out) << "thread #0: " << lemma << endl;
       }
     }catch(expr::pickle::PicklingException& p){
