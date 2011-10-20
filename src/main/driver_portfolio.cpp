@@ -107,6 +107,10 @@ public:
     try{
       d_pickler.toPickle(lemma, pkl);
       d_sharedChannel->push(pkl);
+      if(Options::current()->thread_id == 0 and
+	 Options::current()->showSharing ) {
+	*(Options::current()->out) << "thread #0: " << lemma << endl;
+      }
     }catch(expr::pickle::PicklingException& p){
       Debug("sharing::blocked") << lemma << std::endl;
     }
@@ -140,11 +144,14 @@ public:
     expr::pickle::Pickle pkl = d_sharedChannel->pop();
 
     Expr e = d_pickler.fromPickle(pkl);
+    if(Options::current()->thread_id == 0 and
+       Options::current()->showSharing ) {
+      *(Options::current()->out) << "thread #1: " << e << endl;
+    }
     return e;
   }
 
 };/* class PortfolioLemmaInputChannel */
-
 
 
 
@@ -257,8 +264,18 @@ int runCvc4(int argc, char *argv[], Options& options) {
   StatisticsRegistry driverStatisticsRegistry;
   theStatisticsRegistry.registerStat_((&driverStatisticsRegistry));
 
+  // Options
+  //options.showSharing = true;
+
+  Options options1 = options;
+  Options options2 = options;
+  options1.pivotRule = Options::MINIMUM;
+  options2.pivotRule = Options::MAXIMUM;
+  options1.thread_id = 0;
+  options2.thread_id = 1;
+
   // Create the expression manager
-  ExprManager* exprMgr = new ExprManager(options);
+  ExprManager* exprMgr = new ExprManager(options1);
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
   RegisterStatistic* statFilenameReg =
@@ -304,20 +321,15 @@ int runCvc4(int argc, char *argv[], Options& options) {
     delete parser;
   }
 
-  /* Currently all code assumes two threads */
-  assert(numThreads == 2);
-
-  Options options2 = options;
-  options.pivotRule = Options::MINIMUM;
-  options2.pivotRule = Options::MAXIMUM;
-  options.thread_id = 0;
-  options2.thread_id = 1;
+  /* Currently all code assumes a maximum of two threads */
+  assert(numThreads <= 2);
 
   /* Output to string stream  */
-  if(options.verbosity == 0) {
-    stringstream ss_out(stringstream::out);
-    options.out = &ss_out;
-    stringstream ss_out2(stringstream::out);
+  
+  stringstream ss_out(stringstream::out);
+  stringstream ss_out2(stringstream::out);
+  if(options.verbosity == 0 or options.showSharing) {
+    options1.out = &ss_out;
     options2.out = &ss_out2;
   }
 
@@ -344,7 +356,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
   /* Add StatisticRegistries to GlobalRegistry */
 
   /* Lemma output channel */
-  options.lemmaOutputChannel =
+  options1.lemmaOutputChannel =
     new PortfolioLemmaOutputChannel("thread #0",
                                     channelsOut[0],
                                     exprMgr,
@@ -355,15 +367,15 @@ int runCvc4(int argc, char *argv[], Options& options) {
                                     channelsOut[1], exprMgr2,
                                     vmaps->d_from, vmaps->d_to);
 
-  options.lemmaInputChannel =
+  options1.lemmaInputChannel =
     new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgr);
   options2.lemmaInputChannel =
     new PortfolioLemmaInputChannel("thread #1", channelsIn[1], exprMgr2);
 
   /* Portfolio */
-  function <Result()> fns[numThreads];
+  function <Result()> fns[2];
 
-  fns[0] = boost::bind(doSmt, boost::ref(*exprMgr), seq, boost::ref(options));
+  fns[0] = boost::bind(doSmt, boost::ref(*exprMgr), seq, boost::ref(options1));
   fns[1] = boost::bind(doSmt, boost::ref(*exprMgr2), seq2, boost::ref(options2));
 
   function <void()>
@@ -399,6 +411,12 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   if(options.statistics) {
     theStatisticsRegistry.flushInformation(*options.err);
+  }
+
+  if(options.showSharing) {
+    cout << ss_out.str() ;
+    cout << "--- Seperator ---" << endl;
+    cout << ss_out2.str() ;
   }
 
   // destruction is causing segfaults, let us just exit

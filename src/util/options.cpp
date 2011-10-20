@@ -99,7 +99,8 @@ Options::Options() :
   lemmaInputChannel(NULL),
   threads(2),			// default should be 1 probably, but
 				// say 2 for now
-  thread_id(-1)
+  thread_id(-1),
+  showSharing(false)
 {
 }
 

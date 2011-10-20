@@ -210,6 +210,12 @@ struct CVC4_PUBLIC Options {
   /** Thread ID, for internal use in case of multi-threaded run */
   int thread_id;
 
+  /** Print lemmas as seen by thread 1 */
+  bool showSharing;
+
+  /** Filter depending on length of lemma */
+  int sharingFilterByLength;
+
   Options();
 
   /**

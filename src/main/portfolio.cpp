@@ -74,7 +74,7 @@ std::pair<int,S> runPortfolio(int numThreads,
   
   if(not driverFn.empty()) {
     thread_driver.interrupt();
-    //thread_driver.join();
+    thread_driver.join();
   }
 
   return std::pair<int,S>(global_winner,threads_returnValue[global_winner]);
