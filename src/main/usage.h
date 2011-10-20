@@ -55,7 +55,8 @@ CVC4 options:\n\
    --produce-models       support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
    --lazy-definition-expansion expand define-fun lazily\n\
-   --threads=N            sets the number of solver threads\n";
+   --threads=N            sets the number of solver threads\n\
+   --filter-lemma-length=N don't share lemmas strictly longer than N\n";
 
 }/* CVC4::main namespace */
 }/* CVC4 namespace */

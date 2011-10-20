@@ -151,7 +151,9 @@ static const string optionsDescription = "\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
    --incremental | -i     enable incremental solving\n\
-   --threads=N            sets the number of solver threads\n";
+   --threads=N            sets the number of solver threads\n\
+   --filter-lemma-length=N don't share lemmas strictly longer than N\n";
+
 
 #warning "Change CL options as --disable-variable-removal cannot do anything currently."
 
