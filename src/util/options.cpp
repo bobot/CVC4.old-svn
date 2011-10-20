@@ -100,7 +100,7 @@ Options::Options() :
   threads(2),			// default should be 1 probably, but
 				// say 2 for now
   thread_id(-1),
-  showSharing(false)
+  separateOutput(false)
 {
 }
 
@@ -310,7 +310,8 @@ enum OptionValue {
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   DISABLE_SYMMETRY_BREAKER,
-  THREADS
+  PARALLEL_THREADS,
+  PARALLEL_SEPARATE_OUTPUT
 };/* enum OptionValue */
 
 /**
@@ -386,7 +387,8 @@ static struct option cmdlineOptions[] = {
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
-  { "threads", required_argument, NULL, THREADS },
+  { "threads", required_argument, NULL, PARALLEL_THREADS },
+  { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -805,8 +807,12 @@ throw(OptionException) {
       printf("tls        : %s\n", Configuration::isBuiltWithTlsSupport() ? "yes" : "no");
       exit(0);
 
-    case THREADS:
+    case PARALLEL_THREADS:
       threads = atoi(optarg);
+      break;
+
+    case PARALLEL_SEPARATE_OUTPUT:
+      separateOutput = true;
       break;
 
     case ':':

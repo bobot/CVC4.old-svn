@@ -107,8 +107,7 @@ public:
     try{
       d_pickler.toPickle(lemma, pkl);
       d_sharedChannel->push(pkl);
-      if(Options::current()->thread_id == 0 and
-	 Options::current()->showSharing ) {
+      if(Trace.isOn("showSharing") and Options::current()->thread_id == 0) {
 	*(Options::current()->out) << "thread #0: " << lemma << endl;
       }
     }catch(expr::pickle::PicklingException& p){
@@ -144,8 +143,7 @@ public:
     expr::pickle::Pickle pkl = d_sharedChannel->pop();
 
     Expr e = d_pickler.fromPickle(pkl);
-    if(Options::current()->thread_id == 0 and
-       Options::current()->showSharing ) {
+    if(Trace.isOn("showSharing") and Options::current()->thread_id == 0) {
       *(Options::current()->out) << "thread #1: " << e << endl;
     }
     return e;
@@ -328,7 +326,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
   
   stringstream ss_out(stringstream::out);
   stringstream ss_out2(stringstream::out);
-  if(options.verbosity == 0 or options.showSharing) {
+  if(options.verbosity == 0 or options.separateOutput) {
     options1.out = &ss_out;
     options2.out = &ss_out2;
   }
@@ -413,10 +411,10 @@ int runCvc4(int argc, char *argv[], Options& options) {
     theStatisticsRegistry.flushInformation(*options.err);
   }
 
-  if(options.showSharing) {
-    cout << ss_out.str() ;
-    cout << "--- Seperator ---" << endl;
-    cout << ss_out2.str() ;
+  if(options.separateOutput) {
+    *options.out << ss_out.str() ;
+    *options.out << "--- Seperator ---" << endl;
+    *options.out << ss_out2.str() ;
   }
 
   // destruction is causing segfaults, let us just exit
