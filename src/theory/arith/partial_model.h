@@ -47,6 +47,7 @@ private:
   std::vector<DeltaRational> d_assignment;
   std::vector<DeltaRational> d_safeAssignment;
 
+  context::Context* d_context;
   context::CDVector<DeltaRational> d_upperBound;
   context::CDVector<DeltaRational> d_lowerBound;
   context::CDVector<Node> d_upperConstraint;
@@ -69,6 +70,7 @@ public:
     d_hasSafeAssignment(),
     d_assignment(),
     d_safeAssignment(),
+    d_context(c),
     d_upperBound(c, true),
     d_lowerBound(c, true),
     d_upperConstraint(c,true),

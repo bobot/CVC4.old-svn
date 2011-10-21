@@ -284,8 +284,9 @@ bool TheoryEngine::properConflict(TNode conflict) const {
   if (conflict.getKind() == kind::AND) {
     for (unsigned i = 0; i < conflict.getNumChildren(); ++ i) {
       if (! getPropEngine()->hasValue(conflict[i], value)) {
-        Debug("properConflict") << "Bad conflict is due to unassigned atom: "
-                                << conflict[i] << endl;
+        Debug("properConflict") << "Bad conflict is due to unassigned atom at context level "
+                                << d_context->getLevel() << " (user context level "
+                                << d_userContext->getLevel() << "): " << conflict[i] << endl;
         return false;
       }
       if (! value) {

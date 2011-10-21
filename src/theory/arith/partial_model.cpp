@@ -30,7 +30,7 @@ using namespace CVC4::theory::arith;
 void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
   d_deltaIsSafe = false;
 
-  Debug("partial_model") << "setUpperBound(" << x << "," << r << ")" << endl;
+  Debug("partial_model") << "setUpperBound(" << x << "," << r << ") " << d_context->getLevel() << endl;
   d_hasHadABound[x] = true;
   d_upperBound.set(x,r);
 }
@@ -38,6 +38,7 @@ void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
 void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
   d_deltaIsSafe = false;
 
+  Debug("partial_model") << "setLowerBound(" << x << "," << r << ") " << d_context->getLevel() << endl;
   d_hasHadABound[x] = true;
   d_lowerBound.set(x,r);
 }
@@ -144,7 +145,7 @@ const DeltaRational& ArithPartialModel::getAssignment(ArithVar x) const{
 
 void ArithPartialModel::setLowerConstraint(ArithVar x, TNode constraint){
   Debug("partial_model") << "setLowerConstraint("
-                         << x << ":" << constraint << ")" << endl;
+                         << x << ":" << constraint << ") " << d_context->getLevel() << endl;
   Assert(inMaps(x));
   d_lowerConstraint.set(x,constraint);
 
@@ -152,7 +153,7 @@ void ArithPartialModel::setLowerConstraint(ArithVar x, TNode constraint){
 
 void ArithPartialModel::setUpperConstraint(ArithVar x, TNode constraint){
   Debug("partial_model") << "setUpperConstraint("
-                         << x << ":" << constraint << ")" << endl;
+                         << x << ":" << constraint << ") " << d_context->getLevel() << endl;
   Assert(inMaps(x));
   d_upperConstraint.set(x, constraint);
 }

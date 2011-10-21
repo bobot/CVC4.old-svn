@@ -274,6 +274,10 @@ void SmtEngine::shutdown() {
 SmtEngine::~SmtEngine() {
   NodeManagerScope nms(d_nodeManager);
 
+  while(Options::current()->incrementalSolving && d_userContext->getLevel() > 0) {
+    internalPop();
+  }
+
   shutdown();
 
   if(d_assignments != NULL) {
@@ -290,8 +294,7 @@ SmtEngine::~SmtEngine() {
   StatisticsRegistry::unregisterStat(&d_nonclausalSimplificationTime);
   StatisticsRegistry::unregisterStat(&d_staticLearningTime);
 
-  // Deletion order error: circuit propagator has some unsafe TNodes ?!
-  // delete d_private;
+  delete d_private;
   delete d_userContext;
 
   delete d_theoryEngine;

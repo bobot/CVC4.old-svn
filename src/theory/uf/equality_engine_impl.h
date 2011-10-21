@@ -552,7 +552,14 @@ template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::getExplanation(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
   Debug("equality") << "EqualityEngine::getExplanation(" << t1 << "," << t2 << ")" << std::endl;
 
-  Assert(getRepresentative(t1) == getRepresentative(t2));
+  Assert(getRepresentative(t1) == getRepresentative(t2),
+         "Cannot explain an equality, because the two terms are not equal!\n"
+         "The representative of %s\n"
+         "                   is %s\n"
+         "The representative of %s\n"
+         "                   is %s",
+         t1.toString().c_str(), getRepresentative(t1).toString().c_str(),
+         t2.toString().c_str(), getRepresentative(t2).toString().c_str());
 
   // Get the explanation
   EqualityNodeId t1Id = getNodeId(t1);
@@ -836,6 +843,7 @@ bool EqualityEngine<NotifyClass>::areDisequal(TNode t1, TNode t2)
   Node equality1 = t1.eqNode(t2);
   addTerm(equality1);
   if (getEqualityNode(equality1).getFind() == getEqualityNode(d_false).getFind()) {
+    d_context->pop();
     return true;
   }
 
@@ -843,6 +851,7 @@ bool EqualityEngine<NotifyClass>::areDisequal(TNode t1, TNode t2)
   Node equality2 = t2.eqNode(t1);
   addTerm(equality2);
   if (getEqualityNode(equality2).getFind() == getEqualityNode(d_false).getFind()) {
+    d_context->pop();
     return true;
   }
 

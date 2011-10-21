@@ -1258,16 +1258,24 @@ void Solver::push()
   trail_user.push(lit_Undef);
   trail_ok.push(ok);
   trail_user_lim.push(trail.size());
+  assert(trail_user_lim.size() == assertionLevel);
+  Debug("minisat") << "MINISAT PUSH assertionLevel is " << assertionLevel << ", trail.size is " << trail.size() << std::endl;
 }
 
 void Solver::pop()
 {
   assert(enable_incremental);
 
+  Debug("minisat") << "MINISAT POP at level " << decisionLevel() << " (context " << context->getLevel() << "), popping trail..." << std::endl;
   popTrail();
+  Debug("minisat") << "MINISAT POP now at   " << decisionLevel() << " (context " << context->getLevel() << ")" << std::endl;
+ 
+  assert(decisionLevel() == 0);
+  assert(trail_user_lim.size() == assertionLevel);
 
   --assertionLevel;
 
+  Debug("minisat") << "MINISAT POP assertionLevel is now down to " << assertionLevel << ", trail.size is " << trail.size() << ", need to get down to " << trail_user_lim.last() << std::endl;
   Debug("minisat") << "in user pop, reducing assertion level to " << assertionLevel << " and removing clauses above this from db" << std::endl;
 
   // Remove all the clauses asserted (and implied) above the new base level
@@ -1289,6 +1297,8 @@ void Solver::pop()
     trail.pop();
   }
   qhead = trail.size();
+  Debug("minisat") << "MINISAT POP assertionLevel is now down to " << assertionLevel << ", trail.size is " << trail.size() << ", should be at " << trail_user_lim.last() << std::endl;
+  assert(trail_user_lim.last() == qhead);
   trail_user_lim.pop();
 
   // Unset any units learned or added at this level
