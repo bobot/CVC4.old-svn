@@ -666,29 +666,6 @@ void SmtEnginePrivate::nonClausalSimplify() {
       Theory::SolveStatus solveStatus =
         d_smt.d_theoryEngine->solve(learnedLiteral, d_topLevelSubstitutions);
 
-      if( Options::current()->incrementalSolving ||
-          Options::current()->simplificationMode == Options::SIMPLIFICATION_MODE_INCREMENTAL ) {
-        // Tell PropEngine about new substitutions
-        SubstitutionMap::iterator pos = d_lastSubstitutionPos;
-        if(pos == d_topLevelSubstitutions.end()) {
-           pos = d_topLevelSubstitutions.begin();
-        } else {
-          ++pos;
-        }
-
-        while(pos != d_topLevelSubstitutions.end()) {
-          // Push out this substitution
-          TNode lhs = (*pos).first, rhs = (*pos).second;
-          if(lhs.getType().isBoolean()) {
-            d_assertionsToCheck.push_back(NodeManager::currentNM()->mkNode(kind::IFF, lhs, rhs));
-          } else {
-            d_assertionsToCheck.push_back(NodeManager::currentNM()->mkNode(kind::EQUAL, lhs, rhs));
-          }
-          d_lastSubstitutionPos = pos;
-          ++pos;
-        }
-      }
-
       switch (solveStatus) {
       case Theory::SOLVE_STATUS_CONFLICT:
         // If in conflict, we return false
@@ -708,6 +685,27 @@ void SmtEnginePrivate::nonClausalSimplify() {
         // Keep the literal
         d_nonClausalLearnedLiterals[j++] = d_nonClausalLearnedLiterals[i];
         break;
+      }
+
+      if( Options::current()->incrementalSolving ||
+          Options::current()->simplificationMode == Options::SIMPLIFICATION_MODE_INCREMENTAL ) {
+        // Tell PropEngine about new substitutions
+        SubstitutionMap::iterator pos = d_lastSubstitutionPos;
+        if(pos == d_topLevelSubstitutions.end()) {
+           pos = d_topLevelSubstitutions.begin();
+        } else {
+          ++pos;
+        }
+
+        while(pos != d_topLevelSubstitutions.end()) {
+          // Push out this substitution
+          TNode lhs = (*pos).first, rhs = (*pos).second;
+          Node n = NodeManager::currentNM()->mkNode(lhs.getType().isBoolean() ? kind::IFF : kind::EQUAL, lhs, rhs);
+          d_assertionsToCheck.push_back(n);
+          Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): will notify SAT layer of substitution: " << n << endl;
+          d_lastSubstitutionPos = pos;
+          ++pos;
+        }
       }
     }
     // Resize the learnt
@@ -1158,6 +1156,7 @@ size_t SmtEngine::getStackLevel() const {
 void SmtEngine::push() {
   NodeManagerScope nms(d_nodeManager);
   Trace("smt") << "SMT push()" << endl;
+  d_private->processAssertions();
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << PushCommand() << endl;
   }
