@@ -1257,6 +1257,7 @@ void Solver::push()
   Debug("minisat") << "in user push, increasing assertion level to " << assertionLevel << std::endl;
   trail_user.push(lit_Undef);
   trail_ok.push(ok);
+  trail_user_lim.push(trail.size());
 }
 
 void Solver::pop()
@@ -1274,6 +1275,21 @@ void Solver::pop()
   removeClausesAboveLevel(clauses_persistent, assertionLevel);
 
   Debug("minisat") << "in user pop, at " << trail_lim.size() << " : " << assertionLevel << std::endl;
+
+  int downto = trail_user_lim.last();
+  while(downto < trail.size()) {
+    Debug("minisat") << "== unassigning " << trail.last() << std::endl;
+    Var      x  = var(trail.last());
+    if(intro_level(x) != -1) {// might be unregistered
+      assigns [x] = l_Undef;
+      vardata[x].trail_index = -1;
+      polarity[x] = sign(trail.last());
+      insertVarOrder(x);
+    }
+    trail.pop();
+  }
+  qhead = trail.size();
+  trail_user_lim.pop();
 
   // Unset any units learned or added at this level
   Debug("minisat") << "in user pop, unsetting level units for level " << assertionLevel << std::endl;

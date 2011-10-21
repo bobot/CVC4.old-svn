@@ -279,6 +279,7 @@ protected:
     vec<Lit>            trail;              // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;          // Separator indices for different decision levels in 'trail'.
     vec<Lit>            trail_user;         // Stack of assignments to UNdo on user pop.
+    vec<int>            trail_user_lim;     // Separator indices for different user levels in 'trail'.
     vec<bool>           trail_ok;           // Stack of "whether we're in conflict" flags.
     vec<VarData>        vardata;            // Stores reason and level for each variable.
     int                 qhead;              // Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
