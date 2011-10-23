@@ -162,12 +162,20 @@ void Smt::setLogic(const std::string& name) {
 
   case QF_UFIDL:
   case QF_UFLIA:
+  case QF_UFNIA:// nonstandard logic
     addTheory(THEORY_INTS);
     addUf();
     break;
 
   case QF_UFLRA:
   case QF_UFNRA:
+    addTheory(THEORY_REALS);
+    addUf();
+    break;
+
+  case QF_UFLIRA:// nonstandard logic
+  case QF_UFNIRA:// nonstandard logic
+    addTheory(THEORY_INTS);
     addTheory(THEORY_REALS);
     addUf();
     break;
