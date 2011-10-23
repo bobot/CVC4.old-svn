@@ -708,16 +708,6 @@ void TheoryArith::check(Effort effortLevel){
 
             Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
             Trace("integers") << "integers: branch & bound: " << lem << endl;
-            if(d_valuation.isSatLiteral(lem[0])) {
-              Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;
-            } else {
-              Debug("integers") << "    " << lem[0] << " is not assigned a SAT literal" << endl;
-            }
-            if(d_valuation.isSatLiteral(lem[1])) {
-              Debug("integers") << "    " << lem[1] << " == " << d_valuation.getSatValue(lem[1]) << endl;
-            } else {
-              Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
-            }
             d_out->lemma(lem);
 
             // split only on one var
@@ -733,16 +723,6 @@ void TheoryArith::check(Effort effortLevel){
 
             Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
             Trace("integers") << "integers: branch & bound: " << lem << endl;
-            if(d_valuation.isSatLiteral(lem[0])) {
-              Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;
-            } else {
-              Debug("integers") << "    " << lem[0] << " is not assigned a SAT literal" << endl;
-            }
-            if(d_valuation.isSatLiteral(lem[1])) {
-              Debug("integers") << "    " << lem[1] << " == " << d_valuation.getSatValue(lem[1]) << endl;
-            } else {
-              Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
-            }
             d_out->lemma(lem);
 
             // split only on one var
@@ -761,16 +741,6 @@ void TheoryArith::check(Effort effortLevel){
 
           Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
           Trace("integers") << "integers: branch & bound: " << lem << endl;
-          if(d_valuation.isSatLiteral(lem[0])) {
-            Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;
-          } else {
-            Debug("integers") << "    " << lem[0] << " is not assigned a SAT literal" << endl;
-          }
-          if(d_valuation.isSatLiteral(lem[1])) {
-            Debug("integers") << "    " << lem[1] << " == " << d_valuation.getSatValue(lem[1]) << endl;
-          } else {
-            Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
-          }
           d_out->lemma(lem);
 
           // split only on one var
