@@ -54,6 +54,7 @@ Parser::Parser(ExprManager* exprManager, Input* input, bool strictMode, bool par
 }
 
 Expr Parser::getSymbol(const std::string& name, SymbolType type) {
+  checkDeclaration(name, CHECK_DECLARED, type);
   Assert( isDeclared(name, type) );
 
   switch( type ) {
@@ -77,12 +78,14 @@ Expr Parser::getFunction(const std::string& name) {
 
 Type Parser::getType(const std::string& var_name,
                      SymbolType type) {
+  checkDeclaration(var_name, CHECK_DECLARED, type);
   Assert( isDeclared(var_name, type) );
   Type t = getSymbol(var_name, type).getType();
   return t;
 }
 
 Type Parser::getSort(const std::string& name) {
+  checkDeclaration(name, CHECK_DECLARED, SYM_SORT);
   Assert( isDeclared(name, SYM_SORT) );
   Type t = d_declScope->lookupType(name);
   return t;
@@ -90,12 +93,14 @@ Type Parser::getSort(const std::string& name) {
 
 Type Parser::getSort(const std::string& name,
                      const std::vector<Type>& params) {
+  checkDeclaration(name, CHECK_DECLARED, SYM_SORT);
   Assert( isDeclared(name, SYM_SORT) );
   Type t = d_declScope->lookupType(name, params);
   return t;
 }
 
 size_t Parser::getArity(const std::string& sort_name){
+  checkDeclaration(sort_name, CHECK_DECLARED, SYM_SORT);
   Assert( isDeclared(sort_name, SYM_SORT) );
   return d_declScope->lookupArity(sort_name);
 }
