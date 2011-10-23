@@ -35,6 +35,7 @@ subdirs_to_check = \
 	regress/regress0/arith/integers \
 	regress/regress0/uf \
 	regress/regress0/uflra \
+	regress/regress0/uflia \
 	regress/regress0/bv \
 	regress/regress0/bv/core \
 	regress/regress0/arrays \
