@@ -109,6 +109,17 @@ void TheoryUF::propagate(Effort level) {
     for (; d_literalsToPropagateIndex < d_literalsToPropagate.size(); d_literalsToPropagateIndex = d_literalsToPropagateIndex + 1) {
       TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
       Debug("uf") << "TheoryUF::propagate(): propagating " << literal << std::endl;
+
+      // This really should be a literal, but this fails a lot because
+      // EqualityManager isn't context-dependent on the UserContext.
+      // For now, let's just ignore these by continuing to the next literal..?
+      //
+      //Assert(d_valuation.isSatLiteral(literal),
+      //       "not a SAT literal: %s", literal.toString().c_str());
+      if (!d_valuation.isSatLiteral(literal)) {
+        continue;
+      }
+
       bool satValue;
       if (!d_valuation.hasSatValue(literal, satValue)) {
         d_out->propagate(literal);
@@ -165,6 +176,14 @@ void TheoryUF::preRegisterTerm(TNode node) {
 
 bool TheoryUF::propagate(TNode literal) {
   Debug("uf") << "TheoryUF::propagate(" << literal  << ")" << std::endl;
+
+  // This really should be a literal, but this fails a lot because
+  // EqualityManager isn't context-dependent on the UserContext.
+  // hasSatValue() will return false, so this propagation will be
+  // ignored anyway.
+  //
+  //Assert(d_valuation.isSatLiteral(literal),
+  //       "not a SAT literal: %s", literal.toString().c_str());
 
   // If already in conflict, no more propagation
   if (d_conflict) {
