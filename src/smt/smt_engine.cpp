@@ -392,7 +392,11 @@ void SmtEngine::setOption(const std::string& key, const SExpr& value)
   }
 
   if(key == ":print-success") {
-    throw BadOptionException();
+    if(value.isAtom() && value.getValue() == "false") {
+      // fine; don't need to do anything
+    } else {
+      throw BadOptionException();
+    }
   } else if(key == ":expand-definitions") {
     throw BadOptionException();
   } else if(key == ":interactive-mode") {
