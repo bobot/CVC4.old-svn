@@ -222,7 +222,7 @@ Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutio
         } else {
           Debug("simplify") << "TheoryArith::solve(): can't substitute b/c it's integer: " << minVar << ":" << minVar.getType() << " |-> " << elim << ":" << elim.getType() << endl;
           Debug("simplify") << "TheoryArith::solve(): ...but will still subst the equality with TRUE" << endl;
-          outSubstitutions.addSubstitution(in, NodeManager::currentNM()->mkConst(true));
+          outSubstitutions.addSubstitution(NodeManager::currentNM()->mkNode(kind::EQUAL, minVar, elim), NodeManager::currentNM()->mkConst(true));
         }
       }
     }
