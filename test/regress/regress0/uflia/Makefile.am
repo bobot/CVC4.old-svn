@@ -13,6 +13,7 @@ SMT_TESTS =
 SMT2_TESTS = \
 	FIREFLY_3_e2_2236_e7_3681.ec.minimized.smt2 \
 	FIREFLY_3_e2_2236_e7_3681.ec.core.smt2 \
+	DRAGON_11_e1_2450.ec.minimized.smt2 \
 	microwave21.ec.minimized.smt2
 
 
@@ -28,7 +29,8 @@ TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 # SMT_TESTS, SMT2_TESTS, etc..
 EXTRA_DIST = $(TESTS) \
 	FIREFLY_3_e2_2236_e7_3681.ec.minimized.smt2.expect \
-	FIREFLY_3_e2_2236_e7_3681.ec.core.smt2.expect
+	FIREFLY_3_e2_2236_e7_3681.ec.core.smt2.expect \
+	DRAGON_11_e1_2450.ec.minimized.smt2.expect
 
 # synonyms for "check" in this directory
 .PHONY: regress regress0 test
