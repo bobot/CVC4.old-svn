@@ -11,7 +11,8 @@ SMT_TESTS =
 
 # Regression tests for SMT2 inputs
 SMT2_TESTS = \
-	FIREFLY_3_e2_2236_e7_3681.ec.minimized.smt2
+	FIREFLY_3_e2_2236_e7_3681.ec.minimized.smt2 \
+	FIREFLY_3_e2_2236_e7_3681.ec.core.smt2
 
 # Regression tests for PL inputs
 CVC_TESTS = 
@@ -23,8 +24,9 @@ TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 
 # Necessary to get automake's attention when splitting TESTS into
 # SMT_TESTS, SMT2_TESTS, etc..
-EXTRA_DIST = $(TESTS)\
-	FIREFLY_3_e2_2236_e7_3681.ec.minimized.smt2.expect
+EXTRA_DIST = $(TESTS) \
+	FIREFLY_3_e2_2236_e7_3681.ec.minimized.smt2.expect \
+	FIREFLY_3_e2_2236_e7_3681.ec.core.smt2.expect
 
 # synonyms for "check" in this directory
 .PHONY: regress regress0 test
