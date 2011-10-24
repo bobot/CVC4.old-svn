@@ -627,6 +627,8 @@ CRef Solver::propagate(TheoryCheckType type)
     if (type == CHECK_WITHOUTH_PROPAGATION_FINAL) {
       // Do the theory check
       theoryCheck(CVC4::theory::Theory::FULL_EFFORT);
+      // Incorporate new propagations [MGD 10/24/2011]
+      propagateTheory();
       // If there are lemmas (or conflicts) update them
       if (lemmas.size() > 0) {
         recheck = true;
@@ -660,7 +662,8 @@ CRef Solver::propagate(TheoryCheckType type)
         } while (confl == CRef_Undef && qhead < trail.size());
 
         // If still consistent do some theory propagation
-        if (confl == CRef_Undef && type == CHECK_WITH_PROPAGATION_STANDARD) {
+        // [MGD 10/24/2011] do this regardless of whether propagation was requested or not
+        if (confl == CRef_Undef) {// && type == CHECK_WITH_PROPAGATION_STANDARD) {
           propagateTheory();
           if (lemmas.size() > 0) {
               confl = updateLemmas();
@@ -674,6 +677,8 @@ CRef Solver::propagate(TheoryCheckType type)
 
 void Solver::propagateTheory() {
   std::vector<Lit> propagatedLiterals;
+  // Doesn't actually call propagate(); that's done in theoryCheck() now that combination
+  // is online.  This just incorporates those propagations previously discovered.
   proxy->theoryPropagate(propagatedLiterals);
   for (unsigned i = 0, i_end = propagatedLiterals.size(); i < i_end; ++ i) {
     Debug("minisat") << "Theory propagated: " << propagatedLiterals[i] << std::endl;
