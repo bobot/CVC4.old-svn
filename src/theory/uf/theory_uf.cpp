@@ -110,18 +110,9 @@ void TheoryUF::propagate(Effort level) {
       TNode literal = d_literalsToPropagate[d_literalsToPropagateIndex];
       Debug("uf") << "TheoryUF::propagate(): propagating " << literal << std::endl;
 
-      // This really should be a literal, but this fails a lot because
-      // EqualityManager isn't context-dependent on the UserContext.
-      // For now, let's just ignore these by continuing to the next literal..?
-      //
-      //Assert(d_valuation.isSatLiteral(literal),
-      //       "not a SAT literal: %s", literal.toString().c_str());
-      if (!d_valuation.isSatLiteral(literal)) {
-        continue;
-      }
-
       bool satValue;
       if (!d_valuation.hasSatValue(literal, satValue)) {
+        // Let the theory-engine deal with it
         d_out->propagate(literal);
       } else {
         if (!satValue) {
@@ -177,14 +168,6 @@ void TheoryUF::preRegisterTerm(TNode node) {
 bool TheoryUF::propagate(TNode literal) {
   Debug("uf") << "TheoryUF::propagate(" << literal  << ")" << std::endl;
 
-  // This really should be a literal, but this fails a lot because
-  // EqualityManager isn't context-dependent on the UserContext.
-  // hasSatValue() will return false, so this propagation will be
-  // ignored anyway.
-  //
-  //Assert(d_valuation.isSatLiteral(literal),
-  //       "not a SAT literal: %s", literal.toString().c_str());
-
   // If already in conflict, no more propagation
   if (d_conflict) {
     Debug("uf") << "TheoryUF::propagate(" << literal << "): already in conflict" << std::endl;
@@ -222,6 +205,8 @@ bool TheoryUF::propagate(TNode literal) {
 }
 
 void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
+  Debug("uf") << "TheoryUF::explain(" << literal << ")" << std::endl;
+
   TNode lhs, rhs;
   switch (literal.getKind()) {
     case kind::EQUAL:
@@ -233,9 +218,16 @@ void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
       rhs = d_true;
       break;
     case kind::NOT:
-      lhs = literal[0];
-      rhs = d_false;
-      break;
+      if (literal[0].getKind() == kind::EQUAL) {
+        // Disequalities
+        d_equalityEngine.explainDisequality(literal[0][0], literal[0][1], assumptions);
+        return;
+      } else {
+        // Predicates
+        lhs = literal[0];
+        rhs = d_false;
+        break;
+      }
     case kind::CONST_BOOLEAN:
       // we get to explain true = false, since we set false to be the trigger of this
       lhs = d_true;
@@ -244,7 +236,7 @@ void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
     default:
       Unreachable();
   }
-  d_equalityEngine.getExplanation(lhs, rhs, assumptions);
+  d_equalityEngine.explainEquality(lhs, rhs, assumptions);
 }
 
 Node TheoryUF::explain(TNode literal) {
@@ -450,10 +442,10 @@ void TheoryUF::computeCareGraph(CareGraph& careGraph) {
             break;
           }
 
-	    	  if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
-	    	    // Not connected to shared terms, we don't care
-	    	    continue;
-	    	  }
+          if (!d_equalityEngine.isTriggerTerm(x) || !d_equalityEngine.isTriggerTerm(y)) {
+            // Not connected to shared terms, we don't care
+	          continue;
+          }
 
           if (eqStatusUf == EQUALITY_TRUE) {
             // We don't neeed this one

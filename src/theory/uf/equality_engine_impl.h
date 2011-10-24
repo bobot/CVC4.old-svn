@@ -264,6 +264,7 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
         // If they became the same, call the trigger
         if (otherTrigger.classId == class1Id) {
           // Id of the real trigger is half the internal one
+          Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): trigger added " << d_equalityTriggersOriginal[currentTrigger] << std::endl;
           triggers.push_back(currentTrigger);
         }
       }
@@ -549,8 +550,10 @@ std::string EqualityEngine<NotifyClass>::edgesToString(EqualityEdgeId edgeId) co
 }
 
 template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::getExplanation(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
-  Debug("equality") << "EqualityEngine::getExplanation(" << t1 << "," << t2 << ")" << std::endl;
+void EqualityEngine<NotifyClass>::explainEquality(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
+  Debug("equality") << "EqualityEngine::explainEquality(" << t1 << "," << t2 << ")" << std::endl;
+  Debug("equality") << "true -> " << getRepresentative(d_true) << std::endl;
+  Debug("equality") << "false -> " << getRepresentative(d_false) << std::endl;
 
   Assert(getRepresentative(t1) == getRepresentative(t2),
          "Cannot explain an equality, because the two terms are not equal!\n"
@@ -566,6 +569,30 @@ void EqualityEngine<NotifyClass>::getExplanation(TNode t1, TNode t2, std::vector
   EqualityNodeId t2Id = getNodeId(t2);
   getExplanation(t1Id, t2Id, equalities);
 }
+
+template <typename NotifyClass>
+void EqualityEngine<NotifyClass>::explainDisequality(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
+  Debug("equality") << "EqualityEngine::explainDisequality(" << t1 << "," << t2 << ")" << std::endl;
+  Debug("equality") << "true -> " << getRepresentative(d_true) << std::endl;
+  Debug("equality") << "false -> " << getRepresentative(d_false) << std::endl;
+
+  Node equality = t1.eqNode(t2);
+
+  Assert(getRepresentative(equality) == getRepresentative(d_false),
+         "Cannot explain the dis-equality, because the two terms are not dis-equal!\n"
+         "The representative of %s\n"
+         "                   is %s\n"
+         "The representative of %s\n"
+         "                   is %s",
+         equality.toString().c_str(), getRepresentative(equality).toString().c_str(),
+         d_false.toString().c_str(), getRepresentative(d_false).toString().c_str());
+
+  // Get the explanation 
+  EqualityNodeId equalityId = getNodeId(equality);
+  EqualityNodeId falseId = getNodeId(d_false);
+  getExplanation(equalityId, falseId, equalities);
+}
+
 
 template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::getExplanation(EqualityNodeId t1Id, EqualityNodeId t2Id, std::vector<TNode>& equalities) const {
@@ -679,12 +706,12 @@ void EqualityEngine<NotifyClass>::addTriggerEquality(TNode t1, TNode t2, TNode t
   // Get the information about t1
   EqualityNodeId t1Id = getNodeId(t1);
   EqualityNodeId t1classId = getEqualityNode(t1Id).getFind();
-  TriggerId t1TriggerId = d_nodeTriggers[t1Id];
+  TriggerId t1TriggerId = d_nodeTriggers[t1classId];
 
   // Get the information about t2
   EqualityNodeId t2Id = getNodeId(t2);
   EqualityNodeId t2classId = getEqualityNode(t2Id).getFind();
-  TriggerId t2TriggerId = d_nodeTriggers[t2Id];
+  TriggerId t2TriggerId = d_nodeTriggers[t2classId];
 
   Debug("equality") << "EqualityEngine::addTrigger(" << trigger << "): " << t1Id << " (" << t1classId << ") = " << t2Id << " (" << t2classId << ")" << std::endl;
 
@@ -767,6 +794,7 @@ void EqualityEngine<NotifyClass>::propagate() {
 
     // Notify the triggers
     if (d_performNotify) {
+      Debug("equality") << "EqualityEngine::propagate(): notifying equality triggers" << std::endl;
       for (size_t trigger = 0, trigger_end = triggers.size(); trigger < trigger_end && !done; ++ trigger) {
         // Notify the trigger and exit if it fails
         done = !d_notify.notify(d_equalityTriggersOriginal[triggers[trigger]]);
