@@ -92,6 +92,8 @@ TheoryArith::Statistics::Statistics():
   d_initialTableauSize("theory::arith::initialTableauSize", 0),
   d_currSetToSmaller("theory::arith::currSetToSmaller", 0),
   d_smallerSetToCurr("theory::arith::smallerSetToCurr", 0),
+  d_divModExpansions("theory::arith::divModExpansions", 0),
+  d_foriegnTerms("theory::arith::foriegnTerms", 0),
   d_restartTimer("theory::arith::restartTimer")
 {
   StatisticsRegistry::registerStat(&d_statUserVariables);
@@ -108,6 +110,10 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_initialTableauSize);
   StatisticsRegistry::registerStat(&d_currSetToSmaller);
   StatisticsRegistry::registerStat(&d_smallerSetToCurr);
+
+  StatisticsRegistry::registerStat(&d_divModExpansions);
+  StatisticsRegistry::registerStat(&d_foriegnTerms);
+
   StatisticsRegistry::registerStat(&d_restartTimer);
 }
 
@@ -126,6 +132,10 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_initialTableauSize);
   StatisticsRegistry::unregisterStat(&d_currSetToSmaller);
   StatisticsRegistry::unregisterStat(&d_smallerSetToCurr);
+
+  StatisticsRegistry::unregisterStat(&d_divModExpansions);
+  StatisticsRegistry::unregisterStat(&d_foriegnTerms);
+
   StatisticsRegistry::unregisterStat(&d_restartTimer);
 }
 
@@ -176,12 +186,12 @@ Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutio
       // This is a ''variable''
       nVars ++;
       // Skip the non-linear stuff
-      if (!m.getVarList().singleton()) continue;
+      if (!m.getLeafList().singleton()) continue;
       // Get the minimal one
       Rational constant = m.getConstant().getValue();
       Rational absSconstant = constant > 0 ? constant : -constant;
       if (minVar.isNull() || absSconstant < minConstant) {
-        Node var = m.getVarList().getNode();
+        Node var = m.getLeafList().getNode();
         if (var.getKind() == kind::VARIABLE) {
           minVar = var;
           minMonomial = m.getNode();
@@ -264,47 +274,101 @@ ArithVar TheoryArith::findShortestBasicRow(ArithVar variable){
   return bestBasic;
 }
 
-void TheoryArith::setupVariable(const Variable& x){
+
+void TheoryArith::expandDivModAxiom(TNode m, TNode n){
+  /*Expand the definition for: http://goedel.cs.uiowa.edu/smtlib/theories/Ints.smt2
+  - div and mod according to Boute's Euclidean definition [1], that is,
+    so as to satify the formula
+
+    (for all ((m Int) (n Int))
+      (=> (distinct n 0)
+          (let ((q (div m n)) (r (mod m n)))
+            (and (= m (+ (* n q) r))
+                 (<= 0 r (- (abs n) 1))))))
+  */
+  NodeManager* cnm = NodeManager::currentNM();
+
+  Node q = cnm->mkNode(INTS_DIVISION,m,n);
+  Node r = cnm->mkNode(INTS_MODULUS,m,n);
+  if(!hasSkolemsInUserContext(q)){
+    setHasSkolems(q);
+
+    Node nIsZero = mkIsZero(n);
+    Node nIsNotZero = cnm->mkNode(NOT, nIsZero);
+    Node mult = cnm->mkNode(MULT, n, q);
+    Node sum = cnm->mkNode(PLUS,mult,r);
+    Node mIsSum = cnm->mkNode(EQUAL,m, sum);
+    Node rIsNonNeg = mkIsNonNegative(r);
+    Node absNSub1 = cnm->mkNode(MINUS, mkAbs(n),mkOne());
+    Node rIsLessThanAbs = cnm->mkNode(LEQ, r, absNSub1);
+
+    Node imp1 = cnm->mkNode(IMPLIES, nIsNotZero, mIsSum);
+    Node imp2 = cnm->mkNode(IMPLIES, nIsNotZero, rIsNonNeg);
+    Node imp3 = cnm->mkNode(IMPLIES, nIsNotZero, rIsLessThanAbs);
+
+    d_divModAxioms.push(Rewriter::rewrite(imp1));
+    d_divModAxioms.push(Rewriter::rewrite(imp2));
+    d_divModAxioms.push(Rewriter::rewrite(imp3));
+
+    Debug("arith::int_div") << "Expanding integer division/modulus" << endl;
+    Debug("arith::int_div") << imp1 << " -> " << Rewriter::rewrite(imp1) << endl;
+    Debug("arith::int_div") << imp2 << " -> " << Rewriter::rewrite(imp2) << endl;
+    Debug("arith::int_div") << imp3 << " -> " << Rewriter::rewrite(imp3) << endl;
+
+
+    ++(d_statistics.d_divModExpansions);
+  }
+}
+
+void TheoryArith::setupLeaf(const Leaf& x){
   Node n = x.getNode();
 
   Assert(!isSetup(n));
 
   ++(d_statistics.d_statUserVariables);
+  if(FieldForeign::isMember(n)){
+    ++(d_statistics.d_foriegnTerms);
+  }else if(InterpretedFunction::isMember(n)){
+    Assert(n.getKind() == kind::INTS_MODULUS || n.getKind() == kind::INTS_DIVISION);
+    expandDivModAxiom(n[0],n[1]);
+  }
+  // In all cases, a leaf gets an ArithVar associated with it.
+
   ArithVar varN = requestArithVar(n,false);
   setupInitialValue(varN);
 
   markSetup(n);
 }
 
-void TheoryArith::setupVariableList(const VarList& vl){
-  Assert(!vl.empty());
+void TheoryArith::setupLeafList(const LeafList& ll){
+  Assert(!ll.empty());
 
-  TNode vlNode = vl.getNode();
-  Assert(!isSetup(vlNode));
-  Assert(!d_arithvarNodeMap.hasArithVar(vlNode));
+  TNode llNode = ll.getNode();
+  Assert(!isSetup(llNode));
+  Assert(!d_arithvarNodeMap.hasArithVar(llNode));
 
-  for(VarList::iterator i = vl.begin(), end = vl.end(); i != end; ++i){
-    Variable var = *i;
+  for(LeafList::iterator i = ll.begin(), end = ll.end(); i != end; ++i){
+    Leaf leaf = *i;
 
-    if(!isSetup(var.getNode())){
-      setupVariable(var);
+    if(!isSetup(leaf.getNode())){
+      setupLeaf(leaf);
     }
   }
 
-  if(!vl.singleton()){
+  if(!ll.singleton()){
     // vl is the product of at least 2 variables
     // vl : (* v1 v2 ...)
     d_out->setIncomplete();
 
     ++(d_statistics.d_statUserVariables);
-    ArithVar av = requestArithVar(vlNode, false);
+    ArithVar av = requestArithVar(llNode, false);
     setupInitialValue(av);
 
-    markSetup(vlNode);
+    markSetup(llNode);
   }
 
   /* Note:
-   * Only call markSetup if the VarList is not a singleton.
+   * Only call markSetup if the LeafList is not a singleton.
    * See the comment in setupPolynomail for more.
    */
 }
@@ -317,9 +381,9 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
 
   for(Polynomial::iterator i = poly.begin(), end = poly.end(); i != end; ++i){
     Monomial mono = *i;
-    const VarList& vl = mono.getVarList();
-    if(!isSetup(vl.getNode())){
-      setupVariableList(vl);
+    const LeafList& ll = mono.getLeafList();
+    if(!isSetup(ll.getNode())){
+      setupLeafList(ll);
     }
   }
 
@@ -379,7 +443,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
 
 
 ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
-  Assert(isLeaf(x) || x.getKind() == PLUS);
+  Assert(Leaf::isMember(x) || x.getKind() == PLUS);
   Assert(!d_arithvarNodeMap.hasArithVar(x));
   Assert(x.getType().isReal());// real or integer
 
@@ -404,13 +468,11 @@ void TheoryArith::asVectors(const Polynomial& p, std::vector<Rational>& coeffs, 
   for(Polynomial::iterator i = p.begin(), end = p.end(); i != end; ++i){
     const Monomial& mono = *i;
     const Constant& constant = mono.getConstant();
-    const VarList& variable = mono.getVarList();
+    const LeafList& leaf = mono.getLeafList();
 
-    Node n = variable.getNode();
+    Node n = leaf.getNode();
 
-    Debug("rewriter") << "should be var: " << n << endl;
-
-    Assert(isLeaf(n));
+    Assert(Leaf::isMember(n));
     Assert(theoryOf(n) != THEORY_ARITH || d_arithvarNodeMap.hasArithVar(n));
 
     Assert(d_arithvarNodeMap.hasArithVar(n));
@@ -622,7 +684,6 @@ Node TheoryArith::assertionCases(TNode assertion){
 }
 
 
-
 void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
@@ -655,91 +716,74 @@ void TheoryArith::check(Effort effortLevel){
     d_partialModel.commitAssignmentChanges();
 
     if (fullEffort(effortLevel)) {
-      splitDisequalities();
+      if(!d_divModAxioms.empty()){
+        while(d_divModAxioms.empty()){
+          Node lemma = d_divModAxioms.front();
+          d_divModAxioms.pop();
+          d_out->lemma(lemma);
+        }
+      }else{
+        if(d_integerVars.size() > 0){
+          branchIntegers();
+        }
+        splitDisequalities();
+      }
     }
   }
 
-  if(fullEffort(effortLevel) && d_integerVars.size() > 0) {
-    const ArithVar rrEnd = d_nextIntegerCheckVar;
-    do {
-      ArithVar v = d_nextIntegerCheckVar;
-      short type = d_integerVars[v];
-      if(type > 0) { // integer
-        const DeltaRational& d = d_partialModel.getAssignment(v);
-        const Rational& r = d.getNoninfinitesimalPart();
-        const Rational& i = d.getInfinitesimalPart();
-        Trace("integers") << "integers: assignment to [[" << d_arithvarNodeMap.asNode(v) << "]] is " << r << "[" << i << "]" << endl;
-        if(type == 2) {
-          // pseudoboolean
-          if(r.getDenominator() == 1 && i.getNumerator() == 0 &&
-             (r.getNumerator() == 0 || r.getNumerator() == 1)) {
-            // already pseudoboolean; skip
-            continue;
-          }
+  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
+  if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
+  Debug("arith") << "TheoryArith::check end" << std::endl;
+}
 
-          TNode var = d_arithvarNodeMap.asNode(v);
-          Node zero = NodeManager::currentNM()->mkConst(Integer(0));
-          Node one = NodeManager::currentNM()->mkConst(Integer(1));
-          Node eq0 = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::EQUAL, var, zero));
-          Node eq1 = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::EQUAL, var, one));
-          Node lem = NodeManager::currentNM()->mkNode(kind::OR, eq0, eq1);
-          Trace("pb") << "pseudobooleans: branch & bound: " << lem << endl;
-          Trace("integers") << "pseudobooleans: branch & bound: " << lem << endl;
-          //d_out->lemma(lem);
-        }
-        if(r.getDenominator() == 1 && i.getNumerator() == 0) {
-          // already an integer assignment; skip
+void TheoryArith::branchIntegers(){
+  const ArithVar rrEnd = d_nextIntegerCheckVar;
+  do {
+    ArithVar v = d_nextIntegerCheckVar;
+    short type = d_integerVars[v];
+    if(type > 0) { // integer
+      const DeltaRational& d = d_partialModel.getAssignment(v);
+      const Rational& r = d.getNoninfinitesimalPart();
+      const Rational& i = d.getInfinitesimalPart();
+      Trace("integers") << "integers: assignment to [[" << d_arithvarNodeMap.asNode(v) << "]] is " << r << "[" << i << "]" << endl;
+      if(type == 2) {
+        // pseudoboolean
+        if(r.getDenominator() == 1 && i.getNumerator() == 0 &&
+           (r.getNumerator() == 0 || r.getNumerator() == 1)) {
+          // already pseudoboolean; skip
           continue;
         }
 
-        // otherwise, try the Diophantine equation solver
-        //bool result = d_diosolver.solve();
-        //Debug("integers") << "the dio solver returned " << (result ? "true" : "false") << endl;
+        TNode var = d_arithvarNodeMap.asNode(v);
+        Node zero = NodeManager::currentNM()->mkConst(Integer(0));
+        Node one = NodeManager::currentNM()->mkConst(Integer(1));
+        Node eq0 = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::EQUAL, var, zero));
+        Node eq1 = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::EQUAL, var, one));
+        Node lem = NodeManager::currentNM()->mkNode(kind::OR, eq0, eq1);
+        Trace("pb") << "pseudobooleans: branch & bound: " << lem << endl;
+        Trace("integers") << "pseudobooleans: branch & bound: " << lem << endl;
+        //d_out->lemma(lem);
+      }
+      if(r.getDenominator() == 1 && i.getNumerator() == 0) {
+        // already an integer assignment; skip
+        continue;
+      }
 
-        // branch and bound
-        if(r.getDenominator() == 1) {
-          // r is an integer, but the infinitesimal might not be
-          if(i.getNumerator() < 0) {
-            // lemma: v <= r - 1 || v >= r
+      // otherwise, try the Diophantine equation solver
+      //bool result = d_diosolver.solve();
+      //Debug("integers") << "the dio solver returned " << (result ? "true" : "false") << endl;
 
-            TNode var = d_arithvarNodeMap.asNode(v);
-            Node nrMinus1 = NodeManager::currentNM()->mkConst(r - 1);
-            Node nr = NodeManager::currentNM()->mkConst(r);
-            Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, nrMinus1));
-            Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, nr));
-
-            Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
-            Trace("integers") << "integers: branch & bound: " << lem << endl;
-            d_out->lemma(lem);
-
-            // split only on one var
-            break;
-          } else if(i.getNumerator() > 0) {
-            // lemma: v <= r || v >= r + 1
-
-            TNode var = d_arithvarNodeMap.asNode(v);
-            Node nr = NodeManager::currentNM()->mkConst(r);
-            Node nrPlus1 = NodeManager::currentNM()->mkConst(r + 1);
-            Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, nr));
-            Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, nrPlus1));
-
-            Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
-            Trace("integers") << "integers: branch & bound: " << lem << endl;
-            d_out->lemma(lem);
-
-            // split only on one var
-            break;
-          } else {
-            Unreachable();
-          }
-        } else {
-          // lemma: v <= floor(r) || v >= ceil(r)
+      // branch and bound
+      if(r.getDenominator() == 1) {
+        // r is an integer, but the infinitesimal might not be
+        if(i.getNumerator() < 0) {
+          // lemma: v <= r - 1 || v >= r
 
           TNode var = d_arithvarNodeMap.asNode(v);
-          Node floor = NodeManager::currentNM()->mkConst(r.floor());
-          Node ceiling = NodeManager::currentNM()->mkConst(r.ceiling());
-          Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, floor));
-          Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, ceiling));
+          Node nrMinus1 = NodeManager::currentNM()->mkConst(r - 1);
+          Node nr = NodeManager::currentNM()->mkConst(r);
+          Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, nrMinus1));
+          Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, nr));
 
           Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
           Trace("integers") << "integers: branch & bound: " << lem << endl;
@@ -747,14 +791,42 @@ void TheoryArith::check(Effort effortLevel){
 
           // split only on one var
           break;
-        }
-      }// if(arithvar is integer-typed)
-    } while((d_nextIntegerCheckVar = (1 + d_nextIntegerCheckVar == d_variables.size() ? 0 : 1 + d_nextIntegerCheckVar)) != rrEnd);
-  }// if(full effort)
+        } else if(i.getNumerator() > 0) {
+          // lemma: v <= r || v >= r + 1
 
-  if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
-  if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
-  Debug("arith") << "TheoryArith::check end" << std::endl;
+          TNode var = d_arithvarNodeMap.asNode(v);
+          Node nr = NodeManager::currentNM()->mkConst(r);
+          Node nrPlus1 = NodeManager::currentNM()->mkConst(r + 1);
+          Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, nr));
+          Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, nrPlus1));
+
+          Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
+          Trace("integers") << "integers: branch & bound: " << lem << endl;
+          d_out->lemma(lem);
+
+          // split only on one var
+          break;
+        } else {
+          Unreachable();
+        }
+      } else {
+        // lemma: v <= floor(r) || v >= ceil(r)
+
+        TNode var = d_arithvarNodeMap.asNode(v);
+        Node floor = NodeManager::currentNM()->mkConst(r.floor());
+        Node ceiling = NodeManager::currentNM()->mkConst(r.ceiling());
+        Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, floor));
+        Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, ceiling));
+
+        Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
+        Trace("integers") << "integers: branch & bound: " << lem << endl;
+        d_out->lemma(lem);
+
+        // split only on one var
+        break;
+      }
+    }// if(arithvar is integer-typed)
+  } while((d_nextIntegerCheckVar = (1 + d_nextIntegerCheckVar == d_variables.size() ? 0 : 1 + d_nextIntegerCheckVar)) != rrEnd);
 }
 
 void TheoryArith::splitDisequalities(){

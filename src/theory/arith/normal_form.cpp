@@ -25,21 +25,21 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-bool VarList::isSorted(iterator start, iterator end) {
+bool LeafList::isSorted(iterator start, iterator end) {
   return __gnu_cxx::is_sorted(start, end);
 }
 
-bool VarList::isMember(Node n) {
-  if(Variable::isMember(n)) {
+bool LeafList::isMember(Node n) {
+  if(Leaf::isMember(n)) {
     return true;
   }
   if(n.getKind() == kind::MULT) {
     Node::iterator curr = n.begin(), end = n.end();
     Node prev = *curr;
-    if(!Variable::isMember(prev)) return false;
+    if(!Leaf::isMember(prev)) return false;
 
     while( (++curr) != end) {
-      if(!Variable::isMember(*curr)) return false;
+      if(!Leaf::isMember(*curr)) return false;
       if(!(prev <= *curr)) return false;
       prev = *curr;
     }
@@ -48,10 +48,10 @@ bool VarList::isMember(Node n) {
     return false;
   }
 }
-int VarList::cmp(const VarList& vl) const {
-  int dif = this->size() - vl.size();
+int LeafList::cmp(const LeafList& ll) const {
+  int dif = this->size() - ll.size();
   if (dif == 0) {
-    return this->getNode().getId() - vl.getNode().getId();
+    return this->getNode().getId() - ll.getNode().getId();
   } else if(dif < 0) {
     return -1;
   } else {
@@ -59,19 +59,19 @@ int VarList::cmp(const VarList& vl) const {
   }
 }
 
-VarList VarList::parseVarList(Node n) {
-  if(Variable::isMember(n)) {
-    return VarList(Variable(n));
+LeafList LeafList::parseLeafList(Node n) {
+  if(Leaf::isMember(n)) {
+    return LeafList(Leaf(n));
   } else {
     Assert(n.getKind() == kind::MULT);
     for(Node::iterator i=n.begin(), end = n.end(); i!=end; ++i) {
-      Assert(Variable::isMember(*i));
+      Assert(Leaf::isMember(*i));
     }
-    return VarList(n);
+    return LeafList(n);
   }
 }
 
-VarList VarList::operator*(const VarList& other) const {
+LeafList LeafList::operator*(const LeafList& other) const {
   if(this->empty()) {
     return other;
   } else if(other.empty()) {
@@ -89,7 +89,7 @@ VarList VarList::operator*(const VarList& other) const {
 
     Assert(result.size() >= 2);
     Node mult = NodeManager::currentNM()->mkNode(kind::MULT, result);
-    return VarList::parseVarList(mult);
+    return LeafList::parseLeafList(mult);
   }
 }
 
@@ -97,36 +97,36 @@ bool Monomial::isMember(TNode n){
   if(n.getKind() == kind::CONST_RATIONAL) {
     return true;
   } else if(multStructured(n)) {
-    return VarList::isMember(n[1]);
+    return LeafList::isMember(n[1]);
   } else {
-    return VarList::isMember(n);
+    return LeafList::isMember(n);
   }
 }
 
-Monomial Monomial::mkMonomial(const Constant& c, const VarList& vl) {
-  if(c.isZero() || vl.empty() ) {
+Monomial Monomial::mkMonomial(const Constant& c, const LeafList& ll) {
+  if(c.isZero() || ll.empty() ) {
     return Monomial(c);
   } else if(c.isOne()) {
-    return Monomial(vl);
+    return Monomial(ll);
   } else {
-    return Monomial(c, vl);
+    return Monomial(c, ll);
   }
 }
 Monomial Monomial::parseMonomial(Node n) {
   if(n.getKind() == kind::CONST_RATIONAL) {
     return Monomial(Constant(n));
   } else if(multStructured(n)) {
-    return Monomial::mkMonomial(Constant(n[0]),VarList::parseVarList(n[1]));
+    return Monomial::mkMonomial(Constant(n[0]),LeafList::parseLeafList(n[1]));
   } else {
-    return Monomial(VarList::parseVarList(n));
+    return Monomial(LeafList::parseLeafList(n));
   }
 }
 
 Monomial Monomial::operator*(const Monomial& mono) const {
   Constant newConstant = this->getConstant() * mono.getConstant();
-  VarList newVL = this->getVarList() * mono.getVarList();
+  LeafList newLL = this->getLeafList() * mono.getLeafList();
 
-  return Monomial::mkMonomial(newConstant, newVL);
+  return Monomial::mkMonomial(newConstant, newLL);
 }
 
 vector<Monomial> Monomial::sumLikeTerms(const std::vector<Monomial> & monos) {
@@ -138,9 +138,9 @@ vector<Monomial> Monomial::sumLikeTerms(const std::vector<Monomial> & monos) {
   typedef vector<Monomial>::const_iterator iterator;
   for(iterator rangeIter = monos.begin(), end=monos.end(); rangeIter != end;) {
     Rational constant = (*rangeIter).getConstant().getValue();
-    VarList varList  = (*rangeIter).getVarList();
+    LeafList varList  = (*rangeIter).getLeafList();
     ++rangeIter;
-    while(rangeIter != end && varList == (*rangeIter).getVarList()) {
+    while(rangeIter != end && varList == (*rangeIter).getLeafList()) {
       constant += (*rangeIter).getConstant().getValue();
       ++rangeIter;
     }
@@ -168,12 +168,12 @@ void Monomial::printList(const std::vector<Monomial>& list) {
     m.print();
   }
 }
-Polynomial Polynomial::operator+(const Polynomial& vl) const {
+Polynomial Polynomial::operator+(const Polynomial& ll) const {
   this->printList();
-  vl.printList();
+  ll.printList();
 
   std::vector<Monomial> sortedMonos;
-  merge_ranges(begin(), end(), vl.begin(), vl.end(), sortedMonos);
+  merge_ranges(begin(), end(), ll.begin(), ll.end(), sortedMonos);
 
   std::vector<Monomial> combined = Monomial::sumLikeTerms(sortedMonos);
 
@@ -194,7 +194,7 @@ Polynomial Polynomial::operator*(const Monomial& mono) const {
     // We may need to sort newMonos.
     // Suppose this = (+ x y), mono = x, (* x y).getId() < (* x x).getId()
     // newMonos = <(* x x), (* x y)> after this loop.
-    // This is not sorted according to the current VarList order.
+    // This is not sorted according to the current LeafList order.
     std::sort(newMonos.begin(), newMonos.end());
     return Polynomial::mkPolynomial(newMonos);
   }
@@ -339,4 +339,13 @@ Comparison Comparison::multiplyConstant(const Constant& constant) const {
   Kind newOper = (constant.getValue() < 0) ? reverseRelationKind(oper) : oper;
 
   return mkComparison(newOper, left*Monomial(constant), right*constant);
+}
+
+
+
+bool InterpretedFunction::isMember(Node n) {
+  if (n.getKind() == kind::INTS_DIVISION || n.getKind() == kind::INTS_MODULUS){
+    return Polynomial::isMember(n[0]) &&  Polynomial::isMember(n[1]);
+  }
+  return false;
 }

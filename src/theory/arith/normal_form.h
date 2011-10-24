@@ -51,16 +51,28 @@ namespace arith {
  *   where
  *     n.getMetaKind() == metakind::VARIABLE
  *
+ * interpreted_function := (div m n) | (mod m n)
+ *   where
+ *     m,n are polynomials
+ *
+ * field_foreign := f
+ *   where
+ *     f has type real or integer, and
+ *       the theory of f is not arithmetic.
+ *
+ * leaf := variable | field_foreign | axiomatized_function
+ *   See the notes on leaf below.
+ *
  * constant := n
  *   where
  *     n.getKind() == kind::CONST_RATIONAL
  *
- * var_list := variable | (* [variable])
+ * prod_list := base | (* [base])
  *   where
- *     len [variable] >= 2
- *     isSorted varOrder [variable]
+ *     len [base] >= 2
+ *     isSorted baseOrder [base]
  *
- * monomial := constant | var_list | (* constant' var_list')
+ * monomial := constant | prod_list | (* constant' prod_list')
  *   where
  *     \f$ constant' \not\in {0,1} \f$
  *
@@ -83,12 +95,24 @@ namespace arith {
  */
 
 /**
+ * Leaf:
+ * Shared terms must be handled by the theory and the normal form.
+ * Terms that are handled purely by axiom instantiation, div and mod,
+ * need to be in the normal form as well.
+ * These are handled as field_foreign terms.
+ * Strictly speaking these break the normality of the "normal form".
+ */
+
+/**
  * Section 2: Helper Classes
  * The langauges accepted by each of these defintions
  * roughly corresponds to one of the following helper classes:
  *  Variable
  *  Constant
- *  VarList
+ *  InterpretedFunction
+ *  FieldForeign
+ *  Leaf
+ *  ProdList
  *  Monomial
  *  Polynomial
  *  Comparison
@@ -108,7 +132,7 @@ namespace arith {
  *  production rules in the above grammar.
  * -Public facing constuctors are required to fail in debug mode when the
  *  guards of the production rule are not strictly met.
- *  For example: Monomial(Constant(1),VarList(Variable(x))) must fail.
+ *  For example: Monomial(Constant(1),ProdList(Variable(x))) must fail.
  * -When a class has a Class parseClass(Node node) function,
  *  if isMember(node) is true, the function is required to return an instance
  *  of the helper class, instance, s.t. instance.getNode() == node.
@@ -126,37 +150,37 @@ namespace arith {
  * Section 3: Guard Conditions Misc.
  *
  *
- *  var_list_len vl =
+ *  leaf_list_len vl =
  *    match vl with
- *       variable -> 1
- *     | (* [variable]) -> len [variable]
+ *       base -> 1
+ *     | (* [leaf]) -> len [leaf]
  *
  *  order res =
  *    match res with
  *       Empty -> (0,Node::null())
  *     | NonEmpty(vl) -> (var_list_len vl, vl)
  *
- *  var_listOrder a b = tuple_cmp (order a) (order b)
+ *  leaf_listOrder a b = tuple_cmp (order a) (order b)
  *
- *  monomialVarList monomial =
+ *  monomialLeafList monomial =
  *    match monomial with
  *        constant -> Empty
- *      | var_list -> NonEmpty(var_list)
- *      | (* constant' var_list') -> NonEmpty(var_list')
+ *      | leaf_list -> NonEmpty(leaf_list)
+ *      | (* constant' leaf_list') -> NonEmpty(leaf_list')
  *
- *  monoOrder m0 m1 = var_listOrder (monomialVarList m0) (monomialVarList m1)
+ *  monoOrder m0 m1 = var_listOrder (monomialLeafList m0) (monomialLeafList m1)
  *
  *  constantMonomial monomial =
  *    match monomial with
  *        constant -> true
- *      | var_list -> false
- *      | (* constant' var_list') -> false
+ *      | leaf_list -> false
+ *      | (* constant' leaf_list') -> false
  *
  *  monomialCoefficient monomial =
  *    match monomial with
  *        constant -> constant
- *      | var_list -> Constant(1)
- *      | (* constant' var_list') -> constant'
+ *      | leaf_list -> Constant(1)
+ *      | (* constant' leaf_list') -> constant'
  *
  *  monomialList polynomial =
  *    match polynomial with
@@ -182,20 +206,13 @@ public:
   Variable(Node n) : NodeWrapper(n) {
     Assert(isMember(getNode()));
   }
-
-  // TODO: check if it's a theory leaf also
   static bool isMember(Node n) {
-    if (n.getKind() == kind::CONST_INTEGER) return false;
-    if (n.getKind() == kind::CONST_RATIONAL) return false;
-    if (isRelationOperator(n.getKind())) return false;
-    return Theory::isLeafOf(n, theory::THEORY_ARITH);
+    return
+      n.getMetaKind() == kind::metakind::VARIABLE &&
+      Theory::isLeafOf(n, theory::THEORY_ARITH);
   }
 
-  bool isNormalForm() { return isMember(getNode()); }
-
-  bool operator<(const Variable& v) const { return getNode() < v.getNode();}
-  bool operator==(const Variable& v) const { return getNode() == v.getNode();}
-
+  bool isNormalForm() const { return isMember(getNode()); }
 };/* class Variable */
 
 
@@ -238,6 +255,52 @@ public:
 
 };/* class Constant */
 
+class FieldForeign : public NodeWrapper {
+public:
+  FieldForeign(Node n) : NodeWrapper(n) {
+    Assert(isMember(n));
+  }
+
+  static bool isMember(Node n){
+    if (n.getKind() == kind::CONST_INTEGER) return false;
+    if (n.getKind() == kind::CONST_RATIONAL) return false;
+    if (isRelationOperator(n.getKind())) return false;
+    if (n.getMetaKind() == kind::metakind::VARIABLE) return false;
+    return Theory::isLeafOf(n, theory::THEORY_ARITH);
+  }
+
+  bool isNormalForm() const { return isMember(getNode()); }
+
+}; /* class Foreign */
+
+class InterpretedFunction : public NodeWrapper {
+public:
+  InterpretedFunction(Node n): NodeWrapper(n){
+    Assert(isMember(getNode()));
+  }
+
+  static bool isMember(Node n);
+  bool isNormalForm() const { return isMember(getNode()); }
+};
+
+class Leaf : public NodeWrapper {
+public:
+  Leaf(Node n) : NodeWrapper(n){
+    AssertArgument(isMember(n), n);
+  }
+
+  static bool isMember(Node n){
+    return
+      Variable::isMember(n) ||
+      FieldForeign::isMember(n) ||
+      InterpretedFunction::isMember(n);
+  }
+
+  bool isNormalForm() const { return isMember(getNode()); }
+
+  bool operator<(const Leaf& v) const { return getNode() < v.getNode();}
+  bool operator==(const Leaf& v) const { return getNode() == v.getNode();}
+};
 
 template <class GetNodeIterator>
 inline Node makeNode(Kind k, GetNodeIterator start, GetNodeIterator end) {
@@ -281,24 +344,24 @@ static void merge_ranges(GetNodeIterator first1,
 }
 
 /**
- * A VarList is a sorted list of variables representing a product.
- * If the VarList is empty, it represents an empty product or 1.
- * If the VarList has size 1, it represents a single variable.
+ * A LeafList is a sorted list of variables representing a product.
+ * If the LeafList is empty, it represents an empty product or 1.
+ * If the LeafList has size 1, it represents a single variable.
  *
- * A non-sorted VarList can never be successfully made in debug mode.
+ * A non-sorted LeafList can never be successfully made in debug mode.
  */
-class VarList : public NodeWrapper {
+class LeafList : public NodeWrapper {
 private:
 
-  static Node multList(const std::vector<Variable>& list) {
+  static Node multList(const std::vector<Leaf>& list) {
     Assert(list.size() >= 2);
 
     return makeNode(kind::MULT, list.begin(), list.end());
   }
 
-  VarList() : NodeWrapper(Node::null()) {}
+  LeafList() : NodeWrapper(Node::null()) {}
 
-  VarList(Node n) : NodeWrapper(n) {
+  LeafList(Node n) : NodeWrapper(n) {
     Assert(isSorted(begin(), end()));
   }
 
@@ -329,8 +392,8 @@ public:
   public:
     explicit iterator(internal_iterator i) : d_iter(i) {}
 
-    inline Variable operator*() {
-      return Variable(*d_iter);
+    inline Leaf operator*() {
+      return Leaf(*d_iter);
     }
 
     bool operator==(const iterator& i) {
@@ -359,11 +422,11 @@ public:
     return iterator(internalEnd());
   }
 
-  VarList(Variable v) : NodeWrapper(v.getNode()) {
+  LeafList(Leaf v) : NodeWrapper(v.getNode()) {
     Assert(isSorted(begin(), end()));
   }
 
-  VarList(const std::vector<Variable>& l) : NodeWrapper(multList(l)) {
+  LeafList(const std::vector<Leaf>& l) : NodeWrapper(multList(l)) {
     Assert(l.size() >= 2);
     Assert(isSorted(begin(), end()));
   }
@@ -374,19 +437,19 @@ public:
     return !empty();
   }
 
-  static VarList mkEmptyVarList() {
-    return VarList();
+  static LeafList mkEmptyLeafList() {
+    return LeafList();
   }
 
 
   /** There are no restrictions on the size of l */
-  static VarList mkVarList(const std::vector<Variable>& l) {
+  static LeafList mkLeafList(const std::vector<Leaf>& l) {
     if(l.size() == 0) {
-      return mkEmptyVarList();
+      return mkEmptyLeafList();
     } else if(l.size() == 1) {
-      return VarList((*l.begin()).getNode());
+      return LeafList((*l.begin()).getNode());
     } else {
-      return VarList(l);
+      return LeafList(l);
     }
   }
 
@@ -402,40 +465,40 @@ public:
       return getNode().getNumChildren();
   }
 
-  static VarList parseVarList(Node n);
+  static LeafList parseLeafList(Node n);
 
-  VarList operator*(const VarList& vl) const;
+  LeafList operator*(const LeafList& vl) const;
 
-  int cmp(const VarList& vl) const;
+  int cmp(const LeafList& vl) const;
 
-  bool operator<(const VarList& vl) const { return cmp(vl) < 0; }
+  bool operator<(const LeafList& vl) const { return cmp(vl) < 0; }
 
-  bool operator==(const VarList& vl) const { return cmp(vl) == 0; }
+  bool operator==(const LeafList& vl) const { return cmp(vl) == 0; }
 
 private:
   bool isSorted(iterator start, iterator end);
 
-};/* class VarList */
+};/* class LeafList */
 
 
 class Monomial : public NodeWrapper {
 private:
   Constant constant;
-  VarList varList;
-  Monomial(Node n, const Constant& c, const VarList& vl):
-    NodeWrapper(n), constant(c), varList(vl)
+  LeafList leafList;
+  Monomial(Node n, const Constant& c, const LeafList& ll):
+    NodeWrapper(n), constant(c), leafList(ll)
   {
-    Assert(!c.isZero() ||  vl.empty() );
-    Assert( c.isZero() || !vl.empty() );
+    Assert(!c.isZero() ||  ll.empty() );
+    Assert( c.isZero() || !ll.empty() );
 
     Assert(!c.isOne() || !multStructured(n));
   }
 
-  static Node makeMultNode(const Constant& c, const VarList& vl) {
+  static Node makeMultNode(const Constant& c, const LeafList& ll) {
     Assert(!c.isZero());
     Assert(!c.isOne());
-    Assert(!vl.empty());
-    return NodeManager::currentNM()->mkNode(kind::MULT, c.getNode(), vl.getNode());
+    Assert(!ll.empty());
+    return NodeManager::currentNM()->mkNode(kind::MULT, c.getNode(), ll.getNode());
   }
 
   static bool multStructured(Node n) {
@@ -447,21 +510,21 @@ private:
 public:
 
   Monomial(const Constant& c):
-    NodeWrapper(c.getNode()), constant(c), varList(VarList::mkEmptyVarList())
+    NodeWrapper(c.getNode()), constant(c), leafList(LeafList::mkEmptyLeafList())
   { }
 
-  Monomial(const VarList& vl):
-    NodeWrapper(vl.getNode()), constant(Constant::mkConstant(1)), varList(vl)
+  Monomial(const LeafList& ll):
+    NodeWrapper(ll.getNode()), constant(Constant::mkConstant(1)), leafList(ll)
   {
-    Assert( !varList.empty() );
+    Assert( !leafList.empty() );
   }
 
-  Monomial(const Constant& c, const VarList& vl):
-    NodeWrapper(makeMultNode(c,vl)), constant(c), varList(vl)
+  Monomial(const Constant& c, const LeafList& ll):
+    NodeWrapper(makeMultNode(c,ll)), constant(c), leafList(ll)
   {
     Assert( !c.isZero() );
     Assert( !c.isOne() );
-    Assert( !varList.empty() );
+    Assert( !leafList.empty() );
 
     Assert(multStructured(getNode()));
   }
@@ -469,7 +532,7 @@ public:
   static bool isMember(TNode n);
 
   /** Makes a monomial with no restrictions on c and vl. */
-  static Monomial mkMonomial(const Constant& c, const VarList& vl);
+  static Monomial mkMonomial(const Constant& c, const LeafList& ll);
 
 
   static Monomial parseMonomial(Node n);
@@ -481,10 +544,10 @@ public:
     return Monomial(Constant::mkConstant(1));
   }
   const Constant& getConstant() const { return constant; }
-  const VarList& getVarList() const { return varList; }
+  const LeafList& getLeafList() const { return leafList; }
 
   bool isConstant() const {
-    return varList.empty();
+    return leafList.empty();
   }
 
   bool isZero() const {
@@ -499,7 +562,7 @@ public:
 
 
   int cmp(const Monomial& mono) const {
-    return getVarList().cmp(mono.getVarList());
+    return getLeafList().cmp(mono.getLeafList());
   }
 
   bool operator<(const Monomial& vl) const {

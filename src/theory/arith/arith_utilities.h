@@ -58,6 +58,10 @@ inline Node mkBoolNode(bool b){
   return NodeManager::currentNM()->mkConst<bool>(b);
 }
 
+inline Node mkIntegerNode(const Integer& z){
+  return NodeManager::currentNM()->mkConst<Integer>(z);
+}
+
 
 
 inline Rational coerceToRational(TNode constant){
@@ -285,6 +289,34 @@ inline Node maybeUnaryConvert(NodeBuilder<>& builder){
   }else{
     return builder;
   }
+}
+
+inline Node mkZero(){
+  Rational ratZero(0);
+  return mkRationalNode(ratZero);
+}
+
+inline Node mkOne(){
+  Rational ratZero(1);
+  return mkRationalNode(ratZero);
+}
+
+inline Node mkIsZero(Node n){
+  return NodeManager::currentNM()->mkNode(kind::EQUAL, n, mkZero());
+}
+
+inline Node mkIsNonNegative(Node n){
+  return NodeManager::currentNM()->mkNode(kind::LEQ, mkZero(), n);
+}
+
+inline Node mkNegative(Node n){
+  return NodeManager::currentNM()->mkNode(kind::UMINUS, n);
+}
+
+inline Node mkAbs(TNode n){
+  Node nIsNN = mkIsNonNegative(n);
+  Node negN = mkNegative(n);
+  return NodeManager::currentNM()->mkNode(kind::ITE, nIsNN, n, negN);
 }
 
 }; /* namesapce arith */

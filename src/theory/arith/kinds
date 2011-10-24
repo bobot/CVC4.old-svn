@@ -17,7 +17,9 @@ operator PLUS 2: "arithmetic addition"
 operator MULT 2: "arithmetic multiplication"
 operator MINUS 2 "arithmetic binary subtraction operator"
 operator UMINUS 1 "arithmetic unary negation"
-operator DIVISION 2 "arithmetic division"
+operator DIVISION 2 "real division"
+operator INTS_DIVISION 2 "ints division"
+operator INTS_MODULUS 2 "ints modulus"
 operator POW 2 "arithmetic power"
 
 sort REAL_TYPE \
@@ -74,5 +76,8 @@ typerule LT ::CVC4::theory::arith::ArithPredicateTypeRule
 typerule LEQ ::CVC4::theory::arith::ArithPredicateTypeRule
 typerule GT ::CVC4::theory::arith::ArithPredicateTypeRule
 typerule GEQ ::CVC4::theory::arith::ArithPredicateTypeRule
+
+typerule INTS_DIVISION ::CVC4::theory::arith::ArithOperatorTypeRule
+typerule INTS_MODULUS ::CVC4::theory::arith::ArithOperatorTypeRule
 
 endtheory

@@ -90,6 +90,8 @@ private:
    */
   ArithVarNodeMap d_arithvarNodeMap;
 
+  /** A queue of axiom expansions for div and mod.*/
+  std::queue<Node> d_divModAxioms;
 
   NodeSet d_setupNodes;
   bool isSetup(Node n){
@@ -100,11 +102,25 @@ private:
     d_setupNodes.insert(n);
   }
 
-  void setupVariable(const Variable& x);
-  void setupVariableList(const VarList& vl);
+  void setupLeaf(const Leaf& x);
+  void setupLeafList(const LeafList& vl);
   void setupPolynomial(const Polynomial& poly);
   void setupAtom(TNode atom, bool addToDatabase);
 
+  void expandDivModAxiom(TNode m, TNode n);
+
+  NodeSet d_divModExpanded;
+  #warning "Not sufficient to ensure this survives user push-pop."
+  bool hasSkolemsInUserContext(TNode q){
+    AssertArgument(q.getKind() == kind::INTS_DIVISION, q);
+    return d_divModExpanded.find(q) != d_divModExpanded.end();
+  }
+
+  void setHasSkolems(TNode q){
+    AssertArgument(q.getKind() == kind::INTS_DIVISION, q);
+    AssertArgument(!hasSkolemsInUserContext(q), q);
+    d_divModExpanded.insert(q);
+  }
 
   /**
    * List of the types of variables in the system.
@@ -244,6 +260,9 @@ private:
   /** Splits the disequalities in d_diseq that are violated using lemmas on demand. */
   void splitDisequalities();
 
+  /** Branches integers. */
+  void branchIntegers();
+
   /**
    * This requests a new unique ArithVar value for x.
    * This also does initial (not context dependent) set up for a variable,
@@ -332,6 +351,10 @@ private:
     IntStat d_initialTableauSize;
     IntStat d_currSetToSmaller;
     IntStat d_smallerSetToCurr;
+
+    IntStat d_divModExpansions;
+    IntStat d_foriegnTerms;
+
     TimerStat d_restartTimer;
 
     Statistics();

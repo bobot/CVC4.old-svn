@@ -616,6 +616,8 @@ builtinOp[CVC4::Kind& kind]
   | MINUS_TOK    { $kind = CVC4::kind::MINUS; }
   | STAR_TOK     { $kind = CVC4::kind::MULT; }
   | DIV_TOK      { $kind = CVC4::kind::DIVISION; }
+  | INTS_DIV_TOK      { $kind = CVC4::kind::INTS_DIVISION; }
+  | INTS_MOD_TOK      { $kind = CVC4::kind::INTS_MODULUS; }
 
   | SELECT_TOK   { $kind = CVC4::kind::SELECT; }
   | STORE_TOK    { $kind = CVC4::kind::STORE; }
@@ -907,6 +909,9 @@ STAR_TOK          : '*';
 STORE_TOK         : 'store';
 // TILDE_TOK         : '~';
 XOR_TOK           : 'xor';
+
+INTS_DIV_TOK : 'div';
+INTS_MOD_TOK : 'mod';
 
 CONCAT_TOK : 'concat';
 BVNOT_TOK : 'bvnot';
