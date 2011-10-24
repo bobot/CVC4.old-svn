@@ -312,7 +312,8 @@ Kind getOperatorKind(int type, bool& negate) {
   case PLUS_TOK: return kind::PLUS;
   case MINUS_TOK: return kind::MINUS;
   case STAR_TOK: return kind::MULT;
-  case INTDIV_TOK: Unhandled(CvcParserTokenNames[type]);
+  case INTDIV_TOK: return kind::INTS_DIVISION;
+  case MOD_TOK: return kind::INTS_MODULUS;
   case DIV_TOK: return kind::DIVISION;
   case EXP_TOK: Unhandled(CvcParserTokenNames[type]);
 

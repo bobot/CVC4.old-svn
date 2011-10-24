@@ -121,6 +121,8 @@ void CvcPrinter::toStream(std::ostream& out, TNode n,
       case kind::MINUS:
       case kind::UMINUS: out << '-'; break;
       case kind::DIVISION: out << '/'; break;
+      case kind::INTS_DIVISION: out << "DIV"; break;
+      case kind::INTS_MODULUS: out << "MOD"; break;
       case kind::LT: out << '<'; break;
       case kind::LEQ: out << "<="; break;
       case kind::GT: out << '>'; break;

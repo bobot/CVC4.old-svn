@@ -112,9 +112,17 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     case kind::CONST_RATIONAL: {
       Rational r = n.getConst<Rational>();
       if(r < 0) {
-        out << "(- " << -r << ')';
+        if(r.getDenominator() == 1) {
+          out << "(- " << -r << ')';
+        } else {
+          out << "(- (/ " << (-r).getNumerator() << ' ' << (-r).getDenominator() << "))";
+        }
       } else {
-        out << r;
+        if(r.getDenominator() == 1) {
+          out << r;
+        } else {
+          out << "(/ " << r.getNumerator() << ' ' << r.getDenominator() << ')';
+        }
       }
       break;
     }
@@ -163,6 +171,8 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::MINUS:
   case kind::UMINUS:
   case kind::DIVISION:
+  case kind::INTS_DIVISION:
+  case kind::INTS_MODULUS:
   case kind::LT:
   case kind::LEQ:
   case kind::GT:
@@ -275,6 +285,8 @@ string smtKindString(Kind k) {
   case kind::MINUS: return "-";
   case kind::UMINUS: return "-";
   case kind::DIVISION: return "/";
+  case kind::INTS_DIVISION: return "div";
+  case kind::INTS_MODULUS: return "mod";
   case kind::LT: return "<";
   case kind::LEQ: return "<=";
   case kind::GT: return ">";
