@@ -49,6 +49,7 @@ Node mkAnd(const std::vector<TNode>& conjunctions) {
 }
 
 void TheoryUF::check(Effort level) {
+  Debug("uf") << "TheoryUF::check(" << level << ")" << std::endl;
 
   while (!done() && !d_conflict) 
   {
