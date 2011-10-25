@@ -218,7 +218,7 @@ public:
   /**
    * Destruct the SMT engine.
    */
-  ~SmtEngine();
+  ~SmtEngine() throw();
 
   /**
    * Set the logic of the script.

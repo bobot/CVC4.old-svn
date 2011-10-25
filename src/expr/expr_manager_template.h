@@ -112,7 +112,7 @@ public:
    * any expression references that used to be managed by this expression
    * manager and are left-over are bad.
    */
-  ~ExprManager();
+  ~ExprManager() throw();
 
   /** Get this node manager's options */
   const Options* getOptions() const;

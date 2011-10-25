@@ -96,24 +96,33 @@ ExprManager::ExprManager(const Options& options) :
 #endif
 }
 
-ExprManager::~ExprManager() {
-#ifdef CVC4_STATISTICS_ON
+ExprManager::~ExprManager() throw() {
   NodeManagerScope nms(d_nodeManager);
-  for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
-    if (d_exprStatistics[i] != NULL) {
-      StatisticsRegistry::unregisterStat(d_exprStatistics[i]);
-      delete d_exprStatistics[i];
+
+  try {
+
+#ifdef CVC4_STATISTICS_ON
+    for (unsigned i = 0; i < kind::LAST_KIND; ++ i) {
+      if (d_exprStatistics[i] != NULL) {
+        StatisticsRegistry::unregisterStat(d_exprStatistics[i]);
+        delete d_exprStatistics[i];
+      }
     }
-  }
-  for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
-    if (d_exprStatisticsVars[i] != NULL) {
-      StatisticsRegistry::unregisterStat(d_exprStatisticsVars[i]);
-      delete d_exprStatisticsVars[i];
+    for (unsigned i = 0; i <= LAST_TYPE; ++ i) {
+      if (d_exprStatisticsVars[i] != NULL) {
+        StatisticsRegistry::unregisterStat(d_exprStatisticsVars[i]);
+        delete d_exprStatisticsVars[i];
+      }
     }
-  }
 #endif
-  delete d_nodeManager;
-  delete d_ctxt;
+
+    delete d_nodeManager;
+    delete d_ctxt;
+
+  } catch(Exception& e) {
+    Warning() << "CVC4 threw an exception during cleanup." << std::endl
+              << e << std::endl;
+  }
 }
 
 const Options* ExprManager::getOptions() const {

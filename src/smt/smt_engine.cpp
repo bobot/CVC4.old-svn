@@ -271,34 +271,39 @@ void SmtEngine::shutdown() {
   d_theoryEngine->shutdown();
 }
 
-SmtEngine::~SmtEngine() {
+SmtEngine::~SmtEngine() throw() {
   NodeManagerScope nms(d_nodeManager);
 
-  while(Options::current()->incrementalSolving && d_userContext->getLevel() > 0) {
-    internalPop();
+  try {
+    while(Options::current()->incrementalSolving && d_userContext->getLevel() > 0) {
+      internalPop();
+    }
+
+    shutdown();
+
+    if(d_assignments != NULL) {
+      d_assignments->deleteSelf();
+    }
+
+    if(d_assertionList != NULL) {
+      d_assertionList->deleteSelf();
+    }
+
+    d_definedFunctions->deleteSelf();
+
+    StatisticsRegistry::unregisterStat(&d_definitionExpansionTime);
+    StatisticsRegistry::unregisterStat(&d_nonclausalSimplificationTime);
+    StatisticsRegistry::unregisterStat(&d_staticLearningTime);
+
+    delete d_private;
+    delete d_userContext;
+
+    delete d_theoryEngine;
+    delete d_propEngine;
+  } catch(Exception& e) {
+    Warning() << "CVC4 threw an exception during cleanup." << std::endl
+              << e << std::endl;
   }
-
-  shutdown();
-
-  if(d_assignments != NULL) {
-    d_assignments->deleteSelf();
-  }
-
-  if(d_assertionList != NULL) {
-    d_assertionList->deleteSelf();
-  }
-
-  d_definedFunctions->deleteSelf();
-
-  StatisticsRegistry::unregisterStat(&d_definitionExpansionTime);
-  StatisticsRegistry::unregisterStat(&d_nonclausalSimplificationTime);
-  StatisticsRegistry::unregisterStat(&d_staticLearningTime);
-
-  delete d_private;
-  delete d_userContext;
-
-  delete d_theoryEngine;
-  delete d_propEngine;
 }
 
 void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
