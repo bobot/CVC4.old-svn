@@ -46,27 +46,20 @@ void InstantiatorTheoryArith::resetInstantiation(){
     if( ((TheoryArith*)getTheory())->d_partialModel.hasEitherBound( x ) ){
       Node n = (*it).second;
       Node f;
-      bool success = true;
       NodeBuilder<> t(kind::PLUS);
+      NodeBuilder<> ce_t(kind::PLUS);
       if( n.getKind()==PLUS ){
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          if( !addTermToRow( x, n[i], f, t ) ){
-            success = false;
-            break;
-          }
+          addTermToRow( x, n[i], f, t, ce_t );
         }
       }else{
-        if( !addTermToRow( x, n, f, t ) ){
-          success = false;
-          break;
-        }
+        addTermToRow( x, n, f, t, ce_t );
       }
-      if( success ){
-        if( f!=Node::null() ){
-          d_instRows[f].push_back( x );
-          //this theory has constraints from f
-          setHasConstraintsFrom( f );
-        }
+      if( f!=Node::null() ){
+        d_instRows[f].push_back( x );
+        //this theory has constraints from f
+        setHasConstraintsFrom( f );
+        //set tableaux term
         if( t.getNumChildren()==0 ){
           d_tableaux_term[x] = NodeManager::currentNM()->mkConst( Rational(0) ); 
         }else if( t.getNumChildren()==1 ){
@@ -74,22 +67,29 @@ void InstantiatorTheoryArith::resetInstantiation(){
         }else{
           d_tableaux_term[x] = t;
         }
+        //set ce tableaux term
+        if( ce_t.getNumChildren()==0 ){
+          d_tableaux_ce_term[x] = NodeManager::currentNM()->mkConst( Rational(0) ); 
+        }else if( ce_t.getNumChildren()==1 ){
+          d_tableaux_ce_term[x] = ce_t.getChild( 0 );
+        }else{
+          d_tableaux_ce_term[x] = ce_t;
+        }
       }
     }
   }
   //print debug
-  printDebug();
+  debugPrint( "quant-arith-debug" );
 }
 
-bool InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){
+void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t, NodeBuilder<>& ce_t ){
   if( n.getKind()==MULT ){
     if( n[1].hasAttribute(InstConstantAttribute()) ){
-      if( n[1].getKind()!=INST_CONSTANT ){
-        //cannot build instantiations for composite instantiation term
-        return false;
-      }else{
+      if( n[1].getKind()==INST_CONSTANT ){
         f = n[1].getAttribute(InstConstantAttribute());
         d_ceTableaux[x][ n[1] ] = n[0];
+      }else{
+        ce_t << n;
       }
     }else{
       d_tableaux[x][ n[1] ] = n[0];
@@ -97,74 +97,72 @@ bool InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBui
     }
   }else{
     if( n.hasAttribute(InstConstantAttribute()) ){
-      if( n.getKind()!=INST_CONSTANT ){
-        //cannot build instantiations for composite instantiation term
-        return false;
-      }else{
+      if( n.getKind()==INST_CONSTANT ){
         f = n.getAttribute(InstConstantAttribute());
         d_ceTableaux[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
+      }else{
+        ce_t << n;
       }
     }else{
       d_tableaux[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
       t << n;
     }
   }
-  return true;
 }
 
-void InstantiatorTheoryArith::printDebug(){
+void InstantiatorTheoryArith::debugPrint( const char* c ){
   ArithVarToNodeMap avtnm = ((TheoryArith*)getTheory())->d_arithvarNodeMap.getArithVarToNodeMap();
   for( ArithVarToNodeMap::iterator it = avtnm.begin(); it != avtnm.end(); ++it ){
     ArithVar x = (*it).first;
     Node n = (*it).second;
     if( ((TheoryArith*)getTheory())->d_partialModel.hasEitherBound( x ) ){
-      Debug("quant-arith") << x << " : " << n << ", bounds = ";
+      Debug(c) << x << " : " << n << ", bounds = ";
       if( ((TheoryArith*)getTheory())->d_partialModel.hasLowerBound( x ) ){
-        Debug("quant-arith") << ((TheoryArith*)getTheory())->d_partialModel.getLowerBound( x );
+        Debug(c) << ((TheoryArith*)getTheory())->d_partialModel.getLowerBound( x );
       }else{
-        Debug("quant-arith") << "-infty";
+        Debug(c) << "-infty";
       }
-      Debug("quant-arith") << " <= ";
-      Debug("quant-arith") << ((TheoryArith*)getTheory())->d_partialModel.getAssignment( x );
-      Debug("quant-arith") << " <= ";
+      Debug(c) << " <= ";
+      Debug(c) << ((TheoryArith*)getTheory())->d_partialModel.getAssignment( x );
+      Debug(c) << " <= ";
       if( ((TheoryArith*)getTheory())->d_partialModel.hasUpperBound( x ) ){
-        Debug("quant-arith") << ((TheoryArith*)getTheory())->d_partialModel.getUpperBound( x );
+        Debug(c) << ((TheoryArith*)getTheory())->d_partialModel.getUpperBound( x );
       }else{
-        Debug("quant-arith") << "+infty";
+        Debug(c) << "+infty";
       }
-      Debug("quant-arith") << std::endl;
-      //Debug("quant-arith") << "   Term = " << d_tableaux_term[x] << std::endl;
-      //Debug("quant-arith") << "   ";
+      Debug(c) << std::endl;
+      //Debug(c) << "   Term = " << d_tableaux_term[x] << std::endl;
+      //Debug(c) << "   ";
       //for( std::map< Node, Node >::iterator it2 = d_tableaux[x].begin(); it2 != d_tableaux[x].end(); ++it2 ){
-      //  Debug("quant-arith") << "( " << it2->first << ", " << it2->second << " ) ";
+      //  Debug(c) << "( " << it2->first << ", " << it2->second << " ) ";
       //}
       //for( std::map< Node, Node >::iterator it2 = d_ceTableaux[x].begin(); it2 != d_ceTableaux[x].end(); ++it2 ){
-      //  Debug("quant-arith") << "(CE)( " << it2->first << ", " << it2->second << " ) ";
+      //  Debug(c) << "(CE)( " << it2->first << ", " << it2->second << " ) ";
       //}
-      //Debug("quant-arith") << std::endl;
+      //Debug(c) << std::endl;
     }
   }
 
   for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
         it != d_instEngine->d_inst_constants.end(); ++it ){
     Node f = it->first;
-    Debug("quant-arith") << f << std::endl;
-    Debug("quant-arith") << "   Inst constants: ";
+    Debug(c) << f << std::endl;
+    Debug(c) << "   Inst constants: ";
     for( int i=0; i<(int)it->second.size(); i++ ){
       if( i>0 ){
-        Debug("quant-arith") << ", ";
+        Debug(c) << ", ";
       }
-      Debug("quant-arith") << it->second[i];
+      Debug(c) << it->second[i];
     }
-    Debug("quant-arith") << std::endl;
-    Debug("quant-arith") << "   Instantiation rows: ";
+    Debug(c) << std::endl;
+    Debug(c) << "   Instantiation rows: ";
     for( int i=0; i<(int)d_instRows[f].size(); i++ ){
       if( i>0 ){
-        Debug("quant-arith") << ", ";
+        Debug(c) << ", ";
       }
-      Debug("quant-arith") << d_instRows[f][i];
+      Debug(c) << d_instRows[f][i];
     }
-    Debug("quant-arith") << std::endl;
+    Debug(c) << std::endl;
   }
 }
 
@@ -195,8 +193,11 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
       Debug("quant-arith") << "   Suggest " << instVal << " for " << d_ceTableaux[x].begin()->first << std::endl;
       InstMatch m( f, d_instEngine );
       for( int k=0; k<(int)d_instEngine->d_inst_constants[f].size(); k++ ){
-        Rational z(0);
-        m.setMatch( d_instEngine->d_inst_constants[f][k], NodeManager::currentNM()->mkConst( z ) );
+        if( d_instEngine->d_inst_constants[f][k].getType()==NodeManager::currentNM()->integerType() ||
+           d_instEngine->d_inst_constants[f][k].getType()==NodeManager::currentNM()->realType() ){
+          Rational z(0);
+          m.setMatch( d_instEngine->d_inst_constants[f][k], NodeManager::currentNM()->mkConst( z ) );
+        }
       }
       m.setMatch( d_ceTableaux[x].begin()->first, instVal );
       d_instEngine->addInstantiation( &m );

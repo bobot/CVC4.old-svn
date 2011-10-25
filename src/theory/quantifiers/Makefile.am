@@ -9,6 +9,8 @@ libquantifiers_la_SOURCES = \
 	theory_quantifiers_type_rules.h \
 	theory_quantifiers.h \
 	quantifiers_rewriter.h \
-	theory_quantifiers.cpp 
+	theory_quantifiers.cpp \
+	theory_quantifiers_instantiator.h \
+	theory_quantifiers_instantiator.cpp
 
 EXTRA_DIST = kinds

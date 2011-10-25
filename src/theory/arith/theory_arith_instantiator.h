@@ -36,6 +36,7 @@ private:
   std::map< Node, std::vector< ArithVar > > d_instRows;
   /** tableaux */
   std::map< ArithVar, Node > d_tableaux_term;
+  std::map< ArithVar, Node > d_tableaux_ce_term;
   std::map< ArithVar, std::map< Node, Node > > d_tableaux;
   /** ce tableaux */
   std::map< ArithVar, std::map< Node, Node > > d_ceTableaux;
@@ -51,9 +52,9 @@ public:
   std::string identify() const { return std::string("InstantiatorTheoryArith"); }
 private:
   /** add term to row */
-  bool addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t );
+  void addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t, NodeBuilder<>& ce_t );
   /** print debug */
-  void printDebug();
+  void debugPrint( const char* c );
   /** process at effort */
   void process( Node f, int effort );
   /** get delta for node */

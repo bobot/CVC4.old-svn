@@ -55,7 +55,8 @@ public:
     QF_UFLIA,
     QF_UFLRA,
     QF_UFNRA,
-    UFNIA
+    UFNIA,
+    UFLRA
   };
 
   enum Theory {

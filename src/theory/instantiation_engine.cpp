@@ -359,7 +359,7 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
 }
 
 bool InstantiationEngine::addInstantiation( InstMatch* m ){
-  Assert( m->isComplete() );
+  //Assert( m->isComplete() );
   m->computeTermVec();
   return addInstantiation( m->getQuantifier(), m->d_match );
 }
@@ -431,7 +431,7 @@ void InstantiationEngine::getVariablesFor( Node f, std::vector< Node >& vars )
 bool InstantiationEngine::doInstantiation( OutputChannel* out ){
   d_curr_out = out;
   //call instantiators to search for an instantiation
-  Debug("inst-engine") << "Reset instantiation." << std::endl;
+  Debug("inst-engine") << "IE: Reset instantiation." << std::endl;
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_instTable[i] ){
       d_instTable[i]->resetInstantiation();
@@ -441,7 +441,7 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
   d_status = Instantiator::STATUS_UNFINISHED;
   d_addedLemma = false;
   while( d_status==Instantiator::STATUS_UNFINISHED ){
-    Debug("inst-engine") << "Prepare instantiation (" << e << ")." << std::endl;
+    Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
     d_instQueue.clear();
     d_status = Instantiator::STATUS_SAT;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
@@ -459,6 +459,7 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
     }
     e++;
   }
+  Debug("inst-engine") << "IE: All instantiators finished, addedLemma = " << d_addedLemma << std::endl;
   return d_addedLemma;
 }
 

@@ -48,6 +48,7 @@ public:
         }
       }
       Node n = NodeManager::currentNM()->mkNode(kind::FORALL, children );
+      Debug("quantifiers-rewrite") << "Rewrite " << in << " to " << n.notNode() << std::endl;
       return RewriteResponse(REWRITE_DONE, n.notNode() );
     }
     return RewriteResponse(REWRITE_DONE, in);

@@ -23,6 +23,7 @@
 #include "expr/kind.h"
 #include "util/Assert.h"
 #include <map>
+#include "theory/quantifiers/theory_quantifiers_instantiator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -115,6 +116,9 @@ void TheoryQuantifiers::check(Effort e) {
       Unhandled(assertion.getKind());
       break;
     }
+    if( getInstantiator() ){
+      getInstantiator()->check( assertion );
+    }
   }
   if( e == FULL_EFFORT ) {
     Debug("quantifiers") << "quantifiers: FULL_EFFORT check" << std::endl;
@@ -165,9 +169,13 @@ void TheoryQuantifiers::check(Effort e) {
         d_numInstantiations.set( d_numInstantiations.get() + 1 );
         //Debug("quantifiers") << "Done instantiation " << d_numInstantiations.get() << "." << std::endl;
       }else{
+        std::cout << "unknown" << std::endl;
+        exit( 7 );
         Debug("quantifiers") << "No instantiation given." << std::endl;
         if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
-          exit( -1 );
+#if 1
+          d_out->setIncomplete();
+#else
           //instantiation did not add a lemma to d_out, try to flip a previous decision
           if( !d_out->flipDecision() ){
             //maybe restart?
@@ -182,21 +190,18 @@ void TheoryQuantifiers::check(Effort e) {
           }else{
             Debug("quantifiers") << "Flipped decision." << std::endl;
           }
+#endif
         }
       }
+    }else{
+      Debug("quantifiers") << "No quantifier is active." << std::endl;
     }
   }
 }
 
 void TheoryQuantifiers::assertUniversal( Node n ){
   Assert( n.getKind()==FORALL );
-  if( n.hasAttribute(InstConstantAttribute()) ){
-    Debug("quantifiers") << "Ignoring nested quantifier for counterexample: " << n << std::endl;
-    //the quantifiers instantiator has constraints from n
-    if( getInstantiator() ){
-      getInstantiator()->setHasConstraintsFrom( n.getAttribute(InstConstantAttribute()) );
-    }
-  }else{
+  if( !n.hasAttribute(InstConstantAttribute()) ){
     if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
       //counterexample instantiate, add lemma
       std::vector< Node > inst_constants;
@@ -213,10 +218,12 @@ void TheoryQuantifiers::assertUniversal( Node n ){
 
       //mark all literals in the body of n as dependent on cel
       d_instEngine->registerLiterals( body, n, d_out );
+
       ////mark cel as dependent on n
       //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
       //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
       //d_out->dependentDecision( quant, cel );    //FIXME?
+
       //require any decision on cel to be phase=false
       d_out->requirePhase( cel, false );
 
@@ -228,13 +235,7 @@ void TheoryQuantifiers::assertUniversal( Node n ){
 
 void TheoryQuantifiers::assertExistential( Node n ){
   Assert( n.getKind()== NOT && n[0].getKind()==FORALL );
-  if( n[0].hasAttribute(InstConstantAttribute()) ){
-    Debug("quantifiers") << "Ignoring nested quantifier for counterexample: " << n[0] << std::endl;
-    //the quantifiers instantiator has constraints from n[0]
-    if( getInstantiator() ){
-      getInstantiator()->setHasConstraintsFrom( n[0].getAttribute(InstConstantAttribute()) );
-    }
-  }else{
+  if( !n[0].hasAttribute(InstConstantAttribute()) ){
     if( d_skolemized.find( n )==d_skolemized.end() ){
       //skolemize, add lemma
       std::vector< Node > vars;
@@ -263,4 +264,9 @@ void TheoryQuantifiers::assertCounterexample( Node n ){
     Assert( n.getKind()==NOT );
     d_counterexample_asserts[ n[0][0] ] = false;
   }
+}
+
+Instantiator* TheoryQuantifiers::makeInstantiator(){
+  Debug("quant-quant") << "Make Quantifiers instantiator" << endl;
+  return new InstantiatorTheoryQuantifiers( getContext(), d_instEngine, this );
 }

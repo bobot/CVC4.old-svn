@@ -763,7 +763,7 @@ void InstantiatorTheoryUf::resetInstantiation()
     }
   }
   //debug print
-  debugPrint("quant-uf");
+  debugPrint("quant-uf-debug");
 }
 
 void InstantiatorTheoryUf::debugPrint( const char* c )
@@ -876,8 +876,8 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
   Debug("quant-uf") << "UF: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   if( effort>4 ){
     if( d_status==STATUS_SAT ){
-      Debug("quant-uf-debug") << "Stuck at this state:" << std::endl;
-      debugPrint("quant-uf-debug");
+      Debug("quant-uf-stuck") << "Stuck at this state:" << std::endl;
+      debugPrint("quant-uf-stuck");
     }
     d_quantStatus = STATUS_UNKNOWN;
   }else if( effort==0 ){
@@ -892,7 +892,9 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
           if( !rep.hasAttribute(InstConstantAttribute()) ){
             d_baseMatch[f].setMatch( i, rep );
           }
-        }
+        }//else{
+          //d_baseMatch[f].setMatch( i, NodeManager::currentNM()->mkVar( i.getType() ) );
+        //}
       }
     }
     //check if f is counterexample-solved
@@ -960,35 +962,34 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
           cover[i]->debugPrint( "quant-uf-alg", 1, false );
           cover[i]->d_mg.debugPrint( "quant-uf-alg" );
         }
-        std::vector< std::pair< Node, Node > > splits;
-        std::vector< std::pair< Node, Node > > matchFails;
+        bool success = false;
         for( int i=0; i<(int)cover.size(); i++ ){
           //see if we can construct any complete instantiations 
           cover[i]->reset();
-          bool success = false;
           while( !success && cover[i]->getNextMatch() ){
             if( cover[i]->getCurrent()->isComplete( &d_baseMatch[f] ) ){
               InstMatch temp( cover[i]->getCurrent() );
               temp.add( d_baseMatch[f] );
               if( d_instEngine->addInstantiation( &temp ) ){
                 success = true;
+                for( std::map< Node, Node >::iterator it = temp.d_splits.begin(); it != temp.d_splits.end(); ++it ){
+                  addSplitEquality( it->first, it->second, true, true );
+                }
               }
             }
           }
         }
-        for( int i=0; i<(int)unmerged.size(); i++ ){
-          //process each unmerged point
-          if( unmerged[i]->isCombine() ){
-            //determine why it has no children
-            //matchFails.push_back( std::pair< Node, Node >( unmerged[i]->d_t, unmerged[i]->d_s ) );
-            //unmerged[i]->resolveMatch();
-          }else{
-            if( unmerged[i]->hasSplits() ){
-              //ground argument mismatches
-              unmerged[i]->getSplits( splits );
+        if( !success ){
+          std::vector< std::pair< Node, Node > > splits;
+          std::vector< std::pair< Node, Node > > matchFails;
+          for( int i=0; i<(int)unmerged.size(); i++ ){
+            //process each unmerged point
+            if( unmerged[i]->isCombine() ){
+              //determine why it has no children
+              //matchFails.push_back( std::pair< Node, Node >( unmerged[i]->d_t, unmerged[i]->d_s ) );
+              //unmerged[i]->resolveMatch();
             }else{
-              //determine why it failed to merge
-              //unmerged[i]->resolveMerge();
+              //add splits?
             }
           }
         }
