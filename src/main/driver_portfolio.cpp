@@ -103,7 +103,7 @@ public:
     if(Debug.isOn("disable-lemma-sharing")) return;
     const Options *options = Options::current();
     if(options->sharingFilterByLength > 0) {
-      if(lemma.getNumChildren() > options->sharingFilterByLength)
+      if( int(lemma.getNumChildren()) > options->sharingFilterByLength)
         return;
     }
     ++cnt;
@@ -161,9 +161,10 @@ public:
 int runCvc4(int argc, char *argv[], Options& options) {
 
   // Timer statistic till we have support in cluster
-  timeval tim;
-  gettimeofday(&tim, NULL);
-  double t_start = tim.tv_sec+(tim.tv_usec/1000000.0);
+  TimerStat s_totalTime("totalTime");
+  TimerStat s_beforePortfolioTime("beforePortfolioTime");
+  s_totalTime.start();
+  s_beforePortfolioTime.start();
 
   // For the signal handlers' benefit
   pOptions = &options;
@@ -264,7 +265,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
   // Statistics init
   pStatistics = &theStatisticsRegistry;
 
-  StatisticsRegistry driverStatisticsRegistry;
+  StatisticsRegistry driverStatisticsRegistry("driver");
   theStatisticsRegistry.registerStat_((&driverStatisticsRegistry));
 
   // Options
@@ -283,6 +284,13 @@ int runCvc4(int argc, char *argv[], Options& options) {
   ReferenceStat< const char* > s_statFilename("filename", filename);
   RegisterStatistic* statFilenameReg =
     new RegisterStatistic(&driverStatisticsRegistry, &s_statFilename);
+
+  // Timer statistic
+  RegisterStatistic* statTotatTime =
+    new RegisterStatistic(&driverStatisticsRegistry, &s_totalTime);
+  RegisterStatistic* statBeforePortfolioTime =
+    new RegisterStatistic(&driverStatisticsRegistry, &s_beforePortfolioTime);
+  // Ask: why doesn't this: driverStatisticsRegistry.registerStat(&s_totalTime) work?
 
   // Parse commands until we are done
   Command* cmd;
@@ -384,6 +392,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
   function <void()>
     smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn);
 
+  s_beforePortfolioTime.stop();
   pair<int, Result> portfolioReturn = runPortfolio(numThreads, smFn, fns);
   int winner = portfolioReturn.first;
   Result result = portfolioReturn.second;
@@ -403,7 +412,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
     returnValue = 0;
   }
 
-#ifdef CVC4_COMPETITION_MODE
+  #ifdef CVC4_COMPETITION_MODE
   // exit, don't return
   // (don't want destructors to run)
   exit(returnValue);
@@ -411,6 +420,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   // ReferenceStat< Result > s_statSatResult("sat/unsat", result);
   // RegisterStatistic statSatResultReg(*exprMgr, &s_statSatResult);
+
+  // Stop timers, enough work done
+  s_totalTime.stop();
 
   if(options.statistics) {
     theStatisticsRegistry.flushInformation(*options.err);
@@ -421,6 +433,20 @@ int runCvc4(int argc, char *argv[], Options& options) {
     *options.out << "--- Seperator ---" << endl;
     *options.out << ss_out2.str() ;
   }
+
+  /*if(options.statistics) {
+    double totalTime = double(s_totalTime.getData().tv_sec) +
+        double(s_totalTime.getData().tv_nsec)/1000000000.0;
+    cout.precision(6);
+    *options.err << "real time: " << totalTime << "s\n";
+    int th0_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(options.lemmaOutputChannel)).cnt;
+    int th1_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(options2.lemmaOutputChannel)).cnt;
+    *options.err << "lemmas shared by thread #0: " << th0_lemcnt << endl;
+    *options.err << "lemmas shared by thread #1: " << th1_lemcnt << endl;
+    *options.err << "sharing rate: " << double(th0_lemcnt+th1_lemcnt)/(totalTime)
+                 << " lem/sec" << endl;
+    *options.err << "winner: #" << (winner == 0 ? 0 : 1) << endl;
+  }*/
 
   // destruction is causing segfaults, let us just exit
   exit(returnValue);
@@ -434,20 +460,6 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   delete seq2;
   delete exprMgr2;
-
-  if(options.statistics) {
-    gettimeofday(&tim, NULL);
-    double t_end=tim.tv_sec+(tim.tv_usec/1000000.0);
-    cout.precision(6);
-    *options.err << "real time: " << t_end-t_start << "s\n";
-    int th0_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(options.lemmaOutputChannel)).cnt;
-    int th1_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(options2.lemmaOutputChannel)).cnt;
-    *options.err << "lemmas shared by thread #0: " << th0_lemcnt << endl;
-    *options.err << "lemmas shared by thread #1: " << th1_lemcnt << endl;
-    *options.err << "sharing rate: " << double(th0_lemcnt+th1_lemcnt)/(t_end-t_start)
-                 << " lem/sec" << endl;
-    *options.err << "winner: #" << (winner == 0 ? 0 : 1) << endl;
-  }
 
   return returnValue;
 }
