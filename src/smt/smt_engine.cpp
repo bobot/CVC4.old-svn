@@ -170,6 +170,17 @@ public:
   void processAssertions();
 
   /**
+   * Process a user pop.  Clears out the non-context-dependent stuff in this
+   * SmtEnginePrivate.  Necessary to clear out our assertion vectors in case
+   * someone does a push-assert-pop without a check-sat.
+   */
+  void notifyPop() {
+    d_assertionsToPreprocess.clear();
+    d_nonClausalLearnedLiterals.clear();
+    d_assertionsToCheck.clear();
+  }
+
+  /**
    * Adds a formula to the current context.  Action here depends on
    * the SimplificationMode (in the current Options scope); the
    * formula might be pushed out to the propositional layer
@@ -184,6 +195,7 @@ public:
    */
   Node expandDefinitions(TNode n, hash_map<TNode, Node, TNodeHashFunction>& cache)
     throw(NoSuchFunctionException, AssertionException);
+
 };/* class SmtEnginePrivate */
 
 }/* namespace CVC4::smt */
@@ -1198,6 +1210,9 @@ void SmtEngine::pop() {
     internalPop();
   }
   d_userLevels.pop_back();
+
+  // Clear out assertion queues etc., in case anything is still in there
+  d_private->notifyPop();
 
   Trace("userpushpop") << "SmtEngine: popped to level "
                        << d_userContext->getLevel() << endl;

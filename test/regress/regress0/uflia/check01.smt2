@@ -1,3 +1,6 @@
+; COMMAND-LINE: --incremental
+; EXPECT: sat
+; EXIT: 10
 (set-logic QF_UFLIA)
 (set-info :smt-lib-version 2.0)
 (set-info :status sat)
