@@ -31,7 +31,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Map.h"
 #include "mtl/Alloc.h"
 
-
 namespace Minisat {
 
 //=================================================================================================
@@ -122,12 +121,15 @@ class Clause;
 typedef RegionAllocator<uint32_t>::Ref CRef;
 } /* Minisat */
 
+
+
 namespace CVC4 {
 class ProofProxyAbstract {
 public:
   virtual void updateCRef(Minisat::CRef oldref, Minisat::CRef newref) = 0; 
 };
 }
+
 
 
 namespace Minisat{

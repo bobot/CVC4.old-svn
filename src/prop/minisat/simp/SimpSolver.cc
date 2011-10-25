@@ -21,7 +21,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include "mtl/Sort.h"
 #include "simp/SimpSolver.h"
 #include "utils/System.h"
-
+#include "proof/proof.h"
 using namespace Minisat;
 using namespace CVC4;
 
@@ -57,7 +57,7 @@ SimpSolver::SimpSolver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* con
   , asymm_lits         (0)
   , eliminated_vars    (0)
   , elimorder          (1)
-  , use_simplification (false) // TODO: turn off simplifications if proofs are on initially
+  , use_simplification (!enableIncremental && !PROOF_ON()) // TODO: turn off simplifications if proofs are on initially
   , occurs             (ClauseDeleted(ca))
   , elim_heap          (ElimLt(n_occ))
   , bwdsub_assigns     (0)

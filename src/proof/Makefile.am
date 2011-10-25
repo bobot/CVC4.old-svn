@@ -8,6 +8,11 @@ AM_CXXFLAGS = -Wall -Wno-parentheses -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDD
 noinst_LTLIBRARIES = libproof.la
 
 libproof_la_SOURCES = \
+	proof.h \
 	sat_proof.h \
-	sat_proof.cpp
+	sat_proof.cpp \
+	cnf_proof.h \
+	cnf_proof.cpp \
+	proof_manager.h \
+	proof_manager.cpp
 

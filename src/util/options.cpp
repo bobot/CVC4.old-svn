@@ -76,6 +76,7 @@ Options::Options() :
   interactiveSetByUser(false),
   segvNoSpin(false),
   produceModels(false),
+  proof(false),
   produceAssignments(false),
   typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
   earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
@@ -125,6 +126,7 @@ static const string optionsDescription = "\
    --no-interactive       do not run interactively\n\
    --produce-models | -m  support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
+   --proof                turn proof generation on\n\
    --lazy-definition-expansion expand define-fun lazily\n\
    --simplification=MODE  choose simplification mode, see --simplification=help\n\
    --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
@@ -288,6 +290,7 @@ enum OptionValue {
   INTERACTIVE,
   NO_INTERACTIVE,
   PRODUCE_ASSIGNMENTS,
+  PROOF,
   NO_TYPE_CHECKING,
   LAZY_TYPE_CHECKING,
   EAGER_TYPE_CHECKING,
@@ -365,6 +368,7 @@ static struct option cmdlineOptions[] = {
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
   { "produce-models", no_argument   , NULL, 'm' },
   { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
+  { "proof", no_argument, NULL, PROOF },
   { "no-type-checking", no_argument , NULL, NO_TYPE_CHECKING },
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
   { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
@@ -624,11 +628,15 @@ throw(OptionException) {
     case 'm':
       produceModels = true;
       break;
-
+      
     case PRODUCE_ASSIGNMENTS:
       produceAssignments = true;
       break;
-
+      
+    case PROOF:
+      proof = true;
+      break;
+      
     case NO_TYPE_CHECKING:
       typeChecking = false;
       earlyTypeChecking = false;
@@ -824,6 +832,7 @@ throw(OptionException) {
       printf("dumping    : %s\n", Configuration::isDumpingBuild() ? "yes" : "no");
       printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
       printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");
+      printf("proof      : %s\n", Configuration::isProofBuild() ? "yes" : "no");
       printf("coverage   : %s\n", Configuration::isCoverageBuild() ? "yes" : "no");
       printf("profiling  : %s\n", Configuration::isProfilingBuild() ? "yes" : "no");
       printf("competition: %s\n", Configuration::isCompetitionBuild() ? "yes" : "no");

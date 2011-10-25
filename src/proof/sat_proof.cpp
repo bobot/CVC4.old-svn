@@ -39,13 +39,15 @@ void printDebug (Minisat::Clause& c) {
 }
 
 
+int SatProof::d_idCounter = 0; 
+
 /** 
  * Converts the clause associated to id to a set of literals
  * 
  * @param id the clause id
  * @param set the clause converted to a set of literals 
  */
-void ResolutionProof::createLitSet(ClauseId id, LitSet& set) {
+void SatProof::createLitSet(ClauseId id, LitSet& set) {
   Assert (set.empty());
   if(isUnit(id)) {
     set.insert(getUnit(id));
@@ -130,7 +132,7 @@ void ResChain::addRedundantLit(Lit lit) {
 
 /// ProxyProof
 
-ProofProxy::ProofProxy(ResolutionProof* proof):
+ProofProxy::ProofProxy(SatProof* proof):
   d_proof(proof)
 {}
 
@@ -139,9 +141,9 @@ void ProofProxy::updateCRef(CRef oldref, CRef newref) {
 }
 
 
-/// ResolutionProof
+/// SatProof
 
-ResolutionProof::ResolutionProof(Minisat::Solver* solver, bool checkRes) :
+SatProof::SatProof(Minisat::Solver* solver, bool checkRes) :
     d_solver(solver),
     d_idClause(),
     d_clauseId(),
@@ -167,7 +169,7 @@ ResolutionProof::ResolutionProof(Minisat::Solver* solver, bool checkRes) :
  * 
  * @return 
  */
-bool ResolutionProof::checkResolution(ClauseId id) {
+bool SatProof::checkResolution(ClauseId id) {
   if(d_checkRes) {
     bool validRes = true; 
     Assert (d_resChains.find(id) != d_resChains.end());
@@ -226,7 +228,7 @@ bool ResolutionProof::checkResolution(ClauseId id) {
 
 /// helper methods
 
-ClauseId ResolutionProof::getClauseId(CRef ref) {
+ClauseId SatProof::getClauseId(CRef ref) {
   if(d_clauseId.find(ref) == d_clauseId.end()) {
     Debug("proof:sat") << "Missing clause \n"; 
   }
@@ -235,12 +237,12 @@ ClauseId ResolutionProof::getClauseId(CRef ref) {
 }
 
 
-ClauseId ResolutionProof::getClauseId(Lit lit) {
+ClauseId SatProof::getClauseId(Lit lit) {
   Assert(d_unitId.find(toInt(lit)) != d_unitId.end());
   return d_unitId[toInt(lit)]; 
 }
 
-CRef ResolutionProof::getClauseRef(ClauseId id) {
+CRef SatProof::getClauseRef(ClauseId id) {
   if (d_idClause.find(id) == d_idClause.end()) {
     Debug("proof:sat") << "proof:getClauseRef cannot find clause "<<id<<" "
                        << ((d_deleted.find(id) != d_deleted.end()) ? "deleted" : "")
@@ -250,37 +252,37 @@ CRef ResolutionProof::getClauseRef(ClauseId id) {
   return d_idClause[id]; 
 }
 
-Clause& ResolutionProof::getClause(ClauseId id) {
+Clause& SatProof::getClause(ClauseId id) {
   return d_solver->ca[id]; 
 }
-Lit ResolutionProof::getUnit(ClauseId id) {
+Lit SatProof::getUnit(ClauseId id) {
   Assert (d_idUnit.find(id) != d_idUnit.end());
   return d_idUnit[id]; 
 }
 
-bool ResolutionProof::isUnit(ClauseId id) {
+bool SatProof::isUnit(ClauseId id) {
   return d_idUnit.find(id) != d_idUnit.end(); 
 }
 
-bool ResolutionProof::isUnit(Lit lit) {
+bool SatProof::isUnit(Lit lit) {
   return d_unitId.find(toInt(lit)) != d_unitId.end(); 
 }
 
-ClauseId ResolutionProof::getUnitId(Lit lit) {
+ClauseId SatProof::getUnitId(Lit lit) {
   Assert(isUnit(lit)); 
   return d_unitId[toInt(lit)]; 
 }
 
-bool ResolutionProof::hasResolution(ClauseId id) {
+bool SatProof::hasResolution(ClauseId id) {
   return d_resChains.find(id) != d_resChains.end(); 
 }
 
-bool ResolutionProof::isInputClause(ClauseId id) {
+bool SatProof::isInputClause(ClauseId id) {
   return (d_inputClauses.find(id) != d_inputClauses.end()); 
 }
 
 
-void ResolutionProof::print(ClauseId id) {
+void SatProof::print(ClauseId id) {
   if (d_deleted.find(id) != d_deleted.end()) {
     Debug("proof:sat") << "del"<<id; 
   } else if (isUnit(id)) {
@@ -295,13 +297,13 @@ void ResolutionProof::print(ClauseId id) {
   }
 }
 
-void ResolutionProof::printRes(ClauseId id) {
+void SatProof::printRes(ClauseId id) {
   Assert(hasResolution(id));
   Debug("proof:sat") << "id "<< id <<": ";
   printRes(d_resChains[id]); 
 }
 
-void ResolutionProof::printRes(ResChain* res) {
+void SatProof::printRes(ResChain* res) {
   ClauseId start_id = res->getStart();
 
   Debug("proof:sat") << "(";
@@ -322,7 +324,7 @@ void ResolutionProof::printRes(ResChain* res) {
 
 /// registration methods
 
-ClauseId ResolutionProof::registerClause(CRef clause, bool isInput) {
+ClauseId SatProof::registerClause(CRef clause, bool isInput) {
   Assert(clause != CRef_Undef); 
   ClauseIdMap::iterator it = d_clauseId.find(clause);
    if (it == d_clauseId.end()) {
@@ -337,7 +339,7 @@ ClauseId ResolutionProof::registerClause(CRef clause, bool isInput) {
    return d_clauseId[clause]; 
 }
 
-ClauseId ResolutionProof::registerUnitClause(Lit lit, bool isInput) {
+ClauseId SatProof::registerUnitClause(Lit lit, bool isInput) {
   UnitIdMap::iterator it = d_unitId.find(toInt(lit));
   if (it == d_unitId.end()) {
     ClauseId newId = d_idCounter++;
@@ -351,7 +353,7 @@ ClauseId ResolutionProof::registerUnitClause(Lit lit, bool isInput) {
   return d_unitId[toInt(lit)]; 
 }
 
-void ResolutionProof::removedDfs(Lit lit, LitSet* removedSet, LitVector& removeStack, LitSet& inClause, LitSet& seen){
+void SatProof::removedDfs(Lit lit, LitSet* removedSet, LitVector& removeStack, LitSet& inClause, LitSet& seen){
   // if we already added the literal return
   if (seen.count(lit)) {
     return; 
@@ -379,7 +381,7 @@ void ResolutionProof::removedDfs(Lit lit, LitSet* removedSet, LitVector& removeS
 }
 
 
-void ResolutionProof::removeRedundantFromRes(ResChain* res, ClauseId id) {
+void SatProof::removeRedundantFromRes(ResChain* res, ClauseId id) {
   LitSet* removed = res->getRedundant();
   if (removed == NULL) {
     return;
@@ -410,7 +412,7 @@ void ResolutionProof::removeRedundantFromRes(ResChain* res, ClauseId id) {
   removed->clear(); 
 }
 
-void ResolutionProof::registerResolution(ClauseId id, ResChain* res) {
+void SatProof::registerResolution(ClauseId id, ResChain* res) {
   Assert(res != NULL);
 
   removeRedundantFromRes(res, id);
@@ -426,19 +428,19 @@ void ResolutionProof::registerResolution(ClauseId id, ResChain* res) {
 
 /// recording resolutions
 
-void ResolutionProof::startResChain(CRef start) {
+void SatProof::startResChain(CRef start) {
   ClauseId id = getClauseId(start); 
   ResChain* res = new ResChain(id);
   d_resStack.push_back(res); 
 }
 
-void ResolutionProof::addResolutionStep(Lit lit, CRef clause, bool sign) {
+void SatProof::addResolutionStep(Lit lit, CRef clause, bool sign) {
   ClauseId id = registerClause(clause);
   ResChain* res = d_resStack.back();
   res->addStep(lit, id, sign); 
 }
 
-void ResolutionProof::endResChain(CRef clause) {
+void SatProof::endResChain(CRef clause) {
   Assert(d_resStack.size() > 0);
   ClauseId  id = registerClause(clause); 
   ResChain* res = d_resStack.back();
@@ -447,7 +449,7 @@ void ResolutionProof::endResChain(CRef clause) {
 }
 
 
-void ResolutionProof::endResChain(Lit lit) {
+void SatProof::endResChain(Lit lit) {
   Assert(d_resStack.size() > 0);
   ClauseId  id = registerUnitClause(lit); 
   ResChain* res = d_resStack.back();
@@ -457,7 +459,7 @@ void ResolutionProof::endResChain(Lit lit) {
   d_resStack.pop_back(); 
 }
 
-void ResolutionProof::storeLitRedundant(Lit lit) {
+void SatProof::storeLitRedundant(Lit lit) {
   Assert(d_resStack.size() > 0);
   ResChain* res = d_resStack.back();
   res->addRedundantLit(lit);  
@@ -465,17 +467,17 @@ void ResolutionProof::storeLitRedundant(Lit lit) {
 
 /// constructing resolutions 
 
-void ResolutionProof::resolveOutUnit(Lit lit) {
+void SatProof::resolveOutUnit(Lit lit) {
   ClauseId id = resolveUnit(~lit);
   ResChain* res = d_resStack.back();
   res->addStep(lit, id, !sign(lit)); 
 }
 
-void ResolutionProof::storeUnitResolution(Lit lit) {
+void SatProof::storeUnitResolution(Lit lit) {
   resolveUnit(lit);
 }
 
-ClauseId ResolutionProof::resolveUnit(Lit lit) {
+ClauseId SatProof::resolveUnit(Lit lit) {
   // first check if we already have a resolution for lit
   if(isUnit(lit)) {
     ClauseId id = getClauseId(lit);
@@ -503,11 +505,11 @@ ClauseId ResolutionProof::resolveUnit(Lit lit) {
   return unit_id; 
 }
 
-void ResolutionProof::printProof() {
-  Debug("proof:sat") << "ResolutionProof::printProof\n";
+void SatProof::printProof() {
+  Debug("proof:sat") << "SatProof::printProof\n";
 }
 
-void ResolutionProof::finalizeProof(CRef conflict_ref) {
+void SatProof::finalizeProof(CRef conflict_ref) {
   Assert(d_resStack.size() == 0);
   //ClauseId conflict_id = getClauseId(conflict_ref); 
   ClauseId conflict_id = registerClause(conflict_ref); //FIXME
@@ -527,7 +529,7 @@ void ResolutionProof::finalizeProof(CRef conflict_ref) {
 
 /// CRef manager
 
-void ResolutionProof::updateCRef(CRef oldref, CRef newref) {
+void SatProof::updateCRef(CRef oldref, CRef newref) {
   if (d_clauseId.find(oldref) == d_clauseId.end()) {
     return; 
   }
@@ -538,7 +540,7 @@ void ResolutionProof::updateCRef(CRef oldref, CRef newref) {
   d_temp_idClause[id] = newref;
 }
 
-void ResolutionProof::finishUpdateCRef() {
+void SatProof::finishUpdateCRef() {
   d_clauseId.swap(d_temp_clauseId);
   d_temp_clauseId.clear();
 
@@ -546,7 +548,7 @@ void ResolutionProof::finishUpdateCRef() {
   d_temp_idClause.clear(); 
 }
 
-void ResolutionProof::markDeleted(CRef clause) {
+void SatProof::markDeleted(CRef clause) {
   if (d_clauseId.find(clause) != d_clauseId.end()) {
     ClauseId id = getClauseId(clause);
     Assert (d_deleted.find(id) == d_deleted.end()); 
@@ -554,9 +556,9 @@ void ResolutionProof::markDeleted(CRef clause) {
   }
 }
 
-/// LFSCResolutionProof class
+/// LFSCSatProof class
 
-string LFSCResolutionProof::varName(Lit lit) {
+string LFSCSatProof::varName(Lit lit) {
   ostringstream os;
   if (sign(lit)) {
     os << "(neg v"<<var(lit) << ")" ; 
@@ -568,7 +570,7 @@ string LFSCResolutionProof::varName(Lit lit) {
 }
 
 
-string LFSCResolutionProof::clauseName(ClauseId id) {
+string LFSCSatProof::clauseName(ClauseId id) {
   ostringstream os;
   if (isInputClause(id)) {
     os << "p"<<id;
@@ -579,7 +581,7 @@ string LFSCResolutionProof::clauseName(ClauseId id) {
   }
 }
 
-void LFSCResolutionProof::collectLemmas(ClauseId id) {
+void LFSCSatProof::collectLemmas(ClauseId id) {
   if (d_seenLemmas.find(id) != d_seenLemmas.end()) {
     return; 
   }
@@ -606,7 +608,7 @@ void LFSCResolutionProof::collectLemmas(ClauseId id) {
 
 
 
-void LFSCResolutionProof::printResolution(ClauseId id) {
+void LFSCSatProof::printResolution(ClauseId id) {
   d_lemmaSS << "(satlem _ _ _ ";
 
   ResChain* res = d_resChains[id];  
@@ -638,7 +640,7 @@ void LFSCResolutionProof::printResolution(ClauseId id) {
 }
 
 
-void LFSCResolutionProof::printInputClause(ClauseId id){
+void LFSCSatProof::printInputClause(ClauseId id){
   ostringstream os;
   CRef ref = getClauseRef(id);
   Assert (ref != CRef_Undef);
@@ -658,13 +660,13 @@ void LFSCResolutionProof::printInputClause(ClauseId id){
 } 
 
 
-void LFSCResolutionProof::printClauses() {
+void LFSCSatProof::printClauses() {
   for (IdHashSet::iterator it = d_seenInput.begin(); it!= d_seenInput.end(); ++it) {
     printInputClause(*it);
   }
 }
 
-void LFSCResolutionProof::printVariables() {
+void LFSCSatProof::printVariables() {
   for (VarSet::iterator it = d_seenVars.begin(); it != d_seenVars.end(); ++it) {
     d_varSS << "(% v" << *it <<" var \n";
     d_paren << ")"; 
@@ -672,7 +674,7 @@ void LFSCResolutionProof::printVariables() {
 }
 
 
-void LFSCResolutionProof::flush() {
+void LFSCSatProof::flush() {
   ostringstream out;
   out << "(check \n";
   d_paren <<")"; 
@@ -686,8 +688,8 @@ void LFSCResolutionProof::flush() {
   std::cout << out.str(); 
 }
 
-void LFSCResolutionProof::printProof() {
-  Debug("proof:sat") << " LFSCResolutionProof::printProof \n";
+void LFSCSatProof::printProof() {
+  Debug("proof:sat") << " LFSCSatProof::printProof \n";
 
   // first collect lemmas to print in reverse order
   collectLemmas(d_emptyClauseId); 
