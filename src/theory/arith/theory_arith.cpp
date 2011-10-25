@@ -220,27 +220,21 @@ Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutio
           outSubstitutions.addSubstitution(minVar, elim);
           return SOLVE_STATUS_SOLVED;
         } else {
-          Trace("simplify") << "TheoryArith::solve(): can't substitute b/c it's integer: " << minVar << ":" << minVar.getType() << " |-> " << elim << ":" << elim.getType() << endl;
-          Node subs = NodeManager::currentNM()->mkNode(kind::EQUAL, minVar, elim);
-          Trace("simplify") << "TheoryArith::solve(): ...but will still subst " << subs << " |-> TRUE" << endl;
-          //outSubstitutions.addSubstitution(subs, NodeManager::currentNM()->mkConst(true));
           if(elim.getMetaKind() == metakind::CONSTANT) {
-            // Heuristic, good for KIND traces.
-            /*const unsigned instantiationRadius = 10;
-
-            for(unsigned i = 1; i <= instantiationRadius; ++i) {
-              Node n = NodeManager::currentNM()->mkConst(elim.getConst<Rational>() + i);
-              subs = NodeManager::currentNM()->mkNode(kind::EQUAL, minVar, n);
-              Trace("simplify") << "TheoryArith::solve():                  ...and " << subs << " |-> FALSE" << endl;
-              outSubstitutions.addSubstitution(subs, NodeManager::currentNM()->mkConst(false));
+            // can also do it if INT_VARIABLE = CONSTANT
+            Rational r = elim.getConst<Rational>();
+            if(r.getDenominator() == 1) {
+              Node intc = NodeManager::currentNM()->mkConst(r.getNumerator());
+              Trace("simplify") << "TheoryArith::solve(): substitution " << minVar << " |-> " << intc << endl;
+              outSubstitutions.addSubstitution(minVar, intc);
+            } else {
+              // INT_VARIABLE = NONINTEGRAL_CONSTANT  |->  FALSE
+              Trace("simplify") << "TheoryArith::solve(): substitution " << in << " |-> FALSE" << endl;
+              outSubstitutions.addSubstitution(in, NodeManager::currentNM()->mkConst(false));
             }
-
-            for(unsigned i= 1; i <= instantiationRadius; ++i) {
-              Node n = NodeManager::currentNM()->mkConst(elim.getConst<Rational>() - i);
-              subs = NodeManager::currentNM()->mkNode(kind::EQUAL, minVar, n);
-              Trace("simplify") << "TheoryArith::solve():                  ...and " << subs << " |-> FALSE" << endl;
-              outSubstitutions.addSubstitution(subs, NodeManager::currentNM()->mkConst(false));
-            }*/
+            return SOLVE_STATUS_SOLVED;
+          } else {
+            Trace("simplify") << "TheoryArith::solve(): can't substitute b/c it's integer: " << minVar << ":" << minVar.getType() << " |-> " << elim << ":" << elim.getType() << endl;
           }
         }
       }

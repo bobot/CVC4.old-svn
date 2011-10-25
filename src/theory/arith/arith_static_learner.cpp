@@ -236,30 +236,36 @@ void ArithStaticLearner::process(TNode n, NodeBuilder<>& learned, const TNodeSet
     break;
   }
   case EQUAL:
+    /*
     if(defTrue.find(n) == defTrue.end()) {
       break;
     }
 
-    if(n[1].getMetaKind() == metakind::CONSTANT) {
+    if(n[0].getMetaKind() == metakind::VARIABLE &&
+       n[0].getType().isInteger()) {
+
       // Heuristic, good for KIND traces.
       const unsigned instantiationRadius = 10;
 
       Trace("arith::static") << "ArithStaticLearner: looking at " << n << endl;
 
       for(unsigned i = 1; i <= instantiationRadius; ++i) {
-        Node c = NodeManager::currentNM()->mkConst(n[1].getConst<Rational>() + i);
+        Node c = NodeManager::currentNM()->mkNode(kind::PLUS, n[1], NodeManager::currentNM()->mkConst(Integer(i)));
+        c = Rewriter::rewrite(c);
         Node subs = NodeManager::currentNM()->mkNode(kind::EQUAL, n[0], c).notNode();
         Trace("arith::static") << "ArithStaticLearner: asserting " << subs << endl;
         learned << subs;
       }
 
       for(unsigned i= 1; i <= instantiationRadius; ++i) {
-        Node c = NodeManager::currentNM()->mkConst(n[1].getConst<Rational>() - i);
+        Node c = NodeManager::currentNM()->mkNode(kind::MINUS, n[1], NodeManager::currentNM()->mkConst(Integer(i)));
+        c = Rewriter::rewrite(c);
         Node subs = NodeManager::currentNM()->mkNode(kind::EQUAL, n[0], c).notNode();
         Trace("arith::static") << "ArithStaticLearner: asserting " << subs << endl;
         learned << subs;
       }
     }
+    */
     break;
 
   default: // Do nothing
