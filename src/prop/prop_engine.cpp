@@ -227,6 +227,10 @@ void PropEngine::pop() {
   Debug("prop") << "pop()" << endl;
 }
 
+bool PropEngine::isRunning() const {
+  return d_inCheckSat;
+}
+
 void PropEngine::interrupt() throw(ModalException) {
   if(! d_inCheckSat) {
     throw ModalException("SAT solver is not currently solving anything; "

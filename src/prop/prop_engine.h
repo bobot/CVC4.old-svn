@@ -243,6 +243,12 @@ public:
   void pop();
 
   /**
+   * Return true if we are currently searching (either in this or
+   * another thread).
+   */
+  bool isRunning() const;
+
+  /**
    * Check the current time budget.
    */
   void checkTime();
@@ -263,7 +269,7 @@ public:
 
 
 inline void SatTimer::check() {
-  if(expired()) {
+  if(d_propEngine.isRunning() && expired()) {
     Trace("limit") << "SatTimer::check(): interrupt!" << std::endl;
     d_propEngine.interrupt();
   }
