@@ -126,11 +126,11 @@ void Smt2::setLogic(const std::string& name) {
     break;
 
   case Smt::QF_UFIDL:
+  case Smt::QF_UFLIA:
     addTheory(THEORY_INTS);
     addOperator(kind::APPLY_UF);
     break;
 
-  case Smt::QF_UFLIA:
   case Smt::QF_UFLRA:
   case Smt::QF_UFNRA:
     addTheory(THEORY_REALS);
@@ -141,13 +141,25 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_BITVECTORS);
     break;
 
+  case Smt::QF_AUFLIA:
+    addTheory(THEORY_ARRAYS);
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_INTS);
+    break;
+
+  case Smt::QF_AUFLIRA:
+    addTheory(THEORY_ARRAYS);
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_REALS);
+    break;
+
   case Smt::AUFLIA:
   case Smt::AUFLIRA:
   case Smt::AUFNIRA:
   case Smt::LRA:
   case Smt::UFNIA:
   case Smt::QF_AUFBV:
-  case Smt::QF_AUFLIA:
     Unhandled(name);
   }
 }

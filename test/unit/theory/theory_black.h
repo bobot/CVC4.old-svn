@@ -62,9 +62,10 @@ public:
     push(PROPAGATE, n);
   }
 
-  void lemma(TNode n, bool removable)
+  unsigned lemma(TNode n, bool removable)
     throw(AssertionException) {
     push(LEMMA, n);
+    return 0;
   }
 
   void setIncomplete()
@@ -214,8 +215,8 @@ public:
   void testDone() {
     TS_ASSERT(d_dummy->doneWrapper());
 
-    d_dummy->assertFact(atom0);
-    d_dummy->assertFact(atom1);
+    d_dummy->assertFact(atom0, true);
+    d_dummy->assertFact(atom1, true);
 
     TS_ASSERT(!d_dummy->doneWrapper());
 
