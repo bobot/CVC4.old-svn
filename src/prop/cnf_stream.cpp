@@ -48,7 +48,7 @@ CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) 
   d_registrar(registrar) {
 }
 
-void CnfStream::recordTranslation(TNode node) {
+void CnfStream::recordTranslation(TNode node, bool alwaysRecord) {
   if (!d_removable) {
     d_translationTrail.push_back(stripNot(node));
   }
@@ -112,7 +112,8 @@ bool CnfStream::hasLiteral(TNode n) const {
 void TseitinCnfStream::ensureLiteral(TNode n) {
   if(hasLiteral(n)) {
     // Already a literal!
-    SatLiteral lit = getLiteral(n);
+    // newLiteral() may be necessary to renew a previously-extant literal
+    SatLiteral lit = isTranslated(n) ? getLiteral(n) : newLiteral(n, true);
     NodeCache::iterator i = d_nodeCache.find(lit);
     if(i == d_nodeCache.end()) {
       // Store backward-mappings
@@ -162,7 +163,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   // Get the literal for this node
   SatLiteral lit;
   if (!hasLiteral(node)) {
-    // If no literal, well make one
+    // If no literal, we'll make one
     lit = variableToLiteral(d_satSolver->newVar(theoryLiteral));
     d_translationCache[node].literal = lit;
     d_translationCache[node.notNode()].literal = ~lit;
@@ -250,6 +251,11 @@ SatLiteral TseitinCnfStream::handleXor(TNode xorNode) {
   assertClause(xorNode, a, ~b, xorLit);
   assertClause(xorNode, ~a, b, xorLit);
 
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(xorNode, true);
+
   return xorLit;
 }
 
@@ -284,6 +290,11 @@ SatLiteral TseitinCnfStream::handleOr(TNode orNode) {
   clause[n_children] = ~orLit;
   // This needs to go last, as the clause might get modified by the SAT solver
   assertClause(orNode, clause);
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(orNode, true);
 
   // Return the literal
   return orLit;
@@ -321,6 +332,12 @@ SatLiteral TseitinCnfStream::handleAnd(TNode andNode) {
   clause[n_children] = andLit;
   // This needs to go last, as the clause might get modified by the SAT solver
   assertClause(andNode, clause);
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(andNode, true);
+
   return andLit;
 }
 
@@ -344,6 +361,11 @@ SatLiteral TseitinCnfStream::handleImplies(TNode impliesNode) {
   // (a | l) & (~b | l)
   assertClause(impliesNode, a, impliesLit);
   assertClause(impliesNode, ~b, impliesLit);
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(impliesNode, true);
 
   return impliesLit;
 }
@@ -376,6 +398,11 @@ SatLiteral TseitinCnfStream::handleIff(TNode iffNode) {
   // (~a | ~b | lit) & (a | b | lit)
   assertClause(iffNode, ~a, ~b, iffLit);
   assertClause(iffNode, a, b, iffLit);
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(iffNode, true);
 
   return iffLit;
 }
@@ -423,6 +450,11 @@ SatLiteral TseitinCnfStream::handleIte(TNode iteNode) {
   assertClause(iteNode, iteLit, ~condLit, ~thenLit);
   assertClause(iteNode, iteLit, condLit, ~elseLit);
 
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(iteNode, true);
+
   return iteLit;
 }
 
@@ -435,6 +467,7 @@ SatLiteral TseitinCnfStream::toCNF(TNode node, bool negated) {
 
   // If the non-negated node has already been translated, get the translation
   if(isTranslated(node)) {
+    Debug("cnf") << "toCNF(): already translated" << endl;
     nodeLit = getLiteral(node);
   } else {
     // Handle each Boolean operator case

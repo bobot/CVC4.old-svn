@@ -102,7 +102,7 @@ protected:
   }
 
   /** Record this translation */
-  void recordTranslation(TNode node);
+  void recordTranslation(TNode node, bool alwaysRecord = false);
 
   /**
    * Moves the node and all of it's parents to level 0.
