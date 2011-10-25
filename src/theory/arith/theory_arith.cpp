@@ -720,10 +720,6 @@ void TheoryArith::check(Effort effortLevel){
     }
   }
 
-  if(Debug.isOn("arith::print_assertions")) {
-    debugPrintAssertions();
-  }
-
   Node possibleConflict = d_simplex.updateInconsistentVars();
   if(possibleConflict != Node::null()){
     d_partialModel.revertAssignmentChanges();
@@ -750,6 +746,11 @@ void TheoryArith::check(Effort effortLevel){
     }
   }
 
+  if(Debug.isOn("arith::print_assertions")) { debugPrintAssertions(); }
+  if(Debug.isOn("arith::facts")) {
+    Debug("arith::facts") << "printFacts(Trace(\"arith::facts\"));" << endl;
+    printFacts(Trace("arith::facts"));
+  }
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
   if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
   Debug("arith") << "TheoryArith::check end" << std::endl;

@@ -142,7 +142,7 @@ private:
 
 protected:
 
-  /** 
+  /**
    * A list of shared terms that the theory has.
    */
   context::CDList<TNode> d_sharedTerms;
@@ -229,6 +229,9 @@ protected:
    * The theory that owns the uninterpreted sort.
    */
   static TheoryId d_uninterpretedSortOwner;
+
+  void printFacts(std::ostream& os) const;
+
 
 public:
 

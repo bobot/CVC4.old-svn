@@ -95,6 +95,11 @@ void TheoryUF::check(Effort level) {
     d_out->conflict(d_conflictNode);
   }
 
+  if(Debug.isOn("uf::facts")) {
+    Debug("uf::facts") << "printFacts(Trace(\"uf::facts\"));" << endl;
+    printFacts(Trace("uf::facts"));
+  }
+
   // Otherwise we propagate in order to detect a weird conflict like
   // p, x = y
   // p -> f(x) != f(y) -- f(x) = f(y) gets added to the propagation list at preregistration time
