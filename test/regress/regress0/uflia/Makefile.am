@@ -17,7 +17,8 @@ SMT2_TESTS = \
 	DRAGON_11_e1_2450.ec.minimized.smt2 \
 	microwave21.ec.minimized.smt2 \
 	stalmark_e7_27_e7_31.ec.minimize.smt2 \
-	tiny.smt2
+	tiny.smt2 \
+	check01.smt2
 
 # Regression tests for PL inputs
 CVC_TESTS = 
