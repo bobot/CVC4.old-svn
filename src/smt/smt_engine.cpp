@@ -854,9 +854,15 @@ Result SmtEngine::quickCheck() {
 void SmtEnginePrivate::processAssertions() {
 
   Trace("smt") << "SmtEnginePrivate::processAssertions()" << endl;
+  Debug("smt") << " d_assertionsToPreprocess: " << d_assertionsToPreprocess.size() << std::endl;
+  Debug("smt") << " d_assertionsToCheck     : " << d_assertionsToCheck.size() << std::endl;
 
   // Simplify the assertions
   simplifyAssertions();
+
+  Trace("smt") << "SmtEnginePrivate::processAssertions() POST SIMPLIFICATION" << endl;
+  Debug("smt") << " d_assertionsToPreprocess: " << d_assertionsToPreprocess.size() << std::endl;
+  Debug("smt") << " d_assertionsToCheck     : " << d_assertionsToCheck.size() << std::endl;
 
   if(Dump.isOn("assertions")) {
     // Push the simplified assertions to the dump output stream

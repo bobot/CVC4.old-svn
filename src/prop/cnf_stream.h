@@ -52,6 +52,7 @@ public:
 
   /** Per node translation information */
   struct TranslationInfo {
+    bool recorded;
     /** The level at which this node was translated (negative if not translated) */
     int level;
     /** The literal of this node */

@@ -49,8 +49,15 @@ CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) 
 }
 
 void CnfStream::recordTranslation(TNode node, bool alwaysRecord) {
+  Debug("cnf") << "recordTranslation(" << alwaysRecord << "," << d_removable << "): " << node << std::endl;
   if (!d_removable) {
-    d_translationTrail.push_back(stripNot(node));
+    if(d_translationCache.find(node)->second.recorded) {
+      Debug("cnf") << "--> Already recorded, not recording again." << std::endl;
+    } else {
+      Debug("cnf") << "--> Recorded at position " << d_translationTrail.size() << "." << std::endl;
+      d_translationTrail.push_back(stripNot(node));
+      d_translationCache.find(node)->second.recorded = true;
+    }
   }
 }
 
@@ -175,6 +182,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
 
   // We will translate clauses, so remember the level
   int level = d_satSolver->getLevel();
+  d_translationCache[node].recorded = false;
   d_translationCache[node].level = level;
   d_translationCache[node.notNode()].level = level;
 
@@ -723,15 +731,19 @@ void TseitinCnfStream::convertAndAssert(TNode node, bool negated) {
 
 void CnfStream::removeClausesAboveLevel(int level) {
   while (d_translationTrail.size() > 0) {
+    Debug("cnf") << "Considering translation trail position " << d_translationTrail.size() << std::endl;
     TNode node = d_translationTrail.back();
+    // Get the translation information
+    TranslationInfo& infoPos = d_translationCache.find(node)->second;
+    // If the level of the node is less or equal to given we are done
+    if (infoPos.level >= 0 && infoPos.level <= level) {
+      Debug("cnf") << "Node is " << node << " level " << infoPos.level << ", we're done." << std::endl;
+      break;
+    }
     Debug("cnf") << "Removing node " << node << " from CNF translation" << endl;
     d_translationTrail.pop_back();
-    // Get the translation informations
-    TranslationInfo& infoPos = d_translationCache.find(node)->second;
     // If already untranslated, we're done
     if (infoPos.level == -1) continue;
-    // If the level of the node is less or equal to given we are done
-    if (infoPos.level <= level) break;
     // Otherwise we have to undo the translation
     undoTranslate(node, level);
   }
