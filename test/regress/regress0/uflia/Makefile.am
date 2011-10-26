@@ -20,6 +20,7 @@ SMT2_TESTS = \
 	tiny.smt2 \
 	check01.smt2 \
 	check02.smt2 \
+	check04.smt2 \
 	check03.smt2
 
 # Regression tests for PL inputs
@@ -40,7 +41,9 @@ EXTRA_DIST = $(TESTS) \
 	stalmark_e7_27_e7_31.ec.minimize.smt2.expect \
 	tiny.smt2.expect \
 	check02.smt2.expect \
-	check03.smt2.expect
+	check03.smt2.expect \
+	check04.smt2.expect
+
 
 # synonyms for "check" in this directory
 .PHONY: regress regress0 test
