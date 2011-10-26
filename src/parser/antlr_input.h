@@ -77,7 +77,8 @@ public:
 
   /** Create an input from an istream. */
   static AntlrInputStream* newStreamInputStream(std::istream& input, 
-                                                const std::string& name)
+                                                const std::string& name,
+                                                bool lineBuffered = false)
     throw (InputStreamException, AssertionException);
 
   /** Create a string input.

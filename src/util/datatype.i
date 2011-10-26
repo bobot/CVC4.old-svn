@@ -8,12 +8,18 @@ namespace CVC4 {
 }
 
 %extend std::vector< CVC4::Datatype > {
+  %ignore vector(unsigned int size);
   %ignore vector(size_type);
+  %ignore set(int i, const CVC4::Datatype& x);
+  %ignore to_array();
 };
 %template(vectorDatatype) std::vector< CVC4::Datatype >;
 
 %extend std::vector< CVC4::Datatype::Constructor > {
+  %ignore vector(unsigned int size);
   %ignore vector(size_type);
+  %ignore set(int i, const CVC4::Datatype::Constructor& x);
+  %ignore to_array();
 };
 %template(vectorDatatypeConstructor) std::vector< CVC4::Datatype::Constructor >;
 

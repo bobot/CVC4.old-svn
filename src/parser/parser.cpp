@@ -241,7 +241,7 @@ SortType Parser::mkUnresolvedType(const std::string& name) {
 SortConstructorType
 Parser::mkUnresolvedTypeConstructor(const std::string& name,
                                     size_t arity) {
-  SortConstructorType unresolved = mkSortConstructor(name,arity);
+  SortConstructorType unresolved = mkSortConstructor(name, arity);
   d_unresolved.insert(unresolved);
   return unresolved;
 }

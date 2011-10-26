@@ -1,3 +1,0 @@
-Efforts getting KIND traces to work.  Includes bugfixes to simplification, push/pop, CNF stream, theory, and SAT code.
-
--- Morgan Deters <mdeters@cs.nyu.edu>  Wed, 26 Oct 2011 12:17:24 -0400

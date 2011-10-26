@@ -35,7 +35,7 @@ ParserBuilder::ParserBuilder(ExprManager* exprManager,
                              const std::string& filename) : 
   d_filename(filename),
   d_exprManager(exprManager) {
-  init(exprManager,filename);
+  init(exprManager, filename);
 }
 
 ParserBuilder::ParserBuilder(ExprManager* exprManager, 
@@ -43,7 +43,7 @@ ParserBuilder::ParserBuilder(ExprManager* exprManager,
                              const Options& options) :
   d_filename(filename),
   d_exprManager(exprManager) {
-  init(exprManager,filename);
+  init(exprManager, filename);
   withOptions(options);
 }
 
@@ -61,19 +61,24 @@ void ParserBuilder::init(ExprManager* exprManager,
 }
 
 Parser *ParserBuilder::build() 
-  throw (InputStreamException,AssertionException) {
+  throw (InputStreamException, AssertionException) {
   Input *input = NULL;
   switch( d_inputType ) {
   case FILE_INPUT:
-    input = Input::newFileInput(d_lang,d_filename,d_mmap);
+    input = Input::newFileInput(d_lang, d_filename, d_mmap);
+    break;
+  case LINE_BUFFERED_STREAM_INPUT:
+    AlwaysAssert( d_streamInput != NULL,
+                  "Uninitialized stream input in ParserBuilder::build()" );
+    input = Input::newStreamInput(d_lang, *d_streamInput, d_filename, true);
     break;
   case STREAM_INPUT:
     AlwaysAssert( d_streamInput != NULL,
                   "Uninitialized stream input in ParserBuilder::build()" );
-    input = Input::newStreamInput(d_lang,*d_streamInput,d_filename);
+    input = Input::newStreamInput(d_lang, *d_streamInput, d_filename);
     break;
   case STRING_INPUT:
-    input = Input::newStringInput(d_lang,d_stringInput,d_filename);
+    input = Input::newStringInput(d_lang, d_stringInput, d_filename);
     break;
   default:
     Unreachable();
@@ -152,6 +157,12 @@ ParserBuilder& ParserBuilder::withStrictMode(bool flag) {
 
 ParserBuilder& ParserBuilder::withStreamInput(std::istream& input) {
   d_inputType = STREAM_INPUT;
+  d_streamInput = &input;
+  return *this;
+}
+
+ParserBuilder& ParserBuilder::withLineBufferedStreamInput(std::istream& input) {
+  d_inputType = LINE_BUFFERED_STREAM_INPUT;
   d_streamInput = &input;
   return *this;
 }

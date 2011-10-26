@@ -1,0 +1,6 @@
+This branch serves as a working space for getting line-buffered input to work so
+that CVC4 can serve as a back-end for things like KIND.
+
+This should also clean up the interactive mode.
+
+-- Morgan Deters <mdeters@cs.nyu.edu>  Wed, 26 Oct 2011 12:18:33 -0400
