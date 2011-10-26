@@ -191,7 +191,7 @@ void TheoryEngine::assertSharedEqualities() {
     // Check if the theory already got this one
     // TODO: the real shared (non-sat) equalities
     if (d_sharedAssertions.find(eq.toAssert) == d_sharedAssertions.end()) {
-      Debug("sharing") << "TheoryEngine::assertSharedEqualities(): asserting " << eq.toAssert.node << " to " << eq.toAssert.theory << " from " << eq.toExplain.theory << std::endl;
+      Debug("sharing") << "TheoryEngine::assertSharedEqualities(): asserting " << eq.toAssert.node << " to " << eq.toAssert.theory << " from " << eq.toExplain.theory << " (" << eq.toExplain.node << ")" << std::endl;
       d_sharedAssertions[eq.toAssert] = eq.toExplain;
       theoryOf(eq.toAssert.theory)->assertFact(eq.toAssert.node, false);
     }
@@ -230,7 +230,7 @@ void TheoryEngine::combineTheories() {
     // If the node has a literal, it has been asserted so we should just check it
     bool value;
     if (d_propEngine->isSatLiteral(normalizedEquality) && d_propEngine->hasValue(normalizedEquality, value)) {
-      Debug("sharing") << "TheoryEngine::combineTheories(): has a literal " << std::endl;
+      Debug("sharing") << "TheoryEngine::combineTheories(): has a literal " << normalizedEquality << std::endl;
 
       // Normalize the equality to the theory that requested it
       Node toAssert = Rewriter::rewriteEquality(carePair.theory, equality);
@@ -660,7 +660,7 @@ void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
 }
 
 void TheoryEngine::explainEqualities(TheoryId theoryId, TNode literals, NodeBuilder<>& builder) {
-  Debug("theory") << "TheoryEngine::explainEqualities(" << theoryId << ", " << literals << ")" << std::endl; 
+  Debug("sharing") << "TheoryEngine::explainEqualities(" << theoryId << ", " << literals << ")" << std::endl; 
   if (literals.getKind() == kind::AND) {
     for (unsigned i = 0, i_end = literals.getNumChildren(); i != i_end; ++ i) {
       TNode literal = literals[i];
@@ -683,15 +683,18 @@ void TheoryEngine::explainEqualities(TheoryId theoryId, TNode literals, NodeBuil
 
 void TheoryEngine::explainEquality(TheoryId theoryId, TNode eqLiteral, NodeBuilder<>& builder) {
   Assert(eqLiteral.getKind() == kind::EQUAL || (eqLiteral.getKind() == kind::NOT && eqLiteral[0].getKind() == kind::EQUAL));
+  Debug("sharing") << "TheoryEngine::explainEquality(" << theoryId << ", " << eqLiteral << ")" << std::endl; 
 
   SharedAssertionsMap::iterator find = d_sharedAssertions.find(NodeTheoryPair(eqLiteral, theoryId));
   if (find == d_sharedAssertions.end()) {
     // Not a shared assertion, just add it since it must be SAT literal
+    Assert(d_propEngine->isSatLiteral(eqLiteral), "Not a sat literal: %s\n", eqLiteral.toString().c_str());
     builder << eqLiteral;
   } else {
     TheoryId explainingTheory = (*find).second.theory;
     if (explainingTheory == theory::THEORY_LAST) {
       // If the theory is from the SAT solver, just take the normalized one
+      Assert(d_propEngine->isSatLiteral((*find).second.node), "Not a sat literal: %s\n", (*find).second.node.toString().c_str());
       builder << (*find).second.node;
     } else {
       // Explain it using the theory that propagated it
