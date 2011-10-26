@@ -44,7 +44,6 @@ class Parser;
 class CVC4_PUBLIC ParserBuilder {
   enum InputType {
     FILE_INPUT,
-    LINE_BUFFERED_STREAM_INPUT,
     STREAM_INPUT,
     STRING_INPUT
   };
@@ -91,7 +90,7 @@ public:
                 const Options& options);
 
   /** Build the parser, using the current settings. */
-  Parser *build() throw (InputStreamException, AssertionException);
+  Parser *build() throw (InputStreamException,AssertionException);
 
   /** Should semantic checks be enabled in the parser? (Default: yes) */
   ParserBuilder& withChecks(bool flag = true);
@@ -150,9 +149,6 @@ public:
 
   /** Set the parser to use the given stream for its input. */
   ParserBuilder& withStreamInput(std::istream& input);
-
-  /** Set the parser to use the given stream for its input. */
-  ParserBuilder& withLineBufferedStreamInput(std::istream& input);
 
   /** Set the parser to use the given string for its input. */
   ParserBuilder& withStringInput(const std::string& input);

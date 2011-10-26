@@ -110,7 +110,7 @@ public:
     */
   static Input* newFileInput(InputLanguage lang, 
                              const std::string& filename, 
-                             bool useMmap = false)
+                             bool useMmap=false)
     throw (InputStreamException, AssertionException);
 
   /** Create an input for the given stream.
@@ -121,8 +121,7 @@ public:
    */
   static Input* newStreamInput(InputLanguage lang, 
                                std::istream& input, 
-                               const std::string& name,
-                               bool lineBuffered = false)
+                               const std::string& name) 
     throw (InputStreamException, AssertionException);
 
   /** Create an input for the given string
@@ -183,7 +182,6 @@ protected:
 
   /** Set the Parser object for this input. */
   virtual void setParser(Parser& parser) = 0;
-
 };/* class Input */
 
 }/* CVC4::parser namespace */

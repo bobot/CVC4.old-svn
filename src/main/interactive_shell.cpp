@@ -85,7 +85,7 @@ InteractiveShell::InteractiveShell(ExprManager& exprManager,
   d_out(*options.out),
   d_options(options),
   d_quit(false) {
-  ParserBuilder parserBuilder(&exprManager, INPUT_FILENAME, options);
+  ParserBuilder parserBuilder(&exprManager,INPUT_FILENAME,options);
   /* Create parser with bogus input. */
   d_parser = parserBuilder.withStringInput("").build();
 
@@ -254,7 +254,7 @@ Command* InteractiveShell::readCommand() {
     }
   }
 
-  d_parser->setInput(Input::newStringInput(d_options.inputLanguage, input, INPUT_FILENAME));
+  d_parser->setInput(Input::newStringInput(d_options.inputLanguage,input,INPUT_FILENAME));
 
   /* There may be more than one command in the input. Build up a
      sequence. */

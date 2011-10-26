@@ -67,6 +67,7 @@ options {
 
 #include "parser/smt2/smt2.h"
 #include "parser/antlr_input.h"
+#include "parser/antlr_tracing.h"
 
 using namespace CVC4;
 using namespace CVC4::parser;
@@ -78,7 +79,6 @@ using namespace CVC4::parser;
 @parser::includes {
 #include "expr/command.h"
 #include "parser/parser.h"
-#include "parser/antlr_tracing.h"
 
 namespace CVC4 {
   class Expr;
@@ -351,11 +351,7 @@ command returns [CVC4::Command* cmd = NULL]
 extendedCommand[CVC4::Command*& cmd]
 @declarations {
   std::vector<CVC4::Datatype> dts;
-  Type t;
   Expr e;
-  std::string name;
-  std::vector<std::string> names;
-  std::vector<Type> sorts;
 }
     /* Z3's extended SMT-LIBv2 set of commands syntax */
   : DECLARE_DATATYPES_TOK
@@ -365,22 +361,13 @@ extendedCommand[CVC4::Command*& cmd]
     { PARSER_STATE->popScope();
       cmd = new DatatypeDeclarationCommand(PARSER_STATE->mkMutualDatatypeTypes(dts)); }
 
+    
   | DECLARE_SORTS_TOK
   | DECLARE_FUNS_TOK
-    LPAREN_TOK
-    ( LPAREN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE] nonemptySortList[sorts] RPAREN_TOK )+
-    RPAREN_TOK
   | DECLARE_PREDS_TOK
-    LPAREN_TOK
-    ( LPAREN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE] sortList[sorts] RPAREN_TOK )+
-    RPAREN_TOK
-  | DEFINE_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE] term[e]
+  | DEFINE_TOK
   | DEFINE_SORTS_TOK
-    LPAREN_TOK
-    ( LPAREN_TOK ( symbol[name,CHECK_UNDECLARED,SYM_SORT] LPAREN_TOK symbolList[names,CHECK_NONE,SYM_SORT] RPAREN_TOK |
-                   symbol[name,CHECK_UNDECLARED,SYM_SORT] symbol[name,CHECK_NONE,SYM_SORT] ) RPAREN_TOK RPAREN_TOK )+
-    RPAREN_TOK
-  | DECLARE_CONST_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE] sortSymbol[t]
+  | DECLARE_CONST_TOK
     
   | SIMPLIFY_TOK term[e]
     { cmd = new SimplifyCommand(e); }
@@ -388,7 +375,6 @@ extendedCommand[CVC4::Command*& cmd]
     ( STRING_LITERAL
       { Message() << AntlrInput::tokenText($STRING_LITERAL) << std::endl; }
     | { Message() << std::endl; } )
-    { cmd = new EmptyCommand; }
   ;
 
 symbolicExpr[CVC4::SExpr& sexpr]
@@ -698,13 +684,6 @@ sortList[std::vector<CVC4::Type>& sorts]
   Type t;
 }
   : ( sortSymbol[t] { sorts.push_back(t); } )*
-  ;
-
-nonemptySortList[std::vector<CVC4::Type>& sorts]
-@declarations {
-  Type t;
-}
-  : ( sortSymbol[t] { sorts.push_back(t); } )+
   ;
 
 /**
