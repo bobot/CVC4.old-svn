@@ -208,6 +208,8 @@ AC_PROG_CC
 AC_PROG_CXX
 AC_PROG_INSTALL
 
+CVC4_GCC_VERSION
+
 # [chris 8/24/2010] The user *must* specify --with-cln to get CLN
 # (and, thus, opt in to the GPL dependency).
 
@@ -325,8 +327,8 @@ elif test "$CVC4_CONFIGURE_AT_TOP_LEVEL" = yes; then
   $as_echo "cd builds/$target/$build_type"
   cd "builds/$target/$build_type"
   CVC4_CONFIGURE_IN_BUILDS=yes; export CVC4_CONFIGURE_IN_BUILDS
-  echo "../../../configure ${config_cmdline[[@]]}"
-  `pwd`/../../../configure "${config_cmdline[[@]]}"
+  echo "$SHELL ../../../configure ${config_cmdline[[@]]}"
+  "$SHELL" "`pwd`/../../../configure" "${config_cmdline[[@]]}"
   exitval=$?
   cd ../../..
   if test $exitval -eq 0; then
@@ -1062,3 +1064,10 @@ Install into : $prefix
 ${licensewarn}Now just type make, followed by make check or make install, as you like.
 
 EOF
+
+if test -n "$CVC4_INTEGRITY_WARNING"; then
+  AC_MSG_WARN([])
+  AC_MSG_WARN($CVC4_INTEGRITY_WARNING)
+  AC_MSG_WARN([Please run "make check" after building to ensure integrity of the binary and library])
+  AC_MSG_WARN([])
+fi

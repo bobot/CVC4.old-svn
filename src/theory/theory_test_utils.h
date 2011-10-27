@@ -81,8 +81,9 @@ public:
     push(PROPAGATE, n);
   }
 
-  void lemma(TNode n, bool removable) throw(AssertionException) {
+  unsigned lemma(TNode n, bool removable) throw(AssertionException) {
     push(LEMMA, n);
+    return 0;
   }
   void requirePhase(TNode, bool, bool = false) throw(Interrupted, AssertionException) { }
   void dependentDecision(TNode, TNode, bool = false) throw(Interrupted, AssertionException) { }

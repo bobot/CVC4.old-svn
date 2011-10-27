@@ -149,6 +149,8 @@ public:
   virtual void process( Node f, int effort ) {}
   /** identify */
   virtual std::string identify() const { return std::string("Unknown"); }
+  /** print debug information */
+  virtual void debugPrint( const char* c ) {}
 
   /** get status */
   int getStatus() { return d_status; }
@@ -245,6 +247,8 @@ public:
 
   /** get the corresponding counterexample literal for quantified formula node n */
   Node getCounterexampleLiteralFor( Node n );
+  /** set corresponding counterexample literal for quantified formula node n */
+  void setCounterexampleLiteralFor( Node n, Node l );
   /** mark literals as dependent */
   void registerLiterals( Node n, Node f, OutputChannel* out );
   /** set active */

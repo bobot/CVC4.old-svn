@@ -460,6 +460,15 @@ bool InstantiationEngine::doInstantiation( OutputChannel* out ){
     e++;
   }
   Debug("inst-engine") << "IE: All instantiators finished, addedLemma = " << d_addedLemma << std::endl;
+  if( !d_addedLemma ){
+    Debug("inst-engine-stuck") << "No instantiations produced at this state: " << std::endl;
+    for( int i=0; i<theory::THEORY_LAST; i++ ){
+      if( d_instTable[i] ){
+        d_instTable[i]->debugPrint("inst-engine-stuck");
+        Debug("inst-engine-stuck") << std::endl;
+      }
+    }
+  }
   return d_addedLemma;
 }
 
@@ -508,10 +517,18 @@ void InstantiationEngine::processPartialInstantiations(){
 
 Node InstantiationEngine::getCounterexampleLiteralFor( Node n ){
   Assert( n.getKind()==FORALL );
+#if 0
   if( d_counterexamples.find( n )==d_counterexamples.end() ){
     d_counterexamples[n] = NodeManager::currentNM()->mkNode( NO_COUNTEREXAMPLE, n );
   }
+#endif
   return d_counterexamples[n];
+}
+
+void InstantiationEngine::setCounterexampleLiteralFor( Node n, Node l ){
+  Assert( n.getKind()==FORALL );
+  Assert( d_counterexamples.find( n )==d_counterexamples.end() );
+  d_counterexamples[n] = l;
 }
 
 void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
@@ -537,8 +554,10 @@ void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
       if( !n.hasAttribute(InstConstantAttribute()) ){
         if( d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
           Node cel = getCounterexampleLiteralFor( fa );
-          Debug("quant-dep-dec") << "Make " << n << " dependent on " << cel << std::endl;
-          out->dependentDecision( cel, n );
+          if( n!=cel && n.notNode()!=cel ){
+            Debug("quant-dep-dec") << "Make " << n << " dependent on " << cel << std::endl;
+            out->dependentDecision( cel, n );
+          }
         }
         InstConstantAttribute icai;
         n.setAttribute(icai,fa);

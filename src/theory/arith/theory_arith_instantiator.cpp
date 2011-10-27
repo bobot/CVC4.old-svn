@@ -47,13 +47,12 @@ void InstantiatorTheoryArith::resetInstantiation(){
       Node n = (*it).second;
       Node f;
       NodeBuilder<> t(kind::PLUS);
-      NodeBuilder<> ce_t(kind::PLUS);
       if( n.getKind()==PLUS ){
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          addTermToRow( x, n[i], f, t, ce_t );
+          addTermToRow( x, n[i], f, t );
         }
       }else{
-        addTermToRow( x, n, f, t, ce_t );
+        addTermToRow( x, n, f, t );
       }
       if( f!=Node::null() ){
         d_instRows[f].push_back( x );
@@ -67,14 +66,6 @@ void InstantiatorTheoryArith::resetInstantiation(){
         }else{
           d_tableaux_term[x] = t;
         }
-        //set ce tableaux term
-        if( ce_t.getNumChildren()==0 ){
-          d_tableaux_ce_term[x] = NodeManager::currentNM()->mkConst( Rational(0) ); 
-        }else if( ce_t.getNumChildren()==1 ){
-          d_tableaux_ce_term[x] = ce_t.getChild( 0 );
-        }else{
-          d_tableaux_ce_term[x] = ce_t;
-        }
       }
     }
   }
@@ -82,14 +73,14 @@ void InstantiatorTheoryArith::resetInstantiation(){
   debugPrint( "quant-arith-debug" );
 }
 
-void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t, NodeBuilder<>& ce_t ){
+void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){
   if( n.getKind()==MULT ){
     if( n[1].hasAttribute(InstConstantAttribute()) ){
       if( n[1].getKind()==INST_CONSTANT ){
         f = n[1].getAttribute(InstConstantAttribute());
         d_ceTableaux[x][ n[1] ] = n[0];
       }else{
-        ce_t << n;
+        d_tableaux_ce_term[x][ n[1] ] = n[0];
       }
     }else{
       d_tableaux[x][ n[1] ] = n[0];
@@ -101,7 +92,7 @@ void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBui
         f = n.getAttribute(InstConstantAttribute());
         d_ceTableaux[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
       }else{
-        ce_t << n;
+        d_tableaux_ce_term[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
       }
     }else{
       d_tableaux[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
@@ -184,8 +175,29 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
       //  Node delta = NodeManager::currentNM()->mkNode( MULT, getDelta( d_ceTableaux[x].begin()->first ),
       //                                                  NodeManager::currentNM()->mkConst( dr.getInfinitesimalPart() ) );
       //  beta = NodeManager::currentNM()->mkNode( PLUS, beta, delta );
-      //}
-      Node instVal = NodeManager::currentNM()->mkNode( MINUS, beta, d_tableaux_term[x] );
+      //} 
+
+      //instantiation row will be A*e + B*t + C*t[e] = beta,
+      // where e is a vector of instantiation variables, 
+      // t is vector of terms, and t[e] is a vector of terms containing instantiation constants.
+      // Say one instantiation constant in e is coeff*e_i.
+      // We construct the term ( beta - (B*t + C*beta(t[e]))/coeff to use for e_i,
+      // where beta(t[e]) is the vector of constants by replacing each term with its current model.
+      Node term;
+      if( d_tableaux_ce_term[x].empty() ){
+        term = d_tableaux_term[x];
+      }else{
+        NodeBuilder<> plus_term(kind::PLUS);
+        plus_term << d_tableaux_term[x];
+        for( std::map< Node, Node >::iterator it = d_tableaux_ce_term[x].begin(); it != d_tableaux_ce_term[x].end(); ++it ){
+          ArithVar v = ((TheoryArith*)getTheory())->d_arithvarNodeMap.asArithVar( it->first );
+          DeltaRational drv = ((TheoryArith*)getTheory())->d_partialModel.getAssignment( v );
+          Node val = NodeManager::currentNM()->mkConst( drv.getNoninfinitesimalPart() );
+          plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, val );
+        }
+        term = plus_term;
+      }
+      Node instVal = NodeManager::currentNM()->mkNode( MINUS, beta, term );
       Rational value(1);
       Node coeff = NodeManager::currentNM()->mkConst( value / d_ceTableaux[x].begin()->second.getConst<Rational>() );
       instVal = NodeManager::currentNM()->mkNode( MULT, coeff, instVal );

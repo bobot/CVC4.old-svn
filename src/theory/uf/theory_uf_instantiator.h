@@ -71,6 +71,7 @@ public:
   static std::map< Node, std::map< Node, int > > d_assigned[3];
   /** maximum number of splits allowed for conditional unification */
   static int d_splitThreshold;
+  static bool d_useSplitThreshold;
   /** reset all */
   static void resetAssigned();
   static void indent( const char* c, int ind );
@@ -214,7 +215,6 @@ protected:
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
-  void debugPrint( const char* c );
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
@@ -224,6 +224,8 @@ public:
   void resetInstantiation();
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryUf"); }
+  /** debug print */
+  void debugPrint( const char* c );
 private:
   /** assert terms are equal */
   void assertEqual( Node a, Node b );
@@ -234,8 +236,12 @@ private:
   std::map< Node, InstMatch > d_baseMatch;
   std::map< Node, UIterator* > d_mergeIter;
   void process( Node f, int effort );
-  //std::map< Node, bool > d_matchable;
-  //std::map< Node, bool > d_unmatched;
+  std::map< Node, bool > d_matchable;
+  std::map< Node, bool > d_unmatched;
+  /** calculate matchable */
+  void calculateMatchable( Node f );
+  /** resolve matches */
+  bool resolveLiteralMatches( Node t, Node s, Node f );
 
   /** find best match to any term */
   std::map< Node, std::vector< Node > > d_matches;

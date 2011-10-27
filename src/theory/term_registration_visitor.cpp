@@ -32,6 +32,10 @@ bool PreRegisterVisitor::alreadyVisited(TNode current, TNode parent) const {
 
   Debug("register::internal") << "PreRegisterVisitor::alreadyVisited(" << current << "," << parent << ") => ";
 
+  if( ( parent.getKind()==kind::FORALL || parent.getKind()==kind::EXISTS ) && current!=parent ){
+    Debug("register::internal") << "quantifier:true" << std::endl;
+    return true;
+  }
   TNodeVisitedMap::iterator find = d_visited.find(current);
 
   // If node is not visited at all, just return false
@@ -110,6 +114,10 @@ bool SharedTermsVisitor::alreadyVisited(TNode current, TNode parent) const {
 
   Debug("register::internal") << "SharedTermsVisitor::alreadyVisited(" << current << "," << parent << ") => ";
 
+  if( ( parent.getKind()==kind::FORALL || parent.getKind()==kind::EXISTS ) && current!=parent ){
+    Debug("register::internal") << "quantifier:true" << std::endl;
+    return true;
+  }
   TNodeVisitedMap::const_iterator find = d_visited.find(current);
 
   // If node is not visited at all, just return false

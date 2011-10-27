@@ -132,7 +132,7 @@ void TheoryQuantifiers::check(Effort e) {
         bool active, value;
         bool ceValue = false;
         if( d_valuation.hasSatValue( cel, value ) ){
-          active = !value;
+          active = value;
           ceValue = true;
         }else{
           //this should only happen if we have a set of ground terms that suffices 
@@ -172,10 +172,10 @@ void TheoryQuantifiers::check(Effort e) {
         std::cout << "unknown" << std::endl;
         exit( 7 );
         Debug("quantifiers") << "No instantiation given." << std::endl;
-        if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
 #if 1
           d_out->setIncomplete();
 #else
+        if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
           //instantiation did not add a lemma to d_out, try to flip a previous decision
           if( !d_out->flipDecision() ){
             //maybe restart?
@@ -190,8 +190,8 @@ void TheoryQuantifiers::check(Effort e) {
           }else{
             Debug("quantifiers") << "Flipped decision." << std::endl;
           }
-#endif
         }
+#endif
       }
     }else{
       Debug("quantifiers") << "No quantifier is active." << std::endl;
@@ -208,16 +208,18 @@ void TheoryQuantifiers::assertUniversal( Node n ){
       Node body;
       d_instEngine->getInstantiationConstantsFor( n, inst_constants, body );
       //get the counterexample literal
-      Node cel = d_instEngine->getCounterexampleLiteralFor( n );
+      //Node cel = d_instEngine->getCounterexampleLiteralFor( n );
+      Node cel = d_valuation.ensureLiteral( body.notNode() );
+      //Debug("quantifiers") << cel << " is the literal for " << body.notNode() << std::endl;
+      d_instEngine->setCounterexampleLiteralFor( n, cel );
+      //mark all literals in the body of n as dependent on cel
+      d_instEngine->registerLiterals( body, n, d_out );
 
       NodeBuilder<> nb(kind::OR);
-      nb << n.notNode() << cel << body.notNode();
+      nb << n << cel;
       Node lem = nb;
       Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
       d_out->lemma( lem );
-
-      //mark all literals in the body of n as dependent on cel
-      d_instEngine->registerLiterals( body, n, d_out );
 
       ////mark cel as dependent on n
       //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
@@ -225,7 +227,7 @@ void TheoryQuantifiers::assertUniversal( Node n ){
       //d_out->dependentDecision( quant, cel );    //FIXME?
 
       //require any decision on cel to be phase=false
-      d_out->requirePhase( cel, false );
+      d_out->requirePhase( cel, true );
 
       d_abstract_inst[n] = true;
     }

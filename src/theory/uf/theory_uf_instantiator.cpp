@@ -56,6 +56,7 @@ InstantiatorTheoryUf* UIterator::d_itu = NULL;
 std::map< Node, std::map< Node, std::vector< UIterator* > > > UIterator::d_iter[3];
 std::map< Node, std::map< Node, int > > UIterator::d_assigned[3];
 int UIterator::d_splitThreshold;
+bool UIterator::d_useSplitThreshold;
 
 void UIterator::resetAssigned(){
   for( int i=0; i<3; i++ ){
@@ -241,7 +242,7 @@ void UIterator::debugPrint( const char* c, int ind, bool printChildren ){
 void UIterator::calcChildren(){
   if( d_t!=Node::null() ){
     Node f = d_t.getAttribute(InstConstantAttribute());
-    if( isCombine() ){
+    if( d_operation==0 ){
       if( d_t.getKind()==INST_CONSTANT && !d_s.hasAttribute(InstConstantAttribute()) ){
         InstMatch m( f, d_itu->d_instEngine );
         Node c = getRepresentative( d_s );
@@ -252,59 +253,66 @@ void UIterator::calcChildren(){
         d_mg_set = true;
       }else{
         //find any term to match d_t to d_s
-        d_itu->calculateEIndLitCandidates( d_t, d_s, f, d_operation==0 );
-        Debug( "quant-uf-uiter" ) << "Find candidates for " << d_t << ( d_operation==0 ? " = " : " != " ) << d_s << std::endl;
-        Debug( "quant-uf-uiter" ) << "# of match candidates = " << d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size() << std::endl;
-        //if( d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size()==1 && !d_s.hasAttribute(InstConstantAttribute()) ){
-        //  //if one child, compress the child to this
-        //  // must consider if the following UIterator already exists
-        //  int nOp = d_operation==1 ? 0 : 2;
-        //  Node s = d_itu->d_litMatchCandidates[d_operation][d_t][d_s][0];
-        //  if( d_assigned[nOp][d_t][s]==0 ){
-        //    if( d_operation==1 ){
-        //      mkCombineUIterator( d_t, s, true, f );
-        //    }else{
-        //      mkMergeUIterator( d_t, s, f );
-        //    }
-        //  }
-        //  d_miter[d_operation][d_t][d_s] = d_miter[nOp][d_t][s];
-        //  d_mg_i = -1;
-        //  getMaster()->calcChildren();
-        //  return;
-        //}
-        if( d_operation==1 ){
+        //if they share the same operator, try a merge, if legal to do so
+        if( d_t.getKind()==APPLY_UF && d_s.getKind()==APPLY_UF && d_t.getOperator()==d_s.getOperator() ){
+          UIterator* ui = NULL;//mkMergeUIterator( d_t, d_s, f );
+          if( ui ){
+            d_children.push_back( ui );
+          }
+        }
+        d_itu->calculateEIndLitCandidates( d_t, d_s, f, true );
+        //Assert( d_t.getKind()!=APPLY_UF || d_s.getKind()!=APPLY_UF || d_t.getOperator()!=d_s.getOperator() );
+        for( int i=0; i<(int)d_itu->d_litMatchCandidates[0][d_t][d_s].size(); i++ ){
+          Node m = d_itu->d_litMatchCandidates[0][d_t][d_s][i];
           if( d_s.getAttribute(InstConstantAttribute())==f ){
-            //disequality between two triggers
-            for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
-              Node mt = d_itu->d_litMatchCandidates[1][d_t][d_s][i][0];
-              Node ms = d_itu->d_litMatchCandidates[1][d_t][d_s][i][1];
-              UIterator* mi = mkUIterator( false );
-              mi->d_children.push_back( mkCombineUIterator( d_t, mt, true, f ) );
-              mi->d_children.push_back( mkCombineUIterator( d_s, ms, true, f ) );
-              d_children.push_back( mi );
-            }
+            //equality between two triggers
+            UIterator* mi = mkUIterator( false );
+            mi->d_children.push_back( mkCombineUIterator( d_t, m, true, f ) );
+            mi->d_children.push_back( mkCombineUIterator( d_s, m, true, f ) );
+            d_children.push_back( mi );
           }else{
-            //disequality between trigger and ground term
-            for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
-              Node m = d_itu->d_litMatchCandidates[1][d_t][d_s][i];
-              d_children.push_back( mkCombineUIterator( d_t, m, true, f ) );
-            }
+            //equality between trigger and ground term
+            d_children.push_back( mkMergeUIterator( d_t, m, f ) );
           }
-        }else{
-          //Assert( d_t.getKind()!=APPLY_UF || d_s.getKind()!=APPLY_UF || d_t.getOperator()!=d_s.getOperator() );
-          for( int i=0; i<(int)d_itu->d_litMatchCandidates[0][d_t][d_s].size(); i++ ){
-            Node m = d_itu->d_litMatchCandidates[0][d_t][d_s][i];
-            if( d_s.getAttribute(InstConstantAttribute())==f ){
-              //equality between two triggers
-              UIterator* mi = mkUIterator( false );
-              mi->d_children.push_back( mkCombineUIterator( d_t, m, true, f ) );
-              mi->d_children.push_back( mkCombineUIterator( d_s, m, true, f ) );
-              d_children.push_back( mi );
-            }else{
-              //equality between trigger and ground term
-              d_children.push_back( mkMergeUIterator( d_t, m, f ) );
-            }
-          }
+        }
+      }
+    }else if( d_operation==1 ){
+      //find any term to match d_t to d_s
+      d_itu->calculateEIndLitCandidates( d_t, d_s, f, false );
+      Debug( "quant-uf-uiter" ) << "Find candidates for " << d_t << ( d_operation==0 ? " = " : " != " ) << d_s << std::endl;
+      Debug( "quant-uf-uiter" ) << "# of match candidates = " << d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size() << std::endl;
+      //if( d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size()==1 && !d_s.hasAttribute(InstConstantAttribute()) ){
+      //  //if one child, compress the child to this
+      //  // must consider if the following UIterator already exists
+      //  int nOp = d_operation==1 ? 0 : 2;
+      //  Node s = d_itu->d_litMatchCandidates[d_operation][d_t][d_s][0];
+      //  if( d_assigned[nOp][d_t][s]==0 ){
+      //    if( d_operation==1 ){
+      //      mkCombineUIterator( d_t, s, true, f );
+      //    }else{
+      //      mkMergeUIterator( d_t, s, f );
+      //    }
+      //  }
+      //  d_miter[d_operation][d_t][d_s] = d_miter[nOp][d_t][s];
+      //  d_mg_i = -1;
+      //  getMaster()->calcChildren();
+      //  return;
+      //}
+      if( d_s.getAttribute(InstConstantAttribute())==f ){
+        //disequality between two triggers
+        for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
+          Node mt = d_itu->d_litMatchCandidates[1][d_t][d_s][i][0];
+          Node ms = d_itu->d_litMatchCandidates[1][d_t][d_s][i][1];
+          UIterator* mi = mkUIterator( false );
+          mi->d_children.push_back( mkCombineUIterator( d_t, mt, true, f ) );
+          mi->d_children.push_back( mkCombineUIterator( d_s, ms, true, f ) );
+          d_children.push_back( mi );
+        }
+      }else{
+        //disequality between trigger and ground term
+        for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
+          Node m = d_itu->d_litMatchCandidates[1][d_t][d_s][i];
+          d_children.push_back( mkCombineUIterator( d_t, m, true, f ) );
         }
       }
     }else{
@@ -329,6 +337,7 @@ void UIterator::calcChildren(){
             if( d_t[j].hasAttribute(InstConstantAttribute()) ){
               d_children.push_back( mkCombineUIterator( d_t[j], getRepresentative( d_s[j] ), true, f ) );
             }else{
+              Assert( !d_s[j].hasAttribute(InstConstantAttribute()) );
               addSplit( d_t[j], d_s[j] );
             }
           }
@@ -394,7 +403,7 @@ bool UIterator::calcNextMatch(){
     }else{
       //if this is the first time
       if( d_mg.empty() ){
-        if( (int)d_splits.size()>d_splitThreshold ){
+        if( d_useSplitThreshold && (int)d_splits.size()>d_splitThreshold ){
           d_mg_set = true;
           return false;
         }else{
@@ -431,7 +440,7 @@ bool UIterator::calcNextMatch(){
           }else{
             combined.merge( d_partial[i-1], true );
           }
-          if( (int)combined.d_splits.size()<=d_splitThreshold ){
+          if( !d_useSplitThreshold || (int)combined.d_splits.size()<=d_splitThreshold ){
             bool consistentSplit = true;
             for( std::map< Node, Node >::iterator it = combined.d_splits.begin();
                   it != combined.d_splits.end(); ++it ){
@@ -814,7 +823,11 @@ void InstantiatorTheoryUf::debugPrint( const char* c )
   for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
         it != d_instEngine->d_inst_constants.end(); ++it ){
     Node f = it->first;
-    Debug( c ) << f << std::endl;
+    Debug( c ) << f;
+    if( !d_instEngine->getActive( f ) ){
+      Debug( c ) << " (***inactive***)";
+    }
+    Debug( c ) << std::endl;
     Debug( c ) << "   Inst constants:" << std::endl;
     Debug( c ) << "      ";
     for( int i=0; i<(int)it->second.size(); i++ ){
@@ -874,10 +887,11 @@ Node InstantiatorTheoryUf::getRepresentative( Node a ){
 
 void InstantiatorTheoryUf::process( Node f, int effort ){
   Debug("quant-uf") << "UF: Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  if( effort>4 ){
-    if( d_status==STATUS_SAT ){
-      Debug("quant-uf-stuck") << "Stuck at this state:" << std::endl;
-      debugPrint("quant-uf-stuck");
+  if( effort>5 ){
+    if( effort==6 && !d_unmatched[f] ){
+      Debug("quant-uf") << "Add guessed instantiation" << std::endl;
+      InstMatch m( f, d_instEngine );
+      d_instEngine->addInstantiation( &m );
     }
     d_quantStatus = STATUS_UNKNOWN;
   }else if( effort==0 ){
@@ -921,11 +935,12 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
             break;
           }
         }
-      }else if( effort<4 ){
+      }else if( effort<5 ){
         d_mergeIter[ f ]->clearMatches();
         Debug("quant-uf-alg") << "Here is the merge iterator: " << std::endl;
         d_mergeIter[ f ]->debugPrint( "quant-uf-alg", 0 );
         UIterator::d_splitThreshold = effort==2 ? 1 : 2;
+        UIterator::d_useSplitThreshold = effort<4;
         while( d_mergeIter[ f ]->getNextMatch() ){
           // f is (conditionally) E-induced
           InstMatch temp( d_mergeIter[ f ]->getCurrent() );
@@ -940,138 +955,59 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
             break;
           }
         }
-      }else if( effort==4 ){
+      }else if( effort==5 ){
         Debug("quant-uf-alg") << "Here is the merge iterator: " << std::endl;
         d_mergeIter[ f ]->debugPrint( "quant-uf-alg", 0 );
-        std::map< UIterator*, UIterator* > index;
-        std::vector< UIterator* > unmerged;
-        std::vector< UIterator* > cover;
-        double score;
-        if( d_mergeIter[ f ]->empty() ){
-          score = d_mergeIter[ f ]->collectUnmerged( index, unmerged, cover );
-        }else{
-          score = 1.0;
-        }
-        Debug("quant-uf-alg") << "Score = " << score << std::endl;
-        Debug("quant-uf-alg") << "Here are the unmerged points: " << std::endl;
-        for( int i=0; i<(int)unmerged.size(); i++ ){
-          unmerged[i]->debugPrint( "quant-uf-alg", 1, false );
-        }
-        Debug("quant-uf-alg") << "Here are the covering points: " << std::endl;
-        for( int i=0; i<(int)cover.size(); i++ ){
-          cover[i]->debugPrint( "quant-uf-alg", 1, false );
-          cover[i]->d_mg.debugPrint( "quant-uf-alg" );
-        }
-        bool success = false;
-        for( int i=0; i<(int)cover.size(); i++ ){
-          //see if we can construct any complete instantiations 
-          cover[i]->reset();
-          while( !success && cover[i]->getNextMatch() ){
-            if( cover[i]->getCurrent()->isComplete( &d_baseMatch[f] ) ){
-              InstMatch temp( cover[i]->getCurrent() );
-              temp.add( d_baseMatch[f] );
-              if( d_instEngine->addInstantiation( &temp ) ){
-                success = true;
-                for( std::map< Node, Node >::iterator it = temp.d_splits.begin(); it != temp.d_splits.end(); ++it ){
-                  addSplitEquality( it->first, it->second, true, true );
+        //check if all literals are matchable
+        //resolve matches on the literal level
+        calculateMatchable( f );
+        if( d_matchable[f] ){
+          std::map< UIterator*, UIterator* > index;
+          std::vector< UIterator* > unmerged;
+          std::vector< UIterator* > cover;
+          double score;
+          if( d_mergeIter[ f ]->empty() ){
+            score = d_mergeIter[ f ]->collectUnmerged( index, unmerged, cover );
+          }else{
+            score = 1.0;
+          }
+          Debug("quant-uf-alg") << "Score = " << score << std::endl;
+          Debug("quant-uf-alg") << "Here are the unmerged points: " << std::endl;
+          for( int i=0; i<(int)unmerged.size(); i++ ){
+            unmerged[i]->debugPrint( "quant-uf-alg", 1, false );
+          }
+          Debug("quant-uf-alg") << "Here are the covering points: " << std::endl;
+          for( int i=0; i<(int)cover.size(); i++ ){
+            cover[i]->debugPrint( "quant-uf-alg", 1, false );
+            cover[i]->d_mg.debugPrint( "quant-uf-alg" );
+          }
+          bool success = false;
+          for( int i=0; i<(int)cover.size(); i++ ){
+            //see if we can construct any complete instantiations 
+            cover[i]->reset();
+            while( !success && cover[i]->getNextMatch() ){
+              if( cover[i]->getCurrent()->isComplete( &d_baseMatch[f] ) ){
+                InstMatch temp( cover[i]->getCurrent() );
+                temp.add( d_baseMatch[f] );
+                if( d_instEngine->addInstantiation( &temp ) ){
+                  success = true;
+                  for( std::map< Node, Node >::iterator it = temp.d_splits.begin(); it != temp.d_splits.end(); ++it ){
+                    addSplitEquality( it->first, it->second, true, true );
+                  }
                 }
               }
             }
           }
-        }
-        if( !success ){
-          std::vector< std::pair< Node, Node > > splits;
-          std::vector< std::pair< Node, Node > > matchFails;
-          for( int i=0; i<(int)unmerged.size(); i++ ){
-            //process each unmerged point
-            if( unmerged[i]->isCombine() ){
-              //determine why it has no children
-              //matchFails.push_back( std::pair< Node, Node >( unmerged[i]->d_t, unmerged[i]->d_s ) );
-              //unmerged[i]->resolveMatch();
-            }else{
-              //add splits?
+          if( !success ){
+            std::vector< std::pair< Node, Node > > splits;
+            std::vector< std::pair< Node, Node > > matchFails;
+            for( int i=0; i<(int)unmerged.size(); i++ ){
+              //process each unmerged point
+              //make more children for this
+              resolveLiteralMatches( unmerged[i]->d_t, unmerged[i]->d_s, f );
             }
           }
         }
-
-        ////resolve matches on the literal level
-        //d_matchable[f] = true;
-        //d_unmatched[f] = false;
-        //std::vector< std::pair< Node, Node > > splits;
-        //for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
-        //  Node lit = (*it);
-        //  Node t = lit[0];
-        //  Node s = lit[1];
-        //  int ind = d_ob_pol[lit] ? 0 : 1;
-        //  Debug("quant-uf-alg") << "Process obligation " << ( !d_ob_pol[*it] ? "NOT " : "" );
-        //  Debug("quant-uf-alg") << (*it) << std::endl;
-        //  calculateEIndLitCandidates( t, s, f, d_ob_pol[lit] );
-        //  if( !d_litMatchCandidates[ind][t][s].empty() ){
-        //    Debug("quant-uf-alg") << "-> Literal is matched." << std::endl;
-        //  }else{
-        //    bool litMatchable = true;
-        //    bool litUnmatched = false;
-        //    for( int i=0; i<2; i++ ){
-        //      if( lit[i].hasAttribute(InstConstantAttribute()) ){
-        //        calculateMatches( f, lit[i] );
-        //        if( d_matches[ lit[i] ].empty() ){
-        //          litMatchable = false;
-        //          if( d_anyMatches[ lit[i] ].empty() ){
-        //            litUnmatched = true;
-        //            break;
-        //          }
-        //        }
-        //      }
-        //    }
-        //    if( litMatchable ){
-        //      int prevSplitSize = (int)splits.size();
-        //      for( int i=0; i<(int)d_matches[t].size(); i++ ){
-        //        Node mt = d_matches[t][i];
-        //        if( s.getAttribute(InstConstantAttribute())==f ){
-        //          for( int j=0; j<(int)d_matches[s].size(); j++ ){
-        //            Node ms = d_matches[s][j];
-        //            if( !areEqual( mt, ms ) && !areDisequal( mt, ms ) ){
-        //              splits.push_back( std::pair< Node, Node >( mt, ms ) );
-        //            }
-        //          }
-        //        }else{
-        //          if( !areEqual( mt, s ) && !areDisequal( mt, s ) ){
-        //            splits.push_back( std::pair< Node, Node >( mt, s ) );
-        //          }
-        //        }
-        //      }
-        //      if( prevSplitSize!=(int)splits.size() ){
-        //        Debug("quant-uf-alg") << "-> Literal has possible matches." << std::endl;
-        //      }else{
-        //        litMatchable = false;
-        //      }
-        //    }
-        //    if( !litMatchable ){
-        //      d_matchable[f] = false;
-        //      if( litUnmatched ){
-        //        Debug("quant-uf-alg") << "-> Literal is unmatched." << std::endl;
-        //        d_unmatched[f] = true;
-        //      }else{
-        //        Debug("quant-uf-alg") << "-> Literal is not matchable." << std::endl;
-        //      }
-        //    }
-        //  }
-        //}
-        //if( d_matchable[f] ){
-        //  for( int i=0; i<(int)splits.size(); i++ ){
-        //    addSplitEquality( splits[i].first, splits[i].second );
-        //  }
-        //}
-      }else if( effort==3 ){
-        //if( d_matchable[f] ){
-        //  //resolve ground argument mismatches
-        //  for( int i=0; i<(int)UIterator::d_splits[f].size(); i++ ){
-        //    addSplitEquality( UIterator::d_splits[f][i].first, UIterator::d_splits[f][i].second );
-        //  }
-        //}
-      }else{
-
-
       }
     }
   }
@@ -1129,6 +1065,70 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
   Debug("quant-uf-alg") << std::endl;
 }
 
+void InstantiatorTheoryUf::calculateMatchable( Node f ){
+  NodeLists::iterator ob_i = d_obligations.find( f );
+  if( ob_i!=d_obligations.end() ){
+    NodeList* ob = (*ob_i).second;
+    d_matchable[f] = true;
+    d_unmatched[f] = false;
+    for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
+      Node lit = (*it);
+      Node t = lit[0];
+      Node s = lit[1];
+      int ind = d_ob_pol[lit] ? 0 : 1;
+      Debug("quant-uf-alg") << "Process obligation " << ( !d_ob_pol[*it] ? "NOT " : "" );
+      Debug("quant-uf-alg") << (*it) << std::endl;
+      calculateEIndLitCandidates( t, s, f, d_ob_pol[lit] );
+      if( !d_litMatchCandidates[ind][t][s].empty() ){
+        Debug("quant-uf-alg") << "-> Literal is matched." << std::endl;
+      }else{
+        for( int i=0; i<2; i++ ){
+          if( lit[i].hasAttribute(InstConstantAttribute()) ){
+            calculateMatches( f, lit[i] );
+            if( d_matches[ lit[i] ].empty() ){
+              d_matchable[f] = false;
+              if( d_anyMatches[ lit[i] ].empty() ){
+                d_unmatched[f] = true;
+                break;
+              }
+            }
+          }
+        }
+        if( !d_matchable[f] ){
+          if( d_unmatched[f] ){
+            Debug("quant-uf-alg") << "-> Literal is unmatched." << std::endl;
+          }else{
+            Debug("quant-uf-alg") << "-> Literal is not matchable." << std::endl;
+          }
+        }
+      }
+    }
+  }
+}
+
+bool InstantiatorTheoryUf::resolveLiteralMatches( Node t, Node s, Node f ){
+  bool addedLemma = false;
+  for( int i=0; i<(int)d_matches[t].size(); i++ ){
+    Node mt = d_matches[t][i];
+    if( s.getAttribute(InstConstantAttribute())==f ){
+      for( int j=0; j<(int)d_matches[s].size(); j++ ){
+        Node ms = d_matches[s][j];
+        if( !areEqual( mt, ms ) && !areDisequal( mt, ms ) ){
+          if( addSplitEquality( mt, ms ) ){
+            addedLemma = true;
+          }
+        }
+      }
+    }else{
+      if( !areEqual( mt, s ) && !areDisequal( mt, s ) ){
+        if( addSplitEquality( mt, s ) ){
+          addedLemma = true;
+        }
+      }
+    }
+  }
+  return addedLemma;
+}
 
 void InstantiatorTheoryUf::calculateMatches( Node f, Node t ){
   Assert( t.getAttribute(InstConstantAttribute())==f );
