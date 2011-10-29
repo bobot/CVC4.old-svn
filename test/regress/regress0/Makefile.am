@@ -46,6 +46,7 @@ SMT2_TESTS = \
 
 # Regression tests for PL inputs
 CVC_TESTS = \
+	boolean.cvc \
 	boolean-prec.cvc \
 	hole6.cvc \
 	ite.cvc \
