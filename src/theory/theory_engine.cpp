@@ -320,8 +320,7 @@ bool TheoryEngine::properPropagation(TNode lit) const {
 
 bool TheoryEngine::properExplanation(TNode node, TNode expl) const {
   Assert(!node.isNull() && !expl.isNull());
-#warning implement TheoryEngine::properExplanation()
-  return true;
+  return d_propEngine->properExplanation(node, expl);
 }
 
 Node TheoryEngine::getValue(TNode node) {

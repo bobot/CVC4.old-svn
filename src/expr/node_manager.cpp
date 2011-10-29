@@ -29,6 +29,7 @@
 
 #include <algorithm>
 #include <stack>
+#include <utility>
 #include <ext/hash_set>
 
 using namespace std;
@@ -236,14 +237,15 @@ void NodeManager::reclaimZombies() {
 }/* NodeManager::reclaimZombies() */
 
 TypeNode NodeManager::getType(TNode n, bool check)
-  throw (TypeCheckingExceptionPrivate, AssertionException) {
-  // Many theories' type checkers call Node::getType() directly.
-  // This is incorrect, since "this" might not be the caller's
-  // curent node manager.  Rather than force the individual typecheckers
-  // not to do this (by policy, which would be imperfect and lead
-  // to hard-to-find bugs, which it has in the past), we just
-  // set this node manager to be current for the duration of this
-  // check.
+  throw(TypeCheckingExceptionPrivate, AssertionException) {
+
+  // Many theories' type checkers call Node::getType() directly.  This
+  // is incorrect, since "this" might not be the caller's curent node
+  // manager.  Rather than force the individual typecheckers not to do
+  // this (by policy, which would be imperfect and lead to
+  // hard-to-find bugs, which it has in the past), we just set this
+  // node manager to be current for the duration of this check.
+  //
   NodeManagerScope nms(this);
 
   TypeNode typeNode;
@@ -320,6 +322,37 @@ TypeNode NodeManager::mkConstructorType(const Datatype::Constructor& constructor
                 "cannot create higher-order function types");
   sorts.push_back(range);
   return mkTypeNode(kind::CONSTRUCTOR_TYPE, sorts);
+}
+
+TypeNode NodeManager::mkPredicateSubtype(Expr lambda)
+  throw(TypeCheckingExceptionPrivate) {
+
+  Node lambdan = Node::fromExpr(lambda);
+
+  if(lambda.isNull()) {
+    throw TypeCheckingExceptionPrivate(lambdan, "cannot make a predicate subtype based on null expression");
+  }
+
+  TypeNode tn = lambdan.getType();
+  if(! tn.isPredicateLike() ||
+     tn.getArgTypes().size() != 1) {
+    std::stringstream ss;
+    ss << Expr::setlanguage(Options::current()->outputLanguage)
+       << "expected a predicate of one argument to define predicate subtype, but got type `" << tn << "'";
+    throw TypeCheckingExceptionPrivate(lambdan, ss.str());
+  }
+
+  return TypeNode(mkTypeConst(Predicate(lambda)));
+}
+
+TypeNode NodeManager::mkPredicateSubtype(Expr lambda, Expr witness)
+  throw(TypeCheckingExceptionPrivate) {
+  Unimplemented();
+}
+
+TypeNode NodeManager::mkSubrangeType(const SubrangeBounds& bounds)
+  throw(TypeCheckingExceptionPrivate) {
+  return TypeNode(mkTypeConst(bounds));
 }
 
 }/* CVC4 namespace */

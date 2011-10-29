@@ -71,63 +71,14 @@ Node TypeNode::mkGroundTerm() const {
   return kind::mkGroundTerm(*this);
 }
 
-bool TypeNode::isBoolean() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    ( getConst<TypeConstant>() == BOOLEAN_TYPE ||
-      getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE );
+Node TypeNode::getSubtypePredicate() const {
+  Assert(isPredicateSubtype());
+  return Node::fromExpr(getConst<Predicate>());
 }
 
-bool TypeNode::isInteger() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    ( getConst<TypeConstant>() == INTEGER_TYPE ||
-      getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE );
-}
-
-bool TypeNode::isReal() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    ( getConst<TypeConstant>() == REAL_TYPE ||
-      getConst<TypeConstant>() == INTEGER_TYPE ||
-      getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE );
-}
-
-bool TypeNode::isPseudoboolean() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE;
-}
-
-bool TypeNode::isArray() const {
-  return getKind() == kind::ARRAY_TYPE;
-}
-
-TypeNode TypeNode::getArrayIndexType() const {
-  Assert(isArray());
-  return (*this)[0];
-}
-
-TypeNode TypeNode::getArrayConstituentType() const {
-  Assert(isArray());
-  return (*this)[1];
-}
-
-TypeNode TypeNode::getConstructorRangeType() const {
-  Assert(isConstructor());
-  return (*this)[getNumChildren()-1];
-}
-
-bool TypeNode::isFunction() const {
-  return getKind() == kind::FUNCTION_TYPE;
-}
-
-bool TypeNode::isFunctionLike() const {
-  return
-    getKind() == kind::FUNCTION_TYPE ||
-    getKind() == kind::CONSTRUCTOR_TYPE ||
-    getKind() == kind::SELECTOR_TYPE ||
-    getKind() == kind::TESTER_TYPE;
-}
-
-bool TypeNode::isPredicate() const {
-  return isFunction() && getRangeType().isBoolean();
+TypeNode TypeNode::getSubtypeBaseType() const {
+  Assert(isPredicateSubtype());
+  return getSubtypePredicate().getType().getArgTypes()[0];
 }
 
 std::vector<TypeNode> TypeNode::getArgTypes() const {
@@ -153,19 +104,6 @@ std::vector<TypeNode> TypeNode::getParamTypes() const {
   return params;
 }
 
-TypeNode TypeNode::getRangeType() const {
-  if(isTester()) {
-    return NodeManager::currentNM()->booleanType();
-  }
-  Assert(isFunction() || isConstructor() || isSelector());
-  return (*this)[getNumChildren()-1];
-}
-
-/** Is this a tuple type? */
-bool TypeNode::isTuple() const {
-  return getKind() == kind::TUPLE_TYPE;
-}
-
 /** Is this a tuple type? */
 vector<TypeNode> TypeNode::getTupleTypes() const {
   Assert(isTuple());
@@ -174,37 +112,6 @@ vector<TypeNode> TypeNode::getTupleTypes() const {
     types.push_back((*this)[i]);
   }
   return types;
-}
-
-/** Is this a sort kind */
-bool TypeNode::isSort() const {
-  return getKind() == kind::SORT_TYPE && !hasAttribute(expr::SortArityAttr());
-}
-
-/** Is this a sort constructor kind */
-bool TypeNode::isSortConstructor() const {
-  return getKind() == kind::SORT_TYPE && hasAttribute(expr::SortArityAttr());
-}
-
-/** Is this a kind type (i.e., the type of a type)? */
-bool TypeNode::isKind() const {
-  return getKind() == kind::TYPE_CONSTANT &&
-    getConst<TypeConstant>() == KIND_TYPE;
-}
-
-/** Is this a bit-vector type */
-bool TypeNode::isBitVector() const {
-  return getKind() == kind::BITVECTOR_TYPE;
-}
-
-/** Is this a datatype type */
-bool TypeNode::isDatatype() const {
-  return getKind() == kind::DATATYPE_TYPE;
-}
-
-/** Is this a parametric datatype type */
-bool TypeNode::isParametricDatatype() const {
-  return getKind() == kind::PARAMETRIC_DATATYPE;
 }
 
 /** Is this an instantiated datatype type */
@@ -232,33 +139,6 @@ bool TypeNode::isParameterInstantiatedDatatype(unsigned n) const {
   const Datatype& dt = (*this)[0].getConst<Datatype>();
   AssertArgument(n < dt.getNumParameters(), *this);
   return TypeNode::fromType(dt.getParameter(n)) != (*this)[n + 1];
-}
-
-/** Is this a constructor type */
-bool TypeNode::isConstructor() const {
-  return getKind() == kind::CONSTRUCTOR_TYPE;
-}
-
-/** Is this a selector type */
-bool TypeNode::isSelector() const {
-  return getKind() == kind::SELECTOR_TYPE;
-}
-
-/** Is this a tester type */
-bool TypeNode::isTester() const {
-  return getKind() == kind::TESTER_TYPE;
-}
-
-/** Is this a bit-vector type of size <code>size</code> */
-bool TypeNode::isBitVector(unsigned size) const {
-  return getKind() == kind::BITVECTOR_TYPE &&
-    getConst<BitVectorSize>() == size;
-}
-
-/** Get the size of this bit-vector type */
-unsigned TypeNode::getBitVectorSize() const {
-  Assert(isBitVector());
-  return getConst<BitVectorSize>();
 }
 
 }/* CVC4 namespace */

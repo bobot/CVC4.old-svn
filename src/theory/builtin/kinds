@@ -262,7 +262,6 @@ parameterized SORT_TYPE SORT_TAG 0: "sort type"
 cardinality SORT_TYPE "Cardinality(Cardinality::INTEGERS)"
 well-founded SORT_TYPE false
 
-
 # A kind representing "inlined" operators defined with OPERATOR
 # Conceptually, (EQUAL a b) is actually an (APPLY EQUAL a b), but it's
 # not stored that way.  If you ask for the operator of (EQUAL a b),
@@ -305,5 +304,18 @@ typerule APPLY ::CVC4::theory::builtin::ApplyTypeRule
 typerule EQUAL ::CVC4::theory::builtin::EqualityTypeRule
 typerule DISTINCT ::CVC4::theory::builtin::DistinctTypeRule
 typerule TUPLE ::CVC4::theory::builtin::TupleTypeRule
+
+constant SUBTYPE_TYPE \
+    ::CVC4::Predicate \
+    ::CVC4::PredicateHashStrategy \
+    "util/predicate.h" \
+    "predicate subtype"
+cardinality SUBTYPE_TYPE \
+    "::CVC4::theory::builtin::SubtypeProperties::computeCardinality(%TYPE%)" \
+    "theory/builtin/theory_builtin_type_rules.h"
+well-founded SUBTYPE_TYPE \
+    "::CVC4::theory::builtin::SubtypeProperties::isWellFounded(%TYPE%)" \
+    "::CVC4::theory::builtin::SubtypeProperties::mkGroundTerm(%TYPE%)" \
+    "theory/builtin/theory_builtin_type_rules.h"
 
 endtheory

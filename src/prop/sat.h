@@ -116,6 +116,8 @@ public:
   virtual void renewVar(SatLiteral lit, int level = -1) = 0;
   /** Interrupt the solver */
   virtual void interrupt() = 0;
+  /** Can "expl" be used in the explanation for "lit" ? */
+  virtual bool properExplanation(SatLiteral lit, SatLiteral expl) const = 0;
 };
 
 /**
@@ -256,6 +258,8 @@ public:
   void renewVar(SatLiteral lit, int level = -1);
 
   void interrupt();
+
+  bool properExplanation(SatLiteral lit, SatLiteral expl) const;
 
   TNode getNode(SatLiteral lit);
 

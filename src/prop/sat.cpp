@@ -113,5 +113,9 @@ void SatSolver::checkTime() {
   d_propEngine->checkTime();
 }
 
+bool SatSolver::properExplanation(SatLiteral lit, SatLiteral expl) const {
+  return true;
+}
+
 }/* CVC4::prop namespace */
 }/* CVC4 namespace */

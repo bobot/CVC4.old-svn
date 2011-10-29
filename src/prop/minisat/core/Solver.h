@@ -188,6 +188,10 @@ public:
     int     nVars      ()      const;       // The current number of variables.
     int     nFreeVars  ()      const;
 
+    // Debugging SMT explanations
+    //
+    bool    properExplanation(Lit l, Lit expl) const; // returns true if expl can be used to explain l---i.e., both assigned and trail_index(expl) < trail_index(l)
+
     // Resource contraints:
     //
     void    setConfBudget(int64_t x);
@@ -460,6 +464,7 @@ inline int      Solver::nClauses      ()      const   { return clauses_persisten
 inline int      Solver::nLearnts      ()      const   { return clauses_removable.size(); }
 inline int      Solver::nVars         ()      const   { return vardata.size(); }
 inline int      Solver::nFreeVars     ()      const   { return (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]); }
+inline bool     Solver::properExplanation(Lit l, Lit expl) const { return value(l) == l_True && value(expl) == l_True && trail_index(var(expl)) < trail_index(var(l)); }
 inline void     Solver::setPolarity   (Var v, bool b) { polarity[v] = b; }
 inline void     Solver::setDecisionVar(Var v, bool b) 
 { 

@@ -353,6 +353,7 @@ extendedCommand[CVC4::Command*& cmd]
   std::vector<CVC4::Datatype> dts;
   Type t;
   Expr e;
+  SExpr sexpr;
   std::string name;
   std::vector<std::string> names;
   std::vector<Type> sorts;
@@ -381,27 +382,27 @@ extendedCommand[CVC4::Command*& cmd]
                    symbol[name,CHECK_UNDECLARED,SYM_SORT] symbol[name,CHECK_NONE,SYM_SORT] ) RPAREN_TOK RPAREN_TOK )+
     RPAREN_TOK
   | DECLARE_CONST_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE] sortSymbol[t]
-    
+
   | SIMPLIFY_TOK term[e]
     { cmd = new SimplifyCommand(e); }
   | ECHO_TOK
-    ( STRING_LITERAL
-      { Message() << AntlrInput::tokenText($STRING_LITERAL) << std::endl; }
+    ( simpleSymbolicExpr[sexpr]
+      { Message() << sexpr << std::endl; }
     | { Message() << std::endl; } )
     { cmd = new EmptyCommand; }
   ;
 
-symbolicExpr[CVC4::SExpr& sexpr]
+simpleSymbolicExpr[CVC4::SExpr& sexpr]
 @declarations {
-  std::vector<SExpr> children;
   CVC4::Kind k;
+  std::string s;
 }
   : INTEGER_LITERAL
     { sexpr = SExpr(AntlrInput::tokenText($INTEGER_LITERAL)); }
   | DECIMAL_LITERAL
     { sexpr = SExpr(AntlrInput::tokenText($DECIMAL_LITERAL)); }
-  | STRING_LITERAL
-    { sexpr = SExpr(AntlrInput::tokenText($STRING_LITERAL)); }
+  | str[s]
+    { sexpr = SExpr(s); }
   | SYMBOL
     { sexpr = SExpr(AntlrInput::tokenText($SYMBOL)); }
   | builtinOp[k]
@@ -411,6 +412,13 @@ symbolicExpr[CVC4::SExpr& sexpr]
     }
   | KEYWORD
     { sexpr = SExpr(AntlrInput::tokenText($KEYWORD)); }
+  ;
+
+symbolicExpr[CVC4::SExpr& sexpr]
+@declarations {
+  std::vector<SExpr> children;
+}
+  : simpleSymbolicExpr[sexpr]
   | LPAREN_TOK
     (symbolicExpr[sexpr] { children.push_back(sexpr); } )*
   	RPAREN_TOK
@@ -601,6 +609,17 @@ badIndexedFunctionName
  * time through this rule. */
 termList[std::vector<CVC4::Expr>& formulas, CVC4::Expr& expr]
   : ( term[expr] { formulas.push_back(expr); } )+
+  ;
+
+/**
+ * Matches a string, and strips off the quotes.
+ */
+str[std::string& s]
+  : STRING_LITERAL
+    { s = AntlrInput::tokenText($STRING_LITERAL);
+      /* strip off the quotes */
+      s = s.substr(1, s.size() - 2);
+    }
   ;
 
 /**

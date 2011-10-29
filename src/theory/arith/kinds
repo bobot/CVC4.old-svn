@@ -41,6 +41,19 @@ sort PSEUDOBOOLEAN_TYPE \
         "expr/node_manager.h" \
     "Pseudoboolean type"
 
+constant SUBRANGE_TYPE \
+    ::CVC4::SubrangeBounds \
+    ::CVC4::SubrangeBoundsHashStrategy \
+    "util/subrange_bound.h" \
+    "the type of an integer subrange"
+cardinality SUBRANGE_TYPE \
+    "::CVC4::theory::arith::SubrangeProperties::computeCardinality(%TYPE%)" \
+    "theory/arith/theory_arith_type_rules.h"
+well-founded SUBRANGE_TYPE \
+    true \
+    "::CVC4::theory::arith::SubrangeProperties::mkGroundTerm(%TYPE%)" \
+    "theory/arith/theory_arith_type_rules.h"
+
 constant CONST_RATIONAL \
     ::CVC4::Rational \
     ::CVC4::RationalHashStrategy \

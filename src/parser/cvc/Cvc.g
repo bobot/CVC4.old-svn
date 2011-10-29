@@ -132,9 +132,6 @@ tokens {
   PARENHASH = '(#';
   HASHPAREN = '#)';
 
-  //DOT = '.';
-  DOTDOT = '..';
-
   // Operators
 
   ARROW_TOK = '->';
@@ -198,6 +195,12 @@ tokens {
   BVSGT_TOK = 'BVSGT';
   BVSLE_TOK = 'BVSLE';
   BVSGE_TOK = 'BVSGE';
+
+  // these are parsed by special NUMBER_OR_RANGEOP rule, below
+  DECIMAL_LITERAL;
+  INTEGER_LITERAL;
+  DOT;
+  DOTDOT;
 }/* tokens */
 
 @parser::members {
@@ -692,8 +695,8 @@ mainCommand[CVC4::Command*& cmd]
     { UNSUPPORTED("CALL command"); }
 
   | ECHO_TOK
-    ( ( str[s] | IDENTIFIER { s = AntlrInput::tokenText($IDENTIFIER); } )
-      { Message() << s << std::endl; }
+    ( simpleSymbolicExpr[sexpr]
+      { Message() << sexpr << std::endl; }
     | { Message() << std::endl; }
     )
 
@@ -731,17 +734,30 @@ mainCommand[CVC4::Command*& cmd]
   | toplevelDeclaration[cmd]
   ;
 
-symbolicExpr[CVC4::SExpr& sexpr]
+simpleSymbolicExpr[CVC4::SExpr& sexpr]
 @declarations {
-  std::vector<SExpr> children;
   std::string s;
+  CVC4::Rational r;
 }
-  : INTEGER_LITERAL ('.' DIGIT+)?
-    { sexpr = SExpr((const char*)$symbolicExpr.text->chars); }
+  : INTEGER_LITERAL
+    { sexpr = SExpr(AntlrInput::tokenText($INTEGER_LITERAL)); }
+  | DECIMAL_LITERAL
+    { sexpr = SExpr(AntlrInput::tokenText($DECIMAL_LITERAL)); }
+  | HEX_LITERAL
+    { sexpr = SExpr(AntlrInput::tokenText($HEX_LITERAL)); }
+  | BINARY_LITERAL
+    { sexpr = SExpr(AntlrInput::tokenText($BINARY_LITERAL)); }
   | str[s]
     { sexpr = SExpr(s); }
   | IDENTIFIER
     { sexpr = SExpr(AntlrInput::tokenText($IDENTIFIER)); }
+  ;
+
+symbolicExpr[CVC4::SExpr& sexpr]
+@declarations {
+  std::vector<SExpr> children;
+}
+  : simpleSymbolicExpr[sexpr]
   | LPAREN (symbolicExpr[sexpr] { children.push_back(sexpr); } )* RPAREN
     { sexpr = SExpr(children); }
   ;
@@ -1017,9 +1033,11 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
                                   bool& lhs]
 @init {
   Type t2;
-  Expr f;
+  Expr f, f2;
   std::string id;
   std::vector<Type> types;
+  DeclarationScope* declScope;
+  Parser* parser;
   lhs = false;
 }
     /* named types */
@@ -1053,24 +1071,33 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
     { t = EXPR_MANAGER->mkArrayType(t, t2); }
 
     /* subtypes */
-  | SUBTYPE_TOK LPAREN formula[f] ( COMMA formula[f] )? RPAREN
-    { UNSUPPORTED("subtypes not supported yet");
-      t = Type(); }
+  | SUBTYPE_TOK LPAREN
+    /* A bit tricky: this LAMBDA expression cannot refer to constants
+     * declared in the outer context.  What follows isn't quite right,
+     * though, since type aliases and function definitions should be
+     * retained in the set of current declarations. */
+    { declScope = PARSER_STATE->getDeclarationScope();
+      PARSER_STATE->useDeclarationsFrom(new DeclarationScope()); }
+    formula[f] ( COMMA formula[f2] )? RPAREN
+    { DeclarationScope* old = PARSER_STATE->getDeclarationScope();
+      PARSER_STATE->useDeclarationsFrom(declScope);
+      delete old;
+      t = f2.isNull() ?
+        EXPR_MANAGER->mkPredicateSubtype(f) :
+        EXPR_MANAGER->mkPredicateSubtype(f, f2);
+    }
 
     /* subrange types */
   | LBRACKET k1=bound DOTDOT k2=bound RBRACKET
-    { std::stringstream ss;
-      ss << "subranges not supported yet: [" << k1 << ":" << k2 << ']';
-      UNSUPPORTED(ss.str());
-      if(k1.hasBound() && k2.hasBound() &&
+    { if(k1.hasBound() && k2.hasBound() &&
          k1.getBound() > k2.getBound()) {
-        ss.str("");
+        std::stringstream ss;
         ss << "Subrange [" << k1.getBound() << ".." << k2.getBound()
            << "] inappropriate: range must be nonempty!";
         PARSER_STATE->parseError(ss.str());
       }
-      Debug("subranges") << ss.str() << std::endl;
-      t = Type(); }
+      t = EXPR_MANAGER->mkSubrangeType(SubrangeBounds(k1, k2));
+    }
 
     /* tuple types / old-style function types */
   | LBRACKET type[t,check] { types.push_back(t); }
@@ -1318,6 +1345,7 @@ arithmeticBinop[unsigned& op]
   | MINUS_TOK
   | STAR_TOK
   | INTDIV_TOK
+  | MOD_TOK
   | DIV_TOK
   | EXP_TOK
   ;
@@ -1466,10 +1494,7 @@ postfixTerm[CVC4::Expr& f]
       }
 
       /* record / tuple select */
-    // FIXME - clash in lexer between tuple-select and real; can
-    // resolve with syntactic predicate in ANTLR 3.3, but broken in
-    // 3.2 ?
-    /*| DOT
+    | DOT
       ( identifier[id,CHECK_NONE,SYM_VARIABLE]
         { UNSUPPORTED("record select not implemented yet");
           f = Expr(); }
@@ -1479,7 +1504,7 @@ postfixTerm[CVC4::Expr& f]
           // that's ok for now, once a TUPLE_SELECT operator exists,
           // that will do any necessary type checking
           f = EXPR_MANAGER->mkVar(TupleType(f.getType()).getTypes()[k]); }
-      )*/
+      )
     )*
     ( typeAscription[f, t]
       { if(f.getKind() == CVC4::kind::APPLY_CONSTRUCTOR && t.isDatatype()) {
@@ -1821,22 +1846,6 @@ selector[CVC4::Datatype::Constructor& ctor]
 IDENTIFIER : (ALPHA | '_') (ALPHA | DIGIT | '_' | '\'' | '\\' | '?' | '$' | '~')*;
 
 /**
- * Matches an integer literal.
- */
-INTEGER_LITERAL
-  : ( '0'
-    | '1'..'9' DIGIT*
-    )
-  ;
-
-/**
- * Matches a decimal literal.
- */
-DECIMAL_LITERAL
-  : INTEGER_LITERAL '.' DIGIT+
-  ;
-
-/**
  * Same as an integer literal converted to an unsigned int, but
  * slightly more convenient AND works around a strange ANTLR bug (?)
  * in the BVPLUS/BVMINUS/BVMULT rules where $INTEGER_LITERAL was
@@ -1897,6 +1906,32 @@ fragment ALPHA : 'a'..'z' | 'A'..'Z';
  * Matches the decimal digits (0-9)
  */
 fragment DIGIT : '0'..'9';
+
+// This rule adapted from http://www.antlr.org/wiki/pages/viewpage.action?pageId=13828121
+// which reportedly comes from Tapestry (http://tapestry.apache.org/tapestry5/)
+//
+// Special rule that uses parsing tricks to identify numbers and ranges; it's all about
+// the dot ('.').
+// Recognizes:
+// '.' as DOT
+// '..' as DOTDOT
+// INTEGER_LITERAL (digit+)
+// DECIMAL_LITERAL (digit* . digit+)
+// Has to watch out for embedded rangeop (i.e. "1..10" is not "1." and ".10").
+//
+// This doesn't ever generate the NUMBER_OR_RANGEOP token, it
+// manipulates the $type inside to return the right token.
+NUMBER_OR_RANGEOP
+  : DIGIT+
+    (
+      { LA(2) != '.' }? => '.' DIGIT* { $type = DECIMAL_LITERAL; }
+      | { $type = INTEGER_LITERAL; }
+    )
+  | '.'
+    ( '.' {$type = DOTDOT; }
+    | {$type = DOT; }
+    )
+  ;
 
 /**
  * Matches the hexidecimal digits (0-9, a-f, A-F)

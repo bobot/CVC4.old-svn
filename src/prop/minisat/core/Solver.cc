@@ -830,7 +830,7 @@ void Solver::removeClausesAboveLevel(vec<CRef>& cs, int level)
         if (c.level() > level) {
             if(Debug.isOn("minisat")) {
               Debug("minisat") << "removeClausesAboveLevel(" << level << "): removing level-" << c.level() << " clause: " << c << ":";
-              for(unsigned i = 0; i < c.size(); ++i) {
+              for(int i = 0; i < c.size(); ++i) {
                 Debug("minisat") << " " << c[i];
               }
               Debug("minisat") << std::endl;
@@ -839,7 +839,7 @@ void Solver::removeClausesAboveLevel(vec<CRef>& cs, int level)
         } else {
             if(Debug.isOn("minisat")) {
               Debug("minisat") << "removeClausesAboveLevel(" << level << "): leaving level-" << c.level() << " clause: " << c << ":";
-              for(unsigned i = 0; i < c.size(); ++i) {
+              for(int i = 0; i < c.size(); ++i) {
                 Debug("minisat") << " " << c[i];
               }
               Debug("minisat") << std::endl;

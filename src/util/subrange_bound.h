@@ -25,6 +25,8 @@
 #include "util/integer.h"
 #include "util/Assert.h"
 
+#include <limits>
+
 namespace CVC4 {
 
 /**
@@ -78,6 +80,34 @@ public:
 
 };/* class SubrangeBound */
 
+class CVC4_PUBLIC SubrangeBounds {
+public:
+
+  SubrangeBound lower;
+  SubrangeBound upper;
+
+  SubrangeBounds(const SubrangeBound& l, const SubrangeBound& u) :
+    lower(l),
+    upper(u) {
+    CheckArgument(!l.hasBound() || !u.hasBound() ||
+                  l.getBound() <= u.getBound(),
+                  l, "Bad subrange bounds specified");
+  }
+
+  bool operator==(const SubrangeBounds& bounds) const {
+    return lower == bounds.lower && upper == bounds.upper;
+  }
+
+};/* class SubrangeBounds */
+
+struct CVC4_PUBLIC SubrangeBoundsHashStrategy {
+  static inline size_t hash(const SubrangeBounds& bounds) {
+    size_t l = bounds.lower.hasBound() ? bounds.lower.getBound().getUnsignedLong() : std::numeric_limits<size_t>::max();
+    size_t u = bounds.upper.hasBound() ? bounds.upper.getBound().getUnsignedLong() : std::numeric_limits<size_t>::max();
+    return l + 0x9e3779b9 + (u << 6) + (u >> 2);
+  }
+};/* struct SubrangeBoundsHashStrategy */
+
 inline std::ostream&
 operator<<(std::ostream& out, const SubrangeBound& bound) throw() CVC4_PUBLIC;
 
@@ -88,6 +118,16 @@ operator<<(std::ostream& out, const SubrangeBound& bound) throw() {
   } else {
     out << '_';
   }
+
+  return out;
+}
+
+inline std::ostream&
+operator<<(std::ostream& out, const SubrangeBounds& bounds) throw() CVC4_PUBLIC;
+
+inline std::ostream&
+operator<<(std::ostream& out, const SubrangeBounds& bounds) throw() {
+  out << bounds.lower << ".." << bounds.upper;
 
   return out;
 }

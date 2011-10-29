@@ -494,6 +494,14 @@ public:
     }
   }
 
+  inline void useDeclarationsFrom(DeclarationScope* scope) {
+    d_declScope = scope;
+  }
+
+  inline DeclarationScope* getDeclarationScope() const {
+    return d_declScope;
+  }
+
   /**
    * Gets the current declaration level.
    */

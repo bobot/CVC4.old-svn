@@ -673,6 +673,39 @@ SortConstructorType ExprManager::mkSortConstructor(const std::string& name,
               new TypeNode(d_nodeManager->mkSortConstructor(name, arity))));
 }
 
+Type ExprManager::mkPredicateSubtype(Expr lambda)
+  throw(TypeCheckingException) {
+  NodeManagerScope nms(d_nodeManager);
+  try {
+    return PredicateSubtype(Type(d_nodeManager,
+                new TypeNode(d_nodeManager->mkPredicateSubtype(lambda))));
+  } catch (const TypeCheckingExceptionPrivate& e) {
+    throw TypeCheckingException(this, &e);
+  }
+}
+
+Type ExprManager::mkPredicateSubtype(Expr lambda, Expr witness)
+  throw(TypeCheckingException) {
+  NodeManagerScope nms(d_nodeManager);
+  try {
+    return PredicateSubtype(Type(d_nodeManager,
+                new TypeNode(d_nodeManager->mkPredicateSubtype(lambda, witness))));
+  } catch (const TypeCheckingExceptionPrivate& e) {
+    throw TypeCheckingException(this, &e);
+  }
+}
+
+Type ExprManager::mkSubrangeType(const SubrangeBounds& bounds)
+  throw(TypeCheckingException) {
+  NodeManagerScope nms(d_nodeManager);
+  try {
+    return SubrangeType(Type(d_nodeManager,
+                new TypeNode(d_nodeManager->mkSubrangeType(bounds))));
+  } catch (const TypeCheckingExceptionPrivate& e) {
+    throw TypeCheckingException(this, &e);
+  }
+}
+
 /**
  * Get the type for the given Expr and optionally do type checking.
  *

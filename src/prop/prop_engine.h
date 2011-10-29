@@ -265,6 +265,18 @@ public:
    */
   void spendResource() throw();
 
+  /**
+   * For debugging.  Return true if "expl" is a well-formed
+   * explanation for "node," meaning:
+   *
+   * 1. expl is either a SAT literal or an AND of SAT literals
+   *    currently assigned true;
+   * 2. node is assigned true;
+   * 3. node does not appear in expl; and
+   * 4. node was assigned after all of the literals in expl
+   */
+  bool properExplanation(TNode node, TNode expl) const;
+
 };/* class PropEngine */
 
 
