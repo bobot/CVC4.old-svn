@@ -28,7 +28,6 @@
 #include "util/result.h"
 #include "expr/expr.h"
 #include "expr/command.h"
-#include "expr/node_self_iterator.h"
 
 #include <utility>
 #include <map>
@@ -257,8 +256,8 @@ bool PropEngine::properExplanation(TNode node, TNode expl) const {
 
   SatLiteral nodeLit = d_cnfStream->getLiteral(node);
 
-  for(expr::NodeSelfIterator i = expr::NodeSelfIterator::self(expl),
-        i_end = expr::NodeSelfIterator::selfEnd(expl);
+  for(TNode::kinded_iterator i = expl.begin(kind::AND),
+        i_end = expl.end(kind::AND);
       i != i_end;
       ++i) {
     if(! d_cnfStream->hasLiteral(*i)) {
