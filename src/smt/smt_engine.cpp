@@ -285,6 +285,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   if(Options::current()->cumulativeMillisecondLimit != 0) {
     setTimeLimit(Options::current()->cumulativeMillisecondLimit, true);
   }
+
 }
 
 void SmtEngine::shutdown() {
