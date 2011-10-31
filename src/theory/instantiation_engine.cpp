@@ -136,7 +136,14 @@ void InstMatch::computeTermVec(){
       if( d_map[ d_vars[i] ]!=Node::null() ){
         d_match.push_back( d_map[ d_vars[i] ] );
       }else{
-        d_match.push_back( NodeManager::currentNM()->mkVar( d_vars[i].getType() ) );
+        //if integer or real, make zero
+        TypeNode tn = d_vars[i].getType();
+        if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
+          Rational z(0);
+          d_match.push_back( NodeManager::currentNM()->mkConst( z ) );
+        }else{
+          d_match.push_back( NodeManager::currentNM()->mkVar( tn ) );
+        }
       }
     }
     d_computeVec = false;

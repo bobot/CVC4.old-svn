@@ -108,7 +108,7 @@ void TheoryArrays::check(Effort e) {
   while(!done()) {
     Node assertion = get();
     Trace("arrays") << "Arrays::check(): " << assertion << endl;
-    std::cout << "Arrays." << std::endl;
+    std::cout << "arrays ";
     exit( 33 );
 
     switch(assertion.getKind()) {

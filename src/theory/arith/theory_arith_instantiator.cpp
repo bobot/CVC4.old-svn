@@ -25,6 +25,9 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
+#define ARITH_INSTANTIATOR_USE_DELTA
+#define ARITH_INSTANTIATOR_STRONG_DELTA_LEMMA
+
 InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
 
@@ -171,11 +174,13 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
       Assert( !d_ceTableaux[x].empty() );
       DeltaRational dr = ((TheoryArith*)getTheory())->d_partialModel.getAssignment( x );
       Node beta = NodeManager::currentNM()->mkConst( dr.getNoninfinitesimalPart() );
-      //if( dr.getInfinitesimalPart()!=0 ){
-      //  Node delta = NodeManager::currentNM()->mkNode( MULT, getDelta( d_ceTableaux[x].begin()->first ),
-      //                                                  NodeManager::currentNM()->mkConst( dr.getInfinitesimalPart() ) );
-      //  beta = NodeManager::currentNM()->mkNode( PLUS, beta, delta );
-      //} 
+#ifdef ARITH_INSTANTIATOR_USE_DELTA
+      if( dr.getInfinitesimalPart()!=0 ){
+        Node delta = NodeManager::currentNM()->mkNode( MULT, getDelta( d_ceTableaux[x].begin()->first ),
+                                                        NodeManager::currentNM()->mkConst( dr.getInfinitesimalPart() ) );
+        beta = NodeManager::currentNM()->mkNode( PLUS, beta, delta );
+      }
+#endif
 
       //instantiation row will be A*e + B*t + C*t[e] = beta,
       // where e is a vector of instantiation variables, 
@@ -193,6 +198,13 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
           ArithVar v = ((TheoryArith*)getTheory())->d_arithvarNodeMap.asArithVar( it->first );
           DeltaRational drv = ((TheoryArith*)getTheory())->d_partialModel.getAssignment( v );
           Node val = NodeManager::currentNM()->mkConst( drv.getNoninfinitesimalPart() );
+#ifdef ARITH_INSTANTIATOR_USE_DELTA
+          if( drv.getInfinitesimalPart()!=0 ){
+            Node delta = NodeManager::currentNM()->mkNode( MULT, getDelta( d_ceTableaux[x].begin()->first ),
+                                                            NodeManager::currentNM()->mkConst( drv.getInfinitesimalPart() ) );
+            val = NodeManager::currentNM()->mkNode( PLUS, val, delta );
+          } 
+#endif
           plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, val );
         }
         term = plus_term;
@@ -204,13 +216,13 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
       instVal = Rewriter::rewrite( instVal );
       Debug("quant-arith") << "   Suggest " << instVal << " for " << d_ceTableaux[x].begin()->first << std::endl;
       InstMatch m( f, d_instEngine );
-      for( int k=0; k<(int)d_instEngine->d_inst_constants[f].size(); k++ ){
-        if( d_instEngine->d_inst_constants[f][k].getType()==NodeManager::currentNM()->integerType() ||
-           d_instEngine->d_inst_constants[f][k].getType()==NodeManager::currentNM()->realType() ){
-          Rational z(0);
-          m.setMatch( d_instEngine->d_inst_constants[f][k], NodeManager::currentNM()->mkConst( z ) );
-        }
-      }
+      //for( int k=0; k<(int)d_instEngine->d_inst_constants[f].size(); k++ ){
+      //  if( d_instEngine->d_inst_constants[f][k].getType()==NodeManager::currentNM()->integerType() ||
+      //     d_instEngine->d_inst_constants[f][k].getType()==NodeManager::currentNM()->realType() ){
+      //    Rational z(0);
+      //    m.setMatch( d_instEngine->d_inst_constants[f][k], NodeManager::currentNM()->mkConst( z ) );
+      //  }
+      //}
       m.setMatch( d_ceTableaux[x].begin()->first, instVal );
       d_instEngine->addInstantiation( &m );
     }
@@ -223,10 +235,14 @@ Node InstantiatorTheoryArith::getDelta( Node n ){
     Node delta = NodeManager::currentNM()->mkVar( n.getType() ); 
     d_deltas[ n.getType() ] = delta;
     Node gt = NodeManager::currentNM()->mkNode( GT, delta, NodeManager::currentNM()->mkConst( Rational(0) ) ); 
-    gt = Rewriter::rewrite( gt );
     //add split
+#ifdef ARITH_INSTANTIATOR_STRONG_DELTA_LEMMA
+    d_instEngine->addLemma( gt );
+#else
+    gt = Rewriter::rewrite( gt );
     d_instEngine->addSplit( gt );
     d_instEngine->d_curr_out->requirePhase( gt, true );
+#endif
     return delta;
   }
   return it->second;
