@@ -27,9 +27,8 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::bv;
 
 RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
-
+  
   BVDebug("bitvector") << "TheoryBV::postRewrite(" << node << ")" << std::endl;
-
   Node result;
 
   if (node.getKind() == kind::CONST_BITVECTOR || (node.getKind() != kind::EQUAL && Theory::isLeafOf(node, THEORY_BV))) {
@@ -37,29 +36,31 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
   } else {
     switch (node.getKind()) {
     case kind::BITVECTOR_CONCAT:
-      result = LinearRewriteStrategy<
-                  // Flatten the top level concatenations
-                  RewriteRule<ConcatFlatten>,
-                  // Merge the adjacent extracts on non-constants
-                  RewriteRule<ConcatExtractMerge>,
-                  // Merge the adjacent extracts on constants
-                  RewriteRule<ConcatConstantMerge>,
-                  // At this point only Extract-Whole could apply, if the result is only one extract
-                  // or at some sub-expression if the result is a concatenation.
-                  ApplyRuleToChildren<kind::BITVECTOR_CONCAT, ExtractWhole>
-               >::apply(node);
+      result = node; 
+      // result = LinearRewriteStrategy<
+      //             // Flatten the top level concatenations
+      //             RewriteRule<ConcatFlatten>,
+      //             // Merge the adjacent extracts on non-constants
+      //             RewriteRule<ConcatExtractMerge>,
+      //             // Merge the adjacent extracts on constants
+      //             RewriteRule<ConcatConstantMerge>,
+      //             // At this point only Extract-Whole could apply, if the result is only one extract
+      //             // or at some sub-expression if the result is a concatenation.
+      //             ApplyRuleToChildren<kind::BITVECTOR_CONCAT, ExtractWhole>
+      //          >::apply(node);
       break;
     case kind::BITVECTOR_EXTRACT:
-      result = LinearRewriteStrategy<
-                  // Extract over a concatenation is distributed to the appropriate concatenations
-                  RewriteRule<ExtractConcat>,
-                  // Extract over a constant gives a constant
-                  RewriteRule<ExtractConstant>,
-                  // We could get another extract over extract
-                  RewriteRule<ExtractExtract>,
-                  // At this point only Extract-Whole could apply
-                  RewriteRule<ExtractWhole>
-                >::apply(node);
+      result = node; 
+      // result = LinearRewriteStrategy<
+      //             // Extract over a concatenation is distributed to the appropriate concatenations
+      //             RewriteRule<ExtractConcat>,
+      //             // Extract over a constant gives a constant
+      //             RewriteRule<ExtractConstant>,
+      //             // We could get another extract over extract
+      //             RewriteRule<ExtractExtract>,
+      //             // At this point only Extract-Whole could apply
+      //             RewriteRule<ExtractWhole>
+      //           >::apply(node);
       break;
     case kind::EQUAL:
       result = LinearRewriteStrategy<

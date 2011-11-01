@@ -10,9 +10,9 @@ noinst_LTLIBRARIES = libbv.la
 libbv_la_SOURCES = \
 	bv_sat.h \
 	bv_sat.cpp \
+	theory_bv_utils.h \
 	theory_bv.h \
 	theory_bv.cpp \
-	theory_bv_utils.h \
 	theory_bv_rewrite_rules.h \
 	theory_bv_rewrite_rules_core.h \
 	theory_bv_type_rules.h \

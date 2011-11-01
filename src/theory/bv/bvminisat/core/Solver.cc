@@ -22,8 +22,23 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "mtl/Sort.h"
 #include "core/Solver.h"
+#include <iostream>
 
 using namespace BVMinisat;
+
+// purely debugging functions
+void printDebug2 (BVMinisat::Lit l) {
+  std::cout<< (sign(l) ? "-" : "") << var(l) + 1 << std::endl;
+}
+
+void printDebug2 (BVMinisat::Clause& c) {
+  for (int i = 0; i < c.size(); i++) {
+    std::cout << (sign(c[i]) ? "-" : "") << var(c[i]) + 1 << " "; 
+  }
+  std::cout << std::endl;
+}
+
+
 
 //=================================================================================================
 // Options:

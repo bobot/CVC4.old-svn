@@ -26,6 +26,7 @@
 #include "context/cdlist.h"
 #include "theory/bv/theory_bv_utils.h"
 
+
 namespace BVMinisat {
 class SimpSolver; 
 }
@@ -35,6 +36,7 @@ namespace CVC4 {
 namespace theory {
 namespace bv {
 
+class Bitblaster; 
 
 class TheoryBV : public Theory {
 
@@ -49,7 +51,7 @@ private:
   context::CDList<TNode> d_assertions;
   
   /** Bitblaster */
-  Bitblaster d_bitblaster; 
+  Bitblaster* d_bitblaster; 
   Node d_true;
   
 public:

@@ -34,7 +34,7 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
   : Theory(THEORY_BV, c, u, out, valuation), 
     d_context(c),
     d_assertions(c),
-    d_bitblaster(c)
+    d_bitblaster(new Bitblaster(c))
   {
     d_true = utils::mkTrue();
   }
@@ -52,21 +52,22 @@ void TheoryBV::check(Effort e) {
     TNode assertion = get();
     d_assertions.push_back(assertion); 
   }
-  d_solver->solve(); 
   if (fullEffort(e)) {
     CDList<TNode>::const_iterator it = d_assertions.begin();
     for (; it != d_assertions.end(); ++it) {
-      // TODO:
-      //bitBlast(*it);
+      d_bitblaster->assertToSat(*it); 
     }
-    // TODO:
-    //d_satSolver.solve(); 
+    bool res = d_bitblaster->solve();
+    if (res == false) {
+      // generate conflict
+      
+    }
   }
 }
 
 
 Node TheoryBV::getValue(TNode n) {
-  NodeManager* nodeManager = NodeManager::currentNM();
+  //NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
 
