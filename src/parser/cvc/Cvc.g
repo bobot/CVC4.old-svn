@@ -1078,12 +1078,12 @@ restrictedTypePossiblyFunctionLHS[CVC4::Type& t,
      * declared in the outer context.  What follows isn't quite right,
      * though, since type aliases and function definitions should be
      * retained in the set of current declarations. */
-    { declScope = PARSER_STATE->getDeclarationScope();
-      PARSER_STATE->useDeclarationsFrom(new DeclarationScope()); }
+    { /*declScope = PARSER_STATE->getDeclarationScope();
+      PARSER_STATE->useDeclarationsFrom(new DeclarationScope());*/ }
     formula[f] ( COMMA formula[f2] )? RPAREN
-    { DeclarationScope* old = PARSER_STATE->getDeclarationScope();
+    { /*DeclarationScope* old = PARSER_STATE->getDeclarationScope();
       PARSER_STATE->useDeclarationsFrom(declScope);
-      delete old;
+      delete old;*/
       t = f2.isNull() ?
         EXPR_MANAGER->mkPredicateSubtype(f) :
         EXPR_MANAGER->mkPredicateSubtype(f, f2);

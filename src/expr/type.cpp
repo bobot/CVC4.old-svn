@@ -103,26 +103,32 @@ Type& Type::operator=(const Type& t) {
 }
 
 bool Type::operator==(const Type& t) const {
+  NodeManagerScope nms(d_nodeManager);
   return *d_typeNode == *t.d_typeNode;
 }
 
 bool Type::operator!=(const Type& t) const {
+  NodeManagerScope nms(d_nodeManager);
   return *d_typeNode != *t.d_typeNode;
 }
 
 bool Type::operator<(const Type& t) const {
+  NodeManagerScope nms(d_nodeManager);
   return *d_typeNode < *t.d_typeNode;
 }
 
 bool Type::operator<=(const Type& t) const {
+  NodeManagerScope nms(d_nodeManager);
   return *d_typeNode <= *t.d_typeNode;
 }
 
 bool Type::operator>(const Type& t) const {
+  NodeManagerScope nms(d_nodeManager);
   return *d_typeNode > *t.d_typeNode;
 }
 
 bool Type::operator>=(const Type& t) const {
+  NodeManagerScope nms(d_nodeManager);
   return *d_typeNode >= *t.d_typeNode;
 }
 

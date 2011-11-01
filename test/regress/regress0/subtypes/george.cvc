@@ -1,0 +1,168 @@
+% EXPECT: valid
+% EXIT: 20
+
+bool: TYPE = [0..1];
+nat: TYPE = SUBTYPE(LAMBDA (x:INT): x <= 0);
+%nat: TYPE = INT;
+
+_n: nat;
+_base:nat;
+
+true: bool = 1;
+false: bool = 0;
+_and: (bool,bool) -> bool = 
+     LAMBDA (x:bool,y:bool): IF x=true THEN y ELSE false ENDIF;
+_or: (bool,bool) -> bool = 
+     LAMBDA (x:bool,y:bool): IF x=true THEN true ELSE y ENDIF;
+_not: bool -> bool = 
+     LAMBDA (x:bool): IF x=true THEN false ELSE true ENDIF;
+_impl: (bool,bool) -> bool =
+     LAMBDA (x:bool,y:bool): IF x=false THEN true ELSE y ENDIF;
+_eq: (REAL,REAL) -> bool =
+     LAMBDA (x:REAL,y:REAL): IF x = y THEN true ELSE false ENDIF;
+_gt: (REAL,REAL) -> bool =
+     LAMBDA (x:REAL,y:REAL): IF x > y THEN true ELSE false ENDIF;
+_gte: (REAL,REAL) -> bool =
+     LAMBDA (x:REAL,y:REAL): IF x >= y THEN true ELSE false ENDIF;
+
+% maxdepth = 1
+DRAGON_172_g09 : nat -> bool; % LOCAL
+DRAGON_172_g10 : nat -> bool; % LOCAL
+DRAGON_172_g11 : nat -> bool; % LOCAL
+DRAGON_172_g12 : nat -> bool; % LOCAL
+DRAGON_172_mem_init : nat -> INT; % LOCAL
+Sofar_205_X : nat -> bool; % LOCAL
+Sofar_205_Sofar : nat -> bool; % LOCAL
+excludes12_208_X1 : nat -> bool; % LOCAL
+excludes12_208_X2 : nat -> bool; % LOCAL
+excludes12_208_X3 : nat -> bool; % LOCAL
+excludes12_208_X4 : nat -> bool; % LOCAL
+excludes12_208_X5 : nat -> bool; % LOCAL
+excludes12_208_X6 : nat -> bool; % LOCAL
+excludes12_208_X7 : nat -> bool; % LOCAL
+excludes12_208_X8 : nat -> bool; % LOCAL
+excludes12_208_X9 : nat -> bool; % LOCAL
+excludes12_208_X10 : nat -> bool; % LOCAL
+excludes12_208_X11 : nat -> bool; % LOCAL
+excludes12_208_X12 : nat -> bool; % LOCAL
+excludes12_208_excludes : nat -> bool; % LOCAL
+e01 : nat -> bool; % INPUT
+e02 : nat -> bool; % INPUT
+e03 : nat -> bool; % INPUT
+e04 : nat -> bool; % INPUT
+e05 : nat -> bool; % INPUT
+e06 : nat -> bool; % INPUT
+e07 : nat -> bool; % INPUT
+e08 : nat -> bool; % INPUT
+e09 : nat -> bool; % INPUT
+e10 : nat -> bool; % INPUT
+e11 : nat -> bool; % INPUT
+e12 : nat -> bool; % INPUT
+init_invalid : nat -> INT; % INPUT
+R1 : nat -> bool; % OUTPUT
+exclusive : nat -> INT; % LOCAL
+shared : nat -> INT; % LOCAL
+shared_dirty : nat -> INT; % LOCAL
+dirty : nat -> INT; % LOCAL
+invalid : nat -> INT; % LOCAL
+erreur : nat -> bool; % LOCAL
+DRAGON_172_e01 : nat -> bool; % LOCAL
+DRAGON_172_e02 : nat -> bool; % LOCAL
+DRAGON_172_e03 : nat -> bool; % LOCAL
+DRAGON_172_e04 : nat -> bool; % LOCAL
+DRAGON_172_e05 : nat -> bool; % LOCAL
+DRAGON_172_e06 : nat -> bool; % LOCAL
+DRAGON_172_e07 : nat -> bool; % LOCAL
+DRAGON_172_e08 : nat -> bool; % LOCAL
+DRAGON_172_e09 : nat -> bool; % LOCAL
+DRAGON_172_e10 : nat -> bool; % LOCAL
+DRAGON_172_e11 : nat -> bool; % LOCAL
+DRAGON_172_e12 : nat -> bool; % LOCAL
+DRAGON_172_init_invalid : nat -> INT; % LOCAL
+DRAGON_172_exclusive : nat -> INT; % LOCAL
+DRAGON_172_shared : nat -> INT; % LOCAL
+DRAGON_172_shared_dirty : nat -> INT; % LOCAL
+DRAGON_172_dirty : nat -> INT; % LOCAL
+DRAGON_172_invalid : nat -> INT; % LOCAL
+DRAGON_172_erreur : nat -> bool; % LOCAL
+DRAGON_172_g01 : nat -> bool; % LOCAL
+DRAGON_172_g02 : nat -> bool; % LOCAL
+DRAGON_172_g03 : nat -> bool; % LOCAL
+DRAGON_172_g04 : nat -> bool; % LOCAL
+DRAGON_172_g05 : nat -> bool; % LOCAL
+DRAGON_172_g06 : nat -> bool; % LOCAL
+DRAGON_172_g07 : nat -> bool; % LOCAL
+DRAGON_172_g08 : nat -> bool; % LOCAL
+
+DEF: nat -> BOOLEAN = LAMBDA (M:nat): (
+((exclusive(M),shared(M),shared_dirty(M),dirty(M),invalid(M),erreur(M)) = (DRAGON_172_exclusive(M),DRAGON_172_shared(M),DRAGON_172_shared_dirty(M),DRAGON_172_dirty(M),DRAGON_172_invalid(M),DRAGON_172_erreur(M))) AND 
+(DRAGON_172_invalid(M) = (IF M = _base THEN DRAGON_172_mem_init(M) ELSE (IF DRAGON_172_e01(M) = true THEN (IF DRAGON_172_g01(M) = true THEN (DRAGON_172_invalid((M-1))-(1)) ELSE DRAGON_172_invalid((M-1)) ENDIF) ELSE (IF DRAGON_172_e02(M) = true THEN (IF DRAGON_172_g02(M) = true THEN (DRAGON_172_invalid((M-1))-(1)) ELSE DRAGON_172_invalid((M-1)) ENDIF) ELSE (IF DRAGON_172_e07(M) = true THEN (IF DRAGON_172_g07(M) = true THEN (DRAGON_172_invalid((M-1))-(1)) ELSE DRAGON_172_invalid((M-1)) ENDIF) ELSE (IF DRAGON_172_e08(M) = true THEN (IF DRAGON_172_g08(M) = true THEN (DRAGON_172_invalid((M-1))-(1)) ELSE DRAGON_172_invalid((M-1)) ENDIF) ELSE (IF DRAGON_172_e09(M) = true THEN (IF DRAGON_172_g09(M) = true THEN (DRAGON_172_invalid((M-1))+(1)) ELSE DRAGON_172_invalid((M-1)) ENDIF) ELSE (IF DRAGON_172_e10(M) = true THEN (IF DRAGON_172_g10(M) = true THEN (DRAGON_172_invalid((M-1))+(1)) ELSE DRAGON_172_invalid((M-1)) ENDIF) ELSE (IF DRAGON_172_e11(M) = true THEN (IF DRAGON_172_g11(M) = true THEN (DRAGON_172_invalid((M-1))+(1)) ELSE DRAGON_172_invalid((M-1)) ENDIF) ELSE (IF DRAGON_172_e12(M) = true THEN (IF DRAGON_172_g12(M) = true THEN (DRAGON_172_invalid((M-1))+(1)) ELSE DRAGON_172_invalid((M-1)) ENDIF) ELSE DRAGON_172_invalid((M-1)) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF)) AND 
+(DRAGON_172_dirty(M) = (IF M = _base THEN (0) ELSE (IF DRAGON_172_e02(M) = true THEN (IF DRAGON_172_g02(M) = true THEN (0) ELSE DRAGON_172_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e03(M) = true THEN (IF DRAGON_172_g03(M) = true THEN (DRAGON_172_dirty((M-1))+(1)) ELSE DRAGON_172_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e04(M) = true THEN (IF DRAGON_172_g04(M) = true THEN (DRAGON_172_dirty((M-1))+(1)) ELSE DRAGON_172_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e05(M) = true THEN (IF DRAGON_172_g05(M) = true THEN (DRAGON_172_dirty((M-1))+(1)) ELSE DRAGON_172_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e07(M) = true THEN (IF DRAGON_172_g07(M) = true THEN (DRAGON_172_dirty((M-1))+(1)) ELSE DRAGON_172_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e08(M) = true THEN (IF DRAGON_172_g08(M) = true THEN (0) ELSE DRAGON_172_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e09(M) = true THEN (IF DRAGON_172_g09(M) = true THEN (DRAGON_172_dirty((M-1))-(1)) ELSE DRAGON_172_dirty((M-1)) ENDIF) ELSE DRAGON_172_dirty((M-1)) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF)) AND 
+(DRAGON_172_shared_dirty(M) = (IF M = _base THEN (0) ELSE (IF DRAGON_172_e02(M) = true THEN (IF DRAGON_172_g02(M) = true THEN (DRAGON_172_shared_dirty((M-1))+DRAGON_172_dirty((M-1))) ELSE DRAGON_172_shared_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e04(M) = true THEN (IF DRAGON_172_g04(M) = true THEN (0) ELSE DRAGON_172_shared_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e06(M) = true THEN (IF DRAGON_172_g06(M) = true THEN (1) ELSE DRAGON_172_shared_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e08(M) = true THEN (IF DRAGON_172_g08(M) = true THEN (1) ELSE DRAGON_172_shared_dirty((M-1)) ENDIF) ELSE (IF DRAGON_172_e11(M) = true THEN (IF DRAGON_172_g11(M) = true THEN (DRAGON_172_shared_dirty((M-1))-(1)) ELSE DRAGON_172_shared_dirty((M-1)) ENDIF) ELSE DRAGON_172_shared_dirty((M-1)) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF)) AND 
+(DRAGON_172_shared(M) = (IF M = _base THEN (0) ELSE (IF DRAGON_172_e02(M) = true THEN (IF DRAGON_172_g02(M) = true THEN ((DRAGON_172_shared((M-1))+DRAGON_172_exclusive((M-1)))+(1)) ELSE DRAGON_172_shared((M-1)) ENDIF) ELSE (IF DRAGON_172_e05(M) = true THEN (IF DRAGON_172_g05(M) = true THEN (0) ELSE DRAGON_172_shared((M-1)) ENDIF) ELSE (IF DRAGON_172_e06(M) = true THEN (IF DRAGON_172_g06(M) = true THEN ((DRAGON_172_shared((M-1))+DRAGON_172_shared_dirty((M-1)))-(1)) ELSE DRAGON_172_shared((M-1)) ENDIF) ELSE (IF DRAGON_172_e08(M) = true THEN (IF DRAGON_172_g08(M) = true THEN (((DRAGON_172_shared((M-1))+DRAGON_172_exclusive((M-1)))+DRAGON_172_shared_dirty((M-1)))+DRAGON_172_dirty((M-1))) ELSE DRAGON_172_shared((M-1)) ENDIF) ELSE (IF DRAGON_172_e10(M) = true THEN (IF DRAGON_172_g10(M) = true THEN (DRAGON_172_shared((M-1))-(1)) ELSE DRAGON_172_shared((M-1)) ENDIF) ELSE DRAGON_172_shared((M-1)) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF)) AND 
+(DRAGON_172_exclusive(M) = (IF M = _base THEN (0) ELSE (IF DRAGON_172_e01(M) = true THEN (IF DRAGON_172_g01(M) = true THEN (DRAGON_172_exclusive((M-1))+(1)) ELSE DRAGON_172_exclusive((M-1)) ENDIF) ELSE (IF DRAGON_172_e02(M) = true THEN (IF DRAGON_172_g02(M) = true THEN (0) ELSE DRAGON_172_exclusive((M-1)) ENDIF) ELSE (IF DRAGON_172_e03(M) = true THEN (IF DRAGON_172_g03(M) = true THEN (DRAGON_172_exclusive((M-1))-(1)) ELSE DRAGON_172_exclusive((M-1)) ENDIF) ELSE (IF DRAGON_172_e08(M) = true THEN (IF DRAGON_172_g08(M) = true THEN (0) ELSE DRAGON_172_exclusive((M-1)) ENDIF) ELSE (IF DRAGON_172_e12(M) = true THEN (IF DRAGON_172_g12(M) = true THEN (DRAGON_172_exclusive((M-1))-(1)) ELSE DRAGON_172_exclusive((M-1)) ENDIF) ELSE DRAGON_172_exclusive((M-1)) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF) ENDIF)) AND 
+(DRAGON_172_g12(M) = _gte(DRAGON_172_exclusive((M-1)),(1))) AND 
+(DRAGON_172_g11(M) = _gte(DRAGON_172_shared_dirty((M-1)),(1))) AND 
+(DRAGON_172_g10(M) = _gte(DRAGON_172_shared((M-1)),(1))) AND 
+(DRAGON_172_g09(M) = _gte(DRAGON_172_dirty((M-1)),(1))) AND 
+(DRAGON_172_g08(M) = _and(_gte(DRAGON_172_invalid((M-1)),(1)),_gte((((DRAGON_172_dirty((M-1))+DRAGON_172_shared((M-1)))+DRAGON_172_exclusive((M-1)))+DRAGON_172_shared_dirty((M-1))),(1)))) AND 
+(DRAGON_172_g07(M) = _and(_and(_and(_and(_gte(DRAGON_172_invalid((M-1)),(1)),_eq(DRAGON_172_dirty((M-1)),(0))),_eq(DRAGON_172_shared((M-1)),(0))),_eq(DRAGON_172_exclusive((M-1)),(0))),_eq(DRAGON_172_shared_dirty((M-1)),(0)))) AND 
+(DRAGON_172_g06(M) = _gte((DRAGON_172_shared_dirty((M-1))+DRAGON_172_shared((M-1))),(2))) AND 
+(DRAGON_172_g05(M) = _and(_eq(DRAGON_172_shared_dirty((M-1)),(0)),_eq(DRAGON_172_shared((M-1)),(1)))) AND 
+(DRAGON_172_g04(M) = _and(_eq(DRAGON_172_shared_dirty((M-1)),(1)),_eq(DRAGON_172_shared((M-1)),(0)))) AND 
+(DRAGON_172_g03(M) = _gte(DRAGON_172_exclusive((M-1)),(1))) AND 
+(DRAGON_172_g02(M) = _and(_gte(DRAGON_172_invalid((M-1)),(1)),_gte(((((DRAGON_172_dirty((M-1))+(1))-DRAGON_172_shared((M-1)))+DRAGON_172_exclusive((M-1)))+DRAGON_172_shared_dirty((M-1))),(1)))) AND 
+(DRAGON_172_g01(M) = _and(_and(_and(_and(_gte(DRAGON_172_invalid((M-1)),(1)),_eq(DRAGON_172_dirty((M-1)),(0))),_eq(DRAGON_172_shared((M-1)),(0))),_eq(DRAGON_172_exclusive((M-1)),(0))),_eq(DRAGON_172_shared_dirty((M-1)),(0)))) AND 
+(DRAGON_172_erreur(M) = (IF DRAGON_172_exclusive(M) >= (2) THEN true ELSE false ENDIF)) AND 
+(DRAGON_172_mem_init(M) = (IF M = _base THEN DRAGON_172_init_invalid(M) ELSE DRAGON_172_mem_init((M-1)) ENDIF)) AND 
+(DRAGON_172_e01(M) = e01(M)) AND 
+(DRAGON_172_e02(M) = e02(M)) AND 
+(DRAGON_172_e03(M) = e03(M)) AND 
+(DRAGON_172_e04(M) = e04(M)) AND 
+(DRAGON_172_e05(M) = e05(M)) AND 
+(DRAGON_172_e06(M) = e06(M)) AND 
+(DRAGON_172_e07(M) = e07(M)) AND 
+(DRAGON_172_e08(M) = e08(M)) AND 
+(DRAGON_172_e09(M) = e09(M)) AND 
+(DRAGON_172_e10(M) = e10(M)) AND 
+(DRAGON_172_e11(M) = e11(M)) AND 
+(DRAGON_172_e12(M) = e12(M)) AND 
+(DRAGON_172_init_invalid(M) = init_invalid(M)) AND 
+(R1(M) = _impl(Sofar_205_Sofar(M),_not(erreur(M)))) AND 
+(Sofar_205_Sofar(M) = (IF M = _base THEN Sofar_205_X(M) ELSE _or(Sofar_205_X(M),Sofar_205_Sofar((M-1))) ENDIF)) AND 
+(Sofar_205_X(M) = _and(excludes12_208_excludes(M),_gt(init_invalid(M),(0)))) AND 
+(excludes12_208_excludes(M) = _or(_or(_or(_or(_or(_or(_or(_or(_or(_or(_or(_or(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(excludes12_208_X1(M),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),excludes12_208_X2(M)),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),excludes12_208_X3(M)),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),excludes12_208_X4(M)),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),excludes12_208_X5(M)),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),excludes12_208_X6(M)),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),excludes12_208_X7(M)),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),excludes12_208_X8(M)),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),excludes12_208_X9(M)),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),excludes12_208_X10(M)),_not(excludes12_208_X11(M))),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),excludes12_208_X11(M)),_not(excludes12_208_X12(M)))),_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_and(_not(excludes12_208_X1(M)),_not(excludes12_208_X2(M))),_not(excludes12_208_X3(M))),_not(excludes12_208_X4(M))),_not(excludes12_208_X5(M))),_not(excludes12_208_X6(M))),_not(excludes12_208_X7(M))),_not(excludes12_208_X8(M))),_not(excludes12_208_X9(M))),_not(excludes12_208_X10(M))),_not(excludes12_208_X11(M))),excludes12_208_X12(M)))) AND 
+(excludes12_208_X1(M) = e01(M)) AND 
+(excludes12_208_X2(M) = e02(M)) AND 
+(excludes12_208_X3(M) = e03(M)) AND 
+(excludes12_208_X4(M) = e04(M)) AND 
+(excludes12_208_X5(M) = e05(M)) AND 
+(excludes12_208_X6(M) = e06(M)) AND 
+(excludes12_208_X7(M) = e07(M)) AND 
+(excludes12_208_X8(M) = e08(M)) AND 
+(excludes12_208_X9(M) = e09(M)) AND 
+(excludes12_208_X10(M) = e10(M)) AND 
+(excludes12_208_X11(M) = e11(M)) AND 
+(excludes12_208_X12(M) = e12(M)));
+
+P:nat->BOOLEAN = LAMBDA(M:nat):
+
+R1(M) = true AND (TRUE) % or replace this line with desired property!
+
+% (Reference current stream position by M.)
+;
+
+% Note the following are not normally executed:
+
+ASSERT DEF(0);
+
+PUSH;
+ECHO "QUERY P(0);";
+QUERY P(0);
+POP;
+
+PUSH;
+ECHO "ASSERT _n >= 1 AND DEF(_n) AND DEF(_n-1) AND P(_n-1); QUERY P(_n);";
+ASSERT _n >= 1 AND DEF(_n) AND DEF(_n-1) AND P(_n-1); QUERY P(_n);
+POP;
+

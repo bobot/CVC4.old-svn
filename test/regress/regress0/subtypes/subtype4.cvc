@@ -1,0 +1,8 @@
+% EXPECT: valid
+% EXIT: 20
+
+b: ARRAY INT OF REAL;
+ASSERT b[0] = 1;
+Array1: TYPE = SUBTYPE(LAMBDA (a: ARRAY INT OF REAL): a[0] = 1);
+c: Array1;
+QUERY b[0] = c[0];

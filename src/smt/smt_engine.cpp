@@ -29,6 +29,8 @@
 #include "context/context.h"
 #include "expr/command.h"
 #include "expr/expr.h"
+#include "expr/kind.h"
+#include "expr/metakind.h"
 #include "expr/node_builder.h"
 #include "prop/prop_engine.h"
 #include "smt/bad_option_exception.h"
@@ -771,7 +773,7 @@ void SmtEnginePrivate::nonClausalSimplify() {
 void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertions)
   throw(AssertionException) {
 
-  Trace("constrainSubtypes") << "constrainSubtypes(): " << top << endl;
+  Trace("constrainSubtypes") << "constrainSubtypes(): looking at " << top << endl;
 
   stack<TNode> worklist;
   worklist.push(top);
@@ -782,10 +784,20 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
 
     TypeNode t = n.getType();
     if(t.isPredicateSubtype()) {
-      WarningOnce() << "Warning: CVC4 doesn't yet do checking that predicate subtypes are nonempty domains" << std::endl;
+      WarningOnce() << "Warning: CVC4 doesn't yet do checking that predicate subtypes are nonempty domains" << endl;
       Node pred = t.getSubtypePredicate();
-      Node app = NodeManager::currentNM()->mkNode(kind::APPLY, pred, n);
-      Trace("constrainSubtypes") << "constrainSubtypes(): " << app << endl;
+      Kind k;
+      // pred can be a LAMBDA, a function constant, or a datatype tester
+      Trace("constrainSubtypes") << "constrainSubtypes(): pred.getType() == " << pred.getType() << endl;
+      if(d_smt.d_definedFunctions->find(pred) != d_smt.d_definedFunctions->end()) {
+        k = kind::APPLY;
+      } else if(pred.getType().isTester()) {
+        k = kind::APPLY_TESTER;
+      } else {
+        k = kind::APPLY_UF;
+      }
+      Node app = NodeManager::currentNM()->mkNode(k, pred, n);
+      Trace("constrainSubtypes") << "constrainSubtypes(): assert(" << k << ") " << app << endl;
       assertions.push_back(app);
     } else if(t.isSubrange()) {
       SubrangeBounds bounds = t.getSubrangeBounds();
@@ -793,13 +805,13 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
       if(bounds.lower.hasBound()) {
         Node c = NodeManager::currentNM()->mkConst(bounds.lower.getBound());
         Node lb = NodeManager::currentNM()->mkNode(kind::LEQ, c, n);
-        Trace("constrainSubtypes") << "constrainSubtypes(): " << lb << endl;
+        Trace("constrainSubtypes") << "constrainSubtypes(): assert " << lb << endl;
         assertions.push_back(lb);
       }
       if(bounds.upper.hasBound()) {
         Node c = NodeManager::currentNM()->mkConst(bounds.upper.getBound());
         Node ub = NodeManager::currentNM()->mkNode(kind::LEQ, n, c);
-        Trace("constrainSubtypes") << "constrainSubtypes(): " << ub << endl;
+        Trace("constrainSubtypes") << "constrainSubtypes(): assert " << ub << endl;
         assertions.push_back(ub);
       }
     }
@@ -911,6 +923,9 @@ Result SmtEngine::quickCheck() {
 void SmtEnginePrivate::processAssertions() {
 
   Trace("smt") << "SmtEnginePrivate::processAssertions()" << endl;
+
+  Debug("smt") << " d_assertionsToPreprocess: " << d_assertionsToPreprocess.size() << endl;
+  Debug("smt") << " d_assertionsToCheck     : " << d_assertionsToCheck.size() << endl;
 
   // Any variables of subtype types need to be constrained properly.
   // Careful, here: constrainSubtypes() adds to the back of

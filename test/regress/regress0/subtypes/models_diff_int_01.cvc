@@ -1,0 +1,24 @@
+% EXPECT: invalid
+% EXIT: 10
+v1: INT;
+v2: INT;
+v3: INT;
+v4: INT;
+v5: INT;
+typeOf:(INT) -> [2..2];
+subType:([2..2], [2..2]) -> BOOLEAN;
+classForType:([2..2]) -> INT;
+DOT__LENGTH: ARRAY INT OF INT;
+JA_INT: ARRAY [INT,INT] OF INT;
+ASSERT ((((0 = JA_INT[(v1,1)]) AND (0 < (-1 * JA_INT[(v1,2)]))) AND (0 = (1 + JA_INT[(v1,3)]))) AND (0 = JA_INT[(v1,0)]));
+ASSERT NOT((0 = v2));
+ASSERT NOT((0 = v3));
+ASSERT NOT((0 = v4));
+ASSERT NOT((0 = v5));
+ASSERT NOT((0 = v1));
+ASSERT (0 = (10000 + (-1 * DOT__LENGTH[v1])));
+ASSERT (2 = typeOf(0));
+ASSERT NOT(subType(2, 2));
+ASSERT (1 = classForType(2));
+QUERY FALSE;
+%COUNTERMODEL;

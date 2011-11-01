@@ -1,0 +1,9 @@
+% EXPECT: valid
+% EXIT: 20
+
+x: [-1..0];
+
+P: INT -> BOOLEAN;
+
+ASSERT P(0) AND P(-1);
+QUERY P(x);

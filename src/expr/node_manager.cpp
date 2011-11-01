@@ -347,7 +347,23 @@ TypeNode NodeManager::mkPredicateSubtype(Expr lambda)
 
 TypeNode NodeManager::mkPredicateSubtype(Expr lambda, Expr witness)
   throw(TypeCheckingExceptionPrivate) {
-  Unimplemented();
+
+  Node lambdan = Node::fromExpr(lambda);
+
+  if(lambda.isNull()) {
+    throw TypeCheckingExceptionPrivate(lambdan, "cannot make a predicate subtype based on null expression");
+  }
+
+  TypeNode tn = lambdan.getType();
+  if(! tn.isPredicateLike() ||
+     tn.getArgTypes().size() != 1) {
+    std::stringstream ss;
+    ss << Expr::setlanguage(Options::current()->outputLanguage)
+       << "expected a predicate of one argument to define predicate subtype, but got type `" << tn << "'";
+    throw TypeCheckingExceptionPrivate(lambdan, ss.str());
+  }
+
+  return TypeNode(mkTypeConst(Predicate(lambda, witness)));
 }
 
 TypeNode NodeManager::mkSubrangeType(const SubrangeBounds& bounds)

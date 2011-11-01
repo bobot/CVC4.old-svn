@@ -1,0 +1,10 @@
+% EXPECT: valid
+% EXPECT-ERROR: Warning: CVC4 doesn't yet do checking that predicate subtypes are nonempty domains
+% EXIT: 20
+
+NAT: TYPE = SUBTYPE(LAMBDA (x:INT): x >= 0);
+
+n1:NAT;
+n2:NAT;
+
+QUERY n1 < 1 => n1 = 0;

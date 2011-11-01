@@ -188,7 +188,8 @@ public:
     long si = d_value.get_si();
 #ifdef CVC4_ASSERTIONS
     // ensure there wasn't overflow
-    Assert(mpz_cmp_si(d_value.get_mpz_t(), si) == 0);
+    Assert(mpz_cmp_si(d_value.get_mpz_t(), si) == 0,
+           "Overflow when extracting long from multiprecision integer");
 #endif /* CVC4_ASSERTIONS */
     return si;
   }
@@ -196,7 +197,8 @@ public:
     unsigned long ui = d_value.get_ui();
 #ifdef CVC4_ASSERTIONS
     // ensure there wasn't overflow
-    Assert(mpz_cmp_ui(d_value.get_mpz_t(), ui) == 0);
+    Assert(mpz_cmp_ui(d_value.get_mpz_t(), ui) == 0,
+           "Overflow when extracting unsigned long from multiprecision integer");
 #endif /* CVC4_ASSERTIONS */
     return ui;
   }

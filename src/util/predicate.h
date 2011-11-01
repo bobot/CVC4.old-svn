@@ -44,10 +44,11 @@ namespace CVC4 {
 class CVC4_PUBLIC Predicate {
 
   Expr d_predicate;
+  Expr d_witness;
 
 public:
 
-  Predicate(Expr e) throw(IllegalArgumentException);
+  Predicate(Expr e, Expr w = Expr()) throw(IllegalArgumentException);
 
   operator Expr() const;
 

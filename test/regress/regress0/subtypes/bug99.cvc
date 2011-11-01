@@ -1,0 +1,7 @@
+% EXPECT: valid
+% EXPECT-ERROR: Warning: CVC4 doesn't yet do checking that predicate subtypes are nonempty domains
+% EXIT: 20
+
+n: SUBTYPE((LAMBDA (x: INT): ((0 <= x))));
+n: SUBTYPE((LAMBDA (x: INT): ((0 <= x))));
+QUERY n >= 0;

@@ -240,6 +240,9 @@ public:
    */
   static inline TheoryId theoryOf(TypeNode typeNode) {
     TheoryId id;
+    while (typeNode.isPredicateSubtype()) {
+      typeNode = typeNode.getSubtypeBaseType();
+    }
     if (typeNode.getKind() == kind::TYPE_CONSTANT) {
       id = typeConstantToTheoryId(typeNode.getConst<TypeConstant>());
     } else {

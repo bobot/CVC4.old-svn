@@ -1,0 +1,14 @@
+% EXPECT: valid
+% EXPECT-ERROR: Warning: CVC4 doesn't yet do checking that predicate subtypes are nonempty domains
+% EXIT: 20
+
+P: INT -> BOOLEAN;
+
+x:INT;
+ASSERT P(x);
+
+E: TYPE = SUBTYPE(P,x) ;
+
+e:E;
+
+QUERY P(e);

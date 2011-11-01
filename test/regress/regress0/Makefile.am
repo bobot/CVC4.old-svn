@@ -1,4 +1,4 @@
-SUBDIRS = . arith precedence uf uflra uflia bv arrays datatypes lemmas push-pop preprocess
+SUBDIRS = . arith precedence uf uflra uflia bv arrays datatypes lemmas push-pop preprocess subtypes
 
 if PROOF_REGRESSIONS
 TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../run_regression --proof @top_builddir@/src/main/cvc4
@@ -112,7 +112,6 @@ endif
 
 # and make sure to distribute it
 EXTRA_DIST += \
-	subranges.cvc \
 	error.cvc
 
 # synonyms for "check" in this directory
