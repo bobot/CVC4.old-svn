@@ -23,7 +23,6 @@
 
 #include "theory/theory.h"
 #include "context/context.h"
-#include "context/cdset.h"
 #include "context/cdlist.h"
 #include "theory/bv/theory_bv_utils.h"
 
@@ -48,9 +47,11 @@ private:
 
   /** The asserted stuff */
   context::CDList<TNode> d_assertions;
-
+  
+  /** Bitblaster */
+  Bitblaster d_bitblaster; 
   Node d_true;
-  BVMinisat::SimpSolver* d_solver; 
+  
 public:
 
   TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);

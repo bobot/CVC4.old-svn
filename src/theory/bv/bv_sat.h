@@ -34,13 +34,8 @@ namespace CVC4 {
 namespace theory {
 namespace bv {
 
-// fixme
-// class SatLit {}; 
-// class SatClause {}; 
-
-
-typedef ::BVMinisat::Lit SatLit; 
-typedef ::BVMinisat::vec<SatLit> SatClause; 
+typedef BVMinisat::Lit SatLit; 
+typedef BVMinisat::vec<SatLit> SatClause; 
 
 
 class SatInterface {
@@ -53,7 +48,7 @@ public:
 
 class BVSolver : public SatInterface {
   // some maps between the atom and the clauses bitblasted
-  ::BVMinisat::SimpSolver d_solver; 
+  BVMinisat::SimpSolver d_solver; 
 public:
   BVSolver();
   void addClause(SatClause& clause);

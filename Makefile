@@ -20,6 +20,16 @@ all .DEFAULT:
 		echo; \
 	fi
 
+distclean maintainerclean:
+	@if test -d $(builddir); then \
+		echo cd $(builddir); \
+		cd $(builddir); \
+		echo $(MAKE) $@; \
+		$(MAKE) $@; \
+	fi
+	test -z "$(builddir)" || rm -fr "$(builddir)"
+	rm -f config.reconfig
+
 # synonyms for "check"
 .PHONY: test
 test: check

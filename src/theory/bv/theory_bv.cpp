@@ -33,10 +33,10 @@ using namespace std;
 TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation)
   : Theory(THEORY_BV, c, u, out, valuation), 
     d_context(c),
-    d_assertions(c)
+    d_assertions(c),
+    d_bitblaster(c)
   {
     d_true = utils::mkTrue();
-    d_solver = new BVMinisat::SimpSolver();
   }
 
 
