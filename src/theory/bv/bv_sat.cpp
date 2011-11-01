@@ -1,8 +1,8 @@
 /*********************                                                        */
-/*! \file equality_engine.cpp
+/*! \file bv_sat.cpp
  ** \verbatim
- ** Original author: dejan
- ** Major contributors: mdeters
+ ** Original author: lianah
+ ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -14,14 +14,17 @@
  ** \brief [[ Add one-line brief description here ]]
  **
  ** [[ Add lengthier description here ]]
- ** \todo document this file
+ ** 
  **/
 
-#include "equality_engine.h"
+#include "bv_sat.h"
 
-using namespace CVC4::theory::bv;
+namespace CVC4 {
+namespace theory {
+namespace bv{
 
-const size_t BitSizeTraits::id_null = (1u << BitSizeTraits::id_bits) - 1;
-const size_t BitSizeTraits::trigger_id_null = (1u << BitSizeTraits::trigger_id_bits) - 1;
 
 
+} /*bv namespace */
+} /* theory namespace */
+} /* CVC4 namespace*/

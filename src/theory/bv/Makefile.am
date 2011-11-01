@@ -1,11 +1,15 @@
 AM_CPPFLAGS = \
 	-D__BUILDING_CVC4LIB \
-	-I@srcdir@/../../include -I@srcdir@/../.. -I@builddir@/../..
+	-D __STDC_LIMIT_MACROS \
+	-D __STDC_FORMAT_MACROS \
+	-I@srcdir@/../../include -I@srcdir@/../.. -I@builddir@/../.. -I@srcdir@/bvminisat
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
 noinst_LTLIBRARIES = libbv.la
 
 libbv_la_SOURCES = \
+	bv_sat.h \
+	bv_sat.cpp \
 	theory_bv.h \
 	theory_bv.cpp \
 	theory_bv_utils.h \
@@ -14,9 +18,10 @@ libbv_la_SOURCES = \
 	theory_bv_type_rules.h \
 	theory_bv_rewriter.h \
 	theory_bv_rewriter.cpp \
-	equality_engine.h \
-	equality_engine.cpp \
-	slice_manager.h \
 	cd_set_collection.h 
 
+libbv_la_LIBADD = \
+	@builddir@/bvminisat/libbvminisat.la
+
 EXTRA_DIST = kinds
+SUBDIRS = bvminisat
