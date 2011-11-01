@@ -244,6 +244,10 @@ public:
     return (*this);
   }
 
+  bool rationalIsIntegral() const{
+    return getDenominator() == 1;
+  }
+
   /** Returns a string representing the rational in the given base. */
   std::string toString(int base = 10) const {
     return d_value.get_str(base);

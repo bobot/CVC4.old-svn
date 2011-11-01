@@ -205,7 +205,7 @@ RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
     Assert(!constantHead.isConstant());
     Constant constant = constantHead.getConstant();
 
-    Constant inverse = Constant::mkConstant(constant.getValue().inverse());
+    Constant inverse = constant.inverse();
 
     cmp = cmp.multiplyConstant(inverse);
   }

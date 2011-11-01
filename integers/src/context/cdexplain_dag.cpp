@@ -24,7 +24,7 @@
 namespace CVC4 {
 namespace context {
 
-CDExplainDag::CDExplainDag(Context* c):
+CDExplainDAG::CDExplainDAG(Context* c):
   ContextNotifyObj(c),
   SENTINEL(std::numeric_limits<ProofIndex>::max()),
   d_writtenSinceLastPop(false),
@@ -32,7 +32,7 @@ CDExplainDag::CDExplainDag(Context* c):
   d_lastActiveProof(c,0)
 {}
 
-void CDExplainDag::enqueueLeaves(CDExplainDag::ProofIndex start, NodeBuilder<>& nb) const{
+void CDExplainDAG::enqueueLeaves(CDExplainDAG::ProofIndex start, NodeBuilder<>& nb) const{
   std::stack<ProofIndex> pis;
     pis.push(start);
     while(!pis.empty()){

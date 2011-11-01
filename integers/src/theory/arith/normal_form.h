@@ -51,9 +51,10 @@ namespace arith {
  *   where
  *     n.getMetaKind() == metakind::VARIABLE
  *
- * constant := n
+ * constant := q | z
  *   where
- *     n.getKind() == kind::CONST_RATIONAL
+ *     q.getKind() == kind::CONST_RATIONAL and q.getDenominator() == 1
+ *     z.getKind() == kind::CONST_INTEGER
  *
  * var_list := variable | (* [variable])
  *   where
@@ -193,6 +194,10 @@ public:
 
   bool isNormalForm() { return isMember(getNode()); }
 
+  bool isIntegral() const {
+    return getNode().getType().isInteger();
+  }
+
   bool operator<(const Variable& v) const { return getNode() < v.getNode();}
   bool operator==(const Variable& v) const { return getNode() == v.getNode();}
 
@@ -206,7 +211,11 @@ public:
   }
 
   static bool isMember(Node n) {
-    return n.getKind() == kind::CONST_RATIONAL;
+    if(n.getKind() == kind::CONST_RATIONAL){
+      return !n.getConst<Rational>().rationalIsIntegral();
+    }else{
+      return n.getKind() == kind::CONST_INTEGER;
+    }
   }
 
   bool isNormalForm() { return isMember(getNode()); }
@@ -215,27 +224,111 @@ public:
     return Constant(coerceToRationalNode(n));
   }
 
-  static Constant mkConstant(const Rational& rat) {
-    return Constant(mkRationalNode(rat));
+  static Constant mkConstant(int z) {
+    return Constant(mkIntegerNode(z));
   }
 
-  const Rational& getValue() const {
+  static Constant mkConstant(const Integer& rat) {
+    return Constant(mkIntegerNode(rat));
+  }
+
+
+  static Constant mkConstant(const Rational& rat) {
+    if(rat.getDenominator() == 1){
+      return Constant(mkIntegerNode(rat.getNumerator()));
+    }else{
+      return Constant(mkRationalNode(rat));
+    }
+  }
+
+  bool isInteger() const{
+    return getNode().getKind() == kind::CONST_INTEGER;
+  }
+  bool isRational() const{
+    return getNode().getKind() == kind::CONST_RATIONAL;
+  }
+
+  const Integer& getIntegerValue() const {
+    Assert(isInteger());
+    return getNode().getConst<Integer>();
+  }
+
+  const Rational& getRationalValue() const {
+    Assert(isRational());
     return getNode().getConst<Rational>();
   }
 
-  bool isZero() const { return getValue() == 0; }
-  bool isOne() const { return getValue() == 1; }
+  Rational integerToRational() const {
+    Assert(isInteger());
+    return Rational(getIntegerValue());
+  }
+
+  Rational coerceToRational() const {
+    return isInteger() ? integerToRational() : Rational(getRationalValue());
+  }
+
+  bool isZero() const { return isInteger() && (getIntegerValue() == 0); }
+  bool isOne() const { return isInteger() && (getIntegerValue() == 1); }
 
   Constant operator*(const Constant& other) const {
-    return mkConstant(getValue() * other.getValue());
-  }
-  Constant operator+(const Constant& other) const {
-    return mkConstant(getValue() + other.getValue());
-  }
-  Constant operator-() const {
-    return mkConstant(-getValue());
+    if(isInteger()){
+      const Integer& tz = getIntegerValue();
+      if(other.isInteger()){
+        return mkConstant(tz * other.getIntegerValue());
+      }else{
+        return mkConstant(Rational(tz) * other.getRationalValue());
+      }
+    }else{
+      const Rational& tq = getRationalValue();
+      if(other.isInteger()){
+        return mkConstant(tq * other.integerToRational());
+      }else{
+        return mkConstant(tq * other.getRationalValue());
+      }
+    }
   }
 
+  Constant operator+(const Constant& other) const {
+    if(isInteger()){
+      const Integer& tz = getIntegerValue();
+      if(other.isInteger()){
+        return mkConstant(tz + other.getIntegerValue());
+      }else{
+        return mkConstant(Rational(tz) + other.getRationalValue());
+      }
+    }else{
+      const Rational& tq = getRationalValue();
+      if(other.isInteger()){
+        return mkConstant(tq + other.integerToRational());
+      }else{
+        return mkConstant(tq + other.getRationalValue());
+      }
+    }
+  }
+
+  Constant operator-() const {
+    if(isInteger()){
+      return mkConstant(-getIntegerValue());
+    }else{
+      return mkConstant(-getRationalValue());
+    }
+  }
+
+  bool isNegative() const {
+    if(isInteger()){
+      return getIntegerValue().sgn() < 0;
+    }else{
+      return getRationalValue().sgn() < 0;
+    }
+  }
+
+  Constant inverse() const {
+    if(isInteger()){
+      return mkConstant(Rational(1,getIntegerValue()));
+    }else{
+      return mkConstant(getRationalValue().inverse());
+    }
+  }
 };/* class Constant */
 
 
@@ -412,6 +505,16 @@ public:
 
   bool operator==(const VarList& vl) const { return cmp(vl) == 0; }
 
+  bool isIntegral() const {
+    for(iterator i = begin(), e=end(); i != e; ++i ){
+      Variable var = *i;
+      if(!var.isIntegral()){
+        return false;
+      }
+    }
+    return true;
+  }
+
 private:
   bool isSorted(iterator start, iterator end);
 
@@ -491,6 +594,10 @@ public:
     return constant.isZero();
   }
 
+  bool isOne() const {
+    return isConstant() && coefficientIsOne();
+  }
+
   bool coefficientIsOne() const {
     return constant.isOne();
   }
@@ -516,6 +623,22 @@ public:
 
   static bool isStrictlySorted(const std::vector<Monomial>& m) {
     return isSorted(m) && std::adjacent_find(m.begin(),m.end()) == m.end();
+  }
+
+  /**
+   * A Monomial is an "integral" monomial if all of the variables in the
+   * VarList are integral.
+   */
+  bool isIntegral() const {
+    return getVarList().isIntegral();
+  }
+
+  /**
+   * A Monomial is an "integer" monomial if both the constant is integer and
+   * all of the variables in the VarList are integer.
+   */
+  bool isInteger() const {
+    return getConstant().isInteger() && getVarList().isIntegral();
   }
 
   /**
@@ -702,6 +825,61 @@ public:
 
   Polynomial operator*(const Polynomial& poly) const;
 
+
+  /** A Polynomial is an "integral" polynomial if all of the monomials are integral. */
+  bool isIntegral() const {
+    for(iterator i = begin(), e=end(); i!=e; ++i){
+      if(!(*i).isIntegral()){
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** A Polynomial is an "integer" polynomial if all of the monomials are integer. */
+  bool isInteger() const {
+    for(iterator i = begin(), e=end(); i!=e; ++i){
+      if(!(*i).isInteger()){
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Returns the Least Common Multiple of the denominators of the coefficients
+   * of the monomials.
+   */
+  Integer denominatorLCM() const {
+    Integer tmp(1);
+    for(iterator i=begin(), e=end(); i!=e; ++i){
+      const Constant& c = (*i).getConstant();
+      if(c.isRational()){
+        tmp = tmp.lcm(c.getRationalValue().getDenominator());
+      }
+    }
+    return tmp;
+  }
+
+  /**
+   * Returns the GCD of the coefficients of the monomials.
+   * Requires this to be an isInteger() polynomial.
+   */
+  Integer gcd() const {
+    #warning "If this is 0, is 0 the correct answer..."
+    Assert(isInteger());
+    iterator i=begin(), e=end();
+    Assert(i!=e);
+
+    Integer d = (*i).getConstant().getIntegerValue();
+    ++i;
+    for(; i!=e; ++i){
+      const Integer& c = (*i).getConstant().getIntegerValue();
+      d = d.gcd(c);
+    }
+    return d;
+  }
+
 };/* class Polynomial */
 
 
@@ -774,12 +952,61 @@ public:
 
   static Comparison parseNormalForm(TNode n);
 
+  bool isIntegral() const{
+    return getLeft().isIntegral();
+  }
+
   inline static bool isNormalAtom(TNode n){
     Comparison parse = Comparison::parseNormalForm(n);
     return parse.isNormalForm();
   }
 
 };/* class Comparison */
+
+class IntegerEquality : public NodeWrapper {
+private:
+  static Node toNode(const Polynomial& l, const Constant& r){
+    if(l.isConstant()){
+
+    }else{
+      Integer leftLCM = l.denominatorLCM();
+      Integer lcm = r.isInteger()?
+        leftLCM : leftLCM.lcm(r.getRationalValue().getDenominator());
+
+      Constant lcmConstant = Constant::mkConstant(lcm);
+      Polynomial il = l * Monomial(lcmConstant);
+      Constant ir = r * lcmConstant;
+      return NodeManager::currentNM()->mkNode(kind::EQUAL,il.getNode(),ir.getNode());
+    }
+  }
+
+  Polynomial left;
+  Constant right;
+
+public:
+  IntegerEquality(const Polynomial& p, const Constant& c)
+    : NodeWrapper(toNode(p,c)), left(p), right(c)
+  {
+    Assert(getNode().getKind() == kind::EQUAL);
+    Assert(c.isInteger());
+    Assert(!left.containsConstant());
+    Assert(left.isInteger());
+  }
+
+  bool leftGCDDividesRight() const{
+    Integer leftGCD = getLeft().gcd();
+    const Integer& right = getRightValue();
+    return leftGCD.divides(right);
+  }
+
+  const Polynomial& getLeft() const{
+    return left;
+  }
+
+  const Integer& getRightValue() const{
+    return right.getIntegerValue();
+  }
+}; /* class Comparison */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

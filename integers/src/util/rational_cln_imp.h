@@ -192,6 +192,10 @@ public:
     }
   }
 
+  bool rationalIsIntegral() const{
+    return getDenominator() == 1;
+  }
+
   Integer floor() const {
     return Integer(cln::floor1(d_value));
   }

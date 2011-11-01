@@ -151,6 +151,10 @@ public:
     return *this;
   }
 
+  int sgn() const {
+    return mpz_sgn(d_value.get_mpz_t());
+  }
+
   /**
    * Raise this Integer to the power <code>exp</code>.
    *
@@ -169,6 +173,20 @@ public:
     mpz_class result;
     mpz_gcd(result.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
     return Integer(result);
+  }
+
+  /**
+   * Return the least common multiple of this integer with another.
+   */
+  Integer lcm(const Integer& y) const {
+    mpz_class result;
+    mpz_lcm(result.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
+    return Integer(result);
+  }
+
+  bool divides(const Integer& y) const {
+    int res = mpz_divisible_p(y.d_value.get_mpz_t(), d_value.get_mpz_t());
+    return res == 0;
   }
 
   /**

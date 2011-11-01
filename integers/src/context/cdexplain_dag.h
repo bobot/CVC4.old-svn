@@ -38,7 +38,7 @@ namespace CVC4 {
 namespace context {
 
 
-class CDExplainDag : ContextNotifyObj {
+class CDExplainDAG : ContextNotifyObj {
 public:
   typedef uint32_t ProofIndex;
   typedef uint32_t FactIndex;
@@ -233,9 +233,9 @@ private:
   }
 
 public:
-  CDExplainDag(Context* c);
+  CDExplainDAG(Context* c);
 
-  ~CDExplainDag() throw() {  }
+  ~CDExplainDAG() throw() {  }
 
   void notify() {
     d_writtenSinceLastPop = false;

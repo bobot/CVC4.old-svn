@@ -207,6 +207,22 @@ public:
   }
 
   /**
+   * Return the least common multiple of this integer with another.
+   */
+  Integer lcm(const Integer& y) const {
+    cln::cl_I result = cln::lcm(d_value, y.d_value);
+    return Integer(result);
+  }
+
+  /**
+   * Return true if *this exactly divides y.
+   */
+  bool divides(const Integer& y) const {
+    cln::cl_I result = cln::rem(y.d_value, d_value);
+    return cln::zerop(result);
+  }
+
+  /**
    * Return the absolute value of this integer.
    */
   Integer abs() const {
@@ -240,6 +256,12 @@ public:
     }
 
     return output;
+  }
+
+  int sgn() const {
+    cln::cl_I sgn = cln::signum(d_value);
+    Assert(sgn == 0 || sgn == -1 || sgn == 1);
+    return cln::cl_I_to_int(sgn);
   }
 
   //friend std::ostream& operator<<(std::ostream& os, const Integer& n);

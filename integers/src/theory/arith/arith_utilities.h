@@ -58,6 +58,9 @@ inline Node mkBoolNode(bool b){
   return NodeManager::currentNM()->mkConst<bool>(b);
 }
 
+inline Node mkIntegerNode(const Integer& z){
+  return NodeManager::currentNM()->mkConst<Integer>(z);
+}
 
 
 inline Rational coerceToRational(TNode constant){

@@ -137,11 +137,11 @@ vector<Monomial> Monomial::sumLikeTerms(const std::vector<Monomial> & monos) {
   vector<Monomial> outMonomials;
   typedef vector<Monomial>::const_iterator iterator;
   for(iterator rangeIter = monos.begin(), end=monos.end(); rangeIter != end;) {
-    Rational constant = (*rangeIter).getConstant().getValue();
+    Rational constant = (*rangeIter).getConstant().coerceToRational();
     VarList varList  = (*rangeIter).getVarList();
     ++rangeIter;
     while(rangeIter != end && varList == (*rangeIter).getVarList()) {
-      constant += (*rangeIter).getConstant().getValue();
+      constant += (*rangeIter).getConstant().coerceToRational();
       ++rangeIter;
     }
     if(constant != 0) {
@@ -185,6 +185,8 @@ Polynomial Polynomial::operator+(const Polynomial& vl) const {
 Polynomial Polynomial::operator*(const Monomial& mono) const {
   if(mono.isZero()) {
     return Polynomial(mono); //Don't multiply by zero
+  } else if(mono.isOne()){
+    return Polynomial(*this);
   } else {
     std::vector<Monomial> newMonos;
     for(iterator i = this->begin(), end = this->end(); i != end; ++i) {
@@ -336,7 +338,7 @@ Comparison Comparison::addConstant(const Constant& constant) const {
 
 Comparison Comparison::multiplyConstant(const Constant& constant) const {
   Assert(!isBoolean());
-  Kind newOper = (constant.getValue() < 0) ? reverseRelationKind(oper) : oper;
+  Kind newOper = constant.isNegative() ? reverseRelationKind(oper) : oper;
 
   return mkComparison(newOper, left*Monomial(constant), right*constant);
 }

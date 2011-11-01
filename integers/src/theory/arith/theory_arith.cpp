@@ -423,7 +423,7 @@ void TheoryArith::asVectors(const Polynomial& p, std::vector<Rational>& coeffs, 
       av = d_arithvarNodeMap.asArithVar(n);
     }
 
-    coeffs.push_back(constant.getValue());
+    coeffs.push_back(constant.coerceToRational());
     variables.push_back(av);
   }
 }
