@@ -56,7 +56,9 @@ InstantiatorTheoryUf* UIterator::d_itu = NULL;
 std::map< Node, std::map< Node, std::vector< UIterator* > > > UIterator::d_iter[3];
 std::map< Node, std::map< Node, int > > UIterator::d_assigned[3];
 int UIterator::d_splitThreshold;
-bool UIterator::d_useSplitThreshold;
+bool UIterator::d_useSplitThreshold = false;
+uint64_t UIterator::d_instLevelThreshold;
+bool UIterator::d_useInstLevelThreshold = false;
 
 void UIterator::resetAssigned(){
   for( int i=0; i<3; i++ ){
@@ -366,6 +368,31 @@ void UIterator::addSplit( Node n1, Node n2 ){
   }
 }
 
+bool UIterator::acceptMatch( InstMatch* m ){
+  if( d_useInstLevelThreshold ){
+    for( std::map< Node, Node >::iterator it = m->d_map.begin(); 
+        it != m->d_map.end(); ++it ){
+      if( it->second!=Node::null() && it->second.hasAttribute(InstLevelAttribute()) &&
+          it->second.getAttribute(InstLevelAttribute())>d_instLevelThreshold ){
+        return false;
+      }
+    }
+  }
+  if( d_useSplitThreshold ){
+    if( (int)m->d_splits.size()<=d_splitThreshold ){
+      for( std::map< Node, Node >::iterator it = m->d_splits.begin();
+            it != m->d_splits.end(); ++it ){
+        if( areDisequal( it->first, it->second ) ){
+          return false;
+        }
+      }
+    }else{
+      return false;
+    }
+  }
+  return true;
+}
+
 bool UIterator::calcNextMatch(){
   Assert( getMaster()==this );
   Assert( !d_mg_set );
@@ -440,17 +467,7 @@ bool UIterator::calcNextMatch(){
           }else{
             combined.merge( d_partial[i-1], true );
           }
-          if( !d_useSplitThreshold || (int)combined.d_splits.size()<=d_splitThreshold ){
-            bool consistentSplit = true;
-            for( std::map< Node, Node >::iterator it = combined.d_splits.begin();
-                  it != combined.d_splits.end(); ++it ){
-              if( areDisequal( it->first, it->second ) ){
-                consistentSplit = false;
-                break;
-              }
-            }
-            success = consistentSplit;
-          }
+          success = acceptMatch( &combined );
         }
         Assert( !d_children[i]->empty() );
         if( !success ){
@@ -888,11 +905,12 @@ Node InstantiatorTheoryUf::getRepresentative( Node a ){
 void InstantiatorTheoryUf::process( Node f, int effort ){
   Debug("quant-uf") << "UF: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   if( effort>5 ){
-    if( effort==6 && !d_unmatched[f] ){
-      Debug("quant-uf") << "Add guessed instantiation" << std::endl;
-      InstMatch m( f, d_instEngine );
-      d_instEngine->addInstantiation( &m );
-    }
+    //if( effort==6 && !d_unmatched[f] ){
+    //  Debug("quant-uf") << "Add guessed instantiation" << std::endl;
+    //  InstMatch m( f, d_instEngine );
+    //  d_instEngine->addInstantiation( &m );
+    //  ++(d_statistics.d_instantiations);
+    //}
     d_quantStatus = STATUS_UNKNOWN;
   }else if( effort==0 ){
     //calculate base matches
@@ -913,7 +931,10 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
     }
     //check if f is counterexample-solved
     if( d_baseMatch[f].isComplete() ){
-      d_instEngine->addInstantiation( &d_baseMatch[f] );
+      if( d_instEngine->addInstantiation( &d_baseMatch[f] ) ){
+        ++(d_statistics.d_instantiations);
+        ++(d_statistics.d_instantiations_ce_solved);
+      }
     }
   }else{
     NodeLists::iterator ob_i = d_obligations.find( f );
@@ -932,6 +953,8 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
           InstMatch temp( d_mergeIter[ f ]->getCurrent() );
           temp.add( d_baseMatch[f] );
           if( d_instEngine->addInstantiation( &temp ) ){
+            ++(d_statistics.d_instantiations);
+            ++(d_statistics.d_instantiations_e_induced);
             break;
           }
         }
@@ -946,6 +969,7 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
           InstMatch temp( d_mergeIter[ f ]->getCurrent() );
           temp.add( d_baseMatch[f] );
           if( d_instEngine->addInstantiation( &temp ) ){
+            ++(d_statistics.d_instantiations);
             Debug("quant-uf") << "Added this inst match: " << std::endl;
             temp.debugPrint( "quant-uf" );
             //add corresponding splits
@@ -961,7 +985,7 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
         //check if all literals are matchable
         //resolve matches on the literal level
         calculateMatchable( f );
-        if( d_matchable[f] ){
+        if( !d_unmatched[f] ){
           std::map< UIterator*, UIterator* > index;
           std::vector< UIterator* > unmerged;
           std::vector< UIterator* > cover;
@@ -990,6 +1014,7 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
                 InstMatch temp( cover[i]->getCurrent() );
                 temp.add( d_baseMatch[f] );
                 if( d_instEngine->addInstantiation( &temp ) ){
+                  ++(d_statistics.d_instantiations);
                   success = true;
                   for( std::map< Node, Node >::iterator it = temp.d_splits.begin(); it != temp.d_splits.end(); ++it ){
                     addSplitEquality( it->first, it->second, true, true );
@@ -1286,6 +1311,7 @@ bool InstantiatorTheoryUf::addSplitEquality( Node n1, Node n2, bool reqPhase, bo
   Node fm = NodeManager::currentNM()->mkNode( knd, n1, n2 );
   fm = Rewriter::rewrite( fm );
   if( d_instEngine->addSplit( fm ) ){
+    ++(d_statistics.d_splits);
     Debug("quant-uf-split") << "*** Add split " << n1 << " = " << n2 << std::endl;
     //require phase?
     if( reqPhase ){
@@ -1296,3 +1322,23 @@ bool InstantiatorTheoryUf::addSplitEquality( Node n1, Node n2, bool reqPhase, bo
     return false;
   }
 }
+
+InstantiatorTheoryUf::Statistics::Statistics():
+  d_instantiations("InstantiatorTheoryUf::Total Instantiations", 0),
+  d_instantiations_ce_solved("InstantiatorTheoryUf::CE-Solved Instantiations", 0),
+  d_instantiations_e_induced("InstantiatorTheoryUf::E-Induced Instantiations", 0),
+  d_splits("InstantiatorTheoryUf::Splits", 0)
+{
+  StatisticsRegistry::registerStat(&d_instantiations);
+  StatisticsRegistry::registerStat(&d_instantiations_ce_solved);
+  StatisticsRegistry::registerStat(&d_instantiations_e_induced);
+  StatisticsRegistry::registerStat(&d_splits);
+}
+
+InstantiatorTheoryUf::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_instantiations);
+  StatisticsRegistry::unregisterStat(&d_instantiations_ce_solved);
+  StatisticsRegistry::unregisterStat(&d_instantiations_e_induced);
+  StatisticsRegistry::unregisterStat(&d_splits);
+}
+

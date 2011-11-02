@@ -355,10 +355,16 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
   Node lem = nb;
   if( addLemma( lem ) ){
     Debug("inst-engine") << "*** Instantiate " << f << " with " << std::endl;
+    //int maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
       Assert( !terms[i].hasAttribute(InstConstantAttribute()) );
       Debug("inst-engine") << "   " << terms[i] << std::endl;
+      //if( terms[i].hasAttribute((InstLevelAttribute()) &&
+      //    terms[i].getAttribute(InstLevelAttribute())>maxInstLevel ){
+      //  maxInstLevel = terms[i].getAttribute(InstLevelAttribute()); 
+      //}
     }
+    //setInstantiationLevel( body, maxInstLevel+1 );
     return true;
   }else{
     return false;
@@ -376,34 +382,22 @@ bool InstantiationEngine::addSplit( Node n ){
   return addLemma( lem );
 }
 
-void InstantiationEngine::getInstantiationConstantsFor( Node f, std::vector< Node >& ics, Node& cebody ){
-  Assert( ics.empty() );
+Node InstantiationEngine::getCounterexampleBody( Node f ){
   Assert( f.getKind()==FORALL );
-  if( d_inst_constants.find( f )==d_inst_constants.end() ){
+  if( d_counterexample_body.find( f )==d_counterexample_body.end() ){
     for( int i=0; i<(int)f.getNumChildren()-1; i++ ){
       Node ic = NodeManager::currentNM()->mkInstConstant( f[i].getType() );
       d_inst_constants_map[ic] = f;
-      ics.push_back( ic );
-      ////store in the instantiation constant for the proper instantiator
-      //Assert( d_te->theoryOf( ic )!=NULL );
-      //theory::Instantiator* tinst = d_instTable[ d_te->theoryOf( ic )->getId() ];
-      //if( tinst ){
-      //  tinst->d_inst_constants[ f ].push_back( ic );
-      //  tinst->d_solved_ic[ ic ] = Node::null();
-      //}
+      d_inst_constants[ f ].push_back( ic );
     }
-    d_inst_constants[ f ].insert( d_inst_constants[ f ].begin(), ics.begin(), ics.end() );
 
     //set the counterexample body
     std::vector< Node > vars;
     getVariablesFor( f, vars );
-    cebody = f[ f.getNumChildren() - 1 ].substitute( d_vars[f].begin(), d_vars[f].end(), 
-                                                     d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() ); 
-    d_counterexample_body[ f ] = cebody;
-  }else{
-    ics.insert( ics.begin(), d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() );
-    cebody = d_counterexample_body[ f ];
+    d_counterexample_body[ f ] = f[ f.getNumChildren() - 1 ].substitute( d_vars[f].begin(), d_vars[f].end(), 
+                                                            d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() ); 
   }
+  return d_counterexample_body[ f ];
 }
 
 void InstantiationEngine::getSkolemConstantsFor( Node f, std::vector< Node >& scs ){
@@ -543,8 +537,8 @@ void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
   n = Rewriter::rewrite( n );
   if( n.getKind()==INST_CONSTANT ){
     if( !n.hasAttribute(InstConstantAttribute()) ){
-      InstConstantAttribute icai;
-      n.setAttribute(icai,f);
+      InstConstantAttribute ica;
+      n.setAttribute(ica,f);
     }
   }else{
     Node fa;
@@ -564,11 +558,23 @@ void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
           if( n!=cel && n.notNode()!=cel ){
             Debug("quant-dep-dec") << "Make " << n << " dependent on " << cel << std::endl;
             out->dependentDecision( cel, n );
+            //Debug("quant-dep-dec") << "Require phase " << n << " to be " << polarity << std::endl;
+            //out->requirePhase( n, polarity );
           }
         }
-        InstConstantAttribute icai;
-        n.setAttribute(icai,fa);
+        InstConstantAttribute ica;
+        n.setAttribute(ica,fa);
       }
     }
+  }
+}
+
+void InstantiationEngine::setInstantiationLevel( Node n, int level ){
+  if( !n.hasAttribute(InstLevelAttribute()) ){
+    InstLevelAttribute ila;
+    n.setAttribute(ila,level);
+  }
+  for( int i=0; i<(int)n.getNumChildren(); i++ ){
+    setInstantiationLevel( n[i], level );
   }
 }

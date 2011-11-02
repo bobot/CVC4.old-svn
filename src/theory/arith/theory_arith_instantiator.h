@@ -23,6 +23,8 @@
 #include "theory/instantiation_engine.h"
 #include "theory/arith/arithvar_node_map.h"
 
+#include "util/stats.h"
+
 namespace CVC4 {
 namespace theory {
 namespace arith {
@@ -59,6 +61,15 @@ private:
   void process( Node f, int effort );
   /** get delta for node */
   Node getDelta( Node n );
+
+  class Statistics {
+  public:
+    IntStat d_instantiations;
+    IntStat d_instantiations_minus;
+    Statistics();
+    ~Statistics();
+  };
+  Statistics d_statistics;
 };/* class InstantiatiorTheoryArith  */
 
 }

@@ -22,6 +22,8 @@
 
 #include "theory/instantiation_engine.h"
 
+#include "util/stats.h"
+
 namespace CVC4 {
 namespace theory {
 namespace quantifiers {
@@ -41,6 +43,14 @@ public:
 private:
   /** process at effort */
   void process( Node f, int effort );
+
+  class Statistics {
+  public:
+    IntStat d_instantiations;
+    Statistics();
+    ~Statistics();
+  };
+  Statistics d_statistics;
 };/* class InstantiatiorTheoryArith  */
 
 }

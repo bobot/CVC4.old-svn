@@ -63,8 +63,20 @@ void InstantiatorTheoryQuantifiers::process( Node f, int effort ){
     //add random addition
     if( isOwnerOf( f ) ){
       InstMatch m( f, d_instEngine );
-      d_instEngine->addInstantiation( &m );
+      if( d_instEngine->addInstantiation( &m ) ){
+        ++(d_statistics.d_instantiations);
+      }
     }
   }
+}
+
+InstantiatorTheoryQuantifiers::Statistics::Statistics():
+  d_instantiations("InstantiatorTheoryQuantifiers::Total Instantiations", 0)
+{
+  StatisticsRegistry::registerStat(&d_instantiations);
+}
+
+InstantiatorTheoryQuantifiers::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_instantiations);
 }
 

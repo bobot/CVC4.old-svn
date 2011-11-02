@@ -157,7 +157,9 @@ void TheoryQuantifiers::check(Effort e) {
       }
     }
     if( quantActive ){  
-      static bool enableLimit = true;
+      //std::cout << "unknown ";
+      //exit( 9 );
+      static bool enableLimit = true; 
       static int limitInst = 20;
       bool doInst = true;
       if( enableLimit && d_numInstantiations.get()==limitInst ){
@@ -169,13 +171,15 @@ void TheoryQuantifiers::check(Effort e) {
         d_numInstantiations.set( d_numInstantiations.get() + 1 );
         //Debug("quantifiers") << "Done instantiation " << d_numInstantiations.get() << "." << std::endl;
       }else{
-        std::cout << "unknown" << std::endl;
-        exit( 7 );
-        Debug("quantifiers") << "No instantiation given." << std::endl;
 #if 1
-          d_out->setIncomplete();
+        std::cout << "unknown ";
+        exit( 7 );
+#elif 0
+        Debug("quantifiers") << "No instantiation given, return unknown." << std::endl;
+        d_out->setIncomplete();
 #else
-        if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
+        Debug("quantifiers") << "No instantiation given, flip decision." << std::endl;
+        //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
           //instantiation did not add a lemma to d_out, try to flip a previous decision
           if( !d_out->flipDecision() ){
             //maybe restart?
@@ -190,10 +194,11 @@ void TheoryQuantifiers::check(Effort e) {
           }else{
             Debug("quantifiers") << "Flipped decision." << std::endl;
           }
-        }
+        //}
 #endif
-      }
+      } 
     }else{
+      //std::cout << "Quantifiers approves sat." << std::endl;
       Debug("quantifiers") << "No quantifier is active." << std::endl;
     }
   }
@@ -205,8 +210,7 @@ void TheoryQuantifiers::assertUniversal( Node n ){
     if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
       //counterexample instantiate, add lemma
       std::vector< Node > inst_constants;
-      Node body;
-      d_instEngine->getInstantiationConstantsFor( n, inst_constants, body );
+      Node body = d_instEngine->getCounterexampleBody( n );
       //get the counterexample literal
       //Node cel = d_instEngine->getCounterexampleLiteralFor( n );
       Node cel = d_valuation.ensureLiteral( body.notNode() );

@@ -35,6 +35,9 @@ class SmtEngine;
 struct InstConstantAttributeId {};
 typedef expr::Attribute<InstConstantAttributeId, Node> InstConstantAttribute;
 
+struct InstLevelAttributeId {};
+typedef expr::Attribute<InstLevelAttributeId, uint64_t> InstLevelAttribute;
+
 namespace theory {
 
 class InstantiationEngine;
@@ -201,6 +204,8 @@ private:
   std::map< Node, Node > d_counterexamples;
   /** map from universal quantifiers to their counterexample body */
   std::map< Node, Node > d_counterexample_body;
+  /** is clausal */
+  std::map< Node, bool > d_is_clausal;
   /** map from quantifiers to whether they are active */
   BoolMap d_active;
   /** map from instantiation constants to whether they are active */
@@ -220,6 +225,8 @@ private:
   bool addPartialInstantiation( InstMatch& m, Instantiator* i );
   /** process partial instantiations */
   void processPartialInstantiations();
+  /** set instantiation level */
+  void setInstantiationLevel( Node n, int level );
 public:
   InstantiationEngine(context::Context* c, TheoryEngine* te);
   ~InstantiationEngine();
@@ -236,8 +243,8 @@ public:
   /** split on node n */
   bool addSplit( Node n );
 
-  /** get the instantiation constants for quantifier f, and ce body ~f[e/x] */
-  void getInstantiationConstantsFor( Node f, std::vector< Node >& ics, Node& cebody );
+  /** get the ce body ~f[e/x] */
+  Node getCounterexampleBody( Node f );
   /** get the skolem constants for quantifier f */
   void getSkolemConstantsFor( Node f, std::vector< Node >& scs );
   /** get the quantified variables for quantifier f */
@@ -259,6 +266,16 @@ public:
   int getStatus() { return d_status; }
   /** has added lemma */
   bool hasAddedLemma() { return d_addedLemma; }
+
+  //class Statistics {
+  //public:
+  //  IntStat d_instantiation_rounds;
+  //  IntStat d_instantiations;
+  //  IntStat d_splits;
+  //  Statistics();
+  //  ~Statistics();
+  //};
+  //Statistics d_statistics;
 };/* class InstantiationEngine */
 
 }/* CVC4::theory namespace */

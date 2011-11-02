@@ -30,6 +30,8 @@ using namespace CVC4::theory::quantifiers;
 bool QuantifiersRewriter::isClause( Node n ){
   if( isLiteral( n ) ){
     return true;
+  }else if( n.getKind()==NOT ){
+    return isCube( n[0] );
   }else if( n.getKind()==OR ){
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
       if( !isClause( n[i] ) ){
@@ -69,6 +71,8 @@ bool QuantifiersRewriter::isLiteral( Node n ){
 bool QuantifiersRewriter::isCube( Node n ){
   if( isLiteral( n ) ){
     return true;
+  }else if( n.getKind()==NOT ){
+    return isClause( n[0] );
   }else if( n.getKind()==AND ){
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
       if( !isCube( n[i] ) ){
@@ -246,11 +250,13 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
       }
       newArgs.insert( newArgs.end(), args.begin(), args.end() );
       return mkForAll( newArgs, body[ body.getNumChildren()-1 ] );
-    }else if( !isNested ){
+    }else if( !isNested && !isClause( body ) ){
+      NodeBuilder<> body_split(kind::OR);
+      Node newBody = body;
       if( body.getKind()==NOT ){
         //push not downwards
         if( body[0].getKind()==NOT ){
-          return rewriteQuant( args, body[0][0], defs, isNested );
+          return rewriteQuant( args, body[0][0], defs );
         }else if( body[0].getKind()==AND ){
 #ifdef QUANTIFIERS_REWRITE_PUSH_OUT_GROUND_SUBFORMULAS
           NodeBuilder<> t(kind::OR);
@@ -258,14 +264,14 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
             t <<  body[0][i].notNode();
           }
           Node quant = t;
-          return rewriteQuant( args, quant, defs, isNested );
+          return rewriteQuant( args, quant, defs );
 #endif
         }else if( body[0].getKind()==OR || body[0].getKind()==IMPLIES ){
 #ifdef QUANTIFIERS_REWRITE_SPLIT_AND
           NodeBuilder<> t(kind::AND);
           for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
             Node trm = ( body[0].getKind()==IMPLIES && i==0 ) ? body[0][i] : body[0][i].notNode();
-            t << rewriteQuant( args, trm, defs, isNested );
+            t << rewriteQuant( args, trm, defs );
           }
           Node retVal = t;
           return retVal;
@@ -274,11 +280,11 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
 #ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
           if( body[0].getKind()==IFF || body[0].getKind()==EQUAL ){
             Assert( body[0][0].getType()==NodeManager::currentNM()->booleanType() );
-            return rewriteQuant( args, NodeManager::currentNM()->mkNode( body[0].getKind(), body[0][0], body[0][1].notNode() ), defs, isNested );
+            return rewriteQuant( args, NodeManager::currentNM()->mkNode( body[0].getKind(), body[0][0], body[0][1].notNode() ), defs );
           }else if( body[0].getKind()==XOR ){
-            return rewriteQuant( args, NodeManager::currentNM()->mkNode( XOR, body[0][0], body[0][1].notNode() ), defs, isNested );
+            return rewriteQuant( args, NodeManager::currentNM()->mkNode( XOR, body[0][0], body[0][1].notNode() ), defs );
           }else if( body[0].getKind()==ITE ){
-            return rewriteQuant( args, NodeManager::currentNM()->mkNode( ITE, body[0][0], body[0][1].notNode(), body[0][2].notNode() ), defs, isNested );
+            return rewriteQuant( args, NodeManager::currentNM()->mkNode( ITE, body[0][0], body[0][1].notNode(), body[0][2].notNode() ), defs );
           }
 #endif
         }
@@ -287,45 +293,48 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
         //break apart
         NodeBuilder<> t(kind::AND);
         for( int i=0; i<(int)body.getNumChildren(); i++ ){
-          t << rewriteQuant( args, body[i], defs, isNested );
+          t << rewriteQuant( args, body[i], defs );
         }
         Node retVal = t;
         return retVal;
 #endif
       }else if( body.getKind()==OR || body.getKind()==IMPLIES ){
 #ifdef QUANTIFIERS_REWRITE_PUSH_OUT_GROUND_SUBFORMULAS
-        NodeBuilder<> t(kind::OR);
         NodeBuilder<> tb(kind::OR);
         for( int i=0; i<(int)body.getNumChildren(); i++ ){
           Node trm = ( body.getKind()==IMPLIES && i==0 ) ? body[i].notNode() : body[i];
           if( hasArg( args, body[i] ) ){
             tb << trm;
           }else{
-            t << trm;
+            body_split << trm;
           }
         }
-        Node newBody = tb;
-        t << mkForAll( args, newBody );
-        Node retVal = t.getNumChildren()==1 ? t.getChild( 0 ) : t;
-        return retVal;
+        newBody = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
 #endif
       }else{
 #ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
         if( body.getKind()==IFF || body.getKind()==EQUAL ){
-          Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[0], body[1] ), defs, isNested );
-          Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[1], body[0] ), defs, isNested );
+          Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[0], body[1] ), defs );
+          Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[1], body[0] ), defs );
           return NodeManager::currentNM()->mkNode( AND, n1, n2 );
         }else if( body.getKind()==XOR ){
           Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, isNested );
-          Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[1].notNode() ), defs, isNested );
+          Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[1].notNode() ), defs );
           return NodeManager::currentNM()->mkNode( AND, n1, n2 );
         }else if( body.getKind()==ITE ){
           Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, isNested );
-          Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[2] ), defs, isNested );
+          Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[2] ), defs );
           return NodeManager::currentNM()->mkNode( AND, n1, n2 );
         }
 #endif
       }
+      //if( !isNested && !isClause( newBody ) ){
+      //  std::cout << "non-clausal " << body;
+      //  exit( 8 );
+      //}
+      body_split << mkForAll( args, newBody );
+      Node retVal = body_split.getNumChildren()==1 ? body_split.getChild( 0 ) : body_split;
+      return retVal;
     }
     return mkForAll( args, body );
   }

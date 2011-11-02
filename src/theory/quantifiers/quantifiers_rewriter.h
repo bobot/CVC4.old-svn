@@ -32,11 +32,11 @@ struct NestedQuantAttributeId {};
 typedef expr::Attribute<NestedQuantAttributeId, Node> NestedQuantAttribute;
 
 class QuantifiersRewriter {
-private:
+public:
   static bool isClause( Node n );
   static bool isLiteral( Node n );
   static bool isCube( Node n );
-
+private:
   static void computeArgs( std::map< Node, bool >& active, Node n );
   static void computeArgs( std::vector< Node >& args, std::vector< Node >& activeArgs, Node n );
   static Node mkForAll( std::vector< Node >& args, Node n );
@@ -110,7 +110,7 @@ public:
   /** returns a literal, writes new quantifier definitions into nb */
   //static Node mkPredicate( std::vector< Node >& args, Node body, NodeBuilder<>& defs );
 
-  static Node rewriteQuant( std::vector< Node >& args, Node body, NodeBuilder<>& defs, bool isNested, 
+  static Node rewriteQuant( std::vector< Node >& args, Node body, NodeBuilder<>& defs, bool isNested = false, 
                             bool isExists = false );
 
 };/* class QuantifiersRewriter */

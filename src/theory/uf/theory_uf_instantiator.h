@@ -26,6 +26,8 @@
 #include "context/cdlist.h"
 #include "context/cdlist_context_memory.h"
 
+#include "util/stats.h"
+
 namespace CVC4 {
 namespace theory {
 namespace uf {
@@ -72,6 +74,8 @@ public:
   /** maximum number of splits allowed for conditional unification */
   static int d_splitThreshold;
   static bool d_useSplitThreshold;
+  static uint64_t d_instLevelThreshold;
+  static bool d_useInstLevelThreshold;
   /** reset all */
   static void resetAssigned();
   static void indent( const char* c, int ind );
@@ -107,6 +111,8 @@ protected:
   UIterator* getMaster() { return d_t==Node::null() ? this : d_iter[d_operation][d_t][d_s][0]; }
   /** clear this iterator (make fresh) */
   void clear();
+  /** whether to accept a match */
+  bool acceptMatch( InstMatch* m );
 protected:
   /** calculate the children vector */
   void calcChildren();
@@ -257,6 +263,16 @@ private:
   /** add split equality */
   bool addSplitEquality( Node n1, Node n2, bool reqPhase = false, bool reqPhasePol = true );
 
+  class Statistics {
+  public:
+    IntStat d_instantiations;
+    IntStat d_instantiations_ce_solved;
+    IntStat d_instantiations_e_induced;
+    IntStat d_splits;
+    Statistics();
+    ~Statistics();
+  };
+  Statistics d_statistics;
 };/* class InstantiatorTheoryUf */
 
 }

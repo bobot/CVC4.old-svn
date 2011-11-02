@@ -26,6 +26,7 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
 #define ARITH_INSTANTIATOR_USE_DELTA
+#define ARITH_INSTANTIATOR_USE_MINUS_DELTA
 #define ARITH_INSTANTIATOR_STRONG_DELTA_LEMMA
 
 InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th) :
@@ -35,7 +36,7 @@ Instantiator( c, ie, th ){
 
 void InstantiatorTheoryArith::check( Node assertion ){
   Debug("quant-arith-assert") << "InstantiatorTheoryArith::check: " << assertion << std::endl;
-}
+} 
 
 void InstantiatorTheoryArith::resetInstantiation(){
   d_instRows.clear();
@@ -175,9 +176,10 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
       DeltaRational dr = ((TheoryArith*)getTheory())->d_partialModel.getAssignment( x );
       Node beta = NodeManager::currentNM()->mkConst( dr.getNoninfinitesimalPart() );
 #ifdef ARITH_INSTANTIATOR_USE_DELTA
+      Node delta;
       if( dr.getInfinitesimalPart()!=0 ){
-        Node delta = NodeManager::currentNM()->mkNode( MULT, getDelta( d_ceTableaux[x].begin()->first ),
-                                                        NodeManager::currentNM()->mkConst( dr.getInfinitesimalPart() ) );
+        delta = NodeManager::currentNM()->mkNode( MULT, getDelta( d_ceTableaux[x].begin()->first ),
+                                                  NodeManager::currentNM()->mkConst( dr.getInfinitesimalPart() ) );
         beta = NodeManager::currentNM()->mkNode( PLUS, beta, delta );
       }
 #endif
@@ -209,22 +211,36 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
         }
         term = plus_term;
       }
-      Node instVal = NodeManager::currentNM()->mkNode( MINUS, beta, term );
       Rational value(1);
       Node coeff = NodeManager::currentNM()->mkConst( value / d_ceTableaux[x].begin()->second.getConst<Rational>() );
+
+      Node instVal = NodeManager::currentNM()->mkNode( MINUS, beta, term );
       instVal = NodeManager::currentNM()->mkNode( MULT, coeff, instVal );
       instVal = Rewriter::rewrite( instVal );
       Debug("quant-arith") << "   Suggest " << instVal << " for " << d_ceTableaux[x].begin()->first << std::endl;
       InstMatch m( f, d_instEngine );
-      //for( int k=0; k<(int)d_instEngine->d_inst_constants[f].size(); k++ ){
-      //  if( d_instEngine->d_inst_constants[f][k].getType()==NodeManager::currentNM()->integerType() ||
-      //     d_instEngine->d_inst_constants[f][k].getType()==NodeManager::currentNM()->realType() ){
-      //    Rational z(0);
-      //    m.setMatch( d_instEngine->d_inst_constants[f][k], NodeManager::currentNM()->mkConst( z ) );
-      //  }
-      //}
       m.setMatch( d_ceTableaux[x].begin()->first, instVal );
-      d_instEngine->addInstantiation( &m );
+      if( !d_instEngine->addInstantiation( &m ) ){
+#ifdef ARITH_INSTANTIATOR_USE_MINUS_DELTA
+        if( dr.getInfinitesimalPart()!=0 ){
+          //try for minus as well
+          Node beta2 = NodeManager::currentNM()->mkConst( dr.getNoninfinitesimalPart() );
+          beta2 = NodeManager::currentNM()->mkNode( MINUS, beta, delta );
+          instVal = NodeManager::currentNM()->mkNode( MINUS, beta2, term );
+          instVal = NodeManager::currentNM()->mkNode( MULT, coeff, instVal );
+          instVal = Rewriter::rewrite( instVal );
+          Debug("quant-arith") << "   Suggest " << instVal << " for " << d_ceTableaux[x].begin()->first << std::endl;
+          InstMatch m2( f, d_instEngine );
+          m2.setMatch( d_ceTableaux[x].begin()->first, instVal );
+          if( d_instEngine->addInstantiation( &m2 ) ){
+            ++(d_statistics.d_instantiations_minus);
+            ++(d_statistics.d_instantiations);
+          }
+        }
+#endif
+      }else{
+        ++(d_statistics.d_instantiations);
+      }
     }
   }
 }
@@ -246,4 +262,17 @@ Node InstantiatorTheoryArith::getDelta( Node n ){
     return delta;
   }
   return it->second;
+}
+
+InstantiatorTheoryArith::Statistics::Statistics():
+  d_instantiations("InstantiatorTheoryArith::Total Instantiations", 0),
+  d_instantiations_minus("InstantiatorTheoryArith::Instantiations minus delta", 0)
+{
+  StatisticsRegistry::registerStat(&d_instantiations);
+  StatisticsRegistry::registerStat(&d_instantiations_minus);
+}
+
+InstantiatorTheoryArith::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_instantiations);
+  StatisticsRegistry::unregisterStat(&d_instantiations_minus);
 }
