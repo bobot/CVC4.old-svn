@@ -113,6 +113,14 @@ void CvcPrinter::toStream(std::ostream& out, TNode n,
         Unhandled(tc);
       }
       break;
+
+    case kind::SUBRANGE_TYPE:
+      out << '[' << n.getConst<SubrangeBounds>() << ']';
+      break;
+    case kind::SUBTYPE_TYPE:
+      out << "SUBTYPE(" << n.getConst<Predicate>() << ")";
+      break;
+
     case kind::BUILTIN:
       switch(Kind k = n.getConst<Kind>()) {
       case kind::EQUAL: out << '='; break;

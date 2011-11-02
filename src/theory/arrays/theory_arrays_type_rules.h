@@ -35,6 +35,9 @@ struct ArraySelectTypeRule {
         throw TypeCheckingExceptionPrivate(n, "array select operating on non-array");
       }
       TypeNode indexType = n[1].getType(check);
+Debug("arrays") << "index type: " << indexType << std::endl;
+Debug("arrays") << "array type: " << arrayType << std::endl;
+Debug("arrays") << "array index type: " << arrayType.getArrayIndexType() << std::endl;
       if(arrayType.getArrayIndexType() != indexType) {
         throw TypeCheckingExceptionPrivate(n, "array select not indexed with correct type for array");
       }

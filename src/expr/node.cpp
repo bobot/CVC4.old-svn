@@ -36,7 +36,7 @@ TypeCheckingExceptionPrivate::~TypeCheckingExceptionPrivate() throw () {
 }
 
 void TypeCheckingExceptionPrivate::toStream(std::ostream& os) const {
-  os << "Error type-checking " << d_node << ": " << d_msg << std::endl << *d_node;
+  os << "Error during type checking: " << d_msg << std::endl << *d_node << endl << "The ill-typed expression: " << *d_node;
 }
 
 Node TypeCheckingExceptionPrivate::getNode() const {

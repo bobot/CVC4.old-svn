@@ -838,12 +838,6 @@ NodeManager::mkFunctionType(const std::vector<TypeNode>& sorts) {
   for (unsigned i = 0; i < sorts.size(); ++ i) {
     CheckArgument(!sorts[i].isFunctionLike(), sorts,
                   "cannot create higher-order function types");
-    if(i < sorts.size() - 1) {
-      CheckArgument(!sorts[i].isPredicateSubtype(), sorts,
-                    "cannot use predicate subtypes as the domain of a function type");
-      CheckArgument(!sorts[i].isSubrange(), sorts,
-                    "cannot use integer subranges as the domain of a function type");
-    }
     sortNodes.push_back(sorts[i]);
   }
   return mkTypeNode(kind::FUNCTION_TYPE, sortNodes);
@@ -856,10 +850,6 @@ NodeManager::mkPredicateType(const std::vector<TypeNode>& sorts) {
   for (unsigned i = 0; i < sorts.size(); ++ i) {
     CheckArgument(!sorts[i].isFunctionLike(), sorts,
                   "cannot create higher-order function types");
-    CheckArgument(!sorts[i].isPredicateSubtype(), sorts,
-                  "cannot use predicate subtypes as the domain of a function type");
-    CheckArgument(!sorts[i].isSubrange(), sorts,
-                  "cannot use integer subranges as the domain of a function type");
     sortNodes.push_back(sorts[i]);
   }
   sortNodes.push_back(booleanType());
@@ -874,10 +864,6 @@ inline TypeNode NodeManager::mkTupleType(const std::vector<TypeNode>& types) {
 #if 0
     CheckArgument(!types[i].isFunctionLike(), types,
                   "cannot put function-like types in tuples");
-    CheckArgument(!types[i].isPredicateSubtype(), sorts,
-                  "cannot use predicate subtypes in tuples");
-    CheckArgument(!types[i].isSubrange(), sorts,
-                  "cannot use integer subranges in tuples");
 #endif /* 0 */
     typeNodes.push_back(types[i]);
   }
@@ -890,14 +876,15 @@ inline TypeNode NodeManager::mkBitVectorType(unsigned size) {
 
 inline TypeNode NodeManager::mkArrayType(TypeNode indexType,
                                          TypeNode constituentType) {
-  CheckArgument(!indexType.isFunctionLike(), domain,
+  CheckArgument(!indexType.isNull(), indexType,
+                "unexpected NULL index type");
+  CheckArgument(!constituentType.isNull(), constituentType,
+                "unexpected NULL constituent type");
+  CheckArgument(!indexType.isFunctionLike(), indexType,
                 "cannot index arrays by a function-like type");
-  CheckArgument(!constituentType.isFunctionLike(), domain,
+  CheckArgument(!constituentType.isFunctionLike(), constituentType,
                 "cannot store function-like types in arrays");
-  CheckArgument(!indexType.isPredicateSubtype(), sorts,
-                "cannot index arrays by predicate subtypes");
-  CheckArgument(!indexType.isSubrange(), sorts,
-                "cannot index arrays by integer subranges");
+Debug("arrays") << "making array type " << indexType << " " << constituentType << std::endl;
   return mkTypeNode(kind::ARRAY_TYPE, indexType, constituentType);
 }
 
@@ -906,20 +893,12 @@ inline TypeNode NodeManager::mkSelectorType(TypeNode domain, TypeNode range) {
                 "cannot create higher-order function types");
   CheckArgument(!range.isFunctionLike(), range,
                 "cannot create higher-order function types");
-  CheckArgument(!domain.isPredicateSubtype(), sorts,
-                "cannot use predicate subtypes as the domain of a function type");
-  CheckArgument(!domain.isSubrange(), sorts,
-                "cannot use integer subranges as the domain of a function type");
   return mkTypeNode(kind::SELECTOR_TYPE, domain, range);
 }
 
 inline TypeNode NodeManager::mkTesterType(TypeNode domain) {
   CheckArgument(!domain.isFunctionLike(), domain,
                 "cannot create higher-order function types");
-  CheckArgument(!domain.isPredicateSubtype(), sorts,
-                "cannot use predicate subtypes as the domain of a function type");
-  CheckArgument(!domain.isSubrange(), sorts,
-                "cannot use integer subranges as the domain of a function type");
   return mkTypeNode(kind::TESTER_TYPE, domain );
 }
 

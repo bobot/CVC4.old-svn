@@ -71,6 +71,37 @@ Node TypeNode::mkGroundTerm() const {
   return kind::mkGroundTerm(*this);
 }
 
+bool TypeNode::isSubtypeOf(TypeNode t) const {
+  if(*this == t) {
+    return true;
+  }
+  if(getKind() == kind::TYPE_CONSTANT) {
+    switch(getConst<TypeConstant>()) {
+    case PSEUDOBOOLEAN_TYPE:
+      return t.getKind() == kind::TYPE_CONSTANT &&
+        ( t.getConst<TypeConstant>() == BOOLEAN_TYPE ||
+          t.getConst<TypeConstant>() == INTEGER_TYPE );
+    case INTEGER_TYPE:
+      return t.getKind() == kind::TYPE_CONSTANT && t.getConst<TypeConstant>() == REAL_TYPE;
+    default:
+      return false;
+    }
+  }
+  if(isSubrange()) {
+    if(t.isSubrange()) {
+      return t.getSubrangeBounds() <= getSubrangeBounds();
+    } else {
+      return t.getKind() == kind::TYPE_CONSTANT &&
+        ( t.getConst<TypeConstant>() == INTEGER_TYPE ||
+          t.getConst<TypeConstant>() == REAL_TYPE );
+    }
+  }
+  if(isPredicateSubtype()) {
+    return getSubtypeBaseType().isSubtypeOf(t);
+  }
+  return false;
+}
+
 Node TypeNode::getSubtypePredicate() const {
   Assert(isPredicateSubtype());
   return Node::fromExpr(getConst<Predicate>());

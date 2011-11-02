@@ -437,6 +437,9 @@ public:
    */
   Node mkGroundTerm() const;
 
+  /** Is this type a subtype of the given type? */
+  bool isSubtypeOf(TypeNode t) const;
+
   /** Is this the Boolean type? */
   bool isBoolean() const;
 

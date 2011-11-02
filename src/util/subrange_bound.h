@@ -78,6 +78,58 @@ public:
     return !(*this == b);
   }
 
+  /**
+   * Is this SubrangeBound "less than" another?  For two
+   * SubrangeBounds that "have bounds," this is defined as expected.
+   * For a finite SubrangeBound b1 and a SubrangeBounds b2 without a
+   * bound, b1 < b2 (but note also that b1 > b2).  This strange
+   * behavior is due to the fact that a SubrangeBound without a bound
+   * is the representation for both +infinity and -infinity.
+   */
+  bool operator<(const SubrangeBound& b) const throw() {
+    return (!hasBound() && b.hasBound()) || (hasBound() && !b.hasBound()) ||
+      ( hasBound() && b.hasBound() && getBound() < b.getBound() );
+  }
+
+  /**
+   * Is this SubrangeBound "less than or equal to" another?  For two
+   * SubrangeBounds that "have bounds," this is defined as expected.
+   * For a finite SubrangeBound b1 and a SubrangeBounds b2 without a
+   * bound, b1 < b2 (but note also that b1 > b2).  This strange
+   * behavior is due to the fact that a SubrangeBound without a bound
+   * is the representation for both +infinity and -infinity.
+   */
+  bool operator<=(const SubrangeBound& b) const throw() {
+    return !hasBound() || !b.hasBound() ||
+      ( hasBound() && b.hasBound() && getBound() <= b.getBound() );
+  }
+
+  /**
+   * Is this SubrangeBound "greater than" another?  For two
+   * SubrangeBounds that "have bounds," this is defined as expected.
+   * For a finite SubrangeBound b1 and a SubrangeBounds b2 without a
+   * bound, b1 > b2 (but note also that b1 < b2).  This strange
+   * behavior is due to the fact that a SubrangeBound without a bound
+   * is the representation for both +infinity and -infinity.
+   */
+  bool operator>(const SubrangeBound& b) const throw() {
+    return (!hasBound() && b.hasBound()) || (hasBound() && !b.hasBound()) ||
+      ( hasBound() && b.hasBound() && getBound() < b.getBound() );
+  }
+
+  /**
+   * Is this SubrangeBound "greater than or equal to" another?  For
+   * two SubrangeBounds that "have bounds," this is defined as
+   * expected.  For a finite SubrangeBound b1 and a SubrangeBounds b2
+   * without a bound, b1 > b2 (but note also that b1 < b2).  This
+   * strange behavior is due to the fact that a SubrangeBound without
+   * a bound is the representation for both +infinity and -infinity.
+   */
+  bool operator>=(const SubrangeBound& b) const throw() {
+    return !hasBound() || !b.hasBound() ||
+      ( hasBound() && b.hasBound() && getBound() <= b.getBound() );
+  }
+
 };/* class SubrangeBound */
 
 class CVC4_PUBLIC SubrangeBounds {
@@ -96,6 +148,48 @@ public:
 
   bool operator==(const SubrangeBounds& bounds) const {
     return lower == bounds.lower && upper == bounds.upper;
+  }
+
+  bool operator!=(const SubrangeBounds& bounds) const {
+    return !(*this == bounds);
+  }
+
+  /**
+   * Is this pair of SubrangeBounds "less than" (contained inside) the
+   * given pair of SubrangeBounds?  Think of this as a subtype
+   * relation, e.g., [0,2] < [0,3]
+   */
+  bool operator<(const SubrangeBounds& bounds) const {
+    return (lower > bounds.lower && upper <= bounds.upper) ||
+      (lower >= bounds.lower && upper < bounds.upper);
+  }
+
+  /**
+   * Is this pair of SubrangeBounds "less than or equal" (contained
+   * inside) the given pair of SubrangeBounds?  Think of this as a
+   * subtype relation, e.g., [0,2] < [0,3]
+   */
+  bool operator<=(const SubrangeBounds& bounds) const {
+    return lower >= bounds.lower && upper <= bounds.upper;
+  }
+
+  /**
+   * Is this pair of SubrangeBounds "greater than" (does it contain)
+   * the given pair of SubrangeBounds?  Think of this as a supertype
+   * relation, e.g., [0,3] > [0,2]
+   */
+  bool operator>(const SubrangeBounds& bounds) const {
+    return (lower < bounds.lower && upper >= bounds.upper) ||
+      (lower <= bounds.lower && upper > bounds.upper);
+  }
+
+  /**
+   * Is this pair of SubrangeBounds "greater than" (does it contain)
+   * the given pair of SubrangeBounds?  Think of this as a supertype
+   * relation, e.g., [0,3] > [0,2]
+   */
+  bool operator>=(const SubrangeBounds& bounds) const {
+    return lower <= bounds.lower && upper >= bounds.upper;
   }
 
 };/* class SubrangeBounds */
