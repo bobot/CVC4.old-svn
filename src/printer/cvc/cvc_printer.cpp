@@ -89,7 +89,11 @@ void CvcPrinter::toStream(std::ostream& out, TNode n,
       break;
     case kind::CONST_RATIONAL: {
       const Rational& rat = n.getConst<Rational>();
-      out << '(' << rat.getNumerator() << '/' << rat.getDenominator() << ')';
+      if(rat.getDenominator() == 1) {
+        out << rat.getNumerator();
+      } else {
+        out << '(' << rat.getNumerator() << '/' << rat.getDenominator() << ')';
+      }
       break;
     }
     case kind::TYPE_CONSTANT:
