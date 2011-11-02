@@ -331,6 +331,7 @@ d_ic_active( c ){
 
 bool InstantiationEngine::addLemma( Node lem ){
   //AJR: the following check is necessary until FULL_CHECK is guarenteed after d_out->lemma(...)
+  Debug("inst-engine-debug") << "Adding lemma : " << lem << std::endl;
   lem = Rewriter::rewrite(lem);
   if( d_lemmas_produced.find( lem )==d_lemmas_produced.end() ){
     d_addedLemma = true;
