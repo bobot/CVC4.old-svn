@@ -389,7 +389,8 @@ Lit Solver::pickBranchLit()
 |      * returns the maximal level of the resolved clauses
 |  
 |________________________________________________________________________________________________@*/
-int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
+int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel,
+		    bool &loc_derived, bool &imp_derived)
 {
     int pathC = 0;
     Lit p     = lit_Undef;
@@ -404,6 +405,9 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
     do{
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
+
+        loc_derived |= c.input() || c.loc_derived();
+        imp_derived |= c.imported() || c.imp_derived();
 
         if (c.level() > max_level) {
           max_level = c.level();
@@ -434,6 +438,8 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
 
     }while (pathC > 0);
     out_learnt[0] = ~p;
+
+    Assert(loc_derived || imp_derived);   //must be a derived clause
 
     // Simplify conflict clause:
     int i, j;
@@ -911,15 +917,16 @@ lbool Solver::search(int nof_conflicts)
           if (decisionLevel() == 0) return l_False;
 
             // Analyze the conflict
+            bool loc_derived = false, imp_derived = false;
             learnt_clause.clear();
-            int max_level = analyze(confl, learnt_clause, backtrack_level);
+            int max_level = analyze(confl, learnt_clause, backtrack_level, loc_derived, imp_derived);
             cancelUntil(backtrack_level);
 
             // Assert the conflict clause and the asserting literal
             if (learnt_clause.size() == 1) {
                 uncheckedEnqueue(learnt_clause[0]);
             } else {
-                CRef cr = ca.alloc(max_level, learnt_clause, true);
+  	        CRef cr = ca.alloc(max_level, learnt_clause, true, false, loc_derived, imp_derived);
                 clauses_removable.push(cr);
                 attachClause(cr);
                 claBumpActivity(ca[cr]);

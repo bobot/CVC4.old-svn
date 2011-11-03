@@ -337,7 +337,8 @@ protected:
     CRef     updateLemmas     ();                                                      // Add the lemmas, backtraking if necessary and return a conflict if there is one
     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
     void     popTrail         ();                                                      // Backtrack the trail to the previous push position
-    int      analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel);    // (bt = backtrack)
+    int      analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel,     // (bt = backtrack)
+			       bool &loc_derived, bool &imp_derived);             
     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
     int      litRedundant     (Lit p, uint32_t abstract_levels);                       // (helper method for 'analyze()') - returns the maximal level of the clauses proving redundancy of p
     lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
