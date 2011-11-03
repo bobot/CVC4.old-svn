@@ -91,7 +91,7 @@ void PropEngine::assertFormula(TNode node) {
   d_cnfStream->convertAndAssert(d_theoryEngine->preprocess(node), false, false);
 }
 
-void PropEngine::assertLemma(TNode node, bool negated, bool removable) {
+void PropEngine::assertLemma(TNode node, bool negated, bool removable, bool imported) {
   //Assert(d_inCheckSat, "Sat solver should be in solve()!");
   Debug("prop::lemmas") << "assertLemma(" << node << ")" << endl;
 
@@ -103,7 +103,7 @@ void PropEngine::assertLemma(TNode node, bool negated, bool removable) {
 
   //TODO This comment is now false
   // Assert as removable
-  d_cnfStream->convertAndAssert(node, removable, negated);
+  d_cnfStream->convertAndAssert(node, removable, negated, imported);
 }
 
 void PropEngine::printSatisfyingAssignment(){

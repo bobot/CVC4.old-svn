@@ -138,17 +138,17 @@ class Clause {
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
-    Clause(const V& ps, bool use_extra, bool removable, int level) {
+    Clause(const V& ps, bool use_extra, bool removable, bool imported, 
+	   bool loc_derived, bool imp_derived, int level) {
         header.mark      = 0;
         header.removable = removable;
         header.has_extra = use_extra;
+        header.imported    = imported;
+        header.loc_derived = loc_derived;
+        header.imp_derived = imp_derived;
         header.reloced   = 0;
         header.size      = ps.size();
         header.level     = level;
-
-	header.imported    = 0;
-	header.loc_derived = 0;
-	header.imp_derived = 0;
 
         for (int i = 0; i < ps.size(); i++) 
             data[i].lit = ps[i];
@@ -223,14 +223,15 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::moveTo(to); }
 
     template<class Lits>
-    CRef alloc(int level, const Lits& ps, bool removable = false)
+    CRef alloc(int level, const Lits& ps, bool removable = false,
+	       bool imported = false, bool loc_derived = false, bool imp_derived = false)
     {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         bool use_extra = removable | extra_clause_field;
 
         CRef cid = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), use_extra));
-        new (lea(cid)) Clause(ps, use_extra, removable, level);
+        new (lea(cid)) Clause(ps, use_extra, removable, level, imported, loc_derived, imp_derived);
 
         return cid;
     }

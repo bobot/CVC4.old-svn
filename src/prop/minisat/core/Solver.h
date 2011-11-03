@@ -142,13 +142,15 @@ public:
     void unregisterVar(Lit lit); // Unregister the literal (set assertion level to -1)
     void renewVar(Lit lit, int level = -1); // Register the literal (set assertion level to the given level, or current level if -1)
 
-    bool    addClause (const vec<Lit>& ps, bool removable);                     // Add a clause to the solver.
-    bool    addEmptyClause(bool removable);                                     // Add the empty clause, making the solver contradictory.
-    bool    addClause (Lit p, bool removable);                                  // Add a unit clause to the solver.
-    bool    addClause (Lit p, Lit q, bool removable);                           // Add a binary clause to the solver.
-    bool    addClause (Lit p, Lit q, Lit r, bool removable);                    // Add a ternary clause to the solver.
-    bool    addClause_(      vec<Lit>& ps, bool removable);                     // Add a clause to the solver without making superflous internal copy. Will
-                                                                                 // change the passed vector 'ps'.
+    bool    addClause (const vec<Lit>& ps, bool removable, bool imported = false);  // Add a clause to the solver.
+    bool    addEmptyClause(bool removable);                                         // Add the empty clause, making the solver contradictory.
+    bool    addClause (Lit p, bool removable, bool imported = false);               // Add a unit clause to the solver.
+    bool    addClause (Lit p, Lit q, bool removable, bool imported = false);        // Add a binary clause to the solver.
+    bool    addClause (Lit p, Lit q, Lit r, bool removable, bool imported = false); // Add a ternary clause to the solver.
+
+    // Add a clause to the solver without making superflous internal copy. Will change the passed vector 'ps'.
+    bool    addClause_(vec<Lit>& ps, bool removable, bool imported = false);
+                                                                                 
 
     // Solving:
     //
@@ -440,11 +442,11 @@ inline void Solver::checkGarbage(double gf){
 
 // NOTE: enqueue does not set the ok flag! (only public methods do)
 inline bool     Solver::enqueue         (Lit p, CRef from)      { return value(p) != l_Undef ? value(p) != l_False : (uncheckedEnqueue(p, from), true); }
-inline bool     Solver::addClause       (const vec<Lit>& ps, bool removable)    { ps.copyTo(add_tmp); return addClause_(add_tmp, removable); }
+inline bool     Solver::addClause       (const vec<Lit>& ps, bool removable, bool imported)    { ps.copyTo(add_tmp); return addClause_(add_tmp, removable, imported); }
 inline bool     Solver::addEmptyClause  (bool removable)                        { add_tmp.clear(); return addClause_(add_tmp, removable); }
-inline bool     Solver::addClause       (Lit p, bool removable)                 { add_tmp.clear(); add_tmp.push(p); return addClause_(add_tmp, removable); }
-inline bool     Solver::addClause       (Lit p, Lit q, bool removable)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, removable); }
-inline bool     Solver::addClause       (Lit p, Lit q, Lit r, bool removable)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, removable); }
+inline bool     Solver::addClause       (Lit p, bool removable, bool imported)                 { add_tmp.clear(); add_tmp.push(p); return addClause_(add_tmp, removable,imported); }
+inline bool     Solver::addClause       (Lit p, Lit q, bool removable, bool imported)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, removable, imported); }
+inline bool     Solver::addClause       (Lit p, Lit q, Lit r, bool removable, bool imported)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, removable, imported); }
 inline bool     Solver::locked          (const Clause& c) const { return value(c[0]) == l_True && isPropagatedBy(var(c[0]), c); }
 inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); context->push(); if(Dump.isOn("state")) { Dump("state") << CVC4::PushCommand() << std::endl; } }
 

@@ -188,7 +188,7 @@ public:
    * @param removable whether this lemma can be quietly removed based
    * on an activity heuristic (or not)
    */
-  void assertLemma(TNode node, bool negated, bool removable);
+  void assertLemma(TNode node, bool negated, bool removable, bool imported = false);
 
   /**
    * Checks the current context for satisfiability.

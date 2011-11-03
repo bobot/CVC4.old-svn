@@ -105,7 +105,7 @@ public:
   /** Virtual destructor to make g++ happy */
   virtual ~SatInputInterface() { }
   /** Assert a clause in the solver. */
-  virtual void addClause(SatClause& clause, bool removable) = 0;
+  virtual void addClause(SatClause& clause, bool removable, bool imported = false) = 0;
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
   /** Get the current decision level of the solver */
@@ -220,7 +220,7 @@ public:
 
   SatLiteralValue solve(unsigned long& resource);
 
-  void addClause(SatClause& clause, bool removable);
+  void addClause(SatClause& clause, bool removable, bool imported = false);
 
   SatVariable newVar(bool theoryAtom = false);
 
@@ -318,8 +318,8 @@ inline SatLiteralValue SatSolver::solve(unsigned long& resource) {
   return result;
 }
 
-inline void SatSolver::addClause(SatClause& clause, bool removable) {
-  d_minisat->addClause(clause, removable);
+inline void SatSolver::addClause(SatClause& clause, bool removable, bool imported) {
+  d_minisat->addClause(clause, removable, imported);
 }
 
 inline SatVariable SatSolver::newVar(bool theoryAtom) {

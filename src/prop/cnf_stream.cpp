@@ -76,7 +76,7 @@ void CnfStream::assertClause(TNode node, SatClause& c) {
       }
     }
   }
-  d_satSolver->addClause(c, d_removable);
+  d_satSolver->addClause(c, d_removable, d_imported);
 }
 
 void CnfStream::assertClause(TNode node, SatLiteral a) {
@@ -639,9 +639,10 @@ void TseitinCnfStream::convertAndAssertIte(TNode node, bool negated) {
 // At the top level we must ensure that all clauses that are asserted are
 // not unit, except for the direct assertions. This allows us to remove the
 // clauses later when they are not needed anymore (lemmas for example).
-void TseitinCnfStream::convertAndAssert(TNode node, bool removable, bool negated) {
+void TseitinCnfStream::convertAndAssert(TNode node, bool removable, bool negated, bool imported) {
   Debug("cnf") << "convertAndAssert(" << node << ", removable = " << (removable ? "true" : "false") << ", negated = " << (negated ? "true" : "false") << ")" << endl;
   d_removable = removable;
+  d_imported = imported;
   convertAndAssert(node, negated);
 }
 

@@ -198,7 +198,7 @@ CRef Solver::reason(Var x) {
     return real_reason;
 }
 
-bool Solver::addClause_(vec<Lit>& ps, bool removable)
+bool Solver::addClause_(vec<Lit>& ps, bool removable, bool imported)
 {
     if (!ok) return false;
 
