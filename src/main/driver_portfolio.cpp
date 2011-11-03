@@ -107,7 +107,7 @@ public:
         return;
     }
     ++cnt;
-    Debug("sharing") << d_tag << ": " << lemma << std::endl;
+    Trace("sharing") << d_tag << ": " << lemma << std::endl;
     expr::pickle::Pickle pkl;
     try{
       d_pickler.toPickle(lemma, pkl);
@@ -116,7 +116,7 @@ public:
 	*(Options::current()->out) << "thread #0: " << lemma << endl;
       }
     }catch(expr::pickle::PicklingException& p){
-      Debug("sharing::blocked") << lemma << std::endl;
+      Trace("sharing::blocked") << lemma << std::endl;
     }
   }
 
@@ -139,12 +139,12 @@ public:
   }
 
   bool hasNewLemma(){
-    Debug("lemmaInputChannel") << "hasNewLemma" << endl;
+    Debug("lemmaInputChannel") << d_tag << ": " << "hasNewLemma" << endl;
     return !d_sharedChannel->empty();
   }
 
   Expr getNewLemma() {
-    Debug("lemmaInputChannel") << "getNewLemma" << endl;
+    Debug("lemmaInputChannel") << d_tag << ": " << "getNewLemma" << endl;
     expr::pickle::Pickle pkl = d_sharedChannel->pop();
 
     Expr e = d_pickler.fromPickle(pkl);
