@@ -137,11 +137,11 @@ class SatSolver : public SatInputInterface {
   /** Context we will be using to synchronzie the sat solver */
   context::Context* d_context;
 
+  std::hash_set<Node, NodeHashFunction> d_shared;
+
   /* Pointer to the concrete SAT solver. Including this via the
      preprocessor saves us a level of indirection vs, e.g., defining a
      sub-class for each solver. */
-
-  std::hash_set<Node, NodeHashFunction> d_shared;
 
 #ifdef __CVC4_USE_MINISAT
 

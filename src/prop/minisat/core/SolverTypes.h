@@ -127,7 +127,10 @@ class Clause {
         unsigned removable : 1;
         unsigned has_extra : 1;
         unsigned reloced   : 1;
-        unsigned size      : 27;
+        unsigned imported    : 1; /* set if clause was imported from another thread */
+        unsigned loc_derived : 1; /* set if clause has a local (input) clause in its "reason" ancestry */
+        unsigned imp_derived : 1; /* set if clause has a imported clause in its "reason" ancestry */
+        unsigned size      : 24;
         unsigned level     : 32; }                            header;
     union { Lit lit; float act; uint32_t abs; CRef rel; } data[0];
 
@@ -142,6 +145,10 @@ class Clause {
         header.reloced   = 0;
         header.size      = ps.size();
         header.level     = level;
+
+	header.imported    = 0;
+	header.loc_derived = 0;
+	header.imp_derived = 0;
 
         for (int i = 0; i < ps.size(); i++) 
             data[i].lit = ps[i];
@@ -187,6 +194,11 @@ public:
 
     Lit          subsumes    (const Clause& other) const;
     void         strengthen  (Lit p);
+
+    bool         input       ()      const   { return !(header.imported || header.loc_derived || header.imp_derived); }
+    bool         imported    ()      const   { return header.imported; }
+    bool         loc_derived ()      const   { return header.loc_derived; }
+    bool         imp_derived ()      const   { return header.imp_derived; }
 };
 
 

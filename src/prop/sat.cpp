@@ -94,6 +94,7 @@ void SatSolver::notifyRestart() {
       Debug("shared") << "shared" << std::endl;
       Expr lemma = Options::current()->lemmaInputChannel->getNewLemma();
       Node asNode = lemma.getNode();
+      asNode = theory::Rewriter::rewrite(asNode);
 
       if(d_shared.find(asNode) == d_shared.end()) {
         d_shared.insert(asNode);
@@ -102,7 +103,6 @@ void SatSolver::notifyRestart() {
           if(lemmaCount % 1 == 0) {
             Debug("shared") << "=) " << asNode << std::endl;
           }
-	  asNode = theory::Rewriter::rewrite(asNode);
           d_propEngine->assertLemma(d_theoryEngine->preprocess(asNode), false, true);
         } else {
           Debug("shared") << "=(" << asNode << std::endl;
