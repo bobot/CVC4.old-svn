@@ -22,6 +22,7 @@
 #include "prop/sat.h"
 #include "context/context.h"
 #include "theory/theory_engine.h"
+#include "theory/rewriter.h"
 #include "expr/expr_stream.h"
 
 namespace CVC4 {
@@ -101,6 +102,7 @@ void SatSolver::notifyRestart() {
           if(lemmaCount % 1 == 0) {
             Debug("shared") << "=) " << asNode << std::endl;
           }
+	  asNode = theory::Rewriter::rewrite(asNode);
           d_propEngine->assertLemma(d_theoryEngine->preprocess(asNode), false, true);
         } else {
           Debug("shared") << "=(" << asNode << std::endl;
