@@ -1037,6 +1037,16 @@ normally suggest.  For full details of CLN and its license, please visit
 To build CVC4 with GMP instead (which is covered under the more permissive
 LGPL), configure --without-cln.
 
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+
+Note that CLN is UNSAFE FOR USE in parallel contexts!
+This is the portfolio branch of CVC4, and the result of building with CLN
+will include numerous race conditions on the refcounts internal to CLN.
+
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+
 "
 else
   mplibrary='gmp (LGPL)'
