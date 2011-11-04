@@ -166,6 +166,7 @@ public:
     return *this;
   }
 
+  /*
   Integer operator/(const Integer& y) const {
     return Integer( cln::floor1(d_value, y.d_value) );
   }
@@ -180,6 +181,57 @@ public:
   Integer& operator%=(const Integer& y) {
     d_value = cln::floor2(d_value, y.d_value).remainder;
     return *this;
+  }
+  */
+
+  /**
+   * Return this*(2^pow).
+   */
+  Integer multiplyByPow2(uint32_t pow) const {
+    cln::cl_I ipow(pow);
+    return Integer( d_value << ipow);
+  }
+
+  /** See CLN Documentation. */
+  Integer extractBitRange(uint32_t bitCount, uint32_t low) const {
+    cln::cl_byte range(bitCount, low);
+    return Integer(cln::ldb(d_value, range));
+  }
+
+  /**
+   * Returns the floor(this / y)
+   */
+  Integer floorDivideQuotient(const Integer& y) const {
+    return Integer( cln::floor1(d_value, y.d_value) );
+  }
+
+  /**
+   * Returns r == this - floor(this/y)*y
+   */
+  Integer floorDivideRemainder(const Integer& y) const {
+    return Integer( cln::floor2(d_value, y.d_value).remainder );
+  }
+
+  /**
+   * Returns the ceil(this / y)
+   */
+  Integer ceilingDivideQuotient(const Integer& y) const {
+    return Integer( cln::ceil1(d_value, y.d_value) );
+  }
+
+  /**
+   * Returns the ceil(this / y)
+   */
+  Integer ceilingDivideRemainder(const Integer& y) const {
+    return Integer( cln::ceil2(d_value, y.d_value).remainder );
+  }
+
+  /**
+   * If y divides *this, then exactQuotient returns (this/y)
+   */
+  Integer exactQuotient(const Integer& y) const {
+    Assert(y.divides(*this));
+    return Integer( cln::exquo(d_value, y.d_value) );
   }
 
   /**

@@ -135,6 +135,7 @@ public:
     return *this;
   }
 
+  /*
   Integer operator/(const Integer& y) const {
     return Integer( d_value / y.d_value );
   }
@@ -149,6 +150,73 @@ public:
   Integer& operator%=(const Integer& y) {
     d_value %= y.d_value;
     return *this;
+    }*/
+
+  /**
+   * Return this*(2^pow).
+   */
+  Integer multiplyByPow2(uint32_t pow) const{
+    mpz_class result;
+    mpz_mul_2exp(result.get_mpz_t(), d_value.get_mpz_t(), pow);
+    return Integer( result );
+  }
+
+  /** See GMP Documentation. */
+  Integer extractBitRange(uint32_t bitCount, uint32_t low) const {
+    // bitCount = high-low+1
+    uint32_t high = low + bitCount-1;
+    //— Function: void mpz_fdiv_r_2exp (mpz_t r, mpz_t n, mp_bitcnt_t b)
+    mpz_class rem, div;
+    mpz_fdiv_r_2exp(rem.get_mpz_t(), d_value.get_mpz_t(), high+1);
+    mpz_fdiv_q_2exp(div.get_mpz_t(), d_value.get_mpz_t(), low);
+
+    return Integer(div);
+  }
+
+  /**
+   * Returns the floor(this / y)
+   */
+  Integer floorDivideQuotient(const Integer& y) const {
+    mpz_class q;
+    mpz_fdiv_q(q.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
+    return Integer( q );
+  }
+
+  /**
+   * Returns r == this - floor(this/y)*y
+   */
+  Integer floorDivideRemainder(const Integer& y) const {
+    mpz_class r;
+    mpz_fdiv_r(r.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
+    return Integer( r );
+  }
+
+  /**
+   * Returns the ceil(this / y)
+   */
+  Integer ceilingDivideQuotient(const Integer& y) const {
+    mpz_class q;
+    mpz_cdiv_q(q.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
+    return Integer( q );
+  }
+
+  /**
+   * Returns the ceil(this / y)
+   */
+  Integer ceilingDivideRemainder(const Integer& y) const {
+    mpz_class r;
+    mpz_cdiv_r(r.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
+    return Integer( r );
+  }
+
+  /**
+   * If y divides *this, then exactQuotient returns (this/y)
+   */
+  Integer exactQuotient(const Integer& y) const {
+    Assert(y.divides(*this));
+    mpz_class q;
+    mpz_divexact(q.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
+    return Integer( q );
   }
 
   int sgn() const {
