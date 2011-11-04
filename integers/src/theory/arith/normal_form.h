@@ -11,10 +11,11 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief [[ Add one-line brief description here ]]
+ ** \brief Classes for handling Nodes in arithmetic in a more consistent form.
  **
- ** [[ Add lengthier description here ]]
- ** \todo document this file
+ ** The normal form describes a series of inter related classes for handling Nodes
+ ** in the arithmetic theory in a more consistent form. The rewriter should always
+ ** return nodes in one of these forms.
  **/
 
 #include "cvc4_private.h"
@@ -53,7 +54,7 @@ namespace arith {
  *
  * constant := q | z
  *   where
- *     q.getKind() == kind::CONST_RATIONAL and q.getDenominator() == 1
+ *     q.getKind() == kind::CONST_RATIONAL and q.getDenominator() != 1
  *     z.getKind() == kind::CONST_INTEGER
  *
  * var_list := variable | (* [variable])
@@ -71,11 +72,21 @@ namespace arith {
  *     isStrictlySorted monoOrder [monomial]
  *     forall (\x -> x != 0) [monomial]
  *
- * restricted_cmp := (|><| polynomial constant)
+ * restricted_cmp := (|><| qp c) | (|><| zp d)
  *   where
  *     |><| is GEQ, EQ, or EQ
- *     not (exists constantMonomial (monomialList polynomial))
- *     monomialCoefficient (head (monomialList polynomial)) == 1
+ *     c and d are constants.
+ *
+ *     qp is not integral
+ *     not (exists constantMonomial (monomialList qp))
+ *     monomialCoefficient (head (monomialList qp)) == 1
+ *
+ *     zp is integral
+ *     forall integerMonomial (monomialList zp)
+ *     d is an integer.
+ *     not (exists constantMonomial (monomialList zp))
+ *     gcd (coefficientList zp) == 1
+ *     monomialCoefficient (head (monomialList qp)) >= 0
  *
  * comparison := TRUE | FALSE | restricted_cmp | (not restricted_cmp)
  *
@@ -265,6 +276,10 @@ public:
 
   Rational coerceToRational() const {
     return isInteger() ? integerToRational() : Rational(getRationalValue());
+  }
+
+  Integer coerceDenominator() const {
+    return isInteger() ? Integer(1) : getRationalValue().getDenominator();
   }
 
   bool isZero() const { return isInteger() && (getIntegerValue() == 0); }
@@ -908,7 +923,28 @@ private:
    * "x" can never equal 0.5.  pbComparison(kind::GEQ, "x", 1, result)
    * returns false, since "x" can be >= 1, but could also be less.
    */
-  static bool pbComparison(Kind k, TNode left, const Rational& right, bool& result);
+  //static bool pbComparison(Kind k, TNode left, const Rational& right, bool& result);
+
+  static bool integerNormalFormCheck(const Polynomial& p, const Constant& c){
+    Assert(!p.containsConstant());
+    Assert(p.isIntegral());
+    if(p.isInteger() && c.isInteger()){
+      if(!p.getHead().getConstant().isNegative()){
+        Integer gcd = p.gcd();
+        return gcd == 1;
+      }else{
+        return false;
+      }
+    }else{
+      return false;
+    }
+  }
+  static bool rationalNormalFormCheck(const Polynomial& p){
+    Assert(!p.containsConstant());
+    Assert(!p.isIntegral());
+
+    return p.getHead().getConstant().isOne();
+  }
 
 public:
   Comparison(bool val) :
@@ -922,6 +958,7 @@ public:
     NodeWrapper(toNode(k, l, r)), oper(k), left(l), right(r)
   {
     Assert(isRelationOperator(oper));
+    Assert(isNormalForm());
     Assert(!left.containsConstant());
     Assert(left.getHead().getConstant().isOne());
   }
@@ -931,16 +968,19 @@ public:
   bool isBoolean() const {
     return (oper == kind::CONST_BOOLEAN);
   }
+  bool isEquality() const {
+    return oper == kind::EQUAL;
+  }
 
   bool isNormalForm() const {
     if(isBoolean()) {
       return true;
     } else if(left.containsConstant()) {
       return false;
-    } else if(left.getHead().getConstant().isOne()) {
-      return true;
-    } else {
-      return false;
+    } else if(isIntegral()){
+      return integerNormalFormCheck(left,right);
+    } else{
+      return rationalNormalFormCheck(left);
     }
   }
 
@@ -962,51 +1002,6 @@ public:
   }
 
 };/* class Comparison */
-
-class IntegerEquality : public NodeWrapper {
-private:
-  static Node toNode(const Polynomial& l, const Constant& r){
-    if(l.isConstant()){
-
-    }else{
-      Integer leftLCM = l.denominatorLCM();
-      Integer lcm = r.isInteger()?
-        leftLCM : leftLCM.lcm(r.getRationalValue().getDenominator());
-
-      Constant lcmConstant = Constant::mkConstant(lcm);
-      Polynomial il = l * Monomial(lcmConstant);
-      Constant ir = r * lcmConstant;
-      return NodeManager::currentNM()->mkNode(kind::EQUAL,il.getNode(),ir.getNode());
-    }
-  }
-
-  Polynomial left;
-  Constant right;
-
-public:
-  IntegerEquality(const Polynomial& p, const Constant& c)
-    : NodeWrapper(toNode(p,c)), left(p), right(c)
-  {
-    Assert(getNode().getKind() == kind::EQUAL);
-    Assert(c.isInteger());
-    Assert(!left.containsConstant());
-    Assert(left.isInteger());
-  }
-
-  bool leftGCDDividesRight() const{
-    Integer leftGCD = getLeft().gcd();
-    const Integer& right = getRightValue();
-    return leftGCD.divides(right);
-  }
-
-  const Polynomial& getLeft() const{
-    return left;
-  }
-
-  const Integer& getRightValue() const{
-    return right.getIntegerValue();
-  }
-}; /* class Comparison */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

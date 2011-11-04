@@ -178,7 +178,7 @@ Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutio
       // Skip the non-linear stuff
       if (!m.getVarList().singleton()) continue;
       // Get the minimal one
-      Rational constant = m.getConstant().getValue();
+      Rational constant = m.getConstant().getRationalValue();
       Rational absSconstant = constant > 0 ? constant : -constant;
       if (minVar.isNull() || absSconstant < minConstant) {
         Node var = m.getVarList().getNode();

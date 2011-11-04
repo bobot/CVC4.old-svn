@@ -38,6 +38,8 @@ namespace arith {
 
 class DioSolver {
 private:
+  context::Context* d_context;
+
   typedef uint32_t EquationIndex;
   typedef context::CDExplainDAG::ProofIndex ProofIndex;
 
@@ -46,7 +48,6 @@ private:
   context::CDVector<Node> d_equations;
   context::CDO<EquationIndex> d_equationsBegin;
   context::CDO<EquationIndex> d_equationsEnd;
-  context::CDVector<ProofIndex> d_explanation;
 
   /* Each item should have the form (= int_var [integer sum])
    * This represents a mapping of int_var to integer sum.
@@ -56,6 +57,10 @@ private:
   std::pair<const Integer&,Node> minimumAbsCoefficient(Node sum);
 
   std::pair<Node, Node> quotientSolve(Node sum, Node var, const Integer& a);
+
+  ProofIndex lookProofIndex(Node eq){
+    return d_dioProofs.getProofIndex(eq);
+  }
 
   void processFrontEquation(){
     Assert(d_equationsBegin < d_equationsEnd);
@@ -91,23 +96,56 @@ private:
   void addEquation(Node eq){
     Assert(Comparison::isNormalAtom(eq));
     Comparison cmp = Comparison::parseNormalForm(eq);
+    Assert(cmp.isIntegral());
 
     d_dioProofs.push_fact(eq);
 
-    IntegerEquality ie(cmp.getLeft(), cmp.getRight());
-    if(!ie.leftGCDDividesRight()){
-      d_conflict = eq;
+    EquationIndex eqIndex = d_equationsEnd;
+    d_equations.reserve(eqIndex + 1, Node::null());
+
+    d_dioProofs.push_fact(eq);
+    d_equationsEnd = d_equationsEnd + 1;
+    applyAllSubstitutions(eqIndex);
+  }
+
+  // var |-> poly + c
+  // var = poly + c
+  // -c = poly - var
+  // c = var - poly
+  static Node substituteIntoEq(Node eq, Node vln, Node subEq){
+    Assert(eq.getKind() == kind::EQUAL);
+    Assert(subEq.getKind() == kind::EQUAL);
+    Assert(VarList::normalForm(vln));
+
+    VarList vl = VarList::parseVarList(vln);
+
+    Comparison cmp = Comparison::parseNormalForm(eq);
+    const Polynomial& left = cmp.getLeft();
+    const Constant& right = cmp.getRight();
+
+    Constant coeff = left.findCoefficient(vl);
+
+    if(coeff.isZero()){
+      return eq;
     }else{
 
-      EquationIndex eqIndex = d_equationsEnd;
-      d_equations.reserve(eqIndex + 1);
-      d_explanations.reserve(eqIndex + 1);
-
-      Node newEq =  ie.getNode();
-
-      d_explanations[eqIndex] = d_dioProofs.addFact(eq);
-      d_equationsEnd = d_equationsEnd + 1;
-      applyAllSubstiutions(eqIndex);
+      Comparison sub = Comparison::parseNormalForm(eq);
+      Constant one = left.findCoefficient(vl);
+      // v = p + c
+      // 0 = p + c - v
+      // left = r
+      // left = q + d*v
+      // q + d*v = r
+      // q + d*v + d*0 = r + 0
+      // q + d*v + d*(p + c - v) = r + 0
+      // q + d*v + d*(p + c - v) = r
+      // q + d*v + d*p + d*c - d*v = r
+      // q + d*v + d*p - d*v = r - d*c
+      // left + d*p - d*v = r - d*c
+      // q + d*p = r - d*c
+      Comparison scaledSub = sub.multiplyByConstant(coeff.negate);
+      Comparison newEq = cmp.addEquality(scaledSub);
+      return newEq.getNode();
     }
   }
 
@@ -118,22 +156,18 @@ private:
     Node var = var2Sum[0];
     Node sum = var2Sum[1];
 
-    Node withSub = substituteIntoEq(currEq, var, sum);
-    if(withSub != currEq){
-      d_equations[ei] = withSub;
-      ProofIndex currEqExp = d_explanation[ei];
-      ProofIndex subIdExp = d_explanation[subid];
+    Node newEq = substituteIntoEq(currEq, var, sum);
 
+    if(newEq != currEq){
+      d_equations[ei] = newEq;
+      ProofIndex currEqExp = lookProofIndex(currEq);
+      ProofIndex subIdExp = lookProofIndex(d_equations[subid]);
 
-      Node divideByGCD=...;
-      if(divideByGCD.isNull()){
-        ProofIndex withSubExp = d_dioProofs.push_implication(withSub, currEqExp, subIdExp);
-        d_explanations[ei] = withSubExp;
-        d_conflict = d_dioProofs.explain(withSub);
-      }else{
-        ProofIndex dividedExp = d_dioProofs.push_implication(divideByGCD, currEqExp, subIdExp);
-        d_explanations[ei] = withSubExp;
-        d_conflict = d_dioProofs.explain(withSub);
+      ProofIndex withSubExp = d_dioProofs.push_implication(newEq, currEqExp, subIdExp);
+
+      if(withSub.isBoolean() && !newEq.getConst<bool>()){
+        // This must be false. True cannot be derived... right?
+        d_conflict = d_dioProofs.explain(withSubExp);
       }
     }
   }
@@ -144,15 +178,21 @@ private:
     }
   }
 
-  context::Context* d_context;
   const Tableau& d_tableau;
   ArithPartialModel& d_partialModel;
 
 public:
 
+
+
   /** Construct a Diophantine equation solver with the given context. */
   DioSolver(context::Context* ctxt, const Tableau& tab, ArithPartialModel& pmod) :
     d_context(ctxt),
+    d_dioProofs(ctxt),
+    d_equations(ctxt),
+    d_equationsBegin(ctxt, 0),
+    d_equationsEnd(ctxt, 0),
+    d_substitutions(ctxt),
     d_tableau(tab),
     d_partialModel(pmod) {
   }

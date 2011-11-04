@@ -256,57 +256,57 @@ Comparison Comparison::parseNormalForm(TNode n) {
   }
 }
 
-bool Comparison::pbComparison(Kind k, TNode left, const Rational& right, bool& result) {
-  AssertArgument(left.getType().isPseudoboolean(), left);
-  switch(k) {
-  case kind::LT:
-    if(right > 1) {
-      result = true;
-      return true;
-    } else if(right <= 0) {
-      result = false;
-      return true;
-    }
-    break;
-  case kind::LEQ:
-    if(right >= 1) {
-      result = true;
-      return true;
-    } else if(right < 0) {
-      result = false;
-      return true;
-    }
-    break;
-  case kind::EQUAL:
-    if(right != 0 && right != 1) {
-      result = false;
-      return true;
-    }
-    break;
-  case kind::GEQ:
-    if(right > 1) {
-      result = false;
-      return true;
-    } else if(right <= 0) {
-      result = true;
-      return true;
-    }
-    break;
-  case kind::GT:
-    if(right >= 1) {
-      result = false;
-      return true;
-    } else if(right < 0) {
-      result = true;
-      return true;
-    }
-    break;
-  default:
-    CheckArgument(false, k, "Bad comparison operator ?!");
-  }
+// bool Comparison::pbComparison(Kind k, TNode left, const Rational& right, bool& result) {
+//   AssertArgument(left.getType().isPseudoboolean(), left);
+//   switch(k) {
+//   case kind::LT:
+//     if(right > 1) {
+//       result = true;
+//       return true;
+//     } else if(right <= 0) {
+//       result = false;
+//       return true;
+//     }
+//     break;
+//   case kind::LEQ:
+//     if(right >= 1) {
+//       result = true;
+//       return true;
+//     } else if(right < 0) {
+//       result = false;
+//       return true;
+//     }
+//     break;
+//   case kind::EQUAL:
+//     if(right != 0 && right != 1) {
+//       result = false;
+//       return true;
+//     }
+//     break;
+//   case kind::GEQ:
+//     if(right > 1) {
+//       result = false;
+//       return true;
+//     } else if(right <= 0) {
+//       result = true;
+//       return true;
+//     }
+//     break;
+//   case kind::GT:
+//     if(right >= 1) {
+//       result = false;
+//       return true;
+//     } else if(right < 0) {
+//       result = true;
+//       return true;
+//     }
+//     break;
+//   default:
+//     CheckArgument(false, k, "Bad comparison operator ?!");
+//   }
 
-  return false;
-}
+//   return false;
+// }
 
 Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Constant& right) {
   Assert(isRelationOperator(k));
@@ -315,16 +315,65 @@ Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Consta
     const Rational& rConst = right.getNode().getConst<Rational>();
     bool res = evaluateConstantPredicate(k, lConst, rConst);
     return Comparison(res);
-  }
+  }else if(left.isIntegral()){
+    // Get the coefficients to be all integers.
+    Integer dlcm = left.denominatorLCM().lcm(right.coerceDenominator());
 
-  if(left.getNode().getType().isPseudoboolean()) {
-    bool result;
-    if(pbComparison(k, left.getNode(), right.getNode().getConst<Rational>(), result)) {
-      return Comparison(result);
+    if(left.getHead().getConstant().isNegative()){
+      dlcm *= -1;
     }
-  }
 
-  return Comparison(toNode(k, left, right), k, left, right);
+    Constant cdlcm = Constant::mkConstant(dlcm);
+    Polynomial zLeft = left * cdlcm;
+    Constant zRight = right * cdlcm;
+    Assert(zLeft.isInteger());
+    Assert(zRight.isInteger());
+
+
+    Integer zr = zRight.getIntegerValue();
+
+    Integer gcd = zLeft.gcd();
+    // Divide rhs by the GCD of the coefficients of the polynomial.
+    // If it divides the rhs great!
+    // Otherwise, tighten inequalities and equalities are unsatisfiable.
+    if(gcd.divides(zr)){
+      Constant newRight = Constant::mkConstant(zr.exactQuotient(gcd));
+      return Comparison(toNode(k, zLeft, newRight), k, zLeft, newRight);
+    }else{
+      switch(k){
+      case kind::EQUAL:
+        //If the gcd of the left hand side does not cleanly divide the right hand side,
+        //this is unsatisfiable in the theory of Integers.
+        return Comparison(false);
+      case kind::GEQ:
+      case kind::GT:
+        {
+          //(>= (* g l) r)
+          //(>= l (/ r g))
+          //(>= l (ceil (/ r g)))
+          //This also hold for GT as (ceil (/ r g)) > (/ r g)
+          Integer cdiv = zr.floorDivideQuotient(gcd);
+          Constant newRight = Constant::mkConstant(cdiv);
+          return Comparison(toNode(kind::GEQ, zLeft, newRight),kind::GEQ,zLeft,newRight);
+        }
+      case kind::LEQ:
+      case kind::LT:
+        {
+          //(<= (* g l) r)
+          //(<= l (/ r g))
+          //(<= l (ceil (/ r g)))
+          //This also hold for LT as (floor (/ r g)) < (/ r g)
+          Integer fdiv = zr.floorDivideQuotient(gcd);
+          Constant newRight = Constant::mkConstant(fdiv);
+          return Comparison(toNode(kind::LEQ, zLeft, newRight),kind::LEQ,zLeft,newRight);
+        }
+      default:
+        Unreachable();
+      }
+    }
+  }else{
+    return Comparison(toNode(k, left, right), k, left, right);
+  }
 }
 
 Comparison Comparison::addConstant(const Constant& constant) const {
