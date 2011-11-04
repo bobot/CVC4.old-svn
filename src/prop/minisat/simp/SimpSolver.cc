@@ -148,7 +148,7 @@ bool SimpSolver::addClause_(vec<Lit>& ps, bool removable, bool imported)
     if (use_rcheck && implied(ps))
         return true;
 
-    if (!Solver::addClause_(ps, removable))
+    if (!Solver::addClause_(ps, removable, imported))
         return false;
 
     if (use_simplification && clauses_persistent.size() == nclauses + 1){

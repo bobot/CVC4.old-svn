@@ -169,6 +169,10 @@ CRef Solver::reason(Var x) {
     // If we already have a reason, just return it
     if (vardata[x].reason != CRef_Lazy) return vardata[x].reason;
 
+    assert(false);		// Don't support Non-lazy builds for
+				// now. In this function to avoid
+				// taking care of the .alloc below
+
     // What's the literal we are trying to explain
     Lit l = mkLit(x, value(x) != l_True);
 
@@ -226,6 +230,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable, bool imported)
       lemmas.push();
       ps.copyTo(lemmas.last());
       lemmas_removable.push(removable);
+      lemmas_imported.push(imported);
     } else {
       // Add the clause and attach if not a lemma
       if (ps.size() == 0) {
@@ -241,7 +246,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable, bool imported)
           return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
         } else return ok;
       } else {
-        CRef cr = ca.alloc(assertionLevel, ps, false);
+        CRef cr = ca.alloc(assertionLevel, ps, false, imported, false, false);
         clauses_persistent.push(cr);
 	attachClause(cr);
       }
@@ -408,6 +413,7 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel,
 
         loc_derived |= c.input() || c.loc_derived();
         imp_derived |= c.imported() || c.imp_derived();
+	c.use_inc();
 
         if (c.level() > max_level) {
           max_level = c.level();
@@ -1372,11 +1378,12 @@ CRef Solver::updateLemmas() {
     // The current lemma
     vec<Lit>& lemma = lemmas[i];
     bool removable = lemmas_removable[i];
+    bool imported = lemmas_imported[i];
 
     // Attach it if non-unit
     CRef lemma_ref = CRef_Undef;
     if (lemma.size() > 1) {
-      lemma_ref = ca.alloc(assertionLevel, lemma, removable);
+      lemma_ref = ca.alloc(assertionLevel, lemma, removable, imported, false, false); // FIXME Need to set other two bits too I guess
       if (removable) {
         clauses_removable.push(lemma_ref);
       } else {
@@ -1421,6 +1428,7 @@ CRef Solver::updateLemmas() {
 
   // Clear the lemmas
   lemmas.clear();
+  lemmas_removable.clear();
   lemmas_removable.clear();
 
   return conflict;

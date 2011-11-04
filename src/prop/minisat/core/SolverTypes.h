@@ -122,6 +122,11 @@ class Clause;
 typedef RegionAllocator<uint32_t>::Ref CRef;
 
 class Clause {
+        enum header_sizes {
+	  sizeof_use = 16,
+	  sizeof_size = 16,
+	  sizeof_level = 24,
+	};
     struct {
         unsigned mark      : 2;
         unsigned removable : 1;
@@ -130,8 +135,9 @@ class Clause {
         unsigned imported    : 1; /* set if clause was imported from another thread */
         unsigned loc_derived : 1; /* set if clause has a local (input) clause in its "reason" ancestry */
         unsigned imp_derived : 1; /* set if clause has a imported clause in its "reason" ancestry */
-        unsigned size      : 24;
-        unsigned level     : 32; }                            header;
+        unsigned use   : sizeof_use; /* number of times the clause is used in conflict analysis */
+        unsigned size  : sizeof_size;
+        unsigned level : sizeof_level; }                       header;
     union { Lit lit; float act; uint32_t abs; CRef rel; } data[0];
 
     friend class ClauseAllocator;
@@ -146,9 +152,13 @@ class Clause {
         header.imported    = imported;
         header.loc_derived = loc_derived;
         header.imp_derived = imp_derived;
+	header.use         = 0;
         header.reloced   = 0;
         header.size      = ps.size();
         header.level     = level;
+
+	assert( ps.size() < (1<<sizeof_size) );
+	assert( level < (1<<sizeof_level) );
 
         for (int i = 0; i < ps.size(); i++) 
             data[i].lit = ps[i];
@@ -199,6 +209,8 @@ public:
     bool         imported    ()      const   { return header.imported; }
     bool         loc_derived ()      const   { return header.loc_derived; }
     bool         imp_derived ()      const   { return header.imp_derived; }
+    int          use         ()      const   { return header.use; }
+    void         use_inc     ()              { assert( header.use < (1<<sizeof_use) - 1 ); ++header.use; }
 };
 
 

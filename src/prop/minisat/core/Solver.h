@@ -75,6 +75,9 @@ protected:
   /** Is the lemma removable */
   vec<bool> lemmas_removable;
 
+  /** Is the lemma imported */
+  vec<bool> lemmas_imported;
+
   /** Do a another check if FULL_EFFORT was the last one */
   bool recheck;
 
