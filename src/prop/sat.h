@@ -110,6 +110,8 @@ public:
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
   /** Get the current decision level of the solver */
   virtual int getLevel() const = 0;
+  /** Get the current decision level of the solver */
+  virtual unsigned getDecisionLevel() const = 0;
   /** Unregister the variable (of the literal) from solving */
   virtual void unregisterVar(SatLiteral lit) = 0;
   /** Register the variable (of the literal) for solving */
@@ -240,6 +242,8 @@ public:
 
   int getLevel() const;
 
+  unsigned getDecisionLevel() const;
+
   void push();
 
   void pop();
@@ -270,6 +274,10 @@ public:
   void dependentDecision(SatVariable dep, SatVariable dec);
 
   bool flipDecision();
+  void flipDecision(SatVariable decn);
+
+  bool isDecision(SatVariable decn) const;
+  SatLiteral getDecision(unsigned level) const;
 
   void checkTime();
 
@@ -347,6 +355,10 @@ inline void SatSolver::pop() {
 
 inline int SatSolver::getLevel() const {
   return d_minisat->getAssertionLevel();
+}
+
+inline unsigned SatSolver::getDecisionLevel() const {
+  return d_minisat->decisionLevel();
 }
 
 inline void SatSolver::unregisterVar(SatLiteral lit) {

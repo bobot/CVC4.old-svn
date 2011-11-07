@@ -168,6 +168,29 @@ public:
     throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
 
   /**
+   * Flip the decision "lit", similar to the 0-ary flipDecision() function
+   * described above.  Only ever flips "lit" though, leaving it marked as
+   * "flipped"---this function never proceeds further down-stack.  If the
+   * decision was already flipped, it is flipped again.  Throws an exception
+   * if "lit" is not a decision literal in the SAT solver.  Note that "lit" may
+   * be specified in either phase, though.  That is, if "lit" is a SAT decision,
+   * flipDecision(lit) and flipDecision(negation-of-lit) are the same.
+   */
+  virtual void flipDecision(Node lit, bool safe = false)
+    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
+
+  /**
+   * Flip the decision at level "level", similar to the 0-ary flipDecision()
+   * function described above.  Only ever flips the decision at the given level
+   * though, leaving it marked as "flipped"---this function never proceeds further
+   * down-stack.  If the decision at the given level was already flipped, it is
+   * flipped again.  Throws an exception if level is 0 or greater than the current
+   * decision level.
+   */
+  virtual void flipDecision(unsigned level, bool safe = false)
+    throw(Interrupted, TypeCheckingExceptionPrivate, AssertionException) = 0;
+
+  /**
    * Notification from a theory that it realizes it is incomplete at
    * this context level.  If SAT is later determined by the
    * TheoryEngine, it should actually return an UNKNOWN result.

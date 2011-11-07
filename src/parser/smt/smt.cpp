@@ -102,6 +102,29 @@ void Smt::addTheory(Theory theory) {
     break;
   }
 
+  case THEORY_BITVECTOR_ARRAYS_EX: {
+    Unimplemented("Cannot yet handle SMT-LIBv1 bitvector arrays (i.e., the BitVector_ArraysEx theory)");
+    //addOperator(kind::SELECT);
+    //addOperator(kind::STORE);
+    break;
+  }
+
+  case THEORY_INT_ARRAYS:
+  case THEORY_INT_ARRAYS_EX: {
+    defineType("Array", getExprManager()->mkArrayType(getSort("Int"), getSort("Int")));
+    addOperator(kind::SELECT);
+    addOperator(kind::STORE);
+    break;
+  }
+
+  case THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX: {
+    defineType("Array1", getExprManager()->mkArrayType(getSort("Int"), getSort("Real")));
+    defineType("Array2", getExprManager()->mkArrayType(getSort("Int"), getSort("Array1")));
+    addOperator(kind::SELECT);
+    addOperator(kind::STORE);
+    break;
+  }
+
   case THEORY_EMPTY: {
     Type sort = mkSort("U");
     preemptCommand(new DeclareTypeCommand("U", 0, sort));
@@ -123,6 +146,9 @@ void Smt::addTheory(Theory theory) {
     break;
 
   case THEORY_BITVECTORS:
+    break;
+
+  case THEORY_QUANTIFIERS:
     break;
 
   default:
@@ -183,27 +209,67 @@ void Smt::setLogic(const std::string& name) {
     addTheory(THEORY_BITVECTORS);
     break;
 
+  case QF_UFBV:
+    addUf();
+    addTheory(THEORY_BITVECTORS);
+    break;
+
+  case QF_ABV:
+    addTheory(THEORY_BITVECTORS);
+    addTheory(THEORY_BITVECTOR_ARRAYS_EX);
+    break;
+
+  case QF_AUFBV:
+    addUf();
+    addTheory(THEORY_BITVECTORS);
+    addTheory(THEORY_BITVECTOR_ARRAYS_EX);
+    break;
+
   case QF_AUFLIA:
-    addTheory(THEORY_ARRAYS_EX);
     addUf();
     addTheory(THEORY_INTS);
+    addTheory(THEORY_INT_ARRAYS_EX);
     break;
 
   case QF_AUFLIRA:
-    addTheory(THEORY_ARRAYS_EX);
     addUf();
     addTheory(THEORY_INTS);
     addTheory(THEORY_REALS);
+    addTheory(THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX);
     break;
 
   case AUFLIA:
+    addUf();
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_INT_ARRAYS_EX);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
+
   case AUFLIRA:
   case AUFNIRA:
+    addUf();
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_REALS);
+    addTheory(THEORY_INT_INT_REAL_ARRAY_ARRAYS_EX);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
+
   case LRA:
+    addTheory(THEORY_REALS);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
+
   case UFNIA:
+    addUf();
+    addTheory(THEORY_INTS);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
+
   case UFLRA:
-  case QF_AUFBV:
-    Unhandled(name);
+    addUf();
+    addTheory(THEORY_REALS);
+    addTheory(THEORY_QUANTIFIERS);
+    break;
   }
 }
 

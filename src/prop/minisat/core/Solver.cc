@@ -1021,6 +1021,9 @@ lbool Solver::search(int nof_conflicts)
                     continue;
                 }
 
+                // It's flippable.
+                setFlipVar(var(next), true);
+
 #ifdef CVC4_REPLAY
                 proxy->logDecision(next);
 #endif /* CVC4_REPLAY */
@@ -1329,6 +1332,20 @@ void Solver::renewVar(Lit lit, int level) {
   setFlipVar(v, true);
 }
 
+void Solver::flipDecision(Var decn) {
+  Debug("flipdec") << "FLIP: decision level is " << decisionLevel() << std::endl;
+  unsigned lvl = level(decn);
+  Lit l = trail[trail_lim[lvl]];
+  assert(decn == var(l));
+  assert(assigns[decn] != l_Undef);
+  Debug("flipdec") << "FLIP: canceling to level " << lvl << ", flipping decision " << decn << std::endl;
+  cancelUntil(lvl);
+  newDecisionLevel();
+  Debug("flipdec") << "FLIP: enqueuing " << ~decn << std::endl;
+  uncheckedEnqueue(~l);
+  flipped[lvl] = true;
+}
+
 bool Solver::flipDecision() {
   Debug("flipdec") << "FLIP: decision level is " << decisionLevel() << std::endl;
   if(decisionLevel() == 0) {
@@ -1341,7 +1358,7 @@ bool Solver::flipDecision() {
   Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << (flippable[var(trail[trail_lim[level]])] ? 1 : 0) << " flipped?" << flipped[level] << std::endl;
   while(level > 0 && (flipped[level] || !flippable[var(trail[trail_lim[level]])])) {
     --level;
-    Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << (flippable[var(trail[trail_lim[level]])] ? 1 : 0) << " flipped?" << flipped[level] << std::endl;
+    Debug("flipdec") << "FLIP: looking at level " << level << " dec is " << trail[trail_lim[level]] << " flippable?" << (flippable[var(trail[trail_lim[level]])] ? 2 : 0) << " flipped?" << flipped[level] << std::endl;
   }
   if(level < 0) {
     Lit l = trail[trail_lim[0]];

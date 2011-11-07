@@ -223,6 +223,37 @@ public:
   bool flipDecision();
 
   /**
+   * Flip the decision literal (similar to the 0-ary flipDecision()
+   * function) at the given level to the opposite phase.
+   */
+  void flipDecision(unsigned level);
+
+  /**
+   * Flip the given decision literal (similar to the 0-ary
+   * flipDecision() function) at the given level to the opposite
+   * phase.  The argument "lit" can be in either phase (as in
+   * the isDecision() function, below).
+   */
+  void flipDecision(Node lit);
+
+  /**
+   * Get the current decision level of the SAT solver.
+   */
+  unsigned getDecisionLevel() const;
+
+  /**
+   * Return whether the given literal is a SAT decision.  Either phase
+   * is permitted; that is, if "lit" is a SAT decision, this function
+   * returns true for both lit and the negation of lit.
+   */
+  bool isDecision(Node lit) const;
+
+  /**
+   * Get the decision at a given level.
+   */
+  Node getDecision(unsigned level) const;
+
+  /**
    * Checks the current context for satisfiability.
    *
    * @param millis the time limit for this call in milliseconds
@@ -238,24 +269,24 @@ public:
    * @return mkConst<true>, mkConst<false>, or Node::null() if
    * unassigned.
    */
-  Node getValue(TNode node);
+  Node getValue(TNode node) const;
 
   /**
    * Return true if node has an associated SAT literal.
    */
-  bool isSatLiteral(TNode node);
+  bool isSatLiteral(TNode node) const;
 
   /**
    * Return true if node has an associated SAT literal that is
    * currently translated (i.e., it's relevant to the current
    * user push/pop level).
    */
-  bool isTranslatedSatLiteral(TNode node);
+  bool isTranslatedSatLiteral(TNode node) const;
 
   /**
    * Check if the node has a value and return it if yes.
    */
-  bool hasValue(TNode node, bool& value);
+  bool hasValue(TNode node, bool& value) const;
 
   /**
    * Ensure that the given node will have a designated SAT literal

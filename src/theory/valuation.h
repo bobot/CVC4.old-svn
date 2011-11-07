@@ -112,6 +112,26 @@ public:
    */
   Node ensureLiteral(TNode n) CVC4_WARN_UNUSED_RESULT;
 
+  /**
+   * Returns the current SAT decision level.
+   */
+  unsigned getDecisionLevel() const;
+
+  /**
+   * Gets the SAT decision literal at a given decision level.  Throws an
+   * exception if the current decision level is less than level, or if
+   * level is 0.
+   */
+  Node getDecision(unsigned level) const;
+
+  /**
+   * Returns whether the given lit (which must be a SAT literal) is a decision
+   * literal or not.  Throws an exception if lit is not a SAT literal.  "lit" may
+   * be in either phase; that is, if "lit" is a SAT literal, this function returns
+   * true both for lit and the negation of lit.
+   */
+  bool isDecision(Node lit) const;
+
 };/* class Valuation */
 
 }/* CVC4::theory namespace */

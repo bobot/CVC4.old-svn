@@ -129,6 +129,19 @@ bool SatSolver::flipDecision() {
   return d_minisat->flipDecision();
 }
 
+void SatSolver::flipDecision(SatVariable decn) {
+  Debug("minisat") << "flipDecision(" << decn << ")" << endl;
+  return d_minisat->flipDecision(decn);
+}
+
+bool SatSolver::isDecision(SatVariable decn) const {
+  return d_minisat->isDecision(decn);
+}
+
+SatLiteral SatSolver::getDecision(unsigned level) const {
+  return d_minisat->getDecision(level);
+}
+
 void SatSolver::checkTime() {
   d_propEngine->checkTime();
 }

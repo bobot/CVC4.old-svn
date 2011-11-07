@@ -60,7 +60,7 @@ void Smt2::addTheory(Theory theory) {
     addOperator(kind::XOR);
     break;
 
-  case THEORY_ARRAYS:
+  case THEORY_ARRAYS_EX:
     // FIXME: should define a paramterized type 'Array' with 2 arguments
     mkSort("Array");
 
@@ -84,9 +84,10 @@ void Smt2::addTheory(Theory theory) {
 
   case THEORY_BITVECTORS:
     break;
+
   case THEORY_QUANTIFIERS:
-    
     break;
+
   default:
     Unhandled(theory);
   }
@@ -109,7 +110,7 @@ void Smt2::setLogic(const std::string& name) {
     break;
 
   case Smt::QF_AX:
-    addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_ARRAYS_EX);
     break;
 
   case Smt::QF_IDL:
@@ -143,14 +144,30 @@ void Smt2::setLogic(const std::string& name) {
     addTheory(THEORY_BITVECTORS);
     break;
 
+  case Smt::QF_UFBV:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_BITVECTORS);
+    break;
+
+  case Smt::QF_ABV:
+    addTheory(THEORY_BITVECTORS);
+    addTheory(THEORY_ARRAYS_EX);
+    break;
+
+  case Smt::QF_AUFBV:
+    addOperator(kind::APPLY_UF);
+    addTheory(THEORY_BITVECTORS);
+    addTheory(THEORY_ARRAYS_EX);
+    break;
+
   case Smt::QF_AUFLIA:
-    addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_ARRAYS_EX);
     addOperator(kind::APPLY_UF);
     addTheory(THEORY_INTS);
     break;
 
   case Smt::QF_AUFLIRA:
-    addTheory(THEORY_ARRAYS);
+    addTheory(THEORY_ARRAYS_EX);
     addOperator(kind::APPLY_UF);
     addTheory(THEORY_INTS);
     addTheory(THEORY_REALS);
@@ -162,22 +179,20 @@ void Smt2::setLogic(const std::string& name) {
   case Smt::LRA:
   case Smt::UFNIA:
   case Smt::UFLRA:
-    if( d_logic!=Smt::AUFLIA && d_logic!=Smt::UFNIA ){
+    if(d_logic != Smt::AUFLIA && d_logic != Smt::UFNIA) {
       addTheory(THEORY_REALS);
     }
-    if( d_logic!=Smt::LRA ){
+    if(d_logic != Smt::LRA) {
       addOperator(kind::APPLY_UF);
-      if( d_logic!=Smt::UFLRA ){
+      if(d_logic != Smt::UFLRA) {
         addTheory(THEORY_INTS);
-        if( d_logic!=Smt::UFNIA ){
-          addTheory(THEORY_ARRAYS);
+        if(d_logic != Smt::UFNIA) {
+          addTheory(THEORY_ARRAYS_EX);
         }
       }
     }
     addTheory(THEORY_QUANTIFIERS);
     break;
-  case Smt::QF_AUFBV:
-    Unhandled(name);
   }
 }
 

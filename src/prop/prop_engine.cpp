@@ -129,6 +129,32 @@ bool PropEngine::flipDecision() {
   return d_satSolver->flipDecision();
 }
 
+void PropEngine::flipDecision(unsigned level) {
+  Debug("prop") << "flipDecision(" << level << ")" << endl;
+  Assert(level > 0 && level <= getDecisionLevel());
+  d_satSolver->flipDecision(Minisat::var(d_satSolver->getDecision(level)));
+}
+
+void PropEngine::flipDecision(Node lit) {
+  Debug("prop") << "flipDecision(" << lit << ")" << endl;
+  Assert(isDecision(lit));
+  d_satSolver->flipDecision(Minisat::var(d_cnfStream->getLiteral(lit)));
+}
+
+unsigned PropEngine::getDecisionLevel() const {
+  return d_satSolver->getDecisionLevel();
+}
+
+bool PropEngine::isDecision(Node lit) const {
+  Assert(isTranslatedSatLiteral(lit));
+  return d_satSolver->isDecision(Minisat::var(d_cnfStream->getLiteral(lit)));
+}
+
+Node PropEngine::getDecision(unsigned level) const {
+  Assert(level > 0 && level <= getDecisionLevel());
+  return d_cnfStream->getNode(d_satSolver->getDecision(level));
+}
+
 void PropEngine::printSatisfyingAssignment(){
   const CnfStream::TranslationCache& transCache =
     d_cnfStream->getTranslationCache();
@@ -194,7 +220,7 @@ Result PropEngine::checkSat(unsigned long& millis, unsigned long& resource) {
   return Result(result == l_True ? Result::SAT : Result::UNSAT);
 }
 
-Node PropEngine::getValue(TNode node) {
+Node PropEngine::getValue(TNode node) const {
   Assert(node.getType().isBoolean());
   SatLiteral lit = d_cnfStream->getLiteral(node);
 
@@ -209,15 +235,15 @@ Node PropEngine::getValue(TNode node) {
   }
 }
 
-bool PropEngine::isSatLiteral(TNode node) {
+bool PropEngine::isSatLiteral(TNode node) const {
   return d_cnfStream->hasLiteral(node);
 }
 
-bool PropEngine::isTranslatedSatLiteral(TNode node) {
+bool PropEngine::isTranslatedSatLiteral(TNode node) const {
   return d_cnfStream->isTranslated(node);
 }
 
-bool PropEngine::hasValue(TNode node, bool& value) {
+bool PropEngine::hasValue(TNode node, bool& value) const {
   Assert(node.getType().isBoolean());
   SatLiteral lit = d_cnfStream->getLiteral(node);
 

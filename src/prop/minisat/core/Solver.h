@@ -178,6 +178,7 @@ public:
     void    dependentDecision(Var dep, Var dec); // Declare that deciding on "dec" depends on "dep" having an assignment
     void    setFlipVar     (Var v, bool b); // Declare if a variable is eligible for flipping
     bool    flipDecision   ();              // Backtrack and flip most recent decision
+    void    flipDecision   (Var v);         // Backtrack and flip the given decision
 
     // Read state:
     //
@@ -279,10 +280,10 @@ protected:
     vec<lbool>          assigns;            // The current assignments.
     vec<char>           polarity;           // The preferred polarity of each variable.
     vec<char>           decision;           // Declares if a variable is eligible for selection in the decision heuristic.
-    vec<char>           flippable;        // Declares if a variable is eligible for flipping with flipDecision().
-    vec<Var>            depends;          // The variable (if any) that a decision on this variable depends on
-    vec<Var>            dependsOn;        // Variables whose decision depends on this variable
-    vec<int>            flipped;          // Which trail_lim decisions have been flipped in this context.
+    vec<char>           flippable;          // Declares if a variable is eligible for flipping with flipDecision().
+    vec<Var>            depends;            // The variable (if any) that a decision on this variable depends on
+    vec<Var>            dependsOn;          // Variables whose decision depends on this variable
+    vec<int>            flipped;            // Which trail_lim decisions have been flipped in this context.
     vec<Lit>            trail;              // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;          // Separator indices for different decision levels in 'trail'.
     vec<Lit>            trail_user;         // Stack of assignments to UNdo on user pop.
@@ -378,6 +379,9 @@ protected:
     bool     isPropagated     (Var x) const; // Does the variable have a propagated variables
     bool     isPropagatedBy   (Var x, const Clause& c) const; // Is the value of the variable propagated by the clause Clause C
 
+    bool     isDecision       (Var x) const; // is the given var a decision?
+    Lit      getDecision      (unsigned lvl) const; // get the decision at level lvl
+
     int      level            (Var x) const;
     int      intro_level      (Var x) const; // Level at which this variable was introduced
     int      trail_index      (Var x) const; // Index in the trail
@@ -409,6 +413,10 @@ inline bool Solver::hasReasonClause(Var x) const { return vardata[x].reason != C
 inline bool Solver::isPropagated(Var x) const { return vardata[x].reason != CRef_Undef; }
 
 inline bool Solver::isPropagatedBy(Var x, const Clause& c) const { return vardata[x].reason != CRef_Undef && vardata[x].reason != CRef_Lazy && ca.lea(vardata[var(c[0])].reason) == &c; }
+
+inline bool Solver::isDecision(Var x) const { return vardata[x].reason == CRef_Undef && level(x) > 0; }
+
+inline Lit  Solver::getDecision(unsigned lvl) const { return trail[trail_lim[lvl - 1]]; }
 
 inline int  Solver::level (Var x) const { return vardata[x].level; }
 

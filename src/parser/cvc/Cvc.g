@@ -1192,21 +1192,28 @@ prefixFormula[CVC4::Expr& f]
   std::vector<Expr> terms;
   std::vector<Type> types;
   Type t;
+  Kind k;
 }
     /* quantifiers */
-  : FORALL_TOK { PARSER_STATE->pushScope(); } LPAREN
-    boundVarDecl[ids,t] (COMMA boundVarDecl[ids,t])* RPAREN
-    COLON instantiationPatterns? formula[f]
-    { PARSER_STATE->popScope();
-      UNSUPPORTED("quantifiers not supported yet");
-      f = EXPR_MANAGER->mkVar(EXPR_MANAGER->booleanType());
+  : ( FORALL_TOK { k = kind::FORALL; } | EXISTS_TOK { k = kind::EXISTS; } )
+    { PARSER_STATE->pushScope(); } LPAREN
+    boundVarDecl[ids,t]
+    { for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
+        terms.push_back(EXPR_MANAGER->mkVar(*i, t));
+      }
+      ids.clear();
     }
-  | EXISTS_TOK { PARSER_STATE->pushScope(); } LPAREN
-    boundVarDecl[ids,t] (COMMA boundVarDecl[ids,t])* RPAREN
+    ( COMMA boundVarDecl[ids,t]
+      { for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
+          terms.push_back(EXPR_MANAGER->mkVar(*i, t));
+        }
+        ids.clear();
+      }
+    )* RPAREN
     COLON instantiationPatterns? formula[f]
     { PARSER_STATE->popScope();
-      UNSUPPORTED("quantifiers not supported yet");
-      f = EXPR_MANAGER->mkVar(EXPR_MANAGER->booleanType());
+      terms.push_back(f);
+      f = MK_EXPR(k, terms);
     }
 
    /* lets: letDecl defines the variables and functionss, we just

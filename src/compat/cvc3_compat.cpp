@@ -1682,46 +1682,50 @@ Expr ValidityChecker::datatypeTestExpr(const std::string& constructor, const Exp
 
 Expr ValidityChecker::boundVarExpr(const std::string& name, const std::string& uid,
                                    const Type& type) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  Unimplemented("Quantifier bound-var-exprs not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::forallExpr(const std::vector<Expr>& vars, const Expr& body) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  vector<CVC4::Expr> args(vars.begin(), vars.end());
+  args.push_back(body);
+  return d_em->mkExpr(CVC4::kind::FORALL, args);
 }
 
 Expr ValidityChecker::forallExpr(const std::vector<Expr>& vars, const Expr& body,
                                  const Expr& trigger) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  Unimplemented("Quantifier triggers not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::forallExpr(const std::vector<Expr>& vars, const Expr& body,
                                  const std::vector<Expr>& triggers) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  Unimplemented("Quantifier triggers not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::forallExpr(const std::vector<Expr>& vars, const Expr& body,
                                  const std::vector<std::vector<Expr> >& triggers) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  Unimplemented("Quantifier triggers not supported by CVC4 yet (sorry!)");
 }
 
 void ValidityChecker::setTriggers(const Expr& e, const std::vector<std::vector<Expr> > & triggers) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  Unimplemented("Quantifier triggers not supported by CVC4 yet (sorry!)");
 }
 
 void ValidityChecker::setTriggers(const Expr& e, const std::vector<Expr>& triggers) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  Unimplemented("Quantifier triggers not supported by CVC4 yet (sorry!)");
 }
 
 void ValidityChecker::setTrigger(const Expr& e, const Expr& trigger) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  Unimplemented("Quantifier triggers not supported by CVC4 yet (sorry!)");
 }
 
 void ValidityChecker::setMultiTrigger(const Expr& e, const std::vector<Expr>& multiTrigger) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  Unimplemented("Quantifier triggers not supported by CVC4 yet (sorry!)");
 }
 
 Expr ValidityChecker::existsExpr(const std::vector<Expr>& vars, const Expr& body) {
-  Unimplemented("Quantifiers not supported by CVC4 yet (sorry!)");
+  vector<CVC4::Expr> args(vars.begin(), vars.end());
+  args.push_back(body);
+  return d_em->mkExpr(CVC4::kind::EXISTS, args);
 }
 
 Op ValidityChecker::lambdaExpr(const std::vector<Expr>& vars, const Expr& body) {

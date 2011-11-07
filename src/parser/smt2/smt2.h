@@ -35,7 +35,7 @@ class Smt2 : public Parser {
 
 public:
   enum Theory {
-    THEORY_ARRAYS,
+    THEORY_ARRAYS_EX,
     THEORY_BITVECTORS,
     THEORY_CORE,
     THEORY_INTS,

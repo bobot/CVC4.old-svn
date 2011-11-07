@@ -66,6 +66,12 @@ class FakeOutputChannel : public OutputChannel {
   bool flipDecision(bool) throw(AssertionException) {
     Unimplemented();
   }
+  void flipDecision(Node, bool) throw(AssertionException) {
+    Unimplemented();
+  }
+  void flipDecision(unsigned, bool) throw(AssertionException) {
+    Unimplemented();
+  }
   void explanation(TNode n) throw(AssertionException) {
     Unimplemented();
   }

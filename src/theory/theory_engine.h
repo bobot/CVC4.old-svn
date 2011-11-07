@@ -244,6 +244,20 @@ class TheoryEngine {
       return d_engine->d_propEngine->flipDecision();
     }
 
+    void flipDecision(Node lit, bool)
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::flipDecision(" << lit << ")" << std::endl;
+      ++ d_statistics.flipDecision;
+      d_engine->d_propEngine->flipDecision(lit);
+    }
+
+    void flipDecision(unsigned level, bool)
+      throw(theory::Interrupted, AssertionException) {
+      Debug("theory") << "EngineOutputChannel::flipDecision(" << level << ")" << std::endl;
+      ++ d_statistics.flipDecision;
+      d_engine->d_propEngine->flipDecision(level);
+    }
+
     void setIncomplete() throw(AssertionException) {
       d_engine->setIncomplete(d_theory);
     }
