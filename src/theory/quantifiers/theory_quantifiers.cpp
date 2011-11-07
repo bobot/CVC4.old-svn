@@ -60,6 +60,9 @@ void TheoryQuantifiers::notifyEq(TNode lhs, TNode rhs) {
 
 void TheoryQuantifiers::preRegisterTerm(TNode n) {  
   Debug("quantifiers-prereg") << "TheoryQuantifiers::preRegisterTerm() " << n << endl;
+  //if( n.getKind()==FORALL ){
+  //  d_out->requirePhase( n, false );
+  //}
 }
 
 
@@ -217,7 +220,7 @@ void TheoryQuantifiers::assertUniversal( Node n ){
       //Debug("quantifiers") << cel << " is the literal for " << body.notNode() << std::endl;
       d_instEngine->setCounterexampleLiteralFor( n, cel );
       //mark all literals in the body of n as dependent on cel
-      d_instEngine->registerLiterals( body, n, d_out );
+      d_instEngine->registerLiterals( body, n, d_out, false, true );
 
       NodeBuilder<> nb(kind::OR);
       nb << n << cel;

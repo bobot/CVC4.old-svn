@@ -386,6 +386,11 @@ EqualityStatus TheoryUF::getEqualityStatus(TNode a, TNode b) {
 void TheoryUF::addSharedTerm(TNode t) {
   Debug("uf::sharing") << "TheoryUF::addSharedTerm(" << t << ")" << std::endl;
   d_equalityEngine.addTriggerTerm(t);
+  //AJR-hack
+  if( getInstantiator() ){
+    ((InstantiatorTheoryUf*)getInstantiator())->registerTerm( t, false );
+  }
+  //AJR-hack-end
 }
 
 void TheoryUF::computeCareGraph(CareGraph& careGraph) {

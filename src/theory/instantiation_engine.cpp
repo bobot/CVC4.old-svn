@@ -23,253 +23,6 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-InstMatch::InstMatch( Node f, InstantiationEngine* ie ){
-  d_computeVec = true;
-  for( int i=0; i<(int)ie->d_inst_constants[f].size(); i++ ){
-    d_vars.push_back( ie->d_inst_constants[f][i] );
-  }
-}
-InstMatch::InstMatch( InstMatch* m ){
-  d_computeVec = true;
-  d_vars.insert( d_vars.begin(), m->d_vars.begin(), m->d_vars.end() );
-  for( int i=0; i<(int)d_vars.size(); i++ ){
-    if( d_map[ d_vars[i] ]==Node::null() ){
-      setMatch( d_vars[i], m->d_map[ d_vars[i] ] );
-    }
-  }
-  d_splits = m->d_splits;
-}
-
-bool InstMatch::add( InstMatch& m ){
-  for( int i=0; i<(int)d_vars.size(); i++ ){
-    if( d_map[ d_vars[i] ]==Node::null() ){
-      setMatch( d_vars[i], m.d_map[ d_vars[i] ] );
-    }
-  }
-  return true;
-}
-
-bool InstMatch::merge( InstMatch& m, bool allowSplit ){
-  for( int i=0; i<(int)d_vars.size(); i++ ){
-    if( d_map[ d_vars[i] ]==Node::null() ){
-      setMatch( d_vars[i], m.d_map[ d_vars[i] ] );
-    }else if( m.d_map[ d_vars[i] ]!=Node::null() ){
-      if( d_map[ d_vars[i] ]!=m.d_map[ d_vars[i] ] ){
-        //split?
-        if( allowSplit ){
-          addSplit( d_map[ d_vars[i] ], m.d_map[ d_vars[i] ] );
-        }else{
-          d_map.clear();
-          return false;
-        }
-      }
-    }
-  }
-  if( allowSplit ){
-    //also add splits
-    for( std::map< Node, Node >::iterator it = m.d_splits.begin(); it != m.d_splits.end(); ++it ){
-      addSplit( it->first, it->second );
-    }
-  }
-  return true;
-}
-
-// -1 : keep this, 1 : keep m, 0 : keep both
-int InstMatch::checkSubsume( InstMatch& m ){
-  bool nsubset1 = true;
-  bool nsubset2 = true;
-  for( int i=0; i<(int)d_vars.size(); i++ ){
-    if( m.d_map[ d_vars[i] ]!=d_map[ d_vars[i] ] ){
-      if( d_map[ d_vars[i] ]!=Node::null() ){
-        nsubset1 = false;
-        if( !nsubset2 ) break;
-      }
-      if( m.d_map[ d_vars[i] ]!=Node::null() ){
-        nsubset2 = false;
-        if( !nsubset1 ) break;
-      }
-    }
-  }
-  if( nsubset1 ){
-    return -1;
-  }else if( nsubset2 ){
-    return 1;
-  }else{
-    return 0;
-  }
-}
-bool InstMatch::isEqual( InstMatch& m ){
-  for( int i=0; i<(int)d_vars.size(); i++ ){
-    if( m.d_map[ d_vars[i] ]!=d_map[ d_vars[i] ] ){
-      return false;
-    }
-  }
-  return true;
-}
-void InstMatch::debugPrint( const char* c ){
-  for( int i=0; i<(int)d_vars.size(); i++ ){
-    Debug( c ) << "   " << d_vars[i] << " -> " << d_map[ d_vars[i] ] << std::endl;
-  }
-  if( !d_splits.empty() ){
-    Debug( c ) << "   Conditions: ";
-    for( std::map< Node, Node >::iterator it = d_splits.begin(); it !=d_splits.end(); ++it ){
-      Debug( c ) << it->first << " = " << it->second << " ";
-    }
-    Debug( c ) << std::endl;
-  }
-}
-bool InstMatch::isComplete( InstMatch* mbase ){
-  Assert( !mbase || getQuantifier()==mbase->getQuantifier() );
-  for( int i=0; i<(int)d_vars.size(); i++ ){
-    if( d_map[ d_vars[i] ]==Node::null() &&
-        ( !mbase || mbase->d_map[ d_vars[i] ]==Node::null() ) ){
-      return false;
-    }
-  }
-  return true;
-}
-
-void InstMatch::computeTermVec(){
-  if( d_computeVec ){
-    d_match.clear();
-    for( int i=0; i<(int)d_vars.size(); i++ ){
-      if( d_map[ d_vars[i] ]!=Node::null() ){
-        d_match.push_back( d_map[ d_vars[i] ] );
-      }else{
-        //if integer or real, make zero
-        TypeNode tn = d_vars[i].getType();
-        if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
-          Rational z(0);
-          d_match.push_back( NodeManager::currentNM()->mkConst( z ) );
-        }else{
-          d_match.push_back( NodeManager::currentNM()->mkVar( tn ) );
-        }
-      }
-    }
-    d_computeVec = false;
-  }
-}
-
-void InstMatch::addSplit( Node n1, Node n2 ){
-  if( n2<n1 ){
-    Node ntemp = n1;
-    n1 = n2;
-    n2 = ntemp;
-  }
-  if( d_splits.find( n1 )!=d_splits.end() ){
-    if( d_splits[n1]!=n2 ){
-      addSplit( d_splits[n1], n2 );
-    }
-  }else{
-    d_splits[n1] = n2;
-  }
-}
-
-bool InstMatchGroup::merge( InstMatchGroup& mg )
-{
-  std::vector< InstMatch > newMatches;
-  for( int l=0; l<(int)d_matches.size(); l++ ){
-    for( int k=0; k<(int)mg.d_matches.size(); k++ ){
-      InstMatch temp( &d_matches[l] );
-      if( temp.merge( mg.d_matches[k] ) ){
-        newMatches.push_back( temp );
-      }
-    }
-  }
-  d_matches.clear();
-  d_matches.insert( d_matches.begin(), newMatches.begin(), newMatches.end() );
-  removeRedundant();
-  return (d_matches.size()>0);
-}
-
-void InstMatchGroup::add( InstMatchGroup& mg ){
-  if( !mg.d_matches.empty() ){
-    d_matches.insert( d_matches.end(), mg.d_matches.begin(), mg.d_matches.end() );
-  }
-}
-
-void InstMatchGroup::combine( InstMatchGroup& mg ){
-  InstMatchGroup temp( this );
-  merge( mg );
-  add( temp );
-  add( mg );
-  removeDuplicate();
-}
-
-void InstMatchGroup::addComplete( InstMatchGroup& mg, InstMatch* mbase ){
-  for( int i=0; i<(int)mg.d_matches.size(); i++ ){
-    if( mg.d_matches[i].isComplete( mbase ) ){
-      if( mbase ){
-        mg.d_matches[i].add( *mbase );
-      }
-      d_matches.push_back( mg.d_matches[i] );
-      mg.d_matches.erase( mg.d_matches.begin() + i, mg.d_matches.begin() + i + 1 );
-      i--;
-    }
-  }
-}
-
-void InstMatchGroup::removeRedundant(){
-  std::vector< bool > active;
-  active.resize( d_matches.size(), true );
-  for( int k=0; k<(int)d_matches.size(); k++ ){
-    for( int l=(k+1); l<(int)d_matches.size(); l++ ){
-      if( k!=l && active[k] && active[l] ){
-        int result = d_matches[k].checkSubsume( d_matches[l] );
-        if( result==1 ){
-          active[k] = false;
-        }else if( result==-1 ){
-          active[l] = false;
-        }
-      }
-    }
-  }
-  std::vector< InstMatch > temp;
-  temp.insert( temp.begin(), d_matches.begin(), d_matches.end() );
-  d_matches.clear();
-  for( int i=0; i<(int)temp.size(); i++ ){
-    if( active[i] ){
-      d_matches.push_back( temp[i] );
-    }
-  }
-}
-bool InstMatchGroup::contains( InstMatch& m ){
-  for( int k=0; k<(int)d_matches.size(); k++ ){
-    if( d_matches[k].isEqual( m ) ){
-      return true;
-    }
-  }
-  return false;
-}
-void InstMatchGroup::removeDuplicate(){
-  std::vector< bool > active;
-  active.resize( d_matches.size(), true );
-  for( int k=0; k<(int)d_matches.size(); k++ ){
-    for( int l=(k+1); l<(int)d_matches.size(); l++ ){
-      if( k!=l && active[k] && active[l] ){
-        if( d_matches[k].isEqual( d_matches[l] ) ){
-          active[l] = false;
-        }
-      }
-    }
-  }
-  std::vector< InstMatch > temp;
-  temp.insert( temp.begin(), d_matches.begin(), d_matches.end() );
-  d_matches.clear();
-  for( int i=0; i<(int)temp.size(); i++ ){
-    if( active[i] ){
-      d_matches.push_back( temp[i] );
-    }
-  }
-}
-
-void InstMatchGroup::debugPrint( const char* c ){
-  for( int j=0; j<(int)d_matches.size(); j++ ){
-    Debug( c ) << "Match " << j << " : " << std::endl;
-    d_matches[j].debugPrint( c );
-  }
-}
-
 Instantiator::Instantiator(context::Context* c, InstantiationEngine* ie, Theory* th) : 
 d_status( STATUS_UNFINISHED ),
 d_instEngine( ie ),
@@ -320,6 +73,55 @@ bool Instantiator::isOwnerOf( Node f ){
          d_instEngine->d_owner[f]==getTheory();
 }
 
+
+void TermMatchEngine::processMatch( Node pat, Node g ){
+  if( pat.getType()==g.getType() ){
+    if( pat.getKind()==APPLY_UF && g.getKind()==APPLY_UF ){
+      if( pat.getOperator()==g.getOperator() ){
+        Debug("term-match") << "Process match " << pat << " " << g << std::endl;
+        d_matches[pat][g] = UIterator::mkMergeUIterator( pat, g );
+      }
+    }
+  }
+}
+
+void TermMatchEngine::registerTerm( Node n ){
+  Debug("term-match") << "Register " << n << std::endl;
+  if( n.hasAttribute(InstConstantAttribute()) ){
+    d_patterns[n] = true;
+    for( std::map< Node, bool >::iterator it = d_ground_terms.begin(); it != d_ground_terms.end(); ++it ){
+      processMatch( n, it->first );
+    }
+  }else{
+    d_ground_terms[n] = true;
+    for( std::map< Node, bool >::iterator it = d_patterns.begin(); it != d_patterns.end(); ++it ){
+      processMatch( it->first, n );
+    }
+  }
+}
+
+UIterator* TermMatchEngine::makeMultiPattern( std::vector< Node >& nodes ){
+  if( nodes.empty() ){
+    return NULL;
+  }else{
+    UIterator* uit = UIterator::mkUIterator( false );
+    for( int i=0; i<(int)nodes.size(); i++ ){
+      if( d_matches[ nodes[i] ].empty() ){
+        return NULL;
+      }else{
+        UIterator* cit = UIterator::mkUIterator( true );
+        for( std::map< Node, UIterator* >::iterator it = d_matches[ nodes[i] ].begin(); it !=d_matches[ nodes[i] ].end(); ++it ){
+          if( it->second ){
+            cit->d_children.push_back( it->second );
+          }
+        }
+        uit->d_children.push_back( cit );
+      }
+    }
+    return uit;
+  }
+}
+
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_active( c ),
@@ -356,31 +158,62 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
   Node lem = nb;
   if( addLemma( lem ) ){
     Debug("inst-engine") << "*** Instantiate " << f << " with " << std::endl;
-    //int maxInstLevel = 0;
+    uint64_t maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
       Assert( !terms[i].hasAttribute(InstConstantAttribute()) );
-      Debug("inst-engine") << "   " << terms[i] << std::endl;
-      //if( terms[i].hasAttribute((InstLevelAttribute()) &&
-      //    terms[i].getAttribute(InstLevelAttribute())>maxInstLevel ){
-      //  maxInstLevel = terms[i].getAttribute(InstLevelAttribute()); 
-      //}
+      Debug("inst-engine") << "   " << terms[i];
+      //Debug("inst-engine") << " " << terms[i].getAttribute(InstLevelAttribute());
+      Debug("inst-engine") << std::endl;
+      if( terms[i].hasAttribute(InstLevelAttribute()) &&
+          terms[i].getAttribute(InstLevelAttribute())>maxInstLevel ){
+        maxInstLevel = terms[i].getAttribute(InstLevelAttribute()); 
+      }
     }
-    //setInstantiationLevel( body, maxInstLevel+1 );
+    setInstantiationLevel( body, maxInstLevel+1 );
+    ++(d_statistics.d_instantiations);
+    d_statistics.d_max_instantiation_level.maxAssign( maxInstLevel+1 );
     return true;
   }else{
     return false;
   }
 }
 
-bool InstantiationEngine::addInstantiation( InstMatch* m ){
+bool InstantiationEngine::addInstantiation( InstMatch* m, bool addSplits ){
   //Assert( m->isComplete() );
   m->computeTermVec();
-  return addInstantiation( m->getQuantifier(), m->d_match );
+  if( addInstantiation( m->getQuantifier(), m->d_match ) ){
+    if( addSplits ){
+      for( std::map< Node, Node >::iterator it = m->d_splits.begin(); it != m->d_splits.end(); ++it ){
+        addSplitEquality( it->first, it->second, true, true );
+      }
+    }
+    return true;
+  }
+  return false;
 }
 
-bool InstantiationEngine::addSplit( Node n ){
+bool InstantiationEngine::addSplit( Node n, bool reqPhase, bool reqPhasePol ){
   Node lem = NodeManager::currentNM()->mkNode( OR, n, n.notNode() );
-  return addLemma( lem );
+  if( addLemma( lem ) ){
+    ++(d_statistics.d_splits);
+    Debug("inst-engine") << "*** Add split " << n<< std::endl;
+    if( reqPhase ){
+      d_curr_out->requirePhase( n, reqPhasePol );
+    }
+    return true;
+  }
+  return false;
+}
+
+bool InstantiationEngine::addSplitEquality( Node n1, Node n2, bool reqPhase, bool reqPhasePol ){
+  //Assert( !n1.hasAttribute(InstConstantAttribute()) );
+  //Assert( !n2.hasAttribute(InstConstantAttribute()) );
+  //Assert( !areEqual( n1, n2 ) );
+  //Assert( !areDisequal( n1, n2 ) );
+  Kind knd = n1.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
+  Node fm = NodeManager::currentNM()->mkNode( knd, n1, n2 );
+  fm = Rewriter::rewrite( fm );
+  return addSplit( fm );
 }
 
 Node InstantiationEngine::getCounterexampleBody( Node f ){
@@ -433,6 +266,7 @@ void InstantiationEngine::getVariablesFor( Node f, std::vector< Node >& vars )
 bool InstantiationEngine::doInstantiation( OutputChannel* out ){
   d_curr_out = out;
   //call instantiators to search for an instantiation
+  ++(d_statistics.d_instantiation_rounds);
   Debug("inst-engine") << "IE: Reset instantiation." << std::endl;
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_instTable[i] ){
@@ -533,7 +367,7 @@ void InstantiationEngine::setCounterexampleLiteralFor( Node n, Node l ){
   d_counterexamples[n] = l;
 }
 
-void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
+void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out, bool polarity, bool reqPol )
 {
   n = Rewriter::rewrite( n );
   if( n.getKind()==INST_CONSTANT ){
@@ -542,13 +376,34 @@ void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
       n.setAttribute(ica,f);
     }
   }else{
+    bool newReqPol = false;
+    bool newPolarity = false;
+    if( reqPol ){
+      if( n.getKind()==NOT ){
+        newReqPol = true;
+        newPolarity = !polarity;
+      }else if( n.getKind()==OR || n.getKind()==IMPLIES ){
+        if( !polarity ){
+          newReqPol = true;
+          newPolarity = false;
+        }
+      }else if( n.getKind()==AND ){
+        if( polarity ){
+          newReqPol = true;
+          newPolarity = true;
+        }
+      }
+    }
     Node fa;
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      registerLiterals( n[i], f, out );
+      if( n.getKind()==IMPLIES && i==0 ){
+        registerLiterals( n[i], f, out, !newPolarity, newReqPol );
+      }else{
+        registerLiterals( n[i], f, out, newPolarity, newReqPol );
+      }
       if( n[i].hasAttribute(InstConstantAttribute()) ){
-        if( fa!=f ){
-          fa = n[i].getAttribute(InstConstantAttribute());
-        }
+        Assert( n[i].getAttribute(InstConstantAttribute())==f );
+        fa = f;
       }
     }
     if( fa!=Node::null() ){
@@ -559,8 +414,12 @@ void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
           if( n!=cel && n.notNode()!=cel ){
             Debug("quant-dep-dec") << "Make " << n << " dependent on " << cel << std::endl;
             out->dependentDecision( cel, n );
-            //Debug("quant-dep-dec") << "Require phase " << n << " to be " << polarity << std::endl;
-            //out->requirePhase( n, polarity );
+            if( reqPol ){
+              Debug("quant-req-phase") << "Require phase " << n << " to be " << polarity << std::endl;
+              d_phase_reqs[n] = polarity;
+            //  out->requirePhase( n, polarity );
+            //  d_phase_reqs[n] = polarity;
+            }
           }
         }
         InstConstantAttribute ica;
@@ -570,7 +429,7 @@ void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out )
   }
 }
 
-void InstantiationEngine::setInstantiationLevel( Node n, int level ){
+void InstantiationEngine::setInstantiationLevel( Node n, uint64_t level ){
   if( !n.hasAttribute(InstLevelAttribute()) ){
     InstLevelAttribute ila;
     n.setAttribute(ila,level);
@@ -579,3 +438,23 @@ void InstantiationEngine::setInstantiationLevel( Node n, int level ){
     setInstantiationLevel( n[i], level );
   }
 }
+
+InstantiationEngine::Statistics::Statistics():
+  d_instantiation_rounds("InstantiationEngine::Instantiation Rounds", 0),
+  d_instantiations("InstantiationEngine::Total Instantiations", 0),
+  d_splits("InstantiationEngine::Total Splits", 0),
+  d_max_instantiation_level("InstantiationEngine::Max Instantiation Level", 0)
+{
+  StatisticsRegistry::registerStat(&d_instantiation_rounds);
+  StatisticsRegistry::registerStat(&d_instantiations);
+  StatisticsRegistry::registerStat(&d_splits);
+  StatisticsRegistry::registerStat(&d_max_instantiation_level);
+}
+
+InstantiationEngine::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_instantiation_rounds);
+  StatisticsRegistry::unregisterStat(&d_instantiations);
+  StatisticsRegistry::unregisterStat(&d_splits);
+  StatisticsRegistry::unregisterStat(&d_max_instantiation_level);
+}
+

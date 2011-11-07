@@ -31,7 +31,9 @@ libtheory_la_SOURCES = \
 	instantiation_engine.h \
 	instantiation_engine.cpp \
 	instantiator_default.h \
-	instantiator_default.cpp		
+	instantiator_default.cpp \
+	inst_match.h \
+	inst_match.cpp
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \

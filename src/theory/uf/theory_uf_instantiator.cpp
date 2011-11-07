@@ -52,509 +52,13 @@ using namespace CVC4::theory::uf;
 //  d_obligations.push_back( n ); 
 //}
 
-InstantiatorTheoryUf* UIterator::d_itu = NULL;
-std::map< Node, std::map< Node, std::vector< UIterator* > > > UIterator::d_iter[3];
-std::map< Node, std::map< Node, int > > UIterator::d_assigned[3];
-int UIterator::d_splitThreshold;
-bool UIterator::d_useSplitThreshold = false;
-uint64_t UIterator::d_instLevelThreshold;
-bool UIterator::d_useInstLevelThreshold = false;
-
-void UIterator::resetAssigned(){
-  for( int i=0; i<3; i++ ){
-    d_assigned[i].clear();
-  }
-}
-
-void UIterator::clearMatches(){
-  d_mg_i = -1;
-  if( getMaster()==this ){
-    if( !d_children.empty() || d_mg.empty() ){
-      d_mg_set = false;
-      d_partial.clear();
-      d_mg.clear();
-      d_index = 0;
-      for( int i=0; i<(int)d_children.size(); i++ ){
-        d_children[i]->clearMatches();
-      }
-    }
-  }else{
-    getMaster()->clearMatches();
-  }
-}
-
-void UIterator::clear(){
-  d_children_set = false;
-  d_children.clear();
-  d_depth = 0;
-  d_mg_i = -1;
-  d_mg_set = false;
-  d_partial.clear();
-  d_mg.clear();
-  d_index = 0;
-}
-
-UIterator::UIterator( int op ) : 
-d_children_set( false ), d_mg_set( false ), d_operation( op ), d_index( 0 ), d_depth( 0 ), d_mg_i( -1 ){
-
-}
-
-UIterator::UIterator( Node t, Node s, int op, Node f ) :
-d_children_set( false ), d_mg_set( false ), d_t( t ), d_s( s ), d_operation( op ), d_index( 0 ), d_depth( 0 ), d_mg_i( -1 ){
-  Assert( t.getType()==s.getType() );
-  Assert( t.getAttribute(InstConstantAttribute())==f );
-}
-
-UIterator* UIterator::mkUIterator( bool isComb ){
-  Node nl;
-  int ind = isComb ? 0 : 2;
-  int index = d_assigned[ind][nl][nl];
-  Debug( "quant-uf-uiter" ) << "mkUIterator " << isComb;
-  Debug( "quant-uf-uiter" )<< " (" << index << "/" << d_iter[ind][nl][nl].size() << ")" << std::endl;
-  if( index<(int)d_iter[ind][nl][nl].size() ){
-    d_iter[ind][nl][nl][ index ]->clear();
-    d_assigned[ind][nl][nl]++;
-    return d_iter[ind][nl][nl][ index ];
-  }else{
-    UIterator* i = new UIterator( ind );
-    d_iter[ind][nl][nl].push_back( i );
-    d_assigned[ind][nl][nl]++;
-    return i;
-  }
-}
-
-UIterator* UIterator::mkCombineUIterator( Node t, Node s, bool isEq, Node f ){
-  //if( isEq && !s.hasAttribute(InstConstantAttribute()) ){
-  //  d_itu->calculateEIndLitCandidates( t, s, f, isEq );
-  //  if( d_itu->d_litMatchCandidates[0][t][s].size()==1 ){
-  //    return mkMergeUIterator( t, d_itu->d_litMatchCandidates[0][t][s][0], f );
-  //  }
-  //}
-  int ind = isEq ? 0 : 1;
-  int index = d_assigned[ind][t][s];
-  Debug( "quant-uf-uiter" ) << "mkCombineIterator " << t << " " << s << " " << isEq;
-  Debug( "quant-uf-uiter" )<< " (" << index << "/" << d_iter[ind][t][s].size() << ")" << std::endl;
-  if( index<(int)d_iter[ind][t][s].size() ){
-    d_iter[ind][t][s][ index ]->clear();
-    d_assigned[ind][t][s]++;
-    return d_iter[ind][t][s][ index ];
-  }else{
-    UIterator* ci = new UIterator( t, s, ind, f );
-    d_iter[ind][t][s].push_back( ci );
-    d_assigned[ind][t][s]++;
-    return ci;
-  }
-}
-
-UIterator* UIterator::mkMergeUIterator( Node t, Node s, Node f ){
-  int index = d_assigned[2][t][s];
-  Debug( "quant-uf-uiter" ) << "mkMergeIterator " << t << " " << s;
-  Debug( "quant-uf-uiter" )<< " (" << index << "/" << d_iter[2][t][s].size() << ")" << std::endl;
-  if( index<(int)d_iter[2][t][s].size() ){
-    d_iter[2][t][s][ index ]->clear();
-    d_assigned[2][t][s]++;
-    return d_iter[2][t][s][ index ];
-  }else{
-    UIterator* mi = new UIterator( t, s, 2, f );
-    d_iter[2][t][s].push_back( mi );
-    d_assigned[2][t][s]++;
-    return mi;
-  }
-}
-
-bool UIterator::areEqual( Node a, Node b ) { return d_itu->areEqual( a, b ); }
-bool UIterator::areDisequal( Node a, Node b ) { return d_itu->areDisequal( a, b ); }
-Node UIterator::getRepresentative( Node a ) { return d_itu->getRepresentative( a ); }
-
-bool UIterator::getNextMatch(){
-  Debug( "quant-uf-uiter" ) << "get next match " << this << std::endl;
-  d_mg_i++;
-  UIterator* master = getMaster();
-  if( d_mg_i<(int)master->d_mg.d_matches.size() ){
-    Debug( "quant-uf-uiter" ) << this << " returned (existing) match " << d_mg_i << std::endl;
-    getCurrent()->debugPrint( "quant-uf-uiter" );
-    return true;
-  }else if( d_mg_i==(int)master->d_mg.d_matches.size() ){
-    if( master->d_mg_set ){
-      Debug( "quant-uf-uiter" )  << this << " already set" << std::endl;
-      return false;
-    }else{
-      if( !master->d_children_set ){
-        Debug( "quant-uf-uiter" ) << this << " calculate children" << std::endl;
-        master->calcChildren();
-        Debug( "quant-uf-uiter" ) << "This is my iterator: " << std::endl;
-        debugPrint( "quant-uf-uiter", 0 );
-        Debug( "quant-uf-uiter" ) << std::endl;
-      }
-      if( master->d_mg_set ){
-        return ( d_mg_i<(int)master->d_mg.d_matches.size() );
-      }else if( master->calcNextMatch() ){
-        Assert( d_mg_i<(int)master->d_mg.d_matches.size() );
-        Debug( "quant-uf-uiter" ) << this << " returned match " << d_mg_i << std::endl;
-        getCurrent()->debugPrint( "quant-uf-uiter" );
-        return true;
-      }else{
-        Debug( "quant-uf-uiter" ) << this << " did not calc new match" << std::endl;
-        master->d_mg_set = true;
-        return false;
-      }
-    }
-  }else{
-    Debug( "quant-uf-uiter" ) << this << " no more matches." << std::endl;
-    return false;
-  }
-}
-
-bool UIterator::addInstMatch( InstMatch& m ){
-  if( d_mg.contains( m ) ){
-    return false;
-  }else{
-    d_mg.d_matches.push_back( m );
-    return true;
-  }
-}
-
-void UIterator::indent( const char* c, int ind ){
-  for( int i=0; i<(int)ind; i++ ){
-    Debug( c ) << " ";
-  }
-}
-
-void UIterator::debugPrint( const char* c, int ind, bool printChildren ){
-  indent( c, ind );
-  if( getMaster()==this ){
-    Debug( c ) << ( ( getMaster()->d_mg_set || getMaster()->d_children_set ) ? "+" : "-" );
-  }else{
-    Debug( c ) << "<";
-  }
-  Debug( c ) << " " << this << " " << d_depth << " " << ( isCombine() ? "Combine" : "Merge" );
-  if( d_t!=Node::null() ){
-    Debug( c ) << " " << d_t << ( d_operation==1 ? " != " : " = " ) << d_s;
-  }
-  Debug( c ) << " (" << ( getMaster()->d_mg_set ? "***" : "" ) << "matches=" << getMaster()->d_mg.d_matches.size() << ")";
-  //Debug( c ) << ", children = " << d_children.size() << std::endl;
-  Debug( c ) << std::endl;
-  if( getMaster()==this && printChildren ){
-    for( int i=0; i<(int)d_children.size(); i++ ){
-      d_children[i]->debugPrint( c, ind+1 );
-    }
-  }
-}
-
-void UIterator::calcChildren(){
-  if( d_t!=Node::null() ){
-    Node f = d_t.getAttribute(InstConstantAttribute());
-    if( d_operation==0 ){
-      if( d_t.getKind()==INST_CONSTANT && !d_s.hasAttribute(InstConstantAttribute()) ){
-        InstMatch m( f, d_itu->d_instEngine );
-        Node c = getRepresentative( d_s );
-        if( !areEqual( d_t, c ) ){
-          m.setMatch( d_t, c );
-        }
-        d_mg.d_matches.push_back( m );
-        d_mg_set = true;
-      }else{
-        //find any term to match d_t to d_s
-        //if they share the same operator, try a merge, if legal to do so
-        if( d_t.getKind()==APPLY_UF && d_s.getKind()==APPLY_UF && d_t.getOperator()==d_s.getOperator() ){
-          UIterator* ui = NULL;//mkMergeUIterator( d_t, d_s, f );
-          if( ui ){
-            d_children.push_back( ui );
-          }
-        }
-        d_itu->calculateEIndLitCandidates( d_t, d_s, f, true );
-        //Assert( d_t.getKind()!=APPLY_UF || d_s.getKind()!=APPLY_UF || d_t.getOperator()!=d_s.getOperator() );
-        for( int i=0; i<(int)d_itu->d_litMatchCandidates[0][d_t][d_s].size(); i++ ){
-          Node m = d_itu->d_litMatchCandidates[0][d_t][d_s][i];
-          if( d_s.getAttribute(InstConstantAttribute())==f ){
-            //equality between two triggers
-            UIterator* mi = mkUIterator( false );
-            mi->d_children.push_back( mkCombineUIterator( d_t, m, true, f ) );
-            mi->d_children.push_back( mkCombineUIterator( d_s, m, true, f ) );
-            d_children.push_back( mi );
-          }else{
-            //equality between trigger and ground term
-            d_children.push_back( mkMergeUIterator( d_t, m, f ) );
-          }
-        }
-      }
-    }else if( d_operation==1 ){
-      //find any term to match d_t to d_s
-      d_itu->calculateEIndLitCandidates( d_t, d_s, f, false );
-      Debug( "quant-uf-uiter" ) << "Find candidates for " << d_t << ( d_operation==0 ? " = " : " != " ) << d_s << std::endl;
-      Debug( "quant-uf-uiter" ) << "# of match candidates = " << d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size() << std::endl;
-      //if( d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size()==1 && !d_s.hasAttribute(InstConstantAttribute()) ){
-      //  //if one child, compress the child to this
-      //  // must consider if the following UIterator already exists
-      //  int nOp = d_operation==1 ? 0 : 2;
-      //  Node s = d_itu->d_litMatchCandidates[d_operation][d_t][d_s][0];
-      //  if( d_assigned[nOp][d_t][s]==0 ){
-      //    if( d_operation==1 ){
-      //      mkCombineUIterator( d_t, s, true, f );
-      //    }else{
-      //      mkMergeUIterator( d_t, s, f );
-      //    }
-      //  }
-      //  d_miter[d_operation][d_t][d_s] = d_miter[nOp][d_t][s];
-      //  d_mg_i = -1;
-      //  getMaster()->calcChildren();
-      //  return;
-      //}
-      if( d_s.getAttribute(InstConstantAttribute())==f ){
-        //disequality between two triggers
-        for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
-          Node mt = d_itu->d_litMatchCandidates[1][d_t][d_s][i][0];
-          Node ms = d_itu->d_litMatchCandidates[1][d_t][d_s][i][1];
-          UIterator* mi = mkUIterator( false );
-          mi->d_children.push_back( mkCombineUIterator( d_t, mt, true, f ) );
-          mi->d_children.push_back( mkCombineUIterator( d_s, ms, true, f ) );
-          d_children.push_back( mi );
-        }
-      }else{
-        //disequality between trigger and ground term
-        for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
-          Node m = d_itu->d_litMatchCandidates[1][d_t][d_s][i];
-          d_children.push_back( mkCombineUIterator( d_t, m, true, f ) );
-        }
-      }
-    }else{
-      if( d_t.getKind()==INST_CONSTANT ){
-        InstMatch m( f, d_itu->d_instEngine );
-        Node c = getRepresentative( d_s );
-        if( !areEqual( d_t, c ) ){
-          m.setMatch( d_t, c );
-        }
-        d_mg.d_matches.push_back( m );
-        d_mg_set = true;
-      }else{
-        //merge the arguments of d_t and d_s 
-        Assert( d_t.getKind()==APPLY_UF );
-        Assert( d_s.getKind()==APPLY_UF );
-        Assert( d_t.getOperator()==d_s.getOperator() );
-        Assert( d_t.getNumChildren()==d_s.getNumChildren() );
-        Node f = d_t.getAttribute(InstConstantAttribute());
-        for( int j=0; j<(int)d_s.getNumChildren(); j++ ){
-          Assert( !areDisequal( d_t[j], d_s[j] ) );
-          if( !areEqual( d_t[j], d_s[j] ) ){
-            if( d_t[j].hasAttribute(InstConstantAttribute()) ){
-              d_children.push_back( mkCombineUIterator( d_t[j], getRepresentative( d_s[j] ), true, f ) );
-            }else{
-              Assert( !d_s[j].hasAttribute(InstConstantAttribute()) );
-              addSplit( d_t[j], d_s[j] );
-            }
-          }
-        }
-      }
-    }
-  }
-  for( int i=0; i<(int)d_children.size(); i++ ){
-    d_children[i]->d_depth = d_depth + 1;
-  }
-  d_children_set = true;
-}
-
-void UIterator::addSplit( Node n1, Node n2 ){
-  if( n2<n1 ){
-    Node ntemp = n1;
-    n1 = n2;
-    n2 = ntemp;
-  }
-  if( d_splits.find( n1 )!=d_splits.end() ){
-    if( d_splits[n1]!=n2 ){
-      addSplit( d_splits[n1], n2 );
-    }
-  }else{
-    d_splits[n1] = n2;
-  }
-}
-
-bool UIterator::acceptMatch( InstMatch* m ){
-  if( d_useInstLevelThreshold ){
-    for( std::map< Node, Node >::iterator it = m->d_map.begin(); 
-        it != m->d_map.end(); ++it ){
-      if( it->second!=Node::null() && it->second.hasAttribute(InstLevelAttribute()) &&
-          it->second.getAttribute(InstLevelAttribute())>d_instLevelThreshold ){
-        return false;
-      }
-    }
-  }
-  if( d_useSplitThreshold ){
-    if( (int)m->d_splits.size()<=d_splitThreshold ){
-      for( std::map< Node, Node >::iterator it = m->d_splits.begin();
-            it != m->d_splits.end(); ++it ){
-        if( areDisequal( it->first, it->second ) ){
-          return false;
-        }
-      }
-    }else{
-      return false;
-    }
-  }
-  return true;
-}
-
-bool UIterator::calcNextMatch(){
-  Assert( getMaster()==this );
-  Assert( !d_mg_set );
-  if( d_children.empty() ){
-    Debug( "quant-uf-uiter" ) << "calcNextMatch:: Children empty " << d_children.size() << std::endl;
-    if( !isCombine() && d_t!=Node::null() ){
-      //by definition, this should produce the empty match
-      Node f = d_t.getAttribute(InstConstantAttribute());
-      d_mg.d_matches.push_back( InstMatch( f, d_itu->d_instEngine ) );
-      d_mg_set = true;
-      return true;
-    }else{
-      return false;
-    }
-  }else{
-    Debug( "quant-uf-uiter" ) << "calc next match " << this << std::endl;
-    if( isCombine() ){
-      //get the next match
-      bool success;
-      do{
-        success = d_children[d_index]->getNextMatch();
-        if( !success ){
-          d_index++;
-          if( d_index==(int)d_children.size() ){
-            return false;
-          }
-        }
-      }while( !success );
-      Assert( d_children[d_index]->getCurrent()!=NULL );
-      if( addInstMatch( *d_children[d_index]->getCurrent() ) ){  //if we have not seen this match before
-        return true;
-      }else{
-        return calcNextMatch();
-      }
-    }else{
-      //if this is the first time
-      if( d_mg.empty() ){
-        if( d_useSplitThreshold && (int)d_splits.size()>d_splitThreshold ){
-          d_mg_set = true;
-          return false;
-        }else{
-          for( int i=0; i<(int)d_children.size(); i++ ){
-            //do quick check to see if any are empty
-            if( !d_children[i]->getNextMatch() ){
-              d_mg_set = true;
-              return false;
-            }else{
-              d_children[i]->reset();
-            }
-          }
-        }
-      }
-
-      if( !d_partial.empty() ){
-        d_partial.pop_back();
-      }
-      // i is the index of the child we are trying to fit into our merged match
-      int i = (int)d_partial.size();
-      //until we have created a merge for all children
-      while( i!=(int)d_children.size() ){
-        InstMatch combined;
-        bool success = false;
-        //get the next match
-        while( !success && d_children[i]->getNextMatch() ){
-          combined = InstMatch( *d_children[i]->getCurrent() );
-          //ensure that splits are consistent 
-          //see if it merges into the current built merge (stored in d_partial)
-          if( i==0 ){
-            for( std::map< Node, Node >::iterator it = d_splits.begin(); it != d_splits.end(); ++it ){
-              combined.addSplit( it->first, it->second );
-            }
-          }else{
-            combined.merge( d_partial[i-1], true );
-          }
-          success = acceptMatch( &combined );
-        }
-        Assert( !d_children[i]->empty() );
-        if( !success ){
-          if( i==0 ){  //we will not produce any more matches
-            return false;
-          }else{  //backtrack
-            d_children[i]->reset();
-            d_partial.pop_back();
-            i--;
-          }
-        }else{  //proceed to next match
-          d_partial.push_back( InstMatch( &combined ) );
-          i++;
-        }
-      }
-      if( addInstMatch( d_partial[ d_children.size() - 1 ] ) ){ //if we have not seen this match before
-        return true;
-      }else{
-        return calcNextMatch();
-      }
-    }
-  }
-}
-
-double UIterator::collectUnmerged( std::map< UIterator*, UIterator* >& index, std::vector< UIterator* >& unmerged,
-                                   std::vector< UIterator* >& cover ){
-  Assert( getMaster()->d_children_set );
-  Assert( getMaster()->d_mg.d_matches.empty() && getMaster()->d_mg_set );
-  if( getMaster()->d_children.empty() ){
-    unmerged.push_back( this );
-    return 0.0;
-  }else{
-    if( getMaster()->isCombine() ){
-      double maxScore = -1.0;
-      int maxIndex = -1;
-      //take maximum index child
-      std::vector< UIterator* > unmg;
-      std::vector< UIterator* > cvr;
-      for( int i=0; i<(int)getMaster()->d_children.size(); i++ ){
-        std::vector< UIterator* > unmg_temp;
-        std::vector< UIterator* > cvr_temp;
-        double cScore = getMaster()->d_children[ i ]->collectUnmerged( index, unmg_temp, cvr_temp );
-        if( cScore>maxScore ){
-          maxScore = cScore;
-          maxIndex = i;
-          unmg.clear();
-          unmg.insert( unmg.end(), unmg_temp.begin(), unmg_temp.end() );
-          cvr.clear();
-          cvr.insert( cvr.end(), cvr_temp.begin(), cvr_temp.end() );
-        }
-      }
-      index[ this ] = getMaster()->d_children[ maxIndex ];
-      unmerged.insert( unmerged.end(), unmg.begin(), unmg.end() );
-      cover.insert( cover.end(), cvr.begin(), cvr.end() );
-      return maxScore;
-    }else{
-      bool emptyChild = false;
-      double score = 0.0;
-      for( int i=0; i<(int)getMaster()->d_children.size(); i++ ){
-        if( !getMaster()->d_children[i]->getMaster()->d_mg_set && 
-            getMaster()->d_children[i]->getMaster()->d_mg.d_matches.empty() ){
-          getMaster()->d_children[i]->getNextMatch();
-        }
-        if( getMaster()->d_children[i]->empty() ){
-          score += .5*getMaster()->d_children[i]->collectUnmerged( index, unmerged, cover );
-          emptyChild = true;
-        }else{
-          Assert( !getMaster()->d_children[i]->getMaster()->d_mg.d_matches.empty() );
-          cover.push_back( getMaster()->d_children[i] );
-          score += 1.0;
-        }
-      }
-      if( !emptyChild ){
-        unmerged.push_back( this );
-      }
-      score = score/(double)(getMaster()->d_children.size());
-      return score;
-    }
-  }
-}
-
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th) :
 Instantiator( c, ie, th ),
 //d_subterms( c ),
 //d_subterm_size( c ),
 d_obligations( c ),
 d_ob_pol( c ),
+d_ob_reqPol( c ),
 d_terms_full( c ),
 d_terms( c ),
 d_disequality( c )
@@ -570,20 +74,23 @@ void InstantiatorTheoryUf::check( Node assertion )
   Debug("quant-uf-assert") << "InstantiatorTheoryUf::check: " << assertion << std::endl;
   switch (assertion.getKind()) {
   case kind::EQUAL:
-    assertEqual( assertion[0], assertion[1] );
+    assertEqual( assertion[0], assertion[1], 
+                 d_instEngine->d_phase_reqs.find( assertion )!=d_instEngine->d_phase_reqs.end()  );
     break;
   case kind::APPLY_UF:
-    assertEqual( assertion, ((TheoryUF*)d_th)->d_true );
+    assertEqual( assertion, ((TheoryUF*)d_th)->d_true, 
+                 d_instEngine->d_phase_reqs.find( assertion )!=d_instEngine->d_phase_reqs.end()  );
     break;
   case kind::NOT:
-    assertEqual( assertion[0], ((TheoryUF*)d_th)->d_false );
+    assertEqual( assertion[0], ((TheoryUF*)d_th)->d_false, 
+                 d_instEngine->d_phase_reqs.find( assertion[0] )!=d_instEngine->d_phase_reqs.end() );
     break;
   default:
     Unreachable();
   }
 }
 
-void InstantiatorTheoryUf::assertEqual( Node a, Node b )
+void InstantiatorTheoryUf::assertEqual( Node a, Node b, bool reqPol )
 {
   if( a.hasAttribute(InstConstantAttribute()) || 
       b.hasAttribute(InstConstantAttribute()) ){
@@ -627,6 +134,7 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
     }
     ob->push_back( formula );
     d_ob_pol[ formula ] = isEq;
+    d_ob_reqPol[ formula ] = reqPol;
     //this theory has constraints from f
     setHasConstraintsFrom( f );
   }
@@ -644,8 +152,13 @@ void InstantiatorTheoryUf::assertEqual( Node a, Node b )
 
 void InstantiatorTheoryUf::registerTerm( Node n, bool isTop )
 {
+  if( !n.hasAttribute(InstLevelAttribute()) ){
+    InstLevelAttribute ila;
+    n.setAttribute(ila,0);
+  }
   bool recurse = false;
   if( isTop ){
+    d_instEngine->registerTerm( n );
     if( d_terms.find( n )==d_terms.end() ){
       d_terms[n] = true;
       d_terms_full[n] = true;
@@ -863,7 +376,9 @@ void InstantiatorTheoryUf::debugPrint( const char* c )
       NodeList* ob = (*ob_i).second;
       for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
         Debug( c ) << "      " << ( !d_ob_pol[*it] ? "NOT " : "" );
-        Debug( c ) << *it << std::endl;
+        Debug( c ) << *it;
+        Debug( c ) << " " << ( d_ob_reqPol[ *it ] ? "(REQ)" : "" );
+        Debug( c ) << std::endl;
       }
     }
   }
@@ -905,12 +420,12 @@ Node InstantiatorTheoryUf::getRepresentative( Node a ){
 void InstantiatorTheoryUf::process( Node f, int effort ){
   Debug("quant-uf") << "UF: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   if( effort>5 ){
-    //if( effort==6 && !d_unmatched[f] ){
-    //  Debug("quant-uf") << "Add guessed instantiation" << std::endl;
-    //  InstMatch m( f, d_instEngine );
-    //  d_instEngine->addInstantiation( &m );
-    //  ++(d_statistics.d_instantiations);
-    //}
+    if( effort==6 && !d_unmatched[f] ){
+      Debug("quant-uf") << "Add guessed instantiation" << std::endl;
+      InstMatch m( f, d_instEngine );
+      d_instEngine->addInstantiation( &m );
+      ++(d_statistics.d_instantiations);
+    }
     d_quantStatus = STATUS_UNKNOWN;
   }else if( effort==0 ){
     //calculate base matches
@@ -946,7 +461,14 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
         d_mergeIter[ f ] = UIterator::mkUIterator( false );
         for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
           Node lit = (*it);
-          d_mergeIter[ f ]->d_children.push_back( UIterator::mkCombineUIterator( lit[0], lit[1], d_ob_pol[lit], f ) );
+          if( d_ob_reqPol[lit] ){
+            d_mergeIter[ f ]->d_children.push_back( UIterator::mkCombineUIterator( lit[0], lit[1], d_ob_pol[lit] ) );
+          }else{
+            UIterator* it = UIterator::mkUIterator( true );
+            it->d_children.push_back( UIterator::mkCombineUIterator( lit[0], lit[1], true ) );
+            it->d_children.push_back( UIterator::mkCombineUIterator( lit[0], lit[1], false ) );
+            d_mergeIter[ f ]->d_children.push_back( it );
+          }
         }
         while( d_mergeIter[ f ]->getNextMatch() ){
           // f is E-induced
@@ -968,14 +490,10 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
           // f is (conditionally) E-induced
           InstMatch temp( d_mergeIter[ f ]->getCurrent() );
           temp.add( d_baseMatch[f] );
-          if( d_instEngine->addInstantiation( &temp ) ){
+          if( d_instEngine->addInstantiation( &temp, true ) ){
             ++(d_statistics.d_instantiations);
             Debug("quant-uf") << "Added this inst match: " << std::endl;
             temp.debugPrint( "quant-uf" );
-            //add corresponding splits
-            for( std::map< Node, Node >::iterator it = temp.d_splits.begin(); it != temp.d_splits.end(); ++it ){
-              addSplitEquality( it->first, it->second, true, true );
-            }
             break;
           }
         }
@@ -989,13 +507,7 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
           std::map< UIterator*, UIterator* > index;
           std::vector< UIterator* > unmerged;
           std::vector< UIterator* > cover;
-          double score;
-          if( d_mergeIter[ f ]->empty() ){
-            score = d_mergeIter[ f ]->collectUnmerged( index, unmerged, cover );
-          }else{
-            score = 1.0;
-          }
-          Debug("quant-uf-alg") << "Score = " << score << std::endl;
+          d_mergeIter[ f ]->collectUnmerged( unmerged, cover );
           Debug("quant-uf-alg") << "Here are the unmerged points: " << std::endl;
           for( int i=0; i<(int)unmerged.size(); i++ ){
             unmerged[i]->debugPrint( "quant-uf-alg", 1, false );
@@ -1013,12 +525,9 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
               if( cover[i]->getCurrent()->isComplete( &d_baseMatch[f] ) ){
                 InstMatch temp( cover[i]->getCurrent() );
                 temp.add( d_baseMatch[f] );
-                if( d_instEngine->addInstantiation( &temp ) ){
+                if( d_instEngine->addInstantiation( &temp, true ) ){
                   ++(d_statistics.d_instantiations);
                   success = true;
-                  for( std::map< Node, Node >::iterator it = temp.d_splits.begin(); it != temp.d_splits.end(); ++it ){
-                    addSplitEquality( it->first, it->second, true, true );
-                  }
                 }
               }
             }
@@ -1139,14 +648,14 @@ bool InstantiatorTheoryUf::resolveLiteralMatches( Node t, Node s, Node f ){
       for( int j=0; j<(int)d_matches[s].size(); j++ ){
         Node ms = d_matches[s][j];
         if( !areEqual( mt, ms ) && !areDisequal( mt, ms ) ){
-          if( addSplitEquality( mt, ms ) ){
+          if( d_instEngine->addSplitEquality( mt, ms ) ){
             addedLemma = true;
           }
         }
       }
     }else{
       if( !areEqual( mt, s ) && !areDisequal( mt, s ) ){
-        if( addSplitEquality( mt, s ) ){
+        if( d_instEngine->addSplitEquality( mt, s ) ){
           addedLemma = true;
         }
       }
@@ -1299,27 +808,6 @@ void InstantiatorTheoryUf::calculateEqDep( Node i, Node c, Node f ){
         }
       }
     }
-  }
-}
-
-bool InstantiatorTheoryUf::addSplitEquality( Node n1, Node n2, bool reqPhase, bool reqPhasePol ){
-  Assert( !n1.hasAttribute(InstConstantAttribute()) );
-  Assert( !n2.hasAttribute(InstConstantAttribute()) );
-  Assert( !areEqual( n1, n2 ) );
-  Assert( !areDisequal( n1, n2 ) );
-  Kind knd = n1.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
-  Node fm = NodeManager::currentNM()->mkNode( knd, n1, n2 );
-  fm = Rewriter::rewrite( fm );
-  if( d_instEngine->addSplit( fm ) ){
-    ++(d_statistics.d_splits);
-    Debug("quant-uf-split") << "*** Add split " << n1 << " = " << n2 << std::endl;
-    //require phase?
-    if( reqPhase ){
-      d_instEngine->d_curr_out->requirePhase( fm, reqPhasePol );
-    }
-    return true;
-  }else{
-    return false;
   }
 }
 

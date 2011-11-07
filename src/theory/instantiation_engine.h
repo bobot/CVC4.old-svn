@@ -21,6 +21,9 @@
 
 #include "theory/theory.h"
 #include "util/hash.h"
+#include "theory/inst_match.h"
+
+#include "util/stats.h"
 
 #include <ext/hash_set>
 #include <iostream>
@@ -41,79 +44,6 @@ typedef expr::Attribute<InstLevelAttributeId, uint64_t> InstLevelAttribute;
 namespace theory {
 
 class InstantiationEngine;
-
-class InstMatch
-{
-public:
-  std::map< Node, Node > d_map;
-  std::vector< Node > d_vars;
-  std::vector< Node > d_match;
-  bool d_computeVec;
-  std::map< Node, Node > d_splits;
-
-  InstMatch(){}
-  InstMatch( Node f, InstantiationEngine* ie );
-  InstMatch( InstMatch* m );
-
-  /** fill all unfilled values with m */
-  virtual bool add( InstMatch& m );
-  /** if compatible, fill all unfilled values with m and return true 
-      return false otherwise */
-  virtual bool merge( InstMatch& m, bool allowSplit = false );
-  /** -1 : keep this, 1 : keep m, 0 : keep both */
-  virtual int checkSubsume( InstMatch& m );
-  /** return if d_maps are equivalent */
-  virtual bool isEqual( InstMatch& m );
-  /** debug print method */
-  virtual void debugPrint( const char* c );
-  /** set the match of v to m */
-  void setMatch( Node v, Node m ){
-    d_map[v] = m;
-    d_computeVec = true;
-  }
-  /** mbase is used if no value given in d_map */
-  bool isComplete( InstMatch* mbase = NULL );
-  /** compute d_match */
-  void computeTermVec();
-  /** make substitution for Node */
-  Node substitute( Node n ){
-    computeTermVec();
-    return n.substitute( d_vars.begin(), d_vars.end(), d_match.begin(), d_match.end() ); 
-  }
-  /** get associated quantifier */
-  Node getQuantifier() { return d_vars[0].getAttribute(InstConstantAttribute()); }
-  /** add split */
-  void addSplit( Node n1, Node n2 );
-};
-
-class InstMatchGroup
-{
-public:
-  InstMatchGroup(){}
-  InstMatchGroup( InstMatchGroup* mg ){
-    add( *mg );
-  }
-  InstMatchGroup( std::vector< InstMatchGroup* >& mgg ){
-    for( int i=0; i<(int)mgg.size(); i++ ){
-      add( *mgg[i] );
-    }
-  }
-  ~InstMatchGroup(){}
-  std::vector< InstMatch > d_matches;
-
-  bool merge( InstMatchGroup& mg );
-  void add( InstMatchGroup& mg );
-  void combine( InstMatchGroup& mg );
-  void addComplete( InstMatchGroup& mg, InstMatch* mbase = NULL );
-  bool contains( InstMatch& m );
-  void removeRedundant();
-  void removeDuplicate();
-  bool empty() { return d_matches.empty(); }
-  unsigned int getNumMatches() { return d_matches.size(); }
-  InstMatch* getMatch( int i ) { return &d_matches[i]; }
-  void clear(){ d_matches.clear(); }
-  void debugPrint( const char* c );
-};
 
 class Instantiator{
   friend class InstantiationEngine;
@@ -167,6 +97,24 @@ public:
   bool isOwnerOf( Node f );
 };/* class Instantiator */
 
+class TermMatchEngine 
+{
+private:
+  void processMatch( Node pat, Node g );
+public:
+  TermMatchEngine(){}
+  ~TermMatchEngine(){}
+
+  //patterns vs. ground terms, their matches
+  std::map< Node, bool > d_patterns;
+  std::map< Node, bool > d_ground_terms;
+  std::map< Node, std::map< Node, UIterator* > > d_matches;
+  void registerTerm( Node n );
+
+  UIterator* makeMultiPattern( std::vector< Node >& nodes );
+};
+
+
 class InstantiatorDefault;
 namespace uf {
   class InstantiatorTheoryUf;
@@ -216,7 +164,11 @@ private:
   int d_status;
   /** whether a lemma has been added */
   bool d_addedLemma;
-  
+  /** phase requirements for instantiation literals */
+  std::map< Node, bool > d_phase_reqs;
+  /** term match engine */
+  TermMatchEngine d_tme;
+
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
   /** instantiation queue */
@@ -226,7 +178,7 @@ private:
   /** process partial instantiations */
   void processPartialInstantiations();
   /** set instantiation level */
-  void setInstantiationLevel( Node n, int level );
+  void setInstantiationLevel( Node n, uint64_t level );
 public:
   InstantiationEngine(context::Context* c, TheoryEngine* te);
   ~InstantiationEngine();
@@ -239,9 +191,11 @@ public:
   /** instantiate f with arguments terms */
   bool addInstantiation( Node f, std::vector< Node >& terms );
   /** do instantiation specified by m */
-  bool addInstantiation( InstMatch* m );
+  bool addInstantiation( InstMatch* m, bool addSplits = false );
   /** split on node n */
-  bool addSplit( Node n );
+  bool addSplit( Node n, bool reqPhase = false, bool reqPhasePol = true );
+  /** add split equality */
+  bool addSplitEquality( Node n1, Node n2, bool reqPhase = false, bool reqPhasePol = true );
 
   /** get the ce body ~f[e/x] */
   Node getCounterexampleBody( Node f );
@@ -257,7 +211,7 @@ public:
   /** set corresponding counterexample literal for quantified formula node n */
   void setCounterexampleLiteralFor( Node n, Node l );
   /** mark literals as dependent */
-  void registerLiterals( Node n, Node f, OutputChannel* out );
+  void registerLiterals( Node n, Node f, OutputChannel* out, bool polarity = false, bool reqPol = false );
   /** set active */
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */
@@ -267,15 +221,19 @@ public:
   /** has added lemma */
   bool hasAddedLemma() { return d_addedLemma; }
 
-  //class Statistics {
-  //public:
-  //  IntStat d_instantiation_rounds;
-  //  IntStat d_instantiations;
-  //  IntStat d_splits;
-  //  Statistics();
-  //  ~Statistics();
-  //};
-  //Statistics d_statistics;
+  class Statistics {
+  public:
+    IntStat d_instantiation_rounds;
+    IntStat d_instantiations;
+    IntStat d_max_instantiation_level;
+    IntStat d_splits;
+    Statistics();
+    ~Statistics();
+  };
+  Statistics d_statistics;
+
+  void registerTerm( Node n ) { d_tme.registerTerm( n ); }
+
 };/* class InstantiationEngine */
 
 }/* CVC4::theory namespace */

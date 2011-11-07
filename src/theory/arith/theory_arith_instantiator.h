@@ -42,6 +42,12 @@ private:
   std::map< ArithVar, std::map< Node, Node > > d_tableaux;
   /** ce tableaux */
   std::map< ArithVar, std::map< Node, Node > > d_ceTableaux;
+  /** get value */
+  Node getTableauxValue( Node n, bool minus_delta = false );
+  Node getTableauxValue( ArithVar v, bool minus_delta = false );
+  /** do instantiation */
+  bool doInstantiation( Node term, ArithVar x, InstMatch* m, Node var );
+  bool doInstantiation2( Node term, ArithVar x, InstMatch* m, Node var, bool minus_delta = false );
 public:
   InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryArith() {}
@@ -66,6 +72,9 @@ private:
   public:
     IntStat d_instantiations;
     IntStat d_instantiations_minus;
+    IntStat d_instantiations_match_pure;
+    IntStat d_instantiations_match_var;
+    IntStat d_instantiations_match_no_var;
     Statistics();
     ~Statistics();
   };

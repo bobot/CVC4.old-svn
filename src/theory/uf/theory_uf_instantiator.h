@@ -59,136 +59,8 @@ namespace uf {
 //  Node getMatch() { return d_match; }
 //};
 
-/**
-Unify Iterator class:
-This class incrementally builds unifiers that induce d_t ~ d_s.
-*/
-class UIterator 
-{
-public:
-  static InstantiatorTheoryUf* d_itu;
-  /** all iterators (for memory management purposes) */
-  static std::map< Node, std::map< Node, std::vector< UIterator* > > > d_iter[3];
-  /** how many iterators have been assigned (for memory management purposes) */
-  static std::map< Node, std::map< Node, int > > d_assigned[3];
-  /** maximum number of splits allowed for conditional unification */
-  static int d_splitThreshold;
-  static bool d_useSplitThreshold;
-  static uint64_t d_instLevelThreshold;
-  static bool d_useInstLevelThreshold;
-  /** reset all */
-  static void resetAssigned();
-  static void indent( const char* c, int ind );
-protected:
-  /** queries to d_itu */
-  static bool areEqual( Node a, Node b );
-  static bool areDisequal( Node a, Node b );
-  static Node getRepresentative( Node a );
-  /** has d_children been set */
-  bool d_children_set;
-  /** has d_mg been set */
-  bool d_mg_set;
-public:
-  /** terms we are matching */
-  Node d_t;
-  Node d_s;
-protected:
-  /** d_operation = 0 : d_t = d_s mod equality
-      d_operation = 1 : d_t != d_s mod equality
-      d_operation = 2 : d_t = d_s, merge arguments */
-  int d_operation;
-  /** partial matches produced for children 0...n */
-  std::vector< InstMatch > d_partial;
-  /** index of child currently processing */
-  int d_index;
-  /** depth in the tree */
-  int d_depth;
-  /** splits required for this iterator (e.g. ground argument mismatches) */
-  std::map< Node, Node > d_splits;
-  /** add split */
-  void addSplit( Node n1, Node n2 );
-  /** the master for this iterator (the one calculating matches) */
-  UIterator* getMaster() { return d_t==Node::null() ? this : d_iter[d_operation][d_t][d_s][0]; }
-  /** clear this iterator (make fresh) */
-  void clear();
-  /** whether to accept a match */
-  bool acceptMatch( InstMatch* m );
-protected:
-  /** calculate the children vector */
-  void calcChildren();
-  /** calculate the next match */
-  bool calcNextMatch();
-  /** add instantiation match to vector, return true if not redundant */
-  bool addInstMatch( InstMatch& m );
-  //default
-  UIterator( int op = 2 );
-  // find matches for t ~ s
-  UIterator( Node t, Node s, int op, Node f );
-public:
-  ~UIterator(){}
-
-  /** matches produced */
-  InstMatchGroup d_mg;
-  /** the index currently processing (ranges over d_mg.d_matches) */
-  int d_mg_i;
-  /** children iterators */
-  std::vector< UIterator* > d_children;
-
-  /** clear the matches for this iterator */
-  void clearMatches();
-  /** contains no matches? */
-  bool empty() { return getMaster()->d_mg_set && getMaster()->d_mg.d_matches.empty(); }
-  /** get current match */
-  InstMatch* getCurrent() { 
-    if( d_mg_i>=0 && d_mg_i<(int)getMaster()->d_mg.d_matches.size() ){
-      return &getMaster()->d_mg.d_matches[ d_mg_i ]; 
-    }else{
-      return NULL;
-    }
-  }
-  /** get next match */
-  bool getNextMatch();
-  /** reset this iterator */
-  void reset() { d_mg_i = -1; }
-  /** debug print */
-  void debugPrint( const char* c, int ind, bool printChildren = true );
-  /** is this uiterator performing a combine operation (not a merge) */
-  bool isCombine() { return d_operation<2; }
-  /** has splits */
-  bool hasSplits() { return !d_splits.empty(); }
-  /** get splits */
-  void getSplits( std::vector< std::pair< Node, Node > >& splits ){
-    splits.insert( splits.end(), getMaster()->d_splits.begin(), getMaster()->d_splits.end() );
-  }
-  /** determine issues for why no matches were produced */
-  double collectUnmerged( std::map< UIterator*, UIterator* >& index, std::vector< UIterator* >& unmerged,
-                          std::vector< UIterator* >& cover );
-
-  //default
-  static UIterator* mkUIterator( bool isComb = false );
-  // find matches for t ~ s
-  static UIterator* mkCombineUIterator( Node t, Node s, bool isEq, Node f );
-  //merge uiterator
-  static UIterator* mkMergeUIterator( Node t, Node s, Node f );
-};
-
-//class UIteratorCmd
-//{
-//public:
-//  static InstantiatorTheoryUf* d_itu;
-//private:
-//  std::vector< UIterator* > d_curr;
-//  int d_cmd;
-//public:
-//  UIteratorCmd(){}
-//  ~UIteratorCmd(){}
-//
-//  void resolveGroundArgumentMismatches( UIterator* it );
-//};
-
-
 class InstantiatorTheoryUf : public Instantiator{
-  friend class UIterator;
+  friend class ::CVC4::theory::UIterator;
 protected:
   typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
   typedef context::CDMap<Node, int, NodeHashFunction> IntMap;
@@ -198,6 +70,7 @@ protected:
 
   NodeLists d_obligations;
   BoolMap d_ob_pol;
+  BoolMap d_ob_reqPol;
   //std::map< Node, int > d_choice_counter;
   //int d_numChoices;
 
@@ -232,11 +105,11 @@ public:
   std::string identify() const { return std::string("InstantiatorTheoryUf"); }
   /** debug print */
   void debugPrint( const char* c );
-private:
-  /** assert terms are equal */
-  void assertEqual( Node a, Node b );
   /** register terms */
   void registerTerm( Node n, bool isTop = true );
+private:
+  /** assert terms are equal */
+  void assertEqual( Node a, Node b, bool reqPol = false );
 
   /** calculate matches for quantifier f at effort */
   std::map< Node, InstMatch > d_baseMatch;
@@ -259,9 +132,6 @@ private:
   /** calculate whether two terms are equality-dependent */
   std::map< Node, std::map< Node, bool > > d_eq_dep;
   void calculateEqDep( Node i, Node c, Node f );
-
-  /** add split equality */
-  bool addSplitEquality( Node n1, Node n2, bool reqPhase = false, bool reqPhasePol = true );
 
   class Statistics {
   public:
