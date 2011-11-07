@@ -452,6 +452,9 @@ public:
   /** Is this the Pseudoboolean type? */
   bool isPseudoboolean() const;
 
+  /** Is this the String type? */
+  bool isString() const;
+
   /** Is this an array type? */
   bool isArray() const;
 
@@ -796,6 +799,11 @@ inline bool TypeNode::isPseudoboolean() const {
   return
     ( getKind() == kind::TYPE_CONSTANT && getConst<TypeConstant>() == PSEUDOBOOLEAN_TYPE ) ||
     ( isPredicateSubtype() && getSubtypeBaseType().isPseudoboolean() );
+}
+
+inline bool TypeNode::isString() const {
+  return getKind() == kind::TYPE_CONSTANT &&
+    getConst<TypeConstant>() == STRING_TYPE;
 }
 
 inline bool TypeNode::isArray() const {
