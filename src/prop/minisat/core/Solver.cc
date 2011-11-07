@@ -169,7 +169,7 @@ CRef Solver::reason(Var x) {
     // If we already have a reason, just return it
     if (vardata[x].reason != CRef_Lazy) return vardata[x].reason;
 
-    assert(false);		// Don't support Non-lazy builds for
+    //assert(false);		// Don't support Non-lazy builds for
 				// now. In this function to avoid
 				// taking care of the .alloc below
 
