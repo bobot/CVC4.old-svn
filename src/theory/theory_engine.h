@@ -368,8 +368,15 @@ class TheoryEngine {
     std::vector<Node> additionalLemmas;
     additionalLemmas.push_back(node);
     RemoveITE::run(additionalLemmas);
+Debug("theory") << "LEMMA!  " << (negated ? additionalLemmas[0].notNode() : additionalLemmas[0]) << std::endl;
+Debug("theory") << " --  rewrites to " << theory::Rewriter::rewrite(additionalLemmas[0]) << std::endl;
+if(additionalLemmas[0].getNumChildren() == 2) {
+Debug("theory") << " --  [0] rewrites to " << theory::Rewriter::rewrite(additionalLemmas[0][0]) << std::endl;
+Debug("theory") << " --  [1] rewrites to " << theory::Rewriter::rewrite(additionalLemmas[0][1]) << std::endl;
+}
     d_propEngine->assertLemma(theory::Rewriter::rewrite(additionalLemmas[0]), negated, removable);
     for (unsigned i = 1; i < additionalLemmas.size(); ++ i) {
+Debug("theory") << "LEMMA!  " << additionalLemmas[i] << std::endl;
       d_propEngine->assertLemma(theory::Rewriter::rewrite(additionalLemmas[i]), false, removable);
     }
 

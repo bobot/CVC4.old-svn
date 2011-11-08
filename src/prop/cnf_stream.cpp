@@ -51,12 +51,15 @@ CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) 
 void CnfStream::recordTranslation(TNode node, bool alwaysRecord) {
   Debug("cnf") << "recordTranslation(" << alwaysRecord << "," << d_removable << "): " << node << std::endl;
   if (!d_removable) {
+    node = stripNot(node);
     if(d_translationCache.find(node)->second.recorded) {
       Debug("cnf") << "--> Already recorded, not recording again." << std::endl;
     } else {
-      Debug("cnf") << "--> Recorded at position " << d_translationTrail.size() << "." << std::endl;
-      d_translationTrail.push_back(stripNot(node));
+      Debug("cnf") << "--> Recorded at position " << d_translationTrail.size() << ". (level " << d_translationCache.find(node)->second.level << ")" << std::endl;
+      Assert(d_translationTrail.empty() || d_translationCache.find(node)->second.level >= d_translationCache.find(d_translationTrail.back())->second.level, "levels on the translation trail should be monotonically increasing ?!");
+      d_translationTrail.push_back(node);
       d_translationCache.find(node)->second.recorded = true;
+      d_translationCache.find(node.notNode())->second.recorded = true;
     }
   }
 }
@@ -166,6 +169,7 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
 
 SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   Debug("cnf") << "newLiteral(" << node << ", " << theoryLiteral << ")" << endl;
+  Assert(node.getKind() != kind::NOT);
 
   // Get the literal for this node
   SatLiteral lit;
@@ -183,6 +187,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   // We will translate clauses, so remember the level
   int level = d_satSolver->getLevel();
   d_translationCache[node].recorded = false;
+  d_translationCache[node.notNode()].recorded = false;
   d_translationCache[node].level = level;
   d_translationCache[node.notNode()].level = level;
 
@@ -231,6 +236,11 @@ SatLiteral CnfStream::convertAtom(TNode node) {
       assertClause(node, ~lit);
     }
   }
+
+  // We have a literal, so it has to be recorded.  The definitional clauses
+  // go away on user-pop, so this literal will have to be re-vivified if it's
+  // used subsequently.
+  recordTranslation(node, true);
 
   return lit;
 }
@@ -779,6 +789,7 @@ void CnfStream::undoTranslate(TNode node, int level) {
 
   // Untranslate
   infoPos.level = -1;
+  infoPos.recorded = false;
 
   // Untranslate the negation node
   // If not a not node, unregister it from sat and untranslate the negation
@@ -792,6 +803,7 @@ void CnfStream::undoTranslate(TNode node, int level) {
     Assert(it != d_translationCache.end());
     TranslationInfo& infoNeg = (*it).second;
     infoNeg.level = -1;
+    infoNeg.recorded = false;
   }
 
   // undoTranslate the children

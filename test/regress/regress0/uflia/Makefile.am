@@ -16,9 +16,7 @@ SMT2_TESTS = \
 	FIREFLY_luke_1b_e2_3049_e7_1173.ec.minimized.smt2 \
 	DRAGON_11_e1_2450.ec.minimized.smt2 \
 	microwave21.ec.minimized.smt2 \
-	stalmark_e7_27_e7_31.ec.minimize.smt2 \
-	stalmark_e7_27_e7_31.ec.smt2 \
-	speed2_e8_449_e8_517.ec.smt2 \
+	stalmark_e7_27_e7_31.ec.minimized.smt2 \
 	tiny.smt2 \
 	check01.smt2 \
 	check02.smt2 \
@@ -37,10 +35,12 @@ TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 # SMT_TESTS, SMT2_TESTS, etc..
 EXTRA_DIST = $(TESTS) \
 	car_6.ec.smt2 \
+	stalmark_e7_27_e7_31.ec.smt2 \
+	speed2_e8_449_e8_517.ec.smt2 \
 	FIREFLY_3_e2_2236_e7_3681.ec.minimized.smt2.expect \
 	FIREFLY_3_e2_2236_e7_3681.ec.core.smt2.expect \
 	DRAGON_11_e1_2450.ec.minimized.smt2.expect \
-	stalmark_e7_27_e7_31.ec.minimize.smt2.expect \
+	stalmark_e7_27_e7_31.ec.minimized.smt2.expect \
 	stalmark_e7_27_e7_31.ec.smt2.expect \
 	speed2_e8_449_e8_517.ec.smt2.expect \
 	tiny.smt2.expect \

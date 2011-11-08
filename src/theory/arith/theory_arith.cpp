@@ -841,6 +841,8 @@ void TheoryArith::branchIntegers(){
       }
     }// if(arithvar is integer-typed)
   } while((d_nextIntegerCheckVar = (1 + d_nextIntegerCheckVar == d_variables.size() ? 0 : 1 + d_nextIntegerCheckVar)) != rrEnd);
+
+  Trace("integers") << "branchIntegers(): exiting" << endl;
 }
 
 void TheoryArith::splitDisequalities(){

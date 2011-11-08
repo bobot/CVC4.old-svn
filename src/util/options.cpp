@@ -868,7 +868,7 @@ throw(OptionException) {
 
     case '?':
     default:
-      throw OptionException(string("can't understand option `") + argv[optind] + "'");
+      throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
     }
   }
 
