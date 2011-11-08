@@ -391,3 +391,42 @@ Comparison Comparison::multiplyConstant(const Constant& constant) const {
 
   return mkComparison(newOper, left*Monomial(constant), right*constant);
 }
+
+Constant Polynomial::getCoefficient(const VarList& vl) const{
+  //TODO improve to binary search...
+  for(iterator iter=begin(), myend=end(); iter != myend; ++iter){
+    Monomial m = *iter;
+    VarList curr = m.getVarList();
+    if(curr == vl){
+      return m.getConstant();
+    }
+  }
+  return Constant::mkConstant(0);
+}
+
+Node Polynomial::computeQR(const Polynomial& p, const Integer& div){
+  Assert(div.sgn() >= 0);
+  std::vector<Monomial> q_vec, r_vec;
+  Integer tmp_q, tmp_r;
+  for(iterator iter = p.begin(), pend = p.end(); iter != pend; ++iter){
+    Monomial curr = *iter;
+    VarList vl = curr.getVarList();
+    Constant c = curr.getConstant();
+
+    const Integer& a = c.getIntegerValue();
+    Integer::floorQR(tmp_q, tmp_r, a, div);
+    Constant q=Constant::mkConstant(tmp_q);
+    Constant r=Constant::mkConstant(tmp_r);
+    if(!q.isZero()){
+      q_vec.push_back(Monomial::mkMonomial(q, vl));
+    }
+    if(!r.isZero()){
+      r_vec.push_back(Monomial::mkMonomial(r, vl));
+    }
+  }
+
+  Polynomial p_q = Polynomial::mkPolynomial(q_vec);
+  Polynomial p_r = Polynomial::mkPolynomial(r_vec);
+
+  return NodeManager::currentNM()->mkNode(kind::PLUS, p_q.getNode(), p_r.getNode());
+}

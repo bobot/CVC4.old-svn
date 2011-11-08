@@ -321,6 +321,29 @@ public:
     }
   }
 
+  bool operator<(const Constant& other) const {
+    if(isInteger()){
+      const Integer& tz = getIntegerValue();
+      if(other.isInteger()){
+        return tz < other.getIntegerValue();
+      }else{
+        return Rational(tz) < other.getRationalValue();
+      }
+    }else{
+      const Rational& tq = getRationalValue();
+      if(other.isInteger()){
+        return tq < other.integerToRational();
+      }else{
+        return tq < other.getRationalValue();
+      }
+    }
+  }
+
+  bool operator==(const Constant& other) const {
+    //Rely on node uniqueness.
+    return getNode() == other.getNode();
+  }
+
   Constant operator-() const {
     if(isInteger()){
       return mkConstant(-getIntegerValue());
@@ -342,6 +365,14 @@ public:
       return mkConstant(Rational(1,getIntegerValue()));
     }else{
       return mkConstant(getRationalValue().inverse());
+    }
+  }
+
+  Constant abs() const {
+    if(isNegative()){
+      return -(*this);
+    }else{
+      return (*this);
     }
   }
 };/* class Constant */
@@ -510,6 +541,11 @@ public:
       return getNode().getNumChildren();
   }
 
+  Variable getHead() const {
+    Assert(!empty());
+    return *(begin());
+  }
+
   static VarList parseVarList(Node n);
 
   VarList operator*(const VarList& vl) const;
@@ -589,6 +625,10 @@ public:
   /** Makes a monomial with no restrictions on c and vl. */
   static Monomial mkMonomial(const Constant& c, const VarList& vl);
 
+
+  static Monomial mkMonomial(const Variable& v){
+    return Monomial(VarList(v));
+  }
 
   static Monomial parseMonomial(Node n);
 
@@ -776,6 +816,9 @@ public:
     Assert( Monomial::isStrictlySorted(m) );
   }
 
+  static Polynomial mkPolynomial(const Variable& v){
+    return Monomial::mkMonomial(v);
+  }
 
   static Polynomial mkPolynomial(const std::vector<Monomial>& m) {
     if(m.size() == 0) {
@@ -895,6 +938,25 @@ public:
     return d;
   }
 
+  Monomial selectAbsMinimum() const {
+    iterator iter = begin(), myend = end();
+    Assert(iter != myend);
+
+    Monomial min = *iter;
+    ++iter;
+    for(; iter != end(); ++iter){
+      Monomial curr = *iter;
+      if(min.getConstant().abs() < curr.getConstant().abs()){
+        min = curr;
+      }
+    }
+    return min;
+  }
+
+  Constant getCoefficient(const VarList& vl) const;
+
+  static Node computeQR(const Polynomial& p, const Integer& z);
+
 };/* class Polynomial */
 
 
@@ -996,12 +1058,141 @@ public:
     return getLeft().isIntegral();
   }
 
+  bool isInteger() const{
+    return getRight().isInteger() && getLeft().isInteger();
+  }
+
   inline static bool isNormalAtom(TNode n){
     Comparison parse = Comparison::parseNormalForm(n);
     return parse.isNormalForm();
   }
 
 };/* class Comparison */
+
+class SumPair : public NodeWrapper {
+private:
+  static Node toNode(const Polynomial& p, const Constant& c){
+    return NodeManager::currentNM()->mkNode(kind::PLUS, p.getNode(), c.getNode());
+  }
+
+  SumPair(TNode n) :
+    NodeWrapper(n)
+  {
+    Assert(isNormalForm());
+  }
+
+public:
+
+  // SumPair() :
+  //   NodeWrapper(toNode(Polynomial::mkZero(), Constant::mkZero()))
+  // {
+  //   Assert(isNormalForm());
+  // }
+
+  SumPair(const Polynomial& p):
+          NodeWrapper(toNode(p, Constant::mkConstant(0)))
+  {
+    Assert(isNormalForm());
+  }
+
+  SumPair(const Polynomial& p, const Constant& c):
+    NodeWrapper(toNode(p, c))
+  {
+    Assert(isNormalForm());
+  }
+
+  static bool isMember(TNode n) {
+    if(n.getKind() == kind::PLUS && n.getNumChildren() == 2){
+      return Constant::isMember(n[1]) && Polynomial::isMember(n[0]);
+    }else{
+      return 0;
+    }
+  }
+
+  bool isNormalForm() const {
+    return isMember(getNode());
+  }
+
+  Polynomial getPolynomial() const {
+    return Polynomial::parsePolynomial(getNode()[0]);
+  }
+
+  Constant getConstant() const {
+    return Constant((getNode())[1]);
+  }
+
+  SumPair operator+(const SumPair& other) const {
+    return SumPair(getPolynomial() + other.getPolynomial(),
+                   getConstant() + other.getConstant());
+  }
+
+  SumPair operator*(const Constant& c) const {
+    return SumPair(getPolynomial() * c, getConstant() * c);
+  }
+
+  SumPair operator-(const SumPair& other) const {
+    return (*this) + (other * Constant::mkConstant(-1));
+  }
+
+  Comparison addConstant(const Constant& constant) const;
+  Comparison multiplyConstant(const Constant& constant) const;
+
+  static SumPair mkSumPair(const Variable& var){
+    return SumPair(Polynomial::mkPolynomial(var));
+  }
+
+  static SumPair parseSumPair(TNode n){
+    return SumPair(n);
+  }
+
+  bool isIntegral() const{
+    return getPolynomial().isIntegral();
+  }
+
+  bool isInteger() const{
+    return getConstant().isInteger() && getPolynomial().isInteger();
+  }
+
+  bool isZero() const {
+    return getConstant().isZero() && getPolynomial().isZero();
+  }
+
+  Integer gcd() const {
+    Assert(isInteger());
+    return (getPolynomial().gcd()).gcd(getConstant().getIntegerValue());
+  }
+
+  static SumPair mkZero() {
+    return SumPair(Polynomial::mkZero(), Constant::mkConstant(0));
+  }
+
+  static Node computeQR(const SumPair& sp, const Integer& div){
+    Assert(sp.isInteger());
+    Assert(div >= 0);
+
+    const Integer& constant = sp.getConstant().getIntegerValue();
+
+    Integer constant_q, constant_r;
+    Integer::floorQR(constant_q, constant_r, constant, div);
+
+    Node p_qr = Polynomial::computeQR(sp.getPolynomial(), div);
+    Assert(p_qr.getKind() == kind::PLUS);
+    Assert(p_qr.getNumChildren() == 2);
+
+    Polynomial p_q = Polynomial::parsePolynomial(p_qr[0]);
+    Polynomial p_r = Polynomial::parsePolynomial(p_qr[1]);
+
+    SumPair sp_q(p_q, Constant::mkConstant(constant_q));
+    SumPair sp_r(p_r, Constant::mkConstant(constant_r));
+
+    return NodeManager::currentNM()->mkNode(kind::PLUS, sp_q.getNode(), sp_r.getNode());
+  }
+};/* class SumPair */
+
+
+inline SumPair comparisonToSumPair(const Comparison& cmp){
+  return SumPair(cmp.getLeft(), - cmp.getRight());
+}
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

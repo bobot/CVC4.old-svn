@@ -192,6 +192,13 @@ public:
   }
 
   /**
+   * Computes a floor quoient and remainder for x divided by y.
+   */
+  static void floorQR(Integer& q, Integer& r, const Integer& x, const Integer& y) {
+    mpz_fdiv_qr(q.d_value.get_mpz_t(), r.d_value.get_mpz_t(), x.d_value.get_mpz_t(), y.d_value.get_mpz_t());
+  }
+
+  /**
    * Returns the ceil(this / y)
    */
   Integer ceilingDivideQuotient(const Integer& y) const {
