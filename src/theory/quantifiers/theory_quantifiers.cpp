@@ -37,9 +37,9 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_forall_asserts(c),
   d_exists_asserts(c),
   d_counterexample_asserts(c),
-  d_numInstantiations(c,0),
   d_numRestarts(0){
-
+  d_numInstantiations = 0;
+  d_baseDecLevel = -1;
 }
 
 
@@ -124,7 +124,14 @@ void TheoryQuantifiers::check(Effort e) {
     }
   }
   if( e == FULL_EFFORT ) {
+    if( d_baseDecLevel==-1 || d_valuation.getDecisionLevel()<d_baseDecLevel){
+      d_baseDecLevel = d_valuation.getDecisionLevel();
+      d_numInstantiations = 0;
+    }
     Debug("quantifiers") << "quantifiers: FULL_EFFORT check" << std::endl;
+    //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
+    //  Debug("quantifiers") << "   " << d_valuation.getDecision( i ) << std::endl;
+    //}
     bool quantActive = false;
     //for each n in d_forall_asserts, 
     // such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
@@ -149,6 +156,7 @@ void TheoryQuantifiers::check(Effort e) {
         }else{
           Debug("quantifiers") << "  NOT active : " << n;
           //note that NO_COUNTEREXAMPLE must not be a decision
+          Assert( !d_valuation.isDecision( cel ) );
         }
         if( d_valuation.hasSatValue( n, value ) ){
           Debug("quantifiers") << ", value = " << value; 
@@ -164,44 +172,42 @@ void TheoryQuantifiers::check(Effort e) {
       //exit( 9 );
       static bool enableLimit = true; 
       static int limitInst = 20;
-      bool doInst = true;
-      if( enableLimit && d_numInstantiations.get()==limitInst ){
-        Debug("quantifiers") << "Give up in current branch." << std::endl;
-        doInst = false;
-      }
-      Debug("quantifiers") << "Do instantiation, level = " << d_valuation.getDecisionLevel() << std::endl;
-      //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
-      //  Debug("quantifiers-dec") << "   " << d_valuation.getDecision( i ) << std::endl;
-      //}
-      if( doInst && d_instEngine->doInstantiation( d_out ) ){
-        d_numInstantiations.set( d_numInstantiations.get() + 1 );
-        //Debug("quantifiers") << "Done instantiation " << d_numInstantiations.get() << "." << std::endl;
+      if( enableLimit && d_numInstantiations==limitInst ){
+        Debug("quantifiers") << "Give up in current branch. " << d_valuation.getDecisionLevel() << " " << d_baseDecLevel << std::endl;
+        if( d_baseDecLevel==0 ){
+          restart();
+        }else{
+          d_out->flipDecision( (unsigned int)d_baseDecLevel );
+        }
+        d_baseDecLevel = -1;
       }else{
-#if 0
-        std::cout << "unknown ";
-        exit( 7 );
-#elif 0
-        Debug("quantifiers") << "No instantiation given, return unknown." << std::endl;
-        d_out->setIncomplete();
-#else
-        //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
-          //instantiation did not add a lemma to d_out, try to flip a previous decision
-          if( !flipDecision() ){
-            //maybe restart?
-            static int restartLimit = 1;
-            if( d_numRestarts==restartLimit ){
-              Debug("quantifiers") << "Return unknown." << std::endl;
-              d_out->setIncomplete();
-            }else{
-              d_numRestarts++;
-              Debug("quantifiers") << "Do restart." << std::endl;
-            }
-          }else{
-            Debug("quantifiers") << "Flipped decision." << std::endl;
-          }
+        Debug("quantifiers") << "Do instantiation, level = " << d_valuation.getDecisionLevel() << std::endl;
+        //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
+        //  Debug("quantifiers-dec") << "   " << d_valuation.getDecision( i ) << std::endl;
         //}
+        if( d_instEngine->doInstantiation( d_out ) ){
+          d_numInstantiations++;
+          Debug("quantifiers") << "Done instantiation " << d_numInstantiations << "." << std::endl;
+        }else{
+#if 0
+          std::cout << "unknown ";
+          exit( 7 );
+#elif 0
+          Debug("quantifiers") << "No instantiation given, return unknown." << std::endl;
+          d_out->setIncomplete();
+#else
+          //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
+            //instantiation did not add a lemma to d_out, try to flip a previous decision
+            if( !flipDecision() ){
+              //maybe restart?
+              restart();
+            }else{
+              Debug("quantifiers") << "Flipped decision." << std::endl;
+            }
+          //}
 #endif
-      } 
+        } 
+      }
     }else{
       //std::cout << "Quantifiers approves sat." << std::endl;
       Debug("quantifiers") << "No quantifier is active. " << d_valuation.getDecisionLevel() << std::endl;
@@ -288,4 +294,17 @@ bool TheoryQuantifiers::flipDecision(){
     Debug("quantifiers-flip") << "   " << d_valuation.getDecision( i ) << std::endl;
   }
   return d_out->flipDecision();
+}
+
+bool TheoryQuantifiers::restart(){
+  static int restartLimit = 1;
+  if( d_numRestarts==restartLimit ){
+    Debug("quantifiers") << "Return unknown." << std::endl;
+    d_out->setIncomplete();
+    return false;
+  }else{
+    d_numRestarts++;
+    Debug("quantifiers") << "Do restart." << std::endl;
+    return true;
+  }
 }

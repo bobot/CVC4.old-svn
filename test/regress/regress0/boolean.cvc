@@ -804,4 +804,5 @@ a288 : BOOLEAN =
         ELSE FALSE
         ENDIF;
 QUERY a288;
+% PROOF
 % EXIT: 20

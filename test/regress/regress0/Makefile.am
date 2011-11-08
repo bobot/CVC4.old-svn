@@ -1,6 +1,11 @@
 SUBDIRS = . arith precedence uf uflra bv arrays datatypes quantifiers lemmas push-pop preprocess
 
+if PROOF_REGRESSIONS
+TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../run_regression --proof @top_builddir@/src/main/cvc4
+else
 TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/cvc4
+endif
+
 MAKEFLAGS = -k
 
 # These are run for all build profiles.
@@ -40,6 +45,7 @@ SMT2_TESTS = \
 
 # Regression tests for PL inputs
 CVC_TESTS = \
+	boolean.cvc \
 	boolean-prec.cvc \
 	hole6.cvc \
 	ite.cvc \

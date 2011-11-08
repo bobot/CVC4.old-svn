@@ -145,6 +145,9 @@ struct CVC4_PUBLIC Options {
   /** Whether we support SmtEngine::getValue() for this run. */
   bool produceModels;
 
+  /** Whether we produce proofs. */
+  bool proof;
+  
   /** Whether we support SmtEngine::getAssignment() for this run. */
   bool produceAssignments;
 
@@ -219,6 +222,14 @@ struct CVC4_PUBLIC Options {
    * output in the first place, e.g. "no such option --foo"
    */
   static void printUsage(const std::string msg, std::ostream& out);
+
+  /**
+   * Print command-line option usage message for only the most-commonly
+   * used options.  The message is prefixed by "msg"---which could be
+   * an error message causing the usage output in the first place, e.g.
+   * "no such option --foo"
+   */
+  static void printShortUsage(const std::string msg, std::ostream& out);
 
   /** Print help for the --lang command line option */
   static void printLanguageHelp(std::ostream& out);

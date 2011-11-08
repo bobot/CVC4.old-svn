@@ -36,6 +36,13 @@ Instantiator( c, ie, th ){
 
 void InstantiatorTheoryArith::check( Node assertion ){
   Debug("quant-arith-assert") << "InstantiatorTheoryArith::check: " << assertion << std::endl;
+  if( assertion.hasAttribute(InstConstantAttribute()) &&
+      ((TheoryArith*)getTheory())->d_valuation.isDecision( assertion ) ){
+    Node f = assertion.getAttribute(InstConstantAttribute());
+    Node cel = d_instEngine->getCounterexampleLiteralFor( f );
+    bool value;
+    Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );
+  }
 } 
 
 void InstantiatorTheoryArith::resetInstantiation(){

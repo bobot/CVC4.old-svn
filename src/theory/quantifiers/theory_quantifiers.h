@@ -49,7 +49,8 @@ private:
   /** quantifiers that have been skolemized */
   std::map< Node, bool > d_skolemized;
   /** number of instantiations */
-  context::CDO< int > d_numInstantiations;
+  int d_numInstantiations;
+  int d_baseDecLevel;
   /** number of restarts */
   int d_numRestarts;
 public:
@@ -70,6 +71,7 @@ private:
   void assertExistential( Node n );
   void assertCounterexample( Node n );
   bool flipDecision();
+  bool restart();
 };/* class TheoryQuantifiers */
 
 }/* CVC4::theory::quantifiers namespace */

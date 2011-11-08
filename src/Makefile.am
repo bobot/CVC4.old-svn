@@ -17,7 +17,7 @@ AM_CPPFLAGS = \
 	-I@srcdir@/include -I@srcdir@ -I@builddir@
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-SUBDIRS = lib expr util context theory prop smt printer . parser compat bindings main
+SUBDIRS = lib expr util context theory prop smt printer proof . parser compat bindings main
 
 lib_LTLIBRARIES = libcvc4.la
 if HAVE_CXXTESTGEN
@@ -36,6 +36,7 @@ libcvc4_la_LIBADD = \
 	@builddir@/util/libutil.la \
 	@builddir@/expr/libexpr.la \
 	@builddir@/context/libcontext.la \
+	@builddir@/proof/libproof.la \
 	@builddir@/prop/libprop.la \
 	@builddir@/prop/minisat/libminisat.la \
 	@builddir@/printer/libprinter.la \
@@ -46,6 +47,7 @@ libcvc4_noinst_la_LIBADD = \
 	@builddir@/util/libutil.la \
 	@builddir@/expr/libexpr.la \
 	@builddir@/context/libcontext.la \
+	@builddir@/proof/libproof.la \
 	@builddir@/prop/libprop.la \
 	@builddir@/prop/minisat/libminisat.la \
 	@builddir@/printer/libprinter.la \
@@ -97,6 +99,7 @@ svninfo.tmp:
 install-data-local:
 	(echo include/cvc4.h; \
 	 echo include/cvc4_public.h; \
+	 echo include/cvc4parser_public.h; \
 	 find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
 	(cd "$(srcdir)" && find * -name '*.h' | \
@@ -109,16 +112,21 @@ install-data-local:
 		$(mkinstalldirs) "$$(dirname "$(DESTDIR)$(includedir)/cvc4/$$d")"; \
 		if [ -e "$$f" ]; then \
 			path="$$f"; \
+			fixpath="$$f.fix"; \
 		else \
 			path="$(srcdir)/$$f"; \
+			fixpath="$(builddir)/$$f.fix"; \
+			$(MKDIR_P) "`dirname "$$fixpath"`"; \
 		fi; \
-		echo $(INSTALL_DATA) "$$path" "$(DESTDIR)$(includedir)/cvc4/$$d"; \
-		$(INSTALL_DATA) "$$path" "$(DESTDIR)$(includedir)/cvc4/$$d"; \
+		sed 's,^\([ \t]*#[ \t]*include[ \t*]\)"\(.*\)"\([ \t]*\)$$,\1<cvc4/\2>\3,' "$$path" > "$$fixpath" || exit 1; \
+		echo $(INSTALL_DATA) "$$fixpath" "$(DESTDIR)$(includedir)/cvc4/$$d"; \
+		$(INSTALL_DATA) "$$fixpath" "$(DESTDIR)$(includedir)/cvc4/$$d" || exit 1; \
 	done
 
 uninstall-local:
 	-(echo include/cvc4.h; \
 	  echo include/cvc4_public.h; \
+	  echo include/cvc4parser_public.h; \
 	  find * -name '*.h' | \
 		xargs grep -l '^# *include  *"cvc4.*_public\.h"'; \
 	(cd "$(srcdir)" && find * -name '*.h' | \

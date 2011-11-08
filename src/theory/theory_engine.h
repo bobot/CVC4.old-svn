@@ -206,18 +206,21 @@ class TheoryEngine {
     void conflict(TNode conflictNode) throw(AssertionException) {
       Trace("theory") << "EngineOutputChannel<" << d_theory << ">::conflict(" << conflictNode << ")" << std::endl;
       ++ d_statistics.conflicts;
+      d_engine->d_outputChannelUsed = true;
       d_engine->conflict(conflictNode, d_theory);
     }
 
     void propagate(TNode literal) throw(AssertionException) {
       Trace("theory") << "EngineOutputChannel<" << d_theory << ">::propagate(" << literal << ")" << std::endl;
       ++ d_statistics.propagations;
+      d_engine->d_outputChannelUsed = true;
       d_engine->propagate(literal, d_theory);
     }
 
     unsigned lemma(TNode lemma, bool removable = false) throw(TypeCheckingExceptionPrivate, AssertionException) {
       Trace("theory") << "EngineOutputChannel<" << d_theory << ">::lemma(" << lemma << ")" << std::endl;
       ++ d_statistics.lemmas;
+      d_engine->d_outputChannelUsed = true;
       return d_engine->lemma(lemma, false, removable);
     }
 
@@ -337,18 +340,18 @@ class TheoryEngine {
     NodeTheoryPair toAssert;
     /** This is the node/theory pair that we will use to explain it */
     NodeTheoryPair toExplain;
-    
+
     SharedEquality(TNode assertion, TNode original, theory::TheoryId sendingTheory, theory::TheoryId receivingTheory)
     : toAssert(assertion, receivingTheory),
       toExplain(original, sendingTheory)
     { }
   };
-  
+
   /**
-   * Map from equalities asserted to a theory, to the theory that can explain them. 
+   * Map from equalities asserted to a theory, to the theory that can explain them.
    */
   typedef context::CDMap<NodeTheoryPair, NodeTheoryPair, NodeTheoryPairHashFunction> SharedAssertionsMap;
-  
+
   /**
    * A map from asserted facts to where they came from (for explanations).
    */
@@ -394,6 +397,15 @@ class TheoryEngine {
    * A variable to mark if we added any lemmas.
    */
   bool d_lemmasAdded;
+
+  /**
+   * A variable to mark if the OutputChannel was "used" by any theory
+   * since the start of the last check.  If it has been, we require
+   * a FULL_EFFORT check before exiting and reporting SAT.
+   *
+   * See the documentation for the needCheck() function, below.
+   */
+  bool d_outputChannelUsed;
 
   /**
    * Adds a new lemma
@@ -472,17 +484,38 @@ public:
     return d_instEngine;
   }
 
+
   /**
-   * Runs theory specific preprocesssing on the non-Boolean parts of the formula.
-   * This is only called on input assertions, after ITEs have been removed.
+   * Runs theory specific preprocesssing on the non-Boolean parts of
+   * the formula.  This is only called on input assertions, after ITEs
+   * have been removed.
    */
   Node preprocess(TNode node);
 
   /**
    * Return whether or not we are incomplete (in the current context).
    */
-  inline bool isIncomplete() {
+  inline bool isIncomplete() const {
     return d_incomplete;
+  }
+
+  /**
+   * Returns true if we need another round of checking.  If this
+   * returns true, check(FULL_EFFORT) _must_ be called by the
+   * propositional layer before reporting SAT.
+   *
+   * This is especially necessary for incomplete theories that lazily
+   * output some lemmas on FULL_EFFORT check (e.g. quantifier reasoning
+   * outputing quantifier instantiations).  In such a case, a lemma can
+   * be asserted that is simplified away (perhaps it's already true).
+   * However, we must maintain the invariant that, if a theory uses the
+   * OutputChannel, it implicitly requests that another check(FULL_EFFORT)
+   * be performed before exit, even if no new facts are on its fact queue,
+   * as it might decide to further instantiate some lemmas, precluding
+   * a SAT response.
+   */
+  inline bool needCheck() const {
+    return d_outputChannelUsed || d_lemmasAdded;
   }
 
   /**
@@ -597,7 +630,7 @@ private:
   PreRegisterVisitor d_preRegistrationVisitor;
 
   /** Visitor for collecting shared terms */
-  SharedTermsVisitor d_sharedTermsVisitor; 
+  SharedTermsVisitor d_sharedTermsVisitor;
 
 };/* class TheoryEngine */
 
