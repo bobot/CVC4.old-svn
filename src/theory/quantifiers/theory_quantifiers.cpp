@@ -169,22 +169,24 @@ void TheoryQuantifiers::check(Effort e) {
         Debug("quantifiers") << "Give up in current branch." << std::endl;
         doInst = false;
       }
-
+      Debug("quantifiers") << "Do instantiation, level = " << d_valuation.getDecisionLevel() << std::endl;
+      //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
+      //  Debug("quantifiers-dec") << "   " << d_valuation.getDecision( i ) << std::endl;
+      //}
       if( doInst && d_instEngine->doInstantiation( d_out ) ){
         d_numInstantiations.set( d_numInstantiations.get() + 1 );
         //Debug("quantifiers") << "Done instantiation " << d_numInstantiations.get() << "." << std::endl;
       }else{
-#if 1
+#if 0
         std::cout << "unknown ";
         exit( 7 );
 #elif 0
         Debug("quantifiers") << "No instantiation given, return unknown." << std::endl;
         d_out->setIncomplete();
 #else
-        Debug("quantifiers") << "No instantiation given, flip decision." << std::endl;
         //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
           //instantiation did not add a lemma to d_out, try to flip a previous decision
-          if( !d_out->flipDecision() ){
+          if( !flipDecision() ){
             //maybe restart?
             static int restartLimit = 1;
             if( d_numRestarts==restartLimit ){
@@ -202,7 +204,7 @@ void TheoryQuantifiers::check(Effort e) {
       } 
     }else{
       //std::cout << "Quantifiers approves sat." << std::endl;
-      Debug("quantifiers") << "No quantifier is active." << std::endl;
+      Debug("quantifiers") << "No quantifier is active. " << d_valuation.getDecisionLevel() << std::endl;
     }
   }
 }
@@ -219,14 +221,14 @@ void TheoryQuantifiers::assertUniversal( Node n ){
       Node cel = d_valuation.ensureLiteral( body.notNode() );
       //Debug("quantifiers") << cel << " is the literal for " << body.notNode() << std::endl;
       d_instEngine->setCounterexampleLiteralFor( n, cel );
-      //mark all literals in the body of n as dependent on cel
-      d_instEngine->registerLiterals( body, n, d_out, false, true );
 
       NodeBuilder<> nb(kind::OR);
       nb << n << cel;
       Node lem = nb;
       Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
       d_out->lemma( lem );
+      //mark all literals in the body of n as dependent on cel
+      d_instEngine->registerLiterals( body, n, d_out, false, true );
 
       ////mark cel as dependent on n
       //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
@@ -278,4 +280,12 @@ void TheoryQuantifiers::assertCounterexample( Node n ){
 Instantiator* TheoryQuantifiers::makeInstantiator(){
   Debug("quant-quant") << "Make Quantifiers instantiator" << endl;
   return new InstantiatorTheoryQuantifiers( getContext(), d_instEngine, this );
+}
+
+bool TheoryQuantifiers::flipDecision(){
+  Debug("quantifiers-flip") << "No instantiation given, flip decision, level = " << d_valuation.getDecisionLevel() << std::endl;
+  for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
+    Debug("quantifiers-flip") << "   " << d_valuation.getDecision( i ) << std::endl;
+  }
+  return d_out->flipDecision();
 }

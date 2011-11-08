@@ -110,15 +110,15 @@ namespace uf{
 
 
 /**
-Unify Iterator class:
+Inst Match generator class:
 This class incrementally builds unifiers that induce d_t ~ d_s.
 */
-class UIterator 
+class InstMatchGenerator 
 {
 public:
   static uf::InstantiatorTheoryUf* d_itu;
   /** all iterators (for memory management purposes) */
-  static std::map< Node, std::map< Node, std::vector< UIterator* > > > d_iter[4];
+  static std::map< Node, std::map< Node, std::vector< InstMatchGenerator* > > > d_iter[4];
   /** how many iterators have been assigned (for memory management purposes) */
   static std::map< Node, std::map< Node, int > > d_assigned[4];
   /** maximum number of splits allowed for conditional unification */
@@ -145,7 +145,8 @@ public:
 protected:
   /** d_operation = 0 : d_t = d_s mod equality
       d_operation = 1 : d_t != d_s mod equality
-      d_operation = 2 : d_t = d_s, merge arguments */
+      d_operation = 2 : d_t = d_s, merge arguments 
+      d_operationr = 3 : match d_t with any available term */
   int d_operation;
   /** partial matches produced for children 0...n */
   std::vector< InstMatch > d_partial;
@@ -158,7 +159,7 @@ protected:
   /** add split */
   void addSplit( Node n1, Node n2 );
   /** the master for this iterator (the one calculating matches) */
-  UIterator* getMaster() { return d_t==Node::null() ? this : d_iter[d_operation][d_t][d_s][0]; }
+  InstMatchGenerator* getMaster() { return d_t==Node::null() ? this : d_iter[d_operation][d_t][d_s][0]; }
   /** clear this iterator (make fresh) */
   void clear();
   /** whether to accept a match */
@@ -171,18 +172,18 @@ protected:
   /** add instantiation match to vector, return true if not redundant */
   bool addInstMatch( InstMatch& m );
   // find matches for t ~ s
-  UIterator( Node t, Node s, int op );
+  InstMatchGenerator( Node t, Node s, int op );
   // mkUiterator
-  static UIterator* mkUIterator( Node t, Node s, int op );
+  static InstMatchGenerator* mkInstMatchGenerator( Node t, Node s, int op );
 public:
-  ~UIterator(){}
+  ~InstMatchGenerator(){}
 
   /** matches produced */
   InstMatchGroup d_mg;
   /** the index currently processing (ranges over d_mg.d_matches) */
   int d_mg_i;
   /** children iterators */
-  std::vector< UIterator* > d_children;
+  std::vector< InstMatchGenerator* > d_children;
 
   /** clear the matches for this iterator */
   void clearMatches();
@@ -213,18 +214,18 @@ public:
   /** get instantiation level */
   int getInstantiationLevel();
   /** determine issues for why no matches were produced */
-  double collectUnmerged( std::map< UIterator*, UIterator* >& index, std::vector< UIterator* >& unmerged,
-                          std::vector< UIterator* >& cover );
-  void collectUnmerged( std::vector< UIterator* >& unmerged, std::vector< UIterator* >& cover );
+  double collectUnmerged( std::map< InstMatchGenerator*, InstMatchGenerator* >& index, std::vector< InstMatchGenerator* >& unmerged,
+                          std::vector< InstMatchGenerator* >& cover );
+  void collectUnmerged( std::vector< InstMatchGenerator* >& unmerged, std::vector< InstMatchGenerator* >& cover );
 
   //default
-  static UIterator* mkUIterator( bool isComb = false );
+  static InstMatchGenerator* mkInstMatchGenerator( bool isComb = false );
   // find matches for t ~ s
-  static UIterator* mkCombineUIterator( Node t, Node s, bool isEq );
+  static InstMatchGenerator* mkCombineInstMatchGenerator( Node t, Node s, bool isEq );
   //merge uiterator
-  static UIterator* mkMergeUIterator( Node t, Node s );
+  static InstMatchGenerator* mkMergeInstMatchGenerator( Node t, Node s );
   //find any match for t
-  static UIterator* mkAnyMatchUIterator( Node t );
+  static InstMatchGenerator* mkAnyMatchInstMatchGenerator( Node t );
 };
 
 

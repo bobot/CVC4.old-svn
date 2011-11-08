@@ -60,7 +60,7 @@ namespace uf {
 //};
 
 class InstantiatorTheoryUf : public Instantiator{
-  friend class ::CVC4::theory::UIterator;
+  friend class ::CVC4::theory::InstMatchGenerator;
 protected:
   typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
   typedef context::CDMap<Node, int, NodeHashFunction> IntMap;
@@ -113,7 +113,7 @@ private:
 
   /** calculate matches for quantifier f at effort */
   std::map< Node, InstMatch > d_baseMatch;
-  std::map< Node, UIterator* > d_mergeIter;
+  std::map< Node, InstMatchGenerator* > d_mergeIter;
   void process( Node f, int effort );
   std::map< Node, bool > d_matchable;
   std::map< Node, bool > d_unmatched;

@@ -11,9 +11,9 @@ properties check presolve
 
 rewriter ::CVC4::theory::quantifiers::QuantifiersRewriter "theory/quantifiers/quantifiers_rewriter.h"
 
-operator FORALL 1: "universally quantified formula"
+operator FORALL 2: "universally quantified formula"
 
-operator EXISTS 1: "existentially quantified formula"
+operator EXISTS 2: "existentially quantified formula"
 
 operator NO_COUNTEREXAMPLE 1 "no counterexample literal"
 

@@ -108,10 +108,10 @@ public:
   //patterns vs. ground terms, their matches
   std::map< Node, bool > d_patterns;
   std::map< Node, bool > d_ground_terms;
-  std::map< Node, std::map< Node, UIterator* > > d_matches;
+  std::map< Node, std::map< Node, InstMatchGenerator* > > d_matches;
   void registerTerm( Node n );
 
-  UIterator* makeMultiPattern( std::vector< Node >& nodes );
+  InstMatchGenerator* makeMultiPattern( std::vector< Node >& nodes );
 };
 
 

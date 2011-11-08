@@ -234,8 +234,8 @@ void InstantiatorTheoryUf::registerTerm( Node n, bool isTop )
 
 void InstantiatorTheoryUf::resetInstantiation()
 {
-  UIterator::d_itu = this;
-  UIterator::resetAssigned();
+  InstMatchGenerator::d_itu = this;
+  InstMatchGenerator::resetAssigned();
   d_status = STATUS_UNFINISHED; 
   d_baseMatch.clear();
   d_matches.clear();
@@ -456,17 +456,17 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
     if( ob_i!=d_obligations.end() ){
       NodeList* ob = (*ob_i).second;
       if( effort==1 ){
-        UIterator::d_splitThreshold = 0;
+        InstMatchGenerator::d_splitThreshold = 0;
         // for each literal asserted about the negation of the body of f
-        d_mergeIter[ f ] = UIterator::mkUIterator( false );
+        d_mergeIter[ f ] = InstMatchGenerator::mkInstMatchGenerator( false );
         for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
           Node lit = (*it);
           if( d_ob_reqPol[lit] ){
-            d_mergeIter[ f ]->d_children.push_back( UIterator::mkCombineUIterator( lit[0], lit[1], d_ob_pol[lit] ) );
+            d_mergeIter[ f ]->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], d_ob_pol[lit] ) );
           }else{
-            UIterator* it = UIterator::mkUIterator( true );
-            it->d_children.push_back( UIterator::mkCombineUIterator( lit[0], lit[1], true ) );
-            it->d_children.push_back( UIterator::mkCombineUIterator( lit[0], lit[1], false ) );
+            InstMatchGenerator* it = InstMatchGenerator::mkInstMatchGenerator( true );
+            it->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], true ) );
+            it->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], false ) );
             d_mergeIter[ f ]->d_children.push_back( it );
           }
         }
@@ -484,8 +484,8 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
         d_mergeIter[ f ]->clearMatches();
         Debug("quant-uf-alg") << "Here is the merge iterator: " << std::endl;
         d_mergeIter[ f ]->debugPrint( "quant-uf-alg", 0 );
-        UIterator::d_splitThreshold = effort==2 ? 1 : 2;
-        UIterator::d_useSplitThreshold = effort<4;
+        InstMatchGenerator::d_splitThreshold = effort==2 ? 1 : 2;
+        InstMatchGenerator::d_useSplitThreshold = effort<4;
         while( d_mergeIter[ f ]->getNextMatch() ){
           // f is (conditionally) E-induced
           InstMatch temp( d_mergeIter[ f ]->getCurrent() );
@@ -504,9 +504,9 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
         //resolve matches on the literal level
         calculateMatchable( f );
         if( !d_unmatched[f] ){
-          std::map< UIterator*, UIterator* > index;
-          std::vector< UIterator* > unmerged;
-          std::vector< UIterator* > cover;
+          std::map< InstMatchGenerator*, InstMatchGenerator* > index;
+          std::vector< InstMatchGenerator* > unmerged;
+          std::vector< InstMatchGenerator* > cover;
           d_mergeIter[ f ]->collectUnmerged( unmerged, cover );
           Debug("quant-uf-alg") << "Here are the unmerged points: " << std::endl;
           for( int i=0; i<(int)unmerged.size(); i++ ){
@@ -590,10 +590,10 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
       //    ////create iterators over the candidate matches
       //    //std::vector< int > litMatchCandidateIter;
       //    //litMatchCandidateIter.resize( ob->size(), 1 );
-      //    MergeUIterator mi;
+      //    MergeInstMatchGenerator mi;
       //    for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
       //      Node lit = (*it);
-      //      mi.d_children.push_back( CombineUIterator( lit[0], lit[1], d_ob_pol[lit], f ) );
+      //      mi.d_children.push_back( CombineInstMatchGenerator( lit[0], lit[1], d_ob_pol[lit], f ) );
       //    }
 
   Debug("quant-uf-alg") << std::endl;

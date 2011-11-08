@@ -112,8 +112,12 @@ void QuantifiersRewriter::computeArgs( std::vector< Node >& args, std::vector< N
 Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node n ){
   std::vector< Node > children;
   computeArgs( args, children, n );
-  children.push_back( n );
-  return NodeManager::currentNM()->mkNode(kind::FORALL, children );
+  if( children.empty() ){
+    return n;
+  }else{
+    children.push_back( n );
+    return NodeManager::currentNM()->mkNode(kind::FORALL, children );
+  }
 }
 
 bool QuantifiersRewriter::hasArg( std::vector< Node >& args, Node n ){

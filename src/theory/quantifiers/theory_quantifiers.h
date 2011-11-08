@@ -69,6 +69,7 @@ private:
   void assertUniversal( Node n );
   void assertExistential( Node n );
   void assertCounterexample( Node n );
+  bool flipDecision();
 };/* class TheoryQuantifiers */
 
 }/* CVC4::theory::quantifiers namespace */

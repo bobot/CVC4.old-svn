@@ -279,21 +279,21 @@ void InstMatchGroup::debugPrint( const char* c ){
 
 
 
-uf::InstantiatorTheoryUf* UIterator::d_itu = NULL;
-std::map< Node, std::map< Node, std::vector< UIterator* > > > UIterator::d_iter[4];
-std::map< Node, std::map< Node, int > > UIterator::d_assigned[4];
-int UIterator::d_splitThreshold;
-bool UIterator::d_useSplitThreshold = false;
-uint64_t UIterator::d_instLevelThreshold;
-bool UIterator::d_useInstLevelThreshold = false;
+uf::InstantiatorTheoryUf* InstMatchGenerator::d_itu = NULL;
+std::map< Node, std::map< Node, std::vector< InstMatchGenerator* > > > InstMatchGenerator::d_iter[4];
+std::map< Node, std::map< Node, int > > InstMatchGenerator::d_assigned[4];
+int InstMatchGenerator::d_splitThreshold;
+bool InstMatchGenerator::d_useSplitThreshold = false;
+uint64_t InstMatchGenerator::d_instLevelThreshold;
+bool InstMatchGenerator::d_useInstLevelThreshold = false;
 
-void UIterator::resetAssigned(){
+void InstMatchGenerator::resetAssigned(){
   for( int i=0; i<4; i++ ){
     d_assigned[i].clear();
   }
 }
 
-void UIterator::clearMatches(){
+void InstMatchGenerator::clearMatches(){
   d_mg_i = -1;
   if( getMaster()==this ){
     if( !d_children.empty() || d_mg.empty() ){
@@ -310,7 +310,7 @@ void UIterator::clearMatches(){
   }
 }
 
-void UIterator::clear(){
+void InstMatchGenerator::clear(){
   d_children_set = false;
   d_children.clear();
   d_depth = 0;
@@ -321,55 +321,55 @@ void UIterator::clear(){
   d_index = 0;
 }
 
-UIterator::UIterator( Node t, Node s, int op ) :
+InstMatchGenerator::InstMatchGenerator( Node t, Node s, int op ) :
 d_children_set( false ), d_mg_set( false ), d_t( t ), d_s( s ), d_operation( op ), d_index( 0 ), d_depth( 0 ), d_mg_i( -1 ){
 
 }
 
-UIterator* UIterator::mkUIterator( Node t, Node s, int op ){
+InstMatchGenerator* InstMatchGenerator::mkInstMatchGenerator( Node t, Node s, int op ){
   int index = d_assigned[op][t][s];
-  Debug( "quant-uf-uiter" ) << "mkUIterator " << t << " " << s << " " << op;
+  Debug( "quant-uf-uiter" ) << "mkInstMatchGenerator " << t << " " << s << " " << op;
   Debug( "quant-uf-uiter" )<< " (" << index << "/" << d_iter[op][t][s].size() << ")" << std::endl;
   if( index<(int)d_iter[op][t][s].size() ){
     d_iter[op][t][s][ index ]->clear();
     d_assigned[op][t][s]++;
     return d_iter[op][t][s][ index ];
   }else{
-    UIterator* mi = new UIterator( t, s, op );
+    InstMatchGenerator* mi = new InstMatchGenerator( t, s, op );
     d_iter[op][t][s].push_back( mi );
     d_assigned[op][t][s]++;
     return mi;
   }
 }
 
-UIterator* UIterator::mkUIterator( bool isComb ){
+InstMatchGenerator* InstMatchGenerator::mkInstMatchGenerator( bool isComb ){
   Node nl;
   int op = isComb ? 0 : 2;
-  return mkUIterator( nl, nl, op );
+  return mkInstMatchGenerator( nl, nl, op );
 }
 
-UIterator* UIterator::mkCombineUIterator( Node t, Node s, bool isEq ){
+InstMatchGenerator* InstMatchGenerator::mkCombineInstMatchGenerator( Node t, Node s, bool isEq ){
   int op = isEq ? 0 : 1;
-  return mkUIterator( t, s, op );
+  return mkInstMatchGenerator( t, s, op );
 }
 
-UIterator* UIterator::mkMergeUIterator( Node t, Node s ){
-  return mkUIterator( t, s, 2 );
+InstMatchGenerator* InstMatchGenerator::mkMergeInstMatchGenerator( Node t, Node s ){
+  return mkInstMatchGenerator( t, s, 2 );
 }
 
-UIterator* UIterator::mkAnyMatchUIterator( Node t ){
+InstMatchGenerator* InstMatchGenerator::mkAnyMatchInstMatchGenerator( Node t ){
   Node nl;
-  return mkUIterator( t, nl, 3 );
+  return mkInstMatchGenerator( t, nl, 3 );
 }
 
-bool UIterator::areEqual( Node a, Node b ) { return d_itu->areEqual( a, b ); }
-bool UIterator::areDisequal( Node a, Node b ) { return d_itu->areDisequal( a, b ); }
-Node UIterator::getRepresentative( Node a ) { return d_itu->getRepresentative( a ); }
+bool InstMatchGenerator::areEqual( Node a, Node b ) { return d_itu->areEqual( a, b ); }
+bool InstMatchGenerator::areDisequal( Node a, Node b ) { return d_itu->areDisequal( a, b ); }
+Node InstMatchGenerator::getRepresentative( Node a ) { return d_itu->getRepresentative( a ); }
 
-bool UIterator::getNextMatch(){
+bool InstMatchGenerator::getNextMatch(){
   Debug( "quant-uf-uiter" ) << "get next match " << this << std::endl;
   d_mg_i++;
-  UIterator* master = getMaster();
+  InstMatchGenerator* master = getMaster();
   if( d_mg_i<(int)master->d_mg.d_matches.size() ){
     Debug( "quant-uf-uiter" ) << this << " returned (existing) match " << d_mg_i << std::endl;
     getCurrent()->debugPrint( "quant-uf-uiter" );
@@ -405,27 +405,37 @@ bool UIterator::getNextMatch(){
   }
 }
 
-bool UIterator::addInstMatch( InstMatch& m ){
+bool InstMatchGenerator::addInstMatch( InstMatch& m ){
+#if 1
+  for( int i=0; i<(int)d_mg.d_matches.size(); i++ ){
+    if( d_mg.d_matches[i].checkSubsume( m )==-1 ){
+      return false;
+    }
+  }
+  d_mg.d_matches.push_back( m );
+  return true;
+#else
   if( d_mg.contains( m ) ){
     return false;
   }else{
     d_mg.d_matches.push_back( m );
     return true;
   }
+#endif
 }
 
-void UIterator::indent( const char* c, int ind ){
+void InstMatchGenerator::indent( const char* c, int ind ){
   for( int i=0; i<(int)ind; i++ ){
     Debug( c ) << " ";
   }
 }
 
 struct sortInstantiationLevel {
-  bool operator() (UIterator* i,UIterator* j) { return (i->getInstantiationLevel()<j->getInstantiationLevel());}
+  bool operator() (InstMatchGenerator* i,InstMatchGenerator* j) { return (i->getInstantiationLevel()<j->getInstantiationLevel());}
 } sortInstantiationLevelObj;
 
 
-void UIterator::debugPrint( const char* c, int ind, bool printChildren ){
+void InstMatchGenerator::debugPrint( const char* c, int ind, bool printChildren ){
   indent( c, ind );
   if( getMaster()==this ){
     Debug( c ) << ( ( getMaster()->d_mg_set || getMaster()->d_children_set ) ? "+" : "-" );
@@ -446,11 +456,11 @@ void UIterator::debugPrint( const char* c, int ind, bool printChildren ){
   }
 }
 
-void UIterator::calcChildren(){
+void InstMatchGenerator::calcChildren(){
   if( d_t!=Node::null() ){
     Node f = d_t.getAttribute(InstConstantAttribute());
     if( d_operation==0 ){
-      if( d_t.getKind()==INST_CONSTANT && !d_s.hasAttribute(InstConstantAttribute()) ){
+      if( d_t.getKind()==INST_CONSTANT && d_s.getAttribute(InstConstantAttribute())!=f ){
         InstMatch m( f, d_itu->d_instEngine );
         Node c = getRepresentative( d_s );
         if( !areEqual( d_t, c ) ){
@@ -462,7 +472,7 @@ void UIterator::calcChildren(){
         ////find any term to match d_t to d_s
         ////if they share the same operator, try a merge, if legal to do so
         //if( d_t.getKind()==APPLY_UF && d_s.getKind()==APPLY_UF && d_t.getOperator()==d_s.getOperator() ){
-        //  UIterator* ui = mkMergeUIterator( d_t, d_s, f );
+        //  InstMatchGenerator* ui = mkMergeInstMatchGenerator( d_t, d_s, f );
         //  if( ui ){
         //    d_children.push_back( ui );
         //  }
@@ -473,13 +483,13 @@ void UIterator::calcChildren(){
           Node m = d_itu->d_litMatchCandidates[0][d_t][d_s][i];
           if( d_s.getAttribute(InstConstantAttribute())==f ){
             //equality between two triggers
-            UIterator* mi = mkUIterator( false );
-            mi->d_children.push_back( mkCombineUIterator( d_t, m, true ) );
-            mi->d_children.push_back( mkCombineUIterator( d_s, m, true ) );
+            InstMatchGenerator* mi = mkInstMatchGenerator( false );
+            mi->d_children.push_back( mkCombineInstMatchGenerator( d_t, m, true ) );
+            mi->d_children.push_back( mkCombineInstMatchGenerator( d_s, m, true ) );
             d_children.push_back( mi );
           }else{
             //equality between trigger and ground term
-            d_children.push_back( mkMergeUIterator( d_t, m ) );
+            d_children.push_back( mkMergeInstMatchGenerator( d_t, m ) );
           }
         }
       }
@@ -490,14 +500,14 @@ void UIterator::calcChildren(){
       Debug( "quant-uf-uiter" ) << "# of match candidates = " << d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size() << std::endl;
       //if( d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size()==1 && !d_s.hasAttribute(InstConstantAttribute()) ){
       //  //if one child, compress the child to this
-      //  // must consider if the following UIterator already exists
+      //  // must consider if the following InstMatchGenerator already exists
       //  int nOp = d_operation==1 ? 0 : 2;
       //  Node s = d_itu->d_litMatchCandidates[d_operation][d_t][d_s][0];
       //  if( d_assigned[nOp][d_t][s]==0 ){
       //    if( d_operation==1 ){
-      //      mkCombineUIterator( d_t, s, true, f );
+      //      mkCombineInstMatchGenerator( d_t, s, true, f );
       //    }else{
-      //      mkMergeUIterator( d_t, s, f );
+      //      mkMergeInstMatchGenerator( d_t, s, f );
       //    }
       //  }
       //  d_miter[d_operation][d_t][d_s] = d_miter[nOp][d_t][s];
@@ -510,19 +520,19 @@ void UIterator::calcChildren(){
         for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
           Node mt = d_itu->d_litMatchCandidates[1][d_t][d_s][i][0];
           Node ms = d_itu->d_litMatchCandidates[1][d_t][d_s][i][1];
-          UIterator* mi = mkUIterator( false );
-          mi->d_children.push_back( mkCombineUIterator( d_t, mt, true ) );
-          mi->d_children.push_back( mkCombineUIterator( d_s, ms, true ) );
+          InstMatchGenerator* mi = mkInstMatchGenerator( false );
+          mi->d_children.push_back( mkCombineInstMatchGenerator( d_t, mt, true ) );
+          mi->d_children.push_back( mkCombineInstMatchGenerator( d_s, ms, true ) );
           d_children.push_back( mi );
         }
       }else{
         //disequality between trigger and ground term
         for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
           Node m = d_itu->d_litMatchCandidates[1][d_t][d_s][i];
-          d_children.push_back( mkCombineUIterator( d_t, m, true ) );
+          d_children.push_back( mkCombineInstMatchGenerator( d_t, m, true ) );
         }
       }
-    }else{
+    }else if( d_operation==2 ){
       if( d_t.getKind()==INST_CONSTANT ){
         InstMatch m( f, d_itu->d_instEngine );
         Node c = getRepresentative( d_s );
@@ -541,9 +551,9 @@ void UIterator::calcChildren(){
         for( int j=0; j<(int)d_s.getNumChildren(); j++ ){
           if( !areEqual( d_t[j], d_s[j] ) ){
             if( d_t[j].hasAttribute(InstConstantAttribute()) ){
-              d_children.push_back( mkCombineUIterator( d_t[j], getRepresentative( d_s[j] ), true ) );
+              d_children.push_back( mkCombineInstMatchGenerator( d_t[j], getRepresentative( d_s[j] ), true ) );
             }else{
-              Assert( !d_s[j].hasAttribute(InstConstantAttribute()) );
+              Assert( d_s[j].getAttribute(InstConstantAttribute())!=f );
               addSplit( d_t[j], d_s[j] );
             }
           }else if( areDisequal( d_t[j], d_s[j] ) ){
@@ -551,6 +561,11 @@ void UIterator::calcChildren(){
             break;
           }
         }
+      }
+    }else if( d_operation==3 ){
+      d_itu->calculateMatches( f, d_t );
+      for( int i=0; i<(int)d_itu->d_matches[d_t].size(); i++ ){
+        d_children.push_back( mkMergeInstMatchGenerator( d_t, d_itu->d_matches[d_t][i] ) );
       }
     }
   }
@@ -564,7 +579,7 @@ void UIterator::calcChildren(){
   d_children_set = true;
 }
 
-void UIterator::addSplit( Node n1, Node n2 ){
+void InstMatchGenerator::addSplit( Node n1, Node n2 ){
   if( n2<n1 ){
     Node ntemp = n1;
     n1 = n2;
@@ -579,7 +594,7 @@ void UIterator::addSplit( Node n1, Node n2 ){
   }
 }
 
-bool UIterator::acceptMatch( InstMatch* m ){
+bool InstMatchGenerator::acceptMatch( InstMatch* m ){
   if( d_useInstLevelThreshold ){
     for( std::map< Node, Node >::iterator it = m->d_map.begin(); 
         it != m->d_map.end(); ++it ){
@@ -604,7 +619,7 @@ bool UIterator::acceptMatch( InstMatch* m ){
   return true;
 }
 
-int UIterator::getInstantiationLevel(){
+int InstMatchGenerator::getInstantiationLevel(){
   if( getMaster()==this ){
     if( d_s!=Node::null() ){
       return d_s.getAttribute(InstLevelAttribute());
@@ -623,7 +638,7 @@ int UIterator::getInstantiationLevel(){
   }
 }
 
-bool UIterator::calcNextMatch(){
+bool InstMatchGenerator::calcNextMatch(){
   Assert( getMaster()==this );
   Assert( !d_mg_set );
   if( d_children.empty() ){
@@ -722,8 +737,8 @@ bool UIterator::calcNextMatch(){
   }
 }
 
-double UIterator::collectUnmerged( std::map< UIterator*, UIterator* >& index, std::vector< UIterator* >& unmerged,
-                                   std::vector< UIterator* >& cover ){
+double InstMatchGenerator::collectUnmerged( std::map< InstMatchGenerator*, InstMatchGenerator* >& index, std::vector< InstMatchGenerator* >& unmerged,
+                                   std::vector< InstMatchGenerator* >& cover ){
   Assert( getMaster()->d_children_set );
   Assert( getMaster()->d_mg.d_matches.empty() && getMaster()->d_mg_set );
   if( getMaster()->d_children.empty() ){
@@ -734,11 +749,11 @@ double UIterator::collectUnmerged( std::map< UIterator*, UIterator* >& index, st
       double maxScore = -1.0;
       int maxIndex = -1;
       //take maximum index child
-      std::vector< UIterator* > unmg;
-      std::vector< UIterator* > cvr;
+      std::vector< InstMatchGenerator* > unmg;
+      std::vector< InstMatchGenerator* > cvr;
       for( int i=0; i<(int)getMaster()->d_children.size(); i++ ){
-        std::vector< UIterator* > unmg_temp;
-        std::vector< UIterator* > cvr_temp;
+        std::vector< InstMatchGenerator* > unmg_temp;
+        std::vector< InstMatchGenerator* > cvr_temp;
         double cScore = getMaster()->d_children[ i ]->collectUnmerged( index, unmg_temp, cvr_temp );
         if( cScore>maxScore ){
           maxScore = cScore;
@@ -779,7 +794,7 @@ double UIterator::collectUnmerged( std::map< UIterator*, UIterator* >& index, st
   }
 }
 
-void UIterator::collectUnmerged( std::vector< UIterator* >& unmerged, std::vector< UIterator* >& cover ){
+void InstMatchGenerator::collectUnmerged( std::vector< InstMatchGenerator* >& unmerged, std::vector< InstMatchGenerator* >& cover ){
   if( !getMaster()->d_mg.d_matches.empty() ){
     return;
   }

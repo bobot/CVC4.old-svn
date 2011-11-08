@@ -79,7 +79,7 @@ void TermMatchEngine::processMatch( Node pat, Node g ){
     if( pat.getKind()==APPLY_UF && g.getKind()==APPLY_UF ){
       if( pat.getOperator()==g.getOperator() ){
         Debug("term-match") << "Process match " << pat << " " << g << std::endl;
-        d_matches[pat][g] = UIterator::mkMergeUIterator( pat, g );
+        d_matches[pat][g] = InstMatchGenerator::mkMergeInstMatchGenerator( pat, g );
       }
     }
   }
@@ -100,17 +100,17 @@ void TermMatchEngine::registerTerm( Node n ){
   }
 }
 
-UIterator* TermMatchEngine::makeMultiPattern( std::vector< Node >& nodes ){
+InstMatchGenerator* TermMatchEngine::makeMultiPattern( std::vector< Node >& nodes ){
   if( nodes.empty() ){
     return NULL;
   }else{
-    UIterator* uit = UIterator::mkUIterator( false );
+    InstMatchGenerator* uit = InstMatchGenerator::mkInstMatchGenerator( false );
     for( int i=0; i<(int)nodes.size(); i++ ){
       if( d_matches[ nodes[i] ].empty() ){
         return NULL;
       }else{
-        UIterator* cit = UIterator::mkUIterator( true );
-        for( std::map< Node, UIterator* >::iterator it = d_matches[ nodes[i] ].begin(); it !=d_matches[ nodes[i] ].end(); ++it ){
+        InstMatchGenerator* cit = InstMatchGenerator::mkInstMatchGenerator( true );
+        for( std::map< Node, InstMatchGenerator* >::iterator it = d_matches[ nodes[i] ].begin(); it !=d_matches[ nodes[i] ].end(); ++it ){
           if( it->second ){
             cit->d_children.push_back( it->second );
           }
@@ -193,6 +193,7 @@ bool InstantiationEngine::addInstantiation( InstMatch* m, bool addSplits ){
 }
 
 bool InstantiationEngine::addSplit( Node n, bool reqPhase, bool reqPhasePol ){
+  n = Rewriter::rewrite( n );
   Node lem = NodeManager::currentNM()->mkNode( OR, n, n.notNode() );
   if( addLemma( lem ) ){
     ++(d_statistics.d_splits);
@@ -212,7 +213,6 @@ bool InstantiationEngine::addSplitEquality( Node n1, Node n2, bool reqPhase, boo
   //Assert( !areDisequal( n1, n2 ) );
   Kind knd = n1.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
   Node fm = NodeManager::currentNM()->mkNode( knd, n1, n2 );
-  fm = Rewriter::rewrite( fm );
   return addSplit( fm );
 }
 
@@ -417,14 +417,16 @@ void InstantiationEngine::registerLiterals( Node n, Node f, OutputChannel* out, 
             if( reqPol ){
               Debug("quant-req-phase") << "Require phase " << n << " to be " << polarity << std::endl;
               d_phase_reqs[n] = polarity;
-            //  out->requirePhase( n, polarity );
-            //  d_phase_reqs[n] = polarity;
             }
           }
+        }else{
+          Debug("quant-dep-dec") << n << " is not sat literal" << std::endl;
         }
         InstConstantAttribute ica;
         n.setAttribute(ica,fa);
       }
+    }else{
+      Debug("quant-dep-dec") << n << " does not have instantiation constants" << std::endl;
     }
   }
 }
@@ -442,19 +444,19 @@ void InstantiationEngine::setInstantiationLevel( Node n, uint64_t level ){
 InstantiationEngine::Statistics::Statistics():
   d_instantiation_rounds("InstantiationEngine::Instantiation Rounds", 0),
   d_instantiations("InstantiationEngine::Total Instantiations", 0),
-  d_splits("InstantiationEngine::Total Splits", 0),
-  d_max_instantiation_level("InstantiationEngine::Max Instantiation Level", 0)
+  d_max_instantiation_level("InstantiationEngine::Max Instantiation Level", 0),
+  d_splits("InstantiationEngine::Total Splits", 0)
 {
   StatisticsRegistry::registerStat(&d_instantiation_rounds);
   StatisticsRegistry::registerStat(&d_instantiations);
-  StatisticsRegistry::registerStat(&d_splits);
   StatisticsRegistry::registerStat(&d_max_instantiation_level);
+  StatisticsRegistry::registerStat(&d_splits);
 }
 
 InstantiationEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_instantiation_rounds);
   StatisticsRegistry::unregisterStat(&d_instantiations);
-  StatisticsRegistry::unregisterStat(&d_splits);
   StatisticsRegistry::unregisterStat(&d_max_instantiation_level);
+  StatisticsRegistry::unregisterStat(&d_splits);
 }
 
