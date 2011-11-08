@@ -63,6 +63,11 @@ inline Node mkIntegerNode(const Integer& z){
 }
 
 
+inline Node makeIntegerVariable(){
+  NodeManager* curr = NodeManager::currentNM();
+  return curr->mkVar(curr->integerType());
+}
+
 inline Rational coerceToRational(TNode constant){
   switch(constant.getKind()){
   case kind::CONST_INTEGER:
