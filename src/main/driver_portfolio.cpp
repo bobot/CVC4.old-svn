@@ -102,7 +102,7 @@ public:
   void notifyNewLemma(Expr lemma) {
     if(Debug.isOn("disable-lemma-sharing")) return;
     const Options *options = Options::current();
-    if(options->sharingFilterByLength > 0) {
+    if(options->sharingFilterByLength >= 0) { // 0 would mean no-sharing effectively
       if( int(lemma.getNumChildren()) > options->sharingFilterByLength)
         return;
     }
@@ -273,8 +273,11 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   Options options1 = options;
   Options options2 = options;
-  options1.pivotRule = Options::MINIMUM;
-  options2.pivotRule = Options::MAXIMUM;
+  if(numThreads == 2) {
+    // If threads are not 2 (i.e. 1), respect command-line options
+    options1.pivotRule = Options::MINIMUM;
+    options2.pivotRule = Options::MAXIMUM;
+  }
   options1.thread_id = 0;
   options2.thread_id = 1;
 
