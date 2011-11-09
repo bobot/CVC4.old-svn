@@ -113,7 +113,7 @@ public:
     for(unsigned currSize = size(); currSize < targetSize; ++currSize){
       push_back(def);
     }
-    Assert(size() == targetSize);
+    Assert(targetSize <= size());
   }
 
   /**
