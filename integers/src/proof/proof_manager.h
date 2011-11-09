@@ -3,6 +3,7 @@
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -21,7 +22,7 @@
 #define __CVC4__PROOF_MANAGER_H
 
 #include <iostream> 
-#include "proof.h"
+#include "proof/proof.h"
 
 // forward declarations
 namespace Minisat {
@@ -32,6 +33,7 @@ namespace CVC4 {
 namespace prop {
 class CnfStream;
 }
+class Proof;
 class SatProof;
 class CnfProof;
 
@@ -55,6 +57,7 @@ public:
   static void      initSatProof(Minisat::Solver* solver); 
   static void      initCnfProof(CVC4::prop::CnfStream* cnfStream);
 
+  static Proof* getProof();
   static SatProof* getSatProof();
   static CnfProof* getCnfProof();
 

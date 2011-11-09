@@ -32,6 +32,7 @@ typedef uint32_t CRef;
 }
 
 #include "prop/minisat/core/SolverTypes.h"
+#include "util/proof.h"
 
 namespace std {
 using namespace __gnu_cxx;
@@ -99,7 +100,7 @@ public:
   void updateCRef(::Minisat::CRef oldref, ::Minisat::CRef newref);
 };
 
-class SatProof {
+class SatProof : public Proof {
 protected:
   ::Minisat::Solver*    d_solver;
   // clauses 
@@ -144,8 +145,8 @@ protected:
   ::Minisat::Lit  getUnit(ClauseId id);
   ClauseId      getUnitId(::Minisat::Lit lit); 
   ::Minisat::Clause& getClause(ClauseId id);
-  virtual void printProof();
-  
+  virtual void toStream(std::ostream& out);
+
   bool checkResolution(ClauseId id);
   /** 
    * Constructs a resolution tree that proves lit
@@ -170,7 +171,7 @@ public:
   void addResolutionStep(::Minisat::Lit lit, ::Minisat::CRef clause, bool sign);
   /** 
    * Pops the current resolution of the stack and stores it
-   * in the resolution map. Also registers the @param clause. 
+   * in the resolution map. Also registers the 'clause' parameter
    * @param clause the clause the resolution is proving 
    */
   void endResChain(::Minisat::CRef clause);
@@ -190,7 +191,8 @@ public:
    * Constructs the empty clause resolution from the final conflict
    * 
    * @param conflict 
-   */void finalizeProof(::Minisat::CRef conflict);
+   */
+  void finalizeProof(::Minisat::CRef conflict);
 
   /// clause registration methods 
   ClauseId registerClause(const ::Minisat::CRef clause, bool isInput = false);
@@ -236,7 +238,7 @@ private:
 
   void printVariables();
   void printClauses();
-  void flush();
+  void flush(std::ostream& out);
   
 public:
   LFSCSatProof(::Minisat::Solver* solver, bool checkRes = false):
@@ -248,7 +250,7 @@ public:
     d_seenLemmas(),
     d_seenInput()
   {} 
-  void printProof();  
+  virtual void toStream(std::ostream& out);  
 };
 
 }

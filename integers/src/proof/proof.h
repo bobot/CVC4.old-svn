@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file sat_proof.h
+/*! \file proof.h
  ** \verbatim
  ** Original author: lianah
  ** Major contributors: none
@@ -16,11 +16,10 @@
  ** Proof manager
  **/
 
-#ifndef __CVC4__PROOF_H
-#define __CVC4__PROOF_H
+#ifndef __CVC4__PROOF__PROOF_H
+#define __CVC4__PROOF__PROOF_H
 
 #include "util/options.h"
-//#define CVC4_PROOFS
 
 #ifdef CVC4_PROOF
 #  define PROOF(x) if(Options::current()->proof) { x; }
@@ -34,4 +33,4 @@
 
 
 
-#endif /* __CVC4__PROOF_H */
+#endif /* __CVC4__PROOF__PROOF_H */

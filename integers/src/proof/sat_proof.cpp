@@ -1,3 +1,22 @@
+/*********************                                                        */
+/*! \file sat_proof.cpp
+ ** \verbatim
+ ** Original author: lianah
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief [[ Add one-line brief description here ]]
+ **
+ ** [[ Add lengthier description here ]]
+ ** \todo document this file
+ **/
+
 #include "proof/sat_proof.h"
 #include "prop/minisat/core/Solver.h"
 
@@ -68,9 +87,9 @@ void SatProof::createLitSet(ClauseId id, LitSet& set) {
 /** 
  * Resolves clause1 and clause2 on variable var and stores the
  * result in clause1
- * @param var 
- * @param clause1 
- * @param clause2 
+ * @param v
+ * @param clause1
+ * @param clause2
  */
 bool resolve(const Lit v, LitSet& clause1, LitSet& clause2, bool s) {
   Assert(!clause1.empty());
@@ -228,7 +247,7 @@ bool SatProof::checkResolution(ClauseId id) {
 
 /// helper methods
 
-ClauseId SatProof::getClauseId(CRef ref) {
+ClauseId SatProof::getClauseId(::Minisat::CRef ref) {
   if(d_clauseId.find(ref) == d_clauseId.end()) {
     Debug("proof:sat") << "Missing clause \n"; 
   }
@@ -237,12 +256,12 @@ ClauseId SatProof::getClauseId(CRef ref) {
 }
 
 
-ClauseId SatProof::getClauseId(Lit lit) {
+ClauseId SatProof::getClauseId(::Minisat::Lit lit) {
   Assert(d_unitId.find(toInt(lit)) != d_unitId.end());
   return d_unitId[toInt(lit)]; 
 }
 
-CRef SatProof::getClauseRef(ClauseId id) {
+::Minisat::CRef SatProof::getClauseRef(ClauseId id) {
   if (d_idClause.find(id) == d_idClause.end()) {
     Debug("proof:sat") << "proof:getClauseRef cannot find clause "<<id<<" "
                        << ((d_deleted.find(id) != d_deleted.end()) ? "deleted" : "")
@@ -255,7 +274,7 @@ CRef SatProof::getClauseRef(ClauseId id) {
 Clause& SatProof::getClause(ClauseId id) {
   return d_solver->ca[id]; 
 }
-Lit SatProof::getUnit(ClauseId id) {
+::Minisat::Lit SatProof::getUnit(ClauseId id) {
   Assert (d_idUnit.find(id) != d_idUnit.end());
   return d_idUnit[id]; 
 }
@@ -264,11 +283,11 @@ bool SatProof::isUnit(ClauseId id) {
   return d_idUnit.find(id) != d_idUnit.end(); 
 }
 
-bool SatProof::isUnit(Lit lit) {
+bool SatProof::isUnit(::Minisat::Lit lit) {
   return d_unitId.find(toInt(lit)) != d_unitId.end(); 
 }
 
-ClauseId SatProof::getUnitId(Lit lit) {
+ClauseId SatProof::getUnitId(::Minisat::Lit lit) {
   Assert(isUnit(lit)); 
   return d_unitId[toInt(lit)]; 
 }
@@ -324,7 +343,7 @@ void SatProof::printRes(ResChain* res) {
 
 /// registration methods
 
-ClauseId SatProof::registerClause(CRef clause, bool isInput) {
+ClauseId SatProof::registerClause(::Minisat::CRef clause, bool isInput) {
   Assert(clause != CRef_Undef); 
   ClauseIdMap::iterator it = d_clauseId.find(clause);
    if (it == d_clauseId.end()) {
@@ -339,7 +358,7 @@ ClauseId SatProof::registerClause(CRef clause, bool isInput) {
    return d_clauseId[clause]; 
 }
 
-ClauseId SatProof::registerUnitClause(Lit lit, bool isInput) {
+ClauseId SatProof::registerUnitClause(::Minisat::Lit lit, bool isInput) {
   UnitIdMap::iterator it = d_unitId.find(toInt(lit));
   if (it == d_unitId.end()) {
     ClauseId newId = d_idCounter++;
@@ -353,7 +372,7 @@ ClauseId SatProof::registerUnitClause(Lit lit, bool isInput) {
   return d_unitId[toInt(lit)]; 
 }
 
-void SatProof::removedDfs(Lit lit, LitSet* removedSet, LitVector& removeStack, LitSet& inClause, LitSet& seen){
+void SatProof::removedDfs(::Minisat::Lit lit, LitSet* removedSet, LitVector& removeStack, LitSet& inClause, LitSet& seen) {
   // if we already added the literal return
   if (seen.count(lit)) {
     return; 
@@ -428,13 +447,13 @@ void SatProof::registerResolution(ClauseId id, ResChain* res) {
 
 /// recording resolutions
 
-void SatProof::startResChain(CRef start) {
+void SatProof::startResChain(::Minisat::CRef start) {
   ClauseId id = getClauseId(start); 
   ResChain* res = new ResChain(id);
   d_resStack.push_back(res); 
 }
 
-void SatProof::addResolutionStep(Lit lit, CRef clause, bool sign) {
+void SatProof::addResolutionStep(::Minisat::Lit lit, ::Minisat::CRef clause, bool sign) {
   ClauseId id = registerClause(clause);
   ResChain* res = d_resStack.back();
   res->addStep(lit, id, sign); 
@@ -449,7 +468,7 @@ void SatProof::endResChain(CRef clause) {
 }
 
 
-void SatProof::endResChain(Lit lit) {
+void SatProof::endResChain(::Minisat::Lit lit) {
   Assert(d_resStack.size() > 0);
   ClauseId  id = registerUnitClause(lit); 
   ResChain* res = d_resStack.back();
@@ -459,7 +478,7 @@ void SatProof::endResChain(Lit lit) {
   d_resStack.pop_back(); 
 }
 
-void SatProof::storeLitRedundant(Lit lit) {
+void SatProof::storeLitRedundant(::Minisat::Lit lit) {
   Assert(d_resStack.size() > 0);
   ResChain* res = d_resStack.back();
   res->addRedundantLit(lit);  
@@ -467,17 +486,17 @@ void SatProof::storeLitRedundant(Lit lit) {
 
 /// constructing resolutions 
 
-void SatProof::resolveOutUnit(Lit lit) {
+void SatProof::resolveOutUnit(::Minisat::Lit lit) {
   ClauseId id = resolveUnit(~lit);
   ResChain* res = d_resStack.back();
   res->addStep(lit, id, !sign(lit)); 
 }
 
-void SatProof::storeUnitResolution(Lit lit) {
+void SatProof::storeUnitResolution(::Minisat::Lit lit) {
   resolveUnit(lit);
 }
 
-ClauseId SatProof::resolveUnit(Lit lit) {
+ClauseId SatProof::resolveUnit(::Minisat::Lit lit) {
   // first check if we already have a resolution for lit
   if(isUnit(lit)) {
     ClauseId id = getClauseId(lit);
@@ -505,11 +524,12 @@ ClauseId SatProof::resolveUnit(Lit lit) {
   return unit_id; 
 }
 
-void SatProof::printProof() {
+void SatProof::toStream(std::ostream& out) {
   Debug("proof:sat") << "SatProof::printProof\n";
+  Unimplemented("native proof printing not supported yet");
 }
 
-void SatProof::finalizeProof(CRef conflict_ref) {
+void SatProof::finalizeProof(::Minisat::CRef conflict_ref) {
   Assert(d_resStack.size() == 0);
   //ClauseId conflict_id = getClauseId(conflict_ref); 
   ClauseId conflict_id = registerClause(conflict_ref); //FIXME
@@ -524,12 +544,11 @@ void SatProof::finalizeProof(CRef conflict_ref) {
     res->addStep(lit, res_id, !sign(lit)); 
   }
   registerResolution(d_emptyClauseId, res);
-  printProof(); 
 }
 
 /// CRef manager
 
-void SatProof::updateCRef(CRef oldref, CRef newref) {
+void SatProof::updateCRef(::Minisat::CRef oldref, ::Minisat::CRef newref) {
   if (d_clauseId.find(oldref) == d_clauseId.end()) {
     return; 
   }
@@ -558,7 +577,7 @@ void SatProof::markDeleted(CRef clause) {
 
 /// LFSCSatProof class
 
-string LFSCSatProof::varName(Lit lit) {
+std::string LFSCSatProof::varName(::Minisat::Lit lit) {
   ostringstream os;
   if (sign(lit)) {
     os << "(neg v"<<var(lit) << ")" ; 
@@ -570,7 +589,7 @@ string LFSCSatProof::varName(Lit lit) {
 }
 
 
-string LFSCSatProof::clauseName(ClauseId id) {
+std::string LFSCSatProof::clauseName(ClauseId id) {
   ostringstream os;
   if (isInputClause(id)) {
     os << "p"<<id;
@@ -640,7 +659,7 @@ void LFSCSatProof::printResolution(ClauseId id) {
 }
 
 
-void LFSCSatProof::printInputClause(ClauseId id){
+void LFSCSatProof::printInputClause(ClauseId id) {
   ostringstream os;
   CRef ref = getClauseRef(id);
   Assert (ref != CRef_Undef);
@@ -674,8 +693,7 @@ void LFSCSatProof::printVariables() {
 }
 
 
-void LFSCSatProof::flush() {
-  ostringstream out;
+void LFSCSatProof::flush(std::ostream& out) {
   out << "(check \n";
   d_paren <<")"; 
   out << d_varSS.str();
@@ -684,11 +702,10 @@ void LFSCSatProof::flush() {
   out << d_lemmaSS.str(); 
   d_paren << "))";
   out << d_paren.str();
-  out << ";"; //to comment out the solver's answer 
-  std::cout << out.str(); 
+  out << "\n";
 }
 
-void LFSCSatProof::printProof() {
+void LFSCSatProof::toStream(std::ostream& out) {
   Debug("proof:sat") << " LFSCSatProof::printProof \n";
 
   // first collect lemmas to print in reverse order
@@ -703,8 +720,7 @@ void LFSCSatProof::printProof() {
 
   printClauses();
   printVariables();
-  flush();
-  
+  flush(out);
 }
 
 } /* CVC4 namespace */

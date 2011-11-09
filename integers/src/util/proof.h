@@ -1,7 +1,7 @@
 /*********************                                                        */
-/*! \file cnf_proof.cpp
+/*! \file proof.h
  ** \verbatim
- ** Original author: lianah
+ ** Original author: mdeters
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
@@ -17,12 +17,20 @@
  ** \todo document this file
  **/
 
-#include "proof/cnf_proof.h"
-using namespace CVC4::prop;
+#include "cvc4_public.h"
+
+#ifndef __CVC4__PROOF_H
+#define __CVC4__PROOF_H
+
+#include <iostream>
 
 namespace CVC4 {
-CnfProof::CnfProof(CnfStream* stream) :
-  d_cnfStream(stream) {}
 
+class CVC4_PUBLIC Proof {
+public:
+  virtual void toStream(std::ostream& out) = 0;
+};/* class Proof */
 
-} /* CVC4 namespace */
+}/* CVC4 namespace */
+
+#endif /* __CVC4__PROOF_H */
