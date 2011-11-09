@@ -36,9 +36,9 @@ bool isVariable(TNode t){
 
 RewriteResponse ArithRewriter::rewriteConstant(TNode t){
   Assert(t.getMetaKind() == kind::metakind::CONSTANT);
-  Node val = coerceToRationalNode(t);
+  Constant c = Constant::mkConstant(t);
 
-  return RewriteResponse(REWRITE_DONE, val);
+  return RewriteResponse(REWRITE_DONE, c.getNode());
 }
 
 RewriteResponse ArithRewriter::rewriteVariable(TNode t){
@@ -84,7 +84,7 @@ RewriteResponse ArithRewriter::preRewriteTerm(TNode t){
   }else if(t.getKind() == kind::UMINUS){
     return rewriteUMinus(t, true);
   }else if(t.getKind() == kind::DIVISION){
-    if(t[0].getKind()== kind::CONST_RATIONAL){
+    if(t[1].getKind()== kind::CONST_RATIONAL || t[1].getKind()== kind::CONST_INTEGER){
       return rewriteDivByConstant(t, true);
     }else{
       return RewriteResponse(REWRITE_DONE, t);
@@ -182,7 +182,7 @@ RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
   TNode left  = t[0];
   TNode right = t[1];
 
-  Comparison cmp = Comparison::mkComparison(t.getKind(), Polynomial::parsePolynomial(left), Constant(right));
+  Comparison cmp = Comparison::mkComparison(t.getKind(), Polynomial::parsePolynomial(left), Constant::mkConstant(right));
 
   if(cmp.isBoolean()){
     return RewriteResponse(REWRITE_DONE, cmp.getNode());
@@ -197,10 +197,14 @@ RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
     Constant negativeConstantHead = -constant;
 
     cmp = cmp.addConstant(negativeConstantHead);
+
+    if(cmp.isBoolean()){
+      return RewriteResponse(REWRITE_DONE, cmp.getNode());
+    }
   }
   Assert(!cmp.getLeft().containsConstant());
 
-  if(!cmp.getLeft().getHead().coefficientIsOne()){
+  if(!cmp.isInteger() && !cmp.getLeft().getHead().coefficientIsOne()){
     Monomial constantHead = cmp.getLeft().getHead();
     Assert(!constantHead.isConstant());
     Constant constant = constantHead.getConstant();
@@ -208,8 +212,8 @@ RewriteResponse ArithRewriter::postRewriteAtomConstantRHS(TNode t){
     Constant inverse = constant.inverse();
 
     cmp = cmp.multiplyConstant(inverse);
+    Assert(cmp.getLeft().getHead().coefficientIsOne());
   }
-  Assert(cmp.getLeft().getHead().coefficientIsOne());
 
   Assert(cmp.isBoolean() || cmp.isNormalForm());
   return RewriteResponse(REWRITE_DONE, cmp.getNode());
@@ -321,14 +325,16 @@ RewriteResponse ArithRewriter::rewriteDivByConstant(TNode t, bool pre){
 
   Node left = t[0];
   Node right = t[1];
-  Assert(right.getKind()== kind::CONST_RATIONAL);
+  Assert(right.getKind()== kind::CONST_RATIONAL || right.getKind()== kind::CONST_INTEGER);
+  Assert(right.getKind()!= kind::CONST_RATIONAL || right.getConst<Rational>() != Rational(0));
+  Assert(right.getKind()!= kind::CONST_INTEGER || right.getConst<Integer>() != Integer(0));
 
-
-  const Rational& den = right.getConst<Rational>();
-
-  Assert(den != Rational(0));
-
-  Rational div = den.inverse();
+  Rational div;
+  if(right.getKind()== kind::CONST_RATIONAL){
+    div = right.getConst<Rational>().inverse();
+  }else{
+    div = Rational(Integer(1), right.getConst<Integer>());
+  }
 
   Node result = mkRationalNode(div);
 

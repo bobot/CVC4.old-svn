@@ -105,22 +105,6 @@ private:
   void setupPolynomial(const Polynomial& poly);
   void setupAtom(TNode atom, bool addToDatabase);
 
-
-  /**
-   * List of the types of variables in the system.
-   * "True" means integer, "false" means (non-integer) real.
-   */
-  std::vector<short> d_integerVars;
-
-  /**
-   * On full effort checks (after determining LA(Q) satisfiability), we
-   * consider integer vars, but we make sure to do so fairly to avoid
-   * nontermination (although this isn't a guarantee).  To do it fairly,
-   * we consider variables in round-robin fashion.  This is the
-   * round-robin index.
-   */
-  ArithVar d_nextIntegerCheckVar;
-
   /**
    * If ArithVar v maps to the node n in d_removednode,
    * then n = (= asNode(v) rhs) where rhs is a term that
@@ -241,8 +225,21 @@ private:
    */
   ArithVar determineLeftVariable(TNode assertion, Kind simpleKind);
 
-  /** Splits the disequalities in d_diseq that are violated using lemmas on demand. */
-  void splitDisequalities();
+  /**
+   * Splits the disequalities in d_diseq that are violated using lemmas on demand.
+   * Returns true if a lemma was emitted on the output channel.
+   */
+  bool splitDisequalities();
+
+  /**
+   * Performs branch and bound on integer variables that do not have
+   * integer assignments by issuing lemmas on the output channel.
+   * Returns true if a lemma was emitted on the output channel.
+   */
+  bool externalBranchAndBound();
+
+  /** Calls the DIO Solver. */
+  Node callDioSolver();
 
   /**
    * This requests a new unique ArithVar value for x.
@@ -252,7 +249,7 @@ private:
   ArithVar requestArithVar(TNode x, bool basic);
 
   /** Initial (not context dependent) sets up for a variable.*/
-  void setupInitialValue(ArithVar x);
+  void setupInitialValue(ArithVar x, bool integer);
 
   /** Initial (not context dependent) sets up for a new slack variable.*/
   void setupSlack(TNode left);

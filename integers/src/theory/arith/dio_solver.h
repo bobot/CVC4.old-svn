@@ -99,7 +99,9 @@ public:
   /**
    * Adds an equality to the queue of the DioSolver.
    * orig is blamed in a conflict.
-   * orig can either be an (= p c) or an (and (leq p c) (geq p c)).
+   * orig can either be an (= p c) or an (and ub lb).
+   * where ub is either (leq p c) or (not (> p [- c 1])), and
+   * where lb is either (geq p c) or (not (< p [+ c 1]))
    */
   void addEquality(const Comparison& newEq, Node orig);
 
@@ -202,11 +204,6 @@ b   */
    * If the queue is not popped, a conflict is returned.
    */
   Node processFront();
-
-  Node computeQR(const SumPair& sp, const Integer& i){
-    //TODO
-    return Node::null();
-  }
 
   //Legacy
   void getSolution();

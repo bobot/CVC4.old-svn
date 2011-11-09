@@ -30,7 +30,7 @@ using namespace CVC4::theory::arith;
 void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
   d_deltaIsSafe = false;
 
-  Debug("partial_model") << "setUpperBound(" << x << "," << r << ")" << endl;
+  Debug("arith::partial_model") << "setUpperBound(" << x << "," << r << ")" << endl;
   d_hasHadABound[x] = true;
   d_upperBound.set(x,r);
 }
@@ -38,13 +38,53 @@ void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
 void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
   d_deltaIsSafe = false;
 
+  Debug("arith::partial_model") << "setLowerBound(" << x << "," << r << ")" << endl;
   d_hasHadABound[x] = true;
   d_lowerBound.set(x,r);
 }
 
+
+void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r, TNode con){
+  bool hadBound = hasLowerBound(x);
+  Assert(!hadBound || r >= getLowerBound(x));
+
+  bool checkIntegerAssignment = isInteger(x) && hadBound && r > getLowerBound(x);
+  Debug("arith::new") << "setLowerBound(" << x << "," << r << ")" << con << endl;
+
+  setLowerConstraint(x, con);
+  setLowerBound(x, r);
+
+  if(checkIntegerAssignment && boundsAreEqual(x)){
+    pushBackIntegerVarsWithEqualBounds(x);
+  }
+}
+
+void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r, TNode con){
+  bool hadBound = hasUpperBound(x);
+  Assert(!hadBound || r <= getUpperBound(x));
+
+  bool checkIntegerAssignment = isInteger(x) && hadBound && r < getUpperBound(x);
+  Debug("arith::new") << "setUpperBound(" << x << "," << r << ")" << con << endl;
+
+  setUpperConstraint(x, con);
+  setUpperBound(x, r);
+
+  if(checkIntegerAssignment && boundsAreEqual(x)){
+    pushBackIntegerVarsWithEqualBounds(x);
+  }
+}
+
+bool ArithPartialModel::boundsAreEqual(ArithVar x){
+  if(hasLowerBound(x) && hasUpperBound(x)){
+    return d_upperBound[x] == d_lowerBound[x];
+  }else{
+    return false;
+  }
+}
+
 void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& r){
-   Debug("partial_model") << "pm: updating the assignment to" << x
-                          << " now " << r <<endl;
+   Debug("arith::partial_model") << "pm: updating the assignment to" << x
+                                 << " now " << r <<endl;
   if(!d_hasSafeAssignment[x]){
     d_safeAssignment[x] = d_assignment[x];
     d_hasSafeAssignment[x] = true;
@@ -53,6 +93,10 @@ void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& r){
 
   d_deltaIsSafe = false;
   d_assignment[x] = r;
+
+  if(isInteger(x)){
+    checkIntegerAssignment(x);
+  }
 }
 void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& safe, const DeltaRational& r){
    Debug("partial_model") << "pm: updating the assignment to" << x
@@ -70,6 +114,10 @@ void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& safe, con
 
   d_deltaIsSafe = false;
   d_assignment[x] = r;
+
+  if(isInteger(x)){
+    checkIntegerAssignment(x);
+  }
 }
 
 bool ArithPartialModel::equalSizes(){
@@ -80,14 +128,22 @@ bool ArithPartialModel::equalSizes(){
     d_mapSize == d_upperBound.size() &&
     d_mapSize == d_lowerBound.size() &&
     d_mapSize == d_upperConstraint.size() &&
-    d_mapSize == d_lowerConstraint.size();
+    d_mapSize == d_lowerConstraint.size() &&
+    d_mapSize == d_varTypes.size();
 }
 
-void ArithPartialModel::initialize(ArithVar x, const DeltaRational& r){
+void ArithPartialModel::checkIntegerAssignment(ArithVar x){
+  Assert(isInteger(x));
+  bool isIntegerAssignment = getAssignment(x).isInteger();
+  d_integerVarsWithRationalAssignment.setStatus(x, !isIntegerAssignment);
+}
+
+void ArithPartialModel::initialize(ArithVar x, const DeltaRational& r, bool integer){
   Assert(x == d_mapSize);
   Assert(equalSizes());
   ++d_mapSize;
 
+  d_varTypes.push_back( integer );
 
   d_hasHadABound.push_back( false );
 
@@ -100,6 +156,11 @@ void ArithPartialModel::initialize(ArithVar x, const DeltaRational& r){
 
   d_upperConstraint.push_back( TNode::null() );
   d_lowerConstraint.push_back( TNode::null() );
+
+  d_integerVarsWithRationalAssignment.init(x, false);
+  if(isInteger(x)){
+    checkIntegerAssignment(x);
+  }
 }
 
 /** Must know that the bound exists both calling this! */
@@ -272,6 +333,10 @@ void ArithPartialModel::clearSafeAssignments(bool revert){
 
     if(revert){
       d_assignment[x] = d_safeAssignment[x];
+
+      if(isInteger(x)){
+        checkIntegerAssignment(x);
+      }
     }
   }
 

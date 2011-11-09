@@ -94,7 +94,7 @@ VarList VarList::operator*(const VarList& other) const {
 }
 
 bool Monomial::isMember(TNode n){
-  if(n.getKind() == kind::CONST_RATIONAL) {
+  if(Constant::isConstantKind(n.getKind())) {
     return true;
   } else if(multStructured(n)) {
     return VarList::isMember(n[1]);
@@ -113,10 +113,10 @@ Monomial Monomial::mkMonomial(const Constant& c, const VarList& vl) {
   }
 }
 Monomial Monomial::parseMonomial(Node n) {
-  if(n.getKind() == kind::CONST_RATIONAL) {
-    return Monomial(Constant(n));
+  if(Constant::isConstantKind(n.getKind())) {
+    return Monomial(Constant::mkConstant(n));
   } else if(multStructured(n)) {
-    return Monomial::mkMonomial(Constant(n[0]),VarList::parseVarList(n[1]));
+    return Monomial::mkMonomial(Constant::mkConstant(n[0]),VarList::parseVarList(n[1]));
   } else {
     return Monomial(VarList::parseVarList(n));
   }
@@ -213,6 +213,46 @@ Polynomial Polynomial::operator*(const Polynomial& poly) const {
   return res;
 }
 
+Monomial Polynomial::selectAbsMinimum() const {
+  iterator iter = begin(), myend = end();
+  Assert(iter != myend);
+
+  Monomial min = *iter;
+  ++iter;
+  for(; iter != end(); ++iter){
+    Monomial curr = *iter;
+    if(curr.getConstant().abs() < min.getConstant().abs()){
+      min = curr;
+    }
+  }
+  return min;
+}
+
+Integer Polynomial::gcd() const {
+#warning "If this is 0, is 0 the correct answer..."
+  Assert(isInteger());
+  iterator i=begin(), e=end();
+  Assert(i!=e);
+
+  Integer d = (*i).getConstant().getIntegerValue();
+  ++i;
+  for(; i!=e; ++i){
+    const Integer& c = (*i).getConstant().getIntegerValue();
+    d = d.gcd(c);
+  }
+  return d;
+}
+
+Integer Polynomial::denominatorLCM() const {
+  Integer tmp(1);
+  for(iterator i=begin(), e=end(); i!=e; ++i){
+    const Constant& c = (*i).getConstant();
+    if(c.isRational()){
+      tmp = tmp.lcm(c.getRationalValue().getDenominator());
+    }
+  }
+  return tmp;
+}
 
 Node Comparison::toNode(Kind k, const Polynomial& l, const Constant& r) {
   Assert(!l.isConstant());
@@ -242,7 +282,7 @@ Comparison Comparison::parseNormalForm(TNode n) {
             relation.getKind() == kind::GEQ);
 
     Polynomial left = Polynomial::parsePolynomial(relation[0]);
-    Constant right(relation[1]);
+    Constant right = Constant::mkConstant(relation[1]);
 
     Kind newOperator = relation.getKind();
     if(negated) {
@@ -311,8 +351,8 @@ Comparison Comparison::parseNormalForm(TNode n) {
 Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Constant& right) {
   Assert(isRelationOperator(k));
   if(left.isConstant()) {
-    const Rational& lConst =  left.getNode().getConst<Rational>();
-    const Rational& rConst = right.getNode().getConst<Rational>();
+    Rational rConst = right.coerceToRational();
+    Rational lConst = left.getHead().getConstant().coerceToRational();
     bool res = evaluateConstantPredicate(k, lConst, rConst);
     return Comparison(res);
   }else if(left.isIntegral()){
@@ -321,6 +361,7 @@ Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Consta
 
     if(left.getHead().getConstant().isNegative()){
       dlcm *= -1;
+      k = reverseRelationKind(k);
     }
 
     Constant cdlcm = Constant::mkConstant(dlcm);
@@ -333,12 +374,17 @@ Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Consta
     Integer zr = zRight.getIntegerValue();
 
     Integer gcd = zLeft.gcd();
+    Polynomial newLeft = zLeft.exactDivide(gcd);
+
+    Debug("arith::mkComparison") << "mkComparison"<< left.getNode() << right.getNode() << endl;
+
+    Debug("arith::mkComparison") << gcd << " " << zr  << " " << gcd.divides(zr) << endl;
     // Divide rhs by the GCD of the coefficients of the polynomial.
     // If it divides the rhs great!
     // Otherwise, tighten inequalities and equalities are unsatisfiable.
     if(gcd.divides(zr)){
       Constant newRight = Constant::mkConstant(zr.exactQuotient(gcd));
-      return Comparison(toNode(k, zLeft, newRight), k, zLeft, newRight);
+      return Comparison(toNode(k, newLeft, newRight), k, newLeft, newRight);
     }else{
       switch(k){
       case kind::EQUAL:
@@ -354,7 +400,7 @@ Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Consta
           //This also hold for GT as (ceil (/ r g)) > (/ r g)
           Integer cdiv = zr.floorDivideQuotient(gcd);
           Constant newRight = Constant::mkConstant(cdiv);
-          return Comparison(toNode(kind::GEQ, zLeft, newRight),kind::GEQ,zLeft,newRight);
+          return Comparison(toNode(kind::GEQ, newLeft, newRight),kind::GEQ, newLeft,newRight);
         }
       case kind::LEQ:
       case kind::LT:
@@ -365,7 +411,7 @@ Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Consta
           //This also hold for LT as (floor (/ r g)) < (/ r g)
           Integer fdiv = zr.floorDivideQuotient(gcd);
           Constant newRight = Constant::mkConstant(fdiv);
-          return Comparison(toNode(kind::LEQ, zLeft, newRight),kind::LEQ,zLeft,newRight);
+          return Comparison(toNode(kind::LEQ, newLeft, newRight),kind::LEQ, newLeft,newRight);
         }
       default:
         Unreachable();
@@ -429,4 +475,26 @@ Node Polynomial::computeQR(const Polynomial& p, const Integer& div){
   Polynomial p_r = Polynomial::mkPolynomial(r_vec);
 
   return NodeManager::currentNM()->mkNode(kind::PLUS, p_q.getNode(), p_r.getNode());
+}
+
+Node SumPair::computeQR(const SumPair& sp, const Integer& div){
+  Assert(sp.isInteger());
+  Assert(div >= 0);
+
+  const Integer& constant = sp.getConstant().getIntegerValue();
+
+  Integer constant_q, constant_r;
+  Integer::floorQR(constant_q, constant_r, constant, div);
+
+  Node p_qr = Polynomial::computeQR(sp.getPolynomial(), div);
+  Assert(p_qr.getKind() == kind::PLUS);
+  Assert(p_qr.getNumChildren() == 2);
+
+  Polynomial p_q = Polynomial::parsePolynomial(p_qr[0]);
+  Polynomial p_r = Polynomial::parsePolynomial(p_qr[1]);
+
+  SumPair sp_q(p_q, Constant::mkConstant(constant_q));
+  SumPair sp_r(p_r, Constant::mkConstant(constant_r));
+
+  return NodeManager::currentNM()->mkNode(kind::PLUS, sp_q.getNode(), sp_r.getNode());
 }

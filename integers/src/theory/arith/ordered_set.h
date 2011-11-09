@@ -34,18 +34,23 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-inline const Rational& rightHandRational(TNode ineq){
+inline Rational rightHandRational(TNode ineq){
   Assert(ineq.getKind() == kind::LEQ
          || ineq.getKind() == kind::GEQ
          || ineq.getKind() == kind::EQUAL);
   TNode righthand = ineq[1];
-  Assert(righthand.getKind() == kind::CONST_RATIONAL);
-  return righthand.getConst<Rational>();
+  if(righthand.getKind() == kind::CONST_INTEGER){
+    return Rational(righthand.getConst<Integer>());
+  }else{
+    Assert(righthand.getKind() == kind::CONST_RATIONAL);
+    return righthand.getConst<Rational>();
+  }
 }
 
 class BoundValueEntry {
 private:
-  const Rational& value;
+  #warning "Make me a const reference again =("
+  Rational value;
   TNode d_leq, d_geq;
 
   BoundValueEntry(const Rational& v, TNode l, TNode g):
@@ -107,7 +112,7 @@ public:
 
 typedef std::map<Rational, BoundValueEntry> BoundValueSet;
 
-typedef std::set<TNode, RightHandRationalLT> EqualValueSet;
+typedef std::set<TNode, RightHandConstantLT> EqualValueSet;
 
 // struct SetCleanupStrategy{
 //   static void cleanup(OrderedSet* l){

@@ -111,6 +111,26 @@ public:
 
   std::string toString() const;
 
+
+  bool isInteger() const {
+    if(getInfinitesimalPart().sgn() == 0){
+      return getNoninfinitesimalPart().isIntegral();
+    }else{
+      return false;
+    }
+  }
+
+  Integer floor() const {
+    if(getNoninfinitesimalPart().isIntegral()){
+      if(getInfinitesimalPart().sgn() >= 0){
+        return getNoninfinitesimalPart().getNumerator();
+      }else{
+        return getNoninfinitesimalPart().getNumerator() - Integer(1);
+      }
+    }else{
+      return getNoninfinitesimalPart().floor();
+    }
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const DeltaRational& n);

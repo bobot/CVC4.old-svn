@@ -238,11 +238,18 @@ inline TNode getSide(TNode assertion, Kind simpleKind){
 inline DeltaRational determineRightConstant(TNode assertion, Kind simpleKind){
   TNode right = getSide<false>(assertion, simpleKind);
 
-  Assert(right.getKind() == kind::CONST_RATIONAL);
-  const Rational& noninf = right.getConst<Rational>();
-
   Rational inf = Rational(Integer(deltaCoeff(simpleKind)));
-  return DeltaRational(noninf, inf);
+
+  if(right.getKind() == kind::CONST_RATIONAL){
+    const Rational& noninf = right.getConst<Rational>();
+
+    return DeltaRational(noninf, inf);
+  }else{
+    Assert(right.getKind() == kind::CONST_INTEGER);
+    Rational noninf = Rational( right.getConst<Integer>() );
+
+    return DeltaRational(noninf, inf);
+  }
 }
 
 inline DeltaRational asDeltaRational(TNode n){
@@ -252,21 +259,71 @@ inline DeltaRational asDeltaRational(TNode n){
 
  /**
   * Takes two nodes with exactly 2 children,
-  * the second child of both are of kind CONST_RATIONAL,
+  * the second child of both are of kind CONST_RATIONAL or CONST_INTEGER,
   * and compares value of the two children.
   * This is for comparing inequality nodes.
-  *   RightHandRationalLT((<= x 50), (< x 75)) == true
+  *   RightHandConstantLT((<= x 50), (< x 75)) == true
   */
-struct RightHandRationalLT
+struct RightHandConstantLT
 {
   bool operator()(TNode s1, TNode s2) const
   {
     TNode rh1 = s1[1];
     TNode rh2 = s2[1];
-    const Rational& c1 = rh1.getConst<Rational>();
-    const Rational& c2 = rh2.getConst<Rational>();
-    int cmpRes = c1.cmp(c2);
-    return cmpRes < 0;
+    if(rh1.getKind() == kind::CONST_RATIONAL){
+      const Rational& q1 = rh1.getConst<Rational>();
+      if(rh2.getKind() == kind::CONST_RATIONAL){
+        const Rational& q2 = rh2.getConst<Rational>();
+        return q1 < q2;
+      }else{
+        const Integer& z2 = rh2.getConst<Integer>();
+        return q1 < Rational(z2);
+      }
+    }else{
+      const Integer& z1 = rh1.getConst<Integer>();
+      if(rh2.getKind() == kind::CONST_RATIONAL){
+        const Rational& q2 = rh2.getConst<Rational>();
+        return Rational(z1) < q2;
+      }else{
+        const Integer& z2 = rh2.getConst<Integer>();
+        return z1 < z2;
+      }
+    }
+  }
+};
+
+ /**
+  * Takes two nodes with exactly 2 children,
+  * the second child of both are of kind CONST_RATIONAL or CONST_INTEGER,
+  * and compares value of the two children.
+  * This is for comparing inequality nodes.
+  *   RightHandConstantLT((<= x 50), (< x 75)) == true
+  */
+struct RightHandConstantEQ
+{
+  bool operator()(TNode s1, TNode s2) const
+  {
+    TNode rh1 = s1[1];
+    TNode rh2 = s2[1];
+    if(rh1.getKind() == kind::CONST_RATIONAL){
+      const Rational& q1 = rh1.getConst<Rational>();
+      if(rh2.getKind() == kind::CONST_RATIONAL){
+        const Rational& q2 = rh2.getConst<Rational>();
+        return q1 == q2;
+      }else{
+        const Integer& z2 = rh2.getConst<Integer>();
+        return q1 == Rational(z2);
+      }
+    }else{
+      const Integer& z1 = rh1.getConst<Integer>();
+      if(rh2.getKind() == kind::CONST_RATIONAL){
+        const Rational& q2 = rh2.getConst<Rational>();
+        return Rational(z1) == q2;
+      }else{
+        const Integer& z2 = rh2.getConst<Integer>();
+        return z1 == z2;
+      }
+    }
   }
 };
 

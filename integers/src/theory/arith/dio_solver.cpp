@@ -47,7 +47,7 @@ Node DioSolver::addToPool(Node newEq){
   Node var = Node::null();
   Assert(pos <= d_variablePool.size());
   if(pos == d_variablePool.size()){
-    Assert(d_inputConstraints.size() == d_variablePool.size());
+    Assert(d_inputConstraints.size() == 1+d_variablePool.size());
     var = makeIntegerVariable();
     d_variablePool.push_back(var);
   }else{
@@ -65,8 +65,8 @@ Node DioSolver::addToPool(Node newEq){
 void DioSolver::internalAppendEquality(const SumPair& sp, const Polynomial& p){
   Index last = back();
 
-  d_facts.reserve(last, SumPair::mkZero());
-  d_proofs.reserve(last, Polynomial::mkZero());
+  d_facts.reserve(last+1, SumPair::mkZero());
+  d_proofs.reserve(last+1, Polynomial::mkZero());
 
   d_facts.set(last, sp);
   d_proofs.set(last, p);
@@ -79,9 +79,11 @@ bool acceptableOriginalNodes(Node n){
   if(k == kind::EQUAL){
     return true;
   }else if(k == kind::AND){
-    Node left = n[0];
-    Node right = n[1];
-    return left.getKind() == kind::LEQ && right.getKind() == kind::GEQ;
+    Node ub = n[0];
+    Node lb = n[1];
+    Kind kub = simplifiedKind(ub);
+    Kind klb = simplifiedKind(lb);
+    return (kub == kind::LEQ || kub==kind::LT) && (klb == kind::GEQ || klb == kind::GT);
   }else{
     return false;
   }
@@ -102,7 +104,7 @@ void DioSolver::addEquality(const Comparison& eq, Node orig){
 
 
 void DioSolver::scaleEqAtIndex(Index i, const Integer& g){
-  Assert(g > 1);
+  Assert(g != 0);
   Constant invg = Constant::mkConstant(Rational(Integer(1),g));
   const SumPair& sp = d_facts[i];
   const Polynomial& proof = d_proofs[i];
@@ -143,7 +145,9 @@ Node DioSolver::proveIndex(Index i){
   }
 
   Node result = (nb.getNumChildren() == 1) ? nb[0] : (Node)nb;
-  Debug("arith::dio::proofs") << "Proof at " << i << " is " << result << endl;
+  Debug("arith::dio::proofs") << "Proof at " << i << " is " << d_facts[i].getNode() << endl
+                              <<  d_proofs[i].getNode() << endl
+                              << " which becomes " << result << endl;
   return result;
 }
 
@@ -169,6 +173,12 @@ Node DioSolver::processFront(){
 
   Node conflict = Node::null();
 
+  //This is unclear whether it is true or not.
+  //We need to identify cases where it is false if it is not true.
+  //For now this is worth it in order to assume we know
+  //why conflicts occur.
+  Assert(!vsum.isConstant());
+
   if(vsum.isConstant()){
     Assert(vsum.isZero());
     if(c.isZero()){
@@ -184,7 +194,9 @@ Node DioSolver::processFront(){
     Assert(!vsum.isConstant());
     Integer g = vsum.gcd();
     if(g.divides(c.getIntegerValue())){
-      scaleEqAtIndex(i, g);
+      if(g > 1){
+        scaleEqAtIndex(i, g);
+      }
       decomposeFront();
     }else{
       conflict = proveIndex(i);
@@ -241,6 +253,9 @@ void DioSolver::applySubstitutionsToFront(){
 
 void DioSolver::decomposeFront(){
   Index i = front();
+
+  Debug("arith::dio") << "before Decompose front " <<  d_facts[i].getNode() << endl;
+
   const SumPair& si = d_facts[i];
   Polynomial p = si.getPolynomial();
   Monomial av = p.selectAbsMinimum();
@@ -255,7 +270,7 @@ void DioSolver::decomposeFront(){
   //We need to handle both cases seperately to ensure termination.
   if(a_abs > 1){
 
-    Node qr = computeQR(si, a_abs);
+    Node qr = SumPair::computeQR(si, a_abs);
     Assert(qr.getKind() == kind::PLUS);
     Assert(qr.getNumChildren() == 2);
     SumPair q = SumPair::parseSumPair(qr[0]);
@@ -268,18 +283,22 @@ void DioSolver::decomposeFront(){
     SumPair fresh_one=SumPair::mkSumPair(fresh);
     SumPair fresh_a = fresh_one * c_a_abs;
 
-    SumPair newSI = SumPair(fresh_one) - q;
+    SumPair newSI = a.isNegative() ? SumPair(fresh_one) + q: SumPair(fresh_one) - q;
     // this normalizes the coefficient of var to -1
 
     SumPair newFact = r + fresh_a;
     internalAppendEquality(newFact, d_proofs[i]);
 
     #warning "Not sure this is what we want, but following the paper"
+    d_facts.set(i, newSI);
     d_proofs.set(i, Polynomial::mkZero());
   }else if(!a.isNegative()){
     Assert(a.isOne());
     scaleEqAtIndex(i, Integer(-1));
   }
+  Debug("arith::dio") << "after Decompose front " <<  d_facts[i].getNode() << " for " << av.getNode() << endl;
+  Assert(d_facts[i].getPolynomial().getCoefficient(vl) == Constant::mkConstant(-1));
+
   d_subDomain.push_back(var);
   d_subRange.push_back(i);
 

@@ -216,14 +216,15 @@ public:
 
 
 class Constant : public NodeWrapper {
-public:
+private:
   Constant(Node n) : NodeWrapper(n) {
     Assert(isMember(getNode()));
   }
 
+public:
   static bool isMember(Node n) {
     if(n.getKind() == kind::CONST_RATIONAL){
-      return !n.getConst<Rational>().rationalIsIntegral();
+      return !n.getConst<Rational>().isIntegral();
     }else{
       return n.getKind() == kind::CONST_INTEGER;
     }
@@ -232,7 +233,12 @@ public:
   bool isNormalForm() { return isMember(getNode()); }
 
   static Constant mkConstant(Node n) {
-    return Constant(coerceToRationalNode(n));
+    if(n.getKind() == kind::CONST_INTEGER){
+      return Constant(n);
+    }else{
+      Assert(n.getKind() == kind::CONST_RATIONAL);
+      return mkConstant(n.getConst<Rational>());
+    }
   }
 
   static Constant mkConstant(int z) {
@@ -374,6 +380,10 @@ public:
     }else{
       return (*this);
     }
+  }
+
+  static bool isConstantKind(Kind k) {
+    return k == kind::CONST_INTEGER || k == kind::CONST_RATIONAL;
   }
 };/* class Constant */
 
@@ -594,8 +604,8 @@ private:
 
   static bool multStructured(Node n) {
     return n.getKind() ==  kind::MULT &&
-      n[0].getKind() == kind::CONST_RATIONAL &&
-      n.getNumChildren() == 2;
+      n.getNumChildren() == 2 &&
+      Constant::isConstantKind(n[0].getKind());
   }
 
 public:
@@ -908,50 +918,23 @@ public:
    * Returns the Least Common Multiple of the denominators of the coefficients
    * of the monomials.
    */
-  Integer denominatorLCM() const {
-    Integer tmp(1);
-    for(iterator i=begin(), e=end(); i!=e; ++i){
-      const Constant& c = (*i).getConstant();
-      if(c.isRational()){
-        tmp = tmp.lcm(c.getRationalValue().getDenominator());
-      }
-    }
-    return tmp;
-  }
+  Integer denominatorLCM() const;
 
   /**
    * Returns the GCD of the coefficients of the monomials.
    * Requires this to be an isInteger() polynomial.
    */
-  Integer gcd() const {
-    #warning "If this is 0, is 0 the correct answer..."
+  Integer gcd() const;
+
+  Polynomial exactDivide(const Integer& z) const {
     Assert(isInteger());
-    iterator i=begin(), e=end();
-    Assert(i!=e);
-
-    Integer d = (*i).getConstant().getIntegerValue();
-    ++i;
-    for(; i!=e; ++i){
-      const Integer& c = (*i).getConstant().getIntegerValue();
-      d = d.gcd(c);
-    }
-    return d;
+    Constant invz = Constant::mkConstant(Rational(1,z));
+    Polynomial prod = (*this) * Monomial(invz);
+    Assert(prod.isInteger());
+    return prod;
   }
 
-  Monomial selectAbsMinimum() const {
-    iterator iter = begin(), myend = end();
-    Assert(iter != myend);
-
-    Monomial min = *iter;
-    ++iter;
-    for(; iter != end(); ++iter){
-      Monomial curr = *iter;
-      if(min.getConstant().abs() < curr.getConstant().abs()){
-        min = curr;
-      }
-    }
-    return min;
-  }
+  Monomial selectAbsMinimum() const;
 
   Constant getCoefficient(const VarList& vl) const;
 
@@ -1118,7 +1101,7 @@ public:
   }
 
   Constant getConstant() const {
-    return Constant((getNode())[1]);
+    return Constant::mkConstant((getNode())[1]);
   }
 
   SumPair operator+(const SumPair& other) const {
@@ -1166,27 +1149,8 @@ public:
     return SumPair(Polynomial::mkZero(), Constant::mkConstant(0));
   }
 
-  static Node computeQR(const SumPair& sp, const Integer& div){
-    Assert(sp.isInteger());
-    Assert(div >= 0);
+  static Node computeQR(const SumPair& sp, const Integer& div);
 
-    const Integer& constant = sp.getConstant().getIntegerValue();
-
-    Integer constant_q, constant_r;
-    Integer::floorQR(constant_q, constant_r, constant, div);
-
-    Node p_qr = Polynomial::computeQR(sp.getPolynomial(), div);
-    Assert(p_qr.getKind() == kind::PLUS);
-    Assert(p_qr.getNumChildren() == 2);
-
-    Polynomial p_q = Polynomial::parsePolynomial(p_qr[0]);
-    Polynomial p_r = Polynomial::parsePolynomial(p_qr[1]);
-
-    SumPair sp_q(p_q, Constant::mkConstant(constant_q));
-    SumPair sp_r(p_r, Constant::mkConstant(constant_r));
-
-    return NodeManager::currentNM()->mkNode(kind::PLUS, sp_q.getNode(), sp_r.getNode());
-  }
 };/* class SumPair */
 
 
