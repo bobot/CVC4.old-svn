@@ -116,6 +116,10 @@ void DioSolver::scaleEqAtIndex(Index i, const Integer& g){
   Assert(newSP.gcd() == 1);
   d_facts.set(i, newSP);
   d_proofs.set(i, newProof);
+
+  Debug("arith::dio") << "scaleEqAtIndex(" << i <<","<<g<<")"<<endl;
+  Debug("arith::dio") << "derived "<< newSP.getNode()
+                      <<" with proof " << newProof.getNode() << endl;
 }
 
 
@@ -145,23 +149,65 @@ Node DioSolver::proveIndex(Index i){
   }
 
   Node result = (nb.getNumChildren() == 1) ? nb[0] : (Node)nb;
-  Debug("arith::dio::proofs") << "Proof at " << i << " is " << d_facts[i].getNode() << endl
-                              <<  d_proofs[i].getNode() << endl
-                              << " which becomes " << result << endl;
+  Debug("arith::dio") << "Proof at " << i << " is "
+                      << d_facts[i].getNode() << endl
+                      <<  d_proofs[i].getNode() << endl
+                      << " which becomes " << result << endl;
   return result;
 }
 
-Node DioSolver::processEquations(){
+Node DioSolver::processEquationsForConflict(){
   while(!empty()){
-    Node res = processFront();
-    if(!res.isNull()){
-      return res;
+    Index f = front();
+    bool conflict = processFront(true);
+    if(conflict){
+      return proveIndex(f);
     }
   }
   return Node::null();
 }
 
-Node DioSolver::processFront(){
+SumPair DioSolver::processEquationsForCut(){
+  while(!empty()){
+    Index f = front();
+    bool cut = processFront(false);
+    if(cut){
+      return purifyIndex(f);
+    }
+  }
+  return SumPair::mkZero();
+}
+
+SumPair DioSolver::purifyIndex(Index i){
+  SumPair curr = d_facts[i];
+
+  if(d_subRange.size() >= 1){
+    Constant negOne = Constant::mkConstant(-1);
+
+    for(uint32_t iter = 0, N = d_subRange.size(); iter < N; ++iter){
+      uint32_t i = N-(iter+1);
+      Node freshNode = d_subFresh[i];
+      if(freshNode.isNull()){
+        continue;
+      }else{
+        Variable var(freshNode);
+        Polynomial vsum = curr.getPolynomial();
+
+        Constant a = vsum.getCoefficient(VarList(var));
+        if(!a.isZero()){
+          const SumPair& sj = d_facts[d_subRange[i]];
+          Assert(sj.getPolynomial().getCoefficient(VarList(var)).isOne());
+          SumPair newSi = (curr * negOne) + (sj * a);
+          Assert(newSi.getPolynomial().getCoefficient(VarList(var)).isZero());
+          curr = newSi;
+        }
+      }
+    }
+  }
+  return curr;
+}
+
+bool DioSolver::processFront(bool conflict){
   Assert(!empty());
 
   applySubstitutionsToFront();
@@ -170,8 +216,6 @@ Node DioSolver::processFront(){
   const SumPair& sp = d_facts[i];
   Polynomial vsum = sp.getPolynomial();
   Constant c = sp.getConstant();
-
-  Node conflict = Node::null();
 
   //This is unclear whether it is true or not.
   //We need to identify cases where it is false if it is not true.
@@ -185,10 +229,10 @@ Node DioSolver::processFront(){
       // (+ 0 0) = 0, is trivially sat
       Debug("arith::dio") << "Proof of 0 = 0 at index " << i << endl;
       popQueue();
-      return Node::null();
+      return false;
     }else{
-      conflict = proveIndex(i);
-      Debug("arith::dio") << "Proof of c != 0 at index is" << conflict << endl;
+      Debug("arith::dio") << "Proof of c != 0 at index " << i << endl;
+      return conflict;
     }
   }else{
     Assert(!vsum.isConstant());
@@ -198,15 +242,14 @@ Node DioSolver::processFront(){
         scaleEqAtIndex(i, g);
       }
       decomposeFront();
+      return false;
     }else{
-      conflict = proveIndex(i);
       Debug("arith::dio") << "The gcd of the coefficients of the variables "
                           << "does not divides the constant term in "
                           << sp.getNode() << endl;
-      Debug("arith::dio") << "The proof is "<< conflict << endl;
+      return true;
     }
   }
-  return conflict;
 }
 
 
@@ -223,24 +266,29 @@ void DioSolver::combineEqAtIndexes(Index i, const Integer& q, Index j, const Int
   const Polynomial& pi = d_proofs[i];
   const Polynomial& pj = d_proofs[j];
   Polynomial newPi = (pi * cq) + (pj * cr);
+
   d_proofs.set(i, newPi);
+
+  Debug("arith::dio") << "combineEqAtIndexes(" << i <<","<<q<<","<<j<<","<<r<<")"<<endl;
+  Debug("arith::dio") << "derived "<< newSi.getNode()
+                      <<" with proof " << newPi.getNode() << endl;
 }
 
 void DioSolver::applySubstitutionsToFront(){
   Index f = front();
 
-  typedef context::CDList<Variable>::const_iterator DomainIter;
+  typedef context::CDList<Variable>::const_iterator EliminatedIter;
   typedef context::CDList<Index>::const_iterator RangeIter;
 
   Integer one(1);
 
-  DomainIter di = d_subDomain.begin(), diEnd = d_subDomain.end();
+  EliminatedIter ei = d_subEliminated.begin(), eiEnd = d_subEliminated.end();
   RangeIter ri = d_subRange.begin(), riEnd = d_subRange.end();
-  for(; di != diEnd; ++di, ++ri){
+  for(; ei != eiEnd; ++ei, ++ri){
     const SumPair& curr = d_facts[f];
     Polynomial vsum = curr.getPolynomial();
 
-    Variable var = *di;
+    Variable var = *ei;
     Index subIndex = *ri;
     //const SumPair& sub = d_facts[subIndex];
     Constant a = vsum.getCoefficient(VarList(var));
@@ -265,6 +313,8 @@ void DioSolver::decomposeFront(){
   Constant a = av.getConstant();
   Integer a_abs = a.getIntegerValue().abs();
 
+  Node freshNode = Node::null();
+
   Assert(a_abs >= 1);
   //It is not sufficient to reduce the case where abs(a) == 1 to abs(a) > 1.
   //We need to handle both cases seperately to ensure termination.
@@ -279,7 +329,8 @@ void DioSolver::decomposeFront(){
     Constant c_a_abs = Constant::mkConstant(a_abs);
 
     Assert(!r.isZero());
-    Variable fresh(makeIntegerVariable());
+    freshNode = makeIntegerVariable();
+    Variable fresh(freshNode);
     SumPair fresh_one=SumPair::mkSumPair(fresh);
     SumPair fresh_a = fresh_one * c_a_abs;
 
@@ -299,7 +350,8 @@ void DioSolver::decomposeFront(){
   Debug("arith::dio") << "after Decompose front " <<  d_facts[i].getNode() << " for " << av.getNode() << endl;
   Assert(d_facts[i].getPolynomial().getCoefficient(vl) == Constant::mkConstant(-1));
 
-  d_subDomain.push_back(var);
+  d_subEliminated.push_back(var);
+  d_subFresh.push_back(freshNode);
   d_subRange.push_back(i);
 
   popQueue();

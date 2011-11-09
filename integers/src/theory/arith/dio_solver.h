@@ -68,9 +68,11 @@ private:
    * state machine in rules (7), (8) and (9).
    *
    * Slots before front() are used for storing substitutions in the context.
-   * The variable d_subDomain[i] is substituted using the implicit equality in
+   * The variable d_subEliminated[i] is substituted using the implicit equality in
    * d_fact[d_subRange[i]].
    * This variable is normalized to have coefficient -1 in d_fact[d_subRange[i]].
+   * If a new variable was added for the substitution, this is stored in d_subFresh[i].
+   * If not this is Node::null().
    *
    * Slots after end() contain garbage and are reclaimed on demand.
    */
@@ -80,7 +82,8 @@ private:
   context::CDO<Index> d_queueFront;
   context::CDO<Index> d_queueBack;
 
-  context::CDList<Variable> d_subDomain;
+  context::CDList<Variable> d_subEliminated;
+  context::CDList<Node> d_subFresh;
   context::CDList<Index> d_subRange;
 
 public:
@@ -92,7 +95,8 @@ public:
     d_proofs(ctxt),
     d_queueFront(ctxt, 0),
     d_queueBack(ctxt, 0),
-    d_subDomain(ctxt),
+    d_subEliminated(ctxt),
+    d_subFresh(ctxt),
     d_subRange(ctxt)
   {}
 
@@ -106,12 +110,19 @@ public:
   void addEquality(const Comparison& newEq, Node orig);
 
   /**
-   * Processes the queue.
+   * Processes the queue looking for any conflict.
    * If a conflict is found, this returns conflict.
    * Otherwise, it returns null.
    * The conflict is guarenteed to be over literals given in addEquality.
    */
-  Node processEquations();
+  Node processEquationsForConflict();
+
+  /**
+   * Processes the queue looking for an integer unsatisfiable cutting plane.
+   * If such a plane is found this returns an entailed plane using no
+   * fresh variables.
+   */
+  SumPair processEquationsForCut();
 
 private:
 
@@ -194,16 +205,21 @@ private:
   /**
    * Constructs a proof from any d_proof[i] in terms of input literals.
    * i <= end()
-b   */
+   */
   Node proveIndex(Index i);
 
   /**
-   * Processes the front element of the queue.
-   * This is expected to pop the queue or return a conflict.
-   * If the queue is popped, Node::null() is returned.
-   * If the queue is not popped, a conflict is returned.
+   * Returns the SumPair in d_fact[i] with all of the fresh variables purified out
    */
-  Node processFront();
+  SumPair purifyIndex(Index i);
+
+  /**
+   * Processes the front element of the queue.
+   * This can look for either conflicts or cutting planes.
+   * If a conflict or a cutting plane is found, this returns true.
+   * This is expected to return true or pop the queue if it returns false.
+   */
+  bool processFront(bool conlict);
 
   //Legacy
   void getSolution();

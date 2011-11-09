@@ -183,6 +183,8 @@ private:
   /** This implements the Simplex decision procedure. */
   SimplexDecisionProcedure d_simplex;
 
+  std::vector<ArithVar> d_slackIntegerVariables;
+
 public:
   TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
   virtual ~TheoryArith();
@@ -240,6 +242,8 @@ private:
 
   /** Calls the DIO Solver. */
   Node callDioSolver();
+  /** Calls the DIO Solver. */
+  bool dioCutting();
 
   /**
    * This requests a new unique ArithVar value for x.
@@ -313,6 +317,8 @@ private:
   void debugPrintAssertions();
   /** Debugging only routine. Prints the model. */
   void debugPrintModel();
+
+  Comparison mkIntegerEqualityFromAssignment(ArithVar v);
 
   /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {

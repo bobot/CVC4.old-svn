@@ -672,6 +672,17 @@ bool TheoryArith::externalBranchAndBound(){
   }
 }
 
+Comparison TheoryArith::mkIntegerEqualityFromAssignment(ArithVar v){
+  const DeltaRational& beta = d_partialModel.getAssignment(v);
+
+  Assert(beta.isInteger());
+  Constant betaAsConstant = Constant::mkConstant(beta.floor());
+
+  TNode var = d_arithvarNodeMap.asNode(v);
+  Polynomial varAsPolynomial = Polynomial::parsePolynomial(var);
+  return Comparison::mkComparison(EQUAL, varAsPolynomial, betaAsConstant);
+}
+
 Node TheoryArith::callDioSolver(){
   while(d_partialModel.hasMoreIntegerVarsWithEqualBounds()){
     ArithVar v = d_partialModel.nextIntegerVarsWithEqualBounds();
@@ -695,14 +706,8 @@ Node TheoryArith::callDioSolver(){
     }
 
     Assert(d_partialModel.assignmentIsConsistent(v));
-    const DeltaRational& beta_v = d_partialModel.getAssignment(v);
-    Assert(beta_v.isInteger());
 
-    Constant betaAsConstant = Constant::mkConstant(beta_v.floor());
-
-    TNode var = d_arithvarNodeMap.asNode(v);
-    Polynomial varAsPolynomial = Polynomial::parsePolynomial(var);
-    Comparison eq = Comparison::mkComparison(EQUAL, varAsPolynomial, betaAsConstant);
+    Comparison eq = mkIntegerEqualityFromAssignment(v);
 
     if(eq.isBoolean()){
       //This can only be a conflict
@@ -715,7 +720,49 @@ Node TheoryArith::callDioSolver(){
       d_diosolver.addEquality(eq, orig);
     }
   }
-  return d_diosolver.processEquations();
+
+  return d_diosolver.processEquationsForConflict();
+}
+
+bool TheoryArith::dioCutting(){
+  //ScopedPush speculativePush(getContext());
+
+  typedef std::vector<ArithVar>::const_iterator iterator;
+  iterator i = d_slackIntegerVariables.begin(), end=d_slackIntegerVariables.end();
+  for(; i != end; ++i){
+    ArithVar v = *i;
+    const DeltaRational& dr = d_partialModel.getAssignment(v);
+    if(d_partialModel.equalsUpperBound(v, dr) || d_partialModel.equalsLowerBound(v, dr)){
+      if(!d_partialModel.boundsAreEqual(v)){
+        // If the bounds are equal this is already in the dioSolver
+        //Add v = dr as a speculation.
+        Comparison eq = mkIntegerEqualityFromAssignment(v);
+        Assert(!eq.isBoolean());
+        d_diosolver.addEquality(eq, eq.getNode());
+        // It does not matter what the explanation is
+      }
+    }
+  }
+
+  SumPair plane = d_diosolver.processEquationsForCut();
+  if(plane.isZero()){
+    return false;
+  }else{
+    Polynomial p = plane.getPolynomial();
+    Constant c = plane.getConstant();
+    Integer gcd = p.gcd();
+    Assert(p.isInteger());
+    Assert(c.isInteger());
+    Assert(gcd > 1);
+    Assert(!gcd.divides(c.getIntegerValue()));
+    Comparison leq = Comparison::mkComparison(LEQ, p, c);
+    Comparison geq = Comparison::mkComparison(GEQ, p, c);
+    Node lemma = NodeManager::currentNM()->mkNode(AND, leq.getNode(), geq.getNode());
+    Debug("arith::dio") << "dioCutting found the plane: " << plane.getNode() << endl;
+    Debug("arith::dio") << "resulting in the cut: " << lemma << endl;
+    d_out->lemma(lemma);
+    return true;
+  }
 }
 
 void TheoryArith::check(Effort effortLevel){
@@ -750,13 +797,16 @@ void TheoryArith::check(Effort effortLevel){
     d_partialModel.commitAssignmentChanges();
 
     possibleConflict = callDioSolver();
+
     if(possibleConflict!= Node::null()){
       Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
       d_out->conflict(possibleConflict);
     }else if (fullEffort(effortLevel)) {
       bool emittedLemma = splitDisequalities();
 
-      #warning "Add cuts here!"
+      if(!emittedLemma){
+        emittedLemma = dioCutting();
+      }
 
       if(!emittedLemma){
         emittedLemma = externalBranchAndBound();
