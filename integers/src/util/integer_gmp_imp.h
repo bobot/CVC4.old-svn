@@ -168,7 +168,7 @@ public:
     //— Function: void mpz_fdiv_r_2exp (mpz_t r, mpz_t n, mp_bitcnt_t b)
     mpz_class rem, div;
     mpz_fdiv_r_2exp(rem.get_mpz_t(), d_value.get_mpz_t(), high+1);
-    mpz_fdiv_q_2exp(div.get_mpz_t(), d_value.get_mpz_t(), low);
+    mpz_fdiv_q_2exp(div.get_mpz_t(), rem.get_mpz_t(), low);
 
     return Integer(div);
   }
@@ -259,9 +259,13 @@ public:
     return Integer(result);
   }
 
+  /**
+   * All non-zero integers z, z.divide(0)
+   * ! zero.divides(zero)
+   */
   bool divides(const Integer& y) const {
     int res = mpz_divisible_p(y.d_value.get_mpz_t(), d_value.get_mpz_t());
-    return res == 0;
+    return res != 0;
   }
 
   /**
