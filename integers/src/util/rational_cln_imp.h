@@ -192,7 +192,15 @@ public:
     }
   }
 
-  bool rationalIsIntegral() const{
+  Rational abs() const {
+    if(sgn() < 0){
+      return -(*this);
+    }else{
+      return *this;
+    }
+  }
+
+  bool isIntegral() const{
     return getDenominator() == 1;
   }
 
