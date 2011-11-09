@@ -129,6 +129,7 @@ void TheoryQuantifiers::check(Effort e) {
       d_numInstantiations = 0;
     }
     Debug("quantifiers") << "quantifiers: FULL_EFFORT check" << std::endl;
+    Debug("quantifiers-sat")  << std::endl;
     //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
     //  Debug("quantifiers") << "   " << d_valuation.getDecision( i ) << std::endl;
     //}
@@ -156,7 +157,8 @@ void TheoryQuantifiers::check(Effort e) {
         }else{
           Debug("quantifiers") << "  NOT active : " << n;
           //note that NO_COUNTEREXAMPLE must not be a decision
-          Assert( !d_valuation.isDecision( cel ) );
+          //Assert( !d_valuation.isDecision( cel ) );
+          Debug("quantifiers-sat") << "cel=" << cel << std::endl;
         }
         if( d_valuation.hasSatValue( n, value ) ){
           Debug("quantifiers") << ", value = " << value; 
@@ -209,8 +211,11 @@ void TheoryQuantifiers::check(Effort e) {
         } 
       }
     }else{
+      for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
+        Debug("quantifiers-sat") << "   " << d_valuation.getDecision( i ) << std::endl;
+      }
       //std::cout << "Quantifiers approves sat." << std::endl;
-      Debug("quantifiers") << "No quantifier is active. " << d_valuation.getDecisionLevel() << std::endl;
+      Debug("quantifiers-sat") << "No quantifier is active. " << d_valuation.getDecisionLevel() << std::endl;
     }
   }
 }

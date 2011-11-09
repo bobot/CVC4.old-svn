@@ -488,7 +488,7 @@ inline void     Solver::setDecisionVar(Var v, bool b)
 }
 inline void     Solver::dependentDecision(Var dep, Var dec)
 {
-#if 0
+#if 1
     assert(dep >= 0 && dec >= 0);// can't "un-depend"
     assert(depends[dep] == -1);
     assert(depends[dec] == -1);
