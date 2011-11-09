@@ -73,6 +73,15 @@ public:
     return d_posVector.size();
   }
 
+  /**
+   * Returns the ith item in the list according to the iterator.
+   * Calls to add(),  remove(), or init() can change the order.
+   */
+  ArithVar get(size_t i) const {
+    Assert(i < size());
+    return *(begin()+i);
+  }
+
   void purge() {
     for(VarList::const_iterator i=d_list.begin(), endIter=d_list.end();i!= endIter; ++i){
       d_posVector[*i] = ARITHVAR_SENTINEL;
@@ -116,6 +125,15 @@ public:
     }
     d_posVector[x] = size();
     d_list.push_back(x);
+  }
+
+  /** Sets the membership status of x to membership. */
+  void setStatus(ArithVar x, bool membership){
+    if(!membership && isMember(x)){
+      remove(x);
+    }else if(membership && !isMember(x)){
+      add(x);
+    }
   }
 
   const_iterator begin() const{ return d_list.begin(); }
