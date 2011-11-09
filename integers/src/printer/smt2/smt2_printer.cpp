@@ -103,7 +103,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     case kind::CONST_INTEGER: {
       Integer i = n.getConst<Integer>();
       if(i < 0) {
-        out << "(- " << i << ')';
+        out << "(- " << i.abs() << ')';
       } else {
         out << i;
       }
@@ -112,7 +112,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     case kind::CONST_RATIONAL: {
       Rational r = n.getConst<Rational>();
       if(r < 0) {
-        out << "(- " << r << ')';
+        out << "(- " << r.abs() << ')';
       } else {
         out << r;
       }
