@@ -215,7 +215,7 @@ public:
    * Computes a floor quoient and remainder for x divided by y.
    */
   static void floorQR(Integer& q, Integer& r, const Integer& x, const Integer& y) {
-    cln::struct clI_div_t res = cln::floor2(d_value, y.d_value);
+    cln::cl_I_div_t res = cln::floor2(x.d_value, y.d_value);
     q.d_value = res.quotient;
     r.d_value = res.remainder;
   }
@@ -224,14 +224,14 @@ public:
    * Returns the ceil(this / y)
    */
   Integer ceilingDivideQuotient(const Integer& y) const {
-    return Integer( cln::ceil1(d_value, y.d_value) );
+    return Integer( cln::ceiling1(d_value, y.d_value) );
   }
 
   /**
    * Returns the ceil(this / y)
    */
   Integer ceilingDivideRemainder(const Integer& y) const {
-    return Integer( cln::ceil2(d_value, y.d_value).remainder );
+    return Integer( cln::ceiling2(d_value, y.d_value).remainder );
   }
 
   /**
