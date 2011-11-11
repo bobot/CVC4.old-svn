@@ -40,51 +40,86 @@ namespace arith {
 
 class DioSolver {
 private:
-  typedef size_t Index;
+  typedef size_t TrailIndex;
+  typedef size_t InputConstraintIndex;
 
-  /* The set of input constraints is stored in a CDList.
-   * We maintain a map from the input contraints to a variable in a pool.
-   * These variables can then be used in polynomial manipulations.
-   * The following is invariant:
-   *  d_inputConstraints.size() <= d_variablePool.size()
+  std::vector<Variable> d_variablePool;
+  CDO<size_t> d_lastUsedVariable;
+
+
+  /**
+   * The set of input constraints is stored in a CDList.
+   * Each constraint point to an element of the trail.
    */
-  context::CDList<Node> d_inputConstraints;
-  std::vector<Node> d_variablePool;
-  typedef std::hash_map<Node, size_t, NodeHashFunction> NodeToPositionMap;
-  NodeToPositionMap d_nodeToPoolMap;
+  struct InputConstraint {
+    Node d_reason;
+    TrailIndex d_trailPos;
+  };
+  context::CDList<InputConstraint> d_inputConstraints;
 
-  /* The main work horse of the algorithm, the queue of facts.
-   * Each fact is a SumPair that implicitly represents an equality against 0.
-   *   d_fact[i] = (+ c (+ [(* coeff var)])) representing (+ [(* coeff var)]) = -c
-   *
-   *
-   * Each d_fact[i] carries a linear proof at d_proofs[i].
-   * Active facts are the facts in the queue that have not yet been processed.
-   * These are not reduced by constants or by substitutions yet.
-   * The queue is active from front() to end().
-   * front(), and end() are synonyms for d_queueFront and d_queueEnd.
+  /**
+   * This is the next input constraint to handle.
+   */
+  context::CDO<size_t> d_nextInputConstraintToEnqueue;
+
+  /**
+   * We maintain a map from the variables associated with proofs to an input constraint.
+   * These variables can then be used in polynomial manipulations.
+   */
+  typedef std::hash_map<Node, InputConstraintIndex, NodeHashFunction> NodeToInputConstraintIndexMap;
+  NodeToInputConstraintIndexMap d_varToInputConstraintMap;
+
+  Node proofVariableToReason(const Variable& v) const{
+    Assert(d_varToInputConstraintMap.find(v.getNode()) != d_varToInputConstraintMap.end());
+    InputConstraintIndex pos = (*(d_varToInputConstraintMap.find(v.getNode()))).second;
+    Assert(pos < d_inputConstraints.size());
+    return d_inputConstraints[pos].d_reason;
+  }
+  
+  /**
+   * The main work horse of the algorithm, the trail of constraints.
+   * Each constraints is a SumPair that implicitly represents an equality against 0.
+   *   d_trail[i].d_eq = (+ c (+ [(* coeff var)])) representing (+ [(* coeff var)]) = -c
+   * Each constraint has a proof in terms of a linear combination of the input constraints.
+   *   d_trail[i].d_proof
    *
    * See Alberto's paper for how linear proofs are maintained for the abstract
    * state machine in rules (7), (8) and (9).
-   *
-   * Slots before front() are used for storing substitutions in the context.
-   * The variable d_subEliminated[i] is substituted using the implicit equality in
-   * d_fact[d_subRange[i]].
-   * This variable is normalized to have coefficient -1 in d_fact[d_subRange[i]].
-   * If a new variable was added for the substitution, this is stored in d_subFresh[i].
-   * If not this is Node::null().
-   *
-   * Slots after end() contain garbage and are reclaimed on demand.
    */
-  context::CDVector<SumPair> d_facts;
-  context::CDVector<Polynomial> d_proofs;
+  struct Constraint {
+    SumPair d_eq;
+    Polynomial d_proof;
+  };
+  context::CDList<Constraint> d_trail;
 
-  context::CDO<Index> d_queueFront;
-  context::CDO<Index> d_queueBack;
+  /**
+   * A substitution is stored as a constraint in the trail together with 
+   * the variable to be eliminated, and a fresh variable if one was introduced.
+   * The variable d_subs[i].d_eliminated is substituted using the implicit equality in
+   * d_trail[d_subs[i].d_constraint]
+   *  - d_subs[i].d_eliminated is normalized to have coefficient -1 in
+   *    d_trail[d_subs[i].d_constraint].
+   *  - d_subs[i].d_fresh is either Node::null() or it is variable it is normalized
+   *    to have coefficient 1 in d_trail[d_subs[i].d_constraint].
+   */
+  struct Substituion {
+    Node d_fresh;
+    Variable d_eliminated;
+    TrailIndex d_constraint;
+  };
+  context::CDList<Substition> d_subs;
+  
+  /**
+   * This is the queue of constraints to be processed in the current context level.
+   * This is to be empty upon entering solver and cleared upon leaving the solver.
+   *
+   * All elements in currentF:
+   * - are fully substituted according to d_subs.
+   * - !isConstant().
+   * - If the element is (+ constant (+ [(* coeff var)] )), then the gcd(coeff) = 1
+   */
+  std::queue<Index> d_currentF;
 
-  context::CDList<Variable> d_subEliminated;
-  context::CDList<Node> d_subFresh;
-  context::CDList<Index> d_subRange;
 
 public:
 
@@ -126,6 +161,36 @@ public:
 
 private:
 
+  CDO<bool> d_conflictHasHasBeenRaised;
+  TrailIndex d_conflictIndex;
+
+  bool inConflict(){
+    return d_conflictHasBeenRaised;
+  }
+  void raiseConflict(TrailIndex ti){
+    Assert(!inConflict);
+    d_conflictHasHasBeenRaised = true;
+    d_conflictIndex = ti;
+  }
+  TrailIndex getConflictIndex() const{
+    Assert(inConflict())
+    return d_conflictIndex;
+  }
+
+  /**
+   * Allocates a unique variables from the pool of integer variables.
+   * Returns index of the variable in d_variablePool;
+   */
+  size_t allocateVariableInPool();
+
+
+  bool acceptableOriginalNodes(Node n);
+  /** reason must pass acceptableOriginalNodes. */
+  void pushInputConstraint(const Comparison& eq, Node reason);
+
+  /** Empties the unproccessed input constraints into the queue. */
+  void DioSolver::enqueueInputConstraints();
+
   /**
    * Returns true if an input equality is in the map.
    * This is expensive and is only for debug assertions.
@@ -137,21 +202,27 @@ private:
    * Adds the node not in the current input equalities to the pool of variables.
    * Returns the variable associated with the equality in the variable pool.
    */
-  Node addToPool(Node newEq);
+  //Node addToPool(Node newEq);
 
   /**
    * Appends an equality to d_facts with the proof p.
    * This should not be exposed the user.
    */
-  void internalAppendEquality(const SumPair& sp, const Polynomial& p);
+  //void internalAppendEquality(const SumPair& sp, const Polynomial& p);
 
   /**
-   * Updates d_fact[i] := (1/g) d_fact[i]
-   * and updates the proof accordingly.
+   * Takes as input a TrailIndex i and an integer that divides d_trail[i].d_eq, and
+   * returns a TrailIndex j s.t.
+   *   d_trail[j].d_eq = (1/g) d_trail[i].d_eq
+   * and
+   *   d_trail[j].d_proof = (1/g) d_trail[i].d_proof.
+   *
+   * g must be non-zero.
    *
    * This corresponds to an application of Alberto's rule (7).
    */
-  void scaleEqAtIndex(Index i, const Integer& g);
+  TrailIndex scaleEqAtIndex(TrailIndex i, const Integer& g);
+  //void scaleEqAtIndex(Index i, const Integer& g);
 
   /**
    * Updates d_fact[i] := d_fact[i] * q + d_fact[j] * r
