@@ -139,6 +139,38 @@ inline Node mkConjunction(const std::set<TNode> nodes) {
   return conjunction;
 }
 
+inline Node mkConjunction(const std::vector<TNode>& nodes) {
+  std::vector<TNode> expandedNodes;
+
+  std::vector<TNode>::const_iterator it = nodes.begin();
+  std::vector<TNode>::const_iterator it_end = nodes.end();
+  while (it != it_end) {
+    TNode current = *it;
+    if (current != mkTrue()) {
+      Assert(current.getKind() == kind::EQUAL || (current.getKind() == kind::NOT && current[0].getKind() == kind::EQUAL));
+      expandedNodes.push_back(current);
+    }
+    ++ it;
+  }
+
+  Assert(expandedNodes.size() > 0);
+  if (expandedNodes.size() == 1) {
+    return *expandedNodes.begin();
+  }
+
+  NodeBuilder<> conjunction(kind::AND);
+
+  it = expandedNodes.begin();
+  it_end = expandedNodes.end();
+  while (it != it_end) {
+    conjunction << *it;
+    ++ it;
+  }
+
+  return conjunction;
+}
+
+
 // Turn a set into a string
 inline std::string setToString(const std::set<TNode>& nodeSet) {
   std::stringstream out;

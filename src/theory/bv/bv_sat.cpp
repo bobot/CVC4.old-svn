@@ -19,25 +19,65 @@
 
 #include "bv_sat.h"
 #include "theory_bv_utils.h"
+#include "picosat/picosat.h"
+using namespace std;
 using namespace BVMinisat; 
 using namespace CVC4::theory::bv::utils;
 namespace CVC4 {
 namespace theory {
 namespace bv{
 
+
+
 /** Helper methods for printing */
 
-// void printDebug (Minisat::Lit l) {
-//   Debug("bitvectors") << (sign(l) ? "-" : "") << var(l) + 1 << endl;
+// void printLit (SatLit l) {
+//   Debug("bitvector") << (sign(l) ? "-" : "") << var(l) + 1 << std::endl;
 // }
-
-// void printDebug (Minisat::Clause& c) {
+// void printClause (SatClause& c) {
 //   for (int i = 0; i < c.size(); i++) {
-//     Debug("bitvectors") << (sign(c[i]) ? "-" : "") << var(c[i]) + 1 << " "; 
+//     Debug("bitvector") << (sign(c[i]) ? "-" : "") << var(c[i]) + 1 << " "; 
 //   }
-//   Debug("bitvectors") << endl;
+//   Debug("bitvector") << std::endl;
 // }
 
+void printBits (Bits& c) {
+  for (int i = 0; i < c.size(); i++) {
+    Debug("bitvector") << (sign(c[i]) ? "-" : "") << var(c[i]) + 1 << " "; 
+  }
+  Debug("bitvector") << std::endl;
+}
+
+
+/// CanonicalClause
+template <class T, class H, class L> 
+void CanonicalClause<T, H, L>::addLiteral(T lit) {
+  for (typename list<T>::iterator it = d_data.begin(); it!=d_data.end(); ++it) {
+    T elem = *it; 
+    if (L::compare(lit, elem)) {
+      ++it; 
+      d_data.insert(it, lit);
+      return; 
+    }
+  }
+}
+
+template <class T, class H, class L> 
+bool CanonicalClause<T, H, L> ::operator==(const CanonicalClause<T, H, L>& other) const{
+  if (d_data.size() != other.d_data.size()) {
+    return false; 
+  }
+  typename list<T>::const_iterator it1 = d_data.begin();
+  typename list<T>::const_iterator it2 = other.d_data.begin();
+  for (; it1 != d_data.end(); ++it1, ++it2) {
+    if (*it1 != *it2) {
+      return false;
+    }
+  }
+  return true; 
+}
+
+/// BVSolver 
 
 
 BVSolver::BVSolver():
@@ -45,7 +85,9 @@ BVSolver::BVSolver():
 {}
 
 void BVSolver::addClause(SatClause* clause) {
-  d_solver.addClause(*clause); 
+  // TODO add conversion method
+  // FIXME! convert from my clause to minisatclause or add new clause adding function to minisat
+  // d_solver.addClause(*clause); 
 }
 
 void BVSolver::addClause(SatLit lit) {
@@ -60,191 +102,250 @@ SatVar BVSolver::newVar() {
   return d_solver.newVar(); 
 }
 
+
+/// MinisatClauseManager
+
+int MinisatClauseManager::idCount = 0; 
+
+SatClause* MinisatClauseManager::getClause(ClauseId id) {
+  Assert (d_idClauseMap.find(id) != d_idClauseMap.end());
+  return d_idClauseMap[id]; 
+}
+
+ClauseId MinisatClauseManager::getId(SatClause*cl ) {
+  Assert (cl != NULL); 
+  Assert (d_clauseIdMap.find(*cl) != d_clauseIdMap.end());
+  return d_clauseIdMap[*cl]; 
+}
+
+void MinisatClauseManager::assertClause(ClauseId id) {
+  SatClause* clause = getClause(id);
+  // FIXME!!
+  // d_solver->addClause(clause); 
+}
+
+bool MinisatClauseManager::solve() {
+  return d_solver->solve(); 
+}
+
+
+
+bool MinisatClauseManager::inPool(SatClause* clause) {
+  Assert (clause != NULL); 
+  return d_clauseIdMap.find(*clause) != d_clauseIdMap.end();
+}
+
+
+ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2) {
+  SatClause* clause = new SatClause();
+  clause->addLiteral(lit1);
+  clause->addLiteral(lit2);
+  
+  if(inPool(clause)) {
+    return getId(clause); 
+  }
+  
+  d_clauseIdMap[*clause]  = ++idCount;
+  d_idClauseMap[idCount] = clause;
+
+  return idCount; 
+}
+
+ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
+  SatClause* clause = new SatClause();
+  clause->addLiteral(lit1);
+  clause->addLiteral(lit2);
+  clause->addLiteral(lit3);
+
+  if(inPool(clause)) {
+    return getId(clause); 
+  }
+
+  d_clauseIdMap[*clause]  = ++idCount;
+  d_idClauseMap[idCount] = clause;
+
+  return idCount; 
+}
+
+ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) {
+  SatClause* clause = new SatClause();
+  clause->addLiteral(lit1);
+  clause->addLiteral(lit2);
+  clause->addLiteral(lit3);
+  clause->addLiteral(lit4); 
+
+  if(inPool(clause)) {
+    return getId(clause); 
+  }
+  
+  d_clauseIdMap[*clause]  = ++idCount;
+  d_idClauseMap[idCount] = clause;
+  
+  return idCount; 
+}
+
+ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5) {
+  SatClause* clause = new SatClause();
+  clause->addLiteral(lit1);
+  clause->addLiteral(lit2);
+  clause->addLiteral(lit3);
+  clause->addLiteral(lit4); 
+  clause->addLiteral(lit5); 
+
+  if(inPool(clause)) {
+    return getId(clause); 
+  }
+  
+  d_clauseIdMap[*clause]  = ++idCount;
+  d_idClauseMap[idCount] = clause;
+
+  return idCount; 
+}
+
+
 /** class Bitblaster **/
 
 
-void Bitblaster::assertToSat(TNode node) {
-  bbAtom(node);
-  Clauses cls;
-  getBBAtom(node, cls);
-  for (int i = 0; i < cls.size(); ++i) {
-    d_solver.addClause(cls[i]); 
-  }
-}
+// void Bitblaster::assertToSat(TNode node) {
+//   bbAtom(node);
+//   Clauses cls;
+//   getBBAtom(node, cls);
+//   for (int i = 0; i < cls.size(); ++i) {
+//     d_solver.addClause(cls[i]); 
+//   }
+// }
 
-bool Bitblaster::solve() {
-  return d_solver.solve(); 
-}
+// bool Bitblaster::solve() {
+//   return d_solver.solve(); 
+// }
 
-bool Bitblaster::getBBAtom(TNode node, Clauses& cl) {
-  AtomClausesHashMap::iterator it = d_atomCache.find(node);
-  if (it == d_atomCache.end()) {
-    return false; 
-  }
-  cl = d_atomCache[node];
-  return true; 
-}
+// bool Bitblaster::getBBAtom(TNode node, Clauses& cl) {
+//   AtomClausesHashMap::iterator it = d_atomCache.find(node);
+//   if (it == d_atomCache.end()) {
+//     return false; 
+//   }
+//   cl = d_atomCache[node];
+//   return true; 
+// }
 
-bool Bitblaster::getBBTerm(TNode node, Bits* &bits) {
-  TermBitsHashMap::iterator it = d_termCache.find(node);
-  if (it == d_termCache.end()) {
-    return false; 
-  }
-  bits = d_termCache[node];
-  return true; 
-}
+// bool Bitblaster::getBBTerm(TNode node, Bits* &bits) {
+//   TermBitsHashMap::iterator it = d_termCache.find(node);
+//   if (it == d_termCache.end()) {
+//     return false; 
+//   }
+//   bits = d_termCache[node];
+//   return true; 
+// }
 
 
-void Bitblaster::bbAtom(TNode node) {
+// void Bitblaster::bbAtom(TNode node) {
 
-  Clauses cls; 
-  if(getBBAtom(node, cls)) {
-    return; 
-  }
+//   Clauses cls; 
+//   if(getBBAtom(node, cls)) {
+//     return; 
+//   }
   
-  switch (node.getKind()) {
-  case kind::EQUAL:
-    bbEq(node);
-    break;
-  case kind::NOT:
-    bbNeq(node);
-    break;
-  default:
-    // TODO: implement other predicates
-    Unhandled(node.getKind());
-  }
-}
+//   switch (node.getKind()) {
+//   case kind::EQUAL:
+//     bbEq(node);
+//     break;
+//   case kind::NOT:
+//     bbNeq(node);
+//     break;
+//   default:
+//     // TODO: implement other predicates
+//     Unhandled(node.getKind());
+//   }
+// }
 
-void Bitblaster::bbEq(TNode node) {
-  Assert(node.getKind() == kind::EQUAL);
-  TNode lhs = node[0];
-  TNode rhs = node[1];
-  Bits* lhsBits = bbTerm(lhs);
-  Bits* rhsBits = bbTerm(rhs);
+// void Bitblaster::bbEq(TNode node) {
+//   Assert(node.getKind() == kind::EQUAL);
+//   Bits& lhsBits = bbTerm(node[0])->bits();
+//   Bits& rhsBits = bbTerm(node[1])->bits();
 
-  Assert(lhsBits->size() == rhsBits->size());
-  Clauses eq; 
-  for (int i = 0; i < lhsBits->size(); i++) {
-    // adding the constraints lhs_i <=> rhs_i as lhs_i => rhs_i and rhs_i => lhs_i
-    
-    SatClause* clause1 = new SatClause(2);
-    clause1->push(lhsBits->operator[](i));
-    clause1->push(~rhsBits->operator[](i));
+//   Assert(lhsBits.size() == rhsBits.size());
+//   Clauses eq; 
+//   for (int i = 0; i < lhsBits->size(); i++) {
+//     // adding the constraints lhs_i <=> rhs_i as lhs_i => rhs_i and rhs_i => lhs_i
+//     eq.push_back(mkClause(lhsBits[i], ~rhsBits[i]));
+//     eq.push_back(mkClause(~lhsBits[i], rhsBits[i]));
+//   }
+//   cacheAtom(node, eq); 
+// }
 
-    SatClause* clause2 = new SatClause(2);
-    clause2->push(~lhsBits->operator[](i));
-    clause2->push(rhsBits->operator[](i));
+// void Bitblaster::bbNeq(TNode node) {
+//   Assert(node.getKind() == kind::EQUAL);
+//   Bits& lhsBits = bbTerm(node[0])->bits();
+//   Bits& rhsBits = bbTerm(node[1])->bits();
 
-    eq.push_back(clause1);
-    eq.push_back(clause2);
-  }
-  d_atomCache[node] = eq; 
-}
+//   Assert(lhsBits.size() == rhsBits.size());
+//   Clauses eq; 
+//   for (int i = 0; i < lhsBits->size(); i++) {
+//     // adding the constraints (lhs_i OR rhs_i) and (NOT lhs_i) OR (NOT rhs_i)
+//     eq.push_back(mkClause(~lhsBits[i], ~rhsBits[i]));
+//     eq.push_back(mkClause( lhsBits[i],  rhsBits[i]));
+//   }
+//   cacheAtom(node, eq); 
+// }
 
-void Bitblaster::bbNeq(TNode node) {
-  Assert(node.getKind()    == kind::NOT); 
-  Assert(node[0].getKind() == kind::EQUAL);
+
+// BVTermDefinition* Bitblaster::bbConst(TNode node) {
+//   Assert(node.getKind() == kind::CONST_BITVECTOR);
+//   for (int i = 0; i < getSize(node); ++i) {
+//     // TODO : finish!!
+//     return NULL; 
+//   }
+// }
+
+// void Bitblaster::freshBits(Bits& bits, unsigned size) {
+//   for (int i= 0; i < size; ++i) {
+//     SatVar var = d_solver.newVar();
+//     SatLit lit = mkLit(var); 
+//     bits.push_back(lit); 
+//   }
+// }
+
+// BVTermDefinition* bbVar(TNode node) {
+//   Assert (node.getKind() == kind::VARIABLE);
+//   Bits bits;
+//   freshBits(bits, getSize(node));
   
-  TNode lhs = node[0][0];
-  TNode rhs = node[0][1];
-  Bits* lhsBits = bbTerm(lhs);
-  Bits* rhsBits = bbTerm(rhs);
-
-  Assert(lhsBits->size() == rhsBits->size());
-  Clauses diseq; 
-  for (int i = 0; i < lhsBits->size(); i++) {
-    // adding the constraints (lhs_i OR rhs_i) and (NOT lhs_i) OR (NOT rhs_i)
-    
-    SatClause* clause1 = new SatClause(2);
-    clause1->push(lhsBits->operator[](i));
-    clause1->push(rhsBits->operator[](i));
-
-    SatClause* clause2 = new SatClause(2);
-    clause2->push(~lhsBits->operator[](i));
-    clause2->push(~rhsBits->operator[](i));
-
-    diseq.push_back(clause1);
-    diseq.push_back(clause2);
-  }
-  d_atomCache[node] = diseq;
-}
+//   return def; 
+// }
 
 
-Bits* Bitblaster::bbConst(TNode node) {
-  Assert(node.getKind() == kind::CONST_BITVECTOR);
-  for (int i = 0; i < getSize(node); ++i) {
-    // TODO : finish!! 
-  }
-}
+// BVTermDefinition* Bitblaster::bbExtract(TNode node) {
+//   Assert (node.getKind() == kind::BITVECTOR_EXTRACT);
+//   Bits* bits = bbTerm(node[0]);
+//   unsigned high = getExtractHigh(node);
+//   unsigned low  = getExtractLow(node);
+//   // TODO: double check this!!
+//   Bits* extractbits = new Bits(); 
+//   for (unsigned i = bits->size() - 1 - high; i <= bits->size() -1 - low; ++i) {
+//     extractbits->push_back(bits[i]); 
+//   }
+//   d_termCache[node] = extractbits;
+//   return extractbits; 
+// }
 
-Bits* Bitblaster::bbVar(TNode node) {
-  Assert (node.getKind() == kind::VARIABLE);
-  Bits* bits = new Bits(getSize(node));  
-  for (int i= 0; i < getSize(node); ++i) {
-    SatVar var = d_solver.newVar();
-    SatLit lit = mkLit(var); 
-    bits->operator[](i) = lit; 
-  }
-  d_termCache[node] = bits;
-  return bits; 
-}
+// BVTermDefinition* Bitblaster::bbConcat(TNode node) {
+//   Assert (node.getKind() == kind::BITVECTOR_CONCAT);
+//   Bits& bv1 = bbTerm(node[0])->bits();
+//   Bits& bv2 = bbTerm(node[1])->bits();
 
-Bits* Bitblaster::bbExtract(TNode node) {
-  Assert (node.getKind() == kind::BITVECTOR_EXTRACT);
-  Bits* bits = bbTerm(node[0]);
-  unsigned high = getExtractHigh(node);
-  unsigned low  = getExtractLow(node);
-  // TODO: double check this!!
-  Bits* extractbits = new Bits(); 
-  for (unsigned i = bits->size() - 1 - high; i < bits->size() -1 - low; ++i) {
-    extractbits->push_back(bits->operator[](i)); 
-  }
-  d_termCache[node] = extractbits;
-  return extractbits; 
-}
+//   Bits bits;
 
-Bits* Bitblaster::bbConcat(TNode node) {
-  Assert (node.getKind() == kind::BITVECTOR_CONCAT);
-  Bits* bv1 = bbTerm(node[0]);
-  Bits* bv2 = bbTerm(node[1]);
-
-  Bits* bits = new Bits(bv1->size() + bv2->size());
-
-  for(unsigned i = 0; i < getSize(node[0]); ++i) {
-    bits->push_back(bv1->operator[](i));
-  }
+//   for(unsigned i = 0; i < getSize(node[0]); ++i) {
+//     bits.push_back(bv1[i]);
+//   }
   
-  for(unsigned i = 0; i < getSize(node[1]); ++i) {
-    bits->push_back(bv2->operator[](i)); 
-  }
-  return bits; 
-}
+//   for(unsigned i = 0; i < getSize(node[1]); ++i) {
+//     bits.push_back(bv2[i]); 
+//   }
+//   return bits; 
+// }
 
-Bits* Bitblaster::bbTerm(TNode node) {
-  Bits* bits;
-  // first check the cache
-  if (getBBTerm(node, bits)) {
-    return bits; 
-  }
-  
-  switch(node.getKind()) {
-    
-  case kind::BITVECTOR_CONCAT:
-    return bbConcat(node);
-    
-  case kind::BITVECTOR_EXTRACT:
-    return bbExtract(node);
-    
-  case kind::VARIABLE:
-    return bbVar(node);
 
-  case kind::CONST_BITVECTOR:
-    return bbConst(node);
-    
-  default:
-    Unhandled(node.getKind());
-  }
-}
 
 } /*bv namespace */
 } /* theory namespace */

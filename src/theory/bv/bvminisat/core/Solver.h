@@ -21,11 +21,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef BVMinisat_Solver_h
 #define BVMinisat_Solver_h
 
+#include "theory/bv/bvminisat/core/SolverTypes.h"
 #include "mtl/Vec.h"
 #include "mtl/Heap.h"
 #include "mtl/Alg.h"
 #include "utils/Options.h"
-#include "core/SolverTypes.h"
 
 
 namespace BVMinisat {

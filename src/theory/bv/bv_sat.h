@@ -18,34 +18,30 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__BV__SAT__THEORY_BV_H
-#define __CVC4__BV__SAT__THEORY_BV_H
+#ifndef __CVC4__BV__SAT_H
+#define __CVC4__BV__SAT_H
 
 
-#include "theory/bv/bvminisat/core/Solver.h"
-#include "theory/bv/bvminisat/core/SolverTypes.h"
-#include "theory/bv/bvminisat/simp/SimpSolver.h"
 #include "expr/node.h"
 #include <vector>
 #include <list>
 #include <iostream>
+#include <math.h>
 #include <ext/hash_map>
+#include "context/cdo.h"
+#include "context/cdset.h"
+#include "bv_solver_types.h"
 
 namespace CVC4 {
 namespace theory {
 namespace bv {
 
-typedef BVMinisat::Var SatVar; 
-typedef BVMinisat::Lit SatLit; 
-typedef BVMinisat::vec<SatLit> SatClause; 
-
-
 class SatInterface {
 public:
   virtual ~SatInterface () {};
   virtual void addClause(SatClause* clause) = 0;
+  virtual bool solve() = 0; 
 };
-
 
 
 class BVSolver : public SatInterface {
@@ -58,69 +54,310 @@ public:
   SatVar newVar(); 
 };
 
-// TODO is there a more efficient representation? 
-typedef std::vector<SatLit> Bits; // FIXME bits not enough  
-typedef __gnu_cxx::hash_map<TNode, Bits*, TNodeHashFunction > TermBitsHashMap;
 
-typedef std::vector<SatClause*> Clauses; // FIXME: need to change depending on what info we need from minisat
-typedef __gnu_cxx::hash_map<TNode, Clauses, TNodeHashFunction> AtomClausesHashMap;
+typedef std::vector<SatLit>    Bits; 
+typedef int                    ClauseId; 
+typedef std::vector<ClauseId>  ClauseIds; 
 
-class Bitblaster {
-  context::Context* d_context; 
-  TermBitsHashMap d_termCache;
-  AtomClausesHashMap d_atomCache;
-  BVSolver d_solver; 
-  SatLit d_true;
-  SatLit d_false; 
-
-  void bbEq   (TNode node); 
-  void bbNeq  (TNode node); 
-  
-  Bits* bbTerm    (TNode node);
-  Bits* bbConcat  (TNode node);
-  Bits* bbExtract (TNode node);
-  Bits* bbConst   (TNode node);
-  Bits* bbVar     (TNode node); 
-  Bits* bbOr      (TNode node);
-  Bits* bbAnd     (TNode node);
-  Bits* bbPlus    (TNode node);
-  Bits* bbMult    (TNode node);
-  Bits* bbLShift  (TNode node);
-  Bits* bbRShift  (TNode node);
-  
-  bool getBBTerm (TNode node, Bits* &bits);
-  bool getBBAtom (TNode node, Clauses& clauses); 
+/** 
+  *
+ * Responsible of communicating with the SAT solver. Also keeps track of the mapping
+ * between ids, canonical clauses and the internal SAT solver clause representation. 
+ * Base class to be extended for each SatSolver added.
+ *
+ */
+class ClauseManager {
 public:
-  Bitblaster(context::Context* c) :
-    d_context(c), 
-    d_termCache(),
-    d_atomCache(),
+  virtual void assertClause(ClauseId id) = 0;
+  virtual bool solve () = 0;
+  
+  virtual ClauseId mkClause (SatLit lit1, SatLit lit2) = 0;
+  virtual ClauseId mkClause (SatLit lit1, SatLit lit2, SatLit lit3) = 0;
+  virtual ClauseId mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) = 0;
+  virtual ClauseId mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5) = 0;
+}; 
+
+
+/** 
+ * The ClauseManager for Minisat
+ * 
+ */
+class MinisatClauseManager: public ClauseManager {
+  static int idCount; 
+
+  typedef __gnu_cxx::hash_map <ClauseId, SatClause*>     IdClauseMap;
+  typedef __gnu_cxx::hash_map <SatClause, ClauseId, SatClauseHash>      ClauseIdMap; 
+
+  IdClauseMap               d_idClauseMap;        /**< map from ClauseId to clauses */
+  ClauseIdMap               d_clauseIdMap;        /**< map from clauses to ClauseId */
+  context::CDO<int>         d_assertedClausesIndex; /**< context dependent index that points into the assertion stack.
+                                                  Anything below it should be asserted in the current context */
+  std::vector<ClauseId>     d_assertedClausesStack; /**< stack storing the ids of all the clauses currently asserted
+                                                  in minisat. INVARIANT: should not contain any duplicates. */
+  BVMinisat::Solver* d_solver; 
+
+  void popClauses(); 
+  void removeClause(ClauseId clause);
+  inline SatClause* getClause(ClauseId id);
+  inline ClauseId   getId (SatClause* clause);
+  inline bool       inPool(SatClause* clause);  
+public:
+  MinisatClauseManager(context::Context* c) :
+    d_idClauseMap(),
+    d_clauseIdMap(),
+    d_assertedClausesIndex(c),
+    d_assertedClausesStack(),
     d_solver()
-  {
-    // forcing the literals d_true to be true and d_false to be false
-    // used for constant bitblasting
-    BVMinisat::Var trueVar = d_solver.newVar();
-    d_true = BVMinisat::mkLit(trueVar);
-    //d_solver.addClause(d_true);
-    
-    BVMinisat::Var falseVar = d_solver.newVar();
-    d_false = BVMinisat::mkLit(falseVar);
-    //d_solver.addClause(~d_false); 
+  {}
+  
+  ~MinisatClauseManager() {}
+  
+  void assertClause(ClauseId id);
+  bool solve();
+  
+  ClauseId mkClause (const std::vector<SatLit > & lits); 
+  ClauseId mkClause (const SatClause& lits);
+  
+  ClauseId mkClause (SatLit lit1, SatLit lit2);
+  ClauseId mkClause (SatLit lit1, SatLit lit2, SatLit lit3);
+  ClauseId mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4);
+  ClauseId mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5);
+  
+}; 
+
+/** 
+ * Bit-level definition of each bitvector [sub]term
+ * 
+ * @param bits fresh SAT variables for each bit
+ * @param clauses the clauses that define the term in relation to its subterms
+ */
+class BVTermDefinition {
+  Bits*      d_bits;            /// the bits that define the term
+  ClauseIds* d_defClauses;      /// the clauses that define the term in relation to its subterms
+public:
+  BVTermDefinition(Bits* bits, ClauseIds* clauses) :
+    d_bits(bits),
+    d_defClauses(clauses)
+  {}
+  const Bits* const bits() {
+    return d_bits; 
   }
-  ~Bitblaster() {
-    AtomClausesHashMap::iterator it = d_atomCache.begin();
-    for (; it!= d_atomCache.end(); ++it) {
-      Clauses& cls = (*it).second;
-      for (unsigned i = 0; i < cls.size(); i++) {
-        delete cls[i]; 
-      }
+  const ClauseIds* const clauses() {
+    return d_defClauses; 
+  }
+};
+
+/** 
+ * The Default Term BitBlasting strategies using the following pattern
+ * 
+ * @param res the fresh variables for the resulting bits
+ * @param lhs the bit variables for the left-hand side 
+ * @param rhs the bit variables for the right-hand side
+ * @param mgr the clause manager (to be able to store the clause) 
+ * 
+ * @return 
+ */
+
+struct DefaultMultBB {
+  static BVTermDefinition* bitblast(Bits* res, Bits* lhs, Bits* rhs, ClauseManager* mgr) {
+    Assert(0);
+    return NULL; 
+  }
+}; 
+
+struct DefaultPlusBB {
+  static BVTermDefinition* bitblast(Bits* res, Bits* lhs, Bits* rhs, ClauseManager* mgr) {
+    Assert(0);
+    return NULL; 
+  }
+}; 
+
+struct DefaultLtBB {
+  static BVTermDefinition* bitblast(Bits* res, Bits* lhs, Bits* rhs, ClauseManager* mgr) {
+    Assert(0);
+    return NULL; 
+  }
+}; 
+
+struct DefaultAndBB {
+  static BVTermDefinition* bitblast(Bits* res, Bits* lhs, Bits* rhs, ClauseManager* mgr) {
+    Assert(0);
+    return NULL;
+  }
+}; 
+
+struct DefaultOrBB {
+  static BVTermDefinition* bitblast(Bits* res, Bits* lhs, Bits* rhs, ClauseManager* mgr) {
+    ClauseIds* defClauses = new ClauseIds();
+    
+    for (unsigned i = 0; i < res->size(); ++i) {
+      defClauses->push_back( mgr->mkClause( res->operator[](i), ~lhs->operator[](i)) );
+      defClauses->push_back( mgr->mkClause( res->operator[](i), ~rhs->operator[](i)) );
+      defClauses->push_back( mgr->mkClause(~res->operator[](i),  lhs->operator[](i), rhs->operator[](i)) );
     }
     
+    BVTermDefinition* def = new BVTermDefinition(res, defClauses); 
+    return def; 
   }
+}; 
+
+
+// class Bitblaster {
+// public:
+//   Bitblaster(context::Context* c) {}
+// }; 
+
+template
+<
+  class BBPlus = DefaultPlusBB,
+  class BBMult = DefaultMultBB,
+  class BBAnd  = DefaultAndBB,
+  class BBOr   = DefaultOrBB
+  >
+class Bitblaster {
+  
+  typedef __gnu_cxx::hash_map <TNode, BVTermDefinition*, TNodeHashFunction >  TermDefMap;
+  typedef __gnu_cxx::hash_map <TNode, ClauseIds*, TNodeHashFunction >         AtomDefMap; 
+
+  
+  TermDefMap             d_termCache;
+  AtomDefMap             d_atomCache; 
+  context::CDSet<TNode, TNodeHashFunction>  d_assertedAtoms; // atoms that are currently asserted in the SatSolver
+
+  ClauseManager*         d_clauseManager;
+  
+  inline BVTermDefinition*      getBBTerm (TNode node);
+  inline Bits*                  getBits   (TNode node); 
+  inline ClauseIds*             getBBAtom (TNode node);
+  
+  inline void   cacheAtomDef(TNode node, ClauseIds* def);
+  inline void   cacheTermDef(TNode node, BVTermDefinition* def);
+
+  Bits*         freshBits(unsigned size); 
+  
+  /// fixed strategy bitblasting
+
+  ClauseIds*  bbEqual(TNode node);
+  ClauseIds*  bbNeq  (TNode node);
+  
+  BVTermDefinition* bbVar     (TNode node);
+  BVTermDefinition* bbConst   (TNode node);
+  BVTermDefinition* bbExtract (TNode node);
+  BVTermDefinition* bbConcat  (TNode node);
+  BVTermDefinition* bbNot     (TNode node);
+  
+public:
+  Bitblaster(context::Context* c) :
+    d_termCache(),
+    d_atomCache(),
+    d_assertedAtoms(c),
+    d_clauseManager(new MinisatClauseManager(c))
+  {}
+  
   void assertToSat(TNode node);
-  void bbAtom (TNode node); 
-  bool solve(); 
+  bool solve();
+  
+private:
+
+  ClauseIds* bbAtom(TNode node) {
+    ClauseIds* def = getBBAtom(node);
+    if (def) {
+      return def; 
+    }
+
+    switch(node.getKind()) {
+    case kind::EQUAL:
+      def = bbEqual(node);
+      cacheAtomDef(node, def);
+      break;
+    case kind::NOT:
+      def = bbNeq(node);
+      cacheAtomDef(node, def);
+      break;
+    default:
+      // TODO: implement other predicates
+      Unhandled(node.getKind()); 
+    }
+
+    return def; 
+  }
+  
+  BVTermDefinition* bbTerm(TNode node) {
+    BVTermDefinition* def;
+    if (getBBTerm(node, def)) {
+      return def; 
+    }
+
+    switch(node.getKind()) {
+      
+    case kind::VARIABLE:
+      def = bbVar(node);
+      cacheTermDef(node, def); 
+      break;
+      
+    case kind::CONST_BITVECTOR:
+      def = bbConst(node);
+      cacheTermDef(node, def); 
+      break;
+      
+    case kind::BITVECTOR_EXTRACT:
+      def = bbExtract(node);
+      cacheTermDef(node, def); 
+      break;
+      
+    case kind::BITVECTOR_CONCAT:
+      def = bbConcat(node);
+      cacheTermDef(node, def); 
+      break;
+      
+    case kind::BITVECTOR_NOT:
+      def = bbNot(node);
+      cacheTermDef(node, def); 
+      break;
+      
+    case kind::BITVECTOR_OR:
+    case kind::BITVECTOR_AND:
+    case kind::BITVECTOR_PLUS:
+    case kind::BITVECTOR_MULT:
+      //      def =  bbBinaryOp(node.getKind(), node[0], node[1]);
+      cacheTermDef(node, def); 
+      break;
+      
+    default:
+      Unhandled(node.getKind());
+    }
+    
+    return def; 
+  }
+
+  // BVTermDefinition* bbBinaryOp(CVC4::kind nodeKind, TNode lhs, TNode rhs) {
+  //   Bits*  resBits = freshBits(getSize(lhs));
+
+  //   Bits* lhsBits = bbTerm(lhs)->bits();
+  //   Bits* rhsBits = bbTerm(rhs)->bits();
+    
+  //   switch(nodeKind) {
+      
+  //   case kind::BITVECTOR_OR:
+  //     return BBOr::bitblast(resBits, lhsBits, rhsBits);
+      
+  //   case kind::BITVECTOR_AND:
+  //     return BBAnd::bitblast(resBits, lhsBits, rhsBits);
+      
+  //   case kind::BITVECTOR_PLUS:
+  //     return BBPlus::bitblast(resBits, lhsBits, rhsBits);
+      
+  //   case kind::BITVECTOR_MULT:
+  //     return BBMult::bitblast(resBits, lhsBits, rhsBits);
+
+  //   }
+  // }
+  
 };
+
+
+
+
 
 
 } /* bv namespace */ 
@@ -129,4 +366,4 @@ public:
 
 } /* CVC4 namespace */
 
-#endif /* __CVC4__BV__SAT__THEORY_BV_H */
+#endif /* __CVC4__BV__SAT_H */

@@ -8,6 +8,8 @@ AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 noinst_LTLIBRARIES = libbv.la
 
 libbv_la_SOURCES = \
+	bv_solver_types.h \
+	bv_solver_types.cpp \
 	bv_sat.h \
 	bv_sat.cpp \
 	theory_bv_utils.h \
@@ -21,7 +23,9 @@ libbv_la_SOURCES = \
 	cd_set_collection.h 
 
 libbv_la_LIBADD = \
+	@builddir@/picosat/libpicosat.la \
 	@builddir@/bvminisat/libbvminisat.la
 
+
 EXTRA_DIST = kinds
-SUBDIRS = bvminisat
+SUBDIRS = bvminisat picosat
