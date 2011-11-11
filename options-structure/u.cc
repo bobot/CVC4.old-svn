@@ -1,6 +1,6 @@
 #include "u.h"
 #include "options.h"
-#include "u_opt.h"
+#include "u_options.h"
 #include <iostream>
 
 using namespace std;
@@ -11,6 +11,6 @@ void u() {
 }
 
 void uu() {
-  Options::current()[heuristic] = BAZ;
+  Options::current().set(heuristic, BAZ);
 }
 

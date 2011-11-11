@@ -9,8 +9,14 @@ namespace CVC4 {
   public:
     Options();
     static Options& current() { return d_current; }
+
     template <class T>
-    typename T::type& operator[](T);
+    void set(T, const typename T::type&) {
+      T::you_are_trying_to_assign_to_a_read_only_option;
+    }
+
+    template <class T>
+    const typename T::type& operator[](T) const;
   };
 }
 

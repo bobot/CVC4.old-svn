@@ -1,5 +1,5 @@
 #include <iostream>
-#include "t_opt.h"
+#include "t_options.h"
 #include "u.h"
 
 using namespace CVC4;
@@ -10,7 +10,7 @@ int main() {
   cout << "stats is " << Options::current()[stats] << std::endl;
   u();
 
-  Options::current()[verbose] = true;
+  //Options::current().set(verbose, true);
   uu();
 
   cout << std::endl;
