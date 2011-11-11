@@ -1,6 +1,6 @@
 #include "u.h"
 #include "options.h"
-#include "u_opt_internal.h"
+#include "u_opt.h"
 #include <iostream>
 
 using namespace std;

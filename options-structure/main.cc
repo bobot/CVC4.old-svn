@@ -1,5 +1,5 @@
 #include <iostream>
-#include "t_opt_internal.h"
+#include "t_opt.h"
 #include "u.h"
 
 using namespace CVC4;

@@ -1,6 +1,6 @@
 CC = $(CXX)
 
-main: main.o options.o u.o u_opt_internal.o t_opt_internal.o
+main: main.o options.o u.o u_opt.o t_opt.o
 
 .PHONY: clean
 clean:; rm -f *.o main .deps

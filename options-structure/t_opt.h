@@ -12,5 +12,13 @@ namespace CVC4 {
 
   struct stats_t { typedef bool type; };
   extern stats_t stats;
+
+  template <>
+  verbose_t::type&
+  Options::operator[](verbose_t);
+
+  template <>
+  stats_t::type&
+  Options::operator[](stats_t);
 }
 

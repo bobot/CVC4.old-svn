@@ -22,5 +22,9 @@ namespace CVC4 {
 
   struct heuristic_t { typedef Heuristic type; };
   extern heuristic_t heuristic;
+
+  template <>
+  heuristic_t::type&
+  Options::operator[](heuristic_t);
 }
 

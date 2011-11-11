@@ -1,4 +1,4 @@
-#include "u_opt_internal.h"
+#include "u_opt.h"
 #include "options_holder.h"
 
 namespace CVC4 {
