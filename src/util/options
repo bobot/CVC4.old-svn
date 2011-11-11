@@ -1,0 +1,155 @@
+module "base"
+
+option binary_name std::string
+
+option in std::istream*
+option out std::ostream*
+option err std::ostream*
+
+common-option - -V --version void
+ identify this CVC4 binary
+handler -V --version = showVersion
+
+common-option - -h --help void
+ full command line reference
+handler -V --version = showHelp
+
+common-option inputLanguage -L --lang InputLanguage :predicate stringToInputLanguage :include "src/util/language.h" :default language::input::LANG_AUTO
+ force input language (default is `auto'; see --lang help)
+common-option outputLanguage --output-lang OutputLanguage :predicate stringToOutputLanguage :include "src/util/language.h" :default language::output::LANG_AUTO
+ force input language (default is `auto'; see --lang help)
+option languageHelp bool
+
+option verbosity verbosity int :read-write :default 0
+ the verbosity level of CVC4
+common-option - -v --verbose void
+ increase verbosity (may be repeated)
+common-option - -q --quiet void
+ decrease verbosity (may be repeated)
+handler -v --verbose = increaseVerbosity
+handler -q --quiet = decreaseVerbosity
+
+common-option statistics stats --stats bool
+ give statistics on exit
+
+common-option parseOnly parse-only --parse-only bool
+ exit after parsing input
+
+common-option preprocessOnly preprocess-only --preprocess-only bool
+ exit after parsing input
+
+common-option - --dump=MODE void
+ dump preprocessed assertions, etc., see --dump=help
+handler --dump = dumpMode
+common-option - --dump-to=FILE void
+ all dumping goes to FILE (instead of stdout)
+handler --dump-to = dumpToFile
+
+common-option - --show-config void
+ show CVC4 static configuration
+handler --show-config = showConfiguration
+
+common-option strictParsing --strict-parsing bool
+ be less tolerant of non-conforming inputs
+
+common-option interactive --interactive bool
+ force interactive mode
+option interactiveSetByUser bool
+
+common-option produceModels produce-models -m --produce-models bool
+ support the get-value command
+common-option produceAssignments produce-assignments --produce-assignments bool
+ support the get-assignment command
+
+common-option proof produce-proofs --proof bool
+ turn on proof generation
+
+common-option incrementalSolving incremental -i --incremental bool
+ enable incremental solving
+
+common-option cumulativeMillisecondLimit --tlimit=MS "unsigned long"
+ enable time limiting (give milliseconds)
+common-option perCallMillisecondLimit --tlimit-per=MS "unsigned long"
+ enable time limiting per query (give milliseconds)
+common-option cumulativeResourceLimit --rlimit=N "unsigned long"
+ enable resource limiting
+common-option perCallResourceLimit --rlimit-per=N "unsigned long"
+ enable resource limiting per query
+
+option memoryMap --mmap bool
+ memory map file input
+option segvNoSpin --segv-nospin
+ don't spin on segfault waiting for gdb
+
+option earlyTypeChecking --eager-type-checking/--lazy-type-checking bool :default USE_EARLY_TYPE_CHECKING_BY_DEFAULT
+ type check expressions immediately on creation (debug builds only)
+/type check expressions only when necessary (default)
+
+option typeChecking /--no-type-checking bool :default DO_SEMANTIC_CHECKS_BY_DEFAULT
+ never type check expressions
+option semanticChecks /--no-checking bool :default DO_SEMANTIC_CHECKS_BY_DEFAULT
+ disable ALL semantic checks, including type checks
+
+link --no-type-checking : --lazy-type-checking
+link --lazy-type-checking : --type-checking
+link --eager-type-checking : --type-checking
+link --no-checking : --no-type-checking
+
+expert-option theoryRegistration /--no-theory-registration :default true
+ disable theory reg (not safe for some theories)
+
+option - -t --trace void
+ trace something (e.g. -t pushpop), can repeat
+handler -t --trace = addTraceTag
+option - -d --debug void
+ debug something (e.g. -d arith), can repeat
+handler -d --debug = addDebugTag
+option - --show-debug-tags void
+ show all available tags for debugging
+handler --show-debug-tags = showDebugTags
+option - --show-trace-tags void
+ show all available tags for tracing
+handler --show-trace-tags = showTraceTags
+
+option - --default-expr-depth=N void
+ print exprs to depth N (0 == default, -1 == no limit)
+handler --default-expr-depth = setDefaultExprDepth
+option - --print-expr-types void
+ print types with variables when printing exprs
+handler --print-expr-types = setPrintExprTypes
+
+expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
+ expand define-funs/LAMBDAs lazily
+
+option simplificationMode SimplificationMode :predicate stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH
+ choose simplification mode, see --simplification=help
+
+option doStaticLearning static-learning /--no-static-learning bool :default true
+ turn off static learning (e.g. diamond-breaking)
+
+option replayFilename --replay=FILE std::string :predicate checkReplayFilename
+ replay decisions from file
+option replayLog --replay-log=FILE std::ostream* :predicate checkReplayLogFilename
+ log decisions and propagations to file
+option replayStream ExprStream*
+
+option pivotRule --pivot-rule=RULE ArithPivotRule :predicate stringToArithPivotRule :default MINIMUM
+ change the pivot rule (see --pivot-rule help)
+option arithPivotThreshold arith-pivot-threshold --pivot-threshold=N uint16_t :default 16
+ sets the number of heuristic pivots per variable per simplex instance
+option arithPropagateMaxLength arith-propagate-max-length --prop-row-length=N uint16_t :default 16
+ sets the maximum row length to be used in propagation
+option satRandomFreq --random-freq=P double :default 0.0
+ sets the frequency of random decisions in the sat solver(P=0.0 by default)
+option satRandomSeed --random-seed=S double :default 91648253
+ sets the random seed for the sat solver
+expert-option variableRemovalEnabled arith-variable-removal /--disable-variable-removal :default true
+ enable permanent removal of variables in arithmetic (UNSAFE! experts only)
+option arithPropagation arith-propagation /--disable-arithmetic-propagation :default true
+ turns on arithmetic propagation
+option ufSymmetryBreaker /--disable-symmetry-breaker bool :default true
+ turns off UF symmetry breaker (Deharbe et al., CADE 2011)
+
+#warning "Change CL options as --disable-variable-removal cannot do anything currently."
+
+endmodule
