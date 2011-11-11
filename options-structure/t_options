@@ -1,0 +1,6 @@
+module T_OPT T opt
+
+option verbose bool
+option stats bool
+
+endmodule
