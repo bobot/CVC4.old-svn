@@ -42,9 +42,10 @@ class DioSolver {
 private:
   typedef size_t TrailIndex;
   typedef size_t InputConstraintIndex;
+  typedef size_t SubIndex;
 
   std::vector<Variable> d_variablePool;
-  CDO<size_t> d_lastUsedVariable;
+  context::CDO<size_t> d_lastUsedVariable;
 
 
   /**
@@ -54,6 +55,7 @@ private:
   struct InputConstraint {
     Node d_reason;
     TrailIndex d_trailPos;
+    InputConstraint(Node reason, TrailIndex pos) : d_reason(reason), d_trailPos(pos) {}
   };
   context::CDList<InputConstraint> d_inputConstraints;
 
@@ -75,7 +77,7 @@ private:
     Assert(pos < d_inputConstraints.size());
     return d_inputConstraints[pos].d_reason;
   }
-  
+
   /**
    * The main work horse of the algorithm, the trail of constraints.
    * Each constraints is a SumPair that implicitly represents an equality against 0.
@@ -89,11 +91,12 @@ private:
   struct Constraint {
     SumPair d_eq;
     Polynomial d_proof;
+    Constraint(const SumPair& eq, const Polynomial& p) : d_eq(eq), d_proof(p) {}
   };
   context::CDList<Constraint> d_trail;
 
   /**
-   * A substitution is stored as a constraint in the trail together with 
+   * A substitution is stored as a constraint in the trail together with
    * the variable to be eliminated, and a fresh variable if one was introduced.
    * The variable d_subs[i].d_eliminated is substituted using the implicit equality in
    * d_trail[d_subs[i].d_constraint]
@@ -102,13 +105,16 @@ private:
    *  - d_subs[i].d_fresh is either Node::null() or it is variable it is normalized
    *    to have coefficient 1 in d_trail[d_subs[i].d_constraint].
    */
-  struct Substituion {
+  struct Substitution {
     Node d_fresh;
     Variable d_eliminated;
     TrailIndex d_constraint;
+    Substitution(Node f, const Variable& e, TrailIndex c) :
+      d_fresh(f), d_eliminated(e), d_constraint(c)
+    {}
   };
-  context::CDList<Substition> d_subs;
-  
+  context::CDList<Substitution> d_subs;
+
   /**
    * This is the queue of constraints to be processed in the current context level.
    * This is to be empty upon entering solver and cleared upon leaving the solver.
@@ -118,21 +124,21 @@ private:
    * - !isConstant().
    * - If the element is (+ constant (+ [(* coeff var)] )), then the gcd(coeff) = 1
    */
-  std::queue<Index> d_currentF;
+  std::queue<TrailIndex> d_currentF;
 
+  context::CDO<bool> d_conflictHasBeenRaised;
+  TrailIndex d_conflictIndex;
 
 public:
 
   /** Construct a Diophantine equation solver with the given context. */
   DioSolver(context::Context* ctxt) :
+    d_lastUsedVariable(ctxt,0),
     d_inputConstraints(ctxt),
-    d_facts(ctxt),
-    d_proofs(ctxt),
-    d_queueFront(ctxt, 0),
-    d_queueBack(ctxt, 0),
-    d_subEliminated(ctxt),
-    d_subFresh(ctxt),
-    d_subRange(ctxt)
+    d_nextInputConstraintToEnqueue(ctxt, 0),
+    d_trail(ctxt),
+    d_subs(ctxt),
+    d_conflictHasBeenRaised(ctxt, false)
   {}
 
   /**
@@ -142,7 +148,8 @@ public:
    * where ub is either (leq p c) or (not (> p [- c 1])), and
    * where lb is either (geq p c) or (not (< p [+ c 1]))
    */
-  void addEquality(const Comparison& newEq, Node orig);
+  //void addEquality(const Comparison& newEq, Node orig);
+  void pushInputConstraint(const Comparison& eq, Node reason);
 
   /**
    * Processes the queue looking for any conflict.
@@ -161,20 +168,21 @@ public:
 
 private:
 
-  CDO<bool> d_conflictHasHasBeenRaised;
-  TrailIndex d_conflictIndex;
-
-  bool inConflict(){
+  bool inConflict() const{
     return d_conflictHasBeenRaised;
   }
   void raiseConflict(TrailIndex ti){
-    Assert(!inConflict);
-    d_conflictHasHasBeenRaised = true;
+    Assert(!inConflict());
+    d_conflictHasBeenRaised = true;
     d_conflictIndex = ti;
   }
   TrailIndex getConflictIndex() const{
-    Assert(inConflict())
+    Assert(inConflict());
     return d_conflictIndex;
+  }
+
+  bool inRange(TrailIndex i) const{
+    return i < d_trail.size();
   }
 
   /**
@@ -185,11 +193,9 @@ private:
 
 
   bool acceptableOriginalNodes(Node n);
-  /** reason must pass acceptableOriginalNodes. */
-  void pushInputConstraint(const Comparison& eq, Node reason);
 
   /** Empties the unproccessed input constraints into the queue. */
-  void DioSolver::enqueueInputConstraints();
+  void enqueueInputConstraints();
 
   /**
    * Returns true if an input equality is in the map.
@@ -225,64 +231,71 @@ private:
   //void scaleEqAtIndex(Index i, const Integer& g);
 
   /**
-   * Updates d_fact[i] := d_fact[i] * q + d_fact[j] * r
-   * and updates the proof accordingly.
+   * Takes as input TrailIndex's i and j and Integer's q and r and a TrailIndex k s.t.
+   *   d_trail[k].d_eq == d_trail[i].d_eq * q + d_trail[j].d_eq * r
+   * and
+   *   d_trail[k].d_proof == d_trail[i].d_proof * q + d_trail[j].d_proof * r
    *
    * This corresponds to an application of Alberto's rule (8).
    */
-  void combineEqAtIndexes(Index i, const Integer& q, Index j, const Integer& r);
+  TrailIndex combineEqAtIndexes(TrailIndex i, const Integer& q, TrailIndex j, const Integer& r);
 
   /**
-   * Decomposes the equation at the front of queue by the variable
+   * Decomposes the equation at index ti of trail by the variable
    * with the lowest coefficient.
+   *
+   * Returns true if the abs of the coefficient was not 1.
+   * If this is the true, next indicates the replacement for ti,
+   * and si is the new substitution index.
+   * If this is false, si is the new substitution index and next is unchanged.
    *
    * This corresponds to an application of Alberto's rule (9).
    */
-  void decomposeFront();
+  bool decomposeIndex(TrailIndex ti, SubIndex& si, TrailIndex& next);
+  void subAndReduceQueue(TrailIndex ti);
 
-  Index front() const{
-    return d_queueFront;
-  }
-
-  Index back() const{
-    return d_queueBack;
-  }
-
-  bool empty() const{
-    return front() >= back();
-  }
-
-  bool hasProof(Index i) const {
-    return i <= back();
-  }
-
-  bool inRange(Index i) const {
-    return front() <= i && hasProof(i);
-  }
-
-
-  void popQueue() {
-    d_queueFront = d_queueFront + 1;
-  }
-  void pushQueue() {
-    d_queueBack = d_queueBack + 1;
-  }
+  void printQueue();
 
   /**
-   * Exhaustively applies all substitutions discovered to the front of the queue.
+   * Exhaustively applies all substitutions discovered to an element of the trail.
+   * Returns a TrailIndex corresponding to the substitutions being applied.
    */
-  void applySubstitutionsToFront();
+  TrailIndex applyAllSubstitutions(TrailIndex i);
 
   /**
-   * Constructs a proof from any d_proof[i] in terms of input literals.
-   * i <= end()
+   * Reduces the trail node at i by the gcd of the variables.
+   * Returns the new trail element.
+   *
+   * This raises the conflict flag if unsat is detected.
    */
-  Node proveIndex(Index i);
+  TrailIndex reduceByGCD(TrailIndex i);
+
+  bool triviallySat(TrailIndex t);
+  bool triviallyUnsat(TrailIndex t);
+  bool gcdIsOne(TrailIndex t);
+  bool debugSubstitionsApply(TrailIndex t);
+
+  void pushToQueue(TrailIndex t){
+    Assert(!inConflict());
+    Assert(gcdIsOne(t));
+    Assert(!debugSubstitionsApply(t));
+    Assert(!triviallySat(t));
+    Assert(!triviallyUnsat(t));
+
+    d_currentF.push(t);
+  }
+
+  bool processEquations(bool cuts);
 
   /**
-   * Returns the SumPair in d_fact[i] with all of the fresh variables purified out
+   * Constructs a proof from any d_trail[i] in terms of input literals.
    */
-  SumPair purifyIndex(Index i);
+  Node proveIndex(TrailIndex i);
+
+  /**
+   * Returns the SumPair in d_trail[i].d_eq with all of the fresh variables purified out.
+   */
+  SumPair purifyIndex(TrailIndex i);
 
   /**
    * Processes the front element of the queue.
@@ -290,189 +303,12 @@ private:
    * If a conflict or a cutting plane is found, this returns true.
    * This is expected to return true or pop the queue if it returns false.
    */
-  bool processFront(bool conlict);
+  //bool processFront(bool conlict);
 
   //Legacy
   void getSolution();
 
 };
-
-// class DioSolver {
-// private:
-//   context::Context* d_context;
-
-//   typedef uint32_t EquationIndex;
-//   typedef context::CDExplainDAG::ProofIndex ProofIndex;
-
-//   context::CDExplainDAG d_dioProofs;
-
-//   context::CDVector<Node> d_equations;
-//   context::CDO<EquationIndex> d_equationsBegin;
-//   context::CDO<EquationIndex> d_equationsEnd;
-
-//   /* Each item should have the form (= int_var [integer sum])
-//    * This represents a mapping of int_var to integer sum.
-//    */
-//   context::CDList<Node> d_substitutions;
-
-//   std::pair<const Integer&,Node> minimumAbsCoefficient(Node sum);
-
-//   std::pair<Node, Node> quotientSolve(Node sum, Node var, const Integer& a);
-
-//   ProofIndex lookProofIndex(Node eq){
-//     return d_dioProofs.getProofIndex(eq);
-//   }
-
-//   void processFrontEquation(){
-//     Assert(d_equationsBegin < d_equationsEnd);
-//     EquationIndex ei = d_equationsBegin;
-//     Node eq = d_equations[ei];
-
-//     Node sum = eq[0];
-//     const Integer& c = eq[1].getConst<Integer>();
-
-//     std::pair<const Integer&, Node> p = minimumAbsCoefficient(sum);
-//     const Integer& a = p.first;
-//     Node var = p.second;
-
-//     std::pair<Node, Node> qr = quotientSolve(sum, var, a);
-//     Node q = qr.first;
-//     Node r = qr.second;
-
-//     if(r.isNull()){
-//       Assert(d_substitutions.size() == ei);
-//       d_substitutions.push_back(q);
-//     }else{
-//       #warning "TODOTODOTODOTODOTODOTODOTODO"
-//     }
-//   }
-
-//   void proccessRemainingEquations(){
-//     while(d_equationsBegin < d_equationsEnd){
-//       processFrontEquation();
-//       d_equationsBegin = d_equationsBegin + 1;
-//     }
-//   }
-
-//   void addEquation(Node eq){
-//     Assert(Comparison::isNormalAtom(eq));
-//     Comparison cmp = Comparison::parseNormalForm(eq);
-//     Assert(cmp.isIntegral());
-
-//     d_dioProofs.push_fact(eq);
-
-//     EquationIndex eqIndex = d_equationsEnd;
-//     d_equations.reserve(eqIndex + 1, Node::null());
-
-//     d_dioProofs.push_fact(eq);
-//     d_equationsEnd = d_equationsEnd + 1;
-//     applyAllSubstitutions(eqIndex);
-//   }
-
-//   // var |-> poly + c
-//   // var = poly + c
-//   // -c = poly - var
-//   // c = var - poly
-//   static Node substituteIntoEq(Node eq, Node vln, Node subEq){
-//     Assert(eq.getKind() == kind::EQUAL);
-//     Assert(subEq.getKind() == kind::EQUAL);
-//     Assert(VarList::normalForm(vln));
-
-//     VarList vl = VarList::parseVarList(vln);
-
-//     Comparison cmp = Comparison::parseNormalForm(eq);
-//     const Polynomial& left = cmp.getLeft();
-//     const Constant& right = cmp.getRight();
-
-//     Constant coeff = left.findCoefficient(vl);
-
-//     if(coeff.isZero()){
-//       return eq;
-//     }else{
-
-//       Comparison sub = Comparison::parseNormalForm(eq);
-//       Constant one = left.findCoefficient(vl);
-//       // v = p + c
-//       // 0 = p + c - v
-//       // left = r
-//       // left = q + d*v
-//       // q + d*v = r
-//       // q + d*v + d*0 = r + 0
-//       // q + d*v + d*(p + c - v) = r + 0
-//       // q + d*v + d*(p + c - v) = r
-//       // q + d*v + d*p + d*c - d*v = r
-//       // q + d*v + d*p - d*v = r - d*c
-//       // left + d*p - d*v = r - d*c
-//       // q + d*p = r - d*c
-//       Comparison scaledSub = sub.multiplyByConstant(coeff.negate);
-//       Comparison newEq = cmp.addEquality(scaledSub);
-//       return newEq.getNode();
-//     }
-//   }
-
-//   void substitute(EquationIndex ei, EquationIndex subid){
-//     Assert(subid < ei);
-//     Node currEq = d_equations[ei];
-//     Node var2Sum =  d_substitutions[subid];
-//     Node var = var2Sum[0];
-//     Node sum = var2Sum[1];
-
-//     Node newEq = substituteIntoEq(currEq, var, sum);
-
-//     if(newEq != currEq){
-//       d_equations[ei] = newEq;
-//       ProofIndex currEqExp = lookProofIndex(currEq);
-//       ProofIndex subIdExp = lookProofIndex(d_equations[subid]);
-
-//       ProofIndex withSubExp = d_dioProofs.push_implication(newEq, currEqExp, subIdExp);
-
-//       if(withSub.isBoolean() && !newEq.getConst<bool>()){
-//         // This must be false. True cannot be derived... right?
-//         d_conflict = d_dioProofs.explain(withSubExp);
-//       }
-//     }
-//   }
-
-//   void applyAllSubstitutions(EquationIndex ei){
-//     for(uint32_t subid = 0, end = d_substitutions.size(); subid < end; subid++){
-//       substitute(ei, subid);
-//     }
-//   }
-
-//   const Tableau& d_tableau;
-//   ArithPartialModel& d_partialModel;
-
-// public:
-
-
-
-//   /** Construct a Diophantine equation solver with the given context. */
-//   DioSolver(context::Context* ctxt, const Tableau& tab, ArithPartialModel& pmod) :
-//     d_context(ctxt),
-//     d_dioProofs(ctxt),
-//     d_equations(ctxt),
-//     d_equationsBegin(ctxt, 0),
-//     d_equationsEnd(ctxt, 0),
-//     d_substitutions(ctxt),
-//     d_tableau(tab),
-//     d_partialModel(pmod) {
-//   }
-
-//   /**
-//    * Solve the set of Diophantine equations in the tableau.
-//    *
-//    * @return true if the set of equations was solved; false if no
-//    * solution
-//    */
-//   bool solve();
-
-//   /**
-//    * Get the parameterized solution to this set of Diophantine
-//    * equations.  Must be preceded by a call to solve() that returned
-//    * true. */
-//   void getSolution();
-
-// };/* class DioSolver */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */

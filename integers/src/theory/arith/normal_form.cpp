@@ -451,7 +451,6 @@ Constant Polynomial::getCoefficient(const VarList& vl) const{
 }
 
 Node Polynomial::computeQR(const Polynomial& p, const Integer& div){
-  Assert(div.sgn() >= 0);
   std::vector<Monomial> q_vec, r_vec;
   Integer tmp_q, tmp_r;
   for(iterator iter = p.begin(), pend = p.end(); iter != pend; ++iter){
@@ -479,7 +478,6 @@ Node Polynomial::computeQR(const Polynomial& p, const Integer& div){
 
 Node SumPair::computeQR(const SumPair& sp, const Integer& div){
   Assert(sp.isInteger());
-  Assert(div >= 0);
 
   const Integer& constant = sp.getConstant().getIntegerValue();
 

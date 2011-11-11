@@ -330,6 +330,11 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
     asVectors(poly, coefficients, variables);
 
     ArithVar varSlack = requestArithVar(polyNode, true);
+    if(poly.isInteger()){
+      d_slackIntegerVariables.push_back(varSlack);
+    }
+    cout << varSlack << " " << poly.isInteger() << endl;
+
     d_tableau.addRow(varSlack, coefficients, variables);
     setupInitialValue(varSlack, poly.isInteger());
 
@@ -717,7 +722,7 @@ Node TheoryArith::callDioSolver(){
       Assert(orig.getKind() != EQUAL);
       return orig;
     }else{
-      d_diosolver.addEquality(eq, orig);
+      d_diosolver.pushInputConstraint(eq, orig);
     }
   }
 
@@ -725,7 +730,7 @@ Node TheoryArith::callDioSolver(){
 }
 
 bool TheoryArith::dioCutting(){
-  //ScopedPush speculativePush(getContext());
+  context::Context::ScopedPush speculativePush(getContext());
 
   typedef std::vector<ArithVar>::const_iterator iterator;
   iterator i = d_slackIntegerVariables.begin(), end=d_slackIntegerVariables.end();
@@ -738,8 +743,9 @@ bool TheoryArith::dioCutting(){
         //Add v = dr as a speculation.
         Comparison eq = mkIntegerEqualityFromAssignment(v);
         Assert(!eq.isBoolean());
-        d_diosolver.addEquality(eq, eq.getNode());
-        // It does not matter what the explanation is
+        d_diosolver.pushInputConstraint(eq, eq.getNode());
+        // It does not matter what the explanation of eq is.
+        // It cannot be used in a conflict
       }
     }
   }
