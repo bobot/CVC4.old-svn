@@ -1,6 +1,6 @@
 #pragma once
 
-#include "util/options.h"
+#include "options/options.h"
 ${module_includes}
 
 ${module_optionholder_spec}

@@ -1,4 +1,4 @@
-#include "util/options_holder.h"
+#include "options/options_holder.h"
 
 namespace CVC4 {
 

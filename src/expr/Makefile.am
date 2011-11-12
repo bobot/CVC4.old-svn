@@ -70,8 +70,7 @@ BUILT_SOURCES = \
 	expr_manager.h \
 	expr_manager.cpp \
 	type_checker.cpp \
-	$(top_builddir)/src/theory/.subdirs \
-	$(srcdir)/../util/base_options.h
+	$(top_builddir)/src/theory/.subdirs
 
 CLEANFILES = \
 	kind.h \
@@ -150,5 +149,5 @@ type_checker.cpp: type_checker_template.cpp mkexpr @top_builddir@/src/theory/.su
 		`cat @top_builddir@/src/theory/.subdirs` \
 	> $@) || (rm -f $@ && exit 1)
 
-@srcdir@/../util/base_options.h:
-	$(AM_V_GEN)$(MAKE) -C "../util" base_options.h
+.PHONY: builts
+builts: $(BUILT_SOURCES)

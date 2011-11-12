@@ -9,16 +9,19 @@
 #
 # Invocation:
 #
-#   mkoptions template-file options-files...
-#
-# Output is to standard out.
+#   mkoptions template-file output-file options-files...
 #
 
 copyright=2011
 
 filename=`basename "$1" | sed 's,_template,,'`
 
-cat <<EOF
+me=$(basename "$0")
+
+template=$1; shift
+output=$1; shift
+
+cat >"$output" <<EOF
 /*********************                                                        */
 /** $filename
  **
@@ -49,10 +52,6 @@ cat <<EOF
 /* $1 */
 
 EOF
-
-me=$(basename "$0")
-
-template=$1; shift
 
 module_id=
 module_name=
@@ -315,8 +314,8 @@ function handle_option {
   ${internal}_t::type $internal;"
     module_decls="${module_decls}
 extern struct ${internal}_t { typedef $type type; } $internal;"
-    module_defaults="${module_defaults}
-  $internal($default_value),"
+    module_defaults="${module_defaults:+${module_defaults},}
+  $internal($default_value)"
 
     if ! $readOnly; then
       module_specializations="${module_specializations}
@@ -601,4 +600,4 @@ if [ -n "$error" ]; then
   echo "$template:0: error: undefined replacement \${$error}" >&2
   exit 1
 fi
-echo "$text"
+echo "$text" >>"$output"

@@ -31,13 +31,13 @@
 #include "util/configuration.h"
 #include "util/exception.h"
 #include "util/language.h"
-#include "util/options.h"
-#include "theory/arith/options.h"
-#include "theory/uf/options.h"
-#include "prop/options.h"
+#include "options/options.h"
+#include "options/theory_arith_options.h"
+#include "options/theory_uf_options.h"
+#include "options/prop_options.h"
 #include "util/output.h"
 
-#include "util/options_holder.h"
+#include "options/options_holder.h"
 
 #include "cvc4autoconfig.h"
 
@@ -62,7 +62,11 @@ CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
 #  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
 #endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
 
-Options::Options() : ${module_defaults}
+Options::Options() :
+  d_holder() {
+}
+
+OptionsHolder::OptionsHolder() : ${module_defaults}
 {
 }
 
@@ -269,7 +273,7 @@ static struct option cmdlineOptions[] = {${module_long_options}
 };
 
 static void preemptGetopt(int& argc, char**& argv, char* opt) {
-  const maxoptlen = 128;
+  const size_t maxoptlen = 128;
 
   AlwaysAssert(opt != NULL && *opt != '\0');
   AlwaysAssert(strlen(opt) <= maxoptlen);
@@ -281,7 +285,7 @@ static void preemptGetopt(int& argc, char**& argv, char* opt) {
   }
 
   if(argv[i] == NULL) {
-    argv = (char**) realloc(sizeof(char*) * (i + 6));
+    argv = (char**) realloc(argv, (i + 6) * sizeof(char*));
     for(unsigned j = i; j < i + 5; ++j) {
       argv[j] = (char*) malloc(sizeof(char) * maxoptlen);
       argv[j][0] = '\0';
@@ -304,7 +308,7 @@ throw(OptionException) {
   if(x != NULL) {
     progName = x + 1;
   }
-  d_holder->binary_name = string(progName));
+  d_holder->binary_name = string(progName);
 
   int extra_argc = 0;
   char **extra_argv = (char**) malloc(sizeof(char*));

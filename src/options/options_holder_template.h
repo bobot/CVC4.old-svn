@@ -26,6 +26,7 @@ ${include_all_option_headers}
 namespace CVC4 {
 
 struct OptionsHolder {
+  OptionsHolder();
   ${all_modules_contributions}
 };
 

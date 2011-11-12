@@ -132,6 +132,6 @@ std::ostream& operator<<(std::ostream& out, ArithPivotRule rule) CVC4_PUBLIC;
 
 }/* CVC4 namespace */
 
-#include "util/base_options.h"
+#include "options/base_options.h"
 
 #endif /* __CVC4__OPTIONS_H */

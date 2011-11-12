@@ -103,7 +103,7 @@ option - --print-expr-types void :handler setPrintExprTypes
 expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
  expand define-funs/LAMBDAs lazily
 
-option simplificationMode SimplificationMode :handler stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :include "util/options.h"
+option simplificationMode SimplificationMode :handler stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :include "options/options.h"
  choose simplification mode, see --simplification=help
 
 option doStaticLearning static-learning /--no-static-learning bool :default true
