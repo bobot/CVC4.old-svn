@@ -67,6 +67,7 @@ module_option_handlers=
 include_all_option_headers=
 all_modules_contributions=
 option_handler_includes=
+all_custom_handlers=
 
 seen_module=false
 seen_endmodule=false
@@ -389,12 +390,37 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
   fi
   if [ -n "$cases" ]; then
     if [ "$type" = bool ]; then
+      if [ -n "$handlers" ]; then
+        run_handlers=
+        for handler in $handlers; do
+          run_handlers="$run_handlers
+  $handler(options, option, optarg);"
+        done
+        all_custom_handlers="${all_custom_handlers}
+template <>
+void runBoolHandlers(${internal}_t, Options& options, std::string option, bool b) {
+  $run_handlers
+}"
+      fi
       module_option_handlers="${module_option_handlers}${cases}
       runBoolHandlers($internal, *this, argv[optind], true);
       d_holder->$internal = true;$run_links
       break;
 "
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
+      if [ -n "$handlers" ]; then
+        run_handlers=
+        for handler in $handlers; do
+          run_handlers="$run_handlers
+  $handler(options, option, optarg);"
+        done
+        all_custom_handlers="${all_custom_handlers}
+template <>
+${internal}_t::type runHandlers(${internal}_t, Options& options, std::string option, std::string optarg) {
+  ${internal}_t::type retval = $run_handlers
+  return retval;
+}"
+      fi
       module_option_handlers="${module_option_handlers}${cases}
       d_holder->$internal = runHandlers($internal, *this, argv[optind - 1], optarg);$run_links
       break;
@@ -403,7 +429,7 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
       run_handlers=
       for handler in $handlers; do
         run_handlers="$run_handlers
-      $handler(*this, optarg);"
+      $handler(*this, argv[optind - 1], optarg);"
       done
       module_option_handlers="${module_option_handlers}${cases}
       $run_handlers$run_links
@@ -413,7 +439,7 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
       run_handlers=
       for handler in $handlers; do
         run_handlers="$run_handlers
-      $handler(*this);"
+      $handler(*this, argv[optind]);"
       done
       module_option_handlers="${module_option_handlers}${cases}
       $run_handlers$run_links
@@ -423,6 +449,9 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
   fi
   if [ -n "$cases_alternate" ]; then
     if [ "$type" = bool ]; then
+      if [ -n "$handlers" ]; then
+        echo "$kf:$lineno: FIXME warning: properly emitted runBoolHandlers ??" >&2
+      fi
       module_option_handlers="${module_option_handlers}${cases_alternate}
       runBoolHandlers($internal, *this, argv[optind], false);
       d_holder->$internal = false;$run_links_alternate
@@ -598,6 +627,7 @@ for var in \
     include_all_option_headers \
     all_modules_contributions \
     option_handler_includes \
+    all_custom_handlers \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
 done

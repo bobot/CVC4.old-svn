@@ -84,6 +84,8 @@ void runBoolHandlers(T, Options& options, std::string option, bool b) {
   // provide custom handlers that can throw exceptions.
 }
 
+${all_custom_handlers}
+
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
 #else /* CVC4_DEBUG */
