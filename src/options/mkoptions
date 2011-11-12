@@ -66,7 +66,7 @@ module_long_options=
 module_option_handlers=
 include_all_option_headers=
 all_modules_contributions=
-option_hanlder_includes=
+option_handler_includes=
 
 seen_module=false
 seen_endmodule=false
@@ -294,6 +294,13 @@ function handle_option {
 #include \"${args[$i]}\""
        done
        ;;
+    :handler-include)
+       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
+         let ++i
+         option_handler_includes="${option_handler_includes}
+#include \"${args[$i]}\""
+       done
+       ;;
     :read-write)
        readOnly=false
        ;;
@@ -371,32 +378,32 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
   if [ -n "$links" ]; then
     for link in $links; do
       run_links="$run_links
-      preemptGetOpt(extra_argc, extra_argv, \"$link\");"
+      preemptGetopt(extra_argc, extra_argv, \"$link\");"
     done
   fi
   if [ -n "$links_alternate" ]; then
     for link in $links_alternate; do
       run_links_alternate="$run_links_alternate
-      preemptGetOpt(extra_argc, extra_argv, \"$link\");"
+      preemptGetopt(extra_argc, extra_argv, \"$link\");"
     done
   fi
   if [ -n "$cases" ]; then
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases}
-      runHandlers($internal, true);
-      set($internal, true);$run_links
+      runBoolHandlers($internal, *this, argv[optind], true);
+      d_holder->$internal = true;$run_links
       break;
 "
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
       module_option_handlers="${module_option_handlers}${cases}
-      set($internal, runHandlers($internal, optarg));$run_links
+      d_holder->$internal = runHandlers($internal, *this, argv[optind - 1], optarg);$run_links
       break;
 "
     elif [ -n "$expect_arg" ]; then
       run_handlers=
       for handler in $handlers; do
         run_handlers="$run_handlers
-      $handler(optarg);"
+      $handler(*this, optarg);"
       done
       module_option_handlers="${module_option_handlers}${cases}
       $run_handlers$run_links
@@ -406,7 +413,7 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
       run_handlers=
       for handler in $handlers; do
         run_handlers="$run_handlers
-      $handler();"
+      $handler(*this);"
       done
       module_option_handlers="${module_option_handlers}${cases}
       $run_handlers$run_links
@@ -417,8 +424,8 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
   if [ -n "$cases_alternate" ]; then
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases_alternate}
-      runHandlers($internal, false);
-      set($internal, false);$run_links_alternate
+      runBoolHandlers($internal, *this, argv[optind], false);
+      d_holder->$internal = false;$run_links_alternate
       break;
 "
     else

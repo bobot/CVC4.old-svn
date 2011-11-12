@@ -36,7 +36,7 @@
 #include "expr/command.h"
 #include "util/Assert.h"
 #include "util/configuration.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/output.h"
 #include "util/result.h"
 #include "util/stats.h"

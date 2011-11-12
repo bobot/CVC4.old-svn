@@ -25,7 +25,7 @@
 #include "smt2/smt2.h"
 
 #include "expr/expr_manager.h"
-#include "util/options.h"
+#include "options/options.h"
 
 namespace CVC4 {
 

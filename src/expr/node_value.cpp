@@ -25,7 +25,7 @@
 #include "expr/kind.h"
 #include "expr/metakind.h"
 #include "util/language.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "printer/printer.h"
 #include <sstream>
 

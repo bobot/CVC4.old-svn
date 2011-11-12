@@ -26,7 +26,7 @@
 
 #include "util/Assert.h"
 #include "util/exception.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/stats.h"
 
 #include "cvc4autoconfig.h"

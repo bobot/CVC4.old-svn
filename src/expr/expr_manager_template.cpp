@@ -19,7 +19,7 @@
 #include "expr/node_manager.h"
 #include "expr/expr_manager.h"
 #include "context/context.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/stats.h"
 
 #include <map>

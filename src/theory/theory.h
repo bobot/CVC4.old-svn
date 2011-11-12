@@ -30,7 +30,7 @@
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "context/cdo.h"
-#include "util/options.h"
+#include "options/options.h"
 
 #include <string>
 #include <iostream>

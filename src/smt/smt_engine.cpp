@@ -39,7 +39,7 @@
 #include "util/boolean_simplification.h"
 #include "util/configuration.h"
 #include "util/exception.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/output.h"
 #include "util/hash.h"
 #include "theory/substitutions.h"

@@ -31,7 +31,7 @@
 #include "theory/arith/partial_model.h"
 #include "theory/arith/arith_prop_manager.h"
 
-#include "util/options.h"
+#include "options/options.h"
 
 #include "util/stats.h"
 

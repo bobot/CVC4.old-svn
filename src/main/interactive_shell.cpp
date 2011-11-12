@@ -33,7 +33,7 @@
 #include "parser/input.h"
 #include "parser/parser.h"
 #include "parser/parser_builder.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/language.h"
 
 #include <string.h>

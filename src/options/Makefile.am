@@ -12,13 +12,7 @@ nodist_liboptions_la_SOURCES = \
 	options.cpp \
 	options_holder.h \
 	base_options.cpp \
-	base_options.h \
-	prop_options.cpp \
-	prop_options.h \
-	theory_uf_options.h \
-	theory_uf_options.cpp \
-	theory_arith_options.cpp \
-	theory_arith_options.h
+	base_options.h
 
 BUILT_SOURCES = \
 	options.cpp \

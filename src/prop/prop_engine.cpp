@@ -23,7 +23,7 @@
 #include "theory/theory_engine.h"
 #include "theory/registrar.h"
 #include "util/Assert.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/output.h"
 #include "util/result.h"
 #include "expr/expr.h"

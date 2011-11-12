@@ -12,7 +12,7 @@ common-option - -V --version void :handler showVersion
 common-option - -h --help void :handler showHelp
  full command line reference
 
-common-option inputLanguage -L --lang InputLanguage :handler stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :include "options/base_options_handlers.h"
+common-option inputLanguage -L --lang InputLanguage :handler stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :handler-include "options/base_options_handlers.h"
  force input language (default is `auto'; see --lang help)
 common-option outputLanguage --output-lang OutputLanguage :handler stringToOutputLanguage :include "util/language.h" :default language::output::LANG_AUTO
  force input language (default is `auto'; see --lang help)

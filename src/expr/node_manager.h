@@ -40,7 +40,7 @@
 #include "context/context.h"
 #include "util/configuration_private.h"
 #include "util/tls.h"
-#include "util/options.h"
+#include "options/options.h"
 
 namespace CVC4 {
 

@@ -21,7 +21,7 @@
 #include "expr/node_manager.h"
 
 #include "util/Assert.h"
-#include "util/options.h"
+#include "options/options.h"
 #include "util/stats.h"
 #include "util/tls.h"
 

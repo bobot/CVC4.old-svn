@@ -32,9 +32,9 @@
 #include "util/exception.h"
 #include "util/language.h"
 #include "options/options.h"
-#include "options/theory_arith_options.h"
-#include "options/theory_uf_options.h"
-#include "options/prop_options.h"
+#include "theory/arith/options.h"
+#include "theory/uf/options.h"
+#include "prop/options.h"
 #include "util/output.h"
 
 #include "options/options_holder.h"
@@ -49,6 +49,40 @@ using namespace CVC4;
 namespace CVC4 {
 
 CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
+
+template <class T> T handleOption(std::string option, std::string optarg);
+
+template <> int handleOption<int>(std::string option, std::string optarg) {
+  return atoi(optarg.c_str());
+}
+
+template <> double handleOption<double>(std::string option, std::string optarg) {
+  return atof(optarg.c_str());
+}
+
+template <> unsigned long handleOption<unsigned long>(std::string option, std::string optarg) {
+  int i = atoi(optarg.c_str());
+  if(i < 0) {
+    throw OptionException(option + " requires a nonnegative argument.");
+  }
+  return (unsigned long) i;
+}
+
+template <class T>
+typename T::type runHandlers(T, Options& options, std::string option, std::string optarg) {
+  // By default, parse the option argument in a way appropriate for its type.
+  // E.g., for "unsigned int" options, ensure that the provided argument is
+  // a nonnegative integer that fits in the unsigned int type.
+
+  return handleOption<typename T::type>(option, optarg);
+}
+
+template <class T>
+void runBoolHandlers(T, Options& options, std::string option, bool b) {
+  // By default, nothing to handle with bool.
+  // Users override with :handler in options files to
+  // provide custom handlers that can throw exceptions.
+}
 
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
@@ -145,88 +179,6 @@ Languages currently supported as arguments to the --output-lang option:\n\
   ast            internal format (simple syntax-tree language)\n\
 ";
 
-static const string simplificationHelp = "\
-Simplification modes currently supported by the --simplification option:\n\
-\n\
-batch (default) \n\
-+ save up all ASSERTions; run nonclausal simplification and clausal\n\
-  (MiniSat) propagation for all of them only after reaching a querying command\n\
-  (CHECKSAT or QUERY or predicate SUBTYPE declaration)\n\
-\n\
-incremental\n\
-+ run nonclausal simplification and clausal propagation at each ASSERT\n\
-  (and at CHECKSAT/QUERY/SUBTYPE)\n\
-\n\
-none\n\
-+ do not perform nonclausal simplification\n\
-";
-
-static const string dumpHelp = "\
-Dump modes currently supported by the --dump option:\n\
-\n\
-benchmark\n\
-+ Dump the benchmark structure (set-logic, push/pop, queries, etc.), but\n\
-  does not include any declarations or assertions.  Implied by all following\n\
-  modes.\n\
-\n\
-declarations\n\
-+ Dump declarations.  Implied by all following modes.\n\
-\n\
-assertions\n\
-+ Output the assertions after non-clausal simplification and static\n\
-  learning phases, but before presolve-time T-lemmas arrive.  If\n\
-  non-clausal simplification and static learning are off\n\
-  (--simplification=none --no-static-learning), the output\n\
-  will closely resemble the input (with term-level ITEs removed).\n\
-\n\
-learned\n\
-+ Output the assertions after non-clausal simplification, static\n\
-  learning, and presolve-time T-lemmas.  This should include all eager\n\
-  T-lemmas (in the form provided by the theory, which my or may not be\n\
-  clausal).  Also includes level-0 BCP done by Minisat.\n\
-\n\
-clauses\n\
-+ Do all the preprocessing outlined above, and dump the CNF-converted\n\
-  output\n\
-\n\
-state\n\
-+ Dump all contextual assertions (e.g., SAT decisions, propagations..).\n\
-  Implied by all \"stateful\" modes below and conflicts with all\n\
-  non-stateful modes below.\n\
-\n\
-t-conflicts [non-stateful]\n\
-+ Output correctness queries for all theory conflicts\n\
-\n\
-missed-t-conflicts [stateful]\n\
-+ Output completeness queries for theory conflicts\n\
-\n\
-t-propagations [stateful]\n\
-+ Output correctness queries for all theory propagations\n\
-\n\
-missed-t-propagations [stateful]\n\
-+ Output completeness queries for theory propagations (LARGE and EXPENSIVE)\n\
-\n\
-t-lemmas [non-stateful]\n\
-+ Output correctness queries for all theory lemmas\n\
-\n\
-t-explanations [non-stateful]\n\
-+ Output correctness queries for all theory explanations\n\
-\n\
-Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
-one from the assertions category (either asertions, learned, or clauses), and\n\
-perhaps one or more stateful or non-stateful modes for checking correctness\n\
-and completeness of decision procedure implementations.  Stateful modes dump\n\
-the contextual assertions made by the core solver (all decisions and propagations\n\
-as assertions; that affects the validity of the resulting correctness and\n\
-completeness queries, so of course stateful and non-stateful modes cannot\n\
-be mixed in the same run.\n\
-\n\
-The --output-language option controls the language used for dumping, and\n\
-this allows you to connect CVC4 to another solver implementation via a UNIX\n\
-pipe to perform on-line checking.  The --dump-to option can be used to dump\n\
-to a file.\n\
-";
-
 string Options::getDescription() const {
   return optionsDescription;
 }
@@ -272,7 +224,7 @@ static struct option cmdlineOptions[] = {${module_long_options}
   { NULL, no_argument, NULL, '\0' }
 };
 
-static void preemptGetopt(int& argc, char**& argv, char* opt) {
+static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
 
   AlwaysAssert(opt != NULL && *opt != '\0');
@@ -358,7 +310,7 @@ ${module_option_handlers}
     }
   }
 
-  if(incrementalSolving && proof) {
+  if((*this)[incrementalSolving] && (*this)[proof]) {
     throw OptionException(string("The use of --incremental with --proof is not yet supported"));
   }
 

@@ -2,43 +2,130 @@
 #define __CVC4__BASE_OPTIONS_HANDLERS_H
 
 #include "options/options.h"
+#include "options/base_options.h"
+
+#include <iostream>
+#include <string>
 
 namespace CVC4 {
 
-inline void showVersion(const Options& options) {
+static const std::string dumpHelp = "\
+Dump modes currently supported by the --dump option:\n\
+\n\
+benchmark\n\
++ Dump the benchmark structure (set-logic, push/pop, queries, etc.), but\n\
+  does not include any declarations or assertions.  Implied by all following\n\
+  modes.\n\
+\n\
+declarations\n\
++ Dump declarations.  Implied by all following modes.\n\
+\n\
+assertions\n\
++ Output the assertions after non-clausal simplification and static\n\
+  learning phases, but before presolve-time T-lemmas arrive.  If\n\
+  non-clausal simplification and static learning are off\n\
+  (--simplification=none --no-static-learning), the output\n\
+  will closely resemble the input (with term-level ITEs removed).\n\
+\n\
+learned\n\
++ Output the assertions after non-clausal simplification, static\n\
+  learning, and presolve-time T-lemmas.  This should include all eager\n\
+  T-lemmas (in the form provided by the theory, which my or may not be\n\
+  clausal).  Also includes level-0 BCP done by Minisat.\n\
+\n\
+clauses\n\
++ Do all the preprocessing outlined above, and dump the CNF-converted\n\
+  output\n\
+\n\
+state\n\
++ Dump all contextual assertions (e.g., SAT decisions, propagations..).\n\
+  Implied by all \"stateful\" modes below and conflicts with all\n\
+  non-stateful modes below.\n\
+\n\
+t-conflicts [non-stateful]\n\
++ Output correctness queries for all theory conflicts\n\
+\n\
+missed-t-conflicts [stateful]\n\
++ Output completeness queries for theory conflicts\n\
+\n\
+t-propagations [stateful]\n\
++ Output correctness queries for all theory propagations\n\
+\n\
+missed-t-propagations [stateful]\n\
++ Output completeness queries for theory propagations (LARGE and EXPENSIVE)\n\
+\n\
+t-lemmas [non-stateful]\n\
++ Output correctness queries for all theory lemmas\n\
+\n\
+t-explanations [non-stateful]\n\
++ Output correctness queries for all theory explanations\n\
+\n\
+Dump modes can be combined with multiple uses of --dump.  Generally you want\n\
+one from the assertions category (either asertions, learned, or clauses), and\n\
+perhaps one or more stateful or non-stateful modes for checking correctness\n\
+and completeness of decision procedure implementations.  Stateful modes dump\n\
+the contextual assertions made by the core solver (all decisions and propagations\n\
+as assertions; that affects the validity of the resulting correctness and\n\
+completeness queries, so of course stateful and non-stateful modes cannot\n\
+be mixed in the same run.\n\
+\n\
+The --output-language option controls the language used for dumping, and\n\
+this allows you to connect CVC4 to another solver implementation via a UNIX\n\
+pipe to perform on-line checking.  The --dump-to option can be used to dump\n\
+to a file.\n\
+";
+
+static const std::string simplificationHelp = "\
+Simplification modes currently supported by the --simplification option:\n\
+\n\
+batch (default) \n\
++ save up all ASSERTions; run nonclausal simplification and clausal\n\
+  (MiniSat) propagation for all of them only after reaching a querying command\n\
+  (CHECKSAT or QUERY or predicate SUBTYPE declaration)\n\
+\n\
+incremental\n\
++ run nonclausal simplification and clausal propagation at each ASSERT\n\
+  (and at CHECKSAT/QUERY/SUBTYPE)\n\
+\n\
+none\n\
++ do not perform nonclausal simplification\n\
+";
+
+
+inline void showVersion(Options& options) {
 }
 
-inline void showHelp(const Options& options) {
+inline void showHelp(Options& options) {
 }
 
-inline int increaseVerbosity(const Options& options) {
-  return options[verbosity] + 1;
+inline void increaseVerbosity(Options& options) {
+  options.set(verbosity, options[verbosity] + 1);
 }
 
-inline void decreaseVerbosity(const Options& options) {
-  return options[verbosity] - 1;
+inline void decreaseVerbosity(Options& options) {
+  options.set(verbosity, options[verbosity] - 1);
 }
 
-inline void dumpMode(const Options& options, std::string optarg) {
+inline void dumpMode(Options& options, std::string optarg) {
 #ifdef CVC4_DUMPING
   char* optargPtr = strdup(optarg.c_str());
   char* tokstr = optargPtr;
   char* toksave;
-  while((optarg = strtok_r(tokstr, ",", &toksave)) != NULL) {
+  while((optargPtr = strtok_r(tokstr, ",", &toksave)) != NULL) {
     tokstr = NULL;
-    if(!strcmp(optarg, "benchmark")) {
-    } else if(!strcmp(optarg, "declarations")) {
-    } else if(!strcmp(optarg, "assertions")) {
-    } else if(!strcmp(optarg, "learned")) {
-    } else if(!strcmp(optarg, "clauses")) {
-    } else if(!strcmp(optarg, "t-conflicts") ||
-              !strcmp(optarg, "t-lemmas") ||
-              !strcmp(optarg, "t-explanations")) {
+    if(!strcmp(optargPtr, "benchmark")) {
+    } else if(!strcmp(optargPtr, "declarations")) {
+    } else if(!strcmp(optargPtr, "assertions")) {
+    } else if(!strcmp(optargPtr, "learned")) {
+    } else if(!strcmp(optargPtr, "clauses")) {
+    } else if(!strcmp(optargPtr, "t-conflicts") ||
+              !strcmp(optargPtr, "t-lemmas") ||
+              !strcmp(optargPtr, "t-explanations")) {
       // These are "non-state-dumping" modes.  If state (SAT decisions,
       // propagations, etc.) is dumped, it will interfere with the validity
       // of these generated queries.
       if(Dump.isOn("state")) {
-        throw OptionException(string("dump option `") + optarg +
+        throw OptionException(std::string("dump option `") + optargPtr +
                               "' conflicts with a previous, "
                               "state-dumping dump option.  You cannot "
                               "mix stateful and non-stateful dumping modes; "
@@ -46,15 +133,15 @@ inline void dumpMode(const Options& options, std::string optarg) {
       } else {
         Dump.on("no-permit-state");
       }
-    } else if(!strcmp(optarg, "state") ||
-              !strcmp(optarg, "missed-t-conflicts") ||
-              !strcmp(optarg, "t-propagations") ||
-              !strcmp(optarg, "missed-t-propagations")) {
+    } else if(!strcmp(optargPtr, "state") ||
+              !strcmp(optargPtr, "missed-t-conflicts") ||
+              !strcmp(optargPtr, "t-propagations") ||
+              !strcmp(optargPtr, "missed-t-propagations")) {
       // These are "state-dumping" modes.  If state (SAT decisions,
       // propagations, etc.) is not dumped, it will interfere with the
       // validity of these generated queries.
       if(Dump.isOn("no-permit-state")) {
-        throw OptionException(string("dump option `") + optarg +
+        throw OptionException(std::string("dump option `") + optargPtr +
                               "' conflicts with a previous, "
                               "non-state-dumping dump option.  You cannot "
                               "mix stateful and non-stateful dumping modes; "
@@ -62,17 +149,17 @@ inline void dumpMode(const Options& options, std::string optarg) {
       } else {
         Dump.on("state");
       }
-    } else if(!strcmp(optarg, "help")) {
+    } else if(!strcmp(optargPtr, "help")) {
       puts(dumpHelp.c_str());
       exit(1);
     } else {
-      throw OptionException(string("unknown option for --dump: `") +
-                            optarg + "'.  Try --dump help.");
+      throw OptionException(std::string("unknown option for --dump: `") +
+                            optargPtr + "'.  Try --dump help.");
     }
 
-    Dump.on(optarg);
+    Dump.on(optargPtr);
     Dump.on("benchmark");
-    if(strcmp(optarg, "benchmark")) {
+    if(strcmp(optargPtr, "benchmark")) {
       Dump.on("declarations");
     }
   }
@@ -82,16 +169,16 @@ inline void dumpMode(const Options& options, std::string optarg) {
 #endif /* CVC4_DUMPING */
 }
 
-inline void dumpToFile(const Options& options, std::string optarg) {
+inline void dumpToFile(Options& options, std::string optarg) {
 #ifdef CVC4_DUMPING
   if(optarg == "") {
-    throw OptionException(string("Bad file name for --dump-to"));
+    throw OptionException(std::string("Bad file name for --dump-to"));
   } else if(optarg == "-") {
     Dump.setStream(DumpC::dump_cout);
   } else {
-    ostream* dumpTo = new ofstream(optarg, ofstream::out | ofstream::trunc);
+    std::ostream* dumpTo = new std::ofstream(optarg.c_str(), std::ofstream::out | std::ofstream::trunc);
     if(!*dumpTo) {
-      throw OptionException(string("Cannot open dump-to file (maybe it exists): `") + optarg + "'");
+      throw OptionException(std::string("Cannot open dump-to file (maybe it exists): `") + optarg + "'");
     }
     Dump.setStream(*dumpTo);
   }
@@ -100,56 +187,47 @@ inline void dumpToFile(const Options& options, std::string optarg) {
 #endif /* CVC4_DUMPING */
 }
 
-inline void setOutputLanguage(const Options& options, std::string optarg) throw(OptionException) {
-  if(str == "cvc4" || str == "pl") {
-    outputLanguage = language::output::LANG_CVC4;
-    return;
-  } else if(str == "smtlib" || str == "smt") {
-    outputLanguage = language::output::LANG_SMTLIB;
-    return;
-  } else if(str == "smtlib2" || str == "smt2") {
-    outputLanguage = language::output::LANG_SMTLIB_V2;
-    return;
-  } else if(str == "ast") {
-    outputLanguage = language::output::LANG_AST;
-    return;
-  } else if(str == "auto") {
-    outputLanguage = language::output::LANG_AUTO;
-    return;
+inline OutputLanguage stringToOutputLanguage(Options& options, std::string optarg) throw(OptionException) {
+  if(optarg == "cvc4" || optarg == "pl") {
+    return language::output::LANG_CVC4;
+  } else if(optarg == "smtlib" || optarg == "smt") {
+    return language::output::LANG_SMTLIB;
+  } else if(optarg == "smtlib2" || optarg == "smt2") {
+    return language::output::LANG_SMTLIB_V2;
+  } else if(optarg == "ast") {
+    return language::output::LANG_AST;
+  } else if(optarg == "auto") {
+    return language::output::LANG_AUTO;
   }
 
-  if(strcmp(str, "help")) {
-    throw OptionException(string("unknown language for --output-lang: `") +
-                          str + "'.  Try --output-lang help.");
+  if(optarg != "help") {
+    throw OptionException(std::string("unknown language for --output-lang: `") +
+                          optarg + "'.  Try --output-lang help.");
   }
 
-  languageHelp = true;
+  options.set(languageHelp, true);
 }
 
-inline void setInputLanguage(const Options& options, std::string optarg) throw(OptionException) {
-  if(str == "cvc4" || str == "pl" || str == "presentation") {
-    inputLanguage = language::input::LANG_CVC4;
-    return;
-  } else if(str == "smtlib" || str == "smt") {
-    inputLanguage = language::input::LANG_SMTLIB;
-    return;
-  } else if(str == "smtlib2" || str == "smt2") {
-    inputLanguage = language::input::LANG_SMTLIB_V2;
-    return;
-  } else if(str == "auto") {
-    inputLanguage = language::input::LANG_AUTO;
-    return;
+inline InputLanguage stringToInputLanguage(Options& options, std::string optarg) throw(OptionException) {
+  if(optarg == "cvc4" || optarg == "pl" || optarg == "presentation") {
+    return language::input::LANG_CVC4;
+  } else if(optarg == "smtlib" || optarg == "smt") {
+    return language::input::LANG_SMTLIB;
+  } else if(optarg == "smtlib2" || optarg == "smt2") {
+    return language::input::LANG_SMTLIB_V2;
+  } else if(optarg == "auto") {
+    return language::input::LANG_AUTO;
   }
 
-  if(str == "help") {
-    throw OptionException(string("unknown language for --lang: `") +
-                          str + "'.  Try --lang help.");
+  if(optarg != "help") {
+    throw OptionException(std::string("unknown language for --lang: `") +
+                          optarg + "'.  Try --lang help.");
   }
 
-  languageHelp = true;
+  options.set(languageHelp, true);
 }
 
-inline void showConfiguration(const Options& options) {
+inline void showConfiguration(Options& options) {
   fputs(Configuration::about().c_str(), stdout);
   printf("\n");
   printf("version    : %s\n", Configuration::getVersionString().c_str());
@@ -187,41 +265,32 @@ inline void showConfiguration(const Options& options) {
   exit(0);
 }
 
-inline void preemptGetOpt(const Options& options) {
-}
-
-inline void addTraceTag(const Options& options, std::string optarg) {
+inline void addTraceTag(Options& options, std::string optarg) {
   Trace.on(optarg);
 }
 
-inline void addDebugTag(const Options& options) {
+inline void addDebugTag(Options& options, std::string optarg) {
   Debug.on(optarg);
   Trace.on(optarg);
 }
 
-inline InputLanguage stringToInputLanguage(const Options& options, std::string optarg) {
-}
-
-inline OutputLanguage stringToOutputLanguage(const Options& options, std::string optarg) {
-}
-
-inline SimplificationMode stringToOutputLanguage(const Options& options, std::string optarg) {
+inline SimplificationMode stringToSimplificationNode(Options& options, std::string optarg) {
   if(optarg == "batch") {
-    simplificationMode = SIMPLIFICATION_MODE_BATCH;
+    return SIMPLIFICATION_MODE_BATCH;
   } else if(optarg == "incremental") {
-    simplificationMode = SIMPLIFICATION_MODE_INCREMENTAL;
+    return SIMPLIFICATION_MODE_INCREMENTAL;
   } else if(optarg == "none") {
-    simplificationMode = SIMPLIFICATION_MODE_NONE;
+    return SIMPLIFICATION_MODE_NONE;
   } else if(optarg == "help") {
     puts(simplificationHelp.c_str());
     exit(1);
   } else {
-    throw OptionException(string("unknown option for --simplification: `") +
+    throw OptionException(std::string("unknown option for --simplification: `") +
                           optarg + "'.  Try --simplification help.");
   }
 }
 
-inline void showDebugTags(const Options& options) {
+inline void showDebugTags(Options& options) {
   if(Configuration::isDebugBuild()) {
     printf("available tags:");
     unsigned ntags = Configuration::getNumDebugTags();
@@ -236,7 +305,7 @@ inline void showDebugTags(const Options& options) {
   exit(0);
 }
 
-inline void showTraceTags(const Options& options) {
+inline void showTraceTags(Options& options) {
   if(Configuration::isTracingBuild()) {
     printf("available tags:");
     unsigned ntags = Configuration::getNumTraceTags();
@@ -251,8 +320,8 @@ inline void showTraceTags(const Options& options) {
   exit(0);
 }
 
-inline void setDefaultExprDepth(const Options& options) {
-  int depth = atoi(optarg);
+inline void setDefaultExprDepth(Options& options, std::string optarg) {
+  int depth = atoi(optarg.c_str());
 
   Debug.getStream() << Expr::setdepth(depth);
   Trace.getStream() << Expr::setdepth(depth);
@@ -262,7 +331,7 @@ inline void setDefaultExprDepth(const Options& options) {
   Warning.getStream() << Expr::setdepth(depth);
 }
 
-inline void setPrintExprTypes(const Options& options) {
+inline void setPrintExprTypes(Options& options) {
   Debug.getStream() << Expr::printtypes(true);
   Trace.getStream() << Expr::printtypes(true);
   Notice.getStream() << Expr::printtypes(true);
@@ -271,36 +340,34 @@ inline void setPrintExprTypes(const Options& options) {
   Warning.getStream() << Expr::printtypes(true);
 }
 
-inline double stringToRandomFreq(const Options& options, std::string optarg) {
+inline double stringToRandomFreq(Options& options, std::string optarg) {
   double d = atof(optarg.c_str());
   if(! (0.0 <= d && d <= 1.0)){
-    throw OptionException(string("--random-freq: `") +
+    throw OptionException(std::string("--random-freq: `") +
                           optarg + "' is not between 0.0 and 1.0.");
   }
 }
 
-inline ArithPivotRule stringToArithPivotRule(const Options& options, std::string optarg) {
-  if(!strcmp(optarg, "min")) {
+inline ArithPivotRule stringToArithPivotRule(Options& options, std::string optarg) {
+  if(optarg == "min") {
     return MINIMUM;
-  } else if(!strcmp(optarg, "min-break-ties")) {
+  } else if(optarg == "min-break-ties") {
     return BREAK_TIES;
-  } else if(!strcmp(optarg, "max")) {
+  } else if(optarg == "max") {
     return MAXIMUM;
-  } else if(!strcmp(optarg, "help")) {
+  } else if(optarg == "help") {
     printf("Pivot rules available:\n");
     printf("min\n");
     printf("min-break-ties\n");
     printf("max\n");
     exit(1);
   } else {
-    throw OptionException(string("unknown option for --pivot-rule: `") +
+    throw OptionException(std::string("unknown option for --pivot-rule: `") +
                           optarg + "'.  Try --pivot-rule help.");
   }
 }
 
 }/* CVC4 namespace */
-
-//runHandlers
 
 #endif /* __CVC4__BASE_OPTIONS_HANDLERS_H */
 

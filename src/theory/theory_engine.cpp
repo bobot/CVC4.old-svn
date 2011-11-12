@@ -22,7 +22,7 @@
 #include "expr/attribute.h"
 #include "expr/node.h"
 #include "expr/node_builder.h"
-#include "util/options.h"
+#include "options/options.h"
 
 #include "theory/theory.h"
 #include "theory/theory_engine.h"
