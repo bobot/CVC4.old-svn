@@ -1,3 +1,69 @@
+# option file for CVC4
+#
+# This is essentially a shell script interpreted with special commands.
+#
+# Lines starting with whitespace are special.  They are passed in their entirety (minus
+# the first whitespace char) to the "doc" command.  Lines starting with a single slash
+# are stripped of this initial character and interpreted by the "doc-alt" command.  A period
+# "." in the first column of a line, followed optionally by whitespace but without any other
+# content on the line, is interpreted as an empty string passed to doc.  (This allows
+# multi-paragraph documentation for options.)  Lines may be continued with a backslash (\)
+# at the end of a line.
+#
+# commands are:
+#
+#   module ID name
+#
+#     Identifies the module.  Must be the first command in the file.  ID is a suitable
+#     identifier for a preprocessor definition, and should be unique; name is a "pretty"
+#     name used for the benefit of the end CVC4 user in, e.g., option listings.
+#
+#   common-option SPECIFICATION
+#   option SPECIFICATION
+#   expert-option SPECIFICATION
+#   undocumented-option SPECIFICATION
+#
+#     These commands declare (respectively) common options presented first to the user,
+#     standard options that the user might want to see with "--help" documentation,
+#     expert options that should be marked as expert-only, and options that should not
+#     appear in normal option documentation (even if documentation is included here).
+#
+#     SPECIFICATIONs take this form:
+#
+#       SPECIFICATION ::= (internal-name | -) [-short-option/-alternate-short-option] [--long-option/--alternate-long-option] [smt-option-name] C++-type [ATTRIBUTEs...]
+#       ATTRIBUTE ::=   :include include-files..
+#                     | :default C++-expression
+#                     | :handler custom-option-handlers..
+#                     | :handler-include include-files..
+#                     | :read-only
+#                     | :read-write
+#                     | :link linked-options..
+#
+#   alias smt-option-name = (smt-option-name[=argument])+
+#   alias (-short-option | --long-option) = (-option[=argument] | --long-option[=argument])+
+#
+#     ALIASES ARE NOT SUPPORTED YET.
+#
+#     The alias command creates a new SmtEngine option name, or short option, or long option,
+#     and binds it to act the same way as if the options to the right of "=" were passed.
+#     For example, if there are options to --disable-warning-1 and --disable-warning-2, etc.,
+#     a useful alias might be:
+#
+#       alias --disable-all-warnings = --disable-warning-1 --disable-warning-2
+#
+#     Aliases cannot take arguments, and command-line aliases cannot set SmtEngine properties,
+#     and SmtEngine aliases cannot set command-line properties.  For these things, you need a
+#     custom handler.
+#
+#   warning message
+#
+#     Warn about something during processing (like a FIXME).
+#
+#   endmodule
+#
+#     This file should end with the "endmodule" command, and nothing should follow it.
+#
+
 module BASE Base
 
 option binary_name std::string
@@ -12,9 +78,9 @@ common-option version -V --version/ bool
 common-option help -h --help/ bool
  full command line reference
 
-common-option inputLanguage -L --lang InputLanguage :handler stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :handler-include "options/base_options_handlers.h"
+common-option inputLanguage -L --lang=LANG InputLanguage :handler stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :handler-include "options/base_options_handlers.h"
  force input language (default is `auto'; see --lang help)
-common-option outputLanguage --output-lang OutputLanguage :handler stringToOutputLanguage :include "util/language.h" :default language::output::LANG_AUTO
+common-option outputLanguage --output-lang=LANG OutputLanguage :handler stringToOutputLanguage :include "util/language.h" :default language::output::LANG_AUTO
  force input language (default is `auto'; see --lang help)
 option languageHelp bool
 
@@ -45,7 +111,7 @@ common-option - --show-config void :handler showConfiguration
 common-option strictParsing --strict-parsing bool
  be less tolerant of non-conforming inputs
 
-common-option interactive --interactive bool
+common-option interactive --interactive bool :handler setInteractiveByUser
  force interactive mode
 option interactiveSetByUser bool
 
@@ -86,9 +152,9 @@ option semanticChecks /--no-checking bool :default DO_SEMANTIC_CHECKS_BY_DEFAULT
 expert-option theoryRegistration /--no-theory-registration bool :default true
  disable theory reg (not safe for some theories)
 
-option - -t --trace argument :handler addTraceTag
+option - -t --trace=TAG argument :handler addTraceTag
  trace something (e.g. -t pushpop), can repeat
-option - -d --debug argument :handler addDebugTag
+option - -d --debug=TAG argument :handler addDebugTag
  debug something (e.g. -d arith), can repeat
 option - --show-debug-tags void :handler showDebugTags
  show all available tags for debugging
@@ -103,7 +169,7 @@ option - --print-expr-types void :handler setPrintExprTypes
 expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
  expand define-funs/LAMBDAs lazily
 
-option simplificationMode SimplificationMode :handler stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :include "options/options.h"
+option simplificationMode --simplification=MODE SimplificationMode :handler stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :include "options/options.h"
  choose simplification mode, see --simplification=help
 
 option doStaticLearning static-learning /--no-static-learning bool :default true

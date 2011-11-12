@@ -68,6 +68,8 @@ include_all_option_headers=
 all_modules_contributions=
 option_handler_includes=
 all_custom_handlers=
+common_documentation=
+remaining_documentation=
 
 seen_module=false
 seen_endmodule=false
@@ -156,6 +158,9 @@ function handle_option {
   handlers=
   links=
   links_alternate=
+
+  options_already_documented=false
+  alternate_options_already_documented=false
 
   if [ "$category" = UNDOCUMENTED ]; then
     expect_doc=false
@@ -249,6 +254,11 @@ function handle_option {
     exit 1
   fi
 
+  if [ "$type" = bool -a -n "$long_option$short_option" -a "$category" != UNDOCUMENTED ]; then
+    if [ -n "$short_option_alternate" -o -n "$long_option_alternate" ]; then
+      expect_doc_alternate=true
+    fi
+  fi
   if [ "$type" = bool -a -n "$long_option" -a -z "$long_option_alternate" -a -z "$long_option_alternate_set" ]; then
     long_option_alternate="no-$(echo "$long_option" | sed 's,^--,,')"
   fi
@@ -388,20 +398,21 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
       preemptGetopt(extra_argc, extra_argv, \"$link\");"
     done
   fi
-  if [ -n "$cases" ]; then
-    if [ "$type" = bool ]; then
-      if [ -n "$handlers" ]; then
-        run_handlers=
-        for handler in $handlers; do
-          run_handlers="$run_handlers
-  $handler(options, option, optarg);"
-        done
-        all_custom_handlers="${all_custom_handlers}
+  if [ "$type" = bool -a -n "$cases" -o -n "$cases_alternate" ] && [ -n "$handlers" ]; then
+    # this is a case where we need to emit a runBoolHandlers() template specialization for use below
+    run_handlers=
+    for handler in $handlers; do
+      run_handlers="$run_handlers
+  $handler(options, option, b);"
+    done
+    all_custom_handlers="${all_custom_handlers}
 template <>
 void runBoolHandlers(${internal}_t, Options& options, std::string option, bool b) {
   $run_handlers
 }"
-      fi
+  fi
+  if [ -n "$cases" ]; then
+    if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases}
       runBoolHandlers($internal, *this, argv[optind], true);
       d_holder->$internal = true;$run_links
@@ -449,9 +460,6 @@ ${internal}_t::type runHandlers(${internal}_t, Options& options, std::string opt
   fi
   if [ -n "$cases_alternate" ]; then
     if [ "$type" = bool ]; then
-      if [ -n "$handlers" ]; then
-        echo "$kf:$lineno: FIXME warning: properly emitted runBoolHandlers ??" >&2
-      fi
       module_option_handlers="${module_option_handlers}${cases_alternate}
       runBoolHandlers($internal, *this, argv[optind], false);
       d_holder->$internal = false;$run_links_alternate
@@ -474,6 +482,14 @@ function alias {
   exit 1
 }
 
+function warning {
+  # warning message
+  check_module_seen
+  check_doc
+
+  echo "$kf:$lineno: warning: $@" >&2
+}
+
 function doc {
   # doc text...
   check_module_seen
@@ -490,7 +506,43 @@ function doc {
     fi
   fi
 
-  # do doc
+  if [ "$category" = UNDOCUMENTED ]; then
+    return
+  fi
+
+  if ! $options_already_documented; then
+    options_already_documented=true
+    doc_line=
+    if [ "$long_option" ]; then
+      doc_line="  --$long_option"
+      if [ "$short_option" ]; then
+        doc_line="$doc_line | -$short_option"
+      fi
+    elif [ "$short_option" ]; then
+      doc_line="  -$short_option"
+    fi
+    if [ -z "$doc_line" ]; then
+      # nothing to document
+      return
+    fi
+    if expr "$doc_line" : '.\{25\}' &>/dev/null; then
+      # break onto two lines
+      doc_line="$(printf '%s\\n\\\n%-24s %s' "$doc_line" "" "$@")"
+    else
+      doc_line="$(printf '%-24s %s' "$doc_line" "$@")"
+    fi
+    if [ "$category" = EXPERT ]; then
+      doc_line="$doc_line (EXPERTS only)"
+    fi
+
+    if [ "$category" = COMMON ]; then
+      common_documentation="${common_documentation}\\n\\
+$doc_line"
+    else
+      remaining_documentation="${remaining_documentation}\\n\\
+$doc_line"
+    fi
+  fi
 }
 
 function doc-alternate {
@@ -508,39 +560,43 @@ function doc-alternate {
     exit 1
   fi
 
-  # do doc-alt
-}
+  if [ "$category" = UNDOCUMENTED ]; then
+    return
+  fi
 
-function constant {
-  # constant K T Hasher header ["comment"]
-  check_module_seen
+  if ! $alternate_options_already_documented; then
+    alternate_options_already_documented=true
+    doc_line=
+    if [ "$long_option_alternate" ]; then
+      doc_line="  --$long_option_alternate"
+      if [ "$short_option_alternate" ]; then
+        doc_line="$doc_line | -$short_option_alternate"
+      fi
+    elif [ "$short_option_alternate" ]; then
+      doc_line="  -$short_option_alternate"
+    fi
+    if [ -z "$doc_line" ]; then
+      # nothing to document
+      return
+    fi
+    if expr "$doc_line" : '.\{25\}' &>/dev/null; then
+      # break onto two lines
+      doc_line="$(printf '%s\\n\\\n%-24s %s' "$doc_line" "" "$@")"
+    else
+      doc_line="$(printf '%-24s %s' "$doc_line" "$@")"
+    fi
+    if [ "$category" = EXPERT ]; then
+      doc_line="$doc_line (EXPERTS only)"
+    fi
 
-  includes="${includes}
-#include \"$4\""
-  mkConst_instantiations="${mkConst_instantiations}
-#line $lineno \"$kf\"
-template <> Expr ExprManager::mkConst($2 const& val);
-"
-  mkConst_implementations="${mkConst_implementations}
-#line $lineno \"$kf\"
-template <> Expr ExprManager::mkConst($2 const& val) {
-#line $lineno \"$kf\"
-  return Expr(this, new Node(d_nodeManager->mkConst< $2 >(val)));
-}
-"
-  getConst_instantiations="${getConst_instantiations}
-#line $lineno \"$kf\"
-template <> $2 const & Expr::getConst< $2 >() const;
-"
-  getConst_implementations="${getConst_implementations}
-#line $lineno \"$kf\"
-template <> $2 const & Expr::getConst() const {
-#line $lineno \"$kf\"
-  CheckArgument(getKind() == ::CVC4::kind::$1, *this, \"Improper kind for getConst<$2>()\");
-#line $lineno \"$kf\"
-  return d_node->getConst< $2 >();
-}
-"
+    if [ "$category" = COMMON ]; then
+      common_documentation="${common_documentation}\\n\\
+$doc_line"
+    else
+      remaining_documentation="${remaining_documentation}\\n\\
+$doc_line"
+    fi
+  fi
 }
 
 function check_doc {
@@ -628,6 +684,8 @@ for var in \
     all_modules_contributions \
     option_handler_includes \
     all_custom_handlers \
+    common_documentation \
+    remaining_documentation \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
 done

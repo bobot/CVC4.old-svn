@@ -107,64 +107,11 @@ OptionsHolder::OptionsHolder() : ${module_defaults}
 }
 
 static const string mostCommonOptionsDescription = "\
-Most commonly-used CVC4 options:\n\
-   --version | -V         identify this CVC4 binary\n\
-   --help | -h            full command line reference\n\
-   --lang | -L            force input language (default is `auto'; see --lang help)\n\
-   --output-lang          force output language (default is `auto'; see --lang help)\n\
-   --verbose | -v         increase verbosity (may be repeated)\n\
-   --quiet | -q           decrease verbosity (may be repeated)\n\
-   --stats                give statistics on exit\n\
-   --parse-only           exit after parsing input\n\
-   --preprocess-only      exit after preproc (useful with --stats or --dump)\n\
-   --dump=MODE            dump preprocessed assertions, etc., see --dump=help\n\
-   --dump-to=FILE         all dumping goes to FILE (instead of stdout)\n\
-   --show-config          show CVC4 static configuration\n\
-   --strict-parsing       be less tolerant of non-conforming inputs\n\
-   --interactive          force interactive mode\n\
-   --no-interactive       force non-interactive mode\n\
-   --produce-models | -m  support the get-value command\n\
-   --produce-assignments  support the get-assignment command\n\
-   --proof                turn on proof generation\n\
-   --incremental | -i     enable incremental solving\n\
-   --tlimit=MS            enable time limiting (give milliseconds)\n\
-   --tlimit-per=MS        enable time limiting per query (give milliseconds)\n\
-   --rlimit=N             enable resource limiting\n\
-   --rlimit-per=N         enable resource limiting per query\n\
-";
+Most commonly-used CVC4 options:${common_documentation}";
 
 static const string optionsDescription = mostCommonOptionsDescription + "\
 \n\
-Additional CVC4 options:\n\
-   --mmap                 memory map file input\n\
-   --segv-nospin          don't spin on segfault waiting for gdb\n\
-   --lazy-type-checking   type check expressions only when necessary (default)\n\
-   --eager-type-checking  type check expressions immediately on creation (debug builds only)\n\
-   --no-type-checking     never type check expressions\n\
-   --no-checking          disable ALL semantic checks, including type checks\n\
-   --no-theory-registration disable theory reg (not safe for some theories)\n\
-   --trace | -t           trace something (e.g. -t pushpop), can repeat\n\
-   --debug | -d           debug something (e.g. -d arith), can repeat\n\
-   --show-debug-tags      show all avalable tags for debugging\n\
-   --show-trace-tags      show all avalable tags for tracing\n\
-   --default-expr-depth=N print exprs to depth N (0 == default, -1 == no limit)\n\
-   --print-expr-types     print types with variables when printing exprs\n\
-   --lazy-definition-expansion expand define-funs/LAMBDAs lazily\n\
-   --simplification=MODE  choose simplification mode, see --simplification=help\n\
-   --no-static-learning   turn off static learning (e.g. diamond-breaking)\n\
-   --replay=file          replay decisions from file\n\
-   --replay-log=file      log decisions and propagations to file\n\
-   --pivot-rule=RULE      change the pivot rule (see --pivot-rule help)\n\
-   --pivot-threshold=N   sets the number of heuristic pivots per variable per simplex instance\n\
-   --prop-row-length=N    sets the maximum row length to be used in propagation\n\
-   --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
-   --random-seed=S        sets the random seed for the sat solver\n\
-   --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
-   --disable-arithmetic-propagation turns on arithmetic propagation\n\
-   --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
-";
-
-#warning "Change CL options as --disable-variable-removal cannot do anything currently."
+Additional CVC4 options:${remaining_documentation}";
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\

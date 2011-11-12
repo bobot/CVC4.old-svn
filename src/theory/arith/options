@@ -14,4 +14,6 @@ option arithPropagation arith-propagation /--disable-arithmetic-propagation bool
  use arithmetic propagation
 /turns on arithmetic propagation
 
+warning "Change CL options as --disable-variable-removal cannot do anything currently."
+
 endmodule

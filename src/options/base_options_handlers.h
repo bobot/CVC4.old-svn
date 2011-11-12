@@ -222,6 +222,22 @@ inline InputLanguage stringToInputLanguage(Options& options, std::string option,
   return language::input::LANG_AUTO;
 }
 
+inline SimplificationMode stringToSimplificationMode(Options& options, std::string option, std::string optarg) throw(OptionException) {
+  if(optarg == "batch") {
+    return SIMPLIFICATION_MODE_BATCH;
+  } else if(optarg == "incremental") {
+    return SIMPLIFICATION_MODE_INCREMENTAL;
+  } else if(optarg == "none") {
+    return SIMPLIFICATION_MODE_NONE;
+  } else if(optarg == "help") {
+    puts(simplificationHelp.c_str());
+    exit(1);
+  } else {
+    throw OptionException(std::string("unknown option for --simplification: `") +
+                          optarg + "'.  Try --simplification help.");
+  }
+}
+
 inline void showConfiguration(Options& options, std::string option) {
   fputs(Configuration::about().c_str(), stdout);
   printf("\n");
@@ -333,6 +349,10 @@ inline void setPrintExprTypes(Options& options, std::string option) {
   Chat.getStream() << Expr::printtypes(true);
   Message.getStream() << Expr::printtypes(true);
   Warning.getStream() << Expr::printtypes(true);
+}
+
+inline void setInteractiveByUser(Options& options, std::string option, bool b) {
+  options.set(interactiveSetByUser, true);
 }
 
 inline std::string checkReplayFilename(Options& options, std::string option, std::string optarg) {
