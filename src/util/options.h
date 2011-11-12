@@ -28,11 +28,13 @@
 #include "util/exception.h"
 #include "util/language.h"
 #include "util/tls.h"
-#include "util/options_holder.h"
 
 namespace CVC4 {
 
 class ExprStream;
+class OptionsHolder;
+class NodeManager;
+class NodeManagerScope;
 
 /** Enumeration of simplification modes (when to simplify). */
 typedef enum {
@@ -63,6 +65,9 @@ class CVC4_PUBLIC Options {
 
   /** The current Options in effect */
   static CVC4_THREADLOCAL(const Options*) s_current;
+
+  friend class NodeManager;
+  friend class NodeManagerScope;
 
 public:
 
@@ -122,9 +127,11 @@ public:
 
 };/* struct Options */
 
-std::ostream& operator<<(std::ostream& out, Options::SimplificationMode mode) CVC4_PUBLIC;
-std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) CVC4_PUBLIC;
+std::ostream& operator<<(std::ostream& out, SimplificationMode mode) CVC4_PUBLIC;
+std::ostream& operator<<(std::ostream& out, ArithPivotRule rule) CVC4_PUBLIC;
 
 }/* CVC4 namespace */
+
+#include "util/base_options.h"
 
 #endif /* __CVC4__OPTIONS_H */

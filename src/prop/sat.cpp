@@ -93,8 +93,8 @@ void SatSolver::notifyRestart() {
 
 SatLiteral SatSolver::getNextReplayDecision() {
 #ifdef CVC4_REPLAY
-  if(Options::current()->replayStream != NULL) {
-    Expr e = Options::current()->replayStream->nextExpr();
+  if(Options::current()[replayStream] != NULL) {
+    Expr e = Options::current()[replayStream]->nextExpr();
     if(!e.isNull()) { // we get null node when out of decisions to replay
       // convert & return
       return d_cnfStream->getLiteral(e);
@@ -106,9 +106,9 @@ SatLiteral SatSolver::getNextReplayDecision() {
 
 void SatSolver::logDecision(SatLiteral lit) {
 #ifdef CVC4_REPLAY
-  if(Options::current()->replayLog != NULL) {
+  if(Options::current()[replayLog] != NULL) {
     Assert(lit != Minisat::lit_Undef, "logging an `undef' decision ?!");
-    *Options::current()->replayLog << d_cnfStream->getNode(lit) << std::endl;
+    *Options::current()[replayLog] << d_cnfStream->getNode(lit) << std::endl;
   }
 #endif /* CVC4_REPLAY */
 }

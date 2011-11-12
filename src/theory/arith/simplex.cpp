@@ -46,7 +46,7 @@ SimplexDecisionProcedure::SimplexDecisionProcedure(ArithPropManager& propManager
   d_ZERO(0),
   d_DELTA_ZERO(0,0)
 {
-  switch(Options::ArithPivotRule rule = Options::current()->pivotRule) {
+  switch(Options::ArithPivotRule rule = Options::current()[pivotRule]) {
   case Options::MINIMUM:
     d_queue.setPivotRule(ArithPriorityQueue::MINIMUM);
     break;
@@ -398,7 +398,7 @@ void SimplexDecisionProcedure::propagateCandidates(){
   for(; i != end; ++i){
     ArithVar var = *i;
     if(d_tableau.isBasic(var) &&
-       d_tableau.getRowLength(var) <= Options::current()->arithPropagateMaxLength){
+       d_tableau.getRowLength(var) <= Options::current()[arithPropagateMaxLength]){
       d_candidateBasics.softAdd(var);
     }else{
       Tableau::ColIterator basicIter = d_tableau.colIterator(var);
@@ -407,7 +407,7 @@ void SimplexDecisionProcedure::propagateCandidates(){
         ArithVar rowVar = entry.getRowVar();
         Assert(entry.getColVar() == var);
         Assert(d_tableau.isBasic(rowVar));
-        if(d_tableau.getRowLength(rowVar) <= Options::current()->arithPropagateMaxLength){
+        if(d_tableau.getRowLength(rowVar) <= Options::current()[arithPropagateMaxLength]){
           d_candidateBasics.softAdd(rowVar);
         }
       }
@@ -721,7 +721,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     --remainingIterations;
 
-    bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  Options::current()->arithPivotThreshold;
+    bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  Options::current()[arithPivotThreshold];
     if(!useVarOrderPivot){
       d_pivotsInRound.addMultiset(x_i);
     }
@@ -729,7 +729,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     Debug("playground") << "pivots in rounds: " <<  d_pivotsInRound.count(x_i)
                         << " use " << useVarOrderPivot
-                        << " threshold " << Options::current()->arithPivotThreshold
+                        << " threshold " << Options::current()[arithPivotThreshold]
                         << endl;
 
     PreferenceFunction pf = useVarOrderPivot ? minVarOrder : minBoundAndRowCount;

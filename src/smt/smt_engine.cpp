@@ -230,21 +230,21 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
 
   d_definedFunctions = new(true) DefinedFunctionMap(d_userContext);
 
-  if(Options::current()->interactive) {
+  if(Options::current()[interactive]) {
     d_assertionList = new(true) AssertionList(d_userContext);
   }
 
-  if(Options::current()->perCallResourceLimit != 0) {
-    setResourceLimit(Options::current()->perCallResourceLimit, false);
+  if(Options::current()[perCallResourceLimit] != 0) {
+    setResourceLimit(Options::current()[perCallResourceLimit], false);
   }
-  if(Options::current()->cumulativeResourceLimit != 0) {
-    setResourceLimit(Options::current()->cumulativeResourceLimit, true);
+  if(Options::current()[cumulativeResourceLimit] != 0) {
+    setResourceLimit(Options::current()[cumulativeResourceLimit], true);
   }
-  if(Options::current()->perCallMillisecondLimit != 0) {
-    setTimeLimit(Options::current()->perCallMillisecondLimit, false);
+  if(Options::current()[perCallMillisecondLimit] != 0) {
+    setTimeLimit(Options::current()[perCallMillisecondLimit], false);
   }
-  if(Options::current()->cumulativeMillisecondLimit != 0) {
-    setTimeLimit(Options::current()->cumulativeMillisecondLimit, true);
+  if(Options::current()[cumulativeMillisecondLimit] != 0) {
+    setTimeLimit(Options::current()[cumulativeMillisecondLimit], true);
   }
 
 }
@@ -456,14 +456,14 @@ void SmtEngine::defineFunction(Expr func,
   NodeManagerScope nms(d_nodeManager);
 
   // type check body
-  Type formulaType = formula.getType(Options::current()->typeChecking);
+  Type formulaType = formula.getType(Options::current()[typeChecking]);
 
   Type funcType = func.getType();
   Type rangeType = funcType.isFunction() ?
     FunctionType(funcType).getRangeType() : funcType;
   if(formulaType != rangeType) {
     stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()[inputLanguage]))
        << "Defined function's declared type does not match that of body\n"
        << "The function  : " << func << "\n"
        << "Its range type: " << rangeType << "\n"
@@ -699,7 +699,7 @@ void SmtEnginePrivate::simplifyAssertions()
 
     Trace("simplify") << "SmtEnginePrivate::simplify()" << endl;
 
-    if(!Options::current()->lazyDefinitionExpansion) {
+    if(!Options::current()[lazyDefinitionExpansion]) {
       Trace("simplify") << "SmtEnginePrivate::simplify(): expanding definitions" << endl;
       TimerStat::CodeTimer codeTimer(d_smt.d_definitionExpansionTime);
       hash_map<TNode, Node, TNodeHashFunction> cache;
@@ -709,7 +709,7 @@ void SmtEnginePrivate::simplifyAssertions()
       }
     }
 
-    if(Options::current()->simplificationMode != Options::SIMPLIFICATION_MODE_NONE) {
+    if(Options::current()[simplificationMode] != Options::SIMPLIFICATION_MODE_NONE) {
       // Perform non-clausal simplification
       Trace("simplify") << "SmtEnginePrivate::simplify(): "
                         << "performing non-clausal simplification" << endl;
@@ -719,7 +719,7 @@ void SmtEnginePrivate::simplifyAssertions()
       d_assertionsToCheck.swap(d_assertionsToPreprocess);
     }
 
-    if(Options::current()->doStaticLearning) {
+    if(Options::current()[doStaticLearning]) {
       // Perform static learning
       Trace("simplify") << "SmtEnginePrivate::simplify(): "
                         << "performing static learning" << endl;
@@ -736,7 +736,7 @@ void SmtEnginePrivate::simplifyAssertions()
     // well-typed, and we don't want the C++ runtime to abort our
     // process without any error notice.
     stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()[inputLanguage]))
        << "A bad expression was produced.  Original exception follows:\n"
        << tcep;
     InternalError(ss.str().c_str());
@@ -822,17 +822,17 @@ void SmtEnginePrivate::addFormula(TNode n)
   d_assertionsToPreprocess.push_back(theory::Rewriter::rewrite(n));
 
   // If the mode of processing is incremental prepreocess and assert immediately
-  if (Options::current()->simplificationMode == Options::SIMPLIFICATION_MODE_INCREMENTAL) {
+  if (Options::current()[simplificationMode] == Options::SIMPLIFICATION_MODE_INCREMENTAL) {
     processAssertions();
   }
 }
 
 void SmtEngine::ensureBoolean(const BoolExpr& e) {
-  Type type = e.getType(Options::current()->typeChecking);
+  Type type = e.getType(Options::current()[typeChecking]);
   Type boolType = d_exprManager->booleanType();
   if(type != boolType) {
     stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()[inputLanguage]))
        << "Expected " << boolType << "\n"
        << "The assertion : " << e << "\n"
        << "Its type      : " << type;
@@ -848,7 +848,7 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
 
   Trace("smt") << "SmtEngine::checkSat(" << e << ")" << endl;
 
-  if(d_queryMade && !Options::current()->incrementalSolving) {
+  if(d_queryMade && !Options::current()[incrementalSolving]) {
     throw ModalException("Cannot make multiple queries unless "
                          "incremental solving is enabled "
                          "(try --incremental)");
@@ -902,7 +902,7 @@ Result SmtEngine::query(const BoolExpr& e) {
 
   Trace("smt") << "SMT query(" << e << ")" << endl;
 
-  if(d_queryMade && !Options::current()->incrementalSolving) {
+  if(d_queryMade && !Options::current()[incrementalSolving]) {
     throw ModalException("Cannot make multiple queries unless "
                          "incremental solving is enabled "
                          "(try --incremental)");
@@ -958,7 +958,7 @@ Result SmtEngine::assertFormula(const BoolExpr& e) {
 Expr SmtEngine::simplify(const Expr& e) {
   Assert(e.getExprManager() == d_exprManager);
   NodeManagerScope nms(d_nodeManager);
-  if( Options::current()->typeChecking ) {
+  if( Options::current()[typeChecking] ) {
     e.getType(true);// ensure expr is type-checked at this point
   }
   Trace("smt") << "SMT simplify(" << e << ")" << endl;
@@ -974,13 +974,13 @@ Expr SmtEngine::getValue(const Expr& e)
   NodeManagerScope nms(d_nodeManager);
 
   // ensure expr is type-checked at this point
-  Type type = e.getType(Options::current()->typeChecking);
+  Type type = e.getType(Options::current()[typeChecking]);
 
   Trace("smt") << "SMT getValue(" << e << ")" << endl;
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << GetValueCommand(e) << endl;
   }
-  if(!Options::current()->produceModels) {
+  if(!Options::current()[produceModels]) {
     const char* msg =
       "Cannot get value when produce-models options is off.";
     throw ModalException(msg);
@@ -1015,7 +1015,7 @@ Expr SmtEngine::getValue(const Expr& e)
 
 bool SmtEngine::addToAssignment(const Expr& e) throw(AssertionException) {
   NodeManagerScope nms(d_nodeManager);
-  Type type = e.getType(Options::current()->typeChecking);
+  Type type = e.getType(Options::current()[typeChecking]);
   // must be Boolean
   CheckArgument( type.isBoolean(), e,
                  "expected Boolean-typed variable or function application "
@@ -1029,7 +1029,7 @@ bool SmtEngine::addToAssignment(const Expr& e) throw(AssertionException) {
                    n.getMetaKind() == kind::metakind::VARIABLE ), e,
                  "expected variable or defined-function application "
                  "in addToAssignment(),\ngot %s", e.toString().c_str() );
-  if(!Options::current()->produceAssignments) {
+  if(!Options::current()[produceAssignments]) {
     return false;
   }
   if(d_assignments == NULL) {
@@ -1046,7 +1046,7 @@ SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << GetAssignmentCommand() << endl;
   }
-  if(!Options::current()->produceAssignments) {
+  if(!Options::current()[produceAssignments]) {
     const char* msg =
       "Cannot get the current assignment when "
       "produce-assignments option is off.";
@@ -1103,7 +1103,7 @@ Proof* SmtEngine::getProof() throw(ModalException, AssertionException) {
     Dump("benchmark") << GetProofCommand() << endl;
   }
 #ifdef CVC4_PROOF
-  if(!Options::current()->proof) {
+  if(!Options::current()[proof]) {
     const char* msg =
       "Cannot get a proof when produce-proofs option is off.";
     throw ModalException(msg);
@@ -1129,7 +1129,7 @@ vector<Expr> SmtEngine::getAssertions()
   }
   NodeManagerScope nms(d_nodeManager);
   Trace("smt") << "SMT getAssertions()" << endl;
-  if(!Options::current()->interactive) {
+  if(!Options::current()[interactive]) {
     const char* msg =
       "Cannot query the current assertion list when not in interactive mode.";
     throw ModalException(msg);
@@ -1150,7 +1150,7 @@ void SmtEngine::push() {
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << PushCommand() << endl;
   }
-  if(!Options::current()->incrementalSolving) {
+  if(!Options::current()[incrementalSolving]) {
     throw ModalException("Cannot push when not solving incrementally (use --incremental)");
   }
   d_userLevels.push_back(d_userContext->getLevel());
@@ -1165,7 +1165,7 @@ void SmtEngine::pop() {
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << PopCommand() << endl;
   }
-  if(!Options::current()->incrementalSolving) {
+  if(!Options::current()[incrementalSolving]) {
     throw ModalException("Cannot pop when not solving incrementally (use --incremental)");
   }
   if(d_userContext->getLevel() == 0) {
@@ -1187,7 +1187,7 @@ void SmtEngine::pop() {
 
 void SmtEngine::internalPush() {
   Trace("smt") << "SmtEngine::internalPush()" << endl;
-  if(Options::current()->incrementalSolving) {
+  if(Options::current()[incrementalSolving]) {
     d_private->processAssertions();
     d_userContext->push();
     d_propEngine->push();
@@ -1196,7 +1196,7 @@ void SmtEngine::internalPush() {
 
 void SmtEngine::internalPop() {
   Trace("smt") << "SmtEngine::internalPop()" << endl;
-  if(Options::current()->incrementalSolving) {
+  if(Options::current()[incrementalSolving]) {
     d_propEngine->pop();
     d_userContext->pop();
   }

@@ -286,13 +286,13 @@ inline SatSolver::SatSolver(PropEngine* propEngine,
 {
   // Create the solver
   d_minisat = new Minisat::SimpSolver(this, d_context,
-                                      Options::current()->incrementalSolving);
+                                      Options::current()[incrementalSolving]);
   // Setup the verbosity
-  d_minisat->verbosity = (Options::current()->verbosity > 0) ? 1 : -1;
+  d_minisat->verbosity = (Options::current()[verbosity] > 0) ? 1 : -1;
 
   // Setup the random decision parameters
-  d_minisat->random_var_freq = Options::current()->satRandomFreq;
-  d_minisat->random_seed = Options::current()->satRandomSeed;
+  d_minisat->random_var_freq = Options::current()[satRandomFreq];
+  d_minisat->random_seed = Options::current()[satRandomSeed];
 
   d_statistics.init(d_minisat);
 }

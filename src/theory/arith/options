@@ -1,0 +1,17 @@
+module ARITH Arithmetic
+
+option pivotRule --pivot-rule=RULE ArithPivotRule :handler stringToArithPivotRule :default MINIMUM
+ change the pivot rule (see --pivot-rule help)
+option arithPivotThreshold arith-pivot-threshold --pivot-threshold=N uint16_t :default 16
+ sets the number of heuristic pivots per variable per simplex instance
+option arithPropagateMaxLength arith-propagate-max-length --prop-row-length=N uint16_t :default 16
+ sets the maximum row length to be used in propagation
+
+option variableRemovalEnabled arith-variable-removal /--disable-variable-removal bool :default true
+ use permanent removal of variables in arithmetic
+/disable permanent removal of variables in arithmetic
+option arithPropagation arith-propagation /--disable-arithmetic-propagation bool :default true
+ use arithmetic propagation
+/turns on arithmetic propagation
+
+endmodule

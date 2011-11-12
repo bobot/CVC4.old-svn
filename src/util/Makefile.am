@@ -30,7 +30,6 @@ libutil_la_SOURCES = \
 	bool.h \
 	proof.h \
 	options.h \
-	options.cpp \
 	output.cpp \
 	output.h \
 	result.h \
@@ -68,6 +67,12 @@ libutil_la_SOURCES = \
 	pseudoboolean.cpp \
 	node_visitor.h
 
+nodist_libutil_la_SOURCES = \
+	options.cpp \
+	options_holder.h \
+	base_options.cpp \
+	base_options.h
+
 libutil_la_LIBADD = \
 	@builddir@/libutilcudd.la
 libutilcudd_la_SOURCES = \
@@ -75,6 +80,16 @@ libutilcudd_la_SOURCES = \
 	propositional_query.cpp
 
 BUILT_SOURCES = \
+	options.cpp \
+	options_holder.h \
+	base_options.cpp \
+	base_options.h \
+	../prop/optionsx.cpp \
+	../prop/optionsx.h \
+	../theory/uf/optionsx.h \
+	../theory/uf/optionsx.cpp \
+	../theory/arith/optionsx.cpp \
+	../theory/arith/optionsx.h \
 	rational.h \
 	integer.h \
 	tls.h
@@ -142,6 +157,9 @@ EXTRA_DIST = \
 	rational.h.in \
 	integer.h.in \
 	tls.h.in \
+	options \
+	options_template.cpp \
+	options_holder_template.h \
 	integer.i \
 	stats.i \
 	bool.i \
@@ -178,3 +196,83 @@ DISTCLEANFILES = \
 	integer.h \
 	rational.h \
 	tls.h
+
+options_holder.h: options_holder_template.h mkoptions @top_srcdir@/src/*/options @top_srcdir@/src/theory/*/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< \
+		@top_srcdir@/src/*/options @top_srcdir@/src/theory/*/options \
+	> $@) || (rm -f $@ && exit 1)
+
+options.cpp: options_template.cpp mkoptions @top_srcdir@/src/*/options @top_srcdir@/src/theory/*/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< \
+		@top_srcdir@/src/*/options @top_srcdir@/src/theory/*/options \
+	> $@) || (rm -f $@ && exit 1)
+
+base_options.h: base_options_template.h mkoptions options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< \
+		@srcdir@/options \
+	> $@) || (rm -f $@ && exit 1)
+
+base_options.cpp: base_options_template.cpp mkoptions options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< \
+		@srcdir@/options \
+	> $@) || (rm -f $@ && exit 1)
+
+../theory/arith/optionsx.h: @top_srcdir@/src/util/base_options_template.h @top_srcdir@/src/util/mkoptions ../theory/arith/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@top_srcdir@/src/util/mkoptions \
+		$< \
+		@srcdir@/../theory/arith/options \
+	> $@) || (rm -f $@ && exit 1)
+
+../theory/arith/optionsx.cpp: @top_srcdir@/src/util/base_options_template.cpp @top_srcdir@/src/util/mkoptions ../theory/arith/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@top_srcdir@/src/util/mkoptions \
+		$< \
+		@srcdir@/../theory/arith/options \
+	> $@) || (rm -f $@ && exit 1)
+
+../theory/uf/optionsx.h: @top_srcdir@/src/util/base_options_template.h @top_srcdir@/src/util/mkoptions ../theory/uf/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@top_srcdir@/src/util/mkoptions \
+		$< \
+		@srcdir@/../theory/uf/options \
+	> $@) || (rm -f $@ && exit 1)
+
+../theory/uf/optionsx.cpp: @top_srcdir@/src/util/base_options_template.cpp @top_srcdir@/src/util/mkoptions ../theory/uf/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@top_srcdir@/src/util/mkoptions \
+		$< \
+		@srcdir@/../theory/uf/options \
+	> $@) || (rm -f $@ && exit 1)
+
+../prop/optionsx.h: @top_srcdir@/src/util/base_options_template.h @top_srcdir@/src/util/mkoptions ../prop/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@top_srcdir@/src/util/mkoptions \
+		$< \
+		@srcdir@/../prop/options \
+	> $@) || (rm -f $@ && exit 1)
+
+../prop/optionsx.cpp: @top_srcdir@/src/util/base_options_template.cpp @top_srcdir@/src/util/mkoptions ../prop/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@top_srcdir@/src/util/mkoptions \
+		$< \
+		@srcdir@/../prop/options \
+	> $@) || (rm -f $@ && exit 1)

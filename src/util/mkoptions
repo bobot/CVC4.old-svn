@@ -67,6 +67,7 @@ module_long_options=
 module_option_handlers=
 include_all_option_headers=
 all_modules_contributions=
+option_hanlder_includes=
 
 seen_module=false
 seen_endmodule=false
@@ -150,6 +151,11 @@ function handle_option {
   type=
   predicates=
   readOnly=true
+  required_argument=false
+  default_value=
+  handlers=
+  links=
+  links_alternate=
 
   if [ "$category" = UNDOCUMENTED ]; then
     expect_doc=false
@@ -165,6 +171,11 @@ function handle_option {
   done
 
   type="${args[$type_pos]}"
+
+  if [ "$type" = argument ]; then
+    type=void
+    required_argument=true
+  fi
 
   if [ $type_pos -eq 2 ]; then
     expect_doc=false
@@ -239,7 +250,7 @@ function handle_option {
   fi
 
   if [ "$type" = bool -a -n "$long_option" -a -z "$long_option_alternate" -a -z "$long_option_alternate_set" ]; then
-    long_option_alternate="--no-$(echo "$long_option" | sed 's,^--,,')"
+    long_option_alternate="no-$(echo "$long_option" | sed 's,^--,,')"
   fi
   if [ "$type" != bool -a -n "$short_option_alternate" ]; then
     echo "$kf:$lineno: error: cannot use alternate short option $short_option_alternate for \`$internal' because it's not of bool type" >&2
@@ -258,11 +269,23 @@ function handle_option {
        let ++i
        default_value="${args[$i]}"
        ;;
-    :predicate)
+    :handler)
        while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
          let ++i
-         predicates="${predicates}
-${args[$i]}"
+         handlers="${handlers} ${args[$i]}"
+       done
+       ;;
+    :link)
+       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
+         let ++i
+         link="${args[$i]}"
+         if expr "${args[$i]}" : '.*/' &>/dev/null; then
+           links="${links} $(echo "${args[$i]}" | sed 's,/.*,,')"
+           links_alternate="${links_alternate} $(echo "${args[$i]}" | sed 's,[^/]*/,,')"
+         else
+           links="${links} ${args[$i]}"
+           links_alternate="${links_alternate} ${args[$i]}"
+         fi
        done
        ;;
     :include)
@@ -293,7 +316,7 @@ ${args[$i]}"
     module_decls="${module_decls}
 extern struct ${internal}_t { typedef $type type; } $internal;"
     module_defaults="${module_defaults}
-    $internal($default_value),"
+  $internal($default_value),"
 
     if ! $readOnly; then
       module_specializations="${module_specializations}
@@ -311,12 +334,12 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
 }"
   fi
 
-  if [ "$type" = bool -o "$type" = void ]; then
-    expect_arg=
-    expect_arg_long=no_argument
-  else
+  if $required_argument || [ "$type" != bool -a "$type" != void ]; then
     expect_arg=:
     expect_arg_long=required_argument
+  else
+    expect_arg=
+    expect_arg_long=no_argument
   fi
   cases=
   cases_alternate=
@@ -332,27 +355,62 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
   fi
   if [ -n "$long_option" ]; then
     module_long_options="${module_long_options}
-  { \"$long_option\", $expect_arg_long, NULL, $n_long },"
+  { \"$(echo "$long_option" | sed 's,=.*,,')\", $expect_arg_long, NULL, $n_long },"
     cases="${cases}
     case $n_long:// --$long_option"
     let ++n_long
   fi
   if [ -n "$long_option_alternate" ]; then
     module_long_options="${module_long_options}
-  { \"$long_option_alternate\", $expect_arg_long, NULL, $n_long },"
-    cases_alternate="${cases}
+  { \"$(echo "$long_option_alternate" | sed 's,=.*,,')\", $expect_arg_long, NULL, $n_long },"
+    cases_alternate="${cases_alternate}
     case $n_long:// --$long_option_alternate"
     let ++n_long
+  fi
+  run_links=
+  run_links_alternate=
+  if [ -n "$links" ]; then
+    for link in $links; do
+      run_links="$run_links
+      preemptGetOpt(extra_argc, extra_argv, \"$link\");"
+    done
+  fi
+  if [ -n "$links_alternate" ]; then
+    for link in $links_alternate; do
+      run_links_alternate="$run_links_alternate
+      preemptGetOpt(extra_argc, extra_argv, \"$link\");"
+    done
   fi
   if [ -n "$cases" ]; then
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases}
-      set($internal, true);
+      runHandlers($internal, true);
+      set($internal, true);$run_links
+      break;
+"
+    elif [ -n "$expect_arg" -a "$internal" != - ]; then
+      module_option_handlers="${module_option_handlers}${cases}
+      set($internal, runHandlers($internal, optarg));$run_links
       break;
 "
     elif [ -n "$expect_arg" ]; then
+      run_handlers=
+      for handler in $handlers; do
+        run_handlers="$run_handlers
+      $handler(optarg);"
+      done
       module_option_handlers="${module_option_handlers}${cases}
-      set($internal, runHandlers($internal, optarg));
+      $run_handlers$run_links
+      break;
+"
+    else
+      run_handlers=
+      for handler in $handlers; do
+        run_handlers="$run_handlers
+      $handler();"
+      done
+      module_option_handlers="${module_option_handlers}${cases}
+      $run_handlers$run_links
       break;
 "
     fi
@@ -360,7 +418,8 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
   if [ -n "$cases_alternate" ]; then
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases_alternate}
-      set($internal, false);
+      runHandlers($internal, false);
+      set($internal, false);$run_links_alternate
       break;
 "
     else
@@ -375,19 +434,9 @@ function alias {
   # alias (smtname | -option) = (smtname [arg] | -option [arg])+
   check_module_seen
   check_doc
-}
 
-function link {
-  # link (smtname | -option) : (smtname | -option)+
-  # link (smtname | -option) : functor+ [#include "file1" <file2>...]
-  check_module_seen
-  check_doc
-}
-
-function handler {
-  # handler (smtname | -option)+ = functor [#include "file1" <file2>...]
-  check_module_seen
-  check_doc
+  echo "$kf:$lineno: error: alias not yet supported" >&2
+  exit 1
 }
 
 function doc {
@@ -532,6 +581,7 @@ for var in \
     module_id \
     module_name \
     module_includes \
+    module_defaults \
     module_optionholder_spec \
     module_decls \
     module_specializations \
@@ -541,11 +591,13 @@ for var in \
     module_option_handlers \
     include_all_option_headers \
     all_modules_contributions \
+    option_handler_includes \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
 done
-error=`expr "$text" : '.*\${\([^}]*\)}.*'`
+error="$(echo "$text" | grep '.*\${[^}]*}.*' | head -n 1)"
 if [ -n "$error" ]; then
+  error="$(echo "$error" | sed 's,.*\${\([^}]*\)}.*,\1,')"
   echo "$template:0: error: undefined replacement \${$error}" >&2
   exit 1
 fi

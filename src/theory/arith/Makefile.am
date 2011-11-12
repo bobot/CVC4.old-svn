@@ -36,5 +36,29 @@ libarith_la_SOURCES = \
 	dio_solver.h \
 	dio_solver.cpp
 
+nodist_libarith_la_SOURCES = \
+	options.cpp \
+	options.h
+
+BUILT_SOURCES = \
+	options.cpp \
+	options.h
+
 EXTRA_DIST = \
 	kinds
+
+options.h: @top_srcdir@/src/util/base_options_template.h @top_srcdir@/src/util/mkoptions options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@top_srcdir@/src/util/mkoptions \
+		$< \
+		@srcdir@/options \
+	> $@) || (rm -f $@ && exit 1)
+
+options.cpp: @top_srcdir@/src/util/base_options_template.cpp @top_srcdir@/src/util/mkoptions options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@top_srcdir@/src/util/mkoptions \
+		$< \
+		@srcdir@/options \
+	> $@) || (rm -f $@ && exit 1)

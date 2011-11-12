@@ -31,9 +31,14 @@
 #include "util/exception.h"
 #include "util/language.h"
 #include "util/options.h"
+#include "theory/arith/options.h"
+#include "theory/uf/options.h"
+#include "prop/options.h"
 #include "util/output.h"
 
 #include "cvc4autoconfig.h"
+
+${option_handler_includes}
 
 using namespace std;
 using namespace CVC4;
@@ -256,12 +261,34 @@ void Options::printLanguageHelp(std::ostream& out) {
  * If you add something that has a short option equivalent, you should
  * add it to the getopt_long() call in parseOptions().
  */
-static struct option cmdlineOptions[] = {
-  // name, has_arg, *flag, val
-  ${module_long_options}
+static struct option cmdlineOptions[] = {${module_long_options}
   { NULL, no_argument, NULL, '\0' }
 };
 
+static void preemptGetopt(int& argc, char**& argv, char* opt) {
+  const maxoptlen = 128;
+
+  AlwaysAssert(opt != NULL && *opt != '\0');
+  AlwaysAssert(strlen(opt) <= maxoptlen);
+
+  ++argc;
+  unsigned i = 0;
+  while(argv[i] != NULL && argv[i][0] != '\0') {
+    ++i;
+  }
+
+  if(argv[i] == NULL) {
+    argv = (char**) realloc(sizeof(char*) * (i + 6));
+    for(unsigned j = i; j < i + 5; ++j) {
+      argv[j] = (char*) malloc(sizeof(char) * maxoptlen);
+      argv[j][0] = '\0';
+    }
+    argv[i + 5] = NULL;
+  }
+
+  strncpy(argv[i], opt, maxoptlen - 1);
+  argv[i][maxoptlen - 1] = '\0'; // ensure NUL-termination even on overflow
+}
 
 /** Parse argc/argv and put the result into a CVC4::Options struct. */
 int Options::parseOptions(int argc, char* argv[])
@@ -276,442 +303,44 @@ throw(OptionException) {
   }
   binary_name = string(progName);
 
-  while((c = getopt_long(argc, argv,
-                         ":" ${module_short_options},
-                         cmdlineOptions, NULL)) != -1) {
+  int extra_argc = 0;
+  char **extra_argv = (char**) malloc(sizeof(char*));
+  extra_argv[0] = NULL;
+
+  int extra_optind = 0, main_optind = 0;
+
+  for(;;) {
+    if(extra_optind < extra_argc) {
+      optreset = 1;
+      optind = extra_optind;
+      c = getopt_long(extra_argc, extra_argv,
+                      ":${module_short_options}",
+                      cmdlineOptions, NULL);
+      if(extra_optind >= extra_argc) {
+        unsigned i = 0;
+        while(extra_argv[i] != NULL && extra_argv[i][0] != '\0') {
+          extra_argv[i][0] = '\0';
+          ++i;
+        }
+        extra_argc = extra_optind = 0;
+      } else {
+        extra_optind = optind;
+      }
+    }
+    if(c == -1) {
+      optreset = 1;
+      optind = main_optind;
+      c = getopt_long(argc, argv,
+                      ":${module_short_options}",
+                      cmdlineOptions, NULL);
+      main_optind = optind;
+      if(c == -1) {
+        break;
+      }
+    }
+
     switch(c) {
-
-      ${module_option_handlers}
-
-#if 0
-    case 'h':
-      help = true;
-      break;
-
-    case 'V':
-      version = true;
-      break;
-
-    case 'v':
-      ++verbosity;
-      break;
-
-    case 'q':
-      --verbosity;
-      break;
-
-    case 'L':
-      setInputLanguage(optarg);
-      break;
-
-    case OUTPUT_LANGUAGE:
-      setOutputLanguage(optarg);
-      break;
-
-    case 't':
-      Trace.on(optarg);
-      break;
-
-    case 'd':
-      Debug.on(optarg);
-      Trace.on(optarg);
-      break;
-
-    case STATS:
-      statistics = true;
-      break;
-
-    case SEGV_NOSPIN:
-      segvNoSpin = true;
-      break;
-
-    case PARSE_ONLY:
-      parseOnly = true;
-      break;
-
-    case PREPROCESS_ONLY:
-      preprocessOnly = true;
-      break;
-
-    case DUMP: {
-#ifdef CVC4_DUMPING
-      char* tokstr = optarg;
-      char* toksave;
-      while((optarg = strtok_r(tokstr, ",", &toksave)) != NULL) {
-        tokstr = NULL;
-        if(!strcmp(optarg, "benchmark")) {
-        } else if(!strcmp(optarg, "declarations")) {
-        } else if(!strcmp(optarg, "assertions")) {
-        } else if(!strcmp(optarg, "learned")) {
-        } else if(!strcmp(optarg, "clauses")) {
-        } else if(!strcmp(optarg, "t-conflicts") ||
-                  !strcmp(optarg, "t-lemmas") ||
-                  !strcmp(optarg, "t-explanations")) {
-          // These are "non-state-dumping" modes.  If state (SAT decisions,
-          // propagations, etc.) is dumped, it will interfere with the validity
-          // of these generated queries.
-          if(Dump.isOn("state")) {
-            throw OptionException(string("dump option `") + optarg +
-                                  "' conflicts with a previous, "
-                                  "state-dumping dump option.  You cannot "
-                                  "mix stateful and non-stateful dumping modes; "
-                                  "see --dump help.");
-          } else {
-            Dump.on("no-permit-state");
-          }
-        } else if(!strcmp(optarg, "state") ||
-                  !strcmp(optarg, "missed-t-conflicts") ||
-                  !strcmp(optarg, "t-propagations") ||
-                  !strcmp(optarg, "missed-t-propagations")) {
-          // These are "state-dumping" modes.  If state (SAT decisions,
-          // propagations, etc.) is not dumped, it will interfere with the
-          // validity of these generated queries.
-          if(Dump.isOn("no-permit-state")) {
-            throw OptionException(string("dump option `") + optarg +
-                                  "' conflicts with a previous, "
-                                  "non-state-dumping dump option.  You cannot "
-                                  "mix stateful and non-stateful dumping modes; "
-                                  "see --dump help.");
-          } else {
-            Dump.on("state");
-          }
-        } else if(!strcmp(optarg, "help")) {
-          puts(dumpHelp.c_str());
-          exit(1);
-        } else {
-          throw OptionException(string("unknown option for --dump: `") +
-                                optarg + "'.  Try --dump help.");
-        }
-
-        Dump.on(optarg);
-        Dump.on("benchmark");
-        if(strcmp(optarg, "benchmark")) {
-          Dump.on("declarations");
-        }
-      }
-#else /* CVC4_DUMPING */
-      throw OptionException("The dumping feature was disabled in this build of CVC4.");
-#endif /* CVC4_DUMPING */
-      break;
-    }
-
-    case DUMP_TO: {
-#ifdef CVC4_DUMPING
-      if(optarg == NULL || *optarg == '\0') {
-        throw OptionException(string("Bad file name for --dump-to"));
-      } else if(!strcmp(optarg, "-")) {
-        Dump.setStream(DumpC::dump_cout);
-      } else {
-        ostream* dumpTo = new ofstream(optarg, ofstream::out | ofstream::trunc);
-        if(!*dumpTo) {
-          throw OptionException(string("Cannot open dump-to file (maybe it exists): `") + optarg + "'");
-        }
-        Dump.setStream(*dumpTo);
-      }
-#else /* CVC4_DUMPING */
-      throw OptionException("The dumping feature was disabled in this build of CVC4.");
-#endif /* CVC4_DUMPING */
-    }
-      break;
-
-    case NO_THEORY_REGISTRATION:
-      theoryRegistration = false;
-      break;
-
-    case NO_CHECKING:
-      semanticChecks = false;
-      typeChecking = false;
-      earlyTypeChecking = false;
-      break;
-
-    case USE_MMAP:
-      memoryMap = true;
-      break;
-
-    case STRICT_PARSING:
-      strictParsing = true;
-      break;
-
-    case DEFAULT_EXPR_DEPTH:
-      {
-        int depth = atoi(optarg);
-        Debug.getStream() << Expr::setdepth(depth);
-        Trace.getStream() << Expr::setdepth(depth);
-        Notice.getStream() << Expr::setdepth(depth);
-        Chat.getStream() << Expr::setdepth(depth);
-        Message.getStream() << Expr::setdepth(depth);
-        Warning.getStream() << Expr::setdepth(depth);
-      }
-      break;
-
-    case PRINT_EXPR_TYPES:
-      {
-        Debug.getStream() << Expr::printtypes(true);
-        Trace.getStream() << Expr::printtypes(true);
-        Notice.getStream() << Expr::printtypes(true);
-        Chat.getStream() << Expr::printtypes(true);
-        Message.getStream() << Expr::printtypes(true);
-        Warning.getStream() << Expr::printtypes(true);
-      }
-      break;
-
-    case LAZY_DEFINITION_EXPANSION:
-      lazyDefinitionExpansion = true;
-      break;
-
-    case SIMPLIFICATION_MODE:
-      if(!strcmp(optarg, "batch")) {
-        simplificationMode = SIMPLIFICATION_MODE_BATCH;
-      } else if(!strcmp(optarg, "incremental")) {
-        simplificationMode = SIMPLIFICATION_MODE_INCREMENTAL;
-      } else if(!strcmp(optarg, "none")) {
-        simplificationMode = SIMPLIFICATION_MODE_NONE;
-      } else if(!strcmp(optarg, "help")) {
-        puts(simplificationHelp.c_str());
-        exit(1);
-      } else {
-        throw OptionException(string("unknown option for --simplification: `") +
-                              optarg + "'.  Try --simplification help.");
-      }
-      break;
-
-    case NO_STATIC_LEARNING:
-      doStaticLearning = false;
-      break;
-
-    case INTERACTIVE:
-      interactive = true;
-      interactiveSetByUser = true;
-      break;
-
-    case NO_INTERACTIVE:
-      interactive = false;
-      interactiveSetByUser = true;
-      break;
-
-    case 'm':
-      produceModels = true;
-      break;
-      
-    case PRODUCE_ASSIGNMENTS:
-      produceAssignments = true;
-      break;
-      
-    case PROOF:
-#ifdef CVC4_PROOF
-      proof = true;
-#else /* CVC4_PROOF */
-      throw OptionException("This is not a proof-enabled build of CVC4; --proof cannot be used");
-#endif /* CVC4_PROOF */
-      break;
-      
-    case NO_TYPE_CHECKING:
-      typeChecking = false;
-      earlyTypeChecking = false;
-      break;
-
-    case LAZY_TYPE_CHECKING:
-      typeChecking = true;
-      earlyTypeChecking = false;
-      break;
-
-    case EAGER_TYPE_CHECKING:
-      typeChecking = true;
-      earlyTypeChecking = true;
-      break;
-
-    case 'i':
-      incrementalSolving = true;
-      break;
-
-    case REPLAY:
-#ifdef CVC4_REPLAY
-      if(optarg == NULL || *optarg == '\0') {
-        throw OptionException(string("Bad file name for --replay"));
-      } else {
-        replayFilename = optarg;
-      }
-#else /* CVC4_REPLAY */
-      throw OptionException("The replay feature was disabled in this build of CVC4.");
-#endif /* CVC4_REPLAY */
-      break;
-
-    case REPLAY_LOG:
-#ifdef CVC4_REPLAY
-      if(optarg == NULL || *optarg == '\0') {
-        throw OptionException(string("Bad file name for --replay-log"));
-      } else if(!strcmp(optarg, "-")) {
-        replayLog = &cout;
-      } else {
-        replayLog = new ofstream(optarg, ofstream::out | ofstream::trunc);
-        if(!*replayLog) {
-          throw OptionException(string("Cannot open replay-log file: `") + optarg + "'");
-        }
-      }
-#else /* CVC4_REPLAY */
-      throw OptionException("The replay feature was disabled in this build of CVC4.");
-#endif /* CVC4_REPLAY */
-      break;
-
-    case ARITHMETIC_VARIABLE_REMOVAL:
-      variableRemovalEnabled = false;
-      break;
-
-    case ARITHMETIC_PROPAGATION:
-      arithPropagation = false;
-      break;
-
-    case DISABLE_SYMMETRY_BREAKER:
-      ufSymmetryBreaker = false;
-      break;
-
-    case TIME_LIMIT:
-      {
-        int i = atoi(optarg);
-        if(i < 0) {
-          throw OptionException("--time-limit requires a nonnegative argument.");
-        }
-        cumulativeMillisecondLimit = (unsigned long) i;
-      }
-      break;
-    case TIME_LIMIT_PER:
-      {
-        int i = atoi(optarg);
-        if(i < 0) {
-          throw OptionException("--time-limit-per requires a nonnegative argument.");
-        }
-        perCallMillisecondLimit = (unsigned long) i;
-      }
-      break;
-    case RESOURCE_LIMIT:
-      {
-        int i = atoi(optarg);
-        if(i < 0) {
-          throw OptionException("--limit requires a nonnegative argument.");
-        }
-        cumulativeResourceLimit = (unsigned long) i;
-      }
-      break;
-    case RESOURCE_LIMIT_PER:
-      {
-        int i = atoi(optarg);
-        if(i < 0) {
-          throw OptionException("--limit-per requires a nonnegative argument.");
-        }
-        perCallResourceLimit = (unsigned long) i;
-        break;
-      }
-
-    case RANDOM_SEED:
-      satRandomSeed = atof(optarg);
-      break;
-
-    case RANDOM_FREQUENCY:
-      satRandomFreq = atof(optarg);
-      if(! (0.0 <= satRandomFreq && satRandomFreq <= 1.0)){
-        throw OptionException(string("--random-freq: `") +
-                              optarg + "' is not between 0.0 and 1.0.");
-      }
-      break;
-
-    case PIVOT_RULE:
-      if(!strcmp(optarg, "min")) {
-        pivotRule = MINIMUM;
-        break;
-      } else if(!strcmp(optarg, "min-break-ties")) {
-        pivotRule = BREAK_TIES;
-        break;
-      } else if(!strcmp(optarg, "max")) {
-        pivotRule = MAXIMUM;
-        break;
-      } else if(!strcmp(optarg, "help")) {
-        printf("Pivot rules available:\n");
-        printf("min\n");
-        printf("min-break-ties\n");
-        printf("max\n");
-        exit(1);
-      } else {
-        throw OptionException(string("unknown option for --pivot-rule: `") +
-                              optarg + "'.  Try --pivot-rule help.");
-      }
-      break;
-
-    case ARITHMETIC_PIVOT_THRESHOLD:
-      arithPivotThreshold = atoi(optarg);
-      break;
-
-    case ARITHMETIC_PROP_MAX_LENGTH:
-      arithPropagateMaxLength = atoi(optarg);
-      break;
-
-    case SHOW_DEBUG_TAGS:
-      if(Configuration::isDebugBuild()) {
-        printf("available tags:");
-        unsigned ntags = Configuration::getNumDebugTags();
-        char const* const* tags = Configuration::getDebugTags();
-        for(unsigned i = 0; i < ntags; ++ i) {
-          printf(" %s", tags[i]);
-        }
-        printf("\n");
-      } else {
-        throw OptionException("debug tags not available in non-debug build");
-      }
-      exit(0);
-      break;
-
-    case SHOW_TRACE_TAGS:
-      if(Configuration::isTracingBuild()) {
-        printf("available tags:");
-        unsigned ntags = Configuration::getNumTraceTags();
-        char const* const* tags = Configuration::getTraceTags();
-        for (unsigned i = 0; i < ntags; ++ i) {
-          printf(" %s", tags[i]);
-        }
-        printf("\n");
-      } else {
-        throw OptionException("trace tags not available in non-tracing build");
-      }
-      exit(0);
-      break;
-
-    case SHOW_CONFIG:
-      fputs(Configuration::about().c_str(), stdout);
-      printf("\n");
-      printf("version    : %s\n", Configuration::getVersionString().c_str());
-      if(Configuration::isSubversionBuild()) {
-        printf("subversion : yes [%s r%u%s]\n",
-               Configuration::getSubversionBranchName(),
-               Configuration::getSubversionRevision(),
-               Configuration::hasSubversionModifications() ?
-                 " (with modifications)" : "");
-      } else {
-        printf("subversion : %s\n", Configuration::isSubversionBuild() ? "yes" : "no");
-      }
-      printf("\n");
-      printf("library    : %u.%u.%u\n",
-             Configuration::getVersionMajor(),
-             Configuration::getVersionMinor(),
-             Configuration::getVersionRelease());
-      printf("\n");
-      printf("debug code : %s\n", Configuration::isDebugBuild() ? "yes" : "no");
-      printf("statistics : %s\n", Configuration::isStatisticsBuild() ? "yes" : "no");
-      printf("replay     : %s\n", Configuration::isReplayBuild() ? "yes" : "no");
-      printf("tracing    : %s\n", Configuration::isTracingBuild() ? "yes" : "no");
-      printf("dumping    : %s\n", Configuration::isDumpingBuild() ? "yes" : "no");
-      printf("muzzled    : %s\n", Configuration::isMuzzledBuild() ? "yes" : "no");
-      printf("assertions : %s\n", Configuration::isAssertionBuild() ? "yes" : "no");
-      printf("proof      : %s\n", Configuration::isProofBuild() ? "yes" : "no");
-      printf("coverage   : %s\n", Configuration::isCoverageBuild() ? "yes" : "no");
-      printf("profiling  : %s\n", Configuration::isProfilingBuild() ? "yes" : "no");
-      printf("competition: %s\n", Configuration::isCompetitionBuild() ? "yes" : "no");
-      printf("\n");
-      printf("cudd       : %s\n", Configuration::isBuiltWithCudd() ? "yes" : "no");
-      printf("cln        : %s\n", Configuration::isBuiltWithCln() ? "yes" : "no");
-      printf("gmp        : %s\n", Configuration::isBuiltWithGmp() ? "yes" : "no");
-      printf("tls        : %s\n", Configuration::isBuiltWithTlsSupport() ? "yes" : "no");
-      exit(0);
-
-#endif /* 0 */
+${module_option_handlers}
 
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
@@ -778,15 +407,15 @@ void Options::setInputLanguage(const char* str) throw(OptionException) {
   languageHelp = true;
 }
 
-std::ostream& operator<<(std::ostream& out, Options::SimplificationMode mode) {
+std::ostream& operator<<(std::ostream& out, SimplificationMode mode) {
   switch(mode) {
-  case Options::SIMPLIFICATION_MODE_INCREMENTAL:
+  case SIMPLIFICATION_MODE_INCREMENTAL:
     out << "SIMPLIFICATION_MODE_INCREMENTAL";
     break;
-  case Options::SIMPLIFICATION_MODE_BATCH:
+  case SIMPLIFICATION_MODE_BATCH:
     out << "SIMPLIFICATION_MODE_BATCH";
     break;
-  case Options::SIMPLIFICATION_MODE_NONE:
+  case SIMPLIFICATION_MODE_NONE:
     out << "SIMPLIFICATION_MODE_NONE";
     break;
   default:
@@ -796,15 +425,15 @@ std::ostream& operator<<(std::ostream& out, Options::SimplificationMode mode) {
   return out;
 }
 
-std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {
+std::ostream& operator<<(std::ostream& out, ArithPivotRule rule) {
   switch(rule) {
-  case Options::MINIMUM:
+  case MINIMUM:
     out << "MINIMUM";
     break;
-  case Options::BREAK_TIES:
+  case BREAK_TIES:
     out << "BREAK_TIES";
     break;
-  case Options::MAXIMUM:
+  case MAXIMUM:
     out << "MAXIMUM";
     break;
   default:

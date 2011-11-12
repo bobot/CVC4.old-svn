@@ -82,7 +82,7 @@ struct NVReclaim {
 NodeManager::NodeManager(context::Context* ctxt,
                          ExprManager* exprManager) :
   d_optionsAllocated(new Options()),
-  d_options(d_optionsAllocated),
+  d_options(*d_optionsAllocated),
   d_statisticsRegistry(new StatisticsRegistry()),
   d_attrManager(ctxt),
   d_exprManager(exprManager),
@@ -96,7 +96,7 @@ NodeManager::NodeManager(context::Context* ctxt,
                          ExprManager* exprManager,
                          const Options& options) :
   d_optionsAllocated(NULL),
-  d_options(&options),
+  d_options(options),
   d_statisticsRegistry(new StatisticsRegistry()),
   d_attrManager(ctxt),
   d_exprManager(exprManager),
@@ -252,7 +252,7 @@ TypeNode NodeManager::getType(TNode n, bool check)
 
   Debug("getType") << "getting type for " << n << std::endl;
 
-  if(needsCheck && !d_options->earlyTypeChecking) {
+  if(needsCheck && !d_options[earlyTypeChecking]) {
     /* Iterate and compute the children bottom up. This avoids stack
        overflows in computeType() when the Node graph is really deep,
        which should only affect us when we're type checking lazily. */

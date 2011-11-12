@@ -1,0 +1,7 @@
+module UF UF
+
+option ufSymmetryBreaker uf-symmetry-breaker /--disable-symmetry-breaker bool :default true
+ use UF symmetry breaker (Deharbe et al., CADE 2011)
+/turns off UF symmetry breaker (Deharbe et al., CADE 2011)
+
+endmodule

@@ -44,7 +44,7 @@ public:
       for(; argument_it != argument_it_end; ++argument_it, ++argument_type_it) {
         if((*argument_it).getType() != *argument_type_it) {
           std::stringstream ss;
-          ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+          ss << Expr::setlanguage(language::toOutputLanguage(Options::current()[inputLanguage]))
              << "argument types do not match the function type:\n"
              << "argument:  " << *argument_it << "\n"
              << "has type:  " << (*argument_it).getType() << "\n"

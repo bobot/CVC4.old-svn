@@ -116,7 +116,7 @@ ExprManager::~ExprManager() {
   delete d_ctxt;
 }
 
-const Options* ExprManager::getOptions() const {
+const Options& ExprManager::getOptions() const {
   return d_nodeManager->getOptions();
 }
 

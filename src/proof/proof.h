@@ -22,9 +22,9 @@
 #include "util/options.h"
 
 #ifdef CVC4_PROOF
-#  define PROOF(x) if(Options::current()->proof) { x; }
-#  define NULLPROOF(x) (Options::current()->proof)? x : NULL
-#  define PROOF_ON() Options::current()->proof
+#  define PROOF(x) if(Options::current()[proof]) { x; }
+#  define NULLPROOF(x) (Options::current()[proof])? x : NULL
+#  define PROOF_ON() Options::current()[proof]
 #else /* CVC4_PROOF */
 #  define PROOF(x)
 #  define NULLPROOF(x) NULL

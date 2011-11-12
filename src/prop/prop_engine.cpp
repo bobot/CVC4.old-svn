@@ -137,7 +137,7 @@ Result PropEngine::checkSat(unsigned long& millis, unsigned long& resource) {
   // TODO This currently ignores conflicts (a dangerous practice).
   d_theoryEngine->presolve();
 
-  if(Options::current()->preprocessOnly) {
+  if(Options::current()[preprocessOnly]) {
     millis = resource = 0;
     return Result(Result::SAT_UNKNOWN, Result::REQUIRES_FULL_CHECK);
   }
