@@ -25,12 +25,12 @@ BUILT_SOURCES = \
 	options_holder.h \
 	base_options.cpp \
 	base_options.h \
-	../prop/options.cpp \
-	../prop/options.h \
-	../theory/uf/options.h \
-	../theory/uf/options.cpp \
-	../theory/arith/options.cpp \
-	../theory/arith/options.h \
+	$(builddir)/../prop/options.cpp \
+	$(builddir)/../prop/options.h \
+	$(builddir)/../theory/uf/options.h \
+	$(builddir)/../theory/uf/options.cpp \
+	$(builddir)/../theory/arith/options.cpp \
+	$(builddir)/../theory/arith/options.h \
 	exprs-builts
 
 EXTRA_DIST = \
@@ -124,7 +124,8 @@ base_options.cpp: base_options_template.cpp mkoptions options
 		@srcdir@/options \
 	) || (rm -f $@ && exit 1)
 
-../theory/arith/options.h: base_options_template.h mkoptions ../theory/arith/options
+$(builddir)/../theory/arith/options:;
+$(builddir)/../theory/arith/options.h: base_options_template.h mkoptions ../theory/arith/options
 	$(AM_V_at)chmod +x @srcdir@/mkoptions
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkoptions \
@@ -132,7 +133,7 @@ base_options.cpp: base_options_template.cpp mkoptions options
 		@srcdir@/../theory/arith/options \
 	) || (rm -f $@ && exit 1)
 
-../theory/arith/options.cpp: base_options_template.cpp mkoptions ../theory/arith/options
+$(builddir)/../theory/arith/options.cpp: base_options_template.cpp mkoptions ../theory/arith/options
 	$(AM_V_at)chmod +x @srcdir@/mkoptions
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkoptions \
@@ -140,7 +141,8 @@ base_options.cpp: base_options_template.cpp mkoptions options
 		@srcdir@/../theory/arith/options \
 	) || (rm -f $@ && exit 1)
 
-../theory/uf/options.h: base_options_template.h mkoptions ../theory/uf/options
+$(builddir)/../theory/uf/options:;
+$(builddir)/../theory/uf/options.h: base_options_template.h mkoptions ../theory/uf/options
 	$(AM_V_at)chmod +x @srcdir@/mkoptions
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkoptions \
@@ -148,7 +150,7 @@ base_options.cpp: base_options_template.cpp mkoptions options
 		@srcdir@/../theory/uf/options \
 	) || (rm -f $@ && exit 1)
 
-../theory/uf/options.cpp: base_options_template.cpp mkoptions ../theory/uf/options
+$(builddir)/../theory/uf/options.cpp: base_options_template.cpp mkoptions ../theory/uf/options
 	$(AM_V_at)chmod +x @srcdir@/mkoptions
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkoptions \
@@ -156,7 +158,8 @@ base_options.cpp: base_options_template.cpp mkoptions options
 		@srcdir@/../theory/uf/options \
 	) || (rm -f $@ && exit 1)
 
-../prop/options.h: base_options_template.h mkoptions ../prop/options
+$(builddir)/../prop/options:;
+$(builddir)/../prop/options.h: base_options_template.h mkoptions ../prop/options
 	$(AM_V_at)chmod +x @srcdir@/mkoptions
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkoptions \
@@ -164,7 +167,7 @@ base_options.cpp: base_options_template.cpp mkoptions options
 		@srcdir@/../prop/options \
 	) || (rm -f $@ && exit 1)
 
-../prop/options.cpp: base_options_template.cpp mkoptions ../prop/options
+$(builddir)/../prop/options.cpp: base_options_template.cpp mkoptions ../prop/options
 	$(AM_V_at)chmod +x @srcdir@/mkoptions
 	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
 	$(AM_V_GEN)(@srcdir@/mkoptions \

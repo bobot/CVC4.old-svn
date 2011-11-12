@@ -365,55 +365,6 @@ ${module_option_handlers}
   return optind;
 }
 
-void Options::setOutputLanguage(const char* str) throw(OptionException) {
-  if(!strcmp(str, "cvc4") || !strcmp(str, "pl")) {
-    outputLanguage = language::output::LANG_CVC4;
-    return;
-  } else if(!strcmp(str, "smtlib") || !strcmp(str, "smt")) {
-    outputLanguage = language::output::LANG_SMTLIB;
-    return;
-  } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
-    outputLanguage = language::output::LANG_SMTLIB_V2;
-    return;
-  } else if(!strcmp(str, "ast")) {
-    outputLanguage = language::output::LANG_AST;
-    return;
-  } else if(!strcmp(str, "auto")) {
-    outputLanguage = language::output::LANG_AUTO;
-    return;
-  }
-
-  if(strcmp(str, "help")) {
-    throw OptionException(string("unknown language for --output-lang: `") +
-                          str + "'.  Try --output-lang help.");
-  }
-
-  languageHelp = true;
-}
-
-void Options::setInputLanguage(const char* str) throw(OptionException) {
-  if(!strcmp(str, "cvc4") || !strcmp(str, "pl") || !strcmp(str, "presentation")) {
-    inputLanguage = language::input::LANG_CVC4;
-    return;
-  } else if(!strcmp(str, "smtlib") || !strcmp(str, "smt")) {
-    inputLanguage = language::input::LANG_SMTLIB;
-    return;
-  } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
-    inputLanguage = language::input::LANG_SMTLIB_V2;
-    return;
-  } else if(!strcmp(str, "auto")) {
-    inputLanguage = language::input::LANG_AUTO;
-    return;
-  }
-
-  if(strcmp(str, "help")) {
-    throw OptionException(string("unknown language for --lang: `") +
-                          str + "'.  Try --lang help.");
-  }
-
-  languageHelp = true;
-}
-
 std::ostream& operator<<(std::ostream& out, SimplificationMode mode) {
   switch(mode) {
   case SIMPLIFICATION_MODE_INCREMENTAL:

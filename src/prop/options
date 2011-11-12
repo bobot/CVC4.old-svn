@@ -1,6 +1,6 @@
 module PROP Propositional
 
-option satRandomFreq --random-freq=P double :default 0.0
+option satRandomFreq --random-freq=P double :default 0.0 :handler stringToRandomFreq
  sets the frequency of random decisions in the sat solver(P=0.0 by default)
 option satRandomSeed --random-seed=S double :default 91648253
  sets the random seed for the sat solver
