@@ -1,4 +1,4 @@
-module "base"
+module BASE Base
 
 option binary_name std::string
 
@@ -125,7 +125,8 @@ option simplificationMode SimplificationMode :predicate stringToSimplificationMo
  choose simplification mode, see --simplification=help
 
 option doStaticLearning static-learning /--no-static-learning bool :default true
- turn off static learning (e.g. diamond-breaking)
+ use static learning (on by default)
+/turn off static learning (e.g. diamond-breaking)
 
 option replayFilename --replay=FILE std::string :predicate checkReplayFilename
  replay decisions from file

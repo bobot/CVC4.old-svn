@@ -28,187 +28,58 @@
 #include "util/exception.h"
 #include "util/language.h"
 #include "util/tls.h"
+#include "util/options_holder.h"
 
 namespace CVC4 {
 
 class ExprStream;
 
+/** Enumeration of simplification modes (when to simplify). */
+typedef enum {
+  /** Simplify the assertions as they come in */
+  SIMPLIFICATION_MODE_INCREMENTAL,
+  /** Simplify the assertions all together once a check is requested */
+  SIMPLIFICATION_MODE_BATCH,
+  /** Don't do simplification */
+  SIMPLIFICATION_MODE_NONE
+} SimplificationMode;
+
+typedef enum {
+  MINIMUM,
+  BREAK_TIES,
+  MAXIMUM
+} ArithPivotRule;
+
 /** Class representing an option-parsing exception. */
 class CVC4_PUBLIC OptionException : public CVC4::Exception {
 public:
-    OptionException(const std::string& s) throw() :
-      CVC4::Exception("Error in option parsing: " + s) {
-    }
+  OptionException(const std::string& s) throw() :
+    CVC4::Exception("Error in option parsing: " + s) {
+  }
 };/* class OptionException */
 
-struct CVC4_PUBLIC Options {
+class CVC4_PUBLIC Options {
+  OptionsHolder* d_holder;
 
   /** The current Options in effect */
   static CVC4_THREADLOCAL(const Options*) s_current;
 
+public:
+
   /** Get the current Options in effect */
-  static inline const Options* current() {
-    return s_current;
+  static inline const Options& current() {
+    return *s_current;
   }
 
-  /** The name of the binary (e.g. "cvc4") */
-  std::string binary_name;
-
-  /** Whether to collect statistics during this run */
-  bool statistics;
-
-  std::istream* in; /*< The input stream to use */
-  std::ostream* out; /*< The output stream to use */
-  std::ostream* err; /*< The error stream to use */
-
-  /* -1 means no output */
-  /* 0 is normal (and default) -- warnings only */
-  /* 1 is warnings + notices so the user doesn't get too bored */
-  /* 2 is chatty, giving statistical things etc. */
-  /* with 3, the solver is slowed down by all the scrolling */
-  int verbosity;
-
-  /** The input language */
-  InputLanguage inputLanguage;
-
-  /** The output language */
-  OutputLanguage outputLanguage;
-
-  /** Should we print the help message? */
-  bool help;
-
-  /** Should we print the release information? */
-  bool version;
-
-  /** Should we print the language help information? */
-  bool languageHelp;
-
-  /** Should we exit after parsing? */
-  bool parseOnly;
-
-  /** Should we exit after preprocessing? */
-  bool preprocessOnly;
-
-  /** Should the parser do semantic checks? */
-  bool semanticChecks;
-
-  /** Should the TheoryEngine do theory registration? */
-  bool theoryRegistration;
-
-  /** Should the parser memory-map file input? */
-  bool memoryMap;
-
-  /** Should we strictly enforce the language standard while parsing? */
-  bool strictParsing;
-
-  /** Should we expand function definitions lazily? */
-  bool lazyDefinitionExpansion;
-
-  /** Enumeration of simplification modes (when to simplify). */
-  typedef enum {
-    /** Simplify the assertions as they come in */
-    SIMPLIFICATION_MODE_INCREMENTAL,
-    /** Simplify the assertions all together once a check is requested */
-    SIMPLIFICATION_MODE_BATCH,
-    /** Don't do simplification */
-    SIMPLIFICATION_MODE_NONE
-  } SimplificationMode;
-
-  /** When/whether to perform nonclausal simplifications. */
-  SimplificationMode simplificationMode;
-
-  /** Whether to perform the static learning pass. */
-  bool doStaticLearning;
-
-  /** Whether we're in interactive mode or not */
-  bool interactive;
-
-  /**
-   * Whether we're in interactive mode (or not) due to explicit user
-   * setting (if false, we inferred the proper default setting).
-   */
-  bool interactiveSetByUser;
-
-  /** Per-query resource limit. */
-  unsigned long perCallResourceLimit;
-  /** Cumulative resource limit. */
-  unsigned long cumulativeResourceLimit;
-
-  /** Per-query time limit in milliseconds. */
-  unsigned long perCallMillisecondLimit;
-  /** Cumulative time limit in milliseconds. */
-  unsigned long cumulativeMillisecondLimit;
-
-  /** Whether we should "spin" on a SIG_SEGV. */
-  bool segvNoSpin;
-
-  /** Whether we support SmtEngine::getValue() for this run. */
-  bool produceModels;
-
-  /** Whether we produce proofs. */
-  bool proof;
-  
-  /** Whether we support SmtEngine::getAssignment() for this run. */
-  bool produceAssignments;
-
-  /** Whether we do typechecking at all. */
-  bool typeChecking;
-
-  /** Whether we do typechecking at Expr creation time. */
-  bool earlyTypeChecking;
-
-  /** Whether incemental solving (push/pop) */
-  bool incrementalSolving;
-
-  /** Replay file to use (for decisions); empty if no replay file. */
-  std::string replayFilename;
-
-  /** Replay stream to use (for decisions); NULL if no replay file. */
-  ExprStream* replayStream;
-
-  /** Log to write replay instructions to; NULL if not logging. */
-  std::ostream* replayLog;
-
-  /** Determines whether arithmetic will try to variables. */
-  bool variableRemovalEnabled;
-
-  /** Turn on and of arithmetic propagation. */
-  bool arithPropagation;
-
-  /**
-   * Frequency for the sat solver to make random decisions.
-   * Should be between 0 and 1.
-   */
-  double satRandomFreq;
-
-  /**
-   * Seed for Minisat's random decision procedure.
-   * If this is 0, no random decisions will occur.
-   **/
-  double satRandomSeed;
-
-  /** The pivot rule for arithmetic */
-  typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
-  ArithPivotRule pivotRule;
-
-  /**
-   * The number of pivots before Bland's pivot rule is used on a basic
-   * variable in arithmetic.
-   */
-  uint16_t arithPivotThreshold;
-
-  /**
-   * The maximum row length that arithmetic will use for propagation.
-   */
-  uint16_t arithPropagateMaxLength;
-
-  /**
-   * Whether to do the symmetry-breaking preprocessing in UF as
-   * described by Deharbe et al. in CADE 2011 (on by default).
-   */
-  bool ufSymmetryBreaker;
-
   Options();
+
+  template <class T>
+  void set(T, const typename T::type&) {
+    T::you_are_trying_to_assign_to_a_read_only_option;
+  }
+
+  template <class T>
+  const typename T::type& operator[](T) const;
 
   /**
    * Get a description of the command-line flags accepted by
@@ -251,27 +122,7 @@ struct CVC4_PUBLIC Options {
 
 };/* struct Options */
 
-inline std::ostream& operator<<(std::ostream& out,
-                                Options::SimplificationMode mode) CVC4_PUBLIC;
-inline std::ostream& operator<<(std::ostream& out,
-                                Options::SimplificationMode mode) {
-  switch(mode) {
-  case Options::SIMPLIFICATION_MODE_INCREMENTAL:
-    out << "SIMPLIFICATION_MODE_INCREMENTAL";
-    break;
-  case Options::SIMPLIFICATION_MODE_BATCH:
-    out << "SIMPLIFICATION_MODE_BATCH";
-    break;
-  case Options::SIMPLIFICATION_MODE_NONE:
-    out << "SIMPLIFICATION_MODE_NONE";
-    break;
-  default:
-    out << "SimplificationMode:UNKNOWN![" << unsigned(mode) << "]";
-  }
-
-  return out;
-}
-
+std::ostream& operator<<(std::ostream& out, Options::SimplificationMode mode) CVC4_PUBLIC;
 std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) CVC4_PUBLIC;
 
 }/* CVC4 namespace */

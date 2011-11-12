@@ -54,24 +54,52 @@ me=$(basename "$0")
 
 template=$1; shift
 
-includes=
+module_id=
+module_name=
+module_includes=
+module_defaults=
+module_optionholder_spec=
+module_decls=
+module_specializations=
+module_accessors=
+module_short_options=
+module_long_options=
+module_option_handlers=
+include_all_option_headers=
+all_modules_contributions=
 
 seen_module=false
 seen_endmodule=false
 expect_doc=false
+expect_doc_alternate=false
+n_long=256
+
 internal=
+smtname=
+short_option=
+short_option_alternate=
+long_option=
+long_option_alternate=
+long_option_alternate_set=
+type=
+predicates=
 
 function module {
-  # module name
+  # module id name
 
   seen_module=true
-  if [ -z "$1" ]; then
-    echo "$kf:$lineno: error: \"module\" directive missing name" >&2
-    exit 1
-  elif [ $# -gt 1 ]; then
-    echo "$kf:$lineno: error: \"module\" directive has too many arguments" >&2
+  if [ $# -lt 2 -o -z "$1" -o -z "$2" ]; then
+    echo "$kf:$lineno: error: \"module\" directive requires exactly two arguments" >&2
     exit 1
   fi
+
+  module_id="$1"; shift
+  module_name="$@"
+  include_all_option_headers="${include_all_option_headers}
+#include \"$kf.h\""
+  all_modules_contributions="${all_modules_contributions}
+  ${module_id}_OPTIONS"
+  module_optionholder_spec="#define ${module_id}_OPTIONS"
 }
 
 function endmodule {
@@ -79,6 +107,10 @@ function endmodule {
   check_module_seen
   check_doc
   seen_endmodule=true
+  if [ $# -ne 0 ]; then
+    echo "$kf:$lineno: error: endmodule takes no arguments" >&2
+    exit 1
+  fi
 }
 
 function common-option {
@@ -114,13 +146,17 @@ function handle_option {
   short_option_alternate=
   long_option=
   long_option_alternate=
+  long_option_alternate_set=
   type=
+  predicates=
+  readOnly=true
 
   if [ "$category" = UNDOCUMENTED ]; then
     expect_doc=false
   else
     expect_doc=true
   fi
+  expect_doc_alternate=false
 
   # scan ahead to see where the type is
   type_pos=2
@@ -132,6 +168,7 @@ function handle_option {
 
   if [ $type_pos -eq 2 ]; then
     expect_doc=false
+    readOnly=false
   else
     i=2
     while [ $i -lt $type_pos ]; do
@@ -140,17 +177,48 @@ function handle_option {
           echo "$kf:$lineno: error: malformed option line for \`$internal': unexpected \`${args[$i]}'" >&2
           exit 1
         fi
-        opts=($(echo "${args[$i]}" | sed 's,/, ,'))
-        long_option="${opts[0]}"
-        long_option_alternate="${opts[1]}"
+        long_option="$(echo "${args[$i]}" | sed 's,/.*,,')"
+        if [ -n "$long_option" ]; then
+          if ! expr "$long_option" : '--.' &>/dev/null; then
+            echo "$kf:$option: bad long option \`$long_option': expected something like \`--foo'" >&2
+            exit 1
+          fi
+          long_option="$(echo "$long_option" | sed 's,^--,,')"
+        fi
+        if expr "${args[$i]}" : '.*/' &>/dev/null; then
+          long_option_alternate="$(echo "${args[$i]}" | sed 's,[^/]*/,,')"
+          long_option_alternate_set=set
+          if [ -n "$long_option_alternate" ]; then
+            if ! expr "$long_option_alternate" : '--.' &>/dev/null; then
+              echo "$kf:$option: bad alternate long option \`$long_option_alternate': expected something like \`--foo'" >&2
+              exit 1
+            fi
+            long_option_alternate="$(echo "$long_option_alternate" | sed 's,^--,,')"
+          fi
+        fi
       elif expr "${args[$i]}" : '-' &>/dev/null || expr "${args[$i]}" : '/-' &>/dev/null; then
         if [ -n "$short_option" -o -n "$short_option_alternate" -o -n "$long_option" -o -n "$long_option_alternate" ]; then
           echo "$kf:$lineno: error: malformed option line for \`$internal': unexpected \`${args[$i]}'" >&2
           exit 1
         fi
-        opts=($(echo "${args[$i]}" | sed 's,/, ,'))
-        short_option="${opts[0]}"
-        short_option_alternate="${opts[1]}"
+        short_option="$(echo "${args[$i]}" | sed 's,/.*,,')"
+        if [ -n "$short_option" ]; then
+          if ! expr "$short_option" : '-.$' &>/dev/null; then
+            echo "$kf:$option: bad short option \`$short_option': expected something like \`-x'" >&2
+            exit 1
+          fi
+          short_option="$(echo "$short_option" | sed 's,^-,,')"
+        fi
+        if expr "${args[$i]}" : '.*/' &>/dev/null; then
+          short_option_alternate="$(echo "${args[$i]}" | sed 's,[^/]*/,,')"
+          if expr "$short_option_alternate" : - &>/dev/null; then
+            if ! expr "$short_option_alternate" : '-.$' &>/dev/null; then
+              echo "$kf:$option: bad alternate short option \`$short_option_alternate': expected something like \`-x'" >&2
+              exit 1
+            fi
+            short_option_alternate="$(echo "$short_option_alternate" | sed 's,^-,,')"
+          fi
+        fi
       else
         if [ -n "$smtname" -o -n "$short_option" -o -n "$short_option_alternate" -o -n "$long_option" -o -n "$long_option_alternate" ]; then
           echo "$kf:$lineno: error: malformed option line for \`$internal': unexpected \`${args[$i]}'" >&2
@@ -170,7 +238,7 @@ function handle_option {
     exit 1
   fi
 
-  if [ "$type" = bool -a -z "$long_option_alternate" ]; then
+  if [ "$type" = bool -a -n "$long_option" -a -z "$long_option_alternate" -a -z "$long_option_alternate_set" ]; then
     long_option_alternate="--no-$(echo "$long_option" | sed 's,^--,,')"
   fi
   if [ "$type" != bool -a -n "$short_option_alternate" ]; then
@@ -180,6 +248,127 @@ function handle_option {
     echo "$kf:$lineno: error: cannot use alternate long option $long_option_alternate for \`$internal' because it's not of bool type" >&2
     exit 1
   fi
+
+  # parse attributes
+  i=$(($type_pos+1))
+  while [ $i -lt ${#args[@]} ]; do
+    attribute="${args[$i]}"
+    case "$attribute" in
+    :default)
+       let ++i
+       default_value="${args[$i]}"
+       ;;
+    :predicate)
+       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
+         let ++i
+         predicates="${predicates}
+${args[$i]}"
+       done
+       ;;
+    :include)
+       while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
+         let ++i
+         module_includes="${module_includes}
+#include \"${args[$i]}\""
+       done
+       ;;
+    :read-write)
+       readOnly=false
+       ;;
+    :read-only)
+       readOnly=true
+       ;;
+    *)
+       echo "$kf:$lineno: error in option \`$internal': bad attribute \`$attribute'" >&2
+       exit 1
+    esac
+    let ++i
+  done
+
+  # set up structures
+  if [ "$internal" != - ]; then
+    # set up a field in the options_holder
+    module_optionholder_spec="${module_optionholder_spec} \\
+  ${internal}_t::type $internal;"
+    module_decls="${module_decls}
+extern struct ${internal}_t { typedef $type type; } $internal;"
+    module_defaults="${module_defaults}
+    $internal($default_value),"
+
+    if ! $readOnly; then
+      module_specializations="${module_specializations}
+template <> void Options::set(${internal}_t, const ${internal}_t::type& x);"
+      module_accessors="${module_accessors}
+template <> void Options::set(${internal}_t, const ${internal}_t::type& x) {
+  d_holder->$internal = x;
+}"
+    fi
+    module_specializations="${module_specializations}
+template <> const ${internal}_t::type& Options::operator[](${internal}_t) const;"
+    module_accessors="${module_accessors}
+template <> const ${internal}_t::type& Options::operator[](${internal}_t) const {
+  return d_holder->$internal;
+}"
+  fi
+
+  if [ "$type" = bool -o "$type" = void ]; then
+    expect_arg=
+    expect_arg_long=no_argument
+  else
+    expect_arg=:
+    expect_arg_long=required_argument
+  fi
+  cases=
+  cases_alternate=
+  if [ -n "$short_option" ]; then
+    module_short_options="${module_short_options}$short_option$expect_arg"
+    cases="${cases}
+    case '$short_option':"
+  fi
+  if [ -n "$short_option_alternate" ]; then
+    module_short_options="${module_short_options}$short_option_alternate$expect_arg"
+    cases_alternate="${cases_alternate}
+    case '$short_option_alternate':"
+  fi
+  if [ -n "$long_option" ]; then
+    module_long_options="${module_long_options}
+  { \"$long_option\", $expect_arg_long, NULL, $n_long },"
+    cases="${cases}
+    case $n_long:// --$long_option"
+    let ++n_long
+  fi
+  if [ -n "$long_option_alternate" ]; then
+    module_long_options="${module_long_options}
+  { \"$long_option_alternate\", $expect_arg_long, NULL, $n_long },"
+    cases_alternate="${cases}
+    case $n_long:// --$long_option_alternate"
+    let ++n_long
+  fi
+  if [ -n "$cases" ]; then
+    if [ "$type" = bool ]; then
+      module_option_handlers="${module_option_handlers}${cases}
+      set($internal, true);
+      break;
+"
+    elif [ -n "$expect_arg" ]; then
+      module_option_handlers="${module_option_handlers}${cases}
+      set($internal, runHandlers($internal, optarg));
+      break;
+"
+    fi
+  fi
+  if [ -n "$cases_alternate" ]; then
+    if [ "$type" = bool ]; then
+      module_option_handlers="${module_option_handlers}${cases_alternate}
+      set($internal, false);
+      break;
+"
+    else
+      echo "$kf:$lineno: internal error: expected BOOL-typed option in alternate handler" >&2
+      exit 1
+    fi
+  fi
+
 }
 
 function alias {
@@ -205,12 +394,37 @@ function doc {
   # doc text...
   check_module_seen
   expect_doc=false
+
+  if [ -z "$short_option" -a -z "$long_option" ]; then
+    if [ -n "$short_option_alternate" -o -n "$long_option_alternate" ]; then
+      if [ -n "$smtname" ]; then
+        expect_doc_alternate=true
+      else
+        doc-alternate "$@"
+        return
+      fi
+    fi
+  fi
+
+  # do doc
 }
 
 function doc-alternate {
   # doc-alternate text...
   check_module_seen
-  expect_doc=false
+  expect_doc_alternate=false
+
+  if $expect_doc; then
+    echo "$kf:$lineno: error: must provide documentation before alternate documentation" >&2
+    exit 1
+  fi
+
+  if [ -z "$short_option_alternate" -a -z "$long_option_alternate" ]; then
+    echo "$kf:$lineno: cannot document an alternative for option \`$internal'; one does not exist" >&2
+    exit 1
+  fi
+
+  # do doc-alt
 }
 
 function constant {
@@ -250,6 +464,11 @@ function check_doc {
     echo "$kf:$lineno: warning: $internal is lacking documentation" >&2
     expect_doc=false
   fi
+
+  if $expect_doc_alternate; then
+    echo "$kf:$lineno: warning: $internal is lacking documentation for the alternative option(s): $short_option_alternate $long_option_alternate" >&2
+    expect_doc_alternate=false
+  fi
 }
 
 function check_module_seen {
@@ -269,20 +488,24 @@ while [ $# -gt 0 ]; do
   seen_endmodule=false
   b=$(basename $(dirname "$kf"))
   lineno=0
-  # IFS= forces read to read an entire line, 
+  # IFS= forces read to read an entire line
   while IFS= read -r line; do
     let ++lineno
+    # read any continuations of the line
     while expr "$line" : '.*\\$' &>/dev/null; do
       IFS= read -r line2
       line="$(echo "$line" | sed 's,\\$,,')$line2"
       let ++lineno
     done
-    if expr "$line" : '[ \t].*' &>/dev/null; then
-      doc "$(echo "$line" | sed 's,^ ,,')"
-    elif expr "$line" : '\.[ \t]*' &>/dev/null; then
+    if expr "$line" : '[ 	].*' &>/dev/null; then
+      doc "$(echo "$line" | sed 's,^[ 	],,')"
+    elif expr "$line" : '\.[ 	]*$' &>/dev/null; then
       doc ""
+    elif expr "$line" : '\.' &>/dev/null; then
+      echo "$kf:$lineno: error: malformed line during processing of option \`$internal': continuation lines should not have content" >&2
+      exit 1
     elif expr "$line" : '/.*' &>/dev/null; then
-      doc-alternate ""
+      doc-alternate "$(echo "$line" | sed 's,^/,,')"
     else
       eval "$line"
     fi
@@ -306,14 +529,18 @@ nl -ba -s' ' "$template"  | grep '^ *[0-9][0-9]* # *line' |
 
 text=$(cat "$template")
 for var in \
-    includes \
-    template \
-    getConst_instantiations \
-    getConst_implementations \
-    mkConst_instantiations \
-    mkConst_implementations \
-    typechecker_includes \
-    typerules \
+    module_id \
+    module_name \
+    module_includes \
+    module_optionholder_spec \
+    module_decls \
+    module_specializations \
+    module_accessors \
+    module_short_options \
+    module_long_options \
+    module_option_handlers \
+    include_all_option_headers \
+    all_modules_contributions \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
 done

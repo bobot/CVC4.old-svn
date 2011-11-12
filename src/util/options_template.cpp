@@ -1,9 +1,9 @@
 /*********************                                                        */
-/*! \file options.cpp
+/*! \file options_template.cpp
  ** \verbatim
  ** Original author: mdeters
- ** Major contributors: cconway, taking
- ** Minor contributors (to current version): barrett, dejan
+ ** Major contributors: none
+ ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -54,48 +54,7 @@ CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
 #  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
 #endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
 
-Options::Options() :
-  binary_name(),
-  statistics(false),
-  in(&std::cin),
-  out(&std::cout),
-  err(&std::cerr),
-  verbosity(0),
-  inputLanguage(language::input::LANG_AUTO),
-  outputLanguage(language::output::LANG_AUTO),
-  parseOnly(false),
-  preprocessOnly(false),
-  semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-  theoryRegistration(true),
-  memoryMap(false),
-  strictParsing(false),
-  lazyDefinitionExpansion(false),
-  simplificationMode(SIMPLIFICATION_MODE_BATCH),
-  doStaticLearning(true),
-  interactive(false),
-  interactiveSetByUser(false),
-  perCallResourceLimit(0),
-  cumulativeResourceLimit(0),
-  perCallMillisecondLimit(0),
-  cumulativeMillisecondLimit(0),
-  segvNoSpin(false),
-  produceModels(false),
-  proof(false),
-  produceAssignments(false),
-  typeChecking(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-  earlyTypeChecking(USE_EARLY_TYPE_CHECKING_BY_DEFAULT),
-  incrementalSolving(false),
-  replayFilename(""),
-  replayStream(NULL),
-  replayLog(NULL),
-  variableRemovalEnabled(false),
-  arithPropagation(true),
-  satRandomFreq(0.0),
-  satRandomSeed(91648253),// Minisat's default value
-  pivotRule(MINIMUM),
-  arithPivotThreshold(16),
-  arithPropagateMaxLength(16),
-  ufSymmetryBreaker(true)
+Options::Options() : ${module_defaults}
 {
 }
 
@@ -274,59 +233,6 @@ void Options::printLanguageHelp(std::ostream& out) {
 }
 
 /**
- * For the main getopt() routine, we need ways to switch on long
- * options without clashing with short option characters.  This is an
- * enum of those long options.  For long options (e.g. "--verbose")
- * with a short option equivalent ("-v"), we use the single-letter
- * short option; therefore, this enumeration starts at 256 to avoid
- * any collision.
- */
-enum OptionValue {
-  SMTCOMP = 256, /* avoid clashing with char options */
-  STATS,
-  SEGV_NOSPIN,
-  OUTPUT_LANGUAGE,
-  PARSE_ONLY,
-  PREPROCESS_ONLY,
-  DUMP,
-  DUMP_TO,
-  NO_CHECKING,
-  NO_THEORY_REGISTRATION,
-  USE_MMAP,
-  SHOW_DEBUG_TAGS,
-  SHOW_TRACE_TAGS,
-  SHOW_CONFIG,
-  STRICT_PARSING,
-  DEFAULT_EXPR_DEPTH,
-  PRINT_EXPR_TYPES,
-  UF_THEORY,
-  LAZY_DEFINITION_EXPANSION,
-  SIMPLIFICATION_MODE,
-  NO_STATIC_LEARNING,
-  INTERACTIVE,
-  NO_INTERACTIVE,
-  PRODUCE_ASSIGNMENTS,
-  PROOF,
-  NO_TYPE_CHECKING,
-  LAZY_TYPE_CHECKING,
-  EAGER_TYPE_CHECKING,
-  REPLAY,
-  REPLAY_LOG,
-  PIVOT_RULE,
-  RANDOM_FREQUENCY,
-  RANDOM_SEED,
-  ARITHMETIC_VARIABLE_REMOVAL,
-  ARITHMETIC_PROPAGATION,
-  ARITHMETIC_PIVOT_THRESHOLD,
-  ARITHMETIC_PROP_MAX_LENGTH,
-  DISABLE_SYMMETRY_BREAKER,
-  TIME_LIMIT,
-  TIME_LIMIT_PER,
-  RESOURCE_LIMIT,
-  RESOURCE_LIMIT_PER
-};/* enum OptionValue */
-
-/**
  * This is a table of long options.  By policy, each short option
  * should have an equivalent long option (but the reverse isn't the
  * case), so this table should thus contain all command-line options.
@@ -352,59 +258,9 @@ enum OptionValue {
  */
 static struct option cmdlineOptions[] = {
   // name, has_arg, *flag, val
-  { "verbose"    , no_argument      , NULL, 'v'         },
-  { "quiet"      , no_argument      , NULL, 'q'         },
-  { "debug"      , required_argument, NULL, 'd'         },
-  { "trace"      , required_argument, NULL, 't'         },
-  { "stats"      , no_argument      , NULL, STATS       },
-  { "no-checking", no_argument      , NULL, NO_CHECKING },
-  { "no-theory-registration", no_argument, NULL, NO_THEORY_REGISTRATION },
-  { "show-debug-tags", no_argument  , NULL, SHOW_DEBUG_TAGS },
-  { "show-trace-tags", no_argument  , NULL, SHOW_TRACE_TAGS },
-  { "show-config", no_argument      , NULL, SHOW_CONFIG },
-  { "segv-nospin", no_argument      , NULL, SEGV_NOSPIN },
-  { "help"       , no_argument      , NULL, 'h'         },
-  { "version"    , no_argument      , NULL, 'V'         },
-  { "about"      , no_argument      , NULL, 'V'         },
-  { "lang"       , required_argument, NULL, 'L'         },
-  { "output-lang", required_argument, NULL, OUTPUT_LANGUAGE },
-  { "parse-only" , no_argument      , NULL, PARSE_ONLY  },
-  { "preprocess-only", no_argument      , NULL, PREPROCESS_ONLY },
-  { "dump"       , required_argument, NULL, DUMP        },
-  { "dump-to"    , required_argument, NULL, DUMP_TO     },
-  { "mmap"       , no_argument      , NULL, USE_MMAP    },
-  { "strict-parsing", no_argument   , NULL, STRICT_PARSING },
-  { "default-expr-depth", required_argument, NULL, DEFAULT_EXPR_DEPTH },
-  { "print-expr-types", no_argument , NULL, PRINT_EXPR_TYPES },
-  { "uf"         , required_argument, NULL, UF_THEORY   },
-  { "lazy-definition-expansion", no_argument, NULL, LAZY_DEFINITION_EXPANSION },
-  { "simplification", required_argument, NULL, SIMPLIFICATION_MODE },
-  { "no-static-learning", no_argument, NULL, NO_STATIC_LEARNING },
-  { "interactive", no_argument      , NULL, INTERACTIVE },
-  { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
-  { "produce-models", no_argument   , NULL, 'm' },
-  { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
-  { "proof", no_argument, NULL, PROOF },
-  { "no-type-checking", no_argument , NULL, NO_TYPE_CHECKING },
-  { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
-  { "eager-type-checking", no_argument, NULL, EAGER_TYPE_CHECKING },
-  { "incremental", no_argument      , NULL, 'i' },
-  { "replay"     , required_argument, NULL, REPLAY      },
-  { "replay-log" , required_argument, NULL, REPLAY_LOG  },
-  { "pivot-rule" , required_argument, NULL, PIVOT_RULE  },
-  { "pivot-threshold" , required_argument, NULL, ARITHMETIC_PIVOT_THRESHOLD  },
-  { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
-  { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
-  { "random-seed" , required_argument, NULL, RANDOM_SEED  },
-  { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
-  { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
-  { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
-  { "tlimit"     , required_argument, NULL, TIME_LIMIT  },
-  { "tlimit-per" , required_argument, NULL, TIME_LIMIT_PER },
-  { "rlimit"     , required_argument, NULL, RESOURCE_LIMIT       },
-  { "rlimit-per" , required_argument, NULL, RESOURCE_LIMIT_PER   },
-  { NULL         , no_argument      , NULL, '\0'        }
-};/* if you add things to the above, please remember to update usage.h! */
+  ${module_long_options}
+  { NULL, no_argument, NULL, '\0' }
+};
 
 
 /** Parse argc/argv and put the result into a CVC4::Options struct. */
@@ -420,22 +276,14 @@ throw(OptionException) {
   }
   binary_name = string(progName);
 
-  // The strange string in this call is the short option string.  An
-  // initial '+' means that option processing stops as soon as a
-  // non-option argument is encountered (it is not present, by design).
-  // The initial ':' indicates that getopt_long() should return ':'
-  // instead of '?' for a missing option argument.  Then, each letter
-  // is a valid short option for getopt_long(), and if it's encountered,
-  // getopt_long() returns that character.  A ':' after an option
-  // character means an argument is required; two colons indicates an
-  // argument is optional; no colons indicate an argument is not
-  // permitted.  cmdlineOptions specifies all the long-options and the
-  // return value for getopt_long() should they be encountered.
   while((c = getopt_long(argc, argv,
-                         ":himVvqL:d:t:",
+                         ":" ${module_short_options},
                          cmdlineOptions, NULL)) != -1) {
     switch(c) {
 
+      ${module_option_handlers}
+
+#if 0
     case 'h':
       help = true;
       break;
@@ -863,6 +711,8 @@ throw(OptionException) {
       printf("tls        : %s\n", Configuration::isBuiltWithTlsSupport() ? "yes" : "no");
       exit(0);
 
+#endif /* 0 */
+
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
 
@@ -926,6 +776,24 @@ void Options::setInputLanguage(const char* str) throw(OptionException) {
   }
 
   languageHelp = true;
+}
+
+std::ostream& operator<<(std::ostream& out, Options::SimplificationMode mode) {
+  switch(mode) {
+  case Options::SIMPLIFICATION_MODE_INCREMENTAL:
+    out << "SIMPLIFICATION_MODE_INCREMENTAL";
+    break;
+  case Options::SIMPLIFICATION_MODE_BATCH:
+    out << "SIMPLIFICATION_MODE_BATCH";
+    break;
+  case Options::SIMPLIFICATION_MODE_NONE:
+    out << "SIMPLIFICATION_MODE_NONE";
+    break;
+  default:
+    out << "SimplificationMode:UNKNOWN![" << unsigned(mode) << "]";
+  }
+
+  return out;
 }
 
 std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {
