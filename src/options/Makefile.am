@@ -1,6 +1,6 @@
 AM_CPPFLAGS = \
 	-D__BUILDING_CVC4LIB \
-	-I@srcdir@/src/options/include -I@srcdir@/src/options -I@builddir@/src/options
+	-I@srcdir@/src/options/include -I@srcdir@/.. -I@builddir@/..
 AM_CXXFLAGS = -Wall $(FLAG_VISIBILITY_HIDDEN)
 
 noinst_LTLIBRARIES = liboptions.la
