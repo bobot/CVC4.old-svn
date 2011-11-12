@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <new>
+#include <string>
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
@@ -35,6 +36,8 @@
 #include "theory/uf/options.h"
 #include "prop/options.h"
 #include "util/output.h"
+
+#include "util/options_holder.h"
 
 #include "cvc4autoconfig.h"
 
@@ -301,7 +304,7 @@ throw(OptionException) {
   if(x != NULL) {
     progName = x + 1;
   }
-  binary_name = string(progName);
+  d_holder->binary_name = string(progName));
 
   int extra_argc = 0;
   char **extra_argv = (char**) malloc(sizeof(char*));
