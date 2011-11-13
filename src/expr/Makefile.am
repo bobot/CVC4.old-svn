@@ -39,7 +39,10 @@ nodist_libexpr_la_SOURCES = \
 	expr.cpp \
 	expr_manager.h \
 	expr_manager.cpp \
-	type_checker.cpp
+	type_checker.cpp \
+	options.cpp \
+	options.h
+
 
 EXTRA_DIST = \
 	kind_template.h \
@@ -59,7 +62,8 @@ EXTRA_DIST = \
 	command.i \
 	type.i \
 	kind.i \
-	expr.i
+	expr.i \
+	options
 
 BUILT_SOURCES = \
 	kind.h \
@@ -70,7 +74,9 @@ BUILT_SOURCES = \
 	expr_manager.h \
 	expr_manager.cpp \
 	type_checker.cpp \
-	$(top_builddir)/src/theory/.subdirs
+	$(top_builddir)/src/theory/.subdirs \
+	options.cpp \
+	options.h
 
 CLEANFILES = \
 	kind.h \
@@ -82,6 +88,10 @@ CLEANFILES = \
 	type_checker.cpp \
 	type_properties.h \
 	$(top_builddir)/src/theory/.subdirs
+
+options:;
+options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
+	$(MAKE) -C @top_srcdir@/src/options builts FROM_EXPR=1
 
 include @top_srcdir@/src/theory/Makefile.subdirs
 

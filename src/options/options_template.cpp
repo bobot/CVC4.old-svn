@@ -32,9 +32,22 @@
 #include "util/exception.h"
 #include "util/language.h"
 #include "options/options.h"
+#include "theory/builtin/options.h"
+#include "theory/booleans/options.h"
 #include "theory/arith/options.h"
+#include "theory/arrays/options.h"
+#include "theory/bv/options.h"
 #include "theory/uf/options.h"
+#include "theory/datatypes/options.h"
+#include "theory/booleans/options.h"
+#include "theory/builtin/options.h"
 #include "prop/options.h"
+#include "smt/options.h"
+#include "printer/options.h"
+#include "parser/options.h"
+#include "proof/options.h"
+#include "expr/options.h"
+#include "main/options.h"
 #include "util/output.h"
 
 #include "options/options_holder.h"
@@ -49,6 +62,8 @@ using namespace CVC4;
 namespace CVC4 {
 
 CVC4_THREADLOCAL(OptionsClass*) OptionsClass::s_current = NULL;
+
+OptionObject Options;
 
 template <class T> T handleOption(std::string option, std::string optarg);
 

@@ -144,7 +144,9 @@ public:
   void set(T t, const typename T::type& v) {
     OptionsClass::current().set(t, v);
   }
-} Options;
+};/* struct OptionObject */
+
+extern OptionObject Options;
 
 std::ostream& operator<<(std::ostream& out, SimplificationMode mode) CVC4_PUBLIC;
 std::ostream& operator<<(std::ostream& out, ArithPivotRule rule) CVC4_PUBLIC;

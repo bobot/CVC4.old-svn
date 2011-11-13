@@ -1,3 +1,13 @@
 module SMT SMT
 
+expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
+ expand define-funs/LAMBDAs lazily
+
+option simplificationMode --simplification=MODE SimplificationMode :handler stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :include "options/options.h"
+ choose simplification mode, see --simplification=help
+
+option doStaticLearning static-learning /--no-static-learning bool :default true
+ use static learning (on by default)
+/turn off static learning (e.g. diamond-breaking)
+
 endmodule

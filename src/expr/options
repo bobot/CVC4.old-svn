@@ -1,0 +1,9 @@
+module EXPR Expression package
+
+option - --default-expr-depth=N argument :handler setDefaultExprDepth
+ print exprs to depth N (0 == default, -1 == no limit)
+option - --print-expr-types void :handler setPrintExprTypes
+ print types with variables when printing exprs
+
+endmodule
+

@@ -21,6 +21,12 @@ BUILT_SOURCES = \
 	base_options.h \
 	$(builddir)/../prop/options.cpp \
 	$(builddir)/../prop/options.h \
+	$(builddir)/../expr/options.cpp \
+	$(builddir)/../expr/options.h \
+	$(builddir)/../theory/builtin/options.h \
+	$(builddir)/../theory/builtin/options.cpp \
+	$(builddir)/../theory/booleans/options.h \
+	$(builddir)/../theory/booleans/options.cpp \
 	$(builddir)/../theory/uf/options.h \
 	$(builddir)/../theory/uf/options.cpp \
 	$(builddir)/../theory/arith/options.cpp \
@@ -37,6 +43,8 @@ BUILT_SOURCES = \
 	$(builddir)/../parser/options.h \
 	$(builddir)/../proof/options.cpp \
 	$(builddir)/../proof/options.h \
+	$(builddir)/../printer/options.cpp \
+	$(builddir)/../printer/options.h \
 	$(builddir)/../main/options.cpp \
 	$(builddir)/../main/options.h \
 	exprs-builts
@@ -131,6 +139,58 @@ base_options.cpp: base_options_template.cpp mkoptions options
 		$< $@ \
 		@srcdir@/options \
 	) || (rm -f $@ && exit 1)
+
+$(builddir)/../expr/options:;
+$(builddir)/../expr/options.h: base_options_template.h mkoptions ../expr/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../expr/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../expr/options.cpp: base_options_template.cpp mkoptions ../expr/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../expr/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/builtin/options:;
+$(builddir)/../theory/builtin/options.h: base_options_template.h mkoptions ../theory/builtin/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/builtin/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/builtin/options.cpp: base_options_template.cpp mkoptions ../theory/builtin/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/builtin/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/booleans/options:;
+$(builddir)/../theory/booleans/options.h: base_options_template.h mkoptions ../theory/booleans/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/booleans/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/booleans/options.cpp: base_options_template.cpp mkoptions ../theory/booleans/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/booleans/options \
+	) || (rm -f $@ && exit 1)
+
 
 $(builddir)/../theory/arith/options:;
 $(builddir)/../theory/arith/options.h: base_options_template.h mkoptions ../theory/arith/options
@@ -285,6 +345,23 @@ $(builddir)/../proof/options.cpp: base_options_template.cpp mkoptions ../proof/o
 		@srcdir@/../proof/options \
 	) || (rm -f $@ && exit 1)
 
+$(builddir)/../printer/options:;
+$(builddir)/../printer/options.h: base_options_template.h mkoptions ../printer/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../printer/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../printer/options.cpp: base_options_template.cpp mkoptions ../printer/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../printer/options \
+	) || (rm -f $@ && exit 1)
+
 $(builddir)/../main/options:;
 $(builddir)/../main/options.h: base_options_template.h mkoptions ../main/options
 	$(AM_V_at)chmod +x @srcdir@/mkoptions
@@ -304,4 +381,5 @@ $(builddir)/../main/options.cpp: base_options_template.cpp mkoptions ../main/opt
 
 .PHONY: exprs-builts builts
 builts: $(BUILT_SOURCES)
-exprs-builts:; $(MAKE) -C ../expr builts
+exprs-builts:; $(AM_V_at)[ "$(FROM_EXPR)" != 1 ] && $(MAKE) -C ../expr builts || true
+

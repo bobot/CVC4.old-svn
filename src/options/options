@@ -120,9 +120,6 @@ common-option produceModels produce-models -m --produce-models bool
 common-option produceAssignments produce-assignments --produce-assignments bool
  support the get-assignment command
 
-common-option proof produce-proofs --proof bool
- turn on proof generation
-
 common-option incrementalSolving incremental -i --incremental bool
  enable incremental solving
 
@@ -160,21 +157,6 @@ option - --show-debug-tags void :handler showDebugTags
  show all available tags for debugging
 option - --show-trace-tags void :handler showTraceTags
  show all available tags for tracing
-
-option - --default-expr-depth=N argument :handler setDefaultExprDepth
- print exprs to depth N (0 == default, -1 == no limit)
-option - --print-expr-types void :handler setPrintExprTypes
- print types with variables when printing exprs
-
-expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
- expand define-funs/LAMBDAs lazily
-
-option simplificationMode --simplification=MODE SimplificationMode :handler stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :include "options/options.h"
- choose simplification mode, see --simplification=help
-
-option doStaticLearning static-learning /--no-static-learning bool :default true
- use static learning (on by default)
-/turn off static learning (e.g. diamond-breaking)
 
 option replayFilename --replay=FILE std::string :handler checkReplayFilename
  replay decisions from file

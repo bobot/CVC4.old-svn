@@ -1,3 +1,12 @@
 module PROOF Proof
 
+common-option proof produce-proofs --proof bool
+ turn on proof generation
+.
+ This option is used to turn on proof generation.
+.
+/turn off proof generation
+.
+ This option is used to turn off proof generation.
+
 endmodule
