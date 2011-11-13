@@ -45,6 +45,7 @@
 #include "theory/arith/arith_prop_manager.h"
 
 #include <stdint.h>
+#include <gflags/gflags.h>
 
 using namespace std;
 
@@ -53,6 +54,9 @@ using namespace CVC4::kind;
 
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
+
+// this doesn't get processed correctly for gflags :-(
+DEFINE_bool(arithTesting, false, "TESTING ARITH FEATURE");
 
 static const uint32_t RESET_START = 2;
 

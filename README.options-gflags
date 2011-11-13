@@ -1,0 +1,9 @@
+Testing gflags integration.  This is what CVC4 might look like with gflags
+for command line option handling.
+
+All command-line parsing is done with gflags.  Only some options are supported
+(not the full suite of options from trunk) for this testing integration.
+
+Note all option flags are global.
+
+-- Morgan Deters <mdeters@cs.nyu.edu>  Sun, 13 Nov 2011 16:42:19 -0500

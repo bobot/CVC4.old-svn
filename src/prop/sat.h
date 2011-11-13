@@ -288,7 +288,7 @@ inline SatSolver::SatSolver(PropEngine* propEngine,
   d_minisat = new Minisat::SimpSolver(this, d_context,
                                       Options::current()->incrementalSolving);
   // Setup the verbosity
-  d_minisat->verbosity = (Options::current()->verbosity > 0) ? 1 : -1;
+  d_minisat->verbosity = FLAGS_verbosity > 0 ? 1 : -1;
 
   // Setup the random decision parameters
   d_minisat->random_var_freq = Options::current()->satRandomFreq;

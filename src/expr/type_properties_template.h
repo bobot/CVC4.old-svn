@@ -28,7 +28,7 @@
 #include "expr/kind.h"
 #include "expr/expr.h"
 #include "util/language.h"
-
+#include "util/options.h"
 #include <sstream>
 
 ${type_properties_includes}
@@ -72,7 +72,7 @@ ${type_cardinalities}
   default: {
     std::stringstream ss;
     ss << Expr::setlanguage(language::toOutputLanguage
-                            ( Options::current()->inputLanguage ));
+                            ( FLAGS_inputLanguage ));
     ss << "A theory kinds file did not provide a cardinality "
        << "or cardinality computer for type:\n" << typeNode
        << "\nof kind " << k;
@@ -103,7 +103,7 @@ ${type_wellfoundednesses}
   default: {
     std::stringstream ss;
     ss << Expr::setlanguage(language::toOutputLanguage
-                            ( Options::current()->inputLanguage ));
+                            ( FLAGS_inputLanguage ));
     ss << "A theory kinds file did not provide a well-foundedness "
        << "or well-foundedness computer for type:\n" << typeNode
        << "\nof kind " << k;
@@ -134,7 +134,7 @@ ${type_groundterms}
   default: {
     std::stringstream ss;
     ss << Expr::setlanguage(language::toOutputLanguage
-                            ( Options::current()->inputLanguage ));
+                            ( FLAGS_inputLanguage ));
     ss << "A theory kinds file did not provide a ground term "
        << "or ground term computer for type:\n" << typeNode
        << "\nof kind " << k;

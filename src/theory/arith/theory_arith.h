@@ -46,6 +46,11 @@
 #include <map>
 #include <queue>
 
+#include <gflags/gflags.h>
+
+// this doesn't get processed correctly for gflags :-(
+DECLARE_bool(arithTesting);
+
 namespace CVC4 {
 namespace theory {
 namespace arith {

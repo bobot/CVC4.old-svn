@@ -138,11 +138,11 @@ ParserBuilder& ParserBuilder::withParseOnly(bool flag) {
 
 ParserBuilder& ParserBuilder::withOptions(const Options& options) {
   return
-    withInputLanguage(options.inputLanguage)
-      .withMmap(options.memoryMap)
-      .withChecks(options.semanticChecks)
+    withInputLanguage(FLAGS_inputLanguage)
+      .withMmap(FLAGS_memoryMap)
+      .withChecks(FLAGS_semanticChecks)
       .withStrictMode(options.strictParsing)
-      .withParseOnly(options.parseOnly);
+      .withParseOnly(FLAGS_parseOnly);
   }
 
 ParserBuilder& ParserBuilder::withStrictMode(bool flag) {

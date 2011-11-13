@@ -68,7 +68,7 @@ namespace CVC4 {
 
 static void printUsage(bool full) {
   stringstream ss;
-  ss << "usage: " << options.binary_name << " [options] [input-file]" << endl
+  ss << "usage: " << FLAGS_binary_name << " [options] [input-file]" << endl
       << endl
       << "Without an input file, or with `-', CVC4 reads from standard input." << endl
       << endl;
@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
     *options.out << "unknown" << endl;
 #endif
     *options.err << "CVC4 Error:" << endl << e << endl;
-    if(options.statistics && pStatistics != NULL) {
+    if(FLAGS_statistics && pStatistics != NULL) {
       pStatistics->flushStatistics(*options.err);
     }
     exit(1);
@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
     *options.out << "unknown" << endl;
 #endif
     *options.err << "CVC4 ran out of memory." << endl;
-    if(options.statistics && pStatistics != NULL) {
+    if(FLAGS_statistics && pStatistics != NULL) {
       pStatistics->flushStatistics(*options.err);
     }
     exit(1);
@@ -134,17 +134,11 @@ static int runCvc4(int argc, char* argv[]) {
   // Parse the options
   int firstArgIndex = options.parseOptions(argc, argv);
 
-  progName = options.binary_name.c_str();
+  progName = FLAGS_binary_name.c_str();
 
-  if( options.help ) {
-    printUsage(true);
-    exit(1);
-  } else if( options.languageHelp ) {
+  if( FLAGS_languageHelp ) {
     Options::printLanguageHelp(*options.out);
     exit(1);
-  } else if( options.version ) {
-    *options.out << Configuration::about().c_str() << flush;
-    exit(0);
   }
 
   segvNoSpin = options.segvNoSpin;
@@ -164,8 +158,8 @@ static int runCvc4(int argc, char* argv[]) {
     firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
 
   // if we're reading from stdin on a TTY, default to interactive mode
-  if(!options.interactiveSetByUser) {
-    options.interactive = inputFromStdin && isatty(fileno(stdin));
+  if(!FLAGS_interactiveSetByUser) {
+    FLAGS_interactive = inputFromStdin && isatty(fileno(stdin));
   }
 
   // Determine which messages to show based on smtcomp_mode and verbosity
@@ -178,13 +172,13 @@ static int runCvc4(int argc, char* argv[]) {
     Warning.setStream(CVC4::null_os);
     Dump.setStream(CVC4::null_os);
   } else {
-    if(options.verbosity < 2) {
+    if(FLAGS_verbosity < 2) {
       Chat.setStream(CVC4::null_os);
     }
-    if(options.verbosity < 1) {
+    if(FLAGS_verbosity < 1) {
       Notice.setStream(CVC4::null_os);
     }
-    if(options.verbosity < 0) {
+    if(FLAGS_verbosity < 0) {
       Message.setStream(CVC4::null_os);
       Warning.setStream(CVC4::null_os);
     }
@@ -205,25 +199,25 @@ static int runCvc4(int argc, char* argv[]) {
   ReferenceStat< const char* > s_statFilename("filename", filename);
   RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
 
-  if(options.inputLanguage == language::input::LANG_AUTO) {
+  if(FLAGS_inputLanguage == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
       // We can't do any fancy detection on stdin
-      options.inputLanguage = language::input::LANG_CVC4;
+      FLAGS_inputLanguage = language::input::LANG_CVC4;
     } else {
       unsigned len = strlen(filename);
       if(len >= 5 && !strcmp(".smt2", filename + len - 5)) {
-        options.inputLanguage = language::input::LANG_SMTLIB_V2;
+        FLAGS_inputLanguage = language::input::LANG_SMTLIB_V2;
       } else if(len >= 4 && !strcmp(".smt", filename + len - 4)) {
-        options.inputLanguage = language::input::LANG_SMTLIB;
+        FLAGS_inputLanguage = language::input::LANG_SMTLIB;
       } else if(( len >= 4 && !strcmp(".cvc", filename + len - 4) )
                 || ( len >= 5 && !strcmp(".cvc4", filename + len - 5) )) {
-        options.inputLanguage = language::input::LANG_CVC4;
+        FLAGS_inputLanguage = language::input::LANG_CVC4;
       }
     }
   }
 
-  if(options.outputLanguage == language::output::LANG_AUTO) {
-    options.outputLanguage = language::toOutputLanguage(options.inputLanguage);
+  if(FLAGS_outputLanguage == language::output::LANG_AUTO) {
+    FLAGS_outputLanguage = language::toOutputLanguage(FLAGS_inputLanguage);
   }
 
   // Determine which messages to show based on smtcomp_mode and verbosity
@@ -236,24 +230,24 @@ static int runCvc4(int argc, char* argv[]) {
     Warning.setStream(CVC4::null_os);
     Dump.setStream(CVC4::null_os);
   } else {
-    if(options.verbosity < 2) {
+    if(FLAGS_verbosity < 2) {
       Chat.setStream(CVC4::null_os);
     }
-    if(options.verbosity < 1) {
+    if(FLAGS_verbosity < 1) {
       Notice.setStream(CVC4::null_os);
     }
-    if(options.verbosity < 0) {
+    if(FLAGS_verbosity < 0) {
       Message.setStream(CVC4::null_os);
       Warning.setStream(CVC4::null_os);
     }
 
-    Debug.getStream() << Expr::setlanguage(options.outputLanguage);
-    Trace.getStream() << Expr::setlanguage(options.outputLanguage);
-    Notice.getStream() << Expr::setlanguage(options.outputLanguage);
-    Chat.getStream() << Expr::setlanguage(options.outputLanguage);
-    Message.getStream() << Expr::setlanguage(options.outputLanguage);
-    Warning.getStream() << Expr::setlanguage(options.outputLanguage);
-    Dump.getStream() << Expr::setlanguage(options.outputLanguage)
+    Debug.getStream() << Expr::setlanguage(FLAGS_outputLanguage);
+    Trace.getStream() << Expr::setlanguage(FLAGS_outputLanguage);
+    Notice.getStream() << Expr::setlanguage(FLAGS_outputLanguage);
+    Chat.getStream() << Expr::setlanguage(FLAGS_outputLanguage);
+    Message.getStream() << Expr::setlanguage(FLAGS_outputLanguage);
+    Warning.getStream() << Expr::setlanguage(FLAGS_outputLanguage);
+    Dump.getStream() << Expr::setlanguage(FLAGS_outputLanguage)
                      << Expr::setdepth(-1)
                      << Expr::printtypes(false);
   }
@@ -272,12 +266,12 @@ static int runCvc4(int argc, char* argv[]) {
     options.replayStream = new Parser::ExprStream(replayParser);
   }
   if( options.replayLog != NULL ) {
-    *options.replayLog << Expr::setlanguage(options.outputLanguage) << Expr::setdepth(-1);
+    *options.replayLog << Expr::setlanguage(FLAGS_outputLanguage) << Expr::setdepth(-1);
   }
 
   // Parse and execute commands until we are done
   Command* cmd;
-  if( options.interactive ) {
+  if( FLAGS_interactive ) {
     InteractiveShell shell(exprMgr, options);
     Message() << Configuration::getPackageName()
               << " " << Configuration::getVersionString();
@@ -342,7 +336,7 @@ static int runCvc4(int argc, char* argv[]) {
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
   RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
 
-  if(options.statistics) {
+  if(FLAGS_statistics) {
     smt.getStatisticsRegistry()->flushStatistics(*options.err);
   }
 
@@ -351,7 +345,7 @@ static int runCvc4(int argc, char* argv[]) {
 
 /** Executes a command. Deletes the command after execution. */
 static void doCommand(SmtEngine& smt, Command* cmd) {
-  if( options.parseOnly ) {
+  if( FLAGS_parseOnly ) {
     return;
   }
 
@@ -363,11 +357,11 @@ static void doCommand(SmtEngine& smt, Command* cmd) {
       doCommand(smt, *subcmd);
     }
   } else {
-    if(options.verbosity > 0) {
+    if(FLAGS_verbosity > 0) {
       *options.out << "Invoking: " << *cmd << endl;
     }
 
-    if(options.verbosity >= 0) {
+    if(FLAGS_verbosity >= 0) {
       cmd->invoke(&smt, *options.out);
     } else {
       cmd->invoke(&smt);

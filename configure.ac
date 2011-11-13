@@ -811,6 +811,11 @@ fi
 AC_CHECK_LIB(z, gzread, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
 AC_CHECK_HEADER(zlib.h, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
 
+AC_LANG_PUSH([C++])
+AC_CHECK_LIB(gflags, _ZN6google10GetArgvSumEv, , [AC_MSG_ERROR([google flags library (libgflags) required, not found, install from http://code.google.com/p/google-gflags/])])
+AC_CHECK_HEADER(gflags/gflags.h, , [AC_MSG_ERROR([gflags required, install development package from http://code.google.com/p/google-gflags/])])
+AC_LANG_POP([C++])
+
 # Check for libreadline (defined in config/readline.m4)
 CVC4_CHECK_FOR_READLINE
 

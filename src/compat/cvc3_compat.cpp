@@ -25,6 +25,7 @@
 #include "util/integer.h"
 #include "util/bitvector.h"
 #include "util/hash.h"
+#include "util/options.h"
 
 #include "parser/parser.h"
 #include "parser/parser_builder.h"
@@ -688,16 +689,16 @@ void ValidityChecker::setUpOptions(CVC4::Options& options, const CLFlags& clflag
   options.incrementalSolving = true;
   options.produceModels = true;
 
-  options.statistics = clflags["stats"].getBool();
+  FLAGS_statistics = clflags["stats"].getBool();
   options.satRandomSeed = double(clflags["seed"].getInt());
-  options.interactive = clflags["interactive"].getBool();
-  if(options.interactive) {
-    options.interactiveSetByUser = true;
+  FLAGS_interactive = clflags["interactive"].getBool();
+  if(FLAGS_interactive) {
+    FLAGS_interactiveSetByUser = true;
   }
-  options.parseOnly = clflags["parse-only"].getBool();
+  FLAGS_parseOnly = clflags["parse-only"].getBool();
   options.setInputLanguage(clflags["lang"].getString().c_str());
   if(clflags["output-lang"].getString() == "") {
-    options.outputLanguage = CVC4::language::toOutputLanguage(options.inputLanguage);
+    FLAGS_outputLanguage = CVC4::language::toOutputLanguage(FLAGS_inputLanguage);
   } else {
     options.setOutputLanguage(clflags["output-lang"].getString().c_str());
   }
@@ -1234,7 +1235,7 @@ void ValidityChecker::printExpr(const Expr& e) {
 void ValidityChecker::printExpr(const Expr& e, std::ostream& os) {
   Expr::setdepth::Scope sd(os, -1);
   Expr::printtypes::Scope pt(os, false);
-  Expr::setlanguage::Scope sl(os, d_em->getOptions()->outputLanguage);
+  Expr::setlanguage::Scope sl(os, FLAGS_outputLanguage);
   os << e;
 }
 
@@ -2059,7 +2060,7 @@ void ValidityChecker::logAnnotation(const Expr& annot) {
 
 static void doCommands(CVC4::parser::Parser* parser, CVC4::SmtEngine* smt, CVC4::Options& opts) {
   while(CVC4::Command* cmd = parser->nextCommand()) {
-    if(opts.verbosity >= 0) {
+    if(FLAGS_verbosity >= 0) {
       cmd->invoke(smt, *opts.out);
     } else {
       cmd->invoke(smt);
@@ -2073,9 +2074,9 @@ void ValidityChecker::loadFile(const std::string& fileName,
                                bool interactive,
                                bool calledFromParser) {
   CVC4::Options opts = *d_em->getOptions();
-  opts.inputLanguage = lang;
-  opts.interactive = interactive;
-  opts.interactiveSetByUser = true;
+  FLAGS_inputLanguage = lang;
+  FLAGS_interactive = interactive;
+  FLAGS_interactiveSetByUser = true;
   CVC4::parser::ParserBuilder parserBuilder(d_em, fileName, opts);
   CVC4::parser::Parser* p = parserBuilder.build();
   p->useDeclarationsFrom(d_parserContext);
@@ -2087,9 +2088,9 @@ void ValidityChecker::loadFile(std::istream& is,
                                InputLanguage lang,
                                bool interactive) {
   CVC4::Options opts = *d_em->getOptions();
-  opts.inputLanguage = lang;
-  opts.interactive = interactive;
-  opts.interactiveSetByUser = true;
+  FLAGS_inputLanguage = lang;
+  FLAGS_interactive = interactive;
+  FLAGS_interactiveSetByUser = true;
   CVC4::parser::ParserBuilder parserBuilder(d_em, "[stream]", opts);
   CVC4::parser::Parser* p = parserBuilder.withStreamInput(is).build();
   d_parserContext = p;

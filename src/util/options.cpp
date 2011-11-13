@@ -26,6 +26,8 @@
 
 #include <getopt.h>
 
+#include <gflags/gflags.h>
+
 #include "expr/expr.h"
 #include "util/configuration.h"
 #include "util/exception.h"
@@ -37,10 +39,6 @@
 
 using namespace std;
 using namespace CVC4;
-
-namespace CVC4 {
-
-CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
 
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
@@ -54,26 +52,97 @@ CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
 #  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
 #endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
 
+// must be in global namespace :-(
+DEFINE_string(binary_name, "", "the name of the binary");
+DEFINE_bool(statistics, false, "enable statistics");
+DEFINE_bool(verbose, false, "verbose mode");
+DEFINE_bool(quiet, false, "quiet mode");
+int FLAGS_verbosity = 0;
+static bool ValidateVerbose(const char* flagname, bool value) {
+  ++FLAGS_verbosity;
+  return true;
+}
+static bool ValidateQuiet(const char* flagname, bool value) {
+  --FLAGS_verbosity;
+  return true;
+}
+static bool verbose_validator CVC4_UNUSED = google::RegisterFlagValidator(&FLAGS_verbose, &ValidateVerbose);
+static bool quiet_validator CVC4_UNUSED = google::RegisterFlagValidator(&FLAGS_quiet, &ValidateQuiet);
+DEFINE_bool(languageHelp, false, "language help");
+DEFINE_bool(parseOnly, false, "parse only");
+DEFINE_bool(preprocessOnly, false, "preprocess only");
+DEFINE_bool(semanticChecks, DO_SEMANTIC_CHECKS_BY_DEFAULT, "do semantic checks");
+DEFINE_bool(theoryRegistration, true, "do theory reg");
+InputLanguage FLAGS_inputLanguage = language::input::LANG_AUTO;
+OutputLanguage FLAGS_outputLanguage = language::output::LANG_AUTO;
+DEFINE_string(lang, "auto", "input language");
+DEFINE_string(outputLang, "auto", "output language");
+static bool ValidateLang(const char* flagname, const string& str) {
+  if(str == "cvc4" || str == "pl" || str == "presentation") {
+    FLAGS_inputLanguage = language::input::LANG_CVC4;
+    return true;
+  } else if(str == "smtlib" || str == "smt") {
+    FLAGS_inputLanguage = language::input::LANG_SMTLIB;
+    return true;
+  } else if(str == "smtlib2" || str == "smt2") {
+    FLAGS_inputLanguage = language::input::LANG_SMTLIB_V2;
+    return true;
+  } else if(str == "auto") {
+    FLAGS_inputLanguage = language::input::LANG_AUTO;
+    return true;
+  }
+
+  if(str != "help") {
+    return false;
+  }
+
+  FLAGS_languageHelp = true;
+  return true;
+}
+static bool ValidateOutputLang(const char* flagname, const string& str) {
+  if(str == "cvc4" || str == "pl") {
+    FLAGS_outputLanguage = language::output::LANG_CVC4;
+    return true;
+  } else if(str == "smtlib" || str == "smt") {
+    FLAGS_outputLanguage = language::output::LANG_SMTLIB;
+    return true;
+  } else if(str == "smtlib2" || str == "smt2") {
+    FLAGS_outputLanguage = language::output::LANG_SMTLIB_V2;
+    return true;
+  } else if(str == "ast") {
+    FLAGS_outputLanguage = language::output::LANG_AST;
+    return true;
+  } else if(str == "auto") {
+    FLAGS_outputLanguage = language::output::LANG_AUTO;
+    return true;
+  }
+
+  if(str != "help") {
+    return false;
+  }
+
+  FLAGS_languageHelp = true;
+  return true;
+}
+static bool lang_validator CVC4_UNUSED = google::RegisterFlagValidator(&FLAGS_lang, &ValidateLang);
+static bool outputLang_validator CVC4_UNUSED = google::RegisterFlagValidator(&FLAGS_outputLang, &ValidateOutputLang);
+DEFINE_bool(memoryMap, false, "use mmap in parser");
+DEFINE_bool(interactive, false, "interactive mode");
+bool FLAGS_interactiveSetByUser = false;
+
+namespace CVC4 {
+
+CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
+
+
 Options::Options() :
-  binary_name(),
-  statistics(false),
   in(&std::cin),
   out(&std::cout),
   err(&std::cerr),
-  verbosity(0),
-  inputLanguage(language::input::LANG_AUTO),
-  outputLanguage(language::output::LANG_AUTO),
-  parseOnly(false),
-  preprocessOnly(false),
-  semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
-  theoryRegistration(true),
-  memoryMap(false),
   strictParsing(false),
   lazyDefinitionExpansion(false),
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
   doStaticLearning(true),
-  interactive(false),
-  interactiveSetByUser(false),
   perCallResourceLimit(0),
   cumulativeResourceLimit(0),
   perCallMillisecondLimit(0),
@@ -350,6 +419,7 @@ enum OptionValue {
  * If you add something that has a short option equivalent, you should
  * add it to the getopt_long() call in parseOptions().
  */
+#if 0
 static struct option cmdlineOptions[] = {
   // name, has_arg, *flag, val
   { "verbose"    , no_argument      , NULL, 'v'         },
@@ -405,51 +475,27 @@ static struct option cmdlineOptions[] = {
   { "rlimit-per" , required_argument, NULL, RESOURCE_LIMIT_PER   },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
-
+#endif /* 0 */
 
 /** Parse argc/argv and put the result into a CVC4::Options struct. */
 int Options::parseOptions(int argc, char* argv[])
 throw(OptionException) {
   const char *progName = argv[0];
-  int c;
 
   // find the base name of the program
   const char *x = strrchr(progName, '/');
   if(x != NULL) {
     progName = x + 1;
   }
-  binary_name = string(progName);
+  FLAGS_binary_name = string(progName);
 
-  // The strange string in this call is the short option string.  An
-  // initial '+' means that option processing stops as soon as a
-  // non-option argument is encountered (it is not present, by design).
-  // The initial ':' indicates that getopt_long() should return ':'
-  // instead of '?' for a missing option argument.  Then, each letter
-  // is a valid short option for getopt_long(), and if it's encountered,
-  // getopt_long() returns that character.  A ':' after an option
-  // character means an argument is required; two colons indicates an
-  // argument is optional; no colons indicate an argument is not
-  // permitted.  cmdlineOptions specifies all the long-options and the
-  // return value for getopt_long() should they be encountered.
-  while((c = getopt_long(argc, argv,
-                         ":himVvqL:d:t:",
-                         cmdlineOptions, NULL)) != -1) {
-    switch(c) {
+  google::SetUsageMessage(FLAGS_binary_name + " [options] file");
+  google::SetVersionString(PACKAGE_VERSION);
+  int optind = google::ParseCommandLineFlags(&argc, &argv, false);
 
-    case 'h':
-      help = true;
-      break;
-
-    case 'V':
-      version = true;
-      break;
-
-    case 'v':
-      ++verbosity;
-      break;
-
+#if 0
     case 'q':
-      --verbosity;
+      --FLAGS_verbosity;
       break;
 
     case 'L':
@@ -470,7 +516,7 @@ throw(OptionException) {
       break;
 
     case STATS:
-      statistics = true;
+      FLAGS_statistics = true;
       break;
 
     case SEGV_NOSPIN:
@@ -478,11 +524,11 @@ throw(OptionException) {
       break;
 
     case PARSE_ONLY:
-      parseOnly = true;
+      FLAGS_parseOnly = true;
       break;
 
     case PREPROCESS_ONLY:
-      preprocessOnly = true;
+      FLAGS_preprocessOnly = true;
       break;
 
     case DUMP: {
@@ -567,11 +613,11 @@ throw(OptionException) {
       break;
 
     case NO_THEORY_REGISTRATION:
-      theoryRegistration = false;
+      FLAGS_theoryRegistration = false;
       break;
 
     case NO_CHECKING:
-      semanticChecks = false;
+      FLAGS_semanticChecks = false;
       typeChecking = false;
       earlyTypeChecking = false;
       break;
@@ -871,61 +917,13 @@ throw(OptionException) {
       throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
     }
   }
+#endif /* 0 */
 
   if(incrementalSolving && proof) {
     throw OptionException(string("The use of --incremental with --proof is not yet supported"));
   }
 
   return optind;
-}
-
-void Options::setOutputLanguage(const char* str) throw(OptionException) {
-  if(!strcmp(str, "cvc4") || !strcmp(str, "pl")) {
-    outputLanguage = language::output::LANG_CVC4;
-    return;
-  } else if(!strcmp(str, "smtlib") || !strcmp(str, "smt")) {
-    outputLanguage = language::output::LANG_SMTLIB;
-    return;
-  } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
-    outputLanguage = language::output::LANG_SMTLIB_V2;
-    return;
-  } else if(!strcmp(str, "ast")) {
-    outputLanguage = language::output::LANG_AST;
-    return;
-  } else if(!strcmp(str, "auto")) {
-    outputLanguage = language::output::LANG_AUTO;
-    return;
-  }
-
-  if(strcmp(str, "help")) {
-    throw OptionException(string("unknown language for --output-lang: `") +
-                          str + "'.  Try --output-lang help.");
-  }
-
-  languageHelp = true;
-}
-
-void Options::setInputLanguage(const char* str) throw(OptionException) {
-  if(!strcmp(str, "cvc4") || !strcmp(str, "pl") || !strcmp(str, "presentation")) {
-    inputLanguage = language::input::LANG_CVC4;
-    return;
-  } else if(!strcmp(str, "smtlib") || !strcmp(str, "smt")) {
-    inputLanguage = language::input::LANG_SMTLIB;
-    return;
-  } else if(!strcmp(str, "smtlib2") || !strcmp(str, "smt2")) {
-    inputLanguage = language::input::LANG_SMTLIB_V2;
-    return;
-  } else if(!strcmp(str, "auto")) {
-    inputLanguage = language::input::LANG_AUTO;
-    return;
-  }
-
-  if(strcmp(str, "help")) {
-    throw OptionException(string("unknown language for --lang: `") +
-                          str + "'.  Try --lang help.");
-  }
-
-  languageHelp = true;
 }
 
 std::ostream& operator<<(std::ostream& out, Options::ArithPivotRule rule) {

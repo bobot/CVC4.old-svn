@@ -230,7 +230,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
 
   d_definedFunctions = new(true) DefinedFunctionMap(d_userContext);
 
-  if(Options::current()->interactive) {
+  if(FLAGS_interactive) {
     d_assertionList = new(true) AssertionList(d_userContext);
   }
 
@@ -463,7 +463,7 @@ void SmtEngine::defineFunction(Expr func,
     FunctionType(funcType).getRangeType() : funcType;
   if(formulaType != rangeType) {
     stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+    ss << Expr::setlanguage(language::toOutputLanguage(FLAGS_inputLanguage))
        << "Defined function's declared type does not match that of body\n"
        << "The function  : " << func << "\n"
        << "Its range type: " << rangeType << "\n"
@@ -736,7 +736,7 @@ void SmtEnginePrivate::simplifyAssertions()
     // well-typed, and we don't want the C++ runtime to abort our
     // process without any error notice.
     stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+    ss << Expr::setlanguage(language::toOutputLanguage(FLAGS_inputLanguage))
        << "A bad expression was produced.  Original exception follows:\n"
        << tcep;
     InternalError(ss.str().c_str());
@@ -832,7 +832,7 @@ void SmtEngine::ensureBoolean(const BoolExpr& e) {
   Type boolType = d_exprManager->booleanType();
   if(type != boolType) {
     stringstream ss;
-    ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+    ss << Expr::setlanguage(language::toOutputLanguage(FLAGS_inputLanguage))
        << "Expected " << boolType << "\n"
        << "The assertion : " << e << "\n"
        << "Its type      : " << type;
@@ -1129,7 +1129,7 @@ vector<Expr> SmtEngine::getAssertions()
   }
   NodeManagerScope nms(d_nodeManager);
   Trace("smt") << "SMT getAssertions()" << endl;
-  if(!Options::current()->interactive) {
+  if(!FLAGS_interactive) {
     const char* msg =
       "Cannot query the current assertion list when not in interactive mode.";
     throw ModalException(msg);

@@ -29,6 +29,27 @@
 #include "util/language.h"
 #include "util/tls.h"
 
+#include <gflags/gflags.h>
+
+// must be in global namespace :-(
+DECLARE_string(binary_name);
+DECLARE_bool(statistics);
+DECLARE_bool(verbose);
+DECLARE_bool(quiet);
+extern int FLAGS_verbosity;
+DECLARE_bool(languageHelp);
+DECLARE_bool(parseOnly);
+DECLARE_bool(preprocessOnly);
+DECLARE_bool(semanticChecks);
+DECLARE_bool(theoryRegistration);
+extern CVC4::InputLanguage FLAGS_inputLanguage;
+extern CVC4::OutputLanguage FLAGS_outputLanguage;
+DECLARE_string(lang);
+DECLARE_string(outputLang);
+DECLARE_bool(memoryMap);
+DECLARE_bool(interactive);
+extern bool FLAGS_interactiveSetByUser;
+
 namespace CVC4 {
 
 class ExprStream;
@@ -51,52 +72,9 @@ struct CVC4_PUBLIC Options {
     return s_current;
   }
 
-  /** The name of the binary (e.g. "cvc4") */
-  std::string binary_name;
-
-  /** Whether to collect statistics during this run */
-  bool statistics;
-
   std::istream* in; /*< The input stream to use */
   std::ostream* out; /*< The output stream to use */
   std::ostream* err; /*< The error stream to use */
-
-  /* -1 means no output */
-  /* 0 is normal (and default) -- warnings only */
-  /* 1 is warnings + notices so the user doesn't get too bored */
-  /* 2 is chatty, giving statistical things etc. */
-  /* with 3, the solver is slowed down by all the scrolling */
-  int verbosity;
-
-  /** The input language */
-  InputLanguage inputLanguage;
-
-  /** The output language */
-  OutputLanguage outputLanguage;
-
-  /** Should we print the help message? */
-  bool help;
-
-  /** Should we print the release information? */
-  bool version;
-
-  /** Should we print the language help information? */
-  bool languageHelp;
-
-  /** Should we exit after parsing? */
-  bool parseOnly;
-
-  /** Should we exit after preprocessing? */
-  bool preprocessOnly;
-
-  /** Should the parser do semantic checks? */
-  bool semanticChecks;
-
-  /** Should the TheoryEngine do theory registration? */
-  bool theoryRegistration;
-
-  /** Should the parser memory-map file input? */
-  bool memoryMap;
 
   /** Should we strictly enforce the language standard while parsing? */
   bool strictParsing;
@@ -119,15 +97,6 @@ struct CVC4_PUBLIC Options {
 
   /** Whether to perform the static learning pass. */
   bool doStaticLearning;
-
-  /** Whether we're in interactive mode or not */
-  bool interactive;
-
-  /**
-   * Whether we're in interactive mode (or not) due to explicit user
-   * setting (if false, we inferred the proper default setting).
-   */
-  bool interactiveSetByUser;
 
   /** Per-query resource limit. */
   unsigned long perCallResourceLimit;
