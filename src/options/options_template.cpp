@@ -293,7 +293,7 @@ int OptionsClass::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${module_option_handlers}
 
-#line 296 "${template}"
+#line 297 "${template}"
 
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");

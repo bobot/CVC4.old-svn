@@ -513,7 +513,7 @@ template <> void OptionsClass::assign(${internal}_t, std::string option, std::st
       assignBool($internal, argv[optind - 1], false);$run_links_alternate
       break;
 "
-      all_custom_handlers="${module_accessors}
+      all_custom_handlers="${all_custom_handlers}
 #line $lineno \"$kf\"
 template <> void OptionsClass::assignBool(${internal}_t, std::string option, bool value) {
 #line $lineno \"$kf\"
