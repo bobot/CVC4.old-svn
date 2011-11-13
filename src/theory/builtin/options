@@ -1,3 +1,8 @@
-module BUILTIN Builtin theory
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module BUILTIN "theory/builtin/options.h" Builtin theory
 
 endmodule

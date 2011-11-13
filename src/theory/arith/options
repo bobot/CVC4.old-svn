@@ -1,4 +1,9 @@
-module ARITH Arithmetic
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module ARITH "theory/arith/options.h" Arithmetic
 
 option pivotRule --pivot-rule=RULE ArithPivotRule :handler stringToArithPivotRule :default MINIMUM
  change the pivot rule (see --pivot-rule help)

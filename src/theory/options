@@ -1,4 +1,9 @@
-module THEORY_ENGINE TheoryEngine
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module THEORY_ENGINE "theory/options.h" TheoryEngine
 
 expert-option theoryRegistration /--no-theory-registration bool :default true
  disable theory reg (not safe for some theories)

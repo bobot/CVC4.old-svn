@@ -1,3 +1,8 @@
-module DATATYPES Datatypes
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module DATATYPES "theory/datatypes/options.h" Datatypes
 
 endmodule

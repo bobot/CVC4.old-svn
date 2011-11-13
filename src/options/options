@@ -1,4 +1,5 @@
-# option file for CVC4
+#
+# Option specification file for CVC4
 #
 # This is essentially a shell script interpreted with special commands.
 #
@@ -12,7 +13,7 @@
 #
 # commands are:
 #
-#   module ID name
+#   module ID "include-file" name
 #
 #     Identifies the module.  Must be the first command in the file.  ID is a suitable
 #     identifier for a preprocessor definition, and should be unique; name is a "pretty"
@@ -64,7 +65,7 @@
 #     This file should end with the "endmodule" command, and nothing should follow it.
 #
 
-module BASE Base
+module BASE "options/base_options.h" Base
 
 option binary_name std::string
 

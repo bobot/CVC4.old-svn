@@ -1,9 +1,17 @@
-module SMT SMT
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module SMT "smt/options.h" SMT
 
 common-option - --dump=MODE argument :handler dumpMode
  dump preprocessed assertions, etc., see --dump=help
 common-option - --dump-to=FILE argument :handler dumpToFile
  all dumping goes to FILE (instead of stdout)
+
+option printSuccess print-success --print-success bool :default false
+ print SMT-LIBv2 conformant \"success\" messages
 
 expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
  expand define-funs/LAMBDAs lazily

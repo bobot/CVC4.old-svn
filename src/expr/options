@@ -1,4 +1,9 @@
-module EXPR Expression package
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module EXPR "expr/options.h" Expression package
 
 option - --default-expr-depth=N argument :handler setDefaultExprDepth
  print exprs to depth N (0 == default, -1 == no limit)

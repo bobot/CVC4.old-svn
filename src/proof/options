@@ -1,4 +1,9 @@
-module PROOF Proof
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module PROOF "proof/options.h" Proof
 
 common-option proof produce-proofs --proof bool
  turn on proof generation

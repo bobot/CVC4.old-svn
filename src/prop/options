@@ -1,8 +1,13 @@
-module PROP Propositional
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module PROP "prop/options.h" Propositional
 
 option satRandomFreq --random-freq=P double :default 0.0 :handler stringToRandomFreq
  sets the frequency of random decisions in the sat solver(P=0.0 by default)
-option satRandomSeed --random-seed=S double :default 91648253
+option satRandomSeed random-seed --random-seed=S double :default 91648253
  sets the random seed for the sat solver
 
 endmodule

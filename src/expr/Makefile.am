@@ -91,7 +91,7 @@ CLEANFILES = \
 
 options:;
 options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
-	$(MAKE) -C @top_srcdir@/src/options builts FROM_EXPR=1
+	$(AM_V_at)$(MAKE) -C @top_srcdir@/src/options builts FROM_EXPR=1
 
 include @top_srcdir@/src/theory/Makefile.subdirs
 

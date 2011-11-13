@@ -96,15 +96,17 @@ function module {
   # module id name
 
   seen_module=true
-  if [ $# -lt 2 -o -z "$1" -o -z "$2" ]; then
-    echo "$kf:$lineno: error: \"module\" directive requires exactly two arguments" >&2
+  if [ $# -lt 3 -o -z "$1" -o -z "$2" -o -z "$3" ]; then
+    echo "$kf:$lineno: error: \"module\" directive requires exactly three arguments" >&2
     exit 1
   fi
 
   module_id="$1"; shift
+  include="$1"; shift
   module_name="$@"
   include_all_option_headers="${include_all_option_headers}
-#include \"$kf.h\""
+#line $lineno \"$kf\"
+#include \"$include\""
   all_modules_contributions="${all_modules_contributions}
   ${module_id}_OPTIONS"
   module_optionholder_spec="#define ${module_id}_OPTIONS"
@@ -307,6 +309,7 @@ function handle_option {
        while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
          let ++i
          module_includes="${module_includes}
+#line $lineno \"$kf\"
 #include \"${args[$i]}\""
        done
        ;;
@@ -314,6 +317,7 @@ function handle_option {
        while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
          let ++i
          option_handler_includes="${option_handler_includes}
+#line $lineno \"$kf\"
 #include \"${args[$i]}\""
        done
        ;;
@@ -336,24 +340,26 @@ function handle_option {
     module_optionholder_spec="${module_optionholder_spec} \\
   ${internal}_t::type $internal;"
     module_decls="${module_decls}
+#line $lineno \"$kf\"
 extern struct ${internal}_t { typedef $type type; } $internal;"
     module_defaults="${module_defaults:+${module_defaults},}
+#line $lineno \"$kf\"
   $internal($default_value)"
 
     if ! $readOnly; then
       module_specializations="${module_specializations}
+#line $lineno \"$kf\"
 template <> void OptionsClass::set(${internal}_t, const ${internal}_t::type& x);"
       module_accessors="${module_accessors}
-template <> void OptionsClass::set(${internal}_t, const ${internal}_t::type& x) {
-  d_holder->$internal = x;
-}"
+#line $lineno \"$kf\"
+template <> void OptionsClass::set(${internal}_t, const ${internal}_t::type& x) { d_holder->$internal = x; }"
     fi
     module_specializations="${module_specializations}
+#line $lineno \"$kf\"
 template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) const;"
     module_accessors="${module_accessors}
-template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) const {
-  return d_holder->$internal;
-}"
+#line $lineno \"$kf\"
+template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) const { return d_holder->$internal; }"
   fi
 
   if $required_argument || [ "$type" != bool -a "$type" != void ]; then
@@ -394,12 +400,14 @@ template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) c
   if [ -n "$links" ]; then
     for link in $links; do
       run_links="$run_links
+#line $lineno \"$kf\"
       preemptGetopt(extra_argc, extra_argv, \"$link\");"
     done
   fi
   if [ -n "$links_alternate" ]; then
     for link in $links_alternate; do
       run_links_alternate="$run_links_alternate
+#line $lineno \"$kf\"
       preemptGetopt(extra_argc, extra_argv, \"$link\");"
     done
   fi
@@ -408,18 +416,21 @@ template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) c
     run_handlers=
     for handler in $handlers; do
       run_handlers="$run_handlers
+#line $lineno \"$kf\"
   $handler(option, b);"
     done
     all_custom_handlers="${all_custom_handlers}
-template <>
-void runBoolHandlers(${internal}_t, std::string option, bool b) {
+#line $lineno \"$kf\"
+template <> void runBoolHandlers(${internal}_t, std::string option, bool b) {
   $run_handlers
 }"
   fi
   if [ -n "$cases" ]; then
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases}
+#line $lineno \"$kf\"
       runBoolHandlers($internal, argv[optind], true);
+#line $lineno \"$kf\"
       d_holder->$internal = true;$run_links
       break;
 "
@@ -428,16 +439,20 @@ void runBoolHandlers(${internal}_t, std::string option, bool b) {
         run_handlers=
         for handler in $handlers; do
           run_handlers="$run_handlers
+#line $lineno \"$kf\"
   $handler(option, optarg);"
         done
         all_custom_handlers="${all_custom_handlers}
-template <>
-${internal}_t::type runHandlers(${internal}_t, std::string option, std::string optarg) {
+#line $lineno \"$kf\"
+template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, std::string optarg) {
+#line $lineno \"$kf\"
   ${internal}_t::type retval = $run_handlers
+#line $lineno \"$kf\"
   return retval;
 }"
       fi
       module_option_handlers="${module_option_handlers}${cases}
+#line $lineno \"$kf\"
       d_holder->$internal = runHandlers($internal, argv[optind - 1], optarg);$run_links
       break;
 "
@@ -445,6 +460,7 @@ ${internal}_t::type runHandlers(${internal}_t, std::string option, std::string o
       run_handlers=
       for handler in $handlers; do
         run_handlers="$run_handlers
+#line $lineno \"$kf\"
       $handler(argv[optind - 1], optarg);"
       done
       module_option_handlers="${module_option_handlers}${cases}
@@ -455,6 +471,7 @@ ${internal}_t::type runHandlers(${internal}_t, std::string option, std::string o
       run_handlers=
       for handler in $handlers; do
         run_handlers="$run_handlers
+#line $lineno \"$kf\"
       $handler(argv[optind]);"
       done
       module_option_handlers="${module_option_handlers}${cases}
@@ -466,7 +483,9 @@ ${internal}_t::type runHandlers(${internal}_t, std::string option, std::string o
   if [ -n "$cases_alternate" ]; then
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases_alternate}
+#line $lineno \"$kf\"
       runBoolHandlers($internal, argv[optind], false);
+#line $lineno \"$kf\"
       d_holder->$internal = false;$run_links_alternate
       break;
 "
@@ -541,14 +560,16 @@ function doc {
     fi
 
     if [ "$category" = COMMON ]; then
-      common_documentation="${common_documentation}\\n\\
-$doc_line"
+      common_documentation="${common_documentation}\\n\"
+#line $lineno \"$kf\"
+\"$doc_line"
       common_manpage_documentation="${common_manpage_documentation}
 .IP \"$the_opt\"
 $@"
     else
-      remaining_documentation="${remaining_documentation}\\n\\
-$doc_line"
+      remaining_documentation="${remaining_documentation}\\n\"
+#line $lineno \"$kf\"
+\"$doc_line"
       remaining_manpage_documentation="${remaining_manpage_documentation}
 .IP \"$the_opt\"
 $@"
@@ -609,14 +630,16 @@ function doc-alternate {
     fi
 
     if [ "$category" = COMMON ]; then
-      common_documentation="${common_documentation}\\n\\
-$doc_line"
+      common_documentation="${common_documentation}\\n\"
+#line $lineno \"$kf\"
+\"$doc_line"
       common_manpage_documentation="${common_manpage_documentation}
 .IP \"$the_opt\"
 $@"
     else
-      remaining_documentation="${remaining_documentation}\\n\\
-$doc_line"
+      remaining_documentation="${remaining_documentation}\\n\"
+#line $lineno \"$kf\"
+\"$doc_line"
       remaining_manpage_documentation="${remaining_manpage_documentation}
 .IP \"$the_opt\"
 $@"
@@ -721,6 +744,7 @@ for var in \
     remaining_documentation \
     common_manpage_documentation \
     remaining_manpage_documentation \
+    template \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
 done

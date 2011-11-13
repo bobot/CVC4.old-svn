@@ -1,4 +1,9 @@
-module PARSER Parser
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module PARSER "parser/options.h" Parser
 
 common-option strictParsing --strict-parsing bool
  be less tolerant of non-conforming inputs

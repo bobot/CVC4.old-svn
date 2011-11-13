@@ -1,4 +1,9 @@
-module DRIVER Driver
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module DRIVER "main/options.h" Driver
 
 common-option version -V --version/ bool
  identify this CVC4 binary
@@ -9,7 +14,7 @@ common-option help -h --help/ bool
 common-option - --show-config void :handler showConfiguration
  show CVC4 static configuration
 
-common-option interactive --interactive bool :handler setInteractiveByUser
+common-option interactive interactive-mode --interactive bool :handler setInteractiveByUser
  force interactive mode
 option interactiveSetByUser bool
 

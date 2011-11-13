@@ -1,4 +1,9 @@
-module UF UF
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module UF "theory/uf/options.h" UF
 
 option ufSymmetryBreaker uf-symmetry-breaker /--disable-symmetry-breaker bool :default true
  use UF symmetry breaker (Deharbe et al., CADE 2011)

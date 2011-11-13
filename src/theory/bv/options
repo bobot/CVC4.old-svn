@@ -1,3 +1,8 @@
-module BV Bitvector
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module BV "theory/bv/options.h" Bitvector
 
 endmodule

@@ -57,6 +57,8 @@
 
 ${option_handler_includes}
 
+#line 61 "${template}"
+
 using namespace std;
 using namespace CVC4;
 
@@ -102,6 +104,8 @@ void runBoolHandlers(T, std::string option, bool b) {
 
 ${all_custom_handlers}
 
+#line 108 "${template}"
+
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
 #else /* CVC4_DEBUG */
@@ -130,12 +134,18 @@ OptionsHolder::OptionsHolder() : ${module_defaults}
 {
 }
 
+#line 138 "${template}"
+
 static const string mostCommonOptionsDescription = "\
 Most commonly-used CVC4 options:${common_documentation}";
+
+#line 143 "${template}"
 
 static const string optionsDescription = mostCommonOptionsDescription + "\
 \n\
 Additional CVC4 options:${remaining_documentation}";
+
+#line 149 "${template}"
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -196,6 +206,8 @@ void OptionsClass::printLanguageHelp(std::ostream& out) {
 static struct option cmdlineOptions[] = {${module_long_options}
   { NULL, no_argument, NULL, '\0' }
 };
+
+#line 211 "${template}"
 
 static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
@@ -273,6 +285,8 @@ throw(OptionException) {
 
     switch(c) {
 ${module_option_handlers}
+
+#line 290 "${template}"
 
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");

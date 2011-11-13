@@ -1,3 +1,8 @@
-module ARRAYS Arrays
+#
+# Option specification file for CVC4
+# See src/options/options for a description of this file format
+#
+
+module ARRAYS "theory/arrays/options.h" Arrays
 
 endmodule
