@@ -1,5 +1,0 @@
-module U_OPT U opt
-
-option heuristic Heuristic :include "heuristic.h"
-
-endmodule

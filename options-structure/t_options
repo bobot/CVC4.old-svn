@@ -1,6 +1,0 @@
-module T_OPT T opt
-
-option verbose bool :read-only
-option stats bool
-
-endmodule

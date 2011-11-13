@@ -1,8 +1,0 @@
-#!/bin/sh -ex
-#
-../src/util/mkoptions opt_template.cc t_options >t_options.cc
-../src/util/mkoptions opt_template.cc u_options >u_options.cc
-../src/util/mkoptions opt_template.h t_options >t_options.h
-../src/util/mkoptions opt_template.h u_options >u_options.h
-../src/util/mkoptions options_holder_template.h t_options u_options >options_holder.h
-
