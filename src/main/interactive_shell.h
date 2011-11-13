@@ -21,6 +21,7 @@
 #include <string>
 
 #include "util/language.h"
+#include "options/options.h"
 
 namespace CVC4 {
 
@@ -46,7 +47,7 @@ class CVC4_PUBLIC InteractiveShell {
   static const unsigned s_historyLimit = 500;
 
 public:
-  InteractiveShell(ExprManager& exprManager, const Options& options);
+  InteractiveShell(ExprManager& exprManager, const OptionsClass& options);
 
   /**
    * Close out the interactive session.

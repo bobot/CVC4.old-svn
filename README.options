@@ -40,5 +40,10 @@ The above is now implemented, but there are things that still bug me:
 * SMT::setOption stuff still needs to be implemented.
 * is the OptionsClass public still?  Does this make sense?
 * the "touch *" rule in top-level Makefile.am to make manpage doc go through
+* long doc vs. short doc
+* better void/bool/alternate option documentation
+* test getopt preemption
+* can we keep Options in CVC4 namespace but put OptionsWrapper and "verbosity" etc. and maybe OptionsClass in CVC4::options ?  Does name lookup work for us here?
+* smt-only options emitting proper runHandlers ?
 
 -- Morgan Deters <mdeters@cs.nyu.edu>  Sat, 12 Nov 2011 21:10:57 -0500

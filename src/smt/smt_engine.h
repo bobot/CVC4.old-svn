@@ -230,25 +230,25 @@ public:
   /**
    * Set information about the script executing.
    */
-  void setInfo(const std::string& key, const SExpr& value)
+  void setInfo(const std::string& key, const CVC4::SExpr& value)
     throw(BadOptionException, ModalException);
 
   /**
    * Query information about the SMT environment.
    */
-  SExpr getInfo(const std::string& key) const
+  CVC4::SExpr getInfo(const std::string& key) const
     throw(BadOptionException);
 
   /**
    * Set an aspect of the current SMT execution environment.
    */
-  void setOption(const std::string& key, const SExpr& value)
+  void setOption(const std::string& key, const CVC4::SExpr& value)
     throw(BadOptionException, ModalException);
 
   /**
    * Get an aspect of the current SMT execution environment.
    */
-  SExpr getOption(const std::string& key) const
+  CVC4::SExpr getOption(const std::string& key) const
     throw(BadOptionException);
 
   /**
@@ -316,7 +316,7 @@ public:
    * INVALID query).  Only permitted if the SmtEngine is set to
    * operate interactively and produce-assignments is on.
    */
-  SExpr getAssignment() throw(ModalException, AssertionException);
+  CVC4::SExpr getAssignment() throw(ModalException, AssertionException);
 
   /**
    * Get the last proof (only if immediately preceded by an UNSAT

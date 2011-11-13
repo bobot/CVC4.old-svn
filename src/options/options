@@ -69,13 +69,13 @@ module BASE "options/base_options.h" Base
 
 option binary_name std::string
 
-option in std::istream*
-option out std::ostream*
-option err std::ostream*
+option in std::istream* :default &std::cin :include <iostream>
+option out std::ostream* :default &std::cout :include <iostream>
+option err std::ostream* :default &std::cerr :include <iostream>
 
-common-option inputLanguage -L --lang=LANG InputLanguage :handler stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :handler-include "options/base_options_handlers.h"
+common-option inputLanguage -L --lang=LANG InputLanguage :handler stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :handler-include "options/base_options_handlers.h" :read-write
  force input language (default is \"auto\"; see --lang help)
-common-option outputLanguage --output-lang=LANG OutputLanguage :handler stringToOutputLanguage :include "util/language.h" :default language::output::LANG_AUTO
+common-option outputLanguage --output-lang=LANG OutputLanguage :handler stringToOutputLanguage :include "util/language.h" :default language::output::LANG_AUTO :read-write
  force input language (default is \"auto\"; see --lang help)
 option languageHelp bool
 

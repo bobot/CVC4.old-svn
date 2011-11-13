@@ -13,6 +13,10 @@ libmain_a_SOURCES = \
 	main.cpp \
 	util.cpp
 
+nodist_libmain_a_SOURCES = \
+	options.cpp \
+	options.h
+
 cvc4_SOURCES =
 cvc4_LDADD = \
 	libmain.a \

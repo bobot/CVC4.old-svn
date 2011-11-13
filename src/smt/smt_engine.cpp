@@ -246,7 +246,6 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   if(Options[cumulativeMillisecondLimit] != 0) {
     setTimeLimit(Options[cumulativeMillisecondLimit], true);
   }
-
 }
 
 void SmtEngine::shutdown() {
@@ -300,21 +299,21 @@ void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
   }
 }
 
-void SmtEngine::setInfo(const std::string& key, const SExpr& value)
+void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
   throw(BadOptionException, ModalException) {
   Trace("smt") << "SMT setInfo(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << SetInfoCommand(key, value) << endl;
   }
-  if(key == ":name" ||
-     key == ":source" ||
-     key == ":category" ||
-     key == ":difficulty" ||
-     key == ":smt-lib-version" ||
-     key == ":notes") {
+  if(key == "name" ||
+     key == "source" ||
+     key == "category" ||
+     key == "difficulty" ||
+     key == "smt-lib-version" ||
+     key == "notes") {
     // ignore these
     return;
-  } else if(key == ":status") {
+  } else if(key == "status") {
     string s;
     if(value.isAtom()) {
       s = value.getValue();
@@ -329,10 +328,10 @@ void SmtEngine::setInfo(const std::string& key, const SExpr& value)
   throw BadOptionException();
 }
 
-SExpr SmtEngine::getInfo(const std::string& key) const
+CVC4::SExpr SmtEngine::getInfo(const std::string& key) const
   throw(BadOptionException) {
   Trace("smt") << "SMT getInfo(" << key << ")" << endl;
-  if(key == ":all-statistics") {
+  if(key == "all-statistics") {
     vector<SExpr> stats;
     for(StatisticsRegistry::const_iterator i = StatisticsRegistry::begin();
         i != StatisticsRegistry::end();
@@ -343,17 +342,17 @@ SExpr SmtEngine::getInfo(const std::string& key) const
       stats.push_back(v);
     }
     return stats;
-  } else if(key == ":error-behavior") {
+  } else if(key == "error-behavior") {
     return SExpr("immediate-exit");
-  } else if(key == ":name") {
+  } else if(key == "name") {
     return Configuration::getName();
-  } else if(key == ":version") {
+  } else if(key == "version") {
     return Configuration::getVersionString();
-  } else if(key == ":authors") {
+  } else if(key == "authors") {
     return Configuration::about();
-  } else if(key == ":status") {
+  } else if(key == "status") {
     return d_status.asSatisfiabilityResult().toString();
-  } else if(key == ":reason-unknown") {
+  } else if(key == "reason-unknown") {
     if(d_status.isUnknown()) {
       stringstream ss;
       ss << d_status.whyUnknown();
@@ -362,81 +361,6 @@ SExpr SmtEngine::getInfo(const std::string& key) const
       throw ModalException("Can't get-info :reason-unknown when the "
                            "last result wasn't unknown!");
     }
-  } else {
-    throw BadOptionException();
-  }
-}
-
-void SmtEngine::setOption(const std::string& key, const SExpr& value)
-  throw(BadOptionException, ModalException) {
-  Trace("smt") << "SMT setOption(" << key << ", " << value << ")" << endl;
-  if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << SetOptionCommand(key, value) << endl;
-  }
-
-  if(key == ":print-success") {
-    throw BadOptionException();
-  } else if(key == ":expand-definitions") {
-    throw BadOptionException();
-  } else if(key == ":interactive-mode") {
-    throw BadOptionException();
-  } else if(key == ":regular-output-channel") {
-    throw BadOptionException();
-  } else if(key == ":diagnostic-output-channel") {
-    throw BadOptionException();
-  } else if(key == ":random-seed") {
-    throw BadOptionException();
-  } else if(key == ":verbosity") {
-    throw BadOptionException();
-  } else {
-    // The following options can only be set at the beginning; we throw
-    // a ModalException if someone tries.
-    if(d_logic != "") {
-      throw ModalException("logic already set; cannot set options");
-    }
-
-    if(key == ":produce-proofs") {
-      throw BadOptionException();
-    } else if(key == ":produce-unsat-cores") {
-      throw BadOptionException();
-    } else if(key == ":produce-models") {
-      throw BadOptionException();
-    } else if(key == ":produce-assignments") {
-      throw BadOptionException();
-    } else {
-      throw BadOptionException();
-    }
-  }
-}
-
-SExpr SmtEngine::getOption(const std::string& key) const
-  throw(BadOptionException) {
-  Trace("smt") << "SMT getOption(" << key << ")" << endl;
-  if(Dump.isOn("benchmark")) {
-    Dump("benchmark") << GetOptionCommand(key) << endl;
-  }
-  if(key == ":print-success") {
-    return SExpr("true");
-  } else if(key == ":expand-definitions") {
-    throw BadOptionException();
-  } else if(key == ":interactive-mode") {
-    throw BadOptionException();
-  } else if(key == ":produce-proofs") {
-    throw BadOptionException();
-  } else if(key == ":produce-unsat-cores") {
-    throw BadOptionException();
-  } else if(key == ":produce-models") {
-    throw BadOptionException();
-  } else if(key == ":produce-assignments") {
-    throw BadOptionException();
-  } else if(key == ":regular-output-channel") {
-    return SExpr("stdout");
-  } else if(key == ":diagnostic-output-channel") {
-    return SExpr("stderr");
-  } else if(key == ":random-seed") {
-    throw BadOptionException();
-  } else if(key == ":verbosity") {
-    throw BadOptionException();
   } else {
     throw BadOptionException();
   }
@@ -1040,7 +964,7 @@ bool SmtEngine::addToAssignment(const Expr& e) throw(AssertionException) {
   return true;
 }
 
-SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
+CVC4::SExpr SmtEngine::getAssignment() throw(ModalException, AssertionException) {
   Trace("smt") << "SMT getAssignment()" << endl;
   NodeManagerScope nms(d_nodeManager);
   if(Dump.isOn("benchmark")) {

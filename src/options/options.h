@@ -35,6 +35,7 @@ class ExprStream;
 class OptionsHolder;
 class NodeManager;
 class NodeManagerScope;
+class SmtEngine;
 
 /** Enumeration of simplification modes (when to simplify). */
 typedef enum {
@@ -68,6 +69,13 @@ class CVC4_PUBLIC OptionsClass {
 
   friend class NodeManager;
   friend class NodeManagerScope;
+
+  template <class T>
+  void assign(T, std::string option, std::string value);
+  template <class T>
+  void assignBool(T, std::string option, bool value);
+
+  friend class SmtEngine;
 
 public:
 

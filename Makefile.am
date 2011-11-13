@@ -118,7 +118,7 @@ man_MANS = \
 
 doc/cvc4.1: doc/cvc4.1_template src/options/mkoptions doc/cvc4.1_template src/*/options src/theory/*/options
 	@srcdir@/src/options/mkoptions doc/cvc4.1_template doc/cvc4.1 @srcdir@/src/*/options @srcdir@/src/theory/*/options
-src/%/options:; touch $@
+src/%/options:;
 
 dist-hook:
 	cp -p "$(srcdir)/Makefile" "$(distdir)/Makefile"

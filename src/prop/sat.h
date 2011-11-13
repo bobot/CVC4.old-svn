@@ -27,6 +27,7 @@
 
 #include "theory/theory.h"
 #include "prop/options.h"
+#include "smt/options.h"
 #include "util/stats.h"
 
 #ifdef __CVC4_USE_MINISAT

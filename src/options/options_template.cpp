@@ -31,24 +31,11 @@
 #include "util/configuration.h"
 #include "util/exception.h"
 #include "util/language.h"
-#include "options/options.h"
-#include "theory/options.h"
-#include "theory/builtin/options.h"
-#include "theory/booleans/options.h"
-#include "theory/arith/options.h"
-#include "theory/arrays/options.h"
-#include "theory/bv/options.h"
-#include "theory/uf/options.h"
-#include "theory/datatypes/options.h"
-#include "theory/booleans/options.h"
-#include "theory/builtin/options.h"
-#include "prop/options.h"
-#include "smt/options.h"
-#include "printer/options.h"
-#include "parser/options.h"
-#include "proof/options.h"
-#include "expr/options.h"
-#include "main/options.h"
+
+${include_all_option_headers}
+
+#line 38 "${template}"
+
 #include "util/output.h"
 
 #include "options/options_holder.h"
@@ -57,7 +44,7 @@
 
 ${option_handler_includes}
 
-#line 61 "${template}"
+#line 48 "${template}"
 
 using namespace std;
 using namespace CVC4;
@@ -68,10 +55,29 @@ CVC4_THREADLOCAL(OptionsClass*) OptionsClass::s_current = NULL;
 
 OptionObject Options;
 
-template <class T> T handleOption(std::string option, std::string optarg);
+template <class T> T handleOption(std::string option, std::string optarg) {
+  T::unsupported_handleOption_call___please_write_me;
+  return *(T*)0;
+}
+
+template <> unsigned short handleOption<unsigned short>(std::string option, std::string optarg) {
+  int i = atoi(optarg.c_str());
+  if(i < 0) {
+    throw OptionException(option + " requires a nonnegative argument.");
+  }
+  return (unsigned short) i;
+}
 
 template <> int handleOption<int>(std::string option, std::string optarg) {
   return atoi(optarg.c_str());
+}
+
+template <> unsigned handleOption<unsigned>(std::string option, std::string optarg) {
+  int i = atoi(optarg.c_str());
+  if(i < 0) {
+    throw OptionException(option + " requires a nonnegative argument.");
+  }
+  return (unsigned) i;
 }
 
 template <> double handleOption<double>(std::string option, std::string optarg) {
@@ -104,7 +110,7 @@ void runBoolHandlers(T, std::string option, bool b) {
 
 ${all_custom_handlers}
 
-#line 108 "${template}"
+#line 114 "${template}"
 
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
@@ -134,18 +140,18 @@ OptionsHolder::OptionsHolder() : ${module_defaults}
 {
 }
 
-#line 138 "${template}"
+#line 144 "${template}"
 
 static const string mostCommonOptionsDescription = "\
 Most commonly-used CVC4 options:${common_documentation}";
 
-#line 143 "${template}"
+#line 149 "${template}"
 
-static const string optionsDescription = mostCommonOptionsDescription + "\
+static const string optionsDescription = mostCommonOptionsDescription + "\n\
 \n\
 Additional CVC4 options:${remaining_documentation}";
 
-#line 149 "${template}"
+#line 155 "${template}"
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -207,7 +213,7 @@ static struct option cmdlineOptions[] = {${module_long_options}
   { NULL, no_argument, NULL, '\0' }
 };
 
-#line 211 "${template}"
+#line 217 "${template}"
 
 static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
@@ -235,10 +241,10 @@ static void preemptGetopt(int& argc, char**& argv, const char* opt) {
 }
 
 /** Parse argc/argv and put the result into a CVC4::OptionsClass. */
-int OptionsClass::parseOptions(int argc, char* argv[])
-throw(OptionException) {
+int OptionsClass::parseOptions(int argc, char* argv[]) throw(OptionException) {
+  s_current = this;
+
   const char *progName = argv[0];
-  int c;
 
   // find the base name of the program
   const char *x = strrchr(progName, '/');
@@ -251,11 +257,12 @@ throw(OptionException) {
   char **extra_argv = (char**) malloc(sizeof(char*));
   extra_argv[0] = NULL;
 
-  int extra_optind = 0, main_optind = 0;
+  int extra_optind = 1, main_optind = 1;
 
   for(;;) {
+    int c = -1;
     if(extra_optind < extra_argc) {
-      optreset = 1;
+      //optreset = 1;
       optind = extra_optind;
       c = getopt_long(extra_argc, extra_argv,
                       ":${module_short_options}",
@@ -272,7 +279,7 @@ throw(OptionException) {
       }
     }
     if(c == -1) {
-      optreset = 1;
+      //optreset = 1;
       optind = main_optind;
       c = getopt_long(argc, argv,
                       ":${module_short_options}",
@@ -286,7 +293,7 @@ throw(OptionException) {
     switch(c) {
 ${module_option_handlers}
 
-#line 290 "${template}"
+#line 296 "${template}"
 
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");

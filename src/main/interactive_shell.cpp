@@ -80,12 +80,12 @@ static set<string> s_declarations;
 #endif /* HAVE_LIBREADLINE */
 
 InteractiveShell::InteractiveShell(ExprManager& exprManager,
-                                   const Options& options) :
-  d_in(*options.in),
-  d_out(*options.out),
-  d_language(options.inputLanguage),
+                                   const OptionsClass& options) :
+  d_in(*options[in]),
+  d_out(*options[out]),
+  d_language(options[inputLanguage]),
   d_quit(false) {
-  ParserBuilder parserBuilder(&exprManager,INPUT_FILENAME,options);
+  ParserBuilder parserBuilder(&exprManager, INPUT_FILENAME, options);
   /* Create parser with bogus input. */
   d_parser = parserBuilder.withStringInput("").build();
 

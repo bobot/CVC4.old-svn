@@ -67,6 +67,8 @@ module_accessors=
 module_short_options=
 module_long_options=
 module_option_handlers=
+smt_getoption_handlers=
+smt_setoption_handlers=
 include_all_option_headers=
 all_modules_contributions=
 option_handler_includes=
@@ -106,10 +108,10 @@ function module {
   module_name="$@"
   include_all_option_headers="${include_all_option_headers}
 #line $lineno \"$kf\"
-#include \"$include\""
+#include $(check_include "$include")"
   all_modules_contributions="${all_modules_contributions}
-  ${module_id}_OPTIONS"
-  module_optionholder_spec="#define ${module_id}_OPTIONS"
+  CVC4_OPTIONS__${module_id}__FOR_OPTION_HOLDER"
+  module_optionholder_spec="#define CVC4_OPTIONS__${module_id}__FOR_OPTION_HOLDER"
 }
 
 function endmodule {
@@ -310,7 +312,7 @@ function handle_option {
          let ++i
          module_includes="${module_includes}
 #line $lineno \"$kf\"
-#include \"${args[$i]}\""
+#include $(check_include "${args[$i]}")"
        done
        ;;
     :handler-include)
@@ -318,7 +320,7 @@ function handle_option {
          let ++i
          option_handler_includes="${option_handler_includes}
 #line $lineno \"$kf\"
-#include \"${args[$i]}\""
+#include $(check_include "${args[$i]}")"
        done
        ;;
     :read-write)
@@ -357,6 +359,16 @@ template <> void OptionsClass::set(${internal}_t, const ${internal}_t::type& x) 
     module_specializations="${module_specializations}
 #line $lineno \"$kf\"
 template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) const;"
+    if [ "$type" = bool ]; then
+      module_specializations="${module_specializations}
+#line $lineno \"$kf\"
+template <> void OptionsClass::assignBool(${internal}_t, std::string option, bool value);"
+    elif [ "$internal" != - ]; then
+      module_specializations="${module_specializations}
+#line $lineno \"$kf\"
+template <> void OptionsClass::assign(${internal}_t, std::string option, std::string value);"
+    fi
+
     module_accessors="${module_accessors}
 #line $lineno \"$kf\"
 template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) const { return d_holder->$internal; }"
@@ -429,11 +441,17 @@ template <> void runBoolHandlers(${internal}_t, std::string option, bool b) {
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases}
 #line $lineno \"$kf\"
-      runBoolHandlers($internal, argv[optind], true);
-#line $lineno \"$kf\"
-      d_holder->$internal = true;$run_links
+      assignBool($internal, argv[optind - 1], true);$run_links
       break;
 "
+      all_custom_handlers="${all_custom_handlers}
+#line $lineno \"$kf\"
+template <> void OptionsClass::assignBool(${internal}_t, std::string option, bool value) {
+#line $lineno \"$kf\"
+  runBoolHandlers($internal, option, value);
+#line $lineno \"$kf\"
+  d_holder->$internal = value;
+}"
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
       if [ -n "$handlers" ]; then
         run_handlers=
@@ -453,9 +471,15 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
       fi
       module_option_handlers="${module_option_handlers}${cases}
 #line $lineno \"$kf\"
-      d_holder->$internal = runHandlers($internal, argv[optind - 1], optarg);$run_links
+      assign($internal, argv[optind - 1], optarg);$run_links
       break;
 "
+      all_custom_handlers="${all_custom_handlers}
+#line $lineno \"$kf\"
+template <> void OptionsClass::assign(${internal}_t, std::string option, std::string value) {
+#line $lineno \"$kf\"
+  d_holder->$internal = runHandlers($internal, option, value);
+}"
     elif [ -n "$expect_arg" ]; then
       run_handlers=
       for handler in $handlers; do
@@ -464,6 +488,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
       $handler(argv[optind - 1], optarg);"
       done
       module_option_handlers="${module_option_handlers}${cases}
+#line $lineno \"$kf\"
       $run_handlers$run_links
       break;
 "
@@ -472,9 +497,10 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
       for handler in $handlers; do
         run_handlers="$run_handlers
 #line $lineno \"$kf\"
-      $handler(argv[optind]);"
+      $handler(argv[optind - 1]);"
       done
       module_option_handlers="${module_option_handlers}${cases}
+#line $lineno \"$kf\"
       $run_handlers$run_links
       break;
 "
@@ -484,17 +510,93 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases_alternate}
 #line $lineno \"$kf\"
-      runBoolHandlers($internal, argv[optind], false);
-#line $lineno \"$kf\"
-      d_holder->$internal = false;$run_links_alternate
+      assignBool($internal, argv[optind - 1], false);$run_links_alternate
       break;
 "
+      all_custom_handlers="${module_accessors}
+#line $lineno \"$kf\"
+template <> void OptionsClass::assignBool(${internal}_t, std::string option, bool value) {
+#line $lineno \"$kf\"
+      runBoolHandlers($internal, option, value);
+#line $lineno \"$kf\"
+      d_holder->$internal = value;
+}"
     else
       echo "$kf:$lineno: internal error: expected BOOL-typed option in alternate handler" >&2
       exit 1
     fi
   fi
 
+  if [ -n "$smtname" ]; then
+    if [ "$internal" != - ]; then
+      smt_getoption_handlers="${smt_getoption_handlers}
+#line $lineno \"$kf\"
+  if(key == \"$smtname\") {
+#line $lineno \"$kf\"
+    stringstream ss; ss << Options[$internal];
+    return SExpr(ss.str());
+  }"
+    fi
+
+    if [ "$type" = bool ]; then
+      smt_setoption_handlers="${smt_setoption_handlers}
+#line $lineno \"$kf\"
+  if(key == \"$smtname\") {
+#line $lineno \"$kf\"
+    OptionsClass::current().assignBool($internal, \"$smtname\", true);$run_links
+  }"
+    elif [ -n "$expect_arg" -a "$internal" != - ]; then
+      if [ -n "$handlers" ]; then
+        run_handlers=
+        for handler in $handlers; do
+          run_handlers="$run_handlers
+#line $lineno \"$kf\"
+  if(key == \"$smtname\") {
+#line $lineno \"$kf\"
+    $handler(\"$smtname\", value);
+  }"
+        done
+      fi
+      smt_setoption_handlers="${smt_setoption_handlers}
+#line $lineno \"$kf\"
+  if(key == \"$smtname\") {
+#line $lineno \"$kf\"
+    OptionsClass::current().assign($internal, \"$smtname\", optarg);$run_links
+  }"
+    elif [ -n "$expect_arg" ]; then
+      run_handlers=
+      for handler in $handlers; do
+        run_handlers="$run_handlers
+#line $lineno \"$kf\"
+  if(key == \"$smtname\") {
+#line $lineno \"$kf\"
+    $handler(\"$smtname\", value);
+  }"
+      done
+      smt_setoption_handlers="${smt_setoption_handlers}
+#line $lineno \"$kf\"
+  if(key == \"$smtname\") {
+#line $lineno \"$kf\"
+    $run_handlers$run_links
+  }"
+    else
+      run_handlers=
+      for handler in $handlers; do
+        run_handlers="$run_handlers
+#line $lineno \"$kf\"
+  if(key == \"$smtname\") {
+#line $lineno \"$kf\"
+    $handler(\"$smtname\");
+  }"
+      done
+      smt_setoption_handlers="${smt_setoption_handlers}
+#line $lineno \"$kf\"
+  if(key == \"$smtname\") {
+#line $lineno \"$kf\"
+    $run_handlers$run_links
+  }"
+    fi
+  fi
 }
 
 function alias {
@@ -553,7 +655,7 @@ function doc {
       # break into two lines
       doc_line="$(printf '  %s\\n\\\n%-24s %s' "$the_opt" "" "$@")"
     else
-      doc_line="$(printf '  %-24s %s' "$the_opt" "$@")"
+      doc_line="$(printf '  %-22s %s' "$the_opt" "$@")"
     fi
     if [ "$category" = EXPERT ]; then
       doc_line="$doc_line (EXPERTS only)"
@@ -623,7 +725,7 @@ function doc-alternate {
       # break into two lines
       doc_line="$(printf '  %s\\n\\\n%-24s %s' "$the_opt" "" "$@")"
     else
-      doc_line="$(printf '  %-24s %s' "$the_opt" "$@")"
+      doc_line="$(printf '  %-22s %s' "$the_opt" "$@")"
     fi
     if [ "$category" = EXPERT ]; then
       doc_line="$doc_line (EXPERTS only)"
@@ -678,6 +780,14 @@ function check_module_seen {
   fi
 }
 
+function check_include {
+  if ! expr "$1" : '".*"$' &>/dev/null && ! expr "$1" : '<.*>$' &>/dev/null; then
+    echo "\"$1\""
+  else
+    echo "$1"
+  fi
+}
+
 while [ $# -gt 0 ]; do
   kf=$1
   seen_module=false
@@ -703,6 +813,7 @@ while [ $# -gt 0 ]; do
     elif expr "$line" : '/.*' &>/dev/null; then
       doc-alternate "$(echo "$line" | sed 's,^/,,')"
     else
+      line="$(echo "$line" | sed 's,\([<>&]\),\\\1,g')"
       eval "$line"
     fi
   done < "$kf"
@@ -744,6 +855,8 @@ for var in \
     remaining_documentation \
     common_manpage_documentation \
     remaining_manpage_documentation \
+    smt_getoption_handlers \
+    smt_setoption_handlers \
     template \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"

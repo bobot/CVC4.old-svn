@@ -28,6 +28,12 @@ common-option produceModels produce-models -m --produce-models bool
 common-option produceAssignments produce-assignments --produce-assignments bool
  support the get-assignment command
 
+# This could go in src/main/options, but by SMT-LIBv2 spec, "interactive"
+# is a mode in which the assertion list must be kept.  So it belongs here.
+common-option interactive interactive-mode --interactive bool :handler setInteractiveByUser :read-write
+ force interactive mode
+option interactiveSetByUser bool
+
 common-option incrementalSolving incremental -i --incremental bool
  enable incremental solving
 

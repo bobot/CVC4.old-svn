@@ -33,6 +33,7 @@ nodist_EXTRA_libcvc4_la_SOURCES = dummy.cpp
 libcvc4_noinst_la_SOURCES = subversion_versioninfo.cpp
 libcvc4_la_SOURCES = subversion_versioninfo.cpp
 libcvc4_la_LIBADD = \
+	@builddir@/options/liboptions.la \
 	@builddir@/util/libutil.la \
 	@builddir@/expr/libexpr.la \
 	@builddir@/context/libcontext.la \
