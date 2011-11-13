@@ -683,7 +683,7 @@ void CLFlags::setFlag(const std::string& name,
   (*i).second = sv;
 }
 
-void ValidityChecker::setUpOptions(CVC4::Options& options, const CLFlags& clflags) {
+void ValidityChecker::setUpOptions(CVC4::OptionsClass& options, const CLFlags& clflags) {
   // always incremental and model-producing in CVC3 compatibility mode
   options.incrementalSolving = true;
   options.produceModels = true;

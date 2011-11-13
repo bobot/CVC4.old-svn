@@ -34,8 +34,11 @@ The above is now implemented, but there are things that still bug me:
 
 * options.cpp files are linked individually into each subdirectory library.
   This wastes a lot of time linking.  Probably they should live in the subdirectories
-  but be compiled into liboptions..
+  but be compiled into liboptions..  another reason is that the private options.cpp files
+  reach in through the non-visible interface so parser/options.cpp and main/options.cpp
+  really belong in libcvc4..
 * SMT::setOption stuff still needs to be implemented.
 * is the OptionsClass public still?  Does this make sense?
+* the "touch *" rule in top-level Makefile.am to make manpage doc go through
 
 -- Morgan Deters <mdeters@cs.nyu.edu>  Sat, 12 Nov 2011 21:10:57 -0500

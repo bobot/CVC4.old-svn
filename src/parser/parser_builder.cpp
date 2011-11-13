@@ -25,7 +25,7 @@
 #include "smt2/smt2.h"
 
 #include "expr/expr_manager.h"
-#include "options/options.h"
+#include "parser/options.h"
 
 namespace CVC4 {
 
@@ -40,10 +40,10 @@ ParserBuilder::ParserBuilder(ExprManager* exprManager,
 
 ParserBuilder::ParserBuilder(ExprManager* exprManager, 
                              const std::string& filename, 
-                             const Options& options) :
+                             const OptionsClass& options) :
   d_filename(filename),
   d_exprManager(exprManager) {
-  init(exprManager,filename);
+  init(exprManager, filename);
   withOptions(options);
 }
 
@@ -136,13 +136,13 @@ ParserBuilder& ParserBuilder::withParseOnly(bool flag) {
   return *this;
 }
 
-ParserBuilder& ParserBuilder::withOptions(const Options& options) {
+ParserBuilder& ParserBuilder::withOptions(const OptionsClass& options) {
   return
-    withInputLanguage(options.inputLanguage)
-      .withMmap(options.memoryMap)
-      .withChecks(options.semanticChecks)
-      .withStrictMode(options.strictParsing)
-      .withParseOnly(options.parseOnly);
+    withInputLanguage(options[inputLanguage])
+      .withMmap(options[memoryMap])
+      .withChecks(options[semanticChecks])
+      .withStrictMode(options[strictParsing])
+      .withParseOnly(options[parseOnly]);
   }
 
 ParserBuilder& ParserBuilder::withStrictMode(bool flag) {
