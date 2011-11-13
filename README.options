@@ -37,13 +37,10 @@ The above is now implemented, but there are things that still bug me:
   but be compiled into liboptions..  another reason is that the private options.cpp files
   reach in through the non-visible interface so parser/options.cpp and main/options.cpp
   really belong in libcvc4..
-* SMT::setOption stuff still needs to be implemented.
 * is the OptionsClass public still?  Does this make sense?
 * the "touch *" rule in top-level Makefile.am to make manpage doc go through
 * long doc vs. short doc
 * better void/bool/alternate option documentation
-* test getopt preemption
 * can we keep Options in CVC4 namespace but put OptionsWrapper and "verbosity" etc. and maybe OptionsClass in CVC4::options ?  Does name lookup work for us here?
-* smt-only options emitting proper runHandlers ?
 
--- Morgan Deters <mdeters@cs.nyu.edu>  Sat, 12 Nov 2011 21:10:57 -0500
+-- Morgan Deters <mdeters@cs.nyu.edu>  Sun, 13 Nov 2011 18:01:10 -0500
