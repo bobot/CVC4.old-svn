@@ -72,12 +72,6 @@ option in std::istream*
 option out std::ostream*
 option err std::ostream*
 
-common-option version -V --version/ bool
- identify this CVC4 binary
-
-common-option help -h --help/ bool
- full command line reference
-
 common-option inputLanguage -L --lang=LANG InputLanguage :handler stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :handler-include "options/base_options_handlers.h"
  force input language (default is `auto'; see --lang help)
 common-option outputLanguage --output-lang=LANG OutputLanguage :handler stringToOutputLanguage :include "util/language.h" :default language::output::LANG_AUTO
@@ -98,70 +92,14 @@ common-option parseOnly parse-only --parse-only bool
  exit after parsing input
 
 common-option preprocessOnly preprocess-only --preprocess-only bool
- exit after parsing input
+ exit after preprocessing input
 
-common-option - --dump=MODE argument :handler dumpMode
- dump preprocessed assertions, etc., see --dump=help
-common-option - --dump-to=FILE argument :handler dumpToFile
- all dumping goes to FILE (instead of stdout)
-
-common-option - --show-config void :handler showConfiguration
- show CVC4 static configuration
-
-common-option strictParsing --strict-parsing bool
- be less tolerant of non-conforming inputs
-
-common-option interactive --interactive bool :handler setInteractiveByUser
- force interactive mode
-option interactiveSetByUser bool
-
-common-option produceModels produce-models -m --produce-models bool
- support the get-value command
-common-option produceAssignments produce-assignments --produce-assignments bool
- support the get-assignment command
-
-common-option incrementalSolving incremental -i --incremental bool
- enable incremental solving
-
-common-option cumulativeMillisecondLimit --tlimit=MS "unsigned long"
- enable time limiting (give milliseconds)
-common-option perCallMillisecondLimit --tlimit-per=MS "unsigned long"
- enable time limiting per query (give milliseconds)
-common-option cumulativeResourceLimit --rlimit=N "unsigned long"
- enable resource limiting
-common-option perCallResourceLimit --rlimit-per=N "unsigned long"
- enable resource limiting per query
-
-option memoryMap --mmap bool
- memory map file input
 option segvNoSpin --segv-nospin bool
  don't spin on segfault waiting for gdb
-
-option earlyTypeChecking --eager-type-checking/--lazy-type-checking bool :default USE_EARLY_TYPE_CHECKING_BY_DEFAULT :link --type-checking
- type check expressions immediately on creation (debug builds only)
-/type check expressions only when necessary (default)
-
-option typeChecking /--no-type-checking bool :default DO_SEMANTIC_CHECKS_BY_DEFAULT :link /--lazy-type-checking
- never type check expressions
-option semanticChecks /--no-checking bool :default DO_SEMANTIC_CHECKS_BY_DEFAULT :link /--no-type-checking
- disable ALL semantic checks, including type checks
-
-expert-option theoryRegistration /--no-theory-registration bool :default true
- disable theory reg (not safe for some theories)
 
 option - -t --trace=TAG argument :handler addTraceTag
  trace something (e.g. -t pushpop), can repeat
 option - -d --debug=TAG argument :handler addDebugTag
  debug something (e.g. -d arith), can repeat
-option - --show-debug-tags void :handler showDebugTags
- show all available tags for debugging
-option - --show-trace-tags void :handler showTraceTags
- show all available tags for tracing
-
-option replayFilename --replay=FILE std::string :handler checkReplayFilename
- replay decisions from file
-option replayLog --replay-log=FILE std::ostream* :handler checkReplayLogFilename
- log decisions and propagations to file
-option replayStream ExprStream*
 
 endmodule

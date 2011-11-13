@@ -31,7 +31,9 @@ libtheory_la_SOURCES = \
 
 nodist_libtheory_la_SOURCES = \
 	rewriter_tables.h \
-	theory_traits.h
+	theory_traits.h \
+	options.cpp \
+	options.h
 
 libtheory_la_LIBADD = \
 	@builddir@/builtin/libbuiltin.la \
@@ -47,15 +49,22 @@ EXTRA_DIST = \
 	theory_traits_template.h \
 	mktheorytraits \
 	mkrewriter \
-	Makefile.subdirs
+	Makefile.subdirs \
+	options
 
 BUILT_SOURCES = \
 	rewriter_tables.h \
-	theory_traits.h
+	theory_traits.h \
+	options.cpp \
+	options.h
 
 CLEANFILES = \
 	rewriter_tables.h \
 	theory_traits.h
+
+options:;
+options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
+	$(MAKE) -C @top_srcdir@/src/options builts
 
 include @top_srcdir@/src/theory/Makefile.subdirs
 

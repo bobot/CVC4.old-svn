@@ -1,5 +1,10 @@
 module SMT SMT
 
+common-option - --dump=MODE argument :handler dumpMode
+ dump preprocessed assertions, etc., see --dump=help
+common-option - --dump-to=FILE argument :handler dumpToFile
+ all dumping goes to FILE (instead of stdout)
+
 expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
  expand define-funs/LAMBDAs lazily
 
@@ -9,5 +14,28 @@ option simplificationMode --simplification=MODE SimplificationMode :handler stri
 option doStaticLearning static-learning /--no-static-learning bool :default true
  use static learning (on by default)
 /turn off static learning (e.g. diamond-breaking)
+
+common-option produceModels produce-models -m --produce-models bool
+ support the get-value command
+common-option produceAssignments produce-assignments --produce-assignments bool
+ support the get-assignment command
+
+common-option incrementalSolving incremental -i --incremental bool
+ enable incremental solving
+
+common-option cumulativeMillisecondLimit --tlimit=MS "unsigned long"
+ enable time limiting (give milliseconds)
+common-option perCallMillisecondLimit --tlimit-per=MS "unsigned long"
+ enable time limiting per query (give milliseconds)
+common-option cumulativeResourceLimit --rlimit=N "unsigned long"
+ enable resource limiting
+common-option perCallResourceLimit --rlimit-per=N "unsigned long"
+ enable resource limiting per query
+
+option replayFilename --replay=FILE std::string :handler checkReplayFilename
+ replay decisions from file
+option replayLog --replay-log=FILE std::ostream* :handler checkReplayLogFilename
+ log decisions and propagations to file
+option replayStream ExprStream*
 
 endmodule

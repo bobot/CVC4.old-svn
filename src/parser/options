@@ -1,3 +1,12 @@
 module PARSER Parser
 
+common-option strictParsing --strict-parsing bool
+ be less tolerant of non-conforming inputs
+
+option memoryMap --mmap bool
+ memory map file input
+
+option semanticChecks /--no-checking bool :default DO_SEMANTIC_CHECKS_BY_DEFAULT :link /--no-type-checking
+ disable ALL semantic checks, including type checks
+
 endmodule

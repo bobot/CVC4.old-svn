@@ -1,0 +1,6 @@
+module THEORY_ENGINE TheoryEngine
+
+expert-option theoryRegistration /--no-theory-registration bool :default true
+ disable theory reg (not safe for some theories)
+
+endmodule

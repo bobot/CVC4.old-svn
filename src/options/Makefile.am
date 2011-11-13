@@ -23,6 +23,8 @@ BUILT_SOURCES = \
 	$(builddir)/../prop/options.h \
 	$(builddir)/../expr/options.cpp \
 	$(builddir)/../expr/options.h \
+	$(builddir)/../theory/options.h \
+	$(builddir)/../theory/options.cpp \
 	$(builddir)/../theory/builtin/options.h \
 	$(builddir)/../theory/builtin/options.cpp \
 	$(builddir)/../theory/booleans/options.h \
@@ -155,6 +157,23 @@ $(builddir)/../expr/options.cpp: base_options_template.cpp mkoptions ../expr/opt
 	$(AM_V_GEN)(@srcdir@/mkoptions \
 		$< $@ \
 		@srcdir@/../expr/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/options:;
+$(builddir)/../theory/options.h: base_options_template.h mkoptions ../theory/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/options.cpp: base_options_template.cpp mkoptions ../theory/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/options \
 	) || (rm -f $@ && exit 1)
 
 $(builddir)/../theory/builtin/options:;

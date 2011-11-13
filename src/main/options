@@ -1,3 +1,21 @@
 module DRIVER Driver
 
+common-option version -V --version/ bool
+ identify this CVC4 binary
+
+common-option help -h --help/ bool
+ full command line reference
+
+common-option - --show-config void :handler showConfiguration
+ show CVC4 static configuration
+
+common-option interactive --interactive bool :handler setInteractiveByUser
+ force interactive mode
+option interactiveSetByUser bool
+
+option - --show-debug-tags void :handler showDebugTags
+ show all available tags for debugging
+option - --show-trace-tags void :handler showTraceTags
+ show all available tags for tracing
+
 endmodule

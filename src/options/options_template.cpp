@@ -32,6 +32,7 @@
 #include "util/exception.h"
 #include "util/language.h"
 #include "options/options.h"
+#include "theory/options.h"
 #include "theory/builtin/options.h"
 #include "theory/booleans/options.h"
 #include "theory/arith/options.h"
