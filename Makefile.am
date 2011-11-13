@@ -116,6 +116,10 @@ man_MANS = \
 	doc/libcvc4parser.3 \
 	doc/libcvc4compat.3
 
+doc/cvc4.1: doc/cvc4.1_template src/options/mkoptions doc/cvc4.1_template src/*/options src/theory/*/options
+	@srcdir@/src/options/mkoptions doc/cvc4.1_template doc/cvc4.1 @srcdir@/src/*/options @srcdir@/src/theory/*/options
+src/%/options:; touch $@
+
 dist-hook:
 	cp -p "$(srcdir)/Makefile" "$(distdir)/Makefile"
 
