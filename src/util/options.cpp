@@ -59,11 +59,15 @@ DEFINE_bool(verbose, false, "verbose mode");
 DEFINE_bool(quiet, false, "quiet mode");
 int FLAGS_verbosity = 0;
 static bool ValidateVerbose(const char* flagname, bool value) {
-  ++FLAGS_verbosity;
+  if(value) {
+    ++FLAGS_verbosity;
+  }
   return true;
 }
 static bool ValidateQuiet(const char* flagname, bool value) {
-  --FLAGS_verbosity;
+  if(value) {
+    --FLAGS_verbosity;
+  }
   return true;
 }
 static bool verbose_validator CVC4_UNUSED = google::RegisterFlagValidator(&FLAGS_verbose, &ValidateVerbose);
