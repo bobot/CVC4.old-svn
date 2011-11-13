@@ -40,7 +40,7 @@ namespace CVC4 {
 class Expr;
 class SmtEngine;
 class NodeManager;
-struct Options;
+class OptionsClass;
 class IntStat;
 
 namespace context {
@@ -105,7 +105,7 @@ public:
    * @param options the earlyTypeChecking field is used to configure
    * whether to do at Expr creation time.
    */
-  explicit ExprManager(const Options& options);
+  explicit ExprManager(const OptionsClass& options);
 
   /**
    * Destroys the expression manager. No will be deallocated at this point, so
@@ -115,7 +115,7 @@ public:
   ~ExprManager();
 
   /** Get this node manager's options */
-  const Options& getOptions() const;
+  const OptionsClass& getOptions() const;
 
   /** Get the type for booleans */
   BooleanType booleanType() const;

@@ -70,6 +70,8 @@ option_handler_includes=
 all_custom_handlers=
 common_documentation=
 remaining_documentation=
+common_manpage_documentation=
+remaining_manpage_documentation=
 
 seen_module=false
 seen_endmodule=false
@@ -337,16 +339,16 @@ extern struct ${internal}_t { typedef $type type; } $internal;"
 
     if ! $readOnly; then
       module_specializations="${module_specializations}
-template <> void Options::set(${internal}_t, const ${internal}_t::type& x);"
+template <> void OptionsClass::set(${internal}_t, const ${internal}_t::type& x);"
       module_accessors="${module_accessors}
-template <> void Options::set(${internal}_t, const ${internal}_t::type& x) {
+template <> void OptionsClass::set(${internal}_t, const ${internal}_t::type& x) {
   d_holder->$internal = x;
 }"
     fi
     module_specializations="${module_specializations}
-template <> const ${internal}_t::type& Options::operator[](${internal}_t) const;"
+template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) const;"
     module_accessors="${module_accessors}
-template <> const ${internal}_t::type& Options::operator[](${internal}_t) const {
+template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) const {
   return d_holder->$internal;
 }"
   fi
@@ -403,18 +405,18 @@ template <> const ${internal}_t::type& Options::operator[](${internal}_t) const 
     run_handlers=
     for handler in $handlers; do
       run_handlers="$run_handlers
-  $handler(options, option, b);"
+  $handler(option, b);"
     done
     all_custom_handlers="${all_custom_handlers}
 template <>
-void runBoolHandlers(${internal}_t, Options& options, std::string option, bool b) {
+void runBoolHandlers(${internal}_t, std::string option, bool b) {
   $run_handlers
 }"
   fi
   if [ -n "$cases" ]; then
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases}
-      runBoolHandlers($internal, *this, argv[optind], true);
+      runBoolHandlers($internal, argv[optind], true);
       d_holder->$internal = true;$run_links
       break;
 "
@@ -423,24 +425,24 @@ void runBoolHandlers(${internal}_t, Options& options, std::string option, bool b
         run_handlers=
         for handler in $handlers; do
           run_handlers="$run_handlers
-  $handler(options, option, optarg);"
+  $handler(option, optarg);"
         done
         all_custom_handlers="${all_custom_handlers}
 template <>
-${internal}_t::type runHandlers(${internal}_t, Options& options, std::string option, std::string optarg) {
+${internal}_t::type runHandlers(${internal}_t, std::string option, std::string optarg) {
   ${internal}_t::type retval = $run_handlers
   return retval;
 }"
       fi
       module_option_handlers="${module_option_handlers}${cases}
-      d_holder->$internal = runHandlers($internal, *this, argv[optind - 1], optarg);$run_links
+      d_holder->$internal = runHandlers($internal, argv[optind - 1], optarg);$run_links
       break;
 "
     elif [ -n "$expect_arg" ]; then
       run_handlers=
       for handler in $handlers; do
         run_handlers="$run_handlers
-      $handler(*this, argv[optind - 1], optarg);"
+      $handler(argv[optind - 1], optarg);"
       done
       module_option_handlers="${module_option_handlers}${cases}
       $run_handlers$run_links
@@ -450,7 +452,7 @@ ${internal}_t::type runHandlers(${internal}_t, Options& options, std::string opt
       run_handlers=
       for handler in $handlers; do
         run_handlers="$run_handlers
-      $handler(*this, argv[optind]);"
+      $handler(argv[optind]);"
       done
       module_option_handlers="${module_option_handlers}${cases}
       $run_handlers$run_links
@@ -461,7 +463,7 @@ ${internal}_t::type runHandlers(${internal}_t, Options& options, std::string opt
   if [ -n "$cases_alternate" ]; then
     if [ "$type" = bool ]; then
       module_option_handlers="${module_option_handlers}${cases_alternate}
-      runBoolHandlers($internal, *this, argv[optind], false);
+      runBoolHandlers($internal, argv[optind], false);
       d_holder->$internal = false;$run_links_alternate
       break;
 "
@@ -512,24 +514,24 @@ function doc {
 
   if ! $options_already_documented; then
     options_already_documented=true
-    doc_line=
+    the_opt=
     if [ "$long_option" ]; then
-      doc_line="  --$long_option"
+      the_opt="--$long_option"
       if [ "$short_option" ]; then
-        doc_line="$doc_line | -$short_option"
+        the_opt="$the_opt | -$short_option"
       fi
     elif [ "$short_option" ]; then
-      doc_line="  -$short_option"
+      the_opt="-$short_option"
     fi
-    if [ -z "$doc_line" ]; then
+    if [ -z "$the_opt" ]; then
       # nothing to document
       return
     fi
-    if expr "$doc_line" : '.\{25\}' &>/dev/null; then
-      # break onto two lines
-      doc_line="$(printf '%s\\n\\\n%-24s %s' "$doc_line" "" "$@")"
+    if expr "$the_opt" : '.\{23\}' &>/dev/null; then
+      # break into two lines
+      doc_line="$(printf '  %s\\n\\\n%-24s %s' "$the_opt" "" "$@")"
     else
-      doc_line="$(printf '%-24s %s' "$doc_line" "$@")"
+      doc_line="$(printf '  %-24s %s' "$the_opt" "$@")"
     fi
     if [ "$category" = EXPERT ]; then
       doc_line="$doc_line (EXPERTS only)"
@@ -538,9 +540,23 @@ function doc {
     if [ "$category" = COMMON ]; then
       common_documentation="${common_documentation}\\n\\
 $doc_line"
+      common_manpage_documentation="${common_manpage_documentation}
+.IP \"$the_opt\"
+$@"
     else
       remaining_documentation="${remaining_documentation}\\n\\
 $doc_line"
+      remaining_manpage_documentation="${remaining_manpage_documentation}
+.IP \"$the_opt\"
+$@"
+    fi
+  else
+    if [ "$category" = COMMON ]; then
+      common_manpage_documentation="${common_manpage_documentation}
+$@"
+    else
+      remaining_manpage_documentation="${remaining_manpage_documentation}
+$@"
     fi
   fi
 }
@@ -566,24 +582,24 @@ function doc-alternate {
 
   if ! $alternate_options_already_documented; then
     alternate_options_already_documented=true
-    doc_line=
+    the_opt=
     if [ "$long_option_alternate" ]; then
-      doc_line="  --$long_option_alternate"
+      the_opt="  --$long_option_alternate"
       if [ "$short_option_alternate" ]; then
-        doc_line="$doc_line | -$short_option_alternate"
+        the_opt="$the_opt | -$short_option_alternate"
       fi
     elif [ "$short_option_alternate" ]; then
-      doc_line="  -$short_option_alternate"
+      the_opt="  -$short_option_alternate"
     fi
-    if [ -z "$doc_line" ]; then
+    if [ -z "$the_opt" ]; then
       # nothing to document
       return
     fi
-    if expr "$doc_line" : '.\{25\}' &>/dev/null; then
-      # break onto two lines
-      doc_line="$(printf '%s\\n\\\n%-24s %s' "$doc_line" "" "$@")"
+    if expr "$the_opt" : '.\{23\}' &>/dev/null; then
+      # break into two lines
+      doc_line="$(printf '  %s\\n\\\n%-24s %s' "$the_opt" "" "$@")"
     else
-      doc_line="$(printf '%-24s %s' "$doc_line" "$@")"
+      doc_line="$(printf '  %-24s %s' "$the_opt" "$@")"
     fi
     if [ "$category" = EXPERT ]; then
       doc_line="$doc_line (EXPERTS only)"
@@ -592,9 +608,23 @@ function doc-alternate {
     if [ "$category" = COMMON ]; then
       common_documentation="${common_documentation}\\n\\
 $doc_line"
+      common_manpage_documentation="${common_manpage_documentation}
+.IP \"$the_opt\"
+$@"
     else
       remaining_documentation="${remaining_documentation}\\n\\
 $doc_line"
+      remaining_manpage_documentation="${remaining_manpage_documentation}
+.IP \"$the_opt\"
+$@"
+    fi
+  else
+    if [ "$category" = COMMON ]; then
+      common_manpage_documentation="${common_manpage_documentation}
+$@"
+    else
+      remaining_manpage_documentation="${remaining_manpage_documentation}
+$@"
     fi
   fi
 }
@@ -686,6 +716,8 @@ for var in \
     all_custom_handlers \
     common_documentation \
     remaining_documentation \
+    common_manpage_documentation \
+    remaining_manpage_documentation \
     ; do
   eval text="\${text//\\\$\\{$var\\}/\${$var}}"
 done

@@ -60,11 +60,11 @@ public:
   }
 };/* class OptionException */
 
-class CVC4_PUBLIC Options {
+class CVC4_PUBLIC OptionsClass {
   OptionsHolder* d_holder;
 
   /** The current Options in effect */
-  static CVC4_THREADLOCAL(const Options*) s_current;
+  static CVC4_THREADLOCAL(OptionsClass*) s_current;
 
   friend class NodeManager;
   friend class NodeManagerScope;
@@ -72,11 +72,13 @@ class CVC4_PUBLIC Options {
 public:
 
   /** Get the current Options in effect */
-  static inline const Options& current() {
+  static inline OptionsClass& current() {
     return *s_current;
   }
 
-  Options();
+  OptionsClass();
+  OptionsClass(const OptionsClass& options);
+  ~OptionsClass();
 
   template <class T>
   void set(T, const typename T::type&) {
@@ -125,7 +127,24 @@ public:
    */
   void setInputLanguage(const char* str) throw(OptionException);
 
-};/* struct Options */
+};/* class OptionsClass */
+
+/**
+ * This function just exists to provide a nicer syntax for getting
+ * current options: Options[foo]
+ */
+class CVC4_PUBLIC OptionObject {
+public:
+  template <class T>
+  inline const typename T::type& operator[](T t) const {
+    return OptionsClass::current()[t];
+  }
+
+  template <class T>
+  void set(T t, const typename T::type& v) {
+    OptionsClass::current().set(t, v);
+  }
+} Options;
 
 std::ostream& operator<<(std::ostream& out, SimplificationMode mode) CVC4_PUBLIC;
 std::ostream& operator<<(std::ostream& out, ArithPivotRule rule) CVC4_PUBLIC;

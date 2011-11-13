@@ -73,9 +73,9 @@ static void printUsage(bool full) {
       << "Without an input file, or with `-', CVC4 reads from standard input." << endl
       << endl;
   if(full) {
-    Options::printUsage( ss.str(), *options.out );
+    OptionsClass::printUsage( ss.str(), *options.out );
   } else {
-    Options::printShortUsage( ss.str(), *options.out );
+    OptionsClass::printShortUsage( ss.str(), *options.out );
   }
 }
 
@@ -140,7 +140,7 @@ static int runCvc4(int argc, char* argv[]) {
     printUsage(true);
     exit(1);
   } else if( options.languageHelp ) {
-    Options::printLanguageHelp(*options.out);
+    OptionsClass::printLanguageHelp(*options.out);
     exit(1);
   } else if( options.version ) {
     *options.out << Configuration::about().c_str() << flush;

@@ -19,6 +19,7 @@
 
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/equality_engine_impl.h"
+#include "theory/uf/options.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;
@@ -239,7 +240,7 @@ void TheoryUF::presolve() {
   // TimerStat::CodeTimer codeTimer(d_presolveTimer);
 
   Debug("uf") << "uf: begin presolve()" << endl;
-  if(Options::current()[ufSymmetryBreaker]) {
+  if(Options[ufSymmetryBreaker]) {
     vector<Node> newClauses;
     d_symb.apply(newClauses);
     for(vector<Node>::const_iterator i = newClauses.begin();
@@ -359,7 +360,7 @@ void TheoryUF::staticLearning(TNode n, NodeBuilder<>& learned) {
     }
   }
 
-  if(Options::current()[ufSymmetryBreaker]) {
+  if(Options[ufSymmetryBreaker]) {
     d_symb.assertFormula(n);
   }
 }

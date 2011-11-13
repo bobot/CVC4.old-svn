@@ -22,7 +22,9 @@ cvc4_LDADD = \
 	$(READLINE_LIBS)
 
 BUILT_SOURCES = \
-	$(TOKENS_FILES)
+	$(TOKENS_FILES) \
+	options.cpp \
+	options.h
 
 TOKENS_FILES = \
 	cvc_tokens.h \
@@ -35,6 +37,13 @@ smt_tokens.h: @srcdir@/../parser/smt/Smt.g
 	$(AM_V_GEN)grep "'[a-zA-Z][a-zA-Z0-9][a-zA-Z0-9]*'" $^ | sed 's/.*'\''\([a-zA-Z0-9]*\)'\''.*/"\1",/' | sort -u >$@
 smt2_tokens.h: @srcdir@/../parser/smt2/Smt2.g
 	$(AM_V_GEN)grep "'[a-zA-Z][a-zA-Z0-9][a-zA-Z0-9]*'" $^ | sed 's/.*'\''\([a-zA-Z0-9]*\)'\''.*/"\1",/' | sort -u >$@
+
+options:;
+options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
+	$(MAKE) -C @top_srcdir@/src/options builts
+
+EXTRA_DIST = \
+	options
 
 clean-local:
 	rm -f $(BUILT_SOURCES)

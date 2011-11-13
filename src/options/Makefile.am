@@ -25,6 +25,20 @@ BUILT_SOURCES = \
 	$(builddir)/../theory/uf/options.cpp \
 	$(builddir)/../theory/arith/options.cpp \
 	$(builddir)/../theory/arith/options.h \
+	$(builddir)/../theory/arrays/options.cpp \
+	$(builddir)/../theory/arrays/options.h \
+	$(builddir)/../theory/datatypes/options.cpp \
+	$(builddir)/../theory/datatypes/options.h \
+	$(builddir)/../theory/bv/options.cpp \
+	$(builddir)/../theory/bv/options.h \
+	$(builddir)/../smt/options.cpp \
+	$(builddir)/../smt/options.h \
+	$(builddir)/../parser/options.cpp \
+	$(builddir)/../parser/options.h \
+	$(builddir)/../proof/options.cpp \
+	$(builddir)/../proof/options.h \
+	$(builddir)/../main/options.cpp \
+	$(builddir)/../main/options.h \
 	exprs-builts
 
 EXTRA_DIST = \
@@ -135,6 +149,57 @@ $(builddir)/../theory/arith/options.cpp: base_options_template.cpp mkoptions ../
 		@srcdir@/../theory/arith/options \
 	) || (rm -f $@ && exit 1)
 
+$(builddir)/../theory/datatypes/options:;
+$(builddir)/../theory/datatypes/options.h: base_options_template.h mkoptions ../theory/datatypes/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/datatypes/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/datatypes/options.cpp: base_options_template.cpp mkoptions ../theory/datatypes/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/datatypes/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/bv/options:;
+$(builddir)/../theory/bv/options.h: base_options_template.h mkoptions ../theory/bv/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/bv/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/bv/options.cpp: base_options_template.cpp mkoptions ../theory/bv/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/bv/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/arrays/options:;
+$(builddir)/../theory/arrays/options.h: base_options_template.h mkoptions ../theory/arrays/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/arrays/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../theory/arrays/options.cpp: base_options_template.cpp mkoptions ../theory/arrays/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../theory/arrays/options \
+	) || (rm -f $@ && exit 1)
+
 $(builddir)/../theory/uf/options:;
 $(builddir)/../theory/uf/options.h: base_options_template.h mkoptions ../theory/uf/options
 	$(AM_V_at)chmod +x @srcdir@/mkoptions
@@ -167,6 +232,74 @@ $(builddir)/../prop/options.cpp: base_options_template.cpp mkoptions ../prop/opt
 	$(AM_V_GEN)(@srcdir@/mkoptions \
 		$< $@ \
 		@srcdir@/../prop/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../smt/options:;
+$(builddir)/../smt/options.h: base_options_template.h mkoptions ../smt/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../smt/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../smt/options.cpp: base_options_template.cpp mkoptions ../smt/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../smt/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../parser/options:;
+$(builddir)/../parser/options.h: base_options_template.h mkoptions ../parser/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../parser/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../parser/options.cpp: base_options_template.cpp mkoptions ../parser/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../parser/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../proof/options:;
+$(builddir)/../proof/options.h: base_options_template.h mkoptions ../proof/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../proof/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../proof/options.cpp: base_options_template.cpp mkoptions ../proof/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../proof/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../main/options:;
+$(builddir)/../main/options.h: base_options_template.h mkoptions ../main/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../main/options \
+	) || (rm -f $@ && exit 1)
+
+$(builddir)/../main/options.cpp: base_options_template.cpp mkoptions ../main/options
+	$(AM_V_at)chmod +x @srcdir@/mkoptions
+	$(AM_V_at)$(am__mv) $@ $@~ 2>/dev/null || true
+	$(AM_V_GEN)(@srcdir@/mkoptions \
+		$< $@ \
+		@srcdir@/../main/options \
 	) || (rm -f $@ && exit 1)
 
 .PHONY: exprs-builts builts

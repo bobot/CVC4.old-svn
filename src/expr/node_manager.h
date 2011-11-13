@@ -82,8 +82,7 @@ class NodeManager {
 
   static CVC4_THREADLOCAL(NodeManager*) s_current;
 
-  const Options* d_optionsAllocated;
-  const Options& d_options;
+  OptionsClass* d_options;
   StatisticsRegistry* d_statisticsRegistry;
 
   NodeValuePool d_nodeValuePool;
@@ -258,15 +257,15 @@ class NodeManager {
 public:
 
   explicit NodeManager(context::Context* ctxt, ExprManager* exprManager);
-  explicit NodeManager(context::Context* ctxt, ExprManager* exprManager, const Options& options);
+  explicit NodeManager(context::Context* ctxt, ExprManager* exprManager, const OptionsClass& options);
   ~NodeManager();
 
   /** The node manager in the current public-facing CVC4 library context */
   static NodeManager* currentNM() { return s_current; }
 
   /** Get this node manager's options */
-  const Options& getOptions() const {
-    return d_options;
+  const OptionsClass& getOptions() const {
+    return *d_options;
   }
 
   /** Get this node manager's statistics registry */
@@ -696,14 +695,14 @@ public:
     // Expr is destructed, there's no active node manager.
     //Assert(nm != NULL);
     NodeManager::s_current = nm;
-    Options::s_current = nm ? &nm->d_options : NULL;
+    OptionsClass::s_current = nm ? nm->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << NodeManager::s_current << "\n";
   }
 
   ~NodeManagerScope() {
     NodeManager::s_current = d_oldNodeManager;
-    Options::s_current = d_oldNodeManager ? &d_oldNodeManager->d_options : NULL;
+    OptionsClass::s_current = d_oldNodeManager ? d_oldNodeManager->d_options : NULL;
     Debug("current") << "node manager scope: "
                      << "returning to " << NodeManager::s_current << "\n";
   }

@@ -91,15 +91,15 @@ none\n\
 + do not perform nonclausal simplification\n\
 ";
 
-inline void increaseVerbosity(Options& options, std::string option) {
-  options.set(verbosity, options[verbosity] + 1);
+inline void increaseVerbosity(std::string option) {
+  Options.set(verbosity, Options[verbosity] + 1);
 }
 
-inline void decreaseVerbosity(Options& options, std::string option) {
-  options.set(verbosity, options[verbosity] - 1);
+inline void decreaseVerbosity(std::string option) {
+  Options.set(verbosity, Options[verbosity] - 1);
 }
 
-inline void dumpMode(Options& options, std::string option, std::string optarg) {
+inline void dumpMode(std::string option, std::string optarg) {
 #ifdef CVC4_DUMPING
   char* optargPtr = strdup(optarg.c_str());
   char* tokstr = optargPtr;
@@ -162,7 +162,7 @@ inline void dumpMode(Options& options, std::string option, std::string optarg) {
 #endif /* CVC4_DUMPING */
 }
 
-inline void dumpToFile(Options& options, std::string option, std::string optarg) {
+inline void dumpToFile(std::string option, std::string optarg) {
 #ifdef CVC4_DUMPING
   if(optarg == "") {
     throw OptionException(std::string("Bad file name for --dump-to"));
@@ -180,7 +180,7 @@ inline void dumpToFile(Options& options, std::string option, std::string optarg)
 #endif /* CVC4_DUMPING */
 }
 
-inline OutputLanguage stringToOutputLanguage(Options& options, std::string option, std::string optarg) throw(OptionException) {
+inline OutputLanguage stringToOutputLanguage(std::string option, std::string optarg) throw(OptionException) {
   if(optarg == "cvc4" || optarg == "pl") {
     return language::output::LANG_CVC4;
   } else if(optarg == "smtlib" || optarg == "smt") {
@@ -198,11 +198,11 @@ inline OutputLanguage stringToOutputLanguage(Options& options, std::string optio
                           optarg + "'.  Try --output-lang help.");
   }
 
-  options.set(languageHelp, true);
+  Options.set(languageHelp, true);
   return language::output::LANG_AUTO;
 }
 
-inline InputLanguage stringToInputLanguage(Options& options, std::string option, std::string optarg) throw(OptionException) {
+inline InputLanguage stringToInputLanguage(std::string option, std::string optarg) throw(OptionException) {
   if(optarg == "cvc4" || optarg == "pl" || optarg == "presentation") {
     return language::input::LANG_CVC4;
   } else if(optarg == "smtlib" || optarg == "smt") {
@@ -218,11 +218,11 @@ inline InputLanguage stringToInputLanguage(Options& options, std::string option,
                           optarg + "'.  Try --lang help.");
   }
 
-  options.set(languageHelp, true);
+  Options.set(languageHelp, true);
   return language::input::LANG_AUTO;
 }
 
-inline SimplificationMode stringToSimplificationMode(Options& options, std::string option, std::string optarg) throw(OptionException) {
+inline SimplificationMode stringToSimplificationMode(std::string option, std::string optarg) throw(OptionException) {
   if(optarg == "batch") {
     return SIMPLIFICATION_MODE_BATCH;
   } else if(optarg == "incremental") {
@@ -238,7 +238,7 @@ inline SimplificationMode stringToSimplificationMode(Options& options, std::stri
   }
 }
 
-inline void showConfiguration(Options& options, std::string option) {
+inline void showConfiguration(std::string option) {
   fputs(Configuration::about().c_str(), stdout);
   printf("\n");
   printf("version    : %s\n", Configuration::getVersionString().c_str());
@@ -276,16 +276,16 @@ inline void showConfiguration(Options& options, std::string option) {
   exit(0);
 }
 
-inline void addTraceTag(Options& options, std::string option, std::string optarg) {
+inline void addTraceTag(std::string option, std::string optarg) {
   Trace.on(optarg);
 }
 
-inline void addDebugTag(Options& options, std::string option, std::string optarg) {
+inline void addDebugTag(std::string option, std::string optarg) {
   Debug.on(optarg);
   Trace.on(optarg);
 }
 
-inline SimplificationMode stringToSimplificationNode(Options& options, std::string option, std::string optarg) {
+inline SimplificationMode stringToSimplificationNode(std::string option, std::string optarg) {
   if(optarg == "batch") {
     return SIMPLIFICATION_MODE_BATCH;
   } else if(optarg == "incremental") {
@@ -301,7 +301,7 @@ inline SimplificationMode stringToSimplificationNode(Options& options, std::stri
   }
 }
 
-inline void showDebugTags(Options& options, std::string option) {
+inline void showDebugTags(std::string option) {
   if(Configuration::isDebugBuild()) {
     printf("available tags:");
     unsigned ntags = Configuration::getNumDebugTags();
@@ -316,7 +316,7 @@ inline void showDebugTags(Options& options, std::string option) {
   exit(0);
 }
 
-inline void showTraceTags(Options& options, std::string option) {
+inline void showTraceTags(std::string option) {
   if(Configuration::isTracingBuild()) {
     printf("available tags:");
     unsigned ntags = Configuration::getNumTraceTags();
@@ -331,7 +331,7 @@ inline void showTraceTags(Options& options, std::string option) {
   exit(0);
 }
 
-inline void setDefaultExprDepth(Options& options, std::string option, std::string optarg) {
+inline void setDefaultExprDepth(std::string option, std::string optarg) {
   int depth = atoi(optarg.c_str());
 
   Debug.getStream() << Expr::setdepth(depth);
@@ -342,7 +342,7 @@ inline void setDefaultExprDepth(Options& options, std::string option, std::strin
   Warning.getStream() << Expr::setdepth(depth);
 }
 
-inline void setPrintExprTypes(Options& options, std::string option) {
+inline void setPrintExprTypes(std::string option) {
   Debug.getStream() << Expr::printtypes(true);
   Trace.getStream() << Expr::printtypes(true);
   Notice.getStream() << Expr::printtypes(true);
@@ -351,11 +351,11 @@ inline void setPrintExprTypes(Options& options, std::string option) {
   Warning.getStream() << Expr::printtypes(true);
 }
 
-inline void setInteractiveByUser(Options& options, std::string option, bool b) {
-  options.set(interactiveSetByUser, true);
+inline void setInteractiveByUser(std::string option, bool b) {
+  Options.set(interactiveSetByUser, true);
 }
 
-inline std::string checkReplayFilename(Options& options, std::string option, std::string optarg) {
+inline std::string checkReplayFilename(std::string option, std::string optarg) {
 #ifdef CVC4_REPLAY
   if(optarg == "") {
     throw OptionException(std::string("Bad file name for --replay"));
@@ -367,7 +367,7 @@ inline std::string checkReplayFilename(Options& options, std::string option, std
 #endif /* CVC4_REPLAY */
 }
 
-inline std::ostream* checkReplayLogFilename(Options& options, std::string option, std::string optarg) {
+inline std::ostream* checkReplayLogFilename(std::string option, std::string optarg) {
 #ifdef CVC4_REPLAY 
   if(optarg == "") {
     throw OptionException(std::string("Bad file name for --replay-log"));
@@ -385,7 +385,7 @@ inline std::ostream* checkReplayLogFilename(Options& options, std::string option
 #endif /* CVC4_REPLAY */
 }
 
-inline double stringToRandomFreq(Options& options, std::string option, std::string optarg) {
+inline double stringToRandomFreq(std::string option, std::string optarg) {
   double d = atof(optarg.c_str());
   if(! (0.0 <= d && d <= 1.0)){
     throw OptionException(std::string("--random-freq: `") +
@@ -394,7 +394,7 @@ inline double stringToRandomFreq(Options& options, std::string option, std::stri
   return d;
 }
 
-inline ArithPivotRule stringToArithPivotRule(Options& options, std::string option, std::string optarg) {
+inline ArithPivotRule stringToArithPivotRule(std::string option, std::string optarg) {
   if(optarg == "min") {
     return MINIMUM;
   } else if(optarg == "min-break-ties") {

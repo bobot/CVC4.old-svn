@@ -2,8 +2,8 @@
 #include "options/options.h"
 %}
 
-%ignore CVC4::operator<<(std::ostream&, Options::SimplificationMode);
-%ignore CVC4::operator<<(std::ostream&, Options::ArithPivotRule);
+%ignore CVC4::operator<<(std::ostream&, SimplificationMode);
+%ignore CVC4::operator<<(std::ostream&, ArithPivotRule);
 
 %apply char** STRING_ARRAY { char* argv[] }
 %include "options/options.h"

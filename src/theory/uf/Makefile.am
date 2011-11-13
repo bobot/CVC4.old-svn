@@ -15,4 +15,18 @@ libuf_la_SOURCES = \
 	symmetry_breaker.h \
 	symmetry_breaker.cpp
 
-EXTRA_DIST = kinds
+nodist_libuf_la_SOURCES = \
+	options.cpp \
+	options.h
+
+BUILT_SOURCES = \
+	options.cpp \
+	options.h
+
+EXTRA_DIST = \
+	kinds \
+	options
+
+options:;
+options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
+	$(MAKE) -C @top_srcdir@/src/options builts

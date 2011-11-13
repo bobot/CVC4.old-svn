@@ -5,6 +5,8 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -I@srcdir@/minisat
 AM_CXXFLAGS = -Wall -Wno-parentheses -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
+SUBDIRS = minisat
+
 noinst_LTLIBRARIES = libprop.la
 
 libprop_la_SOURCES = \
@@ -15,4 +17,17 @@ libprop_la_SOURCES = \
 	cnf_stream.h \
 	cnf_stream.cpp
 
-SUBDIRS = minisat
+nodist_libprop_la_SOURCES = \
+	options.cpp \
+	options.h
+
+BUILT_SOURCES = \
+	options.cpp \
+	options.h
+
+EXTRA_DIST = \
+	options
+
+options:;
+options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
+	$(MAKE) -C @top_srcdir@/src/options builts

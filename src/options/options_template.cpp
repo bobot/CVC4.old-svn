@@ -48,7 +48,7 @@ using namespace CVC4;
 
 namespace CVC4 {
 
-CVC4_THREADLOCAL(const Options*) Options::s_current = NULL;
+CVC4_THREADLOCAL(OptionsClass*) OptionsClass::s_current = NULL;
 
 template <class T> T handleOption(std::string option, std::string optarg);
 
@@ -69,7 +69,7 @@ template <> unsigned long handleOption<unsigned long>(std::string option, std::s
 }
 
 template <class T>
-typename T::type runHandlers(T, Options& options, std::string option, std::string optarg) {
+typename T::type runHandlers(T, std::string option, std::string optarg) {
   // By default, parse the option argument in a way appropriate for its type.
   // E.g., for "unsigned int" options, ensure that the provided argument is
   // a nonnegative integer that fits in the unsigned int type.
@@ -78,7 +78,7 @@ typename T::type runHandlers(T, Options& options, std::string option, std::strin
 }
 
 template <class T>
-void runBoolHandlers(T, Options& options, std::string option, bool b) {
+void runBoolHandlers(T, std::string option, bool b) {
   // By default, nothing to handle with bool.
   // Users override with :handler in options files to
   // provide custom handlers that can throw exceptions.
@@ -98,8 +98,16 @@ ${all_custom_handlers}
 #  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
 #endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
 
-Options::Options() :
-  d_holder() {
+OptionsClass::OptionsClass() :
+  d_holder(new OptionsHolder()) {
+}
+
+OptionsClass::OptionsClass(const OptionsClass& options) :
+  d_holder(new OptionsHolder(*options.d_holder)) {
+}
+
+OptionsClass::~OptionsClass() {
+  delete d_holder;
 }
 
 OptionsHolder::OptionsHolder() : ${module_defaults}
@@ -128,20 +136,20 @@ Languages currently supported as arguments to the --output-lang option:\n\
   ast            internal format (simple syntax-tree language)\n\
 ";
 
-string Options::getDescription() const {
+string OptionsClass::getDescription() const {
   return optionsDescription;
 }
 
-void Options::printUsage(const std::string msg, std::ostream& out) {
+void OptionsClass::printUsage(const std::string msg, std::ostream& out) {
   out << msg << optionsDescription << endl << flush;
 }
 
-void Options::printShortUsage(const std::string msg, std::ostream& out) {
+void OptionsClass::printShortUsage(const std::string msg, std::ostream& out) {
   out << msg << mostCommonOptionsDescription << endl
       << "For full usage, please use --help." << endl << flush;
 }
 
-void Options::printLanguageHelp(std::ostream& out) {
+void OptionsClass::printLanguageHelp(std::ostream& out) {
   out << languageDescription << flush;
 }
 
@@ -198,8 +206,8 @@ static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   argv[i][maxoptlen - 1] = '\0'; // ensure NUL-termination even on overflow
 }
 
-/** Parse argc/argv and put the result into a CVC4::Options struct. */
-int Options::parseOptions(int argc, char* argv[])
+/** Parse argc/argv and put the result into a CVC4::OptionsClass. */
+int OptionsClass::parseOptions(int argc, char* argv[])
 throw(OptionException) {
   const char *progName = argv[0];
   int c;

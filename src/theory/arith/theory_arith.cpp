@@ -44,6 +44,8 @@
 #include "theory/arith/normal_form.h"
 #include "theory/arith/arith_prop_manager.h"
 
+#include "theory/arith/options.h"
+
 #include <stdint.h>
 
 using namespace std;
@@ -855,7 +857,7 @@ Node TheoryArith::explain(TNode n) {
 void TheoryArith::propagate(Effort e) {
   if(quickCheckOrMore(e)){
     bool propagated = false;
-    if(Options::current()[arithPropagation] && d_simplex.hasAnyUpdates()){
+    if(Options[arithPropagation] && d_simplex.hasAnyUpdates()){
       d_simplex.propagateCandidates();
     }else{
       d_simplex.clearUpdates();
@@ -1026,7 +1028,7 @@ void TheoryArith::permanentlyRemoveVariable(ArithVar v){
   //  It appears that this can happen after other variables have been removed!
   //  Tread carefullty with this one.
 
-  Assert(Options::current()[variableRemovalEnabled]);
+  Assert(Options[variableRemovalEnabled]);
 
   bool noRow = false;
 
@@ -1076,7 +1078,7 @@ void TheoryArith::presolve(){
    * Maybe a mechanism to ask "the sharing manager"
    * if this variable/row can be used in sharing?
    */
-  if(Options::current()[variableRemovalEnabled]){
+  if(Options[variableRemovalEnabled]){
     typedef std::vector<Node>::const_iterator VarIter;
     for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
       Node variableNode = *i;
