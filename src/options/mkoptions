@@ -21,6 +21,8 @@ me=$(basename "$0")
 template=$1; shift
 output=$1; shift
 
+if expr "$output" : '.*\.cpp$' &>/dev/null || expr "$output" : '.*\.[ch]$' &>/dev/null; then
+
 cat >"$output" <<EOF
 /*********************                                                        */
 /** $filename
@@ -52,6 +54,7 @@ cat >"$output" <<EOF
 /* $1 */
 
 EOF
+fi
 
 module_id=
 module_name=
@@ -584,12 +587,12 @@ function doc-alternate {
     alternate_options_already_documented=true
     the_opt=
     if [ "$long_option_alternate" ]; then
-      the_opt="  --$long_option_alternate"
+      the_opt="--$long_option_alternate"
       if [ "$short_option_alternate" ]; then
         the_opt="$the_opt | -$short_option_alternate"
       fi
     elif [ "$short_option_alternate" ]; then
-      the_opt="  -$short_option_alternate"
+      the_opt="-$short_option_alternate"
     fi
     if [ -z "$the_opt" ]; then
       # nothing to document
