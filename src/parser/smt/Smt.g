@@ -533,7 +533,7 @@ annotation[CVC4::Command*& smt_command]
 }
   : attribute[key]
     ( USER_VALUE
-      { smt_command = new SetInfoCommand(key, AntlrInput::tokenText($USER_VALUE)); }
+      { smt_command = new SetInfoCommand(key.c_str() + 1, AntlrInput::tokenText($USER_VALUE)); }
     )?
     { if(smt_command == NULL) {
         smt_command = new EmptyCommand(std::string("annotation: ") + key);
