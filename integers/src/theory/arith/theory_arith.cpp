@@ -729,8 +729,9 @@ Node TheoryArith::callDioSolver(){
   return d_diosolver.processEquationsForConflict();
 }
 
-bool TheoryArith::dioCutting(){
+Node TheoryArith::dioCutting(){
   context::Context::ScopedPush speculativePush(getContext());
+  //DO NOT TOUCH THE OUTPUTSTREAM
 
   typedef std::vector<ArithVar>::const_iterator iterator;
   iterator i = d_slackIntegerVariables.begin(), end=d_slackIntegerVariables.end();
@@ -752,7 +753,7 @@ bool TheoryArith::dioCutting(){
 
   SumPair plane = d_diosolver.processEquationsForCut();
   if(plane.isZero()){
-    return false;
+    return Node::null();
   }else{
     Polynomial p = plane.getPolynomial();
     Constant c = plane.getConstant();
@@ -763,11 +764,10 @@ bool TheoryArith::dioCutting(){
     Assert(!gcd.divides(c.getIntegerValue()));
     Comparison leq = Comparison::mkComparison(LEQ, p, c);
     Comparison geq = Comparison::mkComparison(GEQ, p, c);
-    Node lemma = NodeManager::currentNM()->mkNode(AND, leq.getNode(), geq.getNode());
+    Node lemma = NodeManager::currentNM()->mkNode(OR, leq.getNode(), geq.getNode());
     Debug("arith::dio") << "dioCutting found the plane: " << plane.getNode() << endl;
     Debug("arith::dio") << "resulting in the cut: " << lemma << endl;
-    d_out->lemma(lemma);
-    return true;
+    return lemma;
   }
 }
 
@@ -811,7 +811,11 @@ void TheoryArith::check(Effort effortLevel){
       bool emittedLemma = splitDisequalities();
 
       if(!emittedLemma){
-        emittedLemma = dioCutting();
+        Node possibleLemma = dioCutting();
+        emittedLemma = !possibleLemma.isNull();
+        if(emittedLemma){
+          d_out->lemma(possibleLemma);
+        }
       }
 
       if(!emittedLemma){

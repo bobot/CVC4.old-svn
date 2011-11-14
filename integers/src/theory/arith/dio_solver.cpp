@@ -584,6 +584,8 @@ DioSolver::TrailIndex DioSolver::reduceByGCD(DioSolver::TrailIndex ti){
   const SumPair& sp = d_trail[ti].d_eq;
   Polynomial vsum = sp.getPolynomial();
   Constant c = sp.getConstant();
+
+  Debug("arith::dio") << "reduceByGCD " << vsum.getNode() << endl;
   Assert(!vsum.isConstant());
   Integer g = vsum.gcd();
   Assert(g >= 1);

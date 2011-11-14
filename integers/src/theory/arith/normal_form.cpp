@@ -235,7 +235,7 @@ Integer Polynomial::gcd() const {
   iterator i=begin(), e=end();
   Assert(i!=e);
 
-  Integer d = (*i).getConstant().getIntegerValue();
+  Integer d = (*i).getConstant().getIntegerValue().abs();
   ++i;
   for(; i!=e; ++i){
     const Integer& c = (*i).getConstant().getIntegerValue();

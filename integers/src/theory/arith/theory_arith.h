@@ -243,7 +243,7 @@ private:
   /** Calls the DIO Solver. */
   Node callDioSolver();
   /** Calls the DIO Solver. */
-  bool dioCutting();
+  Node dioCutting();
 
   /**
    * This requests a new unique ArithVar value for x.
