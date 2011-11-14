@@ -75,6 +75,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_propManager(c, d_arithvarNodeMap, d_atomDatabase, valuation),
   d_simplex(d_propManager, d_partialModel, d_tableau),
   d_DELTA_ZERO(0),
+  d_hasWorkedSinceCut(false),
   d_statistics()
 {}
 
@@ -774,7 +775,7 @@ Node TheoryArith::dioCutting(){
 void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
-  bool anyNewAssertions = !done();
+  d_hasWorkedSinceCut = d_hasWorkedSinceCut || !done();
 
   while(!done()){
 
@@ -809,17 +810,20 @@ void TheoryArith::check(Effort effortLevel){
     if(possibleConflict!= Node::null()){
       Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
       d_out->conflict(possibleConflict);
-    }else if (fullEffort(effortLevel)) {
-      bool emittedLemma = splitDisequalities();
+    }else if(fullEffort(effortLevel)){
+      bool  emittedLemma = splitDisequalities();
 
-      if(!emittedLemma  && anyNewAssertions){
+      if (!emittedLemma && d_hasWorkedSinceCut){
         Node possibleLemma = dioCutting();
         emittedLemma = !possibleLemma.isNull();
         if(emittedLemma){
+          d_hasWorkedSinceCut = false;
+          static int kodsklf = 0;
+          Debug("arith") << "dio conflict   " << kodsklf++ << possibleLemma << endl;
           d_out->lemma(possibleLemma);
-        }
+        }        
       }
-
+      
       if(!emittedLemma){
         emittedLemma = externalBranchAndBound();
       }

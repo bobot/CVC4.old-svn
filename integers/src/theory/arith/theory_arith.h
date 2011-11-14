@@ -320,6 +320,8 @@ private:
 
   Comparison mkIntegerEqualityFromAssignment(ArithVar v);
 
+  bool d_hasWorkedSinceCut;
+
   /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {
   public:
