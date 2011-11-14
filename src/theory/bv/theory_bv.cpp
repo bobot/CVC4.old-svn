@@ -22,7 +22,6 @@
 #include "theory/valuation.h"
 
 #include "theory/bv/bv_sat.h"
-#include "picosat/picosat.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;
@@ -36,7 +35,7 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
   : Theory(THEORY_BV, c, u, out, valuation), 
     d_context(c),
     d_assertions(c),
-    d_bitblaster(c)
+    d_bitblaster(new Bitblaster<DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB>(c) )
   {
     d_true = utils::mkTrue();
   }
@@ -45,10 +44,12 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
 void TheoryBV::preRegisterTerm(TNode node) {
 
   BVDebug("bitvector") << "TheoryBV::preRegister(" << node << ")" << std::endl;
-
+  // marker literal: bitblast all terms before we start
+  d_bitblaster->bitblast(node); 
 }
 
 void TheoryBV::check(Effort e) {
+
   BVDebug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
   if (fullEffort(e)) {
     std::vector<TNode> assertions; 
@@ -59,14 +60,14 @@ void TheoryBV::check(Effort e) {
     
     std::vector<TNode>::const_iterator it = assertions.begin();
     for (; it != assertions.end(); ++it) {
-      //d_bitblaster->assertToSat(*it); 
+      d_bitblaster->assertToSat(*it); 
     }
-    bool res = false; //d_bitblaster->solve();
+    bool res = d_bitblaster->solve();
     if (res == false) {
       // generate conflict
       Node conflict = mkConjunction(assertions);
       d_out->conflict(conflict);
-      //d_bitblaster->resetSolver(); 
+      d_bitblaster->resetSolver(); 
       return; 
     }
   }

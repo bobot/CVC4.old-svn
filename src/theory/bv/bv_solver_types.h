@@ -55,8 +55,14 @@ struct SatLitHash {
   static size_t hash (const SatLit& lit) {
     return (size_t) toInt(lit);
   }
+  
 };
 
+struct SatLitHashFunction {
+  size_t operator()(SatLit lit) const {
+    return (size_t) toInt(lit); 
+  }
+};
 
 struct SatLitLess{
   static bool compare(const SatLit& x, const SatLit& y)
@@ -76,19 +82,64 @@ struct SatLitLess{
 
 template <class T, class Hash = std::hash<T>, class Less = std::less<T> >
 class CanonicalClause {
+  std::vector<T> d_data;
+  bool d_sorted;
+
 
 public:
   CanonicalClause() :
-    d_data() {}
-  std::list<T> d_data;  
+    d_data(),
+    d_sorted(false)
+  {}
+  
   void addLiteral(T lit);
   bool operator==(const CanonicalClause<T, Hash, Less>& other) const; 
-  
-  inline unsigned size() {
-    return d_data.size(); 
+  const T& operator[](const unsigned i) const {
+    Assert (i <= d_data.size()); 
+    return d_data[i];
   }
   
-}; 
+  unsigned size() const {
+    return d_data.size(); 
+  }
+
+  bool isSorted() const {
+    return d_sorted; 
+  }
+
+  void sort(); 
+  
+};
+
+
+template <class T, class H, class L> 
+void CanonicalClause<T, H, L>::addLiteral(T lit) {
+  Assert (!d_sorted); 
+  d_data.push_back(lit); 
+}
+
+template <class T, class H, class L>
+void CanonicalClause<T, H, L>::sort() {
+  std::sort (d_data.begin(), d_data.end() ); 
+}
+
+template <class T, class H, class L> 
+bool CanonicalClause<T, H, L> ::operator==(const CanonicalClause<T, H, L>& other) const{
+  // make sure both clauses are indeed in canonical form
+
+  Assert(d_sorted && other.isSorted() ); 
+  
+  if (d_data.size() != other.size()) {
+    return false; 
+  }
+  for (unsigned i=0; i != other.size(); ++i) {
+    if (d_data[i] != other[i]) {
+      return false;
+    }
+  }
+  return true; 
+}
+
 
 template <class T, class HashFunc, class Less>
 struct CanonicalClauseHash {
@@ -96,15 +147,15 @@ struct CanonicalClauseHash {
     // using a PJW hash
     size_t hash = 0; 
 
-    typename std::list<T>::const_iterator it = cc.d_data.begin(); 
-    for (; it != cc.d_data.end(); ++it) {
-      hash  = (hash << 4) + HashFunc::hash(*it);
+    for (unsigned i= 0; i < cc.size(); ++i) {
+      hash  = (hash << 4) + HashFunc::hash(cc[i]);
       size_t g = hash & 0xf0000000;
       if (g!= 0) {
         hash = pow(hash, (g >> 24));
         hash = pow(hash, g); 
       }
     } 
+    return hash; 
   }
 }; 
 
