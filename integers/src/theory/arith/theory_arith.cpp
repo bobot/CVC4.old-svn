@@ -333,7 +333,7 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
     if(poly.isInteger()){
       d_slackIntegerVariables.push_back(varSlack);
     }
-    cout << varSlack << " " << poly.isInteger() << endl;
+    Debug("arith") << "Arith slack variables "<< varSlack << " is integer " << poly.isInteger() << "." << endl;
 
     d_tableau.addRow(varSlack, coefficients, variables);
     setupInitialValue(varSlack, poly.isInteger());

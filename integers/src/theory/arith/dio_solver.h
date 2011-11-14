@@ -254,7 +254,7 @@ private:
    * This corresponds to an application of Alberto's rule (9).
    */
   std::pair<SubIndex, TrailIndex> decomposeIndex(TrailIndex ti);
-  void subAndReduceQueue(TrailIndex ti);
+  //void subAndReduceQueue(TrailIndex ti);
 
   void printQueue();
 
@@ -277,12 +277,13 @@ private:
   bool triviallySat(TrailIndex t);
   bool triviallyUnsat(TrailIndex t);
   bool gcdIsOne(TrailIndex t);
-  bool debugSubstitionsApply(TrailIndex t);
+  bool debugAnySubstitionApplies(TrailIndex t);
+  bool debugSubstitutionApplies(SubIndex si, TrailIndex ti);
 
   void pushToQueue(TrailIndex t){
     Assert(!inConflict());
     Assert(gcdIsOne(t));
-    Assert(!debugSubstitionsApply(t));
+    Assert(!debugAnySubstitionApplies(t));
     Assert(!triviallySat(t));
     Assert(!triviallyUnsat(t));
 
