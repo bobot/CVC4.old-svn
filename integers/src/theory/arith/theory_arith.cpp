@@ -774,6 +774,8 @@ Node TheoryArith::dioCutting(){
 void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
+  bool anyNewAssertions = !done();
+
   while(!done()){
 
     Node assertion = get();
@@ -810,7 +812,7 @@ void TheoryArith::check(Effort effortLevel){
     }else if (fullEffort(effortLevel)) {
       bool emittedLemma = splitDisequalities();
 
-      if(!emittedLemma){
+      if(!emittedLemma  && anyNewAssertions){
         Node possibleLemma = dioCutting();
         emittedLemma = !possibleLemma.isNull();
         if(emittedLemma){
@@ -1147,7 +1149,7 @@ void TheoryArith::presolve(){
   Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
 
   d_learner.clear();
-  check(FULL_EFFORT);
+  //check(FULL_EFFORT);
 }
 
 EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
