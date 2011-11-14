@@ -399,7 +399,7 @@ Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Consta
           //(>= l (/ r g))
           //(>= l (ceil (/ r g)))
           //This also hold for GT as (ceil (/ r g)) > (/ r g)
-          Integer cdiv = zr.floorDivideQuotient(gcd);
+          Integer cdiv = zr.ceilingDivideQuotient(gcd);
           Constant newRight = Constant::mkConstant(cdiv);
           return Comparison(toNode(kind::GEQ, newLeft, newRight),kind::GEQ, newLeft,newRight);
         }
