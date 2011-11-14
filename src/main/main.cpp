@@ -323,7 +323,7 @@ static int runCvc4(int argc, char* argv[]) {
     options.set(replayStream, NULL);
   }
 
-  string result = smt.getInfo(":status").getValue();
+  string result = smt.getInfo("status").getValue();
   int returnValue;
 
   if(result == "sat") {
