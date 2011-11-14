@@ -21,9 +21,10 @@
 #include <list>
 
 using namespace std;
-using namespace CVC4;
-using namespace CVC4::theory;
-using namespace CVC4::theory::arith;
+
+namespace CVC4 {
+namespace theory{
+namespace arith {
 
 bool VarList::isSorted(iterator start, iterator end) {
   return __gnu_cxx::is_sorted(start, end);
@@ -496,3 +497,7 @@ Node SumPair::computeQR(const SumPair& sp, const Integer& div){
 
   return NodeManager::currentNM()->mkNode(kind::PLUS, sp_q.getNode(), sp_r.getNode());
 }
+
+} //namespace arith
+} //namespace theory
+} //namespace CVC4

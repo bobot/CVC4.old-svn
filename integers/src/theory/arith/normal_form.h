@@ -33,6 +33,8 @@
 #include <algorithm>
 #include <ext/algorithm>
 
+#include <iostream>
+
 namespace CVC4 {
 namespace theory {
 namespace arith {
@@ -1136,8 +1138,12 @@ public:
     return getConstant().isInteger() && getPolynomial().isInteger();
   }
 
+  bool isConstant() const {
+    return getPolynomial().isZero(); 
+  }
+
   bool isZero() const {
-    return getConstant().isZero() && getPolynomial().isZero();
+    return getConstant().isZero() && isConstant();
   }
 
   Integer gcd() const {
