@@ -398,7 +398,7 @@ $(builddir)/../main/options.cpp: base_options_template.cpp mkoptions ../main/opt
 		@srcdir@/../main/options \
 	) || (rm -f $@ && exit 1)
 
-.PHONY: exprs-builts builts options-processor
+.PHONY: exprs-builts builts
 builts: $(BUILT_SOURCES)
 exprs-builts:; $(AM_V_at)[ "$(FROM_EXPR)" != 1 ] && $(MAKE) -C ../expr builts || true
-options-processor:; $(AM_V_GEN)
+options-processor:; $(AM_V_GEN)touch "$@"

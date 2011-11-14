@@ -42,5 +42,6 @@ The above is now implemented, but there are things that still bug me:
 * long doc vs. short doc
 * better void/bool/alternate option documentation
 * can we keep Options in CVC4 namespace but put OptionsWrapper and "verbosity" etc. and maybe OptionsClass in CVC4::options ?  Does name lookup work for us here?
+* document requirements on option types (default constructible?  copy-able?  must have operator<<(ostream)?  hashable?)
 
 -- Morgan Deters <mdeters@cs.nyu.edu>  Sun, 13 Nov 2011 18:01:10 -0500

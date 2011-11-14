@@ -475,7 +475,7 @@ void SetBenchmarkStatusCommand::invoke(SmtEngine* smtEngine) {
   ss << d_status;
   SExpr status = ss.str();
   try {
-    smtEngine->setInfo(":status", status);
+    smtEngine->setInfo("status", status);
     //d_result = "success";
   } catch(ModalException&) {
     d_result = "error";

@@ -489,6 +489,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
   if(key == \"$smtname\") {
 #line $lineno \"$kf\"
     OptionsClass::current().assignBool($internal, \"$smtname\", true);$run_links
+    return;
   }"
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
       if [ -n "$handlers" ]; then
@@ -507,6 +508,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
   if(key == \"$smtname\") {
 #line $lineno \"$kf\"
     OptionsClass::current().assign($internal, \"$smtname\", optarg);$run_links
+    return;
   }"
     elif [ -n "$expect_arg" ]; then
       run_handlers=
@@ -523,6 +525,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
   if(key == \"$smtname\") {
 #line $lineno \"$kf\"
     $run_handlers$run_links
+    return;
   }"
     else
       run_handlers=
@@ -539,6 +542,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
   if(key == \"$smtname\") {
 #line $lineno \"$kf\"
     $run_handlers$run_links
+    return;
   }"
     fi
   fi

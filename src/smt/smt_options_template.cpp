@@ -48,39 +48,7 @@ void SmtEngine::setOption(const std::string& key, const CVC4::SExpr& value)
 
 #line 50 "${template}"
 
-  if(key == "print-success") {
-    throw BadOptionException();
-  } else if(key == "expand-definitions") {
-    throw BadOptionException();
-  } else if(key == "interactive-mode") {
-    throw BadOptionException();
-  } else if(key == "regular-output-channel") {
-    throw BadOptionException();
-  } else if(key == "diagnostic-output-channel") {
-    throw BadOptionException();
-  } else if(key == "random-seed") {
-    throw BadOptionException();
-  } else if(key == "verbosity") {
-    throw BadOptionException();
-  } else {
-    // The following options can only be set at the beginning; we throw
-    // a ModalException if someone tries.
-    if(d_logic != "") {
-      throw ModalException("logic already set; cannot set options");
-    }
-
-    if(key == "produce-proofs") {
-      throw BadOptionException();
-    } else if(key == "produce-unsat-cores") {
-      throw BadOptionException();
-    } else if(key == "produce-models") {
-      throw BadOptionException();
-    } else if(key == "produce-assignments") {
-      throw BadOptionException();
-    } else {
-      throw BadOptionException();
-    }
-  }
+  throw BadOptionException();
 }
 
 CVC4::SExpr SmtEngine::getOption(const std::string& key) const
@@ -92,31 +60,9 @@ CVC4::SExpr SmtEngine::getOption(const std::string& key) const
 
   ${smt_getoption_handlers}
 
-  if(key == "print-success") {
-    return SExpr("true");
-  } else if(key == "expand-definitions") {
-    throw BadOptionException();
-  } else if(key == "interactive-mode") {
-    throw BadOptionException();
-  } else if(key == "produce-proofs") {
-    throw BadOptionException();
-  } else if(key == "produce-unsat-cores") {
-    throw BadOptionException();
-  } else if(key == "produce-models") {
-    throw BadOptionException();
-  } else if(key == "produce-assignments") {
-    throw BadOptionException();
-  } else if(key == "regular-output-channel") {
-    return SExpr("stdout");
-  } else if(key == "diagnostic-output-channel") {
-    return SExpr("stderr");
-  } else if(key == "random-seed") {
-    throw BadOptionException();
-  } else if(key == "verbosity") {
-    throw BadOptionException();
-  } else {
-    throw BadOptionException();
-  }
+#line 64 "${template}"
+
+  throw BadOptionException();
 }
 
 }/* CVC4 namespace */
