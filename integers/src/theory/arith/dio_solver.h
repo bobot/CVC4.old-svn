@@ -210,6 +210,8 @@ private:
    */
   //Node addToPool(Node newEq);
 
+  void subAndReduceCurrentFByIndex(SubIndex subIndex);
+
   /**
    * Appends an equality to d_facts with the proof p.
    * This should not be exposed the user.
@@ -251,7 +253,7 @@ private:
    *
    * This corresponds to an application of Alberto's rule (9).
    */
-  bool decomposeIndex(TrailIndex ti, SubIndex& si, TrailIndex& next);
+  std::pair<SubIndex, TrailIndex> decomposeIndex(TrailIndex ti);
   void subAndReduceQueue(TrailIndex ti);
 
   void printQueue();
@@ -260,7 +262,9 @@ private:
    * Exhaustively applies all substitutions discovered to an element of the trail.
    * Returns a TrailIndex corresponding to the substitutions being applied.
    */
-  TrailIndex applyAllSubstitutions(TrailIndex i);
+  TrailIndex applyAllSubstitutionsToIndex(TrailIndex i);
+
+  TrailIndex applySubstitution(SubIndex s, TrailIndex i);
 
   /**
    * Reduces the trail node at i by the gcd of the variables.

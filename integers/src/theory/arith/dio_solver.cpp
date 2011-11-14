@@ -230,7 +230,7 @@ void DioSolver::enqueueInputConstraints(){
     d_nextInputConstraintToEnqueue = d_nextInputConstraintToEnqueue + 1;
 
     TrailIndex i = d_inputConstraints[curr].d_trailPos;
-    TrailIndex j = applyAllSubstitutions(i);
+    TrailIndex j = applyAllSubstitutionsToIndex(i);
     TrailIndex k = reduceByGCD(j);
 
     if(!inConflict()){
@@ -272,11 +272,15 @@ bool DioSolver::processEquations(bool cuts){
       //why conflicts occur.
       Assert(!vsum.isConstant());
 
-      SubIndex subIndex;
-      TrailIndex next;
-      hasMore = decomposeIndex(curr, subIndex, next);
+      std::pair<SubIndex, TrailIndex> p = decomposeIndex(curr);
+      SubIndex subIndex = p.first;
+      TrailIndex next = p.second;
       subAndReduceQueue(subIndex);
-      curr = reduceByGCD(next);
+
+      hasMore = curr != next;
+      if(hasMore){
+        curr = reduceByGCD(next);
+      }
     }while(hasMore && !inConflict());
   }
 
@@ -382,7 +386,7 @@ SumPair DioSolver::purifyIndex(TrailIndex i){
 //   // }
 // }
 
-TrailIndex DioSolver::combineEqAtIndexes(TrailIndex i, const Integer& q, TrailIndex j, const Integer& r){
+DioSolver::TrailIndex DioSolver::combineEqAtIndexes(DioSolver::TrailIndex i, const Integer& q, DioSolver::TrailIndex j, const Integer& r){
   Constant cq = Constant::mkConstant(q);
   Constant cr = Constant::mkConstant(r);
 
@@ -397,8 +401,8 @@ TrailIndex DioSolver::combineEqAtIndexes(TrailIndex i, const Integer& q, TrailIn
   SumPair newSi = (si * cq) + (sj * cr);
 
 
-  const Polynomial& pi = d_proofs[i];
-  const Polynomial& pj = d_proofs[j];
+  const Polynomial& pi = d_trail[i].d_proof;
+  const Polynomial& pj = d_trail[j].d_proof;
   Polynomial newPi = (pi * cq) + (pj * cr);
 
   TrailIndex k = d_trail.size();
@@ -414,15 +418,19 @@ TrailIndex DioSolver::combineEqAtIndexes(TrailIndex i, const Integer& q, TrailIn
 
 void DioSolver::printQueue(){
   Debug("arith::dio") << "DioSolver::printQueue()" << endl;
-  for(Index i = front(), last = back(); i < last; ++i){
-    Debug("arith::dio") << "d_facts[i] = " << d_facts[i].getNode() << endl;
+  for(TrailIndex i = 0, last = d_trail.size(); i < last; ++i){
+    Debug("arith::dio") << "d_trail[i].d_eq = " << d_trail[i].d_eq.getNode() << endl;
+    Debug("arith::dio") << "d_trail[i].d_proof = " << d_trail[i].d_proof.getNode() << endl;
   }
 
   Debug("arith::dio") << "DioSolver::printSubs()" << endl;
-  EliminatedIter ei = d_subEliminated.begin(), eiEnd = d_subEliminated.end();
-  RangeIter ri = d_subRange.begin(), riEnd = d_subRange.end();
-  for(; ei != eiEnd; ++ei, ++ri){
-    Debug("arith::dio") << "sub " << (*ei).getNode() << " using " << d_facts[*ri].getNode() <<endl;
+  for(SubIndex si=0, sN=d_subs.size(); si < sN; ++si){
+    Debug("arith::dio") << "d_subs[i] = {"
+                        << "d_fresh="<< d_subs[si].d_fresh <<","
+                        << "d_eliminated="<< d_subs[si].d_eliminated.getNode() <<","
+                        << "d_constraint="<< d_subs[si].d_constraint <<"}" << endl;
+    Debug("arith::dio") << "d_trail[d_subs[i].d_constraint].d_eq="
+                        << d_trail[d_subs[si].d_constraint].d_eq.getNode() << endl;
   }
 }
 
@@ -444,18 +452,18 @@ void DioSolver::printQueue(){
 //                       <<" with proof " << newPi.getNode() << endl;
 // }
 
-TrailIndex DioSolver::applyAllSubstitutionsToIndex(TrailIndex trailIndex){
+DioSolver::TrailIndex DioSolver::applyAllSubstitutionsToIndex(DioSolver::TrailIndex trailIndex){
   TrailIndex currentIndex = trailIndex;
-  for(SubIter subIter = 0, siEnd = d_subs.size(); subIter < siEnd; ++subIter){
+  for(SubIndex subIter = 0, siEnd = d_subs.size(); subIter < siEnd; ++subIter){
     currentIndex = applySubstitution(subIter, currentIndex);
   }
   return currentIndex;
 }
 
-bool DioSolver::decomposeIndex(TrailIndex i, SubIndex& subBy, TrailIndex& nextIndex){
+std::pair<DioSolver::SubIndex, DioSolver::TrailIndex> DioSolver::decomposeIndex(DioSolver::TrailIndex i){
   const SumPair& si = d_trail[i].d_eq;
 
-  Debug("arith::dio") << "before decomposeIndex("<<i<<":"<<si<< ")" << endl;
+  Debug("arith::dio") << "before decomposeIndex("<<i<<":"<<si.getNode()<< ")" << endl;
 
   Polynomial p = si.getPolynomial();
   Monomial av = p.selectAbsMinimum();
@@ -470,7 +478,7 @@ bool DioSolver::decomposeIndex(TrailIndex i, SubIndex& subBy, TrailIndex& nextIn
   //We need to handle both cases seperately to ensure termination.
   if(a_abs > 1){
 
-    Node qr = SumPair::computeQR(si, a);
+    Node qr = SumPair::computeQR(si, a.getIntegerValue());
 
     Assert(qr.getKind() == kind::PLUS);
     Assert(qr.getNumChildren() == 2);
@@ -490,72 +498,72 @@ bool DioSolver::decomposeIndex(TrailIndex i, SubIndex& subBy, TrailIndex& nextIn
 
     SumPair newFact = r + fresh_a;
 
-    nextIndex = d_trail.size();
+    TrailIndex nextIndex = d_trail.size();
     d_trail.push_back(Constraint(newFact, d_trail[i].d_proof));
 
     TrailIndex ci = d_trail.size();
     d_trail.push_back(Constraint(newSI, Polynomial::mkZero()));
 
-    Debug("arith::dio") << "after Decompose(" << i <<":" <  d_trail[i].d_eq.getNode()
+    Debug("arith::dio") << "after Decompose(" << i <<":" <<  d_trail[i].d_eq.getNode()
                         << ") for " << av.getNode() << endl;
     Assert(d_trail[i].d_eq.getPolynomial().getCoefficient(vl) == Constant::mkConstant(-1));
 
-    subBy = d_subs.size();
-    d_substitions.push_back(Substition(freshNode, var, ci));
+    SubIndex subBy = d_subs.size();
+    d_subs.push_back(Substitution(freshNode, var, ci));
 
-    Debug("arith::dio") << "after Decompose front " <<  d_facts[i].getNode() << " for " << av.getNode() << endl;
-    Assert(d_facts[i].getPolynomial().getCoefficient(vl) == Constant::mkConstant(-1));
+    Debug("arith::dio") << "after Decompose front " <<  d_trail[i].d_eq.getNode() << " for " << av.getNode() << endl;
+    Assert(d_trail[i].d_eq.getPolynomial().getCoefficient(vl) == Constant::mkConstant(-1));
 
-    return true;
+    return make_pair(subBy, nextIndex);
   }else{
     TrailIndex ci = !a.isNegative() ? scaleEqAtIndex(i, Integer(-1)) : i;
 
-    subBy = d_sustitutions.size();
-    d_substitions.push_back(Substition(Node::null, var, ci));
+    SubIndex subBy = d_subs.size();
+    d_subs.push_back(Substitution(Node::null(), var, ci));
 
-    Debug("arith::dio") << "after Decompose front " <<  d_facts[i].getNode() << " for " << av.getNode() << endl;
-    Assert(d_facts[i].getPolynomial().getCoefficient(vl) == Constant::mkConstant(-1));
+    Debug("arith::dio") << "after Decompose front " <<  d_trail[i].d_eq.getNode() << " for " << av.getNode() << endl;
+    Assert(d_trail[i].d_eq.getPolynomial().getCoefficient(vl) == Constant::mkConstant(-1));
 
-    return false;
+    return make_pair(subBy, ci);
   }
 }
 
 
-TrailIndex applySubstitution(SubIndex si, TrailIndex ti){
+DioSolver::TrailIndex DioSolver::applySubstitution(DioSolver::SubIndex si, DioSolver::TrailIndex ti){
   Variable var = d_subs[si].d_eliminated;
   TrailIndex subIndex = d_subs[si].d_constraint;
 
-  const SumPair& curr = d_trail[currIndex].eq;
+  const SumPair& curr = d_trail[ti].d_eq;
   Polynomial vsum = curr.getPolynomial();
 
   Constant a = vsum.getCoefficient(VarList(var));
   if(!a.isZero()){
     Integer one(1);
-    TrailIndex afterSub = combineEqAtIndexes(f, one, subIndex, a.getIntegerValue());
-    Assert(d_facts[afterSub].getPolynomial().getCoefficient(VarList(var)).isZero());
+    TrailIndex afterSub = combineEqAtIndexes(ti, one, subIndex, a.getIntegerValue());
+    Assert(d_trail[afterSub].d_eq.getPolynomial().getCoefficient(VarList(var)).isZero());
     return afterSub;
   }else{
     return ti;
   }
 
-#warning "This is not needed but I am added for debugging."
-  for(Index i =front(), last=back(); i < last; ++i){
-    applySubstitutionsToQueue(i);
-  }
-  printQueue();
+// #warning "This is not needed but I am added for debugging."
+//   for(Index i =front(), last=back(); i < last; ++i){
+//     applySubstitutionsToQueue(i);
+//   }
+//   printQueue();
 }
 
 
-TrailIndex reduceByGCD(TrailIndex ti){
+DioSolver::TrailIndex DioSolver::reduceByGCD(DioSolver::TrailIndex ti){
   const SumPair& sp = d_trail[ti].d_eq;
   Polynomial vsum = sp.getPolynomial();
   Constant c = sp.getConstant();
   Assert(!vsum.isConstant());
   Integer g = vsum.gcd();
-  Assert(gcd >= 1);
+  Assert(g >= 1);
   if(g.divides(c.getIntegerValue())){
     if(g > 1){
-      return scaleEqAtIndex(i, g);
+      return scaleEqAtIndex(ti, g);
     }else{
       return ti;
     }
@@ -575,16 +583,16 @@ bool DioSolver::triviallySat(TrailIndex i){
   }
 }
 
-void DioSolver::subAndReduceCurrentFByIndex(SubIndex subIndex){
+void DioSolver::subAndReduceCurrentFByIndex(DioSolver::SubIndex subIndex){
   for(size_t remaining = d_currentF.size(); remaining > 0 && !inConflict(); --remaining){
     TrailIndex front = d_currentF.front();
     d_currentF.pop();
 
-    TrailIndex nextTI = applySubstitution(si,ti);
-    if(nextTI != ti){
+    TrailIndex nextTI = applySubstitution(subIndex, front);
+    if(nextTI != front){
       front = reduceByGCD(nextTI); 
     }
-    if(!triviallySat){
+    if(!triviallySat(front)){
       d_currentF.push(front);
     }
   }
