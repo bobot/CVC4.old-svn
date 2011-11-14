@@ -296,11 +296,21 @@ ${module_option_handlers}
 #line 297 "${template}"
 
     case ':':
-      throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
+      // This can be a long or short option, and the way to get at the name of it is different.
+      if(optopt == 0) { // was a long option
+        throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
+      } else { // was a short option
+        throw OptionException(string("option `-") + char(optopt) + "' missing its required argument");
+      }
 
     case '?':
     default:
-      throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
+      // This can be a long or short option, and the way to get at the name of it is different.
+      if(optopt == 0) { // was a long option
+        throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
+      } else { // was a short option
+        throw OptionException(string("can't understand option `-") + char(optopt) + "'");
+      }
     }
   }
 
