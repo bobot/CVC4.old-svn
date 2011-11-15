@@ -1139,7 +1139,7 @@ public:
   }
 
   bool isConstant() const {
-    return getPolynomial().isZero(); 
+    return getPolynomial().isZero();
   }
 
   bool isZero() const {

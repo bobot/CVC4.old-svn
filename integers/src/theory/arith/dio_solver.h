@@ -126,7 +126,7 @@ private:
    * - !isConstant().
    * - If the element is (+ constant (+ [(* coeff var)] )), then the gcd(coeff) = 1
    */
-  std::queue<TrailIndex> d_currentF;
+  std::deque<TrailIndex> d_currentF;
 
   context::CDO<bool> d_conflictHasBeenRaised;
   TrailIndex d_conflictIndex;
@@ -282,14 +282,23 @@ private:
   bool debugAnySubstitionApplies(TrailIndex t);
   bool debugSubstitutionApplies(SubIndex si, TrailIndex ti);
 
-  void pushToQueue(TrailIndex t){
-    Assert(!inConflict());
-    Assert(gcdIsOne(t));
-    Assert(!debugAnySubstitionApplies(t));
-    Assert(!triviallySat(t));
-    Assert(!triviallyUnsat(t));
+  bool queueConditions(TrailIndex t){
+    return
+      !inConflict() &&
+      gcdIsOne(t) &&
+      !debugAnySubstitionApplies(t) &&
+      !triviallySat(t) &&
+      !triviallyUnsat(t);
+  }
 
-    d_currentF.push(t);
+  void pushToQueueBack(TrailIndex t){
+    Assert(queueConditions(t));
+    d_currentF.push_back(t);
+  }
+
+  void pushToQueueFront(TrailIndex t){
+    Assert(queueConditions(t));
+    d_currentF.push_front(t);
   }
 
   bool processEquations(bool cuts);
@@ -314,6 +323,8 @@ private:
 
   //Legacy
   void getSolution();
+
+  void debugPrintTrail(TrailIndex i);
 
  /** These fields are designed to be accessable to TheoryArith methods. */
   class Statistics {
