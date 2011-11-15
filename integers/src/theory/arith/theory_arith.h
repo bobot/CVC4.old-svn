@@ -334,6 +334,8 @@ private:
     IntStat d_permanentlyRemovedVariables;
     TimerStat d_presolveTime;
 
+    IntStat d_externalBranchAndBounds;
+
     IntStat d_initialTableauSize;
     IntStat d_currSetToSmaller;
     IntStat d_smallerSetToCurr;

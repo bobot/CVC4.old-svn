@@ -29,6 +29,8 @@
 #include "theory/arith/arith_utilities.h"
 #include "util/rational.h"
 
+#include "util/stats.h"
+
 #include <vector>
 #include <utility>
 
@@ -313,6 +315,24 @@ private:
   //Legacy
   void getSolution();
 
+ /** These fields are designed to be accessable to TheoryArith methods. */
+  class Statistics {
+  public:
+
+    IntStat d_conflictCalls;
+    IntStat d_cutCalls;
+
+    IntStat d_cuts;
+    IntStat d_conflicts;
+
+    TimerStat d_conflictTimer;
+    TimerStat d_cutTimer;
+
+    Statistics();
+    ~Statistics();
+  };
+
+  Statistics d_statistics;
 };
 
 }/* CVC4::theory::arith namespace */

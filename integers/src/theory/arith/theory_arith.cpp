@@ -90,6 +90,7 @@ TheoryArith::Statistics::Statistics():
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
+  d_externalBranchAndBounds("theory::arith::externalBranchAndBounds",0),
   d_initialTableauSize("theory::arith::initialTableauSize", 0),
   d_currSetToSmaller("theory::arith::currSetToSmaller", 0),
   d_smallerSetToCurr("theory::arith::smallerSetToCurr", 0),
@@ -105,6 +106,7 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::registerStat(&d_presolveTime);
 
+  StatisticsRegistry::registerStat(&d_externalBranchAndBounds);
 
   StatisticsRegistry::registerStat(&d_initialTableauSize);
   StatisticsRegistry::registerStat(&d_currSetToSmaller);
@@ -123,6 +125,7 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::unregisterStat(&d_presolveTime);
 
+  StatisticsRegistry::unregisterStat(&d_externalBranchAndBounds);
 
   StatisticsRegistry::unregisterStat(&d_initialTableauSize);
   StatisticsRegistry::unregisterStat(&d_currSetToSmaller);
@@ -645,6 +648,8 @@ bool TheoryArith::externalBranchAndBound(){
   }else{
     ArithVar v = d_partialModel.nextIntegerVariableWithNonIntegerAssignment();
     Assert(d_partialModel.isInteger(v));
+
+    ++(d_statistics.d_externalBranchAndBounds);
 
     const DeltaRational& d = d_partialModel.getAssignment(v);
     Trace("integers") << "integers: assignment to [[" << d_arithvarNodeMap.asNode(v)

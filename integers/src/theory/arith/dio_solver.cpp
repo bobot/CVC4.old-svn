@@ -27,6 +27,34 @@ namespace theory {
 namespace arith {
 
 
+DioSolver::Statistics::Statistics() :
+  d_conflictCalls("theory::arith::dio::conflictCalls",0),
+  d_cutCalls("theory::arith::dio::cutCalls",0),
+  d_cuts("theory::arith::dio::cuts",0),
+  d_conflicts("theory::arith::dio::conflicts",0),
+  d_conflictTimer("theory::arith::dio::conflictTimer"),
+  d_cutTimer("theory::arith::dio::cutTimer")
+{
+  StatisticsRegistry::registerStat(&d_conflictCalls);
+  StatisticsRegistry::registerStat(&d_cutCalls);
+
+  StatisticsRegistry::registerStat(&d_cuts);
+  StatisticsRegistry::registerStat(&d_conflicts);
+
+  StatisticsRegistry::registerStat(&d_conflictTimer);
+  StatisticsRegistry::registerStat(&d_cutTimer);
+}
+
+DioSolver::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_conflictCalls);
+  StatisticsRegistry::unregisterStat(&d_cutCalls);
+
+  StatisticsRegistry::unregisterStat(&d_cuts);
+  StatisticsRegistry::unregisterStat(&d_conflicts);
+
+  StatisticsRegistry::unregisterStat(&d_conflictTimer);
+  StatisticsRegistry::unregisterStat(&d_cutTimer);
+}
 
 size_t DioSolver::allocateVariableInPool() {
   Assert(d_lastUsedVariable <= d_variablePool.size());
@@ -296,8 +324,12 @@ bool DioSolver::processEquations(bool cuts){
 }
 
 Node DioSolver::processEquationsForConflict(){
+  TimerStat::CodeTimer codeTimer(d_statistics.d_conflictTimer);
+  ++(d_statistics.d_conflictCalls);
+
   Assert(!inConflict());
   if(processEquations(false)){
+    ++(d_statistics.d_conflicts);
     return proveIndex(getConflictIndex());
   }else{
     return Node::null();
@@ -305,8 +337,12 @@ Node DioSolver::processEquationsForConflict(){
 }
 
 SumPair DioSolver::processEquationsForCut(){
+  TimerStat::CodeTimer codeTimer(d_statistics.d_cutTimer);
+  ++(d_statistics.d_cutCalls);
+
   Assert(!inConflict());
   if(processEquations(true)){
+    ++(d_statistics.d_cuts);
     return purifyIndex(getConflictIndex());
   }else{
     return SumPair::mkZero();
