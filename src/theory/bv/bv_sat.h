@@ -94,13 +94,15 @@ class MinisatClauseManager: public ClauseManager {
   void assertClause(ClauseId id);
   void assertClause(SatClause* clause); 
   /// marker literals
-  BVMinisat::vec<SatLit> d_assumptions; 
+  BVMinisat::vec<SatLit> d_assumptions;
+  bool d_canAddClause; /// true if we can still add clauses (set to false after first call of solve)
 public:
   MinisatClauseManager(context::Context* c) :
     d_idClauseMap(),
     d_clauseIdMap(),
     d_solver(new BVMinisat::Solver() ),
-    d_assumptions()
+    d_assumptions(),
+    d_canAddClause(true)
   {}
   
   ~MinisatClauseManager() {}
@@ -233,7 +235,7 @@ class Bitblaster {
   void   cacheAtomDef(TNode node, ClauseIds* def);
   void   cacheTermDef(TNode node, BVTermDefinition* def);
 
-  Bits*         freshBits(unsigned size); 
+  Bits*         freshBits(unsigned size);
   
   /// fixed strategy bitblasting
 
@@ -270,7 +272,13 @@ public:
   void resetSolver();
   void bitblast(TNode node); 
 private:
-
+  /** 
+   * Bitblasts the atom, assigns it a marker literal, adding it to the SAT solver
+   * NOTE: duplicate clauses are not detected because of marker literal
+   * @param node the atom to be bitblasted
+   * 
+   * @return the ids of the clauses assigned to the atom (not really needed for bitblasting)
+   */
   ClauseIds* bbAtom(TNode node) {
     ClauseIds* def = getBBAtom(node);
     if (def) {

@@ -82,6 +82,7 @@ void MinisatClauseManager::assertClause(SatClause* cl) {
 }
 
 bool MinisatClauseManager::solve() {
+  d_canAddClause = false; 
   d_solver->solve(); 
   return true; 
 }
@@ -94,7 +95,7 @@ bool MinisatClauseManager::solve(const CDList<SatLit>& assumptions) {
     SatLit lit = *it;
     assump.push(~lit); 
   }
-  
+  d_canAddClause = false; 
   bool res = d_solver->solve(assump);
   return res; 
 }
@@ -121,6 +122,8 @@ SatVar MinisatClauseManager::newVar() {
 }
 
 ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2) {
+  Assert (d_canAddClause);
+  
   SatClause* clause = new SatClause();
   clause->addLiteral(lit1);
   clause->addLiteral(lit2);
@@ -138,6 +141,8 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2) {
 }
 
 ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
+  Assert (d_canAddClause);
+  
   SatClause* clause = new SatClause();
   clause->addLiteral(lit1);
   clause->addLiteral(lit2);
@@ -155,6 +160,8 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
 }
 
 ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) {
+  Assert (d_canAddClause);
+  
   SatClause* clause = new SatClause();
   clause->addLiteral(lit1);
   clause->addLiteral(lit2);
@@ -173,6 +180,8 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, S
 }
 
 ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5) {
+  Assert (d_canAddClause);
+  
   SatClause* clause = new SatClause();
   clause->addLiteral(lit1);
   clause->addLiteral(lit2);
