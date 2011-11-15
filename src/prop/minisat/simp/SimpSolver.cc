@@ -65,7 +65,7 @@ SimpSolver::SimpSolver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* con
 {
     vec<Lit> dummy(1,lit_Undef);
     ca.extra_clause_field = true; // NOTE: must happen before allocating the dummy clause below.
-    bwdsub_tmpunit        = ca.alloc(0, dummy);
+    bwdsub_tmpunit        = ca.alloc(0, dummy, false, false, false, false);
     remove_satisfied      = false;
 }
 

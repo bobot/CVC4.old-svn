@@ -240,6 +240,10 @@ public:
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
 
+    uint64_t cnt_imported, cnt_loc_derived, cnt_imp_derived;
+
+    void print_useful_clauses(int n);     // print the n most used lemmas
+
 protected:
 
     // Helper structures:

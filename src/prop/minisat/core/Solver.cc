@@ -21,6 +21,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <math.h>
 
 #include <iostream>
+#include <utility>
 
 #include "mtl/Sort.h"
 #include "core/Solver.h"
@@ -104,6 +105,7 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bo
     //
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
   , dec_vars(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
+  , cnt_imported(0), cnt_loc_derived(0), cnt_imp_derived(0)
 
   , ok                 (true)
   , cla_inc            (1)
@@ -195,7 +197,7 @@ CRef Solver::reason(Var x) {
     }
 
     // Construct the reason (level 0)
-    CRef real_reason = ca.alloc(explLevel, explanation, true);
+    CRef real_reason = ca.alloc(explLevel, explanation, true, false, false, false); // FIXME Do something about this one?
     vardata[x] = mkVarData(real_reason, level(x), intro_level(x), trail_index(x));
     clauses_removable.push(real_reason);
     attachClause(real_reason);
@@ -247,6 +249,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable, bool imported)
         } else return ok;
       } else {
         CRef cr = ca.alloc(assertionLevel, ps, false, imported, false, false);
+	cnt_imported += imported; // Stats
         clauses_persistent.push(cr);
 	attachClause(cr);
       }
@@ -933,6 +936,7 @@ lbool Solver::search(int nof_conflicts)
                 uncheckedEnqueue(learnt_clause[0]);
             } else {
   	        CRef cr = ca.alloc(max_level, learnt_clause, true, false, loc_derived, imp_derived);
+		cnt_loc_derived += loc_derived; cnt_imp_derived += imp_derived; // Stats
                 clauses_removable.push(cr);
                 attachClause(cr);
                 claBumpActivity(ca[cr]);
@@ -1384,6 +1388,7 @@ CRef Solver::updateLemmas() {
     CRef lemma_ref = CRef_Undef;
     if (lemma.size() > 1) {
       lemma_ref = ca.alloc(assertionLevel, lemma, removable, imported, false, false); // FIXME Need to set other two bits too I guess
+      cnt_imported += imported; // Stats
       if (removable) {
         clauses_removable.push(lemma_ref);
       } else {
@@ -1429,7 +1434,34 @@ CRef Solver::updateLemmas() {
   // Clear the lemmas
   lemmas.clear();
   lemmas_removable.clear();
-  lemmas_removable.clear();
+  lemmas_imported.clear();
 
   return conflict;
+}
+
+
+void Solver::print_useful_clauses(int n)
+{
+  std::vector< std::pair<int, CRef> > clauses_all;
+  for(int i = 0; i < clauses_persistent.size(); ++i)
+    {
+      clauses_all.push_back( std::make_pair(ca[clauses_persistent[i]].use(), clauses_persistent[i]) );
+    }
+  for(int i = 0; i < clauses_removable.size(); ++i)
+    {
+      clauses_all.push_back( std::make_pair(ca[clauses_removable[i]].use(), clauses_removable[i]) );
+    }
+  
+  //Bottle-neck of this function. If required optimize this:
+  sort(clauses_all.begin(), clauses_all.end(), std::greater<std::pair<int,CRef> >());
+
+  // Most useful lemmas overall
+  for(int i=0; i < n && i < int(clauses_all.size()); ++i) {
+    CRef c = clauses_all[i].second;
+    printf("Lemma identifier: %d, use: %d, size: %d, removable: %d, imported: %d, loc_derived: %d, imp_derived: %d\n", 
+	   c, ca[c].use(), ca[c].size(), ca[c].removable(), ca[c].imported(), ca[c].loc_derived(), ca[c].imp_derived());
+  }
+
+  //Most useful imported lemmas
+  // TODO
 }

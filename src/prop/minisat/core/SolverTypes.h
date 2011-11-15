@@ -235,15 +235,15 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::moveTo(to); }
 
     template<class Lits>
-    CRef alloc(int level, const Lits& ps, bool removable = false,
-	       bool imported = false, bool loc_derived = false, bool imp_derived = false)
+    CRef alloc(int level, const Lits& ps, bool removable,
+	       bool imported, bool loc_derived, bool imp_derived)
     {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         bool use_extra = removable | extra_clause_field;
-
+	
         CRef cid = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), use_extra));
-        new (lea(cid)) Clause(ps, use_extra, removable, level, imported, loc_derived, imp_derived);
+        new (lea(cid)) Clause(ps, use_extra, removable, imported, loc_derived, imp_derived, level);
 
         return cid;
     }
@@ -269,7 +269,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         
         if (c.reloced()) { cr = c.relocation(); return; }
         
-        cr = to.alloc(c.level(), c, c.removable());
+        cr = to.alloc(c.level(), c, c.removable(), c.imported(), c.loc_derived(), c.imp_derived());
         c.relocate(cr);
         
         // Copy extra data-fields: 
