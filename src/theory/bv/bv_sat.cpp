@@ -67,12 +67,22 @@ ClauseId MinisatClauseManager::getId(SatClause*cl ) {
 
 
 void MinisatClauseManager::assertClause(ClauseId id) {
-  Assert (0); 
-  /// unimplemented
+  SatClause* cl = getClause(id);
+  assertClause(cl); 
+}
+
+void MinisatClauseManager::assertClause(SatClause* cl) {
+  Assert (cl);
+  SatClause& clause = *cl;
+  vec<SatLit> minisat_clause;
+  for (unsigned i = 0; i < clause.size(); ++i ) {
+    minisat_clause.push(clause[i]); 
+  }
+  d_solver->addClause(minisat_clause); 
 }
 
 bool MinisatClauseManager::solve() {
-  Assert(0);
+  d_solver->solve(); 
   return true; 
 }
 
@@ -84,6 +94,7 @@ bool MinisatClauseManager::solve(const CDList<SatLit>& assumptions) {
     SatLit lit = *it;
     assump.push(~lit); 
   }
+  
   bool res = d_solver->solve(assump);
   return res; 
 }
@@ -122,6 +133,7 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2) {
   d_clauseIdMap[*clause]  = ++idCount;
   d_idClauseMap[idCount] = clause;
 
+  assertClause(clause); 
   return idCount; 
 }
 
@@ -138,7 +150,7 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
 
   d_clauseIdMap[*clause]  = ++idCount;
   d_idClauseMap[idCount] = clause;
-
+  assertClause(clause); 
   return idCount; 
 }
 
@@ -156,7 +168,7 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, S
   
   d_clauseIdMap[*clause]  = ++idCount;
   d_idClauseMap[idCount] = clause;
-  
+  assertClause(clause); 
   return idCount; 
 }
 
@@ -175,7 +187,7 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, S
   
   d_clauseIdMap[*clause]  = ++idCount;
   d_idClauseMap[idCount] = clause;
-
+  assertClause(clause); 
   return idCount; 
 }
 

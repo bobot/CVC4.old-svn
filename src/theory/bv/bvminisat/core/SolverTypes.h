@@ -18,17 +18,16 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-
 #ifndef BVMinisat_SolverTypes_h
 #define BVMinisat_SolverTypes_h
 
 #include <assert.h>
 
-#include "mtl/IntTypes.h"
-#include "mtl/Alg.h"
-#include "mtl/Vec.h"
-#include "mtl/Map.h"
-#include "mtl/Alloc.h"
+#include "theory/bv/bvminisat/mtl/IntTypes.h"
+#include "theory/bv/bvminisat/mtl/Alg.h"
+#include "theory/bv/bvminisat/mtl/Vec.h"
+#include "theory/bv/bvminisat/mtl/Map.h"
+#include "theory/bv/bvminisat/mtl/Alloc.h"
 
 namespace BVMinisat {
 

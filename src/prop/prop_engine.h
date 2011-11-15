@@ -27,7 +27,6 @@
 #include "util/options.h"
 #include "util/result.h"
 #include "smt/modal_exception.h"
-
 #include <sys/time.h>
 
 namespace CVC4 {

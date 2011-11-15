@@ -120,7 +120,8 @@ void CanonicalClause<T, H, L>::addLiteral(T lit) {
 
 template <class T, class H, class L>
 void CanonicalClause<T, H, L>::sort() {
-  std::sort (d_data.begin(), d_data.end() ); 
+  std::sort (d_data.begin(), d_data.end() );
+  d_sorted = true; 
 }
 
 template <class T, class H, class L> 

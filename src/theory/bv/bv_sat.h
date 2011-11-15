@@ -38,8 +38,6 @@ namespace CVC4 {
 namespace theory {
 namespace bv {
 
-class Test; 
-
 typedef std::vector<SatLit>    Bits; 
 typedef int                    ClauseId; 
 typedef std::vector<ClauseId>  ClauseIds; 
@@ -53,14 +51,17 @@ typedef std::vector<ClauseId>  ClauseIds;
  */
 class ClauseManager {
 public:
-  virtual void assertClause(ClauseId id) = 0;
   virtual bool solve (const context::CDList<SatLit>&) = 0;
   virtual bool solve () = 0; 
   virtual void resetSolver() = 0; 
 
   virtual SatLit mkLit(SatVar& var) = 0;
   virtual SatVar newVar() = 0; 
-  
+
+  /** 
+   * Adds the clause to the clause pool and also asserts it to the SAT solver
+   * FIXME: this needs to be fixed when not using marker literals anymore
+   */
   virtual ClauseId mkClause (SatLit lit1, SatLit lit2) = 0;
   virtual ClauseId mkClause (SatLit lit1, SatLit lit2, SatLit lit3) = 0;
   virtual ClauseId mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) = 0;
@@ -76,7 +77,6 @@ public:
  */
 class MinisatClauseManager: public ClauseManager {
   static int idCount; 
-  friend class Test; 
 
   typedef __gnu_cxx::hash_map <ClauseId, SatClause*>     IdClauseMap;
   typedef __gnu_cxx::hash_map <SatClause, ClauseId, SatClauseHash>      ClauseIdMap; 
@@ -90,7 +90,9 @@ class MinisatClauseManager: public ClauseManager {
   SatClause* getClause(ClauseId id);
   ClauseId   getId (SatClause* clause);
   bool       inPool(SatClause* clause);
-
+  
+  void assertClause(ClauseId id);
+  void assertClause(SatClause* clause); 
   /// marker literals
   BVMinisat::vec<SatLit> d_assumptions; 
 public:
@@ -103,7 +105,7 @@ public:
   
   ~MinisatClauseManager() {}
   
-  void assertClause(ClauseId id);
+
   bool solve();
   bool solve(const context::CDList<SatLit>&); 
   void resetSolver(); 
@@ -211,8 +213,6 @@ template
   class BBOr
   >
 class Bitblaster {
-  // FIXME: testing stuff
-  friend class Test;
   
   typedef __gnu_cxx::hash_map <TNode, BVTermDefinition*, TNodeHashFunction >  TermDefMap;
   typedef __gnu_cxx::hash_map <TNode, ClauseIds*, TNodeHashFunction >         AtomDefMap; 

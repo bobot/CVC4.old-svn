@@ -25,6 +25,7 @@
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "theory/bv/theory_bv_utils.h"
+//#include "theory/bv/bv_sat.h"
 
 namespace BVMinisat {
 class SimpSolver; 
