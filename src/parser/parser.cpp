@@ -330,6 +330,34 @@ Parser::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes) {
   return types;
 }
 
+DatatypeType Parser::mkRecordType(const std::vector< std::pair<std::string, Type> >& typeIds) {
+  DatatypeType& dtt = d_recordTypes[typeIds];
+  if(dtt.isNull()) {
+    Datatype dt("__cvc4_record");
+    Datatype::Constructor c("__cvc4_record_ctor");
+    for(std::vector< std::pair<std::string, Type> >::const_iterator i = typeIds.begin(); i != typeIds.end(); ++i) {
+      c.addArg((*i).first, (*i).second);
+    }
+    dt.addConstructor(c);
+    dtt = d_exprManager->mkDatatypeType(dt);
+  }
+  return dtt;
+}
+
+DatatypeType Parser::mkTupleType(const std::vector<Type>& types) {
+  DatatypeType& dtt = d_tupleTypes[types];
+  if(dtt.isNull()) {
+    Datatype dt("__cvc4_tuple");
+    Datatype::Constructor c("__cvc4_tuple_ctor");
+    for(std::vector<Type>::const_iterator i = types.begin(); i != types.end(); ++i) {
+      c.addArg("__cvc4_tuple_stor", *i);
+    }
+    dt.addConstructor(c);
+    dtt = d_exprManager->mkDatatypeType(dt);
+  }
+  return dtt;
+}
+
 bool Parser::isDeclared(const std::string& name, SymbolType type) {
   switch(type) {
   case SYM_VARIABLE:

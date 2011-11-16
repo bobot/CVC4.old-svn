@@ -12,6 +12,11 @@ MAKEFLAGS = -k
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
+	tuple.cvc \
+	rec1.cvc \
+	rec2.cvc \
+	rec4.cvc \
+	rec5.cvc \
 	datatype.cvc \
 	datatype0.cvc \
 	datatype1.cvc \
