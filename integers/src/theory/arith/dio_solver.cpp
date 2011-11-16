@@ -178,13 +178,20 @@ void DioSolver::enqueueInputConstraints(){
 
     TrailIndex i = d_inputConstraints[curr].d_trailPos;
     TrailIndex j = applyAllSubstitutionsToIndex(i);
-    TrailIndex k = reduceByGCD(j);
 
-    if(!inConflict()){
-      if(triviallyUnsat(k)){
-        raiseConflict(k);
-      }else if(!triviallySat(k)){
-        pushToQueueBack(k);
+    if(!triviallySat(j)){
+      if(triviallyUnsat(j)){
+        raiseConflict(j);
+      }else{
+        TrailIndex k = reduceByGCD(j);
+
+        if(!inConflict()){
+          if(triviallyUnsat(k)){
+            raiseConflict(k);
+          }else if(!triviallySat(k)){
+            pushToQueueBack(k);
+          }
+        }
       }
     }
   }
@@ -460,6 +467,7 @@ DioSolver::TrailIndex DioSolver::reduceByGCD(DioSolver::TrailIndex ti){
   Assert(!vsum.isConstant());
   Integer g = vsum.gcd();
   Assert(g >= 1);
+  Debug("arith::dio") << "gcd("<< vsum.getNode() <<")=" << g << " " << c.getIntegerValue() << endl;
   if(g.divides(c.getIntegerValue())){
     if(g > 1){
       return scaleEqAtIndex(ti, g);

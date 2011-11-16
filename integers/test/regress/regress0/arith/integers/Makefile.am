@@ -114,7 +114,8 @@ EXTRA_DIST = $(TESTS) \
 	arith-int-097.cvc \
 	arith-int-098.cvc \
 	arith-int-099.cvc \
-	arith-int-100.cvc
+	arith-int-100.cvc \
+	lpsat-goal-9.smt2
 
 #if CVC4_BUILD_PROFILE_COMPETITION
 #else
