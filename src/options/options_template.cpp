@@ -262,7 +262,9 @@ int OptionsClass::parseOptions(int argc, char* argv[]) throw(OptionException) {
   for(;;) {
     int c = -1;
     if(extra_optind < extra_argc) {
-      //optreset = 1;
+#if HAVE_DECL_OPTRESET
+      optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
+#endif /* HAVE_DECL_OPTRESET */
       optind = extra_optind;
       c = getopt_long(extra_argc, extra_argv,
                       ":${module_short_options}",
@@ -279,7 +281,9 @@ int OptionsClass::parseOptions(int argc, char* argv[]) throw(OptionException) {
       }
     }
     if(c == -1) {
-      //optreset = 1;
+#if HAVE_DECL_OPTRESET
+      optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
+#endif /* HAVE_DECL_OPTRESET */
       optind = main_optind;
       c = getopt_long(argc, argv,
                       ":${module_short_options}",
