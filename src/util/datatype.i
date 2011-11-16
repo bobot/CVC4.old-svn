@@ -8,16 +8,28 @@ namespace CVC4 {
 }
 
 %extend std::vector< CVC4::Datatype > {
-  %ignore vector(unsigned int size);
-  %ignore vector(size_type);
+  /* These member functions have slightly different signatures in
+   * different swig language packages.  The underlying issue is that
+   * Datatype::Constructor doesn't have a default constructor */
+  %ignore vector(unsigned int size = 0);// ocaml
+  %ignore set( int i, const CVC4::Datatype &x );// ocaml
+  %ignore to_array();// ocaml
+  %ignore vector(size_type);// java/python
+  %ignore resize(size_type);// java/python
   %ignore set(int i, const CVC4::Datatype& x);
   %ignore to_array();
 };
 %template(vectorDatatype) std::vector< CVC4::Datatype >;
 
 %extend std::vector< CVC4::Datatype::Constructor > {
-  %ignore vector(unsigned int size);
-  %ignore vector(size_type);
+  /* These member functions have slightly different signatures in
+   * different swig language packages.  The underlying issue is that
+   * Datatype::Constructor doesn't have a default constructor */
+  %ignore vector(unsigned int size = 0);// ocaml
+  %ignore set( int i, const CVC4::Datatype::Constructor &x );// ocaml
+  %ignore to_array();// ocaml
+  %ignore vector(size_type);// java/python
+  %ignore resize(size_type);// java/python
   %ignore set(int i, const CVC4::Datatype::Constructor& x);
   %ignore to_array();
 };
