@@ -19,9 +19,8 @@
 
 #include "bv_sat.h"
 #include "theory_bv_utils.h"
-#include "picosat/picosat.h"
 using namespace std;
-using namespace BVMinisat; 
+
 using namespace CVC4::theory::bv::utils;
 using namespace CVC4::context; 
 namespace CVC4 {
@@ -42,86 +41,88 @@ namespace bv{
 //   Debug("bitvector") << std::endl;
 // }
 
-void printBits (Bits& c) {
-  for (unsigned i = 0; i < c.size(); i++) {
-    Debug("bitvector") << (sign(c[i]) ? "-" : "") << var(c[i]) + 1 << " "; 
-  }
-  Debug("bitvector") << std::endl;
+// void printBits (Bits& c) {
+//   for (unsigned i = 0; i < c.size(); i++) {
+//     Debug("bitvector") << (sign(c[i]) ? "-" : "") << var(c[i]) + 1 << " "; 
+//   }
+//   Debug("bitvector") << std::endl;
+// }
+
+
+/// ClauseManager
+ClauseManager::ClauseManager():
+    d_solver(new SatSolver() ),
+    d_clausePool(),
+    d_canAddClause(true),
+    d_conflict(NULL)
+  {}
+
+ClauseManager::~ClauseManager() {
+  // TODO: clean up all newly allocated clauses and such 
 }
 
-
-/// MinisatClauseManager
-
-int MinisatClauseManager::idCount = 0; 
-
-SatClause* MinisatClauseManager::getClause(ClauseId id) {
-  Assert (d_idClauseMap.find(id) != d_idClauseMap.end());
-  return d_idClauseMap[id]; 
+SatClause* ClauseManager::getConflict() {
+  return d_solver->getUnsatCore();  
 }
 
-ClauseId MinisatClauseManager::getId(SatClause*cl ) {
-  Assert (cl != NULL); 
-  Assert (d_clauseIdMap.find(*cl) != d_clauseIdMap.end());
-  return d_clauseIdMap[*cl]; 
-}
-
-
-void MinisatClauseManager::assertClause(ClauseId id) {
-  SatClause* cl = getClause(id);
-  assertClause(cl); 
-}
-
-void MinisatClauseManager::assertClause(SatClause* cl) {
+void ClauseManager::assertClause(SatClause* cl) {
   Assert (cl);
-  SatClause& clause = *cl;
-  vec<SatLit> minisat_clause;
-  for (unsigned i = 0; i < clause.size(); ++i ) {
-    minisat_clause.push(clause[i]); 
-  }
-  d_solver->addClause(minisat_clause); 
+  d_solver->addClause(cl);
 }
 
-bool MinisatClauseManager::solve() {
+bool ClauseManager::solve() {
   d_canAddClause = false; 
-  d_solver->solve(); 
-  return true; 
+  return d_solver->solve(); 
 }
 
-bool MinisatClauseManager::solve(const CDList<SatLit>& assumptions) {
-  /// pass the assumed marker literals to the solver
-  context::CDList<SatLit>::const_iterator it = assumptions.begin();
-  BVMinisat::vec<SatLit> assump; 
-  for(; it!= assumptions.end(); ++it) {
-    SatLit lit = *it;
-    assump.push(~lit); 
-  }
-  d_canAddClause = false; 
-  bool res = d_solver->solve(assump);
-  return res; 
+bool ClauseManager::solve(const CDList<SatLit>& assumptions) {
+  /// the only clauses that should be "active" now are the term definitions
+  /// which must be consistent
+  Assert (d_solver->solve());
+  // do not allow adding more clauses
+  d_canAddClause = false;
+  // solve with the marker literals as assumptions
+  return d_solver->solve(assumptions); 
 }
 
-void MinisatClauseManager::resetSolver() {
+void ClauseManager::resetSolver() {
   delete d_solver;
   d_solver = NULL; 
-  d_solver = new BVMinisat::Solver(); 
+  d_solver = new SatSolver();
+  d_canAddClause = true; 
 }
 
 
-bool MinisatClauseManager::inPool(SatClause* clause) {
+bool ClauseManager::inPool(SatClause* clause) {
   Assert (clause != NULL); 
-  return d_clauseIdMap.find(*clause) != d_clauseIdMap.end();
+  return d_clausePool.find(*clause) != d_clausePool.end(); 
 }
 
 
-SatLit MinisatClauseManager::mkLit(SatVar& var) {
-  return BVMinisat::mkLit(var); 
+SatLit ClauseManager::mkLit(SatVar var) {
+  return d_solver->mkLit(var); 
 }
 
-SatVar MinisatClauseManager::newVar() {
+SatVar ClauseManager::newVar() {
   return d_solver->newVar(); 
 }
 
-ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2) {
+void ClauseManager::mkClause(SatLit lit1) {
+  Assert (d_canAddClause);
+  
+  SatClause* clause = new SatClause();
+  clause->addLiteral(lit1);
+  clause->sort(); 
+  
+  if(inPool(clause)) {
+    return;
+  }
+  d_clausePool.insert(*clause); 
+  assertClause(clause); 
+}
+
+
+void ClauseManager::mkClause(SatLit lit1, SatLit lit2) {
   Assert (d_canAddClause);
   
   SatClause* clause = new SatClause();
@@ -130,17 +131,13 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2) {
   clause->sort(); 
   
   if(inPool(clause)) {
-    return getId(clause); 
+    return;
   }
-  
-  d_clauseIdMap[*clause]  = ++idCount;
-  d_idClauseMap[idCount] = clause;
-
+  d_clausePool.insert(*clause); 
   assertClause(clause); 
-  return idCount; 
 }
 
-ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
+void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
   Assert (d_canAddClause);
   
   SatClause* clause = new SatClause();
@@ -150,16 +147,15 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
   clause->sort(); 
 
   if(inPool(clause)) {
-    return getId(clause); 
+    return;
   }
 
-  d_clauseIdMap[*clause]  = ++idCount;
-  d_idClauseMap[idCount] = clause;
+  d_clausePool.insert(*clause); 
   assertClause(clause); 
-  return idCount; 
+
 }
 
-ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) {
+void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) {
   Assert (d_canAddClause);
   
   SatClause* clause = new SatClause();
@@ -168,18 +164,16 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, S
   clause->addLiteral(lit3);
   clause->addLiteral(lit4); 
   clause->sort();
-  
+
   if(inPool(clause)) {
-    return getId(clause); 
+    return;
   }
   
-  d_clauseIdMap[*clause]  = ++idCount;
-  d_idClauseMap[idCount] = clause;
+  d_clausePool.insert(*clause); 
   assertClause(clause); 
-  return idCount; 
 }
 
-ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5) {
+void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5) {
   Assert (d_canAddClause);
   
   SatClause* clause = new SatClause();
@@ -189,41 +183,91 @@ ClauseId MinisatClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, S
   clause->addLiteral(lit4); 
   clause->addLiteral(lit5); 
   clause->sort(); 
-  
+
   if(inPool(clause)) {
-    return getId(clause); 
+    return;
   }
   
-  d_clauseIdMap[*clause]  = ++idCount;
-  d_idClauseMap[idCount] = clause;
+  d_clausePool.insert(*clause); 
   assertClause(clause); 
-  return idCount; 
+}
+
+void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1) {
+  Assert (d_canAddClause);
+  
+  SatClause* clause = new SatClause();
+  clause->addLiteral(marker); 
+  clause->addLiteral(lit1);
+  clause->sort();
+  
+  // make sure the marker literal does not get eliminated 
+  d_solver->setUnremovable(marker); 
+  assertClause(clause); 
 }
 
 
-/** class Bitblaster **/
+void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2) {
+  Assert (d_canAddClause);
+  
+  SatClause* clause = new SatClause();
+  clause->addLiteral(marker); 
+  clause->addLiteral(lit1);
+  clause->addLiteral(lit2);
+  clause->sort(); 
 
-// template <class Add, class Mult, class Or, class And>
-// void Bitblaster<Add, Mult, Or, And>::assertToSat(TNode node) {
-//   ClauseIds* def = bbAtom(node);
-//   for (int i = 0; i < def->size(); ++i) {
-//     d_clauseManager->assertClause(def->operator[](i) ); 
-//   }
-// }
+  // make sure the marker literal does not get eliminated 
+  d_solver->setUnremovable(marker); 
+  assertClause(clause); 
+}
 
-// template <class Add, class Mult, class Or, class And>
-// bool Bitblaster<Add, Mult, Or, And>::solve() {
-//   return d_clauseManager->solve(); 
-// }
+void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3) {
+  Assert (d_canAddClause);
+  
+  SatClause* clause = new SatClause();
+  clause->addLiteral(marker); 
+  clause->addLiteral(lit1);
+  clause->addLiteral(lit2);
+  clause->addLiteral(lit3);
+  clause->sort(); 
 
-// template <class Add, class Mult, class Or, class And>
-// void Bitblaster<Add, Mult, Or, And>::resetSolver() {
-//   d_clauseManager->resetSolver(); 
-// }
+  // make sure the marker literal does not get eliminated 
+  d_solver->setUnremovable(marker); 
+  assertClause(clause); 
 
+}
 
+void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) {
+  Assert (d_canAddClause);
+  
+  SatClause* clause = new SatClause();
+  clause->addLiteral(marker); 
+  clause->addLiteral(lit1);
+  clause->addLiteral(lit2);
+  clause->addLiteral(lit3);
+  clause->addLiteral(lit4); 
+  clause->sort();
 
+  // make sure the marker literal does not get eliminated 
+  d_solver->setUnremovable(marker); 
+  assertClause(clause); 
+}
 
+void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5) {
+  Assert (d_canAddClause);
+  
+  SatClause* clause = new SatClause();
+  clause->addLiteral(marker); 
+  clause->addLiteral(lit1);
+  clause->addLiteral(lit2);
+  clause->addLiteral(lit3);
+  clause->addLiteral(lit4); 
+  clause->addLiteral(lit5); 
+  clause->sort(); 
+
+  // make sure the marker literal does not get eliminated 
+  d_solver->setUnremovable(marker); 
+  assertClause(clause); 
+}
 
 
 

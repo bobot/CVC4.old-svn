@@ -64,10 +64,11 @@ void TheoryBV::check(Effort e) {
     }
     bool res = d_bitblaster->solve();
     if (res == false) {
-      // generate conflict
-      Node conflict = mkConjunction(assertions);
+      std::vector<TNode> conflictAtoms;
+      d_bitblaster->getConflict(conflictAtoms);
+
+      Node conflict = mkConjunction(conflictAtoms);
       d_out->conflict(conflict);
-      d_bitblaster->resetSolver(); 
       return; 
     }
   }
