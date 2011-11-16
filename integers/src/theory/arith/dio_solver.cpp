@@ -533,7 +533,7 @@ void DioSolver::subAndReduceCurrentFByIndex(DioSolver::SubIndex subIndex){
       }
     }
   }
-  if(!inConflict() && writeIter < N-1){
+  if(!inConflict() && writeIter < N){
     d_currentF.resize(writeIter);
   }
 }
