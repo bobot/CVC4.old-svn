@@ -207,7 +207,7 @@ public:
   /**
    * Expand definitions in n.
    */
-  Node expandDefinitions(TNode n, hash_map<TNode, Node, TNodeHashFunction>& cache)
+  Node expandDefinitions(TNode n, hash_map<Node, Node, NodeHashFunction>& cache)
     throw(NoSuchFunctionException, AssertionException);
 
 };/* class SmtEnginePrivate */
@@ -542,7 +542,7 @@ void SmtEngine::defineFunction(Expr func,
   d_definedFunctions->insert(funcNode, def);
 }
 
-Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<TNode, Node, TNodeHashFunction>& cache)
+Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<Node, Node, NodeHashFunction>& cache)
   throw(NoSuchFunctionException, AssertionException) {
 
   if(n.getKind() != kind::APPLY && n.getNumChildren() == 0) {
@@ -551,7 +551,7 @@ Node SmtEnginePrivate::expandDefinitions(TNode n, hash_map<TNode, Node, TNodeHas
   }
 
   // maybe it's in the cache
-  hash_map<TNode, Node, TNodeHashFunction>::iterator cacheHit = cache.find(n);
+  hash_map<Node, Node, NodeHashFunction>::iterator cacheHit = cache.find(n);
   if(cacheHit != cache.end()) {
     TNode ret = (*cacheHit).second;
     return ret.isNull() ? n : ret;
@@ -831,7 +831,7 @@ void SmtEnginePrivate::simplifyAssertions()
     if(!Options::current()->lazyDefinitionExpansion) {
       Trace("simplify") << "SmtEnginePrivate::simplify(): expanding definitions" << endl;
       TimerStat::CodeTimer codeTimer(d_smt.d_definitionExpansionTime);
-      hash_map<TNode, Node, TNodeHashFunction> cache;
+      hash_map<Node, Node, NodeHashFunction> cache;
       for (unsigned i = 0; i < d_assertionsToPreprocess.size(); ++ i) {
         d_assertionsToPreprocess[i] =
           expandDefinitions(d_assertionsToPreprocess[i], cache);
