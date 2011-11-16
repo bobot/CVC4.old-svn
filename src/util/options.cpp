@@ -104,6 +104,7 @@ Options::Options() :
   threads(2),			// default should be 1 probably, but
 				// say 2 for now
   thread_id(-1),
+  threadArgv(),
   separateOutput(false),
   sharingFilterByLength(-1)
 {
@@ -156,6 +157,7 @@ static const string optionsDescription = "\
    --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
    --incremental | -i     enable incremental solving\n\
    --threads=N            sets the number of solver threads\n\
+   --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
    --time-limit=MS        enable time limiting (give milliseconds)\n\
    --time-limit-per=MS    enable time limiting per query (give milliseconds)\n\
@@ -419,6 +421,11 @@ int Options::parseOptions(int argc, char* argv[])
 throw(OptionException) {
   const char *progName = argv[0];
   int c;
+
+  optind = 1; // reset getopt(), in the case of multiple calls
+#if HAVE_DECL_OPTRESET
+  optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
+#endif /* HAVE_DECL_OPTRESET */
 
   // find the base name of the program
   const char *x = strrchr(progName, '/');
@@ -882,6 +889,23 @@ throw(OptionException) {
 
     case '?':
     default:
+      if(optopt == 0 &&
+         !strncmp(argv[optind - 1], "--thread", 8) &&
+         strlen(argv[optind - 1]) > 8 &&
+         isdigit(argv[optind - 1][8])) {
+        int tnum = atoi(argv[optind - 1] + 8);
+        threadArgv.resize(tnum + 1);
+        if(threadArgv[tnum] != "") {
+          threadArgv[tnum] += " ";
+        }
+        const char* p = strchr(argv[optind - 1] + 9, '=');
+        if(p == NULL) { // e.g., we have --thread0 "foo"
+          threadArgv[tnum] += argv[optind++];
+        } else { // e.g., we have --thread0="foo"
+          threadArgv[tnum] += p + 1;
+        }
+        break;
+      }
       throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
     }
   }

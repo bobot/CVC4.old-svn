@@ -797,6 +797,8 @@ AC_CHECK_HEADERS([getopt.h unistd.h])
 #AC_TYPE_UINT64_T
 #AC_TYPE_SIZE_T
 
+AC_CHECK_DECLS([optreset], [], [], [#include <getopt.h>])
+
 # look for boost library, but don't make it a fatal error if not found
 cvc4_has_threads=maybe
 BOOST_REQUIRE([], [cvc4_has_threads=no])

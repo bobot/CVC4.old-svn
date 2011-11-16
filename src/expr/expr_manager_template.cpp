@@ -803,7 +803,7 @@ namespace expr {
 Node exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
 
 TypeNode exportTypeInternal(TypeNode n, NodeManager* from, NodeManager* to, ExprManagerMapCollection& vmap) {
-Debug("export") << "type: " << n << std::endl;
+  Debug("export") << "type: " << n << std::endl;
   Assert(n.getKind() == kind::SORT_TYPE ||
          n.getMetaKind() != kind::metakind::PARAMETERIZED,
          "PARAMETERIZED-kinded types (other than SORT_KIND) not supported");
@@ -815,18 +815,18 @@ Debug("export") << "type: " << n << std::endl;
   Type from_t = from->toType(n);
   Type& to_t = vmap.d_typeMap[from_t];
   if(! to_t.isNull()) {
-Debug("export") << "+ mapped `" << from_t << "' to `" << to_t << "'" << std::endl;
+    Debug("export") << "+ mapped `" << from_t << "' to `" << to_t << "'" << std::endl;
     return *Type::getTypeNode(to_t);
   }
   NodeBuilder<> children(to, n.getKind());
   if(n.getKind() == kind::SORT_TYPE) {
-Debug("export") << "type: operator: " << n.getOperator() << std::endl;
+    Debug("export") << "type: operator: " << n.getOperator() << std::endl;
     // make a new sort tag in target node manager
     Node sortTag = NodeBuilder<0>(to, kind::SORT_TAG);
     children << sortTag;
   }
   for(TypeNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
-Debug("export") << "type: child: " << *i << std::endl;
+    Debug("export") << "type: child: " << *i << std::endl;
     children << exportTypeInternal(*i, from, to, vmap);
   }
   TypeNode out = children.constructTypeNode();// FIXME thread safety

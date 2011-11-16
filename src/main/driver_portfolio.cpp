@@ -192,6 +192,14 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   int numThreads = options.threads;
 
+  if(options.threadArgv.size() > size_t(numThreads)) {
+    stringstream ss;
+    ss << "--thread" << (options.threadArgv.size() - 1)
+       << " configuration string seen but this portfolio will only contain "
+       << numThreads << " thread(s)!";
+    throw OptionException(ss.str());
+  }
+
   segvNoSpin = options.segvNoSpin;
 
   // If in competition mode, set output stream option to flush immediately
@@ -271,18 +279,58 @@ int runCvc4(int argc, char *argv[], Options& options) {
   // Options
   //options.showSharing = true;
 
-  Options options1 = options;
-  Options options2 = options;
-  if(numThreads == 2) {
-    // If threads are not 2 (i.e. 1), respect command-line options
-    options1.pivotRule = Options::MINIMUM;
-    options2.pivotRule = Options::MAXIMUM;
+  vector<Options> threadOptions;
+  for(int i = 0; i < numThreads; ++i) {
+    threadOptions.push_back(options);
+    if(!options.threadArgv[i].empty()) {
+      // separate out the thread's individual configuration string
+      stringstream optidss;
+      optidss << "--thread" << i;
+      string optid = optidss.str();
+      Options& opts = threadOptions.back();
+      int targc = 1;
+      char* tbuf = strdup(options.threadArgv[i].c_str());
+      char* p = tbuf;
+      // string length is certainly an upper bound on size needed
+      char** targv = new char*[options.threadArgv[i].size()];
+      char** vp = targv;
+      *vp++ = strdup(optid.c_str());
+      p = strtok(p, " ");
+      while(p != NULL) {
+        *vp++ = p;
+        ++targc;
+        p = strtok(NULL, " ");
+      }
+      *vp++ = NULL;
+      if(argc > 1) { // this is necessary in case you do e.g. --thread0="  "
+        try {
+          opts.parseOptions(targc, targv);
+        } catch(OptionException& e) {
+          stringstream ss;
+          ss << optid << ": " << e.getMessage();
+          throw OptionException(ss.str());
+        }
+        if(optind != targc) {
+          stringstream ss;
+          ss << "unused argument `" << targv[optind]
+             << "' in thread configuration " << optid << " !";
+          throw OptionException(ss.str());
+        }
+        if(opts.threads != numThreads || opts.threadArgv != options.threadArgv) {
+          stringstream ss;
+          ss << "not allowed to set thread options in " << optid << " !";
+          throw OptionException(ss.str());
+        }
+      }
+      opts.thread_id = i;
+      delete targv;
+      free(tbuf);
+      free(vp[0]);
+    }
   }
-  options1.thread_id = 0;
-  options2.thread_id = 1;
 
   // Create the expression manager
-  ExprManager* exprMgr = new ExprManager(options1);
+  ExprManager* exprMgr = new ExprManager(threadOptions[0]);
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
   RegisterStatistic* statFilenameReg =
@@ -343,8 +391,8 @@ int runCvc4(int argc, char *argv[], Options& options) {
   stringstream ss_out(stringstream::out);
   stringstream ss_out2(stringstream::out);
   if(options.verbosity == 0 or options.separateOutput) {
-    options1.out = &ss_out;
-    options2.out = &ss_out2;
+    threadOptions[0].out = &ss_out;
+    threadOptions[1].out = &ss_out2;
   }
 
   /* Sharing channels */
@@ -361,7 +409,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
   }
 
   /* Duplication, Individualisation */
-  ExprManager* exprMgr2 = new ExprManager(options2);
+  ExprManager* exprMgr2 = new ExprManager(threadOptions[1]);
 
   ExprManagerMapCollection* vmaps = new ExprManagerMapCollection();
 
@@ -370,27 +418,27 @@ int runCvc4(int argc, char *argv[], Options& options) {
   /* Add StatisticRegistries to GlobalRegistry */
 
   /* Lemma output channel */
-  options1.lemmaOutputChannel =
+  threadOptions[0].lemmaOutputChannel =
     new PortfolioLemmaOutputChannel("thread #0",
                                     channelsOut[0],
                                     exprMgr,
                                     vmaps->d_to,
                                     vmaps->d_from);
-  options2.lemmaOutputChannel =
+  threadOptions[1].lemmaOutputChannel =
     new PortfolioLemmaOutputChannel("thread #1",
                                     channelsOut[1], exprMgr2,
                                     vmaps->d_from, vmaps->d_to);
 
-  options1.lemmaInputChannel =
+  threadOptions[0].lemmaInputChannel =
     new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgr);
-  options2.lemmaInputChannel =
+  threadOptions[1].lemmaInputChannel =
     new PortfolioLemmaInputChannel("thread #1", channelsIn[1], exprMgr2);
 
   /* Portfolio */
   function <Result()> fns[2];
 
-  fns[0] = boost::bind(doSmt, boost::ref(*exprMgr), seq, boost::ref(options1));
-  fns[1] = boost::bind(doSmt, boost::ref(*exprMgr2), seq2, boost::ref(options2));
+  fns[0] = boost::bind(doSmt, boost::ref(*exprMgr), seq, boost::ref(threadOptions[0]));
+  fns[1] = boost::bind(doSmt, boost::ref(*exprMgr2), seq2, boost::ref(threadOptions[1]));
 
   function <void()>
     smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn);
@@ -443,7 +491,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
     cout.precision(6);
     *options.err << "real time: " << totalTime << "s\n";
     int th0_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(options.lemmaOutputChannel)).cnt;
-    int th1_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(options2.lemmaOutputChannel)).cnt;
+    int th1_lemcnt = (*static_cast<PortfolioLemmaOutputChannel*>(threadOptions[1].lemmaOutputChannel)).cnt;
     *options.err << "lemmas shared by thread #0: " << th0_lemcnt << endl;
     *options.err << "lemmas shared by thread #1: " << th1_lemcnt << endl;
     *options.err << "sharing rate: " << double(th0_lemcnt+th1_lemcnt)/(totalTime)

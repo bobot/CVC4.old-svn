@@ -31,6 +31,8 @@
 #include "util/lemma_input_channel.h"
 #include "util/tls.h"
 
+#include <vector>
+
 namespace CVC4 {
 
 class ExprStream;
@@ -216,6 +218,9 @@ struct CVC4_PUBLIC Options {
 
   /** Total number of threads */
   int threads;
+
+  /** Thread configuration (a string to be passed to parseOptions) */
+  std::vector<std::string> threadArgv;
 
   /** Thread ID, for internal use in case of multi-threaded run */
   int thread_id;
