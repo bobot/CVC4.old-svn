@@ -4,10 +4,27 @@ that CVC4 can serve as a back-end for things like KIND.
 This should also clean up the interactive mode.
 
 * piping input works
-* work on ocaml bindings
 * predicate subtyping (esp. integer subranges)
 * subtyping infrastructure for other types
 * model generation
 * usability improvements
+* tuples and records
+* bugfixes
 
--- Morgan Deters <mdeters@cs.nyu.edu>  Wed, 26 Oct 2011 12:18:33 -0400
+Tuples and records are supported via datatypes:
+
+  [INT,BOOL] becomes an anonymous DATATYPE with a single anonymous constructor.
+  (45,FALSE) then constructs; t.0 is selector of first, t.1 selector of second.
+
+  [# a:INT, b:BOOL #] becomes an anonymous DATATYPE with a single constructor.
+  (# a := 45, b:= FALSE #) then constructs; t.a, t.b are selectors.
+
+TWO HACKS THAT SHOULD NOT BE MERGED TO TRUNK:
+
+1. BOOL = BOOL in CVC parser to support KIND
+
+2. Theory::needCheck() breakage
+
+What about subtyping for TUPLE/RECORD types ?
+
+-- Morgan Deters <mdeters@cs.nyu.edu>  Tue, 15 Nov 2011 12:01:12 -0500
