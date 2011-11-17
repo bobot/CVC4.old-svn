@@ -264,7 +264,7 @@ public:
     BVMinisat::vec<SatLit> assump; 
     for(; it!= assumptions.end(); ++it) {
       SatLit lit = *it;
-      assump.push(~lit); 
+      assump.push(lit); 
     }
 
     if(d_solver.solve(assump)) {

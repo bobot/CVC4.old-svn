@@ -113,23 +113,23 @@ public:
     SatLit v6 = mgr->mkLit(mgr->newVar());
 
 
-    SatLit marker1 = mgr->mkLit(mgr->newVar());
-    SatLit marker2 = mgr->mkLit(mgr->newVar());
-    SatLit marker3 = mgr->mkLit(mgr->newVar());
-    SatLit marker4 = mgr->mkLit(mgr->newVar());
-    SatLit marker5 = mgr->mkLit(mgr->newVar());    
+    SatLit marker1 = mgr->mkMarkerLit();
+    SatLit marker2 = mgr->mkMarkerLit();
+    SatLit marker3 = mgr->mkMarkerLit();
+    SatLit marker4 = mgr->mkMarkerLit();
+    SatLit marker5 = mgr->mkMarkerLit();    
 
     /// creating a problem
     /// the clauses will be added to the sat solver
-    mgr->mkMarkedClause(marker1, v1, neg(v2), v3);
+    mgr->mkClause(neg(marker1), v1, neg(v2), v3);
     mgr->mkClause(v1, neg(v3) );
-    mgr->mkMarkedClause(marker2, v6, v4, v2);
-    mgr->mkMarkedClause(marker3, v2, neg(v6) );
-    mgr->mkMarkedClause(marker3, v6, v1);
+    mgr->mkClause(neg(marker2), v6, v4, v2);
+    mgr->mkClause(neg(marker3), v2, neg(v6) );
+    mgr->mkClause(neg(marker3), v6, v1);
     mgr->mkClause(v3, neg(v4), v1); 
-    mgr->mkMarkedClause(marker4, neg(v1), v5);
-    mgr->mkMarkedClause(marker4, neg(v1), neg(v5));
-    mgr->mkMarkedClause(marker5, neg(v1)); 
+    mgr->mkClause(neg(marker4), neg(v1), v5);
+    mgr->mkClause(neg(marker4), neg(v1), neg(v5));
+    mgr->mkClause(neg(marker5), neg(v1)); 
     
     /// testing an sat instance
     /// should only have the clause without marker literals asserted
@@ -166,9 +166,9 @@ public:
     TS_ASSERT (core != 0);
     
     SatClause temp;
-    temp.addLiteral(marker1);
-    temp.addLiteral(marker3);
-    temp.addLiteral(marker4); 
+    temp.addLiteral(neg(marker1));
+    temp.addLiteral(neg(marker3));
+    temp.addLiteral(neg(marker4)); 
     temp.sort(); 
     
     TS_ASSERT (*core == temp);
@@ -180,9 +180,9 @@ public:
     core = mgr->getConflict();
 
     SatClause temp2;
-    temp2.addLiteral(marker3);
-    temp2.addLiteral(marker1);
-    temp2.addLiteral(marker5);
+    temp2.addLiteral(neg(marker3));
+    temp2.addLiteral(neg(marker1));
+    temp2.addLiteral(neg(marker5));
     temp2.sort(); 
     TS_ASSERT(*core == temp2);  
     

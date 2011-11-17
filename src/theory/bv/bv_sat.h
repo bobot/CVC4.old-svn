@@ -75,20 +75,15 @@ public:
   bool solve(const context::CDList<SatLit>&); 
   void resetSolver(); 
 
+  void mkClause (const std::vector<SatLit>& lits); 
   void mkClause (SatLit lit1); 
   void mkClause (SatLit lit1, SatLit lit2);
   void mkClause (SatLit lit1, SatLit lit2, SatLit lit3);
   void mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4);
   void mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5);
 
-  void mkMarkedClause (SatLit marker, SatLit lit1); 
-  void mkMarkedClause (SatLit marker, SatLit lit1, SatLit lit2);
-  void mkMarkedClause (SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3);
-  void mkMarkedClause (SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4);
-  void mkMarkedClause (SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5);
-
-  
   SatLit mkLit(SatVar var);
+  SatLit mkMarkerLit(); 
   SatVar newVar();
   SatClause* getConflict(); 
 
@@ -177,7 +172,6 @@ class Bitblaster {
   
   /// fixed strategy bitblasting
   void  bbEqual(TNode node, SatLit marker);
-  void  bbNeq  (TNode node, SatLit marker);
 
   // returns the definitional bits for the bitblasted term while adding the
   // definition clauses to the sat solver (note that term definitions will always be asserted in the solver)
@@ -210,32 +204,27 @@ private:
    * NOTE: duplicate clauses are not detected because of marker literal
    * @param node the atom to be bitblasted
    * 
-   * @return the ids of the clauses assigned to the atom (not really needed for bitblasting)
    */
   void bbAtom(TNode node) {
+    /// strip the not
+    if (node.getKind() == kind::NOT) {
+      node = node[0]; 
+    }
     
     if (hasMarkerLiteral(node)) {
       return; 
     }
 
-    SatLit markerLit = mkMarkerLit(node);  
-    
+    SatLit markerLit = mkMarkerLit(node);
+
     switch(node.getKind()) {
     case kind::EQUAL:
       bbEqual(node, markerLit);
-      break;
-    case kind::NOT:
-      bbNeq(node, markerLit);
       break;
     default:
       // TODO: implement other predicates
       Unhandled(node.getKind()); 
     }
-    
-    // store the atom marker literal mapping
-    d_atomMarkerLit[node] = markerLit;
-    d_markerLitAtom[markerLit] = node; 
-
   }
   
   Bits* bbTerm(TNode node) {
@@ -336,10 +325,13 @@ void Bitblaster<Plus, Mult, And, Or>::bitblast(TNode node) {
  * 
  */
 template <class Plus, class Mult, class And, class Or>  
-void Bitblaster<Plus, Mult, And, Or>::assertToSat(TNode node) {
+void Bitblaster<Plus, Mult, And, Or>::assertToSat(TNode lit) {
+  // strip the not
+  TNode node = lit.getKind() == kind::NOT? lit[0] : lit;
+
   Assert (d_atomMarkerLit.find(node) != d_atomMarkerLit.end()); 
   SatLit markerLiteral = d_atomMarkerLit[node];
-  d_assertedAtoms.push_back(markerLiteral);
+  d_assertedAtoms.push_back(lit.getKind() == kind::NOT? neg(markerLiteral) : markerLiteral);
 }
 
 /** 
@@ -389,9 +381,7 @@ bool Bitblaster<Plus, Mult, And, Or>::hasMarkerLiteral(TNode atom) {
 template <class Plus, class Mult, class And, class Or>  
 SatLit Bitblaster<Plus, Mult, And, Or>::mkMarkerLit(TNode atom) {
   Assert (d_atomMarkerLit.find(atom) == d_atomMarkerLit.end());
-
-  SatVar var = d_clauseManager->newVar();
-  SatLit lit = d_clauseManager->mkLit(var); 
+  SatLit lit = d_clauseManager->mkMarkerLit(); 
   d_atomMarkerLit[atom] = lit;
   d_markerLitAtom[lit] = atom;
   return lit; 
@@ -425,41 +415,46 @@ Bits* Bitblaster<Plus, Mult, And, Or>::freshBits(unsigned size) {
 }
 
   
+
 /// Fixed  bitblasting strategies
 
-// FIXME: better to have marker literal at the beginning of the clause?
 
+/** 
+ * Will add the clauses expressing atom_lit = (node[0] = node[1])
+ * 
+ * @param node 
+ * @param atom_lit 
+ * 
+ * @return 
+ */
 template <class Plus, class Mult, class And, class Or>  
-void Bitblaster<Plus, Mult, And, Or>::bbEqual(TNode node, SatLit markerLit) {
+void Bitblaster<Plus, Mult, And, Or>::bbEqual(TNode node, SatLit atom_lit) {
   Assert(node.getKind() == kind::EQUAL);
-  const Bits* lhsBits = bbTerm(node[0]);
-  const Bits* rhsBits = bbTerm(node[1]);
+  const Bits& lhs = *(bbTerm(node[0]));
+  const Bits& rhs = *(bbTerm(node[1]));
 
-  Assert(lhsBits->size() == rhsBits->size());
+  Assert(lhs.size() == rhs.size());
 
-  for (unsigned i = 0; i < lhsBits->size(); i++) {
-    // adding the constraints lhs_i <=> rhs_i as lhs_i => rhs_i and rhs_i => lhs_i
-    d_clauseManager->mkClause(lhsBits->operator[](i), neg(rhsBits->operator[](i)), markerLit);
-    d_clauseManager->mkClause(neg(lhsBits->operator[](i)), rhsBits->operator[](i), markerLit);
+  std::vector<SatLit> lits;
+  /// constructing the clause x_1 /\ .. /\ x_n => atom_lit
+  lits.push_back(atom_lit);
+  
+  for (unsigned i = 0; i < lhs.size(); i++) {
+    SatLit x = d_clauseManager->mkLit(d_clauseManager->newVar());
+    /// Adding the clauses corresponding to:
+    ///       x_i = (lhs_i = rhs_i)
+    d_clauseManager->mkClause(neg(x), lhs[i], neg(rhs[i]));
+    d_clauseManager->mkClause(neg(x), neg(lhs[i]), rhs[i]);
+    d_clauseManager->mkClause(x, lhs[i], rhs[i]);
+    d_clauseManager->mkClause(x, neg(lhs[i]), neg(rhs[i]));
+
+    /// adding the clauses for atom_lit => x_1 /\ ... /\ x_n
+    d_clauseManager->mkClause(neg(atom_lit), x); 
+    lits.push_back(neg(x));
   }
-
+  d_clauseManager->mkClause(lits); 
 }
 
-template <class Plus, class Mult, class And, class Or>  
-void Bitblaster<Plus, Mult, And, Or>::bbNeq(TNode node, SatLit markerLit) {
-  Assert (0); 
-  // FIXME!!! WRONG!! 
-  Assert(node.getKind() == kind::EQUAL);
-  const Bits* lhsBits = bbTerm(node[0]);
-  const Bits* rhsBits = bbTerm(node[1]);
-
-  Assert(lhsBits->size() == rhsBits->size());
-  for (unsigned i = 0; i < lhsBits->size(); i++) {
-    // adding the constraints (lhs_i OR rhs_i) and (NOT lhs_i) OR (NOT rhs_i)
-    d_clauseManager->mkClause(neg(lhsBits->operator[](i)), neg(rhsBits->operator[](i)), markerLit);
-    d_clauseManager->mkClause( lhsBits->operator[](i),  rhsBits->operator[](i), markerLit);
-  }
-}
 
 template <class Plus, class Mult, class And, class Or>  
 Bits* Bitblaster<Plus, Mult, And, Or>::bbConst(TNode node) {

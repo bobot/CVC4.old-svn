@@ -103,8 +103,33 @@ SatLit ClauseManager::mkLit(SatVar var) {
   return d_solver->mkLit(var); 
 }
 
+SatLit ClauseManager::mkMarkerLit() {
+  SatLit lit = mkLit(newVar());
+  d_solver->setUnremovable(lit);
+  return lit; 
+}
+
 SatVar ClauseManager::newVar() {
   return d_solver->newVar(); 
+}
+
+
+
+void ClauseManager::mkClause(const vector<SatLit>& lits) {
+  Assert (d_canAddClause); 
+  SatClause* clause = new SatClause(); 
+  for (unsigned i = 0; i < lits.size(); ++i) {
+    clause->addLiteral(lits[i]); 
+  }
+  clause->sort();
+
+  if(inPool(clause)) {
+    return; 
+  }
+
+  d_clausePool.insert(*clause); 
+  assertClause(clause); 
+
 }
 
 void ClauseManager::mkClause(SatLit lit1) {
@@ -120,6 +145,7 @@ void ClauseManager::mkClause(SatLit lit1) {
   d_clausePool.insert(*clause); 
   assertClause(clause); 
 }
+
 
 
 void ClauseManager::mkClause(SatLit lit1, SatLit lit2) {
@@ -192,82 +218,82 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4,
   assertClause(clause); 
 }
 
-void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1) {
-  Assert (d_canAddClause);
+// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1) {
+//   Assert (d_canAddClause);
   
-  SatClause* clause = new SatClause();
-  clause->addLiteral(marker); 
-  clause->addLiteral(lit1);
-  clause->sort();
+//   SatClause* clause = new SatClause();
+//   clause->addLiteral(marker); 
+//   clause->addLiteral(lit1);
+//   clause->sort();
   
-  // make sure the marker literal does not get eliminated 
-  d_solver->setUnremovable(marker); 
-  assertClause(clause); 
-}
+//   // make sure the marker literal does not get eliminated 
+//   d_solver->setUnremovable(marker); 
+//   assertClause(clause); 
+// }
 
 
-void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2) {
-  Assert (d_canAddClause);
+// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2) {
+//   Assert (d_canAddClause);
   
-  SatClause* clause = new SatClause();
-  clause->addLiteral(marker); 
-  clause->addLiteral(lit1);
-  clause->addLiteral(lit2);
-  clause->sort(); 
+//   SatClause* clause = new SatClause();
+//   clause->addLiteral(marker); 
+//   clause->addLiteral(lit1);
+//   clause->addLiteral(lit2);
+//   clause->sort(); 
 
-  // make sure the marker literal does not get eliminated 
-  d_solver->setUnremovable(marker); 
-  assertClause(clause); 
-}
+//   // make sure the marker literal does not get eliminated 
+//   d_solver->setUnremovable(marker); 
+//   assertClause(clause); 
+// }
 
-void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3) {
-  Assert (d_canAddClause);
+// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3) {
+//   Assert (d_canAddClause);
   
-  SatClause* clause = new SatClause();
-  clause->addLiteral(marker); 
-  clause->addLiteral(lit1);
-  clause->addLiteral(lit2);
-  clause->addLiteral(lit3);
-  clause->sort(); 
+//   SatClause* clause = new SatClause();
+//   clause->addLiteral(marker); 
+//   clause->addLiteral(lit1);
+//   clause->addLiteral(lit2);
+//   clause->addLiteral(lit3);
+//   clause->sort(); 
 
-  // make sure the marker literal does not get eliminated 
-  d_solver->setUnremovable(marker); 
-  assertClause(clause); 
+//   // make sure the marker literal does not get eliminated 
+//   d_solver->setUnremovable(marker); 
+//   assertClause(clause); 
 
-}
+// }
 
-void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) {
-  Assert (d_canAddClause);
+// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) {
+//   Assert (d_canAddClause);
   
-  SatClause* clause = new SatClause();
-  clause->addLiteral(marker); 
-  clause->addLiteral(lit1);
-  clause->addLiteral(lit2);
-  clause->addLiteral(lit3);
-  clause->addLiteral(lit4); 
-  clause->sort();
+//   SatClause* clause = new SatClause();
+//   clause->addLiteral(marker); 
+//   clause->addLiteral(lit1);
+//   clause->addLiteral(lit2);
+//   clause->addLiteral(lit3);
+//   clause->addLiteral(lit4); 
+//   clause->sort();
 
-  // make sure the marker literal does not get eliminated 
-  d_solver->setUnremovable(marker); 
-  assertClause(clause); 
-}
+//   // make sure the marker literal does not get eliminated 
+//   d_solver->setUnremovable(marker); 
+//   assertClause(clause); 
+// }
 
-void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5) {
-  Assert (d_canAddClause);
+// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5) {
+//   Assert (d_canAddClause);
   
-  SatClause* clause = new SatClause();
-  clause->addLiteral(marker); 
-  clause->addLiteral(lit1);
-  clause->addLiteral(lit2);
-  clause->addLiteral(lit3);
-  clause->addLiteral(lit4); 
-  clause->addLiteral(lit5); 
-  clause->sort(); 
+//   SatClause* clause = new SatClause();
+//   clause->addLiteral(marker); 
+//   clause->addLiteral(lit1);
+//   clause->addLiteral(lit2);
+//   clause->addLiteral(lit3);
+//   clause->addLiteral(lit4); 
+//   clause->addLiteral(lit5); 
+//   clause->sort(); 
 
-  // make sure the marker literal does not get eliminated 
-  d_solver->setUnremovable(marker); 
-  assertClause(clause); 
-}
+//   // make sure the marker literal does not get eliminated 
+//   d_solver->setUnremovable(marker); 
+//   assertClause(clause); 
+// }
 
 
 
