@@ -109,14 +109,19 @@ void QuantifiersRewriter::computeArgs( std::vector< Node >& args, std::vector< N
   }
 }
 
-Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node n ){
+Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node n, Node ipl ){
   std::vector< Node > children;
   computeArgs( args, children, n );
   if( children.empty() ){
     return n;
   }else{
-    children.push_back( n );
-    return NodeManager::currentNM()->mkNode(kind::FORALL, children );
+    std::vector< Node > args;
+    args.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, children ) );
+    args.push_back( n );
+    if( !ipl.isNull() ){
+      args.push_back( ipl );
+    }
+    return NodeManager::currentNM()->mkNode(kind::FORALL, args );
   }
 }
 
@@ -240,27 +245,28 @@ void QuantifiersRewriter::setNestedQuantifiers( Node n, Node q ){
   //}
 //}
 
-Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, NodeBuilder<>& defs, bool isNested, bool isExists ){
+Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, NodeBuilder<>& defs, Node ipl, 
+                                        bool isNested, bool isExists ){
   //std::cout << "rewrite quant " << body << std::endl;
   if( isExists ){
-    Node retVal = rewriteQuant( args, body.notNode(), defs, isNested );
+    Node retVal = rewriteQuant( args, body.notNode(), defs, ipl, isNested );
     return retVal.notNode();
   }else{
     if( body.getKind()==FORALL ){
       //combine arguments
       std::vector< Node > newArgs;
-      for( int i=0; i<(int)( body.getNumChildren()-1 ); i++ ){
-        newArgs.push_back( body[i] );
+      for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
+        newArgs.push_back( body[0][i] );
       }
       newArgs.insert( newArgs.end(), args.begin(), args.end() );
-      return mkForAll( newArgs, body[ body.getNumChildren()-1 ] );
+      return mkForAll( newArgs, body[ body.getNumChildren()-1 ], ipl );
     }else if( !isNested && !isClause( body ) ){
       NodeBuilder<> body_split(kind::OR);
       Node newBody = body;
       if( body.getKind()==NOT ){
         //push not downwards
         if( body[0].getKind()==NOT ){
-          return rewriteQuant( args, body[0][0], defs );
+          return rewriteQuant( args, body[0][0], defs, ipl );
         }else if( body[0].getKind()==AND ){
 #ifdef QUANTIFIERS_REWRITE_PUSH_OUT_GROUND_SUBFORMULAS
           NodeBuilder<> t(kind::OR);
@@ -268,14 +274,14 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
             t <<  body[0][i].notNode();
           }
           Node quant = t;
-          return rewriteQuant( args, quant, defs );
+          return rewriteQuant( args, quant, defs, ipl );
 #endif
         }else if( body[0].getKind()==OR || body[0].getKind()==IMPLIES ){
 #ifdef QUANTIFIERS_REWRITE_SPLIT_AND
           NodeBuilder<> t(kind::AND);
           for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
             Node trm = ( body[0].getKind()==IMPLIES && i==0 ) ? body[0][i] : body[0][i].notNode();
-            t << rewriteQuant( args, trm, defs );
+            t << rewriteQuant( args, trm, defs, ipl );
           }
           Node retVal = t;
           return retVal;
@@ -284,11 +290,11 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
 #ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
           if( body[0].getKind()==IFF || body[0].getKind()==EQUAL ){
             Assert( body[0][0].getType()==NodeManager::currentNM()->booleanType() );
-            return rewriteQuant( args, NodeManager::currentNM()->mkNode( body[0].getKind(), body[0][0], body[0][1].notNode() ), defs );
+            return rewriteQuant( args, NodeManager::currentNM()->mkNode( body[0].getKind(), body[0][0], body[0][1].notNode() ), defs, ipl );
           }else if( body[0].getKind()==XOR ){
-            return rewriteQuant( args, NodeManager::currentNM()->mkNode( XOR, body[0][0], body[0][1].notNode() ), defs );
+            return rewriteQuant( args, NodeManager::currentNM()->mkNode( XOR, body[0][0], body[0][1].notNode() ), defs, ipl );
           }else if( body[0].getKind()==ITE ){
-            return rewriteQuant( args, NodeManager::currentNM()->mkNode( ITE, body[0][0], body[0][1].notNode(), body[0][2].notNode() ), defs );
+            return rewriteQuant( args, NodeManager::currentNM()->mkNode( ITE, body[0][0], body[0][1].notNode(), body[0][2].notNode() ), defs, ipl );
           }
 #endif
         }
@@ -297,7 +303,7 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
         //break apart
         NodeBuilder<> t(kind::AND);
         for( int i=0; i<(int)body.getNumChildren(); i++ ){
-          t << rewriteQuant( args, body[i], defs );
+          t << rewriteQuant( args, body[i], defs, ipl );
         }
         Node retVal = t;
         return retVal;
@@ -317,20 +323,20 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
 #endif
       }else if( body.getKind()==IFF || body.getKind()==EQUAL ){
 #ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
-        Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[0], body[1] ), defs );
-        Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[1], body[0] ), defs );
+        Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[0], body[1] ), defs, ipl );
+        Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[1], body[0] ), defs, ipl );
         return NodeManager::currentNM()->mkNode( AND, n1, n2 );
 #endif
       }else if( body.getKind()==XOR ){
 #ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
-        Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, isNested );
-        Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[1].notNode() ), defs );
+        Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, ipl, isNested );
+        Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[1].notNode() ), defs, ipl );
         return NodeManager::currentNM()->mkNode( AND, n1, n2 );
 #endif
       }else if( body.getKind()==ITE ){
 #ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
-        Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, isNested );
-        Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[2] ), defs );
+        Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, ipl, isNested );
+        Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[2] ), defs, ipl );
         return NodeManager::currentNM()->mkNode( AND, n1, n2 );
 #endif
       }
@@ -338,10 +344,10 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
       //  std::cout << "non-clausal " << body;
       //  exit( 8 );
       //}
-      body_split << mkForAll( args, newBody );
+      body_split << mkForAll( args, newBody, ipl );
       Node retVal = body_split.getNumChildren()==1 ? body_split.getChild( 0 ) : body_split;
       return retVal;
     }
-    return mkForAll( args, body );
+    return mkForAll( args, body, ipl );
   }
 }

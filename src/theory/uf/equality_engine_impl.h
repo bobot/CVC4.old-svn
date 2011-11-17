@@ -22,6 +22,7 @@
 #pragma once
 
 #include "theory/uf/equality_engine.h"
+#include "theory/uf/theory_uf_strong_solver.h"
 
 namespace CVC4 {
 namespace theory {
@@ -100,6 +101,13 @@ EqualityNodeId EqualityEngine<NotifyClass>::newNode(TNode node, bool isApplicati
   d_nodesCount = d_nodesCount + 1;
 
   Debug("equality") << "EqualityEngine::newNode(" << node << ", " << (isApplication ? "function" : "regular") << ") => " << newId << std::endl;
+
+  //AJR-hack
+  //notify the theory strong solver
+  if( d_thss ){
+    d_thss->newNode( newId );
+  }
+  //AJR-hack-end
 
   return newId;
 }
@@ -319,6 +327,13 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
   // Now merge the lists
   class1.merge<true>(class2);
 
+  //AJR-hack
+  //notify the theory strong solver
+  if( d_thss ){
+    d_thss->merge( class1Id, class2Id );
+  }
+  //AJR-hack-end
+
   // Notfiy the triggers
   EqualityNodeId class1triggerId = d_nodeIndividualTrigger[class1Id];
   EqualityNodeId class2triggerId = d_nodeIndividualTrigger[class2Id];
@@ -342,6 +357,13 @@ template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::undoMerge(EqualityNode& class1, EqualityNode& class2, EqualityNodeId class2Id) {
 
   Debug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << ")" << std::endl;
+
+  //AJR-hack
+  //notify the theory strong solver
+  if( d_thss ){
+    d_thss->undoMerge( class1.getFind(), class2Id );
+  }
+  //AJR-hack-end
 
   // Now unmerge the lists (same as merge)
   class1.merge<false>(class2);

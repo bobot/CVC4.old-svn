@@ -100,18 +100,28 @@ public:
 class TermMatchEngine 
 {
 private:
+  /** reference to the instantiation engine */
+  InstantiationEngine* d_instEngine;
+  /** process match */
   void processMatch( Node pat, Node g );
+  /** utilities for generating patterns */
+  std::map< Node, std::map< Node, bool > > d_var_contains;
+  void computeVarContains( Node n );
+  void collectApplyUf( Node n, std::vector< Node >& pat_terms );
 public:
   TermMatchEngine(){}
+  TermMatchEngine( InstantiationEngine* ie ){}
   ~TermMatchEngine(){}
 
   //patterns vs. ground terms, their matches
+  std::map< Node, std::vector< Node > > d_ematch_patterns;
   std::map< Node, bool > d_patterns;
   std::map< Node, bool > d_ground_terms;
   std::map< Node, std::map< Node, InstMatchGenerator* > > d_matches;
   void registerTerm( Node n );
-
-  InstMatchGenerator* makeMultiPattern( std::vector< Node >& nodes );
+  void makePatterns( Node ce_body );
+  void addPattern( Node f, Node pat );
+  InstMatchGenerator* makeMatchGenerator( std::vector< Node >& nodes );
 };
 
 
@@ -131,6 +141,7 @@ class InstantiationEngine
   friend class uf::InstantiatorTheoryUf;
   friend class arith::InstantiatorTheoryArith;
   friend class InstMatch;
+  friend class TermMatchEngine;
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
@@ -144,14 +155,16 @@ private:
   std::map< Node, std::vector< Node > > d_vars;
   /** map from universal quantifiers to the list of skolem constants */
   std::map< Node, std::vector< Node > > d_skolem_constants;
+  /** map from universal quantifiers to their skolemized body */
+  std::map< Node, Node > d_skolem_body;
   /** instantiation constants to universal quantifiers */
   std::map< Node, Node > d_inst_constants_map;
   /** map from universal quantifiers to the list of instantiation constants */
   std::map< Node, std::vector< Node > > d_inst_constants;
-  /** map from universal quantifiers to their counterexample literals */
-  std::map< Node, Node > d_counterexamples;
   /** map from universal quantifiers to their counterexample body */
   std::map< Node, Node > d_counterexample_body;
+  /** map from universal quantifiers to their counterexample literals */
+  std::map< Node, Node > d_counterexamples;
   /** is clausal */
   std::map< Node, bool > d_is_clausal;
   /** map from quantifiers to whether they are active */
@@ -166,6 +179,8 @@ private:
   bool d_addedLemma;
   /** phase requirements for instantiation literals */
   std::map< Node, bool > d_phase_reqs;
+  /** whether a particular quantifier is clausal */
+  std::map< Node, bool > d_clausal;
   /** term match engine */
   TermMatchEngine d_tme;
 
@@ -197,10 +212,10 @@ public:
   /** add split equality */
   bool addSplitEquality( Node n1, Node n2, bool reqPhase = false, bool reqPhasePol = true );
 
-  /** get the ce body ~f[e/x] */
+  /** get the ce body f[e/x] */
   Node getCounterexampleBody( Node f );
-  /** get the skolem constants for quantifier f */
-  void getSkolemConstantsFor( Node f, std::vector< Node >& scs );
+  /** get the skolemized body f[e/x] */
+  Node getSkolemizedBody( Node f );
   /** get the quantified variables for quantifier f */
   void getVariablesFor( Node f, std::vector< Node >& vars );
   /** do a round of instantiation */
@@ -211,7 +226,7 @@ public:
   /** set corresponding counterexample literal for quantified formula node n */
   void setCounterexampleLiteralFor( Node n, Node l );
   /** mark literals as dependent */
-  void registerLiterals( Node n, Node f, OutputChannel* out, bool polarity = false, bool reqPol = false );
+  void registerLiterals( Node n, Node cel, Node f, OutputChannel* out, bool polarity = false, bool reqPol = false );
   /** set active */
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */

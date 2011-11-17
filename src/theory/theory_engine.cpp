@@ -32,6 +32,8 @@
 #include "util/node_visitor.h"
 #include "util/ite_removal.h"
 
+#include "theory/quantifiers/theory_quantifiers.h"
+
 using namespace std;
 
 using namespace CVC4;
@@ -179,6 +181,18 @@ void TheoryEngine::check(Theory::Effort effort) {
         break;
       }
     }
+    //AJR-hack
+#if 0
+    //this is the flip decision code
+    if( !d_inConflict && !d_lemmasAdded && d_incomplete && effort==Theory::FULL_EFFORT ){
+      if( d_theoryTable[THEORY_QUANTIFIERS] ){
+        if( ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ){
+          d_incomplete = false;
+        }
+      }
+    }
+#endif
+    //AJR-hack-end
 
     // Clear any leftover propagated equalities
     d_propagatedEqualities.clear();

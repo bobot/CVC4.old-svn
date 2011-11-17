@@ -41,7 +41,10 @@ void InstantiatorTheoryArith::check( Node assertion ){
     Node f = assertion.getAttribute(InstConstantAttribute());
     Node cel = d_instEngine->getCounterexampleLiteralFor( f );
     bool value;
-    Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );
+    //Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );
+    if( !((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) ){
+      exit( 18 );
+    }
   }
 } 
 
@@ -198,7 +201,7 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
         for( std::map< Node, Node >::iterator it = d_tableaux_ce_term[x].begin(); it != d_tableaux_ce_term[x].end(); ++it ){
           terms.push_back( it->first );
         }
-        InstMatchGenerator* uit = d_instEngine->d_tme.makeMultiPattern( terms );
+        InstMatchGenerator* uit = d_instEngine->d_tme.makeMatchGenerator( terms );
         if( uit ){
           Debug("quant-arith-alg") << "making match" << std::endl;
           //uit->debugPrint("quant-arith", 0);

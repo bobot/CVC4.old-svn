@@ -1195,6 +1195,7 @@ prefixFormula[CVC4::Expr& f]
   std::vector<Type> types;
   Type t;
   Kind k;
+  Expr ipl;
 }
     /* quantifiers */
   : ( FORALL_TOK { k = kind::FORALL; } | EXISTS_TOK { k = kind::EXISTS; } )
@@ -1206,15 +1207,21 @@ prefixFormula[CVC4::Expr& f]
       ids.clear();
     }
     ( COMMA boundVarDecl[ids,t]
-      { for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
-          terms.push_back(EXPR_MANAGER->mkVar(*i, t));
+      { 
+        std::vector< Expr > bvs;
+        for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
+          bvs.push_back(EXPR_MANAGER->mkVar(*i, t));
         }
         ids.clear();
+        terms.push_back( EXPR_MANAGER->mkExpr( kind::BOUND_VAR_LIST, bvs ) );
       }
     )* RPAREN
-    COLON instantiationPatterns? formula[f]
+    COLON instantiationPatterns[ipl]? formula[f]
     { PARSER_STATE->popScope();
       terms.push_back(f);
+      if( !ipl.isNull() ){
+        terms.push_back( ipl );
+      }
       f = MK_EXPR(k, terms);
     }
 
@@ -1247,11 +1254,20 @@ prefixFormula[CVC4::Expr& f]
     }
   ;
 
-instantiationPatterns
+instantiationPatterns[ CVC4::Expr& expr ]
 @init {
+  std::vector< Expr > args;
   Expr f;
+  std::vector< Expr > patterns;
 }
-  : ( PATTERN_TOK LPAREN formula[f] (COMMA formula[f])* RPAREN COLON )+
+  : ( PATTERN_TOK LPAREN formula[f] { args.push_back( f ); } (COMMA formula[f] { args.push_back( f ); } )* RPAREN COLON
+      { patterns.push_back( EXPR_MANAGER->mkExpr( kind::INST_PATTERN, args ) ); 
+        args.clear();
+      } )+
+    { if( !patterns.empty() ){
+       expr = EXPR_MANAGER->mkExpr( kind::INST_PATTERN_LIST, patterns ); 
+       }
+    }
   ;
 
 /**

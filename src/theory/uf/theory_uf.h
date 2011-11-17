@@ -37,9 +37,11 @@ namespace theory {
 namespace uf {
 
 class InstantiatorTheoryUf;
+class StrongSolverTheoryUf;
 
 class TheoryUF : public Theory {
   friend class InstantiatorTheoryUf;
+  friend class StrongSolverTheoryUf;
 public:
 
   class NotifyClass {

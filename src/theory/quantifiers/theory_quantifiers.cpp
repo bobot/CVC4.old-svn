@@ -32,6 +32,9 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
+static bool enableLimit = false; 
+static int limitInst = 20;
+
 TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_QUANTIFIERS, c, u, out, valuation),
   d_forall_asserts(c),
@@ -92,7 +95,7 @@ void TheoryQuantifiers::check(Effort e) {
   Debug("quantifiers-check") << "quantifiers::check(" << e << ")" << std::endl;
   while(!done()) {
     Node assertion = get();
-    Debug("quantifiers-check") << "quantifiers::check(): " << assertion << std::endl;
+    Debug("quantifiers-assert") << "quantifiers::assert(): " << assertion << std::endl;
     switch(assertion.getKind()) {
     case kind::FORALL:
       assertUniversal( assertion );
@@ -146,8 +149,6 @@ void TheoryQuantifiers::check(Effort e) {
           active = value;
           ceValue = true;
         }else{
-          //this should only happen if we have a set of ground terms that suffices 
-          // to show the negation of the body of n
           active = true;
         }
         d_instEngine->setActive( n, active );
@@ -156,9 +157,11 @@ void TheoryQuantifiers::check(Effort e) {
           quantActive = true;
         }else{
           Debug("quantifiers") << "  NOT active : " << n;
-          //note that NO_COUNTEREXAMPLE must not be a decision
-          //Assert( !d_valuation.isDecision( cel ) );
-          Debug("quantifiers-sat") << "cel=" << cel << std::endl;
+          if( d_valuation.isDecision( cel ) ){
+            Debug("quantifiers-req-phase") << "Bad decision : " << cel << std::endl;
+          }
+          //note that the counterexample literal must not be a decision
+          Assert( !d_valuation.isDecision( cel ) );
         }
         if( d_valuation.hasSatValue( n, value ) ){
           Debug("quantifiers") << ", value = " << value; 
@@ -172,16 +175,8 @@ void TheoryQuantifiers::check(Effort e) {
     if( quantActive ){  
       //std::cout << "unknown ";
       //exit( 9 );
-      static bool enableLimit = true; 
-      static int limitInst = 20;
       if( enableLimit && d_numInstantiations==limitInst ){
-        Debug("quantifiers") << "Give up in current branch. " << d_valuation.getDecisionLevel() << " " << d_baseDecLevel << std::endl;
-        if( d_baseDecLevel==0 ){
-          restart();
-        }else{
-          d_out->flipDecision( (unsigned int)d_baseDecLevel );
-        }
-        d_baseDecLevel = -1;
+        Debug("quantifiers-flip") << "Give up in current branch. " << d_valuation.getDecisionLevel() << " " << d_baseDecLevel << std::endl;
       }else{
         Debug("quantifiers") << "Do instantiation, level = " << d_valuation.getDecisionLevel() << std::endl;
         //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
@@ -194,9 +189,11 @@ void TheoryQuantifiers::check(Effort e) {
 #if 0
           std::cout << "unknown ";
           exit( 7 );
-#elif 0
+#elif 1
           Debug("quantifiers") << "No instantiation given, return unknown." << std::endl;
-          d_out->setIncomplete();
+          //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
+            d_out->setIncomplete();
+          //}
 #else
           //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
             //instantiation did not add a lemma to d_out, try to flip a previous decision
@@ -214,6 +211,24 @@ void TheoryQuantifiers::check(Effort e) {
       for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
         Debug("quantifiers-sat") << "   " << d_valuation.getDecision( i ) << std::endl;
       }
+      for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
+        if( (*i).second ) {
+          Node n = (*i).first;
+          Node cel = d_instEngine->getCounterexampleLiteralFor( n );
+          bool active = true, value;
+          if( d_valuation.hasSatValue( cel, value ) ){
+            active = value;
+          }
+          if( !active ){
+            Debug("quantifiers-sat") << "cel=" << cel << std::endl;
+            if( d_valuation.isDecision( cel ) ){
+              std::cout << "unknown ";
+              exit( 17 );
+            }
+          }
+          Debug("quantifiers-sat") << std::endl;
+        }
+      }
       //std::cout << "Quantifiers approves sat." << std::endl;
       Debug("quantifiers-sat") << "No quantifier is active. " << d_valuation.getDecisionLevel() << std::endl;
     }
@@ -225,29 +240,28 @@ void TheoryQuantifiers::assertUniversal( Node n ){
   if( !n.hasAttribute(InstConstantAttribute()) ){
     if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
       //counterexample instantiate, add lemma
-      std::vector< Node > inst_constants;
       Node body = d_instEngine->getCounterexampleBody( n );
       //get the counterexample literal
       //Node cel = d_instEngine->getCounterexampleLiteralFor( n );
       Node cel = d_valuation.ensureLiteral( body.notNode() );
-      //Debug("quantifiers") << cel << " is the literal for " << body.notNode() << std::endl;
+      Debug("quantifiers") << cel << " is the literal for " << body.notNode() << std::endl;
       d_instEngine->setCounterexampleLiteralFor( n, cel );
+      //mark all literals in the body of n as dependent on cel
+      d_instEngine->registerLiterals( cel, cel, n, d_out, false, true );
+      //require any decision on cel to be phase=true
+      d_out->requirePhase( cel, true );
+      Debug("quantifiers-req-phase") << "Require phase " << cel << " = true." << std::endl;
 
       NodeBuilder<> nb(kind::OR);
       nb << n << cel;
       Node lem = nb;
       Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
       d_out->lemma( lem );
-      //mark all literals in the body of n as dependent on cel
-      d_instEngine->registerLiterals( body, n, d_out, false, true );
 
       ////mark cel as dependent on n
       //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
       //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
       //d_out->dependentDecision( quant, cel );    //FIXME?
-
-      //require any decision on cel to be phase=false
-      d_out->requirePhase( cel, true );
 
       d_abstract_inst[n] = true;
     }
@@ -259,13 +273,7 @@ void TheoryQuantifiers::assertExistential( Node n ){
   Assert( n.getKind()== NOT && n[0].getKind()==FORALL );
   if( !n[0].hasAttribute(InstConstantAttribute()) ){
     if( d_skolemized.find( n )==d_skolemized.end() ){
-      //skolemize, add lemma
-      std::vector< Node > vars;
-      d_instEngine->getVariablesFor( n, vars );
-      std::vector< Node > skolems;
-      d_instEngine->getSkolemConstantsFor( n, skolems );
-      Node body = n[0][ n[0].getNumChildren() - 1 ].substitute( vars.begin(), vars.end(), 
-                                                                skolems.begin(), skolems.end() );
+      Node body = d_instEngine->getSkolemizedBody( n[0] );
       NodeBuilder<> nb(kind::OR);
       nb << n[0] << body.notNode();
       Node lem = nb;
@@ -295,21 +303,30 @@ Instantiator* TheoryQuantifiers::makeInstantiator(){
 
 bool TheoryQuantifiers::flipDecision(){
   Debug("quantifiers-flip") << "No instantiation given, flip decision, level = " << d_valuation.getDecisionLevel() << std::endl;
-  for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
-    Debug("quantifiers-flip") << "   " << d_valuation.getDecision( i ) << std::endl;
+  //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
+  //  Debug("quantifiers-flip") << "   " << d_valuation.getDecision( i ) << std::endl;
+  //}
+  if( enableLimit && d_numInstantiations==limitInst ){
+    if( d_baseDecLevel>0 ){
+      d_out->flipDecision( (unsigned int)d_baseDecLevel );
+    }
+    d_baseDecLevel = -1;
+  }else{
+    if( !d_out->flipDecision() ){
+      return restart();
+    }
   }
-  return d_out->flipDecision();
+  return true;
 }
 
 bool TheoryQuantifiers::restart(){
   static int restartLimit = 1;
   if( d_numRestarts==restartLimit ){
-    Debug("quantifiers") << "Return unknown." << std::endl;
-    d_out->setIncomplete();
+    Debug("quantifiers-flip") << "No more restarts." << std::endl;
     return false;
   }else{
     d_numRestarts++;
-    Debug("quantifiers") << "Do restart." << std::endl;
+    Debug("quantifiers-flip") << "Do restart." << std::endl;
     return true;
   }
 }

@@ -488,7 +488,6 @@ inline void     Solver::setDecisionVar(Var v, bool b)
 }
 inline void     Solver::dependentDecision(Var dep, Var dec)
 {
-#if 1
     assert(dep >= 0 && dec >= 0);// can't "un-depend"
     assert(depends[dep] == -1);
     assert(depends[dec] == -1);
@@ -497,18 +496,6 @@ inline void     Solver::dependentDecision(Var dep, Var dec)
     depends[dec] = dep;
     dependsOn[dec] = dependsOn[dep];
     dependsOn[dep] = dec;
-#else
-    //AJR: confused by the above code, maybe (?) should be something like this...
-    assert(dep >= 0 && dec >= 0);// can't "un-depend"
-    assert(depends[dec] == -1);
-    if(value(dep) == l_Undef && decision[dec]) dec_vars--;
-    if( dependsOn[dep]>=0 ){
-      dependsOn[dec] = dependsOn[dep];
-      depends[dependsOn[dep]] = dec;
-    }
-    dependsOn[dep] = dec;
-    depends[dec] = dep;
-#endif
 }
 inline void     Solver::setFlipVar(Var v, bool b)
 {

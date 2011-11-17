@@ -156,21 +156,13 @@ void InstantiatorTheoryUf::registerTerm( Node n, bool isTop )
     InstLevelAttribute ila;
     n.setAttribute(ila,0);
   }
-  bool recurse = false;
-  if( isTop ){
+  if( d_terms_full.find( n )==d_terms_full.end() ){
     d_instEngine->registerTerm( n );
-    if( d_terms.find( n )==d_terms.end() ){
+    if( isTop ){
       d_terms[n] = true;
-      d_terms_full[n] = true;
-      recurse = true;
     }
-  }else{
-    if( d_terms_full.find( n )==d_terms_full.end() ){
-      d_terms_full[n] = true;
-      recurse = true;
-    }
-  }
-  if( recurse ){
+    d_terms_full[n] = true;
+
     if( n.getKind()==INST_CONSTANT ){
       d_instEngine->d_ic_active[n] = true;
     }
@@ -464,9 +456,10 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
           if( d_ob_reqPol[lit] ){
             d_mergeIter[ f ]->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], d_ob_pol[lit] ) );
           }else{
+            //this literal does not require this polarity, produce matches for either polarity
             InstMatchGenerator* it = InstMatchGenerator::mkInstMatchGenerator( true );
-            it->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], true ) );
-            it->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], false ) );
+            it->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], d_ob_pol[lit] ) );
+            it->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], !d_ob_pol[lit] ) );
             d_mergeIter[ f ]->d_children.push_back( it );
           }
         }

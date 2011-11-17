@@ -39,7 +39,7 @@ public:
 private:
   static void computeArgs( std::map< Node, bool >& active, Node n );
   static void computeArgs( std::vector< Node >& args, std::vector< Node >& activeArgs, Node n );
-  static Node mkForAll( std::vector< Node >& args, Node n );
+  static Node mkForAll( std::vector< Node >& args, Node n, Node ipl );
   static bool hasArg( std::vector< Node >& args, Node n );
 
   static void setNestedQuantifiers( Node n, Node q );
@@ -51,8 +51,12 @@ public:
 #else
     if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
       std::vector< Node > args;
-      for( int i=0; i<(int)(in.getNumChildren()-1); i++ ){
-        args.push_back( in[i] );
+      for( int i=0; i<(int)in[0].getNumChildren(); i++ ){
+        args.push_back( in[0][i] );
+      }
+      Node ipl;
+      if( in.getNumChildren()==3 ){
+        ipl = in[2];
       }
       //if( in.hasAttribute(NestedQuantAttribute()) ){
       //  Debug("quantifiers-rewrite") << "It is a nested quantifier." << std::endl;
@@ -64,7 +68,7 @@ public:
       //  }
       //}else{
         NodeBuilder<> defs(kind::AND);
-        Node n = rewriteQuant( args, in[ in.getNumChildren()-1 ], defs, 
+        Node n = rewriteQuant( args, in[ 1 ], defs, ipl, 
                                in.hasAttribute(NestedQuantAttribute()), in.getKind()==kind::EXISTS );
         Debug("quantifiers-rewrite") << "Rewrite " << in << " to " << n << std::endl;
         return RewriteResponse(REWRITE_DONE, n );
@@ -78,22 +82,20 @@ public:
     Debug("quantifiers-rewrite") << "pre-rewriting " << in << std::endl;
 #if 0
     if( in.getKind()==kind::EXISTS ){
-      std::vector< Node > children;
-      for( int i=0; i<(int)in.getNumChildren(); i++ ){
-        if( i==(int)in.getNumChildren()-1 ){
-          children.push_back( in[i].notNode() );
-        }else{
-          children.push_back( in[i] );
-        }
+      std::vector< Node > args;
+      args.push_back( in[0] );
+      args.push_back( in[1].notNode() );
+      if( in.getNumChildren()==3 ){
+        args.push_back( in[2] );
       }
-      Node n = NodeManager::currentNM()->mkNode(kind::FORALL, children );
+      Node n = NodeManager::currentNM()->mkNode(kind::FORALL, args );
       Debug("quantifiers-rewrite") << "Rewrite " << in << " to " << n.notNode() << std::endl;
       return RewriteResponse(REWRITE_DONE, n.notNode() );
     }
 #else
     if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
       if( !in.hasAttribute(NestedQuantAttribute()) ){
-        setNestedQuantifiers( in[ in.getNumChildren()-1 ], in );
+        setNestedQuantifiers( in[ 1 ], in );
       }
     }
 #endif
@@ -110,7 +112,7 @@ public:
   /** returns a literal, writes new quantifier definitions into nb */
   //static Node mkPredicate( std::vector< Node >& args, Node body, NodeBuilder<>& defs );
 
-  static Node rewriteQuant( std::vector< Node >& args, Node body, NodeBuilder<>& defs, bool isNested = false, 
+  static Node rewriteQuant( std::vector< Node >& args, Node body, NodeBuilder<>& defs, Node ipl, bool isNested = false, 
                             bool isExists = false );
 
 };/* class QuantifiersRewriter */

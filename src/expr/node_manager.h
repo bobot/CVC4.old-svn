@@ -524,6 +524,15 @@ public:
   /** Get the (singleton) type for sorts. */
   inline TypeNode kindType();
 
+  /** Get the bound var list type. */
+  inline TypeNode boundVarListType();
+
+  /** Get the instantiation pattern type. */
+  inline TypeNode instPatternType();
+
+  /** Get the instantiation pattern type. */
+  inline TypeNode instPatternListType();
+
   /**
    * Get the (singleton) type for builtin operators (that is, the type
    * of the Node returned from Node::getOperator() when the operator
@@ -794,6 +803,21 @@ inline TypeNode NodeManager::stringType() {
 /** Get the (singleton) type for sorts. */
 inline TypeNode NodeManager::kindType() {
   return TypeNode(mkTypeConst<TypeConstant>(KIND_TYPE));
+}
+
+/** Get the bound var list type. */
+inline TypeNode NodeManager::boundVarListType(){
+  return TypeNode(mkTypeConst<TypeConstant>(BOUND_VAR_LIST_TYPE));
+}
+
+/** Get the instantiation pattern type. */
+inline TypeNode NodeManager::instPatternType(){
+  return TypeNode(mkTypeConst<TypeConstant>(INST_PATTERN_TYPE));
+}
+
+/** Get the instantiation pattern type. */
+inline TypeNode NodeManager::instPatternListType(){
+  return TypeNode(mkTypeConst<TypeConstant>(INST_PATTERN_LIST_TYPE));
 }
 
 /** Get the (singleton) type for builtin operators. */

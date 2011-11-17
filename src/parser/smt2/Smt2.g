@@ -136,7 +136,10 @@ using namespace CVC4::parser;
  * @return the parsed expression, or the Null Expr if we've reached the end of the input
  */
 parseExpr returns [CVC4::parser::smt2::myExpr expr]
-  : term[expr]
+@declarations {
+  Expr expr2;
+}
+  : term[expr, expr2]
   | EOF
   ;
 
@@ -156,7 +159,7 @@ command returns [CVC4::Command* cmd = NULL]
 @declarations {
   std::string name;
   std::vector<std::string> names;
-  Expr expr;
+  Expr expr, expr2;
   Type t;
   std::vector<Expr> terms;
   std::vector<Type> sorts;
@@ -254,7 +257,7 @@ command returns [CVC4::Command* cmd = NULL]
         terms.push_back(PARSER_STATE->mkVar((*i).first, (*i).second));
       }
     }
-    term[expr]
+    term[expr, expr2]
     { PARSER_STATE->popScope();
       // declare the name down here (while parsing term, signature
       // must not be extended with the name itself; no recursion
@@ -287,7 +290,7 @@ command returns [CVC4::Command* cmd = NULL]
     GET_ASSIGNMENT_TOK
     { cmd = new GetAssignmentCommand; }
   | /* assertion */
-    ASSERT_TOK term[expr]
+    ASSERT_TOK term[expr, expr2]
     { cmd = new AssertCommand(expr); }
   | /* checksat */
     CHECKSAT_TOK
@@ -358,7 +361,7 @@ command returns [CVC4::Command* cmd = NULL]
 extendedCommand[CVC4::Command*& cmd]
 @declarations {
   std::vector<CVC4::Datatype> dts;
-  Expr e;
+  Expr e, e2;
 }
     /* Z3's extended SMT-LIBv2 set of commands syntax */
   : DECLARE_DATATYPES_TOK
@@ -376,7 +379,7 @@ extendedCommand[CVC4::Command*& cmd]
   | DEFINE_SORTS_TOK
   | DECLARE_CONST_TOK
     
-  | SIMPLIFY_TOK term[e]
+  | SIMPLIFY_TOK term[e, e2]
     { cmd = new SimplifyCommand(e); }
   | ECHO_TOK
     ( STRING_LITERAL
@@ -414,7 +417,7 @@ symbolicExpr[CVC4::SExpr& sexpr]
  * Matches a term.
  * @return the expression representing the formula
  */
-term[CVC4::Expr& expr]
+term[CVC4::Expr& expr, CVC4::Expr& expr2]
 @init {
   Debug("parser") << "term: " << AntlrInput::tokenText(LT(1)) << std::endl;
   Kind kind;
@@ -423,8 +426,10 @@ term[CVC4::Expr& expr]
   std::vector<Expr> args;
   SExpr sexpr;
   std::vector<std::pair<std::string, Type> > sortedVarNames;
-  Expr f;
+  Expr f, f2;
   std::string attr;
+  Expr attexpr;
+  std::vector< Expr > attexprs;
 }
   : /* a built-in operator application */
     LPAREN_TOK builtinOp[kind] termList[args,expr] RPAREN_TOK
@@ -463,12 +468,20 @@ term[CVC4::Expr& expr]
           ++i) {
         args.push_back(PARSER_STATE->mkVar((*i).first, (*i).second));
       }
+      Expr bvl = MK_EXPR(kind::BOUND_VAR_LIST, args);
+      args.clear();
+      args.push_back( bvl );
     }
-      term[f] RPAREN_TOK
+      term[f, f2] RPAREN_TOK
     {
       PARSER_STATE->popScope();
       args.push_back( f );
+      if( !f2.isNull() ){
+        //std::cout << "add to quant " << f2 << std::endl;
+        args.push_back( f2 );
+      }
       expr = MK_EXPR(kind, args);
+      //std::cout << "Made quantifier " << expr << std::endl;
     }
   | /* A non-built-in function application */
     LPAREN_TOK
@@ -498,10 +511,10 @@ term[CVC4::Expr& expr]
   | /* a let binding */
     LPAREN_TOK LET_TOK LPAREN_TOK
     { PARSER_STATE->pushScope(); }
-    ( LPAREN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE] term[expr] RPAREN_TOK
+    ( LPAREN_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE] term[expr, f2] RPAREN_TOK
       { PARSER_STATE->defineVar(name,expr); } )+
     RPAREN_TOK
-    term[expr]
+    term[expr, f2]
     RPAREN_TOK
     { PARSER_STATE->popScope(); }
 
@@ -518,8 +531,14 @@ term[CVC4::Expr& expr]
     }
 
     /* attributed expressions */
-  | LPAREN_TOK ATTRIBUTE_TOK term[expr] (attribute[expr])+ RPAREN_TOK
-
+  | LPAREN_TOK ATTRIBUTE_TOK term[expr, f2] (attribute[expr, attexpr] { if( !attexpr.isNull() ) attexprs.push_back( attexpr ); } )+ RPAREN_TOK
+    { if( !attexprs.empty() ){
+        if( attexprs[0].getKind()==kind::INST_PATTERN ){
+          expr2 = MK_EXPR(kind::INST_PATTERN_LIST, attexprs);
+          std::cout << "parsed pattern list " << expr2 << std::endl;
+        }
+      }
+    }
     /* constants */
   | INTEGER_LITERAL
     { expr = MK_CONST( AntlrInput::tokenToInteger($INTEGER_LITERAL) ); }
@@ -553,10 +572,13 @@ term[CVC4::Expr& expr]
 /** 
  * Read attribute 
  */
-attribute[CVC4::Expr& expr]
+attribute[CVC4::Expr& expr,CVC4::Expr& retExpr]
 @init {
   SExpr sexpr;
   std::string attr;
+  Expr patexpr;
+  std::vector< Expr > patexprs;
+  Expr e2;
 } 
 : KEYWORD 
   { attr = AntlrInput::tokenText($KEYWORD); }
@@ -572,14 +594,17 @@ attribute[CVC4::Expr& expr]
       Command* c =
         new DefineNamedFunctionCommand(name, func, std::vector<Expr>(), expr);
       PARSER_STATE->preemptCommand(c);
-    } else if(attr == ":pattern") {
-      //notify quantifiers?
     } else {
       std::stringstream ss;
       ss << "Attribute `" << attr << "' not supported";
       PARSER_STATE->parseError(ss.str());
     }
   }
+  | ATTRIBUTE_PATTERN_TOK LPAREN_TOK ( term[patexpr, e2] { patexprs.push_back( patexpr ); }  )+ RPAREN_TOK 
+    { 
+      retExpr = MK_EXPR(kind::INST_PATTERN, patexprs);
+      //std::cout << "parsed pattern expr " << retExpr << std::endl;
+    }
   ;
   
 /**
@@ -626,7 +651,10 @@ badIndexedFunctionName
 /* NOTE: We pass an Expr in here just to avoid allocating a fresh Expr every
  * time through this rule. */
 termList[std::vector<CVC4::Expr>& formulas, CVC4::Expr& expr]
-  : ( term[expr] { formulas.push_back(expr); } )+
+@declarations {
+  Expr expr2;
+}
+  : ( term[expr, expr2] { formulas.push_back(expr); } )+
   ;
 
 /**
@@ -931,6 +959,10 @@ DECLARE_CONST_TOK : 'declare-const';
 SIMPLIFY_TOK : 'simplify';
 EVAL_TOK : 'eval';
 ECHO_TOK : 'echo';
+
+// attributes
+ATTRIBUTE_PATTERN_TOK : ':pattern';
+
 
 // operators (NOTE: theory symbols go here)
 AMPERSAND_TOK     : '&';

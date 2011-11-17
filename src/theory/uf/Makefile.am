@@ -15,6 +15,8 @@ libuf_la_SOURCES = \
 	symmetry_breaker.h \
 	symmetry_breaker.cpp \
 	theory_uf_instantiator.h \
-	theory_uf_instantiator.cpp
+	theory_uf_instantiator.cpp \
+	theory_uf_strong_solver.h \
+	theory_uf_strong_solver.cpp
 
 EXTRA_DIST = kinds

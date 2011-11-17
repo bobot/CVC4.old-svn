@@ -66,11 +66,11 @@ public:
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
   Instantiator* makeInstantiator();
+  bool flipDecision();
 private:
   void assertUniversal( Node n );
   void assertExistential( Node n );
   void assertCounterexample( Node n );
-  bool flipDecision();
   bool restart();
 };/* class TheoryQuantifiers */
 

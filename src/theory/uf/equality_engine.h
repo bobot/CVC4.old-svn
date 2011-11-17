@@ -213,10 +213,18 @@ public:
   }
 };
 
+//AJR-hack
+class StrongSolverTheoryUf;
+//AJR-hack-end
+
 template <typename NotifyClass>
 class EqualityEngine : public context::ContextNotifyObj {
 
 public:
+  //AJR-hack
+  /** associated theory strong solver */
+  StrongSolverTheoryUf* d_thss;
+  //AJR-hack-end
 
   /** Statistics about the equality engine instance */
   struct Statistics {
@@ -555,6 +563,9 @@ public:
     Debug("equality") << "EqualityEdge::EqualityEngine(): trigger_null = " << +null_trigger << std::endl;
     d_true = NodeManager::currentNM()->mkConst<bool>(true);
     d_false = NodeManager::currentNM()->mkConst<bool>(false);
+    //AJR-hack
+    d_thss = NULL;
+    //AJR-hack
   }
 
   /**
