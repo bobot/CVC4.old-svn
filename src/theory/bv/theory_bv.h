@@ -37,12 +37,13 @@ namespace theory {
 namespace bv {
 
 /// forward declarations 
-template <class BBPlus, class BBMult, class BBAnd, class BBOr> 
+template <class BBPlus, class BBMult, class BBAnd, class BBOr, class BBXor> 
 class Bitblaster; 
 class DefaultPlusBB;
 class DefaultMultBB;
 class DefaultAndBB;
 class DefaultOrBB; 
+class DefaultXorBB;
 
 class TheoryBV : public Theory {
 
@@ -57,7 +58,7 @@ private:
   context::CDList<TNode> d_assertions;
   
   /** Bitblaster */
-  Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB >* d_bitblaster; 
+  Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB >* d_bitblaster; 
   Node d_true;
   
 public:

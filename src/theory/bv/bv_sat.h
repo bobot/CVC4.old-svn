@@ -109,7 +109,8 @@ struct DefaultMultBB {
 
 struct DefaultPlusBB {
   static void bitblast(Bits* res, const Bits* lhs, const Bits* rhs, ClauseManager* mgr) {
-    Assert(0);
+    Assert(res && lhs && rhs && mgr);
+    Assert (0); 
   }
 }; 
 
@@ -121,7 +122,16 @@ struct DefaultLtBB {
 
 struct DefaultAndBB {
   static void bitblast(Bits* res, const Bits* lhs, const Bits* rhs, ClauseManager* mgr) {
-    Assert(0);
+    Assert(res && lhs && rhs && mgr);
+    const Bits& c = *res;
+    const Bits& a = *lhs;
+    const Bits& b = *rhs;
+
+    for (unsigned i = 0; i < c.size(); ++i) {
+      mgr->mkClause(neg(c[i]), a[i]);
+      mgr->mkClause(neg(c[i]), b[i]);
+      mgr->mkClause(c[i], neg(a[i]), neg(b[i])); 
+    }
   }
 }; 
 
@@ -133,7 +143,22 @@ struct DefaultOrBB {
       mgr->mkClause(neg(res->operator[](i)), lhs->operator[](i), rhs->operator[](i));
     }
   }
-}; 
+};
+
+struct DefaultXorBB {
+  static void bitblast(Bits* res, const Bits* lhs, const Bits* rhs, ClauseManager* mgr) {
+    Assert (res && lhs && rhs && mgr);
+    const Bits& c = *res;
+    const Bits& a = *lhs;
+    const Bits& b = *rhs; 
+    for (unsigned i = 0; i < res->size(); ++i) {
+      mgr->mkClause(neg(c[i]), a[i], b[i]);
+      mgr->mkClause(neg(c[i]), neg(a[i]), neg(b[i]));
+      mgr->mkClause(c[i], neg(a[i]), b[i]);
+      mgr->mkClause(c[i], a[i], neg(b[i])); 
+    }
+  }
+};
 
 /** 
  * The Bitblaster that manages the mapping between Nodes 
@@ -145,7 +170,8 @@ template
   class BBPlus, 
   class BBMult, 
   class BBAnd,
-  class BBOr
+  class BBOr,
+  class BBXor
   >
 class Bitblaster {
   
@@ -259,6 +285,7 @@ private:
     case kind::BITVECTOR_AND:
     case kind::BITVECTOR_PLUS:
     case kind::BITVECTOR_MULT:
+    case kind::BITVECTOR_XOR:
       def =  bbBinaryOp(node.getKind(), node[0], node[1]);
       break;
       
@@ -282,15 +309,18 @@ private:
       
     case kind::BITVECTOR_OR:
       BBOr::bitblast(resBits, lhsBits, rhsBits, d_clauseManager);
-      
+      break;
     case kind::BITVECTOR_AND:
       BBAnd::bitblast(resBits, lhsBits, rhsBits, d_clauseManager);
-      
+      break;
     case kind::BITVECTOR_PLUS:
       BBPlus::bitblast(resBits, lhsBits, rhsBits, d_clauseManager);
-      
+      break;
     case kind::BITVECTOR_MULT:
       BBMult::bitblast(resBits, lhsBits, rhsBits, d_clauseManager);
+      break;
+    case kind::BITVECTOR_XOR:
+      BBXor::bitblast(resBits, lhsBits, rhsBits, d_clauseManager); 
     default:
       Unhandled(nodeKind); 
     }
@@ -308,8 +338,8 @@ private:
  * 
  * @return 
  */
-template <class Plus, class Mult, class And, class Or>  
-void Bitblaster<Plus, Mult, And, Or>::bitblast(TNode node) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+void Bitblaster<Plus, Mult, And, Or, Xor>::bitblast(TNode node) {
   // FIXME: better checks
   if (node.getKind() == kind::EQUAL || node.getKind() == kind::NOT) {
     bbAtom(node); 
@@ -324,8 +354,8 @@ void Bitblaster<Plus, Mult, And, Or>::bitblast(TNode node) {
  * @param node the atom to be aserted
  * 
  */
-template <class Plus, class Mult, class And, class Or>  
-void Bitblaster<Plus, Mult, And, Or>::assertToSat(TNode lit) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+void Bitblaster<Plus, Mult, And, Or, Xor>::assertToSat(TNode lit) {
   // strip the not
   TNode node = lit.getKind() == kind::NOT? lit[0] : lit;
 
@@ -340,13 +370,13 @@ void Bitblaster<Plus, Mult, And, Or>::assertToSat(TNode lit) {
  * 
  * @return true for sat, and false for unsat
  */
-template <class Plus, class Mult, class And, class Or>  
-bool Bitblaster<Plus, Mult, And, Or>::solve() {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+bool Bitblaster<Plus, Mult, And, Or, Xor>::solve() {
   return d_clauseManager->solve(d_assertedAtoms); 
 }
 
-template <class Plus, class Mult, class And, class Or>
-void Bitblaster<Plus, Mult, And, Or>::getConflict(std::vector<TNode>& conflict) {
+template <class Plus, class Mult, class And, class Or, class Xor>
+void Bitblaster<Plus, Mult, And, Or, Xor>::getConflict(std::vector<TNode>& conflict) {
   SatClause* conflictClause = d_clauseManager->getConflict();
   Assert(conflictClause); 
   
@@ -363,8 +393,8 @@ void Bitblaster<Plus, Mult, And, Or>::getConflict(std::vector<TNode>& conflict) 
  * 
  * 
  */
-template <class Plus, class Mult, class And, class Or>  
-void Bitblaster<Plus, Mult, And, Or>::resetSolver() {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+void Bitblaster<Plus, Mult, And, Or, Xor>::resetSolver() {
   d_clauseManager->resetSolver(); 
 }
 
@@ -372,14 +402,14 @@ void Bitblaster<Plus, Mult, And, Or>::resetSolver() {
 /// Helper methods
 
 
-template <class Plus, class Mult, class And, class Or>  
-bool Bitblaster<Plus, Mult, And, Or>::hasMarkerLiteral(TNode atom) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+bool Bitblaster<Plus, Mult, And, Or, Xor>::hasMarkerLiteral(TNode atom) {
   return d_atomMarkerLit.find(atom) != d_atomMarkerLit.end();
 }
 
 
-template <class Plus, class Mult, class And, class Or>  
-SatLit Bitblaster<Plus, Mult, And, Or>::mkMarkerLit(TNode atom) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+SatLit Bitblaster<Plus, Mult, And, Or, Xor>::mkMarkerLit(TNode atom) {
   Assert (d_atomMarkerLit.find(atom) == d_atomMarkerLit.end());
   SatLit lit = d_clauseManager->mkMarkerLit(); 
   d_atomMarkerLit[atom] = lit;
@@ -388,14 +418,14 @@ SatLit Bitblaster<Plus, Mult, And, Or>::mkMarkerLit(TNode atom) {
 }
 
 
-template <class Plus, class Mult, class And, class Or>  
-void Bitblaster<Plus, Mult, And, Or>::cacheTermDef(TNode term, Bits* def) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+void Bitblaster<Plus, Mult, And, Or, Xor>::cacheTermDef(TNode term, Bits* def) {
   Assert (d_termCache.find(term) == d_termCache.end());
   d_termCache[term] = def; 
 }
 
-template <class Plus, class Mult, class And, class Or>  
-Bits* Bitblaster<Plus, Mult, And, Or>::getBBTerm(TNode node) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bits* Bitblaster<Plus, Mult, And, Or, Xor>::getBBTerm(TNode node) {
   TermDefMap::iterator it = d_termCache.find(node);
   if (it == d_termCache.end()) {
     return NULL; 
@@ -403,8 +433,8 @@ Bits* Bitblaster<Plus, Mult, And, Or>::getBBTerm(TNode node) {
   return d_termCache[node];
 }
 
-template <class Plus, class Mult, class And, class Or>  
-Bits* Bitblaster<Plus, Mult, And, Or>::freshBits(unsigned size) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bits* Bitblaster<Plus, Mult, And, Or, Xor>::freshBits(unsigned size) {
   Bits* newbits = new Bits(); 
   for (unsigned i= 0; i < size; ++i) {
     SatVar var = d_clauseManager->newVar();
@@ -427,8 +457,8 @@ Bits* Bitblaster<Plus, Mult, And, Or>::freshBits(unsigned size) {
  * 
  * @return 
  */
-template <class Plus, class Mult, class And, class Or>  
-void Bitblaster<Plus, Mult, And, Or>::bbEqual(TNode node, SatLit atom_lit) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+void Bitblaster<Plus, Mult, And, Or, Xor>::bbEqual(TNode node, SatLit atom_lit) {
   Assert(node.getKind() == kind::EQUAL);
   const Bits& lhs = *(bbTerm(node[0]));
   const Bits& rhs = *(bbTerm(node[1]));
@@ -456,8 +486,8 @@ void Bitblaster<Plus, Mult, And, Or>::bbEqual(TNode node, SatLit atom_lit) {
 }
 
 
-template <class Plus, class Mult, class And, class Or>  
-Bits* Bitblaster<Plus, Mult, And, Or>::bbConst(TNode node) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbConst(TNode node) {
   Assert(node.getKind() == kind::CONST_BITVECTOR);
   for (unsigned i = 0; i < utils::getSize(node); ++i) {
     // TODO : finish!!
@@ -465,16 +495,16 @@ Bits* Bitblaster<Plus, Mult, And, Or>::bbConst(TNode node) {
   return NULL; 
 }
   
-template <class Plus, class Mult, class And, class Or>  
-Bits* Bitblaster<Plus, Mult, And, Or>::bbVar(TNode node) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbVar(TNode node) {
   Assert (node.getKind() == kind::VARIABLE);
   Bits* bits;
   bits = freshBits(utils::getSize(node));
   return bits; 
 }
 
-template <class Plus, class Mult, class And, class Or>  
-Bits* Bitblaster<Plus, Mult, And, Or>::bbExtract(TNode node) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbExtract(TNode node) {
   Assert (node.getKind() == kind::BITVECTOR_EXTRACT);
   const Bits* bits = bbTerm(node[0]);
   unsigned high = utils::getExtractHigh(node);
@@ -489,8 +519,8 @@ Bits* Bitblaster<Plus, Mult, And, Or>::bbExtract(TNode node) {
   return extractbits; 
 }
 
-template <class Plus, class Mult, class And, class Or>  
-Bits* Bitblaster<Plus, Mult, And, Or>::bbConcat(TNode node) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbConcat(TNode node) {
   Assert (node.getKind() == kind::BITVECTOR_CONCAT);
   const Bits* bv1 = bbTerm(node[0]);
   const Bits* bv2 = bbTerm(node[1]);
@@ -508,8 +538,8 @@ Bits* Bitblaster<Plus, Mult, And, Or>::bbConcat(TNode node) {
   return bits; 
 }
 
-template <class Plus, class Mult, class And, class Or>  
-Bits* Bitblaster<Plus, Mult, And, Or>::bbNot(TNode node) {
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbNot(TNode node) {
   Assert(node.getKind() == kind::BITVECTOR_NOT);
 
   const Bits* bv = bbTerm(node[0]);

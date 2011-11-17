@@ -35,7 +35,7 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
   : Theory(THEORY_BV, c, u, out, valuation), 
     d_context(c),
     d_assertions(c),
-    d_bitblaster(new Bitblaster<DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB>(c) )
+    d_bitblaster(new Bitblaster<DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB>(c) )
   {
     d_true = utils::mkTrue();
   }

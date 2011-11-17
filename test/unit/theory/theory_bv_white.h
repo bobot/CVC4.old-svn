@@ -187,12 +187,12 @@ public:
     TS_ASSERT(*core == temp2);  
     
   }
-
-  void testBitblaster() {
+  
+  void testBitblasterCore() {
     // ClauseManager tests 
     Context* ctx = new Context();
-    Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB >* bb =
-      new Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB >(ctx);
+    Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB>* bb =
+      new Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB >(ctx);
     
     NodeManager* nm = NodeManager::currentNM();
     Node a = nm->mkVar("a", nm->mkBitVectorType(4));
@@ -232,9 +232,30 @@ public:
     res = bb->solve();
     TS_ASSERT(res == false); 
     
-    // TODO unsat core test
+    //unsat core test
+    
     
   }
+
+    void testBitblasterXorAnd() {
+    // ClauseManager tests 
+    Context* ctx = new Context();
+    Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB>* bb =
+      new Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB >(ctx);
+    
+    NodeManager* nm = NodeManager::currentNM();
+    Node a = nm->mkVar("a", nm->mkBitVectorType(4));
+    Node b = nm->mkVar("b", nm->mkBitVectorType(4));
+    Node c = nm->mkVar("c", nm->mkBitVectorType(4)); 
+    Node aAndb = nm->mkNode(kind::BITVECTOR_AND, a, b);
+    Node atom1 = nm->mkNode(kind::EQUAL, c, aAndb); 
+    Node cXora = nm->mkNode(kind::BITVECTOR_XOR, c, a);
+    Node cXorb = nm->mkNode(kind::BITVECTOR_XOR, c, b);
+    Node atom2 = nm->mkNode(kind::EQUAL, cXora, cXorb);
+    Node atom3 = nm->mkNode(kind::NOT, 
+
+
+    }
  
 
 
