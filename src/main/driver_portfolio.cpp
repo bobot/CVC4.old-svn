@@ -282,12 +282,13 @@ int runCvc4(int argc, char *argv[], Options& options) {
   vector<Options> threadOptions;
   for(int i = 0; i < numThreads; ++i) {
     threadOptions.push_back(options);
-    if(!options.threadArgv[i].empty()) {
+    Options& opts = threadOptions.back();
+    opts.thread_id = i;
+    if(i < options.threadArgv.size() && !options.threadArgv[i].empty()) {
       // separate out the thread's individual configuration string
       stringstream optidss;
       optidss << "--thread" << i;
       string optid = optidss.str();
-      Options& opts = threadOptions.back();
       int targc = 1;
       char* tbuf = strdup(options.threadArgv[i].c_str());
       char* p = tbuf;
@@ -322,7 +323,6 @@ int runCvc4(int argc, char *argv[], Options& options) {
           throw OptionException(ss.str());
         }
       }
-      opts.thread_id = i;
       delete targv;
       free(tbuf);
       free(vp[0]);
@@ -588,7 +588,7 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
     *pOptions->out << "unknown" << endl;
     cerr << "CVC4 Error:" << endl << e << endl;
     printUsage(*pOptions);
-    exit(1);
+    return Result::SAT_UNKNOWN;
   } catch(Exception& e) {
 #ifdef CVC4_COMPETITION_MODE
     *pOptions->out << "unknown" << endl;
@@ -597,7 +597,7 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
     if(pOptions->statistics) {
       pStatistics->flushInformation(*pOptions->err);
     }
-    exit(1);
+    return Result::SAT_UNKNOWN;
   } catch(bad_alloc) {
 #ifdef CVC4_COMPETITION_MODE
     *pOptions->out << "unknown" << endl;
@@ -606,13 +606,13 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
     if(pOptions->statistics) {
       pStatistics->flushInformation(*pOptions->err);
     }
-    exit(1);
+    return Result::SAT_UNKNOWN;
   } catch(...) {
 #ifdef CVC4_COMPETITION_MODE
     *pOptions->out << "unknown" << endl;
 #endif
     *pOptions->err << "CVC4 threw an exception of unknown type." << endl;
-    exit(1);
+    return Result::SAT_UNKNOWN;
   }
 }
 
