@@ -159,10 +159,10 @@ static const string optionsDescription = "\
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
-   --time-limit=MS        enable time limiting (give milliseconds)\n\
-   --time-limit-per=MS    enable time limiting per query (give milliseconds)\n\
-   --limit=N              enable resource limiting\n\
-   --limit-per=N          enable resource limiting per query\n";
+   --tlimit=MS            enable time limiting (give milliseconds)\n\
+   --tlimit-per=MS        enable time limiting per query (give milliseconds)\n\
+   --rlimit=N             enable resource limiting\n\
+   --rlimit-per=N         enable resource limiting per query\n";
 
 
 #warning "Change CL options as --disable-variable-removal cannot do anything currently."
@@ -328,8 +328,8 @@ enum OptionValue {
   PORTFOLIO_FILTER_LENGTH,
   TIME_LIMIT,
   TIME_LIMIT_PER,
-  LIMIT,
-  LIMIT_PER
+  RESOURCE_LIMIT,
+  RESOURCE_LIMIT_PER
 };/* enum OptionValue */
 
 /**
@@ -408,10 +408,10 @@ static struct option cmdlineOptions[] = {
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
-  { "time-limit" , required_argument, NULL, TIME_LIMIT  },
-  { "time-limit-per", required_argument, NULL, TIME_LIMIT_PER },
-  { "limit"      , required_argument, NULL, LIMIT       },
-  { "limit-per"  , required_argument, NULL, LIMIT_PER   },
+  { "tlimit"     , required_argument, NULL, TIME_LIMIT  },
+  { "tlimit-per" , required_argument, NULL, TIME_LIMIT_PER },
+  { "rlimit"     , required_argument, NULL, RESOURCE_LIMIT       },
+  { "rlimit-per" , required_argument, NULL, RESOURCE_LIMIT_PER   },
   { NULL         , no_argument      , NULL, '\0'        }
 };/* if you add things to the above, please remember to update usage.h! */
 
@@ -745,7 +745,7 @@ throw(OptionException) {
         perCallMillisecondLimit = (unsigned long) i;
       }
       break;
-    case LIMIT:
+    case RESOURCE_LIMIT:
       {
         int i = atoi(optarg);
         if(i < 0) {
@@ -754,7 +754,7 @@ throw(OptionException) {
         cumulativeResourceLimit = (unsigned long) i;
       }
       break;
-    case LIMIT_PER:
+    case RESOURCE_LIMIT_PER:
       {
         int i = atoi(optarg);
         if(i < 0) {
