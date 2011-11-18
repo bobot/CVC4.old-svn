@@ -376,6 +376,24 @@ void InstantiatorTheoryUf::debugPrint( const char* c )
   }
 
   Debug( c ) << std::endl;
+
+
+  Debug( c ) << std::endl;
+  Debug( c ) << "Test iterators for equality engine : " << std::endl;
+
+  EqClassesIterator< TheoryUF::NotifyClass > eqc_iter( &((TheoryUF*)d_th)->d_equalityEngine );
+  while( !eqc_iter.isFinished() ){
+    Debug( c ) << "Eq class [[" << (*eqc_iter) << "]]" << std::endl;
+    EqClassIterator< TheoryUF::NotifyClass > eqc_iter2( *eqc_iter, &((TheoryUF*)d_th)->d_equalityEngine );
+    Debug( c ) << "   ";
+    while( !eqc_iter2.isFinished() ){
+      Debug( c ) << "[" << (*eqc_iter2) << "] ";
+      eqc_iter2++;
+    }
+    Debug( c ) << std::endl;
+    eqc_iter++;
+  }
+
 }
 
 bool InstantiatorTheoryUf::areEqual( Node a, Node b ){

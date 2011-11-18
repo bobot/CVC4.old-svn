@@ -218,8 +218,14 @@ class StrongSolverTheoryUf;
 //AJR-hack-end
 
 template <typename NotifyClass>
-class EqualityEngine : public context::ContextNotifyObj {
+class EqClassesIterator;
+template <typename NotifyClass>
+class EqClassIterator;
 
+template <typename NotifyClass>
+class EqualityEngine : public context::ContextNotifyObj {
+  friend class EqClassesIterator<NotifyClass>;
+  friend class EqClassIterator<NotifyClass>;
 public:
   //AJR-hack
   /** associated theory strong solver */
@@ -661,7 +667,89 @@ public:
    * Check whether the two term are dis-equal.
    */
   bool areDisequal(TNode t1, TNode t2);
+
 };
+
+template <typename NotifyClass>
+class EqClassesIterator
+{
+private:
+  EqualityEngine<NotifyClass>* d_ee;
+  size_t d_it;
+public:
+  EqClassesIterator( EqualityEngine<NotifyClass>* ee ) : d_ee( ee ){
+    d_it = 0;
+    //for( int i=0; i<(int)d_ee->d_nodesCount; i++ ){
+    //  std::cout << "{" << d_ee->d_nodes[i] << "}";
+    //}
+    //std::cout << std::endl;
+    if( d_it<d_ee->d_nodesCount && d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] ){
+      (*this)++;
+    }
+  }
+  Node operator*() { return d_ee->d_nodes[d_it]; }
+  bool operator==(const EqClassesIterator<NotifyClass>& i) {
+    return d_ee == i.d_ee && d_it == i.d_it;
+  }
+  bool operator!=(const EqClassesIterator<NotifyClass>& i) {
+    return !(*this == i);
+  }
+  EqClassesIterator<NotifyClass>& operator++() {
+    Node orig = d_ee->d_nodes[d_it];
+    ++d_it;
+    while( d_it<d_ee->d_nodesCount && ( d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] || 
+           d_ee->d_nodes[d_it]==orig ) ){    //this line is necessary for ignoring duplicates
+      ++d_it;
+    }
+    return *this;
+  }
+  EqClassesIterator<NotifyClass>& operator++(int) {
+    EqClassesIterator<NotifyClass> i = *this;
+    ++*this;
+    return i;
+  }
+  bool isFinished() { return d_it>=d_ee->d_nodesCount; }
+};
+
+template <typename NotifyClass>
+class EqClassIterator
+{
+private:
+  EqualityNode d_curr;
+  Node d_curr_node;
+  EqualityEngine<NotifyClass>* d_ee;
+  bool d_finished;
+public:
+  EqClassIterator( Node eqc, EqualityEngine<NotifyClass>* ee ) : d_ee( ee ), d_finished( false ){
+    Assert( d_ee->getRepresentative( eqc )==eqc );
+    d_curr_node = eqc;
+    d_curr = d_ee->getEqualityNode( eqc );
+  }
+  Node operator*() { return d_curr_node; }
+  bool operator==(const EqClassIterator<NotifyClass>& i) {
+    return d_ee == i.d_ee && d_curr == i.d_curr;
+  }
+  bool operator!=(const EqClassIterator<NotifyClass>& i) {
+    return !(*this == i);
+  }
+  EqClassIterator<NotifyClass>& operator++() {
+    Node next = d_ee->d_nodes[ d_curr.getNext() ];
+    if( d_ee->getRepresentative( next )!=next ){    //we end when we have cycled back to the original representative
+      d_curr_node = next;
+      d_curr = d_ee->getEqualityNode( d_curr.getNext() );
+    }else{
+      d_finished = true;
+    }
+    return *this;
+  }
+  EqClassIterator<NotifyClass>& operator++(int) {
+    EqClassIterator<NotifyClass> i = *this;
+    ++*this;
+    return i;
+  }
+  bool isFinished() { return d_finished; }
+};
+
 
 } // Namespace uf
 } // Namespace theory
