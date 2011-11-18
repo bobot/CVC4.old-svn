@@ -416,10 +416,11 @@ int runCvc4(int argc, char *argv[], Options& options) {
   }
 
   /* Duplication, Individualisation */
-  ExprManagerMapCollection* vmaps = new ExprManagerMapCollection();
+  ExprManagerMapCollection* vmaps;
   Command *seqs[numThreads];
   seqs[0] = seq;   seq = NULL;
   for(int i = 1; i < numThreads; ++i) {
+    vmaps = new ExprManagerMapCollection();
     exprMgrs[i] = new ExprManager(threadOptions[i]);
     seqs[i] = seqs[0]->exportTo(exprMgrs[i], *vmaps);
   }
@@ -441,6 +442,10 @@ int runCvc4(int argc, char *argv[], Options& options) {
       new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgrs[0]);
     threadOptions[1].lemmaInputChannel =
       new PortfolioLemmaInputChannel("thread #1", channelsIn[1], exprMgrs[1]);
+  } else {
+    // Disable sharing. We do not currently support it.
+    for(int i=0; i<numThreads; ++i)
+      threadOptions[i].sharingFilterByLength = 0;
   }
 
   /* Portfolio */
