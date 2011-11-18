@@ -11,7 +11,6 @@ libmain_a_SOURCES = \
 	interactive_shell.h \
 	interactive_shell.cpp \
 	main.h \
-	usage.h \
 	util.cpp
 
 if CVC4_HAS_THREADS

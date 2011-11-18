@@ -526,6 +526,29 @@ Command* GetAssignmentCommand::exportTo(ExprManager* exprManager, ExprManagerMap
   return c;
 }
 
+/* class GetProofCommand */
+
+GetProofCommand::GetProofCommand() {
+}
+
+void GetProofCommand::invoke(SmtEngine* smtEngine) {
+  d_result = smtEngine->getProof();
+}
+
+Proof* GetProofCommand::getResult() const {
+  return d_result;
+}
+
+void GetProofCommand::printResult(std::ostream& out) const {
+  d_result->toStream(out);
+}
+
+Command* GetProofCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetProofCommand* c = new GetProofCommand;
+  c->d_result = d_result;
+  return c;
+}
+
 /* class GetAssertionsCommand */
 
 GetAssertionsCommand::GetAssertionsCommand() {

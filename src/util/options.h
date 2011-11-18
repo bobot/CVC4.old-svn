@@ -152,6 +152,9 @@ struct CVC4_PUBLIC Options {
   /** Whether we support SmtEngine::getValue() for this run. */
   bool produceModels;
 
+  /** Whether we produce proofs. */
+  bool proof;
+  
   /** Whether we support SmtEngine::getAssignment() for this run. */
   bool produceAssignments;
 

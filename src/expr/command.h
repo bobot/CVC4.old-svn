@@ -36,6 +36,7 @@
 #include "util/result.h"
 #include "util/sexpr.h"
 #include "util/datatype.h"
+#include "util/proof.h"
 
 namespace CVC4 {
 
@@ -276,6 +277,16 @@ public:
   void printResult(std::ostream& out) const;
   Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
 };/* class GetAssignmentCommand */
+
+class CVC4_PUBLIC GetProofCommand : public Command {
+protected:
+  Proof* d_result;
+public:
+  GetProofCommand();
+  void invoke(SmtEngine* smtEngine);
+  Proof* getResult() const;
+  void printResult(std::ostream& out) const;
+};/* class GetProofCommand */
 
 class CVC4_PUBLIC GetAssertionsCommand : public Command {
 protected:

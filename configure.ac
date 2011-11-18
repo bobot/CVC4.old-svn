@@ -145,6 +145,13 @@ if test -n "${enable_assertions+set}"; then
     btargs="$btargs noassertions"
   fi
 fi
+if test -n "${enable_proof+set}"; then
+  if test "$enable_proof" = yes; then
+    btargs="$btargs proof"
+  else
+    btargs="$btargs noproof"
+  fi
+fi
 if test -n "${enable_tracing+set}"; then
   if test "$enable_tracing" = yes; then
     btargs="$btargs tracing"
@@ -374,6 +381,7 @@ case "$with_build" in
     if test -z "${enable_statistics+set}"   ; then enable_statistics=yes            ; fi
     if test -z "${enable_replay+set}"       ; then enable_replay=no                 ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=no             ; fi
+    if test -z "${enable_proof+set}"        ; then enable_proof=no                  ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=no                ; fi
     if test -z "${enable_dumping+set}"      ; then enable_dumping=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
@@ -389,6 +397,7 @@ case "$with_build" in
     if test -z "${enable_statistics+set}"   ; then enable_statistics=yes            ; fi
     if test -z "${enable_replay+set}"       ; then enable_replay=yes                ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=yes            ; fi
+    if test -z "${enable_proof+set}"        ; then enable_proof=no                  ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=yes               ; fi
     if test -z "${enable_dumping+set}"      ; then enable_dumping=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
@@ -405,6 +414,7 @@ case "$with_build" in
     if test -z "${enable_statistics+set}"   ; then enable_statistics=yes            ; fi
     if test -z "${enable_replay+set}"       ; then enable_replay=yes                ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=yes            ; fi
+    if test -z "${enable_proof+set}"        ; then enable_proof=no                  ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=yes               ; fi
     if test -z "${enable_dumping+set}"      ; then enable_dumping=yes               ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=no                 ; fi
@@ -421,6 +431,7 @@ case "$with_build" in
     if test -z "${enable_statistics+set}"   ; then enable_statistics=no             ; fi
     if test -z "${enable_replay+set}"       ; then enable_replay=no                 ; fi
     if test -z "${enable_assertions+set}"   ; then enable_assertions=no             ; fi
+    if test -z "${enable_proof+set}"        ; then enable_proof=no                  ; fi
     if test -z "${enable_tracing+set}"      ; then enable_tracing=no                ; fi
     if test -z "${enable_dumping+set}"      ; then enable_dumping=no                ; fi
     if test -z "${enable_muzzle+set}"       ; then enable_muzzle=yes                ; fi
@@ -451,6 +462,20 @@ AC_MSG_RESULT([$enable_static_binary])
 if test "$enable_static_binary" = yes -a "$enable_static" != yes; then
   enable_static=yes
   AC_MSG_WARN([forcing static-library building, --enable-static-binary given])
+fi
+
+AC_MSG_CHECKING([whether to support proof in libcvc4])
+
+AC_ARG_ENABLE([proof],
+  [AS_HELP_STRING([--enable-proof],
+     [support proof generation])])
+if test -z "${enable_proof+set}"; then
+  enable_proof=no
+fi
+AC_MSG_RESULT([$enable_proof])
+
+if test "$enable_proof" = yes; then
+  CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_PROOF"
 fi
 
 AC_MSG_CHECKING([whether to optimize libcvc4])
@@ -695,6 +720,24 @@ if test "$CVC4_CONFIGURE_IN_BUILDS" = yes -a -n "$CXXTEST"; then
     *)  CXXTEST="$srcdir/$CXXTEST" ;;
   esac
 fi
+
+AC_ARG_VAR(LFSC, [path to LFSC proof checker])
+AC_ARG_VAR(LFSCARGS, [arguments to pass to LFSC proof checker])
+if test -z "$LFSC"; then
+  AC_CHECK_PROGS(LFSC, lfsc, [], [])
+else
+  AC_CHECK_PROG(LFSC, "$LFSC", [], [])
+fi
+AM_CONDITIONAL([PROOF_REGRESSIONS], [test -n "$LFSC" -a "$enable_proof" = yes])
+if test -z "$LFSC"; then
+  support_proof_tests='no, lfsc proof checker unavailable'
+elif test "$enable_proof" = yes; then
+  support_proof_tests='yes, proof regression tests enabled'
+else
+  support_proof_tests='no, proof generation disabled for this build'
+fi
+AC_SUBST([LFSC])
+AC_SUBST([LFSCARGS])
 
 CXXTESTGEN=
 AC_PATH_PROG(CXXTESTGEN, cxxtestgen.pl, [], [$CXXTEST:$PATH])
@@ -1073,6 +1116,7 @@ Build profile: $with_build
 Build ID     : $build_type
 Optimized    : $optimized
 Debug symbols: $enable_debug_symbols
+Proof        : $enable_proof
 Statistics   : $enable_statistics
 Replay       : $enable_replay
 Assertions   : $enable_assertions
@@ -1081,6 +1125,7 @@ Dumping      : $enable_dumping
 Muzzle       : $enable_muzzle
 
 Unit tests   : $support_unit_tests
+Proof tests  : $support_proof_tests
 gcov support : $enable_coverage
 gprof support: $enable_profiling
 CUDD         : $cvc4cudd

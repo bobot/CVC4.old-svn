@@ -1,7 +1,12 @@
 SUBDIRS = . core
 
 BINARY = cvc4
+if PROOF_REGRESSIONS
+TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression --proof @top_builddir@/src/main/$(BINARY)
+else
 TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/$(BINARY)
+endif
+
 MAKEFLAGS = -k
 
 # These are run for all build profiles.
