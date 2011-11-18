@@ -57,7 +57,7 @@ void cvc4_init() throw(Exception);
 }/* CVC4 namespace */
 
 /** Actual Cvc4 driver functions **/
-int runCvc4(int argc, char* argv[], CVC4::Options& );
-void printUsage(CVC4::Options& );
+int runCvc4(int argc, char* argv[], CVC4::Options&);
+void printUsage(CVC4::Options&, bool full = false);
 
 #endif /* __CVC4__MAIN__MAIN_H */

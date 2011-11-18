@@ -48,6 +48,7 @@ class BooleanType;
 class IntegerType;
 class RealType;
 class PseudobooleanType;
+class StringType;
 class BitVectorType;
 class ArrayType;
 class DatatypeType;
@@ -265,6 +266,18 @@ public:
   operator PseudobooleanType() const throw(AssertionException);
 
   /**
+   * Is this the string type?
+   * @return true if the type is the string type
+   */
+  bool isString() const;
+
+  /**
+   * Cast this type to a string type
+   * @return the StringType
+   */
+  operator StringType() const throw(AssertionException);
+
+  /**
    * Is this the bit-vector type?
    * @return true if the type is a bit-vector type
    */
@@ -458,6 +471,17 @@ public:
   /** Construct from the base type */
   PseudobooleanType(const Type& type) throw(AssertionException);
 };/* class PseudobooleanType */
+
+/**
+ * Singleton class encapsulating the string type.
+ */
+class CVC4_PUBLIC StringType : public Type {
+
+public:
+
+  /** Construct from the base type */
+  StringType(const Type& type) throw(AssertionException);
+};/* class StringType */
 
 /**
  * Class encapsulating a function type.

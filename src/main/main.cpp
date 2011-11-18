@@ -24,7 +24,19 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "main.h"
+#include "main/main.h"
+#include "main/interactive_shell.h"
+#include "parser/parser.h"
+#include "parser/parser_builder.h"
+#include "parser/parser_exception.h"
+#include "expr/expr_manager.h"
+#include "smt/smt_engine.h"
+#include "expr/command.h"
+#include "util/Assert.h"
+#include "util/configuration.h"
+#include "util/options.h"
+#include "util/output.h"
+#include "util/result.h"
 #include "util/stats.h"
 
 using namespace std;

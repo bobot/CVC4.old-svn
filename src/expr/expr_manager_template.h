@@ -127,6 +127,9 @@ public:
   /** Get the type for booleans */
   BooleanType booleanType() const;
 
+  /** Get the type for strings. */
+  StringType stringType() const;
+
   /** Get the type for sorts. */
   KindType kindType() const;
 
@@ -196,6 +199,19 @@ public:
    * @return the n-ary expression
    */
   Expr mkExpr(Kind kind, const std::vector<Expr>& children);
+
+  /**
+   * Make an n-ary expression of given kind given a first arg and
+   * a vector of its remaining children (this can be useful where the
+   * kind is parameterized operator, so the first arg is really an
+   * arg to the kind to construct an operator)
+   *
+   * @param kind the kind of expression to build
+   * @param child1 the first subexpression
+   * @param children the remaining subexpressions
+   * @return the n-ary expression
+   */
+  Expr mkExpr(Kind kind, Expr child1, const std::vector<Expr>& otherChildren);
 
   /**
    * Make a nullary parameterized expression with the given operator.

@@ -57,14 +57,18 @@ Without an input file, or with `-', CVC4 reads from standard input.\n\
 \n\
 CVC4 options:\n";
 
-void printUsage(Options& options) {
+void printUsage(Options& options, bool full) {
   stringstream ss;
   ss << "usage: " << options.binary_name << " [options] [input-file]" << endl
       << endl
       << "Without an input file, or with `-', CVC4 reads from standard input." << endl
       << endl
       << "CVC4 options:" << endl;
-  Options::printUsage( ss.str(), *options.out );
+  if(full) {
+    Options::printUsage( ss.str(), *options.out );
+  } else {
+    Options::printShortUsage( ss.str(), *options.out );
+  }
 }
 
 int runCvc4(int argc, char* argv[], Options& options) {
@@ -83,7 +87,7 @@ int runCvc4(int argc, char* argv[], Options& options) {
   progName = options.binary_name.c_str();
 
   if( options.help ) {
-    printUsage(options);
+    printUsage(options, true);
     exit(1);
   } else if( options.languageHelp ) {
     Options::printLanguageHelp(*options.out);
