@@ -279,11 +279,22 @@ int runCvc4(int argc, char *argv[], Options& options) {
   // Options
   //options.showSharing = true;
 
+  /* Use satRandomSeed for generating random numbers, in particular satRandomSeed-s */
+  srand((unsigned int)(-options.satRandomSeed));
+
   vector<Options> threadOptions;
   for(int i = 0; i < numThreads; ++i) {
     threadOptions.push_back(options);
     Options& opts = threadOptions.back();
+
+    // Set thread identifier
     opts.thread_id = i;
+
+    // If the random-seed is negative, pick a random seed randomly
+    const double EPS = 1e-9;
+    if(options.satRandomSeed < 0)
+      opts.satRandomSeed = (double)rand();
+
     if(i < options.threadArgv.size() && !options.threadArgv[i].empty()) {
       // separate out the thread's individual configuration string
       stringstream optidss;
