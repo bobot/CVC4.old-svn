@@ -160,7 +160,7 @@ public:
 
 int runCvc4(int argc, char *argv[], Options& options) {
 
-  // Timer statistic till we have support in cluster
+  // Timer statistic
   TimerStat s_totalTime("totalTime");
   TimerStat s_beforePortfolioTime("beforePortfolioTime");
   s_totalTime.start();
@@ -330,7 +330,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
   }
 
   // Create the expression manager
-  ExprManager* exprMgr = new ExprManager(threadOptions[0]);
+  ExprManager* exprMgrs[numThreads];
+  exprMgrs[0] = new ExprManager(threadOptions[0]);
+  ExprManager* exprMgr = exprMgrs[0]; // to avoid having to change code which uses that
 
   ReferenceStat< const char* > s_statFilename("filename", filename);
   RegisterStatistic* statFilenameReg =
@@ -383,20 +385,25 @@ int runCvc4(int argc, char *argv[], Options& options) {
     delete parser;
   }
 
+  exprMgr = NULL;               // don't want to use that variable
+                                // after this point
+
   /* Currently all code assumes a maximum of two threads */
-  assert(numThreads <= 2);
+  //assert(numThreads <= 2);
+
+  assert(numThreads >= 1);      //do we need this?
 
   /* Output to string stream  */
-  
-  stringstream ss_out(stringstream::out);
-  stringstream ss_out2(stringstream::out);
+  vector<stringstream*> ss_out(numThreads);
   if(options.verbosity == 0 or options.separateOutput) {
-    threadOptions[0].out = &ss_out;
-    threadOptions[1].out = &ss_out2;
+    for(int i=0;i <numThreads; ++i) {
+      ss_out[i] = new stringstream;
+      threadOptions[i].out = ss_out[i];
+    }
   }
 
   /* Sharing channels */
-  SharedChannel<channelFormat> *channelsOut[2], *channelsIn[2];
+  SharedChannel<channelFormat> *channelsOut[numThreads], *channelsIn[numThreads];
 
   for(int i=0; i<numThreads; ++i){
     if(Debug.isOn("channel-empty")) {
@@ -409,36 +416,36 @@ int runCvc4(int argc, char *argv[], Options& options) {
   }
 
   /* Duplication, Individualisation */
-  ExprManager* exprMgr2 = new ExprManager(threadOptions[1]);
-
   ExprManagerMapCollection* vmaps = new ExprManagerMapCollection();
-
-  Command *seq2 = seq->exportTo(exprMgr2, *vmaps);
-
-  /* Add StatisticRegistries to GlobalRegistry */
+  Command *seqs[numThreads];
+  seqs[0] = seq;   seq = NULL;
+  for(int i = 1; i < numThreads; ++i) {
+    exprMgrs[i] = new ExprManager(threadOptions[i]);
+    seqs[i] = seqs[0]->exportTo(exprMgrs[i], *vmaps);
+  }
 
   /* Lemma output channel */
   threadOptions[0].lemmaOutputChannel =
     new PortfolioLemmaOutputChannel("thread #0",
                                     channelsOut[0],
-                                    exprMgr,
+                                    exprMgrs[0],
                                     vmaps->d_to,
                                     vmaps->d_from);
   threadOptions[1].lemmaOutputChannel =
     new PortfolioLemmaOutputChannel("thread #1",
-                                    channelsOut[1], exprMgr2,
+                                    channelsOut[1], exprMgrs[1],
                                     vmaps->d_from, vmaps->d_to);
 
   threadOptions[0].lemmaInputChannel =
-    new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgr);
+    new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgrs[0]);
   threadOptions[1].lemmaInputChannel =
-    new PortfolioLemmaInputChannel("thread #1", channelsIn[1], exprMgr2);
+    new PortfolioLemmaInputChannel("thread #1", channelsIn[1], exprMgrs[1]);
 
   /* Portfolio */
-  function <Result()> fns[2];
+  function <Result()> fns[numThreads];
 
-  fns[0] = boost::bind(doSmt, boost::ref(*exprMgr), seq, boost::ref(threadOptions[0]));
-  fns[1] = boost::bind(doSmt, boost::ref(*exprMgr2), seq2, boost::ref(threadOptions[1]));
+  fns[0] = boost::bind(doSmt, boost::ref(*exprMgrs[0]), seqs[0], boost::ref(threadOptions[0]));
+  fns[1] = boost::bind(doSmt, boost::ref(*exprMgrs[1]), seqs[1], boost::ref(threadOptions[1]));
 
   function <void()>
     smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn);
@@ -450,7 +457,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   cout << result << endl;
   if(options.printWinner){
-    cout << "The winner is #" << (winner == 0 ? 0 : 1) << endl;
+    cout << "The winner is #" << winner << endl;
   }
 
   Result satRes = result.asSatisfiabilityResult();
@@ -480,9 +487,10 @@ int runCvc4(int argc, char *argv[], Options& options) {
   }
 
   if(options.separateOutput) {
-    *options.out << ss_out.str() ;
-    *options.out << "--- Seperator ---" << endl;
-    *options.out << ss_out2.str() ;
+    for(int i = 0; i < numThreads; ++i) {
+      *options.out << "--- Output from thread #" << i << " ---" << endl;
+      *options.out << ss_out[i]->str();
+    }
   }
 
   /*if(options.statistics) {
@@ -506,11 +514,11 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   delete statFilenameReg;
 
-  delete seq;
-  delete exprMgr;
+  // delete seq;
+  // delete exprMgr;
 
-  delete seq2;
-  delete exprMgr2;
+  // delete seq2;
+  // delete exprMgr2;
 
   return returnValue;
 }
