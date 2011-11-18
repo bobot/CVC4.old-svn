@@ -425,27 +425,29 @@ int runCvc4(int argc, char *argv[], Options& options) {
   }
 
   /* Lemma output channel */
-  threadOptions[0].lemmaOutputChannel =
-    new PortfolioLemmaOutputChannel("thread #0",
-                                    channelsOut[0],
-                                    exprMgrs[0],
-                                    vmaps->d_to,
-                                    vmaps->d_from);
-  threadOptions[1].lemmaOutputChannel =
-    new PortfolioLemmaOutputChannel("thread #1",
-                                    channelsOut[1], exprMgrs[1],
-                                    vmaps->d_from, vmaps->d_to);
+  if(numThreads == 2) {
+    threadOptions[0].lemmaOutputChannel =
+      new PortfolioLemmaOutputChannel("thread #0",
+                                      channelsOut[0],
+                                      exprMgrs[0],
+                                      vmaps->d_to,
+                                      vmaps->d_from);
+    threadOptions[1].lemmaOutputChannel =
+      new PortfolioLemmaOutputChannel("thread #1",
+                                      channelsOut[1], exprMgrs[1],
+                                      vmaps->d_from, vmaps->d_to);
 
-  threadOptions[0].lemmaInputChannel =
-    new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgrs[0]);
-  threadOptions[1].lemmaInputChannel =
-    new PortfolioLemmaInputChannel("thread #1", channelsIn[1], exprMgrs[1]);
+    threadOptions[0].lemmaInputChannel =
+      new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgrs[0]);
+    threadOptions[1].lemmaInputChannel =
+      new PortfolioLemmaInputChannel("thread #1", channelsIn[1], exprMgrs[1]);
+  }
 
   /* Portfolio */
   function <Result()> fns[numThreads];
 
-  fns[0] = boost::bind(doSmt, boost::ref(*exprMgrs[0]), seqs[0], boost::ref(threadOptions[0]));
-  fns[1] = boost::bind(doSmt, boost::ref(*exprMgrs[1]), seqs[1], boost::ref(threadOptions[1]));
+  for(int i = 0 ; i < numThreads ; ++i)
+    fns[i] = boost::bind(doSmt, boost::ref(*exprMgrs[i]), seqs[i], boost::ref(threadOptions[i]));
 
   function <void()>
     smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn);
