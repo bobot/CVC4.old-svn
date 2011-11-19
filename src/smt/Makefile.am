@@ -13,14 +13,10 @@ libsmt_la_SOURCES = \
 	no_such_function_exception.h
 
 nodist_libsmt_la_SOURCES = \
-	smt_options.cpp \
-	options.cpp \
-	options.h
+	smt_options.cpp
 
 BUILT_SOURCES = \
-	smt_options.cpp \
-	options.cpp \
-	options.h
+	smt_options.cpp
 
 EXTRA_DIST = \
 	bad_option_exception.i \
@@ -28,10 +24,6 @@ EXTRA_DIST = \
 	modal_exception.i \
 	smt_engine.i \
 	options
-
-options:;
-options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
-	$(MAKE) -C @top_srcdir@/src/options builts
 
 smt_options.cpp: smt_options_template.cpp @top_srcdir@/src/options/mkoptions @top_srcdir@/src/*/options @top_srcdir@/src/theory/*/options
 	$(AM_V_at)chmod +x @top_srcdir@/src/options/mkoptions

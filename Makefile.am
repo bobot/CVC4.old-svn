@@ -104,7 +104,7 @@ EXTRA_DIST = \
 	config/build-type \
 	config/mkbuilddir \
 	config/doxygen.cfg \
-	doc/cvc4.1.in \
+	doc/cvc4.1_template.in \
 	doc/cvc4.5.in \
 	doc/libcvc4.3.in \
 	doc/libcvc4parser.3.in \
@@ -116,7 +116,7 @@ man_MANS = \
 	doc/libcvc4parser.3 \
 	doc/libcvc4compat.3
 
-doc/cvc4.1: doc/cvc4.1_template src/options/mkoptions doc/cvc4.1_template src/*/options src/theory/*/options
+doc/cvc4.1: doc/cvc4.1_template src/options/mkoptions src/*/options src/theory/*/options
 	@srcdir@/src/options/mkoptions doc/cvc4.1_template doc/cvc4.1 @srcdir@/src/*/options @srcdir@/src/theory/*/options
 src/%/options:;
 

@@ -297,7 +297,7 @@ int OptionsClass::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${module_option_handlers}
 
-#line 297 "${template}"
+#line 301 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.

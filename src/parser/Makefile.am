@@ -60,10 +60,6 @@ libcvc4parser_la_SOURCES = \
 	parser_exception.h \
 	antlr_tracing.h
 
-nodist_libcvc4parser_la_SOURCES = \
-	options.cpp \
-	options.h
-
 libcvc4parser_noinst_la_SOURCES = \
 	antlr_input.h \
 	antlr_input.cpp \
@@ -83,23 +79,10 @@ libcvc4parser_noinst_la_SOURCES = \
 	parser_exception.h \
 	antlr_tracing.h
 
-nodist_libcvc4parser_noinst_la_SOURCES = \
-	options.cpp \
-	options.h
-
-BUILT_SOURCES = \
-	options.cpp \
-	options.h
-
 EXTRA_DIST = \
 	Makefile.antlr_tracing \
 	cvc4parser.i \
 	input.i \
 	parser_builder.i \
 	parser_exception.i \
-	parser.i \
-	options
-
-options:;
-options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
-	$(MAKE) -C @top_srcdir@/src/options builts
+	parser.i

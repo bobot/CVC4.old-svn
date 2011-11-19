@@ -17,18 +17,5 @@ libarrays_la_SOURCES = \
 	static_fact_manager.h \
 	static_fact_manager.cpp
 
-nodist_libarrays_la_SOURCES = \
-	options.cpp \
-	options.h
-
-BUILT_SOURCES = \
-	options.cpp \
-	options.h
-
 EXTRA_DIST = \
-	kinds \
-	options
-
-options:;
-options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
-	$(MAKE) -C @top_srcdir@/src/options builts
+	kinds

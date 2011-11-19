@@ -15,18 +15,5 @@ libdatatypes_la_SOURCES = \
 	explanation_manager.h \
 	explanation_manager.cpp
 
-nodist_libdatatypes_la_SOURCES = \
-	options.cpp \
-	options.h
-
-BUILT_SOURCES = \
-	options.cpp \
-	options.h
-
 EXTRA_DIST = \
-	kinds \
-	options
-
-options:;
-options.h options.cpp: @top_srcdir@/src/options/base_options_template.h @top_srcdir@/src/options/base_options_template.cpp @top_srcdir@/src/options/mkoptions options
-	$(MAKE) -C @top_srcdir@/src/options builts
+	kinds

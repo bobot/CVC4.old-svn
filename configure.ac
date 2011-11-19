@@ -203,7 +203,7 @@ if test -n "${enable_replay+set}"; then
 fi
 AC_MSG_RESULT([$with_build])
 
-AM_INIT_AUTOMAKE([1.11 no-define parallel-tests color-tests])
+AM_INIT_AUTOMAKE([1.11 no-define parallel-tests color-tests subdir-objects])
 AC_CONFIG_HEADERS([cvc4autoconfig.h])
 
 # Initialize libtool's configuration options.
@@ -993,6 +993,7 @@ fi
 AC_SUBST(CVC4_USE_CLN_IMP)
 AC_SUBST(CVC4_USE_GMP_IMP)
 
+# month/year for man pages
 MAN_DATE=`date '+%B %Y'`
 AC_SUBST(MAN_DATE)
 
