@@ -45,9 +45,13 @@ BUILT_SOURCES = \
 	$(OPTIONS_FILES:%=../%.h) \
 	exprs-builts
 
+DISTCLEANFILES = \
+	$(BUILT_SOURCES) \
+	options-stamp
+
 EXTRA_DIST = \
 	mkoptions \
-	options \
+	base_options \
 	base_options_template.h \
 	base_options_template.cpp \
 	options_template.cpp \
@@ -107,7 +111,7 @@ MOSTLYCLEANFILES = \
 	Debug_tags.h \
 	Trace_tags.h
 
-options_holder.h options.cpp ../smt/smt_options.cpp $(OPTIONS_FILES:%=../%.cpp) $(OPTIONS_FILES:%=../%.h): options-stamp
+options_holder.h options.cpp ../smt/smt_options.cpp base_options.cpp base_options.h $(OPTIONS_FILES:%=../%.cpp) $(OPTIONS_FILES:%=../%.h): options-stamp
 options-stamp: options_holder_template.h options_template.cpp ../smt/smt_options_template.cpp base_options_template.h base_options_template.cpp mkoptions $(OPTIONS_FILES:%=../%)
 	$(AM_V_at)chmod +x @srcdir@/mkoptions
 	$(AM_V_GEN)(@srcdir@/mkoptions \
@@ -121,7 +125,7 @@ options-stamp: options_holder_template.h options_template.cpp ../smt/smt_options
 	)
 	touch "$@"
 
-$(OPTIONS_FILES:%=../%):;
+base_options $(OPTIONS_FILES:%=../%):;
 
 .PHONY: exprs-builts
 exprs-builts:; $(AM_V_at)[ "$(FROM_EXPR)" != 1 ] && $(MAKE) -C ../expr builts || true

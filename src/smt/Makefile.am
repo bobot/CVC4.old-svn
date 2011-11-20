@@ -19,5 +19,6 @@ EXTRA_DIST = \
 	bad_option_exception.i \
 	no_such_function_exception.i \
 	modal_exception.i \
-	smt_engine.i
+	smt_engine.i \
+	smt_options_template.cpp
 
