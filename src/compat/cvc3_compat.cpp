@@ -687,21 +687,23 @@ void CLFlags::setFlag(const std::string& name,
   (*i).second = sv;
 }
 
-void ValidityChecker::setUpOptions(CVC4::OptionsClass& options, const CLFlags& clflags) {
+void ValidityChecker::setUpOptions(CVC4::Options& options, const CLFlags& clflags) {
   // always incremental and model-producing in CVC3 compatibility mode
   d_smt->setOption("incremental", string("true"));
   d_smt->setOption("produce-models", string("true"));
 
   d_smt->setOption("statistics", string(clflags["stats"].getBool() ? "true" : "false"));
-  d_smt->setOption("random-seed", double(clflags["seed"].getInt()));
+  d_smt->setOption("random-seed", int2string(clflags["seed"].getInt()));
   d_smt->setOption("interactive-mode", string(clflags["interactive"].getBool() ? "true" : "false"));
-  if(options[CVC4::interactive]) {
-    options[CVC4::interactiveSetByUser] = true;
+  if(options[CVC4::options::interactive]) {
+    options.set(CVC4::options::interactiveSetByUser, true);
   }
   d_smt->setOption("parse-only", string(clflags["parse-only"].getBool() ? "true" : "false"));
   d_smt->setOption("input-language", clflags["lang"].getString());
   if(clflags["output-lang"].getString() == "") {
-    d_smt->setOption("output-language", CVC4::language::toOutputLanguage(options[CVC4::inputLanguage]));
+    stringstream langss;
+    langss << CVC4::language::toOutputLanguage(options[CVC4::options::inputLanguage]);
+    d_smt->setOption("output-language", langss.str());
   } else {
     d_smt->setOption("output-language", clflags["output-lang"].getString());
   }
@@ -1238,7 +1240,7 @@ void ValidityChecker::printExpr(const Expr& e) {
 void ValidityChecker::printExpr(const Expr& e, std::ostream& os) {
   Expr::setdepth::Scope sd(os, -1);
   Expr::printtypes::Scope pt(os, false);
-  Expr::setlanguage::Scope sl(os, d_em->getOptions()[CVC4::outputLanguage]);
+  Expr::setlanguage::Scope sl(os, d_em->getOptions()[CVC4::options::outputLanguage]);
   os << e;
 }
 
@@ -2061,10 +2063,10 @@ void ValidityChecker::logAnnotation(const Expr& annot) {
   Unimplemented("This CVC3 compatibility function not yet implemented (sorry!)");
 }
 
-static void doCommands(CVC4::parser::Parser* parser, CVC4::SmtEngine* smt, CVC4::OptionsClass& opts) {
+static void doCommands(CVC4::parser::Parser* parser, CVC4::SmtEngine* smt, CVC4::Options& opts) {
   while(CVC4::Command* cmd = parser->nextCommand()) {
-    if(opts[CVC4::verbosity] >= 0) {
-      cmd->invoke(smt, *opts[CVC4::out]);
+    if(opts[CVC4::options::verbosity] >= 0) {
+      cmd->invoke(smt, *opts[CVC4::options::out]);
     } else {
       cmd->invoke(smt);
     }
@@ -2076,10 +2078,12 @@ void ValidityChecker::loadFile(const std::string& fileName,
                                InputLanguage lang,
                                bool interactive,
                                bool calledFromParser) {
-  CVC4::OptionsClass opts = d_em->getOptions();
-  d_smt->setOption("input-language", lang);
+  CVC4::Options opts = d_em->getOptions();
+  stringstream langss;
+  langss << lang;
+  d_smt->setOption("input-language", langss.str());
   d_smt->setOption("interactive-mode", string(interactive ? "true" : "false"));
-  opts[CVC4::interactiveSetByUser] = true;
+  opts.set(CVC4::options::interactiveSetByUser, true);
   CVC4::parser::ParserBuilder parserBuilder(d_em, fileName, opts);
   CVC4::parser::Parser* p = parserBuilder.build();
   p->useDeclarationsFrom(d_parserContext);
@@ -2090,10 +2094,12 @@ void ValidityChecker::loadFile(const std::string& fileName,
 void ValidityChecker::loadFile(std::istream& is,
                                InputLanguage lang,
                                bool interactive) {
-  CVC4::OptionsClass opts = d_em->getOptions();
-  d_smt->setOption("input-language", lang);
+  CVC4::Options opts = d_em->getOptions();
+  stringstream langss;
+  langss << lang;
+  d_smt->setOption("input-language", langss.str());
   d_smt->setOption("interactive-mode", string(interactive ? "true" : "false"));
-  opts[CVC4::interactiveSetByUser] = true;
+  opts.set(CVC4::options::interactiveSetByUser, true);
   CVC4::parser::ParserBuilder parserBuilder(d_em, "[stream]", opts);
   CVC4::parser::Parser* p = parserBuilder.withStreamInput(is).build();
   d_parserContext = p;

@@ -18,8 +18,8 @@
 
 #include "cvc4_public.h"
 
-#ifndef __CVC4__OPTIONS_H
-#define __CVC4__OPTIONS_H
+#ifndef __CVC4__OPTIONS__OPTIONS_H
+#define __CVC4__OPTIONS__OPTIONS_H
 
 #include <iostream>
 #include <fstream>
@@ -31,8 +31,11 @@
 
 namespace CVC4 {
 
+namespace options {
+  class OptionsHolder;
+}/* CVC4::options namespace */
+
 class ExprStream;
-class OptionsHolder;
 class NodeManager;
 class NodeManagerScope;
 class SmtEngine;
@@ -61,11 +64,11 @@ public:
   }
 };/* class OptionException */
 
-class CVC4_PUBLIC OptionsClass {
-  OptionsHolder* d_holder;
+class CVC4_PUBLIC Options {
+  options::OptionsHolder* d_holder;
 
   /** The current Options in effect */
-  static CVC4_THREADLOCAL(OptionsClass*) s_current;
+  static CVC4_THREADLOCAL(Options*) s_current;
 
   friend class NodeManager;
   friend class NodeManagerScope;
@@ -80,13 +83,13 @@ class CVC4_PUBLIC OptionsClass {
 public:
 
   /** Get the current Options in effect */
-  static inline OptionsClass& current() {
+  static inline Options& current() {
     return *s_current;
   }
 
-  OptionsClass();
-  OptionsClass(const OptionsClass& options);
-  ~OptionsClass();
+  Options();
+  Options(const Options& options);
+  ~Options();
 
   template <class T>
   void set(T, const typename T::type&) {
@@ -135,26 +138,7 @@ public:
    */
   void setInputLanguage(const char* str) throw(OptionException);
 
-};/* class OptionsClass */
-
-/**
- * This function just exists to provide a nicer syntax for getting
- * current options: Options[foo]
- */
-class CVC4_PUBLIC OptionObject {
-public:
-  template <class T>
-  inline const typename T::type& operator[](T t) const {
-    return OptionsClass::current()[t];
-  }
-
-  template <class T>
-  void set(T t, const typename T::type& v) {
-    OptionsClass::current().set(t, v);
-  }
-};/* struct OptionObject */
-
-extern OptionObject Options;
+};/* class Options */
 
 std::ostream& operator<<(std::ostream& out, SimplificationMode mode) CVC4_PUBLIC;
 std::ostream& operator<<(std::ostream& out, ArithPivotRule rule) CVC4_PUBLIC;
@@ -163,4 +147,4 @@ std::ostream& operator<<(std::ostream& out, ArithPivotRule rule) CVC4_PUBLIC;
 
 #include "options/base_options.h"
 
-#endif /* __CVC4__OPTIONS_H */
+#endif /* __CVC4__OPTIONS__OPTIONS_H */

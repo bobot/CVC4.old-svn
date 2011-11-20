@@ -47,7 +47,7 @@ class CVC4_PUBLIC InteractiveShell {
   static const unsigned s_historyLimit = 500;
 
 public:
-  InteractiveShell(ExprManager& exprManager, const OptionsClass& options);
+  InteractiveShell(ExprManager& exprManager, const Options& options);
 
   /**
    * Close out the interactive session.

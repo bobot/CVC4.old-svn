@@ -30,13 +30,25 @@ ${module_optionholder_spec}
 
 namespace CVC4 {
 
+namespace options {
+
 ${module_decls}
 
-#line 36 "${template}"
+#line 38 "${template}"
+
+}/* CVC4::options namespace */
 
 ${module_specializations}
 
-#line 40 "${template}"
+#line 44 "${template}"
+
+namespace options {
+
+${module_inlines}
+
+#line 50 "${template}"
+
+}/* CVC4::options namespace */
 
 }/* CVC4 namespace */
 

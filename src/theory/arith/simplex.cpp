@@ -47,7 +47,7 @@ SimplexDecisionProcedure::SimplexDecisionProcedure(ArithPropManager& propManager
   d_ZERO(0),
   d_DELTA_ZERO(0,0)
 {
-  switch(ArithPivotRule rule = Options[pivotRule]) {
+  switch(ArithPivotRule rule = options::pivotRule()) {
   case MINIMUM:
     d_queue.setPivotRule(ArithPriorityQueue::MINIMUM);
     break;
@@ -399,7 +399,7 @@ void SimplexDecisionProcedure::propagateCandidates(){
   for(; i != end; ++i){
     ArithVar var = *i;
     if(d_tableau.isBasic(var) &&
-       d_tableau.getRowLength(var) <= Options[arithPropagateMaxLength]){
+       d_tableau.getRowLength(var) <= options::arithPropagateMaxLength()){
       d_candidateBasics.softAdd(var);
     }else{
       Tableau::ColIterator basicIter = d_tableau.colIterator(var);
@@ -408,7 +408,7 @@ void SimplexDecisionProcedure::propagateCandidates(){
         ArithVar rowVar = entry.getRowVar();
         Assert(entry.getColVar() == var);
         Assert(d_tableau.isBasic(rowVar));
-        if(d_tableau.getRowLength(rowVar) <= Options[arithPropagateMaxLength]){
+        if(d_tableau.getRowLength(rowVar) <= options::arithPropagateMaxLength()){
           d_candidateBasics.softAdd(rowVar);
         }
       }
@@ -722,7 +722,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     --remainingIterations;
 
-    bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  Options[arithPivotThreshold];
+    bool useVarOrderPivot = d_pivotsInRound.count(x_i) >=  options::arithPivotThreshold();
     if(!useVarOrderPivot){
       d_pivotsInRound.addMultiset(x_i);
     }
@@ -730,7 +730,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
 
     Debug("playground") << "pivots in rounds: " <<  d_pivotsInRound.count(x_i)
                         << " use " << useVarOrderPivot
-                        << " threshold " << Options[arithPivotThreshold]
+                        << " threshold " << options::arithPivotThreshold()
                         << endl;
 
     PreferenceFunction pf = useVarOrderPivot ? minVarOrder : minBoundAndRowCount;

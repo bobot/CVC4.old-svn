@@ -240,7 +240,7 @@ void TheoryUF::presolve() {
   // TimerStat::CodeTimer codeTimer(d_presolveTimer);
 
   Debug("uf") << "uf: begin presolve()" << endl;
-  if(Options[ufSymmetryBreaker]) {
+  if(options::ufSymmetryBreaker()) {
     vector<Node> newClauses;
     d_symb.apply(newClauses);
     for(vector<Node>::const_iterator i = newClauses.begin();
@@ -360,7 +360,7 @@ void TheoryUF::staticLearning(TNode n, NodeBuilder<>& learned) {
     }
   }
 
-  if(Options[ufSymmetryBreaker]) {
+  if(options::ufSymmetryBreaker()) {
     d_symb.assertFormula(n);
   }
 }

@@ -18,20 +18,26 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__OPTIONS_HOLDER_H
-#define __CVC4__OPTIONS_HOLDER_H
+#ifndef __CVC4__OPTIONS__OPTIONS_HOLDER_H
+#define __CVC4__OPTIONS__OPTIONS_HOLDER_H
 
 ${include_all_option_headers}
 
 #line 27 "${template}"
 
 namespace CVC4 {
+namespace options {
 
 struct OptionsHolder {
   OptionsHolder();
-  ${all_modules_contributions}
-};
 
+  ${all_modules_contributions}
+
+#line 37 "${template}"
+
+};/* struct OptionsHolder */
+
+}/* CVC4::options namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__OPTIONS_HOLDER_H */
+#endif /* __CVC4__OPTIONS__OPTIONS_HOLDER_H */

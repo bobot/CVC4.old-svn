@@ -22,4 +22,14 @@ namespace CVC4 {
 
 ${module_accessors}
 
-}
+#line 26 "${template}"
+
+namespace options {
+
+${module_global_definitions}
+
+#line 32 "${template}"
+
+}/* CVC4::options namespace */
+
+}/* CVC4 namespace */

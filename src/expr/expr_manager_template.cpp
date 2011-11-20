@@ -83,7 +83,7 @@ ExprManager::ExprManager() :
 #endif
 }
 
-ExprManager::ExprManager(const OptionsClass& options) :
+ExprManager::ExprManager(const Options& options) :
   d_ctxt(new Context()),
   d_nodeManager(new NodeManager(d_ctxt, this, options)) {
 #ifdef CVC4_STATISTICS_ON
@@ -116,7 +116,7 @@ ExprManager::~ExprManager() {
   delete d_ctxt;
 }
 
-const OptionsClass& ExprManager::getOptions() const {
+const Options& ExprManager::getOptions() const {
   return d_nodeManager->getOptions();
 }
 

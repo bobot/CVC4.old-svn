@@ -40,7 +40,7 @@ ParserBuilder::ParserBuilder(ExprManager* exprManager,
 
 ParserBuilder::ParserBuilder(ExprManager* exprManager, 
                              const std::string& filename, 
-                             const OptionsClass& options) :
+                             const Options& options) :
   d_filename(filename),
   d_exprManager(exprManager) {
   init(exprManager, filename);
@@ -136,13 +136,13 @@ ParserBuilder& ParserBuilder::withParseOnly(bool flag) {
   return *this;
 }
 
-ParserBuilder& ParserBuilder::withOptions(const OptionsClass& options) {
+ParserBuilder& ParserBuilder::withOptions(const Options& options) {
   return
-    withInputLanguage(options[inputLanguage])
-      .withMmap(options[memoryMap])
-      .withChecks(options[semanticChecks])
-      .withStrictMode(options[strictParsing])
-      .withParseOnly(options[parseOnly]);
+    withInputLanguage(options::inputLanguage())
+      .withMmap(options::memoryMap())
+      .withChecks(options::semanticChecks())
+      .withStrictMode(options::strictParsing())
+      .withParseOnly(options::parseOnly());
   }
 
 ParserBuilder& ParserBuilder::withStrictMode(bool flag) {

@@ -54,7 +54,7 @@ static void printUsage(bool full = false);
 namespace CVC4 {
   namespace main {
     /** Global options variable */
-    OptionsClass options;
+    Options opts;
 
     /** Full argv[0] */
     const char *progPath;
@@ -69,14 +69,14 @@ namespace CVC4 {
 
 static void printUsage(bool full) {
   stringstream ss;
-  ss << "usage: " << options[binary_name] << " [options] [input-file]" << endl
+  ss << "usage: " << opts[options::binary_name] << " [options] [input-file]" << endl
      << endl
      << "Without an input file, or with `-', CVC4 reads from standard input." << endl
      << endl;
   if(full) {
-    OptionsClass::printUsage( ss.str(), *options[out] );
+    Options::printUsage( ss.str(), *opts[options::out] );
   } else {
-    OptionsClass::printShortUsage( ss.str(), *options[out] );
+    Options::printShortUsage( ss.str(), *opts[options::out] );
   }
 }
 
@@ -92,34 +92,34 @@ int main(int argc, char* argv[]) {
     return runCvc4(argc, argv);
   } catch(OptionException& e) {
 #ifdef CVC4_COMPETITION_MODE
-    *options[out] << "unknown" << endl;
+    *opts[options::out] << "unknown" << endl;
 #endif
     cerr << "CVC4 Error:" << endl << e << endl;
     printUsage();
     exit(1);
   } catch(Exception& e) {
 #ifdef CVC4_COMPETITION_MODE
-    *options[out] << "unknown" << endl;
+    *opts[options::out] << "unknown" << endl;
 #endif
-    *options[err] << "CVC4 Error:" << endl << e << endl;
-    if(options[statistics] && pStatistics != NULL) {
-      pStatistics->flushStatistics(*options[err]);
+    *opts[options::err] << "CVC4 Error:" << endl << e << endl;
+    if(opts[options::statistics] && pStatistics != NULL) {
+      pStatistics->flushStatistics(*opts[options::err]);
     }
     exit(1);
   } catch(bad_alloc&) {
 #ifdef CVC4_COMPETITION_MODE
-    *options[out] << "unknown" << endl;
+    *opts[options::out] << "unknown" << endl;
 #endif
-    *options[err] << "CVC4 ran out of memory." << endl;
-    if(options[statistics] && pStatistics != NULL) {
-      pStatistics->flushStatistics(*options[err]);
+    *opts[options::err] << "CVC4 ran out of memory." << endl;
+    if(opts[options::statistics] && pStatistics != NULL) {
+      pStatistics->flushStatistics(*opts[options::err]);
     }
     exit(1);
   } catch(...) {
 #ifdef CVC4_COMPETITION_MODE
-    *options[out] << "unknown" << endl;
+    *opts[options::out] << "unknown" << endl;
 #endif
-    *options[err] << "CVC4 threw an exception of unknown type." << endl;
+    *opts[options::err] << "CVC4 threw an exception of unknown type." << endl;
     exit(1);
   }
 }
@@ -133,26 +133,26 @@ static int runCvc4(int argc, char* argv[]) {
   progPath = argv[0];
 
   // Parse the options
-  int firstArgIndex = options.parseOptions(argc, argv);
+  int firstArgIndex = opts.parseOptions(argc, argv);
 
-  progName = options[binary_name].c_str();
+  progName = opts[options::binary_name].c_str();
 
-  if( options[help] ) {
+  if( opts[options::help] ) {
     printUsage(true);
     exit(1);
-  } else if( options[languageHelp] ) {
-    OptionsClass::printLanguageHelp(*options[out]);
+  } else if( opts[options::languageHelp] ) {
+    Options::printLanguageHelp(*opts[options::out]);
     exit(1);
-  } else if( options[version] ) {
-    *options[out] << Configuration::about().c_str() << flush;
+  } else if( opts[options::version] ) {
+    *opts[options::out] << Configuration::about().c_str() << flush;
     exit(0);
   }
 
-  CVC4::main::segvNoSpin = options[CVC4::segvNoSpin];
+  CVC4::main::segvNoSpin = opts[CVC4::options::segvNoSpin];
 
   // If in competition mode, set output stream option to flush immediately
 #ifdef CVC4_COMPETITION_MODE
-  *options[out] << unitbuf;
+  *opts[options::out] << unitbuf;
 #endif
 
   // We only accept one input file
@@ -165,8 +165,8 @@ static int runCvc4(int argc, char* argv[]) {
     firstArgIndex >= argc || !strcmp("-", argv[firstArgIndex]);
 
   // if we're reading from stdin on a TTY, default to interactive mode
-  if(!options[interactiveSetByUser]) {
-    options.set(interactive, inputFromStdin && isatty(fileno(stdin)));
+  if(!opts[options::interactiveSetByUser]) {
+    opts.set(options::interactive, inputFromStdin && isatty(fileno(stdin)));
   }
 
   // Determine which messages to show based on smtcomp_mode and verbosity
@@ -179,20 +179,20 @@ static int runCvc4(int argc, char* argv[]) {
     Warning.setStream(CVC4::null_os);
     Dump.setStream(CVC4::null_os);
   } else {
-    if(options[verbosity] < 2) {
+    if(opts[options::verbosity] < 2) {
       Chat.setStream(CVC4::null_os);
     }
-    if(options[verbosity] < 1) {
+    if(opts[options::verbosity] < 1) {
       Notice.setStream(CVC4::null_os);
     }
-    if(options[verbosity] < 0) {
+    if(opts[options::verbosity] < 0) {
       Message.setStream(CVC4::null_os);
       Warning.setStream(CVC4::null_os);
     }
   }
 
   // Create the expression manager
-  ExprManager exprMgr(options);
+  ExprManager exprMgr(opts);
 
   // Create the SmtEngine
   SmtEngine smt(&exprMgr);
@@ -206,25 +206,25 @@ static int runCvc4(int argc, char* argv[]) {
   ReferenceStat< const char* > s_statFilename("filename", filename);
   RegisterStatistic statFilenameReg(exprMgr, &s_statFilename);
 
-  if(options[inputLanguage] == language::input::LANG_AUTO) {
+  if(opts[options::inputLanguage] == language::input::LANG_AUTO) {
     if( inputFromStdin ) {
       // We can't do any fancy detection on stdin
-      options.set(inputLanguage, language::input::LANG_CVC4);
+      opts.set(options::inputLanguage, language::input::LANG_CVC4);
     } else {
       unsigned len = strlen(filename);
       if(len >= 5 && !strcmp(".smt2", filename + len - 5)) {
-        options.set(inputLanguage, language::input::LANG_SMTLIB_V2);
+        opts.set(options::inputLanguage, language::input::LANG_SMTLIB_V2);
       } else if(len >= 4 && !strcmp(".smt", filename + len - 4)) {
-        options.set(inputLanguage, language::input::LANG_SMTLIB);
+        opts.set(options::inputLanguage, language::input::LANG_SMTLIB);
       } else if(( len >= 4 && !strcmp(".cvc", filename + len - 4) )
                 || ( len >= 5 && !strcmp(".cvc4", filename + len - 5) )) {
-        options.set(inputLanguage, language::input::LANG_CVC4);
+        opts.set(options::inputLanguage, language::input::LANG_CVC4);
       }
     }
   }
 
-  if(options[outputLanguage] == language::output::LANG_AUTO) {
-    options.set(outputLanguage, language::toOutputLanguage(options[inputLanguage]));
+  if(opts[options::outputLanguage] == language::output::LANG_AUTO) {
+    opts.set(options::outputLanguage, language::toOutputLanguage(opts[options::inputLanguage]));
   }
 
   // Determine which messages to show based on smtcomp_mode and verbosity
@@ -237,49 +237,49 @@ static int runCvc4(int argc, char* argv[]) {
     Warning.setStream(CVC4::null_os);
     Dump.setStream(CVC4::null_os);
   } else {
-    if(options[verbosity] < 2) {
+    if(opts[options::verbosity] < 2) {
       Chat.setStream(CVC4::null_os);
     }
-    if(options[verbosity] < 1) {
+    if(opts[options::verbosity] < 1) {
       Notice.setStream(CVC4::null_os);
     }
-    if(options[verbosity] < 0) {
+    if(opts[options::verbosity] < 0) {
       Message.setStream(CVC4::null_os);
       Warning.setStream(CVC4::null_os);
     }
 
-    Debug.getStream() << Expr::setlanguage(options[outputLanguage]);
-    Trace.getStream() << Expr::setlanguage(options[outputLanguage]);
-    Notice.getStream() << Expr::setlanguage(options[outputLanguage]);
-    Chat.getStream() << Expr::setlanguage(options[outputLanguage]);
-    Message.getStream() << Expr::setlanguage(options[outputLanguage]);
-    Warning.getStream() << Expr::setlanguage(options[outputLanguage]);
-    Dump.getStream() << Expr::setlanguage(options[outputLanguage])
+    Debug.getStream() << Expr::setlanguage(opts[options::outputLanguage]);
+    Trace.getStream() << Expr::setlanguage(opts[options::outputLanguage]);
+    Notice.getStream() << Expr::setlanguage(opts[options::outputLanguage]);
+    Chat.getStream() << Expr::setlanguage(opts[options::outputLanguage]);
+    Message.getStream() << Expr::setlanguage(opts[options::outputLanguage]);
+    Warning.getStream() << Expr::setlanguage(opts[options::outputLanguage]);
+    Dump.getStream() << Expr::setlanguage(opts[options::outputLanguage])
                      << Expr::setdepth(-1)
                      << Expr::printtypes(false);
   }
 
   Parser* replayParser = NULL;
-  if( options[replayFilename] != "" ) {
-    ParserBuilder replayParserBuilder(&exprMgr, options[replayFilename], options);
+  if( opts[options::replayFilename] != "" ) {
+    ParserBuilder replayParserBuilder(&exprMgr, opts[options::replayFilename], opts);
 
-    if( options[replayFilename] == "-") {
+    if( opts[options::replayFilename] == "-") {
       if( inputFromStdin ) {
         throw OptionException("Replay file and input file can't both be stdin.");
       }
       replayParserBuilder.withStreamInput(cin);
     }
     replayParser = replayParserBuilder.build();
-    options.set(replayStream, new Parser::ExprStream(replayParser));
+    opts.set(options::replayStream, new Parser::ExprStream(replayParser));
   }
-  if( options[replayLog] != NULL ) {
-    *options[replayLog] << Expr::setlanguage(options[outputLanguage]) << Expr::setdepth(-1);
+  if( opts[options::replayLog] != NULL ) {
+    *opts[options::replayLog] << Expr::setlanguage(opts[options::outputLanguage]) << Expr::setdepth(-1);
   }
 
   // Parse and execute commands until we are done
   Command* cmd;
-  if( options[interactive] ) {
-    InteractiveShell shell(exprMgr, options);
+  if( opts[options::interactive] ) {
+    InteractiveShell shell(exprMgr, opts);
     Message() << Configuration::getPackageName()
               << " " << Configuration::getVersionString();
     if(Configuration::isSubversionBuild()) {
@@ -298,7 +298,7 @@ static int runCvc4(int argc, char* argv[]) {
       delete cmd;
     }
   } else {
-    ParserBuilder parserBuilder(&exprMgr, filename, options);
+    ParserBuilder parserBuilder(&exprMgr, filename, opts);
 
     if( inputFromStdin ) {
       parserBuilder.withStreamInput(cin);
@@ -317,10 +317,10 @@ static int runCvc4(int argc, char* argv[]) {
     delete parser;
   }
 
-  if( options[replayStream] != NULL ) {
+  if( opts[options::replayStream] != NULL ) {
     // this deletes the expression parser too
-    delete options[replayStream];
-    options.set(replayStream, NULL);
+    delete opts[options::replayStream];
+    opts.set(options::replayStream, NULL);
   }
 
   string result = smt.getInfo("status").getValue();
@@ -343,8 +343,8 @@ static int runCvc4(int argc, char* argv[]) {
   ReferenceStat< Result > s_statSatResult("sat/unsat", result);
   RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
 
-  if(options[statistics]) {
-    smt.getStatisticsRegistry()->flushStatistics(*options[err]);
+  if(opts[options::statistics]) {
+    smt.getStatisticsRegistry()->flushStatistics(*opts[options::err]);
   }
 
   return returnValue;
@@ -352,7 +352,7 @@ static int runCvc4(int argc, char* argv[]) {
 
 /** Executes a command. Deletes the command after execution. */
 static void doCommand(SmtEngine& smt, Command* cmd) {
-  if( options[parseOnly] ) {
+  if( opts[options::parseOnly] ) {
     return;
   }
 
@@ -364,12 +364,12 @@ static void doCommand(SmtEngine& smt, Command* cmd) {
       doCommand(smt, *subcmd);
     }
   } else {
-    if(options[verbosity] > 0) {
-      *options[out] << "Invoking: " << *cmd << endl;
+    if(opts[options::verbosity] > 0) {
+      *opts[options::out] << "Invoking: " << *cmd << endl;
     }
 
-    if(options[verbosity] >= 0) {
-      cmd->invoke(&smt, *options[out]);
+    if(opts[options::verbosity] >= 0) {
+      cmd->invoke(&smt, *opts[options::out]);
     } else {
       cmd->invoke(&smt);
     }

@@ -32,16 +32,8 @@ This is much better than a full recompile of course.
 
 The above is now implemented, but there are things that still bug me:
 
-* options.cpp files are linked individually into each subdirectory library.
-  This wastes a lot of time linking.  Probably they should live in the subdirectories
-  but be compiled into liboptions..  another reason is that the private options.cpp files
-  reach in through the non-visible interface so parser/options.cpp and main/options.cpp
-  really belong in libcvc4..
-* is the OptionsClass public still?  Does this make sense?
-* the "touch *" rule in top-level Makefile.am to make manpage doc go through
+* is the Options class public still?  Does this make sense?
 * long doc vs. short doc
-* better void/bool/alternate option documentation
-* can we keep Options in CVC4 namespace but put OptionsWrapper and "verbosity" etc. and maybe OptionsClass in CVC4::options ?  Does name lookup work for us here?
 * document requirements on option types (default constructible?  copy-able?  must have operator<<(ostream)?  hashable?)
 
--- Morgan Deters <mdeters@cs.nyu.edu>  Sun, 13 Nov 2011 18:01:10 -0500
+-- Morgan Deters <mdeters@cs.nyu.edu>  Sat, 19 Nov 2011 20:43:35 -0500

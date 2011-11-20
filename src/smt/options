@@ -21,7 +21,7 @@ common-option - --dump-to=FILE argument :handler dumpToFile
  all dumping goes to FILE (instead of stdout)
 
 option printSuccess print-success --print-success bool :default false
- print SMT-LIBv2 conformant \"success\" messages
+ print SMT-LIBv2 conformant "success" messages
 
 expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
  expand define-funs/LAMBDAs lazily

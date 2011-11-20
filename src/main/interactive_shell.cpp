@@ -80,10 +80,10 @@ static set<string> s_declarations;
 #endif /* HAVE_LIBREADLINE */
 
 InteractiveShell::InteractiveShell(ExprManager& exprManager,
-                                   const OptionsClass& options) :
-  d_in(*options[in]),
-  d_out(*options[out]),
-  d_language(options[inputLanguage]),
+                                   const Options& options) :
+  d_in(*options[options::in]),
+  d_out(*options[options::out]),
+  d_language(options[options::inputLanguage]),
   d_quit(false) {
   ParserBuilder parserBuilder(&exprManager, INPUT_FILENAME, options);
   /* Create parser with bogus input. */

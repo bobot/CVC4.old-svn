@@ -92,11 +92,11 @@ none\n\
 ";
 
 inline void increaseVerbosity(std::string option) {
-  Options.set(verbosity, Options[verbosity] + 1);
+  options::verbosity.set(options::verbosity() + 1);
 }
 
 inline void decreaseVerbosity(std::string option) {
-  Options.set(verbosity, Options[verbosity] - 1);
+  options::verbosity.set(options::verbosity() - 1);
 }
 
 inline void dumpMode(std::string option, std::string optarg) {
@@ -198,7 +198,7 @@ inline OutputLanguage stringToOutputLanguage(std::string option, std::string opt
                           optarg + "'.  Try --output-lang help.");
   }
 
-  Options.set(languageHelp, true);
+  options::languageHelp.set(true);
   return language::output::LANG_AUTO;
 }
 
@@ -218,7 +218,7 @@ inline InputLanguage stringToInputLanguage(std::string option, std::string optar
                           optarg + "'.  Try --lang help.");
   }
 
-  Options.set(languageHelp, true);
+  options::languageHelp.set(true);
   return language::input::LANG_AUTO;
 }
 
@@ -352,7 +352,7 @@ inline void setPrintExprTypes(std::string option) {
 }
 
 inline void setInteractiveByUser(std::string option, bool b) {
-  Options.set(interactiveSetByUser, true);
+  options::interactiveSetByUser.set(true);
 }
 
 inline std::string checkReplayFilename(std::string option, std::string optarg) {

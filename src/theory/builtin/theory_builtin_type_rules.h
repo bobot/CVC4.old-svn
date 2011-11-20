@@ -51,7 +51,7 @@ class ApplyTypeRule {
         for(; argument_it != argument_it_end; ++argument_it, ++argument_type_it) {
           if((*argument_it).getType() != *argument_type_it) {
             std::stringstream ss;
-            ss << Expr::setlanguage(language::toOutputLanguage(Options[inputLanguage]));
+            ss << Expr::setlanguage(language::toOutputLanguage(options::inputLanguage()));
             ss << "argument types do not match the function type:\n"
                << "argument:  " << *argument_it << "\n"
                << "has type:  " << (*argument_it).getType() << "\n"
@@ -81,7 +81,7 @@ class EqualityTypeRule {
 
       if ( lhsType != rhsType ) {
         std::stringstream ss;
-        ss << Expr::setlanguage(language::toOutputLanguage(Options[inputLanguage]));
+        ss << Expr::setlanguage(language::toOutputLanguage(options::inputLanguage()));
         ss << "Types do not match in equation:" << std::endl;
         ss << "Equation: " << n << std::endl;
         ss << "Type 1: " << lhsType << std::endl;

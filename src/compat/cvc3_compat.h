@@ -463,7 +463,7 @@ std::ostream& operator<<(std::ostream& out, FormulaValue fv);
 class CVC4_PUBLIC ValidityChecker {
 
   CLFlags* d_clflags;
-  CVC4::OptionsClass d_options;
+  CVC4::Options d_options;
   CVC4::ExprManager* d_em;
   CVC4::SmtEngine* d_smt;
   CVC4::parser::Parser* d_parserContext;
@@ -476,7 +476,7 @@ class CVC4_PUBLIC ValidityChecker {
 
   ValidityChecker(const CLFlags& clflags);
 
-  void setUpOptions(CVC4::OptionsClass& options, const CLFlags& clflags);
+  void setUpOptions(CVC4::Options& options, const CLFlags& clflags);
 
 public:
   //! Constructor

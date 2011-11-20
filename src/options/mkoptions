@@ -9,29 +9,49 @@
 #
 # Invocation:
 #
-#   mkoptions template-file output-file options-files...
+#   mkoptions (template-file output-file)+ -t options.h-template options.cpp-template (options-file output-dir)+
 #
 
 copyright=2011
 
-filename=`basename "$1" | sed 's,_template,,'`
-
 me=$(basename "$0")
 
-template=$1; shift
-output=$1; shift
+function usage {
+  echo "usage: $me (template-file output-file)+ -t options.h-template options.cpp-template (options-file output-dir)+" >&2
+}
 
-module_id=
-module_name=
-module_includes=
-module_defaults=
-module_optionholder_spec=
-module_decls=
-module_specializations=
-module_accessors=
-module_short_options=
-module_long_options=
-module_option_handlers=
+declare -a templates
+declare -a outputs
+
+while [ "$1" != -t ]; do
+  if [ "$#" -lt 2 ]; then
+    echo "$me: error: expected -t on command line" >&2
+    usage
+    exit 1
+  fi
+  templates[${#templates[@]}]="$1"; shift
+  if [ "$1" = -t ]; then
+    echo "$me: error: mismatched number of templates and output files (before -t)" >&2
+    usage
+    exit 1
+  fi
+  outputs[${#outputs[@]}]="$1"; shift
+done
+
+shift
+if [ "$#" -lt 3 ]; then
+  echo "$me: error: not enough arguments" >&2
+  usage
+  exit 1
+fi
+
+options_h_template="$1"; shift
+options_cpp_template="$1"; shift
+
+all_modules_defaults=
+all_modules_short_options=
+all_modules_long_options=
+all_modules_option_handlers=
 smt_getoption_handlers=
 smt_setoption_handlers=
 include_all_option_headers=
@@ -61,6 +81,16 @@ predicates=
 
 function module {
   # module id name
+
+  module_id=
+  module_name=
+  module_includes=
+  module_optionholder_spec=
+  module_decls=
+  module_specializations=
+  module_inlines=
+  module_accessors=
+  module_global_definitions=
 
   seen_module=true
   if [ $# -lt 3 -o -z "$1" -o -z "$2" -o -z "$3" ]; then
@@ -306,37 +336,53 @@ function handle_option {
     # set up a field in the options_holder
     module_optionholder_spec="${module_optionholder_spec} \\
   ${internal}_t::type $internal;"
-    module_decls="${module_decls}
-#line $lineno \"$kf\"
-extern struct ${internal}_t { typedef $type type; } $internal;"
-    module_defaults="${module_defaults:+${module_defaults},}
+    all_modules_defaults="${all_modules_defaults:+${all_modules_defaults},}
 #line $lineno \"$kf\"
   $internal($default_value)"
-
-    if ! $readOnly; then
+    if $readOnly; then
+      module_decls="${module_decls}
+#line $lineno \"$kf\"
+extern struct CVC4_PUBLIC ${internal}_t { typedef $type type; type operator()() const; } $internal CVC4_PUBLIC;"
+      module_inlines="${module_inlines}
+#line $lineno \"$kf\"
+inline ${internal}_t::type ${internal}_t::operator()() const { return Options::current()[*this]; }
+"
+    else
+      module_decls="${module_decls}
+#line $lineno \"$kf\"
+extern struct CVC4_PUBLIC ${internal}_t { typedef $type type; type operator()() const; void set(const type& v); } $internal CVC4_PUBLIC;"
+      module_inlines="${module_inlines}
+#line $lineno \"$kf\"
+inline ${internal}_t::type ${internal}_t::operator()() const { return Options::current()[*this]; }
+#line $lineno \"$kf\"
+inline void ${internal}_t::set(const ${internal}_t::type& v) { Options::current().set(*this, v); }
+"
       module_specializations="${module_specializations}
 #line $lineno \"$kf\"
-template <> void OptionsClass::set(${internal}_t, const ${internal}_t::type& x);"
+template <> void Options::set(options::${internal}_t, const options::${internal}_t::type& x);"
       module_accessors="${module_accessors}
 #line $lineno \"$kf\"
-template <> void OptionsClass::set(${internal}_t, const ${internal}_t::type& x) { d_holder->$internal = x; }"
+template <> void Options::set(options::${internal}_t, const options::${internal}_t::type& x) { d_holder->$internal = x; }"
     fi
+    module_global_definitions="${module_global_definitions}
+#line $lineno \"$kf\"
+struct ${internal}_t $internal;"
     module_specializations="${module_specializations}
 #line $lineno \"$kf\"
-template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) const;"
+template <> const options::${internal}_t::type& Options::operator[](options::${internal}_t) const;"
     if [ "$type" = bool ]; then
       module_specializations="${module_specializations}
 #line $lineno \"$kf\"
-template <> void OptionsClass::assignBool(${internal}_t, std::string option, bool value);"
+template <> void Options::assignBool(options::${internal}_t, std::string option, bool value);"
     elif [ "$internal" != - ]; then
       module_specializations="${module_specializations}
 #line $lineno \"$kf\"
-template <> void OptionsClass::assign(${internal}_t, std::string option, std::string value);"
+template <> void Options::assign(options::${internal}_t, std::string option, std::string value);"
     fi
 
     module_accessors="${module_accessors}
 #line $lineno \"$kf\"
-template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) const { return d_holder->$internal; }"
+template <> const options::${internal}_t::type& Options::operator[](options::${internal}_t) const { return d_holder->$internal; }"
   fi
 
   if $required_argument || [ "$type" != bool -a "$type" != void ]; then
@@ -349,24 +395,24 @@ template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) c
   cases=
   cases_alternate=
   if [ -n "$short_option" ]; then
-    module_short_options="${module_short_options}$short_option$expect_arg"
+    all_modules_short_options="${all_modules_short_options}$short_option$expect_arg"
     cases="${cases}
     case '$short_option':"
   fi
   if [ -n "$short_option_alternate" ]; then
-    module_short_options="${module_short_options}$short_option_alternate$expect_arg"
+    all_modules_short_options="${all_modules_short_options}$short_option_alternate$expect_arg"
     cases_alternate="${cases_alternate}
     case '$short_option_alternate':"
   fi
   if [ -n "$long_option" ]; then
-    module_long_options="${module_long_options}
+    all_modules_long_options="${all_modules_long_options}
   { \"$(echo "$long_option" | sed 's,=.*,,')\", $expect_arg_long, NULL, $n_long },"
     cases="${cases}
     case $n_long:// --$long_option"
     let ++n_long
   fi
   if [ -n "$long_option_alternate" ]; then
-    module_long_options="${module_long_options}
+    all_modules_long_options="${all_modules_long_options}
   { \"$(echo "$long_option_alternate" | sed 's,=.*,,')\", $expect_arg_long, NULL, $n_long },"
     cases_alternate="${cases_alternate}
     case $n_long:// --$long_option_alternate"
@@ -400,15 +446,15 @@ template <> const ${internal}_t::type& OptionsClass::operator[](${internal}_t) c
     done
     all_custom_handlers="${all_custom_handlers}
 #line $lineno \"$kf\"
-template <> void runBoolHandlers(${internal}_t, std::string option, bool b) {
+template <> void runBoolHandlers(options::${internal}_t, std::string option, bool b) {
   $run_handlers
 }"
   fi
   if [ -n "$cases" ]; then
     if [ "$type" = bool ]; then
-      module_option_handlers="${module_option_handlers}${cases}
+      all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
-      assignBool($internal, argv[optind - 1], true);$run_links
+      assignBool(options::$internal, argv[optind - 1], true);$run_links
       break;
 "
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
@@ -421,16 +467,16 @@ template <> void runBoolHandlers(${internal}_t, std::string option, bool b) {
         done
         all_custom_handlers="${all_custom_handlers}
 #line $lineno \"$kf\"
-template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, std::string optarg) {
+template <> options::${internal}_t::type runHandlers(options::${internal}_t, std::string option, std::string optarg) {
 #line $lineno \"$kf\"
-  ${internal}_t::type retval = $run_handlers
+  options::${internal}_t::type retval = $run_handlers
 #line $lineno \"$kf\"
   return retval;
 }"
       fi
-      module_option_handlers="${module_option_handlers}${cases}
+      all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
-      assign($internal, argv[optind - 1], optarg);$run_links
+      assign(options::$internal, argv[optind - 1], optarg);$run_links
       break;
 "
     elif [ -n "$expect_arg" ]; then
@@ -440,7 +486,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
 #line $lineno \"$kf\"
       $handler(argv[optind - 1], optarg);"
       done
-      module_option_handlers="${module_option_handlers}${cases}
+      all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
       $run_handlers$run_links
       break;
@@ -452,7 +498,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
 #line $lineno \"$kf\"
       $handler(argv[optind - 1]);"
       done
-      module_option_handlers="${module_option_handlers}${cases}
+      all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
       $run_handlers$run_links
       break;
@@ -461,9 +507,9 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
   fi
   if [ -n "$cases_alternate" ]; then
     if [ "$type" = bool ]; then
-      module_option_handlers="${module_option_handlers}${cases_alternate}
+      all_modules_option_handlers="${all_modules_option_handlers}${cases_alternate}
 #line $lineno \"$kf\"
-      assignBool($internal, argv[optind - 1], false);$run_links_alternate
+      assignBool(options::$internal, argv[optind - 1], false);$run_links_alternate
       break;
 "
     else
@@ -478,7 +524,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
 #line $lineno \"$kf\"
   if(key == \"$smtname\") {
 #line $lineno \"$kf\"
-    stringstream ss; ss << Options[$internal];
+    stringstream ss; ss << options::$internal();
     return SExpr(ss.str());
   }"
     fi
@@ -488,7 +534,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
 #line $lineno \"$kf\"
   if(key == \"$smtname\") {
 #line $lineno \"$kf\"
-    OptionsClass::current().assignBool($internal, \"$smtname\", true);$run_links
+    Options::current().assignBool(options::$internal, \"$smtname\", true);$run_links
     return;
   }"
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
@@ -507,7 +553,7 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
 #line $lineno \"$kf\"
   if(key == \"$smtname\") {
 #line $lineno \"$kf\"
-    OptionsClass::current().assign($internal, \"$smtname\", optarg);$run_links
+    Options::current().assign(options::$internal, \"$smtname\", optarg);$run_links
     return;
   }"
     elif [ -n "$expect_arg" ]; then
@@ -551,18 +597,18 @@ template <> ${internal}_t::type runHandlers(${internal}_t, std::string option, s
     # emit assignBool/assign
     all_custom_handlers="${all_custom_handlers}
 #line $lineno \"$kf\"
-template <> void OptionsClass::assignBool(${internal}_t, std::string option, bool value) {
+template <> void Options::assignBool(options::${internal}_t, std::string option, bool value) {
 #line $lineno \"$kf\"
-  runBoolHandlers($internal, option, value);
+  runBoolHandlers(options::$internal, option, value);
 #line $lineno \"$kf\"
   d_holder->$internal = value;
 }"
   elif [ -n "$expect_arg" -a "$internal" != - ] && [ -n "$cases" -o "$cases_alternate" -o "$smtname" ]; then
     all_custom_handlers="${all_custom_handlers}
 #line $lineno \"$kf\"
-template <> void OptionsClass::assign(${internal}_t, std::string option, std::string value) {
+template <> void Options::assign(options::${internal}_t, std::string option, std::string value) {
 #line $lineno \"$kf\"
-  d_holder->$internal = runHandlers($internal, option, value);
+  d_holder->$internal = runHandlers(options::$internal, option, value);
 }"
   fi
 }
@@ -636,14 +682,14 @@ function doc {
     if [ "$category" = COMMON ]; then
       common_documentation="${common_documentation}\\n\"
 #line $lineno \"$kf\"
-\"$doc_line"
+\"$(echo "$doc_line" | sed 's,'\'',\\'\'',g;s,",\\",g')"
       common_manpage_documentation="${common_manpage_documentation}
 .IP \"$the_opt\"
 $@"
     else
       remaining_documentation="${remaining_documentation}\\n\"
 #line $lineno \"$kf\"
-\"$doc_line"
+\"$(echo "$doc_line" | sed 's,'\'',\\'\'',g;s,",\\",g')"
       remaining_manpage_documentation="${remaining_manpage_documentation}
 .IP \"$the_opt\"
 $@"
@@ -710,14 +756,14 @@ function doc-alternate {
     if [ "$category" = COMMON ]; then
       common_documentation="${common_documentation}\\n\"
 #line $lineno \"$kf\"
-\"$doc_line"
+\"$(echo "$doc_line" | sed 's,'\'',\\'\'',g;s,",\\",g')"
       common_manpage_documentation="${common_manpage_documentation}
 .IP \"$the_opt\"
 $@"
     else
       remaining_documentation="${remaining_documentation}\\n\"
 #line $lineno \"$kf\"
-\"$doc_line"
+\"$(echo "$doc_line" | sed 's,'\'',\\'\'',g;s,",\\",g')"
       remaining_manpage_documentation="${remaining_manpage_documentation}
 .IP \"$the_opt\"
 $@"
@@ -764,8 +810,98 @@ function check_include {
   fi
 }
 
+function output_module {
+  template="$1"
+  output="$2"
+
+  filename="$(basename "$output")"
+
+  #echo "generating module $output from $template"
+
+  # generate warnings about incorrect #line annotations in templates
+  nl -ba -s' ' "$template"  | grep '^ *[0-9][0-9]* # *line' |
+    awk '{OFS="";if($1+1!=$3) print "'"$template"':",$1,": warning: incorrect annotation \"#line ",$3,"\" (it should be \"#line ",($1+1),"\")"}' >&2
+
+  text=$(cat "$template")
+  for var in \
+      module_id \
+      module_name \
+      module_includes \
+      module_optionholder_spec \
+      module_decls \
+      module_specializations \
+      module_inlines \
+      module_accessors \
+      module_global_definitions \
+      template \
+      ; do
+    eval text="\${text//\\\$\\{$var\\}/\${$var}}"
+  done
+  error="$(echo "$text" | grep '.*\${[^}]*}.*' | head -n 1)"
+  if [ -n "$error" ]; then
+    error="$(echo "$error" | sed 's,.*\${\([^}]*\)}.*,\1,')"
+    echo "$template:0: error: undefined replacement \${$error}" >&2
+    exit 1
+  fi
+
+  (
+
+  # Output header (if this is a .cpp or .c or .h file) and then the
+  # processed text
+
+  if expr "$output" : '.*\.cpp$' &>/dev/null || expr "$output" : '.*\.[ch]$' &>/dev/null; then
+
+  cat <<EOF
+/*********************                                                        */
+/** $filename
+ **
+ ** Copyright $copyright  The AcSys Group, New York University, and as below.
+ **
+ ** This file automatically generated by:
+ **
+ **     $0 $@
+ **
+ ** for the CVC4 project.
+ **/
+
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+/* THIS FILE IS AUTOMATICALLY GENERATED, DO NOT EDIT ! */
+
+/* Edit the template file instead:                     */
+/* $1 */
+
+EOF
+  fi
+
+  echo "$text"
+
+  ) >"$output.tmp"
+
+  diff -q "$output" "$output.tmp" &>/dev/null || (cp -f "$output.tmp" "$output" && echo "regenerated $output")
+}
+
 while [ $# -gt 0 ]; do
-  kf=$1
+  kf="$1"; shift
+  if [ $# -eq 0 ]; then
+    echo "$me: error: mismatched number of templates and output files (before -t)" >&2
+    usage
+    exit 1
+  fi
+  outdir="$1"; shift
+
+  #echo "scanning $kf"
+
   seen_module=false
   seen_endmodule=false
   b=$(basename $(dirname "$kf"))
@@ -801,10 +937,23 @@ while [ $# -gt 0 ]; do
     echo "$kf:$lineno: error: no \"endmodule\" declaration found (it is required at the end)" >&2
     exit 1
   fi
-  shift
+
+  output_module "$options_h_template" "$outdir/$(basename "$kf").h"
+  output_module "$options_cpp_template" "$outdir/$(basename "$kf").cpp"
 done
 
-## output
+## final outputs
+
+i=0; while [ $i -lt ${#templates[@]} ]; do
+
+template="${templates[$i]}"
+output="${outputs[$i]}"
+
+let ++i
+
+filename="$(basename "$output")"
+
+#echo "generating $output from $template"
 
 # generate warnings about incorrect #line annotations in templates
 nl -ba -s' ' "$template"  | grep '^ *[0-9][0-9]* # *line' |
@@ -812,17 +961,10 @@ nl -ba -s' ' "$template"  | grep '^ *[0-9][0-9]* # *line' |
 
 text=$(cat "$template")
 for var in \
-    module_id \
-    module_name \
-    module_includes \
-    module_defaults \
-    module_optionholder_spec \
-    module_decls \
-    module_specializations \
-    module_accessors \
-    module_short_options \
-    module_long_options \
-    module_option_handlers \
+    all_modules_defaults \
+    all_modules_short_options \
+    all_modules_long_options \
+    all_modules_option_handlers \
     include_all_option_headers \
     all_modules_contributions \
     option_handler_includes \
@@ -886,4 +1028,9 @@ fi
 
 echo "$text"
 
-) >"$output"
+) >"$output.tmp"
+
+diff -q "$output" "$output.tmp" &>/dev/null || (cp -f "$output.tmp" "$output" && echo "regenerated $output")
+
+done
+

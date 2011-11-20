@@ -30,7 +30,7 @@
 namespace CVC4 {
 
 class ExprManager;
-class OptionsClass;
+class Options;
 
 namespace parser {
 
@@ -87,7 +87,7 @@ public:
   ParserBuilder(ExprManager* exprManager, const std::string& filename);
 
   ParserBuilder(ExprManager* exprManager, const std::string& filename,
-                const OptionsClass& options);
+                const Options& options);
 
   /** Build the parser, using the current settings. */
   Parser *build() throw (InputStreamException,AssertionException);
@@ -138,7 +138,7 @@ public:
   ParserBuilder& withParseOnly(bool flag = true);
 
   /** Derive settings from the given options. */
-  ParserBuilder& withOptions(const OptionsClass& options);
+  ParserBuilder& withOptions(const Options& options);
 
   /**
    * Should the parser use strict mode?

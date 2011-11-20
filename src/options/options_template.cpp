@@ -51,9 +51,7 @@ using namespace CVC4;
 
 namespace CVC4 {
 
-CVC4_THREADLOCAL(OptionsClass*) OptionsClass::s_current = NULL;
-
-OptionObject Options;
+CVC4_THREADLOCAL(Options*) Options::s_current = NULL;
 
 template <class T> T handleOption(std::string option, std::string optarg) {
   T::unsupported_handleOption_call___please_write_me;
@@ -110,7 +108,7 @@ void runBoolHandlers(T, std::string option, bool b) {
 
 ${all_custom_handlers}
 
-#line 114 "${template}"
+#line 112 "${template}"
 
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
@@ -124,34 +122,34 @@ ${all_custom_handlers}
 #  define DO_SEMANTIC_CHECKS_BY_DEFAULT true
 #endif /* CVC4_MUZZLED || CVC4_COMPETITION_MODE */
 
-OptionsClass::OptionsClass() :
-  d_holder(new OptionsHolder()) {
+Options::Options() :
+  d_holder(new options::OptionsHolder()) {
 }
 
-OptionsClass::OptionsClass(const OptionsClass& options) :
-  d_holder(new OptionsHolder(*options.d_holder)) {
+Options::Options(const Options& options) :
+  d_holder(new options::OptionsHolder(*options.d_holder)) {
 }
 
-OptionsClass::~OptionsClass() {
+Options::~Options() {
   delete d_holder;
 }
 
-OptionsHolder::OptionsHolder() : ${module_defaults}
+options::OptionsHolder::OptionsHolder() : ${all_modules_defaults}
 {
 }
 
-#line 144 "${template}"
+#line 142 "${template}"
 
 static const string mostCommonOptionsDescription = "\
 Most commonly-used CVC4 options:${common_documentation}";
 
-#line 149 "${template}"
+#line 147 "${template}"
 
 static const string optionsDescription = mostCommonOptionsDescription + "\n\
 \n\
 Additional CVC4 options:${remaining_documentation}";
 
-#line 155 "${template}"
+#line 153 "${template}"
 
 static const string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
@@ -168,20 +166,20 @@ Languages currently supported as arguments to the --output-lang option:\n\
   ast            internal format (simple syntax-tree language)\n\
 ";
 
-string OptionsClass::getDescription() const {
+string Options::getDescription() const {
   return optionsDescription;
 }
 
-void OptionsClass::printUsage(const std::string msg, std::ostream& out) {
+void Options::printUsage(const std::string msg, std::ostream& out) {
   out << msg << optionsDescription << endl << flush;
 }
 
-void OptionsClass::printShortUsage(const std::string msg, std::ostream& out) {
-  out << msg << mostCommonOptionsDescription << endl
+void Options::printShortUsage(const std::string msg, std::ostream& out) {
+  out << msg << mostCommonOptionsDescription << endl << endl
       << "For full usage, please use --help." << endl << flush;
 }
 
-void OptionsClass::printLanguageHelp(std::ostream& out) {
+void Options::printLanguageHelp(std::ostream& out) {
   out << languageDescription << flush;
 }
 
@@ -209,11 +207,11 @@ void OptionsClass::printLanguageHelp(std::ostream& out) {
  * If you add something that has a short option equivalent, you should
  * add it to the getopt_long() call in parseOptions().
  */
-static struct option cmdlineOptions[] = {${module_long_options}
+static struct option cmdlineOptions[] = {${all_modules_long_options}
   { NULL, no_argument, NULL, '\0' }
-};
+};/* cmdlineOptions */
 
-#line 217 "${template}"
+#line 215 "${template}"
 
 static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
@@ -240,8 +238,8 @@ static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   argv[i][maxoptlen - 1] = '\0'; // ensure NUL-termination even on overflow
 }
 
-/** Parse argc/argv and put the result into a CVC4::OptionsClass. */
-int OptionsClass::parseOptions(int argc, char* argv[]) throw(OptionException) {
+/** Parse argc/argv and put the result into a CVC4::Options. */
+int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
   s_current = this;
 
   const char *progName = argv[0];
@@ -267,7 +265,7 @@ int OptionsClass::parseOptions(int argc, char* argv[]) throw(OptionException) {
 #endif /* HAVE_DECL_OPTRESET */
       optind = extra_optind;
       c = getopt_long(extra_argc, extra_argv,
-                      ":${module_short_options}",
+                      ":${all_modules_short_options}",
                       cmdlineOptions, NULL);
       if(extra_optind >= extra_argc) {
         unsigned i = 0;
@@ -286,7 +284,7 @@ int OptionsClass::parseOptions(int argc, char* argv[]) throw(OptionException) {
 #endif /* HAVE_DECL_OPTRESET */
       optind = main_optind;
       c = getopt_long(argc, argv,
-                      ":${module_short_options}",
+                      ":${all_modules_short_options}",
                       cmdlineOptions, NULL);
       main_optind = optind;
       if(c == -1) {
@@ -295,9 +293,9 @@ int OptionsClass::parseOptions(int argc, char* argv[]) throw(OptionException) {
     }
 
     switch(c) {
-${module_option_handlers}
+${all_modules_option_handlers}
 
-#line 301 "${template}"
+#line 299 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.
@@ -318,7 +316,7 @@ ${module_option_handlers}
     }
   }
 
-  if((*this)[incrementalSolving] && (*this)[proof]) {
+  if((*this)[options::incrementalSolving] && (*this)[options::proof]) {
     throw OptionException(string("The use of --incremental with --proof is not yet supported"));
   }
 
