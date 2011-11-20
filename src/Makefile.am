@@ -45,6 +45,7 @@ libcvc4_la_LIBADD = \
 	@builddir@/theory/libtheory.la \
 	@builddir@/lib/libreplacements.la
 libcvc4_noinst_la_LIBADD = \
+	@builddir@/options/liboptions.la \
 	@builddir@/util/libutil.la \
 	@builddir@/expr/libexpr.la \
 	@builddir@/context/libcontext.la \

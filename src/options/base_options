@@ -89,7 +89,7 @@ common-option - -q --quiet void :handler decreaseVerbosity
 common-option statistics stats --stats bool
  give statistics on exit
 
-common-option parseOnly parse-only --parse-only bool
+common-option parseOnly parse-only --parse-only bool :read-write
  exit after parsing input
 
 common-option preprocessOnly preprocess-only --preprocess-only bool
