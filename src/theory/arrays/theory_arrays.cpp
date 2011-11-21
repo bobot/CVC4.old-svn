@@ -23,6 +23,7 @@
 #include <map>
 #include "theory/rewriter.h"
 #include "expr/command.h"
+#include "theory/uf/equality_engine_impl.h"
 
 using namespace std;
 using namespace CVC4;
@@ -34,6 +35,8 @@ using namespace CVC4::theory::arrays;
 
 TheoryArrays::TheoryArrays(Context* c, UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARRAY, c, u, out, valuation),
+  d_notify(*this),
+  d_ppEqualityEngine(d_notify, c, "theory::arrays::TheoryArrays"),
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
@@ -61,7 +64,11 @@ TheoryArrays::TheoryArrays(Context* c, UserContext* u, OutputChannel& out, Valua
   StatisticsRegistry::registerStat(&d_numExplain);
   StatisticsRegistry::registerStat(&d_checkTimer);
 
-
+  d_true = NodeManager::currentNM()->mkConst<bool>(true);
+  d_false = NodeManager::currentNM()->mkConst<bool>(false);
+  d_ppEqualityEngine.addTerm(d_true);
+  d_ppEqualityEngine.addTerm(d_false);
+  d_ppEqualityEngine.addTriggerEquality(d_true, d_false, d_false);
 }
 
 
@@ -191,7 +198,7 @@ Theory::SolveStatus TheoryArrays::solve(TNode in, SubstitutionMap& outSubstituti
   switch(in.getKind()) {
     case kind::EQUAL:
     {
-      d_staticFactManager.addEq(in);
+      d_ppEqualityEngine.addEquality(in[0], in[1], in);
       if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
         outSubstitutions.addSubstitution(in[0], in[1]);
         return SOLVE_STATUS_SOLVED;
@@ -208,7 +215,7 @@ Theory::SolveStatus TheoryArrays::solve(TNode in, SubstitutionMap& outSubstituti
              in[0].getKind() == kind::IFF );
       Node a = in[0][0];
       Node b = in[0][1];
-      d_staticFactManager.addDiseq(in[0]);
+      d_ppEqualityEngine.addDisequality(a, b, in);
       break;
     }
     default:
@@ -223,7 +230,7 @@ Node TheoryArrays::preprocessTerm(TNode term) {
       // select(store(a,i,v),j) = select(a,j)
       //    IF i != j
       if (term[0].getKind() == kind::STORE &&
-          d_staticFactManager.areDiseq(term[0][1], term[1])) {
+          d_ppEqualityEngine.areDisequal(term[0][1], term[1])) {
         return NodeBuilder<2>(kind::SELECT) << term[0][0] << term[1];
       }
       break;
@@ -233,7 +240,7 @@ Node TheoryArrays::preprocessTerm(TNode term) {
       //    IF i != j and j comes before i in the ordering
       if (term[0].getKind() == kind::STORE &&
           (term[1] < term[0][1]) &&
-          d_staticFactManager.areDiseq(term[1], term[0][1])) {
+          d_ppEqualityEngine.areDisequal(term[1], term[0][1])) {
         Node inner = NodeBuilder<3>(kind::STORE) << term[0][0] << term[1] << term[2];
         Node outer = NodeBuilder<3>(kind::STORE) << inner << term[0][1] << term[0][2];
         return outer;
@@ -295,7 +302,7 @@ Node TheoryArrays::preprocessTerm(TNode term) {
                 NodeBuilder<> hyp(kind::AND);
                 for (j = leftWrites - 1; j > i; --j) {
                   index_j = write_j[1];
-                  if (d_staticFactManager.areDiseq(index_i, index_j)) {
+                  if (d_ppEqualityEngine.areDisequal(index_i, index_j)) {
                     continue;
                   }
                   Node hyp2(index_i.getType() == nm->booleanType()? 

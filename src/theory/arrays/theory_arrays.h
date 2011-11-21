@@ -30,6 +30,7 @@
 #include "util/stats.h"
 #include "util/backtrackable.h"
 #include "theory/arrays/static_fact_manager.h"
+#include "theory/uf/equality_engine.h"
 
 #include <iostream>
 #include <map>
@@ -89,8 +90,35 @@ namespace arrays {
  */
 class TheoryArrays : public Theory {
 
+  class NotifyClass {
+    TheoryArrays& d_arrays;
+  public:
+    NotifyClass(TheoryArrays& arrays): d_arrays(arrays) {}
+
+    bool notify(TNode propagation) {
+      Debug("arrays") << "NotifyClass::notify(" << propagation << ")" << std::endl;
+      // Do nothing
+      return true;
+    }
+    
+    void notify(TNode t1, TNode t2) {
+      Debug("arrays") << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
+    }
+  };
+
 private:
 
+  /** The notify class */
+  NotifyClass d_notify;
+
+  /** Equaltity engine */
+  uf::EqualityEngine<NotifyClass> d_ppEqualityEngine;
+
+  /** True node for predicates = true */
+  Node d_true;
+
+  /** True node for predicates = false */
+  Node d_false;
 
   class CongruenceChannel {
     TheoryArrays* d_arrays;
@@ -113,12 +141,6 @@ private:
    */
   CongruenceClosure<CongruenceChannel, CONGRUENCE_OPERATORS_1
                                  (kind::SELECT)> d_cc;
-
-  /**
-   * (Temporary) fact manager for preprocessing - eventually handle this with
-   * something more standard (like congruence closure module)
-   */
-  StaticFactManager d_staticFactManager;
 
   /**
    * Cache for proprocessing of atoms.
