@@ -35,8 +35,10 @@ using namespace CVC4::theory::arrays;
 
 TheoryArrays::TheoryArrays(Context* c, UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARRAY, c, u, out, valuation),
+  d_ppNotify(),
+  d_ppEqualityEngine(d_ppNotify, c, "theory::arrays::TheoryArraysPP"),
   d_notify(*this),
-  d_ppEqualityEngine(d_notify, c, "theory::arrays::TheoryArrays"),
+  d_equalityEngine(d_notify, c, "theory::arrays::TheoryArrays"),
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),
@@ -66,9 +68,15 @@ TheoryArrays::TheoryArrays(Context* c, UserContext* u, OutputChannel& out, Valua
 
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
+
   d_ppEqualityEngine.addTerm(d_true);
   d_ppEqualityEngine.addTerm(d_false);
   d_ppEqualityEngine.addTriggerEquality(d_true, d_false, d_false);
+
+  d_equalityEngine.addTerm(d_true);
+  d_equalityEngine.addTerm(d_false);
+  d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
+
 }
 
 
@@ -198,6 +206,7 @@ Theory::SolveStatus TheoryArrays::solve(TNode in, SubstitutionMap& outSubstituti
   switch(in.getKind()) {
     case kind::EQUAL:
     {
+      d_ppFacts.push_back(in);
       d_ppEqualityEngine.addEquality(in[0], in[1], in);
       if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
         outSubstitutions.addSubstitution(in[0], in[1]);
@@ -211,6 +220,7 @@ Theory::SolveStatus TheoryArrays::solve(TNode in, SubstitutionMap& outSubstituti
     }
     case kind::NOT:
     {
+      d_ppFacts.push_back(in);
       Assert(in[0].getKind() == kind::EQUAL ||
              in[0].getKind() == kind::IFF );
       Node a = in[0][0];

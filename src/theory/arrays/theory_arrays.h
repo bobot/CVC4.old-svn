@@ -90,35 +90,54 @@ namespace arrays {
  */
 class TheoryArrays : public Theory {
 
+  class PPNotifyClass {
+  public:
+    bool notify(TNode propagation) { return true; }
+    void notify(TNode t1, TNode t2) { }
+  };
+
   class NotifyClass {
     TheoryArrays& d_arrays;
   public:
-    NotifyClass(TheoryArrays& arrays): d_arrays(arrays) {}
+    NotifyClass(TheoryArrays& uf): d_arrays(uf) {}
 
     bool notify(TNode propagation) {
       Debug("arrays") << "NotifyClass::notify(" << propagation << ")" << std::endl;
-      // Do nothing
+      // Just forward to arrays
+      //      return d_arrays.propagate(propagation);
       return true;
     }
     
     void notify(TNode t1, TNode t2) {
       Debug("arrays") << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
+      Node equality = Rewriter::rewriteEquality(theory::THEORY_ARRAY, t1.eqNode(t2));
+      //      d_arrays.propagate(equality);
     }
   };
+
 
 private:
 
   /** The notify class */
-  NotifyClass d_notify;
+  PPNotifyClass d_ppNotify;
 
   /** Equaltity engine */
-  uf::EqualityEngine<NotifyClass> d_ppEqualityEngine;
+  uf::EqualityEngine<PPNotifyClass> d_ppEqualityEngine;
+
+  /** Vector of facts learned at preprocessing time */
+  std::vector<Node> d_ppFacts;
 
   /** True node for predicates = true */
   Node d_true;
 
   /** True node for predicates = false */
   Node d_false;
+
+  /** The notify class */
+  NotifyClass d_notify;
+
+  /** Equaltity engine */
+  uf::EqualityEngine<NotifyClass> d_equalityEngine;
 
   class CongruenceChannel {
     TheoryArrays* d_arrays;
@@ -461,6 +480,7 @@ public:
   void presolve() {
     Trace("arrays")<<"Presolving \n";
     d_donePreregister = true;
+    // TODO: destroy ppEqualityEngine and fact vector
   }
 
   void addSharedTerm(TNode t);
