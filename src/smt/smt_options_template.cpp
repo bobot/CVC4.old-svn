@@ -21,13 +21,14 @@
 #include "smt/modal_exception.h"
 #include "util/sexpr.h"
 #include "expr/command.h"
+#include "expr/node_manager.h"
 
 #include <string>
 #include <sstream>
 
 ${include_all_option_headers}
 
-#line 31 "${template}"
+#line 32 "${template}"
 
 using namespace std;
 
@@ -35,6 +36,9 @@ namespace CVC4 {
 
 void SmtEngine::setOption(const std::string& key, const CVC4::SExpr& value)
   throw(BadOptionException, ModalException) {
+
+  NodeManagerScope nms(d_nodeManager);
+
   Trace("smt") << "SMT setOption(" << key << ", " << value << ")" << endl;
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << SetOptionCommand(key, value) << endl;
@@ -46,13 +50,16 @@ void SmtEngine::setOption(const std::string& key, const CVC4::SExpr& value)
 
   ${smt_setoption_handlers}
 
-#line 50 "${template}"
+#line 54 "${template}"
 
   throw BadOptionException();
 }
 
 CVC4::SExpr SmtEngine::getOption(const std::string& key) const
   throw(BadOptionException) {
+
+  NodeManagerScope nms(d_nodeManager);
+
   Trace("smt") << "SMT getOption(" << key << ")" << endl;
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << GetOptionCommand(key) << endl;
@@ -60,7 +67,7 @@ CVC4::SExpr SmtEngine::getOption(const std::string& key) const
 
   ${smt_getoption_handlers}
 
-#line 64 "${template}"
+#line 71 "${template}"
 
   throw BadOptionException();
 }

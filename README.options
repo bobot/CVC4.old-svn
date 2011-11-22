@@ -32,8 +32,8 @@ This is much better than a full recompile of course.
 
 The above is now implemented, but there are things that still bug me:
 
-* is the Options class public still?  Does this make sense?
 * long doc vs. short doc
+* is the Options class public still?  Does this make sense?
 * document requirements on option types (default constructible?  copy-able?  must have operator<<(ostream)?  hashable?)
 
 -- Morgan Deters <mdeters@cs.nyu.edu>  Sat, 19 Nov 2011 20:43:35 -0500

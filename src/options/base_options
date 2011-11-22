@@ -73,17 +73,17 @@ option in std::istream* :default &std::cin :include <iostream>
 option out std::ostream* :default &std::cout :include <iostream>
 option err std::ostream* :default &std::cerr :include <iostream>
 
-common-option inputLanguage -L --lang=LANG InputLanguage :handler stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :handler-include "options/base_options_handlers.h" :read-write
+common-option inputLanguage -L --lang=LANG InputLanguage :handler CVC4::options::stringToInputLanguage :include "util/language.h" :default language::input::LANG_AUTO :read-write
  force input language (default is "auto"; see --lang help)
-common-option outputLanguage --output-lang=LANG OutputLanguage :handler stringToOutputLanguage :include "util/language.h" :default language::output::LANG_AUTO :read-write
+common-option outputLanguage --output-lang=LANG OutputLanguage :handler CVC4::options::stringToOutputLanguage :include "util/language.h" :default language::output::LANG_AUTO :read-write
  force input language (default is "auto"; see --lang help)
 option languageHelp bool
 
 option verbosity verbosity int :read-write :default 0
  the verbosity level of CVC4
-common-option - -v --verbose void :handler increaseVerbosity
+common-option - -v --verbose void :handler CVC4::options::increaseVerbosity
  increase verbosity (may be repeated)
-common-option - -q --quiet void :handler decreaseVerbosity
+common-option - -q --quiet void :handler CVC4::options::decreaseVerbosity
  decrease verbosity (may be repeated)
 
 common-option statistics stats --stats bool
@@ -98,9 +98,9 @@ common-option preprocessOnly preprocess-only --preprocess-only bool
 option segvNoSpin --segv-nospin bool
  don't spin on segfault waiting for gdb
 
-option - -t --trace=TAG argument :handler addTraceTag
+option - -t --trace=TAG argument :handler CVC4::options::addTraceTag
  trace something (e.g. -t pushpop), can repeat
-option - -d --debug=TAG argument :handler addDebugTag
+option - -d --debug=TAG argument :handler CVC4::options::addDebugTag
  debug something (e.g. -d arith), can repeat
 
 endmodule

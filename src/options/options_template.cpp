@@ -20,6 +20,8 @@
 #include <cstdlib>
 #include <new>
 #include <string>
+#include <sstream>
+#include <limits>
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
@@ -34,60 +36,105 @@
 
 ${include_all_option_headers}
 
-#line 38 "${template}"
+#line 40 "${template}"
 
 #include "util/output.h"
-
 #include "options/options_holder.h"
-
 #include "cvc4autoconfig.h"
+#include "options/base_options_handlers.h"
 
 ${option_handler_includes}
 
-#line 48 "${template}"
+#line 49 "${template}"
 
-using namespace std;
 using namespace CVC4;
+using namespace CVC4::options;
 
 namespace CVC4 {
 
 CVC4_THREADLOCAL(Options*) Options::s_current = NULL;
 
-template <class T> T handleOption(std::string option, std::string optarg) {
-  T::unsupported_handleOption_call___please_write_me;
-  return *(T*)0;
-}
+template <class T, bool is_numeric, bool is_integer>
+struct OptionHandler {
+  static T handle(std::string option, std::string optarg);
+};/* struct OptionHandler<> */
 
-template <> unsigned short handleOption<unsigned short>(std::string option, std::string optarg) {
-  int i = atoi(optarg.c_str());
-  if(i < 0) {
-    throw OptionException(option + " requires a nonnegative argument.");
+template <class T>
+struct OptionHandler<T, true, true> {
+  static T handle(std::string option, std::string optarg) {
+    try {
+      Integer i(optarg, 0);
+
+      if(! std::numeric_limits<T>::is_signed && i < 0) {
+        throw OptionException(option + " requires a nonnegative argument");
+      } else if(i < std::numeric_limits<T>::min()) {
+        std::stringstream ss;
+        ss << option << " requires an argument >= " << std::numeric_limits<T>::min();
+        throw OptionException(ss.str());
+      } else if(i > std::numeric_limits<T>::max()) {
+        std::stringstream ss;
+        ss << option << " requires an argument <= " << std::numeric_limits<T>::max();
+        throw OptionException(ss.str());
+      }
+
+      if(std::numeric_limits<T>::is_signed) {
+        return T(i.getLong());
+      } else {
+        return T(i.getUnsignedLong());
+      }
+    } catch(std::invalid_argument&) {
+      throw OptionException(option + " requires an integer argument");
+    }
   }
-  return (unsigned short) i;
-}
+};/* struct OptionHandler<T, true, true> */
 
-template <> int handleOption<int>(std::string option, std::string optarg) {
-  return atoi(optarg.c_str());
-}
+template <class T>
+struct OptionHandler<T, true, false> {
+  static T handle(std::string option, std::string optarg) {
+    std::stringstream in(optarg);
+    long double r;
+    in >> r;
+    if(! in.eof()) { // we didn't consume the whole string (junk at end)
+      throw OptionException(option + " requires a numeric argument");
+    }
 
-template <> unsigned handleOption<unsigned>(std::string option, std::string optarg) {
-  int i = atoi(optarg.c_str());
-  if(i < 0) {
-    throw OptionException(option + " requires a nonnegative argument.");
+    if(! std::numeric_limits<T>::is_signed && r < 0.0) {
+      throw OptionException(option + " requires a nonnegative argument");
+    } else if(r < -std::numeric_limits<T>::max()) {
+      std::stringstream ss;
+      ss << option << " requires an argument >= " << -std::numeric_limits<T>::max();
+      throw OptionException(ss.str());
+    } else if(r > std::numeric_limits<T>::max()) {
+      std::stringstream ss;
+      ss << option << " requires an argument <= " << std::numeric_limits<T>::max();
+      throw OptionException(ss.str());
+    }
+
+    return T(r);
   }
-  return (unsigned) i;
-}
+};/* struct OptionHandler<T, true, false> */
 
-template <> double handleOption<double>(std::string option, std::string optarg) {
-  return atof(optarg.c_str());
-}
-
-template <> unsigned long handleOption<unsigned long>(std::string option, std::string optarg) {
-  int i = atoi(optarg.c_str());
-  if(i < 0) {
-    throw OptionException(option + " requires a nonnegative argument.");
+template <class T>
+struct OptionHandler<T, false, false> {
+  static T handle(std::string option, std::string optarg) {
+    T::unsupported_handleOption_call___please_write_me;
+    // The above line causes a compiler error if this version of the template
+    // is ever instantiated (meaning that a specialization is missing).  So
+    // don't worry about the segfault in the next line, the "return" is only
+    // there to keep the compiler from giving additional, distracting errors
+    // and warnings.
+    return *(T*)0;
   }
-  return (unsigned long) i;
+};/* struct OptionHandler<T, false, false> */
+
+template <class T>
+T handleOption(std::string option, std::string optarg) {
+  return OptionHandler<T, std::numeric_limits<T>::is_specialized, std::numeric_limits<T>::is_integer>::handle(option, optarg);
+}
+
+template <>
+std::string handleOption<std::string>(std::string option, std::string optarg) {
+  return optarg;
 }
 
 template <class T>
@@ -108,7 +155,7 @@ void runBoolHandlers(T, std::string option, bool b) {
 
 ${all_custom_handlers}
 
-#line 112 "${template}"
+#line 159 "${template}"
 
 #ifdef CVC4_DEBUG
 #  define USE_EARLY_TYPE_CHECKING_BY_DEFAULT true
@@ -138,20 +185,20 @@ options::OptionsHolder::OptionsHolder() : ${all_modules_defaults}
 {
 }
 
-#line 142 "${template}"
+#line 189 "${template}"
 
-static const string mostCommonOptionsDescription = "\
+static const std::string mostCommonOptionsDescription = "\
 Most commonly-used CVC4 options:${common_documentation}";
 
-#line 147 "${template}"
+#line 194 "${template}"
 
-static const string optionsDescription = mostCommonOptionsDescription + "\n\
+static const std::string optionsDescription = mostCommonOptionsDescription + "\n\
 \n\
 Additional CVC4 options:${remaining_documentation}";
 
-#line 153 "${template}"
+#line 200 "${template}"
 
-static const string languageDescription = "\
+static const std::string languageDescription = "\
 Languages currently supported as arguments to the -L / --lang option:\n\
   auto           attempt to automatically determine the input language\n\
   pl | cvc4      CVC4 presentation language\n\
@@ -166,21 +213,21 @@ Languages currently supported as arguments to the --output-lang option:\n\
   ast            internal format (simple syntax-tree language)\n\
 ";
 
-string Options::getDescription() const {
+std::string Options::getDescription() const {
   return optionsDescription;
 }
 
 void Options::printUsage(const std::string msg, std::ostream& out) {
-  out << msg << optionsDescription << endl << flush;
+  out << msg << optionsDescription << std::endl << std::flush;
 }
 
 void Options::printShortUsage(const std::string msg, std::ostream& out) {
-  out << msg << mostCommonOptionsDescription << endl << endl
-      << "For full usage, please use --help." << endl << flush;
+  out << msg << mostCommonOptionsDescription << std::endl << std::endl
+      << "For full usage, please use --help." << std::endl << std::flush;
 }
 
 void Options::printLanguageHelp(std::ostream& out) {
-  out << languageDescription << flush;
+  out << languageDescription << std::flush;
 }
 
 /**
@@ -211,7 +258,7 @@ static struct option cmdlineOptions[] = {${all_modules_long_options}
   { NULL, no_argument, NULL, '\0' }
 };/* cmdlineOptions */
 
-#line 215 "${template}"
+#line 262 "${template}"
 
 static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
@@ -249,13 +296,14 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
   if(x != NULL) {
     progName = x + 1;
   }
-  d_holder->binary_name = string(progName);
+  d_holder->binary_name = std::string(progName);
 
   int extra_argc = 0;
   char **extra_argv = (char**) malloc(sizeof(char*));
   extra_argv[0] = NULL;
 
   int extra_optind = 1, main_optind = 1;
+  int old_optind;
 
   for(;;) {
     int c = -1;
@@ -263,7 +311,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
 #if HAVE_DECL_OPTRESET
       optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
 #endif /* HAVE_DECL_OPTRESET */
-      optind = extra_optind;
+      old_optind = optind = extra_optind;
       c = getopt_long(extra_argc, extra_argv,
                       ":${all_modules_short_options}",
                       cmdlineOptions, NULL);
@@ -282,7 +330,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
 #if HAVE_DECL_OPTRESET
       optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
 #endif /* HAVE_DECL_OPTRESET */
-      optind = main_optind;
+      old_optind = optind = main_optind;
       c = getopt_long(argc, argv,
                       ":${all_modules_short_options}",
                       cmdlineOptions, NULL);
@@ -295,29 +343,29 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 299 "${template}"
+#line 346 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.
       if(optopt == 0) { // was a long option
-        throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
+        throw OptionException(std::string("option `") + argv[optind - 1] + "' missing its required argument");
       } else { // was a short option
-        throw OptionException(string("option `-") + char(optopt) + "' missing its required argument");
+        throw OptionException(std::string("option `-") + char(optopt) + "' missing its required argument");
       }
 
     case '?':
     default:
       // This can be a long or short option, and the way to get at the name of it is different.
       if(optopt == 0) { // was a long option
-        throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
+        throw OptionException(std::string("can't understand option `") + argv[optind - 1] + "'");
       } else { // was a short option
-        throw OptionException(string("can't understand option `-") + char(optopt) + "'");
+        throw OptionException(std::string("can't understand option `-") + char(optopt) + "'");
       }
     }
   }
 
   if((*this)[options::incrementalSolving] && (*this)[options::proof]) {
-    throw OptionException(string("The use of --incremental with --proof is not yet supported"));
+    throw OptionException(std::string("The use of --incremental with --proof is not yet supported"));
   }
 
   return optind;

@@ -15,9 +15,9 @@
 
 module SMT "smt/options.h" SMT
 
-common-option - --dump=MODE argument :handler dumpMode
+common-option - --dump=MODE argument :handler CVC4::smt::dumpMode :handler-include "smt/options_handlers.h"
  dump preprocessed assertions, etc., see --dump=help
-common-option - --dump-to=FILE argument :handler dumpToFile
+common-option - --dump-to=FILE argument :handler CVC4::smt::dumpToFile :handler-include "smt/options_handlers.h"
  all dumping goes to FILE (instead of stdout)
 
 option printSuccess print-success --print-success bool :default false
@@ -26,7 +26,7 @@ option printSuccess print-success --print-success bool :default false
 expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
  expand define-funs/LAMBDAs lazily
 
-option simplificationMode --simplification=MODE SimplificationMode :handler stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :include "options/options.h"
+option simplificationMode --simplification=MODE SimplificationMode :handler CVC4::smt::stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :include "options/options.h" :handler-include "smt/options_handlers.h"
  choose simplification mode, see --simplification=help
 
 option doStaticLearning static-learning /--no-static-learning bool :default true
@@ -40,7 +40,7 @@ common-option produceAssignments produce-assignments --produce-assignments bool
 
 # This could go in src/main/options, but by SMT-LIBv2 spec, "interactive"
 # is a mode in which the assertion list must be kept.  So it belongs here.
-common-option interactive interactive-mode --interactive bool :handler setInteractiveByUser :read-write
+common-option interactive interactive-mode --interactive bool :predicate CVC4::smt::setInteractiveByUser :read-write :predicate-include "smt/options_handlers.h"
  force interactive mode
 option interactiveSetByUser bool
 
@@ -56,9 +56,9 @@ common-option cumulativeResourceLimit --rlimit=N "unsigned long"
 common-option perCallResourceLimit --rlimit-per=N "unsigned long"
  enable resource limiting per query
 
-option replayFilename --replay=FILE std::string :handler checkReplayFilename
+option replayFilename --replay=FILE std::string :handler CVC4::smt::checkReplayFilename :handler-include "smt/options_handlers.h"
  replay decisions from file
-option replayLog --replay-log=FILE std::ostream* :handler checkReplayLogFilename
+option replayLog --replay-log=FILE std::ostream* :handler CVC4::smt::checkReplayLogFilename :handler-include "smt/options_handlers.h"
  log decisions and propagations to file
 option replayStream ExprStream*
 

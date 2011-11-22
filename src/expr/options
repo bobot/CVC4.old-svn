@@ -5,9 +5,9 @@
 
 module EXPR "expr/options.h" Expression package
 
-option - --default-expr-depth=N argument :handler setDefaultExprDepth
+option - --default-expr-depth=N argument :handler CVC4::expr::setDefaultExprDepth :handler-include "expr/options_handlers.h"
  print exprs to depth N (0 == default, -1 == no limit)
-option - --print-expr-types void :handler setPrintExprTypes
+option - --print-expr-types void :handler CVC4::expr::setPrintExprTypes :handler-include "expr/options_handlers.h"
  print types with variables when printing exprs
 
 option earlyTypeChecking --eager-type-checking/--lazy-type-checking bool :default USE_EARLY_TYPE_CHECKING_BY_DEFAULT :link --type-checking

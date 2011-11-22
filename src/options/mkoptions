@@ -159,7 +159,8 @@ function handle_option {
   readOnly=true
   required_argument=false
   default_value=
-  handlers=
+  handler=
+  predicates=
   links=
   links_alternate=
 
@@ -284,9 +285,13 @@ function handle_option {
        default_value="${args[$i]}"
        ;;
     :handler)
+       let ++i
+       handler="${args[$i]}"
+       ;;
+    :predicate)
        while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
          let ++i
-         handlers="${handlers} ${args[$i]}"
+         predicates="${predicates} ${args[$i]}"
        done
        ;;
     :link)
@@ -310,7 +315,7 @@ function handle_option {
 #include $(check_include "${args[$i]}")"
        done
        ;;
-    :handler-include)
+    :handler-include|:predicate-include)
        while [ $(($i+1)) -lt ${#args[@]} ] && ! expr "${args[$(($i+1))]}" : ":" &>/dev/null; do
          let ++i
          option_handler_includes="${option_handler_includes}
@@ -434,38 +439,53 @@ template <> const options::${internal}__option_t::type& Options::operator[](opti
       preemptGetopt(extra_argc, extra_argv, \"$link\");"
     done
   fi
-  if [ "$type" = bool -a -n "$cases" -o -n "$cases_alternate" ] && [ -n "$handlers" ]; then
-    # this is a case where we need to emit a runBoolHandlers() template specialization for use below
-    # if we do this below, we might end up with two of them, one for the positive option and one for
-    # the alternate
+  if [ "$type" = bool -a -n "$cases" -o -n "$cases_alternate" ]; then
     run_handlers=
-    for handler in $handlers; do
-      run_handlers="$run_handlers
+    if [ -n "$handler" ]; then
+      echo "$kf:$lineno: error: bool-valued options cannot have handlers" >&2
+      exit 1
+    fi
+    if [ -n "$predicates" ]; then
+      for predicate in $predicates; do
+        run_handlers="$run_handlers
 #line $lineno \"$kf\"
-  $handler(option, b);"
-    done
-    all_custom_handlers="${all_custom_handlers}
+  $predicate(option, b);"
+      done
+    fi
+    if [ -n "$run_handlers" ]; then
+      all_custom_handlers="${all_custom_handlers}
 #line $lineno \"$kf\"
 template <> void runBoolHandlers(options::${internal}__option_t, std::string option, bool b) {
   $run_handlers
 }"
+    fi
   fi
   if [ -n "$cases" ]; then
     if [ "$type" = bool ]; then
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
-      assignBool(options::$internal, argv[optind - 1], true);$run_links
+      assignBool(options::$internal, argv[old_optind], true);$run_links
       break;
 "
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
-      if [ -n "$handlers" ]; then
-        run_handlers=
-        for handler in $handlers; do
-          run_handlers="$run_handlers
+      run_handlers=
+      if [ -n "$handler" ]; then
+        run_handlers="
 #line $lineno \"$kf\"
   $handler(option, optarg);"
+      else
+        run_handlers="
+#line $lineno \"$kf\"
+  handleOption<$type>(option, optarg);"
+      fi
+      if [ -n "$predicates" ]; then
+        for predicate in $predicates; do
+          run_handlers="$run_handlers
+#line $lineno \"$kf\"
+  $predicate(option, retval);"
         done
-        all_custom_handlers="${all_custom_handlers}
+      fi
+      all_custom_handlers="${all_custom_handlers}
 #line $lineno \"$kf\"
 template <> options::${internal}__option_t::type runHandlers(options::${internal}__option_t, std::string option, std::string optarg) {
 #line $lineno \"$kf\"
@@ -473,19 +493,22 @@ template <> options::${internal}__option_t::type runHandlers(options::${internal
 #line $lineno \"$kf\"
   return retval;
 }"
-      fi
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
-      assign(options::$internal, argv[optind - 1], optarg);$run_links
+      assign(options::$internal, argv[old_optind], optarg);$run_links
       break;
 "
     elif [ -n "$expect_arg" ]; then
       run_handlers=
-      for handler in $handlers; do
+      if [ -n "$predicates" ]; then
+        echo "$kf:$lineno: error: void-valued options cannot have predicates" >&2
+        exit 1
+      fi
+      if [ -n "$handler" ]; then
         run_handlers="$run_handlers
 #line $lineno \"$kf\"
-      $handler(argv[optind - 1], optarg);"
-      done
+      $handler(argv[old_optind], optarg);"
+      fi
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
       $run_handlers$run_links
@@ -493,11 +516,15 @@ template <> options::${internal}__option_t::type runHandlers(options::${internal
 "
     else
       run_handlers=
-      for handler in $handlers; do
+      if [ -n "$predicates" ]; then
+        echo "$kf:$lineno: error: void-valued options cannot have predicates" >&2
+        exit 1
+      fi
+      if [ -n "$handler" ]; then
         run_handlers="$run_handlers
 #line $lineno \"$kf\"
-      $handler(argv[optind - 1]);"
-      done
+      $handler(argv[old_optind]);"
+      fi
       all_modules_option_handlers="${all_modules_option_handlers}${cases}
 #line $lineno \"$kf\"
       $run_handlers$run_links
@@ -509,7 +536,7 @@ template <> options::${internal}__option_t::type runHandlers(options::${internal
     if [ "$type" = bool ]; then
       all_modules_option_handlers="${all_modules_option_handlers}${cases_alternate}
 #line $lineno \"$kf\"
-      assignBool(options::$internal, argv[optind - 1], false);$run_links_alternate
+      assignBool(options::$internal, argv[old_optind], false);$run_links_alternate
       break;
 "
     else
@@ -538,7 +565,7 @@ template <> options::${internal}__option_t::type runHandlers(options::${internal
     return;
   }"
     elif [ -n "$expect_arg" -a "$internal" != - ]; then
-      if [ -n "$handlers" ]; then
+      if [ -n "$handler" ]; then
         run_handlers=
         for handler in $handlers; do
           run_handlers="$run_handlers
@@ -926,7 +953,7 @@ while [ $# -gt 0 ]; do
     elif expr "$line" : '/.*' &>/dev/null; then
       doc-alternate "$(echo "$line" | sed 's,^/,,')"
     else
-      line="$(echo "$line" | sed 's,\([<>&]\),\\\1,g')"
+      line="$(echo "$line" | sed 's,\([<>&()!?*]\),\\\1,g')"
       eval "$line"
     fi
   done < "$kf"

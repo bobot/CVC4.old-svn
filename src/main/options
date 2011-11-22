@@ -11,12 +11,12 @@ common-option version -V --version/ bool
 common-option help -h --help/ bool
  full command line reference
 
-common-option - --show-config void :handler showConfiguration
+common-option - --show-config void :handler CVC4::main::showConfiguration :handler-include "main/options_handlers.h"
  show CVC4 static configuration
 
-option - --show-debug-tags void :handler showDebugTags
+option - --show-debug-tags void :handler CVC4::main::showDebugTags :handler-include "main/options_handlers.h"
  show all available tags for debugging
-option - --show-trace-tags void :handler showTraceTags
+option - --show-trace-tags void :handler CVC4::main::showTraceTags :handler-include "main/options_handlers.h"
  show all available tags for tracing
 
 endmodule
