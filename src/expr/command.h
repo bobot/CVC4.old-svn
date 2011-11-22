@@ -286,6 +286,7 @@ public:
   void invoke(SmtEngine* smtEngine);
   Proof* getResult() const;
   void printResult(std::ostream& out) const;
+  Command* exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap);
 };/* class GetProofCommand */
 
 class CVC4_PUBLIC GetAssertionsCommand : public Command {
