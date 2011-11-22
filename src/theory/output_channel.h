@@ -102,6 +102,11 @@ public:
 
   /**
    * If a decision is made on n, it must be in the phase specified.
+   * Note that this is enforced *globally*, i.e., it is completely
+   * context-INdependent.  If you ever requirePhase() on a literal,
+   * it is phase-locked forever and ever.  If it is to ever have the
+   * other phase as its assignment, it will be because it has been
+   * propagated that way (or it's a unit, at decision level 0).
    *
    * @param n - a theory atom with a SAT literal assigned; must have
    * been pre-registered

@@ -177,6 +177,7 @@ public:
     // Variable mode:
     //
     void    setPolarity    (Var v, bool b); // Declare which polarity the decision heuristic should use for a variable. Requires mode 'polarity_user'.
+    void    freezePolarity (Var v, bool b); // Declare which polarity the decision heuristic MUST ALWAYS use for a variable. Requires mode 'polarity_user'.
     void    setDecisionVar (Var v, bool b); // Declare if a variable should be eligible for selection in the decision heuristic.
     void    dependentDecision(Var dep, Var dec); // Declare that deciding on "dec" depends on "dep" having an assignment
     void    setFlipVar     (Var v, bool b); // Declare if a variable is eligible for flipping
@@ -281,7 +282,7 @@ protected:
     OccLists<Lit, vec<Watcher>, WatcherDeleted>
                         watches;            // 'watches[lit]' is a list of constraints watching 'lit' (will go there if literal becomes true).
     vec<lbool>          assigns;            // The current assignments.
-    vec<char>           polarity;           // The preferred polarity of each variable.
+    vec<char>           polarity;           // The preferred polarity of each variable (bit 0) and whether it's locked (bit 1).
     vec<char>           decision;           // Declares if a variable is eligible for selection in the decision heuristic.
     vec<char>           flippable;          // Declares if a variable is eligible for flipping with flipDecision().
     vec<Var>            depends;            // The variable (if any) that a decision on this variable depends on
@@ -417,7 +418,7 @@ inline bool Solver::isPropagated(Var x) const { return vardata[x].reason != CRef
 
 inline bool Solver::isPropagatedBy(Var x, const Clause& c) const { return vardata[x].reason != CRef_Undef && vardata[x].reason != CRef_Lazy && ca.lea(vardata[var(c[0])].reason) == &c; }
 
-inline bool Solver::isDecision(Var x) const { return vardata[x].reason == CRef_Undef && level(x) > 0; }
+inline bool Solver::isDecision(Var x) const { Debug("minisat") << "var " << x << " is a decision iff " << (vardata[x].reason == CRef_Undef) << " && " << level(x) << " > 0" << std::endl; return vardata[x].reason == CRef_Undef && level(x) > 0; }
 
 inline Lit  Solver::getDecision(unsigned lvl) const { return trail[trail_lim[lvl - 1]]; }
 
@@ -477,9 +478,10 @@ inline int      Solver::nClauses      ()      const   { return clauses_persisten
 inline int      Solver::nLearnts      ()      const   { return clauses_removable.size(); }
 inline int      Solver::nVars         ()      const   { return vardata.size(); }
 inline int      Solver::nFreeVars     ()      const   { return (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]); }
-inline void     Solver::setPolarity   (Var v, bool b) { polarity[v] = b; }
-inline void     Solver::setDecisionVar(Var v, bool b)
-{
+inline void     Solver::setPolarity   (Var v, bool b) { if((polarity[v] & 0x2) == 0) polarity[v] = b; }
+inline void     Solver::freezePolarity(Var v, bool b) { polarity[v] = int(b) | 0x2; }
+inline void     Solver::setDecisionVar(Var v, bool b) 
+{ 
     if      ( b && !decision[v] &&  (depends[v] == -1 || value(depends[v]) != l_Undef)) dec_vars++;
     else if (!b &&  decision[v] && !(depends[v] == -1 || value(depends[v]) != l_Undef)) dec_vars--;
 

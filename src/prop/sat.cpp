@@ -119,8 +119,7 @@ void SatSolver::requirePhasedDecision(SatLiteral lit) {
   Assert(!d_minisat->rnd_pol);
   Debug("minisat") << "requirePhasedDecision(" << lit << ")" << endl;
   SatVariable v = Minisat::var(lit);
-  d_minisat->setPolarity(v, Minisat::sign(lit));
-  d_minisat->setFlipVar(v, false); // not eligible for flipping
+  d_minisat->freezePolarity(v, Minisat::sign(lit));
 }
 
 void SatSolver::dependentDecision(SatVariable dep, SatVariable dec) {

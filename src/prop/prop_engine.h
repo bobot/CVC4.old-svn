@@ -191,7 +191,10 @@ public:
   void assertLemma(TNode node, bool negated, bool removable);
 
   /**
-   * If ever n is decided upon, it must be in the given phase.
+   * If ever n is decided upon, it must be in the given phase.  This
+   * occurs *globally*, i.e., even if the literal is untranslated by
+   * user pop and retranslated, it keeps this phase.  The associated
+   * variable will _always_ be phase-locked.
    *
    * @param n the node in question; must have an associated SAT literal
    * @param phase the phase to use
