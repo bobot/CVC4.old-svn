@@ -36,7 +36,8 @@ smt_tokens.h: @srcdir@/../parser/smt/Smt.g
 smt2_tokens.h: @srcdir@/../parser/smt2/Smt2.g
 	$(AM_V_GEN)grep "'[a-zA-Z][a-zA-Z0-9][a-zA-Z0-9]*'" $^ | sed 's/.*'\''\([a-zA-Z0-9]*\)'\''.*/"\1",/' | sort -u >$@
 
-EXTRA_DIST =
+EXTRA_DIST = \
+	options_handlers.h
 
 clean-local:
 	rm -f $(BUILT_SOURCES)

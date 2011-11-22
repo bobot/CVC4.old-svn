@@ -37,4 +37,5 @@ libarith_la_SOURCES = \
 	dio_solver.cpp
 
 EXTRA_DIST = \
-	kinds
+	kinds \
+	options_handlers.h

@@ -16,9 +16,9 @@ nodist_libsmt_la_SOURCES = \
 	smt_options.cpp
 
 EXTRA_DIST = \
+	options_handlers.h \
+	smt_options_template.cpp \
 	bad_option_exception.i \
 	no_such_function_exception.i \
 	modal_exception.i \
-	smt_engine.i \
-	smt_options_template.cpp
-
+	smt_engine.i

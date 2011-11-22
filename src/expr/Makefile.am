@@ -50,6 +50,7 @@ EXTRA_DIST = \
 	expr_template.h \
 	expr_template.cpp \
 	type_checker_template.cpp \
+	options_handlers.h \
 	mkkind \
 	mkmetakind \
 	mkexpr \
