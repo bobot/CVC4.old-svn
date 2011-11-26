@@ -54,6 +54,10 @@ public:
     return c;
   }
 
+  bool isZero() const {
+    return getInfinitesimalPart() == 0 && getNoninfinitesimalPart() == 0;
+  }
+
   DeltaRational operator+(const DeltaRational& other) const{
     CVC4::Rational tmpC = c+other.c;
     CVC4::Rational tmpK = k+other.k;

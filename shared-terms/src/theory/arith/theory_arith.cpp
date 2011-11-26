@@ -61,7 +61,8 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
-  d_partialModel(c),
+  d_differenceManager(c),
+  d_partialModel(c, d_differenceManager),
   d_userVariables(),
   d_diseq(c),
   d_tableau(),
@@ -89,6 +90,7 @@ TheoryArith::Statistics::Statistics():
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
+  d_externalBranchAndBounds("theory::arith::externalBranchAndBounds",0),
   d_initialTableauSize("theory::arith::initialTableauSize", 0),
   d_currSetToSmaller("theory::arith::currSetToSmaller", 0),
   d_smallerSetToCurr("theory::arith::smallerSetToCurr", 0),
@@ -104,6 +106,7 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::registerStat(&d_presolveTime);
 
+  StatisticsRegistry::registerStat(&d_externalBranchAndBounds);
 
   StatisticsRegistry::registerStat(&d_initialTableauSize);
   StatisticsRegistry::registerStat(&d_currSetToSmaller);
@@ -122,11 +125,17 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::unregisterStat(&d_presolveTime);
 
+  StatisticsRegistry::unregisterStat(&d_externalBranchAndBounds);
 
   StatisticsRegistry::unregisterStat(&d_initialTableauSize);
   StatisticsRegistry::unregisterStat(&d_currSetToSmaller);
   StatisticsRegistry::unregisterStat(&d_smallerSetToCurr);
   StatisticsRegistry::unregisterStat(&d_restartTimer);
+}
+
+
+void TheoryArith::addSharedTerm(TNode n){
+  d_differenceManager.addSharedTerm(n);
 }
 
 Node TheoryArith::preprocess(TNode atom) {
@@ -331,6 +340,26 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
     ArithVar varSlack = requestArithVar(polyNode, true);
     d_tableau.addRow(varSlack, coefficients, variables);
     setupInitialValue(varSlack);
+
+    //Add differences to the difference manager
+    Polynomial::iterator i = poly.begin(), end = poly.end();
+    if(i != end){
+      Monomial first = *i;
+      ++i;
+      if(i != end){
+        Monomial second = *i;
+        ++i;
+        if(i == end){
+          if(first.getConstant().isOne() && second.getConstant().getValue() == -1){
+            VarList vl0 = first.getVarList();
+            VarList vl1 = second.getVarList();
+            if(vl0.singleton() && vl1.singleton()){
+              d_differenceManager.addDifference(varSlack, vl0.getNode(), vl1.getNode());
+            }
+          }
+        }
+      }
+    }
 
     ++(d_statistics.d_statSlackVariables);
     markSetup(polyNode);
@@ -718,6 +747,7 @@ void TheoryArith::check(Effort effortLevel){
             } else {
               Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
             }
+            ++(d_statistics.d_externalBranchAndBounds);
             d_out->lemma(lem);
 
             // split only on one var
@@ -743,6 +773,7 @@ void TheoryArith::check(Effort effortLevel){
             } else {
               Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
             }
+            ++(d_statistics.d_externalBranchAndBounds);
             d_out->lemma(lem);
 
             // split only on one var
@@ -771,6 +802,7 @@ void TheoryArith::check(Effort effortLevel){
           } else {
             Debug("integers") << "    " << lem[1] << " is not assigned a SAT literal" << endl;
           }
+          ++(d_statistics.d_externalBranchAndBounds);
           d_out->lemma(lem);
 
           // split only on one var
@@ -874,6 +906,13 @@ void TheoryArith::propagate(Effort e) {
         Debug("arith::propagate") << "Atom is not in context" << toProp << endl;
         #warning "enable remove atom in database"
         //d_atomDatabase.removeAtom(atom);
+      }
+    }
+
+    if(!propagated){
+      while(d_differenceManager.hasMorePropagations()){
+        Node prop = d_differenceManager.nextPropagation();
+        d_out->propagate(prop);
       }
     }
 
