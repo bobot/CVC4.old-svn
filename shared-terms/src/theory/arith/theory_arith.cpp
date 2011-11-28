@@ -61,7 +61,6 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
-  d_differenceManager(c),
   d_partialModel(c, d_differenceManager),
   d_userVariables(),
   d_diseq(c),
@@ -74,6 +73,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_tableauResetPeriod(10),
   d_atomDatabase(c, out),
   d_propManager(c, d_arithvarNodeMap, d_atomDatabase, valuation),
+  d_differenceManager(c, d_propManager),
   d_simplex(d_propManager, d_partialModel, d_tableau),
   d_DELTA_ZERO(0),
   d_statistics()
@@ -881,7 +881,12 @@ void TheoryArith::debugPrintModel(){
 Node TheoryArith::explain(TNode n) {
   Debug("explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
   Assert(d_propManager.isPropagated(n));
-  return d_propManager.explain(n);
+
+  if(d_propManager.isFlagged(n)){
+    return d_differenceManager.explain(n);
+  }else{
+    return d_propManager.explain(n);
+  }
 }
 
 void TheoryArith::propagate(Effort e) {
@@ -894,9 +899,20 @@ void TheoryArith::propagate(Effort e) {
     }
 
     while(d_propManager.hasMorePropagations()){
-      TNode toProp = d_propManager.getPropagation();
+      const PropManager::PropUnit next = d_propManager.getNextPropagation();
+      bool flag = next.flag;
+      TNode toProp = next.consequent;
+
       TNode atom = (toProp.getKind() == kind::NOT) ? toProp[0] : toProp;
-      if(inContextAtom(atom)){
+
+      Debug("arith::propagate") << "propagate " << flag << " " << toProp << endl;
+
+      if(flag) {
+        //Currently if the flag is set this came from an equality detected by the
+        //equality engine in the the difference manager.
+        d_out->propagate(toProp);
+        propagated = true;
+      }else if(inContextAtom(atom)){
         Node satValue = d_valuation.getSatValue(toProp);
         AlwaysAssert(satValue.isNull());
         propagated = true;
@@ -904,15 +920,8 @@ void TheoryArith::propagate(Effort e) {
       }else{
         //Not clear if this is a good time to do this or not...
         Debug("arith::propagate") << "Atom is not in context" << toProp << endl;
-        #warning "enable remove atom in database"
+#warning "enable remove atom in database"
         //d_atomDatabase.removeAtom(atom);
-      }
-    }
-
-    if(!propagated){
-      while(d_differenceManager.hasMorePropagations()){
-        Node prop = d_differenceManager.nextPropagation();
-        d_out->propagate(prop);
       }
     }
 

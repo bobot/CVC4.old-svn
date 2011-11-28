@@ -11,6 +11,7 @@
 #include "context/cdlist.h"
 #include "context/context.h"
 #include "util/stats.h"
+#include "theory/arith/arith_prop_manager.h"
 
 namespace CVC4 {
 namespace theory {
@@ -52,20 +53,22 @@ private:
   std::vector< Difference > d_differences;
 
   context::CDList<Node> d_reasons;
-
-  context::CDList<Node> d_propQueue;
-  context::CDO<size_t> d_propIndex;
-
+  PropManager& d_queue;
 
 
   DifferenceNotifyClass d_notify;
   theory::uf::EqualityEngine<DifferenceNotifyClass> d_ee;
 
   void propagate(TNode x);
+  void explain(TNode literal, std::vector<TNode>& assumptions);
+
+  Node d_false;
 
 public:
 
-  DifferenceManager(context::Context* c);
+  DifferenceManager(context::Context*, PropManager&);
+
+  Node explain(TNode literal);
 
   void addDifference(ArithVar s, Node x, Node y);
 
@@ -82,11 +85,6 @@ public:
   void differenceCannotBeZero(ArithVar s, TNode reason);
 
   void addSharedTerm(Node x);
-
-
-  bool hasMorePropagations() const;
-
-  Node nextPropagation();
 };/* class DifferenceManager */
 
 }/* CVC4::theory::arith namespace */

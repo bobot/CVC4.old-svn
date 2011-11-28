@@ -129,10 +129,6 @@ private:
    */
   std::map<ArithVar, Node> d_removedRows;
 
-
-  /** This keeps track of difference equalities. Mostly for sharing. */
-  DifferenceManager d_differenceManager;
-
   /**
    * Manages information about the assignment and upper and lower bounds on
    * variables.
@@ -200,6 +196,9 @@ private:
 
   /** This manager keeps track of information needed to propagate. */
   ArithPropManager d_propManager;
+
+  /** This keeps track of difference equalities. Mostly for sharing. */
+  DifferenceManager d_differenceManager;
 
   /** This implements the Simplex decision procedure. */
   SimplexDecisionProcedure d_simplex;
