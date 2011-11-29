@@ -56,8 +56,9 @@ typedef BVMinisat::Var SatVar;
 typedef BVMinisat::Lit SatLit; 
 typedef BVMinisat::vec<SatLit> MinisatClause; // Minisat internal clause representation 
 
-SatLit neg(const SatLit& lit);
+std::string toStringLit(SatLit lit); 
 
+SatLit neg(const SatLit& lit);
 
 struct SatLitHash {
   static size_t hash (const SatLit& lit) {
@@ -91,6 +92,9 @@ struct SatLitLess{
 
 typedef int SatVar; 
 typedef int SatLit; 
+
+std::string toStringLit(SatLit lit); 
+
 
 SatLit neg(const SatLit& lit); 
 
@@ -132,6 +136,7 @@ public:
   {}
   
   void addLiteral(T lit);
+  std::string toString(); 
   bool operator==(const CanonicalClause<T, Hash, Less>& other) const; 
   const T& operator[](const unsigned i) const {
     Assert (i <= d_data.size()); 
@@ -147,7 +152,6 @@ public:
   }
 
   void sort(); 
-  
 };
 
 
@@ -171,7 +175,7 @@ bool CanonicalClause<T, H, L> ::operator==(const CanonicalClause<T, H, L>& other
   if (d_data.size() != other.size()) {
     return false; 
   }
-  for (unsigned i=0; i != other.size(); ++i) {
+  for (unsigned i=0; i < other.size(); ++i) {
     if (d_data[i] != other[i]) {
       return false;
     }
@@ -179,6 +183,19 @@ bool CanonicalClause<T, H, L> ::operator==(const CanonicalClause<T, H, L>& other
   return true; 
 }
 
+template <class T, class H, class L>
+std::string CanonicalClause<T, H, L>::toString() {
+  if (d_data.empty()) {
+    return std::string("[]"); 
+  }
+  std::ostringstream os;
+  os << "["; 
+  for (unsigned i = 0; i < d_data.size(); i++) {
+    os << toStringLit(d_data[i]) << (d_data.size() - 1 == i ? "" : ",") ;
+  }
+  os <<"] \n";
+  return os.str(); 
+}
 
 template <class T, class HashFunc, class Less>
 struct CanonicalClauseHash {
@@ -196,6 +213,8 @@ struct CanonicalClauseHash {
     } 
     return hash; 
   }
+
+    
 }; 
 
 
@@ -217,8 +236,10 @@ public:
   virtual bool         solve(const context::CDList<SatLit> & assumps) = 0;
   virtual SatVar       newVar() = 0;
   virtual SatLit       mkLit(SatVar var) = 0;
+  virtual SatVar       getVar(SatLit lit) = 0;
+  virtual bool         sign(SatLit lit) = 0; 
   virtual void         setUnremovable(SatLit) = 0;
-  virtual SatClause*   getUnsatCore() = 0; 
+  virtual SatClause*   getUnsatCore() = 0;
 }; 
 
 
@@ -285,6 +306,14 @@ public:
     return BVMinisat::mkLit(var); 
   }
 
+  SatVar getVar(SatLit lit) {
+    return BVMinisat::var(lit); 
+  }
+
+  bool sign(SatLit lit) {
+    return BVMinisat::sign(lit); 
+  }
+  
   void setUnremovable(SatLit lit) {
     d_solver.setFrozen(BVMinisat::var(lit), true); 
   }

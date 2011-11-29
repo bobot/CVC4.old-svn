@@ -34,12 +34,20 @@ namespace bv{
 // void printLit (SatLit l) {
 //   Debug("bitvector") << (sign(l) ? "-" : "") << var(l) + 1 << std::endl;
 // }
-// void printClause (SatClause& c) {
-//   for (int i = 0; i < c.size(); i++) {
-//     Debug("bitvector") << (sign(c[i]) ? "-" : "") << var(c[i]) + 1 << " "; 
-//   }
-//   Debug("bitvector") << std::endl;
-// }
+std::string toString(Bits* bits) {
+  Assert(bits);
+  ostringstream os;
+  os << "["; 
+  for (unsigned i = 0; i < bits->size(); ++i) {
+    os << toStringLit(bits->operator[](i)) << (i == bits->size() - 1 ? "": " "); 
+  }
+  os << "] \n";
+  return os.str(); 
+}
+
+void printClause (SatClause& c) {
+  Debug("bitvector") << c.toString() <<"\n"; 
+}
 
 // void printBits (Bits& c) {
 //   for (unsigned i = 0; i < c.size(); i++) {
@@ -103,17 +111,23 @@ SatLit ClauseManager::mkLit(SatVar var) {
   return d_solver->mkLit(var); 
 }
 
-SatLit ClauseManager::mkMarkerLit() {
-  SatLit lit = mkLit(newVar());
-  d_solver->setUnremovable(lit);
-  return lit; 
+SatVar ClauseManager::mkMarkerVar() {
+  SatVar var = newVar();
+  d_solver->setUnremovable(mkLit(var));
+  return var; 
 }
 
 SatVar ClauseManager::newVar() {
   return d_solver->newVar(); 
 }
 
+SatVar ClauseManager::getVar(SatLit lit) {
+  return d_solver->getVar(lit); 
+}
 
+bool ClauseManager::sign(SatLit lit) {
+  return d_solver->sign(lit); 
+}
 
 void ClauseManager::mkClause(const vector<SatLit>& lits) {
   Assert (d_canAddClause); 
@@ -127,6 +141,7 @@ void ClauseManager::mkClause(const vector<SatLit>& lits) {
     return; 
   }
 
+  Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
   d_clausePool.insert(*clause); 
   assertClause(clause); 
 
@@ -142,6 +157,8 @@ void ClauseManager::mkClause(SatLit lit1) {
   if(inPool(clause)) {
     return;
   }
+  
+  Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
   d_clausePool.insert(*clause); 
   assertClause(clause); 
 }
@@ -159,6 +176,8 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2) {
   if(inPool(clause)) {
     return;
   }
+
+  Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
   d_clausePool.insert(*clause); 
   assertClause(clause); 
 }
@@ -175,7 +194,7 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
   if(inPool(clause)) {
     return;
   }
-
+  Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
   d_clausePool.insert(*clause); 
   assertClause(clause); 
 
@@ -194,7 +213,8 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4)
   if(inPool(clause)) {
     return;
   }
-  
+
+  Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
   d_clausePool.insert(*clause); 
   assertClause(clause); 
 }
@@ -213,7 +233,8 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4,
   if(inPool(clause)) {
     return;
   }
-  
+
+  Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
   d_clausePool.insert(*clause); 
   assertClause(clause); 
 }

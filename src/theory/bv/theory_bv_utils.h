@@ -49,6 +49,13 @@ inline unsigned getSize(TNode node) {
   return node.getType().getBitVectorSize();
 }
 
+// this seems to behave strangely
+inline const Integer& getBit(TNode node, unsigned i) {
+  Assert (0); 
+  Assert (node.getKind() == kind::CONST_BITVECTOR);
+  return node.getConst<BitVector>().extract(i, i).getValue();
+}
+
 inline Node mkTrue() {
   return NodeManager::currentNM()->mkConst<bool>(true);
 }
@@ -87,6 +94,11 @@ inline Node mkConcat(TNode t1, TNode t2) {
     return NodeManager::currentNM()->mkNode(kind::BITVECTOR_CONCAT, t1, t2);
 }
 
+
+inline Node mkConst(unsigned size, unsigned int value) {
+  BitVector val(size, value);
+  return NodeManager::currentNM()->mkConst<BitVector>(val); 
+}
 
 inline Node mkConst(const BitVector& value) {
   return NodeManager::currentNM()->mkConst<BitVector>(value);

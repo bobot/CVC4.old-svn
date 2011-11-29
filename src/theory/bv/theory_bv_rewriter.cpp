@@ -29,8 +29,9 @@ using namespace CVC4::theory::bv;
 RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
   
   BVDebug("bitvector") << "TheoryBV::postRewrite(" << node << ")" << std::endl;
-  Node result;
-
+  //  return RewriteResponse(REWRITE_DONE, node);
+  
+  Node result = node;
   if (node.getKind() == kind::CONST_BITVECTOR || (node.getKind() != kind::EQUAL && Theory::isLeafOf(node, THEORY_BV))) {
     result = node;
   } else {

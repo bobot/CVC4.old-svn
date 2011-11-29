@@ -42,6 +42,7 @@ typedef std::vector<SatLit>    Bits;
 typedef int                    ClauseId; 
 typedef std::vector<ClauseId>  ClauseIds; 
 
+std::string toString (Bits* bits); 
 
 /** 
   *
@@ -83,8 +84,10 @@ public:
   void mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5);
 
   SatLit mkLit(SatVar var);
-  SatLit mkMarkerLit(); 
+  SatVar mkMarkerVar(); 
   SatVar newVar();
+  bool   sign(SatLit lit); 
+  SatVar getVar(SatLit lit); 
   SatClause* getConflict(); 
 
 }; 
@@ -176,28 +179,32 @@ template
 class Bitblaster {
   
   typedef __gnu_cxx::hash_map <TNode, Bits*, TNodeHashFunction >              TermDefMap;
-  typedef __gnu_cxx::hash_map <TNode, SatLit, TNodeHashFunction >             AtomMarkerLitMap;
-  typedef __gnu_cxx::hash_map <SatLit, TNode , SatLitHashFunction>            MarkerLitAtomMap; 
+  typedef __gnu_cxx::hash_map <TNode, SatVar, TNodeHashFunction >             AtomMarkerVarMap;
+  typedef __gnu_cxx::hash_map <SatVar, TNode>                                 MarkerVarAtomMap; 
   
   TermDefMap               d_termCache;
   ClauseManager*           d_clauseManager;
-  AtomMarkerLitMap         d_atomMarkerLit;
-  MarkerLitAtomMap         d_markerLitAtom; 
+  AtomMarkerVarMap         d_atomMarkerVar;
+  MarkerVarAtomMap         d_markerVarAtom; 
   context::CDList<SatLit>  d_assertedAtoms; /**< context dependent list storing the atoms
                                               currently asserted by the DPLL SAT solver. */
 
+  // dummy literals that are always forced to be assigned to true and false respectively
+  const SatLit d_trueLit;
+  const SatLit d_falseLit; 
   /// term helper methods
   Bits*         getBBTerm(TNode node);
   void          cacheTermDef(TNode node, Bits* def);
   Bits*         freshBits(unsigned size);
 
   /// atom helper methods
-  bool              hasMarkerLiteral(TNode node); 
-  SatLit            mkMarkerLit(TNode);
+  bool              hasMarkerVareral(TNode node); 
+  SatVar            mkMarkerVar(TNode);
+
 
   
   /// fixed strategy bitblasting
-  void  bbEqual(TNode node, SatLit marker);
+  void  bbEqual(TNode node, SatVar marker);
 
   // returns the definitional bits for the bitblasted term while adding the
   // definition clauses to the sat solver (note that term definitions will always be asserted in the solver)
@@ -211,10 +218,17 @@ public:
   Bitblaster(context::Context* c) :
     d_termCache(),
     d_clauseManager(new ClauseManager()),
-    d_atomMarkerLit(),
-    d_markerLitAtom(),
-    d_assertedAtoms(c)
-  {}
+    d_atomMarkerVar(),
+    d_markerVarAtom(),
+    d_assertedAtoms(c),
+    d_trueLit(d_clauseManager->mkLit(d_clauseManager->mkMarkerVar())),
+    d_falseLit(d_clauseManager->mkLit(d_clauseManager->mkMarkerVar()))
+  {
+    // SatLit d_trueLit = d_clauseManager->mkMarkerVar();
+    // SatLit d_falseLit = d_clauseManager->mkMarkerVar();
+    d_clauseManager->mkClause(d_trueLit);
+    d_clauseManager->mkClause(neg(d_falseLit)); 
+  }
 
   ~Bitblaster() {
     // TODO !!
@@ -232,20 +246,20 @@ private:
    * 
    */
   void bbAtom(TNode node) {
+
     /// strip the not
     if (node.getKind() == kind::NOT) {
-      node = node[0]; 
+      node = node[0];
     }
     
-    if (hasMarkerLiteral(node)) {
+    if (hasMarkerVareral(node)) {
       return; 
     }
 
-    SatLit markerLit = mkMarkerLit(node);
-
+    SatVar markerVar = mkMarkerVar(node);
     switch(node.getKind()) {
     case kind::EQUAL:
-      bbEqual(node, markerLit);
+      bbEqual(node, markerVar);
       break;
     default:
       // TODO: implement other predicates
@@ -286,7 +300,7 @@ private:
     case kind::BITVECTOR_PLUS:
     case kind::BITVECTOR_MULT:
     case kind::BITVECTOR_XOR:
-      def =  bbBinaryOp(node.getKind(), node[0], node[1]);
+      def =  bbBinaryOp(node);
       break;
       
     default:
@@ -299,8 +313,15 @@ private:
     return def; 
   }
 
-  Bits* bbBinaryOp(Kind nodeKind, TNode lhs, TNode rhs) {
+  Bits* bbBinaryOp(TNode node) {
+    TNode lhs = node[0];
+    TNode rhs = node[1];
+    Kind nodeKind = node.getKind(); 
+    
     Bits*  resBits = freshBits(utils::getSize(lhs));
+
+    Debug("bitvector-bb") << "Bitblasting node " << node << "\n";
+    Debug("bitvector-bb") << "       with bits " << toString(resBits) ; 
 
     const Bits* lhsBits = bbTerm(lhs);
     const Bits* rhsBits = bbTerm(rhs);
@@ -320,7 +341,8 @@ private:
       BBMult::bitblast(resBits, lhsBits, rhsBits, d_clauseManager);
       break;
     case kind::BITVECTOR_XOR:
-      BBXor::bitblast(resBits, lhsBits, rhsBits, d_clauseManager); 
+      BBXor::bitblast(resBits, lhsBits, rhsBits, d_clauseManager);
+      break;
     default:
       Unhandled(nodeKind); 
     }
@@ -359,9 +381,10 @@ void Bitblaster<Plus, Mult, And, Or, Xor>::assertToSat(TNode lit) {
   // strip the not
   TNode node = lit.getKind() == kind::NOT? lit[0] : lit;
 
-  Assert (d_atomMarkerLit.find(node) != d_atomMarkerLit.end()); 
-  SatLit markerLiteral = d_atomMarkerLit[node];
-  d_assertedAtoms.push_back(lit.getKind() == kind::NOT? neg(markerLiteral) : markerLiteral);
+  Assert (d_atomMarkerVar.find(node) != d_atomMarkerVar.end()); 
+  SatVar markerVar = d_atomMarkerVar[node];
+  SatLit markerLit = d_clauseManager->mkLit(markerVar); 
+  d_assertedAtoms.push_back(lit.getKind() == kind::NOT? neg(markerLit) : markerLit);
 }
 
 /** 
@@ -382,8 +405,16 @@ void Bitblaster<Plus, Mult, And, Or, Xor>::getConflict(std::vector<TNode>& confl
   
   for (unsigned i = 0; i < conflictClause->size(); i++) {
     SatLit lit = conflictClause->operator[](i);
-    Assert (d_markerLitAtom.find(lit) != d_markerLitAtom.end());
-    TNode atom = d_markerLitAtom[lit];
+    SatVar var = d_clauseManager->getVar(lit);
+    Assert (d_markerVarAtom.find(var) != d_markerVarAtom.end());
+    
+    TNode atom;
+    if(d_clauseManager->sign(lit)) {
+      atom = d_markerVarAtom[var];
+    }
+    else {
+      atom = NodeManager::currentNM()->mkNode(kind::NOT, d_markerVarAtom[var]); 
+    }
     conflict.push_back(atom); 
   }
 }
@@ -403,18 +434,18 @@ void Bitblaster<Plus, Mult, And, Or, Xor>::resetSolver() {
 
 
 template <class Plus, class Mult, class And, class Or, class Xor>  
-bool Bitblaster<Plus, Mult, And, Or, Xor>::hasMarkerLiteral(TNode atom) {
-  return d_atomMarkerLit.find(atom) != d_atomMarkerLit.end();
+bool Bitblaster<Plus, Mult, And, Or, Xor>::hasMarkerVareral(TNode atom) {
+  return d_atomMarkerVar.find(atom) != d_atomMarkerVar.end();
 }
 
 
 template <class Plus, class Mult, class And, class Or, class Xor>  
-SatLit Bitblaster<Plus, Mult, And, Or, Xor>::mkMarkerLit(TNode atom) {
-  Assert (d_atomMarkerLit.find(atom) == d_atomMarkerLit.end());
-  SatLit lit = d_clauseManager->mkMarkerLit(); 
-  d_atomMarkerLit[atom] = lit;
-  d_markerLitAtom[lit] = atom;
-  return lit; 
+SatVar Bitblaster<Plus, Mult, And, Or, Xor>::mkMarkerVar(TNode atom) {
+  Assert (d_atomMarkerVar.find(atom) == d_atomMarkerVar.end());
+  SatVar var = d_clauseManager->mkMarkerVar(); 
+  d_atomMarkerVar[atom] = var;
+  d_markerVarAtom[var] = atom;
+  return var; 
 }
 
 
@@ -458,19 +489,24 @@ Bits* Bitblaster<Plus, Mult, And, Or, Xor>::freshBits(unsigned size) {
  * @return 
  */
 template <class Plus, class Mult, class And, class Or, class Xor>  
-void Bitblaster<Plus, Mult, And, Or, Xor>::bbEqual(TNode node, SatLit atom_lit) {
+void Bitblaster<Plus, Mult, And, Or, Xor>::bbEqual(TNode node, SatVar atom_var) {
+  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  Debug("bitvector-bb") << "      marker lit " << toStringLit(d_clauseManager->mkLit(atom_var)) << "\n"; 
+  
   Assert(node.getKind() == kind::EQUAL);
   const Bits& lhs = *(bbTerm(node[0]));
   const Bits& rhs = *(bbTerm(node[1]));
 
   Assert(lhs.size() == rhs.size());
 
+  SatLit atom_lit = d_clauseManager->mkLit(atom_var); 
   std::vector<SatLit> lits;
-  /// constructing the clause x_1 /\ .. /\ x_n => atom_lit
+  /// constructing the clause x_1 /\ .. /\ x_n =
   lits.push_back(atom_lit);
   
   for (unsigned i = 0; i < lhs.size(); i++) {
     SatLit x = d_clauseManager->mkLit(d_clauseManager->newVar());
+    
     /// Adding the clauses corresponding to:
     ///       x_i = (lhs_i = rhs_i)
     d_clauseManager->mkClause(neg(x), lhs[i], neg(rhs[i]));
@@ -488,23 +524,36 @@ void Bitblaster<Plus, Mult, And, Or, Xor>::bbEqual(TNode node, SatLit atom_lit) 
 
 template <class Plus, class Mult, class And, class Or, class Xor>  
 Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbConst(TNode node) {
+  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+
   Assert(node.getKind() == kind::CONST_BITVECTOR);
+  Bits* bits = new Bits();
   for (unsigned i = 0; i < utils::getSize(node); ++i) {
-    // TODO : finish!!
+    Integer bit = node.getConst<BitVector>().extract(i, i).getValue();
+    if(bit == Integer(0)){
+      bits->push_back(d_falseLit);
+    } else {
+      Assert (bit == Integer(1));
+      bits->push_back(d_trueLit); 
+    }
   }
-  return NULL; 
+  return bits; 
 }
   
 template <class Plus, class Mult, class And, class Or, class Xor>  
 Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbVar(TNode node) {
+  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   Assert (node.getKind() == kind::VARIABLE);
   Bits* bits;
   bits = freshBits(utils::getSize(node));
+  Debug("bitvector-bb") << " with bits       " << toString(bits); 
   return bits; 
 }
 
 template <class Plus, class Mult, class And, class Or, class Xor>  
 Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbExtract(TNode node) {
+  Debug("bitvector-bb") << "Bitblasting node " << node;
+  
   Assert (node.getKind() == kind::BITVECTOR_EXTRACT);
   const Bits* bits = bbTerm(node[0]);
   unsigned high = utils::getExtractHigh(node);
@@ -521,6 +570,7 @@ Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbExtract(TNode node) {
 
 template <class Plus, class Mult, class And, class Or, class Xor>  
 Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbConcat(TNode node) {
+  Debug("bitvector-bb") << "Bitblasting node " << node << "\n";
   Assert (node.getKind() == kind::BITVECTOR_CONCAT);
   const Bits* bv1 = bbTerm(node[0]);
   const Bits* bv2 = bbTerm(node[1]);
@@ -540,6 +590,8 @@ Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbConcat(TNode node) {
 
 template <class Plus, class Mult, class And, class Or, class Xor>  
 Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbNot(TNode node) {
+  Debug("bitvector-bb") << "Bitblasting node " << node << "\n";
+  
   Assert(node.getKind() == kind::BITVECTOR_NOT);
 
   const Bits* bv = bbTerm(node[0]);

@@ -113,12 +113,18 @@ public:
     SatLit v6 = mgr->mkLit(mgr->newVar());
 
 
-    SatLit marker1 = mgr->mkMarkerLit();
-    SatLit marker2 = mgr->mkMarkerLit();
-    SatLit marker3 = mgr->mkMarkerLit();
-    SatLit marker4 = mgr->mkMarkerLit();
-    SatLit marker5 = mgr->mkMarkerLit();    
+    SatVar varmarker1 = mgr->mkMarkerVar();
+    SatVar varmarker2 = mgr->mkMarkerVar();
+    SatVar varmarker3 = mgr->mkMarkerVar();
+    SatVar varmarker4 = mgr->mkMarkerVar();
+    SatVar varmarker5 = mgr->mkMarkerVar();    
 
+    SatLit marker1 = mgr->mkLit(varmarker1);
+    SatLit marker2 = mgr->mkLit(varmarker2);
+    SatLit marker3 = mgr->mkLit(varmarker3);
+    SatLit marker4 = mgr->mkLit(varmarker4);
+    SatLit marker5 = mgr->mkLit(varmarker5); 
+    
     /// creating a problem
     /// the clauses will be added to the sat solver
     mgr->mkClause(neg(marker1), v1, neg(v2), v3);
@@ -216,8 +222,8 @@ public:
     Node b3 = nm->mkNode(nm->mkConst<BitVectorExtract>(BitVectorExtract(3,3)), b);
     Node eq3 = nm->mkNode(kind::EQUAL, a3, b3);
 
-    bb->bbAtom(eq2);
-    bb->bbAtom(eq3); 
+    bb->bitblast(eq2);
+    bb->bitblast(eq3); 
 
     ctx->push();
     bb->assertToSat(neq);
@@ -237,27 +243,41 @@ public:
     
   }
 
-    void testBitblasterXorAnd() {
+    void testBitblasterAndXor() {
     // ClauseManager tests 
     Context* ctx = new Context();
     Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB>* bb =
       new Bitblaster< DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB >(ctx);
     
     NodeManager* nm = NodeManager::currentNM();
-    Node a = nm->mkVar("a", nm->mkBitVectorType(4));
-    Node b = nm->mkVar("b", nm->mkBitVectorType(4));
-    Node c = nm->mkVar("c", nm->mkBitVectorType(4)); 
-    Node aAndb = nm->mkNode(kind::BITVECTOR_AND, a, b);
-    Node atom1 = nm->mkNode(kind::EQUAL, c, aAndb); 
-    Node cXora = nm->mkNode(kind::BITVECTOR_XOR, c, a);
-    Node cXorb = nm->mkNode(kind::BITVECTOR_XOR, c, b);
-    Node atom2 = nm->mkNode(kind::EQUAL, cXora, cXorb);
-    Node atom3 = nm->mkNode(kind::NOT, 
-
-
+    Node a = nm->mkVar("a", nm->mkBitVectorType(10));
+    Node b = nm->mkVar("b", nm->mkBitVectorType(10));
+    // Node c = nm->mkVar("c", nm->mkBitVectorType(1)); 
+    // Node aEqb = nm->mkNode(kind::EQUAL, a, b);
+    Node a_const = utils::mkConst(10,9);
+    Node b_const = utils::mkConst(10,5);
+    Node xor_const = utils::mkConst(10, 12); 
+    Node ab = nm->mkNode(kind::BITVECTOR_XOR, a_const, b_const);
+        
+    Node atom = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, ab, xor_const));
+    // BitVector val((unsigned)4, (unsigned int)3); 
+    // Node x1 = utils::mkConst(4, 3);
+    // Node x2 = nm->mkNode(nm->mkConst<BitVectorExtract>(BitVectorExtract(2, 1)), x1);
+    // Node x3 = utils::mkConst(2, 1);
+    // Node eq1 = nm->mkNode(kind::NOT, nm->mkNode(kind::EQUAL, x2, x3)); 
+    //    Node d = nm->mkNode(nm->mkConst
+    
+    ctx->push();
+    bb->bitblast(atom);
+    // bb->bitblast(aEqb);
+    // bb->bitblast(eq1); 
+    
+    // bb->assertToSat(atom);
+    // bb->assertToSat(aEqb);
+    bb->assertToSat(atom); 
+    bool res = bb->solve();
+    TS_ASSERT(res == false);
+    
     }
- 
-
-
 
 };
