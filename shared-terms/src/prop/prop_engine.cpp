@@ -173,15 +173,21 @@ Result PropEngine::checkSat(unsigned long& millis, unsigned long& resource) {
 
 Node PropEngine::getValue(TNode node) const {
   Assert(node.getType().isBoolean());
-  SatLiteral lit = d_cnfStream->getLiteral(node);
 
-  SatLiteralValue v = d_satSolver->value(lit);
-  if(v == l_True) {
-    return NodeManager::currentNM()->mkConst(true);
-  } else if(v == l_False) {
-    return NodeManager::currentNM()->mkConst(false);
+  if(d_cnfStream->hasLiteral(node)){
+
+    SatLiteral lit = d_cnfStream->getLiteral(node);
+
+    SatLiteralValue v = d_satSolver->value(lit);
+    if(v == l_True) {
+      return NodeManager::currentNM()->mkConst(true);
+    } else if(v == l_False) {
+      return NodeManager::currentNM()->mkConst(false);
+    } else {
+      Assert(v == l_Undef);
+      return Node::null();
+    }
   } else {
-    Assert(v == l_Undef);
     return Node::null();
   }
 }
@@ -196,17 +202,22 @@ bool PropEngine::isTranslatedSatLiteral(TNode node) const {
 
 bool PropEngine::hasValue(TNode node, bool& value) const {
   Assert(node.getType().isBoolean());
-  SatLiteral lit = d_cnfStream->getLiteral(node);
 
-  SatLiteralValue v = d_satSolver->value(lit);
-  if(v == l_True) {
-    value = true;
-    return true;
-  } else if(v == l_False) {
-    value = false;
-    return true;
+  if(d_cnfStream->hasLiteral(node)){
+    SatLiteral lit = d_cnfStream->getLiteral(node);
+
+    SatLiteralValue v = d_satSolver->value(lit);
+    if(v == l_True) {
+      value = true;
+      return true;
+    } else if(v == l_False) {
+      value = false;
+      return true;
+    } else {
+      Assert(v == l_Undef);
+      return false;
+    }
   } else {
-    Assert(v == l_Undef);
     return false;
   }
 }
