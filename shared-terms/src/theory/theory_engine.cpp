@@ -669,11 +669,8 @@ void TheoryEngine::explainEqualities(TheoryId theoryId, TNode literals, NodeBuil
       if (atom.getKind() == kind::EQUAL) {
         explainEquality(theoryId, literal, builder);
       } else if(literal.getKind() == kind::AND){
-
-#warning "This should be vetted by Dejan."
         explainEqualities(theoryId, literal, builder);
       } else {
-        Debug("theory") << "push back point 0(" << literal << ")" << std::endl;
         builder << literal;
       }
     }
@@ -682,7 +679,6 @@ void TheoryEngine::explainEqualities(TheoryId theoryId, TNode literals, NodeBuil
     if (atom.getKind() == kind::EQUAL) {
       explainEquality(theoryId, literals, builder);
     } else {
-      Debug("theory") << "push back point 1(" << literals << ")" << std::endl;
       builder << literals;
     }
   }
