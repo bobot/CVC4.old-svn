@@ -27,13 +27,17 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-void ArithPartialModel::checkBoundUpdate(ArithVar x){
-  if(d_dm.isDifferenceSlack(x) && boundsAreEqual(x) && getUpperBound(x) == d_ZERO){
-    Node lb = getLowerConstraint(x);
-    Node ub = getUpperConstraint(x);
-    Node reason = lb != ub ? lb.andNode(ub) : lb;
-    d_dm.differenceIsZero(x, reason);
-  }
+
+
+void ArithPartialModel::zeroDifferenceDetected(ArithVar x){
+  Assert(d_dm.isDifferenceSlack(x));
+  Assert(upperBoundIsZero(x));
+  Assert(lowerBoundIsZero(x));
+
+  Node lb = getLowerConstraint(x);
+  Node ub = getUpperConstraint(x);
+  Node reason = lb != ub ? lb.andNode(ub) : lb;
+  d_dm.differenceIsZero(x, reason);
 }
 
 void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
@@ -43,11 +47,14 @@ void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
   d_hasHadABound[x] = true;
   d_upperBound.set(x,r);
 
-  if(d_dm.isDifferenceSlack(x) && r < d_ZERO){
-    d_dm.differenceCannotBeZero(x, getUpperConstraint(x));
+  if(d_dm.isDifferenceSlack(x)){
+    int sgn = r.sgn();
+    if(sgn < 0){
+      d_dm.differenceCannotBeZero(x, getUpperConstraint(x));
+    }else if(sgn == 0 && lowerBoundIsZero(x)){
+      zeroDifferenceDetected(x);
+    }
   }
-
-  checkBoundUpdate(x);
 }
 
 void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
@@ -58,10 +65,14 @@ void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
   d_lowerBound.set(x,r);
 
 
-  if(d_dm.isDifferenceSlack(x) && r > d_ZERO){
-    d_dm.differenceCannotBeZero(x, getLowerConstraint(x));
+  if(d_dm.isDifferenceSlack(x)){
+    int sgn = r.sgn();
+    if(sgn > 0){
+      d_dm.differenceCannotBeZero(x, getLowerConstraint(x));
+    }else if(sgn == 0 && upperBoundIsZero(x)){
+      zeroDifferenceDetected(x);
+    }
   }
-  checkBoundUpdate(x);
 }
 
 void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& r){
@@ -251,10 +262,6 @@ bool ArithPartialModel::strictlyAboveLowerBound(ArithVar x){
     return true;
   }
   return  d_lowerBound[x] < d_assignment[x];
-}
-
-bool ArithPartialModel::boundsAreEqual(ArithVar x){
-  return hasLowerBound(x) && hasUpperBound(x) && getLowerBound(x) == getUpperBound(x);
 }
 
 /**

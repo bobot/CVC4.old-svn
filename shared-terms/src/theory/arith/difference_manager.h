@@ -72,7 +72,7 @@ public:
 
   void addDifference(ArithVar s, Node x, Node y);
 
-  bool isDifferenceSlack(ArithVar s) const{
+  inline bool isDifferenceSlack(ArithVar s) const{
     if(s < d_differences.size()){
       return d_differences[s].isSlack;
     }else{

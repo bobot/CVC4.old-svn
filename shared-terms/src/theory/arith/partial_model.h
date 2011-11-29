@@ -104,10 +104,16 @@ public:
   void commitAssignmentChanges();
 
 
-  bool boundsAreEqual(ArithVar x);
+  inline bool lowerBoundIsZero(ArithVar x){
+    return hasLowerBound(x) && getLowerBound(x).sgn() == 0;
+  }
+
+  inline bool upperBoundIsZero(ArithVar x){
+    return hasUpperBound(x) && getUpperBound(x).sgn() == 0;
+  }
+
 private:
-  void checkBoundUpdate(ArithVar x);
-  DeltaRational d_ZERO;
+  void zeroDifferenceDetected(ArithVar x);
 
 public:
 

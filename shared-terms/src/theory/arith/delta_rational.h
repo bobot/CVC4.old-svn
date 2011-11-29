@@ -54,8 +54,13 @@ public:
     return c;
   }
 
-  bool isZero() const {
-    return getInfinitesimalPart() == 0 && getNoninfinitesimalPart() == 0;
+  int sgn() const {
+    int x = getNoninfinitesimalPart().sgn();
+    if(x == 0){
+      return getInfinitesimalPart().sgn();
+    }else{
+      return x;
+    }
   }
 
   DeltaRational operator+(const DeltaRational& other) const{
