@@ -31,9 +31,6 @@ namespace bv{
 
 /** Helper methods for printing */
 
-// void printLit (SatLit l) {
-//   Debug("bitvector") << (sign(l) ? "-" : "") << var(l) + 1 << std::endl;
-// }
 std::string toString(Bits* bits) {
   Assert(bits);
   ostringstream os;
@@ -49,41 +46,71 @@ void printClause (SatClause& c) {
   Debug("bitvector") << c.toString() <<"\n"; 
 }
 
-// void printBits (Bits& c) {
-//   for (unsigned i = 0; i < c.size(); i++) {
-//     Debug("bitvector") << (sign(c[i]) ? "-" : "") << var(c[i]) + 1 << " "; 
-//   }
-//   Debug("bitvector") << std::endl;
-// }
-
 
 /// ClauseManager
 ClauseManager::ClauseManager():
     d_solver(new SatSolver() ),
-    d_clausePool(),
+    //    d_clausePool(),
     d_canAddClause(true),
-    d_conflict(NULL)
+    d_conflict(NULL),
+    d_statistics()
   {}
 
+ClauseManager::Statistics::Statistics() :
+  d_numVariables("theory::bv::NumberOfSatVariables", 0),
+  d_numTotalClauses("theory::bv::TotalNumberOfAssertedSatClauses",0),
+  d_satSolveTimer("theory::bv::SatSolvingTimer"),
+  d_unsatCoreTimer("theory::bv::UnsatCoreTimer"),
+  d_avgClauseSize("theory::bv::AvgBVClauseSize"),
+  d_numDuplicateClauses("theory::bv::NumberOfDuplicateSatClauses", 0)
+{
+  StatisticsRegistry::registerStat(&d_numVariables);
+  StatisticsRegistry::registerStat(&d_numTotalClauses);
+  StatisticsRegistry::registerStat(&d_satSolveTimer);
+  StatisticsRegistry::registerStat(&d_unsatCoreTimer);
+  StatisticsRegistry::registerStat(&d_avgClauseSize);
+  StatisticsRegistry::registerStat(&d_numDuplicateClauses);
+}
+
+ClauseManager::Statistics::~Statistics() {
+  StatisticsRegistry::unregisterStat(&d_numVariables);
+  StatisticsRegistry::unregisterStat(&d_numTotalClauses);
+  StatisticsRegistry::unregisterStat(&d_satSolveTimer);
+  StatisticsRegistry::unregisterStat(&d_unsatCoreTimer);
+  StatisticsRegistry::unregisterStat(&d_avgClauseSize);
+  StatisticsRegistry::unregisterStat(&d_numDuplicateClauses);
+}
+
+
 ClauseManager::~ClauseManager() {
+  delete d_solver;
+  delete d_conflict; 
   // TODO: clean up all newly allocated clauses and such 
 }
 
 SatClause* ClauseManager::getConflict() {
+  TimerStat::CodeTimer codeTimer(d_statistics.d_unsatCoreTimer);
   return d_solver->getUnsatCore();  
 }
 
 void ClauseManager::assertClause(SatClause* cl) {
   Assert (cl);
+
+  ++(d_statistics.d_numTotalClauses);
+  d_statistics.d_avgClauseSize.addEntry(cl->size()); 
+
   d_solver->addClause(cl);
 }
 
 bool ClauseManager::solve() {
+  TimerStat::CodeTimer codeTimer(d_statistics.d_satSolveTimer);
   d_canAddClause = false; 
-  return d_solver->solve(); 
+  bool res =  d_solver->solve();
+  return res; 
 }
 
 bool ClauseManager::solve(const CDList<SatLit>& assumptions) {
+  TimerStat::CodeTimer codeTimer(d_statistics.d_satSolveTimer);
   /// the only clauses that should be "active" now are the term definitions
   /// which must be consistent
   Assert (d_solver->solve());
@@ -101,15 +128,15 @@ void ClauseManager::resetSolver() {
 }
 
 
-bool ClauseManager::inPool(SatClause* clause) {
-  Assert (clause != NULL); 
-  return d_clausePool.find(*clause) != d_clausePool.end(); 
-}
+// bool ClauseManager::inPool(SatClause* clause) {
+//   Assert (clause != NULL); 
+//   bool res = d_clausePool.find(*clause) != d_clausePool.end();
+//   if(res) {
+//     ++(d_statistics.d_numDuplicateClauses); 
+//   }
+//   return res; 
+// }
 
-
-SatLit ClauseManager::mkLit(SatVar var) {
-  return d_solver->mkLit(var); 
-}
 
 SatVar ClauseManager::mkMarkerVar() {
   SatVar var = newVar();
@@ -118,15 +145,8 @@ SatVar ClauseManager::mkMarkerVar() {
 }
 
 SatVar ClauseManager::newVar() {
+  ++(d_statistics.d_numVariables); 
   return d_solver->newVar(); 
-}
-
-SatVar ClauseManager::getVar(SatLit lit) {
-  return d_solver->getVar(lit); 
-}
-
-bool ClauseManager::sign(SatLit lit) {
-  return d_solver->sign(lit); 
 }
 
 void ClauseManager::mkClause(const vector<SatLit>& lits) {
@@ -137,12 +157,12 @@ void ClauseManager::mkClause(const vector<SatLit>& lits) {
   }
   clause->sort();
 
-  if(inPool(clause)) {
-    return; 
-  }
+  // if(inPool(clause)) {
+  //   return; 
+  // }
 
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  d_clausePool.insert(*clause); 
+  // d_clausePool.insert(*clause); 
   assertClause(clause); 
 
 }
@@ -154,12 +174,12 @@ void ClauseManager::mkClause(SatLit lit1) {
   clause->addLiteral(lit1);
   clause->sort(); 
   
-  if(inPool(clause)) {
-    return;
-  }
+  // if(inPool(clause)) {
+  //   return;
+  // }
   
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  d_clausePool.insert(*clause); 
+  // d_clausePool.insert(*clause); 
   assertClause(clause); 
 }
 
@@ -173,12 +193,12 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2) {
   clause->addLiteral(lit2);
   clause->sort(); 
   
-  if(inPool(clause)) {
-    return;
-  }
+  // if(inPool(clause)) {
+  //   return;
+  // }
 
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  d_clausePool.insert(*clause); 
+  // d_clausePool.insert(*clause); 
   assertClause(clause); 
 }
 
@@ -191,11 +211,11 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
   clause->addLiteral(lit3);
   clause->sort(); 
 
-  if(inPool(clause)) {
-    return;
-  }
+  // if(inPool(clause)) {
+  //   return;
+  // }
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  d_clausePool.insert(*clause); 
+  // d_clausePool.insert(*clause); 
   assertClause(clause); 
 
 }
@@ -210,12 +230,12 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4)
   clause->addLiteral(lit4); 
   clause->sort();
 
-  if(inPool(clause)) {
-    return;
-  }
+  // if(inPool(clause)) {
+  //   return;
+  // }
 
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  d_clausePool.insert(*clause); 
+  // d_clausePool.insert(*clause); 
   assertClause(clause); 
 }
 
@@ -230,91 +250,14 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4,
   clause->addLiteral(lit5); 
   clause->sort(); 
 
-  if(inPool(clause)) {
-    return;
-  }
+  // if(inPool(clause)) {
+  //   return;
+  // }
 
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  d_clausePool.insert(*clause); 
+  // d_clausePool.insert(*clause); 
   assertClause(clause); 
 }
-
-// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1) {
-//   Assert (d_canAddClause);
-  
-//   SatClause* clause = new SatClause();
-//   clause->addLiteral(marker); 
-//   clause->addLiteral(lit1);
-//   clause->sort();
-  
-//   // make sure the marker literal does not get eliminated 
-//   d_solver->setUnremovable(marker); 
-//   assertClause(clause); 
-// }
-
-
-// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2) {
-//   Assert (d_canAddClause);
-  
-//   SatClause* clause = new SatClause();
-//   clause->addLiteral(marker); 
-//   clause->addLiteral(lit1);
-//   clause->addLiteral(lit2);
-//   clause->sort(); 
-
-//   // make sure the marker literal does not get eliminated 
-//   d_solver->setUnremovable(marker); 
-//   assertClause(clause); 
-// }
-
-// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3) {
-//   Assert (d_canAddClause);
-  
-//   SatClause* clause = new SatClause();
-//   clause->addLiteral(marker); 
-//   clause->addLiteral(lit1);
-//   clause->addLiteral(lit2);
-//   clause->addLiteral(lit3);
-//   clause->sort(); 
-
-//   // make sure the marker literal does not get eliminated 
-//   d_solver->setUnremovable(marker); 
-//   assertClause(clause); 
-
-// }
-
-// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4) {
-//   Assert (d_canAddClause);
-  
-//   SatClause* clause = new SatClause();
-//   clause->addLiteral(marker); 
-//   clause->addLiteral(lit1);
-//   clause->addLiteral(lit2);
-//   clause->addLiteral(lit3);
-//   clause->addLiteral(lit4); 
-//   clause->sort();
-
-//   // make sure the marker literal does not get eliminated 
-//   d_solver->setUnremovable(marker); 
-//   assertClause(clause); 
-// }
-
-// void ClauseManager::mkMarkedClause(SatLit marker, SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5) {
-//   Assert (d_canAddClause);
-  
-//   SatClause* clause = new SatClause();
-//   clause->addLiteral(marker); 
-//   clause->addLiteral(lit1);
-//   clause->addLiteral(lit2);
-//   clause->addLiteral(lit3);
-//   clause->addLiteral(lit4); 
-//   clause->addLiteral(lit5); 
-//   clause->sort(); 
-
-//   // make sure the marker literal does not get eliminated 
-//   d_solver->setUnremovable(marker); 
-//   assertClause(clause); 
-// }
 
 
 

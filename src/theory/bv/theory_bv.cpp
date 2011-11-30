@@ -35,11 +35,23 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
   : Theory(THEORY_BV, c, u, out, valuation), 
     d_context(c),
     d_assertions(c),
-    d_bitblaster(new Bitblaster<DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB>(c) )
+    d_bitblaster(new Bitblaster<DefaultPlusBB, DefaultMultBB, DefaultAndBB, DefaultOrBB, DefaultXorBB>(c) ),
+    d_statistics()
   {
     d_true = utils::mkTrue();
   }
+TheoryBV::~TheoryBV() {
+  delete d_bitblaster; 
+}
+TheoryBV::Statistics::Statistics():
+  d_avgConflictSize("theory::bv::AvgBVConflictSize")
+{
+  StatisticsRegistry::registerStat(&d_avgConflictSize);
+}
 
+TheoryBV::Statistics::~Statistics() {
+  StatisticsRegistry::unregisterStat(&d_avgConflictSize);
+}
 
 void TheoryBV::preRegisterTerm(TNode node) {
 
@@ -67,6 +79,8 @@ void TheoryBV::check(Effort e) {
       std::vector<TNode> conflictAtoms;
       d_bitblaster->getConflict(conflictAtoms);
 
+      d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
+      
       Node conflict = mkConjunction(conflictAtoms);
       d_out->conflict(conflict);
       return; 

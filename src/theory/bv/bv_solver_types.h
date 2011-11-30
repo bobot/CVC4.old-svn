@@ -40,6 +40,8 @@
 #include <math.h>
 #include <ext/hash_map>
 #include "context/cdlist.h"
+#include "util/stats.h"
+
 
 namespace CVC4 {
 namespace theory {
@@ -235,15 +237,23 @@ public:
   virtual bool         solve () = 0;
   virtual bool         solve(const context::CDList<SatLit> & assumps) = 0;
   virtual SatVar       newVar() = 0;
-  virtual SatLit       mkLit(SatVar var) = 0;
-  virtual SatVar       getVar(SatLit lit) = 0;
-  virtual bool         sign(SatLit lit) = 0; 
   virtual void         setUnremovable(SatLit) = 0;
   virtual SatClause*   getUnsatCore() = 0;
 }; 
 
 
 #ifdef BV_MINISAT /* BV_MINISAT */
+
+/** 
+ * Some helper functions that should be defined for each SAT solver supported
+ * 
+ * 
+ * @return 
+ */
+
+SatLit mkLit(SatVar var);
+SatVar mkVar(SatLit lit);
+bool   polarity(SatLit lit); 
 
 /** 
  * Wrapper class around the minsat solver
@@ -255,8 +265,11 @@ class SatSolver : public SatSolverInterface {
 public:
   SatSolver() :
     d_solver(),
-    d_result(0)
-  {}
+    d_result(0),
+    d_statistics()
+  {
+    d_statistics.init(&d_solver); 
+  }
   ~SatSolver() {}
 
   void addClause(const SatClause* cl) {
@@ -302,18 +315,7 @@ public:
   SatVar newVar() {
     return d_solver.newVar(); 
   }
-  SatLit mkLit(SatVar var) {
-    return BVMinisat::mkLit(var); 
-  }
 
-  SatVar getVar(SatLit lit) {
-    return BVMinisat::var(lit); 
-  }
-
-  bool sign(SatLit lit) {
-    return BVMinisat::sign(lit); 
-  }
-  
   void setUnremovable(SatLit lit) {
     d_solver.setFrozen(BVMinisat::var(lit), true); 
   }
@@ -328,6 +330,67 @@ public:
     
     return conflict; 
   }
+
+  class Statistics {
+  public:
+    ReferenceStat<uint64_t> d_statStarts, d_statDecisions;
+    ReferenceStat<uint64_t> d_statRndDecisions, d_statPropagations;
+    ReferenceStat<uint64_t> d_statConflicts, d_statClausesLiterals;
+    ReferenceStat<uint64_t> d_statLearntsLiterals,  d_statMaxLiterals;
+    ReferenceStat<uint64_t> d_statTotLiterals;
+    ReferenceStat<int> d_statEliminatedVars;
+    Statistics() :
+      d_statStarts("theory::bv::bvminisat::starts"),
+      d_statDecisions("theory::bv::bvminisat::decisions"),
+      d_statRndDecisions("theory::bv::bvminisat::rnd_decisions"),
+      d_statPropagations("theory::bv::bvminisat::propagations"),
+      d_statConflicts("theory::bv::bvminisat::conflicts"),
+      d_statClausesLiterals("theory::bv::bvminisat::clauses_literals"),
+      d_statLearntsLiterals("theory::bv::bvminisat::learnts_literals"),
+      d_statMaxLiterals("theory::bv::bvminisat::max_literals"),
+      d_statTotLiterals("theory::bv::bvminisat::tot_literals"),
+      d_statEliminatedVars("theory::bv::bvminisat::eliminated_vars")
+    {
+      StatisticsRegistry::registerStat(&d_statStarts);
+      StatisticsRegistry::registerStat(&d_statDecisions);
+      StatisticsRegistry::registerStat(&d_statRndDecisions);
+      StatisticsRegistry::registerStat(&d_statPropagations);
+      StatisticsRegistry::registerStat(&d_statConflicts);
+      StatisticsRegistry::registerStat(&d_statClausesLiterals);
+      StatisticsRegistry::registerStat(&d_statLearntsLiterals);
+      StatisticsRegistry::registerStat(&d_statMaxLiterals);
+      StatisticsRegistry::registerStat(&d_statTotLiterals);
+      StatisticsRegistry::registerStat(&d_statEliminatedVars);
+    }
+    ~Statistics() {
+      StatisticsRegistry::unregisterStat(&d_statStarts);
+      StatisticsRegistry::unregisterStat(&d_statDecisions);
+      StatisticsRegistry::unregisterStat(&d_statRndDecisions);
+      StatisticsRegistry::unregisterStat(&d_statPropagations);
+      StatisticsRegistry::unregisterStat(&d_statConflicts);
+      StatisticsRegistry::unregisterStat(&d_statClausesLiterals);
+      StatisticsRegistry::unregisterStat(&d_statLearntsLiterals);
+      StatisticsRegistry::unregisterStat(&d_statMaxLiterals);
+      StatisticsRegistry::unregisterStat(&d_statTotLiterals);
+      StatisticsRegistry::unregisterStat(&d_statEliminatedVars);
+    }
+    
+    void init(BVMinisat::SimpSolver* minisat){
+      d_statStarts.setData(minisat->starts);
+      d_statDecisions.setData(minisat->decisions);
+      d_statRndDecisions.setData(minisat->rnd_decisions);
+      d_statPropagations.setData(minisat->propagations);
+      d_statConflicts.setData(minisat->conflicts);
+      d_statClausesLiterals.setData(minisat->clauses_literals);
+      d_statLearntsLiterals.setData(minisat->learnts_literals);
+      d_statMaxLiterals.setData(minisat->max_literals);
+      d_statTotLiterals.setData(minisat->tot_literals);
+      d_statEliminatedVars.setData(minisat->eliminated_vars);
+    }
+  };
+  
+  Statistics d_statistics;
+
   
 }; 
 
@@ -339,6 +402,18 @@ public:
 
 
 #ifdef BV_PICOSAT  /* BV_PICOSAT */
+
+/** 
+ * Some helper functions that should be defined for each SAT solver supported
+ * 
+ * 
+ * @return 
+ */
+
+SatLit mkLit(SatVar var);
+SatVar mkVar(SatLit lit);
+bool   polarity(SatLit lit); 
+
 
 /** 
  * Wrapper to create the impression of a SatSolver class for Picosat
@@ -384,8 +459,6 @@ public:
   
   SatVar newVar() { return ++d_varCount; }
 
-  SatLit mkLit(SatVar var) {return var; }
-  
   void   setUnremovable(SatLit lit) {}; 
   
 }; 

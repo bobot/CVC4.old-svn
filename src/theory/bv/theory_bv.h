@@ -25,7 +25,8 @@
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "theory/bv/theory_bv_utils.h"
-//#include "theory/bv/bv_sat.h"
+
+#include "util/stats.h"
 
 namespace BVMinisat {
 class SimpSolver; 
@@ -64,7 +65,7 @@ private:
 public:
 
   TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
-
+  ~TheoryBV(); 
 
   void preRegisterTerm(TNode n);
 
@@ -79,6 +80,19 @@ public:
   Node getValue(TNode n);
 
   std::string identify() const { return std::string("TheoryBV"); }
+  
+private:
+  
+  class Statistics {
+  public:
+    AverageStat d_avgConflictSize;
+    
+    Statistics();
+    ~Statistics(); 
+  }; 
+  
+  Statistics d_statistics;
+  
 };/* class TheoryBV */
 
 }/* CVC4::theory::bv namespace */

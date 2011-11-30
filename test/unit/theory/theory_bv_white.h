@@ -70,12 +70,12 @@ public:
   void testSimpleClauseManager() {
     ClauseManager* mgr = new ClauseManager();
     
-    SatLit v1 = mgr->mkLit(mgr->newVar());
-    SatLit v2 = mgr->mkLit(mgr->newVar()); 
-    SatLit v3 = mgr->mkLit(mgr->newVar());
-    SatLit v4 = mgr->mkLit(mgr->newVar()); 
-    SatLit v5 = mgr->mkLit(mgr->newVar());
-    SatLit v6 = mgr->mkLit(mgr->newVar());
+    SatLit v1 = mkLit(mgr->newVar());
+    SatLit v2 = mkLit(mgr->newVar()); 
+    SatLit v3 = mkLit(mgr->newVar());
+    SatLit v4 = mkLit(mgr->newVar()); 
+    SatLit v5 = mkLit(mgr->newVar());
+    SatLit v6 = mkLit(mgr->newVar());
 
     mgr->mkClause(v1, neg(v2), v3);
     mgr->mkClause(v1, neg(v3) );
@@ -105,12 +105,12 @@ public:
     
     /// testing clause creation 
     
-    SatLit v1 = mgr->mkLit(mgr->newVar());
-    SatLit v2 = mgr->mkLit(mgr->newVar()); 
-    SatLit v3 = mgr->mkLit(mgr->newVar());
-    SatLit v4 = mgr->mkLit(mgr->newVar()); 
-    SatLit v5 = mgr->mkLit(mgr->newVar());
-    SatLit v6 = mgr->mkLit(mgr->newVar());
+    SatLit v1 = mkLit(mgr->newVar());
+    SatLit v2 = mkLit(mgr->newVar()); 
+    SatLit v3 = mkLit(mgr->newVar());
+    SatLit v4 = mkLit(mgr->newVar()); 
+    SatLit v5 = mkLit(mgr->newVar());
+    SatLit v6 = mkLit(mgr->newVar());
 
 
     SatVar varmarker1 = mgr->mkMarkerVar();
@@ -119,12 +119,12 @@ public:
     SatVar varmarker4 = mgr->mkMarkerVar();
     SatVar varmarker5 = mgr->mkMarkerVar();    
 
-    SatLit marker1 = mgr->mkLit(varmarker1);
-    SatLit marker2 = mgr->mkLit(varmarker2);
-    SatLit marker3 = mgr->mkLit(varmarker3);
-    SatLit marker4 = mgr->mkLit(varmarker4);
-    SatLit marker5 = mgr->mkLit(varmarker5); 
-    
+    SatLit marker1 = mkLit(varmarker1);
+    SatLit marker2 = mkLit(varmarker2);
+    SatLit marker3 = mkLit(varmarker3);
+    SatLit marker4 = mkLit(varmarker4);
+    SatLit marker5 = mkLit(varmarker5); 
+   
     /// creating a problem
     /// the clauses will be added to the sat solver
     mgr->mkClause(neg(marker1), v1, neg(v2), v3);
@@ -136,7 +136,14 @@ public:
     mgr->mkClause(neg(marker4), neg(v1), v5);
     mgr->mkClause(neg(marker4), neg(v1), neg(v5));
     mgr->mkClause(neg(marker5), neg(v1)); 
+
+    SatClause* cl = new SatClause();
+    cl->addLiteral(neg(v4));
+    cl->addLiteral(v3);
+    cl->addLiteral(v1);
+    cl->sort(); 
     
+    TS_ASSERT(mgr->inPool(cl)); 
     /// testing an sat instance
     /// should only have the clause without marker literals asserted
     bool res = mgr->solve();

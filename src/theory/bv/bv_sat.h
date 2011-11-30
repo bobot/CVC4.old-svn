@@ -33,6 +33,7 @@
 #include "context/cdlist.h"
 #include "bv_solver_types.h"
 #include "theory_bv_utils.h"
+#include "util/stats.h"
 
 namespace CVC4 {
 namespace theory {
@@ -55,13 +56,13 @@ class ClauseManager {
   typedef __gnu_cxx::hash_set<SatClause, SatClauseHash> ClauseSet; 
 
   SatSolver* d_solver;
-  ClauseSet  d_clausePool; 
+  //  ClauseSet  d_clausePool; 
   bool       d_canAddClause; /// true if we can still add clauses (set to false after first call of solve)
   SatClause* d_conflict;     /// the marker literals that represent the unsat core corresponding to the most
                              /// recent solve call to the SatSolver
                              /// NULL if the result was SAT
   
-  bool       inPool (SatClause* clause);
+  //  bool       inPool (SatClause* clause);
   /** 
    * Asserts the clause in the sat solver. 
    * @param clause 
@@ -83,13 +84,25 @@ public:
   void mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4);
   void mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5);
 
-  SatLit mkLit(SatVar var);
   SatVar mkMarkerVar(); 
   SatVar newVar();
-  bool   sign(SatLit lit); 
-  SatVar getVar(SatLit lit); 
   SatClause* getConflict(); 
 
+private:
+  class Statistics {
+  public:
+    IntStat     d_numVariables, d_numTotalClauses;
+    TimerStat   d_satSolveTimer;
+    TimerStat   d_unsatCoreTimer; 
+    AverageStat d_avgClauseSize;
+    IntStat     d_numDuplicateClauses; 
+    Statistics();
+    ~Statistics(); 
+
+  };
+
+  Statistics d_statistics; 
+  
 }; 
 
 
@@ -221,17 +234,25 @@ public:
     d_atomMarkerVar(),
     d_markerVarAtom(),
     d_assertedAtoms(c),
-    d_trueLit(d_clauseManager->mkLit(d_clauseManager->mkMarkerVar())),
-    d_falseLit(d_clauseManager->mkLit(d_clauseManager->mkMarkerVar()))
+    d_trueLit(mkLit(d_clauseManager->mkMarkerVar())),
+    d_falseLit(mkLit(d_clauseManager->mkMarkerVar())),
+    d_statistics()
   {
-    // SatLit d_trueLit = d_clauseManager->mkMarkerVar();
-    // SatLit d_falseLit = d_clauseManager->mkMarkerVar();
     d_clauseManager->mkClause(d_trueLit);
     d_clauseManager->mkClause(neg(d_falseLit)); 
   }
 
+
+public:
+
   ~Bitblaster() {
-    // TODO !!
+    delete d_clauseManager;
+    TermDefMap::iterator it = d_termCache.begin();
+    for ( ; it!= d_termCache.end(); ++it) {
+      delete (*it).second; 
+    }
+    
+    
   }
   void assertToSat(TNode node);
   bool solve();
@@ -349,6 +370,19 @@ private:
     
     return resBits; 
   }
+
+private:  
+  class Statistics {
+  public:
+    IntStat  d_numTermClauses, d_numAtomClauses;
+    TimerStat d_bitblastTimer;
+    Statistics();
+    ~Statistics(); 
+  }; 
+  
+  Statistics d_statistics;
+
+
 };
 
 /// Public methods
@@ -363,6 +397,7 @@ private:
 template <class Plus, class Mult, class And, class Or, class Xor>  
 void Bitblaster<Plus, Mult, And, Or, Xor>::bitblast(TNode node) {
   // FIXME: better checks
+  TimerStat::CodeTimer codeTimer(d_statistics.d_bitblastTimer);
   if (node.getKind() == kind::EQUAL || node.getKind() == kind::NOT) {
     bbAtom(node); 
   } else {
@@ -383,7 +418,7 @@ void Bitblaster<Plus, Mult, And, Or, Xor>::assertToSat(TNode lit) {
 
   Assert (d_atomMarkerVar.find(node) != d_atomMarkerVar.end()); 
   SatVar markerVar = d_atomMarkerVar[node];
-  SatLit markerLit = d_clauseManager->mkLit(markerVar); 
+  SatLit markerLit = mkLit(markerVar); 
   d_assertedAtoms.push_back(lit.getKind() == kind::NOT? neg(markerLit) : markerLit);
 }
 
@@ -405,11 +440,11 @@ void Bitblaster<Plus, Mult, And, Or, Xor>::getConflict(std::vector<TNode>& confl
   
   for (unsigned i = 0; i < conflictClause->size(); i++) {
     SatLit lit = conflictClause->operator[](i);
-    SatVar var = d_clauseManager->getVar(lit);
+    SatVar var = mkVar(lit);
     Assert (d_markerVarAtom.find(var) != d_markerVarAtom.end());
     
     TNode atom;
-    if(d_clauseManager->sign(lit)) {
+    if(!polarity(lit)) {
       atom = d_markerVarAtom[var];
     }
     else {
@@ -469,7 +504,7 @@ Bits* Bitblaster<Plus, Mult, And, Or, Xor>::freshBits(unsigned size) {
   Bits* newbits = new Bits(); 
   for (unsigned i= 0; i < size; ++i) {
     SatVar var = d_clauseManager->newVar();
-    SatLit lit = d_clauseManager->mkLit(var); 
+    SatLit lit = mkLit(var); 
     newbits->push_back(lit); 
   }
   return newbits; 
@@ -491,7 +526,7 @@ Bits* Bitblaster<Plus, Mult, And, Or, Xor>::freshBits(unsigned size) {
 template <class Plus, class Mult, class And, class Or, class Xor>  
 void Bitblaster<Plus, Mult, And, Or, Xor>::bbEqual(TNode node, SatVar atom_var) {
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
-  Debug("bitvector-bb") << "      marker lit " << toStringLit(d_clauseManager->mkLit(atom_var)) << "\n"; 
+  Debug("bitvector-bb") << "      marker lit " << toStringLit(mkLit(atom_var)) << "\n"; 
   
   Assert(node.getKind() == kind::EQUAL);
   const Bits& lhs = *(bbTerm(node[0]));
@@ -499,13 +534,13 @@ void Bitblaster<Plus, Mult, And, Or, Xor>::bbEqual(TNode node, SatVar atom_var) 
 
   Assert(lhs.size() == rhs.size());
 
-  SatLit atom_lit = d_clauseManager->mkLit(atom_var); 
+  SatLit atom_lit = mkLit(atom_var); 
   std::vector<SatLit> lits;
   /// constructing the clause x_1 /\ .. /\ x_n =
   lits.push_back(atom_lit);
   
   for (unsigned i = 0; i < lhs.size(); i++) {
-    SatLit x = d_clauseManager->mkLit(d_clauseManager->newVar());
+    SatLit x = mkLit(d_clauseManager->newVar());
     
     /// Adding the clauses corresponding to:
     ///       x_i = (lhs_i = rhs_i)
@@ -605,6 +640,24 @@ Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbNot(TNode node) {
   return notbv; 
 }
   
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bitblaster<Plus, Mult, And, Or, Xor>::Statistics::Statistics() :
+  d_numTermClauses("theory::bv::NumberOfTermSatClauses", 0),
+  d_numAtomClauses("theory::bv::NumberOfAtomSatClauses", 0), 
+  d_bitblastTimer("theory::bv::BitblastTimer")
+{
+  StatisticsRegistry::registerStat(&d_numTermClauses);
+  StatisticsRegistry::registerStat(&d_numAtomClauses);
+  StatisticsRegistry::registerStat(&d_bitblastTimer);
+}
+
+
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bitblaster<Plus, Mult, And, Or, Xor>::Statistics::~Statistics() {
+  StatisticsRegistry::unregisterStat(&d_numTermClauses);
+  StatisticsRegistry::unregisterStat(&d_numAtomClauses);
+  StatisticsRegistry::unregisterStat(&d_bitblastTimer);
+}
 
 
 } /* bv namespace */ 

@@ -23,7 +23,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include "theory/bv/bvminisat/mtl/Queue.h"
 #include "theory/bv/bvminisat/core/Solver.h"
-
+#include "util/stats.h"
 
 namespace BVMinisat {
 
@@ -95,7 +95,7 @@ class SimpSolver : public Solver {
     int     merges;
     int     asymm_lits;
     int     eliminated_vars;
-
+    CVC4::TimerStat total_eliminate_time; 
  protected:
 
     // Helper structures:

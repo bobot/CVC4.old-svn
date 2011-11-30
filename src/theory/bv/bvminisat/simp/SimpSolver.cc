@@ -54,6 +54,7 @@ SimpSolver::SimpSolver() :
   , merges             (0)
   , asymm_lits         (0)
   , eliminated_vars    (0)
+  , total_eliminate_time("theory::bv::bvminisat::TotalVariableEliminationTime")
   , elimorder          (1)
   , use_simplification (true)
   , occurs             (ClauseDeleted(ca))
@@ -61,6 +62,7 @@ SimpSolver::SimpSolver() :
   , bwdsub_assigns     (0)
   , n_touched          (0)
 {
+  CVC4::StatisticsRegistry::registerStat(&total_eliminate_time); 
     vec<Lit> dummy(1,lit_Undef);
     ca.extra_clause_field = true; // NOTE: must happen before allocating the dummy clause below.
     bwdsub_tmpunit        = ca.alloc(dummy);
@@ -70,6 +72,7 @@ SimpSolver::SimpSolver() :
 
 SimpSolver::~SimpSolver()
 {
+  CVC4::StatisticsRegistry::unregisterStat(&total_eliminate_time); 
 }
 
 
@@ -92,6 +95,8 @@ Var SimpSolver::newVar(bool sign, bool dvar) {
 
 lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 {
+
+  
     vec<Var> extra_frozen;
     lbool    result = l_True;
 
@@ -469,6 +474,7 @@ static void mkElimClause(vec<uint32_t>& elimclauses, Var v, Clause& c)
 
 bool SimpSolver::eliminateVar(Var v)
 {
+
     assert(!frozen[v]);
     assert(!isEliminated(v));
     assert(value(v) == l_Undef);
@@ -579,6 +585,9 @@ void SimpSolver::extendModel()
 
 bool SimpSolver::eliminate(bool turn_off_elim)
 {
+
+  CVC4::TimerStat::CodeTimer codeTimer(total_eliminate_time);
+  
     if (!simplify())
         return false;
     else if (!use_simplification)
@@ -659,6 +668,9 @@ bool SimpSolver::eliminate(bool turn_off_elim)
                double(elimclauses.size() * sizeof(uint32_t)) / (1024*1024));
 
     return ok;
+
+
+
 }
 
 
