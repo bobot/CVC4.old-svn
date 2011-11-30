@@ -39,6 +39,7 @@
 #include "theory/arith/arith_prop_manager.h"
 #include "theory/arith/arithvar_node_map.h"
 #include "theory/arith/dio_solver.h"
+#include "theory/arith/difference_manager.h"
 
 #include "util/stats.h"
 
@@ -180,9 +181,11 @@ private:
   /** This manager keeps track of information needed to propagate. */
   ArithPropManager d_propManager;
 
+  /** This keeps track of difference equalities. Mostly for sharing. */
+  DifferenceManager d_differenceManager;
+
   /** This implements the Simplex decision procedure. */
   SimplexDecisionProcedure d_simplex;
-
   std::vector<ArithVar> d_slackIntegerVariables;
 
 public:
@@ -213,6 +216,8 @@ public:
   std::string identify() const { return std::string("TheoryArith"); }
 
   EqualityStatus getEqualityStatus(TNode a, TNode b);
+
+  void addSharedTerm(TNode n);
 
 private:
   /** The constant zero. */

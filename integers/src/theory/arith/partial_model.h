@@ -29,6 +29,8 @@
 #include "expr/attribute.h"
 #include "expr/node.h"
 
+#include "theory/arith/difference_manager.h"
+
 #include <deque>
 
 #ifndef __CVC4__THEORY__ARITH__PARTIAL_MODEL_H
@@ -54,6 +56,7 @@ private:
   context::CDVector<DeltaRational> d_lowerBound;
   context::CDVector<Node> d_upperConstraint;
   context::CDVector<Node> d_lowerConstraint;
+
 
   bool d_deltaIsSafe;
   Rational d_delta;
@@ -85,9 +88,11 @@ private:
   context::CDList<ArithVar> d_integerVarsWithEqualBounds;
   context::CDO<unsigned int> d_ivwebIterator;
 
+  DifferenceManager& d_dm;
+
 public:
 
-  ArithPartialModel(context::Context* c):
+  ArithPartialModel(context::Context* c, DifferenceManager& dm):
     d_mapSize(0),
     d_hasHadABound(),
     d_hasSafeAssignment(),
@@ -105,6 +110,7 @@ public:
     d_nextIntegerIter(0),
     d_integerVarsWithEqualBounds(c, false),
     d_ivwebIterator(c,0)
+    d_dm(dm)
   { }
 
   void pushBackIntegerVarsWithEqualBounds(ArithVar x) {
@@ -140,15 +146,23 @@ public:
   void commitAssignmentChanges();
 
 
-  bool boundsAreEqual(ArithVar x);
+  inline bool lowerBoundIsZero(ArithVar x){
+    return hasLowerBound(x) && getLowerBound(x).sgn() == 0;
+  }
 
-  void setUpperBound(ArithVar x, const DeltaRational& r, TNode constraint);
-  void setLowerBound(ArithVar x, const DeltaRational& r, TNode constraint);
-
+  inline bool upperBoundIsZero(ArithVar x){
+    return hasUpperBound(x) && getUpperBound(x).sgn() == 0;
+  }
 
 private:
   void setLowerConstraint(ArithVar x, TNode constraint);
   void setUpperConstraint(ArithVar x, TNode constraint);
+
+  void zeroDifferenceDetected(ArithVar x);
+
+public:
+
+
   void setUpperBound(ArithVar x, const DeltaRational& r);
   void setLowerBound(ArithVar x, const DeltaRational& r);
 
@@ -162,6 +176,7 @@ public:
   const DeltaRational& getUpperBound(ArithVar x);
   const DeltaRational& getLowerBound(ArithVar x);
   const DeltaRational& getAssignment(ArithVar x) const;
+
 
 
   /**
@@ -217,7 +232,7 @@ public:
     return d_delta;
   }
 
-  bool isInteger(ArithVar x) const {
+  inline bool isInteger(ArithVar x) const {
     Assert(inMaps(x));
     return d_varTypes[x];
   }
