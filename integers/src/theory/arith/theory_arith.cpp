@@ -357,7 +357,7 @@ void TheoryArith::setupPolynomial(const Polynomial& poly) {
         Monomial second = *i;
         ++i;
         if(i == end){
-          if(first.getConstant().isOne() && second.getConstant().getValue() == -1){
+          if(first.getConstant().isOne() && second.getConstant().isNegativeOne()){
             VarList vl0 = first.getVarList();
             VarList vl1 = second.getVarList();
             if(vl0.singleton() && vl1.singleton()){

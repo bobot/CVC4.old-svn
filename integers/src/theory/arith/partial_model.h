@@ -109,7 +109,7 @@ public:
     d_integerVarsWithRationalAssignment(),
     d_nextIntegerIter(0),
     d_integerVarsWithEqualBounds(c, false),
-    d_ivwebIterator(c,0)
+    d_ivwebIterator(c,0),
     d_dm(dm)
   { }
 
@@ -160,13 +160,18 @@ private:
 
   void zeroDifferenceDetected(ArithVar x);
 
-public:
-
 
   void setUpperBound(ArithVar x, const DeltaRational& r);
   void setLowerBound(ArithVar x, const DeltaRational& r);
 
+
+
 public:
+  bool boundsAreEqual(ArithVar x);
+
+  void setUpperBound(ArithVar x, const DeltaRational& r, TNode con);
+  void setLowerBound(ArithVar x, const DeltaRational& r, TNode con);
+
   /* Sets an unsafe variable assignment */
   void setAssignment(ArithVar x, const DeltaRational& r);
   void setAssignment(ArithVar x, const DeltaRational& safe, const DeltaRational& r);

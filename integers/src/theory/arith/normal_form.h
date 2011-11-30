@@ -290,8 +290,9 @@ public:
     return isInteger() ? Integer(1) : getRationalValue().getDenominator();
   }
 
-  bool isZero() const { return isInteger() && (getIntegerValue() == 0); }
+  bool isZero() const { return isInteger() && (getIntegerValue().sgn() == 0); }
   bool isOne() const { return isInteger() && (getIntegerValue() == 1); }
+  bool isNegativeOne() const { return isInteger() && (getIntegerValue() == -1); }
 
   Constant operator*(const Constant& other) const {
     if(isInteger()){

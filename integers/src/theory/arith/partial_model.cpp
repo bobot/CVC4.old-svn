@@ -47,14 +47,6 @@ void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
   d_hasHadABound[x] = true;
   d_upperBound.set(x,r);
 
-  if(d_dm.isDifferenceSlack(x)){
-    int sgn = r.sgn();
-    if(sgn < 0){
-      d_dm.differenceCannotBeZero(x, getUpperConstraint(x));
-    }else if(sgn == 0 && lowerBoundIsZero(x)){
-      zeroDifferenceDetected(x);
-    }
-  }
 }
 
 void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
@@ -63,16 +55,6 @@ void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
   Debug("arith::partial_model") << "setLowerBound(" << x << "," << r << ")" << endl;
   d_hasHadABound[x] = true;
   d_lowerBound.set(x,r);
-
-
-  if(d_dm.isDifferenceSlack(x)){
-    int sgn = r.sgn();
-    if(sgn > 0){
-      d_dm.differenceCannotBeZero(x, getLowerConstraint(x));
-    }else if(sgn == 0 && upperBoundIsZero(x)){
-      zeroDifferenceDetected(x);
-    }
-  }
 }
 
 
@@ -85,6 +67,15 @@ void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r, TNode 
 
   setLowerConstraint(x, con);
   setLowerBound(x, r);
+
+  if(d_dm.isDifferenceSlack(x)){
+    int sgn = r.sgn();
+    if(sgn > 0){
+      d_dm.differenceCannotBeZero(x, getLowerConstraint(x));
+    }else if(sgn == 0 && upperBoundIsZero(x)){
+      zeroDifferenceDetected(x);
+    }
+  }
 
   if(checkIntegerAssignment && boundsAreEqual(x)){
     pushBackIntegerVarsWithEqualBounds(x);
@@ -101,6 +92,14 @@ void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r, TNode 
   setUpperConstraint(x, con);
   setUpperBound(x, r);
 
+  if(d_dm.isDifferenceSlack(x)){
+    int sgn = r.sgn();
+    if(sgn < 0){
+      d_dm.differenceCannotBeZero(x, getUpperConstraint(x));
+    }else if(sgn == 0 && lowerBoundIsZero(x)){
+      zeroDifferenceDetected(x);
+    }
+  }
   if(checkIntegerAssignment && boundsAreEqual(x)){
     pushBackIntegerVarsWithEqualBounds(x);
   }
