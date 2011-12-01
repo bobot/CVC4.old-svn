@@ -182,7 +182,7 @@ void TheoryEngine::check(Theory::Effort effort) {
       }
     }
     //AJR-hack
-#if 0
+#if 1
     //this is the flip decision code
     if( !d_inConflict && !d_lemmasAdded && d_incomplete && effort==Theory::FULL_EFFORT ){
       if( d_theoryTable[THEORY_QUANTIFIERS] ){

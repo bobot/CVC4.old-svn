@@ -105,7 +105,7 @@ EqualityNodeId EqualityEngine<NotifyClass>::newNode(TNode node, bool isApplicati
   //AJR-hack
   //notify the theory strong solver
   if( d_thss ){
-    d_thss->newNode( newId );
+    d_thss->newEqClass( node );
   }
   //AJR-hack-end
 
@@ -199,6 +199,13 @@ void EqualityEngine<NotifyClass>::addEquality(TNode t1, TNode t2, TNode reason) 
 template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::addDisequality(TNode t1, TNode t2, TNode reason) {
 
+  //AJR-hack
+  //notify the theory strong solver
+  if( d_thss ){
+    d_thss->assertDisequal( t1, t2 );
+  }
+  //AJR-hack-end
+
   Debug("equality") << "EqualityEngine::addDisequality(" << t1 << "," << t2 << ")" << std::endl;
 
   Node equality = t1.eqNode(t2);
@@ -248,6 +255,13 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
 
   EqualityNodeId class1Id = class1.getFind();
   EqualityNodeId class2Id = class2.getFind();
+
+  //AJR-hack
+  //notify the theory strong solver
+  if( d_thss ){
+    d_thss->merge( d_nodes[ class1Id ], d_nodes[ class2Id ] );
+  }
+  //AJR-hack-end
 
   // Update class2 representative information
   Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): updating class " << class2Id << std::endl;
@@ -327,13 +341,6 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
   // Now merge the lists
   class1.merge<true>(class2);
 
-  //AJR-hack
-  //notify the theory strong solver
-  if( d_thss ){
-    d_thss->merge( class1Id, class2Id );
-  }
-  //AJR-hack-end
-
   // Notfiy the triggers
   EqualityNodeId class1triggerId = d_nodeIndividualTrigger[class1Id];
   EqualityNodeId class2triggerId = d_nodeIndividualTrigger[class2Id];
@@ -361,7 +368,7 @@ void EqualityEngine<NotifyClass>::undoMerge(EqualityNode& class1, EqualityNode& 
   //AJR-hack
   //notify the theory strong solver
   if( d_thss ){
-    d_thss->undoMerge( class1.getFind(), class2Id );
+    d_thss->undoMerge( d_nodes[ class1.getFind() ], d_nodes[ class2Id ] );
   }
   //AJR-hack-end
 

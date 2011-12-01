@@ -113,11 +113,13 @@ private:
 
   /** calculate matches for quantifier f at effort */
   std::map< Node, InstMatch > d_baseMatch;
-  std::map< Node, InstMatchGenerator* > d_mergeIter;
+  std::map< Node, InstMatchGenerator* > d_matchGen;
   void process( Node f, int effort );
+  /** update the match generator */
+  bool updateMatchGenerator( Node f );
+  /** calculate matchable */
   std::map< Node, bool > d_matchable;
   std::map< Node, bool > d_unmatched;
-  /** calculate matchable */
   void calculateMatchable( Node f );
   /** resolve matches */
   bool resolveLiteralMatches( Node t, Node s, Node f );

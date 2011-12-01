@@ -107,6 +107,10 @@ void TheoryUF::check(Effort level) {
   // but when f(x) != f(y) is deduced by the sat solver, so it's asserted, and we don't detect the conflict
   // until we go through the propagation list
   propagate(level);
+
+  //AJR-hack
+  d_thss.check( level );
+  //AJR-hack-end
 }
 
 void TheoryUF::propagate(Effort level) {

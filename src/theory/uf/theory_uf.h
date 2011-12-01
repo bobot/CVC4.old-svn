@@ -28,6 +28,7 @@
 #include "theory/theory.h"
 #include "theory/uf/equality_engine.h"
 #include "theory/uf/symmetry_breaker.h"
+#include "theory/uf/theory_uf_strong_solver.h"
 
 #include "context/cdo.h"
 #include "context/cdset.h"
@@ -66,6 +67,11 @@ private:
 
   /** The notify class */
   NotifyClass d_notify;
+
+  //AJR-hack
+  /** associated theory strong solver */
+  StrongSolverTheoryUf d_thss;
+  //AJR-hack-end
 
   /** Equaltity engine */
   EqualityEngine<NotifyClass> d_equalityEngine;
@@ -110,7 +116,8 @@ public:
   TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation):
     Theory(THEORY_UF, c, u, out, valuation),
     d_notify(*this),
-    d_equalityEngine(d_notify, c, "theory::uf::TheoryUF"),
+    d_thss( c, this ),
+    d_equalityEngine(d_notify, c, "theory::uf::TheoryUF", &d_thss),
     d_conflict(c, false),
     d_literalsToPropagate(c),
     d_literalsToPropagateIndex(c, 0),

@@ -535,7 +535,7 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
     { if( !attexprs.empty() ){
         if( attexprs[0].getKind()==kind::INST_PATTERN ){
           expr2 = MK_EXPR(kind::INST_PATTERN_LIST, attexprs);
-          std::cout << "parsed pattern list " << expr2 << std::endl;
+          //std::cout << "parsed pattern list " << expr2 << std::endl;
         }
       }
     }

@@ -465,52 +465,56 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
     NodeLists::iterator ob_i = d_obligations.find( f );
     if( ob_i!=d_obligations.end() ){
       NodeList* ob = (*ob_i).second;
+      //create the inst match generator
       if( effort==1 ){
-        InstMatchGenerator::d_splitThreshold = 0;
         // for each literal asserted about the negation of the body of f
-        d_mergeIter[ f ] = InstMatchGenerator::mkInstMatchGenerator( false );
+        d_matchGen[ f ] = InstMatchGenerator::mkInstMatchGenerator( false );
         for( NodeList::const_iterator it = ob->begin(); it != ob->end(); ++it ){
           Node lit = (*it);
           if( d_ob_reqPol[lit] ){
-            d_mergeIter[ f ]->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], d_ob_pol[lit] ) );
+            d_matchGen[ f ]->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], d_ob_pol[lit] ) );
           }else{
             //this literal does not require this polarity, produce matches for either polarity
             InstMatchGenerator* it = InstMatchGenerator::mkInstMatchGenerator( true );
             it->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], d_ob_pol[lit] ) );
             it->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( lit[0], lit[1], !d_ob_pol[lit] ) );
-            d_mergeIter[ f ]->d_children.push_back( it );
+            d_matchGen[ f ]->d_children.push_back( it );
           }
         }
-        while( d_mergeIter[ f ]->getNextMatch() ){
-          // f is E-induced
-          InstMatch temp( d_mergeIter[ f ]->getCurrent() );
-          temp.add( d_baseMatch[f] );
-          if( d_instEngine->addInstantiation( &temp ) ){
-            ++(d_statistics.d_instantiations);
-            ++(d_statistics.d_instantiations_e_induced);
-            break;
-          }
-        }
-      }else if( effort<5 ){
-        d_mergeIter[ f ]->clearMatches();
-        Debug("quant-uf-alg") << "Here is the merge iterator: " << std::endl;
-        d_mergeIter[ f ]->debugPrint( "quant-uf-alg", 0 );
-        InstMatchGenerator::d_splitThreshold = effort==2 ? 1 : 2;
+      }
+      if( effort<5 ){
+        d_matchGen[ f ]->clearMatches();
+        Debug("quant-uf-alg") << "Here is the inst match generator: " << std::endl;
+        d_matchGen[ f ]->debugPrint( "quant-uf-alg", 0 );
+        InstMatchGenerator::d_splitThreshold = effort==1 ? 0 : ( effort==2 ? 1 : 2 );
         InstMatchGenerator::d_useSplitThreshold = effort<4;
-        while( d_mergeIter[ f ]->getNextMatch() ){
-          // f is (conditionally) E-induced
-          InstMatch temp( d_mergeIter[ f ]->getCurrent() );
-          temp.add( d_baseMatch[f] );
-          if( d_instEngine->addInstantiation( &temp, true ) ){
-            ++(d_statistics.d_instantiations);
-            Debug("quant-uf") << "Added this inst match: " << std::endl;
-            temp.debugPrint( "quant-uf" );
-            break;
+        bool addedLemma = false;
+        bool doRepeat;
+        do{
+          while( d_matchGen[ f ]->getNextMatch() ){
+            // f is (conditionally) E-induced
+            InstMatch temp( d_matchGen[ f ]->getCurrent() );
+            temp.add( d_baseMatch[f] );
+            if( d_instEngine->addInstantiation( &temp, true ) ){
+              ++(d_statistics.d_instantiations);
+              if( effort==1 ){
+                ++(d_statistics.d_instantiations_e_induced);
+              }
+              addedLemma = true;
+              break;
+            }
           }
-        }
+          if( addedLemma ){
+            doRepeat = false;
+          }else{
+            //update the match generator
+            doRepeat = updateMatchGenerator( f );
+          }
+        }while( doRepeat );
+
       }else if( effort==5 ){
-        Debug("quant-uf-alg") << "Here is the merge iterator: " << std::endl;
-        d_mergeIter[ f ]->debugPrint( "quant-uf-alg", 0 );
+        Debug("quant-uf-alg") << "Here is the inst match generator: " << std::endl;
+        d_matchGen[ f ]->debugPrint( "quant-uf-alg", 0 );
         //check if all literals are matchable
         //resolve matches on the literal level
         calculateMatchable( f );
@@ -518,7 +522,7 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
           std::map< InstMatchGenerator*, InstMatchGenerator* > index;
           std::vector< InstMatchGenerator* > unmerged;
           std::vector< InstMatchGenerator* > cover;
-          d_mergeIter[ f ]->collectUnmerged( unmerged, cover );
+          d_matchGen[ f ]->collectUnmerged( unmerged, cover );
           Debug("quant-uf-alg") << "Here are the unmerged points: " << std::endl;
           for( int i=0; i<(int)unmerged.size(); i++ ){
             unmerged[i]->debugPrint( "quant-uf-alg", 1, false );
@@ -608,6 +612,10 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
       //    }
 
   Debug("quant-uf-alg") << std::endl;
+}
+
+bool InstantiatorTheoryUf::updateMatchGenerator( Node f ){
+  return false;
 }
 
 void InstantiatorTheoryUf::calculateMatchable( Node f ){

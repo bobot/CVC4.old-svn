@@ -227,10 +227,6 @@ class EqualityEngine : public context::ContextNotifyObj {
   friend class EqClassesIterator<NotifyClass>;
   friend class EqClassIterator<NotifyClass>;
 public:
-  //AJR-hack
-  /** associated theory strong solver */
-  StrongSolverTheoryUf* d_thss;
-  //AJR-hack-end
 
   /** Statistics about the equality engine instance */
   struct Statistics {
@@ -501,6 +497,11 @@ private:
   /** Statistics */
   Statistics d_stats;
 
+  //AJR-hack
+  /** associated theory strong solver */
+  StrongSolverTheoryUf* d_thss;
+  //AJR-hack-end
+
   /** Add a new function application node to the database, i.e APP t1 t2 */
   EqualityNodeId newApplicationNode(TNode original, EqualityNodeId t1, EqualityNodeId t2);
 
@@ -553,7 +554,7 @@ public:
    * Initialize the equality engine, given the owning class. This will initialize the notifier with
    * the owner information.
    */
-  EqualityEngine(NotifyClass& notify, context::Context* context, std::string name)
+  EqualityEngine(NotifyClass& notify, context::Context* context, std::string name, StrongSolverTheoryUf* thss)
   : ContextNotifyObj(context),
     d_context(context),
     d_performNotify(true),
@@ -562,16 +563,14 @@ public:
     d_assertedEqualitiesCount(context, 0),
     d_equalityTriggersCount(context, 0),
     d_individualTriggersSize(context, 0),
-    d_stats(name)
+    d_stats(name),
+    d_thss( thss )
   {
     Debug("equality") << "EqualityEdge::EqualityEngine(): id_null = " << +null_id << std::endl;
     Debug("equality") << "EqualityEdge::EqualityEngine(): edge_null = " << +null_edge << std::endl;
     Debug("equality") << "EqualityEdge::EqualityEngine(): trigger_null = " << +null_trigger << std::endl;
     d_true = NodeManager::currentNM()->mkConst<bool>(true);
     d_false = NodeManager::currentNM()->mkConst<bool>(false);
-    //AJR-hack
-    d_thss = NULL;
-    //AJR-hack
   }
 
   /**
@@ -718,9 +717,8 @@ private:
   EqualityNode d_curr;
   Node d_curr_node;
   EqualityEngine<NotifyClass>* d_ee;
-  bool d_finished;
 public:
-  EqClassIterator( Node eqc, EqualityEngine<NotifyClass>* ee ) : d_ee( ee ), d_finished( false ){
+  EqClassIterator( Node eqc, EqualityEngine<NotifyClass>* ee ) : d_ee( ee ){
     Assert( d_ee->getRepresentative( eqc )==eqc );
     d_curr_node = eqc;
     d_curr = d_ee->getEqualityNode( eqc );
@@ -738,7 +736,7 @@ public:
       d_curr_node = next;
       d_curr = d_ee->getEqualityNode( d_curr.getNext() );
     }else{
-      d_finished = true;
+      d_curr_node = Node::null();
     }
     return *this;
   }
@@ -747,7 +745,7 @@ public:
     ++*this;
     return i;
   }
-  bool isFinished() { return d_finished; }
+  bool isFinished() { return d_curr_node==Node::null(); }
 };
 
 

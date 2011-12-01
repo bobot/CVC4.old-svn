@@ -358,6 +358,7 @@ InstMatchGenerator* InstMatchGenerator::mkMergeInstMatchGenerator( Node t, Node 
 }
 
 InstMatchGenerator* InstMatchGenerator::mkAnyMatchInstMatchGenerator( Node t ){
+  Assert( t.getKind()==APPLY_UF );
   Node nl;
   return mkInstMatchGenerator( t, nl, 3 );
 }
