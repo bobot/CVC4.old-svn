@@ -61,7 +61,7 @@ protected:
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
   /** make instantiations */
-  bool addMatchInstantiation( int effort, Node f, int index = -1, int triggerThresh = 0 );
+  bool addMatchInstantiation( int effort, Node f, int index = -1, int triggerThresh = 1 );
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}

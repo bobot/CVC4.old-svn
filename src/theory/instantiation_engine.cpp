@@ -505,8 +505,10 @@ void InstantiationEngine::registerQuantifier( Node f, OutputChannel* out, Valuat
       //getCounterexampleBody( f );
       Node subsPat = f[2].substitute( d_vars[f].begin(), d_vars[f].end(), 
                                       d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() ); 
+
       //add patterns
       for( int i=0; i<(int)subsPat.getNumChildren(); i++ ){
+        registerTerm( subsPat[i], f, out );
         //std::cout << "Add pattern " << subsPat[i] << " for " << f << std::endl;
         d_qmg[ f ]->addUserPattern( subsPat[i] );
       }
@@ -624,7 +626,7 @@ bool InstantiationEngine::doInstantiationRound( OutputChannel* out ){
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
         d_instTable[i]->doInstantiation( e );
-        //Debug("inst-engine-debug") << e << " " << d_instTable[i]->identify() << " is " << d_instTable[i]->getStatus() << std::endl;
+        Debug("inst-engine-debug") << e << " " << d_instTable[i]->identify() << " is " << d_instTable[i]->getStatus() << std::endl;
         //update status
         Instantiator::updateStatus( d_status, d_instTable[i]->getStatus() );
       }

@@ -321,7 +321,9 @@ Node InstantiatorTheoryArith::getTableauxValue( ArithVar v, bool minus_delta ){
 Node InstantiatorTheoryArith::getDelta( Node n ){
   std::map< TypeNode, Node >::iterator it = d_deltas.find( n.getType() );
   if( it==d_deltas.end() ){
-    Node delta = NodeManager::currentNM()->mkVar( n.getType() ); 
+    std::ostringstream os;
+    os << "delta_" << d_deltas.size();
+    Node delta = NodeManager::currentNM()->mkVar( os.str(), n.getType() ); 
     d_deltas[ n.getType() ] = delta;
     Node gt = NodeManager::currentNM()->mkNode( GT, delta, NodeManager::currentNM()->mkConst( Rational(0) ) ); 
     //add split
