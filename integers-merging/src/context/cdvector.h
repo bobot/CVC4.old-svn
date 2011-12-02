@@ -107,6 +107,16 @@ public:
   }
 
   /**
+   * If size() < targetSize, push_back (targetSize - size()) copies of def.
+   */
+  void reserve(unsigned targetSize, const T& def) {
+    for(unsigned currSize = size(); currSize < targetSize; ++currSize){
+      push_back(def);
+    }
+    Assert(targetSize <= size());
+  }
+
+  /**
    * Return true iff there are no valid objects in the list.
    */
   bool empty() const {
