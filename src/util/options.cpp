@@ -96,6 +96,10 @@ Options::Options() :
   arithPropagation(true),
   satRandomFreq(0.0),
   satRandomSeed(91648253),// Minisat's default value
+  satVarDecay(0.95),
+  satClauseDecay(0.999),
+  satRestartFirst(25),
+  satRestartInc(3.0),
   pivotRule(MINIMUM),
   arithPivotThreshold(16),
   arithPropagateMaxLength(16),

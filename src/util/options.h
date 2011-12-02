@@ -194,6 +194,18 @@ struct CVC4_PUBLIC Options {
    **/
   double satRandomSeed;
 
+  /** Variable activity decay factor for Minisat */
+  double satVarDecay;
+  
+  /** Clause activity decay factor for Minisat */
+  double satClauseDecay;
+
+  /** Base restart interval for Minisat */
+  int satRestartFirst;
+
+  /** Restart interval increase factor for Minisat */
+  double satRestartInc;
+
   /** The pivot rule for arithmetic */
   typedef enum { MINIMUM, BREAK_TIES, MAXIMUM } ArithPivotRule;
   ArithPivotRule pivotRule;
