@@ -50,7 +50,7 @@ void InstantiatorTheoryQuantifiers::check( Node assertion ){
     }
 }
 
-void InstantiatorTheoryQuantifiers::resetInstantiation(){
+void InstantiatorTheoryQuantifiers::resetInstantiationRound(){
 
 }
 

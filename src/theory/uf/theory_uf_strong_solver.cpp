@@ -32,8 +32,6 @@ void StrongSolverTheoryUf::ConflictFind::Region::setDisequal( Node n1, Node n2, 
   if( valid ){
     d_disequalities_size[type][ n1 ]++;
     d_total_disequalities_size[type]++;
-    //do checks to see if a possible conflict can occur
-
   }else{
     d_disequalities_size[type][ n1 ]--;
     d_total_disequalities_size[type]--;
@@ -45,8 +43,19 @@ bool StrongSolverTheoryUf::ConflictFind::Region::isDisequal( Node n1, Node n2, i
 }
 
 void StrongSolverTheoryUf::ConflictFind::Region::takeNode( StrongSolverTheoryUf::ConflictFind::Region& r, Node n ){
-  //move disequalities (DO_THIS)
-
+  //make external equalities internal, and vice versa
+  for( int t=0; t<2; t++ ){
+    Region* tr = t==0 ? this : &r;
+    for( std::map< Node, std::map< Node, bool > >::iterator it = tr->d_disequalities[t].begin();
+        it != tr->d_disequalities[t].end(); ++it ){
+      Node n1 = it->first;
+      if( tr->d_reps[ n1 ] && it->second.find( n )!=it->second.end() && it->second[ n ] ){
+        //flip internal/external
+        tr->setDisequal( n1, n, t, false );
+        tr->setDisequal( n1, n, t==0 ? 1 : 0, true );
+      }
+    }
+  }
   d_reps[n] = true;
   d_reps_size++;
   //remove representative
@@ -58,41 +67,23 @@ void StrongSolverTheoryUf::ConflictFind::Region::merge( StrongSolverTheoryUf::Co
   //add new representatives
   for( std::map< Node, bool >::iterator it = r.d_reps.begin(); it != r.d_reps.end(); ++it ){
     if( it->second ){
-      d_reps[ it->first ] = true;
-      d_reps_size++;
-    }
-  }
-  //make external equalities internal
-  for( std::map< Node, std::map< Node, bool > >::iterator it = d_disequalities[0].begin();
-       it != d_disequalities[0].end(); ++it ){
-    Node n1 = it->first;
-    if( hasRep( n1 ) ){
-      for( std::map< Node, bool >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
-        if( it2->second ){
-          //we have that n1 != n2, where n2 is external to this region
-          Node n2 = it2->first;
-          if( r.hasRep( n2 ) ){
-            //external is now internal
-            setDisequal( n1, n2, 0, false );
-            setDisequal( n1, n2, 1, true );
-          }
-        }
-      }
-    }
-  }
-  //add new disequalities
-  for( int t=0; t<2; t++ ){
-    for( std::map< Node, std::map< Node, bool > >::iterator it = r.d_disequalities[t].begin();
-        it != r.d_disequalities[t].end(); ++it ){
       Node n1 = it->first;
-      if( r.hasRep( n1 ) ){
-        for( std::map< Node, bool >::iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2 ){
-          if( it2->second ){
-            //we have that n1 != n2 for region r
-            Node n2 = it2->first;
-            //either still external or it is internal
-            int type = ( t==0 && !hasRep( n2 ) ) ? 0 : 1;
-            setDisequal( n1, n2, type, true );
+      d_reps[ n1 ] = true;
+      d_reps_size++;
+      //take disequalities from n1
+      for( int t=0; t<2; t++ ){
+        for( std::map< Node, bool >::iterator it = r.d_disequalities[t][n1].begin(); it != r.d_disequalities[t][n1].end(); ++it ){
+          if( it->second ){
+            Node n2 = it->first;
+            if( t==0 && hasRep( n2 ) ){
+              //external is now internal
+              setDisequal( n2, n1, 0, false );
+              setDisequal( n2, n1, 1, true );
+              //add disequality
+              setDisequal( n1, n2, 1, true );
+            }else{
+              setDisequal( n1, n2, t, true );
+            }
           }
         }
       }
@@ -121,6 +112,7 @@ void StrongSolverTheoryUf::ConflictFind::Region::setEqual( Node a, Node b ){
 }
 
 void StrongSolverTheoryUf::ConflictFind::mergeRegions( int ai, int bi ){
+  Assert( d_valid[ai] && d_valid[bi] );
   for( std::map< Node, bool >::iterator it = d_regions[bi].d_reps.begin(); it != d_regions[bi].d_reps.end(); ++it ){
     if( it->second ){
       d_regions_map[ it->first ] = ai;
@@ -156,13 +148,35 @@ void StrongSolverTheoryUf::ConflictFind::merge( Node a, Node b ){
       }
     }
   }
+  int ri;
   if( ai!=bi ){
-    //see if we can move b to d_regions[bi] (DO_THIS)
-    //we must merge the groups
-    mergeRegions( ai, bi );
+    // either add a to d_regions[bi], or b to d_regions[ai]
+    int ext[2];
+    for( int i=0; i<2; i++ ){
+      int ci = i==0 ? ai : bi;
+      int di = i==0 ? bi : ai;
+      Node c = i==0 ? a : b;
+      ext[i] = d_regions[ci].d_disequalities_size[1][c];
+      for( std::map< Node, bool >::iterator it = d_regions[ci].d_disequalities[0][c].begin(); 
+           it != d_regions[ci].d_disequalities[0][c].end(); ++it ){
+        if( it->second && d_regions[di].hasRep( it->first ) ){
+          ext[i]--;
+        }
+      }
+    }
+    //based on which would produce the fewest number of external disequalities
+    if( ext[0]<ext[1] ){
+      ri = bi;
+      d_regions[bi].takeNode( d_regions[ai], a ); 
+    }else{
+      ri = ai;
+      d_regions[ai].takeNode( d_regions[bi], b ); 
+    }
+  }else{
+    ri = ai;
   }
-  //now, do merge within d_regions[ai]
-  d_regions[ai].setEqual( a, b );
+  //now, do merge within d_regions[ri]
+  d_regions[ri].setEqual( a, b );
 }
 
 /** unmerge */
@@ -179,15 +193,61 @@ void StrongSolverTheoryUf::ConflictFind::assertDisequal( Node a, Node b ){
     int ai = d_regions_map[a];
     int bi = d_regions_map[b];
     if( ai==bi ){
+      //internal disequality
       d_regions[ai].setDisequal( a, b, 1, true );
       d_regions[ai].setDisequal( b, a, 1, true );
     }else{
+      //external disequality
       d_regions[ai].setDisequal( a, b, 0, true );
       d_regions[bi].setDisequal( b, a, 0, true );
     }
   }
 }
 
+/** check */
+void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level ){
+  if( level==Theory::FULL_EFFORT ){
+    //validate regions: maintain the invariant that no cliques can exist between regions
+    for( int i=0; i<(int)d_regions.size(); i++ ){
+      if( d_valid[i] ){
+        
+      }
+    }
+    //do a quick check for cliques within each region
+    for( int i=0; i<(int)d_regions.size(); i++ ){
+      if( d_valid[i] && d_regions[i].d_reps_size>d_cardinality ){
+        //see if they form a clique
+        std::vector< Node > testClique;
+        for( std::map< Node, bool >::iterator it = d_regions[i].d_reps.begin(); it != d_regions[i].d_reps.end(); ++ it ){
+          if( it->second ){
+            testClique.push_back( it->first );
+            if( testClique.size()>d_cardinality ){
+              break;
+            }
+          }
+        }
+        Assert( testClique.size()==(d_cardinality+1) );
+        Node split;
+        for( int j=0; j<(int)testClique.size(); j++ ){
+          for( int k=(j+1); k<(int)testClique.size(); k++ ){
+            if( !d_regions[i].isDisequal( testClique[j], testClique[k], 1 ) ){
+              split = NodeManager::currentNM()->mkNode( EQUAL, testClique[j], testClique[k] );
+              break;
+            }
+          }
+          if( split!=Node::null() ){
+            break;
+          }
+        }
+        if( split==Node::null() ){
+          //clique discovered, explain clique
+        }else{
+          //do split
+        }
+      }
+    }
+  }
+}
 
 StrongSolverTheoryUf::StrongSolverTheoryUf(context::Context* c, TheoryUF* th) :
 d_th( th )
@@ -238,7 +298,7 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
     debugPrint( "ss-uf-debug" );
   }
   for( std::map< TypeNode, ConflictFind >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
-    
+    it->second.check( level );
   }
 }
 

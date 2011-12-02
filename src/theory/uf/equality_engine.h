@@ -497,11 +497,6 @@ private:
   /** Statistics */
   Statistics d_stats;
 
-  //AJR-hack
-  /** associated theory strong solver */
-  StrongSolverTheoryUf* d_thss;
-  //AJR-hack-end
-
   /** Add a new function application node to the database, i.e APP t1 t2 */
   EqualityNodeId newApplicationNode(TNode original, EqualityNodeId t1, EqualityNodeId t2);
 
@@ -554,7 +549,7 @@ public:
    * Initialize the equality engine, given the owning class. This will initialize the notifier with
    * the owner information.
    */
-  EqualityEngine(NotifyClass& notify, context::Context* context, std::string name, StrongSolverTheoryUf* thss)
+  EqualityEngine(NotifyClass& notify, context::Context* context, std::string name)
   : ContextNotifyObj(context),
     d_context(context),
     d_performNotify(true),
@@ -564,7 +559,7 @@ public:
     d_equalityTriggersCount(context, 0),
     d_individualTriggersSize(context, 0),
     d_stats(name),
-    d_thss( thss )
+    d_thss( NULL )
   {
     Debug("equality") << "EqualityEdge::EqualityEngine(): id_null = " << +null_id << std::endl;
     Debug("equality") << "EqualityEdge::EqualityEngine(): edge_null = " << +null_edge << std::endl;
@@ -666,6 +661,11 @@ public:
    * Check whether the two term are dis-equal.
    */
   bool areDisequal(TNode t1, TNode t2);
+
+  //AJR-hack
+  /** associated theory strong solver */
+  StrongSolverTheoryUf* d_thss;
+  //AJR-hack-end
 
 };
 

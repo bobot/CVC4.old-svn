@@ -178,11 +178,15 @@ void TheoryQuantifiers::check(Effort e) {
       if( enableLimit && d_numInstantiations==limitInst ){
         Debug("quantifiers-flip") << "Give up in current branch. " << d_valuation.getDecisionLevel() << " " << d_baseDecLevel << std::endl;
       }else{
+#if 0
+        d_out->setIncomplete();
+        return;
+#endif
         Debug("quantifiers") << "Do instantiation, level = " << d_valuation.getDecisionLevel() << std::endl;
         //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
         //  Debug("quantifiers-dec") << "   " << d_valuation.getDecision( i ) << std::endl;
         //}
-        if( d_instEngine->doInstantiation( d_out ) ){
+        if( d_instEngine->doInstantiationRound( d_out ) ){
           d_numInstantiations++;
           Debug("quantifiers") << "Done instantiation " << d_numInstantiations << "." << std::endl;
         }else{
@@ -208,29 +212,27 @@ void TheoryQuantifiers::check(Effort e) {
         } 
       }
     }else{
+      //debugging
       for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
         Debug("quantifiers-sat") << "   " << d_valuation.getDecision( i ) << std::endl;
       }
       for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
         if( (*i).second ) {
-          Node n = (*i).first;
-          Node cel = d_instEngine->getCounterexampleLiteralFor( n );
-          bool active = true, value;
+          Node cel = d_instEngine->getCounterexampleLiteralFor( (*i).first );
+          bool value;
           if( d_valuation.hasSatValue( cel, value ) ){
-            active = value;
-          }
-          if( !active ){
-            Debug("quantifiers-sat") << "cel=" << cel << std::endl;
-            if( d_valuation.isDecision( cel ) ){
-              std::cout << "unknown ";
-              exit( 17 );
+            if( !value ){
+              if( d_valuation.isDecision( cel ) ){
+                Debug("quantifiers-sat") << "sat, but decided cel=" << cel << std::endl;
+                std::cout << "unknown ";
+                exit( 17 );
+              }
             }
           }
-          Debug("quantifiers-sat") << std::endl;
         }
       }
-      //std::cout << "Quantifiers approves sat." << std::endl;
       Debug("quantifiers-sat") << "No quantifier is active. " << d_valuation.getDecisionLevel() << std::endl;
+      //debugging-end
     }
   }
 }
@@ -239,21 +241,10 @@ void TheoryQuantifiers::assertUniversal( Node n ){
   Assert( n.getKind()==FORALL );
   if( !n.hasAttribute(InstConstantAttribute()) ){
     if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
-      //counterexample instantiate, add lemma
-      Node body = d_instEngine->getCounterexampleBody( n );
-      //get the counterexample literal
-      //Node cel = d_instEngine->getCounterexampleLiteralFor( n );
-      Node cel = d_valuation.ensureLiteral( body.notNode() );
-      Debug("quantifiers") << cel << " is the literal for " << body.notNode() << std::endl;
-      d_instEngine->setCounterexampleLiteralFor( n, cel );
-      //mark all literals in the body of n as dependent on cel
-      d_instEngine->registerLiterals( cel, cel, n, d_out, false, true );
-      //require any decision on cel to be phase=true
-      d_out->requirePhase( cel, true );
-      Debug("quantifiers-req-phase") << "Require phase " << cel << " = true." << std::endl;
+      d_instEngine->registerQuantifier( n, d_out, d_valuation );
 
       NodeBuilder<> nb(kind::OR);
-      nb << n << cel;
+      nb << n << d_instEngine->getCounterexampleLiteralFor( n );
       Node lem = nb;
       Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
       d_out->lemma( lem );

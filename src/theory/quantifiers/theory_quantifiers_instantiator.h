@@ -37,7 +37,7 @@ public:
   /** check function, assertion is asserted to theory */
   void check( Node assertion );
   /**  reset instantiation */
-  void resetInstantiation();
+  void resetInstantiationRound();
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryQuantifiers"); }
 private:

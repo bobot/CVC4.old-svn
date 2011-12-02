@@ -12,91 +12,139 @@
 #
 LIBCVC4BINDINGS_VERSION = @CVC4_BINDINGS_LIBRARY_VERSION@
 
+AUTOMAKE_OPTIONS = subdir-objects
+
 AM_CPPFLAGS = \
 	-D__BUILDING_CVC4BINDINGSLIB \
 	-I@srcdir@/../include -I@srcdir@/.. -I@builddir@/..
 AM_CXXFLAGS = -Wall
 
-SUBDIRS = . compat
+SUBDIRS = compat
 
-javadatadir = $(datadir)/java
+# any binding-specific flags to pass to swig
+java_cpp_SWIGFLAGS = -package edu.nyu.acsys.CVC4
+
 lib_LTLIBRARIES =
+bin_PROGRAMS =
+javadatadir = $(datadir)/java
+javalibdir = $(libdir)/jni
+ocamldatadir = $(libdir)/ocaml/cvc4
+ocamllibdir = $(libdir)/ocaml/cvc4
+perldatadir = $(datadir)/perl5
+perllibdir = $(libdir)/perl5
+phpdatadir = $(datadir)/php
+phplibdir = $(libdir)/php
+pythondatadir = $(datadir)/pyshared
+pythonlibdir = $(libdir)/pyshared
+csharpdatadir = $(datadir)/csharp
+csharplibdir = $(libdir)/csharp
+rubylibdir = $(libdir)/ruby
+tcllibdir = $(libdir)/tcltk
 javadata_DATA =
+javalib_LTLIBRARIES=
+ocamldata_DATA =
+ocamllib_LTLIBRARIES=
+perldata_DATA =
+perllib_LTLIBRARIES =
+phpdata_DATA =
+phplib_LTLIBRARIES =
+pythondata_DATA =
+pythonlib_LTLIBRARIES =
+csharpdata_DATA =
+csharplib_LTLIBRARIES =
+rubylib_LTLIBRARIES =
+tcllib_LTLIBRARIES =
 if CVC4_LANGUAGE_BINDING_JAVA
-lib_LTLIBRARIES += libcvc4bindings_java.la
-javadata_DATA += cvc4.jar
-libcvc4bindings_java_la_LDFLAGS = \
+javalib_LTLIBRARIES += java/CVC4.la
+javadata_DATA += CVC4.jar
+java_CVC4_la_LDFLAGS = \
+	-module \
 	-version-info $(LIBCVC4BINDINGS_VERSION)
-libcvc4bindings_java_la_LIBADD = \
+java_CVC4_la_LIBADD = \
 	-L@builddir@/.. -lcvc4 \
 	-L@builddir@/../parser -lcvc4parser
 endif
 if CVC4_LANGUAGE_BINDING_CSHARP
-lib_LTLIBRARIES += libcvc4bindings_csharp.la
-libcvc4bindings_csharp_la_LDFLAGS = \
+csharplib_LTLIBRARIES += csharp/CVC4.la
+csharp_CVC4_la_LDFLAGS = \
+	-module \
 	-version-info $(LIBCVC4BINDINGS_VERSION)
-libcvc4bindings_csharp_la_LIBADD = \
+csharp_CVC4_la_LIBADD = \
 	-L@builddir@/.. -lcvc4 \
 	-L@builddir@/../parser -lcvc4parser
 endif
 if CVC4_LANGUAGE_BINDING_PERL
-lib_LTLIBRARIES += libcvc4bindings_perl.la
-libcvc4bindings_perl_la_LDFLAGS = \
+perllib_LTLIBRARIES += perl/CVC4.la
+perl_CVC4_la_LDFLAGS = \
+	-module \
 	-version-info $(LIBCVC4BINDINGS_VERSION)
-libcvc4bindings_perl_la_LIBADD = \
+perl_CVC4_la_LIBADD = \
 	-L@builddir@/.. -lcvc4 \
 	-L@builddir@/../parser -lcvc4parser
+perldata_DATA += perl/CVC4.pm
 endif
 if CVC4_LANGUAGE_BINDING_PHP
-lib_LTLIBRARIES += libcvc4bindings_php.la
-libcvc4bindings_php_la_LDFLAGS = \
+phplib_LTLIBRARIES += php/CVC4.la
+php_CVC4_la_LDFLAGS = \
+	-module \
 	-version-info $(LIBCVC4BINDINGS_VERSION)
-libcvc4bindings_php_la_LIBADD = \
+php_CVC4_la_LIBADD = \
 	-L@builddir@/.. -lcvc4 \
 	-L@builddir@/../parser -lcvc4parser
+phpdata_DATA += php/CVC4.php
 endif
 if CVC4_LANGUAGE_BINDING_PYTHON
-lib_LTLIBRARIES += libcvc4bindings_python.la
-libcvc4bindings_python_la_LDFLAGS = \
+pythonlib_LTLIBRARIES += python/CVC4.la
+python_CVC4_la_LDFLAGS = \
+	-module \
 	-version-info $(LIBCVC4BINDINGS_VERSION)
-libcvc4bindings_python_la_LIBADD = \
+python_CVC4_la_LIBADD = \
 	-L@builddir@/.. -lcvc4 \
 	-L@builddir@/../parser -lcvc4parser
+pythondata_DATA += python/CVC4.py
 endif
 if CVC4_LANGUAGE_BINDING_OCAML
-lib_LTLIBRARIES += libcvc4bindings_ocaml.la
-libcvc4bindings_ocaml_la_LDFLAGS = \
+ocamllib_LTLIBRARIES += ocaml/CVC4.la
+bin_PROGRAMS += cvc4_ocaml_top
+# We provide a make rule below, but we have to tell automake to lay off, too,
+# otherwise it tries (and fails) to package the nonexistent cvc4_ocaml_top.c!
+cvc4_ocaml_top_SOURCES =
+ocamldata_DATA += ocaml/swig.cmo ocaml/swig.cmi ocaml/swigp4.cmo ocaml/swigp4.cmi ocaml/CVC4.cmo ocaml/CVC4.cmi
+ocaml_CVC4_la_LDFLAGS = \
+	-module \
 	-version-info $(LIBCVC4BINDINGS_VERSION)
-libcvc4bindings_ocaml_la_LIBADD = \
+ocaml_CVC4_la_LIBADD = \
 	-L@builddir@/.. -lcvc4 \
 	-L@builddir@/../parser -lcvc4parser
 endif
 if CVC4_LANGUAGE_BINDING_RUBY
-lib_LTLIBRARIES += libcvc4bindings_ruby.la
-libcvc4bindings_ruby_la_LDFLAGS = \
+rubylib_LTLIBRARIES += ruby/CVC4.la
+ruby_CVC4_la_LDFLAGS = \
+	-module \
 	-version-info $(LIBCVC4BINDINGS_VERSION)
-libcvc4bindings_ruby_la_LIBADD = \
+ruby_CVC4_la_LIBADD = \
 	-L@builddir@/.. -lcvc4 \
 	-L@builddir@/../parser -lcvc4parser
 endif
 if CVC4_LANGUAGE_BINDING_TCL
-lib_LTLIBRARIES += libcvc4bindings_tcl.la
-libcvc4bindings_tcl_la_LDFLAGS = \
+tcllib_LTLIBRARIES += tcl/CVC4.la
+tcl_CVC4_la_LDFLAGS = \
+	-module \
 	-version-info $(LIBCVC4BINDINGS_VERSION)
-libcvc4bindings_tcl_la_LIBADD = \
+tcl_CVC4_la_LIBADD = \
 	-L@builddir@/.. -lcvc4 \
 	-L@builddir@/../parser -lcvc4parser
 endif
 
-nodist_libcvc4bindings_java_la_SOURCES = java.cpp
-libcvc4bindings_java_la_CXXFLAGS = -fno-strict-aliasing
-nodist_libcvc4bindings_csharp_la_SOURCES = csharp.cpp
-nodist_libcvc4bindings_perl_la_SOURCES = perl.cpp
-nodist_libcvc4bindings_php_la_SOURCES = php.cpp
-nodist_libcvc4bindings_python_la_SOURCES = python.cpp
-nodist_libcvc4bindings_ocaml_la_SOURCES = ocaml.cpp
-nodist_libcvc4bindings_ruby_la_SOURCES = ruby.cpp
-nodist_libcvc4bindings_tcl_la_SOURCES = tcl.cpp
+nodist_java_CVC4_la_SOURCES = java.cpp
+java_CVC4_la_CXXFLAGS = -fno-strict-aliasing
+nodist_csharp_CVC4_la_SOURCES = csharp.cpp
+nodist_perl_CVC4_la_SOURCES = perl.cpp
+nodist_php_CVC4_la_SOURCES = php.cpp
+nodist_python_CVC4_la_SOURCES = python.cpp
+nodist_ocaml_CVC4_la_SOURCES = ocaml.cpp
+nodist_ruby_CVC4_la_SOURCES = ruby.cpp
+nodist_tcl_CVC4_la_SOURCES = tcl.cpp
 
 CLEANFILES = \
 	java.cpp \
@@ -113,11 +161,11 @@ EXTRA_DIST = swig.h
 MOSTLYCLEANFILES = \
         .swig_deps \
 	$(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))) \
-	cvc4.jar
+	CVC4.jar
 
-java.lo: java.cpp
+java_CVC4_la-java.lo java.lo: java.cpp
 	$(AM_V_CXX)$(LTCXXCOMPILE) -c $(JAVA_CPPFLAGS) -o $@ $<
-cvc4.jar: java.cpp
+CVC4.jar: java.cpp
 	$(AM_V_GEN) \
 	(cd java; \
 	rm -fr classes; \
@@ -125,28 +173,41 @@ cvc4.jar: java.cpp
 	$(JAVAC) -classpath . -d classes `find . -name '*.java'`; \
 	cd classes); \
 	$(JAR) cf $@ -C java/classes .
-java.cpp:
-csharp.cpp:
+#java.cpp:;
+csharp.lo: csharp.cpp
+	$(AM_V_CXX)$(LTCXXCOMPILE) -c $(CSHARP_CPPFLAGS) -o $@ $<
+#csharp.cpp:;
 perl.lo: perl.cpp
 	$(AM_V_CXX)$(LTCXXCOMPILE) -c $(PERL_CPPFLAGS) -o $@ $<
-perl.cpp:
+#perl.cpp:;
+perl/CVC4.pm: perl.cpp
 php.lo: php.cpp
 	$(AM_V_CXX)$(LTCXXCOMPILE) -c $(PHP_CPPFLAGS) -Iphp -o $@ $<
-php.cpp:
+#php.cpp:;
 python.lo: python.cpp
 	$(AM_V_CXX)$(LTCXXCOMPILE) -c $(PYTHON_CPPFLAGS) -o $@ $<
-python.cpp:
-ocaml.cpp:
+ocaml.lo: ocaml.cpp
+	$(AM_V_CXX)$(LTCXXCOMPILE) -c $(OCAML_CPPFLAGS) -o $@ $<
+ocaml/swig.cmo: ocaml/swig.ml ocaml/swig.cmi; $(AM_V_GEN)$(OCAMLC) -I ocaml -c -o $@ $<
+ocaml/swig.cmi: ocaml/swig.mli; $(AM_V_GEN)$(OCAMLC) -I ocaml -c -o $@ $<
+ocaml/CVC4.cmo: ocaml/CVC4.ml ocaml/CVC4.cmi; $(AM_V_GEN)$(OCAMLC) -I ocaml -c -o $@ $<
+ocaml/CVC4.cmi: ocaml/CVC4.mli; $(AM_V_GEN)$(OCAMLC) -I ocaml -c -o $@ $<
+ocaml/swigp4.cmo: ocaml/swigp4.ml; $(AM_V_GEN)$(OCAMLFIND) ocamlc -package camlp4 -pp "$(CAMLP4O) pa_extend.cmo q_MLast.cmo" -o $@ -c $<
+ocaml/swig.ml:; $(AM_V_GEN)cd ocaml && $(SWIG) -ocaml -co swig.ml
+ocaml/swig.mli:; $(AM_V_GEN)cd ocaml && $(SWIG) -ocaml -co swig.mli
+ocaml/swigp4.ml:; $(AM_V_GEN)cd ocaml && $(SWIG) -ocaml -co swigp4.ml
+#ocaml.cpp:;
+cvc4_ocaml_top: ocaml/CVC4.la ocaml/swig.cmo ocaml/swig.cmi ocaml/swigp4.cmo ocaml/CVC4.cmo ocaml/CVC4.cmi
+	$(AM_V_GEN)\
+	$(OCAMLFIND) ocamlmktop -I $(ocamldatadir) -custom -o cvc4_ocaml_top -package camlp4 dynlink.cma camlp4o.cma ocaml/swig.cmo ocaml/swigp4.cmo ocaml/CVC4.cmo -cclib ocaml/.libs/CVC4.so -cclib -lstdc++
 ruby.lo: ruby.cpp
 	$(AM_V_CXX)$(LTCXXCOMPILE) -c $(RUBY_CPPFLAGS) -o $@ $<
-ruby.cpp:
-tcl.cpp:
-java.cpp: @srcdir@/../cvc4.i
+tcl.lo: tcl.cpp
+	$(AM_V_CXX)$(LTCXXCOMPILE) -c $(TCL_CPPFLAGS) -o $@ $<
+#tcl.cpp:;
+$(patsubst %,%.cpp,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))): %.cpp: @srcdir@/../cvc4.i
 	$(AM_V_at)mkdir -p $(patsubst %.cpp,%,$@)
-	$(AM_V_GEN)$(SWIG) -Wall -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -c++ -$(patsubst %.cpp,%,$@) -outdir $(patsubst %.cpp,%,$@) -package edu.nyu.acsys.CVC4 -o $@ $<
-$(patsubst %,%.cpp,$(filter-out c c++ java,$(CVC4_LANGUAGE_BINDINGS))): %.cpp: @srcdir@/../cvc4.i
-	$(AM_V_at)mkdir -p $(patsubst %.cpp,%,$@)
-	$(AM_V_GEN)$(SWIG) -Wall -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -c++ -$(patsubst %.cpp,%,$@) -outdir $(patsubst %.cpp,%,$@) -o $@ $<
+	$(AM_V_GEN)$(SWIG) -Wall -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -c++ -$(patsubst %.cpp,%,$@) -outdir $(patsubst %.cpp,%,$@) $($(subst .,_,$@)_SWIGFLAGS) -o $@ $<
 
 $(patsubst %,%.d,$(filter-out c c++,$(CVC4_LANGUAGE_BINDINGS))): %.d: @srcdir@/../cvc4.i
 	$(AM_V_GEN)$(SWIG) -I@srcdir@/../include -I@srcdir@/.. -I@builddir@/.. -c++ -MM -o $(patsubst %.d,%.cpp,$@) $<

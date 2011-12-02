@@ -108,8 +108,8 @@ public:
   virtual void addClause(SatClause& clause, bool removable) = 0;
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
-  /** Get the current decision level of the solver */
-  virtual int getLevel() const = 0;
+  /** Get the current user assertion level of the solver */
+  virtual int getAssertionLevel() const = 0;
   /** Get the current decision level of the solver */
   virtual unsigned getDecisionLevel() const = 0;
   /** Unregister the variable (of the literal) from solving */
@@ -242,7 +242,7 @@ public:
   /** Call modelValue() when the search is done.*/
   SatLiteralValue modelValue(SatLiteral l);
 
-  int getLevel() const;
+  int getAssertionLevel() const;
 
   unsigned getDecisionLevel() const;
 
@@ -355,7 +355,7 @@ inline void SatSolver::pop() {
   d_minisat->pop();
 }
 
-inline int SatSolver::getLevel() const {
+inline int SatSolver::getAssertionLevel() const {
   return d_minisat->getAssertionLevel();
 }
 

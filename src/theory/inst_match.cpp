@@ -358,6 +358,7 @@ InstMatchGenerator* InstMatchGenerator::mkMergeInstMatchGenerator( Node t, Node 
 }
 
 InstMatchGenerator* InstMatchGenerator::mkAnyMatchInstMatchGenerator( Node t ){
+  //std::cout << "mkAny " << t << std::endl;
   Assert( t.getKind()==APPLY_UF );
   Node nl;
   return mkInstMatchGenerator( t, nl, 3 );
@@ -554,8 +555,12 @@ void InstMatchGenerator::calcChildren(){
             if( d_t[j].hasAttribute(InstConstantAttribute()) ){
               d_children.push_back( mkCombineInstMatchGenerator( d_t[j], getRepresentative( d_s[j] ), true ) );
             }else{
-              Assert( d_s[j].getAttribute(InstConstantAttribute())!=f );
-              addSplit( d_t[j], d_s[j] );
+              if( d_s[j].getAttribute(InstConstantAttribute())!=f ){
+                addSplit( d_t[j], d_s[j] );
+              }else{
+                d_children.clear();
+                break;
+              }
             }
           }else if( areDisequal( d_t[j], d_s[j] ) ){
             d_children.clear();
@@ -596,6 +601,10 @@ void InstMatchGenerator::addSplit( Node n1, Node n2 ){
 }
 
 bool InstMatchGenerator::acceptMatch( InstMatch* m ){
+  //TEMPORARY DO_THIS
+  if( m->d_vars.empty() ){
+    return false;
+  }
   if( d_useInstLevelThreshold ){
     for( std::map< Node, Node >::iterator it = m->d_map.begin(); 
         it != m->d_map.end(); ++it ){

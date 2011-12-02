@@ -44,13 +44,6 @@ protected:
     TheoryUF* d_th;
     /** region class */
     class Region {
-    private:
-      //number of representatives in this region
-      int d_reps_size;
-      //disequalities size
-      std::map< Node, int > d_disequalities_size[2];
-      //total disequality size (internal and external)
-      int d_total_disequalities_size[2];
     public:
       //constructor
       Region( Node n ){
@@ -60,6 +53,12 @@ protected:
         d_total_disequalities_size[1] = 0;
       }
       ~Region(){}
+      //number of representatives in this region
+      int d_reps_size;
+      //disequalities size
+      std::map< Node, int > d_disequalities_size[2];
+      //total disequality size (internal and external)
+      int d_total_disequalities_size[2];
       //representatives 
       std::map< Node, bool > d_reps;
       //disequalities (internal and external)
@@ -99,7 +98,10 @@ protected:
     void undoMerge( Node a, Node b );
     /** assert terms are disequal */
     void assertDisequal( Node a, Node b );
+    /** check */
+    void check( Theory::Effort level );
   };
+  /** conflict find structure, one for each type */
   std::map< TypeNode, ConflictFind > d_conf_find;
 public:
   StrongSolverTheoryUf(context::Context* c, TheoryUF* th);

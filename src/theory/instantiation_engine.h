@@ -59,6 +59,8 @@ protected:
 
   /** has constraints from quantifier */
   std::map< Node, bool > d_hasConstraints;
+  /** process quantifier */
+  virtual void process( Node f, int effort ) {}
 public:
   enum Status {
     STATUS_UNFINISHED,
@@ -75,11 +77,9 @@ public:
   virtual void check( Node assertion ){}
 
   /** reset instantiation */
-  virtual void resetInstantiation() { d_status = STATUS_UNFINISHED; }
+  virtual void resetInstantiationRound() { d_status = STATUS_UNFINISHED; }
   /** do instantiation method*/
   virtual void doInstantiation( int effort );
-  /** process quantifier */
-  virtual void process( Node f, int effort ) {}
   /** identify */
   virtual std::string identify() const { return std::string("Unknown"); }
   /** print debug information */
@@ -97,6 +97,10 @@ public:
   bool isOwnerOf( Node f );
 };/* class Instantiator */
 
+
+/** 
+This class provides a simple way of matching pattern terms with ground terms, without considering equality 
+*/
 class TermMatchEngine 
 {
 private:
@@ -104,26 +108,119 @@ private:
   InstantiationEngine* d_instEngine;
   /** process match */
   void processMatch( Node pat, Node g );
-  /** utilities for generating patterns */
-  std::map< Node, std::map< Node, bool > > d_var_contains;
-  void computeVarContains( Node n );
-  void collectApplyUf( Node n, std::vector< Node >& pat_terms );
+  //patterns vs. ground terms, their matches
+  std::map< Node, bool > d_patterns;
+  std::map< Node, bool > d_ground_terms;
+  std::map< Node, std::map< Node, InstMatchGenerator* > > d_matches;
 public:
   TermMatchEngine(){}
   TermMatchEngine( InstantiationEngine* ie ){}
   ~TermMatchEngine(){}
-
-  //patterns vs. ground terms, their matches
-  std::map< Node, std::vector< Node > > d_ematch_patterns;
-  std::map< Node, bool > d_patterns;
-  std::map< Node, bool > d_ground_terms;
-  std::map< Node, std::map< Node, InstMatchGenerator* > > d_matches;
+  /** register that we wish to consider all subterms of n */
   void registerTerm( Node n );
-  void makePatterns( Node ce_body );
-  void addPattern( Node f, Node pat );
+  /** get a match generator for producing unified matches for each (pattern) node in nodes */
   InstMatchGenerator* makeMatchGenerator( std::vector< Node >& nodes );
 };
 
+
+/** 
+QuantMatchGenerator:  This class encapsulates all information needed for producing matches 
+for a particular quantifier.  Can have the following uses for QuantMatchGenerator qmg:
+
+For user-provided patterns do this:
+
+int index = qmg.addUserPattern( pat ); //where pat.getKind()==INST_PATTERN
+qmg.resetInstantiationRound();
+while( qmg.getNextMatch( index ) ){
+  InstMatch* m = qmg.getCurrent( index );
+  //...
+}
+
+For automated trigger generation do this:
+
+qmg.resetInstantiationRound();
+qmg.initializePatternTerms( ... ); //can be either default or explicitly provided
+while( qmg.getNextMatch() ){
+  InstMatch* m = qmg.getCurrent();
+  //...
+}
+
+*/
+class QuantMatchGenerator 
+{
+private:
+  //a collect of nodes representing a trigger
+  class Trigger {
+  private:
+    /** computation of variable contains */
+    static std::map< Node, std::vector< Node > > d_var_contains;
+    static void computeVarContains( Node n ) { computeVarContains2( n, n ); }
+    static void computeVarContains2( Node n, Node parent );
+    std::vector< Node > d_nodes;
+    std::map< Node, bool > d_vars;
+  public:
+    bool addNode( Node n );
+    int getNumNodes() { return (int)d_nodes.size(); }
+    Node getNode( int i ) { return d_nodes[i]; }
+    void clear() { 
+      d_nodes.clear();
+      d_vars.clear();
+    }
+    bool isComplete( Node f ){ return d_vars.size()==f[0].getNumChildren(); }
+    void debugPrint( const char* c );
+  };
+  /** reference to the instantiation engine */
+  InstantiationEngine* d_instEngine;
+  /** quantifier we are producing matches for */
+  Node d_f;
+  /** explicitly provided patterns */
+  std::vector< InstMatchGenerator* > d_user_gen;
+
+  /** a (set of) match generators produced by automated trigger generation */
+  std::vector< InstMatchGenerator* > d_match_gen;
+  int d_index;
+  /** functions for producing the generators */
+  bool hasCurrentGenerator( bool allowMakeNext = true );
+  InstMatchGenerator* getNextGenerator();
+  InstMatchGenerator* getCurrentGenerator() { return d_match_gen[d_index]; }
+  /** collection of pattern terms */
+  std::vector< Node > d_patTerms;
+  void addPatTerm( Node n );
+  void collectPatTerms( Node n );
+  void decomposePatTerm( Node n );
+  /** map from pattern terms to the inst match generator for them */
+  std::map< Node, InstMatchGenerator* > d_img_map;
+  /** current trigger information */
+  Trigger d_currTrigger;
+  /** whether to produce (another) trigger */
+  bool d_produceTrigger;
+public:
+  QuantMatchGenerator( InstantiationEngine* ie, Node f ) : 
+    d_instEngine( ie ), d_f( f ), d_index( 0 ), d_produceTrigger( true ){}
+  ~QuantMatchGenerator(){}
+  /** this must be called before initialization/getting any matches */
+  void resetInstantiationRound();
+public:
+  /** add pattern */
+  int addUserPattern( Node pat );
+  /** get num patterns */
+  int getNumUserPatterns() { return (int)d_user_gen.size(); }
+public:
+  /** initialize pattern terms */
+  void initializePatternTerms();
+  void initializePatternTerms( std::vector< Node >& patTerms );
+  /** get number of triggers currently produced */
+  int getNumTriggersProduced() { return d_index; }
+public:
+  /** clear matches (reproduce the matches) */
+  void clearMatches( int pat = -1 );
+  /** reset this generator (start the iterator from the beginning) */
+  void reset( int pat = -1 );
+  /** get current match */
+  InstMatch* getCurrent( int pat = -1 );
+  /** get next match */
+  bool getNextMatch( int pat = -1, int triggerThresh = -1 );
+};
 
 class InstantiatorDefault;
 namespace uf {
@@ -142,6 +239,7 @@ class InstantiationEngine
   friend class arith::InstantiatorTheoryArith;
   friend class InstMatch;
   friend class TermMatchEngine;
+  friend class QuantMatchGenerator;
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
@@ -183,6 +281,8 @@ private:
   std::map< Node, bool > d_clausal;
   /** term match engine */
   TermMatchEngine d_tme;
+  /** quantifier match generators */
+  std::map< Node, QuantMatchGenerator* > d_qmg;
 
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
@@ -201,6 +301,15 @@ public:
   theory::Instantiator* getInstantiator( Theory* t ) { return d_instTable[t->getId()]; }
   TheoryEngine* getTheoryEngine() { return d_te; }
 
+  /** register quantifier */
+  void registerQuantifier( Node f, OutputChannel* out, Valuation& valuation );
+  /** register term, f is the quantifier it belongs to */
+  void registerTerm( Node n, Node f, OutputChannel* out );
+  /** compute phase requirements */
+  void computePhaseReqs( Node n, bool polarity );
+  /** do a round of instantiation */
+  bool doInstantiationRound( OutputChannel* out );
+
   /** add lemma lem */
   bool addLemma( Node lem );
   /** instantiate f with arguments terms */
@@ -213,20 +322,14 @@ public:
   bool addSplitEquality( Node n1, Node n2, bool reqPhase = false, bool reqPhasePol = true );
 
   /** get the ce body f[e/x] */
-  Node getCounterexampleBody( Node f );
+  Node getCounterexampleBody( Node f );// { return d_counterexample_body[ f ]; }
   /** get the skolemized body f[e/x] */
   Node getSkolemizedBody( Node f );
   /** get the quantified variables for quantifier f */
   void getVariablesFor( Node f, std::vector< Node >& vars );
-  /** do a round of instantiation */
-  bool doInstantiation( OutputChannel* out );
 
   /** get the corresponding counterexample literal for quantified formula node n */
-  Node getCounterexampleLiteralFor( Node n );
-  /** set corresponding counterexample literal for quantified formula node n */
-  void setCounterexampleLiteralFor( Node n, Node l );
-  /** mark literals as dependent */
-  void registerLiterals( Node n, Node cel, Node f, OutputChannel* out, bool polarity = false, bool reqPol = false );
+  Node getCounterexampleLiteralFor( Node f );// { return d_counterexamples[n]; }
   /** set active */
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */
@@ -246,8 +349,6 @@ public:
     ~Statistics();
   };
   Statistics d_statistics;
-
-  void registerTerm( Node n ) { d_tme.registerTerm( n ); }
 
 };/* class InstantiationEngine */
 

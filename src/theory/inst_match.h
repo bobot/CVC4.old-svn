@@ -110,8 +110,7 @@ namespace uf{
 
 
 /**
-Inst Match generator class:
-This class incrementally builds unifiers that induce d_t ~ d_s.
+Inst Match generator class: This class incrementally builds matches.
 */
 class InstMatchGenerator 
 {
@@ -139,14 +138,14 @@ protected:
   /** has d_mg been set */
   bool d_mg_set;
 public:
-  /** terms we are matching */
+  /** terms we are matching (if applicable) */
   Node d_t;
   Node d_s;
 protected:
   /** d_operation = 0 : d_t = d_s mod equality
       d_operation = 1 : d_t != d_s mod equality
       d_operation = 2 : d_t = d_s, merge arguments 
-      d_operationr = 3 : match d_t with any available term */
+      d_operation = 3 : match d_t with any available term */
   int d_operation;
   /** partial matches produced for children 0...n */
   std::vector< InstMatch > d_partial;
@@ -222,7 +221,7 @@ public:
   static InstMatchGenerator* mkInstMatchGenerator( bool isComb = false );
   // find matches for t ~ s
   static InstMatchGenerator* mkCombineInstMatchGenerator( Node t, Node s, bool isEq );
-  //merge uiterator
+  // find matches that unify t and s
   static InstMatchGenerator* mkMergeInstMatchGenerator( Node t, Node s );
   //find any match for t
   static InstMatchGenerator* mkAnyMatchInstMatchGenerator( Node t );

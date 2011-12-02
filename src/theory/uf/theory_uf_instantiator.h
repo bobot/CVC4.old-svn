@@ -32,33 +32,6 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
-//class SubTermNode
-//{
-//private:
-//  typedef context::CDList<SubTermNode* > GmnList;
-//  typedef context::CDList<Node > ObList;
-//  GmnList d_parents;
-//  ObList d_obligations;
-//  Node d_node;
-//  Node d_match;
-//public:
-//  SubTermNode( context::Context* c, Node n );
-//  ~SubTermNode(){}
-//
-//  void addParent( SubTermNode* g );
-//  int getNumParents() { return d_parents.size(); }
-//  SubTermNode* getParent( int i ) { return d_parents[i]; }
-//
-//  void addObligation( Node n );
-//  int getNumObligations() { return d_obligations.size(); }
-//  Node getObligation( int i ) { return d_obligations[i]; }
-//
-//  Node getNode() { return d_node; }
-//
-//  void setMatch( Node n ) { d_match = n; }
-//  Node getMatch() { return d_match; }
-//};
-
 class InstantiatorTheoryUf : public Instantiator{
   friend class ::CVC4::theory::InstMatchGenerator;
 protected:
@@ -71,13 +44,6 @@ protected:
   NodeLists d_obligations;
   BoolMap d_ob_pol;
   BoolMap d_ob_reqPol;
-  //std::map< Node, int > d_choice_counter;
-  //int d_numChoices;
-
-  //SubTermMap d_subterms;
-  //IntMap d_subterm_size;
-  //void buildSubTerms( Node n );
-  //SubTermNode* getSubTerm( Node n );
 
   /** all terms in the current context */
   BoolMap d_terms_full;
@@ -94,13 +60,15 @@ protected:
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
+  /** make instantiations */
+  bool addMatchInstantiation( int effort, Node f, int index = -1, int triggerThresh = 0 );
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
   /** check method */
   void check( Node assertion );
   /** reset instantiation */
-  void resetInstantiation();
+  void resetInstantiationRound();
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryUf"); }
   /** debug print */
@@ -109,14 +77,11 @@ public:
   void registerTerm( Node n, bool isTop = true );
 private:
   /** assert terms are equal */
-  void assertEqual( Node a, Node b, bool reqPol = false );
+  void assertEqual( Node a, Node b );
 
   /** calculate matches for quantifier f at effort */
-  std::map< Node, InstMatch > d_baseMatch;
-  std::map< Node, InstMatchGenerator* > d_matchGen;
   void process( Node f, int effort );
-  /** update the match generator */
-  bool updateMatchGenerator( Node f );
+  std::map< Node, InstMatch > d_baseMatch;
   /** calculate matchable */
   std::map< Node, bool > d_matchable;
   std::map< Node, bool > d_unmatched;
@@ -140,6 +105,7 @@ private:
     IntStat d_instantiations;
     IntStat d_instantiations_ce_solved;
     IntStat d_instantiations_e_induced;
+    IntStat d_instantiations_user_pattern;
     IntStat d_splits;
     Statistics();
     ~Statistics();

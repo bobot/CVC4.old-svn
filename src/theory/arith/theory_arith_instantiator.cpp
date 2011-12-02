@@ -48,7 +48,7 @@ void InstantiatorTheoryArith::check( Node assertion ){
   }
 } 
 
-void InstantiatorTheoryArith::resetInstantiation(){
+void InstantiatorTheoryArith::resetInstantiationRound(){
   d_instRows.clear();
   d_tableaux_term.clear();
   d_tableaux.clear();
@@ -89,7 +89,7 @@ void InstantiatorTheoryArith::resetInstantiation(){
 
 void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){
   if( n.getKind()==MULT ){
-    d_instEngine->registerTerm( n[1] );
+    d_instEngine->d_tme.registerTerm( n[1] );
     if( n[1].hasAttribute(InstConstantAttribute()) ){
       f = n[1].getAttribute(InstConstantAttribute());
       if( n[1].getKind()==INST_CONSTANT ){
@@ -102,7 +102,7 @@ void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBui
       t << n;
     }
   }else{
-    d_instEngine->registerTerm( n );
+    d_instEngine->d_tme.registerTerm( n );
     if( n.hasAttribute(InstConstantAttribute()) ){
       f = n.getAttribute(InstConstantAttribute());
       if( n.getKind()==INST_CONSTANT ){
@@ -179,15 +179,13 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
 
 void InstantiatorTheoryArith::process( Node f, int effort ){
   Debug("quant-arith") << "Arith: Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  if( effort>1 ){
+  if( effort>2 ){
     d_quantStatus = STATUS_UNKNOWN;
-  }else if( effort==0 ){
-
-  }else{
+  }else if( effort==2 ){
     ArithVarToNodeMap avtnm = ((TheoryArith*)getTheory())->d_arithvarNodeMap.getArithVarToNodeMap();
     for( int j=0; j<(int)d_instRows[f].size(); j++ ){
       ArithVar x = d_instRows[f][j];
-      Debug("quant-arith") << "Process instantiation row " << avtnm[x] << "..." << std::endl;
+      Debug("quant-arith-alg") << "Process instantiation row " << avtnm[x] << "..." << std::endl;
       //instantiation row will be A*e + B*t + C*t[e] = beta,
       // where e is a vector of instantiation variables, 
       // t is vector of terms, and t[e] is a vector of terms containing instantiation constants.
@@ -203,11 +201,9 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
         }
         InstMatchGenerator* uit = d_instEngine->d_tme.makeMatchGenerator( terms );
         if( uit ){
-          Debug("quant-arith-alg") << "making match" << std::endl;
           //uit->debugPrint("quant-arith", 0);
           Node term;
           while( uit->getNextMatch() && !addedLemma ){
-            Debug("quant-arith-alg") << "made match" << std::endl;
             InstMatch* m = uit->getCurrent();
             if( m->isComplete() ){
               if( d_instEngine->addInstantiation( m, true ) ){
@@ -221,7 +217,6 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
               //Debug("quant-arith") << "Produced this match for ce_term_tableaux: " << std::endl;
               //m->debugPrint("quant-arith");
               //Debug("quant-arith") << std::endl;
-              Debug("quant-arith-alg") << "finding var" << std::endl;
               std::vector< Node > vars;
               std::vector< Node > matches;
               for( int i=0; i<(int)m->d_vars.size(); i++ ){
@@ -230,7 +225,6 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
                   matches.push_back( m->d_map[ m->d_vars[i] ] );
                 }
               }
-              Debug("quant-arith-alg") << "making var" << std::endl;
               Node var;
               //otherwise try to find a variable that is not specified in m
               for( std::map< Node, Node >::iterator it = d_ceTableaux[x].begin(); it != d_ceTableaux[x].end(); ++it ){
@@ -240,15 +234,12 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
                   var = it->first;
                 }
               }
-              Debug("quant-arith-alg") << "making term" << std::endl;
               for( std::map< Node, Node >::iterator it = d_tableaux_ce_term[x].begin(); it != d_tableaux_ce_term[x].end(); ++it ){
                 Node n = it->first;
                 //substitute in matches
                 n = n.substitute( vars.begin(), vars.end(), matches.begin(), matches.end() ); 
-                //std::cout << "get val " << n << std::endl;
                 plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, getTableauxValue( n ) );
               }
-              Debug("quant-arith-alg") << "do inst" << std::endl;
               term = plus_term.getNumChildren()==1 ? plus_term.getChild( 0 ) : plus_term;
               if( var!=Node::null() ){
                 if( doInstantiation( term, x, m, var ) ){
@@ -266,13 +257,11 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
           }
         }
       }
-      Debug("quant-arith-alg") << "done1" << std::endl;
       if( !addedLemma && !d_ceTableaux[x].empty() ){
         Node term = d_tableaux_term[x];
         InstMatch m( f, d_instEngine );
         doInstantiation( d_tableaux_term[x], x, &m, d_ceTableaux[x].begin()->first );
       }
-      Debug("quant-arith-alg") << "done2" << std::endl;
     }
   }
 }
