@@ -197,19 +197,13 @@ bool ArithAtomDatabase::hasBoundValueEntry(TNode atom){
 }
 
 bool rightHandRationalIsEqual(TNode a, TNode b){
-  TNode secondA = a[1];
-  TNode secondB = b[1];
-
-  const Rational& qA = secondA.getConst<Rational>();
-  const Rational& qB = secondB.getConst<Rational>();
-
-  return qA == qB;
+  return RightHandConstantEQ()(a,b);
 }
 
 
-bool rightHandRationalIsLT(TNode a, TNode b){
+bool rightHandConstantIsLT(TNode a, TNode b){
   //This version is sticking around because it is easier to read!
-  return RightHandRationalLT()(a,b);
+  return RightHandConstantLT()(a,b);
 }
 
 void ArithAtomDatabase::addImplicationsUsingEqualityAndEqualityValues(TNode atom){
@@ -356,7 +350,7 @@ void ArithAtomDatabase::addImplicationsUsingLeqAndEqualityValues(TNode atom) {
     if(rightHandRationalIsEqual(atom, eq)){
       // (x = b' /\ b = b') =>  x <= b
       addImplication(eq, atom);
-    }else if(rightHandRationalIsLT(atom, eq)){
+    }else if(rightHandConstantIsLT(atom, eq)){
       // (x = b' /\ b' > b) =>  x > b
       addImplication(eq, negation);
     }else{
@@ -395,7 +389,7 @@ void ArithAtomDatabase::addImplicationsUsingGeqAndEqualityValues(TNode atom){
     if(rightHandRationalIsEqual(atom, eq)){
       // (x = b' /\ b = b') =>  x >= b
       addImplication(eq, atom);
-    }else if(rightHandRationalIsLT(eq, atom)){
+    }else if(rightHandConstantIsLT(eq, atom)){
       // (x = b' /\ b' < b) =>  x < b
       addImplication(eq, negation);
     }else{
