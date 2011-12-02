@@ -21,8 +21,11 @@
 
 #include "context/context.h"
 #include "context/cdvector.h"
+#include "context/cdlist.h"
+#include "context/cdo.h"
 #include "theory/arith/arith_utilities.h"
 #include "theory/arith/delta_rational.h"
+#include "theory/arith/arithvar_set.h"
 #include "expr/attribute.h"
 #include "expr/node.h"
 
@@ -64,6 +67,27 @@ private:
   typedef std::vector<ArithVar> HistoryList;
   HistoryList d_history;
 
+  /**
+   * List of the types of variables in the system.
+   * "True" means integer, "false" means (non-integer) real.
+   */
+  std::vector<bool> d_varTypes;
+
+  /** Set of all integer variables with rational assignments in the partial model. */
+  ArithVarSet d_integerVarsWithRationalAssignment;
+
+  /**
+   * On full effort checks (after determining LA(Q) satisfiability), we
+   * consider integer vars, but we make sure to do so fairly to avoid
+   * nontermination (although this isn't a guarantee).  To do it fairly,
+   * we consider variables in round-robin[ish] fashion.  This is the
+   * round-robin[ish] index.
+   */
+  ArithVar d_nextIntegerIter;
+
+  context::CDList<ArithVar> d_integerVarsWithEqualBounds;
+  context::CDO<unsigned int> d_ivwebIterator;
+
   DifferenceManager& d_dm;
 
 public:
@@ -81,17 +105,35 @@ public:
     d_deltaIsSafe(false),
     d_delta(-1,1),
     d_history(),
+    d_varTypes(),
+    d_integerVarsWithRationalAssignment(),
+    d_nextIntegerIter(0),
+    d_integerVarsWithEqualBounds(c, false),
+    d_ivwebIterator(c,0),
     d_dm(dm)
   { }
 
-  void setLowerConstraint(ArithVar x, TNode constraint);
-  void setUpperConstraint(ArithVar x, TNode constraint);
+  void pushBackIntegerVarsWithEqualBounds(ArithVar x) {
+    d_integerVarsWithEqualBounds.push_back(x);
+  }
+
+  bool hasMoreIntegerVarsWithEqualBounds() const{
+    return d_ivwebIterator < d_integerVarsWithEqualBounds.size();
+  }
+
+  ArithVar nextIntegerVarsWithEqualBounds() {
+    Assert(hasMoreIntegerVarsWithEqualBounds());
+    ArithVar res = d_integerVarsWithEqualBounds[d_ivwebIterator];
+    d_ivwebIterator = d_ivwebIterator + 1;
+    return res;
+  }
+
   TNode getLowerConstraint(ArithVar x);
   TNode getUpperConstraint(ArithVar x);
 
 
   /* Initializes a variable to a safe value.*/
-  void initialize(ArithVar x, const DeltaRational& r);
+  void initialize(ArithVar x, const DeltaRational& r, bool integer);
 
   /* Gets the last assignment to a variable that is known to be consistent. */
   const DeltaRational& getSafeAssignment(ArithVar x) const;
@@ -113,13 +155,22 @@ public:
   }
 
 private:
-  void zeroDifferenceDetected(ArithVar x);
+  void setLowerConstraint(ArithVar x, TNode constraint);
+  void setUpperConstraint(ArithVar x, TNode constraint);
 
-public:
+  void zeroDifferenceDetected(ArithVar x);
 
 
   void setUpperBound(ArithVar x, const DeltaRational& r);
   void setLowerBound(ArithVar x, const DeltaRational& r);
+
+
+
+public:
+  bool boundsAreEqual(ArithVar x);
+
+  void setUpperBound(ArithVar x, const DeltaRational& r, TNode con);
+  void setLowerBound(ArithVar x, const DeltaRational& r, TNode con);
 
   /* Sets an unsafe variable assignment */
   void setAssignment(ArithVar x, const DeltaRational& r);
@@ -186,6 +237,31 @@ public:
     return d_delta;
   }
 
+  inline bool isInteger(ArithVar x) const {
+    Assert(inMaps(x));
+    return d_varTypes[x];
+  }
+
+  bool isReal(ArithVar x) const {
+    return !isInteger(x);
+  }
+
+  bool hasIntegerAssignment(ArithVar x) const{
+    Assert(isInteger(x));
+    return d_integerVarsWithRationalAssignment.isMember(x);
+  }
+
+  bool allIntegerVariablesHaveIntegerAssignments() const {
+    return d_integerVarsWithRationalAssignment.empty();
+  }
+
+  ArithVar nextIntegerVariableWithNonIntegerAssignment() {
+    Assert(!allIntegerVariablesHaveIntegerAssignments());
+    d_nextIntegerIter++;
+    d_nextIntegerIter %= d_integerVarsWithRationalAssignment.size();
+    return d_integerVarsWithRationalAssignment.get(d_nextIntegerIter);
+  }
+
 private:
 
   void computeDelta();
@@ -203,6 +279,7 @@ private:
     return 0 <= x && x < d_mapSize;
   }
 
+  void checkIntegerAssignment(ArithVar x);
 };/* class ArithPartialModel */
 
 

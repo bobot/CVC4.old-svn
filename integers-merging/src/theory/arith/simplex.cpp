@@ -179,8 +179,7 @@ Node SimplexDecisionProcedure::AssertLower(ArithVar x_i, const DeltaRational& c_
     return conflict;
   }
 
-  d_partialModel.setLowerConstraint(x_i,original);
-  d_partialModel.setLowerBound(x_i, c_i);
+  d_partialModel.setLowerBound(x_i, c_i, original);
 
   d_updatedBounds.softAdd(x_i);
 
@@ -214,8 +213,7 @@ Node SimplexDecisionProcedure::AssertUpper(ArithVar x_i, const DeltaRational& c_
     return conflict;
   }
 
-  d_partialModel.setUpperConstraint(x_i,original);
-  d_partialModel.setUpperBound(x_i, c_i);
+  d_partialModel.setUpperBound(x_i, c_i, original);
 
   d_updatedBounds.softAdd(x_i);
 
@@ -259,11 +257,9 @@ Node SimplexDecisionProcedure::AssertEquality(ArithVar x_i, const DeltaRational&
     return conflict;
   }
 
-  d_partialModel.setLowerConstraint(x_i,original);
-  d_partialModel.setLowerBound(x_i, c_i);
 
-  d_partialModel.setUpperConstraint(x_i,original);
-  d_partialModel.setUpperBound(x_i, c_i);
+  d_partialModel.setLowerBound(x_i, c_i, original);
+  d_partialModel.setUpperBound(x_i, c_i, original);
 
   d_updatedBounds.softAdd(x_i);
 
