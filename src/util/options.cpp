@@ -169,6 +169,8 @@ Additional CVC4 options:\n\
    --prop-row-length=N    sets the maximum row length to be used in propagation\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
+   --restart-int-base=I   sets the base restart interval for the sat solver (I=25 by default)\n\
+   --restart-int-inc=F    sets the restart interval increase factor for the sat solver (F=3.0 by default)\n\
    --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
@@ -337,6 +339,8 @@ enum OptionValue {
   PRINT_WINNER,
   RANDOM_FREQUENCY,
   RANDOM_SEED,
+  SAT_RESTART_FIRST,
+  SAT_RESTART_INC,
   ARITHMETIC_VARIABLE_REMOVAL,
   ARITHMETIC_PROPAGATION,
   ARITHMETIC_PIVOT_THRESHOLD,
@@ -421,6 +425,8 @@ static struct option cmdlineOptions[] = {
   { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
   { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
   { "random-seed" , required_argument, NULL, RANDOM_SEED  },
+  { "restart-int-base", required_argument, NULL, SAT_RESTART_FIRST },
+  { "restart-int-inc", required_argument, NULL, SAT_RESTART_INC },
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
@@ -801,6 +807,26 @@ throw(OptionException) {
       if(! (0.0 <= satRandomFreq && satRandomFreq <= 1.0)){
         throw OptionException(string("--random-freq: `") +
                               optarg + "' is not between 0.0 and 1.0.");
+      }
+      break;
+      
+    case SAT_RESTART_FIRST:
+      {
+        int i = atoi(optarg);
+        if(i < 1) {
+          throw OptionException("--restart-int-base requires a number bigger than 1");
+        }
+        satRestartFirst = i;
+        break;
+      }
+      
+    case SAT_RESTART_INC:
+      {
+        int i = atoi(optarg);
+        if(i < 1) {
+          throw OptionException("--restart-int-inc requires a number bigger than 1.0");
+        }
+        satRestartInc = i;
       }
       break;
 
