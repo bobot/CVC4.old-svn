@@ -18,11 +18,12 @@ TESTS =	\
 	arith-int-004.cvc \
 	arith-int-005.cvc \
 	arith-int-006.cvc \
-	arith-int-007.cvc \
 	arith-int-008.cvc \
 	arith-int-009.cvc \
 	arith-int-010.cvc \
 	arith-int-011.cvc \
+	arith-int-012.cvc \
+	arith-int-013.cvc \
 	arith-int-014.cvc \
 	arith-int-015.cvc \
 	arith-int-016.cvc \
@@ -32,6 +33,7 @@ TESTS =	\
 	arith-int-020.cvc \
 	arith-int-021.cvc \
 	arith-int-023.cvc \
+	arith-int-022.cvc \
 	arith-int-025.cvc \
 	arith-int-026.cvc \
 	arith-int-027.cvc \
@@ -48,7 +50,8 @@ TESTS =	\
 	arith-int-038.cvc \
 	arith-int-039.cvc \
 	arith-int-040.cvc \
-	arith-int-043.cvc \
+	arith-int-042.cvc \
+	arith-int-042.min.cvc \
 	arith-int-044.cvc \
 	arith-int-045.cvc \
 	arith-int-046.cvc \
@@ -83,38 +86,37 @@ TESTS =	\
 	arith-int-078.cvc \
 	arith-int-079.cvc \
 	arith-int-080.cvc \
-	arith-int-081.cvc \
-	arith-int-083.cvc \
+	arith-int-085.cvc \
 	arith-int-086.cvc \
 	arith-int-087.cvc \
 	arith-int-088.cvc \
 	arith-int-089.cvc \
-	arith-int-090.cvc \
 	arith-int-091.cvc \
 	arith-int-092.cvc \
 	arith-int-093.cvc \
 	arith-int-094.cvc \
-	arith-int-095.cvc \
-	arith-int-096.cvc \
-	arith-int-098.cvc \
-	arith-int-099.cvc \
-	arith-int-100.cvc
+	arith-int-095.cvc
 
 EXTRA_DIST = $(TESTS) \
-	arith-int-012.cvc \
-	arith-int-013.cvc \
-	arith-int-022.cvc \
+	arith-int-007.cvc \
 	arith-int-024.cvc \
 	arith-int-041.cvc \
-	arith-int-042.cvc \
-	arith-int-042.min.cvc \
+	arith-int-043.cvc \
 	arith-int-047.cvc \
 	arith-int-048.cvc \
 	arith-int-050.cvc \
+	arith-int-081.cvc \
 	arith-int-082.cvc \
+	arith-int-083.cvc \
 	arith-int-084.cvc \
-	arith-int-085.cvc \
-	arith-int-097.cvc
+	arith-int-090.cvc \
+	arith-int-096.cvc \
+	arith-int-097.cvc \
+	arith-int-098.cvc \
+	arith-int-099.cvc \
+	arith-int-100.cvc \
+	lpsat-goal-9.smt2 \
+	qlock-4-10-9.base.cvc.smt2
 
 #if CVC4_BUILD_PROFILE_COMPETITION
 #else
