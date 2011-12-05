@@ -2597,11 +2597,11 @@ REENTER:
 
   if (!learned && !num_true && num_undef)
     incjwh (res);
-
-#ifdef NO_BINARY_CLAUSES
-  if (res == &impl)
-    resetimpl ();
-#endif
+  //FIXME: perhaps sketchy unsound hack 
+/* #ifdef NO_BINARY_CLAUSES */
+/*   if (res == &impl) */
+/*     resetimpl (); */
+/* #endif */
   return res;
 }
 

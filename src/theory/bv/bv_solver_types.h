@@ -419,11 +419,14 @@ bool   polarity(SatLit lit);
  * Wrapper to create the impression of a SatSolver class for Picosat
  * which is written in C
  */
+
 class SatSolver: public SatSolverInterface {
-  int d_varCount; 
+  int d_varCount;
+  bool d_started;
 public:
   SatSolver() :
-    d_varCount(0)
+    d_varCount(0),
+    d_started(false)
   {
     picosat_init(); /// call constructor
     picosat_enable_trace_generation(); // required for unsat cores
@@ -443,8 +446,12 @@ public:
   }
   
   bool   solve () {
+    if(d_started) {
+      picosat_remove_learned(100);
+    }
     int res = picosat_sat(-1); // no decision limit
     // 0 UNKNOWN, 10 SATISFIABLE and 20 UNSATISFIABLE
+    d_started = true; 
     Assert (res == 10 || res == 20); 
     return res == 10; 
   }
@@ -460,7 +467,20 @@ public:
   SatVar newVar() { return ++d_varCount; }
 
   void   setUnremovable(SatLit lit) {}; 
-  
+
+  SatClause* getUnsatCore() {
+    const int* failedAssumption = picosat_failed_assumptions();
+    Assert(failedAssumption);
+
+    SatClause* unsatCore = new SatClause();
+    while (*failedAssumption != 0) {
+      SatLit lit = *failedAssumption;
+      unsatCore->addLiteral(neg(lit));
+      ++failedAssumption; 
+    }
+    unsatCore->sort(); 
+    return unsatCore; 
+  }
 }; 
 
 

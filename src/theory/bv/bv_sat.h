@@ -221,12 +221,12 @@ class Bitblaster {
 
   // returns the definitional bits for the bitblasted term while adding the
   // definition clauses to the sat solver (note that term definitions will always be asserted in the solver)
-  Bits* bbVar     (TNode node);
-  Bits* bbConst   (TNode node);
-  Bits* bbExtract (TNode node);
-  Bits* bbConcat  (TNode node);
-  Bits* bbNot     (TNode node);
-
+  Bits* bbVar        (TNode node);
+  Bits* bbConst      (TNode node);
+  Bits* bbExtract    (TNode node);
+  Bits* bbConcat     (TNode node);
+  Bits* bbNot        (TNode node);
+  Bits* bbZeroExtend (TNode node); 
 public:
   Bitblaster(context::Context* c) :
     d_termCache(),
@@ -315,7 +315,9 @@ private:
     case kind::BITVECTOR_NOT:
       def = bbNot(node);
       break;
-      
+    case kind::BITVECTOR_ZERO_EXTEND:
+      def = bbZeroExtend(node);
+      break;
     case kind::BITVECTOR_OR:
     case kind::BITVECTOR_AND:
     case kind::BITVECTOR_PLUS:
@@ -323,7 +325,6 @@ private:
     case kind::BITVECTOR_XOR:
       def =  bbBinaryOp(node);
       break;
-      
     default:
       Unhandled(node.getKind());
     }
@@ -365,6 +366,7 @@ private:
       BBXor::bitblast(resBits, lhsBits, rhsBits, d_clauseManager);
       break;
     default:
+      Debug("bb") << "sadasd"; 
       Unhandled(nodeKind); 
     }
     
@@ -418,8 +420,12 @@ void Bitblaster<Plus, Mult, And, Or, Xor>::assertToSat(TNode lit) {
 
   Assert (d_atomMarkerVar.find(node) != d_atomMarkerVar.end()); 
   SatVar markerVar = d_atomMarkerVar[node];
-  SatLit markerLit = mkLit(markerVar); 
-  d_assertedAtoms.push_back(lit.getKind() == kind::NOT? neg(markerLit) : markerLit);
+  SatLit markerLit = lit.getKind() == kind::NOT? neg(mkLit(markerVar)) : mkLit(markerVar); 
+
+  Debug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat asserting node: " << lit <<"\n";
+  Debug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat with literal:   " << toStringLit(markerLit) << "\n";  
+
+  d_assertedAtoms.push_back(markerLit);
 }
 
 /** 
@@ -563,7 +569,7 @@ Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbConst(TNode node) {
 
   Assert(node.getKind() == kind::CONST_BITVECTOR);
   Bits* bits = new Bits();
-  for (unsigned i = 0; i < utils::getSize(node); ++i) {
+  for (int i = utils::getSize(node) - 1; i >= 0; --i) {
     Integer bit = node.getConst<BitVector>().extract(i, i).getValue();
     if(bit == Integer(0)){
       bits->push_back(d_falseLit);
@@ -584,6 +590,8 @@ Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbVar(TNode node) {
   Debug("bitvector-bb") << " with bits       " << toString(bits); 
   return bits; 
 }
+
+
 
 template <class Plus, class Mult, class And, class Or, class Xor>  
 Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbExtract(TNode node) {
@@ -607,8 +615,10 @@ template <class Plus, class Mult, class And, class Or, class Xor>
 Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbConcat(TNode node) {
   Debug("bitvector-bb") << "Bitblasting node " << node << "\n";
   Assert (node.getKind() == kind::BITVECTOR_CONCAT);
-  const Bits* bv1 = bbTerm(node[0]);
-  const Bits* bv2 = bbTerm(node[1]);
+  TNode first = node[0];
+  TNode second = node[1]; 
+  const Bits* bv1 = bbTerm(first);
+  const Bits* bv2 = bbTerm(second);
     
   Bits* bits = new Bits();
     
@@ -639,7 +649,26 @@ Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbNot(TNode node) {
   }
   return notbv; 
 }
-  
+
+template <class Plus, class Mult, class And, class Or, class Xor>  
+Bits* Bitblaster<Plus, Mult, And, Or, Xor>::bbZeroExtend(TNode node) {
+  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  Assert (node.getKind() == kind::BITVECTOR_ZERO_EXTEND);
+  Bits* bits = bbTerm(node[0]); 
+  unsigned amount = node.getOperator().getConst<BitVectorZeroExtend>().zeroExtendAmount; 
+  Bits* res_bits = new Bits();
+
+  for (unsigned i = 0 ; i < amount ; ++i ) {
+    res_bits->push_back(d_falseLit); 
+  }
+  for (unsigned i = 0; i < bits->size(); ++i ) {
+    res_bits->push_back(bits->operator[](i)); 
+  }
+  Assert (res_bits->size() == amount + bits->size()); 
+  return res_bits; 
+}
+
+
 template <class Plus, class Mult, class And, class Or, class Xor>  
 Bitblaster<Plus, Mult, And, Or, Xor>::Statistics::Statistics() :
   d_numTermClauses("theory::bv::NumberOfTermSatClauses", 0),

@@ -128,14 +128,6 @@ void ClauseManager::resetSolver() {
 }
 
 
-// bool ClauseManager::inPool(SatClause* clause) {
-//   Assert (clause != NULL); 
-//   bool res = d_clausePool.find(*clause) != d_clausePool.end();
-//   if(res) {
-//     ++(d_statistics.d_numDuplicateClauses); 
-//   }
-//   return res; 
-// }
 
 
 SatVar ClauseManager::mkMarkerVar() {

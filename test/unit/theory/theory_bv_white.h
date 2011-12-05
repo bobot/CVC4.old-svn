@@ -91,11 +91,12 @@ public:
     cl->addLiteral(v1);
     cl->addLiteral(neg(v2));
     cl->sort(); 
-    TS_ASSERT(mgr->inPool(cl)); 
+    //TS_ASSERT(mgr->inPool(cl)); 
     
     bool res = mgr->solve();
     TS_ASSERT(res == false); 
     
+    delete mgr;
   }
   
   void testClauseManager() {
@@ -137,15 +138,6 @@ public:
     mgr->mkClause(neg(marker4), neg(v1), neg(v5));
     mgr->mkClause(neg(marker5), neg(v1)); 
 
-    SatClause* cl = new SatClause();
-    cl->addLiteral(neg(v4));
-    cl->addLiteral(v3);
-    cl->addLiteral(v1);
-    cl->sort(); 
-    
-    TS_ASSERT(mgr->inPool(cl)); 
-    /// testing an sat instance
-    /// should only have the clause without marker literals asserted
     bool res = mgr->solve();
     TS_ASSERT (res == true); 
 
@@ -199,6 +191,7 @@ public:
     temp2.sort(); 
     TS_ASSERT(*core == temp2);  
     
+    delete mgr; 
   }
   
   void testBitblasterCore() {
@@ -245,8 +238,7 @@ public:
     res = bb->solve();
     TS_ASSERT(res == false); 
     
-    //unsat core test
-    
+    delete bb;    
     
   }
 
@@ -284,7 +276,7 @@ public:
     bb->assertToSat(atom); 
     bool res = bb->solve();
     TS_ASSERT(res == false);
-    
+    delete bb;
     }
 
 };
