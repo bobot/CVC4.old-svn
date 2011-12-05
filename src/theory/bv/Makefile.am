@@ -10,6 +10,8 @@ noinst_LTLIBRARIES = libbv.la
 libbv_la_SOURCES = \
 	bv_solver_types.h \
 	bv_solver_types.cpp \
+	bitblast_strategies.h \
+	bitblast_strategies.cpp \
 	bv_sat.h \
 	bv_sat.cpp \
 	theory_bv_utils.h \

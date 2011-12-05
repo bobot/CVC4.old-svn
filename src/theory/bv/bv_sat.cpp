@@ -149,12 +149,8 @@ void ClauseManager::mkClause(const vector<SatLit>& lits) {
   }
   clause->sort();
 
-  // if(inPool(clause)) {
-  //   return; 
-  // }
-
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  // d_clausePool.insert(*clause); 
+
   assertClause(clause); 
 
 }
@@ -166,12 +162,9 @@ void ClauseManager::mkClause(SatLit lit1) {
   clause->addLiteral(lit1);
   clause->sort(); 
   
-  // if(inPool(clause)) {
-  //   return;
-  // }
   
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  // d_clausePool.insert(*clause); 
+
   assertClause(clause); 
 }
 
@@ -185,12 +178,8 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2) {
   clause->addLiteral(lit2);
   clause->sort(); 
   
-  // if(inPool(clause)) {
-  //   return;
-  // }
-
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  // d_clausePool.insert(*clause); 
+
   assertClause(clause); 
 }
 
@@ -203,11 +192,8 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3) {
   clause->addLiteral(lit3);
   clause->sort(); 
 
-  // if(inPool(clause)) {
-  //   return;
-  // }
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  // d_clausePool.insert(*clause); 
+
   assertClause(clause); 
 
 }
@@ -222,12 +208,9 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4)
   clause->addLiteral(lit4); 
   clause->sort();
 
-  // if(inPool(clause)) {
-  //   return;
-  // }
 
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  // d_clausePool.insert(*clause); 
+
   assertClause(clause); 
 }
 
@@ -242,13 +225,271 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4,
   clause->addLiteral(lit5); 
   clause->sort(); 
 
-  // if(inPool(clause)) {
-  //   return;
-  // }
 
   Debug("bitvector-clauses") << "Bitvector::mkClause "<< clause->toString(); 
-  // d_clausePool.insert(*clause); 
   assertClause(clause); 
+}
+
+
+/////// Bitblaster 
+
+
+/** 
+ * Bitblasts the atom, assigns it a marker literal, adding it to the SAT solver
+ * NOTE: duplicate clauses are not detected because of marker literal
+ * @param node the atom to be bitblasted
+ * 
+ */
+void Bitblaster::bbAtom(TNode node) {
+
+  /// strip the not
+  if (node.getKind() == kind::NOT) {
+    node = node[0];
+  }
+    
+  if (hasMarkerVar(node)) {
+    return; 
+  }
+
+  SatVar markerVar = mkMarkerVar(node);
+  d_atomBBStrategies[node.getKind()](node, markerVar, this); 
+}
+  
+Bits* Bitblaster::bbTerm(TNode node) {
+  Bits* def = getBBTerm(node);
+  if (def) {
+    return def; 
+  }
+
+  def = d_termBBStrategies[node.getKind()] (node, this); 
+  Assert (def != NULL);
+  cacheTermDef(node, def); 
+  return def; 
+}
+
+/// Public methods
+
+/** 
+ * Called from preregistration bitblasts the node
+ * 
+ * @param node 
+ * 
+ * @return 
+ */
+void Bitblaster::bitblast(TNode node) {
+  // FIXME: better checks
+  TimerStat::CodeTimer codeTimer(d_statistics.d_bitblastTimer);
+  if (node.getKind() == kind::EQUAL || node.getKind() == kind::NOT) {
+    bbAtom(node); 
+  } else {
+    bbTerm(node); 
+  }
+}
+
+/** 
+ * Asserts the clauses corresponding to the atom to the Sat Solver
+ * by turning on the marker literal (i.e. setting it to false)
+ * @param node the atom to be aserted
+ * 
+ */
+ 
+void Bitblaster::assertToSat(TNode lit) {
+  // strip the not
+  TNode node = lit.getKind() == kind::NOT? lit[0] : lit;
+
+  Assert (d_atomMarkerVar.find(node) != d_atomMarkerVar.end()); 
+  SatVar markerVar = d_atomMarkerVar[node];
+  SatLit markerLit = lit.getKind() == kind::NOT? neg(mkLit(markerVar)) : mkLit(markerVar); 
+
+  Debug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat asserting node: " << lit <<"\n";
+  Debug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat with literal:   " << toStringLit(markerLit) << "\n";  
+
+  d_assertedAtoms.push_back(markerLit);
+}
+
+/** 
+ * Calls the solve method for the Sat Solver. 
+ * passing it the marker literals to be asserted
+ * 
+ * @return true for sat, and false for unsat
+ */
+ 
+bool Bitblaster::solve() {
+  return d_clauseManager->solve(d_assertedAtoms); 
+}
+
+void Bitblaster::getConflict(std::vector<TNode>& conflict) {
+  SatClause* conflictClause = d_clauseManager->getConflict();
+  Assert(conflictClause); 
+  
+  for (unsigned i = 0; i < conflictClause->size(); i++) {
+    SatLit lit = conflictClause->operator[](i);
+    SatVar var = mkVar(lit);
+    Assert (d_markerVarAtom.find(var) != d_markerVarAtom.end());
+    
+    TNode atom;
+    if(!polarity(lit)) {
+      atom = d_markerVarAtom[var];
+    }
+    else {
+      atom = NodeManager::currentNM()->mkNode(kind::NOT, d_markerVarAtom[var]); 
+    }
+    conflict.push_back(atom); 
+  }
+}
+
+/** 
+ * Resets the Sat solver by creating a new instace of it (Minisat)
+ * 
+ * 
+ */
+ 
+void Bitblaster::resetSolver() {
+  d_clauseManager->resetSolver(); 
+}
+
+
+/// Helper methods
+
+
+void Bitblaster::initAtomBBStrategies() {
+  for (int i = 0 ; i < kind::LAST_KIND; ++i ) {
+    d_atomBBStrategies[i] = UndefinedAtomBBStrategy; 
+  }
+  
+  /// setting default bb strategies for atoms
+  d_atomBBStrategies [ kind::EQUAL ]           = DefaultEqBB;
+  d_atomBBStrategies [ kind::BITVECTOR_ULT ]   = DefaultUltBB;
+  d_atomBBStrategies [ kind::BITVECTOR_ULE ]   = DefaultUleBB;
+  d_atomBBStrategies [ kind::BITVECTOR_UGT ]   = DefaultUgtBB;
+  d_atomBBStrategies [ kind::BITVECTOR_UGE ]   = DefaultUgeBB;
+  d_atomBBStrategies [ kind::BITVECTOR_SLT ]   = DefaultSltBB;
+  d_atomBBStrategies [ kind::BITVECTOR_SLE ]   = DefaultSleBB;
+  d_atomBBStrategies [ kind::BITVECTOR_SGT ]   = DefaultSgtBB;
+  d_atomBBStrategies [ kind::BITVECTOR_SGE ]   = DefaultSgeBB;
+  
+}
+
+void Bitblaster::initTermBBStrategies() {
+  for (int i = 0 ; i < kind::LAST_KIND; ++i ) {
+    d_termBBStrategies[i] = UndefinedTermBBStrategy; 
+  }
+  
+  /// setting default bb strategies for terms:
+  d_termBBStrategies [ kind::VARIABLE ]               = DefaultVarBB;
+  d_termBBStrategies [ kind::CONST_BITVECTOR ]        = DefaultConstBB;
+  d_termBBStrategies [ kind::BITVECTOR_NOT ]          = DefaultNotBB;
+  d_termBBStrategies [ kind::BITVECTOR_CONCAT ]       = DefaultConcatBB;
+  d_termBBStrategies [ kind::BITVECTOR_AND ]          = DefaultAndBB;
+  d_termBBStrategies [ kind::BITVECTOR_OR ]           = DefaultOrBB;
+  d_termBBStrategies [ kind::BITVECTOR_XOR ]          = DefaultXorBB;
+  d_termBBStrategies [ kind::BITVECTOR_NAND ]         = DefaultNandBB ;
+  d_termBBStrategies [ kind::BITVECTOR_NOR ]          = DefaultNorBB;
+  d_termBBStrategies [ kind::BITVECTOR_COMP ]         = DefaultCompBB ;
+  d_termBBStrategies [ kind::BITVECTOR_MULT ]         = DefaultMultBB;
+  d_termBBStrategies [ kind::BITVECTOR_PLUS ]         = DefaultPlusBB;
+  d_termBBStrategies [ kind::BITVECTOR_SUB ]          = DefaultSubBB;
+  d_termBBStrategies [ kind::BITVECTOR_NEG ]          = DefaultNegBB;
+  d_termBBStrategies [ kind::BITVECTOR_UDIV ]         = DefaultUdivBB;
+  d_termBBStrategies [ kind::BITVECTOR_UREM ]         = DefaultUremBB;
+  d_termBBStrategies [ kind::BITVECTOR_SDIV ]         = DefaultSdivBB;
+  d_termBBStrategies [ kind::BITVECTOR_SREM ]         = DefaultSremBB;
+  d_termBBStrategies [ kind::BITVECTOR_SMOD ]         = DefaultSmodBB;
+  d_termBBStrategies [ kind::BITVECTOR_SHL ]          = DefaultShlBB;
+  d_termBBStrategies [ kind::BITVECTOR_LSHR ]         = DefaultLshrBB;
+  d_termBBStrategies [ kind::BITVECTOR_ASHR ]         = DefaultAshrBB;
+  d_termBBStrategies [ kind::BITVECTOR_EXTRACT ]      = DefaultExtractBB;
+  d_termBBStrategies [ kind::BITVECTOR_REPEAT ]       = DefaultRepeatBB;
+  d_termBBStrategies [ kind::BITVECTOR_ZERO_EXTEND ]  = DefaultZeroExtendBB;
+  d_termBBStrategies [ kind::BITVECTOR_SIGN_EXTEND ]  = DefaultSignExtendBB;
+  d_termBBStrategies [ kind::BITVECTOR_ROTATE_RIGHT ] = DefaultRotateRightBB;
+  d_termBBStrategies [ kind::BITVECTOR_ROTATE_LEFT ]  = DefaultRotateLeftBB;
+
+}
+ 
+bool Bitblaster::hasMarkerVar(TNode atom) {
+  return d_atomMarkerVar.find(atom) != d_atomMarkerVar.end();
+}
+
+ 
+SatVar Bitblaster::mkMarkerVar(TNode atom) {
+  Assert (d_atomMarkerVar.find(atom) == d_atomMarkerVar.end());
+  SatVar var = d_clauseManager->mkMarkerVar(); 
+  d_atomMarkerVar[atom] = var;
+  d_markerVarAtom[var] = atom;
+  return var; 
+}
+
+ 
+void Bitblaster::cacheTermDef(TNode term, Bits* def) {
+  Assert (d_termCache.find(term) == d_termCache.end());
+  d_termCache[term] = def; 
+}
+
+ 
+Bits* Bitblaster::getBBTerm(TNode node) {
+  TermDefMap::iterator it = d_termCache.find(node);
+  if (it == d_termCache.end()) {
+    return NULL; 
+  }
+  return d_termCache[node];
+}
+
+ 
+Bits* Bitblaster::freshBits(unsigned size) {
+  Bits* newbits = new Bits(); 
+  for (unsigned i= 0; i < size; ++i) {
+    SatVar var = d_clauseManager->newVar();
+    SatLit lit = mkLit(var); 
+    newbits->push_back(lit); 
+  }
+  return newbits; 
+}
+
+void Bitblaster::mkClause (const std::vector<SatLit>& lits) {
+  d_clauseManager->mkClause(lits);
+}
+
+void Bitblaster::mkClause (SatLit lit1){
+  d_clauseManager->mkClause(lit1);
+}
+
+void Bitblaster::mkClause (SatLit lit1, SatLit lit2){
+  d_clauseManager->mkClause(lit1, lit2);
+}
+
+void Bitblaster::mkClause (SatLit lit1, SatLit lit2, SatLit lit3){
+  d_clauseManager->mkClause(lit1, lit2, lit3);
+}
+
+void Bitblaster::mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4){
+  d_clauseManager->mkClause(lit1, lit2, lit3, lit4);
+}
+
+void Bitblaster::mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5){
+  d_clauseManager->mkClause(lit1, lit2, lit3, lit4, lit5);
+}
+
+SatVar Bitblaster::newVar() {
+  return d_clauseManager->newVar(); 
+}
+ 
+Bitblaster::Statistics::Statistics() :
+  d_numTermClauses("theory::bv::NumberOfTermSatClauses", 0),
+  d_numAtomClauses("theory::bv::NumberOfAtomSatClauses", 0), 
+  d_bitblastTimer("theory::bv::BitblastTimer")
+{
+  StatisticsRegistry::registerStat(&d_numTermClauses);
+  StatisticsRegistry::registerStat(&d_numAtomClauses);
+  StatisticsRegistry::registerStat(&d_bitblastTimer);
+}
+
+
+
+Bitblaster::Statistics::~Statistics() {
+  StatisticsRegistry::unregisterStat(&d_numTermClauses);
+  StatisticsRegistry::unregisterStat(&d_numAtomClauses);
+  StatisticsRegistry::unregisterStat(&d_bitblastTimer);
 }
 
 
