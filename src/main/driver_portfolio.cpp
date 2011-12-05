@@ -52,7 +52,7 @@ namespace CVC4 {
 
 /* Function declarations */
 
-void doCommand(SmtEngine&, Command*, Options&);
+static bool doCommand(SmtEngine&, Command*, Options&);
 
 Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
 
@@ -358,6 +358,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   // Parse commands until we are done
   Command* cmd;
+  bool status = true;
   CommandSequence* seq = new CommandSequence();
   if( options.interactive ) {
     InteractiveShell shell(*exprMgr, options);
@@ -570,17 +571,20 @@ void printUsage(Options& options, bool full) {
 }
 
 /** Executes a command. Deletes the command after execution. */
-void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
+static bool doCommand(SmtEngine& smt, Command* cmd, Options& options) {
   if( options.parseOnly ) {
-    return;
+    return true;
   }
+
+  // assume no error
+  bool status = true;
 
   CommandSequence *seq = dynamic_cast<CommandSequence*>(cmd);
   if(seq != NULL) {
     for(CommandSequence::iterator subcmd = seq->begin();
         subcmd != seq->end();
         ++subcmd) {
-      doCommand(smt, *subcmd, options);
+      status = doCommand(smt, *subcmd, options) && status;
     }
   } else {
     if(options.verbosity > 0) {
@@ -592,13 +596,17 @@ void doCommand(SmtEngine& smt, Command* cmd, Options& options) {
     } else {
       cmd->invoke(&smt);
     }
+    status = status && cmd->ok();
   }
+
+  return status;
 }
 
 /**** End of code shared with driver.cpp ****/
 
 /** Create the SMT engine and execute the commands */
 Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
+
   try {
     // For the signal handlers' benefit
     pOptions = &options;
@@ -611,9 +619,9 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
     theStatisticsRegistry.registerStat_( (Stat*)smt.getStatisticsRegistry() );
 
     // Execute the commands
-    doCommand(smt, cmd, options);
+    bool status = doCommand(smt, cmd, options);
 
-    return smt.getStatusOfLastCommand();
+    return status ? smt.getStatusOfLastCommand() : Result::SAT_UNKNOWN;
   } catch(OptionException& e) {
     *pOptions->out << "unknown" << endl;
     cerr << "CVC4 Error:" << endl << e << endl;

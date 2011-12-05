@@ -99,32 +99,32 @@ private:
 
 protected:
 
-  TypeCheckingException() : Exception() {}
-  TypeCheckingException(const Expr& expr, std::string message);
+  TypeCheckingException() throw() : Exception() {}
+  TypeCheckingException(const Expr& expr, std::string message) throw();
   TypeCheckingException(ExprManager* em,
-                        const TypeCheckingExceptionPrivate* exc);
+                        const TypeCheckingExceptionPrivate* exc) throw();
 
 public:
 
   /** Copy constructor */
-  TypeCheckingException(const TypeCheckingException& t);
+  TypeCheckingException(const TypeCheckingException& t) throw();
 
   /** Destructor */
-  ~TypeCheckingException() throw ();
+  ~TypeCheckingException() throw();
 
   /**
    * Get the Expr that caused the type-checking to fail.
    *
    * @return the expr
    */
-  Expr getExpression() const;
+  Expr getExpression() const throw();
 
   /**
    * Returns the message corresponding to the type-checking failure.
    * We prefer toStream() to toString() because that keeps the expr-depth
    * and expr-language settings present in the stream.
    */
-  void toStream(std::ostream& out) const;
+  void toStream(std::ostream& out) const throw();
 
   friend class ExprManager;
 };/* class TypeCheckingException */
@@ -482,9 +482,13 @@ public:
    *
    *   // let a, b, c, and d be variables of sort U
    *   Expr e = em->mkExpr(OR, a, b, em->mkExpr(AND, c, em->mkExpr(NOT, d)))
-   *   out << e;
+   *   out << printtypes(true) << e;
    *
    * gives "(OR a:U b:U (AND c:U (NOT d:U)))", but
+   *
+   *   out << printtypes(false) << [same expr as above]
+   *
+   * gives "(OR a b (AND c (NOT d)))"
    */
   typedef expr::ExprPrintTypes printtypes;
 
@@ -853,7 +857,7 @@ public:
 
 ${getConst_instantiations}
 
-#line 857 "${template}"
+#line 861 "${template}"
 
 namespace expr {
 
