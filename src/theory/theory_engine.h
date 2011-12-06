@@ -463,7 +463,10 @@ public:
    * a SAT response.
    */
   inline bool needCheck() const {
-    return d_outputChannelUsed || d_lemmasAdded;
+#warning TheoryEngine::needCheck() reverted
+    WarningOnce() << "Warning: TheoryEngine::needCheck() reverted" << std::endl;
+    return false;
+    //return d_outputChannelUsed || d_lemmasAdded;
   }
 
   /**
