@@ -314,7 +314,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
         p = strtok(NULL, " ");
       }
       *vp++ = NULL;
-      if(argc > 1) { // this is necessary in case you do e.g. --thread0="  "
+      if(targc > 1) { // this is necessary in case you do e.g. --thread0="  "
         try {
           opts.parseOptions(targc, targv);
         } catch(OptionException& e) {
@@ -334,9 +334,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
           throw OptionException(ss.str());
         }
       }
+      free(targv[0]);
       delete targv;
       free(tbuf);
-      free(vp[0]);
     }
   }
 
