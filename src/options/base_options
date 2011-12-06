@@ -43,8 +43,6 @@
 #   alias smt-option-name = (smt-option-name[=argument])+
 #   alias (-short-option | --long-option) = (-option[=argument] | --long-option[=argument])+
 #
-#     ALIASES ARE NOT SUPPORTED YET.
-#
 #     The alias command creates a new SmtEngine option name, or short option, or long option,
 #     and binds it to act the same way as if the options to the right of "=" were passed.
 #     For example, if there are options to --disable-warning-1 and --disable-warning-2, etc.,
