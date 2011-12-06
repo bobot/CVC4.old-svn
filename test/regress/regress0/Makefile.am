@@ -101,7 +101,9 @@ TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 EXTRA_DIST = $(TESTS) \
 	bug216.smt2 \
 	bug216.smt2.expect \
-	bug288.smt
+	bug288.smt \
+	bug290.smt2 \
+	bug291.smt2
 
 if CVC4_BUILD_PROFILE_COMPETITION
 else
