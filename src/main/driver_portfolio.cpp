@@ -59,7 +59,8 @@ Result doSmt(SmtEngine &smt, Command *cmd, Options &options);
 template<typename T>
 void sharingManager(int numThreads,
                     SharedChannel<T>* channelsOut[],
-                    SharedChannel<T>* channelsIn[]);
+                    SharedChannel<T>* channelsIn[],
+                    SmtEngine* smts[]);
 
 
 /* To monitor for activity on shared channels */
@@ -496,10 +497,10 @@ int runCvc4(int argc, char *argv[], Options& options) {
     fns[i] = boost::bind(doSmt, boost::ref(*smts[i]), seqs[i], boost::ref(threadOptions[i]));
 
   function <void()>
-    smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn);
+    smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn, smts);
 
   s_beforePortfolioTime.stop();
-  pair<int, Result> portfolioReturn = runPortfolio(numThreads, smFn, fns, false);
+  pair<int, Result> portfolioReturn = runPortfolio(numThreads, smFn, fns, true);
   int winner = portfolioReturn.first;
   Result result = portfolioReturn.second;
 
@@ -690,9 +691,10 @@ Result doSmt(SmtEngine &smt, Command *cmd, Options &options) {
 template<typename T>
 void sharingManager(int numThreads,
                     SharedChannel<T> *channelsOut[], // out and in with respect
-                    SharedChannel<T> *channelsIn[])  // to smt engines
+                    SharedChannel<T> *channelsIn[],
+                    SmtEngine *smts[])  // to smt engines
 {
-  Debug("sharing") << "sharing: thread started " << std::endl;
+  Trace("sharing") << "sharing: thread started " << std::endl;
   vector <int> cnt(numThreads); // Debug("sharing")
 
   vector< queue<T> > queues;
@@ -701,6 +703,9 @@ void sharingManager(int numThreads,
   }
 
   boost::mutex mutex_activity;
+
+  /* Disable interruption, so that we can check manually */
+  boost::this_thread::disable_interruption di;
 
   while(not boost::this_thread::interruption_requested()) {
 
@@ -736,5 +741,18 @@ void sharingManager(int numThreads,
       }
     }
   } /* end of infinite while */
-  Debug("sharing") << "sharing: Interuppted, exiting." << std::endl;
+
+  Trace("interrupt") << "sharing thread interuppted, interrupting all smtEngines" << std::endl;
+
+  for(int t = 0; t < numThreads; ++t) {
+    Trace("interrupt") << "Interuppting thread #" << t << std::endl;
+    try{
+      smts[t]->interrupt();
+    }catch(ModalException &e){
+      // It's fine, the thread is probably not there.
+      Trace("interrupt") << "Could not interrupt thread #" << t << std::endl;
+    }
+  }
+
+  Trace("sharing") << "sharing: Interuppted, exiting." << std::endl;
 }

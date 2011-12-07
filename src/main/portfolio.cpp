@@ -40,8 +40,10 @@ void runThread(int thread_id, function<S()> threadFn, S &returnValue)
   //  while(global_flag_done == false)
   if( mutex_done.try_lock() ) {
     //      CVC4::Notice("Thread " + intToString(thread_id) + "wins.\n");
-    global_flag_done = true;
-    global_winner = thread_id;
+    if(global_flag_done == false) {
+      global_flag_done = true;
+      global_winner = thread_id;
+    }
     mutex_done.unlock();
     condition_var_main_wait.notify_all(); // we want main thread to quit
   }
@@ -51,7 +53,7 @@ template<typename T, typename S>
 std::pair<int,S> runPortfolio(int numThreads, 
                               function<T()> driverFn,
                               function<S()> threadFns[],
-                              bool optionWaitToJoin = false)
+                              bool optionWaitToJoin)
 {
   thread thread_driver;
   thread threads[numThreads];
@@ -68,16 +70,17 @@ std::pair<int,S> runPortfolio(int numThreads,
   while(global_flag_done == false)
     condition_var_main_wait.wait(mutex_main_wait);
 
-  for(int t=0; t<numThreads; ++t) {
-    threads[t].interrupt();
-    if(optionWaitToJoin)
-      threads[t].join();
-  }
-  
   if(not driverFn.empty()) {
     thread_driver.interrupt();
     thread_driver.join();
   }
 
+  for(int t=0; t<numThreads; ++t) {
+    /* interupttion is now supposed to be handled within driver thread */
+    //threads[t].interrupt();
+    if(optionWaitToJoin)
+      threads[t].join();
+  }
+  
   return std::pair<int,S>(global_winner,threads_returnValue[global_winner]);
 }
