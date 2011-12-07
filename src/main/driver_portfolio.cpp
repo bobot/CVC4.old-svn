@@ -54,7 +54,7 @@ namespace CVC4 {
 
 static bool doCommand(SmtEngine&, Command*, Options&);
 
-Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options);
+Result doSmt(SmtEngine &smt, Command *cmd, Options &options);
 
 template<typename T>
 void sharingManager(int numThreads,
@@ -293,11 +293,10 @@ int runCvc4(int argc, char *argv[], Options& options) {
     opts.thread_id = i;
 
     // If the random-seed is negative, pick a random seed randomly
-    const double EPS = 1e-9;
     if(options.satRandomSeed < 0)
       opts.satRandomSeed = (double)rand();
 
-    if(i < options.threadArgv.size() && !options.threadArgv[i].empty()) {
+    if(i < (int)options.threadArgv.size() && !options.threadArgv[i].empty()) {
       // separate out the thread's individual configuration string
       stringstream optidss;
       optidss << "--thread" << i;
@@ -376,7 +375,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   // Parse commands until we are done
   Command* cmd;
-  bool status = true;
+  // bool status = true;           // Doesn't seem to be use right now: commenting it out
   CommandSequence* seq = new CommandSequence();
   if( options.interactive ) {
     InteractiveShell shell(*exprMgr, options);
@@ -437,6 +436,17 @@ int runCvc4(int argc, char *argv[], Options& options) {
     }
   }
 
+  // Create the SmtEngine(s)
+  SmtEngine *smts[numThreads];
+  for(int i = 0; i < numThreads; ++i) {
+    smts[i] = new SmtEngine(exprMgrs[i]);
+
+    // Register the statistics registry of the thread
+    smts[i]->getStatisticsRegistry()->setName("thread #" + boost::lexical_cast<string>(threadOptions[i].thread_id));
+    theStatisticsRegistry.registerStat_( (Stat*)smts[i]->getStatisticsRegistry() );
+  }
+
+
   /************************* Lemma sharing init ************************/
 
   /* Sharing channels */
@@ -481,7 +491,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
   function <Result()> fns[numThreads];
 
   for(int i = 0 ; i < numThreads ; ++i)
-    fns[i] = boost::bind(doSmt, boost::ref(*exprMgrs[i]), seqs[i], boost::ref(threadOptions[i]));
+    fns[i] = boost::bind(doSmt, boost::ref(*smts[i]), seqs[i], boost::ref(threadOptions[i]));
 
   function <void()>
     smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn);
@@ -552,6 +562,8 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   delete vmaps;
 
+  delete statTotatTime;
+  delete statBeforePortfolioTime;
   delete statFilenameReg;
 
   // delete seq;
@@ -626,26 +638,19 @@ static bool doCommand(SmtEngine& smt, Command* cmd, Options& options) {
 /**** End of code shared with driver.cpp ****/
 
 /** Create the SMT engine and execute the commands */
-Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
+Result doSmt(SmtEngine &smt, Command *cmd, Options &options) {
 
   try {
     // For the signal handlers' benefit
     pOptions = &options;
 
-    // Create the SmtEngine(s)
-    SmtEngine smt(&exprMgr);
-
-    // Register the statistics registry of the thread
-    smt.getStatisticsRegistry()->setName("thread #" + boost::lexical_cast<string>(options.thread_id));
-    theStatisticsRegistry.registerStat_( (Stat*)smt.getStatisticsRegistry() );
-
     // Execute the commands
     bool status = doCommand(smt, cmd, options);
 
-    if(options.statistics) {
-      smt.getStatisticsRegistry()->flushInformation(*options.err);
-      *options.err << "Statistics printing of my thread complete " << endl;
-    }
+    // if(options.statistics) {
+    //   smt.getStatisticsRegistry()->flushInformation(*options.err);
+    //   *options.err << "Statistics printing of my thread complete " << endl;
+    // }
 
     return status ? smt.getStatusOfLastCommand() : Result::SAT_UNKNOWN;
   } catch(OptionException& e) {
