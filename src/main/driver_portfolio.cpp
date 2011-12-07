@@ -160,6 +160,17 @@ public:
 
 int runCvc4(int argc, char *argv[], Options& options) {
 
+  /**************************************************************************
+   * runCvc4 outline:
+   * -> Start a couple of timers
+   * -> Processing of options, including thread specific ones
+   * -> Statistics related stuff
+   * -> ExprManager creations (including command parsing)
+   * -> Lemma sharing init
+   * -> Run portfolio, exit/print stats etc.
+   * (This list might become outdated, a timestamp might be good: 7 Dec '11.)
+   **************************************************************************/
+
   // Timer statistic
   TimerStat s_totalTime("totalTime");
   TimerStat s_beforePortfolioTime("beforePortfolioTime");
@@ -173,6 +184,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
   cvc4_init();
 
   progPath = argv[0];
+
+
+  /****************************** Options Processing ************************/
 
   // Parse the options
   int firstArgIndex = options.parseOptions(argc, argv);
@@ -270,18 +284,6 @@ int runCvc4(int argc, char *argv[], Options& options) {
     Warning.getStream() << Expr::setlanguage(language);
   }
 
-  // Statistics init
-  pStatistics = &theStatisticsRegistry;
-
-  StatisticsRegistry driverStatisticsRegistry("driver");
-  theStatisticsRegistry.registerStat_((&driverStatisticsRegistry));
-
-  // Options
-  //options.showSharing = true;
-
-  /* Use satRandomSeed for generating random numbers, in particular satRandomSeed-s */
-  srand((unsigned int)(-options.satRandomSeed));
-
   vector<Options> threadOptions;
   for(int i = 0; i < numThreads; ++i) {
     threadOptions.push_back(options);
@@ -340,21 +342,37 @@ int runCvc4(int argc, char *argv[], Options& options) {
     }
   }
 
-  // Create the expression manager
-  ExprManager* exprMgrs[numThreads];
-  exprMgrs[0] = new ExprManager(threadOptions[0]);
-  ExprManager* exprMgr = exprMgrs[0]; // to avoid having to change code which uses that
+  /* Use satRandomSeed for generating random numbers, in particular satRandomSeed-s */
+  srand((unsigned int)(-options.satRandomSeed));
 
-  ReferenceStat< const char* > s_statFilename("filename", filename);
-  RegisterStatistic* statFilenameReg =
-    new RegisterStatistic(&driverStatisticsRegistry, &s_statFilename);
+  assert(numThreads >= 1);      //do we need this?
+
+  /****************************** Driver Statistics *************************/
+
+  // Statistics init
+  pStatistics = &theStatisticsRegistry;
+
+  StatisticsRegistry driverStatisticsRegistry("driver");
+  theStatisticsRegistry.registerStat_((&driverStatisticsRegistry));
 
   // Timer statistic
   RegisterStatistic* statTotatTime =
     new RegisterStatistic(&driverStatisticsRegistry, &s_totalTime);
   RegisterStatistic* statBeforePortfolioTime =
     new RegisterStatistic(&driverStatisticsRegistry, &s_beforePortfolioTime);
-  // Ask: why doesn't this: driverStatisticsRegistry.registerStat(&s_totalTime) work?
+
+  // Filename statistics
+  ReferenceStat< const char* > s_statFilename("filename", filename);
+  RegisterStatistic* statFilenameReg =
+    new RegisterStatistic(&driverStatisticsRegistry, &s_statFilename);
+
+
+  /****************** ExprManager + CommandParsing + Export *****************/
+
+  // Create the expression manager
+  ExprManager* exprMgrs[numThreads];
+  exprMgrs[0] = new ExprManager(threadOptions[0]);
+  ExprManager* exprMgr = exprMgrs[0]; // to avoid having to change code which uses that
 
   // Parse commands until we are done
   Command* cmd;
@@ -400,10 +418,15 @@ int runCvc4(int argc, char *argv[], Options& options) {
   exprMgr = NULL;               // don't want to use that variable
                                 // after this point
 
-  /* Currently all code assumes a maximum of two threads */
-  //assert(numThreads <= 2);
-
-  assert(numThreads >= 1);      //do we need this?
+  /* Duplication, Individualisation */
+  ExprManagerMapCollection* vmaps;
+  Command *seqs[numThreads];
+  seqs[0] = seq;   seq = NULL;
+  for(int i = 1; i < numThreads; ++i) {
+    vmaps = new ExprManagerMapCollection();
+    exprMgrs[i] = new ExprManager(threadOptions[i]);
+    seqs[i] = seqs[0]->exportTo(exprMgrs[i], *vmaps);
+  }
 
   /* Output to string stream  */
   vector<stringstream*> ss_out(numThreads);
@@ -413,6 +436,8 @@ int runCvc4(int argc, char *argv[], Options& options) {
       threadOptions[i].out = ss_out[i];
     }
   }
+
+  /************************* Lemma sharing init ************************/
 
   /* Sharing channels */
   SharedChannel<channelFormat> *channelsOut[numThreads], *channelsIn[numThreads];
@@ -425,16 +450,6 @@ int runCvc4(int argc, char *argv[], Options& options) {
     }
     channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10000);
     channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10000);
-  }
-
-  /* Duplication, Individualisation */
-  ExprManagerMapCollection* vmaps;
-  Command *seqs[numThreads];
-  seqs[0] = seq;   seq = NULL;
-  for(int i = 1; i < numThreads; ++i) {
-    vmaps = new ExprManagerMapCollection();
-    exprMgrs[i] = new ExprManager(threadOptions[i]);
-    seqs[i] = seqs[0]->exportTo(exprMgrs[i], *vmaps);
   }
 
   /* Lemma output channel */
@@ -460,6 +475,8 @@ int runCvc4(int argc, char *argv[], Options& options) {
       threadOptions[i].sharingFilterByLength = 0;
   }
 
+  /************************** End of initialization ***********************/
+
   /* Portfolio */
   function <Result()> fns[numThreads];
 
@@ -475,6 +492,9 @@ int runCvc4(int argc, char *argv[], Options& options) {
   Result result = portfolioReturn.second;
 
   cout << result << endl;
+
+  /************************* Post printing answer ***********************/
+
   if(options.printWinner){
     cout << "The winner is #" << winner << endl;
   }
