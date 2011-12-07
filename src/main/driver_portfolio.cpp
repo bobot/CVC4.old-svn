@@ -470,7 +470,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
     smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn);
 
   s_beforePortfolioTime.stop();
-  pair<int, Result> portfolioReturn = runPortfolio(numThreads, smFn, fns);
+  pair<int, Result> portfolioReturn = runPortfolio(numThreads, smFn, fns, false);
   int winner = portfolioReturn.first;
   Result result = portfolioReturn.second;
 
@@ -502,7 +502,8 @@ int runCvc4(int argc, char *argv[], Options& options) {
   s_totalTime.stop();
 
   if(options.statistics) {
-    theStatisticsRegistry.flushInformation(*options.err);
+    pStatistics->flushInformation(*options.err);
+    *options.err << "Statistics printing complete " << endl;
   }
 
   if(options.separateOutput) {
@@ -620,6 +621,11 @@ Result doSmt(ExprManager &exprMgr, Command *cmd, Options &options) {
 
     // Execute the commands
     bool status = doCommand(smt, cmd, options);
+
+    if(options.statistics) {
+      smt.getStatisticsRegistry()->flushInformation(*options.err);
+      *options.err << "Statistics printing of my thread complete " << endl;
+    }
 
     return status ? smt.getStatusOfLastCommand() : Result::SAT_UNKNOWN;
   } catch(OptionException& e) {

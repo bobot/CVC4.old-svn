@@ -49,8 +49,9 @@ void runThread(int thread_id, function<S()> threadFn, S &returnValue)
 
 template<typename T, typename S>
 std::pair<int,S> runPortfolio(int numThreads, 
-			 function<T()> driverFn,
-			 function<S()> threadFns[])
+                              function<T()> driverFn,
+                              function<S()> threadFns[],
+                              bool optionWaitToJoin = false)
 {
   thread thread_driver;
   thread threads[numThreads];
@@ -69,7 +70,8 @@ std::pair<int,S> runPortfolio(int numThreads,
 
   for(int t=0; t<numThreads; ++t) {
     threads[t].interrupt();
-    //threads[t].join();
+    if(optionWaitToJoin)
+      threads[t].join();
   }
   
   if(not driverFn.empty()) {
