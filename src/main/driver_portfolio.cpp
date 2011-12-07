@@ -165,7 +165,8 @@ int runCvc4(int argc, char *argv[], Options& options) {
    * -> Start a couple of timers
    * -> Processing of options, including thread specific ones
    * -> Statistics related stuff
-   * -> ExprManager creations (including command parsing)
+   * -> Create ExprManager, parse commands, duplicate exprMgrs using export
+   * -> Create smtEngines
    * -> Lemma sharing init
    * -> Run portfolio, exit/print stats etc.
    * (This list might become outdated, a timestamp might be good: 7 Dec '11.)
@@ -341,10 +342,21 @@ int runCvc4(int argc, char *argv[], Options& options) {
     }
   }
 
+  // Some more options related stuff
+
   /* Use satRandomSeed for generating random numbers, in particular satRandomSeed-s */
   srand((unsigned int)(-options.satRandomSeed));
 
   assert(numThreads >= 1);      //do we need this?
+
+  /* Output to string stream  */
+  vector<stringstream*> ss_out(numThreads);
+  if(options.verbosity == 0 or options.separateOutput) {
+    for(int i=0;i <numThreads; ++i) {
+      ss_out[i] = new stringstream;
+      threadOptions[i].out = ss_out[i];
+    }
+  }
 
   /****************************** Driver Statistics *************************/
 
@@ -427,15 +439,6 @@ int runCvc4(int argc, char *argv[], Options& options) {
     seqs[i] = seqs[0]->exportTo(exprMgrs[i], *vmaps);
   }
 
-  /* Output to string stream  */
-  vector<stringstream*> ss_out(numThreads);
-  if(options.verbosity == 0 or options.separateOutput) {
-    for(int i=0;i <numThreads; ++i) {
-      ss_out[i] = new stringstream;
-      threadOptions[i].out = ss_out[i];
-    }
-  }
-
   // Create the SmtEngine(s)
   SmtEngine *smts[numThreads];
   for(int i = 0; i < numThreads; ++i) {
@@ -445,7 +448,6 @@ int runCvc4(int argc, char *argv[], Options& options) {
     smts[i]->getStatisticsRegistry()->setName("thread #" + boost::lexical_cast<string>(threadOptions[i].thread_id));
     theStatisticsRegistry.registerStat_( (Stat*)smts[i]->getStatisticsRegistry() );
   }
-
 
   /************************* Lemma sharing init ************************/
 
