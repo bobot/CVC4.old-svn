@@ -298,9 +298,10 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
   }
   d_holder->binary_name = std::string(progName);
 
-  int extra_argc = 0;
-  char **extra_argv = (char**) malloc(sizeof(char*));
+  int extra_argc = 1;
+  char **extra_argv = (char**) malloc(2 * sizeof(char*));
   extra_argv[0] = NULL;
+  extra_argv[1] = NULL;
 
   int extra_optind = 1, main_optind = 1;
   int old_optind;
@@ -343,7 +344,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 346 "${template}"
+#line 347 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.

@@ -5,6 +5,8 @@
 #include <string>
 #include <sstream>
 
+#include "expr/command.h"
+
 namespace CVC4 {
 namespace options {
 
@@ -65,6 +67,23 @@ inline void addTraceTag(std::string option, std::string optarg) {
 inline void addDebugTag(std::string option, std::string optarg) {
   Debug.on(optarg);
   Trace.on(optarg);
+}
+
+inline void setPrintSuccess(std::string option, bool value) {
+  Debug.getStream() << Command::printsuccess(value);
+  Trace.getStream() << Command::printsuccess(value);
+  Notice.getStream() << Command::printsuccess(value);
+  Chat.getStream() << Command::printsuccess(value);
+  Message.getStream() << Command::printsuccess(value);
+  Warning.getStream() << Command::printsuccess(value);
+}
+
+inline void setPrintSuccess(std::string option) {
+  setPrintSuccess(option, true);
+}
+
+inline void unsetPrintSuccess(std::string option) {
+  setPrintSuccess(option, false);
 }
 
 template <template <class U> class Cmp>

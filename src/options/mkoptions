@@ -645,8 +645,79 @@ function alias {
   check_module_seen
   check_doc
 
-  echo "$kf:$lineno: error: alias not yet supported" >&2
-  exit 1
+  category=STANDARD
+  internal=-
+  smtname=
+  short_option=
+  short_option_alternate=
+  long_option=
+  long_option_alternate=
+  long_option_alternate_set=
+  type=void
+  predicates=
+  readOnly=true
+  required_argument=false
+  default_value=
+  handler=
+  predicates=
+  links=
+  links_alternate=
+
+  if [ $# -lt 3 ]; then
+    echo "$kf:$lineno: error: malformed \"alias\" command; expected more arguments" >&2
+    exit 1
+  fi
+  options=
+  while [ $# -gt 0 -a "$1" != = ]; do
+    options="$options $1"
+    shift
+  done
+  if [ $# -eq 0 ]; then
+    echo "$kf:$lineno: error: malformed \"alias\" command; expected \`='" >&2
+    exit 1
+  fi
+  shift
+  if [ $# -eq 0 ]; then
+    echo "$kf:$lineno: error: malformed \"alias\" command; expected more arguments" >&2
+    exit 1
+  fi
+  cases=
+  for option in $options; do
+    if ! expr "$option" : - &>/dev/null; then
+      echo "$kf:$lineno: error: alias for SMT options not yet supported" >&2
+      exit 1
+    fi
+    if expr "$option" : -- &>/dev/null; then
+      option="$(echo "$option" | sed 's,--,,')"
+      all_modules_long_options="${all_modules_long_options}
+  { \"$(echo "$option" | sed 's,=.*,,')\", no_argument, NULL, $n_long },"
+      cases="${cases}
+    case $n_long:// --$option"
+      let ++n_long
+      long_option="${long_option:+$long_option | --}$option"
+    else
+      if ! expr "$option" : '-.$'; then
+        echo "$kf:$lineno: error: expected short option specification, got \`$option'" >&2
+        exit 1
+      fi
+      option="$(echo "$option" | sed 's,-,,')"
+      all_modules_short_options="${all_modules_short_options}$option"
+      cases="${cases}
+    case '$option':"
+      short_option="${short_option:+$short_option | -}$option"
+    fi
+  done
+  while [ $# -gt 0 ]; do
+    links="$links
+#line $lineno \"$kf\"
+      preemptGetopt(extra_argc, extra_argv, \"$1\");"
+    shift
+  done
+  all_modules_option_handlers="$all_modules_option_handlers$cases$links
+      break;
+"
+  expect_doc=true
+  expect_doc_alternate=false
 }
 
 function warning {
