@@ -28,6 +28,7 @@ expert-option lazyDefinitionExpansion --lazy-definition-expansion bool
 
 option simplificationMode --simplification=MODE SimplificationMode :handler CVC4::smt::stringToSimplificationMode :default SIMPLIFICATION_MODE_BATCH :include "options/options.h" :handler-include "smt/options_handlers.h"
  choose simplification mode, see --simplification=help
+alias --no-simplification = --simplification=none
 
 option doStaticLearning static-learning /--no-static-learning bool :default true
  use static learning (on by default)
