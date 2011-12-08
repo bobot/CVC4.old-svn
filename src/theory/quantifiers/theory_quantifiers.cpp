@@ -127,7 +127,7 @@ void TheoryQuantifiers::check(Effort e) {
     }
   }
   if( e == FULL_EFFORT ) {
-    if( d_baseDecLevel==-1 || d_valuation.getDecisionLevel()<d_baseDecLevel){
+    if( d_baseDecLevel==-1 || (int)d_valuation.getDecisionLevel()<d_baseDecLevel){
       d_baseDecLevel = d_valuation.getDecisionLevel();
       d_numInstantiations = 0;
     }
@@ -158,7 +158,7 @@ void TheoryQuantifiers::check(Effort e) {
         }else{
           Debug("quantifiers") << "  NOT active : " << n;
           if( d_valuation.isDecision( cel ) ){
-            Debug("quantifiers-req-phase") << "Bad decision : " << cel << std::endl;
+            Debug("quant-req-phase") << "Bad decision : " << cel << std::endl;
           }
           //note that the counterexample literal must not be a decision
           Assert( !d_valuation.isDecision( cel ) );
@@ -190,13 +190,10 @@ void TheoryQuantifiers::check(Effort e) {
           d_numInstantiations++;
           Debug("quantifiers") << "Done instantiation " << d_numInstantiations << "." << std::endl;
         }else{
-#if 0
-          std::cout << "unknown ";
-          exit( 7 );
-#elif 1
-          Debug("quantifiers") << "No instantiation given, return unknown." << std::endl;
+#if 1
+          Debug("quantifiers") << "No instantiation given, returning unknown..." << std::endl;
           //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
-            d_out->setIncomplete();
+          d_out->setIncomplete();
           //}
 #else
           //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
@@ -213,8 +210,9 @@ void TheoryQuantifiers::check(Effort e) {
       }
     }else{
       //debugging
+      Debug("quantifiers-sat") << "Decisions:" << std::endl;
       for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
-        Debug("quantifiers-sat") << "   " << d_valuation.getDecision( i ) << std::endl;
+        Debug("quantifiers-sat") << "   " << i << ": " << d_valuation.getDecision( i ) << std::endl;
       }
       for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
         if( (*i).second ) {
@@ -224,7 +222,7 @@ void TheoryQuantifiers::check(Effort e) {
             if( !value ){
               if( d_valuation.isDecision( cel ) ){
                 Debug("quantifiers-sat") << "sat, but decided cel=" << cel << std::endl;
-                std::cout << "unknown ";
+                std::cout << "unknown-17 ";
                 exit( 17 );
               }
             }
@@ -242,7 +240,6 @@ void TheoryQuantifiers::assertUniversal( Node n ){
   if( !n.hasAttribute(InstConstantAttribute()) ){
     if( d_abstract_inst.find( n )==d_abstract_inst.end() ){
       d_instEngine->registerQuantifier( n, d_out, d_valuation );
-
       NodeBuilder<> nb(kind::OR);
       nb << n << d_instEngine->getCounterexampleLiteralFor( n );
       Node lem = nb;

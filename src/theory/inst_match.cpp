@@ -27,9 +27,7 @@ using namespace CVC4::theory;
 
 InstMatch::InstMatch( Node f, InstantiationEngine* ie ){
   d_computeVec = true;
-  for( int i=0; i<(int)ie->d_inst_constants[f].size(); i++ ){
-    d_vars.push_back( ie->d_inst_constants[f][i] );
-  }
+  ie->getInstantiationConstantsFor( f, d_vars );
 }
 InstMatch::InstMatch( InstMatch* m ){
   d_computeVec = true;
@@ -167,116 +165,9 @@ void InstMatch::addSplit( Node n1, Node n2 ){
   }
 }
 
-Node InstMatch::getQuantifier() { 
-  return d_vars[0].getAttribute(InstConstantAttribute()); 
+Node InstMatch::getQuantifier() {
+  return d_vars[0].getAttribute(InstConstantAttribute());
 }
-
-bool InstMatchGroup::merge( InstMatchGroup& mg )
-{
-  std::vector< InstMatch > newMatches;
-  for( int l=0; l<(int)d_matches.size(); l++ ){
-    for( int k=0; k<(int)mg.d_matches.size(); k++ ){
-      InstMatch temp( &d_matches[l] );
-      if( temp.merge( mg.d_matches[k] ) ){
-        newMatches.push_back( temp );
-      }
-    }
-  }
-  d_matches.clear();
-  d_matches.insert( d_matches.begin(), newMatches.begin(), newMatches.end() );
-  removeRedundant();
-  return (d_matches.size()>0);
-}
-
-void InstMatchGroup::add( InstMatchGroup& mg ){
-  if( !mg.d_matches.empty() ){
-    d_matches.insert( d_matches.end(), mg.d_matches.begin(), mg.d_matches.end() );
-  }
-}
-
-void InstMatchGroup::combine( InstMatchGroup& mg ){
-  InstMatchGroup temp( this );
-  merge( mg );
-  add( temp );
-  add( mg );
-  removeDuplicate();
-}
-
-void InstMatchGroup::addComplete( InstMatchGroup& mg, InstMatch* mbase ){
-  for( int i=0; i<(int)mg.d_matches.size(); i++ ){
-    if( mg.d_matches[i].isComplete( mbase ) ){
-      if( mbase ){
-        mg.d_matches[i].add( *mbase );
-      }
-      d_matches.push_back( mg.d_matches[i] );
-      mg.d_matches.erase( mg.d_matches.begin() + i, mg.d_matches.begin() + i + 1 );
-      i--;
-    }
-  }
-}
-
-void InstMatchGroup::removeRedundant(){
-  std::vector< bool > active;
-  active.resize( d_matches.size(), true );
-  for( int k=0; k<(int)d_matches.size(); k++ ){
-    for( int l=(k+1); l<(int)d_matches.size(); l++ ){
-      if( k!=l && active[k] && active[l] ){
-        int result = d_matches[k].checkSubsume( d_matches[l] );
-        if( result==1 ){
-          active[k] = false;
-        }else if( result==-1 ){
-          active[l] = false;
-        }
-      }
-    }
-  }
-  std::vector< InstMatch > temp;
-  temp.insert( temp.begin(), d_matches.begin(), d_matches.end() );
-  d_matches.clear();
-  for( int i=0; i<(int)temp.size(); i++ ){
-    if( active[i] ){
-      d_matches.push_back( temp[i] );
-    }
-  }
-}
-bool InstMatchGroup::contains( InstMatch& m ){
-  for( int k=0; k<(int)d_matches.size(); k++ ){
-    if( d_matches[k].isEqual( m ) ){
-      return true;
-    }
-  }
-  return false;
-}
-void InstMatchGroup::removeDuplicate(){
-  std::vector< bool > active;
-  active.resize( d_matches.size(), true );
-  for( int k=0; k<(int)d_matches.size(); k++ ){
-    for( int l=(k+1); l<(int)d_matches.size(); l++ ){
-      if( k!=l && active[k] && active[l] ){
-        if( d_matches[k].isEqual( d_matches[l] ) ){
-          active[l] = false;
-        }
-      }
-    }
-  }
-  std::vector< InstMatch > temp;
-  temp.insert( temp.begin(), d_matches.begin(), d_matches.end() );
-  d_matches.clear();
-  for( int i=0; i<(int)temp.size(); i++ ){
-    if( active[i] ){
-      d_matches.push_back( temp[i] );
-    }
-  }
-}
-
-void InstMatchGroup::debugPrint( const char* c ){
-  for( int j=0; j<(int)d_matches.size(); j++ ){
-    Debug( c ) << "Match " << j << " : " << std::endl;
-    d_matches[j].debugPrint( c );
-  }
-}
-
-
 
 
 uf::InstantiatorTheoryUf* InstMatchGenerator::d_itu = NULL;
@@ -372,11 +263,11 @@ bool InstMatchGenerator::getNextMatch(){
   Debug( "quant-uf-uiter" ) << "get next match " << this << std::endl;
   d_mg_i++;
   InstMatchGenerator* master = getMaster();
-  if( d_mg_i<(int)master->d_mg.d_matches.size() ){
+  if( d_mg_i<(int)master->d_mg.size() ){
     Debug( "quant-uf-uiter" ) << this << " returned (existing) match " << d_mg_i << std::endl;
     getCurrent()->debugPrint( "quant-uf-uiter" );
     return true;
-  }else if( d_mg_i==(int)master->d_mg.d_matches.size() ){
+  }else if( d_mg_i==(int)master->d_mg.size() ){
     if( master->d_mg_set ){
       Debug( "quant-uf-uiter" )  << this << " already set" << std::endl;
       return false;
@@ -389,9 +280,9 @@ bool InstMatchGenerator::getNextMatch(){
         Debug( "quant-uf-uiter" ) << std::endl;
       }
       if( master->d_mg_set ){
-        return ( d_mg_i<(int)master->d_mg.d_matches.size() );
+        return ( d_mg_i<(int)master->d_mg.size() );
       }else if( master->calcNextMatch() ){
-        Assert( d_mg_i<(int)master->d_mg.d_matches.size() );
+        Assert( d_mg_i<(int)master->d_mg.size() );
         Debug( "quant-uf-uiter" ) << this << " returned match " << d_mg_i << std::endl;
         getCurrent()->debugPrint( "quant-uf-uiter" );
         return true;
@@ -408,22 +299,13 @@ bool InstMatchGenerator::getNextMatch(){
 }
 
 bool InstMatchGenerator::addInstMatch( InstMatch& m ){
-#if 1
-  for( int i=0; i<(int)d_mg.d_matches.size(); i++ ){
-    if( d_mg.d_matches[i].checkSubsume( m )==-1 ){
+  for( int i=0; i<(int)d_mg.size(); i++ ){
+    if( d_mg[i].checkSubsume( m )==-1 ){
       return false;
     }
   }
-  d_mg.d_matches.push_back( m );
+  d_mg.push_back( m );
   return true;
-#else
-  if( d_mg.contains( m ) ){
-    return false;
-  }else{
-    d_mg.d_matches.push_back( m );
-    return true;
-  }
-#endif
 }
 
 void InstMatchGenerator::indent( const char* c, int ind ){
@@ -448,7 +330,7 @@ void InstMatchGenerator::debugPrint( const char* c, int ind, bool printChildren 
   if( d_t!=Node::null() ){
     Debug( c ) << " " << d_t << ( d_operation==1 ? " != " : " = " ) << d_s;
   }
-  Debug( c ) << " (" << ( getMaster()->d_mg_set ? "***" : "" ) << "matches=" << getMaster()->d_mg.d_matches.size() << ")";
+  Debug( c ) << " (" << ( getMaster()->d_mg_set ? "***" : "" ) << "matches=" << getMaster()->d_mg.size() << ")";
   //Debug( c ) << ", children = " << d_children.size() << std::endl;
   Debug( c ) << std::endl;
   if( getMaster()==this && printChildren ){
@@ -458,19 +340,27 @@ void InstMatchGenerator::debugPrint( const char* c, int ind, bool printChildren 
   }
 }
 
+void InstMatchGenerator::calcChildrenTriv(){
+  Node f = d_t.getAttribute(InstConstantAttribute());
+  if( d_operation==0 ){
+    if( d_t.getKind()==INST_CONSTANT && d_s.getAttribute(InstConstantAttribute())!=f ){
+      InstMatch m( f, d_itu->d_instEngine );
+      Node c = getRepresentative( d_s );
+      if( !areEqual( d_t, c ) ){
+        m.setMatch( d_t, c );
+      }
+      d_mg.push_back( m );
+      d_mg_set = true;
+    }  
+  }
+}
+
 void InstMatchGenerator::calcChildren(){
   if( d_t!=Node::null() ){
-    Node f = d_t.getAttribute(InstConstantAttribute());
-    if( d_operation==0 ){
-      if( d_t.getKind()==INST_CONSTANT && d_s.getAttribute(InstConstantAttribute())!=f ){
-        InstMatch m( f, d_itu->d_instEngine );
-        Node c = getRepresentative( d_s );
-        if( !areEqual( d_t, c ) ){
-          m.setMatch( d_t, c );
-        }
-        d_mg.d_matches.push_back( m );
-        d_mg_set = true;
-      }else{
+    calcChildrenTriv();
+    if( !d_mg_set ){
+      Node f = d_t.getAttribute(InstConstantAttribute());
+      if( d_operation==0 ){
         ////find any term to match d_t to d_s
         ////if they share the same operator, try a merge, if legal to do so
         //if( d_t.getKind()==APPLY_UF && d_s.getKind()==APPLY_UF && d_t.getOperator()==d_s.getOperator() ){
@@ -494,84 +384,84 @@ void InstMatchGenerator::calcChildren(){
             d_children.push_back( mkMergeInstMatchGenerator( d_t, m ) );
           }
         }
-      }
-    }else if( d_operation==1 ){
-      //find any term to match d_t to d_s
-      d_itu->calculateEIndLitCandidates( d_t, d_s, f, false );
-      Debug( "quant-uf-uiter" ) << "Find candidates for " << d_t << ( d_operation==0 ? " = " : " != " ) << d_s << std::endl;
-      Debug( "quant-uf-uiter" ) << "# of match candidates = " << d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size() << std::endl;
-      //if( d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size()==1 && !d_s.hasAttribute(InstConstantAttribute()) ){
-      //  //if one child, compress the child to this
-      //  // must consider if the following InstMatchGenerator already exists
-      //  int nOp = d_operation==1 ? 0 : 2;
-      //  Node s = d_itu->d_litMatchCandidates[d_operation][d_t][d_s][0];
-      //  if( d_assigned[nOp][d_t][s]==0 ){
-      //    if( d_operation==1 ){
-      //      mkCombineInstMatchGenerator( d_t, s, true, f );
-      //    }else{
-      //      mkMergeInstMatchGenerator( d_t, s, f );
-      //    }
-      //  }
-      //  d_miter[d_operation][d_t][d_s] = d_miter[nOp][d_t][s];
-      //  d_mg_i = -1;
-      //  getMaster()->calcChildren();
-      //  return;
-      //}
-      if( d_s.getAttribute(InstConstantAttribute())==f ){
-        //disequality between two triggers
-        for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
-          Node mt = d_itu->d_litMatchCandidates[1][d_t][d_s][i][0];
-          Node ms = d_itu->d_litMatchCandidates[1][d_t][d_s][i][1];
-          InstMatchGenerator* mi = mkInstMatchGenerator( false );
-          mi->d_children.push_back( mkCombineInstMatchGenerator( d_t, mt, true ) );
-          mi->d_children.push_back( mkCombineInstMatchGenerator( d_s, ms, true ) );
-          d_children.push_back( mi );
-        }
-      }else{
-        //disequality between trigger and ground term
-        for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
-          Node m = d_itu->d_litMatchCandidates[1][d_t][d_s][i];
-          d_children.push_back( mkCombineInstMatchGenerator( d_t, m, true ) );
-        }
-      }
-    }else if( d_operation==2 ){
-      if( d_t.getKind()==INST_CONSTANT ){
-        InstMatch m( f, d_itu->d_instEngine );
-        Node c = getRepresentative( d_s );
-        if( !areEqual( d_t, c ) ){
-          m.setMatch( d_t, c );
-        }
-        d_mg.d_matches.push_back( m );
-        d_mg_set = true;
-      }else{
-        //merge the arguments of d_t and d_s 
-        Assert( d_t.getKind()==APPLY_UF );
-        Assert( d_s.getKind()==APPLY_UF );
-        Assert( d_t.getOperator()==d_s.getOperator() );
-        Assert( d_t.getNumChildren()==d_s.getNumChildren() );
-        Node f = d_t.getAttribute(InstConstantAttribute());
-        for( int j=0; j<(int)d_s.getNumChildren(); j++ ){
-          if( !areEqual( d_t[j], d_s[j] ) ){
-            if( d_t[j].hasAttribute(InstConstantAttribute()) ){
-              d_children.push_back( mkCombineInstMatchGenerator( d_t[j], getRepresentative( d_s[j] ), true ) );
-            }else{
-              if( d_s[j].getAttribute(InstConstantAttribute())!=f ){
-                addSplit( d_t[j], d_s[j] );
-              }else{
-                d_children.clear();
-                break;
-              }
-            }
-          }else if( areDisequal( d_t[j], d_s[j] ) ){
-            d_children.clear();
-            break;
+      }else if( d_operation==1 ){
+        //find any term to match d_t to d_s
+        d_itu->calculateEIndLitCandidates( d_t, d_s, f, false );
+        Debug( "quant-uf-uiter" ) << "Find candidates for " << d_t << ( d_operation==0 ? " = " : " != " ) << d_s << std::endl;
+        Debug( "quant-uf-uiter" ) << "# of match candidates = " << d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size() << std::endl;
+        //if( d_itu->d_litMatchCandidates[d_operation][d_t][d_s].size()==1 && !d_s.hasAttribute(InstConstantAttribute()) ){
+        //  //if one child, compress the child to this
+        //  // must consider if the following InstMatchGenerator already exists
+        //  int nOp = d_operation==1 ? 0 : 2;
+        //  Node s = d_itu->d_litMatchCandidates[d_operation][d_t][d_s][0];
+        //  if( d_assigned[nOp][d_t][s]==0 ){
+        //    if( d_operation==1 ){
+        //      mkCombineInstMatchGenerator( d_t, s, true, f );
+        //    }else{
+        //      mkMergeInstMatchGenerator( d_t, s, f );
+        //    }
+        //  }
+        //  d_miter[d_operation][d_t][d_s] = d_miter[nOp][d_t][s];
+        //  d_mg_i = -1;
+        //  getMaster()->calcChildren();
+        //  return;
+        //}
+        if( d_s.getAttribute(InstConstantAttribute())==f ){
+          //disequality between two triggers
+          for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
+            Node mt = d_itu->d_litMatchCandidates[1][d_t][d_s][i][0];
+            Node ms = d_itu->d_litMatchCandidates[1][d_t][d_s][i][1];
+            InstMatchGenerator* mi = mkInstMatchGenerator( false );
+            mi->d_children.push_back( mkCombineInstMatchGenerator( d_t, mt, true ) );
+            mi->d_children.push_back( mkCombineInstMatchGenerator( d_s, ms, true ) );
+            d_children.push_back( mi );
+          }
+        }else{
+          //disequality between trigger and ground term
+          for( int i=0; i<(int)d_itu->d_litMatchCandidates[1][d_t][d_s].size(); i++ ){
+            Node m = d_itu->d_litMatchCandidates[1][d_t][d_s][i];
+            d_children.push_back( mkCombineInstMatchGenerator( d_t, m, true ) );
           }
         }
-      }
-    }else if( d_operation==3 ){
-      d_itu->calculateMatches( f, d_t );
-      for( int i=0; i<(int)d_itu->d_matches[d_t].size(); i++ ){
-        d_children.push_back( mkMergeInstMatchGenerator( d_t, d_itu->d_matches[d_t][i] ) );
+      }else if( d_operation==2 ){
+        if( d_t.getKind()==INST_CONSTANT ){
+          InstMatch m( f, d_itu->d_instEngine );
+          Node c = getRepresentative( d_s );
+          if( !areEqual( d_t, c ) ){
+            m.setMatch( d_t, c );
+          }
+          d_mg.push_back( m );
+          d_mg_set = true;
+        }else{
+          //merge the arguments of d_t and d_s
+          Assert( d_t.getKind()==APPLY_UF );
+          Assert( d_s.getKind()==APPLY_UF );
+          Assert( d_t.getOperator()==d_s.getOperator() );
+          Assert( d_t.getNumChildren()==d_s.getNumChildren() );
+          Node f = d_t.getAttribute(InstConstantAttribute());
+          for( int j=0; j<(int)d_s.getNumChildren(); j++ ){
+            if( !areEqual( d_t[j], d_s[j] ) ){
+              if( d_t[j].hasAttribute(InstConstantAttribute()) ){
+                d_children.push_back( mkCombineInstMatchGenerator( d_t[j], getRepresentative( d_s[j] ), true ) );
+              }else{
+                if( d_s[j].getAttribute(InstConstantAttribute())!=f ){
+                  addSplit( d_t[j], d_s[j] );
+                }else{
+                  d_children.clear();
+                  break;
+                }
+              }
+            }else if( areDisequal( d_t[j], d_s[j] ) ){
+              d_children.clear();
+              break;
+            }
+          }
+        }
+      }else if( d_operation==3 ){
+        d_itu->calculateMatches( f, d_t );
+        for( int i=0; i<(int)d_itu->d_matches[d_t].size(); i++ ){
+          d_children.push_back( mkMergeInstMatchGenerator( d_t, d_itu->d_matches[d_t][i] ) );
+        }
       }
     }
   }
@@ -606,7 +496,7 @@ bool InstMatchGenerator::acceptMatch( InstMatch* m ){
     return false;
   }
   if( d_useInstLevelThreshold ){
-    for( std::map< Node, Node >::iterator it = m->d_map.begin(); 
+    for( std::map< Node, Node >::iterator it = m->d_map.begin();
         it != m->d_map.end(); ++it ){
       if( it->second!=Node::null() && it->second.hasAttribute(InstLevelAttribute()) &&
           it->second.getAttribute(InstLevelAttribute())>d_instLevelThreshold ){
@@ -656,7 +546,7 @@ bool InstMatchGenerator::calcNextMatch(){
     if( !isCombine() && d_t!=Node::null() ){
       //by definition, this should produce the empty match
       Node f = d_t.getAttribute(InstConstantAttribute());
-      d_mg.d_matches.push_back( InstMatch( f, d_itu->d_instEngine ) );
+      d_mg.push_back( InstMatch( f, d_itu->d_instEngine ) );
       d_mg_set = true;
       return true;
     }else{
@@ -713,7 +603,7 @@ bool InstMatchGenerator::calcNextMatch(){
         //get the next match
         while( !success && d_children[i]->getNextMatch() ){
           combined = InstMatch( *d_children[i]->getCurrent() );
-          //ensure that splits are consistent 
+          //ensure that splits are consistent
           //see if it merges into the current built merge (stored in d_partial)
           if( i==0 ){
             for( std::map< Node, Node >::iterator it = d_splits.begin(); it != d_splits.end(); ++it ){
@@ -750,7 +640,7 @@ bool InstMatchGenerator::calcNextMatch(){
 double InstMatchGenerator::collectUnmerged( std::map< InstMatchGenerator*, InstMatchGenerator* >& index, std::vector< InstMatchGenerator* >& unmerged,
                                    std::vector< InstMatchGenerator* >& cover ){
   Assert( getMaster()->d_children_set );
-  Assert( getMaster()->d_mg.d_matches.empty() && getMaster()->d_mg_set );
+  Assert( getMaster()->d_mg.empty() && getMaster()->d_mg_set );
   if( getMaster()->d_children.empty() ){
     unmerged.push_back( this );
     return 0.0;
@@ -782,15 +672,15 @@ double InstMatchGenerator::collectUnmerged( std::map< InstMatchGenerator*, InstM
       bool emptyChild = false;
       double score = 0.0;
       for( int i=0; i<(int)getMaster()->d_children.size(); i++ ){
-        if( !getMaster()->d_children[i]->getMaster()->d_mg_set && 
-            getMaster()->d_children[i]->getMaster()->d_mg.d_matches.empty() ){
+        if( !getMaster()->d_children[i]->getMaster()->d_mg_set &&
+            getMaster()->d_children[i]->getMaster()->d_mg.empty() ){
           getMaster()->d_children[i]->getNextMatch();
         }
         if( getMaster()->d_children[i]->empty() ){
           score += .5*getMaster()->d_children[i]->collectUnmerged( index, unmerged, cover );
           emptyChild = true;
         }else{
-          Assert( !getMaster()->d_children[i]->getMaster()->d_mg.d_matches.empty() );
+          Assert( !getMaster()->d_children[i]->getMaster()->d_mg.empty() );
           cover.push_back( getMaster()->d_children[i] );
           score += 1.0;
         }
@@ -805,7 +695,7 @@ double InstMatchGenerator::collectUnmerged( std::map< InstMatchGenerator*, InstM
 }
 
 void InstMatchGenerator::collectUnmerged( std::vector< InstMatchGenerator* >& unmerged, std::vector< InstMatchGenerator* >& cover ){
-  if( !getMaster()->d_mg.d_matches.empty() ){
+  if( !getMaster()->d_mg.empty() ){
     return;
   }
   Assert( getMaster()->d_children_set );
@@ -821,14 +711,14 @@ void InstMatchGenerator::collectUnmerged( std::vector< InstMatchGenerator* >& un
     }else{
       bool emptyChild = false;
       for( int i=0; i<(int)getMaster()->d_children.size(); i++ ){
-        if( !getMaster()->d_children[i]->getMaster()->d_mg_set && 
-            getMaster()->d_children[i]->getMaster()->d_mg.d_matches.empty() ){
+        if( !getMaster()->d_children[i]->getMaster()->d_mg_set &&
+            getMaster()->d_children[i]->getMaster()->d_mg.empty() ){
           getMaster()->d_children[i]->getNextMatch();
         }
         if( getMaster()->d_children[i]->empty() ){
           getMaster()->d_children[i]->collectUnmerged( unmerged, cover );
         }else{
-          Assert( !getMaster()->d_children[i]->getMaster()->d_mg.d_matches.empty() );
+          Assert( !getMaster()->d_children[i]->getMaster()->d_mg.empty() );
           cover.push_back( getMaster()->d_children[i] );
         }
       }
@@ -837,4 +727,274 @@ void InstMatchGenerator::collectUnmerged( std::vector< InstMatchGenerator* >& un
       }
     }
   }
+}
+
+std::map< Node, std::vector< Node > > QuantMatchGenerator::Trigger::d_var_contains;
+
+void QuantMatchGenerator::Trigger::computeVarContains2( Node n, Node parent ){
+  if( n.getKind()==INST_CONSTANT ){
+    if( std::find( d_var_contains[parent].begin(), d_var_contains[parent].end(), n )==d_var_contains[parent].end() ){
+      d_var_contains[parent].push_back( n );
+    }
+  }else{
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      computeVarContains2( n[i], parent );
+    }
+  }
+}
+
+bool QuantMatchGenerator::Trigger::addNode( Node n, bool force ){
+  Assert( std::find( d_nodes.begin(), d_nodes.end(), n )==d_nodes.end() );
+  bool success = false;
+  if( force ){
+    success = true;
+  }else{
+    computeVarContains( n );
+    for( int i=0; i<(int)d_var_contains[n].size(); i++ ){
+      Node v = d_var_contains[n][i];
+      if( d_vars.find( v )==d_vars.end() ){
+        d_vars[ v ] = true;
+        success = true;
+      }
+    }
+    if( success ){
+      d_nodes.push_back( n );
+    }
+  }
+  return success;
+}
+
+void QuantMatchGenerator::Trigger::debugPrint( const char* c ){
+  for( int i=0; i<(int)d_nodes.size(); i++ ){
+    if( i!=0 ){
+      Debug( c ) << ", ";
+    }
+    Debug( c ) << d_nodes[i];
+  }
+}
+
+void QuantMatchGenerator::addPatTerm( Node n ){
+  Debug( "qmg-debug" ) << "Add pattern term " << n << std::endl;
+  Assert( std::find( d_patTerms.begin(), d_patTerms.end(), n )==d_patTerms.end() );
+  d_patTerms.push_back( n );
+  if( n.getKind()==APPLY_UF && n.getType()!=NodeManager::currentNM()->booleanType() ){
+    d_img_map[n] = InstMatchGenerator::mkAnyMatchInstMatchGenerator( n );
+  }else{
+    bool pol = n.getKind()!=NOT;
+    Node eq = n.getKind()==NOT ? n[0] : n;
+    Node t[2];
+    if( eq.getKind()==EQUAL || eq.getKind()==IFF ){
+      if( eq[0].getAttribute(InstConstantAttribute())!=d_f ){
+        t[0] = eq[1];
+        t[1] = eq[0];
+      }else{
+        t[0] = eq[0];
+        t[1] = eq[1];
+      }
+    }else if( pol ){
+      t[0] = eq;
+      t[1] = NodeManager::currentNM()->mkConst<bool>(true);
+    }else{
+      pol = true;
+      t[0] = eq;
+      t[1] = NodeManager::currentNM()->mkConst<bool>(false);
+    }
+    Assert( t[0].getAttribute(InstConstantAttribute())==d_f );
+    if( d_instEngine->d_phase_reqs.find( eq )!=d_instEngine->d_phase_reqs.end() ){
+      //we know this literal must be matched with this polarity
+      d_img_map[n] = InstMatchGenerator::mkCombineInstMatchGenerator( t[0], t[1], pol );
+    }else{
+      //this literal can be matched with either polarity
+      //if( t[0].getType()==NodeManager::currentNM()->booleanType() ) {
+      //  //for boolean apply uf, just use an any match generator
+      //  d_img_map[n] = InstMatchGenerator::mkAnyMatchInstMatchGenerator( t[0] );
+      //}else{
+        d_img_map[n] = InstMatchGenerator::mkInstMatchGenerator( true );
+        d_img_map[n]->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( t[0], t[1], pol ) );
+        d_img_map[n]->d_children.push_back( InstMatchGenerator::mkCombineInstMatchGenerator( t[0], t[1], !pol ) );
+      //}
+    }
+  }
+}
+
+void QuantMatchGenerator::collectPatTerms( Node n ){
+  if( n.getAttribute(InstConstantAttribute())==d_f ){
+    if( n.getKind()==APPLY_UF ){
+      if( std::find( d_patTerms.begin(), d_patTerms.end(), n )==d_patTerms.end() ){
+        addPatTerm( n );
+      }
+    }else if( n.getKind()!=FORALL ){
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        collectPatTerms( n[i] );
+      }
+    }
+  }
+}
+
+void QuantMatchGenerator::decomposePatTerm( Node n ){
+  //DO_THIS
+}
+
+bool QuantMatchGenerator::hasCurrentGenerator( bool allowMakeNext ) {
+  if( d_index<(int)d_match_gen.size() ){
+    return true;
+  }else if( allowMakeNext ){
+    Assert( d_index==(int)d_match_gen.size() );
+    InstMatchGenerator* curr = getNextGenerator();
+    if( curr ){
+      d_match_gen.push_back( curr );
+      return true;
+    }
+  }
+  return false;
+}
+
+InstMatchGenerator* QuantMatchGenerator::getNextGenerator(){
+  if( d_produceTrigger ){
+    Assert( d_index==(int)d_match_gen.size() );
+    InstMatchGenerator* next = NULL;
+    if( d_match_gen.empty() ){
+      //first iteration: produce matches for the nodes in d_patTerms
+      if( !d_patTerms.empty() ){
+        next = InstMatchGenerator::mkInstMatchGenerator( false );
+        for( int i=0; i<(int)d_patTerms.size(); i++ ){
+          d_currTrigger.addNode( d_patTerms[i] );
+          d_img_map[ d_patTerms[i] ]->reset();
+          next->d_children.push_back( d_img_map[ d_patTerms[i] ] );
+        }
+      }
+    }else if( d_match_gen.size()==1 ){
+      d_currTrigger.clear();
+      std::random_shuffle( d_patTerms.begin(), d_patTerms.end() );
+      //generate a trigger
+      next = InstMatchGenerator::mkInstMatchGenerator( false );
+      //add terms to pattern that contribute at least one new variable
+      int index = 0;
+      do{
+        Node tn = d_patTerms[index];
+        if( d_currTrigger.addNode( tn ) ){
+          //add term to trigger
+          d_img_map[ tn ]->reset();
+          next->d_children.push_back( d_img_map[ tn ] );
+        }
+        index++;
+      }while( !d_currTrigger.isComplete( d_f ) && index<(int)d_patTerms.size() );
+    }else{
+      ////subsequent iterations: create another trigger
+      ////step 1: determine if any term failed to produce any match, if this is the case, decompose the pattern term
+      //for( std::map< Node, bool >::iterator it = d_currTrigger.begin(); it != d_currTrigger.end(); ++it ){
+      //  InstMatchGenerator* mg = d_img_map[ it->first ];
+      //  if( mg->empty() ){
+      //  }
+      //}
+      //DO_THIS
+    }
+    if( next ){
+      Debug("qmg") << "Generated trigger ";
+      d_currTrigger.debugPrint("qmg");
+      Debug("qmg") << " for " << d_f << std::endl;    
+    }
+    return next;
+  }else{
+    return NULL;
+  }
+}
+
+void QuantMatchGenerator::resetInstantiationRound(){
+  clearMatches();
+  for( int i=0; i<(int)d_user_gen.size(); i++ ){
+    clearMatches( i );
+  }
+  d_patTerms.clear();
+  d_img_map.clear();
+  d_currTrigger.clear();
+}
+
+/** add pattern */
+int QuantMatchGenerator::addUserPattern( Node pat ) {
+  //add to generators
+  InstMatchGenerator* emg = InstMatchGenerator::mkInstMatchGenerator( false );
+  for( int i=0; i<(int)pat.getNumChildren(); i++ ){
+    emg->d_children.push_back( InstMatchGenerator::mkAnyMatchInstMatchGenerator( pat[i] ) );
+  }
+  d_user_gen.push_back( emg );
+  return (int)d_user_gen.size()-1;
+}
+
+void QuantMatchGenerator::initializePatternTerms(){
+  d_patTerms.clear();
+  collectPatTerms( d_instEngine->d_counterexample_body[d_f] );
+  d_produceTrigger = true;
+}
+
+void QuantMatchGenerator::initializePatternTerms( std::vector< Node >& patTerms ){
+  d_patTerms.clear();
+  for( int i=0; i<(int)patTerms.size(); i++ ){
+    addPatTerm( patTerms[i] );
+  }
+  d_produceTrigger = true;
+}
+
+/** clear matches from this generator */
+void QuantMatchGenerator::clearMatches( int pat ){
+  if( pat!=-1 ){
+    d_user_gen[pat]->clearMatches();
+  }else{
+    d_index = 0;
+    d_match_gen.clear();
+  }
+}
+
+/** reset the generator */
+void QuantMatchGenerator::reset( int pat ) {
+  if( pat!=-1 ){
+    d_user_gen[pat]->reset();
+  }else{
+    d_index = 0;
+    for( int i=0; i<(int)d_match_gen.size(); i++ ){
+      d_match_gen[i]->reset();
+    }
+  }
+}
+
+/** get current match */
+InstMatch* QuantMatchGenerator::getCurrent( int pat ) {
+  if( pat!=-1 ){
+    //use provided patterns
+    return d_user_gen[pat]->getCurrent();
+  }else{
+    return getCurrentGenerator()->getCurrent();
+  }
+}
+
+/** get next match */
+bool QuantMatchGenerator::getNextMatch( int pat, int triggerThresh ){
+  if( pat!=-1 ){
+    //use provided patterns
+    //std::cout << "get next match " << pat << " " << d_user_gen[pat]->d_t << std::endl;
+    return d_user_gen[pat]->getNextMatch();
+  }else{
+    while( hasCurrentGenerator( triggerThresh==-1 || d_index<triggerThresh ) ){
+      if( getCurrentGenerator()->getNextMatch() ){
+        return true;
+      }
+      d_index++;
+    }
+    return false;
+  }
+}
+
+bool QuantMatchGenerator::addInstantiation( int pat, int triggerThresh, bool addSplits ){
+  //std::cout << "get next " << std::endl;
+  while( getNextMatch( pat, triggerThresh ) ){
+    //std::cout << "curr here " << qmg->getCurrent( index )->d_vars.size() << std::endl;
+    InstMatch temp( getCurrent( pat ) );
+    temp.add( d_baseMatch );
+    //std::cout << "made temp " << d_instEngine << " " << f << " " << temp.d_vars.size() << std::endl;
+    if( d_instEngine->addInstantiation( &temp, addSplits ) ){
+      return true;
+    }
+    //std::cout << "failed" << std::endl;
+  }
+  return false;
 }

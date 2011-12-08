@@ -32,6 +32,56 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
+class InstantiatorTheoryUf;
+
+class InstStrategyCheckCESolved : public InstStrategy{
+private:
+  /** InstantiatorTheoryUf class */
+  InstantiatorTheoryUf* d_th;
+public:
+  InstStrategyCheckCESolved( InstantiatorTheoryUf* th, Node f, InstantiationEngine* ie ) : 
+      InstStrategy( f, ie ), d_th( th ){}
+  ~InstStrategyCheckCESolved(){}
+  void resetInstantiationRound();
+  bool process( int effort );
+};
+
+class InstStrategyLitMatch : public InstStrategy{
+private:
+  /** InstantiatorTheoryUf class */
+  InstantiatorTheoryUf* d_th;
+public:
+  InstStrategyLitMatch( InstantiatorTheoryUf* th, Node f, InstantiationEngine* ie ) : 
+      InstStrategy( f, ie ), d_th( th ){}
+  ~InstStrategyLitMatch(){}
+  void resetInstantiationRound();
+  bool process( int effort );
+};
+
+class InstStrategyUserPatterns : public InstStrategy{
+private:
+  /** InstantiatorTheoryUf class */
+  InstantiatorTheoryUf* d_th;
+public:
+  InstStrategyUserPatterns( InstantiatorTheoryUf* th, Node f, InstantiationEngine* ie ) : 
+      InstStrategy( f, ie ), d_th( th ){}
+  ~InstStrategyUserPatterns(){}
+  void resetInstantiationRound();
+  bool process( int effort );
+};
+
+class InstStrategyAutoGenTriggers : public InstStrategy{
+private:
+  /** InstantiatorTheoryUf class */
+  InstantiatorTheoryUf* d_th;
+public:
+  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, Node f, InstantiationEngine* ie ) : 
+      InstStrategy( f, ie ), d_th( th ){}
+  ~InstStrategyAutoGenTriggers(){}
+  void resetInstantiationRound();
+  bool process( int effort );
+};
+
 class InstantiatorTheoryUf : public Instantiator{
   friend class ::CVC4::theory::InstMatchGenerator;
 protected:
@@ -41,27 +91,22 @@ protected:
   typedef context::CDMap<Node, NodeList*, NodeHashFunction> NodeLists;
   //typedef context::CDMap<Node, SubTermNode*, NodeHashFunction > SubTermMap;
 
+  /** list of currently asserted literals for each quantifier */
   NodeLists d_obligations;
-  BoolMap d_ob_pol;
-  BoolMap d_ob_reqPol;
-
   /** all terms in the current context */
   BoolMap d_terms_full;
   /** terms in the current context that have an equality or disequality with another term */
   BoolMap d_terms;
   /** map from (representative) nodes to list of representative nodes they are disequal from */
   NodeList d_disequality;
-  /** representative map */
-  std::map< Node, Node > d_reps;
-  /** used equivalance classes */
-  std::map< Node, std::vector< Node > > d_emap;
   /** disequality list */
   std::map< Node, std::vector< Node > > d_dmap;
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
-  /** make instantiations */
-  bool addMatchInstantiation( int effort, Node f, int index = -1, int triggerThresh = 1 );
+  /** has instantiation constant */
+  void addObligationToList( Node ob, Node f );
+  void addObligations( Node n, Node ob );
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
@@ -81,13 +126,6 @@ private:
 
   /** calculate matches for quantifier f at effort */
   void process( Node f, int effort );
-  std::map< Node, InstMatch > d_baseMatch;
-  /** calculate matchable */
-  std::map< Node, bool > d_matchable;
-  std::map< Node, bool > d_unmatched;
-  void calculateMatchable( Node f );
-  /** resolve matches */
-  bool resolveLiteralMatches( Node t, Node s, Node f );
 
   /** find best match to any term */
   std::map< Node, std::vector< Node > > d_matches;
@@ -100,6 +138,14 @@ private:
   std::map< Node, std::map< Node, bool > > d_eq_dep;
   void calculateEqDep( Node i, Node c, Node f );
 
+  /** list of concrete representatives */
+  std::map< Node, Node > d_concrete_reps;
+public:
+  /** get concrete term in eq class */
+  Node getConcreteRep( Node n );
+  /** get obligations for quantifier f */
+  void getObligations( Node f, std::vector< Node >& obs );
+  /** statistics class */
   class Statistics {
   public:
     IntStat d_instantiations;

@@ -43,7 +43,39 @@ typedef expr::Attribute<InstLevelAttributeId, uint64_t> InstLevelAttribute;
 
 namespace theory {
 
+class InstStrategyList;
 class InstantiationEngine;
+
+class InstStrategy
+{
+protected:
+  /** node this strategy is for */
+  Node d_f;
+  /** reference to the instantiation engine */
+  InstantiationEngine* d_instEngine;
+public:
+  InstStrategy( Node f, InstantiationEngine* ie ) : d_f( f ), d_instEngine( ie ){}
+  virtual ~InstStrategy(){}
+
+  /** reset instantiation */
+  virtual void resetInstantiationRound(){}
+  /** process method */
+  virtual bool process( int effort ){ return false; }
+};
+
+class InstStrategyModerator
+{
+public:
+  /** quantifier this moderator is for */
+  Node d_f;
+public:
+  InstStrategyModerator( Node f ) : d_f( f ){}
+  ~InstStrategyModerator(){}
+  /** vector instantiation strategies */
+  std::vector< InstStrategy* > d_strats;
+  /** process method */
+  bool process( int effort );
+};
 
 class Instantiator{
   friend class InstantiationEngine;
@@ -59,6 +91,8 @@ protected:
 
   /** has constraints from quantifier */
   std::map< Node, bool > d_hasConstraints;
+  /** instantiation strategies */
+  //std::map< Node, InstStrategyList > d_instStrategies;
   /** process quantifier */
   virtual void process( Node f, int effort ) {}
 public:
@@ -122,106 +156,6 @@ public:
   InstMatchGenerator* makeMatchGenerator( std::vector< Node >& nodes );
 };
 
-
-/** 
-QuantMatchGenerator:  This class encapsulates all information needed for producing matches 
-for a particular quantifier.  Can have the following uses for QuantMatchGenerator qmg:
-
-For user-provided patterns do this:
-
-int index = qmg.addUserPattern( pat ); //where pat.getKind()==INST_PATTERN
-qmg.resetInstantiationRound();
-while( qmg.getNextMatch( index ) ){
-  InstMatch* m = qmg.getCurrent( index );
-  //...
-}
-
-For automated trigger generation do this:
-
-qmg.resetInstantiationRound();
-qmg.initializePatternTerms( ... ); //can be either default or explicitly provided
-while( qmg.getNextMatch() ){
-  InstMatch* m = qmg.getCurrent();
-  //...
-}
-
-*/
-class QuantMatchGenerator 
-{
-private:
-  //a collect of nodes representing a trigger
-  class Trigger {
-  private:
-    /** computation of variable contains */
-    static std::map< Node, std::vector< Node > > d_var_contains;
-    static void computeVarContains( Node n ) { computeVarContains2( n, n ); }
-    static void computeVarContains2( Node n, Node parent );
-    std::vector< Node > d_nodes;
-    std::map< Node, bool > d_vars;
-  public:
-    bool addNode( Node n );
-    int getNumNodes() { return (int)d_nodes.size(); }
-    Node getNode( int i ) { return d_nodes[i]; }
-    void clear() { 
-      d_nodes.clear();
-      d_vars.clear();
-    }
-    bool isComplete( Node f ){ return d_vars.size()==f[0].getNumChildren(); }
-    void debugPrint( const char* c );
-  };
-  /** reference to the instantiation engine */
-  InstantiationEngine* d_instEngine;
-  /** quantifier we are producing matches for */
-  Node d_f;
-  /** explicitly provided patterns */
-  std::vector< InstMatchGenerator* > d_user_gen;
-
-  /** a (set of) match generators produced by automated trigger generation */
-  std::vector< InstMatchGenerator* > d_match_gen;
-  int d_index;
-  /** functions for producing the generators */
-  bool hasCurrentGenerator( bool allowMakeNext = true );
-  InstMatchGenerator* getNextGenerator();
-  InstMatchGenerator* getCurrentGenerator() { return d_match_gen[d_index]; }
-  /** collection of pattern terms */
-  std::vector< Node > d_patTerms;
-  void addPatTerm( Node n );
-  void collectPatTerms( Node n );
-  void decomposePatTerm( Node n );
-  /** map from pattern terms to the inst match generator for them */
-  std::map< Node, InstMatchGenerator* > d_img_map;
-  /** current trigger information */
-  Trigger d_currTrigger;
-  /** whether to produce (another) trigger */
-  bool d_produceTrigger;
-public:
-  QuantMatchGenerator( InstantiationEngine* ie, Node f ) : 
-    d_instEngine( ie ), d_f( f ), d_index( 0 ), d_produceTrigger( true ){}
-  ~QuantMatchGenerator(){}
-  /** this must be called before initialization/getting any matches */
-  void resetInstantiationRound();
-public:
-  /** add pattern */
-  int addUserPattern( Node pat );
-  /** get num patterns */
-  int getNumUserPatterns() { return (int)d_user_gen.size(); }
-public:
-  /** initialize pattern terms */
-  void initializePatternTerms();
-  void initializePatternTerms( std::vector< Node >& patTerms );
-  /** get number of triggers currently produced */
-  int getNumTriggersProduced() { return d_index; }
-public:
-  /** clear matches (reproduce the matches) */
-  void clearMatches( int pat = -1 );
-  /** reset this generator (start the iterator from the beginning) */
-  void reset( int pat = -1 );
-  /** get current match */
-  InstMatch* getCurrent( int pat = -1 );
-  /** get next match */
-  bool getNextMatch( int pat = -1, int triggerThresh = -1 );
-};
-
 class InstantiatorDefault;
 namespace uf {
   class InstantiatorTheoryUf;
@@ -262,7 +196,7 @@ private:
   /** map from universal quantifiers to their counterexample body */
   std::map< Node, Node > d_counterexample_body;
   /** map from universal quantifiers to their counterexample literals */
-  std::map< Node, Node > d_counterexamples;
+  std::map< Node, Node > d_ce_lit;
   /** is clausal */
   std::map< Node, bool > d_is_clausal;
   /** map from quantifiers to whether they are active */
@@ -286,12 +220,6 @@ private:
 
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
-  /** instantiation queue */
-  std::map< Node, std::map< Instantiator*, InstMatchGroup > > d_instQueue;
-  /** add partial instantiation specified by m */
-  bool addPartialInstantiation( InstMatch& m, Instantiator* i );
-  /** process partial instantiations */
-  void processPartialInstantiations();
   /** set instantiation level */
   void setInstantiationLevel( Node n, uint64_t level );
 public:
@@ -322,14 +250,22 @@ public:
   bool addSplitEquality( Node n1, Node n2, bool reqPhase = false, bool reqPhasePol = true );
 
   /** get the ce body f[e/x] */
-  Node getCounterexampleBody( Node f );// { return d_counterexample_body[ f ]; }
+  Node getCounterexampleBody( Node f ) { return d_counterexample_body[ f ]; }
   /** get the skolemized body f[e/x] */
   Node getSkolemizedBody( Node f );
   /** get the quantified variables for quantifier f */
   void getVariablesFor( Node f, std::vector< Node >& vars );
+  /** get instantiation constants */
+  void getInstantiationConstantsFor( Node f, std::vector< Node >& ics ) { 
+    ics.insert( ics.begin(), d_inst_constants[f].begin(), d_inst_constants[f].end() ); 
+  }
+  /** get the i^th instantiation constant of f */
+  Node getInstantiationConstant( Node f, int i ) { return d_inst_constants[f][i]; }
+  /** get number of instantiation constants for f */
+  int getNumInstantiationConstants( Node f ) { return (int)d_inst_constants[f].size(); }
 
   /** get the corresponding counterexample literal for quantified formula node n */
-  Node getCounterexampleLiteralFor( Node f );// { return d_counterexamples[n]; }
+  Node getCounterexampleLiteralFor( Node f ) { return d_ce_lit[ f ]; }
   /** set active */
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */
@@ -338,6 +274,9 @@ public:
   int getStatus() { return d_status; }
   /** has added lemma */
   bool hasAddedLemma() { return d_addedLemma; }
+
+  /** get quantifier match generator */
+  QuantMatchGenerator* getMatchGenerator( Node f ) { return d_qmg[f]; }
 
   class Statistics {
   public:

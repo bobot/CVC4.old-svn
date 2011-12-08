@@ -47,6 +47,6 @@ void InstantiatorDefault::process( Node f, int effort ){
         m.setMatch( *it2, val );
       }
     }
-    d_instEngine->addPartialInstantiation( m, this );
+    d_instEngine->addInstantiation( &m );
   }
 }

@@ -75,35 +75,6 @@ public:
   void addSplit( Node n1, Node n2 );
 };
 
-class InstMatchGroup
-{
-public:
-  InstMatchGroup(){}
-  InstMatchGroup( InstMatchGroup* mg ){
-    add( *mg );
-  }
-  InstMatchGroup( std::vector< InstMatchGroup* >& mgg ){
-    for( int i=0; i<(int)mgg.size(); i++ ){
-      add( *mgg[i] );
-    }
-  }
-  ~InstMatchGroup(){}
-  std::vector< InstMatch > d_matches;
-
-  bool merge( InstMatchGroup& mg );
-  void add( InstMatchGroup& mg );
-  void combine( InstMatchGroup& mg );
-  void addComplete( InstMatchGroup& mg, InstMatch* mbase = NULL );
-  bool contains( InstMatch& m );
-  void removeRedundant();
-  void removeDuplicate();
-  bool empty() { return d_matches.empty(); }
-  unsigned int getNumMatches() { return d_matches.size(); }
-  InstMatch* getMatch( int i ) { return &d_matches[i]; }
-  void clear(){ d_matches.clear(); }
-  void debugPrint( const char* c );
-};
-
 namespace uf{
   class InstantiatorTheoryUf;
 }
@@ -166,6 +137,8 @@ protected:
 protected:
   /** calculate the children vector */
   void calcChildren();
+  /** calculate children trivial cases */
+  void calcChildrenTriv();
   /** calculate the next match */
   bool calcNextMatch();
   /** add instantiation match to vector, return true if not redundant */
@@ -178,8 +151,8 @@ public:
   ~InstMatchGenerator(){}
 
   /** matches produced */
-  InstMatchGroup d_mg;
-  /** the index currently processing (ranges over d_mg.d_matches) */
+  std::vector< InstMatch > d_mg;
+  /** the index currently processing (ranges over d_mg) */
   int d_mg_i;
   /** children iterators */
   std::vector< InstMatchGenerator* > d_children;
@@ -187,11 +160,11 @@ public:
   /** clear the matches for this iterator */
   void clearMatches();
   /** contains no matches? */
-  bool empty() { return getMaster()->d_mg_set && getMaster()->d_mg.d_matches.empty(); }
+  bool empty() { return getMaster()->d_mg_set && getMaster()->d_mg.empty(); }
   /** get current match */
   InstMatch* getCurrent() { 
-    if( d_mg_i>=0 && d_mg_i<(int)getMaster()->d_mg.d_matches.size() ){
-      return &getMaster()->d_mg.d_matches[ d_mg_i ]; 
+    if( d_mg_i>=0 && d_mg_i<(int)getMaster()->d_mg.size() ){
+      return &getMaster()->d_mg[ d_mg_i ]; 
     }else{
       return NULL;
     }
@@ -227,6 +200,112 @@ public:
   static InstMatchGenerator* mkAnyMatchInstMatchGenerator( Node t );
 };
 
+
+/** 
+QuantMatchGenerator:  This class encapsulates all information needed for producing matches 
+for a particular quantifier.  Can have the following uses for QuantMatchGenerator qmg:
+
+For user-provided patterns do this:
+
+int index = qmg.addUserPattern( pat ); //where pat.getKind()==INST_PATTERN
+qmg.resetInstantiationRound();
+while( qmg.getNextMatch( index ) ){
+  InstMatch* m = qmg.getCurrent( index );
+  //...
+}
+
+For automated trigger generation do this:
+
+qmg.resetInstantiationRound();
+qmg.initializePatternTerms( ... ); //can be either default or explicitly provided
+while( qmg.getNextMatch() ){
+  InstMatch* m = qmg.getCurrent();
+  //...
+}
+
+*/
+class QuantMatchGenerator 
+{
+private:
+  /** reference to the instantiation engine */
+  InstantiationEngine* d_instEngine;
+  /** quantifier we are producing matches for */
+  Node d_f;
+  /** explicitly provided patterns */
+  std::vector< InstMatchGenerator* > d_user_gen;
+private:
+  /** a (set of) match generators produced by automated trigger generation */
+  std::vector< InstMatchGenerator* > d_match_gen;
+  int d_index;
+  /** functions for producing the generators */
+  bool hasCurrentGenerator( bool allowMakeNext = true );
+  InstMatchGenerator* getNextGenerator();
+  InstMatchGenerator* getCurrentGenerator() { return d_match_gen[d_index]; }
+  /** collection of pattern terms */
+  std::vector< Node > d_patTerms;
+  void addPatTerm( Node n );
+  void collectPatTerms( Node n );
+  void decomposePatTerm( Node n );
+  /** map from pattern terms to the inst match generator for them */
+  std::map< Node, InstMatchGenerator* > d_img_map;
+private:
+  //a collect of nodes representing a trigger
+  class Trigger {
+  private:
+    /** computation of variable contains */
+    static std::map< Node, std::vector< Node > > d_var_contains;
+    static void computeVarContains( Node n ) { computeVarContains2( n, n ); }
+    static void computeVarContains2( Node n, Node parent );
+    std::vector< Node > d_nodes;
+    std::map< Node, bool > d_vars;
+  public:
+    bool addNode( Node n, bool force = false );
+    int getNumNodes() { return (int)d_nodes.size(); }
+    Node getNode( int i ) { return d_nodes[i]; }
+    void clear() { 
+      d_nodes.clear();
+      d_vars.clear();
+    }
+    bool isComplete( Node f ){ return d_vars.size()==f[0].getNumChildren(); }
+    void debugPrint( const char* c );
+  };
+  /** current trigger information */
+  Trigger d_currTrigger;
+  /** whether to produce (another) trigger */
+  bool d_produceTrigger;
+public:
+  /** the base match for the quantifier (solve instantiation constants) */
+  InstMatch d_baseMatch;
+public:
+  QuantMatchGenerator( InstantiationEngine* ie, Node f ) : 
+    d_instEngine( ie ), d_f( f ), d_index( 0 ), d_produceTrigger( true ){}
+  ~QuantMatchGenerator(){}
+  /** this must be called before initialization/getting any matches */
+  void resetInstantiationRound();
+public:
+  /** add pattern */
+  int addUserPattern( Node pat );
+  /** get num patterns */
+  int getNumUserPatterns() { return (int)d_user_gen.size(); }
+public:
+  /** initialize pattern terms */
+  void initializePatternTerms();
+  void initializePatternTerms( std::vector< Node >& patTerms );
+  /** get number of triggers currently produced */
+  int getNumTriggersProduced() { return d_index; }
+public:
+  /** clear matches (reproduce the matches) */
+  void clearMatches( int pat = -1 );
+  /** reset this generator (start the iterator from the beginning) */
+  void reset( int pat = -1 );
+  /** get current match */
+  InstMatch* getCurrent( int pat = -1 );
+  /** get next match */
+  bool getNextMatch( int pat = -1, int triggerThresh = -1 );
+public:
+  /** add instantiations */
+  bool addInstantiation( int pat = -1, int triggerThresh = -1, bool addSplits = true );
+};
 
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

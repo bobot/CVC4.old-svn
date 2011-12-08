@@ -21,6 +21,8 @@
 #include "theory/uf/equality_engine_impl.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
+//#define USE_STRONG_SOLVER
+
 using namespace std;
 
 namespace CVC4 {
@@ -52,7 +54,11 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
 
   //AJR-hack
-  d_equalityEngine.d_thss = NULL;//&d_thss;
+#ifdef USE_STRONG_SOLVER
+  d_equalityEngine.d_thss = &d_thss;
+#else
+  d_equalityEngine.d_thss = NULL;
+#endif
   //AJR-hack-end
 }/* TheoryUF::TheoryUF() */
 
@@ -137,9 +143,10 @@ void TheoryUF::check(Effort level) {
   // until we go through the propagation list
   propagate(level);
 
-
   //AJR-hack
-  //d_thss.check( level );
+#ifdef USE_STRONG_SOLVER
+  d_thss.check( level, d_out );
+#endif
   //AJR-hack-end
 }/* TheoryUF::check() */
 

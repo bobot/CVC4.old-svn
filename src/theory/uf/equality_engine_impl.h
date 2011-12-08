@@ -202,7 +202,7 @@ void EqualityEngine<NotifyClass>::addDisequality(TNode t1, TNode t2, TNode reaso
   //AJR-hack
   //notify the theory strong solver
   if( d_thss ){
-    d_thss->assertDisequal( t1, t2 );
+    d_thss->assertDisequal( t1, t2, reason );
   }
   //AJR-hack-end
 
