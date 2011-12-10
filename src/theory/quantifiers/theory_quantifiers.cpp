@@ -127,111 +127,7 @@ void TheoryQuantifiers::check(Effort e) {
     }
   }
   if( e == FULL_EFFORT ) {
-    if( d_baseDecLevel==-1 || (int)d_valuation.getDecisionLevel()<d_baseDecLevel){
-      d_baseDecLevel = d_valuation.getDecisionLevel();
-      d_numInstantiations = 0;
-    }
-    Debug("quantifiers") << "quantifiers: FULL_EFFORT check" << std::endl;
-    Debug("quantifiers-sat")  << std::endl;
-    //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
-    //  Debug("quantifiers") << "   " << d_valuation.getDecision( i ) << std::endl;
-    //}
-    bool quantActive = false;
-    //for each n in d_forall_asserts, 
-    // such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
-    for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
-      if( (*i).second ) {
-        Node n = (*i).first;
-        Node cel = d_instEngine->getCounterexampleLiteralFor( n );
-        bool active, value;
-        bool ceValue = false;
-        if( d_valuation.hasSatValue( cel, value ) ){
-          active = value;
-          ceValue = true;
-        }else{
-          active = true;
-        }
-        d_instEngine->setActive( n, active );
-        if( active ){
-          Debug("quantifiers") << "  Active : " << n;
-          quantActive = true;
-        }else{
-          Debug("quantifiers") << "  NOT active : " << n;
-          if( d_valuation.isDecision( cel ) ){
-            Debug("quant-req-phase") << "Bad decision : " << cel << std::endl;
-          }
-          //note that the counterexample literal must not be a decision
-          Assert( !d_valuation.isDecision( cel ) );
-        }
-        if( d_valuation.hasSatValue( n, value ) ){
-          Debug("quantifiers") << ", value = " << value; 
-        }
-        if( ceValue ){
-          Debug("quantifiers") << ", ce is asserted";
-        }
-        Debug("quantifiers") << std::endl;
-      }
-    }
-    if( quantActive ){  
-      //std::cout << "unknown ";
-      //exit( 9 );
-      if( enableLimit && d_numInstantiations==limitInst ){
-        Debug("quantifiers-flip") << "Give up in current branch. " << d_valuation.getDecisionLevel() << " " << d_baseDecLevel << std::endl;
-      }else{
-#if 0
-        d_out->setIncomplete();
-        return;
-#endif
-        Debug("quantifiers") << "Do instantiation, level = " << d_valuation.getDecisionLevel() << std::endl;
-        //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
-        //  Debug("quantifiers-dec") << "   " << d_valuation.getDecision( i ) << std::endl;
-        //}
-        if( d_instEngine->doInstantiationRound( d_out ) ){
-          d_numInstantiations++;
-          Debug("quantifiers") << "Done instantiation " << d_numInstantiations << "." << std::endl;
-        }else{
-#if 1
-          Debug("quantifiers") << "No instantiation given, returning unknown..." << std::endl;
-          //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
-          d_out->setIncomplete();
-          //}
-#else
-          //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
-            //instantiation did not add a lemma to d_out, try to flip a previous decision
-            if( !flipDecision() ){
-              //maybe restart?
-              restart();
-            }else{
-              Debug("quantifiers") << "Flipped decision." << std::endl;
-            }
-          //}
-#endif
-        } 
-      }
-    }else{
-      //debugging
-      Debug("quantifiers-sat") << "Decisions:" << std::endl;
-      for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
-        Debug("quantifiers-sat") << "   " << i << ": " << d_valuation.getDecision( i ) << std::endl;
-      }
-      for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
-        if( (*i).second ) {
-          Node cel = d_instEngine->getCounterexampleLiteralFor( (*i).first );
-          bool value;
-          if( d_valuation.hasSatValue( cel, value ) ){
-            if( !value ){
-              if( d_valuation.isDecision( cel ) ){
-                Debug("quantifiers-sat") << "sat, but decided cel=" << cel << std::endl;
-                std::cout << "unknown-17 ";
-                exit( 17 );
-              }
-            }
-          }
-        }
-      }
-      Debug("quantifiers-sat") << "No quantifier is active. " << d_valuation.getDecisionLevel() << std::endl;
-      //debugging-end
-    }
+    fullEffortCheck();
   }
 }
 
@@ -316,5 +212,114 @@ bool TheoryQuantifiers::restart(){
     d_numRestarts++;
     Debug("quantifiers-flip") << "Do restart." << std::endl;
     return true;
+  }
+}
+
+void TheoryQuantifiers::fullEffortCheck(){
+  if( d_baseDecLevel==-1 || (int)d_valuation.getDecisionLevel()<d_baseDecLevel){
+    d_baseDecLevel = d_valuation.getDecisionLevel();
+    d_numInstantiations = 0;
+  }
+  Debug("quantifiers") << "quantifiers: FULL_EFFORT check" << std::endl;
+  bool quantActive = false;
+  //for each n in d_forall_asserts, 
+  // such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
+  for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
+    if( (*i).second ) {
+      Node n = (*i).first;
+      Node cel = d_instEngine->getCounterexampleLiteralFor( n );
+      bool active, value;
+      bool ceValue = false;
+      if( d_valuation.hasSatValue( cel, value ) ){
+        active = value;
+        ceValue = true;
+      }else{
+        active = true;
+      }
+      d_instEngine->setActive( n, active );
+      if( active ){
+        Debug("quantifiers") << "  Active : " << n;
+        quantActive = true;
+      }else{
+        Debug("quantifiers") << "  NOT active : " << n;
+        if( d_valuation.isDecision( cel ) ){
+          Debug("quant-req-phase") << "Bad decision : " << cel << std::endl;
+        }
+        //note that the counterexample literal must not be a decision
+        Assert( !d_valuation.isDecision( cel ) );
+      }
+      if( d_valuation.hasSatValue( n, value ) ){
+        Debug("quantifiers") << ", value = " << value; 
+      }
+      if( ceValue ){
+        Debug("quantifiers") << ", ce is asserted";
+      }
+      Debug("quantifiers") << std::endl;
+    }
+  }
+  if( quantActive ){  
+    //std::cout << "unknown ";
+    //exit( 9 );
+    if( enableLimit && d_numInstantiations==limitInst ){
+      Debug("quantifiers-flip") << "Give up in current branch. " << d_valuation.getDecisionLevel() << " " << d_baseDecLevel << std::endl;
+    }else{
+#if 0
+      d_out->setIncomplete();
+      return;
+#endif
+      Debug("quantifiers") << "Do instantiation, level = " << d_valuation.getDecisionLevel() << std::endl;
+      //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
+      //  Debug("quantifiers-dec") << "   " << d_valuation.getDecision( i ) << std::endl;
+      //}
+      if( d_instEngine->doInstantiationRound( d_out ) ){
+        d_numInstantiations++;
+        Debug("quantifiers") << "Done instantiation " << d_numInstantiations << "." << std::endl;
+      }else{
+#if 1
+        Debug("quantifiers") << "No instantiation given, returning unknown..." << std::endl;
+        //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
+        d_out->setIncomplete();
+        //}
+#else
+        //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
+          //instantiation did not add a lemma to d_out, try to flip a previous decision
+          if( !flipDecision() ){
+            //maybe restart?
+            restart();
+          }else{
+            Debug("quantifiers") << "Flipped decision." << std::endl;
+          }
+        //}
+#endif
+      } 
+    }
+  }else{
+    //debugging
+    Debug("quantifiers-sat") << "Decisions:" << std::endl;
+    for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
+      Debug("quantifiers-sat") << "   " << i << ": " << d_valuation.getDecision( i ) << std::endl;
+    }
+    for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
+      if( (*i).second ) {
+        Node cel = d_instEngine->getCounterexampleLiteralFor( (*i).first );
+        bool value;
+        if( d_valuation.hasSatValue( cel, value ) ){
+          if( !value ){
+            if( d_valuation.isDecision( cel ) ){
+              Debug("quantifiers-sat") << "sat, but decided cel=" << cel << std::endl;
+              std::cout << "unknown ";
+              exit( 17 );
+            }
+          }
+        }
+      }
+    }
+    Debug("quantifiers-sat") << "No quantifier is active. " << d_valuation.getDecisionLevel() << std::endl;
+    //static bool setTrust = false;
+    //if( !setTrust ){
+    //  setTrust = true;
+    //  std::cout << "trust-";
+    //}
+    //debugging-end
   }
 }

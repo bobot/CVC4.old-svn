@@ -102,12 +102,6 @@ public:
       ~Region(){}
       //region node infomation
       std::map< Node, RegionNodeInfo* > d_nodes;
-      ////disequalities size
-      //std::map< Node, int > d_disequalities_size[2];
-      ////representatives 
-      //std::map< Node, bool > d_reps;
-      ////disequalities (internal and external)
-      //std::map< Node, std::map< Node, bool > > d_disequalities[2];
       //whether region is valid
       context::CDO< bool > d_valid;
     public:

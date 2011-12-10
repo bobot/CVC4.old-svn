@@ -665,6 +665,7 @@ void TheoryArith::check(Effort effortLevel){
       Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
       d_simplex.clearUpdates();
       d_out->conflict(possibleConflict);
+      Debug("arith::conflict") << "done conflict " << std::endl;
       return;
     }
     //AJR-hack

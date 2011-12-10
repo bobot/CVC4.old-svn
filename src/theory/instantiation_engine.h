@@ -131,31 +131,6 @@ public:
   bool isOwnerOf( Node f );
 };/* class Instantiator */
 
-
-/** 
-This class provides a simple way of matching pattern terms with ground terms, without considering equality 
-*/
-class TermMatchEngine 
-{
-private:
-  /** reference to the instantiation engine */
-  InstantiationEngine* d_instEngine;
-  /** process match */
-  void processMatch( Node pat, Node g );
-  //patterns vs. ground terms, their matches
-  std::map< Node, bool > d_patterns;
-  std::map< Node, bool > d_ground_terms;
-  std::map< Node, std::map< Node, InstMatchGenerator* > > d_matches;
-public:
-  TermMatchEngine(){}
-  TermMatchEngine( InstantiationEngine* ie ){}
-  ~TermMatchEngine(){}
-  /** register that we wish to consider all subterms of n */
-  void registerTerm( Node n );
-  /** get a match generator for producing unified matches for each (pattern) node in nodes */
-  InstMatchGenerator* makeMatchGenerator( std::vector< Node >& nodes );
-};
-
 class InstantiatorDefault;
 namespace uf {
   class InstantiatorTheoryUf;
@@ -168,7 +143,6 @@ class InstantiationEngine
 {
   friend class Instantiator;
   friend class ::CVC4::TheoryEngine;
-  friend class InstantiatorDefault;
   friend class uf::InstantiatorTheoryUf;
   friend class arith::InstantiatorTheoryArith;
   friend class InstMatch;
@@ -176,9 +150,6 @@ class InstantiationEngine
   friend class QuantMatchGenerator;
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
-
-  /** current output */
-  OutputChannel* d_curr_out;
   /** theory instantiator objects for each theory */
   theory::Instantiator* d_instTable[theory::THEORY_LAST];
   /** reference to theory engine object */
@@ -205,18 +176,18 @@ private:
   BoolMap d_ic_active;
   /** lemmas produced */
   std::map< Node, bool > d_lemmas_produced;
+  /** lemmas waiting */
+  std::vector< Node > d_lemmas_waiting;
   /** status */
   int d_status;
-  /** whether a lemma has been added */
-  bool d_addedLemma;
   /** phase requirements for instantiation literals */
   std::map< Node, bool > d_phase_reqs;
   /** whether a particular quantifier is clausal */
   std::map< Node, bool > d_clausal;
-  /** term match engine */
-  TermMatchEngine d_tme;
   /** quantifier match generators */
   std::map< Node, QuantMatchGenerator* > d_qmg;
+  /** free variable for instantiation constant */
+  std::map< Node, Node > d_free_vars;
 
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
@@ -273,10 +244,12 @@ public:
   /** get status */
   int getStatus() { return d_status; }
   /** has added lemma */
-  bool hasAddedLemma() { return d_addedLemma; }
+  bool hasAddedLemma() { return !d_lemmas_waiting.empty(); }
 
   /** get quantifier match generator */
   QuantMatchGenerator* getMatchGenerator( Node f ) { return d_qmg[f]; }
+  /** get free variable for instantiation constant */
+  Node getFreeVariableForInstConstant( Node n );
 
   class Statistics {
   public:

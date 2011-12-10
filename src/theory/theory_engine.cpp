@@ -184,10 +184,15 @@ void TheoryEngine::check(Theory::Effort effort) {
     //AJR-hack
 #if 1
     //this is the flip decision code
-    if( !d_inConflict && !d_lemmasAdded && d_incomplete && effort==Theory::FULL_EFFORT ){
-      if( d_theoryTable[THEORY_QUANTIFIERS] ){
-        if( ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ){
-          d_incomplete = false;
+    if( effort==Theory::FULL_EFFORT ){
+      if( !d_inConflict && !d_lemmasAdded ){
+        if( d_theoryTable[THEORY_QUANTIFIERS] ){
+          //((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->fullEffortCheck();
+          if( d_incomplete ){
+            if( ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ){
+              d_incomplete = false;
+            }
+          }
         }
       }
     }
@@ -647,7 +652,7 @@ Node TheoryEngine::getExplanation(TNode node)
   if (d_sharedTermsExist) {
     NodeBuilder<> nb(kind::AND);
     explainEqualities(theory->getId(), explanation, nb);
-    explanation = nb;
+    explanation = nb.getNumChildren()==1 ? nb[0] : nb;
   }
 
   Assert(!explanation.isNull());

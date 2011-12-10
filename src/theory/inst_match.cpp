@@ -129,21 +129,14 @@ bool InstMatch::isComplete( InstMatch* mbase ){
   return true;
 }
 
-void InstMatch::computeTermVec(){
+void InstMatch::computeTermVec( InstantiationEngine* ie ){
   if( d_computeVec ){
     d_match.clear();
     for( int i=0; i<(int)d_vars.size(); i++ ){
       if( d_map[ d_vars[i] ]!=Node::null() ){
         d_match.push_back( d_map[ d_vars[i] ] );
       }else{
-        //if integer or real, make zero
-        TypeNode tn = d_vars[i].getType();
-        if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
-          Rational z(0);
-          d_match.push_back( NodeManager::currentNM()->mkConst( z ) );
-        }else{
-          d_match.push_back( NodeManager::currentNM()->mkVar( tn ) );
-        }
+        d_match.push_back( ie->getFreeVariableForInstConstant( d_vars[i] ) );
       }
     }
     d_computeVec = false;
@@ -352,6 +345,18 @@ void InstMatchGenerator::calcChildrenTriv(){
       d_mg.push_back( m );
       d_mg_set = true;
     }  
+  }else if( d_operation==2 ){
+    if( d_t.getKind()==INST_CONSTANT ){
+      InstMatch m( f, d_itu->d_instEngine );
+      Node c = getRepresentative( d_s );
+      if( !areEqual( d_t, c ) ){
+        m.setMatch( d_t, c );
+      }
+      d_mg.push_back( m );
+      d_mg_set = true;
+    }else{
+      
+    }
   }
 }
 
@@ -424,37 +429,27 @@ void InstMatchGenerator::calcChildren(){
           }
         }
       }else if( d_operation==2 ){
-        if( d_t.getKind()==INST_CONSTANT ){
-          InstMatch m( f, d_itu->d_instEngine );
-          Node c = getRepresentative( d_s );
-          if( !areEqual( d_t, c ) ){
-            m.setMatch( d_t, c );
-          }
-          d_mg.push_back( m );
-          d_mg_set = true;
-        }else{
-          //merge the arguments of d_t and d_s
-          Assert( d_t.getKind()==APPLY_UF );
-          Assert( d_s.getKind()==APPLY_UF );
-          Assert( d_t.getOperator()==d_s.getOperator() );
-          Assert( d_t.getNumChildren()==d_s.getNumChildren() );
-          Node f = d_t.getAttribute(InstConstantAttribute());
-          for( int j=0; j<(int)d_s.getNumChildren(); j++ ){
-            if( !areEqual( d_t[j], d_s[j] ) ){
-              if( d_t[j].hasAttribute(InstConstantAttribute()) ){
-                d_children.push_back( mkCombineInstMatchGenerator( d_t[j], getRepresentative( d_s[j] ), true ) );
+        //merge the arguments of d_t and d_s
+        Assert( d_t.getKind()==APPLY_UF );
+        Assert( d_s.getKind()==APPLY_UF );
+        Assert( d_t.getOperator()==d_s.getOperator() );
+        Assert( d_t.getNumChildren()==d_s.getNumChildren() );
+        Node f = d_t.getAttribute(InstConstantAttribute());
+        for( int j=0; j<(int)d_s.getNumChildren(); j++ ){
+          if( !areEqual( d_t[j], d_s[j] ) ){
+            if( d_t[j].hasAttribute(InstConstantAttribute()) ){
+              d_children.push_back( mkCombineInstMatchGenerator( d_t[j], getRepresentative( d_s[j] ), true ) );
+            }else{
+              if( d_s[j].getAttribute(InstConstantAttribute())!=f ){
+                addSplit( d_t[j], d_s[j] );
               }else{
-                if( d_s[j].getAttribute(InstConstantAttribute())!=f ){
-                  addSplit( d_t[j], d_s[j] );
-                }else{
-                  d_children.clear();
-                  break;
-                }
+                d_children.clear();
+                break;
               }
-            }else if( areDisequal( d_t[j], d_s[j] ) ){
-              d_children.clear();
-              break;
             }
+          }else if( areDisequal( d_t[j], d_s[j] ) ){
+            d_children.clear();
+            break;
           }
         }
       }else if( d_operation==3 ){

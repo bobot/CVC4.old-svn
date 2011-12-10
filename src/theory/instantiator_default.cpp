@@ -38,13 +38,13 @@ void InstantiatorDefault::process( Node f, int effort ){
   }else if( effort==4 ){
     Debug("quant-default") << "Process " << f << " : " << std::endl;
     InstMatch m( f, d_instEngine );
-    for( std::vector< Node >::iterator it2 = d_instEngine->d_inst_constants[f].begin(); 
-         it2!=d_instEngine->d_inst_constants[f].end(); ++it2 ){
-      Debug("quant-default") << "Getting value for " << *it2 << std::endl;
-      if( d_instEngine->getTheoryEngine()->theoryOf( *it2 )==getTheory() ){    //if it belongs to this theory
-        Node val = d_th->getValue( *it2 );
-        Debug("quant-default") << "Default Instantiate for " << d_th->getId() << ", setting " << *it2 << " = " << val << std::endl;
-        m.setMatch( *it2, val );
+    for( int j=0; j<(int)d_instEngine->getNumInstantiationConstants( f ); j++ ){
+      Node i = d_instEngine->getInstantiationConstant( f, j );
+      Debug("quant-default") << "Getting value for " << i << std::endl;
+      if( d_instEngine->getTheoryEngine()->theoryOf( i )==getTheory() ){    //if it belongs to this theory
+        Node val = d_th->getValue( i );
+        Debug("quant-default") << "Default Instantiate for " << d_th->getId() << ", setting " << i << " = " << val << std::endl;
+        m.setMatch( i, val );
       }
     }
     d_instEngine->addInstantiation( &m );

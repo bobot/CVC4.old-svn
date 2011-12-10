@@ -99,14 +99,19 @@ protected:
   BoolMap d_terms;
   /** map from (representative) nodes to list of representative nodes they are disequal from */
   NodeList d_disequality;
+  /** map to representatives used */
+  std::map< Node, Node > d_reps;
   /** disequality list */
   std::map< Node, std::vector< Node > > d_dmap;
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
+  Node getInternalRepresentative( Node a );
   /** has instantiation constant */
   void addObligationToList( Node ob, Node f );
   void addObligations( Node n, Node ob );
+  /** guessed instantiations */
+  std::map< Node, bool > d_guessed;
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
@@ -121,9 +126,6 @@ public:
   /** register terms */
   void registerTerm( Node n, bool isTop = true );
 private:
-  /** assert terms are equal */
-  void assertEqual( Node a, Node b );
-
   /** calculate matches for quantifier f at effort */
   void process( Node f, int effort );
 
@@ -152,6 +154,7 @@ public:
     IntStat d_instantiations_ce_solved;
     IntStat d_instantiations_e_induced;
     IntStat d_instantiations_user_pattern;
+    IntStat d_instantiations_guess;
     IntStat d_splits;
     Statistics();
     ~Statistics();

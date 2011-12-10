@@ -63,12 +63,7 @@ public:
   /** mbase is used if no value given in d_map */
   bool isComplete( InstMatch* mbase = NULL );
   /** compute d_match */
-  void computeTermVec();
-  /** make substitution for Node */
-  Node substitute( Node n ){
-    computeTermVec();
-    return n.substitute( d_vars.begin(), d_vars.end(), d_match.begin(), d_match.end() ); 
-  }
+  void computeTermVec( InstantiationEngine* ie );
   /** get associated quantifier */
   Node getQuantifier();
   /** add split */

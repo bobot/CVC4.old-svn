@@ -43,6 +43,7 @@ void InstantiatorTheoryArith::check( Node assertion ){
     bool value;
     //Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );
     if( !((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) ){
+      std::cout << "unknown ";
       exit( 18 );
     }
   }
@@ -89,7 +90,6 @@ void InstantiatorTheoryArith::resetInstantiationRound(){
 
 void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){
   if( n.getKind()==MULT ){
-    d_instEngine->d_tme.registerTerm( n[1] );
     if( n[1].hasAttribute(InstConstantAttribute()) ){
       f = n[1].getAttribute(InstConstantAttribute());
       if( n[1].getKind()==INST_CONSTANT ){
@@ -102,7 +102,6 @@ void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBui
       t << n;
     }
   }else{
-    d_instEngine->d_tme.registerTerm( n );
     if( n.hasAttribute(InstConstantAttribute()) ){
       f = n.getAttribute(InstConstantAttribute());
       if( n.getKind()==INST_CONSTANT ){
@@ -194,64 +193,64 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
       // where beta(t[e]) is the vector of constants by replacing each term with its current model.
       bool addedLemma = false;
       if( !d_tableaux_ce_term[x].empty() ){
+        //InstMatchGenerator* uit = d_instEngine->d_tme.makeMatchGenerator( terms );
+        QuantMatchGenerator* qmg = d_instEngine->getMatchGenerator( f );
+        qmg->resetInstantiationRound();
         //try to find a match for counterexample terms
         std::vector< Node > terms;
         for( std::map< Node, Node >::iterator it = d_tableaux_ce_term[x].begin(); it != d_tableaux_ce_term[x].end(); ++it ){
           terms.push_back( it->first );
         }
-        InstMatchGenerator* uit = d_instEngine->d_tme.makeMatchGenerator( terms );
-        if( uit ){
-          //uit->debugPrint("quant-arith", 0);
-          Node term;
-          while( uit->getNextMatch() && !addedLemma ){
-            InstMatch* m = uit->getCurrent();
-            if( m->isComplete() ){
-              if( d_instEngine->addInstantiation( m, true ) ){
-                ++(d_statistics.d_instantiations_match_pure);
-                ++(d_statistics.d_instantiations);
-                addedLemma = true;  
+        qmg->initializePatternTerms( terms );
+        Node term;
+        while( qmg->getNextMatch( -1, 1 ) && !addedLemma ){
+          InstMatch* m = qmg->getCurrent();
+          if( m->isComplete() ){
+            if( d_instEngine->addInstantiation( m, true ) ){
+              ++(d_statistics.d_instantiations_match_pure);
+              ++(d_statistics.d_instantiations);
+              addedLemma = true;  
+            }
+          }else{
+            NodeBuilder<> plus_term(kind::PLUS);
+            plus_term << d_tableaux_term[x];
+            //Debug("quant-arith") << "Produced this match for ce_term_tableaux: " << std::endl;
+            //m->debugPrint("quant-arith");
+            //Debug("quant-arith") << std::endl;
+            std::vector< Node > vars;
+            std::vector< Node > matches;
+            for( int i=0; i<(int)m->d_vars.size(); i++ ){
+              if( m->d_map[ m->d_vars[i] ]!=Node::null() ){
+                vars.push_back( m->d_vars[i] );
+                matches.push_back( m->d_map[ m->d_vars[i] ] );
+              }
+            }
+            Node var;
+            //otherwise try to find a variable that is not specified in m
+            for( std::map< Node, Node >::iterator it = d_ceTableaux[x].begin(); it != d_ceTableaux[x].end(); ++it ){
+              if( m->d_map[ it->first ]!=Node::null() ){
+                plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, getTableauxValue( m->d_map[ it->first ] ) );
+              }else if( var==Node::null() ){
+                var = it->first;
+              }
+            }
+            for( std::map< Node, Node >::iterator it = d_tableaux_ce_term[x].begin(); it != d_tableaux_ce_term[x].end(); ++it ){
+              Node n = it->first;
+              //substitute in matches
+              n = n.substitute( vars.begin(), vars.end(), matches.begin(), matches.end() ); 
+              plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, getTableauxValue( n ) );
+            }
+            term = plus_term.getNumChildren()==1 ? plus_term.getChild( 0 ) : plus_term;
+            if( var!=Node::null() ){
+              if( doInstantiation( term, x, m, var ) ){
+                addedLemma = true;
+                ++(d_statistics.d_instantiations_match_var);
               }
             }else{
-              NodeBuilder<> plus_term(kind::PLUS);
-              plus_term << d_tableaux_term[x];
-              //Debug("quant-arith") << "Produced this match for ce_term_tableaux: " << std::endl;
-              //m->debugPrint("quant-arith");
-              //Debug("quant-arith") << std::endl;
-              std::vector< Node > vars;
-              std::vector< Node > matches;
-              for( int i=0; i<(int)m->d_vars.size(); i++ ){
-                if( m->d_map[ m->d_vars[i] ]!=Node::null() ){
-                  vars.push_back( m->d_vars[i] );
-                  matches.push_back( m->d_map[ m->d_vars[i] ] );
-                }
-              }
-              Node var;
-              //otherwise try to find a variable that is not specified in m
-              for( std::map< Node, Node >::iterator it = d_ceTableaux[x].begin(); it != d_ceTableaux[x].end(); ++it ){
-                if( m->d_map[ it->first ]!=Node::null() ){
-                  plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, getTableauxValue( m->d_map[ it->first ] ) );
-                }else if( var==Node::null() ){
-                  var = it->first;
-                }
-              }
-              for( std::map< Node, Node >::iterator it = d_tableaux_ce_term[x].begin(); it != d_tableaux_ce_term[x].end(); ++it ){
-                Node n = it->first;
-                //substitute in matches
-                n = n.substitute( vars.begin(), vars.end(), matches.begin(), matches.end() ); 
-                plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, getTableauxValue( n ) );
-              }
-              term = plus_term.getNumChildren()==1 ? plus_term.getChild( 0 ) : plus_term;
-              if( var!=Node::null() ){
-                if( doInstantiation( term, x, m, var ) ){
-                  addedLemma = true;
-                  ++(d_statistics.d_instantiations_match_var);
-                }
-              }else{
-                if( d_instEngine->addInstantiation( m, true ) ){
-                  addedLemma = true;
-                  ++(d_statistics.d_instantiations_match_no_var);
-                  ++(d_statistics.d_instantiations);
-                }
+              if( d_instEngine->addInstantiation( m, true ) ){
+                addedLemma = true;
+                ++(d_statistics.d_instantiations_match_no_var);
+                ++(d_statistics.d_instantiations);
               }
             }
           }
@@ -331,8 +330,7 @@ Node InstantiatorTheoryArith::getDelta( Node n ){
     d_instEngine->addLemma( gt );
 #else
     gt = Rewriter::rewrite( gt );
-    d_instEngine->addSplit( gt );
-    d_instEngine->d_curr_out->requirePhase( gt, true );
+    d_instEngine->addSplit( gt, true, true );
 #endif
     return delta;
   }
