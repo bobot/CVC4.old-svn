@@ -455,7 +455,9 @@ throw(OptionException) {
   const char *progName = argv[0];
   int c;
 
-  optind = 1; // reset getopt(), in the case of multiple calls
+  // Reset getopt(), in the case of multiple calls.
+  // This can be = 1 in newer GNU getopt, but older (< 2007) require = 0.
+  optind = 0;
 #if HAVE_DECL_OPTRESET
   optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
 #endif /* HAVE_DECL_OPTRESET */
