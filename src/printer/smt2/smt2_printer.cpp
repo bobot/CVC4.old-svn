@@ -70,7 +70,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     switch(n.getKind()) {
     case kind::TYPE_CONSTANT:
       switch(n.getConst<TypeConstant>()) {
-      case BOOLEAN_TYPE: out << "Boolean"; break;
+      case BOOLEAN_TYPE: out << "Bool"; break;
       case REAL_TYPE: out << "Real"; break;
       case INTEGER_TYPE: out << "Int"; break;
       default:
@@ -103,7 +103,7 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     case kind::CONST_INTEGER: {
       Integer i = n.getConst<Integer>();
       if(i < 0) {
-        out << "(- " << i << ')';
+        out << "(- " << -i << ')';
       } else {
         out << i;
       }
@@ -112,12 +112,21 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
     case kind::CONST_RATIONAL: {
       Rational r = n.getConst<Rational>();
       if(r < 0) {
-        out << "(- " << r << ')';
+        if(r.getDenominator() == 1) {
+          out << "(- " << -r << ')';
+        } else {
+          out << "(- (/ " << (-r).getNumerator() << ' ' << (-r).getDenominator() << "))";
+        }
       } else {
-        out << r;
+        if(r.getDenominator() == 1) {
+          out << r;
+        } else {
+          out << "(/ " << r.getNumerator() << ' ' << r.getDenominator() << ')';
+        }
       }
       break;
     }
+
     default:
       // fall back on whatever operator<< does on underlying type; we
       // might luck out and be SMT-LIB v2 compliant
