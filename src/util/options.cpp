@@ -109,8 +109,8 @@ Options::Options() :
   lemmaInputChannel(NULL),
   threads(2),			// default should be 1 probably, but
 				// say 2 for now
-  thread_id(-1),
   threadArgv(),
+  thread_id(-1),
   separateOutput(false),
   sharingFilterByLength(-1)
 {
