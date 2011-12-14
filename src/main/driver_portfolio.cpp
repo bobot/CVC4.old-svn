@@ -114,7 +114,7 @@ public:
       d_pickler.toPickle(lemma, pkl);
       d_sharedChannel->push(pkl);
       if(Trace.isOn("showSharing") and options->thread_id == 0) {
-	*(Options::current()->out) << "thread #0: " << lemma << endl;
+	*(Options::current()->out) << "thread #0: notifyNewLemma: " << lemma << endl;
       }
     }catch(expr::pickle::PicklingException& p){
       Trace("sharing::blocked") << lemma << std::endl;
@@ -128,15 +128,17 @@ class PortfolioLemmaInputChannel : public LemmaInputChannel {
 private:
   string d_tag;
   SharedChannel<channelFormat>* d_sharedChannel;
-  expr::pickle::Pickler d_pickler;
+  expr::pickle::MapPickler d_pickler;
 
 public:
   PortfolioLemmaInputChannel(string tag,
                              SharedChannel<channelFormat>* c,
-                             ExprManager* em) :
+                             ExprManager* em,
+                             VarMap& to,
+                             VarMap& from) :
     d_tag(tag),
     d_sharedChannel(c),
-    d_pickler(em){
+    d_pickler(em, to, from){
   }
 
   bool hasNewLemma(){
@@ -150,7 +152,7 @@ public:
 
     Expr e = d_pickler.fromPickle(pkl);
     if(Trace.isOn("showSharing") and Options::current()->thread_id == 0) {
-      *(Options::current()->out) << "thread #1: " << e << endl;
+      *(Options::current()->out) << "thread #0: getNewLemma: " << e << endl;
     }
     return e;
   }
@@ -431,13 +433,38 @@ int runCvc4(int argc, char *argv[], Options& options) {
                                 // after this point
 
   /* Duplication, Individualisation */
-  ExprManagerMapCollection* vmaps;
+  ExprManagerMapCollection* vmaps[numThreads]; // vmaps[0] is generally empty
   Command *seqs[numThreads];
   seqs[0] = seq;   seq = NULL;
   for(int i = 1; i < numThreads; ++i) {
-    vmaps = new ExprManagerMapCollection();
+    vmaps[i] = new ExprManagerMapCollection();
     exprMgrs[i] = new ExprManager(threadOptions[i]);
-    seqs[i] = seqs[0]->exportTo(exprMgrs[i], *vmaps);
+    seqs[i] = seqs[0]->exportTo(exprMgrs[i], *(vmaps[i]) );
+  }
+  /**
+   * vmaps[i].d_from [x] = y means
+   *    that in thread #0's expr manager id is y
+   *    and  in thread #i's expr manager id is x
+   * opposite for d_to
+   *
+   * d_from[x] : in a sense gives the id if converting *from* it to
+   *             first thread
+   */
+
+  /**
+   * Create identity variable map for the first thread, with only
+   * those variables which have a corresponding variable in another
+   * thread. (TODO:Also assert, all threads have the same set of
+   * variables mapped.)
+   */
+  if(numThreads >= 2) {
+    // Get keys from the first thread
+    //Set<uint64_t> s = vmaps[1]->d_to.keys();
+    vmaps[0] = new ExprManagerMapCollection(); // identity be default?
+    for(typeof(vmaps[1]->d_to.begin()) i=vmaps[1]->d_to.begin(); i!=vmaps[1]->d_to.end(); ++i) {
+      (vmaps[0]->d_from)[i->first] = i->first;
+    }
+    vmaps[0]->d_to = vmaps[0]->d_from;
   }
 
   // Create the SmtEngine(s)
@@ -446,7 +473,8 @@ int runCvc4(int argc, char *argv[], Options& options) {
     smts[i] = new SmtEngine(exprMgrs[i]);
 
     // Register the statistics registry of the thread
-    smts[i]->getStatisticsRegistry()->setName("thread #" + boost::lexical_cast<string>(threadOptions[i].thread_id));
+    string tag = "thread #" + boost::lexical_cast<string>(threadOptions[i].thread_id);
+    smts[i]->getStatisticsRegistry()->setName(tag);
     theStatisticsRegistry.registerStat_( (Stat*)smts[i]->getStatisticsRegistry() );
   }
 
@@ -455,37 +483,31 @@ int runCvc4(int argc, char *argv[], Options& options) {
   /* Sharing channels */
   SharedChannel<channelFormat> *channelsOut[numThreads], *channelsIn[numThreads];
 
-  for(int i=0; i<numThreads; ++i){
-    if(Debug.isOn("channel-empty")) {
-      channelsOut[i] = new EmptySharedChannel<channelFormat>(10000);
-      channelsIn[i] = new EmptySharedChannel<channelFormat>(10000);
-      continue;
-    }
-    channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10000);
-    channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10000);
-  }
-
-  /* Lemma output channel */
-  if(numThreads == 2) {
-    threadOptions[0].lemmaOutputChannel =
-      new PortfolioLemmaOutputChannel("thread #0",
-                                      channelsOut[0],
-                                      exprMgrs[0],
-                                      vmaps->d_to,
-                                      vmaps->d_from);
-    threadOptions[1].lemmaOutputChannel =
-      new PortfolioLemmaOutputChannel("thread #1",
-                                      channelsOut[1], exprMgrs[1],
-                                      vmaps->d_from, vmaps->d_to);
-
-    threadOptions[0].lemmaInputChannel =
-      new PortfolioLemmaInputChannel("thread #0", channelsIn[0], exprMgrs[0]);
-    threadOptions[1].lemmaInputChannel =
-      new PortfolioLemmaInputChannel("thread #1", channelsIn[1], exprMgrs[1]);
+  if(numThreads == 1) {
+    // Disable sharing
+    threadOptions[0].sharingFilterByLength = 0;
   } else {
-    // Disable sharing. We do not currently support it.
-    for(int i=0; i<numThreads; ++i)
-      threadOptions[i].sharingFilterByLength = 0;
+    // Setup sharing channels
+    for(int i=0; i<numThreads; ++i){
+      if(Debug.isOn("channel-empty")) {
+        channelsOut[i] = new EmptySharedChannel<channelFormat>(10000);
+        channelsIn[i] = new EmptySharedChannel<channelFormat>(10000);
+        continue;
+      }
+      channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10000);
+      channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10000);
+    }
+
+    /* Lemma output channel */
+    for(int i=0; i<numThreads; ++i) {
+      string tag = "thread #" + boost::lexical_cast<string>(threadOptions[i].thread_id);
+      threadOptions[i].lemmaOutputChannel =
+        new PortfolioLemmaOutputChannel(tag, channelsOut[i], exprMgrs[i],
+                                        vmaps[i]->d_from, vmaps[i]->d_to);
+      threadOptions[i].lemmaInputChannel =
+        new PortfolioLemmaInputChannel(tag, channelsIn[i], exprMgrs[i],
+                                       vmaps[i]->d_from, vmaps[i]->d_to);
+    }
   }
 
   /************************** End of initialization ***********************/
@@ -522,7 +544,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
     returnValue = 0;
   }
 
-  #ifdef CVC4_COMPETITION_MODE
+#ifdef CVC4_COMPETITION_MODE
   // exit, don't return
   // (don't want destructors to run)
   exit(returnValue);
@@ -536,7 +558,6 @@ int runCvc4(int argc, char *argv[], Options& options) {
 
   if(options.statistics) {
     pStatistics->flushInformation(*options.err);
-    *options.err << "Statistics printing complete " << endl;
   }
 
   if(options.separateOutput) {
@@ -563,7 +584,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
   // destruction is causing segfaults, let us just exit
   exit(returnValue);
 
-  delete vmaps;
+  //delete vmaps;
 
   delete statTotatTime;
   delete statBeforePortfolioTime;
@@ -717,15 +738,15 @@ void sharingManager(int numThreads,
 
       T data = channelsOut[t]->pop();
 
-      if(Debug.isOn("sharing")) {
+      if(Trace.isOn("sharing")) {
         ++cnt[t];
-        Debug("sharing") << "sharing: Got data. Thread #" << t
+        Trace("sharing") << "sharing: Got data. Thread #" << t
                          << ". Chunk " << cnt[t] << std :: endl;
       }
 
       for(int u=0; u<numThreads; ++u) {
         if(u != t){
-          Debug("sharing") << "sharing: adding to queue " << u << std::endl;
+          Trace("sharing") << "sharing: adding to queue " << u << std::endl;
           queues[u].push(data);
         }
       }/* end of inner for: broadcast activity */
@@ -734,7 +755,7 @@ void sharingManager(int numThreads,
 
     for(int t=0; t<numThreads; ++t){
       while(!queues[t].empty() && !channelsIn[t]->full()){
-        Debug("sharing") << "sharing: pushing on channel " << t << std::endl;
+        Trace("sharing") << "sharing: pushing on channel " << t << std::endl;
         T data = queues[t].front();
         channelsIn[t]->push(data);
         queues[t].pop();
