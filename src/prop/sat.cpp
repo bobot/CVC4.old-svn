@@ -88,7 +88,7 @@ TNode SatSolver::getNode(SatLiteral lit) {
 }
 
 void SatSolver::notifyRestart() {
-  if(Options::current()->statistics) d_minisat->print_useful_clauses(10); // Stats
+  //  if(Options::current()->statistics) d_minisat->print_useful_clauses(10); // Stats
   d_propEngine->checkTime();
   d_theoryEngine->notifyRestart();
 
