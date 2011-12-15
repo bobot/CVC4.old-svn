@@ -31,6 +31,7 @@ namespace theory {
 namespace bv {
 
 enum RewriteRuleId {
+  /// core rewrite rules
   EmptyRule,
   ConcatFlatten,
   ConcatExtractMerge,
@@ -42,6 +43,13 @@ enum RewriteRuleId {
   FailEq,
   SimplifyEq,
   ReflexivityEq,
+  /// arith rewrite rules
+  UgtToUlt,
+  UgeToUle,
+  SgeToSle,
+  SgtToSlt,
+  UleSplit,
+  SleSplit,
 };
 
 inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
@@ -57,6 +65,12 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case FailEq:              out << "FailEq";              return out;
   case SimplifyEq:          out << "SimplifyEq";          return out;
   case ReflexivityEq:       out << "ReflexivityEq";       return out;
+  case UgtToUlt:            out << "UgtToUlt";            return out;
+  case SgtToSlt:            out << "SgtToSlt";            return out;
+  case UgeToUle:            out << "UgeToUle";            return out;
+  case SgeToSle:            out << "SgeToSle";            return out;
+  case UleSplit:            out << "UleSplit";            return out;
+  case SleSplit:            out << "SleSplit";            return out;
   default:
     Unreachable();
   }
@@ -136,6 +150,7 @@ typename RewriteRule<rule>::RuleStatistics* RewriteRule<rule>::s_statictics = NU
 
 /** Have to list all the rewrite rules to get the statistics out */
 struct AllRewriteRules {
+  
   RewriteRule<EmptyRule>            rule00;
   RewriteRule<ConcatFlatten>        rule01;
   RewriteRule<ConcatExtractMerge>   rule02;
@@ -147,6 +162,13 @@ struct AllRewriteRules {
   RewriteRule<FailEq>               rule08;
   RewriteRule<SimplifyEq>           rule09;
   RewriteRule<ReflexivityEq>        rule10;
+  RewriteRule<UgtToUlt>             rule11;
+  RewriteRule<SgtToSlt>             rule12;
+  RewriteRule<UgeToUle>             rule13;
+  RewriteRule<SgeToSle>             rule14;
+  RewriteRule<UleSplit>             rule15;
+  RewriteRule<SleSplit>             rule16;
+
 };
 
 template<>
@@ -191,7 +213,7 @@ struct ApplyRuleToChildren {
 
 template <
   typename R1,
-  typename R2,
+  typename R2 = RewriteRule<EmptyRule>,
   typename R3 = RewriteRule<EmptyRule>,
   typename R4 = RewriteRule<EmptyRule>,
   typename R5 = RewriteRule<EmptyRule>,

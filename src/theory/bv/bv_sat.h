@@ -142,6 +142,22 @@ class Bitblaster {
   // helper methods to initialize function tables
   void initAtomBBStrategies();
   void initTermBBStrategies(); 
+
+  /// these are public for the bitblasting strategies 
+public:
+  Bits*  bbTerm(TNode node);
+  SatVar newVar();
+  Bits*  freshBits(unsigned size);
+  void   mkClause (const std::vector<SatLit>& lits); 
+  void   mkClause (SatLit lit1); 
+  void   mkClause (SatLit lit1, SatLit lit2);
+  void   mkClause (SatLit lit1, SatLit lit2, SatLit lit3);
+  void   mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4);
+  void   mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5);
+  
+  // dummy literals that are always forced to be assigned to true and false respectively
+  const SatLit d_trueLit;
+  const SatLit d_falseLit; 
   
 public:
   Bitblaster(context::Context* c) :
@@ -177,24 +193,6 @@ public:
 
 private:
   void bbAtom(TNode node);
-
-
-  /// these are public for the bitblasting strategies 
-public:
-  Bits*  bbTerm(TNode node);
-  SatVar newVar();
-  Bits*  freshBits(unsigned size);
-  void   mkClause (const std::vector<SatLit>& lits); 
-  void   mkClause (SatLit lit1); 
-  void   mkClause (SatLit lit1, SatLit lit2);
-  void   mkClause (SatLit lit1, SatLit lit2, SatLit lit3);
-  void   mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4);
-  void   mkClause (SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4, SatLit lit5);
-  
-  // dummy literals that are always forced to be assigned to true and false respectively
-  const SatLit d_trueLit;
-  const SatLit d_falseLit; 
-
   
   class Statistics {
   public:

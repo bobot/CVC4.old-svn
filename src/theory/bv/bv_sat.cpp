@@ -104,7 +104,7 @@ void ClauseManager::assertClause(SatClause* cl) {
 
 bool ClauseManager::solve() {
   TimerStat::CodeTimer codeTimer(d_statistics.d_satSolveTimer);
-  d_canAddClause = false; 
+  d_canAddClause = true; 
   bool res =  d_solver->solve();
   return res; 
 }
@@ -115,7 +115,7 @@ bool ClauseManager::solve(const CDList<SatLit>& assumptions) {
   /// which must be consistent
   Assert (d_solver->solve());
   // do not allow adding more clauses
-  d_canAddClause = false;
+  d_canAddClause = true;
   // solve with the marker literals as assumptions
   return d_solver->solve(assumptions); 
 }
@@ -242,10 +242,6 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4,
  */
 void Bitblaster::bbAtom(TNode node) {
 
-  /// strip the not
-  if (node.getKind() == kind::NOT) {
-    node = node[0];
-  }
     
   if (hasMarkerVar(node)) {
     return; 
@@ -261,8 +257,9 @@ Bits* Bitblaster::bbTerm(TNode node) {
     return def; 
   }
 
-  def = d_termBBStrategies[node.getKind()] (node, this); 
+  def = d_termBBStrategies[node.getKind()] (node, this);
   Assert (def != NULL);
+  Assert (def->size() == utils::getSize(node)); 
   cacheTermDef(node, def); 
   return def; 
 }
@@ -277,13 +274,32 @@ Bits* Bitblaster::bbTerm(TNode node) {
  * @return 
  */
 void Bitblaster::bitblast(TNode node) {
-  // FIXME: better checks
   TimerStat::CodeTimer codeTimer(d_statistics.d_bitblastTimer);
-  if (node.getKind() == kind::EQUAL || node.getKind() == kind::NOT) {
-    bbAtom(node); 
-  } else {
-    bbTerm(node); 
+
+  /// strip the not
+  if (node.getKind() == kind::NOT) {
+    node = node[0];
   }
+  
+  if (node.getKind() == kind::EQUAL ||
+      node.getKind() == kind::BITVECTOR_ULT ||
+      node.getKind() == kind::BITVECTOR_SLT ||
+      node.getKind() == kind::BITVECTOR_ULE || 
+      node.getKind() == kind::BITVECTOR_SLE )
+    {
+    bbAtom(node); 
+    }
+  else if (node.getKind() == kind::BITVECTOR_UGT ||
+           node.getKind() == kind::BITVECTOR_UGE ||
+           node.getKind() == kind::BITVECTOR_SGT ||
+           node.getKind() == kind::BITVECTOR_SGE )
+    {
+      Unhandled(node.getKind()); 
+    }
+  else
+    {
+      bbTerm(node); 
+    }
 }
 
 /** 

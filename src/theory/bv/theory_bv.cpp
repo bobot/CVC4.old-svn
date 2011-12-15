@@ -36,6 +36,7 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
     d_context(c),
     d_assertions(c),
     d_bitblaster(new Bitblaster(c) ),
+    d_staticEqManager(),
     d_statistics()
   {
     d_true = utils::mkTrue();
@@ -44,13 +45,16 @@ TheoryBV::~TheoryBV() {
   delete d_bitblaster; 
 }
 TheoryBV::Statistics::Statistics():
-  d_avgConflictSize("theory::bv::AvgBVConflictSize")
+  d_avgConflictSize("theory::bv::AvgBVConflictSize"),
+  d_solveSubstitutions("theory::bv::NumberOfSolveSubstitutions", 0)
 {
   StatisticsRegistry::registerStat(&d_avgConflictSize);
+  StatisticsRegistry::registerStat(&d_solveSubstitutions);
 }
 
 TheoryBV::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_avgConflictSize);
+  StatisticsRegistry::unregisterStat(&d_solveSubstitutions);
 }
 
 void TheoryBV::preRegisterTerm(TNode node) {
@@ -67,6 +71,7 @@ void TheoryBV::check(Effort e) {
     std::vector<TNode> assertions; 
     while (!done()) {
       TNode assertion = get();
+      Debug("bitvector") << "assertion " << assertion << "\n"; 
       assertions.push_back(assertion); 
     }
     
@@ -113,4 +118,48 @@ Node TheoryBV::explain(TNode node) {
   Assert(0); 
   return node; 
 
+}
+
+// Node TheoryBV::preprocessTerm(TNode term) {
+//   return term; //d_staticEqManager.find(term);
+// }
+
+Theory::SolveStatus TheoryBV::solve(TNode in, SubstitutionMap& outSubstitutions) {
+  switch(in.getKind()) {
+  case kind::EQUAL:
+    d_staticEqManager.addEq(in);
+    
+    if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
+      ++(d_statistics.d_solveSubstitutions); 
+      outSubstitutions.addSubstitution(in[0], in[1]);
+      return SOLVE_STATUS_SOLVED;
+    }
+    if (in[1].getMetaKind() == kind::metakind::VARIABLE && !in[0].hasSubterm(in[1])) {
+      ++(d_statistics.d_solveSubstitutions); 
+      outSubstitutions.addSubstitution(in[1], in[0]);
+      return SOLVE_STATUS_SOLVED;
+    }
+
+    /// substitute in constant values 
+    // if (in[0].getKind() == kind::CONST_BITVECTOR && in[1].getMetaKind() == kind::metakind::VARIABLE) {
+    //   outSubstitutions.addSubstitution(in[1], in[0]);
+    //   ++d_solveSubstitutions; 
+    //   return SOLVE_STATUS_SOLVED;
+    // }
+    // if (in[1].getKind() == kind::CONST_BITVECTOR && in[1].getMetaKind() == kind::metakind::VARIABLE) {
+    //   ++d_solveSubstitutions; 
+    //   outSubstitutions.addSubstitution(in[0], in[1]);
+    //   return SOLVE_STATUS_SOLVED;
+    // }
+
+    // to do constant propagations
+
+    break;
+  case kind::NOT:
+    break;
+  default:
+    // TODO other predicates
+    break;
+  }
+  return SOLVE_STATUS_UNSOLVED;
 }

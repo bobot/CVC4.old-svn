@@ -25,7 +25,7 @@
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "theory/bv/theory_bv_utils.h"
-
+#include "theory/bv/static_eq_manager.h"
 #include "util/stats.h"
 
 namespace BVMinisat {
@@ -55,6 +55,7 @@ private:
   /** Bitblaster */
   Bitblaster* d_bitblaster; 
   Node d_true;
+  StaticEqManager d_staticEqManager; 
   
 public:
 
@@ -74,13 +75,15 @@ public:
   Node getValue(TNode n);
 
   std::string identify() const { return std::string("TheoryBV"); }
-  
+
+  //Node preprocessTerm(TNode term);
+  SolveStatus solve(TNode in, SubstitutionMap& outSubstitutions); 
 private:
   
   class Statistics {
   public:
     AverageStat d_avgConflictSize;
-    
+    IntStat     d_solveSubstitutions; 
     Statistics();
     ~Statistics(); 
   }; 

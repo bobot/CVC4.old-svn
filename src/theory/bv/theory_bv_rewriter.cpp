@@ -21,6 +21,7 @@
 #include "theory/bv/theory_bv_rewriter.h"
 #include "theory/bv/theory_bv_rewrite_rules.h"
 #include "theory/bv/theory_bv_rewrite_rules_core.h"
+#include "theory/bv/theory_bv_rewrite_rules_arith.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;
@@ -29,39 +30,36 @@ using namespace CVC4::theory::bv;
 RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
   
   BVDebug("bitvector") << "TheoryBV::postRewrite(" << node << ")" << std::endl;
-  //  return RewriteResponse(REWRITE_DONE, node);
-  
+    
   Node result = node;
   if (node.getKind() == kind::CONST_BITVECTOR || (node.getKind() != kind::EQUAL && Theory::isLeafOf(node, THEORY_BV))) {
     result = node;
   } else {
     switch (node.getKind()) {
     case kind::BITVECTOR_CONCAT:
-      result = node; 
-      // result = LinearRewriteStrategy<
-      //             // Flatten the top level concatenations
-      //             RewriteRule<ConcatFlatten>,
-      //             // Merge the adjacent extracts on non-constants
-      //             RewriteRule<ConcatExtractMerge>,
-      //             // Merge the adjacent extracts on constants
-      //             RewriteRule<ConcatConstantMerge>,
-      //             // At this point only Extract-Whole could apply, if the result is only one extract
-      //             // or at some sub-expression if the result is a concatenation.
-      //             ApplyRuleToChildren<kind::BITVECTOR_CONCAT, ExtractWhole>
-      //          >::apply(node);
+      result = LinearRewriteStrategy<
+                  // Flatten the top level concatenations
+                  RewriteRule<ConcatFlatten>,
+                  // Merge the adjacent extracts on non-constants
+                  RewriteRule<ConcatExtractMerge>,
+                  // Merge the adjacent extracts on constants
+                  RewriteRule<ConcatConstantMerge>,
+                  // At this point only Extract-Whole could apply, if the result is only one extract
+                  // or at some sub-expression if the result is a concatenation.
+                  ApplyRuleToChildren<kind::BITVECTOR_CONCAT, ExtractWhole>
+               >::apply(node);
       break;
     case kind::BITVECTOR_EXTRACT:
-      result = node; 
-      // result = LinearRewriteStrategy<
-      //             // Extract over a concatenation is distributed to the appropriate concatenations
-      //             RewriteRule<ExtractConcat>,
-      //             // Extract over a constant gives a constant
-      //             RewriteRule<ExtractConstant>,
-      //             // We could get another extract over extract
-      //             RewriteRule<ExtractExtract>,
-      //             // At this point only Extract-Whole could apply
-      //             RewriteRule<ExtractWhole>
-      //           >::apply(node);
+      result = LinearRewriteStrategy<
+                  // Extract over a concatenation is distributed to the appropriate concatenations
+                  RewriteRule<ExtractConcat>,
+                  // Extract over a constant gives a constant
+                  RewriteRule<ExtractConstant>,
+                  // We could get another extract over extract
+                  RewriteRule<ExtractExtract>,
+                  // At this point only Extract-Whole could apply
+                  RewriteRule<ExtractWhole>
+                >::apply(node);
       break;
     case kind::EQUAL:
       result = LinearRewriteStrategy<
@@ -73,6 +71,38 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
                   RewriteRule<ReflexivityEq>
                 >::apply(node);
       break;
+    case kind::BITVECTOR_UGT:
+      result = LinearRewriteStrategy <
+                  RewriteRule<UgtToUlt>
+               >::apply(node);
+      break;
+
+    case kind::BITVECTOR_UGE:
+      result = LinearRewriteStrategy <
+                  RewriteRule<UgeToUle>
+               >::apply(node);
+      break;
+    case kind::BITVECTOR_SGT:
+      result = LinearRewriteStrategy <
+                  RewriteRule<SgtToSlt>
+               >::apply(node);
+      break;
+    case kind::BITVECTOR_SGE:
+      result = LinearRewriteStrategy <
+                  RewriteRule<SgeToSle>
+               >::apply(node);
+      break;
+    case kind::BITVECTOR_ULE:
+      result = LinearRewriteStrategy <
+                  RewriteRule<UleSplit>
+               >::apply(node);
+      break;
+    case kind::BITVECTOR_SLE:
+      result = LinearRewriteStrategy <
+                  RewriteRule<SleSplit>
+               >::apply(node);
+      break;
+
     default:
       // TODO: figure out when this is an operator
       result = node;

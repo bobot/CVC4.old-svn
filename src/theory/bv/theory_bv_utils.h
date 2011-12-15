@@ -104,6 +104,10 @@ inline Node mkConst(const BitVector& value) {
   return NodeManager::currentNM()->mkConst<BitVector>(value);
 }
 
+inline Node mkNode(Kind kind, TNode t1, TNode t2) {
+  return NodeManager::currentNM()->mkNode(kind, t1, t2); 
+} 
+
 inline void getConjuncts(TNode node, std::set<TNode>& conjuncts) {
   if (node.getKind() != kind::AND) {
     conjuncts.insert(node);
@@ -151,6 +155,34 @@ inline Node mkConjunction(const std::set<TNode> nodes) {
   return conjunction;
 }
 
+inline bool isBVPredicate(TNode node) {
+  if (node.getKind() == kind::EQUAL ||
+      node.getKind() == kind::BITVECTOR_ULT ||
+      node.getKind() == kind::BITVECTOR_SLT ||
+      node.getKind() == kind::BITVECTOR_UGT ||
+      node.getKind() == kind::BITVECTOR_UGE ||
+      node.getKind() == kind::BITVECTOR_SGT ||
+      node.getKind() == kind::BITVECTOR_SGE ||
+      node.getKind() == kind::BITVECTOR_ULE || 
+      node.getKind() == kind::BITVECTOR_SLE ||
+      ( node.getKind() == kind::NOT && (node[0].getKind() == kind::EQUAL ||
+                                        node[0].getKind() == kind::BITVECTOR_ULT ||
+                                        node[0].getKind() == kind::BITVECTOR_SLT ||
+                                        node[0].getKind() == kind::BITVECTOR_UGT ||
+                                        node[0].getKind() == kind::BITVECTOR_UGE ||
+                                        node[0].getKind() == kind::BITVECTOR_SGT ||
+                                        node[0].getKind() == kind::BITVECTOR_SGE ||
+                                        node[0].getKind() == kind::BITVECTOR_ULE || 
+                                        node[0].getKind() == kind::BITVECTOR_SLE)))
+    {
+      return true; 
+    }
+  else
+    {
+      return false; 
+    }
+}
+
 inline Node mkConjunction(const std::vector<TNode>& nodes) {
   std::vector<TNode> expandedNodes;
 
@@ -159,7 +191,7 @@ inline Node mkConjunction(const std::vector<TNode>& nodes) {
   while (it != it_end) {
     TNode current = *it;
     if (current != mkTrue()) {
-      Assert(current.getKind() == kind::EQUAL || (current.getKind() == kind::NOT && current[0].getKind() == kind::EQUAL));
+      Assert(isBVPredicate(current));
       expandedNodes.push_back(current);
     }
     ++ it;
