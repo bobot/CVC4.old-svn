@@ -26,6 +26,9 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 
+#define USE_LITERAL_MATCHING
+#define USE_FREE_VARIABLE_INSTANTIATION
+
 void InstStrategyCheckCESolved::resetInstantiationRound(){
 
 }
@@ -35,8 +38,8 @@ bool InstStrategyCheckCESolved::process( int effort ){
   //check if any instantiation constants are solved for
   for( int j = 0; j<(int)d_instEngine->getNumInstantiationConstants( d_f ); j++ ){
     Node i = d_instEngine->getInstantiationConstant( d_f, j );
-    Node rep = d_th->getConcreteRep( i );
-    if( rep!=Node::null() ){
+    Node rep = d_th->getInternalRepresentative( i );
+    if( !rep.hasAttribute(InstConstantAttribute()) ){
       d_instEngine->getMatchGenerator( d_f )->d_baseMatch.setMatch( i, rep );
     }
   }
@@ -96,11 +99,23 @@ bool InstStrategyAutoGenTriggers::process( int effort ){
   return false;
 }
 
+void UfTermDb::registerTerm( Node n ){
+  if( n.getKind()==APPLY_UF ){
+    Node op = n.getOperator();
+    int index = n.hasAttribute(InstConstantAttribute()) ? 1 : 0;
+    if( std::find( d_op_map[index][op].begin(), d_op_map[index][op].end(), n )== d_op_map[index][op].end() ){
+      d_op_map[index][op].push_back( n );
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        registerTerm( n[i] );
+      }
+    }
+  }
+}
+
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th) :
 Instantiator( c, ie, th ),
 d_obligations( c ),
-d_terms_full( c ),
-d_terms( c ),
+//d_terms_full( c ),
 d_disequality( c )
 {
   registerTerm( ((TheoryUF*)d_th)->d_true );
@@ -161,20 +176,17 @@ void InstantiatorTheoryUf::check( Node assertion )
   }
 }
 
-void InstantiatorTheoryUf::registerTerm( Node n, bool isTop ){
+void InstantiatorTheoryUf::registerTerm( Node n ){
+#if 1
+  d_db.registerTerm( n );
+#else
   if( d_terms_full.find( n )==d_terms_full.end() ){
-    if( isTop ){
-      d_terms[n] = true;
-    }
     d_terms_full[n] = true;
-
-    if( n.getKind()==INST_CONSTANT ){
-      d_instEngine->d_ic_active[n] = true;
-    }
     for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      registerTerm( n[i], false );
+      registerTerm( n[i] );
     }
   }
+#endif
   if( n.hasAttribute(InstConstantAttribute()) ){
     setHasConstraintsFrom( n.getAttribute(InstConstantAttribute()) );
   }
@@ -186,11 +198,10 @@ void InstantiatorTheoryUf::resetInstantiationRound()
   InstMatchGenerator::resetAssigned();
   d_status = STATUS_UNFINISHED; 
   d_matches.clear();
-  d_anyMatches.clear();
+  //d_anyMatches.clear();
   d_eq_dep.clear();
   d_litMatchCandidates[0].clear();
   d_litMatchCandidates[1].clear();
-  d_concrete_reps.clear();
   //get representatives that will be used
   EqClassesIterator< TheoryUF::NotifyClass > eqc_iter( &((TheoryUF*)d_th)->d_equalityEngine );
   while( !eqc_iter.isFinished() ){
@@ -199,22 +210,14 @@ void InstantiatorTheoryUf::resetInstantiationRound()
     while( !eqc_iter2.isFinished() ){
       if( rep==Node::null() ){
         rep = *eqc_iter2;
-      }else{
-        bool useRep = false;
+      }else if( !(*eqc_iter2).hasAttribute(InstConstantAttribute()) ){
         if( rep.hasAttribute(InstConstantAttribute()) ){
-          if( !(*eqc_iter2).hasAttribute(InstConstantAttribute()) ){
-            useRep = true;
-          }
-        }else{
-          if( rep.hasAttribute(InstLevelAttribute()) ){
-            if( !(*eqc_iter2).hasAttribute(InstLevelAttribute()) || 
-                (*eqc_iter2).getAttribute(InstLevelAttribute())<rep.getAttribute(InstLevelAttribute()) ){
-              useRep = true;
-            }
-          }
-        }
-        if( useRep ){
           rep = *eqc_iter2;
+        }else if( rep.hasAttribute(InstLevelAttribute()) ){
+          if( !(*eqc_iter2).hasAttribute(InstLevelAttribute()) || 
+              (*eqc_iter2).getAttribute(InstLevelAttribute())<rep.getAttribute(InstLevelAttribute()) ){
+            rep = *eqc_iter2;
+          }
         }
       }
       eqc_iter2++;
@@ -271,14 +274,14 @@ void InstantiatorTheoryUf::debugPrint( const char* c )
     Debug( c ) << std::endl;
     Debug( c ) << "   Inst constants:" << std::endl;
     Debug( c ) << "      ";
-    for( int i=0; i<(int)it->second.size(); i++ ){
+    for( int i=0; i<(int)d_instEngine->getNumInstantiationConstants( f ); i++ ){
       if( i>0 ){
         Debug( c ) << ", ";
       }
-      Debug( c ) << it->second[i];
-      if(d_terms_full.find( it->second[i] )==d_terms_full.end()){
-        Debug( c ) << " (inactive)";
-      }
+      Debug( c ) << d_instEngine->getInstantiationConstant( f, i );
+      //if(d_terms_full.find( it->second[i] )==d_terms_full.end()){
+      //  Debug( c ) << " (inactive)";
+      //}
     }
     Debug( c ) << std::endl;
     Debug( c ) << "   Obligations:" << std::endl;
@@ -326,11 +329,22 @@ Node InstantiatorTheoryUf::getRepresentative( Node a ){
 
 Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
   Node rep = getRepresentative( a );
-  if( d_reps.find( rep )==d_reps.end() ){
-    return rep;
-  }else{
+  if( d_reps.find( rep )!=d_reps.end() ){
     return d_reps[ rep ];
+  }else{
+    return rep;
   }
+  //if( !a.hasAttribute(InstConstantAttribute()) && rep.hasAttribute(InstConstantAttribute()) ){
+  //  std::cout << "Violation: " << a << " " << rep << " " << getRepresentative( a ) << std::endl;
+  //  std::cout << "eq class = ";
+  //  Node rep2 = getRepresentative( a );
+  //  EqClassIterator< TheoryUF::NotifyClass > eqc_iter2( rep2, &((TheoryUF*)d_th)->d_equalityEngine );
+  //  while( !eqc_iter2.isFinished() ){
+  //    std::cout << *eqc_iter2 << " ";
+  //    eqc_iter2++;
+  //  }
+  //  std::cout << std::endl;
+  //}
 }
 
 void InstantiatorTheoryUf::process( Node f, int effort ){
@@ -348,16 +362,9 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
     //check if any instantiation constants are solved for
     for( int j = 0; j<(int)d_instEngine->getNumInstantiationConstants( f ); j++ ){
       Node i = d_instEngine->getInstantiationConstant( f, j );
-      if( d_terms_full.find( i )!=d_terms_full.end() ){
-#if 0
-        Node rep = getConcreteRep( i );
-        if( rep!=Node::null() ){
-#else
-        Node rep = getInternalRepresentative( i );
-        if( !rep.hasAttribute(InstConstantAttribute()) ){
-#endif
-          d_instEngine->getMatchGenerator( f )->d_baseMatch.setMatch( i, rep );
-        }
+      Node rep = getInternalRepresentative( i );
+      if( !rep.hasAttribute(InstConstantAttribute()) ){
+        d_instEngine->getMatchGenerator( f )->d_baseMatch.setMatch( i, rep );
       }
     }
     //check if f is counterexample-solved
@@ -371,6 +378,7 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
     //reset the quantifier match generator
     InstMatchGenerator::d_splitThreshold = effort==1 ? 0 : ( effort==2 ? 1 : 2 );
     InstMatchGenerator::d_useSplitThreshold = true;
+#ifdef USE_LITERAL_MATCHING
     d_instEngine->getMatchGenerator( f )->resetInstantiationRound();
     //this is matching at the literal level : use obligations of f as pattern terms
     //std::cout  << "Generate trigger for literal matching..." << std::endl;
@@ -385,6 +393,7 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
       }
     }
     //std::cout << "done" << std::endl;
+#endif
     //std::cout << "Try user-provided patterns..." << std::endl;
     for( int i=0; i<(int)d_instEngine->getMatchGenerator( f )->getNumUserPatterns(); i++ ){
       if( d_instEngine->getMatchGenerator( f )->addInstantiation( i ) ){
@@ -395,14 +404,14 @@ void InstantiatorTheoryUf::process( Node f, int effort ){
     //std::cout << "done" << std::endl;
     d_instEngine->getMatchGenerator( f )->resetInstantiationRound();
     //std::cout  << "Try auto-generated triggers..." << std::endl;
-    static int triggerThresh = 3;   //try at most 3 triggers
+    static int triggerThresh = effort==1 ? 1 : 2;
     d_instEngine->getMatchGenerator( f )->initializePatternTerms();
     if( d_instEngine->getMatchGenerator( f )->addInstantiation( -1, triggerThresh ) ){
       ++(d_statistics.d_instantiations);
     }
     //std::cout << "done" << std::endl;
   }else{
-#if 1
+#ifdef USE_FREE_VARIABLE_INSTANTIATION
     if( d_guessed.find( f )==d_guessed.end() ){
       d_guessed[f] = true;
       Debug("quant-uf-alg") << "Add guessed instantiation" << std::endl;
@@ -423,20 +432,15 @@ void InstantiatorTheoryUf::calculateMatches( Node f, Node t ){
   Assert( t.getAttribute(InstConstantAttribute())==f );
   if( d_matches.find( t )==d_matches.end() ){
     d_matches[t].clear();
-    d_anyMatches[t].clear();
-    for( BoolMap::const_iterator it = d_terms_full.begin(); it!=d_terms_full.end(); ++it ){
-      Node c = (*it).first;
-      if( t!=c && t.getType()==c.getType() ){
-        calculateEqDep( t, c, f );
-        if( d_eq_dep[t][c] ){
-          if( !c.hasAttribute(InstConstantAttribute()) ){
-            d_matches[t].push_back( c );
-          }else{
-            d_anyMatches[t].push_back( c );
-          }
-        }
+    Node op = t.getOperator();
+    for( int i=0; i<(int)d_db.d_op_map[0][op].size(); i++ ){
+      Node c = d_db.d_op_map[0][op][i];
+      calculateEqDep( t, c, f );
+      if( d_eq_dep[t][c] ){
+        d_matches[t].push_back( c );
       }
     }
+    //std::random_shuffle( d_matches[t].begin(), d_matches[t].end() );
   }
 }
 
@@ -516,16 +520,10 @@ void InstantiatorTheoryUf::calculateEIndLitCandidates( Node t, Node s, Node f, b
             d_litMatchCandidates[0][t].find( c )==d_litMatchCandidates[0][t].end() ){
           if( t.getKind()==INST_CONSTANT ){
             //there is no need in scanning the equivalence class of c 
-#if 0
-            Node cc = getConcreteRep( c );
-            Assert( cc!=Node::null() );
-            d_litMatchCandidates[0][t][c].push_back( cc );
-#else
             c = getInternalRepresentative( c );
             if( !c.hasAttribute(InstConstantAttribute()) ){
               d_litMatchCandidates[0][t][c].push_back( c );
             }
-#endif
           }else{
             EqClassIterator< TheoryUF::NotifyClass > eqc_iter( c, &((TheoryUF*)d_th)->d_equalityEngine );
             while( !eqc_iter.isFinished() ){
@@ -547,6 +545,7 @@ void InstantiatorTheoryUf::calculateEIndLitCandidates( Node t, Node s, Node f, b
         }
       }
     }
+    //std::random_shuffle( d_litMatchCandidates[ind][t][s].begin(), d_litMatchCandidates[ind][t][s].end() );
   }
 }
 
@@ -571,29 +570,6 @@ void InstantiatorTheoryUf::calculateEqDep( Node i, Node c, Node f ){
   }
 }
 
-Node InstantiatorTheoryUf::getConcreteRep( Node n ){
-  n = getRepresentative( n );
-  if( !n.hasAttribute(InstConstantAttribute()) ){
-    return n;
-  }else if( ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( n ) ){
-    Node rep;
-    if( d_concrete_reps.find( n )==d_concrete_reps.end() ){
-      d_concrete_reps[n] = Node::null();
-      EqClassIterator< TheoryUF::NotifyClass > eqc_iter( n, &((TheoryUF*)d_th)->d_equalityEngine );
-      while( !eqc_iter.isFinished() ){
-        if( !(*eqc_iter).hasAttribute(InstConstantAttribute()) ){
-          d_concrete_reps[n] = *eqc_iter;
-          break;
-        }
-        ++eqc_iter;
-      }
-    }
-    return d_concrete_reps[n];
-  }else{
-    return Node::null();
-  }
-}
-
 void InstantiatorTheoryUf::getObligations( Node f, std::vector< Node >& obs ){
   NodeLists::iterator ob_i = d_obligations.find( f );
   if( ob_i!=d_obligations.end() ){
@@ -607,12 +583,12 @@ void InstantiatorTheoryUf::getObligations( Node f, std::vector< Node >& obs ){
 }
 
 InstantiatorTheoryUf::Statistics::Statistics():
-  d_instantiations("InstantiatorTheoryUf::Total Instantiations", 0),
-  d_instantiations_ce_solved("InstantiatorTheoryUf::CE-Solved Instantiations", 0),
-  d_instantiations_e_induced("InstantiatorTheoryUf::E-Induced Instantiations", 0),
-  d_instantiations_user_pattern("InstantiatorTheoryUf::User pattern Instantiations", 0),
-  d_instantiations_guess("InstantiatorTheoryUf::Guess Instantiations", 0),
-  d_splits("InstantiatorTheoryUf::Splits", 0)
+  d_instantiations("InstantiatorTheoryUf::Total_Instantiations", 0),
+  d_instantiations_ce_solved("InstantiatorTheoryUf::CE-Solved_Instantiations", 0),
+  d_instantiations_e_induced("InstantiatorTheoryUf::E-Induced_Instantiations", 0),
+  d_instantiations_user_pattern("InstantiatorTheoryUf::User_Pattern_Instantiations", 0),
+  d_instantiations_guess("InstantiatorTheoryUf::Free_Var_Instantiations", 0),
+  d_splits("InstantiatorTheoryUf::Total_Splits", 0)
 {
   StatisticsRegistry::registerStat(&d_instantiations);
   StatisticsRegistry::registerStat(&d_instantiations_ce_solved);

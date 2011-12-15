@@ -145,8 +145,6 @@ class InstantiationEngine
   friend class ::CVC4::TheoryEngine;
   friend class uf::InstantiatorTheoryUf;
   friend class arith::InstantiatorTheoryArith;
-  friend class InstMatch;
-  friend class TermMatchEngine;
   friend class QuantMatchGenerator;
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
@@ -172,8 +170,6 @@ private:
   std::map< Node, bool > d_is_clausal;
   /** map from quantifiers to whether they are active */
   BoolMap d_active;
-  /** map from instantiation constants to whether they are active */
-  BoolMap d_ic_active;
   /** lemmas produced */
   std::map< Node, bool > d_lemmas_produced;
   /** lemmas waiting */
@@ -257,6 +253,10 @@ public:
     IntStat d_instantiations;
     IntStat d_max_instantiation_level;
     IntStat d_splits;
+    IntStat d_total_inst_var;
+    IntStat d_total_inst_var_unspec;
+    IntStat d_inst_unspec;
+    IntStat d_inst_duplicate;
     Statistics();
     ~Statistics();
   };

@@ -315,11 +315,11 @@ void TheoryQuantifiers::fullEffortCheck(){
       }
     }
     Debug("quantifiers-sat") << "No quantifier is active. " << d_valuation.getDecisionLevel() << std::endl;
-    //static bool setTrust = false;
-    //if( !setTrust ){
-    //  setTrust = true;
-    //  std::cout << "trust-";
-    //}
+    static bool setTrust = false;
+    if( !setTrust ){
+      setTrust = true;
+      std::cout << "trust-";
+    }
     //debugging-end
   }
 }

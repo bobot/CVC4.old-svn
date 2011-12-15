@@ -130,6 +130,14 @@ void TheoryUF::check(Effort level) {
     //AJR-hack-end
   }
 
+  //AJR-hack
+#ifdef USE_STRONG_SOLVER
+  if( d_conflict ){
+    d_thss.check( level, d_out );
+  }
+#endif
+  //AJR-hack-end
+
   // If in conflict, output the conflict
   if (d_conflict) {
     Debug("uf") << "TheoryUF::check(): conflict " << d_conflictNode << std::endl;
@@ -143,11 +151,6 @@ void TheoryUF::check(Effort level) {
   // until we go through the propagation list
   propagate(level);
 
-  //AJR-hack
-#ifdef USE_STRONG_SOLVER
-  d_thss.check( level, d_out );
-#endif
-  //AJR-hack-end
 }/* TheoryUF::check() */
 
 void TheoryUF::propagate(Effort level) {
@@ -162,9 +165,10 @@ void TheoryUF::propagate(Effort level) {
       } else {
         if (!satValue) {
           Debug("uf") << "TheoryUF::propagate(): in conflict" << std::endl;
+          Node negatedLiteral;
           std::vector<TNode> assumptions;
           if (literal != d_false) {
-            TNode negatedLiteral = literal.getKind() == kind::NOT ? literal[0] : (TNode) literal.notNode();
+            negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
             assumptions.push_back(negatedLiteral);
           }
           explain(literal, assumptions);
@@ -231,8 +235,9 @@ bool TheoryUF::propagate(TNode literal) {
     } else {
       Debug("uf") << "TheoryUF::propagate(" << literal << ") => conflict" << std::endl;
       std::vector<TNode> assumptions;
+      Node negatedLiteral;
       if (literal != d_false) {
-        TNode negatedLiteral = literal.getKind() == kind::NOT ? literal[0] : (TNode) literal.notNode();
+        negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
         assumptions.push_back(negatedLiteral);
       }
       explain(literal, assumptions);
@@ -261,9 +266,16 @@ void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
       rhs = d_true;
       break;
     case kind::NOT:
-      lhs = literal[0];
-      rhs = d_false;
-      break;
+      if (literal[0].getKind() == kind::EQUAL) {
+        // Disequalities
+        d_equalityEngine.explainDisequality(literal[0][0], literal[0][1], assumptions);
+        return;
+      } else {
+        // Predicates
+        lhs = literal[0];
+        rhs = d_false;
+        break;
+      }
     case kind::CONST_BOOLEAN:
       // we get to explain true = false, since we set false to be the trigger of this
       lhs = d_true;
@@ -272,8 +284,8 @@ void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
     default:
       Unreachable();
   }
-  d_equalityEngine.getExplanation(lhs, rhs, assumptions);
-}/* TheoryUF::explain() */
+  d_equalityEngine.explainEquality(lhs, rhs, assumptions);
+}
 
 Node TheoryUF::explain(TNode literal) {
   Debug("uf") << "TheoryUF::explain(" << literal << ")" << std::endl;
@@ -429,7 +441,7 @@ void TheoryUF::addSharedTerm(TNode t) {
   d_equalityEngine.addTriggerTerm(t);
   //AJR-hack
   if( getInstantiator() ){
-    ((InstantiatorTheoryUf*)getInstantiator())->registerTerm( t, false );
+    ((InstantiatorTheoryUf*)getInstantiator())->registerTerm( t );
   }
   //AJR-hack-end
 }
@@ -511,6 +523,16 @@ Instantiator* TheoryUF::makeInstantiator(){
   Debug("quant-uf") << "Make UF instantiator" << endl;
   return new InstantiatorTheoryUf( getContext(), d_instEngine, this );
 }
+
+//AJR-hack
+UfTermDb* TheoryUF::getTermDatabase(){
+  if( getInstantiator() ){
+    return ((InstantiatorTheoryUf*)getInstantiator())->getTermDatabase();
+  }else{
+    return NULL;
+  }
+}
+//AJR-hack-end
 
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */

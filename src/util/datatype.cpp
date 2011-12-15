@@ -438,10 +438,10 @@ void DatatypeConstructor::resolve(ExprManager* em, DatatypeType self,
   d_tester = em->mkVar(d_name.substr(d_name.find('\0') + 1), em->mkTesterType(self));
   d_name.resize(d_name.find('\0'));
   d_constructor = em->mkVar(d_name, em->mkConstructorType(*this, self));
-  //associate constructor with all selectors
-  for(iterator i = begin(), i_end = end(); i != i_end; ++i) {
-    (*i).d_constructor = d_constructor;
-  }
+  ////associate constructor with all selectors
+  //for(iterator i = begin(), i_end = end(); i != i_end; ++i) {
+  //  (*i).d_constructor = d_constructor;
+  //}
 }
 
 Type DatatypeConstructor::doParametricSubstitution( Type range,
@@ -734,11 +734,11 @@ Expr DatatypeConstructorArg::getSelector() const {
   return d_selector;
 }
 
-Expr DatatypeConstructorArg::getConstructor() const {
-  CheckArgument(isResolved(), this,
-                "cannot get a associated constructor for argument of an unresolved datatype constructor");
-  return d_constructor;
-}
+//Expr DatatypeConstructorArg::getConstructor() const {
+//  CheckArgument(isResolved(), this,
+//                "cannot get a associated constructor for argument of an unresolved datatype constructor");
+//  return d_constructor;
+//}
 
 Type DatatypeConstructorArg::getType() const {
   return getSelector().getType();

@@ -37,6 +37,7 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
+class UfTermDb;
 class InstantiatorTheoryUf;
 class StrongSolverTheoryUf;
 
@@ -133,6 +134,10 @@ public:
   }
 
   Instantiator* makeInstantiator();
+
+  //AJR-hack
+  UfTermDb* getTermDatabase();
+  //AJR-hack-end
 };/* class TheoryUF */
 
 }/* CVC4::theory::uf namespace */

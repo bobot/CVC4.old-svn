@@ -251,11 +251,18 @@ void TheoryEngine::combineTheories() {
 
     Node equality = carePair.a.eqNode(carePair.b);
     Node normalizedEquality = Rewriter::rewrite(equality);
+	bool isTrivial = normalizedEquality.getKind() == kind::CONST_BOOLEAN;
+
 
     // If the node has a literal, it has been asserted so we should just check it
     bool value;
-    if (d_propEngine->isSatLiteral(normalizedEquality) && d_propEngine->hasValue(normalizedEquality, value)) {
-      Debug("sharing") << "TheoryEngine::combineTheories(): has a literal " << std::endl;
+    if (isTrivial || (d_propEngine->isSatLiteral(normalizedEquality) && d_propEngine->hasValue(normalizedEquality, value))) {
+      Debug("sharing") << "TheoryEngine::combineTheories(): has a literal or is trivial" << std::endl;
+
+	  if (isTrivial) {
+	    // if the equality is trivial, we assert it back to the theory saying the sat solver should explain
+	    value = normalizedEquality.getConst<bool>();
+	  }
 
       // Normalize the equality to the theory that requested it
       Node toAssert = Rewriter::rewriteEquality(carePair.theory, equality);
@@ -593,10 +600,17 @@ void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
     d_propagatedLiterals.push_back(literal);
   } else {
     // Otherwise it might be a shared-term (dis-)equality
-    Node normalizedEquality = Rewriter::rewrite(literal);
-    if (d_propEngine->isSatLiteral(normalizedEquality)) {
+    Node normalizedLiteral = Rewriter::rewrite(literal);
+    if (d_propEngine->isSatLiteral(normalizedLiteral)) {
       // If there is a literal, just enqueue it, same as above
-      d_propagatedLiterals.push_back(normalizedEquality);
+      bool value;
+      if (d_propEngine->hasValue(normalizedLiteral, value)) {
+        // if we are propagting something that already has a sat value we better be the same
+        Debug("theory") << "literal " << literal << " (" << normalizedLiteral << ") propagated by " << theory << " but already has a sat value " << (value ? "true" : "false") << std::endl;
+        Assert(value);
+      } else {
+        d_propagatedLiterals.push_back(normalizedLiteral);
+      }
     }
     // Otherwise, we assert it to all interested theories
     Theory::Set lhsNotified = d_sharedTerms.getNotifiedTheories(atom[0]);
@@ -613,10 +627,14 @@ void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
         if (Theory::setContains(currentTheory, lhsNotified) && Theory::setContains(currentTheory, rhsNotified)) {
           // Normalize the equality
           Node equality = Rewriter::rewriteEquality(currentTheory, atom);
-          // The assertion
-          Node assertion = negated ? equality.notNode() : equality;
-          // Remember it to assert later
-          d_propagatedEqualities.push_back(SharedEquality(assertion, literal, theory, currentTheory));
+          if (equality.getKind() != kind::CONST_BOOLEAN) {
+            // The assertion
+            Node assertion = negated ? equality.notNode() : equality;
+            // Remember it to assert later
+            d_propagatedEqualities.push_back(SharedEquality(assertion, literal, theory, currentTheory));
+          } else {
+            Assert(negated || equality.getConst<bool>());
+          }
         }
       }
     }
@@ -720,7 +738,7 @@ void TheoryEngine::explainEquality(TheoryId theoryId, TNode eqLiteral, NodeBuild
   SharedAssertionsMap::iterator find = d_sharedAssertions.find(NodeTheoryPair(eqLiteral, theoryId));
   if (find == d_sharedAssertions.end()) {
     // Not a shared assertion, just add it since it must be SAT literal
-    builder << eqLiteral;
+    builder << Rewriter::rewrite(eqLiteral);
   } else {
     TheoryId explainingTheory = (*find).second.theory;
     if (explainingTheory == theory::THEORY_LAST) {
@@ -733,4 +751,3 @@ void TheoryEngine::explainEquality(TheoryId theoryId, TNode eqLiteral, NodeBuild
     }
   }
 }
-

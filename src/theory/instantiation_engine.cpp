@@ -83,8 +83,7 @@ bool Instantiator::isOwnerOf( Node f ){
 
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
-d_active( c ),
-d_ic_active( c ){
+d_active( c ){
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
     d_instTable[theoryId] = NULL;
   }
@@ -111,7 +110,6 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
   //for( int i=0; i<(int)terms.size(); i++ ){
   //  std::cout << "   " << terms[i] << std::endl;
   //}
-
   Assert( f.getKind()==FORALL );
   Assert( !f.hasAttribute(InstConstantAttribute()) );
   Assert( d_vars[f].size()==terms.size() && d_vars[f].size()==f[0].getNumChildren() );
@@ -122,14 +120,20 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
   Node lem = nb;
   if( addLemma( lem ) ){
     Debug("inst-engine") << "*** Instantiate " << f << " with " << std::endl;
+    //std::cout << "*** Instantiate " << f << " with " << std::endl;
     uint64_t maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
       if( terms[i].hasAttribute(InstConstantAttribute()) ){
+        //std::cout << "***& Instantiate " << f << " with " << std::endl;
+        //for( int i=0; i<(int)terms.size(); i++ ){
+        //  std::cout << "   " << terms[i] << std::endl;
+        //}
         std::cout << "unknown ";
         exit( 19 );
       }
       Assert( !terms[i].hasAttribute(InstConstantAttribute()) );
       Debug("inst-engine") << "   " << terms[i];
+      //std::cout << "   " << terms[i] << std::endl;
       //Debug("inst-engine") << " " << terms[i].getAttribute(InstLevelAttribute());
       Debug("inst-engine") << std::endl;
       if( terms[i].hasAttribute(InstLevelAttribute()) ){
@@ -142,9 +146,11 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
     }
     setInstantiationLevel( body, maxInstLevel+1 );
     ++(d_statistics.d_instantiations);
+    d_statistics.d_total_inst_var.setData( d_statistics.d_total_inst_var.getData() + (int)terms.size() );
     d_statistics.d_max_instantiation_level.maxAssign( maxInstLevel+1 );
     return true;
   }else{
+    ++(d_statistics.d_inst_duplicate);
     return false;
   }
 }
@@ -152,6 +158,12 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
 bool InstantiationEngine::addInstantiation( InstMatch* m, bool addSplits ){
   //Assert( m->isComplete() );
   //std::cout << "compute vec " << m << std::endl;
+  int origTermSize = 0;
+  for( std::map< Node, Node >::iterator it = m->d_map.begin(); it != m->d_map.end(); ++it ){
+    if( it->second!=Node::null() ){
+      origTermSize++;
+    }
+  }
   m->computeTermVec( this );
   //std::cout << "done" << std::endl;
   //std::cout << "m's quant is " << m->getQuantifier() << std::endl;
@@ -161,6 +173,15 @@ bool InstantiationEngine::addInstantiation( InstMatch* m, bool addSplits ){
   //}
 
   if( addInstantiation( m->getQuantifier(), m->d_match ) ){
+    d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)m->d_match.size() - origTermSize );
+    if( (int)m->d_match.size()!=origTermSize ){
+      //std::cout << "Unspec. " << std::endl;
+      //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
+      //for( int i=0; i<(int)m->d_match.size(); i++ ){
+      //  std::cout << "   " << m->d_match[i] << std::endl;
+      //}
+      ++(d_statistics.d_inst_unspec);
+    }
     if( addSplits ){
       for( std::map< Node, Node >::iterator it = m->d_splits.begin(); it != m->d_splits.end(); ++it ){
         addSplitEquality( it->first, it->second, true, true );
@@ -340,6 +361,7 @@ bool InstantiationEngine::doInstantiationRound( OutputChannel* out ){
   d_status = Instantiator::STATUS_UNFINISHED;
   while( d_status==Instantiator::STATUS_UNFINISHED ){
     Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
+    //std::cout << "IE: Prepare instantiation (" << e << ")." << std::endl; 
     d_status = Instantiator::STATUS_SAT;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
@@ -384,15 +406,23 @@ void InstantiationEngine::setInstantiationLevel( Node n, uint64_t level ){
 }
 
 InstantiationEngine::Statistics::Statistics():
-  d_instantiation_rounds("InstantiationEngine::Instantiation Rounds", 0),
-  d_instantiations("InstantiationEngine::Total Instantiations", 0),
-  d_max_instantiation_level("InstantiationEngine::Max Instantiation Level", 0),
-  d_splits("InstantiationEngine::Total Splits", 0)
+  d_instantiation_rounds("InstantiationEngine::Instantiation_Rounds", 0),
+  d_instantiations("InstantiationEngine::Total_Instantiations", 0),
+  d_max_instantiation_level("InstantiationEngine::Max_Instantiation_Level", 0),
+  d_splits("InstantiationEngine::Total_Splits", 0),
+  d_total_inst_var("InstantiationEngine::Inst_Vars", 0),
+  d_total_inst_var_unspec("InstantiationEngine::Inst_Vars_Unspecified", 0),
+  d_inst_unspec("InstantiationEngine::Inst_Unspecified", 0),
+  d_inst_duplicate("InstantiationEngine::Inst_Duplicate", 0)
 {
   StatisticsRegistry::registerStat(&d_instantiation_rounds);
   StatisticsRegistry::registerStat(&d_instantiations);
   StatisticsRegistry::registerStat(&d_max_instantiation_level);
   StatisticsRegistry::registerStat(&d_splits);
+  StatisticsRegistry::registerStat(&d_total_inst_var);
+  StatisticsRegistry::registerStat(&d_total_inst_var_unspec);
+  StatisticsRegistry::registerStat(&d_inst_unspec);
+  StatisticsRegistry::registerStat(&d_inst_duplicate);
 }
 
 InstantiationEngine::Statistics::~Statistics(){
@@ -400,6 +430,10 @@ InstantiationEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_instantiations);
   StatisticsRegistry::unregisterStat(&d_max_instantiation_level);
   StatisticsRegistry::unregisterStat(&d_splits);
+  StatisticsRegistry::unregisterStat(&d_total_inst_var);
+  StatisticsRegistry::unregisterStat(&d_total_inst_var_unspec);
+  StatisticsRegistry::unregisterStat(&d_inst_unspec);
+  StatisticsRegistry::unregisterStat(&d_inst_duplicate);
 }
 
 Node InstantiationEngine::getFreeVariableForInstConstant( Node n ){

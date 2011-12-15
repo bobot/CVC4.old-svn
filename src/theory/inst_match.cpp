@@ -251,6 +251,7 @@ InstMatchGenerator* InstMatchGenerator::mkAnyMatchInstMatchGenerator( Node t ){
 bool InstMatchGenerator::areEqual( Node a, Node b ) { return d_itu->areEqual( a, b ); }
 bool InstMatchGenerator::areDisequal( Node a, Node b ) { return d_itu->areDisequal( a, b ); }
 Node InstMatchGenerator::getRepresentative( Node a ) { return d_itu->getRepresentative( a ); }
+Node InstMatchGenerator::getInternalRepresentative( Node a ) { return d_itu->getInternalRepresentative( a ); }
 
 bool InstMatchGenerator::getNextMatch(){
   Debug( "quant-uf-uiter" ) << "get next match " << this << std::endl;
@@ -338,24 +339,37 @@ void InstMatchGenerator::calcChildrenTriv(){
   if( d_operation==0 ){
     if( d_t.getKind()==INST_CONSTANT && d_s.getAttribute(InstConstantAttribute())!=f ){
       InstMatch m( f, d_itu->d_instEngine );
-      Node c = getRepresentative( d_s );
-      if( !areEqual( d_t, c ) ){
-        m.setMatch( d_t, c );
-      }
+      Node c = getInternalRepresentative( d_s );
+      //if( !areEqual( d_t, c ) ){
+      m.setMatch( d_t, c );
+      //}
       d_mg.push_back( m );
       d_mg_set = true;
     }  
   }else if( d_operation==2 ){
     if( d_t.getKind()==INST_CONSTANT ){
       InstMatch m( f, d_itu->d_instEngine );
-      Node c = getRepresentative( d_s );
-      if( !areEqual( d_t, c ) ){
-        m.setMatch( d_t, c );
-      }
+      Node c = getInternalRepresentative( d_s );
+      //if( !areEqual( d_t, c ) ){
+      m.setMatch( d_t, c );
+      //}
       d_mg.push_back( m );
       d_mg_set = true;
     }else{
-      
+      InstMatch m( f, d_itu->d_instEngine );
+      for( int j=0; j<(int)d_t.getNumChildren(); j++ ){
+        if( d_t[j].hasAttribute(InstConstantAttribute()) ){
+          if( d_t[j].getKind()==APPLY_UF ){
+            return;
+          }else if( d_t[j].getKind()==INST_CONSTANT ){
+            m.setMatch( d_t[j], getInternalRepresentative( d_s[j] ) );
+          }
+        }else if( !areEqual( d_t[j], d_s[j] ) ){
+          return;
+        }
+      }
+      d_mg.push_back( m );
+      d_mg_set = true;
     }
   }
 }
@@ -436,20 +450,15 @@ void InstMatchGenerator::calcChildren(){
         Assert( d_t.getNumChildren()==d_s.getNumChildren() );
         Node f = d_t.getAttribute(InstConstantAttribute());
         for( int j=0; j<(int)d_s.getNumChildren(); j++ ){
-          if( !areEqual( d_t[j], d_s[j] ) ){
-            if( d_t[j].hasAttribute(InstConstantAttribute()) ){
-              d_children.push_back( mkCombineInstMatchGenerator( d_t[j], getRepresentative( d_s[j] ), true ) );
+          if( d_t[j].hasAttribute(InstConstantAttribute()) ){
+            d_children.push_back( mkCombineInstMatchGenerator( d_t[j], getRepresentative( d_s[j] ), true ) );
+          }else if( !areEqual( d_t[j], d_s[j] ) ){
+            if( d_s[j].getAttribute(InstConstantAttribute())!=f ){
+              addSplit( d_t[j], d_s[j] );
             }else{
-              if( d_s[j].getAttribute(InstConstantAttribute())!=f ){
-                addSplit( d_t[j], d_s[j] );
-              }else{
-                d_children.clear();
-                break;
-              }
+              d_children.clear();
+              break;
             }
-          }else if( areDisequal( d_t[j], d_s[j] ) ){
-            d_children.clear();
-            break;
           }
         }
       }else if( d_operation==3 ){
@@ -632,98 +641,6 @@ bool InstMatchGenerator::calcNextMatch(){
   }
 }
 
-double InstMatchGenerator::collectUnmerged( std::map< InstMatchGenerator*, InstMatchGenerator* >& index, std::vector< InstMatchGenerator* >& unmerged,
-                                   std::vector< InstMatchGenerator* >& cover ){
-  Assert( getMaster()->d_children_set );
-  Assert( getMaster()->d_mg.empty() && getMaster()->d_mg_set );
-  if( getMaster()->d_children.empty() ){
-    unmerged.push_back( this );
-    return 0.0;
-  }else{
-    if( getMaster()->isCombine() ){
-      double maxScore = -1.0;
-      int maxIndex = -1;
-      //take maximum index child
-      std::vector< InstMatchGenerator* > unmg;
-      std::vector< InstMatchGenerator* > cvr;
-      for( int i=0; i<(int)getMaster()->d_children.size(); i++ ){
-        std::vector< InstMatchGenerator* > unmg_temp;
-        std::vector< InstMatchGenerator* > cvr_temp;
-        double cScore = getMaster()->d_children[ i ]->collectUnmerged( index, unmg_temp, cvr_temp );
-        if( cScore>maxScore ){
-          maxScore = cScore;
-          maxIndex = i;
-          unmg.clear();
-          unmg.insert( unmg.end(), unmg_temp.begin(), unmg_temp.end() );
-          cvr.clear();
-          cvr.insert( cvr.end(), cvr_temp.begin(), cvr_temp.end() );
-        }
-      }
-      index[ this ] = getMaster()->d_children[ maxIndex ];
-      unmerged.insert( unmerged.end(), unmg.begin(), unmg.end() );
-      cover.insert( cover.end(), cvr.begin(), cvr.end() );
-      return maxScore;
-    }else{
-      bool emptyChild = false;
-      double score = 0.0;
-      for( int i=0; i<(int)getMaster()->d_children.size(); i++ ){
-        if( !getMaster()->d_children[i]->getMaster()->d_mg_set &&
-            getMaster()->d_children[i]->getMaster()->d_mg.empty() ){
-          getMaster()->d_children[i]->getNextMatch();
-        }
-        if( getMaster()->d_children[i]->empty() ){
-          score += .5*getMaster()->d_children[i]->collectUnmerged( index, unmerged, cover );
-          emptyChild = true;
-        }else{
-          Assert( !getMaster()->d_children[i]->getMaster()->d_mg.empty() );
-          cover.push_back( getMaster()->d_children[i] );
-          score += 1.0;
-        }
-      }
-      if( !emptyChild ){
-        unmerged.push_back( this );
-      }
-      score = score/(double)(getMaster()->d_children.size());
-      return score;
-    }
-  }
-}
-
-void InstMatchGenerator::collectUnmerged( std::vector< InstMatchGenerator* >& unmerged, std::vector< InstMatchGenerator* >& cover ){
-  if( !getMaster()->d_mg.empty() ){
-    return;
-  }
-  Assert( getMaster()->d_children_set );
-  Assert( getMaster()->d_mg_set );
-  if( getMaster()->d_children.empty() ){
-    unmerged.push_back( this );
-  }else{
-    if( getMaster()->isCombine() ){
-      //take maximum index child
-      for( int i=0; i<(int)getMaster()->d_children.size(); i++ ){
-        getMaster()->d_children[ i ]->collectUnmerged( unmerged, cover );
-      }
-    }else{
-      bool emptyChild = false;
-      for( int i=0; i<(int)getMaster()->d_children.size(); i++ ){
-        if( !getMaster()->d_children[i]->getMaster()->d_mg_set &&
-            getMaster()->d_children[i]->getMaster()->d_mg.empty() ){
-          getMaster()->d_children[i]->getNextMatch();
-        }
-        if( getMaster()->d_children[i]->empty() ){
-          getMaster()->d_children[i]->collectUnmerged( unmerged, cover );
-        }else{
-          Assert( !getMaster()->d_children[i]->getMaster()->d_mg.empty() );
-          cover.push_back( getMaster()->d_children[i] );
-        }
-      }
-      if( !emptyChild ){
-        unmerged.push_back( this );
-      }
-    }
-  }
-}
-
 std::map< Node, std::vector< Node > > QuantMatchGenerator::Trigger::d_var_contains;
 
 void QuantMatchGenerator::Trigger::computeVarContains2( Node n, Node parent ){
@@ -859,6 +776,7 @@ InstMatchGenerator* QuantMatchGenerator::getNextGenerator(){
         }
       }
     }else if( d_match_gen.size()==1 ){
+      //std::cout << "gen next." << std::endl;
       d_currTrigger.clear();
       std::random_shuffle( d_patTerms.begin(), d_patTerms.end() );
       //generate a trigger

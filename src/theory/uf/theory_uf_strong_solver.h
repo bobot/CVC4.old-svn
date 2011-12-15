@@ -76,6 +76,8 @@ public:
         context::CDO< bool > d_valid;
         DiseqList* d_disequalities[2];
 
+        int getNumDisequalities() { return d_disequalities[0]->d_size + d_disequalities[1]->d_size; }
+        int getNumExternalDisequalities() { return d_disequalities[0]->d_size; }
         int getNumInternalDisequalities() { return d_disequalities[1]->d_size; }
       };
       ///** end class RegionNodeInfo */
@@ -148,6 +150,9 @@ public:
     std::vector< Node > d_disequalities;
     /** number of representatives in all regions */
     context::CDO< unsigned > d_reps;
+    /** whether two terms are ambiguous (indexed by equalities) */
+    NodeBoolMap d_term_amb;
+  private:
     /** merge regions */
     void combineRegions( int ai, int bi );
     /** move node n to region ri */
@@ -157,14 +162,17 @@ public:
     /** get number of disequalities from Region r to other regions */
     void getDisequalitiesToRegions( int ri, std::map< int, int >& regions_diseq );
     /** check if we need to combine region ri */
-    bool checkCombine( int ri, bool rec = true );
+    bool checkRegion( int ri, bool rec = true );
     /** explain clique */
     void explainClique( std::vector< Node >& clique, OutputChannel* out );
     /** is valid */
-    bool isValid( int ri ) { return d_regions[ ri ]->d_valid && ri<(int)d_regions_index; }
+    bool isValid( int ri ) { return ri>=0 && d_regions[ ri ]->d_valid && ri<(int)d_regions_index; }
+    /** check ambiguous terms */
+    void disambiguateTerms( OutputChannel* out );
   public:
     ConflictFind( context::Context* c, TheoryUF* th ) : 
-        d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ), d_reps( c, 0 ){}
+        d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ), 
+        d_reps( c, 0 ), d_term_amb( c ){}
     ~ConflictFind(){}
     /** cardinality operating with */
     unsigned d_cardinality;
@@ -180,7 +188,7 @@ public:
     void check( Theory::Effort level, OutputChannel* out );
     //print debug
     void debugPrint( const char* c );
-  };
+  }; /** class ConflictFind */
 private:
   /** theory uf pointer */
   TheoryUF* d_th;

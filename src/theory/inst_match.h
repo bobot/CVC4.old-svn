@@ -99,6 +99,7 @@ protected:
   static bool areEqual( Node a, Node b );
   static bool areDisequal( Node a, Node b );
   static Node getRepresentative( Node a );
+  static Node getInternalRepresentative( Node a );
   /** has d_children been set */
   bool d_children_set;
   /** has d_mg been set */
@@ -180,10 +181,6 @@ public:
   }
   /** get instantiation level */
   int getInstantiationLevel();
-  /** determine issues for why no matches were produced */
-  double collectUnmerged( std::map< InstMatchGenerator*, InstMatchGenerator* >& index, std::vector< InstMatchGenerator* >& unmerged,
-                          std::vector< InstMatchGenerator* >& cover );
-  void collectUnmerged( std::vector< InstMatchGenerator* >& unmerged, std::vector< InstMatchGenerator* >& cover );
 
   //default
   static InstMatchGenerator* mkInstMatchGenerator( bool isComb = false );

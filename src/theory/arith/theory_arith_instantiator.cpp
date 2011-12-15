@@ -29,6 +29,8 @@ using namespace CVC4::theory::arith;
 #define ARITH_INSTANTIATOR_USE_MINUS_DELTA
 #define ARITH_INSTANTIATOR_STRONG_DELTA_LEMMA
 
+#define USE_ARITH_INSTANTIATION
+
 InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
 
@@ -178,6 +180,9 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
 
 void InstantiatorTheoryArith::process( Node f, int effort ){
   Debug("quant-arith") << "Arith: Try to solve (" << effort << ") for " << f << "... " << std::endl;
+#ifndef USE_ARITH_INSTANTIATION
+  return;
+#endif
   if( effort>2 ){
     d_quantStatus = STATUS_UNKNOWN;
   }else if( effort==2 ){
@@ -338,11 +343,11 @@ Node InstantiatorTheoryArith::getDelta( Node n ){
 }
 
 InstantiatorTheoryArith::Statistics::Statistics():
-  d_instantiations("InstantiatorTheoryArith::Total Instantiations", 0),
-  d_instantiations_minus("InstantiatorTheoryArith::Instantiations minus delta", 0),
-  d_instantiations_match_pure("InstantiatorTheoryArith::Instantiations via pure matching", 0),
-  d_instantiations_match_var("InstantiatorTheoryArith::Instantiations via matching var", 0),
-  d_instantiations_match_no_var("InstantiatorTheoryArith::Instantiations via matching no var", 0)
+  d_instantiations("InstantiatorTheoryArith::Total_Instantiations", 0),
+  d_instantiations_minus("InstantiatorTheoryArith::Instantiations_minus_delta", 0),
+  d_instantiations_match_pure("InstantiatorTheoryArith::Instantiations_via_pure_matching", 0),
+  d_instantiations_match_var("InstantiatorTheoryArith::Instantiations_via_matching_var", 0),
+  d_instantiations_match_no_var("InstantiatorTheoryArith::Instantiations_via_matching_no_var", 0)
 {
   StatisticsRegistry::registerStat(&d_instantiations);
   StatisticsRegistry::registerStat(&d_instantiations_minus);

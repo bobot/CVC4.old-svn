@@ -82,6 +82,18 @@ public:
   bool process( int effort );
 };
 
+
+class UfTermDb
+{
+public:
+  UfTermDb(){}
+  ~UfTermDb(){}
+  /** map from APPLY_UF operators to ground, pattern terms for that operator */
+  std::map< Node, std::vector< Node > > d_op_map[2];
+  /** register this term */
+  void registerTerm( Node n );
+};
+
 class InstantiatorTheoryUf : public Instantiator{
   friend class ::CVC4::theory::InstMatchGenerator;
 protected:
@@ -93,10 +105,10 @@ protected:
 
   /** list of currently asserted literals for each quantifier */
   NodeLists d_obligations;
+  /** term database */
+  UfTermDb d_db;
   /** all terms in the current context */
-  BoolMap d_terms_full;
-  /** terms in the current context that have an equality or disequality with another term */
-  BoolMap d_terms;
+  //BoolMap d_terms_full;
   /** map from (representative) nodes to list of representative nodes they are disequal from */
   NodeList d_disequality;
   /** map to representatives used */
@@ -106,7 +118,6 @@ protected:
   bool areEqual( Node a, Node b );
   bool areDisequal( Node a, Node b );
   Node getRepresentative( Node a );
-  Node getInternalRepresentative( Node a );
   /** has instantiation constant */
   void addObligationToList( Node ob, Node f );
   void addObligations( Node n, Node ob );
@@ -124,14 +135,14 @@ public:
   /** debug print */
   void debugPrint( const char* c );
   /** register terms */
-  void registerTerm( Node n, bool isTop = true );
+  void registerTerm( Node n );
 private:
   /** calculate matches for quantifier f at effort */
   void process( Node f, int effort );
 
   /** find best match to any term */
   std::map< Node, std::vector< Node > > d_matches;
-  std::map< Node, std::vector< Node > > d_anyMatches;
+  //std::map< Node, std::vector< Node > > d_anyMatches;
   void calculateMatches( Node f, Node t );
   /** calculate sets possible matches to induce t ~ s */
   std::map< Node, std::map< Node, std::vector< Node > > > d_litMatchCandidates[2];
@@ -139,14 +150,13 @@ private:
   /** calculate whether two terms are equality-dependent */
   std::map< Node, std::map< Node, bool > > d_eq_dep;
   void calculateEqDep( Node i, Node c, Node f );
-
-  /** list of concrete representatives */
-  std::map< Node, Node > d_concrete_reps;
 public:
-  /** get concrete term in eq class */
-  Node getConcreteRep( Node n );
   /** get obligations for quantifier f */
   void getObligations( Node f, std::vector< Node >& obs );
+  /** get internal representative */
+  Node getInternalRepresentative( Node a );
+  /** get uf term database */
+  UfTermDb* getTermDatabase() { return &d_db; }
   /** statistics class */
   class Statistics {
   public:
