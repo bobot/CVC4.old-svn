@@ -119,6 +119,7 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
   nb << f.notNode() << body;
   Node lem = nb;
   if( addLemma( lem ) ){
+    //std::cout << "**INST" << std::endl;
     Debug("inst-engine") << "*** Instantiate " << f << " with " << std::endl;
     //std::cout << "*** Instantiate " << f << " with " << std::endl;
     uint64_t maxInstLevel = 0;
