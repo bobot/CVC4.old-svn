@@ -26,6 +26,8 @@ namespace bv {
 
 // helper functions
 inline void bitXor(SatLit res, SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::bitXor " << toStringLit(res) << " "
+                         << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
   bb->mkClause(neg(res), a, b);
   bb->mkClause(neg(res), neg(a), neg(b));
   bb->mkClause(res, neg(a), b);
@@ -33,58 +35,80 @@ inline void bitXor(SatLit res, SatLit a, SatLit b, Bitblaster* bb) {
 }
 
 inline void bitAnd(SatLit res, SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::bitAnd " << toStringLit(res) << " "
+                         << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
+
   bb->mkClause(neg(res), a);
   bb->mkClause(neg(res), b);
   bb->mkClause(res, neg(a), neg(b)); 
 }
 
 inline void bitOr(SatLit res, SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::bitOr " << toStringLit(res) << " "
+                         << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
+  
   bb->mkClause(res, neg(a));
   bb->mkClause(res, neg(b));
   bb->mkClause(neg(res), a, b);
 }
 
 inline void bitImpl(SatLit res, SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::bitImpl " << toStringLit(res) << " "
+                         << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
+  
   bb->mkClause(neg(res), neg(a), b);
   bb->mkClause(res, a);
   bb->mkClause(res, neg(b)); 
 }
 
+inline SatLit mkBitImpl(SatLit a, SatLit b, Bitblaster* bb);
+
 inline void bitIff(SatLit res, SatLit a, SatLit b, Bitblaster* bb) {
-  bitImpl(res, a, b, bb);
-  bitImpl(res, b, a, bb); 
+  Debug("bitvector-cnf") << "theory::bv::bitIff " << toStringLit(res) << " "
+                         << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
+  SatLit aIMPLb = mkBitImpl(a, b, bb);
+  SatLit bIMPLa = mkBitImpl(b, a, bb);
+  bitAnd(res, aIMPLb, bIMPLa, bb);
+  
 }
 
 inline void bitEqual(SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::bitEqual " << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
+  
   bb->mkClause(neg(a), b);
   bb->mkClause(neg(b), a); 
 }
 
 inline SatLit mkBitXor(SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::mkBitXor " << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
   SatLit res = mkLit(bb->newVar());
   bitXor(res, a, b, bb); 
   return res; 
 }
 
 inline SatLit mkBitAnd(SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::mkBitAnd " << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
   SatLit res = mkLit(bb->newVar());
   bitAnd(res, a, b, bb); 
   return res; 
 }
 
 inline SatLit mkBitOr(SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::mkBitOr " << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
   SatLit res = mkLit(bb->newVar());
   bitOr(res, a, b, bb); 
   return res; 
 }
 
 inline SatLit mkBitImpl(SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::mkBitImpl " << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
   SatLit res = mkLit(bb->newVar());
   bitImpl(res, a, b, bb); 
   return res; 
 }
 
 inline SatLit mkBitIff(SatLit a, SatLit b, Bitblaster* bb) {
+  Debug("bitvector-cnf") << "theory::bv::mkBitIff " << toStringLit(a) <<" "<< toStringLit(b) << "\n"; 
   SatLit res = mkLit(bb->newVar());
   bitIff(res, a, b, bb); 
   return res; 
@@ -195,9 +219,6 @@ inline SatLit mkCarryOut(Bits* term1, Bits* term2, bool carry_in, Bitblaster* bb
   
 }
 
-
-
-
 void UndefinedAtomBBStrategy(TNode node, SatVar atom_var, Bitblaster* bb) {
   Debug("bitvector") << "TheoryBV::Bitblaster Undefined bitblasting strategy for kind: "
                      << node.getKind() << "\n";
@@ -257,7 +278,7 @@ void DefaultUltBB(TNode node, SatVar markerVar, Bitblaster* bb) {
 void DefaultUleBB(TNode node, SatVar markerVar, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 
-  Unreachable(); 
+  Unimplemented(); 
 }
 void DefaultUgtBB(TNode node, SatVar markerVar, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
@@ -272,8 +293,23 @@ void DefaultUgeBB(TNode node, SatVar markerVar, Bitblaster* bb){
 
 void DefaultSltBB(TNode node, SatVar markerVar, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  Debug("bitvector-bb") << "      marker lit " << toStringLit(mkLit(markerVar)) << "\n"; 
 
-  Unimplemented(); 
+  Assert(node.getKind() == kind::BITVECTOR_SLT);
+  Bits* a = bb->bbTerm(node[0]);
+  Bits* b = bb->bbTerm(node[1]);
+  Bits* notb = negateBits(b);
+  SatLit carry_out = mkCarryOut(a, notb, true, bb);
+  SatLit atom_lit = mkLit(markerVar);
+
+  // a < b <=> (a[0] <=> b[0]) xor (add(a, ~b, 1).carry_out)
+  SatLit aIFFb = mkLit(bb->newVar()); 
+  bitIff(aIFFb, a->operator[](0), b->operator[](0), bb);
+  SatLit aIFFbXORcout = mkLit(bb->newVar()); 
+  bitXor(aIFFbXORcout, aIFFb, carry_out, bb); 
+  bitEqual(atom_lit, aIFFbXORcout, bb); 
+  
+  delete notb; 
 }
 
 void DefaultSleBB(TNode node, SatVar markerVar, Bitblaster* bb){

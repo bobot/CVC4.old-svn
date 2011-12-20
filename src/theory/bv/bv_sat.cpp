@@ -231,6 +231,25 @@ void ClauseManager::mkClause(SatLit lit1, SatLit lit2, SatLit lit3, SatLit lit4,
 }
 
 
+/////// CnfConversion
+
+
+BoolExpr mkBoolVar(SatLit lit) {
+  return BoolVar(lit); 
+}
+BoolExpr mkAnd(BoolExpr e1, BoolExpr e2) {
+  return BoolOpExpr(And, e1, e2); 
+}
+BoolExpr  mkExpr(BoolOp op, BoolExpr e1, BoolExpr e2) {
+  return BoolOpExpr(op, e1, e2); 
+}
+
+void assertToSat(Node expr, SatLit l1, SatLit l2) {
+  BoolExpr e = mkAnd(mkBoolVar(l1), mkBoolVar(l2)); 
+
+}
+
+
 /////// Bitblaster 
 
 

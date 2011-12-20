@@ -104,6 +104,110 @@ private:
 
 
 /** 
+ * 
+ * BooleanExpr class to store intermediate clauses
+ * 
+  */
+
+enum BoolOp {
+  True,
+  False,
+  And,
+  Or,
+  Xor,
+  Impl,
+  Iff,
+  Var,
+  Not
+};
+
+
+class BoolExpr {
+};
+
+class BoolOpExpr: public BoolExpr {
+  BoolOp d_op;
+  std::vector<BoolExpr> d_children;
+
+public:
+  BoolOpExpr(BoolOp op, BoolExpr expr) :
+    d_op(op)
+  {
+    d_children.push_back(expr); 
+  }
+
+  BoolOpExpr(BoolOp op, BoolExpr& expr1, BoolExpr& expr2) :
+    d_op(op)
+  {
+    d_children.push_back(expr1);
+    d_children.push_back(expr2); 
+  }
+
+  BoolExpr operator[](unsigned i) {
+    Assert (i < d_children.size());
+    return d_children[i]; 
+  }
+}; 
+
+class BoolVar : public BoolExpr {
+  SatLit d_lit;
+public:
+  BoolVar(SatLit lit) :
+    d_lit(lit) {}
+
+  SatLit getLit() {
+    return d_lit;
+  }
+};
+
+
+class BoolExprManager {
+  __gnu_cxx::hash_set<BoolExpr> d_exprPool;
+public:
+  
+
+}; 
+
+
+/** 
+ * 
+ * The CnfConversion converts Nodes into CNF form
+ * 
+ * 
+ * 
+ */
+class CnfConversion {
+  typedef __gnu_cxx::hash_map<Node, SatLit>  ExprSatLitMap;  
+  ClauseManager* d_clauseManager;
+  ExprSatLitMap d_cnfCache; 
+
+  SatLit cnfXor(SatLit lit1, SatLit lit2);
+  SatLit cnfAnd(SatLit lit1, SatLit lit2);
+  SatLit cnfOr(SatLit lit1, SatLit lit2);
+  SatLit cnfImpl(SatLit lit1, SatLit lit2);
+  SatLit cnfIff(SatLit lit1, SatLit lit2);
+
+  bool   isTranslated(Node expr);
+  SatLit getCnf(Node expr);
+  void   cacheTranslation(Node expr, SatLit lit);
+  SatLit translateNode(Node expr); 
+
+public:
+  CnfConversion():
+    d_clauseManager(),
+    d_cnfCache()
+  {}
+  
+  ~CnfConversion() {
+    delete d_clauseManager; 
+  }
+  
+  void asserToSat(Node expr); 
+
+}; 
+
+
+/** 
  * The Bitblaster that manages the mapping between Nodes 
  * and their bitwise definition 
  * 
