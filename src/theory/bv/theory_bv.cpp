@@ -36,7 +36,6 @@ TheoryBV::TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& 
     d_context(c),
     d_assertions(c),
     d_bitblaster(new Bitblaster(c) ),
-    d_staticEqManager(),
     d_statistics()
   {
     d_true = utils::mkTrue();
@@ -127,7 +126,6 @@ Node TheoryBV::explain(TNode node) {
 Theory::SolveStatus TheoryBV::solve(TNode in, SubstitutionMap& outSubstitutions) {
   switch(in.getKind()) {
   case kind::EQUAL:
-    d_staticEqManager.addEq(in);
     
     if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
       ++(d_statistics.d_solveSubstitutions); 

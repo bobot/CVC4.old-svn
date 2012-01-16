@@ -8,8 +8,6 @@ AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 noinst_LTLIBRARIES = libbv.la
 
 libbv_la_SOURCES = \
-	static_eq_manager.h \
-	static_eq_manager.cpp \
 	bv_solver_types.h \
 	bv_solver_types.cpp \
 	bitblast_strategies.h \

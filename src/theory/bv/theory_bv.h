@@ -25,7 +25,6 @@
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "theory/bv/theory_bv_utils.h"
-#include "theory/bv/static_eq_manager.h"
 #include "util/stats.h"
 
 namespace BVMinisat {
@@ -55,8 +54,7 @@ private:
   /** Bitblaster */
   Bitblaster* d_bitblaster; 
   Node d_true;
-  StaticEqManager d_staticEqManager; 
-  
+    
 public:
 
   TheoryBV(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
