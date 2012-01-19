@@ -211,6 +211,45 @@ Polynomial Polynomial::operator*(const Polynomial& poly) const {
   return res;
 }
 
+Monomial Polynomial::selectAbsMinimum() const {
+  iterator iter = begin(), myend = end();
+  Assert(iter != myend);
+
+  Monomial min = *iter;
+  ++iter;
+  for(; iter != end(); ++iter){
+    Monomial curr = *iter;
+    if(curr.getConstant().abs() < min.getConstant().abs()){
+      min = curr;
+    }
+  }
+  return min;
+}
+
+Integer Polynomial::gcd() const {
+  //We'll use the standardization that gcd(0, 0) = 0
+  //So that the gcd of the zero polynomial is gcd{0} = 0
+  Assert(isIntegral());
+  iterator i=begin(), e=end();
+  Assert(i!=e);
+
+  Integer d = (*i).getConstant().getValue().getNumerator().abs();
+  ++i;
+  for(; i!=e; ++i){
+    Integer c = (*i).getConstant().getValue().getNumerator();
+    d = d.gcd(c);
+  }
+  return d;
+}
+
+Integer Polynomial::denominatorLCM() const {
+  Integer tmp(1);
+  for(iterator i=begin(), e=end(); i!=e; ++i){
+    const Constant& c = (*i).getConstant();
+    tmp = tmp.lcm(c.getValue().getDenominator());
+  }
+  return tmp;
+}
 
 Node Comparison::toNode(Kind k, const Polynomial& l, const Constant& r) {
   Assert(!l.isConstant());

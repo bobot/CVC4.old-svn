@@ -50,6 +50,7 @@ namespace arith {
  * variable := n
  *   where
  *     n.getMetaKind() == metakind::VARIABLE
+ *     n.getType() \in {Integer, Real}
  *
  * constant := n
  *   where
@@ -70,13 +71,24 @@ namespace arith {
  *     isStrictlySorted monoOrder [monomial]
  *     forall (\x -> x != 0) [monomial]
  *
- * restricted_cmp := (|><| polynomial constant)
+ * rational_restricted_cmp := (|><| qpolynomial constant)
  *   where
  *     |><| is GEQ, EQ, or EQ
- *     not (exists constantMonomial (monomialList polynomial))
- *     monomialCoefficient (head (monomialList polynomial)) == 1
+ *     not (exists constantMonomial (monomialList qpolynomial))
+ *     (exists realMonomial (monomialList qpolynomial))
+ *     monomialCoefficient (head (monomialList qpolynomial)) == 1
  *
- * comparison := TRUE | FALSE | restricted_cmp | (not restricted_cmp)
+ * integer_restricted_cmp := (|><| zpolynomial constant)
+ *   where
+ *     |><| is GEQ, EQ, or EQ
+ *     not (exists constantMonomial (monomialList zpolynomial))
+ *     (forall integerMonomial (monomialList qpolynomial))
+ *     the denominator of all coefficients and the constant is 1
+ *     the gcd of all numerators of coefficients is 1
+ *
+ * comparison := TRUE | FALSE
+ *   | rational_restricted_cmp | (not rational_restricted_cmp)
+ *   | integer_restricted_cmp | (not integer_restricted_cmp)
  *
  * Normal Form for terms := polynomial
  * Normal Form for atoms := comparison
@@ -146,6 +158,11 @@ namespace arith {
  *
  *  monoOrder m0 m1 = var_listOrder (monomialVarList m0) (monomialVarList m1)
  *
+ *  integerMonomial mono =
+ *    forall varHasTypeInteger (monomialVarList mono)
+ *
+ *  realMonomial mono = not (integerMonomial mono)
+ *
  *  constantMonomial monomial =
  *    match monomial with
  *        constant -> true
@@ -193,6 +210,10 @@ public:
 
   bool isNormalForm() { return isMember(getNode()); }
 
+  bool isIntegral() const {
+    return getNode().getType().isInteger();
+  }
+
   bool operator<(const Variable& v) const { return getNode() < v.getNode();}
   bool operator==(const Variable& v) const { return getNode() == v.getNode();}
 
@@ -223,7 +244,14 @@ public:
     return getNode().getConst<Rational>();
   }
 
-  bool isZero() const { return getValue() == 0; }
+  bool isIntegral() const { return getValue().isIntegral(); }
+
+  int sgn() const { return getValue().sgn(); }
+
+  bool isZero() const { return sgn() == 0; }
+  bool isNegative() const { return sgn() < 0; }
+  bool isPositive() const { return sgn() > 0; }
+
   bool isOne() const { return getValue() == 1; }
 
   Constant operator*(const Constant& other) const {
@@ -234,6 +262,23 @@ public:
   }
   Constant operator-() const {
     return mkConstant(-getValue());
+  }
+
+  bool operator<(const Constant& other) const {
+    return getValue() < other.getValue();
+  }
+
+  bool operator==(const Constant& other) const {
+    //Rely on node uniqueness.
+    return getNode() == other.getNode();
+  }
+
+  Constant abs() const {
+    if(isNegative()){
+      return -(*this);
+    }else{
+      return (*this);
+    }
   }
 
 };/* class Constant */
@@ -412,6 +457,16 @@ public:
 
   bool operator==(const VarList& vl) const { return cmp(vl) == 0; }
 
+  bool isIntegral() const {
+    for(iterator i = begin(), e=end(); i != e; ++i ){
+      Variable var = *i;
+      if(!var.isIntegral()){
+        return false;
+      }
+    }
+    return true;
+  }
+
 private:
   bool isSorted(iterator start, iterator end);
 
@@ -471,6 +526,9 @@ public:
   /** Makes a monomial with no restrictions on c and vl. */
   static Monomial mkMonomial(const Constant& c, const VarList& vl);
 
+  static Monomial mkMonomial(const Variable& v){
+    return Monomial(VarList(v));
+  }
 
   static Monomial parseMonomial(Node n);
 
@@ -516,6 +574,27 @@ public:
 
   static bool isStrictlySorted(const std::vector<Monomial>& m) {
     return isSorted(m) && std::adjacent_find(m.begin(),m.end()) == m.end();
+  }
+
+  /**
+   * The variable product
+   */
+  bool integralVariables() const {
+    return getVarList().isIntegral();
+  }
+
+  /**
+   * The coefficient of the monomial is integral.
+   */
+  bool integralCoefficient() const {
+    return getConstant().isIntegral();
+  }
+
+  /**
+   * A Monomial is an "integral" monomial if the constant is integral.
+   */
+  bool isIntegral() const {
+    return integralCoefficient() && integralVariables();
   }
 
   /**
@@ -638,6 +717,9 @@ public:
     Assert( Monomial::isStrictlySorted(m) );
   }
 
+  static Polynomial mkPolynomial(const Variable& v){
+    return Monomial::mkMonomial(v);
+  }
 
   static Polynomial mkPolynomial(const std::vector<Monomial>& m) {
     if(m.size() == 0) {
@@ -694,6 +776,54 @@ public:
       }
       Debug("normal-form") << "end list" << std::endl;
     }
+  }
+
+  /** A Polynomial is an "integral" polynomial if all of the monomials are integral. */
+  bool allIntegralVariables() const {
+    for(iterator i = begin(), e=end(); i!=e; ++i){
+      if(!(*i).integralVariables()){
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * A Polynomial is an "integral" polynomial if all of the monomials are integral
+   * and all of the coefficients are Integral. */
+  bool isIntegral() const {
+    for(iterator i = begin(), e=end(); i!=e; ++i){
+      if(!(*i).isIntegral()){
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Selects a minimal monomial in the polynomial by the absolute value of
+   * the coefficient.
+   */
+  Monomial selectAbsMinimum() const;
+
+  /**
+   * Returns the Least Common Multiple of the denominators of the coefficients
+   * of the monomials.
+   */
+  Integer denominatorLCM() const;
+
+  /**
+   * Returns the GCD of the coefficients of the monomials.
+   * Requires this to be an isIntegral() polynomial.
+   */
+  Integer gcd() const;
+
+  Polynomial exactDivide(const Integer& z) const {
+    Assert(isIntegral());
+    Constant invz = Constant::mkConstant(Rational(1,z));
+    Polynomial prod = (*this) * Monomial(invz);
+    Assert(prod.isIntegral());
+    return prod;
   }
 
   Polynomial operator+(const Polynomial& vl) const;
