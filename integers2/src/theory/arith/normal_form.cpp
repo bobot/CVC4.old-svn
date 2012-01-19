@@ -252,7 +252,6 @@ Integer Polynomial::denominatorLCM() const {
 }
 
 Node Comparison::toNode(Kind k, const Polynomial& l, const Constant& r) {
-  Assert(!l.isConstant());
   Assert(isRelationOperator(k));
   switch(k) {
   case kind::GEQ:
@@ -345,22 +344,27 @@ bool Comparison::pbComparison(Kind k, TNode left, const Rational& right, bool& r
   return false;
 }
 
+// Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Constant& right) {
+//   Assert(isRelationOperator(k));
+//   if(left.isConstant()) {
+//     const Rational& lConst =  left.getNode().getConst<Rational>();
+//     const Rational& rConst = right.getNode().getConst<Rational>();
+//     bool res = evaluateConstantPredicate(k, lConst, rConst);
+//     return Comparison(res);
+//   }
+
+//   if(left.getNode().getType().isPseudoboolean()) {
+//     bool result;
+//     if(pbComparison(k, left.getNode(), right.getNode().getConst<Rational>(), result)) {
+//       return Comparison(result);
+//     }
+//   }
+
+//   return Comparison(toNode(k, left, right), k, left, right);
+// }
+
 Comparison Comparison::mkComparison(Kind k, const Polynomial& left, const Constant& right) {
   Assert(isRelationOperator(k));
-  if(left.isConstant()) {
-    const Rational& lConst =  left.getNode().getConst<Rational>();
-    const Rational& rConst = right.getNode().getConst<Rational>();
-    bool res = evaluateConstantPredicate(k, lConst, rConst);
-    return Comparison(res);
-  }
-
-  if(left.getNode().getType().isPseudoboolean()) {
-    bool result;
-    if(pbComparison(k, left.getNode(), right.getNode().getConst<Rational>(), result)) {
-      return Comparison(result);
-    }
-  }
-
   return Comparison(toNode(k, left, right), k, left, right);
 }
 
@@ -373,9 +377,167 @@ Comparison Comparison::addConstant(const Constant& constant) const {
   return mkComparison(oper, newLeft, newRight);
 }
 
+bool Comparison::constantInLefthand() const{
+  return getLeft().containsConstant();
+}
+
+Comparison Comparison::cancelLefthandConstant() const {
+  if(constantInLefthand()){
+    Monomial constantHead = getLeft().getHead();
+    Assert(constantHead.isConstant());
+
+    Constant constant = constantHead.getConstant();
+    Constant negativeConstantHead = -constant;
+    return addConstant(negativeConstantHead);
+  }else{
+    return *this;
+  }
+}
+
 Comparison Comparison::multiplyConstant(const Constant& constant) const {
   Assert(!isBoolean());
   Kind newOper = (constant.getValue() < 0) ? reverseRelationKind(oper) : oper;
 
   return mkComparison(newOper, left*Monomial(constant), right*constant);
+}
+
+Integer Comparison::denominatorLCM() const {
+  // Get the coefficients to be all integers.
+  Integer leftDenominatorLCM = left.denominatorLCM();
+  Integer rightDenominator = right.getValue().getDenominator();
+  Integer denominatorLCM = leftDenominatorLCM.lcm(rightDenominator);
+  Assert(denominatorLCM.sgn() > 0);
+  return denominatorLCM;
+}
+
+Comparison Comparison::multiplyByDenominatorLCM() const{
+  return multiplyConstant(Constant::mkConstant(denominatorLCM()));
+}
+
+Comparison Comparison::normalizeLeadingCoefficientPositive() const {
+  if(getLeft().getHead().getConstant().isNegative()){
+    return multiplyConstant(Constant::mkConstant(-1));
+  }else{
+    return *this;
+  }
+}
+
+bool Comparison::isIntegral() const {
+  return getRight().isIntegral() && getLeft().isIntegral();
+}
+
+bool Comparison::isConstant() const {
+  return getLeft().isConstant();
+}
+
+Comparison Comparison::evaluateConstant() const {
+  Assert(left.isConstant());
+  const Rational& rConst = getRight().getValue();
+  const Rational& lConst = getLeft().getHead().getConstant().getValue();
+  bool res = evaluateConstantPredicate(getKind(), lConst, rConst);
+  return Comparison(res);
+}
+
+Comparison Comparison::divideByLefthandGCD() const {
+  Assert(isIntegral());
+
+  Integer zr = getRight().getValue().getNumerator();
+  Integer gcd = getLeft().gcd();
+  Polynomial newLeft = getLeft().exactDivide(gcd);
+
+  Constant newRight = Constant::mkConstant(Rational(zr,gcd));
+  return mkComparison(getKind(), newLeft, newRight);
+}
+
+Comparison Comparison::divideByLeadingCoefficient() const {
+  //Handle the rational/mixed case
+  Monomial head = getLeft().getHead();
+  Constant leadingCoefficient = head.getConstant();
+  Assert(!leadingCoefficient.isZero());
+
+  Constant inverse = leadingCoefficient.inverse();
+
+  return multiplyConstant(inverse);
+}
+
+Comparison Comparison::tightenIntegralConstraint() const {
+  Assert(getLeft().isIntegral());
+
+  if(getRight().isIntegral()){
+    return *this;
+  }else{
+    switch(getKind()){
+    case kind::EQUAL:
+      //If the gcd of the left hand side does not cleanly divide the right hand side,
+      //this is unsatisfiable in the theory of Integers.
+      return Comparison(false);
+    case kind::GEQ:
+    case kind::GT:
+      {
+        //(>= l (/ n d))
+        //(>= l (ceil (/ n d)))
+        //This also hold for GT as (ceil (/ n d)) > (/ n d)
+        Integer ceilr = getRight().getValue().ceiling();
+        Constant newRight = Constant::mkConstant(ceilr);
+        return Comparison(toNode(kind::GEQ, getLeft(), newRight),kind::GEQ, getLeft(),newRight);
+      }
+    case kind::LEQ:
+    case kind::LT:
+      {
+        //(<= l (/ n d))
+        //(<= l (floor (/ n d)))
+        //This also hold for LT as (floor (/ n d)) < (/ n d)
+        Integer floor = getRight().getValue().floor();
+        Constant newRight = Constant::mkConstant(floor);
+        return Comparison(toNode(kind::LEQ, getLeft(), newRight),kind::LEQ, getLeft(),newRight);
+      }
+    default:
+      Unreachable();
+    }
+  }
+}
+
+bool Comparison::isIntegerNormalForm() const{
+  if(constantInLefthand()){ return false; }
+  else if(getLeft().getHead().getConstant().isNegative()){ return false; }
+  else if(!isIntegral()){ return false; }
+  else {
+    return getLeft().gcd() == 1;
+  }
+}
+bool Comparison::isMixedNormalForm() const {
+  if(constantInLefthand()){ return false; }
+  else if(allIntegralVariables()) { return false; }
+  else{
+    return getLeft().getHead().getConstant().getValue() == 1;
+  }
+}
+
+Comparison Comparison::normalize(Comparison c) {
+  if(c.isConstant()){
+    return c.evaluateConstant();
+  }else{
+    Comparison c0 = c.constantInLefthand() ? c.cancelLefthandConstant() : c;
+    Comparison c1 = c0.normalizeLeadingCoefficientPositive();
+    if(c1.allIntegralVariables()){
+      //All Integer Variable Case
+      Comparison integer0 = c1.multiplyByDenominatorLCM();
+      Comparison integer1 = integer0.divideByLefthandGCD();
+      Comparison integer2 = integer1.tightenIntegralConstraint();
+      Assert(integer2.isBoolean() || integer2.isIntegerNormalForm());
+      return integer2;
+    }else{
+      //Mixed case
+      Comparison mixed = c1.divideByLeadingCoefficient();
+      Assert(mixed.isMixedNormalForm());
+      return mixed;
+    }
+  }
+}
+
+Comparison Comparison::mkNormalComparison(Kind k, const Polynomial& left, const Constant& right) {
+  Comparison cmp = mkComparison(k,left,right);
+  Comparison normalized = cmp.normalize(cmp);
+  Assert(normalized.isNormalForm());
+  return normalized;
 }

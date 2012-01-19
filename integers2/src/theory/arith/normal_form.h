@@ -264,6 +264,11 @@ public:
     return mkConstant(-getValue());
   }
 
+  Constant inverse() const{
+    Assert(!isZero());
+    return mkConstant(getValue().inverse());
+  }
+
   bool operator<(const Constant& other) const {
     return getValue() < other.getValue();
   }
@@ -862,6 +867,8 @@ private:
    */
   static bool pbComparison(Kind k, TNode left, const Rational& right, bool& result);
 
+  Kind getKind() const { return oper; }
+
 public:
   Comparison(bool val) :
     NodeWrapper(NodeManager::currentNM()->mkConst(val)),
@@ -880,29 +887,111 @@ public:
 
   static Comparison mkComparison(Kind k, const Polynomial& left, const Constant& right);
 
+  /**
+   * Returns the left hand side of the comparison.
+   * This is a polynomial that always contains all of the variables.
+   */
+  const Polynomial& getLeft() const { return left; }
+
+  /**
+   * Returns the right hand constatn of the comparison.
+   * If in normal form, this is the only constant term.
+   */
+  const Constant& getRight() const { return right; }
+
+  /** Returns true if the comparison is a boolean constant. */
   bool isBoolean() const {
     return (oper == kind::CONST_BOOLEAN);
   }
 
+  /** Returns true if all of the variables are integers. */
+  bool allIntegralVariables() const {
+    return getLeft().allIntegralVariables();
+  }
+
+  /**
+   * Returns true if the comparison is either a boolean term,
+   * in integer normal form or mixed normal form.
+   */
   bool isNormalForm() const {
     if(isBoolean()) {
       return true;
-    } else if(left.containsConstant()) {
-      return false;
-    } else if(left.getHead().getConstant().isOne()) {
-      return true;
-    } else {
-      return false;
+    } else if(allIntegralVariables()) {
+      return isIntegerNormalForm();
+    } else{
+      return isMixedNormalForm();
     }
   }
 
-  const Polynomial& getLeft() const { return left; }
-  const Constant& getRight() const { return right; }
+private:
+  /** Normal form check if at least one variable is real. */
+  bool isMixedNormalForm() const;
+
+  /** Normal form check is all variables are real.*/
+  bool isIntegerNormalForm() const;
+
+public:
+  /**
+   * Returns true if the left hand side is the sum of a non-zero constant
+   * and a polynomial.*/
+  bool constantInLefthand() const;
+
+  /**
+   * Returns a polynomial that is equivalent to the original but does not contain
+   * a constant in the top level sum on the left hand side.
+   */
+  Comparison cancelLefthandConstant() const;
+
+
+  /** Returns true if the polynomial is a constant. */
+  bool isConstant() const;
+
+  /** Reduces a constant comparison to a boolean comaprison.*/
+  Comparison evaluateConstant() const;
+
+
+  /**
+   * Returns true if all of the variables are integers, the coefficients are integers,
+   * and the right hand coefficient is an integer.
+   */
+  bool isIntegral() const;
+
+  /**
+   * Returns the Least Common Multiple of the monomials
+   * on the lefthand side and the constant on the right.
+   */
+  Integer denominatorLCM() const;
+
+  /** Multiplies the comparison by the denominatorLCM(). */
+  Comparison multiplyByDenominatorLCM() const;
+
+  /** If the leading coefficient is negative, multiply by -1. */
+  Comparison normalizeLeadingCoefficientPositive() const;
+
+  /** Divides the Comaprison by the gcd of the lefthand.*/
+  Comparison divideByLefthandGCD() const;
+
+  /** Divides the Comparison by the leading coefficient. */
+  Comparison divideByLeadingCoefficient() const;
+
+  /**
+   * If the left hand is integral and the right hand is not,
+   * the comparison is tightened to the nearest integer.
+   */
+  Comparison tightenIntegralConstraint() const;
 
   Comparison addConstant(const Constant& constant) const;
+
+  /* Multiply a non-boolean comparison by a constant term. */
   Comparison multiplyConstant(const Constant& constant) const;
 
   static Comparison parseNormalForm(TNode n);
+
+  /* Returns a logically equivalent comparison in normal form. */
+  static Comparison normalize(Comparison c);
+
+  /** Makes a comparison that is in normal form. */
+  static Comparison mkNormalComparison(Kind k, const Polynomial& left, const Constant& right);
 
   inline static bool isNormalAtom(TNode n){
     Comparison parse = Comparison::parseNormalForm(n);
