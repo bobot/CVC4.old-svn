@@ -586,10 +586,10 @@ bool TheoryArith::canSafelyAvoidEqualitySetup(TNode equality){
 }
 
 Node TheoryArith::assertionCases(TNode assertion){
-  Kind simpKind = simplifiedKind(assertion);
-  Assert(simpKind != UNDEFINED_KIND);
-  if(simpKind == EQUAL || simpKind == DISTINCT){
-    Node eq = (simpKind == DISTINCT) ? assertion[0] : assertion;
+  Kind simpleKind = simplifiedKind(assertion);
+  Assert(simpleKind != UNDEFINED_KIND);
+  if(simpleKind == EQUAL || simpleKind == DISTINCT){
+    Node eq = (simpleKind == DISTINCT) ? assertion[0] : assertion;
 
     if(!isSetup(eq)){
       //The previous code was equivalent to:
@@ -600,33 +600,57 @@ Node TheoryArith::assertionCases(TNode assertion){
     }
   }
 
-  ArithVar x_i = determineLeftVariable(assertion, simpKind);
-  DeltaRational c_i = determineRightConstant(assertion, simpKind);
+  ArithVar x_i = determineLeftVariable(assertion, simpleKind);
+  DeltaRational c_i = determineRightConstant(assertion, simpleKind);
+
+  bool tightened = false;
+
+  //If the variable is an integer tighen the constraint.
+  if(isInteger(x_i)){
+    if(simpleKind == LT){
+      tightened = true;
+      c_i = DeltaRational(c_i.floor());
+    }else if(simpleKind == GT){
+      tightened = true;
+      c_i = DeltaRational(c_i.ceiling());
+    }
+  }
 
   Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
                               <<"(" << assertion
 			     << " \\-> "
-			     << x_i<<" "<< simpKind <<" "<< c_i << ")" << std::endl;
-  switch(simpKind){
+			     << x_i<<" "<< simpleKind <<" "<< c_i << ")" << std::endl;
+
+  switch(simpleKind){
   case LEQ:
-    if (d_partialModel.hasLowerBound(x_i) && d_partialModel.getLowerBound(x_i) == c_i) {
-      Node diseq = assertion[0].eqNode(assertion[1]).notNode();
-      if (d_diseq.find(diseq) != d_diseq.end()) {
-        Node lb = d_partialModel.getLowerConstraint(x_i);
-        return disequalityConflict(diseq, lb , assertion);
+  case LT:
+    if(simpleKind == LEQ || (simpleKind == LT && tightened)){
+      if (d_partialModel.hasLowerBound(x_i) && d_partialModel.getLowerBound(x_i) == c_i) {
+        TNode left  = getSide<false>(assertion, simpleKind);
+        TNode right = getSide<true>(assertion, simpleKind);
+
+        Node diseq = left.eqNode(right).notNode();
+        if (d_diseq.find(diseq) != d_diseq.end()) {
+          Node lb = d_partialModel.getLowerConstraint(x_i);
+          return disequalityConflict(diseq, lb , assertion);
+        }
       }
     }
-  case LT:
     return  d_simplex.AssertUpper(x_i, c_i, assertion);
   case GEQ:
-    if (d_partialModel.hasUpperBound(x_i) && d_partialModel.getUpperBound(x_i) == c_i) {
-      Node diseq = assertion[0].eqNode(assertion[1]).notNode();
-      if (d_diseq.find(diseq) != d_diseq.end()) {
-        Node ub = d_partialModel.getUpperConstraint(x_i);
-        return disequalityConflict(diseq, assertion, ub);
+  case GT:
+    if(simpleKind == GEQ || (simpleKind == GT && tightened)){
+      if (d_partialModel.hasUpperBound(x_i) && d_partialModel.getUpperBound(x_i) == c_i) {
+        TNode left  = getSide<false>(assertion, simpleKind);
+        TNode right = getSide<true>(assertion, simpleKind);
+
+        Node diseq = left.eqNode(right).notNode();
+        if (d_diseq.find(diseq) != d_diseq.end()) {
+          Node ub = d_partialModel.getUpperConstraint(x_i);
+          return disequalityConflict(diseq, assertion, ub);
+        }
       }
     }
-  case GT:
     return d_simplex.AssertLower(x_i, c_i, assertion);
   case EQUAL:
     return d_simplex.AssertEquality(x_i, c_i, assertion);
