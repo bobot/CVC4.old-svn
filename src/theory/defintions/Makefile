@@ -1,4 +1,4 @@
 topdir = ../../..
-srcdir = src/theory/example
+srcdir = src/theory/definitions
 
 include $(topdir)/Makefile.subdir
