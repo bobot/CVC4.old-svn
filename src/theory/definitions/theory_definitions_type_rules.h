@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file theory_defintions_type_rules.h
+/*! \file theory_definitions_type_rules.h
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: cconway, mdeters
@@ -18,14 +18,14 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__THEORY__DEFINTIONS__THEORY_DEFINTIONS_TYPE_RULES_H
-#define __CVC4__THEORY__DEFINTIONS__THEORY_DEFINTIONS_TYPE_RULES_H
+#ifndef __CVC4__THEORY__DEFINITIONS__THEORY_DEFINITIONS_TYPE_RULES_H
+#define __CVC4__THEORY__DEFINITIONS__THEORY_DEFINITIONS_TYPE_RULES_H
 
 namespace CVC4 {
 namespace theory {
-namespace defintions {
+namespace definitions {
 
-class DefintionsTypeRule {
+class DefinitionsTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
       throw (TypeCheckingExceptionPrivate) {
@@ -65,10 +65,10 @@ public:
 
     Unreachable();
   }
-};/* class DefintionsTypeRule */
+};/* class DefinitionsTypeRule */
 
-}/* CVC4::theory::defintions namespace */
+}/* CVC4::theory::definitions namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__THEORY__DEFINTIONS__THEORY_DEFINTIONS_TYPE_RULES_H */
+#endif /* __CVC4__THEORY__DEFINITIONS__THEORY_DEFINITIONS_TYPE_RULES_H */

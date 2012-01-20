@@ -4,7 +4,7 @@
 # src/theory/builtin/kinds.
 #
 
-theory THEORY_DEFINITIONS ::CVC4::theory::definitions::TheoryDefinitions "theory/definitions/theory_defintions.h"
+theory THEORY_DEFINITIONS ::CVC4::theory::definitions::TheoryDefinitions "theory/definitions/theory_definitions.h"
 typechecker "theory/definitions/theory_definitions_type_rules.h"
 
 properties stable-infinite parametric
