@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file theory_uf_rewriter.h
+/*! \file theory_definitions_rewriter.h
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: mdeters
@@ -19,20 +19,22 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__THEORY__UF__THEORY_UF_REWRITER_H
-#define __CVC4__THEORY__UF__THEORY_UF_REWRITER_H
+#ifndef __CVC4__THEORY__DEFINITIONS__THEORY_DEFINITIONS_REWRITER_H
+#define __CVC4__THEORY__DEFINITIONS__THEORY_DEFINITIONS_REWRITER_H
 
 #include "theory/rewriter.h"
 
 namespace CVC4 {
 namespace theory {
-namespace uf {
+namespace definitions {
 
-class TheoryUfRewriter {
+class TheoryDefinitionsRewriter {
 
 public:
 
+  /* Called bottom up, all children are in canonical form*/
   static RewriteResponse postRewrite(TNode node) {
+    /*
     if(node.getKind() == kind::EQUAL || node.getKind() == kind::IFF) {
       if(node[0] == node[1]) {
         return RewriteResponse(REWRITE_DONE, NodeManager::currentNM()->mkConst(true));
@@ -42,18 +44,23 @@ public:
         return RewriteResponse(REWRITE_DONE, newNode);
       }
     }
+    */
     return RewriteResponse(REWRITE_DONE, node);
   }
 
+  /* Optimisation, called on the way down */
   static RewriteResponse preRewrite(TNode node) {
+    /*
     if(node.getKind() == kind::EQUAL || node.getKind() == kind::IFF) {
       if(node[0] == node[1]) {
         return RewriteResponse(REWRITE_DONE, NodeManager::currentNM()->mkConst(true));
       }
     }
+    */
     return RewriteResponse(REWRITE_DONE, node);
   }
 
+  /* Only applicable when mixing types and then checking equality */
   static Node rewriteEquality(TNode equality) {
     return postRewrite(equality).node;
   }
@@ -61,10 +68,10 @@ public:
   static inline void init() {}
   static inline void shutdown() {}
 
-};/* class TheoryUfRewriter */
+};/* class TheoryDefinitionsRewriter */
 
-}/* CVC4::theory::uf namespace */
+}/* CVC4::theory::definitions namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__THEORY__UF__THEORY_UF_REWRITER_H */
+#endif /* __CVC4__THEORY__DEFINITIONS__THEORY_DEFINITIONS_REWRITER_H */
