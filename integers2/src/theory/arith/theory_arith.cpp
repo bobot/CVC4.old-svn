@@ -413,7 +413,15 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
   d_variables.push_back(Node(x));
   Debug("integers") << "isInteger[[" << x << "]]: " << x.getType().isInteger() << endl;
 
-  d_variableTypes.push_back(nodeToArithType(x));
+  if(slack){
+    //The type computation is not quite accurate for Rationals that are integral.
+    //We'll use the isIntegral check from the polynomial package instead.
+    Polynomial p = Polynomial::parsePolynomial(x);
+    d_variableTypes.push_back(p.isIntegral() ? ATInteger : ATReal);
+  }else{
+    d_variableTypes.push_back(nodeToArithType(x));
+  }
+
   d_slackVars.push_back(slack);
 
   d_simplex.increaseMax();
