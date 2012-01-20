@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file theory_uf_type_rules.h
+/*! \file theory_defintions_type_rules.h
  ** \verbatim
  ** Original author: dejan
  ** Major contributors: cconway, mdeters
@@ -18,47 +18,57 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__THEORY__UF__THEORY_UF_TYPE_RULES_H
-#define __CVC4__THEORY__UF__THEORY_UF_TYPE_RULES_H
+#ifndef __CVC4__THEORY__DEFINTIONS__THEORY_DEFINTIONS_TYPE_RULES_H
+#define __CVC4__THEORY__DEFINTIONS__THEORY_DEFINTIONS_TYPE_RULES_H
 
 namespace CVC4 {
 namespace theory {
-namespace uf {
+namespace defintions {
 
-class UfTypeRule {
+class DefintionsTypeRule {
 public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
       throw (TypeCheckingExceptionPrivate) {
-    TNode f = n.getOperator();
-    TypeNode fType = f.getType(check);
-    if( !fType.isFunction() ) {
-      throw TypeCheckingExceptionPrivate(n, "operator does not have function type");
-    }
-    if( check ) {
-      if (n.getNumChildren() != fType.getNumChildren() - 1) {
-        throw TypeCheckingExceptionPrivate(n, "number of arguments does not match the function type");
-      }
-      TNode::iterator argument_it = n.begin();
-      TNode::iterator argument_it_end = n.end();
-      TypeNode::iterator argument_type_it = fType.begin();
-      for(; argument_it != argument_it_end; ++argument_it, ++argument_type_it) {
-        if((*argument_it).getType() != *argument_type_it) {
-          std::stringstream ss;
-          ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
-             << "argument types do not match the function type:\n"
-             << "argument:  " << *argument_it << "\n"
-             << "has type:  " << (*argument_it).getType() << "\n"
-             << "not equal: " << *argument_type_it;
-          throw TypeCheckingExceptionPrivate(n, ss.str());
-        }
-      }
-    }
-    return fType.getRangeType();
-  }
-};/* class UfTypeRule */
+    /* Kind should always be definition */
+    Assert(n.getKind() == Kind::DEFINITION);
 
-}/* CVC4::theory::uf namespace */
+    /* Also guarenteed that it's arity 2 (from the kinds file) */
+    Assert(n.getNumChildren() == 2);
+
+
+    /* This works
+     *    n[0].getType().getKind() == Kind::Boolean;
+     *    n[0].getType() == nodeManager->booleanType();     // Because they are singletons
+     * but isn't as good because of subtyping
+     */
+
+    if (n[0].getType().isBoolean()) {
+      if (n[1].getType().isBoolean()) {
+	/* Return type as the check is bottom up */
+	return nodeManager->booleanType();
+
+      } else {
+	std::stringstream ss;
+	ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+	   << "Right hand side of definition " << n
+	   << " is not Boolean" << std::endl;
+	throw TypeCheckingExceptionPrivate(n, ss.str());      
+      }
+      
+    } else {
+      std::stringstream ss;
+      ss << Expr::setlanguage(language::toOutputLanguage(Options::current()->inputLanguage))
+	 << "Left hand side of definition " << n
+	 << " is not Boolean" << std::endl;
+      throw TypeCheckingExceptionPrivate(n, ss.str());      
+    }
+
+    Unreachable();
+  }
+};/* class DefintionsTypeRule */
+
+}/* CVC4::theory::defintions namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__THEORY__UF__THEORY_UF_TYPE_RULES_H */
+#endif /* __CVC4__THEORY__DEFINTIONS__THEORY_DEFINTIONS_TYPE_RULES_H */
