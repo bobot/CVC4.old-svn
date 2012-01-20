@@ -1,3 +1,21 @@
+/*********************                                                        */
+/*! \file driver.cpp
+ ** \verbatim
+ ** Original author: mdeters
+ ** Major contributors: cconway
+ ** Minor contributors (to current version): barrett, dejan, taking
+ ** This file is part of the CVC4 prototype.
+ ** Copyright (c) 2009, 2010, 2011, 2012  The Analysis of Computer Systems Group (ACSys)
+ ** Courant Institute of Mathematical Sciences
+ ** New York University
+ ** See the file COPYING in the top-level source directory for licensing
+ ** information.\endverbatim
+ **
+ ** \brief Driver for (sequential) CVC4 executable
+ **
+ ** Driver for (sequential) CVC4 executable.
+ **/
+
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -28,12 +46,11 @@ using namespace CVC4;
 using namespace CVC4::parser;
 using namespace CVC4::main;
 
-//int runCvc4(int argc, char* argv[]);
 static bool doCommand(SmtEngine&, Command*, Options&);
-//void printUsage();
 
 namespace CVC4 {
-  namespace main {/* Global options variable */
+  namespace main {
+    /** Global options variable */
     CVC4_THREADLOCAL(Options*) pOptions;
 
     /** Full argv[0] */
@@ -47,15 +64,6 @@ namespace CVC4 {
   }
 }
 
-
-// no more % chars in here without being escaped; it's used as a
-// printf() format string
-const string usageMessage = "\
-usage: %s [options] [input-file]\n\
-\n\
-Without an input file, or with `-', CVC4 reads from standard input.\n\
-\n\
-CVC4 options:\n";
 
 void printUsage(Options& options, bool full) {
   stringstream ss;
