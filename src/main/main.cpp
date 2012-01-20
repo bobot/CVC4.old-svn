@@ -350,7 +350,15 @@ static int runCvc4(int argc, char* argv[]) {
   RegisterStatistic statSatResultReg(exprMgr, &s_statSatResult);
 
   if(options.statistics) {
+//AJR-hack
+#if 1
+    smt.getStatisticsRegistry()->flushStatistics(std::cout);
+#else
+//AJR-hack-end
     smt.getStatisticsRegistry()->flushStatistics(*options.err);
+//AJR-hack
+#endif
+//AJR-hack-end
   }
 
   return returnValue;

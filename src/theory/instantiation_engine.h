@@ -48,33 +48,33 @@ class InstantiationEngine;
 
 class InstStrategy
 {
+public:
+  enum Status {
+    STATUS_UNFINISHED,
+    STATUS_UNKNOWN,
+    STATUS_SAT,
+  };/* enum Effort */
 protected:
-  /** node this strategy is for */
-  Node d_f;
   /** reference to the instantiation engine */
   InstantiationEngine* d_instEngine;
 public:
-  InstStrategy( Node f, InstantiationEngine* ie ) : d_f( f ), d_instEngine( ie ){}
+  InstStrategy( InstantiationEngine* ie ) : d_instEngine( ie ){}
   virtual ~InstStrategy(){}
 
   /** reset instantiation */
   virtual void resetInstantiationRound(){}
   /** process method */
-  virtual bool process( int effort ){ return false; }
-};
-
-class InstStrategyModerator
-{
-public:
-  /** quantifier this moderator is for */
-  Node d_f;
-public:
-  InstStrategyModerator( Node f ) : d_f( f ){}
-  ~InstStrategyModerator(){}
-  /** vector instantiation strategies */
-  std::vector< InstStrategy* > d_strats;
-  /** process method */
-  bool process( int effort );
+  virtual int process( Node* f, int effort ){ return STATUS_UNKNOWN; }
+  /** update status */
+  static void updateStatus( int& currStatus, int addStatus ){
+    if( addStatus==STATUS_UNFINISHED ){
+      currStatus = STATUS_UNFINISHED;
+    }else if( addStatus==STATUS_UNKNOWN ){
+      if( currStatus==STATUS_SAT ){
+        currStatus = STATUS_UNKNOWN;
+      }
+    }
+  }
 };
 
 class Instantiator{
@@ -82,25 +82,57 @@ class Instantiator{
 protected:
   /** status */
   int d_status;
-  /** quant status */
-  int d_quantStatus;
   /** reference to the instantiation engine */
   InstantiationEngine* d_instEngine;
   /** reference to the theory that it looks at */
   Theory* d_th;
 
-  /** has constraints from quantifier */
-  std::map< Node, bool > d_hasConstraints;
+#ifdef USE_INST_STRATEGY
   /** instantiation strategies */
-  //std::map< Node, InstStrategyList > d_instStrategies;
+  std::vector< InstStrategy* > d_instStrategies;
+  /** instantiation strategies active */
+  std::map< InstStrategy*, bool > d_instStrategyActive;
+  /** is instantiation strategy active */
+  bool isActiveStrategy( InstStrategy* is ) { 
+    return d_instStrategyActive.find( is )!=d_instStrategyActive.end() && d_instStrategyActive[is];
+  }
+public:
+  virtual void resetInstantiationRound();
+#else
+  /** quant status */
+  int d_quantStatus;
   /** process quantifier */
   virtual void process( Node f, int effort ) {}
+  /** has constraints from quantifier */
+  std::map< Node, bool > d_hasConstraints;
+public:
+  /** reset instantiation */
+  virtual void resetInstantiationRound() { d_status = STATUS_UNFINISHED; }
+  /** set has constraints from quantifier f */
+  void setHasConstraintsFrom( Node f );
+  /** has constraints from */
+  bool hasConstraintsFrom( Node f );
+  /** is full owner of quantifier f? */
+  bool isOwnerOf( Node f );
 public:
   enum Status {
     STATUS_UNFINISHED,
     STATUS_UNKNOWN,
     STATUS_SAT,
   };/* enum Effort */
+  /** update status */
+  static void updateStatus( int& currStatus, int addStatus ){
+    if( addStatus==STATUS_UNFINISHED ){
+      currStatus = STATUS_UNFINISHED;
+    }else if( addStatus==STATUS_UNKNOWN ){
+      if( currStatus==STATUS_SAT ){
+        currStatus = STATUS_UNKNOWN;
+      }
+    }
+  }
+#endif
+
+
 public:
   Instantiator(context::Context* c, InstantiationEngine* ie, Theory* th);
   ~Instantiator();
@@ -110,25 +142,14 @@ public:
   /** check function, assertion was asserted to theory */
   virtual void check( Node assertion ){}
 
-  /** reset instantiation */
-  virtual void resetInstantiationRound() { d_status = STATUS_UNFINISHED; }
   /** do instantiation method*/
   virtual void doInstantiation( int effort );
   /** identify */
   virtual std::string identify() const { return std::string("Unknown"); }
   /** print debug information */
   virtual void debugPrint( const char* c ) {}
-
   /** get status */
   int getStatus() { return d_status; }
-  /** update status */
-  static void updateStatus( int& currStatus, int addStatus );
-  /** set has constraints from quantifier f */
-  void setHasConstraintsFrom( Node f );
-  /** has constraints from */
-  bool hasConstraintsFrom( Node f );
-  /** is full owner of quantifier f? */
-  bool isOwnerOf( Node f );
 };/* class Instantiator */
 
 class InstantiatorDefault;
@@ -210,7 +231,7 @@ public:
   /** instantiate f with arguments terms */
   bool addInstantiation( Node f, std::vector< Node >& terms );
   /** do instantiation specified by m */
-  bool addInstantiation( InstMatch* m, bool addSplits = false );
+  bool addInstantiation( Node f, InstMatch* m, bool addSplits = false );
   /** split on node n */
   bool addSplit( Node n, bool reqPhase = false, bool reqPhasePol = true );
   /** add split equality */
@@ -239,6 +260,10 @@ public:
   bool getActive( Node n ) { return d_active[n]; }
   /** get status */
   int getStatus() { return d_status; }
+  /** is phase required */
+  bool isPhaseReq( Node lit ) { return d_phase_reqs.find( lit )!=d_phase_reqs.end(); }
+  /** get phase requirement */
+  bool getPhaseReq( Node lit ) { return d_phase_reqs.find( lit )==d_phase_reqs.end() ? false : d_phase_reqs[ lit ]; }
   /** has added lemma */
   bool hasAddedLemma() { return !d_lemmas_waiting.empty(); }
 
@@ -257,6 +282,8 @@ public:
     IntStat d_total_inst_var_unspec;
     IntStat d_inst_unspec;
     IntStat d_inst_duplicate;
+    IntStat d_lit_phase_req;
+    IntStat d_lit_phase_nreq;
     Statistics();
     ~Statistics();
   };

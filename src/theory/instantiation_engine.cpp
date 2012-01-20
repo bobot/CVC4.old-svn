@@ -23,11 +23,6 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-bool InstStrategyModerator::process( int effort ){
-
-  return false;
-}
-
 Instantiator::Instantiator(context::Context* c, InstantiationEngine* ie, Theory* th) : 
 d_status( STATUS_UNFINISHED ),
 d_instEngine( ie ),
@@ -37,6 +32,35 @@ d_th( th ){
 
 Instantiator::~Instantiator(){
 }
+
+#ifdef USE_INST_STRATEGY
+
+void Instantiator::doInstantiation( int effort ){
+  d_status = STATUS_SAT;
+  for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
+        it != d_instEngine->d_inst_constants.end(); ++it ){
+    if( d_instEngine->getActive( it->first ) ){
+      for( int i=0; i<(int)d_instStrategies.size(); i++ ){
+        if( isActiveStrategy( d_instStrategies[i] ) ){
+          //call the instantiation strategy's process method
+          int d_quantStatus = d_instStrategies[i]->process( it->first, effort );
+          //now call all instantiation strategies process methods
+          InstStrategy::updateStatus( d_status, d_quantStatus );
+        }
+      }
+    }
+  }
+}
+
+void Instantiator::resetInstantiationRound(){
+  for( int i=0; i<(int)d_instStrategies.size(); i++ ){
+    if( isActiveStrategy( d_instStrategies[i] ) ){
+      d_instStrategies[i]->resetInstantiationRound();
+    }
+  }
+}
+
+#else
 
 void Instantiator::doInstantiation( int effort ){
   d_status = STATUS_SAT;
@@ -49,16 +73,6 @@ void Instantiator::doInstantiation( int effort ){
       //now call all instantiation strategies process methods
       //d_instStrategies[ it->first ].process( effort );
       updateStatus( d_status, d_quantStatus );
-    }
-  }
-}
-
-void Instantiator::updateStatus( int& currStatus, int addStatus ){
-  if( addStatus==STATUS_UNFINISHED ){
-    currStatus = STATUS_UNFINISHED;
-  }else if( addStatus==STATUS_UNKNOWN ){
-    if( currStatus==STATUS_SAT ){
-      currStatus = STATUS_UNKNOWN;
     }
   }
 }
@@ -80,6 +94,8 @@ bool Instantiator::isOwnerOf( Node f ){
   return d_instEngine->d_owner.find( f )!=d_instEngine->d_owner.end() &&
          d_instEngine->d_owner[f]==getTheory();
 }
+
+#endif
 
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
@@ -106,10 +122,6 @@ bool InstantiationEngine::addLemma( Node lem ){
 
 bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
 {
-  //std::cout << "***& Instantiate " << f << " with " << std::endl;
-  //for( int i=0; i<(int)terms.size(); i++ ){
-  //  std::cout << "   " << terms[i] << std::endl;
-  //}
   Assert( f.getKind()==FORALL );
   Assert( !f.hasAttribute(InstConstantAttribute()) );
   Assert( d_vars[f].size()==terms.size() && d_vars[f].size()==f[0].getNumChildren() );
@@ -119,6 +131,11 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
   nb << f.notNode() << body;
   Node lem = nb;
   if( addLemma( lem ) ){
+    //std::cout << "***& Instantiate " << f << " with " << std::endl;
+    //for( int i=0; i<(int)terms.size(); i++ ){
+    //  std::cout << "   " << terms[i] << std::endl;
+    //}
+
     //std::cout << "**INST" << std::endl;
     Debug("inst-engine") << "*** Instantiate " << f << " with " << std::endl;
     //std::cout << "*** Instantiate " << f << " with " << std::endl;
@@ -156,16 +173,13 @@ bool InstantiationEngine::addInstantiation( Node f, std::vector< Node >& terms )
   }
 }
 
-bool InstantiationEngine::addInstantiation( InstMatch* m, bool addSplits ){
+bool InstantiationEngine::addInstantiation( Node f, InstMatch* m, bool addSplits ){
   //Assert( m->isComplete() );
   //std::cout << "compute vec " << m << std::endl;
-  int origTermSize = 0;
-  for( std::map< Node, Node >::iterator it = m->d_map.begin(); it != m->d_map.end(); ++it ){
-    if( it->second!=Node::null() ){
-      origTermSize++;
-    }
-  }
-  m->computeTermVec( this );
+  std::vector< Node > vars;
+  getInstantiationConstantsFor( f, vars );
+  std::vector< Node > match;
+  m->computeTermVec( this, vars, match );
   //std::cout << "done" << std::endl;
   //std::cout << "m's quant is " << m->getQuantifier() << std::endl;
   //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
@@ -173,9 +187,9 @@ bool InstantiationEngine::addInstantiation( InstMatch* m, bool addSplits ){
   //  std::cout << "   " << m->d_match[i] << std::endl;
   //}
 
-  if( addInstantiation( m->getQuantifier(), m->d_match ) ){
-    d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)m->d_match.size() - origTermSize );
-    if( (int)m->d_match.size()!=origTermSize ){
+  if( addInstantiation( f, match ) ){
+    d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)vars.size() - m->d_map.size() );
+    if( (int)vars.size()!=m->d_map.size() ){
       //std::cout << "Unspec. " << std::endl;
       //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
       //for( int i=0; i<(int)m->d_match.size(); i++ ){
@@ -358,6 +372,7 @@ bool InstantiationEngine::doInstantiationRound( OutputChannel* out ){
       d_instTable[i]->resetInstantiationRound();
     }
   }
+  //InstMatchGenerator::resetInstantiationRoundAll( (uf::InstantiatorTheoryUf*)d_instTable[theory::THEORY_UF] );
   int e = 0;
   d_status = Instantiator::STATUS_UNFINISHED;
   while( d_status==Instantiator::STATUS_UNFINISHED ){
@@ -414,7 +429,9 @@ InstantiationEngine::Statistics::Statistics():
   d_total_inst_var("InstantiationEngine::Inst_Vars", 0),
   d_total_inst_var_unspec("InstantiationEngine::Inst_Vars_Unspecified", 0),
   d_inst_unspec("InstantiationEngine::Inst_Unspecified", 0),
-  d_inst_duplicate("InstantiationEngine::Inst_Duplicate", 0)
+  d_inst_duplicate("InstantiationEngine::Inst_Duplicate", 0),
+  d_lit_phase_req("InstantiationEngine::lit_phase_req", 0),
+  d_lit_phase_nreq("InstantiationEngine::lit_phase_nreq", 0)
 {
   StatisticsRegistry::registerStat(&d_instantiation_rounds);
   StatisticsRegistry::registerStat(&d_instantiations);
@@ -424,6 +441,8 @@ InstantiationEngine::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_total_inst_var_unspec);
   StatisticsRegistry::registerStat(&d_inst_unspec);
   StatisticsRegistry::registerStat(&d_inst_duplicate);
+  StatisticsRegistry::registerStat(&d_lit_phase_req);
+  StatisticsRegistry::registerStat(&d_lit_phase_nreq);
 }
 
 InstantiationEngine::Statistics::~Statistics(){
@@ -435,6 +454,8 @@ InstantiationEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_total_inst_var_unspec);
   StatisticsRegistry::unregisterStat(&d_inst_unspec);
   StatisticsRegistry::unregisterStat(&d_inst_duplicate);
+  StatisticsRegistry::unregisterStat(&d_lit_phase_req);
+  StatisticsRegistry::unregisterStat(&d_lit_phase_nreq);
 }
 
 Node InstantiationEngine::getFreeVariableForInstConstant( Node n ){

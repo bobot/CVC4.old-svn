@@ -32,6 +32,7 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
+#ifdef USE_INST_STRATEGY
 class InstantiatorTheoryUf;
 
 class InstStrategyCheckCESolved : public InstStrategy{
@@ -39,11 +40,11 @@ private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
 public:
-  InstStrategyCheckCESolved( InstantiatorTheoryUf* th, Node f, InstantiationEngine* ie ) : 
-      InstStrategy( f, ie ), d_th( th ){}
+  InstStrategyCheckCESolved( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
+      InstStrategy( ie ), d_th( th ){}
   ~InstStrategyCheckCESolved(){}
   void resetInstantiationRound();
-  bool process( int effort );
+  int process( Node* f, int effort );
 };
 
 class InstStrategyLitMatch : public InstStrategy{
@@ -51,11 +52,11 @@ private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
 public:
-  InstStrategyLitMatch( InstantiatorTheoryUf* th, Node f, InstantiationEngine* ie ) : 
-      InstStrategy( f, ie ), d_th( th ){}
+  InstStrategyLitMatch( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
+      InstStrategy( ie ), d_th( th ){}
   ~InstStrategyLitMatch(){}
   void resetInstantiationRound();
-  bool process( int effort );
+  int process( Node* f, int effort );
 };
 
 class InstStrategyUserPatterns : public InstStrategy{
@@ -63,11 +64,11 @@ private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
 public:
-  InstStrategyUserPatterns( InstantiatorTheoryUf* th, Node f, InstantiationEngine* ie ) : 
-      InstStrategy( f, ie ), d_th( th ){}
+  InstStrategyUserPatterns( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
+      InstStrategy( ie ), d_th( th ){}
   ~InstStrategyUserPatterns(){}
   void resetInstantiationRound();
-  bool process( int effort );
+  int process( Node* f, int effort );
 };
 
 class InstStrategyAutoGenTriggers : public InstStrategy{
@@ -75,12 +76,13 @@ private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
 public:
-  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, Node f, InstantiationEngine* ie ) : 
-      InstStrategy( f, ie ), d_th( th ){}
+  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
+      InstStrategy( ie ), d_th( th ){}
   ~InstStrategyAutoGenTriggers(){}
   void resetInstantiationRound();
-  bool process( int effort );
+  int process( Node* f, int effort );
 };
+#endif
 
 
 class UfTermDb
@@ -101,8 +103,9 @@ protected:
   typedef context::CDMap<Node, int, NodeHashFunction> IntMap;
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
   typedef context::CDMap<Node, NodeList*, NodeHashFunction> NodeLists;
-  //typedef context::CDMap<Node, SubTermNode*, NodeHashFunction > SubTermMap;
 
+  /** whether obligatiosn have changed for each quantifier */
+  BoolMap d_ob_changed;
   /** list of currently asserted literals for each quantifier */
   NodeLists d_obligations;
   /** term database */
@@ -115,9 +118,6 @@ protected:
   std::map< Node, Node > d_reps;
   /** disequality list */
   std::map< Node, std::vector< Node > > d_dmap;
-  bool areEqual( Node a, Node b );
-  bool areDisequal( Node a, Node b );
-  Node getRepresentative( Node a );
   /** has instantiation constant */
   void addObligationToList( Node ob, Node f );
   void addObligations( Node n, Node ob );
@@ -140,20 +140,20 @@ private:
   /** calculate matches for quantifier f at effort */
   void process( Node f, int effort );
 
-  /** find best match to any term */
-  std::map< Node, std::vector< Node > > d_matches;
-  //std::map< Node, std::vector< Node > > d_anyMatches;
-  void calculateMatches( Node f, Node t );
+  /** base match */
+  InstMatch d_baseMatch;
+  /** triggers for literal matching */
+  std::map< Node, Trigger* > d_lit_match_triggers;
   /** calculate sets possible matches to induce t ~ s */
   std::map< Node, std::map< Node, std::vector< Node > > > d_litMatchCandidates[2];
   void calculateEIndLitCandidates( Node t, Node s, Node f, bool isEq );
-  /** calculate whether two terms are equality-dependent */
-  std::map< Node, std::map< Node, bool > > d_eq_dep;
-  void calculateEqDep( Node i, Node c, Node f );
 public:
   /** get obligations for quantifier f */
   void getObligations( Node f, std::vector< Node >& obs );
-  /** get internal representative */
+  /** general queries about equality */
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
+  Node getRepresentative( Node a );
   Node getInternalRepresentative( Node a );
   /** get uf term database */
   UfTermDb* getTermDatabase() { return &d_db; }

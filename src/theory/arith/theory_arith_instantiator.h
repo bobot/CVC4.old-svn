@@ -40,14 +40,15 @@ private:
   std::map< ArithVar, Node > d_tableaux_term;
   std::map< ArithVar, std::map< Node, Node > > d_tableaux_ce_term;
   std::map< ArithVar, std::map< Node, Node > > d_tableaux;
+  std::map< ArithVar, Trigger* > d_tableaux_ce_term_trigger;
   /** ce tableaux */
   std::map< ArithVar, std::map< Node, Node > > d_ceTableaux;
   /** get value */
   Node getTableauxValue( Node n, bool minus_delta = false );
   Node getTableauxValue( ArithVar v, bool minus_delta = false );
   /** do instantiation */
-  bool doInstantiation( Node term, ArithVar x, InstMatch* m, Node var );
-  bool doInstantiation2( Node term, ArithVar x, InstMatch* m, Node var, bool minus_delta = false );
+  bool doInstantiation( Node f, Node term, ArithVar x, InstMatch* m, Node var );
+  bool doInstantiation2( Node f, Node term, ArithVar x, InstMatch* m, Node var, bool minus_delta = false );
 public:
   InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryArith() {}

@@ -37,7 +37,7 @@ void InstantiatorDefault::process( Node f, int effort ){
     d_quantStatus = STATUS_UNKNOWN;
   }else if( effort==4 ){
     Debug("quant-default") << "Process " << f << " : " << std::endl;
-    InstMatch m( f, d_instEngine );
+    InstMatch m;
     for( int j=0; j<(int)d_instEngine->getNumInstantiationConstants( f ); j++ ){
       Node i = d_instEngine->getInstantiationConstant( f, j );
       Debug("quant-default") << "Getting value for " << i << std::endl;
@@ -47,6 +47,6 @@ void InstantiatorDefault::process( Node f, int effort ){
         m.setMatch( i, val );
       }
     }
-    d_instEngine->addInstantiation( &m );
+    d_instEngine->addInstantiation( f, &m );
   }
 }
