@@ -30,7 +30,7 @@ public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
       throw (TypeCheckingExceptionPrivate) {
     /* Kind should always be definition */
-    Assert(n.getKind() == Kind::DEFINITION);
+    Assert(n.getKind() == kind::DEFINITION);
 
     /* Also guarenteed that it's arity 2 (from the kinds file) */
     Assert(n.getNumChildren() == 2);
