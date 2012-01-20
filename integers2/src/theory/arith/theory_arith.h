@@ -108,10 +108,40 @@ private:
 
 
   /**
-   * List of the types of variables in the system.
-   * "True" means integer, "false" means (non-integer) real.
+   * (For the moment) the type hierarchy goes as:
+   * PsuedoBoolean <: Integer <: Real
+   * The type number of a variable is an integer representing the most specific
+   * type of the variable. The possible values of type number are:
    */
-  std::vector<short> d_integerVars;
+  enum ArithType
+    {
+      ATReal = 0,
+      ATInteger = 1,
+      ATPsuedoBoolean = 2
+   };
+
+  std::vector<ArithType> d_variableTypes;
+  inline ArithType nodeToArithType(TNode x) const {
+    return x.getType().isPseudoboolean() ? ATPsuedoBoolean :
+      (x.getType().isInteger() ? ATInteger : ATReal);
+  }
+
+  /** Returns true if x is of type Integer or PsuedoBoolean. */
+  inline bool isInteger(ArithVar x) const {
+    return d_variableTypes[x] >= ATInteger;
+  }
+  /** Returns true if x is of type PsuedoBoolean. */
+  inline bool isPsuedoBoolean(ArithVar x) const {
+    return d_variableTypes[x] == ATPsuedoBoolean;
+  }
+
+  /** This is the set of variables initially introduced as slack variables. */
+  std::vector<bool> d_slackVars;
+
+  /** Returns true if the variable was initially introduced as a slack variable. */
+  inline bool isSlackVariable(ArithVar x) const{
+    return d_slackVars[x];
+  }
 
   /**
    * On full effort checks (after determining LA(Q) satisfiability), we
@@ -134,11 +164,6 @@ private:
    * variables.
    */
   ArithPartialModel d_partialModel;
-
-  /**
-   * Set of ArithVars that were introduced via preregisteration.
-   */
-  ArithVarSet d_userVariables;
 
   /**
    * List of all of the inequalities asserted in the current context.
@@ -254,7 +279,7 @@ private:
    * This also does initial (not context dependent) set up for a variable,
    * except for setting up the initial.
    */
-  ArithVar requestArithVar(TNode x, bool basic);
+  ArithVar requestArithVar(TNode x, bool slack);
 
   /** Initial (not context dependent) sets up for a variable.*/
   void setupInitialValue(ArithVar x);

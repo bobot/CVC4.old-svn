@@ -62,7 +62,6 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
   d_partialModel(c, d_differenceManager),
-  d_userVariables(),
   d_diseq(c),
   d_tableau(),
   d_diosolver(c, d_tableau, d_partialModel),
@@ -405,7 +404,7 @@ void TheoryArith::preRegisterTerm(TNode n) {
 }
 
 
-ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
+ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
   Assert(isLeaf(x) || x.getKind() == PLUS);
   Assert(!d_arithvarNodeMap.hasArithVar(x));
   Assert(x.getType().isReal());// real or integer
@@ -413,13 +412,14 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool basic){
   ArithVar varX = d_variables.size();
   d_variables.push_back(Node(x));
   Debug("integers") << "isInteger[[" << x << "]]: " << x.getType().isInteger() << endl;
-  d_integerVars.push_back(x.getType().isPseudoboolean() ? 2 : (x.getType().isInteger() ? 1 : 0));
+
+  d_variableTypes.push_back(nodeToArithType(x));
+  d_slackVars.push_back(slack);
 
   d_simplex.increaseMax();
 
   d_arithvarNodeMap.setArithVar(x,varX);
 
-  d_userVariables.init(varX, !basic);
   d_tableau.increaseSize();
 
   Debug("arith::arithvar") << x << " |-> " << varX << endl;
@@ -687,17 +687,17 @@ void TheoryArith::check(Effort effortLevel){
     }
   }
 
-  if(fullEffort(effortLevel) && d_integerVars.size() > 0) {
+  if(fullEffort(effortLevel) && d_variables.size() > 0) {
     const ArithVar rrEnd = d_nextIntegerCheckVar;
     do {
       ArithVar v = d_nextIntegerCheckVar;
-      short type = d_integerVars[v];
-      if(type > 0) { // integer
+      //Do not split on slack variables
+      if(isInteger(v) && !isSlackVariable(v)) { // integer
         const DeltaRational& d = d_partialModel.getAssignment(v);
         const Rational& r = d.getNoninfinitesimalPart();
         const Rational& i = d.getInfinitesimalPart();
         Trace("integers") << "integers: assignment to [[" << d_arithvarNodeMap.asNode(v) << "]] is " << r << "[" << i << "]" << endl;
-        if(type == 2) {
+        if(isPsuedoBoolean(v)) {
           // pseudoboolean
           if(r.getDenominator() == 1 && i.getNumerator() == 0 &&
              (r.getNumerator() == 0 || r.getNumerator() == 1)) {
@@ -1162,7 +1162,7 @@ void TheoryArith::presolve(){
     for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
       Node variableNode = *i;
       ArithVar var = d_arithvarNodeMap.asArithVar(variableNode);
-      if(d_userVariables.isMember(var) &&
+      if(!isSlackVariable(var) &&
          !d_atomDatabase.hasAnyAtoms(variableNode) &&
          !variableNode.getType().isInteger()){
 	//The user variable is unconstrained.
