@@ -488,14 +488,16 @@ int runCvc4(int argc, char *argv[], Options& options) {
     threadOptions[0].sharingFilterByLength = 0;
   } else {
     // Setup sharing channels
+    const unsigned int sharingChannelSize = 1000000;
+
     for(int i=0; i<numThreads; ++i){
       if(Debug.isOn("channel-empty")) {
-        channelsOut[i] = new EmptySharedChannel<channelFormat>(10000);
-        channelsIn[i] = new EmptySharedChannel<channelFormat>(10000);
+        channelsOut[i] = new EmptySharedChannel<channelFormat>(sharingChannelSize);
+        channelsIn[i] = new EmptySharedChannel<channelFormat>(sharingChannelSize);
         continue;
       }
-      channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(10000);
-      channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(10000);
+      channelsOut[i] = new SynchronizedSharedChannel<channelFormat>(sharingChannelSize);
+      channelsIn[i] = new SynchronizedSharedChannel<channelFormat>(sharingChannelSize);
     }
 
     /* Lemma output channel */
@@ -723,6 +725,8 @@ void sharingManager(int numThreads,
     queues.push_back(queue<T>());
   }
 
+  const unsigned int sharingBroadcastInterval = 1;
+
   boost::mutex mutex_activity;
 
   /* Disable interruption, so that we can check manually */
@@ -730,11 +734,15 @@ void sharingManager(int numThreads,
 
   while(not boost::this_thread::interruption_requested()) {
 
-    boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+    boost::this_thread::sleep(boost::posix_time::milliseconds(sharingBroadcastInterval));
 
     for(int t=0; t<numThreads; ++t) {
 
       if(channelsOut[t]->empty()) continue;      /* No activity on this channel */
+
+      /* Alert if channel full, so that we increase sharingChannelSize
+         or decrease sharingBroadcastInterval */
+      Assert(not channelsOut[t]->full());
 
       T data = channelsOut[t]->pop();
 
@@ -754,6 +762,10 @@ void sharingManager(int numThreads,
     } /* end of outer for: look for activity */
 
     for(int t=0; t<numThreads; ++t){
+      /* Alert if channel full, so that we increase sharingChannelSize
+         or decrease sharingBroadcastInterval */
+      Assert(not channelsIn[t]->full());
+
       while(!queues[t].empty() && !channelsIn[t]->full()){
         Trace("sharing") << "sharing: pushing on channel " << t << std::endl;
         T data = queues[t].front();
