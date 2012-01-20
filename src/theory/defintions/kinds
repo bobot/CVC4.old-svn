@@ -4,15 +4,18 @@
 # src/theory/builtin/kinds.
 #
 
-theory THEORY_UF ::CVC4::theory::uf::TheoryUF "theory/uf/theory_uf.h"
-typechecker "theory/uf/theory_uf_type_rules.h"
+theory THEORY_DEFINITIONS ::CVC4::theory::definitions::TheoryDefinitions "theory/definitions/theory_defintions.h"
+typechecker "theory/definitions/theory_definitions_type_rules.h"
 
 properties stable-infinite parametric
-properties check propagate staticLearning presolve
+properties check
 
-rewriter ::CVC4::theory::uf::TheoryUfRewriter "theory/uf/theory_uf_rewriter.h"
-parameterized APPLY_UF VARIABLE 1: "uninterpreted function application"
+# To start with, only need check.
+#properties check propagate staticLearning presolve
 
-typerule APPLY_UF ::CVC4::theory::uf::UfTypeRule
+rewriter ::CVC4::theory::definitions::TheoryDefinitionsRewriter "theory/definitions/theory_definitions_rewriter.h"
+operator DEFINITION 2 "inductive definition"
+
+typerule DEFINITION ::CVC4::theory::definitions::DefinitionsTypeRule
 
 endtheory
