@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file theory_uf_tim.h
+/*! \file theory_definitions.h
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters
@@ -24,8 +24,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__THEORY__UF__TIM__THEORY_UF_TIM_H
-#define __CVC4__THEORY__UF__TIM__THEORY_UF_TIM_H
+#ifndef __CVC4__THEORY__DEFINITIONS__THEORY_DEFINITIONS_H
+#define __CVC4__THEORY__DEFINITIONS__THEORY_DEFINITIONS_H
 
 #include "expr/node.h"
 #include "expr/attribute.h"
@@ -35,64 +35,28 @@
 #include "context/context.h"
 #include "context/cdo.h"
 #include "context/cdlist.h"
-#include "theory/uf/theory_uf.h"
-#include "theory/uf/tim/ecdata.h"
+#include "theory/definitions/theory_definitions.h"
 
 namespace CVC4 {
 namespace theory {
-namespace uf {
-namespace tim {
+namespace definitions {
 
-class TheoryUFTim : public Theory {
+class TheoryDefinitions : public Theory {
 
 private:
 
-  /**
-   * List of all of the non-negated literals from the assertion queue.
-   * This is used only for conflict generation.
-   * This differs from pending as the program generates new equalities that
-   * are not in this list.
-   * This will probably be phased out in future version.
-   */
-  context::CDList<Node> d_assertions;
-
-  /**
-   * List of pending equivalence class merges.
-   *
-   * Tricky part:
-   * Must keep a hard link because new equality terms are created and appended
-   * to this list.
-   */
-  context::CDList<Node> d_pending;
-
-  /** Index of the next pending equality to merge. */
-  context::CDO<unsigned> d_currentPendingIdx;
-
-  /** List of all disequalities this theory has seen. */
-  context::CDList<Node> d_disequality;
-
-  /**
-   * List of all of the terms that are registered in the current context.
-   * When registerTerm is called on a term we want to guarentee that there
-   * is a hard link to the term for the duration of the context in which
-   * register term is called.
-   * This invariant is enough for us to use soft links where we want is the
-   * current implementation as well as making ECAttr() not context dependent.
-   * Soft links used both in ECData, and Link.
-   */
-  context::CDList<Node> d_registered;
 
 public:
 
-  /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-  TheoryUFTim(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  /** Constructs a new instance of TheoryDefinitions w.r.t. the provided context.*/
+  TheoryDefinitions(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
 
-  /** Destructor for the TheoryUF object. */
-  ~TheoryUFTim();
+  /** Destructor for the TheoryDefinitions object. */
+  ~TheoryDefinitions();
 
   /**
    * Registers a previously unseen [in this context] node n.
-   * For TheoryUF, this sets up and maintains invaraints about
+   * For TheoryDefinitions, this sets up and maintains invaraints about
    * equivalence class data-structures.
    *
    * Overloads a void registerTerm(TNode n); from theory.h.
@@ -149,77 +113,17 @@ public:
    * See theory/theory.h for more information about this method.
    */
   Node getValue(TNode n) {
-    Unimplemented("TheoryUFTim doesn't support model generation");
+    Unimplemented("TheoryDefinitions doesn't support model generation");
   }
 
-  std::string identify() const { return std::string("TheoryUFTim"); }
+  std::string identify() const { return std::string("TheoryDefinitions"); }
 
 private:
-  /**
-   * Checks whether 2 nodes are already in the same equivalence class tree.
-   * This should only be used internally, and it should only be called when
-   * the only thing done with the equivalence classes is an equality check.
-   *
-   * @returns true iff ccFind(x) == ccFind(y);
-   */
-  bool sameCongruenceClass(TNode x, TNode y);
 
-  /**
-   * Checks whether Node x and Node y are currently congruent
-   * using the equivalence class data structures.
-   * @returns true iff
-   *    |x| = n = |y| and
-   *    x.getOperator() == y.getOperator() and
-   *    forall 1 <= i < n : ccFind(x[i]) == ccFind(y[i])
-   */
-  bool equiv(TNode x, TNode y);
+};/* class TheoryDefinitions */
 
-  /**
-   * Merges 2 equivalence classes, checks wether any predecessors need to
-   * be set equal to complete congruence closure.
-   * The class with the smaller class size will be merged.
-   * @pre ecX->isClassRep()
-   * @pre ecY->isClassRep()
-   */
-  void ccUnion(ECData* ecX, ECData* ecY);
-
-  /**
-   * Returns the representative of the equivalence class.
-   * May modify the find pointers associated with equivalence classes.
-   */
-  ECData* ccFind(ECData* x);
-
-  /** Performs Congruence Closure to reflect the new additions to d_pending. */
-  void merge();
-
-  /** Constructs a conflict from an inconsistent disequality. */
-  Node constructConflict(TNode diseq);
-
-};/* class TheoryUFTim */
-
-
-/**
- * Cleanup function for ECData. This will be used for called whenever
- * a ECAttr is being destructed.
- */
-struct ECCleanupStrategy {
-  static void cleanup(ECData* ec) {
-    Debug("ufgc") << "cleaning up ECData " << ec << "\n";
-    ec->deleteSelf();
-  }
-};/* struct ECCleanupStrategy */
-
-/** Unique name to use for constructing ECAttr. */
-struct ECAttrTag {};
-
-/**
- * ECAttr is the attribute that maps a node to an equivalence class.
- */
-typedef expr::Attribute<ECAttrTag, ECData*, ECCleanupStrategy> ECAttr;
-
-}/* CVC4::theory::uf::tim namespace */
-}/* CVC4::theory::uf namespace */
+}/* CVC4::theory::definitions namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__THEORY__UF__TIM__THEORY_UF_TIM_H */
+#endif /* __CVC4__THEORY__DEFINITIONS__THEORY_DEFINITIONS_H */
