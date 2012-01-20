@@ -131,9 +131,6 @@ Monomial Monomial::operator*(const Monomial& mono) const {
 
 vector<Monomial> Monomial::sumLikeTerms(const std::vector<Monomial> & monos) {
   Assert(isSorted(monos));
-
-  Debug("blah") << "start sumLikeTerms" << std::endl;
-  printList(monos);
   vector<Monomial> outMonomials;
   typedef vector<Monomial>::const_iterator iterator;
   for(iterator rangeIter = monos.begin(), end=monos.end(); rangeIter != end;) {
@@ -150,9 +147,6 @@ vector<Monomial> Monomial::sumLikeTerms(const std::vector<Monomial> & monos) {
       outMonomials.push_back(nonZero);
     }
   }
-  Debug("blah") << "outmonomials" << std::endl;
-  printList(monos);
-  Debug("blah") << "end sumLikeTerms" << std::endl;
 
   Assert(isStrictlySorted(outMonomials));
   return outMonomials;
@@ -169,8 +163,6 @@ void Monomial::printList(const std::vector<Monomial>& list) {
   }
 }
 Polynomial Polynomial::operator+(const Polynomial& vl) const {
-  this->printList();
-  vl.printList();
 
   std::vector<Monomial> sortedMonos;
   merge_ranges(begin(), end(), vl.begin(), vl.end(), sortedMonos);
@@ -178,7 +170,6 @@ Polynomial Polynomial::operator+(const Polynomial& vl) const {
   std::vector<Monomial> combined = Monomial::sumLikeTerms(sortedMonos);
 
   Polynomial result = mkPolynomial(combined);
-  result.printList();
   return result;
 }
 
