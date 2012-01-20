@@ -3,12 +3,10 @@ AM_CPPFLAGS = \
 	-I@srcdir@/../../include -I@srcdir@/../.. -I@builddir@/../..
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
-noinst_LTLIBRARIES = libexample.la
+noinst_LTLIBRARIES = libdefinitions.la
 
-libexample_la_SOURCES = \
-	ecdata.h \
-	ecdata.cpp \
-	theory_uf_tim.h \
-	theory_uf_tim.cpp
+libdefinitions_la_SOURCES = \
+	theory_definitions.h \
+	theory_definitions.cpp
 
 EXTRA_DIST =
