@@ -104,7 +104,7 @@ public:
    * Overloads void explain(TNode n, Effort level); from theory.h.
    * See theory/theory.h for more information about this method.
    */
-  void explain(TNode n) {}
+  Node explain(TNode n) { Unreachable(); }
 
   /**
    * Get a theory value.
