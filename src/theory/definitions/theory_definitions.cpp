@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file theory_definition.cpp
+/*! \file theory_definitions.cpp
  ** \verbatim
  ** Original author: taking
  ** Major contributors: mdeters
@@ -16,14 +16,14 @@
  ** Implementation of the theory of uninterpreted functions.
  **/
 
-#include "theory/definition/theory_definition.h"
+#include "theory/definitions/theory_definitions.h"
 #include "expr/kind.h"
 
 using namespace CVC4;
 using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
-using namespace CVC4::theory::definition;
+using namespace CVC4::theory::definitions;
 
 TheoryDefinitions::TheoryDefinitions(Context* c, UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_DEFINITIONS, c, u, out, valuation) {
