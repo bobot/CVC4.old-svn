@@ -189,13 +189,6 @@ void EqualityEngine<NotifyClass>::addEquality(TNode t1, TNode t2, TNode reason) 
   addTerm(t1);
   addTerm(t2);
 
-  ////AJR-hack
-  ////notify the theory strong solver
-  //if( d_thss ){
-  //  d_thss->merge( t1, t2 );
-  //}
-  ////AJR-hack-end
-
   // Add to the queue and propagate
   EqualityNodeId t1Id = getNodeId(t1);
   EqualityNodeId t2Id = getNodeId(t2);
@@ -262,11 +255,10 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
 
   EqualityNodeId class1Id = class1.getFind();
   EqualityNodeId class2Id = class2.getFind();
-
-  //AJR-hack
   Node n1 = d_nodes[class1Id];
   Node n2 = d_nodes[class2Id];
-  //AJR-hack-end
+  EqualityNode cc1 = getEqualityNode(n1);
+  EqualityNode cc2 = getEqualityNode(n2);
 
   // Update class2 representative information
   Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): updating class " << class2Id << std::endl;
@@ -364,7 +356,18 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
     }	
   }
 
+  //AJR-hack  DO_THIS HERE
   //AJR-hack
+  //notify the theory strong solver
+  if( d_thss ){
+    Debug("uf-ss-merge") << "Merge " << " " << n1 << " " << n2 << std::endl;
+    Debug("uf-ss-merge") << "   " << class1Id << " " << class2Id << std::endl;
+    Debug("uf-ss-merge") << "   " << cc1.getFind() << " " << cc2.getFind() << std::endl;
+    if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
+      d_thss->merge( n1, n2 );
+    }
+  }
+  //AJR-hack-end
   //std::cout << "Merge " << n1 << " " << n2 << std::endl;
   //Node r1 = getRepresentative( n1 );
   //Node r2 = getRepresentative( n2 );

@@ -21,7 +21,7 @@
 #include "theory/uf/equality_engine_impl.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
-//#define USE_STRONG_SOLVER
+#define USE_STRONG_SOLVER
 
 using namespace std;
 
@@ -132,7 +132,7 @@ void TheoryUF::check(Effort level) {
 
   //AJR-hack
 #ifdef USE_STRONG_SOLVER
-  if( d_conflict ){
+  if( !d_conflict ){
     d_thss.check( level, d_out );
   }
 #endif

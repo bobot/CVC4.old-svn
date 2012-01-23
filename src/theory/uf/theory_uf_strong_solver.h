@@ -166,9 +166,9 @@ public:
     /** explain clique */
     void explainClique( std::vector< Node >& clique, OutputChannel* out );
     /** is valid */
-    bool isValid( int ri ) { return ri>=0 && d_regions[ ri ]->d_valid && ri<(int)d_regions_index; }
+    bool isValid( int ri ) { return ri>=0 && ri<(int)d_regions_index && d_regions[ ri ]->d_valid; }
     /** check ambiguous terms */
-    void disambiguateTerms( OutputChannel* out );
+    bool disambiguateTerms( OutputChannel* out );
   public:
     ConflictFind( context::Context* c, TheoryUF* th ) : 
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ), 
@@ -188,6 +188,9 @@ public:
     void check( Theory::Effort level, OutputChannel* out );
     //print debug
     void debugPrint( const char* c );
+  public:
+    /** get number of regions (for debugging) */
+    int getNumRegions();
   }; /** class ConflictFind */
 private:
   /** theory uf pointer */

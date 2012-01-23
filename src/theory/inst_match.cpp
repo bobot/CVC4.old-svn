@@ -145,9 +145,14 @@ void InstMatch::addSplit( Node n1, Node n2 ){
 }
 
 std::map< Node, std::vector< InstMatchGenerator* > > InstMatchGenerator::d_iter[3];
+int InstMatchGenerator::d_imgCount = 0;
 
 /** InstMatchGenerator constructor */
 InstMatchGenerator::InstMatchGenerator( int op, Node eq ) : d_operation( op ), d_eq( eq ), d_mg_i(-1){
+  d_imgCount++;
+  if( d_imgCount%1000==0 ){
+    std::cout << "img count = " << d_imgCount << std::endl;
+  }
   if( op==0 ){
     if( eq!=Node::null() && eq.getKind()!=NOT && eq[0].getKind()==INST_CONSTANT && !eq[1].hasAttribute(InstConstantAttribute()) ){
       InstMatch m;

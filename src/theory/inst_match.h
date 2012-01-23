@@ -75,6 +75,8 @@ Inst Match generator class: This class incrementally builds matches.
 class InstMatchGenerator 
 {
 protected:
+  /** img count */
+  static int d_imgCount;
   /** all iterators (for memory management purposes) */
   static std::map< Node, std::vector< InstMatchGenerator* > > d_iter[3];
   /** constructor */
