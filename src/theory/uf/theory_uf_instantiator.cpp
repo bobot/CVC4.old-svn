@@ -348,6 +348,7 @@ void InstantiatorTheoryUf::resetInstantiationRound()
   }
   //debug print
   debugPrint("quant-uf-debug");
+  Instantiator::resetInstantiationRound();
 }
 
 void InstantiatorTheoryUf::debugPrint( const char* c )

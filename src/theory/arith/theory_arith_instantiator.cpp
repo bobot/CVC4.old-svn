@@ -88,6 +88,7 @@ void InstantiatorTheoryArith::resetInstantiationRound(){
   }
   //print debug
   debugPrint( "quant-arith-debug" );
+  Instantiator::resetInstantiationRound();
 }
 
 void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){
@@ -277,7 +278,7 @@ int InstantiatorTheoryArith::process( Node f, int effort ){
       }
     }
   }
-  return InstStrategy::STATUS_UNFINISHED;
+  return InstStrategy::STATUS_UNKNOWN;
 }
 
 bool InstantiatorTheoryArith::doInstantiation( Node f, Node term, ArithVar x, InstMatch* m, Node var ){

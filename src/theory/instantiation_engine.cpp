@@ -361,6 +361,7 @@ bool InstantiationEngine::doInstantiationRound( OutputChannel* out ){
     d_status = InstStrategy::STATUS_SAT;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
+        //std::cout << "Prepare " << d_instTable[i]->identify() << " " << e << std::endl;
         d_instTable[i]->doInstantiation( e );
         Debug("inst-engine-debug") << e << " " << d_instTable[i]->identify() << " is " << d_instTable[i]->getStatus() << std::endl;
         //update status
