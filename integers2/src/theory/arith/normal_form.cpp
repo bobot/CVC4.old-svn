@@ -211,7 +211,7 @@ Monomial Polynomial::selectAbsMinimum() const {
   ++iter;
   for(; iter != end(); ++iter){
     Monomial curr = *iter;
-    if(curr.getConstant().abs() < min.getConstant().abs()){
+    if(curr.absLessThan(min)){
       min = curr;
     }
   }
@@ -580,6 +580,18 @@ Node SumPair::computeQR(const SumPair& sp, const Integer& div){
   SumPair sp_r(p_r, Constant::mkConstant(constant_r));
 
   return NodeManager::currentNM()->mkNode(kind::PLUS, sp_q.getNode(), sp_r.getNode());
+}
+
+Constant Polynomial::getCoefficient(const VarList& vl) const{
+  //TODO improve to binary search...
+  for(iterator iter=begin(), myend=end(); iter != myend; ++iter){
+    Monomial m = *iter;
+    VarList curr = m.getVarList();
+    if(curr == vl){
+      return m.getConstant();
+    }
+  }
+  return Constant::mkConstant(0);
 }
 
 } //namespace arith

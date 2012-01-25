@@ -409,6 +409,11 @@ public:
     return iterator(internalEnd());
   }
 
+  Variable getHead() const {
+    Assert(!empty());
+    return *(begin());
+  }
+
   VarList(Variable v) : NodeWrapper(v.getNode()) {
     Assert(isSorted(begin(), end()));
   }
@@ -607,6 +612,10 @@ public:
    * into a strictly sorted list of monomials that does not contain zero.
    */
   static std::vector<Monomial> sumLikeTerms(const std::vector<Monomial>& monos);
+
+  bool absLessThan(const Monomial& other) const{
+    return getConstant().abs() < other.getConstant().abs();
+  }
 
   void print() const;
   static void printList(const std::vector<Monomial>& list);
@@ -851,6 +860,8 @@ public:
    */
   static Node computeQR(const Polynomial& p, const Integer& z);
 
+  /** Returns the coefficient assiociated with the VarList in the polynomial. */
+  Constant getCoefficient(const VarList& vl) const;
 };/* class Polynomial */
 
 
