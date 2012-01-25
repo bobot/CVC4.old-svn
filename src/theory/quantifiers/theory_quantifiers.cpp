@@ -25,9 +25,9 @@
 #include <map>
 #include <time.h>
 #include "theory/quantifiers/theory_quantifiers_instantiator.h"
-//
-//static bool clockSet = false;
-//double initClock;
+
+static bool clockSet = false;
+double initClock;
 
 using namespace std;
 using namespace CVC4;
@@ -220,16 +220,16 @@ bool TheoryQuantifiers::restart(){
 }
 
 void TheoryQuantifiers::fullEffortCheck(){
-  //if( !clockSet ){
-  //  initClock = double(clock())/double(CLOCKS_PER_SEC);
-  //  clockSet = true;
-  //}else{
-  //  double currClock = double(clock())/double(CLOCKS_PER_SEC);
-  //  if( currClock-initClock>10 ){
-  //    NodeManager::currentNM()->getStatisticsRegistry()->flushStatistics(std::cout);
-  //    exit( 55 );
-  //  }
-  //}
+  if( !clockSet ){
+    initClock = double(clock())/double(CLOCKS_PER_SEC);
+    clockSet = true;
+  }else{
+    double currClock = double(clock())/double(CLOCKS_PER_SEC);
+    if( currClock-initClock>10 ){
+      NodeManager::currentNM()->getStatisticsRegistry()->flushStatistics(std::cout);
+      exit( 55 );
+    }
+  }
 
   if( d_baseDecLevel==-1 || (int)d_valuation.getDecisionLevel()<d_baseDecLevel){
     d_baseDecLevel = d_valuation.getDecisionLevel();

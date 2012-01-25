@@ -16,6 +16,7 @@
 
 #include "theory/instantiation_engine.h"
 #include "theory/theory_engine.h"
+#include "theory/uf/theory_uf_instantiator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -24,7 +25,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 Instantiator::Instantiator(context::Context* c, InstantiationEngine* ie, Theory* th) : 
-d_status( STATUS_UNFINISHED ),
+d_status( InstStrategy::STATUS_UNFINISHED ),
 d_instEngine( ie ),
 d_th( th ){
 
@@ -33,18 +34,17 @@ d_th( th ){
 Instantiator::~Instantiator(){
 }
 
-#ifdef USE_INST_STRATEGY
-
 void Instantiator::doInstantiation( int effort ){
-  d_status = STATUS_SAT;
+  d_status = InstStrategy::STATUS_SAT;
   for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
         it != d_instEngine->d_inst_constants.end(); ++it ){
-    if( d_instEngine->getActive( it->first ) ){
+    if( d_instEngine->getActive( it->first ) && hasConstraintsFrom( it->first ) ){
+      int d_quantStatus = process( it->first, effort );
+      InstStrategy::updateStatus( d_status, d_quantStatus );
       for( int i=0; i<(int)d_instStrategies.size(); i++ ){
         if( isActiveStrategy( d_instStrategies[i] ) ){
           //call the instantiation strategy's process method
-          int d_quantStatus = d_instStrategies[i]->process( it->first, effort );
-          //now call all instantiation strategies process methods
+          d_quantStatus = d_instStrategies[i]->process( it->first, effort );
           InstStrategy::updateStatus( d_status, d_quantStatus );
         }
       }
@@ -56,23 +56,6 @@ void Instantiator::resetInstantiationRound(){
   for( int i=0; i<(int)d_instStrategies.size(); i++ ){
     if( isActiveStrategy( d_instStrategies[i] ) ){
       d_instStrategies[i]->resetInstantiationRound();
-    }
-  }
-}
-
-#else
-
-void Instantiator::doInstantiation( int effort ){
-  d_status = STATUS_SAT;
-  for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
-        it != d_instEngine->d_inst_constants.end(); ++it ){
-    if( d_instEngine->getActive( it->first ) && hasConstraintsFrom( it->first ) ){
-      d_quantStatus = STATUS_UNFINISHED;
-      //call the instantiator's process method
-      process( it->first, effort );
-      //now call all instantiation strategies process methods
-      //d_instStrategies[ it->first ].process( effort );
-      updateStatus( d_status, d_quantStatus );
     }
   }
 }
@@ -94,8 +77,6 @@ bool Instantiator::isOwnerOf( Node f ){
   return d_instEngine->d_owner.find( f )!=d_instEngine->d_owner.end() &&
          d_instEngine->d_owner[f]==getTheory();
 }
-
-#endif
 
 InstantiationEngine::InstantiationEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
@@ -198,7 +179,7 @@ bool InstantiationEngine::addInstantiation( Node f, InstMatch* m, bool addSplits
       ++(d_statistics.d_inst_unspec);
     }
     if( addSplits ){
-      for( std::map< Node, Node >::iterator it = m->d_splits.begin(); it != m->d_splits.end(); ++it ){
+      for( std::map< TNode, TNode >::iterator it = m->d_splits.begin(); it != m->d_splits.end(); ++it ){
         addSplitEquality( it->first, it->second, true, true );
       }
     }
@@ -256,7 +237,6 @@ void InstantiationEngine::registerQuantifier( Node f, OutputChannel* out, Valuat
     Debug("quant-req-phase") << "Require phase " << d_ce_lit[ f ] << " = true." << std::endl;
 
     //make the match generator
-    d_qmg[ f ] = new QuantMatchGenerator( this, f );
     if( f.getNumChildren()==3 ){
       //getCounterexampleBody( f );
       Node subsPat = f[2].substitute( d_vars[f].begin(), d_vars[f].end(), 
@@ -266,10 +246,10 @@ void InstantiationEngine::registerQuantifier( Node f, OutputChannel* out, Valuat
       for( int i=0; i<(int)subsPat.getNumChildren(); i++ ){
         registerTerm( subsPat[i], f, out );
         //std::cout << "Add pattern " << subsPat[i] << " for " << f << std::endl;
-        d_qmg[ f ]->addUserPattern( subsPat[i] );
+        ((uf::InstantiatorTheoryUf*)d_instTable[theory::THEORY_UF])->addUserPattern( f, subsPat[i] );
       }
-      //the UF instantiator now has a say in how to instantiation f
-      d_instTable[theory::THEORY_UF]->setHasConstraintsFrom( f );
+      ////the UF instantiator now has a say in how to instantiation f
+      //d_instTable[theory::THEORY_UF]->setHasConstraintsFrom( f );
     }
   }
 }
@@ -374,25 +354,26 @@ bool InstantiationEngine::doInstantiationRound( OutputChannel* out ){
   }
   //InstMatchGenerator::resetInstantiationRoundAll( (uf::InstantiatorTheoryUf*)d_instTable[theory::THEORY_UF] );
   int e = 0;
-  d_status = Instantiator::STATUS_UNFINISHED;
-  while( d_status==Instantiator::STATUS_UNFINISHED ){
+  d_status = InstStrategy::STATUS_UNFINISHED;
+  while( d_status==InstStrategy::STATUS_UNFINISHED ){
     Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
     //std::cout << "IE: Prepare instantiation (" << e << ")." << std::endl; 
-    d_status = Instantiator::STATUS_SAT;
+    d_status = InstStrategy::STATUS_SAT;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
         d_instTable[i]->doInstantiation( e );
         Debug("inst-engine-debug") << e << " " << d_instTable[i]->identify() << " is " << d_instTable[i]->getStatus() << std::endl;
         //update status
-        Instantiator::updateStatus( d_status, d_instTable[i]->getStatus() );
+        InstStrategy::updateStatus( d_status, d_instTable[i]->getStatus() );
       }
     }
     if( !d_lemmas_waiting.empty() ){
-      d_status = Instantiator::STATUS_UNKNOWN;
+      d_status = InstStrategy::STATUS_UNKNOWN;
     }
     e++;
   }
   Debug("inst-engine") << "IE: All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
+  //std::cout << "All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
   if( d_lemmas_waiting.empty() ){
     Debug("inst-engine-stuck") << "No instantiations produced at this state: " << std::endl;
     for( int i=0; i<theory::THEORY_LAST; i++ ){

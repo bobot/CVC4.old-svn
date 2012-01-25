@@ -37,14 +37,14 @@ namespace uf{
 class InstMatch
 {
 public:
-  std::map< Node, Node > d_map;
-  std::map< Node, Node > d_splits;
+  std::map< TNode, TNode > d_map;
+  std::map< TNode, TNode > d_splits;
 
   InstMatch(){}
   InstMatch( InstMatch* m );
 
   /** set the match of v to m */
-  void setMatch( Node v, Node m );
+  void setMatch( TNode v, TNode m );
   /** fill all unfilled values with m */
   bool add( InstMatch& m );
   /** if compatible, fill all unfilled values with m and return true 
@@ -61,7 +61,7 @@ public:
   /** compute d_match */
   void computeTermVec( InstantiationEngine* ie, std::vector< Node >& vars, std::vector< Node >& match );
   /** add split */
-  void addSplit( Node n1, Node n2 );
+  void addSplit( TNode n1, TNode n2 );
   /** clear */
   void clear(){
     d_map.clear();
@@ -73,16 +73,16 @@ public:
 Inst Match generator class: This class incrementally builds matches.
 */
 class InstMatchGenerator 
-{
+{ 
 protected:
   /** img count */
   static int d_imgCount;
   /** all iterators (for memory management purposes) */
-  static std::map< Node, std::vector< InstMatchGenerator* > > d_iter[3];
+  static std::map< TNode, std::vector< InstMatchGenerator* > > d_iter[3];
   /** constructor */
-  InstMatchGenerator( int op, Node eq );
+  InstMatchGenerator( int op, TNode eq );
   /** mk generator */
-  static InstMatchGenerator* mkInstMatchGenerator( int op, Node eq );
+  static InstMatchGenerator* mkInstMatchGenerator( int op, TNode eq );
 //public:
 //  static void resetInstantiationRoundAll( uf::InstantiatorTheoryUf* itu );
 public:
@@ -111,7 +111,7 @@ public:
   std::vector< InstMatchGenerator* > d_children;
 protected:
   /** map from terms to the children they represent */
-  std::map< Node, InstMatchGenerator* > d_lit_children_map;
+  std::map< TNode, InstMatchGenerator* > d_lit_children_map;
   std::map< InstMatchGenerator*, bool > d_children_valid;
   /** is child valid */
   bool isChildValid( int i ) { return d_children_valid.find( d_children[i] )==d_children_valid.end() || d_children_valid[ d_children[i] ]; }
@@ -150,13 +150,13 @@ public:
   //default
   static InstMatchGenerator* mkInstMatchGenerator( bool isCombine );
   // find matches for t ~ s, mod equality
-  static InstMatchGenerator* mkInstMatchGeneratorModEq( Node t, Node s, bool isEq );
+  static InstMatchGenerator* mkInstMatchGeneratorModEq( TNode t, TNode s, bool isEq );
   // find matches for t = s
-  static InstMatchGenerator* mkInstMatchGenerator( Node t, Node s );
+  static InstMatchGenerator* mkInstMatchGenerator( TNode t, TNode s );
   //find any match for t
-  static InstMatchGenerator* mkInstMatchGeneratorAny( Node t );
+  static InstMatchGenerator* mkInstMatchGeneratorAny( TNode t );
   //add any match pair
-  static void addAnyMatchPair( Node t, Node g );
+  static void addAnyMatchPair( TNode t, TNode g );
 };
 
 
@@ -199,46 +199,46 @@ public:
   bool addInstantiation( uf::InstantiatorTheoryUf* itu, InstMatch& baseMatch, bool addSplits = false, int triggerThresh = 0 );
 };
 
-class QuantMatchGenerator
-{
-private:
-  /** reference to the instantiation engine */
-  InstantiationEngine* d_instEngine;
-  /** quantifier we are producing matches for */
-  Node d_f;
-private:
-  /** collection of pattern terms */
-  void collectPatTerms( Node n, std::vector< Node >& patTerms );
-  /** collection of literals */
-  //void collectLiterals( Node n, std::vector< Node >& litPatTerms, bool reqPol, bool polarity );
-public:
-  /** constructor */
-  QuantMatchGenerator( InstantiationEngine* ie, Node f ) : d_instEngine( ie ), d_f( f ), d_auto_gen_trigger(NULL){}
-  /** destructor */
-  ~QuantMatchGenerator(){}
-  /** reset */
-  void reset();
-  /** the base match */
-  InstMatch d_baseMatch;
-private:
-  /** explicitly provided patterns */
-  std::vector< Trigger* > d_user_gen;
-public:
-  /** add pattern */
-  void addUserPattern( Node pat );
-  /** get num patterns */
-  int getNumUserGenerators() { return (int)d_user_gen.size(); }
-  /** get user pattern */
-  Trigger* getUserGenerator( int i ) { return d_user_gen[ i ]; }
-private:
-  /** current trigger */
-  Trigger* d_auto_gen_trigger;
-  /** all top level APPLY_UF terms in the counterexample body of d_f */
-  std::vector< Node > d_patTerms;
-public:
-  /** get auto-generated trigger */
-  Trigger* getAutoGenTrigger();
-};
+//class QuantMatchGenerator
+//{
+//private:
+//  /** reference to the instantiation engine */
+//  InstantiationEngine* d_instEngine;
+//  /** quantifier we are producing matches for */
+//  Node d_f;
+//private:
+//  /** collection of pattern terms */
+//  void collectPatTerms( Node n, std::vector< Node >& patTerms );
+//  /** collection of literals */
+//  //void collectLiterals( Node n, std::vector< Node >& litPatTerms, bool reqPol, bool polarity );
+//public:
+//  /** constructor */
+//  QuantMatchGenerator( InstantiationEngine* ie, Node f ) : d_instEngine( ie ), d_f( f ), d_auto_gen_trigger(NULL){}
+//  /** destructor */
+//  ~QuantMatchGenerator(){}
+//  /** reset */
+//  void reset();
+//  /** the base match */
+//  InstMatch d_baseMatch;
+//private:
+//  /** explicitly provided patterns */
+//  std::vector< Trigger* > d_user_gen;
+//public:
+//  /** add pattern */
+//  void addUserPattern( Node pat );
+//  /** get num patterns */
+//  int getNumUserGenerators() { return (int)d_user_gen.size(); }
+//  /** get user pattern */
+//  Trigger* getUserGenerator( int i ) { return d_user_gen[ i ]; }
+//private:
+//  /** current trigger */
+//  Trigger* d_auto_gen_trigger;
+//  /** all top level APPLY_UF terms in the counterexample body of d_f */
+//  std::vector< Node > d_patTerms;
+//public:
+//  /** get auto-generated trigger */
+//  Trigger* getAutoGenTrigger();
+//};
 
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

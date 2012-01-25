@@ -33,7 +33,7 @@ public:
   /** check function, assertion is asserted to theory */
   void check( Node assertion );
   /** process quantifier */
-  void process( Node f, int effort );
+  int process( Node f, int effort );
   /** identify */
   std::string identify() const { return std::string("InstantiatorDefault"); }
 };/* class Instantiatior */

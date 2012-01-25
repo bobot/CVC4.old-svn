@@ -42,7 +42,7 @@ public:
   std::string identify() const { return std::string("InstantiatorTheoryQuantifiers"); }
 private:
   /** process at effort */
-  void process( Node f, int effort );
+  int process( Node f, int effort );
 
   class Statistics {
   public:

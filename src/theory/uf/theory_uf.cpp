@@ -21,7 +21,7 @@
 #include "theory/uf/equality_engine_impl.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
-#define USE_STRONG_SOLVER
+//#define USE_STRONG_SOLVER
 
 using namespace std;
 

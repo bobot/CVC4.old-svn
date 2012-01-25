@@ -32,7 +32,6 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
-#ifdef USE_INST_STRATEGY
 class InstantiatorTheoryUf;
 
 class InstStrategyCheckCESolved : public InstStrategy{
@@ -44,46 +43,77 @@ public:
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyCheckCESolved(){}
   void resetInstantiationRound();
-  int process( Node* f, int effort );
+  int process( Node f, int effort );
 };
 
 class InstStrategyLitMatch : public InstStrategy{
 private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
+  /** triggers for literal matching */
+  std::map< Node, Trigger* > d_lit_match_triggers;
 public:
   InstStrategyLitMatch( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyLitMatch(){}
   void resetInstantiationRound();
-  int process( Node* f, int effort );
+  int process( Node f, int effort );
 };
 
 class InstStrategyUserPatterns : public InstStrategy{
 private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
+  /** explicitly provided patterns */
+  std::map< Node, std::vector< Trigger* > > d_user_gen;
 public:
   InstStrategyUserPatterns( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyUserPatterns(){}
   void resetInstantiationRound();
-  int process( Node* f, int effort );
+  int process( Node f, int effort );
+public:
+  /** add pattern */
+  void addUserPattern( Node f, Node pat );
+  /** get num patterns */
+  int getNumUserGenerators( Node f ) { return (int)d_user_gen[f].size(); }
+  /** get user pattern */
+  Trigger* getUserGenerator( Node f, int i ) { return d_user_gen[f][ i ]; }
 };
 
 class InstStrategyAutoGenTriggers : public InstStrategy{
 private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
+  /** current trigger */
+  std::map< Node, Trigger* > d_auto_gen_trigger;
+private:
+  /** collect all top level APPLY_UF pattern terms for f in n */
+  void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms );
 public:
   InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyAutoGenTriggers(){}
   void resetInstantiationRound();
-  int process( Node* f, int effort );
+  int process( Node f, int effort );
+public:
+  /** get auto-generated trigger */
+  Trigger* getAutoGenTrigger( Node f );
 };
-#endif
 
+class InstStrategyFreeVariable : public InstStrategy{
+private:
+  /** InstantiatorTheoryUf class */
+  InstantiatorTheoryUf* d_th;
+  /** guessed instantiations */
+  std::map< Node, bool > d_guessed;
+public:
+  InstStrategyFreeVariable( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
+      InstStrategy( ie ), d_th( th ){}
+  ~InstStrategyFreeVariable(){}
+  void resetInstantiationRound();
+  int process( Node f, int effort );
+};
 
 class UfTermDb
 {
@@ -120,9 +150,11 @@ protected:
   std::map< Node, std::vector< Node > > d_dmap;
   /** has instantiation constant */
   void addObligationToList( Node ob, Node f );
+  /** add obligations */
   void addObligations( Node n, Node ob );
-  /** guessed instantiations */
-  std::map< Node, bool > d_guessed;
+protected:
+  /** instantiation strategies */
+  InstStrategyUserPatterns* d_isup;
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
@@ -136,18 +168,17 @@ public:
   void debugPrint( const char* c );
   /** register terms */
   void registerTerm( Node n );
+  /** add user pattern */
+  void addUserPattern( Node f, Node pat );
 private:
   /** calculate matches for quantifier f at effort */
-  void process( Node f, int effort );
-
-  /** base match */
-  InstMatch d_baseMatch;
-  /** triggers for literal matching */
-  std::map< Node, Trigger* > d_lit_match_triggers;
+  int process( Node f, int effort );
   /** calculate sets possible matches to induce t ~ s */
   std::map< Node, std::map< Node, std::vector< Node > > > d_litMatchCandidates[2];
   void calculateEIndLitCandidates( Node t, Node s, Node f, bool isEq );
 public:
+  /** are obligations changed? */
+  bool getObligationsChanged( Node f ) { return d_ob_changed[f]; }
   /** get obligations for quantifier f */
   void getObligations( Node f, std::vector< Node >& obs );
   /** general queries about equality */
@@ -170,6 +201,8 @@ public:
     ~Statistics();
   };
   Statistics d_statistics;
+  /** the base match */
+  InstMatch d_baseMatch;
 };/* class InstantiatorTheoryUf */
 
 }

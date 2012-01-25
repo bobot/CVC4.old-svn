@@ -64,7 +64,7 @@ public:
   /** reset instantiation */
   virtual void resetInstantiationRound(){}
   /** process method */
-  virtual int process( Node* f, int effort ){ return STATUS_UNKNOWN; }
+  virtual int process( Node f, int effort ){ return STATUS_UNKNOWN; }
   /** update status */
   static void updateStatus( int& currStatus, int addStatus ){
     if( addStatus==STATUS_UNFINISHED ){
@@ -79,60 +79,40 @@ public:
 
 class Instantiator{
   friend class InstantiationEngine;
-protected:
+private:
   /** status */
   int d_status;
+protected:
   /** reference to the instantiation engine */
   InstantiationEngine* d_instEngine;
   /** reference to the theory that it looks at */
   Theory* d_th;
-
-#ifdef USE_INST_STRATEGY
   /** instantiation strategies */
   std::vector< InstStrategy* > d_instStrategies;
   /** instantiation strategies active */
   std::map< InstStrategy*, bool > d_instStrategyActive;
+  /** has constraints from quantifier */
+  std::map< Node, bool > d_hasConstraints;
   /** is instantiation strategy active */
   bool isActiveStrategy( InstStrategy* is ) { 
     return d_instStrategyActive.find( is )!=d_instStrategyActive.end() && d_instStrategyActive[is];
   }
+  /** add inst strategy */
+  void addInstStrategy( InstStrategy* is ){
+    d_instStrategies.push_back( is );
+    d_instStrategyActive[is] = true;
+  }
 public:
+  /** reset instantiation round */
   virtual void resetInstantiationRound();
-#else
-  /** quant status */
-  int d_quantStatus;
-  /** process quantifier */
-  virtual void process( Node f, int effort ) {}
-  /** has constraints from quantifier */
-  std::map< Node, bool > d_hasConstraints;
-public:
-  /** reset instantiation */
-  virtual void resetInstantiationRound() { d_status = STATUS_UNFINISHED; }
   /** set has constraints from quantifier f */
   void setHasConstraintsFrom( Node f );
   /** has constraints from */
   bool hasConstraintsFrom( Node f );
   /** is full owner of quantifier f? */
   bool isOwnerOf( Node f );
-public:
-  enum Status {
-    STATUS_UNFINISHED,
-    STATUS_UNKNOWN,
-    STATUS_SAT,
-  };/* enum Effort */
-  /** update status */
-  static void updateStatus( int& currStatus, int addStatus ){
-    if( addStatus==STATUS_UNFINISHED ){
-      currStatus = STATUS_UNFINISHED;
-    }else if( addStatus==STATUS_UNKNOWN ){
-      if( currStatus==STATUS_SAT ){
-        currStatus = STATUS_UNKNOWN;
-      }
-    }
-  }
-#endif
-
-
+  /** process quantifier */
+  virtual int process( Node f, int effort ) { return InstStrategy::STATUS_SAT; }
 public:
   Instantiator(context::Context* c, InstantiationEngine* ie, Theory* th);
   ~Instantiator();
@@ -202,7 +182,7 @@ private:
   /** whether a particular quantifier is clausal */
   std::map< Node, bool > d_clausal;
   /** quantifier match generators */
-  std::map< Node, QuantMatchGenerator* > d_qmg;
+  //std::map< Node, QuantMatchGenerator* > d_qmg;
   /** free variable for instantiation constant */
   std::map< Node, Node > d_free_vars;
 
@@ -268,7 +248,7 @@ public:
   bool hasAddedLemma() { return !d_lemmas_waiting.empty(); }
 
   /** get quantifier match generator */
-  QuantMatchGenerator* getMatchGenerator( Node f ) { return d_qmg[f]; }
+  //QuantMatchGenerator* getMatchGenerator( Node f ) { return d_qmg[f]; }
   /** get free variable for instantiation constant */
   Node getFreeVariableForInstConstant( Node n );
 

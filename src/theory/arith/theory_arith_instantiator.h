@@ -65,7 +65,7 @@ private:
   /** add term to row */
   void addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t );
   /** process at effort */
-  void process( Node f, int effort );
+  int process( Node f, int effort );
   /** get delta for node */
   Node getDelta( Node n );
 

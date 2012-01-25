@@ -55,10 +55,10 @@ void InstantiatorTheoryQuantifiers::resetInstantiationRound(){
 }
 
 
-void InstantiatorTheoryQuantifiers::process( Node f, int effort ){
+int InstantiatorTheoryQuantifiers::process( Node f, int effort ){
   Debug("quant-quant") << "Quant: Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  if( effort>5 ){
-    d_quantStatus = STATUS_UNKNOWN;
+  if( effort<5 ){
+    return InstStrategy::STATUS_UNFINISHED;
   }else if( effort==5 ){
     //add random addition
     if( isOwnerOf( f ) ){
@@ -68,6 +68,7 @@ void InstantiatorTheoryQuantifiers::process( Node f, int effort ){
       }
     }
   }
+  return InstStrategy::STATUS_UNKNOWN;
 }
 
 InstantiatorTheoryQuantifiers::Statistics::Statistics():

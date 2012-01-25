@@ -32,9 +32,9 @@ void InstantiatorDefault::check( Node assertion ){
 
 }
 
-void InstantiatorDefault::process( Node f, int effort ){
-  if( effort>4 ){
-    d_quantStatus = STATUS_UNKNOWN;
+int InstantiatorDefault::process( Node f, int effort ){
+  if( effort<4 ){
+    return InstStrategy::STATUS_UNFINISHED;
   }else if( effort==4 ){
     Debug("quant-default") << "Process " << f << " : " << std::endl;
     InstMatch m;
@@ -49,4 +49,5 @@ void InstantiatorDefault::process( Node f, int effort ){
     }
     d_instEngine->addInstantiation( f, &m );
   }
+  return InstStrategy::STATUS_UNKNOWN;
 }

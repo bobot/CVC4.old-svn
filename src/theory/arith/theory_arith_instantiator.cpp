@@ -178,13 +178,13 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
   }
 }
 
-void InstantiatorTheoryArith::process( Node f, int effort ){
+int InstantiatorTheoryArith::process( Node f, int effort ){
   Debug("quant-arith") << "Arith: Try to solve (" << effort << ") for " << f << "... " << std::endl;
 #ifndef USE_ARITH_INSTANTIATION
   return;
 #endif
-  if( effort>2 ){
-    d_quantStatus = STATUS_UNKNOWN;
+  if( effort<2 ){
+    return InstStrategy::STATUS_UNFINISHED;
   }else if( effort==2 ){
     ArithVarToNodeMap avtnm = ((TheoryArith*)getTheory())->d_arithvarNodeMap.getArithVarToNodeMap();
     for( int j=0; j<(int)d_instRows[f].size(); j++ ){
@@ -198,17 +198,15 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
       // where beta(t[e]) is the vector of constants by replacing each term with its current model.
       bool addedLemma = false;
       if( !d_tableaux_ce_term[x].empty() ){
-#if 0
-        if( !d_tableaux_ce_term_trigger[x] ){
-          std::vector< Node > terms;
-          for( std::map< Node, Node >::iterator it = d_tableaux_ce_term[x].begin(); it != d_tableaux_ce_term[x].end(); ++it ){
-            terms.push_back( it->first );
-          }
-          d_tableaux_ce_term_trigger[x] = new Trigger( d_instEngine, f, terms );
-        }else{
-          d_tableaux_ce_term_trigger[x]->resetInstantiationRound();
-        }
-#endif
+        //if( !d_tableaux_ce_term_trigger[x] ){
+        //  std::vector< Node > terms;
+        //  for( std::map< Node, Node >::iterator it = d_tableaux_ce_term[x].begin(); it != d_tableaux_ce_term[x].end(); ++it ){
+        //    terms.push_back( it->first );
+        //  }
+        //  d_tableaux_ce_term_trigger[x] = new Trigger( d_instEngine, f, terms );
+        //}else{
+        //  d_tableaux_ce_term_trigger[x]->resetInstantiationRound();
+        //}
         ////InstMatchGenerator* uit = d_instEngine->d_tme.makeMatchGenerator( terms );
         //QuantMatchGenerator* qmg = d_instEngine->getMatchGenerator( f );
         //qmg->resetInstantiationRound();
@@ -279,6 +277,7 @@ void InstantiatorTheoryArith::process( Node f, int effort ){
       }
     }
   }
+  return InstStrategy::STATUS_UNFINISHED;
 }
 
 bool InstantiatorTheoryArith::doInstantiation( Node f, Node term, ArithVar x, InstMatch* m, Node var ){
