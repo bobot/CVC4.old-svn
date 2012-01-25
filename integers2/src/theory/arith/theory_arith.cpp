@@ -64,7 +64,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_partialModel(c, d_differenceManager),
   d_diseq(c),
   d_tableau(),
-  d_diosolver(c, d_tableau, d_partialModel),
+  d_diosolver(c),
   d_pbSubstitutions(u),
   d_restartsCounter(0),
   d_rowHasBeenAdded(false),
