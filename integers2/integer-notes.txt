@@ -1,4 +1,28 @@
-=============== commit r2654===============
+------------------------------------------------------------------------
+r2678 | taking | 2012-01-20 18:37:13 -0500 (Fri, 20 Jan 2012) | 1 line
+
+Added rounding of delta rationals for integer variables.
+=============== 2678: Additional Notes ===============
+Job numbers 3430 (simp off) and 3429 (simp off).
+
+------------------------------------------------------------------------
+r2671 | taking | 2012-01-20 16:35:34 -0500 (Fri, 20 Jan 2012) | 1 line
+
+Added the correct type computation to slack variables given by integer equations.
+------------------------------------------------------------------------
+r2663 | taking | 2012-01-20 16:12:04 -0500 (Fri, 20 Jan 2012) | 1 line
+
+Slightly modified the tracking of Arithmetic types to something cleaner.
+------------------------------------------------------------------------
+r2656 | taking | 2012-01-20 14:49:53 -0500 (Fri, 20 Jan 2012) | 1 line
+
+Adding an integer-notes.txt file to keep track of detailed job comparison notes between revisions. Additionally removing a number of vestigial debug printing statements from the arithmetic normal form.
+------------------------------------------------------------------------
+r2654 | taking | 2012-01-19 16:44:52 -0500 (Thu, 19 Jan 2012) | 1 line
+
+Added the new integer normal form code. Passing make check.
+
+=============== 2654: Additional Notes ===============
 This commit contains the new normal form.
 
 This is a comparison of the jobs when simplification is off:
@@ -25,7 +49,7 @@ This is a comparison of the jobs when simplification is off:
      Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
 -0.958800 -0.005556  0.010530  0.027060  0.157900  0.800000
 
-This is a comparison of the jobs when simplification is off:
+This is a comparison of the jobs when simplification is on:
 - 3416: branches/arithmetic/integers2 r2654. --stats and
 - 3415: branches/arithmetic/integers2 r2653. --stats
 > j <- read.csv("3416.csv")
@@ -51,3 +75,6 @@ This is a comparison of the jobs when simplification is off:
 > plot(iNorm,jNorm)
 > abline(0,1)
 > abline(lm(jNorm ~ iNorm))
+
+=============== commit r2654===============
+This commit contains the new normal form.

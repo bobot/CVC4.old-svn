@@ -21,9 +21,10 @@
 #include <list>
 
 using namespace std;
-using namespace CVC4;
-using namespace CVC4::theory;
-using namespace CVC4::theory::arith;
+
+namespace CVC4 {
+namespace theory{
+namespace arith {
 
 bool VarList::isSorted(iterator start, iterator end) {
   return __gnu_cxx::is_sorted(start, end);
@@ -532,3 +533,55 @@ Comparison Comparison::mkNormalComparison(Kind k, const Polynomial& left, const 
   Assert(normalized.isNormalForm());
   return normalized;
 }
+
+Node Polynomial::computeQR(const Polynomial& p, const Integer& div){
+  Assert(p.isIntegral());
+  std::vector<Monomial> q_vec, r_vec;
+  Integer tmp_q, tmp_r;
+  for(iterator iter = p.begin(), pend = p.end(); iter != pend; ++iter){
+    Monomial curr = *iter;
+    VarList vl = curr.getVarList();
+    Constant c = curr.getConstant();
+
+    const Integer& a = c.getValue().getNumerator();
+    Integer::floorQR(tmp_q, tmp_r, a, div);
+    Constant q=Constant::mkConstant(tmp_q);
+    Constant r=Constant::mkConstant(tmp_r);
+    if(!q.isZero()){
+      q_vec.push_back(Monomial::mkMonomial(q, vl));
+    }
+    if(!r.isZero()){
+      r_vec.push_back(Monomial::mkMonomial(r, vl));
+    }
+  }
+
+  Polynomial p_q = Polynomial::mkPolynomial(q_vec);
+  Polynomial p_r = Polynomial::mkPolynomial(r_vec);
+
+  return NodeManager::currentNM()->mkNode(kind::PLUS, p_q.getNode(), p_r.getNode());
+}
+
+Node SumPair::computeQR(const SumPair& sp, const Integer& div){
+  Assert(sp.isIntegral());
+
+  const Integer& constant = sp.getConstant().getValue().getNumerator();
+
+  Integer constant_q, constant_r;
+  Integer::floorQR(constant_q, constant_r, constant, div);
+
+  Node p_qr = Polynomial::computeQR(sp.getPolynomial(), div);
+  Assert(p_qr.getKind() == kind::PLUS);
+  Assert(p_qr.getNumChildren() == 2);
+
+  Polynomial p_q = Polynomial::parsePolynomial(p_qr[0]);
+  Polynomial p_r = Polynomial::parsePolynomial(p_qr[1]);
+
+  SumPair sp_q(p_q, Constant::mkConstant(constant_q));
+  SumPair sp_r(p_r, Constant::mkConstant(constant_r));
+
+  return NodeManager::currentNM()->mkNode(kind::PLUS, sp_q.getNode(), sp_r.getNode());
+}
+
+} //namespace arith
+} //namespace theory
+} //namespace CVC4

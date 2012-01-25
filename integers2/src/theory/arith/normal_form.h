@@ -837,6 +837,20 @@ public:
 
   Polynomial operator*(const Polynomial& poly) const;
 
+  /**
+   * Viewing the integer polynomial as a list [(* coeff_i mono_i)]
+   * The quotient and remainder of p divided by the non-zero integer z is:
+   *   q := [(* floor(coeff_i/z) mono_i )]
+   *   r := [(* rem(coeff_i/z) mono_i)]
+   * computeQR(p,z) returns the node (+ q r).
+   *
+   * q and r are members of the Polynomial class.
+   * For example:
+   * computeQR( p = (+ 5 (* 3 x) (* 8 y)) , z = 2) returns
+   *   (+ (+ 2 x (* 4 y)) (+ 1 x))
+   */
+  static Node computeQR(const Polynomial& p, const Integer& z);
+
 };/* class Polynomial */
 
 
@@ -999,6 +1013,127 @@ public:
   }
 
 };/* class Comparison */
+
+/**
+ * SumPair is a utility class that extends polynomials for use in computations.
+ * A SumPair is always a combination of (+ p c) where
+ *  c is a constant and p is a polynomial such that p = 0 or !p.containsConstant().
+ *
+ * These are a useful utility for representing the equation p = c as (+ p -c) where the pair
+ * is known to implicitly be equal to 0.
+ *
+ * SumPairs do not have unique representations due to the potential for p = 0.
+ * This makes them inappropraite for normal forms.
+ */
+class SumPair : public NodeWrapper {
+private:
+  static Node toNode(const Polynomial& p, const Constant& c){
+    return NodeManager::currentNM()->mkNode(kind::PLUS, p.getNode(), c.getNode());
+  }
+
+  SumPair(TNode n) :
+    NodeWrapper(n)
+  {
+    Assert(isNormalForm());
+  }
+
+public:
+
+  SumPair(const Polynomial& p):
+    NodeWrapper(toNode(p, Constant::mkConstant(0)))
+  {
+    Assert(isNormalForm());
+  }
+
+  SumPair(const Polynomial& p, const Constant& c):
+    NodeWrapper(toNode(p, c))
+  {
+    Assert(isNormalForm());
+  }
+
+  static bool isMember(TNode n) {
+    if(n.getKind() == kind::PLUS && n.getNumChildren() == 2){
+      if(Constant::isMember(n[1])){
+        if(Polynomial::isMember(n[0])){
+          Polynomial p = Polynomial::parsePolynomial(n[0]);
+          return p.isZero() || (!p.containsConstant());
+        }else{
+          return false;
+        }
+      }else{
+        return false;
+      }
+    }else{
+      return false;
+    }
+  }
+
+  bool isNormalForm() const {
+    return isMember(getNode());
+  }
+
+  Polynomial getPolynomial() const {
+    return Polynomial::parsePolynomial(getNode()[0]);
+  }
+
+  Constant getConstant() const {
+    return Constant::mkConstant((getNode())[1]);
+  }
+
+  SumPair operator+(const SumPair& other) const {
+    return SumPair(getPolynomial() + other.getPolynomial(),
+                   getConstant() + other.getConstant());
+  }
+
+  SumPair operator*(const Constant& c) const {
+    return SumPair(getPolynomial() * c, getConstant() * c);
+  }
+
+  SumPair operator-(const SumPair& other) const {
+    return (*this) + (other * Constant::mkConstant(-1));
+  }
+
+  static SumPair mkSumPair(const Variable& var){
+    return SumPair(Polynomial::mkPolynomial(var));
+  }
+
+  static SumPair parseSumPair(TNode n){
+    return SumPair(n);
+  }
+
+  bool isIntegral() const{
+    return getConstant().isIntegral() && getPolynomial().isIntegral();
+  }
+
+  bool isConstant() const {
+    return getPolynomial().isZero();
+  }
+
+  bool isZero() const {
+    return getConstant().isZero() && isConstant();
+  }
+
+  /**
+   * Returns the greatest common divisor of gcd(getPolynomial()) and getConstant().
+   * The SumPair must be integral.
+   */
+  Integer gcd() const {
+    Assert(isIntegral());
+    return (getPolynomial().gcd()).gcd(getConstant().getValue().getNumerator());
+  }
+
+  static SumPair mkZero() {
+    return SumPair(Polynomial::mkZero(), Constant::mkConstant(0));
+  }
+
+  static Node computeQR(const SumPair& sp, const Integer& div);
+
+
+  static SumPair comparisonToSumPair(const Comparison& cmp){
+    return SumPair(cmp.getLeft(), - cmp.getRight());
+  }
+
+};/* class SumPair */
 
 }/* CVC4::theory::arith namespace */
 }/* CVC4::theory namespace */
