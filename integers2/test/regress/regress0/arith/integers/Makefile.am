@@ -23,6 +23,8 @@ TESTS =	\
 	arith-int-009.cvc \
 	arith-int-010.cvc \
 	arith-int-011.cvc \
+	arith-int-012.cvc \
+	arith-int-013.cvc \
 	arith-int-014.cvc \
 	arith-int-015.cvc \
 	arith-int-016.cvc \
@@ -31,6 +33,7 @@ TESTS =	\
 	arith-int-019.cvc \
 	arith-int-020.cvc \
 	arith-int-021.cvc \
+	arith-int-022.cvc \
 	arith-int-023.cvc \
 	arith-int-025.cvc \
 	arith-int-026.cvc \
@@ -48,6 +51,9 @@ TESTS =	\
 	arith-int-038.cvc \
 	arith-int-039.cvc \
 	arith-int-040.cvc \
+	arith-int-041.cvc \
+	arith-int-042.cvc \
+	arith-int-042.min.cvc \
 	arith-int-043.cvc \
 	arith-int-044.cvc \
 	arith-int-045.cvc \
@@ -101,13 +107,7 @@ TESTS =	\
 	arith-int-100.cvc
 
 EXTRA_DIST = $(TESTS) \
-	arith-int-012.cvc \
-	arith-int-013.cvc \
-	arith-int-022.cvc \
 	arith-int-024.cvc \
-	arith-int-041.cvc \
-	arith-int-042.cvc \
-	arith-int-042.min.cvc \
 	arith-int-047.cvc \
 	arith-int-048.cvc \
 	arith-int-050.cvc \
