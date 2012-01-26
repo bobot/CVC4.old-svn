@@ -567,7 +567,12 @@ void DioSolver::subAndReduceCurrentFByIndex(DioSolver::SubIndex subIndex){
   for(; readIter < N && !inConflict(); ++readIter){
     TrailIndex curr = d_currentF[readIter];
     TrailIndex nextTI = applySubstitution(subIndex, curr);
-    if(nextTI != curr){
+    if(nextTI == curr){
+      d_currentF[writeIter] = curr;
+      ++writeIter;
+    }else{
+      Assert(nextTI != curr);
+
       if(triviallyUnsat(nextTI)){
         raiseConflict(nextTI);
       }else if(!triviallySat(nextTI)){
