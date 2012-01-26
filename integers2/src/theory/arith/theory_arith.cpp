@@ -61,6 +61,9 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
+  d_constantIntegerVariables(c),
+  d_CivIterator(c,0),
+  d_varsInDioSolver(c),
   d_partialModel(c, d_differenceManager),
   d_diseq(c),
   d_tableau(),
@@ -585,6 +588,65 @@ bool TheoryArith::canSafelyAvoidEqualitySetup(TNode equality){
   return d_arithvarNodeMap.hasArithVar(equality[0]);
 }
 
+Comparison TheoryArith::mkIntegerEqualityFromAssignment(ArithVar v){
+  const DeltaRational& beta = d_partialModel.getAssignment(v);
+
+  Assert(beta.isIntegral());
+  Constant betaAsConstant = Constant::mkConstant(beta.floor());
+
+  TNode var = d_arithvarNodeMap.asNode(v);
+  Polynomial varAsPolynomial = Polynomial::parsePolynomial(var);
+  return Comparison::mkComparison(EQUAL, varAsPolynomial, betaAsConstant);
+}
+
+Node TheoryArith::callDioSolver(){
+  while(d_CivIterator < d_constantIntegerVariables.size()){
+    ArithVar v = d_constantIntegerVariables[d_CivIterator];
+    d_CivIterator = d_CivIterator + 1;
+
+    Debug("arith::dio")  << v << endl;
+
+    Assert(isInteger(v));
+    Assert(d_partialModel.boundsAreEqual(v));
+
+    if(d_varsInDioSolver.find(v) != d_varsInDioSolver.end()){
+      continue;
+    }else{
+      d_varsInDioSolver.insert(v);
+    }
+
+    TNode lb = d_partialModel.getLowerConstraint(v);
+    TNode ub = d_partialModel.getUpperConstraint(v);
+
+    Node orig = Node::null();
+    if(lb == ub){
+      Assert(lb.getKind() == EQUAL);
+      orig = lb;
+    }else{
+      NodeBuilder<> nb(AND);
+      nb << ub << lb;
+      orig = nb;
+    }
+
+    Assert(d_partialModel.assignmentIsConsistent(v));
+
+    Comparison eq = mkIntegerEqualityFromAssignment(v);
+
+    if(eq.isBoolean()){
+      //This can only be a conflict
+      Assert(!eq.getNode().getConst<bool>());
+
+      //This should be handled by the normal form earlier in the case of equality
+      Assert(orig.getKind() != EQUAL);
+      return orig;
+    }else{
+      d_diosolver.pushInputConstraint(eq, orig);
+    }
+  }
+
+  return d_diosolver.processEquationsForConflict();
+}
+
 Node TheoryArith::assertionCases(TNode assertion){
   Kind simpleKind = simplifiedKind(assertion);
   Assert(simpleKind != UNDEFINED_KIND);
@@ -626,6 +688,7 @@ Node TheoryArith::assertionCases(TNode assertion){
   case LT:
     if(simpleKind == LEQ || (simpleKind == LT && tightened)){
       if (d_partialModel.hasLowerBound(x_i) && d_partialModel.getLowerBound(x_i) == c_i) {
+        //If equal
         TNode left  = getSide<false>(assertion, simpleKind);
         TNode right = getSide<true>(assertion, simpleKind);
 
@@ -634,6 +697,10 @@ Node TheoryArith::assertionCases(TNode assertion){
           Node lb = d_partialModel.getLowerConstraint(x_i);
           return disequalityConflict(diseq, lb , assertion);
         }
+
+        if(isInteger(x_i)){
+          d_constantIntegerVariables.push_back(x_i);
+        }
       }
     }
     return  d_simplex.AssertUpper(x_i, c_i, assertion);
@@ -641,6 +708,7 @@ Node TheoryArith::assertionCases(TNode assertion){
   case GT:
     if(simpleKind == GEQ || (simpleKind == GT && tightened)){
       if (d_partialModel.hasUpperBound(x_i) && d_partialModel.getUpperBound(x_i) == c_i) {
+        //If equal
         TNode left  = getSide<false>(assertion, simpleKind);
         TNode right = getSide<true>(assertion, simpleKind);
 
@@ -649,10 +717,16 @@ Node TheoryArith::assertionCases(TNode assertion){
           Node ub = d_partialModel.getUpperConstraint(x_i);
           return disequalityConflict(diseq, assertion, ub);
         }
+        if(isInteger(x_i)){
+          d_constantIntegerVariables.push_back(x_i);
+        }
       }
     }
     return d_simplex.AssertLower(x_i, c_i, assertion);
   case EQUAL:
+    if(isInteger(x_i)){
+      d_constantIntegerVariables.push_back(x_i);
+    }
     return d_simplex.AssertEquality(x_i, c_i, assertion);
   case DISTINCT:
     {
@@ -714,8 +788,14 @@ void TheoryArith::check(Effort effortLevel){
   }else{
     d_partialModel.commitAssignmentChanges();
 
-    if (fullEffort(effortLevel)) {
-      splitDisequalities();
+    possibleConflict = callDioSolver();
+    if(possibleConflict != Node::null()){
+      Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
+      d_out->conflict(possibleConflict);
+    }else {
+      if (fullEffort(effortLevel)) {
+        splitDisequalities();
+      }
     }
   }
 

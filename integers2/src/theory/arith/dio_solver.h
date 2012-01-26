@@ -304,6 +304,10 @@ private:
   bool debugAnySubstitionApplies(TrailIndex t);
   bool debugSubstitutionApplies(SubIndex si, TrailIndex ti);
 
+
+  /** Returns true if the queue of nodes to process is empty. */
+  bool queueEmpty() const;
+
   bool queueConditions(TrailIndex t){
     return
       !inConflict() &&
@@ -322,6 +326,8 @@ private:
     Assert(queueConditions(t));
     d_currentF.push_front(t);
   }
+
+  TrailIndex popQueue();
 
   /**
    * Moves the minimum Constraint by absolute value of the minimum coefficient to

@@ -49,6 +49,8 @@ typedef __gnu_cxx::hash_map<ArithVar, Node> ArithVarToNodeMap;
 typedef __gnu_cxx::hash_set<Node, NodeHashFunction> NodeSet;
 typedef context::CDSet<Node, NodeHashFunction> CDNodeSet;
 
+typedef context::CDSet<ArithVar> CDArithVarSet;
+
 
 inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);

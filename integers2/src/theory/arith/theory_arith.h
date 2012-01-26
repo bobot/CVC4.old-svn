@@ -153,6 +153,19 @@ private:
   ArithVar d_nextIntegerCheckVar;
 
   /**
+   * Queue of Integer variables that are known to be equal to a constant.
+   */
+  context::CDList<ArithVar> d_constantIntegerVariables;
+  /** Iterator over d_constantIntegerVariables. */
+  context::CDO<unsigned int> d_CivIterator;
+
+  Node callDioSolver();
+  Comparison mkIntegerEqualityFromAssignment(ArithVar v);
+
+  #warning "DO NOT COMMIT TO TRUNK, USE MORE EFFICIENT CHECK INSTEAD"
+  CDArithVarSet d_varsInDioSolver;
+
+  /**
    * If ArithVar v maps to the node n in d_removednode,
    * then n = (= asNode(v) rhs) where rhs is a term that
    * can be used to determine the value of n using getValue().

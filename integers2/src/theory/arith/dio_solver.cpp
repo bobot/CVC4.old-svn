@@ -211,12 +211,46 @@ void DioSolver::enqueueInputConstraints(){
   }
 }
 
+
+/*TODO Currently linear in the size of the Queue
+ *It is not clear if am O(log n) strategy would be better.
+ *Right before this in the algorithm is a substition which could potentially
+ *effect the key values of everything in the queue.
+ */
+DioSolver::TrailIndex DioSolver::popQueue(){
+  Assert(!queueEmpty());
+
+
+  //Select the minimum element.
+  size_t indexInQueue = 0;
+  Monomial minMonomial = d_trail[d_currentF[indexInQueue]].d_minimalMonomial;
+
+  size_t N = d_currentF.size();
+  for(size_t i=1; i < N; ++i){
+    Monomial curr = d_trail[d_currentF[indexInQueue]].d_minimalMonomial;
+    if(curr.absLessThan(minMonomial)){
+      indexInQueue = i;
+      minMonomial = curr;
+    }
+  }
+
+  //pop the minimum element
+  TrailIndex minimum = d_currentF[indexInQueue];
+  d_currentF[indexInQueue] = d_currentF.front();
+  d_currentF.pop_front();
+  return minimum;
+}
+
+bool DioSolver::queueEmpty() const{
+  return d_currentF.empty();
+}
+
 bool DioSolver::processEquations(bool cuts){
   Assert(!inConflict());
 
   enqueueInputConstraints();
-  while(!d_currentF.empty() && !inConflict()){
-    TrailIndex curr = d_currentF.front();
+  while(! queueEmpty() && !inConflict()){
+    TrailIndex curr = popQueue();
 
     Assert(inRange(curr));
     Assert(!inConflict());
@@ -237,14 +271,9 @@ bool DioSolver::processEquations(bool cuts){
     if(next != curr){
       if(triviallyUnsat(next)){
         raiseConflict(next);
-      }else if(triviallySat(next)){
-        d_currentF.pop_front();
-      }else{
-        Assert(queueConditions(next));
-        d_currentF[0] = next;
+      }else if(! triviallySat(next) ){
+        pushToQueueBack(next);
       }
-    }else{
-      d_currentF.pop_front();
     }
   }
 
@@ -389,10 +418,12 @@ std::pair<DioSolver::SubIndex, DioSolver::TrailIndex> DioSolver::decomposeIndex(
 
   Debug("arith::dio") << "before decomposeIndex("<<i<<":"<<si.getNode()<< ")" << endl;
 
-  Polynomial p = si.getPolynomial();
+  const Polynomial& p = si.getPolynomial();
   Assert(p.isIntegral());
 
-  Monomial av = p.selectAbsMinimum();
+  Assert(p.selectAbsMinimum() == d_trail[i].d_minimalMonomial);
+  const Monomial& av = d_trail[i].d_minimalMonomial;
+
   VarList vl = av.getVarList();
   Assert(vl.singleton());
   Variable var = vl.getHead();
@@ -531,8 +562,8 @@ void DioSolver::debugPrintTrail(DioSolver::TrailIndex i){
 
 void DioSolver::subAndReduceCurrentFByIndex(DioSolver::SubIndex subIndex){
   size_t N = d_currentF.size();
-  Assert(N >= 1);
-  size_t readIter = 1, writeIter = 1;
+
+  size_t readIter = 0, writeIter = 0;
   for(; readIter < N && !inConflict(); ++readIter){
     TrailIndex curr = d_currentF[readIter];
     TrailIndex nextTI = applySubstitution(subIndex, curr);
