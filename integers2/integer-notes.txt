@@ -1,9 +1,37 @@
 ------------------------------------------------------------------------
+r2693 | taking | 2012-01-26 13:20:04 -0500 (Thu, 26 Jan 2012) | 1 line
+
+Added bounds are equal check to ArithPartialModel.
+=============== 2693: Additional Notes ===============
+Job numbers 3478 (simp on) and 3477 (simp off).
+There is no important difference between 2693 and 2690.
+------------------------------------------------------------------------
+r2692 | taking | 2012-01-26 13:19:26 -0500 (Thu, 26 Jan 2012) | 1 line
+
+Added bounds are equal check to ArithPartialModel.
+------------------------------------------------------------------------
+r2691 | taking | 2012-01-25 17:25:24 -0500 (Wed, 25 Jan 2012) | 1 line
+
+Moving the DioSolver over from the integers branch.  This code should not cause any performance changes as nothing currently sends it equalities.
+------------------------------------------------------------------------
+r2690 | taking | 2012-01-25 17:23:15 -0500 (Wed, 25 Jan 2012) | 1 line
+
+Added utilities to the arithmetic normal form.
+=============== 2690: Additional Notes ===============
+Job numbers 3474 (simp on) and 3473 (simp off).
+There is no important difference between 2690 and 2678.
+
+------------------------------------------------------------------------
+r2688 | taking | 2012-01-25 15:00:28 -0500 (Wed, 25 Jan 2012) | 1 line
+
+Added SumPair as a normal form type. Updated integer-notes.txt.
+
+------------------------------------------------------------------------
 r2678 | taking | 2012-01-20 18:37:13 -0500 (Fri, 20 Jan 2012) | 1 line
 
 Added rounding of delta rationals for integer variables.
 =============== 2678: Additional Notes ===============
-Job numbers 3430 (simp off) and 3429 (simp off).
+Job numbers 3429 (simp on) and 3429 (simp off).
 
 ------------------------------------------------------------------------
 r2671 | taking | 2012-01-20 16:35:34 -0500 (Fri, 20 Jan 2012) | 1 line

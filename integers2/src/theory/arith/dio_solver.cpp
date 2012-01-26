@@ -227,7 +227,7 @@ DioSolver::TrailIndex DioSolver::popQueue(){
 
   size_t N = d_currentF.size();
   for(size_t i=1; i < N; ++i){
-    Monomial curr = d_trail[d_currentF[indexInQueue]].d_minimalMonomial;
+    Monomial curr = d_trail[d_currentF[i]].d_minimalMonomial;
     if(curr.absLessThan(minMonomial)){
       indexInQueue = i;
       minMonomial = curr;
