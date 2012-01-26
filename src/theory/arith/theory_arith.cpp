@@ -595,7 +595,8 @@ Node TheoryArith::assertionCases(TNode assertion){
   ArithVar x_i = determineLeftVariable(assertion, simpKind);
   DeltaRational c_i = determineRightConstant(assertion, simpKind);
 
-  Debug("arith::assertions") << "arith assertion(" << assertion
+  Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
+                              <<"(" << assertion
 			     << " \\-> "
 			     << x_i<<" "<< simpKind <<" "<< c_i << ")" << std::endl;
   switch(simpKind){
@@ -879,14 +880,28 @@ void TheoryArith::debugPrintModel(){
 }
 
 Node TheoryArith::explain(TNode n) {
-  Debug("explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
+  Debug("arith::explain") << "explain @" << getContext()->getLevel() << ": " << n << endl;
   Assert(d_propManager.isPropagated(n));
 
-  if(d_propManager.isFlagged(n)){
-    return d_differenceManager.explain(n);
-  }else{
-    return d_propManager.explain(n);
+  return d_propManager.explain(n);
+}
+
+void flattenAnd(Node n, std::vector<TNode>& out){
+  Assert(n.getKind() == kind::AND);
+  for(Node::iterator i=n.begin(), i_end=n.end(); i != i_end; ++i){
+    Node curr = *i;
+    if(curr.getKind() == kind::AND){
+      flattenAnd(curr, out);
+    }else{
+      out.push_back(curr);
+    }
   }
+}
+
+Node flattenAnd(Node n){
+  std::vector<TNode> out;
+  flattenAnd(n, out);
+  return NodeManager::currentNM()->mkNode(kind::AND, out);
 }
 
 void TheoryArith::propagate(Effort e) {
@@ -905,13 +920,31 @@ void TheoryArith::propagate(Effort e) {
 
       TNode atom = (toProp.getKind() == kind::NOT) ? toProp[0] : toProp;
 
-      Debug("arith::propagate") << "propagate " << flag << " " << toProp << endl;
+      Debug("arith::propagate") << "propagate  @" << getContext()->getLevel() <<" flag: "<< flag << " " << toProp << endl;
 
       if(flag) {
         //Currently if the flag is set this came from an equality detected by the
         //equality engine in the the difference manager.
-        d_out->propagate(toProp);
-        propagated = true;
+        if(toProp.getKind() == kind::EQUAL){
+          Node normalized = Rewriter::rewrite(toProp);
+          Node notNormalized = normalized.notNode();
+
+          if(d_diseq.find(notNormalized) == d_diseq.end()){
+            d_out->propagate(toProp);
+            propagated = true;
+          }else{
+            Node exp = d_differenceManager.explain(toProp);
+            Node lp = flattenAnd(exp.andNode(notNormalized));
+            Debug("arith::propagate") << "propagate conflict" <<  lp << endl;
+            d_out->conflict(lp);
+
+            propagated = true;
+            break;
+          }
+        }else{
+          d_out->propagate(toProp);
+          propagated = true;
+        }
       }else if(inContextAtom(atom)){
         Node satValue = d_valuation.getSatValue(toProp);
         AlwaysAssert(satValue.isNull());

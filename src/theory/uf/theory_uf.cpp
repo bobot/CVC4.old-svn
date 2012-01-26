@@ -137,9 +137,10 @@ void TheoryUF::propagate(Effort level) {
       } else {
         if (!satValue) {
           Debug("uf") << "TheoryUF::propagate(): in conflict" << std::endl;
+          Node negatedLiteral;
           std::vector<TNode> assumptions;
           if (literal != d_false) {
-            TNode negatedLiteral = literal.getKind() == kind::NOT ? literal[0] : (TNode) literal.notNode();
+            negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
             assumptions.push_back(negatedLiteral);
           }
           explain(literal, assumptions);
@@ -206,8 +207,9 @@ bool TheoryUF::propagate(TNode literal) {
     } else {
       Debug("uf") << "TheoryUF::propagate(" << literal << ") => conflict" << std::endl;
       std::vector<TNode> assumptions;
+      Node negatedLiteral;
       if (literal != d_false) {
-        TNode negatedLiteral = literal.getKind() == kind::NOT ? literal[0] : (TNode) literal.notNode();
+        negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
         assumptions.push_back(negatedLiteral);
       }
       explain(literal, assumptions);
@@ -236,9 +238,16 @@ void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
       rhs = d_true;
       break;
     case kind::NOT:
-      lhs = literal[0];
-      rhs = d_false;
-      break;
+      if (literal[0].getKind() == kind::EQUAL) {
+        // Disequalities
+        d_equalityEngine.explainDisequality(literal[0][0], literal[0][1], assumptions);
+        return;
+      } else {
+        // Predicates
+        lhs = literal[0];
+        rhs = d_false;
+        break;
+      }
     case kind::CONST_BOOLEAN:
       // we get to explain true = false, since we set false to be the trigger of this
       lhs = d_true;
@@ -247,8 +256,8 @@ void TheoryUF::explain(TNode literal, std::vector<TNode>& assumptions) {
     default:
       Unreachable();
   }
-  d_equalityEngine.getExplanation(lhs, rhs, assumptions);
-}/* TheoryUF::explain() */
+  d_equalityEngine.explainEquality(lhs, rhs, assumptions);
+}
 
 Node TheoryUF::explain(TNode literal) {
   Debug("uf") << "TheoryUF::explain(" << literal << ")" << std::endl;
