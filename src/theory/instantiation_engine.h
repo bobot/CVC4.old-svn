@@ -75,6 +75,8 @@ public:
       }
     }
   }
+  /** identify */
+  virtual std::string identify() const { return std::string("Unknown"); }
 };
 
 class Instantiator{
@@ -103,8 +105,10 @@ protected:
     d_instStrategyActive[is] = true;
   }
 public:
+  /** reset instantiation strategies */
+  virtual void resetInstantiationStrategies();
   /** reset instantiation round */
-  virtual void resetInstantiationRound();
+  virtual void resetInstantiationRound(){}
   /** set has constraints from quantifier f */
   void setHasConstraintsFrom( Node f );
   /** has constraints from */
@@ -268,6 +272,8 @@ public:
     ~Statistics();
   };
   Statistics d_statistics;
+  /** has instantiated */
+  std::map< Node, bool > d_hasInstantiated;
 
 };/* class InstantiationEngine */
 

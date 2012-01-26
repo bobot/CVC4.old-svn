@@ -44,6 +44,8 @@ public:
   ~InstStrategyCheckCESolved(){}
   void resetInstantiationRound();
   int process( Node f, int effort );
+  /** identify */
+  std::string identify() const { return std::string("CheckCESolved"); }
 };
 
 class InstStrategyLitMatch : public InstStrategy{
@@ -58,6 +60,8 @@ public:
   ~InstStrategyLitMatch(){}
   void resetInstantiationRound();
   int process( Node f, int effort );
+  /** identify */
+  std::string identify() const { return std::string("LitMatch"); }
 };
 
 class InstStrategyUserPatterns : public InstStrategy{
@@ -79,26 +83,38 @@ public:
   int getNumUserGenerators( Node f ) { return (int)d_user_gen[f].size(); }
   /** get user pattern */
   Trigger* getUserGenerator( Node f, int i ) { return d_user_gen[f][ i ]; }
+  /** identify */
+  std::string identify() const { return std::string("UserPatterns"); }
 };
 
 class InstStrategyAutoGenTriggers : public InstStrategy{
+public:
+  //different strategies for choosing triggers
+  enum {
+    MAX_TRIGGER = 0,
+    MIN_TRIGGER,
+  };
 private:
+  /** trigger generation strategy */
+  int d_tr_strategy;
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
   /** current trigger */
   std::map< Node, Trigger* > d_auto_gen_trigger;
 private:
   /** collect all top level APPLY_UF pattern terms for f in n */
-  void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms );
+  void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt );
 public:
-  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
-      InstStrategy( ie ), d_th( th ){}
+  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, InstantiationEngine* ie, int tstrt ) : 
+      InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ){}
   ~InstStrategyAutoGenTriggers(){}
   void resetInstantiationRound();
   int process( Node f, int effort );
 public:
   /** get auto-generated trigger */
   Trigger* getAutoGenTrigger( Node f );
+  /** identify */
+  std::string identify() const { return std::string("AutoGenTriggers"); }
 };
 
 class InstStrategyFreeVariable : public InstStrategy{
@@ -113,6 +129,8 @@ public:
   ~InstStrategyFreeVariable(){}
   void resetInstantiationRound();
   int process( Node f, int effort );
+  /** identify */
+  std::string identify() const { return std::string("FreeVariable"); }
 };
 
 class UfTermDb

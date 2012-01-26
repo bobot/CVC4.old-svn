@@ -88,7 +88,6 @@ void InstantiatorTheoryArith::resetInstantiationRound(){
   }
   //print debug
   debugPrint( "quant-arith-debug" );
-  Instantiator::resetInstantiationRound();
 }
 
 void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){

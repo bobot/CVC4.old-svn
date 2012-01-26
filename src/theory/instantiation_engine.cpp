@@ -39,20 +39,26 @@ void Instantiator::doInstantiation( int effort ){
   for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
         it != d_instEngine->d_inst_constants.end(); ++it ){
     if( d_instEngine->getActive( it->first ) && hasConstraintsFrom( it->first ) ){
+      //d_instEngine->d_hasInstantiated.find( it->first )==d_instEngine->d_hasInstantiated.end()
       int d_quantStatus = process( it->first, effort );
       InstStrategy::updateStatus( d_status, d_quantStatus );
       for( int i=0; i<(int)d_instStrategies.size(); i++ ){
         if( isActiveStrategy( d_instStrategies[i] ) ){
+          Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
           //call the instantiation strategy's process method
           d_quantStatus = d_instStrategies[i]->process( it->first, effort );
+          Debug("inst-engine-inst") << "  -> status is " << d_quantStatus << std::endl;
           InstStrategy::updateStatus( d_status, d_quantStatus );
+          //if( d_instEngine->d_hasInstantiated.find( it->first )!=d_instEngine->d_hasInstantiated.end() ){
+          //  break;
+          //}
         }
       }
     }
   }
 }
 
-void Instantiator::resetInstantiationRound(){
+void Instantiator::resetInstantiationStrategies(){
   for( int i=0; i<(int)d_instStrategies.size(); i++ ){
     if( isActiveStrategy( d_instStrategies[i] ) ){
       d_instStrategies[i]->resetInstantiationRound();
@@ -97,6 +103,7 @@ bool InstantiationEngine::addLemma( Node lem ){
     Debug("inst-engine-debug") << "Added lemma : " << lem << std::endl;
     return true;
   }else{
+    Debug("inst-engine-debug") << "Duplicate." << std::endl;
     return false;
   }
 }
@@ -344,12 +351,14 @@ void InstantiationEngine::getVariablesFor( Node f, std::vector< Node >& vars )
 
 bool InstantiationEngine::doInstantiationRound( OutputChannel* out ){
   ++(d_statistics.d_instantiation_rounds);
-  //std::cout << "Instantiation Round" << std::endl;
   Debug("inst-engine") << "IE: Reset instantiation." << std::endl;
+  //std::cout << "Instantiation Round" << std::endl;
+  d_hasInstantiated.clear();
   //reset instantiators
   for( int i=0; i<theory::THEORY_LAST; i++ ){
     if( d_instTable[i] ){
       d_instTable[i]->resetInstantiationRound();
+      d_instTable[i]->resetInstantiationStrategies();
     }
   }
   //InstMatchGenerator::resetInstantiationRoundAll( (uf::InstantiatorTheoryUf*)d_instTable[theory::THEORY_UF] );
@@ -361,9 +370,11 @@ bool InstantiationEngine::doInstantiationRound( OutputChannel* out ){
     d_status = InstStrategy::STATUS_SAT;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( d_instTable[i] ){
-        //std::cout << "Prepare " << d_instTable[i]->identify() << " " << e << std::endl;
+        Debug("inst-engine-debug") << "Do " << d_instTable[i]->identify() << " " << e << std::endl;
+        //std::cout << "Do " << d_instTable[i]->identify() << " " << e << std::endl;
         d_instTable[i]->doInstantiation( e );
-        Debug("inst-engine-debug") << e << " " << d_instTable[i]->identify() << " is " << d_instTable[i]->getStatus() << std::endl;
+        Debug("inst-engine-debug") << " -> status is " << d_instTable[i]->getStatus() << std::endl;
+        //std::cout << " -> status is " << d_instTable[i]->getStatus() << std::endl;
         //update status
         InstStrategy::updateStatus( d_status, d_instTable[i]->getStatus() );
       }
@@ -373,7 +384,7 @@ bool InstantiationEngine::doInstantiationRound( OutputChannel* out ){
     }
     e++;
   }
-  Debug("inst-engine") << "IE: All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
+  Debug("inst-engine") << "All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
   //std::cout << "All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
   if( d_lemmas_waiting.empty() ){
     Debug("inst-engine-stuck") << "No instantiations produced at this state: " << std::endl;

@@ -78,11 +78,11 @@ protected:
   /** img count */
   static int d_imgCount;
   /** all iterators (for memory management purposes) */
-  static std::map< TNode, std::vector< InstMatchGenerator* > > d_iter[3];
+  static std::map< Node, std::vector< InstMatchGenerator* > > d_iter[3];
   /** constructor */
-  InstMatchGenerator( int op, TNode eq );
+  InstMatchGenerator( int op, Node eq );
   /** mk generator */
-  static InstMatchGenerator* mkInstMatchGenerator( int op, TNode eq );
+  static InstMatchGenerator* mkInstMatchGenerator( int op, Node eq );
 //public:
 //  static void resetInstantiationRoundAll( uf::InstantiatorTheoryUf* itu );
 public:
@@ -111,7 +111,7 @@ public:
   std::vector< InstMatchGenerator* > d_children;
 protected:
   /** map from terms to the children they represent */
-  std::map< TNode, InstMatchGenerator* > d_lit_children_map;
+  std::map< Node, InstMatchGenerator* > d_lit_children_map;
   std::map< InstMatchGenerator*, bool > d_children_valid;
   /** is child valid */
   bool isChildValid( int i ) { return d_children_valid.find( d_children[i] )==d_children_valid.end() || d_children_valid[ d_children[i] ]; }
@@ -150,13 +150,13 @@ public:
   //default
   static InstMatchGenerator* mkInstMatchGenerator( bool isCombine );
   // find matches for t ~ s, mod equality
-  static InstMatchGenerator* mkInstMatchGeneratorModEq( TNode t, TNode s, bool isEq );
+  static InstMatchGenerator* mkInstMatchGeneratorModEq( Node t, Node s, bool isEq );
   // find matches for t = s
-  static InstMatchGenerator* mkInstMatchGenerator( TNode t, TNode s );
+  static InstMatchGenerator* mkInstMatchGenerator( Node t, Node s );
   //find any match for t
-  static InstMatchGenerator* mkInstMatchGeneratorAny( TNode t );
+  static InstMatchGenerator* mkInstMatchGeneratorAny( Node t );
   //add any match pair
-  static void addAnyMatchPair( TNode t, TNode g );
+  static void addAnyMatchPair( Node t, Node g );
 };
 
 

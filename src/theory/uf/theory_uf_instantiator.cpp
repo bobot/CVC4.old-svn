@@ -49,6 +49,7 @@ int InstStrategyCheckCESolved::process( Node f, int effort ){
       if( d_instEngine->addInstantiation( f, &d_th->d_baseMatch ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_ce_solved);
+        d_instEngine->d_hasInstantiated[f] = true;
       }
     } 
   }
@@ -64,9 +65,9 @@ int InstStrategyLitMatch::process( Node f, int effort ){
     return STATUS_UNFINISHED;
   }else{
     //this is matching at the literal level : use obligations of f as pattern terms
-    Debug("quant-uf-debug")  << "Generate trigger for literal matching..." << std::endl;
-    //std::cout  << "Generate trigger for literal matching..." << std::endl;
     if( d_th->getObligationsChanged( f ) ){
+      Debug("quant-uf-debug")  << "Generate trigger for literal matching..." << std::endl;
+      //std::cout  << "Generate trigger for literal matching..." << std::endl;
       std::vector< Node > pats;
       d_th->getObligations( f, pats );
       if( !pats.empty() ){
@@ -89,12 +90,16 @@ int InstStrategyLitMatch::process( Node f, int effort ){
       if( d_lit_match_triggers[ f ]->addInstantiation( d_th, d_th->d_baseMatch, false, triggerThreshLit ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_e_induced);
+        d_instEngine->d_hasInstantiated[f] = true;
       }
     }
     Debug("quant-uf-debug") << "done." << std::endl;
     //std::cout << "done" << std::endl;
-    return effort==2 ? STATUS_UNKNOWN : STATUS_UNFINISHED;
+    if( effort==1 ){
+      return STATUS_UNFINISHED;
+    }
   }
+  return STATUS_UNKNOWN;
 }
 
 void InstStrategyUserPatterns::resetInstantiationRound(){
@@ -114,12 +119,16 @@ int InstStrategyUserPatterns::process( Node f, int effort ){
       if( getUserGenerator( f, i )->addInstantiation( d_th, d_th->d_baseMatch ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_user_pattern);
+        d_instEngine->d_hasInstantiated[f] = true;
       }
     }
     Debug("quant-uf-debug") << "done." << std::endl;
     //std::cout << "done" << std::endl;
-    return effort==2 ? STATUS_UNKNOWN : STATUS_UNFINISHED;
+    if( effort==1 ){
+      return STATUS_UNFINISHED;
+    }
   }
+  return STATUS_UNKNOWN;
 }
 
 void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
@@ -139,38 +148,64 @@ int InstStrategyAutoGenTriggers::process( Node f, int effort ){
   if( effort==0 ){
     return STATUS_UNFINISHED;
   }else{
-    Debug("quant-uf-debug")  << "Try auto-generated triggers..." << std::endl;
-    //std::cout << "Try auto-generated triggers..." << std::endl;
-    static int triggerThresh = effort==1 ? 1 : 2;
-    if( effort==1 ){
-      getAutoGenTrigger( f )->resetInstantiationRound( d_th );
+    if( !getAutoGenTrigger( f ) ){
+      return STATUS_UNKNOWN;
+    }else{
+      Debug("quant-uf-debug")  << "Try auto-generated triggers... " << d_tr_strategy << " " << getAutoGenTrigger( f ) << std::endl;
+      //std::cout << "Try auto-generated triggers..." << std::endl;
+      static int triggerThresh = effort==1 ? 1 : 2;
+      if( effort==1 ){
+        getAutoGenTrigger( f )->resetInstantiationRound( d_th );
+      }
+      Debug("quant-uf-debug")  << "done reset" << std::endl;
+      if( getAutoGenTrigger( f )->addInstantiation( d_th, d_th->d_baseMatch, false, triggerThresh ) ){
+        ++(d_th->d_statistics.d_instantiations);
+        d_instEngine->d_hasInstantiated[f] = true;
+      }
+      Debug("quant-uf-debug") << "done." << std::endl;
+      //std::cout << "done" << std::endl;
+      if( effort==1 ){
+        return STATUS_UNFINISHED;
+      }
     }
-    if( getAutoGenTrigger( f )->addInstantiation( d_th, d_th->d_baseMatch, false, triggerThresh ) ){
-      ++(d_th->d_statistics.d_instantiations);
-    }
-    Debug("quant-uf-debug") << "done." << std::endl;
-    //std::cout << "done" << std::endl;
-    return effort==2 ? STATUS_UNKNOWN : STATUS_UNFINISHED;
   }
+  return STATUS_UNKNOWN;
 }
 
-void InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< Node >& patTerms ){
-  if( n.getKind()==APPLY_UF && n.getAttribute(InstConstantAttribute())==f  ){
-    if( std::find( patTerms.begin(), patTerms.end(), n )==patTerms.end() ){
-      patTerms.push_back( n );
+void InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt ){
+  if( tstrt==MAX_TRIGGER ){
+    if( n.getKind()==APPLY_UF && n.getAttribute(InstConstantAttribute())==f  ){
+      if( std::find( patTerms.begin(), patTerms.end(), n )==patTerms.end() ){
+        patTerms.push_back( n );
+      }
+    }else if( n.getKind()!=FORALL ){
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        collectPatTerms( f, n[i], patTerms, tstrt );
+      }
     }
-  }else if( n.getKind()!=FORALL ){
-    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-      collectPatTerms( f, n[i], patTerms );
+  }else if( tstrt==MIN_TRIGGER ){
+    if( n.getKind()!=FORALL ){
+      int patTermSize = (int)patTerms.size();
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        collectPatTerms( f, n[i], patTerms, tstrt );
+      }
+      if( n.getKind()==APPLY_UF && n.getAttribute(InstConstantAttribute())==f && patTermSize==(int)patTerms.size() ){
+        patTerms.push_back( n );
+      }
     }
   }
 }
 
 Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
-  if( !d_auto_gen_trigger[f] ){
+  if( d_auto_gen_trigger.find( f )==d_auto_gen_trigger.end() ){
     std::vector< Node > patTerms;
-    collectPatTerms( f, d_instEngine->getCounterexampleBody( f ), patTerms );
-    d_auto_gen_trigger[f] = new Trigger( d_instEngine, f, patTerms, true );
+    collectPatTerms( f, d_instEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );
+    //std::cout << "patTerms = " << (int)patTerms.size() << std::endl;
+    if( !patTerms.empty() ){
+      d_auto_gen_trigger[f] = new Trigger( d_instEngine, f, patTerms, true );
+    }else{
+      d_auto_gen_trigger[f] = NULL;
+    }
   }
   return d_auto_gen_trigger[f];
 }
@@ -187,9 +222,11 @@ int InstStrategyFreeVariable::process( Node f, int effort ){
       d_guessed[f] = true;
       Debug("quant-uf-alg") << "Add guessed instantiation" << std::endl;
       InstMatch m;
-      d_instEngine->addInstantiation( f, &m );
-      ++(d_th->d_statistics.d_instantiations);
-      ++(d_th->d_statistics.d_instantiations_guess);
+      if( d_instEngine->addInstantiation( f, &m ) ){
+        ++(d_th->d_statistics.d_instantiations);
+        ++(d_th->d_statistics.d_instantiations_guess);
+        d_instEngine->d_hasInstantiated[f] = true;
+      }
     }
     return STATUS_UNKNOWN;
   }
@@ -234,7 +271,8 @@ d_disequality( c )
   addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
   addInstStrategy( new InstStrategyLitMatch( this, ie ) );
   addInstStrategy( d_isup );
-  addInstStrategy( new InstStrategyAutoGenTriggers( this, ie ) );
+  addInstStrategy( new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MAX_TRIGGER ) );
+  addInstStrategy( new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MIN_TRIGGER ) );
   addInstStrategy( new InstStrategyFreeVariable( this, ie ) );
 }
 

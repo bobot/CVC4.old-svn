@@ -290,22 +290,21 @@ void TheoryQuantifiers::fullEffortCheck(){
         d_numInstantiations++;
         Debug("quantifiers") << "Done instantiation " << d_numInstantiations << "." << std::endl;
       }else{
-#if 1
         Debug("quantifiers") << "No instantiation given, returning unknown..." << std::endl;
         //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
         d_out->setIncomplete();
         //}
-#else
-        //if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
-          //instantiation did not add a lemma to d_out, try to flip a previous decision
-          if( !flipDecision() ){
-            //maybe restart?
-            restart();
-          }else{
-            Debug("quantifiers") << "Flipped decision." << std::endl;
-          }
-        //}
-#endif
+
+        //code for flip decision used to go here....(but it needs to be done after sharing)
+        ////if( d_instEngine->getStatus()==Instantiator::STATUS_UNKNOWN ){
+        //  //instantiation did not add a lemma to d_out, try to flip a previous decision
+        //  if( !flipDecision() ){
+        //    //maybe restart?
+        //    restart();
+        //  }else{
+        //    Debug("quantifiers") << "Flipped decision." << std::endl;
+        //  }
+        ////}
       } 
     }
   }else{

@@ -51,7 +51,7 @@ void InstantiatorTheoryQuantifiers::check( Node assertion ){
 }
 
 void InstantiatorTheoryQuantifiers::resetInstantiationRound(){
-  Instantiator::resetInstantiationRound();
+
 }
 
 

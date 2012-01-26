@@ -137,6 +137,8 @@ public:
 
   //AJR-hack
   UfTermDb* getTermDatabase();
+
+  StrongSolverTheoryUf* getStrongSolver() { return &d_thss; }
   //AJR-hack-end
 };/* class TheoryUF */
 
