@@ -238,7 +238,7 @@ void UfTermDb::registerTerm( Node n ){
     int index = n.hasAttribute(InstConstantAttribute()) ? 1 : 0;
     int altIndex = index==0 ? 1 : 0;
     if( std::find( d_op_map[index][op].begin(), d_op_map[index][op].end(), n )==d_op_map[index][op].end() ){
-      std::cout << "register term " << n << std::endl;
+      Debug("uf-term-db") << "register term " << n << std::endl;
       d_op_map[index][op].push_back( n );
       //add pattern/ground term pairs produced
       for( int i=0; i<(int)d_op_map[altIndex][op].size(); i++ ){
