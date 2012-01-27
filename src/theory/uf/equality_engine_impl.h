@@ -255,10 +255,12 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
 
   EqualityNodeId class1Id = class1.getFind();
   EqualityNodeId class2Id = class2.getFind();
+  //AJR-hack
   Node n1 = d_nodes[class1Id];
   Node n2 = d_nodes[class2Id];
   EqualityNode cc1 = getEqualityNode(n1);
   EqualityNode cc2 = getEqualityNode(n2);
+  //AJR-hack-end
 
   // Update class2 representative information
   Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): updating class " << class2Id << std::endl;
@@ -301,9 +303,9 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
   Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): updating lookups of " << class2Id << std::endl;
   do {
     // Get the current node
-    EqualityNode& currentNode = getEqualityNode(currentId);    
+    EqualityNode& currentNode = getEqualityNode(currentId);
     Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): updating lookups of node " << currentId << std::endl;
- 
+
     // Go through the uselist and check for congruences
     UseListNodeId currentUseId = currentNode.getUseList();
     while (currentUseId != null_uselist_id) {
@@ -347,13 +349,13 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
       d_nodeIndividualTrigger[class1Id] = class2triggerId;
       // Add it to the list for backtracking
       d_individualTriggers.push_back(class1Id);
-      d_individualTriggersSize = d_individualTriggersSize + 1;  
+      d_individualTriggersSize = d_individualTriggersSize + 1;
     } else {
       // Notify when done
       if (d_performNotify) {
-        d_notify.notify(d_nodes[class1triggerId], d_nodes[class2triggerId]); 
+        d_notify.notify(d_nodes[class1triggerId], d_nodes[class2triggerId]);
       }
-    }	
+    }
   }
 
   //AJR-hack  DO_THIS HERE
@@ -523,14 +525,14 @@ void EqualityEngine<NotifyClass>::backtrack() {
     }
     d_individualTriggers.resize(d_individualTriggersSize);
   }
-  
+
   if (d_equalityTriggers.size() > d_equalityTriggersCount) {
     // Unlink the triggers from the lists
     for (int i = d_equalityTriggers.size() - 1, i_end = d_equalityTriggersCount; i >= i_end; -- i) {
       const Trigger& trigger = d_equalityTriggers[i];
       d_nodeTriggers[trigger.classId] = trigger.nextTrigger;
     }
-    // Get rid of the triggers 
+    // Get rid of the triggers
     d_equalityTriggers.resize(d_equalityTriggersCount);
     d_equalityTriggersOriginal.resize(d_equalityTriggersCount);
   }
@@ -629,7 +631,7 @@ void EqualityEngine<NotifyClass>::explainDisequality(TNode t1, TNode t2, std::ve
          equality.toString().c_str(), getRepresentative(equality).toString().c_str(),
          d_false.toString().c_str(), getRepresentative(d_false).toString().c_str());
 
-  // Get the explanation 
+  // Get the explanation
   EqualityNodeId equalityId = getNodeId(equality);
   EqualityNodeId falseId = getNodeId(d_false);
   getExplanation(equalityId, falseId, equalities);
@@ -932,7 +934,7 @@ bool EqualityEngine<NotifyClass>::areDisequal(TNode t1, TNode t2)
 }
 
 template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addTriggerTerm(TNode t) 
+void EqualityEngine<NotifyClass>::addTriggerTerm(TNode t)
 {
   Debug("equality::internal") << "EqualityEngine::addTriggerTerm(" << t << ")" << std::endl;
 
@@ -944,15 +946,15 @@ void EqualityEngine<NotifyClass>::addTriggerTerm(TNode t)
   EqualityNode& eqNode = getEqualityNode(eqNodeId);
   EqualityNodeId classId = eqNode.getFind();
 
-  if (d_nodeIndividualTrigger[classId] != +null_id) {  
+  if (d_nodeIndividualTrigger[classId] != +null_id) {
     // No need to keep it, just propagate the existing individual triggers
     if (d_performNotify) {
-      d_notify.notify(t, d_nodes[d_nodeIndividualTrigger[classId]]); 
+      d_notify.notify(t, d_nodes[d_nodeIndividualTrigger[classId]]);
     }
   } else {
     // Add it to the list for backtracking
     d_individualTriggers.push_back(classId);
-    d_individualTriggersSize = d_individualTriggersSize + 1; 
+    d_individualTriggersSize = d_individualTriggersSize + 1;
     // Mark the class id as a trigger
     d_nodeIndividualTrigger[classId] = eqNodeId;
   }

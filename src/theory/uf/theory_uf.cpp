@@ -40,7 +40,8 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   d_conflict(c, false),
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
-  d_functionsTerms(c)
+  d_functionsTerms(c),
+  d_assertions_ajr( c )
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
@@ -93,6 +94,14 @@ void TheoryUF::check(Effort level) {
     TNode fact = assertion.assertion;
 
     Debug("uf") << "TheoryUF::check(): processing " << fact << std::endl;
+    //AJR-hack
+    Debug("uf-ajr") << "TheoryUF::check(): processing " << fact << std::endl;
+    d_assertions_ajr.push_back( fact );
+    Debug("uf-ajr") << "   Current assumptions:" << std::endl;
+    for( NodeList::const_iterator it = d_assertions_ajr.begin(); it!=d_assertions_ajr.end(); ++it ){
+      Debug("uf-ajr" ) << "      " << (*it) << std::endl;
+    }
+    //AJR-hack-end
 
     // If the assertion doesn't have a literal, it's a shared equality, so we set it up
     if (!assertion.isPreregistered) {
@@ -130,17 +139,10 @@ void TheoryUF::check(Effort level) {
     //AJR-hack-end
   }
 
-  //AJR-hack
-#ifdef USE_STRONG_SOLVER
-  if( !d_conflict ){
-    d_thss.check( level, d_out );
-  }
-#endif
-  //AJR-hack-end
-
   // If in conflict, output the conflict
   if (d_conflict) {
     Debug("uf") << "TheoryUF::check(): conflict " << d_conflictNode << std::endl;
+    Debug("uf-ajr" ) << "TheoryUF::check(): conflict " << d_conflictNode << std::endl;
     d_out->conflict(d_conflictNode);
   }
 
@@ -150,6 +152,15 @@ void TheoryUF::check(Effort level) {
   // but when f(x) != f(y) is deduced by the sat solver, so it's asserted, and we don't detect the conflict
   // until we go through the propagation list
   propagate(level);
+
+
+  //AJR-hack
+#ifdef USE_STRONG_SOLVER
+  if( !d_conflict ){
+    d_thss.check( level, d_out );
+  }
+#endif
+  //AJR-hack-end
 
 }/* TheoryUF::check() */
 
@@ -162,6 +173,7 @@ void TheoryUF::propagate(Effort level) {
       bool satValue;
       if (!d_valuation.hasSatValue(literal, satValue)) {
         d_out->propagate(literal);
+        Debug("uf-ajr" ) << "Uf::Propagate " << literal << std::endl;
       } else {
         if (!satValue) {
           Debug("uf") << "TheoryUF::propagate(): in conflict" << std::endl;
@@ -305,6 +317,7 @@ void TheoryUF::presolve() {
         i != newClauses.end();
         ++i) {
       d_out->lemma(*i);
+      Debug("uf-ajr" ) << "Uf::Lemma " << (*i) << std::endl;
     }
   }
   Debug("uf") << "uf: end presolve()" << endl;

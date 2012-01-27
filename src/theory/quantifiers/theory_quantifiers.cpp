@@ -26,6 +26,8 @@
 #include <time.h>
 #include "theory/quantifiers/theory_quantifiers_instantiator.h"
 
+//#define USE_FLIP_DECISION
+
 static bool clockSet = false;
 double initClock;
 
@@ -190,6 +192,9 @@ Instantiator* TheoryQuantifiers::makeInstantiator(){
 }
 
 bool TheoryQuantifiers::flipDecision(){
+#ifndef USE_FLIP_DECISION
+  return false;
+#else
   Debug("quantifiers-flip") << "No instantiation given, flip decision, level = " << d_valuation.getDecisionLevel() << std::endl;
   //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
   //  Debug("quantifiers-flip") << "   " << d_valuation.getDecision( i ) << std::endl;
@@ -205,6 +210,7 @@ bool TheoryQuantifiers::flipDecision(){
     }
   }
   return true;
+#endif
 }
 
 bool TheoryQuantifiers::restart(){
