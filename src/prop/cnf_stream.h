@@ -48,7 +48,7 @@ class CnfStream {
 public:
 
   /** Cache of what nodes have been registered to a literal. */
-  typedef __gnu_cxx::hash_map<SatLiteral, TNode, SatSolver::SatLiteralHashFunction> NodeCache;
+  typedef __gnu_cxx::hash_map<SatLiteral, TNode, SatLiteralHashFunction> NodeCache;
 
   /** Per node translation information */
   struct TranslationInfo {
@@ -64,7 +64,7 @@ public:
 protected:
 
   /** The SAT solver we will be using */
-  SatInputInterface *d_satSolver;
+  DPLLSatSolverInterface *d_satSolver;
 
   TranslationCache d_translationCache;
   NodeCache d_nodeCache;
@@ -180,7 +180,7 @@ public:
    * @param satSolver the sat solver to use
    * @param registrar the entity that takes care of preregistration of Nodes
    */
-  CnfStream(SatInputInterface* satSolver, theory::Registrar registrar);
+  CnfStream(DPLLSatSolverInterface* satSolver, theory::Registrar registrar);
 
   /**
    * Destructs a CnfStream.  This implementation does nothing, but we
@@ -278,7 +278,7 @@ public:
    * @param satSolver the sat solver to use
    * @param registrar the entity that takes care of pre-registration of Nodes
    */
-  TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar);
+  TseitinCnfStream(DPLLSatSolverInterface* satSolver, theory::Registrar registrar);
 
 private:
 

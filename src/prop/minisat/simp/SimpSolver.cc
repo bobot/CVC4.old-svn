@@ -44,7 +44,7 @@ static DoubleOption opt_simp_garbage_frac(_cat, "simp-gc-frac", "The fraction of
 // Constructor/Destructor:
 
 
-SimpSolver::SimpSolver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bool enableIncremental) :
+SimpSolver::SimpSolver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, bool enableIncremental) :
     Solver(proxy, context, enableIncremental)
   , grow               (opt_grow)
   , clause_lim         (opt_clause_lim)

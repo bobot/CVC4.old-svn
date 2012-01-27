@@ -119,6 +119,40 @@ inline lbool toLbool(int   v) { return lbool((uint8_t)v);  }
 
 class Clause;
 typedef RegionAllocator<uint32_t>::Ref CRef;
+
+/* convenience printing functions */
+
+
+inline std::ostream& operator <<(std::ostream& out, Minisat::Lit lit) {
+  const char * s = (Minisat::sign(lit)) ? "~" : " ";
+  out << s << Minisat::var(lit);
+  return out;
+}
+
+inline std::ostream& operator <<(std::ostream& out, Minisat::vec<Minisat::Lit>& clause) {
+  out << "clause:";
+  for(int i = 0; i < clause.size(); ++i) {
+    out << " " << clause[i];
+  }
+  out << ";";
+  return out;
+}
+
+inline std::ostream& operator <<(std::ostream& out, Minisat::lbool val) {
+  std::string val_str; 
+  if( val == l_False ) {
+    val_str = "0";
+  } else if (val == l_True ) {
+    val_str = "1";
+  } else { // unknown
+    val_str = "_";
+  }
+
+  out << val_str;
+  return out;
+}
+
+
 } /* Minisat */
 
 

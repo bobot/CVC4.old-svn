@@ -18,7 +18,6 @@
  ** of given an equisatisfiable stream of assertions to PropEngine.
  **/
 
-#include "prop/sat.h"
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
 #include "theory/theory_engine.h"
@@ -28,6 +27,7 @@
 #include "util/output.h"
 #include "expr/command.h"
 #include "expr/expr.h"
+#include "prop/sat.h"
 
 #include <queue>
 
@@ -43,7 +43,7 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
-CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) :
+CnfStream::CnfStream(DPLLSatSolverInterface *satSolver, theory::Registrar registrar) :
   d_satSolver(satSolver),
   d_registrar(registrar) {
 }
@@ -54,7 +54,7 @@ void CnfStream::recordTranslation(TNode node) {
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar) :
+TseitinCnfStream::TseitinCnfStream(DPLLSatSolverInterface* satSolver, theory::Registrar registrar) :
   CnfStream(satSolver, registrar) {
 }
 
@@ -163,7 +163,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   SatLiteral lit;
   if (!hasLiteral(node)) {
     // If no literal, well make one
-    lit = variableToLiteral(d_satSolver->newVar(theoryLiteral));
+    lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
     d_translationCache[node].literal = lit;
     d_translationCache[node.notNode()].literal = ~lit;
   } else {
