@@ -43,13 +43,13 @@ bool InstMatch::add( InstMatch& m ){
   return true;
 }
 
-bool InstMatch::merge( uf::InstantiatorTheoryUf* itu, InstMatch& m, bool allowSplit ){
+bool InstMatch::merge( EqualityQuery* q, InstMatch& m, bool allowSplit ){
   for( std::map< TNode, TNode >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
     if( d_map.find( it->first )==d_map.end() ){
       setMatch( it->first, it->second );
     }else{
       if( it->second!=d_map[it->first] ){
-        if( !itu->areEqual( it->second, d_map[it->first] ) ){
+        if( !q->areEqual( it->second, d_map[it->first] ) ){
           //split?
           if( allowSplit ){
             addSplit( d_map[ it->first ], it->second );
@@ -249,7 +249,7 @@ void InstMatchGenerator::addAnyMatchPair( Node t, Node g ){
 
 
 //if equivalence classes change, this function should be called at least once before getNextMatch( itu ) is called
-void InstMatchGenerator::resetInstantiationRound( uf::InstantiatorTheoryUf* itu ){
+void InstMatchGenerator::resetInstantiationRound( EqualityQuery* q ){
   Debug("quant-uf-iter") << "reset instantiation round : " << d_operation << " " << d_eq << " " << (getMaster()==this) << std::endl;
   if( getMaster()==this ){
     if( d_eq!=Node::null() ){
@@ -263,14 +263,14 @@ void InstMatchGenerator::resetInstantiationRound( uf::InstantiatorTheoryUf* itu 
           d_children_valid[ it->second ] = true;
           if( isEq ){
             if( eq[1].getAttribute(InstConstantAttribute())!=f ){
-              d_children_valid[ it->second ] = itu->areEqual( it->first, eq[1] );
+              d_children_valid[ it->second ] = q->areEqual( it->first, eq[1] );
             }
           }else{
             if( eq[1].getAttribute(InstConstantAttribute())==f ){
-              d_children_valid[ it->second ] = itu->areDisequal( it->first[0], it->first[1] );
+              d_children_valid[ it->second ] = q->areDisequal( it->first[0], it->first[1] );
             }else{
               Debug("quant-uf-iter-debug") << "are disequal with " << eq[1] << std::endl;
-              d_children_valid[ it->second ] = itu->areDisequal( it->first, eq[1] );
+              d_children_valid[ it->second ] = q->areDisequal( it->first, eq[1] );
               Debug("quant-uf-iter-debug") << "returned " << d_children_valid[ it->second ] << std::endl;
             }
           }
@@ -279,7 +279,7 @@ void InstMatchGenerator::resetInstantiationRound( uf::InstantiatorTheoryUf* itu 
         //if a ground argument is not equal, then this is currently invalid
         for( int j=0; j<(int)d_eq[0].getNumChildren(); j++ ){
           if( !d_eq[0][j].hasAttribute(InstConstantAttribute()) &&
-              !itu->areEqual( d_eq[0][j], d_eq[0][j] ) ){
+              !q->areEqual( d_eq[0][j], d_eq[0][j] ) ){
             d_can_produce_matches = false;
             return;
           }
@@ -296,7 +296,7 @@ void InstMatchGenerator::resetInstantiationRound( uf::InstantiatorTheoryUf* itu 
       //if we had completed all matches previously, then at least one child must produce a new match
       for( int i=0; i<(int)d_children.size(); i++ ){
         if( isChildValid( i ) ){
-          d_children[i]->resetInstantiationRound( itu );
+          d_children[i]->resetInstantiationRound( q );
           if( d_children[i]->d_can_produce_matches ){
             d_can_produce_matches = true;
           }
@@ -304,7 +304,7 @@ void InstMatchGenerator::resetInstantiationRound( uf::InstantiatorTheoryUf* itu 
       }
       if( !d_can_produce_matches ){
         //or, if we can produce new children
-        d_can_produce_matches = calculateChildren( itu );
+        d_can_produce_matches = calculateChildren( q );
       }
     }
     Debug("quant-uf-iter") << "can produce matches = " << d_can_produce_matches << std::endl;
@@ -327,7 +327,7 @@ void InstMatchGenerator::resetInstantiationRound( uf::InstantiatorTheoryUf* itu 
     if( d_mg_i+1<getNumCurrentMatches() ){
       d_can_produce_matches = true;
     }else{
-      getMaster()->resetInstantiationRound( itu );
+      getMaster()->resetInstantiationRound( q );
       d_can_produce_matches = getMaster()->d_can_produce_matches;
     }
   }
@@ -342,7 +342,7 @@ void InstMatchGenerator::reset(){
 /** get current match */
 InstMatch* InstMatchGenerator::getCurrent(){
   if( d_mg_i>=0 && d_mg_i<(int)getMaster()->getNumCurrentMatches() ){
-    return getMaster()->getCurrentMatch( d_mg_i ); 
+    return getMaster()->getMatch( d_mg_i ); 
   }else{
     return NULL;
   }
@@ -351,7 +351,7 @@ InstMatch* InstMatchGenerator::getCurrent(){
 /** get next match */
 //pre condition -1 <= d_mg_i < (int)getMaster()->getNumCurrentMatches()
 //post condition: return=true, then 0 <= d_mg_i < (int)getMaster()->getNumCurrentMatches()
-bool InstMatchGenerator::getNextMatch( uf::InstantiatorTheoryUf* itu ){
+bool InstMatchGenerator::getNextMatch( EqualityQuery* q ){
   if( d_can_produce_matches ){
     d_mg_i++;
     Debug( "quant-uf-iter" ) << d_eq << " " << d_operation << " getNextMatch ";
@@ -363,7 +363,7 @@ bool InstMatchGenerator::getNextMatch( uf::InstantiatorTheoryUf* itu ){
       //std::cout << d_eq << " " << d_operation << " returned (existing) match " << d_mg_i << std::endl;
       getCurrent()->debugPrint( "quant-uf-iter" );
       return true;
-    }else if( getMaster()->calculateNextMatch( itu ) ){
+    }else if( getMaster()->calculateNextMatch( q ) ){
       Debug( "quant-uf-iter" ) << d_eq << " " << d_operation << " " << d_mg_i << " " << getNumCurrentMatches() << std::endl;
       //std::cout << d_eq << " " << d_operation << " calculated next match, ";
       //std::cout << this << " " << d_mg_i << " " << getNumCurrentMatches() << std::endl;
@@ -383,7 +383,7 @@ bool InstMatchGenerator::getNextMatch( uf::InstantiatorTheoryUf* itu ){
 bool InstMatchGenerator::addInstMatch( InstMatch& m ){
   Assert( getMaster()==this );
   for( int i=0; i<getNumCurrentMatches(); i++ ){
-    if( getCurrentMatch( i )->isEqual( m ) ){
+    if( getMatch( i )->isEqual( m ) ){
       return false;
     }
   }
@@ -400,16 +400,16 @@ int InstMatchGenerator::getNumCurrentMatches(){
   }
 }
 /** get current match */
-InstMatch* InstMatchGenerator::getCurrentMatch( int i ){
+InstMatch* InstMatchGenerator::getMatch( int i ){
   if( getMaster()==this ){
     return &d_mg[i];
   }else{
-    return getMaster()->getCurrentMatch( i );
+    return getMaster()->getMatch( i );
   }
 }
 
 //post-condition: if return=true, then d_children must have grown by at least one
-bool InstMatchGenerator::calculateChildren( uf::InstantiatorTheoryUf* itu ){
+bool InstMatchGenerator::calculateChildren( EqualityQuery* q ){
   Assert( getMaster()==this );
   if( d_operation==0 && d_eq!=Node::null() ){
     if( d_eq.getKind()!=NOT && d_eq[0].getKind()==INST_CONSTANT && !d_eq[1].hasAttribute(InstConstantAttribute()) ){
@@ -420,11 +420,12 @@ bool InstMatchGenerator::calculateChildren( uf::InstantiatorTheoryUf* itu ){
     bool isEq = d_eq.getKind()!=NOT;
     Node eq = d_eq.getKind()==NOT ? d_eq[0] : d_eq;
     Node f = eq[0].getAttribute(InstConstantAttribute());
-    itu->calculateEIndLitCandidates( eq[0], eq[1], f, isEq );
+    std::vector< Node > litMatches;
+    q->getEIndLitCandidates( eq[0], eq[1], f, isEq, litMatches );
     int index = isEq ? 0 : 1;
     bool childAdded = false;
-    for( int i=0; i<(int)itu->d_litMatchCandidates[index][eq[0]][eq[1]].size(); i++ ){
-      Node m = itu->d_litMatchCandidates[index][eq[0]][eq[1]][i];
+    for( int i=0; i<(int)litMatches.size(); i++ ){
+      Node m = litMatches[i];
       //std::cout << "lit match candidate " << m << " for " << d_eq << std::endl;
       if( d_lit_children_map.find( m )==d_lit_children_map.end() ){
         InstMatchGenerator* mg;
@@ -467,7 +468,7 @@ bool InstMatchGenerator::calculateChildren( uf::InstantiatorTheoryUf* itu ){
   }
 }
 
-bool InstMatchGenerator::calculateNextMatch( uf::InstantiatorTheoryUf* itu ){
+bool InstMatchGenerator::calculateNextMatch( EqualityQuery* q ){
   Assert( getMaster()==this );
   Debug( "quant-uf-iter" ) << "calc next match " << d_operation << " " << d_eq << std::endl;
   if( isCombine() ){
@@ -477,12 +478,12 @@ bool InstMatchGenerator::calculateNextMatch( uf::InstantiatorTheoryUf* itu ){
     do{
       if( d_index==(int)d_children.size() ){
         //get more children
-        if( !calculateChildren( itu ) ){
+        if( !calculateChildren( q ) ){
           return false;
         }
       }
       //std::cout << "check child " << d_children[d_index] << std::endl;
-      success = isChildValid( d_index ) ? d_children[d_index]->getNextMatch( itu ) : false;
+      success = isChildValid( d_index ) ? d_children[d_index]->getNextMatch( q ) : false;
       if( !success ){
         d_index++;
       }
@@ -491,7 +492,7 @@ bool InstMatchGenerator::calculateNextMatch( uf::InstantiatorTheoryUf* itu ){
     if( addInstMatch( *d_children[d_index]->getCurrent() ) ){  //if we have not seen this match before
       return true;
     }else{
-      return calculateNextMatch( itu );
+      return calculateNextMatch( q );
     }
   }else{
     if( d_partial.empty() ){
@@ -505,10 +506,10 @@ bool InstMatchGenerator::calculateNextMatch( uf::InstantiatorTheoryUf* itu ){
         InstMatch combined;
         bool success = false;
         //get the next match
-        while( !success && d_children[i]->getNextMatch( itu ) ){
+        while( !success && d_children[i]->getNextMatch( q ) ){
           combined = InstMatch( *d_children[i]->getCurrent() );
           //see if it merges into the current built merge (stored in d_partial)
-          success = combined.merge( itu, d_partial[i] );
+          success = combined.merge( q, d_partial[i] );
         }
         //Assert( !d_children[i]->empty() );
         if( !success ){
@@ -529,7 +530,7 @@ bool InstMatchGenerator::calculateNextMatch( uf::InstantiatorTheoryUf* itu ){
       if( addedMatch ){ 
         return true;
       }else{
-        return calculateNextMatch( itu );
+        return calculateNextMatch( q );
       }
     }
   }
@@ -656,21 +657,22 @@ InstMatchGenerator* Trigger::mkMatchGenerator( InstantiationEngine* ie, Node f, 
   }
 }
 
-void Trigger::resetInstantiationRound( uf::InstantiatorTheoryUf* itu ){
-  d_mg->resetInstantiationRound( itu );
+void Trigger::resetInstantiationRound(){
+  EqualityQuery* q = d_instEngine->getEqualityQuery();
+  d_mg->resetInstantiationRound( q );
   if( d_next ){
-    d_next->resetInstantiationRound( itu );
+    d_next->resetInstantiationRound();
   }
 }
 
-bool Trigger::addInstantiation( uf::InstantiatorTheoryUf* itu, InstMatch& baseMatch, bool addSplits, int triggerThresh ){
+bool Trigger::addInstantiation( InstMatch& baseMatch, bool addSplits, int triggerThresh ){
   if( d_valid ){
     Debug("trigger") << "trigger: try to add new instantiation..." << std::endl;
     //std::cout << "trigger: try to add new instantiation..." << std::endl;
     int counter = 0;
-    while( d_mg->getNextMatch( itu ) ){
+    while( getNextMatch() ){
       Debug("trigger") << "trigger: made match." << std::endl;
-      InstMatch temp( d_mg->getCurrent() );
+      InstMatch temp( getCurrent() );
       temp.add( baseMatch );
       Debug("trigger") << "trigger: add instantiation..." << std::endl;
 #if 1
@@ -710,7 +712,7 @@ bool Trigger::addInstantiation( uf::InstantiatorTheoryUf* itu, InstMatch& baseMa
       Debug("trigger") << "trigger: get next trigger..." << std::endl;
       //std::cout << "trigger: get next trigger..." << std::endl;
       Trigger* t = getNextTrigger();
-      if( t && t->addInstantiation( itu, baseMatch, addSplits, triggerThresh-1 ) ){
+      if( t && t->addInstantiation( baseMatch, addSplits, triggerThresh-1 ) ){
         return true;
       }
     }else{
@@ -721,31 +723,17 @@ bool Trigger::addInstantiation( uf::InstantiatorTheoryUf* itu, InstMatch& baseMa
   return false;
 }
 
-//
-//void QuantMatchGenerator::reset(){
-//  //for( int i=0; i<(int)d_auto_gen.size(); i++ ){
-//  //  d_auto_gen[i]->reset();
-//  //}
-//  //for( int i=0; i<(int)d_auto_gen.size(); i++ ){
-//  //  d_auto_gen[i]->reset();
-//  //}
-//  //for( int i=0; i<(int)d_lit_match.size(); i++ ){
-//  //  d_lit_match[i]->reset();
-//  //}
-//}
-//
-//void QuantMatchGenerator::collectPatTerms( Node n, std::vector< Node >& patTerms ){
-//  if( n.getKind()==APPLY_UF && n.getAttribute(InstConstantAttribute())==d_f  ){
-//    if( std::find( patTerms.begin(), patTerms.end(), n )==patTerms.end() ){
-//      patTerms.push_back( n );
-//    }
-//  }else if( n.getKind()!=FORALL ){
-//    for( int i=0; i<(int)n.getNumChildren(); i++ ){
-//      collectPatTerms( n[i], patTerms );
-//    }
-//  }
-//}
-////
+/** get current match */
+InstMatch* Trigger::getCurrent(){
+  return d_mg->getCurrent();
+}
+
+/** get next match */
+bool Trigger::getNextMatch(){
+  EqualityQuery* q = d_instEngine->getEqualityQuery();
+  return d_mg->getNextMatch( q );
+}
+
 ////void QuantMatchGenerator::collectLiterals( Node n, std::vector< Node >& litPatTerms, bool reqPol, bool polarity ){
 ////  //check if this is a literal
 ////  if( d_instEngine->getTheoryEngine()->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
@@ -785,22 +773,3 @@ bool Trigger::addInstantiation( uf::InstantiatorTheoryUf* itu, InstMatch& baseMa
 ////    }
 ////  }
 ////}
-//
-///** add pattern */
-//void QuantMatchGenerator::addUserPattern( Node pat ) {
-//  //add to generators
-//  std::vector< Node > nodes;
-//  for( int i=0; i<(int)pat.getNumChildren(); i++ ){
-//    nodes.push_back( pat[i] );
-//  }
-//  d_user_gen.push_back( new Trigger( d_instEngine, d_f, nodes, true ) );
-//}
-//
-//Trigger* QuantMatchGenerator::getAutoGenTrigger(){
-//  if( !d_auto_gen_trigger ){
-//    collectPatTerms( d_instEngine->getCounterexampleBody( d_f ), d_patTerms );
-//    d_auto_gen_trigger = new Trigger( d_instEngine, d_f, d_patTerms, true );
-//    //std::cout << "produced auto trigger" << std::endl;
-//  }
-//  return d_auto_gen_trigger;
-//}

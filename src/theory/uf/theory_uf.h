@@ -111,12 +111,12 @@ private:
   /** Symmetry analyzer */
   SymmetryBreaker d_symb;
 
-  //AJR-hack
-  //   TEMPORARY
-  typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
-  /** map from (representative) nodes to list of representative nodes they are disequal from */
-  NodeList d_assertions_ajr;
-  //AJR-hack-end
+  ////AJR-hack
+  ////   TEMPORARY
+  //typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
+  ///** map from (representative) nodes to list of representative nodes they are disequal from */
+  //NodeList d_assertions_ajr;
+  ////AJR-hack-end
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/

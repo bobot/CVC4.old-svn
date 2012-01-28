@@ -34,6 +34,8 @@ namespace uf {
 
 class InstantiatorTheoryUf;
 
+//instantiation strategies
+
 class InstStrategyCheckCESolved : public InstStrategy{
 private:
   /** InstantiatorTheoryUf class */
@@ -191,9 +193,12 @@ public:
 private:
   /** calculate matches for quantifier f at effort */
   int process( Node f, int effort );
-  /** calculate sets possible matches to induce t ~ s */
+  /** sets possible matches to induce t ~ s */
   std::map< Node, std::map< Node, std::vector< Node > > > d_litMatchCandidates[2];
   void calculateEIndLitCandidates( Node t, Node s, Node f, bool isEq );
+public:
+  /** calculate sets possible matches to induce t ~ s */
+  void getEIndLitCandidates( Node t, Node s, Node f, bool isEq, std::vector< Node >& litMatches );
 public:
   /** are obligations changed? */
   bool getObligationsChanged( Node f ) { return d_ob_changed[f]; }
@@ -222,6 +227,23 @@ public:
   /** the base match */
   InstMatch d_baseMatch;
 };/* class InstantiatorTheoryUf */
+
+/** equality query object using instantiator theory uf */
+class EqualityQueryInstantiatorTheoryUf : public EqualityQuery
+{
+private:
+  InstantiatorTheoryUf* d_ith;
+public:
+  EqualityQueryInstantiatorTheoryUf( InstantiatorTheoryUf* ith ) : d_ith( ith ){}
+  ~EqualityQueryInstantiatorTheoryUf(){}
+  /** general queries about equality */
+  bool areEqual( Node a, Node b ) { return d_ith->areEqual( a, b ); }
+  bool areDisequal( Node a, Node b ) { return d_ith->areDisequal( a, b ); }
+  /** calculate sets possible matches to induce t ~ s */
+  void getEIndLitCandidates( Node t, Node s, Node f, bool isEq, std::vector< Node >& litMatches ){
+    d_ith->getEIndLitCandidates( t, s, f, isEq, litMatches );
+  }
+};
 
 }
 }/* CVC4::theory namespace */

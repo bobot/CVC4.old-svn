@@ -477,6 +477,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
   out->lemma( conflictNode );
 #else
   Debug("uf-ss-lemma") << "*** Add clique conflict " << conflictNode.notNode() << std::endl;
+  //std::cout << "*** Add clique conflict " << conflictNode.notNode() << std::endl;
   out->lemma( conflictNode.notNode() );
 #endif
 }
@@ -555,6 +556,7 @@ void StrongSolverTheoryUf::ConflictFind::assertDisequal( Node a, Node b, Node re
   b = d_th->d_equalityEngine.getRepresentative( b );
   if( !d_th->d_equalityEngine.areDisequal( a, b ) ){
     Debug("uf-ss") << "Assert disequal " << a << " != " << b << "..." << std::endl;
+    //std::cout << "Assert disequal " << a << " != " << b << "..." << std::endl;
     Debug("uf-ss-disequal") << "Assert disequal " << a << " != " << b << "..." << std::endl;
     //add to list of disequalities
     if( d_disequalities_index<d_disequalities.size() ){
@@ -674,6 +676,7 @@ bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out )
             Assert( children.size()>1 );
             Node lem = NodeManager::currentNM()->mkNode( OR, children );
             Debug( "uf-ss-lemma" ) << "*** Diambiguate lemma : " << lem << std::endl;
+            //std::cout << "*** Diambiguate lemma : " << lem << std::endl;
             out->lemma( lem );
             d_term_amb[ eq ] = false;
             lemmaAdded = true;
@@ -721,6 +724,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
               Assert( s!=Node::null() && s.getKind()==EQUAL );
               s = Rewriter::rewrite( s );
               Debug("uf-ss-lemma") << "*** Split on " << s << std::endl;
+              //std::cout << "*** Split on " << s << std::endl;
               //split on the equality s
               out->split( s );
               //tell the sat solver to explore the equals branch first
@@ -732,7 +736,11 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
         if( !addedLemma ){
           //otherwise, try to disambiguate individual terms
           if( !disambiguateTerms( out ) ){
-            Debug("uf-ss-sat") << "regions = " << getNumRegions() << std::endl;
+            //no disequalities can be propagated
+            //we are in a situation where it suffices to apply a coloring to equivalence classes
+            //due to our invariants, we know no coloring conflicts will occur between regions, and thus
+            //  we are SAT in this case.
+            Debug("uf-ss-sat") << "SAT: regions = " << getNumRegions() << std::endl;
           }
         }
       }
@@ -787,7 +795,7 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
   TypeNode tn = n.getType();
   //TEMPORARY 
   if( tn!=NodeManager::currentNM()->booleanType() ){
-    setCardinality( tn, 5 );  //***************
+    setCardinality( tn, 1 );  //***************
   }
   //END_TEMPORARY
   Debug("uf-ss-solver") << "StrongSolverTheoryUf: New eq class " << n << " " << tn << std::endl;
@@ -868,4 +876,20 @@ void StrongSolverTheoryUf::debugPrint( const char* c ){
     it->second->debugPrint( c );
     Debug( c ) << std::endl;
   }
+}
+
+StrongSolverTheoryUf::Statistics::Statistics():
+  d_clique_lemmas("StrongSolverTheoryUf::Clique_Lemmas", 0),
+  d_split_lemmas("StrongSolverTheoryUf::Split_Lemmas", 0),
+  d_disamb_term_lemmas("StrongSolverTheoryUf::Disambiguate_Term_Lemmas", 0)
+{
+  StatisticsRegistry::registerStat(&d_clique_lemmas);
+  StatisticsRegistry::registerStat(&d_split_lemmas);
+  StatisticsRegistry::registerStat(&d_disamb_term_lemmas);
+}
+
+StrongSolverTheoryUf::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_clique_lemmas);
+  StatisticsRegistry::unregisterStat(&d_split_lemmas);
+  StatisticsRegistry::unregisterStat(&d_disamb_term_lemmas);
 }

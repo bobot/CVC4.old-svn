@@ -80,14 +80,14 @@ int InstStrategyLitMatch::process( Node f, int effort ){
       }
     }else{
       if( effort==1 && d_lit_match_triggers.find( f )!=d_lit_match_triggers.end() && d_lit_match_triggers[ f ] ){
-        d_lit_match_triggers[ f ]->resetInstantiationRound( d_th );
+        d_lit_match_triggers[ f ]->resetInstantiationRound();
       }
     }
     Debug("quant-uf-debug")  << "Try literal matching..." << std::endl;
     //std::cout << "Try literal matching for " << f << "..." << std::endl;
     if( d_lit_match_triggers[ f ] ){
       static int triggerThreshLit = effort==1 ? 1 : 2;
-      if( d_lit_match_triggers[ f ]->addInstantiation( d_th, d_th->d_baseMatch, false, triggerThreshLit ) ){
+      if( d_lit_match_triggers[ f ]->addInstantiation( d_th->d_baseMatch, false, triggerThreshLit ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_e_induced);
         d_instEngine->d_hasInstantiated[f] = true;
@@ -114,9 +114,9 @@ int InstStrategyUserPatterns::process( Node f, int effort ){
     //std::cout << "Try user-provided patterns..." << std::endl;
     for( int i=0; i<(int)getNumUserGenerators( f ); i++ ){
       if( effort==1 ){
-        getUserGenerator( f, i )->resetInstantiationRound( d_th );
+        getUserGenerator( f, i )->resetInstantiationRound();
       }
-      if( getUserGenerator( f, i )->addInstantiation( d_th, d_th->d_baseMatch ) ){
+      if( getUserGenerator( f, i )->addInstantiation( d_th->d_baseMatch ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_user_pattern);
         d_instEngine->d_hasInstantiated[f] = true;
@@ -155,10 +155,10 @@ int InstStrategyAutoGenTriggers::process( Node f, int effort ){
       //std::cout << "Try auto-generated triggers..." << std::endl;
       static int triggerThresh = effort==1 ? 1 : 2;
       if( effort==1 ){
-        getAutoGenTrigger( f )->resetInstantiationRound( d_th );
+        getAutoGenTrigger( f )->resetInstantiationRound();
       }
       Debug("quant-uf-debug")  << "done reset" << std::endl;
-      if( getAutoGenTrigger( f )->addInstantiation( d_th, d_th->d_baseMatch, false, triggerThresh ) ){
+      if( getAutoGenTrigger( f )->addInstantiation( d_th->d_baseMatch, false, triggerThresh ) ){
         ++(d_th->d_statistics.d_instantiations);
         d_instEngine->d_hasInstantiated[f] = true;
       }
@@ -501,7 +501,6 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
 
 int InstantiatorTheoryUf::process( Node f, int effort ){
   Debug("quant-uf") << "UF: Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  Debug("quant-uf-alg") << std::endl;
   return InstStrategy::STATUS_UNKNOWN;
 }
 
@@ -607,6 +606,12 @@ void InstantiatorTheoryUf::calculateEIndLitCandidates( Node t, Node s, Node f, b
     }
     //std::random_shuffle( d_litMatchCandidates[ind][t][s].begin(), d_litMatchCandidates[ind][t][s].end() );
   }
+}
+
+void InstantiatorTheoryUf::getEIndLitCandidates( Node t, Node s, Node f, bool isEq, std::vector< Node >& litMatches ){
+  calculateEIndLitCandidates( t, s, f, isEq );
+  int ind = isEq ? 0 : 1;
+  litMatches.insert( litMatches.begin(), d_litMatchCandidates[ind][t][s].begin(), d_litMatchCandidates[ind][t][s].end() );
 }
 
 void InstantiatorTheoryUf::getObligations( Node f, std::vector< Node >& obs ){

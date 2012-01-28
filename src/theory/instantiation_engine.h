@@ -185,10 +185,10 @@ private:
   std::map< Node, bool > d_phase_reqs;
   /** whether a particular quantifier is clausal */
   std::map< Node, bool > d_clausal;
-  /** quantifier match generators */
-  //std::map< Node, QuantMatchGenerator* > d_qmg;
   /** free variable for instantiation constant */
   std::map< Node, Node > d_free_vars;
+  /** equality query class */
+  EqualityQuery* d_eq_query;
 
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
@@ -251,10 +251,10 @@ public:
   /** has added lemma */
   bool hasAddedLemma() { return !d_lemmas_waiting.empty(); }
 
-  /** get quantifier match generator */
-  //QuantMatchGenerator* getMatchGenerator( Node f ) { return d_qmg[f]; }
   /** get free variable for instantiation constant */
   Node getFreeVariableForInstConstant( Node n );
+  /** get equality query object */
+  EqualityQuery* getEqualityQuery() { return d_eq_query; }
 
   class Statistics {
   public:

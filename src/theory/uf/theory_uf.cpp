@@ -40,8 +40,8 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   d_conflict(c, false),
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
-  d_functionsTerms(c),
-  d_assertions_ajr( c )
+  d_functionsTerms(c)//,
+  //d_assertions_ajr( c )
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
@@ -94,14 +94,14 @@ void TheoryUF::check(Effort level) {
     TNode fact = assertion.assertion;
 
     Debug("uf") << "TheoryUF::check(): processing " << fact << std::endl;
-    //AJR-hack
-    Debug("uf-ajr") << "TheoryUF::check(): processing " << fact << std::endl;
-    d_assertions_ajr.push_back( fact );
-    Debug("uf-ajr") << "   Current assumptions:" << std::endl;
-    for( NodeList::const_iterator it = d_assertions_ajr.begin(); it!=d_assertions_ajr.end(); ++it ){
-      Debug("uf-ajr" ) << "      " << (*it) << std::endl;
-    }
-    //AJR-hack-end
+    ////AJR-hack
+    //Debug("uf-ajr") << "TheoryUF::check(): processing " << fact << std::endl;
+    //d_assertions_ajr.push_back( fact );
+    //Debug("uf-ajr") << "   Current assumptions:" << std::endl;
+    //for( NodeList::const_iterator it = d_assertions_ajr.begin(); it!=d_assertions_ajr.end(); ++it ){
+    //  Debug("uf-ajr" ) << "      " << (*it) << std::endl;
+    //}
+    ////AJR-hack-end
 
     // If the assertion doesn't have a literal, it's a shared equality, so we set it up
     if (!assertion.isPreregistered) {

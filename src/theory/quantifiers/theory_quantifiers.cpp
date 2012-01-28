@@ -26,7 +26,7 @@
 #include <time.h>
 #include "theory/quantifiers/theory_quantifiers_instantiator.h"
 
-//#define USE_FLIP_DECISION
+#define USE_FLIP_DECISION
 
 static bool clockSet = false;
 double initClock;

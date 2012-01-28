@@ -29,8 +29,44 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
+class InstantiatorTheoryArith;
+
+class InstStrategySimplex : public InstStrategy{
+private:
+  /** InstantiatorTheoryUf class */
+  InstantiatorTheoryArith* d_th;
+  /** */
+  int d_counter;
+public:
+  InstStrategySimplex( InstantiatorTheoryArith* th, InstantiationEngine* ie ) : 
+      InstStrategy( ie ), d_th( th ), d_counter( 0 ){}
+  ~InstStrategySimplex(){}
+  void resetInstantiationRound();
+  int process( Node f, int effort );
+  /** identify */
+  std::string identify() const { return std::string("Simplex"); }
+};
+
+class InstStrategySimplexUfMatch : public InstStrategy{
+private:
+  /** InstantiatorTheoryUf class */
+  InstantiatorTheoryArith* d_th;
+  /** trigger for instantiation rows */
+  std::map< ArithVar, Trigger* > d_tableaux_ce_term_trigger;
+public:
+  InstStrategySimplexUfMatch( InstantiatorTheoryArith* th, InstantiationEngine* ie ) : 
+      InstStrategy( ie ), d_th( th ){}
+  ~InstStrategySimplexUfMatch(){}
+  void resetInstantiationRound();
+  int process( Node f, int effort );
+  /** identify */
+  std::string identify() const { return std::string("SimplexUfMatch"); }
+};
+
 class InstantiatorTheoryArith : public Instantiator{
   friend class InstantiationEngine;
+  friend class InstStrategySimplex;
+  friend class InstStrategySimplexUfMatch;
 private:
   /** delta */
   std::map< TypeNode, Node > d_deltas;
@@ -40,7 +76,6 @@ private:
   std::map< ArithVar, Node > d_tableaux_term;
   std::map< ArithVar, std::map< Node, Node > > d_tableaux_ce_term;
   std::map< ArithVar, std::map< Node, Node > > d_tableaux;
-  std::map< ArithVar, Trigger* > d_tableaux_ce_term_trigger;
   /** ce tableaux */
   std::map< ArithVar, std::map< Node, Node > > d_ceTableaux;
   /** get value */

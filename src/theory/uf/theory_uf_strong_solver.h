@@ -26,6 +26,8 @@
 #include "context/cdlist.h"
 #include "context/cdlist_context_memory.h"
 
+#include "util/stats.h"
+
 namespace CVC4 {
 namespace theory {
 namespace uf {
@@ -220,6 +222,18 @@ public:
   void setCardinality( TypeNode t, int c );
   /** get cardinality for sort */
   int getCardinality( TypeNode t );
+
+  class Statistics {
+  public:
+    IntStat d_clique_lemmas;
+    IntStat d_split_lemmas;
+    IntStat d_disamb_term_lemmas;
+    Statistics();
+    ~Statistics();
+  };
+  /** statistics class */
+  Statistics d_statistics;
+
 };/* class StrongSolverTheoryUf */
 
 }

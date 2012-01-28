@@ -90,6 +90,7 @@ d_active( c ){
   for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
     d_instTable[theoryId] = NULL;
   }
+  d_eq_query = NULL;
 }
 
 bool InstantiationEngine::addLemma( Node lem ){
@@ -352,6 +353,10 @@ void InstantiationEngine::getVariablesFor( Node f, std::vector< Node >& vars )
 bool InstantiationEngine::doInstantiationRound( OutputChannel* out ){
   ++(d_statistics.d_instantiation_rounds);
   Debug("inst-engine") << "IE: Reset instantiation." << std::endl;
+  //set up the equality query object
+  if( !d_eq_query ){
+    d_eq_query = new uf::EqualityQueryInstantiatorTheoryUf( ((uf::InstantiatorTheoryUf*)d_instTable[theory::THEORY_UF]) );
+  }
   //std::cout << "Instantiation Round" << std::endl;
   d_hasInstantiated.clear();
   //reset instantiators

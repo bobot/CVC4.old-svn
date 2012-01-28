@@ -34,6 +34,18 @@ namespace uf{
   class InstantiatorTheoryUf;
 }
 
+class EqualityQuery
+{
+public:
+  EqualityQuery(){}
+  ~EqualityQuery(){}
+  /** general queries about equality */
+  virtual bool areEqual( Node a, Node b ) = 0;
+  virtual bool areDisequal( Node a, Node b ) = 0;
+  /** other functions */
+  virtual void getEIndLitCandidates( Node t, Node s, Node f, bool isEq, std::vector< Node >& litMatches ){}
+};
+
 class InstMatch
 {
 public:
@@ -49,7 +61,7 @@ public:
   bool add( InstMatch& m );
   /** if compatible, fill all unfilled values with m and return true 
       return false otherwise */
-  bool merge( uf::InstantiatorTheoryUf* itu, InstMatch& m, bool allowSplit = false );
+  bool merge( EqualityQuery* q, InstMatch& m, bool allowSplit = false );
   /** -1 : keep this, 1 : keep m, 0 : keep both */
   //int checkSubsume( InstMatch& m );
   /** return if d_maps are equivalent */
@@ -89,9 +101,9 @@ public:
   /** add instantiation match to vector, return true if not redundant */
   bool addInstMatch( InstMatch& m );
   /** calculate (add) more children */
-  bool calculateChildren( uf::InstantiatorTheoryUf* itu );
+  bool calculateChildren( EqualityQuery* q );
   /** calculate the next match */
-  bool calculateNextMatch( uf::InstantiatorTheoryUf* itu );
+  bool calculateNextMatch( EqualityQuery* q );
 public:
   /** destructor */
   ~InstMatchGenerator(){}
@@ -123,7 +135,7 @@ public:
   /** get num current matches */
   int getNumCurrentMatches();
   /** get current match */
-  InstMatch* getCurrentMatch( int i );
+  InstMatch* getMatch( int i );
 public:
   /** partial matches: for i>0, d_partial[i] is merged match produced for d_children[0]...[i-1], 
       valid if d_operation==1 */
@@ -134,13 +146,13 @@ public:
   int d_index;
 public:
   /** reset */
-  void resetInstantiationRound( uf::InstantiatorTheoryUf* itu );
+  void resetInstantiationRound( EqualityQuery* q );
   /** reset */
   void reset();
   /** get current match */
   InstMatch* getCurrent();
   /** get next match */
-  bool getNextMatch( uf::InstantiatorTheoryUf* itu );
+  bool getNextMatch( EqualityQuery* q );
 public:
   /** the master for this iterator (the one calculating matches) */
   InstMatchGenerator* getMaster() { return d_eq==Node::null() ? this : d_iter[d_operation][d_eq][0]; }
@@ -194,51 +206,15 @@ public:
   InstMatchGenerator* getGenerator() { return d_mg; }
 public:
   /** reset */
-  void resetInstantiationRound( uf::InstantiatorTheoryUf* itu );
+  void resetInstantiationRound();
   /** add instantiation */
-  bool addInstantiation( uf::InstantiatorTheoryUf* itu, InstMatch& baseMatch, bool addSplits = false, int triggerThresh = 0 );
+  bool addInstantiation(  InstMatch& baseMatch, bool addSplits = false, int triggerThresh = 0 );
+public:
+  /** get current match */
+  InstMatch* getCurrent();
+  /** get next match */
+  bool getNextMatch();
 };
-
-//class QuantMatchGenerator
-//{
-//private:
-//  /** reference to the instantiation engine */
-//  InstantiationEngine* d_instEngine;
-//  /** quantifier we are producing matches for */
-//  Node d_f;
-//private:
-//  /** collection of pattern terms */
-//  void collectPatTerms( Node n, std::vector< Node >& patTerms );
-//  /** collection of literals */
-//  //void collectLiterals( Node n, std::vector< Node >& litPatTerms, bool reqPol, bool polarity );
-//public:
-//  /** constructor */
-//  QuantMatchGenerator( InstantiationEngine* ie, Node f ) : d_instEngine( ie ), d_f( f ), d_auto_gen_trigger(NULL){}
-//  /** destructor */
-//  ~QuantMatchGenerator(){}
-//  /** reset */
-//  void reset();
-//  /** the base match */
-//  InstMatch d_baseMatch;
-//private:
-//  /** explicitly provided patterns */
-//  std::vector< Trigger* > d_user_gen;
-//public:
-//  /** add pattern */
-//  void addUserPattern( Node pat );
-//  /** get num patterns */
-//  int getNumUserGenerators() { return (int)d_user_gen.size(); }
-//  /** get user pattern */
-//  Trigger* getUserGenerator( int i ) { return d_user_gen[ i ]; }
-//private:
-//  /** current trigger */
-//  Trigger* d_auto_gen_trigger;
-//  /** all top level APPLY_UF terms in the counterexample body of d_f */
-//  std::vector< Node > d_patTerms;
-//public:
-//  /** get auto-generated trigger */
-//  Trigger* getAutoGenTrigger();
-//};
 
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
