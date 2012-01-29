@@ -471,14 +471,16 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
   //now, make the conflict
   Node conflictNode = conflict.size()==1 ? conflict[0] : NodeManager::currentNM()->mkNode( AND, conflict );
 #if 0
-  //add cardinality constraint
-  Node cardNode = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, 
-  conflictNode = NodeManager::currentNM()->mkNode( IMPLIES, cliqueNode, cardNode.notNode() );
-  out->lemma( conflictNode );
-#else
   Debug("uf-ss-lemma") << "*** Add clique conflict " << conflictNode.notNode() << std::endl;
   //std::cout << "*** Add clique conflict " << conflictNode.notNode() << std::endl;
   out->lemma( conflictNode.notNode() );
+#else
+  //add cardinality constraint
+  Node cardNode = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_lemma_term, 
+                                                    NodeManager::currentNM()->mkConst( Rational(d_cardinality) ) );
+  conflictNode = NodeManager::currentNM()->mkNode( IMPLIES, conflictNode, cardNode.notNode() );
+  Debug("uf-ss-lemma") << "*** Add clique conflict " << conflictNode << std::endl;
+  out->lemma( conflictNode );
 #endif
 }
 
@@ -784,7 +786,23 @@ int StrongSolverTheoryUf::ConflictFind::getNumRegions(){
   return count;
 }
 
-StrongSolverTheoryUf::StrongSolverTheoryUf(context::Context* c, TheoryUF* th) :
+void StrongSolverTheoryUf::ConflictFind::setCardinality( int c ){
+  //DO_THIS : does this break invariants?
+  d_cardinality = c;
+}
+
+Node StrongSolverTheoryUf::ConflictFind::getCardinalityLemma(){
+  Node lem = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_lemma_term, 
+      NodeManager::currentNM()->mkConst( Rational( getCardinality() ) ) );
+  lem = Rewriter::rewrite(lem);
+  if( !d_isCardinalityStrict ){
+    lem = NodeManager::currentNM()->mkNode( OR, lem, lem.notNode() );
+  }
+  return lem;
+}
+
+StrongSolverTheoryUf::StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th) :
+d_out( &out ),
 d_th( th )
 {
 
@@ -793,13 +811,38 @@ d_th( th )
 /** new node */
 void StrongSolverTheoryUf::newEqClass( Node n ){
   TypeNode tn = n.getType();
-  //TEMPORARY 
-  if( tn!=NodeManager::currentNM()->booleanType() ){
+  if( isRelevantType( tn ) ){
+#if 0
+    //TEMPORARY 
     setCardinality( tn, 1 );  //***************
-  }
-  //END_TEMPORARY
-  Debug("uf-ss-solver") << "StrongSolverTheoryUf: New eq class " << n << " " << tn << std::endl;
-  if( d_conf_find.find( tn )!=d_conf_find.end() ){
+    //END_TEMPORARY
+#else
+    if( d_conf_find.find( tn )==d_conf_find.end() ){
+      //enter into incremental finite model finding mode: try cardinality = 1 first
+      setCardinality( tn, 1, false );
+    }
+    if( d_conf_find[tn]->d_cardinality_lemma_term==Node::null() ){
+      //just use the first node you find
+      d_conf_find[tn]->d_cardinality_lemma_term = n;
+      //add the appropriate lemma
+      Node lem = d_conf_find[tn]->getCardinalityLemma();
+      if( !d_conf_find[tn]->d_isCardinalityStrict ){
+        Assert( lem.getKind()==OR );
+        Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
+        d_out->lemma( lem );
+        d_out->requirePhase( lem[0], true );
+      }
+    }
+#endif
+    //update type relate information
+    if( n.getKind()==APPLY_UF ){
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        TypeNode tnc = n[i].getType();
+        d_type_relate[tn][tnc] = true;
+        d_type_relate[tnc][tn] = true;
+      }
+    }
+    Debug("uf-ss-solver") << "StrongSolverTheoryUf: New eq class " << n << " " << tn << std::endl;
     d_conf_find[tn]->newEqClass( n );
   }
 }
@@ -807,53 +850,84 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
 /** merge */
 void StrongSolverTheoryUf::merge( Node a, Node b ){
   TypeNode tn = a.getType();
-  Debug("uf-ss-solver") << "StrongSolverTheoryUf: Merge " << a << " " << b << " " << tn << std::endl;
-  if( d_conf_find.find( tn )!=d_conf_find.end() ){
-    d_conf_find[tn]->merge( a, b );
+  if( isRelevantType( tn ) ){
+    Debug("uf-ss-solver") << "StrongSolverTheoryUf: Merge " << a << " " << b << " " << tn << std::endl;
+    if( d_conf_find.find( tn )!=d_conf_find.end() ){
+      d_conf_find[tn]->merge( a, b );
+    }
   }
 }
 
 /** unmerge */
 void StrongSolverTheoryUf::undoMerge( Node a, Node b ){
   TypeNode tn = a.getType();
-  Debug("uf-ss-solver") << "StrongSolverTheoryUf: Undo merge " << a << " " << b << " " << tn << std::endl;
-  if( d_conf_find.find( tn )!=d_conf_find.end() ){
-    d_conf_find[tn]->undoMerge( a, b );
+  if( isRelevantType( tn ) ){
+    Debug("uf-ss-solver") << "StrongSolverTheoryUf: Undo merge " << a << " " << b << " " << tn << std::endl;
+    if( d_conf_find.find( tn )!=d_conf_find.end() ){
+      d_conf_find[tn]->undoMerge( a, b );
+    }
   }
 }
 
 /** assert terms are disequal */
 void StrongSolverTheoryUf::assertDisequal( Node a, Node b, Node reason ){
   TypeNode tn = a.getType();
-  Debug("uf-ss-solver") << "StrongSolverTheoryUf: Assert disequal " << a << " " << b << " " << tn << std::endl;
-  if( d_conf_find.find( tn )!=d_conf_find.end() ){
-    d_conf_find[tn]->assertDisequal( a, b, reason );
+  if( isRelevantType( tn ) ){
+    Debug("uf-ss-solver") << "StrongSolverTheoryUf: Assert disequal " << a << " " << b << " " << tn << std::endl;
+    if( d_conf_find.find( tn )!=d_conf_find.end() ){
+      d_conf_find[tn]->assertDisequal( a, b, reason );
+    }
+  }
+}
+
+/** assert terms are disequal */
+void StrongSolverTheoryUf::assertCardinality( Node c ){
+  if( c.getKind()==NOT ){
+    //must add new lemma
+    Node cc = c[0];
+    TypeNode tn = cc[0].getType();
+    Assert( isRelevantType( tn ) );
+    Assert( d_conf_find[tn] );
+    Debug("uf-ss-fmf") << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
+    //increment to next cardinality
+    setCardinality( tn, d_conf_find[tn]->getCardinality() + 1, false );
+    //also increment the cardinality of related types? DO_THIS
+    Node lem = d_conf_find[tn]->getCardinalityLemma();
+    Assert( lem.getKind()==OR );
+    Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
+    d_out->lemma( lem );
+    d_out->requirePhase( lem[0], true );
+  }else{
+    TypeNode tn = c[0].getType();
+    Assert( isRelevantType( tn ) );
+    //do nothing
   }
 }
 
 /** check */
-void StrongSolverTheoryUf::check( Theory::Effort level, OutputChannel* out ){
+void StrongSolverTheoryUf::check( Theory::Effort level ){
   Debug("uf-ss-solver") << "StrongSolverTheoryUf: check " << level << std::endl;
   if( level==Theory::FULL_EFFORT ){
     debugPrint( "uf-ss-debug" );
   }
   for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
-    it->second->check( level, out );
+    it->second->check( level, d_out );
   }
 }
 
 /** set cardinality for sort */
-void StrongSolverTheoryUf::setCardinality( TypeNode t, int c ) { 
+void StrongSolverTheoryUf::setCardinality( TypeNode t, int c, bool isStrict ) { 
   Debug("uf-ss-solver") << "StrongSolverTheoryUf: Set cardinality " << t << " = " << c << std::endl;
   if( d_conf_find.find( t )==d_conf_find.end() ){
     d_conf_find[t] = new ConflictFind( d_th->getContext(), d_th );
   }
-  d_conf_find[t]->d_cardinality = c; 
+  d_conf_find[t]->setCardinality( c ); 
+  d_conf_find[t]->d_isCardinalityStrict = isStrict;
 }
 
 /** get cardinality for sort */
 int StrongSolverTheoryUf::getCardinality( TypeNode t ) { 
-  return d_conf_find.find( t )!=d_conf_find.end() ? d_conf_find[t]->d_cardinality : -1; 
+  return d_conf_find.find( t )!=d_conf_find.end() ? d_conf_find[t]->getCardinality() : -1; 
 }
 
 //print debug
@@ -892,4 +966,10 @@ StrongSolverTheoryUf::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_clique_lemmas);
   StatisticsRegistry::unregisterStat(&d_split_lemmas);
   StatisticsRegistry::unregisterStat(&d_disamb_term_lemmas);
+}
+
+bool StrongSolverTheoryUf::isRelevantType( TypeNode t ){
+  return t!=NodeManager::currentNM()->booleanType() && 
+         t!=NodeManager::currentNM()->integerType() &&
+         t!=NodeManager::currentNM()->realType();
 }

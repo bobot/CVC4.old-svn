@@ -208,6 +208,11 @@ struct CVC4_PUBLIC Options {
    */
   bool ufSymmetryBreaker;
 
+  /**
+   * Whether to do finite model finding heuristics for quantifier instantiation
+   */
+  bool finiteModelFind;
+
   Options();
 
   /**

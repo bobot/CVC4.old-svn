@@ -324,6 +324,8 @@ void InstantiatorTheoryUf::check( Node assertion )
       registerTerm( assertion[0][1] );
     }
     break;
+  case kind::CARDINALITY_CONSTRAINT:
+    break;
   default:
     Unreachable();
   }

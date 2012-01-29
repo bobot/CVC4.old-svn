@@ -21,8 +21,6 @@
 #include "theory/uf/equality_engine_impl.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
-//#define USE_STRONG_SOLVER
-
 using namespace std;
 
 namespace CVC4 {
@@ -34,7 +32,7 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   Theory(THEORY_UF, c, u, out, valuation),
   d_notify(*this),
   //AJR-hack
-  d_thss( c, this ),
+  d_thss( c, u, out, this ),
   //AJR-hack-end
   d_equalityEngine(d_notify, c, "theory::uf::TheoryUF"),
   d_conflict(c, false),
@@ -55,11 +53,11 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   d_equalityEngine.addTriggerEquality(d_true, d_false, d_false);
 
   //AJR-hack
-#ifdef USE_STRONG_SOLVER
-  d_equalityEngine.d_thss = &d_thss;
-#else
-  d_equalityEngine.d_thss = NULL;
-#endif
+  if(Options::current()->finiteModelFind ){
+    d_equalityEngine.d_thss = &d_thss;
+  }else{
+    d_equalityEngine.d_thss = NULL;
+  }
   //AJR-hack-end
 }/* TheoryUF::TheoryUF() */
 
@@ -121,10 +119,19 @@ void TheoryUF::check(Effort level) {
     case kind::APPLY_UF:
       d_equalityEngine.addEquality(fact, d_true, fact);
       break;
+    //AJR-hack
+    case kind::CARDINALITY_CONSTRAINT:
+      d_thss.assertCardinality( fact );
+      break;
+    //AJR-hack-end
     case kind::NOT:
       if (fact[0].getKind() == kind::APPLY_UF) {
         d_equalityEngine.addEquality(fact[0], d_false, fact);
-      } else {
+      //AJR-hack
+      } else if( fact[0].getKind()==kind::CARDINALITY_CONSTRAINT ){
+        d_thss.assertCardinality( fact );
+      //AJR-hack-end
+      } else{
         // Assert the dis-equality
         d_equalityEngine.addDisequality(fact[0][0], fact[0][1], fact);
       }
@@ -155,11 +162,11 @@ void TheoryUF::check(Effort level) {
 
 
   //AJR-hack
-#ifdef USE_STRONG_SOLVER
-  if( !d_conflict ){
-    d_thss.check( level, d_out );
+  if(Options::current()->finiteModelFind ){
+    if( !d_conflict ){
+      d_thss.check( level );
+    }
   }
-#endif
   //AJR-hack-end
 
 }/* TheoryUF::check() */

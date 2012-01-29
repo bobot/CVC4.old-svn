@@ -171,13 +171,13 @@ public:
     bool isValid( int ri ) { return ri>=0 && ri<(int)d_regions_index && d_regions[ ri ]->d_valid; }
     /** check ambiguous terms */
     bool disambiguateTerms( OutputChannel* out );
+    /** cardinality operating with */
+    unsigned d_cardinality;
   public:
     ConflictFind( context::Context* c, TheoryUF* th ) : 
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ), 
-        d_reps( c, 0 ), d_term_amb( c ){}
+        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ){}
     ~ConflictFind(){}
-    /** cardinality operating with */
-    unsigned d_cardinality;
     /** new node */
     void newEqClass( Node n );
     /** merge */
@@ -190,17 +190,30 @@ public:
     void check( Theory::Effort level, OutputChannel* out );
     //print debug
     void debugPrint( const char* c );
+    /** set cardinality */
+    void setCardinality( int c );
+    /** get cardinality */
+    int getCardinality() { return d_cardinality; }
+    /** get cardinality lemma */
+    Node getCardinalityLemma();
+  public:
+    /** is cardinality strict */
+    bool d_isCardinalityStrict;
+    /** cardinality lemma term */ 
+    Node d_cardinality_lemma_term;
   public:
     /** get number of regions (for debugging) */
     int getNumRegions();
   }; /** class ConflictFind */
 private:
+  /** The output channel for the strong solver. */
+  OutputChannel* d_out;
   /** theory uf pointer */
   TheoryUF* d_th;
   /** conflict find structure, one for each type */
   std::map< TypeNode, ConflictFind* > d_conf_find;
 public:
-  StrongSolverTheoryUf(context::Context* c, TheoryUF* th);
+  StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th);
   ~StrongSolverTheoryUf() {}
   /** new node */
   void newEqClass( Node n );
@@ -210,8 +223,10 @@ public:
   void undoMerge( Node a, Node b );
   /** assert terms are disequal */
   void assertDisequal( Node a, Node b, Node reason );
+  /** assert cardinality */
+  void assertCardinality( Node c );
   /** check */
-  void check( Theory::Effort level, OutputChannel* out );
+  void check( Theory::Effort level );
 public:
   /** identify */
   std::string identify() const { return std::string("StrongSolverTheoryUf"); }
@@ -219,7 +234,7 @@ public:
   void debugPrint( const char* c );
 public:
   /** set cardinality for sort */
-  void setCardinality( TypeNode t, int c );
+  void setCardinality( TypeNode t, int c, bool isStrict = false );
   /** get cardinality for sort */
   int getCardinality( TypeNode t );
 
@@ -234,6 +249,18 @@ public:
   /** statistics class */
   Statistics d_statistics;
 
+  /** is relavant type */
+  bool isRelevantType( TypeNode t );
+  /** are types related? */
+  bool areTypesRelated( TypeNode t1, TypeNode t2 ) { 
+    return d_type_relate[t1].find( t2 )!=d_type_relate[t1].end() && d_type_relate[t1][t2]; 
+  }
+private:
+  /** Types whose cardinality constraints are related to one another:
+      A type T1 is related to a type T2 if there exists a term whose top symbol is a
+      function of type ( ... x T1 x ... ) -> T2, or vice versa.
+  */
+  std::map< TypeNode, std::map< TypeNode, bool > > d_type_relate;
 };/* class StrongSolverTheoryUf */
 
 }

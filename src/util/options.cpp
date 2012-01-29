@@ -96,7 +96,8 @@ Options::Options() :
   pivotRule(MINIMUM),
   arithPivotThreshold(16),
   arithPropagateMaxLength(16),
-  ufSymmetryBreaker(true)
+  ufSymmetryBreaker(true),
+  finiteModelFind(false)
 {
 }
 
@@ -158,6 +159,7 @@ Additional CVC4 options:\n\
    --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
+   --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
 ";
 
 #warning "Change CL options as --disable-variable-removal cannot do anything currently."
@@ -325,6 +327,7 @@ enum OptionValue {
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
   DISABLE_SYMMETRY_BREAKER,
+  FINITE_MODEL_FIND,
   TIME_LIMIT,
   TIME_LIMIT_PER,
   RESOURCE_LIMIT,
@@ -406,6 +409,7 @@ static struct option cmdlineOptions[] = {
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
+  { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "tlimit"     , required_argument, NULL, TIME_LIMIT  },
   { "tlimit-per" , required_argument, NULL, TIME_LIMIT_PER },
   { "rlimit"     , required_argument, NULL, RESOURCE_LIMIT       },
@@ -741,7 +745,9 @@ throw(OptionException) {
     case DISABLE_SYMMETRY_BREAKER:
       ufSymmetryBreaker = false;
       break;
-
+    case FINITE_MODEL_FIND:
+      finiteModelFind = true;
+      break;
     case TIME_LIMIT:
       {
         int i = atoi(optarg);
