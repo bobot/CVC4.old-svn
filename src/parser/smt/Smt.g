@@ -340,6 +340,7 @@ builtinOp[CVC4::Kind& kind]
   | TILDE_TOK    { $kind = CVC4::kind::UMINUS; }
   | MINUS_TOK    { $kind = CVC4::kind::MINUS; }
   | DIV_TOK      { $kind = CVC4::kind::DIVISION; }
+  | DEFINE_TOK   { $kind = CVC4::kind::DEFINITION; }
   // Bit-vectors
   | CONCAT_TOK   { $kind = CVC4::kind::BITVECTOR_CONCAT; }
   | BVAND_TOK    { $kind = CVC4::kind::BITVECTOR_AND;    }
@@ -633,6 +634,7 @@ STAR_TOK          : '*';
 STORE_TOK         : 'store';
 TILDE_TOK         : '~';
 XOR_TOK           : 'xor';
+DEFINE_TOK        : ':=';
 
 // Bitvector tokens
 BITVECTOR_TOK     : 'BitVec';
