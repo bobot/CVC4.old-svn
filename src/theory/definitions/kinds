@@ -14,7 +14,7 @@ properties check
 #properties check propagate staticLearning presolve
 
 rewriter ::CVC4::theory::definitions::TheoryDefinitionsRewriter "theory/definitions/theory_definitions_rewriter.h"
-operator DEFINITION 2 "inductive definition"
+operator DEFINITION 2 "definition"
 
 typerule DEFINITION ::CVC4::theory::definitions::DefinitionsTypeRule
 
