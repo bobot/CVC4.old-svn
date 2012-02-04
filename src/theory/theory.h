@@ -42,7 +42,7 @@ class TheoryEngine;
 namespace theory {
 
 class Instantiator;
-class InstantiationEngine;
+class QuantifiersEngine;
 
 /**
  * Information about an assertion for the theories.
@@ -192,7 +192,7 @@ protected:
   /**
    * reference to the instantiation engine
    */
-  InstantiationEngine* d_instEngine;
+  QuantifiersEngine* d_instEngine;
 
   /**
    * Returns the next assertion in the assertFact() queue.
@@ -373,6 +373,20 @@ public:
    */
   OutputChannel& getOutputChannel() {
     return *d_out;
+  }
+
+  /**
+   * Get the valuation associated to this theory.
+   */
+  Valuation& getValuation() {
+    return d_valuation;
+  }
+
+  /**
+   * Get the quantifiers engine associated to this theory.
+   */
+  QuantifiersEngine* getQuantifiersEngine(){
+    return d_instEngine;
   }
 
   /**

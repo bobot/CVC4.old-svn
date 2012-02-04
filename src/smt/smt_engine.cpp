@@ -224,6 +224,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_theoryEngine->addTheory<theory::arrays::TheoryArrays>(theory::THEORY_ARRAY);
   d_theoryEngine->addTheory<theory::bv::TheoryBV>(theory::THEORY_BV);
   d_theoryEngine->addTheory<theory::datatypes::TheoryDatatypes>(theory::THEORY_DATATYPES);
+
   d_theoryEngine->addTheory<theory::quantifiers::TheoryQuantifiers>(theory::THEORY_QUANTIFIERS);
   d_theoryEngine->addTheory<theory::uf::TheoryUF>(theory::THEORY_UF);
 

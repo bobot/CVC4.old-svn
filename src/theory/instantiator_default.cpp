@@ -23,7 +23,7 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-InstantiatorDefault::InstantiatorDefault(context::Context* c, InstantiationEngine* ie, Theory* th) :
+InstantiatorDefault::InstantiatorDefault(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
 
 }

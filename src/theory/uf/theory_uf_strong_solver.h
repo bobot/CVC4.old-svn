@@ -20,6 +20,7 @@
 #define __CVC4__THEORY_UF_STRONG_SOLVER_H
 
 #include "theory/theory.h"
+#include "theory/quantifiers_engine.h"
 
 #include "context/context.h"
 #include "context/context_mm.h"
@@ -134,6 +135,8 @@ public:
       bool hasSplits() { return d_splitsSize>0; }
       /** get split */
       Node getBestSplit();
+      /** get representatives */
+      void getRepresentatives( std::vector< Node >& reps );
       //print debug
       void debugPrint( const char* c, bool incClique = false );
     };
@@ -173,10 +176,12 @@ public:
     bool disambiguateTerms( OutputChannel* out );
     /** cardinality operating with */
     unsigned d_cardinality;
+    /** type */
+    TypeNode d_type;
   public:
-    ConflictFind( context::Context* c, TheoryUF* th ) : 
+    ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) : 
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ), 
-        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ){}
+        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ), d_type( tn ){}
     ~ConflictFind(){}
     /** new node */
     void newEqClass( Node n );
@@ -194,6 +199,8 @@ public:
     void setCardinality( int c );
     /** get cardinality */
     int getCardinality() { return d_cardinality; }
+    /** get representatives */
+    void getRepresentatives( std::vector< Node >& reps );
     /** get cardinality lemma */
     Node getCardinalityLemma();
   public:
@@ -237,6 +244,8 @@ public:
   void setCardinality( TypeNode t, int c, bool isStrict = false );
   /** get cardinality for sort */
   int getCardinality( TypeNode t );
+  /** get representatives */
+  void getRepresentatives( TypeNode t, std::vector< Node >& reps );
 
   class Statistics {
   public:
@@ -250,7 +259,7 @@ public:
   Statistics d_statistics;
 
   /** is relavant type */
-  bool isRelevantType( TypeNode t );
+  static bool isRelevantType( TypeNode t );
   /** are types related? */
   bool areTypesRelated( TypeNode t1, TypeNode t2 ) { 
     return d_type_relate[t1].find( t2 )!=d_type_relate[t1].end() && d_type_relate[t1][t2]; 
@@ -262,6 +271,56 @@ private:
   */
   std::map< TypeNode, std::map< TypeNode, bool > > d_type_relate;
 };/* class StrongSolverTheoryUf */
+
+//instantiation strategies
+
+class InstStrategyFinteModelFind : public InstStrategy{
+private:
+  /** representative alphabet */
+  class RepAlphabet {
+  public:
+    std::map< TypeNode, std::vector< Node > > d_type_reps;
+    std::map< Node, int > d_indicies;
+    void set( TypeNode t, std::vector< Node >& reps );
+  };
+  /** partial instantiation set */
+  class PartialInstSet {
+  public:
+    PartialInstSet( RepAlphabet* ra, Node f ) : d_ra( ra ), d_f( f ){
+      for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+        d_index.push_back( 0 );
+      }
+    }
+    ~PartialInstSet(){}
+    RepAlphabet* d_ra;
+    Node d_f;
+    std::vector< int > d_index;
+    bool didCurrentInstantiation( PartialInstSet* pi );
+    void increment();
+    bool isFinished();
+    void getMatch( QuantifiersEngine* ie, InstMatch& m );
+    Node getTerm( int i );
+  };
+  /** was the current instantiation of this already done? */
+  bool didCurrentInstantiation( PartialInstSet* pi );
+private:
+  /** InstantiatorTheoryUf class */
+  InstantiatorTheoryUf* d_th;
+  /** map from types to sets of representatives */
+  RepAlphabet* d_curr_ra;
+  /** finding model */
+  context::CDO< bool > d_finding_model;
+  /** map of current used instantiations */
+  std::map< Node, std::vector< PartialInstSet* > > d_inst_group;
+public:
+  InstStrategyFinteModelFind( context::Context* c, InstantiatorTheoryUf* th, QuantifiersEngine* ie );
+  ~InstStrategyFinteModelFind(){}
+  void resetInstantiationRound();
+  int process( Node f, int effort );
+  /** identify */
+  std::string identify() const { return std::string("FinteModelFind"); }
+};
+
 
 }
 }/* CVC4::theory namespace */

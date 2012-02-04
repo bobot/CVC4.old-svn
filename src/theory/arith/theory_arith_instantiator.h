@@ -20,7 +20,7 @@
 #ifndef __CVC4__INSTANTIATOR_ARITH_H
 #define __CVC4__INSTANTIATOR_ARITH_H
 
-#include "theory/instantiation_engine.h"
+#include "theory/quantifiers_engine.h"
 #include "theory/arith/arithvar_node_map.h"
 
 #include "util/stats.h"
@@ -38,7 +38,7 @@ private:
   /** */
   int d_counter;
 public:
-  InstStrategySimplex( InstantiatorTheoryArith* th, InstantiationEngine* ie ) : 
+  InstStrategySimplex( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ), d_counter( 0 ){}
   ~InstStrategySimplex(){}
   void resetInstantiationRound();
@@ -54,7 +54,7 @@ private:
   /** trigger for instantiation rows */
   std::map< ArithVar, Trigger* > d_tableaux_ce_term_trigger;
 public:
-  InstStrategySimplexUfMatch( InstantiatorTheoryArith* th, InstantiationEngine* ie ) : 
+  InstStrategySimplexUfMatch( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategySimplexUfMatch(){}
   void resetInstantiationRound();
@@ -64,7 +64,7 @@ public:
 };
 
 class InstantiatorTheoryArith : public Instantiator{
-  friend class InstantiationEngine;
+  friend class QuantifiersEngine;
   friend class InstStrategySimplex;
   friend class InstStrategySimplexUfMatch;
 private:
@@ -85,7 +85,7 @@ private:
   bool doInstantiation( Node f, Node term, ArithVar x, InstMatch* m, Node var );
   bool doInstantiation2( Node f, Node term, ArithVar x, InstMatch* m, Node var, bool minus_delta = false );
 public:
-  InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th);
+  InstantiatorTheoryArith(context::Context* c, QuantifiersEngine* ie, Theory* th);
   ~InstantiatorTheoryArith() {}
 
   /** check function, assertion is asserted to theory */

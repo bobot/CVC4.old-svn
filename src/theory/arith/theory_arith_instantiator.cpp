@@ -151,7 +151,7 @@ int InstStrategySimplexUfMatch::process( Node f, int effort ){
   return STATUS_UNKNOWN;
 }
 
-InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, InstantiationEngine* ie, Theory* th) :
+InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
   addInstStrategy( new InstStrategySimplex( this, d_instEngine ) );
 }

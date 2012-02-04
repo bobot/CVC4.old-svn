@@ -93,6 +93,7 @@ void TheoryUF::check(Effort level) {
 
     Debug("uf") << "TheoryUF::check(): processing " << fact << std::endl;
     ////AJR-hack
+    ////std::cout << "Check " << fact << std::endl;
     //Debug("uf-ajr") << "TheoryUF::check(): processing " << fact << std::endl;
     //d_assertions_ajr.push_back( fact );
     //Debug("uf-ajr") << "   Current assumptions:" << std::endl;
@@ -130,6 +131,9 @@ void TheoryUF::check(Effort level) {
       //AJR-hack
       } else if( fact[0].getKind()==kind::CARDINALITY_CONSTRAINT ){
         d_thss.assertCardinality( fact );
+        //if( d_valuation.isDecision( fact ) ){
+        //  std::cout << "Bad decision" << std::endl;
+        //}
       //AJR-hack-end
       } else{
         // Assert the dis-equality
@@ -166,6 +170,38 @@ void TheoryUF::check(Effort level) {
     if( !d_conflict ){
       d_thss.check( level );
     }
+  }
+  if( !d_conflict && level==FULL_EFFORT ){
+    //EqClassesIterator< NotifyClass > eqc_iter( &d_equalityEngine );
+    //while( !eqc_iter.isFinished() ){
+    //  if( StrongSolverTheoryUf::isRelevantType( (*eqc_iter).getType() ) ){
+    //    std::cout << "Eq class [[" << (*eqc_iter) << "]]" << std::endl;
+    //    EqClassIterator< NotifyClass > eqc_iter2( *eqc_iter, &d_equalityEngine );
+    //    std::cout << "   ";
+    //    while( !eqc_iter2.isFinished() ){
+    //      std::cout << "[" << (*eqc_iter2) << "] ";
+    //      eqc_iter2++;
+    //    }
+    //    std::cout << std::endl;
+    //  }
+    //  eqc_iter++;
+    //}
+    //std::cout << std::endl;
+
+    //int count = 0;
+    //EqClassesIterator< NotifyClass > eqc_iter( &d_equalityEngine );
+    //while( !eqc_iter.isFinished() ){
+    //  if( StrongSolverTheoryUf::isRelevantType( (*eqc_iter).getType() ) ){
+    //    count++;
+    //  }
+    //  eqc_iter++;
+    //}
+    //std::cout << " " << count << std::endl;
+
+    //std::cout << "   Current assumptions:" << std::endl;
+    //for( NodeList::const_iterator it = d_assertions_ajr.begin(); it!=d_assertions_ajr.end(); ++it ){
+    //  std::cout << "      " << (*it) << std::endl;
+    //}
   }
   //AJR-hack-end
 

@@ -482,6 +482,7 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
       }
       expr = MK_EXPR(kind, args);
       //std::cout << "Made quantifier " << expr << std::endl;
+      //for( int i=0; i<(int)args.size(); i++ ) { std::cout << args[i] << std::endl; }
     }
   | /* A non-built-in function application */
     LPAREN_TOK
@@ -545,8 +546,29 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
     }
 
     /* attributed expressions */
-  | LPAREN_TOK ATTRIBUTE_TOK term[expr, f2] (attribute[expr, attexpr] { if( !attexpr.isNull() ) attexprs.push_back( attexpr ); } )+ RPAREN_TOK
-    { if( !attexprs.empty() ){
+  | LPAREN_TOK ATTRIBUTE_TOK term[expr, f2](attribute[expr, attexpr,attr] { if( !attexpr.isNull() ) attexprs.push_back( attexpr ); } )+ RPAREN_TOK
+    { 
+      if( attr==":rewrite-rule" ){
+        Expr guard;
+        Expr body;
+        if( expr[1].getKind()==kind::IMPLIES || expr[1].getKind()==kind::IFF || expr[1].getKind()==kind::EQUAL ){
+          guard = expr[0];
+          body = expr[1];
+        }else{
+          guard = MK_CONST(bool(true));
+          body = expr;
+        }
+        if( body.getKind()==kind::IMPLIES ){
+          expr = MK_EXPR( kind::DEDUCTION_RULE, guard, body[0], body[1] );
+        }else if( body.getKind()==kind::IFF ){
+          expr = MK_EXPR( kind::REDUCTION_RULE, guard, body[0], body[1] );
+        }else if( body.getKind()==kind::EQUAL ){
+          expr = MK_EXPR( kind::REWRITE_RULE, guard, body[0], body[1] );
+        }else{
+          PARSER_STATE->parseError("Error parsing rewrite rule.");
+        }
+      }
+      if( !attexprs.empty() ){
         if( attexprs[0].getKind()==kind::INST_PATTERN ){
           expr2 = MK_EXPR(kind::INST_PATTERN_LIST, attexprs);
           //std::cout << "parsed pattern list " << expr2 << std::endl;
@@ -586,10 +608,9 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
 /** 
  * Read attribute 
  */
-attribute[CVC4::Expr& expr,CVC4::Expr& retExpr]
+attribute[CVC4::Expr& expr,CVC4::Expr& retExpr, std::string& attr]
 @init {
   SExpr sexpr;
-  std::string attr;
   Expr patexpr;
   std::vector< Expr > patexprs;
   Expr e2;
@@ -616,9 +637,13 @@ attribute[CVC4::Expr& expr,CVC4::Expr& retExpr]
   }
   | ATTRIBUTE_PATTERN_TOK LPAREN_TOK ( term[patexpr, e2] { patexprs.push_back( patexpr ); }  )+ RPAREN_TOK 
     { 
+      attr = std::string(":pattern");
       retExpr = MK_EXPR(kind::INST_PATTERN, patexprs);
       //std::cout << "parsed pattern expr " << retExpr << std::endl;
     }
+  | ATTRIBUTE_REWRITE_RULE {
+    attr = std::string(":rewrite-rule");
+  }
   ;
   
 /**
@@ -982,7 +1007,7 @@ ECHO_TOK : 'echo';
 
 // attributes
 ATTRIBUTE_PATTERN_TOK : ':pattern';
-
+ATTRIBUTE_REWRITE_RULE : ':rewrite-rule';
 
 // operators (NOTE: theory symbols go here)
 AMPERSAND_TOK     : '&';

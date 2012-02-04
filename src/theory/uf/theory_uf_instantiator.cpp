@@ -255,7 +255,7 @@ void UfTermDb::registerTerm( Node n ){
   }
 }
 
-InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th) :
+InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ),
 d_ob_changed( c ),
 d_obligations( c ),

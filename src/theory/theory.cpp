@@ -18,7 +18,7 @@
 
 #include "theory/theory.h"
 #include "util/Assert.h"
-#include "theory/instantiation_engine.h"
+#include "theory/quantifiers_engine.h"
 #include "theory/instantiator_default.h"
 
 #include <vector>

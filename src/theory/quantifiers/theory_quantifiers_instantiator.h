@@ -20,7 +20,7 @@
 #ifndef __CVC4__INSTANTIATOR_QUANTIFIERS_H
 #define __CVC4__INSTANTIATOR_QUANTIFIERS_H
 
-#include "theory/instantiation_engine.h"
+#include "theory/quantifiers_engine.h"
 
 #include "util/stats.h"
 
@@ -29,9 +29,9 @@ namespace theory {
 namespace quantifiers {
 
 class InstantiatorTheoryQuantifiers : public Instantiator{
-  friend class InstantiationEngine;
+  friend class QuantifiersEngine;
 public:
-  InstantiatorTheoryQuantifiers(context::Context* c, InstantiationEngine* ie, Theory* th);
+  InstantiatorTheoryQuantifiers(context::Context* c, QuantifiersEngine* ie, Theory* th);
   ~InstantiatorTheoryQuantifiers() {}
 
   /** check function, assertion is asserted to theory */

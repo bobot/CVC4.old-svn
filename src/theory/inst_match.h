@@ -29,7 +29,7 @@
 namespace CVC4 {
 namespace theory {
 
-class InstantiationEngine;
+class QuantifiersEngine;
 namespace uf{
   class InstantiatorTheoryUf;
 }
@@ -49,14 +49,14 @@ public:
 class InstMatch
 {
 public:
-  std::map< TNode, TNode > d_map;
-  std::map< TNode, TNode > d_splits;
+  std::map< Node, Node > d_map;
+  std::map< Node, Node > d_splits;
 
   InstMatch(){}
   InstMatch( InstMatch* m );
 
   /** set the match of v to m */
-  void setMatch( TNode v, TNode m );
+  void setMatch( Node v, Node m );
   /** fill all unfilled values with m */
   bool add( InstMatch& m );
   /** if compatible, fill all unfilled values with m and return true 
@@ -71,9 +71,9 @@ public:
   /** mbase is used if no value given in d_map */
   bool isComplete( Node f ) { return d_map.size()==f[0].getNumChildren(); }
   /** compute d_match */
-  void computeTermVec( InstantiationEngine* ie, std::vector< Node >& vars, std::vector< Node >& match );
+  void computeTermVec( QuantifiersEngine* ie, std::vector< Node >& vars, std::vector< Node >& match );
   /** add split */
-  void addSplit( TNode n1, TNode n2 );
+  void addSplit( Node n1, Node n2 );
   /** clear */
   void clear(){
     d_map.clear();
@@ -181,12 +181,12 @@ private:
   static std::map< Node, std::vector< Node > > d_var_contains;
   static void computeVarContains( Node n ) { computeVarContains2( n, n ); }
   static void computeVarContains2( Node n, Node parent );
-  InstantiationEngine* d_instEngine;
+  QuantifiersEngine* d_instEngine;
   Node d_f;
   InstMatchGenerator* d_mg;
   Trigger* d_next;
-  InstMatchGenerator* mkMatchGenerator( InstantiationEngine* ie, Node f, std::vector< Node >& nodes );
-  InstMatchGenerator* mkMatchGenerator( InstantiationEngine* ie, Node f, Node n );
+  InstMatchGenerator* mkMatchGenerator( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes );
+  InstMatchGenerator* mkMatchGenerator( QuantifiersEngine* ie, Node f, Node n );
   /** is valid */
   bool d_valid;
 public:
@@ -195,8 +195,8 @@ public:
   std::vector< Node > d_candidates;
   bool addNode( Node n );
 public:
-  Trigger( InstantiationEngine* ie, Node f, std::vector< Node >& nodes, bool keepAll = true );
-  Trigger( InstantiationEngine* ie, Node f, std::vector< Node >& candidates, Trigger* prev );
+  Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, bool keepAll = true );
+  Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& candidates, Trigger* prev );
   ~Trigger(){}
 
   bool isComplete( Node f ){ return d_vars.size()==f[0].getNumChildren(); }

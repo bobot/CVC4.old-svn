@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file instantiator_default.h
+/*! \file rewrite_engine.h
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -11,34 +11,35 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief instantiator_default
+ ** \brief Rewrite Engine classes
  **/
-
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__INSTANTIATOR_DEFAULT_H
-#define __CVC4__INSTANTIATOR_DEFAULT_H
+#ifndef __CVC4__REWRITE_ENGINE_H
+#define __CVC4__REWRITE_ENGINE_H
 
 #include "theory/quantifiers_engine.h"
+#include "theory/quantifiers/theory_quantifiers.h"
 
 namespace CVC4 {
 namespace theory {
+namespace quantifiers {
 
-class InstantiatorDefault : public Instantiator{
-  friend class QuantifiersEngine;
+  class RewriteEngine : public QuantifiersModule
+{
+private:
+  TheoryQuantifiers* d_th;
 public:
-  InstantiatorDefault(context::Context* c, QuantifiersEngine* ie, Theory* th);
-  ~InstantiatorDefault() {}
-  /** check function, assertion is asserted to theory */
-  void check( Node assertion );
-  /** process quantifier */
-  int process( Node f, int effort );
-  /** identify */
-  std::string identify() const { return std::string("InstantiatorDefault"); }
-};/* class Instantiatior */
+  RewriteEngine( TheoryQuantifiers* th );
+  ~RewriteEngine(){}
 
+  void check( Theory::Effort e );
+  void registerQuantifier( Node n );
+  void assertNode( Node n );
+};
 
+}
 }
 }
 

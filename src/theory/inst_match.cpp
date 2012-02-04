@@ -16,7 +16,7 @@
 
 #include "theory/inst_match.h"
 #include "theory/theory_engine.h"
-#include "theory/instantiation_engine.h"
+#include "theory/quantifiers_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
 
 using namespace std;
@@ -30,12 +30,12 @@ InstMatch::InstMatch( InstMatch* m ){
   d_splits = m->d_splits;
 }
 
-void InstMatch::setMatch( TNode v, TNode m ){ 
+void InstMatch::setMatch( Node v, Node m ){ 
   d_map[v] = m; 
 }
 
 bool InstMatch::add( InstMatch& m ){
-  for( std::map< TNode, TNode >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
+  for( std::map< Node, Node >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
     if( d_map.find( it->first )==d_map.end() ){
       setMatch( it->first, it->second );
     }
@@ -44,7 +44,7 @@ bool InstMatch::add( InstMatch& m ){
 }
 
 bool InstMatch::merge( EqualityQuery* q, InstMatch& m, bool allowSplit ){
-  for( std::map< TNode, TNode >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
+  for( std::map< Node, Node >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
     if( d_map.find( it->first )==d_map.end() ){
       setMatch( it->first, it->second );
     }else{
@@ -63,7 +63,7 @@ bool InstMatch::merge( EqualityQuery* q, InstMatch& m, bool allowSplit ){
   }
   if( allowSplit ){
     //also add splits
-    for( std::map< TNode, TNode >::iterator it = m.d_splits.begin(); it != m.d_splits.end(); ++it ){
+    for( std::map< Node, Node >::iterator it = m.d_splits.begin(); it != m.d_splits.end(); ++it ){
       addSplit( it->first, it->second );
     }
   }
@@ -96,7 +96,7 @@ bool InstMatch::merge( EqualityQuery* q, InstMatch& m, bool allowSplit ){
 //}
 bool InstMatch::isEqual( InstMatch& m ){
   if( d_map.size()==m.d_map.size() ){
-    for( std::map< TNode, TNode >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
+    for( std::map< Node, Node >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
       if( d_map.find( it->first )==d_map.end() || it->second!=d_map[ it->first ] ){
         return false;
       }
@@ -107,19 +107,19 @@ bool InstMatch::isEqual( InstMatch& m ){
   }
 }
 void InstMatch::debugPrint( const char* c ){
-  for( std::map< TNode, TNode >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
+  for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
     Debug( c ) << "   " << it->first << " -> " << it->second << std::endl;
   }
   if( !d_splits.empty() ){
     Debug( c ) << "   Conditions: ";
-    for( std::map< TNode, TNode >::iterator it = d_splits.begin(); it !=d_splits.end(); ++it ){
+    for( std::map< Node, Node >::iterator it = d_splits.begin(); it !=d_splits.end(); ++it ){
       Debug( c ) << it->first << " = " << it->second << " ";
     }
     Debug( c ) << std::endl;
   }
 }
 
-void InstMatch::computeTermVec( InstantiationEngine* ie, std::vector< Node >& vars, std::vector< Node >& match ){
+void InstMatch::computeTermVec( QuantifiersEngine* ie, std::vector< Node >& vars, std::vector< Node >& match ){
   for( int i=0; i<(int)vars.size(); i++ ){
     if( d_map.find( vars[i] )!=d_map.end() ){
       match.push_back( d_map[ vars[i] ] );
@@ -129,9 +129,9 @@ void InstMatch::computeTermVec( InstantiationEngine* ie, std::vector< Node >& va
   }
 }
 
-void InstMatch::addSplit( TNode n1, TNode n2 ){
+void InstMatch::addSplit( Node n1, Node n2 ){
   if( n2<n1 ){
-    TNode ntemp = n1;
+    Node ntemp = n1;
     n1 = n2;
     n2 = ntemp;
   }
@@ -540,7 +540,7 @@ bool InstMatchGenerator::calculateNextMatch( EqualityQuery* q ){
 std::map< Node, std::vector< Node > > Trigger::d_var_contains;
 
 /** trigger class constructor */
-Trigger::Trigger( InstantiationEngine* ie, Node f, std::vector< Node >& nodes, bool keepAll ) : d_instEngine( ie ), d_f( f ){
+Trigger::Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, bool keepAll ) : d_instEngine( ie ), d_f( f ){
   if( keepAll ){
     d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
   }else{
@@ -555,7 +555,7 @@ Trigger::Trigger( InstantiationEngine* ie, Node f, std::vector< Node >& nodes, b
 }
 
 /** trigger class constructor */
-Trigger::Trigger( InstantiationEngine* ie, Node f, std::vector< Node >& candidates, Trigger* prev ) : d_instEngine( ie ), d_f( f ){
+Trigger::Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& candidates, Trigger* prev ) : d_instEngine( ie ), d_f( f ){
   Debug("trigger") << "constructing trigger..." << std::endl;
   //make this the next unique trigger from prev
   if( prev->d_nodes.size()==candidates.size() ){
@@ -610,7 +610,7 @@ Trigger* Trigger::getNextTrigger(){
   return d_next;
 }
 
-InstMatchGenerator* Trigger::mkMatchGenerator( InstantiationEngine* ie, Node f, std::vector< Node >& nodes ){
+InstMatchGenerator* Trigger::mkMatchGenerator( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes ){
   if( nodes.size()==1 ){
     return mkMatchGenerator( ie, f, nodes[0] );
   }else{
@@ -622,7 +622,7 @@ InstMatchGenerator* Trigger::mkMatchGenerator( InstantiationEngine* ie, Node f, 
   }
 }
 
-InstMatchGenerator* Trigger::mkMatchGenerator( InstantiationEngine* ie, Node f, Node n ){
+InstMatchGenerator* Trigger::mkMatchGenerator( QuantifiersEngine* ie, Node f, Node n ){
   if( n.getKind()==APPLY_UF && n.getType()!=NodeManager::currentNM()->booleanType() ){
     return InstMatchGenerator::mkInstMatchGeneratorAny( n );
   }else{
@@ -667,6 +667,11 @@ void Trigger::resetInstantiationRound(){
 
 bool Trigger::addInstantiation( InstMatch& baseMatch, bool addSplits, int triggerThresh ){
   if( d_valid ){
+    Debug("trigger-debug") << "Trigger is ";
+    for( int i=0; i<(int)d_nodes.size(); i++ ){
+      Debug("trigger-debug") << d_nodes[i] << " ";
+    }
+    Debug("trigger-debug") << std::endl;
     Debug("trigger") << "trigger: try to add new instantiation..." << std::endl;
     //std::cout << "trigger: try to add new instantiation..." << std::endl;
     int counter = 0;
@@ -677,11 +682,11 @@ bool Trigger::addInstantiation( InstMatch& baseMatch, bool addSplits, int trigge
       Debug("trigger") << "trigger: add instantiation..." << std::endl;
 #if 1
       if( d_instEngine->addInstantiation( d_f, &temp, addSplits ) ){
-        //std::cout << "Trigger was ";
-        //for( int i=0; i<(int)d_nodes.size(); i++ ){
-        //  std::cout << d_nodes[i] << " ";
-        //}
-        //std::cout << std::endl;
+        Debug("trigger") << "Trigger success, trigger was ";
+        for( int i=0; i<(int)d_nodes.size(); i++ ){
+          Debug("trigger") << d_nodes[i] << " ";
+        }
+        Debug("trigger") << std::endl;
         return true;
       }
 #elif 0

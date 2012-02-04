@@ -37,7 +37,10 @@ namespace CVC4 {
 namespace theory {
 namespace datatypes {
 
+class InstantiatorTheoryDatatypes;
+
 class TheoryDatatypes : public Theory {
+  friend class InstantiatorTheoryDatatypes;
 private:
   typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
   typedef context::CDMap<Node, EqList*, NodeHashFunction> EqLists;
@@ -152,6 +155,7 @@ public:
   void shutdown() { }
   std::string identify() const { return std::string("TheoryDatatypes"); }
 
+  Instantiator* makeInstantiator();
 private:
   /* Helper methods */
   bool checkTester( Node assertion, Node& conflict, unsigned& r );

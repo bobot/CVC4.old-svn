@@ -12,6 +12,10 @@ libquantifiers_la_SOURCES = \
 	quantifiers_rewriter.cpp \
 	theory_quantifiers.cpp \
 	theory_quantifiers_instantiator.h \
-	theory_quantifiers_instantiator.cpp
+	theory_quantifiers_instantiator.cpp \
+	rewrite_engine.h \
+	rewrite_engine.cpp \
+	instantiation_engine.h \
+	instantiation_engine.cpp
 
 EXTRA_DIST = kinds

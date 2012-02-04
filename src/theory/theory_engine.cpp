@@ -65,7 +65,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
     d_theoryOut[theoryId] = NULL;
   }
   //initialize the instantiation engine
-  d_instEngine = new InstantiationEngine( context, this );
+  d_instEngine = new QuantifiersEngine( context, this );
   Rewriter::init();
 }
 

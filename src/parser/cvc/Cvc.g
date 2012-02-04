@@ -1195,6 +1195,7 @@ prefixFormula[CVC4::Expr& f]
   std::vector<std::string> ids;
   std::vector<Expr> terms;
   std::vector<Type> types;
+  std::vector< Expr > bvs;
   Type t;
   Kind k;
   Expr ipl;
@@ -1204,20 +1205,22 @@ prefixFormula[CVC4::Expr& f]
     { PARSER_STATE->pushScope(); } LPAREN
     boundVarDecl[ids,t]
     { for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
-        terms.push_back(EXPR_MANAGER->mkVar(*i, t));
+        bvs.push_back(EXPR_MANAGER->mkVar(*i, t));
       }
       ids.clear();
     }
     ( COMMA boundVarDecl[ids,t]
       { 
-        std::vector< Expr > bvs;
         for(std::vector<std::string>::const_iterator i = ids.begin(); i != ids.end(); ++i) {
           bvs.push_back(EXPR_MANAGER->mkVar(*i, t));
         }
         ids.clear();
-        terms.push_back( EXPR_MANAGER->mkExpr( kind::BOUND_VAR_LIST, bvs ) );
       }
-    )* RPAREN
+    )* RPAREN { 
+      for( int i=0; i<(int)bvs.size(); i++ ){
+        std::cout << "arg " << bvs[i] << " " << bvs[i].getType() << std::endl;
+      }
+      terms.push_back( EXPR_MANAGER->mkExpr( kind::BOUND_VAR_LIST, bvs ) ); }
     COLON instantiationPatterns[ipl]? formula[f]
     { PARSER_STATE->popScope();
       terms.push_back(f);
@@ -1225,6 +1228,10 @@ prefixFormula[CVC4::Expr& f]
         terms.push_back( ipl );
       }
       f = MK_EXPR(k, terms);
+      std::cout << "Made expr " << f << std::endl;
+      for( int i=0; i<(int)terms.size(); i++ ) { std::cout << terms[i] << std::endl; }
+      std::cout << "kind = " << f.getKind() << std::endl;
+      for( int i=0; i<(int)f.getNumChildren(); i++ ) { std::cout << f[i] << std::endl; }
     }
 
    /* lets: letDecl defines the variables and functionss, we just

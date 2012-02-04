@@ -305,6 +305,15 @@ Node StrongSolverTheoryUf::ConflictFind::Region::getBestSplit(){
   return Node::null();
 }
 
+void StrongSolverTheoryUf::ConflictFind::Region::getRepresentatives( std::vector< Node >& reps ){
+  for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
+    RegionNodeInfo* rni = it->second;
+    if( rni->d_valid ){
+      reps.push_back( it->first );
+    }
+  }
+}
+
 void StrongSolverTheoryUf::ConflictFind::Region::debugPrint( const char* c, bool incClique ){
   Debug( c ) << "Num reps: " << d_reps_size << std::endl;
   for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
@@ -415,6 +424,9 @@ void StrongSolverTheoryUf::ConflictFind::getDisequalitiesToRegions( int ri, std:
 }
 
 void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& clique, OutputChannel* out ){
+  while( clique.size()>d_cardinality+1 ){
+    clique.pop_back();
+  }
   //found a clique
   Debug("uf-ss") << "Found a clique :" << std::endl;
   Debug("uf-ss") << "   ";
@@ -431,7 +443,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
     //if both sides of disequality exist in clique
     Node r1 = d_th->d_equalityEngine.getRepresentative( d_disequalities[i][0][0] );
     Node r2 = d_th->d_equalityEngine.getRepresentative( d_disequalities[i][0][1] );
-    if( ( explained.find( r1 )==explained.end() || explained[r1].find( r2 )==explained[r1].end() ) &&
+    if( r1!=r2 && ( explained.find( r1 )==explained.end() || explained[r1].find( r2 )==explained[r1].end() ) &&
         std::find( clique.begin(), clique.end(), r1 )!=clique.end() &&
         std::find( clique.begin(), clique.end(), r2 )!=clique.end() ){
       explained[r1][r2] = true;
@@ -441,7 +453,8 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
       nodesWithinRep[r2][ d_disequalities[i][0][1] ] = true;
     }
   }
-  Assert( conflict.size()==d_cardinality*( d_cardinality+1 )/2 );
+  Debug("uf-ss") << conflict.size() << " " << clique.size() << std::endl;
+  Assert( conflict.size()==(int)clique.size()*( (int)clique.size()-1 )/2 );
   Debug("uf-ss") << "Finding clique equalities internal to eq classes..." << std::endl;
   //now, we must explain equalities within each equivalence class
   for( std::map< Node, std::map< Node, bool > >::iterator it = nodesWithinRep.begin(); it != nodesWithinRep.end(); ++it ){
@@ -480,6 +493,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
                                                     NodeManager::currentNM()->mkConst( Rational(d_cardinality) ) );
   conflictNode = NodeManager::currentNM()->mkNode( IMPLIES, conflictNode, cardNode.notNode() );
   Debug("uf-ss-lemma") << "*** Add clique conflict " << conflictNode << std::endl;
+  //std::cout << "*** Add clique conflict " << conflictNode << std::endl;
   out->lemma( conflictNode );
 #endif
 }
@@ -696,9 +710,12 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
     Debug("uf-ss") << "StrongSolverTheoryUf: Check " << level << std::endl;
     //std::cout << "StrongSolverTheoryUf: Check " << level << std::endl;
     if( d_reps<=d_cardinality ){
-      Debug("uf-ss-debug") << "We have " << d_reps << " representatives, <= " << d_cardinality << std::endl;
+      Debug("uf-ss-debug") << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
       if( level==Theory::FULL_EFFORT ){
-        Debug("uf-ss-sat") << "We have " << d_reps << " representatives, <= " << d_cardinality << std::endl;
+        Debug("uf-ss-sat") << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
+        //std::cout << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
+        //std::cout << "Model size for " << d_type << " is " << d_cardinality << std::endl;
+        std::cout << d_cardinality << " ";
       }
       return;
     }else{
@@ -743,6 +760,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
             //due to our invariants, we know no coloring conflicts will occur between regions, and thus
             //  we are SAT in this case.
             Debug("uf-ss-sat") << "SAT: regions = " << getNumRegions() << std::endl;
+            std::cout << "Model size for " << d_type << " is " << d_cardinality << ", regions = " << getNumRegions() << std::endl;
           }
         }
       }
@@ -791,6 +809,26 @@ void StrongSolverTheoryUf::ConflictFind::setCardinality( int c ){
   d_cardinality = c;
 }
 
+void StrongSolverTheoryUf::ConflictFind::getRepresentatives( std::vector< Node >& reps ){
+  //must take region with maximal number of representatives
+  int index = -1;
+  int maxReps;
+  for( int i=0; i<(int)d_regions_index; i++ ){
+    if( d_regions[i]->d_valid ){
+      if( index==-1 || d_regions[i]->getNumReps()>maxReps ){
+        index = i;
+        maxReps = d_regions[i]->getNumReps();
+        if( d_regions[i]->getNumReps()==d_cardinality ){
+          break;
+        }
+      }
+    }
+  }
+  if( index!=-1 ){
+    d_regions[index]->getRepresentatives( reps );
+  }
+}
+
 Node StrongSolverTheoryUf::ConflictFind::getCardinalityLemma(){
   Node lem = NodeManager::currentNM()->mkNode( CARDINALITY_CONSTRAINT, d_cardinality_lemma_term, 
       NodeManager::currentNM()->mkConst( Rational( getCardinality() ) ) );
@@ -826,10 +864,10 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
       d_conf_find[tn]->d_cardinality_lemma_term = n;
       //add the appropriate lemma
       Node lem = d_conf_find[tn]->getCardinalityLemma();
+      d_out->lemma( lem );
       if( !d_conf_find[tn]->d_isCardinalityStrict ){
         Assert( lem.getKind()==OR );
         Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
-        d_out->lemma( lem );
         d_out->requirePhase( lem[0], true );
       }
     }
@@ -888,15 +926,21 @@ void StrongSolverTheoryUf::assertCardinality( Node c ){
     TypeNode tn = cc[0].getType();
     Assert( isRelevantType( tn ) );
     Assert( d_conf_find[tn] );
-    Debug("uf-ss-fmf") << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
-    //increment to next cardinality
-    setCardinality( tn, d_conf_find[tn]->getCardinality() + 1, false );
-    //also increment the cardinality of related types? DO_THIS
-    Node lem = d_conf_find[tn]->getCardinalityLemma();
-    Assert( lem.getKind()==OR );
-    Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
-    d_out->lemma( lem );
-    d_out->requirePhase( lem[0], true );
+    long nCard = cc[1].getConst<Rational>().getNumerator().getLong();
+    if( nCard==d_conf_find[tn]->getCardinality() && !d_conf_find[tn]->d_isCardinalityStrict ){
+      Debug("uf-ss-fmf") << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
+      //std::cout << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
+      //increment to next cardinality
+      setCardinality( tn, d_conf_find[tn]->getCardinality() + 1, false );
+      //also increment the cardinality of related types? DO_THIS
+      Node lem = d_conf_find[tn]->getCardinalityLemma();
+      Assert( lem.getKind()==OR );
+      Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
+      d_out->lemma( lem );
+      d_out->requirePhase( lem[0], true );
+    }else{
+      //std::cout << "Already knew no model of size " << nCard << " exists for type " << tn << std::endl;
+    }
   }else{
     TypeNode tn = c[0].getType();
     Assert( isRelevantType( tn ) );
@@ -919,7 +963,7 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
 void StrongSolverTheoryUf::setCardinality( TypeNode t, int c, bool isStrict ) { 
   Debug("uf-ss-solver") << "StrongSolverTheoryUf: Set cardinality " << t << " = " << c << std::endl;
   if( d_conf_find.find( t )==d_conf_find.end() ){
-    d_conf_find[t] = new ConflictFind( d_th->getContext(), d_th );
+    d_conf_find[t] = new ConflictFind( t, d_th->getContext(), d_th );
   }
   d_conf_find[t]->setCardinality( c ); 
   d_conf_find[t]->d_isCardinalityStrict = isStrict;
@@ -928,6 +972,12 @@ void StrongSolverTheoryUf::setCardinality( TypeNode t, int c, bool isStrict ) {
 /** get cardinality for sort */
 int StrongSolverTheoryUf::getCardinality( TypeNode t ) { 
   return d_conf_find.find( t )!=d_conf_find.end() ? d_conf_find[t]->getCardinality() : -1; 
+}
+
+void StrongSolverTheoryUf::getRepresentatives( TypeNode t, std::vector< Node >& reps ){
+  if( d_conf_find.find( t )!=d_conf_find.end() ){
+    d_conf_find[t]->getRepresentatives( reps );
+  }
 }
 
 //print debug
@@ -971,5 +1021,125 @@ StrongSolverTheoryUf::Statistics::~Statistics(){
 bool StrongSolverTheoryUf::isRelevantType( TypeNode t ){
   return t!=NodeManager::currentNM()->booleanType() && 
          t!=NodeManager::currentNM()->integerType() &&
-         t!=NodeManager::currentNM()->realType();
+         t!=NodeManager::currentNM()->realType() &&
+         t!=NodeManager::currentNM()->builtinOperatorType() &&
+         !t.isFunction();
+}
+
+void InstStrategyFinteModelFind::RepAlphabet::set( TypeNode t, std::vector< Node >& reps ){
+  d_type_reps[t].insert( d_type_reps[t].begin(), reps.begin(), reps.end() );
+  for( int i=0; i<(int)reps.size(); i++ ){
+    d_indicies[ reps[i] ] = i;
+  }
+}
+
+bool InstStrategyFinteModelFind::PartialInstSet::didCurrentInstantiation( PartialInstSet* pi ){
+  bool retVal = true;
+  for( int i=0; i<(int)pi->d_index.size(); i++ ){
+    Node n = pi->getTerm( i );
+    //must translate into alphabet
+    if( d_ra->d_indicies.find( n )!=d_ra->d_indicies.end() ){
+      if( !isFinished() ){   //if only did partial
+        if( d_ra->d_indicies[n]<d_index[i] ){   //lexigraphic order
+          retVal = true;
+        }else if( d_ra->d_indicies[n]>d_index[i] ){
+          retVal = false;
+        }
+      }
+    }else{
+      return false;
+    }
+  }
+  return retVal;
+}
+
+void InstStrategyFinteModelFind::PartialInstSet::increment(){
+  Assert( !isFinished() );
+  int counter = 0;
+  while( d_index[counter]==(int)(d_ra->d_type_reps[d_f[0][counter].getType()].size()-1) ){
+    d_index[counter] = 0;
+    counter++;
+    if( counter==(int)d_index.size() ){
+      d_index.clear();
+      return;
+    }
+  }
+  d_index[counter]++;
+}
+
+bool InstStrategyFinteModelFind::PartialInstSet::isFinished(){
+  return d_index.empty();
+}
+
+void InstStrategyFinteModelFind::PartialInstSet::getMatch( QuantifiersEngine* ie, InstMatch& m ){
+  for( int i=0; i<(int)d_index.size(); i++ ){
+    m.setMatch( ie->getInstantiationConstant( d_f, i ), getTerm( i ) );
+  }
+}
+
+Node InstStrategyFinteModelFind::PartialInstSet::getTerm( int i ){
+  return d_ra->d_type_reps[d_f[0][i].getType()][d_index[i]];
+}
+
+InstStrategyFinteModelFind::InstStrategyFinteModelFind( context::Context* c, InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
+    InstStrategy( ie ), d_th( th ), d_curr_ra( NULL ), d_finding_model( c, false ){
+
+}
+
+bool InstStrategyFinteModelFind::didCurrentInstantiation( PartialInstSet* pi ){
+  Node f = pi->d_f;
+  for( int i=0; i<(int)d_inst_group[f].size(); i++ ){
+    if( d_inst_group[f][i]->didCurrentInstantiation( pi ) ){
+      return true;
+    }
+  }
+  return false;
+}
+
+void InstStrategyFinteModelFind::resetInstantiationRound(){
+  if( !d_finding_model.get() ){
+    d_curr_ra = new RepAlphabet;
+    d_finding_model.set( true );
+  }
+}
+
+int InstStrategyFinteModelFind::process( Node f, int effort ){
+  if( effort<1 ){
+    return STATUS_UNFINISHED;
+  }else if( effort==1 ){
+    StrongSolverTheoryUf* ss = ((TheoryUF*)d_th)->getStrongSolver();
+    if( d_inst_group[f].empty() || d_inst_group[f].back()->d_ra!=d_curr_ra ){
+      for( int i=0; i<d_instEngine->getNumInstantiationConstants( f ); i++ ){
+        TypeNode tn = d_instEngine->getInstantiationConstant( f, i ).getType();
+        if( d_curr_ra->d_type_reps.find( tn )==d_curr_ra->d_type_reps.end() ){
+          std::vector< Node > reps;
+          ss->getRepresentatives( tn, reps );
+          //DO_THIS: prefer previously used reps
+          d_curr_ra->d_type_reps[tn].insert( d_curr_ra->d_type_reps[tn].begin(), reps.begin(), reps.end() );
+        }
+      }
+      d_inst_group[f].push_back( new PartialInstSet( d_curr_ra, f ) );
+    }
+    PartialInstSet* pi = d_inst_group[f].back();
+    bool addedLemma = false;
+    while( !addedLemma && !pi->isFinished() ){
+      //do next instantiation
+      while( !pi->isFinished() && didCurrentInstantiation( pi ) ){
+        pi->increment();
+      }
+      //if successful, add instantiation 
+      if( !pi->isFinished() ){
+        InstMatch m;
+        pi->getMatch( d_instEngine, m );
+        pi->increment();
+        if( d_instEngine->addInstantiation( f, &m ) ){
+          addedLemma = true;
+        }
+      }
+    }
+    if( !addedLemma ){
+      return STATUS_SAT;
+    }
+  }
+  return STATUS_UNKNOWN;
 }

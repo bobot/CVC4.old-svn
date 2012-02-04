@@ -38,14 +38,12 @@ class TheoryQuantifiers : public Theory {
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
 
-  /** list of universally quantifiers currently asserted */
-  BoolMap d_forall_asserts;
   /** list of existential quantifiers currently asserted */
   BoolMap d_exists_asserts;
   /** list of counterexamples currently asserted */
   BoolMap d_counterexample_asserts;
   /** quantifiers that have been abstractly instantiated */
-  std::map< Node, bool > d_abstract_inst;
+  std::map< Node, bool > d_registered;
   /** quantifiers that have been skolemized */
   std::map< Node, bool > d_skolemized;
   /** number of instantiations */
@@ -53,6 +51,8 @@ private:
   int d_baseDecLevel;
   /** number of restarts */
   int d_numRestarts;
+  /** first time */
+  bool d_firstTime;
 public:
   TheoryQuantifiers(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
   ~TheoryQuantifiers();
@@ -67,12 +67,15 @@ public:
   std::string identify() const { return std::string("TheoryQuantifiers"); }
   Instantiator* makeInstantiator();
   bool flipDecision();
-  void fullEffortCheck();
 private:
   void assertUniversal( Node n );
   void assertExistential( Node n );
   void assertCounterexample( Node n );
   bool restart();
+public:
+  static bool isRewriteKind( Kind k ){
+    return k==kind::REWRITE_RULE || k==kind::REDUCTION_RULE || k==kind::DEDUCTION_RULE;
+  }
 };/* class TheoryQuantifiers */
 
 }/* CVC4::theory::quantifiers namespace */

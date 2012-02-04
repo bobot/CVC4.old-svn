@@ -112,6 +112,7 @@ void QuantifiersRewriter::computeArgs( std::vector< Node >& args, std::vector< N
 Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node n, Node ipl ){
   std::vector< Node > children;
   computeArgs( args, children, n );
+  //std::cout << n << " " << args.size() << ", arguments = " << children.size() << std::endl;
   if( children.empty() ){
     return n;
   }else{

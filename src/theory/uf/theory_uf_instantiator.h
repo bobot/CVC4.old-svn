@@ -19,7 +19,7 @@
 #ifndef __CVC4__THEORY_UF_INSTANTIATOR_H
 #define __CVC4__THEORY_UF_INSTANTIATOR_H
 
-#include "theory/instantiation_engine.h"
+#include "theory/quantifiers_engine.h"
 
 #include "context/context.h"
 #include "context/context_mm.h"
@@ -41,7 +41,7 @@ private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
 public:
-  InstStrategyCheckCESolved( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
+  InstStrategyCheckCESolved( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyCheckCESolved(){}
   void resetInstantiationRound();
@@ -57,7 +57,7 @@ private:
   /** triggers for literal matching */
   std::map< Node, Trigger* > d_lit_match_triggers;
 public:
-  InstStrategyLitMatch( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
+  InstStrategyLitMatch( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyLitMatch(){}
   void resetInstantiationRound();
@@ -73,7 +73,7 @@ private:
   /** explicitly provided patterns */
   std::map< Node, std::vector< Trigger* > > d_user_gen;
 public:
-  InstStrategyUserPatterns( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
+  InstStrategyUserPatterns( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyUserPatterns(){}
   void resetInstantiationRound();
@@ -107,7 +107,7 @@ private:
   /** collect all top level APPLY_UF pattern terms for f in n */
   void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt );
 public:
-  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, InstantiationEngine* ie, int tstrt ) : 
+  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt ) : 
       InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ){}
   ~InstStrategyAutoGenTriggers(){}
   void resetInstantiationRound();
@@ -126,7 +126,7 @@ private:
   /** guessed instantiations */
   std::map< Node, bool > d_guessed;
 public:
-  InstStrategyFreeVariable( InstantiatorTheoryUf* th, InstantiationEngine* ie ) : 
+  InstStrategyFreeVariable( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyFreeVariable(){}
   void resetInstantiationRound();
@@ -176,7 +176,7 @@ protected:
   /** instantiation strategies */
   InstStrategyUserPatterns* d_isup;
 public:
-  InstantiatorTheoryUf(context::Context* c, CVC4::theory::InstantiationEngine* ie, Theory* th);
+  InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
   /** check method */
   void check( Node assertion );

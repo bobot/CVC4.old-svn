@@ -22,6 +22,7 @@
 #include "expr/kind.h"
 #include "util/datatype.h"
 #include "util/Assert.h"
+#include "theory/datatypes/theory_datatypes_instantiator.h"
 
 #include <map>
 
@@ -191,6 +192,11 @@ void TheoryDatatypes::check(Effort e) {
           Unhandled(assertion.getKind());
           break;
         }
+        //AJR-hack
+        if( getInstantiator() ){
+          getInstantiator()->check( assertion );
+        }
+        //AJR-hack-end
       }
     }
     //rules to check for collapse, instantiate
@@ -1060,4 +1066,9 @@ bool TheoryDatatypes::searchForCycle( Node n, Node on,
     }
   }
   return false;
+}
+
+Instantiator* TheoryDatatypes::makeInstantiator(){
+  Debug("quant-datatypes") << "Make Datatypes instantiator" << endl;
+  return new InstantiatorTheoryDatatypes( getContext(), d_instEngine, this );
 }

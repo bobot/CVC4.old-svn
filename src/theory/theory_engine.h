@@ -36,7 +36,7 @@
 #include "theory/shared_terms_database.h"
 #include "theory/term_registration_visitor.h"
 #include "theory/valuation.h"
-#include "theory/instantiation_engine.h"
+#include "theory/quantifiers_engine.h"
 #include "util/options.h"
 #include "util/stats.h"
 #include "util/hash.h"
@@ -107,7 +107,7 @@ class TheoryEngine {
   /**
    * The instantiation engine
    */
-  theory::InstantiationEngine* d_instEngine;
+  theory::QuantifiersEngine* d_instEngine;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
 
@@ -484,7 +484,7 @@ public:
   /**
    * Get a pointer to the instantiation engine
    */
-  theory::InstantiationEngine* getInstantiationEngine() const {
+  theory::QuantifiersEngine* getQuantifiersEngine() const {
     return d_instEngine;
   }
 
