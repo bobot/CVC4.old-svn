@@ -132,6 +132,11 @@ void TheoryQuantifiers::check(Effort e) {
         }
       }
       break;  
+    case kind::REWRITE_RULE:
+    case kind::REDUCTION_RULE:
+    case kind::DEDUCTION_RULE:
+      //handled by rewrite engine
+      break;
     default:
       Unhandled(assertion.getKind());
       break;
