@@ -23,16 +23,18 @@
 
 
 #include "expr/node.h"
-#include "bv_solver_types.h"
+#include "prop/sat_module.h"
 
 namespace CVC4 {
+
+
 namespace theory {
 namespace bv {
 
 class Bitblaster;
 
 
-typedef std::vector<SatLit>    Bits; 
+typedef std::vector<Node>    Bits; 
 
 
 /** 
@@ -43,20 +45,18 @@ typedef std::vector<SatLit>    Bits;
  * @param bb the bitblaster
  */
 
-void UndefinedAtomBBStrategy (TNode node, SatVar markerLit, Bitblaster* bb);                               
-void DefaultEqBB(TNode node, SatVar markerLit, Bitblaster* bb);
+Node UndefinedAtomBBStrategy (TNode node, Bitblaster* bb);                               
+Node DefaultEqBB(TNode node, Bitblaster* bb);
 
-void DefaultUltBB(TNode node, SatVar markerLit, Bitblaster* bb);
-void DefaultUleBB(TNode node, SatVar markerLit, Bitblaster* bb);
-void DefaultUgtBB(TNode node, SatVar markerLit, Bitblaster* bb);
-void DefaultUgeBB(TNode node, SatVar markerLit, Bitblaster* bb);
+Node DefaultUltBB(TNode node, Bitblaster* bb);
+Node DefaultUleBB(TNode node, Bitblaster* bb);
+Node DefaultUgtBB(TNode node, Bitblaster* bb);
+Node DefaultUgeBB(TNode node, Bitblaster* bb);
 
-void DefaultSltBB(TNode node, SatVar markerLit, Bitblaster* bb);
-void DefaultSleBB(TNode node, SatVar markerLit, Bitblaster* bb);
-void DefaultSgtBB(TNode node, SatVar markerLit, Bitblaster* bb);
-void DefaultSgeBB(TNode node, SatVar markerLit, Bitblaster* bb);
-
-
+Node DefaultSltBB(TNode node, Bitblaster* bb);
+Node DefaultSleBB(TNode node, Bitblaster* bb);
+Node DefaultSgtBB(TNode node, Bitblaster* bb);
+Node DefaultSgeBB(TNode node, Bitblaster* bb);
 
 
 /** 
@@ -68,37 +68,36 @@ void DefaultSgeBB(TNode node, SatVar markerLit, Bitblaster* bb);
  * @return the bits representing the new term 
  */
 
-Bits* UndefinedTermBBStrategy(TNode node, Bitblaster* bb); 
+void UndefinedTermBBStrategy(TNode node, Bits& bits, Bitblaster* bb); 
 
-Bits* DefaultVarBB         (TNode node, Bitblaster* bb);
-Bits* DefaultConstBB       (TNode node, Bitblaster* bb);
-Bits* DefaultNotBB         (TNode node, Bitblaster* bb);
-Bits* DefaultConcatBB      (TNode node, Bitblaster* bb);
-Bits* DefaultAndBB         (TNode node, Bitblaster* bb);
-Bits* DefaultOrBB          (TNode node, Bitblaster* bb);
-Bits* DefaultXorBB         (TNode node, Bitblaster* bb);
-Bits* DefaultNandBB        (TNode node, Bitblaster* bb);
-Bits* DefaultNorBB         (TNode node, Bitblaster* bb);
-Bits* DefaultCompBB        (TNode node, Bitblaster* bb);
-Bits* DefaultMultBB        (TNode node, Bitblaster* bb);
-Bits* DefaultPlusBB        (TNode node, Bitblaster* bb);
-Bits* DefaultSubBB         (TNode node, Bitblaster* bb);
-Bits* DefaultNegBB         (TNode node, Bitblaster* bb);
-Bits* DefaultUdivBB        (TNode node, Bitblaster* bb);
-Bits* DefaultUremBB        (TNode node, Bitblaster* bb);
-Bits* DefaultSdivBB        (TNode node, Bitblaster* bb);
-Bits* DefaultSremBB        (TNode node, Bitblaster* bb);
-Bits* DefaultSmodBB        (TNode node, Bitblaster* bb);
-Bits* DefaultShlBB         (TNode node, Bitblaster* bb);
-Bits* DefaultLshrBB        (TNode node, Bitblaster* bb);
-Bits* DefaultAshrBB        (TNode node, Bitblaster* bb);
-Bits* DefaultExtractBB     (TNode node, Bitblaster* bb);
-Bits* DefaultRepeatBB      (TNode node, Bitblaster* bb);
-Bits* DefaultZeroExtendBB  (TNode node, Bitblaster* bb);
-Bits* DefaultSignExtendBB  (TNode node, Bitblaster* bb);
-Bits* DefaultRotateRightBB (TNode node, Bitblaster* bb);
-Bits* DefaultRotateLeftBB  (TNode node, Bitblaster* bb);
-
+void DefaultVarBB         (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultConstBB       (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultNotBB         (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultConcatBB      (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultAndBB         (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultOrBB          (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultXorBB         (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultNandBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultNorBB         (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultCompBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultMultBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultPlusBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultSubBB         (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultNegBB         (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultUdivBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultUremBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultSdivBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultSremBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultSmodBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultShlBB         (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultLshrBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultAshrBB        (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultExtractBB     (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultRepeatBB      (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultZeroExtendBB  (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultSignExtendBB  (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultRotateRightBB (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultRotateLeftBB  (TNode node, Bits& bits, Bitblaster* bb);
 
 }
 }

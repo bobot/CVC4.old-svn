@@ -72,8 +72,29 @@ inline Node mkAnd(std::vector<TNode>& children) {
   }
 }
 
+inline Node mkNot(Node child) {
+  return NodeManager::currentNM()->mkNode(kind::NOT, child);
+}
+
+inline Node mkAnd(TNode node1, TNode node2) {
+  return NodeManager::currentNM()->mkNode(kind::AND, node1, node2);
+}
+
+inline Node mkOr(TNode node1, TNode node2) {
+  return NodeManager::currentNM()->mkNode(kind::OR, node1, node2);
+}
+
+inline Node mkXor(TNode node1, TNode node2) {
+  return NodeManager::currentNM()->mkNode(kind::XOR, node1, node2);
+}
+
+
 inline Node mkAnd(std::vector<Node>& children) {
-  return NodeManager::currentNM()->mkNode(kind::AND, children);
+  if(children.size() > 1) {
+    return NodeManager::currentNM()->mkNode(kind::AND, children);
+  } else {
+    return children[0];
+  }
 }
 
 inline Node mkExtract(TNode node, unsigned high, unsigned low) {
@@ -81,6 +102,12 @@ inline Node mkExtract(TNode node, unsigned high, unsigned low) {
   std::vector<Node> children;
   children.push_back(node);
   return NodeManager::currentNM()->mkNode(extractOp, children);
+}
+
+inline Node mkBitOf(TNode node, unsigned index) {
+  Node bitOfOp = NodeManager::currentNM()->mkConst<BitVectorBitOf>(BitVectorBitOf(index));
+  return NodeManager::currentNM()->mkNode(bitOfOp, node); 
+                                        
 }
 
 inline Node mkConcat(std::vector<Node>& children) {

@@ -21,11 +21,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #ifndef BVMinisat_Solver_h
 #define BVMinisat_Solver_h
 
-#include "theory/bv/bvminisat/core/SolverTypes.h"
-#include "theory/bv/bvminisat/mtl/Vec.h"
-#include "theory/bv/bvminisat/mtl/Heap.h"
-#include "theory/bv/bvminisat/mtl/Alg.h"
-#include "theory/bv/bvminisat/utils/Options.h"
+#include "prop/bvminisat/core/SolverTypes.h"
+#include "prop/bvminisat/mtl/Vec.h"
+#include "prop/bvminisat/mtl/Heap.h"
+#include "prop/bvminisat/mtl/Alg.h"
+#include "prop/bvminisat/utils/Options.h"
 
 
 namespace BVMinisat {
@@ -138,6 +138,7 @@ public:
     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
 
+     
 protected:
 
     // Helper structures:

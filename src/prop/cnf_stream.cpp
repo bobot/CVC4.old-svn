@@ -43,7 +43,7 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
-CnfStream::CnfStream(DPLLSatSolverInterface *satSolver, theory::Registrar registrar) :
+CnfStream::CnfStream(SatSolverInterface *satSolver, Registrar* registrar) :
   d_satSolver(satSolver),
   d_registrar(registrar) {
 }
@@ -54,7 +54,7 @@ void CnfStream::recordTranslation(TNode node) {
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(DPLLSatSolverInterface* satSolver, theory::Registrar registrar) :
+TseitinCnfStream::TseitinCnfStream(SatSolverInterface* satSolver, Registrar* registrar) :
   CnfStream(satSolver, registrar) {
 }
 
@@ -188,7 +188,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   // If a theory literal, we pre-register it
   if (theoryLiteral) {
     bool backup = d_removable;
-    d_registrar.preRegister(node);
+    d_registrar->preRegister(node);
     d_removable = backup;
   }
 
@@ -211,7 +211,7 @@ SatLiteral CnfStream::convertAtom(TNode node) {
   Debug("cnf") << "convertAtom(" << node << ")" << endl;
 
   Assert(!isTranslated(node), "atom already mapped!");
-
+  // boolean variables are not theory literals
   bool theoryLiteral = node.getKind() != kind::VARIABLE && !node.getType().isPseudoboolean();
   SatLiteral lit = newLiteral(node, theoryLiteral);
 

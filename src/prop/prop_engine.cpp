@@ -22,7 +22,7 @@
 #include "prop/sat_module.h"
 
 #include "theory/theory_engine.h"
-#include "theory/registrar.h"
+#include "theory/theory_registrar.h"
 #include "util/Assert.h"
 #include "util/options.h"
 #include "util/output.h"
@@ -73,7 +73,7 @@ PropEngine::PropEngine(TheoryEngine* te, Context* context) :
 
   d_satSolver = SatSolverFactory::createDPLLMinisat(); 
 
-  theory::Registrar registrar(d_theoryEngine);
+  theory::TheoryRegistrar* registrar = new theory::TheoryRegistrar(d_theoryEngine);
   d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, registrar);
 
   d_satSolver->initialize(d_context, new TheoryProxy(this, d_theoryEngine, d_context, d_cnfStream));

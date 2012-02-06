@@ -18,11 +18,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 **************************************************************************************************/
 
 
-#ifndef Minisat_Alloc_h
-#define Minisat_Alloc_h
+#ifndef BVMinisat_Alloc_h
+#define BVMinisat_Alloc_h
 
-#include "theory/bv/bvminisat/mtl/XAlloc.h"
-#include "theory/bv/bvminisat/mtl/Vec.h"
+#include "prop/bvminisat/mtl/XAlloc.h"
+#include "prop/bvminisat/mtl/Vec.h"
 
 namespace BVMinisat {
 

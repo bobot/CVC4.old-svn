@@ -2,19 +2,17 @@ AM_CPPFLAGS = \
 	-D__BUILDING_CVC4LIB \
 	-D __STDC_LIMIT_MACROS \
 	-D __STDC_FORMAT_MACROS \
-	-I@srcdir@/../../include -I@srcdir@/../.. -I@builddir@/../.. -I@srcdir@/bvminisat
+	-I@srcdir@/../../include -I@srcdir@/../.. -I@builddir@/../..
 AM_CXXFLAGS = -Wall -Wno-unknown-pragmas $(FLAG_VISIBILITY_HIDDEN)
 
 noinst_LTLIBRARIES = libbv.la
 
 libbv_la_SOURCES = \
-	bv_solver_types.h \
-	bv_solver_types.cpp \
-	bitblast_strategies.h \
-	bitblast_strategies.cpp \
+	theory_bv_utils.h \
 	bv_sat.h \
 	bv_sat.cpp \
-	theory_bv_utils.h \
+	bitblast_strategies.h \
+	bitblast_strategies.cpp \
 	theory_bv.h \
 	theory_bv.cpp \
 	theory_bv_rewrite_rules.h \
@@ -25,10 +23,4 @@ libbv_la_SOURCES = \
 	theory_bv_rewriter.cpp \
 	cd_set_collection.h 
 
-libbv_la_LIBADD = \
-	@builddir@/picosat/libpicosat.la \
-	@builddir@/bvminisat/libbvminisat.la
-
-
 EXTRA_DIST = kinds
-SUBDIRS = bvminisat picosat

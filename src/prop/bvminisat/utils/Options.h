@@ -17,17 +17,17 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#ifndef Minisat_Options_h
-#define Minisat_Options_h
+#ifndef BVMinisat_Options_h
+#define BVMinisat_Options_h
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
 
-#include "theory/bv/bvminisat/mtl/IntTypes.h"
-#include "theory/bv/bvminisat/mtl/Vec.h"
-#include "theory/bv/bvminisat/utils/ParseUtils.h"
+#include "prop/bvminisat/mtl/IntTypes.h"
+#include "prop/bvminisat/mtl/Vec.h"
+#include "prop/bvminisat/utils/ParseUtils.h"
 
 namespace BVMinisat {
 

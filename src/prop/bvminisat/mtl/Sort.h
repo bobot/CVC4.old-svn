@@ -18,8 +18,8 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#ifndef Minisat_Sort_h
-#define Minisat_Sort_h
+#ifndef BVMinisat_Sort_h
+#define BVMinisat_Sort_h
 
 #include "mtl/Vec.h"
 

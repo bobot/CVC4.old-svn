@@ -18,14 +18,14 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#ifndef Minisat_Vec_h
-#define Minisat_Vec_h
+#ifndef BVMinisat_Vec_h
+#define BVMinisat_Vec_h
 
 #include <assert.h>
 #include <new>
 
-#include "theory/bv/bvminisat/mtl/IntTypes.h"
-#include "theory/bv/bvminisat/mtl/XAlloc.h"
+#include "prop/bvminisat/mtl/IntTypes.h"
+#include "prop/bvminisat/mtl/XAlloc.h"
 
 namespace BVMinisat {
 

@@ -18,10 +18,10 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#ifndef Minisat_Heap_h
-#define Minisat_Heap_h
+#ifndef BVMinisat_Heap_h
+#define BVMinisat_Heap_h
 
-#include "theory/bv/bvminisat/mtl/Vec.h"
+#include "prop/bvminisat/mtl/Vec.h"
 
 namespace BVMinisat {
 

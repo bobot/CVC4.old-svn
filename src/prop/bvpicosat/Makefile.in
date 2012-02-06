@@ -35,7 +35,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-subdir = src/theory/bv/picosat
+subdir = src/prop/bvpicosat
 DIST_COMMON = README $(srcdir)/Makefile.am $(srcdir)/Makefile.in NEWS
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/config/antlr.m4 \
@@ -338,9 +338,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/theory/bv/picosat/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/prop/bvpicosat/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu src/theory/bv/picosat/Makefile
+	  $(AUTOMAKE) --gnu src/prop/bvpicosat/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

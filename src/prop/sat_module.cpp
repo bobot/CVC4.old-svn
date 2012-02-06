@@ -35,6 +35,157 @@ string SatLiteral::toString() {
   return os.str(); 
 }
 
+MinisatSatSolver::MinisatSatSolver() :
+  d_minisat(new BVMinisat::SimpSolver())
+{
+  d_statistics.init(d_minisat); 
+}
+
+void MinisatSatSolver::addClause(SatClause& clause, bool removable) {
+  Debug("sat::minisat") << "Add clause " << clause <<"\n"; 
+  BVMinisat::vec<BVMinisat::Lit> minisat_clause;
+  toMinisatClause(clause, minisat_clause); 
+  d_minisat->addClause(minisat_clause);
+}
+
+SatVariable MinisatSatSolver::newVar(bool freeze){
+  return d_minisat->newVar(true, true, freeze);
+}
+
+void MinisatSatSolver::markUnremovable(SatLiteral lit){
+  d_minisat->setFrozen(BVMinisat::var(toMinisatLit(lit)), true);
+}
+ 
+void MinisatSatSolver::interrupt(){
+  d_minisat->interrupt(); 
+}
+
+SatLiteralValue MinisatSatSolver::solve(){
+  return toSatLiteralValue(d_minisat->solve()); 
+}
+
+SatLiteralValue MinisatSatSolver::solve(long unsigned int& resource){
+  Trace("limit") << "MinisatSatSolver::solve(): have limit of " << resource << " conflicts" << std::endl;
+  if(resource == 0) {
+    d_minisat->budgetOff();
+  } else {
+    d_minisat->setConfBudget(resource);
+  }
+  BVMinisat::vec<BVMinisat::Lit> empty;
+  unsigned long conflictsBefore = d_minisat->conflicts;
+  SatLiteralValue result = toSatLiteralValue(d_minisat->solveLimited(empty));
+  d_minisat->clearInterrupt();
+  resource = d_minisat->conflicts - conflictsBefore;
+  Trace("limit") << "<MinisatSatSolver::solve(): it took " << resource << " conflicts" << std::endl;
+  return result;
+}
+
+SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assumptions){
+  Debug("sat::minisat") << "Solve with assumptions ";
+  context::CDList<SatLiteral>::const_iterator it = assumptions.begin();
+  BVMinisat::vec<BVMinisat::Lit> assump; 
+  for(; it!= assumptions.end(); ++it) {
+    SatLiteral lit = *it;
+    Debug("sat::minisat") << lit <<" "; 
+    assump.push(toMinisatLit(lit)); 
+  }
+  Debug("sat::minisat") <<"\n";
+  
+ SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump)); 
+ return result;
+}
+
+
+void MinisatSatSolver::getUnsatCore(SatClause& unsatCore) {
+  // TODO add assertion to check the call was after an unsat call
+  for (int i = 0; i < d_minisat->conflict.size(); ++i) {
+    unsatCore.push_back(toSatLiteral(d_minisat->conflict[i])); 
+  }
+}
+
+SatLiteralValue MinisatSatSolver::value(SatLiteral l){
+    Unimplemented();
+    return SatValUnknown; 
+}
+
+SatLiteralValue MinisatSatSolver::modelValue(SatLiteral l){
+    Unimplemented();
+    return SatValUnknown; 
+}
+
+void MinisatSatSolver::unregisterVar(SatLiteral lit) {
+  // this should only be called when user context is implemented
+  // in the BVSatSolver 
+  Unreachable();
+}
+
+void MinisatSatSolver::renewVar(SatLiteral lit, int level) {
+  // this should only be called when user context is implemented
+  // in the BVSatSolver 
+
+  Unreachable(); 
+}
+
+int MinisatSatSolver::getAssertionLevel() const {
+  // we have no user context implemented so far
+  return 0;
+}
+
+// converting from internal Minisat representation
+
+SatVariable MinisatSatSolver::toSatVariable(BVMinisat::Var var) {
+  if (var == var_Undef) {
+    return undefSatVariable; 
+  }
+  return SatVariable(var);
+}
+
+BVMinisat::Lit MinisatSatSolver::toMinisatLit(SatLiteral lit) {
+  if (lit == undefSatLiteral) {
+    return BVMinisat::lit_Undef;
+  }
+  return BVMinisat::mkLit(lit.getSatVariable(), lit.isNegated()); 
+}
+
+SatLiteral MinisatSatSolver::toSatLiteral(BVMinisat::Lit lit) {
+  if (lit == BVMinisat::lit_Undef) {
+    return undefSatLiteral; 
+  }
+  
+  return SatLiteral(SatVariable(BVMinisat::var(lit)),
+                    BVMinisat::sign(lit)); 
+}
+
+SatLiteralValue MinisatSatSolver::toSatLiteralValue(bool res) {
+  if(res) return SatValTrue;
+  else return SatValFalse; 
+}
+
+SatLiteralValue MinisatSatSolver::toSatLiteralValue(BVMinisat::lbool res) {
+  if(res == (BVMinisat::lbool((uint8_t)0))) return SatValTrue;
+  if(res == (BVMinisat::lbool((uint8_t)2))) return SatValUnknown;
+  Assert(res == (BVMinisat::lbool((uint8_t)1)));
+  return SatValFalse; 
+}
+
+void MinisatSatSolver::toMinisatClause(SatClause& clause,
+                                           BVMinisat::vec<BVMinisat::Lit>& minisat_clause) {
+  for (unsigned i = 0; i < clause.size(); ++i) {
+    minisat_clause.push(toMinisatLit(clause[i])); 
+  }
+  Assert(clause.size() == minisat_clause.size()); 
+}
+
+void MinisatSatSolver::toSatClause(BVMinisat::vec<BVMinisat::Lit>& clause,
+                                       SatClause& sat_clause) {
+  for (int i = 0; i < clause.size(); ++i) {
+    sat_clause.push_back(toSatLiteral(clause[i])); 
+  }
+  Assert(clause.size() == sat_clause.size()); 
+}
+
+
+//// DPllMinisatSatSolver
 
 DPLLMinisatSatSolver::DPLLMinisatSatSolver() :
   d_minisat(NULL), 
@@ -75,9 +226,9 @@ SatLiteralValue DPLLMinisatSatSolver::toSatLiteralValue(bool res) {
 }
 
 SatLiteralValue DPLLMinisatSatSolver::toSatLiteralValue(Minisat::lbool res) {
-  if(res == l_True) return SatValTrue;
-  if(res == l_Undef) return SatValUnknown;
-  Assert(res == l_False);
+  if(res == (Minisat::lbool((uint8_t)0))) return SatValTrue;
+  if(res == (Minisat::lbool((uint8_t)2))) return SatValUnknown;
+  Assert(res == (Minisat::lbool((uint8_t)1)));
   return SatValFalse; 
 }
 
@@ -127,11 +278,6 @@ SatVariable DPLLMinisatSatSolver::newVar(bool theoryAtom) {
   return d_minisat->newVar(true, true, theoryAtom);
 }
 
-void DPLLMinisatSatSolver::markUnremovable(SatLiteral lit) {
-  // TODO
-  Unreachable(); 
-}
-
   
 SatLiteralValue DPLLMinisatSatSolver::solve(unsigned long& resource) {
   Trace("limit") << "SatSolver::solve(): have limit of " << resource << " conflicts" << std::endl;
@@ -149,14 +295,9 @@ SatLiteralValue DPLLMinisatSatSolver::solve(unsigned long& resource) {
   return result;
 }
 
-SatLiteralValue DPLLMinisatSatSolver::solve(const std::vector<SatLiteral>& assumptions) {
-  // TODO
-  Unreachable(); 
-}
-
 SatLiteralValue DPLLMinisatSatSolver::solve() {
-  // TODO
-  Unreachable(); 
+  d_minisat->budgetOff();
+  return toSatLiteralValue(d_minisat->solve()); 
 }
 
 
@@ -171,6 +312,7 @@ SatLiteralValue DPLLMinisatSatSolver::value(SatLiteral l) {
 SatLiteralValue DPLLMinisatSatSolver::modelValue(SatLiteral l){
   return toSatLiteralValue(d_minisat->modelValue(toMinisatLit(l)));
 }
+
 
 /** Incremental interface */ 
   
@@ -194,9 +336,9 @@ void DPLLMinisatSatSolver::renewVar(SatLiteral lit, int level) {
   d_minisat->renewVar(toMinisatLit(lit), level);
 }
 
-// MinisatSatSolver* SatSolverFactory::createMinisat() {
-//   return new MinisatSatSolver(); 
-// }
+MinisatSatSolver* SatSolverFactory::createMinisat() {
+  return new MinisatSatSolver(); 
+}
 
 DPLLMinisatSatSolver* SatSolverFactory::createDPLLMinisat(){
   return new DPLLMinisatSatSolver(); 

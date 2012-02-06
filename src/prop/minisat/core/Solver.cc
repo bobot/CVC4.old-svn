@@ -22,8 +22,8 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <iostream>
 
-#include "mtl/Sort.h"
-#include "core/Solver.h"
+#include "prop/minisat/mtl/Sort.h"
+#include "prop/minisat/core/Solver.h"
 
 #include "prop/sat.h"
 #include "prop/sat_module.h"

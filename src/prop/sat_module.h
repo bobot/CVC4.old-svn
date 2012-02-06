@@ -26,9 +26,15 @@
 #include "util/stats.h"
 
 
+// DPLLT Minisat
 #include "prop/minisat/core/Solver.h"
 #include "prop/minisat/core/SolverTypes.h"
 #include "prop/minisat/simp/SimpSolver.h"
+
+// BV Minisat
+#include "prop/bvminisat/core/Solver.h"
+#include "prop/bvminisat/core/SolverTypes.h"
+#include "prop/bvminisat/simp/SimpSolver.h"
 
 
 namespace CVC4 {
@@ -55,19 +61,15 @@ public:
   {}
   
   SatLiteral(SatVariable var, bool negated = false) { d_value = var + var + (int)negated; }
-
   SatLiteral operator~() {
     return SatLiteral(getSatVariable(), !isNegated()); 
   }
-  
   bool operator==(const SatLiteral& other) const {
     return d_value == other.d_value; 
   }
-
   bool operator!=(const SatLiteral& other) const {
     return !(*this == other); 
   }
-  
   std::string toString();
   bool isNegated() const { return d_value & 1; }
   size_t toHash() const {return (size_t)d_value; }
@@ -87,6 +89,8 @@ struct SatLiteralHashFunction {
 
 typedef std::vector<SatLiteral> SatClause;
 
+
+
 class SatSolverInterface {
 public:  
   /** Virtual destructor to make g++ happy */
@@ -98,18 +102,13 @@ public:
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
 
-  /** Mark the literal as unremovable */
-  virtual void markUnremovable(SatLiteral lit) = 0; 
-  
+ 
   /** Check the satisfiability of the added clauses */
   virtual SatLiteralValue solve() = 0;
 
   /** Check the satisfiability of the added clauses */
   virtual SatLiteralValue solve(long unsigned int&) = 0;
   
-  /** Check the satisfiability of the added clauses with the following literals as assumptions */ 
-  virtual SatLiteralValue solve(const std::vector<SatLiteral>& assumptions) = 0; 
-
   /** Interrupt the solver */
   virtual void interrupt() = 0;
 
@@ -119,32 +118,44 @@ public:
   /** Call modelValue() when the search is done.*/
   virtual SatLiteralValue modelValue(SatLiteral l) = 0;
 
+  virtual void unregisterVar(SatLiteral lit) = 0;
+  
+  virtual void renewVar(SatLiteral lit, int level = -1) = 0;
+
+  virtual int getAssertionLevel() const = 0;
+
 };
+
+
+class BVSatSolverInterface: public SatSolverInterface {
+public:
+  virtual SatLiteralValue solve(const context::CDList<SatLiteral> & assumptions) = 0;
+
+  virtual void markUnremovable(SatLiteral lit) = 0;
+
+  virtual void getUnsatCore(SatClause& unsatCore) = 0; 
+}; 
 
 
 class DPLLSatSolverInterface: public SatSolverInterface {
 public:
   virtual void initialize(context::Context* context, prop::TheoryProxy* theoryProxy) = 0; 
   
-  virtual int getAssertionLevel() const = 0;
-  
   virtual void push() = 0;
 
   virtual void pop() = 0;
-
-  virtual void unregisterVar(SatLiteral lit) = 0;
-
-  virtual void renewVar(SatLiteral lit, int level = -1) = 0;
 
 }; 
 
 // toodo add ifdef
 
 
-class MinisatSatSolver: public SatSolverInterface {
-  
+class MinisatSatSolver: public BVSatSolverInterface {
+  BVMinisat::SimpSolver* d_minisat; 
+
+  MinisatSatSolver();
 public:
-  MinisatSatSolver(); 
+  ~MinisatSatSolver() {delete d_minisat;}
   void addClause(SatClause& clause, bool removable);
 
   SatVariable newVar(bool theoryAtom = false);
@@ -153,14 +164,94 @@ public:
  
   void interrupt();
 
+  SatLiteralValue solve();
+  SatLiteralValue solve(long unsigned int&);
+  SatLiteralValue solve(const context::CDList<SatLiteral> & assumptions);
+  void getUnsatCore(SatClause& unsatCore); 
+  
   SatLiteralValue value(SatLiteral l);
-
   SatLiteralValue modelValue(SatLiteral l);
 
+
+  void unregisterVar(SatLiteral lit);
+  void renewVar(SatLiteral lit, int level = -1);
+  int getAssertionLevel() const;
+
+  // helper methods for converting from the internal Minisat representation
+
+  static SatVariable     toSatVariable(BVMinisat::Var var); 
+  static BVMinisat::Lit    toMinisatLit(SatLiteral lit);
+  static SatLiteral      toSatLiteral(BVMinisat::Lit lit);
+  static SatLiteralValue toSatLiteralValue(bool res);
+  static SatLiteralValue toSatLiteralValue(BVMinisat::lbool res);
+ 
+  static void  toMinisatClause(SatClause& clause, BVMinisat::vec<BVMinisat::Lit>& minisat_clause);
+  static void  toSatClause    (BVMinisat::vec<BVMinisat::Lit>& clause, SatClause& sat_clause); 
+
+
+  class Statistics {
+  public:
+    ReferenceStat<uint64_t> d_statStarts, d_statDecisions;
+    ReferenceStat<uint64_t> d_statRndDecisions, d_statPropagations;
+    ReferenceStat<uint64_t> d_statConflicts, d_statClausesLiterals;
+    ReferenceStat<uint64_t> d_statLearntsLiterals,  d_statMaxLiterals;
+    ReferenceStat<uint64_t> d_statTotLiterals;
+    ReferenceStat<int> d_statEliminatedVars;
+    Statistics() :
+      d_statStarts("theory::bv::bvminisat::starts"),
+      d_statDecisions("theory::bv::bvminisat::decisions"),
+      d_statRndDecisions("theory::bv::bvminisat::rnd_decisions"),
+      d_statPropagations("theory::bv::bvminisat::propagations"),
+      d_statConflicts("theory::bv::bvminisat::conflicts"),
+      d_statClausesLiterals("theory::bv::bvminisat::clauses_literals"),
+      d_statLearntsLiterals("theory::bv::bvminisat::learnts_literals"),
+      d_statMaxLiterals("theory::bv::bvminisat::max_literals"),
+      d_statTotLiterals("theory::bv::bvminisat::tot_literals"),
+      d_statEliminatedVars("theory::bv::bvminisat::eliminated_vars")
+    {
+      StatisticsRegistry::registerStat(&d_statStarts);
+      StatisticsRegistry::registerStat(&d_statDecisions);
+      StatisticsRegistry::registerStat(&d_statRndDecisions);
+      StatisticsRegistry::registerStat(&d_statPropagations);
+      StatisticsRegistry::registerStat(&d_statConflicts);
+      StatisticsRegistry::registerStat(&d_statClausesLiterals);
+      StatisticsRegistry::registerStat(&d_statLearntsLiterals);
+      StatisticsRegistry::registerStat(&d_statMaxLiterals);
+      StatisticsRegistry::registerStat(&d_statTotLiterals);
+      StatisticsRegistry::registerStat(&d_statEliminatedVars);
+    }
+    ~Statistics() {
+      StatisticsRegistry::unregisterStat(&d_statStarts);
+      StatisticsRegistry::unregisterStat(&d_statDecisions);
+      StatisticsRegistry::unregisterStat(&d_statRndDecisions);
+      StatisticsRegistry::unregisterStat(&d_statPropagations);
+      StatisticsRegistry::unregisterStat(&d_statConflicts);
+      StatisticsRegistry::unregisterStat(&d_statClausesLiterals);
+      StatisticsRegistry::unregisterStat(&d_statLearntsLiterals);
+      StatisticsRegistry::unregisterStat(&d_statMaxLiterals);
+      StatisticsRegistry::unregisterStat(&d_statTotLiterals);
+      StatisticsRegistry::unregisterStat(&d_statEliminatedVars);
+    }
+    
+    void init(BVMinisat::SimpSolver* minisat){
+      d_statStarts.setData(minisat->starts);
+      d_statDecisions.setData(minisat->decisions);
+      d_statRndDecisions.setData(minisat->rnd_decisions);
+      d_statPropagations.setData(minisat->propagations);
+      d_statConflicts.setData(minisat->conflicts);
+      d_statClausesLiterals.setData(minisat->clauses_literals);
+      d_statLearntsLiterals.setData(minisat->learnts_literals);
+      d_statMaxLiterals.setData(minisat->max_literals);
+      d_statTotLiterals.setData(minisat->tot_literals);
+      d_statEliminatedVars.setData(minisat->eliminated_vars);
+    }
+  };
+  
+  Statistics d_statistics;
+  friend class SatSolverFactory;
 }; 
 
 
- 
 // class PicosatSatSolver: public SatSolverInterface {
   
 // public:
@@ -218,12 +309,8 @@ public:
 
   SatVariable newVar(bool theoryAtom = false);
 
-  void markUnremovable(SatLiteral lit); 
-  
   SatLiteralValue solve();
   SatLiteralValue solve(long unsigned int&); 
-  SatLiteralValue solve(const std::vector<SatLiteral>& assumptions);
-  
 
   void interrupt();
 

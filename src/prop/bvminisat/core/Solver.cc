@@ -140,6 +140,7 @@ Var Solver::newVar(bool sign, bool dvar)
     decision .push();
     trail    .capacity(v+1);
     setDecisionVar(v, dvar);
+
     return v;
 }
 
@@ -936,3 +937,4 @@ void Solver::garbageCollect()
                ca.size()*ClauseAllocator::Unit_Size, to.size()*ClauseAllocator::Unit_Size);
     to.moveTo(ca);
 }
+

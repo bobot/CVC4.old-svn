@@ -18,11 +18,11 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 **************************************************************************************************/
 
-#ifndef Minisat_SimpSolver_h
-#define Minisat_SimpSolver_h
+#ifndef BVMinisat_SimpSolver_h
+#define BVMinisat_SimpSolver_h
 
-#include "theory/bv/bvminisat/mtl/Queue.h"
-#include "theory/bv/bvminisat/core/Solver.h"
+#include "prop/bvminisat/mtl/Queue.h"
+#include "prop/bvminisat/core/Solver.h"
 #include "util/stats.h"
 
 namespace BVMinisat {
@@ -39,7 +39,7 @@ class SimpSolver : public Solver {
 
     // Problem specification:
     //
-    Var     newVar    (bool polarity = true, bool dvar = true);
+    Var     newVar    (bool polarity = true, bool dvar = true, bool freeze = false);
     bool    addClause (const vec<Lit>& ps);
     bool    addEmptyClause();                // Add the empty clause to the solver.
     bool    addClause (Lit p);               // Add a unit clause to the solver.

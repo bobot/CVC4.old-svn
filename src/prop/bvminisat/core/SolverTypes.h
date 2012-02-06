@@ -23,11 +23,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <assert.h>
 
-#include "theory/bv/bvminisat/mtl/IntTypes.h"
-#include "theory/bv/bvminisat/mtl/Alg.h"
-#include "theory/bv/bvminisat/mtl/Vec.h"
-#include "theory/bv/bvminisat/mtl/Map.h"
-#include "theory/bv/bvminisat/mtl/Alloc.h"
+#include "prop/bvminisat/mtl/IntTypes.h"
+#include "prop/bvminisat/mtl/Alg.h"
+#include "prop/bvminisat/mtl/Vec.h"
+#include "prop/bvminisat/mtl/Map.h"
+#include "prop/bvminisat/mtl/Alloc.h"
 
 namespace BVMinisat {
 

@@ -76,7 +76,7 @@ SimpSolver::~SimpSolver()
 }
 
 
-Var SimpSolver::newVar(bool sign, bool dvar) {
+Var SimpSolver::newVar(bool sign, bool dvar, bool freeze) {
     Var v = Solver::newVar(sign, dvar);
 
     frozen    .push((char)false);
@@ -88,8 +88,12 @@ Var SimpSolver::newVar(bool sign, bool dvar) {
         occurs    .init(v);
         touched   .push(0);
         elim_heap .insert(v);
+        if (freeze) {
+          setFrozen(v, true); 
+        }
     }
-    return v; }
+    return v;
+}
 
 
 
