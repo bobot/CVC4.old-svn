@@ -11,9 +11,14 @@
 ;;define length
 (declare-fun length (list) Int)
 
-(assert (forall ((?l list)) (! (= (length nil) 0) :rewrite-rule)))
+(assert (forall ((?l list)) (! (=> (= ?l nil) (= (length ?l) 0)) :rewrite-rule)))
 
-(assert (forall ((?e Int) (?l list)) (! (= (length (cons ?e ?l)) (+ (length ?l) 1)) :rewrite-rule)))
+(assert (forall ((?e Int) (?l list) (?l2 list)) (! (=> (= ?l2 (cons ?e ?l)) (= (length ?l2) (+ (length ?l) 1))) :rewrite-rule)))
+
+;;(assert (forall ((?l list)) (=> (= ?l nil) (= (length ?l) 0))))
+
+;;(assert (forall ((?e Int) (?l list) (?l2 list)) (=> (= ?l2 (cons ?e ?l)) (= (length ?l2) (+ (length ?l) 1)))))
+
 
 (assert (= (length (cons 1 (cons  2 (cons 3 nil)))) 3))
 
