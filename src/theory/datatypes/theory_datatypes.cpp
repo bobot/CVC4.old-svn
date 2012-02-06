@@ -54,8 +54,8 @@ Node TheoryDatatypes::getConstructorForSelector( Node sel )
 }
 
 
-TheoryDatatypes::TheoryDatatypes(Context* c, UserContext* u, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_DATATYPES, c, u, out, valuation),
+TheoryDatatypes::TheoryDatatypes(Context* c, UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
+  Theory(THEORY_DATATYPES, c, u, out, valuation, qe),
   d_currAsserts(c),
   d_currEqualities(c),
   d_selectors(c),
@@ -72,7 +72,7 @@ TheoryDatatypes::TheoryDatatypes(Context* c, UserContext* u, OutputChannel& out,
   d_disequalities(c),
   d_em(c),
   d_cce(&d_cc){
-
+  d_inst = new InstantiatorTheoryDatatypes( c, qe, this );
 }
 
 
@@ -1066,9 +1066,4 @@ bool TheoryDatatypes::searchForCycle( Node n, Node on,
     }
   }
   return false;
-}
-
-Instantiator* TheoryDatatypes::makeInstantiator(){
-  Debug("quant-datatypes") << "Make Datatypes instantiator" << endl;
-  return new InstantiatorTheoryDatatypes( getContext(), d_instEngine, this );
 }

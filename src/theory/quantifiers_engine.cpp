@@ -24,9 +24,9 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-Instantiator::Instantiator(context::Context* c, QuantifiersEngine* ie, Theory* th) : 
+Instantiator::Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th) : 
 d_status( InstStrategy::STATUS_UNFINISHED ),
-d_instEngine( ie ),
+d_quantEngine( qe ),
 d_th( th ){
 
 }
@@ -36,22 +36,18 @@ Instantiator::~Instantiator(){
 
 void Instantiator::doInstantiation( int effort ){
   d_status = InstStrategy::STATUS_SAT;
-  for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
-        it != d_instEngine->d_inst_constants.end(); ++it ){
-    if( d_instEngine->getActive( it->first ) && hasConstraintsFrom( it->first ) ){
-      //d_instEngine->d_hasInstantiated.find( it->first )==d_instEngine->d_hasInstantiated.end()
-      int d_quantStatus = process( it->first, effort );
+  for( int q=0; q<d_quantEngine->getNumQuantifiers(); q++ ){
+    Node f = d_quantEngine->getQuantifier( q );
+    if( d_quantEngine->getActive( f ) && hasConstraintsFrom( f ) ){
+      int d_quantStatus = process( f, effort );
       InstStrategy::updateStatus( d_status, d_quantStatus );
       for( int i=0; i<(int)d_instStrategies.size(); i++ ){
         if( isActiveStrategy( d_instStrategies[i] ) ){
           Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
           //call the instantiation strategy's process method
-          d_quantStatus = d_instStrategies[i]->process( it->first, effort );
+          d_quantStatus = d_instStrategies[i]->process( f, effort );
           Debug("inst-engine-inst") << "  -> status is " << d_quantStatus << std::endl;
           InstStrategy::updateStatus( d_status, d_quantStatus );
-          //if( d_instEngine->d_hasInstantiated.find( it->first )!=d_instEngine->d_hasInstantiated.end() ){
-          //  break;
-          //}
         }
       }
     }
@@ -68,10 +64,10 @@ void Instantiator::resetInstantiationStrategies(){
 
 void Instantiator::setHasConstraintsFrom( Node f ){
   d_hasConstraints[f] = true;
-  if( d_instEngine->d_owner.find( f )==d_instEngine->d_owner.end() ){
-    d_instEngine->d_owner[f] = getTheory();
-  }else if( d_instEngine->d_owner[f]!=getTheory() ){
-    d_instEngine->d_owner[f] = NULL;
+  if( !d_quantEngine->hasOwner( f ) ){
+    d_quantEngine->setOwner( f, getTheory() );
+  }else if( d_quantEngine->getOwner( f )!=getTheory() ){
+    d_quantEngine->setOwner( f, NULL );
   }
 }
 
@@ -80,17 +76,50 @@ bool Instantiator::hasConstraintsFrom( Node f ) {
 }
 
 bool Instantiator::isOwnerOf( Node f ){
-  return d_instEngine->d_owner.find( f )!=d_instEngine->d_owner.end() &&
-         d_instEngine->d_owner[f]==getTheory();
+  return d_quantEngine->hasOwner( f ) && d_quantEngine->getOwner( f )==getTheory();
 }
 
 QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_active( c ){
-  for(unsigned theoryId = 0; theoryId < theory::THEORY_LAST; ++theoryId) {
-    d_instTable[theoryId] = NULL;
-  }
   d_eq_query = NULL;
+}
+
+Instantiator* QuantifiersEngine::getInstantiator( int id ){
+  return d_te->getTheory( id )->getInstantiator();
+}
+
+void QuantifiersEngine::check( Theory::Effort e ){
+  if( e==Theory::FULL_EFFORT ){
+    ++(d_statistics.d_instantiation_rounds);
+  }
+  //std::cout << "Instantiation Round" << std::endl;
+  for( int i=0; i<(int)d_modules.size(); i++ ){
+    d_modules[i]->check( e );
+  }
+}
+void QuantifiersEngine::registerQuantifier( Node f ){
+  if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
+    d_quants.push_back( f );
+    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+      d_vars[f].push_back( f[0][i] );
+      //make instantiation constants
+      Node ic = NodeManager::currentNM()->mkInstConstant( f[0][i].getType() );
+      d_inst_constants_map[ic] = f;
+      d_inst_constants[ f ].push_back( ic );
+    }
+    Assert( f.getKind()==FORALL );
+    for( int i=0; i<(int)d_modules.size(); i++ ){
+      d_modules[i]->registerQuantifier( f );
+    }
+  }
+}
+
+void QuantifiersEngine::assertNode( Node f ){
+  Assert( f.getKind()==FORALL );
+  for( int i=0; i<(int)d_modules.size(); i++ ){
+    d_modules[i]->assertNode( f );
+  }
 }
 
 bool QuantifiersEngine::addLemma( Node lem ){
@@ -220,6 +249,13 @@ bool QuantifiersEngine::addSplitEquality( Node n1, Node n2, bool reqPhase, bool 
   return addSplit( fm );
 }
 
+void QuantifiersEngine::flushLemmas( OutputChannel* out ){
+  for( int i=0; i<(int)d_lemmas_waiting.size(); i++ ){
+    out->lemma( d_lemmas_waiting[i] );
+  }
+  d_lemmas_waiting.clear();
+}
+
 Node QuantifiersEngine::getSkolemizedBody( Node f ){
   Assert( f.getKind()==FORALL );
   if( d_skolem_body.find( f )==d_skolem_body.end() ){
@@ -227,8 +263,6 @@ Node QuantifiersEngine::getSkolemizedBody( Node f ){
       Node skv = NodeManager::currentNM()->mkSkolem( f[0][i].getType() );
       d_skolem_constants[ f ].push_back( skv );
     }
-    std::vector< Node > vars;
-    getVariablesFor( f, vars );
     d_skolem_body[ f ] = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(), 
                                             d_skolem_constants[ f ].begin(), d_skolem_constants[ f ].end() );
     if( f.hasAttribute(InstLevelAttribute()) ){
@@ -238,47 +272,9 @@ Node QuantifiersEngine::getSkolemizedBody( Node f ){
   return d_skolem_body[ f ];
 }
 
-void QuantifiersEngine::getVariablesFor( Node f, std::vector< Node >& vars )
-{
-  Assert( vars.empty() );
-  Assert( f.getKind()==FORALL || ( f.getKind()==NOT && f[0].getKind()==FORALL ) );
-  Node quant = ( f.getKind()==kind::NOT ? f[0] : f );
-  if( d_vars.find( quant )==d_vars.end() ){
-    for( int i=0; i<(int)quant[0].getNumChildren(); i++ ){
-      vars.push_back( quant[0][i] );
-    }
-    d_vars[ quant ].insert( d_vars[ quant ].begin(), vars.begin(), vars.end() );
-  }else{
-    vars.insert( vars.begin(), d_vars[ quant ].begin(), d_vars[ quant ].end() );
-  }
-}
-
-void QuantifiersEngine::check( Theory::Effort e ){
-  if( e==Theory::FULL_EFFORT ){
-    ++(d_statistics.d_instantiation_rounds);
-  }
-  //set up the equality query object
-  if( !d_eq_query ){
-    d_eq_query = new uf::EqualityQueryInstantiatorTheoryUf( ((uf::InstantiatorTheoryUf*)d_instTable[theory::THEORY_UF]) );
-  }
-  //std::cout << "Instantiation Round" << std::endl;
-  d_hasInstantiated.clear();
-  for( int i=0; i<(int)d_modules.size(); i++ ){
-    d_modules[i]->check( e );
-  }
-}
-void QuantifiersEngine::registerQuantifier( Node f ){
-  Assert( f.getKind()==FORALL );
-  for( int i=0; i<(int)d_modules.size(); i++ ){
-    d_modules[i]->registerQuantifier( f );
-  }
-}
-
-void QuantifiersEngine::assertNode( Node f ){
-  Assert( f.getKind()==FORALL );
-  for( int i=0; i<(int)d_modules.size(); i++ ){
-    d_modules[i]->assertNode( f );
-  }
+Node QuantifiersEngine::getSubstitutedNode( Node n, Node f ){
+  return n.substitute( d_vars[f].begin(), d_vars[f].end(), 
+                       d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() ); 
 }
 
 void QuantifiersEngine::setInstantiationLevel( Node n, uint64_t level ){

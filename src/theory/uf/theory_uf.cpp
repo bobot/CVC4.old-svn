@@ -28,8 +28,8 @@ namespace theory {
 namespace uf {
 
 /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_UF, c, u, out, valuation),
+TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
+  Theory(THEORY_UF, c, u, out, valuation, qe),
   d_notify(*this),
   //AJR-hack
   d_thss( c, u, out, this ),
@@ -58,6 +58,8 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   }else{
     d_equalityEngine.d_thss = NULL;
   }
+  d_inst = new InstantiatorTheoryUf( c, qe, this );
+  qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( (InstantiatorTheoryUf*)d_inst ) );
   //AJR-hack-end
 }/* TheoryUF::TheoryUF() */
 
@@ -574,11 +576,6 @@ void TheoryUF::computeCareGraph(CareGraph& careGraph) {
     }
   }
 }/* TheoryUF::computeCareGraph() */
-
-Instantiator* TheoryUF::makeInstantiator(){
-  Debug("quant-uf") << "Make UF instantiator" << endl;
-  return new InstantiatorTheoryUf( getContext(), d_instEngine, this );
-}
 
 //AJR-hack
 UfTermDb* TheoryUF::getTermDatabase(){

@@ -228,9 +228,6 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_theoryEngine->addTheory<theory::quantifiers::TheoryQuantifiers>(theory::THEORY_QUANTIFIERS);
   d_theoryEngine->addTheory<theory::uf::TheoryUF>(theory::THEORY_UF);
 
-  //set the instantiator for all theories
-  d_theoryEngine->makeInstantiators();
-
   d_propEngine = new PropEngine(d_theoryEngine, d_context);
   d_theoryEngine->setPropEngine(d_propEngine);
 

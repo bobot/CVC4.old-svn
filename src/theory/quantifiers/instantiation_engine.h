@@ -37,13 +37,15 @@ private:
   BoolMap d_forall_asserts;
   /** status */
   int d_status;
+private:
   /** do instantiation round */
   bool doInstantiationRound();
-private:
   /** register term, f is the quantifier it belongs to */
   void registerTerm( Node n, Node f );
   /** compute phase requirements */
   void computePhaseReqs( Node n, bool polarity );
+  /** debug sat */
+  void debugSat();
 public:
   InstantiationEngine( TheoryQuantifiers* th );
   ~InstantiationEngine(){}

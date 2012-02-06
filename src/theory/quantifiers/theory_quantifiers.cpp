@@ -40,17 +40,16 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-static bool enableLimit = false; 
-static int limitInst = 20;
-
-TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_QUANTIFIERS, c, u, out, valuation),
+TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
+  Theory(THEORY_QUANTIFIERS, c, u, out, valuation, qe),
   d_exists_asserts(c),
   d_counterexample_asserts(c),
   d_numRestarts(0){
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
-  d_firstTime = true;
+  qe->addModule( new InstantiationEngine( this ) );
+  qe->addModule( new RewriteEngine( this ) );   
+  d_inst = new InstantiatorTheoryQuantifiers( c, qe, this );
 }
 
 
@@ -71,9 +70,6 @@ void TheoryQuantifiers::notifyEq(TNode lhs, TNode rhs) {
 
 void TheoryQuantifiers::preRegisterTerm(TNode n) {  
   Debug("quantifiers-prereg") << "TheoryQuantifiers::preRegisterTerm() " << n << endl;
-  //if( n.getKind()==FORALL ){
-  //  d_out->requirePhase( n, false );
-  //}
 }
 
 
@@ -100,11 +96,6 @@ Node TheoryQuantifiers::getValue(TNode n) {
 }
 
 void TheoryQuantifiers::check(Effort e) {
-  if( d_firstTime ){
-    d_instEngine->addModule( new InstantiationEngine( this ) );
-    d_instEngine->addModule( new RewriteEngine( this ) );   
-    d_firstTime = false;
-  }
 
   Debug("quantifiers-check") << "quantifiers::check(" << e << ")" << std::endl;
   while(!done()) {
@@ -146,20 +137,14 @@ void TheoryQuantifiers::check(Effort e) {
     }
   }
   //call the quantifiers engine to check
-  d_instEngine->check( e );
-  //if( e == FULL_EFFORT ) {
-  //  fullEffortCheck();
-  //}
+  d_quantEngine->check( e );
 }
 
 void TheoryQuantifiers::assertUniversal( Node n ){
   Assert( n.getKind()==FORALL );
   if( !n.hasAttribute(InstConstantAttribute()) ){
-    if( d_registered.find( n )==d_registered.end() ){
-      d_instEngine->registerQuantifier( n );
-      d_registered[n] = true;
-    }
-    d_instEngine->assertNode( n );
+    d_quantEngine->registerQuantifier( n );
+    d_quantEngine->assertNode( n );
   }
 }
 
@@ -168,13 +153,13 @@ void TheoryQuantifiers::assertExistential( Node n ){
   if( !isRewriteKind( n[0][1].getKind() ) ){    //do not skolemize under any condition
     if( !n[0].hasAttribute(InstConstantAttribute()) ){
       if( d_skolemized.find( n )==d_skolemized.end() ){
-        Node body = d_instEngine->getSkolemizedBody( n[0] );
+        d_quantEngine->registerQuantifier( n[0] );
+        Node body = d_quantEngine->getSkolemizedBody( n[0] );
         NodeBuilder<> nb(kind::OR);
         nb << n[0] << body.notNode();
         Node lem = nb;
         Debug("quantifiers-sk") << "Skolemize lemma : " << lem << std::endl;
         d_out->lemma( lem );
-
         d_skolemized[n] = true;
       }
       d_exists_asserts[n] = true;
@@ -192,11 +177,6 @@ void TheoryQuantifiers::assertCounterexample( Node n ){
   }
 }
 
-Instantiator* TheoryQuantifiers::makeInstantiator(){
-  Debug("quant-quant") << "Make Quantifiers instantiator" << endl;
-  return new InstantiatorTheoryQuantifiers( getContext(), d_instEngine, this );
-}
-
 bool TheoryQuantifiers::flipDecision(){
 #ifndef USE_FLIP_DECISION
   return false;
@@ -205,15 +185,8 @@ bool TheoryQuantifiers::flipDecision(){
   //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
   //  Debug("quantifiers-flip") << "   " << d_valuation.getDecision( i ) << std::endl;
   //}
-  if( enableLimit && d_numInstantiations==limitInst ){
-    if( d_baseDecLevel>0 ){
-      d_out->flipDecision( (unsigned int)d_baseDecLevel );
-    }
-    d_baseDecLevel = -1;
-  }else{
-    if( !d_out->flipDecision() ){
-      return restart();
-    }
+  if( !d_out->flipDecision() ){
+    return restart();
   }
   return true;
 #endif

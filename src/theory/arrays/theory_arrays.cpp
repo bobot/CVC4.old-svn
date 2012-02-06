@@ -32,8 +32,8 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::arrays;
 
 
-TheoryArrays::TheoryArrays(Context* c, UserContext* u, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_ARRAY, c, u, out, valuation),
+TheoryArrays::TheoryArrays(Context* c, UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
+  Theory(THEORY_ARRAY, c, u, out, valuation, qe),
   d_ccChannel(this),
   d_cc(c, &d_ccChannel),
   d_unionFind(c),

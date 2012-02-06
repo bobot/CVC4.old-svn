@@ -37,8 +37,8 @@ int InstStrategyCheckCESolved::process( Node f, int effort ){
   if( effort==0 ){
     d_th->d_baseMatch.clear();
     //check if any instantiation constants are solved for
-    for( int j = 0; j<(int)d_instEngine->getNumInstantiationConstants( f ); j++ ){
-      Node i = d_instEngine->getInstantiationConstant( f, j );
+    for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
+      Node i = d_quantEngine->getInstantiationConstant( f, j );
       Node rep = d_th->getInternalRepresentative( i );
       if( !rep.hasAttribute(InstConstantAttribute()) ){
         d_th->d_baseMatch.setMatch( i, rep );
@@ -46,10 +46,10 @@ int InstStrategyCheckCESolved::process( Node f, int effort ){
     }
     //check if f is counterexample-solved
     if( d_th->d_baseMatch.isComplete( f ) ){
-      if( d_instEngine->addInstantiation( f, &d_th->d_baseMatch ) ){
+      if( d_quantEngine->addInstantiation( f, &d_th->d_baseMatch ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_ce_solved);
-        d_instEngine->d_hasInstantiated[f] = true;
+        //d_quantEngine->d_hasInstantiated[f] = true;
       }
     } 
   }
@@ -74,7 +74,7 @@ int InstStrategyLitMatch::process( Node f, int effort ){
         //if( d_lit_match_triggers.find( f )!=d_lit_match_triggers.end() && d_lit_match_triggers[ f ] ){
         //  delete d_lit_match_triggers[ f ];
         //}
-        d_lit_match_triggers[ f ] = new Trigger( d_instEngine, f, pats, true );
+        d_lit_match_triggers[ f ] = new Trigger( d_quantEngine, f, pats, true );
       }else{
         d_lit_match_triggers[ f ] = NULL;
       }
@@ -90,7 +90,7 @@ int InstStrategyLitMatch::process( Node f, int effort ){
       if( d_lit_match_triggers[ f ]->addInstantiation( d_th->d_baseMatch, false, triggerThreshLit ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_e_induced);
-        d_instEngine->d_hasInstantiated[f] = true;
+        //d_quantEngine->d_hasInstantiated[f] = true;
       }
     }
     Debug("quant-uf-debug") << "done." << std::endl;
@@ -119,7 +119,7 @@ int InstStrategyUserPatterns::process( Node f, int effort ){
       if( getUserGenerator( f, i )->addInstantiation( d_th->d_baseMatch ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_user_pattern);
-        d_instEngine->d_hasInstantiated[f] = true;
+        //d_quantEngine->d_hasInstantiated[f] = true;
       }
     }
     Debug("quant-uf-debug") << "done." << std::endl;
@@ -137,7 +137,7 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
   for( int i=0; i<(int)pat.getNumChildren(); i++ ){
     nodes.push_back( pat[i] );
   }
-  d_user_gen[f].push_back( new Trigger( d_instEngine, f, nodes, true ) );
+  d_user_gen[f].push_back( new Trigger( d_quantEngine, f, nodes, true ) );
 }
 
 void InstStrategyAutoGenTriggers::resetInstantiationRound(){
@@ -160,7 +160,7 @@ int InstStrategyAutoGenTriggers::process( Node f, int effort ){
       Debug("quant-uf-debug")  << "done reset" << std::endl;
       if( getAutoGenTrigger( f )->addInstantiation( d_th->d_baseMatch, false, triggerThresh ) ){
         ++(d_th->d_statistics.d_instantiations);
-        d_instEngine->d_hasInstantiated[f] = true;
+        //d_quantEngine->d_hasInstantiated[f] = true;
       }
       Debug("quant-uf-debug") << "done." << std::endl;
       //std::cout << "done" << std::endl;
@@ -199,10 +199,10 @@ void InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< 
 Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
   if( d_auto_gen_trigger.find( f )==d_auto_gen_trigger.end() ){
     std::vector< Node > patTerms;
-    collectPatTerms( f, d_instEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );
+    collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );
     //std::cout << "patTerms = " << (int)patTerms.size() << std::endl;
     if( !patTerms.empty() ){
-      d_auto_gen_trigger[f] = new Trigger( d_instEngine, f, patTerms, true );
+      d_auto_gen_trigger[f] = new Trigger( d_quantEngine, f, patTerms, true );
     }else{
       d_auto_gen_trigger[f] = NULL;
     }
@@ -222,10 +222,10 @@ int InstStrategyFreeVariable::process( Node f, int effort ){
       d_guessed[f] = true;
       Debug("quant-uf-alg") << "Add guessed instantiation" << std::endl;
       InstMatch m;
-      if( d_instEngine->addInstantiation( f, &m ) ){
+      if( d_quantEngine->addInstantiation( f, &m ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_guess);
-        d_instEngine->d_hasInstantiated[f] = true;
+        //d_quantEngine->d_hasInstantiated[f] = true;
       }
     }
     return STATUS_UNKNOWN;
@@ -418,21 +418,20 @@ void InstantiatorTheoryUf::debugPrint( const char* c )
   }
 
 
-  for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
-        it != d_instEngine->d_inst_constants.end(); ++it ){
-    Node f = it->first;
+  for( int q = 0; q<d_quantEngine->getNumQuantifiers(); q++ ){
+    Node f = d_quantEngine->getQuantifier( q );
     Debug( c ) << f;
-    if( !d_instEngine->getActive( f ) ){
+    if( !d_quantEngine->getActive( f ) ){
       Debug( c ) << " (***inactive***)";
     }
     Debug( c ) << std::endl;
     Debug( c ) << "   Inst constants:" << std::endl;
     Debug( c ) << "      ";
-    for( int i=0; i<(int)d_instEngine->getNumInstantiationConstants( f ); i++ ){
+    for( int i=0; i<(int)d_quantEngine->getNumInstantiationConstants( f ); i++ ){
       if( i>0 ){
         Debug( c ) << ", ";
       }
-      Debug( c ) << d_instEngine->getInstantiationConstant( f, i );
+      Debug( c ) << d_quantEngine->getInstantiationConstant( f, i );
       //if(d_terms_full.find( it->second[i] )==d_terms_full.end()){
       //  Debug( c ) << " (inactive)";
       //}
@@ -450,7 +449,6 @@ void InstantiatorTheoryUf::debugPrint( const char* c )
       }
     }
   }
-
   Debug( c ) << std::endl;
 
 }

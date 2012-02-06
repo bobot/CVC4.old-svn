@@ -42,8 +42,6 @@ private:
   BoolMap d_exists_asserts;
   /** list of counterexamples currently asserted */
   BoolMap d_counterexample_asserts;
-  /** quantifiers that have been abstractly instantiated */
-  std::map< Node, bool > d_registered;
   /** quantifiers that have been skolemized */
   std::map< Node, bool > d_skolemized;
   /** number of instantiations */
@@ -51,10 +49,8 @@ private:
   int d_baseDecLevel;
   /** number of restarts */
   int d_numRestarts;
-  /** first time */
-  bool d_firstTime;
 public:
-  TheoryQuantifiers(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  TheoryQuantifiers(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe );
   ~TheoryQuantifiers();
 
   void addSharedTerm(TNode t);
@@ -65,7 +61,6 @@ public:
   Node getValue(TNode n);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
-  Instantiator* makeInstantiator();
   bool flipDecision();
 private:
   void assertUniversal( Node n );

@@ -38,16 +38,16 @@ int InstantiatorDefault::process( Node f, int effort ){
   }else if( effort==4 ){
     Debug("quant-default") << "Process " << f << " : " << std::endl;
     InstMatch m;
-    for( int j=0; j<(int)d_instEngine->getNumInstantiationConstants( f ); j++ ){
-      Node i = d_instEngine->getInstantiationConstant( f, j );
+    for( int j=0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
+      Node i = d_quantEngine->getInstantiationConstant( f, j );
       Debug("quant-default") << "Getting value for " << i << std::endl;
-      if( d_instEngine->getTheoryEngine()->theoryOf( i )==getTheory() ){    //if it belongs to this theory
+      if( d_quantEngine->getTheoryEngine()->theoryOf( i )==getTheory() ){    //if it belongs to this theory
         Node val = d_th->getValue( i );
         Debug("quant-default") << "Default Instantiate for " << d_th->getId() << ", setting " << i << " = " << val << std::endl;
         m.setMatch( i, val );
       }
     }
-    d_instEngine->addInstantiation( f, &m );
+    d_quantEngine->addInstantiation( f, &m );
   }
   return InstStrategy::STATUS_UNKNOWN;
 }

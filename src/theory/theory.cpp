@@ -47,14 +47,6 @@ std::ostream& operator<<(std::ostream& os, Theory::Effort level){
   return os;
 }/* ostream& operator<<(ostream&, Theory::Effort) */
 
-Instantiator* Theory::makeInstantiator(){
-  return new InstantiatorDefault( d_context, d_instEngine, this );
-}
-
-Instantiator* Theory::getInstantiator(){
-  return d_instEngine ? d_instEngine->getInstantiator( this ) : NULL;
-}
-
 void Theory::addSharedTermInternal(TNode n) {
   Debug("sharing") << "Theory::addSharedTerm<" << getId() << ">(" << n << ")" << std::endl;
   d_sharedTerms.push_back(n);

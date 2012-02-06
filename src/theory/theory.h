@@ -154,7 +154,7 @@ protected:
    * Construct a Theory.
    */
   Theory(TheoryId id, context::Context* context, context::UserContext* userContext,
-         OutputChannel& out, Valuation valuation) throw() :
+         OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) throw() :
     d_id(id),
     d_context(context),
     d_userContext(userContext),
@@ -163,7 +163,9 @@ protected:
     d_sharedTermsIndex(context, 0),
     d_sharedTerms(context),
     d_out(&out),
-    d_valuation(valuation)
+    d_valuation(valuation),
+    d_quantEngine(qe),
+    d_inst(NULL)
   {
   }
 
@@ -190,9 +192,14 @@ protected:
   Valuation d_valuation;
 
   /**
-   * reference to the instantiation engine
+   * reference to the quantifiers engine
    */
-  QuantifiersEngine* d_instEngine;
+  QuantifiersEngine* d_quantEngine;
+
+  /**
+   * reference to the instantiator object
+   */
+  Instantiator* d_inst;
 
   /**
    * Returns the next assertion in the assertFact() queue.
@@ -386,8 +393,13 @@ public:
    * Get the quantifiers engine associated to this theory.
    */
   QuantifiersEngine* getQuantifiersEngine(){
-    return d_instEngine;
+    return d_quantEngine;
   }
+
+  /**
+   * Get the theory instantiator
+   */
+  Instantiator* getInstantiator() { return d_inst; }
 
   /**
    * Pre-register a term.  Done one time for a Node, ever.
@@ -569,15 +581,6 @@ public:
    * etc..)
    */
   virtual std::string identify() const = 0;
-
-  /**
-   * Get the associated theory instantiator
-   */
-  virtual Instantiator* makeInstantiator();
-  /**
-   * Get the theory instantiator
-   */
-  Instantiator* getInstantiator();
 
   /** A set of theories */
   typedef uint32_t Set;

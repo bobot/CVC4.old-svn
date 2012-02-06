@@ -57,8 +57,8 @@ using namespace CVC4::theory::arith;
 
 static const uint32_t RESET_START = 2;
 
-TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
-  Theory(THEORY_ARITH, c, u, out, valuation),
+TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
+  Theory(THEORY_ARITH, c, u, out, valuation, qe),
   d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
@@ -78,7 +78,9 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_simplex(d_propManager, d_partialModel, d_tableau),
   d_DELTA_ZERO(0),
   d_statistics()
-{}
+{
+  d_inst = new InstantiatorTheoryArith( c, qe, this );
+}
 
 TheoryArith::~TheoryArith(){}
 
@@ -1199,9 +1201,3 @@ EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
   }
 
 }
-
-Instantiator* TheoryArith::makeInstantiator(){
-  Debug("quant-arith") << "Make Arith instantiator" << endl;
-  return new InstantiatorTheoryArith( getContext(), d_instEngine, this );
-}
-

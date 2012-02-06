@@ -48,15 +48,15 @@ int InstantiatorTheoryDatatypes::process( Node f, int effort ){
     return InstStrategy::STATUS_UNFINISHED;
   }else if( effort==2 ){
     InstMatch m;
-    for( int j = 0; j<(int)d_instEngine->getNumInstantiationConstants( f ); j++ ){
-      Node i = d_instEngine->getInstantiationConstant( f, j );
+    for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
+      Node i = d_quantEngine->getInstantiationConstant( f, j );
       if( i.getType().isDatatype() ){
         Node n = getValueFor( i );
         Debug("quant-datatypes-debug") << "Value for " << i << " is " << n << std::endl;
         m.setMatch( i, n );
       }
     }
-    d_instEngine->addInstantiation( f, &m );
+    d_quantEngine->addInstantiation( f, &m );
   }
   return InstStrategy::STATUS_UNKNOWN;
 }

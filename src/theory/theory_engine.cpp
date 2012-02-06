@@ -65,7 +65,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
     d_theoryOut[theoryId] = NULL;
   }
   //initialize the instantiation engine
-  d_instEngine = new QuantifiersEngine( context, this );
+  d_quantEngine = new QuantifiersEngine( context, this );
   Rewriter::init();
 }
 
@@ -539,15 +539,6 @@ Node TheoryEngine::preprocess(TNode assertion) {
 
   // Return the substituted version
   return d_atomPreprocessingCache[assertion];
-}
-
-void TheoryEngine::makeInstantiators(){
-  for( int i=0; i<theory::THEORY_LAST; i++ ){
-    if( d_theoryTable[i] ){
-      d_theoryTable[i]->d_instEngine = d_instEngine;
-      d_instEngine->d_instTable[i] = d_theoryTable[i]->makeInstantiator();
-    }
-  }
 }
 
 void TheoryEngine::assertFact(TNode node)

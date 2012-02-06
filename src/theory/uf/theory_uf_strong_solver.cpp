@@ -1109,8 +1109,8 @@ int InstStrategyFinteModelFind::process( Node f, int effort ){
   }else if( effort==1 ){
     StrongSolverTheoryUf* ss = ((TheoryUF*)d_th)->getStrongSolver();
     if( d_inst_group[f].empty() || d_inst_group[f].back()->d_ra!=d_curr_ra ){
-      for( int i=0; i<d_instEngine->getNumInstantiationConstants( f ); i++ ){
-        TypeNode tn = d_instEngine->getInstantiationConstant( f, i ).getType();
+      for( int i=0; i<d_quantEngine->getNumInstantiationConstants( f ); i++ ){
+        TypeNode tn = d_quantEngine->getInstantiationConstant( f, i ).getType();
         if( d_curr_ra->d_type_reps.find( tn )==d_curr_ra->d_type_reps.end() ){
           std::vector< Node > reps;
           ss->getRepresentatives( tn, reps );
@@ -1130,9 +1130,9 @@ int InstStrategyFinteModelFind::process( Node f, int effort ){
       //if successful, add instantiation 
       if( !pi->isFinished() ){
         InstMatch m;
-        pi->getMatch( d_instEngine, m );
+        pi->getMatch( d_quantEngine, m );
         pi->increment();
-        if( d_instEngine->addInstantiation( f, &m ) ){
+        if( d_quantEngine->addInstantiation( f, &m ) ){
           addedLemma = true;
         }
       }

@@ -56,9 +56,9 @@ public:
   };/* enum Effort */
 protected:
   /** reference to the instantiation engine */
-  QuantifiersEngine* d_instEngine;
+  QuantifiersEngine* d_quantEngine;
 public:
-  InstStrategy( QuantifiersEngine* ie ) : d_instEngine( ie ){}
+  InstStrategy( QuantifiersEngine* ie ) : d_quantEngine( ie ){}
   virtual ~InstStrategy(){}
 
   /** reset instantiation */
@@ -86,7 +86,7 @@ private:
   int d_status;
 protected:
   /** reference to the instantiation engine */
-  QuantifiersEngine* d_instEngine;
+  QuantifiersEngine* d_quantEngine;
   /** reference to the theory that it looks at */
   Theory* d_th;
   /** instantiation strategies */
@@ -118,7 +118,7 @@ public:
   /** process quantifier */
   virtual int process( Node f, int effort ) { return InstStrategy::STATUS_SAT; }
 public:
-  Instantiator(context::Context* c, QuantifiersEngine* ie, Theory* th);
+  Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th);
   ~Instantiator();
 
   /** get corresponding theory for this instantiator */
@@ -135,16 +135,6 @@ public:
   /** get status */
   int getStatus() { return d_status; }
 };/* class Instantiator */
-
-class InstantiatorDefault;
-namespace uf {
-  class InstantiatorTheoryUf;
-}
-namespace arith {
-  class InstantiatorTheoryArith;
-}
-
-class QuantifiersEngine;
 
 class QuantifiersModule
 {
@@ -164,16 +154,10 @@ namespace quantifiers{
 
 class QuantifiersEngine
 {
-  friend class Instantiator;
-  friend class ::CVC4::TheoryEngine;
-  friend class uf::InstantiatorTheoryUf;
-  friend class arith::InstantiatorTheoryArith;
   friend class quantifiers::InstantiationEngine;
   friend class quantifiers::RewriteEngine;
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
-  /** theory instantiator objects for each theory */
-  theory::Instantiator* d_instTable[theory::THEORY_LAST];
   /** reference to theory engine object */
   TheoryEngine* d_te;
   /** vector of modules for quantifiers */
@@ -181,6 +165,8 @@ private:
   /** equality query class */
   EqualityQuery* d_eq_query;
 
+  /** list of all quantifiers */
+  std::vector< Node > d_quants;
   /** map from universal quantifiers to the list of variables */
   std::map< Node, std::vector< Node > > d_vars;
   /** map from universal quantifiers to the list of skolem constants */
@@ -195,8 +181,6 @@ private:
   std::map< Node, Node > d_counterexample_body;
   /** map from universal quantifiers to their counterexample literals */
   std::map< Node, Node > d_ce_lit;
-  /** is clausal */
-  std::map< Node, bool > d_is_clausal;
   /** map from quantifiers to whether they are active */
   BoolMap d_active;
   /** lemmas produced */
@@ -211,23 +195,30 @@ private:
   std::map< Node, Node > d_free_vars;
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
+private:
   /** set instantiation level */
   void setInstantiationLevel( Node n, uint64_t level );
 public:
   QuantifiersEngine(context::Context* c, TheoryEngine* te);
   ~QuantifiersEngine();
-  
-  theory::Instantiator* getInstantiator( Theory* t ) { return d_instTable[t->getId()]; }
-  theory::Instantiator* getInstantiator( int i ) { return d_instTable[i]; }
+  /** get instantiator for id */
+  Instantiator* getInstantiator( int id );
+  /** get theory engine */
   TheoryEngine* getTheoryEngine() { return d_te; }
-
+  /** get equality query object */
+  EqualityQuery* getEqualityQuery() { return d_eq_query; }
+  /** set equality query object */
+  void setEqualityQuery( EqualityQuery* eq ) { d_eq_query = eq; }
+public:
+  /** add module */
+  void addModule( QuantifiersModule* qm ) { d_modules.push_back( qm ); }
   /** check at level */
   void check( Theory::Effort e );
   /** register quantifier */
   void registerQuantifier( Node f );
   /** assert (universal) quantifier */
   void assertNode( Node f );
-
+public:
   /** add lemma lem */
   bool addLemma( Node lem );
   /** instantiate f with arguments terms */
@@ -238,13 +229,15 @@ public:
   bool addSplit( Node n, bool reqPhase = false, bool reqPhasePol = true );
   /** add split equality */
   bool addSplitEquality( Node n1, Node n2, bool reqPhase = false, bool reqPhasePol = true );
-
-  /** get the ce body f[e/x] */
-  Node getCounterexampleBody( Node f ) { return d_counterexample_body[ f ]; }
-  /** get the skolemized body f[e/x] */
-  Node getSkolemizedBody( Node f );
-  /** get the quantified variables for quantifier f */
-  void getVariablesFor( Node f, std::vector< Node >& vars );
+  /** has added lemma */
+  bool hasAddedLemma() { return !d_lemmas_waiting.empty(); }
+  /** flush lemmas */
+  void flushLemmas( OutputChannel* out );
+public:
+  /** get number of quantifiers */
+  int getNumQuantifiers() { return (int)d_quants.size(); }
+  /** get quantifier */
+  Node getQuantifier( int i ) { return d_quants[i]; }
   /** get instantiation constants */
   void getInstantiationConstantsFor( Node f, std::vector< Node >& ics ) { 
     ics.insert( ics.begin(), d_inst_constants[f].begin(), d_inst_constants[f].end() ); 
@@ -253,27 +246,34 @@ public:
   Node getInstantiationConstant( Node f, int i ) { return d_inst_constants[f][i]; }
   /** get number of instantiation constants for f */
   int getNumInstantiationConstants( Node f ) { return (int)d_inst_constants[f].size(); }
-
+public:
+  /** get the ce body f[e/x] */
+  Node getCounterexampleBody( Node f ) { return d_counterexample_body[ f ]; }
   /** get the corresponding counterexample literal for quantified formula node n */
   Node getCounterexampleLiteralFor( Node f ) { return d_ce_lit[ f ]; }
+  /** get the skolemized body f[e/x] */
+  Node getSkolemizedBody( Node f );
   /** set active */
   void setActive( Node n, bool val ) { d_active[n] = val; }
   /** get active */
-  bool getActive( Node n ) { return d_active[n]; }
+  bool getActive( Node n ) { return d_active.find( n )!=d_active.end() && d_active[n]; }
   /** is phase required */
   bool isPhaseReq( Node lit ) { return d_phase_reqs.find( lit )!=d_phase_reqs.end(); }
   /** get phase requirement */
   bool getPhaseReq( Node lit ) { return d_phase_reqs.find( lit )==d_phase_reqs.end() ? false : d_phase_reqs[ lit ]; }
-  /** has added lemma */
-  bool hasAddedLemma() { return !d_lemmas_waiting.empty(); }
-
+public:
+  /** returns node n with bound vars of f replaced by instantiation constants of f */
+  Node getSubstitutedNode( Node n, Node f );
   /** get free variable for instantiation constant */
   Node getFreeVariableForInstConstant( Node n );
-  /** get equality query object */
-  EqualityQuery* getEqualityQuery() { return d_eq_query; }
 public:
-  /** add module */
-  void addModule( QuantifiersModule* qm ) { d_modules.push_back( qm ); }
+  /** has owner */
+  bool hasOwner( Node f ) { return d_owner.find( f )!=d_owner.end(); }
+  /** get owner */
+  Theory* getOwner( Node f ) { return d_owner[f]; }
+  /** set owner */
+  void setOwner( Node f, Theory* t ) { d_owner[f] = t; }
+public:
   /** statistics class */
   class Statistics {
   public:
@@ -291,9 +291,6 @@ public:
     ~Statistics();
   };
   Statistics d_statistics;
-  /** has instantiated */
-  std::map< Node, bool > d_hasInstantiated;
-
 };/* class QuantifiersEngine */
 
 }/* CVC4::theory namespace */

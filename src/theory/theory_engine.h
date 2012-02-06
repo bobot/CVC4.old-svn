@@ -107,7 +107,7 @@ class TheoryEngine {
   /**
    * The instantiation engine
    */
-  theory::QuantifiersEngine* d_instEngine;
+  theory::QuantifiersEngine* d_quantEngine;
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
 
@@ -453,7 +453,7 @@ public:
   inline void addTheory(theory::TheoryId theoryId) {
     Assert(d_theoryTable[theoryId] == NULL && d_theoryOut[theoryId] == NULL);
     d_theoryOut[theoryId] = new EngineOutputChannel(this, theoryId);
-    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this));
+    d_theoryTable[theoryId] = new TheoryClass(d_context, d_userContext, *d_theoryOut[theoryId], theory::Valuation(this), d_quantEngine);
   }
 
   /**
@@ -485,7 +485,7 @@ public:
    * Get a pointer to the instantiation engine
    */
   theory::QuantifiersEngine* getQuantifiersEngine() const {
-    return d_instEngine;
+    return d_quantEngine;
   }
 
 
@@ -598,8 +598,6 @@ public:
 
   Node getValue(TNode node);
 
-  void makeInstantiators();
-
   /**
    * Get the theory associated to a given Node.
    *
@@ -620,6 +618,11 @@ public:
    */
   inline theory::Theory* theoryOf(theory::TheoryId theoryId) {
     return d_theoryTable[theoryId];
+  }
+
+  /** Get the theory for id */
+  theory::Theory* getTheory( int id ){
+    return d_theoryTable[id];
   }
 
   /**

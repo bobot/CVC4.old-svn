@@ -120,7 +120,7 @@ private:
 public:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
-  TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
+  TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe);
 
   void check(Effort);
   void propagate(Effort);
@@ -139,11 +139,8 @@ public:
     return "THEORY_UF";
   }
 
-  Instantiator* makeInstantiator();
-
   //AJR-hack
   UfTermDb* getTermDatabase();
-
   StrongSolverTheoryUf* getStrongSolver() { return &d_thss; }
   //AJR-hack-end
 };/* class TheoryUF */

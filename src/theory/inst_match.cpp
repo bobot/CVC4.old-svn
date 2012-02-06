@@ -540,7 +540,7 @@ bool InstMatchGenerator::calculateNextMatch( EqualityQuery* q ){
 std::map< Node, std::vector< Node > > Trigger::d_var_contains;
 
 /** trigger class constructor */
-Trigger::Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, bool keepAll ) : d_instEngine( ie ), d_f( f ){
+Trigger::Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, bool keepAll ) : d_quantEngine( ie ), d_f( f ){
   if( keepAll ){
     d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
   }else{
@@ -555,7 +555,7 @@ Trigger::Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, boo
 }
 
 /** trigger class constructor */
-Trigger::Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& candidates, Trigger* prev ) : d_instEngine( ie ), d_f( f ){
+Trigger::Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& candidates, Trigger* prev ) : d_quantEngine( ie ), d_f( f ){
   Debug("trigger") << "constructing trigger..." << std::endl;
   //make this the next unique trigger from prev
   if( prev->d_nodes.size()==candidates.size() ){
@@ -605,7 +605,7 @@ bool Trigger::addNode( Node n ){
 
 Trigger* Trigger::getNextTrigger(){
   if( !d_next && d_valid ){
-    d_next = new Trigger( d_instEngine, d_f, d_candidates, this );
+    d_next = new Trigger( d_quantEngine, d_f, d_candidates, this );
   }
   return d_next;
 }
@@ -658,7 +658,7 @@ InstMatchGenerator* Trigger::mkMatchGenerator( QuantifiersEngine* ie, Node f, No
 }
 
 void Trigger::resetInstantiationRound(){
-  EqualityQuery* q = d_instEngine->getEqualityQuery();
+  EqualityQuery* q = d_quantEngine->getEqualityQuery();
   d_mg->resetInstantiationRound( q );
   if( d_next ){
     d_next->resetInstantiationRound();
@@ -681,7 +681,7 @@ bool Trigger::addInstantiation( InstMatch& baseMatch, bool addSplits, int trigge
       temp.add( baseMatch );
       Debug("trigger") << "trigger: add instantiation..." << std::endl;
 #if 1
-      if( d_instEngine->addInstantiation( d_f, &temp, addSplits ) ){
+      if( d_quantEngine->addInstantiation( d_f, &temp, addSplits ) ){
         Debug("trigger") << "Trigger success, trigger was ";
         for( int i=0; i<(int)d_nodes.size(); i++ ){
           Debug("trigger") << d_nodes[i] << " ";
@@ -690,7 +690,7 @@ bool Trigger::addInstantiation( InstMatch& baseMatch, bool addSplits, int trigge
         return true;
       }
 #elif 0
-      if( d_instEngine->addInstantiation( d_f, &temp, addSplits ) ){
+      if( d_quantEngine->addInstantiation( d_f, &temp, addSplits ) ){
         if( d_mg->d_operation==2 && d_mg->d_index<d_mg->d_children.size() ){
           //move to next index
           d_mg->d_index++;
@@ -700,7 +700,7 @@ bool Trigger::addInstantiation( InstMatch& baseMatch, bool addSplits, int trigge
         }
       }
 #else
-      if( d_instEngine->addInstantiation( d_f, &temp, addSplits ) ){
+      if( d_quantEngine->addInstantiation( d_f, &temp, addSplits ) ){
         counter++;
         if( counter>3 ){
           return true;
@@ -735,13 +735,13 @@ InstMatch* Trigger::getCurrent(){
 
 /** get next match */
 bool Trigger::getNextMatch(){
-  EqualityQuery* q = d_instEngine->getEqualityQuery();
+  EqualityQuery* q = d_quantEngine->getEqualityQuery();
   return d_mg->getNextMatch( q );
 }
 
 ////void QuantMatchGenerator::collectLiterals( Node n, std::vector< Node >& litPatTerms, bool reqPol, bool polarity ){
 ////  //check if this is a literal
-////  if( d_instEngine->getTheoryEngine()->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
+////  if( d_quantEngine->getTheoryEngine()->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
 ////    if( std::find( litPatTerms.begin(), litPatTerms.end(), n )==litPatTerms.end() ){
 ////      litPatTerms.push_back( n );
 ////    }

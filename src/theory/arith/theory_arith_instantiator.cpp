@@ -41,7 +41,7 @@ int InstStrategySimplex::process( Node f, int effort ){
   }else if( effort==2 ){
     //std::cout << f << std::endl;
     //std::cout << "Num inst rows = " << d_th->d_instRows[f].size() << std::endl;
-    //std::cout << "Num inst constants = " << d_instEngine->getNumInstantiationConstants( f ) << std::endl;
+    //std::cout << "Num inst constants = " << d_quantEngine->getNumInstantiationConstants( f ) << std::endl;
     for( int j=0; j<(int)d_th->d_instRows[f].size(); j++ ){
       ArithVar x = d_th->d_instRows[f][j];
       if( !d_th->d_ceTableaux[x].empty() ){
@@ -86,7 +86,7 @@ int InstStrategySimplexUfMatch::process( Node f, int effort ){
           for( std::map< Node, Node >::iterator it = d_th->d_tableaux_ce_term[x].begin(); it != d_th->d_tableaux_ce_term[x].end(); ++it ){
             terms.push_back( it->first );
           }
-          d_tableaux_ce_term_trigger[x] = new Trigger( d_instEngine, f, terms );
+          d_tableaux_ce_term_trigger[x] = new Trigger( d_quantEngine, f, terms );
         }else{
           d_tableaux_ce_term_trigger[x]->resetInstantiationRound();
         }
@@ -95,7 +95,7 @@ int InstStrategySimplexUfMatch::process( Node f, int effort ){
         while( d_tableaux_ce_term_trigger[x]->getNextMatch() && !addedLemma ){
           InstMatch* m = d_tableaux_ce_term_trigger[x]->getCurrent();
           if( m->isComplete( f ) ){
-            if( d_instEngine->addInstantiation( f, m, true ) ){
+            if( d_quantEngine->addInstantiation( f, m, true ) ){
               ++(d_th->d_statistics.d_instantiations_match_pure);
               ++(d_th->d_statistics.d_instantiations);
               addedLemma = true;  
@@ -108,8 +108,8 @@ int InstStrategySimplexUfMatch::process( Node f, int effort ){
             //Debug("quant-arith") << std::endl;
             std::vector< Node > vars;
             std::vector< Node > matches;
-            for( int i=0; i<d_instEngine->getNumInstantiationConstants( f ); i++ ){
-              Node ic = d_instEngine->getInstantiationConstant( f, i );
+            for( int i=0; i<d_quantEngine->getNumInstantiationConstants( f ); i++ ){
+              Node ic = d_quantEngine->getInstantiationConstant( f, i );
               if( m->d_map[ ic ]!=Node::null() ){
                 vars.push_back( ic );
                 matches.push_back( m->d_map[ ic ] );
@@ -137,7 +137,7 @@ int InstStrategySimplexUfMatch::process( Node f, int effort ){
                 ++(d_th->d_statistics.d_instantiations_match_var);
               }
             }else{
-              if( d_instEngine->addInstantiation( f, m, true ) ){
+              if( d_quantEngine->addInstantiation( f, m, true ) ){
                 addedLemma = true;
                 ++(d_th->d_statistics.d_instantiations_match_no_var);
                 ++(d_th->d_statistics.d_instantiations);
@@ -153,7 +153,7 @@ int InstStrategySimplexUfMatch::process( Node f, int effort ){
 
 InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
-  addInstStrategy( new InstStrategySimplex( this, d_instEngine ) );
+  addInstStrategy( new InstStrategySimplex( this, d_quantEngine ) );
 }
 
 void InstantiatorTheoryArith::check( Node assertion ){
@@ -161,7 +161,7 @@ void InstantiatorTheoryArith::check( Node assertion ){
   if( assertion.hasAttribute(InstConstantAttribute()) &&
       ((TheoryArith*)getTheory())->d_valuation.isDecision( assertion ) ){
     Node f = assertion.getAttribute(InstConstantAttribute());
-    Node cel = d_instEngine->getCounterexampleLiteralFor( f );
+    Node cel = d_quantEngine->getCounterexampleLiteralFor( f );
     bool value;
     //Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );
     if( !((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) ){
@@ -275,16 +275,15 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
   }
   Debug(c) << std::endl;
 
-  for( std::map< Node, std::vector< Node > >::iterator it = d_instEngine->d_inst_constants.begin(); 
-        it != d_instEngine->d_inst_constants.end(); ++it ){
-    Node f = it->first;
+  for( int q=0; q<d_quantEngine->getNumQuantifiers(); q++ ){
+    Node f = d_quantEngine->getQuantifier( q );
     Debug(c) << f << std::endl;
     Debug(c) << "   Inst constants: ";
-    for( int i=0; i<(int)it->second.size(); i++ ){
+    for( int i=0; i<(int)d_quantEngine->getNumInstantiationConstants( f ); i++ ){
       if( i>0 ){
-        Debug(c) << ", ";
+        Debug( c ) << ", ";
       }
-      Debug(c) << it->second[i];
+      Debug( c ) << d_quantEngine->getInstantiationConstant( f, i );
     }
     Debug(c) << std::endl;
     Debug(c) << "   Instantiation rows: ";
@@ -338,7 +337,7 @@ bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, I
   instVal = Rewriter::rewrite( instVal );
   //use as instantiation value for var
   m->setMatch( var, instVal );
-  return d_instEngine->addInstantiation( f, m, true );
+  return d_quantEngine->addInstantiation( f, m, true );
 }
 
 Node InstantiatorTheoryArith::getTableauxValue( Node n, bool minus_delta ){
@@ -376,10 +375,10 @@ Node InstantiatorTheoryArith::getDelta( Node n ){
     Node gt = NodeManager::currentNM()->mkNode( GT, delta, NodeManager::currentNM()->mkConst( Rational(0) ) ); 
     //add split
 #ifdef ARITH_INSTANTIATOR_STRONG_DELTA_LEMMA
-    d_instEngine->addLemma( gt );
+    d_quantEngine->addLemma( gt );
 #else
     gt = Rewriter::rewrite( gt );
-    d_instEngine->addSplit( gt, true, true );
+    d_quantEngine->addSplit( gt, true, true );
 #endif
     return delta;
   }

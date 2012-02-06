@@ -31,7 +31,6 @@ bool InstantiationEngine::doInstantiationRound(){
       getQuantifiersEngine()->getInstantiator( i )->resetInstantiationStrategies();
     }
   }
-  //InstMatchGenerator::resetInstantiationRoundAll( (uf::InstantiatorTheoryUf*)d_instTable[theory::THEORY_UF] );
   int e = 0;
   d_status = InstStrategy::STATUS_UNFINISHED;
   while( d_status==InstStrategy::STATUS_UNFINISHED ){
@@ -45,18 +44,18 @@ bool InstantiationEngine::doInstantiationRound(){
         getQuantifiersEngine()->getInstantiator( i )->doInstantiation( e );
         Debug("inst-engine-debug") << " -> status is " << getQuantifiersEngine()->getInstantiator( i )->getStatus() << std::endl;
         //std::cout << " -> status is " << d_instTable[i]->getStatus() << std::endl;
-        //update status
         InstStrategy::updateStatus( d_status, getQuantifiersEngine()->getInstantiator( i )->getStatus() );
       }
     }
-    if( !getQuantifiersEngine()->d_lemmas_waiting.empty() ){
+    if( getQuantifiersEngine()->hasAddedLemma() ){
       d_status = InstStrategy::STATUS_UNKNOWN;
     }
     e++;
   }
-  Debug("inst-engine") << "All instantiators finished, # added lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+  Debug("inst-engine") << "All instantiators finished, # added lemmas = ";
+  Debug("inst-engine") << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
   //std::cout << "All instantiators finished, # added lemmas = " << (int)d_lemmas_waiting.size() << std::endl;
-  if( getQuantifiersEngine()->d_lemmas_waiting.empty() ){
+  if( !getQuantifiersEngine()->hasAddedLemma() ){
     Debug("inst-engine-stuck") << "No instantiations produced at this state: " << std::endl;
     for( int i=0; i<theory::THEORY_LAST; i++ ){
       if( getQuantifiersEngine()->getInstantiator( i ) ){
@@ -66,10 +65,7 @@ bool InstantiationEngine::doInstantiationRound(){
     }
     return false;
   }else{
-    for( int i=0; i<(int)getQuantifiersEngine()->d_lemmas_waiting.size(); i++ ){
-      d_th->getOutputChannel().lemma( getQuantifiersEngine()->d_lemmas_waiting[i] );
-    }
-    getQuantifiersEngine()->d_lemmas_waiting.clear();
+    getQuantifiersEngine()->flushLemmas( &d_th->getOutputChannel() );
     return true;
   }
 }
@@ -90,7 +86,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     Debug("quantifiers") << "quantifiers: FULL_EFFORT check" << std::endl;
     bool quantActive = false;
     //for each n in d_forall_asserts, 
-    // such that NO_COUNTEREXAMPLE( n ) is not in positive in d_counterexample_asserts
+    // such that the counterexample literal is not in positive in d_counterexample_asserts
     for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
       if( (*i).second ) {
         Node n = (*i).first;
@@ -137,99 +133,72 @@ void InstantiationEngine::check( Theory::Effort e ){
         //if( getQuantifiersEngine()->getStatus()==Instantiator::STATUS_UNKNOWN ){
         d_th->getOutputChannel().setIncomplete();
         //}
-
-        //code for flip decision used to go here....(but it needs to be done after sharing)
-        ////if( getQuantifiersEngine()->getStatus()==Instantiator::STATUS_UNKNOWN ){
-        //  //instantiation did not add a lemma to d_out, try to flip a previous decision
-        //  if( !flipDecision() ){
-        //    //maybe restart?
-        //    restart();
-        //  }else{
-        //    Debug("quantifiers") << "Flipped decision." << std::endl;
-        //  }
-        ////}
       }
     }else{
-      //debugging
-      Debug("quantifiers-sat") << "Decisions:" << std::endl;
-      for( int i=1; i<=(int)d_th->getValuation().getDecisionLevel(); i++ ){
-        Debug("quantifiers-sat") << "   " << i << ": " << d_th->getValuation().getDecision( i ) << std::endl;
-      }
-      for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
-        if( (*i).second ) {
-          Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( (*i).first );
-          bool value;
-          if( d_th->getValuation().hasSatValue( cel, value ) ){
-            if( !value ){
-              if( d_th->getValuation().isDecision( cel ) ){
-                Debug("quantifiers-sat") << "sat, but decided cel=" << cel << std::endl;
-                std::cout << "unknown ";
-                exit( 17 );
-              }
-            }
-          }
-        }
-      }
-      Debug("quantifiers-sat") << "No quantifier is active. " << d_th->getValuation().getDecisionLevel() << std::endl;
-      //static bool setTrust = false;
-      //if( !setTrust ){
-      //  setTrust = true;
-      //  std::cout << "trust-";
-      //}
-      //debugging-end
+      debugSat();
     }
   }
 }
 
 void InstantiationEngine::registerQuantifier( Node f ){
   if( !TheoryQuantifiers::isRewriteKind( f[1].getKind() ) ){
-    if( getQuantifiersEngine()->d_counterexample_body.find( f )==getQuantifiersEngine()->d_counterexample_body.end() ){
-      for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-        Node ic = NodeManager::currentNM()->mkInstConstant( f[0][i].getType() );
-        getQuantifiersEngine()->d_inst_constants_map[ic] = f;
-        getQuantifiersEngine()->d_inst_constants[ f ].push_back( ic );
+    //code for counterexample-based quantifier instantiation
+    Node ceBody = getQuantifiersEngine()->getSubstitutedNode( f[1], f );
+    getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
+    //get the counterexample literal
+    Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
+    getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
+    Debug("quantifiers") << ceLit << " is the ce literal for " << f << std::endl;
+    // set attributes, mark all literals in the body of n as dependent on cel
+    registerTerm( ceLit, f );
+    computePhaseReqs( ceBody, false );
+    //require any decision on cel to be phase=true
+    d_th->getOutputChannel().requirePhase( ceLit, true );
+    Debug("quant-req-phase") << "Require phase " << ceLit << " = true." << std::endl;
+    //add counterexample lemma
+    NodeBuilder<> nb(kind::OR);
+    nb << f << ceLit;
+    Node lem = nb;
+    Debug("quantifiers") << "Counterexample lemma : " << lem << std::endl;
+    d_th->getOutputChannel().lemma( lem );
+    ////mark cel as dependent on n?
+    //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
+    //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
+    //d_out->dependentDecision( quant, cel );
+
+    //take into account user patterns
+    if( f.getNumChildren()==3 ){
+      Node subsPat = getQuantifiersEngine()->getSubstitutedNode( f[2], f );
+      //add patterns
+      for( int i=0; i<(int)subsPat.getNumChildren(); i++ ){
+        registerTerm( subsPat[i], f );
+        //std::cout << "Add pattern " << subsPat[i] << " for " << f << std::endl;
+        ((uf::InstantiatorTheoryUf*)getQuantifiersEngine()->getInstantiator( theory::THEORY_UF ))->addUserPattern( f, subsPat[i] );
       }
-      std::vector< Node > vars;
-      getQuantifiersEngine()->getVariablesFor( f, vars );
-      getQuantifiersEngine()->d_counterexample_body[ f ] = f[ 1 ].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(), 
-                                                            getQuantifiersEngine()->d_inst_constants[ f ].begin(), getQuantifiersEngine()->d_inst_constants[ f ].end() ); 
-
-      //get the counterexample literal
-      getQuantifiersEngine()->d_ce_lit[ f ] = d_th->getValuation().ensureLiteral( getQuantifiersEngine()->d_counterexample_body[ f ].notNode() );
-      Debug("quantifiers") << getQuantifiersEngine()->d_ce_lit[ f ] << " is the ce literal for " << f << std::endl;
-
-      // set attributes, mark all literals in the body of n as dependent on cel
-      registerTerm( getQuantifiersEngine()->d_ce_lit[ f ], f );
-      computePhaseReqs( getQuantifiersEngine()->d_counterexample_body[ f ], false );
-      //require any decision on cel to be phase=true
-      d_th->getOutputChannel().requirePhase( getQuantifiersEngine()->d_ce_lit[ f ], true );
-      Debug("quant-req-phase") << "Require phase " << getQuantifiersEngine()->d_ce_lit[ f ] << " = true." << std::endl;
-
-      //make the match generator
-      if( f.getNumChildren()==3 ){
-        //getCounterexampleBody( f );
-        Node subsPat = f[2].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(), 
-                                        getQuantifiersEngine()->d_inst_constants[ f ].begin(), getQuantifiersEngine()->d_inst_constants[ f ].end() ); 
-
-        //add patterns
-        for( int i=0; i<(int)subsPat.getNumChildren(); i++ ){
-          registerTerm( subsPat[i], f );
-          //std::cout << "Add pattern " << subsPat[i] << " for " << f << std::endl;
-          ((uf::InstantiatorTheoryUf*)getQuantifiersEngine()->getInstantiator( theory::THEORY_UF ))->addUserPattern( f, subsPat[i] );
-        }
-      }
-      NodeBuilder<> nb(kind::OR);
-      nb << f << getQuantifiersEngine()->d_ce_lit[ f ];
-      Node lem = nb;
-      Debug("quantifiers") << "Counterexample instantiation lemma : " << lem << std::endl;
-      d_th->getOutputChannel().lemma( lem );
-      ////mark cel as dependent on n
-      //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-      //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
-      //d_out->dependentDecision( quant, cel );    //FIXME?
     }
   }
 }
+
+void InstantiationEngine::assertNode( Node n ){
+  if( !TheoryQuantifiers::isRewriteKind( n[1].getKind() ) ){
+    d_forall_asserts[n] = true;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void InstantiationEngine::registerTerm( Node n, Node f ){
   if( !n.hasAttribute(InstConstantAttribute()) ){
@@ -286,8 +255,33 @@ void InstantiationEngine::computePhaseReqs( Node n, bool polarity ){
   }
 }
 
-void InstantiationEngine::assertNode( Node n ){
-  if( !TheoryQuantifiers::isRewriteKind( n[1].getKind() ) ){
-    d_forall_asserts[n] = true;
+
+void InstantiationEngine::debugSat(){
+  //debugging
+  Debug("quantifiers-sat") << "Decisions:" << std::endl;
+  for( int i=1; i<=(int)d_th->getValuation().getDecisionLevel(); i++ ){
+    Debug("quantifiers-sat") << "   " << i << ": " << d_th->getValuation().getDecision( i ) << std::endl;
   }
+  for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
+    if( (*i).second ) {
+      Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( (*i).first );
+      bool value;
+      if( d_th->getValuation().hasSatValue( cel, value ) ){
+        if( !value ){
+          if( d_th->getValuation().isDecision( cel ) ){
+            Debug("quantifiers-sat") << "sat, but decided cel=" << cel << std::endl;
+            std::cout << "unknown ";
+            exit( 17 );
+          }
+        }
+      }
+    }
+  }
+  Debug("quantifiers-sat") << "No quantifier is active. " << d_th->getValuation().getDecisionLevel() << std::endl;
+  //static bool setTrust = false;
+  //if( !setTrust ){
+  //  setTrust = true;
+  //  std::cout << "trust-";
+  //}
+  //debugging-end
 }

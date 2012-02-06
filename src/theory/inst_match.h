@@ -181,7 +181,7 @@ private:
   static std::map< Node, std::vector< Node > > d_var_contains;
   static void computeVarContains( Node n ) { computeVarContains2( n, n ); }
   static void computeVarContains2( Node n, Node parent );
-  QuantifiersEngine* d_instEngine;
+  QuantifiersEngine* d_quantEngine;
   Node d_f;
   InstMatchGenerator* d_mg;
   Trigger* d_next;
