@@ -143,14 +143,16 @@ void InstantiationEngine::check( Theory::Effort e ){
 void InstantiationEngine::registerQuantifier( Node f ){
   if( !TheoryQuantifiers::isRewriteKind( f[1].getKind() ) ){
     //code for counterexample-based quantifier instantiation
-    Node ceBody = getQuantifiersEngine()->getSubstitutedNode( f[1], f );
+    Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
+                                   getQuantifiersEngine()->d_inst_constants[f].begin(), 
+                                   getQuantifiersEngine()->d_inst_constants[f].end() );
     getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
     //get the counterexample literal
     Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
     getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
     Debug("quantifiers") << ceLit << " is the ce literal for " << f << std::endl;
     // set attributes, mark all literals in the body of n as dependent on cel
-    registerTerm( ceLit, f );
+    registerLiterals( ceLit, f );
     computePhaseReqs( ceBody, false );
     //require any decision on cel to be phase=true
     d_th->getOutputChannel().requirePhase( ceLit, true );
@@ -171,7 +173,6 @@ void InstantiationEngine::registerQuantifier( Node f ){
       Node subsPat = getQuantifiersEngine()->getSubstitutedNode( f[2], f );
       //add patterns
       for( int i=0; i<(int)subsPat.getNumChildren(); i++ ){
-        registerTerm( subsPat[i], f );
         //std::cout << "Add pattern " << subsPat[i] << " for " << f << std::endl;
         ((uf::InstantiatorTheoryUf*)getQuantifiersEngine()->getInstantiator( theory::THEORY_UF ))->addUserPattern( f, subsPat[i] );
       }
@@ -200,14 +201,14 @@ void InstantiationEngine::assertNode( Node n ){
 
 
 
-void InstantiationEngine::registerTerm( Node n, Node f ){
+void InstantiationEngine::registerLiterals( Node n, Node f ){
   if( !n.hasAttribute(InstConstantAttribute()) ){
     bool setAttr = false;
     if( n.getKind()==INST_CONSTANT ){
       setAttr = true;
     }else{
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        registerTerm( n[i], f );
+        registerLiterals( n[i], f );
         if( n[i].hasAttribute(InstConstantAttribute()) ){
           setAttr = true;
         }

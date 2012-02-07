@@ -40,8 +40,8 @@ private:
 private:
   /** do instantiation round */
   bool doInstantiationRound();
-  /** register term, f is the quantifier it belongs to */
-  void registerTerm( Node n, Node f );
+  /** register literals of n, f is the quantifier it belongs to */
+  void registerLiterals( Node n, Node f );
   /** compute phase requirements */
   void computePhaseReqs( Node n, bool polarity );
   /** debug sat */

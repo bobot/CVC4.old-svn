@@ -196,8 +196,10 @@ private:
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
 private:
-  /** set instantiation level */
-  void setInstantiationLevel( Node n, uint64_t level );
+  /** set instantiation level attr */
+  void setInstantiationLevelAttr( Node n, uint64_t level );
+  /** set instantiation constant attr */
+  void setInstantiationConstantAttr( Node n, Node f );
 public:
   QuantifiersEngine(context::Context* c, TheoryEngine* te);
   ~QuantifiersEngine();

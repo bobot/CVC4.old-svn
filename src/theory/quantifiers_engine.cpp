@@ -177,10 +177,10 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
           maxInstLevel = terms[i].getAttribute(InstLevelAttribute()); 
         }
       }else{
-        setInstantiationLevel( terms[i], 0 );
+        setInstantiationLevelAttr( terms[i], 0 );
       }
     }
-    setInstantiationLevel( body, maxInstLevel+1 );
+    setInstantiationLevelAttr( body, maxInstLevel+1 );
     ++(d_statistics.d_instantiations);
     d_statistics.d_total_inst_var.setData( d_statistics.d_total_inst_var.getData() + (int)terms.size() );
     d_statistics.d_max_instantiation_level.maxAssign( maxInstLevel+1 );
@@ -266,24 +266,47 @@ Node QuantifiersEngine::getSkolemizedBody( Node f ){
     d_skolem_body[ f ] = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(), 
                                             d_skolem_constants[ f ].begin(), d_skolem_constants[ f ].end() );
     if( f.hasAttribute(InstLevelAttribute()) ){
-      setInstantiationLevel( d_skolem_body[ f ], f.getAttribute(InstLevelAttribute()) );
+      setInstantiationLevelAttr( d_skolem_body[ f ], f.getAttribute(InstLevelAttribute()) );
     }
   }
   return d_skolem_body[ f ];
 }
 
 Node QuantifiersEngine::getSubstitutedNode( Node n, Node f ){
-  return n.substitute( d_vars[f].begin(), d_vars[f].end(), 
-                       d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() ); 
+  Node n2 = n.substitute( d_vars[f].begin(), d_vars[f].end(), 
+                          d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() ); 
+  setInstantiationConstantAttr( n2, f );
+  return n2;
 }
 
-void QuantifiersEngine::setInstantiationLevel( Node n, uint64_t level ){
+void QuantifiersEngine::setInstantiationLevelAttr( Node n, uint64_t level ){
   if( !n.hasAttribute(InstLevelAttribute()) ){
     InstLevelAttribute ila;
     n.setAttribute(ila,level);
   }
   for( int i=0; i<(int)n.getNumChildren(); i++ ){
-    setInstantiationLevel( n[i], level );
+    setInstantiationLevelAttr( n[i], level );
+  }
+}
+
+
+void QuantifiersEngine::setInstantiationConstantAttr( Node n, Node f ){
+  if( !n.hasAttribute(InstConstantAttribute()) ){
+    bool setAttr = false;
+    if( n.getKind()==INST_CONSTANT ){
+      setAttr = true;
+    }else{
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        setInstantiationConstantAttr( n[i], f );
+        if( n[i].hasAttribute(InstConstantAttribute()) ){
+          setAttr = true;
+        }
+      }
+    }
+    if( setAttr ){
+      InstConstantAttribute ica;
+      n.setAttribute(ica,f);
+    }
   }
 }
 
