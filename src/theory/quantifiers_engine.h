@@ -141,8 +141,9 @@ class QuantifiersModule
 public:
   QuantifiersModule(){}
   ~QuantifiersModule(){}
-
+  /* Call during check registerQuantifier has already been called */
   virtual void check( Theory::Effort e ) = 0;
+  /* Called for new quantifiers */
   virtual void registerQuantifier( Node n ) = 0;
   virtual void assertNode( Node n ) = 0;
 };
@@ -264,7 +265,12 @@ public:
   /** get phase requirement */
   bool getPhaseReq( Node lit ) { return d_phase_reqs.find( lit )==d_phase_reqs.end() ? false : d_phase_reqs[ lit ]; }
 public:
-  /** returns node n with bound vars of f replaced by instantiation constants of f */
+  /** returns node n with bound vars of f replaced by instantiation constants of f
+      node n : is the futur pattern
+      node f : is the quantifier containing which bind the variable
+      return a pattern where the variable are replaced by variable for
+      instantiation.
+   */
   Node getSubstitutedNode( Node n, Node f );
   /** get free variable for instantiation constant */
   Node getFreeVariableForInstConstant( Node n );

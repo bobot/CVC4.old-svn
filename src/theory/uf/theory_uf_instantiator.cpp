@@ -139,7 +139,7 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
   }
   d_user_gen[f].push_back( new Trigger( d_quantEngine, f, nodes, true ) );
 }
-
+ 
 void InstStrategyAutoGenTriggers::resetInstantiationRound(){
   
 }

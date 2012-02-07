@@ -49,6 +49,7 @@ public:
 class InstMatch
 {
 public:
+    /* map from variable to ground terms */
   std::map< Node, Node > d_map;
   std::map< Node, Node > d_splits;
 
@@ -195,6 +196,11 @@ public:
   std::vector< Node > d_candidates;
   bool addNode( Node n );
 public:
+  /* ie     : quantifier engine;
+     f      : forall something ....
+     nodes  : multi-trigger
+     keepAll: remove unneeded patterns;
+*/
   Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, bool keepAll = true );
   Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& candidates, Trigger* prev );
   ~Trigger(){}
@@ -212,7 +218,9 @@ public:
 public:
   /** get current match */
   InstMatch* getCurrent();
-  /** get next match */
+  /** get next match
+      if true getCurrent can return the next match
+   */
   bool getNextMatch();
 };
 

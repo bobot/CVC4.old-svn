@@ -1,11 +1,12 @@
-/*********************                                                        */
+/*********************                                                       */
 /*! \file rewrite_engine.h
  ** \verbatim
  ** Original author: ajreynol
- ** Major contributors: none
+ ** Major contributors: bobot
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009, 2010, 2011
+ ** The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -30,6 +31,19 @@ namespace quantifiers {
 {
 private:
   TheoryQuantifiers* d_th;
+  /** list of all rewrite rules */
+  std::vector< Node > d_rules;
+
+  /* Function which extract the different part of a rewrite rule */
+  static Node getPattern(QuantifiersEngine* qe, Node r);
+  static std::vector<Node> getSubstitutedGuards
+      (Node r, std::vector< Node > vars, std::vector< Node > match);
+  static Node getSubstitutedBody
+      (Node r, std::vector< Node > vars, std::vector< Node > match);
+
+  /** true for predicate */
+  Node d_true;
+
 public:
   RewriteEngine( TheoryQuantifiers* th );
   ~RewriteEngine(){}

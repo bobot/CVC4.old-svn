@@ -13,7 +13,7 @@
 
 (assert (forall ((?l list)) (! (=> (= ?l nil) (= (length ?l) 0)) :rewrite-rule)))
 
-(assert (forall ((?e Int) (?l list) (?l2 list)) (! (=> (= ?l2 (cons ?e ?l)) (= (length ?l2) (+ (length ?l) 1))) :rewrite-rule)))
+(assert (forall ((?e Int) (?l list)) (! (= (length (cons ?e ?l)) (+ (length ?l) 1)) :rewrite-rule)))
 
 ;;(assert (forall ((?l list)) (=> (= ?l nil) (= (length ?l) 0))))
 
