@@ -12,8 +12,7 @@
  ** information.\endverbatim
  **
  ** \brief Arithmetic theory.
- **
- ** Arithmetic theory.
+ ** ** Arithmetic theory.
  **/
 
 #include "cvc4_private.h"
@@ -58,6 +57,8 @@ namespace arith {
  */
 class TheoryArith : public Theory {
 private:
+
+  bool d_hasDoneWorkSinceCut;
 
   /**
    * The set of atoms that are currently in the context.
@@ -160,6 +161,8 @@ private:
   context::CDO<unsigned int> d_CivIterator;
 
   Node callDioSolver();
+  Node dioCutting();
+
   Comparison mkIntegerEqualityFromAssignment(ArithVar v);
 
   #warning "DO NOT COMMIT TO TRUNK, USE MORE EFFICIENT CHECK INSTEAD"
@@ -284,8 +287,12 @@ private:
    */
   ArithVar determineLeftVariable(TNode assertion, Kind simpleKind);
 
-  /** Splits the disequalities in d_diseq that are violated using lemmas on demand. */
-  void splitDisequalities();
+  /**
+   * Splits the disequalities in d_diseq that are violated using lemmas on demand.
+   * returns true if any lemmas were issued.
+   * returns false if all disequalities are satisified in the current model.
+   */
+  bool splitDisequalities();
 
   /**
    * This requests a new unique ArithVar value for x.

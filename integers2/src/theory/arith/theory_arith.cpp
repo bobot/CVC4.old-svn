@@ -58,6 +58,7 @@ static const uint32_t RESET_START = 2;
 
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, u, out, valuation),
+  d_hasDoneWorkSinceCut(false),
   d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
@@ -599,6 +600,50 @@ Comparison TheoryArith::mkIntegerEqualityFromAssignment(ArithVar v){
   return Comparison::mkComparison(EQUAL, varAsPolynomial, betaAsConstant);
 }
 
+Node TheoryArith::dioCutting(){
+  context::Context::ScopedPush speculativePush(getContext());
+  //DO NOT TOUCH THE OUTPUTSTREAM
+
+  //TODO: Improve this
+  for(ArithVar v = 0, end = d_variables.size(); v != end; ++v){
+    if(isInteger(v)){
+      const DeltaRational& dr = d_partialModel.getAssignment(v);
+      if(d_partialModel.equalsUpperBound(v, dr) || d_partialModel.equalsLowerBound(v, dr)){
+        if(!d_partialModel.boundsAreEqual(v)){
+          // If the bounds are equal this is already in the dioSolver
+          //Add v = dr as a speculation.
+          Comparison eq = mkIntegerEqualityFromAssignment(v);
+          Assert(!eq.isBoolean());
+          d_diosolver.pushInputConstraint(eq, eq.getNode());
+          // It does not matter what the explanation of eq is.
+          // It cannot be used in a conflict
+        }
+      }
+    }
+  }
+
+  SumPair plane = d_diosolver.processEquationsForCut();
+  if(plane.isZero()){
+    return Node::null();
+  }else{
+    Polynomial p = plane.getPolynomial();
+    Constant c = plane.getConstant() * Constant::mkConstant(-1);
+    Integer gcd = p.gcd();
+    Assert(p.isIntegral());
+    Assert(c.isIntegral());
+    Assert(gcd > 1);
+    Assert(!gcd.divides(c.getValue().getNumerator()));
+    Comparison leq = Comparison::mkComparison(LEQ, p, c);
+    Comparison geq = Comparison::mkComparison(GEQ, p, c);
+    Node lemma = NodeManager::currentNM()->mkNode(OR, leq.getNode(), geq.getNode());
+    Node rewrittenLemma = Rewriter::rewrite(lemma);
+    Debug("arith::dio") << "dioCutting found the plane: " << plane.getNode() << endl;
+    Debug("arith::dio") << "resulting in the cut: " << lemma << endl;
+    Debug("arith::dio") << "rewritten " << rewrittenLemma << endl;
+    return rewrittenLemma;
+  }
+}
+
 Node TheoryArith::callDioSolver(){
   while(d_CivIterator < d_constantIntegerVariables.size()){
     ArithVar v = d_constantIntegerVariables[d_CivIterator];
@@ -760,6 +805,7 @@ Node TheoryArith::assertionCases(TNode assertion){
 void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check begun" << std::endl;
 
+  d_hasDoneWorkSinceCut = d_hasDoneWorkSinceCut || !done();
   while(!done()){
 
     Node assertion = get();
@@ -778,6 +824,7 @@ void TheoryArith::check(Effort effortLevel){
     debugPrintAssertions();
   }
 
+  bool emmittedConflictOrSplit = false;
   Node possibleConflict = d_simplex.updateInconsistentVars();
   if(possibleConflict != Node::null()){
     d_partialModel.revertAssignmentChanges();
@@ -785,21 +832,35 @@ void TheoryArith::check(Effort effortLevel){
     Debug("arith::conflict") << "conflict   " << possibleConflict << endl;
 
     d_out->conflict(possibleConflict);
+    emmittedConflictOrSplit = true;
   }else{
     d_partialModel.commitAssignmentChanges();
+  }
 
+  if(!emmittedConflictOrSplit && fullEffort(effortLevel)){
+    emmittedConflictOrSplit = splitDisequalities();
+  }
+
+  if(!emmittedConflictOrSplit && fullEffort(effortLevel)){
     possibleConflict = callDioSolver();
     if(possibleConflict != Node::null()){
       Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
       d_out->conflict(possibleConflict);
-    }else {
-      if (fullEffort(effortLevel)) {
-        splitDisequalities();
-      }
+      emmittedConflictOrSplit = true;
     }
   }
 
-  if(fullEffort(effortLevel) && d_variables.size() > 0) {
+  if(!emmittedConflictOrSplit && fullEffort(effortLevel) && d_hasDoneWorkSinceCut){
+    Node possibleLemma = dioCutting();
+    if(!possibleLemma.isNull()){
+      Debug("arith") << "dio cut   " << possibleLemma << endl;
+      emmittedConflictOrSplit = true;
+      d_hasDoneWorkSinceCut = false;
+      d_out->lemma(possibleLemma);
+    }
+  }
+
+  if(!emmittedConflictOrSplit && fullEffort(effortLevel) && d_variables.size() > 0) {
     const ArithVar rrEnd = d_nextIntegerCheckVar;
     do {
       ArithVar v = d_nextIntegerCheckVar;
@@ -930,7 +991,9 @@ void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check end" << std::endl;
 }
 
-void TheoryArith::splitDisequalities(){
+bool TheoryArith::splitDisequalities(){
+  bool splitSomething = false;
+
   context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
   context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
   for(; it != it_end; ++ it) {
@@ -951,8 +1014,10 @@ void TheoryArith::splitDisequalities(){
       Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
       ++(d_statistics.d_statDisequalitySplits);
       d_out->lemma(lemma);
+      splitSomething = true;
     }
   }
+  return splitSomething;
 }
 
 /**
@@ -964,12 +1029,12 @@ void TheoryArith::debugPrintAssertions() {
   for (ArithVar i = 0; i < d_variables.size(); ++ i) {
     if (d_partialModel.hasLowerBound(i)) {
       Node lConstr = d_partialModel.getLowerConstraint(i);
-      Debug("arith::print_assertions") << lConstr.toString() << endl;
+      Debug("arith::print_assertions") << lConstr << endl;
     }
 
     if (d_partialModel.hasUpperBound(i)) {
       Node uConstr = d_partialModel.getUpperConstraint(i);
-      Debug("arith::print_assertions") << uConstr.toString() << endl;
+      Debug("arith::print_assertions") << uConstr << endl;
     }
   }
   context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
