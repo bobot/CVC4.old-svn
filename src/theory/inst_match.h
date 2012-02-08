@@ -199,7 +199,7 @@ public:
   /* ie     : quantifier engine;
      f      : forall something ....
      nodes  : multi-trigger
-     keepAll: remove unneeded patterns;
+     keepAll: don't remove unneeded patterns;
 */
   Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, bool keepAll = true );
   Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& candidates, Trigger* prev );

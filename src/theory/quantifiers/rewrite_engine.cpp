@@ -12,13 +12,16 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief [[ Add one-line brief description here ]]
+ ** \brief [[ Deals with rewrite rules ]]
  **
  ** [[ Add lengthier description here ]]
  ** \todo document this file
  **/
 
 #include "theory/valuation.h"
+#include "theory/theory_engine.h"
+#include "theory/uf/theory_uf.h"
+#include "theory/uf/theory_uf_instantiator.h"
 #include "theory/quantifiers/rewrite_engine.h"
 
 using namespace std;
@@ -109,6 +112,8 @@ void RewriteEngine::check( Theory::Effort e ){
   Debug("rewriterules") << "check: " << e << std::endl;
   QuantifiersEngine* qe = d_th->getQuantifiersEngine();
   Valuation val = d_th->getValuation();
+  uf::TheoryUF* uf = (uf::TheoryUF*) qe->d_te->getTheory(theory::THEORY_UF);
+  uf::UfTermDb* uf_db = uf->getTermDatabase();
 
   /** Test each rewrite rule */
   for(std::vector<Node>::const_iterator i = d_rules.begin();
@@ -119,7 +124,10 @@ void RewriteEngine::check( Theory::Effort e ){
     Node p = getPattern(qe,r);
     std::vector<Node> pattern; pattern.push_back(p);
     Debug("rewriterules") << "pattern creation:" << p << std::endl;
-    Trigger* tr = new Trigger(qe,r,pattern, false);
+    uf_db->registerTerm(p);
+    Trigger* tr = new Trigger(qe,r,pattern, true);
+    tr->resetInstantiationRound();
+
 
     /** Test the possible matching one by one */
     while(tr->getNextMatch ()){
