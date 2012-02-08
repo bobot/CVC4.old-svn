@@ -34,6 +34,7 @@ using namespace CVC4::theory::quantifiers;
 RewriteEngine::RewriteEngine( TheoryQuantifiers* th ) :
   d_th( th ){
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
+  Debug("rewriterules") << Node::setdepth(-1);
 }
 
 Node RewriteEngine::getPattern(QuantifiersEngine* qe, Node r){
@@ -52,7 +53,7 @@ Node RewriteEngine::getPattern(QuantifiersEngine* qe, Node r){
 }
 
 std::vector<Node> RewriteEngine::getSubstitutedGuards
-(Node r, std::vector< Node > vars, std::vector< Node > match  ){
+(Node r, std::vector< Node > &vars, std::vector< Node > &match  ){
   std::vector<Node> gs;
   Node guard = r[1][0];
   switch(guard.getKind()){
@@ -68,7 +69,7 @@ std::vector<Node> RewriteEngine::getSubstitutedGuards
 }
 
 Node RewriteEngine::getSubstitutedBody
-(Node r, std::vector< Node > vars, std::vector< Node > match){
+(Node r, std::vector< Node > &vars, std::vector< Node > &match){
   std::vector<Node> gs;
   /** todo */
   Assert(r.getKind () == kind::FORALL);
@@ -87,7 +88,7 @@ Node RewriteEngine::getSubstitutedBody
 }
 
 Node RewriteEngine::getSubstitutedLemma
-(Node r, std::vector< Node > vars, std::vector< Node > match){
+(Node r, std::vector< Node > &vars, std::vector< Node > &match){
   std::vector<Node> gs;
   Node lemma;
   Assert(r.getKind () == kind::FORALL);
@@ -135,13 +136,17 @@ void RewriteEngine::check( Theory::Effort e ){
       Debug("rewriterules") << "One matching found" << std::endl;
 
       /* Create the substitution */
-      std::vector<Node> vars = qe->d_vars[r];
       std::vector<Node> subst;
-      im->computeTermVec(qe, vars, subst);
+      im->computeTermVec(qe, qe->d_inst_constants[r], subst);
 
+      Debug("rewriterules") << "subst:";
+      for(int i = 0; i < subst.size(); ++i) {
+        Debug("rewriterules") << qe->d_inst_constants[r][i] << "->" << subst[i]
+                              << std::endl;
+      }
       /* Test the guards */
       bool verified = true;
-      std::vector<Node> gs = getSubstitutedGuards(r, vars, subst);
+      std::vector<Node> gs = getSubstitutedGuards(r, qe->d_vars[r], subst);
       for(std::vector<Node>::iterator g = gs.begin();
           g != gs.end(); ++g) {
         Node value = val.getValue(*g);
@@ -155,9 +160,9 @@ void RewriteEngine::check( Theory::Effort e ){
 
       /* Add a lemmas if the guards are verified */
       if(verified){
-        Debug("rewriterules") << "A rewrite rules is verified"
-                              << std::endl;
-        Node lemma = getSubstitutedLemma(r, vars, subst);
+        Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
+        Node lemma = getSubstitutedLemma(r, qe->d_vars[r], subst);
+        Debug("rewriterules") << lemma << std::endl;
         d_th->getOutputChannel().lemma(lemma);
       }
     }

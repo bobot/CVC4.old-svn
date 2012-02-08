@@ -20,7 +20,7 @@
 ;;(assert (forall ((?e Int) (?l list) (?l2 list)) (=> (= ?l2 (cons ?e ?l)) (= (length ?l2) (+ (length ?l) 1)))))
 
 
-(assert (= (length (cons 1 (cons  2 (cons 3 nil)))) 3))
+(assert (not (= (length (cons 1 (cons  2 (cons 3 nil)))) 3)))
 
 (check-sat)
 (exit)
