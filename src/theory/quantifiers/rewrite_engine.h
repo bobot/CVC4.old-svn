@@ -37,14 +37,16 @@ private:
   /* Function which extract the different part of a rewrite rule */
   static Node getPattern(QuantifiersEngine* qe, Node r);
   static std::vector<Node> getSubstitutedGuards
-      (Node r, std::vector< Node > vars, std::vector< Node > match);
+    (Node r, std::vector< Node > vars, std::vector< Node > match);
   static Node getSubstitutedBody
-      (Node r, std::vector< Node > vars, std::vector< Node > match);
+    (Node r, std::vector< Node > vars, std::vector< Node > match);
+  static Node getSubstitutedLemma
+    (Node r, std::vector< Node > vars, std::vector< Node > match);
 
   /** true for predicate */
   Node d_true;
 
-public:
+ public:
   RewriteEngine( TheoryQuantifiers* th );
   ~RewriteEngine(){}
 
