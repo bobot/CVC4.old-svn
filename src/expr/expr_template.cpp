@@ -207,6 +207,7 @@ Expr Expr::getOperator() const {
 Type Expr::getType(bool check) const throw (TypeCheckingException) {
   ExprManagerScope ems(*this);
   Assert(d_node != NULL, "Unexpected NULL expression pointer!");
+  CheckArgument(!d_node->isNull(), this, "Can't get type of null expression!");
   return d_exprManager->getType(*this, check);
 }
 

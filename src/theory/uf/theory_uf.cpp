@@ -145,8 +145,8 @@ void TheoryUF::propagate(Effort level) {
       } else {
         if (!satValue) {
           Debug("uf") << "TheoryUF::propagate(): in conflict" << std::endl;
-          std::vector<TNode> assumptions; 
           Node negatedLiteral;
+          std::vector<TNode> assumptions;
           if (literal != d_false) {
             negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
             negatedLiteral = Rewriter::rewrite(negatedLiteral);

@@ -552,8 +552,6 @@ std::string EqualityEngine<NotifyClass>::edgesToString(EqualityEdgeId edgeId) co
 template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::explainEquality(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
   Debug("equality") << "EqualityEngine::explainEquality(" << t1 << "," << t2 << ")" << std::endl;
-  Debug("equality") << "true -> " << getRepresentative(d_true) << std::endl;
-  Debug("equality") << "false -> " << getRepresentative(d_false) << std::endl;
 
   Assert(getRepresentative(t1) == getRepresentative(t2),
          "Cannot explain an equality, because the two terms are not equal!\n"
@@ -573,8 +571,6 @@ void EqualityEngine<NotifyClass>::explainEquality(TNode t1, TNode t2, std::vecto
 template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::explainDisequality(TNode t1, TNode t2, std::vector<TNode>& equalities) const {
   Debug("equality") << "EqualityEngine::explainDisequality(" << t1 << "," << t2 << ")" << std::endl;
-  Debug("equality") << "true -> " << getRepresentative(d_true) << std::endl;
-  Debug("equality") << "false -> " << getRepresentative(d_false) << std::endl;
 
   Node equality = t1.eqNode(t2);
 

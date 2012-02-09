@@ -703,9 +703,18 @@ void Solver::propagateTheory() {
   // Doesn't actually call propagate(); that's done in theoryCheck() now that combination
   // is online.  This just incorporates those propagations previously discovered.
   proxy->theoryPropagate(propagatedLiterals);
+  int oldTrailSize = trail.size();
   for (unsigned i = 0, i_end = propagatedLiterals.size(); i < i_end; ++ i) {
     Debug("minisat") << "Theory propagated: " << propagatedLiterals[i] << std::endl;
-    uncheckedEnqueue(propagatedLiterals[i], CRef_Lazy);
+    // multiple theories can propagate the same literal
+    Lit p = propagatedLiterals[i];
+    if (value(p) == l_Undef) {
+      uncheckedEnqueue(p, CRef_Lazy);
+    } else {
+      // but we check that this is the case and that they agree
+      Assert(trail_index(var(p)) >= oldTrailSize);
+      Assert(value(p) == lbool(!sign(p)));
+    }
   }
 }
 
