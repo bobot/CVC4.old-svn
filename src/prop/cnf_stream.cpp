@@ -46,7 +46,7 @@ namespace prop {
 CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) :
   d_satSolver(satSolver),
   d_fullLitToNodeMap(true),
-  d_registrar(registrar){
+  d_registrar(registrar) {
 }
 
 void CnfStream::recordTranslation(TNode node) {

@@ -81,13 +81,13 @@ static set<string> s_declarations;
 
 InteractiveShell::InteractiveShell(ExprManager& exprManager,
                                    const Options& options) :
-   d_in(*options.in),
-   d_out(*options.out),
-   d_language(options.inputLanguage),
-   d_quit(false) {
-   ParserBuilder parserBuilder(&exprManager, INPUT_FILENAME, options);
-   /* Create parser with bogus input. */
-   d_parser = parserBuilder.withStringInput("").build();
+  d_in(*options.in),
+  d_out(*options.out),
+  d_language(options.inputLanguage),
+  d_quit(false) {
+  ParserBuilder parserBuilder(&exprManager, INPUT_FILENAME, options);
+  /* Create parser with bogus input. */
+  d_parser = parserBuilder.withStringInput("").build();
 
 #if HAVE_LIBREADLINE
   if(d_in == cin) {

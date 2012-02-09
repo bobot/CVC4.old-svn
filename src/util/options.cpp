@@ -107,8 +107,7 @@ Options::Options() :
   ufSymmetryBreaker(true),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
-  threads(2),			// default should be 1 probably, but
-				// say 2 for now
+  threads(2),// default should be 1 probably, but say 2 for now
   threadArgv(),
   thread_id(-1),
   separateOutput(false),

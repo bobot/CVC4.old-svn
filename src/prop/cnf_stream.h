@@ -297,7 +297,7 @@ public:
 private:
 
   /**
-   * Same as above, except that removable and imported is rememebered.
+   * Same as above, except that removable and imported are remembered.
    */
   void convertAndAssert(TNode node, bool negated);
 

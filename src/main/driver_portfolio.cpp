@@ -114,7 +114,7 @@ public:
       d_pickler.toPickle(lemma, pkl);
       d_sharedChannel->push(pkl);
       if(Trace.isOn("showSharing") and options->thread_id == 0) {
-	*(Options::current()->out) << "thread #0: notifyNewLemma: " << lemma << endl;
+        *(Options::current()->out) << "thread #0: notifyNewLemma: " << lemma << endl;
       }
     }catch(expr::pickle::PicklingException& p){
       Trace("sharing::blocked") << lemma << std::endl;
@@ -355,7 +355,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
   /* Output to string stream  */
   vector<stringstream*> ss_out(numThreads);
   if(options.verbosity == 0 or options.separateOutput) {
-    for(int i=0;i <numThreads; ++i) {
+    for(int i = 0;i <numThreads; ++i) {
       ss_out[i] = new stringstream;
       threadOptions[i].out = ss_out[i];
     }
@@ -490,7 +490,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
     // Setup sharing channels
     const unsigned int sharingChannelSize = 1000000;
 
-    for(int i=0; i<numThreads; ++i){
+    for(int i = 0; i<numThreads; ++i){
       if(Debug.isOn("channel-empty")) {
         channelsOut[i] = new EmptySharedChannel<channelFormat>(sharingChannelSize);
         channelsIn[i] = new EmptySharedChannel<channelFormat>(sharingChannelSize);
@@ -501,7 +501,7 @@ int runCvc4(int argc, char *argv[], Options& options) {
     }
 
     /* Lemma output channel */
-    for(int i=0; i<numThreads; ++i) {
+    for(int i = 0; i<numThreads; ++i) {
       string tag = "thread #" + boost::lexical_cast<string>(threadOptions[i].thread_id);
       threadOptions[i].lemmaOutputChannel =
         new PortfolioLemmaOutputChannel(tag, channelsOut[i], exprMgrs[i],
@@ -515,12 +515,13 @@ int runCvc4(int argc, char *argv[], Options& options) {
   /************************** End of initialization ***********************/
 
   /* Portfolio */
-  function <Result()> fns[numThreads];
+  boost::function<Result()> fns[numThreads];
 
-  for(int i = 0 ; i < numThreads ; ++i)
+  for(int i = 0; i < numThreads; ++i) {
     fns[i] = boost::bind(doSmt, boost::ref(*smts[i]), seqs[i], boost::ref(threadOptions[i]));
+  }
 
-  function <void()>
+  boost::function<void()>
     smFn = boost::bind(sharingManager<channelFormat>, numThreads, channelsOut, channelsIn, smts);
 
   s_beforePortfolioTime.stop();
@@ -721,7 +722,7 @@ void sharingManager(int numThreads,
   vector <int> cnt(numThreads); // Debug("sharing")
 
   vector< queue<T> > queues;
-  for(int i=0; i < numThreads; ++i){
+  for(int i = 0; i < numThreads; ++i){
     queues.push_back(queue<T>());
   }
 
@@ -736,7 +737,7 @@ void sharingManager(int numThreads,
 
     boost::this_thread::sleep(boost::posix_time::milliseconds(sharingBroadcastInterval));
 
-    for(int t=0; t<numThreads; ++t) {
+    for(int t = 0; t < numThreads; ++t) {
 
       if(channelsOut[t]->empty()) continue;      /* No activity on this channel */
 
@@ -752,7 +753,7 @@ void sharingManager(int numThreads,
                          << ". Chunk " << cnt[t] << std :: endl;
       }
 
-      for(int u=0; u<numThreads; ++u) {
+      for(int u = 0; u < numThreads; ++u) {
         if(u != t){
           Trace("sharing") << "sharing: adding to queue " << u << std::endl;
           queues[u].push(data);
@@ -761,7 +762,7 @@ void sharingManager(int numThreads,
 
     } /* end of outer for: look for activity */
 
-    for(int t=0; t<numThreads; ++t){
+    for(int t = 0; t < numThreads; ++t){
       /* Alert if channel full, so that we increase sharingChannelSize
          or decrease sharingBroadcastInterval */
       Assert(not channelsIn[t]->full());

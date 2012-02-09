@@ -17,6 +17,8 @@ if CVC4_HAS_THREADS
 bin_PROGRAMS += pcvc4
 pcvc4_SOURCES = \
 	main.cpp \
+	portfolio.cpp \
+	portfolio.h \
 	driver_portfolio.cpp
 pcvc4_LDADD = \
 	libmain.a \
