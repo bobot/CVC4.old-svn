@@ -101,4 +101,5 @@ public:
     TS_ASSERT_LESS_THAN(zero, sTimer.getData());
 #endif /* CVC4_STATISTICS_ON */
   }
+
 };

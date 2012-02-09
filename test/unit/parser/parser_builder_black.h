@@ -119,14 +119,16 @@ public:
     checkEmptyInput(
       ParserBuilder(d_exprManager,"foo")
         .withInputLanguage(LANG_CVC4)
-        .withStringInput(""));
+        .withStringInput("")
+                    );
   }
 
   void testTrueStringInput() {
     checkTrueInput(
       ParserBuilder(d_exprManager,"foo")
         .withInputLanguage(LANG_CVC4)
-        .withStringInput("TRUE"));
+        .withStringInput("TRUE")
+                   );
   }
 
   void testEmptyStreamInput() {
@@ -134,7 +136,8 @@ public:
     checkEmptyInput(
       ParserBuilder(d_exprManager,"foo")
         .withInputLanguage(LANG_CVC4)
-        .withStreamInput(ss));
+        .withStreamInput(ss)
+                    );
   }
 
   void testTrueStreamInput() {
@@ -142,7 +145,10 @@ public:
     checkTrueInput(
       ParserBuilder(d_exprManager,"foo")
         .withInputLanguage(LANG_CVC4)
-        .withStreamInput(ss));
+        .withStreamInput(ss)
+                   );
   }
+
+
 
 }; // class ParserBuilderBlack
