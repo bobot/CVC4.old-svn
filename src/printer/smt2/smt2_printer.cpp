@@ -185,8 +185,6 @@ void Smt2Printer::toStream(std::ostream& out, TNode n,
   case kind::MINUS:
   case kind::UMINUS:
   case kind::DIVISION:
-  case kind::INTS_DIVISION:
-  case kind::INTS_MODULUS:
   case kind::LT:
   case kind::LEQ:
   case kind::GT:
@@ -299,8 +297,6 @@ static string smtKindString(Kind k) throw() {
   case kind::MINUS: return "-";
   case kind::UMINUS: return "-";
   case kind::DIVISION: return "/";
-  case kind::INTS_DIVISION: return "div";
-  case kind::INTS_MODULUS: return "mod";
   case kind::LT: return "<";
   case kind::LEQ: return "<=";
   case kind::GT: return ">";
