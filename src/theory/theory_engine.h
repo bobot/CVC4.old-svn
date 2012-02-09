@@ -464,7 +464,7 @@ public:
    */
   inline bool needCheck() const {
 #warning TheoryEngine::needCheck() reverted
-    WarningOnce() << "Warning: TheoryEngine::needCheck() reverted" << std::endl;
+    //WarningOnce() << "Warning: TheoryEngine::needCheck() reverted" << std::endl;
     return false;
     //return d_outputChannelUsed || d_lemmasAdded;
   }

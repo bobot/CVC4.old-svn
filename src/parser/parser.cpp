@@ -291,7 +291,7 @@ Parser::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes) {
           j_end = dt.end();
         j != j_end;
         ++j) {
-      const Datatype::Constructor& ctor = *j;
+      const DatatypeConstructor& ctor = *j;
       Expr::printtypes::Scope pts(Debug("parser-idt"), true);
       Expr constructor = ctor.getConstructor();
       Debug("parser-idt") << "+ define " << constructor << std::endl;
@@ -307,7 +307,7 @@ Parser::mkMutualDatatypeTypes(const std::vector<Datatype>& datatypes) {
         throw ParserException(testerName + " already declared");
       }
       defineVar(testerName, tester);
-      for(Datatype::Constructor::const_iterator k = ctor.begin(),
+      for(DatatypeConstructor::const_iterator k = ctor.begin(),
             k_end = ctor.end();
           k != k_end;
           ++k) {
@@ -334,7 +334,7 @@ DatatypeType Parser::mkRecordType(const std::vector< std::pair<std::string, Type
   DatatypeType& dtt = d_recordTypes[typeIds];
   if(dtt.isNull()) {
     Datatype dt("__cvc4_record");
-    Datatype::Constructor c("__cvc4_record_ctor");
+    DatatypeConstructor c("__cvc4_record_ctor");
     for(std::vector< std::pair<std::string, Type> >::const_iterator i = typeIds.begin(); i != typeIds.end(); ++i) {
       c.addArg((*i).first, (*i).second);
     }
@@ -348,7 +348,7 @@ DatatypeType Parser::mkTupleType(const std::vector<Type>& types) {
   DatatypeType& dtt = d_tupleTypes[types];
   if(dtt.isNull()) {
     Datatype dt("__cvc4_tuple");
-    Datatype::Constructor c("__cvc4_tuple_ctor");
+    DatatypeConstructor c("__cvc4_tuple_ctor");
     for(std::vector<Type>::const_iterator i = types.begin(); i != types.end(); ++i) {
       c.addArg("__cvc4_tuple_stor", *i);
     }

@@ -274,9 +274,9 @@ Command* InteractiveShell::readCommand() {
         } else if(dynamic_cast<DefineFunctionCommand*>(cmd) != NULL) {
           s_declarations.insert(dynamic_cast<DefineFunctionCommand*>(cmd)->getSymbol());
         } else if(dynamic_cast<DeclareTypeCommand*>(cmd) != NULL) {
-          s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
+          s_declarations.insert(dynamic_cast<DeclareTypeCommand*>(cmd)->getSymbol());
         } else if(dynamic_cast<DefineTypeCommand*>(cmd) != NULL) {
-          s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
+          s_declarations.insert(dynamic_cast<DefineTypeCommand*>(cmd)->getSymbol());
         }
 #endif /* HAVE_LIBREADLINE */
       }

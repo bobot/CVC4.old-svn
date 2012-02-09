@@ -1457,7 +1457,7 @@ recordStore[CVC4::Expr& f]
       if(record.getName() != "__cvc4_record") {
         PARSER_STATE->parseError("record-update applied to non-record");
       }
-      const Datatype::Constructor::Arg* updateArg;
+      const DatatypeConstructorArg* updateArg;
       try {
         updateArg = &record[0][id];
       } catch(IllegalArgumentException& e) {
@@ -1465,7 +1465,7 @@ recordStore[CVC4::Expr& f]
       }
       std::vector<Expr> args;
       for(unsigned i = 0; i < record[0].getNumArgs(); ++i) {
-        const Datatype::Constructor::Arg* thisArg = &record[0][i];
+        const DatatypeConstructorArg* thisArg = &record[0][i];
         if(thisArg == updateArg) {
           args.push_back(f2);
         } else {
@@ -1627,7 +1627,7 @@ postfixTerm[CVC4::Expr& f]
       { if(f.getKind() == CVC4::kind::APPLY_CONSTRUCTOR && t.isDatatype()) {
           std::vector<CVC4::Expr> v;
           Expr e = f.getOperator();
-          const Datatype::Constructor& dtc = Datatype::datatypeOf(e)[Datatype::indexOf(e)];
+          const DatatypeConstructor& dtc = Datatype::datatypeOf(e)[Datatype::indexOf(e)];
           v.push_back(MK_EXPR( CVC4::kind::APPLY_TYPE_ASCRIPTION,
                                MK_CONST(AscriptionType(dtc.getSpecializedConstructorType(t))), f.getOperator() ));
           v.insert(v.end(), f.begin(), f.end());
@@ -1934,14 +1934,14 @@ datatypeDef[std::vector<CVC4::Datatype>& datatypes]
 constructorDef[CVC4::Datatype& type]
 @init {
   std::string id;
-  CVC4::Datatype::Constructor* ctor = NULL;
+  CVC4::DatatypeConstructor* ctor = NULL;
 }
   : identifier[id,CHECK_UNDECLARED,SYM_SORT]
     { // make the tester
       std::string testerId("is_");
       testerId.append(id);
       PARSER_STATE->checkDeclaration(testerId, CHECK_UNDECLARED, SYM_SORT);
-      ctor = new CVC4::Datatype::Constructor(id, testerId);
+      ctor = new CVC4::DatatypeConstructor(id, testerId);
     }
     ( LPAREN
       selector[*ctor]
@@ -1955,7 +1955,7 @@ constructorDef[CVC4::Datatype& type]
     }
   ;
 
-selector[CVC4::Datatype::Constructor& ctor]
+selector[CVC4::DatatypeConstructor& ctor]
 @init {
   std::string id;
   Type t, t2;
