@@ -376,6 +376,8 @@ void EqualityEngine<NotifyClass>::undoMerge(EqualityNode& class1, EqualityNode& 
 template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::backtrack() {
 
+  Debug("equality::backtrack") << "backtracking" << std::endl;
+
   // If we need to backtrack then do it
   if (d_assertedEqualitiesCount < d_assertedEqualities.size()) {
 
@@ -430,6 +432,7 @@ void EqualityEngine<NotifyClass>::backtrack() {
     for (int i = d_applicationLookups.size() - 1, i_end = (int) d_applicationLookupsCount; i >= i_end; -- i) {
       d_applicationLookup.erase(d_applicationLookups[i]);
     }
+    d_applicationLookups.resize(d_applicationLookupsCount);
   }
 
   if (d_nodes.size() > d_nodesCount) {
@@ -450,7 +453,6 @@ void EqualityEngine<NotifyClass>::backtrack() {
 
     // Now get rid of the nodes and the rest
     d_nodes.resize(d_nodesCount);
-    d_applicationLookups.resize(d_applicationLookupsCount);
     d_applications.resize(d_nodesCount);
     d_nodeTriggers.resize(d_nodesCount);
     d_nodeIndividualTrigger.resize(d_nodesCount);
@@ -868,6 +870,9 @@ void EqualityEngine<NotifyClass>::storeApplicationLookup(FunctionApplication& fu
   d_applicationLookup[funNormalized] = funId;
   d_applicationLookups.push_back(funNormalized);
   d_applicationLookupsCount = d_applicationLookupsCount + 1;
+  Debug("equality::backtrack") << "d_applicationLookupsCount = " << d_applicationLookupsCount << std::endl;
+  Debug("equality::backtrack") << "d_applicationLookups.size() = " << d_applicationLookups.size() << std::endl;
+  Assert(d_applicationLookupsCount == d_applicationLookups.size());
 }
 
 } // Namespace uf
