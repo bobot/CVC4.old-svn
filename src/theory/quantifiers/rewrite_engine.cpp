@@ -125,7 +125,7 @@ void RewriteEngine::check( Theory::Effort e ){
     Node p = getPattern(qe,r);
     std::vector<Node> pattern; pattern.push_back(p);
     Debug("rewriterules") << "pattern creation:" << p << std::endl;
-    uf_db->registerTerm(p);
+    uf_db->add(p);
     Trigger* tr = new Trigger(qe,r,pattern, true);
     tr->resetInstantiationRound();
 

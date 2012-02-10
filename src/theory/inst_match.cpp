@@ -94,6 +94,7 @@ bool InstMatch::merge( EqualityQuery* q, InstMatch& m, bool allowSplit ){
 //    return 0;
 //  }
 //}
+
 bool InstMatch::isEqual( InstMatch& m ){
   if( d_map.size()==m.d_map.size() ){
     for( std::map< Node, Node >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
@@ -269,9 +270,7 @@ void InstMatchGenerator::resetInstantiationRound( EqualityQuery* q ){
             if( eq[1].getAttribute(InstConstantAttribute())==f ){
               d_children_valid[ it->second ] = q->areDisequal( it->first[0], it->first[1] );
             }else{
-              Debug("quant-uf-iter-debug") << "are disequal with " << eq[1] << std::endl;
               d_children_valid[ it->second ] = q->areDisequal( it->first, eq[1] );
-              Debug("quant-uf-iter-debug") << "returned " << d_children_valid[ it->second ] << std::endl;
             }
           }
         }
@@ -356,19 +355,14 @@ bool InstMatchGenerator::getNextMatch( EqualityQuery* q ){
     d_mg_i++;
     Debug( "quant-uf-iter" ) << d_eq << " " << d_operation << " getNextMatch ";
     Debug( "quant-uf-iter" ) << this << " " << d_mg_i << " " << getNumCurrentMatches() << std::endl;
-    //std::cout << d_eq << " " << d_operation << " getNextMatch ";
-    //std::cout << this << " " << d_mg_i << " " << getNumCurrentMatches() << std::endl;
     if( d_mg_i<getNumCurrentMatches() ){
       Debug( "quant-uf-iter" ) << d_eq << " " << d_operation << "  returned (existing) match " << d_mg_i << std::endl;
-      //std::cout << d_eq << " " << d_operation << " returned (existing) match " << d_mg_i << std::endl;
       getCurrent()->debugPrint( "quant-uf-iter" );
       return true;
     }else if( getMaster()->calculateNextMatch( q ) ){
       Debug( "quant-uf-iter" ) << d_eq << " " << d_operation << " " << d_mg_i << " " << getNumCurrentMatches() << std::endl;
-      //std::cout << d_eq << " " << d_operation << " calculated next match, ";
-      //std::cout << this << " " << d_mg_i << " " << getNumCurrentMatches() << std::endl;
-      Assert( d_mg_i<getNumCurrentMatches() );
       Debug( "quant-uf-iter" ) << this << " returned match " << d_mg_i << std::endl;
+      Assert( d_mg_i<getNumCurrentMatches() );
       getCurrent()->debugPrint( "quant-uf-iter" );
       return true;
     }else{
@@ -382,7 +376,7 @@ bool InstMatchGenerator::getNextMatch( EqualityQuery* q ){
 /** add instantiation match to vector, return true if not redundant */
 bool InstMatchGenerator::addInstMatch( InstMatch& m ){
   Assert( getMaster()==this );
-  for( int i=0; i<getNumCurrentMatches(); i++ ){
+  for( int i=0; i<getNumCurrentMatches(); i++ ){  //IMPROVE_THIS
     if( getMatch( i )->isEqual( m ) ){
       return false;
     }

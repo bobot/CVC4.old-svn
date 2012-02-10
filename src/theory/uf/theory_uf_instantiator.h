@@ -143,7 +143,7 @@ public:
   /** map from APPLY_UF operators to ground, pattern terms for that operator */
   std::map< Node, std::vector< Node > > d_op_map[2];
   /** register this term */
-  void registerTerm( Node n );
+  void add( Node n );
 };
 
 class InstantiatorTheoryUf : public Instantiator{

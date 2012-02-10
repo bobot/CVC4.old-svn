@@ -98,6 +98,10 @@ protected:
   static InstMatchGenerator* mkInstMatchGenerator( int op, Node eq );
 //public:
 //  static void resetInstantiationRoundAll( uf::InstantiatorTheoryUf* itu );
+private:
+  /** is child valid */
+  bool isChildValid( int i ) { return d_children_valid.find( d_children[i] )==d_children_valid.end() || 
+                                      d_children_valid[ d_children[i] ]; }
 public:
   /** add instantiation match to vector, return true if not redundant */
   bool addInstMatch( InstMatch& m );
@@ -126,18 +130,10 @@ protected:
   /** map from terms to the children they represent */
   std::map< Node, InstMatchGenerator* > d_lit_children_map;
   std::map< InstMatchGenerator*, bool > d_children_valid;
-  /** is child valid */
-  bool isChildValid( int i ) { return d_children_valid.find( d_children[i] )==d_children_valid.end() || d_children_valid[ d_children[i] ]; }
   /** matches produced, valid if getMaster()==this */
   std::vector< InstMatch > d_mg;
   /** the index currently processing (ranges over getMaster()->d_mg) */
   int d_mg_i;
-public:
-  /** get num current matches */
-  int getNumCurrentMatches();
-  /** get current match */
-  InstMatch* getMatch( int i );
-public:
   /** partial matches: for i>0, d_partial[i] is merged match produced for d_children[0]...[i-1], 
       valid if d_operation==1 */
   std::vector< InstMatch > d_partial;
@@ -146,6 +142,10 @@ public:
   /** index of the current child considering, valid if d_operation==0 */
   int d_index;
 public:
+  /** get num current matches */
+  int getNumCurrentMatches();
+  /** get current match */
+  InstMatch* getMatch( int i );
   /** reset */
   void resetInstantiationRound( EqualityQuery* q );
   /** reset */

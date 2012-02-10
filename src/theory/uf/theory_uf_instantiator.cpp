@@ -232,7 +232,7 @@ int InstStrategyFreeVariable::process( Node f, int effort ){
   }
 }
 
-void UfTermDb::registerTerm( Node n ){
+void UfTermDb::add( Node n ){
   if( n.getKind()==APPLY_UF ){
     Node op = n.getOperator();
     int index = n.hasAttribute(InstConstantAttribute()) ? 1 : 0;
@@ -249,7 +249,7 @@ void UfTermDb::registerTerm( Node n ){
         }
       }
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        registerTerm( n[i] );
+        add( n[i] );
       }
     }
   }
@@ -322,6 +322,8 @@ void InstantiatorTheoryUf::check( Node assertion )
       d_disequality.push_back( assertion[0] );
       registerTerm( assertion[0][0] );
       registerTerm( assertion[0][1] );
+    }else if( assertion[0].getKind()==APPLY_UF ){
+      registerTerm( assertion[0] );
     }
     break;
   case kind::CARDINALITY_CONSTRAINT:
@@ -332,7 +334,7 @@ void InstantiatorTheoryUf::check( Node assertion )
 }
 
 void InstantiatorTheoryUf::registerTerm( Node n ){
-  d_db.registerTerm( n );
+  d_db.add( n );
   if( n.hasAttribute(InstConstantAttribute()) ){
     setHasConstraintsFrom( n.getAttribute(InstConstantAttribute()) );
   }
