@@ -388,7 +388,7 @@ extendedCommand[CVC4::Command*& cmd]
     ( LPAREN_TOK ( symbol[name,CHECK_UNDECLARED,SYM_SORT] LPAREN_TOK symbolList[names,CHECK_NONE,SYM_SORT] RPAREN_TOK |
                    symbol[name,CHECK_UNDECLARED,SYM_SORT] symbol[name,CHECK_NONE,SYM_SORT] ) RPAREN_TOK RPAREN_TOK )+
     RPAREN_TOK
-  | DECLARE_CONST_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE] sortSymbol[t]
+  | DECLARE_CONST_TOK symbol[name,CHECK_UNDECLARED,SYM_VARIABLE] sortSymbol[t,CHECK_DECLARED]
 
   | SIMPLIFY_TOK term[e]
     { cmd = new SimplifyCommand(e); }
@@ -744,7 +744,7 @@ nonemptySortList[std::vector<CVC4::Type>& sorts]
 @declarations {
   Type t;
 }
-  : ( sortSymbol[t] { sorts.push_back(t); } )+
+  : ( sortSymbol[t,CHECK_DECLARED] { sorts.push_back(t); } )+
   ;
 
 /**
