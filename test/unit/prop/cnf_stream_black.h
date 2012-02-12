@@ -83,7 +83,12 @@ public:
 
   void interrupt() {
   }
-};
+
+  bool properExplanation(SatLiteral lit, SatLiteral expl) const {
+    return true;
+  }
+
+};/* class FakeSatSolver */
 
 class CnfStreamBlack : public CxxTest::TestSuite {
   /** The SAT solver proxy */
