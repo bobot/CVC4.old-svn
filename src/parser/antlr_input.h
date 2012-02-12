@@ -89,7 +89,7 @@ public:
   static AntlrInputStream* newStringInputStream(const std::string& input, 
                                                 const std::string& name)
     throw (InputStreamException, AssertionException);
-};
+};/* class AntlrInputStream */
 
 class Parser;
 
@@ -210,7 +210,7 @@ protected:
 
   /** Set the Parser object for this input. */
   virtual void setParser(Parser& parser);
-};
+};/* class AntlrInput */
 
 inline std::string AntlrInput::getUnparsedText() {
   const char *base = (const char *)d_antlr3InputStream->data;

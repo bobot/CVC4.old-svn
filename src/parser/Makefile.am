@@ -66,6 +66,8 @@ libcvc4parser_noinst_la_SOURCES = \
 	antlr_input.h \
 	antlr_input.cpp \
 	antlr_input_imports.cpp \
+	antlr_line_buffered_input.h \
+	antlr_line_buffered_input.cpp \
 	bounded_token_buffer.h \
 	bounded_token_buffer.cpp \
 	bounded_token_factory.h \
