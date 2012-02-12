@@ -111,6 +111,12 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << num;
       break;
     }
+    case kind::SUBRANGE_TYPE:
+      out << '[' << n.getConst<SubrangeBounds>() << ']';
+      break;
+    case kind::SUBTYPE_TYPE:
+      out << "SUBTYPE(" << n.getConst<Predicate>() << ")";
+      break;
     case kind::TYPE_CONSTANT:
       switch(TypeConstant tc = n.getConst<TypeConstant>()) {
       case REAL_TYPE:
@@ -244,14 +250,6 @@ void CvcPrinter::toStream(std::ostream& out, TNode n, int depth, bool types, boo
       out << " -> ";
       toStream(out, n[n.getNumChildren()-1], depth, types, false);
       return;
-      break;
-
-    // ARITHMETIC
-    case kind::SUBRANGE_TYPE:
-      out << '[' << n.getConst<SubrangeBounds>() << ']';
-      break;
-    case kind::SUBTYPE_TYPE:
-      out << "SUBTYPE(" << n.getConst<Predicate>() << ")";
       break;
 
     // DATATYPES

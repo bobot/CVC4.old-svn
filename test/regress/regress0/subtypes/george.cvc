@@ -1,3 +1,4 @@
+% COMMAND-LINE: --incremental
 % EXPECT: valid
 % EXIT: 20
 
