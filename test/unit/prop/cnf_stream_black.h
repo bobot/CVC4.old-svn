@@ -59,7 +59,7 @@ public:
     return d_nextVar++;
   }
 
-  void addClause(SatClause& c, bool lemma) {
+  void addClause(SatClause& c, bool lemma, bool imported = false) {
     d_addClauseCalled = true;
   }
 
