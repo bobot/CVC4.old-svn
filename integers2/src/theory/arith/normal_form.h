@@ -286,6 +286,11 @@ public:
     }
   }
 
+  uint32_t length() const{
+    Assert(isIntegral());
+    return getValue().getNumerator().length();
+  }
+
 };/* class Constant */
 
 
@@ -617,6 +622,10 @@ public:
     return getConstant().abs() < other.getConstant().abs();
   }
 
+  uint32_t coefficientLength() const{
+    return getConstant().length();
+  }
+
   void print() const;
   static void printList(const std::vector<Monomial>& list);
 
@@ -862,6 +871,23 @@ public:
 
   /** Returns the coefficient assiociated with the VarList in the polynomial. */
   Constant getCoefficient(const VarList& vl) const;
+
+  uint32_t maxLength() const{
+    iterator i = begin(), e=end();
+    if( i == e){
+      return 1;
+    }else{
+      uint32_t max = (*i).coefficientLength();
+      ++i;
+      for(; i!=e; ++i){      
+        uint32_t curr = (*i).coefficientLength();
+        if(curr > max){
+          max = curr;
+        }
+      }
+      return max;
+    }
+  }
 };/* class Polynomial */
 
 
@@ -1131,6 +1157,11 @@ public:
   Integer gcd() const {
     Assert(isIntegral());
     return (getPolynomial().gcd()).gcd(getConstant().getValue().getNumerator());
+  }
+
+  uint32_t maxLength() const {
+    Assert(isIntegral());
+    return std::max(getPolynomial().maxLength(), getConstant().length());
   }
 
   static SumPair mkZero() {

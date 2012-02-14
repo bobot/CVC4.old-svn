@@ -38,7 +38,8 @@ DioSolver::DioSolver(context::Context* ctxt) :
   d_trail(ctxt),
   d_subs(ctxt),
   d_currentF(),
-  d_conflictHasBeenRaised(ctxt, false)
+  d_conflictHasBeenRaised(ctxt, false),
+  d_maxInputCoefficientLength(ctxt, 0)
 {}
 
 DioSolver::Statistics::Statistics() :
@@ -118,6 +119,10 @@ void DioSolver::pushInputConstraint(const Comparison& eq, Node reason){
   Assert(acceptableOriginalNodes(reason));
 
   SumPair sp = SumPair::comparisonToSumPair(eq);
+  uint32_t length = sp.maxLength();
+  if(length > d_maxInputCoefficientLength){
+    d_maxInputCoefficientLength = length;
+  }
 
   size_t varIndex = allocateVariableInPool();
   Variable proofVariable(d_variablePool[varIndex]);
@@ -184,6 +189,17 @@ Node DioSolver::proveIndex(TrailIndex i){
   return result;
 }
 
+bool DioSolver::anyCoefficientExceedsMaximum(TrailIndex j) const{
+  uint32_t length = d_trail[j].d_eq.maxLength();
+  bool result =
+    length > d_maxInputCoefficientLength + MAX_GROWTH_RATE;
+  if(Debug.isOn("arith::dio::max") && result){
+    Debug("arith::dio::max") << "about to drop:";
+    debugPrintTrail(j);
+  }
+  return result;
+}
+
 void DioSolver::enqueueInputConstraints(){
   Assert(d_currentF.empty());
   while(d_nextInputConstraintToEnqueue < d_inputConstraints.size()  && !inConflict()){
@@ -193,7 +209,7 @@ void DioSolver::enqueueInputConstraints(){
     TrailIndex i = d_inputConstraints[curr].d_trailPos;
     TrailIndex j = applyAllSubstitutionsToIndex(i);
 
-    if(!triviallySat(j)){
+    if(!(triviallySat(j)  || anyCoefficientExceedsMaximum(j))){
       if(triviallyUnsat(j)){
         raiseConflict(j);
       }else{
@@ -552,7 +568,7 @@ bool DioSolver::gcdIsOne(DioSolver::TrailIndex i){
   return eq.gcd() == Integer(1);
 }
 
-void DioSolver::debugPrintTrail(DioSolver::TrailIndex i){
+void DioSolver::debugPrintTrail(DioSolver::TrailIndex i) const{
   const SumPair& eq = d_trail[i].d_eq;
   const Polynomial& proof = d_trail[i].d_proof;
 
@@ -575,7 +591,7 @@ void DioSolver::subAndReduceCurrentFByIndex(DioSolver::SubIndex subIndex){
 
       if(triviallyUnsat(nextTI)){
         raiseConflict(nextTI);
-      }else if(!triviallySat(nextTI)){
+      }else if(!(triviallySat(nextTI) || anyCoefficientExceedsMaximum(nextTI))){
         TrailIndex nextNextTI = reduceByGCD(nextTI);
 
         if(!inConflict()){

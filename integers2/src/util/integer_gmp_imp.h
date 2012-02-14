@@ -135,23 +135,6 @@ public:
     return *this;
   }
 
-  /*
-  Integer operator/(const Integer& y) const {
-    return Integer( d_value / y.d_value );
-  }
-  Integer& operator/=(const Integer& y) {
-    d_value /= y.d_value;
-    return *this;
-  }
-
-  Integer operator%(const Integer& y) const {
-    return Integer( d_value % y.d_value );
-  }
-  Integer& operator%=(const Integer& y) {
-    d_value %= y.d_value;
-    return *this;
-    }*/
-
   /**
    * Return this*(2^pow).
    */
@@ -312,6 +295,18 @@ public:
    */
   bool testBit(unsigned n) const {
     return mpz_tstbit(d_value.get_mpz_t(), n);
+  }
+
+  /**
+   * If x != 0, returns the smallest n s.t. 2^{n-1} <= abs(x) < 2^{n}.
+   * If x == 0, returns 1.
+   */
+  size_t length() const {
+    if(sgn() == 0){
+      return 1;
+    }else{
+      return mpz_sizeinbase(d_value.get_mpz_t(),2);
+    }
   }
 
   friend class CVC4::Rational;

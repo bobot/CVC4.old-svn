@@ -363,6 +363,21 @@ public:
     return cln::logbitp(n, d_value);
   }
 
+  /**
+   * If x != 0, returns the unique n s.t. 2^{n-1} <= abs(x) < 2^{n}.
+   * If x == 0, returns 1.
+   */
+  size_t length() const {
+    int s = sgn();
+    if(s == 0){
+      return 1;
+    }else if(s < 0){
+      return cln::integer_length(-d_value);
+    }else{
+      return cln::integer_length(d_value);
+    }
+  }
+
   friend class CVC4::Rational;
 };/* class Integer */
 

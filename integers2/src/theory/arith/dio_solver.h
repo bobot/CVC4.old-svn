@@ -148,6 +148,21 @@ private:
   context::CDO<bool> d_conflictHasBeenRaised;
   TrailIndex d_conflictIndex;
 
+  /** Tracks the gcd of each of the variables. */
+  typedef std::map<Node, Integer> VariableGcdMap;
+  VariableGcdMap d_varGcdMap;
+
+  /**
+   * Drop derived constraints with a coefficient length larger than
+   * the maximum input constraints length than 2**MAX_GROWTH_RATE.
+   */
+  context::CDO<uint32_t> d_maxInputCoefficientLength;
+  static const uint32_t MAX_GROWTH_RATE = 3;
+
+  /** Returns true if the element on the trail should be dropped.*/
+  bool anyCoefficientExceedsMaximum(TrailIndex j) const;
+
+
 public:
 
   /** Construct a Diophantine equation solver with the given context. */
@@ -348,7 +363,7 @@ private:
   SumPair purifyIndex(TrailIndex i);
 
 
-  void debugPrintTrail(TrailIndex i);
+  void debugPrintTrail(TrailIndex i) const;
 
 public:
   /** These fields are designed to be accessable to TheoryArith methods. */
