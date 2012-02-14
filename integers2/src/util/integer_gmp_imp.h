@@ -309,6 +309,12 @@ public:
     }
   }
 
+  static void extendedGcd(Integer& g, Integer& s, Integer& t, const Integer& a, const Integer& b){
+    //mpz_gcdext (mpz_t g, mpz_t s, mpz_t t, mpz_t a, mpz_t b);
+    mpz_gcdext (g.d_value.get_mpz_t(), s.d_value.get_mpz_t(), t.d_value.get_mpz_t(), a.d_value.get_mpz_t(), b.d_value.get_mpz_t());
+  }
+
+
   friend class CVC4::Rational;
 };/* class Integer */
 

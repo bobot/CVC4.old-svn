@@ -378,6 +378,12 @@ public:
     }
   }
 
+/*   cl_I xgcd (const cl_I& a, const cl_I& b, cl_I* u, cl_I* v) */
+/* This function ("extended gcd") returns the greatest common divisor g of a and b and at the same time the representation of g as an integral linear combination of a and b: u and v with u*a+v*b = g, g >= 0. u and v will be normalized to be of smallest possible absolute value, in the following sense: If a and b are non-zero, and abs(a) != abs(b), u and v will satisfy the inequalities abs(u) <= abs(b)/(2*g), abs(v) <= abs(a)/(2*g). */
+  static void extendedGcd(Integer& g, Integer& s, Integer& t, const Integer& a, const Integer& b){    
+    g.d_value = cln::xgcd(a.d_value, b.d_value, &s.d_value, &t.d_value);
+  }
+
   friend class CVC4::Rational;
 };/* class Integer */
 
