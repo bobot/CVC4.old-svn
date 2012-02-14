@@ -56,6 +56,10 @@ inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);
 }
 
+inline Node mkIntegerNode(const Integer& z){
+  return NodeManager::currentNM()->mkConst<Integer>(z);
+}
+
 inline Node mkBoolNode(bool b){
   return NodeManager::currentNM()->mkConst<bool>(b);
 }

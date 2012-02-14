@@ -294,6 +294,24 @@ private:
    */
   bool splitDisequalities();
 
+
+
+  /**
+   * Looks for the next integer variable without an integer assignment in a round robin fashion.
+   * Changes the value of d_nextIntegerCheckVar.
+   *
+   * If this returns false, d_nextIntegerCheckVar does not have an integer assignment.
+   * If this returns true, all integer variables have an integer assignment.
+   */
+  bool hasIntegerModel();
+
+  /**
+   * Issues branches for non-slack integer variables with non-integer assignments.
+   * Returns a cut for a lemma.
+   * If there is an integer model, this returns Node::null().
+   */
+  Node roundRobinBranch();
+
   /**
    * This requests a new unique ArithVar value for x.
    * This also does initial (not context dependent) set up for a variable,
