@@ -863,33 +863,36 @@ void TheoryArith::check(Effort effortLevel){
     emmittedConflictOrSplit = splitDisequalities();
   }
 
-  if(!emmittedConflictOrSplit && fullEffort(effortLevel)){
-    possibleConflict = callDioSolver();
-    if(possibleConflict != Node::null()){
-      Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
-      d_out->conflict(possibleConflict);
-      emmittedConflictOrSplit = true;
-    }
-  }
+  if(!emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()){
 
-  if(!emmittedConflictOrSplit && fullEffort(effortLevel) && d_hasDoneWorkSinceCut){
-    Node possibleLemma = dioCutting();
-    if(!possibleLemma.isNull()){
-      Debug("arith") << "dio cut   " << possibleLemma << endl;
-      emmittedConflictOrSplit = true;
-      d_hasDoneWorkSinceCut = false;
-      d_out->lemma(possibleLemma);
+    if(!emmittedConflictOrSplit){
+      possibleConflict = callDioSolver();
+      if(possibleConflict != Node::null()){
+        Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
+        d_out->conflict(possibleConflict);
+        emmittedConflictOrSplit = true;
+      }
     }
-  }
 
-  if(!emmittedConflictOrSplit && fullEffort(effortLevel)) {
-    Node possibleLemma = roundRobinBranch();
-    if(!possibleLemma.isNull()){
-      ++(d_statistics.d_externalBranchAndBounds);
-      emmittedConflictOrSplit = true;
-      d_out->lemma(possibleLemma);
+    if(!emmittedConflictOrSplit && d_hasDoneWorkSinceCut){
+      Node possibleLemma = dioCutting();
+      if(!possibleLemma.isNull()){
+        Debug("arith") << "dio cut   " << possibleLemma << endl;
+        emmittedConflictOrSplit = true;
+        d_hasDoneWorkSinceCut = false;
+        d_out->lemma(possibleLemma);
+      }
     }
-  }// if(full effort)
+
+    if(!emmittedConflictOrSplit) {
+      Node possibleLemma = roundRobinBranch();
+      if(!possibleLemma.isNull()){
+        ++(d_statistics.d_externalBranchAndBounds);
+        emmittedConflictOrSplit = true;
+        d_out->lemma(possibleLemma);
+      }
+    }
+  }//if !emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()
 
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
   if(Debug.isOn("arith::print_model")) { debugPrintModel(); }
