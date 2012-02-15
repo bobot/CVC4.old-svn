@@ -865,7 +865,7 @@ void TheoryArith::check(Effort effortLevel){
 
   if(!emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()){
 
-    if(!emmittedConflictOrSplit){
+    if(!emmittedConflictOrSplit && Options::current()->dioSolver){
       possibleConflict = callDioSolver();
       if(possibleConflict != Node::null()){
         Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
@@ -874,7 +874,7 @@ void TheoryArith::check(Effort effortLevel){
       }
     }
 
-    if(!emmittedConflictOrSplit && d_hasDoneWorkSinceCut){
+    if(!emmittedConflictOrSplit && d_hasDoneWorkSinceCut && Options::current()->dioSolver){
       Node possibleLemma = dioCutting();
       if(!possibleLemma.isNull()){
         Debug("arith") << "dio cut   " << possibleLemma << endl;
