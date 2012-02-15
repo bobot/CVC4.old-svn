@@ -133,8 +133,6 @@ private:
   };
   context::CDList<Substitution> d_subs;
 
-  context::CDO<uint32_t> d_subQueueIndex;
-
   /**
    * This is the queue of constraints to be processed in the current context level.
    * This is to be empty upon entering solver and cleared upon leaving the solver.
@@ -162,9 +160,12 @@ private:
   bool anyCoefficientExceedsMaximum(TrailIndex j) const;
 
   /**
-   * Returns true if decomposeIndex has been used.
+   * Is true if decomposeIndex has been used in this context.
    */
   context::CDO<bool> d_usedDecomposeIndex;
+
+  context::CDO<SubIndex> d_lastPureSubstitution;
+  context::CDO<SubIndex> d_pureSubstitionIter;
 
 public:
 
@@ -172,11 +173,11 @@ public:
   DioSolver(context::Context* ctxt);
 
   /** Returns true if the substitutions use no new variables. */
-  bool substitutionsArePure() const{
-    return d_usedDecomposeIndex;
+  bool hasMorePureSubstitutions() const{
+    return d_pureSubstitionIter < d_lastPureSubstitution;
   }
 
-  Node getNextSubstitution();
+  Node nextPureSubstitution();
 
   /**
    * Adds an equality to the queue of the DioSolver.

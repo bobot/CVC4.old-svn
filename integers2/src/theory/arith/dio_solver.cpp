@@ -37,13 +37,14 @@ DioSolver::DioSolver(context::Context* ctxt) :
   d_nextInputConstraintToEnqueue(ctxt, 0),
   d_trail(ctxt),
   d_subs(ctxt),
-  d_subQueueIndex(ctxt, 0),
   d_currentF(),
   d_savedQueue(ctxt),
-  d_savedQueueIndex(ctxt,0),
+  d_savedQueueIndex(ctxt, 0),
   d_conflictHasBeenRaised(ctxt, false),
   d_maxInputCoefficientLength(ctxt, 0),
-  d_usedDecomposeIndex(ctxt, false)
+  d_usedDecomposeIndex(ctxt, false),
+  d_lastPureSubstitution(ctxt, 0),
+  d_pureSubstitionIter(ctxt, 0)
 {}
 
 DioSolver::Statistics::Statistics() :
@@ -87,6 +88,22 @@ size_t DioSolver::allocateVariableInPool() {
   return res;
 }
 
+
+  Node DioSolver::nextPureSubstitution(){
+    Assert(hasMorePureSubstitutions());
+    SubIndex curr = d_pureSubstitionIter;
+    d_pureSubstitionIter = d_pureSubstitionIter + 1;
+
+    Assert(d_subs[curr].d_fresh.isNull());
+    Variable v = d_subs[curr].d_eliminated;
+
+    SumPair sp = d_trail[d_subs[curr].d_constraint].d_eq;
+    Polynomial p = sp.getPolynomial();
+    Constant c = -sp.getConstant();
+    Polynomial cancelV = p + Polynomial::mkPolynomial(v);
+    Node eq = NodeManager::currentNM()->mkNode(kind::EQUAL, v.getNode(), cancelV.getNode());
+    return eq;
+  }
 
 
 bool DioSolver::debugEqualityInInputEquations(Node eq){
