@@ -133,6 +133,7 @@ private:
   };
   context::CDList<Substitution> d_subs;
 
+  context::CDO<uint32_t> d_subQueueIndex;
 
   /**
    * This is the queue of constraints to be processed in the current context level.
@@ -144,13 +145,11 @@ private:
    * - If the element is (+ constant (+ [(* coeff var)] )), then the gcd(coeff) = 1
    */
   std::deque<TrailIndex> d_currentF;
+  context::CDList<TrailIndex> d_savedQueue;
+  context::CDO<size_t> d_savedQueueIndex;
 
   context::CDO<bool> d_conflictHasBeenRaised;
   TrailIndex d_conflictIndex;
-
-  /** Tracks the gcd of each of the variables. */
-  typedef std::map<Node, Integer> VariableGcdMap;
-  VariableGcdMap d_varGcdMap;
 
   /**
    * Drop derived constraints with a coefficient length larger than
@@ -162,11 +161,22 @@ private:
   /** Returns true if the element on the trail should be dropped.*/
   bool anyCoefficientExceedsMaximum(TrailIndex j) const;
 
+  /**
+   * Returns true if decomposeIndex has been used.
+   */
+  context::CDO<bool> d_usedDecomposeIndex;
 
 public:
 
   /** Construct a Diophantine equation solver with the given context. */
   DioSolver(context::Context* ctxt);
+
+  /** Returns true if the substitutions use no new variables. */
+  bool substitutionsArePure() const{
+    return d_usedDecomposeIndex;
+  }
+
+  Node getNextSubstitution();
 
   /**
    * Adds an equality to the queue of the DioSolver.
@@ -197,6 +207,9 @@ private:
   bool inRange(TrailIndex i) const{
     return i < d_trail.size();
   }
+
+  Node columnGcdIsOne() const;
+
 
   /**
    * Returns true if the context dependent flag for conflicts
@@ -275,9 +288,11 @@ private:
    *
    * Returns a pair of a SubIndex and a TrailIndex.
    * The SubIndex is the index of a newly introduced substition.
-   * The trail index ti is the 
    */
   std::pair<SubIndex, TrailIndex> decomposeIndex(TrailIndex ti);
+
+  /** Solves the index at ti for the value in minimumMonomial. */
+  std::pair<SubIndex, TrailIndex> solveIndex(TrailIndex ti);
 
   /** Prints the queue for debugging purposes to Debug("arith::dio"). */
   void printQueue();
@@ -324,6 +339,14 @@ private:
   bool queueEmpty() const;
 
   bool queueConditions(TrailIndex t){
+    /* debugPrintTrail(t); */
+    
+    /* std::cout << !inConflict() << std::endl; */
+    /* std::cout << gcdIsOne(t) << std::endl; */
+    /* std::cout << !debugAnySubstitionApplies(t) << std::endl; */
+    /* std::cout << !triviallySat(t) << std::endl; */
+    /* std::cout << !triviallyUnsat(t) << std::endl; */
+
     return
       !inConflict() &&
       gcdIsOne(t) &&
@@ -342,15 +365,23 @@ private:
     d_currentF.push_front(t);
   }
 
-  TrailIndex popQueue();
-
   /**
    * Moves the minimum Constraint by absolute value of the minimum coefficient to
    * the front of the queue.
    */
   void moveMinimumByAbsToQueueFront();
 
-  bool processEquations(bool cuts);
+  void saveQueue();
+
+  TrailIndex impliedGcdOfOne();
+
+
+  /**
+   * Processing the current set of equations.
+   *
+   * decomposeIndex() rule is only applied if allowDecomposition is true.
+   */
+  bool processEquations(bool allowDecomposition);
 
   /**
    * Constructs a proof from any d_trail[i] in terms of input literals.

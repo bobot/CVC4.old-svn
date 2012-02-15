@@ -568,6 +568,10 @@ public:
     return constant.isOne();
   }
 
+  bool absCoefficientIsOne() const {
+    return coefficientIsOne() || constant.getValue() == -1;
+  }
+
   Monomial operator*(const Monomial& mono) const;
 
 
