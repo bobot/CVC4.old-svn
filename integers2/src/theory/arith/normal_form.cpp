@@ -471,6 +471,8 @@ Comparison Comparison::tightenIntegralConstraint() const {
         //This also hold for GT as (ceil (/ n d)) > (/ n d)
         Integer ceilr = getRight().getValue().ceiling();
         Constant newRight = Constant::mkConstant(ceilr);
+
+        
         return Comparison(toNode(kind::GEQ, getLeft(), newRight),kind::GEQ, getLeft(),newRight);
       }
     case kind::LEQ:
@@ -493,6 +495,8 @@ bool Comparison::isIntegerNormalForm() const{
   if(constantInLefthand()){ return false; }
   else if(getLeft().getHead().getConstant().isNegative()){ return false; }
   else if(!isIntegral()){ return false; }
+  else if(getKind() == kind::LT) { return false; }
+  else if(getKind() == kind::GEQ) { return false; }
   else {
     return getLeft().gcd() == 1;
   }
@@ -502,6 +506,24 @@ bool Comparison::isMixedNormalForm() const {
   else if(allIntegralVariables()) { return false; }
   else{
     return getLeft().getHead().getConstant().getValue() == 1;
+  }
+}
+
+Comparison Comparison::ensureLessThan() const{
+  if(getKind() == kind::GEQ){
+    Assert(isIntegral());
+    // (>= x c)
+    // (> x (- c 1))
+    Constant newRight = getRight() + Constant::mkConstant(-1);
+    return Comparison(toNode(kind::GT, getLeft(), newRight), kind::GT, getLeft(), newRight);
+  }else if(getKind() == kind::LT){
+    Assert(isIntegral());
+    // (< x c)
+    // (<= x (- c 1))
+    Constant newRight = getRight() + Constant::mkConstant(-1);
+    return Comparison(toNode(kind::LEQ, getLeft(), newRight), kind::LEQ, getLeft(), newRight);
+  }else{
+    return *this;
   }
 }
 
@@ -516,8 +538,9 @@ Comparison Comparison::normalize(Comparison c) {
       Comparison integer0 = c1.multiplyByDenominatorLCM();
       Comparison integer1 = integer0.divideByLefthandGCD();
       Comparison integer2 = integer1.tightenIntegralConstraint();
-      Assert(integer2.isBoolean() || integer2.isIntegerNormalForm());
-      return integer2;
+      Comparison integer3 = integer2.ensureLessThan();
+      Assert(integer3.isBoolean() || integer3.isIntegerNormalForm());
+      return integer3;
     }else{
       //Mixed case
       Comparison mixed = c1.divideByLeadingCoefficient();

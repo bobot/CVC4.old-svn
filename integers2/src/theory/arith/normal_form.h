@@ -1033,6 +1033,9 @@ public:
   /** If the leading coefficient is negative, multiply by -1. */
   Comparison normalizeLeadingCoefficientPositive() const;
 
+  /** If the kind is GEQ or LT, change to LEQ or GT*/
+  Comparison ensureLessThan() const;
+
   /** Divides the Comaprison by the gcd of the lefthand.*/
   Comparison divideByLefthandGCD() const;
 
