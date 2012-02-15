@@ -195,7 +195,10 @@ Node DioSolver::proveIndex(TrailIndex i){
 
 bool DioSolver::anyCoefficientExceedsMaximum(TrailIndex j) const{
   uint32_t length = d_trail[j].d_eq.maxLength();
+  uint32_t nmonos = d_trail[j].d_eq.getPolynomial().numMonomials();
+
   bool result =
+    nmonos >= 2 &&
     length > d_maxInputCoefficientLength + MAX_GROWTH_RATE;
   if(Debug.isOn("arith::dio::max") && result){
     Debug("arith::dio::max") << "about to drop:";

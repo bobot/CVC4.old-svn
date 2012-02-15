@@ -892,6 +892,16 @@ public:
       return max;
     }
   }
+
+  uint32_t numMonomials() const {
+    if( getNode().getKind() == kind::PLUS ){
+      return getNode().getNumChildren();
+    }else if(isZero()){
+      return 0;
+    }else{
+      return 1;
+    }
+  }
 };/* class Polynomial */
 
 
