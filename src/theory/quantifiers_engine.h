@@ -41,6 +41,9 @@ typedef expr::Attribute<InstConstantAttributeId, Node> InstConstantAttribute;
 struct InstLevelAttributeId {};
 typedef expr::Attribute<InstLevelAttributeId, uint64_t> InstLevelAttribute;
 
+struct InstVarNumAttributeId {};
+typedef expr::Attribute<InstVarNumAttributeId, uint64_t> InstVarNumAttribute;
+
 namespace theory {
 
 class InstStrategyList;
@@ -285,6 +288,7 @@ public:
   /** statistics class */
   class Statistics {
   public:
+    IntStat d_num_quant;
     IntStat d_instantiation_rounds;
     IntStat d_instantiations;
     IntStat d_max_instantiation_level;

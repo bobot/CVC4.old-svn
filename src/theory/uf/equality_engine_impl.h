@@ -104,9 +104,12 @@ EqualityNodeId EqualityEngine<NotifyClass>::newNode(TNode node, bool isApplicati
 
   //AJR-hack
   //notify the theory strong solver
-  if( d_thss ){
-    d_thss->newEqClass( node );
+  if( d_performNotify ){
+    d_notify.notifyEqClass( node );
   }
+  //if( d_thss ){
+  //  d_thss->newEqClass( node );
+  //}
   //AJR-hack-end
 
   return newId;
@@ -202,9 +205,12 @@ void EqualityEngine<NotifyClass>::addDisequality(TNode t1, TNode t2, TNode reaso
 
   //AJR-hack
   //notify the theory strong solver
-  if( d_thss ){
-    d_thss->assertDisequal( t1, t2, reason );
+  if( d_performNotify ){
+    d_notify.notifyDisequal( t1, t2, reason );
   }
+  //if( d_thss ){
+  //  d_thss->assertDisequal( t1, t2, reason );
+  //}
   //AJR-hack-end
 
   Debug("equality") << "EqualityEngine::addDisequality(" << t1 << "," << t2 << ")" << std::endl;
@@ -362,14 +368,19 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
   //AJR-hack  DO_THIS HERE
   //AJR-hack
   //notify the theory strong solver
-  if( d_thss ){
-    Debug("uf-ss-merge") << "Merge " << " " << n1 << " " << n2 << std::endl;
-    Debug("uf-ss-merge") << "   " << class1Id << " " << class2Id << std::endl;
-    Debug("uf-ss-merge") << "   " << cc1.getFind() << " " << cc2.getFind() << std::endl;
+  if( d_performNotify ){
     if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
-      d_thss->merge( n1, n2 );
+      d_notify.notifyMerge( n1, n2 );
     }
   }
+  //if( d_thss ){
+  //  Debug("uf-ss-merge") << "Merge " << " " << n1 << " " << n2 << std::endl;
+  //  Debug("uf-ss-merge") << "   " << class1Id << " " << class2Id << std::endl;
+  //  Debug("uf-ss-merge") << "   " << cc1.getFind() << " " << cc2.getFind() << std::endl;
+  //  if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
+  //    d_thss->merge( n1, n2 );
+  //  }
+  //}
   //AJR-hack-end
   //std::cout << "Merge " << n1 << " " << n2 << std::endl;
   //Node r1 = getRepresentative( n1 );
@@ -385,13 +396,6 @@ template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::undoMerge(EqualityNode& class1, EqualityNode& class2, EqualityNodeId class2Id) {
 
   Debug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << ")" << std::endl;
-
-  //AJR-hack
-  //notify the theory strong solver
-  if( d_thss ){
-    d_thss->undoMerge( d_nodes[ class1.getFind() ], d_nodes[ class2Id ] );
-  }
-  //AJR-hack-end
 
   // Now unmerge the lists (same as merge)
   class1.merge<false>(class2);

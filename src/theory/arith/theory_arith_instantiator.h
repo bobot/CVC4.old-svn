@@ -46,22 +46,22 @@ public:
   /** identify */
   std::string identify() const { return std::string("Simplex"); }
 };
-
-class InstStrategySimplexUfMatch : public InstStrategy{
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryArith* d_th;
-  /** trigger for instantiation rows */
-  std::map< ArithVar, Trigger* > d_tableaux_ce_term_trigger;
-public:
-  InstStrategySimplexUfMatch( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) : 
-      InstStrategy( ie ), d_th( th ){}
-  ~InstStrategySimplexUfMatch(){}
-  void resetInstantiationRound();
-  int process( Node f, int effort );
-  /** identify */
-  std::string identify() const { return std::string("SimplexUfMatch"); }
-};
+//
+//class InstStrategySimplexUfMatch : public InstStrategy{
+//private:
+//  /** InstantiatorTheoryUf class */
+//  InstantiatorTheoryArith* d_th;
+//  /** trigger for instantiation rows */
+//  std::map< ArithVar, Trigger* > d_tableaux_ce_term_trigger;
+//public:
+//  InstStrategySimplexUfMatch( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) : 
+//      InstStrategy( ie ), d_th( th ){}
+//  ~InstStrategySimplexUfMatch(){}
+//  void resetInstantiationRound();
+//  int process( Node f, int effort );
+//  /** identify */
+//  std::string identify() const { return std::string("SimplexUfMatch"); }
+//};
 
 class InstantiatorTheoryArith : public Instantiator{
   friend class QuantifiersEngine;

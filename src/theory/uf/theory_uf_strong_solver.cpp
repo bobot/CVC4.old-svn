@@ -454,7 +454,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
     }
   }
   Debug("uf-ss") << conflict.size() << " " << clique.size() << std::endl;
-  Assert( conflict.size()==(int)clique.size()*( (int)clique.size()-1 )/2 );
+  Assert( (int)conflict.size()==(int)clique.size()*( (int)clique.size()-1 )/2 );
   Debug("uf-ss") << "Finding clique equalities internal to eq classes..." << std::endl;
   //now, we must explain equalities within each equivalence class
   for( std::map< Node, std::map< Node, bool > >::iterator it = nodesWithinRep.begin(); it != nodesWithinRep.end(); ++it ){
@@ -1073,7 +1073,7 @@ bool InstStrategyFinteModelFind::PartialInstSet::isFinished(){
 
 void InstStrategyFinteModelFind::PartialInstSet::getMatch( QuantifiersEngine* ie, InstMatch& m ){
   for( int i=0; i<(int)d_index.size(); i++ ){
-    m.setMatch( ie->getInstantiationConstant( d_f, i ), getTerm( i ) );
+    m.d_map[ ie->getInstantiationConstant( d_f, i ) ] = getTerm( i );
   }
 }
 

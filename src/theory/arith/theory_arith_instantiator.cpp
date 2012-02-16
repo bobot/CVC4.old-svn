@@ -70,86 +70,86 @@ int InstStrategySimplex::process( Node f, int effort ){
   return STATUS_UNKNOWN;
 }
 
-void InstStrategySimplexUfMatch::resetInstantiationRound(){
-
-}
-
-int InstStrategySimplexUfMatch::process( Node f, int effort ){
-  if( effort<2 ){
-    return STATUS_UNFINISHED;
-  }else if( effort==2 ){
-    for( int j=0; j<(int)d_th->d_instRows[f].size(); j++ ){
-      ArithVar x = d_th->d_instRows[f][j];
-      if( !d_th->d_ceTableaux[x].empty() && !d_th->d_tableaux_ce_term[x].empty() ){
-        if( d_tableaux_ce_term_trigger.find( x )==d_tableaux_ce_term_trigger.end() ){
-          std::vector< Node > terms;
-          for( std::map< Node, Node >::iterator it = d_th->d_tableaux_ce_term[x].begin(); it != d_th->d_tableaux_ce_term[x].end(); ++it ){
-            terms.push_back( it->first );
-          }
-          d_tableaux_ce_term_trigger[x] = new Trigger( d_quantEngine, f, terms );
-        }else{
-          d_tableaux_ce_term_trigger[x]->resetInstantiationRound();
-        }
-        Node term;
-        bool addedLemma = false;
-        while( d_tableaux_ce_term_trigger[x]->getNextMatch() && !addedLemma ){
-          InstMatch* m = d_tableaux_ce_term_trigger[x]->getCurrent();
-          if( m->isComplete( f ) ){
-            if( d_quantEngine->addInstantiation( f, m, true ) ){
-              ++(d_th->d_statistics.d_instantiations_match_pure);
-              ++(d_th->d_statistics.d_instantiations);
-              addedLemma = true;  
-            }
-          }else{
-            NodeBuilder<> plus_term(kind::PLUS);
-            plus_term << d_th->d_tableaux_term[x];
-            //Debug("quant-arith") << "Produced this match for ce_term_tableaux: " << std::endl;
-            //m->debugPrint("quant-arith");
-            //Debug("quant-arith") << std::endl;
-            std::vector< Node > vars;
-            std::vector< Node > matches;
-            for( int i=0; i<d_quantEngine->getNumInstantiationConstants( f ); i++ ){
-              Node ic = d_quantEngine->getInstantiationConstant( f, i );
-              if( m->d_map[ ic ]!=Node::null() ){
-                vars.push_back( ic );
-                matches.push_back( m->d_map[ ic ] );
-              }
-            }
-            Node var;
-            //otherwise try to find a variable that is not specified in m
-            for( std::map< Node, Node >::iterator it = d_th->d_ceTableaux[x].begin(); it != d_th->d_ceTableaux[x].end(); ++it ){
-              if( m->d_map[ it->first ]!=Node::null() ){
-                plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, d_th->getTableauxValue( m->d_map[ it->first ] ) );
-              }else if( var==Node::null() ){
-                var = it->first;
-              }
-            }
-            for( std::map< Node, Node >::iterator it = d_th->d_tableaux_ce_term[x].begin(); it != d_th->d_tableaux_ce_term[x].end(); ++it ){
-              Node n = it->first;
-              //substitute in matches
-              n = n.substitute( vars.begin(), vars.end(), matches.begin(), matches.end() ); 
-              plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, d_th->getTableauxValue( n ) );
-            }
-            term = plus_term.getNumChildren()==1 ? plus_term.getChild( 0 ) : plus_term;
-            if( var!=Node::null() ){
-              if( d_th->doInstantiation( f, term, x, m, var ) ){
-                addedLemma = true;
-                ++(d_th->d_statistics.d_instantiations_match_var);
-              }
-            }else{
-              if( d_quantEngine->addInstantiation( f, m, true ) ){
-                addedLemma = true;
-                ++(d_th->d_statistics.d_instantiations_match_no_var);
-                ++(d_th->d_statistics.d_instantiations);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  return STATUS_UNKNOWN;
-}
+//void InstStrategySimplexUfMatch::resetInstantiationRound(){
+//
+//}
+//
+//int InstStrategySimplexUfMatch::process( Node f, int effort ){
+//  if( effort<2 ){
+//    return STATUS_UNFINISHED;
+//  }else if( effort==2 ){
+//    for( int j=0; j<(int)d_th->d_instRows[f].size(); j++ ){
+//      ArithVar x = d_th->d_instRows[f][j];
+//      if( !d_th->d_ceTableaux[x].empty() && !d_th->d_tableaux_ce_term[x].empty() ){
+//        if( d_tableaux_ce_term_trigger.find( x )==d_tableaux_ce_term_trigger.end() ){
+//          std::vector< Node > terms;
+//          for( std::map< Node, Node >::iterator it = d_th->d_tableaux_ce_term[x].begin(); it != d_th->d_tableaux_ce_term[x].end(); ++it ){
+//            terms.push_back( it->first );
+//          }
+//          d_tableaux_ce_term_trigger[x] = new Trigger( d_quantEngine, f, terms );
+//        }else{
+//          d_tableaux_ce_term_trigger[x]->resetInstantiationRound();
+//        }
+//        Node term;
+//        bool addedLemma = false;
+//        while( d_tableaux_ce_term_trigger[x]->getNextMatch() && !addedLemma ){
+//          InstMatch* m = d_tableaux_ce_term_trigger[x]->getCurrent();
+//          if( m->isComplete( f ) ){
+//            if( d_quantEngine->addInstantiation( f, m, true ) ){
+//              ++(d_th->d_statistics.d_instantiations_match_pure);
+//              ++(d_th->d_statistics.d_instantiations);
+//              addedLemma = true;  
+//            }
+//          }else{
+//            NodeBuilder<> plus_term(kind::PLUS);
+//            plus_term << d_th->d_tableaux_term[x];
+//            //Debug("quant-arith") << "Produced this match for ce_term_tableaux: " << std::endl;
+//            //m->debugPrint("quant-arith");
+//            //Debug("quant-arith") << std::endl;
+//            std::vector< Node > vars;
+//            std::vector< Node > matches;
+//            for( int i=0; i<d_quantEngine->getNumInstantiationConstants( f ); i++ ){
+//              Node ic = d_quantEngine->getInstantiationConstant( f, i );
+//              if( m->d_map[ ic ]!=Node::null() ){
+//                vars.push_back( ic );
+//                matches.push_back( m->d_map[ ic ] );
+//              }
+//            }
+//            Node var;
+//            //otherwise try to find a variable that is not specified in m
+//            for( std::map< Node, Node >::iterator it = d_th->d_ceTableaux[x].begin(); it != d_th->d_ceTableaux[x].end(); ++it ){
+//              if( m->d_map[ it->first ]!=Node::null() ){
+//                plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, d_th->getTableauxValue( m->d_map[ it->first ] ) );
+//              }else if( var==Node::null() ){
+//                var = it->first;
+//              }
+//            }
+//            for( std::map< Node, Node >::iterator it = d_th->d_tableaux_ce_term[x].begin(); it != d_th->d_tableaux_ce_term[x].end(); ++it ){
+//              Node n = it->first;
+//              //substitute in matches
+//              n = n.substitute( vars.begin(), vars.end(), matches.begin(), matches.end() ); 
+//              plus_term << NodeManager::currentNM()->mkNode( MULT, it->second, d_th->getTableauxValue( n ) );
+//            }
+//            term = plus_term.getNumChildren()==1 ? plus_term.getChild( 0 ) : plus_term;
+//            if( var!=Node::null() ){
+//              if( d_th->doInstantiation( f, term, x, m, var ) ){
+//                addedLemma = true;
+//                ++(d_th->d_statistics.d_instantiations_match_var);
+//              }
+//            }else{
+//              if( d_quantEngine->addInstantiation( f, m, true ) ){
+//                addedLemma = true;
+//                ++(d_th->d_statistics.d_instantiations_match_no_var);
+//                ++(d_th->d_statistics.d_instantiations);
+//              }
+//            }
+//          }
+//        }
+//      }
+//    }
+//  }
+//  return STATUS_UNKNOWN;
+//}
 
 InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
@@ -336,7 +336,7 @@ bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, I
   instVal = NodeManager::currentNM()->mkNode( MULT, coeff, instVal );
   instVal = Rewriter::rewrite( instVal );
   //use as instantiation value for var
-  m->setMatch( var, instVal );
+  m->d_map[ var ] = instVal;
   return d_quantEngine->addInstantiation( f, m, true );
 }
 

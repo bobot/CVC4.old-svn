@@ -100,6 +100,7 @@ void QuantifiersEngine::check( Theory::Effort e ){
 }
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
+    ++(d_statistics.d_num_quant);
     d_quants.push_back( f );
     for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
       d_vars[f].push_back( f[0][i] );
@@ -107,6 +108,9 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       Node ic = NodeManager::currentNM()->mkInstConstant( f[0][i].getType() );
       d_inst_constants_map[ic] = f;
       d_inst_constants[ f ].push_back( ic );
+      ////set the var number attribute
+      //InstVarNumAttribute ivna;
+      //ic.setAttribute(ivna,i);
     }
     Assert( f.getKind()==FORALL );
     for( int i=0; i<(int)d_modules.size(); i++ ){
@@ -166,18 +170,18 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
         //}
         std::cout << "unknown ";
         exit( 19 );
-      }
-      Assert( !terms[i].hasAttribute(InstConstantAttribute()) );
-      Debug("inst-engine") << "   " << terms[i];
-      //std::cout << "   " << terms[i] << std::endl;
-      //Debug("inst-engine") << " " << terms[i].getAttribute(InstLevelAttribute());
-      Debug("inst-engine") << std::endl;
-      if( terms[i].hasAttribute(InstLevelAttribute()) ){
-        if( terms[i].getAttribute(InstLevelAttribute())>maxInstLevel ){
-          maxInstLevel = terms[i].getAttribute(InstLevelAttribute()); 
-        }
       }else{
-        setInstantiationLevelAttr( terms[i], 0 );
+        Debug("inst-engine") << "   " << terms[i];
+        //std::cout << "   " << terms[i] << std::endl;
+        //Debug("inst-engine") << " " << terms[i].getAttribute(InstLevelAttribute());
+        Debug("inst-engine") << std::endl;
+        if( terms[i].hasAttribute(InstLevelAttribute()) ){
+          if( terms[i].getAttribute(InstLevelAttribute())>maxInstLevel ){
+            maxInstLevel = terms[i].getAttribute(InstLevelAttribute()); 
+          }
+        }else{
+          setInstantiationLevelAttr( terms[i], 0 );
+        }
       }
     }
     setInstantiationLevelAttr( body, maxInstLevel+1 );
@@ -192,8 +196,6 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 }
 
 bool QuantifiersEngine::addInstantiation( Node f, InstMatch* m, bool addSplits ){
-  //Assert( m->isComplete() );
-  //std::cout << "compute vec " << m << std::endl;
   std::vector< Node > vars;
   getInstantiationConstantsFor( f, vars );
   std::vector< Node > match;
@@ -215,11 +217,11 @@ bool QuantifiersEngine::addInstantiation( Node f, InstMatch* m, bool addSplits )
       //}
       ++(d_statistics.d_inst_unspec);
     }
-    if( addSplits ){
-      for( std::map< Node, Node >::iterator it = m->d_splits.begin(); it != m->d_splits.end(); ++it ){
-        addSplitEquality( it->first, it->second, true, true );
-      }
-    }
+    //if( addSplits ){
+    //  for( std::map< Node, Node >::iterator it = m->d_splits.begin(); it != m->d_splits.end(); ++it ){
+    //    addSplitEquality( it->first, it->second, true, true );
+    //  }
+    //}
     return true;
   }
   return false;
@@ -311,6 +313,7 @@ void QuantifiersEngine::setInstantiationConstantAttr( Node n, Node f ){
 }
 
 QuantifiersEngine::Statistics::Statistics():
+  d_num_quant("QuantifiersEngine::Num_Quantifiers", 0),
   d_instantiation_rounds("QuantifiersEngine::Instantiation_Rounds", 0),
   d_instantiations("QuantifiersEngine::Total_Instantiations", 0),
   d_max_instantiation_level("QuantifiersEngine::Max_Instantiation_Level", 0),
@@ -322,6 +325,7 @@ QuantifiersEngine::Statistics::Statistics():
   d_lit_phase_req("QuantifiersEngine::lit_phase_req", 0),
   d_lit_phase_nreq("QuantifiersEngine::lit_phase_nreq", 0)
 {
+  StatisticsRegistry::registerStat(&d_num_quant);
   StatisticsRegistry::registerStat(&d_instantiation_rounds);
   StatisticsRegistry::registerStat(&d_instantiations);
   StatisticsRegistry::registerStat(&d_max_instantiation_level);
@@ -335,6 +339,7 @@ QuantifiersEngine::Statistics::Statistics():
 }
 
 QuantifiersEngine::Statistics::~Statistics(){
+  StatisticsRegistry::unregisterStat(&d_num_quant);
   StatisticsRegistry::unregisterStat(&d_instantiation_rounds);
   StatisticsRegistry::unregisterStat(&d_instantiations);
   StatisticsRegistry::unregisterStat(&d_max_instantiation_level);

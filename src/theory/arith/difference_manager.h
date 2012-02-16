@@ -48,6 +48,11 @@ private:
       Node equality = t1.eqNode(t2);
       d_dm.propagate(equality);
     }
+    //AJR-hack
+    void notifyEqClass( TNode t ){}
+    void notifyMerge( TNode t1, TNode t2 ){}
+    void notifyDisequal( TNode t1, TNode t2, TNode reason ){}
+    //AJR-hack-end
   };
 
   std::vector< Difference > d_differences;

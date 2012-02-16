@@ -126,18 +126,18 @@ void RewriteEngine::check( Theory::Effort e ){
     std::vector<Node> pattern; pattern.push_back(p);
     Debug("rewriterules") << "pattern creation:" << p << std::endl;
     uf_db->add(p);
-    Trigger* tr = new Trigger(qe,r,pattern, true);
+    Trigger* tr = Trigger::mkTrigger(qe,r,pattern, false, true);
     tr->resetInstantiationRound();
 
 
     /** Test the possible matching one by one */
-    while(tr->getNextMatch ()){
-      InstMatch* im = tr->getCurrent();
+    InstMatch im;
+    while(tr->getNextMatch( im )){     //AJR-fix
       Debug("rewriterules") << "One matching found" << std::endl;
 
       /* Create the substitution */
       std::vector<Node> subst;
-      im->computeTermVec(qe, qe->d_inst_constants[r], subst);
+      im.computeTermVec(qe, qe->d_inst_constants[r], subst);
 
       Debug("rewriterules") << "subst:";
       for(int i = 0; i < subst.size(); ++i) {
@@ -165,6 +165,7 @@ void RewriteEngine::check( Theory::Effort e ){
         Debug("rewriterules") << lemma << std::endl;
         d_th->getOutputChannel().lemma(lemma);
       }
+      im.clear();
     }
   }
 }

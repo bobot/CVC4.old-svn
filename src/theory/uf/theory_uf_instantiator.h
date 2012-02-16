@@ -27,6 +27,7 @@
 #include "context/cdlist_context_memory.h"
 
 #include "util/stats.h"
+#include "theory/uf/theory_uf.h"
 
 namespace CVC4 {
 namespace theory {
@@ -108,7 +109,7 @@ private:
   void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt );
 public:
   InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt ) : 
-      InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ){}
+      InstStrategy( ie ), d_tr_strategy( tstrt ), d_th( th ){}
   ~InstStrategyAutoGenTriggers(){}
   void resetInstantiationRound();
   int process( Node f, int effort );
@@ -193,12 +194,6 @@ public:
 private:
   /** calculate matches for quantifier f at effort */
   int process( Node f, int effort );
-  /** sets possible matches to induce t ~ s */
-  std::map< Node, std::map< Node, std::vector< Node > > > d_litMatchCandidates[2];
-  void calculateEIndLitCandidates( Node t, Node s, Node f, bool isEq );
-public:
-  /** calculate sets possible matches to induce t ~ s */
-  void getEIndLitCandidates( Node t, Node s, Node f, bool isEq, std::vector< Node >& litMatches );
 public:
   /** are obligations changed? */
   bool getObligationsChanged( Node f ) { return d_ob_changed[f]; }
@@ -225,7 +220,17 @@ public:
   };
   Statistics d_statistics;
   /** the base match */
-  InstMatch d_baseMatch;
+  std::map< Node, InstMatch > d_baseMatch;
+private:
+  //for each equivalence class, a list of operators that occur as top symbols in that equivalence class
+  NodeLists d_eqc_ops;
+public:
+  /** new node */
+  void newEqClass( Node n );
+  /** merge */
+  void merge( Node a, Node b );
+  /** assert terms are disequal */
+  void assertDisequal( Node a, Node b, Node reason );
 };/* class InstantiatorTheoryUf */
 
 /** equality query object using instantiator theory uf */
@@ -237,12 +242,42 @@ public:
   EqualityQueryInstantiatorTheoryUf( InstantiatorTheoryUf* ith ) : d_ith( ith ){}
   ~EqualityQueryInstantiatorTheoryUf(){}
   /** general queries about equality */
+  Node getRepresentative( Node a ) { return d_ith->getRepresentative( a ); }
   bool areEqual( Node a, Node b ) { return d_ith->areEqual( a, b ); }
   bool areDisequal( Node a, Node b ) { return d_ith->areDisequal( a, b ); }
-  /** calculate sets possible matches to induce t ~ s */
-  void getEIndLitCandidates( Node t, Node s, Node f, bool isEq, std::vector< Node >& litMatches ){
-    d_ith->getEIndLitCandidates( t, s, f, isEq, litMatches );
-  }
+};
+
+class CandidateGeneratorTheoryUf : public CandidateGenerator
+{
+private:
+  //operator you are looking for
+  Node d_op;
+  //the equality class iterator
+  EqClassIterator d_eqc;
+  int d_term_iter;
+  //instantiator pointer
+  InstantiatorTheoryUf* d_ith;
+public:
+  CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op ) : d_op( op ), d_ith( ith ){}
+  ~CandidateGeneratorTheoryUf(){}
+
+  void reset( Node eqc );
+  Node getNextCandidate();
+};
+
+class CandidateGeneratorTheoryUfLitMatch : public CandidateGenerator
+{
+private:
+  //equality or disequality you are trying to match for
+  Node d_pattern;
+  //einstantiator pointer
+  InstantiatorTheoryUf* d_ith;
+public:
+  CandidateGeneratorTheoryUfLitMatch( InstantiatorTheoryUf* ith, Node pat ) : d_pattern( pat ), d_ith( ith ){}
+  ~CandidateGeneratorTheoryUfLitMatch(){}
+
+  void reset( Node eqc );
+  Node getNextCandidate();
 };
 
 }

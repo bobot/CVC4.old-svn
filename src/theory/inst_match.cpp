@@ -25,99 +25,68 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-InstMatch::InstMatch( InstMatch* m ){
-  d_map = m->d_map;
-  d_splits = m->d_splits;
+int InstMatch::d_im_count = 0;
+
+InstMatch::InstMatch(){
+  d_im_count++;
+  //if( d_im_count%1000==0 ){
+  //  std::cout << "im count = " << d_im_count << " " << InstMatchCalculator::d_imcCount << " " << InstMatchGenerator::d_imgCount << " " << Trigger::trCount << std::endl;
+  //}
 }
 
-void InstMatch::setMatch( Node v, Node m ){ 
-  d_map[v] = m; 
+InstMatch::InstMatch( InstMatch* m ){
+  d_map = m->d_map;
+  d_im_count++;
+  //if( d_im_count%1000==0 ){
+  //  std::cout << "im count = " << d_im_count << " " << InstMatchCalculator::d_imcCount << " " << InstMatchGenerator::d_imgCount << std::endl;
+  //}
+}
+
+bool InstMatch::setMatch( EqualityQuery* q, Node v, Node m ){ 
+  if( d_map.find( v )==d_map.end() ){
+    d_map[v] = m; 
+    return true;
+  }else{
+    return q->areEqual( d_map[v], m );
+  }
 }
 
 bool InstMatch::add( InstMatch& m ){
   for( std::map< Node, Node >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
     if( d_map.find( it->first )==d_map.end() ){
-      setMatch( it->first, it->second );
+      d_map[it->first] = it->second;
     }
   }
   return true;
 }
 
-bool InstMatch::merge( EqualityQuery* q, InstMatch& m, bool allowSplit ){
+bool InstMatch::merge( EqualityQuery* q, InstMatch& m ){
   for( std::map< Node, Node >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
     if( d_map.find( it->first )==d_map.end() ){
-      setMatch( it->first, it->second );
+      d_map[ it->first ] = it->second;
     }else{
       if( it->second!=d_map[it->first] ){
         if( !q->areEqual( it->second, d_map[it->first] ) ){
-          //split?
-          if( allowSplit ){
-            addSplit( d_map[ it->first ], it->second );
-          }else{
-            d_map.clear();
-            return false;
-          }
+          d_map.clear();
+          return false;
         }
       }
     }
   }
-  if( allowSplit ){
-    //also add splits
-    for( std::map< Node, Node >::iterator it = m.d_splits.begin(); it != m.d_splits.end(); ++it ){
-      addSplit( it->first, it->second );
-    }
-  }
   return true;
 }
 
-//// -1 : keep this, 1 : keep m, 0 : keep both
-//int InstMatch::checkSubsume( InstMatch& m ){
-//  bool nsubset1 = true;
-//  bool nsubset2 = true;
-//  for( int i=0; i<(int)d_vars.size(); i++ ){
-//    if( m.d_map[ d_vars[i] ]!=d_map[ d_vars[i] ] ){
-//      if( d_map[ d_vars[i] ]!=Node::null() ){
-//        nsubset1 = false;
-//        if( !nsubset2 ) break;
-//      }
-//      if( m.d_map[ d_vars[i] ]!=Node::null() ){
-//        nsubset2 = false;
-//        if( !nsubset1 ) break;
-//      }
-//    }
-//  }
-//  if( nsubset1 ){
-//    return -1;
-//  }else if( nsubset2 ){
-//    return 1;
-//  }else{
-//    return 0;
-//  }
-//}
-
-bool InstMatch::isEqual( InstMatch& m ){
-  if( d_map.size()==m.d_map.size() ){
-    for( std::map< Node, Node >::iterator it = m.d_map.begin(); it != m.d_map.end(); ++it ){
-      if( d_map.find( it->first )==d_map.end() || it->second!=d_map[ it->first ] ){
-        return false;
-      }
-    }
-    return true;
-  }else{
-    return false;
-  }
-}
 void InstMatch::debugPrint( const char* c ){
   for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
     Debug( c ) << "   " << it->first << " -> " << it->second << std::endl;
   }
-  if( !d_splits.empty() ){
-    Debug( c ) << "   Conditions: ";
-    for( std::map< Node, Node >::iterator it = d_splits.begin(); it !=d_splits.end(); ++it ){
-      Debug( c ) << it->first << " = " << it->second << " ";
-    }
-    Debug( c ) << std::endl;
-  }
+  //if( !d_splits.empty() ){
+  //  Debug( c ) << "   Conditions: ";
+  //  for( std::map< Node, Node >::iterator it = d_splits.begin(); it !=d_splits.end(); ++it ){
+  //    Debug( c ) << it->first << " = " << it->second << " ";
+  //  }
+  //  Debug( c ) << std::endl;
+  //}
 }
 
 void InstMatch::computeTermVec( QuantifiersEngine* ie, std::vector< Node >& vars, std::vector< Node >& match ){
@@ -130,442 +99,208 @@ void InstMatch::computeTermVec( QuantifiersEngine* ie, std::vector< Node >& vars
   }
 }
 
-void InstMatch::addSplit( Node n1, Node n2 ){
-  if( n2<n1 ){
-    Node ntemp = n1;
-    n1 = n2;
-    n2 = ntemp;
-  }
-  if( d_splits.find( n1 )!=d_splits.end() ){
-    if( d_splits[n1]!=n2 ){
-      addSplit( d_splits[n1], n2 );
-    }
+
+
+
+InstMatchGenerator::InstMatchGenerator( Node pat, QuantifiersEngine* qe, bool isLitMatch ) : d_isLitMatch( isLitMatch ){
+  initializePattern( pat, qe );
+}
+
+InstMatchGenerator::InstMatchGenerator( std::vector< Node >& pats, QuantifiersEngine* qe, bool isLitMatch ) : d_isLitMatch( isLitMatch ){
+  if( pats.size()==1 ){
+    initializePattern( pats[0], qe );
   }else{
-    d_splits[n1] = n2;
+    initializePatterns( pats, qe );
   }
 }
 
-std::map< Node, std::vector< InstMatchGenerator* > > InstMatchGenerator::d_iter[3];
-int InstMatchGenerator::d_imgCount = 0;
-
-/** InstMatchGenerator constructor */
-InstMatchGenerator::InstMatchGenerator( int op, Node eq ) : d_operation( op ), d_eq( eq ), d_mg_i(-1){
-  d_imgCount++;
-  //if( d_imgCount%1000==0 ){
-  //  std::cout << "img count = " << d_imgCount << std::endl;
-  //}
-  if( op==0 ){
-    if( eq!=Node::null() && eq.getKind()!=NOT && eq[0].getKind()==INST_CONSTANT && !eq[1].hasAttribute(InstConstantAttribute()) ){
-      InstMatch m;
-      d_partial.push_back( m );
-      d_partial[0].setMatch( eq[0], eq[1] );
+void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
+  Assert( pat.hasAttribute(InstConstantAttribute()) );
+  d_pattern = pat;
+  d_match_pattern = pat;
+  if( d_match_pattern.getKind()==NOT ){
+    //we want to add the children of the NOT
+    d_match_pattern = d_pattern[0];
+  }
+  if( d_match_pattern.getKind()==IFF || d_match_pattern.getKind()==EQUAL ){
+    if( !d_match_pattern[0].hasAttribute(InstConstantAttribute()) ){
+      Assert( d_match_pattern[1].hasAttribute(InstConstantAttribute()) );
+      //swap sides
+      d_pattern = NodeManager::currentNM()->mkNode( d_match_pattern.getKind(), d_match_pattern[1], d_match_pattern[0] );
+      d_pattern = pat.getKind()==NOT ? d_pattern.notNode() : d_pattern;
+      //set match pattern
+      d_match_pattern = d_match_pattern[1];
+    }else if( !d_match_pattern[1].hasAttribute(InstConstantAttribute()) ){
+      Assert( d_match_pattern[0].hasAttribute(InstConstantAttribute()) );
+      //set match pattern
+      d_match_pattern = d_match_pattern[0];
     }
-  }else if( op==1 ){
-    //if we are merging the arguments in eq, calculate children now
-    InstMatch m;
-    d_partial.push_back( m );
-    if( eq!=Node::null() ){
-      for( int j=0; j<(int)eq[0].getNumChildren(); j++ ){
-        if( eq[0][j].hasAttribute(InstConstantAttribute()) ){
-          if( eq[0][j].getKind()==APPLY_UF ){
-            d_children.push_back( mkInstMatchGeneratorModEq( eq[0][j], eq[1][j], true ) );
-          }else if( eq[0][j].getKind()==INST_CONSTANT ){
-            d_partial[0].setMatch( eq[0][j], eq[1][j] );
-          }
-        }
+  }
+  for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
+    if( d_match_pattern[i].hasAttribute(InstConstantAttribute()) ){
+      if( d_match_pattern[i].getKind()!=INST_CONSTANT ){
+        d_children.push_back( new InstMatchGenerator( d_match_pattern[i], qe, d_isLitMatch ) );
+        d_children_index.push_back( i );
       }
     }
   }
-  d_can_produce_matches = true;
-  d_index = 0;
-}
-
-InstMatchGenerator* InstMatchGenerator::mkInstMatchGenerator( int op, Node eq ){
-  Debug( "quant-uf-iter" ) << "mkInstMatchGenerator " << eq << " " << op << std::endl;
-  InstMatchGenerator* mi = new InstMatchGenerator( op, eq );
-  d_iter[op][eq].push_back( mi );
-  return mi;
-}
-
-InstMatchGenerator* InstMatchGenerator::mkInstMatchGenerator( bool isCombine){
-  Node nl;
-  return mkInstMatchGenerator( isCombine ? 0 : 1, nl );
-}
-
-InstMatchGenerator* InstMatchGenerator::mkInstMatchGeneratorModEq( Node t, Node s, bool isEq ){
-  Debug( "quant-uf-iter" ) << "mkInstMatchGenerator " << t << " " << s << " " << isEq << std::endl;
-  Assert( t.hasAttribute(InstConstantAttribute()) ); 
-  Kind knd = t.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
-  Node eq = NodeManager::currentNM()->mkNode( knd, t, s );
-  return mkInstMatchGenerator( 0, isEq ? eq : eq.notNode() );
-}
-
-InstMatchGenerator* InstMatchGenerator::mkInstMatchGenerator( Node t, Node s ){
-  Debug( "quant-uf-iter" ) << "mkInstMatchGenerator " << t << " " << s << std::endl;
-  Assert( t.hasAttribute(InstConstantAttribute()) ); 
-  if( t.getKind()==INST_CONSTANT ){
-    return mkInstMatchGeneratorModEq( t, s, true );
+  Debug("inst-match-gen") << "Pattern is " << d_pattern << ", match pattern is " << d_match_pattern << std::endl;
+  //get the equality engine
+  Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF ); 
+  uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
+  //create candidate generator
+  if( d_match_pattern.getKind()==APPLY_UF ){
+    d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
   }else{
-    Assert( t.getKind()==APPLY_UF );
-    Assert( s.getKind()==APPLY_UF );
-    Assert( t.getOperator()==s.getOperator() );
-    Kind knd = t.getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
-    Node eq = NodeManager::currentNM()->mkNode( knd, t, s );
-    return mkInstMatchGenerator( 1, eq );
+    Assert( d_isLitMatch );
+    Assert( d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF );
+    d_cg = new uf::CandidateGeneratorTheoryUfLitMatch( ith, d_pattern );
   }
 }
 
-InstMatchGenerator* InstMatchGenerator::mkInstMatchGeneratorAny( Node t ){
-  Assert( t.getKind()==APPLY_UF );
-  Assert( t.hasAttribute(InstConstantAttribute()) ); 
-  return mkInstMatchGenerator( 2, t );
-}
-
-void InstMatchGenerator::addAnyMatchPair( Node t, Node g ){
-  InstMatchGenerator* mg;
-  if( d_iter[2][t].empty() ){
-    mg = mkInstMatchGeneratorAny( t );
-  }else{
-    mg = d_iter[2][t][0];
+void InstMatchGenerator::initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe ){
+  for( int i=0; i<(int)pats.size(); i++ ){
+    d_children.push_back( new InstMatchGenerator( pats[i], qe, d_isLitMatch ) );
   }
-  mg->d_children.push_back( mkInstMatchGenerator( t, g ) );
+  d_pattern = Node::null();
+  d_match_pattern = Node::null();
+  d_cg = NULL;
 }
 
-//void InstMatchGenerator::resetInstantiationRoundAll( uf::InstantiatorTheoryUf* itu ){
-//  for( int i=0; i<3; i++ ){
-//    for( std::map< Node, std::vector< InstMatchGenerator* > >::iterator it = d_iter[i].begin(); it != d_iter[i].end(); ++it ){
-//      for( int j=0; j<(int)it->second.size(); j++ ){
-//        it->second[j]->d_valid = true;
-//      }
-//    }
-//  }
-//  for( int i=0; i<3; i++ ){
-//    for( std::map< Node, std::vector< InstMatchGenerator* > >::iterator it = d_iter[i].begin(); it != d_iter[i].end(); ++it ){
-//      for( int j=0; j<(int)it->second.size(); j++ ){
-//        it->second[j]->resetInstantiationRound( itu );
-//      }
-//    }
-//  }
-//}
-
-
-//if equivalence classes change, this function should be called at least once before getNextMatch( itu ) is called
-void InstMatchGenerator::resetInstantiationRound( EqualityQuery* q ){
-  Debug("quant-uf-iter") << "reset instantiation round : " << d_operation << " " << d_eq << " " << (getMaster()==this) << std::endl;
-  if( getMaster()==this ){
-    if( d_eq!=Node::null() ){
-      if( d_operation==0 ){
-        //invalidate children
-        bool isEq = d_eq.getKind()!=NOT;
-        Node eq = d_eq.getKind()==NOT ? d_eq[0] : d_eq;
-        Node f = eq[0].getAttribute(InstConstantAttribute());
-        for( std::map< Node, InstMatchGenerator* >::iterator it = d_lit_children_map.begin(); it != d_lit_children_map.end(); ++it ){
-          Debug("quant-uf-iter-debug") << "process " << it->first << " " << isEq << " " << (eq[1].getAttribute(InstConstantAttribute())==f) << std::endl;
-          d_children_valid[ it->second ] = true;
-          if( isEq ){
-            if( eq[1].getAttribute(InstConstantAttribute())!=f ){
-              d_children_valid[ it->second ] = q->areEqual( it->first, eq[1] );
-            }
-          }else{
-            if( eq[1].getAttribute(InstConstantAttribute())==f ){
-              d_children_valid[ it->second ] = q->areDisequal( it->first[0], it->first[1] );
-            }else{
-              d_children_valid[ it->second ] = q->areDisequal( it->first, eq[1] );
-            }
-          }
-        }
-      }else if( d_operation==1 ){
-        //if a ground argument is not equal, then this is currently invalid
-        for( int j=0; j<(int)d_eq[0].getNumChildren(); j++ ){
-          if( !d_eq[0][j].hasAttribute(InstConstantAttribute()) &&
-              !q->areEqual( d_eq[0][j], d_eq[0][j] ) ){
-            d_can_produce_matches = false;
-            return;
-          }
+/** get match (not modulo equality) */
+bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe ){
+  EqualityQuery* q = qe->getEqualityQuery();
+  //add m to partial match vector
+  std::vector< InstMatch > partial;
+  partial.push_back( InstMatch( &m ) );
+  //if t is null
+  Assert( !t.isNull() );
+  Assert( !d_match_pattern.isNull() );
+  Assert( !t.hasAttribute(InstConstantAttribute()) );
+  Assert( t.getKind()==d_match_pattern.getKind() );
+  Assert( t.getOperator()==d_match_pattern.getOperator() );
+  //first, check if ground arguments are not equal, or a match is in conflict
+  for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
+    if( d_match_pattern[i].hasAttribute(InstConstantAttribute()) ){
+      if( d_match_pattern[i].getKind()==INST_CONSTANT ){
+        if( !partial[0].setMatch( q, d_match_pattern[i], t[i] ) ){
+          //match is in conflict
+          return false;
         }
       }
-      //else if( d_operation==2 ){
-      //  //DO_THIS?
-      //}
-    }
-    Debug("quant-uf-iter") << "reset instantiation round (2)" << std::endl;
-    if( d_mg_i+1<getNumCurrentMatches() ){
-      d_can_produce_matches = true;
-    }else if( !d_can_produce_matches ){
-      //if we had completed all matches previously, then at least one child must produce a new match
-      for( int i=0; i<(int)d_children.size(); i++ ){
-        if( isChildValid( i ) ){
-          d_children[i]->resetInstantiationRound( q );
-          if( d_children[i]->d_can_produce_matches ){
-            d_can_produce_matches = true;
-          }
-        }
-      }
-      if( !d_can_produce_matches ){
-        //or, if we can produce new children
-        d_can_produce_matches = calculateChildren( q );
-      }
-    }
-    Debug("quant-uf-iter") << "can produce matches = " << d_can_produce_matches << std::endl;
-    if( d_can_produce_matches ){
-      //take necessary action for preparing for new matches
-      if( isCombine() ){
-        //start over from first child
-        d_index = 0;
-      }else{
-        //must reset all children
-        for( int i=0; i<(int)d_children.size(); i++ ){
-          d_children[i]->reset();
-        }
-        if( !d_partial.empty() ){
-          d_partial.erase( d_partial.begin() + 1, d_partial.end() );
-        }
-      }
-    }
-  }else{
-    if( d_mg_i+1<getNumCurrentMatches() ){
-      d_can_produce_matches = true;
     }else{
-      getMaster()->resetInstantiationRound( q );
-      d_can_produce_matches = getMaster()->d_can_produce_matches;
-    }
-  }
-  Debug("quant-uf-iter") << "done reset instantiation round." << std::endl;
-}
-
-//reset the inst match generator (repeat the matches is says it has generated)
-void InstMatchGenerator::reset(){
-  d_mg_i = -1;
-}
-
-/** get current match */
-InstMatch* InstMatchGenerator::getCurrent(){
-  if( d_mg_i>=0 && d_mg_i<(int)getMaster()->getNumCurrentMatches() ){
-    return getMaster()->getMatch( d_mg_i ); 
-  }else{
-    return NULL;
-  }
-}
-
-/** get next match */
-//pre condition -1 <= d_mg_i < (int)getMaster()->getNumCurrentMatches()
-//post condition: return=true, then 0 <= d_mg_i < (int)getMaster()->getNumCurrentMatches()
-bool InstMatchGenerator::getNextMatch( EqualityQuery* q ){
-  if( d_can_produce_matches ){
-    d_mg_i++;
-    Debug( "quant-uf-iter" ) << d_eq << " " << d_operation << " getNextMatch ";
-    Debug( "quant-uf-iter" ) << this << " " << d_mg_i << " " << getNumCurrentMatches() << std::endl;
-    if( d_mg_i<getNumCurrentMatches() ){
-      Debug( "quant-uf-iter" ) << d_eq << " " << d_operation << "  returned (existing) match " << d_mg_i << std::endl;
-      getCurrent()->debugPrint( "quant-uf-iter" );
-      return true;
-    }else if( getMaster()->calculateNextMatch( q ) ){
-      Debug( "quant-uf-iter" ) << d_eq << " " << d_operation << " " << d_mg_i << " " << getNumCurrentMatches() << std::endl;
-      Debug( "quant-uf-iter" ) << this << " returned match " << d_mg_i << std::endl;
-      Assert( d_mg_i<getNumCurrentMatches() );
-      getCurrent()->debugPrint( "quant-uf-iter" );
-      return true;
-    }else{
-      d_mg_i--;
-      d_can_produce_matches = false;
-    }
-  }
-  return false;
-}
-
-/** add instantiation match to vector, return true if not redundant */
-bool InstMatchGenerator::addInstMatch( InstMatch& m ){
-  Assert( getMaster()==this );
-  for( int i=0; i<getNumCurrentMatches(); i++ ){  //IMPROVE_THIS
-    if( getMatch( i )->isEqual( m ) ){
-      return false;
-    }
-  }
-  d_mg.push_back( m );
-  return true;
-}
-
-/** get num current matches */
-int InstMatchGenerator::getNumCurrentMatches(){
-  if( getMaster()==this ){
-    return (int)d_mg.size();
-  }else{
-    return getMaster()->getNumCurrentMatches();
-  }
-}
-/** get current match */
-InstMatch* InstMatchGenerator::getMatch( int i ){
-  if( getMaster()==this ){
-    return &d_mg[i];
-  }else{
-    return getMaster()->getMatch( i );
-  }
-}
-
-//post-condition: if return=true, then d_children must have grown by at least one
-bool InstMatchGenerator::calculateChildren( EqualityQuery* q ){
-  Assert( getMaster()==this );
-  if( d_operation==0 && d_eq!=Node::null() ){
-    if( d_eq.getKind()!=NOT && d_eq[0].getKind()==INST_CONSTANT && !d_eq[1].hasAttribute(InstConstantAttribute()) ){
-      return false;
-    }
-    Debug( "quant-uf-iter" ) << "calulcate children " << d_eq << std::endl;
-    //see if there are any new match candidates
-    bool isEq = d_eq.getKind()!=NOT;
-    Node eq = d_eq.getKind()==NOT ? d_eq[0] : d_eq;
-    Node f = eq[0].getAttribute(InstConstantAttribute());
-    std::vector< Node > litMatches;
-    q->getEIndLitCandidates( eq[0], eq[1], f, isEq, litMatches );
-    int index = isEq ? 0 : 1;
-    bool childAdded = false;
-    for( int i=0; i<(int)litMatches.size(); i++ ){
-      Node m = litMatches[i];
-      //std::cout << "lit match candidate " << m << " for " << d_eq << std::endl;
-      if( d_lit_children_map.find( m )==d_lit_children_map.end() ){
-        InstMatchGenerator* mg;
-        if( isEq ){
-          if( eq[1].getAttribute(InstConstantAttribute())==f ){
-            // equality between two patterns
-            // found m, where eq[0],eq[1] share top symbol with a term in eq_class( m )
-            mg = mkInstMatchGenerator( false );
-            mg->d_children.push_back( mkInstMatchGeneratorModEq( eq[0], m, true ) );
-            mg->d_children.push_back( mkInstMatchGeneratorModEq( eq[1], m, true ) );
-          }else{
-            // equality between pattern and ground term
-            // found m = eq[1], eq[0] and m share top symbol
-            mg = mkInstMatchGenerator( eq[0], m );
-            //only valid on subsequent iterations if m = eq[1]
-          }
-        }else{
-          if( eq[1].getAttribute(InstConstantAttribute())==f ){
-            // disequality between two patterns
-            // we found m[0] != m[1], where eq[i] shares top symbol with a term in eq_class( m[i] ), for i=0,1
-            mg = mkInstMatchGenerator( false );
-            mg->d_children.push_back( mkInstMatchGeneratorModEq( eq[0], m[0], true ) );
-            mg->d_children.push_back( mkInstMatchGeneratorModEq( eq[1], m[1], true ) );
-            //only valid on subsequent iterations if m[0] != m[1]
-          }else{
-            // disequality between pattern and ground term
-            // we found m != eq[1], eq[0] and m share top symbol
-            mg = mkInstMatchGeneratorModEq( eq[0], m, true );
-            //only valid on subsequent iterations if m != eq[1]
-          }
-        }
-        d_children.push_back( mg );
-        d_lit_children_map[m] = mg;
-        childAdded = true;
+      if( !q->areEqual( d_match_pattern[i], t[i] ) ){
+        //ground arguments are not equal
+        return false;
       }
     }
-    return childAdded;
+  }
+  //now, fit children into match
+  //we will be requesting candidates for matching terms for each child
+  for( int i=0; i<(int)d_children.size(); i++ ){
+    Node rep = q->getRepresentative( t[ d_children_index[i] ] );
+    d_children[i]->d_cg->reset( rep );
+  }
+  //combine child matches
+  int index = 0;
+  while( index>=0 && index<(int)d_children.size() ){
+    partial.push_back( InstMatch( &partial[index] ) );
+    if( d_children[index]->getNextMatch2( partial[index+1], qe ) ){
+      index++;
+    }else{
+      partial.pop_back();
+      index--;
+    }
+  }
+  if( index>=0 ){
+    m = partial[index];
+    return true;
   }else{
     return false;
   }
 }
 
-bool InstMatchGenerator::calculateNextMatch( EqualityQuery* q ){
-  Assert( getMaster()==this );
-  Debug( "quant-uf-iter" ) << "calc next match " << d_operation << " " << d_eq << std::endl;
-  if( isCombine() ){
-    Debug( "quant-uf-iter" ) << d_index << " " << (int)d_children.size() << std::endl;
-    //get the next match
-    bool success;
-    do{
-      if( d_index==(int)d_children.size() ){
-        //get more children
-        if( !calculateChildren( q ) ){
-          return false;
-        }
-      }
-      //std::cout << "check child " << d_children[d_index] << std::endl;
-      success = isChildValid( d_index ) ? d_children[d_index]->getNextMatch( q ) : false;
-      if( !success ){
-        d_index++;
-      }
-    }while( !success );
-    Assert( d_children[d_index]->getCurrent()!=NULL );
-    if( addInstMatch( *d_children[d_index]->getCurrent() ) ){  //if we have not seen this match before
-      return true;
-    }else{
-      return calculateNextMatch( q );
+bool InstMatchGenerator::getNextMatch2( InstMatch& m, QuantifiersEngine* qe ){
+  bool success = false;
+  Node t;
+  do{
+    //get the next candidate term t
+    t = d_cg->getNextCandidate();
+    //if t not null, try to fit it into match m
+    if( !t.isNull() ){
+      success = getMatch( t, m, qe );
+    }
+  }while( !success && !t.isNull() );
+  return success;
+}
+
+
+/** reset instantiation round */
+void InstMatchGenerator::resetInstantiationRound( QuantifiersEngine* qe ){
+  if( d_match_pattern.isNull() ){
+    for( int i=0; i<(int)d_children.size(); i++ ){
+      d_children[i]->resetInstantiationRound( qe );
     }
   }else{
-    if( d_partial.empty() ){
-      Assert( d_children.empty() );
-      return false;
-    }else{
-      // i is the index of the child we are trying to fit into our merged match
-      int i = (int)d_partial.size()-1;
-      //until we have created a merge for all children
-      while( i!=(int)d_children.size() ){
-        InstMatch combined;
-        bool success = false;
-        //get the next match
-        while( !success && d_children[i]->getNextMatch( q ) ){
-          combined = InstMatch( *d_children[i]->getCurrent() );
-          //see if it merges into the current built merge (stored in d_partial)
-          success = combined.merge( q, d_partial[i] );
-        }
-        //Assert( !d_children[i]->empty() );
-        if( !success ){
-          if( i==0 ){  //we will not produce any more matches
-            return false;
-          }else{  //backtrack
-            d_children[i]->reset();
-            d_partial.pop_back();
-            i--;
-          }
-        }else{  //proceed to next match
-          d_partial.push_back( InstMatch( &combined ) );
-          i++;
-        }
-      }
-      bool addedMatch = addInstMatch( d_partial[ d_children.size() ] );
-      d_partial.pop_back();
-      if( addedMatch ){ 
-        return true;
+    //DO_THIS?
+  }
+}
+
+void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
+  if( d_match_pattern.isNull() ){
+    for( int i=0; i<(int)d_children.size(); i++ ){
+      d_children[i]->reset( eqc, qe );
+    }
+    d_partial.clear();
+  }else{
+    d_cg->reset( eqc );
+  }
+}
+
+bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
+  if( d_match_pattern.isNull() ){
+    int index = (int)d_partial.size();
+    while( index>=0 && index<(int)d_children.size() ){
+      if( index>0 ){
+        d_partial.push_back( InstMatch( &d_partial[index-1] ) );
       }else{
-        return calculateNextMatch( q );
+        d_partial.push_back( InstMatch() );
+      }
+      if( d_children[index]->getNextMatch( d_partial[index], qe ) ){
+        index++;
+      }else{
+        d_children[index]->reset( Node::null(), qe );
+        d_partial.pop_back();
+        index--;
       }
     }
+    if( index>=0 ){
+      m = d_partial.back();
+      d_partial.pop_back();
+      return true;
+    }else{
+      return false;
+    }
+  }else{
+    return getNextMatch2( m, qe );
   }
 }
 
 /** trigger static members */
 std::map< Node, std::vector< Node > > Trigger::d_var_contains;
+int Trigger::trCount = 0;
 
 /** trigger class constructor */
-Trigger::Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, bool keepAll ) : d_quantEngine( ie ), d_f( f ){
-  if( keepAll ){
-    d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
-  }else{
-    for( int i=0; i<(int)nodes.size(); i++ ){
-      addNode( nodes[i] );
-    }
-  }
+Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, bool isLitMatch ) : d_quantEngine( qe ), d_f( f ){
+  trCount++;
+  d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
   d_candidates.insert( d_candidates.begin(), nodes.begin(), nodes.end() );
-  d_valid = true;
-  d_mg = mkMatchGenerator( ie, f, d_nodes );
-  d_next = NULL;
-}
-
-/** trigger class constructor */
-Trigger::Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& candidates, Trigger* prev ) : d_quantEngine( ie ), d_f( f ){
-  Debug("trigger") << "constructing trigger..." << std::endl;
-  //make this the next unique trigger from prev
-  if( prev->d_nodes.size()==candidates.size() ){
-    //if prev has all nodes from candidates, make subset of candidates 
-    // that contribute a new variable
-    for( int i=0; i<(int)candidates.size(); i++ ){
-      addNode( candidates[i] );
-    }
-    //valid if resulting trigger is a strict subset of candidates
-    d_valid = d_nodes.size()<candidates.size();
-  }else{
-    d_valid = false;
-  }
-  d_candidates.insert( d_candidates.begin(), candidates.begin(), candidates.end() );
-  d_mg = mkMatchGenerator( ie, f, d_nodes );
-  d_next = NULL;
+  d_mg = new InstMatchGenerator( d_nodes, qe, isLitMatch );
+  //std::cout << "Trigger: ";
+  //for( int i=0; i<(int)d_nodes.size(); i++ ){
+  //  std::cout << d_nodes[i] << " ";
+  //}
+  //std::cout << std::endl;
 }
 
 void Trigger::computeVarContains2( Node n, Node parent ){
@@ -580,195 +315,77 @@ void Trigger::computeVarContains2( Node n, Node parent ){
   }
 }
 
-bool Trigger::addNode( Node n ){
-  Assert( std::find( d_nodes.begin(), d_nodes.end(), n )==d_nodes.end() );
-  bool success = false;
-  computeVarContains( n );
-  for( int i=0; i<(int)d_var_contains[n].size(); i++ ){
-    Node v = d_var_contains[n][i];
-    if( d_vars.find( v )==d_vars.end() ){
-      d_vars[ v ] = true;
-      success = true;
-    }
-  }
-  if( success ){
-    d_nodes.push_back( n );
-  }
-  return success;
-}
-
-Trigger* Trigger::getNextTrigger(){
-  if( !d_next && d_valid ){
-    d_next = new Trigger( d_quantEngine, d_f, d_candidates, this );
-  }
-  return d_next;
-}
-
-InstMatchGenerator* Trigger::mkMatchGenerator( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes ){
-  if( nodes.size()==1 ){
-    return mkMatchGenerator( ie, f, nodes[0] );
-  }else{
-    InstMatchGenerator* emg = InstMatchGenerator::mkInstMatchGenerator( false );
-    for( int i=0; i<(int)nodes.size(); i++ ){
-      emg->d_children.push_back( mkMatchGenerator( ie, f, nodes[i] ) );
-    }
-    return emg;
-  }
-}
-
-InstMatchGenerator* Trigger::mkMatchGenerator( QuantifiersEngine* ie, Node f, Node n ){
-  if( n.getKind()==APPLY_UF && n.getType()!=NodeManager::currentNM()->booleanType() ){
-    return InstMatchGenerator::mkInstMatchGeneratorAny( n );
-  }else{
-    bool pol = n.getKind()!=NOT;
-    Node eq = n.getKind()==NOT ? n[0] : n;
-    Node t[2];
-    if( eq.getKind()==EQUAL || eq.getKind()==IFF ){
-      bool swap = eq[0].getAttribute(InstConstantAttribute())!=f;
-      t[0] = eq[swap ? 1 : 0];
-      t[1] = eq[swap ? 0 : 1];
-    }else{
-      t[0] = eq;
-      t[1] = NodeManager::currentNM()->mkConst<bool>(pol);
-      pol = true;
-    }
-    Assert( t[0].getAttribute(InstConstantAttribute())==f );
-    if( ie->isPhaseReq( eq ) ){
-      //we know this literal must be matched with this polarity
-      return InstMatchGenerator::mkInstMatchGeneratorModEq( t[0], t[1], pol );
-    }else{
-      //this literal can be matched with either polarity
-      if( false ){ //if( t[0].getType()==NodeManager::currentNM()->booleanType() ) {
-        //for boolean apply uf, just use an any match generator
-        return InstMatchGenerator::mkInstMatchGeneratorAny( t[0] );
-      }else{
-        InstMatchGenerator* ret = InstMatchGenerator::mkInstMatchGenerator( true );
-        ret->d_children.push_back( InstMatchGenerator::mkInstMatchGeneratorModEq( t[0], t[1], pol ) );  //prefer the polarity it has been given
-        ret->d_children.push_back( InstMatchGenerator::mkInstMatchGeneratorModEq( t[0], t[1], !pol ) );
-        return ret;
-      }
-    }
-  }
-}
-
 void Trigger::resetInstantiationRound(){
-  EqualityQuery* q = d_quantEngine->getEqualityQuery();
-  d_mg->resetInstantiationRound( q );
-  if( d_next ){
-    d_next->resetInstantiationRound();
-  }
+  d_mg->resetInstantiationRound( d_quantEngine );
 }
 
-bool Trigger::addInstantiation( InstMatch& baseMatch, bool addSplits, int triggerThresh ){
-  if( d_valid ){
-    Debug("trigger-debug") << "Trigger is ";
-    for( int i=0; i<(int)d_nodes.size(); i++ ){
-      Debug("trigger-debug") << d_nodes[i] << " ";
-    }
-    Debug("trigger-debug") << std::endl;
-    Debug("trigger") << "trigger: try to add new instantiation..." << std::endl;
-    //std::cout << "trigger: try to add new instantiation..." << std::endl;
-    int counter = 0;
-    while( getNextMatch() ){
-      Debug("trigger") << "trigger: made match." << std::endl;
-      InstMatch temp( getCurrent() );
-      temp.add( baseMatch );
-      Debug("trigger") << "trigger: add instantiation..." << std::endl;
-#if 1
-      if( d_quantEngine->addInstantiation( d_f, &temp, addSplits ) ){
-        Debug("trigger") << "Trigger success, trigger was ";
-        for( int i=0; i<(int)d_nodes.size(); i++ ){
-          Debug("trigger") << d_nodes[i] << " ";
-        }
-        Debug("trigger") << std::endl;
-        return true;
-      }
-#elif 0
-      if( d_quantEngine->addInstantiation( d_f, &temp, addSplits ) ){
-        if( d_mg->d_operation==2 && d_mg->d_index<d_mg->d_children.size() ){
-          //move to next index
-          d_mg->d_index++;
-          counter++;
-        }else{
-          return true;
-        }
-      }
-#else
-      if( d_quantEngine->addInstantiation( d_f, &temp, addSplits ) ){
-        counter++;
-        if( counter>3 ){
-          return true;
-        }
-      }
-#endif
-    }
-    if( counter>0 ){
-      return true;
-    }
-    Debug("trigger") << "trigger: failed." << std::endl;
-    //std::cout << "trigger: failed." << std::endl;
-    if( triggerThresh>0 ){
-      Debug("trigger") << "trigger: get next trigger..." << std::endl;
-      //std::cout << "trigger: get next trigger..." << std::endl;
-      Trigger* t = getNextTrigger();
-      if( t && t->addInstantiation( baseMatch, addSplits, triggerThresh-1 ) ){
-        return true;
+void Trigger::reset( Node eqc ){
+  d_mg->reset( eqc, d_quantEngine );
+}
+
+bool Trigger::getNextMatch( InstMatch& m ){
+  return d_mg->getNextMatch( m, d_quantEngine );
+}
+
+int Trigger::addInstantiations( InstMatch& baseMatch, bool addSplits ){
+  //reset the match generator
+  reset( Node::null() );
+  //now, try to add instantiation for each match produced
+  bool success = true;
+  int addedLemmas = 0;
+  do{
+    InstMatch m;
+    if( getNextMatch( m ) ){
+      m.add( baseMatch );
+      if( d_quantEngine->addInstantiation( d_f, &m, addSplits ) ){
+        //std::cout << "Trigger was ";
+        //for( int i=0; i<(int)d_nodes.size(); i++ ){
+        //  std::cout << d_nodes[i] << " ";
+        //}
+        //std::cout << std::endl;
+        addedLemmas++;
       }
     }else{
-      Debug("trigger") << "trigger: return false" << std::endl;
-      //std::cout << "trigger: return false" << std::endl;
+      success = false;
+    }
+  }while( success );
+  //return number of lemmas added
+  return addedLemmas;
+}
+
+Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, bool isLitMatch, bool keepAll, bool checkDup ){
+  bool calcedNodes = false;
+  std::vector< Node > trNodes;
+  while( !calcedNodes ){
+    if( !keepAll ){
+      //only take nodes that contribute variables to the trigger when added
+      std::vector< Node > temp;
+      temp.insert( temp.begin(), nodes.begin(), nodes.end() );
+      std::random_shuffle( temp.begin(), temp.end() );
+      std::map< Node, bool > vars;
+      for( int i=0; i<(int)temp.size(); i++ ){
+        bool success = false;
+        computeVarContains( temp[i] );
+        for( int j=0; j<(int)d_var_contains[ temp[i] ].size(); j++ ){
+          Node v = d_var_contains[ temp[i] ][j];
+          if( vars.find( v )==vars.end() ){
+            vars[ v ] = true;
+            success = true;
+          }
+        }
+        if( success ){
+          trNodes.push_back( temp[i] );
+        }
+      }
+    }else{
+      trNodes.insert( trNodes.begin(), nodes.begin(), nodes.end() );
+    }
+    //check for duplicate?
+    if( checkDup ){
+      //DO_THIS
+    }else{
+      calcedNodes = true;
     }
   }
-  return false;
+  return new Trigger( qe, f, trNodes, isLitMatch );
 }
-
-/** get current match */
-InstMatch* Trigger::getCurrent(){
-  return d_mg->getCurrent();
-}
-
-/** get next match */
-bool Trigger::getNextMatch(){
-  EqualityQuery* q = d_quantEngine->getEqualityQuery();
-  return d_mg->getNextMatch( q );
-}
-
-////void QuantMatchGenerator::collectLiterals( Node n, std::vector< Node >& litPatTerms, bool reqPol, bool polarity ){
-////  //check if this is a literal
-////  if( d_quantEngine->getTheoryEngine()->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
-////    if( std::find( litPatTerms.begin(), litPatTerms.end(), n )==litPatTerms.end() ){
-////      litPatTerms.push_back( n );
-////    }
-////    if( reqPol ){
-////      d_phaseReq[ n ] = polarity;
-////    }
-////  }else{
-////    bool newReqPol = false;
-////    bool newPolarity = true;
-////    if( reqPol ){
-////      if( n.getKind()==NOT ){
-////        newReqPol = true;
-////        newPolarity = !polarity;
-////      }else if( n.getKind()==OR || n.getKind()==IMPLIES ){
-////        if( !polarity ){
-////          newReqPol = true;
-////          newPolarity = false;
-////        }
-////      }else if( n.getKind()==AND ){
-////        if( polarity ){
-////          newReqPol = true;
-////          newPolarity = true;
-////        }
-////      }
-////    }
-////    if( newReqPol ){
-////      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-////        if( n.getKind()==IMPLIES && i==0 ){
-////          collectLiterals( n[i], litPatTerms, newReqPol, !newPolarity );
-////        }else{
-////          collectLiterals( n[i], litPatTerms, newReqPol, newPolarity );
-////        }
-////      }
-////    }
-////  }
-////}

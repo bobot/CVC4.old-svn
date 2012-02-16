@@ -53,7 +53,7 @@ int InstantiatorTheoryDatatypes::process( Node f, int effort ){
       if( i.getType().isDatatype() ){
         Node n = getValueFor( i );
         Debug("quant-datatypes-debug") << "Value for " << i << " is " << n << std::endl;
-        m.setMatch( i, n );
+        m.d_map[ i ] = n;
       }
     }
     d_quantEngine->addInstantiation( f, &m );

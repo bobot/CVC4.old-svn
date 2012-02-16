@@ -72,16 +72,16 @@ bool InstantiationEngine::doInstantiationRound(){
 
 void InstantiationEngine::check( Theory::Effort e ){
   if( e==Theory::FULL_EFFORT ){
-    //  if( !clockSet ){
-    //    initClock = double(clock())/double(CLOCKS_PER_SEC);
-    //    clockSet = true;
-    //  }else{
-    //    double currClock = double(clock())/double(CLOCKS_PER_SEC);
-    //    if( currClock-initClock>10 ){
-    //      NodeManager::currentNM()->getStatisticsRegistry()->flushStatistics(std::cout);
-    //      exit( 55 );
-    //    }
+    //if( !clockSet ){
+    //  initClock = double(clock())/double(CLOCKS_PER_SEC);
+    //  clockSet = true;
+    //}else{
+    //  double currClock = double(clock())/double(CLOCKS_PER_SEC);
+    //  if( currClock-initClock>10 ){
+    //    NodeManager::currentNM()->getStatisticsRegistry()->flushStatistics(std::cout);
+    //    exit( 55 );
     //  }
+    //}
 
     Debug("quantifiers") << "quantifiers: FULL_EFFORT check" << std::endl;
     bool quantActive = false;

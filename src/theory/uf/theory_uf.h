@@ -62,6 +62,18 @@ public:
       Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
       d_uf.propagate(equality);
     }
+
+    //AJR-hack
+    void notifyEqClass( TNode t ){
+      d_uf.notifyEqClass( t );
+    }
+    void notifyMerge( TNode t1, TNode t2 ){
+      d_uf.notifyMerge( t1, t2 );
+    }
+    void notifyDisequal( TNode t1, TNode t2, TNode reason ){
+      d_uf.notifyDisequal( t1, t2, reason );
+    }
+    //AJR-hack-end
   };
 
 private:
@@ -71,7 +83,7 @@ private:
 
   //AJR-hack
   /** associated theory strong solver */
-  StrongSolverTheoryUf d_thss;
+  StrongSolverTheoryUf* d_thss;
   //AJR-hack-end
 
   /** Equaltity engine */
@@ -111,6 +123,17 @@ private:
   /** Symmetry analyzer */
   SymmetryBreaker d_symb;
 
+//AJR-hack
+  /** called when a new equivalance class is created */
+  void notifyEqClass( TNode t );
+
+  /** called when two equivalance classes merge */
+  void notifyMerge( TNode t1, TNode t2 );
+  
+  /** called when two equivalence classes are made disequal */
+  void notifyDisequal( TNode t1, TNode t2, TNode reason );
+//AJR-hack-end
+
   ////AJR-hack
   ////   TEMPORARY
   //typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
@@ -140,10 +163,93 @@ public:
   }
 
   //AJR-hack
+  EqualityEngine<NotifyClass>* getEqualityEngine() { return &d_equalityEngine; }
   UfTermDb* getTermDatabase();
-  StrongSolverTheoryUf* getStrongSolver() { return &d_thss; }
+  StrongSolverTheoryUf* getStrongSolver() { return d_thss; }
   //AJR-hack-end
 };/* class TheoryUF */
+
+class EqClassesIterator
+{
+private:
+  EqualityEngine<TheoryUF::NotifyClass>* d_ee;
+  size_t d_it;
+public:
+  EqClassesIterator( EqualityEngine<TheoryUF::NotifyClass>* ee ) : d_ee( ee ){
+    d_it = 0;
+    //for( int i=0; i<(int)d_ee->d_nodesCount; i++ ){
+    //  std::cout << "{" << d_ee->d_nodes[i] << "}";
+    //}
+    //std::cout << std::endl;
+    if( d_it<d_ee->d_nodesCount && d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] ){
+      (*this)++;
+    }
+  }
+  Node operator*() { return d_ee->d_nodes[d_it]; }
+  bool operator==(const EqClassesIterator& i) {
+    return d_ee == i.d_ee && d_it == i.d_it;
+  }
+  bool operator!=(const EqClassesIterator& i) {
+    return !(*this == i);
+  }
+  EqClassesIterator& operator++() {
+    Node orig = d_ee->d_nodes[d_it];
+    ++d_it;
+    while( d_it<d_ee->d_nodesCount && ( d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] || 
+           d_ee->d_nodes[d_it]==orig ) ){    //this line is necessary for ignoring duplicates
+      ++d_it;
+    }
+    return *this;
+  }
+  EqClassesIterator& operator++(int) {
+    EqClassesIterator i = *this;
+    ++*this;
+    return i;
+  }
+  bool isFinished() { return d_it>=d_ee->d_nodesCount; }
+};
+
+class EqClassIterator
+{
+private:
+  Node d_rep;
+  EqualityNode d_curr;
+  Node d_curr_node;
+  EqualityEngine<TheoryUF::NotifyClass>* d_ee;
+public:
+  EqClassIterator(){}
+  EqClassIterator( Node eqc, EqualityEngine<TheoryUF::NotifyClass>* ee ) : d_ee( ee ){
+    Assert( d_ee->getRepresentative( eqc )==eqc );
+    d_rep = eqc;
+    d_curr_node = eqc;
+    d_curr = d_ee->getEqualityNode( eqc );
+  }
+  Node operator*() { return d_curr_node; }
+  bool operator==(const EqClassIterator& i) {
+    return d_ee == i.d_ee && d_curr_node == i.d_curr_node;
+  }
+  bool operator!=(const EqClassIterator& i) {
+    return !(*this == i);
+  }
+  EqClassIterator& operator++() {
+    Node next = d_ee->d_nodes[ d_curr.getNext() ];
+    Assert( d_rep==d_ee->getRepresentative( next ) );
+    if( d_rep!=next ){    //we end when we have cycled back to the original representative
+      d_curr_node = next;
+      d_curr = d_ee->getEqualityNode( d_curr.getNext() );
+    }else{
+      d_curr_node = Node::null();
+    }
+    return *this;
+  }
+  EqClassIterator& operator++(int) {
+    EqClassIterator i = *this;
+    ++*this;
+    return i;
+  }
+  bool isFinished() { return d_curr_node==Node::null(); }
+};
+
 
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */

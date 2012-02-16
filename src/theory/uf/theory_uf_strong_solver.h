@@ -175,7 +175,7 @@ public:
     /** check ambiguous terms */
     bool disambiguateTerms( OutputChannel* out );
     /** cardinality operating with */
-    unsigned d_cardinality;
+    int d_cardinality;
     /** type */
     TypeNode d_type;
   public:
@@ -271,6 +271,10 @@ private:
   */
   std::map< TypeNode, std::map< TypeNode, bool > > d_type_relate;
 };/* class StrongSolverTheoryUf */
+
+
+
+
 
 //instantiation strategies
 

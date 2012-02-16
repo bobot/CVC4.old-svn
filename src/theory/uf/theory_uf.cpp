@@ -31,15 +31,11 @@ namespace uf {
 TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation, QuantifiersEngine* qe) :
   Theory(THEORY_UF, c, u, out, valuation, qe),
   d_notify(*this),
-  //AJR-hack
-  d_thss( c, u, out, this ),
-  //AJR-hack-end
   d_equalityEngine(d_notify, c, "theory::uf::TheoryUF"),
   d_conflict(c, false),
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
-  d_functionsTerms(c)//,
-  //d_assertions_ajr( c )
+  d_functionsTerms(c)
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
@@ -54,9 +50,9 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
 
   //AJR-hack
   if(Options::current()->finiteModelFind ){
-    d_equalityEngine.d_thss = &d_thss;
+    d_thss = new StrongSolverTheoryUf( c, u, out, this );
   }else{
-    d_equalityEngine.d_thss = NULL;
+    d_thss = NULL;
   }
   d_inst = new InstantiatorTheoryUf( c, qe, this );
   qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( (InstantiatorTheoryUf*)d_inst ) );
@@ -124,7 +120,9 @@ void TheoryUF::check(Effort level) {
       break;
     //AJR-hack
     case kind::CARDINALITY_CONSTRAINT:
-      d_thss.assertCardinality( fact );
+      if( d_thss ){
+        d_thss->assertCardinality( fact );
+      }
       break;
     //AJR-hack-end
     case kind::NOT:
@@ -132,7 +130,9 @@ void TheoryUF::check(Effort level) {
         d_equalityEngine.addEquality(fact[0], d_false, fact);
       //AJR-hack
       } else if( fact[0].getKind()==kind::CARDINALITY_CONSTRAINT ){
-        d_thss.assertCardinality( fact );
+        if( d_thss ){
+          d_thss->assertCardinality( fact );
+        }
         //if( d_valuation.isDecision( fact ) ){
         //  std::cout << "Bad decision" << std::endl;
         //}
@@ -168,9 +168,9 @@ void TheoryUF::check(Effort level) {
 
 
   //AJR-hack
-  if(Options::current()->finiteModelFind ){
+  if( d_thss ){
     if( !d_conflict ){
-      d_thss.check( level );
+      d_thss->check( level );
     }
   }
   if( !d_conflict && level==FULL_EFFORT ){
@@ -585,7 +585,35 @@ UfTermDb* TheoryUF::getTermDatabase(){
     return NULL;
   }
 }
+
+void TheoryUF::notifyEqClass( TNode t ){
+  if( d_thss ){
+    d_thss->newEqClass( t );
+  }
+  if( getInstantiator() ){
+    //((InstantiatorTheoryUf*)getInstantiator())->newEqClass( t );
+  }
+}
+
+void TheoryUF::notifyMerge( TNode t1, TNode t2 ){
+  if( d_thss ){
+    d_thss->merge( t1, t2 );
+  }
+  if( getInstantiator() ){
+    //((InstantiatorTheoryUf*)getInstantiator())->merge( t1, t2 );
+  }
+}
+
+void TheoryUF::notifyDisequal( TNode t1, TNode t2, TNode reason ){
+  if( d_thss ){
+    d_thss->assertDisequal( t1, t2, reason );
+  }
+  if( getInstantiator() ){
+    //((InstantiatorTheoryUf*)getInstantiator())->assertDisequal( t1, t2, reason );
+  }
+}
 //AJR-hack-end
+
 
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */
