@@ -97,6 +97,7 @@ Options::Options() :
   arithPivotThreshold(16),
   arithPropagateMaxLength(16),
   ufSymmetryBreaker(true),
+  dioSolver(true),
   finiteModelFind(false)
 {
 }
@@ -159,6 +160,7 @@ Additional CVC4 options:\n\
    --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
+   --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
 ";
 
@@ -326,6 +328,7 @@ enum OptionValue {
   ARITHMETIC_PROPAGATION,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
+  ARITHMETIC_DIO_SOLVER,
   DISABLE_SYMMETRY_BREAKER,
   FINITE_MODEL_FIND,
   TIME_LIMIT,
@@ -408,6 +411,7 @@ static struct option cmdlineOptions[] = {
   { "random-seed" , required_argument, NULL, RANDOM_SEED  },
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
+  { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "tlimit"     , required_argument, NULL, TIME_LIMIT  },
@@ -740,6 +744,10 @@ throw(OptionException) {
 
     case ARITHMETIC_PROPAGATION:
       arithPropagation = false;
+      break;
+
+    case ARITHMETIC_DIO_SOLVER:
+      dioSolver = false;
       break;
 
     case DISABLE_SYMMETRY_BREAKER:

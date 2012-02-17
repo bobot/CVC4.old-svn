@@ -192,7 +192,11 @@ Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
     collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );
     //std::cout << "patTerms = " << (int)patTerms.size() << std::endl;
     if( !patTerms.empty() ){
+#if 0
+      d_auto_gen_trigger[f] = Trigger::mkTrigger( d_quantEngine, f, patTerms, false, false, TRP_RETURN_NULL );
+#else
       d_auto_gen_trigger[f] = Trigger::mkTrigger( d_quantEngine, f, patTerms, false, false );
+#endif
     }else{
       d_auto_gen_trigger[f] = NULL;
     }
@@ -225,33 +229,43 @@ int InstStrategyFreeVariable::process( Node f, int effort ){
 void UfTermDb::add( Node n ){
   if( n.getKind()==APPLY_UF ){
     Node op = n.getOperator();
-    int index = n.hasAttribute(InstConstantAttribute()) ? 1 : 0;
-    int altIndex = index==0 ? 1 : 0;
-    if( std::find( d_op_map[index][op].begin(), d_op_map[index][op].end(), n )==d_op_map[index][op].end() ){
-      Debug("uf-term-db") << "register term " << n << std::endl;
-      d_op_map[index][op].push_back( n );
-      //add pattern/ground term pairs produced
-      for( int i=0; i<(int)d_op_map[altIndex][op].size(); i++ ){
-        //if( index==0 ){
-        //  InstMatchGenerator::addAnyMatchPair( d_op_map[altIndex][op][i], n );
-        //}else{
-        //  InstMatchGenerator::addAnyMatchPair( n, d_op_map[altIndex][op][i] );
-        //}
-        //DO_THIS
+    if( !n.hasAttribute(InstConstantAttribute()) ){
+      if( std::find( d_op_map[op].begin(), d_op_map[op].end(), n )==d_op_map[op].end() ){
+        Debug("uf-term-db") << "register term " << n << std::endl;
+        d_op_map[op].push_back( n );
       }
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        add( n[i] );
-      }
+    }
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      add( n[i] );
     }
   }
 }
+void UfTermDb::finishInstantiationRound(){
+  for( std::map< Node, std::vector< Node > >::iterator it = d_op_map.begin(); it != d_op_map.end(); ++it ){
+    d_op_index[ it->first ] = (int)it->second.size();
+  }
+}
+
+EqClassInfo::EqClassInfo( Node t, context::Context* c ) : d_ops( c ), d_disequal( c ){
+  if( t.getKind()==APPLY_UF ){
+    //d_ops[ t.getOperator ] = true;
+  }
+}
+
+//merge with another eq class info
+void EqClassInfo::merge( EqClassInfo* eci ){
+  //merge operators
+  //for( BoolMap::const_iterator it = eci->d_ops.begin(); it!=eci->d_ops.end(); ++it ){
+  //  d_ops[ (*it).first ] = true;
+  //}
+}
+
 
 InstantiatorTheoryUf::InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ),
 d_ob_changed( c ),
 d_obligations( c ),
-d_disequality( c ),
-d_eqc_ops( c )
+d_disequality( c )
 {
   registerTerm( ((TheoryUF*)d_th)->d_true );
   registerTerm( ((TheoryUF*)d_th)->d_false );
@@ -646,28 +660,49 @@ InstantiatorTheoryUf::Statistics::~Statistics(){
 }
 
 /** new node */
-void InstantiatorTheoryUf::newEqClass( Node n ){
+void InstantiatorTheoryUf::newEqClass( TNode n ){
 #if 0
 
 #endif
 }
 
 /** merge */
-void InstantiatorTheoryUf::merge( Node a, Node b ){
+void InstantiatorTheoryUf::merge( TNode a, TNode b ){
 #if 0
-
+  EqClassInfo* eci_a = getEquivalenceClassInfo( a );
+  //merge eqc_ops of b into a
+  if( d_eqc_ops.find( b )==d_eqc_ops.end() ){
+    if( b.getKind()==APPLY_UF ){
+      eci_a->d_ops[ b.getOperator() ] = true;
+    }
+  }else{
+    eci_a->merge( d_eqc_ops[b] );
+  }
 #endif
 }
 
 /** assert terms are disequal */
-void InstantiatorTheoryUf::assertDisequal( Node a, Node b, Node reason ){
+void InstantiatorTheoryUf::assertDisequal( TNode a, TNode b, TNode reason ){
   
+}
+
+EqClassInfo* InstantiatorTheoryUf::getEquivalenceClassInfo( Node n ) { 
+  Assert( n==getRepresentative( n ) );
+  if( d_eqc_ops.find( n )==d_eqc_ops.end() ){
+    d_eqc_ops[n] = new EqClassInfo( n, d_th->getContext() );
+  }
+  return d_eqc_ops[n]; 
 }
 
 
 void CandidateGeneratorTheoryUf::reset( Node eqc ){
   if( eqc.isNull() ){
-    d_term_iter = 0;
+    Assert( !d_op.isNull() );
+    if( d_can_produce_new ){
+      d_term_iter = 0;
+    }else{
+      d_term_iter = d_ith->getTermDatabase()->d_op_index[d_op];
+    }
   }else{
     //create an equivalence class iterator in eq class eqc
     d_eqc = EqClassIterator( eqc, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
@@ -676,31 +711,80 @@ void CandidateGeneratorTheoryUf::reset( Node eqc ){
 }
 
 Node CandidateGeneratorTheoryUf::getNextCandidate(){
-  if( d_term_iter==-1 ){
-    //get next term in equivalence class that shares the same operator
+  if( d_term_iter>=0 ){
+    //get next candidate term in the uf term database
+    if( d_term_iter<(int)d_ith->getTermDatabase()->d_op_map[d_op].size() ){
+      Node n = d_ith->getTermDatabase()->d_op_map[d_op][d_term_iter];
+      d_term_iter++;
+      return n;
+    }
+  }else if( d_term_iter==-1 ){
+    //get next candidate term in equivalence class
     while( !d_eqc.isFinished() ){
       Node n = (*d_eqc);
       ++d_eqc;
-      if( n.getKind()==APPLY_UF && n.getOperator()==d_op && !n.hasAttribute(InstConstantAttribute()) ){
-        return n;
+      if( !n.hasAttribute(InstConstantAttribute()) ){
+        if( d_op.isNull() ){
+          //done producing matches
+          d_term_iter = -2;
+          return n;
+        }else{
+          if( n.getKind()==APPLY_UF && n.getOperator()==d_op ){
+            return n;
+          }
+        }
       }
-    }
-  }else{
-    //get next term in the uf term database
-    if( d_term_iter<(int)d_ith->getTermDatabase()->d_op_map[0][d_op].size() ){
-      Node n = d_ith->getTermDatabase()->d_op_map[0][d_op][d_term_iter];
-      d_term_iter++;
-      return n;
     }
   }
   return Node::null();
 }
 
-void CandidateGeneratorTheoryUfLitMatch::reset( Node eqc ){
-  //populate possible matches
-  
+
+CandidateGeneratorTheoryUfDisequal::CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node op ) : d_ith( ith ){
+  d_cg = new CandidateGeneratorTheoryUf( ith, op );
+  d_eci = NULL;
 }
 
-Node CandidateGeneratorTheoryUfLitMatch::getNextCandidate(){
+//we will iterate over all terms that are disequal from eqc
+void CandidateGeneratorTheoryUfDisequal::reset( Node eqc ){
+  Assert( !eqc.isNull() );
+  //begin iterating over equivalence classes that are disequal from eqc
+  d_eci = d_ith->getEquivalenceClassInfo( eqc );
+  if( d_eci ){
+    d_eqci_iter = d_eci->d_disequal.begin();
+  }
+}
+
+Node CandidateGeneratorTheoryUfDisequal::getNextCandidate(){
+  if( d_eci ){
+    while( d_eqci_iter != d_eci->d_disequal.end() ){
+      if( (*d_eqci_iter).second ){
+        //we have an equivalence class that is disequal from eqc
+        d_cg->reset( (*d_eqci_iter).first );
+        Node n = d_cg->getNextCandidate();
+        //if there is a candidate in this equivalence class, return it
+        if( !n.isNull() ){
+          return n;
+        }
+      }
+      ++d_eqci_iter;
+    }
+  }
+  return Node::null();
+}
+
+CandidateGeneratorTheoryUfEq::CandidateGeneratorTheoryUfEq( InstantiatorTheoryUf* ith, Node pat, Node mpat ) : 
+  d_pattern( pat ), d_match_pattern( mpat ), d_ith( ith ){
+
+}
+
+void CandidateGeneratorTheoryUfEq::reset( Node eqc ){
+  bool pol = d_pattern.getKind()!=NOT;
+  Node eq = d_pattern.getKind()==NOT ? d_pattern[0] : d_pattern;
+  Assert( eq.getKind()==IFF || eq.getKind()==EQUAL );
+
+}
+
+Node CandidateGeneratorTheoryUfEq::getNextCandidate(){
   return Node::null();
 }

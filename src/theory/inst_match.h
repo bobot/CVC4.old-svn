@@ -38,8 +38,10 @@ namespace uf{
 class CandidateGenerator
 {
 public:
-  CandidateGenerator(){}
+  CandidateGenerator() : d_can_produce_new( true ){}
   ~CandidateGenerator(){}
+
+  bool d_can_produce_new;
 
   /** Get candidates functions.  These set up a context to get all match candidates.
       cg->reset( eqc );
@@ -157,8 +159,32 @@ private:
   /** match generators */
   InstMatchGenerator* d_mg;
 private:
-  /** is duplicate */
-  Trigger* isDuplicate( std::vector< Node >& nodes );
+  /** a trie of triggers */
+  class TrTrie
+  {
+  private:
+    Trigger* getTrigger2( std::vector< Node >& nodes );
+    void addTrigger2( std::vector< Node >& nodes, Trigger* t );
+  public:
+    TrTrie() : d_tr( NULL ){}
+    Trigger* d_tr;
+    std::map< Node, TrTrie* > d_children;
+    Trigger* getTrigger( std::vector< Node >& nodes ){
+      std::vector< Node > temp;
+      temp.insert( temp.begin(), nodes.begin(), nodes.end() );
+      std::sort( temp.begin(), temp.end() );
+      return getTrigger2( temp );
+    }
+    void addTrigger( std::vector< Node >& nodes, Trigger* t ){
+      std::vector< Node > temp;
+      temp.insert( temp.begin(), nodes.begin(), nodes.end() );
+      std::sort( temp.begin(), temp.end() );
+      return addTrigger2( temp, t );
+    }
+  };
+  /** all triggers will be stored in this trie */
+  static TrTrie d_tr_trie;
+private:
   /** trigger constructor */
   Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, bool isLitMatch = false );
 public:
@@ -185,10 +211,15 @@ public:
      nodes  : (multi-)trigger
      isLitMatch : use literal matching heuristics
      keepAll: don't remove unneeded patterns;
-     checkDup : don't generate a trigger that has already been created
+     trPolicy : policy for dealing with triggers that already existed (see below)
   */
+  enum{
+    TRP_MAKE_NEW,    //make new trigger even if it already may exist
+    TRP_GET_OLD,     //return a previous trigger if it had already been created
+    TRP_RETURN_NULL  //return null if a duplicate is found
+  };
   static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, 
-                             bool isLitMatch = false, bool keepAll = true, bool checkDup = false ); 
+                             bool isLitMatch = false, bool keepAll = true, int trPolicy = TRP_MAKE_NEW ); 
 };
 
 }/* CVC4::theory namespace */

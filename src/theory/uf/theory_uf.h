@@ -175,6 +175,7 @@ private:
   EqualityEngine<TheoryUF::NotifyClass>* d_ee;
   size_t d_it;
 public:
+  EqClassesIterator(){}
   EqClassesIterator( EqualityEngine<TheoryUF::NotifyClass>* ee ) : d_ee( ee ){
     d_it = 0;
     //for( int i=0; i<(int)d_ee->d_nodesCount; i++ ){

@@ -209,9 +209,15 @@ struct CVC4_PUBLIC Options {
   bool ufSymmetryBreaker;
 
   /**
-   * Whether to do finite model finding heuristics for quantifier instantiation
+   * Whether to use finite model find heuristic 
    */
   bool finiteModelFind;
+
+  /**
+   * Whether to do the linear diophantine equation solver
+   * in Arith as described by Griggio JSAT 2012 (on by default).
+   */
+  bool dioSolver;
 
   Options();
 

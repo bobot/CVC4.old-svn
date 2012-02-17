@@ -664,7 +664,7 @@ bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out )
   //otherwise, determine ambiguous pairs of ground terms
   UfTermDb* db = d_th->getTermDatabase();
   Assert( db!=NULL );
-  for( std::map< Node, std::vector< Node > >::iterator it = db->d_op_map[0].begin(); it != db->d_op_map[0].end(); ++it ){
+  for( std::map< Node, std::vector< Node > >::iterator it = db->d_op_map.begin(); it != db->d_op_map.end(); ++it ){
     for( int i=0; i<(int)it->second.size(); i++ ){
       for( int j=(i+1); j<(int)it->second.size(); j++ ){
         Node eq = NodeManager::currentNM()->mkNode( EQUAL, it->second[i], it->second[j] );

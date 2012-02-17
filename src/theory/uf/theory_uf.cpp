@@ -591,7 +591,7 @@ void TheoryUF::notifyEqClass( TNode t ){
     d_thss->newEqClass( t );
   }
   if( getInstantiator() ){
-    //((InstantiatorTheoryUf*)getInstantiator())->newEqClass( t );
+    ((InstantiatorTheoryUf*)getInstantiator())->newEqClass( t );
   }
 }
 
@@ -600,7 +600,7 @@ void TheoryUF::notifyMerge( TNode t1, TNode t2 ){
     d_thss->merge( t1, t2 );
   }
   if( getInstantiator() ){
-    //((InstantiatorTheoryUf*)getInstantiator())->merge( t1, t2 );
+    ((InstantiatorTheoryUf*)getInstantiator())->merge( t1, t2 );
   }
 }
 
@@ -609,7 +609,7 @@ void TheoryUF::notifyDisequal( TNode t1, TNode t2, TNode reason ){
     d_thss->assertDisequal( t1, t2, reason );
   }
   if( getInstantiator() ){
-    //((InstantiatorTheoryUf*)getInstantiator())->assertDisequal( t1, t2, reason );
+    ((InstantiatorTheoryUf*)getInstantiator())->assertDisequal( t1, t2, reason );
   }
 }
 //AJR-hack-end

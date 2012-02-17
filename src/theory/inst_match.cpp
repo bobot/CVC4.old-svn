@@ -144,17 +144,28 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       }
     }
   }
+  //if lit match, reform boolean predicate as an equality
+  if( d_isLitMatch && d_match_pattern.getKind()==APPLY_UF ){
+    bool pol = pat.getKind()!=NOT;
+    d_pattern = NodeManager::currentNM()->mkNode( IFF, d_match_pattern, NodeManager::currentNM()->mkConst<bool>(pol) );
+  }
   Debug("inst-match-gen") << "Pattern is " << d_pattern << ", match pattern is " << d_match_pattern << std::endl;
   //get the equality engine
   Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF ); 
   uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
   //create candidate generator
-  if( d_match_pattern.getKind()==APPLY_UF ){
-    d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
-  }else{
+  if( d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF ){
     Assert( d_isLitMatch );
-    Assert( d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF );
-    d_cg = new uf::CandidateGeneratorTheoryUfLitMatch( ith, d_pattern );
+    //we will be producing candidates via literal matching heuristics
+    d_cg = new uf::CandidateGeneratorTheoryUfEq( ith, d_pattern, d_match_pattern );
+  }else{
+    if( d_pattern.getKind()!=NOT ){
+      //we will be scanning lists trying to find d_match_pattern.getOperator()
+      d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
+    }else{
+      Assert( d_isLitMatch );
+      d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, d_match_pattern.getOperator() );
+    }
   }
 }
 
@@ -253,7 +264,14 @@ void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
     }
     d_partial.clear();
   }else{
-    d_cg->reset( eqc );
+    if( d_pattern.getKind()==APPLY_UF || !eqc.isNull() || d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF ){
+      d_cg->reset( eqc );
+    }else{
+      //otherwise, we have a specific equivalence class in mind
+      //we are producing matches for f(E) ~ t, where E is a non-ground vector of terms, and t is a ground term 
+      //just look in equivalence class of the RHS
+      d_cg->reset( d_pattern.getKind()==NOT ? d_pattern[0][1] : d_pattern[1] );
+    }
   }
 }
 
@@ -286,9 +304,36 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
   }
 }
 
+Trigger* Trigger::TrTrie::getTrigger2( std::vector< Node >& nodes ){
+  if( nodes.empty() ){
+    return d_tr;
+  }else{
+    Node n = nodes.back();
+    nodes.pop_back();
+    if( d_children.find( n )!=d_children.end() ){
+      d_children[n]->getTrigger2( nodes );
+    }else{
+      return NULL;
+    }
+  }
+}
+void Trigger::TrTrie::addTrigger2( std::vector< Node >& nodes, Trigger* t ){
+  if( nodes.empty() ){
+    d_tr = t;
+  }else{
+    Node n = nodes.back();
+    nodes.pop_back();
+    if( d_children.find( n )==d_children.end() ){
+      d_children[n] = new TrTrie;
+    }
+    d_children[n]->addTrigger2( nodes, t );
+  }
+}
+
 /** trigger static members */
 std::map< Node, std::vector< Node > > Trigger::d_var_contains;
 int Trigger::trCount = 0;
+Trigger::TrTrie Trigger::d_tr_trie;
 
 /** trigger class constructor */
 Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, bool isLitMatch ) : d_quantEngine( qe ), d_f( f ){
@@ -353,10 +398,11 @@ int Trigger::addInstantiations( InstMatch& baseMatch, bool addSplits ){
   return addedLemmas;
 }
 
-Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, bool isLitMatch, bool keepAll, bool checkDup ){
-  bool calcedNodes = false;
+Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, bool isLitMatch, bool keepAll, int trPolicy ){
+  bool success = false;
+  int counter = 0;
   std::vector< Node > trNodes;
-  while( !calcedNodes ){
+  while( !success ){
     if( !keepAll ){
       //only take nodes that contribute variables to the trigger when added
       std::vector< Node > temp;
@@ -364,16 +410,16 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       std::random_shuffle( temp.begin(), temp.end() );
       std::map< Node, bool > vars;
       for( int i=0; i<(int)temp.size(); i++ ){
-        bool success = false;
+        bool foundVar = false;
         computeVarContains( temp[i] );
         for( int j=0; j<(int)d_var_contains[ temp[i] ].size(); j++ ){
           Node v = d_var_contains[ temp[i] ][j];
           if( vars.find( v )==vars.end() ){
             vars[ v ] = true;
-            success = true;
+            foundVar = true;
           }
         }
-        if( success ){
+        if( foundVar ){
           trNodes.push_back( temp[i] );
         }
       }
@@ -381,11 +427,30 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       trNodes.insert( trNodes.begin(), nodes.begin(), nodes.end() );
     }
     //check for duplicate?
-    if( checkDup ){
-      //DO_THIS
+    if( trPolicy==TRP_MAKE_NEW ){
+      success = true;
     }else{
-      calcedNodes = true;
+      Trigger* t = d_tr_trie.getTrigger( trNodes );
+      if( t ){
+        if( trPolicy==TRP_GET_OLD ){
+          //just return old trigger
+          return t;
+        }else{
+          counter++;
+          if( counter>=3 || keepAll ){  
+            //try three random triggers before returning null
+            return NULL; 
+          }
+        }
+      }else{
+        success = true;
+      }
+    }
+    if( !success ){
+      trNodes.clear();
     }
   }
-  return new Trigger( qe, f, trNodes, isLitMatch );
+  Trigger* t = new Trigger( qe, f, trNodes, isLitMatch );
+  //d_tr_trie.addTrigger( trNodes, t );
+  return t;
 }

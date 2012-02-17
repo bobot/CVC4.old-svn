@@ -204,7 +204,7 @@ template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::addDisequality(TNode t1, TNode t2, TNode reason) {
 
   //AJR-hack
-  //notify the theory strong solver
+  //notify the theory
   if( d_performNotify ){
     d_notify.notifyDisequal( t1, t2, reason );
   }
@@ -367,7 +367,7 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
 
   //AJR-hack  DO_THIS HERE
   //AJR-hack
-  //notify the theory strong solver
+  //notify the theory
   if( d_performNotify ){
     if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
       d_notify.notifyMerge( n1, n2 );

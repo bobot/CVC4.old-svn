@@ -127,8 +127,10 @@ void RewriteEngine::check( Theory::Effort e ){
     Debug("rewriterules") << "pattern creation:" << p << std::endl;
     uf_db->add(p);
     Trigger* tr = Trigger::mkTrigger(qe,r,pattern, false, true);
+    //reset instantiation round for trigger (set up match production)
     tr->resetInstantiationRound();
-
+    //begin iterating from the first match produced by the trigger
+    tr->reset( Node::null() );
 
     /** Test the possible matching one by one */
     InstMatch im;

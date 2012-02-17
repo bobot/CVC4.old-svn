@@ -136,15 +136,37 @@ public:
   std::string identify() const { return std::string("FreeVariable"); }
 };
 
+//equivalence class info
+class EqClassInfo
+{
+public:
+  typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
+  typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
+public:
+  EqClassInfo( Node t, context::Context* c );
+  ~EqClassInfo(){}
+  //a list of operators that occur as top symbols in that equivalence class
+  //  Efficient E-Matching for SMT Solvers: "apps" 
+  NodeList d_ops;
+  //a list of equivalence classes that are disequal
+  BoolMap d_disequal;
+  //merge with another eq class info
+  void merge( EqClassInfo* eci );
+};
+
 class UfTermDb
 {
 public:
   UfTermDb(){}
   ~UfTermDb(){}
   /** map from APPLY_UF operators to ground, pattern terms for that operator */
-  std::map< Node, std::vector< Node > > d_op_map[2];
+  std::map< Node, std::vector< Node > > d_op_map;
+  /** last index considered */
+  std::map< Node, int > d_op_index;
   /** register this term */
   void add( Node n );
+  /** finish instantiation round */
+  void finishInstantiationRound();
 };
 
 class InstantiatorTheoryUf : public Instantiator{
@@ -222,15 +244,17 @@ public:
   /** the base match */
   std::map< Node, InstMatch > d_baseMatch;
 private:
-  //for each equivalence class, a list of operators that occur as top symbols in that equivalence class
-  NodeLists d_eqc_ops;
+  //for each equivalence class
+  std::map< Node, EqClassInfo* > d_eqc_ops;
 public:
   /** new node */
-  void newEqClass( Node n );
+  void newEqClass( TNode n );
   /** merge */
-  void merge( Node a, Node b );
+  void merge( TNode a, TNode b );
   /** assert terms are disequal */
-  void assertDisequal( Node a, Node b, Node reason );
+  void assertDisequal( TNode a, TNode b, TNode reason );
+  /** get equivalence class info */
+  EqClassInfo* getEquivalenceClassInfo( Node n );
 };/* class InstantiatorTheoryUf */
 
 /** equality query object using instantiator theory uf */
@@ -247,34 +271,61 @@ public:
   bool areDisequal( Node a, Node b ) { return d_ith->areDisequal( a, b ); }
 };
 
+class CandidateGeneratorTheoryUfDisequal;
+
 class CandidateGeneratorTheoryUf : public CandidateGenerator
 {
+  friend class CandidateGeneratorTheoryUfDisequal;
 private:
-  //operator you are looking for
+  //operator you are looking for (null means just return the representative)
   Node d_op;
+  //instantiator pointer
+  InstantiatorTheoryUf* d_ith;
   //the equality class iterator
   EqClassIterator d_eqc;
   int d_term_iter;
-  //instantiator pointer
-  InstantiatorTheoryUf* d_ith;
 public:
-  CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op ) : d_op( op ), d_ith( ith ){}
+  CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op ) : 
+    d_op( op ), d_ith( ith ), d_term_iter( -2 ){}
   ~CandidateGeneratorTheoryUf(){}
 
   void reset( Node eqc );
   Node getNextCandidate();
 };
 
-class CandidateGeneratorTheoryUfLitMatch : public CandidateGenerator
+class CandidateGeneratorTheoryUfDisequal : public CandidateGenerator
 {
 private:
+  //equivalence class iterator
+  EqClassInfo::BoolMap::const_iterator d_eqci_iter;
+  //equivalence class info
+  EqClassInfo* d_eci;
+  //candidate generator
+  CandidateGeneratorTheoryUf* d_cg;
+  //instantiator pointer
+  InstantiatorTheoryUf* d_ith;
+public:
+  CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node op );
+  ~CandidateGeneratorTheoryUfDisequal(){}
+
+  void reset( Node eqc );   //should be what you want to be disequal from
+  Node getNextCandidate();
+};
+
+class CandidateGeneratorTheoryUfEq : public CandidateGenerator
+{
+private:
+  //the equality classes iterator
+  EqClassesIterator d_eq;
   //equality or disequality you are trying to match for
   Node d_pattern;
+  //this is the node that our pattern will be used for matching
+  Node d_match_pattern;
   //einstantiator pointer
   InstantiatorTheoryUf* d_ith;
 public:
-  CandidateGeneratorTheoryUfLitMatch( InstantiatorTheoryUf* ith, Node pat ) : d_pattern( pat ), d_ith( ith ){}
-  ~CandidateGeneratorTheoryUfLitMatch(){}
+  CandidateGeneratorTheoryUfEq( InstantiatorTheoryUf* ith, Node pat, Node mpat );
+  ~CandidateGeneratorTheoryUfEq(){}
 
   void reset( Node eqc );
   Node getNextCandidate();
