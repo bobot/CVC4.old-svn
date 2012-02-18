@@ -98,10 +98,10 @@ public:
     MIN_TRIGGER,
   };
 private:
-  /** trigger generation strategy */
-  int d_tr_strategy;
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
+  /** trigger generation strategy */
+  int d_tr_strategy;
   /** current trigger */
   std::map< Node, Trigger* > d_auto_gen_trigger;
 private:
