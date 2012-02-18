@@ -20,6 +20,7 @@
 #ifndef __CVC4__REWRITE_ENGINE_H
 #define __CVC4__REWRITE_ENGINE_H
 
+#include "context/cdlist.h"
 #include "theory/quantifiers_engine.h"
 #include "theory/quantifiers/theory_quantifiers.h"
 
@@ -27,12 +28,15 @@ namespace CVC4 {
 namespace theory {
 namespace quantifiers {
 
+
   class RewriteEngine : public QuantifiersModule
 {
 private:
   TheoryQuantifiers* d_th;
   /** list of all rewrite rules */
-  std::vector< Node > d_rules;
+  /* std::vector< Node > d_rules; */
+  context::CDList<Node> d_rules;
+  /* CDMap< Node, Node > d_insts; */
 
   /* Function which extract the different part of a rewrite rule */
   static Node getPattern(QuantifiersEngine* qe, Node r);
@@ -47,7 +51,7 @@ private:
   Node d_true;
 
  public:
-  RewriteEngine( TheoryQuantifiers* th );
+  RewriteEngine(context::Context* c, TheoryQuantifiers* th );
   ~RewriteEngine(){}
 
   void check( Theory::Effort e );

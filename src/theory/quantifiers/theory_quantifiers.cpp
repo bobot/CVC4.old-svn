@@ -48,7 +48,7 @@ TheoryQuantifiers::TheoryQuantifiers(Context* c, context::UserContext* u, Output
   d_numInstantiations = 0;
   d_baseDecLevel = -1;
   qe->addModule( new InstantiationEngine( this ) );
-  qe->addModule( new RewriteEngine( this ) );   
+  qe->addModule( new RewriteEngine(c, this ) );
   d_inst = new InstantiatorTheoryQuantifiers( c, qe, this );
 }
 

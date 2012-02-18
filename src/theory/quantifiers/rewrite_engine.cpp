@@ -31,8 +31,8 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-RewriteEngine::RewriteEngine( TheoryQuantifiers* th ) :
-  d_th( th ){
+RewriteEngine::RewriteEngine(context::Context* c, TheoryQuantifiers* th ) :
+  d_th( th ), d_rules(c) {
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   Debug("rewriterules") << Node::setdepth(-1);
 }
@@ -117,7 +117,7 @@ void RewriteEngine::check( Theory::Effort e ){
   uf::UfTermDb* uf_db = uf->getTermDatabase();
 
   /** Test each rewrite rule */
-  for(std::vector<Node>::const_iterator i = d_rules.begin();
+  for(context::CDList<Node>::const_iterator i = d_rules.begin();
       i != d_rules.end(); ++i) {
     Node r = *i;
     Debug("rewriterules") << "  rule: " << r << std::endl;
@@ -142,7 +142,7 @@ void RewriteEngine::check( Theory::Effort e ){
       im.computeTermVec(qe, qe->d_inst_constants[r], subst);
 
       Debug("rewriterules") << "subst:";
-      for(int i = 0; i < subst.size(); ++i) {
+      for(size_t i = 0; i < subst.size(); ++i) {
         Debug("rewriterules") << qe->d_inst_constants[r][i] << "->" << subst[i]
                               << std::endl;
       }
