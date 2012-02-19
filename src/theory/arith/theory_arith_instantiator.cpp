@@ -156,8 +156,9 @@ Instantiator( c, ie, th ){
   addInstStrategy( new InstStrategySimplex( this, d_quantEngine ) );
 }
 
-void InstantiatorTheoryArith::check( Node assertion ){
+void InstantiatorTheoryArith::assertNode( Node assertion ){
   Debug("quant-arith-assert") << "InstantiatorTheoryArith::check: " << assertion << std::endl;
+  //this is just for debugging....
   if( assertion.hasAttribute(InstConstantAttribute()) &&
       ((TheoryArith*)getTheory())->d_valuation.isDecision( assertion ) ){
     Node f = assertion.getAttribute(InstConstantAttribute());

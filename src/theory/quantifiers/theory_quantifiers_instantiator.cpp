@@ -30,24 +30,11 @@ Instantiator( c, ie, th ){
 
 }
 
-void InstantiatorTheoryQuantifiers::check( Node assertion ){
+void InstantiatorTheoryQuantifiers::assertNode( Node assertion ){
   Debug("quant-quant-assert") << "InstantiatorTheoryQuantifiers::check: " << assertion << std::endl;
-    switch(assertion.getKind()) {
-    case kind::FORALL:
-      if( assertion.hasAttribute(InstConstantAttribute()) ){
-        setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
-      }
-      break;
-    case kind::NOT:
-      {
-        if( assertion[0].hasAttribute(InstConstantAttribute()) ){
-          setHasConstraintsFrom( assertion[0].getAttribute(InstConstantAttribute()) );
-        }
-      }
-      break;  
-    default:
-      break;
-    }
+  if( assertion.hasAttribute(InstConstantAttribute()) ){
+    setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );
+  }
 }
 
 void InstantiatorTheoryQuantifiers::resetInstantiationRound(){

@@ -34,8 +34,8 @@ public:
   InstantiatorTheoryDatatypes(context::Context* c, QuantifiersEngine* ie, Theory* th);
   ~InstantiatorTheoryDatatypes() {}
 
-  /** check function, assertion is asserted to theory */
-  void check( Node assertion );
+  /** assertNode function, assertion is asserted to theory */
+  void assertNode( Node assertion );
   /**  reset instantiation */
   void resetInstantiationRound();
   /** identify */

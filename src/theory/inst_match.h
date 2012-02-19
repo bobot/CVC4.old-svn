@@ -220,6 +220,12 @@ public:
   };
   static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, 
                              bool isLitMatch = false, bool keepAll = true, int trPolicy = TRP_MAKE_NEW ); 
+private:  
+  static bool isUsable( Node n );
+public:
+  /** is usable trigger */
+  static bool isUsableTrigger( std::vector< Node >& nodes );
+  static bool isUsableTrigger( Node n );
 };
 
 }/* CVC4::theory namespace */

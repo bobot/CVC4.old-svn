@@ -120,6 +120,7 @@ Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node n, Node ipl 
     args.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, children ) );
     args.push_back( n );
     if( !ipl.isNull() ){
+      //must determine patterns that we can use
       args.push_back( ipl );
     }
     return NodeManager::currentNM()->mkNode(kind::FORALL, args );

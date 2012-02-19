@@ -128,7 +128,7 @@ void TheoryQuantifiers::check(Effort e) {
       break;
     }
     if( getInstantiator() ){
-      getInstantiator()->check( assertion );
+      getInstantiator()->assertNode( assertion );
     }
   }
   //call the quantifiers engine to check

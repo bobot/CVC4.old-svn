@@ -159,12 +159,13 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     //we will be producing candidates via literal matching heuristics
     d_cg = new uf::CandidateGeneratorTheoryUfEq( ith, d_pattern, d_match_pattern );
   }else{
+    Node op = d_match_pattern.getKind()==APPLY_UF ? d_match_pattern.getOperator() : Node::null();
     if( d_pattern.getKind()!=NOT ){
       //we will be scanning lists trying to find d_match_pattern.getOperator()
-      d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
+      d_cg = new uf::CandidateGeneratorTheoryUf( ith, op );
     }else{
       Assert( d_isLitMatch );
-      d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, d_match_pattern.getOperator() );
+      d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
     }
   }
 }
@@ -180,54 +181,60 @@ void InstMatchGenerator::initializePatterns( std::vector< Node >& pats, Quantifi
 
 /** get match (not modulo equality) */
 bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe ){
-  EqualityQuery* q = qe->getEqualityQuery();
-  //add m to partial match vector
-  std::vector< InstMatch > partial;
-  partial.push_back( InstMatch( &m ) );
-  //if t is null
-  Assert( !t.isNull() );
-  Assert( !d_match_pattern.isNull() );
-  Assert( !t.hasAttribute(InstConstantAttribute()) );
-  Assert( t.getKind()==d_match_pattern.getKind() );
-  Assert( t.getOperator()==d_match_pattern.getOperator() );
-  //first, check if ground arguments are not equal, or a match is in conflict
-  for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
-    if( d_match_pattern[i].hasAttribute(InstConstantAttribute()) ){
-      if( d_match_pattern[i].getKind()==INST_CONSTANT ){
-        if( !partial[0].setMatch( q, d_match_pattern[i], t[i] ) ){
-          //match is in conflict
+  //std::cout << "Matching " << t << " " << d_match_pattern << std::endl;
+  if( d_match_pattern.getNumChildren()!=t.getNumChildren() ){
+    //DO_THIS
+    return true;
+  }else{
+    EqualityQuery* q = qe->getEqualityQuery();
+    //add m to partial match vector
+    std::vector< InstMatch > partial;
+    partial.push_back( InstMatch( &m ) );
+    //if t is null
+    Assert( !t.isNull() );
+    Assert( !d_match_pattern.isNull() );
+    Assert( !t.hasAttribute(InstConstantAttribute()) );
+    Assert( t.getKind()==d_match_pattern.getKind() );
+    Assert( t.getOperator()==d_match_pattern.getOperator() );
+    //first, check if ground arguments are not equal, or a match is in conflict
+    for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
+      if( d_match_pattern[i].hasAttribute(InstConstantAttribute()) ){
+        if( d_match_pattern[i].getKind()==INST_CONSTANT ){
+          if( !partial[0].setMatch( q, d_match_pattern[i], t[i] ) ){
+            //match is in conflict
+            return false;
+          }
+        }
+      }else{
+        if( !q->areEqual( d_match_pattern[i], t[i] ) ){
+          //ground arguments are not equal
           return false;
         }
       }
-    }else{
-      if( !q->areEqual( d_match_pattern[i], t[i] ) ){
-        //ground arguments are not equal
-        return false;
+    }
+    //now, fit children into match
+    //we will be requesting candidates for matching terms for each child
+    for( int i=0; i<(int)d_children.size(); i++ ){
+      Node rep = q->getRepresentative( t[ d_children_index[i] ] );
+      d_children[i]->d_cg->reset( rep );
+    }
+    //combine child matches
+    int index = 0;
+    while( index>=0 && index<(int)d_children.size() ){
+      partial.push_back( InstMatch( &partial[index] ) );
+      if( d_children[index]->getNextMatch2( partial[index+1], qe ) ){
+        index++;
+      }else{
+        partial.pop_back();
+        index--;
       }
     }
-  }
-  //now, fit children into match
-  //we will be requesting candidates for matching terms for each child
-  for( int i=0; i<(int)d_children.size(); i++ ){
-    Node rep = q->getRepresentative( t[ d_children_index[i] ] );
-    d_children[i]->d_cg->reset( rep );
-  }
-  //combine child matches
-  int index = 0;
-  while( index>=0 && index<(int)d_children.size() ){
-    partial.push_back( InstMatch( &partial[index] ) );
-    if( d_children[index]->getNextMatch2( partial[index+1], qe ) ){
-      index++;
+    if( index>=0 ){
+      m = partial[index];
+      return true;
     }else{
-      partial.pop_back();
-      index--;
+      return false;
     }
-  }
-  if( index>=0 ){
-    m = partial[index];
-    return true;
-  }else{
-    return false;
   }
 }
 
@@ -311,7 +318,7 @@ Trigger* Trigger::TrTrie::getTrigger2( std::vector< Node >& nodes ){
     Node n = nodes.back();
     nodes.pop_back();
     if( d_children.find( n )!=d_children.end() ){
-      d_children[n]->getTrigger2( nodes );
+      return d_children[n]->getTrigger2( nodes );
     }else{
       return NULL;
     }
@@ -429,6 +436,17 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
     //check for duplicate?
     if( trPolicy==TRP_MAKE_NEW ){
       success = true;
+      //static int trNew = 0;
+      //static int trOld = 0;
+      //Trigger* t = d_tr_trie.getTrigger( trNodes );
+      //if( t ){
+      //  trOld++;
+      //}else{
+      //  trNew++;
+      //}
+      //if( (trNew+trOld)%100==0 ){
+      //  std::cout << "Trigger new old = " << trNew << " " << trOld << std::endl;
+      //}
     }else{
       Trigger* t = d_tr_trie.getTrigger( trNodes );
       if( t ){
@@ -436,11 +454,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
           //just return old trigger
           return t;
         }else{
-          counter++;
-          if( counter>=3 || keepAll ){  
-            //try three random triggers before returning null
-            return NULL; 
-          }
+          return NULL; 
         }
       }else{
         success = true;
@@ -451,6 +465,38 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
     }
   }
   Trigger* t = new Trigger( qe, f, trNodes, isLitMatch );
-  //d_tr_trie.addTrigger( trNodes, t );
+  d_tr_trie.addTrigger( trNodes, t );
   return t;
+}
+
+
+bool Trigger::isUsableTrigger( std::vector< Node >& nodes ){
+  for( int i=0; i<(int)nodes.size(); i++ ){
+    if( !isUsableTrigger( nodes[i] ) ){
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Trigger::isUsable( Node n ){
+  if( n.hasAttribute(InstConstantAttribute()) ){
+    if( n.getKind()!=APPLY_UF && n.getKind()!=INST_CONSTANT ){
+      return false;
+    }else{
+      for( int i=0; i<(int)n.getNumChildren(); i++ ){
+        if( !isUsable( n[i] ) ){
+          return false;
+        }
+      }
+      return true;
+    }
+  }else{
+    return true;
+  }
+}
+
+bool Trigger::isUsableTrigger( Node n ){
+  return true;
+  //return n.hasAttribute(InstConstantAttribute()) && n.getKind()==APPLY_UF && isUsable( n );
 }

@@ -147,7 +147,7 @@ void TheoryUF::check(Effort level) {
     }
     //AJR-hack
     if( getInstantiator() ){
-      getInstantiator()->check( assertion );
+      getInstantiator()->assertNode( assertion );
     }
     //AJR-hack-end
   }
@@ -173,7 +173,7 @@ void TheoryUF::check(Effort level) {
       d_thss->check( level );
     }
   }
-  if( !d_conflict && level==FULL_EFFORT ){
+  //if( !d_conflict && level==FULL_EFFORT ){
     //EqClassesIterator< NotifyClass > eqc_iter( &d_equalityEngine );
     //while( !eqc_iter.isFinished() ){
     //  if( StrongSolverTheoryUf::isRelevantType( (*eqc_iter).getType() ) ){
@@ -204,7 +204,7 @@ void TheoryUF::check(Effort level) {
     //for( NodeList::const_iterator it = d_assertions_ajr.begin(); it!=d_assertions_ajr.end(); ++it ){
     //  std::cout << "      " << (*it) << std::endl;
     //}
-  }
+  //}
   //AJR-hack-end
 
 }/* TheoryUF::check() */
@@ -242,7 +242,11 @@ void TheoryUF::propagate(Effort level) {
 
 void TheoryUF::preRegisterTerm(TNode node) {
   Debug("uf") << "TheoryUF::preRegisterTerm(" << node << ")" << std::endl;
-
+  ////AJR-hack
+  //if( getInstantiator() ){
+  //  getInstantiator()->preRegisterTerm( node );
+  //}
+  ////AJR-hack-end
   switch (node.getKind()) {
   case kind::EQUAL:
     // Add the terms
@@ -499,7 +503,7 @@ void TheoryUF::addSharedTerm(TNode t) {
   d_equalityEngine.addTriggerTerm(t);
   //AJR-hack
   if( getInstantiator() ){
-    ((InstantiatorTheoryUf*)getInstantiator())->registerTerm( t );
+    ((InstantiatorTheoryUf*)getInstantiator())->preRegisterTerm( t );
   }
   //AJR-hack-end
 }

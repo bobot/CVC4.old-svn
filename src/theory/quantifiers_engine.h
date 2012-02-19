@@ -126,8 +126,10 @@ public:
 
   /** get corresponding theory for this instantiator */
   Theory* getTheory() { return d_th; }
-  /** check function, assertion was asserted to theory */
-  virtual void check( Node assertion ){}
+  /** Pre-register a term.  Done one time for a Node, ever. */
+  virtual void preRegisterTerm( Node t ) { }
+  /** assertNode function, assertion was asserted to theory */
+  virtual void assertNode( Node assertion ){}
 
   /** do instantiation method*/
   virtual void doInstantiation( int effort );

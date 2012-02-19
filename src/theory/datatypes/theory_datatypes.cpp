@@ -194,7 +194,7 @@ void TheoryDatatypes::check(Effort e) {
         }
         //AJR-hack
         if( getInstantiator() ){
-          getInstantiator()->check( assertion );
+          getInstantiator()->assertNode( assertion );
         }
         //AJR-hack-end
       }

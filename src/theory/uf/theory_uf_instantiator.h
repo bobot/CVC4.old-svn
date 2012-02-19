@@ -142,27 +142,40 @@ class EqClassInfo
 public:
   typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
-public:
-  EqClassInfo( Node t, context::Context* c );
-  ~EqClassInfo(){}
+private:
   //a list of operators that occur as top symbols in that equivalence class
-  //  Efficient E-Matching for SMT Solvers: "apps" 
-  NodeList d_ops;
+  //  Efficient E-Matching for SMT Solvers: "funs" 
+  NodeList d_funs;
+  //a list of operators f for which a term of the form f( ... t ... ) exists
+  //  Efficient E-Matching for SMT Solvers: "pfuns" 
+  NodeList d_pfuns;
   //a list of equivalence classes that are disequal
   BoolMap d_disequal;
+public:
+  EqClassInfo( context::Context* c );
+  ~EqClassInfo(){}
+  //set member
+  void setMember( Node n );
+  //has function, Efficient E-Matching for SMT Solvers: "funs" 
+  bool hasFunction( Node op );
   //merge with another eq class info
   void merge( EqClassInfo* eci );
 };
 
 class UfTermDb
 {
+private:
+  /** InstantiatorTheoryUf class */
+  InstantiatorTheoryUf* d_ith;
 public:
-  UfTermDb(){}
+  UfTermDb( InstantiatorTheoryUf* ith ) : d_ith( ith ){}
   ~UfTermDb(){}
-  /** map from APPLY_UF operators to ground, pattern terms for that operator */
+  /** map from APPLY_UF operators to ground terms for that operator */
   std::map< Node, std::vector< Node > > d_op_map;
   /** last index considered */
   std::map< Node, int > d_op_index;
+  /** parent */
+  std::map< Node, std::map< Node, std::vector< Node > > > d_parents;
   /** register this term */
   void add( Node n );
   /** finish instantiation round */
@@ -176,58 +189,34 @@ protected:
   typedef context::CDMap<Node, int, NodeHashFunction> IntMap;
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
   typedef context::CDMap<Node, NodeList*, NodeHashFunction> NodeLists;
-
-  /** whether obligatiosn have changed for each quantifier */
-  BoolMap d_ob_changed;
-  /** list of currently asserted literals for each quantifier */
-  NodeLists d_obligations;
   /** term database */
-  UfTermDb d_db;
-  /** all terms in the current context */
-  //BoolMap d_terms_full;
-  /** map from (representative) nodes to list of representative nodes they are disequal from */
-  NodeList d_disequality;
+  UfTermDb* d_db;
   /** map to representatives used */
-  std::map< Node, Node > d_reps;
-  /** disequality list */
-  std::map< Node, std::vector< Node > > d_dmap;
-  /** has instantiation constant */
-  void addObligationToList( Node ob, Node f );
-  /** add obligations */
-  void addObligations( Node n, Node ob );
+  std::map< Node, Node > d_ground_reps;
 protected:
   /** instantiation strategies */
   InstStrategyUserPatterns* d_isup;
 public:
   InstantiatorTheoryUf(context::Context* c, CVC4::theory::QuantifiersEngine* ie, Theory* th);
   ~InstantiatorTheoryUf() {}
-  /** check method */
-  void check( Node assertion );
+  /** assertNode method */
+  void assertNode( Node assertion );
+  /** Pre-register a term.  Done one time for a Node, ever. */
+  void preRegisterTerm( Node t );
   /** reset instantiation */
   void resetInstantiationRound();
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryUf"); }
   /** debug print */
   void debugPrint( const char* c );
-  /** register terms */
-  void registerTerm( Node n );
   /** add user pattern */
   void addUserPattern( Node f, Node pat );
 private:
   /** calculate matches for quantifier f at effort */
   int process( Node f, int effort );
 public:
-  /** are obligations changed? */
-  bool getObligationsChanged( Node f ) { return d_ob_changed[f]; }
-  /** get obligations for quantifier f */
-  void getObligations( Node f, std::vector< Node >& obs );
-  /** general queries about equality */
-  bool areEqual( Node a, Node b );
-  bool areDisequal( Node a, Node b );
-  Node getRepresentative( Node a );
-  Node getInternalRepresentative( Node a );
   /** get uf term database */
-  UfTermDb* getTermDatabase() { return &d_db; }
+  UfTermDb* getTermDatabase() { return d_db; }
   /** statistics class */
   class Statistics {
   public:
@@ -241,12 +230,18 @@ public:
     ~Statistics();
   };
   Statistics d_statistics;
+public:
   /** the base match */
   std::map< Node, InstMatch > d_baseMatch;
 private:
   //for each equivalence class
   std::map< Node, EqClassInfo* > d_eqc_ops;
 public:
+  /** general queries about equality */
+  bool areEqual( Node a, Node b );
+  bool areDisequal( Node a, Node b );
+  Node getRepresentative( Node a );
+  Node getInternalRepresentative( Node a );
   /** new node */
   void newEqClass( TNode n );
   /** merge */

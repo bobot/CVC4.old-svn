@@ -30,7 +30,7 @@ Instantiator( c, ie, th ){
 
 }
 
-void InstantiatorTheoryDatatypes::check( Node assertion ){
+void InstantiatorTheoryDatatypes::assertNode( Node assertion ){
   Debug("quant-datatypes-assert") << "InstantiatorTheoryDatatypes::check: " << assertion << std::endl;
   if( assertion.hasAttribute(InstConstantAttribute()) ){
     setHasConstraintsFrom( assertion.getAttribute(InstConstantAttribute()) );

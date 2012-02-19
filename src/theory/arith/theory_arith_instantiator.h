@@ -88,8 +88,8 @@ public:
   InstantiatorTheoryArith(context::Context* c, QuantifiersEngine* ie, Theory* th);
   ~InstantiatorTheoryArith() {}
 
-  /** check function, assertion is asserted to theory */
-  void check( Node assertion );
+  /** assertNode function, assertion is asserted to theory */
+  void assertNode( Node assertion );
   /**  reset instantiation */
   void resetInstantiationRound();
   /** identify */

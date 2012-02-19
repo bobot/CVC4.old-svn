@@ -767,7 +767,7 @@ void TheoryArith::check(Effort effortLevel){
     }
     //AJR-hack
     if( getInstantiator() ){
-      getInstantiator()->check( assertion );
+      getInstantiator()->assertNode( assertion );
     }
     //AJR-hack-end
   }

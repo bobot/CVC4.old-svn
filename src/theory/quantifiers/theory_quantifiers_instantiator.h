@@ -35,7 +35,7 @@ public:
   ~InstantiatorTheoryQuantifiers() {}
 
   /** check function, assertion is asserted to theory */
-  void check( Node assertion );
+  void assertNode( Node assertion );
   /**  reset instantiation */
   void resetInstantiationRound();
   /** identify */
