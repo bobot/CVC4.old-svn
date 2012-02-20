@@ -159,6 +159,12 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     //we will be producing candidates via literal matching heuristics
     d_cg = new uf::CandidateGeneratorTheoryUfEq( ith, d_pattern, d_match_pattern );
   }else{
+    //record arithmetic information?
+    if( !initializePatternArithmetic( d_match_pattern ) ){
+      if( d_match_pattern.getKind()!=APPLY_UF ){
+        Debug("pattern-debug") << "(?) Unknown matching pattern is " << d_match_pattern << std::endl;
+      }
+    }
     Node op = d_match_pattern.getKind()==APPLY_UF ? d_match_pattern.getOperator() : Node::null();
     if( d_pattern.getKind()!=NOT ){
       //we will be scanning lists trying to find d_match_pattern.getOperator()
@@ -168,6 +174,45 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
     }
   }
+}
+
+bool InstMatchGenerator::initializePatternArithmetic( Node n ){
+  if( n.getKind()==PLUS ){
+    Assert( d_arith_coeffs.empty() );
+    NodeBuilder<> t(kind::PLUS);
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( n[i].hasAttribute(InstConstantAttribute()) ){
+        if( n[i].getKind()==INST_CONSTANT ){
+          d_arith_coeffs[ n[i] ] = Node::null();
+        }else if( !initializePatternArithmetic( n[i] ) ){
+          Debug("pattern-debug") << "(?) Bad arith pattern = " << n << std::endl;
+          d_arith_coeffs.clear();
+          return false;
+        }
+      }else{
+        t << n[i];
+      }
+    }
+    if( t.getNumChildren()==0 ){
+      d_arith_coeffs[ Node::null() ] = NodeManager::currentNM()->mkConst( Rational(0) ); 
+    }else if( t.getNumChildren()==1 ){
+      d_arith_coeffs[ Node::null() ]  = t.getChild( 0 );
+    }else{
+      d_arith_coeffs[ Node::null() ]  = t;
+    }
+    return true;
+  }else if( n.getKind()==MULT ){
+    if( n[0].getKind()==INST_CONSTANT ){
+      Assert( !n[1].hasAttribute(InstConstantAttribute()) );
+      d_arith_coeffs[ n[0] ] = n[1];
+      return true;
+    }else if( n[1].getKind()==INST_CONSTANT ){
+      Assert( !n[0].hasAttribute(InstConstantAttribute()) );
+      d_arith_coeffs[ n[1] ] = n[0];
+      return true;
+    }
+  }
+  return false;
 }
 
 void InstMatchGenerator::initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe ){
@@ -181,10 +226,62 @@ void InstMatchGenerator::initializePatterns( std::vector< Node >& pats, Quantifi
 
 /** get match (not modulo equality) */
 bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe ){
-  //std::cout << "Matching " << t << " " << d_match_pattern << std::endl;
-  if( d_match_pattern.getNumChildren()!=t.getNumChildren() ){
-    //DO_THIS
-    return true;
+  Assert( !d_match_pattern.isNull() );
+  if( d_match_pattern.getKind()!=APPLY_UF ){
+    Debug("matching-arith") << "Matching " << t << " " << d_match_pattern << std::endl;
+    if( !d_arith_coeffs.empty() ){
+      NodeBuilder<> tb(kind::PLUS);
+      Node ic = Node::null();
+      for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
+        Debug("matching-arith") << it->first << " -> " << it->second << std::endl;
+        if( !it->first.isNull() ){
+          if( m.d_map.find( it->first )==m.d_map.end() ){
+            //see if we can choose this to set
+            if( ic.isNull() && ( it->second.isNull() || !it->first.getType().isInteger() ) ){
+              ic = it->first;
+            }
+          }else{
+            Debug("matching-arith") << "already set " << m.d_map[ it->first ] << std::endl;
+            Node tm = m.d_map[ it->first ];
+            if( !it->second.isNull() ){
+              tm = NodeManager::currentNM()->mkNode( MULT, it->second, tm );
+            }
+            tb << tm;
+          }
+        }else{
+          tb << it->second;
+        }
+      }
+      if( !ic.isNull() ){
+        Node tm;
+        if( tb.getNumChildren()==0 ){
+          tm = t;
+        }else{
+          tm = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
+          tm = NodeManager::currentNM()->mkNode( MINUS, t, tm );
+        }
+        if( !d_arith_coeffs[ ic ].isNull() ){
+          Assert( !ic.getType().isInteger() );
+          Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_arith_coeffs[ ic ].getConst<Rational>() );
+          tm = NodeManager::currentNM()->mkNode( MULT, coeff, tm );
+        }
+        m.d_map[ ic ] = Rewriter::rewrite( tm );
+        //set the rest to zeros
+        for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
+          if( !it->first.isNull() ){
+            if( m.d_map.find( it->first )==m.d_map.end() ){
+              m.d_map[ it->first ] = NodeManager::currentNM()->mkConst( Rational(0) ); 
+            }
+          }
+        }
+        Debug("matching-arith") << "Setting " << ic << " to " << tm << std::endl;
+        return true;
+      }else{
+        return false;
+      }
+    }else{
+      return false;
+    }
   }else{
     EqualityQuery* q = qe->getEqualityQuery();
     //add m to partial match vector
@@ -192,9 +289,8 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
     partial.push_back( InstMatch( &m ) );
     //if t is null
     Assert( !t.isNull() );
-    Assert( !d_match_pattern.isNull() );
     Assert( !t.hasAttribute(InstConstantAttribute()) );
-    Assert( t.getKind()==d_match_pattern.getKind() );
+    Assert( t.getKind()==APPLY_UF );
     Assert( t.getOperator()==d_match_pattern.getOperator() );
     //first, check if ground arguments are not equal, or a match is in conflict
     for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
@@ -470,22 +566,22 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
 }
 
 
-bool Trigger::isUsableTrigger( std::vector< Node >& nodes ){
+bool Trigger::isUsableTrigger( std::vector< Node >& nodes, Node f ){
   for( int i=0; i<(int)nodes.size(); i++ ){
-    if( !isUsableTrigger( nodes[i] ) ){
+    if( !isUsableTrigger( nodes[i], f ) ){
       return false;
     }
   }
   return true;
 }
 
-bool Trigger::isUsable( Node n ){
-  if( n.hasAttribute(InstConstantAttribute()) ){
+bool Trigger::isUsable( Node n, Node f ){
+  if( n.getAttribute(InstConstantAttribute())==f ){
     if( n.getKind()!=APPLY_UF && n.getKind()!=INST_CONSTANT ){
       return false;
     }else{
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        if( !isUsable( n[i] ) ){
+        if( !isUsable( n[i], f ) ){
           return false;
         }
       }
@@ -496,7 +592,7 @@ bool Trigger::isUsable( Node n ){
   }
 }
 
-bool Trigger::isUsableTrigger( Node n ){
-  return true;
-  //return n.hasAttribute(InstConstantAttribute()) && n.getKind()==APPLY_UF && isUsable( n );
+bool Trigger::isUsableTrigger( Node n, Node f ){
+  return n.getAttribute(InstConstantAttribute())==f && n.getKind()==APPLY_UF;
+  //return n.hasAttribute(InstConstantAttribute()) && n.getKind()==APPLY_UF && isUsable( n, f );
 }

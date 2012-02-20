@@ -51,8 +51,22 @@ int InstStrategySimplex::process( Node f, int effort ){
         // We will construct the term ( beta - B*t)/coeff to use for e_i.
         InstMatch m;
         //By default, choose the first instantiation constant to be e_i.
-        d_th->doInstantiation( f, d_th->d_tableaux_term[x], x, &m, d_th->d_ceTableaux[x].begin()->first );
-
+        Node var = d_th->d_ceTableaux[x].begin()->first;
+        if( var.getType().isInteger() ){
+          std::map< Node, Node >::iterator it = d_th->d_ceTableaux[x].begin();
+          //must be sure that coefficent is one //DO_THIS
+          while( !var.isNull() && !d_th->d_ceTableaux[x][var].isNull() ){
+            ++it;
+            if( it==d_th->d_ceTableaux[x].end() ){
+              var = Node::null();
+            }else{
+              var = it->first;
+            }
+          }
+        }
+        if( !var.isNull() ){
+          d_th->doInstantiation( f, d_th->d_tableaux_term[x], x, &m, var );
+        }
         ////choose a new variable based on alternation strategy
         //int index = d_counter%(int)d_th->d_ceTableaux[x].size();
         //Node var;
@@ -228,7 +242,7 @@ void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBui
     if( n.hasAttribute(InstConstantAttribute()) ){
       f = n.getAttribute(InstConstantAttribute());
       if( n.getKind()==INST_CONSTANT ){
-        d_ceTableaux[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
+        d_ceTableaux[x][ n ] = Node::null();
       }else{
         d_tableaux_ce_term[x][ n ] = NodeManager::currentNM()->mkConst( Rational(1) );
       }
@@ -333,8 +347,11 @@ bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, I
   // make term ( beta - term )/coeff
   Node beta = getTableauxValue( x, minus_delta );
   Node instVal = NodeManager::currentNM()->mkNode( MINUS, beta, term );
-  Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_ceTableaux[x][var].getConst<Rational>() );
-  instVal = NodeManager::currentNM()->mkNode( MULT, coeff, instVal );
+  if( !d_ceTableaux[x][var].isNull() ){
+    Assert( !var.getType().isInteger() );
+    Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_ceTableaux[x][var].getConst<Rational>() );
+    instVal = NodeManager::currentNM()->mkNode( MULT, coeff, instVal );
+  }
   instVal = Rewriter::rewrite( instVal );
   //use as instantiation value for var
   m->d_map[ var ] = instVal;

@@ -108,8 +108,12 @@ private:
   /** partial vector */
   std::vector< InstMatch > d_partial;
   /** initialize pattern */
+  bool initializePatternArithmetic( Node n );
   void initializePattern( Node pat, QuantifiersEngine* qe );
   void initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe );
+private:
+  /** for arithmetic matching */
+  std::map< Node, Node > d_arith_coeffs;
 private:
   /** get the next match.  must call d_cg->reset( ... ) before using. 
       only valid for use where !d_match_pattern.isNull().
@@ -221,11 +225,11 @@ public:
   static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, 
                              bool isLitMatch = false, bool keepAll = true, int trPolicy = TRP_MAKE_NEW ); 
 private:  
-  static bool isUsable( Node n );
+  static bool isUsable( Node n, Node f );
 public:
   /** is usable trigger */
-  static bool isUsableTrigger( std::vector< Node >& nodes );
-  static bool isUsableTrigger( Node n );
+  static bool isUsableTrigger( std::vector< Node >& nodes, Node f );
+  static bool isUsableTrigger( Node n, Node f );
 };
 
 }/* CVC4::theory namespace */

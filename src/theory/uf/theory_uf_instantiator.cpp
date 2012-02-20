@@ -131,7 +131,7 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
   for( int i=0; i<(int)pat.getNumChildren(); i++ ){
     nodes.push_back( pat[i] );
   }
-  if( Trigger::isUsableTrigger( nodes ) ){
+  if( Trigger::isUsableTrigger( nodes, f ) ){
     d_user_gen[f].push_back( Trigger::mkTrigger( d_quantEngine, f, nodes, false, true ) );
   }
 }
@@ -164,7 +164,7 @@ int InstStrategyAutoGenTriggers::process( Node f, int effort ){
 
 void InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt ){
   if( tstrt==MAX_TRIGGER ){
-    if( n.getKind()==APPLY_UF && n.getAttribute(InstConstantAttribute())==f && Trigger::isUsableTrigger( n ) ){
+    if( n.getKind()==APPLY_UF && n.getAttribute(InstConstantAttribute())==f && Trigger::isUsableTrigger( n, f ) ){
       if( std::find( patTerms.begin(), patTerms.end(), n )==patTerms.end() ){
         patTerms.push_back( n );
       }
@@ -181,7 +181,7 @@ void InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< 
       }
       if( n.getKind()==APPLY_UF && n.getAttribute(InstConstantAttribute())==f && patTermSize==(int)patTerms.size() ){
         if( std::find( patTerms.begin(), patTerms.end(), n )==patTerms.end() ){
-          if( Trigger::isUsableTrigger( n ) ){
+          if( Trigger::isUsableTrigger( n, f ) ){
             patTerms.push_back( n );
           } 
         }
