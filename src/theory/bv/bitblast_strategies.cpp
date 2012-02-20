@@ -19,6 +19,7 @@
 #include "bitblast_strategies.h"
 #include "bv_sat.h"
 #include "prop/sat_module.h"
+#include "theory/booleans/theory_bool_rewriter.h"
 
 using namespace CVC4::prop; 
 using namespace CVC4::theory::bv::utils;
@@ -26,12 +27,93 @@ namespace CVC4 {
 namespace theory {
 namespace bv {
 
+/*
+  Purely debugging
+ */
+
+Bits* rewriteBits(const Bits& bits) {
+  Bits* newbits = new Bits(); 
+  for (unsigned i = 0; i < bits.size(); ++i) {
+    newbits->push_back(Rewriter::rewrite(bits[i])); 
+  }
+  return newbits;
+}
+
+
+/*
+ Various helper functions that get called by the bitblasting procedures
+ */
 
 void inline negateBits(const Bits& bits, Bits& negated_bits) {
   for(int i = 0; i < bits.size(); ++i) {
     negated_bits.push_back(utils::mkNot(bits[i])); 
   }
 }
+
+bool inline isZero(const Bits& bits) {
+  for(int i = 0; i < bits.size(); ++i) {
+    if(bits[i] != mkFalse()) {
+      return false; 
+    }
+  }
+  return true; 
+}
+
+void inline rshift(Bits& bits, unsigned amount) {
+  for (unsigned i = 0; i < bits.size() - amount; ++i) {
+    bits[i] = bits[i+amount]; 
+  }
+  for(unsigned i = bits.size() - amount; i < bits.size(); ++i) {
+    bits[i] = mkFalse(); 
+  }
+}
+
+void inline lshift(Bits& bits, unsigned amount) {
+  for (int i = bits.size() - 1; i >= amount ; --i) {
+    bits[i] = bits[i-amount]; 
+  }
+  for(unsigned i = 0; i < amount; ++i) {
+    bits[i] = mkFalse(); 
+  }
+}
+
+void inline make_zero(Bits& bits, unsigned width) {
+  Assert(bits.size() == 0); 
+  for(unsigned i = 0; i < width; ++i) {
+    bits.push_back(mkFalse()); 
+  }
+}
+
+
+/** 
+ * Constructs a simple ripple carry adder
+ * 
+ * @param a first term to be added
+ * @param b second term to be added
+ * @param sum the sum 
+ * @param carry the carry-in bit 
+ * 
+ * @return the carry-out
+ */
+Node inline ripple_carry_adder(const Bits&a, const Bits& b, Bits& res, Node carry) {
+  Assert(res.size() == 0 && a.size() == b.size());
+  
+  for (unsigned i = 0 ; i < a.size(); ++i) {
+    Node sum = mkXor(mkXor(a[i], b[i]), carry);
+    carry = mkOr( mkAnd(a[i], b[i]),
+                  mkAnd( mkXor(a[i], b[i]),
+                         carry));
+    res.push_back(sum); 
+  }
+
+  return carry;
+}
+
+
+/*
+  Atom bitblasting strategies 
+ */
+
 
 Node UndefinedAtomBBStrategy(TNode node, Bitblaster* bb) {
   Debug("bitvector") << "TheoryBV::Bitblaster Undefined bitblasting strategy for kind: "
@@ -42,7 +124,6 @@ Node UndefinedAtomBBStrategy(TNode node, Bitblaster* bb) {
 Node DefaultEqBB(TNode node, Bitblaster* bb) {
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   
-
   Assert(node.getKind() == kind::EQUAL);
   Bits lhs, rhs; 
   bb->bbTerm(node[0], lhs);
@@ -58,9 +139,7 @@ Node DefaultEqBB(TNode node, Bitblaster* bb) {
     bits_eq.push_back(bit_eq); 
   }
   Node bv_eq = utils::mkAnd(bits_eq);
-  Node definition = nm->mkNode(kind::IFF, node, bv_eq); 
-  
-  return definition; 
+  return bv_eq; 
 }
 
 Node DefaultUltBB(TNode node, Bitblaster* bb) {
@@ -81,8 +160,7 @@ Node DefaultUltBB(TNode node, Bitblaster* bb) {
                   mkAnd( mkXor(a[i], not_b[i]),
                          carry));
   }
-  Node definition = NodeManager::currentNM()->mkNode(kind::IFF, node, mkNot(carry)); 
-  return definition;
+  return mkNot(carry); 
 }
 
 Node DefaultUleBB(TNode node, Bitblaster* bb){
@@ -119,11 +197,8 @@ Node DefaultSltBB(TNode node, Bitblaster* bb){
                   mkAnd( mkXor(a[i], not_b[i]),
                          carry));
   }
-  NodeManager* nm = NodeManager::currentNM(); 
-  Node definition = nm->mkNode(kind::IFF,
-                               node,
-                               mkXor( nm->mkNode(kind::IFF, a.back(), b.back()),
-                                      carry)); 
+  NodeManager* nm = NodeManager::currentNM();
+  Node definition = mkXor( nm->mkNode(kind::IFF, a.back(), b.back()), carry); 
   return definition;
 }
 
@@ -166,7 +241,7 @@ void DefaultVarBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector-bb") << "                           with bits  " << toString(bits); 
 }
 
-void DefaultConstBB       (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultConstBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector-bb") << "theory::bv::DefaultConstBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::CONST_BITVECTOR);
   Assert(bits.size() == 0);
@@ -185,7 +260,7 @@ void DefaultConstBB       (TNode node, Bits& bits, Bitblaster* bb) {
 }
 
 
-void DefaultNotBB         (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultNotBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector-bb") << "theory::bv::DefaultNotBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::BITVECTOR_NOT);
   Assert(bits.size() == 0);
@@ -194,7 +269,7 @@ void DefaultNotBB         (TNode node, Bits& bits, Bitblaster* bb) {
   negateBits(bv, bits);
 }
 
-void DefaultConcatBB      (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultConcatBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector-bb") << "theory::bv::DefaultConcatBB bitblasting " << node << "\n";
   Assert(bits.size() == 0);
   
@@ -248,7 +323,7 @@ void DefaultOrBB (TNode node, Bits& bits, Bitblaster* bb) {
   }
 }
 
-void DefaultXorBB         (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultXorBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector-bb") << "theory::bv::DefaultXorBB bitblasting " << node << "\n";
 
   Assert(node.getNumChildren() == 2 &&
@@ -265,12 +340,29 @@ void DefaultXorBB         (TNode node, Bits& bits, Bitblaster* bb) {
   }
 }
 
-void DefaultNandBB        (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultXnorBB (TNode node, Bits& bits, Bitblaster* bb) {
+  Debug("bitvector-bb") << "theory::bv::DefaultXnorBB bitblasting " << node << "\n";
+
+  Assert(node.getNumChildren() == 2 &&
+         node.getKind() == kind::BITVECTOR_XNOR &&
+         bits.size() == 0);
+  Bits lhs, rhs;
+  bb->bbTerm(node[0], lhs);
+  bb->bbTerm(node[1], rhs);
+  Assert(lhs.size() == rhs.size()); 
+  
+  for (unsigned i = 0; i < lhs.size(); ++i) {
+    bits.push_back(utils::mkNode(kind::IFF, lhs[i], rhs[i])); 
+  }
+}
+
+
+void DefaultNandBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
-void DefaultNorBB         (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultNorBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
@@ -292,32 +384,49 @@ void DefaultCompBB (TNode node, Bits& bits, Bitblaster* bb) {
   Node a_eq_b = mkAnd(bit_eqs);
   bits.push_back(a_eq_b);   
 }
-void DefaultMultBB        (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
-                     << node.getKind() << "\n";
-  Unimplemented(); 
+
+void DefaultMultBB (TNode node, Bits& res, Bitblaster* bb) {
+  Debug("bitvector") << "theory::bv:: DefaultMultBB bitblasting "<< node << "\n";
+  Assert(res.size() == 0 &&
+         node.getKind() == kind::BITVECTOR_MULT);
+  Bits a, b;
+  bb->bbTerm(node[0], a);
+  bb->bbTerm(node[1], b);
+
+  // constructs a simple shift and add multiplier building the result in
+  // in res
+  
+  for (unsigned i = 0; i < a.size(); ++i) {
+    res.push_back(mkNode(kind::AND, b[0], a[i])); 
+  }
+  
+  for(unsigned k = 1; k < res.size(); ++k) {
+  Node carry_in = mkFalse();
+  Node carry_out;
+    for(unsigned j = 0; j < res.size() -k; ++j) {
+      Node aj = mkAnd(a[j], b[k]);
+      carry_out = mkOr(mkAnd(res[j+k], aj),
+                       mkAnd( mkXor(res[j+k], aj), carry_in));
+      res[j+k] = mkXor(mkXor(res[j+k], aj), carry_in);
+      carry_in = carry_out; 
+    }
+  }
+  Debug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
 }
 
-void DefaultPlusBB        (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultPlusBB (TNode node, Bits& res, Bitblaster* bb) {
   Debug("bitvector-bb") << "theory::bv::DefaulPlusBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::BITVECTOR_PLUS &&
-         bits.size() == 0);
+         res.size() == 0);
 
   Bits a, b;
   bb->bbTerm(node[0], a);
   bb->bbTerm(node[1], b); 
 
   Assert(a.size() == b.size() && utils::getSize(node) == a.size());
-  
-  Node carry = utils::mkFalse();
-  for (unsigned i = 0 ; i < getSize(node); ++i) {
-    Node sum = mkXor(mkXor(a[i], b[i]), carry);
-    carry = mkOr( mkAnd(a[i], b[i]),
-                  mkAnd( mkXor(a[i], b[i]),
-                         carry));
-    bits.push_back(sum); 
-  } 
+  ripple_carry_adder(a, b, res, mkFalse());
 }
+
 
 void DefaultSubBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector-bb") << "theory::bv::DefautSubBB bitblasting " << node << "\n";
@@ -332,18 +441,10 @@ void DefaultSubBB (TNode node, Bits& bits, Bitblaster* bb) {
   Bits not_b;
   negateBits(b, not_b);
   Node carry = utils::mkTrue();
-
-  for (unsigned i = 0 ; i < getSize(node); ++i) {
-    Node sum = mkXor(mkXor(a[i], not_b[i]), carry);
-    carry = mkOr( mkAnd(a[i], not_b[i]),
-                  mkAnd( mkXor(a[i], not_b[i]),
-                         carry));
-    bits.push_back(sum); 
-  } 
-
+  ripple_carry_adder(a, not_b, bits, mkTrue());
 }
 
-void DefaultNegBB         (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultNegBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector-bb") << "theory::bv::DefautNegBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::BITVECTOR_NEG);
   
@@ -351,63 +452,218 @@ void DefaultNegBB         (TNode node, Bits& bits, Bitblaster* bb) {
   bb->bbTerm(node[0], a);
   Assert(utils::getSize(node) == a.size());
 
-  // -a = add(~a, 1, 0).
+  // -a = add(~a, 0, 1).
   Bits not_a;
   negateBits(a, not_a);
-  Node carry = utils::mkFalse();
+  Bits zero;
+  make_zero(zero, getSize(node)); 
+  
+  ripple_carry_adder(not_a, zero, bits, mkTrue()); 
+}
 
-  for (unsigned i = 0 ; i < getSize(node); ++i) {
-    Node one = i == 0? mkTrue() : mkFalse();
-    Node sum = mkXor(mkXor(not_a[i], one), carry);
-    carry = mkOr( mkAnd(not_a[i], one),
-                  mkAnd( mkXor(not_a[i], one),
-                         carry));
-    bits.push_back(sum); 
+void uDivModRec(const Bits& a, const Bits& b, Bits& q, Bits& r, unsigned rec_width) {
+  Assert( q.size() == 0 && r.size() == 0);
+
+  if(rec_width == 0 || isZero(a)) {
+    make_zero(q, a.size());
+    make_zero(r, a.size());
+    return;
   } 
+  
+  Bits q1, r1;
+  Bits a1 = a;
+  rshift(a1, 1); 
+
+  uDivModRec(a1, b, q1, r1, rec_width - 1);
+  // shift the quotient and remainder (i.e. multiply by two) and add 1 to remainder if a is odd
+  lshift(q1, 1);
+  lshift(r1, 1);
+
+  
+  Node is_odd = mkNode(kind::IFF, a[0], mkTrue());
+  Node one_if_odd = mkNode(kind::ITE, is_odd, mkTrue(), mkFalse()); 
+
+  Bits zero;
+  make_zero(zero, b.size());
+  
+  Bits r1_shift_add;
+  ripple_carry_adder(r1, zero, r1_shift_add, one_if_odd); 
+  // now check if the remainder is greater than b
+  Bits not_b;
+  negateBits(b, not_b);
+  Bits r_minus_b;
+  ripple_carry_adder(r1_shift_add, not_b, r_minus_b, mkTrue()); 
+  // sign is true if r1 < b
+  Node sign = r_minus_b.back();
+  
+  q1[0] = mkNode(kind::ITE, sign, q1[0], mkTrue());
+
+  // would be nice to have a high level ITE instead of bitwise
+  for(unsigned i = 0; i < a.size(); ++i) {
+    r1_shift_add[i] = mkNode(kind::ITE, sign, r1_shift_add[i], r_minus_b[i]); 
+  }
+
+  // check if a < b
+
+  Bits a_minus_b;
+  ripple_carry_adder(a, not_b, a_minus_b, mkTrue());
+  Node a_lt_b = a_minus_b.back();
+  
+  for(unsigned i = 0; i < a.size(); ++i) {
+    Node qval = mkNode(kind::ITE, a_lt_b, mkFalse(), q1[i]);
+    Node rval = mkNode(kind::ITE, a_lt_b, a[i], r1_shift_add[i]);
+    q.push_back(qval);
+    r.push_back(rval); 
+  }
+
 }
 
-void DefaultUdivBB        (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultUdivBB (TNode node, Bits& q, Bitblaster* bb) {
+  Debug("bitvector-bb") << "theory::bv::DefautUdivBB bitblasting " << node << "\n";
+  Assert(node.getKind() == kind::BITVECTOR_UDIV &&  q.size() == 0);
+
+  Bits a, b;
+  bb->bbTerm(node[0], a);
+  bb->bbTerm(node[1], b);
+
+  Bits r;
+  uDivModRec(a, b, q, r, getSize(node)); 
+
+  // cache the remainder in case we need it later
+  Node remainder = mkNode(kind::BITVECTOR_UREM, node[0], node[1]);
+  bb->cacheTermDef(remainder, r);
+}
+
+void DefaultUremBB (TNode node, Bits& rem, Bitblaster* bb) {
+  Debug("bitvector-bb") << "theory::bv::DefautUremBB bitblasting " << node << "\n";
+  Assert(node.getKind() == kind::BITVECTOR_UREM &&  rem.size() == 0);
+
+  Bits a, b;
+  bb->bbTerm(node[0], a);
+  bb->bbTerm(node[1], b);
+
+  Bits q;
+  uDivModRec(a, b, q, rem, getSize(node)); 
+
+  // cache the quotient in case we need it later
+  Node quotient = mkNode(kind::BITVECTOR_UDIV, node[0], node[1]);
+  bb->cacheTermDef(quotient, q);
+}
+
+
+void DefaultSdivBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
-void DefaultUremBB        (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultSremBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
-void DefaultSdivBB        (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
-                     << node.getKind() << "\n";
-  Unimplemented(); 
-}
-void DefaultSremBB        (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
-                     << node.getKind() << "\n";
-  Unimplemented(); 
-}
-void DefaultSmodBB        (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
-                     << node.getKind() << "\n";
-  Unimplemented(); 
-}
-void DefaultShlBB         (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
-                     << node.getKind() << "\n";
-  Unimplemented(); 
-}
-void DefaultLshrBB        (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
-                     << node.getKind() << "\n";
-  Unimplemented(); 
-}
-void DefaultAshrBB        (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultSmodBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
 
-void DefaultExtractBB     (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultShlBB (TNode node, Bits& res, Bitblaster* bb) {
+  Debug("bitvector-bb") << "theory::bv::DefaultShlBB bitblasting " << node  << "\n";
+  Assert (node.getKind() == kind::BITVECTOR_SHL &&
+          res.size() == 0);
+  Bits a, b;
+  bb->bbTerm(node[0], a);
+  bb->bbTerm(node[1], b);
+
+  res = a;
+  Bits prev_res;
+  
+  for(unsigned s = 0; s < b.size(); ++s) {
+    // barrel shift stage: at each stage you can either shift by 2^s bits
+    // or leave the previous stage untouched
+    prev_res = res; 
+    unsigned threshold = pow(2, s); 
+    for(unsigned i = 0; i < a.size(); ++i) {
+      if (i < threshold) {
+        // if b[s] is true then we must have shifted by at least 2^b bits so
+        // all bits bellow 2^s will be 0, otherwise just use previous shift value
+        res[i] = mkNode(kind::ITE, b[s], mkFalse(), prev_res[i]);
+      } else {
+        // if b[s]= 0, use previous value, otherwise shift by threshold  bits
+        Assert(i >= threshold); 
+        res[i] = mkNode(kind::ITE, mkNot(b[s]), prev_res[i], prev_res[i-threshold]); 
+      }
+    }
+  }
+  Debug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
+}
+
+void DefaultLshrBB (TNode node, Bits& res, Bitblaster* bb) {
+  Debug("bitvector-bb") << "theory::bv::DefaultLshrBB bitblasting " << node  << "\n";
+  Assert (node.getKind() == kind::BITVECTOR_LSHR &&
+          res.size() == 0);
+  Bits a, b;
+  bb->bbTerm(node[0], a);
+  bb->bbTerm(node[1], b);
+
+  res = a;
+  Bits prev_res;
+  
+  for(int s = 0; s < b.size(); ++s) {
+    // barrel shift stage: at each stage you can either shift by 2^s bits
+    // or leave the previous stage untouched
+    prev_res = res; 
+    int threshold = pow(2, s); 
+    for(int i = 0; i < a.size(); ++i) {
+      if (i + threshold >= a.size()) {
+        // if b[s] is true then we must have shifted by at least 2^b bits so
+        // all bits above 2^s will be 0, otherwise just use previous shift value
+        res[i] = mkNode(kind::ITE, b[s], mkFalse(), prev_res[i]);
+      } else {
+        // if b[s]= 0, use previous value, otherwise shift by threshold  bits
+        Assert (i+ threshold < a.size()); 
+        res[i] = mkNode(kind::ITE, mkNot(b[s]), prev_res[i], prev_res[i+threshold]);
+      }
+    }
+  }
+  Debug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
+}
+
+void DefaultAshrBB (TNode node, Bits& res, Bitblaster* bb) {
+
+  Debug("bitvector-bb") << "theory::bv::DefaultAshrBB bitblasting " << node  << "\n";
+  Assert (node.getKind() == kind::BITVECTOR_ASHR &&
+          res.size() == 0);
+  Bits a, b;
+  bb->bbTerm(node[0], a);
+  bb->bbTerm(node[1], b);
+
+  res = a;
+  TNode sign_bit = a.back();
+  Bits prev_res;
+
+  for(int s = 0; s < b.size(); ++s) {
+    // barrel shift stage: at each stage you can either shift by 2^s bits
+    // or leave the previous stage untouched
+    prev_res = res; 
+    int threshold = pow(2, s); 
+    for(int i = 0; i < a.size(); ++i) {
+      if (i + threshold >= a.size()) {
+        // if b[s] is true then we must have shifted by at least 2^b bits so
+        // all bits above 2^s will be the sign bit, otherwise just use previous shift value
+        res[i] = mkNode(kind::ITE, b[s], sign_bit, prev_res[i]);
+      } else {
+        // if b[s]= 0, use previous value, otherwise shift by threshold  bits
+        Assert (i+ threshold < a.size()); 
+        res[i] = mkNode(kind::ITE, mkNot(b[s]), prev_res[i], prev_res[i+threshold]);
+      }
+    }
+  }
+  Debug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
+
+}
+
+void DefaultExtractBB (TNode node, Bits& bits, Bitblaster* bb) {
   Assert (node.getKind() == kind::BITVECTOR_EXTRACT);
   Assert(bits.size() == 0);
   
@@ -427,13 +683,13 @@ void DefaultExtractBB     (TNode node, Bits& bits, Bitblaster* bb) {
 }
 
 
-void DefaultRepeatBB      (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultRepeatBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
 
-void DefaultZeroExtendBB  (TNode node, Bits& res_bits, Bitblaster* bb) {
+void DefaultZeroExtendBB (TNode node, Bits& res_bits, Bitblaster* bb) {
 
   Debug("bitvector-bb") << "theory::bv::DefaultZeroExtendBB bitblasting " << node  << "\n";
   Assert (node.getKind() == kind::BITVECTOR_ZERO_EXTEND &&
@@ -454,7 +710,7 @@ void DefaultZeroExtendBB  (TNode node, Bits& res_bits, Bitblaster* bb) {
   Assert (res_bits.size() == amount + bits.size()); 
 }
 
-void DefaultSignExtendBB  (TNode node, Bits& res_bits, Bitblaster* bb) {
+void DefaultSignExtendBB (TNode node, Bits& res_bits, Bitblaster* bb) {
   Debug("bitvector-bb") << "theory::bv::DefaultSignExtendBB bitblasting " << node  << "\n";
 
   Assert (node.getKind() == kind::BITVECTOR_SIGN_EXTEND &&
@@ -477,13 +733,14 @@ void DefaultSignExtendBB  (TNode node, Bits& res_bits, Bitblaster* bb) {
   Assert (res_bits.size() == amount + bits.size()); 
 }
 
-void DefaultRotateRightBB (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultRotateRightBB (TNode node, Bits& res, Bitblaster* bb) {
   Debug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
+
   Unimplemented(); 
 }
 
-void DefaultRotateLeftBB  (TNode node, Bits& bits, Bitblaster* bb) {
+void DefaultRotateLeftBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 

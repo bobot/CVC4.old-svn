@@ -19,7 +19,7 @@
 
 #include "bv_sat.h"
 #include "theory_bv_utils.h"
-
+#include "theory/rewriter.h"
 #include "prop/cnf_stream.h"
 #include "prop/sat_module.h"
 
@@ -43,7 +43,6 @@ std::string toString(Bits&  bits) {
     } else {
       os << bit<< " ";   
     }
-    
   }
   os <<"\n";
   
@@ -55,17 +54,10 @@ Bitblaster::Bitblaster(context::Context* c) :
     d_termCache(),
     d_bitblastedAtoms(),
     d_assertedAtoms(c),
-    d_statistics(),
-    d_trueLit(NodeManager::currentNM()->mkVar(NodeManager::currentNM()->booleanType())),
-    d_falseLit(NodeManager::currentNM()->mkVar(NodeManager::currentNM()->booleanType()))
+    d_statistics()
   {
     d_satSolver = prop::SatSolverFactory::createMinisat();
     d_cnfStream = new TseitinCnfStream(d_satSolver, new NullRegistrar());
-
-    // adding constraints for the constants
-    
-    // d_cnfStream->convertAndAssert(d_trueLit, false, false);
-    // d_cnfStream->convertAndAssert(d_falseLit, false, true);
 
     // initializing the bit-blasting strategies
     initAtomBBStrategies(); 
@@ -84,11 +76,17 @@ void Bitblaster::bbAtom(TNode node) {
     return; 
   }
 
-  Node atom_node = d_atomBBStrategies[node.getKind()](node, this);
-  d_cnfStream->convertAndAssert(atom_node, true, false);
+  // the bitblasted definition of the atom
+  Node atom_bb = d_atomBBStrategies[node.getKind()](node, this);
+  // asserting that the atom is true iff the definition holds
+  Node atom_definition = mkNode(kind::IFF, node, atom_bb);
+  // do boolean simplifications if possible
+  Node rewritten = Rewriter::rewrite(atom_definition);
+  d_cnfStream->convertAndAssert(rewritten, true, false);
   d_bitblastedAtoms.insert(node); 
 }
-  
+
+
 void Bitblaster::bbTerm(TNode node, Bits& bits) {
   if (hasBBTerm(node)) {
     getBBTerm(node, bits);
@@ -96,6 +94,7 @@ void Bitblaster::bbTerm(TNode node, Bits& bits) {
   }
 
   d_termBBStrategies[node.getKind()] (node, bits,this);
+  
   Assert (bits.size() == utils::getSize(node)); 
   cacheTermDef(node, bits); 
 }
@@ -231,6 +230,7 @@ void Bitblaster::initTermBBStrategies() {
   d_termBBStrategies [ kind::BITVECTOR_AND ]          = DefaultAndBB;
   d_termBBStrategies [ kind::BITVECTOR_OR ]           = DefaultOrBB;
   d_termBBStrategies [ kind::BITVECTOR_XOR ]          = DefaultXorBB;
+  d_termBBStrategies [ kind::BITVECTOR_XNOR ]         = DefaultXnorBB;
   d_termBBStrategies [ kind::BITVECTOR_NAND ]         = DefaultNandBB ;
   d_termBBStrategies [ kind::BITVECTOR_NOR ]          = DefaultNorBB;
   d_termBBStrategies [ kind::BITVECTOR_COMP ]         = DefaultCompBB ;

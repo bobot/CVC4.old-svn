@@ -77,6 +77,7 @@ void DefaultConcatBB      (TNode node, Bits& bits, Bitblaster* bb);
 void DefaultAndBB         (TNode node, Bits& bits, Bitblaster* bb);
 void DefaultOrBB          (TNode node, Bits& bits, Bitblaster* bb);
 void DefaultXorBB         (TNode node, Bits& bits, Bitblaster* bb);
+void DefaultXnorBB         (TNode node, Bits& bits, Bitblaster* bb);
 void DefaultNandBB        (TNode node, Bits& bits, Bitblaster* bb);
 void DefaultNorBB         (TNode node, Bits& bits, Bitblaster* bb);
 void DefaultCompBB        (TNode node, Bits& bits, Bitblaster* bb);

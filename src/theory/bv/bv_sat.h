@@ -64,7 +64,7 @@ typedef std::vector<Node> Bits;
 
 class Bitblaster {
   
-  typedef __gnu_cxx::hash_map <TNode, Bits, TNodeHashFunction >              TermDefMap;
+  typedef __gnu_cxx::hash_map <Node, Bits, TNodeHashFunction >              TermDefMap;
   typedef __gnu_cxx::hash_set<TNode, TNodeHashFunction>                      AtomSet; 
   
   typedef void   (*TermBBStrategy) (TNode, Bits&, Bitblaster*); 
@@ -85,7 +85,7 @@ class Bitblaster {
   bool          hasBBAtom(TNode node);    
   bool          hasBBTerm(TNode node); 
   void          getBBTerm(TNode node, Bits& bits);
-  void          cacheTermDef(TNode node, Bits def);
+
 
 
 
@@ -97,14 +97,15 @@ class Bitblaster {
   void initAtomBBStrategies();
   void initTermBBStrategies(); 
 
-  void bbAtom(TNode node);
-  /// these are public for the bitblasting strategies 
-public:
-  void bbTerm(TNode node, Bits&  bits);
   
-  // dummy literals that are always forced to be assigned to true and false respectively
-  const Node d_trueLit;
-  const Node d_falseLit; 
+  void bbAtom(TNode node);
+  // division is bitblasted in terms of constraints
+  // so it needs to use private bitblaster interface
+  void bbUdiv(TNode node, Bits& bits);
+  void bbUrem(TNode node, Bits& bits); 
+public:
+  void cacheTermDef(TNode node, Bits def); // public so we can cache remainder for division
+  void bbTerm(TNode node, Bits&  bits);
   
 public:
   Bitblaster(context::Context* c); 

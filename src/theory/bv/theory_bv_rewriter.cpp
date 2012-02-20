@@ -102,7 +102,48 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
                   RewriteRule<SleSplit>
                >::apply(node);
       break;
+    case kind::BITVECTOR_REPEAT:
+      result = LinearRewriteStrategy <
+                  RewriteRule<RepeatNormalize>
+               >::apply(node);
+      break;
+    case kind::BITVECTOR_ROTATE_RIGHT:
+      result = LinearRewriteStrategy <
+                  RewriteRule<RotateRightNormalize>
+               >::apply(node);
+      break;
+    case kind::BITVECTOR_ROTATE_LEFT:
+      result = LinearRewriteStrategy <
+                  RewriteRule<RotateLeftNormalize>
+               >::apply(node);
+      break;
+    case kind::BITVECTOR_NAND:
+      result = LinearRewriteStrategy <
+                  RewriteRule<NandNormalize>
+               >::apply(node);
+      break;
+    case kind::BITVECTOR_NOR:
+      result = LinearRewriteStrategy <
+                  RewriteRule<NorNormalize>
+               >::apply(node);
+      break;
 
+    case kind::BITVECTOR_SDIV:
+      result = LinearRewriteStrategy <
+                  RewriteRule<SdivNormalize>
+               >::apply(node);
+      break;
+  case kind::BITVECTOR_SREM:
+      result = LinearRewriteStrategy <
+                  RewriteRule<SremNormalize>
+               >::apply(node);
+     break;
+    case kind::BITVECTOR_SMOD:
+      result = LinearRewriteStrategy <
+                  RewriteRule<SmodNormalize>
+                >::apply(node);
+      break;
+   
     default:
       // TODO: figure out when this is an operator
       result = node;

@@ -64,6 +64,11 @@ inline Node mkFalse() {
   return NodeManager::currentNM()->mkConst<bool>(false);
 }
 
+inline Node mkVar(unsigned size) {
+  NodeManager* nm =  NodeManager::currentNM();
+  return nm->mkVar(nm->mkBitVectorType(size)); 
+}
+
 inline Node mkAnd(std::vector<TNode>& children) {
   if (children.size() > 1) {
     return NodeManager::currentNM()->mkNode(kind::AND, children);
@@ -71,6 +76,20 @@ inline Node mkAnd(std::vector<TNode>& children) {
     return children[0];
   }
 }
+
+
+inline Node mkNode(Kind kind, TNode child) {
+  return NodeManager::currentNM()->mkNode(kind, child);
+}
+
+inline Node mkNode(Kind kind, TNode child1, TNode child2) {
+  return NodeManager::currentNM()->mkNode(kind, child1, child2);
+}
+
+inline Node mkNode(Kind kind, TNode child1, TNode child2, TNode child3) {
+  return NodeManager::currentNM()->mkNode(kind, child1, child2, child3);
+}
+
 
 inline Node mkNot(Node child) {
   return NodeManager::currentNM()->mkNode(kind::NOT, child);
@@ -130,10 +149,6 @@ inline Node mkConst(unsigned size, unsigned int value) {
 inline Node mkConst(const BitVector& value) {
   return NodeManager::currentNM()->mkConst<BitVector>(value);
 }
-
-inline Node mkNode(Kind kind, TNode t1, TNode t2) {
-  return NodeManager::currentNM()->mkNode(kind, t1, t2); 
-} 
 
 inline void getConjuncts(TNode node, std::set<TNode>& conjuncts) {
   if (node.getKind() != kind::AND) {
