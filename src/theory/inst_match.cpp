@@ -512,6 +512,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       temp.insert( temp.begin(), nodes.begin(), nodes.end() );
       std::random_shuffle( temp.begin(), temp.end() );
       std::map< Node, bool > vars;
+      std::map< Node, std::vector< Node > > patterns;
       for( int i=0; i<(int)temp.size(); i++ ){
         bool foundVar = false;
         computeVarContains( temp[i] );
@@ -524,6 +525,37 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
         }
         if( foundVar ){
           trNodes.push_back( temp[i] );
+          for( int j=0; j<(int)d_var_contains[ temp[i] ].size(); j++ ){
+            Node v = d_var_contains[ temp[i] ][j];
+            patterns[ v ].push_back( temp[i] );
+          }
+        }
+      }
+      //now, minimalize the trigger 
+      for( int i=0; i<(int)trNodes.size(); i++ ){
+        bool keepPattern = false;
+        Node n = trNodes[i];
+        for( int j=0; j<(int)d_var_contains[ n ].size(); j++ ){
+          Node v = d_var_contains[ n ][j];
+          if( patterns[v].size()==1 ){
+            keepPattern = true;
+            break;
+          }
+        }
+        if( !keepPattern ){
+          //remove from pattern vector
+          for( int j=0; j<(int)d_var_contains[ n ].size(); j++ ){
+            Node v = d_var_contains[ n ][j];
+            for( int k=0; k<(int)patterns[v].size(); k++ ){
+              if( patterns[v][k]==n ){
+                patterns[v].erase( patterns[v].begin() + k, patterns[v].begin() + k + 1 );
+                break;
+              }
+            }
+          }
+          //remove from trigger nodes
+          trNodes.erase( trNodes.begin() + i, trNodes.begin() + i + 1 );
+          i--;
         }
       }
     }else{
