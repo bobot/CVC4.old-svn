@@ -227,6 +227,18 @@ struct CVC4_PUBLIC Options {
    */
   bool ufSymmetryBreaker;
 
+  /**
+   * Whether the user explicitly requested that the symmetry
+   * breaker be enabled or disabled.
+   */
+  bool ufSymmetryBreakerSetByUser;
+
+  /**
+   * Whether to do the linear diophantine equation solver
+   * in Arith as described by Griggio JSAT 2012 (on by default).
+   */
+  bool dioSolver;
+
   /** The output channel to receive notfication events for new lemmas */
   LemmaOutputChannel* lemmaOutputChannel;
   LemmaInputChannel* lemmaInputChannel;

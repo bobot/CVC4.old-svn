@@ -104,7 +104,9 @@ Options::Options() :
   pivotRule(MINIMUM),
   arithPivotThreshold(16),
   arithPropagateMaxLength(16),
-  ufSymmetryBreaker(true),
+  ufSymmetryBreaker(false),
+  ufSymmetryBreakerSetByUser(false),
+  dioSolver(true),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
   threads(2),// default should be 1 probably, but say 2 for now
@@ -175,7 +177,12 @@ Additional CVC4 options:\n\
    --restart-int-inc=F    sets the restart interval increase factor for the sat solver (F=3.0 by default)\n\
    --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
-   --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
+   --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
+   --disable-symmetry-breaker turns off UF symmetry breaker\n\
+   --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
+   --threads=N            sets the number of solver threads\n\
+   --threadN=string       configures thread N (0..#threads-1)\n\
+   --filter-lemma-length=N don't share lemmas strictly longer than N\n\
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
@@ -349,6 +356,8 @@ enum OptionValue {
   ARITHMETIC_PROPAGATION,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
+  ARITHMETIC_DIO_SOLVER,
+  ENABLE_SYMMETRY_BREAKER,
   DISABLE_SYMMETRY_BREAKER,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
@@ -436,6 +445,8 @@ static struct option cmdlineOptions[] = {
   { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
+  { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
+  { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
@@ -783,8 +794,17 @@ throw(OptionException) {
       arithPropagation = false;
       break;
 
+    case ARITHMETIC_DIO_SOLVER:
+      dioSolver = false;
+      break;
+
+    case ENABLE_SYMMETRY_BREAKER:
+      ufSymmetryBreaker = true;
+      ufSymmetryBreakerSetByUser = true;
+      break;
     case DISABLE_SYMMETRY_BREAKER:
       ufSymmetryBreaker = false;
+      ufSymmetryBreakerSetByUser = true;
       break;
 
     case TIME_LIMIT:

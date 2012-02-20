@@ -43,9 +43,9 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
-CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) :
+CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar, bool fullLitToNodeMap) :
   d_satSolver(satSolver),
-  d_fullLitToNodeMap(true),
+  d_fullLitToNodeMap(fullLitToNodeMap),
   d_registrar(registrar) {
 }
 
@@ -55,8 +55,8 @@ void CnfStream::recordTranslation(TNode node) {
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar) :
-  CnfStream(satSolver, registrar) {
+TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar, bool fullLitToNodeMap) :
+  CnfStream(satSolver, registrar, fullLitToNodeMap) {
 }
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
@@ -130,7 +130,7 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
                 n.toString().c_str(),
                 n.getType().toString().c_str());
 
-  bool negated = false;
+  bool negated CVC4_UNUSED = false;
   SatLiteral lit;
 
   if(n.getKind() == kind::NOT) {

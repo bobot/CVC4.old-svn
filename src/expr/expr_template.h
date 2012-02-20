@@ -65,7 +65,7 @@ namespace expr {
 }/* CVC4::expr namespace */
 
 namespace prop {
-class SatSolver;
+  class SatSolver;
 }/* CVC4::prop namespace */
 
 class ExprManagerMapCollection;

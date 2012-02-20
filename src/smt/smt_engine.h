@@ -145,6 +145,12 @@ class CVC4_PUBLIC SmtEngine {
    */
   bool d_queryMade;
 
+  /**
+   * Internal status flag to indicate whether we've sent a theory
+   * presolve() notification and need to match it with a postsolve().
+   */
+  bool d_needPostsolve;
+
   /** A user-imposed cumulative time budget, in milliseconds.  0 = no limit. */
   unsigned long d_timeBudgetCumulative;
   /** A user-imposed per-call time budget, in milliseconds.  0 = no limit. */
@@ -450,9 +456,10 @@ public:
    */
   StatisticsRegistry* getStatisticsRegistry() const;
 
-  Result getStatusOfLastCommand(){
+  Result getStatusOfLastCommand() const {
     return d_status;
   }
+
 };/* class SmtEngine */
 
 }/* CVC4 namespace */

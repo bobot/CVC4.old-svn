@@ -808,8 +808,6 @@ if test -z "$PYTHON"; then
 fi
 
 # Checks for libraries.
-AC_CHECK_LIB(z, gzread, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
-AC_CHECK_HEADER(zlib.h, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
 
 # Check for libreadline (defined in config/readline.m4)
 CVC4_CHECK_FOR_READLINE
@@ -1088,8 +1086,9 @@ WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
 WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
 
 Note that CLN is UNSAFE FOR USE in parallel contexts!
-This is the portfolio branch of CVC4, and the result of building with CLN
-will include numerous race conditions on the refcounts internal to CLN.
+This build of CVC4 cannot be used safely as a portfolio solver.
+since the result of building with CLN will include numerous race
+conditions on the refcounts internal to CLN.
 
 WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
 WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING

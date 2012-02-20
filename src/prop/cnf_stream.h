@@ -193,8 +193,10 @@ public:
    * set of clauses and sends them to the given sat solver.
    * @param satSolver the sat solver to use
    * @param registrar the entity that takes care of preregistration of Nodes
+   * @param fullLitToNodeMap maintain a full SAT-literal-to-Node mapping,
+   * even for non-theory literals.
    */
-  CnfStream(SatInputInterface* satSolver, theory::Registrar registrar);
+  CnfStream(SatInputInterface* satSolver, theory::Registrar registrar, bool fullLitToNodeMap = false);
 
   /**
    * Destructs a CnfStream.  This implementation does nothing, but we
@@ -292,7 +294,7 @@ public:
    * @param satSolver the sat solver to use
    * @param registrar the entity that takes care of pre-registration of Nodes
    */
-  TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar);
+  TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar, bool fullLitToNodeMap = false);
 
 private:
 

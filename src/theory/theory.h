@@ -306,7 +306,7 @@ public:
    * equality with one of these values (e.g. if STANDARD xxx) but
    * rather use range checks (or use the helper functions below).
    * Normally we call QUICK_CHECK or STANDARD; at the leaves we call
-   * with MAX_EFFORT.
+   * with FULL_EFFORT.
    */
   enum Effort {
     MIN_EFFORT = 0,
@@ -533,6 +533,18 @@ public:
    * add lemmas, and propagate literals during presolve().
    */
   virtual void presolve() { }
+
+  /**
+   * A Theory is called with postsolve exactly one time per user
+   * check-sat.  postsolve() is called after the query has completed
+   * (regardless of whether sat, unsat, or unknown), and after any
+   * model-querying related to the query has been performed.
+   * After this call, the theory will not get another check() or
+   * propagate() call until presolve() is called again.  A Theory
+   * cannot raise conflicts, add lemmas, or propagate literals during
+   * postsolve().
+   */
+  virtual void postsolve() { }
 
   /**
    * Notification sent to the theory wheneven the search restarts.

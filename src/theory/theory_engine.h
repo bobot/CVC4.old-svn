@@ -520,10 +520,15 @@ public:
   void staticLearning(TNode in, NodeBuilder<>& learned);
 
   /**
-   * Calls presolve() on all active theories and returns true
+   * Calls presolve() on all theories and returns true
    * if one of the theories discovers a conflict.
    */
   bool presolve();
+
+   /**
+   * Calls postsolve() on all theories.
+   */
+  void postsolve();
 
   /**
    * Calls notifyRestart() on all active theories.

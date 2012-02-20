@@ -22,9 +22,9 @@ pcvc4_SOURCES = \
 	driver_portfolio.cpp
 pcvc4_LDADD = \
 	libmain.a \
-	../parser/libcvc4parser.la \
-	../libcvc4.la \
-	../lib/libreplacements.la \
+	@builddir@/../parser/libcvc4parser.la \
+	@builddir@/../libcvc4.la \
+	@builddir@/../lib/libreplacements.la \
 	$(READLINE_LIBS)
 pcvc4_CPPFLAGS = $(AM_CPPFLAGS) $(BOOST_CPPFLAGS)
 pcvc4_LDADD += $(BOOST_THREAD_LIBS) -lpthread
@@ -37,7 +37,9 @@ pcvc4_LINK = $(CXXLINK)
 endif
 endif
 
-cvc4_SOURCES = main.cpp driver.cpp
+cvc4_SOURCES = \
+	main.cpp \
+	driver.cpp
 cvc4_LDADD = \
 	libmain.a \
 	@builddir@/../parser/libcvc4parser.la \

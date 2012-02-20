@@ -34,7 +34,7 @@ ParserBuilder::ParserBuilder(ExprManager* exprManager,
                              const std::string& filename) :
   d_filename(filename),
   d_exprManager(exprManager) {
-  init(exprManager,filename);
+  init(exprManager, filename);
 }
 
 ParserBuilder::ParserBuilder(ExprManager* exprManager,
@@ -42,7 +42,7 @@ ParserBuilder::ParserBuilder(ExprManager* exprManager,
                              const Options& options) :
   d_filename(filename),
   d_exprManager(exprManager) {
-  init(exprManager,filename);
+  init(exprManager, filename);
   withOptions(options);
 }
 
@@ -59,26 +59,26 @@ void ParserBuilder::init(ExprManager* exprManager,
   d_parseOnly = false;
 }
 
-Parser *ParserBuilder::build()
-  throw (InputStreamException,AssertionException) {
-  Input *input = NULL;
+Parser* ParserBuilder::build()
+  throw (InputStreamException, AssertionException) {
+  Input* input = NULL;
   switch( d_inputType ) {
   case FILE_INPUT:
-    input = Input::newFileInput(d_lang,d_filename,d_mmap);
+    input = Input::newFileInput(d_lang, d_filename, d_mmap);
     break;
   case STREAM_INPUT:
     AlwaysAssert( d_streamInput != NULL,
                   "Uninitialized stream input in ParserBuilder::build()" );
-    input = Input::newStreamInput(d_lang,*d_streamInput,d_filename);
+    input = Input::newStreamInput(d_lang, *d_streamInput, d_filename);
     break;
   case STRING_INPUT:
-    input = Input::newStringInput(d_lang,d_stringInput,d_filename);
+    input = Input::newStringInput(d_lang, d_stringInput, d_filename);
     break;
   default:
     Unreachable();
   }
 
-  Parser *parser = NULL;
+  Parser* parser = NULL;
   switch(d_lang) {
   case language::input::LANG_SMTLIB:
     parser = new Smt(d_exprManager, input, d_strictMode, d_parseOnly);
@@ -161,6 +161,5 @@ ParserBuilder& ParserBuilder::withStringInput(const std::string& input) {
   return *this;
 }
 
-} /* namespace parser */
-
-} /* namespace CVC4 */
+}/* CVC4::parser namespace */
+}/* CVC4 namespace */
