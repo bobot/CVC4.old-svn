@@ -91,7 +91,8 @@ typedef size_t RuleInstId;
     /** Should be ssigned by a good garded after */
     Guarded();
 
-    ~Guarded();
+    ~Guarded(){};
+    void destroy(){};
   };
 
   class RewriteEngine : public QuantifiersModule
@@ -105,7 +106,11 @@ private:
   Rules d_rules;
   typedef context::CDList< RuleInst > RuleInsts;
   RuleInsts d_ruleinsts;
-  typedef context::CDMap< Node, Guarded, NodeHashFunction > GuardedMap;
+
+  /** The GList* wil not lead too memory leaks since that use
+      ContextMemoryAllocator */
+  typedef context::CDList<Guarded, context::ContextMemoryAllocator<Guarded> > GList;
+  typedef context::CDMap<Node, GList*, NodeHashFunction> GuardedMap;
   GuardedMap d_guardeds;
 
  public:
@@ -122,6 +127,9 @@ private:
   void check( Theory::Effort e );
   void registerQuantifier( Node n );
   void assertNode( Node n );
+  /* TODO modify when notification will be available */
+  void notification( Node n, bool b);
+
   Trigger createTrigger( TNode n, std::vector<Node> & pattern )const;
 
   /** return true if the literal is already true, return false if the
@@ -139,7 +147,11 @@ private:
   const RewriteRule & get_rule(const RewriteRuleId r)const{return d_rules[r];};
   const RuleInst & get_inst(const RuleInstId r)const{return d_ruleinsts[r];};
 
-
+  /** Auxillary function */
+private:
+  void notification(GList * const lpropa, bool b);
+  bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
+  void notifyEq(TNode lhs, TNode rhs);
 }; /* Class RewriteEngine */
 }
 }

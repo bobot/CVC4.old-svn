@@ -36,11 +36,15 @@ using namespace CVC4::theory::quantifiers;
 //   return stream << "=>" << r.equality;
 // }
 
+static const size_t RULEINSTID_TRUE = ((size_t) -1);
+static const size_t RULEINSTID_FALSE = ((size_t) -2);
+
   /** Rule an instantiation with the given match */
 RuleInst::RuleInst(RewriteEngine & re, RewriteRuleId r, InstMatch & im,
                    RuleInstId i):
   rule(r),id(i)
 {
+  Assert(i != RULEINSTID_TRUE && i != RULEINSTID_FALSE);
   im.computeTermVec(re.qe, re.get_rule(r).inst_vars , subst);
   start = -1; /* So that any temporary Guard doesn't delete this */
   start = findGuard(re, 0);
@@ -78,6 +82,7 @@ bool RuleInst::startedTrue(const RewriteEngine & re)const{
 };
 
 void Guarded::nextGuard(RewriteEngine & re)const{
+  Assert(inst != RULEINSTID_TRUE && inst != RULEINSTID_FALSE);
   re.get_inst(inst).findGuard(re,d_guard+1);
 };
 
@@ -88,11 +93,6 @@ Guarded::Guarded(const Guarded & g) :
   d_guard(g.d_guard),inst(g.inst) {};
 Guarded::Guarded() :
   d_guard(-1),inst(-1) {};
-
-Guarded::~Guarded(){
-  // if(inst->start==d_guard) delete &inst;
-  /* The instantiation disappears naturally from the d_ruleinsts */
-};
 
 RewriteRule const makeRewriteRule(RewriteEngine & re, const Node r)
 {
@@ -273,11 +273,81 @@ Trigger RewriteEngine::createTrigger( TNode n, std::vector<Node> & pattern )
 
 Answer RewriteEngine::addWatchIfDontKnow(Node g, RuleInstId rid,
                                          const size_t gid){
-  /* Todo test and modify*/
-  // GuardedMap::const_iterator l = d_guardeds.find(g);
-  d_guardeds.insert(g,Guarded(rid,gid));
+
+  GuardedMap::iterator l_i = d_guardeds.find(g);
+  GList* l;
+  if( l_i == d_guardeds.end() ) {
+    /** Not watched so IDONTNOW */
+    l = new(d_th->getContext()->getCMM())
+      GList(true, d_th->getContext(), false,
+            ContextMemoryAllocator<Guarded>(d_th->getContext()->getCMM()));
+    d_guardeds.insertDataFromContextMemory(g, l);
+    /* TODO Add register propagation */
+  } else {
+    l = (*l_i).second;
+    Assert(l->size() > 0);
+    const Guarded & glast = (*l)[l->size()-1];
+    if(glast.inst == RULEINSTID_TRUE) return ATRUE;
+    if(glast.inst == RULEINSTID_FALSE) return AFALSE;
+
+  };
+  /** I DONT KNOW because not watched or because not true nor false */
+  l->push_back(Guarded(rid,gid));
   return ADONTKNOW;
 };
+
+
+void RewriteEngine::notification(GList * const lpropa, bool b){
+  if (b){
+    for(GList::const_iterator g = lpropa->begin();
+        g != lpropa->end(); ++g) {
+      (*g).nextGuard(*this);
+    };
+    lpropa->push_back(Guarded(RULEINSTID_TRUE,0));
+  }else{
+    lpropa->push_back(Guarded(RULEINSTID_FALSE,0));
+  };
+};
+
+
+void RewriteEngine::notification(Node g, bool b){
+  GuardedMap::const_iterator l = d_guardeds.find(g);
+  /** Should be a propagated node already known */
+  Assert(l != d_guardeds.end());
+  notification((*l).second,b);
+}
+
+bool RewriteEngine::notifyIfKnown(const GList * const ltested,
+                                        GList * const lpropa) {
+    Assert(ltested->size() > 0);
+    const Guarded & glast = (*ltested)[ltested->size()-1];
+    if(glast.inst == RULEINSTID_TRUE || glast.inst == RULEINSTID_FALSE){
+      notification(lpropa,glast.inst == RULEINSTID_TRUE);
+      return true;
+    };
+    return false;
+};
+
+void RewriteEngine::notifyEq(TNode lhs, TNode rhs) {
+  GuardedMap::const_iterator ilhs = d_guardeds.find(lhs);
+  GuardedMap::const_iterator irhs = d_guardeds.find(rhs);
+  /** Should be a propagated node already known */
+  Assert(ilhs != d_guardeds.end());
+  if( irhs == d_guardeds.end() ) {
+    /** Not watched so points to the list directly */
+    d_guardeds.insertDataFromContextMemory(rhs, (*ilhs).second);
+  } else {
+    GList * const llhs = (*ilhs).second;
+    GList * const lrhs = (*irhs).second;
+    if(!(notifyIfKnown(llhs,lrhs) || notifyIfKnown(lrhs,llhs))){
+      /** If none of the two is known */
+      for(GList::const_iterator g = llhs->begin(); g != llhs->end(); ++g){
+        lrhs->push_back(*g);
+      };
+    };
+  };
+};
+
 
 void RewriteEngine::propagateRule(const RuleInst & r){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
