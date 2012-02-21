@@ -140,7 +140,7 @@ bool SimpSolver::addClause_(vec<Lit>& ps, bool removable, bool imported)
 {
 #ifndef NDEBUG
     for (int i = 0; i < ps.size(); i++)
-      assert(!isEliminated(var(ps[i])));
+        assert(!isEliminated(var(ps[i])));
 #endif
 
     int nclauses = clauses_persistent.size();

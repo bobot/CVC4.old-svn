@@ -183,9 +183,6 @@ Additional CVC4 options:\n\
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
-   --threads=N            sets the number of solver threads\n\
-   --threadN=string       configures thread N (0..#threads-1)\n\
-   --filter-lemma-length=N don't share lemmas strictly longer than N\n\
 ";
 
 

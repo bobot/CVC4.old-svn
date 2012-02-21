@@ -33,7 +33,9 @@ namespace theory {
 namespace arith {
 
 class ArithRewriter {
+
 private:
+
   static Node makeSubtractionNode(TNode l, TNode r);
   static Node makeUnaryMinusNode(TNode n);
 

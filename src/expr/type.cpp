@@ -158,7 +158,6 @@ Type Type::substitute(const std::vector<Type>& types,
                                          replacementsNodes.end()));
 }
 
-
 ExprManager* Type::getExprManager() const {
   return d_nodeManager->toExprManager();
 }

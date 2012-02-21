@@ -194,7 +194,6 @@ protected:
   const CommandStatus* d_commandStatus;
 
 public:
-
   typedef CommandPrintSuccess printsuccess;
 
   Command() throw();

@@ -149,7 +149,7 @@ public:
     void renewVar(Lit lit, int level = -1); // Register the literal (set assertion level to the given level, or current level if -1)
 
     bool    addClause (const vec<Lit>& ps, bool removable, bool imported = false);  // Add a clause to the solver.
-    bool    addEmptyClause(bool removable);                                         // Add the empty clause, making the solver contradictory.
+    bool    addEmptyClause(bool removable);                                     // Add the empty clause, making the solver contradictory.
     bool    addClause (Lit p, bool removable, bool imported = false);               // Add a unit clause to the solver.
     bool    addClause (Lit p, Lit q, bool removable, bool imported = false);        // Add a binary clause to the solver.
     bool    addClause (Lit p, Lit q, Lit r, bool removable, bool imported = false); // Add a ternary clause to the solver.

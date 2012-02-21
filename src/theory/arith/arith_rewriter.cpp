@@ -30,7 +30,6 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::arith;
 
-
 bool isVariable(TNode t){
   return t.getMetaKind() == kind::metakind::VARIABLE;
 }

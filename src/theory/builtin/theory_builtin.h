@@ -22,7 +22,6 @@
 #define __CVC4__THEORY__BUILTIN__THEORY_BUILTIN_H
 
 #include "theory/theory.h"
-#include "util/lemma_input_channel.h"
 
 namespace CVC4 {
 namespace theory {

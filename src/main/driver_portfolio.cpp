@@ -163,6 +163,14 @@ public:
 
 int runCvc4(int argc, char *argv[], Options& options) {
 
+#ifdef CVC4_CLN_IMP
+  Warning() << "WARNING:" << endl
+            << "WARNING: This build of portfolio-CVC4 uses the CLN library" << endl
+            << "WARNING: which is not thread-safe!  Expect crashes and" << endl
+            << "WARNING: incorrect answers." << endl
+            << "WARNING:" << endl;
+#endif /* CVC4_CLN_IMP */
+
   /**************************************************************************
    * runCvc4 outline:
    * -> Start a couple of timers
@@ -647,6 +655,14 @@ static bool doCommand(SmtEngine& smt, Command* cmd, Options& options) {
       status = doCommand(smt, *subcmd, options) && status;
     }
   } else {
+    // by default, symmetry breaker is on only for QF_UF
+    if(! options.ufSymmetryBreakerSetByUser) {
+      SetBenchmarkLogicCommand *logic = dynamic_cast<SetBenchmarkLogicCommand*>(cmd);
+      if(logic != NULL) {
+        options.ufSymmetryBreaker = (logic->getLogic() == "QF_UF");
+      }
+    }
+
     if(options.verbosity > 0) {
       *options.out << "Invoking: " << *cmd << endl;
     }

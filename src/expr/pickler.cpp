@@ -376,7 +376,7 @@ Node PicklerPrivate::fromCaseConstant(Kind k, uint32_t constblocks) {
   }
   case kind::CONST_BITVECTOR: {
     unsigned size = d_current.dequeue().d_body.d_data;
-    Block header = d_current.dequeue();
+    Block header CVC4_UNUSED = d_current.dequeue();
     Assert(header.d_headerConstant.d_kind == kind::CONST_BITVECTOR);
     Assert(header.d_headerConstant.d_constblocks == constblocks - 2);
     Integer value(fromCaseString(constblocks - 2));

@@ -122,6 +122,7 @@ void SatSolver::notifyNewLemma(SatClause& lemma) {
   Assert(lemma.size() > 0);
   if(Options::current()->lemmaOutputChannel != NULL) {
     if(lemma.size() == 1) {
+      // cannot share units yet
       //Options::current()->lemmaOutputChannel->notifyNewLemma(d_cnfStream->getNode(lemma[0]).toExpr());
     } else {
       NodeBuilder<> b(kind::OR);
@@ -130,10 +131,10 @@ void SatSolver::notifyNewLemma(SatClause& lemma) {
       }
       Node n = b;
 
-      if(d_shared.find(n) == d_shared.end()){
+      if(d_shared.find(n) == d_shared.end()) {
         d_shared.insert(n);
         Options::current()->lemmaOutputChannel->notifyNewLemma(n.toExpr());
-      }else{
+      } else {
         Debug("shared") <<"drop new " << n << std::endl;
       }
     }

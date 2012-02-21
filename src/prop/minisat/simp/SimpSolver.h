@@ -48,7 +48,7 @@ class SimpSolver : public Solver {
     //
     Var     newVar    (bool polarity = true, bool dvar = true, bool theoryAtom = false);
     bool    addClause (const vec<Lit>& ps, bool removable, bool imported = false);  // Add a clause to the solver.
-    bool    addEmptyClause(bool removable);                                         // Add the empty clause, making the solver contradictory.
+    bool    addEmptyClause(bool removable);                  // Add the empty clause, making the solver contradictory.
     bool    addClause (Lit p, bool removable, bool imported = false);               // Add a unit clause to the solver.
     bool    addClause (Lit p, Lit q, bool removable, bool imported = false);        // Add a binary clause to the solver.
     bool    addClause (Lit p, Lit q, Lit r, bool removable, bool imported = false); // Add a ternary clause to the solver.
@@ -116,13 +116,13 @@ class SimpSolver : public Solver {
         // TODO: are 64-bit operations here noticably bad on 32-bit platforms? Could use a saturating
         // 32-bit implementation instead then, but this will have to do for now.
         uint64_t cost  (Var x)        const { return (uint64_t)n_occ[toInt(mkLit(x))] * (uint64_t)n_occ[toInt(~mkLit(x))]; }
-        // bool operator()(Var x, Var y) const { return cost(x) < cost(y); }
+        bool operator()(Var x, Var y) const { return cost(x) < cost(y); }
         
         // TODO: investigate this order alternative more.
-        bool operator()(Var x, Var y) const { 
-            int c_x = cost(x);
-            int c_y = cost(y);
-            return c_x < c_y || c_x == c_y && x < y; }
+        // bool operator()(Var x, Var y) const { 
+        //     int c_x = cost(x);
+        //     int c_y = cost(y);
+        //     return c_x < c_y || c_x == c_y && x < y; }
     };
 
     struct ClauseDeleted {
@@ -184,7 +184,7 @@ inline void SimpSolver::updateElimHeap(Var v) {
 
 
 inline bool     SimpSolver::addClause       (const vec<Lit>& ps, bool removable, bool imported)    { ps.copyTo(add_tmp); return addClause_(add_tmp, removable, imported); }
-inline bool     SimpSolver::addEmptyClause  (bool removable)                                       { add_tmp.clear(); return addClause_(add_tmp, removable); }
+inline bool     SimpSolver::addEmptyClause  (bool removable)                       { add_tmp.clear(); return addClause_(add_tmp, removable); }
 inline bool     SimpSolver::addClause       (Lit p, bool removable, bool imported)                 { add_tmp.clear(); add_tmp.push(p); return addClause_(add_tmp, removable,imported); }
 inline bool     SimpSolver::addClause       (Lit p, Lit q, bool removable, bool imported)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, removable, imported); }
 inline bool     SimpSolver::addClause       (Lit p, Lit q, Lit r, bool removable, bool imported)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, removable, imported); }

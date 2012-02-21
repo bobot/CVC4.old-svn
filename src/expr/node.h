@@ -183,7 +183,6 @@ class NodeTemplate {
    */
   friend class expr::NodeValue;
 
-  //TODO: HAHAHA no
   friend class expr::pickle::PicklerPrivate;
   friend Node expr::exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
 
