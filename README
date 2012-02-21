@@ -37,6 +37,7 @@ GNU C and C++ (gcc and g++), reasonably recent versions
 GNU Make
 GNU Bash
 GMP v4.2 (GNU Multi-Precision arithmetic library)
+The Boost C++ threading library (libboost_thread)
 libantlr3c v3.2 (ANTLR parser generator)
 Optional: CLN v1.3 (Class Library for Numbers)
 Optional: CUDD v2.4.2 (Colorado University Decision Diagram package)
@@ -86,7 +87,9 @@ Autoconf v2.61
 Libtool v2.2
 ANTLR3 v3.2
 
-*** Emacs mode
+*** Emacs support
 
-For a suggestion of editing CVC4 code with emacs, see README.emacs.
+For a suggestion of editing CVC4 source code with emacs, see the file
+contrib/editing-with-emacs.  For a CVC language mode (the native input
+language for CVC4), see contrib/cvc-mode.el.
 

@@ -195,6 +195,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_logic(""),
   d_problemExtended(false),
   d_queryMade(false),
+  d_needPostsolve(false),
   d_timeBudgetCumulative(0),
   d_timeBudgetPerCall(0),
   d_resourceBudgetCumulative(0),
@@ -256,6 +257,13 @@ void SmtEngine::shutdown() {
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << QuitCommand() << endl;
   }
+
+  // check to see if a postsolve() is pending
+  if(d_needPostsolve) {
+    d_theoryEngine->postsolve();
+    d_needPostsolve = false;
+  }
+
   d_propEngine->shutdown();
   d_theoryEngine->shutdown();
 }
@@ -288,17 +296,21 @@ SmtEngine::~SmtEngine() {
 }
 
 void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
+  NodeManagerScope nms(d_nodeManager);
+
   if(d_logic != "") {
     throw ModalException("logic already set");
   }
+
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << SetBenchmarkLogicCommand(s) << endl;
   }
+
   d_logic = s;
   d_theoryEngine->setLogic(s);
 
   // If in arrays, set the UF handler to arrays
-  if (s == "QF_AX") {
+  if(s == "QF_AX") {
     theory::Theory::setUninterpretedSortOwner(theory::THEORY_ARRAY);
   }
 }
@@ -862,6 +874,12 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
     ensureBoolean(e);
   }
 
+  // check to see if a postsolve() is pending
+  if(d_needPostsolve) {
+    d_theoryEngine->postsolve();
+    d_needPostsolve = false;
+  }
+
   // Push the context
   internalPush();
 
@@ -876,6 +894,7 @@ Result SmtEngine::checkSat(const BoolExpr& e) {
 
   // Run the check
   Result r = check().asSatisfiabilityResult();
+  d_needPostsolve = true;
 
   // Dump the query if requested
   if(Dump.isOn("benchmark")) {
@@ -914,6 +933,12 @@ Result SmtEngine::query(const BoolExpr& e) {
   // Ensure that the expression is type-checked at this point, and Boolean
   ensureBoolean(e);
 
+  // check to see if a postsolve() is pending
+  if(d_needPostsolve) {
+    d_theoryEngine->postsolve();
+    d_needPostsolve = false;
+  }
+
   // Push the context
   internalPush();
 
@@ -926,6 +951,7 @@ Result SmtEngine::query(const BoolExpr& e) {
 
   // Run the check
   Result r = check().asValidityResult();
+  d_needPostsolve = true;
 
   // Dump the query if requested
   if(Dump.isOn("benchmark")) {
@@ -1156,6 +1182,13 @@ void SmtEngine::push() {
   if(!Options::current()->incrementalSolving) {
     throw ModalException("Cannot push when not solving incrementally (use --incremental)");
   }
+
+  // check to see if a postsolve() is pending
+  if(d_needPostsolve) {
+    d_theoryEngine->postsolve();
+    d_needPostsolve = false;
+  }
+
   d_userLevels.push_back(d_userContext->getLevel());
   internalPush();
   Trace("userpushpop") << "SmtEngine: pushed to level "
@@ -1174,6 +1207,13 @@ void SmtEngine::pop() {
   if(d_userContext->getLevel() == 0) {
     throw ModalException("Cannot pop beyond the first user frame");
   }
+
+  // check to see if a postsolve() is pending
+  if(d_needPostsolve) {
+    d_theoryEngine->postsolve();
+    d_needPostsolve = false;
+  }
+
   AlwaysAssert(d_userLevels.size() > 0 && d_userLevels.back() < d_userContext->getLevel());
   while (d_userLevels.back() < d_userContext->getLevel()) {
     internalPop();
