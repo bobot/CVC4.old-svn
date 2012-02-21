@@ -120,12 +120,10 @@ public:
   /**
    * Tries to update the assignments of variables such that all of the
    * assignments are consistent with their bounds.
+   * This is done by a simplex search through the possible bases of the tableau.
    *
-   * This is done by searching through the tableau.
    * If all of the variables can be made consistent with their bounds
    * Node::null() is returned. Otherwise a minimized conflict is returned.
-   *
-   * If a conflict is found, changes to the assignments need to be reverted.
    *
    * Tableau pivoting is performed so variables may switch from being basic to
    * nonbasic and vice versa.
@@ -207,9 +205,6 @@ private:
    * with its upper and lower bounds.
    */
   ArithVar selectSmallestInconsistentVar();
-
-  Node deduceUpperBound(ArithVar basicVar);
-  Node deduceLowerBound(ArithVar basicVar);
 
   /**
    * Given a non-basic variable that is know to not be updatable
