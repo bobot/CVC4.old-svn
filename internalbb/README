@@ -1,0 +1,95 @@
+This is a prerelease version of CVC4.
+
+*** Quick-start instructions
+
+To build, you'll need reasonably new automake, autoconf, and libtool
+installed (see below). Execute,
+
+    ./autogen.sh 
+    ./configure
+    make
+
+You can then "make install" to install in the prefix you gave to
+the configure script (/usr/local by default).  ** You should run
+"make check" ** before installation to ensure that CVC4 has been
+built correctly.  In particular, GCC version 4.5.1 seems to have a
+bug in the optimizer that results in incorrect behavior (and wrong
+results) in many builds.  This is a known problem for Minisat, and
+since Minisat is at the core of CVC4, a problem for CVC4.  "make check"
+easily detects this problem (by showing a number of FAILed test cases).
+It is ok if the unit tests aren't run as part of "make check", but all
+system tests and regression tests should pass without incident.
+
+To build a source release, use "make dist"; this will include the
+configure script and all the bits of automake/autoconf/libtool that
+are necessary for an independent install.  You'll find the resulting
+tarball in builds/cvc4-${VERSION}.tar.gz.
+
+To build documentation, use "make doc".  Documentation is produced
+under doc/ but is not installed by "make install".
+
+*** Dependencies
+
+The following tools and libraries are required to run CVC4. Versions
+given are minimum versions; more recent versions should be compatible.
+
+GNU C and C++ (gcc and g++), reasonably recent versions
+GNU Make
+GNU Bash
+GMP v4.2 (GNU Multi-Precision arithmetic library)
+The Boost C++ threading library (libboost_thread)
+libantlr3c v3.2 (ANTLR parser generator)
+Optional: CLN v1.3 (Class Library for Numbers)
+Optional: CUDD v2.4.2 (Colorado University Decision Diagram package)
+Optional: GNU Readline library (for an improved interactive experience)
+
+If "make" is non-GNU on your system, make sure to invoke "gmake" (or
+whatever GNU Make is installed as).  If your usual shell is not
+Bash, the configure script should auto-correct this.  If it does not,
+you'll see strange shell syntax errors, and you may need to explicitly
+set SHELL or CONFIG_SHELL to the location of bash on your system.
+
+CUDD, if desired, must be installed delicately.  The CVC4 configure
+script attempts to auto-detect the locations and names of CUDD headers
+and libraries the way that the Fedora RPMs install them, the way that
+our NYU-provided Debian packages install them, and the way they exist
+when you download and build the CUDD sources directly.  If you install
+from Fedora RPMs or our Debian packages (remember, you need the C++
+development package for CVC4), the process should be completely
+automatic, since the libraries and headers are installed in a standard
+location.  If you download the sources yourself, you need to build
+them in a special way.  Fortunately, the "contrib/build-cudd-with-libtool.sh"
+script in the CVC4 source tree does exactly what you need: it patches
+the CUDD makefiles to use libtool, builds the libtool libraries, then
+reverses the patch to leave the makefiles as they were.  Once you
+run this script on an unpacked CUDD 2.4.2 source distribution, then
+CVC4's configure script should pick up the libraries if you provide
+--with-cudd-dir=/PATH/TO/CUDD/SOURCES.
+
+If you want to force linking to CUDD, provide --with-cudd to the
+configure script; this makes it a hard requirement rather than an
+optional add-on.
+
+The NYU-provided Debian packaging of CUDD 2.4.2 is here:
+
+  deb http://goedel.cims.nyu.edu/cvc4-builds/debian unstable/
+
+The Debian source package "cudd", available from the same repository,
+includes a diff of all changes made to cudd makefiles.
+
+*** Build dependencies
+
+The following tools and libraries are required to build CVC4 from
+scratch. 
+
+Automake v1.11
+Autoconf v2.61 
+Libtool v2.2
+ANTLR3 v3.2
+
+*** Emacs support
+
+For a suggestion of editing CVC4 source code with emacs, see the file
+contrib/editing-with-emacs.  For a CVC language mode (the native input
+language for CVC4), see contrib/cvc-mode.el.
+
