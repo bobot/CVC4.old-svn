@@ -659,7 +659,6 @@ public:
     return d_sharedTerms.end();
   }
 
-
 };/* class Theory */
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level);
