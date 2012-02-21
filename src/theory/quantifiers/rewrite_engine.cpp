@@ -235,7 +235,7 @@ void RewriteEngine::check( Theory::Effort e ){
     InstMatch im;
     while(tr.getNextMatch( im )){
       Debug("rewriterules") << "One matching found" << std::endl;
-      RuleInstId id = d_ruleinsts.size() - 1;
+      RuleInstId id = d_ruleinsts.size();
       RuleInst ri = RuleInst(*this,rid,im,id);
       /** true from the start so we don't add it */
       if (!ri.startedTrue(*this)) d_ruleinsts.push_back(ri);
