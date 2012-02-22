@@ -22,14 +22,18 @@ TESTS =	\
 	arith-int-042.cvc \
 	arith-int-042.min.cvc \
 	arith-int-047.cvc \
+	arith-int-048.cvc \
 	arith-int-050.cvc \
+	arith-int-081.cvc \
 	arith-int-082.cvc \
 	arith-int-084.cvc \
 	arith-int-085.cvc \
 	arith-int-097.cvc
 
-#failing tests
-#	arith-int-048.cvc
+#failing
+# arith-int-008.cvc.log
+# arith-int-098.cvc.log
+# arith-int-043.cvc.log
 
 EXTRA_DIST = $(TESTS) \
 	arith-int-001.cvc \
@@ -101,7 +105,6 @@ EXTRA_DIST = $(TESTS) \
 	arith-int-078.cvc \
 	arith-int-079.cvc \
 	arith-int-080.cvc \
-	arith-int-081.cvc \
 	arith-int-083.cvc \
 	arith-int-086.cvc \
 	arith-int-087.cvc \

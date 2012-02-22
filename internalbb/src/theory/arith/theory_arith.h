@@ -41,6 +41,8 @@
 #include "theory/arith/dio_solver.h"
 #include "theory/arith/difference_manager.h"
 
+#include "theory/arith/bcqueue.h"
+
 #include "util/stats.h"
 
 #include <vector>
@@ -111,7 +113,6 @@ private:
   void setupVariableList(const VarList& vl);
   void setupPolynomial(const Polynomial& poly);
   void setupAtom(TNode atom, bool addToDatabase);
-
 
   /**
    * (For the moment) the type hierarchy goes as:
@@ -253,6 +254,19 @@ private:
 
   /** This implements the Simplex decision procedure. */
   SimplexDecisionProcedure d_simplex;
+
+  /** The Branch and Cut Queue. */
+  BranchAndCutQueue d_bcqueue;
+
+  /* Branch and bound stuff ... */
+  bool internalBB(uint32_t depth);
+  bool minicheck(uint32_t depth, Node assertion, ArithVar x, bool left);
+  bool internalBranching();
+
+  void unsatisfiedIntegers(std::vector<ArithVar>& unsatisfied);
+
+  Node branchingLemma(ArithVar v);
+
 public:
   TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
   virtual ~TheoryArith();
@@ -301,6 +315,27 @@ private:
   };
 
   BasicVarModelUpdateCallBack d_basicVarModelUpdateCallBack;
+
+  bool hasIntegerAssignment(ArithVar v){
+    Assert(isInteger(v));
+    const DeltaRational& dr = d_partialModel.getAssignment(v);
+    return dr.isIntegral();
+  }
+
+  class HasIntegerAssignmentPredicate : public ArithVarPredicate {
+  private:
+    TheoryArith& d_theory;
+
+  public:
+    HasIntegerAssignmentPredicate(TheoryArith& t):
+      d_theory(t)
+    {}
+
+    bool callback(ArithVar x){
+      return d_theory.hasIntegerAssignment(x);
+    }
+  };
+  HasIntegerAssignmentPredicate d_hasAssignmentPredicate;
 
   /** The constant zero. */
   DeltaRational d_DELTA_ZERO;
@@ -457,6 +492,10 @@ private:
     TimerStat d_presolveTime;
 
     IntStat d_externalBranchAndBounds;
+
+    IntStat d_internalBranchAndBounds;
+    IntStat d_internalBranchSuccess;
+    TimerStat d_internalBranchingTime;
 
     IntStat d_initialTableauSize;
     IntStat d_currSetToSmaller;

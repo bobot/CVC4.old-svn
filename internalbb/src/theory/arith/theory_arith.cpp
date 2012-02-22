@@ -80,7 +80,9 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_propManager(c, d_arithvarNodeMap, d_atomDatabase, valuation),
   d_differenceManager(c, d_propManager),
   d_simplex(d_propManager, d_linEq),
+  d_bcqueue(d_hasAssignmentPredicate),
   d_basicVarModelUpdateCallBack(d_simplex),
+  d_hasAssignmentPredicate(*this),
   d_DELTA_ZERO(0),
   d_statistics()
 {}
@@ -99,6 +101,9 @@ TheoryArith::Statistics::Statistics():
   d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
   d_externalBranchAndBounds("theory::arith::externalBranchAndBounds",0),
+  d_internalBranchAndBounds("theory::arith::bac::internalBranchAndBounds",0),
+  d_internalBranchSuccess("theory::arith::bac::internalBranchSuccess",0),
+  d_internalBranchingTime("theory::arith::bac::internalBranchTime"),
   d_initialTableauSize("theory::arith::initialTableauSize", 0),
   d_currSetToSmaller("theory::arith::currSetToSmaller", 0),
   d_smallerSetToCurr("theory::arith::smallerSetToCurr", 0),
@@ -121,6 +126,10 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_presolveTime);
 
   StatisticsRegistry::registerStat(&d_externalBranchAndBounds);
+
+  StatisticsRegistry::registerStat(&d_internalBranchAndBounds);
+  StatisticsRegistry::registerStat(&d_internalBranchSuccess);
+  StatisticsRegistry::registerStat(&d_internalBranchingTime);
 
   StatisticsRegistry::registerStat(&d_initialTableauSize);
   StatisticsRegistry::registerStat(&d_currSetToSmaller);
@@ -147,6 +156,10 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_presolveTime);
 
   StatisticsRegistry::unregisterStat(&d_externalBranchAndBounds);
+
+  StatisticsRegistry::unregisterStat(&d_internalBranchAndBounds);
+  StatisticsRegistry::unregisterStat(&d_internalBranchSuccess);
+  StatisticsRegistry::unregisterStat(&d_internalBranchingTime);
 
   StatisticsRegistry::unregisterStat(&d_initialTableauSize);
   StatisticsRegistry::unregisterStat(&d_currSetToSmaller);
@@ -632,6 +645,8 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
 
   d_tableau.increaseSize();
 
+  d_bcqueue.addVariable();
+
   Debug("arith::arithvar") << x << " |-> " << varX << endl;
 
   return varX;
@@ -895,8 +910,7 @@ bool TheoryArith::hasIntegerModel(){
     do {
       //Do not include slack variables
       if(isInteger(d_nextIntegerCheckVar) && !isSlackVariable(d_nextIntegerCheckVar)) { // integer
-        const DeltaRational& d = d_partialModel.getAssignment(d_nextIntegerCheckVar);
-        if(!d.isIntegral()){
+        if(!hasIntegerAssignment(d_nextIntegerCheckVar)){
           return false;
         }
       }
@@ -905,6 +919,109 @@ bool TheoryArith::hasIntegerModel(){
   return true;
 }
 
+bool TheoryArith::internalBB(uint32_t depth){
+  Assert(!d_bcqueue.empty());
+
+  ArithVar x = d_bcqueue.pop();
+  Assert(isInteger(x));
+
+  Node lem = branchingLemma(x);
+  Assert(lem.getKind() == OR);
+  Assert(lem.getNumChildren() == 2);
+
+  Debug("ibb") << "internalBB@" << depth << " on " << x << ": " << lem << endl;
+
+  Node left = lem[0];
+  Node right = lem[1];
+
+  if(minicheck(depth, left, x, true)){
+    return true;
+  }else{
+    return minicheck(depth, right, x, false);
+  }
+}
+
+bool TheoryArith::minicheck(uint32_t depth, Node assertion, ArithVar x, bool left){
+  //DO NOT TOUCH THE OUTPUT CHANNEL
+  context::Context::ScopedPush speculativePush(getContext());
+
+  ++(d_statistics.d_internalBranchAndBounds);
+
+  Assert(assertion == Rewriter::rewrite(assertion));
+
+  Node possibleConflict = assertionCases(assertion);
+
+  if(!possibleConflict.isNull()){
+    d_partialModel.revertAssignmentChanges();
+    Debug("ibb") << "split conflict   " << possibleConflict << endl;
+    //Let these remain
+    //clearUpdates();
+
+    return false;
+  }else{
+    Node possibleConflict = d_simplex.findModel();
+    //TODO ensure no lemmas are added by simplex
+    if(possibleConflict != Node::null()){
+      d_partialModel.revertAssignmentChanges();
+      Debug("ibb") << "lra conflict   " << possibleConflict << endl;
+      //Let these remain
+      //clearUpdates();
+
+      return false;
+    }else{
+      d_partialModel.commitAssignmentChanges();
+    }
+
+    if(hasIntegerModel()){
+      Debug("ibb") << "this worked?   " << endl;
+      ++(d_statistics.d_internalBranchSuccess);
+
+      return true;
+    }else if(depth == 0){
+      return false;
+    }else {
+      vector<ArithVar> unsatisfied;
+      unsatisfiedIntegers(unsatisfied);
+
+      d_bcqueue.changeScore(x, left, unsatisfied.size());
+      d_bcqueue.pushVector(unsatisfied);
+
+      return internalBB(depth - 1);
+    }
+  }
+}
+
+void TheoryArith::unsatisfiedIntegers(std::vector<ArithVar>& unsatisfied){
+  //TODO improve
+  if(d_variables.size() > 0){
+    const ArithVar rrEnd = d_nextIntegerCheckVar;
+    ArithVar iter = d_nextIntegerCheckVar;
+    do {
+      if(isInteger(iter) && !hasIntegerAssignment(iter)){
+        unsatisfied.push_back(iter);
+      }
+    } while((iter = (1 + iter == d_variables.size() ? 0 : 1 + iter)) != rrEnd);
+  }
+}
+
+
+//disequalities need to be checked again if successful
+bool TheoryArith::internalBranching(){
+  TimerStat::CodeTimer codeTimer(d_statistics.d_internalBranchingTime);
+
+  Assert(!hasIntegerModel());
+  uint32_t maxDepth = d_variables.size();
+
+  vector<ArithVar> unsatisfied;
+  unsatisfiedIntegers(unsatisfied);
+  d_bcqueue.pushVector(unsatisfied);
+
+
+  Debug("ibb") << "internalBranching @" << getContext()->getLevel() << " begin " << endl;
+  bool res = internalBB(maxDepth);
+  Debug("ibb") << "internalBranching @" << getContext()->getLevel() << " end " << endl;
+  return res;
+}
 
 void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check begun" << std::endl;
@@ -947,6 +1064,11 @@ void TheoryArith::check(Effort effortLevel){
 
   if(!emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()){
 
+    if(!emmittedConflictOrSplit && fullEffort(effortLevel)){
+      emmittedConflictOrSplit = internalBranching();
+      splitDisequalities();
+    }
+
     if(!emmittedConflictOrSplit && Options::current()->dioSolver){
       possibleConflict = callDioSolver();
       if(possibleConflict != Node::null()){
@@ -981,6 +1103,28 @@ void TheoryArith::check(Effort effortLevel){
   Debug("arith") << "TheoryArith::check end" << std::endl;
 }
 
+Node TheoryArith::branchingLemma(ArithVar v){
+  Assert(isInteger(v));
+
+  const DeltaRational& d = d_partialModel.getAssignment(v);
+  const Rational& r = d.getNoninfinitesimalPart();
+  const Rational& i = d.getInfinitesimalPart();
+  Trace("integers") << "integers: assignment to [[" << d_arithvarNodeMap.asNode(v) << "]] is " << r << "[" << i << "]" << endl;
+
+  Assert(! (r.getDenominator() == 1 && i.getNumerator() == 0));
+  Assert(!d.isIntegral());
+
+  TNode var = d_arithvarNodeMap.asNode(v);
+  Integer floor_d = d.floor();
+  Integer ceil_d = d.ceiling();
+
+  Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, mkIntegerNode(floor_d)));
+  Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, mkIntegerNode(ceil_d)));
+  Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
+
+  return lem;
+}
+
 /** Returns true if the roundRobinBranching() issues a lemma. */
 Node TheoryArith::roundRobinBranch(){
   if(hasIntegerModel()){
@@ -991,23 +1135,8 @@ Node TheoryArith::roundRobinBranch(){
     Assert(isInteger(v));
     Assert(!isSlackVariable(v));
 
-    const DeltaRational& d = d_partialModel.getAssignment(v);
-    const Rational& r = d.getNoninfinitesimalPart();
-    const Rational& i = d.getInfinitesimalPart();
-    Trace("integers") << "integers: assignment to [[" << d_arithvarNodeMap.asNode(v) << "]] is " << r << "[" << i << "]" << endl;
+    Node lem = branchingLemma(v);
 
-    Assert(! (r.getDenominator() == 1 && i.getNumerator() == 0));
-    Assert(!d.isIntegral());
-
-    TNode var = d_arithvarNodeMap.asNode(v);
-    Integer floor_d = d.floor();
-    Integer ceil_d = d.ceiling();
-
-    Node leq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::LEQ, var, mkIntegerNode(floor_d)));
-    Node geq = Rewriter::rewrite(NodeManager::currentNM()->mkNode(kind::GEQ, var, mkIntegerNode(ceil_d)));
-
-
-    Node lem = NodeManager::currentNM()->mkNode(kind::OR, leq, geq);
     Trace("integers") << "integers: branch & bound: " << lem << endl;
     if(d_valuation.isSatLiteral(lem[0])) {
       Debug("integers") << "    " << lem[0] << " == " << d_valuation.getSatValue(lem[0]) << endl;

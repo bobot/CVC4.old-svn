@@ -56,7 +56,10 @@ public:
   virtual void callback(ArithVar x) = 0;
 };
 
-
+class ArithVarPredicate {
+public:
+  virtual bool callback(ArithVar x) = 0;
+};
 
 inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);

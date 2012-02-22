@@ -23,6 +23,8 @@ libarith_la_SOURCES = \
 	arith_utilities.h \
 	delta_rational.h \
 	delta_rational.cpp \
+	bcqueue.h \
+	bcqueue.cpp \
 	partial_model.h \
 	partial_model.cpp \
 	linear_equality.h \
