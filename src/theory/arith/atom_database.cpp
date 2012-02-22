@@ -412,6 +412,7 @@ void ArithAtomDatabase::addImplication(TNode a, TNode b){
                         << "(" << a << ", " << b <<")" << endl;
 
   d_arithOut.lemma(imp);
+  d_arithOut.propagateAsDecision(b);
 }
 
 

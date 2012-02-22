@@ -800,7 +800,10 @@ void TheoryArith::check(Effort effortLevel){
         Debug("arith") << "dio cut   " << possibleLemma << endl;
         emmittedConflictOrSplit = true;
         d_hasDoneWorkSinceCut = false;
+Debug("arith") << "FOO5" << std::endl;
         d_out->lemma(possibleLemma);
+Debug("arith") << "FOO6" << std::endl;
+        d_out->propagateAsDecision(possibleLemma[0]);
       }
     }
 
@@ -809,7 +812,10 @@ void TheoryArith::check(Effort effortLevel){
       if(!possibleLemma.isNull()){
         ++(d_statistics.d_externalBranchAndBounds);
         emmittedConflictOrSplit = true;
+Debug("arith") << "FOO7" << std::endl;
         d_out->lemma(possibleLemma);
+Debug("arith") << "FOO8" << std::endl;
+        d_out->propagateAsDecision(possibleLemma[0]);
       }
     }
   }//if !emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()
@@ -883,7 +889,10 @@ bool TheoryArith::splitDisequalities(){
       Node gtNode = NodeBuilder<2>(kind::GT) << lhs << rhs;
       Node lemma = NodeBuilder<3>(OR) << eq << ltNode << gtNode;
       ++(d_statistics.d_statDisequalitySplits);
+Debug("arith") << "FOO1" << std::endl;
       d_out->lemma(lemma);
+Debug("arith") << "FOO2" << std::endl;
+      d_out->propagateAsDecision(lemma[1]);
       splitSomething = true;
     }
   }
@@ -1009,7 +1018,10 @@ void TheoryArith::propagate(Effort e) {
       //Opportunistically export previous conflicts
       while(d_simplex.hasMoreLemmas()){
         Node lemma = d_simplex.popLemma();
+Debug("arith") << "FOO3" << std::endl;
         d_out->lemma(lemma);
+Debug("arith") << "FOO4" << std::endl;
+        d_out->propagateAsDecision(lemma[1].getKind() == kind::NOT && lemma[1][0].getKind() == kind::NOT ? lemma[1][0][0] : lemma[1]);
       }
     }
   }
