@@ -22,8 +22,6 @@ option - --show-trace-tags void :handler CVC4::main::showTraceTags :handler-incl
 # portfolio options
 option printWinner bool
  enable printing the winning thread (pcvc4 only)
-option threads --threads=N unsigned :default 2
- Total number of threads
 option - --threadN=string void
  configures thread N (0..#threads-1)
 option threadArgv std::vector<std::string>

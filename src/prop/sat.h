@@ -237,6 +237,8 @@ public:
 
   void enqueueTheoryLiteral(const SatLiteral& l);
 
+  SatLiteral getNextDecisionRequest();
+
   bool theoryNeedCheck() const;
 
   void setCnfStream(CnfStream* cnfStream);
