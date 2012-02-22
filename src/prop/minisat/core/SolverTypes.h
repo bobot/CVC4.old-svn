@@ -138,43 +138,26 @@ namespace Minisat{
 // Clause -- a simple class for representing a clause:
 
 class Clause {
-        enum header_sizes {
-	  sizeof_use = 16,
-	  sizeof_size = 16,
-	  sizeof_level = 24,
-	};
     struct {
         unsigned mark      : 2;
         unsigned removable : 1;
         unsigned has_extra : 1;
         unsigned reloced   : 1;
-        unsigned imported    : 1; /* set if clause was imported from another thread */
-        unsigned loc_derived : 1; /* set if clause has a local (input) clause in its "reason" ancestry */
-        unsigned imp_derived : 1; /* set if clause has a imported clause in its "reason" ancestry */
-        unsigned use   : sizeof_use; /* number of times the clause is used in conflict analysis */
-        unsigned size  : sizeof_size;
-        unsigned level : sizeof_level; }                       header;
+        unsigned size      : 27;
+        unsigned level     : 32; }                            header;
     union { Lit lit; float act; uint32_t abs; CRef rel; } data[0];
 
     friend class ClauseAllocator;
 
     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
     template<class V>
-    Clause(const V& ps, bool use_extra, bool removable, bool imported, 
-	   bool loc_derived, bool imp_derived, int level) {
+    Clause(const V& ps, bool use_extra, bool removable, int level) {
         header.mark      = 0;
         header.removable = removable;
         header.has_extra = use_extra;
-        header.imported    = imported;
-        header.loc_derived = loc_derived;
-        header.imp_derived = imp_derived;
-	header.use         = 0;
         header.reloced   = 0;
         header.size      = ps.size();
         header.level     = level;
-
-	assert( ps.size() < (1<<sizeof_size) );
-	assert( level < (1<<sizeof_level) );
 
         for (int i = 0; i < ps.size(); i++) 
             data[i].lit = ps[i];
@@ -220,13 +203,6 @@ public:
 
     Lit          subsumes    (const Clause& other) const;
     void         strengthen  (Lit p);
-
-    bool         input       ()      const   { return !(header.imported || header.loc_derived || header.imp_derived); }
-    bool         imported    ()      const   { return header.imported; }
-    bool         loc_derived ()      const   { return header.loc_derived; }
-    bool         imp_derived ()      const   { return header.imp_derived; }
-    int          use         ()      const   { return header.use; }
-    void         use_inc     ()              { assert( header.use < (1<<sizeof_use) - 1 ); ++header.use; }
 };
 
 
@@ -251,15 +227,14 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         RegionAllocator<uint32_t>::moveTo(to); }
 
     template<class Lits>
-    CRef alloc(int level, const Lits& ps, bool removable,
-	       bool imported, bool loc_derived, bool imp_derived)
+    CRef alloc(int level, const Lits& ps, bool removable = false)
     {
         assert(sizeof(Lit)      == sizeof(uint32_t));
         assert(sizeof(float)    == sizeof(uint32_t));
         bool use_extra = removable | extra_clause_field;
-	
+
         CRef cid = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), use_extra));
-        new (lea(cid)) Clause(ps, use_extra, removable, imported, loc_derived, imp_derived, level);
+        new (lea(cid)) Clause(ps, use_extra, removable, level);
 
         return cid;
     }
@@ -287,7 +262,7 @@ class ClauseAllocator : public RegionAllocator<uint32_t>
         Clause& c = operator[](cr);
         if (c.reloced()) { cr = c.relocation(); return; }
         
-        cr = to.alloc(c.level(), c, c.removable(), c.imported(), c.loc_derived(), c.imp_derived());
+        cr = to.alloc(c.level(), c, c.removable());
         c.relocate(cr);
         if (proxy) {
           proxy->updateCRef(old, cr); 

@@ -65,7 +65,7 @@ SimpSolver::SimpSolver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* con
 {
     vec<Lit> dummy(1,lit_Undef);
     ca.extra_clause_field = true; // NOTE: must happen before allocating the dummy clause below.
-    bwdsub_tmpunit        = ca.alloc(0, dummy, false, false, false, false);
+    bwdsub_tmpunit        = ca.alloc(0, dummy);
     remove_satisfied      = false;
 }
 
@@ -136,7 +136,7 @@ lbool SimpSolver::solve_(bool do_simp, bool turn_off_simp)
 
 
 
-bool SimpSolver::addClause_(vec<Lit>& ps, bool removable, bool imported)
+bool SimpSolver::addClause_(vec<Lit>& ps, bool removable)
 {
 #ifndef NDEBUG
     for (int i = 0; i < ps.size(); i++)
@@ -148,7 +148,7 @@ bool SimpSolver::addClause_(vec<Lit>& ps, bool removable, bool imported)
     if (use_rcheck && implied(ps))
         return true;
 
-    if (!Solver::addClause_(ps, removable, imported))
+    if (!Solver::addClause_(ps, removable))
         return false;
 
     if (use_simplification && clauses_persistent.size() == nclauses + 1){

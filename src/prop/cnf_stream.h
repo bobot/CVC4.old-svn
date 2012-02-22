@@ -129,13 +129,6 @@ protected:
   bool d_removable;
 
   /**
-   * Are we asserting a imported clause (true) or a input clause (false).
-   * This is set at the beginning of convertAndAssert so that it doesn't
-   * need to be passed on over the stack.
-   */
-  bool d_imported;
-
-  /**
    * Asserts the given clause to the sat solver.
    * @param node the node giving rise to this clause
    * @param clause the clause to assert
@@ -212,7 +205,7 @@ public:
    * @param removable whether the sat solver can choose to remove the clauses
    * @param negated whether we are asserting the node negated
    */
-  virtual void convertAndAssert(TNode node, bool removable, bool negated, bool imported = false) = 0;
+  virtual void convertAndAssert(TNode node, bool removable, bool negated) = 0;
 
   /**
    * Get the node that is represented by the given SatLiteral.
@@ -287,7 +280,7 @@ public:
    * @param removable is this something that can be erased
    * @param negated true if negated
    */
-  void convertAndAssert(TNode node, bool removable, bool negated, bool imported = false);
+  void convertAndAssert(TNode node, bool removable, bool negated);
 
   /**
    * Constructs the stream to use the given sat solver.
@@ -301,7 +294,7 @@ public:
 private:
 
   /**
-   * Same as above, except that removable and imported are remembered.
+   * Same as above, except that removable is remembered.
    */
   void convertAndAssert(TNode node, bool negated);
 

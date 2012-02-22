@@ -21,7 +21,6 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #include <math.h>
 
 #include <iostream>
-#include <utility>
 
 #include "mtl/Sort.h"
 #include "core/Solver.h"
@@ -107,7 +106,6 @@ Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bo
     //
   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
   , dec_vars(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
-  , cnt_imported(0), cnt_loc_derived(0), cnt_imp_derived(0)
 
   , ok                 (true)
   , cla_inc            (1)
@@ -175,10 +173,6 @@ CRef Solver::reason(Var x) {
     // If we already have a reason, just return it
     if (vardata[x].reason != CRef_Lazy) return vardata[x].reason;
 
-    //assert(false);		// Don't support Non-lazy builds for
-				// now. In this function to avoid
-				// taking care of the .alloc below
-
     // What's the literal we are trying to explain
     Lit l = mkLit(x, value(x) != l_True);
 
@@ -201,14 +195,14 @@ CRef Solver::reason(Var x) {
     }
 
     // Construct the reason (level 0)
-    CRef real_reason = ca.alloc(explLevel, explanation, true, false, false, false); // FIXME Do something about this one?
+    CRef real_reason = ca.alloc(explLevel, explanation, true);
     vardata[x] = mkVarData(real_reason, level(x), intro_level(x), trail_index(x));
     clauses_removable.push(real_reason);
     attachClause(real_reason);
     return real_reason;
 }
 
-bool Solver::addClause_(vec<Lit>& ps, bool removable, bool imported)
+bool Solver::addClause_(vec<Lit>& ps, bool removable)
 {
     if (!ok) return false;
 
@@ -236,7 +230,6 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable, bool imported)
       lemmas.push();
       ps.copyTo(lemmas.last());
       lemmas_removable.push(removable);
-      lemmas_imported.push(imported);
     } else {
       // Add the clause and attach if not a lemma
       if (ps.size() == 0) {
@@ -255,8 +248,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable, bool imported)
           return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
         } else return ok;
       } else {
-        CRef cr = ca.alloc(assertionLevel, ps, false, imported, false, false);
-	cnt_imported += imported; // Stats
+        CRef cr = ca.alloc(assertionLevel, ps, false);
         clauses_persistent.push(cr);
 	attachClause(cr);
         
@@ -408,8 +400,7 @@ Lit Solver::pickBranchLit()
 |      * returns the maximal level of the resolved clauses
 |  
 |________________________________________________________________________________________________@*/
-int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel,
-		    bool &loc_derived, bool &imp_derived)
+int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
 {
     int pathC = 0;
     Lit p     = lit_Undef;
@@ -425,10 +416,6 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel,
     do{
         assert(confl != CRef_Undef); // (otherwise should be UIP)
         Clause& c = ca[confl];
-        loc_derived |= c.input() || c.loc_derived();
-        imp_derived |= c.imported() || c.imp_derived();
-	c.use_inc();
-
         if (c.level() > max_level) {
           max_level = c.level();
         }
@@ -467,8 +454,6 @@ int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel,
 
     }while (pathC > 0);
     out_learnt[0] = ~p;
-
-    Assert(loc_derived || imp_derived);   //must be a derived clause
 
     // Simplify conflict clause:
     int i, j;
@@ -966,9 +951,8 @@ lbool Solver::search(int nof_conflicts)
           }
 
             // Analyze the conflict
-            bool loc_derived = false, imp_derived = false;
             learnt_clause.clear();
-            int max_level = analyze(confl, learnt_clause, backtrack_level, loc_derived, imp_derived);
+            int max_level = analyze(confl, learnt_clause, backtrack_level);
             cancelUntil(backtrack_level);
 
             // Assert the conflict clause and the asserting literal
@@ -978,8 +962,7 @@ lbool Solver::search(int nof_conflicts)
                 PROOF( ProofManager::getSatProof()->endResChain(learnt_clause[0]); )
 
              } else {
-  	        CRef cr = ca.alloc(max_level, learnt_clause, true, false, loc_derived, imp_derived);
-		cnt_loc_derived += loc_derived; cnt_imp_derived += imp_derived; // Stats
+                CRef cr = ca.alloc(max_level, learnt_clause, true);
                 clauses_removable.push(cr);
                 attachClause(cr);
                 claBumpActivity(ca[cr]);
@@ -1428,13 +1411,11 @@ CRef Solver::updateLemmas() {
     // The current lemma
     vec<Lit>& lemma = lemmas[i];
     bool removable = lemmas_removable[i];
-    bool imported = lemmas_imported[i];
 
     // Attach it if non-unit
     CRef lemma_ref = CRef_Undef;
     if (lemma.size() > 1) {
-      lemma_ref = ca.alloc(assertionLevel, lemma, removable, imported, false, false); // FIXME Need to set other two bits too I guess
-      cnt_imported += imported; // Stats
+      lemma_ref = ca.alloc(assertionLevel, lemma, removable);
       if (removable) {
         clauses_removable.push(lemma_ref);
       } else {
@@ -1480,34 +1461,6 @@ CRef Solver::updateLemmas() {
   // Clear the lemmas
   lemmas.clear();
   lemmas_removable.clear();
-  lemmas_imported.clear();
 
   return conflict;
-}
-
-
-void Solver::print_useful_clauses(int n)
-{
-  std::vector< std::pair<int, CRef> > clauses_all;
-  for(int i = 0; i < clauses_persistent.size(); ++i)
-    {
-      clauses_all.push_back( std::make_pair(ca[clauses_persistent[i]].use(), clauses_persistent[i]) );
-    }
-  for(int i = 0; i < clauses_removable.size(); ++i)
-    {
-      clauses_all.push_back( std::make_pair(ca[clauses_removable[i]].use(), clauses_removable[i]) );
-    }
-  
-  //Bottle-neck of this function. If required optimize this:
-  sort(clauses_all.begin(), clauses_all.end(), std::greater<std::pair<int,CRef> >());
-
-  // Most useful lemmas overall
-  for(int i=0; i < n && i < int(clauses_all.size()); ++i) {
-    CRef c = clauses_all[i].second;
-    printf("Lemma identifier: %d, use: %d, size: %d, removable: %d, imported: %d, loc_derived: %d, imp_derived: %d\n", 
-	   c, ca[c].use(), ca[c].size(), ca[c].removable(), ca[c].imported(), ca[c].loc_derived(), ca[c].imp_derived());
-  }
-
-  //Most useful imported lemmas
-  // TODO
 }

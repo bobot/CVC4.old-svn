@@ -105,7 +105,7 @@ public:
   /** Virtual destructor to make g++ happy */
   virtual ~SatInputInterface() { }
   /** Assert a clause in the solver. */
-  virtual void addClause(SatClause& clause, bool removable, bool imported = false) = 0;
+  virtual void addClause(SatClause& clause, bool removable) = 0;
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
   /** Get the current user assertion level of the solver */
@@ -159,7 +159,6 @@ class SatSolver : public SatInputInterface {
     ReferenceStat<uint64_t> d_statConflicts, d_statClausesLiterals;
     ReferenceStat<uint64_t> d_statLearntsLiterals,  d_statMaxLiterals;
     ReferenceStat<uint64_t> d_statTotLiterals;
-    ReferenceStat<uint64_t> d_statImported, d_statLocDerived, d_statImpDerived;
   public:
     Statistics() :
       d_statStarts("sat::starts"),
@@ -170,10 +169,7 @@ class SatSolver : public SatInputInterface {
       d_statClausesLiterals("sat::clauses_literals"),
       d_statLearntsLiterals("sat::learnts_literals"),
       d_statMaxLiterals("sat::max_literals"),
-      d_statTotLiterals("sat::tot_literals"),
-      d_statImported("sat::cnt_imported"),
-      d_statLocDerived("sat::cnt_loc_derived"),
-      d_statImpDerived("sat::cnt_imp_derived")
+      d_statTotLiterals("sat::tot_literals")
     {
       StatisticsRegistry::registerStat(&d_statStarts);
       StatisticsRegistry::registerStat(&d_statDecisions);
@@ -184,9 +180,6 @@ class SatSolver : public SatInputInterface {
       StatisticsRegistry::registerStat(&d_statLearntsLiterals);
       StatisticsRegistry::registerStat(&d_statMaxLiterals);
       StatisticsRegistry::registerStat(&d_statTotLiterals);
-      StatisticsRegistry::registerStat(&d_statImported);
-      StatisticsRegistry::registerStat(&d_statLocDerived);
-      StatisticsRegistry::registerStat(&d_statImpDerived);
     }
     ~Statistics() {
       StatisticsRegistry::unregisterStat(&d_statStarts);
@@ -198,9 +191,6 @@ class SatSolver : public SatInputInterface {
       StatisticsRegistry::unregisterStat(&d_statLearntsLiterals);
       StatisticsRegistry::unregisterStat(&d_statMaxLiterals);
       StatisticsRegistry::unregisterStat(&d_statTotLiterals);
-      StatisticsRegistry::unregisterStat(&d_statImported);
-      StatisticsRegistry::unregisterStat(&d_statLocDerived);
-      StatisticsRegistry::unregisterStat(&d_statImpDerived);
     }
     void init(Minisat::SimpSolver* d_minisat){
       d_statStarts.setData(d_minisat->starts);
@@ -212,9 +202,6 @@ class SatSolver : public SatInputInterface {
       d_statLearntsLiterals.setData(d_minisat->learnts_literals);
       d_statMaxLiterals.setData(d_minisat->max_literals);
       d_statTotLiterals.setData(d_minisat->tot_literals);
-      d_statImported.setData(d_minisat->cnt_imported);
-      d_statLocDerived.setData(d_minisat->cnt_loc_derived);
-      d_statImpDerived.setData(d_minisat->cnt_imp_derived);
     }
   };
   Statistics d_statistics;
@@ -237,7 +224,7 @@ public:
 
   SatLiteralValue solve(unsigned long& resource);
 
-  void addClause(SatClause& clause, bool removable, bool imported = false);
+  void addClause(SatClause& clause, bool removable);
 
   SatVariable newVar(bool theoryAtom = false);
 
@@ -287,6 +274,7 @@ public:
   SatLiteral getNextReplayDecision();
 
   void logDecision(SatLiteral lit);
+
   void checkTime();
 
 };/* class SatSolver */
@@ -343,8 +331,8 @@ inline SatLiteralValue SatSolver::solve(unsigned long& resource) {
   return result;
 }
 
-inline void SatSolver::addClause(SatClause& clause, bool removable, bool imported) {
-  d_minisat->addClause(clause, removable, imported);
+inline void SatSolver::addClause(SatClause& clause, bool removable) {
+  d_minisat->addClause(clause, removable);
 }
 
 inline SatVariable SatSolver::newVar(bool theoryAtom) {
