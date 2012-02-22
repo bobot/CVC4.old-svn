@@ -107,11 +107,22 @@ private:
   typedef context::CDList< RuleInst > RuleInsts;
   RuleInsts d_ruleinsts;
 
-  /** The GList* wil not lead too memory leaks since that use
+  /** The GList* will not lead too memory leaks since that use
       ContextMemoryAllocator */
   typedef context::CDList<Guarded, context::ContextMemoryAllocator<Guarded> > GList;
   typedef context::CDMap<Node, GList*, NodeHashFunction> GuardedMap;
   GuardedMap d_guardeds;
+
+  /** Literals to propagate */
+  context::CDList<Node> d_literalsToPropagate;
+
+  /** Index of the next literal to propagate */
+  context::CDO<unsigned> d_literalsToPropagateIndex;
+
+
+  /** explanation */
+  typedef context::CDMap<Node, RuleInstId , NodeHashFunction> ExplanationMap;
+  ExplanationMap d_explanations;
 
  public:
   /** true for predicate */
@@ -127,6 +138,8 @@ private:
   void check( Theory::Effort e );
   void registerQuantifier( Node n );
   void assertNode( Node n );
+  Node explain(TNode n);
+
   /* TODO modify when notification will be available */
   void notification( Node n, bool b);
 

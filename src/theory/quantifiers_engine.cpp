@@ -126,6 +126,15 @@ void QuantifiersEngine::assertNode( Node f ){
   }
 }
 
+Node QuantifiersEngine::explain(TNode n){
+  for( int i=0; i<(int)d_modules.size(); i++ ){
+    const Node & r = d_modules[i]->explain( n );
+    if(r!=Node::null()) return r;
+  }
+  AlwaysAssert(false,"A quantifier module propagate but can't explain...");
+}
+
+
 bool QuantifiersEngine::addLemma( Node lem ){
   //AJR: the following check is necessary until FULL_CHECK is guarenteed after d_out->lemma(...)
   Debug("inst-engine-debug") << "Adding lemma : " << lem << std::endl;

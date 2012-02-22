@@ -53,6 +53,8 @@ public:
   void check( Theory::Effort e );
   void registerQuantifier( Node n );
   void assertNode( Node n );
+  Node explain(TNode n){return Node::null();};
+
 };
 
 }

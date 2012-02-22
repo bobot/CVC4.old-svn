@@ -198,3 +198,7 @@ bool TheoryQuantifiers::restart(){
     return true;
   }
 }
+
+Node TheoryQuantifiers::explain( TNode n ){
+  return d_quantEngine->explain( n );
+}

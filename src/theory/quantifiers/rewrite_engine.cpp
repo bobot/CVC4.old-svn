@@ -36,6 +36,8 @@ using namespace CVC4::theory::quantifiers;
 //   return stream << "=>" << r.equality;
 // }
 
+static const bool propagate_as_lemma = true;
+
 static const size_t RULEINSTID_TRUE = ((size_t) -1);
 static const size_t RULEINSTID_FALSE = ((size_t) -2);
 
@@ -140,6 +142,7 @@ bool RewriteRule::noGuard()const{ return guards.size() == 0; };
 
 RewriteEngine::RewriteEngine(context::Context* c, TheoryQuantifiers* th ) :
   d_th( th ), d_rules(c), d_ruleinsts(c), d_guardeds(c),
+  d_literalsToPropagate(c), d_literalsToPropagateIndex(c, 0),d_explanations(c),
   qe(th->getQuantifiersEngine()){
   uf=((uf::TheoryUF*) qe->d_te->getTheory(theory::THEORY_UF));
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
@@ -349,9 +352,36 @@ void RewriteEngine::notifyEq(TNode lhs, TNode rhs) {
 };
 
 
-void RewriteEngine::propagateRule(const RuleInst & r){
+void RewriteEngine::propagateRule(const RuleInst & inst){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
-  Node lemma = r.substNode(*this,get_rule(r.rule).equality);
-  Debug("rewriterules") << "lemma:" << lemma << std::endl;
-  d_th->getOutputChannel().lemma(lemma);
+  Assert(get_rule(inst.rule).guards.size() == 0);
+  Node lemma = inst.substNode(*this,get_rule(inst.rule).equality);
+  if(propagate_as_lemma){
+    //  Debug("rewriterules") << "lemma:" << lemma << std::endl;
+    d_th->getOutputChannel().lemma(lemma);
+  }else{
+    Node lemma_lit = d_th->getValuation().ensureLiteral(lemma);
+    d_th->getOutputChannel().propagate(lemma_lit);
+    d_explanations.insert(lemma_lit,inst.id);
+  };
 };
+
+
+Node RewriteEngine::explain(TNode n){
+  ExplanationMap::const_iterator rinstid = d_explanations.find(n);
+  Assert(rinstid!=d_explanations.end(),"I forget the explanation...");
+  const RuleInst & inst = get_inst((*rinstid).second);
+  const RewriteRule & r = get_rule(inst.rule);
+  /** No guards */
+  const size_t size = r.guards.size();
+  if(size == 0) return d_true;
+  /** One guard */
+  if(size == 1) return inst.substNode(*this,r.guards[0]);
+  /** Guards */ /* TODO remove the duplicate with a set like in uf? */
+  NodeBuilder<> conjunction(kind::AND);
+  for(std::vector<Node>::const_iterator p = r.guards.begin();
+      p != r.guards.end(); ++p) {
+    conjunction << inst.substNode(*this,*p);
+  };
+  return conjunction;
+}

@@ -62,6 +62,8 @@ public:
   void shutdown() { }
   std::string identify() const { return std::string("TheoryQuantifiers"); }
   bool flipDecision();
+  Node explain(TNode n);
+
 private:
   void assertUniversal( Node n );
   void assertExistential( Node n );

@@ -151,6 +151,7 @@ public:
   /* Called for new quantifiers */
   virtual void registerQuantifier( Node n ) = 0;
   virtual void assertNode( Node n ) = 0;
+  virtual Node explain(TNode n) = 0;
 };
 
 namespace quantifiers{
@@ -226,6 +227,8 @@ public:
   void registerQuantifier( Node f );
   /** assert (universal) quantifier */
   void assertNode( Node f );
+  Node explain(TNode n);
+
 public:
   /** add lemma lem */
   bool addLemma( Node lem );
