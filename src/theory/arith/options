@@ -19,6 +19,10 @@ option arithPropagation arith-propagation /--disable-arithmetic-propagation bool
  use arithmetic propagation
 /turns on arithmetic propagation
 
+option dioSolver dio-solver /--disable-dio-solver bool :default true
+ use Linear Diophantine Equation solver (Griggio, JSAT 2012)
+/turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)
+
 warning "Change CL options as --disable-variable-removal cannot do anything currently."
 
 endmodule
