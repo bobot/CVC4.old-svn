@@ -358,12 +358,27 @@ void Solver::popTrail() {
 
 Lit Solver::pickBranchLit()
 {
+    Lit nextLit;
+
 #ifdef CVC4_REPLAY
-  Lit nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextReplayDecision());
+    nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextReplayDecision());
+
     if (nextLit != lit_Undef) {
       return nextLit;
     }
 #endif /* CVC4_REPLAY */
+
+    // Theory requests
+    nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+    while (nextLit != lit_Undef) {
+      if(value(var(nextLit)) == l_Undef) {
+        Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
+        return nextLit;
+      } else {
+        Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit << " but it already has an assignment" << std::endl;
+      }
+      nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+    }
 
     Var next = var_Undef;
 
@@ -707,6 +722,7 @@ void Solver::propagateTheory() {
   DPLLMinisatSatSolver::toMinisatClause(propagatedLiteralsClause, propagatedLiterals); 
 
   int oldTrailSize = trail.size();
+  Debug("minisat") << "old trail size is " << oldTrailSize << ", propagating " << propagatedLiterals.size() << " lits..." << std::endl;
   for (unsigned i = 0, i_end = propagatedLiterals.size(); i < i_end; ++ i) {
     Debug("minisat") << "Theory propagated: " << propagatedLiterals[i] << std::endl;
     // multiple theories can propagate the same literal
@@ -715,6 +731,7 @@ void Solver::propagateTheory() {
       uncheckedEnqueue(p, CRef_Lazy);
     } else {
       // but we check that this is the case and that they agree
+      Debug("minisat") << "trail_index(var(p)) == " << trail_index(var(p)) << std::endl;
       Assert(trail_index(var(p)) >= oldTrailSize);
       Assert(value(p) == lbool(!sign(p)));
     }

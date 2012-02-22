@@ -71,6 +71,11 @@ void TheoryProxy::enqueueTheoryLiteral(const SatLiteral& l) {
   d_theoryEngine->assertFact(literalNode);
 }
 
+SatLiteral TheoryProxy::getNextDecisionRequest() {
+  TNode n = d_theoryEngine->getNextDecisionRequest();
+  return n.isNull() ? undefSatLiteral : d_cnfStream->getLiteral(n);
+}
+
 bool TheoryProxy::theoryNeedCheck() const {
   return d_theoryEngine->needCheck();
 }

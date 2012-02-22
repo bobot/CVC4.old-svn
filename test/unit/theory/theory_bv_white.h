@@ -72,6 +72,7 @@ public:
     Bitblaster* bb = new Bitblaster(ctx); 
     
     NodeManager* nm = NodeManager::currentNM();
+    // TODO: update this
     // Node a = nm->mkVar("a", nm->mkBitVectorType(4));
     // Node b = nm->mkVar("b", nm->mkBitVectorType(4));
     // Node a1 = nm->mkNode(nm->mkConst<BitVectorExtract>(BitVectorExtract(2,1)), a);
