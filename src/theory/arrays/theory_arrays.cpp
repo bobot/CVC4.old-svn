@@ -283,43 +283,42 @@ Node TheoryArrays::recursivePreprocessTerm(TNode term) {
 
 
 Theory::SolveStatus TheoryArrays::solve(TNode in, SubstitutionMap& outSubstitutions) {
-  // switch(in.getKind()) {
-  //   case kind::EQUAL:
-  //   {
-  //     d_ppFacts.push_back(in);
-  //     d_ppEqualityEngine.addEquality(in[0], in[1], in);
-  //     if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
-  //       outSubstitutions.addSubstitution(in[0], in[1]);
-  //       return SOLVE_STATUS_SOLVED;
-  //     }
-  //     if (in[1].getMetaKind() == kind::metakind::VARIABLE && !in[0].hasSubterm(in[1])) {
-  //       outSubstitutions.addSubstitution(in[1], in[0]);
-  //       return SOLVE_STATUS_SOLVED;
-  //     }
-  //     break;
-  //   }
-  //   case kind::NOT:
-  //   {
-  //     d_ppFacts.push_back(in);
-  //     Assert(in[0].getKind() == kind::EQUAL ||
-  //            in[0].getKind() == kind::IFF );
-  //     Node a = in[0][0];
-  //     Node b = in[0][1];
-  //     d_ppEqualityEngine.addDisequality(a, b, in);
-  //     break;
-  //   }
-  //   default:
-  //     break;
-  // }
+  switch(in.getKind()) {
+    case kind::EQUAL:
+    {
+      d_ppFacts.push_back(in);
+      d_ppEqualityEngine.addEquality(in[0], in[1], in);
+      if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
+        outSubstitutions.addSubstitution(in[0], in[1]);
+        return SOLVE_STATUS_SOLVED;
+      }
+      if (in[1].getMetaKind() == kind::metakind::VARIABLE && !in[0].hasSubterm(in[1])) {
+        outSubstitutions.addSubstitution(in[1], in[0]);
+        return SOLVE_STATUS_SOLVED;
+      }
+      break;
+    }
+    case kind::NOT:
+    {
+      d_ppFacts.push_back(in);
+      Assert(in[0].getKind() == kind::EQUAL ||
+             in[0].getKind() == kind::IFF );
+      Node a = in[0][0];
+      Node b = in[0][1];
+      d_ppEqualityEngine.addDisequality(a, b, in);
+      break;
+    }
+    default:
+      break;
+  }
   return SOLVE_STATUS_UNSOLVED;
 }
 
 
 Node TheoryArrays::preprocess(TNode atom) {
-  return atom;
-  // if (d_donePreregister) return atom;
-  // Assert(atom.getKind() == kind::EQUAL, "expected EQUAL, got %s", atom.toString().c_str());
-  // return recursivePreprocessTerm(atom);
+  if (d_donePreregister) return atom;
+  Assert(atom.getKind() == kind::EQUAL, "expected EQUAL, got %s", atom.toString().c_str());
+  return recursivePreprocessTerm(atom);
 }
 
 
@@ -638,6 +637,7 @@ void TheoryArrays::check(Effort e) {
           if(fact[0][0].getType().isArray()) {
             NodeManager* nm = NodeManager::currentNM();
             TypeNode indexType = fact[0][0].getType()[0];
+            // TODO: cache this instead of creating it every time?
             Node k = nm->mkVar(indexType);
             // TODO: is this needed?  Better way to do this?
             if(Dump.isOn("declarations")) {
