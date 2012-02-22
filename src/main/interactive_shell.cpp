@@ -85,7 +85,7 @@ InteractiveShell::InteractiveShell(ExprManager& exprManager,
   d_out(*options.out),
   d_language(options.inputLanguage),
   d_quit(false) {
-  ParserBuilder parserBuilder(&exprManager,INPUT_FILENAME,options);
+  ParserBuilder parserBuilder(&exprManager, INPUT_FILENAME, options);
   /* Create parser with bogus input. */
   d_parser = parserBuilder.withStringInput("").build();
 
@@ -268,11 +268,11 @@ Command* InteractiveShell::readCommand() {
         if(dynamic_cast<DeclareFunctionCommand*>(cmd) != NULL) {
           s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
         } else if(dynamic_cast<DefineFunctionCommand*>(cmd) != NULL) {
-          s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
+          s_declarations.insert(dynamic_cast<DefineFunctionCommand*>(cmd)->getSymbol());
         } else if(dynamic_cast<DeclareTypeCommand*>(cmd) != NULL) {
-          s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
+          s_declarations.insert(dynamic_cast<DeclareTypeCommand*>(cmd)->getSymbol());
         } else if(dynamic_cast<DefineTypeCommand*>(cmd) != NULL) {
-          s_declarations.insert(dynamic_cast<DeclareFunctionCommand*>(cmd)->getSymbol());
+          s_declarations.insert(dynamic_cast<DefineTypeCommand*>(cmd)->getSymbol());
         }
 #endif /* HAVE_LIBREADLINE */
       }

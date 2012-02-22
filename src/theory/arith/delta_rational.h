@@ -54,6 +54,15 @@ public:
     return c;
   }
 
+  int sgn() const {
+    int x = getNoninfinitesimalPart().sgn();
+    if(x == 0){
+      return getInfinitesimalPart().sgn();
+    }else{
+      return x;
+    }
+  }
+
   DeltaRational operator+(const DeltaRational& other) const{
     CVC4::Rational tmpC = c+other.c;
     CVC4::Rational tmpK = k+other.k;
@@ -107,6 +116,38 @@ public:
     k += other.k;
 
     return *(this);
+  }
+
+  bool isIntegral() const {
+    if(getInfinitesimalPart().sgn() == 0){
+      return getNoninfinitesimalPart().isIntegral();
+    }else{
+      return false;
+    }
+  }
+
+  Integer floor() const {
+    if(getNoninfinitesimalPart().isIntegral()){
+      if(getInfinitesimalPart().sgn() >= 0){
+        return getNoninfinitesimalPart().getNumerator();
+      }else{
+        return getNoninfinitesimalPart().getNumerator() - Integer(1);
+      }
+    }else{
+      return getNoninfinitesimalPart().floor();
+    }
+  }
+
+  Integer ceiling() const {
+    if(getNoninfinitesimalPart().isIntegral()){
+      if(getInfinitesimalPart().sgn() <= 0){
+        return getNoninfinitesimalPart().getNumerator();
+      }else{
+        return getNoninfinitesimalPart().getNumerator() + Integer(1);
+      }
+    }else{
+      return getNoninfinitesimalPart().ceiling();
+    }
   }
 
   std::string toString() const;

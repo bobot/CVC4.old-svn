@@ -19,8 +19,10 @@
 #include "expr/expr.h"
 #include "expr/node.h"
 #include "expr/expr_manager_scope.h"
+#include "expr/variable_type_map.h"
 #include "util/Assert.h"
 
+#include <vector>
 #include <iterator>
 #include <utility>
 
@@ -30,7 +32,7 @@ ${includes}
 // compiler directs the user to the template file instead of the
 // generated one.  We don't want the user to modify the generated one,
 // since it'll get overwritten on a later build.
-#line 34 "${template}"
+#line 36 "${template}"
 
 using namespace CVC4::kind;
 using namespace std;
@@ -56,31 +58,28 @@ std::ostream& operator<<(std::ostream& out, const Expr& e) {
   return out << e.getNode();
 }
 
-TypeCheckingException::TypeCheckingException(const TypeCheckingException& t)
-: Exception(t.d_msg), d_expr(new Expr(t.getExpression()))
-  {}
+TypeCheckingException::TypeCheckingException(const TypeCheckingException& t) throw() :
+  Exception(t.d_msg), d_expr(new Expr(t.getExpression())) {
+}
 
-
-TypeCheckingException::TypeCheckingException(const Expr& expr, std::string message)
-: Exception(message), d_expr(new Expr(expr))
-{
+TypeCheckingException::TypeCheckingException(const Expr& expr, std::string message) throw() :
+  Exception(message), d_expr(new Expr(expr)) {
 }
 
 TypeCheckingException::TypeCheckingException(ExprManager* em,
-                                             const TypeCheckingExceptionPrivate* exc)
-: Exception(exc->getMessage()), d_expr(new Expr(em, new Node(exc->getNode())))
-{
+                                             const TypeCheckingExceptionPrivate* exc) throw() :
+  Exception(exc->getMessage()), d_expr(new Expr(em, new Node(exc->getNode()))) {
 }
 
-TypeCheckingException::~TypeCheckingException() throw () {
+TypeCheckingException::~TypeCheckingException() throw() {
   delete d_expr;
 }
 
-void TypeCheckingException::toStream(std::ostream& os) const {
+void TypeCheckingException::toStream(std::ostream& os) const throw() {
   os << "Error type-checking " << d_expr << ": " << d_msg << endl << *d_expr;
 }
 
-Expr TypeCheckingException::getExpression() const {
+Expr TypeCheckingException::getExpression() const throw() {
   return *d_expr;
 }
 
@@ -106,6 +105,72 @@ Expr::~Expr() {
 
 ExprManager* Expr::getExprManager() const {
   return d_exprManager;
+}
+
+namespace expr {
+
+static Node exportConstant(TNode n, NodeManager* to);
+
+Node exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap) {
+  if(n.getMetaKind() == kind::metakind::CONSTANT) {
+    return exportConstant(n, NodeManager::fromExprManager(to));
+  } else if(n.getMetaKind() == kind::metakind::VARIABLE) {
+    Expr from_e(from, new Node(n));
+    Expr& to_e = vmap.d_typeMap[from_e];
+    if(! to_e.isNull()) {
+Debug("export") << "+ mapped `" << from_e << "' to `" << to_e << "'" << std::endl;
+      return to_e.getNode();
+    } else {
+      // construct new variable in other manager:
+      // to_e is a ref, so this inserts from_e -> to_e
+      std::string name;
+      Type type = from->exportType(from_e.getType(), to, vmap);
+      if(Node::fromExpr(from_e).getAttribute(VarNameAttr(), name)) {
+        to_e = to->mkVar(name, type);// FIXME thread safety
+Debug("export") << "+ exported var `" << from_e << "'[" << from_e.getId() << "] with name `" << name << "' and type `" << from_e.getType() << "' to `" << to_e << "'[" << to_e.getId() << "] with type `" << type << "'" << std::endl;
+      } else {
+        to_e = to->mkVar(type);// FIXME thread safety
+Debug("export") << "+ exported unnamed var `" << from_e << "' with type `" << from_e.getType() << "' to `" << to_e << "' with type `" << type << "'" << std::endl;
+      }
+      uint64_t to_int = (uint64_t)(to_e.getNode().d_nv);
+      uint64_t from_int = (uint64_t)(from_e.getNode().d_nv);
+      vmap.d_from[to_int] = from_int;
+      vmap.d_to[from_int] = to_int;
+      vmap.d_typeMap[to_e] = from_e;// insert other direction too
+      return Node::fromExpr(to_e);
+    }
+  } else {
+    std::vector<Node> children;
+Debug("export") << "n: " << n << std::endl;
+    if(n.getMetaKind() == kind::metakind::PARAMETERIZED) {
+Debug("export") << "+ parameterized, op is " << n.getOperator() << std::endl;
+      children.reserve(n.getNumChildren() + 1);
+      children.push_back(exportInternal(n.getOperator(), from, to, vmap));
+    } else {
+      children.reserve(n.getNumChildren());
+    }
+    for(TNode::iterator i = n.begin(), i_end = n.end(); i != i_end; ++i) {
+Debug("export") << "+ child: " << *i << std::endl;
+      children.push_back(exportInternal(*i, from, to, vmap));
+    }
+    if(Debug.isOn("export")) {
+      ExprManagerScope ems(*to);
+      Debug("export") << "children for export from " << n << std::endl;
+      for(std::vector<Node>::iterator i = children.begin(), i_end = children.end(); i != i_end; ++i) {
+        Debug("export") << "  child: " << *i << std::endl;
+      }
+    }
+    return NodeManager::fromExprManager(to)->mkNode(n.getKind(), children);// FIXME thread safety
+  }
+}/* exportInternal() */
+
+}/* CVC4::expr namespace */
+
+Expr Expr::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  Assert(d_exprManager != exprManager,
+         "No sense in cloning an Expr in the same ExprManager");
+  ExprManagerScope ems(*this);
+  return Expr(exprManager, new Node(expr::exportInternal(*d_node, d_exprManager, exprManager, variableMap)));
 }
 
 Expr& Expr::operator=(const Expr& e) {
@@ -209,6 +274,7 @@ Expr Expr::getOperator() const {
 Type Expr::getType(bool check) const throw (TypeCheckingException) {
   ExprManagerScope ems(*this);
   Assert(d_node != NULL, "Unexpected NULL expression pointer!");
+  CheckArgument(!d_node->isNull(), this, "Can't get type of null expression!");
   return d_exprManager->getType(*this, check);
 }
 
@@ -451,4 +517,16 @@ void Expr::debugPrint() {
 
 ${getConst_implementations}
 
+namespace expr {
+
+static Node exportConstant(TNode n, NodeManager* to) {
+  Assert(n.getMetaKind() == kind::metakind::CONSTANT);
+  switch(n.getKind()) {
+${exportConstant_cases}
+
+  default: Unhandled(n.getKind());
+  }
+}/* exportConstant() */
+
+}/* CVC4::expr namespace */
 }/* CVC4 namespace */

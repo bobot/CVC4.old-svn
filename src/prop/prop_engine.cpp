@@ -73,7 +73,7 @@ PropEngine::PropEngine(TheoryEngine* te, Context* context) :
   d_satSolver = new SatSolver(this, d_theoryEngine, d_context);
 
   theory::Registrar registrar(d_theoryEngine);
-  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, registrar);
+  d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, registrar, Options::current()->threads > 1);
 
   d_satSolver->setCnfStream(d_cnfStream);
 }
@@ -173,6 +173,8 @@ Result PropEngine::checkSat(unsigned long& millis, unsigned long& resource) {
 
 Node PropEngine::getValue(TNode node) const {
   Assert(node.getType().isBoolean());
+  Assert(d_cnfStream->hasLiteral(node));
+
   SatLiteral lit = d_cnfStream->getLiteral(node);
 
   SatLiteralValue v = d_satSolver->value(lit);
@@ -196,6 +198,8 @@ bool PropEngine::isTranslatedSatLiteral(TNode node) const {
 
 bool PropEngine::hasValue(TNode node, bool& value) const {
   Assert(node.getType().isBoolean());
+  Assert(d_cnfStream->hasLiteral(node));
+
   SatLiteral lit = d_cnfStream->getLiteral(node);
 
   SatLiteralValue v = d_satSolver->value(lit);

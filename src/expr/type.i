@@ -18,6 +18,7 @@
 %rename(toIntegerType) CVC4::Type::operator IntegerType() const;
 %rename(toRealType) CVC4::Type::operator RealType() const;
 %rename(toPseudobooleanType) CVC4::Type::operator PseudobooleanType() const;
+%rename(toStringType) CVC4::Type::operator StringType() const;
 %rename(toBitVectorType) CVC4::Type::operator BitVectorType() const;
 %rename(toFunctionType) CVC4::Type::operator FunctionType() const;
 %rename(toTupleType) CVC4::Type::operator TupleType() const;
@@ -29,5 +30,11 @@
 %rename(toSortType) CVC4::Type::operator SortType() const;
 %rename(toSortConstructorType) CVC4::Type::operator SortConstructorType() const;
 %rename(toKindType) CVC4::Type::operator KindType() const;
+
+namespace CVC4 {
+  namespace expr {
+    %ignore exportTypeInternal;
+  }/* CVC4::expr namespace */
+}/* CVC4 namespace */
 
 %include "expr/type.h"

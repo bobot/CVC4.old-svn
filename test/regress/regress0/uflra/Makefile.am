@@ -1,7 +1,8 @@
+BINARY = cvc4
 if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression --proof @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../../run_regression --proof @top_builddir@/src/main/$(BINARY)
 else
-TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/$(BINARY)
 endif
 
 MAKEFLAGS = -k
@@ -16,6 +17,7 @@ SMT_TESTS = \
 	simple.02.cvc \
 	simple.03.cvc \
 	simple.04.cvc \
+	bug293.cvc \
 	pb_real_10_0100_10_10.smt \
 	pb_real_10_0100_10_11.smt \
 	pb_real_10_0100_10_15.smt \

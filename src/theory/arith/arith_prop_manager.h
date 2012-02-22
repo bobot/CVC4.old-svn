@@ -31,7 +31,7 @@
 #include "context/cdlist.h"
 #include "context/cdmap.h"
 #include "context/cdo.h"
-
+#include "theory/rewriter.h"
 #include "util/stats.h"
 
 namespace CVC4 {
@@ -39,36 +39,66 @@ namespace theory {
 namespace arith {
 
 class PropManager {
-private:
-  context::CDList<TNode> d_propagated;
-  context::CDO<uint32_t> d_propagatedPos;
-  typedef context::CDMap<TNode, TNode, TNodeHashFunction> ExplainMap;
+public:
+  struct PropUnit {
+    // consequent <= antecedent
+    // i.e. the antecedent is the explanation of the consequent.
+    Node consequent;
+    Node antecedent;
+    bool flag;
+    PropUnit(Node c, Node a, bool f) :
+      consequent(c), antecedent(a), flag(f)
+    {}
+  };
 
+private:
+  context::CDList<PropUnit> d_propagated;
+  context::CDO<uint32_t> d_propagatedPos;
+
+  /* This maps the node a theory engine will request on an explain call to
+   * to its corresponding PropUnit.
+   * This is node is potentially both the consequent or Rewriter::rewrite(consequent).
+   */
+  typedef context::CDMap<Node, size_t, NodeHashFunction> ExplainMap;
   ExplainMap d_explanationMap;
 
-  context::CDList<Node> d_reasons;
+  size_t getIndex(TNode n) const {
+    Assert(isPropagated(n));
+    return (*(d_explanationMap.find(n))).second;
+  }
 
 public:
 
   PropManager(context::Context* c):
     d_propagated(c),
     d_propagatedPos(c, 0),
-    d_explanationMap(c),
-    d_reasons(c)
+    d_explanationMap(c)
   { }
+
+  const PropUnit& getUnit(TNode n) const {
+    return d_propagated[getIndex(n)];
+  }
 
   bool isPropagated(TNode n) const {
     return d_explanationMap.find(n) != d_explanationMap.end();
   }
 
-  void propagate(TNode n, Node reason) {
+  bool isFlagged(TNode n) const {
+    return getUnit(n).flag;
+  }
+
+  void propagate(TNode n, Node reason, bool flag) {
     Assert(!isPropagated(n));
-    Assert(reason.getKind() == kind::AND);
 
-    d_explanationMap.insert(n, reason);
-
-    d_reasons.push_back(reason);
-    d_propagated.push_back(n);
+    if(flag){
+      Node rewritten =  Rewriter::rewrite(n);
+      d_explanationMap.insert(rewritten, d_propagated.size());
+    }else{
+      //If !flag, then the rewriter is idempotent on n.
+      Assert(Rewriter::rewrite(n) == n);
+    }
+    d_explanationMap.insert(n, d_propagated.size());
+    d_propagated.push_back(PropUnit(n, reason, flag));
 
     Debug("ArithPropManager") << n  << std::endl << "<="<< reason<< std::endl;
   }
@@ -77,17 +107,15 @@ public:
     return d_propagatedPos < d_propagated.size();
   }
 
-  TNode getPropagation() {
+  const PropUnit& getNextPropagation() {
     Assert(hasMorePropagations());
-    TNode prop = d_propagated[d_propagatedPos];
+    const PropUnit& prop = d_propagated[d_propagatedPos];
     d_propagatedPos = d_propagatedPos + 1;
     return prop;
   }
 
   TNode explain(TNode n) const {
-    Assert(isPropagated(n));
-    ExplainMap::iterator p = d_explanationMap.find(n);
-    return (*p).second;
+    return getUnit(n).antecedent;
   }
 
 };/* class PropManager */

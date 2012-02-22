@@ -27,6 +27,7 @@
 #include <getopt.h>
 
 #include "expr/expr.h"
+#include "expr/command.h"
 #include "util/configuration.h"
 #include "util/exception.h"
 #include "util/language.h"
@@ -63,6 +64,9 @@ Options::Options() :
   verbosity(0),
   inputLanguage(language::input::LANG_AUTO),
   outputLanguage(language::output::LANG_AUTO),
+  help(false),
+  version(false),
+  languageHelp(false),
   parseOnly(false),
   preprocessOnly(false),
   semanticChecks(DO_SEMANTIC_CHECKS_BY_DEFAULT),
@@ -70,6 +74,7 @@ Options::Options() :
   memoryMap(false),
   strictParsing(false),
   lazyDefinitionExpansion(false),
+  printWinner(false),
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
   doStaticLearning(true),
   interactive(false),
@@ -92,10 +97,23 @@ Options::Options() :
   arithPropagation(true),
   satRandomFreq(0.0),
   satRandomSeed(91648253),// Minisat's default value
+  satVarDecay(0.95),
+  satClauseDecay(0.999),
+  satRestartFirst(25),
+  satRestartInc(3.0),
   pivotRule(MINIMUM),
   arithPivotThreshold(16),
   arithPropagateMaxLength(16),
-  ufSymmetryBreaker(true)
+  ufSymmetryBreaker(false),
+  ufSymmetryBreakerSetByUser(false),
+  dioSolver(true),
+  lemmaOutputChannel(NULL),
+  lemmaInputChannel(NULL),
+  threads(2),// default should be 1 probably, but say 2 for now
+  threadArgv(),
+  thread_id(-1),
+  separateOutput(false),
+  sharingFilterByLength(-1)
 {
 }
 
@@ -118,6 +136,8 @@ Most commonly-used CVC4 options:\n\
    --no-interactive       force non-interactive mode\n\
    --produce-models | -m  support the get-value command\n\
    --produce-assignments  support the get-assignment command\n\
+   --print-success        print the \"success\" output required of SMT-LIBv2\n\
+   --smtlib2              SMT-LIBv2 conformance mode (implies other options)\n\
    --proof                turn on proof generation\n\
    --incremental | -i     enable incremental solving\n\
    --tlimit=MS            enable time limiting (give milliseconds)\n\
@@ -136,6 +156,7 @@ Additional CVC4 options:\n\
    --no-type-checking     never type check expressions\n\
    --no-checking          disable ALL semantic checks, including type checks\n\
    --no-theory-registration disable theory reg (not safe for some theories)\n\
+   --print-winner         enable printing the winning thread (pcvc4 only)\n\
    --trace | -t           trace something (e.g. -t pushpop), can repeat\n\
    --debug | -d           debug something (e.g. -d arith), can repeat\n\
    --show-debug-tags      show all avalable tags for debugging\n\
@@ -152,10 +173,18 @@ Additional CVC4 options:\n\
    --prop-row-length=N    sets the maximum row length to be used in propagation\n\
    --random-freq=P        sets the frequency of random decisions in the sat solver(P=0.0 by default)\n\
    --random-seed=S        sets the random seed for the sat solver\n\
+   --restart-int-base=I   sets the base restart interval for the sat solver (I=25 by default)\n\
+   --restart-int-inc=F    sets the restart interval increase factor for the sat solver (F=3.0 by default)\n\
    --disable-variable-removal enable permanent removal of variables in arithmetic (UNSAFE! experts only)\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
-   --disable-symmetry-breaker turns off UF symmetry breaker (Deharbe et al., CADE 2011)\n\
+   --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
+   --disable-symmetry-breaker turns off UF symmetry breaker\n\
+   --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
+   --threads=N            sets the number of solver threads\n\
+   --threadN=string       configures thread N (0..#threads-1)\n\
+   --filter-lemma-length=N don't share lemmas strictly longer than N\n\
 ";
+
 
 #warning "Change CL options as --disable-variable-removal cannot do anything currently."
 
@@ -306,6 +335,8 @@ enum OptionValue {
   INTERACTIVE,
   NO_INTERACTIVE,
   PRODUCE_ASSIGNMENTS,
+  PRINT_SUCCESS,
+  SMTLIB2,
   PROOF,
   NO_TYPE_CHECKING,
   LAZY_TYPE_CHECKING,
@@ -313,13 +344,21 @@ enum OptionValue {
   REPLAY,
   REPLAY_LOG,
   PIVOT_RULE,
+  PRINT_WINNER,
   RANDOM_FREQUENCY,
   RANDOM_SEED,
+  SAT_RESTART_FIRST,
+  SAT_RESTART_INC,
   ARITHMETIC_VARIABLE_REMOVAL,
   ARITHMETIC_PROPAGATION,
   ARITHMETIC_PIVOT_THRESHOLD,
   ARITHMETIC_PROP_MAX_LENGTH,
+  ARITHMETIC_DIO_SOLVER,
+  ENABLE_SYMMETRY_BREAKER,
   DISABLE_SYMMETRY_BREAKER,
+  PARALLEL_THREADS,
+  PARALLEL_SEPARATE_OUTPUT,
+  PORTFOLIO_FILTER_LENGTH,
   TIME_LIMIT,
   TIME_LIMIT_PER,
   RESOURCE_LIMIT,
@@ -384,6 +423,8 @@ static struct option cmdlineOptions[] = {
   { "no-interactive", no_argument   , NULL, NO_INTERACTIVE },
   { "produce-models", no_argument   , NULL, 'm' },
   { "produce-assignments", no_argument, NULL, PRODUCE_ASSIGNMENTS },
+  { "print-success", no_argument, NULL, PRINT_SUCCESS },
+  { "smtlib2", no_argument, NULL, SMTLIB2 },
   { "proof", no_argument, NULL, PROOF },
   { "no-type-checking", no_argument , NULL, NO_TYPE_CHECKING },
   { "lazy-type-checking", no_argument, NULL, LAZY_TYPE_CHECKING },
@@ -396,9 +437,17 @@ static struct option cmdlineOptions[] = {
   { "prop-row-length" , required_argument, NULL, ARITHMETIC_PROP_MAX_LENGTH  },
   { "random-freq" , required_argument, NULL, RANDOM_FREQUENCY  },
   { "random-seed" , required_argument, NULL, RANDOM_SEED  },
+  { "restart-int-base", required_argument, NULL, SAT_RESTART_FIRST },
+  { "restart-int-inc", required_argument, NULL, SAT_RESTART_INC },
+  { "print-winner", no_argument     , NULL, PRINT_WINNER  },
   { "disable-variable-removal", no_argument, NULL, ARITHMETIC_VARIABLE_REMOVAL },
   { "disable-arithmetic-propagation", no_argument, NULL, ARITHMETIC_PROPAGATION },
+  { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
+  { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
+  { "threads", required_argument, NULL, PARALLEL_THREADS },
+  { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
+  { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
   { "tlimit"     , required_argument, NULL, TIME_LIMIT  },
   { "tlimit-per" , required_argument, NULL, TIME_LIMIT_PER },
   { "rlimit"     , required_argument, NULL, RESOURCE_LIMIT       },
@@ -412,6 +461,13 @@ int Options::parseOptions(int argc, char* argv[])
 throw(OptionException) {
   const char *progName = argv[0];
   int c;
+
+  // Reset getopt(), in the case of multiple calls.
+  // This can be = 1 in newer GNU getopt, but older (< 2007) require = 0.
+  optind = 0;
+#if HAVE_DECL_OPTRESET
+  optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
+#endif /* HAVE_DECL_OPTRESET */
 
   // find the base name of the program
   const char *x = strrchr(progName, '/');
@@ -580,6 +636,10 @@ throw(OptionException) {
       memoryMap = true;
       break;
 
+    case PRINT_WINNER:
+      printWinner = true;
+      break;
+
     case STRICT_PARSING:
       strictParsing = true;
       break;
@@ -597,14 +657,12 @@ throw(OptionException) {
       break;
 
     case PRINT_EXPR_TYPES:
-      {
-        Debug.getStream() << Expr::printtypes(true);
-        Trace.getStream() << Expr::printtypes(true);
-        Notice.getStream() << Expr::printtypes(true);
-        Chat.getStream() << Expr::printtypes(true);
-        Message.getStream() << Expr::printtypes(true);
-        Warning.getStream() << Expr::printtypes(true);
-      }
+      Debug.getStream() << Expr::printtypes(true);
+      Trace.getStream() << Expr::printtypes(true);
+      Notice.getStream() << Expr::printtypes(true);
+      Chat.getStream() << Expr::printtypes(true);
+      Message.getStream() << Expr::printtypes(true);
+      Warning.getStream() << Expr::printtypes(true);
       break;
 
     case LAZY_DEFINITION_EXPANSION:
@@ -648,7 +706,27 @@ throw(OptionException) {
     case PRODUCE_ASSIGNMENTS:
       produceAssignments = true;
       break;
-      
+
+    case SMTLIB2: // smtlib v2 compliance mode
+      inputLanguage = language::input::LANG_SMTLIB_V2;
+      outputLanguage = language::output::LANG_SMTLIB_V2;
+      strictParsing = true;
+      // make sure entire expressions are printed on all the non-debug, non-trace streams
+      Notice.getStream() << Expr::setdepth(-1);
+      Chat.getStream() << Expr::setdepth(-1);
+      Message.getStream() << Expr::setdepth(-1);
+      Warning.getStream() << Expr::setdepth(-1);
+      /* intentionally fall through */
+
+    case PRINT_SUCCESS:
+      Debug.getStream() << Command::printsuccess(true);
+      Trace.getStream() << Command::printsuccess(true);
+      Notice.getStream() << Command::printsuccess(true);
+      Chat.getStream() << Command::printsuccess(true);
+      Message.getStream() << Command::printsuccess(true);
+      Warning.getStream() << Command::printsuccess(true);
+      break;
+
     case PROOF:
 #ifdef CVC4_PROOF
       proof = true;
@@ -713,8 +791,17 @@ throw(OptionException) {
       arithPropagation = false;
       break;
 
+    case ARITHMETIC_DIO_SOLVER:
+      dioSolver = false;
+      break;
+
+    case ENABLE_SYMMETRY_BREAKER:
+      ufSymmetryBreaker = true;
+      ufSymmetryBreakerSetByUser = true;
+      break;
     case DISABLE_SYMMETRY_BREAKER:
       ufSymmetryBreaker = false;
+      ufSymmetryBreakerSetByUser = true;
       break;
 
     case TIME_LIMIT:
@@ -763,6 +850,26 @@ throw(OptionException) {
       if(! (0.0 <= satRandomFreq && satRandomFreq <= 1.0)){
         throw OptionException(string("--random-freq: `") +
                               optarg + "' is not between 0.0 and 1.0.");
+      }
+      break;
+      
+    case SAT_RESTART_FIRST:
+      {
+        int i = atoi(optarg);
+        if(i < 1) {
+          throw OptionException("--restart-int-base requires a number bigger than 1");
+        }
+        satRestartFirst = i;
+        break;
+      }
+      
+    case SAT_RESTART_INC:
+      {
+        int i = atoi(optarg);
+        if(i < 1) {
+          throw OptionException("--restart-int-inc requires a number bigger than 1.0");
+        }
+        satRestartInc = i;
       }
       break;
 
@@ -863,11 +970,40 @@ throw(OptionException) {
       printf("tls        : %s\n", Configuration::isBuiltWithTlsSupport() ? "yes" : "no");
       exit(0);
 
+    case PARALLEL_THREADS:
+      threads = atoi(optarg);
+      break;
+
+    case PARALLEL_SEPARATE_OUTPUT:
+      separateOutput = true;
+      break;
+
+    case PORTFOLIO_FILTER_LENGTH:
+      sharingFilterByLength = atoi(optarg);
+      break; 
+
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");
 
     case '?':
     default:
+      if(optopt == 0 &&
+         !strncmp(argv[optind - 1], "--thread", 8) &&
+         strlen(argv[optind - 1]) > 8 &&
+         isdigit(argv[optind - 1][8])) {
+        int tnum = atoi(argv[optind - 1] + 8);
+        threadArgv.resize(tnum + 1);
+        if(threadArgv[tnum] != "") {
+          threadArgv[tnum] += " ";
+        }
+        const char* p = strchr(argv[optind - 1] + 9, '=');
+        if(p == NULL) { // e.g., we have --thread0 "foo"
+          threadArgv[tnum] += argv[optind++];
+        } else { // e.g., we have --thread0="foo"
+          threadArgv[tnum] += p + 1;
+        }
+        break;
+      }
       throw OptionException(string("can't understand option `") + argv[optind - 1] + "'");
     }
   }

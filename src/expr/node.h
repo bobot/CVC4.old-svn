@@ -49,6 +49,12 @@ namespace CVC4 {
 class TypeNode;
 class NodeManager;
 
+namespace expr {
+  namespace pickle {
+    class PicklerPrivate;
+  }/* CVC4::expr::pickle namespace */
+}/* CVC4::expr namespace */
+
 template <bool ref_count>
 class NodeTemplate;
 
@@ -65,7 +71,7 @@ private:
 
 protected:
 
-  TypeCheckingExceptionPrivate() : Exception() {}
+  TypeCheckingExceptionPrivate() throw() : Exception() {}
 
 public:
 
@@ -74,7 +80,7 @@ public:
    * @param node the problematic node
    * @param message the message explaining the failure
    */
-  TypeCheckingExceptionPrivate(NodeTemplate<false> node, std::string message);
+  TypeCheckingExceptionPrivate(NodeTemplate<false> node, std::string message) throw();
 
   /** Destructor */
   ~TypeCheckingExceptionPrivate() throw ();
@@ -83,14 +89,14 @@ public:
    * Get the Node that caused the type-checking to fail.
    * @return the node
    */
-  NodeTemplate<true> getNode() const;
+  NodeTemplate<true> getNode() const throw();
 
   /**
    * Returns the message corresponding to the type-checking failure.
    * We prefer toStream() to toString() because that keeps the expr-depth
    * and expr-language settings present in the stream.
    */
-  void toStream(std::ostream& out) const;
+  void toStream(std::ostream& out) const throw();
 
 };/* class TypeCheckingExceptionPrivate */
 
@@ -177,6 +183,9 @@ class NodeTemplate {
    */
   friend class expr::NodeValue;
 
+  friend class expr::pickle::PicklerPrivate;
+  friend Node expr::exportInternal(TNode n, ExprManager* from, ExprManager* to, ExprManagerMapCollection& vmap);
+
   /** A convenient null-valued encapsulated pointer */
   static NodeTemplate s_null;
 
@@ -200,6 +209,7 @@ class NodeTemplate {
 
   friend class NodeTemplate<true>;
   friend class NodeTemplate<false>;
+  friend class TypeNode;
   friend class NodeManager;
 
   template <unsigned nchild_thresh>

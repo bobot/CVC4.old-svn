@@ -1,9 +1,10 @@
 SUBDIRS = . arith
 
+BINARY = cvc4
 if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../run_regression --proof @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../run_regression --proof @top_builddir@/src/main/$(BINARY)
 else
-TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/$(BINARY)
 endif
 
 MAKEFLAGS = -k
@@ -17,7 +18,13 @@ TESTS =	bug136.smt \
 	hole7.cvc \
 	hole8.cvc \
 	instance_1444.smt \
-	fuzz_2.smt
+	fuzz_2.smt \
+	hash_sat_10_09.smt2 \
+	hash_sat_07_17.smt2 \
+	ooo.tag10.smt2 \
+	hash_sat_06_19.smt2 \
+	hash_sat_09_09.smt2 \
+	ooo.rf6.smt2
 
 EXTRA_DIST = $(TESTS)
 

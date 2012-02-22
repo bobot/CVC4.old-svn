@@ -133,6 +133,33 @@ void TheoryEngine::check(Theory::Effort effort) {
 
       Debug("theory") << "TheoryEngine::check(" << effort << "): running check" << std::endl;
 
+      if (Debug.isOn("theory::assertions")) {
+        for (unsigned theoryId = 0; theoryId < THEORY_LAST; ++ theoryId) {
+          Theory* theory = d_theoryTable[theoryId];
+          if (theory && Theory::setContains((TheoryId)theoryId, d_activeTheories)) {
+            Debug("theory::assertions") << "--------------------------------------------" << std::endl;
+            Debug("theory::assertions") << "Assertions of " << theory->getId() << ": " << std::endl;
+            context::CDList<Assertion>::const_iterator it = theory->facts_begin(), it_end = theory->facts_end();
+            for (unsigned i = 0; it != it_end; ++ it, ++i) {
+                if ((*it).isPreregistered) {
+                  Debug("theory::assertions") << "[" << i << "]: ";
+                } else {
+                  Debug("theory::assertions") << "(" << i << "): ";
+                }
+                Debug("theory::assertions") << (*it).assertion << endl;
+            }
+
+            if (d_sharedTermsExist) {
+              Debug("theory::assertions") << "Shared terms of " << theory->getId() << ": " << std::endl;
+              context::CDList<TNode>::const_iterator it = theory->shared_terms_begin(), it_end = theory->shared_terms_end();
+              for (unsigned i = 0; it != it_end; ++ it, ++i) {
+                  Debug("theory::assertions") << "[" << i << "]: " << (*it) << endl;
+              }
+            }
+          }
+        }
+      }
+
       // Do the checking
       CVC4_FOR_EACH_THEORY;
 
@@ -193,11 +220,15 @@ void TheoryEngine::assertSharedEqualities() {
   for (unsigned i = 0; i < d_propagatedEqualities.size(); ++ i) {
     const SharedEquality& eq = d_propagatedEqualities[i];
     // Check if the theory already got this one
-    // TODO: the real shared (non-sat) equalities
     if (d_sharedAssertions.find(eq.toAssert) == d_sharedAssertions.end()) {
-      Debug("sharing") << "TheoryEngine::assertSharedEqualities(): asserting " << eq.toAssert.node << " to " << eq.toAssert.theory << " from " << eq.toExplain.theory << std::endl;
+      Debug("sharing") << "TheoryEngine::assertSharedEqualities(): asserting " << eq.toAssert.node << " to " << eq.toAssert.theory << std::endl;
+      Debug("sharing") << "TheoryEngine::assertSharedEqualities(): orignal " << eq.toExplain.node << " from " << eq.toExplain.theory << std::endl;
       d_sharedAssertions[eq.toAssert] = eq.toExplain;
-      theoryOf(eq.toAssert.theory)->assertFact(eq.toAssert.node, false);
+      if (eq.toAssert.theory == theory::THEORY_LAST) {
+        d_propagatedLiterals.push_back(eq.toAssert.node);
+      } else {
+        theoryOf(eq.toAssert.theory)->assertFact(eq.toAssert.node, false);
+      }
     }
   }
   // Clear the equalities
@@ -230,11 +261,18 @@ void TheoryEngine::combineTheories() {
 
     Node equality = carePair.a.eqNode(carePair.b);
     Node normalizedEquality = Rewriter::rewrite(equality);
+	bool isTrivial = normalizedEquality.getKind() == kind::CONST_BOOLEAN;
+
 
     // If the node has a literal, it has been asserted so we should just check it
     bool value;
-    if (d_propEngine->isSatLiteral(normalizedEquality) && d_propEngine->hasValue(normalizedEquality, value)) {
-      Debug("sharing") << "TheoryEngine::combineTheories(): has a literal " << std::endl;
+    if (isTrivial || (d_propEngine->isSatLiteral(normalizedEquality) && d_propEngine->hasValue(normalizedEquality, value))) {
+      Debug("sharing") << "TheoryEngine::combineTheories(): has a literal or is trivial" << std::endl;
+
+      if (isTrivial) {
+	// if the equality is trivial, we assert it back to the theory saying the sat solver should explain
+        value = normalizedEquality.getConst<bool>();
+      }
 
       // Normalize the equality to the theory that requested it
       Node toAssert = Rewriter::rewriteEquality(carePair.theory, equality);
@@ -370,7 +408,29 @@ bool TheoryEngine::presolve() {
   }
   // return whether we have a conflict
   return false;
-}
+}/* TheoryEngine::presolve() */
+
+void TheoryEngine::postsolve() {
+  // NOTE that we don't look at d_theoryIsActive[] here (for symmetry
+  // with presolve()).
+
+  try {
+    // Definition of the statement that is to be run by every theory
+#ifdef CVC4_FOR_EACH_THEORY_STATEMENT
+#undef CVC4_FOR_EACH_THEORY_STATEMENT
+#endif
+#define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
+    if (theory::TheoryTraits<THEORY>::hasPostsolve) { \
+      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->postsolve(); \
+      Assert(! d_inConflict, "conflict raised during postsolve()"); \
+    }
+
+    // Postsolve for each theory using the statement above
+    CVC4_FOR_EACH_THEORY;
+  } catch(const theory::Interrupted&) {
+    Trace("theory") << "TheoryEngine::postsolve() => interrupted" << endl;
+  }
+}/* TheoryEngine::postsolve() */
 
 
 void TheoryEngine::notifyRestart() {
@@ -425,9 +485,9 @@ void TheoryEngine::shutdown() {
 
 theory::Theory::SolveStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitutionOut) {
   TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
-  Trace("theory") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << endl;
+  Trace("theory::solve") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << endl;
   Theory::SolveStatus solveStatus = theoryOf(atom)->solve(literal, substitutionOut);
-  Trace("theory") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << endl;
+  Trace("theory::solve") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << endl;
   return solveStatus;
 }
 
@@ -441,7 +501,7 @@ struct preprocess_stack_element {
 
 Node TheoryEngine::preprocess(TNode assertion) {
 
-  Trace("theory") << "TheoryEngine::preprocess(" << assertion << ")" << endl;
+  Trace("theory::preprocess") << "TheoryEngine::preprocess(" << assertion << ")" << endl;
 
   // Do a topological sort of the subexpressions and substitute them
   vector<preprocess_stack_element> toVisit;
@@ -563,10 +623,18 @@ void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
     d_propagatedLiterals.push_back(literal);
   } else {
     // Otherwise it might be a shared-term (dis-)equality
-    Node normalizedEquality = Rewriter::rewrite(literal);
-    if (d_propEngine->isSatLiteral(normalizedEquality)) {
+    Node normalizedLiteral = Rewriter::rewrite(literal);
+    if (d_propEngine->isSatLiteral(normalizedLiteral)) {
       // If there is a literal, just enqueue it, same as above
-      d_propagatedLiterals.push_back(normalizedEquality);
+      bool value;
+      if (d_propEngine->hasValue(normalizedLiteral, value)) {
+        // if we are propagting something that already has a sat value we better be the same
+        Debug("theory") << "literal " << literal << " (" << normalizedLiteral << ") propagated by " << theory << " but already has a sat value " << (value ? "true" : "false") << std::endl;
+        Assert(value);
+      } else {
+        SharedEquality sharedEquality(normalizedLiteral, literal, theory, theory::THEORY_LAST);
+        d_propagatedEqualities.push_back(sharedEquality);
+      }
     }
     // Otherwise, we assert it to all interested theories
     Theory::Set lhsNotified = d_sharedTerms.getNotifiedTheories(atom[0]);
@@ -583,10 +651,14 @@ void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
         if (Theory::setContains(currentTheory, lhsNotified) && Theory::setContains(currentTheory, rhsNotified)) {
           // Normalize the equality
           Node equality = Rewriter::rewriteEquality(currentTheory, atom);
-          // The assertion
-          Node assertion = negated ? equality.notNode() : equality;
-          // Remember it to assert later
-          d_propagatedEqualities.push_back(SharedEquality(assertion, literal, theory, currentTheory));
+          if (equality.getKind() != kind::CONST_BOOLEAN) {
+            // The assertion
+            Node assertion = negated ? equality.notNode() : equality;
+            // Remember it to assert later
+            d_propagatedEqualities.push_back(SharedEquality(assertion, literal, theory, currentTheory));
+          } else {
+            Assert(negated || equality.getConst<bool>());
+          }
         }
       }
     }
@@ -607,16 +679,26 @@ Node TheoryEngine::getExplanation(TNode node)
   Node explanation;
 
   // The theory that has explaining to do
-  Theory* theory = theoryOf(atom);
+  Theory* theory;
+
+  //This is true if atom is a shared assertion
+  bool sharedAssertion = false;
+
+  SharedAssertionsMap::iterator find;
+  // "find" will have a value when sharedAssertion is true
   if (d_sharedTermsExist && atom.getKind() == kind::EQUAL) {
-    SharedAssertionsMap::iterator find = d_sharedAssertions.find(NodeTheoryPair(node, theory::THEORY_LAST));
-    if (find == d_sharedAssertions.end()) {
-      theory = theoryOf(atom);
-    }
+    find = d_sharedAssertions.find(NodeTheoryPair(node, theory::THEORY_LAST));
+    sharedAssertion = (find != d_sharedAssertions.end());
   }
 
   // Get the explanation
-  explanation = theory->explain(node);
+  if(sharedAssertion){
+    theory = theoryOf((*find).second.theory);
+    explanation = theory->explain((*find).second.node);
+  } else {
+    theory = theoryOf(atom);
+    explanation = theory->explain(node);
+  }
 
   // Explain any shared equalities that might be in the explanation
   if (d_sharedTermsExist) {
@@ -668,6 +750,8 @@ void TheoryEngine::explainEqualities(TheoryId theoryId, TNode literals, NodeBuil
       TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
       if (atom.getKind() == kind::EQUAL) {
         explainEquality(theoryId, literal, builder);
+      } else if(literal.getKind() == kind::AND){
+        explainEqualities(theoryId, literal, builder);
       } else {
         builder << literal;
       }
@@ -688,7 +772,7 @@ void TheoryEngine::explainEquality(TheoryId theoryId, TNode eqLiteral, NodeBuild
   SharedAssertionsMap::iterator find = d_sharedAssertions.find(NodeTheoryPair(eqLiteral, theoryId));
   if (find == d_sharedAssertions.end()) {
     // Not a shared assertion, just add it since it must be SAT literal
-    builder << eqLiteral;
+    builder << Rewriter::rewrite(eqLiteral);
   } else {
     TheoryId explainingTheory = (*find).second.theory;
     if (explainingTheory == theory::THEORY_LAST) {
@@ -701,4 +785,3 @@ void TheoryEngine::explainEquality(TheoryId theoryId, TNode eqLiteral, NodeBuild
     }
   }
 }
-
