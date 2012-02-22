@@ -291,6 +291,13 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
 
   const char *progName = argv[0];
 
+  // Reset getopt(), in the case of multiple calls to parseOptions().
+  // This can be = 1 in newer GNU getopt, but older (< 2007) require = 0.
+  optind = 0;
+#if HAVE_DECL_OPTRESET
+  optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
+#endif /* HAVE_DECL_OPTRESET */
+
   // find the base name of the program
   const char *x = strrchr(progName, '/');
   if(x != NULL) {
@@ -344,7 +351,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 348 "${template}"
+#line 355 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.
@@ -356,6 +363,25 @@ ${all_modules_option_handlers}
 
     case '?':
     default:
+      if(optopt == 0 &&
+         !strncmp(argv[optind - 1], "--thread", 8) &&
+         strlen(argv[optind - 1]) > 8 &&
+         isdigit(argv[optind - 1][8])) {
+        std::vector<std::string>& threadArgv = d_holder->threadArgv;
+        int tnum = atoi(argv[optind - 1] + 8);
+        threadArgv.resize(tnum + 1);
+        if(threadArgv[tnum] != "") {
+          threadArgv[tnum] += " ";
+        }
+        const char* p = strchr(argv[optind - 1] + 9, '=');
+        if(p == NULL) { // e.g., we have --thread0 "foo"
+          threadArgv[tnum] += argv[optind++];
+        } else { // e.g., we have --thread0="foo"
+          threadArgv[tnum] += p + 1;
+        }
+        break;
+      }
+
       // This can be a long or short option, and the way to get at the name of it is different.
       if(optopt == 0) { // was a long option
         throw OptionException(std::string("can't understand option `") + argv[optind - 1] + "'");

@@ -19,4 +19,22 @@ option - --show-debug-tags void :handler CVC4::main::showDebugTags :handler-incl
 option - --show-trace-tags void :handler CVC4::main::showTraceTags :handler-include "main/options_handlers.h"
  show all available tags for tracing
 
+# portfolio options
+option printWinner bool
+ enable printing the winning thread (pcvc4 only)
+option threads --threads=N unsigned :default 2
+ Total number of threads
+option - --threadN=string void
+ configures thread N (0..#threads-1)
+option threadArgv std::vector<std::string>
+#:includes <vector> <string>
+ Thread configuration (a string to be passed to parseOptions)
+option thread_id int :default -1
+ Thread ID, for internal use in case of multi-threaded run
+option separateOutput bool :default false
+ In multi-threaded setting print output of each thread at the
+ end of run, separated by a divider ("----").
+option sharingFilterByLength --filter-lemma-length=N int :default -1 :read-write
+ don't share lemmas strictly longer than N
+
 endmodule

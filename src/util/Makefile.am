@@ -48,6 +48,9 @@ libutil_la_SOURCES = \
 	stats.cpp \
 	dynamic_array.h \
 	language.h \
+	lemma_output_channel.h \
+	channel.h \
+	channel.cpp \
 	language.cpp \
 	ntuple.h \
 	recursion_breaker.h \
