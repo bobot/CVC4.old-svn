@@ -264,7 +264,12 @@ void DPLLMinisatSatSolver::initialize(context::Context* context, TheoryProxy* th
   // Setup the random decision parameters
   d_minisat->random_var_freq = Options::current()->satRandomFreq;
   d_minisat->random_seed = Options::current()->satRandomSeed;
-  
+  // Give access to all possible options in the sat solver
+  d_minisat->var_decay = Options::current()->satVarDecay;
+  d_minisat->clause_decay = Options::current()->satClauseDecay;
+  d_minisat->restart_first = Options::current()->satRestartFirst;
+  d_minisat->restart_inc = Options::current()->satRestartInc;
+
   d_statistics.init(d_minisat);
 }
 

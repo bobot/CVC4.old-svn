@@ -34,7 +34,7 @@ namespace builtin {
 class ApplyTypeRule {
   public:
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw (TypeCheckingExceptionPrivate) {
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
     TNode f = n.getOperator();
     TypeNode fType = f.getType(check);
     if( !fType.isFunction() && n.getNumChildren() > 0 ) {
@@ -72,7 +72,7 @@ class ApplyTypeRule {
 
 class EqualityTypeRule {
   public:
-  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) throw (TypeCheckingExceptionPrivate) {
+  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check) throw (TypeCheckingExceptionPrivate, AssertionException) {
     TypeNode booleanType = nodeManager->booleanType();
 
     if( check ) {
@@ -138,6 +138,22 @@ public:
   }
 };/* class StringConstantTypeRule */
 
+class SortProperties {
+//private:  //FIXME?
+//  static std::map< TypeNode, TNode > d_groundTerms;
+public:
+  inline static bool isWellFounded(TypeNode type) {
+    return true;
+  }
+  inline static Node mkGroundTerm(TypeNode type) {
+    Assert(type.getKind() == kind::SORT_TYPE);
+    //if( d_groundTerms.find( type )==d_groundTerms.end() ){
+    //  d_groundTerms[type] = NodeManager::currentNM()->mkVar( type );
+    //}
+    //return d_groundTerms[type];
+    return NodeManager::currentNM()->mkVar( type );
+  }
+};
 
 class FunctionProperties {
 public:

@@ -206,26 +206,6 @@ protected:
   }
 
   /**
-   * Provides access to the facts queue, primarily intended for theory
-   * debugging purposes.
-   *
-   * @return the iterator to the beginning of the fact queue
-   */
-  context::CDList<Assertion>::const_iterator facts_begin() const {
-    return d_facts.begin();
-  }
-
-  /**
-   * Provides access to the facts queue, primarily intended for theory
-   * debugging purposes.
-   *
-   * @return the iterator to the end of the fact queue
-   */
-  context::CDList<Assertion>::const_iterator facts_end() const {
-    return d_facts.end();
-  }
-
-  /**
    * The theory that owns the uninterpreted sort.
    */
   static TheoryId d_uninterpretedSortOwner;
@@ -306,7 +286,7 @@ public:
    * equality with one of these values (e.g. if STANDARD xxx) but
    * rather use range checks (or use the helper functions below).
    * Normally we call QUICK_CHECK or STANDARD; at the leaves we call
-   * with MAX_EFFORT.
+   * with FULL_EFFORT.
    */
   enum Effort {
     MIN_EFFORT = 0,
@@ -535,6 +515,18 @@ public:
   virtual void presolve() { }
 
   /**
+   * A Theory is called with postsolve exactly one time per user
+   * check-sat.  postsolve() is called after the query has completed
+   * (regardless of whether sat, unsat, or unknown), and after any
+   * model-querying related to the query has been performed.
+   * After this call, the theory will not get another check() or
+   * propagate() call until presolve() is called again.  A Theory
+   * cannot raise conflicts, add lemmas, or propagate literals during
+   * postsolve().
+   */
+  virtual void postsolve() { }
+
+  /**
    * Notification sent to the theory wheneven the search restarts.
    * Serves as a good time to do some clean-up work, and you can
    * assume you're at DL 0 for the purposes of Contexts.  This function
@@ -591,6 +583,46 @@ public:
     }
     ss << "]";
     return ss.str();
+  }
+
+  /**
+   * Provides access to the facts queue, primarily intended for theory
+   * debugging purposes.
+   *
+   * @return the iterator to the beginning of the fact queue
+   */
+  context::CDList<Assertion>::const_iterator facts_begin() const {
+    return d_facts.begin();
+  }
+
+  /**
+   * Provides access to the facts queue, primarily intended for theory
+   * debugging purposes.
+   *
+   * @return the iterator to the end of the fact queue
+   */
+  context::CDList<Assertion>::const_iterator facts_end() const {
+    return d_facts.end();
+  }
+
+  /**
+   * Provides access to the shared terms, primarily intended for theory
+   * debugging purposes.
+   *
+   * @return the iterator to the beginning of the shared terms list
+   */
+  context::CDList<TNode>::const_iterator shared_terms_begin() const {
+    return d_sharedTerms.begin();
+  }
+
+  /**
+   * Provides access to the facts queue, primarily intended for theory
+   * debugging purposes.
+   *
+   * @return the iterator to the end of the shared terms list
+   */
+  context::CDList<TNode>::const_iterator shared_terms_end() const {
+    return d_sharedTerms.end();
   }
 
 };/* class Theory */

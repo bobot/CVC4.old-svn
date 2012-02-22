@@ -41,13 +41,14 @@ EqualityNodeId EqualityEngine<NotifyClass>::newApplicationNode(TNode original, E
 
   // Get another id for this
   EqualityNodeId funId = newNode(original, true);
-    // The function application we're creating
+  FunctionApplication funOriginal(t1, t2);
+  // The function application we're creating
   EqualityNodeId t1ClassId = getEqualityNode(t1).getFind();
   EqualityNodeId t2ClassId = getEqualityNode(t2).getFind();
   FunctionApplication funNormalized(t1ClassId, t2ClassId);
 
-  // We add the normalized version, the term needs to be re-added on each backtrack
-  d_applications[funId] = funNormalized;
+  // We add the original version
+  d_applications[funId] = FunctionApplicationPair(funOriginal, funNormalized);
 
   // Add the lookup data, if it's not already there
   typename ApplicationIdsMap::iterator find = d_applicationLookup.find(funNormalized);
@@ -55,7 +56,7 @@ EqualityNodeId EqualityEngine<NotifyClass>::newApplicationNode(TNode original, E
     // When we backtrack, if the lookup is not there anymore, we'll add it again
     Debug("equality") << "EqualityEngine::newApplicationNode(" << original << ", " << t1 << ", " << t2 << "): no lookup, setting up" << std::endl;
     // Mark the normalization to the lookup
-    d_applicationLookup[funNormalized] = funId;
+    storeApplicationLookup(funNormalized, funId);
   } else {
     // If it's there, we need to merge these two
     Debug("equality") << "EqualityEngine::newApplicationNode(" << original << ", " << t1 << ", " << t2 << "): lookup exists, adding to queue" << std::endl;
@@ -86,7 +87,7 @@ EqualityNodeId EqualityEngine<NotifyClass>::newNode(TNode node, bool isApplicati
   // Add the node to it's position
   d_nodes.push_back(node);
   // Note if this is an application or not
-  d_applications.push_back(FunctionApplication());
+  d_applications.push_back(FunctionApplicationPair());
   // Add the trigger list for this node
   d_nodeTriggers.push_back(+null_trigger);
   // Add it to the equality graph
@@ -112,6 +113,7 @@ void EqualityEngine<NotifyClass>::addTerm(TNode t) {
 
   // If there already, we're done
   if (hasTerm(t)) {
+    Debug("equality") << "EqualityEngine::addTerm(" << t << "): already there" << std::endl;
     return;
   }
 
@@ -201,14 +203,14 @@ void EqualityEngine<NotifyClass>::addDisequality(TNode t1, TNode t2, TNode reaso
 template <typename NotifyClass>
 TNode EqualityEngine<NotifyClass>::getRepresentative(TNode t) const {
 
-  Debug("equality") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
+  Debug("equality::internal") << "EqualityEngine::getRepresentative(" << t << ")" << std::endl;
 
   Assert(hasTerm(t));
 
   // Both following commands are semantically const
   EqualityNodeId representativeId = getEqualityNode(t).getFind();
 
-  Debug("equality") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
+  Debug("equality::internal") << "EqualityEngine::getRepresentative(" << t << ") => " << d_nodes[representativeId] << std::endl;
 
   return d_nodes[representativeId];
 }
@@ -293,7 +295,7 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
       // Get the function application
       EqualityNodeId funId = useNode.getApplicationId();
       Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): " << currentId << " in " << d_nodes[funId] << std::endl;
-      const FunctionApplication& fun = d_applications[useNode.getApplicationId()];
+      const FunctionApplication& fun = d_applications[useNode.getApplicationId()].normalized;
       // Check if there is an application with find arguments
       EqualityNodeId aNormalized = getEqualityNode(fun.a).getFind();
       EqualityNodeId bNormalized = getEqualityNode(fun.b).getFind();
@@ -306,7 +308,7 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
         }
       } else {
         // There is no representative, so we can add one, we remove this when backtracking
-        d_applicationLookup[funNormalized] = funId;
+        storeApplicationLookup(funNormalized, funId);
       }
       // Go to the next one in the use list
       currentUseId = useNode.getNext();
@@ -346,40 +348,8 @@ void EqualityEngine<NotifyClass>::undoMerge(EqualityNode& class1, EqualityNode& 
   // Now unmerge the lists (same as merge)
   class1.merge<false>(class2);
 
-  // First undo the table lookup changes
-  Debug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << "): undoing lookup changes" << std::endl;
-  EqualityNodeId currentId = class2Id;
-  do {
-    // Get the current node
-    EqualityNode& currentNode = getEqualityNode(currentId);
-
-    // Go through the uselist and check for congruences
-    UseListNodeId currentUseId = currentNode.getUseList();
-    while (currentUseId != null_uselist_id) {
-      // Get the node of the use list
-      UseListNode& useNode = d_useListNodes[currentUseId];
-      // Get the function application
-      EqualityNodeId funId = useNode.getApplicationId();
-      const FunctionApplication& fun = d_applications[useNode.getApplicationId()];
-      // Get the application with find arguments
-      EqualityNodeId aNormalized = getEqualityNode(fun.a).getFind();
-      EqualityNodeId bNormalized = getEqualityNode(fun.b).getFind();
-      FunctionApplication funNormalized(aNormalized, bNormalized);
-      typename ApplicationIdsMap::iterator find = d_applicationLookup.find(funNormalized);
-      // If the id is the one we set, then we undo it
-      if (find != d_applicationLookup.end() && find->second == funId) {
-        d_applicationLookup.erase(find);
-      }
-      // Go to the next one in the use list
-      currentUseId = useNode.getNext();
-    }
-
-    // Move to the next node
-    currentId = currentNode.getNext();
-
-  } while (currentId != class2Id);
-
   // Update class2 representative information
+  EqualityNodeId currentId = class2Id;
   Debug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << "): undoing representative info" << std::endl;
   do {
     // Get the current node
@@ -401,42 +371,12 @@ void EqualityEngine<NotifyClass>::undoMerge(EqualityNode& class1, EqualityNode& 
 
   } while (currentId != class2Id);
 
-  // Now set any missing lookups and check for any congruences on backtrack
-  std::vector<MergeCandidate> possibleCongruences;
-  Debug("equality") << "EqualityEngine::undoMerge(" << class1.getFind() << "," << class2Id << "): checking for any unset lookups" << std::endl;
-  do {
-    // Get the current node
-    EqualityNode& currentNode = getEqualityNode(currentId);
-
-    // Go through the uselist and check for congruences
-    UseListNodeId currentUseId = currentNode.getUseList();
-    while (currentUseId != null_uselist_id) {
-      // Get the node of the use list
-      UseListNode& useNode = d_useListNodes[currentUseId];
-      // Get the function application
-      EqualityNodeId funId = useNode.getApplicationId();
-      const FunctionApplication& fun = d_applications[useNode.getApplicationId()];
-      // Get the application with find arguments
-      EqualityNodeId aNormalized = getEqualityNode(fun.a).getFind();
-      EqualityNodeId bNormalized = getEqualityNode(fun.b).getFind();
-      FunctionApplication funNormalized(aNormalized, bNormalized);
-      typename ApplicationIdsMap::iterator find = d_applicationLookup.find(funNormalized);
-      // If the id doesn't exist, we'll set it
-      if (find == d_applicationLookup.end()) {
-        d_applicationLookup[funNormalized] = funId;
-      }
-      // Go to the next one in the use list
-      currentUseId = useNode.getNext();
-    }
-
-    // Move to the next node
-    currentId = currentNode.getNext();
-
-  } while (currentId != class2Id);
 }
 
 template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::backtrack() {
+
+  Debug("equality::backtrack") << "backtracking" << std::endl;
 
   // If we need to backtrack then do it
   if (d_assertedEqualitiesCount < d_assertedEqualities.size()) {
@@ -488,6 +428,13 @@ void EqualityEngine<NotifyClass>::backtrack() {
     d_equalityTriggersOriginal.resize(d_equalityTriggersCount);
   }
 
+  if (d_applicationLookups.size() > d_applicationLookupsCount) {
+    for (int i = d_applicationLookups.size() - 1, i_end = (int) d_applicationLookupsCount; i >= i_end; -- i) {
+      d_applicationLookup.erase(d_applicationLookups[i]);
+    }
+    d_applicationLookups.resize(d_applicationLookupsCount);
+  }
+
   if (d_nodes.size() > d_nodesCount) {
     // Go down the nodes, check the application nodes and remove them from use-lists
     for(int i = d_nodes.size() - 1, i_end = (int)d_nodesCount; i >= i_end; -- i) {
@@ -495,10 +442,8 @@ void EqualityEngine<NotifyClass>::backtrack() {
       Debug("equality") << "EqualityEngine::backtrack(): removing node " << d_nodes[i] << std::endl;
       d_nodeIds.erase(d_nodes[i]);
 
-      const FunctionApplication& app = d_applications[i];
+      const FunctionApplication& app = d_applications[i].normalized;
       if (app.isApplication()) {
-        // Remove from the applications map
-        d_applicationLookup.erase(app);
         // Remove b from use-list
         getEqualityNode(app.b).removeTopFromUseList(d_useListNodes);
         // Remove a from use-list
@@ -649,8 +594,8 @@ void EqualityEngine<NotifyClass>::getExplanation(EqualityNodeId t1Id, EqualityNo
             if (reasonType == MERGED_THROUGH_CONGRUENCE) {
               // f(x1, x2) == f(y1, y2) because x1 = y1 and x2 = y2
               Debug("equality") << "EqualityEngine::getExplanation(): due to congruence, going deeper" << std::endl;
-              const FunctionApplication& f1 = d_applications[currentNode];
-              const FunctionApplication& f2 = d_applications[edgeNode];
+              const FunctionApplication& f1 = d_applications[currentNode].original;
+              const FunctionApplication& f2 = d_applications[edgeNode].original;
               Debug("equality") << push;
               getExplanation(f1.a, f2.a, equalities);
               getExplanation(f1.b, f2.b, equalities);
@@ -801,16 +746,16 @@ template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::debugPrintGraph() const {
   for (EqualityNodeId nodeId = 0; nodeId < d_nodes.size(); ++ nodeId) {
 
-    Debug("equality::internal") << d_nodes[nodeId] << " " << nodeId << "(" << getEqualityNode(nodeId).getFind() << "):";
+    Debug("equality::graph") << d_nodes[nodeId] << " " << nodeId << "(" << getEqualityNode(nodeId).getFind() << "):";
 
     EqualityEdgeId edgeId = d_equalityGraph[nodeId];
     while (edgeId != null_edge) {
       const EqualityEdge& edge = d_equalityEdges[edgeId];
-      Debug("equality::internal") << " " << d_nodes[edge.getNodeId()] << ":" << edge.getReason();
+      Debug("equality::graph") << " " << d_nodes[edge.getNodeId()] << ":" << edge.getReason();
       edgeId = edge.getNext();
     }
 
-    Debug("equality::internal") << std::endl;
+    Debug("equality::graph") << std::endl;
   }
 }
 
@@ -912,10 +857,21 @@ void EqualityEngine<NotifyClass>::addTriggerTerm(TNode t)
 }
 
 template <typename NotifyClass>
-bool  EqualityEngine<NotifyClass>::isTriggerTerm(TNode t) const {
+bool EqualityEngine<NotifyClass>::isTriggerTerm(TNode t) const {
   if (!hasTerm(t)) return false;
   EqualityNodeId classId = getEqualityNode(t).getFind();
   return d_nodeIndividualTrigger[classId] != +null_id;
+}
+
+template <typename NotifyClass>
+void EqualityEngine<NotifyClass>::storeApplicationLookup(FunctionApplication& funNormalized, EqualityNodeId funId) {
+  Assert(d_applicationLookup.find(funNormalized) == d_applicationLookup.end());
+  d_applicationLookup[funNormalized] = funId;
+  d_applicationLookups.push_back(funNormalized);
+  d_applicationLookupsCount = d_applicationLookupsCount + 1;
+  Debug("equality::backtrack") << "d_applicationLookupsCount = " << d_applicationLookupsCount << std::endl;
+  Debug("equality::backtrack") << "d_applicationLookups.size() = " << d_applicationLookups.size() << std::endl;
+  Assert(d_applicationLookupsCount == d_applicationLookups.size());
 }
 
 } // Namespace uf

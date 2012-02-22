@@ -67,6 +67,12 @@ class TheoryProxy {
   /** Context we will be using to synchronzie the sat solver */
   context::Context* d_context;
 
+  /**
+   * Set of all lemmas that have been "shared" in the portfolio---i.e.,
+   * all imported and exported lemmas.
+   */
+  std::hash_set<Node, NodeHashFunction> d_shared;
+
 public:
   TheoryProxy(PropEngine* propEngine,
               TheoryEngine* theoryEngine,
@@ -101,6 +107,8 @@ public:
 
   void notifyRestart();
 
+  void notifyNewLemma(SatClause& lemma);
+
   SatLiteral getNextReplayDecision();
 
   void logDecision(SatLiteral lit);
@@ -122,8 +130,6 @@ inline TheoryProxy::TheoryProxy(PropEngine* propEngine,
 {}
 
 }/* CVC4::prop namespace */
-
-
 
 inline std::ostream& operator <<(std::ostream& out, prop::SatLiteral lit) {
   out << lit.toString(); 

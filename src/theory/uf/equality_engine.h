@@ -268,6 +268,11 @@ public:
     }
   };
 
+  /**
+   * Store the application lookup, with enough information to backtrack
+   */
+  void storeApplicationLookup(FunctionApplication& funNormalized, EqualityNodeId funId);
+
 private:
 
   /** The context we are using */
@@ -294,14 +299,34 @@ private:
    */
   ApplicationIdsMap d_applicationLookup;
 
+  /** Application lookups in order, so that we can backtrack. */
+  std::vector<FunctionApplication> d_applicationLookups;
+
+  /** Number of application lookups, for backtracking.  */
+  context::CDO<size_t> d_applicationLookupsCount;
+
   /** Map from ids to the nodes (these need to be nodes as we pick-up the opreators) */
   std::vector<Node> d_nodes;
 
   /** A context-dependents count of nodes */
   context::CDO<size_t> d_nodesCount;
 
+  /**
+   * At time of addition a function application can already normalize to something, so
+   * we keep both the original, and the normalized version.
+   */
+  struct FunctionApplicationPair {
+    FunctionApplication original;
+    FunctionApplication normalized;
+    FunctionApplicationPair() {}
+    FunctionApplicationPair(const FunctionApplication& original, const FunctionApplication& normalized)
+    : original(original), normalized(normalized) {}
+    bool isNull() const {
+      return !original.isApplication();
+    }
+  };
   /** Map from ids to the applications */
-  std::vector<FunctionApplication> d_applications;
+  std::vector<FunctionApplicationPair> d_applications;
 
   /** Map from ids to the equality nodes */
   std::vector<EqualityNode> d_equalityNodes;
@@ -544,6 +569,7 @@ public:
     d_context(context),
     d_performNotify(true),
     d_notify(notify),
+    d_applicationLookupsCount(context, 0),
     d_nodesCount(context, 0),
     d_assertedEqualitiesCount(context, 0),
     d_equalityTriggersCount(context, 0),

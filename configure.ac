@@ -676,6 +676,19 @@ if test "$enable_profiling" = yes; then
   CVC4LDFLAGS="${CVC4LDFLAGS:+$CVC4LDFLAGS }-pg"
 fi
 
+# Check to see if this version/architecture of GNU C++ explicitly
+# instantiates __gnu_cxx::hash<uint64_t> or not.  Some do, some don't.
+# See src/util/hash.h.
+AC_MSG_CHECKING([whether __gnu_cxx::hash<uint64_t> is already specialized])
+AC_LANG_PUSH([C++])
+AC_COMPILE_IFELSE(AC_LANG_SOURCE([
+#include <stdint.h>
+#include <ext/hash_map>
+namespace __gnu_cxx { template<> struct hash<uint64_t> {}; }]),
+                  [AC_MSG_RESULT([no]); CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_NEED_HASH_UINT64_T"],
+                  [AC_MSG_RESULT([yes])])
+AC_LANG_POP([C++])
+
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
@@ -808,8 +821,6 @@ if test -z "$PYTHON"; then
 fi
 
 # Checks for libraries.
-AC_CHECK_LIB(z, gzread, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
-AC_CHECK_HEADER(zlib.h, , [AC_MSG_ERROR([zlib required, install your distro's zlib-dev package or see www.zlib.net])])
 
 # Check for libreadline (defined in config/readline.m4)
 CVC4_CHECK_FOR_READLINE
@@ -842,6 +853,32 @@ AC_CHECK_HEADERS([getopt.h unistd.h])
 #AC_TYPE_UINT64_T
 #AC_TYPE_SIZE_T
 
+AC_CHECK_DECLS([optreset], [], [], [#include <getopt.h>])
+
+# look for boost library, but don't make it a fatal error if not found
+cvc4_has_threads=maybe
+cvc4_must_have_threads=no
+AC_ARG_WITH([portfolio],
+    AS_HELP_STRING([--with-portfolio], [build the multithreaded portfolio version of CVC4 (pcvc4)]),
+    [if test "$withval" = no; then cvc4_has_threads=no; elif test "$withval" = yes; then cvc4_must_have_threads=yes; fi])
+if test $cvc4_has_threads = maybe; then
+  BOOST_REQUIRE([], [cvc4_has_threads=no])
+  if test $cvc4_has_threads = no; then
+    AC_MSG_WARN([disabling multithreaded support])
+  else
+    BOOST_THREADS
+    if test -n "$BOOST_THREAD_LIBS"; then
+      cvc4_has_threads=yes
+    else
+      AC_MSG_WARN([disabling multithreaded support])
+      cvc4_has_threads=no
+    fi
+  fi
+fi
+if test $cvc4_has_threads = no -a $cvc4_must_have_threads = yes; then
+  AC_MSG_ERROR([user gave --with-portfolio but could not build with threads; maybe boost threading library is missing?])
+fi
+
 # Whether to build compatibility library
 CVC4_BUILD_LIBCOMPAT=yes
 AC_ARG_WITH([compat],
@@ -859,18 +896,28 @@ AM_CONDITIONAL([CVC4_BUILD_LIBCOMPAT], [test "$CVC4_BUILD_LIBCOMPAT" = yes])
 # Check for availability of TLS support (e.g. __thread storage class)
 AC_MSG_CHECKING([whether to use compiler-supported TLS if available])
 AC_ARG_ENABLE([tls], AS_HELP_STRING([--disable-tls], [don't use compiler-native TLS]))
-if test -z "${enable_tls+set}" || test "$enable_tls" = "yes"; then
-  AC_MSG_RESULT([yes])
-  AX_TLS([CVC4_TLS=$ac_cv_tls], [CVC4_TLS=])
-else
-  AC_MSG_RESULT([no])
-  CVC4_TLS=
-fi
-if test -n "$CVC4_TLS"; then
+if test $cvc4_has_threads = no; then
+  # We disable TLS entirely by simply telling the build system that
+  # the empty string is the __thread keyword.
+  AC_MSG_RESULT([multithreading disabled])
   CVC4_TLS_SUPPORTED=1
+  CVC4_TLS=
+  CVC4_TLS_explanation='disabled (no multithreading support)'
 else
-  CVC4_TLS='pthread_getspecific()'
-  CVC4_TLS_SUPPORTED=0
+  if test -z "${enable_tls+set}" || test "$enable_tls" = "yes"; then
+    AC_MSG_RESULT([yes])
+    AX_TLS([CVC4_TLS=$ac_cv_tls], [CVC4_TLS=])
+  else
+    AC_MSG_RESULT([no])
+    CVC4_TLS=
+  fi
+  if test -n "$CVC4_TLS"; then
+    CVC4_TLS_SUPPORTED=1
+    CVC4_TLS_explanation="$CVC4_TLS"
+  else
+    CVC4_TLS_explanation='pthread_getspecific()'
+    CVC4_TLS_SUPPORTED=0
+  fi
 fi
 AC_SUBST([CVC4_TLS])
 AC_SUBST([CVC4_TLS_SUPPORTED])
@@ -998,8 +1045,18 @@ AC_SUBST(MAN_DATE)
 AC_CONFIG_FILES([
   Makefile.builds
   Makefile]
-  m4_esyscmd([find contrib src test examples -name Makefile.am | sort | sed 's,\.am$,,'])
+  m4_esyscmd([find contrib src test examples -name Makefile.am | grep -v '^contrib/theoryskel/' | sort | sed 's,\.am$,,'])
 )
+
+if test $cvc4_has_threads = yes; then
+  support_multithreaded='with boost threading library'
+  AM_CONDITIONAL([CVC4_HAS_THREADS], [true])
+  AC_SUBST([CVC4_HAS_THREADS], 1)
+else
+  support_multithreaded='no'
+  AM_CONDITIONAL([CVC4_HAS_THREADS], [false])
+  AC_SUBST([CVC4_HAS_THREADS], 0)
+fi
 
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/rational.h])
 CVC4_CONFIG_FILE_ONLY_IF_CHANGED([src/util/integer.h])
@@ -1047,6 +1104,17 @@ normally suggest.  For full details of CLN and its license, please visit
 To build CVC4 with GMP instead (which is covered under the more permissive
 LGPL), configure --without-cln.
 
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+
+Note that CLN is UNSAFE FOR USE in parallel contexts!
+This build of CVC4 cannot be used safely as a portfolio solver.
+since the result of building with CLN will include numerous race
+conditions on the refcounts internal to CLN.
+
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
+
 "
 else
   mplibrary='gmp (LGPL)'
@@ -1083,13 +1151,15 @@ gcov support : $enable_coverage
 gprof support: $enable_profiling
 CUDD         : $cvc4cudd
 Readline     : $with_readline
-TLS support  : $CVC4_TLS
 
 Static libs  : $enable_static
 Shared libs  : $enable_shared
 Static binary: $enable_static_binary
 Compat lib   : $CVC4_BUILD_LIBCOMPAT
 Bindings     : ${CVC4_LANGUAGE_BINDINGS:-none}
+
+Multithreaded: $support_multithreaded
+TLS support  : $CVC4_TLS_explanation
 
 MP library   : $mplibrary
 
