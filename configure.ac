@@ -676,6 +676,19 @@ if test "$enable_profiling" = yes; then
   CVC4LDFLAGS="${CVC4LDFLAGS:+$CVC4LDFLAGS }-pg"
 fi
 
+# Check to see if this version/architecture of GNU C++ explicitly
+# instantiates __gnu_cxx::hash<uint64_t> or not.  Some do, some don't.
+# See src/util/hash.h.
+AC_MSG_CHECKING([whether __gnu_cxx::hash<uint64_t> is already specialized])
+AC_LANG_PUSH([C++])
+AC_COMPILE_IFELSE(AC_LANG_SOURCE([
+#include <stdint.h>
+#include <ext/hash_map>
+namespace __gnu_cxx { template<> struct hash<uint64_t> {}; }]),
+                  [AC_MSG_RESULT([no]); CVC4CPPFLAGS="${CVC4CPPFLAGS:+$CVC4CPPFLAGS }-DCVC4_NEED_HASH_UINT64_T"],
+                  [AC_MSG_RESULT([yes])])
+AC_LANG_POP([C++])
+
 # Check for ANTLR runantlr script (defined in config/antlr.m4)
 AC_PROG_ANTLR
 
@@ -844,17 +857,26 @@ AC_CHECK_DECLS([optreset], [], [], [#include <getopt.h>])
 
 # look for boost library, but don't make it a fatal error if not found
 cvc4_has_threads=maybe
-BOOST_REQUIRE([], [cvc4_has_threads=no])
-if test $cvc4_has_threads = no; then
-  AC_MSG_WARN([disabling multithreaded support])
-else
-  BOOST_THREADS
-  if test -n "$BOOST_THREAD_LIBS"; then
-    cvc4_has_threads=yes
-  else
+cvc4_must_have_threads=no
+AC_ARG_WITH([portfolio],
+    AS_HELP_STRING([--with-portfolio], [build the multithreaded portfolio version of CVC4 (pcvc4)]),
+    [if test "$withval" = no; then cvc4_has_threads=no; elif test "$withval" = yes; then cvc4_must_have_threads=yes; fi])
+if test $cvc4_has_threads = maybe; then
+  BOOST_REQUIRE([], [cvc4_has_threads=no])
+  if test $cvc4_has_threads = no; then
     AC_MSG_WARN([disabling multithreaded support])
-    cvc4_has_threads=no
+  else
+    BOOST_THREADS
+    if test -n "$BOOST_THREAD_LIBS"; then
+      cvc4_has_threads=yes
+    else
+      AC_MSG_WARN([disabling multithreaded support])
+      cvc4_has_threads=no
+    fi
   fi
+fi
+if test $cvc4_has_threads = no -a $cvc4_must_have_threads = yes; then
+  AC_MSG_ERROR([user gave --with-threads but could not build with threads; maybe boost threading library is missing?])
 fi
 
 # Whether to build compatibility library
@@ -1129,7 +1151,6 @@ gcov support : $enable_coverage
 gprof support: $enable_profiling
 CUDD         : $cvc4cudd
 Readline     : $with_readline
-TLS support  : $CVC4_TLS
 
 Static libs  : $enable_static
 Shared libs  : $enable_shared
