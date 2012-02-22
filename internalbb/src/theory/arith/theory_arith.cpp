@@ -159,20 +159,42 @@ TheoryArith::Statistics::~Statistics(){
 }
 
 /* procedure AssertLower( x_i >= c_i ) */
-Node TheoryArith::AssertLower(ArithVar x_i, const DeltaRational& c_i, TNode original){
+Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original){
   Debug("arith") << "AssertLower(" << x_i << " " << c_i << ")"<< std::endl;
 
-  if(d_partialModel.belowLowerBound(x_i, c_i, true)){
+  if(isInteger(x_i)){
+    c_i = DeltaRational(c_i.ceiling());
+  }
+
+  //TODO Relax to less than?
+  if(d_partialModel.strictlyLessThanLowerBound(x_i, c_i)){
     return Node::null();
   }
 
-  if(d_partialModel.aboveUpperBound(x_i, c_i, true)){
+  int cmpToUB = d_partialModel.cmpToUpperBound(x_i, c_i);
+  if(cmpToUB > 0){ //  c_i < \lowerbound(x_i)
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
     //d_out->conflict(conflict);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     ++(d_statistics.d_statAssertLowerConflicts);
     return conflict;
+  }else if(cmpToUB == 0){
+    if(isInteger(x_i)){
+      d_constantIntegerVariables.push_back(x_i);
+    }
+    //check to make sure x_i != c_i has not been asserted
+    Node left  = d_arithvarNodeMap.asNode(x_i);
+
+    // if lowerbound and upperbound are equal, then the infinitesimal must be 0
+    Assert(c_i.getInfinitesimalPart().isZero());
+    Node right = mkRationalNode(c_i.getNoninfinitesimalPart());
+
+    Node diseq = left.eqNode(right).notNode();
+    if (d_diseq.find(diseq) != d_diseq.end()) {
+      Node lb = d_partialModel.getLowerConstraint(x_i);
+      return disequalityConflict(diseq, lb , original);
+    }
   }
 
   d_partialModel.setLowerConstraint(x_i,original);
@@ -194,20 +216,44 @@ Node TheoryArith::AssertLower(ArithVar x_i, const DeltaRational& c_i, TNode orig
 }
 
 /* procedure AssertUpper( x_i <= c_i) */
-Node TheoryArith::AssertUpper(ArithVar x_i, const DeltaRational& c_i, TNode original){
+Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original){
+  Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
+
+  if(isInteger(x_i)){
+    c_i = DeltaRational(c_i.floor());
+  }
 
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
 
-  if(d_partialModel.aboveUpperBound(x_i, c_i, true) ){ // \upperbound(x_i) <= c_i
+  if(d_partialModel.strictlyGreaterThanUpperBound(x_i, c_i) ){ // \upperbound(x_i) <= c_i
     return Node::null(); //sat
   }
 
-  if(d_partialModel.belowLowerBound(x_i, c_i, true)){// \lowerbound(x_i) > c_i
+  // cmpToLb =  \lowerbound(x_i).cmp(c_i)
+  int cmpToLB = d_partialModel.cmpToLowerBound(x_i, c_i);
+  if( cmpToLB < 0 ){ //  \upperbound(x_i) < \lowerbound(x_i)
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     ++(d_statistics.d_statAssertUpperConflicts);
     return conflict;
+  }else if(cmpToLB == 0){ // \lowerBound(x_i) == \upperbound(x_i)
+    if(isInteger(x_i)){
+      d_constantIntegerVariables.push_back(x_i);
+    }
+
+    //check to make sure x_i != c_i has not been asserted
+    Node left  = d_arithvarNodeMap.asNode(x_i);
+
+    // if lowerbound and upperbound are equal, then the infinitesimal must be 0
+    Assert(c_i.getInfinitesimalPart().isZero());
+    Node right = mkRationalNode(c_i.getNoninfinitesimalPart());
+
+    Node diseq = left.eqNode(right).notNode();
+    if (d_diseq.find(diseq) != d_diseq.end()) {
+      Node lb = d_partialModel.getLowerConstraint(x_i);
+      return disequalityConflict(diseq, lb , original);
+    }
   }
 
   d_partialModel.setUpperConstraint(x_i,original);
@@ -230,36 +276,51 @@ Node TheoryArith::AssertUpper(ArithVar x_i, const DeltaRational& c_i, TNode orig
 
 
 /* procedure AssertLower( x_i == c_i ) */
-Node TheoryArith::AssertEquality(ArithVar x_i, const DeltaRational& c_i, TNode original){
+Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode original){
 
   Debug("arith") << "AssertEquality(" << x_i << " " << c_i << ")"<< std::endl;
 
+  int cmpToLB = d_partialModel.cmpToLowerBound(x_i, c_i);
+  int cmpToUB = d_partialModel.cmpToUpperBound(x_i, c_i);
+
   // u_i <= c_i <= l_i
   // This can happen if both c_i <= x_i and x_i <= c_i are in the system.
-  if(d_partialModel.belowLowerBound(x_i, c_i, false) &&
-     d_partialModel.aboveUpperBound(x_i, c_i, false)){
+  if(cmpToUB >= 0 && cmpToLB <= 0){
     return Node::null(); //sat
   }
 
-  if(d_partialModel.aboveUpperBound(x_i, c_i, true)){
+  if(cmpToUB > 0){
     Node ubc = d_partialModel.getUpperConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, ubc, original);
     Debug("arith") << "AssertLower conflict " << conflict << endl;
     return conflict;
   }
 
-  if(d_partialModel.belowLowerBound(x_i, c_i, true)){
+  if(cmpToLB < 0){
     Node lbc = d_partialModel.getLowerConstraint(x_i);
     Node conflict =  NodeManager::currentNM()->mkNode(AND, lbc, original);
     Debug("arith") << "AssertUpper conflict " << conflict << endl;
     return conflict;
   }
 
+  Assert(cmpToUB <= 0);
+  Assert(cmpToLB >= 0);
+  Assert(cmpToUB < 0 || cmpToLB > 0);
+
+
+  if(isInteger(x_i)){
+    d_constantIntegerVariables.push_back(x_i);
+  }
+
+  // Don't bother to check whether x_i != c_i is in d_diseq
+  // The a and (not a) should never be on the fact queue
+
   d_partialModel.setLowerConstraint(x_i,original);
   d_partialModel.setLowerBound(x_i, c_i);
 
   d_partialModel.setUpperConstraint(x_i,original);
   d_partialModel.setUpperBound(x_i, c_i);
+
 
   d_updatedBounds.softAdd(x_i);
 
@@ -767,68 +828,32 @@ Node TheoryArith::assertionCases(TNode assertion){
   ArithVar x_i = determineLeftVariable(assertion, simpleKind);
   DeltaRational c_i = determineRightConstant(assertion, simpleKind);
 
-  bool tightened = false;
+  // bool tightened = false;
 
-  //If the variable is an integer tighen the constraint.
-  if(isInteger(x_i)){
-    if(simpleKind == LT){
-      tightened = true;
-      c_i = DeltaRational(c_i.floor());
-    }else if(simpleKind == GT){
-      tightened = true;
-      c_i = DeltaRational(c_i.ceiling());
-    }
-  }
+  // //If the variable is an integer tighen the constraint.
+  // if(isInteger(x_i)){
+  //   if(simpleKind == LT){
+  //     tightened = true;
+  //     c_i = DeltaRational(c_i.floor());
+  //   }else if(simpleKind == GT){
+  //     tightened = true;
+  //     c_i = DeltaRational(c_i.ceiling());
+  //   }
+  // }
 
   Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
                               <<"(" << assertion
-			     << " \\-> "
-			     << x_i<<" "<< simpleKind <<" "<< c_i << ")" << std::endl;
+                              << " \\-> "
+                              << x_i<<" "<< simpleKind <<" "<< c_i << ")" << std::endl;
 
   switch(simpleKind){
   case LEQ:
   case LT:
-    if(simpleKind == LEQ || (simpleKind == LT && tightened)){
-      if (d_partialModel.hasLowerBound(x_i) && d_partialModel.getLowerBound(x_i) == c_i) {
-        //If equal
-        TNode left  = getSide<false>(assertion, simpleKind);
-        TNode right = getSide<true>(assertion, simpleKind);
-
-        Node diseq = left.eqNode(right).notNode();
-        if (d_diseq.find(diseq) != d_diseq.end()) {
-          Node lb = d_partialModel.getLowerConstraint(x_i);
-          return disequalityConflict(diseq, lb , assertion);
-        }
-
-        if(isInteger(x_i)){
-          d_constantIntegerVariables.push_back(x_i);
-        }
-      }
-    }
     return  AssertUpper(x_i, c_i, assertion);
   case GEQ:
   case GT:
-    if(simpleKind == GEQ || (simpleKind == GT && tightened)){
-      if (d_partialModel.hasUpperBound(x_i) && d_partialModel.getUpperBound(x_i) == c_i) {
-        //If equal
-        TNode left  = getSide<false>(assertion, simpleKind);
-        TNode right = getSide<true>(assertion, simpleKind);
-
-        Node diseq = left.eqNode(right).notNode();
-        if (d_diseq.find(diseq) != d_diseq.end()) {
-          Node ub = d_partialModel.getUpperConstraint(x_i);
-          return disequalityConflict(diseq, assertion, ub);
-        }
-        if(isInteger(x_i)){
-          d_constantIntegerVariables.push_back(x_i);
-        }
-      }
-    }
     return AssertLower(x_i, c_i, assertion);
   case EQUAL:
-    if(isInteger(x_i)){
-      d_constantIntegerVariables.push_back(x_i);
-    }
     return AssertEquality(x_i, c_i, assertion);
   case DISTINCT:
     {
@@ -1383,8 +1408,8 @@ bool TheoryArith::propagateCandidateBound(ArithVar basic, bool upperBound){
     d_linEq.computeUpperBound(basic):
     d_linEq.computeLowerBound(basic);
 
-  if((upperBound && d_partialModel.strictlyBelowUpperBound(basic, bound)) ||
-     (!upperBound && d_partialModel.strictlyAboveLowerBound(basic, bound))){
+  if((upperBound && d_partialModel.strictlyLessThanUpperBound(basic, bound)) ||
+     (!upperBound && d_partialModel.strictlyGreaterThanLowerBound(basic, bound))){
     Node bestImplied = upperBound ?
       d_propManager.getBestImpliedUpperBound(basic, bound):
       d_propManager.getBestImpliedLowerBound(basic, bound);

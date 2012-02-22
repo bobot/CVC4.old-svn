@@ -317,12 +317,12 @@ Node SimplexDecisionProcedure::checkBasicForConflict(ArithVar basic){
   Assert(d_tableau.isBasic(basic));
   const DeltaRational& beta = d_partialModel.getAssignment(basic);
 
-  if(d_partialModel.belowLowerBound(basic, beta, true)){
+  if(d_partialModel.strictlyLessThanLowerBound(basic, beta)){
     ArithVar x_j = selectSlackUpperBound(basic);
     if(x_j == ARITHVAR_SENTINEL ){
       return generateConflictBelowLowerBound(basic);
     }
-  }else if(d_partialModel.aboveUpperBound(basic, beta, true)){
+  }else if(d_partialModel.strictlyGreaterThanUpperBound(basic, beta)){
     ArithVar x_j = selectSlackLowerBound(basic);
     if(x_j == ARITHVAR_SENTINEL ){
       return generateConflictAboveUpperBound(basic);
@@ -365,7 +365,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
     DeltaRational beta_i = d_partialModel.getAssignment(x_i);
     ArithVar x_j = ARITHVAR_SENTINEL;
 
-    if(d_partialModel.belowLowerBound(x_i, beta_i, true)){
+    if(d_partialModel.strictlyLessThanLowerBound(x_i, beta_i)){
       x_j = selectSlackUpperBound(x_i, pf);
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);
@@ -374,7 +374,7 @@ Node SimplexDecisionProcedure::searchForFeasibleSolution(uint32_t remainingItera
       DeltaRational l_i = d_partialModel.getLowerBound(x_i);
       d_linEq.pivotAndUpdate(x_i, x_j, l_i);
 
-    }else if(d_partialModel.aboveUpperBound(x_i, beta_i, true)){
+    }else if(d_partialModel.strictlyGreaterThanUpperBound(x_i, beta_i)){
       x_j = selectSlackLowerBound(x_i, pf);
       if(x_j == ARITHVAR_SENTINEL ){
         ++(d_statistics.d_statUpdateConflicts);

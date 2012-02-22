@@ -368,9 +368,9 @@ private:
    * a node describing this conflict is returned.
    * If this new bound is not in conflict, Node::null() is returned.
    */
-  Node AssertLower(ArithVar x, const DeltaRational& c, TNode orig);
-  Node AssertUpper(ArithVar x, const DeltaRational& c, TNode orig);
-  Node AssertEquality(ArithVar x, const DeltaRational& c, TNode orig);
+  Node AssertLower(ArithVar x, DeltaRational& c, TNode orig);
+  Node AssertUpper(ArithVar x, DeltaRational& c, TNode orig);
+  Node AssertEquality(ArithVar x, DeltaRational& c, TNode orig);
 
   /** Tracks the bounds that were updated in the current round. */
   PermissiveBackArithVarSet d_updatedBounds;
