@@ -276,7 +276,8 @@ Trigger RewriteEngine::createTrigger( TNode n, std::vector<Node> & pattern )
 
 Answer RewriteEngine::addWatchIfDontKnow(Node g, RuleInstId rid,
                                          const size_t gid){
-
+  /** TODO: Should use the representative of g, but should I keep the
+      mapping for myself? */
   GuardedMap::iterator l_i = d_guardeds.find(g);
   GList* l;
   if( l_i == d_guardeds.end() ) {

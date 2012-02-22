@@ -135,20 +135,27 @@ private:
   RewriteEngine(context::Context* c, TheoryQuantifiers* th );
   ~RewriteEngine(){}
 
+  /** Usual function for theories */
   void check( Theory::Effort e );
   void registerQuantifier( Node n );
   void assertNode( Node n );
   Node explain(TNode n);
+  void notifyEq(TNode lhs, TNode rhs);
 
   /* TODO modify when notification will be available */
   void notification( Node n, bool b);
 
   Trigger createTrigger( TNode n, std::vector<Node> & pattern )const;
 
-  /** return true if the literal is already true, return false if the
-      literal is currently unknown (and it is now watched) or if it is
-      already false (and it is not watched). */
+  /** return if the guard (already substituted) is known true or false
+      or unknown. In the last case it add the Guarded(rid,gid) to the watch
+      list of this guard */
   Answer addWatchIfDontKnow(Node g, const RuleInstId rid, const size_t gid);
+
+  /** An instantiation of a rule is fired (all guards true) we
+      propagate the body. That can be done by theory propagation if
+      possible or by lemmas.
+   */
   void propagateRule(const RuleInst & r);
 
   /** bad friend can be added directly in RewriteRule */
@@ -160,11 +167,13 @@ private:
   const RewriteRule & get_rule(const RewriteRuleId r)const{return d_rules[r];};
   const RuleInst & get_inst(const RuleInstId r)const{return d_ruleinsts[r];};
 
-  /** Auxillary function */
+  /** Auxillary functions */
 private:
+  /** A guard is verify, notify the Guarded */
   void notification(GList * const lpropa, bool b);
+  /* If two guards becomes equals we should notify if one of them is
+     already true */
   bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
-  void notifyEq(TNode lhs, TNode rhs);
 }; /* Class RewriteEngine */
 }
 }
