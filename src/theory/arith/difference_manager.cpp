@@ -16,7 +16,7 @@ DifferenceManager::DifferenceManager(context::Context* c, PropManager& pm)
 void DifferenceManager::propagate(TNode x){
   Debug("arith::differenceManager")<< "DifferenceManager::propagate("<<x<<")"<<std::endl;
 
-  d_queue.propagate(x, Node::null(), true);
+  d_queue.propagate(x, explain(x), true);
 }
 
 void DifferenceManager::explain(TNode literal, std::vector<TNode>& assumptions) {
@@ -33,7 +33,7 @@ void DifferenceManager::explain(TNode literal, std::vector<TNode>& assumptions) 
     default:
       Unreachable();
   }
-  d_ee.getExplanation(lhs, rhs, assumptions);
+  d_ee.explainEquality(lhs, rhs, assumptions);
 }
 
 #warning "Stolen from theory_uf.h verbatim. Generalize me!"
