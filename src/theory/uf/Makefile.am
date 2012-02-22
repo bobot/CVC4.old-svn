@@ -16,4 +16,5 @@ libuf_la_SOURCES = \
 	symmetry_breaker.cpp
 
 EXTRA_DIST = \
-	kinds
+	kinds \
+	options_handlers.h

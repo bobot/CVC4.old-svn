@@ -38,6 +38,7 @@
 #include "util/configuration.h"
 #include "main/options.h"
 #include "smt/options.h"
+#include "theory/uf/options.h"
 #include "util/output.h"
 #include "util/result.h"
 #include "util/stats.h"
@@ -374,6 +375,14 @@ static bool doCommand(SmtEngine& smt, Command* cmd) {
       status = doCommand(smt, *subcmd) && status;
     }
   } else {
+    // by default, symmetry breaker is on only for QF_UF
+    if(! opts[options::ufSymmetryBreakerSetByUser]) {
+      SetBenchmarkLogicCommand *logic = dynamic_cast<SetBenchmarkLogicCommand*>(cmd);
+      if(logic != NULL) {
+        opts.set(options::ufSymmetryBreaker, logic->getLogic() == "QF_UF");
+      }
+    }
+
     if(opts[options::verbosity] > 0) {
       *opts[options::out] << "Invoking: " << *cmd << endl;
     }

@@ -5,8 +5,10 @@
 
 module UF "theory/uf/options.h" UF
 
-option ufSymmetryBreaker uf-symmetry-breaker /--disable-symmetry-breaker bool :default true
+option ufSymmetryBreaker uf-symmetry-breaker --enable-symmetry-breaker/--disable-symmetry-breaker bool :predicate CVC4::theory::uf::setUfSymmetryBreakerSetByUser :read-write :predicate-include "theory/uf/options_handlers.h" :default true
  use UF symmetry breaker (Deharbe et al., CADE 2011)
 /turns off UF symmetry breaker (Deharbe et al., CADE 2011)
+option ufSymmetryBreakerSetByUser bool
+
 
 endmodule
