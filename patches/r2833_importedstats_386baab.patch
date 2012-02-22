@@ -1,0 +1,629 @@
+Index: src/prop/cnf_stream.cpp
+===================================================================
+--- src/prop/cnf_stream.cpp	(revision 2833)
++++ src/prop/cnf_stream.cpp	(working copy)
+@@ -76,7 +76,7 @@
+       }
+     }
+   }
+-  d_satSolver->addClause(c, d_removable);
++  d_satSolver->addClause(c, d_removable, d_imported);
+ }
+ 
+ void CnfStream::assertClause(TNode node, SatLiteral a) {
+@@ -639,9 +639,10 @@
+ // At the top level we must ensure that all clauses that are asserted are
+ // not unit, except for the direct assertions. This allows us to remove the
+ // clauses later when they are not needed anymore (lemmas for example).
+-void TseitinCnfStream::convertAndAssert(TNode node, bool removable, bool negated) {
++void TseitinCnfStream::convertAndAssert(TNode node, bool removable, bool negated, bool imported) {
+   Debug("cnf") << "convertAndAssert(" << node << ", removable = " << (removable ? "true" : "false") << ", negated = " << (negated ? "true" : "false") << ")" << endl;
+   d_removable = removable;
++  d_imported = imported;
+   convertAndAssert(node, negated);
+ }
+ 
+Index: src/prop/cnf_stream.h
+===================================================================
+--- src/prop/cnf_stream.h	(revision 2833)
++++ src/prop/cnf_stream.h	(working copy)
+@@ -129,6 +129,13 @@
+   bool d_removable;
+ 
+   /**
++   * Are we asserting a imported clause (true) or a input clause (false).
++   * This is set at the beginning of convertAndAssert so that it doesn't
++   * need to be passed on over the stack.
++   */
++  bool d_imported;
++
++  /**
+    * Asserts the given clause to the sat solver.
+    * @param node the node giving rise to this clause
+    * @param clause the clause to assert
+@@ -205,7 +212,7 @@
+    * @param removable whether the sat solver can choose to remove the clauses
+    * @param negated whether we are asserting the node negated
+    */
+-  virtual void convertAndAssert(TNode node, bool removable, bool negated) = 0;
++  virtual void convertAndAssert(TNode node, bool removable, bool negated, bool imported = false) = 0;
+ 
+   /**
+    * Get the node that is represented by the given SatLiteral.
+@@ -280,7 +287,7 @@
+    * @param removable is this something that can be erased
+    * @param negated true if negated
+    */
+-  void convertAndAssert(TNode node, bool removable, bool negated);
++  void convertAndAssert(TNode node, bool removable, bool negated, bool imported = false);
+ 
+   /**
+    * Constructs the stream to use the given sat solver.
+@@ -294,7 +301,7 @@
+ private:
+ 
+   /**
+-   * Same as above, except that removable is remembered.
++   * Same as above, except that removable and imported are remembered.
+    */
+   void convertAndAssert(TNode node, bool negated);
+ 
+Index: src/prop/minisat/core/Solver.cc
+===================================================================
+--- src/prop/minisat/core/Solver.cc	(revision 2833)
++++ src/prop/minisat/core/Solver.cc	(working copy)
+@@ -21,6 +21,7 @@
+ #include <math.h>
+ 
+ #include <iostream>
++#include <utility>
+ 
+ #include "mtl/Sort.h"
+ #include "core/Solver.h"
+@@ -106,6 +107,7 @@
+     //
+   , solves(0), starts(0), decisions(0), rnd_decisions(0), propagations(0), conflicts(0)
+   , dec_vars(0), clauses_literals(0), learnts_literals(0), max_literals(0), tot_literals(0)
++  , cnt_imported(0), cnt_loc_derived(0), cnt_imp_derived(0)
+ 
+   , ok                 (true)
+   , cla_inc            (1)
+@@ -173,6 +175,10 @@
+     // If we already have a reason, just return it
+     if (vardata[x].reason != CRef_Lazy) return vardata[x].reason;
+ 
++    //assert(false);		// Don't support Non-lazy builds for
++				// now. In this function to avoid
++				// taking care of the .alloc below
++
+     // What's the literal we are trying to explain
+     Lit l = mkLit(x, value(x) != l_True);
+ 
+@@ -195,14 +201,14 @@
+     }
+ 
+     // Construct the reason (level 0)
+-    CRef real_reason = ca.alloc(explLevel, explanation, true);
++    CRef real_reason = ca.alloc(explLevel, explanation, true, false, false, false); // FIXME Do something about this one?
+     vardata[x] = mkVarData(real_reason, level(x), intro_level(x), trail_index(x));
+     clauses_removable.push(real_reason);
+     attachClause(real_reason);
+     return real_reason;
+ }
+ 
+-bool Solver::addClause_(vec<Lit>& ps, bool removable)
++bool Solver::addClause_(vec<Lit>& ps, bool removable, bool imported)
+ {
+     if (!ok) return false;
+ 
+@@ -230,6 +236,7 @@
+       lemmas.push();
+       ps.copyTo(lemmas.last());
+       lemmas_removable.push(removable);
++      lemmas_imported.push(imported);
+     } else {
+       // Add the clause and attach if not a lemma
+       if (ps.size() == 0) {
+@@ -248,7 +255,8 @@
+           return ok = (propagate(CHECK_WITHOUTH_PROPAGATION_QUICK) == CRef_Undef);
+         } else return ok;
+       } else {
+-        CRef cr = ca.alloc(assertionLevel, ps, false);
++        CRef cr = ca.alloc(assertionLevel, ps, false, imported, false, false);
++	cnt_imported += imported; // Stats
+         clauses_persistent.push(cr);
+ 	attachClause(cr);
+         
+@@ -400,7 +408,8 @@
+ |      * returns the maximal level of the resolved clauses
+ |  
+ |________________________________________________________________________________________________@*/
+-int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel)
++int Solver::analyze(CRef confl, vec<Lit>& out_learnt, int& out_btlevel,
++		    bool &loc_derived, bool &imp_derived)
+ {
+     int pathC = 0;
+     Lit p     = lit_Undef;
+@@ -416,6 +425,10 @@
+     do{
+         assert(confl != CRef_Undef); // (otherwise should be UIP)
+         Clause& c = ca[confl];
++        loc_derived |= c.input() || c.loc_derived();
++        imp_derived |= c.imported() || c.imp_derived();
++	c.use_inc();
++
+         if (c.level() > max_level) {
+           max_level = c.level();
+         }
+@@ -455,6 +468,8 @@
+     }while (pathC > 0);
+     out_learnt[0] = ~p;
+ 
++    Assert(loc_derived || imp_derived);   //must be a derived clause
++
+     // Simplify conflict clause:
+     int i, j;
+     out_learnt.copyTo(analyze_toclear);
+@@ -951,8 +966,9 @@
+           }
+ 
+             // Analyze the conflict
++            bool loc_derived = false, imp_derived = false;
+             learnt_clause.clear();
+-            int max_level = analyze(confl, learnt_clause, backtrack_level);
++            int max_level = analyze(confl, learnt_clause, backtrack_level, loc_derived, imp_derived);
+             cancelUntil(backtrack_level);
+ 
+             // Assert the conflict clause and the asserting literal
+@@ -962,7 +978,8 @@
+                 PROOF( ProofManager::getSatProof()->endResChain(learnt_clause[0]); )
+ 
+              } else {
+-                CRef cr = ca.alloc(max_level, learnt_clause, true);
++  	        CRef cr = ca.alloc(max_level, learnt_clause, true, false, loc_derived, imp_derived);
++		cnt_loc_derived += loc_derived; cnt_imp_derived += imp_derived; // Stats
+                 clauses_removable.push(cr);
+                 attachClause(cr);
+                 claBumpActivity(ca[cr]);
+@@ -1411,11 +1428,13 @@
+     // The current lemma
+     vec<Lit>& lemma = lemmas[i];
+     bool removable = lemmas_removable[i];
++    bool imported = lemmas_imported[i];
+ 
+     // Attach it if non-unit
+     CRef lemma_ref = CRef_Undef;
+     if (lemma.size() > 1) {
+-      lemma_ref = ca.alloc(assertionLevel, lemma, removable);
++      lemma_ref = ca.alloc(assertionLevel, lemma, removable, imported, false, false); // FIXME Need to set other two bits too I guess
++      cnt_imported += imported; // Stats
+       if (removable) {
+         clauses_removable.push(lemma_ref);
+       } else {
+@@ -1461,6 +1480,34 @@
+   // Clear the lemmas
+   lemmas.clear();
+   lemmas_removable.clear();
++  lemmas_imported.clear();
+ 
+   return conflict;
+ }
++
++
++void Solver::print_useful_clauses(int n)
++{
++  std::vector< std::pair<int, CRef> > clauses_all;
++  for(int i = 0; i < clauses_persistent.size(); ++i)
++    {
++      clauses_all.push_back( std::make_pair(ca[clauses_persistent[i]].use(), clauses_persistent[i]) );
++    }
++  for(int i = 0; i < clauses_removable.size(); ++i)
++    {
++      clauses_all.push_back( std::make_pair(ca[clauses_removable[i]].use(), clauses_removable[i]) );
++    }
++  
++  //Bottle-neck of this function. If required optimize this:
++  sort(clauses_all.begin(), clauses_all.end(), std::greater<std::pair<int,CRef> >());
++
++  // Most useful lemmas overall
++  for(int i=0; i < n && i < int(clauses_all.size()); ++i) {
++    CRef c = clauses_all[i].second;
++    printf("Lemma identifier: %d, use: %d, size: %d, removable: %d, imported: %d, loc_derived: %d, imp_derived: %d\n", 
++	   c, ca[c].use(), ca[c].size(), ca[c].removable(), ca[c].imported(), ca[c].loc_derived(), ca[c].imp_derived());
++  }
++
++  //Most useful imported lemmas
++  // TODO
++}
+Index: src/prop/minisat/core/Solver.h
+===================================================================
+--- src/prop/minisat/core/Solver.h	(revision 2833)
++++ src/prop/minisat/core/Solver.h	(working copy)
+@@ -78,6 +78,9 @@
+   /** Is the lemma removable */
+   vec<bool> lemmas_removable;
+ 
++  /** Is the lemma imported */
++  vec<bool> lemmas_imported;
++
+   /** Do a another check if FULL_EFFORT was the last one */
+   bool recheck;
+ 
+@@ -145,13 +148,15 @@
+     void unregisterVar(Lit lit); // Unregister the literal (set assertion level to -1)
+     void renewVar(Lit lit, int level = -1); // Register the literal (set assertion level to the given level, or current level if -1)
+ 
+-    bool    addClause (const vec<Lit>& ps, bool removable);                     // Add a clause to the solver.
++    bool    addClause (const vec<Lit>& ps, bool removable, bool imported = false);  // Add a clause to the solver.
+     bool    addEmptyClause(bool removable);                                     // Add the empty clause, making the solver contradictory.
+-    bool    addClause (Lit p, bool removable);                                  // Add a unit clause to the solver.
+-    bool    addClause (Lit p, Lit q, bool removable);                           // Add a binary clause to the solver.
+-    bool    addClause (Lit p, Lit q, Lit r, bool removable);                    // Add a ternary clause to the solver.
+-    bool    addClause_(      vec<Lit>& ps, bool removable);                     // Add a clause to the solver without making superflous internal copy. Will
+-                                                                                 // change the passed vector 'ps'.
++    bool    addClause (Lit p, bool removable, bool imported = false);               // Add a unit clause to the solver.
++    bool    addClause (Lit p, Lit q, bool removable, bool imported = false);        // Add a binary clause to the solver.
++    bool    addClause (Lit p, Lit q, Lit r, bool removable, bool imported = false); // Add a ternary clause to the solver.
++
++    // Add a clause to the solver without making superflous internal copy. Will change the passed vector 'ps'.
++    bool    addClause_(vec<Lit>& ps, bool removable, bool imported = false);
++                                                                                 
+ 
+     // Solving:
+     //
+@@ -238,6 +243,10 @@
+     uint64_t solves, starts, decisions, rnd_decisions, propagations, conflicts;
+     uint64_t dec_vars, clauses_literals, learnts_literals, max_literals, tot_literals;
+ 
++    uint64_t cnt_imported, cnt_loc_derived, cnt_imp_derived;
++
++    void print_useful_clauses(int n);     // print the n most used lemmas
++
+ protected:
+ 
+     // Helper structures:
+@@ -338,7 +347,8 @@
+     CRef     updateLemmas     ();                                                      // Add the lemmas, backtraking if necessary and return a conflict if there is one
+     void     cancelUntil      (int level);                                             // Backtrack until a certain level.
+     void     popTrail         ();                                                      // Backtrack the trail to the previous push position
+-    int      analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel);    // (bt = backtrack)
++    int      analyze          (CRef confl, vec<Lit>& out_learnt, int& out_btlevel,     // (bt = backtrack)
++			       bool &loc_derived, bool &imp_derived);             
+     void     analyzeFinal     (Lit p, vec<Lit>& out_conflict);                         // COULD THIS BE IMPLEMENTED BY THE ORDINARIY "analyze" BY SOME REASONABLE GENERALIZATION?
+     int      litRedundant     (Lit p, uint32_t abstract_levels);                       // (helper method for 'analyze()') - returns the maximal level of the clauses proving redundancy of p
+     lbool    search           (int nof_conflicts);                                     // Search for a given number of conflicts.
+@@ -443,11 +453,11 @@
+ 
+ // NOTE: enqueue does not set the ok flag! (only public methods do)
+ inline bool     Solver::enqueue         (Lit p, CRef from)      { return value(p) != l_Undef ? value(p) != l_False : (uncheckedEnqueue(p, from), true); }
+-inline bool     Solver::addClause       (const vec<Lit>& ps, bool removable)    { ps.copyTo(add_tmp); return addClause_(add_tmp, removable); }
++inline bool     Solver::addClause       (const vec<Lit>& ps, bool removable, bool imported)    { ps.copyTo(add_tmp); return addClause_(add_tmp, removable, imported); }
+ inline bool     Solver::addEmptyClause  (bool removable)                        { add_tmp.clear(); return addClause_(add_tmp, removable); }
+-inline bool     Solver::addClause       (Lit p, bool removable)                 { add_tmp.clear(); add_tmp.push(p); return addClause_(add_tmp, removable); }
+-inline bool     Solver::addClause       (Lit p, Lit q, bool removable)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, removable); }
+-inline bool     Solver::addClause       (Lit p, Lit q, Lit r, bool removable)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, removable); }
++inline bool     Solver::addClause       (Lit p, bool removable, bool imported)                 { add_tmp.clear(); add_tmp.push(p); return addClause_(add_tmp, removable,imported); }
++inline bool     Solver::addClause       (Lit p, Lit q, bool removable, bool imported)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, removable, imported); }
++inline bool     Solver::addClause       (Lit p, Lit q, Lit r, bool removable, bool imported)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, removable, imported); }
+ inline bool     Solver::locked          (const Clause& c) const { return value(c[0]) == l_True && isPropagatedBy(var(c[0]), c); }
+ inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); context->push(); if(Dump.isOn("state")) { Dump("state") << CVC4::PushCommand() << std::endl; } }
+ 
+Index: src/prop/minisat/core/SolverTypes.h
+===================================================================
+--- src/prop/minisat/core/SolverTypes.h	(revision 2833)
++++ src/prop/minisat/core/SolverTypes.h	(working copy)
+@@ -138,27 +138,44 @@
+ // Clause -- a simple class for representing a clause:
+ 
+ class Clause {
++        enum header_sizes {
++	  sizeof_use = 16,
++	  sizeof_size = 16,
++	  sizeof_level = 24,
++	};
+     struct {
+         unsigned mark      : 2;
+         unsigned removable : 1;
+         unsigned has_extra : 1;
+         unsigned reloced   : 1;
+-        unsigned size      : 27;
+-        unsigned level     : 32; }                            header;
++        unsigned imported    : 1; /* set if clause was imported from another thread */
++        unsigned loc_derived : 1; /* set if clause has a local (input) clause in its "reason" ancestry */
++        unsigned imp_derived : 1; /* set if clause has a imported clause in its "reason" ancestry */
++        unsigned use   : sizeof_use; /* number of times the clause is used in conflict analysis */
++        unsigned size  : sizeof_size;
++        unsigned level : sizeof_level; }                       header;
+     union { Lit lit; float act; uint32_t abs; CRef rel; } data[0];
+ 
+     friend class ClauseAllocator;
+ 
+     // NOTE: This constructor cannot be used directly (doesn't allocate enough memory).
+     template<class V>
+-    Clause(const V& ps, bool use_extra, bool removable, int level) {
++    Clause(const V& ps, bool use_extra, bool removable, bool imported, 
++	   bool loc_derived, bool imp_derived, int level) {
+         header.mark      = 0;
+         header.removable = removable;
+         header.has_extra = use_extra;
++        header.imported    = imported;
++        header.loc_derived = loc_derived;
++        header.imp_derived = imp_derived;
++	header.use         = 0;
+         header.reloced   = 0;
+         header.size      = ps.size();
+         header.level     = level;
+ 
++	assert( ps.size() < (1<<sizeof_size) );
++	assert( level < (1<<sizeof_level) );
++
+         for (int i = 0; i < ps.size(); i++) 
+             data[i].lit = ps[i];
+ 
+@@ -203,6 +220,13 @@
+ 
+     Lit          subsumes    (const Clause& other) const;
+     void         strengthen  (Lit p);
++
++    bool         input       ()      const   { return !(header.imported || header.loc_derived || header.imp_derived); }
++    bool         imported    ()      const   { return header.imported; }
++    bool         loc_derived ()      const   { return header.loc_derived; }
++    bool         imp_derived ()      const   { return header.imp_derived; }
++    int          use         ()      const   { return header.use; }
++    void         use_inc     ()              { assert( header.use < (1<<sizeof_use) - 1 ); ++header.use; }
+ };
+ 
+ 
+@@ -227,14 +251,15 @@
+         RegionAllocator<uint32_t>::moveTo(to); }
+ 
+     template<class Lits>
+-    CRef alloc(int level, const Lits& ps, bool removable = false)
++    CRef alloc(int level, const Lits& ps, bool removable,
++	       bool imported, bool loc_derived, bool imp_derived)
+     {
+         assert(sizeof(Lit)      == sizeof(uint32_t));
+         assert(sizeof(float)    == sizeof(uint32_t));
+         bool use_extra = removable | extra_clause_field;
+-
++	
+         CRef cid = RegionAllocator<uint32_t>::alloc(clauseWord32Size(ps.size(), use_extra));
+-        new (lea(cid)) Clause(ps, use_extra, removable, level);
++        new (lea(cid)) Clause(ps, use_extra, removable, imported, loc_derived, imp_derived, level);
+ 
+         return cid;
+     }
+@@ -262,7 +287,7 @@
+         Clause& c = operator[](cr);
+         if (c.reloced()) { cr = c.relocation(); return; }
+         
+-        cr = to.alloc(c.level(), c, c.removable());
++        cr = to.alloc(c.level(), c, c.removable(), c.imported(), c.loc_derived(), c.imp_derived());
+         c.relocate(cr);
+         if (proxy) {
+           proxy->updateCRef(old, cr); 
+Index: src/prop/minisat/simp/SimpSolver.cc
+===================================================================
+--- src/prop/minisat/simp/SimpSolver.cc	(revision 2833)
++++ src/prop/minisat/simp/SimpSolver.cc	(working copy)
+@@ -65,7 +65,7 @@
+ {
+     vec<Lit> dummy(1,lit_Undef);
+     ca.extra_clause_field = true; // NOTE: must happen before allocating the dummy clause below.
+-    bwdsub_tmpunit        = ca.alloc(0, dummy);
++    bwdsub_tmpunit        = ca.alloc(0, dummy, false, false, false, false);
+     remove_satisfied      = false;
+ }
+ 
+@@ -136,7 +136,7 @@
+ 
+ 
+ 
+-bool SimpSolver::addClause_(vec<Lit>& ps, bool removable)
++bool SimpSolver::addClause_(vec<Lit>& ps, bool removable, bool imported)
+ {
+ #ifndef NDEBUG
+     for (int i = 0; i < ps.size(); i++)
+@@ -148,7 +148,7 @@
+     if (use_rcheck && implied(ps))
+         return true;
+ 
+-    if (!Solver::addClause_(ps, removable))
++    if (!Solver::addClause_(ps, removable, imported))
+         return false;
+ 
+     if (use_simplification && clauses_persistent.size() == nclauses + 1){
+Index: src/prop/minisat/simp/SimpSolver.h
+===================================================================
+--- src/prop/minisat/simp/SimpSolver.h	(revision 2833)
++++ src/prop/minisat/simp/SimpSolver.h	(working copy)
+@@ -47,12 +47,14 @@
+     // Problem specification:
+     //
+     Var     newVar    (bool polarity = true, bool dvar = true, bool theoryAtom = false);
+-    bool    addClause (const vec<Lit>& ps, bool removable);
+-    bool    addEmptyClause(bool removable);                  // Add the empty clause to the solver.
+-    bool    addClause (Lit p, bool removable);               // Add a unit clause to the solver.
+-    bool    addClause (Lit p, Lit q, bool removable);        // Add a binary clause to the solver.
+-    bool    addClause (Lit p, Lit q, Lit r, bool removable); // Add a ternary clause to the solver.
+-    bool    addClause_(vec<Lit>& ps, bool removable);
++    bool    addClause (const vec<Lit>& ps, bool removable, bool imported = false);  // Add a clause to the solver.
++    bool    addEmptyClause(bool removable);                  // Add the empty clause, making the solver contradictory.
++    bool    addClause (Lit p, bool removable, bool imported = false);               // Add a unit clause to the solver.
++    bool    addClause (Lit p, Lit q, bool removable, bool imported = false);        // Add a binary clause to the solver.
++    bool    addClause (Lit p, Lit q, Lit r, bool removable, bool imported = false); // Add a ternary clause to the solver.
++
++    // Add a clause to the solver without making superflous internal copy. Will change the passed vector 'ps'.
++    bool    addClause_(vec<Lit>& ps, bool removable, bool imported = false);
+     bool    substitute(Var v, Lit x);  // Replace all occurences of v with x (may cause a contradiction).
+ 
+     // Variable mode:
+@@ -181,11 +183,11 @@
+         elim_heap.update(v); }
+ 
+ 
+-inline bool SimpSolver::addClause    (const vec<Lit>& ps, bool removable)    { ps.copyTo(add_tmp); return addClause_(add_tmp, removable); }
+-inline bool SimpSolver::addEmptyClause(bool removable)                       { add_tmp.clear(); return addClause_(add_tmp, removable); }
+-inline bool SimpSolver::addClause    (Lit p, bool removable)                 { add_tmp.clear(); add_tmp.push(p); return addClause_(add_tmp, removable); }
+-inline bool SimpSolver::addClause    (Lit p, Lit q, bool removable)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, removable); }
+-inline bool SimpSolver::addClause    (Lit p, Lit q, Lit r, bool removable)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, removable); }
++inline bool     SimpSolver::addClause       (const vec<Lit>& ps, bool removable, bool imported)    { ps.copyTo(add_tmp); return addClause_(add_tmp, removable, imported); }
++inline bool     SimpSolver::addEmptyClause  (bool removable)                       { add_tmp.clear(); return addClause_(add_tmp, removable); }
++inline bool     SimpSolver::addClause       (Lit p, bool removable, bool imported)                 { add_tmp.clear(); add_tmp.push(p); return addClause_(add_tmp, removable,imported); }
++inline bool     SimpSolver::addClause       (Lit p, Lit q, bool removable, bool imported)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, removable, imported); }
++inline bool     SimpSolver::addClause       (Lit p, Lit q, Lit r, bool removable, bool imported)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, removable, imported); }
+ inline void SimpSolver::setFrozen    (Var v, bool b) { frozen[v] = (char)b; if (use_simplification && !b) { updateElimHeap(v); } }
+ 
+ inline bool SimpSolver::solve        (                     bool do_simp, bool turn_off_simp)  { budgetOff(); assumptions.clear(); return solve_(do_simp, turn_off_simp) == l_True; }
+Index: src/prop/prop_engine.cpp
+===================================================================
+--- src/prop/prop_engine.cpp	(revision 2833)
++++ src/prop/prop_engine.cpp	(working copy)
+@@ -91,7 +91,7 @@
+   d_cnfStream->convertAndAssert(d_theoryEngine->preprocess(node), false, false);
+ }
+ 
+-void PropEngine::assertLemma(TNode node, bool negated, bool removable) {
++void PropEngine::assertLemma(TNode node, bool negated, bool removable, bool imported) {
+   //Assert(d_inCheckSat, "Sat solver should be in solve()!");
+   Debug("prop::lemmas") << "assertLemma(" << node << ")" << endl;
+ 
+@@ -103,7 +103,7 @@
+ 
+   //TODO This comment is now false
+   // Assert as removable
+-  d_cnfStream->convertAndAssert(node, removable, negated);
++  d_cnfStream->convertAndAssert(node, removable, negated, imported);
+ }
+ 
+ void PropEngine::printSatisfyingAssignment(){
+Index: src/prop/prop_engine.h
+===================================================================
+--- src/prop/prop_engine.h	(revision 2833)
++++ src/prop/prop_engine.h	(working copy)
+@@ -188,7 +188,7 @@
+    * @param removable whether this lemma can be quietly removed based
+    * on an activity heuristic (or not)
+    */
+-  void assertLemma(TNode node, bool negated, bool removable);
++  void assertLemma(TNode node, bool negated, bool removable, bool imported = false);
+ 
+   /**
+    * Checks the current context for satisfiability.
+Index: src/prop/sat.cpp
+===================================================================
+--- src/prop/sat.cpp	(revision 2833)
++++ src/prop/sat.cpp	(working copy)
+@@ -107,7 +107,7 @@
+           if(lemmaCount % 1 == 0) {
+             Debug("shared") << "=) " << asNode << std::endl;
+           }
+-          d_propEngine->assertLemma(d_theoryEngine->preprocess(asNode), false, true);
++          d_propEngine->assertLemma(d_theoryEngine->preprocess(asNode), false, true, true);
+         } else {
+           Debug("shared") << "=(" << asNode << std::endl;
+         }
+Index: src/prop/sat.h
+===================================================================
+--- src/prop/sat.h	(revision 2833)
++++ src/prop/sat.h	(working copy)
+@@ -105,7 +105,7 @@
+   /** Virtual destructor to make g++ happy */
+   virtual ~SatInputInterface() { }
+   /** Assert a clause in the solver. */
+-  virtual void addClause(SatClause& clause, bool removable) = 0;
++  virtual void addClause(SatClause& clause, bool removable, bool imported = false) = 0;
+   /** Create a new boolean variable in the solver. */
+   virtual SatVariable newVar(bool theoryAtom = false) = 0;
+   /** Get the current user assertion level of the solver */
+@@ -159,6 +159,7 @@
+     ReferenceStat<uint64_t> d_statConflicts, d_statClausesLiterals;
+     ReferenceStat<uint64_t> d_statLearntsLiterals,  d_statMaxLiterals;
+     ReferenceStat<uint64_t> d_statTotLiterals;
++    ReferenceStat<uint64_t> d_statImported, d_statLocDerived, d_statImpDerived;
+   public:
+     Statistics() :
+       d_statStarts("sat::starts"),
+@@ -169,7 +170,10 @@
+       d_statClausesLiterals("sat::clauses_literals"),
+       d_statLearntsLiterals("sat::learnts_literals"),
+       d_statMaxLiterals("sat::max_literals"),
+-      d_statTotLiterals("sat::tot_literals")
++      d_statTotLiterals("sat::tot_literals"),
++      d_statImported("sat::cnt_imported"),
++      d_statLocDerived("sat::cnt_loc_derived"),
++      d_statImpDerived("sat::cnt_imp_derived")
+     {
+       StatisticsRegistry::registerStat(&d_statStarts);
+       StatisticsRegistry::registerStat(&d_statDecisions);
+@@ -180,6 +184,9 @@
+       StatisticsRegistry::registerStat(&d_statLearntsLiterals);
+       StatisticsRegistry::registerStat(&d_statMaxLiterals);
+       StatisticsRegistry::registerStat(&d_statTotLiterals);
++      StatisticsRegistry::registerStat(&d_statImported);
++      StatisticsRegistry::registerStat(&d_statLocDerived);
++      StatisticsRegistry::registerStat(&d_statImpDerived);
+     }
+     ~Statistics() {
+       StatisticsRegistry::unregisterStat(&d_statStarts);
+@@ -191,6 +198,9 @@
+       StatisticsRegistry::unregisterStat(&d_statLearntsLiterals);
+       StatisticsRegistry::unregisterStat(&d_statMaxLiterals);
+       StatisticsRegistry::unregisterStat(&d_statTotLiterals);
++      StatisticsRegistry::unregisterStat(&d_statImported);
++      StatisticsRegistry::unregisterStat(&d_statLocDerived);
++      StatisticsRegistry::unregisterStat(&d_statImpDerived);
+     }
+     void init(Minisat::SimpSolver* d_minisat){
+       d_statStarts.setData(d_minisat->starts);
+@@ -202,6 +212,9 @@
+       d_statLearntsLiterals.setData(d_minisat->learnts_literals);
+       d_statMaxLiterals.setData(d_minisat->max_literals);
+       d_statTotLiterals.setData(d_minisat->tot_literals);
++      d_statImported.setData(d_minisat->cnt_imported);
++      d_statLocDerived.setData(d_minisat->cnt_loc_derived);
++      d_statImpDerived.setData(d_minisat->cnt_imp_derived);
+     }
+   };
+   Statistics d_statistics;
+@@ -224,7 +237,7 @@
+ 
+   SatLiteralValue solve(unsigned long& resource);
+ 
+-  void addClause(SatClause& clause, bool removable);
++  void addClause(SatClause& clause, bool removable, bool imported = false);
+ 
+   SatVariable newVar(bool theoryAtom = false);
+ 
+@@ -274,7 +287,6 @@
+   SatLiteral getNextReplayDecision();
+ 
+   void logDecision(SatLiteral lit);
+-
+   void checkTime();
+ 
+ };/* class SatSolver */
+@@ -331,8 +343,8 @@
+   return result;
+ }
+ 
+-inline void SatSolver::addClause(SatClause& clause, bool removable) {
+-  d_minisat->addClause(clause, removable);
++inline void SatSolver::addClause(SatClause& clause, bool removable, bool imported) {
++  d_minisat->addClause(clause, removable, imported);
+ }
+ 
+ inline SatVariable SatSolver::newVar(bool theoryAtom) {
+Index: test/unit/prop/cnf_stream_black.h
+===================================================================
+--- test/unit/prop/cnf_stream_black.h	(revision 2833)
++++ test/unit/prop/cnf_stream_black.h	(working copy)
+@@ -59,7 +59,7 @@
+     return d_nextVar++;
+   }
+ 
+-  void addClause(SatClause& c, bool lemma) {
++  void addClause(SatClause& c, bool lemma, bool imported = false) {
+     d_addClauseCalled = true;
+   }
+ 
