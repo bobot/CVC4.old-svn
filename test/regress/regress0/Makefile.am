@@ -1,9 +1,10 @@
 SUBDIRS = . arith precedence uf uflra uflia bv arrays datatypes lemmas push-pop preprocess subtypes
 
+BINARY = cvc4
 if PROOF_REGRESSIONS
-TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../run_regression --proof @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = LFSC="$(LFSC) $(LFSCARGS)" @srcdir@/../run_regression --proof @top_builddir@/src/main/$(BINARY)
 else
-TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/cvc4
+TESTS_ENVIRONMENT = @srcdir@/../run_regression @top_builddir@/src/main/$(BINARY)
 endif
 
 MAKEFLAGS = -k
@@ -40,7 +41,6 @@ SMT2_TESTS = \
 	ite4.smt2 \
 	simple-lra.smt2 \
 	simple-rdl.smt2 \
-	simple-rdl-definefun.smt2 \
 	simple-uf.smt2 \
 	simplification_bug4.smt2
 
@@ -95,13 +95,16 @@ BUG_TESTS = \
 	bug187.smt2 \
 	bug220.smt2 \
 	bug239.smt \
-	buggy-ite.smt2
+	buggy-ite.smt2 \
+	bug303.smt2
 
 TESTS =	$(SMT_TESTS) $(SMT2_TESTS) $(CVC_TESTS) $(BUG_TESTS)
 
 EXTRA_DIST = $(TESTS) \
 	bug216.smt2 \
 	bug216.smt2.expect \
+	bug288b.smt \
+	bug288c.smt \
 	bug288.smt \
 	simplification_bug4.smt2.expect
 

@@ -27,7 +27,7 @@ namespace arrays {
 
 struct ArraySelectTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw (TypeCheckingExceptionPrivate) {
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
     Assert(n.getKind() == kind::SELECT);
     TypeNode arrayType = n[0].getType(check);
     if( check ) {
@@ -48,7 +48,7 @@ Debug("arrays") << "array index type: " << arrayType.getArrayIndexType() << std:
 
 struct ArrayStoreTypeRule {
   inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw (TypeCheckingExceptionPrivate) {
+    throw (TypeCheckingExceptionPrivate, AssertionException) {
     Assert(n.getKind() == kind::STORE);
     TypeNode arrayType = n[0].getType(check);
     if( check ) {

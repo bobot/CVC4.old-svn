@@ -43,8 +43,9 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
-CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar) :
+CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar, bool fullLitToNodeMap) :
   d_satSolver(satSolver),
+  d_fullLitToNodeMap(fullLitToNodeMap),
   d_registrar(registrar) {
 }
 
@@ -64,8 +65,8 @@ void CnfStream::recordTranslation(TNode node, bool alwaysRecord) {
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar) :
-  CnfStream(satSolver, registrar) {
+TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar, bool fullLitToNodeMap) :
+  CnfStream(satSolver, registrar, fullLitToNodeMap) {
 }
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
@@ -140,7 +141,7 @@ void TseitinCnfStream::ensureLiteral(TNode n) {
                 n.toString().c_str(),
                 n.getType().toString().c_str());
 
-  bool negated = false;
+  bool negated CVC4_UNUSED = false;
   SatLiteral lit;
 
   if(n.getKind() == kind::NOT) {
@@ -192,7 +193,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   d_translationCache[node.notNode()].level = level;
 
   // If it's a theory literal, need to store it for back queries
-  if ( theoryLiteral ||
+  if ( theoryLiteral || d_fullLitToNodeMap ||
        ( CVC4_USE_REPLAY && Options::current()->replayLog != NULL ) ||
        (Dump.isOn("clauses")) ) {
     d_nodeCache[lit] = node;

@@ -74,6 +74,10 @@ ostream& operator<<(ostream& out, const CommandStatus* s) throw() {
 Command::Command() throw() : d_commandStatus(NULL) {
 }
 
+Command::Command(const Command& cmd) {
+  d_commandStatus = (cmd.d_commandStatus == NULL) ? NULL : &cmd.d_commandStatus->clone();
+}
+
 Command::~Command() throw() {
   if(d_commandStatus != NULL && d_commandStatus != CommandSuccess::instance()) {
     delete d_commandStatus;
@@ -126,6 +130,10 @@ void EmptyCommand::invoke(SmtEngine* smtEngine) throw() {
   d_commandStatus = CommandSuccess::instance();
 }
 
+Command* EmptyCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  return new EmptyCommand(d_name);
+}
+
 /* class AssertCommand */
 
 AssertCommand::AssertCommand(const BoolExpr& e) throw() :
@@ -145,6 +153,10 @@ void AssertCommand::invoke(SmtEngine* smtEngine) throw() {
   }
 }
 
+Command* AssertCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  return new AssertCommand(d_expr.exportTo(exprManager, variableMap));
+}
+
 /* class PushCommand */
 
 void PushCommand::invoke(SmtEngine* smtEngine) throw() {
@@ -154,6 +166,10 @@ void PushCommand::invoke(SmtEngine* smtEngine) throw() {
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
   }
+}
+
+Command* PushCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  return new PushCommand;
 }
 
 /* class PopCommand */
@@ -172,6 +188,12 @@ void PopCommand::invoke(SmtEngine* smtEngine) throw() {
 CheckSatCommand::CheckSatCommand() throw() :
   d_expr() {
 }
+
+Command* PopCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  return new PopCommand();
+}
+
+/* class CheckSatCommand */
 
 CheckSatCommand::CheckSatCommand(const BoolExpr& expr) throw() :
   d_expr(expr) {
@@ -200,6 +222,12 @@ void CheckSatCommand::printResult(std::ostream& out) const throw() {
   } else {
     out << d_result << endl;
   }
+}
+
+Command* CheckSatCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  CheckSatCommand* c = new CheckSatCommand(d_expr.exportTo(exprManager, variableMap));
+  c->d_result = d_result;
+  return c;
 }
 
 /* class QueryCommand */
@@ -233,6 +261,12 @@ void QueryCommand::printResult(std::ostream& out) const throw() {
   }
 }
 
+Command* QueryCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  QueryCommand* c = new QueryCommand(d_expr.exportTo(exprManager, variableMap));
+  c->d_result = d_result;
+  return c;
+}
+
 /* class QuitCommand */
 
 QuitCommand::QuitCommand() throw() {
@@ -241,6 +275,10 @@ QuitCommand::QuitCommand() throw() {
 void QuitCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("benchmark") << *this;
   d_commandStatus = CommandSuccess::instance();
+}
+
+Command* QuitCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  return new QuitCommand();
 }
 
 /* class CommentCommand */
@@ -255,6 +293,10 @@ std::string CommentCommand::getComment() const throw() {
 void CommentCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("benchmark") << *this;
   d_commandStatus = CommandSuccess::instance();
+}
+
+Command* CommentCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  return new CommentCommand(d_comment);
 }
 
 /* class CommandSequence */
@@ -299,6 +341,15 @@ CommandSequence::const_iterator CommandSequence::begin() const throw() {
   return d_commandSequence.begin();
 }
 
+Command* CommandSequence::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  CommandSequence* seq = new CommandSequence();
+  for(iterator i = begin(); i != end(); ++i) {
+    seq->addCommand((*i)->exportTo(exprManager, variableMap));
+  }
+  seq->d_index = d_index;
+  return seq;
+}
+
 CommandSequence::const_iterator CommandSequence::end() const throw() {
   return d_commandSequence.end();
 }
@@ -338,6 +389,12 @@ void DeclareFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("declarations") << *this << endl;
 }
 
+Command* DeclareFunctionCommand::exportTo(ExprManager* exprManager,
+                                          ExprManagerMapCollection& variableMap) {
+  return new DeclareFunctionCommand(d_symbol,
+                                    d_type.exportTo(exprManager, variableMap));
+}
+
 /* class DeclareTypeCommand */
 
 DeclareTypeCommand::DeclareTypeCommand(const std::string& id, size_t arity, Type t) throw() :
@@ -356,6 +413,12 @@ Type DeclareTypeCommand::getType() const throw() {
 
 void DeclareTypeCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("declarations") << *this << endl;
+}
+
+Command* DeclareTypeCommand::exportTo(ExprManager* exprManager,
+                                      ExprManagerMapCollection& variableMap) {
+  return new DeclareTypeCommand(d_symbol, d_arity,
+                                d_type.exportTo(exprManager, variableMap));
 }
 
 /* class DefineTypeCommand */
@@ -386,6 +449,14 @@ Type DefineTypeCommand::getType() const throw() {
 void DefineTypeCommand::invoke(SmtEngine* smtEngine) throw() {
   Dump("declarations") << *this << endl;
   d_commandStatus = CommandSuccess::instance();
+}
+
+Command* DefineTypeCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  vector<Type> params;
+  transform(d_params.begin(), d_params.end(), back_inserter(params),
+            ExportTransformer(exprManager, variableMap));
+  Type type = d_type.exportTo(exprManager, variableMap);
+  return new DefineTypeCommand(d_symbol, params, type);
 }
 
 /* class DefineFunctionCommand */
@@ -433,6 +504,15 @@ void DefineFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
   }
 }
 
+Command* DefineFunctionCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  Expr func = d_func.exportTo(exprManager, variableMap);
+  vector<Expr> formals;
+  transform(d_formals.begin(), d_formals.end(), back_inserter(formals),
+            ExportTransformer(exprManager, variableMap));
+  Expr formula = d_formula.exportTo(exprManager, variableMap);
+  return new DefineFunctionCommand(d_symbol, func, formals, formula);
+}
+
 /* class DefineNamedFunctionCommand */
 
 DefineNamedFunctionCommand::DefineNamedFunctionCommand(const std::string& id,
@@ -448,6 +528,15 @@ void DefineNamedFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
     smtEngine->addToAssignment(d_func.getExprManager()->mkExpr(kind::APPLY, d_func));
   }
   d_commandStatus = CommandSuccess::instance();
+}
+
+Command* DefineNamedFunctionCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  Expr func = d_func.exportTo(exprManager, variableMap);
+  vector<Expr> formals;
+  transform(d_formals.begin(), d_formals.end(), back_inserter(formals),
+            ExportTransformer(exprManager, variableMap));
+  Expr formula = d_formula.exportTo(exprManager, variableMap);
+  return new DefineNamedFunctionCommand(d_symbol, func, formals, formula);
 }
 
 /* class Simplify */
@@ -477,6 +566,12 @@ void SimplifyCommand::printResult(std::ostream& out) const throw() {
   }
 }
 
+Command* SimplifyCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  SimplifyCommand* c = new SimplifyCommand(d_term.exportTo(exprManager, variableMap));
+  c->d_result = d_result.exportTo(exprManager, variableMap);
+  return c;
+}
+
 /* class GetValueCommand */
 
 GetValueCommand::GetValueCommand(Expr term) throw() :
@@ -488,9 +583,13 @@ Expr GetValueCommand::getTerm() const throw() {
 }
 
 void GetValueCommand::invoke(SmtEngine* smtEngine) throw() {
-  d_result = d_term.getExprManager()->mkExpr(kind::TUPLE, d_term,
-                                             smtEngine->getValue(d_term));
-  d_commandStatus = CommandSuccess::instance();
+  try {
+    d_result = d_term.getExprManager()->mkExpr(kind::TUPLE, d_term,
+                                               smtEngine->getValue(d_term));
+    d_commandStatus = CommandSuccess::instance();
+  } catch(exception& e) {
+    d_commandStatus = new CommandFailure(e.what());
+  }
 }
 
 Expr GetValueCommand::getResult() const throw() {
@@ -503,6 +602,12 @@ void GetValueCommand::printResult(std::ostream& out) const throw() {
   } else {
     out << d_result << endl;
   }
+}
+
+Command* GetValueCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetValueCommand* c = new GetValueCommand(d_term.exportTo(exprManager, variableMap));
+  c->d_result = d_result.exportTo(exprManager, variableMap);
+  return c;
 }
 
 /* class GetAssignmentCommand */
@@ -531,6 +636,12 @@ void GetAssignmentCommand::printResult(std::ostream& out) const throw() {
   }
 }
 
+Command* GetAssignmentCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetAssignmentCommand* c = new GetAssignmentCommand;
+  c->d_result = d_result;
+  return c;
+}
+
 /* class GetProofCommand */
 
 GetProofCommand::GetProofCommand() throw() {
@@ -555,6 +666,12 @@ void GetProofCommand::printResult(std::ostream& out) const throw() {
   } else {
     d_result->toStream(out);
   }
+}
+
+Command* GetProofCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetProofCommand* c = new GetProofCommand;
+  c->d_result = d_result;
+  return c;
 }
 
 /* class GetAssertionsCommand */
@@ -586,6 +703,12 @@ void GetAssertionsCommand::printResult(std::ostream& out) const throw() {
   }
 }
 
+Command* GetAssertionsCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetAssertionsCommand* c = new GetAssertionsCommand;
+  c->d_result = d_result;
+  return c;
+}
+
 /* class SetBenchmarkStatusCommand */
 
 SetBenchmarkStatusCommand::SetBenchmarkStatusCommand(BenchmarkStatus status) throw() :
@@ -608,6 +731,11 @@ void SetBenchmarkStatusCommand::invoke(SmtEngine* smtEngine) throw() {
   }
 }
 
+Command* SetBenchmarkStatusCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  SetBenchmarkStatusCommand* c = new SetBenchmarkStatusCommand(d_status);
+  return c;
+}
+
 /* class SetBenchmarkLogicCommand */
 
 SetBenchmarkLogicCommand::SetBenchmarkLogicCommand(std::string logic) throw() :
@@ -625,6 +753,11 @@ void SetBenchmarkLogicCommand::invoke(SmtEngine* smtEngine) throw() {
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
   }
+}
+
+Command* SetBenchmarkLogicCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  SetBenchmarkLogicCommand* c = new SetBenchmarkLogicCommand(d_logic);
+  return c;
 }
 
 /* class SetInfoCommand */
@@ -651,6 +784,11 @@ void SetInfoCommand::invoke(SmtEngine* smtEngine) throw() {
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
   }
+}
+
+Command* SetInfoCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  SetInfoCommand* c = new SetInfoCommand(d_flag, d_sexpr);
+  return c;
 }
 
 /* class GetInfoCommand */
@@ -688,6 +826,12 @@ void GetInfoCommand::printResult(std::ostream& out) const throw() {
   }
 }
 
+Command* GetInfoCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetInfoCommand* c = new GetInfoCommand(d_flag);
+  c->d_result = d_result;
+  return c;
+}
+
 /* class SetOptionCommand */
 
 SetOptionCommand::SetOptionCommand(std::string flag, const SExpr& sexpr) throw() :
@@ -712,6 +856,11 @@ void SetOptionCommand::invoke(SmtEngine* smtEngine) throw() {
   } catch(exception& e) {
     d_commandStatus = new CommandFailure(e.what());
   }
+}
+
+Command* SetOptionCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  SetOptionCommand* c = new SetOptionCommand(d_flag, d_sexpr);
+  return c;
 }
 
 /* class GetOptionCommand */
@@ -747,6 +896,12 @@ void GetOptionCommand::printResult(std::ostream& out) const throw() {
   }
 }
 
+Command* GetOptionCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  GetOptionCommand* c = new GetOptionCommand(d_flag);
+  c->d_result = d_result;
+  return c;
+}
+
 /* class DatatypeDeclarationCommand */
 
 DatatypeDeclarationCommand::DatatypeDeclarationCommand(const DatatypeType& datatype) throw() :
@@ -768,6 +923,11 @@ void DatatypeDeclarationCommand::invoke(SmtEngine* smtEngine) throw() {
   d_commandStatus = CommandSuccess::instance();
 }
 
+Command* DatatypeDeclarationCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {
+  std::cout << "We currently do not support exportTo with Datatypes" << std::endl;
+  exit(1);
+  return NULL;
+}
 /* output stream insertion operator for benchmark statuses */
 std::ostream& operator<<(std::ostream& out,
                          BenchmarkStatus status) throw() {

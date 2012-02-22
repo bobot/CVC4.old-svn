@@ -55,6 +55,8 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_logic(""),
   d_propagatedLiterals(context),
   d_propagatedLiteralsIndex(context, 0),
+  d_decisionRequests(context),
+  d_decisionRequestsIndex(context, 0),
   d_preRegistrationVisitor(this, context),
   d_sharedTermsVisitor(d_sharedTerms)
 {
@@ -132,6 +134,33 @@ void TheoryEngine::check(Theory::Effort effort) {
     while (true) {
 
       Debug("theory") << "TheoryEngine::check(" << effort << "): running check" << std::endl;
+
+      if (Debug.isOn("theory::assertions")) {
+        for (unsigned theoryId = 0; theoryId < THEORY_LAST; ++ theoryId) {
+          Theory* theory = d_theoryTable[theoryId];
+          if (theory && Theory::setContains((TheoryId)theoryId, d_activeTheories)) {
+            Debug("theory::assertions") << "--------------------------------------------" << std::endl;
+            Debug("theory::assertions") << "Assertions of " << theory->getId() << ": " << std::endl;
+            context::CDList<Assertion>::const_iterator it = theory->facts_begin(), it_end = theory->facts_end();
+            for (unsigned i = 0; it != it_end; ++ it, ++i) {
+                if ((*it).isPreregistered) {
+                  Debug("theory::assertions") << "[" << i << "]: ";
+                } else {
+                  Debug("theory::assertions") << "(" << i << "): ";
+                }
+                Debug("theory::assertions") << (*it).assertion << endl;
+            }
+
+            if (d_sharedTermsExist) {
+              Debug("theory::assertions") << "Shared terms of " << theory->getId() << ": " << std::endl;
+              context::CDList<TNode>::const_iterator it = theory->shared_terms_begin(), it_end = theory->shared_terms_end();
+              for (unsigned i = 0; it != it_end; ++ it, ++i) {
+                  Debug("theory::assertions") << "[" << i << "]: " << (*it) << endl;
+              }
+            }
+          }
+        }
+      }
 
       // Do the checking
       CVC4_FOR_EACH_THEORY;
@@ -381,7 +410,29 @@ bool TheoryEngine::presolve() {
   }
   // return whether we have a conflict
   return false;
-}
+}/* TheoryEngine::presolve() */
+
+void TheoryEngine::postsolve() {
+  // NOTE that we don't look at d_theoryIsActive[] here (for symmetry
+  // with presolve()).
+
+  try {
+    // Definition of the statement that is to be run by every theory
+#ifdef CVC4_FOR_EACH_THEORY_STATEMENT
+#undef CVC4_FOR_EACH_THEORY_STATEMENT
+#endif
+#define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
+    if (theory::TheoryTraits<THEORY>::hasPostsolve) { \
+      reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->postsolve(); \
+      Assert(! d_inConflict, "conflict raised during postsolve()"); \
+    }
+
+    // Postsolve for each theory using the statement above
+    CVC4_FOR_EACH_THEORY;
+  } catch(const theory::Interrupted&) {
+    Trace("theory") << "TheoryEngine::postsolve() => interrupted" << endl;
+  }
+}/* TheoryEngine::postsolve() */
 
 
 void TheoryEngine::notifyRestart() {
@@ -618,13 +669,22 @@ void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
   }
 }
 
+void TheoryEngine::propagateAsDecision(TNode literal, theory::TheoryId theory) {
+  Debug("theory") << "EngineOutputChannel::propagateAsDecision(" << literal << ", " << theory << ")" << std::endl;
+
+  d_propEngine->checkTime();
+
+  Assert(d_propEngine->isSatLiteral(literal.getKind() == kind::NOT ? literal[0] : literal), "OutputChannel::propagateAsDecision() requires a SAT literal (or negation of one)");
+
+  d_decisionRequests.push_back(literal);
+}
+
 theory::EqualityStatus TheoryEngine::getEqualityStatus(TNode a, TNode b) {
   Assert(a.getType() == b.getType());
   return theoryOf(Theory::theoryOf(a.getType()))->getEqualityStatus(a, b);
 }
 
-Node TheoryEngine::getExplanation(TNode node)
-{
+Node TheoryEngine::getExplanation(TNode node) {
   Debug("theory") << "TheoryEngine::getExplanation(" << node << ")" << std::endl;
 
   TNode atom = node.getKind() == kind::NOT ? node[0] : node;
