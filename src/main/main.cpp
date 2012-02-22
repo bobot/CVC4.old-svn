@@ -48,7 +48,7 @@ using namespace CVC4::parser;
 using namespace CVC4::main;
 
 static int runCvc4(int argc, char* argv[]);
-static void doCommand(SmtEngine&, Command*);
+static bool doCommand(SmtEngine&, Command*);
 static void printUsage(bool full = false);
 
 namespace CVC4 {
@@ -278,6 +278,7 @@ static int runCvc4(int argc, char* argv[]) {
 
   // Parse and execute commands until we are done
   Command* cmd;
+  bool status = true;
   if( opts[options::interactive] ) {
     InteractiveShell shell(exprMgr, opts);
     Message() << Configuration::getPackageName()
@@ -294,7 +295,7 @@ static int runCvc4(int argc, char* argv[]) {
       replayParser->useDeclarationsFrom(shell.getParser());
     }
     while((cmd = shell.readCommand())) {
-      doCommand(smt,cmd);
+      status = doCommand(smt, cmd) && status;
       delete cmd;
     }
   } else {
@@ -310,7 +311,7 @@ static int runCvc4(int argc, char* argv[]) {
       replayParser->useDeclarationsFrom(parser);
     }
     while((cmd = parser->nextCommand())) {
-      doCommand(smt, cmd);
+      status = doCommand(smt, cmd) && status;
       delete cmd;
     }
     // Remove the parser
@@ -323,15 +324,21 @@ static int runCvc4(int argc, char* argv[]) {
     opts.set(options::replayStream, NULL);
   }
 
-  string result = smt.getInfo("status").getValue();
   int returnValue;
+  string result = "unknown";
+  if(status) {
+    result = smt.getInfo("status").getValue();
 
-  if(result == "sat") {
-    returnValue = 10;
-  } else if(result == "unsat") {
-    returnValue = 20;
+    if(result == "sat") {
+      returnValue = 10;
+    } else if(result == "unsat") {
+      returnValue = 20;
+    } else {
+      returnValue = 0;
+    }
   } else {
-    returnValue = 0;
+    // there was some kind of error
+    returnValue = 1;
   }
 
 #ifdef CVC4_COMPETITION_MODE
@@ -351,17 +358,20 @@ static int runCvc4(int argc, char* argv[]) {
 }
 
 /** Executes a command. Deletes the command after execution. */
-static void doCommand(SmtEngine& smt, Command* cmd) {
+static bool doCommand(SmtEngine& smt, Command* cmd) {
   if( opts[options::parseOnly] ) {
-    return;
+    return true;
   }
+
+  // assume no error
+  bool status = true;
 
   CommandSequence *seq = dynamic_cast<CommandSequence*>(cmd);
   if(seq != NULL) {
     for(CommandSequence::iterator subcmd = seq->begin();
         subcmd != seq->end();
         ++subcmd) {
-      doCommand(smt, *subcmd);
+      status = doCommand(smt, *subcmd) && status;
     }
   } else {
     if(opts[options::verbosity] > 0) {
@@ -373,5 +383,8 @@ static void doCommand(SmtEngine& smt, Command* cmd) {
     } else {
       cmd->invoke(&smt);
     }
+    status = status && cmd->ok();
   }
+
+  return status;
 }

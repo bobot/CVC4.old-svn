@@ -35,5 +35,6 @@ The above is now implemented, but there are things that still bug me:
 * long doc vs. short doc
 * is the Options class public still?  Does this make sense?
 * document requirements on option types (default constructible?  copy-able?  must have operator<<(ostream)?  hashable?)
+* getopt() on old GNU needs optind = 0 to restart ?
 
--- Morgan Deters <mdeters@cs.nyu.edu>  Sat, 19 Nov 2011 20:43:35 -0500
+-- Morgan Deters <mdeters@cs.nyu.edu>  Wed, 14 Dec 2011 14:20:34 -0500

@@ -16,6 +16,8 @@ libarith_la_SOURCES = \
 	arithvar_node_map.h \
 	atom_database.h \
 	atom_database.cpp \
+	difference_manager.h \
+	difference_manager.cpp \
 	normal_form.h\
 	normal_form.cpp \
 	arith_utilities.h \
@@ -34,7 +36,9 @@ libarith_la_SOURCES = \
 	theory_arith.h \
 	theory_arith.cpp \
 	dio_solver.h \
-	dio_solver.cpp
+	dio_solver.cpp \
+	arith_pivot_rule.h \
+	arith_pivot_rule.cpp
 
 EXTRA_DIST = \
 	kinds \

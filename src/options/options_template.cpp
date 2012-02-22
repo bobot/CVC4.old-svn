@@ -344,7 +344,7 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 347 "${template}"
+#line 348 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.
@@ -370,42 +370,6 @@ ${all_modules_option_handlers}
   }
 
   return optind;
-}
-
-std::ostream& operator<<(std::ostream& out, SimplificationMode mode) {
-  switch(mode) {
-  case SIMPLIFICATION_MODE_INCREMENTAL:
-    out << "SIMPLIFICATION_MODE_INCREMENTAL";
-    break;
-  case SIMPLIFICATION_MODE_BATCH:
-    out << "SIMPLIFICATION_MODE_BATCH";
-    break;
-  case SIMPLIFICATION_MODE_NONE:
-    out << "SIMPLIFICATION_MODE_NONE";
-    break;
-  default:
-    out << "SimplificationMode:UNKNOWN![" << unsigned(mode) << "]";
-  }
-
-  return out;
-}
-
-std::ostream& operator<<(std::ostream& out, ArithPivotRule rule) {
-  switch(rule) {
-  case MINIMUM:
-    out << "MINIMUM";
-    break;
-  case BREAK_TIES:
-    out << "BREAK_TIES";
-    break;
-  case MAXIMUM:
-    out << "MAXIMUM";
-    break;
-  default:
-    out << "ArithPivotRule!UNKNOWN";
-  }
-
-  return out;
 }
 
 #undef USE_EARLY_TYPE_CHECKING_BY_DEFAULT

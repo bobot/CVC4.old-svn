@@ -40,22 +40,6 @@ class NodeManager;
 class NodeManagerScope;
 class SmtEngine;
 
-/** Enumeration of simplification modes (when to simplify). */
-typedef enum {
-  /** Simplify the assertions as they come in */
-  SIMPLIFICATION_MODE_INCREMENTAL,
-  /** Simplify the assertions all together once a check is requested */
-  SIMPLIFICATION_MODE_BATCH,
-  /** Don't do simplification */
-  SIMPLIFICATION_MODE_NONE
-} SimplificationMode;
-
-typedef enum {
-  MINIMUM,
-  BREAK_TIES,
-  MAXIMUM
-} ArithPivotRule;
-
 /** Class representing an option-parsing exception. */
 class CVC4_PUBLIC OptionException : public CVC4::Exception {
 public:
@@ -139,9 +123,6 @@ public:
   void setInputLanguage(const char* str) throw(OptionException);
 
 };/* class Options */
-
-std::ostream& operator<<(std::ostream& out, SimplificationMode mode) CVC4_PUBLIC;
-std::ostream& operator<<(std::ostream& out, ArithPivotRule rule) CVC4_PUBLIC;
 
 }/* CVC4 namespace */
 

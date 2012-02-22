@@ -49,6 +49,7 @@ stamp-generated:
 # antlr doesn't overwrite output files, it just leaves them.  So we have to delete them first.
 generated/SmtLexer.h: Smt.g stamp-generated
 	-$(AM_V_at)rm -f $(ANTLR_STUFF)
+	@if test -z "$(ANTLR)"; then echo "ERROR: antlr parser generator cannot be found, cannot generate the parser" >&2; exit 1; fi
 	$(AM_V_GEN)$(ANTLR) $(ANTLR_OPTS) -fo "generated" "@srcdir@/Smt.g"
 
 # These don't actually depend on SmtLexer.h, but if we're doing parallel

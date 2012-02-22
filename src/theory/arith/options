@@ -5,7 +5,7 @@
 
 module ARITH "theory/arith/options.h" Arithmetic
 
-option pivotRule --pivot-rule=RULE ArithPivotRule :handler CVC4::theory::arith::stringToArithPivotRule :default MINIMUM :handler-include "theory/arith/options_handlers.h"
+option pivotRule --pivot-rule=RULE ArithPivotRule :handler CVC4::theory::arith::stringToArithPivotRule :default MINIMUM :handler-include "theory/arith/options_handlers.h" :include "theory/arith/arith_pivot_rule.h"
  change the pivot rule (see --pivot-rule help)
 option arithPivotThreshold arith-pivot-threshold --pivot-threshold=N uint16_t :default 16
  sets the number of heuristic pivots per variable per simplex instance

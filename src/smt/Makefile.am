@@ -10,7 +10,9 @@ libsmt_la_SOURCES = \
 	smt_engine.h \
 	modal_exception.h \
 	bad_option_exception.h \
-	no_such_function_exception.h
+	no_such_function_exception.h \
+	simplification_mode.h \
+	simplification_mode.cpp
 
 nodist_libsmt_la_SOURCES = \
 	smt_options.cpp
