@@ -58,7 +58,7 @@ TheoryBV::Statistics::~Statistics() {
 
 void TheoryBV::preRegisterTerm(TNode node) {
 
-  BVDebug("bitvector") << "TheoryBV::preRegister(" << node << ")" << std::endl;
+  BVDebug("bitvector-preregister") << "TheoryBV::preRegister(" << node << ")" << std::endl;
   //marker literal: bitblast all terms before we start
   d_bitblaster->bitblast(node); 
 }

@@ -492,9 +492,11 @@ void uDivModRec(const Bits& a, const Bits& b, Bits& q, Bits& r, unsigned rec_wid
   Bits not_b;
   negateBits(b, not_b);
   Bits r_minus_b;
-  ripple_carry_adder(r1_shift_add, not_b, r_minus_b, mkTrue()); 
+  Node co1;
+  co1 = ripple_carry_adder(r1_shift_add, not_b, r_minus_b, mkTrue()); 
   // sign is true if r1 < b
-  Node sign = r_minus_b.back();
+  //Node sign = r_minus_b.back();
+  Node sign = mkNode(kind::NOT, co1); 
   
   q1[0] = mkNode(kind::ITE, sign, q1[0], mkTrue());
 
@@ -506,8 +508,9 @@ void uDivModRec(const Bits& a, const Bits& b, Bits& q, Bits& r, unsigned rec_wid
   // check if a < b
 
   Bits a_minus_b;
-  ripple_carry_adder(a, not_b, a_minus_b, mkTrue());
-  Node a_lt_b = a_minus_b.back();
+  Node co2 = ripple_carry_adder(a, not_b, a_minus_b, mkTrue());
+  // Node a_lt_b = a_minus_b.back();
+  Node a_lt_b = mkNode(kind::NOT, co2); 
   
   for(unsigned i = 0; i < a.size(); ++i) {
     Node qval = mkNode(kind::ITE, a_lt_b, mkFalse(), q1[i]);
