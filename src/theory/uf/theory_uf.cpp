@@ -35,7 +35,8 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   d_conflict(c, false),
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
-  d_functionsTerms(c)
+  d_functionsTerms(c),
+  d_hasCard( false, c )
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
@@ -91,6 +92,19 @@ void TheoryUF::check(Effort level) {
 
     Debug("uf") << "TheoryUF::check(): processing " << fact << std::endl;
     ////AJR-hack
+    //Debug("uf-check") << "Check " << fact << " (" << d_valuation.isDecision( fact ) << ")" << std::endl;
+    //if(Options::current()->finiteModelFind ){
+    //  if( d_valuation.isDecision( fact ) ){
+    //    if( fact.getKind()==kind::CARDINALITY_CONSTRAINT ){
+    //      d_hasCard = true;
+    //    }else{
+    //      if( !d_hasCard ){
+    //        std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
+    //        exit( 21 );
+    //      }
+    //    }
+    //  }
+    //}
     ////std::cout << "Check " << fact << std::endl;
     //Debug("uf-ajr") << "TheoryUF::check(): processing " << fact << std::endl;
     //d_assertions_ajr.push_back( fact );
@@ -173,7 +187,7 @@ void TheoryUF::check(Effort level) {
       d_thss->check( level );
     }
   }
-  //if( !d_conflict && level==FULL_EFFORT ){
+  if( !d_conflict && level==FULL_EFFORT ){
     //EqClassesIterator< NotifyClass > eqc_iter( &d_equalityEngine );
     //while( !eqc_iter.isFinished() ){
     //  if( StrongSolverTheoryUf::isRelevantType( (*eqc_iter).getType() ) ){
@@ -191,20 +205,21 @@ void TheoryUF::check(Effort level) {
     //std::cout << std::endl;
 
     //int count = 0;
-    //EqClassesIterator< NotifyClass > eqc_iter( &d_equalityEngine );
+    //EqClassesIterator eqc_iter( &d_equalityEngine );
     //while( !eqc_iter.isFinished() ){
     //  if( StrongSolverTheoryUf::isRelevantType( (*eqc_iter).getType() ) ){
     //    count++;
     //  }
     //  eqc_iter++;
     //}
-    //std::cout << " " << count << std::endl;
+    ////std::cout << "SAT, Equiv classes = ";
+    //std::cout << count << std::endl;
 
     //std::cout << "   Current assumptions:" << std::endl;
     //for( NodeList::const_iterator it = d_assertions_ajr.begin(); it!=d_assertions_ajr.end(); ++it ){
     //  std::cout << "      " << (*it) << std::endl;
     //}
-  //}
+  }
   //AJR-hack-end
 
 }/* TheoryUF::check() */
@@ -243,6 +258,9 @@ void TheoryUF::propagate(Effort level) {
 void TheoryUF::preRegisterTerm(TNode node) {
   Debug("uf") << "TheoryUF::preRegisterTerm(" << node << ")" << std::endl;
   ////AJR-hack
+  if( d_thss ){
+    d_thss->preRegisterTerm( node );
+  }
   //if( getInstantiator() ){
   //  getInstantiator()->preRegisterTerm( node );
   //}

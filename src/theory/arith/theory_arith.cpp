@@ -591,6 +591,10 @@ Node TheoryArith::callDioSolver(){
     if(lb == ub){
       Assert(lb.getKind() == EQUAL);
       orig = lb;
+    }else if(lb.getKind() == EQUAL){
+      orig = lb;
+    }else if(ub.getKind() == EQUAL){
+      orig = ub;
     }else{
       NodeBuilder<> nb(AND);
       nb << ub << lb;
@@ -1234,7 +1238,10 @@ void TheoryArith::presolve(){
   if(Debug.isOn("paranoid:check_tableau")){ d_simplex.debugCheckTableau(); }
 
   static CVC4_THREADLOCAL(unsigned) callCount = 0;
-  Debug("arith::presolve") << "TheoryArith::presolve #" << (callCount++) << endl;
+  if(Debug.isOn("arith::presolve")) {
+    Debug("arith::presolve") << "TheoryArith::presolve #" << callCount << endl;
+    callCount = callCount + 1;
+  }
 
   d_learner.clear();
   check(FULL_EFFORT);

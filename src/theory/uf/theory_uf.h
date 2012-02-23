@@ -139,6 +139,7 @@ private:
   //typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
   ///** map from (representative) nodes to list of representative nodes they are disequal from */
   //NodeList d_assertions_ajr;
+  context::CDO< bool > d_hasCard;
   ////AJR-hack-end
 public:
 

@@ -854,7 +854,7 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
     //TEMPORARY 
     setCardinality( tn, 1 );  //***************
     //END_TEMPORARY
-#else
+#elif 0
     if( d_conf_find.find( tn )==d_conf_find.end() ){
       //enter into incremental finite model finding mode: try cardinality = 1 first
       setCardinality( tn, 1, false );
@@ -871,6 +871,9 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
         d_out->requirePhase( lem[0], true );
       }
     }
+#else
+    Assert( d_conf_find.find( tn )!=d_conf_find.end() );
+    Assert( d_conf_find[tn]->d_cardinality_lemma_term!=Node::null() );
 #endif
     //update type relate information
     if( n.getKind()==APPLY_UF ){
@@ -937,7 +940,11 @@ void StrongSolverTheoryUf::assertCardinality( Node c ){
       Assert( lem.getKind()==OR );
       Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
       d_out->lemma( lem );
+#if 0
       d_out->requirePhase( lem[0], true );
+#else
+      d_out->propagateAsDecision( lem[0] );
+#endif
     }else{
       //std::cout << "Already knew no model of size " << nCard << " exists for type " << tn << std::endl;
     }
@@ -957,6 +964,31 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
   for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
     it->second->check( level, d_out );
   }
+}
+
+void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
+#if 1
+  TypeNode tn = n.getType();
+  if( isRelevantType( tn ) ){
+    if( d_conf_find.find( tn )==d_conf_find.end() ){
+      //enter into incremental finite model finding mode: try cardinality = 1 first
+      setCardinality( tn, 1, false );
+    }
+    if( d_conf_find[tn]->d_cardinality_lemma_term==Node::null() ){
+      //just use the first node you find
+      d_conf_find[tn]->d_cardinality_lemma_term = n;
+      //add the appropriate lemma
+      Node lem = d_conf_find[tn]->getCardinalityLemma();
+      d_out->lemma( lem );
+      if( !d_conf_find[tn]->d_isCardinalityStrict ){
+        Assert( lem.getKind()==OR );
+        Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
+        //d_out->requirePhase( lem[0], true );
+        d_out->propagateAsDecision( lem[0] );
+      }
+    }
+  }
+#endif
 }
 
 /** set cardinality for sort */

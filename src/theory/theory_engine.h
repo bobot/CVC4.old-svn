@@ -58,14 +58,14 @@ struct NodeTheoryPair {
   bool operator == (const NodeTheoryPair& pair) const {
     return node == pair.node && theory == pair.theory;
   }
-};
+};/* struct NodeTheoryPair */
 
 struct NodeTheoryPairHashFunction {
   NodeHashFunction hashFunction;
   size_t operator()(const NodeTheoryPair& pair) const {
     return hashFunction(pair.node)*0x9e3779b9 + pair.theory;
   }
-};
+};/* struct NodeTheoryPairHashFunction */
 
 /**
  * This is essentially an abstraction for a collection of theories.  A
@@ -134,7 +134,9 @@ class TheoryEngine {
    */
   class Statistics {
 
-    static std::string mkName(std::string prefix, theory::TheoryId theory, std::string suffix) {
+    static std::string mkName(std::string prefix,
+                              theory::TheoryId theory,
+                              std::string suffix) {
       std::stringstream ss;
       ss << prefix << theory << suffix;
       return ss.str();
@@ -142,12 +144,13 @@ class TheoryEngine {
 
   public:
 
-    IntStat conflicts, propagations, lemmas, requirePhase, dependentDecision, flipDecision;
+    IntStat conflicts, propagations, lemmas, propagationsAsDecisions, requirePhase, dependentDecision, flipDecision;
 
     Statistics(theory::TheoryId theory):
       conflicts(mkName("theory<", theory, ">::conflicts"), 0),
       propagations(mkName("theory<", theory, ">::propagations"), 0),
       lemmas(mkName("theory<", theory, ">::lemmas"), 0),
+      propagationsAsDecisions(mkName("theory<", theory, ">::propagationsAsDecisions"), 0),
       requirePhase(mkName("theory<", theory, ">::requirePhase"), 0),
       dependentDecision(mkName("theory<", theory, ">::dependentDecision"), 0),
       flipDecision(mkName("theory<", theory, ">::flipDecision"), 0)
@@ -155,6 +158,7 @@ class TheoryEngine {
       StatisticsRegistry::registerStat(&conflicts);
       StatisticsRegistry::registerStat(&propagations);
       StatisticsRegistry::registerStat(&lemmas);
+      StatisticsRegistry::registerStat(&propagationsAsDecisions);
       StatisticsRegistry::registerStat(&requirePhase);
       StatisticsRegistry::registerStat(&dependentDecision);
       StatisticsRegistry::registerStat(&flipDecision);
@@ -164,6 +168,7 @@ class TheoryEngine {
       StatisticsRegistry::unregisterStat(&conflicts);
       StatisticsRegistry::unregisterStat(&propagations);
       StatisticsRegistry::unregisterStat(&lemmas);
+      StatisticsRegistry::unregisterStat(&propagationsAsDecisions);
       StatisticsRegistry::unregisterStat(&requirePhase);
       StatisticsRegistry::unregisterStat(&dependentDecision);
       StatisticsRegistry::unregisterStat(&flipDecision);
@@ -215,6 +220,13 @@ class TheoryEngine {
       ++ d_statistics.propagations;
       d_engine->d_outputChannelUsed = true;
       d_engine->propagate(literal, d_theory);
+    }
+
+    void propagateAsDecision(TNode literal) throw(AssertionException) {
+      Trace("theory") << "EngineOutputChannel<" << d_theory << ">::propagateAsDecision(" << literal << ")" << std::endl;
+      ++ d_statistics.propagationsAsDecisions;
+      d_engine->d_outputChannelUsed = true;
+      d_engine->propagateAsDecision(literal, d_theory);
     }
 
     theory::LemmaStatus lemma(TNode lemma, bool removable = false) throw(TypeCheckingExceptionPrivate, AssertionException) {
@@ -269,7 +281,7 @@ class TheoryEngine {
       d_engine->spendResource();
     }
 
-  };/* class EngineOutputChannel */
+  };/* class TheoryEngine::EngineOutputChannel */
 
   /**
    * Output channels for individual theories.
@@ -287,8 +299,9 @@ class TheoryEngine {
   context::CDO<bool> d_sharedTermsExist;
 
   /**
-   * Explain the equality literals and push all the explaining literals into the builder. All
-   * the non-equality literals are pushed to the builder.
+   * Explain the equality literals and push all the explaining literals
+   * into the builder. All the non-equality literals are pushed to the
+   * builder.
    */
   void explainEqualities(theory::TheoryId theoryId, TNode literals, NodeBuilder<>& builder);
 
@@ -345,7 +358,7 @@ class TheoryEngine {
     : toAssert(assertion, receivingTheory),
       toExplain(original, sendingTheory)
     { }
-  };
+  };/* struct SharedEquality */
 
   /**
    * Map from equalities asserted to a theory, to the theory that can explain them.
@@ -368,7 +381,7 @@ class TheoryEngine {
   /**
    * Literals that are propagated by the theory. Note that these are TNodes.
    * The theory can only propagate nodes that have an assigned literal in the
-   * sat solver and are hence referenced in the SAT solver.
+   * SAT solver and are hence referenced in the SAT solver.
    */
   context::CDList<TNode> d_propagatedLiterals;
 
@@ -383,6 +396,19 @@ class TheoryEngine {
   std::vector<SharedEquality> d_propagatedEqualities;
 
   /**
+   * Decisions that are requested via propagateAsDecision().  The theory
+   * can only request decisions on nodes that have an assigned litearl in
+   * the SAT solver and are hence referenced in the SAT solver (making the
+   * use of TNode safe).
+   */
+  context::CDList<TNode> d_decisionRequests;
+
+  /**
+   * The index of the next decision requested by a theory.
+   */
+  context::CDO<unsigned> d_decisionRequestsIndex;
+
+  /**
    * Called by the output channel to propagate literals and facts
    */
   void propagate(TNode literal, theory::TheoryId theory);
@@ -392,6 +418,12 @@ class TheoryEngine {
    * propagated literals.
    */
   void propagate(theory::Theory::Effort effort);
+
+  /**
+   * Called by the output channel to request decisions "as soon as
+   * possible."
+   */
+  void propagateAsDecision(TNode literal, theory::TheoryId theory);
 
   /**
    * A variable to mark if we added any lemmas.
@@ -601,6 +633,19 @@ public:
     }
   }
 
+  TNode getNextDecisionRequest() {
+    if(d_decisionRequestsIndex < d_decisionRequests.size()) {
+      TNode req = d_decisionRequests[d_decisionRequestsIndex];
+      Debug("propagateAsDecision") << "TheoryEngine requesting decision["
+                                   << d_decisionRequestsIndex << "]: "
+                                   << req << std::endl;
+      d_decisionRequestsIndex = d_decisionRequestsIndex + 1;
+      return req;
+    } else {
+      return TNode::null();
+    }
+  }
+
   bool properConflict(TNode conflict) const;
   bool properPropagation(TNode lit) const;
   bool properExplanation(TNode node, TNode expl) const;
@@ -637,8 +682,8 @@ public:
   }
 
   /**
-   * Returns the equality status of the two terms, from the theory that owns the domain type.
-   * The types of a and b must be the same.
+   * Returns the equality status of the two terms, from the theory
+   * that owns the domain type.  The types of a and b must be the same.
    */
   theory::EqualityStatus getEqualityStatus(TNode a, TNode b);
 

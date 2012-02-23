@@ -232,8 +232,11 @@ public:
   void assertDisequal( Node a, Node b, Node reason );
   /** assert cardinality */
   void assertCardinality( Node c );
+public:
   /** check */
   void check( Theory::Effort level );
+  /** preregister a term */
+  void preRegisterTerm( TNode n );
 public:
   /** identify */
   std::string identify() const { return std::string("StrongSolverTheoryUf"); }
