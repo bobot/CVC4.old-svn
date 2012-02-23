@@ -202,3 +202,7 @@ bool TheoryQuantifiers::restart(){
 Node TheoryQuantifiers::explain( TNode n ){
   return d_quantEngine->explain( n );
 }
+
+void TheoryQuantifiers::performCheck(Effort e){
+  d_quantEngine->check( e );
+}

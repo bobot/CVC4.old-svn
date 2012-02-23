@@ -89,10 +89,19 @@ void InstMatch::debugPrint( const char* c ){
   //}
 }
 
+void InstMatch::makeInternal( EqualityQuery* q ){
+  for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
+    if( it->second.hasAttribute(InstConstantAttribute()) ){
+      d_map[ it->first ] = q->getInternalRepresentative( it->second );
+    }
+  }
+}
+
 void InstMatch::computeTermVec( QuantifiersEngine* ie, std::vector< Node >& vars, std::vector< Node >& match ){
   for( int i=0; i<(int)vars.size(); i++ ){
-    if( d_map.find( vars[i] )!=d_map.end() ){
-      match.push_back( d_map[ vars[i] ] );
+    std::map< Node, Node >::iterator it = d_map.find( vars[i] );
+    if( it!=d_map.end() && !it->second.isNull() ){
+      match.push_back( it->second );
     }else{
       match.push_back( ie->getFreeVariableForInstConstant( vars[i] ) );
     }
@@ -356,7 +365,9 @@ void InstMatchGenerator::resetInstantiationRound( QuantifiersEngine* qe ){
       d_children[i]->resetInstantiationRound( qe );
     }
   }else{
-    //DO_THIS?
+    if( d_cg ){
+      d_cg->resetInstantiationRound();
+    }
   }
 }
 
@@ -472,18 +483,19 @@ void Trigger::reset( Node eqc ){
 }
 
 bool Trigger::getNextMatch( InstMatch& m ){
-  return d_mg->getNextMatch( m, d_quantEngine );
+  bool retVal = d_mg->getNextMatch( m, d_quantEngine );
+  //m.makeInternal( d_quantEngine->getEqualityQuery() );
+  return retVal;
 }
 
-int Trigger::addInstantiations( InstMatch& baseMatch, bool addSplits ){
-  //reset the match generator
-  reset( Node::null() );
+int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSplits ){
   //now, try to add instantiation for each match produced
   bool success = true;
   int addedLemmas = 0;
   do{
     InstMatch m;
     if( getNextMatch( m ) ){
+      //m.makeInternal( d_quantEngine->getEqualityQuery() );
       m.add( baseMatch );
       if( d_quantEngine->addInstantiation( d_f, &m, addSplits ) ){
         //std::cout << "Trigger was ";
@@ -492,6 +504,11 @@ int Trigger::addInstantiations( InstMatch& baseMatch, bool addSplits ){
         //}
         //std::cout << std::endl;
         addedLemmas++;
+#if 0
+        if( instLimit>0 && addedLemmas==instLimit ){
+          return addedLemmas;
+        }
+#endif
       }
     }else{
       success = false;

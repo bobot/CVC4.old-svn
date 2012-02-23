@@ -35,8 +35,9 @@ private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
   /** list of universally quantifiers currently asserted */
   BoolMap d_forall_asserts;
-  /** status */
-  int d_status;
+  /** are we in the middle of an instantiation round */
+  context::CDO< bool > d_in_instRound;
+  bool d_in_instRound_no_c;
 private:
   /** do instantiation round */
   bool doInstantiationRound();

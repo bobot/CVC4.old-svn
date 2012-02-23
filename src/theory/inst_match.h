@@ -52,6 +52,7 @@ public:
       
       eqc is the equivalence class you are searching in
   */
+  virtual void resetInstantiationRound() = 0;
   virtual void reset( Node eqc ) = 0;
   virtual Node getNextCandidate() = 0;
 };
@@ -65,6 +66,12 @@ public:
   virtual Node getRepresentative( Node a ) = 0;
   virtual bool areEqual( Node a, Node b ) = 0;
   virtual bool areDisequal( Node a, Node b ) = 0;
+  /** internal representative
+      Returns a term in the equivalence class of "a" that does 
+      not contain instantiation constants, if such a term exists. 
+      Otherwise, return "a" itself.
+   */
+  virtual Node getInternalRepresentative( Node a ) = 0;
   //virtual void requestCandidates( Node t, Node s, int op ) = 0;
   //virtual Node getNextCandidate( Node t, Node s, int op ) = 0;
   //virtual void finishCandidates( Node t, Node s, int op ) = 0;
@@ -87,6 +94,8 @@ public:
   bool merge( EqualityQuery* q, InstMatch& m );
   /** debug print method */
   void debugPrint( const char* c );
+  /** make internal: ensure that no term in d_map contains instantiation constants */
+  void makeInternal( EqualityQuery* q );
   /** compute d_match */
   void computeTermVec( QuantifiersEngine* ie, std::vector< Node >& vars, std::vector< Node >& match );
   /** clear */
@@ -207,8 +216,9 @@ public:
   /** get next match.  must call reset( eqc ) once before this function. */
   bool getNextMatch( InstMatch& m );
 public:
-  /** add all available instantiations exhaustively, in any equivalence class */
-  int addInstantiations( InstMatch& baseMatch, bool addSplits = false );
+  /** add all available instantiations exhaustively, in any equivalence class 
+      if limitInst>0, limitInst is the max # of instantiations to try */
+  int addInstantiations( InstMatch& baseMatch, int instLimit = 0, bool addSplits = false );
   /** mkTrigger method
      ie     : quantifier engine;
      f      : forall something ....

@@ -86,7 +86,7 @@ class Instantiator{
   friend class QuantifiersEngine;
 private:
   /** status */
-  int d_status;
+  //int d_status;
 protected:
   /** reference to the instantiation engine */
   QuantifiersEngine* d_quantEngine;
@@ -132,13 +132,13 @@ public:
   virtual void assertNode( Node assertion ){}
 
   /** do instantiation method*/
-  virtual void doInstantiation( int effort );
+  int doInstantiation( Node f, int effort );
   /** identify */
   virtual std::string identify() const { return std::string("Unknown"); }
   /** print debug information */
   virtual void debugPrint( const char* c ) {}
   /** get status */
-  int getStatus() { return d_status; }
+  //int getStatus() { return d_status; }
 };/* class Instantiator */
 
 class QuantifiersModule
@@ -244,6 +244,8 @@ public:
   bool hasAddedLemma() { return !d_lemmas_waiting.empty(); }
   /** flush lemmas */
   void flushLemmas( OutputChannel* out );
+  /** get number of waiting lemmas */
+  int getNumLemmasWaiting() { return (int)d_lemmas_waiting.size(); }
 public:
   /** get number of quantifiers */
   int getNumQuantifiers() { return (int)d_quants.size(); }

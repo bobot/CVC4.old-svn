@@ -308,7 +308,8 @@ public:
     QUICK_CHECK = 10,
     STANDARD = 50,
     FULL_EFFORT = 100,
-    COMBINATION = 150
+    COMBINATION = 150,
+    LAST_CALL = 200
   };/* enum Effort */
 
   // simple, useful predicates for effort values

@@ -261,7 +261,7 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
         newArgs.push_back( body[0][i] );
       }
       newArgs.insert( newArgs.end(), args.begin(), args.end() );
-      return mkForAll( newArgs, body[ body.getNumChildren()-1 ], ipl );
+      return mkForAll( newArgs, body[ 1 ], ipl );   //Note that we may lose instantiation patterns on nested quantifiers FIXME?
     }else if( !isNested && !isClause( body ) ){
       NodeBuilder<> body_split(kind::OR);
       Node newBody = body;

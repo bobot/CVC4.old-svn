@@ -25,7 +25,6 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 Instantiator::Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th) : 
-d_status( InstStrategy::STATUS_UNFINISHED ),
 d_quantEngine( qe ),
 d_th( th ){
 
@@ -34,25 +33,51 @@ d_th( th ){
 Instantiator::~Instantiator(){
 }
 
-void Instantiator::doInstantiation( int effort ){
-  d_status = InstStrategy::STATUS_SAT;
-  for( int q=0; q<d_quantEngine->getNumQuantifiers(); q++ ){
-    Node f = d_quantEngine->getQuantifier( q );
-    if( d_quantEngine->getActive( f ) && hasConstraintsFrom( f ) ){
-      int d_quantStatus = process( f, effort );
-      InstStrategy::updateStatus( d_status, d_quantStatus );
+int Instantiator::doInstantiation( Node f, int effort ){
+  if( hasConstraintsFrom( f ) ){
+    //int origLemmas = d_quantEngine->getNumLemmasWaiting();
+    int status = process( f, effort );
+    //if( origLemmas==d_quantEngine->getNumLemmasWaiting() ){
       for( int i=0; i<(int)d_instStrategies.size(); i++ ){
         if( isActiveStrategy( d_instStrategies[i] ) ){
           Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
           //call the instantiation strategy's process method
-          d_quantStatus = d_instStrategies[i]->process( f, effort );
-          Debug("inst-engine-inst") << "  -> status is " << d_quantStatus << std::endl;
-          InstStrategy::updateStatus( d_status, d_quantStatus );
+          int s_status = d_instStrategies[i]->process( f, effort );
+          Debug("inst-engine-inst") << "  -> status is " << s_status << std::endl;
+          //if( origLemmas!=d_quantEngine->getNumLemmasWaiting() ){
+          //  i = (int)d_instStrategies.size();
+          //  status = InstStrategy::STATUS_UNKNOWN;
+          //}else{
+            InstStrategy::updateStatus( status, s_status );
+          //}
         }
       }
-    }
+    //}
+    return status;
+  }else{
+    return InstStrategy::STATUS_SAT;
   }
 }
+
+//void Instantiator::doInstantiation( int effort ){
+//  d_status = InstStrategy::STATUS_SAT;
+//  for( int q=0; q<d_quantEngine->getNumQuantifiers(); q++ ){
+//    Node f = d_quantEngine->getQuantifier( q );
+//    if( d_quantEngine->getActive( f ) && hasConstraintsFrom( f ) ){
+//      int d_quantStatus = process( f, effort );
+//      InstStrategy::updateStatus( d_status, d_quantStatus );
+//      for( int i=0; i<(int)d_instStrategies.size(); i++ ){
+//        if( isActiveStrategy( d_instStrategies[i] ) ){
+//          Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
+//          //call the instantiation strategy's process method
+//          d_quantStatus = d_instStrategies[i]->process( f, effort );
+//          Debug("inst-engine-inst") << "  -> status is " << d_quantStatus << std::endl;
+//          InstStrategy::updateStatus( d_status, d_quantStatus );
+//        }
+//      }
+//    }
+//  }
+//}
 
 void Instantiator::resetInstantiationStrategies(){
   for( int i=0; i<(int)d_instStrategies.size(); i++ ){

@@ -30,33 +30,43 @@ using namespace CVC4::theory::uf;
 #define USE_FREE_VARIABLE_INSTANTIATION
 
 void InstStrategyCheckCESolved::resetInstantiationRound(){
-  
+  for( std::map< Node, bool >::iterator it = d_solved.begin(); it != d_solved.end(); ++it ){
+    calcSolved( it->first );
+  }
 }
 
 int InstStrategyCheckCESolved::process( Node f, int effort ){
   if( effort==0 ){
-    d_th->d_baseMatch[f].clear();
-    bool solved = true;
-    //check if any instantiation constants are solved for
-    for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
-      Node i = d_quantEngine->getInstantiationConstant( f, j );
-      Node rep = d_th->getInternalRepresentative( i );
-      if( !rep.hasAttribute(InstConstantAttribute()) ){
-        d_th->d_baseMatch[f].d_map[ i ] = rep;
-      }else{
-        solved = false;
-      }
+    //calc solved if not done so already
+    if( d_solved.find( f )==d_solved.end() ){
+      calcSolved( f );
     }
     //check if f is counterexample-solved
-    if( solved ){
+    if( d_solved[ f ] ){
       if( d_quantEngine->addInstantiation( f, &d_th->d_baseMatch[f] ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_ce_solved);
         //d_quantEngine->d_hasInstantiated[f] = true;
       }
+      d_solved[f] = false;
     } 
   }
   return STATUS_UNKNOWN;
+}
+
+void InstStrategyCheckCESolved::calcSolved( Node f ){
+  d_th->d_baseMatch[f].clear();
+  d_solved[ f ]= true;
+  //check if instantiation constants are solved for
+  for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
+    Node i = d_quantEngine->getInstantiationConstant( f, j );
+    Node rep = d_th->getInternalRepresentative( i );
+    if( !rep.hasAttribute(InstConstantAttribute()) ){
+      d_th->d_baseMatch[f].d_map[ i ] = rep;
+    }else{
+      d_solved[ f ] = false;
+    }
+  }
 }
 
 void InstStrategyLitMatch::resetInstantiationRound(){
@@ -101,20 +111,22 @@ int InstStrategyLitMatch::process( Node f, int effort ){
 }
 
 void InstStrategyUserPatterns::resetInstantiationRound(){
-  
+  for( std::map< Node, std::vector< Trigger* > >::iterator it = d_user_gen.begin(); it != d_user_gen.end(); ++it ){
+    for( int i=0; i<(int)it->second.size(); i++ ){
+      it->second[i]->resetInstantiationRound();
+      it->second[i]->reset( Node::null() );
+    }
+  }
 }
 
 int InstStrategyUserPatterns::process( Node f, int effort ){
   if( effort==0 ){
     return STATUS_UNFINISHED;
-  }else{
+  }else if( effort==1 ){
     Debug("quant-uf-strategy") << "Try user-provided patterns..." << std::endl;
     //std::cout << "Try user-provided patterns..." << std::endl;
-    for( int i=0; i<(int)getNumUserGenerators( f ); i++ ){
-      if( effort==1 ){
-        getUserGenerator( f, i )->resetInstantiationRound();
-      }
-      int numInst = getUserGenerator( f, i )->addInstantiations( d_th->d_baseMatch[f] );
+    for( int i=0; i<(int)d_user_gen[f].size(); i++ ){
+      int numInst = d_user_gen[f][i]->addInstantiations( d_th->d_baseMatch[f], 1 );
       d_th->d_statistics.d_instantiations += numInst;
       d_th->d_statistics.d_instantiations_user_pattern += numInst;
       //d_quantEngine->d_hasInstantiated[f] = true;
@@ -137,22 +149,25 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
 }
  
 void InstStrategyAutoGenTriggers::resetInstantiationRound(){
-  
+  for( std::map< Node, Trigger* >::iterator it = d_auto_gen_trigger.begin(); it != d_auto_gen_trigger.end(); ++it ){
+    if( it->second ){
+      it->second->resetInstantiationRound();
+      it->second->reset( Node::null() );
+    }
+  }
 }
 
 int InstStrategyAutoGenTriggers::process( Node f, int effort ){
   if( effort==0 ){
     return STATUS_UNFINISHED;
-  }else{
-    if( !getAutoGenTrigger( f ) ){
+  }else if( effort==1 ){
+    Trigger* tr = getAutoGenTrigger( f );
+    if( !tr ){
       return STATUS_UNKNOWN;
     }else{
       Debug("quant-uf-strategy")  << "Try auto-generated triggers... " << d_tr_strategy << " " << getAutoGenTrigger( f ) << std::endl;
       //std::cout << "Try auto-generated triggers..." << std::endl;
-      if( effort==1 ){
-        getAutoGenTrigger( f )->resetInstantiationRound();
-      }
-      int numInst = getAutoGenTrigger( f )->addInstantiations( d_th->d_baseMatch[f], false );
+      int numInst = tr->addInstantiations( d_th->d_baseMatch[f], 1 );
       d_th->d_statistics.d_instantiations += numInst;
       //d_quantEngine->d_hasInstantiated[f] = true;
       Debug("quant-uf-strategy") << "done." << std::endl;
@@ -200,7 +215,13 @@ Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
       collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );
       //std::cout << "patTerms = " << (int)patTerms.size() << std::endl;
       if( !patTerms.empty() ){
-        d_auto_gen_trigger[f] = Trigger::mkTrigger( d_quantEngine, f, patTerms, false, false, Trigger::TRP_RETURN_NULL );
+        Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, false, false, Trigger::TRP_RETURN_NULL );
+        //making it during an instantiation round, so must reset
+        if( tr ){
+          tr->resetInstantiationRound();
+          tr->reset( Node::null() );
+        }
+        d_auto_gen_trigger[f] = tr;
       }else{
         d_auto_gen_trigger[f] = NULL;
       }
@@ -398,19 +419,28 @@ Node InstantiatorTheoryUf::getRepresentative( Node a ){
 
 Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
   if( d_ground_reps.find( a )==d_ground_reps.end() ){
-    Node rep = getRepresentative( a );
-    if( !rep.hasAttribute(InstLevelAttribute()) ){
-      d_ground_reps[a] = rep;
-      return rep;
+    if( !((TheoryUF*)d_th)->d_equalityEngine.hasTerm( a ) ){
+      //a is singleton equivalence class, just return it
+      d_ground_reps[ a ] = a;
+      return a;
     }else{
-      EqClassIterator eqc_iter( rep, &((TheoryUF*)d_th)->d_equalityEngine );
-      rep = Node::null();
-      while( !eqc_iter.isFinished() ){
-        if( !(*eqc_iter).hasAttribute(InstConstantAttribute()) ){
-          d_ground_reps[ a ] = *eqc_iter;
-          return *eqc_iter;
+      Node rep = getRepresentative( a );
+      if( !rep.hasAttribute(InstLevelAttribute()) ){
+        //return the representative of a
+        d_ground_reps[a] = rep;
+        return rep;
+      }else{
+        //otherwise, must search eq class
+        EqClassIterator eqc_iter( rep, &((TheoryUF*)d_th)->d_equalityEngine );
+        rep = Node::null();
+        while( !eqc_iter.isFinished() ){
+          if( !(*eqc_iter).hasAttribute(InstConstantAttribute()) ){
+            d_ground_reps[ a ] = *eqc_iter;
+            return *eqc_iter;
+          }
+          eqc_iter++;
         }
-        eqc_iter++;
+        d_ground_reps[ a ] = a;
       }
     }
   }
@@ -495,6 +525,9 @@ EqClassInfo* InstantiatorTheoryUf::getEquivalenceClassInfo( Node n ) {
   return d_eqc_ops[n]; 
 }
 
+void CandidateGeneratorTheoryUf::resetInstantiationRound(){
+  d_term_iter_limit = d_ith->getTermDatabase()->d_op_map[d_op].size();
+}
 
 void CandidateGeneratorTheoryUf::reset( Node eqc ){
   if( eqc.isNull() ){
@@ -514,28 +547,25 @@ void CandidateGeneratorTheoryUf::reset( Node eqc ){
 Node CandidateGeneratorTheoryUf::getNextCandidate(){
   if( d_term_iter>=0 ){
     //get next candidate term in the uf term database
-    if( d_term_iter<(int)d_ith->getTermDatabase()->d_op_map[d_op].size() ){
+    if( d_term_iter<d_term_iter_limit ){
       Node n = d_ith->getTermDatabase()->d_op_map[d_op][d_term_iter];
       d_term_iter++;
-      //if( n.hasAttribute(InstConstantAttribute()) ){
-      //  d_ith->getTermDatabase()->d_op_map[d_op].erase( d_ith->getTermDatabase()->d_op_map[d_op].begin() + d_term_iter - 1, 
-      //                                                  d_ith->getTermDatabase()->d_op_map[d_op].begin() + d_term_iter );
-      //}else{
-        return n;
-      //}
+      return n;
     }
   }else if( d_term_iter==-1 ){
     //get next candidate term in equivalence class
     while( !d_eqc.isFinished() ){
       Node n = (*d_eqc);
       ++d_eqc;
-      if( !n.hasAttribute(InstConstantAttribute()) ){
-        if( d_op.isNull() ){
-          //done producing matches
+      if( d_op.isNull() ){
+        //done producing matches
+        if( !n.hasAttribute(InstConstantAttribute()) ){
           d_term_iter = -2;
           return n;
-        }else{
-          if( n.getKind()==APPLY_UF && n.getOperator()==d_op ){
+        }
+      }else{
+        if( n.getKind()==APPLY_UF && n.getOperator()==d_op ){
+          if( !n.hasAttribute(InstConstantAttribute()) ){
             return n;
           }
         }
@@ -549,6 +579,11 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
 CandidateGeneratorTheoryUfDisequal::CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node op ) : d_ith( ith ){
   d_cg = new CandidateGeneratorTheoryUf( ith, op );
   d_eci = NULL;
+}
+
+
+void CandidateGeneratorTheoryUfDisequal::resetInstantiationRound(){
+  
 }
 
 //we will iterate over all terms that are disequal from eqc
@@ -584,10 +619,14 @@ CandidateGeneratorTheoryUfEq::CandidateGeneratorTheoryUfEq( InstantiatorTheoryUf
   
 }
 
+void CandidateGeneratorTheoryUfEq::resetInstantiationRound(){
+  
+}
+
 void CandidateGeneratorTheoryUfEq::reset( Node eqc ){
-  bool pol = d_pattern.getKind()!=NOT;
-  Node eq = d_pattern.getKind()==NOT ? d_pattern[0] : d_pattern;
-  Assert( eq.getKind()==IFF || eq.getKind()==EQUAL );
+  //bool pol = d_pattern.getKind()!=NOT;
+  //Node eq = d_pattern.getKind()==NOT ? d_pattern[0] : d_pattern;
+  //Assert( eq.getKind()==IFF || eq.getKind()==EQUAL );
 
 }
 

@@ -214,7 +214,7 @@ void TheoryEngine::check(Theory::Effort effort) {
     if( effort==Theory::FULL_EFFORT ){
       if( !d_inConflict && !d_lemmasAdded ){
         if( d_theoryTable[THEORY_QUANTIFIERS] ){
-          //((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->fullEffortCheck();
+          //((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::LAST_CALL );
           if( d_incomplete ){
             if( ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ){
               d_incomplete = false;

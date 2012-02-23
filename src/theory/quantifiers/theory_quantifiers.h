@@ -73,6 +73,7 @@ public:
   static bool isRewriteKind( Kind k ){
     return k==kind::REWRITE_RULE || k==kind::REDUCTION_RULE || k==kind::DEDUCTION_RULE;
   }
+  void performCheck(Effort e);
 };/* class TheoryQuantifiers */
 
 }/* CVC4::theory::quantifiers namespace */

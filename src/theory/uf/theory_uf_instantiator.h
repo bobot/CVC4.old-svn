@@ -41,6 +41,10 @@ class InstStrategyCheckCESolved : public InstStrategy{
 private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
+  /** is solved? */
+  std::map< Node, bool > d_solved;
+  /** calc if f is solved */
+  void calcSolved( Node f );
 public:
   InstStrategyCheckCESolved( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
@@ -109,7 +113,7 @@ private:
   void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt );
 public:
   InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt ) : 
-      InstStrategy( ie ), d_tr_strategy( tstrt ), d_th( th ){}
+      InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ){}
   ~InstStrategyAutoGenTriggers(){}
   void resetInstantiationRound();
   int process( Node f, int effort );
@@ -264,6 +268,7 @@ public:
   Node getRepresentative( Node a ) { return d_ith->getRepresentative( a ); }
   bool areEqual( Node a, Node b ) { return d_ith->areEqual( a, b ); }
   bool areDisequal( Node a, Node b ) { return d_ith->areDisequal( a, b ); }
+  Node getInternalRepresentative( Node a ) { return d_ith->getInternalRepresentative( a ); }
 };
 
 class CandidateGeneratorTheoryUfDisequal;
@@ -279,11 +284,13 @@ private:
   //the equality class iterator
   EqClassIterator d_eqc;
   int d_term_iter;
+  int d_term_iter_limit;
 public:
   CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op ) : 
     d_op( op ), d_ith( ith ), d_term_iter( -2 ){}
   ~CandidateGeneratorTheoryUf(){}
 
+  void resetInstantiationRound();
   void reset( Node eqc );
   Node getNextCandidate();
 };
@@ -303,6 +310,7 @@ public:
   CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node op );
   ~CandidateGeneratorTheoryUfDisequal(){}
 
+  void resetInstantiationRound();
   void reset( Node eqc );   //should be what you want to be disequal from
   Node getNextCandidate();
 };
@@ -322,6 +330,7 @@ public:
   CandidateGeneratorTheoryUfEq( InstantiatorTheoryUf* ith, Node pat, Node mpat );
   ~CandidateGeneratorTheoryUfEq(){}
 
+  void resetInstantiationRound();
   void reset( Node eqc );
   Node getNextCandidate();
 };
