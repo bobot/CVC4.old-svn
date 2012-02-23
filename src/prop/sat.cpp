@@ -122,8 +122,7 @@ void SatSolver::notifyNewLemma(SatClause& lemma) {
   Assert(lemma.size() > 0);
   if(Options::current()->lemmaOutputChannel != NULL) {
     if(lemma.size() == 1) {
-      // cannot share units yet
-      //Options::current()->lemmaOutputChannel->notifyNewLemma(d_cnfStream->getNode(lemma[0]).toExpr());
+      Options::current()->lemmaOutputChannel->notifyNewLemma(d_cnfStream->getNode(lemma[0]).toExpr());
     } else {
       NodeBuilder<> b(kind::OR);
       for(unsigned i = 0, i_end = lemma.size(); i < i_end; ++i) {
