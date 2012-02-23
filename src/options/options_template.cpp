@@ -5,7 +5,7 @@
  ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
- ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
+ ** Copyright (c) 2009-2012  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
  ** New York University
  ** See the file COPYING in the top-level source directory for licensing
@@ -263,11 +263,13 @@ static struct option cmdlineOptions[] = {${all_modules_long_options}
 static void preemptGetopt(int& argc, char**& argv, const char* opt) {
   const size_t maxoptlen = 128;
 
+  Debug("preemptGetopt") << "preempting getopt() with " << opt << std::endl;
+
   AlwaysAssert(opt != NULL && *opt != '\0');
   AlwaysAssert(strlen(opt) <= maxoptlen);
 
   ++argc;
-  unsigned i = 0;
+  unsigned i = 1;
   while(argv[i] != NULL && argv[i][0] != '\0') {
     ++i;
   }
@@ -310,27 +312,33 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
   extra_argv[0] = NULL;
   extra_argv[1] = NULL;
 
-  int extra_optind = 1, main_optind = 1;
+  int extra_optind = 0, main_optind = 0;
   int old_optind;
 
   for(;;) {
     int c = -1;
-    if(extra_optind < extra_argc) {
+    Debug("preemptGetopt") << "top of loop, extra_optind == " << extra_optind << ", extra_argc == " << extra_argc << std::endl;
+    if((extra_optind == 0 ? 1 : extra_optind) < extra_argc) {
 #if HAVE_DECL_OPTRESET
       optreset = 1; // on BSD getopt() (e.g. Mac OS), might also need this
 #endif /* HAVE_DECL_OPTRESET */
       old_optind = optind = extra_optind;
+      Debug("preemptGetopt") << "in preempt code, next arg is " << extra_argv[optind == 0 ? 1 : optind] << std::endl;
       c = getopt_long(extra_argc, extra_argv,
                       ":${all_modules_short_options}",
                       cmdlineOptions, NULL);
-      if(extra_optind >= extra_argc) {
+      Debug("preemptGetopt") << "in preempt code, c == " << c << " (`" << char(c) << "') optind == " << optind << std::endl;
+      if(optind >= extra_argc) {
+        Debug("preemptGetopt") << "-- no more preempt args" << std::endl;
         unsigned i = 0;
         while(extra_argv[i] != NULL && extra_argv[i][0] != '\0') {
           extra_argv[i][0] = '\0';
           ++i;
         }
-        extra_argc = extra_optind = 0;
+        extra_argc = 1;
+        extra_optind = 0;
       } else {
+        Debug("preemptGetopt") << "-- more preempt args" << std::endl;
         extra_optind = optind;
       }
     }
@@ -348,10 +356,12 @@ int Options::parseOptions(int argc, char* argv[]) throw(OptionException) {
       }
     }
 
+    Debug("preemptGetopt") << "processing option " << c << " (`" << char(c) << "')" << std::endl;
+
     switch(c) {
 ${all_modules_option_handlers}
 
-#line 355 "${template}"
+#line 359 "${template}"
 
     case ':':
       // This can be a long or short option, and the way to get at the name of it is different.

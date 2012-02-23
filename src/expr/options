@@ -10,10 +10,12 @@ option - --default-expr-depth=N argument :handler CVC4::expr::setDefaultExprDept
 option - --print-expr-types void :handler CVC4::expr::setPrintExprTypes :handler-include "expr/options_handlers.h"
  print types with variables when printing exprs
 
-option earlyTypeChecking --eager-type-checking/--lazy-type-checking bool :default USE_EARLY_TYPE_CHECKING_BY_DEFAULT :link --type-checking
+option earlyTypeChecking --eager-type-checking/--lazy-type-checking bool :default USE_EARLY_TYPE_CHECKING_BY_DEFAULT
  type check expressions immediately on creation (debug builds only)
 /type check expressions only when necessary (default)
 
+# --no-type-checking will override any --early-type-checking or --lazy-type-checking option
+# --lazy-type-checking is linked because earlyTypeChecking should be set false too
 option typeChecking /--no-type-checking bool :default DO_SEMANTIC_CHECKS_BY_DEFAULT :link /--lazy-type-checking
  never type check expressions
 
