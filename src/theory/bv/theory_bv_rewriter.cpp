@@ -67,7 +67,7 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
                   RewriteRule<FailEq>,
                   // If both sides are equal equality is true
                   RewriteRule<SimplifyEq>,
-                  // Normalize the equalities
+                  // Eliminate the equalities
                   RewriteRule<ReflexivityEq>
                 >::apply(node);
       break;
@@ -92,58 +92,53 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
                   RewriteRule<SgeToSle>
                >::apply(node);
       break;
-    case kind::BITVECTOR_ULE:
-      result = LinearRewriteStrategy <
-                  RewriteRule<UleSplit>
-               >::apply(node);
-      break;
-    case kind::BITVECTOR_SLE:
-      result = LinearRewriteStrategy <
-                  RewriteRule<SleSplit>
-               >::apply(node);
-      break;
     case kind::BITVECTOR_REPEAT:
       result = LinearRewriteStrategy <
-                  RewriteRule<RepeatNormalize>
+                  RewriteRule<RepeatEliminate>
                >::apply(node);
       break;
     case kind::BITVECTOR_ROTATE_RIGHT:
       result = LinearRewriteStrategy <
-                  RewriteRule<RotateRightNormalize>
+                  RewriteRule<RotateRightEliminate>
                >::apply(node);
       break;
     case kind::BITVECTOR_ROTATE_LEFT:
       result = LinearRewriteStrategy <
-                  RewriteRule<RotateLeftNormalize>
+                  RewriteRule<RotateLeftEliminate>
                >::apply(node);
       break;
     case kind::BITVECTOR_NAND:
       result = LinearRewriteStrategy <
-                  RewriteRule<NandNormalize>
+                  RewriteRule<NandEliminate>
                >::apply(node);
       break;
     case kind::BITVECTOR_NOR:
       result = LinearRewriteStrategy <
-                  RewriteRule<NorNormalize>
+                  RewriteRule<NorEliminate>
                >::apply(node);
       break;
 
     case kind::BITVECTOR_SDIV:
       result = LinearRewriteStrategy <
-                  RewriteRule<SdivNormalize>
+                  RewriteRule<SdivEliminate>
                >::apply(node);
       break;
   case kind::BITVECTOR_SREM:
       result = LinearRewriteStrategy <
-                  RewriteRule<SremNormalize>
+                  RewriteRule<SremEliminate>
                >::apply(node);
      break;
     case kind::BITVECTOR_SMOD:
       result = LinearRewriteStrategy <
-                  RewriteRule<SmodNormalize>
+                  RewriteRule<SmodEliminate>
                 >::apply(node);
       break;
-   
+    case kind::BITVECTOR_ZERO_EXTEND:
+      result = LinearRewriteStrategy <
+                  RewriteRule<ZeroExtendEliminate>
+                >::apply(node);
+      break;
+      
     default:
       // TODO: figure out when this is an operator
       result = node;

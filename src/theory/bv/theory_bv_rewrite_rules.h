@@ -43,22 +43,21 @@ enum RewriteRuleId {
   FailEq,
   SimplifyEq,
   ReflexivityEq,
-  /// normalization rewrite rules
+  /// operator elimination rules
   UgtToUlt,
   UgeToUle,
   SgeToSle,
   SgtToSlt,
-  UleSplit,
-  SleSplit,
-  RepeatNormalize,
-  RotateLeftNormalize,
-  RotateRightNormalize,
-  NandNormalize,
-  NorNormalize,
-  SdivNormalize,
-  UdivNormalize,
-  SmodNormalize,
-  SremNormalize,
+  RepeatEliminate,
+  RotateLeftEliminate,
+  RotateRightEliminate,
+  NandEliminate,
+  NorEliminate,
+  SdivEliminate,
+  UdivEliminate,
+  SmodEliminate,
+  SremEliminate,
+  ZeroExtendEliminate,
   // division by zero guards: rewrite a / b as b!=0 => a/b = ...
   DivZeroGuard
  };
@@ -80,16 +79,15 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case SgtToSlt:            out << "SgtToSlt";            return out;
   case UgeToUle:            out << "UgeToUle";            return out;
   case SgeToSle:            out << "SgeToSle";            return out;
-  case UleSplit:            out << "UleSplit";            return out;
-  case SleSplit:            out << "SleSplit";            return out;
-  case RepeatNormalize:     out << "RepeatNormalize";     return out;
-  case RotateLeftNormalize: out << "RotateLeftNormalize"; return out;
-  case RotateRightNormalize:out << "RotateRightNormalize";return out;
-  case NandNormalize:       out << "NandNormalize";       return out;
-  case NorNormalize :       out << "NorNormalize";        return out;
-  case SdivNormalize :      out << "SdivNormalize";       return out;
-  case SremNormalize :      out << "SremNormalize";       return out;
-  case SmodNormalize :      out << "SmodNormalize";       return out;
+  case RepeatEliminate:     out << "RepeatEliminate";     return out;
+  case RotateLeftEliminate: out << "RotateLeftEliminate"; return out;
+  case RotateRightEliminate:out << "RotateRightEliminate";return out;
+  case NandEliminate:       out << "NandEliminate";       return out;
+  case NorEliminate :       out << "NorEliminate";        return out;
+  case SdivEliminate :      out << "SdivEliminate";       return out;
+  case SremEliminate :      out << "SremEliminate";       return out;
+  case SmodEliminate :      out << "SmodEliminate";       return out;
+  case ZeroExtendEliminate :out << "ZeroExtendEliminate";       return out;
   case DivZeroGuard :       out << "DivZeroGuard";        return out;
   default:
     Unreachable();
@@ -197,16 +195,14 @@ struct AllRewriteRules {
   RewriteRule<SgtToSlt>             rule12;
   RewriteRule<UgeToUle>             rule13;
   RewriteRule<SgeToSle>             rule14;
-  RewriteRule<UleSplit>             rule15;
-  RewriteRule<SleSplit>             rule16;
-  RewriteRule<RepeatNormalize>      rule17;
-  RewriteRule<RotateLeftNormalize>  rule18;
-  RewriteRule<RotateRightNormalize> rule19;
-  RewriteRule<NandNormalize>        rule20;
-  RewriteRule<NorNormalize>         rule21;
-  RewriteRule<SdivNormalize>        rule22;
-  RewriteRule<SremNormalize>        rule23;
-  RewriteRule<SmodNormalize>        rule24;
+  RewriteRule<RepeatEliminate>      rule17;
+  RewriteRule<RotateLeftEliminate>  rule18;
+  RewriteRule<RotateRightEliminate> rule19;
+  RewriteRule<NandEliminate>        rule20;
+  RewriteRule<NorEliminate>         rule21;
+  RewriteRule<SdivEliminate>        rule22;
+  RewriteRule<SremEliminate>        rule23;
+  RewriteRule<SmodEliminate>        rule24;
   RewriteRule<DivZeroGuard>         rule25;
 
 };

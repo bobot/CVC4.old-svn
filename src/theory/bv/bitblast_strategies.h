@@ -58,6 +58,10 @@ Node DefaultSleBB(TNode node, Bitblaster* bb);
 Node DefaultSgtBB(TNode node, Bitblaster* bb);
 Node DefaultSgeBB(TNode node, Bitblaster* bb);
 
+/// other modes
+Node AdderUltBB(TNode node, Bitblaster* bb);
+
+
 
 /** 
  * Default Term Bitblasting strategies
@@ -99,6 +103,7 @@ void DefaultZeroExtendBB  (TNode node, Bits& bits, Bitblaster* bb);
 void DefaultSignExtendBB  (TNode node, Bits& bits, Bitblaster* bb);
 void DefaultRotateRightBB (TNode node, Bits& bits, Bitblaster* bb);
 void DefaultRotateLeftBB  (TNode node, Bits& bits, Bitblaster* bb);
+
 
 }
 }

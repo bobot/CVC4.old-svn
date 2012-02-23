@@ -137,19 +137,6 @@ Theory::SolveStatus TheoryBV::solve(TNode in, SubstitutionMap& outSubstitutions)
       outSubstitutions.addSubstitution(in[1], in[0]);
       return SOLVE_STATUS_SOLVED;
     }
-
-    /// substitute in constant values 
-    // if (in[0].getKind() == kind::CONST_BITVECTOR && in[1].getMetaKind() == kind::metakind::VARIABLE) {
-    //   outSubstitutions.addSubstitution(in[1], in[0]);
-    //   ++d_solveSubstitutions; 
-    //   return SOLVE_STATUS_SOLVED;
-    // }
-    // if (in[1].getKind() == kind::CONST_BITVECTOR && in[1].getMetaKind() == kind::metakind::VARIABLE) {
-    //   ++d_solveSubstitutions; 
-    //   outSubstitutions.addSubstitution(in[0], in[1]);
-    //   return SOLVE_STATUS_SOLVED;
-    // }
-
     // to do constant propagations
 
     break;

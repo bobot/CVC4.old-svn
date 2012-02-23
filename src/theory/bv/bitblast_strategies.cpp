@@ -39,10 +39,20 @@ Bits* rewriteBits(const Bits& bits) {
   return newbits;
 }
 
+Node rewrite(Node node) {
+  return Rewriter::rewrite(node); 
+}
 
 /*
  Various helper functions that get called by the bitblasting procedures
  */
+
+void inline extractBits(const Bits& b, Bits& dest, unsigned lo, unsigned hi) {
+  Assert ( lo < b.size() && hi < b.size() && lo <= hi);
+  for (unsigned i = lo; i <= hi; ++i) {
+    dest.push_back(b[i]); 
+  }
+}
 
 void inline negateBits(const Bits& bits, Bits& negated_bits) {
   for(int i = 0; i < bits.size(); ++i) {
@@ -77,7 +87,7 @@ void inline lshift(Bits& bits, unsigned amount) {
   }
 }
 
-void inline make_zero(Bits& bits, unsigned width) {
+void inline makeZero(Bits& bits, unsigned width) {
   Assert(bits.size() == 0); 
   for(unsigned i = 0; i < width; ++i) {
     bits.push_back(mkFalse()); 
@@ -95,7 +105,7 @@ void inline make_zero(Bits& bits, unsigned width) {
  * 
  * @return the carry-out
  */
-Node inline ripple_carry_adder(const Bits&a, const Bits& b, Bits& res, Node carry) {
+Node inline rippleCarryAdder(const Bits&a, const Bits& b, Bits& res, Node carry) {
   Assert(res.size() == 0 && a.size() == b.size());
   
   for (unsigned i = 0 ; i < a.size(); ++i) {
@@ -107,6 +117,55 @@ Node inline ripple_carry_adder(const Bits&a, const Bits& b, Bits& res, Node carr
   }
 
   return carry;
+}
+
+
+Node inline uLessThanBB(const Bits&a, const Bits& b, bool orEqual) {
+  Assert (a.size() && b.size());
+  
+  Node res = mkNode(kind::AND, mkNode(kind::NOT, a[0]), b[0]);
+  
+  if(orEqual) {
+    res = mkNode(kind::OR, res, mkNode(kind::IFF, a[0], b[0])); 
+  }
+  
+  for (unsigned i = 1; i < a.size(); ++i) {
+    // a < b iff ( a[i] <-> b[i] AND a[i-1:0] < b[i-1:0]) OR (~a[i] AND b[i]) 
+    res = mkNode(kind::OR,
+                 mkNode(kind::AND, mkNode(kind::IFF, a[i], b[i]), res),
+                 mkNode(kind::AND, mkNode(kind::NOT, a[i]), b[i])); 
+  }
+  return res;
+}
+
+Node inline sLessThanBB(const Bits&a, const Bits& b, bool orEqual) {
+  Assert (a.size() && b.size());
+  if (a.size() == 1) {
+    if(orEqual) {
+      return  mkNode(kind::OR,
+                     mkNode(kind::IFF, a[0], b[0]),
+                     mkNode(kind::AND, a[0], mkNode(kind::NOT, b[0]))); 
+    }
+
+    return mkNode(kind::AND, a[0], mkNode(kind::NOT, b[0]));
+  }
+  unsigned n = a.size() - 1; 
+  Bits a1, b1;
+  extractBits(a, a1, 0, n-1);
+  extractBits(b, b1, 0, n-1);
+  
+  // unsigned comparison of the first n-1 bits
+  Node ures = uLessThanBB(a1, b1, orEqual);
+  Node res = mkNode(kind::OR,
+                    // a b have the same sign
+                    mkNode(kind::AND,
+                           mkNode(kind::IFF, a[n], b[n]),
+                           ures),
+                    // a is negative and b positive
+                    mkNode(kind::AND,
+                           a[n],
+                           mkNode(kind::NOT, b[n])));
+  return res;
 }
 
 
@@ -142,7 +201,8 @@ Node DefaultEqBB(TNode node, Bitblaster* bb) {
   return bv_eq; 
 }
 
-Node DefaultUltBB(TNode node, Bitblaster* bb) {
+
+Node AdderUltBB(TNode node, Bitblaster* bb) {
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   Assert(node.getKind() == kind::BITVECTOR_ULT);
   Bits a, b;
@@ -163,19 +223,41 @@ Node DefaultUltBB(TNode node, Bitblaster* bb) {
   return mkNot(carry); 
 }
 
+
+Node DefaultUltBB(TNode node, Bitblaster* bb) {
+  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  Assert(node.getKind() == kind::BITVECTOR_ULT);
+  Bits a, b;
+  bb->bbTerm(node[0], a);
+  bb->bbTerm(node[1], b);
+  Assert(a.size() == b.size());
+  
+  // construct bitwise comparison 
+  Node res = uLessThanBB(a, b, false);
+  return res; 
+}
+
 Node DefaultUleBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
-
-  Unimplemented(); 
+  Assert(node.getKind() == kind::BITVECTOR_ULE);
+  Bits a, b;
+  
+  bb->bbTerm(node[0], a);
+  bb->bbTerm(node[1], b);
+  Assert(a.size() == b.size());
+  // construct bitwise comparison 
+  Node res = uLessThanBB(a, b, true);
+  return res; 
 }
+
 Node DefaultUgtBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
-
+  // should be rewritten 
   Unimplemented(); 
 }
 Node DefaultUgeBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
-
+  // should be rewritten 
   Unimplemented(); 
 }
 
@@ -187,36 +269,31 @@ Node DefaultSltBB(TNode node, Bitblaster* bb){
   bb->bbTerm(node[1], b);
   Assert(a.size() == b.size());
   
-  // a < b <=> (a[0] <=> b[0]) xor (add(a, ~b, 1).carry_out)
-  Bits not_b;
-  negateBits(b, not_b);
-  Node carry = mkTrue();
-  
-  for (unsigned i = 0 ; i < a.size(); ++i) {
-    carry = mkOr( mkAnd(a[i], not_b[i]),
-                  mkAnd( mkXor(a[i], not_b[i]),
-                         carry));
-  }
-  NodeManager* nm = NodeManager::currentNM();
-  Node definition = mkXor( nm->mkNode(kind::IFF, a.back(), b.back()), carry); 
-  return definition;
+  Node res = sLessThanBB(a, b, false); 
+  return res;
 }
 
 Node DefaultSleBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 
-  Unimplemented(); 
+  Bits a, b;
+  bb->bbTerm(node[0], a);
+  bb->bbTerm(node[1], b);
+  Assert(a.size() == b.size());
+  
+  Node res = sLessThanBB(a, b, true); 
+  return res;
 }
  
 Node DefaultSgtBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
-
+  // should be rewritten 
   Unimplemented(); 
 }
 
 Node DefaultSgeBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
-
+  // should be rewritten 
   Unimplemented(); 
 }
 
@@ -424,7 +501,7 @@ void DefaultPlusBB (TNode node, Bits& res, Bitblaster* bb) {
   bb->bbTerm(node[1], b); 
 
   Assert(a.size() == b.size() && utils::getSize(node) == a.size());
-  ripple_carry_adder(a, b, res, mkFalse());
+  rippleCarryAdder(a, b, res, mkFalse());
 }
 
 
@@ -441,7 +518,7 @@ void DefaultSubBB (TNode node, Bits& bits, Bitblaster* bb) {
   Bits not_b;
   negateBits(b, not_b);
   Node carry = utils::mkTrue();
-  ripple_carry_adder(a, not_b, bits, mkTrue());
+  rippleCarryAdder(a, not_b, bits, mkTrue());
 }
 
 void DefaultNegBB (TNode node, Bits& bits, Bitblaster* bb) {
@@ -456,17 +533,17 @@ void DefaultNegBB (TNode node, Bits& bits, Bitblaster* bb) {
   Bits not_a;
   negateBits(a, not_a);
   Bits zero;
-  make_zero(zero, getSize(node)); 
+  makeZero(zero, getSize(node)); 
   
-  ripple_carry_adder(not_a, zero, bits, mkTrue()); 
+  rippleCarryAdder(not_a, zero, bits, mkTrue()); 
 }
 
 void uDivModRec(const Bits& a, const Bits& b, Bits& q, Bits& r, unsigned rec_width) {
   Assert( q.size() == 0 && r.size() == 0);
 
   if(rec_width == 0 || isZero(a)) {
-    make_zero(q, a.size());
-    make_zero(r, a.size());
+    makeZero(q, a.size());
+    makeZero(r, a.size());
     return;
   } 
   
@@ -484,18 +561,19 @@ void uDivModRec(const Bits& a, const Bits& b, Bits& q, Bits& r, unsigned rec_wid
   Node one_if_odd = mkNode(kind::ITE, is_odd, mkTrue(), mkFalse()); 
 
   Bits zero;
-  make_zero(zero, b.size());
+  makeZero(zero, b.size());
   
   Bits r1_shift_add;
-  ripple_carry_adder(r1, zero, r1_shift_add, one_if_odd); 
+  // account for a being odd
+  rippleCarryAdder(r1, zero, r1_shift_add, one_if_odd); 
   // now check if the remainder is greater than b
   Bits not_b;
   negateBits(b, not_b);
   Bits r_minus_b;
   Node co1;
-  co1 = ripple_carry_adder(r1_shift_add, not_b, r_minus_b, mkTrue()); 
+  // use adder because we need r_minus_b anyway
+  co1 = rippleCarryAdder(r1_shift_add, not_b, r_minus_b, mkTrue()); 
   // sign is true if r1 < b
-  //Node sign = r_minus_b.back();
   Node sign = mkNode(kind::NOT, co1); 
   
   q1[0] = mkNode(kind::ITE, sign, q1[0], mkTrue());
@@ -508,7 +586,7 @@ void uDivModRec(const Bits& a, const Bits& b, Bits& q, Bits& r, unsigned rec_wid
   // check if a < b
 
   Bits a_minus_b;
-  Node co2 = ripple_carry_adder(a, not_b, a_minus_b, mkTrue());
+  Node co2 = rippleCarryAdder(a, not_b, a_minus_b, mkTrue());
   // Node a_lt_b = a_minus_b.back();
   Node a_lt_b = mkNode(kind::NOT, co2); 
   
@@ -689,28 +767,17 @@ void DefaultExtractBB (TNode node, Bits& bits, Bitblaster* bb) {
 void DefaultRepeatBB (TNode node, Bits& bits, Bitblaster* bb) {
   Debug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
+  // this should be rewritten 
   Unimplemented(); 
 }
 
 void DefaultZeroExtendBB (TNode node, Bits& res_bits, Bitblaster* bb) {
 
   Debug("bitvector-bb") << "theory::bv::DefaultZeroExtendBB bitblasting " << node  << "\n";
-  Assert (node.getKind() == kind::BITVECTOR_ZERO_EXTEND &&
-          res_bits.size() == 0);
-  Bits bits;
-  bb->bbTerm(node[0], bits);
+ 
+  // this should be rewritten 
+  Unimplemented();
   
-  unsigned amount = node.getOperator().getConst<BitVectorZeroExtend>().zeroExtendAmount; 
-
-  for (unsigned i = 0; i < bits.size(); ++i ) {
-    res_bits.push_back(bits[i]); 
-  }
-  
-  for (unsigned i = 0 ; i < amount ; ++i ) {
-    res_bits.push_back(utils::mkFalse()); 
-  }
-  
-  Assert (res_bits.size() == amount + bits.size()); 
 }
 
 void DefaultSignExtendBB (TNode node, Bits& res_bits, Bitblaster* bb) {
