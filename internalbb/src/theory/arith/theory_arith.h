@@ -258,10 +258,11 @@ private:
   /** The Branch and Cut Queue. */
   BranchAndCutQueue d_bcqueue;
 
+  enum Res {SAT, UNSAT, UNKNOWN};
   /* Branch and bound stuff ... */
-  bool internalBB(uint32_t depth);
-  bool minicheck(uint32_t depth, Node assertion, ArithVar x, bool left);
-  bool internalBranching();
+  Res internalBB(uint32_t depth, NodeSet& conflict);
+  Res minicheck(uint32_t depth, Node assertion, ArithVar x, bool left, NodeSet& conflict);
+  Res internalBranching();
 
   void unsatisfiedIntegers(std::vector<ArithVar>& unsatisfied);
 

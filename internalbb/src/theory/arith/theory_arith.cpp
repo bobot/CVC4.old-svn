@@ -45,6 +45,7 @@
 #include "theory/arith/arith_prop_manager.h"
 
 #include <stdint.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -919,7 +920,9 @@ bool TheoryArith::hasIntegerModel(){
   return true;
 }
 
-bool TheoryArith::internalBB(uint32_t depth){
+
+
+TheoryArith::Res TheoryArith::internalBB(uint32_t depth, NodeSet& conflict){
   Assert(!d_bcqueue.empty());
 
   ArithVar x = d_bcqueue.pop();
@@ -934,14 +937,68 @@ bool TheoryArith::internalBB(uint32_t depth){
   Node left = lem[0];
   Node right = lem[1];
 
-  if(minicheck(depth, left, x, true)){
-    return true;
-  }else{
-    return minicheck(depth, right, x, false);
+  Res leftRes = minicheck(depth, left, x, true, conflict);
+  switch(leftRes){
+  case SAT:
+    return SAT;
+  case UNSAT:
+    {
+      if(conflict.find(left) == conflict.end()){
+        return UNSAT;
+      }else{
+        Assert(conflict.find(left) != conflict.end());
+        NodeSet rightConflict;
+        Res rightRes = minicheck(depth, right, x, false, rightConflict);
+        switch(rightRes){
+        case SAT:
+          return rightRes;
+        case UNSAT:
+          {
+            Debug("ibb") << right << endl;
+            for(NodeSet::const_iterator iter = rightConflict.begin(), end = rightConflict.end(); iter != end; ++iter){
+              Debug("ibb") << " rOR " << *iter;
+            }
+            Debug("ibb") << endl;
+            for(NodeSet::const_iterator iter = conflict.begin(), end = conflict.end(); iter != end; ++iter){
+              Debug("ibb") << " lOR " << *iter;
+            }
+            Debug("ibb") << endl;
+
+            if(rightConflict.find(right) == rightConflict.end()){
+              conflict.swap(rightConflict);
+              return UNSAT;
+            }else{
+              //Resolution
+              Assert(rightConflict.find(right) != rightConflict.end());
+              Assert(conflict.find(left) != conflict.end());
+              conflict.erase(conflict.find(left));
+              rightConflict.erase(rightConflict.find(right));
+              for(NodeSet::const_iterator iter = rightConflict.begin(), end = rightConflict.end(); iter != end; ++iter){
+                conflict.insert(*iter);
+              }
+              return UNSAT;
+            }
+          }
+        case UNKNOWN:
+          return UNKNOWN;
+        }
+      }
+    }
+  case UNKNOWN:
+    {
+      Res rightRes = minicheck(depth, right, x, false, conflict);
+      switch(rightRes){
+      case SAT:
+        return SAT;
+      case UNSAT:
+      case UNKNOWN:
+        return UNKNOWN;
+      }
+    }
   }
 }
 
-bool TheoryArith::minicheck(uint32_t depth, Node assertion, ArithVar x, bool left){
+TheoryArith::Res TheoryArith::minicheck(uint32_t depth, Node assertion, ArithVar x, bool left, NodeSet& conflict){
   //DO NOT TOUCH THE OUTPUT CHANNEL
   context::Context::ScopedPush speculativePush(getContext());
 
@@ -957,7 +1014,12 @@ bool TheoryArith::minicheck(uint32_t depth, Node assertion, ArithVar x, bool lef
     //Let these remain
     //clearUpdates();
 
-    return false;
+    for(Node::iterator i = possibleConflict.begin(), end = possibleConflict.end(); i != end; ++i){
+      Node curr = *i;
+      conflict.insert(curr);
+    }
+
+    return UNSAT;
   }else{
     Node possibleConflict = d_simplex.findModel();
     //TODO ensure no lemmas are added by simplex
@@ -966,8 +1028,12 @@ bool TheoryArith::minicheck(uint32_t depth, Node assertion, ArithVar x, bool lef
       Debug("ibb") << "lra conflict   " << possibleConflict << endl;
       //Let these remain
       //clearUpdates();
+      for(Node::iterator i = possibleConflict.begin(), end = possibleConflict.end(); i != end; ++i){
+        Node curr = *i;
+        conflict.insert(curr);
+      }
 
-      return false;
+      return UNSAT;
     }else{
       d_partialModel.commitAssignmentChanges();
     }
@@ -976,9 +1042,9 @@ bool TheoryArith::minicheck(uint32_t depth, Node assertion, ArithVar x, bool lef
       Debug("ibb") << "this worked?   " << endl;
       ++(d_statistics.d_internalBranchSuccess);
 
-      return true;
+      return SAT;
     }else if(depth == 0){
-      return false;
+      return UNKNOWN;
     }else {
       vector<ArithVar> unsatisfied;
       unsatisfiedIntegers(unsatisfied);
@@ -986,7 +1052,7 @@ bool TheoryArith::minicheck(uint32_t depth, Node assertion, ArithVar x, bool lef
       d_bcqueue.changeScore(x, left, unsatisfied.size());
       d_bcqueue.pushVector(unsatisfied);
 
-      return internalBB(depth - 1);
+      return internalBB(depth - 1, conflict);
     }
   }
 }
@@ -1006,7 +1072,7 @@ void TheoryArith::unsatisfiedIntegers(std::vector<ArithVar>& unsatisfied){
 
 
 //disequalities need to be checked again if successful
-bool TheoryArith::internalBranching(){
+TheoryArith::Res TheoryArith::internalBranching(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_internalBranchingTime);
 
   Assert(!hasIntegerModel());
@@ -1016,10 +1082,36 @@ bool TheoryArith::internalBranching(){
   unsatisfiedIntegers(unsatisfied);
   d_bcqueue.pushVector(unsatisfied);
 
+  static int counter = 0;
+  static int calls = 0;
+
+  ++calls;
+
+  NodeSet conflict;
 
   Debug("ibb") << "internalBranching @" << getContext()->getLevel() << " begin " << endl;
-  bool res = internalBB(maxDepth);
-  Debug("ibb") << "internalBranching @" << getContext()->getLevel() << " end " << endl;
+  Res res = internalBB(maxDepth, conflict);
+  Debug("ibb") << "internalBranching @" << getContext()->getLevel() << " end " << calls << endl;
+  switch(res){
+  case SAT:
+    Debug("ibb") << "sat" << endl;
+    break;
+  case UNSAT:
+    {
+      NodeBuilder<> nb(AND);
+      for(NodeSet::const_iterator i = conflict.begin(), end = conflict.end(); i != end; ++i){
+        Node curr = *i;
+        nb << curr;
+      }
+      Node unionConflict = nb;
+      Debug("ibb") << "conflict " << calls << " " << (++counter) << " " << unionConflict << endl;
+      d_out->conflict(unionConflict);
+    }
+    break;
+  case UNKNOWN:
+    Debug("ibb") << "unknown" << endl;
+    break;
+  }
   return res;
 }
 
@@ -1064,11 +1156,6 @@ void TheoryArith::check(Effort effortLevel){
 
   if(!emmittedConflictOrSplit && fullEffort(effortLevel) && !hasIntegerModel()){
 
-    if(!emmittedConflictOrSplit && fullEffort(effortLevel)){
-      emmittedConflictOrSplit = internalBranching();
-      splitDisequalities();
-    }
-
     if(!emmittedConflictOrSplit && Options::current()->dioSolver){
       possibleConflict = callDioSolver();
       if(possibleConflict != Node::null()){
@@ -1085,6 +1172,21 @@ void TheoryArith::check(Effort effortLevel){
         emmittedConflictOrSplit = true;
         d_hasDoneWorkSinceCut = false;
         d_out->lemma(possibleLemma);
+      }
+    }
+
+    if(!emmittedConflictOrSplit && fullEffort(effortLevel)){
+      Res res = internalBranching();
+      switch(res){
+      case SAT:
+        emmittedConflictOrSplit = true;
+        splitDisequalities();
+        break;
+      case UNSAT:
+        emmittedConflictOrSplit = true;
+        break;
+      case UNKNOWN: // DO nothing
+        break;
       }
     }
 
@@ -1403,11 +1505,11 @@ void TheoryArith::notifyRestart(){
   uint32_t copySize = d_smallTableauCopy.size();
 
   if(debugResetPolicy){
-    cout << "curr " << currSize << " copy " << copySize << endl;
+    Debug("ibb") << "curr " << currSize << " copy " << copySize << endl;
   }
   if(d_rowHasBeenAdded){
     if(debugResetPolicy){
-      cout << "row has been added must copy " << d_restartsCounter << endl;
+      Debug("ibb") << "row has been added must copy " << d_restartsCounter << endl;
     }
     d_smallTableauCopy = d_tableau;
     d_rowHasBeenAdded = false;
