@@ -244,7 +244,7 @@ Theory::PPAssertStatus TheoryArith::ppAsert(TNode in, SubstitutionMap& outSubsti
               Trace("simplify") << "TheoryArith::solve(): substitution " << in << " |-> FALSE" << endl;
               outSubstitutions.addSubstitution(in, NodeManager::currentNM()->mkConst(false));
             }
-            return SOLVE_STATUS_SOLVED;
+            return PP_ASSERT_STATUS_SOLVED;
           } else {
             Trace("simplify") << "TheoryArith::solve(): can't substitute b/c it's integer: " << minVar << ":" << minVar.getType() << " |-> " << elim << ":" << elim.getType() << endl;
           }
