@@ -294,7 +294,7 @@ void TheoryUF::presolve() {
   Debug("uf") << "uf: end presolve()" << endl;
 }
 
-void TheoryUF::staticLearning(TNode n, NodeBuilder<>& learned) {
+void TheoryUF::ppStaticLearn(TNode n, NodeBuilder<>& learned) {
   //TimerStat::CodeTimer codeTimer(d_staticLearningTimer);
 
   vector<TNode> workList;
@@ -405,7 +405,7 @@ void TheoryUF::staticLearning(TNode n, NodeBuilder<>& learned) {
   if(Options::current()->ufSymmetryBreaker) {
     d_symb.assertFormula(n);
   }
-}/* TheoryUF::staticLearning() */
+}/* TheoryUF::ppStaticLearn() */
 
 EqualityStatus TheoryUF::getEqualityStatus(TNode a, TNode b) {
   if (d_equalityEngine.areEqual(a, b)) {

@@ -151,7 +151,7 @@ void TheoryArith::addSharedTerm(TNode n){
   d_differenceManager.addSharedTerm(n);
 }
 
-Node TheoryArith::preprocess(TNode atom) {
+Node TheoryArith::ppRewrite(TNode atom) {
   Debug("arith::preprocess") << "arith::preprocess() : " << atom << endl;
 
   Node a = d_pbSubstitutions.apply(atom);
@@ -177,7 +177,7 @@ Node TheoryArith::preprocess(TNode atom) {
   return a;
 }
 
-Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutions) {
+Theory::PPAssertStatus TheoryArith::ppAsert(TNode in, SubstitutionMap& outSubstitutions) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_simplifyTimer);
   Debug("simplify") << "TheoryArith::solve(" << in << ")" << endl;
 
@@ -230,7 +230,7 @@ Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutio
           // substitution is integral
           Trace("simplify") << "TheoryArith::solve(): substitution " << minVar << " |-> " << elim << endl;
           outSubstitutions.addSubstitution(minVar, elim);
-          return SOLVE_STATUS_SOLVED;
+          return PP_ASSERT_STATUS_SOLVED;
         } else {
           if(elim.getMetaKind() == metakind::CONSTANT) {
             // can also do it if INT_VARIABLE = CONSTANT
@@ -268,10 +268,10 @@ Theory::SolveStatus TheoryArith::solve(TNode in, SubstitutionMap& outSubstitutio
     break;
   }
 
-  return SOLVE_STATUS_UNSOLVED;
+  return PP_ASSERT_STATUS_UNSOLVED;
 }
 
-void TheoryArith::staticLearning(TNode n, NodeBuilder<>& learned) {
+void TheoryArith::ppStaticLearn(TNode n, NodeBuilder<>& learned) {
   TimerStat::CodeTimer codeTimer(d_statistics.d_staticLearningTimer);
 
   d_learner.staticLearning(n, learned);
