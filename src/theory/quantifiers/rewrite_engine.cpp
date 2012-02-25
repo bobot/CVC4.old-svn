@@ -245,6 +245,19 @@ void RewriteEngine::check( Theory::Effort e ){
       im.clear();
     }
   }
+
+
+  /** Temporary way. Poll value */
+  for (GuardedMap::const_iterator p = d_guardeds.begin();
+       p != d_guardeds.end(); ++p){
+    TNode g = (*p).first;
+    const GList * const l = (*p).second;
+    const Guarded & glast = (*l)[l->size()-1];
+    if(glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) continue;
+    bool value;
+    if(d_th->getValuation().hasSatValue(g,value)) notification(g,value);
+  }
+
 };
 
 void RewriteEngine::registerQuantifier( Node n ){};
@@ -274,10 +287,12 @@ Trigger RewriteEngine::createTrigger( TNode n, std::vector<Node> & pattern )
   return *Trigger::mkTrigger(qe,n,pattern, false, true);
 };
 
-Answer RewriteEngine::addWatchIfDontKnow(Node g, RuleInstId rid,
+Answer RewriteEngine::addWatchIfDontKnow(Node g0, RuleInstId rid,
                                          const size_t gid){
   /** TODO: Should use the representative of g, but should I keep the
       mapping for myself? */
+  /** Currently create a node with a literal */
+  Node g = d_th->getValuation().ensureLiteral(g0);
   GuardedMap::iterator l_i = d_guardeds.find(g);
   GList* l;
   if( l_i == d_guardeds.end() ) {
@@ -355,24 +370,23 @@ void RewriteEngine::notifyEq(TNode lhs, TNode rhs) {
 
 void RewriteEngine::propagateRule(const RuleInst & inst){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
-  Assert(get_rule(inst.rule).guards.size() == 0);
-  Node lemma = inst.substNode(*this,get_rule(inst.rule).equality);
+  const RewriteRule & rule = get_rule(inst.rule);
+  Node equality = inst.substNode(*this,rule.equality);
   if(propagate_as_lemma){
+    Node lemma = equality;
+    if(rule.guards.size() > 0){
+      lemma = substGuards(inst,rule).impNode(equality);
+    };
     //  Debug("rewriterules") << "lemma:" << lemma << std::endl;
     d_th->getOutputChannel().lemma(lemma);
   }else{
-    Node lemma_lit = d_th->getValuation().ensureLiteral(lemma);
+    Node lemma_lit = d_th->getValuation().ensureLiteral(equality);
     d_th->getOutputChannel().propagate(lemma_lit);
     d_explanations.insert(lemma_lit,inst.id);
   };
 };
 
-
-Node RewriteEngine::explain(TNode n){
-  ExplanationMap::const_iterator rinstid = d_explanations.find(n);
-  Assert(rinstid!=d_explanations.end(),"I forget the explanation...");
-  const RuleInst & inst = get_inst((*rinstid).second);
-  const RewriteRule & r = get_rule(inst.rule);
+Node RewriteEngine::substGuards(const RuleInst & inst,const RewriteRule & r){
   /** No guards */
   const size_t size = r.guards.size();
   if(size == 0) return d_true;
@@ -385,4 +399,12 @@ Node RewriteEngine::explain(TNode n){
     conjunction << inst.substNode(*this,*p);
   };
   return conjunction;
+}
+
+Node RewriteEngine::explain(TNode n){
+  ExplanationMap::const_iterator rinstid = d_explanations.find(n);
+  Assert(rinstid!=d_explanations.end(),"I forget the explanation...");
+  const RuleInst & inst = get_inst((*rinstid).second);
+  const RewriteRule & r = get_rule(inst.rule);
+  return substGuards(inst,r);
 }

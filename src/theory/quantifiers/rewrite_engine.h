@@ -174,6 +174,8 @@ private:
   /* If two guards becomes equals we should notify if one of them is
      already true */
   bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
+  Node substGuards(const RuleInst & inst,const RewriteRule & r);
+
 }; /* Class RewriteEngine */
 }
 }
