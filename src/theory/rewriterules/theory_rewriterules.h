@@ -46,11 +46,13 @@ typedef size_t RuleInstId;
     const Node equality;
     std::vector<Node> free_vars; /* free variable in the rule */
     std::vector<Node> inst_vars; /* corresponding vars in the triggers */
-
+    typedef context::CDSet<Node, NodeHashFunction> CacheNode;
+    CacheNode d_cache;
     RewriteRule(TheoryRewriteRules & re,
                 Trigger & tr, Node g, Node eq,
                 std::vector<Node> & fv,std::vector<Node> & iv);
     bool noGuard()const;
+    void checkCache(std::vector<Node> & subst)const;
   };
 
   class RuleInst{
@@ -72,7 +74,6 @@ typedef size_t RuleInstId;
              InstMatch & im, const RuleInstId i);
     Node substNode(const TheoryRewriteRules & re, TNode r)const;
     size_t findGuard(TheoryRewriteRules & re, size_t start)const;
-    bool startedTrue(const TheoryRewriteRules & re)const;
   };
 
 /** A pair? */
@@ -174,7 +175,8 @@ private:
   /* If two guards becomes equals we should notify if one of them is
      already true */
   bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
-  Node substGuards(const RuleInst & inst,const RewriteRule & r);
+  Node substGuards(const RuleInst & inst,const RewriteRule & r,
+                   Node last = Node::null());
 
 };/* class TheoryRewriteRules */
 

@@ -40,7 +40,8 @@ namespace rewriterules {
 //   return stream << "=>" << r.equality;
 // }
 
-static const bool propagate_as_lemma = true;
+static const bool propagate_as_lemma = false;
+static const bool cache_match = true;
 
 static const size_t RULEINSTID_TRUE = ((size_t) -1);
 static const size_t RULEINSTID_FALSE = ((size_t) -2);
@@ -51,9 +52,11 @@ RuleInst::RuleInst(TheoryRewriteRules & re, RewriteRuleId r, InstMatch & im,
   rule(r),id(i)
 {
   Assert(i != RULEINSTID_TRUE && i != RULEINSTID_FALSE);
-  im.computeTermVec(re.getQuantifiersEngine(), re.get_rule(r).inst_vars , subst);
-  start = -1; /* So that any temporary Guard doesn't delete this */
+  const RewriteRule & rule = re.get_rule(r);
+  im.computeTermVec(re.getQuantifiersEngine(), rule.inst_vars , subst);
+  if(cache_match) rule.checkCache(subst);
   start = findGuard(re, 0);
+  if(start == (rule.guards).size()) throw true;
 };
 
 Node RuleInst::substNode(const TheoryRewriteRules & re, TNode r)const{
@@ -81,10 +84,6 @@ size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
   /** All the guards are verified */
   re.propagateRule(*this);
   return start;
-};
-
-bool RuleInst::startedTrue(const TheoryRewriteRules & re)const{
-  return start == (re.get_rule(rule).guards).size();
 };
 
 void Guarded::nextGuard(TheoryRewriteRules & re)const{
@@ -133,7 +132,8 @@ RewriteRule const makeRewriteRule(TheoryRewriteRules & re, const Node r)
 RewriteRule::RewriteRule(TheoryRewriteRules & re,
                          Trigger & tr, Node g, Node eq,
                          std::vector<Node> & fv,std::vector<Node> & iv) :
-  trigger(tr), equality(eq), free_vars(), inst_vars(){
+  trigger(tr), equality(eq), free_vars(), inst_vars(),
+  d_cache(re.getContext()){
   free_vars.swap(fv);inst_vars.swap(iv);
   switch(g.getKind()){
   case kind::AND:
@@ -149,6 +149,20 @@ RewriteRule::RewriteRule(TheoryRewriteRules & re,
 };
 
 bool RewriteRule::noGuard()const{ return guards.size() == 0; };
+
+void RewriteRule::checkCache(std::vector<Node> & subst)const{
+  /* INST_PATTERN because its 1: */
+  NodeBuilder<> nodeb(kind::INST_PATTERN);
+  for(std::vector<Node>::const_iterator p = subst.begin();
+      p != subst.end(); ++p) nodeb << *p;
+  Node node = nodeb;
+  CacheNode::const_iterator e = d_cache.find(node);
+  /* Already in the cache */
+  if( e != d_cache.end() ) throw false;
+  /* Because we add only context dependent data and the const is for that */
+  RewriteRule & rule = const_cast<RewriteRule &>(*this);
+  rule.d_cache.insert(node);
+};
 
 TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
                                        context::UserContext* u,
@@ -191,10 +205,13 @@ void TheoryRewriteRules::check(Effort level) {
     InstMatch im;
     while(tr.getNextMatch( im )){
       Debug("rewriterules") << "One matching found" << std::endl;
-      RuleInstId id = d_ruleinsts.size();
-      RuleInst ri = RuleInst(*this,rid,im,id);
-      /** true from the start so we don't add it */
-      if (!ri.startedTrue(*this)) d_ruleinsts.push_back(ri);
+      try{
+        RuleInstId id = d_ruleinsts.size();
+        RuleInst ri = RuleInst(*this,rid,im,id);
+        d_ruleinsts.push_back(ri);
+      }catch (bool b){
+        Debug("rewriterules") << "RuleInst create:" << b << std::endl;
+      };
       im.clear();
     }
   }
@@ -317,14 +334,25 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst){
     getOutputChannel().lemma(lemma);
   }else{
     Node lemma_lit = getValuation().ensureLiteral(equality);
-    getOutputChannel().propagate(lemma_lit);
-    d_explanations.insert(lemma_lit,inst.id);
+    bool value;
+    if(getValuation().hasSatValue(lemma_lit,value)){
+      /* Already assigned */
+      if (!value){
+        Node conflict = substGuards(inst,rule,lemma_lit);
+        getOutputChannel().conflict(conflict);
+      };
+    }else{
+      getOutputChannel().propagate(lemma_lit);
+      d_explanations.insert(lemma_lit,inst.id);
+    };
   };
 };
 
 
 Node TheoryRewriteRules::substGuards(const RuleInst & inst,
-                                     const RewriteRule & r){
+                                     const RewriteRule & r,
+                                     /* Already substituted */
+                                     Node last){
   /** No guards */
   const size_t size = r.guards.size();
   if(size == 0) return d_true;
@@ -336,6 +364,7 @@ Node TheoryRewriteRules::substGuards(const RuleInst & inst,
       p != r.guards.end(); ++p) {
     conjunction << inst.substNode(*this,*p);
   };
+  if (last != Node::null()) conjunction << last;
   return conjunction;
 }
 
