@@ -32,7 +32,9 @@ bool PreRegisterVisitor::alreadyVisited(TNode current, TNode parent) const {
 
   Debug("register::internal") << "PreRegisterVisitor::alreadyVisited(" << current << "," << parent << ") => ";
 
-  if( ( parent.getKind()==kind::FORALL || parent.getKind()==kind::EXISTS ) && current!=parent ){
+  if( ( parent.getKind()==kind::FORALL ||
+        parent.getKind()==kind::EXISTS ||
+        parent.getKind()==kind::REWRITE_RULE ) && current!=parent ){
     Debug("register::internal") << "quantifier:true" << std::endl;
     return true;
   }
@@ -114,7 +116,9 @@ bool SharedTermsVisitor::alreadyVisited(TNode current, TNode parent) const {
 
   Debug("register::internal") << "SharedTermsVisitor::alreadyVisited(" << current << "," << parent << ") => ";
 
-  if( ( parent.getKind()==kind::FORALL || parent.getKind()==kind::EXISTS ) && current!=parent ){
+  if( ( parent.getKind()==kind::FORALL ||
+        parent.getKind()==kind::EXISTS ||
+        parent.getKind()==kind::REWRITE_RULE) && current!=parent ){
     Debug("register::internal") << "quantifier:true" << std::endl;
     return true;
   }

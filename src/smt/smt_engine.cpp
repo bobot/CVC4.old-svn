@@ -52,6 +52,7 @@
 #include "theory/bv/theory_bv.h"
 #include "theory/datatypes/theory_datatypes.h"
 #include "theory/quantifiers/theory_quantifiers.h"
+#include "theory/rewriterules/theory_rewriterules.h"
 #include "util/ite_removal.h"
 
 using namespace std;
@@ -227,6 +228,7 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_theoryEngine->addTheory<theory::datatypes::TheoryDatatypes>(theory::THEORY_DATATYPES);
 
   d_theoryEngine->addTheory<theory::quantifiers::TheoryQuantifiers>(theory::THEORY_QUANTIFIERS);
+  d_theoryEngine->addTheory<theory::rewriterules::TheoryRewriteRules>(theory::THEORY_REWRITERULES);
   d_theoryEngine->addTheory<theory::uf::TheoryUF>(theory::THEORY_UF);
 
   d_propEngine = new PropEngine(d_theoryEngine, d_context);

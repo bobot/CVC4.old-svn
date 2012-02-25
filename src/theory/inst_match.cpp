@@ -97,7 +97,7 @@ void InstMatch::makeInternal( EqualityQuery* q ){
   }
 }
 
-void InstMatch::computeTermVec( QuantifiersEngine* ie, std::vector< Node >& vars, std::vector< Node >& match ){
+void InstMatch::computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match ){
   for( int i=0; i<(int)vars.size(); i++ ){
     std::map< Node, Node >::iterator it = d_map.find( vars[i] );
     if( it!=d_map.end() && !it->second.isNull() ){

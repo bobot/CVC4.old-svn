@@ -121,62 +121,6 @@ struct QuantifierInstPatternListTypeRule {
   }
 };/* struct QuantifierInstPatternListTypeRule */
 
-
-struct QuantifierRewriteRuleRule {
-  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw(TypeCheckingExceptionPrivate) {
-    Assert(n.getKind() == kind::REWRITE_RULE );
-    if( check ){
-      if( n[ 0 ].getType(check)!=nodeManager->booleanType() ){
-        throw TypeCheckingExceptionPrivate(n, "guard of rewrite rule is not boolean");
-      }
-      if( n[1].getType(check)!=n[2].getType(check) ){
-        throw TypeCheckingExceptionPrivate(n, "terms of rewrite rule are not equal");
-      }
-    }
-    return nodeManager->booleanType();
-  }
-};/* struct QuantifierRewriteRuleRule */
-
-struct QuantifierReductionRuleRule {
-  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw(TypeCheckingExceptionPrivate) {
-    Assert(n.getKind() == kind::REDUCTION_RULE );
-    if( check ){
-      if( n[ 0 ].getType(check)!=nodeManager->booleanType() ){
-        throw TypeCheckingExceptionPrivate(n, "guard of reduction rule is not boolean");
-      }
-      if( n[ 1 ].getType(check)!=nodeManager->booleanType() ){
-        throw TypeCheckingExceptionPrivate(n, "head of reduction rule is not boolean");
-      }
-      if( n[ 2 ].getType(check)!=nodeManager->booleanType() ){
-        throw TypeCheckingExceptionPrivate(n, "body of reduction rule is not boolean");
-      }
-    }
-    return nodeManager->booleanType();
-  }
-};/* struct QuantifierReductionRuleRule */
-
-struct QuantifierDeductionRuleRule {
-  inline static TypeNode computeType(NodeManager* nodeManager, TNode n, bool check)
-    throw(TypeCheckingExceptionPrivate) {
-    Assert(n.getKind() == kind::DEDUCTION_RULE );
-    if( check ){
-      if( n[ 0 ].getType(check)!=nodeManager->booleanType() ){
-        throw TypeCheckingExceptionPrivate(n, "guard of deduction rule is not boolean");
-      }
-      if( n[ 1 ].getType(check)!=nodeManager->booleanType() ){
-        throw TypeCheckingExceptionPrivate(n, "head of deduction rule is not boolean");
-      }
-      if( n[ 2 ].getType(check)!=nodeManager->booleanType() ){
-        throw TypeCheckingExceptionPrivate(n, "body of deduction rule is not boolean");
-      }
-    }
-    return nodeManager->booleanType();
-  }
-};/* struct QuantifierDeductionRuleRule */
-
-
 }/* CVC4::theory::quantifiers namespace */
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

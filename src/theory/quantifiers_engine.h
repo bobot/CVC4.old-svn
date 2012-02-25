@@ -156,13 +156,11 @@ public:
 
 namespace quantifiers{
   class InstantiationEngine;
-  class RewriteEngine;
 }
 
 class QuantifiersEngine
 {
   friend class quantifiers::InstantiationEngine;
-  friend class quantifiers::RewriteEngine;
 private:
   typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
   /** reference to theory engine object */
@@ -225,6 +223,8 @@ public:
   void check( Theory::Effort e );
   /** register quantifier */
   void registerQuantifier( Node f );
+  /** register quantifier */
+  void registerPattern( std::vector<Node> & pattern);
   /** assert (universal) quantifier */
   void assertNode( Node f );
   Node explain(TNode n);
@@ -259,6 +259,7 @@ public:
   Node getInstantiationConstant( Node f, int i ) { return d_inst_constants[f][i]; }
   /** get number of instantiation constants for f */
   int getNumInstantiationConstants( Node f ) { return (int)d_inst_constants[f].size(); }
+  std::vector<Node> createInstVariable( std::vector<Node> & vars );
 public:
   /** get the ce body f[e/x] */
   Node getCounterexampleBody( Node f ) { return d_counterexample_body[ f ]; }
@@ -282,6 +283,14 @@ public:
       instantiation.
    */
   Node getSubstitutedNode( Node n, Node f );
+  /** same as before but node f is just linked to the new pattern by the
+      applied attribute
+      vars the bind variable
+      nvars the same variable but with an attribute
+  */
+  Node convertNodeToPattern( Node n, Node f,
+                             const std::vector<Node> & vars,
+                             const std::vector<Node> & nvars);
   /** get free variable for instantiation constant */
   Node getFreeVariableForInstConstant( Node n );
 public:

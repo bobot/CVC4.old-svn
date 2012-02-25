@@ -15,23 +15,24 @@
  ** \brief Rewrite Engine classes
  **/
 
+
 #include "cvc4_private.h"
 
-#ifndef __CVC4__REWRITE_ENGINE_H
-#define __CVC4__REWRITE_ENGINE_H
+#ifndef __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_H
+#define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_H
 
-#include "context/cdlist.h"
+#include "context/cdlist_context_memory.h"
 #include "theory/valuation.h"
+#include "theory/theory.h"
 #include "theory/theory_engine.h"
-#include "theory/uf/theory_uf.h"
-#include "theory/uf/theory_uf_instantiator.h"
 #include "theory/quantifiers_engine.h"
-#include "theory/quantifiers/theory_quantifiers.h"
-#include <memory>
+#include "context/context_mm.h"
 
 namespace CVC4 {
 namespace theory {
-namespace quantifiers {
+namespace rewriterules {
+
+class TheoryRewriteRules;
 
 typedef size_t RewriteRuleId;
 typedef size_t RuleInstId;
@@ -43,10 +44,10 @@ typedef size_t RuleInstId;
     Trigger trigger;
     std::vector<Node> guards;
     const Node equality;
-    std::vector<Node> & free_vars; /* free variable in the rule */
-    std::vector<Node> & inst_vars; /* corresponding vars in the triggers */
+    std::vector<Node> free_vars; /* free variable in the rule */
+    std::vector<Node> inst_vars; /* corresponding vars in the triggers */
 
-    RewriteRule(RewriteEngine & re,
+    RewriteRule(TheoryRewriteRules & re,
                 Trigger & tr, Node g, Node eq,
                 std::vector<Node> & fv,std::vector<Node> & iv);
     bool noGuard()const;
@@ -67,11 +68,11 @@ typedef size_t RuleInstId;
     size_t start;
 
     /** Rule an instantiation with the given match */
-    RuleInst(RewriteEngine & re, const RewriteRuleId rule,
+    RuleInst(TheoryRewriteRules & re, const RewriteRuleId rule,
              InstMatch & im, const RuleInstId i);
-    Node substNode(const RewriteEngine & re, TNode r)const;
-    size_t findGuard(RewriteEngine & re, size_t start)const;
-    bool startedTrue(const RewriteEngine & re)const;
+    Node substNode(const TheoryRewriteRules & re, TNode r)const;
+    size_t findGuard(TheoryRewriteRules & re, size_t start)const;
+    bool startedTrue(const TheoryRewriteRules & re)const;
   };
 
 /** A pair? */
@@ -83,7 +84,7 @@ typedef size_t RuleInstId;
     /** The shared instantiation data */
     RuleInstId inst;
 
-    void nextGuard(RewriteEngine & re)const;
+    void nextGuard(TheoryRewriteRules & re)const;
 
     /** start indicate the first guard which is not true */
     Guarded(const RuleInstId ri, const size_t start);
@@ -95,10 +96,8 @@ typedef size_t RuleInstId;
     void destroy(){};
   };
 
-  class RewriteEngine : public QuantifiersModule
-{
+class TheoryRewriteRules : public Theory {
 private:
-  TheoryQuantifiers* d_th;
   /** list of all rewrite rules */
   /* std::vector< Node > d_rules; */
   // typedef std::vector< std::pair<Node, Trigger > > Rules;
@@ -109,7 +108,7 @@ private:
 
   /** The GList* will not lead too memory leaks since that use
       ContextMemoryAllocator */
-  typedef context::CDList<Guarded, context::ContextMemoryAllocator<Guarded> > GList;
+  typedef context::CDList< Guarded, context::ContextMemoryAllocator< Guarded > > GList;
   typedef context::CDMap<Node, GList*, NodeHashFunction> GuardedMap;
   GuardedMap d_guardeds;
 
@@ -128,20 +127,26 @@ private:
   /** true for predicate */
   Node d_true;
 
-  /** Access for some Tools */
-  QuantifiersEngine * qe;
-  uf::TheoryUF* uf;
-
-  RewriteEngine(context::Context* c, TheoryQuantifiers* th );
-  ~RewriteEngine(){}
+  /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
+  TheoryRewriteRules(context::Context* c,
+               context::UserContext* u,
+               OutputChannel& out,
+                     Valuation valuation,
+                     QuantifiersEngine* qe);
+  ~TheoryRewriteRules(){}
 
   /** Usual function for theories */
   void check( Theory::Effort e );
-  void registerQuantifier( Node n );
-  void assertNode( Node n );
   Node explain(TNode n);
   void notifyEq(TNode lhs, TNode rhs);
+  std::string identify() const {
+    return "THEORY_REWRITERULES";
+  }
 
+ private:
+  void registerQuantifier( Node n );
+
+ public:
   /* TODO modify when notification will be available */
   void notification( Node n, bool b);
 
@@ -158,11 +163,6 @@ private:
    */
   void propagateRule(const RuleInst & r);
 
-  /** bad friend can be added directly in RewriteRule */
-  std::vector<Node> & d_vars(TNode r){return qe->d_vars[r];};
-  std::vector<Node> & d_inst_constants(TNode r)
-    {return qe->d_inst_constants[r];};
-
   /** access */
   const RewriteRule & get_rule(const RewriteRuleId r)const{return d_rules[r];};
   const RuleInst & get_inst(const RuleInstId r)const{return d_ruleinsts[r];};
@@ -176,9 +176,10 @@ private:
   bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
   Node substGuards(const RuleInst & inst,const RewriteRule & r);
 
-}; /* Class RewriteEngine */
-}
-}
-}
+};/* class TheoryRewriteRules */
 
-#endif
+}/* CVC4::theory::rewriterules namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
+
+#endif /* __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_H */

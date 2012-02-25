@@ -373,7 +373,7 @@ public:
   /**
    * Get the quantifiers engine associated to this theory.
    */
-  QuantifiersEngine* getQuantifiersEngine(){
+  QuantifiersEngine* getQuantifiersEngine()const{
     return d_quantEngine;
   }
 

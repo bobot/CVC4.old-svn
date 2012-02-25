@@ -97,7 +97,7 @@ public:
   /** make internal: ensure that no term in d_map contains instantiation constants */
   void makeInternal( EqualityQuery* q );
   /** compute d_match */
-  void computeTermVec( QuantifiersEngine* ie, std::vector< Node >& vars, std::vector< Node >& match );
+  void computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match );
   /** clear */
   void clear(){ d_map.clear(); }
   /* map from variable to ground terms */

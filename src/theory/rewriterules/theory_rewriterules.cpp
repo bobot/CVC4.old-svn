@@ -1,4 +1,4 @@
-/*********************                                                        */
+/*********************                                                       */
 /*! \file rewrite_engine.cpp
  ** \verbatim
  ** Original author: ajreynolds
@@ -18,15 +18,19 @@
  ** \todo document this file
  **/
 
-#include "theory/quantifiers/rewrite_engine.h"
-#include <utility>
+#include "theory/rewriterules/theory_rewriterules.h"
 
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
-using namespace CVC4::theory::quantifiers;
+using namespace CVC4::theory::rewriterules;
+
+
+namespace CVC4 {
+namespace theory {
+namespace rewriterules {
 
 // std::ostream& operator <<(std::ostream& stream, const RewriteRule& r) {
 //   for(std::vector<Node>::const_iterator
@@ -42,23 +46,23 @@ static const size_t RULEINSTID_TRUE = ((size_t) -1);
 static const size_t RULEINSTID_FALSE = ((size_t) -2);
 
   /** Rule an instantiation with the given match */
-RuleInst::RuleInst(RewriteEngine & re, RewriteRuleId r, InstMatch & im,
+RuleInst::RuleInst(TheoryRewriteRules & re, RewriteRuleId r, InstMatch & im,
                    RuleInstId i):
   rule(r),id(i)
 {
   Assert(i != RULEINSTID_TRUE && i != RULEINSTID_FALSE);
-  im.computeTermVec(re.qe, re.get_rule(r).inst_vars , subst);
+  im.computeTermVec(re.getQuantifiersEngine(), re.get_rule(r).inst_vars , subst);
   start = -1; /* So that any temporary Guard doesn't delete this */
   start = findGuard(re, 0);
 };
 
-Node RuleInst::substNode(const RewriteEngine & re, TNode r)const{
+Node RuleInst::substNode(const TheoryRewriteRules & re, TNode r)const{
   const RewriteRule & rrule = re.get_rule(rule);
   return r.substitute(rrule.free_vars.begin(),rrule.free_vars.end(),
                       subst.begin(),subst.end());
 };
 
-size_t RuleInst::findGuard(RewriteEngine & re, size_t start)const{
+size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
   const RewriteRule & r = re.get_rule(rule);
   while (start < (r.guards).size()){
     Node g = substNode(re,r.guards[start]);
@@ -79,11 +83,11 @@ size_t RuleInst::findGuard(RewriteEngine & re, size_t start)const{
   return start;
 };
 
-bool RuleInst::startedTrue(const RewriteEngine & re)const{
+bool RuleInst::startedTrue(const TheoryRewriteRules & re)const{
   return start == (re.get_rule(rule).guards).size();
 };
 
-void Guarded::nextGuard(RewriteEngine & re)const{
+void Guarded::nextGuard(TheoryRewriteRules & re)const{
   Assert(inst != RULEINSTID_TRUE && inst != RULEINSTID_FALSE);
   re.get_inst(inst).findGuard(re,d_guard+1);
 };
@@ -96,35 +100,41 @@ Guarded::Guarded(const Guarded & g) :
 Guarded::Guarded() :
   d_guard(-1),inst(-1) {};
 
-RewriteRule const makeRewriteRule(RewriteEngine & re, const Node r)
+RewriteRule const makeRewriteRule(TheoryRewriteRules & re, const Node r)
 {
-  Assert(r.getKind () == kind::FORALL);
-  Assert(r[1].getKind() == kind::REWRITE_RULE);
+  Assert(r.getKind() == kind::REWRITE_RULE);
+  Assert(r[2].getKind() == kind::RR_REWRITE);
   Debug("rewriterules") << "create rewriterule:" << r << std::endl;
   /* Equality */
-  TNode head = r[1][1];
-  TNode body = r[1][2];
+  TNode head = r[2][0];
+  TNode body = r[2][1];
   Node equality = head.eqNode(body);
   /* Guards */
-  TNode guards = r[1][0];
+  TNode guards = r[1];
   /* Trigger */
   std::vector<Node> pattern;
   /*   Replace variables by Inst_* variable and tag the terms that
        contain them */
-  pattern.push_back(re.qe->getSubstitutedNode(head,r));
+  std::vector<Node> vars;
+  vars.reserve(r[0].getNumChildren());
+  for( Node::const_iterator v = r[0].begin(); v != r[0].end(); ++v ){
+    vars.push_back(*v);
+  };
+  std::vector<Node> inst_constants =
+    re.getQuantifiersEngine()->createInstVariable(vars);
+  pattern.push_back(re.getQuantifiersEngine()->
+                    convertNodeToPattern(head,r,vars,inst_constants));
   Trigger trigger = re.createTrigger(r,pattern);
-  return RewriteRule(re, trigger, guards, equality,
-                     re.d_vars(r),
-                     re.d_inst_constants(r)
-                     );
+  return RewriteRule(re, trigger, guards, equality, vars, inst_constants);
 };
 
 
 /** A rewrite rule */
-RewriteRule::RewriteRule(RewriteEngine & re,
+RewriteRule::RewriteRule(TheoryRewriteRules & re,
                          Trigger & tr, Node g, Node eq,
                          std::vector<Node> & fv,std::vector<Node> & iv) :
-  trigger(tr), equality(eq), free_vars(fv), inst_vars(iv){
+  trigger(tr), equality(eq), free_vars(), inst_vars(){
+  free_vars.swap(fv);inst_vars.swap(iv);
   switch(g.getKind()){
   case kind::AND:
     guards.reserve(g.getNumChildren());
@@ -140,89 +150,32 @@ RewriteRule::RewriteRule(RewriteEngine & re,
 
 bool RewriteRule::noGuard()const{ return guards.size() == 0; };
 
-RewriteEngine::RewriteEngine(context::Context* c, TheoryQuantifiers* th ) :
-  d_th( th ), d_rules(c), d_ruleinsts(c), d_guardeds(c),
-  d_literalsToPropagate(c), d_literalsToPropagateIndex(c, 0),d_explanations(c),
-  qe(th->getQuantifiersEngine()){
-  uf=((uf::TheoryUF*) qe->d_te->getTheory(theory::THEORY_UF));
+TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
+                                       context::UserContext* u,
+                                       OutputChannel& out,
+                                       Valuation valuation,
+                                       QuantifiersEngine* qe) :
+  Theory(THEORY_REWRITERULES, c, u, out, valuation,qe),
+  d_rules(c), d_ruleinsts(c), d_guardeds(c),
+  d_literalsToPropagate(c), d_literalsToPropagateIndex(c, 0),d_explanations(c)
+  {
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   Debug("rewriterules") << Node::setdepth(-1);
 }
 
-Node getPattern(QuantifiersEngine* qe, Node r){
-  /*    qe->getSubstitutedNode(getPattern(r),r);*/
-  Assert(r.getKind () == kind::FORALL);
-  switch(r[1].getKind()){
-  case kind::REDUCTION_RULE:
-  case kind::DEDUCTION_RULE:
-  case kind::REWRITE_RULE:
-    /** the rewritten term */
-    /** Perhaps should give an atom and not a literal */
-    return qe->getSubstitutedNode(r[1][1],r);
-  default:
-    Unhandled(r[1].getKind());
-  }
-}
+void TheoryRewriteRules::check(Effort level) {
 
-// std::vector<Node> RewriteEngine::getSubstitutedGuards
-// (Node r, std::vector< Node > &vars, std::vector< Node > &match  ){
-//   std::vector<Node> gs;
-//   Node guard = r[1][0];
-//   switch(guard.getKind()){
-//   case kind::AND:
-//     for(Node::iterator i = guard.begin(); i != guard.end(); ++i) {
-//       gs.push_back(*i);
-//     };
-//     break;
-//   default:
-//     gs.push_back(guard);
-//   };
-//   return gs;
-// }
+  while(!done()) {
+    // Get all the assertions
+    Assertion assertion = get();
+    TNode fact = assertion.assertion;
 
-// Node RewriteEngine::getSubstitutedBody
-// (Node r, std::vector< Node > &vars, std::vector< Node > &match){
-//   std::vector<Node> gs;
-//   /** todo */
-//   Assert(r.getKind () == kind::FORALL);
-//   switch(r[1].getKind()){
-//   case kind::REWRITE_RULE:
-//     return (r[1][1].eqNode(r[1][2])).
-//       substitute(vars.begin(),vars.end(),match.begin(),match.end());
-//   case kind::REDUCTION_RULE:
-//   case kind::DEDUCTION_RULE:
-//     return r[1][2].
-//       substitute(vars.begin(),vars.end(),match.begin(),match.end());
-//   default:
-//     Unhandled(r[1].getKind());
-//     return r;
-//   }
-// }
+    Debug("rewriterules") << "TheoryRewriteRules::check(): processing " << fact << std::endl;
+      if (getValuation().getDecisionLevel()>0)
+        Unhandled(getValuation().getDecisionLevel());
 
-// Node RewriteEngine::getSubstitutedLemma
-// (Node r, std::vector< Node > &vars, std::vector< Node > &match){
-//   std::vector<Node> gs;
-//   Node lemma;
-//   Assert(r.getKind () == kind::FORALL);
-//   switch(r[1].getKind()){
-//   case kind::REWRITE_RULE:
-//     lemma = r[1][0].impNode(r[1][1].eqNode(r[1][2]));
-//     return lemma.
-//       substitute(vars.begin(),vars.end(),match.begin(),match.end());
-//   case kind::REDUCTION_RULE:
-//   case kind::DEDUCTION_RULE:
-//     lemma = r[1][1].impNode(r[1][2]);
-//     lemma = r[1][0].impNode(lemma);
-//     return lemma
-//       .substitute(vars.begin(),vars.end(),match.begin(),match.end());
-//   default:
-//     Unhandled(r[1].getKind());
-//     return r;
-//   }
-// }
-
-void RewriteEngine::check( Theory::Effort e ){
-  Debug("rewriterules") << "check: " << e << std::endl;
+      d_rules.push_back(makeRewriteRule(*this,fact));
+    };
 
   /** Test each rewrite rule */
   for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid) {
@@ -255,51 +208,58 @@ void RewriteEngine::check( Theory::Effort e ){
     const Guarded & glast = (*l)[l->size()-1];
     if(glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) continue;
     bool value;
-    if(d_th->getValuation().hasSatValue(g,value)) notification(g,value);
+    if(getValuation().hasSatValue(g,value)) notification(g,value);
   }
 
 };
 
-void RewriteEngine::registerQuantifier( Node n ){};
+void TheoryRewriteRules::registerQuantifier( Node n ){};
 
-void RewriteEngine::assertNode( Node n ){
-  Debug("rewriterules") << "assertNode: " << n << std::endl;
-  if( TheoryQuantifiers::isRewriteKind( n[1].getKind() ) ){
-    if (d_th->getValuation().getDecisionLevel()>0)
-      Unhandled(d_th->getValuation().getDecisionLevel());
-
-    d_rules.push_back(makeRewriteRule(*this,n));
-  };
-};
-
-Trigger RewriteEngine::createTrigger( TNode n, std::vector<Node> & pattern )
+Trigger TheoryRewriteRules::createTrigger( TNode n, std::vector<Node> & pattern )
   const{
   Debug("rewriterules") << "createTrigger:";
-  /** to put that in init */
-  uf::UfTermDb* db =
-    ((uf::TheoryUF*) qe->d_te->getTheory(theory::THEORY_UF))
-    ->getTermDatabase();
-  for(std::vector<Node>::iterator p = pattern.begin();
-      p != pattern.end(); ++p) {
-    Debug("rewriterules") << *p << ", ";
-    db->add(*p);
-  };
-  return *Trigger::mkTrigger(qe,n,pattern, false, true);
+  getQuantifiersEngine()->registerPattern(pattern);
+  return *Trigger::mkTrigger(getQuantifiersEngine(),n,pattern, false, true);
 };
 
-Answer RewriteEngine::addWatchIfDontKnow(Node g0, RuleInstId rid,
+bool TheoryRewriteRules::notifyIfKnown(const GList * const ltested,
+                                        GList * const lpropa) {
+    Assert(ltested->size() > 0);
+    const Guarded & glast = (*ltested)[ltested->size()-1];
+    if(glast.inst == RULEINSTID_TRUE || glast.inst == RULEINSTID_FALSE){
+      notification(lpropa,glast.inst == RULEINSTID_TRUE);
+      return true;
+    };
+    return false;
+};
+
+void TheoryRewriteRules::notification(GList * const lpropa, bool b){
+  if (b){
+    for(GList::const_iterator g = lpropa->begin();
+        g != lpropa->end(); ++g) {
+      (*g).nextGuard(*this);
+    };
+    lpropa->push_back(Guarded(RULEINSTID_TRUE,0));
+  }else{
+    lpropa->push_back(Guarded(RULEINSTID_FALSE,0));
+  };
+};
+
+
+
+Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, RuleInstId rid,
                                          const size_t gid){
   /** TODO: Should use the representative of g, but should I keep the
       mapping for myself? */
   /** Currently create a node with a literal */
-  Node g = d_th->getValuation().ensureLiteral(g0);
+  Node g = getValuation().ensureLiteral(g0);
   GuardedMap::iterator l_i = d_guardeds.find(g);
   GList* l;
   if( l_i == d_guardeds.end() ) {
     /** Not watched so IDONTNOW */
-    l = new(d_th->getContext()->getCMM())
-      GList(true, d_th->getContext(), false,
-            ContextMemoryAllocator<Guarded>(d_th->getContext()->getCMM()));
+    l = new(getContext()->getCMM())
+      GList(true, getContext(), false,
+            ContextMemoryAllocator<Guarded>(getContext()->getCMM()));
     d_guardeds.insertDataFromContextMemory(g, l);
     /* TODO Add register propagation */
   } else {
@@ -315,39 +275,15 @@ Answer RewriteEngine::addWatchIfDontKnow(Node g0, RuleInstId rid,
   return ADONTKNOW;
 };
 
-
-void RewriteEngine::notification(GList * const lpropa, bool b){
-  if (b){
-    for(GList::const_iterator g = lpropa->begin();
-        g != lpropa->end(); ++g) {
-      (*g).nextGuard(*this);
-    };
-    lpropa->push_back(Guarded(RULEINSTID_TRUE,0));
-  }else{
-    lpropa->push_back(Guarded(RULEINSTID_FALSE,0));
-  };
-};
-
-
-void RewriteEngine::notification(Node g, bool b){
+void TheoryRewriteRules::notification(Node g, bool b){
   GuardedMap::const_iterator l = d_guardeds.find(g);
   /** Should be a propagated node already known */
   Assert(l != d_guardeds.end());
   notification((*l).second,b);
 }
 
-bool RewriteEngine::notifyIfKnown(const GList * const ltested,
-                                        GList * const lpropa) {
-    Assert(ltested->size() > 0);
-    const Guarded & glast = (*ltested)[ltested->size()-1];
-    if(glast.inst == RULEINSTID_TRUE || glast.inst == RULEINSTID_FALSE){
-      notification(lpropa,glast.inst == RULEINSTID_TRUE);
-      return true;
-    };
-    return false;
-};
 
-void RewriteEngine::notifyEq(TNode lhs, TNode rhs) {
+void TheoryRewriteRules::notifyEq(TNode lhs, TNode rhs) {
   GuardedMap::const_iterator ilhs = d_guardeds.find(lhs);
   GuardedMap::const_iterator irhs = d_guardeds.find(rhs);
   /** Should be a propagated node already known */
@@ -368,7 +304,7 @@ void RewriteEngine::notifyEq(TNode lhs, TNode rhs) {
 };
 
 
-void RewriteEngine::propagateRule(const RuleInst & inst){
+void TheoryRewriteRules::propagateRule(const RuleInst & inst){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
   const RewriteRule & rule = get_rule(inst.rule);
   Node equality = inst.substNode(*this,rule.equality);
@@ -378,15 +314,17 @@ void RewriteEngine::propagateRule(const RuleInst & inst){
       lemma = substGuards(inst,rule).impNode(equality);
     };
     //  Debug("rewriterules") << "lemma:" << lemma << std::endl;
-    d_th->getOutputChannel().lemma(lemma);
+    getOutputChannel().lemma(lemma);
   }else{
-    Node lemma_lit = d_th->getValuation().ensureLiteral(equality);
-    d_th->getOutputChannel().propagate(lemma_lit);
+    Node lemma_lit = getValuation().ensureLiteral(equality);
+    getOutputChannel().propagate(lemma_lit);
     d_explanations.insert(lemma_lit,inst.id);
   };
 };
 
-Node RewriteEngine::substGuards(const RuleInst & inst,const RewriteRule & r){
+
+Node TheoryRewriteRules::substGuards(const RuleInst & inst,
+                                     const RewriteRule & r){
   /** No guards */
   const size_t size = r.guards.size();
   if(size == 0) return d_true;
@@ -401,10 +339,15 @@ Node RewriteEngine::substGuards(const RuleInst & inst,const RewriteRule & r){
   return conjunction;
 }
 
-Node RewriteEngine::explain(TNode n){
+Node TheoryRewriteRules::explain(TNode n){
   ExplanationMap::const_iterator rinstid = d_explanations.find(n);
   Assert(rinstid!=d_explanations.end(),"I forget the explanation...");
   const RuleInst & inst = get_inst((*rinstid).second);
   const RewriteRule & r = get_rule(inst.rule);
   return substGuards(inst,r);
 }
+
+
+}/* CVC4::theory::rewriterules namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */

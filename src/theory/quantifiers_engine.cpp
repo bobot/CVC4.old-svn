@@ -123,6 +123,20 @@ void QuantifiersEngine::check( Theory::Effort e ){
     d_modules[i]->check( e );
   }
 }
+
+std::vector<Node> QuantifiersEngine::createInstVariable( std::vector<Node> & vars ){
+  std::vector<Node> inst_constant;
+  inst_constant.reserve(vars.size());
+  for( std::vector<Node>::const_iterator v = vars.begin();
+       v != vars.end(); ++v ){
+    //make instantiation constants
+    Node ic = NodeManager::currentNM()->mkInstConstant( (*v).getType() );
+    inst_constant.push_back( ic );
+  };
+  return inst_constant;
+}
+
+
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
     ++(d_statistics.d_num_quant);
@@ -143,6 +157,14 @@ void QuantifiersEngine::registerQuantifier( Node f ){
     }
   }
 }
+
+void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
+    uf::UfTermDb* db =
+      ((uf::TheoryUF*) d_te->getTheory(theory::THEORY_UF)) ->getTermDatabase();
+    for(std::vector<Node>::iterator p = pattern.begin();
+        p != pattern.end(); ++p)
+      {db->add(*p);};
+  }
 
 void QuantifiersEngine::assertNode( Node f ){
   Assert( f.getKind()==FORALL );
@@ -309,11 +331,19 @@ Node QuantifiersEngine::getSkolemizedBody( Node f ){
 }
 
 Node QuantifiersEngine::getSubstitutedNode( Node n, Node f ){
-  Node n2 = n.substitute( d_vars[f].begin(), d_vars[f].end(), 
-                          d_inst_constants[ f ].begin(), d_inst_constants[ f ].end() ); 
+  return convertNodeToPattern(n,f,d_vars[f],d_inst_constants[ f ]);
+}
+
+Node QuantifiersEngine::convertNodeToPattern
+( Node n, Node f, const std::vector<Node> & vars,
+  const std::vector<Node> & inst_constants){
+  Node n2 = n.substitute( vars.begin(), vars.end(),
+                          inst_constants.begin(),
+                          inst_constants.end() );
   setInstantiationConstantAttr( n2, f );
   return n2;
 }
+
 
 void QuantifiersEngine::setInstantiationLevelAttr( Node n, uint64_t level ){
   if( !n.hasAttribute(InstLevelAttribute()) ){

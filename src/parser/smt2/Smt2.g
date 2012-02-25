@@ -475,12 +475,23 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
       term[f, f2] RPAREN_TOK
     {
       PARSER_STATE->popScope();
-      args.push_back( f );
-      if( !f2.isNull() ){
-        //std::cout << "add to quant " << f2 << std::endl;
-        args.push_back( f2 );
-      }
-      expr = MK_EXPR(kind, args);
+      switch(f.getKind()){
+      case CVC4::kind::RR_REWRITE:
+      case CVC4::kind::RR_REDUCTION:
+      case CVC4::kind::RR_DEDUCTION:
+        if(kind == CVC4::kind::EXISTS) PARSER_STATE->parseError("Use Exists instead of Forall for a rewrite rule.");
+        args.push_back( f2 ); //guards
+        args.push_back( f ); //rule
+        expr = MK_EXPR(CVC4::kind::REWRITE_RULE, args);
+        break;
+      default:
+        args.push_back( f );
+        if( !f2.isNull() ){
+          //std::cout << "add to quant " << f2 << std::endl;
+          args.push_back( f2 );
+        }
+        expr = MK_EXPR(kind, args);
+      };
       //std::cout << "Made quantifier " << expr << std::endl;
       //for( int i=0; i<(int)args.size(); i++ ) { std::cout << args[i] << std::endl; }
     }
@@ -558,12 +569,13 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
           guard = MK_CONST(bool(true));
           body = expr;
         }
+        expr2=guard;
         if( body.getKind()==kind::IMPLIES ){
-          expr = MK_EXPR( kind::DEDUCTION_RULE, guard, body[0], body[1] );
+          expr = MK_EXPR( kind::RR_DEDUCTION, body[0], body[1] );
         }else if( body.getKind()==kind::IFF ){
-          expr = MK_EXPR( kind::REDUCTION_RULE, guard, body[0], body[1] );
+          expr = MK_EXPR( kind::RR_REDUCTION, body[0], body[1] );
         }else if( body.getKind()==kind::EQUAL ){
-          expr = MK_EXPR( kind::REWRITE_RULE, guard, body[0], body[1] );
+          expr = MK_EXPR( kind::RR_REWRITE, body[0], body[1] );
         }else{
           PARSER_STATE->parseError("Error parsing rewrite rule.");
         }

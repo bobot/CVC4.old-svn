@@ -71,7 +71,7 @@ private:
   bool restart();
 public:
   static bool isRewriteKind( Kind k ){
-    return k==kind::REWRITE_RULE || k==kind::REDUCTION_RULE || k==kind::DEDUCTION_RULE;
+    return false;
   }
   void performCheck(Effort e);
 };/* class TheoryQuantifiers */
