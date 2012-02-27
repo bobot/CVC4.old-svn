@@ -181,7 +181,8 @@ public:
   public:
     ConflictFind( TypeNode tn, context::Context* c, TheoryUF* th ) : 
         d_th( th ), d_regions_index( c, 0 ), d_regions_map( c ), d_disequalities_index( c, 0 ), 
-        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ), d_type( tn ){}
+        d_reps( c, 0 ), d_term_amb( c ), d_cardinality( 0 ), d_type( tn ), d_is_cardinality_set( c, false ),
+        d_is_cardinality_requested_c( c, false ), d_is_cardinality_requested( false ){}
     ~ConflictFind(){}
     /** new node */
     void newEqClass( Node n );
@@ -211,6 +212,10 @@ public:
   public:
     /** get number of regions (for debugging) */
     int getNumRegions();
+    /** is cardinality set */
+    context::CDO< bool > d_is_cardinality_set;
+    context::CDO< bool > d_is_cardinality_requested_c;
+    bool d_is_cardinality_requested;
   }; /** class ConflictFind */
 private:
   /** The output channel for the strong solver. */
@@ -237,6 +242,10 @@ public:
   void check( Theory::Effort level );
   /** preregister a term */
   void preRegisterTerm( TNode n );
+  /** notify restart */
+  void notifyRestart();
+  /** propagate */
+  void propagate( Theory::Effort level );
 public:
   /** identify */
   std::string identify() const { return std::string("StrongSolverTheoryUf"); }

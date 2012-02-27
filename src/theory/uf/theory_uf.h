@@ -164,6 +164,7 @@ public:
   }
 
   //AJR-hack
+  void notifyRestart();
   EqualityEngine<NotifyClass>* getEqualityEngine() { return &d_equalityEngine; }
   UfTermDb* getTermDatabase();
   StrongSolverTheoryUf* getStrongSolver() { return d_thss; }

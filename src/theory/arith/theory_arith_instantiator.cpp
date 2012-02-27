@@ -35,7 +35,7 @@ void InstStrategySimplex::resetInstantiationRound(){
   d_counter++;
 }
 
-int InstStrategySimplex::process( Node f, int effort ){
+int InstStrategySimplex::process( Node f, int effort, int instLimit ){
   if( effort<2 ){
     return STATUS_UNFINISHED;
   }else if( effort==2 ){
@@ -54,7 +54,7 @@ int InstStrategySimplex::process( Node f, int effort ){
         Node var = d_th->d_ceTableaux[x].begin()->first;
         if( var.getType().isInteger() ){
           std::map< Node, Node >::iterator it = d_th->d_ceTableaux[x].begin();
-          //must be sure that coefficent is one //DO_THIS
+          //must be sure that coefficent is one
           while( !var.isNull() && !d_th->d_ceTableaux[x][var].isNull() ){
             ++it;
             if( it==d_th->d_ceTableaux[x].end() ){
@@ -88,7 +88,7 @@ int InstStrategySimplex::process( Node f, int effort ){
 //
 //}
 //
-//int InstStrategySimplexUfMatch::process( Node f, int effort ){
+//int InstStrategySimplexUfMatch::process( Node f, int effort, int instLimit ){
 //  if( effort<2 ){
 //    return STATUS_UNFINISHED;
 //  }else if( effort==2 ){
@@ -173,15 +173,17 @@ Instantiator( c, ie, th ){
 void InstantiatorTheoryArith::assertNode( Node assertion ){
   Debug("quant-arith-assert") << "InstantiatorTheoryArith::check: " << assertion << std::endl;
   //this is just for debugging....
-  if( assertion.hasAttribute(InstConstantAttribute()) &&
-      ((TheoryArith*)getTheory())->d_valuation.isDecision( assertion ) ){
-    Node f = assertion.getAttribute(InstConstantAttribute());
-    Node cel = d_quantEngine->getCounterexampleLiteralFor( f );
-    bool value;
-    //Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );
-    if( !((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) ){
-      std::cout << "unknown ";
-      exit( 18 );
+  if( assertion.hasAttribute(InstConstantAttribute())  ){
+    if( ((TheoryArith*)getTheory())->d_valuation.isDecision( assertion ) ){
+      Node f = assertion.getAttribute(InstConstantAttribute());
+      Node cel = d_quantEngine->getCounterexampleLiteralFor( f );
+      Assert( d_quantEngine->getTheoryEngine()->getPropEngine()->isSatLiteral( cel ) ); 
+      bool value;
+      //Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );
+      if( !((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) ){
+        std::cout << "unknown ";
+        exit( 18 );
+      }
     }
   }
 } 
@@ -312,7 +314,7 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
   }
 }
 
-int InstantiatorTheoryArith::process( Node f, int effort ){
+int InstantiatorTheoryArith::process( Node f, int effort, int instLimit ){
   Debug("quant-arith") << "Arith: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   return InstStrategy::STATUS_UNKNOWN;
 }

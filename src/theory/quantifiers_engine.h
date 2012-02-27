@@ -67,7 +67,7 @@ public:
   /** reset instantiation */
   virtual void resetInstantiationRound(){}
   /** process method */
-  virtual int process( Node f, int effort ){ return STATUS_UNKNOWN; }
+  virtual int process( Node f, int effort, int limitInst = 0 ){ return STATUS_UNKNOWN; }
   /** update status */
   static void updateStatus( int& currStatus, int addStatus ){
     if( addStatus==STATUS_UNFINISHED ){
@@ -119,7 +119,7 @@ public:
   /** is full owner of quantifier f? */
   bool isOwnerOf( Node f );
   /** process quantifier */
-  virtual int process( Node f, int effort ) { return InstStrategy::STATUS_SAT; }
+  virtual int process( Node f, int effort, int limitInst = 0 ) { return InstStrategy::STATUS_SAT; }
 public:
   Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th);
   ~Instantiator();
@@ -132,7 +132,7 @@ public:
   virtual void assertNode( Node assertion ){}
 
   /** do instantiation method*/
-  int doInstantiation( Node f, int effort );
+  int doInstantiation( Node f, int effort, int limitInst = 0 );
   /** identify */
   virtual std::string identify() const { return std::string("Unknown"); }
   /** print debug information */
@@ -264,7 +264,7 @@ public:
   /** get the ce body f[e/x] */
   Node getCounterexampleBody( Node f ) { return d_counterexample_body[ f ]; }
   /** get the corresponding counterexample literal for quantified formula node n */
-  Node getCounterexampleLiteralFor( Node f ) { return d_ce_lit[ f ]; }
+  Node getCounterexampleLiteralFor( Node f ) { return d_ce_lit.find( f )==d_ce_lit.end() ? Node::null() : d_ce_lit[ f ]; }
   /** get the skolemized body f[e/x] */
   Node getSkolemizedBody( Node f );
   /** set active */

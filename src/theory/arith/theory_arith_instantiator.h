@@ -42,7 +42,7 @@ public:
       InstStrategy( ie ), d_th( th ), d_counter( 0 ){}
   ~InstStrategySimplex(){}
   void resetInstantiationRound();
-  int process( Node f, int effort );
+  int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("Simplex"); }
 };
@@ -58,7 +58,7 @@ public:
 //      InstStrategy( ie ), d_th( th ){}
 //  ~InstStrategySimplexUfMatch(){}
 //  void resetInstantiationRound();
-//  int process( Node f, int effort );
+//  int process( Node f, int effort, int instLimit );
 //  /** identify */
 //  std::string identify() const { return std::string("SimplexUfMatch"); }
 //};
@@ -100,7 +100,7 @@ private:
   /** add term to row */
   void addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t );
   /** process at effort */
-  int process( Node f, int effort );
+  int process( Node f, int effort, int instLimit );
   /** get delta for node */
   Node getDelta( Node n );
 

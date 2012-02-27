@@ -42,7 +42,7 @@ void InstantiatorTheoryQuantifiers::resetInstantiationRound(){
 }
 
 
-int InstantiatorTheoryQuantifiers::process( Node f, int effort ){
+int InstantiatorTheoryQuantifiers::process( Node f, int effort, int limitInst ){
   Debug("quant-quant") << "Quant: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   if( effort<5 ){
     return InstStrategy::STATUS_UNFINISHED;

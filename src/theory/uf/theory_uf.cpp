@@ -36,7 +36,7 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
   d_functionsTerms(c),
-  d_hasCard( false, c )
+  d_hasCard( c, false )
 {
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::APPLY_UF);
@@ -92,19 +92,22 @@ void TheoryUF::check(Effort level) {
 
     Debug("uf") << "TheoryUF::check(): processing " << fact << std::endl;
     ////AJR-hack
-    //Debug("uf-check") << "Check " << fact << " (" << d_valuation.isDecision( fact ) << ")" << std::endl;
-    //if(Options::current()->finiteModelFind ){
-    //  if( d_valuation.isDecision( fact ) ){
-    //    if( fact.getKind()==kind::CARDINALITY_CONSTRAINT ){
-    //      d_hasCard = true;
-    //    }else{
-    //      if( !d_hasCard ){
-    //        std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
-    //        exit( 21 );
-    //      }
-    //    }
-    //  }
-    //}
+    Debug("uf-check") << "Check " << fact;
+    //<< " (" << d_valuation.isDecision( fact ) << ")";
+    Debug("uf-check") << std::endl;
+    if(Options::current()->finiteModelFind ){
+      if( d_valuation.isDecision( fact ) ){
+        if( fact.getKind()==kind::CARDINALITY_CONSTRAINT ){
+          //std::cout << "Asserted " << fact << std::endl;
+          d_hasCard = true;
+        }else{
+          if( !d_hasCard ){
+            std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
+            exit( 21 );
+          }
+        }
+      }
+    }
     ////std::cout << "Check " << fact << std::endl;
     //Debug("uf-ajr") << "TheoryUF::check(): processing " << fact << std::endl;
     //d_assertions_ajr.push_back( fact );
@@ -252,6 +255,9 @@ void TheoryUF::propagate(Effort level) {
         }
       }
     }
+  }
+  if( d_thss ){
+    d_thss->propagate( level );
   }
 }/* TheoryUF::propagate(Effort) */
 
@@ -600,6 +606,12 @@ void TheoryUF::computeCareGraph(CareGraph& careGraph) {
 }/* TheoryUF::computeCareGraph() */
 
 //AJR-hack
+void TheoryUF::notifyRestart(){
+  if( d_thss ){
+    d_thss->notifyRestart();
+  }
+}
+
 UfTermDb* TheoryUF::getTermDatabase(){
   if( getInstantiator() ){
     return ((InstantiatorTheoryUf*)getInstantiator())->getTermDatabase();

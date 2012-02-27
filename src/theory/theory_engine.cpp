@@ -121,7 +121,10 @@ void TheoryEngine::check(Theory::Effort effort) {
          break; \
        } \
     }
-
+  //AJR-hack
+  static int ierCounter = 0;
+  bool checkIerCounter = false;
+  //AJR-hack-end
   // Do the checking
   try {
 
@@ -153,8 +156,12 @@ void TheoryEngine::check(Theory::Effort effort) {
                   Debug("theory::assertions") << "(" << i << "): ";
                 }
                 Debug("theory::assertions") << (*it).assertion;
-                if( theory->getValuation().isDecision( (*it).assertion ) ){
-                  Debug("theory::assertions") << "^d";
+                if( getPropEngine()->isSatLiteral( (*it).assertion ) ){
+                  if( theory->getValuation().isDecision( (*it).assertion ) ){
+                    Debug("theory::assertions") << "^d";
+                  }
+                }else{
+                  Debug("theory::assertions") << "(X)";
                 }
                 Debug("theory::assertions") << endl;
             }
@@ -196,14 +203,39 @@ void TheoryEngine::check(Theory::Effort effort) {
         Debug("theory") << "TheoryEngine::check(" << effort << "): lemmas added, done" << std::endl;
         break;
       }
-
+      ////AJR-hack
+      //if( Theory::fullEffort(effort) && d_theoryTable[THEORY_QUANTIFIERS] ){
+      //  if( !checkIerCounter ){
+      //    checkIerCounter = true;
+      //    ierCounter++;
+      //    if( ierCounter%2==0 ){
+      //      ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::PRE_LAST_CALL );
+      //      if (d_lemmasAdded) {
+      //        Debug("theory") << "TheoryEngine::check(" << effort << "): lemmas added, done" << std::endl;
+      //        break;
+      //      }
+      //    }
+      //  }
+      //}
+      ////AJR-hack-end
       // If in full check and no lemmas added, run the combination
       if (Theory::fullEffort(effort) && d_sharedTermsExist) {
+        //AJR-hack
+        //double clSet = double(clock())/double(CLOCKS_PER_SEC);
+        //std::cout << "Run combination." << std::endl;
+        //AJR-hack-end
         // Do the combination
         Debug("theory") << "TheoryEngine::check(" << effort << "): running combination" << std::endl;
         combineTheories();
+        //AJR-hack
+        //double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
+        //std::cout << "Done run combination. " << (clSet2-clSet) << std::endl;
+        //AJR-hack-end
         // If we have any propagated equalities, we enqueue them to the theories and re-check
         if (d_propagatedEqualities.size() > 0) {
+          //AJR-hack
+          //std::cout << "assert shared equalities" << std::endl;
+          //AJR-hack-end
           Debug("theory") << "TheoryEngine::check(" << effort << "): distributing shared equalities" << std::endl;
           assertSharedEqualities();
         } else {
@@ -220,8 +252,8 @@ void TheoryEngine::check(Theory::Effort effort) {
     if( effort==Theory::FULL_EFFORT ){
       if( !d_inConflict && !d_lemmasAdded ){
         if( d_theoryTable[THEORY_QUANTIFIERS] ){
-          //((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::LAST_CALL );
-          if( d_incomplete ){
+          ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::LAST_CALL );
+          if( d_incomplete && !d_inConflict && !d_lemmasAdded ){
             if( ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ){
               d_incomplete = false;
             }

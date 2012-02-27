@@ -495,6 +495,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
   Debug("uf-ss-lemma") << "*** Add clique conflict " << conflictNode << std::endl;
   //std::cout << "*** Add clique conflict " << conflictNode << std::endl;
   out->lemma( conflictNode );
+  ++( d_th->getStrongSolver()->d_statistics.d_clique_lemmas );
 #endif
 }
 
@@ -696,6 +697,7 @@ bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out )
             out->lemma( lem );
             d_term_amb[ eq ] = false;
             lemmaAdded = true;
+            ++( d_th->getStrongSolver()->d_statistics.d_disamb_term_lemmas );
           }
         }
       }
@@ -749,6 +751,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
               //tell the sat solver to explore the equals branch first
               out->requirePhase( s, true );
               addedLemma = true;
+              ++( d_th->getStrongSolver()->d_statistics.d_split_lemmas );
             }
           }
         }
@@ -852,7 +855,7 @@ void StrongSolverTheoryUf::newEqClass( Node n ){
   if( isRelevantType( tn ) ){
 #if 0
     //TEMPORARY 
-    setCardinality( tn, 1 );  //***************
+    setCardinality( tn, 8 );  //***************
     //END_TEMPORARY
 #elif 0
     if( d_conf_find.find( tn )==d_conf_find.end() ){
@@ -929,29 +932,34 @@ void StrongSolverTheoryUf::assertCardinality( Node c ){
     TypeNode tn = cc[0].getType();
     Assert( isRelevantType( tn ) );
     Assert( d_conf_find[tn] );
-    long nCard = cc[1].getConst<Rational>().getNumerator().getLong();
-    if( nCard==d_conf_find[tn]->getCardinality() && !d_conf_find[tn]->d_isCardinalityStrict ){
-      Debug("uf-ss-fmf") << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
-      //std::cout << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
-      //increment to next cardinality
-      setCardinality( tn, d_conf_find[tn]->getCardinality() + 1, false );
-      //also increment the cardinality of related types? DO_THIS
-      Node lem = d_conf_find[tn]->getCardinalityLemma();
-      Assert( lem.getKind()==OR );
-      Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
-      d_out->lemma( lem );
-#if 0
-      d_out->requirePhase( lem[0], true );
-#else
-      d_out->propagateAsDecision( lem[0] );
-#endif
-    }else{
-      //std::cout << "Already knew no model of size " << nCard << " exists for type " << tn << std::endl;
+    if( !d_conf_find[tn]->d_isCardinalityStrict ){
+      long nCard = cc[1].getConst<Rational>().getNumerator().getLong();
+      if( nCard==d_conf_find[tn]->getCardinality() ){
+        Debug("uf-ss-fmf") << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
+        //std::cout << "No model of size " << d_conf_find[tn]->getCardinality() << " exists for type " << tn << std::endl;
+        //increment to next cardinality
+        setCardinality( tn, d_conf_find[tn]->getCardinality() + 1, false );
+        //also increment the cardinality of related types? DO_THIS
+        Node lem = d_conf_find[tn]->getCardinalityLemma();
+        Assert( lem.getKind()==OR );
+        Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
+        d_out->lemma( lem );
+        //d_out->requirePhase( lem[0], true );
+        Debug("uf-ss-fmf") << "Increment cardinality, propagate as decision " << lem[0] << std::endl;
+        //std::cout << "Increment cardinality, propagate as decision " << lem[0] << std::endl;
+        d_out->propagateAsDecision( lem[0] );
+        d_conf_find[tn]->d_is_cardinality_requested = true;
+        //std::cout << d_conf_find[tn]->getCardinality() << " ";
+      }else{
+        //std::cout << "Already knew no model of size " << nCard << " exists for type " << tn << std::endl;
+      }
     }
   }else{
     TypeNode tn = c[0].getType();
     Assert( isRelevantType( tn ) );
-    //do nothing
+    Assert( d_conf_find[tn] );
+    d_conf_find[tn]->d_is_cardinality_set = true;
+    d_conf_find[tn]->d_is_cardinality_requested = false;
   }
 }
 
@@ -967,7 +975,6 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
 }
 
 void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
-#if 1
   TypeNode tn = n.getType();
   if( isRelevantType( tn ) ){
     if( d_conf_find.find( tn )==d_conf_find.end() ){
@@ -983,12 +990,38 @@ void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
       if( !d_conf_find[tn]->d_isCardinalityStrict ){
         Assert( lem.getKind()==OR );
         Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
+        Debug("uf-ss-fmf") << "Initialize, propagate as decision " << lem[0] << std::endl;
+        //std::cout << "Initialize, propagate as decision " << lem[0] << std::endl;
         //d_out->requirePhase( lem[0], true );
         d_out->propagateAsDecision( lem[0] );
+        d_conf_find[tn]->d_is_cardinality_requested = true;
       }
     }
   }
-#endif
+}
+
+void StrongSolverTheoryUf::notifyRestart(){
+
+}
+
+void StrongSolverTheoryUf::propagate( Theory::Effort level ){
+  for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
+    //if cardinality not asserted, propagate as decision
+    if( !it->second->d_isCardinalityStrict ){
+      if( !it->second->d_is_cardinality_set && !it->second->d_is_cardinality_requested ){
+        //std::cout << "Cardinality issue, notify restart: ";
+        //std::cout << " " << it->second->d_is_cardinality_set;
+        //std::cout << " " << it->second->d_is_cardinality_requested;
+        //std::cout << std::endl;
+        Node lem = it->second->getCardinalityLemma();
+        Assert( lem.getKind()==OR );
+        Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
+        //std::cout << "Propagate as decision " << lem[0] << std::endl;
+        d_out->propagateAsDecision( lem[0] );
+        it->second->d_is_cardinality_requested = true;
+      }
+    }
+  }
 }
 
 /** set cardinality for sort */

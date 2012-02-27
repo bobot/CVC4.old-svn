@@ -16,13 +16,14 @@ using namespace CVC4::theory::quantifiers;
 InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th ) : 
 d_th( th ), d_forall_asserts( d_th->getContext() ), d_in_instRound( false, d_th->getContext() ){
   d_in_instRound_no_c = false;
+  d_do_cbqi = true;
 }
 
 QuantifiersEngine* InstantiationEngine::getQuantifiersEngine(){
   return d_th->getQuantifiersEngine();
 }
 
-bool InstantiationEngine::doInstantiationRound(){
+bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
   Debug("inst-engine") << "IE: Instantiation Round." << std::endl;
   Debug("inst-engine-ctrl") << "IE: Instantiation Round." << std::endl;
   bool success;
@@ -47,11 +48,12 @@ bool InstantiationEngine::doInstantiationRound(){
         }
       }
     }
+    int eLimit = effort==Theory::LAST_CALL ? 10 : 2;
 #if 0
     std::map< Node, bool > processed;
     int e = 0;
     int status = InstStrategy::STATUS_UNFINISHED;
-    while( status==InstStrategy::STATUS_UNFINISHED ){
+    while( status==InstStrategy::STATUS_UNFINISHED && e<=eLimit ){
       status = InstStrategy::STATUS_SAT;
       Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
       for( int q=0; q<getQuantifiersEngine()->getNumQuantifiers(); q++ ){
@@ -82,7 +84,7 @@ bool InstantiationEngine::doInstantiationRound(){
 #else
   int e = 0;
   int status = InstStrategy::STATUS_UNFINISHED;
-  while( status==InstStrategy::STATUS_UNFINISHED ){
+  while( status==InstStrategy::STATUS_UNFINISHED && e<=eLimit ){
     Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
     //std::cout << "IE: Prepare instantiation (" << e << ")." << std::endl; 
     status = InstStrategy::STATUS_SAT;
@@ -131,13 +133,21 @@ bool InstantiationEngine::doInstantiationRound(){
     }
   }while( !success );
   Debug("inst-engine-ctrl") << "---Done. " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+  //std::cout << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
   //flush lemmas to output channel
   getQuantifiersEngine()->flushLemmas( &d_th->getOutputChannel() );
   return true;
 }
 
+int ierCounter = 0;
+
 void InstantiationEngine::check( Theory::Effort e ){
   if( e==Theory::FULL_EFFORT ){
+    ierCounter++;
+  }
+  if( ( e==Theory::FULL_EFFORT  && ierCounter%2==0 ) || e==Theory::LAST_CALL ){
+    //double clSet = double(clock())/double(CLOCKS_PER_SEC);
+    //std::cout << "IE: Check " << e << " " << ierCounter << std::endl;
     //if( !clockSet ){
     //  initClock = double(clock())/double(CLOCKS_PER_SEC);
     //  clockSet = true;
@@ -148,8 +158,6 @@ void InstantiationEngine::check( Theory::Effort e ){
     //    exit( 55 );
     //  }
     //}
-
-    Debug("quantifiers") << "quantifiers: FULL_EFFORT check" << std::endl;
     bool quantActive = false;
     //for each n in d_forall_asserts, 
     // such that the counterexample literal is not in positive in d_counterexample_asserts
@@ -157,33 +165,35 @@ void InstantiationEngine::check( Theory::Effort e ){
       if( (*i).second ) {
         Node n = (*i).first;
         Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( n );
-        bool active, value;
-        bool ceValue = false;
-        if( d_th->getValuation().hasSatValue( cel, value ) ){
-          active = value;
-          ceValue = true;
-        }else{
-          active = true;
-        }
-        getQuantifiersEngine()->setActive( n, active );
-        if( active ){
-          Debug("quantifiers") << "  Active : " << n;
-          quantActive = true;
-        }else{
-          Debug("quantifiers") << "  NOT active : " << n;
-          if( d_th->getValuation().isDecision( cel ) ){
-            Debug("quant-req-phase") << "Bad decision : " << cel << std::endl;
+        if( !cel.isNull() ){
+          bool active, value;
+          bool ceValue = false;
+          if( d_th->getValuation().hasSatValue( cel, value ) ){
+            active = value;
+            ceValue = true;
+          }else{
+            active = true;
           }
-          //note that the counterexample literal must not be a decision
-          Assert( !d_th->getValuation().isDecision( cel ) );
+          getQuantifiersEngine()->setActive( n, active );
+          if( active ){
+            Debug("quantifiers") << "  Active : " << n;
+            quantActive = true;
+          }else{
+            Debug("quantifiers") << "  NOT active : " << n;
+            if( d_th->getValuation().isDecision( cel ) ){
+              Debug("quant-req-phase") << "Bad decision : " << cel << std::endl;
+            }
+            //note that the counterexample literal must not be a decision
+            Assert( !d_th->getValuation().isDecision( cel ) );
+          }
+          if( d_th->getValuation().hasSatValue( n, value ) ){
+            Debug("quantifiers") << ", value = " << value; 
+          }
+          if( ceValue ){
+            Debug("quantifiers") << ", ce is asserted";
+          }
+          Debug("quantifiers") << std::endl;
         }
-        if( d_th->getValuation().hasSatValue( n, value ) ){
-          Debug("quantifiers") << ", value = " << value; 
-        }
-        if( ceValue ){
-          Debug("quantifiers") << ", ce is asserted";
-        }
-        Debug("quantifiers") << std::endl;
       }
     }
     if( quantActive ){  
@@ -191,7 +201,7 @@ void InstantiationEngine::check( Theory::Effort e ){
       //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
       //  Debug("quantifiers-dec") << "   " << d_valuation.getDecision( i ) << std::endl;
       //}
-      if( doInstantiationRound() ){
+      if( doInstantiationRound( e ) ){
         //d_numInstantiations++;
         //Debug("quantifiers") << "Done instantiation " << d_numInstantiations << "." << std::endl;
       }else{
@@ -203,36 +213,40 @@ void InstantiationEngine::check( Theory::Effort e ){
     }else{
       debugSat();
     }
+    //double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
+    //std::cout << "Done IE: Check " << (clSet2-clSet) << std::endl;
   }
 }
 
 void InstantiationEngine::registerQuantifier( Node f ){
   if( !TheoryQuantifiers::isRewriteKind( f[1].getKind() ) ){
-    //code for counterexample-based quantifier instantiation
-    Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
-                                   getQuantifiersEngine()->d_inst_constants[f].begin(), 
-                                   getQuantifiersEngine()->d_inst_constants[f].end() );
-    getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
-    //get the counterexample literal
-    Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
-    getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
-    Debug("quantifiers") << ceLit << " is the ce literal for " << f << std::endl;
-    // set attributes, mark all literals in the body of n as dependent on cel
-    registerLiterals( ceLit, f );
-    computePhaseReqs( ceBody, false );
-    //require any decision on cel to be phase=true
-    d_th->getOutputChannel().requirePhase( ceLit, true );
-    Debug("quant-req-phase") << "Require phase " << ceLit << " = true." << std::endl;
-    //add counterexample lemma
-    NodeBuilder<> nb(kind::OR);
-    nb << f << ceLit;
-    Node lem = nb;
-    Debug("quantifiers") << "Counterexample lemma : " << lem << std::endl;
-    d_th->getOutputChannel().lemma( lem );
-    ////mark cel as dependent on n?
-    //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
-    //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
-    //d_out->dependentDecision( quant, cel );
+    if( d_do_cbqi ){
+      //code for counterexample-based quantifier instantiation
+      Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
+                                    getQuantifiersEngine()->d_inst_constants[f].begin(), 
+                                    getQuantifiersEngine()->d_inst_constants[f].end() );
+      getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
+      //get the counterexample literal
+      Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
+      getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
+      Debug("quantifiers") << ceLit << " is the ce literal for " << f << std::endl;
+      // set attributes, mark all literals in the body of n as dependent on cel
+      registerLiterals( ceLit, f );
+      computePhaseReqs( ceBody, false );
+      //require any decision on cel to be phase=true
+      d_th->getOutputChannel().requirePhase( ceLit, true );
+      Debug("quant-req-phase") << "Require phase " << ceLit << " = true." << std::endl;
+      //add counterexample lemma
+      NodeBuilder<> nb(kind::OR);
+      nb << f << ceLit;
+      Node lem = nb;
+      Debug("quantifiers") << "Counterexample lemma : " << lem << std::endl;
+      d_th->getOutputChannel().lemma( lem );
+      ////mark cel as dependent on n?
+      //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
+      //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
+      //d_out->dependentDecision( quant, cel );
+    }
 
     //take into account user patterns
     if( f.getNumChildren()==3 ){

@@ -50,7 +50,7 @@ public:
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyCheckCESolved(){}
   void resetInstantiationRound();
-  int process( Node f, int effort );
+  int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("CheckCESolved"); }
 };
@@ -66,7 +66,7 @@ public:
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyLitMatch(){}
   void resetInstantiationRound();
-  int process( Node f, int effort );
+  int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("LitMatch"); }
 };
@@ -82,7 +82,7 @@ public:
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyUserPatterns(){}
   void resetInstantiationRound();
-  int process( Node f, int effort );
+  int process( Node f, int effort, int instLimit );
 public:
   /** add pattern */
   void addUserPattern( Node f, Node pat );
@@ -116,7 +116,7 @@ public:
       InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ){}
   ~InstStrategyAutoGenTriggers(){}
   void resetInstantiationRound();
-  int process( Node f, int effort );
+  int process( Node f, int effort, int instLimit );
 public:
   /** get auto-generated trigger */
   Trigger* getAutoGenTrigger( Node f );
@@ -135,7 +135,7 @@ public:
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyFreeVariable(){}
   void resetInstantiationRound();
-  int process( Node f, int effort );
+  int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("FreeVariable"); }
 };
@@ -217,7 +217,7 @@ public:
   void addUserPattern( Node f, Node pat );
 private:
   /** calculate matches for quantifier f at effort */
-  int process( Node f, int effort );
+  int process( Node f, int effort, int instLimit );
 public:
   /** get uf term database */
   UfTermDb* getTermDatabase() { return d_db; }
@@ -269,70 +269,6 @@ public:
   bool areEqual( Node a, Node b ) { return d_ith->areEqual( a, b ); }
   bool areDisequal( Node a, Node b ) { return d_ith->areDisequal( a, b ); }
   Node getInternalRepresentative( Node a ) { return d_ith->getInternalRepresentative( a ); }
-};
-
-class CandidateGeneratorTheoryUfDisequal;
-
-class CandidateGeneratorTheoryUf : public CandidateGenerator
-{
-  friend class CandidateGeneratorTheoryUfDisequal;
-private:
-  //operator you are looking for (null means just return the representative)
-  Node d_op;
-  //instantiator pointer
-  InstantiatorTheoryUf* d_ith;
-  //the equality class iterator
-  EqClassIterator d_eqc;
-  int d_term_iter;
-  int d_term_iter_limit;
-public:
-  CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op ) : 
-    d_op( op ), d_ith( ith ), d_term_iter( -2 ){}
-  ~CandidateGeneratorTheoryUf(){}
-
-  void resetInstantiationRound();
-  void reset( Node eqc );
-  Node getNextCandidate();
-};
-
-class CandidateGeneratorTheoryUfDisequal : public CandidateGenerator
-{
-private:
-  //equivalence class iterator
-  EqClassInfo::BoolMap::const_iterator d_eqci_iter;
-  //equivalence class info
-  EqClassInfo* d_eci;
-  //candidate generator
-  CandidateGeneratorTheoryUf* d_cg;
-  //instantiator pointer
-  InstantiatorTheoryUf* d_ith;
-public:
-  CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node op );
-  ~CandidateGeneratorTheoryUfDisequal(){}
-
-  void resetInstantiationRound();
-  void reset( Node eqc );   //should be what you want to be disequal from
-  Node getNextCandidate();
-};
-
-class CandidateGeneratorTheoryUfEq : public CandidateGenerator
-{
-private:
-  //the equality classes iterator
-  EqClassesIterator d_eq;
-  //equality or disequality you are trying to match for
-  Node d_pattern;
-  //this is the node that our pattern will be used for matching
-  Node d_match_pattern;
-  //einstantiator pointer
-  InstantiatorTheoryUf* d_ith;
-public:
-  CandidateGeneratorTheoryUfEq( InstantiatorTheoryUf* ith, Node pat, Node mpat );
-  ~CandidateGeneratorTheoryUfEq(){}
-
-  void resetInstantiationRound();
-  void reset( Node eqc );
-  Node getNextCandidate();
 };
 
 }

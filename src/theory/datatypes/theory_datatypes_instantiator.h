@@ -42,7 +42,7 @@ public:
   std::string identify() const { return std::string("InstantiatorTheoryDatatypes"); }
 private:
   /** process at effort */
-  int process( Node f, int effort );
+  int process( Node f, int effort, int limitInst );
   /** get value for */
   Node getValueFor( Node n );
   /** get representative */

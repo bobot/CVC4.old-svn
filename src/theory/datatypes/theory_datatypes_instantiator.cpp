@@ -42,7 +42,7 @@ void InstantiatorTheoryDatatypes::resetInstantiationRound(){
 }
 
 
-int InstantiatorTheoryDatatypes::process( Node f, int effort ){
+int InstantiatorTheoryDatatypes::process( Node f, int effort, int limitInst ){
   Debug("quant-datatypes") << "Datatypes: Try to solve (" << effort << ") for " << f << "... " << std::endl;
   if( effort<2 ){
     return InstStrategy::STATUS_UNFINISHED;

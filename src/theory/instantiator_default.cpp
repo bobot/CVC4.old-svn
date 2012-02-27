@@ -32,7 +32,7 @@ void InstantiatorDefault::check( Node assertion ){
 
 }
 
-int InstantiatorDefault::process( Node f, int effort ){
+int InstantiatorDefault::process( Node f, int effort, int instLimit ){
   if( effort<4 ){
     return InstStrategy::STATUS_UNFINISHED;
   }else if( effort==4 ){

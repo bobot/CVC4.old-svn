@@ -38,9 +38,11 @@ private:
   /** are we in the middle of an instantiation round */
   context::CDO< bool > d_in_instRound;
   bool d_in_instRound_no_c;
+  /** do CBQI */
+  bool d_do_cbqi;
 private:
   /** do instantiation round */
-  bool doInstantiationRound();
+  bool doInstantiationRound( Theory::Effort effort );
   /** register literals of n, f is the quantifier it belongs to */
   void registerLiterals( Node n, Node f );
   /** compute phase requirements */

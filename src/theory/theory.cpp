@@ -41,6 +41,10 @@ std::ostream& operator<<(std::ostream& os, Theory::Effort level){
     os << "STANDARD"; break;
   case Theory::FULL_EFFORT:
     os << "FULL_EFFORT"; break;
+  case Theory::PRE_LAST_CALL:
+    os << "PRE_LAST_CALL"; break;
+  case Theory::LAST_CALL:
+    os << "LAST_CALL"; break;
   default:
       Unreachable();
   }

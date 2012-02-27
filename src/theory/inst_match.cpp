@@ -18,6 +18,7 @@
 #include "theory/theory_engine.h"
 #include "theory/quantifiers_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
+#include "theory/uf/theory_uf_candidate_generator.h"
 
 using namespace std;
 using namespace CVC4;
@@ -504,11 +505,9 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
         //}
         //std::cout << std::endl;
         addedLemmas++;
-#if 0
         if( instLimit>0 && addedLemmas==instLimit ){
           return addedLemmas;
         }
-#endif
       }
     }else{
       success = false;
