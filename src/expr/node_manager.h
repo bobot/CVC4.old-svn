@@ -265,8 +265,13 @@ public:
   /** The node manager in the current public-facing CVC4 library context */
   static NodeManager* currentNM() { return s_current; }
 
-  /** Get this node manager's options */
+  /** Get this node manager's options (const version) */
   const Options& getOptions() const {
+    return *d_options;
+  }
+
+  /** Get this node manager's options (non-const version) */
+  Options& getOptions() {
     return *d_options;
   }
 

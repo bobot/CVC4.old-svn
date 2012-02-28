@@ -51,6 +51,7 @@
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
 #include "theory/datatypes/theory_datatypes.h"
+#include "theory/uf/options.h"
 #include "util/ite_removal.h"
 
 using namespace std;
@@ -302,12 +303,22 @@ void SmtEngine::setLogic(const std::string& s) throw(ModalException) {
     Dump("benchmark") << SetBenchmarkLogicCommand(s) << endl;
   }
 
+  setLogicInternal(s);
+}
+
+void SmtEngine::setLogicInternal(const std::string& s) throw() {
   d_logic = s;
-  d_theoryEngine->setLogic(s);
+
+  // by default, symmetry breaker is on only for QF_UF
+  if(! options::ufSymmetryBreakerSetByUser()) {
+    options::ufSymmetryBreaker.set(s == "QF_UF");
+  }
 
   // If in arrays, set the UF handler to arrays
   if(s == "QF_AX") {
     theory::Theory::setUninterpretedSortOwner(theory::THEORY_ARRAY);
+  } else {
+    theory::Theory::setUninterpretedSortOwner(theory::THEORY_UF);
   }
 }
 
@@ -317,6 +328,24 @@ void SmtEngine::setInfo(const std::string& key, const CVC4::SExpr& value)
   if(Dump.isOn("benchmark")) {
     Dump("benchmark") << SetInfoCommand(key, value) << endl;
   }
+
+  // Check for CVC4-specific info keys (prefixed with "cvc4-" or "cvc4_")
+  if(key.length() > 6) {
+    string prefix = key.substr(0, 6);
+    if(prefix == ":cvc4-" || prefix == ":cvc4_") {
+      string cvc4key = key.substr(6);
+      if(cvc4key == "logic") {
+        if(! value.isAtom()) {
+          throw BadOptionException("argument to (set-info :cvc4-logic ..) must be a string");
+        }
+        d_logic = "";
+        setLogic(value.getValue());
+        return;
+      }
+    }
+  }
+
+  // Check for standard info keys (SMT-LIB v1, SMT-LIB v2, ...)
   if(key == "name" ||
      key == "source" ||
      key == "category" ||
@@ -518,7 +547,7 @@ void SmtEnginePrivate::staticLearning() {
 
     NodeBuilder<> learned(kind::AND);
     learned << d_assertionsToCheck[i];
-    d_smt.d_theoryEngine->staticLearning(d_assertionsToCheck[i], learned);
+    d_smt.d_theoryEngine->ppStaticLearn(d_assertionsToCheck[i], learned);
     if(learned.getNumChildren() == 1) {
       learned.clear();
     } else {
@@ -585,10 +614,10 @@ void SmtEnginePrivate::nonClausalSimplify() {
       // Solve it with the corresponding theory
       Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                         << "solving " << learnedLiteral << endl;
-      Theory::SolveStatus solveStatus =
+      Theory::PPAssertStatus solveStatus =
         d_smt.d_theoryEngine->solve(learnedLiteral, d_topLevelSubstitutions);
       switch (solveStatus) {
-      case Theory::SOLVE_STATUS_CONFLICT:
+      case Theory::PP_ASSERT_STATUS_CONFLICT:
         // If in conflict, we return false
         Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                           << "conflict while solving "
@@ -596,7 +625,7 @@ void SmtEnginePrivate::nonClausalSimplify() {
         d_assertionsToPreprocess.clear();
         d_assertionsToCheck.push_back(NodeManager::currentNM()->mkConst<bool>(false));
         return;
-      case Theory::SOLVE_STATUS_SOLVED:
+      case Theory::PP_ASSERT_STATUS_SOLVED:
         // The literal should rewrite to true
         Trace("simplify") << "SmtEnginePrivate::nonClausalSimplify(): "
                           << "solved " << learnedLiteral << endl;

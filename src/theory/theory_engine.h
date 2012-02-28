@@ -324,9 +324,6 @@ class TheoryEngine {
    */
   void assertSharedEqualities();
 
-  /** The logic of the problem */
-  std::string d_logic;
-
   /**
    * Literals that are propagated by the theory. Note that these are TNodes.
    * The theory can only propagate nodes that have an assigned literal in the
@@ -511,7 +508,7 @@ public:
   /**
    * Solve the given literal with a theory that owns it.
    */
-  theory::Theory::SolveStatus solve(TNode literal,
+  theory::Theory::PPAssertStatus solve(TNode literal,
                                     theory::SubstitutionMap& substitutionOut);
 
   /**
@@ -547,10 +544,10 @@ public:
   void combineTheories();
 
   /**
-   * Calls staticLearning() on all theories, accumulating their
+   * Calls ppStaticLearn() on all theories, accumulating their
    * combined contributions in the "learned" builder.
    */
-  void staticLearning(TNode in, NodeBuilder<>& learned);
+  void ppStaticLearn(TNode in, NodeBuilder<>& learned);
 
   /**
    * Calls presolve() on all theories and returns true
