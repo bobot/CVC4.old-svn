@@ -19,6 +19,8 @@ libuf_la_SOURCES = \
 	theory_uf_strong_solver.h \
 	theory_uf_strong_solver.cpp \
 	theory_uf_candidate_generator.h \
-	theory_uf_candidate_generator.cpp
+	theory_uf_candidate_generator.cpp \
+	inst_strategy_model_find.h \
+	inst_strategy_model_find.cpp
 
 EXTRA_DIST = kinds

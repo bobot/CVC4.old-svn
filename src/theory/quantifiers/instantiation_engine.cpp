@@ -13,10 +13,11 @@ using namespace CVC4::theory::quantifiers;
 //static bool clockSet = false;
 //double initClock;
 
+//#define IE_PRINT_PROCESS_TIMES
+
 InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th ) : 
 d_th( th ), d_forall_asserts( d_th->getContext() ), d_in_instRound( false, d_th->getContext() ){
   d_in_instRound_no_c = false;
-  d_do_cbqi = true;
 }
 
 QuantifiersEngine* InstantiationEngine::getQuantifiersEngine(){
@@ -133,7 +134,9 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
     }
   }while( !success );
   Debug("inst-engine-ctrl") << "---Done. " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
-  //std::cout << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+#ifdef IE_PRINT_PROCESS_TIMES
+  std::cout << "lemmas = " << (int)getQuantifiersEngine()->d_lemmas_waiting.size() << std::endl;
+#endif
   //flush lemmas to output channel
   getQuantifiersEngine()->flushLemmas( &d_th->getOutputChannel() );
   return true;
@@ -146,8 +149,12 @@ void InstantiationEngine::check( Theory::Effort e ){
     ierCounter++;
   }
   if( ( e==Theory::FULL_EFFORT  && ierCounter%2==0 ) || e==Theory::LAST_CALL ){
-    //double clSet = double(clock())/double(CLOCKS_PER_SEC);
-    //std::cout << "IE: Check " << e << " " << ierCounter << std::endl;
+  //if( e==Theory::LAST_CALL ){
+    Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
+#ifdef IE_PRINT_PROCESS_TIMES
+    double clSet = double(clock())/double(CLOCKS_PER_SEC);
+    std::cout << "Run instantiation round " << e << std::endl;
+#endif
     //if( !clockSet ){
     //  initClock = double(clock())/double(CLOCKS_PER_SEC);
     //  clockSet = true;
@@ -193,6 +200,10 @@ void InstantiationEngine::check( Theory::Effort e ){
             Debug("quantifiers") << ", ce is asserted";
           }
           Debug("quantifiers") << std::endl;
+        }else{
+          getQuantifiersEngine()->setActive( n, true );
+          quantActive = true;
+          Debug("quantifiers") << "  Active : " << n << ", no ce assigned." << std::endl;
         }
       }
     }
@@ -213,19 +224,23 @@ void InstantiationEngine::check( Theory::Effort e ){
     }else{
       debugSat();
     }
-    //double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-    //std::cout << "Done IE: Check " << (clSet2-clSet) << std::endl;
+#ifdef IE_PRINT_PROCESS_TIMES
+    double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
+    std::cout << "Done Run instantiation round " << (clSet2-clSet) << std::endl;
+#endif
   }
 }
 
 void InstantiationEngine::registerQuantifier( Node f ){
   if( !TheoryQuantifiers::isRewriteKind( f[1].getKind() ) ){
-    if( d_do_cbqi ){
-      //code for counterexample-based quantifier instantiation
+    //std::cout << "do cbqi " << f << " ? " << std::endl;
+    if( doCbqi( f ) ){
+      //make the counterexample body
       Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
                                     getQuantifiersEngine()->d_inst_constants[f].begin(), 
                                     getQuantifiersEngine()->d_inst_constants[f].end() );
       getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
+      //code for counterexample-based quantifier instantiation
       //get the counterexample literal
       Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
       getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
@@ -246,6 +261,13 @@ void InstantiationEngine::registerQuantifier( Node f ){
       //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
       //Debug("quant-dep-dec") << "Make " << cel << " dependent on " << quant << std::endl;
       //d_out->dependentDecision( quant, cel );
+    }else{
+      Node ceBody = getQuantifiersEngine()->getSubstitutedNode( f[1], f );
+      getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
+      ((uf::InstantiatorTheoryUf*)getQuantifiersEngine()->getInstantiator( theory::THEORY_UF ))->getTermDatabase()->add( ceBody );
+      //need to tell which instantiators will be responsible
+      //by default, just chose the UF instantiator
+      getQuantifiersEngine()->getInstantiator( theory::THEORY_UF )->setHasConstraintsFrom( f );
     }
 
     //take into account user patterns
@@ -266,7 +288,28 @@ void InstantiationEngine::assertNode( Node n ){
   }
 }
 
+bool hasApplyUf( Node f ){
+  if( f.getKind()==APPLY_UF ){
+    return true;
+  }else{
+    for( int i=0; i<(int)f.getNumChildren(); i++ ){
+      if( hasApplyUf( f[i] ) ){
+        return true;
+      }
+    }
+    return false;
+  }
+}
 
+bool InstantiationEngine::doCbqi( Node f ){
+  for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+    TypeNode tn = f[0][i].getType();
+    if( !tn.isInteger() && !tn.isReal() ){
+      return false;
+    }
+  }
+  return !hasApplyUf( f[1] );
+}
 
 
 
@@ -295,10 +338,12 @@ void InstantiationEngine::registerLiterals( Node n, Node f ){
       }
     }
     if( setAttr ){
-      if( getQuantifiersEngine()->d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
-        if( n!=getQuantifiersEngine()->d_ce_lit[f] && n.notNode()!=getQuantifiersEngine()->d_ce_lit[f] ){
-          Debug("quant-dep-dec") << "Make " << n << " dependent on " << getQuantifiersEngine()->d_ce_lit[f] << std::endl;
-          d_th->getOutputChannel().dependentDecision( getQuantifiersEngine()->d_ce_lit[f], n );
+      if( !getQuantifiersEngine()->d_ce_lit[f].isNull() ){
+        if( getQuantifiersEngine()->d_te->getPropEngine()->isSatLiteral( n ) && n.getKind()!=NOT ){
+          if( n!=getQuantifiersEngine()->d_ce_lit[f] && n.notNode()!=getQuantifiersEngine()->d_ce_lit[f] ){
+            Debug("quant-dep-dec") << "Make " << n << " dependent on " << getQuantifiersEngine()->d_ce_lit[f] << std::endl;
+            d_th->getOutputChannel().dependentDecision( getQuantifiersEngine()->d_ce_lit[f], n );
+          }
         }
       }
       InstConstantAttribute ica;
@@ -346,6 +391,7 @@ void InstantiationEngine::debugSat(){
   for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
     if( (*i).second ) {
       Node cel = getQuantifiersEngine()->getCounterexampleLiteralFor( (*i).first );
+      Assert( !cel.isNull() );
       bool value;
       if( d_th->getValuation().hasSatValue( cel, value ) ){
         if( !value ){

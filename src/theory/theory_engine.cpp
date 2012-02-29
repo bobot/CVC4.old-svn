@@ -39,6 +39,10 @@ using namespace std;
 using namespace CVC4;
 using namespace CVC4::theory;
 
+//AJR-hack
+//#define TE_PRINT_PROCESS_TIMES
+//AJR-hack-end
+
 TheoryEngine::TheoryEngine(context::Context* context,
                            context::UserContext* userContext)
 : d_propEngine(NULL),
@@ -122,8 +126,8 @@ void TheoryEngine::check(Theory::Effort effort) {
        } \
     }
   //AJR-hack
-  static int ierCounter = 0;
-  bool checkIerCounter = false;
+  //static int ierCounter = 0;
+  //bool checkIerCounter = false;
   //AJR-hack-end
   // Do the checking
   try {
@@ -221,15 +225,19 @@ void TheoryEngine::check(Theory::Effort effort) {
       // If in full check and no lemmas added, run the combination
       if (Theory::fullEffort(effort) && d_sharedTermsExist) {
         //AJR-hack
-        //double clSet = double(clock())/double(CLOCKS_PER_SEC);
-        //std::cout << "Run combination." << std::endl;
+#ifdef TE_PRINT_PROCESS_TIMES
+        double clSet = double(clock())/double(CLOCKS_PER_SEC);
+        std::cout << "Run combination." << std::endl;
+#endif
         //AJR-hack-end
         // Do the combination
         Debug("theory") << "TheoryEngine::check(" << effort << "): running combination" << std::endl;
         combineTheories();
         //AJR-hack
-        //double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
-        //std::cout << "Done run combination. " << (clSet2-clSet) << std::endl;
+#ifdef TE_PRINT_PROCESS_TIMES
+        double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
+        std::cout << "Done run combination. " << (clSet2-clSet) << std::endl;
+#endif
         //AJR-hack-end
         // If we have any propagated equalities, we enqueue them to the theories and re-check
         if (d_propagatedEqualities.size() > 0) {
@@ -247,7 +255,6 @@ void TheoryEngine::check(Theory::Effort effort) {
       }
     }
     //AJR-hack
-#if 1
     //this is the flip decision code
     if( effort==Theory::FULL_EFFORT ){
       if( !d_inConflict && !d_lemmasAdded ){
@@ -261,7 +268,6 @@ void TheoryEngine::check(Theory::Effort effort) {
         }
       }
     }
-#endif
     //AJR-hack-end
 
     // Clear any leftover propagated equalities

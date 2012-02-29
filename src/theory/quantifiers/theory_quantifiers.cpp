@@ -186,7 +186,7 @@ bool TheoryQuantifiers::flipDecision(){
 }
 
 bool TheoryQuantifiers::restart(){
-  static int restartLimit = 1;
+  static int restartLimit = 0;
   if( d_numRestarts==restartLimit ){
     Debug("quantifiers-flip") << "No more restarts." << std::endl;
     return false;

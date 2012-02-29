@@ -177,6 +177,7 @@ void InstantiatorTheoryArith::assertNode( Node assertion ){
     if( ((TheoryArith*)getTheory())->d_valuation.isDecision( assertion ) ){
       Node f = assertion.getAttribute(InstConstantAttribute());
       Node cel = d_quantEngine->getCounterexampleLiteralFor( f );
+      Assert( !cel.isNull() );
       Assert( d_quantEngine->getTheoryEngine()->getPropEngine()->isSatLiteral( cel ) ); 
       bool value;
       //Assert( ((TheoryArith*)getTheory())->d_valuation.hasSatValue( cel, value ) );

@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file theory_uf_instantiator.h
+/*! \file theory_uf_strong_solver.h
  ** \verbatim
  ** Original author: ajreynol
  ** Major contributors: none
@@ -11,7 +11,7 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Theory uf instantiator
+ ** \brief Theory uf strong solver
  **/
 
 #include "cvc4_private.h"
@@ -20,7 +20,6 @@
 #define __CVC4__THEORY_UF_STRONG_SOLVER_H
 
 #include "theory/theory.h"
-#include "theory/quantifiers_engine.h"
 
 #include "context/context.h"
 #include "context/context_mm.h"
@@ -288,58 +287,10 @@ private:
 
 
 
-//instantiation strategies
-
-class InstStrategyFinteModelFind : public InstStrategy{
-private:
-  /** representative alphabet */
-  class RepAlphabet {
-  public:
-    std::map< TypeNode, std::vector< Node > > d_type_reps;
-    std::map< Node, int > d_indicies;
-    void set( TypeNode t, std::vector< Node >& reps );
-  };
-  /** partial instantiation set */
-  class PartialInstSet {
-  public:
-    PartialInstSet( RepAlphabet* ra, Node f ) : d_ra( ra ), d_f( f ){
-      for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-        d_index.push_back( 0 );
-      }
-    }
-    ~PartialInstSet(){}
-    RepAlphabet* d_ra;
-    Node d_f;
-    std::vector< int > d_index;
-    bool didCurrentInstantiation( PartialInstSet* pi );
-    void increment();
-    bool isFinished();
-    void getMatch( QuantifiersEngine* ie, InstMatch& m );
-    Node getTerm( int i );
-  };
-  /** was the current instantiation of this already done? */
-  bool didCurrentInstantiation( PartialInstSet* pi );
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
-  /** map from types to sets of representatives */
-  RepAlphabet* d_curr_ra;
-  /** finding model */
-  context::CDO< bool > d_finding_model;
-  /** map of current used instantiations */
-  std::map< Node, std::vector< PartialInstSet* > > d_inst_group;
-public:
-  InstStrategyFinteModelFind( context::Context* c, InstantiatorTheoryUf* th, QuantifiersEngine* ie );
-  ~InstStrategyFinteModelFind(){}
-  void resetInstantiationRound();
-  int process( Node f, int effort );
-  /** identify */
-  std::string identify() const { return std::string("FinteModelFind"); }
-};
 
 
 }
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__THEORY_UF_INSTANTIATOR_H */
+#endif /* __CVC4__THEORY_UF_STRONG_SOLVER_H */

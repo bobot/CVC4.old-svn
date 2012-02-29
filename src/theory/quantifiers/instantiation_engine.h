@@ -39,7 +39,7 @@ private:
   context::CDO< bool > d_in_instRound;
   bool d_in_instRound_no_c;
   /** do CBQI */
-  bool d_do_cbqi;
+  bool doCbqi( Node f );
 private:
   /** do instantiation round */
   bool doInstantiationRound( Theory::Effort effort );

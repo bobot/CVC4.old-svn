@@ -18,6 +18,7 @@
 #include "theory/theory_engine.h"
 #include "theory/uf/theory_uf.h"
 #include "theory/uf/equality_engine_impl.h"
+#include "theory/uf/inst_strategy_model_find.h"
 
 using namespace std;
 using namespace CVC4;
@@ -305,13 +306,17 @@ Instantiator( c, ie, th )
 {
   d_db = new UfTermDb( this );
 
-  d_isup = new InstStrategyUserPatterns( this, ie );
-  addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
-  //addInstStrategy( new InstStrategyLitMatch( this, ie ) );
-  addInstStrategy( d_isup );
-  addInstStrategy( new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MAX_TRIGGER ) );
-  addInstStrategy( new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MIN_TRIGGER ) );
-  addInstStrategy( new InstStrategyFreeVariable( this, ie ) );
+  if(!Options::current()->finiteModelFind ){
+    d_isup = new InstStrategyUserPatterns( this, ie );
+    addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
+    //addInstStrategy( new InstStrategyLitMatch( this, ie ) );
+    addInstStrategy( d_isup );
+    addInstStrategy( new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MAX_TRIGGER ) );
+    addInstStrategy( new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MIN_TRIGGER ) );
+    addInstStrategy( new InstStrategyFreeVariable( this, ie ) );
+  }else{
+    addInstStrategy( new InstStrategyFinteModelFind( c, this, ie ) );
+  }
 }
 
 //void InstantiatorTheoryUf::addObligationToList( Node o, Node f ){

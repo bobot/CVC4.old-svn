@@ -191,11 +191,11 @@ void TheoryUF::check(Effort level) {
     }
   }
   if( !d_conflict && level==FULL_EFFORT ){
-    //EqClassesIterator< NotifyClass > eqc_iter( &d_equalityEngine );
+    //EqClassesIterator eqc_iter( &d_equalityEngine );
     //while( !eqc_iter.isFinished() ){
     //  if( StrongSolverTheoryUf::isRelevantType( (*eqc_iter).getType() ) ){
     //    std::cout << "Eq class [[" << (*eqc_iter) << "]]" << std::endl;
-    //    EqClassIterator< NotifyClass > eqc_iter2( *eqc_iter, &d_equalityEngine );
+    //    EqClassIterator eqc_iter2( *eqc_iter, &d_equalityEngine );
     //    std::cout << "   ";
     //    while( !eqc_iter2.isFinished() ){
     //      std::cout << "[" << (*eqc_iter2) << "] ";
