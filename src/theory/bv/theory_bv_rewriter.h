@@ -34,16 +34,25 @@ class TheoryBVRewriter {
 
   static CVC4_THREADLOCAL(AllRewriteRules*) s_allRules;
 
+  static Node operatorEliminationRewrites(TNode node);
+  static Node constantEvaluationRewrites(TNode node);
+  static Node symbolicEvaluationRewrites(TNode node); 
+  static Node normalizationRewrites(TNode node); 
+
 public:
 
   static RewriteResponse postRewrite(TNode node);
 
   static inline RewriteResponse preRewrite(TNode node) {
-    return postRewrite(node);
+    Debug("bitvector") << "TheoryBV::preRewrite(" << node << ")" << std::endl;
+    return RewriteResponse(REWRITE_DONE, node);
+    // return postRewrite(node); 
   }
 
   static inline Node rewriteEquality(TNode node) {
-    return postRewrite(node).node;
+    Debug("bitvector") << "TheoryBV::rewriteEquality(" << node << ")" << std::endl;
+    return node; 
+    //return postRewrite(node).node;
   }
 
   static void init();

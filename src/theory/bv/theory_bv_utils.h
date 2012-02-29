@@ -197,6 +197,20 @@ inline Node mkConjunction(const std::set<TNode> nodes) {
   return conjunction;
 }
 
+// neeed a better name, this is not technically a ground term 
+inline bool isBVGroundTerm(TNode node) {
+  if (node.getNumChildren() == 0) {
+    return node.isConst(); 
+  }
+  
+  for (size_t i = 0; i < node.getNumChildren(); ++i) {
+    if(! node[i].isConst()) {
+      return false;
+    }
+  }
+  return true;
+}
+
 inline bool isBVPredicate(TNode node) {
   if (node.getKind() == kind::EQUAL ||
       node.getKind() == kind::BITVECTOR_ULT ||

@@ -135,6 +135,30 @@ public:
     return *this;
   }
 
+  Integer bitwiseOr(const Integer& y) const {
+    mpz_class result;
+    mpz_ior(result.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
+    return Integer(result);
+  }
+
+  Integer bitwiseAnd(const Integer& y) const {
+    mpz_class result;
+    mpz_and(result.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
+    return Integer(result);
+  }
+  
+  Integer bitwiseXor(const Integer& y) const {
+    mpz_class result;
+    mpz_xor(result.get_mpz_t(), d_value.get_mpz_t(), y.d_value.get_mpz_t());
+    return Integer(result);
+  }
+
+  Integer bitwiseNot() const {
+    mpz_class result;
+    mpz_com(result.get_mpz_t(), d_value.get_mpz_t());
+    return Integer(result);
+  }
+  
   /**
    * Return this*(2^pow).
    */
@@ -175,7 +199,7 @@ public:
   }
 
   /**
-   * Computes a floor quoient and remainder for x divided by y.
+   * Computes a floor quotient and remainder for x divided by y.
    */
   static void floorQR(Integer& q, Integer& r, const Integer& x, const Integer& y) {
     mpz_fdiv_qr(q.d_value.get_mpz_t(), r.d_value.get_mpz_t(), x.d_value.get_mpz_t(), y.d_value.get_mpz_t());
@@ -209,6 +233,15 @@ public:
     return Integer( q );
   }
 
+  /**
+   * Returns y mod 2^exp
+   */
+  Integer modByPow2(uint32_t exp) const {
+    mpz_class res; 
+    mpz_congruent_2exp_p(res.get_mpz_t(), d_value.get_mpz_t(), exp);
+    return Integer(res);
+  }
+  
   int sgn() const {
     return mpz_sgn(d_value.get_mpz_t());
   }

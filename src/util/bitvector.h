@@ -32,26 +32,31 @@ class CVC4_PUBLIC BitVector {
 
 private:
 
+  /*
+    Class invariants:
+    * no overflows: 2^d_size < d_value
+    * no negative numbers: d_value >= 0
+   */
   unsigned d_size;
   Integer d_value;
 
 public:
 
   BitVector(unsigned size, const Integer& val)
-  : d_size(size), d_value(val) {}
+    : d_size(size), d_value(val) {}
 
   BitVector(unsigned size = 0)
-  : d_size(size), d_value(0) {}
+    : d_size(size), d_value(0) {}
 
   BitVector(unsigned size, unsigned int z)
-  : d_size(size), d_value(z) {}
-
+    : d_size(size), d_value(z) {}
+  
   BitVector(unsigned size, unsigned long int z)
-  : d_size(size), d_value(z) {}
+    : d_size(size), d_value(z) {}
 
   BitVector(unsigned size, const BitVector& q)
-  : d_size(size), d_value(q.d_value) {}
-
+    : d_size(size), d_value(q.d_value) {}
+  
   BitVector(const std::string& num, unsigned base = 2);
 
   ~BitVector() {}
@@ -65,20 +70,67 @@ public:
   }
 
   bool operator ==(const BitVector& y) const {
-    if (d_size != y.d_size) return false;
+    if (d_size != y.d_size) return false; 
     return d_value == y.d_value;
   }
 
   bool operator !=(const BitVector& y) const {
-    if (d_size == y.d_size) return false;
+    if (d_size != y.d_size) return true; 
     return d_value != y.d_value;
   }
 
+  BitVector equals(const BitVector&  y) const {
+    Assert(d_size == y.d_size);
+    return d_value == y.d_value; 
+  }
+
+  BitVector concat (const BitVector& other) const {
+    return BitVector(d_size + other.d_size, (d_value.multiplyByPow2(other.d_size)) + other.d_value);
+  }
+
+  BitVector extract(unsigned high, unsigned low) const {
+    return BitVector(high - low + 1, d_value.extractBitRange(high - low + 1, low));
+  }
+
+  /*
+    Bitwise operations on BitVectors
+   */
+
+  // xor
+  BitVector operator ^(const BitVector& y) const {
+    Assert (d_size == y.d_size); 
+    return BitVector(d_size, d_value.bitwiseXor(y.d_value)); 
+  }
+  
+  // or
+  BitVector operator |(const BitVector& y) const {
+    Assert (d_size == y.d_size); 
+    return BitVector(d_size, d_value.bitwiseOr(y.d_value)); 
+  }
+  
+  // and
+  BitVector operator &(const BitVector& y) const {
+    Assert (d_size == y.d_size); 
+    return BitVector(d_size, d_value.bitwiseAnd(y.d_value)); 
+  }
+
+  // not
+  BitVector operator ~() const {
+    return BitVector(d_size, d_value.bitwiseNot()); 
+  }
+
+  /*
+    Arithmetic operations on BitVectors
+   */
+
   BitVector operator +(const BitVector& y) const {
-    return BitVector(std::max(d_size, y.d_size), d_value + y.d_value);
+    Assert (d_size == y.d_size);
+    Integer sum = d_value +  y.d_value;
+    return BitVector(d_size, sum);
   }
 
   BitVector operator -(const BitVector& y) const {
+    Assert (d_size == y.d_size); 
     return *this + ~y + 1;
   }
 
@@ -87,25 +139,49 @@ public:
   }
 
   BitVector operator *(const BitVector& y) const {
-    return BitVector(d_size, d_value * y.d_value);
+    Assert (d_size == y.d_size);
+    Integer prod = d_value * y.d_value;
+    return BitVector(d_size, prod);
+  }
+  
+  BitVector operator/ (const BitVector& y) const {
+    Assert (d_size == y.d_size); 
+    return BitVector(d_size, d_value.floorDivideQuotient(y.d_value)); 
   }
 
-  BitVector operator ~() const {
-    //is this right? it looks like a no-op?
-    return BitVector(d_size, d_value);
+  BitVector operator%(const BitVector& y) const {
+    Assert (d_size == y.d_size); 
+    return BitVector(d_size, d_value.floorDivideRemainder(y.d_value)); 
+  }
+  
+  /*
+    Shifts on BitVectors
+   */
+
+  BitVector leftShift(const uint32_t amount) const {
+    Integer res = d_value.multiplyByPow2(amount);
+    return BitVector(d_size, res);
   }
 
-  BitVector concat (const BitVector& other) const {
-    return BitVector(d_size + other.d_size, (d_value.multiplyByPow2(other.d_size)) + other.d_value);
-    //return BitVector(d_size + other.d_size, (d_value * Integer(2).pow(other.d_size)) + other.d_value);
+  BitVector logicalRightShift(const BitVector& y) const {
+    Unimplemented();
+    //return BitVector(d_size, d_value.multiplyByPow2(amount));
   }
 
-  BitVector extract(unsigned high, unsigned low) const {
-    return BitVector(high - low + 1, d_value.extractBitRange(high - low + 1, low));
-    //return BitVector(high - low + 1, (d_value % (Integer(2).pow(high + 1))) / Integer(2).pow(low));
+  BitVector arithRightShift(const BitVector& y) const {
+    // TODO
+    Unimplemented(); 
+    return y;
   }
+  
 
+  /*
+    Convenience functions
+   */
+  
   size_t hash() const {
+    // FIXME:
+    // returns different hash values for the same value
     return d_value.hash() + d_size;
   }
 
@@ -136,25 +212,8 @@ inline BitVector::BitVector(const std::string& num, unsigned base) {
 
   if( base == 2 ) {
     d_size = num.size();
-//    d_value = Integer(num,2);
-/*
-    for( string::const_iterator it = num.begin(); it != num.end(); ++it ) {
-      if( *it != '0' || *it != '1' ) {
-        IllegalArgument(num, "BitVector argument is not a binary string.");
-      }
-      z = (Integer(2) * z) + (*it == '1');
-      d_value = mpz_class(z.get_mpz());
-    }
-*/
   } else if( base == 16 ) {
     d_size = num.size() * 4;
-//    // Use a stream to decode the hex string
-//    stringstream ss;
-//    ss.setf(ios::hex, ios::basefield);
-//    ss << num;
-//    ss >> z;
-//    d_value = mpz_class(z);
-//    break;
   } else {
     Unreachable("Unsupported base in BitVector(std::string&, unsigned int).");
   }
