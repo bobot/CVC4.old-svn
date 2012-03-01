@@ -29,7 +29,7 @@
 
 #include "expr/node.h"
 #include "prop/sat.h"
-#include "theory/registrar.h"
+#include "prop/registrar.h"
 
 #include <ext/hash_map>
 
@@ -48,10 +48,11 @@ class CnfStream {
 public:
 
   /** Cache of what nodes have been registered to a literal. */
-  typedef __gnu_cxx::hash_map<SatLiteral, TNode, SatSolver::SatLiteralHashFunction> NodeCache;
+  typedef __gnu_cxx::hash_map<SatLiteral, TNode, SatLiteralHashFunction> NodeCache;
 
   /** Per node translation information */
   struct TranslationInfo {
+    bool recorded;
     /** The level at which this node was translated (negative if not translated) */
     int level;
     /** The literal of this node */
@@ -64,7 +65,7 @@ public:
 protected:
 
   /** The SAT solver we will be using */
-  SatInputInterface *d_satSolver;
+  SatSolverInterface *d_satSolver;
 
   TranslationCache d_translationCache;
   NodeCache d_nodeCache;
@@ -77,7 +78,7 @@ protected:
   const bool d_fullLitToNodeMap;
 
   /** The "registrar" for pre-registration of terms */
-  theory::Registrar d_registrar;
+  Registrar* d_registrar;
 
   /** Top level nodes that we translated */
   std::vector<TNode> d_translationTrail;
@@ -98,7 +99,7 @@ protected:
    * detection," when BIG FORMULA is later asserted, it is clausified
    * separately, and "lit" is never asserted as a unit clause.
    */
-  KEEP_STATISTIC(IntStat, d_fortunateLiterals, "prop::CnfStream::fortunateLiterals", 0);
+  //KEEP_STATISTIC(IntStat, d_fortunateLiterals, "prop::CnfStream::fortunateLiterals", 0);
 
   /** Remove nots from the node */
   TNode stripNot(TNode node) {
@@ -109,7 +110,7 @@ protected:
   }
 
   /** Record this translation */
-  void recordTranslation(TNode node);
+  void recordTranslation(TNode node, bool alwaysRecord = false);
 
   /**
    * Moves the node and all of it's parents to level 0.
@@ -189,7 +190,7 @@ public:
    * @param fullLitToNodeMap maintain a full SAT-literal-to-Node mapping,
    * even for non-theory literals
    */
-  CnfStream(SatInputInterface* satSolver, theory::Registrar registrar, bool fullLitToNodeMap = false);
+  CnfStream(SatSolverInterface* satSolver, Registrar* registrar, bool fullLitToNodeMap = false);
 
   /**
    * Destructs a CnfStream.  This implementation does nothing, but we
@@ -289,7 +290,7 @@ public:
    * @param fullLitToNodeMap maintain a full SAT-literal-to-Node mapping,
    * even for non-theory literals
    */
-  TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar, bool fullLitToNodeMap = false);
+  TseitinCnfStream(SatSolverInterface* satSolver, Registrar* registrar, bool fullLitToNodeMap = false);
 
 private:
 

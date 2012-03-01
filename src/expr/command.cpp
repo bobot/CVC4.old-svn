@@ -74,6 +74,10 @@ ostream& operator<<(ostream& out, const CommandStatus* s) throw() {
 Command::Command() throw() : d_commandStatus(NULL) {
 }
 
+Command::Command(const Command& cmd) {
+  d_commandStatus = (cmd.d_commandStatus == NULL) ? NULL : &cmd.d_commandStatus->clone();
+}
+
 Command::~Command() throw() {
   if(d_commandStatus != NULL && d_commandStatus != CommandSuccess::instance()) {
     delete d_commandStatus;
@@ -490,10 +494,14 @@ Expr DefineFunctionCommand::getFormula() const throw() {
 
 void DefineFunctionCommand::invoke(SmtEngine* smtEngine) throw() {
   //Dump("declarations") << *this << endl; -- done by SmtEngine
-  if(!d_func.isNull()) {
-    smtEngine->defineFunction(d_func, d_formals, d_formula);
+  try {
+    if(!d_func.isNull()) {
+      smtEngine->defineFunction(d_func, d_formals, d_formula);
+    }
+    d_commandStatus = CommandSuccess::instance();
+  } catch(exception& e) {
+    d_commandStatus = new CommandFailure(e.what());
   }
-  d_commandStatus = CommandSuccess::instance();
 }
 
 Command* DefineFunctionCommand::exportTo(ExprManager* exprManager, ExprManagerMapCollection& variableMap) {

@@ -1,8 +1,8 @@
 /*********************                                                        */
-/*! \file equality_engine.cpp
+/*! \file antlr_line_buffered_input.h
  ** \verbatim
- ** Original author: dejan
- ** Major contributors: mdeters
+ ** Original author: mdeters
+ ** Major contributors: none
  ** Minor contributors (to current version): none
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -17,11 +17,20 @@
  ** \todo document this file
  **/
 
-#include "theory/bv/equality_engine.h"
+#include "cvc4parser_private.h"
 
-using namespace CVC4::theory::bv;
+#ifndef __CVC4__PARSER__ANTLR_LINE_BUFFERED_INPUT_H
+#define __CVC4__PARSER__ANTLR_LINE_BUFFERED_INPUT_H
 
-const size_t BitSizeTraits::id_null = (1u << BitSizeTraits::id_bits) - 1;
-const size_t BitSizeTraits::trigger_id_null = (1u << BitSizeTraits::trigger_id_bits) - 1;
+#include <antlr3.h>
 
+namespace CVC4 {
+namespace parser {
 
+pANTLR3_INPUT_STREAM
+antlr3LineBufferedStreamNew(std::istream& in, ANTLR3_UINT32 encoding, pANTLR3_UINT8 name);
+
+}/* CVC4::parser namespace */
+}/* CVC4 namespace */
+
+#endif /* __CVC4__PARSER__ANTLR_LINE_BUFFERED_INPUT_H */

@@ -27,7 +27,6 @@
 #include "util/options.h"
 #include "util/result.h"
 #include "smt/modal_exception.h"
-
 #include <sys/time.h>
 
 namespace CVC4 {
@@ -37,7 +36,7 @@ class TheoryEngine;
 namespace prop {
 
 class CnfStream;
-class SatSolver;
+class DPLLSatSolverInterface;
 
 class PropEngine;
 
@@ -132,7 +131,7 @@ class PropEngine {
   context::Context* d_context;
 
   /** The SAT solver proxy */
-  SatSolver* d_satSolver;
+  DPLLSatSolverInterface* d_satSolver;
 
   /** List of all of the assertions that need to be made */
   std::vector<Node> d_assertionList;
@@ -243,6 +242,12 @@ public:
   void pop();
 
   /**
+   * Return true if we are currently searching (either in this or
+   * another thread).
+   */
+  bool isRunning() const;
+
+  /**
    * Check the current time budget.
    */
   void checkTime();
@@ -259,11 +264,23 @@ public:
    */
   void spendResource() throw();
 
+  /**
+   * For debugging.  Return true if "expl" is a well-formed
+   * explanation for "node," meaning:
+   *
+   * 1. expl is either a SAT literal or an AND of SAT literals
+   *    currently assigned true;
+   * 2. node is assigned true;
+   * 3. node does not appear in expl; and
+   * 4. node was assigned after all of the literals in expl
+   */
+  bool properExplanation(TNode node, TNode expl) const;
+
 };/* class PropEngine */
 
 
 inline void SatTimer::check() {
-  if(expired()) {
+  if(d_propEngine.isRunning() && expired()) {
     Trace("limit") << "SatTimer::check(): interrupt!" << std::endl;
     d_propEngine.interrupt();
   }

@@ -22,10 +22,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <iostream>
 
-#include "mtl/Sort.h"
-#include "core/Solver.h"
+#include "prop/minisat/mtl/Sort.h"
+#include "prop/minisat/core/Solver.h"
 
 #include "prop/sat.h"
+#include "prop/sat_module.h"
 #include "util/output.h"
 #include "expr/command.h"
 #include "proof/proof_manager.h"
@@ -71,7 +72,7 @@ public:
 //=================================================================================================
 // Constructor/Destructor:
 
-Solver::Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bool enable_incremental) :
+Solver::Solver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, bool enable_incremental) :
     proxy(proxy)
   , context(context)
   , assertionLevel(0)
@@ -177,8 +178,10 @@ CRef Solver::reason(Var x) {
     Lit l = mkLit(x, value(x) != l_True);
 
     // Get the explanation from the theory
-    SatClause explanation;
-    proxy->explainPropagation(l, explanation);
+    SatClause explanation_cl;
+    proxy->explainPropagation(DPLLMinisatSatSolver::toSatLiteral(l), explanation_cl);
+    vec<Lit> explanation;
+    DPLLMinisatSatSolver::toMinisatClause(explanation_cl, explanation); 
 
     // Sort the literals by trail index level
     lemma_lt lt(*this);
@@ -340,7 +343,7 @@ void Solver::cancelUntil(int level) {
         int currentLevel = decisionLevel();
         for(int i = variables_to_register.size() - 1; i >= 0 && variables_to_register[i].level > currentLevel; --i) {
           variables_to_register[i].level = currentLevel;
-          proxy->variableNotify(variables_to_register[i].var);
+          proxy->variableNotify(DPLLMinisatSatSolver::toSatVariable(variables_to_register[i].var));
         }
     }
 }
@@ -355,12 +358,27 @@ void Solver::popTrail() {
 
 Lit Solver::pickBranchLit()
 {
+    Lit nextLit;
+
 #ifdef CVC4_REPLAY
-    Lit nextLit = proxy->getNextReplayDecision();
+    nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextReplayDecision());
+
     if (nextLit != lit_Undef) {
       return nextLit;
     }
 #endif /* CVC4_REPLAY */
+
+    // Theory requests
+    nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+    while (nextLit != lit_Undef) {
+      if(value(var(nextLit)) == l_Undef) {
+        Debug("propagateAsDecision") << "propagateAsDecision(): now deciding on " << nextLit << std::endl;
+        return nextLit;
+      } else {
+        Debug("propagateAsDecision") << "propagateAsDecision(): would decide on " << nextLit << " but it already has an assignment" << std::endl;
+      }
+      nextLit = DPLLMinisatSatSolver::toMinisatLit(proxy->getNextDecisionRequest());
+    }
 
     Var next = var_Undef;
 
@@ -624,7 +642,7 @@ void Solver::uncheckedEnqueue(Lit p, CRef from)
     }
     if (theory[var(p)]) {
       // Enqueue to the theory
-      proxy->enqueueTheoryLiteral(p);
+      proxy->enqueueTheoryLiteral(DPLLMinisatSatSolver::toSatLiteral(p));
     }
 }
 
@@ -696,9 +714,16 @@ CRef Solver::propagate(TheoryCheckType type)
 }
 
 void Solver::propagateTheory() {
-  std::vector<Lit> propagatedLiterals;
-  proxy->theoryPropagate(propagatedLiterals);
+  SatClause propagatedLiteralsClause;
+  // Doesn't actually call propagate(); that's done in theoryCheck() now that combination
+  // is online.  This just incorporates those propagations previously discovered.
+  proxy->theoryPropagate(propagatedLiteralsClause);
+
+  vec<Lit> propagatedLiterals;
+  DPLLMinisatSatSolver::toMinisatClause(propagatedLiteralsClause, propagatedLiterals); 
+
   int oldTrailSize = trail.size();
+  Debug("minisat") << "old trail size is " << oldTrailSize << ", propagating " << propagatedLiterals.size() << " lits..." << std::endl;
   for (unsigned i = 0, i_end = propagatedLiterals.size(); i < i_end; ++ i) {
     Debug("minisat") << "Theory propagated: " << propagatedLiterals[i] << std::endl;
     // multiple theories can propagate the same literal
@@ -707,6 +732,7 @@ void Solver::propagateTheory() {
       uncheckedEnqueue(p, CRef_Lazy);
     } else {
       // but we check that this is the case and that they agree
+      Debug("minisat") << "trail_index(var(p)) == " << trail_index(var(p)) << std::endl;
       Assert(trail_index(var(p)) >= oldTrailSize);
       Assert(value(p) == lbool(!sign(p)));
     }
@@ -860,10 +886,22 @@ void Solver::removeClausesAboveLevel(vec<CRef>& cs, int level)
     for (i = j = 0; i < cs.size(); i++){
         Clause& c = ca[cs[i]];
         if (c.level() > level) {
-            Debug("minisat") << "removeClausesAboveLevel(" << level << "): removing level-" << c.level() << " clause: " << c << std::endl;
+            if(Debug.isOn("minisat")) {
+              Debug("minisat") << "removeClausesAboveLevel(" << level << "): removing level-" << c.level() << " clause: " << c << ":";
+              for(int i = 0; i < c.size(); ++i) {
+                Debug("minisat") << " " << c[i];
+              }
+              Debug("minisat") << std::endl;
+            }
             removeClause(cs[i]);
         } else {
-            Debug("minisat") << "removeClausesAboveLevel(" << level << "): leaving level-" << c.level() << " clause: " << c << std::endl;
+            if(Debug.isOn("minisat")) {
+              Debug("minisat") << "removeClausesAboveLevel(" << level << "): leaving level-" << c.level() << " clause: " << c << ":";
+              for(int i = 0; i < c.size(); ++i) {
+                Debug("minisat") << " " << c[i];
+              }
+              Debug("minisat") << std::endl;
+            }
             cs[j++] = cs[i];
         }
     }
@@ -1053,7 +1091,7 @@ lbool Solver::search(int nof_conflicts)
                 }
 
 #ifdef CVC4_REPLAY
-                proxy->logDecision(next);
+                proxy->logDecision(DPLLMinisatSatSolver::toSatLiteral(next));
 #endif /* CVC4_REPLAY */
             }
 
@@ -1303,16 +1341,25 @@ void Solver::push()
   Debug("minisat") << "in user push, increasing assertion level to " << assertionLevel << std::endl;
   trail_user.push(lit_Undef);
   trail_ok.push(ok);
+  trail_user_lim.push(trail.size());
+  assert(trail_user_lim.size() == assertionLevel);
+  Debug("minisat") << "MINISAT PUSH assertionLevel is " << assertionLevel << ", trail.size is " << trail.size() << std::endl;
 }
 
 void Solver::pop()
 {
   assert(enable_incremental);
 
+  Debug("minisat") << "MINISAT POP at level " << decisionLevel() << " (context " << context->getLevel() << "), popping trail..." << std::endl;
   popTrail();
+  Debug("minisat") << "MINISAT POP now at   " << decisionLevel() << " (context " << context->getLevel() << ")" << std::endl;
+ 
+  assert(decisionLevel() == 0);
+  assert(trail_user_lim.size() == assertionLevel);
 
   --assertionLevel;
 
+  Debug("minisat") << "MINISAT POP assertionLevel is now down to " << assertionLevel << ", trail.size is " << trail.size() << ", need to get down to " << trail_user_lim.last() << std::endl;
   Debug("minisat") << "in user pop, reducing assertion level to " << assertionLevel << " and removing clauses above this from db" << std::endl;
 
   // Remove all the clauses asserted (and implied) above the new base level
@@ -1320,6 +1367,23 @@ void Solver::pop()
   removeClausesAboveLevel(clauses_persistent, assertionLevel);
 
   Debug("minisat") << "in user pop, at " << trail_lim.size() << " : " << assertionLevel << std::endl;
+
+  int downto = trail_user_lim.last();
+  while(downto < trail.size()) {
+    Debug("minisat") << "== unassigning " << trail.last() << std::endl;
+    Var      x  = var(trail.last());
+    if(intro_level(x) != -1) {// might be unregistered
+      assigns [x] = l_Undef;
+      vardata[x].trail_index = -1;
+      polarity[x] = sign(trail.last());
+      insertVarOrder(x);
+    }
+    trail.pop();
+  }
+  qhead = trail.size();
+  Debug("minisat") << "MINISAT POP assertionLevel is now down to " << assertionLevel << ", trail.size is " << trail.size() << ", should be at " << trail_user_lim.last() << std::endl;
+  assert(trail_user_lim.last() == qhead);
+  trail_user_lim.pop();
 
   // Unset any units learned or added at this level
   Debug("minisat") << "in user pop, unsetting level units for level " << assertionLevel << std::endl;
