@@ -90,26 +90,6 @@ public:
   Node getNextCandidate();
 };
 
-
-class CandidateGeneratorQueue : public CandidateGenerator
-{
-private:
-  std::vector< Node > d_candidates;
-public:
-  CandidateGeneratorQueue();
-  ~CandidateGeneratorQueue(){}
-
-  void addCandidate( Node n ) { d_candidates.push_back( n ); }
-
-  void resetInstantiationRound(){}
-  void reset( Node eqc ){}
-  Node getNextCandidate(){
-    Node n = d_candidates[0];
-    d_candidates.erase( d_candidates.begin(), d_candidates.begin() + 1 );
-    return n;
-  }
-};
-
 }
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */

@@ -159,7 +159,8 @@ void InstStrategyAutoGenTriggers::resetInstantiationRound(){
 }
 
 int InstStrategyAutoGenTriggers::process( Node f, int effort, int instLimit ){
-  int peffort = f.getNumChildren()==3 ? 2 : 1;
+  int peffort = ( f.getNumChildren()==3 || d_tr_strategy==MIN_TRIGGER ) ? 2 : 1;
+  //int peffort = f.getNumChildren()==3 ? 2 : 1;
   if( effort<peffort ){
     return STATUS_UNFINISHED;
   }else if( effort==peffort ){
@@ -171,6 +172,11 @@ int InstStrategyAutoGenTriggers::process( Node f, int effort, int instLimit ){
       //std::cout << "Try auto-generated triggers..." << std::endl;
       int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
       d_th->d_statistics.d_instantiations += numInst;
+      if( d_tr_strategy==MIN_TRIGGER ){
+        d_th->d_statistics.d_instantiations_auto_gen_min += numInst;
+      }else{
+        d_th->d_statistics.d_instantiations_auto_gen += numInst;
+      }
       //d_quantEngine->d_hasInstantiated[f] = true;
       Debug("quant-uf-strategy") << "done." << std::endl;
       //std::cout << "done" << std::endl;
@@ -477,6 +483,8 @@ InstantiatorTheoryUf::Statistics::Statistics():
   d_instantiations_e_induced("InstantiatorTheoryUf::E-Induced_Instantiations", 0),
   d_instantiations_user_pattern("InstantiatorTheoryUf::User_Pattern_Instantiations", 0),
   d_instantiations_guess("InstantiatorTheoryUf::Free_Var_Instantiations", 0),
+  d_instantiations_auto_gen("InstantiatorTheoryUf::Auto_Gen_Instantiations", 0),
+  d_instantiations_auto_gen_min("InstantiatorTheoryUf::Auto_Gen_Instantiations_Min", 0),
   d_splits("InstantiatorTheoryUf::Total_Splits", 0)
 {
   StatisticsRegistry::registerStat(&d_instantiations);
@@ -484,6 +492,8 @@ InstantiatorTheoryUf::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_instantiations_e_induced);
   StatisticsRegistry::registerStat(&d_instantiations_user_pattern );
   StatisticsRegistry::registerStat(&d_instantiations_guess );
+  StatisticsRegistry::registerStat(&d_instantiations_auto_gen );
+  StatisticsRegistry::registerStat(&d_instantiations_auto_gen_min );
   StatisticsRegistry::registerStat(&d_splits);
 }
 
@@ -493,6 +503,8 @@ InstantiatorTheoryUf::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_instantiations_e_induced);
   StatisticsRegistry::unregisterStat(&d_instantiations_user_pattern );
   StatisticsRegistry::unregisterStat(&d_instantiations_guess );
+  StatisticsRegistry::unregisterStat(&d_instantiations_auto_gen );
+  StatisticsRegistry::unregisterStat(&d_instantiations_auto_gen_min );
   StatisticsRegistry::unregisterStat(&d_splits);
 }
 
@@ -530,3 +542,66 @@ EqClassInfo* InstantiatorTheoryUf::getEquivalenceClassInfo( Node n ) {
   }
   return d_eqc_ops[n]; 
 }
+
+
+void InstantiatorTheoryUf::registerParentParentPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips, 
+                                                       std::map< Node, std::vector< InvertedPathString > >& ips_map  ){
+  //Assert( pat.getKind()==APPLY_UF ){
+  //for( int i=0; i<(int)pat.getNumChildren(); i++ ){
+  //  if( pat[i].getKind()==INST_CONSTANT ){
+  //    ips_map.push_back( std::pair< Node, InvertedPathString >( pat.getOperator(), InvertedPathString( ips ) ) );
+  //  }
+  //}
+  //ips.d_string.push_back( std::pair< Node, int >( pat.getOperator(), 0 ) );
+  //for( int i=0; i<(int)pat.getNumChildren(); i++ ){
+  //  if( pat[i].getKind()==APPLY_UF ){
+  //    ips.d_string.back().second = i;
+  //    registerParentParentPairs2( cg, pat, ips, ips_map );
+  //  }
+  //}
+  //ips.d_string.pop_back();
+}
+
+void InstantiatorTheoryUf::registerParentParentPairs( CandidateGenerator* cg, Node pat ){
+  //InvertedPathString ips;
+  //std::map< Node, std::vector< std::pair< Node, InvertedPathString > > > ips_map;
+  //registerParentParentPairs2( cg, pat, ips, ips_map );
+  //for( std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >::iterator it = ips_map.begin(); it != ips_map.end(); ++it ){
+  //  for( int j=0; j<(int)it->second.size(); j++ ){
+  //    for( int k=j+1; k<(int)it->second.size(); k++ ){
+  //      //found a pp-pair
+  //      Debug("pattern-element-opt") << "Found pp-pair ( " << it->second[j].first << ", " << it->second[k].first << " )" << std::endl;
+  //      d_pp_pairs[ it->second[j].first ][ it->second[k].first ].d_vec.push_back( std::pair< InvertedPathString, CandidateGenerator* >( it->second[j].second, cg ) );
+  //      d_pp_pairs[ it->second[j].first ][ it->second[k].first ].d_vec.push_back( std::pair< InvertedPathString, CandidateGenerator* >( it->second[k].second, cg ) );
+  //    }
+  //  }
+  //}
+}
+
+void InstantiatorTheoryUf::registerParentChildPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips ){
+  //Assert( pat.getKind()==APPLY_UF ){
+  //ips.d_string.push_back( std::pair< Node, int >( pat.getOperator(), 0 ) );
+  //for( int i=0; i<(int)pat.getNumChildren(); i++ ){
+  //  if( pat[i].getKind()==APPLY_UF ){
+  //    ips.d_string.back().second = i;
+  //    registerPatternChildPairs2( cg, pat[i], ips );
+  //    Debug("pattern-element-opt") << "Found pc-pair ( " << pat.getOperator() << ", " << pat[i].getOperator() << " )" << std::endl;
+  //    //pat.getOperator() and pat[i].getOperator() are a pc-pair
+  //    d_pc_pairs[ pat.getOperator() ][ pat[i].getOperator() ].d_vec.push_back( std::pair< InvertedPathString, CandidateGenerator* >( InvertedPathString( ips ), cg ) );
+  //  }
+  //}
+  //ips.d_string.pop_back();
+}
+
+void InstantiatorTheoryUf::registerParentChildPairs( CandidateGenerator* cg, Node pat ){
+  InvertedPathString ips;
+  registerParentChildPairs2( cg, pat, ips );
+}
+
+void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, Node pat ){
+  registerParentChildPairs( cg, pat );
+  registerParentParentPairs( cg, pat );
+
+
+}
+

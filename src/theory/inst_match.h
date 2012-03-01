@@ -38,10 +38,8 @@ namespace uf{
 class CandidateGenerator
 {
 public:
-  CandidateGenerator() : d_can_produce_new( true ){}
+  CandidateGenerator(){}
   ~CandidateGenerator(){}
-
-  bool d_can_produce_new;
 
   /** Get candidates functions.  These set up a context to get all match candidates.
       cg->reset( eqc );
@@ -52,9 +50,33 @@ public:
       
       eqc is the equivalence class you are searching in
   */
+  virtual void addCandidate( Node n ) {}
   virtual void resetInstantiationRound() = 0;
   virtual void reset( Node eqc ) = 0;
   virtual Node getNextCandidate() = 0;
+};
+
+class CandidateGeneratorQueue : public CandidateGenerator
+{
+private:
+  std::vector< Node > d_candidates;
+public:
+  CandidateGeneratorQueue(){}
+  ~CandidateGeneratorQueue(){}
+
+  void addCandidate( Node n ) { d_candidates.push_back( n ); }
+
+  void resetInstantiationRound(){}
+  void reset( Node eqc ){}
+  Node getNextCandidate(){
+    if( d_candidates.empty() ){
+      return Node::null();
+    }else{
+      Node n = d_candidates[0];
+      d_candidates.erase( d_candidates.begin(), d_candidates.begin() + 1 );
+      return n;
+    }
+  }
 };
 
 class EqualityQuery
@@ -109,17 +131,25 @@ class InstMatchGenerator
 private:
   /** candidate generator */
   CandidateGenerator* d_cg;
-  /** is literal matching */
-  int d_isLitMatch;
+  /** policy to use for matching */
+  int d_matchPolicy;
   /** children generators */
   std::vector< InstMatchGenerator* > d_children;
   std::vector< int > d_children_index;
   /** partial vector */
   std::vector< InstMatch > d_partial;
   /** initialize pattern */
-  bool initializePatternArithmetic( Node n );
-  void initializePattern( Node pat, QuantifiersEngine* qe );
   void initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe );
+  void initializePattern( Node pat, QuantifiersEngine* qe );
+  /** for arithmetic */
+  bool initializePatternArithmetic( Node n );
+  bool getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe );
+public:
+  enum {
+    MATCH_GEN_DEFAULT = 0,     
+    MATCH_GEN_EFFICIENT_E_MATCH,   //generate matches via Efficient E-matching for SMT solvers
+    MATCH_GEN_LIT_MATCH,           //generate matches via literal-level matching
+  };
 private:
   /** for arithmetic matching */
   std::map< Node, Node > d_arith_coeffs;
@@ -135,8 +165,8 @@ private:
   bool getMatch( Node t, InstMatch& m, QuantifiersEngine* qe );
 public:
   /** constructors */
-  InstMatchGenerator( Node pat, QuantifiersEngine* qe, bool isLitMatch = false );
-  InstMatchGenerator( std::vector< Node >& pats, QuantifiersEngine* qe, bool isLitMatch = false );
+  InstMatchGenerator( Node pat, QuantifiersEngine* qe, int matchOption = 0 );
+  InstMatchGenerator( std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption = 0 );
   /** destructor */
   ~InstMatchGenerator(){}
   /** The pattern we are producing matches for.
@@ -223,7 +253,7 @@ public:
      ie     : quantifier engine;
      f      : forall something ....
      nodes  : (multi-)trigger
-     isLitMatch : use literal matching heuristics
+     matchPolicy : which policy to use for creating matches (one of InstMatchGenerator::MATCH_GEN_* )
      keepAll: don't remove unneeded patterns;
      trPolicy : policy for dealing with triggers that already existed (see below)
   */
@@ -233,7 +263,7 @@ public:
     TRP_RETURN_NULL  //return null if a duplicate is found
   };
   static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, 
-                             bool isLitMatch = false, bool keepAll = true, int trPolicy = TRP_MAKE_NEW ); 
+                             int matchPolicy = 0, bool keepAll = true, int trPolicy = TRP_MAKE_NEW ); 
 private:  
   static bool isUsable( Node n, Node f );
 public:

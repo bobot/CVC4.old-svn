@@ -33,11 +33,7 @@ void CandidateGeneratorTheoryUf::resetInstantiationRound(){
 void CandidateGeneratorTheoryUf::reset( Node eqc ){
   if( eqc.isNull() ){
     Assert( !d_op.isNull() );
-    if( d_can_produce_new ){
-      d_term_iter = 0;
-    }else{
-      d_term_iter = d_ith->getTermDatabase()->d_op_index[d_op];
-    }
+    d_term_iter = 0;
   }else{
     //create an equivalence class iterator in eq class eqc
     d_eqc = EqClassIterator( eqc, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );

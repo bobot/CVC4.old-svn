@@ -239,6 +239,17 @@ struct CVC4_PUBLIC Options {
   bool finiteModelFind;
 
   /**
+   * Whether to do counterexample-based quantifier instantiation
+   */
+  bool cbqi;
+
+  /**
+   * Whether the user explicitly requested that counterexample-based
+   * quantifier instantiation be enabled or disabled.
+   */
+  bool cbqiSetByUser;
+
+  /**
    * Whether to do the linear diophantine equation solver
    * in Arith as described by Griggio JSAT 2012 (on by default).
    */

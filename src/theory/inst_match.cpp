@@ -112,16 +112,26 @@ void InstMatch::computeTermVec( QuantifiersEngine* ie, const std::vector< Node >
 
 
 
-InstMatchGenerator::InstMatchGenerator( Node pat, QuantifiersEngine* qe, bool isLitMatch ) : d_isLitMatch( isLitMatch ){
+InstMatchGenerator::InstMatchGenerator( Node pat, QuantifiersEngine* qe, int matchPolicy ) : d_matchPolicy( matchPolicy ){
   initializePattern( pat, qe );
 }
 
-InstMatchGenerator::InstMatchGenerator( std::vector< Node >& pats, QuantifiersEngine* qe, bool isLitMatch ) : d_isLitMatch( isLitMatch ){
+InstMatchGenerator::InstMatchGenerator( std::vector< Node >& pats, QuantifiersEngine* qe, int matchPolicy ) : d_matchPolicy( matchPolicy ){
   if( pats.size()==1 ){
     initializePattern( pats[0], qe );
   }else{
     initializePatterns( pats, qe );
   }
+}
+
+void InstMatchGenerator::initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe ){
+  int childMatchPolicy = d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ? 0 : d_matchPolicy;
+  for( int i=0; i<(int)pats.size(); i++ ){
+    d_children.push_back( new InstMatchGenerator( pats[i], qe, childMatchPolicy ) );
+  }
+  d_pattern = Node::null();
+  d_match_pattern = Node::null();
+  d_cg = NULL;
 }
 
 void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
@@ -138,50 +148,54 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       //swap sides
       d_pattern = NodeManager::currentNM()->mkNode( d_match_pattern.getKind(), d_match_pattern[1], d_match_pattern[0] );
       d_pattern = pat.getKind()==NOT ? d_pattern.notNode() : d_pattern;
-      //set match pattern
       d_match_pattern = d_match_pattern[1];
     }else if( !d_match_pattern[1].hasAttribute(InstConstantAttribute()) ){
       Assert( d_match_pattern[0].hasAttribute(InstConstantAttribute()) );
-      //set match pattern
       d_match_pattern = d_match_pattern[0];
     }
   }
+  int childMatchPolicy = d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ? 0 : d_matchPolicy;
   for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
     if( d_match_pattern[i].hasAttribute(InstConstantAttribute()) ){
       if( d_match_pattern[i].getKind()!=INST_CONSTANT ){
-        d_children.push_back( new InstMatchGenerator( d_match_pattern[i], qe, d_isLitMatch ) );
+        d_children.push_back( new InstMatchGenerator( d_match_pattern[i], qe, childMatchPolicy ) );
         d_children_index.push_back( i );
       }
     }
   }
   //if lit match, reform boolean predicate as an equality
-  if( d_isLitMatch && d_match_pattern.getKind()==APPLY_UF ){
+  if( d_matchPolicy==MATCH_GEN_LIT_MATCH && d_match_pattern.getKind()==APPLY_UF ){
     bool pol = pat.getKind()!=NOT;
     d_pattern = NodeManager::currentNM()->mkNode( IFF, d_match_pattern, NodeManager::currentNM()->mkConst<bool>(pol) );
   }
+
   Debug("inst-match-gen") << "Pattern is " << d_pattern << ", match pattern is " << d_match_pattern << std::endl;
+
   //get the equality engine
   Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF ); 
   uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
   //create candidate generator
   if( d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF ){
-    Assert( d_isLitMatch );
+    Assert( d_matchPolicy==MATCH_GEN_LIT_MATCH );
     //we will be producing candidates via literal matching heuristics
     d_cg = new uf::CandidateGeneratorTheoryUfEq( ith, d_pattern, d_match_pattern );
-  }else{
-    //record arithmetic information?
-    if( !initializePatternArithmetic( d_match_pattern ) ){
-      if( d_match_pattern.getKind()!=APPLY_UF ){
-        Debug("pattern-debug") << "(?) Unknown matching pattern is " << d_match_pattern << std::endl;
-      }
-    }
+  }else if( d_pattern.getKind()==NOT ){
     Node op = d_match_pattern.getKind()==APPLY_UF ? d_match_pattern.getOperator() : Node::null();
-    if( d_pattern.getKind()!=NOT ){
+    Assert( d_matchPolicy==MATCH_GEN_LIT_MATCH );
+    d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
+  }else if( d_match_pattern.getKind()==APPLY_UF ){
+    Node op = d_match_pattern.getOperator();
+    if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){
+      d_cg = new CandidateGeneratorQueue;
+      ith->registerCandidateGenerator( d_cg, pat );
+    }else{
       //we will be scanning lists trying to find d_match_pattern.getOperator()
       d_cg = new uf::CandidateGeneratorTheoryUf( ith, op );
-    }else{
-      Assert( d_isLitMatch );
-      d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
+    }
+  }else{ 
+    d_cg = new CandidateGeneratorQueue;
+    if( !initializePatternArithmetic( d_match_pattern ) ){
+      Debug("inst-match-gen") << "(?) Unknown matching pattern is " << d_match_pattern << std::endl;
     }
   }
 }
@@ -195,7 +209,7 @@ bool InstMatchGenerator::initializePatternArithmetic( Node n ){
         if( n[i].getKind()==INST_CONSTANT ){
           d_arith_coeffs[ n[i] ] = Node::null();
         }else if( !initializePatternArithmetic( n[i] ) ){
-          Debug("pattern-debug") << "(?) Bad arith pattern = " << n << std::endl;
+          Debug("inst-match-gen-debug") << "(?) Bad arith pattern = " << n << std::endl;
           d_arith_coeffs.clear();
           return false;
         }
@@ -225,73 +239,69 @@ bool InstMatchGenerator::initializePatternArithmetic( Node n ){
   return false;
 }
 
-void InstMatchGenerator::initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe ){
-  for( int i=0; i<(int)pats.size(); i++ ){
-    d_children.push_back( new InstMatchGenerator( pats[i], qe, d_isLitMatch ) );
+bool InstMatchGenerator::getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe ){
+  Debug("matching-arith") << "Matching " << t << " " << d_match_pattern << std::endl;
+  if( !d_arith_coeffs.empty() ){
+    NodeBuilder<> tb(kind::PLUS);
+    Node ic = Node::null();
+    for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
+      Debug("matching-arith") << it->first << " -> " << it->second << std::endl;
+      if( !it->first.isNull() ){
+        if( m.d_map.find( it->first )==m.d_map.end() ){
+          //see if we can choose this to set
+          if( ic.isNull() && ( it->second.isNull() || !it->first.getType().isInteger() ) ){
+            ic = it->first;
+          }
+        }else{
+          Debug("matching-arith") << "already set " << m.d_map[ it->first ] << std::endl;
+          Node tm = m.d_map[ it->first ];
+          if( !it->second.isNull() ){
+            tm = NodeManager::currentNM()->mkNode( MULT, it->second, tm );
+          }
+          tb << tm;
+        }
+      }else{
+        tb << it->second;
+      }
+    }
+    if( !ic.isNull() ){
+      Node tm;
+      if( tb.getNumChildren()==0 ){
+        tm = t;
+      }else{
+        tm = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
+        tm = NodeManager::currentNM()->mkNode( MINUS, t, tm );
+      }
+      if( !d_arith_coeffs[ ic ].isNull() ){
+        Assert( !ic.getType().isInteger() );
+        Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_arith_coeffs[ ic ].getConst<Rational>() );
+        tm = NodeManager::currentNM()->mkNode( MULT, coeff, tm );
+      }
+      m.d_map[ ic ] = Rewriter::rewrite( tm );
+      //set the rest to zeros
+      for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
+        if( !it->first.isNull() ){
+          if( m.d_map.find( it->first )==m.d_map.end() ){
+            m.d_map[ it->first ] = NodeManager::currentNM()->mkConst( Rational(0) ); 
+          }
+        }
+      }
+      Debug("matching-arith") << "Setting " << ic << " to " << tm << std::endl;
+      return true;
+    }else{
+      return false;
+    }
+  }else{
+    return false;
   }
-  d_pattern = Node::null();
-  d_match_pattern = Node::null();
-  d_cg = NULL;
 }
 
 /** get match (not modulo equality) */
 bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe ){
+  Debug("matching") << "Matching " << t << " " << d_match_pattern << std::endl;
   Assert( !d_match_pattern.isNull() );
   if( d_match_pattern.getKind()!=APPLY_UF ){
-    Debug("matching-arith") << "Matching " << t << " " << d_match_pattern << std::endl;
-    if( !d_arith_coeffs.empty() ){
-      NodeBuilder<> tb(kind::PLUS);
-      Node ic = Node::null();
-      for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
-        Debug("matching-arith") << it->first << " -> " << it->second << std::endl;
-        if( !it->first.isNull() ){
-          if( m.d_map.find( it->first )==m.d_map.end() ){
-            //see if we can choose this to set
-            if( ic.isNull() && ( it->second.isNull() || !it->first.getType().isInteger() ) ){
-              ic = it->first;
-            }
-          }else{
-            Debug("matching-arith") << "already set " << m.d_map[ it->first ] << std::endl;
-            Node tm = m.d_map[ it->first ];
-            if( !it->second.isNull() ){
-              tm = NodeManager::currentNM()->mkNode( MULT, it->second, tm );
-            }
-            tb << tm;
-          }
-        }else{
-          tb << it->second;
-        }
-      }
-      if( !ic.isNull() ){
-        Node tm;
-        if( tb.getNumChildren()==0 ){
-          tm = t;
-        }else{
-          tm = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
-          tm = NodeManager::currentNM()->mkNode( MINUS, t, tm );
-        }
-        if( !d_arith_coeffs[ ic ].isNull() ){
-          Assert( !ic.getType().isInteger() );
-          Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_arith_coeffs[ ic ].getConst<Rational>() );
-          tm = NodeManager::currentNM()->mkNode( MULT, coeff, tm );
-        }
-        m.d_map[ ic ] = Rewriter::rewrite( tm );
-        //set the rest to zeros
-        for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
-          if( !it->first.isNull() ){
-            if( m.d_map.find( it->first )==m.d_map.end() ){
-              m.d_map[ it->first ] = NodeManager::currentNM()->mkConst( Rational(0) ); 
-            }
-          }
-        }
-        Debug("matching-arith") << "Setting " << ic << " to " << tm << std::endl;
-        return true;
-      }else{
-        return false;
-      }
-    }else{
-      return false;
-    }
+    return getMatchArithmetic( t, m, qe );
   }else{
     EqualityQuery* q = qe->getEqualityQuery();
     //add m to partial match vector
@@ -517,7 +527,7 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
   return addedLemmas;
 }
 
-Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, bool isLitMatch, bool keepAll, int trPolicy ){
+Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchPolicy, bool keepAll, int trPolicy ){
   bool success = false;
   int counter = 0;
   std::vector< Node > trNodes;
@@ -608,7 +618,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       trNodes.clear();
     }
   }
-  Trigger* t = new Trigger( qe, f, trNodes, isLitMatch );
+  Trigger* t = new Trigger( qe, f, trNodes, matchPolicy );
   d_tr_trie.addTrigger( trNodes, t );
   return t;
 }

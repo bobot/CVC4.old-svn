@@ -107,6 +107,8 @@ Options::Options() :
   ufSymmetryBreaker(false),
   ufSymmetryBreakerSetByUser(false),
   finiteModelFind(false),
+  cbqi(true),
+  cbqiSetByUser(false),
   dioSolver(true),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
@@ -182,6 +184,8 @@ Additional CVC4 options:\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
+   --enable-cbqi          turns on counterexample-based quantifier instantiation [on by default only for arithmetic]\n\
+   --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
@@ -359,6 +363,8 @@ enum OptionValue {
   ENABLE_SYMMETRY_BREAKER,
   DISABLE_SYMMETRY_BREAKER,
   FINITE_MODEL_FIND,
+  ENABLE_CBQI,
+  DISABLE_CBQI,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
   PORTFOLIO_FILTER_LENGTH,
@@ -449,6 +455,8 @@ static struct option cmdlineOptions[] = {
   { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
+  { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
+  { "disable-cbqi", no_argument, NULL, DISABLE_CBQI },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
@@ -809,6 +817,14 @@ throw(OptionException) {
       break;
     case FINITE_MODEL_FIND:
       finiteModelFind = true;
+      break;
+    case ENABLE_CBQI:
+      cbqi = true;
+      cbqiSetByUser = true;
+      break;
+    case DISABLE_CBQI:
+      cbqi = false;
+      cbqiSetByUser = true;
       break;
     case TIME_LIMIT:
       {

@@ -229,6 +229,8 @@ public:
     IntStat d_instantiations_e_induced;
     IntStat d_instantiations_user_pattern;
     IntStat d_instantiations_guess;
+    IntStat d_instantiations_auto_gen;
+    IntStat d_instantiations_auto_gen_min;
     IntStat d_splits;
     Statistics();
     ~Statistics();
@@ -254,12 +256,36 @@ public:
   void assertDisequal( TNode a, TNode b, TNode reason );
   /** get equivalence class info */
   EqClassInfo* getEquivalenceClassInfo( Node n );
+private:
+  class InvertedPathString{
+  public:
+    std::vector< std::pair< Node, int > > d_string;
+  };
+  class IpsCgVec {
+  public:
+    std::vector< std::pair< InvertedPathString, CandidateGenerator* > > d_vec;
+  };
+  std::map< Node, std::map< Node, IpsCgVec > > d_pp_pairs;
+  std::map< Node, std::map< Node, IpsCgVec > > d_pc_pairs;
+  /** helper functions */
+  void registerParentParentPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips, 
+                                  std::map< Node, std::vector< InvertedPathString > >& ips_map );
+  void registerParentParentPairs( CandidateGenerator* cg, Node pat );
+  void registerParentChildPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips );
+  void registerParentChildPairs( CandidateGenerator* cg, Node pat );
+public:
+  /** Register candidate generator cg for pattern pat.  
+      This request will ensure that calls will be made to cg->addCandidate( n ) for all
+      ground terms n that are relevant for matching with pat.
+  */
+  void registerCandidateGenerator( CandidateGenerator* cg, Node pat );
 };/* class InstantiatorTheoryUf */
 
 /** equality query object using instantiator theory uf */
 class EqualityQueryInstantiatorTheoryUf : public EqualityQuery
 {
 private:
+  /** pointer to instantiator uf class */
   InstantiatorTheoryUf* d_ith;
 public:
   EqualityQueryInstantiatorTheoryUf( InstantiatorTheoryUf* ith ) : d_ith( ith ){}

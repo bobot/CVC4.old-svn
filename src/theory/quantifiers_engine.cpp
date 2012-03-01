@@ -165,7 +165,7 @@ void QuantifiersEngine::registerQuantifier( Node f ){
 
 void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
     uf::UfTermDb* db =
-      ((uf::TheoryUF*) d_te->getTheory(theory::THEORY_UF)) ->getTermDatabase();
+      ((uf::TheoryUF*) d_te->getTheory(theory::THEORY_UF))->getTermDatabase();
     for(std::vector<Node>::iterator p = pattern.begin();
         p != pattern.end(); ++p)
       {db->add(*p);};

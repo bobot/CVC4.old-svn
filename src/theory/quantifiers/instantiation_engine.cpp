@@ -302,13 +302,17 @@ bool hasApplyUf( Node f ){
 }
 
 bool InstantiationEngine::doCbqi( Node f ){
-  for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-    TypeNode tn = f[0][i].getType();
-    if( !tn.isInteger() && !tn.isReal() ){
-      return false;
+  if( !Options::current()->cbqiSetByUser ){
+    return Options::current()->cbqi;
+  }else{
+    for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+      TypeNode tn = f[0][i].getType();
+      if( !tn.isInteger() && !tn.isReal() ){
+        return false;
+      }
     }
+    return !hasApplyUf( f[1] );
   }
-  return !hasApplyUf( f[1] );
 }
 
 
