@@ -50,7 +50,8 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_equalityEngine(d_notify, c, "theory::arrays::TheoryArrays"),
   d_conflict(c, false),
   d_backtracker(c),
-  d_infoMap(c,&d_backtracker)
+  d_infoMap(c,&d_backtracker),
+  d_sharedArrays(c)
 {
   StatisticsRegistry::registerStat(&d_numRow);
   StatisticsRegistry::registerStat(&d_numExt);
@@ -534,6 +535,9 @@ Node TheoryArrays::explain(TNode literal)
 void TheoryArrays::addSharedTerm(TNode t) {
   Debug("arrays::sharing") << "TheoryArrays::addSharedTerm(" << t << ")" << std::endl;
   d_equalityEngine.addTriggerTerm(t);
+  if (t.getType().isArray()) {
+    d_sharedArrays.insert(t,true);
+  }
 }
 
 
@@ -698,16 +702,23 @@ void TheoryArrays::check(Effort e) {
 }
 
 
-// TODO: which one is the rep?
-void TheoryArrays::mergeArrays(TNode a, TNode b)
+// return true iff a and b are both shared terms
+bool TheoryArrays::mergeArrays(TNode a, TNode b)
 {
+  // Note: a is the new representative
   Assert(a.getType().isArray() && b.getType().isArray());
 
   checkRowLemmas(a,b);
   checkRowLemmas(b,a);
 
   // merge info adds the list of the 2nd argument to the first
-  d_infoMap.mergeInfo(b, a);
+  d_infoMap.mergeInfo(a, b);
+
+  if (d_sharedArrays.find(a) != d_sharedArrays.end() &&
+      d_sharedArrays.find(b) != d_sharedArrays.end()) {
+    return true;
+  }
+  return false;
 }
 
 

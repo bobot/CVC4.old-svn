@@ -25,6 +25,7 @@
 #include "theory/arrays/array_info.h"
 #include "util/stats.h"
 #include "theory/uf/equality_engine.h"
+#include "context/cdmap.h"
 
 namespace CVC4 {
 namespace theory {
@@ -232,9 +233,10 @@ class TheoryArrays : public Theory {
     void notify(TNode t1, TNode t2) {
       Debug("arrays") << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
       if (t1.getType().isArray()) {
-        d_arrays.mergeArrays(t1, t2);
-        // TODO: what happens if we propagate and t1 and t2 are not shared?
+        bool shared = d_arrays.mergeArrays(t1, t2);
+        if (!shared) return;
       }
+      // Propagate equality between shared terms
       Node equality = Rewriter::rewriteEquality(theory::THEORY_ARRAY, t1.eqNode(t2));
       d_arrays.propagate(equality);
     }
@@ -268,7 +270,9 @@ class TheoryArrays : public Theory {
   std::hash_set<RowLemmaType, RowLemmaTypeHashFunction > d_RowQueue;
   std::hash_set<RowLemmaType, RowLemmaTypeHashFunction > d_RowAlreadyAdded;
 
-  void mergeArrays(TNode a, TNode b);
+  context::CDMap<TNode, bool, TNodeHashFunction> d_sharedArrays;
+
+  bool mergeArrays(TNode a, TNode b);
   void checkStore(TNode a);
   void dischargeLemmas();
   void checkRowForIndex(TNode i, TNode a);
