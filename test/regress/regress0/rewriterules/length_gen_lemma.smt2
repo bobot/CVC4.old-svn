@@ -27,7 +27,7 @@
 
 (declare-fun n () Int)
 
-(assert (not (= (length (gen_cons 120 nil)) 120)))
+(assert (not (= (length (gen_cons 160 nil)) 160)))
 
 (check-sat)
 

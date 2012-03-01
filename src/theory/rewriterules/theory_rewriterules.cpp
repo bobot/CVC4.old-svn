@@ -47,16 +47,13 @@ static const size_t RULEINSTID_TRUE = ((size_t) -1);
 static const size_t RULEINSTID_FALSE = ((size_t) -2);
 
   /** Rule an instantiation with the given match */
-RuleInst::RuleInst(TheoryRewriteRules & re, RewriteRuleId r, InstMatch & im,
+RuleInst::RuleInst(TheoryRewriteRules & re, RewriteRuleId r,
+                   std::vector<Node> & inst_subst,
                    RuleInstId i):
   rule(r),id(i)
 {
   Assert(i != RULEINSTID_TRUE && i != RULEINSTID_FALSE);
-  const RewriteRule & rule = re.get_rule(r);
-  im.computeTermVec(re.getQuantifiersEngine(), rule.inst_vars , subst);
-  if(cache_match) rule.checkCache(subst);
-  start = findGuard(re, 0);
-  if(start == (rule.guards).size()) throw true;
+  subst.swap(inst_subst);
 };
 
 Node RuleInst::substNode(const TheoryRewriteRules & re, TNode r)const{
@@ -150,7 +147,7 @@ RewriteRule::RewriteRule(TheoryRewriteRules & re,
 
 bool RewriteRule::noGuard()const{ return guards.size() == 0; };
 
-void RewriteRule::checkCache(std::vector<Node> & subst)const{
+bool RewriteRule::inCache(std::vector<Node> & subst)const{
   /* INST_PATTERN because its 1: */
   NodeBuilder<> nodeb(kind::INST_PATTERN);
   for(std::vector<Node>::const_iterator p = subst.begin();
@@ -158,10 +155,11 @@ void RewriteRule::checkCache(std::vector<Node> & subst)const{
   Node node = nodeb;
   CacheNode::const_iterator e = d_cache.find(node);
   /* Already in the cache */
-  if( e != d_cache.end() ) throw false;
+  if( e != d_cache.end() ) return true;
   /* Because we add only context dependent data and the const is for that */
   RewriteRule & rule = const_cast<RewriteRule &>(*this);
   rule.d_cache.insert(node);
+  return false;
 };
 
 TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
@@ -205,12 +203,15 @@ void TheoryRewriteRules::check(Effort level) {
     InstMatch im;
     while(tr.getNextMatch( im )){
       Debug("rewriterules") << "One matching found" << std::endl;
-      try{
-        RuleInstId id = d_ruleinsts.size();
-        RuleInst ri = RuleInst(*this,rid,im,id);
-        d_ruleinsts.push_back(ri);
-      }catch (bool b){
-        Debug("rewriterules") << "RuleInst create:" << b << std::endl;
+      RuleInstId id = d_ruleinsts.size();
+      std::vector<Node> subst;
+      im.computeTermVec(getQuantifiersEngine(), r.inst_vars , subst);
+      if(!cache_match || !r.inCache(subst)){
+          RuleInst ri = RuleInst(*this,rid,subst,id);
+          // Find the first non verified guard, don't save the rule if the
+          // rule can already be fired
+          if(ri.findGuard(*this, 0) != (r.guards).size())
+            d_ruleinsts.push_back(ri);
       };
       im.clear();
     }

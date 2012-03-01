@@ -52,7 +52,7 @@ typedef size_t RuleInstId;
                 Trigger & tr, Node g, Node eq,
                 std::vector<Node> & fv,std::vector<Node> & iv);
     bool noGuard()const;
-    void checkCache(std::vector<Node> & subst)const;
+    bool inCache(std::vector<Node> & subst)const;
   };
 
   class RuleInst{
@@ -66,12 +66,9 @@ typedef size_t RuleInstId;
     /** the substitution */
     std::vector<Node> subst;
 
-    /** the start used guarded created */
-    size_t start;
-
     /** Rule an instantiation with the given match */
     RuleInst(TheoryRewriteRules & re, const RewriteRuleId rule,
-             InstMatch & im, const RuleInstId i);
+             std::vector<Node> & inst_subst,const RuleInstId i);
     Node substNode(const TheoryRewriteRules & re, TNode r)const;
     size_t findGuard(TheoryRewriteRules & re, size_t start)const;
   };
