@@ -212,12 +212,6 @@ Node TheoryBVRewriter::constantEvaluationRewrites(TNode node){
   case kind::BITVECTOR_SIGN_EXTEND:
     result = LinearRewriteStrategy< RewriteRule<EvalSignExtend> >::apply(node); 
     break;
-  case kind::BITVECTOR_ROTATE_LEFT:
-    result = LinearRewriteStrategy< RewriteRule<EvalRotateLeft> >::apply(node); 
-    break;
-  case kind::BITVECTOR_ROTATE_RIGHT:
-    result = LinearRewriteStrategy< RewriteRule<EvalRotateRight> >::apply(node); 
-    break;
   default:
     Unhandled(node.getKind()); 
   }

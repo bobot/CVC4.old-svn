@@ -28,6 +28,25 @@
 
 namespace CVC4 {
 
+
+  // static  BitVector intToTwosComplement(const Integer& val, unsigned size) {
+  //   Integer res = val;
+  //   if (res < 0) {
+  //     // Take absolute value
+  //     res = res.abs();
+  //     // truncate to fit bitwidth
+  //     res = res.modByPow2(size);
+  //     return - BitVector(size, res);
+  //   }
+  //   // do i really need this?
+  //   if (res >= Integer(1).multiplyByPow2(size)) {
+  //     res = res.modByPow2(size); 
+  //   }
+  //   return BitVector(size, res); 
+  // }
+
+
+
 class CVC4_PUBLIC BitVector {
 
 private:
@@ -40,19 +59,35 @@ private:
   unsigned d_size;
   Integer d_value;
 
+  Integer toSignedInt() const {
+    // returns Integer corresponding to two's complement interpretation of bv 
+    unsigned size = d_size; 
+    Integer sign_bit = d_value.extractBitRange(1,size-1);
+    Integer val = d_value.extractBitRange(size-1, 0); 
+    Integer res = Integer(-1) * sign_bit.multiplyByPow2(size - 1) + val;
+    return res; 
+  }
+  
+ 
 public:
 
-  BitVector(unsigned size, const Integer& val)
-    : d_size(size), d_value(val) {}
-
+  BitVector(unsigned size, const Integer& val):
+    d_size(size),
+    d_value(val.modByPow2(size))
+      {}
+  
   BitVector(unsigned size = 0)
     : d_size(size), d_value(0) {}
 
   BitVector(unsigned size, unsigned int z)
-    : d_size(size), d_value(z) {}
+    : d_size(size), d_value(z) {
+    d_value = d_value.modByPow2(size);
+  }
   
   BitVector(unsigned size, unsigned long int z)
-    : d_size(size), d_value(z) {}
+    : d_size(size), d_value(z) {
+    d_value = d_value.modByPow2(size);
+  }
 
   BitVector(unsigned size, const BitVector& q)
     : d_size(size), d_value(q.d_value) {}
@@ -144,34 +179,97 @@ public:
     return BitVector(d_size, prod);
   }
   
-  BitVector operator/ (const BitVector& y) const {
-    Assert (d_size == y.d_size); 
+  BitVector unsignedDiv (const BitVector& y) const {
+    Assert (d_size == y.d_size);
+    Assert (d_value >= 0 && y.d_value > 0); 
     return BitVector(d_size, d_value.floorDivideQuotient(y.d_value)); 
   }
 
-  BitVector operator%(const BitVector& y) const {
-    Assert (d_size == y.d_size); 
+  BitVector unsignedRem(const BitVector& y) const {
+    Assert (d_size == y.d_size);
+    Assert (d_value >= 0 && y.d_value > 0); 
     return BitVector(d_size, d_value.floorDivideRemainder(y.d_value)); 
+  }
+  
+  
+  bool signedLessThan(const BitVector& y) const {
+    Assert(d_size == y.d_size);
+    Assert(d_value >= 0 && y.d_value >= 0);
+    Integer a = (*this).toSignedInt();
+    Integer b = y.toSignedInt(); 
+    
+    return a < b; 
+  }
+
+  bool unsignedLessThan(const BitVector& y) const {
+    Assert(d_size == y.d_size);
+    Assert(d_value >= 0 && y.d_value >= 0);
+    return d_value < y.d_value; 
+  }
+
+  bool signedLessThanEq(const BitVector& y) const {
+    Assert(d_size == y.d_size);
+    Assert(d_value >= 0 && y.d_value >= 0);
+    Integer a = (*this).toSignedInt();
+    Integer b = y.toSignedInt(); 
+    
+    return a <= b; 
+  }
+
+  bool unsignedLessThanEq(const BitVector& y) const {
+    Assert(d_size == y.d_size);
+    Assert(d_value >= 0 && y.d_value >= 0);
+    return d_value <= y.d_value; 
+  }
+
+  
+  /*
+    Extend operations
+   */
+
+  BitVector zeroExtend(unsigned amount) const {
+    return BitVector(d_size + amount, d_value); 
+  }
+
+  BitVector signExtend(unsigned amount) const {
+    BitVector sign_bit = (*this).extract(d_size -1, d_size -1);
+    if(sign_bit == BitVector(0)) {
+      return BitVector(d_size + amount, d_value); 
+    } else {
+      // TODO check if bit is larger than bits of integer?
+      Integer val = d_value;
+      for(unsigned i = d_size; i < d_size + amount; ++i) {
+        val = val.setBitAtIndex(i); 
+      }
+    }
   }
   
   /*
     Shifts on BitVectors
    */
 
-  BitVector leftShift(const uint32_t amount) const {
+  BitVector leftShift(const BitVector& y) const {
+    Assert (y.d_size <=32); 
+    uint32_t amount = y.d_value.toUnsignedInt(); 
     Integer res = d_value.multiplyByPow2(amount);
     return BitVector(d_size, res);
   }
 
   BitVector logicalRightShift(const BitVector& y) const {
-    Unimplemented();
-    //return BitVector(d_size, d_value.multiplyByPow2(amount));
+    Assert (y.d_size <=32); 
+    uint32_t amount = y.d_value.toUnsignedInt(); 
+    Integer res = d_value.divByPow2(amount); 
+    return BitVector(d_size, res);
   }
 
   BitVector arithRightShift(const BitVector& y) const {
-    // TODO
-    Unimplemented(); 
-    return y;
+    Assert(y.d_size <= 32);
+    uint32_t amount  = y.d_value.toUnsignedInt();
+    Integer sign_bit = d_value.extractBitRange(1, d_size - 1); 
+    Integer res = d_value.divByPow2(amount);
+    BitVector res_bv(d_size - amount, res);
+    res_bv = res_bv.signExtend(amount); 
+    return res_bv;
   }
   
 
@@ -206,6 +304,8 @@ public:
     return d_value;
   }
 };/* class BitVector */
+
+
 
 inline BitVector::BitVector(const std::string& num, unsigned base) {
   AlwaysAssert( base == 2 || base == 16 );

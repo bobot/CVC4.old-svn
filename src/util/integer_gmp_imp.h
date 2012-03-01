@@ -168,6 +168,17 @@ public:
     return Integer( result );
   }
 
+
+  Integer setBitAtIndex(uint32_t bitIndex) const {
+    mpz_class res;
+    mpz_setbit(res.get_mpz_t(), bitIndex);
+    return Integer(res); 
+  }
+
+  uint32_t toUnsignedInt() const {
+    return  mpz_get_ui(d_value.get_mpz_t());
+  }
+  
   /** See GMP Documentation. */
   Integer extractBitRange(uint32_t bitCount, uint32_t low) const {
     // bitCount = high-low+1
@@ -241,6 +252,16 @@ public:
     mpz_congruent_2exp_p(res.get_mpz_t(), d_value.get_mpz_t(), exp);
     return Integer(res);
   }
+
+  /**
+   * Returns y / 2^exp
+   */
+  Integer divByPow2(uint32_t exp) const {
+    mpz_class res;
+    mpz_fdiv_q_2exp(res.get_mpz_t(), d_value.get_mpz_t(), exp);
+    return Integer(res);
+  }
+
   
   int sgn() const {
     return mpz_sgn(d_value.get_mpz_t());
