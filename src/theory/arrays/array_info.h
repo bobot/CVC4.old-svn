@@ -55,9 +55,10 @@ namespace theory {
 namespace arrays {
 
 typedef context::CDList<TNode> CTNodeList;
+typedef quad<TNode, TNode, TNode, TNode> RowLemmaType;
 
-struct TNodeQuadHashFunction {
-  size_t operator()(const quad<CVC4::TNode, CVC4::TNode, CVC4::TNode, CVC4::TNode>& q ) const {
+struct RowLemmaTypeHashFunction {
+  size_t operator()(const RowLemmaType& q ) const {
     TNode n1 = q.first;
     TNode n2 = q.second;
     TNode n3 = q.third;
@@ -66,7 +67,7 @@ struct TNodeQuadHashFunction {
         n3.getId()*0x60000005 + n4.getId()*0x07FFFFFF);
 
   }
-};/* struct TNodeQuadHashFunction */
+};/* struct RowLemmaTypeHashFunction */
 
 void printList (CTNodeList* list);
 void printList( List<TNode>* list);

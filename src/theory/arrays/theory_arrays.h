@@ -26,9 +26,6 @@
 #include "util/stats.h"
 #include "theory/uf/equality_engine.h"
 
-#include <iostream>
-#include <map>
-
 namespace CVC4 {
 namespace theory {
 namespace arrays {
@@ -221,7 +218,6 @@ class TheoryArrays : public Theory {
   private:
 
   // NotifyClass: template helper class for d_equalityEngine - handles call-back from congruence closure module
-  // TODO: currently disabled - need to integrate with array theory implementation
   class NotifyClass {
     TheoryArrays& d_arrays;
   public:
@@ -232,9 +228,13 @@ class TheoryArrays : public Theory {
       // Just forward to arrays
       return d_arrays.propagate(propagation);
     }
-    
+
     void notify(TNode t1, TNode t2) {
       Debug("arrays") << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
+      if (t1.getType().isArray()) {
+        d_arrays.mergeArrays(t1, t2);
+        // TODO: what happens if we propagate and t1 and t2 are not shared?
+      }
       Node equality = Rewriter::rewriteEquality(theory::THEORY_ARRAY, t1.eqNode(t2));
       d_arrays.propagate(equality);
     }
@@ -245,7 +245,6 @@ class TheoryArrays : public Theory {
   NotifyClass d_notify;
 
   /** Equaltity engine */
-  //TODO: Phase this in...
   uf::EqualityEngine<NotifyClass> d_equalityEngine;
 
   // Are we in conflict?
@@ -260,8 +259,20 @@ class TheoryArrays : public Theory {
    * instantiation
    */
 
-  //  ArrayInfo d_infoMap;
+  Backtracker<TNode> d_backtracker;
+  ArrayInfo d_infoMap;
 
+  typedef quad<TNode, TNode, TNode, TNode> RowLemmaType;
+
+  //TODO: These should be CD
+  std::hash_set<RowLemmaType, RowLemmaTypeHashFunction > d_RowQueue;
+  std::hash_set<RowLemmaType, RowLemmaTypeHashFunction > d_RowAlreadyAdded;
+
+  void mergeArrays(TNode a, TNode b);
+  void checkStore(TNode a);
+  void dischargeLemmas();
+  void checkRowForIndex(TNode i, TNode a);
+  void checkRowLemmas(TNode a, TNode b);
 
 };/* class TheoryArrays */
 
