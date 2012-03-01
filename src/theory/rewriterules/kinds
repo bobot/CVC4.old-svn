@@ -8,7 +8,7 @@ theory THEORY_REWRITERULES ::CVC4::theory::rewriterules::TheoryRewriteRules "the
 typechecker "theory/rewriterules/theory_rewriterules_type_rules.h"
 rewriter ::CVC4::theory::rewriterules::TheoryRewriterulesRewriter "theory/rewriterules/theory_rewriterules_rewriter.h"
 
-properties check
+properties check propagate
 
 # Theory content goes here.
 

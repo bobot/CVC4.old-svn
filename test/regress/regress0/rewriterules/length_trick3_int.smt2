@@ -24,6 +24,11 @@
         (cons 1 (cons 1 (cons 1 (cons 1 (cons 1 (cons 1 (cons 1 (cons 1 (cons 1 (cons 1 ?l) )))))))))
         ) :rewrite-rule)))
 
+(assert (not (= (length (ten_one_cons nil))
+        10)))
+
+(check-sat)
+
 (declare-fun ten_one_ten (list) list)
 
 (assert (forall ((?l list)) (! (= (ten_one_ten ?l)
@@ -35,10 +40,5 @@
 (assert (forall ((?l list)) (! (= (two_one_ten ?l)
         (ten_one_cons (ten_one_cons ?l))
         ) :rewrite-rule)))
-
-(assert (not (= (length (two_one_ten nil))
-        20)))
-
-(check-sat)
 
 (exit)

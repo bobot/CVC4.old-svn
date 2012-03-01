@@ -342,11 +342,33 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst){
         getOutputChannel().conflict(conflict);
       };
     }else{
-      getOutputChannel().propagate(lemma_lit);
+      d_literalsToPropagate.push_back(lemma_lit);
       d_explanations.insert(lemma_lit,inst.id);
-    };
+   };
   };
 };
+
+void TheoryRewriteRules::propagate(Effort e){
+  for (; d_literalsToPropagateIndex < d_literalsToPropagate.size();
+       d_literalsToPropagateIndex = d_literalsToPropagateIndex + 1){
+    TNode lemma_lit = d_literalsToPropagate[d_literalsToPropagateIndex];
+    bool value;
+    if(getValuation().hasSatValue(lemma_lit,value)){
+      /* Already assigned */
+      /* TODO generalize explain */
+      ExplanationMap::const_iterator rinstid = d_explanations.find(lemma_lit);
+      Assert(rinstid!=d_explanations.end(),"I forget the explanation...");
+      const RuleInst & inst = get_inst((*rinstid).second);
+      const RewriteRule & rule = get_rule(inst.rule);
+      if (!value){
+        Node conflict = substGuards(inst,rule,lemma_lit);
+        getOutputChannel().conflict(conflict);
+      };
+    }else{
+      getOutputChannel().propagate(lemma_lit);
+    };
+  }
+}
 
 
 Node TheoryRewriteRules::substGuards(const RuleInst & inst,

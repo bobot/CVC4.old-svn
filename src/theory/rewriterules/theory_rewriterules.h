@@ -137,7 +137,8 @@ private:
   ~TheoryRewriteRules(){}
 
   /** Usual function for theories */
-  void check( Theory::Effort e );
+  void check(Theory::Effort e);
+  void propagate(Theory::Effort e);
   Node explain(TNode n);
   void notifyEq(TNode lhs, TNode rhs);
   std::string identify() const {
