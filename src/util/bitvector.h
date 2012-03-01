@@ -241,6 +241,7 @@ public:
       for(unsigned i = d_size; i < d_size + amount; ++i) {
         val = val.setBitAtIndex(i); 
       }
+      return BitVector(d_size+ amount, val);
     }
   }
   
