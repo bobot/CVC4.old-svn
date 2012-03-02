@@ -154,7 +154,7 @@ struct CVC4_PUBLIC Options {
 
   /** Whether we produce proofs. */
   bool proof;
-  
+
   /** Whether we support SmtEngine::getAssignment() for this run. */
   bool produceAssignments;
 
@@ -196,7 +196,7 @@ struct CVC4_PUBLIC Options {
 
   /** Variable activity decay factor for Minisat */
   double satVarDecay;
-  
+
   /** Clause activity decay factor for Minisat */
   double satClauseDecay;
 
@@ -234,7 +234,7 @@ struct CVC4_PUBLIC Options {
   bool ufSymmetryBreakerSetByUser;
 
   /**
-   * Whether to use finite model find heuristic 
+   * Whether to use finite model find heuristic
    */
   bool finiteModelFind;
 
@@ -268,7 +268,7 @@ struct CVC4_PUBLIC Options {
   /** Thread ID, for internal use in case of multi-threaded run */
   int thread_id;
 
-  /** 
+  /**
    * In multi-threaded setting print output of each thread at the
    * end of run, separated by a divider ("----").
    **/

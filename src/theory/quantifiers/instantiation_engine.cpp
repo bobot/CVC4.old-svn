@@ -302,7 +302,7 @@ bool hasApplyUf( Node f ){
 }
 
 bool InstantiationEngine::doCbqi( Node f ){
-  if( !Options::current()->cbqiSetByUser ){
+  if( Options::current()->cbqiSetByUser ){
     return Options::current()->cbqi;
   }else{
     for( int i=0; i<(int)f[0].getNumChildren(); i++ ){

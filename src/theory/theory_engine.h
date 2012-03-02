@@ -36,7 +36,6 @@
 #include "theory/shared_terms_database.h"
 #include "theory/term_registration_visitor.h"
 #include "theory/valuation.h"
-#include "theory/quantifiers_engine.h"
 #include "util/options.h"
 #include "util/stats.h"
 #include "util/hash.h"
@@ -108,6 +107,7 @@ class TheoryEngine {
    * The instantiation engine
    */
   theory::QuantifiersEngine* d_quantEngine;
+
 
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
 
@@ -375,9 +375,6 @@ class TheoryEngine {
    */
   void assertSharedEqualities();
 
-  /** The logic of the problem */
-  std::string d_logic;
-
   /**
    * Literals that are propagated by the theory. Note that these are TNodes.
    * The theory can only propagate nodes that have an assigned literal in the
@@ -526,7 +523,6 @@ public:
     return d_quantEngine;
   }
 
-
   /**
    * Runs theory specific preprocesssing on the non-Boolean parts of
    * the formula.  This is only called on input assertions, after ITEs
@@ -570,7 +566,7 @@ public:
   /**
    * Solve the given literal with a theory that owns it.
    */
-  theory::Theory::SolveStatus solve(TNode literal,
+  theory::Theory::PPAssertStatus solve(TNode literal,
                                     theory::SubstitutionMap& substitutionOut);
 
   /**
@@ -606,10 +602,10 @@ public:
   void combineTheories();
 
   /**
-   * Calls staticLearning() on all theories, accumulating their
+   * Calls ppStaticLearn() on all theories, accumulating their
    * combined contributions in the "learned" builder.
    */
-  void staticLearning(TNode in, NodeBuilder<>& learned);
+  void ppStaticLearn(TNode in, NodeBuilder<>& learned);
 
   /**
    * Calls presolve() on all theories and returns true

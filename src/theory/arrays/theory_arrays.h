@@ -44,32 +44,32 @@ namespace arrays {
  * Overview of decision procedure:
  *
  * Preliminary notation:
- *   Stores(a)  = {t | a ~ t and t = store( _ _ _ )} 
+ *   Stores(a)  = {t | a ~ t and t = store( _ _ _ )}
  *   InStores(a) = {t | t = store (b _ _) and a ~ b }
  *   Indices(a) = {i | there exists a term b[i] such that a ~ b or store(b i v)}
  *   ~ represents the equivalence relation based on the asserted equalities in the
  *   current context.
- * 
+ *
  * The rules implemented are the following:
  *             store(b i v)
  *     Row1 -------------------
  *          store(b i v)[i] = v
- * 
+ *
  *           store(b i v)  a'[j]
  *     Row ---------------------- [ a' ~ store(b i v) or a' ~ b ]
  *           i = j OR a[j] = b[j]
- * 
+ *
  *          a  b same kind arrays
  *     Ext ------------------------ [ a!= b in current context, k new var]
  *           a = b OR a[k] != b[k]p
- * 
- * 
+ *
+ *
  *  The Row1 one rule is implemented implicitly as follows:
  *     - for each store(b i v) term add the following equality to the congruence
  *       closure store(b i v)[i] = v
  *     - if one of the literals in a conflict is of the form store(b i v)[i] = v
  *       remove it from the conflict
- * 
+ *
  *  Because new store terms are not created, we need to check if we need to
  *  instantiate a new Row axiom in the following cases:
  *     1. the congruence relation changes (i.e. two terms get merged)
@@ -82,7 +82,7 @@ namespace arrays {
  *         - this is implemented in the checkRowForIndex method which is called
  *           when preregistering a term of the form a[i].
  *         - as a consequence lemmas are instantiated even before full effort check
- * 
+ *
  *  The Ext axiom is instantiated when a disequality is asserted during full effort
  *  check. Ext lemmas are stored in a cache to prevent instantiating essentially
  *  the same lemma multiple times.
@@ -479,8 +479,8 @@ public:
   Node explain(TNode n);
 
   Node getValue(TNode n);
-  SolveStatus solve(TNode in, SubstitutionMap& outSubstitutions);
-  Node preprocess(TNode atom);
+  PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
+  Node ppRewrite(TNode atom);
   void shutdown() { }
   std::string identify() const { return std::string("TheoryArrays"); }
 

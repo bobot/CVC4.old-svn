@@ -84,7 +84,7 @@ class CVC4_PUBLIC DatatypeConstructorArg {
   std::string d_name;
   Expr d_selector;
   /** the constructor associated with this selector */
-  //Expr d_constructor;
+  Expr d_constructor;
   bool d_resolved;
 
   DatatypeConstructorArg(std::string name, Expr selector);
@@ -108,7 +108,7 @@ public:
    * Get the associated constructor for this constructor argument;
    * this call is only permitted after resolution.
    */
-  //Expr getConstructor() const;
+  Expr getConstructor() const;
 
   /**
    * Get the type of the selector for this constructor argument;

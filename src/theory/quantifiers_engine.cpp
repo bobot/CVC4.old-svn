@@ -422,15 +422,15 @@ QuantifiersEngine::Statistics::~Statistics(){
 }
 
 Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){
-  if( d_free_vars.find( n )==d_free_vars.end() ){
+  TypeNode tn = n.getType();
+  if( d_free_vars.find( tn )==d_free_vars.end() ){
     //if integer or real, make zero
-    TypeNode tn = n.getType();
     if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
       Rational z(0);
-      d_free_vars[n] = NodeManager::currentNM()->mkConst( z );
+      d_free_vars[tn] = NodeManager::currentNM()->mkConst( z );
     }else{
-      d_free_vars[n] = NodeManager::currentNM()->mkVar( tn );
+      d_free_vars[tn] = NodeManager::currentNM()->mkVar( tn );
     }
   }
-  return d_free_vars[n];
+  return d_free_vars[tn];
 }

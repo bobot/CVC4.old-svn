@@ -60,6 +60,12 @@ public:
 protected:
   /** reference to the instantiation engine */
   QuantifiersEngine* d_quantEngine;
+protected:
+  /** giving priorities */
+  std::vector< InstStrategy* > d_priority_over;
+  /** do not instantiate list */
+  std::vector< Node > d_no_instantiate;
+  std::vector< Node > d_no_instantiate_temp;
 public:
   InstStrategy( QuantifiersEngine* ie ) : d_quantEngine( ie ){}
   virtual ~InstStrategy(){}
@@ -80,13 +86,19 @@ public:
   }
   /** identify */
   virtual std::string identify() const { return std::string("Unknown"); }
+public:
+  /** set priority */
+  void setPriorityOver( InstStrategy* is ) { d_priority_over.push_back( is ); }
+  /** set no instantiate */
+  void setNoInstantiate( Node n ) { d_no_instantiate.push_back( n ); }
+  /** should instantiate */
+  bool shouldInstantiate( Node n ) { 
+    return std::find( d_no_instantiate.begin(), d_no_instantiate.end(), n )==d_no_instantiate.end(); 
+  }
 };
 
 class Instantiator{
   friend class QuantifiersEngine;
-private:
-  /** status */
-  //int d_status;
 protected:
   /** reference to the instantiation engine */
   QuantifiersEngine* d_quantEngine;
@@ -196,8 +208,8 @@ private:
   std::map< Node, bool > d_phase_reqs;
   /** whether a particular quantifier is clausal */
   std::map< Node, bool > d_clausal;
-  /** free variable for instantiation constant */
-  std::map< Node, Node > d_free_vars;
+  /** free variable for instantiation constant type */
+  std::map< TypeNode, Node > d_free_vars;
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
 private:

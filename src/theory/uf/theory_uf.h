@@ -56,7 +56,7 @@ public:
       // Just forward to uf
       return d_uf.propagate(propagation);
     }
-    
+
     void notify(TNode t1, TNode t2) {
       Debug("uf") << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
       Node equality = Rewriter::rewriteEquality(theory::THEORY_UF, t1.eqNode(t2));
@@ -129,7 +129,7 @@ private:
 
   /** called when two equivalance classes merge */
   void notifyMerge( TNode t1, TNode t2 );
-  
+
   /** called when two equivalence classes are made disequal */
   void notifyDisequal( TNode t1, TNode t2, TNode reason );
 //AJR-hack-end
@@ -151,7 +151,7 @@ public:
   void preRegisterTerm(TNode term);
   Node explain(TNode n);
 
-  void staticLearning(TNode in, NodeBuilder<>& learned);
+  void ppStaticLearn(TNode in, NodeBuilder<>& learned);
   void presolve();
 
   void addSharedTerm(TNode n);
@@ -164,7 +164,6 @@ public:
   }
 
   //AJR-hack
-  void notifyRestart();
   EqualityEngine<NotifyClass>* getEqualityEngine() { return &d_equalityEngine; }
   UfTermDb* getTermDatabase();
   StrongSolverTheoryUf* getStrongSolver() { return d_thss; }
@@ -198,7 +197,7 @@ public:
   EqClassesIterator& operator++() {
     Node orig = d_ee->d_nodes[d_it];
     ++d_it;
-    while( d_it<d_ee->d_nodesCount && ( d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] || 
+    while( d_it<d_ee->d_nodesCount && ( d_ee->getRepresentative( d_ee->d_nodes[d_it] )!= d_ee->d_nodes[d_it] ||
            d_ee->d_nodes[d_it]==orig ) ){    //this line is necessary for ignoring duplicates
       ++d_it;
     }

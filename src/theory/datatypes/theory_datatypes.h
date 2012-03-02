@@ -56,7 +56,7 @@ private:
   BoolMap d_selectors;
   /** keeps track of which nodes are representatives */
   BoolMap d_reps;
-  /** map from (representative) nodes to a list of selectors whose arguments are 
+  /** map from (representative) nodes to a list of selectors whose arguments are
       in the equivalence class of that node */
   EqListsN d_selector_eq;
   /** map from (representative) nodes to list of nodes in their eq class */
@@ -170,7 +170,7 @@ private:
 
   /* from uf_morgan */
   void merge(TNode a, TNode b);
-  inline TNode find(TNode a); 
+  inline TNode find(TNode a);
   inline TNode debugFind(TNode a) const;
   void appendToDiseqList(TNode of, TNode eq);
   void addDisequality(TNode eq);
@@ -182,8 +182,8 @@ private:
                        NodeBuilder<>& explanation );
 };/* class TheoryDatatypes */
 
-inline bool TheoryDatatypes::hasConflict() { 
-  return d_em.hasConflict(); 
+inline bool TheoryDatatypes::hasConflict() {
+  return d_em.hasConflict();
 }
 
 inline TNode TheoryDatatypes::find(TNode a) {

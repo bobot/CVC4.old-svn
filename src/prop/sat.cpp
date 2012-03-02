@@ -30,15 +30,15 @@ using namespace std;
 namespace CVC4 {
 namespace prop {
 
-void SatSolver::variableNotify(SatVariable var) {
-  d_theoryEngine->preRegister(getNode(variableToLiteral(var)));
+void TheoryProxy::variableNotify(SatVariable var) {
+  d_theoryEngine->preRegister(getNode(SatLiteral(var)));
 }
 
-void SatSolver::theoryCheck(theory::Theory::Effort effort) {
+void TheoryProxy::theoryCheck(theory::Theory::Effort effort) {
   d_theoryEngine->check(effort);
 }
 
-void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
+void TheoryProxy::theoryPropagate(std::vector<SatLiteral>& output) {
   // Get the propagated literals
   std::vector<TNode> outputNodes;
   d_theoryEngine->getPropagatedLiterals(outputNodes);
@@ -48,7 +48,7 @@ void SatSolver::theoryPropagate(std::vector<SatLiteral>& output) {
   }
 }
 
-void SatSolver::explainPropagation(SatLiteral l, SatClause& explanation) {
+void TheoryProxy::explainPropagation(SatLiteral l, SatClause& explanation) {
   TNode lNode = d_cnfStream->getNode(l);
   Debug("prop-explain") << "explainPropagation(" << lNode << ")" << std::endl;
   Node theoryExplanation = d_theoryEngine->getExplanation(lNode);
@@ -56,45 +56,41 @@ void SatSolver::explainPropagation(SatLiteral l, SatClause& explanation) {
   if (theoryExplanation.getKind() == kind::AND) {
     Node::const_iterator it = theoryExplanation.begin();
     Node::const_iterator it_end = theoryExplanation.end();
-    explanation.push(l);
+    explanation.push_back(l);
     for (; it != it_end; ++ it) {
-      explanation.push(~d_cnfStream->getLiteral(*it));
+      explanation.push_back(~d_cnfStream->getLiteral(*it));
     }
   } else {
-    explanation.push(l);
-    explanation.push(~d_cnfStream->getLiteral(theoryExplanation));
+    explanation.push_back(l);
+    explanation.push_back(~d_cnfStream->getLiteral(theoryExplanation));
   }
 }
 
-void SatSolver::enqueueTheoryLiteral(const SatLiteral& l) {
+void TheoryProxy::enqueueTheoryLiteral(const SatLiteral& l) {
   Node literalNode = d_cnfStream->getNode(l);
   Debug("prop") << "enqueueing theory literal " << l << " " << literalNode << std::endl;
   Assert(!literalNode.isNull());
   d_theoryEngine->assertFact(literalNode);
 }
 
-SatLiteral SatSolver::getNextDecisionRequest() {
+SatLiteral TheoryProxy::getNextDecisionRequest() {
   TNode n = d_theoryEngine->getNextDecisionRequest();
-  return n.isNull() ? Minisat::lit_Undef : d_cnfStream->getLiteral(n);
+  return n.isNull() ? undefSatLiteral : d_cnfStream->getLiteral(n);
 }
 
-bool SatSolver::theoryNeedCheck() const {
+bool TheoryProxy::theoryNeedCheck() const {
   return d_theoryEngine->needCheck();
 }
 
-void SatSolver::setCnfStream(CnfStream* cnfStream) {
-  d_cnfStream = cnfStream;
-}
-
-void SatSolver::removeClausesAboveLevel(int level) {
+void TheoryProxy::removeClausesAboveLevel(int level) {
   d_cnfStream->removeClausesAboveLevel(level);
 }
 
-TNode SatSolver::getNode(SatLiteral lit) {
+TNode TheoryProxy::getNode(SatLiteral lit) {
   return d_cnfStream->getNode(lit);
 }
 
-void SatSolver::notifyRestart() {
+void TheoryProxy::notifyRestart() {
   d_propEngine->checkTime();
   d_theoryEngine->notifyRestart();
 
@@ -125,7 +121,7 @@ void SatSolver::notifyRestart() {
   }
 }
 
-void SatSolver::notifyNewLemma(SatClause& lemma) {
+void TheoryProxy::notifyNewLemma(SatClause& lemma) {
   Assert(lemma.size() > 0);
   if(Options::current()->lemmaOutputChannel != NULL) {
     if(lemma.size() == 1) {
@@ -148,7 +144,7 @@ void SatSolver::notifyNewLemma(SatClause& lemma) {
   }
 }
 
-SatLiteral SatSolver::getNextReplayDecision() {
+SatLiteral TheoryProxy::getNextReplayDecision() {
 #ifdef CVC4_REPLAY
   if(Options::current()->replayStream != NULL) {
     Expr e = Options::current()->replayStream->nextExpr();
@@ -158,49 +154,41 @@ SatLiteral SatSolver::getNextReplayDecision() {
     }
   }
 #endif /* CVC4_REPLAY */
-  return Minisat::lit_Undef;
+  //FIXME!
+  return undefSatLiteral;
 }
 
-void SatSolver::logDecision(SatLiteral lit) {
+void TheoryProxy::logDecision(SatLiteral lit) {
 #ifdef CVC4_REPLAY
   if(Options::current()->replayLog != NULL) {
-    Assert(lit != Minisat::lit_Undef, "logging an `undef' decision ?!");
+    Assert(lit != undefSatLiteral, "logging an `undef' decision ?!");
     *Options::current()->replayLog << d_cnfStream->getNode(lit) << std::endl;
   }
 #endif /* CVC4_REPLAY */
 }
 
-void SatSolver::requirePhasedDecision(SatLiteral lit) {
-  Assert(!d_minisat->rnd_pol);
-  Debug("minisat") << "requirePhasedDecision(" << lit << ")" << endl;
-  SatVariable v = Minisat::var(lit);
-  d_minisat->freezePolarity(v, Minisat::sign(lit));
-}
 
-void SatSolver::dependentDecision(SatVariable dep, SatVariable dec) {
-  Debug("minisat") << "dependentDecision(" << dep << ", " << dec << ")" << endl;
-  d_minisat->dependentDecision(dep, dec);
-}
+//void TheoryProxy::requirePhasedDecision(SatLiteral lit) {
+//}
+//
+//void TheoryProxy::dependentDecision(SatVariable dep, SatVariable dec) {
+//}
+//
+//bool TheoryProxy::flipDecision() {
+//  return false;
+//}
+//
+//void TheoryProxy::flipDecision(SatVariable decn) {
+//}
+//
+//bool TheoryProxy::isDecision(SatVariable decn) const {
+//  return false;
+//}
+//
+//SatLiteral TheoryProxy::getDecision(unsigned level) const {
+//}
 
-bool SatSolver::flipDecision() {
-  Debug("minisat") << "flipDecision()" << endl;
-  return d_minisat->flipDecision();
-}
-
-void SatSolver::flipDecision(SatVariable decn) {
-  Debug("minisat") << "flipDecision(" << decn << ")" << endl;
-  return d_minisat->flipDecision(decn);
-}
-
-bool SatSolver::isDecision(SatVariable decn) const {
-  return d_minisat->isDecision(decn);
-}
-
-SatLiteral SatSolver::getDecision(unsigned level) const {
-  return d_minisat->getDecision(level);
-}
-
-void SatSolver::checkTime() {
+void TheoryProxy::checkTime() {
   d_propEngine->checkTime();
 }
 

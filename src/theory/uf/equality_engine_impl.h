@@ -366,7 +366,6 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
     }
   }
 
-  //AJR-hack  DO_THIS HERE
   //AJR-hack
   //notify the theory
   if( d_performNotify ){
@@ -876,7 +875,7 @@ bool EqualityEngine<NotifyClass>::areDisequal(TNode t1, TNode t2)
 #if 0
   Node equality2 = t2.eqNode(t1);
 #else
-  Node equality2 = NodeManager::currentNM()->mkNode( k, t2, t1 ); 
+  Node equality2 = NodeManager::currentNM()->mkNode( k, t2, t1 );
 #endif
   addTerm(equality2);
   if (getEqualityNode(equality2).getFind() == getEqualityNode(d_false).getFind()) {

@@ -182,10 +182,10 @@ Additional CVC4 options:\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
-   --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [on by default only for arithmetic]\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
+   --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
    --filter-lemma-length=N don't share lemmas strictly longer than N\n\
@@ -714,7 +714,7 @@ throw(OptionException) {
     case 'm':
       produceModels = true;
       break;
-      
+
     case PRODUCE_ASSIGNMENTS:
       produceAssignments = true;
       break;
@@ -746,7 +746,7 @@ throw(OptionException) {
       throw OptionException("This is not a proof-enabled build of CVC4; --proof cannot be used");
 #endif /* CVC4_PROOF */
       break;
-      
+
     case NO_TYPE_CHECKING:
       typeChecking = false;
       earlyTypeChecking = false;
@@ -874,7 +874,7 @@ throw(OptionException) {
                               optarg + "' is not between 0.0 and 1.0.");
       }
       break;
-      
+
     case SAT_RESTART_FIRST:
       {
         int i = atoi(optarg);
@@ -884,7 +884,7 @@ throw(OptionException) {
         satRestartFirst = i;
         break;
       }
-      
+
     case SAT_RESTART_INC:
       {
         int i = atoi(optarg);
@@ -1002,7 +1002,7 @@ throw(OptionException) {
 
     case PORTFOLIO_FILTER_LENGTH:
       sharingFilterByLength = atoi(optarg);
-      break; 
+      break;
 
     case ':':
       throw OptionException(string("option `") + argv[optind - 1] + "' missing its required argument");

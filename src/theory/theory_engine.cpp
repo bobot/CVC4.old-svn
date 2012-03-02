@@ -58,7 +58,6 @@ TheoryEngine::TheoryEngine(context::Context* context,
   d_hasShutDown(false),
   d_incomplete(context, false),
   d_sharedAssertions(context),
-  d_logic(""),
   d_propagatedLiterals(context),
   d_propagatedLiteralsIndex(context, 0),
   d_decisionRequests(context),
@@ -84,12 +83,6 @@ TheoryEngine::~TheoryEngine() {
       delete d_theoryOut[theoryId];
     }
   }
-}
-
-void TheoryEngine::setLogic(std::string logic) {
-  Assert(d_logic.empty());
-  // Set the logic
-  d_logic = logic;
 }
 
 void TheoryEngine::preRegister(TNode preprocessed) {
@@ -135,18 +128,18 @@ void TheoryEngine::check(Theory::Effort effort) {
     // Clear any leftover propagated equalities
     d_propagatedEqualities.clear();
 
-    // Mark the lemmas flag (no lemmas added)
-    d_lemmasAdded = false;
-
     // Mark the output channel unused (if this is FULL_EFFORT, and nothing
     // is done by the theories, no additional check will be needed)
     d_outputChannelUsed = false;
+
+    // Mark the lemmas flag (no lemmas added)
+    d_lemmasAdded = false;
 
     while (true) {
 
       Debug("theory") << "TheoryEngine::check(" << effort << "): running check" << std::endl;
 
-      if (Debug.isOn("theory::assertions") && effort==Theory::FULL_EFFORT ) {
+      if (Debug.isOn("theory::assertions")) {
         for (unsigned theoryId = 0; theoryId < THEORY_LAST; ++ theoryId) {
           Theory* theory = d_theoryTable[theoryId];
           if (theory && Theory::setContains((TheoryId)theoryId, d_activeTheories)) {
@@ -241,9 +234,6 @@ void TheoryEngine::check(Theory::Effort effort) {
         //AJR-hack-end
         // If we have any propagated equalities, we enqueue them to the theories and re-check
         if (d_propagatedEqualities.size() > 0) {
-          //AJR-hack
-          //std::cout << "assert shared equalities" << std::endl;
-          //AJR-hack-end
           Debug("theory") << "TheoryEngine::check(" << effort << "): distributing shared equalities" << std::endl;
           assertSharedEqualities();
         } else {
@@ -254,6 +244,7 @@ void TheoryEngine::check(Theory::Effort effort) {
         break;
       }
     }
+
     //AJR-hack
     //this is the flip decision code
     if( effort==Theory::FULL_EFFORT ){
@@ -344,12 +335,14 @@ void TheoryEngine::combineTheories() {
 
       if (value) {
         SharedEquality sharedEquality(toAssert, normalizedEquality, theory::THEORY_LAST, carePair.theory);
-        Assert(d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end());
-        d_propagatedEqualities.push_back(sharedEquality);
+        if (d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end()) {
+          d_propagatedEqualities.push_back(sharedEquality);
+        }
       } else {
         SharedEquality sharedEquality(toAssert.notNode(), normalizedEquality.notNode(), theory::THEORY_LAST, carePair.theory);
-        Assert(d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end());
-        d_propagatedEqualities.push_back(sharedEquality);
+        if (d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end()) {
+          d_propagatedEqualities.push_back(sharedEquality);
+        }
       }
     } else {
        Debug("sharing") << "TheoryEngine::combineTheories(): requesting a split " << std::endl;
@@ -512,7 +505,7 @@ void TheoryEngine::notifyRestart() {
   CVC4_FOR_EACH_THEORY;
 }
 
-void TheoryEngine::staticLearning(TNode in, NodeBuilder<>& learned) {
+void TheoryEngine::ppStaticLearn(TNode in, NodeBuilder<>& learned) {
   // NOTE that we don't look at d_theoryIsActive[] here.  First of
   // all, we haven't done any pre-registration yet, so we don't know
   // which theories are active.  Second, let's give each theory a shot
@@ -525,7 +518,7 @@ void TheoryEngine::staticLearning(TNode in, NodeBuilder<>& learned) {
 #endif
 #define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
   if (theory::TheoryTraits<THEORY>::hasStaticLearning) { \
-    reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->staticLearning(in, learned); \
+    reinterpret_cast<theory::TheoryTraits<THEORY>::theory_class*>(theoryOf(THEORY))->ppStaticLearn(in, learned); \
   }
 
   // static learning for each theory using the statement above
@@ -548,10 +541,10 @@ void TheoryEngine::shutdown() {
   theory::Rewriter::shutdown();
 }
 
-theory::Theory::SolveStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitutionOut) {
+theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitutionOut) {
   TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << endl;
-  Theory::SolveStatus solveStatus = theoryOf(atom)->solve(literal, substitutionOut);
+  Theory::PPAssertStatus solveStatus = theoryOf(atom)->ppAssert(literal, substitutionOut);
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << endl;
   return solveStatus;
 }
@@ -589,7 +582,7 @@ Node TheoryEngine::preprocess(TNode assertion) {
 
     // If this is an atom, we preprocess it with the theory
     if (Theory::theoryOf(current) != THEORY_BOOL) {
-      d_atomPreprocessingCache[current] = theoryOf(current)->preprocess(current);
+      d_atomPreprocessingCache[current] = theoryOf(current)->ppRewrite(current);
       continue;
     }
 
@@ -778,7 +771,7 @@ Node TheoryEngine::getExplanation(TNode node) {
   if (d_sharedTermsExist) {
     NodeBuilder<> nb(kind::AND);
     explainEqualities(theory->getId(), explanation, nb);
-    explanation = nb.getNumChildren()==1 ? nb[0] : nb;
+    explanation = nb;
   }
 
   Assert(!explanation.isNull());

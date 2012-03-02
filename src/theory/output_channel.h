@@ -168,7 +168,7 @@ public:
    * "depends" has been assigned.  Both must have a SAT literal.
    *
    * @param depends - the literal that must be assigned
-   * @param decision - the literal that cannot be decided until "depends" 
+   * @param decision - the literal that cannot be decided until "depends"
    * has an assignment
    * @param safe - whether it is safe to be interrupted
    */

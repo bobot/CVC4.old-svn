@@ -734,11 +734,11 @@ Expr DatatypeConstructorArg::getSelector() const {
   return d_selector;
 }
 
-//Expr DatatypeConstructorArg::getConstructor() const {
-//  CheckArgument(isResolved(), this,
-//                "cannot get a associated constructor for argument of an unresolved datatype constructor");
-//  return d_constructor;
-//}
+Expr DatatypeConstructorArg::getConstructor() const {
+  CheckArgument(isResolved(), this,
+                "cannot get a associated constructor for argument of an unresolved datatype constructor");
+  return d_constructor;
+}
 
 Type DatatypeConstructorArg::getType() const {
   return getSelector().getType();

@@ -159,8 +159,8 @@ void InstStrategyAutoGenTriggers::resetInstantiationRound(){
 }
 
 int InstStrategyAutoGenTriggers::process( Node f, int effort, int instLimit ){
-  int peffort = ( f.getNumChildren()==3 || d_tr_strategy==MIN_TRIGGER ) ? 2 : 1;
-  //int peffort = f.getNumChildren()==3 ? 2 : 1;
+  //int peffort = ( f.getNumChildren()==3 || d_tr_strategy==MIN_TRIGGER ) ? 2 : 1;
+  int peffort = f.getNumChildren()==3 ? 2 : 1;
   if( effort<peffort ){
     return STATUS_UNFINISHED;
   }else if( effort==peffort ){
@@ -218,22 +218,21 @@ Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
     //if( f.getNumChildren()==3 ){
     //  //don't auto-generate any trigger for quantifiers with user-provided patterns
     //  d_auto_gen_trigger[f] = NULL;
-    //}else{
-      std::vector< Node > patTerms;
-      collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );
-      //std::cout << "patTerms = " << (int)patTerms.size() << std::endl;
-      if( !patTerms.empty() ){
-        Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, false, false, Trigger::TRP_RETURN_NULL );
-        //making it during an instantiation round, so must reset
-        if( tr ){
-          tr->resetInstantiationRound();
-          tr->reset( Node::null() );
-        }
-        d_auto_gen_trigger[f] = tr;
-      }else{
-        d_auto_gen_trigger[f] = NULL;
-      }
     //}
+    std::vector< Node > patTerms;
+    collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );
+    //std::cout << "patTerms = " << (int)patTerms.size() << std::endl;
+    if( !patTerms.empty() ){
+      Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, false, false, Trigger::TRP_RETURN_NULL );
+      //making it during an instantiation round, so must reset
+      if( tr ){
+        tr->resetInstantiationRound();
+        tr->reset( Node::null() );
+      }
+      d_auto_gen_trigger[f] = tr;
+    }else{
+      d_auto_gen_trigger[f] = NULL;
+    }
   }
   return d_auto_gen_trigger[f];
 }

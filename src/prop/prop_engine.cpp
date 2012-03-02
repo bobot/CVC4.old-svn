@@ -19,9 +19,10 @@
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
 #include "prop/sat.h"
+#include "prop/sat_module.h"
 
 #include "theory/theory_engine.h"
-#include "theory/registrar.h"
+#include "theory/theory_registrar.h"
 #include "util/Assert.h"
 #include "util/options.h"
 #include "util/output.h"
@@ -70,12 +71,12 @@ PropEngine::PropEngine(TheoryEngine* te, Context* context) :
 
   Debug("prop") << "Constructing the PropEngine" << endl;
 
-  d_satSolver = new SatSolver(this, d_theoryEngine, d_context);
+  d_satSolver = SatSolverFactory::createDPLLMinisat(); 
 
-  theory::Registrar registrar(d_theoryEngine);
+  theory::TheoryRegistrar* registrar = new theory::TheoryRegistrar(d_theoryEngine);
   d_cnfStream = new CVC4::prop::TseitinCnfStream(d_satSolver, registrar, Options::current()->threads > 1);
 
-  d_satSolver->setCnfStream(d_cnfStream);
+  d_satSolver->initialize(d_context, new TheoryProxy(this, d_theoryEngine, d_context, d_cnfStream));
 }
 
 PropEngine::~PropEngine() {
@@ -119,8 +120,10 @@ void PropEngine::dependentDecision(TNode depends, TNode decision) {
 
   Assert(depends.getType().isBoolean());
   Assert(decision.getType().isBoolean());
-  SatVariable vdep = Minisat::var(d_cnfStream->getLiteral(depends));
-  SatVariable vdec = Minisat::var(d_cnfStream->getLiteral(decision));
+  //SatVariable vdep = Minisat::var(d_cnfStream->getLiteral(depends));
+  //SatVariable vdec = Minisat::var(d_cnfStream->getLiteral(decision));
+  SatVariable vdep = d_cnfStream->getLiteral(depends).getSatVariable();
+  SatVariable vdec = d_cnfStream->getLiteral(decision).getSatVariable();
   d_satSolver->dependentDecision(vdep, vdec);
 }
 
@@ -132,13 +135,14 @@ bool PropEngine::flipDecision() {
 void PropEngine::flipDecision(unsigned level) {
   Debug("prop") << "flipDecision(" << level << ")" << endl;
   Assert(level > 0 && level <= getDecisionLevel());
-  d_satSolver->flipDecision(Minisat::var(d_satSolver->getDecision(level)));
+  //d_satSolver->flipDecision(Minisat::var(d_satSolver->getDecision(level)));
+  d_satSolver->flipDecision(d_satSolver->getDecision(level).getSatVariable());
 }
 
 void PropEngine::flipDecision(Node lit) {
   Debug("prop") << "flipDecision(" << lit << ")" << endl;
   Assert(isDecision(lit));
-  d_satSolver->flipDecision(Minisat::var(d_cnfStream->getLiteral(lit)));
+  d_satSolver->flipDecision(d_cnfStream->getLiteral(lit).getSatVariable());
 }
 
 unsigned PropEngine::getDecisionLevel() const {
@@ -147,7 +151,7 @@ unsigned PropEngine::getDecisionLevel() const {
 
 bool PropEngine::isDecision(Node lit) const {
   Assert(isTranslatedSatLiteral(lit));
-  return d_satSolver->isDecision(Minisat::var(d_cnfStream->getLiteral(lit)));
+  return d_satSolver->isDecision(d_cnfStream->getLiteral(lit).getSatVariable());
 }
 
 Node PropEngine::getDecision(unsigned level) const {
@@ -167,7 +171,7 @@ void PropEngine::printSatisfyingAssignment(){
       ++i) {
     pair<Node, CnfStream::TranslationInfo> curr = *i;
     SatLiteral l = curr.second.literal;
-    if(!sign(l)) {
+    if(!l.isNegated()) {
       Node n = curr.first;
       SatLiteralValue value = d_satSolver->modelValue(l);
       Debug("prop-value") << "'" << l << "' " << value << " " << n << endl;
@@ -202,22 +206,22 @@ Result PropEngine::checkSat(unsigned long& millis, unsigned long& resource) {
 
   millis = d_satTimer.elapsed();
 
-  if( result == l_Undef ) {
+  if( result == SatValUnknown ) {
     Result::UnknownExplanation why =
       d_satTimer.expired() ? Result::TIMEOUT :
         (d_interrupted ? Result::INTERRUPTED : Result::RESOURCEOUT);
     return Result(Result::SAT_UNKNOWN, why);
   }
 
-  if( result == l_True && Debug.isOn("prop") ) {
+  if( result == SatValTrue && Debug.isOn("prop") ) {
     printSatisfyingAssignment();
   }
 
   Debug("prop") << "PropEngine::checkSat() => " << result << endl;
-  if(result == l_True && d_theoryEngine->isIncomplete()) {
+  if(result == SatValTrue && d_theoryEngine->isIncomplete()) {
     return Result(Result::SAT_UNKNOWN, Result::INCOMPLETE);
   }
-  return Result(result == l_True ? Result::SAT : Result::UNSAT);
+  return Result(result == SatValTrue ? Result::SAT : Result::UNSAT);
 }
 
 Node PropEngine::getValue(TNode node) const {
@@ -227,12 +231,12 @@ Node PropEngine::getValue(TNode node) const {
   SatLiteral lit = d_cnfStream->getLiteral(node);
 
   SatLiteralValue v = d_satSolver->value(lit);
-  if(v == l_True) {
+  if(v == SatValTrue) {
     return NodeManager::currentNM()->mkConst(true);
-  } else if(v == l_False) {
+  } else if(v == SatValFalse) {
     return NodeManager::currentNM()->mkConst(false);
   } else {
-    Assert(v == l_Undef);
+    Assert(v == SatValUnknown);
     return Node::null();
   }
 }
@@ -252,14 +256,14 @@ bool PropEngine::hasValue(TNode node, bool& value) const {
   SatLiteral lit = d_cnfStream->getLiteral(node);
 
   SatLiteralValue v = d_satSolver->value(lit);
-  if(v == l_True) {
+  if(v == SatValTrue) {
     value = true;
     return true;
-  } else if(v == l_False) {
+  } else if(v == SatValFalse) {
     value = false;
     return true;
   } else {
-    Assert(v == l_Undef);
+    Assert(v == SatValUnknown);
     return false;
   }
 }

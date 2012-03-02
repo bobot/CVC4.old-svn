@@ -10,6 +10,7 @@
 #include "context/cdo.h"
 #include "context/cdlist.h"
 #include "context/context.h"
+#include "context/cdqueue.h"
 #include "util/stats.h"
 #include "theory/arith/arith_prop_manager.h"
 
@@ -57,7 +58,16 @@ private:
 
   std::vector< Difference > d_differences;
 
-  context::CDList<Node> d_reasons;
+  struct LiteralsQueueElem {
+    bool d_eq;
+    ArithVar d_var;
+    Node d_reason;
+    LiteralsQueueElem() : d_eq(false), d_var(ARITHVAR_SENTINEL), d_reason() {}
+    LiteralsQueueElem(bool eq, ArithVar v, Node n) : d_eq(eq), d_var(v), d_reason(n) {}
+  };
+
+  /** Stores the queue of assertions. This keeps the Node backing the reasons */
+  context::CDQueue<LiteralsQueueElem> d_literalsQueue;
   PropManager& d_queue;
 
 
@@ -68,6 +78,28 @@ private:
   void explain(TNode literal, std::vector<TNode>& assumptions);
 
   Node d_false;
+
+  /**
+   * This is set to true when the first shared term is added.
+   * When this is set to true in the context, d_queue is emptied
+   * and not used again in the context.
+   */
+  context::CDO<bool> d_hasSharedTerms;
+
+
+  /**
+   * The generalization of asserting an equality or a disequality.
+   * If there are shared equalities, this is added to the equality engine.
+   * Otherwise, this is put on a queue until there is a shared term.
+   */
+  void assertLiteral(bool eq, ArithVar s, TNode reason);
+
+  /** This sends a shared term to the uninterpretted equality engine. */
+  void addAssertionToEqualityEngine(bool eq, ArithVar s, TNode reason);
+
+  /** Dequeues the delay queue and asserts these equalities.*/
+  void enableSharedTerms();
+  void dequeueLiterals();
 
 public:
 
@@ -85,9 +117,13 @@ public:
     }
   }
 
-  void differenceIsZero(ArithVar s, TNode reason);
+  void differenceIsZero(ArithVar s, TNode reason){
+    assertLiteral(true, s, reason);
+  }
 
-  void differenceCannotBeZero(ArithVar s, TNode reason);
+  void differenceCannotBeZero(ArithVar s, TNode reason){
+    assertLiteral(false, s, reason);
+  }
 
   void addSharedTerm(Node x);
 };/* class DifferenceManager */

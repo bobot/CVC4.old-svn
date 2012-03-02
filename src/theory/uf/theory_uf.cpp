@@ -58,6 +58,7 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   d_inst = new InstantiatorTheoryUf( c, qe, this );
   qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( (InstantiatorTheoryUf*)d_inst ) );
   //AJR-hack-end
+
 }/* TheoryUF::TheoryUF() */
 
 static Node mkAnd(const std::vector<TNode>& conjunctions) {
@@ -183,14 +184,13 @@ void TheoryUF::check(Effort level) {
   // until we go through the propagation list
   propagate(level);
 
-
   //AJR-hack
   if( d_thss ){
     if( !d_conflict ){
       d_thss->check( level );
     }
   }
-  if( !d_conflict && level==FULL_EFFORT ){
+  //if( !d_conflict && level==FULL_EFFORT ){
     //EqClassesIterator eqc_iter( &d_equalityEngine );
     //while( !eqc_iter.isFinished() ){
     //  if( StrongSolverTheoryUf::isRelevantType( (*eqc_iter).getType() ) ){
@@ -222,7 +222,7 @@ void TheoryUF::check(Effort level) {
     //for( NodeList::const_iterator it = d_assertions_ajr.begin(); it!=d_assertions_ajr.end(); ++it ){
     //  std::cout << "      " << (*it) << std::endl;
     //}
-  }
+  //}
   //AJR-hack-end
 
 }/* TheoryUF::check() */
@@ -396,7 +396,7 @@ void TheoryUF::presolve() {
   Debug("uf") << "uf: end presolve()" << endl;
 }
 
-void TheoryUF::staticLearning(TNode n, NodeBuilder<>& learned) {
+void TheoryUF::ppStaticLearn(TNode n, NodeBuilder<>& learned) {
   //TimerStat::CodeTimer codeTimer(d_staticLearningTimer);
 
   vector<TNode> workList;
@@ -507,7 +507,7 @@ void TheoryUF::staticLearning(TNode n, NodeBuilder<>& learned) {
   if(Options::current()->ufSymmetryBreaker) {
     d_symb.assertFormula(n);
   }
-}/* TheoryUF::staticLearning() */
+}/* TheoryUF::ppStaticLearn() */
 
 EqualityStatus TheoryUF::getEqualityStatus(TNode a, TNode b) {
   if (d_equalityEngine.areEqual(a, b)) {
@@ -606,12 +606,6 @@ void TheoryUF::computeCareGraph(CareGraph& careGraph) {
 }/* TheoryUF::computeCareGraph() */
 
 //AJR-hack
-void TheoryUF::notifyRestart(){
-  if( d_thss ){
-    d_thss->notifyRestart();
-  }
-}
-
 UfTermDb* TheoryUF::getTermDatabase(){
   if( getInstantiator() ){
     return ((InstantiatorTheoryUf*)getInstantiator())->getTermDatabase();
@@ -647,7 +641,6 @@ void TheoryUF::notifyDisequal( TNode t1, TNode t2, TNode reason ){
   }
 }
 //AJR-hack-end
-
 
 }/* CVC4::theory::uf namespace */
 }/* CVC4::theory namespace */
