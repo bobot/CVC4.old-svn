@@ -41,8 +41,6 @@ const ArithVar ARITHVAR_SENTINEL = std::numeric_limits<ArithVar>::max();
 typedef __gnu_cxx::hash_map<Node, ArithVar, NodeHashFunction> NodeToArithVarMap;
 typedef __gnu_cxx::hash_map<ArithVar, Node> ArithVarToNodeMap;
 
-typedef context::CDSet<ArithVar> CDArithVarSet;
-
 /**
  * ArithVarCallBack provides a mechanism for agreeing on callbacks while
  * breaking mutual recursion inclusion order problems.

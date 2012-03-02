@@ -771,7 +771,7 @@ Node TheoryArith::callDioSolver(){
     Assert(isInteger(v));
     Assert(d_partialModel.boundsAreEqual(v));
 
-    if(d_varsInDioSolver.find(v) != d_varsInDioSolver.end()){
+    if(d_varsInDioSolver.contains(v)){
       continue;
     }else{
       d_varsInDioSolver.insert(v);
