@@ -24,6 +24,7 @@
 #include "context/context.h"
 #include "context/cdlist.h"
 #include "context/cdset.h"
+#include "context/cdqueue.h"
 #include "expr/node.h"
 
 #include "theory/arith/arithvar.h"
@@ -161,17 +162,12 @@ private:
   /**
    * Queue of Integer variables that are known to be equal to a constant.
    */
-  context::CDList<ArithVar> d_constantIntegerVariables;
-  /** Iterator over d_constantIntegerVariables. */
-  context::CDO<unsigned int> d_CivIterator;
+  context::CDQueue<ArithVar> d_constantIntegerVariables;
 
   Node callDioSolver();
   Node dioCutting();
 
   Comparison mkIntegerEqualityFromAssignment(ArithVar v);
-
-  //TODO Replace with a more efficient check
-  CDArithVarSet d_varsInDioSolver;
 
   /**
    * If ArithVar v maps to the node n in d_removednode,
