@@ -18,7 +18,6 @@
  ** of given an equisatisfiable stream of assertions to PropEngine.
  **/
 
-#include "prop/sat.h"
 #include "prop/cnf_stream.h"
 #include "prop/prop_engine.h"
 #include "theory/theory_engine.h"
@@ -28,6 +27,7 @@
 #include "util/output.h"
 #include "expr/command.h"
 #include "expr/expr.h"
+#include "prop/sat.h"
 
 #include <queue>
 
@@ -43,7 +43,8 @@ using namespace CVC4::kind;
 namespace CVC4 {
 namespace prop {
 
-CnfStream::CnfStream(SatInputInterface *satSolver, theory::Registrar registrar, bool fullLitToNodeMap) :
+
+CnfStream::CnfStream(SatSolverInterface *satSolver, Registrar* registrar, bool fullLitToNodeMap) :
   d_satSolver(satSolver),
   d_fullLitToNodeMap(fullLitToNodeMap),
   d_registrar(registrar) {
@@ -65,25 +66,23 @@ void CnfStream::recordTranslation(TNode node, bool alwaysRecord) {
   }
 }
 
-TseitinCnfStream::TseitinCnfStream(SatInputInterface* satSolver, theory::Registrar registrar, bool fullLitToNodeMap) :
+TseitinCnfStream::TseitinCnfStream(SatSolverInterface* satSolver, Registrar* registrar, bool fullLitToNodeMap) :
   CnfStream(satSolver, registrar, fullLitToNodeMap) {
 }
 
 void CnfStream::assertClause(TNode node, SatClause& c) {
   Debug("cnf") << "Inserting into stream " << c << endl;
   if(Dump.isOn("clauses")) {
-    if(Message.isOn()) {
-      if(c.size() == 1) {
-        Message() << AssertCommand(BoolExpr(getNode(c[0]).toExpr())) << endl;
-      } else {
-        Assert(c.size() > 1);
-        NodeBuilder<> b(kind::OR);
-        for(int i = 0; i < c.size(); ++i) {
-          b << getNode(c[i]);
-        }
-        Node n = b;
-        Message() << AssertCommand(BoolExpr(n.toExpr())) << endl;
+    if(c.size() == 1) {
+      Dump("clauses") << AssertCommand(BoolExpr(getNode(c[0]).toExpr())) << endl;
+    } else {
+      Assert(c.size() > 1);
+      NodeBuilder<> b(kind::OR);
+      for(unsigned i = 0; i < c.size(); ++i) {
+        b << getNode(c[i]);
       }
+      Node n = b;
+      Dump("clauses") << AssertCommand(BoolExpr(n.toExpr())) << endl;
     }
   }
   d_satSolver->addClause(c, d_removable);
@@ -176,7 +175,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   SatLiteral lit;
   if (!hasLiteral(node)) {
     // If no literal, we'll make one
-    lit = variableToLiteral(d_satSolver->newVar(theoryLiteral));
+    lit = SatLiteral(d_satSolver->newVar(theoryLiteral));
     d_translationCache[node].literal = lit;
     d_translationCache[node.notNode()].literal = ~lit;
   } else {
@@ -203,7 +202,7 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   // If a theory literal, we pre-register it
   if (theoryLiteral) {
     bool backup = d_removable;
-    d_registrar.preRegister(node);
+    d_registrar->preRegister(node);
     d_removable = backup;
   }
 
@@ -226,7 +225,7 @@ SatLiteral CnfStream::convertAtom(TNode node) {
   Debug("cnf") << "convertAtom(" << node << ")" << endl;
 
   Assert(!isTranslated(node), "atom already mapped!");
-
+  // boolean variables are not theory literals
   bool theoryLiteral = node.getKind() != kind::VARIABLE && !node.getType().isPseudoboolean();
   SatLiteral lit = newLiteral(node, theoryLiteral);
 

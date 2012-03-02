@@ -12,11 +12,18 @@ MAKEFLAGS = -k
 # If a test shouldn't be run in e.g. competition mode,
 # put it below in "TESTS +="
 TESTS =	\
+<<<<<<< .working
 	tuple.cvc \
 	rec1.cvc \
 	rec2.cvc \
 	rec4.cvc \
 	rec5.cvc \
+=======
+	tuple.cvc \
+	rec1.cvc \
+	rec2.cvc \
+	rec5.cvc \
+>>>>>>> .merge-right.r2904
 	datatype.cvc \
 	datatype0.cvc \
 	datatype1.cvc \
@@ -50,7 +57,8 @@ endif
 
 # and make sure to distribute it
 EXTRA_DIST += \
-	error.cvc
+	error.cvc \
+	rec4.cvc
 
 # synonyms for "check"
 .PHONY: regress regress0 test

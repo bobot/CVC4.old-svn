@@ -55,6 +55,7 @@
 #include "theory/arrays/theory_arrays.h"
 #include "theory/bv/theory_bv.h"
 #include "theory/datatypes/theory_datatypes.h"
+#include "theory/theory_traits.h"
 #include "util/ite_removal.h"
 
 using namespace std;
@@ -254,13 +255,12 @@ SmtEngine::SmtEngine(ExprManager* em) throw(AssertionException) :
   d_theoryEngine = new TheoryEngine(d_context, d_userContext);
 
   // Add the theories
-  d_theoryEngine->addTheory<theory::builtin::TheoryBuiltin>(theory::THEORY_BUILTIN);
-  d_theoryEngine->addTheory<theory::booleans::TheoryBool>(theory::THEORY_BOOL);
-  d_theoryEngine->addTheory<theory::arith::TheoryArith>(theory::THEORY_ARITH);
-  d_theoryEngine->addTheory<theory::arrays::TheoryArrays>(theory::THEORY_ARRAY);
-  d_theoryEngine->addTheory<theory::bv::TheoryBV>(theory::THEORY_BV);
-  d_theoryEngine->addTheory<theory::datatypes::TheoryDatatypes>(theory::THEORY_DATATYPES);
-  d_theoryEngine->addTheory<theory::uf::TheoryUF>(theory::THEORY_UF);
+#ifdef CVC4_FOR_EACH_THEORY_STATEMENT
+#undef CVC4_FOR_EACH_THEORY_STATEMENT
+#endif
+#define CVC4_FOR_EACH_THEORY_STATEMENT(THEORY) \
+    d_theoryEngine->addTheory<theory::TheoryTraits<THEORY>::theory_class>(THEORY);
+  CVC4_FOR_EACH_THEORY;
 
   d_propEngine = new PropEngine(d_theoryEngine, d_context);
   d_theoryEngine->setPropEngine(d_propEngine);
@@ -815,8 +815,10 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
 
   Trace("constrainSubtypes") << "constrainSubtypes(): looking at " << top << endl;
 
+  set<TNode> done;
   stack<TNode> worklist;
   worklist.push(top);
+  done.insert(top);
 
   do {
     TNode n = worklist.top();
@@ -857,7 +859,10 @@ void SmtEnginePrivate::constrainSubtypes(TNode top, std::vector<Node>& assertion
     }
 
     for(TNode::iterator i = n.begin(); i != n.end(); ++i) {
-      worklist.push(*i);
+      if(done.find(*i) == done.end()) {
+        worklist.push(*i);
+        done.insert(*i);
+      }
     }
   } while(! worklist.empty());
 }

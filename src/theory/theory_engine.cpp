@@ -117,12 +117,12 @@ void TheoryEngine::check(Theory::Effort effort) {
     // Clear any leftover propagated equalities
     d_propagatedEqualities.clear();
 
-    // Mark the lemmas flag (no lemmas added)
-    d_lemmasAdded = false;
-
     // Mark the output channel unused (if this is FULL_EFFORT, and nothing
     // is done by the theories, no additional check will be needed)
     d_outputChannelUsed = false;
+
+    // Mark the lemmas flag (no lemmas added)
+    d_lemmasAdded = false;
 
     while (true) {
 
@@ -274,12 +274,14 @@ void TheoryEngine::combineTheories() {
 
       if (value) {
         SharedEquality sharedEquality(toAssert, normalizedEquality, theory::THEORY_LAST, carePair.theory);
-        Assert(d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end());
-        d_propagatedEqualities.push_back(sharedEquality);
+        if (d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end()) {
+          d_propagatedEqualities.push_back(sharedEquality);
+        }
       } else {
         SharedEquality sharedEquality(toAssert.notNode(), normalizedEquality.notNode(), theory::THEORY_LAST, carePair.theory);
-        Assert(d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end());
-        d_propagatedEqualities.push_back(sharedEquality);
+        if (d_sharedAssertions.find(sharedEquality.toAssert) == d_sharedAssertions.end()) {
+          d_propagatedEqualities.push_back(sharedEquality);
+        }
       }
     } else {
        Debug("sharing") << "TheoryEngine::combineTheories(): requesting a split " << std::endl;
@@ -481,7 +483,7 @@ void TheoryEngine::shutdown() {
 theory::Theory::PPAssertStatus TheoryEngine::solve(TNode literal, SubstitutionMap& substitutionOut) {
   TNode atom = literal.getKind() == kind::NOT ? literal[0] : literal;
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << "): solving with " << theoryOf(atom)->getId() << endl;
-  Theory::PPAssertStatus solveStatus = theoryOf(atom)->ppAsert(literal, substitutionOut);
+  Theory::PPAssertStatus solveStatus = theoryOf(atom)->ppAssert(literal, substitutionOut);
   Trace("theory::solve") << "TheoryEngine::solve(" << literal << ") => " << solveStatus << endl;
   return solveStatus;
 }

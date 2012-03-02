@@ -334,13 +334,16 @@ DatatypeType Parser::mkRecordType(const std::vector< std::pair<std::string, Type
   DatatypeType& dtt = d_recordTypes[typeIds];
   if(dtt.isNull()) {
     Datatype dt("__cvc4_record");
+Debug("datatypes") << "make new record_ctor" << std::endl;
     DatatypeConstructor c("__cvc4_record_ctor");
     for(std::vector< std::pair<std::string, Type> >::const_iterator i = typeIds.begin(); i != typeIds.end(); ++i) {
       c.addArg((*i).first, (*i).second);
     }
     dt.addConstructor(c);
     dtt = d_exprManager->mkDatatypeType(dt);
-  }
+  } else {
+Debug("datatypes") << "use old record_ctor" << std::endl;
+}
   return dtt;
 }
 
