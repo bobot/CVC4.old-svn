@@ -47,14 +47,13 @@
 #include <stdint.h>
 
 using namespace std;
-
-using namespace CVC4;
 using namespace CVC4::kind;
 
-using namespace CVC4::theory;
-using namespace CVC4::theory::arith;
+namespace CVC4 {
+namespace theory {
+namespace arith {
 
-static const uint32_t RESET_START = 2;
+const uint32_t RESET_START = 2;
 
 
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
@@ -1491,3 +1490,7 @@ void TheoryArith::propagateCandidates(){
     propagateCandidate(candidate);
   }
 }
+
+}; /* namesapce arith */
+}; /* namespace theory */
+}; /* namespace CVC4 */

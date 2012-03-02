@@ -26,7 +26,7 @@
 #include "context/cdset.h"
 #include "expr/node.h"
 
-#include "theory/arith/arith_utilities.h"
+#include "theory/arith/arithvar.h"
 #include "theory/arith/arithvar_set.h"
 #include "theory/arith/delta_rational.h"
 #include "theory/arith/tableau.h"

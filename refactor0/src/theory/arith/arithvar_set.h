@@ -23,7 +23,7 @@
 #define __CVC4__THEORY__ARITH__ARTIHVAR_SET_H
 
 #include <vector>
-#include "theory/arith/arith_utilities.h"
+#include "theory/arith/arithvar.h"
 
 namespace CVC4 {
 namespace theory {
