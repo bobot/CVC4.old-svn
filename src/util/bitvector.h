@@ -294,10 +294,9 @@ public:
     Assert(y.d_value < Integer(1).multiplyByPow2(32));
 
     uint32_t amount  = y.d_value.toUnsignedInt();
-    Integer res = d_value.divByPow2(amount);
-    BitVector res_bv(d_size - amount, res);
-    res_bv = res_bv.signExtend(amount); 
-    return res_bv;
+    Integer rest = d_value.divByPow2(amount);
+    Integer res = rest.oneExtend(d_size - amount, amount); 
+    return BitVector(d_size, res);
   }
   
 
