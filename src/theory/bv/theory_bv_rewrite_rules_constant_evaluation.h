@@ -277,8 +277,10 @@ Node RewriteRule<EvalUlt>::apply(Node node) {
   BitVector a = node[0].getConst<BitVector>();
   BitVector b = node[1].getConst<BitVector>();
 
-  BitVector res = a.unsignedLessThan(b);
-  return utils::mkConst(res);
+  if (a.unsignedLessThan(b)) {
+    return utils::mkTrue();
+  }
+  return utils::mkFalse();
 }
 
 template<>
@@ -293,8 +295,11 @@ Node RewriteRule<EvalSlt>::apply(Node node) {
   BitVector a = node[0].getConst<BitVector>();
   BitVector b = node[1].getConst<BitVector>();
 
-  BitVector res = a.signedLessThan(b);
-  return utils::mkConst(res);
+  if (a.signedLessThan(b)) {
+    return utils::mkTrue();
+  }
+  return utils::mkFalse();
+
 }
 
 template<>
@@ -309,8 +314,10 @@ Node RewriteRule<EvalUle>::apply(Node node) {
   BitVector a = node[0].getConst<BitVector>();
   BitVector b = node[1].getConst<BitVector>();
 
-  BitVector res = a.unsignedLessThanEq(b);
-  return utils::mkConst(res);
+  if (a.unsignedLessThanEq(b)) {
+    return utils::mkTrue();
+  }
+  return utils::mkFalse();
 }
 
 template<>
@@ -325,8 +332,10 @@ Node RewriteRule<EvalSle>::apply(Node node) {
   BitVector a = node[0].getConst<BitVector>();
   BitVector b = node[1].getConst<BitVector>();
 
-  BitVector res = a.signedLessThanEq(b);
-  return utils::mkConst(res);
+  if (a.signedLessThanEq(b)) {
+    return utils::mkTrue(); 
+  }
+  return utils::mkFalse();
 }
 
 template<>
@@ -342,7 +351,7 @@ Node RewriteRule<EvalExtract>::apply(Node node) {
   unsigned lo = utils::getExtractLow(node);
   unsigned hi = utils::getExtractHigh(node);
 
-  BitVector res = a.extract(lo, hi);
+  BitVector res = a.extract(hi, lo);
   return utils::mkConst(res);
 }
 
@@ -356,9 +365,12 @@ bool RewriteRule<EvalConcat>::applies(Node node) {
 template<>
 Node RewriteRule<EvalConcat>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<EvalConcat>(" << node << ")" << std::endl;
-  BitVector a = node[0].getConst<BitVector>();
-  BitVector b = node[1].getConst<BitVector>();
-  BitVector res = a.concat(b);
+  unsigned num = node.getNumChildren();
+  BitVector res = node[0].getConst<BitVector>();
+  for(unsigned i = 1; i < num; ++i ) {  
+    BitVector a = node[i].getConst<BitVector>();
+    res = res.concat(a); 
+  }
   
   return utils::mkConst(res);
 }

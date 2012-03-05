@@ -43,10 +43,13 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
     result = constantEvaluationRewrites(result);
     result = symbolicEvaluationRewrites(result);
     result = normalizationRewrites(result);
+    if (node.getType().isBitVector()) {
+      Assert(utils::getSize(result) == utils::getSize(node));
+    }
   }
 
   BVDebug("bitvector") << "TheoryBV::postRewrite(" << node << ") => " << result << std::endl;
-
+  
   return RewriteResponse(REWRITE_DONE, result);
 }
 

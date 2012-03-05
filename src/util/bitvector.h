@@ -165,12 +165,16 @@ public:
   }
 
   BitVector operator -(const BitVector& y) const {
-    Assert (d_size == y.d_size); 
-    return *this + ~y + 1;
+    Assert (d_size == y.d_size);
+    // to maintain the invariant that we are only adding BitVectors of the
+    // same size
+    BitVector one(d_size, Integer(1)); 
+    return *this + ~y + one;
   }
 
   BitVector operator -() const {
-    return ~(*this) + 1;
+    BitVector one(d_size, Integer(1)); 
+    return ~(*this) + one;
   }
 
   BitVector operator *(const BitVector& y) const {
@@ -232,15 +236,11 @@ public:
   }
 
   BitVector signExtend(unsigned amount) const {
-    BitVector sign_bit = (*this).extract(d_size -1, d_size -1);
-    if(sign_bit == BitVector(0)) {
+    Integer sign_bit = d_value.extractBitRange(1, d_size -1);
+    if(sign_bit == Integer(0)) {
       return BitVector(d_size + amount, d_value); 
     } else {
-      // TODO check if bit is larger than bits of integer?
-      Integer val = d_value;
-      for(unsigned i = d_size; i < d_size + amount; ++i) {
-        val = val.setBitAtIndex(i); 
-      }
+      Integer val = d_value.oneExtend(d_size, amount);
       return BitVector(d_size+ amount, val);
     }
   }
@@ -250,23 +250,50 @@ public:
    */
 
   BitVector leftShift(const BitVector& y) const {
-    Assert (y.d_size <=32); 
+    if (y.d_value > Integer(d_size)) {
+      return BitVector(d_size, Integer(0)); 
+    }
+    if (y.d_value == 0) {
+      return *this; 
+    }
+
+    // making sure we don't lose information casting
+    Assert(y.d_value < Integer(1).multiplyByPow2(32));
     uint32_t amount = y.d_value.toUnsignedInt(); 
     Integer res = d_value.multiplyByPow2(amount);
     return BitVector(d_size, res);
   }
 
   BitVector logicalRightShift(const BitVector& y) const {
-    Assert (y.d_size <=32); 
+    if(y.d_value > Integer(d_size)) {
+      return BitVector(d_size, Integer(0)); 
+    }
+
+    // making sure we don't lose information casting
+    Assert(y.d_value < Integer(1).multiplyByPow2(32));
     uint32_t amount = y.d_value.toUnsignedInt(); 
     Integer res = d_value.divByPow2(amount); 
     return BitVector(d_size, res);
   }
 
   BitVector arithRightShift(const BitVector& y) const {
-    Assert(y.d_size <= 32);
-    uint32_t amount  = y.d_value.toUnsignedInt();
     Integer sign_bit = d_value.extractBitRange(1, d_size - 1); 
+    if(y.d_value > Integer(d_size)) {
+      if(sign_bit == Integer(0)) {
+        return BitVector(d_size, Integer(0)); 
+      } else {
+        return BitVector(d_size, Integer(d_size).multiplyByPow2(d_size) -1 ); 
+      }
+    }
+    
+    if (y.d_value == 0) {
+      return *this; 
+    }
+
+    // making sure we don't lose information casting
+    Assert(y.d_value < Integer(1).multiplyByPow2(32));
+
+    uint32_t amount  = y.d_value.toUnsignedInt();
     Integer res = d_value.divByPow2(amount);
     BitVector res_bv(d_size - amount, res);
     res_bv = res_bv.signExtend(amount); 
@@ -279,8 +306,6 @@ public:
    */
   
   size_t hash() const {
-    // FIXME:
-    // returns different hash values for the same value
     return d_value.hash() + d_size;
   }
 

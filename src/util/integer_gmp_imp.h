@@ -168,12 +168,27 @@ public:
     return Integer( result );
   }
 
+  /**
+   * Returns the integer with the binary representation of size bits
+   * extended with amount 1's
+   */
+  Integer oneExtend(uint32_t size, uint32_t amount) const {
+    // check that the size is accurate
+    Assert ((*this) < Integer(1).multiplyByPow2(size));
+    mpz_class res = d_value;
 
-  Integer setBitAtIndex(uint32_t bitIndex) const {
-    mpz_class res;
-    mpz_setbit(res.get_mpz_t(), bitIndex);
+    for (unsigned i = size; i < size + amount; ++i) {
+      mpz_setbit(res.get_mpz_t(), i); 
+    }
+    
     return Integer(res); 
   }
+  
+  // Integer setBitAtIndex(uint32_t bitIndex) const {
+  //   mpz_class res = d_value;
+  //   mpz_setbit(res.get_mpz_t(), bitIndex);
+  //   return Integer(res); 
+  // }
 
   uint32_t toUnsignedInt() const {
     return  mpz_get_ui(d_value.get_mpz_t());
@@ -249,7 +264,7 @@ public:
    */
   Integer modByPow2(uint32_t exp) const {
     mpz_class res; 
-    mpz_congruent_2exp_p(res.get_mpz_t(), d_value.get_mpz_t(), exp);
+    mpz_fdiv_r_2exp(res.get_mpz_t(), d_value.get_mpz_t(), exp);
     return Integer(res);
   }
 
