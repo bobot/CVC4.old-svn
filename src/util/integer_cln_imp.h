@@ -185,6 +185,24 @@ public:
   }
   */
 
+
+  Integer bitwiseOr(const Integer& y) const {
+    return Integer(cln::logior(d_value, y.d_value));  
+  }
+
+  Integer bitwiseAnd(const Integer& y) const {
+    return Integer(cln::logand(d_value, y.d_value));  
+  }
+
+  Integer bitwiseXor(const Integer& y) const {
+    return Integer(cln::logxor(d_value, y.d_value));  
+  }
+
+  Integer bitwiseNot() const {
+    return Integer(cln::lognot(d_value));  
+  }
+  
+  
   /**
    * Return this*(2^pow).
    */
@@ -193,6 +211,20 @@ public:
     return Integer( d_value << ipow);
   }
 
+  Integer oneExtend(uint32_t size, uint32_t amount) const {
+    Assert((*this) < Integer(1).multiplyByPow2(size));
+    cln::cl_byte range(amount, size);
+    cln::cl_I allones = (cln::cl_I(1) << (size + amount))- 1; // 2^size - 1
+    Integer temp(allones);
+    
+    return Integer(cln::deposit_field(allones, d_value, range)); 
+  }
+  
+  uint32_t toUnsignedInt() const {
+    return cln::cl_I_to_uint(d_value); 
+  }
+  
+  
   /** See CLN Documentation. */
   Integer extractBitRange(uint32_t bitCount, uint32_t low) const {
     cln::cl_byte range(bitCount, low);
@@ -243,6 +275,15 @@ public:
     return Integer( cln::exquo(d_value, y.d_value) );
   }
 
+  Integer modByPow2(uint32_t exp) const {
+    cln::cl_byte range(exp, 0);
+    return Integer(cln::ldb(d_value, range));
+  }
+
+  Integer divByPow2(uint32_t exp) const {
+    return d_value >> exp; 
+  }
+  
   /**
    * Raise this Integer to the power <code>exp</code>.
    *

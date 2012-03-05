@@ -1,9 +1,9 @@
 /*********************                                                        */
 /*! \file theory_bv_rewrite_rules_core.h
  ** \verbatim
- ** Original author: dejan
+ ** Original author: lianah
  ** Major contributors: none
- ** Minor contributors (to current version): mdeters
+ ** Minor contributors (to current version): 
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -294,26 +294,6 @@ Node RewriteRule<ZeroExtendEliminate>::apply(Node node) {
 
   return result;
 }
-
-
-template<>
-bool RewriteRule<DivZeroGuard>::applies(Node node) {
-  return (node.getKind() == kind::BITVECTOR_UDIV ||
-          node.getKind() == kind::BITVECTOR_UREM ||
-          node.getKind() == kind::BITVECTOR_SDIV ||
-          node.getKind() == kind::BITVECTOR_SREM ||
-          node.getKind() == kind::BITVECTOR_SMOD);
-}
-
-template<>
-Node RewriteRule<DivZeroGuard>::apply(Node node) {
-  BVDebug("bv-rewrite") << "RewriteRule<DivZeroGuard>(" << node << ")" << std::endl;
-
-  Unimplemented();
-  
-}
-
-
 
 
 }

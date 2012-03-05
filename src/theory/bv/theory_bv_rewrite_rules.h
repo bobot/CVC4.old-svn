@@ -2,7 +2,7 @@
 /*! \file theory_bv_rewrite_rules.h
  ** \verbatim
  ** Original author: dejan
- ** Major contributors: none
+ ** Major contributors: lianah
  ** Minor contributors (to current version): mdeters
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
@@ -31,7 +31,8 @@ namespace theory {
 namespace bv {
 
 enum RewriteRuleId {
-  /// core rewrite rules
+
+  /// core normalization rules
   EmptyRule,
   ConcatFlatten,
   ConcatExtractMerge,
@@ -43,6 +44,7 @@ enum RewriteRuleId {
   FailEq,
   SimplifyEq,
   ReflexivityEq,
+
   /// operator elimination rules
   UgtToUlt,
   UgeToUle,
@@ -58,8 +60,37 @@ enum RewriteRuleId {
   SmodEliminate,
   SremEliminate,
   ZeroExtendEliminate,
-  // division by zero guards: rewrite a / b as b!=0 => a/b = ...
-  DivZeroGuard
+
+  /// ground term evaluation
+  EvalEquals,
+  EvalConcat,
+  EvalAnd,
+  EvalOr,
+  EvalXor,
+  EvalNot,
+  EvalComp,
+  EvalMult,
+  EvalPlus,
+  EvalSub,
+  EvalUdiv,
+  EvalUrem,
+  EvalShl,
+  EvalLshr,
+  EvalAshr,
+  EvalUlt,
+  EvalSlt,
+  EvalUle,
+  EvalSle,
+  EvalExtract,
+  EvalSignExtend,
+  EvalRotateLeft,
+  EvalRotateRight,
+  EvalNeg,
+  EvalXnor
+  /// constant forward propagation
+
+  /// symbolic evaluation
+  
  };
 
 inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
@@ -87,8 +118,32 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case SdivEliminate :      out << "SdivEliminate";       return out;
   case SremEliminate :      out << "SremEliminate";       return out;
   case SmodEliminate :      out << "SmodEliminate";       return out;
-  case ZeroExtendEliminate :out << "ZeroExtendEliminate";       return out;
-  case DivZeroGuard :       out << "DivZeroGuard";        return out;
+  case ZeroExtendEliminate :out << "ZeroExtendEliminate"; return out;
+  case EvalEquals :         out << "EvalEquals";          return out;
+  case EvalConcat :         out << "EvalConcat";          return out;
+  case EvalAnd :            out << "EvalAnd";             return out;
+  case EvalOr :             out << "EvalOr";              return out;
+  case EvalXor :            out << "EvalXor";             return out;
+  case EvalNot :            out << "EvalNot";             return out;
+  case EvalComp :           out << "EvalComp";            return out;
+  case EvalMult :           out << "EvalMult";            return out;
+  case EvalPlus :           out << "EvalPlus";            return out;
+  case EvalSub :            out << "EvalSub";             return out;
+  case EvalUdiv :           out << "EvalUdiv";            return out;
+  case EvalUrem :           out << "EvalUrem";            return out;
+  case EvalShl :            out << "EvalShl";             return out;
+  case EvalLshr :           out << "EvalLshr";            return out;
+  case EvalAshr :           out << "EvalAshr";            return out;
+  case EvalUlt :            out << "EvalUlt";             return out;
+  case EvalSlt :            out << "EvalSlt";             return out;
+  case EvalUle :            out << "EvalUle";             return out;
+  case EvalSle :            out << "EvalSle";             return out;
+  case EvalExtract :        out << "EvalExtract";         return out;
+  case EvalSignExtend :     out << "EvalSignExtend";      return out;
+  case EvalRotateLeft :     out << "EvalRotateLeft";      return out;
+  case EvalRotateRight :    out << "EvalRotateRight";     return out;
+  case EvalNeg :            out << "EvalNeg";             return out;
+  case EvalXnor :           out << "EvalXnor";            return out;
   default:
     Unreachable();
   }
@@ -179,7 +234,6 @@ typename RewriteRule<rule>::RuleStatistics* RewriteRule<rule>::s_statistics = NU
 
 /** Have to list all the rewrite rules to get the statistics out */
 struct AllRewriteRules {
-  
   RewriteRule<EmptyRule>            rule00;
   RewriteRule<ConcatFlatten>        rule01;
   RewriteRule<ConcatExtractMerge>   rule02;
@@ -203,8 +257,31 @@ struct AllRewriteRules {
   RewriteRule<SdivEliminate>        rule22;
   RewriteRule<SremEliminate>        rule23;
   RewriteRule<SmodEliminate>        rule24;
-  RewriteRule<DivZeroGuard>         rule25;
-
+  RewriteRule<EvalConcat>           rule25;
+  RewriteRule<EvalAnd>              rule26;
+  RewriteRule<EvalOr>               rule27;
+  RewriteRule<EvalXor>              rule28;
+  RewriteRule<EvalNot>              rule29;
+  RewriteRule<EvalComp>             rule30;
+  RewriteRule<EvalMult>             rule31;
+  RewriteRule<EvalPlus>             rule32;
+  RewriteRule<EvalSub>              rule33;
+  RewriteRule<EvalUdiv>             rule34;
+  RewriteRule<EvalUrem>             rule35;
+  RewriteRule<EvalShl>              rule36;
+  RewriteRule<EvalLshr>             rule37;
+  RewriteRule<EvalAshr>             rule38;
+  RewriteRule<EvalUlt>              rule39;
+  RewriteRule<EvalUle>              rule40;
+  RewriteRule<EvalSlt>              rule41;
+  RewriteRule<EvalSle>              rule42;
+  RewriteRule<EvalExtract>          rule43;
+  RewriteRule<EvalSignExtend>       rule44;
+  RewriteRule<EvalRotateLeft>       rule45;
+  RewriteRule<EvalRotateRight>      rule46;
+  RewriteRule<EvalEquals>           rule47;
+  RewriteRule<EvalNeg>              rule48;
+  RewriteRule<EvalXnor>             rule49;
 };
 
 template<>
