@@ -223,6 +223,8 @@ private:
   TheoryUF* d_th;
   /** conflict find structure, one for each type */
   std::map< TypeNode, ConflictFind* > d_conf_find;
+  /** all types */
+  std::vector< TypeNode > d_conf_types;
 public:
   StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th);
   ~StrongSolverTheoryUf() {}
@@ -251,6 +253,10 @@ public:
   //print debug
   void debugPrint( const char* c );
 public:
+  /** get number of types */
+  int getNumCardinalityTypes() { return (int)d_conf_types.size(); }
+  /** get type */
+  TypeNode getCardinalityType( int i ) { return d_conf_types[i]; }
   /** set cardinality for sort */
   void setCardinality( TypeNode t, int c, bool isStrict = false );
   /** get cardinality for sort */

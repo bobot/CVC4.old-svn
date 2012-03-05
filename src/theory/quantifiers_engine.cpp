@@ -24,6 +24,28 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
+  /** reset instantiation */
+void InstStrategy::resetInstantiationRound(){
+  d_no_instantiate_temp.clear();
+  d_no_instantiate_temp.insert( d_no_instantiate_temp.begin(), d_no_instantiate.begin(), d_no_instantiate.end() );
+  processResetInstantiationRound();
+}
+/** do instantiation round method */
+int InstStrategy::doInstantiation( Node f, int effort, int limitInst ){
+  if( shouldInstantiate( f ) ){
+    int origLemmas = d_quantEngine->getNumLemmasWaiting();
+    int retVal = process( f, effort, limitInst );
+    if( d_quantEngine->getNumLemmasWaiting()!=origLemmas ){
+      for( int i=0; i<(int)d_priority_over.size(); i++ ){
+        d_priority_over[i]->d_no_instantiate_temp.push_back( f );
+      }
+    }
+    return retVal;
+  }else{
+    return STATUS_UNKNOWN;
+  }
+}
+
 Instantiator::Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th) : 
 d_quantEngine( qe ),
 d_th( th ){
@@ -43,7 +65,7 @@ int Instantiator::doInstantiation( Node f, int effort, int limitInst ){
           Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
           //call the instantiation strategy's process method
           int s_limitInst = limitInst>0 ? limitInst-(d_quantEngine->getNumLemmasWaiting()-origLemmas) : 0;
-          int s_status = d_instStrategies[i]->process( f, effort, s_limitInst );
+          int s_status = d_instStrategies[i]->doInstantiation( f, effort, s_limitInst );
           Debug("inst-engine-inst") << "  -> status is " << s_status << std::endl;
           if( limitInst>0 && (d_quantEngine->getNumLemmasWaiting()-origLemmas)>=limitInst ){
             Assert( (d_quantEngine->getNumLemmasWaiting()-origLemmas)==limitInst );

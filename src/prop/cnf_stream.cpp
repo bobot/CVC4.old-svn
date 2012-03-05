@@ -181,7 +181,8 @@ SatLiteral CnfStream::newLiteral(TNode node, bool theoryLiteral) {
   if ( theoryLiteral || d_fullLitToNodeMap ||
        ( CVC4_USE_REPLAY && Options::current()->replayLog != NULL ) ||
        Dump.isOn("clauses") ||
-       true /* quantifiers rely on this mapping, too */ ) {
+       true /* quantifiers rely on this mapping, too */ 
+       ) {
     d_nodeCache[lit] = node;
     d_nodeCache[~lit] = node.notNode();
   }

@@ -38,7 +38,10 @@ private:
   /** are we in the middle of an instantiation round */
   context::CDO< bool > d_in_instRound;
   bool d_in_instRound_no_c;
-  /** do CBQI */
+  /** status of instantiation round (one of InstStrategy::STATUS_*) */
+  int d_inst_round_status;
+private:
+  /** whether to do CBQI for quantifier f */
   bool doCbqi( Node f );
 private:
   /** do instantiation round */
@@ -47,8 +50,13 @@ private:
   void registerLiterals( Node n, Node f );
   /** compute phase requirements */
   void computePhaseReqs( Node n, bool polarity );
+private:
+  enum{
+    SAT_CBQI,
+    SAT_INST_STRATEGY,
+  };
   /** debug sat */
-  void debugSat();
+  void debugSat( int reason );
 public:
   InstantiationEngine( TheoryQuantifiers* th );
   ~InstantiationEngine(){}

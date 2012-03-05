@@ -455,7 +455,7 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
       nodesWithinRep[r2][ d_disequalities[i][0][1] ] = true;
     }
   }
-  Debug("uf-ss") << conflict.size() << " " << clique.size() << std::endl;
+  //Debug("uf-ss") << conflict.size() << " " << clique.size() << std::endl;
   Assert( (int)conflict.size()==(int)clique.size()*( (int)clique.size()-1 )/2 );
   Debug("uf-ss") << "Finding clique equalities internal to eq classes..." << std::endl;
   //now, we must explain equalities within each equivalence class
@@ -498,6 +498,8 @@ void StrongSolverTheoryUf::ConflictFind::explainClique( std::vector< Node >& cli
   //std::cout << "*** Add clique conflict " << conflictNode << std::endl;
   out->lemma( conflictNode );
   ++( d_th->getStrongSolver()->d_statistics.d_clique_lemmas );
+
+  //DO_THIS: ensure that the same clique is not reported???  Check standard effort after assertDisequal can produce same clique.
 #endif
 }
 
@@ -506,8 +508,11 @@ void StrongSolverTheoryUf::ConflictFind::newEqClass( Node n ){
   if( d_regions_map.find( n )==d_regions_map.end() ){
     d_regions_map[n] = d_regions_index;
     Debug("uf-ss") << "StrongSolverTheoryUf: New Eq Class " << n << std::endl;
+    Debug("uf-ss-debug") << d_regions_index << " " << (int)d_regions.size() << std::endl;
     if( d_regions_index<d_regions.size() ){
-      Assert( d_regions[ d_regions_index ]->d_valid );
+      d_regions[ d_regions_index ]->debugPrint("uf-ss-debug",true);
+      d_regions[ d_regions_index ]->d_valid = true;
+      //Assert( d_regions[ d_regions_index ]->d_valid );
       Assert( d_regions[ d_regions_index ]->getNumReps()==0 );
     }else{
       d_regions.push_back( new Region( this, d_th->getContext() ) );
@@ -1047,6 +1052,7 @@ void StrongSolverTheoryUf::setCardinality( TypeNode t, int c, bool isStrict ) {
   Debug("uf-ss-solver") << "StrongSolverTheoryUf: Set cardinality " << t << " = " << c << std::endl;
   if( d_conf_find.find( t )==d_conf_find.end() ){
     d_conf_find[t] = new ConflictFind( t, d_th->getContext(), d_th );
+    d_conf_types.push_back( t );
   }
   d_conf_find[t]->setCardinality( c ); 
   d_conf_find[t]->d_isCardinalityStrict = isStrict;

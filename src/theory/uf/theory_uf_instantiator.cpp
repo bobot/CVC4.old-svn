@@ -30,7 +30,7 @@ using namespace CVC4::theory::uf;
 #define USE_LITERAL_MATCHING
 #define USE_FREE_VARIABLE_INSTANTIATION
 
-void InstStrategyCheckCESolved::resetInstantiationRound(){
+void InstStrategyCheckCESolved::processResetInstantiationRound(){
   for( std::map< Node, bool >::iterator it = d_solved.begin(); it != d_solved.end(); ++it ){
     calcSolved( it->first );
   }
@@ -70,7 +70,7 @@ void InstStrategyCheckCESolved::calcSolved( Node f ){
   }
 }
 
-void InstStrategyLitMatch::resetInstantiationRound(){
+void InstStrategyLitMatch::processResetInstantiationRound(){
   
 }
 
@@ -111,7 +111,7 @@ int InstStrategyLitMatch::process( Node f, int effort, int instLimit ){
   return STATUS_UNKNOWN;
 }
 
-void InstStrategyUserPatterns::resetInstantiationRound(){
+void InstStrategyUserPatterns::processResetInstantiationRound(){
   for( std::map< Node, std::vector< Trigger* > >::iterator it = d_user_gen.begin(); it != d_user_gen.end(); ++it ){
     for( int i=0; i<(int)it->second.size(); i++ ){
       it->second[i]->resetInstantiationRound();
@@ -149,7 +149,7 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
   }
 }
  
-void InstStrategyAutoGenTriggers::resetInstantiationRound(){
+void InstStrategyAutoGenTriggers::processResetInstantiationRound(){
   for( std::map< Node, Trigger* >::iterator it = d_auto_gen_trigger.begin(); it != d_auto_gen_trigger.end(); ++it ){
     if( it->second ){
       it->second->resetInstantiationRound();
@@ -159,8 +159,9 @@ void InstStrategyAutoGenTriggers::resetInstantiationRound(){
 }
 
 int InstStrategyAutoGenTriggers::process( Node f, int effort, int instLimit ){
-  //int peffort = ( f.getNumChildren()==3 || d_tr_strategy==MIN_TRIGGER ) ? 2 : 1;
-  int peffort = f.getNumChildren()==3 ? 2 : 1;
+  int peffort = ( f.getNumChildren()==3 || d_tr_strategy==MIN_TRIGGER ) ? 2 : 1;
+  //int peffort = f.getNumChildren()==3 ? 2 : 1;
+  //int peffort = 1;
   if( effort<peffort ){
     return STATUS_UNFINISHED;
   }else if( effort==peffort ){
@@ -237,7 +238,7 @@ Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
   return d_auto_gen_trigger[f];
 }
 
-void InstStrategyFreeVariable::resetInstantiationRound(){
+void InstStrategyFreeVariable::processResetInstantiationRound(){
   
 }
 
@@ -311,16 +312,21 @@ Instantiator( c, ie, th )
 {
   d_db = new UfTermDb( this );
 
-  if(!Options::current()->finiteModelFind ){
+  if(Options::current()->finiteModelFind ){
+    addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), ie ) );
+  }else{
     d_isup = new InstStrategyUserPatterns( this, ie );
     addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
     //addInstStrategy( new InstStrategyLitMatch( this, ie ) );
     addInstStrategy( d_isup );
-    addInstStrategy( new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MAX_TRIGGER ) );
-    addInstStrategy( new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MIN_TRIGGER ) );
+    InstStrategy* i_ag = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MAX_TRIGGER );
+    addInstStrategy( i_ag );
+    InstStrategy* i_agm = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MIN_TRIGGER );
+    addInstStrategy( i_agm );
     addInstStrategy( new InstStrategyFreeVariable( this, ie ) );
-  }else{
-    addInstStrategy( new InstStrategyFinteModelFind( c, this, ie ) );
+    //d_isup->setPriorityOver( i_ag );
+    //d_isup->setPriorityOver( i_agm );
+    //i_ag->setPriorityOver( i_agm );
   }
 }
 
@@ -460,7 +466,7 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
 
 int InstantiatorTheoryUf::process( Node f, int effort, int instLimit ){
   Debug("quant-uf") << "UF: Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  return InstStrategy::STATUS_UNKNOWN;
+  return InstStrategy::STATUS_SAT;
 }
 
 //void InstantiatorTheoryUf::getObligations( Node f, std::vector< Node >& obs ){

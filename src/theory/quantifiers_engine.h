@@ -66,14 +66,18 @@ protected:
   /** do not instantiate list */
   std::vector< Node > d_no_instantiate;
   std::vector< Node > d_no_instantiate_temp;
+  /** reset instantiation */
+  virtual void processResetInstantiationRound(){}
+  /** process method */
+  virtual int process( Node f, int effort, int limitInst = 0 ) = 0;
 public:
   InstStrategy( QuantifiersEngine* ie ) : d_quantEngine( ie ){}
   virtual ~InstStrategy(){}
 
   /** reset instantiation */
-  virtual void resetInstantiationRound(){}
-  /** process method */
-  virtual int process( Node f, int effort, int limitInst = 0 ){ return STATUS_UNKNOWN; }
+  void resetInstantiationRound();
+  /** do instantiation round method */
+  int doInstantiation( Node f, int effort, int limitInst = 0 );
   /** update status */
   static void updateStatus( int& currStatus, int addStatus ){
     if( addStatus==STATUS_UNFINISHED ){
@@ -93,7 +97,7 @@ public:
   void setNoInstantiate( Node n ) { d_no_instantiate.push_back( n ); }
   /** should instantiate */
   bool shouldInstantiate( Node n ) { 
-    return std::find( d_no_instantiate.begin(), d_no_instantiate.end(), n )==d_no_instantiate.end(); 
+    return std::find( d_no_instantiate_temp.begin(), d_no_instantiate_temp.end(), n )==d_no_instantiate_temp.end(); 
   }
 };
 

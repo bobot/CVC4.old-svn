@@ -59,7 +59,9 @@ private:
   bool didCurrentInstantiation( PartialInstSet* pi );
 private:
   /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
+  InstantiatorTheoryUf* d_ith;
+  /** strong solver class */
+  StrongSolverTheoryUf* d_ss;
   /** map from types to sets of representatives */
   RepAlphabet* d_curr_ra;
   /** finding model */
@@ -67,10 +69,10 @@ private:
   /** map of current used instantiations */
   std::map< Node, std::vector< PartialInstSet* > > d_inst_group;
 public:
-  InstStrategyFinteModelFind( context::Context* c, InstantiatorTheoryUf* th, QuantifiersEngine* ie );
+  InstStrategyFinteModelFind( context::Context* c, InstantiatorTheoryUf* ith, StrongSolverTheoryUf* ss, QuantifiersEngine* ie );
   ~InstStrategyFinteModelFind(){}
-  void resetInstantiationRound();
-  int process( Node f, int effort );
+  void processResetInstantiationRound();
+  int process( Node f, int effort, int limitInst );
   /** identify */
   std::string identify() const { return std::string("FinteModelFind"); }
 };

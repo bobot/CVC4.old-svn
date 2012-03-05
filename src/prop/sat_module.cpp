@@ -455,7 +455,7 @@ void DPLLMinisatSatSolver::Statistics::init(Minisat::SimpSolver* d_minisat){
 //AJR-hack
 unsigned DPLLMinisatSatSolver::getDecisionLevel() const{
   //AJR_FIXME!!!
-  //return d_minisat->getDecisionLevel(); 
+  return d_minisat->decisionLevel(); 
 }
 void DPLLMinisatSatSolver::requirePhasedDecision(SatLiteral lit) { 
   Assert(!d_minisat->rnd_pol);
@@ -479,9 +479,9 @@ void DPLLMinisatSatSolver::flipDecision(SatVariable decn) {
 bool DPLLMinisatSatSolver::isDecision(SatVariable decn) const { 
   return d_minisat->isDecision( decn ); 
 }
-SatLiteral DPLLMinisatSatSolver::getDecision(unsigned level) const{ 
-  //AJR_FIXME!!!
-  //return d_minisat->getDecision( level ); 
+SatLiteral DPLLMinisatSatSolver::getDecision(unsigned level) const{
+  Minisat::Lit l = d_minisat->getDecision( level );
+  return SatLiteral( Minisat::var( l ), Minisat::sign( l ) ); 
 }
 //AJR-hack-end
 

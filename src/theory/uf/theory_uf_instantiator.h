@@ -49,7 +49,7 @@ public:
   InstStrategyCheckCESolved( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyCheckCESolved(){}
-  void resetInstantiationRound();
+  void processResetInstantiationRound();
   int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("CheckCESolved"); }
@@ -65,7 +65,7 @@ public:
   InstStrategyLitMatch( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyLitMatch(){}
-  void resetInstantiationRound();
+  void processResetInstantiationRound();
   int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("LitMatch"); }
@@ -81,7 +81,7 @@ public:
   InstStrategyUserPatterns( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyUserPatterns(){}
-  void resetInstantiationRound();
+  void processResetInstantiationRound();
   int process( Node f, int effort, int instLimit );
 public:
   /** add pattern */
@@ -115,7 +115,7 @@ public:
   InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt ) : 
       InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ){}
   ~InstStrategyAutoGenTriggers(){}
-  void resetInstantiationRound();
+  void processResetInstantiationRound();
   int process( Node f, int effort, int instLimit );
 public:
   /** get auto-generated trigger */
@@ -134,7 +134,7 @@ public:
   InstStrategyFreeVariable( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyFreeVariable(){}
-  void resetInstantiationRound();
+  void processResetInstantiationRound();
   int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("FreeVariable"); }

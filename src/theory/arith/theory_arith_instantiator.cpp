@@ -31,7 +31,7 @@ using namespace CVC4::theory::arith;
 
 #define USE_ARITH_INSTANTIATION
 
-void InstStrategySimplex::resetInstantiationRound(){
+void InstStrategySimplex::processResetInstantiationRound(){
   d_counter++;
 }
 

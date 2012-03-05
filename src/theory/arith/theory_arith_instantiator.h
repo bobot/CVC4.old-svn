@@ -41,7 +41,7 @@ public:
   InstStrategySimplex( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ), d_counter( 0 ){}
   ~InstStrategySimplex(){}
-  void resetInstantiationRound();
+  void processResetInstantiationRound();
   int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("Simplex"); }
