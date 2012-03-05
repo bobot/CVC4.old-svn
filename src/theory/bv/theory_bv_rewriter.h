@@ -36,7 +36,7 @@ class TheoryBVRewriter {
 
   static Node operatorEliminationRewrites(TNode node);
   static Node constantEvaluationRewrites(TNode node);
-  static Node symbolicEvaluationRewrites(TNode node); 
+  static Node simplificationRewrites(TNode node); 
   static Node normalizationRewrites(TNode node); 
 
 public:

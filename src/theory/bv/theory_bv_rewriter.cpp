@@ -23,6 +23,8 @@
 #include "theory/bv/theory_bv_rewrite_rules_core.h"
 #include "theory/bv/theory_bv_rewrite_rules_operator_elimination.h"
 #include "theory/bv/theory_bv_rewrite_rules_constant_evaluation.h"
+#include "theory/bv/theory_bv_rewrite_rules_simplification.h"
+#include "theory/bv/theory_bv_rewrite_rules_normalization.h"
 
 using namespace CVC4;
 using namespace CVC4::theory;
@@ -41,7 +43,7 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
   else {
     result = operatorEliminationRewrites(node);
     result = constantEvaluationRewrites(result);
-    result = symbolicEvaluationRewrites(result);
+    result = simplificationRewrites(result);
     result = normalizationRewrites(result);
     if (node.getType().isBitVector()) {
       Assert(utils::getSize(result) == utils::getSize(node));
@@ -222,7 +224,7 @@ Node TheoryBVRewriter::constantEvaluationRewrites(TNode node){
   return result; 
 }
 
-Node TheoryBVRewriter::symbolicEvaluationRewrites(TNode node) {
+Node TheoryBVRewriter::simplificationRewrites(TNode node) {
   Node result = node;
   return result; 
 }

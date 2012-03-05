@@ -86,11 +86,31 @@ enum RewriteRuleId {
   EvalRotateLeft,
   EvalRotateRight,
   EvalNeg,
-  EvalXnor
-  /// constant forward propagation
-
-  /// symbolic evaluation
-  
+  EvalXnor,
+  /// simplification rules
+  ShlByConst,
+  LshrByConst,
+  AshrByConst,
+  ExtractBitwise,
+  ExtractNeg,
+  ExtractArith,
+  DoubleNeg,
+  NegConcat,
+  NegAnd, // not sure why this would help
+  NegOr,  // not sure why this would help
+  NegXor,
+  BitwiseIdemp,
+  XorDuplicate,
+  BitwiseNegAnd,
+  BitwiseNegOr,
+  XorNeg,
+  LtSelf,
+  UltZero,
+  UleZero,
+  ZeroUle,
+  NotLt,
+  NotLe
+  /// normalization rules
  };
 
 inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
@@ -144,6 +164,28 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case EvalRotateRight :    out << "EvalRotateRight";     return out;
   case EvalNeg :            out << "EvalNeg";             return out;
   case EvalXnor :           out << "EvalXnor";            return out;
+  case ShlByConst :           out << "ShlByConst";            return out;
+  case LshrByConst :           out << "LshrByConst";            return out;
+  case AshrByConst :           out << "AshrByConst";            return out;
+  case ExtractBitwise :           out << "ExtractBitwise";            return out;
+  case ExtractNeg :           out << "ExtractNeg";            return out;
+  case ExtractArith :           out << "ExtractArith";            return out;
+  case DoubleNeg :           out << "DoubleNeg";            return out;
+  case NegConcat :           out << "NegConcat";            return out;
+  case NegAnd :           out << "NegAnd";            return out;
+  case NegOr :           out << "NegOr";            return out;
+  case NegXor :           out << "NegXor";            return out;
+  case BitwiseIdemp :           out << "BitwiseIdemp";            return out;
+  case XorDuplicate :           out << "XorDuplicate";            return out;
+  case BitwiseNegAnd :           out << "BitwiseNegAnd";            return out;
+  case BitwiseNegOr :           out << "BitwiseNegOr";            return out;
+  case XorNeg :           out << "XorNeg";            return out;
+  case LtSelf :           out << "LtSelf";            return out;
+  case UltZero :           out << "UltZero";            return out;
+  case UleZero :           out << "UleZero";            return out;
+  case ZeroUle :           out << "ZeroUle";            return out;
+  case NotLt :           out << "NotLt";            return out;
+  case NotLe :           out << "NotLe";            return out;
   default:
     Unreachable();
   }
@@ -282,6 +324,29 @@ struct AllRewriteRules {
   RewriteRule<EvalEquals>           rule47;
   RewriteRule<EvalNeg>              rule48;
   RewriteRule<EvalXnor>             rule49;
+  RewriteRule<ShlByConst>             rule50;
+  RewriteRule<LshrByConst>             rule51;
+  RewriteRule<AshrByConst>             rule52;
+  RewriteRule<ExtractBitwise>             rule53;
+  RewriteRule<ExtractNeg>             rule54;
+  RewriteRule<ExtractArith>             rule55;
+  RewriteRule<DoubleNeg>             rule56;
+  RewriteRule<NegConcat>             rule57;
+  RewriteRule<NegAnd>             rule58;
+  RewriteRule<NegOr>             rule59;
+  RewriteRule<NegXor>             rule60;
+  RewriteRule<BitwiseIdemp>             rule61;
+  RewriteRule<XorDuplicate>             rule62;
+  RewriteRule<BitwiseNegAnd>             rule63;
+  RewriteRule<BitwiseNegOr>             rule64;
+  RewriteRule<XorNeg>             rule65;
+  RewriteRule<LtSelf>             rule66;
+  RewriteRule<LtSelf>             rule67;
+  RewriteRule<UltZero>             rule68;
+  RewriteRule<UleZero>             rule69;
+  RewriteRule<ZeroUle>             rule70;
+  RewriteRule<NotLt>             rule71;
+  RewriteRule<NotLe>             rule72;
 };
 
 template<>

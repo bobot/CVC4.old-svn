@@ -273,9 +273,13 @@ public:
 
     // making sure we don't lose information casting
     Assert(y.d_value < Integer(1).multiplyByPow2(32));
-
+   
     uint32_t amount  = y.d_value.toUnsignedInt();
     Integer rest = d_value.divByPow2(amount);
+    
+    if(sign_bit == Integer(0)) {
+      return BitVector(d_size, rest); 
+    }
     Integer res = rest.oneExtend(d_size - amount, amount); 
     return BitVector(d_size, res);
   }
