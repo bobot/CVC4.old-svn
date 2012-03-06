@@ -110,13 +110,6 @@ private:
   typedef context::CDMap<Node, GList*, NodeHashFunction> GuardedMap;
   GuardedMap d_guardeds;
 
-  /** Literals to propagate */
-  context::CDList<Node> d_literalsToPropagate;
-
-  /** Index of the next literal to propagate */
-  context::CDO<unsigned> d_literalsToPropagateIndex;
-
-
   /** explanation */
   typedef context::CDMap<Node, RuleInstId , NodeHashFunction> ExplanationMap;
   ExplanationMap d_explanations;
@@ -135,7 +128,6 @@ private:
 
   /** Usual function for theories */
   void check(Theory::Effort e);
-  void propagate(Theory::Effort e);
   Node explain(TNode n);
   void notifyEq(TNode lhs, TNode rhs);
   std::string identify() const {
