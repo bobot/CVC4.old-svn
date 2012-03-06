@@ -27,17 +27,14 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 
-#define USE_LITERAL_MATCHING
-#define USE_FREE_VARIABLE_INSTANTIATION
-
-void InstStrategyCheckCESolved::processResetInstantiationRound(){
+void InstStrategyCheckCESolved::processResetInstantiationRound( Theory::Effort effort ){
   for( std::map< Node, bool >::iterator it = d_solved.begin(); it != d_solved.end(); ++it ){
     calcSolved( it->first );
   }
 }
 
-int InstStrategyCheckCESolved::process( Node f, int effort, int instLimit ){
-  if( effort==0 ){
+int InstStrategyCheckCESolved::process( Node f, Theory::Effort effort, int e, int instLimit ){
+  if( e==0 ){
     //calc solved if not done so already
     if( d_solved.find( f )==d_solved.end() ){
       calcSolved( f );
@@ -70,12 +67,12 @@ void InstStrategyCheckCESolved::calcSolved( Node f ){
   }
 }
 
-void InstStrategyLitMatch::processResetInstantiationRound(){
+void InstStrategyLitMatch::processResetInstantiationRound( Theory::Effort effort ){
   
 }
 
-int InstStrategyLitMatch::process( Node f, int effort, int instLimit ){
-  //if( effort==0 ){
+int InstStrategyLitMatch::process( Node f, Theory::Effort effort, int e, int instLimit ){
+  //if( e==0 ){
   //  return STATUS_UNFINISHED;
   //}else{
   //  //this is matching at the literal level : use obligations of f as pattern terms
@@ -111,7 +108,7 @@ int InstStrategyLitMatch::process( Node f, int effort, int instLimit ){
   return STATUS_UNKNOWN;
 }
 
-void InstStrategyUserPatterns::processResetInstantiationRound(){
+void InstStrategyUserPatterns::processResetInstantiationRound( Theory::Effort effort ){
   for( std::map< Node, std::vector< Trigger* > >::iterator it = d_user_gen.begin(); it != d_user_gen.end(); ++it ){
     for( int i=0; i<(int)it->second.size(); i++ ){
       it->second[i]->resetInstantiationRound();
@@ -120,10 +117,10 @@ void InstStrategyUserPatterns::processResetInstantiationRound(){
   }
 }
 
-int InstStrategyUserPatterns::process( Node f, int effort, int instLimit ){
-  if( effort==0 ){
+int InstStrategyUserPatterns::process( Node f, Theory::Effort effort, int e, int instLimit ){
+  if( e==0 ){
     return STATUS_UNFINISHED;
-  }else if( effort==1 ){
+  }else if( e==1 ){
     Debug("quant-uf-strategy") << "Try user-provided patterns..." << std::endl;
     //std::cout << "Try user-provided patterns..." << std::endl;
     for( int i=0; i<(int)d_user_gen[f].size(); i++ ){
@@ -145,11 +142,15 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
     nodes.push_back( pat[i] );
   }
   if( Trigger::isUsableTrigger( nodes, f ) ){
-    d_user_gen[f].push_back( Trigger::mkTrigger( d_quantEngine, f, nodes, false, true ) );
+    int matchPolicy = 0;
+#ifdef USE_EFFICIENT_E_MATCHING
+    matchPolicy = InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH;
+#endif
+    d_user_gen[f].push_back( Trigger::mkTrigger( d_quantEngine, f, nodes, matchPolicy, true ) );
   }
 }
  
-void InstStrategyAutoGenTriggers::processResetInstantiationRound(){
+void InstStrategyAutoGenTriggers::processResetInstantiationRound( Theory::Effort effort ){
   for( std::map< Node, Trigger* >::iterator it = d_auto_gen_trigger.begin(); it != d_auto_gen_trigger.end(); ++it ){
     if( it->second ){
       it->second->resetInstantiationRound();
@@ -158,13 +159,13 @@ void InstStrategyAutoGenTriggers::processResetInstantiationRound(){
   }
 }
 
-int InstStrategyAutoGenTriggers::process( Node f, int effort, int instLimit ){
+int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, int instLimit ){
   int peffort = ( f.getNumChildren()==3 || d_tr_strategy==MIN_TRIGGER ) ? 2 : 1;
   //int peffort = f.getNumChildren()==3 ? 2 : 1;
   //int peffort = 1;
-  if( effort<peffort ){
+  if( e<peffort ){
     return STATUS_UNFINISHED;
-  }else if( effort==peffort ){
+  }else if( e==peffort ){
     Trigger* tr = getAutoGenTrigger( f );
     if( !tr ){
       return STATUS_UNKNOWN;
@@ -222,9 +223,12 @@ Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
     //}
     std::vector< Node > patTerms;
     collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );
-    //std::cout << "patTerms = " << (int)patTerms.size() << std::endl;
     if( !patTerms.empty() ){
-      Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, false, false, Trigger::TRP_RETURN_NULL );
+      int matchPolicy = 0;
+#ifdef USE_EFFICIENT_E_MATCHING
+      matchPolicy = InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH;
+#endif
+      Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchPolicy, false, Trigger::TRP_RETURN_NULL );
       //making it during an instantiation round, so must reset
       if( tr ){
         tr->resetInstantiationRound();
@@ -238,12 +242,12 @@ Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
   return d_auto_gen_trigger[f];
 }
 
-void InstStrategyFreeVariable::processResetInstantiationRound(){
+void InstStrategyFreeVariable::processResetInstantiationRound( Theory::Effort effort ){
   
 }
 
-int InstStrategyFreeVariable::process( Node f, int effort, int instLimit ){
-  if( effort<5 ){
+int InstStrategyFreeVariable::process( Node f, Theory::Effort effort, int e, int instLimit ){
+  if( e<5 ){
     return STATUS_UNFINISHED;
   }else{
     if( d_guessed.find( f )==d_guessed.end() ){
@@ -269,18 +273,25 @@ void UfTermDb::add( Node n ){
         d_op_map[op].push_back( n );
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
           add( n[i] );
+#ifdef USE_EFFICIENT_E_MATCHING
+          //add to parent structure
+          if( std::find( d_parents[n[i]][op][i].begin(), d_parents[n[i]][op][i].end(), n )==d_parents[n[i]][op][i].end() ){
+            d_parents[n[i]][op][i].push_back( n );
+          }
         }
+        //add n to candidate generators
+        for( int i=0; i<(int)d_ith->d_cand_gens[op].size(); i++ ){
+          d_ith->d_cand_gens[op][i]->addCandidate( n );
+        }
+#else
+        }
+#endif
       }
     }else{
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
         add( n[i] );
       }
     }
-  }
-}
-void UfTermDb::finishInstantiationRound(){
-  for( std::map< Node, std::vector< Node > >::iterator it = d_op_map.begin(); it != d_op_map.end(); ++it ){
-    d_op_index[ it->first ] = (int)it->second.size();
   }
 }
 
@@ -399,8 +410,13 @@ void InstantiatorTheoryUf::addUserPattern( Node f, Node pat ){
 }
 
 
-void InstantiatorTheoryUf::resetInstantiationRound(){
+void InstantiatorTheoryUf::processResetInstantiationRound( Theory::Effort effort ){
   d_ground_reps.clear();
+}
+
+int InstantiatorTheoryUf::process( Node f, Theory::Effort effort, int e, int instLimit ){
+  Debug("quant-uf") << "UF: Try to solve (" << e << ") for " << f << "... " << std::endl;
+  return InstStrategy::STATUS_SAT;
 }
 
 void InstantiatorTheoryUf::debugPrint( const char* c )
@@ -437,8 +453,6 @@ Node InstantiatorTheoryUf::getRepresentative( Node a ){
 Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
   if( d_ground_reps.find( a )==d_ground_reps.end() ){
     if( !((TheoryUF*)d_th)->d_equalityEngine.hasTerm( a ) ){
-      //a is singleton equivalence class, just return it
-      d_ground_reps[ a ] = a;
       return a;
     }else{
       Node rep = getRepresentative( a );
@@ -462,11 +476,6 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
     }
   }
   return d_ground_reps[a];
-}
-
-int InstantiatorTheoryUf::process( Node f, int effort, int instLimit ){
-  Debug("quant-uf") << "UF: Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  return InstStrategy::STATUS_SAT;
 }
 
 //void InstantiatorTheoryUf::getObligations( Node f, std::vector< Node >& obs ){
@@ -515,21 +524,19 @@ InstantiatorTheoryUf::Statistics::~Statistics(){
 
 /** new node */
 void InstantiatorTheoryUf::newEqClass( TNode n ){
-#if 0
 
-#endif
 }
 
 /** merge */
 void InstantiatorTheoryUf::merge( TNode a, TNode b ){
-#if 0
+#ifdef USE_EFFICIENT_E_MATCHING
   EqClassInfo* eci_a = getEquivalenceClassInfo( a );
+  EqClassInfo* eci_b = getEquivalenceClassInfo( b );
+  //determine new candidates for instantiation
+
+
   //merge eqc_ops of b into a
-  if( d_eqc_ops.find( b )==d_eqc_ops.end() ){
-    eci_a->setMember( b );
-  }else{
-    eci_a->merge( d_eqc_ops[b] );
-  }
+  eci_a->merge( eci_b );
 #endif
 }
 
@@ -549,64 +556,55 @@ EqClassInfo* InstantiatorTheoryUf::getEquivalenceClassInfo( Node n ) {
 }
 
 
-void InstantiatorTheoryUf::registerParentParentPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips, 
-                                                       std::map< Node, std::vector< InvertedPathString > >& ips_map  ){
-  //Assert( pat.getKind()==APPLY_UF ){
-  //for( int i=0; i<(int)pat.getNumChildren(); i++ ){
-  //  if( pat[i].getKind()==INST_CONSTANT ){
-  //    ips_map.push_back( std::pair< Node, InvertedPathString >( pat.getOperator(), InvertedPathString( ips ) ) );
-  //  }
-  //}
-  //ips.d_string.push_back( std::pair< Node, int >( pat.getOperator(), 0 ) );
-  //for( int i=0; i<(int)pat.getNumChildren(); i++ ){
-  //  if( pat[i].getKind()==APPLY_UF ){
-  //    ips.d_string.back().second = i;
-  //    registerParentParentPairs2( cg, pat, ips, ips_map );
-  //  }
-  //}
-  //ips.d_string.pop_back();
+void InstantiatorTheoryUf::registerPatternElementPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips, 
+                                                       std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >& ips_map  ){
+  Assert( pat.getKind()==APPLY_UF );
+  //add information for possible pp-pair
+  for( int i=0; i<(int)pat.getNumChildren(); i++ ){
+    if( pat[i].getKind()==INST_CONSTANT ){
+      ips_map[ pat[i] ].push_back( std::pair< Node, InvertedPathString >( pat.getOperator(), InvertedPathString( ips ) ) );
+    }
+  }
+  ips.d_string.push_back( std::pair< Node, int >( pat.getOperator(), 0 ) );
+  for( int i=0; i<(int)pat.getNumChildren(); i++ ){
+    if( pat[i].getKind()==APPLY_UF ){
+      ips.d_string.back().second = i;
+      registerPatternElementPairs2( cg, pat[i], ips, ips_map );
+      Debug("pattern-element-opt") << "Found pc-pair ( " << pat.getOperator() << ", " << pat[i].getOperator() << " )" << std::endl;
+      //pat.getOperator() and pat[i].getOperator() are a pc-pair
+      d_pc_pairs[ pat.getOperator() ][ pat[i].getOperator() ].d_vec.push_back( std::pair< InvertedPathString, CandidateGenerator* >( InvertedPathString( ips ), cg ) );
+    }
+  }
+  ips.d_string.pop_back();
 }
 
-void InstantiatorTheoryUf::registerParentParentPairs( CandidateGenerator* cg, Node pat ){
-  //InvertedPathString ips;
-  //std::map< Node, std::vector< std::pair< Node, InvertedPathString > > > ips_map;
-  //registerParentParentPairs2( cg, pat, ips, ips_map );
-  //for( std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >::iterator it = ips_map.begin(); it != ips_map.end(); ++it ){
-  //  for( int j=0; j<(int)it->second.size(); j++ ){
-  //    for( int k=j+1; k<(int)it->second.size(); k++ ){
-  //      //found a pp-pair
-  //      Debug("pattern-element-opt") << "Found pp-pair ( " << it->second[j].first << ", " << it->second[k].first << " )" << std::endl;
-  //      d_pp_pairs[ it->second[j].first ][ it->second[k].first ].d_vec.push_back( std::pair< InvertedPathString, CandidateGenerator* >( it->second[j].second, cg ) );
-  //      d_pp_pairs[ it->second[j].first ][ it->second[k].first ].d_vec.push_back( std::pair< InvertedPathString, CandidateGenerator* >( it->second[k].second, cg ) );
-  //    }
-  //  }
-  //}
-}
-
-void InstantiatorTheoryUf::registerParentChildPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips ){
-  //Assert( pat.getKind()==APPLY_UF ){
-  //ips.d_string.push_back( std::pair< Node, int >( pat.getOperator(), 0 ) );
-  //for( int i=0; i<(int)pat.getNumChildren(); i++ ){
-  //  if( pat[i].getKind()==APPLY_UF ){
-  //    ips.d_string.back().second = i;
-  //    registerPatternChildPairs2( cg, pat[i], ips );
-  //    Debug("pattern-element-opt") << "Found pc-pair ( " << pat.getOperator() << ", " << pat[i].getOperator() << " )" << std::endl;
-  //    //pat.getOperator() and pat[i].getOperator() are a pc-pair
-  //    d_pc_pairs[ pat.getOperator() ][ pat[i].getOperator() ].d_vec.push_back( std::pair< InvertedPathString, CandidateGenerator* >( InvertedPathString( ips ), cg ) );
-  //  }
-  //}
-  //ips.d_string.pop_back();
-}
-
-void InstantiatorTheoryUf::registerParentChildPairs( CandidateGenerator* cg, Node pat ){
+void InstantiatorTheoryUf::registerPatternElementPairs( CandidateGenerator* cg, Node pat ){
   InvertedPathString ips;
-  registerParentChildPairs2( cg, pat, ips );
+  std::map< Node, std::vector< std::pair< Node, InvertedPathString > > > ips_map;
+  registerPatternElementPairs2( cg, pat, ips, ips_map );
+  for( std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >::iterator it = ips_map.begin(); it != ips_map.end(); ++it ){
+    for( int j=0; j<(int)it->second.size(); j++ ){
+      for( int k=j+1; k<(int)it->second.size(); k++ ){
+        //found a pp-pair
+        Debug("pattern-element-opt") << "Found pp-pair ( " << it->second[j].first << ", " << it->second[k].first << " )" << std::endl;
+        d_pp_pairs[ it->second[j].first ][ it->second[k].first ].d_vec.push_back( std::pair< InvertedPathString, CandidateGenerator* >( it->second[j].second, cg ) );
+        d_pp_pairs[ it->second[j].first ][ it->second[k].first ].d_vec.push_back( std::pair< InvertedPathString, CandidateGenerator* >( it->second[k].second, cg ) );
+      }
+    }
+  }
 }
 
 void InstantiatorTheoryUf::registerCandidateGenerator( CandidateGenerator* cg, Node pat ){
-  registerParentChildPairs( cg, pat );
-  registerParentParentPairs( cg, pat );
+  Debug("pattern-element-opt") << "Register candidate generator..." << pat << std::endl;
+  registerPatternElementPairs( cg, pat );
+  
+  //take all terms from the uf term db and add to candidate generator
+  Node op = pat.getOperator();
+  for( int i=0; i<(int)d_db->d_op_map[op].size(); i++ ){
+    cg->addCandidate( d_db->d_op_map[op][i] );
+  }
+  d_cand_gens[op].push_back( cg );
 
-
+  Debug("pattern-element-opt") << "Done." << std::endl;
 }
 

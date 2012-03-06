@@ -97,61 +97,65 @@ bool InstStrategyFinteModelFind::didCurrentInstantiation( PartialInstSet* pi ){
   return false;
 }
 
-void InstStrategyFinteModelFind::processResetInstantiationRound(){
-  if( !d_finding_model.get() ){
-    Debug("inst-fmf") << "Setting up model find, initialize representatives." << std::endl;
-    d_curr_ra = new RepAlphabet;
-    //collect all representatives for all types and store as representative alphabet
-    for( int i=0; i<d_ss->getNumCardinalityTypes(); i++ ){
-      TypeNode tn = d_ss->getCardinalityType( i );
-      std::vector< Node > reps;
-      d_ss->getRepresentatives( tn, reps );
+void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort effort ){
+  if( effort=Theory::LAST_CALL ){
+    if( !d_finding_model.get() ){
+      Debug("inst-fmf") << "Setting up model find, initialize representatives." << std::endl;
+      d_curr_ra = new RepAlphabet;
+      //collect all representatives for all types and store as representative alphabet
+      for( int i=0; i<d_ss->getNumCardinalityTypes(); i++ ){
+        TypeNode tn = d_ss->getCardinalityType( i );
+        std::vector< Node > reps;
+        d_ss->getRepresentatives( tn, reps );
 
-      //DO_THIS: prefer previously used reps
+        //DO_THIS: prefer previously used reps
 
-      Debug("inst-fmf") << "Representatives (" << reps.size() << ") for type " << tn << ": ";
-      for( int i=0; i<(int)reps.size(); i++ ){
-        Debug("inst-fmf") << reps[i] << " ";
+        Debug("inst-fmf") << "Representatives (" << reps.size() << ") for type " << tn << ": ";
+        for( int i=0; i<(int)reps.size(); i++ ){
+          Debug("inst-fmf") << reps[i] << " ";
+        }
+        Debug("inst-fmf") << std::endl;
+
+        d_curr_ra->d_type_reps[tn].insert( d_curr_ra->d_type_reps[tn].begin(), reps.begin(), reps.end() );
       }
-      Debug("inst-fmf") << std::endl;
-
-      d_curr_ra->d_type_reps[tn].insert( d_curr_ra->d_type_reps[tn].begin(), reps.begin(), reps.end() );
+      //make the partial instantiation objects
+      for( int i=0; i<(int)d_quantEngine->getNumQuantifiers(); i++ ){
+        Node f = d_quantEngine->getQuantifier( i );
+        d_inst_group[f].push_back( new PartialInstSet( d_curr_ra, f ) );
+      }
+      //set that we are trying to see if the model is consistent with quantifiers
+      d_finding_model.set( true );
     }
-    //make the partial instantiation objects
-    for( int i=0; i<(int)d_quantEngine->getNumQuantifiers(); i++ ){
-      Node f = d_quantEngine->getQuantifier( i );
-      d_inst_group[f].push_back( new PartialInstSet( d_curr_ra, f ) );
-    }
-    //set that we are trying to see if the model is consistent with quantifiers
-    d_finding_model.set( true );
   }
 }
 
-int InstStrategyFinteModelFind::process( Node f, int effort, int limitInst ){
-  PartialInstSet* pi = d_inst_group[f].back();
-  bool addedLemma = false;
-  while( !addedLemma && !pi->isFinished() ){
-    Debug("inst-fmf-debug") << "Try to add match for " << f << "..." << std::endl;
-    //do next instantiation
-    while( !pi->isFinished() && didCurrentInstantiation( pi ) ){
-      Debug("inst-fmf-debug") << "Already did instantiation." << std::endl;
-      pi->increment();
-    }
-    //if successful, add instantiation 
-    if( !pi->isFinished() ){
-      InstMatch m;
-      pi->getMatch( d_quantEngine, m );
-      pi->increment();
-      Debug("inst-fmf-debug") << "Try to add match " << std::endl;
-      m.debugPrint("inst-fmf-debug");
-      if( d_quantEngine->addInstantiation( f, &m ) ){
-        addedLemma = true;
+int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, int limitInst ){
+  if( effort=Theory::LAST_CALL ){
+    PartialInstSet* pi = d_inst_group[f].back();
+    bool addedLemma = false;
+    while( !addedLemma && !pi->isFinished() ){
+      Debug("inst-fmf-debug") << "Try to add match for " << f << "..." << std::endl;
+      //do next instantiation
+      while( !pi->isFinished() && didCurrentInstantiation( pi ) ){
+        Debug("inst-fmf-debug") << "Already did instantiation." << std::endl;
+        pi->increment();
+      }
+      //if successful, add instantiation 
+      if( !pi->isFinished() ){
+        InstMatch m;
+        pi->getMatch( d_quantEngine, m );
+        pi->increment();
+        Debug("inst-fmf-debug") << "Try to add match " << std::endl;
+        m.debugPrint("inst-fmf-debug");
+        if( d_quantEngine->addInstantiation( f, &m ) ){
+          addedLemma = true;
+        }
       }
     }
-  }
-  Debug("inst-fmf-debug") << "finished." << std::endl;
-  if( !addedLemma ){
-    return STATUS_SAT;
+    Debug("inst-fmf-debug") << "finished." << std::endl;
+    if( !addedLemma ){
+      return STATUS_SAT;
+    }
   }
   return STATUS_UNKNOWN;
 }

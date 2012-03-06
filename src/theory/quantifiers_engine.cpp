@@ -25,16 +25,16 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
   /** reset instantiation */
-void InstStrategy::resetInstantiationRound(){
+void InstStrategy::resetInstantiationRound( Theory::Effort effort ){
   d_no_instantiate_temp.clear();
   d_no_instantiate_temp.insert( d_no_instantiate_temp.begin(), d_no_instantiate.begin(), d_no_instantiate.end() );
-  processResetInstantiationRound();
+  processResetInstantiationRound( effort );
 }
 /** do instantiation round method */
-int InstStrategy::doInstantiation( Node f, int effort, int limitInst ){
+int InstStrategy::doInstantiation( Node f, Theory::Effort effort, int e, int limitInst ){
   if( shouldInstantiate( f ) ){
     int origLemmas = d_quantEngine->getNumLemmasWaiting();
-    int retVal = process( f, effort, limitInst );
+    int retVal = process( f, effort, e, limitInst );
     if( d_quantEngine->getNumLemmasWaiting()!=origLemmas ){
       for( int i=0; i<(int)d_priority_over.size(); i++ ){
         d_priority_over[i]->d_no_instantiate_temp.push_back( f );
@@ -55,17 +55,26 @@ d_th( th ){
 Instantiator::~Instantiator(){
 }
 
-int Instantiator::doInstantiation( Node f, int effort, int limitInst ){
+void Instantiator::resetInstantiationRound( Theory::Effort effort ){
+  for( int i=0; i<(int)d_instStrategies.size(); i++ ){
+    if( isActiveStrategy( d_instStrategies[i] ) ){
+      d_instStrategies[i]->resetInstantiationRound( effort );
+    }
+  }
+  processResetInstantiationRound( effort );
+}
+
+int Instantiator::doInstantiation( Node f, Theory::Effort effort, int e, int limitInst ){
   if( hasConstraintsFrom( f ) ){
     int origLemmas = d_quantEngine->getNumLemmasWaiting();
-    int status = process( f, effort, limitInst );
+    int status = process( f, effort, e, limitInst );
     if( limitInst<=0 || (d_quantEngine->getNumLemmasWaiting()-origLemmas)<limitInst ){
       for( int i=0; i<(int)d_instStrategies.size(); i++ ){
         if( isActiveStrategy( d_instStrategies[i] ) ){
           Debug("inst-engine-inst") << d_instStrategies[i]->identify() << " process " << effort << std::endl;
           //call the instantiation strategy's process method
           int s_limitInst = limitInst>0 ? limitInst-(d_quantEngine->getNumLemmasWaiting()-origLemmas) : 0;
-          int s_status = d_instStrategies[i]->doInstantiation( f, effort, s_limitInst );
+          int s_status = d_instStrategies[i]->doInstantiation( f, effort, e, s_limitInst );
           Debug("inst-engine-inst") << "  -> status is " << s_status << std::endl;
           if( limitInst>0 && (d_quantEngine->getNumLemmasWaiting()-origLemmas)>=limitInst ){
             Assert( (d_quantEngine->getNumLemmasWaiting()-origLemmas)==limitInst );
@@ -102,14 +111,6 @@ int Instantiator::doInstantiation( Node f, int effort, int limitInst ){
 //    }
 //  }
 //}
-
-void Instantiator::resetInstantiationStrategies(){
-  for( int i=0; i<(int)d_instStrategies.size(); i++ ){
-    if( isActiveStrategy( d_instStrategies[i] ) ){
-      d_instStrategies[i]->resetInstantiationRound();
-    }
-  }
-}
 
 void Instantiator::setHasConstraintsFrom( Node f ){
   d_hasConstraints[f] = true;
@@ -279,11 +280,9 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 }
 
 bool QuantifiersEngine::addInstantiation( Node f, InstMatch* m, bool addSplits ){
-  std::vector< Node > vars;
-  getInstantiationConstantsFor( f, vars );
+  m->makeRepresentative( d_eq_query );
   std::vector< Node > match;
-  m->computeTermVec( this, vars, match );
-  //std::cout << "done" << std::endl;
+  m->computeTermVec( this, d_inst_constants[f], match );
   //std::cout << "m's quant is " << m->getQuantifier() << std::endl;
   //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
   //for( int i=0; i<(int)m->d_match.size(); i++ ){
@@ -291,8 +290,8 @@ bool QuantifiersEngine::addInstantiation( Node f, InstMatch* m, bool addSplits )
   //}
 
   if( addInstantiation( f, match ) ){
-    d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)vars.size() - m->d_map.size() );
-    if( vars.size()!=m->d_map.size() ){
+    d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)d_inst_constants[f].size() - m->d_map.size() );
+    if( d_inst_constants[f].size()!=m->d_map.size() ){
       //std::cout << "Unspec. " << std::endl;
       //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
       //for( int i=0; i<(int)m->d_match.size(); i++ ){

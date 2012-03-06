@@ -67,17 +67,17 @@ protected:
   std::vector< Node > d_no_instantiate;
   std::vector< Node > d_no_instantiate_temp;
   /** reset instantiation */
-  virtual void processResetInstantiationRound(){}
+  virtual void processResetInstantiationRound( Theory::Effort effort ) = 0;
   /** process method */
-  virtual int process( Node f, int effort, int limitInst = 0 ) = 0;
+  virtual int process( Node f, Theory::Effort effort, int e, int limitInst = 0 ) = 0;
 public:
   InstStrategy( QuantifiersEngine* ie ) : d_quantEngine( ie ){}
   virtual ~InstStrategy(){}
 
   /** reset instantiation */
-  void resetInstantiationRound();
+  void resetInstantiationRound( Theory::Effort effort );
   /** do instantiation round method */
-  int doInstantiation( Node f, int effort, int limitInst = 0 );
+  int doInstantiation( Node f, Theory::Effort effort, int e, int limitInst = 0 );
   /** update status */
   static void updateStatus( int& currStatus, int addStatus ){
     if( addStatus==STATUS_UNFINISHED ){
@@ -123,19 +123,17 @@ protected:
     d_instStrategies.push_back( is );
     d_instStrategyActive[is] = true;
   }
-public:
-  /** reset instantiation strategies */
-  virtual void resetInstantiationStrategies();
   /** reset instantiation round */
-  virtual void resetInstantiationRound(){}
+  virtual void processResetInstantiationRound( Theory::Effort effort ) = 0;
+  /** process quantifier */
+  virtual int process( Node f, Theory::Effort effort, int e, int limitInst = 0 ) = 0;
+public:
   /** set has constraints from quantifier f */
   void setHasConstraintsFrom( Node f );
   /** has constraints from */
   bool hasConstraintsFrom( Node f );
   /** is full owner of quantifier f? */
   bool isOwnerOf( Node f );
-  /** process quantifier */
-  virtual int process( Node f, int effort, int limitInst = 0 ) { return InstStrategy::STATUS_SAT; }
 public:
   Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th);
   ~Instantiator();
@@ -146,9 +144,10 @@ public:
   virtual void preRegisterTerm( Node t ) { }
   /** assertNode function, assertion was asserted to theory */
   virtual void assertNode( Node assertion ){}
-
+  /** reset instantiation round */
+  void resetInstantiationRound( Theory::Effort effort );
   /** do instantiation method*/
-  int doInstantiation( Node f, int effort, int limitInst = 0 );
+  int doInstantiation( Node f, Theory::Effort effort, int e, int limitInst = 0 );
   /** identify */
   virtual std::string identify() const { return std::string("Unknown"); }
   /** print debug information */

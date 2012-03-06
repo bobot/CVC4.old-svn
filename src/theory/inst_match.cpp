@@ -98,6 +98,12 @@ void InstMatch::makeInternal( EqualityQuery* q ){
   }
 }
 
+void InstMatch::makeRepresentative( EqualityQuery* q ){
+  for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
+    d_map[ it->first ] = q->getInternalRepresentative( it->second );
+  }
+}
+
 void InstMatch::computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match ){
   for( int i=0; i<(int)vars.size(); i++ ){
     std::map< Node, Node >::iterator it = d_map.find( vars[i] );
@@ -185,7 +191,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
   }else if( d_match_pattern.getKind()==APPLY_UF ){
     Node op = d_match_pattern.getOperator();
-    if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){
+    if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){   
       d_cg = new CandidateGeneratorQueue;
       ith->registerCandidateGenerator( d_cg, pat );
     }else{
@@ -501,13 +507,12 @@ Trigger::TrTrie Trigger::d_tr_trie;
 Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, bool isLitMatch ) : d_quantEngine( qe ), d_f( f ){
   trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
-  d_candidates.insert( d_candidates.begin(), nodes.begin(), nodes.end() );
   d_mg = new InstMatchGenerator( d_nodes, qe, isLitMatch );
-  //std::cout << "Trigger: ";
-  //for( int i=0; i<(int)d_nodes.size(); i++ ){
-  //  std::cout << d_nodes[i] << " ";
-  //}
-  //std::cout << std::endl;
+  Debug("trigger") << "Trigger: ";
+  for( int i=0; i<(int)d_nodes.size(); i++ ){
+    Debug("trigger") << d_nodes[i] << " ";
+  }
+  Debug("trigger") << std::endl;
 }
 
 void Trigger::computeVarContains2( Node n, Node parent ){
@@ -551,11 +556,11 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
       //m.makeInternal( d_quantEngine->getEqualityQuery() );
       m.add( baseMatch );
       if( d_quantEngine->addInstantiation( d_f, &m, addSplits ) ){
-        //std::cout << "Trigger was ";
-        //for( int i=0; i<(int)d_nodes.size(); i++ ){
-        //  std::cout << d_nodes[i] << " ";
-        //}
-        //std::cout << std::endl;
+        Debug("inst-trigger") << "Trigger was ";
+        for( int i=0; i<(int)d_nodes.size(); i++ ){
+          Debug("inst-trigger") << d_nodes[i] << " ";
+        }
+        Debug("inst-trigger") << std::endl;
         addedLemmas++;
         if( instLimit>0 && addedLemmas==instLimit ){
           return addedLemmas;
@@ -695,4 +700,62 @@ bool Trigger::isUsable( Node n, Node f ){
 bool Trigger::isUsableTrigger( Node n, Node f ){
   return n.getAttribute(InstConstantAttribute())==f && n.getKind()==APPLY_UF;
   //return n.hasAttribute(InstConstantAttribute()) && n.getKind()==APPLY_UF && isUsable( n, f );
+}
+/** filter all nodes that have instances */
+void Trigger::filterInstances( std::vector< Node >& nodes ){
+  std::vector< bool > active;
+  active.resize( nodes.size(), true );
+  for( int i=0; i<(int)nodes.size(); i++ ){
+    for( int j=i+1; j<(int)nodes.size(); j++ ){
+      if( active[i] && active[j] ){
+        int result = isInstanceOf( nodes[i], nodes[j] );
+        if( result==1 ){
+          active[j] = false;
+        }else if( result==-1 ){
+          active[i] = false;
+        }
+      }
+    }
+  }
+  std::vector< Node > temp;
+  for( int i=0; i<(int)nodes.size(); i++ ){
+    if( active[i] ){
+      temp.push_back( nodes[i] );
+    }
+  }
+  nodes.clear();
+  nodes.insert( nodes.begin(), temp.begin(), temp.end() );
+}
+
+/** is n1 an instance of n2 or vice versa? */
+int Trigger::isInstanceOf( Node n1, Node n2 ){
+  if( n1.getKind()==n2.getKind() ){
+    if( n1.getKind()==APPLY_UF ){
+      if( n1.getOperator()==n2.getOperator() ){
+        int result = 0;
+        for( int i=0; i<(int)n1.getNumChildren(); i++ ){
+          if( n1[i]!=n2[i] ){
+            int cResult = isInstanceOf( n1[i], n2[i] );
+            if( cResult==0 ){
+              return 0;
+            }else if( cResult!=result ){
+              if( result!=0 ){
+                return 0;
+              }else{
+                result = cResult;
+              }
+            }
+          }
+        }
+        return result;
+      }
+    }
+    return 0;
+  }else if( n2.getKind()==INST_CONSTANT ){
+    return 1;
+  }else if( n1.getKind()==INST_CONSTANT ){
+    return -1;
+  }else{
+    return 0;
+  }
 }

@@ -31,14 +31,14 @@ using namespace CVC4::theory::arith;
 
 #define USE_ARITH_INSTANTIATION
 
-void InstStrategySimplex::processResetInstantiationRound(){
+void InstStrategySimplex::processResetInstantiationRound( Theory::Effort effort ){
   d_counter++;
 }
 
-int InstStrategySimplex::process( Node f, int effort, int instLimit ){
-  if( effort<2 ){
+int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int instLimit ){
+  if( e<2 ){
     return STATUS_UNFINISHED;
-  }else if( effort==2 ){
+  }else if( e==2 ){
     //std::cout << f << std::endl;
     //std::cout << "Num inst rows = " << d_th->d_instRows[f].size() << std::endl;
     //std::cout << "Num inst constants = " << d_quantEngine->getNumInstantiationConstants( f ) << std::endl;
@@ -189,7 +189,7 @@ void InstantiatorTheoryArith::assertNode( Node assertion ){
   }
 } 
 
-void InstantiatorTheoryArith::resetInstantiationRound(){
+void InstantiatorTheoryArith::processResetInstantiationRound( Theory::Effort effort ){
   d_instRows.clear();
   d_tableaux_term.clear();
   d_tableaux.clear();
@@ -226,6 +226,11 @@ void InstantiatorTheoryArith::resetInstantiationRound(){
   }
   //print debug
   debugPrint( "quant-arith-debug" );
+}
+
+int InstantiatorTheoryArith::process( Node f, Theory::Effort effort, int e, int instLimit ){
+  Debug("quant-arith") << "Arith: Try to solve (" << effort << ") for " << f << "... " << std::endl;
+  return InstStrategy::STATUS_UNKNOWN;
 }
 
 void InstantiatorTheoryArith::addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t ){
@@ -313,11 +318,6 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
     }
     Debug(c) << std::endl;
   }
-}
-
-int InstantiatorTheoryArith::process( Node f, int effort, int instLimit ){
-  Debug("quant-arith") << "Arith: Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  return InstStrategy::STATUS_UNKNOWN;
 }
 
 //say instantiation row x for quantifier f is coeff*var + A*t[e] + term = beta,

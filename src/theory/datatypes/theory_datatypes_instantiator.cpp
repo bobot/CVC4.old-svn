@@ -37,16 +37,16 @@ void InstantiatorTheoryDatatypes::assertNode( Node assertion ){
   }
 }
 
-void InstantiatorTheoryDatatypes::resetInstantiationRound(){
+void InstantiatorTheoryDatatypes::processResetInstantiationRound( Theory::Effort effort ){
 
 }
 
 
-int InstantiatorTheoryDatatypes::process( Node f, int effort, int limitInst ){
-  Debug("quant-datatypes") << "Datatypes: Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  if( effort<2 ){
+int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e, int limitInst ){
+  Debug("quant-datatypes") << "Datatypes: Try to solve (" << e << ") for " << f << "... " << std::endl;
+  if( e<2 ){
     return InstStrategy::STATUS_UNFINISHED;
-  }else if( effort==2 ){
+  }else if( e==2 ){
     InstMatch m;
     for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
       Node i = d_quantEngine->getInstantiationConstant( f, j );

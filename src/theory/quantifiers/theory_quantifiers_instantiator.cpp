@@ -37,16 +37,16 @@ void InstantiatorTheoryQuantifiers::assertNode( Node assertion ){
   }
 }
 
-void InstantiatorTheoryQuantifiers::resetInstantiationRound(){
+void InstantiatorTheoryQuantifiers::processResetInstantiationRound( Theory::Effort effort ){
 
 }
 
 
-int InstantiatorTheoryQuantifiers::process( Node f, int effort, int limitInst ){
-  Debug("quant-quant") << "Quant: Try to solve (" << effort << ") for " << f << "... " << std::endl;
-  if( effort<5 ){
+int InstantiatorTheoryQuantifiers::process( Node f, Theory::Effort effort, int e, int limitInst ){
+  Debug("quant-quant") << "Quant: Try to solve (" << e << ") for " << f << "... " << std::endl;
+  if( e<5 ){
     return InstStrategy::STATUS_UNFINISHED;
-  }else if( effort==5 ){
+  }else if( e==5 ){
     //add random addition
     if( isOwnerOf( f ) ){
       InstMatch m;

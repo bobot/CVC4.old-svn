@@ -36,13 +36,13 @@ public:
 
   /** check function, assertion is asserted to theory */
   void assertNode( Node assertion );
-  /**  reset instantiation */
-  void resetInstantiationRound();
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryQuantifiers"); }
 private:
+  /**  reset instantiation */
+  void processResetInstantiationRound( Theory::Effort effort );
   /** process at effort */
-  int process( Node f, int effort, int limitInst );
+  int process( Node f, Theory::Effort effort, int e, int limitInst );
 
   class Statistics {
   public:

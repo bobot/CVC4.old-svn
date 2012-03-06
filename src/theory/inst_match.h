@@ -26,6 +26,8 @@
 #include <iostream>
 #include <map>
 
+//#define USE_EFFICIENT_E_MATCHING
+
 namespace CVC4 {
 namespace theory {
 
@@ -118,6 +120,8 @@ public:
   void debugPrint( const char* c );
   /** make internal: ensure that no term in d_map contains instantiation constants */
   void makeInternal( EqualityQuery* q );
+  /** make representative */
+  void makeRepresentative( EqualityQuery* q );
   /** compute d_match */
   void computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match );
   /** clear */
@@ -240,7 +244,6 @@ public:
   ~Trigger(){}
 public:
   std::vector< Node > d_nodes;
-  std::vector< Node > d_candidates;
 public:
   void debugPrint( const char* c );
   InstMatchGenerator* getGenerator() { return d_mg; }
@@ -282,6 +285,10 @@ public:
                              int matchPolicy = 0, bool keepAll = true, int trPolicy = TRP_MAKE_NEW ); 
 private:  
   static bool isUsable( Node n, Node f );
+  /** filter all nodes that have instances */
+  static void filterInstances( std::vector< Node >& nodes );
+  /** -1: n1 is an instance of n2, 1: n1 is an instance of n2 */
+  static int isInstanceOf( Node n1, Node n2 );
 public:
   /** is usable trigger */
   static bool isUsableTrigger( std::vector< Node >& nodes, Node f );

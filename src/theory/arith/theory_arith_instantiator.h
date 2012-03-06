@@ -37,12 +37,13 @@ private:
   InstantiatorTheoryArith* d_th;
   /** */
   int d_counter;
+  /** process functions */
+  void processResetInstantiationRound( Theory::Effort effort );
+  int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
   InstStrategySimplex( InstantiatorTheoryArith* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ), d_counter( 0 ){}
   ~InstStrategySimplex(){}
-  void processResetInstantiationRound();
-  int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("Simplex"); }
 };
@@ -58,7 +59,7 @@ public:
 //      InstStrategy( ie ), d_th( th ){}
 //  ~InstStrategySimplexUfMatch(){}
 //  void resetInstantiationRound();
-//  int process( Node f, int effort, int instLimit );
+//  int process( Node f, Theory::Effort effort, int e, int instLimit );
 //  /** identify */
 //  std::string identify() const { return std::string("SimplexUfMatch"); }
 //};
@@ -90,17 +91,17 @@ public:
 
   /** assertNode function, assertion is asserted to theory */
   void assertNode( Node assertion );
-  /**  reset instantiation */
-  void resetInstantiationRound();
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryArith"); }
   /** print debug */
   void debugPrint( const char* c );
 private:
+  /**  reset instantiation */
+  void processResetInstantiationRound( Theory::Effort effort );
+  /** process at effort */
+  int process( Node f, Theory::Effort effort, int e, int instLimit );
   /** add term to row */
   void addTermToRow( ArithVar x, Node n, Node& f, NodeBuilder<>& t );
-  /** process at effort */
-  int process( Node f, int effort, int instLimit );
   /** get delta for node */
   Node getDelta( Node n );
 

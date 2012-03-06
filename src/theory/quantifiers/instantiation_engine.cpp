@@ -44,8 +44,8 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
       startedInstRound = true;
       for( int i=0; i<theory::THEORY_LAST; i++ ){
         if( getQuantifiersEngine()->getInstantiator( i ) ){
-          getQuantifiersEngine()->getInstantiator( i )->resetInstantiationRound();
-          getQuantifiersEngine()->getInstantiator( i )->resetInstantiationStrategies();
+          getQuantifiersEngine()->getInstantiator( i )->resetInstantiationRound( effort );
+          //getQuantifiersEngine()->getInstantiator( i )->resetInstantiationStrategies();
         }
       }
     }
@@ -67,7 +67,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
             if( getQuantifiersEngine()->getInstantiator( i ) ){
               Debug("inst-engine-debug") << "Do " << getQuantifiersEngine()->getInstantiator( i )->identify() << " " << e << std::endl;
               //std::cout << "Do " << d_instTable[i]->identify() << " " << e << std::endl;
-              int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, e );
+              int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e );
               Debug("inst-engine-debug") << " -> status is " << quantStatus << std::endl;
               //std::cout << " -> status is " << d_instTable[i]->getStatus() << std::endl;
               InstStrategy::updateStatus( d_inst_round_status, quantStatus );

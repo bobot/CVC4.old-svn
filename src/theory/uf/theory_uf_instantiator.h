@@ -45,12 +45,13 @@ private:
   std::map< Node, bool > d_solved;
   /** calc if f is solved */
   void calcSolved( Node f );
+  /** process functions */
+  void processResetInstantiationRound( Theory::Effort effort );
+  int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
   InstStrategyCheckCESolved( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyCheckCESolved(){}
-  void processResetInstantiationRound();
-  int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("CheckCESolved"); }
 };
@@ -61,12 +62,13 @@ private:
   InstantiatorTheoryUf* d_th;
   /** triggers for literal matching */
   std::map< Node, Trigger* > d_lit_match_triggers;
+  /** process functions */
+  void processResetInstantiationRound( Theory::Effort effort );
+  int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
   InstStrategyLitMatch( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyLitMatch(){}
-  void processResetInstantiationRound();
-  int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("LitMatch"); }
 };
@@ -77,12 +79,13 @@ private:
   InstantiatorTheoryUf* d_th;
   /** explicitly provided patterns */
   std::map< Node, std::vector< Trigger* > > d_user_gen;
+  /** process functions */
+  void processResetInstantiationRound( Theory::Effort effort );
+  int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
   InstStrategyUserPatterns( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyUserPatterns(){}
-  void processResetInstantiationRound();
-  int process( Node f, int effort, int instLimit );
 public:
   /** add pattern */
   void addUserPattern( Node f, Node pat );
@@ -111,12 +114,13 @@ private:
 private:
   /** collect all top level APPLY_UF pattern terms for f in n */
   void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt );
+  /** process functions */
+  void processResetInstantiationRound( Theory::Effort effort );
+  int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
   InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt ) : 
       InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ){}
   ~InstStrategyAutoGenTriggers(){}
-  void processResetInstantiationRound();
-  int process( Node f, int effort, int instLimit );
 public:
   /** get auto-generated trigger */
   Trigger* getAutoGenTrigger( Node f );
@@ -130,12 +134,13 @@ private:
   InstantiatorTheoryUf* d_th;
   /** guessed instantiations */
   std::map< Node, bool > d_guessed;
+  /** process functions */
+  void processResetInstantiationRound( Theory::Effort effort );
+  int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
   InstStrategyFreeVariable( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
       InstStrategy( ie ), d_th( th ){}
   ~InstStrategyFreeVariable(){}
-  void processResetInstantiationRound();
-  int process( Node f, int effort, int instLimit );
   /** identify */
   std::string identify() const { return std::string("FreeVariable"); }
 };
@@ -176,18 +181,20 @@ public:
   ~UfTermDb(){}
   /** map from APPLY_UF operators to ground terms for that operator */
   std::map< Node, std::vector< Node > > d_op_map;
-  /** last index considered */
-  std::map< Node, int > d_op_index;
-  /** parent */
-  std::map< Node, std::map< Node, std::vector< Node > > > d_parents;
+  /** parent structure: 
+      n -> op -> index -> L
+      map from node "n" to a list of nodes "L", where each node n' in L 
+        has operator "op", and n'["index"] = n.
+      for example, d_parents[n][f][1] = { f( t1, n ), f( t2, n ), ... }
+  */
+  std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
   /** register this term */
   void add( Node n );
-  /** finish instantiation round */
-  void finishInstantiationRound();
 };
 
 class InstantiatorTheoryUf : public Instantiator{
   friend class ::CVC4::theory::InstMatchGenerator;
+  friend class UfTermDb;
 protected:
   typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
   typedef context::CDMap<Node, int, NodeHashFunction> IntMap;
@@ -207,8 +214,6 @@ public:
   void assertNode( Node assertion );
   /** Pre-register a term.  Done one time for a Node, ever. */
   void preRegisterTerm( Node t );
-  /** reset instantiation */
-  void resetInstantiationRound();
   /** identify */
   std::string identify() const { return std::string("InstantiatorTheoryUf"); }
   /** debug print */
@@ -216,8 +221,10 @@ public:
   /** add user pattern */
   void addUserPattern( Node f, Node pat );
 private:
+  /** reset instantiation */
+  void processResetInstantiationRound( Theory::Effort effort );
   /** calculate matches for quantifier f at effort */
-  int process( Node f, int effort, int instLimit );
+  int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
   /** get uf term database */
   UfTermDb* getTermDatabase() { return d_db; }
@@ -267,12 +274,11 @@ private:
   };
   std::map< Node, std::map< Node, IpsCgVec > > d_pp_pairs;
   std::map< Node, std::map< Node, IpsCgVec > > d_pc_pairs;
+  std::map< Node, std::vector< CandidateGenerator* > > d_cand_gens;
   /** helper functions */
-  void registerParentParentPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips, 
-                                  std::map< Node, std::vector< InvertedPathString > >& ips_map );
-  void registerParentParentPairs( CandidateGenerator* cg, Node pat );
-  void registerParentChildPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips );
-  void registerParentChildPairs( CandidateGenerator* cg, Node pat );
+  void registerPatternElementPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips, 
+                                     std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >& ips_map );
+  void registerPatternElementPairs( CandidateGenerator* cg, Node pat );
 public:
   /** Register candidate generator cg for pattern pat.  
       This request will ensure that calls will be made to cg->addCandidate( n ) for all
@@ -295,7 +301,7 @@ public:
   bool areEqual( Node a, Node b ) { return d_ith->areEqual( a, b ); }
   bool areDisequal( Node a, Node b ) { return d_ith->areDisequal( a, b ); }
   Node getInternalRepresentative( Node a ) { return d_ith->getInternalRepresentative( a ); }
-};
+}; /* EqualityQueryInstantiatorTheoryUf */
 
 }
 }/* CVC4::theory namespace */

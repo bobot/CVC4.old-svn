@@ -68,11 +68,12 @@ private:
   context::CDO< bool > d_finding_model;
   /** map of current used instantiations */
   std::map< Node, std::vector< PartialInstSet* > > d_inst_group;
+  /** process functions */
+  void processResetInstantiationRound( Theory::Effort effort );
+  int process( Node f, Theory::Effort effort, int e, int limitInst );
 public:
   InstStrategyFinteModelFind( context::Context* c, InstantiatorTheoryUf* ith, StrongSolverTheoryUf* ss, QuantifiersEngine* ie );
   ~InstStrategyFinteModelFind(){}
-  void processResetInstantiationRound();
-  int process( Node f, int effort, int limitInst );
   /** identify */
   std::string identify() const { return std::string("FinteModelFind"); }
 };
