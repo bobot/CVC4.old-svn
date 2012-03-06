@@ -233,7 +233,7 @@ class NodeTemplate {
       Assert( d_nv->d_rc > 0, "TNode pointing to an expired NodeValue" );
     }
   }
-
+public:
   /**
    * Cache-aware, recursive version of substitute() used by the public
    * member function with a similar signature.

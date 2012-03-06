@@ -122,6 +122,8 @@ public:
   void computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match );
   /** clear */
   void clear(){ d_map.clear(); }
+  /** is_empty */
+  bool empty(){ return d_map.empty(); }
   /* map from variable to ground terms */
   std::map< Node, Node > d_map;
 };
@@ -158,12 +160,13 @@ private:
       only valid for use where !d_match_pattern.isNull().
   */
   bool getNextMatch2( InstMatch& m, QuantifiersEngine* qe );
+public:
   /** get the match against ground term or formula t.
       d_match_mattern and t should have the same shape.
       only valid for use where !d_match_pattern.isNull().
   */
   bool getMatch( Node t, InstMatch& m, QuantifiersEngine* qe );
-public:
+
   /** constructors */
   InstMatchGenerator( Node pat, QuantifiersEngine* qe, int matchOption = 0 );
   InstMatchGenerator( std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption = 0 );
@@ -182,6 +185,9 @@ public:
   void reset( Node eqc, QuantifiersEngine* qe );
   /** get the next match.  must call reset( eqc ) before this function. */
   bool getNextMatch( InstMatch& m, QuantifiersEngine* qe );
+  /** return true if whatever Node is subsituted for the variables the
+      given Node can't match the pattern */
+  bool nonunifiable( TNode t, const std::vector<Node> & vars);
 };
 
 
@@ -245,6 +251,16 @@ public:
   void reset( Node eqc );
   /** get next match.  must call reset( eqc ) once before this function. */
   bool getNextMatch( InstMatch& m );
+  /** get the match against ground term or formula t.
+      the trigger and t should have the same shape.
+      Currently the trigger should not be a multi-trigger.
+  */
+  bool getMatch( Node t, InstMatch& m);
+  /** return true if whatever Node is subsituted for the variables the
+      given Node can't match the pattern */
+  bool nonunifiable( TNode t, const std::vector<Node> & vars){
+    return d_mg->nonunifiable(t,vars);
+  };
 public:
   /** add all available instantiations exhaustively, in any equivalence class 
       if limitInst>0, limitInst is the max # of instantiations to try */
@@ -270,9 +286,21 @@ public:
   /** is usable trigger */
   static bool isUsableTrigger( std::vector< Node >& nodes, Node f );
   static bool isUsableTrigger( Node n, Node f );
+
+  inline void toStream(std::ostream& out) const {
+    if (d_mg->d_match_pattern.isNull()) out << "MultiTrigger (TODO)";
+    else out << "[" << d_mg->d_match_pattern << "]";
+  }
 };
 
+inline std::ostream& operator<<(std::ostream& out, const Trigger & tr) {
+  tr.toStream(out);
+  return out;
+}
+
+
 }/* CVC4::theory namespace */
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__INSTANTIATION_ENGINE_H */

@@ -20,6 +20,8 @@
 
 #include "theory/rewriterules/theory_rewriterules.h"
 
+#include "theory/rewriter.h"
+
 using namespace std;
 using namespace CVC4;
 using namespace CVC4::kind;
@@ -32,37 +34,49 @@ namespace CVC4 {
 namespace theory {
 namespace rewriterules {
 
-// std::ostream& operator <<(std::ostream& stream, const RewriteRule& r) {
-//   for(std::vector<Node>::const_iterator
-//         iter = r.guards.begin(); iter != r.guards.end(); ++iter){
-//     stream << *iter;
-//   };
-//   return stream << "=>" << r.equality;
-// }
+inline std::ostream& operator <<(std::ostream& stream, const RewriteRule& r) {
+  r.toStream(stream);
+  return stream;
+}
 
-static const bool propagate_as_lemma = false;
+inline std::ostream& operator <<(std::ostream& stream, const RuleInst& ri) {
+  ri.toStream(stream);
+  return stream;
+}
+
+static const bool propagate_as_lemma = true;
 static const bool cache_match = true;
+static const bool compute_opt = true;
+static const bool rewrite_before_cache = true;
 
 static const size_t RULEINSTID_TRUE = ((size_t) -1);
 static const size_t RULEINSTID_FALSE = ((size_t) -2);
 
   /** Rule an instantiation with the given match */
 RuleInst::RuleInst(TheoryRewriteRules & re, RewriteRuleId r,
-                   std::vector<Node> & inst_subst,
-                   RuleInstId i):
-  rule(r),id(i)
+                   std::vector<Node> & inst_subst):
+  rule(r),id(RULEINSTID_TRUE)
 {
-  Assert(i != RULEINSTID_TRUE && i != RULEINSTID_FALSE);
   subst.swap(inst_subst);
 };
 
-Node RuleInst::substNode(const TheoryRewriteRules & re, TNode r)const{
+void RuleInst::setId(RuleInstId nid){
+  Assert(nid != RULEINSTID_TRUE && nid != RULEINSTID_FALSE);
+  Assert(id == RULEINSTID_TRUE);
+  id = nid;
+}
+
+Node RuleInst::substNode(const TheoryRewriteRules & re, TNode r,
+                         std::hash_map<TNode, TNode, TNodeHashFunction> cache)
+  const{
+  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
   const RewriteRule & rrule = re.get_rule(rule);
   return r.substitute(rrule.free_vars.begin(),rrule.free_vars.end(),
                       subst.begin(),subst.end());
 };
 
 size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
+  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
   const RewriteRule & r = re.get_rule(rule);
   while (start < (r.guards).size()){
     Node g = substNode(re,r.guards[start]);
@@ -83,6 +97,15 @@ size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
   return start;
 };
 
+void RuleInst::toStream(std::ostream& out) const{
+  out << "(" << rule << ") ";
+  for(std::vector<Node>::const_iterator
+        iter = subst.begin(); iter != subst.end(); ++iter){
+    out << *iter;
+  };
+}
+
+
 void Guarded::nextGuard(TheoryRewriteRules & re)const{
   Assert(inst != RULEINSTID_TRUE && inst != RULEINSTID_FALSE);
   re.get_inst(inst).findGuard(re,d_guard+1);
@@ -96,7 +119,8 @@ Guarded::Guarded(const Guarded & g) :
 Guarded::Guarded() :
   d_guard(-1),inst(-1) {};
 
-RewriteRule const makeRewriteRule(TheoryRewriteRules & re, const Node r)
+
+RewriteRule const TheoryRewriteRules::makeRewriteRule(const Node r)
 {
   Assert(r.getKind() == kind::REWRITE_RULE);
   Assert(r[2].getKind() == kind::RR_REWRITE);
@@ -117,19 +141,37 @@ RewriteRule const makeRewriteRule(TheoryRewriteRules & re, const Node r)
     vars.push_back(*v);
   };
   std::vector<Node> inst_constants =
-    re.getQuantifiersEngine()->createInstVariable(vars);
-  pattern.push_back(re.getQuantifiersEngine()->
+    getQuantifiersEngine()->createInstVariable(vars);
+  pattern.push_back(getQuantifiersEngine()->
                     convertNodeToPattern(head,r,vars,inst_constants));
-  Trigger trigger = re.createTrigger(r,pattern);
-  return RewriteRule(re, trigger, guards, equality, vars, inst_constants);
+  Trigger trigger = createTrigger(r,pattern);
+  Trigger trigger2 = createTrigger(r,pattern); //Hack
+  // final construction
+  return RewriteRule(*this, trigger, trigger2,
+                     guards, equality, vars, inst_constants);
 };
 
 
 /** A rewrite rule */
+void RewriteRule::toStream(std::ostream& out) const{
+  for(std::vector<Node>::const_iterator
+        iter = guards.begin(); iter != guards.end(); ++iter){
+    out << *iter;
+  };
+  out << "=>" << equality << std::endl;
+  out << "[";
+  for(BodyMatch::const_iterator
+        iter = body_match.begin(); iter != body_match.end(); ++iter){
+    out << (*iter).first << "(" << (*iter).second << ")" << ",";
+  };
+  out << "]" << std::endl;
+}
+
 RewriteRule::RewriteRule(TheoryRewriteRules & re,
-                         Trigger & tr, Node g, Node eq,
+                         Trigger & tr, Trigger & tr2, Node g, Node eq,
                          std::vector<Node> & fv,std::vector<Node> & iv) :
   trigger(tr), equality(eq), free_vars(), inst_vars(),
+  body_match(),trigger_for_body_match(tr2),
   d_cache(re.getContext()){
   free_vars.swap(fv);inst_vars.swap(iv);
   switch(g.getKind()){
@@ -151,7 +193,10 @@ bool RewriteRule::inCache(std::vector<Node> & subst)const{
   /* INST_PATTERN because its 1: */
   NodeBuilder<> nodeb(kind::INST_PATTERN);
   for(std::vector<Node>::const_iterator p = subst.begin();
-      p != subst.end(); ++p) nodeb << *p;
+      p != subst.end(); ++p){
+    if (rewrite_before_cache) nodeb << Rewriter::rewrite(*p);
+    else nodeb << *p;
+  };
   Node node = nodeb;
   CacheNode::const_iterator e = d_cache.find(node);
   /* Already in the cache */
@@ -169,11 +214,66 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
                                        QuantifiersEngine* qe) :
   Theory(THEORY_REWRITERULES, c, u, out, valuation,qe),
   d_rules(c), d_ruleinsts(c), d_guardeds(c),
-  d_explanations(c)
+  d_explanations(c), d_ruleinsts_to_add(c)
   {
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   Debug("rewriterules") << Node::setdepth(-1);
 }
+
+
+void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRuleId rid,
+                                             const RewriteRule & r,
+                                             InstMatch & im,
+                                             bool delay){
+  Debug("rewriterules") << "One matching found(" << delay << ")" << std::endl;
+  std::vector<Node> subst;
+  im.computeTermVec(getQuantifiersEngine(), r.inst_vars , subst);
+  if(!cache_match || !r.inCache(subst)){
+    RuleInst ri = RuleInst(*this,rid,subst);
+    // Find the first non verified guard, don't save the rule if the
+    // rule can already be fired In fact I save it otherwise strange
+    // things append.
+    if(delay) d_ruleinsts_to_add.push(ri);
+    else{
+      ri.setId(d_ruleinsts.size());
+      if(ri.findGuard(*this, 0) != (r.guards).size())
+        d_ruleinsts.push_back(ri);
+    };
+  };
+}
+
+
+void TheoryRewriteRules::computeMatchBody ( RewriteRule & rule,
+                                            const RewriteRuleId rid_begin){
+  std::vector<TNode> stack(1,rule.equality[1]);
+
+  while(!stack.empty()){
+    Node t = stack.back(); stack.pop_back();
+
+    // We don't want to consider variable in t
+    if( std::find(rule.free_vars.begin(), rule.free_vars.end(), t)
+        != rule.free_vars.end()) continue;
+
+    // t we want to consider only UF function
+    if( t.getKind() == APPLY_UF ){
+      for(size_t rid = rid_begin, end = d_rules.size(); rid < end; ++rid) {
+        const RewriteRule & r = d_rules[rid];
+        // Debug("rewriterules") << "  rule: " << r << std::endl;
+        Trigger & tr = const_cast<Trigger &> (r.trigger_for_body_match);
+        if(!tr.nonunifiable(t, rule.free_vars)){
+          rule.body_match.push_back(std::make_pair(t,rid));
+        }
+      }
+    }
+
+    //put the children on the stack
+    for( size_t i=0; i < t.getNumChildren(); i++ ){
+      stack.push_back(t[i]);
+    };
+
+  }
+}
+
 
 void TheoryRewriteRules::check(Effort level) {
 
@@ -186,13 +286,20 @@ void TheoryRewriteRules::check(Effort level) {
       if (getValuation().getDecisionLevel()>0)
         Unhandled(getValuation().getDecisionLevel());
 
-      d_rules.push_back(makeRewriteRule(*this,fact));
+      d_rules.push_back(makeRewriteRule(fact));
+
+      //Add body_match to the new rule
+      if(compute_opt){
+        computeMatchBody(const_cast<RewriteRule &> (d_rules.back()),0);
+      }
     };
+
+  Debug("rewriterules") << "Check:" << std::endl;
 
   /** Test each rewrite rule */
   for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid) {
     const RewriteRule & r = d_rules[rid];
-    // Debug("rewriterules") << "  rule: " << r << std::endl;
+    Debug("rewriterules") << "  rule: " << r << std::endl;
     Trigger & tr = const_cast<Trigger &> (r.trigger);
     //reset instantiation round for trigger (set up match production)
     tr.resetInstantiationRound();
@@ -202,40 +309,50 @@ void TheoryRewriteRules::check(Effort level) {
     /** Test the possible matching one by one */
     InstMatch im;
     while(tr.getNextMatch( im )){
-      Debug("rewriterules") << "One matching found" << std::endl;
-      RuleInstId id = d_ruleinsts.size();
-      std::vector<Node> subst;
-      im.computeTermVec(getQuantifiersEngine(), r.inst_vars , subst);
-      if(!cache_match || !r.inCache(subst)){
-          RuleInst ri = RuleInst(*this,rid,subst,id);
-          // Find the first non verified guard, don't save the rule if the
-          // rule can already be fired
-          if(ri.findGuard(*this, 0) != (r.guards).size())
-            d_ruleinsts.push_back(ri);
-      };
+      addMatchRuleTrigger(rid, r, im, false);
       im.clear();
     }
   }
 
+  GuardedMap::const_iterator p = d_guardeds.begin();
+  do{
 
-  /** Temporary way. Poll value */
-  for (GuardedMap::const_iterator p = d_guardeds.begin();
-       p != d_guardeds.end(); ++p){
-    TNode g = (*p).first;
-    const GList * const l = (*p).second;
-    const Guarded & glast = (*l)[l->size()-1];
-    if(glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) continue;
-    bool value;
-    if(getValuation().hasSatValue(g,value)) notification(g,value);
-  }
+
+    //dequeue instantiated rules
+    for(; !d_ruleinsts_to_add.empty(); d_ruleinsts_to_add.pop()){
+      RuleInst ri = d_ruleinsts_to_add.front();
+      ri.setId(d_ruleinsts.size());
+      if(ri.findGuard(*this, 0) != (get_rule(ri.rule).guards).size())
+        d_ruleinsts.push_back(ri);
+    };
+
+
+    /** Temporary way. Poll value */
+    for (; p != d_guardeds.end(); ++p){
+      TNode g = (*p).first;
+      const GList * const l = (*p).second;
+      const Guarded & glast = (*l)[l->size()-1];
+      // cout << "Polled?:" << g << std::endl;
+      if(glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) continue;
+      // cout << "Polled!:" << g << "->" << (glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) << std::endl;
+      bool value;
+      if(getValuation().hasSatValue(g,value)){
+        notification(g,value);
+        //const Guarded & glast2 = (*l)[l->size()-1];
+        // cout << "Polled!!:" << g << "->" << (glast2.inst == RULEINSTID_TRUE||glast2.inst == RULEINSTID_FALSE) << std::endl;
+      };
+    };
+
+  }while(!d_ruleinsts_to_add.empty() && p != d_guardeds.end());
 
 };
+
 
 void TheoryRewriteRules::registerQuantifier( Node n ){};
 
 Trigger TheoryRewriteRules::createTrigger( TNode n, std::vector<Node> & pattern )
   const{
-  Debug("rewriterules") << "createTrigger:";
+  //  Debug("rewriterules") << "createTrigger:";
   getQuantifiersEngine()->registerPattern(pattern);
   return *Trigger::mkTrigger(getQuantifiersEngine(),n,pattern, false, true);
 };
@@ -276,9 +393,9 @@ Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, RuleInstId rid,
   if( l_i == d_guardeds.end() ) {
     /** Not watched so IDONTNOW */
     l = new(getContext()->getCMM())
-      GList(true, getContext(), false,
-            ContextMemoryAllocator<Guarded>(getContext()->getCMM()));
-    d_guardeds.insertDataFromContextMemory(g, l);
+      GList(true, getContext(), false);//,
+            //ContextMemoryAllocator<Guarded>(getContext()->getCMM()));
+    d_guardeds.insert(g ,l);//.insertDataFromContextMemory(g, l);
     /* TODO Add register propagation */
   } else {
     l = (*l_i).second;
@@ -323,9 +440,11 @@ void TheoryRewriteRules::notifyEq(TNode lhs, TNode rhs) {
 
 
 void TheoryRewriteRules::propagateRule(const RuleInst & inst){
+  std::hash_map<TNode, TNode, TNodeHashFunction> cache;
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
+  Debug("rewriterules") << "propagateRule" << inst << std::endl;
   const RewriteRule & rule = get_rule(inst.rule);
-  Node equality = inst.substNode(*this,rule.equality);
+  Node equality = inst.substNode(*this,rule.equality,cache);
   if(propagate_as_lemma){
     Node lemma = equality;
     if(rule.guards.size() > 0){
@@ -347,6 +466,19 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst){
       d_explanations.insert(lemma_lit,inst.id);
    };
   };
+
+  //Verify that this instantiation can't immediately fire another rule
+  for(RewriteRule::BodyMatch::const_iterator p = rule.body_match.begin();
+      p != rule.body_match.end(); ++p){
+    const RewriteRuleId rid = (*p).second;
+    const RewriteRule & r = d_rules[rid];
+    // Debug("rewriterules") << "  rule: " << r << std::endl;
+    // Use trigger2 since we can be in check
+    Trigger & tr = const_cast<Trigger &> (r.trigger_for_body_match);
+    InstMatch im;
+    tr.getMatch(inst.substNode(*this,(*p).first, cache),im);
+    if(!im.empty()) addMatchRuleTrigger(rid, r, im);
+  }
 };
 
 

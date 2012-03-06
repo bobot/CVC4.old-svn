@@ -22,6 +22,7 @@
 #define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_H
 
 #include "context/cdlist_context_memory.h"
+#include "context/cdqueue2.h"
 #include "theory/valuation.h"
 #include "theory/theory.h"
 #include "theory/theory_engine.h"
@@ -41,18 +42,33 @@ typedef size_t RuleInstId;
 
   class RewriteRule{
   public:
+    // constant
     Trigger trigger;
     std::vector<Node> guards;
     const Node equality;
     std::vector<Node> free_vars; /* free variable in the rule */
     std::vector<Node> inst_vars; /* corresponding vars in the triggers */
+    /* After instantiating the body new match can appear (TNode
+       because is a subterm of a body on the assicaited rewrite
+       rule) */
+    typedef std::vector<std::pair<TNode,RewriteRuleId> > BodyMatch;
+    BodyMatch body_match;
+    Trigger trigger_for_body_match; // used because we can be matching
+                                    // trigger when we need new match.
+                                    // So currently we use another
+                                    // trigger for that.
+
+    //context dependent
     typedef context::CDSet<Node, NodeHashFunction> CacheNode;
     CacheNode d_cache;
+
     RewriteRule(TheoryRewriteRules & re,
-                Trigger & tr, Node g, Node eq,
+                Trigger & tr, Trigger & tr2, Node g, Node eq,
                 std::vector<Node> & fv,std::vector<Node> & iv);
     bool noGuard()const;
     bool inCache(std::vector<Node> & subst)const;
+
+    void toStream(std::ostream& out) const;
   };
 
   class RuleInst{
@@ -61,16 +77,22 @@ typedef size_t RuleInstId;
     const RewriteRuleId rule;
 
     /** The id of the Rule inst */
-    const RuleInstId id;
+    RuleInstId id;
 
     /** the substitution */
     std::vector<Node> subst;
 
     /** Rule an instantiation with the given match */
     RuleInst(TheoryRewriteRules & re, const RewriteRuleId rule,
-             std::vector<Node> & inst_subst,const RuleInstId i);
-    Node substNode(const TheoryRewriteRules & re, TNode r)const;
+             std::vector<Node> & inst_subst);
+    Node substNode(const TheoryRewriteRules & re, TNode r,
+                   std::hash_map<TNode, TNode, TNodeHashFunction> cache =
+                   std::hash_map<TNode, TNode, TNodeHashFunction>()
+                   )const;
     size_t findGuard(TheoryRewriteRules & re, size_t start)const;
+    void setId(const RuleInstId i);
+
+    void toStream(std::ostream& out) const;
   };
 
 /** A pair? */
@@ -106,13 +128,17 @@ private:
 
   /** The GList* will not lead too memory leaks since that use
       ContextMemoryAllocator */
-  typedef context::CDList< Guarded, context::ContextMemoryAllocator< Guarded > > GList;
-  typedef context::CDMap<Node, GList*, NodeHashFunction> GuardedMap;
+  typedef context::CDList< Guarded > GList;
+  typedef context::CDMap<Node, GList *, NodeHashFunction> GuardedMap;
   GuardedMap d_guardeds;
 
   /** explanation */
   typedef context::CDMap<Node, RuleInstId , NodeHashFunction> ExplanationMap;
   ExplanationMap d_explanations;
+
+  /** new instantiation */
+  typedef context::CDQueue2< RuleInst > QRuleInsts;
+  QRuleInsts d_ruleinsts_to_add;
 
  public:
   /** true for predicate */
@@ -167,6 +193,14 @@ private:
   bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
   Node substGuards(const RuleInst & inst,const RewriteRule & r,
                    Node last = Node::null());
+
+  RewriteRule const makeRewriteRule(const Node r);
+  void computeMatchBody ( RewriteRule & r,
+                          const RewriteRuleId rid_begin);
+  void addMatchRuleTrigger(const RewriteRuleId rid,
+                           const RewriteRule & r,
+                           InstMatch & im, bool delay = true);
+
 
 };/* class TheoryRewriteRules */
 

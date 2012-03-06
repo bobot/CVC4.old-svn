@@ -429,6 +429,43 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
   }
 }
 
+// Currently the implementation doesn't take into account that
+// variable should have the same value given.
+// TODO use the d_children way perhaps
+// TODO replace by a real dictionnary
+// We should create a real substitution? slower more precise
+// We don't do that often
+bool InstMatchGenerator::nonunifiable( TNode t0, const std::vector<Node> & vars){
+  Assert(!d_match_pattern.isNull());
+  typedef std::vector<std::pair<TNode,TNode> > tstack;
+  tstack stack(1,std::make_pair(t0,d_match_pattern)); // t * pat
+
+  while(!stack.empty()){
+    const std::pair<TNode,TNode> p = stack.back(); stack.pop_back();
+    const TNode & t = p.first;
+    const TNode & pat = p.second;
+
+    // t or pat is a variable currently we consider that can match anything
+    if( find(vars.begin(),vars.end(),t) != vars.end() ) continue;
+    if( pat.getKind() == INST_CONSTANT ) continue;
+
+    // t and pat are nonunifiable
+    if( t.getKind() != APPLY_UF || pat.getKind() != APPLY_UF ) {
+      if(t == pat) continue;
+      else return true;
+    };
+    if( t.getOperator() != pat.getOperator() ) return true;
+
+    //put the children on the stack
+    for( size_t i=0; i < pat.getNumChildren(); i++ ){
+      stack.push_back(std::make_pair(t[i],pat[i]));
+    };
+  }
+  // The heuristic can't find non-unifiability
+  return false;
+}
+
+
 Trigger* Trigger::TrTrie::getTrigger2( std::vector< Node >& nodes ){
   if( nodes.empty() ){
     return d_tr;
@@ -498,6 +535,11 @@ bool Trigger::getNextMatch( InstMatch& m ){
   //m.makeInternal( d_quantEngine->getEqualityQuery() );
   return retVal;
 }
+
+bool Trigger::getMatch( Node t, InstMatch& m ){
+  d_mg->getMatch( t, m, d_quantEngine );
+}
+
 
 int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSplits ){
   //now, try to add instantiation for each match produced
