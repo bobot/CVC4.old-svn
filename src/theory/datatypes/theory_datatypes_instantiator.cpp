@@ -56,7 +56,7 @@ int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e, 
         m.d_map[ i ] = n;
       }
     }
-    d_quantEngine->addInstantiation( f, &m );
+    d_quantEngine->addInstantiation( f, m );
   }
   return InstStrategy::STATUS_UNKNOWN;
 }

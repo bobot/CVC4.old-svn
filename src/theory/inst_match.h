@@ -96,9 +96,6 @@ public:
       Otherwise, return "a" itself.
    */
   virtual Node getInternalRepresentative( Node a ) = 0;
-  //virtual void requestCandidates( Node t, Node s, int op ) = 0;
-  //virtual Node getNextCandidate( Node t, Node s, int op ) = 0;
-  //virtual void finishCandidates( Node t, Node s, int op ) = 0;
 };
 
 class InstMatch
@@ -124,6 +121,8 @@ public:
   void makeRepresentative( EqualityQuery* q );
   /** compute d_match */
   void computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match );
+  /** compute d_match */
+  void computeTermVec( const std::vector< Node >& vars, std::vector< Node >& match );
   /** clear */
   void clear(){ d_map.clear(); }
   /** is_empty */
@@ -131,6 +130,24 @@ public:
   /* map from variable to ground terms */
   std::map< Node, Node > d_map;
 };
+
+class InstMatchTrie
+{
+private:
+  /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
+  void addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index );
+  /** exists match */
+  bool existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, int index );
+  /** the data */
+  std::map< Node, InstMatchTrie > d_data;
+public:
+  InstMatchTrie(){}
+  ~InstMatchTrie(){}
+public:
+  /** add match m for quantifier f, take into account equalities, return true if successful */
+  bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false );
+};
+
 
 class InstMatchGenerator
 {

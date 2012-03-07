@@ -114,9 +114,57 @@ void InstMatch::computeTermVec( QuantifiersEngine* ie, const std::vector< Node >
     }
   }
 }
+void InstMatch::computeTermVec( const std::vector< Node >& vars, std::vector< Node >& match ){
+  for( int i=0; i<(int)vars.size(); i++ ){
+    match.push_back( d_map[ vars[i] ] );
+  }
+}
 
 
+/** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
+void InstMatchTrie::addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index ){
+  if( index<f[0].getNumChildren() ){
+    Node n = m.d_map[ qe->getInstantiationConstant( f, index ) ];
+    d_data[n].addInstMatch2( qe, f, m, index+1 );
+  }
+}
 
+/** exists match */
+bool InstMatchTrie::existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, int index ){
+  if( index==f[0].getNumChildren() ){
+    return true;
+  }else{
+    Node n = m.d_map[ qe->getInstantiationConstant( f, index ) ];
+    std::map< Node, InstMatchTrie >::iterator it = d_data.find( n );
+    if( it!=d_data.end() ){
+      if( it->second.existsInstMatch( qe, f, m, modEq, index+1 ) ){
+        return true;
+      }
+    }
+    if( modEq ){
+      //check modulo equality if any other instantiation match exists
+      for( std::map< Node, InstMatchTrie >::iterator itc = d_data.begin(); itc != d_data.end(); ++itc ){
+        if( itc->first!=n && qe->getEqualityQuery()->areEqual( n, itc->first ) ){
+          if( itc->second.existsInstMatch( qe, f, m, modEq, index+1 ) ){
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+}
+
+bool InstMatchTrie::addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq ){
+  if( !existsInstMatch( qe, f, m, modEq, 0 ) ){
+    //std::cout << "~Exists, add." << std::endl;
+    addInstMatch2( qe, f, m, 0 );
+    return true;
+  }else{
+    //std::cout << "Exists, fail." << std::endl;
+    return false;
+  }
+}
 
 InstMatchGenerator::InstMatchGenerator( Node pat, QuantifiersEngine* qe, int matchPolicy ) : d_matchPolicy( matchPolicy ){
   initializePattern( pat, qe );
@@ -555,7 +603,7 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
     if( getNextMatch( m ) ){
       //m.makeInternal( d_quantEngine->getEqualityQuery() );
       m.add( baseMatch );
-      if( d_quantEngine->addInstantiation( d_f, &m, addSplits ) ){
+      if( d_quantEngine->addInstantiation( d_f, m, addSplits ) ){
         Debug("inst-trigger") << "Trigger was ";
         for( int i=0; i<(int)d_nodes.size(); i++ ){
           Debug("inst-trigger") << d_nodes[i] << " ";

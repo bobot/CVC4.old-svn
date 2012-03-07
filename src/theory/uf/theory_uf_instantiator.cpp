@@ -41,7 +41,7 @@ int InstStrategyCheckCESolved::process( Node f, Theory::Effort effort, int e, in
     }
     //check if f is counterexample-solved
     if( d_solved[ f ] ){
-      if( d_quantEngine->addInstantiation( f, &d_th->d_baseMatch[f] ) ){
+      if( d_quantEngine->addInstantiation( f, d_th->d_baseMatch[f] ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_ce_solved);
         //d_quantEngine->d_hasInstantiated[f] = true;
@@ -254,7 +254,7 @@ int InstStrategyFreeVariable::process( Node f, Theory::Effort effort, int e, int
       d_guessed[f] = true;
       Debug("quant-uf-alg") << "Add guessed instantiation" << std::endl;
       InstMatch m;
-      if( d_quantEngine->addInstantiation( f, &m ) ){
+      if( d_quantEngine->addInstantiation( f, m ) ){
         ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_guess);
         //d_quantEngine->d_hasInstantiated[f] = true;
@@ -327,8 +327,10 @@ Instantiator( c, ie, th )
     addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), ie ) );
   }else{
     d_isup = new InstStrategyUserPatterns( this, ie );
-    addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
-    //addInstStrategy( new InstStrategyLitMatch( this, ie ) );
+    if( Options::current()->cbqi || !Options::current()->cbqiSetByUser ){
+      addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
+      //addInstStrategy( new InstStrategyLitMatch( this, ie ) );
+    }
     addInstStrategy( d_isup );
     InstStrategy* i_ag = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MAX_TRIGGER );
     addInstStrategy( i_ag );

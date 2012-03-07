@@ -65,7 +65,7 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
           }
         }
         if( !var.isNull() ){
-          d_th->doInstantiation( f, d_th->d_tableaux_term[x], x, &m, var );
+          d_th->doInstantiation( f, d_th->d_tableaux_term[x], x, m, var );
         }
         ////choose a new variable based on alternation strategy
         //int index = d_counter%(int)d_th->d_ceTableaux[x].size();
@@ -325,7 +325,7 @@ void InstantiatorTheoryArith::debugPrint( const char* c ){
 // t[e] is a vector of terms containing instantiation constants from f, 
 // and term is a ground term (c1*t1 + ... + cn*tn).
 // We construct the term ( beta - term )/coeff to use as an instantiation for var.
-bool InstantiatorTheoryArith::doInstantiation( Node f, Node term, ArithVar x, InstMatch* m, Node var ){
+bool InstantiatorTheoryArith::doInstantiation( Node f, Node term, ArithVar x, InstMatch& m, Node var ){
   //first try +delta
   if( doInstantiation2( f, term, x, m, var ) ){
     ++(d_statistics.d_instantiations);
@@ -346,7 +346,7 @@ bool InstantiatorTheoryArith::doInstantiation( Node f, Node term, ArithVar x, In
   }
 }
 
-bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, InstMatch* m, Node var, bool minus_delta ){
+bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, InstMatch& m, Node var, bool minus_delta ){
   // make term ( beta - term )/coeff
   Node beta = getTableauxValue( x, minus_delta );
   Node instVal = NodeManager::currentNM()->mkNode( MINUS, beta, term );
@@ -357,7 +357,7 @@ bool InstantiatorTheoryArith::doInstantiation2( Node f, Node term, ArithVar x, I
   }
   instVal = Rewriter::rewrite( instVal );
   //use as instantiation value for var
-  m->d_map[ var ] = instVal;
+  m.d_map[ var ] = instVal;
   return d_quantEngine->addInstantiation( f, m, true );
 }
 

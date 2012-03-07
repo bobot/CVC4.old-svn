@@ -83,8 +83,8 @@ private:
   Node getTableauxValue( Node n, bool minus_delta = false );
   Node getTableauxValue( ArithVar v, bool minus_delta = false );
   /** do instantiation */
-  bool doInstantiation( Node f, Node term, ArithVar x, InstMatch* m, Node var );
-  bool doInstantiation2( Node f, Node term, ArithVar x, InstMatch* m, Node var, bool minus_delta = false );
+  bool doInstantiation( Node f, Node term, ArithVar x, InstMatch& m, Node var );
+  bool doInstantiation2( Node f, Node term, ArithVar x, InstMatch& m, Node var, bool minus_delta = false );
 public:
   InstantiatorTheoryArith(context::Context* c, QuantifiersEngine* ie, Theory* th);
   ~InstantiatorTheoryArith() {}

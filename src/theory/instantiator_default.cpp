@@ -47,7 +47,7 @@ int InstantiatorDefault::process( Node f, int effort, int instLimit ){
         m.d_map[ i ] = val;
       }
     }
-    d_quantEngine->addInstantiation( f, &m );
+    d_quantEngine->addInstantiation( f, m );
   }
   return InstStrategy::STATUS_UNKNOWN;
 }

@@ -279,26 +279,40 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
   }
 }
 
-bool QuantifiersEngine::addInstantiation( Node f, InstMatch* m, bool addSplits ){
-  m->makeRepresentative( d_eq_query );
+bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits ){
+#if 1
+  for( int i=0; i<(int)d_inst_constants[f].size(); i++ ){
+    if( m.d_map.find( d_inst_constants[f][i] )==m.d_map.end() ){
+      m.d_map[ d_inst_constants[f][i] ] = getFreeVariableForInstConstant( d_inst_constants[f][i] );
+    }
+  }
+  m.makeRepresentative( d_eq_query );
+  if( !d_inst_match_trie[f].addInstMatch( this, f, m, true ) ){
+    ++(d_statistics.d_inst_duplicate);
+    return false;
+  }
   std::vector< Node > match;
-  m->computeTermVec( this, d_inst_constants[f], match );
-  //std::cout << "m's quant is " << m->getQuantifier() << std::endl;
+  m.computeTermVec( d_inst_constants[f], match );
+#else
+  m.makeRepresentative( d_eq_query );
+  std::vector< Node > match;
+  m.computeTermVec( this, d_inst_constants[f], match );
+#endif
   //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
   //for( int i=0; i<(int)m->d_match.size(); i++ ){
   //  std::cout << "   " << m->d_match[i] << std::endl;
   //}
 
   if( addInstantiation( f, match ) ){
-    d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)d_inst_constants[f].size() - m->d_map.size() );
-    if( d_inst_constants[f].size()!=m->d_map.size() ){
-      //std::cout << "Unspec. " << std::endl;
-      //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
-      //for( int i=0; i<(int)m->d_match.size(); i++ ){
-      //  std::cout << "   " << m->d_match[i] << std::endl;
-      //}
-      ++(d_statistics.d_inst_unspec);
-    }
+    //d_statistics.d_total_inst_var_unspec.setData( d_statistics.d_total_inst_var_unspec.getData() + (int)d_inst_constants[f].size() - m.d_map.size()/2 );
+    //if( d_inst_constants[f].size()!=m.d_map.size() ){
+    //  //std::cout << "Unspec. " << std::endl;
+    //  //std::cout << "*** Instantiate " << m->getQuantifier() << " with " << std::endl;
+    //  //for( int i=0; i<(int)m->d_match.size(); i++ ){
+    //  //  std::cout << "   " << m->d_match[i] << std::endl;
+    //  //}
+    //  ++(d_statistics.d_inst_unspec);
+    //}
     //if( addSplits ){
     //  for( std::map< Node, Node >::iterator it = m->d_splits.begin(); it != m->d_splits.end(); ++it ){
     //    addSplitEquality( it->first, it->second, true, true );

@@ -50,7 +50,7 @@ int InstantiatorTheoryQuantifiers::process( Node f, Theory::Effort effort, int e
     //add random addition
     if( isOwnerOf( f ) ){
       InstMatch m;
-      if( d_quantEngine->addInstantiation( f, &m ) ){
+      if( d_quantEngine->addInstantiation( f, m ) ){
         ++(d_statistics.d_instantiations);
       }
     }

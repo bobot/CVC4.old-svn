@@ -26,48 +26,47 @@ namespace CVC4 {
 namespace theory {
 namespace uf {
 
-//instantiation strategies
+class RepAlphabetIterator;
 
+/** representative alphabet */
+class RepAlphabet {
+public:
+  RepAlphabet(){}
+  RepAlphabet( RepAlphabet& ra, QuantifiersEngine* ie );
+  ~RepAlphabet(){}
+  std::map< TypeNode, std::vector< Node > > d_type_reps;
+  std::map< Node, int > d_tmap;
+  void set( TypeNode t, std::vector< Node >& reps );
+  bool didInstantiation( RepAlphabetIterator& riter );
+};
+class RepAlphabetIterator {
+public:
+  RepAlphabetIterator( Node f, RepAlphabet* ra ) : d_f( f ), d_ra( ra ){
+    d_index.resize( f[0].getNumChildren(), 0 );
+  }
+  ~RepAlphabetIterator(){}
+  Node d_f;
+  RepAlphabet* d_ra;
+  std::vector< int > d_index;
+  void increment();
+  bool isFinished();
+  void getMatch( QuantifiersEngine* ie, InstMatch& m );
+  Node getTerm( int i );
+};
+
+//instantiation strategies
 class InstStrategyFinteModelFind : public InstStrategy{
 private:
-  /** representative alphabet */
-  class RepAlphabet {
-  public:
-    std::map< TypeNode, std::vector< Node > > d_type_reps;
-    std::map< Node, int > d_indicies;
-    void set( TypeNode t, std::vector< Node >& reps );
-  };
-  /** partial instantiation set */
-  class PartialInstSet {
-  public:
-    PartialInstSet( RepAlphabet* ra, Node f ) : d_ra( ra ), d_f( f ){
-      for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
-        d_index.push_back( 0 );
-      }
-    }
-    ~PartialInstSet(){}
-    RepAlphabet* d_ra;
-    Node d_f;
-    std::vector< int > d_index;
-    bool didCurrentInstantiation( PartialInstSet* pi );
-    void increment();
-    bool isFinished();
-    void getMatch( QuantifiersEngine* ie, InstMatch& m );
-    Node getTerm( int i );
-  };
   /** was the current instantiation of this already done? */
-  bool didCurrentInstantiation( PartialInstSet* pi );
+  bool didInstantiation( RepAlphabetIterator& riter );
 private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_ith;
   /** strong solver class */
   StrongSolverTheoryUf* d_ss;
-  /** map from types to sets of representatives */
-  RepAlphabet* d_curr_ra;
-  /** finding model */
-  context::CDO< bool > d_finding_model;
   /** map of current used instantiations */
-  std::map< Node, std::vector< PartialInstSet* > > d_inst_group;
+  std::vector< RepAlphabet > d_inst_group;
+  std::vector< RepAlphabet > d_inst_group_temp;
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
   int process( Node f, Theory::Effort effort, int e, int limitInst );

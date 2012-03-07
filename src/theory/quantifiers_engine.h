@@ -207,6 +207,8 @@ private:
   std::map< Node, bool > d_lemmas_produced;
   /** lemmas waiting */
   std::vector< Node > d_lemmas_waiting;
+  /** inst matches produced for each quantifier */
+  std::map< Node, InstMatchTrie > d_inst_match_trie;
   /** phase requirements for instantiation literals */
   std::map< Node, bool > d_phase_reqs;
   /** whether a particular quantifier is clausal */
@@ -250,7 +252,7 @@ public:
   /** instantiate f with arguments terms */
   bool addInstantiation( Node f, std::vector< Node >& terms );
   /** do instantiation specified by m */
-  bool addInstantiation( Node f, InstMatch* m, bool addSplits = false );
+  bool addInstantiation( Node f, InstMatch& m, bool addSplits = false );
   /** split on node n */
   bool addSplit( Node n, bool reqPhase = false, bool reqPhasePol = true );
   /** add split equality */
