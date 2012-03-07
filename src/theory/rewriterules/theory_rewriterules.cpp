@@ -48,6 +48,7 @@ static const bool propagate_as_lemma = true;
 static const bool cache_match = true;
 static const bool compute_opt = true;
 static const bool rewrite_before_cache = true;
+static const size_t checkSlowdown = 10;
 
 static const size_t RULEINSTID_TRUE = ((size_t) -1);
 static const size_t RULEINSTID_FALSE = ((size_t) -2);
@@ -82,15 +83,16 @@ size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
     Node g = substNode(re,r.guards[start]);
     switch(re.addWatchIfDontKnow(g,id,start)){
     case ATRUE:
+      Debug("rewriterules") << g << "is true" << std::endl;
       ++start;
       continue;
     case AFALSE:
+      Debug("rewriterules") << g << "is false" << std::endl;
       return -1;
     case ADONTKNOW:
+      Debug("rewriterules") << g << "is unknown" << std::endl;
       return start;
     }
-    /** the literal is already true pick another */
-    ++start;;
   }
   /** All the guards are verified */
   re.propagateRule(*this);
@@ -213,7 +215,7 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
                                        Valuation valuation,
                                        QuantifiersEngine* qe) :
   Theory(THEORY_REWRITERULES, c, u, out, valuation,qe),
-  d_rules(c), d_ruleinsts(c), d_guardeds(c),
+  d_rules(c), d_ruleinsts(c), d_guardeds(c), d_checkLevel(c,0),
   d_explanations(c), d_ruleinsts_to_add(c)
   {
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
@@ -225,11 +227,13 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRuleId rid,
                                              const RewriteRule & r,
                                              InstMatch & im,
                                              bool delay){
-  Debug("rewriterules") << "One matching found(" << delay << ")" << std::endl;
   std::vector<Node> subst;
   im.computeTermVec(getQuantifiersEngine(), r.inst_vars , subst);
   if(!cache_match || !r.inCache(subst)){
     RuleInst ri = RuleInst(*this,rid,subst);
+    Debug("rewriterules") << "One matching found"
+                          << (delay? "(delayed)":"")
+                          << ":" << ri << std::endl;
     // Find the first non verified guard, don't save the rule if the
     // rule can already be fired In fact I save it otherwise strange
     // things append.
@@ -294,7 +298,7 @@ void TheoryRewriteRules::check(Effort level) {
       }
     };
 
-  Debug("rewriterules") << "Check:" << std::endl;
+  Debug("rewriterules") << "Check:" << d_checkLevel << std::endl;
 
   /** Test each rewrite rule */
   for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid) {
@@ -314,6 +318,9 @@ void TheoryRewriteRules::check(Effort level) {
     }
   }
 
+  const bool do_notification = d_checkLevel == 0 || level==FULL_EFFORT;
+  bool polldone = false;
+
   GuardedMap::const_iterator p = d_guardeds.begin();
   do{
 
@@ -326,7 +333,7 @@ void TheoryRewriteRules::check(Effort level) {
         d_ruleinsts.push_back(ri);
     };
 
-
+    if(do_notification)
     /** Temporary way. Poll value */
     for (; p != d_guardeds.end(); ++p){
       TNode g = (*p).first;
@@ -337,6 +344,9 @@ void TheoryRewriteRules::check(Effort level) {
       // cout << "Polled!:" << g << "->" << (glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) << std::endl;
       bool value;
       if(getValuation().hasSatValue(g,value)){
+        polldone = true;
+        Debug("rewriterules") << "Poll value:" << g
+                             << " is " << (value ? "true" : "false") << std::endl;
         notification(g,value);
         //const Guarded & glast2 = (*l)[l->size()-1];
         // cout << "Polled!!:" << g << "->" << (glast2.inst == RULEINSTID_TRUE||glast2.inst == RULEINSTID_FALSE) << std::endl;
@@ -344,6 +354,29 @@ void TheoryRewriteRules::check(Effort level) {
     };
 
   }while(!d_ruleinsts_to_add.empty() && p != d_guardeds.end());
+
+  if(polldone) d_checkLevel = checkSlowdown;
+  else d_checkLevel = d_checkLevel > 0 ? (d_checkLevel - 1) : 0;
+
+  /** Narrowing by splitting on the guards */
+  /** Perhaps only when no notification? */
+  if(level==FULL_EFFORT){
+    for (GuardedMap::const_iterator p = d_guardeds.begin();
+         p != d_guardeds.end(); ++p){
+      TNode g = (*p).first;
+      const GList * const l = (*p).second;
+      const Guarded & glast = (*l)[l->size()-1];
+      if(glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE)
+        continue;
+      // If it has a value it should already has been notified
+      bool value; value = value; // avoiding the warning in non debug mode
+      Assert(!getValuation().hasSatValue(g,value));
+      Debug("rewriterules") << "Narrowing on:" << g << std::endl;
+      getOutputChannel().split(g);
+    }
+  }
+
+  Debug("rewriterules") << "Check done:" << d_checkLevel << std::endl;
 
 };
 

@@ -132,6 +132,14 @@ private:
   typedef context::CDHashMap<Node, GList *, NodeHashFunction> GuardedMap;
   GuardedMap d_guardeds;
 
+  /* In order to not monopolize, the system slow down himself: If a
+     guard stored in d_guardeds become true or false, it waits
+     checkSlowdown(=10) checks before checking again if some guard take a
+     value. At FULL_EFFORT regardless of d_checkLevel it check the
+     guards
+   */
+  context::CDO<size_t> d_checkLevel;
+
   /** explanation */
   typedef context::CDHashMap<Node, RuleInstId , NodeHashFunction> ExplanationMap;
   ExplanationMap d_explanations;
