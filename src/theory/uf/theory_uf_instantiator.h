@@ -149,7 +149,7 @@ public:
 class EqClassInfo
 {
 public:
-  typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
+  typedef context::CDHashMap<Node, bool, NodeHashFunction> BoolMap;
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
 private:
   //a list of operators that occur as top symbols in that equivalence class
@@ -196,10 +196,10 @@ class InstantiatorTheoryUf : public Instantiator{
   friend class ::CVC4::theory::InstMatchGenerator;
   friend class UfTermDb;
 protected:
-  typedef context::CDMap<Node, bool, NodeHashFunction> BoolMap;
-  typedef context::CDMap<Node, int, NodeHashFunction> IntMap;
+  typedef context::CDHashMap<Node, bool, NodeHashFunction> BoolMap;
+  typedef context::CDHashMap<Node, int, NodeHashFunction> IntMap;
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
-  typedef context::CDMap<Node, NodeList*, NodeHashFunction> NodeLists;
+  typedef context::CDHashMap<Node, NodeList*, NodeHashFunction> NodeLists;
   /** term database */
   UfTermDb* d_db;
   /** map to representatives used */

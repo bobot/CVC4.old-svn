@@ -48,8 +48,6 @@ namespace prop {
 class PropEngine;
 class CnfStream;
 
-/* Definitions of abstract types and conversion functions for SAT interface */
-
 /**
  * The proxy class that allows the SatSolver to communicate with the theories
  */

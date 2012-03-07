@@ -36,7 +36,7 @@ class TheoryEngine;
 
 class TheoryQuantifiers : public Theory {
 private:
-  typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
+  typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 
   /** list of existential quantifiers currently asserted */
   BoolMap d_exists_asserts;

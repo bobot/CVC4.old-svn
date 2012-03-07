@@ -177,7 +177,7 @@ class QuantifiersEngine
 {
   friend class quantifiers::InstantiationEngine;
 private:
-  typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
+  typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
   /** reference to theory engine object */
   TheoryEngine* d_te;
   /** vector of modules for quantifiers */

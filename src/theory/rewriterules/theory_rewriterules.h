@@ -22,7 +22,7 @@
 #define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_H
 
 #include "context/cdlist_context_memory.h"
-#include "context/cdqueue2.h"
+#include "context/cdqueue.h"
 #include "theory/valuation.h"
 #include "theory/theory.h"
 #include "theory/theory_engine.h"
@@ -59,7 +59,7 @@ typedef size_t RuleInstId;
                                     // trigger for that.
 
     //context dependent
-    typedef context::CDSet<Node, NodeHashFunction> CacheNode;
+    typedef context::CDHashSet<Node, NodeHashFunction> CacheNode;
     CacheNode d_cache;
 
     RewriteRule(TheoryRewriteRules & re,
@@ -129,15 +129,15 @@ private:
   /** The GList* will not lead too memory leaks since that use
       ContextMemoryAllocator */
   typedef context::CDList< Guarded > GList;
-  typedef context::CDMap<Node, GList *, NodeHashFunction> GuardedMap;
+  typedef context::CDHashMap<Node, GList *, NodeHashFunction> GuardedMap;
   GuardedMap d_guardeds;
 
   /** explanation */
-  typedef context::CDMap<Node, RuleInstId , NodeHashFunction> ExplanationMap;
+  typedef context::CDHashMap<Node, RuleInstId , NodeHashFunction> ExplanationMap;
   ExplanationMap d_explanations;
 
   /** new instantiation */
-  typedef context::CDQueue2< RuleInst > QRuleInsts;
+  typedef context::CDQueue< RuleInst > QRuleInsts;
   QRuleInsts d_ruleinsts_to_add;
 
  public:

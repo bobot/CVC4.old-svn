@@ -26,12 +26,16 @@
 #include <set>
 #include <stack>
 
-using namespace CVC4;
-using namespace CVC4::theory;
-using namespace CVC4::theory::arith;
+namespace CVC4 {
+namespace theory {
+namespace arith {
 
 bool isVariable(TNode t){
   return t.getMetaKind() == kind::metakind::VARIABLE;
+}
+
+bool ArithRewriter::isAtom(TNode n) {
+  return arith::isRelationOperator(n.getKind());
 }
 
 RewriteResponse ArithRewriter::rewriteConstant(TNode t){
@@ -93,6 +97,21 @@ RewriteResponse ArithRewriter::preRewriteTerm(TNode t){
     return preRewritePlus(t);
   }else if(t.getKind() == kind::MULT){
     return preRewriteMult(t);
+  }else if(t.getKind() == kind::INTS_DIVISION){
+    Integer intOne(1);
+    if(t[1].getKind()== kind::CONST_INTEGER && t[1].getConst<Integer>() == intOne){
+      return RewriteResponse(REWRITE_AGAIN, t[0]);
+    }else{
+      return RewriteResponse(REWRITE_DONE, t);
+    }
+  }else if(t.getKind() == kind::INTS_MODULUS){
+    Integer intOne(1);
+    if(t[1].getKind()== kind::CONST_INTEGER && t[1].getConst<Integer>() == intOne){
+      Integer intZero(0);
+      return RewriteResponse(REWRITE_AGAIN, mkIntegerNode(intZero));
+    }else{
+      return RewriteResponse(REWRITE_DONE, t);
+    }
   }else{
     Unreachable();
   }
@@ -112,6 +131,10 @@ RewriteResponse ArithRewriter::postRewriteTerm(TNode t){
     return postRewritePlus(t);
   }else if(t.getKind() == kind::MULT){
     return postRewriteMult(t);
+  }else if(t.getKind() == kind::INTS_DIVISION){
+    return RewriteResponse(REWRITE_DONE, t);
+  }else if(t.getKind() == kind::INTS_MODULUS){
+    return RewriteResponse(REWRITE_DONE, t);
   }else{
     Unreachable();
   }
@@ -345,3 +368,7 @@ RewriteResponse ArithRewriter::rewriteDivByConstant(TNode t, bool pre){
     return RewriteResponse(REWRITE_AGAIN, mult);
   }
 }
+
+}/* CVC4::theory::arith namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */

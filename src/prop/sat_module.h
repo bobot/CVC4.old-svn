@@ -2,8 +2,8 @@
 /*! \file sat_module.h
  ** \verbatim
  ** Original author: lianah
- ** Major contributors: 
- ** Minor contributors (to current version): 
+ ** Major contributors:
+ ** Minor contributors (to current version):
  ** This file is part of the CVC4 prototype.
  ** Copyright (c) 2009, 2010, 2011  The Analysis of Computer Systems Group (ACSys)
  ** Courant Institute of Mathematical Sciences
@@ -21,7 +21,7 @@
 #ifndef __CVC4__PROP__SAT_MODULE_H
 #define __CVC4__PROP__SAT_MODULE_H
 
-#include <stdint.h> 
+#include <stdint.h>
 #include "util/options.h"
 #include "util/stats.h"
 #include "context/cdlist.h"
@@ -35,30 +35,30 @@
 
 namespace Minisat{
 class Solver;
-class SimpSolver; 
+class SimpSolver;
 }
 
 namespace BVMinisat{
 class Solver;
-class SimpSolver; 
+class SimpSolver;
 }
 
 
 namespace CVC4 {
 namespace prop {
 
-class TheoryProxy; 
+class TheoryProxy;
 
 enum SatLiteralValue {
   SatValUnknown,
-  SatValTrue, 
-  SatValFalse 
+  SatValTrue,
+  SatValFalse
 };
 
 
-typedef uint64_t SatVariable; 
+typedef uint64_t SatVariable;
 // special constant
-const SatVariable undefSatVariable = SatVariable(-1); 
+const SatVariable undefSatVariable = SatVariable(-1);
 
 class SatLiteral {
   uint64_t d_value;
@@ -66,16 +66,16 @@ public:
   SatLiteral() :
     d_value(undefSatVariable)
   {}
-  
+
   SatLiteral(SatVariable var, bool negated = false) { d_value = var + var + (int)negated; }
   SatLiteral operator~() {
-    return SatLiteral(getSatVariable(), !isNegated()); 
+    return SatLiteral(getSatVariable(), !isNegated());
   }
   bool operator==(const SatLiteral& other) const {
-    return d_value == other.d_value; 
+    return d_value == other.d_value;
   }
   bool operator!=(const SatLiteral& other) const {
-    return !(*this == other); 
+    return !(*this == other);
   }
   std::string toString();
   bool isNegated() const { return d_value & 1; }
@@ -84,8 +84,8 @@ public:
   SatVariable getSatVariable() const {return d_value >> 1; }
 };
 
-// special constant 
-const SatLiteral undefSatLiteral = SatLiteral(undefSatVariable);  
+// special constant
+const SatLiteral undefSatLiteral = SatLiteral(undefSatVariable);
 
 
 struct SatLiteralHashFunction {
@@ -99,23 +99,23 @@ typedef std::vector<SatLiteral> SatClause;
 
 
 class SatSolverInterface {
-public:  
+public:
   /** Virtual destructor to make g++ happy */
   virtual ~SatSolverInterface() { }
-  
+
   /** Assert a clause in the solver. */
   virtual void addClause(SatClause& clause, bool removable) = 0;
 
   /** Create a new boolean variable in the solver. */
   virtual SatVariable newVar(bool theoryAtom = false) = 0;
 
- 
+
   /** Check the satisfiability of the added clauses */
   virtual SatLiteralValue solve() = 0;
 
   /** Check the satisfiability of the added clauses */
   virtual SatLiteralValue solve(long unsigned int&) = 0;
-  
+
   /** Interrupt the solver */
   virtual void interrupt() = 0;
 
@@ -126,7 +126,7 @@ public:
   virtual SatLiteralValue modelValue(SatLiteral l) = 0;
 
   virtual void unregisterVar(SatLiteral lit) = 0;
-  
+
   virtual void renewVar(SatLiteral lit, int level = -1) = 0;
 
   virtual int getAssertionLevel() const = 0;
@@ -140,17 +140,19 @@ public:
 
   virtual void markUnremovable(SatLiteral lit) = 0;
 
-  virtual void getUnsatCore(SatClause& unsatCore) = 0; 
-}; 
+  virtual void getUnsatCore(SatClause& unsatCore) = 0;
+};
 
 
 class DPLLSatSolverInterface: public SatSolverInterface {
 public:
-  virtual void initialize(context::Context* context, prop::TheoryProxy* theoryProxy) = 0; 
-  
+  virtual void initialize(context::Context* context, prop::TheoryProxy* theoryProxy) = 0;
+
   virtual void push() = 0;
 
   virtual void pop() = 0;
+
+  virtual bool properExplanation(SatLiteral lit, SatLiteral expl) const = 0;
 
   //AJR-hack
   virtual unsigned getDecisionLevel() const = 0;
@@ -161,13 +163,13 @@ public:
   virtual bool isDecision(SatVariable decn) const = 0;
   virtual SatLiteral getDecision(unsigned level) const = 0;
   //AJR-hack-end
-}; 
+};
 
 // toodo add ifdef
 
 
 class MinisatSatSolver: public BVSatSolverInterface {
-  BVMinisat::SimpSolver* d_minisat; 
+  BVMinisat::SimpSolver* d_minisat;
 
   MinisatSatSolver();
 public:
@@ -176,33 +178,33 @@ public:
 
   SatVariable newVar(bool theoryAtom = false);
 
-  void markUnremovable(SatLiteral lit); 
- 
+  void markUnremovable(SatLiteral lit);
+
   void interrupt();
 
   SatLiteralValue solve();
   SatLiteralValue solve(long unsigned int&);
   SatLiteralValue solve(const context::CDList<SatLiteral> & assumptions);
-  void getUnsatCore(SatClause& unsatCore); 
-  
+  void getUnsatCore(SatClause& unsatCore);
+
   SatLiteralValue value(SatLiteral l);
   SatLiteralValue modelValue(SatLiteral l);
-
 
   void unregisterVar(SatLiteral lit);
   void renewVar(SatLiteral lit, int level = -1);
   int getAssertionLevel() const;
 
+
   // helper methods for converting from the internal Minisat representation
 
-  static SatVariable     toSatVariable(BVMinisat::Var var); 
+  static SatVariable     toSatVariable(BVMinisat::Var var);
   static BVMinisat::Lit    toMinisatLit(SatLiteral lit);
   static SatLiteral      toSatLiteral(BVMinisat::Lit lit);
   static SatLiteralValue toSatLiteralValue(bool res);
   static SatLiteralValue toSatLiteralValue(BVMinisat::lbool res);
- 
+
   static void  toMinisatClause(SatClause& clause, BVMinisat::vec<BVMinisat::Lit>& minisat_clause);
-  static void  toSatClause    (BVMinisat::vec<BVMinisat::Lit>& clause, SatClause& sat_clause); 
+  static void  toSatClause    (BVMinisat::vec<BVMinisat::Lit>& clause, SatClause& sat_clause);
 
   class Statistics {
   public:
@@ -216,46 +218,46 @@ public:
     ~Statistics();
     void init(BVMinisat::SimpSolver* minisat);
   };
-  
+
   Statistics d_statistics;
   friend class SatSolverFactory;
-}; 
+};
 
 
 class DPLLMinisatSatSolver : public DPLLSatSolverInterface {
 
   /** The SatSolver used */
   Minisat::SimpSolver* d_minisat;
-  
 
-  /** The SatSolver uses this to communicate with the theories */ 
+
+  /** The SatSolver uses this to communicate with the theories */
   TheoryProxy* d_theoryProxy;
 
   /** Context we will be using to synchronzie the sat solver */
   context::Context* d_context;
 
   DPLLMinisatSatSolver ();
-  
+
 public:
 
-  ~DPLLMinisatSatSolver(); 
-  static SatVariable     toSatVariable(Minisat::Var var); 
+  ~DPLLMinisatSatSolver();
+  static SatVariable     toSatVariable(Minisat::Var var);
   static Minisat::Lit    toMinisatLit(SatLiteral lit);
   static SatLiteral      toSatLiteral(Minisat::Lit lit);
   static SatLiteralValue toSatLiteralValue(bool res);
   static SatLiteralValue toSatLiteralValue(Minisat::lbool res);
- 
+
   static void  toMinisatClause(SatClause& clause, Minisat::vec<Minisat::Lit>& minisat_clause);
-  static void  toSatClause    (Minisat::vec<Minisat::Lit>& clause, SatClause& sat_clause); 
-  
-  void initialize(context::Context* context, TheoryProxy* theoryProxy); 
-  
+  static void  toSatClause    (Minisat::vec<Minisat::Lit>& clause, SatClause& sat_clause);
+
+  void initialize(context::Context* context, TheoryProxy* theoryProxy);
+
   void addClause(SatClause& clause, bool removable);
 
   SatVariable newVar(bool theoryAtom = false);
 
   SatLiteralValue solve();
-  SatLiteralValue solve(long unsigned int&); 
+  SatLiteralValue solve(long unsigned int&);
 
   void interrupt();
 
@@ -263,10 +265,12 @@ public:
 
   SatLiteralValue modelValue(SatLiteral l);
 
-  /** Incremental interface */ 
-  
+  bool properExplanation(SatLiteral lit, SatLiteral expl) const;
+
+  /** Incremental interface */
+
   int getAssertionLevel() const;
-  
+
   void push();
 
   void pop();
@@ -299,14 +303,14 @@ public:
   };
   Statistics d_statistics;
 
-  friend class SatSolverFactory;   
-}; 
+  friend class SatSolverFactory;
+};
 
 class SatSolverFactory {
 public:
   static  MinisatSatSolver*      createMinisat();
-  static  DPLLMinisatSatSolver*  createDPLLMinisat(); 
-}; 
+  static  DPLLMinisatSatSolver*  createDPLLMinisat();
+};
 
 }/* prop namespace */
 }/* CVC4 namespace */

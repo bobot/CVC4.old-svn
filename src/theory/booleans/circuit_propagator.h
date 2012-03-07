@@ -28,8 +28,8 @@
 #include "context/context.h"
 #include "util/hash.h"
 #include "expr/node.h"
-#include "context/cdset.h"
-#include "context/cdmap.h"
+#include "context/cdhashset.h"
+#include "context/cdhashmap.h"
 #include "context/cdo.h"
 
 namespace CVC4 {
@@ -69,7 +69,7 @@ public:
 private:
 
   /** Back edges from nodes to where they are used */
-  typedef std::hash_map<TNode, std::vector<TNode>, TNodeHashFunction> BackEdgesMap;
+  typedef std::hash_map<Node, std::vector<Node>, NodeHashFunction> BackEdgesMap;
   BackEdgesMap d_backEdges;
 
   /** The propagation queue */
@@ -113,12 +113,12 @@ private:
 
   /** Nodes that have been attached already (computed forward edges for) */
   // All the nodes we've visited so far
-  context::CDSet<TNode, TNodeHashFunction> d_seen;
+  context::CDHashSet<TNode, TNodeHashFunction> d_seen;
 
   /**
    * Assignment status of each node.
    */
-  typedef context::CDMap<TNode, AssignmentStatus, TNodeHashFunction> AssignmentMap;
+  typedef context::CDHashMap<TNode, AssignmentStatus, TNodeHashFunction> AssignmentMap;
   AssignmentMap d_state;
 
   /**

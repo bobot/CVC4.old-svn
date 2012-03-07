@@ -31,7 +31,7 @@
 #include "theory/uf/theory_uf_strong_solver.h"
 
 #include "context/cdo.h"
-#include "context/cdset.h"
+#include "context/cdhashset.h"
 
 namespace CVC4 {
 namespace theory {

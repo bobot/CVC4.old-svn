@@ -10,9 +10,6 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-static bool clockSet = false;
-double initClock;
-
 //#define IE_PRINT_PROCESS_TIMES
 
 InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th ) : 
@@ -126,16 +123,6 @@ void InstantiationEngine::check( Theory::Effort e ){
     double clSet = double(clock())/double(CLOCKS_PER_SEC);
     std::cout << "Run instantiation round " << e << std::endl;
 #endif
-    if( !clockSet ){
-      initClock = double(clock())/double(CLOCKS_PER_SEC);
-      clockSet = true;
-    }else{
-      double currClock = double(clock())/double(CLOCKS_PER_SEC);
-      if( currClock-initClock>10 ){
-        NodeManager::currentNM()->getStatisticsRegistry()->flushInformation(std::cout);
-        exit( 55 );
-      }
-    }
     bool quantActive = false;
     //for each n in d_forall_asserts, 
     // such that the counterexample literal is not in positive in d_counterexample_asserts

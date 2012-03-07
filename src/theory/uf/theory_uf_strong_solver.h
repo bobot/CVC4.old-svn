@@ -36,8 +36,8 @@ class TheoryUF;
 
 class StrongSolverTheoryUf{
 protected:
-  typedef context::CDMap<Node, bool, NodeHashFunction> NodeBoolMap;
-  typedef context::CDMap<Node, int, NodeHashFunction> NodeIntMap;
+  typedef context::CDHashMap<Node, bool, NodeHashFunction> NodeBoolMap;
+  typedef context::CDHashMap<Node, int, NodeHashFunction> NodeIntMap;
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
   typedef context::CDList<bool> BoolList;
 public:

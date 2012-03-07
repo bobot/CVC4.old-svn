@@ -32,7 +32,7 @@ private:
   TheoryQuantifiers* d_th;
   QuantifiersEngine* getQuantifiersEngine();
 private:
-  typedef context::CDMap< Node, bool, NodeHashFunction > BoolMap;
+  typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
   /** list of universally quantifiers currently asserted */
   BoolMap d_forall_asserts;
   /** are we in the middle of an instantiation round */
