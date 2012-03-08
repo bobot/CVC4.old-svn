@@ -109,13 +109,20 @@ void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort 
 
       //DO_THIS: prefer previously used reps
 
-      Debug("inst-fmf") << "Representatives (" << reps.size() << ") for type " << tn << ": ";
-      for( int i=0; i<(int)reps.size(); i++ ){
-        Debug("inst-fmf") << reps[i] << " ";
+      if( (int)reps.size()!=d_ss->getCardinality( tn ) ){
+        std::cout << "InstStrategyFinteModelFind::processResetInstantiationRound: Bad representatives for type." << std::endl;
+        std::cout << "   " << tn << " has cardinality " << d_ss->getCardinality( tn );
+        std::cout << " but only " << (int)reps.size() << " were given." << std::endl;
+        exit( 27 );
+      }else{
+        Debug("inst-fmf") << "Representatives (" << reps.size() << ") for type " << tn << " (c=" << d_ss->getCardinality( tn ) << "): ";
+        for( int i=0; i<(int)reps.size(); i++ ){
+          Debug("inst-fmf") << reps[i] << " ";
+        }
+        Debug("inst-fmf") << std::endl;
+        //set them in the alphabet
+        ra.set( tn, reps );
       }
-      Debug("inst-fmf") << std::endl;
-      //set them in the alphabet
-      ra.set( tn, reps );
     }
     d_inst_group.push_back( ra );
     

@@ -316,6 +316,20 @@ void StrongSolverTheoryUf::ConflictFind::Region::getRepresentatives( std::vector
   }
 }
 
+void StrongSolverTheoryUf::ConflictFind::Region::getNumExternalDisequalities( std::map< Node, int >& num_ext_disequalities ){
+  for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
+    RegionNodeInfo* rni = it->second;
+    if( rni->d_valid ){
+      RegionNodeInfo::DiseqList* del = rni->d_disequalities[0];
+      for( NodeBoolMap::iterator it2 = del->d_disequalities.begin(); it2 != del->d_disequalities.end(); ++it2 ){
+        if( (*it2).second ){
+          num_ext_disequalities[ (*it2).first ]++;
+        }
+      }
+    }
+  }
+}
+
 void StrongSolverTheoryUf::ConflictFind::Region::debugPrint( const char* c, bool incClique ){
   Debug( c ) << "Num reps: " << d_reps_size << std::endl;
   for( std::map< Node, RegionNodeInfo* >::iterator it = d_nodes.begin(); it != d_nodes.end(); ++it ){
@@ -668,55 +682,69 @@ bool StrongSolverTheoryUf::ConflictFind::checkRegion( int ri, bool rec ){
 }
 
 bool StrongSolverTheoryUf::ConflictFind::disambiguateTerms( OutputChannel* out ){
+  Debug("uf-ss-disamb") << "Disambiguate terms." << std::endl;
   bool lemmaAdded = false;
-  //otherwise, determine ambiguous pairs of ground terms
+  //otherwise, determine ambiguous pairs of ground terms for relevant sorts
   UfTermDb* db = d_th->getTermDatabase();
   Assert( db!=NULL );
   for( std::map< Node, std::vector< Node > >::iterator it = db->d_op_map.begin(); it != db->d_op_map.end(); ++it ){
-    for( int i=0; i<(int)it->second.size(); i++ ){
-      for( int j=(i+1); j<(int)it->second.size(); j++ ){
-        Node eq = NodeManager::currentNM()->mkNode( EQUAL, it->second[i], it->second[j] );
-        eq = Rewriter::rewrite(eq);
-        //determine if they are ambiguous
-        if( d_term_amb.find( eq )==d_term_amb.end() ){
-          d_term_amb[ eq ] = true;
-          if( d_th->d_equalityEngine.areEqual( it->second[i], it->second[j] ) ){
-            d_term_amb[ eq ] = false;
-          }
-          for( int k=0; k<(int)it->second[i].getNumChildren(); k++ ){
-            if( d_th->d_equalityEngine.areDisequal( it->second[i][k], it->second[j][k] ) ){
-              d_term_amb[ eq ] = false;
-              break;
+    Debug("uf-ss-disamb") << "Check " << it->first << std::endl;
+    if( it->second.size()>1 ){
+      if( StrongSolverTheoryUf::involvesRelevantType( it->second[0] ) ){
+        for( int i=0; i<(int)it->second.size(); i++ ){
+          for( int j=(i+1); j<(int)it->second.size(); j++ ){
+            Kind knd = it->second[i].getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
+            Node eq = NodeManager::currentNM()->mkNode( knd, it->second[i], it->second[j] );
+            eq = Rewriter::rewrite(eq);
+            //determine if they are ambiguous
+            if( d_term_amb.find( eq )==d_term_amb.end() ){
+              Debug("uf-ss-disamb") << "Check disambiguate " << it->second[i] << " " << it->second[j] << std::endl;
+              d_term_amb[ eq ] = true;
+              //if they are equal
+              if( d_th->d_equalityEngine.areEqual( it->second[i], it->second[j] ) ){
+                d_term_amb[ eq ] = false;
+              }else{
+                //if an argument is disequal, then they are not ambiguous
+                for( int k=0; k<(int)it->second[i].getNumChildren(); k++ ){
+                  if( d_th->d_equalityEngine.areDisequal( it->second[i][k], it->second[j][k] ) ){
+                    d_term_amb[ eq ] = false;
+                    break;
+                  }
+                }
+              }
+              if( d_term_amb[ eq ] ){
+                Debug("uf-ss-disamb") << "Disambiguate " << it->second[i] << " " << it->second[j] << std::endl;
+                //must add lemma
+                std::vector< Node > children;
+                children.push_back( eq );
+                for( int k=0; k<(int)it->second[i].getNumChildren(); k++ ){
+                  Kind knd2 = it->second[i][k].getType()==NodeManager::currentNM()->booleanType() ? IFF : EQUAL;
+                  Node eqc = NodeManager::currentNM()->mkNode( knd2, it->second[i][k], it->second[j][k] );
+                  children.push_back( eqc.notNode() );
+                }
+                Assert( children.size()>1 );
+                Node lem = NodeManager::currentNM()->mkNode( OR, children );
+                Debug( "uf-ss-lemma" ) << "*** Diambiguate lemma : " << lem << std::endl;
+                //std::cout << "*** Diambiguate lemma : " << lem << std::endl;
+                out->lemma( lem );
+                d_term_amb[ eq ] = false;
+                lemmaAdded = true;
+                ++( d_th->getStrongSolver()->d_statistics.d_disamb_term_lemmas );
+              }
             }
-          }
-          if( d_term_amb[ eq ] ){
-            //must add lemma
-            std::vector< Node > children;
-            children.push_back( eq );
-            for( int k=0; k<(int)it->second[i].getNumChildren(); k++ ){
-              Node eqc = NodeManager::currentNM()->mkNode( EQUAL, it->second[i][k], it->second[j][k] );
-              children.push_back( eqc.notNode() );
-            }
-            Assert( children.size()>1 );
-            Node lem = NodeManager::currentNM()->mkNode( OR, children );
-            Debug( "uf-ss-lemma" ) << "*** Diambiguate lemma : " << lem << std::endl;
-            //std::cout << "*** Diambiguate lemma : " << lem << std::endl;
-            out->lemma( lem );
-            d_term_amb[ eq ] = false;
-            lemmaAdded = true;
-            ++( d_th->getStrongSolver()->d_statistics.d_disamb_term_lemmas );
           }
         }
       }
     }
   }
+  Debug("uf-ss-disamb") << "Done disambiguate terms. " << lemmaAdded << std::endl;
   return lemmaAdded;
 }
 
 /** check */
 void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChannel* out ){
   if( level>=Theory::STANDARD ){
-    Debug("uf-ss") << "StrongSolverTheoryUf: Check " << level << std::endl;
+    Debug("uf-ss") << "StrongSolverTheoryUf: Check " << level << " " << d_type << std::endl;
     //std::cout << "StrongSolverTheoryUf: Check " << level << std::endl;
     if( d_reps<=d_cardinality ){
       Debug("uf-ss-debug") << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
@@ -742,6 +770,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
         }
       }
       if( level==Theory::FULL_EFFORT ){
+        Debug("uf-ss") << "Add splits?" << std::endl;
         //see if we have any recommended splits
         bool addedLemma = false;
         for( int i=0; i<(int)d_regions_index; i++ ){
@@ -763,6 +792,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
           }
         }
         if( !addedLemma ){
+          Debug("uf-ss") << "No splits added." << std::endl;
 #ifdef USE_REGION_SAT
           //otherwise, try to disambiguate individual terms
           if( !disambiguateTerms( out ) ){
@@ -852,6 +882,53 @@ void StrongSolverTheoryUf::ConflictFind::getRepresentatives( std::vector< Node >
   }
   if( index!=-1 ){
     d_regions[index]->getRepresentatives( reps );
+    if( (int)reps.size()!=d_cardinality ){
+      Debug("uf-ss-ext-model") << "Fewer than " << d_cardinality << " representatives (" << reps.size();
+      Debug("uf-ss-ext-model") << ") for type " << d_type << " : " << std::endl;
+      Debug("uf-ss-ext-model") << "   ";
+      for( int i=0; i<(int)reps.size(); i++ ){
+        Debug("uf-ss-ext-model") << reps[i] << " ";
+      }
+      Debug("uf-ss-ext-model") << std::endl;
+      std::map< Node, int > num_ext_disequalities;
+      d_regions[index]->getNumExternalDisequalities( num_ext_disequalities );
+      //must extend model to take nodes from other regions
+      //take nodes with maximum number of external disequalities to d_regions[index]
+      bool success = true;
+      while( success && (int)reps.size()!=d_cardinality ){
+        int maxDisequal = -1;
+        Node nAdd;
+        for( std::map< Node, int >::iterator it = num_ext_disequalities.begin(); it != num_ext_disequalities.end(); ++it ){
+          if( it->second>maxDisequal && std::find( reps.begin(), reps.end(), it->first )==reps.end() ){
+            maxDisequal = it->second;
+            nAdd = it->first;
+          }
+        }
+        if( maxDisequal!=-1 ){
+          Debug("uf-ss-ext-model") << "Add " << nAdd << " to model." << std::endl;
+          reps.push_back( nAdd );
+        }else{
+          success = false;
+        }
+      }
+      if( (int)reps.size()!=d_cardinality ){
+        //if still not satisfied, choose arbitrary elements
+        for( int i=0; i<(int)d_regions_index; i++ ){
+          if( i!=index && d_regions[i]->d_valid ){
+            std::vector< Node > reps_i;
+            d_regions[i]->getRepresentatives( reps_i );
+            for( int j=0; j<(int)reps_i.size(); j++ ){
+              Debug("uf-ss-ext-model") << "Add " << reps_i[j] << " to model." << std::endl;
+              reps.push_back( reps_i[j] );
+              if( (int)reps.size()==d_cardinality ) break;
+            }
+            if( (int)reps.size()==d_cardinality ) break;
+          }
+        }
+      }
+      //FIXME: this maybe still is unsound, since the coloring does not guarentee this is a possible model?
+      Assert( (int)reps.size()==d_cardinality );
+    }
   }
 }
 
@@ -995,6 +1072,7 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
   for( std::map< TypeNode, ConflictFind* >::iterator it = d_conf_find.begin(); it != d_conf_find.end(); ++it ){
     it->second->check( level, d_out );
   }
+  Debug("uf-ss-solver") << "Done StrongSolverTheoryUf: check " << level << std::endl;
 }
 
 void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
@@ -1113,4 +1191,15 @@ bool StrongSolverTheoryUf::isRelevantType( TypeNode t ){
          t!=NodeManager::currentNM()->realType() &&
          t!=NodeManager::currentNM()->builtinOperatorType() &&
          !t.isFunction();
+}
+
+bool StrongSolverTheoryUf::involvesRelevantType( Node n ){
+  if( n.getKind()==APPLY_UF ){
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      if( isRelevantType( n[i].getType() ) ){
+        return true;
+      }
+    }
+  }
+  return false;
 }

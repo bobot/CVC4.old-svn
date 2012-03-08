@@ -52,6 +52,7 @@ public:
   bool isFinished();
   void getMatch( QuantifiersEngine* ie, InstMatch& m );
   Node getTerm( int i );
+  int getNumTerms() { return d_f[0].getNumChildren(); }
 };
 
 //instantiation strategies

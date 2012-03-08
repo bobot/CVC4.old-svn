@@ -136,6 +136,8 @@ public:
       Node getBestSplit();
       /** get representatives */
       void getRepresentatives( std::vector< Node >& reps );
+      /** get external disequalities */
+      void getNumExternalDisequalities( std::map< Node, int >& num_ext_disequalities );
       //print debug
       void debugPrint( const char* c, bool incClique = false );
     };
@@ -281,6 +283,8 @@ public:
   bool areTypesRelated( TypeNode t1, TypeNode t2 ) { 
     return d_type_relate[t1].find( t2 )!=d_type_relate[t1].end() && d_type_relate[t1][t2]; 
   }
+  /** involves relavant type */
+  static bool involvesRelevantType( Node n );
 private:
   /** Types whose cardinality constraints are related to one another:
       A type T1 is related to a type T2 if there exists a term whose top symbol is a
