@@ -59,15 +59,19 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
         Debug("inst-engine-debug") << "Instantiate " << f << "..." << std::endl;
         //if this quantifier is active
         if( getQuantifiersEngine()->getActive( f ) ){
-          //use each theory instantiator to instantiate f
-          for( int i=0; i<theory::THEORY_LAST; i++ ){
-            if( getQuantifiersEngine()->getInstantiator( i ) ){
-              Debug("inst-engine-debug") << "Do " << getQuantifiersEngine()->getInstantiator( i )->identify() << " " << e << std::endl;
-              //std::cout << "Do " << d_instTable[i]->identify() << " " << e << std::endl;
-              int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e );
-              Debug("inst-engine-debug") << " -> status is " << quantStatus << std::endl;
-              //std::cout << " -> status is " << d_instTable[i]->getStatus() << std::endl;
-              InstStrategy::updateStatus( d_inst_round_status, quantStatus );
+          //int e_use = getQuantifiersEngine()->getRelevance( f )==-1 ? e - 1 : e;
+          int e_use = e;
+          if( e_use>=0 ){
+            //use each theory instantiator to instantiate f
+            for( int i=0; i<theory::THEORY_LAST; i++ ){
+              if( getQuantifiersEngine()->getInstantiator( i ) ){
+                Debug("inst-engine-debug") << "Do " << getQuantifiersEngine()->getInstantiator( i )->identify() << " " << e_use << std::endl;
+                //std::cout << "Do " << d_instTable[i]->identify() << " " << e << std::endl;
+                int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e_use );
+                Debug("inst-engine-debug") << " -> status is " << quantStatus << std::endl;
+                //std::cout << " -> status is " << d_instTable[i]->getStatus() << std::endl;
+                InstStrategy::updateStatus( d_inst_round_status, quantStatus );
+              }
             }
           }
         }
@@ -121,7 +125,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);
-    std::cout << "Run instantiation round " << e << std::endl;
+    std::cout << "Run instantiation round " << e << " " << ierCounter << std::endl;
 #endif
     bool quantActive = false;
     //for each n in d_forall_asserts, 
@@ -163,6 +167,9 @@ void InstantiationEngine::check( Theory::Effort e ){
           quantActive = true;
           Debug("quantifiers") << "  Active : " << n << ", no ce assigned." << std::endl;
         }
+        Debug("quantifiers-relevance")  << "Quantifier : " << n << std::endl;
+        Debug("quantifiers-relevance")  << "   Relevance : " << getQuantifiersEngine()->getRelevance( n ) << std::endl;
+        Debug("quantifiers") << "   Relevance : " << getQuantifiersEngine()->getRelevance( n ) << std::endl;
       }
     }
     if( quantActive ){  
@@ -222,7 +229,7 @@ void InstantiationEngine::registerQuantifier( Node f ){
     }else{
       Node ceBody = getQuantifiersEngine()->getSubstitutedNode( f[1], f );
       getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
-      ((uf::InstantiatorTheoryUf*)getQuantifiersEngine()->getInstantiator( theory::THEORY_UF ))->getTermDatabase()->add( ceBody );
+      getQuantifiersEngine()->addTermToDatabase( ceBody, true );
       //need to tell which instantiators will be responsible
       //by default, just chose the UF instantiator
       getQuantifiersEngine()->getInstantiator( theory::THEORY_UF )->setHasConstraintsFrom( f );

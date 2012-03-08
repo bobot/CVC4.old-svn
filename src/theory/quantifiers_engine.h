@@ -169,6 +169,18 @@ public:
   virtual Node explain(TNode n) = 0;
 };
 
+class TermDb
+{
+public:
+  TermDb(){}
+  ~TermDb(){}
+  /** map from APPLY_UF operators to ground terms for that operator */
+  std::map< Node, std::vector< Node > > d_op_map;
+  /** add a term to the database */
+  virtual void add( Node n, std::vector< Node >& added, bool withinQuant = false ) = 0;
+};
+
+
 namespace quantifiers{
   class InstantiationEngine;
 }
@@ -211,12 +223,22 @@ private:
   std::map< Node, InstMatchTrie > d_inst_match_trie;
   /** phase requirements for instantiation literals */
   std::map< Node, bool > d_phase_reqs;
-  /** whether a particular quantifier is clausal */
-  std::map< Node, bool > d_clausal;
   /** free variable for instantiation constant type */
   std::map< TypeNode, Node > d_free_vars;
   /** owner of quantifiers */
   std::map< Node, Theory* > d_owner;
+  /** term database */
+  TermDb* d_term_db;
+private:
+  /** for computing relavance */
+  /** map from quantifiers to symbols they contain */
+  std::map< Node, std::vector< Node > > d_syms;
+  /** map from symbols to quantifiers */
+  std::map< Node, std::vector< Node > > d_syms_quants;
+  /** relevance for quantifiers and symbols */
+  std::map< Node, int > d_relevance;
+  /** compute symbols */
+  void computeSymbols( Node n, std::vector< Node >& syms );
 private:
   /** set instantiation level attr */
   void setInstantiationLevelAttr( Node n, uint64_t level );
@@ -245,7 +267,6 @@ public:
   /** assert (universal) quantifier */
   void assertNode( Node f );
   Node explain(TNode n);
-
 public:
   /** add lemma lem */
   bool addLemma( Node lem );
@@ -317,6 +338,19 @@ public:
   Theory* getOwner( Node f ) { return d_owner[f]; }
   /** set owner */
   void setOwner( Node f, Theory* t ) { d_owner[f] = t; }
+public:
+  /** set term database */
+  void setTermDatabase( TermDb* tdb ) { d_term_db = tdb; }
+  /** get term database */
+  TermDb* getTermDatabase() { return d_term_db; }
+  /** add term to database */
+  void addTermToDatabase( Node n, bool withinQuant = false );
+private:
+  /** set relevance */
+  void setRelevance( Node s, int r );
+public:
+  /** get relevance */
+  int getRelevance( Node s ) { return d_relevance.find( s )==d_relevance.end() ? -1 : d_relevance[s]; }
 public:
   /** statistics class */
   class Statistics {

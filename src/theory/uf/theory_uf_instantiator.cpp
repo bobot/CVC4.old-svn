@@ -142,11 +142,11 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
     nodes.push_back( pat[i] );
   }
   if( Trigger::isUsableTrigger( nodes, f ) ){
-    int matchPolicy = 0;
+    int matchOption = 0;
 #ifdef USE_EFFICIENT_E_MATCHING
-    matchPolicy = InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH;
+    matchOption = InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH;
 #endif
-    d_user_gen[f].push_back( Trigger::mkTrigger( d_quantEngine, f, nodes, matchPolicy, true ) );
+    d_user_gen[f].push_back( Trigger::mkTrigger( d_quantEngine, f, nodes, matchOption, true ) );
   }
 }
  
@@ -187,33 +187,97 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
   return STATUS_UNKNOWN;
 }
 
-void InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt ){
-  if( tstrt==MAX_TRIGGER ){
-    if( n.getKind()==APPLY_UF && n.getAttribute(InstConstantAttribute())==f && Trigger::isUsableTrigger( n, f ) ){
-      if( std::find( patTerms.begin(), patTerms.end(), n )==patTerms.end() ){
-        patTerms.push_back( n );
+bool InstStrategyAutoGenTriggers::collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt ){
+  if( patMap.find( n )==patMap.end() ){
+    patMap[ n ] = false;
+    if( tstrt==MAX_TRIGGER ){
+      if( Trigger::isUsableTrigger( n, f ) ){
+        patMap[ n ] = true;
+        return true;
+      }else if( n.getKind()!=FORALL ){
+        bool retVal = false;
+        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+          if( collectPatTerms2( f, n[i], patMap, tstrt ) ){
+            retVal = true;
+          }
+        }
+        return retVal;
+      }else{
+        return false;
       }
-    }else if( n.getKind()!=FORALL ){
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        collectPatTerms( f, n[i], patTerms, tstrt );
+    }else if( tstrt==MIN_TRIGGER ){
+      if( n.getKind()!=FORALL ){
+        bool retVal = false;
+        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+          if( collectPatTerms2( f, n[i], patMap, tstrt ) ){
+            retVal = true;
+          }
+        }
+        if( retVal ){
+          return true;
+        }else if( Trigger::isUsableTrigger( n, f ) ){
+          patMap[ n ] = true;
+          return true;
+        }else{
+          return false;
+        }
+      }else{
+        return false;
       }
-    }
-  }else if( tstrt==MIN_TRIGGER ){
-    if( n.getKind()!=FORALL ){
-      int patTermSize = (int)patTerms.size();
-      for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        collectPatTerms( f, n[i], patTerms, tstrt );
+    }else if( tstrt==ALL ){
+      bool retVal = false;
+      if( Trigger::isUsableTrigger( n, f ) ){
+        patMap[ n ] = true;
+        retVal = true;
       }
-      if( n.getKind()==APPLY_UF && n.getAttribute(InstConstantAttribute())==f && patTermSize==(int)patTerms.size() ){
-        if( std::find( patTerms.begin(), patTerms.end(), n )==patTerms.end() ){
-          if( Trigger::isUsableTrigger( n, f ) ){
-            patTerms.push_back( n );
-          } 
+      if( n.getKind()!=FORALL ){
+        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+          if( collectPatTerms2( f, n[i], patMap, tstrt ) ){
+            retVal = true;
+          }
         }
       }
+      return retVal;
     }
   }
 }
+
+bool InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst ){
+  std::map< Node, bool > patMap;
+  if( filterInst ){
+    //immediately do not consider any term t for which another term is an instance of t
+    std::vector< Node > patTerms2;
+    collectPatTerms( f, n, patTerms2, ALL, false );
+    std::vector< Node > temp;
+    temp.insert( temp.begin(), patTerms2.begin(), patTerms2.end() );
+    Trigger::filterInstances( temp );
+    if( temp.size()!=patTerms2.size() ){
+      Debug("trigger-filter-instance") << "Filtered an instance: " << std::endl;
+      Debug("trigger-filter-instance") << "Old: ";
+      for( int i=0; i<(int)patTerms2.size(); i++ ){
+        Debug("trigger-filter-instance") << patTerms2[i] << " ";
+      }
+      Debug("trigger-filter-instance") << std::endl << "New: ";
+      for( int i=0; i<(int)temp.size(); i++ ){
+        Debug("trigger-filter-instance") << temp[i] << " ";
+      }
+      Debug("trigger-filter-instance") << std::endl;
+    }
+    //do not consider terms that have instances
+    for( int i=0; i<(int)patTerms2.size(); i++ ){
+      if( std::find( temp.begin(), temp.end(), patTerms2[i] )==temp.end() ){
+        patMap[ patTerms2[i] ] = false;
+      }
+    }
+  }
+  collectPatTerms2( f, d_quantEngine->getCounterexampleBody( f ), patMap, tstrt );
+  for( std::map< Node, bool >::iterator it = patMap.begin(); it != patMap.end(); ++it ){
+    if( it->second ){
+      patTerms.push_back( it->first );
+    }
+  }
+}
+
 
 Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
   if( d_auto_gen_trigger.find( f )==d_auto_gen_trigger.end() ){
@@ -222,13 +286,13 @@ Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
     //  d_auto_gen_trigger[f] = NULL;
     //}
     std::vector< Node > patTerms;
-    collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );
+    collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );   //, true );
     if( !patTerms.empty() ){
-      int matchPolicy = 0;
+      int matchOption = 0;
 #ifdef USE_EFFICIENT_E_MATCHING
-      matchPolicy = InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH;
+      matchOption = InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH;
 #endif
-      Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchPolicy, false, Trigger::TRP_RETURN_NULL );
+      Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchOption, false, Trigger::TR_RETURN_NULL );
       //making it during an instantiation round, so must reset
       if( tr ){
         tr->resetInstantiationRound();
@@ -264,15 +328,22 @@ int InstStrategyFreeVariable::process( Node f, Theory::Effort effort, int e, int
   }
 }
 
-void UfTermDb::add( Node n ){
+void UfTermDb::add( Node n, std::vector< Node >& added, bool withinQuant ){
+#if 1
+  //don't add terms in quantifier bodies
+  if( withinQuant ){
+    return;
+  }
+#endif
   if( n.getKind()==APPLY_UF ){
     Node op = n.getOperator();
     if( !n.hasAttribute(InstConstantAttribute()) ){
       if( std::find( d_op_map[op].begin(), d_op_map[op].end(), n )==d_op_map[op].end() ){
         Debug("uf-term-db") << "register term " << n << std::endl;
         d_op_map[op].push_back( n );
+        added.push_back( n );
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          add( n[i] );
+          add( n[i], added, withinQuant );
 #ifdef USE_EFFICIENT_E_MATCHING
           //add to parent structure
           if( std::find( d_parents[n[i]][op][i].begin(), d_parents[n[i]][op][i].end(), n )==d_parents[n[i]][op][i].end() ){
@@ -289,7 +360,7 @@ void UfTermDb::add( Node n ){
       }
     }else{
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
-        add( n[i] );
+        add( n[i], added, withinQuant );
       }
     }
   }
@@ -322,6 +393,7 @@ Instantiator( c, ie, th )
 //d_disequality( c )
 {
   d_db = new UfTermDb( this );
+  ie->setTermDatabase( d_db );
 
   if(Options::current()->finiteModelFind ){
     addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), ie ) );
@@ -375,21 +447,21 @@ Instantiator( c, ie, th )
 void InstantiatorTheoryUf::preRegisterTerm( Node t ){
   switch(t.getKind()) {
   case kind::EQUAL:
-    d_db->add( t[0] );
-    d_db->add( t[1] );
+    d_quantEngine->addTermToDatabase( t[0] );
+    d_quantEngine->addTermToDatabase( t[1] );
     break;
   case kind::NOT:
     if( t[0].getKind()==EQUAL || t[0].getKind()==IFF ){
-      d_db->add( t[0][0] );
-      d_db->add( t[0][1] );
+      d_quantEngine->addTermToDatabase( t[0][0] );
+      d_quantEngine->addTermToDatabase( t[0][1] );
     }else if( t[0].getKind()==APPLY_UF ){
-      d_db->add( t[0] );
+      d_quantEngine->addTermToDatabase( t[0] );
     }
     break;
   case kind::CARDINALITY_CONSTRAINT:
     break;
   default:
-    d_db->add( t );
+    d_quantEngine->addTermToDatabase( t );
     break;
   }
   if( t.hasAttribute(InstConstantAttribute()) ){

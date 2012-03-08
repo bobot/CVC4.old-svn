@@ -259,6 +259,7 @@ void TheoryUF::propagate(Effort level) {
   if( d_thss ){
     d_thss->propagate( level );
   }
+  Debug("uf") << "done TheoryUF::propagate()" << std::endl;
 }/* TheoryUF::propagate(Effort) */
 
 void TheoryUF::preRegisterTerm(TNode node) {

@@ -552,10 +552,10 @@ int Trigger::trCount = 0;
 Trigger::TrTrie Trigger::d_tr_trie;
 
 /** trigger class constructor */
-Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, bool isLitMatch ) : d_quantEngine( qe ), d_f( f ){
+Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption ) : d_quantEngine( qe ), d_f( f ){
   trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
-  d_mg = new InstMatchGenerator( d_nodes, qe, isLitMatch );
+  d_mg = new InstMatchGenerator( d_nodes, qe, matchOption );
   Debug("trigger") << "Trigger: ";
   for( int i=0; i<(int)d_nodes.size(); i++ ){
     Debug("trigger") << d_nodes[i] << " ";
@@ -622,7 +622,7 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
   return addedLemmas;
 }
 
-Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchPolicy, bool keepAll, int trPolicy ){
+Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool keepAll, int trOption ){
   bool success = false;
   int counter = 0;
   std::vector< Node > trNodes;
@@ -683,7 +683,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       trNodes.insert( trNodes.begin(), nodes.begin(), nodes.end() );
     }
     //check for duplicate?
-    if( trPolicy==TRP_MAKE_NEW ){
+    if( trOption==TR_MAKE_NEW ){
       success = true;
       //static int trNew = 0;
       //static int trOld = 0;
@@ -699,7 +699,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
     }else{
       Trigger* t = d_tr_trie.getTrigger( trNodes );
       if( t ){
-        if( trPolicy==TRP_GET_OLD ){
+        if( trOption==TR_GET_OLD ){
           //just return old trigger
           return t;
         }else{
@@ -713,7 +713,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
       trNodes.clear();
     }
   }
-  Trigger* t = new Trigger( qe, f, trNodes, matchPolicy );
+  Trigger* t = new Trigger( qe, f, trNodes, matchOption );
   d_tr_trie.addTrigger( trNodes, t );
   return t;
 }
@@ -777,7 +777,9 @@ void Trigger::filterInstances( std::vector< Node >& nodes ){
 
 /** is n1 an instance of n2 or vice versa? */
 int Trigger::isInstanceOf( Node n1, Node n2 ){
-  if( n1.getKind()==n2.getKind() ){
+  if( n1==n2 ){
+    return 1;
+  }else if( n1.getKind()==n2.getKind() ){
     if( n1.getKind()==APPLY_UF ){
       if( n1.getOperator()==n2.getOperator() ){
         int result = 0;
@@ -800,10 +802,15 @@ int Trigger::isInstanceOf( Node n1, Node n2 ){
     }
     return 0;
   }else if( n2.getKind()==INST_CONSTANT ){
-    return 1;
+    computeVarContains( n1 );
+    if( d_var_contains[ n1 ].size()==1 && d_var_contains[ n1 ][ 0 ]==n2 ){
+      return 1;
+    }
   }else if( n1.getKind()==INST_CONSTANT ){
-    return -1;
-  }else{
-    return 0;
+    computeVarContains( n2 );
+    if( d_var_contains[ n2 ].size()==1 && d_var_contains[ n2 ][ 0 ]==n1 ){
+      return -1;
+    }
   }
+  return 0;
 }

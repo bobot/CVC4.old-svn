@@ -24,6 +24,8 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
+//#define COMPUTE_RELEVANCE
+
   /** reset instantiation */
 void InstStrategy::resetInstantiationRound( Theory::Effort effort ){
   d_no_instantiate_temp.clear();
@@ -133,6 +135,7 @@ QuantifiersEngine::QuantifiersEngine(context::Context* c, TheoryEngine* te):
 d_te( te ),
 d_active( c ){
   d_eq_query = NULL;
+  d_term_db = NULL;
 }
 
 Instantiator* QuantifiersEngine::getInstantiator( int id ){
@@ -168,6 +171,7 @@ std::vector<Node> QuantifiersEngine::createInstVariable( std::vector<Node> & var
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
     ++(d_statistics.d_num_quant);
+    Assert( f.getKind()==FORALL );
     d_quants.push_back( f );
     for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
       d_vars[f].push_back( f[0][i] );
@@ -179,7 +183,23 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       //InstVarNumAttribute ivna;
       //ic.setAttribute(ivna,i);
     }
-    Assert( f.getKind()==FORALL );
+#ifdef COMPUTE_RELEVANCE
+    std::vector< Node > syms;
+    computeSymbols( f[1], syms );
+    d_syms[f].insert( d_syms[f].begin(), syms.begin(), syms.end() );
+    //set initial relevance
+    int minRelevance = -1;
+    for( int i=0; i<(int)syms.size(); i++ ){
+      d_syms_quants[ syms[i] ].push_back( f );
+      int r = getRelevance( syms[i] );
+      if( r!=-1 && ( minRelevance==-1 || r<minRelevance ) ){
+        minRelevance = r;
+      }
+    }
+    if( minRelevance!=-1 ){
+      setRelevance( f, minRelevance+1 );
+    }
+#endif
     for( int i=0; i<(int)d_modules.size(); i++ ){
       d_modules[i]->registerQuantifier( f );
     }
@@ -187,12 +207,12 @@ void QuantifiersEngine::registerQuantifier( Node f ){
 }
 
 void QuantifiersEngine::registerPattern( std::vector<Node> & pattern) {
-    uf::UfTermDb* db =
-      ((uf::TheoryUF*) d_te->getTheory(theory::THEORY_UF))->getTermDatabase();
-    for(std::vector<Node>::iterator p = pattern.begin();
-        p != pattern.end(); ++p)
-      {db->add(*p);};
+  uf::UfTermDb* db = ((uf::TheoryUF*) d_te->getTheory(theory::THEORY_UF))->getTermDatabase();
+  for(std::vector<Node>::iterator p = pattern.begin(); p != pattern.end(); ++p){
+    std::vector< Node > added;
+    db->add(*p,added);
   }
+}
 
 void QuantifiersEngine::assertNode( Node f ){
   Assert( f.getKind()==FORALL );
@@ -209,6 +229,21 @@ Node QuantifiersEngine::explain(TNode n){
   AlwaysAssert(false,"A quantifier module propagate but can't explain...");
 }
 
+void QuantifiersEngine::addTermToDatabase( Node n, bool withinQuant ){
+  if( d_term_db ){
+    std::vector< Node > added;
+    d_term_db->add( n, added, withinQuant );
+#ifdef COMPUTE_RELEVANCE
+    for( int i=0; i<(int)added.size(); i++ ){
+      if( !withinQuant ){
+        setRelevance( added[i].getOperator(), 0 );
+      }
+    }
+#endif
+  }else{
+    std::cout << "Warning: no term database for quantifier engine." << std::endl;
+  }
+}
 
 bool QuantifiersEngine::addLemma( Node lem ){
   //AJR: the following check is necessary until FULL_CHECK is guarenteed after d_out->lemma(...)
@@ -468,4 +503,36 @@ Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){
     }
   }
   return d_free_vars[tn];
+}
+
+/** compute symbols */
+void QuantifiersEngine::computeSymbols( Node n, std::vector< Node >& syms ){
+  if( n.getKind()==APPLY_UF ){
+    Node op = n.getOperator();
+    if( std::find( syms.begin(), syms.end(), op )==syms.end() ){
+      syms.push_back( op );
+    }
+  }
+  if( n.getKind()!=FORALL ){
+    for( int i=0; i<(int)n.getNumChildren(); i++ ){
+      computeSymbols( n[i], syms );
+    }
+  }
+}
+
+/** set relevance */
+void QuantifiersEngine::setRelevance( Node s, int r ){
+  int rOld = getRelevance( s );
+  if( rOld==-1 || r<rOld ){
+    d_relevance[s] = r;
+    if( s.getKind()==FORALL ){
+      for( int i=0; i<(int)d_syms[s].size(); i++ ){
+        setRelevance( d_syms[s][i], r );
+      }
+    }else{
+      for( int i=0; i<(int)d_syms_quants[s].size(); i++ ){
+        setRelevance( d_syms_quants[s][i], r+1 );
+      }
+    }
+  }
 }

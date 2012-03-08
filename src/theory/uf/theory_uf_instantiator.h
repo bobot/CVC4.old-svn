@@ -103,6 +103,7 @@ public:
   enum {
     MAX_TRIGGER = 0,
     MIN_TRIGGER,
+    ALL,
   };
 private:
   /** InstantiatorTheoryUf class */
@@ -113,7 +114,8 @@ private:
   std::map< Node, Trigger* > d_auto_gen_trigger;
 private:
   /** collect all top level APPLY_UF pattern terms for f in n */
-  void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt );
+  bool collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt );
+  bool collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst = false );
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
   int process( Node f, Theory::Effort effort, int e, int instLimit );
@@ -171,7 +173,7 @@ public:
   void merge( EqClassInfo* eci );
 };
 
-class UfTermDb
+class UfTermDb : public TermDb
 {
 private:
   /** InstantiatorTheoryUf class */
@@ -179,8 +181,6 @@ private:
 public:
   UfTermDb( InstantiatorTheoryUf* ith ) : d_ith( ith ){}
   ~UfTermDb(){}
-  /** map from APPLY_UF operators to ground terms for that operator */
-  std::map< Node, std::vector< Node > > d_op_map;
   /** parent structure: 
       n -> op -> index -> L
       map from node "n" to a list of nodes "L", where each node n' in L 
@@ -189,7 +189,7 @@ public:
   */
   std::map< Node, std::map< Node, std::map< int, std::vector< Node > > > > d_parents;
   /** register this term */
-  void add( Node n );
+  void add( Node n, std::vector< Node >& added, bool withinQuant = false );
 };
 
 class InstantiatorTheoryUf : public Instantiator{

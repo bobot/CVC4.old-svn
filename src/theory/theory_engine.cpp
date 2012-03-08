@@ -215,6 +215,7 @@ void TheoryEngine::check(Theory::Effort effort) {
       //  }
       //}
       ////AJR-hack-end
+
       // If in full check and no lemmas added, run the combination
       if (Theory::fullEffort(effort) && d_sharedTermsExist) {
         //AJR-hack

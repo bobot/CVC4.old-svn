@@ -256,7 +256,7 @@ private:
   static TrTrie d_tr_trie;
 private:
   /** trigger constructor */
-  Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, bool isLitMatch = false );
+  Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, int matchOption = 0 );
 public:
   ~Trigger(){}
 public:
@@ -289,27 +289,27 @@ public:
      ie     : quantifier engine;
      f      : forall something ....
      nodes  : (multi-)trigger
-     matchPolicy : which policy to use for creating matches (one of InstMatchGenerator::MATCH_GEN_* )
+     matchOption : which policy to use for creating matches (one of InstMatchGenerator::MATCH_GEN_* )
      keepAll: don't remove unneeded patterns;
-     trPolicy : policy for dealing with triggers that already existed (see below)
+     trOption : policy for dealing with triggers that already existed (see below)
   */
   enum{
-    TRP_MAKE_NEW,    //make new trigger even if it already may exist
-    TRP_GET_OLD,     //return a previous trigger if it had already been created
-    TRP_RETURN_NULL  //return null if a duplicate is found
+    TR_MAKE_NEW,    //make new trigger even if it already may exist
+    TR_GET_OLD,     //return a previous trigger if it had already been created
+    TR_RETURN_NULL  //return null if a duplicate is found
   };
   static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, 
-                             int matchPolicy = 0, bool keepAll = true, int trPolicy = TRP_MAKE_NEW ); 
+                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW ); 
 private:  
   static bool isUsable( Node n, Node f );
-  /** filter all nodes that have instances */
-  static void filterInstances( std::vector< Node >& nodes );
-  /** -1: n1 is an instance of n2, 1: n1 is an instance of n2 */
-  static int isInstanceOf( Node n1, Node n2 );
 public:
   /** is usable trigger */
   static bool isUsableTrigger( std::vector< Node >& nodes, Node f );
   static bool isUsableTrigger( Node n, Node f );
+  /** filter all nodes that have instances */
+  static void filterInstances( std::vector< Node >& nodes );
+  /** -1: n1 is an instance of n2, 1: n1 is an instance of n2 */
+  static int isInstanceOf( Node n1, Node n2 );
 
   inline void toStream(std::ostream& out) const {
     if (d_mg->d_match_pattern.isNull()) out << "MultiTrigger (TODO)";
