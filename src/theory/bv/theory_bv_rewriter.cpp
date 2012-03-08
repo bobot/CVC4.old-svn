@@ -30,9 +30,18 @@ using namespace CVC4;
 using namespace CVC4::theory;
 using namespace CVC4::theory::bv;
 
+
+RewriteResponse TheoryBVRewriter::preRewrite(TNode node) {
+  Debug("bitvector-rewrite") << "TheoryBV::preRewrite(" << node << ")" << std::endl;
+
+  Node result = simplificationRewrites(node);
+  return RewriteResponse(REWRITE_DONE, result); 
+}
+
+
 RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
   
-  BVDebug("bitvector") << "TheoryBV::postRewrite(" << node << ")" << std::endl;
+  BVDebug("bitvector-rewrite") << "TheoryBV::postRewrite(" << node << ")" << std::endl;
     
   Node result = node;
 
@@ -50,7 +59,7 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
     }
   }
 
-  BVDebug("bitvector") << "TheoryBV::postRewrite(" << node << ") => " << result << std::endl;
+  BVDebug("bitvector-rewrite") << "TheoryBV::postRewrite(" << node << ") => " << result << std::endl;
   
   return RewriteResponse(REWRITE_DONE, result);
 }
@@ -147,7 +156,7 @@ Node TheoryBVRewriter::constantEvaluationRewrites(TNode node){
   
   switch(node.getKind()) {
   case kind::CONST_BITVECTOR:
-    // do nothing
+    result = node; 
     break;
   case kind::EQUAL:
     result = LinearRewriteStrategy< RewriteRule<EvalEquals> >::apply(node); 
@@ -218,14 +227,33 @@ Node TheoryBVRewriter::constantEvaluationRewrites(TNode node){
     result = LinearRewriteStrategy< RewriteRule<EvalSignExtend> >::apply(node); 
     break;
   default:
-    Unhandled(node.getKind()); 
+    result =  node; 
   }
   
   return result; 
 }
 
 Node TheoryBVRewriter::simplificationRewrites(TNode node) {
-  Node result = node;
+  Node result = LinearRewriteStrategy< RewriteRule<ShlByConst>,
+                                       RewriteRule<LshrByConst>,
+                                       RewriteRule<AshrByConst>,
+                                       //RewriteRule<NegAnd>,
+                                       //RewriteRule<NegOr>,
+                                       // RewriteRule<NegXor>,
+                                       RewriteRule<BitwiseIdemp>,
+                                       RewriteRule<XorDuplicate>,
+                                       RewriteRule<BitwiseNegAnd>,
+                                       RewriteRule<BitwiseNegOr>,
+                                       RewriteRule<XorNeg>,
+                                       RewriteRule<LtSelf>,
+                                       RewriteRule<LteSelf>,
+                                       RewriteRule<UltZero>,
+                                       RewriteRule<UleZero>,
+                                       RewriteRule<ZeroUle>,
+                                       RewriteRule<UleMax>,
+                                       RewriteRule<NotUlt>,
+                                       RewriteRule<NotUle>
+                                       >::apply(node);
   return result; 
 }
 
@@ -271,17 +299,15 @@ Node TheoryBVRewriter::normalizationRewrites(TNode node) {
       result = node;
       break;
       }
-
-  
   return result; 
 }
 
 
 
-CVC4_THREADLOCAL(AllRewriteRules*) TheoryBVRewriter::s_allRules = NULL;
+  CVC4_THREADLOCAL(AllRewriteRules*) TheoryBVRewriter::s_allRules = NULL;
 
 void TheoryBVRewriter::init() {
-  s_allRules = new AllRewriteRules;
+   s_allRules = new AllRewriteRules;
 }
 
 void TheoryBVRewriter::shutdown() {

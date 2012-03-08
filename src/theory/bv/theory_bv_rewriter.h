@@ -43,11 +43,7 @@ public:
 
   static RewriteResponse postRewrite(TNode node);
 
-  static inline RewriteResponse preRewrite(TNode node) {
-    Debug("bitvector") << "TheoryBV::preRewrite(" << node << ")" << std::endl;
-    return RewriteResponse(REWRITE_DONE, node);
-    // return postRewrite(node); 
-  }
+  static RewriteResponse preRewrite(TNode node);
 
   static inline Node rewriteEquality(TNode node) {
     Debug("bitvector") << "TheoryBV::rewriteEquality(" << node << ")" << std::endl;
@@ -57,6 +53,7 @@ public:
 
   static void init();
   static void shutdown();
+  
 };/* class TheoryBVRewriter */
 
 }/* CVC4::theory::bv namespace */

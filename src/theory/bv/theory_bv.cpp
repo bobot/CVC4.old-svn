@@ -69,7 +69,7 @@ void TheoryBV::check(Effort e) {
     std::vector<TNode> assertions; 
     while (!done()) {
       TNode assertion = get();
-      Debug("bitvector") << "assertion " << assertion << "\n"; 
+      Debug("bitvector-assertions") << "assertion " << assertion << "\n"; 
       assertions.push_back(assertion);
       d_bitblaster->bitblast(assertion); 
     }

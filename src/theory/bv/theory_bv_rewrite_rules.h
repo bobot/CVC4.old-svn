@@ -87,30 +87,35 @@ enum RewriteRuleId {
   EvalRotateRight,
   EvalNeg,
   EvalXnor,
+  
   /// simplification rules
+  /// all of these rules decrease formula size
   ShlByConst,
   LshrByConst,
   AshrByConst,
-  ExtractBitwise,
-  ExtractNeg,
-  ExtractArith,
-  DoubleNeg,
-  NegConcat,
-  NegAnd, // not sure why this would help
-  NegOr,  // not sure why this would help
-  NegXor,
   BitwiseIdemp,
   XorDuplicate,
   BitwiseNegAnd,
   BitwiseNegOr,
   XorNeg,
   LtSelf,
+  LteSelf,
   UltZero,
   UleZero,
   ZeroUle,
-  NotLt,
-  NotLe
+  UleMax,
+  NotUlt,
+  NotUle,
+  
   /// normalization rules
+  ExtractBitwise,
+  ExtractNeg,
+  ExtractArith,
+  DoubleNeg,
+  NegConcat,
+  NegAnd, // not sure why this would help (not done)
+  NegOr,  // not sure why this would help (not done)
+  NegXor // not sure why this would help (not done)
  };
 
 inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
@@ -164,28 +169,30 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case EvalRotateRight :    out << "EvalRotateRight";     return out;
   case EvalNeg :            out << "EvalNeg";             return out;
   case EvalXnor :           out << "EvalXnor";            return out;
-  case ShlByConst :           out << "ShlByConst";            return out;
-  case LshrByConst :           out << "LshrByConst";            return out;
-  case AshrByConst :           out << "AshrByConst";            return out;
-  case ExtractBitwise :           out << "ExtractBitwise";            return out;
-  case ExtractNeg :           out << "ExtractNeg";            return out;
-  case ExtractArith :           out << "ExtractArith";            return out;
-  case DoubleNeg :           out << "DoubleNeg";            return out;
-  case NegConcat :           out << "NegConcat";            return out;
-  case NegAnd :           out << "NegAnd";            return out;
-  case NegOr :           out << "NegOr";            return out;
-  case NegXor :           out << "NegXor";            return out;
-  case BitwiseIdemp :           out << "BitwiseIdemp";            return out;
-  case XorDuplicate :           out << "XorDuplicate";            return out;
-  case BitwiseNegAnd :           out << "BitwiseNegAnd";            return out;
-  case BitwiseNegOr :           out << "BitwiseNegOr";            return out;
-  case XorNeg :           out << "XorNeg";            return out;
-  case LtSelf :           out << "LtSelf";            return out;
-  case UltZero :           out << "UltZero";            return out;
-  case UleZero :           out << "UleZero";            return out;
-  case ZeroUle :           out << "ZeroUle";            return out;
-  case NotLt :           out << "NotLt";            return out;
-  case NotLe :           out << "NotLe";            return out;
+  case ShlByConst :         out << "ShlByConst";          return out;
+  case LshrByConst :        out << "LshrByConst";         return out;
+  case AshrByConst :        out << "AshrByConst";         return out;
+  case ExtractBitwise :     out << "ExtractBitwise";      return out;
+  case ExtractNeg :         out << "ExtractNeg";          return out;
+  case ExtractArith :       out << "ExtractArith";        return out;
+  case DoubleNeg :          out << "DoubleNeg";           return out;
+  case NegConcat :          out << "NegConcat";           return out;
+  case NegAnd :             out << "NegAnd";              return out;
+  case NegOr :              out << "NegOr";               return out;
+  case NegXor :             out << "NegXor";              return out;
+  case BitwiseIdemp :       out << "BitwiseIdemp";        return out;
+  case XorDuplicate :       out << "XorDuplicate";        return out;
+  case BitwiseNegAnd :      out << "BitwiseNegAnd";       return out;
+  case BitwiseNegOr :       out << "BitwiseNegOr";        return out;
+  case XorNeg :             out << "XorNeg";              return out;
+  case LtSelf :             out << "LtSelf";              return out;
+  case LteSelf :            out << "LteSelf";              return out;
+  case UltZero :            out << "UltZero";             return out;
+  case UleZero :            out << "UleZero";             return out;
+  case ZeroUle :            out << "ZeroUle";             return out;
+  case NotUlt :             out << "NotUlt";              return out;
+  case NotUle :             out << "NotUle";              return out;
+  case UleMax :             out << "UleMax";              return out;
   default:
     Unreachable();
   }
@@ -226,7 +233,7 @@ class RewriteRule {
   // have a dangling pointer and segfault).  If this statistic is needed,
   // fix the rewriter by making it an instance per-SmtEngine (instead of
   // static).
-  //static RuleStatistics* s_statistics;
+  static RuleStatistics* s_statistics;
 
   /** Actually apply the rewrite rule */
   static inline Node apply(Node node) {
@@ -236,18 +243,18 @@ class RewriteRule {
 public:
 
   RewriteRule() {
-    /*
+    
     if (s_statistics == NULL) {
       s_statistics = new RuleStatistics();
     }
-    */
+    
   }
 
   ~RewriteRule() {
-    /*
+    
     delete s_statistics;
     s_statistics = NULL;
-    */
+    
   }
 
   static inline bool applies(Node node) {
@@ -259,7 +266,7 @@ public:
     if (!checkApplies || applies(node)) {
       BVDebug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ")" << std::endl;
       Assert(checkApplies || applies(node));
-      //++ s_statistics->d_ruleApplications;
+      ++ s_statistics->d_ruleApplications;
       Node result = apply(node);
       BVDebug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ") => " << result << std::endl;
       return result;
@@ -269,10 +276,10 @@ public:
   }
 };
 
-/*
+
 template<RewriteRuleId rule>
 typename RewriteRule<rule>::RuleStatistics* RewriteRule<rule>::s_statistics = NULL;
-*/
+
 
 /** Have to list all the rewrite rules to get the statistics out */
 struct AllRewriteRules {
@@ -345,8 +352,11 @@ struct AllRewriteRules {
   RewriteRule<UltZero>             rule68;
   RewriteRule<UleZero>             rule69;
   RewriteRule<ZeroUle>             rule70;
-  RewriteRule<NotLt>             rule71;
-  RewriteRule<NotLe>             rule72;
+  RewriteRule<NotUlt>             rule71;
+  RewriteRule<NotUle>             rule72;
+  RewriteRule<ZeroExtendEliminate> rule73;
+  RewriteRule<UleMax> rule74;
+  RewriteRule<LteSelf> rule75; 
 };
 
 template<>
@@ -391,25 +401,49 @@ struct ApplyRuleToChildren {
 
 template <
   typename R1,
-  typename R2 = RewriteRule<EmptyRule>,
-  typename R3 = RewriteRule<EmptyRule>,
-  typename R4 = RewriteRule<EmptyRule>,
-  typename R5 = RewriteRule<EmptyRule>,
-  typename R6 = RewriteRule<EmptyRule>,
-  typename R7 = RewriteRule<EmptyRule>,
-  typename R8 = RewriteRule<EmptyRule>
+  typename R2  = RewriteRule<EmptyRule>,
+  typename R3  = RewriteRule<EmptyRule>,
+  typename R4  = RewriteRule<EmptyRule>,
+  typename R5  = RewriteRule<EmptyRule>,
+  typename R6  = RewriteRule<EmptyRule>,
+  typename R7  = RewriteRule<EmptyRule>,
+  typename R8  = RewriteRule<EmptyRule>,
+  typename R9  = RewriteRule<EmptyRule>,
+  typename R10 = RewriteRule<EmptyRule>,
+  typename R11 = RewriteRule<EmptyRule>,
+  typename R12 = RewriteRule<EmptyRule>,
+  typename R13 = RewriteRule<EmptyRule>,
+  typename R14 = RewriteRule<EmptyRule>,
+  typename R15 = RewriteRule<EmptyRule>,
+  typename R16 = RewriteRule<EmptyRule>,
+  typename R17 = RewriteRule<EmptyRule>,
+  typename R18 = RewriteRule<EmptyRule>,
+  typename R19 = RewriteRule<EmptyRule>,
+  typename R20 = RewriteRule<EmptyRule>
   >
 struct LinearRewriteStrategy {
   static Node apply(Node node) {
     Node current = node;
-    if (R1::applies(current)) current = R1::template run<false>(current);
-    if (R2::applies(current)) current = R2::template run<false>(current);
-    if (R3::applies(current)) current = R3::template run<false>(current);
-    if (R4::applies(current)) current = R4::template run<false>(current);
-    if (R5::applies(current)) current = R5::template run<false>(current);
-    if (R6::applies(current)) current = R6::template run<false>(current);
-    if (R7::applies(current)) current = R7::template run<false>(current);
-    if (R8::applies(current)) current = R8::template run<false>(current);
+    if (R1::applies(current)) current  = R1::template run<false>(current);
+    if (R2::applies(current)) current  = R2::template run<false>(current);
+    if (R3::applies(current)) current  = R3::template run<false>(current);
+    if (R4::applies(current)) current  = R4::template run<false>(current);
+    if (R5::applies(current)) current  = R5::template run<false>(current);
+    if (R6::applies(current)) current  = R6::template run<false>(current);
+    if (R7::applies(current)) current  = R7::template run<false>(current);
+    if (R8::applies(current)) current  = R8::template run<false>(current);
+    if (R9::applies(current)) current  = R9::template run<false>(current);
+    if (R10::applies(current)) current = R10::template run<false>(current);
+    if (R11::applies(current)) current = R11::template run<false>(current);
+    if (R12::applies(current)) current = R12::template run<false>(current);
+    if (R13::applies(current)) current = R13::template run<false>(current);
+    if (R14::applies(current)) current = R14::template run<false>(current);
+    if (R15::applies(current)) current = R15::template run<false>(current);
+    if (R16::applies(current)) current = R16::template run<false>(current);
+    if (R17::applies(current)) current = R17::template run<false>(current);
+    if (R18::applies(current)) current = R18::template run<false>(current);
+    if (R19::applies(current)) current = R19::template run<false>(current);
+    if (R20::applies(current)) current = R20::template run<false>(current);
     return current;
   }
 };

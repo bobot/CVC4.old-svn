@@ -129,6 +129,19 @@ inline Node mkBitOf(TNode node, unsigned index) {
                                         
 }
 
+
+inline Node mkConcat(Node node, unsigned repeat) {
+  if(repeat == 1) {
+    return node; 
+  }
+  NodeBuilder<> result(kind::BITVECTOR_CONCAT);
+  for (unsigned i = 0; i < repeat; ++i) {
+    result << node; 
+  }
+  Node resultNode = result;
+  return resultNode;
+}
+
 inline Node mkConcat(std::vector<Node>& children) {
   if (children.size() > 1)
     return NodeManager::currentNM()->mkNode(kind::BITVECTOR_CONCAT, children);

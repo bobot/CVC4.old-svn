@@ -77,6 +77,10 @@ public:
 
   ~BitVector() {}
 
+  Integer toInteger() const {
+    return d_value;
+  }
+  
   BitVector& operator =(const BitVector& x) {
     if(this == &x)
       return *this;
@@ -139,6 +143,24 @@ public:
     Arithmetic operations on BitVectors
    */
 
+
+  bool operator <(const BitVector& y) const {
+    return d_value < y.d_value; 
+  }
+
+  bool operator >(const BitVector& y) const {
+    return d_value > y.d_value ;
+  }
+
+  bool operator <=(const BitVector& y) const {
+    return d_value <= y.d_value; 
+  }
+  
+  bool operator >=(const BitVector& y) const {
+    return d_value >= y.d_value ;
+  }
+
+  
   BitVector operator +(const BitVector& y) const {
     Assert (d_size == y.d_size);
     Integer sum = d_value +  y.d_value;
