@@ -25,7 +25,8 @@
 #include "theory/arrays/array_info.h"
 #include "util/stats.h"
 #include "theory/uf/equality_engine.h"
-#include "context/cdmap.h"
+#include "context/cdhashmap.h"
+#include "context/cdqueue.h"
 
 namespace CVC4 {
 namespace theory {
@@ -81,6 +82,12 @@ namespace arrays {
  *  the same lemma multiple times.
  */
 
+static inline std::string spaces(int level)
+{
+  std::string indentStr(level, ' ');
+  return indentStr;
+}
+
 class TheoryArrays : public Theory {
 
   /////////////////////////////////////////////////////////////////////////////
@@ -134,13 +141,11 @@ class TheoryArrays : public Theory {
   /** Equaltity engine */
   uf::EqualityEngine<PPNotifyClass> d_ppEqualityEngine;
 
-  /** Vector of facts learned at preprocessing time */
-  // TODO: this should be CDList<usercontext>
-  std::vector<Node> d_ppFacts;
+  // List of facts learned by preprocessor - needed for permanent ref for benefit of d_ppEqualityEngine
+  context::CDList<Node> d_ppFacts;
 
   // Cache for preprocessing of atoms.
-  // TODO: should be context dependent on user context
-  typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
+  typedef context::CDHashMap<Node, Node, NodeHashFunction> NodeMap;
   NodeMap d_ppCache;
 
   Node preprocessTerm(TNode term);
@@ -148,8 +153,8 @@ class TheoryArrays : public Theory {
 
   public:
 
-  SolveStatus solve(TNode in, SubstitutionMap& outSubstitutions);
-  Node preprocess(TNode atom);
+  PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions);
+  Node ppRewrite(TNode atom);
 
   /////////////////////////////////////////////////////////////////////////////
   // T-PROPAGATION / REGISTRATION
@@ -225,13 +230,15 @@ class TheoryArrays : public Theory {
     NotifyClass(TheoryArrays& uf): d_arrays(uf) {}
 
     bool notify(TNode propagation) {
-      Debug("arrays") << "NotifyClass::notify(" << propagation << ")" << std::endl;
+      Debug("arrays") << spaces(d_arrays.getContext()->getLevel()) << "NotifyClass::notify(" << propagation << ")" << std::endl;
       // Just forward to arrays
       return d_arrays.propagate(propagation);
     }
 
     void notify(TNode t1, TNode t2) {
-      Debug("arrays") << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
+      Debug("arrays") << spaces(d_arrays.getContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
+      d_arrays.addToNotifyQueue(t1.eqNode(t2));
+      /*
       if (t1.getType().isArray()) {
         bool shared = d_arrays.mergeArrays(t1, t2);
         if (!shared) return;
@@ -239,6 +246,7 @@ class TheoryArrays : public Theory {
       // Propagate equality between shared terms
       Node equality = Rewriter::rewriteEquality(theory::THEORY_ARRAY, t1.eqNode(t2));
       d_arrays.propagate(equality);
+      */
     }
   };
 
@@ -270,13 +278,24 @@ class TheoryArrays : public Theory {
   std::hash_set<RowLemmaType, RowLemmaTypeHashFunction > d_RowQueue;
   std::hash_set<RowLemmaType, RowLemmaTypeHashFunction > d_RowAlreadyAdded;
 
-  context::CDMap<TNode, bool, TNodeHashFunction> d_sharedArrays;
+  context::CDHashMap<TNode, bool, TNodeHashFunction> d_sharedArrays;
+  std::hash_map<TNode, Node, TNodeHashFunction> d_diseqCache;
 
+  // List of nodes that need permanent references in this context
+  context::CDList<Node> d_permRef;
+
+  Node mkAnd(std::vector<TNode>& conjunctions);
   bool mergeArrays(TNode a, TNode b);
   void checkStore(TNode a);
-  void dischargeLemmas();
   void checkRowForIndex(TNode i, TNode a);
   void checkRowLemmas(TNode a, TNode b);
+  void queueRowLemma(RowLemmaType lem);
+  void dischargeLemmas();
+
+
+  context::CDQueue<Node> d_notifyQueue;
+
+  void addToNotifyQueue(TNode n);
 
 };/* class TheoryArrays */
 

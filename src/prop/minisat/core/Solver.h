@@ -25,11 +25,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <iostream>
 
-#include "mtl/Vec.h"
-#include "mtl/Heap.h"
-#include "mtl/Alg.h"
-#include "utils/Options.h"
-#include "core/SolverTypes.h"
+#include "prop/minisat/mtl/Vec.h"
+#include "prop/minisat/mtl/Heap.h"
+#include "prop/minisat/mtl/Alg.h"
+#include "prop/minisat/utils/Options.h"
+#include "prop/minisat/core/SolverTypes.h"
 
 #include "context/context.h"
 #include "theory/theory.h"
@@ -40,7 +40,7 @@ namespace CVC4 {
 class SatProof;
 
 namespace prop {
-  class SatSolver;
+  class TheoryProxy;
 }/* CVC4::prop namespace */
 
 }/* CVC4 namespace */
@@ -53,22 +53,22 @@ namespace Minisat {
 class Solver {
 
   /** The only two CVC4 entry points to the private solver data */
-  friend class CVC4::prop::SatSolver;
+  friend class CVC4::prop::TheoryProxy;
   friend class CVC4::SatProof; 
 protected:
 
   /** The pointer to the proxy that provides interfaces to the SMT engine */
-  CVC4::prop::SatSolver* proxy;
+  CVC4::prop::TheoryProxy* proxy;
 
   /** The context from the SMT solver */
   CVC4::context::Context* context;
 
   /** The current assertion level (user) */
   int assertionLevel; 
-
+public:
   /** Returns the current user assertion level */
   int getAssertionLevel() const { return assertionLevel; }
-
+protected:
   /** Do we allow incremental solving */
   bool enable_incremental;  
 
@@ -102,7 +102,7 @@ public:
 
     // Constructor/Destructor:
     //
-    Solver(CVC4::prop::SatSolver* proxy, CVC4::context::Context* context, bool enableIncremental = false);
+    Solver(CVC4::prop::TheoryProxy* proxy, CVC4::context::Context* context, bool enableIncremental = false);
     CVC4_PUBLIC virtual ~Solver();
 
     // Problem specification:
@@ -190,6 +190,10 @@ public:
     int     nLearnts   ()      const;       // The current number of learnt clauses.
     int     nVars      ()      const;       // The current number of variables.
     int     nFreeVars  ()      const;
+
+    // Debugging SMT explanations
+    //
+    bool    properExplanation(Lit l, Lit expl) const; // returns true if expl can be used to explain l---i.e., both assigned and trail_index(expl) < trail_index(l)
 
     // Resource contraints:
     //
@@ -282,6 +286,7 @@ protected:
     vec<Lit>            trail;              // Assignment stack; stores all assigments made in the order they were made.
     vec<int>            trail_lim;          // Separator indices for different decision levels in 'trail'.
     vec<Lit>            trail_user;         // Stack of assignments to UNdo on user pop.
+    vec<int>            trail_user_lim;     // Separator indices for different user levels in 'trail'.
     vec<bool>           trail_ok;           // Stack of "whether we're in conflict" flags.
     vec<VarData>        vardata;            // Stores reason and level for each variable.
     int                 qhead;              // Head of queue (as index into the trail -- no more explicit propagation queue in MiniSat).
@@ -298,12 +303,12 @@ protected:
     vec<bool>           theory;           // Is the variable representing a theory atom
 
     enum TheoryCheckType {
-      // Quick check, but don't perform theory propagation
-      CHECK_WITHOUTH_PROPAGATION_QUICK,
-      // Check and perform theory propagation
-      CHECK_WITH_PROPAGATION_STANDARD,
-      // The SAT problem is satisfiable, perform a full theory check
-      CHECK_WITHOUTH_PROPAGATION_FINAL
+      // Quick check, but don't perform theory reasoning
+      CHECK_WITHOUTH_THEORY,
+      // Check and perform theory reasoning
+      CHECK_WITH_THEORY,
+      // The SAT abstraction of the problem is satisfiable, perform a full theory check
+      CHECK_FINAL
     };
 
     // Temporaries (to reduce allocation overhead). Each variable is prefixed by the method in which it is
@@ -462,6 +467,7 @@ inline int      Solver::nClauses      ()      const   { return clauses_persisten
 inline int      Solver::nLearnts      ()      const   { return clauses_removable.size(); }
 inline int      Solver::nVars         ()      const   { return vardata.size(); }
 inline int      Solver::nFreeVars     ()      const   { return (int)dec_vars - (trail_lim.size() == 0 ? trail.size() : trail_lim[0]); }
+inline bool     Solver::properExplanation(Lit l, Lit expl) const { return value(l) == l_True && value(expl) == l_True && trail_index(var(expl)) < trail_index(var(l)); }
 inline void     Solver::setPolarity   (Var v, bool b) { polarity[v] = b; }
 inline void     Solver::setDecisionVar(Var v, bool b) 
 { 

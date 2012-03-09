@@ -28,7 +28,7 @@
 #include "expr/node.h"
 #include "expr/command.h"
 #include "prop/prop_engine.h"
-#include "context/cdset.h"
+#include "context/cdhashset.h"
 #include "theory/theory.h"
 #include "theory/substitutions.h"
 #include "theory/rewriter.h"
@@ -91,7 +91,7 @@ class TheoryEngine {
 
   /**
    * A bitmap of theories that are "active" for the current run.  We
-   * mark a theory active when we firt see a term or type belonging to
+   * mark a theory active when we first see a term or type belonging to
    * it.  This is important because we can optimize for single-theory
    * runs (no sharing), can reduce the cost of walking the DAG on
    * registration, etc.
@@ -121,7 +121,7 @@ class TheoryEngine {
    * context-dependent set of those theory-propagable literals that
    * have been propagated.
    */
-  context::CDSet<TNode, TNodeHashFunction> d_hasPropagated;
+  context::CDHashSet<TNode, TNodeHashFunction> d_hasPropagated;
 
   /**
    * Statistics for a particular theory.
@@ -311,7 +311,7 @@ class TheoryEngine {
   /**
    * Map from equalities asserted to a theory, to the theory that can explain them.
    */
-  typedef context::CDMap<NodeTheoryPair, NodeTheoryPair, NodeTheoryPairHashFunction> SharedAssertionsMap;
+  typedef context::CDHashMap<NodeTheoryPair, NodeTheoryPair, NodeTheoryPairHashFunction> SharedAssertionsMap;
 
   /**
    * A map from asserted facts to where they came from (for explanations).
@@ -322,9 +322,6 @@ class TheoryEngine {
    * Assert a shared equalities propagated by theories.
    */
   void assertSharedEqualities();
-
-  /** The logic of the problem */
-  std::string d_logic;
 
   /**
    * Literals that are propagated by the theory. Note that these are TNodes.
@@ -510,7 +507,7 @@ public:
   /**
    * Solve the given literal with a theory that owns it.
    */
-  theory::Theory::SolveStatus solve(TNode literal,
+  theory::Theory::PPAssertStatus solve(TNode literal,
                                     theory::SubstitutionMap& substitutionOut);
 
   /**
@@ -546,10 +543,10 @@ public:
   void combineTheories();
 
   /**
-   * Calls staticLearning() on all theories, accumulating their
+   * Calls ppStaticLearn() on all theories, accumulating their
    * combined contributions in the "learned" builder.
    */
-  void staticLearning(TNode in, NodeBuilder<>& learned);
+  void ppStaticLearn(TNode in, NodeBuilder<>& learned);
 
   /**
    * Calls presolve() on all theories and returns true

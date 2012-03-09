@@ -28,7 +28,7 @@
 #include "expr/node.h"
 #include "context/context.h"
 #include "context/cdo.h"
-#include "context/cdmap.h"
+#include "context/cdhashmap.h"
 #include "util/hash.h"
 
 namespace CVC4 {
@@ -46,7 +46,10 @@ class SubstitutionMap {
 
 public:
 
-  typedef context::CDMap<Node, Node, NodeHashFunction> NodeMap;
+  typedef context::CDHashMap<Node, Node, NodeHashFunction> NodeMap;
+
+  typedef NodeMap::iterator iterator;
+  typedef NodeMap::const_iterator const_iterator;
 
 private:
 
@@ -115,6 +118,22 @@ public:
     return const_cast<SubstitutionMap*>(this)->apply(t);
   }
 
+  iterator begin() {
+    return d_substitutions.begin();
+  }
+
+  iterator end() {
+    return d_substitutions.end();
+  }
+
+  const_iterator begin() const {
+    return d_substitutions.begin();
+  }
+
+  const_iterator end() const {
+    return d_substitutions.end();
+  }
+
   // NOTE [MGD]: removed clear() and swap() from the interface
   // when this data structure became context-dependent
   // because they weren't used---and it's not clear how they
@@ -134,6 +153,9 @@ inline std::ostream& operator << (std::ostream& out, const SubstitutionMap& subs
 }
 
 }/* CVC4::theory namespace */
+
+std::ostream& operator<<(std::ostream& out, const theory::SubstitutionMap::iterator& i);
+
 }/* CVC4 namespace */
 
 #endif /* __CVC4__THEORY__SUBSTITUTIONS_H */

@@ -142,7 +142,7 @@ private:
 
 protected:
 
-  /** 
+  /**
    * A list of shared terms that the theory has.
    */
   context::CDList<TNode> d_sharedTerms;
@@ -208,7 +208,10 @@ protected:
   /**
    * The theory that owns the uninterpreted sort.
    */
-  static TheoryId d_uninterpretedSortOwner;
+  static TheoryId s_uninterpretedSortOwner;
+
+  void printFacts(std::ostream& os) const;
+
 
 public:
 
@@ -216,14 +219,19 @@ public:
    * Return the ID of the theory responsible for the given type.
    */
   static inline TheoryId theoryOf(TypeNode typeNode) {
+    Trace("theory") << "theoryOf(" << typeNode << ")" << std::endl;
     TheoryId id;
+    while (typeNode.isPredicateSubtype()) {
+      typeNode = typeNode.getSubtypeBaseType();
+    }
     if (typeNode.getKind() == kind::TYPE_CONSTANT) {
       id = typeConstantToTheoryId(typeNode.getConst<TypeConstant>());
     } else {
       id = kindToTheoryId(typeNode.getKind());
     }
     if (id == THEORY_BUILTIN) {
-      return d_uninterpretedSortOwner;
+      Trace("theory") << "theoryOf(" << typeNode << ") == " << s_uninterpretedSortOwner << std::endl;
+      return s_uninterpretedSortOwner;
     }
     return id;
   }
@@ -233,6 +241,7 @@ public:
    * Returns the ID of the theory responsible for the given node.
    */
   static inline TheoryId theoryOf(TNode node) {
+    Trace("theory::internal") << "theoryOf(" << node << ")" << std::endl;
     // Constants, variables, 0-ary constructors
     if (node.getMetaKind() == kind::metakind::VARIABLE || node.getMetaKind() == kind::metakind::CONSTANT) {
       return theoryOf(node.getType());
@@ -249,7 +258,7 @@ public:
    * Set the owner of the uninterpreted sort.
    */
   static void setUninterpretedSortOwner(TheoryId theory) {
-    d_uninterpretedSortOwner = theory;
+    s_uninterpretedSortOwner = theory;
   }
 
   /**
@@ -289,28 +298,29 @@ public:
    * with FULL_EFFORT.
    */
   enum Effort {
-    MIN_EFFORT = 0,
-    QUICK_CHECK = 10,
-    STANDARD = 50,
-    FULL_EFFORT = 100,
-    COMBINATION = 150
+    /**
+     * Standard effort where theory need not do anything
+     */
+    EFFORT_STANDARD = 50,
+    /**
+     * Full effort requires the theory make sure its assertions are satisfiable or not
+     */
+    EFFORT_FULL = 100,
+    /**
+     * Combination effort means that the individual theories are already satisfied, and
+     * it is time to put some effort into propagation of shared term equalities
+     */
+    EFFORT_COMBINATION = 150
   };/* enum Effort */
 
-  // simple, useful predicates for effort values
-  static inline bool minEffortOnly(Effort e) CVC4_CONST_FUNCTION
-    { return e == MIN_EFFORT; }
-  static inline bool quickCheckOrMore(Effort e) CVC4_CONST_FUNCTION
-    { return e >= QUICK_CHECK; }
-  static inline bool quickCheckOnly(Effort e) CVC4_CONST_FUNCTION
-    { return e >= QUICK_CHECK && e <  STANDARD; }
   static inline bool standardEffortOrMore(Effort e) CVC4_CONST_FUNCTION
-    { return e >= STANDARD; }
+    { return e >= EFFORT_STANDARD; }
   static inline bool standardEffortOnly(Effort e) CVC4_CONST_FUNCTION
-    { return e >= STANDARD && e <  FULL_EFFORT; }
+    { return e >= EFFORT_STANDARD && e <  EFFORT_FULL; }
   static inline bool fullEffort(Effort e) CVC4_CONST_FUNCTION
-    { return e == FULL_EFFORT; }
+    { return e == EFFORT_FULL; }
   static inline bool combination(Effort e) CVC4_CONST_FUNCTION 
-    { return e == COMBINATION; }
+    { return e == EFFORT_COMBINATION; }
 
   /**
    * Get the id for this Theory.
@@ -400,12 +410,12 @@ public:
    * - throw an exception
    * - or call get() until done() is true.
    */
-  virtual void check(Effort level = FULL_EFFORT) { }
+  virtual void check(Effort level = EFFORT_FULL) { }
 
   /**
    * T-propagate new literal assignments in the current context.
    */
-  virtual void propagate(Effort level = FULL_EFFORT) { }
+  virtual void propagate(Effort level = EFFORT_FULL) { }
 
   /**
    * Return an explanation for the literal represented by parameter n
@@ -460,39 +470,39 @@ public:
    * *never* clear it.  It is a conjunction to add to the formula at
    * the top-level and may contain other theories' contributions.
    */
-  virtual void staticLearning(TNode in, NodeBuilder<>& learned) { }
+  virtual void ppStaticLearn(TNode in, NodeBuilder<>& learned) { }
 
-  enum SolveStatus {
+  enum PPAssertStatus {
     /** Atom has been solved  */
-    SOLVE_STATUS_SOLVED,
+    PP_ASSERT_STATUS_SOLVED,
     /** Atom has not been solved */
-    SOLVE_STATUS_UNSOLVED,
+    PP_ASSERT_STATUS_UNSOLVED,
     /** Atom is inconsistent */
-    SOLVE_STATUS_CONFLICT
+    PP_ASSERT_STATUS_CONFLICT
   };
 
   /**
    * Given a literal, add the solved substitutions to the map, if any.
    * The method should return true if the literal can be safely removed.
    */
-  virtual SolveStatus solve(TNode in, SubstitutionMap& outSubstitutions) {
+  virtual PPAssertStatus ppAssert(TNode in, SubstitutionMap& outSubstitutions) {
     if (in.getKind() == kind::EQUAL) {
       if (in[0].getMetaKind() == kind::metakind::VARIABLE && !in[1].hasSubterm(in[0])) {
         outSubstitutions.addSubstitution(in[0], in[1]);
-        return SOLVE_STATUS_SOLVED;
+        return PP_ASSERT_STATUS_SOLVED;
       }
       if (in[1].getMetaKind() == kind::metakind::VARIABLE && !in[0].hasSubterm(in[1])) {
         outSubstitutions.addSubstitution(in[1], in[0]);
-        return SOLVE_STATUS_SOLVED;
+        return PP_ASSERT_STATUS_SOLVED;
       }
       if (in[0].getMetaKind() == kind::metakind::CONSTANT && in[1].getMetaKind() == kind::metakind::CONSTANT) {
         if (in[0] != in[1]) {
-          return SOLVE_STATUS_CONFLICT;
+          return PP_ASSERT_STATUS_CONFLICT;
         }
       }
     }
 
-    return SOLVE_STATUS_UNSOLVED;
+    return PP_ASSERT_STATUS_UNSOLVED;
   }
 
   /**
@@ -501,7 +511,7 @@ public:
    * the atom into an equivalent form.  This is only called just
    * before an input atom to the engine.
    */
-  virtual Node preprocess(TNode atom) { return atom; }
+  virtual Node ppRewrite(TNode atom) { return atom; }
 
   /**
    * A Theory is called with presolve exactly one time per user
@@ -636,13 +646,13 @@ inline std::ostream& operator<<(std::ostream& out,
   return out << theory.identify();
 }
 
-inline std::ostream& operator << (std::ostream& out, theory::Theory::SolveStatus status) {
+inline std::ostream& operator << (std::ostream& out, theory::Theory::PPAssertStatus status) {
   switch (status) {
-  case theory::Theory::SOLVE_STATUS_SOLVED:
+  case theory::Theory::PP_ASSERT_STATUS_SOLVED:
     out << "SOLVE_STATUS_SOLVED"; break;
-  case theory::Theory::SOLVE_STATUS_UNSOLVED:
+  case theory::Theory::PP_ASSERT_STATUS_UNSOLVED:
     out << "SOLVE_STATUS_UNSOLVED"; break;
-  case theory::Theory::SOLVE_STATUS_CONFLICT:
+  case theory::Theory::PP_ASSERT_STATUS_CONFLICT:
     out << "SOLVE_STATUS_CONFLICT"; break;
   default:
     Unhandled();

@@ -25,11 +25,11 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #include <assert.h>
 #include "util/output.h"
-#include "mtl/IntTypes.h"
-#include "mtl/Alg.h"
-#include "mtl/Vec.h"
-#include "mtl/Map.h"
-#include "mtl/Alloc.h"
+#include "prop/minisat/mtl/IntTypes.h"
+#include "prop/minisat/mtl/Alg.h"
+#include "prop/minisat/mtl/Vec.h"
+#include "prop/minisat/mtl/Map.h"
+#include "prop/minisat/mtl/Alloc.h"
 
 namespace Minisat {
 
@@ -83,9 +83,24 @@ const Lit lit_Error = { -1 };  // }
 //       does enough constant propagation to produce sensible code, and this appears to be somewhat
 //       fragile unfortunately.
 
-#define l_True  (Minisat::lbool((uint8_t)0)) // gcc does not do constant propagation if these are real constants.
-#define l_False (Minisat::lbool((uint8_t)1))
-#define l_Undef (Minisat::lbool((uint8_t)2))
+/*
+  This is to avoid multiple definitions of l_True, l_False and l_Undef if using multiple copies of
+  Minisat.
+  IMPORTANT: if we you change the value of the constants so that it is not the same in all copies
+  of Minisat this breaks! 
+ */
+
+#ifndef l_True
+#define l_True  (lbool((uint8_t)0)) // gcc does not do constant propagation if these are real constants.
+#endif
+
+#ifndef l_False
+#define l_False (lbool((uint8_t)1))
+#endif
+
+#ifndef l_Undef
+#define l_Undef (lbool((uint8_t)2))
+#endif
 
 class lbool {
     uint8_t value;
@@ -119,6 +134,40 @@ inline lbool toLbool(int   v) { return lbool((uint8_t)v);  }
 
 class Clause;
 typedef RegionAllocator<uint32_t>::Ref CRef;
+
+/* convenience printing functions */
+
+
+inline std::ostream& operator <<(std::ostream& out, Minisat::Lit lit) {
+  const char * s = (Minisat::sign(lit)) ? "~" : " ";
+  out << s << Minisat::var(lit);
+  return out;
+}
+
+inline std::ostream& operator <<(std::ostream& out, Minisat::vec<Minisat::Lit>& clause) {
+  out << "clause:";
+  for(int i = 0; i < clause.size(); ++i) {
+    out << " " << clause[i];
+  }
+  out << ";";
+  return out;
+}
+
+inline std::ostream& operator <<(std::ostream& out, Minisat::lbool val) {
+  std::string val_str; 
+  if( val == l_False ) {
+    val_str = "0";
+  } else if (val == l_True ) {
+    val_str = "1";
+  } else { // unknown
+    val_str = "_";
+  }
+
+  out << val_str;
+  return out;
+}
+
+
 } /* Minisat */
 
 

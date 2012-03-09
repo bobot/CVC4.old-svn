@@ -23,13 +23,13 @@
 #define __CVC4__THEORY__ARITH__ARITH_PROP_MANAGER_H
 
 #include "theory/valuation.h"
-#include "theory/arith/arith_utilities.h"
+#include "theory/arith/arithvar.h"
 #include "theory/arith/arithvar_node_map.h"
 #include "theory/arith/atom_database.h"
 #include "theory/arith/delta_rational.h"
 #include "context/context.h"
 #include "context/cdlist.h"
-#include "context/cdmap.h"
+#include "context/cdhashmap.h"
 #include "context/cdo.h"
 #include "theory/rewriter.h"
 #include "util/stats.h"
@@ -59,7 +59,7 @@ private:
    * to its corresponding PropUnit.
    * This is node is potentially both the consequent or Rewriter::rewrite(consequent).
    */
-  typedef context::CDMap<Node, size_t, NodeHashFunction> ExplainMap;
+  typedef context::CDHashMap<Node, size_t, NodeHashFunction> ExplainMap;
   ExplainMap d_explanationMap;
 
   size_t getIndex(TNode n) const {

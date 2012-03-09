@@ -30,7 +30,7 @@
 #include "theory/uf/symmetry_breaker.h"
 
 #include "context/cdo.h"
-#include "context/cdset.h"
+#include "context/cdhashset.h"
 
 namespace CVC4 {
 namespace theory {
@@ -109,7 +109,7 @@ public:
   void preRegisterTerm(TNode term);
   Node explain(TNode n);
 
-  void staticLearning(TNode in, NodeBuilder<>& learned);
+  void ppStaticLearn(TNode in, NodeBuilder<>& learned);
   void presolve();
 
   void addSharedTerm(TNode n);

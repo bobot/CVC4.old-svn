@@ -27,18 +27,16 @@ namespace CVC4 {
 namespace theory {
 
 /** Default value for the uninterpreted sorts is the UF theory */
-TheoryId Theory::d_uninterpretedSortOwner = THEORY_UF;
+TheoryId Theory::s_uninterpretedSortOwner = THEORY_UF;
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level){
   switch(level){
-  case Theory::MIN_EFFORT:
-    os << "MIN_EFFORT"; break;
-  case Theory::QUICK_CHECK:
-    os << "QUICK_CHECK"; break;
-  case Theory::STANDARD:
-    os << "STANDARD"; break;
-  case Theory::FULL_EFFORT:
-    os << "FULL_EFFORT"; break;
+  case Theory::EFFORT_STANDARD:
+    os << "EFFORT_STANDARD"; break;
+  case Theory::EFFORT_FULL:
+    os << "EFFORT_FULL"; break;
+  case Theory::EFFORT_COMBINATION:
+    os << "EFFORT_COMBINATION"; break;
   default:
       Unreachable();
   }
@@ -52,11 +50,12 @@ void Theory::addSharedTermInternal(TNode n) {
 }
 
 void Theory::computeCareGraph(CareGraph& careGraph) {
-  for (; d_sharedTermsIndex < d_sharedTerms.size(); d_sharedTermsIndex = d_sharedTermsIndex + 1) {
-    TNode a = d_sharedTerms[d_sharedTermsIndex];
+  Debug("sharing") << "Theory::computeCareGraph<" << getId() << ">()" << std::endl;
+  for (unsigned i = 0; i < d_sharedTerms.size(); ++ i) {
+    TNode a = d_sharedTerms[i];
     TypeNode aType = a.getType();
-    for (unsigned i = 0; i < d_sharedTermsIndex; ++ i) {
-      TNode b = d_sharedTerms[i];
+    for (unsigned j = i + 1; j < d_sharedTerms.size(); ++ j) {
+      TNode b = d_sharedTerms[j];
       if (b.getType() != aType) {
         // We don't care about the terms of different types
         continue;
@@ -72,6 +71,15 @@ void Theory::computeCareGraph(CareGraph& careGraph) {
   	break;
       }
     }  
+  }
+}
+
+void Theory::printFacts(std::ostream& os) const {
+  unsigned i, n = d_facts.size();
+  for(i = 0; i < n; i++){
+    const Assertion& a_i = d_facts[i];
+    Node assertion  = a_i;
+    os << d_id << '[' << i << ']' << " " << assertion << endl;
   }
 }
 

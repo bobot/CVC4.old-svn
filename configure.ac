@@ -259,6 +259,10 @@ if test $cvc4_use_cln = 1 && test $cvc4_use_gmp = 1; then
   AC_MSG_ERROR([You cannot use both CLN and GMP.  Please pick one.])
 fi
 
+# try GMP, fail if not found; GMP is required for both CLN and for GMP
+# versions of CVC4
+AC_CHECK_LIB(gmp, __gmpz_init, , [AC_MSG_ERROR([GNU MP (libgmp) not found, see http://gmplib.org/])])
+
 if test $cvc4_use_cln = 1; then
   # [mdeters] The PKG_CHECK_MODULES macro isn't customizable and doesn't fail
   # gracefully.  You can only specify it once for a given library name.  That
@@ -266,7 +270,11 @@ if test $cvc4_use_cln = 1; then
   # PKG_CHECK_MODULES([CLN], ...).  That's why things are so convoluted here,
   # we have to have PKG_CHECK_MODULES _exactly_ once in configure.ac !
   PKG_CHECK_MODULES([CLN], [cln >= 1.2.2],
-    [cvc4_use_cln=1],
+    [cvc4_use_cln=1
+     AC_LANG_PUSH([C++])
+     AC_LINK_IFELSE(AC_LANG_PROGRAM([[#include <cln/cln.h>]], [[cln::cl_F pi = "3.1415926";]]))
+     AC_LANG_POP([C++])
+    ],
     [if test $cvc4_use_cln = 0; then
        # fall back to GMP
        AC_MSG_NOTICE([CLN not installed (or too old) or pkgconfig missing, will use gmp])
@@ -278,8 +286,7 @@ if test $cvc4_use_cln = 1; then
   )
 fi
 if test $cvc4_use_cln = 0; then
-  # try GMP, fail if not found
-  AC_CHECK_LIB(gmp, __gmpz_init, , [AC_MSG_ERROR([GNU MP (libgmp) not found, see http://gmplib.org/])])
+  # try GMPXX, fail if not found
   AC_CHECK_LIB(gmpxx, __gmpz_init, , [AC_MSG_ERROR([GNU MP C++ library (libgmpxx) not found, see http://gmplib.org/])])
   cvc4_cln_or_gmp=gmp
 else
@@ -857,10 +864,8 @@ AC_CHECK_DECLS([optreset], [], [], [#include <getopt.h>])
 
 # look for boost library, but don't make it a fatal error if not found
 cvc4_has_threads=maybe
-cvc4_must_have_threads=no
 AC_ARG_WITH([portfolio],
-    AS_HELP_STRING([--with-portfolio], [build the multithreaded portfolio version of CVC4 (pcvc4)]),
-    [if test "$withval" = no; then cvc4_has_threads=no; elif test "$withval" = yes; then cvc4_must_have_threads=yes; fi])
+    AS_HELP_STRING([--with-portfolio], [build the multithreaded portfolio version of CVC4 (pcvc4)]))
 if test $cvc4_has_threads = maybe; then
   cvc4_save_LDFLAGS="$LDFLAGS"
   if test "$enable_static_binary" = yes; then
@@ -870,19 +875,22 @@ if test $cvc4_has_threads = maybe; then
   if test $cvc4_has_threads = no; then
     AC_MSG_WARN([disabling multithreaded support])
   else
-    BOOST_THREADS
-    if test -n "$BOOST_THREAD_LIBS"; then
-      cvc4_has_threads=yes
-    else
-      AC_MSG_WARN([disabling multithreaded support])
-      cvc4_has_threads=no
-    fi
+    cvc4_has_threads=yes
+    BOOST_THREADS([], [AC_MSG_WARN([disabling multithreaded support])
+                       cvc4_has_threads=no])
   fi
   LDFLAGS="$cvc4_save_LDFLAGS"
 fi
-if test $cvc4_has_threads = no -a $cvc4_must_have_threads = yes; then
-  AC_MSG_ERROR([user gave --with-portfolio but could not build with threads; maybe boost threading library is missing?])
+if test $cvc4_has_threads = no; then
+  if test $with_portfolio = yes; then
+    AC_MSG_ERROR([user gave --with-portfolio but could not build with threads; maybe boost threading library is missing?])
+  fi
+  with_portfolio=no
 fi
+if test x$with_portfolio != xyes; then
+  with_portfolio=no
+fi
+AM_CONDITIONAL([CVC4_BUILD_PCVC4], [test "$with_portfolio" = yes])
 
 # Whether to build compatibility library
 CVC4_BUILD_LIBCOMPAT=yes
@@ -1109,6 +1117,9 @@ normally suggest.  For full details of CLN and its license, please visit
 To build CVC4 with GMP instead (which is covered under the more permissive
 LGPL), configure --without-cln.
 
+"
+  if test $with_portfolio = yes; then
+    licensewarn="${licensewarn}
 WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
 WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
 
@@ -1121,6 +1132,7 @@ WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
 WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING * WARNING
 
 "
+  fi
 else
   mplibrary='gmp (LGPL)'
 fi
@@ -1165,6 +1177,7 @@ Bindings     : ${CVC4_LANGUAGE_BINDINGS:-none}
 
 Multithreaded: $support_multithreaded
 TLS support  : $CVC4_TLS_explanation
+Portfolio    : $with_portfolio
 
 MP library   : $mplibrary
 
