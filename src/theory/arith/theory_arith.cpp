@@ -47,14 +47,13 @@
 #include <stdint.h>
 
 using namespace std;
-
-using namespace CVC4;
 using namespace CVC4::kind;
 
-using namespace CVC4::theory;
-using namespace CVC4::theory::arith;
+namespace CVC4 {
+namespace theory {
+namespace arith {
 
-static const uint32_t RESET_START = 2;
+const uint32_t RESET_START = 2;
 
 
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
@@ -64,8 +63,6 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
   d_constantIntegerVariables(c),
-  d_CivIterator(c,0),
-  d_varsInDioSolver(c),
   d_diseq(c),
   d_partialModel(c, d_differenceManager),
   d_tableau(),
@@ -167,7 +164,7 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original){
   }
 
   //TODO Relax to less than?
-  if(d_partialModel.strictlyLessThanLowerBound(x_i, c_i)){
+  if(d_partialModel.lessThanLowerBound(x_i, c_i)){
     return Node::null();
   }
 
@@ -225,7 +222,7 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original){
 
   Debug("arith") << "AssertUpper(" << x_i << " " << c_i << ")"<< std::endl;
 
-  if(d_partialModel.strictlyGreaterThanUpperBound(x_i, c_i) ){ // \upperbound(x_i) <= c_i
+  if(d_partialModel.greaterThanUpperBound(x_i, c_i) ){ // \upperbound(x_i) <= c_i
     return Node::null(); //sat
   }
 
@@ -763,20 +760,14 @@ Node TheoryArith::dioCutting(){
 }
 
 Node TheoryArith::callDioSolver(){
-  while(d_CivIterator < d_constantIntegerVariables.size()){
-    ArithVar v = d_constantIntegerVariables[d_CivIterator];
-    d_CivIterator = d_CivIterator + 1;
+  while(!d_constantIntegerVariables.empty()){
+    ArithVar v = d_constantIntegerVariables.front();
+    d_constantIntegerVariables.pop();
 
     Debug("arith::dio")  << v << endl;
 
     Assert(isInteger(v));
     Assert(d_partialModel.boundsAreEqual(v));
-
-    if(d_varsInDioSolver.find(v) != d_varsInDioSolver.end()){
-      continue;
-    }else{
-      d_varsInDioSolver.insert(v);
-    }
 
     TNode lb = d_partialModel.getLowerConstraint(v);
     TNode ub = d_partialModel.getUpperConstraint(v);
@@ -1030,8 +1021,8 @@ Node TheoryArith::roundRobinBranch(){
 bool TheoryArith::splitDisequalities(){
   bool splitSomething = false;
 
-  context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-  context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
+  context::CDHashSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
+  context::CDHashSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
   for(; it != it_end; ++ it) {
     TNode eq = (*it)[0];
     Assert(eq.getKind() == kind::EQUAL);
@@ -1073,8 +1064,8 @@ void TheoryArith::debugPrintAssertions() {
       Debug("arith::print_assertions") << uConstr << endl;
     }
   }
-  context::CDSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
-  context::CDSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
+  context::CDHashSet<Node, NodeHashFunction>::iterator it = d_diseq.begin();
+  context::CDHashSet<Node, NodeHashFunction>::iterator it_end = d_diseq.end();
   for(; it != it_end; ++ it) {
     Debug("arith::print_assertions") << *it << endl;
   }
@@ -1118,65 +1109,63 @@ Node flattenAnd(Node n){
 }
 
 void TheoryArith::propagate(Effort e) {
-  if(quickCheckOrMore(e)){
-    bool propagated = false;
-    if(Options::current()->arithPropagation && hasAnyUpdates()){
-      propagateCandidates();
-    }else{
-      clearUpdates();
-    }
+  bool propagated = false;
+  if(Options::current()->arithPropagation && hasAnyUpdates()){
+    propagateCandidates();
+  }else{
+    clearUpdates();
+  }
 
-    while(d_propManager.hasMorePropagations()){
-      const PropManager::PropUnit next = d_propManager.getNextPropagation();
-      bool flag = next.flag;
-      TNode toProp = next.consequent;
+  while(d_propManager.hasMorePropagations()){
+    const PropManager::PropUnit next = d_propManager.getNextPropagation();
+    bool flag = next.flag;
+    TNode toProp = next.consequent;
 
-      TNode atom = (toProp.getKind() == kind::NOT) ? toProp[0] : toProp;
+    TNode atom = (toProp.getKind() == kind::NOT) ? toProp[0] : toProp;
 
-      Debug("arith::propagate") << "propagate  @" << getContext()->getLevel() <<" flag: "<< flag << " " << toProp << endl;
+    Debug("arith::propagate") << "propagate  @" << getContext()->getLevel() <<" flag: "<< flag << " " << toProp << endl;
 
-      if(flag) {
-        //Currently if the flag is set this came from an equality detected by the
-        //equality engine in the the difference manager.
-        if(toProp.getKind() == kind::EQUAL){
-          Node normalized = Rewriter::rewrite(toProp);
-          Node notNormalized = normalized.notNode();
+    if(flag) {
+      //Currently if the flag is set this came from an equality detected by the
+      //equality engine in the the difference manager.
+      if(toProp.getKind() == kind::EQUAL){
+        Node normalized = Rewriter::rewrite(toProp);
+        Node notNormalized = normalized.notNode();
 
-          if(d_diseq.find(notNormalized) == d_diseq.end()){
-            d_out->propagate(toProp);
-            propagated = true;
-          }else{
-            Node exp = d_differenceManager.explain(toProp);
-            Node lp = flattenAnd(exp.andNode(notNormalized));
-            Debug("arith::propagate") << "propagate conflict" <<  lp << endl;
-            d_out->conflict(lp);
-
-            propagated = true;
-            break;
-          }
-        }else{
+        if(d_diseq.find(notNormalized) == d_diseq.end()){
           d_out->propagate(toProp);
           propagated = true;
-        }
-      }else if(inContextAtom(atom)){
-        Node satValue = d_valuation.getSatValue(toProp);
-        AlwaysAssert(satValue.isNull());
-        propagated = true;
-        d_out->propagate(toProp);
-      }else{
-        //Not clear if this is a good time to do this or not...
-        Debug("arith::propagate") << "Atom is not in context" << toProp << endl;
-#warning "enable remove atom in database"
-        //d_atomDatabase.removeAtom(atom);
-      }
-    }
+        }else{
+          Node exp = d_differenceManager.explain(toProp);
+          Node lp = flattenAnd(exp.andNode(notNormalized));
+          Debug("arith::propagate") << "propagate conflict" <<  lp << endl;
+          d_out->conflict(lp);
 
-    if(!propagated){
-      //Opportunistically export previous conflicts
-      while(d_simplex.hasMoreLemmas()){
-        Node lemma = d_simplex.popLemma();
-        d_out->lemma(lemma);
+          propagated = true;
+          break;
+        }
+      }else{
+        d_out->propagate(toProp);
+        propagated = true;
       }
+    }else if(inContextAtom(atom)){
+      Node satValue = d_valuation.getSatValue(toProp);
+      AlwaysAssert(satValue.isNull());
+      propagated = true;
+      d_out->propagate(toProp);
+    }else{
+      //Not clear if this is a good time to do this or not...
+      Debug("arith::propagate") << "Atom is not in context" << toProp << endl;
+#warning "enable remove atom in database"
+      //d_atomDatabase.removeAtom(atom);
+    }
+  }
+
+  if(!propagated){
+    //Opportunistically export previous conflicts
+    while(d_simplex.hasMoreLemmas()){
+      Node lemma = d_simplex.popLemma();
+      d_out->lemma(lemma);
     }
   }
 }
@@ -1396,7 +1385,7 @@ void TheoryArith::presolve(){
   }
 
   d_learner.clear();
-  check(FULL_EFFORT);
+  check(EFFORT_FULL);
 }
 
 EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
@@ -1491,3 +1480,7 @@ void TheoryArith::propagateCandidates(){
     propagateCandidate(candidate);
   }
 }
+
+}; /* namesapce arith */
+}; /* namespace theory */
+}; /* namespace CVC4 */

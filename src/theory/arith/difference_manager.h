@@ -5,12 +5,12 @@
 #ifndef __CVC4__THEORY__ARITH__DIFFERENCE_MANAGER_H
 #define __CVC4__THEORY__ARITH__DIFFERENCE_MANAGER_H
 
-#include "theory/arith/arith_utilities.h"
+#include "theory/arith/arithvar.h"
 #include "theory/uf/equality_engine.h"
 #include "context/cdo.h"
 #include "context/cdlist.h"
 #include "context/context.h"
-#include "context/cdqueue.h"
+#include "context/cdtrail_queue.h"
 #include "util/stats.h"
 #include "theory/arith/arith_prop_manager.h"
 
@@ -62,7 +62,7 @@ private:
   };
 
   /** Stores the queue of assertions. This keeps the Node backing the reasons */
-  context::CDQueue<LiteralsQueueElem> d_literalsQueue;
+  context::CDTrailQueue<LiteralsQueueElem> d_literalsQueue;
   PropManager& d_queue;
 
 
