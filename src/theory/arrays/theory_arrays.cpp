@@ -642,21 +642,12 @@ void TheoryArrays::check(Effort e) {
           if(fact[0][0].getType().isArray()) {
             NodeManager* nm = NodeManager::currentNM();
             TypeNode indexType = fact[0][0].getType()[0];
-            // TODO: cache this instead of creating it every time?
             TNode k;
             std::hash_map<TNode, Node, TNodeHashFunction>::iterator it = d_diseqCache.find(fact);
             if (it == d_diseqCache.end()) {
               Node newk = nm->mkVar(indexType);
-              // TODO: is this needed?  Better way to do this?
-              if(Dump.isOn("declarations")) {
-                stringstream kss;
-                kss << Expr::setlanguage(Expr::setlanguage::getLanguage(Dump("declarations"))) << newk;
-                string ks = kss.str();
-                Dump("declarations")
-                  << CommentCommand(ks + " is an extensional lemma index variable "
-                                    "from the theory of arrays") << endl
-                  << DeclareFunctionCommand(ks, indexType.toType()) << endl;
-              }
+	      Dump.declareVar(newk.toExpr(),
+                              "an extensional lemma index variable from the theory of arrays");
               d_diseqCache[fact] = newk;
               k = newk;
             }
