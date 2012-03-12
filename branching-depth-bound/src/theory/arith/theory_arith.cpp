@@ -58,6 +58,7 @@ const uint32_t RESET_START = 2;
 
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, u, out, valuation),
+  d_cuttingDepth(c,0),
   d_hasDoneWorkSinceCut(false),
   d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
@@ -67,7 +68,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_partialModel(c, d_differenceManager),
   d_tableau(),
   d_linEq(d_partialModel, d_tableau, d_basicVarModelUpdateCallBack),
-  d_diosolver(c),
+  d_diosolver(c, d_cuttingDepth),
   d_pbSubstitutions(u),
   d_restartsCounter(0),
   d_rowHasBeenAdded(false),
@@ -919,6 +920,12 @@ void TheoryArith::check(Effort effortLevel){
     }
   }
 
+  if(Debug.isOn("arith::print-facts")){
+    Debug("arith::print-facts") << "arith::print-facts begins" << endl;
+    printFacts(Debug("arith::print-facts"));
+    Debug("arith::print-facts") << "arith::print-facts ends" << endl;
+  }
+
   if(Debug.isOn("arith::print_assertions")) {
     debugPrintAssertions();
   }
@@ -965,6 +972,11 @@ void TheoryArith::check(Effort effortLevel){
       Node possibleLemma = roundRobinBranch();
       if(!possibleLemma.isNull()){
         ++(d_statistics.d_externalBranchAndBounds);
+
+        d_cuttingDepth = d_cuttingDepth + 1;
+        Trace("cuts") << "Cut depth = " << d_cuttingDepth;
+        Trace("cuts") << " with cut :" << possibleLemma << endl;
+
         emmittedConflictOrSplit = true;
         d_out->lemma(possibleLemma);
       }
@@ -1369,9 +1381,9 @@ void TheoryArith::presolve(){
       if(!isSlackVariable(var) &&
          !d_atomDatabase.hasAnyAtoms(variableNode) &&
          !variableNode.getType().isInteger()){
-	//The user variable is unconstrained.
-	//Remove this variable permanently
-	permanentlyRemoveVariable(var);
+        //The user variable is unconstrained.
+        //Remove this variable permanently
+        permanentlyRemoveVariable(var);
       }
     }
   }

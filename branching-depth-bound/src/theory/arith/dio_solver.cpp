@@ -31,7 +31,7 @@ inline Node makeIntegerVariable(){
   return curr->mkVar(curr->integerType());
 }
 
-DioSolver::DioSolver(context::Context* ctxt) :
+DioSolver::DioSolver(context::Context* ctxt, context::CDO<uint32_t>& cuttingDepth) :
   d_lastUsedVariable(ctxt,0),
   d_inputConstraints(ctxt),
   d_nextInputConstraintToEnqueue(ctxt, 0),
@@ -39,12 +39,12 @@ DioSolver::DioSolver(context::Context* ctxt) :
   d_subs(ctxt),
   d_currentF(),
   d_savedQueue(ctxt),
-  d_savedQueueIndex(ctxt, 0),
   d_conflictHasBeenRaised(ctxt, false),
   d_maxInputCoefficientLength(ctxt, 0),
   d_usedDecomposeIndex(ctxt, false),
   d_lastPureSubstitution(ctxt, 0),
-  d_pureSubstitionIter(ctxt, 0)
+  d_pureSubstitionIter(ctxt, 0),
+  d_cuttingDepth(cuttingDepth)
 {}
 
 DioSolver::Statistics::Statistics() :
@@ -89,21 +89,21 @@ size_t DioSolver::allocateVariableInPool() {
 }
 
 
-  Node DioSolver::nextPureSubstitution(){
-    Assert(hasMorePureSubstitutions());
-    SubIndex curr = d_pureSubstitionIter;
-    d_pureSubstitionIter = d_pureSubstitionIter + 1;
+Node DioSolver::nextPureSubstitution(){
+  Assert(hasMorePureSubstitutions());
+  SubIndex curr = d_pureSubstitionIter;
+  d_pureSubstitionIter = d_pureSubstitionIter + 1;
 
-    Assert(d_subs[curr].d_fresh.isNull());
-    Variable v = d_subs[curr].d_eliminated;
+  Assert(d_subs[curr].d_fresh.isNull());
+  Variable v = d_subs[curr].d_eliminated;
 
-    SumPair sp = d_trail[d_subs[curr].d_constraint].d_eq;
-    Polynomial p = sp.getPolynomial();
-    Constant c = -sp.getConstant();
-    Polynomial cancelV = p + Polynomial::mkPolynomial(v);
-    Node eq = NodeManager::currentNM()->mkNode(kind::EQUAL, v.getNode(), cancelV.getNode());
-    return eq;
-  }
+  SumPair sp = d_trail[d_subs[curr].d_constraint].d_eq;
+  Polynomial p = sp.getPolynomial();
+  Constant c = -sp.getConstant();
+  Polynomial cancelV = p + Polynomial::mkPolynomial(v);
+  Node eq = NodeManager::currentNM()->mkNode(kind::EQUAL, v.getNode(), cancelV.getNode());
+  return eq;
+}
 
 
 bool DioSolver::debugEqualityInInputEquations(Node eq){
@@ -210,13 +210,14 @@ Node DioSolver::proveIndex(TrailIndex i){
   return result;
 }
 
+/** This never returns true if the number of monomials is 1. */
 bool DioSolver::anyCoefficientExceedsMaximum(TrailIndex j) const{
   uint32_t length = d_trail[j].d_eq.maxLength();
   uint32_t nmonos = d_trail[j].d_eq.getPolynomial().numMonomials();
 
-  bool result =
-    nmonos >= 2 &&
-    length > d_maxInputCoefficientLength + MAX_GROWTH_RATE;
+  uint32_t currentMax = d_maxInputCoefficientLength + MAX_GROWTH_RATE + d_cuttingDepth;
+
+  bool result = nmonos >= 2 && length > currentMax;
   if(Debug.isOn("arith::dio::max") && result){
     Debug("arith::dio::max") << "about to drop:";
     debugPrintTrail(j);
@@ -226,9 +227,9 @@ bool DioSolver::anyCoefficientExceedsMaximum(TrailIndex j) const{
 
 void DioSolver::enqueueInputConstraints(){
   Assert(d_currentF.empty());
-  while(d_savedQueueIndex < d_savedQueue.size()){
-    d_currentF.push_back(d_savedQueue[d_savedQueueIndex]);
-    d_savedQueueIndex = d_savedQueueIndex + 1;
+  while(!d_savedQueue.empty()){
+    d_currentF.push_back(d_savedQueue.front());
+    d_savedQueue.pop();
   }
 
   while(d_nextInputConstraintToEnqueue < d_inputConstraints.size()  && !inConflict()){
@@ -247,8 +248,12 @@ void DioSolver::enqueueInputConstraints(){
         if(!inConflict()){
           if(triviallyUnsat(k)){
             raiseConflict(k);
-          }else if(!(triviallySat(k) || anyCoefficientExceedsMaximum(k))){
-            pushToQueueBack(k);
+          }else if(!triviallySat(k)){
+            if(anyCoefficientExceedsMaximum(k)){
+              d_savedQueue.push(k);
+            }else{
+              pushToQueueBack(k);
+            }
           }
         }
       }
@@ -427,7 +432,7 @@ bool DioSolver::processEquations(bool allowDecomposition){
       reduceIndex = minimum;
     }else{
       TrailIndex implied = impliedGcdOfOne();
-      
+
       if(implied != 0){
         p = solveIndex(implied);
         reduceIndex = implied;
@@ -464,7 +469,7 @@ Node DioSolver::processEquationsForConflict(){
   ++(d_statistics.d_conflictCalls);
 
   Assert(!inConflict());
-  if(processEquations(false)){
+  if(processEquations(true)){
     ++(d_statistics.d_conflicts);
     return proveIndex(getConflictIndex());
   }else{
@@ -573,7 +578,6 @@ DioSolver::TrailIndex DioSolver::applyAllSubstitutionsToIndex(DioSolver::TrailIn
 
 bool DioSolver::debugSubstitutionApplies(DioSolver::SubIndex si, DioSolver::TrailIndex ti){
   Variable var = d_subs[si].d_eliminated;
-  TrailIndex subIndex = d_subs[si].d_constraint;
 
   const SumPair& curr = d_trail[ti].d_eq;
   Polynomial vsum = curr.getPolynomial();
@@ -775,10 +779,14 @@ void DioSolver::subAndReduceCurrentFByIndex(DioSolver::SubIndex subIndex){
       }else if(!triviallySat(nextTI)){
         TrailIndex nextNextTI = reduceByGCD(nextTI);
 
-        if(!(inConflict() || anyCoefficientExceedsMaximum(nextNextTI))){
-          Assert(queueConditions(nextNextTI));
-          d_currentF[writeIter] = nextNextTI;
-          ++writeIter;
+        if(!inConflict()){
+          if(anyCoefficientExceedsMaximum(nextNextTI)){
+            d_savedQueue.push(nextNextTI);
+          }else{
+            Assert(queueConditions(nextNextTI));
+            d_currentF[writeIter] = nextNextTI;
+            ++writeIter;
+          }
         }
       }
     }

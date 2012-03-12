@@ -22,6 +22,9 @@
 #define __CVC4__THEORY__ARITH__DIO_SOLVER_H
 
 #include "context/context.h"
+#include "context/cdo.h"
+#include "context/cdqueue.h"
+#include "context/cdlist.h"
 
 #include "theory/arith/tableau.h"
 #include "theory/arith/partial_model.h"
@@ -29,6 +32,7 @@
 
 #include "util/stats.h"
 
+#include <stdint.h>
 #include <vector>
 #include <utility>
 
@@ -142,8 +146,13 @@ private:
    * - If the element is (+ constant (+ [(* coeff var)] )), then the gcd(coeff) = 1
    */
   std::deque<TrailIndex> d_currentF;
-  context::CDList<TrailIndex> d_savedQueue;
-  context::CDO<size_t> d_savedQueueIndex;
+
+  /**
+   * This is the queue of constraints inbetween calls to the DioSolver.
+   * This is also where constraints go if the constraint is deemed to be too expensive
+   * in the current context.
+   */
+  context::CDQueue<TrailIndex> d_savedQueue;
 
   context::CDO<bool> d_conflictHasBeenRaised;
   TrailIndex d_conflictIndex;
@@ -166,10 +175,12 @@ private:
   context::CDO<SubIndex> d_lastPureSubstitution;
   context::CDO<SubIndex> d_pureSubstitionIter;
 
+  context::CDO<uint32_t>& d_cuttingDepth;
+
 public:
 
   /** Construct a Diophantine equation solver with the given context. */
-  DioSolver(context::Context* ctxt);
+  DioSolver(context::Context* ctxt, context::CDO<uint32_t>& cuttingDepth);
 
   /** Returns true if the substitutions use no new variables. */
   bool hasMorePureSubstitutions() const{

@@ -60,6 +60,8 @@ namespace arith {
 class TheoryArith : public Theory {
 private:
 
+  context::CDO<uint32_t> d_cuttingDepth;
+
   /**
    * This counter is false if nothing has been done since the last cut.
    * This is used to break an infinite loop.
