@@ -26,13 +26,7 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-inline Node makeIntegerVariable(){
-  NodeManager* curr = NodeManager::currentNM();
-  return curr->mkVar(curr->integerType());
-}
-
-DioSolver::DioSolver(context::Context* ctxt, context::CDO<uint32_t>& cuttingDepth) :
-  d_lastUsedVariable(ctxt,0),
+DioSolver::DioSolver(context::Context* ctxt, Lookup<uint32_t>& cuttingDepth, RequestNodeCallback& requestNewIntegerVariable) :
   d_inputConstraints(ctxt),
   d_nextInputConstraintToEnqueue(ctxt, 0),
   d_trail(ctxt),
@@ -44,7 +38,8 @@ DioSolver::DioSolver(context::Context* ctxt, context::CDO<uint32_t>& cuttingDept
   d_usedDecomposeIndex(ctxt, false),
   d_lastPureSubstitution(ctxt, 0),
   d_pureSubstitionIter(ctxt, 0),
-  d_cuttingDepth(cuttingDepth)
+  d_cuttingDepth(cuttingDepth),
+  d_requestNewVariable(requestNewIntegerVariable)
 {}
 
 DioSolver::Statistics::Statistics() :
@@ -76,17 +71,17 @@ DioSolver::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_cutTimer);
 }
 
-size_t DioSolver::allocateVariableInPool() {
-  Assert(d_lastUsedVariable <= d_variablePool.size());
-  if(d_lastUsedVariable == d_variablePool.size()){
-    Assert(d_lastUsedVariable == d_variablePool.size());
-    Node intVar = makeIntegerVariable();
-    d_variablePool.push_back(Variable(intVar));
-  }
-  size_t res = d_lastUsedVariable;
-  d_lastUsedVariable = d_lastUsedVariable + 1;
-  return res;
-}
+// size_t DioSolver::allocateVariableInPool() {
+//   Assert(d_lastUsedVariable <= d_variablePool.size());
+//   if(d_lastUsedVariable == d_variablePool.size()){
+//     Assert(d_lastUsedVariable == d_variablePool.size());
+//     Node intVar = makeIntegerVariable();
+//     d_variablePool.push_back(Variable(intVar));
+//   }
+//   size_t res = d_lastUsedVariable;
+//   d_lastUsedVariable = d_lastUsedVariable + 1;
+//   return res;
+// }
 
 
 Node DioSolver::nextPureSubstitution(){
@@ -101,7 +96,7 @@ Node DioSolver::nextPureSubstitution(){
   Polynomial p = sp.getPolynomial();
   Constant c = -sp.getConstant();
   Polynomial cancelV = p + Polynomial::mkPolynomial(v);
-  Node eq = NodeManager::currentNM()->mkNode(kind::EQUAL, v.getNode(), cancelV.getNode());
+  Node eq = (v.getNode()).eqNode(cancelV.getNode());
   return eq;
 }
 
@@ -145,8 +140,7 @@ void DioSolver::pushInputConstraint(const Comparison& eq, Node reason){
     d_maxInputCoefficientLength = length;
   }
 
-  size_t varIndex = allocateVariableInPool();
-  Variable proofVariable(d_variablePool[varIndex]);
+  Variable proofVariable(d_requestNewVariable.request());
 
   TrailIndex posInTrail = d_trail.size();
   d_trail.push_back(Constraint(sp,Polynomial(Monomial(VarList(proofVariable)))));
@@ -215,7 +209,9 @@ bool DioSolver::anyCoefficientExceedsMaximum(TrailIndex j) const{
   uint32_t length = d_trail[j].d_eq.maxLength();
   uint32_t nmonos = d_trail[j].d_eq.getPolynomial().numMonomials();
 
-  uint32_t currentMax = d_maxInputCoefficientLength + MAX_GROWTH_RATE + d_cuttingDepth;
+  uint32_t currentMax = d_maxInputCoefficientLength
+    + MAX_GROWTH_RATE
+    + d_cuttingDepth.lookup();
 
   bool result = nmonos >= 2 && length > currentMax;
   if(Debug.isOn("arith::dio::max") && result){
@@ -658,7 +654,7 @@ std::pair<DioSolver::SubIndex, DioSolver::TrailIndex> DioSolver::decomposeIndex(
   Assert(q.getPolynomial().getCoefficient(vl) == Constant::mkConstant(1));
 
   Assert(!r.isZero());
-  Node freshNode = makeIntegerVariable();
+  Node freshNode = d_requestNewVariable.request();
   Variable fresh(freshNode);
   SumPair fresh_one=SumPair::mkSumPair(fresh);
   SumPair fresh_a = fresh_one * a;

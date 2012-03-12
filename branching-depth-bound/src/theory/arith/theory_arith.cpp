@@ -58,8 +58,9 @@ const uint32_t RESET_START = 2;
 
 TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARITH, c, u, out, valuation),
-  d_cuttingDepth(c,0),
+  d_cuttingDepth(c),
   d_hasDoneWorkSinceCut(false),
+  d_newIntegerSkolemCallback(this),
   d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
@@ -68,7 +69,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_partialModel(c, d_differenceManager),
   d_tableau(),
   d_linEq(d_partialModel, d_tableau, d_basicVarModelUpdateCallBack),
-  d_diosolver(c, d_cuttingDepth),
+  d_diosolver(c, d_cuttingDepth, d_newIntegerSkolemCallback),
   d_pbSubstitutions(u),
   d_restartsCounter(0),
   d_rowHasBeenAdded(false),
@@ -332,6 +333,12 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
   return Node::null();
 }
 
+Node TheoryArith::NewIntegerSkolemCallback::request(){
+  Node req = mkIntegerSkolem();
+  ArithVar v = d_ta->requestArithVar(req, false);
+  d_ta->setupInitialValue(v);
+  return req;
+}
 
 void TheoryArith::addSharedTerm(TNode n){
   d_differenceManager.addSharedTerm(n);
@@ -973,8 +980,8 @@ void TheoryArith::check(Effort effortLevel){
       if(!possibleLemma.isNull()){
         ++(d_statistics.d_externalBranchAndBounds);
 
-        d_cuttingDepth = d_cuttingDepth + 1;
-        Trace("cuts") << "Cut depth = " << d_cuttingDepth;
+        d_cuttingDepth.inc();
+        Trace("cuts") << "Cut depth = " << d_cuttingDepth.lookup();
         Trace("cuts") << " with cut :" << possibleLemma << endl;
 
         emmittedConflictOrSplit = true;

@@ -60,13 +60,41 @@ namespace arith {
 class TheoryArith : public Theory {
 private:
 
-  context::CDO<uint32_t> d_cuttingDepth;
+  /**
+   * The current depth of external cuts.
+   * As this increases so does our desperation.
+   * This influences heuristics in the DioSolver,
+   * which is why this is a Lookup.
+   */
+  class CuttingDepth : public Lookup<uint32_t> {
+  private:
+    context::CDO<uint32_t> d_backing;
+  public:
+    CuttingDepth(context::Context* c) : d_backing(c,0){}
+
+    uint32_t lookup() const{
+      return d_backing;
+    }
+
+    void inc() { d_backing = d_backing + 1; }
+  } d_cuttingDepth;
 
   /**
    * This counter is false if nothing has been done since the last cut.
    * This is used to break an infinite loop.
    */
   bool d_hasDoneWorkSinceCut;
+
+  class NewIntegerSkolemCallback : public RequestNodeCallback{
+  private:
+    TheoryArith* d_ta;
+  public:
+    NewIntegerSkolemCallback(TheoryArith* ta):
+      d_ta(ta)
+    {}
+
+    Node request();
+  } d_newIntegerSkolemCallback;
 
   /**
    * The set of atoms that are currently in the context.

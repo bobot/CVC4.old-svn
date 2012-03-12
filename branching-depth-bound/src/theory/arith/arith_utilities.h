@@ -37,19 +37,37 @@ namespace arith {
 typedef __gnu_cxx::hash_set<Node, NodeHashFunction> NodeSet;
 typedef context::CDHashSet<Node, NodeHashFunction> CDNodeSet;
 
+/** Makes a skolem variable of type integer. */
+inline Node mkIntegerSkolem(){
+  NodeManager* curr = NodeManager::currentNM();
+  return curr->mkSkolem(curr->integerType());
+}
+
+/** A constant rational node with value q in the current node manager. */
 inline Node mkRationalNode(const Rational& q){
   return NodeManager::currentNM()->mkConst<Rational>(q);
 }
 
+/** A constant integer node with value z in the current node manager. */
 inline Node mkIntegerNode(const Integer& z){
   return NodeManager::currentNM()->mkConst<Integer>(z);
 }
 
+/** A constant boolean node with value b in the current node manager. */
 inline Node mkBoolNode(bool b){
   return NodeManager::currentNM()->mkConst<bool>(b);
 }
 
+class RequestNodeCallback {
+public:
+  virtual Node request() = 0;
+};
 
+template<class T>
+class Lookup {
+public:
+  virtual T lookup() const = 0;
+};
 
 inline Rational coerceToRational(TNode constant){
   switch(constant.getKind()){

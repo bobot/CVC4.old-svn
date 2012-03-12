@@ -21,13 +21,15 @@
 #ifndef __CVC4__THEORY__ARITH__DIO_SOLVER_H
 #define __CVC4__THEORY__ARITH__DIO_SOLVER_H
 
+#include "expr/node.h"
+
 #include "context/context.h"
 #include "context/cdo.h"
 #include "context/cdqueue.h"
 #include "context/cdlist.h"
 
-#include "theory/arith/tableau.h"
-#include "theory/arith/partial_model.h"
+#include "theory/arith/arith_utilities.h"
+#include "theory/arith/normal_form.h"
 #include "util/rational.h"
 
 #include "util/stats.h"
@@ -45,9 +47,6 @@ private:
   typedef size_t TrailIndex;
   typedef size_t InputConstraintIndex;
   typedef size_t SubIndex;
-
-  std::vector<Variable> d_variablePool;
-  context::CDO<size_t> d_lastUsedVariable;
 
   /**
    * The set of input constraints is stored in a CDList.
@@ -175,12 +174,13 @@ private:
   context::CDO<SubIndex> d_lastPureSubstitution;
   context::CDO<SubIndex> d_pureSubstitionIter;
 
-  context::CDO<uint32_t>& d_cuttingDepth;
+  Lookup<uint32_t>& d_cuttingDepth;
+  RequestNodeCallback& d_requestNewVariable;
 
 public:
 
   /** Construct a Diophantine equation solver with the given context. */
-  DioSolver(context::Context* ctxt, context::CDO<uint32_t>& cuttingDepth);
+  DioSolver(context::Context* ctxt, Lookup<uint32_t>& cuttingDepth, RequestNodeCallback&  requestNewVariable);
 
   /** Returns true if the substitutions use no new variables. */
   bool hasMorePureSubstitutions() const{
@@ -248,7 +248,7 @@ private:
    * This variable is fresh with respect to the context.
    * Returns index of the variable in d_variablePool;
    */
-  size_t allocateVariableInPool();
+  //size_t allocateVariableInPool();
 
   /**
    * Returns true if the node can be accepted as a reason according to the
