@@ -26,6 +26,7 @@
 #include "context/context.h"
 #include "context/cdo.h"
 #include "context/cdqueue.h"
+#include "context/cdtrail_queue.h"
 #include "context/cdlist.h"
 
 #include "theory/arith/arith_utilities.h"
@@ -37,6 +38,7 @@
 #include <stdint.h>
 #include <vector>
 #include <utility>
+#include <queue>
 
 namespace CVC4 {
 namespace theory {
@@ -124,6 +126,8 @@ private:
    *    d_trail[d_subs[i].d_constraint].
    *  - d_subs[i].d_fresh is either Node::null() or it is variable it is normalized
    *    to have coefficient 1 in d_trail[d_subs[i].d_constraint].
+   *
+   * Substitutions can also be seen as a context dependent queue.
    */
   struct Substitution {
     Node d_fresh;
@@ -133,7 +137,7 @@ private:
       d_fresh(f), d_eliminated(e), d_constraint(c)
     {}
   };
-  context::CDList<Substitution> d_subs;
+  context::CDTrailQueue<Substitution> d_subs;
 
   /**
    * This is the queue of constraints to be processed in the current context level.
@@ -171,23 +175,44 @@ private:
    */
   context::CDO<bool> d_usedDecomposeIndex;
 
-  context::CDO<SubIndex> d_lastPureSubstitution;
-  context::CDO<SubIndex> d_pureSubstitionIter;
-
+  std::queue<Node>& d_substitutionStream;
   Lookup<uint32_t>& d_cuttingDepth;
   RequestNodeCallback& d_requestNewVariable;
+
+  /** Returns true if the substitutions use no new variables. */
+  bool hasMoreSubstitutions() const{
+    return !d_subs.empty();
+  }
+  Node nextSubstitution();
+
+  void enqueueSubstitutions(){
+    while(!d_subs.empty()){
+      SubIndex curr = d_subs.frontIndex();
+      d_subs.dequeue();
+
+      if(d_subs[curr].d_fresh.isNull()){
+        continue;
+      }else{
+        Variable v = d_subs[curr].d_eliminated;
+
+        SumPair sp = d_trail[d_subs[curr].d_constraint].d_eq;
+
+        SumPair polyV = SumPair(Polynomial::mkPolynomial(v));
+        SumPair cancelV = polyV + sp;
+
+        Node eq = (v.getNode()).eqNode(cancelV.getNode());
+
+        d_substitutionStream.push(eq);
+      }
+    }
+  }
 
 public:
 
   /** Construct a Diophantine equation solver with the given context. */
-  DioSolver(context::Context* ctxt, Lookup<uint32_t>& cuttingDepth, RequestNodeCallback&  requestNewVariable);
+  DioSolver(context::Context* ctxt, std::queue<Node>& substitutions, Lookup<uint32_t>& cuttingDepth, RequestNodeCallback&  requestNewVariable);
 
-  /** Returns true if the substitutions use no new variables. */
-  bool hasMorePureSubstitutions() const{
-    return d_pureSubstitionIter < d_lastPureSubstitution;
-  }
 
-  Node nextPureSubstitution();
 
   /**
    * Adds an equality to the queue of the DioSolver.
@@ -351,7 +376,6 @@ private:
 
   bool queueConditions(TrailIndex t){
     /* debugPrintTrail(t); */
-    
     /* std::cout << !inConflict() << std::endl; */
     /* std::cout << gcdIsOne(t) << std::endl; */
     /* std::cout << !debugAnySubstitionApplies(t) << std::endl; */
@@ -402,7 +426,7 @@ private:
   /**
    * Returns the SumPair in d_trail[i].d_eq with all of the fresh variables purified out.
    */
-  SumPair purifyIndex(TrailIndex i);
+  //SumPair purifyIndex(TrailIndex i);
 
 
   void debugPrintTrail(TrailIndex i) const;

@@ -26,7 +26,7 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
-DioSolver::DioSolver(context::Context* ctxt, Lookup<uint32_t>& cuttingDepth, RequestNodeCallback& requestNewIntegerVariable) :
+DioSolver::DioSolver(context::Context* ctxt, std::queue<Node>& substitutions, Lookup<uint32_t>& cuttingDepth, RequestNodeCallback& requestNewIntegerVariable) :
   d_inputConstraints(ctxt),
   d_nextInputConstraintToEnqueue(ctxt, 0),
   d_trail(ctxt),
@@ -36,8 +36,7 @@ DioSolver::DioSolver(context::Context* ctxt, Lookup<uint32_t>& cuttingDepth, Req
   d_conflictHasBeenRaised(ctxt, false),
   d_maxInputCoefficientLength(ctxt, 0),
   d_usedDecomposeIndex(ctxt, false),
-  d_lastPureSubstitution(ctxt, 0),
-  d_pureSubstitionIter(ctxt, 0),
+  d_substitutionStream(substitutions),
   d_cuttingDepth(cuttingDepth),
   d_requestNewVariable(requestNewIntegerVariable)
 {}
@@ -71,31 +70,22 @@ DioSolver::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_cutTimer);
 }
 
-// size_t DioSolver::allocateVariableInPool() {
-//   Assert(d_lastUsedVariable <= d_variablePool.size());
-//   if(d_lastUsedVariable == d_variablePool.size()){
-//     Assert(d_lastUsedVariable == d_variablePool.size());
-//     Node intVar = makeIntegerVariable();
-//     d_variablePool.push_back(Variable(intVar));
-//   }
-//   size_t res = d_lastUsedVariable;
-//   d_lastUsedVariable = d_lastUsedVariable + 1;
-//   return res;
-// }
 
+Node DioSolver::nextSubstitution(){
+  Unreachable();
+  //This is currently unused!
 
-Node DioSolver::nextPureSubstitution(){
-  Assert(hasMorePureSubstitutions());
-  SubIndex curr = d_pureSubstitionIter;
-  d_pureSubstitionIter = d_pureSubstitionIter + 1;
+  Assert(hasMoreSubstitutions());
+  SubIndex curr = d_subs.frontIndex();
+  d_subs.dequeue();
 
   Assert(d_subs[curr].d_fresh.isNull());
   Variable v = d_subs[curr].d_eliminated;
 
   SumPair sp = d_trail[d_subs[curr].d_constraint].d_eq;
-  Polynomial p = sp.getPolynomial();
-  Constant c = -sp.getConstant();
-  Polynomial cancelV = p + Polynomial::mkPolynomial(v);
+  SumPair polyV = SumPair(Polynomial::mkPolynomial(v));
+  SumPair cancelV = polyV + sp;
+
   Node eq = (v.getNode()).eqNode(cancelV.getNode());
   return eq;
 }
@@ -469,6 +459,7 @@ Node DioSolver::processEquationsForConflict(){
     ++(d_statistics.d_conflicts);
     return proveIndex(getConflictIndex());
   }else{
+    enqueueSubstitutions();
     return Node::null();
   }
 }
@@ -479,42 +470,45 @@ SumPair DioSolver::processEquationsForCut(){
 
   Assert(!inConflict());
   if(processEquations(true)){
+    enqueueSubstitutions();
     ++(d_statistics.d_cuts);
-    return purifyIndex(getConflictIndex());
+    return d_trail[getConflictIndex()].d_eq;
+    //return purifyIndex(getConflictIndex());
   }else{
+    enqueueSubstitutions();
     return SumPair::mkZero();
   }
 }
 
 
-SumPair DioSolver::purifyIndex(TrailIndex i){
-#warning "This uses the substition trail to reverse the substitions from the sum term. Using the proof term should be more efficient."
+// SumPair DioSolver::purifyIndex(TrailIndex i){
+// #warning "This uses the substition trail to reverse the substitions from the sum term. Using the proof term should be more efficient."
 
-  SumPair curr = d_trail[i].d_eq;
+//   SumPair curr = d_trail[i].d_eq;
 
-  Constant negOne = Constant::mkConstant(-1);
+//   Constant negOne = Constant::mkConstant(-1);
 
-  for(uint32_t revIter = d_subs.size(); revIter > 0; --revIter){
-    uint32_t i = revIter - 1;
-    Node freshNode = d_subs[i].d_fresh;
-    if(freshNode.isNull()){
-      continue;
-    }else{
-      Variable var(freshNode);
-      Polynomial vsum = curr.getPolynomial();
+//   for(uint32_t revIter = d_subs.size(); revIter > 0; --revIter){
+//     uint32_t i = revIter - 1;
+//     Node freshNode = d_subs[i].d_fresh;
+//     if(freshNode.isNull()){
+//       continue;
+//     }else{
+//       Variable var(freshNode);
+//       Polynomial vsum = curr.getPolynomial();
 
-      Constant a = vsum.getCoefficient(VarList(var));
-      if(!a.isZero()){
-        const SumPair& sj = d_trail[d_subs[i].d_constraint].d_eq;
-        Assert(sj.getPolynomial().getCoefficient(VarList(var)).isOne());
-        SumPair newSi = (curr * negOne) + (sj * a);
-        Assert(newSi.getPolynomial().getCoefficient(VarList(var)).isZero());
-        curr = newSi;
-      }
-    }
-  }
-  return curr;
-}
+//       Constant a = vsum.getCoefficient(VarList(var));
+//       if(!a.isZero()){
+//         const SumPair& sj = d_trail[d_subs[i].d_constraint].d_eq;
+//         Assert(sj.getPolynomial().getCoefficient(VarList(var)).isOne());
+//         SumPair newSi = (curr * negOne) + (sj * a);
+//         Assert(newSi.getPolynomial().getCoefficient(VarList(var)).isZero());
+//         curr = newSi;
+//       }
+//     }
+//   }
+//   return curr;
+// }
 
 DioSolver::TrailIndex DioSolver::combineEqAtIndexes(DioSolver::TrailIndex i, const Integer& q, DioSolver::TrailIndex j, const Integer& r){
   Constant cq = Constant::mkConstant(q);
@@ -613,7 +607,7 @@ std::pair<DioSolver::SubIndex, DioSolver::TrailIndex> DioSolver::solveIndex(DioS
   TrailIndex ci = !a.isNegative() ? scaleEqAtIndex(i, Integer(-1)) : i;
 
   SubIndex subBy = d_subs.size();
-  d_subs.push_back(Substitution(Node::null(), var, ci));
+  d_subs.enqueue(Substitution(Node::null(), var, ci));
 
   Debug("arith::dio") << "after solveIndex " <<  d_trail[ci].d_eq.getNode() << " for " << av.getNode() << endl;
   Assert(d_trail[ci].d_eq.getPolynomial().getCoefficient(vl) == Constant::mkConstant(-1));
@@ -676,7 +670,7 @@ std::pair<DioSolver::SubIndex, DioSolver::TrailIndex> DioSolver::decomposeIndex(
   d_trail.push_back(Constraint(newFact, d_trail[i].d_proof));
 
   SubIndex subBy = d_subs.size();
-  d_subs.push_back(Substitution(freshNode, var, ci));
+  d_subs.enqueue(Substitution(freshNode, var, ci));
 
   Debug("arith::dio") << "Decompose nextIndex " <<  d_trail[nextIndex].d_eq.getNode() << endl;
   return make_pair(subBy, nextIndex);

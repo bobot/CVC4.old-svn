@@ -61,6 +61,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_cuttingDepth(c),
   d_hasDoneWorkSinceCut(false),
   d_newIntegerSkolemCallback(this),
+  d_dioSubstitutions(),
   d_atomsInContext(c),
   d_learner(d_pbSubstitutions),
   d_nextIntegerCheckVar(0),
@@ -69,7 +70,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_partialModel(c, d_differenceManager),
   d_tableau(),
   d_linEq(d_partialModel, d_tableau, d_basicVarModelUpdateCallBack),
-  d_diosolver(c, d_cuttingDepth, d_newIntegerSkolemCallback),
+  d_diosolver(c, d_dioSubstitutions, d_cuttingDepth, d_newIntegerSkolemCallback),
   d_pbSubstitutions(u),
   d_restartsCounter(0),
   d_rowHasBeenAdded(false),
@@ -335,8 +336,10 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
 
 Node TheoryArith::NewIntegerSkolemCallback::request(){
   Node req = mkIntegerSkolem();
-  ArithVar v = d_ta->requestArithVar(req, false);
-  d_ta->setupInitialValue(v);
+  Variable v(req);
+  d_ta->setupVariable(v);
+  //ArithVar v = d_ta->requestArithVar(req, false);
+  //d_ta->setupInitialValue(v);
   return req;
 }
 
@@ -831,18 +834,6 @@ Node TheoryArith::assertionCases(TNode assertion){
   ArithVar x_i = determineLeftVariable(assertion, simpleKind);
   DeltaRational c_i = determineRightConstant(assertion, simpleKind);
 
-  // bool tightened = false;
-
-  // //If the variable is an integer tighen the constraint.
-  // if(isInteger(x_i)){
-  //   if(simpleKind == LT){
-  //     tightened = true;
-  //     c_i = DeltaRational(c_i.floor());
-  //   }else if(simpleKind == GT){
-  //     tightened = true;
-  //     c_i = DeltaRational(c_i.ceiling());
-  //   }
-  // }
 
   Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
                               <<"(" << assertion
@@ -958,6 +949,13 @@ void TheoryArith::check(Effort effortLevel){
 
     if(!emmittedConflictOrSplit && Options::current()->dioSolver){
       possibleConflict = callDioSolver();
+      while(!d_dioSubstitutions.empty()){
+        Node sub = d_dioSubstitutions.front();
+        Node nfsub = Rewriter::rewrite(sub);
+        d_dioSubstitutions.pop();
+        Trace("skolems") << "dio sub " << sub << " : " << nfsub << " " << isSetup(nfsub) << endl;
+        d_out->lemma(nfsub);
+      }
       if(possibleConflict != Node::null()){
         Debug("arith::conflict") << "dio conflict   " << possibleConflict << endl;
         d_out->conflict(possibleConflict);
@@ -967,10 +965,18 @@ void TheoryArith::check(Effort effortLevel){
 
     if(!emmittedConflictOrSplit && d_hasDoneWorkSinceCut && Options::current()->dioSolver){
       Node possibleLemma = dioCutting();
+      while(!d_dioSubstitutions.empty()){
+        Node sub = d_dioSubstitutions.front();
+        Node nfsub = Rewriter::rewrite(sub);
+        d_dioSubstitutions.pop();
+        Trace("skolems") << "dio sub " << sub << " : " << nfsub << " " << isSetup(nfsub) << endl;
+        d_out->lemma(nfsub);
+      }
       if(!possibleLemma.isNull()){
         Debug("arith") << "dio cut   " << possibleLemma << endl;
         emmittedConflictOrSplit = true;
         d_hasDoneWorkSinceCut = false;
+
         d_out->lemma(possibleLemma);
       }
     }

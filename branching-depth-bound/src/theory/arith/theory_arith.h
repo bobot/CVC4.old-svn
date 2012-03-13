@@ -96,6 +96,8 @@ private:
     Node request();
   } d_newIntegerSkolemCallback;
 
+  std::queue<Node> d_dioSubstitutions;
+
   /**
    * The set of atoms that are currently in the context.
    * This is exactly the union of preregistered atoms and

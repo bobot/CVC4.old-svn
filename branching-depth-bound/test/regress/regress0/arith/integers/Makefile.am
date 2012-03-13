@@ -27,7 +27,9 @@ TESTS =	\
 	arith-int-084.cvc \
 	arith-int-085.cvc \
 	arith-int-097.cvc \
-	arith-int-048.cvc \
+	arith-int-048.cvc
+
+EXTRA_DIST = $(TESTS) \
 	arith-int-001.cvc \
 	arith-int-002.cvc \
 	arith-int-003.cvc \
