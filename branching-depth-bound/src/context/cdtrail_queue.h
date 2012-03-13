@@ -85,6 +85,10 @@ public:
     return d_list[index];
   }
 
+  size_t size() const {
+    return d_list.size();
+  }
+
 };/* class CDTrailQueue<> */
 
 }/* CVC4::context namespace */
