@@ -59,19 +59,19 @@ void RuleInst::setId(RuleInstId nid){
 }
 
 Node RuleInst::substNode(const TheoryRewriteRules & re, TNode r,
-                         std::hash_map<TNode, TNode, TNodeHashFunction> cache)
-  const{
+                         TCache cache ) const {
   Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
   const RewriteRule & rrule = re.get_rule(rule);
-  return r.substitute(rrule.free_vars.begin(),rrule.free_vars.end(),
-                      subst.begin(),subst.end());
+  return r.substitute (rrule.free_vars.begin(),rrule.free_vars.end(),
+                       subst.begin(),subst.end(),cache);
 };
 
 size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
+  TCache cache;
   Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
   const RewriteRule & r = re.get_rule(rule);
   while (start < (r.guards).size()){
-    Node g = substNode(re,r.guards[start]);
+    Node g = substNode(re,r.guards[start],cache);
     switch(re.addWatchIfDontKnow(g,id,start)){
     case ATRUE:
       Debug("rewriterules") << g << "is true" << std::endl;
@@ -86,7 +86,7 @@ size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
     }
   }
   /** All the guards are verified */
-  re.propagateRule(*this);
+  re.propagateRule(*this,cache);
   return start;
 };
 
@@ -340,8 +340,7 @@ void TheoryRewriteRules::notifyEq(TNode lhs, TNode rhs) {
 };
 
 
-void TheoryRewriteRules::propagateRule(const RuleInst & inst){
-  std::hash_map<TNode, TNode, TNodeHashFunction> cache;
+void TheoryRewriteRules::propagateRule(const RuleInst & inst, TCache cache){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
   Debug("rewriterules") << "propagateRule" << inst << std::endl;
   const RewriteRule & rule = get_rule(inst.rule);
@@ -349,7 +348,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst){
   if(propagate_as_lemma){
     Node lemma = equality;
     if(rule.guards.size() > 0){
-      lemma = substGuards(inst,rule).impNode(equality);
+      lemma = substGuards(inst,rule, cache).impNode(equality);
     };
     //  Debug("rewriterules") << "lemma:" << lemma << std::endl;
     getOutputChannel().lemma(lemma);
@@ -359,7 +358,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst){
     if(getValuation().hasSatValue(lemma_lit,value)){
       /* Already assigned */
       if (!value){
-        Node conflict = substGuards(inst,rule,lemma_lit);
+        Node conflict = substGuards(inst,rule, cache,lemma_lit);
         getOutputChannel().conflict(conflict);
       };
     }else{
@@ -375,7 +374,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst){
     const RewriteRule & r = d_rules[rid];
     // Debug("rewriterules") << "  rule: " << r << std::endl;
     // Use trigger2 since we can be in check
-    Trigger & tr = const_cast<Trigger &> (r.trigger_for_body_match);
+    Trigger & tr = r.trigger_for_body_match;
     InstMatch im;
     tr.getMatch(inst.substNode(*this,(*p).first, cache),im);
     if(!im.empty()) addMatchRuleTrigger(rid, r, im);
@@ -385,18 +384,19 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst){
 
 Node TheoryRewriteRules::substGuards(const RuleInst & inst,
                                      const RewriteRule & r,
+                                     TCache cache,
                                      /* Already substituted */
                                      Node last){
   /** No guards */
   const size_t size = r.guards.size();
   if(size == 0) return d_true;
   /** One guard */
-  if(size == 1) return inst.substNode(*this,r.guards[0]);
+  if(size == 1) return inst.substNode(*this,r.guards[0],cache);
   /** Guards */ /* TODO remove the duplicate with a set like in uf? */
   NodeBuilder<> conjunction(kind::AND);
   for(std::vector<Node>::const_iterator p = r.guards.begin();
       p != r.guards.end(); ++p) {
-    conjunction << inst.substNode(*this,*p);
+    conjunction << inst.substNode(*this,*p,cache);
   };
   if (last != Node::null()) conjunction << last;
   return conjunction;
@@ -407,7 +407,7 @@ Node TheoryRewriteRules::explain(TNode n){
   Assert(rinstid!=d_explanations.end(),"I forget the explanation...");
   const RuleInst & inst = get_inst((*rinstid).second);
   const RewriteRule & r = get_rule(inst.rule);
-  return substGuards(inst,r);
+  return substGuards(inst,r, TCache ());
 }
 
 

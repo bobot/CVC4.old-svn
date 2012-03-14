@@ -35,6 +35,7 @@ namespace rewriterules {
 
 typedef size_t RewriteRuleId;
 typedef size_t RuleInstId;
+typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
 
   enum Answer {ATRUE, AFALSE, ADONTKNOW};
 
@@ -54,8 +55,9 @@ typedef size_t RuleInstId;
        because is a subterm of a body on the assicaited rewrite
        rule) */
     typedef std::vector<std::pair<TNode,RewriteRuleId> > BodyMatch;
-    BodyMatch body_match;
-    Trigger trigger_for_body_match; // used because we can be matching
+    /** TODO use a CDList */
+    mutable BodyMatch body_match;
+    mutable Trigger trigger_for_body_match; // used because we can be matching
                                     // trigger when we need new match.
                                     // So currently we use another
                                     // trigger for that.
@@ -89,10 +91,7 @@ typedef size_t RuleInstId;
     /** Rule an instantiation with the given match */
     RuleInst(TheoryRewriteRules & re, const RewriteRuleId rule,
              std::vector<Node> & inst_subst);
-    Node substNode(const TheoryRewriteRules & re, TNode r,
-                   std::hash_map<TNode, TNode, TNodeHashFunction> cache =
-                   std::hash_map<TNode, TNode, TNodeHashFunction>()
-                   )const;
+    Node substNode(const TheoryRewriteRules & re, TNode r, TCache cache) const;
     size_t findGuard(TheoryRewriteRules & re, size_t start)const;
     void setId(const RuleInstId i);
 
@@ -190,7 +189,7 @@ private:
       propagate the body. That can be done by theory propagation if
       possible or by lemmas.
    */
-  void propagateRule(const RuleInst & r);
+  void propagateRule(const RuleInst & r, TCache cache);
 
   /** access */
   const RewriteRule & get_rule(const RewriteRuleId r)const{return d_rules[r];};
@@ -204,6 +203,7 @@ private:
      already true */
   bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
   Node substGuards(const RuleInst & inst,const RewriteRule & r,
+                   TCache cache,
                    Node last = Node::null());
 
   void addRewriteRule(const Node r);

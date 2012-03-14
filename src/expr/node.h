@@ -167,6 +167,7 @@ namespace kind {
 template <bool ref_count>
 class NodeTemplate {
 
+public:
   // for hash_maps, hash_sets..
   template <bool ref_count1>
   struct HashFunction {
@@ -177,6 +178,7 @@ class NodeTemplate {
 
   typedef HashFunction<false> TNodeHashFunction;
 
+private:
   /**
    * The NodeValue has access to the private constructors, so that the
    * iterators can can create new nodes.
@@ -889,18 +891,15 @@ inline std::ostream& operator<<(std::ostream& out, TNode n) {
 namespace CVC4 {
 
 // for hash_maps, hash_sets..
+/* We redefined a structure for the Node version since it is forward
+   declared in smt_engine.h */
 struct NodeHashFunction {
   size_t operator()(CVC4::Node node) const {
     return (size_t) node.getId();
   }
 };/* struct NodeHashFunction */
 
-// for hash_maps, hash_sets..
-struct TNodeHashFunction {
-  size_t operator()(CVC4::TNode node) const {
-    return (size_t) node.getId();
-  }
-};/* struct TNodeHashFunction */
+typedef NodeTemplate<false>::TNodeHashFunction TNodeHashFunction;
 
 struct TNodePairHashFunction {
   size_t operator()(const std::pair<CVC4::TNode, CVC4::TNode>& pair ) const {
