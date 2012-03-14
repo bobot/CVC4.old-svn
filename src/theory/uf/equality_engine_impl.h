@@ -222,6 +222,9 @@ void EqualityEngine<NotifyClass>::addDisequality(TNode t1, TNode t2, TNode reaso
 
   Node equality1 = t1.eqNode(t2);
   addEqualityInternal(equality1, d_false, reason);
+ 
+  Node equality2 = t2.eqNode(t1);
+  addEqualityInternal(equality2, d_false, reason);
 }
 
 
