@@ -338,7 +338,7 @@ void TheoryRewriteRules::check(Effort level) {
     for (; p != d_guardeds.end(); ++p){
       TNode g = (*p).first;
       const GList * const l = (*p).second;
-      const Guarded & glast = (*l)[l->size()-1];
+      const Guarded & glast = (*l).back();
       // cout << "Polled?:" << g << std::endl;
       if(glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) continue;
       // cout << "Polled!:" << g << "->" << (glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) << std::endl;
@@ -353,7 +353,8 @@ void TheoryRewriteRules::check(Effort level) {
       };
     };
 
-  }while(!d_ruleinsts_to_add.empty() && p != d_guardeds.end());
+  }while(!d_ruleinsts_to_add.empty() ||
+         (p != d_guardeds.end() && do_notification));
 
   if(polldone) d_checkLevel = checkSlowdown;
   else d_checkLevel = d_checkLevel > 0 ? (d_checkLevel - 1) : 0;
