@@ -305,7 +305,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
     }
     setInstantiationLevelAttr( body, maxInstLevel+1 );
     ++(d_statistics.d_instantiations);
-    d_statistics.d_total_inst_var.setData( d_statistics.d_total_inst_var.getData() + (int)terms.size() );
+    d_statistics.d_total_inst_var += (int)terms.size();
     d_statistics.d_max_instantiation_level.maxAssign( maxInstLevel+1 );
     return true;
   }else{
