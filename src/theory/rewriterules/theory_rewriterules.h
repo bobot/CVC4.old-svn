@@ -47,6 +47,7 @@ typedef size_t RuleInstId;
     std::vector<Node> guards;
     std::vector<Node> to_remove; /** terms to remove */
     const Node body;
+    const TNode new_terms; /** new terms included in the body */
     std::vector<Node> free_vars; /* free variable in the rule */
     std::vector<Node> inst_vars; /* corresponding vars in the triggers */
     /* After instantiating the body new match can appear (TNode
@@ -65,7 +66,7 @@ typedef size_t RuleInstId;
 
     RewriteRule(TheoryRewriteRules & re,
                 Trigger & tr, Trigger & tr2,
-                std::vector<Node> & g, Node b,
+                std::vector<Node> & g, Node b, TNode nt,
                 std::vector<Node> & fv,std::vector<Node> & iv,
                 std::vector<Node> & to_r);
     bool noGuard()const throw () { return guards.size() == 0; };
@@ -206,7 +207,7 @@ private:
                    Node last = Node::null());
 
   void addRewriteRule(const Node r);
-  void computeMatchBody ( RewriteRule & r, TNode body);
+  void computeMatchBody ( const RewriteRule & r, size_t start = 0);
   void addMatchRuleTrigger(const RewriteRuleId rid,
                            const RewriteRule & r,
                            InstMatch & im, bool delay = true);

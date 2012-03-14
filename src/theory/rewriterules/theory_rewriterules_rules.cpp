@@ -34,8 +34,9 @@ namespace CVC4 {
 namespace theory {
 namespace rewriterules {
 
-void TheoryRewriteRules::computeMatchBody ( RewriteRule & rule, TNode body){
-  std::vector<TNode> stack(1,body);
+void TheoryRewriteRules::computeMatchBody ( const RewriteRule & rule,
+                                            size_t start){
+  std::vector<TNode> stack(1,rule.new_terms);
 
   while(!stack.empty()){
     Node t = stack.back(); stack.pop_back();
@@ -45,11 +46,13 @@ void TheoryRewriteRules::computeMatchBody ( RewriteRule & rule, TNode body){
         != rule.free_vars.end()) continue;
     // t we want to consider only UF function
     if( t.getKind() == APPLY_UF ){
-      for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid) {
+      for(size_t rid = start, end = d_rules.size(); rid < end; ++rid) {
         const RewriteRule & r = d_rules[rid];
         Trigger & tr = const_cast<Trigger &> (r.trigger_for_body_match);
         if(!tr.nonunifiable(t, rule.free_vars)){
-          rule.body_match.push_back(std::make_pair(t,rid));
+          /** modify a context depend structure so const_cast ok*/
+          const_cast<RewriteRule &>(rule).body_match
+            .push_back(std::make_pair(t,rid));
         }
       }
     }
@@ -79,6 +82,7 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
     getQuantifiersEngine()->createInstVariable(vars);
   /* Body/Remove_term/Guards/Triggers */
   Node body = r[2][1];
+  TNode new_terms = r[2][1];
   std::vector<Node> guards;
   std::vector<Node> pattern;
   std::vector<Node> to_remove;  /* remove the terms from the database
@@ -142,19 +146,28 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
   Trigger trigger = createTrigger(r,pattern);
   Trigger trigger2 = createTrigger(r,pattern); //Hack
   RewriteRule rr = RewriteRule(*this, trigger, trigger2,
-                                guards, body, vars, inst_constants, to_remove);
+                               guards, body, new_terms,
+                               vars, inst_constants, to_remove);
+  /** other -> rr */
+  if(compute_opt) computeMatchBody(rr);
   d_rules.push_back(rr);
-  if(compute_opt) computeMatchBody(const_cast<RewriteRule &>(d_rules.back()),r[2][1]);
+  /** rr -> all (including himself) */
+  if(compute_opt)
+    for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid)
+      computeMatchBody(d_rules[rid],
+                       d_rules.size() - 1);
+
+
 };
 
 
 
 RewriteRule::RewriteRule(TheoryRewriteRules & re,
                          Trigger & tr, Trigger & tr2,
-                         std::vector<Node> & g, Node b,
+                         std::vector<Node> & g, Node b, TNode nt,
                          std::vector<Node> & fv,std::vector<Node> & iv,
                          std::vector<Node> & to_r) :
-  trigger(tr), body(b), free_vars(), inst_vars(),
+  trigger(tr), body(b), new_terms(nt), free_vars(), inst_vars(),
   body_match(),trigger_for_body_match(tr2),
   d_cache(re.getContext()){
   free_vars.swap(fv); inst_vars.swap(iv); guards.swap(g); to_remove.swap(to_r);
