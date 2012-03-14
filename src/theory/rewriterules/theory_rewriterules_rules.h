@@ -21,9 +21,8 @@
 #ifndef __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_RULES_H
 #define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_RULES_H
 
-
 #include "theory/rewriterules/theory_rewriterules.h"
-
+#include "theory/rewriterules/theory_rewriterules_params.h"
 
 namespace CVC4 {
 namespace theory {
@@ -33,6 +32,7 @@ inline std::ostream& operator <<(std::ostream& stream, const RewriteRule& r) {
   r.toStream(stream);
   return stream;
 }
+
 
 
 }/* CVC4::theory::rewriterules namespace */

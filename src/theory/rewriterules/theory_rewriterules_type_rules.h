@@ -55,6 +55,9 @@ public:
         throw TypeCheckingExceptionPrivate(n,
                      "terms of rewrite rule are not equal");
       }
+      if( n.getNumChildren() == 3 && n[2].getType(check)!=nodeManager->instPatternListType() ){
+        throw TypeCheckingExceptionPrivate(n, "third argument of rewrite rule is not instantiation pattern list");
+      }
     }
     return TypeNode(nodeManager->mkTypeConst<TypeConstant>(RRHB_TYPE));
   }
@@ -73,6 +76,9 @@ public:
       }
       if( n[ 1 ].getType(check)!=nodeManager->booleanType() ){
         throw TypeCheckingExceptionPrivate(n, "body of reduction rule is not boolean");
+      }
+      if( n.getNumChildren() == 3 && n[2].getType(check)!=nodeManager->instPatternListType() ){
+        throw TypeCheckingExceptionPrivate(n, "third argument of rewrite rule is not instantiation pattern list");
       }
     }
     return TypeNode(nodeManager->mkTypeConst<TypeConstant>(RRHB_TYPE));

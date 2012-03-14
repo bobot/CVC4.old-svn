@@ -18,8 +18,24 @@
  ** \todo document this file
  **/
 
+
+#ifndef __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
+#define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H
+
+
+namespace CVC4 {
+namespace theory {
+namespace rewriterules {
+
 static const bool propagate_as_lemma = true;
 static const bool cache_match = true;
 static const bool compute_opt = true;
 static const bool rewrite_before_cache = true;
 static const size_t checkSlowdown = 10;
+
+
+}/* CVC4::theory::rewriterules namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
+
+#endif /* __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_PARAMS_H */

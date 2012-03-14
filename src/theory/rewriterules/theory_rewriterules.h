@@ -33,19 +33,20 @@ namespace CVC4 {
 namespace theory {
 namespace rewriterules {
 
-class TheoryRewriteRules;
-
 typedef size_t RewriteRuleId;
 typedef size_t RuleInstId;
 
   enum Answer {ATRUE, AFALSE, ADONTKNOW};
+
+  class TheoryRewriteRules; /** forward */
 
   class RewriteRule{
   public:
     // constant
     Trigger trigger;
     std::vector<Node> guards;
-    const Node equality;
+    std::vector<Node> to_remove; /** terms to remove */
+    const Node body;
     std::vector<Node> free_vars; /* free variable in the rule */
     std::vector<Node> inst_vars; /* corresponding vars in the triggers */
     /* After instantiating the body new match can appear (TNode
@@ -63,9 +64,11 @@ typedef size_t RuleInstId;
     CacheNode d_cache;
 
     RewriteRule(TheoryRewriteRules & re,
-                Trigger & tr, Trigger & tr2, Node g, Node eq,
-                std::vector<Node> & fv,std::vector<Node> & iv);
-    bool noGuard()const;
+                Trigger & tr, Trigger & tr2,
+                std::vector<Node> & g, Node b,
+                std::vector<Node> & fv,std::vector<Node> & iv,
+                std::vector<Node> & to_r);
+    bool noGuard()const throw () { return guards.size() == 0; };
     bool inCache(std::vector<Node> & subst)const;
 
     void toStream(std::ostream& out) const;
@@ -202,9 +205,8 @@ private:
   Node substGuards(const RuleInst & inst,const RewriteRule & r,
                    Node last = Node::null());
 
-  RewriteRule const makeRewriteRule(const Node r);
-  void computeMatchBody ( RewriteRule & r,
-                          const RewriteRuleId rid_begin);
+  void addRewriteRule(const Node r);
+  void computeMatchBody ( RewriteRule & r, TNode body);
   void addMatchRuleTrigger(const RewriteRuleId rid,
                            const RewriteRule & r,
                            InstMatch & im, bool delay = true);

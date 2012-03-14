@@ -150,38 +150,6 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRuleId rid,
 }
 
 
-void TheoryRewriteRules::computeMatchBody ( RewriteRule & rule,
-                                            const RewriteRuleId rid_begin){
-  std::vector<TNode> stack(1,rule.equality[1]);
-
-  while(!stack.empty()){
-    Node t = stack.back(); stack.pop_back();
-
-    // We don't want to consider variable in t
-    if( std::find(rule.free_vars.begin(), rule.free_vars.end(), t)
-        != rule.free_vars.end()) continue;
-
-    // t we want to consider only UF function
-    if( t.getKind() == APPLY_UF ){
-      for(size_t rid = rid_begin, end = d_rules.size(); rid < end; ++rid) {
-        const RewriteRule & r = d_rules[rid];
-        // Debug("rewriterules") << "  rule: " << r << std::endl;
-        Trigger & tr = const_cast<Trigger &> (r.trigger_for_body_match);
-        if(!tr.nonunifiable(t, rule.free_vars)){
-          rule.body_match.push_back(std::make_pair(t,rid));
-        }
-      }
-    }
-
-    //put the children on the stack
-    for( size_t i=0; i < t.getNumChildren(); i++ ){
-      stack.push_back(t[i]);
-    };
-
-  }
-}
-
-
 void TheoryRewriteRules::check(Effort level) {
 
   while(!done()) {
@@ -193,12 +161,8 @@ void TheoryRewriteRules::check(Effort level) {
       if (getValuation().getDecisionLevel()>0)
         Unhandled(getValuation().getDecisionLevel());
 
-      d_rules.push_back(makeRewriteRule(fact));
+      addRewriteRule(fact);
 
-      //Add body_match to the new rule
-      if(compute_opt){
-        computeMatchBody(const_cast<RewriteRule &> (d_rules.back()),0);
-      }
     };
 
   Debug("rewriterules") << "Check:" << d_checkLevel << std::endl;
@@ -381,7 +345,7 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
   Debug("rewriterules") << "propagateRule" << inst << std::endl;
   const RewriteRule & rule = get_rule(inst.rule);
-  Node equality = inst.substNode(*this,rule.equality,cache);
+  Node equality = inst.substNode(*this,rule.body,cache);
   if(propagate_as_lemma){
     Node lemma = equality;
     if(rule.guards.size() > 0){

@@ -34,19 +34,39 @@ namespace CVC4 {
 namespace theory {
 namespace rewriterules {
 
-RewriteRule const TheoryRewriteRules::makeRewriteRule(const Node r)
+void TheoryRewriteRules::computeMatchBody ( RewriteRule & rule, TNode body){
+  std::vector<TNode> stack(1,body);
+
+  while(!stack.empty()){
+    Node t = stack.back(); stack.pop_back();
+
+    // We don't want to consider variable in t
+    if( std::find(rule.free_vars.begin(), rule.free_vars.end(), t)
+        != rule.free_vars.end()) continue;
+    // t we want to consider only UF function
+    if( t.getKind() == APPLY_UF ){
+      for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid) {
+        const RewriteRule & r = d_rules[rid];
+        Trigger & tr = const_cast<Trigger &> (r.trigger_for_body_match);
+        if(!tr.nonunifiable(t, rule.free_vars)){
+          rule.body_match.push_back(std::make_pair(t,rid));
+        }
+      }
+    }
+
+    //put the children on the stack
+    for( size_t i=0; i < t.getNumChildren(); i++ ){
+      stack.push_back(t[i]);
+    };
+
+  }
+}
+
+void TheoryRewriteRules::addRewriteRule(const Node r)
 {
   Assert(r.getKind() == kind::REWRITE_RULE);
-  Assert(r[2].getKind() == kind::RR_REWRITE);
+
   Debug("rewriterules") << "create rewriterule:" << r << std::endl;
-  /* Equality */
-  TNode head = r[2][0];
-  TNode body = r[2][1];
-  Node equality = head.eqNode(body);
-  /* Guards */
-  TNode guards = r[1];
-  /* Trigger */
-  std::vector<Node> pattern;
   /*   Replace variables by Inst_* variable and tag the terms that
        contain them */
   std::vector<Node> vars;
@@ -54,40 +74,53 @@ RewriteRule const TheoryRewriteRules::makeRewriteRule(const Node r)
   for( Node::const_iterator v = r[0].begin(); v != r[0].end(); ++v ){
     vars.push_back(*v);
   };
+  /* Instantiation version */
   std::vector<Node> inst_constants =
     getQuantifiersEngine()->createInstVariable(vars);
-  pattern.push_back(getQuantifiersEngine()->
-                    convertNodeToPattern(head,r,vars,inst_constants));
-  Trigger trigger = createTrigger(r,pattern);
-  Trigger trigger2 = createTrigger(r,pattern); //Hack
-  // final construction
-  return RewriteRule(*this, trigger, trigger2,
-                     guards, equality, vars, inst_constants);
-};
-
-
-/** A rewrite rule */
-void RewriteRule::toStream(std::ostream& out) const{
-  for(std::vector<Node>::const_iterator
-        iter = guards.begin(); iter != guards.end(); ++iter){
-    out << *iter;
+  /* Body/Remove_term/Guards/Triggers */
+  Node body = r[2][1];
+  std::vector<Node> guards;
+  std::vector<Node> pattern;
+  std::vector<Node> to_remove;  /* remove the terms from the database
+                                   when fired */
+  /* shortcut */
+  TNode head = r[2][0];
+  switch(r[2].getKind()){
+  case kind::RR_REWRITE:
+    /* Equality */
+    to_remove.push_back(head);
+    pattern.push_back(getQuantifiersEngine()->
+                      convertNodeToPattern(head,r,vars,inst_constants));
+    body = head.eqNode(body);
+    break;
+  case kind::RR_REDUCTION:
+    /** Add head to remove */
+    to_remove.push_back(head);
+  case kind::RR_DEDUCTION:
+    /** Add head to guards and pattern */
+    switch(head.getKind()){
+    case kind::AND:
+      guards.reserve(head.getNumChildren());
+      for(Node::iterator i = head.begin(); i != head.end(); ++i) {
+        guards.push_back(*i);
+        pattern.push_back(getQuantifiersEngine()->
+                          convertNodeToPattern(*i,r,vars,inst_constants));
+      };
+      break;
+    default:
+      if (head != d_true){
+        guards.push_back(head);
+        pattern.push_back(getQuantifiersEngine()->
+                          convertNodeToPattern(head,r,vars,inst_constants));
+      };
+      /** otherwise guards is empty */
+    };
+    break;
+  default:
+    Unreachable("RewriteRules can be of only threee kinds");
   };
-  out << "=>" << equality << std::endl;
-  out << "[";
-  for(BodyMatch::const_iterator
-        iter = body_match.begin(); iter != body_match.end(); ++iter){
-    out << (*iter).first << "(" << (*iter).second << ")" << ",";
-  };
-  out << "]" << std::endl;
-}
-
-RewriteRule::RewriteRule(TheoryRewriteRules & re,
-                         Trigger & tr, Trigger & tr2, Node g, Node eq,
-                         std::vector<Node> & fv,std::vector<Node> & iv) :
-  trigger(tr), equality(eq), free_vars(), inst_vars(),
-  body_match(),trigger_for_body_match(tr2),
-  d_cache(re.getContext()){
-  free_vars.swap(fv);inst_vars.swap(iv);
+  /* Add the other guards */
+  TNode g = r[1];
   switch(g.getKind()){
   case kind::AND:
     guards.reserve(g.getNumChildren());
@@ -96,12 +129,37 @@ RewriteRule::RewriteRule(TheoryRewriteRules & re,
     };
     break;
   default:
-    if (g != re.d_true) guards.push_back(g);
+    if (g != d_true) guards.push_back(g);
     /** otherwise guards is empty */
   };
+  /* Add the other triggers */
+  if( r[2].getNumChildren() >= 3 )
+    for(Node::iterator i = r[2][2].begin(); i != r[2][2].end(); ++i) {
+      pattern.push_back(getQuantifiersEngine()->
+                        convertNodeToPattern(*i,r,vars,inst_constants));
+    };
+  // final construction
+  Trigger trigger = createTrigger(r,pattern);
+  Trigger trigger2 = createTrigger(r,pattern); //Hack
+  RewriteRule rr = RewriteRule(*this, trigger, trigger2,
+                                guards, body, vars, inst_constants, to_remove);
+  d_rules.push_back(rr);
+  if(compute_opt) computeMatchBody(const_cast<RewriteRule &>(d_rules.back()),r[2][1]);
 };
 
-bool RewriteRule::noGuard()const{ return guards.size() == 0; };
+
+
+RewriteRule::RewriteRule(TheoryRewriteRules & re,
+                         Trigger & tr, Trigger & tr2,
+                         std::vector<Node> & g, Node b,
+                         std::vector<Node> & fv,std::vector<Node> & iv,
+                         std::vector<Node> & to_r) :
+  trigger(tr), body(b), free_vars(), inst_vars(),
+  body_match(),trigger_for_body_match(tr2),
+  d_cache(re.getContext()){
+  free_vars.swap(fv); inst_vars.swap(iv); guards.swap(g); to_remove.swap(to_r);
+};
+
 
 bool RewriteRule::inCache(std::vector<Node> & subst)const{
   /* INST_PATTERN because its 1: */
@@ -121,6 +179,20 @@ bool RewriteRule::inCache(std::vector<Node> & subst)const{
   return false;
 };
 
+/** A rewrite rule */
+void RewriteRule::toStream(std::ostream& out) const{
+  for(std::vector<Node>::const_iterator
+        iter = guards.begin(); iter != guards.end(); ++iter){
+    out << *iter;
+  };
+  out << "=>" << body << std::endl;
+  out << "[";
+  for(BodyMatch::const_iterator
+        iter = body_match.begin(); iter != body_match.end(); ++iter){
+    out << (*iter).first << "(" << (*iter).second << ")" << ",";
+  };
+  out << "]" << std::endl;
+}
 
 
 }/* CVC4::theory::rewriterules namespace */

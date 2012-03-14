@@ -592,17 +592,18 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
           body = expr;
         }
         expr2=guard;
-        if( body.getKind()==kind::IMPLIES ){
-          expr = MK_EXPR( kind::RR_DEDUCTION, body[0], body[1] );
-        }else if( body.getKind()==kind::IFF ){
-          expr = MK_EXPR( kind::RR_REDUCTION, body[0], body[1] );
-        }else if( body.getKind()==kind::EQUAL ){
-          expr = MK_EXPR( kind::RR_REWRITE, body[0], body[1] );
-        }else{
-          PARSER_STATE->parseError("Error parsing rewrite rule.");
-        }
+        args.push_back(body[0]);
+        args.push_back(body[1]);
+        if(!f2.isNull()) args.push_back(f2);
+
+        if     ( body.getKind()==kind::IMPLIES )    kind = kind::RR_DEDUCTION;
+        else if( body.getKind()==kind::IFF )        kind = kind::RR_REDUCTION;
+        else if( body.getKind()==kind::EQUAL )      kind = kind::RR_REWRITE;
+        else PARSER_STATE->parseError("Error parsing rewrite rule.");
+
+        expr = MK_EXPR( kind::RR_REWRITE, args );
       }
-      if( !attexprs.empty() ){
+      else if( !attexprs.empty() ){
         if( attexprs[0].getKind()==kind::INST_PATTERN ){
           expr2 = MK_EXPR(kind::INST_PATTERN_LIST, attexprs);
           //std::cout << "parsed pattern list " << expr2 << std::endl;

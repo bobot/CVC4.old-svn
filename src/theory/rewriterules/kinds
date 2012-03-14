@@ -24,9 +24,10 @@ sort RRHB_TYPE \
 
 # variables, guards, RR_REWRITE/REDUCTION_RULE/DEDUCTION_RULE
 operator REWRITE_RULE 3 "generale rewrite rule"
-operator RR_REWRITE 2 "actual rewrite rule"
-operator RR_REDUCTION 2 "actual reduction rule"
-operator RR_DEDUCTION 2 "actual deduction rule"
+#HEAD/BODY/TRIGGER
+operator RR_REWRITE 2:3 "actual rewrite rule"
+operator RR_REDUCTION 2:3 "actual reduction rule"
+operator RR_DEDUCTION 2:3 "actual deduction rule"
 
 typerule REWRITE_RULE ::CVC4::theory::rewriterules::RewriteRuleTypeRule
 typerule RR_REWRITE   ::CVC4::theory::rewriterules::RRRewriteTypeRule
