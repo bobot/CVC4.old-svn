@@ -188,9 +188,9 @@ const EqualityNode& EqualityEngine<NotifyClass>::getEqualityNode(EqualityNodeId 
 }
 
 template <typename NotifyClass>
-void EqualityEngine<NotifyClass>::addEquality(TNode t1, TNode t2, TNode reason) {
+void EqualityEngine<NotifyClass>::addEqualityInternal(TNode t1, TNode t2, TNode reason) {
 
-  Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;
+  Debug("equality") << "EqualityEngine::addEqualityInternal(" << t1 << "," << t2 << ")" << std::endl;
 
   // Add the terms if they are not already in the database
   addTerm(t1);
@@ -200,7 +200,19 @@ void EqualityEngine<NotifyClass>::addEquality(TNode t1, TNode t2, TNode reason) 
   EqualityNodeId t1Id = getNodeId(t1);
   EqualityNodeId t2Id = getNodeId(t2);
   enqueue(MergeCandidate(t1Id, t2Id, MERGED_THROUGH_EQUALITY, reason));
+
   propagate();
+}
+
+template <typename NotifyClass>
+void EqualityEngine<NotifyClass>::addEquality(TNode t1, TNode t2, TNode reason) {
+
+  Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;
+
+  addEqualityInternal(t1, t2, reason);
+
+  Node equality = t1.eqNode(t2);
+  addEqualityInternal(equality, d_true, reason);
 }
 
 template <typename NotifyClass>
@@ -209,10 +221,7 @@ void EqualityEngine<NotifyClass>::addDisequality(TNode t1, TNode t2, TNode reaso
   Debug("equality") << "EqualityEngine::addDisequality(" << t1 << "," << t2 << ")" << std::endl;
 
   Node equality1 = t1.eqNode(t2);
-  addEquality(equality1, d_false, reason);
-
-  Node equality2 = t2.eqNode(t1);
-  addEquality(equality2, d_false, reason);
+  addEqualityInternal(equality1, d_false, reason);
 }
 
 
@@ -721,6 +730,8 @@ void EqualityEngine<NotifyClass>::addTriggerEquality(TNode t1, TNode t2, TNode t
       d_notify.notify(trigger); // Don't care about the return value
     }
   }
+
+  debugPrintGraph();
 
   Debug("equality") << "EqualityEngine::addTrigger(" << t1 << "," << t2 << ") => (" << t1NewTriggerId << ", " << t2NewTriggerId << ")" << std::endl;
 }

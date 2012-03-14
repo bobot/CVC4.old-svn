@@ -558,6 +558,11 @@ private:
   /** The false node */
   Node d_false;
 
+  /**
+   * Adds an equality of terms t1 and t2 to the database.
+   */
+  void addEqualityInternal(TNode t1, TNode t2, TNode reason);
+
 public:
 
   /**

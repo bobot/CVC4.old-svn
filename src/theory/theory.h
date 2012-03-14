@@ -220,7 +220,7 @@ public:
    * Return the ID of the theory responsible for the given type.
    */
   static inline TheoryId theoryOf(TypeNode typeNode) {
-    Trace("theory") << "theoryOf(" << typeNode << ")" << std::endl;
+    Trace("theory::internal") << "theoryOf(" << typeNode << ")" << std::endl;
     TheoryId id;
     while (typeNode.isPredicateSubtype()) {
       typeNode = typeNode.getSubtypeBaseType();
@@ -231,7 +231,7 @@ public:
       id = kindToTheoryId(typeNode.getKind());
     }
     if (id == THEORY_BUILTIN) {
-      Trace("theory") << "theoryOf(" << typeNode << ") == " << s_uninterpretedSortOwner << std::endl;
+      Trace("theory::internal") << "theoryOf(" << typeNode << ") == " << s_uninterpretedSortOwner << std::endl;
       return s_uninterpretedSortOwner;
     }
     return id;
