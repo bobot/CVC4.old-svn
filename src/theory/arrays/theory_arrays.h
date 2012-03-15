@@ -190,6 +190,9 @@ class TheoryArrays : public Theory {
   void addSharedTerm(TNode t);
   EqualityStatus getEqualityStatus(TNode a, TNode b);
   void computeCareGraph(CareGraph& careGraph);
+  bool isShared(TNode t)
+    { return (d_sharedArrays.find(t) != d_sharedArrays.end()); }
+
 
   /////////////////////////////////////////////////////////////////////////////
   // MODEL GENERATION
@@ -237,16 +240,15 @@ class TheoryArrays : public Theory {
 
     void notify(TNode t1, TNode t2) {
       Debug("arrays") << spaces(d_arrays.getContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
-      d_arrays.addToNotifyQueue(t1.eqNode(t2));
-      /*
       if (t1.getType().isArray()) {
-        bool shared = d_arrays.mergeArrays(t1, t2);
-        if (!shared) return;
+        d_arrays.addToNotifyQueue(t1.eqNode(t2));
+        if (!d_arrays.isShared(t1) || !d_arrays.isShared(t2)) {
+          return;
+        }
       }
       // Propagate equality between shared terms
       Node equality = Rewriter::rewriteEquality(theory::THEORY_ARRAY, t1.eqNode(t2));
       d_arrays.propagate(equality);
-      */
     }
   };
 
@@ -259,6 +261,9 @@ class TheoryArrays : public Theory {
 
   // Are we in conflict?
   context::CDO<bool> d_conflict;
+
+  // Does the conflict still need to be explained?
+  context::CDO<bool> d_explain;
 
   /** The conflict node */
   Node d_conflictNode;
@@ -285,7 +290,7 @@ class TheoryArrays : public Theory {
   context::CDList<Node> d_permRef;
 
   Node mkAnd(std::vector<TNode>& conjunctions);
-  bool mergeArrays(TNode a, TNode b);
+  void mergeArrays(TNode a, TNode b);
   void checkStore(TNode a);
   void checkRowForIndex(TNode i, TNode a);
   void checkRowLemmas(TNode a, TNode b);

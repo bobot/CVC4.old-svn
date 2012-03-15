@@ -51,6 +51,7 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_notify(*this),
   d_equalityEngine(d_notify, c, "theory::arrays::TheoryArrays"),
   d_conflict(c, false),
+  d_explain(c, false),
   d_backtracker(c),
   d_infoMap(c,&d_backtracker),
   d_sharedArrays(c),
@@ -331,15 +332,9 @@ bool TheoryArrays::propagate(TNode literal)
       return true;
     } else {
       Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(" << literal << ") => conflict" << std::endl;
-      std::vector<TNode> assumptions;
-      Node negatedLiteral;
-      if (literal != d_false) {
-        negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
-        assumptions.push_back(negatedLiteral);
-      }
-      explain(literal, assumptions);
-      d_conflictNode = mkAnd(assumptions);
       d_conflict = true;
+      d_explain = true;
+      d_conflictNode = literal;
       return false;
     }
   }
@@ -663,20 +658,23 @@ void TheoryArrays::check(Effort e) {
     while (!d_notifyQueue.empty() && !d_conflict) {
       Node n = d_notifyQueue.front();
       d_notifyQueue.pop();
-
-      if (n[0].getType().isArray()) {
-        bool shared = mergeArrays(n[0], n[1]);
-        if (!shared) continue;
-      }
-      // Propagate equality between shared terms
-      Node equality = Rewriter::rewriteEquality(theory::THEORY_ARRAY, n);
-      propagate(equality);
+      mergeArrays(n[0], n[1]);
     }
 
   }
 
   // If in conflict, output the conflict
   if (d_conflict) {
+    if (d_explain) {
+      std::vector<TNode> assumptions;
+      Node negatedLiteral;
+      if (d_conflictNode != d_false) {
+        negatedLiteral = d_conflictNode.getKind() == kind::NOT ? (Node) d_conflictNode[0] : d_conflictNode.notNode();
+        assumptions.push_back(negatedLiteral);
+      }
+      explain(d_conflictNode, assumptions);
+      d_conflictNode = mkAnd(assumptions);
+    }
     Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::check(): conflict " << d_conflictNode << std::endl;
     d_out->conflict(d_conflictNode);
   }
@@ -752,7 +750,7 @@ Node TheoryArrays::mkAnd(std::vector<TNode>& conjunctions)
 
 
 // return true iff a and b are both shared terms
-bool TheoryArrays::mergeArrays(TNode a, TNode b)
+void TheoryArrays::mergeArrays(TNode a, TNode b)
 {
   // Note: a is the new representative
   Assert(a.getType().isArray() && b.getType().isArray());
@@ -762,12 +760,6 @@ bool TheoryArrays::mergeArrays(TNode a, TNode b)
 
   // merge info adds the list of the 2nd argument to the first
   d_infoMap.mergeInfo(a, b);
-
-  if (d_sharedArrays.find(a) != d_sharedArrays.end() &&
-      d_sharedArrays.find(b) != d_sharedArrays.end()) {
-    return true;
-  }
-  return false;
 }
 
 
