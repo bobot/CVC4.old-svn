@@ -474,20 +474,7 @@ void TheoryArrays::propagate(Effort e)
       Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(): propagating " << literal << std::endl;
       bool satValue;
       if (!d_valuation.hasSatValue(literal, satValue)) {
-        // Check for internal conflict
-        // TODO: shouldn't this be caught be EqualityEngine?
-        // if (literal.getKind() == kind::EQUAL &&
-        //     d_equalityEngine.areDisequal(literal[0], literal[1])) {
-        //   std::vector<TNode> assumptions;
-        //   explain(literal, assumptions);
-        //   explain(literal.notNode(), assumptions);
-        //   d_conflictNode = mkAnd(assumptions);
-        //   d_conflict = true;
-        //   break;
-        // }
-        // else {
           d_out->propagate(literal);
-        // }
       } else {
         if (!satValue) {
           Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(): in conflict" << std::endl;
@@ -919,11 +906,17 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
     return;
   }
 
-  // Propagation
+  //Propagation
   if (d_equalityEngine.areDisequal(i,j)) {
     Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::queueRowLemma: propagating aj = bj ("<<aj<<", "<<bj<<")\n";
     Node reason = nm->mkNode(kind::OR, aj.eqNode(bj), i.eqNode(j));
     d_permRef.push_back(reason);
+    if (!d_equalityEngine.hasTerm(aj)) {
+      preRegisterTerm(aj);
+    }
+    if (!d_equalityEngine.hasTerm(bj)) {
+      preRegisterTerm(bj);
+    }
     d_equalityEngine.addEquality(aj, bj, reason);
     ++d_numProp;
     return;
