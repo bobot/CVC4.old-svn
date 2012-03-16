@@ -241,7 +241,7 @@ class TheoryArrays : public Theory {
     void notify(TNode t1, TNode t2) {
       Debug("arrays") << spaces(d_arrays.getContext()->getLevel()) << "NotifyClass::notify(" << t1 << ", " << t2 << ")" << std::endl;
       if (t1.getType().isArray()) {
-        d_arrays.addToNotifyQueue(t1.eqNode(t2));
+        d_arrays.mergeArrays(t1, t2);
         if (!d_arrays.isShared(t1) || !d_arrays.isShared(t2)) {
           return;
         }
@@ -261,9 +261,6 @@ class TheoryArrays : public Theory {
 
   // Are we in conflict?
   context::CDO<bool> d_conflict;
-
-  // Does the conflict still need to be explained?
-  context::CDO<bool> d_explain;
 
   /** The conflict node */
   Node d_conflictNode;
@@ -296,11 +293,6 @@ class TheoryArrays : public Theory {
   void checkRowLemmas(TNode a, TNode b);
   void queueRowLemma(RowLemmaType lem);
   void dischargeLemmas();
-
-
-  context::CDQueue<Node> d_notifyQueue;
-
-  void addToNotifyQueue(TNode n);
 
 };/* class TheoryArrays */
 

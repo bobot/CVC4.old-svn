@@ -51,12 +51,10 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_notify(*this),
   d_equalityEngine(d_notify, c, "theory::arrays::TheoryArrays"),
   d_conflict(c, false),
-  d_explain(c, false),
   d_backtracker(c),
   d_infoMap(c,&d_backtracker),
   d_sharedArrays(c),
-  d_permRef(c),
-  d_notifyQueue(c)
+  d_permRef(c)
 {
   StatisticsRegistry::registerStat(&d_numRow);
   StatisticsRegistry::registerStat(&d_numExt);
@@ -318,7 +316,7 @@ bool TheoryArrays::propagate(TNode literal)
   // If already in conflict, no more propagation
   if (d_conflict) {
     Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(" << literal << "): already in conflict" << std::endl;
-    return true;
+    return false;
   }
 
   // See if the literal has been asserted already
@@ -333,9 +331,15 @@ bool TheoryArrays::propagate(TNode literal)
     } else {
       Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(" << literal << ") => conflict" << std::endl;
       d_conflict = true;
-      d_explain = true;
-      d_conflictNode = literal;
-      return true;
+      std::vector<TNode> assumptions;
+      Node negatedLiteral;
+      if (literal != d_false) {
+        negatedLiteral = literal.getKind() == kind::NOT ? (Node) literal[0] : literal.notNode();
+        assumptions.push_back(negatedLiteral);
+      }
+      explain(literal, assumptions);
+      d_conflictNode = mkAnd(assumptions);
+      return false;
     }
   }
 
@@ -518,6 +522,7 @@ void TheoryArrays::addSharedTerm(TNode t) {
 
 
 EqualityStatus TheoryArrays::getEqualityStatus(TNode a, TNode b) {
+  Assert(d_equalityEngine.hasTerm(a) && d_equalityEngine.hasTerm(b));
   if (d_equalityEngine.areEqual(a, b)) {
     // The terms are implied to be equal
     return EQUALITY_TRUE;
@@ -654,27 +659,10 @@ void TheoryArrays::check(Effort e) {
       default:
         Unreachable();
     }
-
-    while (!d_notifyQueue.empty() && !d_conflict) {
-      Node n = d_notifyQueue.front();
-      d_notifyQueue.pop();
-      mergeArrays(n[0], n[1]);
-    }
-
   }
 
   // If in conflict, output the conflict
   if (d_conflict) {
-    if (d_explain) {
-      std::vector<TNode> assumptions;
-      Node negatedLiteral;
-      if (d_conflictNode != d_false) {
-        negatedLiteral = d_conflictNode.getKind() == kind::NOT ? (Node) d_conflictNode[0] : d_conflictNode.notNode();
-        assumptions.push_back(negatedLiteral);
-      }
-      explain(d_conflictNode, assumptions);
-      d_conflictNode = mkAnd(assumptions);
-    }
     Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::check(): conflict " << d_conflictNode << std::endl;
     d_out->conflict(d_conflictNode);
   }
@@ -690,12 +678,6 @@ void TheoryArrays::check(Effort e) {
   }
 
   Trace("arrays") << spaces(getContext()->getLevel()) << "Arrays::check(): done" << endl;
-}
-
-
-void TheoryArrays::addToNotifyQueue(TNode n)
-{
-  d_notifyQueue.push(n);
 }
 
 
@@ -886,6 +868,12 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
   NodeManager* nm = NodeManager::currentNM();
   Node aj = nm->mkNode(kind::SELECT, a, j);
   Node bj = nm->mkNode(kind::SELECT, b, j);
+  if (!d_equalityEngine.hasTerm(aj)) {
+    preRegisterTerm(aj);
+  }
+  if (!d_equalityEngine.hasTerm(bj)) {
+    preRegisterTerm(bj);
+  }
 
   if (d_equalityEngine.areEqual(a,b) ||
       d_equalityEngine.areEqual(i,j) ||
@@ -898,12 +886,6 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
     Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::queueRowLemma: propagating aj = bj ("<<aj<<", "<<bj<<")\n";
     Node reason = nm->mkNode(kind::OR, aj.eqNode(bj), i.eqNode(j));
     d_permRef.push_back(reason);
-    if (!d_equalityEngine.hasTerm(aj)) {
-      preRegisterTerm(aj);
-    }
-    if (!d_equalityEngine.hasTerm(bj)) {
-      preRegisterTerm(bj);
-    }
     d_equalityEngine.addEquality(aj, bj, reason);
     ++d_numProp;
     return;
