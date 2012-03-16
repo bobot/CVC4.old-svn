@@ -318,7 +318,7 @@ bool TheoryArrays::propagate(TNode literal)
   // If already in conflict, no more propagation
   if (d_conflict) {
     Debug("arrays") << spaces(getContext()->getLevel()) << "TheoryArrays::propagate(" << literal << "): already in conflict" << std::endl;
-    return false;
+    return true;
   }
 
   // See if the literal has been asserted already
@@ -335,7 +335,7 @@ bool TheoryArrays::propagate(TNode literal)
       d_conflict = true;
       d_explain = true;
       d_conflictNode = literal;
-      return false;
+      return true;
     }
   }
 
@@ -715,7 +715,6 @@ Node TheoryArrays::mkAnd(std::vector<TNode>& conjunctions)
     if (t == d_true) continue;
 
     // Expand explanation resulting from propagating a ROW lemma
-    //!d_valuation.isSatLiteral(t) || d_valuation.getSatValue(t) != d_true) {
     if (t.getKind() == kind::OR) {
       if ((explained.find(t) == explained.end())) {
         Assert(t[1].getKind() == kind::EQUAL);
@@ -726,10 +725,6 @@ Node TheoryArrays::mkAnd(std::vector<TNode>& conjunctions)
     }
     all.insert(t);
   }
-  // all.insert(conjunctions.begin(), conjunctions.end());
-  // TODO: move this check somewhere else?
-  // Remove true assumption - these come from using equalities that are instances of axioms
-  //  all.erase(NodeManager::currentNM()->mkConst<bool>(true));
 
   Assert(all.size() > 0);
   if (all.size() == 1) {
