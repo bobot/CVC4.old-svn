@@ -528,9 +528,6 @@ void EqualityEngine<NotifyClass>::explainEquality(TNode t1, TNode t2, std::vecto
   // Don't notify during this check
   ScopedBool turnOfNotify(d_performNotify, false);
 
-  // Push the context, so that we can remove the terms later
-  d_context->push();
-
   // Add the terms (they might not be there)
   addTerm(t1);
   addTerm(t2);
@@ -549,8 +546,6 @@ void EqualityEngine<NotifyClass>::explainEquality(TNode t1, TNode t2, std::vecto
   EqualityNodeId t2Id = getNodeId(t2);
   getExplanation(t1Id, t2Id, equalities);
 
-  // Pop the possible extra information
-  d_context->pop();
 }
 
 template <typename NotifyClass>
@@ -559,9 +554,6 @@ void EqualityEngine<NotifyClass>::explainDisequality(TNode t1, TNode t2, std::ve
 
   // Don't notify during this check
   ScopedBool turnOfNotify(d_performNotify, false);
-
-  // Push the context, so that we can remove the terms later
-  d_context->push();
 
   // Add the terms
   addTerm(t1);
@@ -585,8 +577,6 @@ void EqualityEngine<NotifyClass>::explainDisequality(TNode t1, TNode t2, std::ve
   EqualityNodeId falseId = getNodeId(d_false);
   getExplanation(equalityId, falseId, equalities);
 
-  // Pop the possible extra information
-  d_context->pop();
 }
 
 
@@ -823,16 +813,10 @@ bool EqualityEngine<NotifyClass>::areEqual(TNode t1, TNode t2)
   // Don't notify during this check
   ScopedBool turnOfNotify(d_performNotify, false);
 
-  // Push the context, so that we can remove the terms later
-  d_context->push();
-
   // Add the terms
   addTerm(t1);
   addTerm(t2);
   bool equal = getEqualityNode(t1).getFind() == getEqualityNode(t2).getFind();
-
-  // Pop the context (triggers new term removal)
-  d_context->pop();
 
   // Return whether the two terms are equal
   return equal;
@@ -844,9 +828,6 @@ bool EqualityEngine<NotifyClass>::areDisequal(TNode t1, TNode t2)
   // Don't notify during this check
   ScopedBool turnOfNotify(d_performNotify, false);
 
-  // Push the context, so that we can remove the terms later
-  d_context->push();
-
   // Add the terms
   addTerm(t1);
   addTerm(t2);
@@ -855,12 +836,8 @@ bool EqualityEngine<NotifyClass>::areDisequal(TNode t1, TNode t2)
   Node equality = t1.eqNode(t2);
   addTerm(equality);
   if (getEqualityNode(equality).getFind() == getEqualityNode(d_false).getFind()) {
-    d_context->pop();
     return true;
   }
-
-  // Pop the context (triggers new term removal)
-  d_context->pop();
 
   // Return whether the terms are disequal
   return false;
