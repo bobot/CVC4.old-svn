@@ -34,7 +34,8 @@ namespace theory {
 namespace arrays {
 
 
-// use static configuration of options for now
+// These are the options that produce the best empirical results on QF_AX benchmarks.
+// Use static configuration of options for now
 const bool d_ccStore = false;
 const bool d_useArrTable = false;
 const bool d_eagerLemmas = true;
