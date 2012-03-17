@@ -26,6 +26,7 @@
 #include "util/stats.h"
 #include "theory/uf/equality_engine.h"
 #include "context/cdhashmap.h"
+#include "context/cdhashset.h"
 #include "context/cdqueue.h"
 
 namespace CVC4 {
@@ -189,7 +190,7 @@ class TheoryArrays : public Theory {
 
   void addSharedTerm(TNode t);
   EqualityStatus getEqualityStatus(TNode a, TNode b);
-  void computeCareGraph(CareGraph& careGraph);
+  //  void computeCareGraph(CareGraph& careGraph);
   bool isShared(TNode t)
     { return (d_sharedArrays.find(t) != d_sharedArrays.end()); }
 
@@ -208,9 +209,6 @@ class TheoryArrays : public Theory {
   /////////////////////////////////////////////////////////////////////////////
 
   private:
-
-  context::CDO<bool> d_donePreregister;
-
   public:
 
   void presolve();
@@ -276,9 +274,8 @@ class TheoryArrays : public Theory {
 
   typedef quad<TNode, TNode, TNode, TNode> RowLemmaType;
 
-  //TODO: These should be CD
-  std::hash_set<RowLemmaType, RowLemmaTypeHashFunction > d_RowQueue;
-  std::hash_set<RowLemmaType, RowLemmaTypeHashFunction > d_RowAlreadyAdded;
+  context::CDQueue<RowLemmaType > d_RowQueue;
+  context::CDHashSet<RowLemmaType, RowLemmaTypeHashFunction > d_RowAlreadyAdded;
 
   context::CDHashMap<TNode, bool, TNodeHashFunction> d_sharedArrays;
   std::hash_map<TNode, Node, TNodeHashFunction> d_diseqCache;

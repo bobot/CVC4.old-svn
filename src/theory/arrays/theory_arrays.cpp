@@ -34,6 +34,13 @@ namespace theory {
 namespace arrays {
 
 
+// use static configuration of options for now
+const bool d_ccStore = false;
+const bool d_useArrTable = false;
+const bool d_eagerLemmas = true;
+const bool d_propagateLemmas = false;
+const bool d_preprocess = true;
+
 TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARRAY, c, u, out, valuation),
   d_numRow("theory::arrays::number of Row lemmas", 0),
@@ -47,12 +54,13 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_ppCache(u),  
   d_literalsToPropagate(c),
   d_literalsToPropagateIndex(c, 0),
-  d_donePreregister(u, false),
   d_notify(*this),
   d_equalityEngine(d_notify, c, "theory::arrays::TheoryArrays"),
   d_conflict(c, false),
   d_backtracker(c),
   d_infoMap(c,&d_backtracker),
+  d_RowQueue(u),
+  d_RowAlreadyAdded(u),
   d_sharedArrays(c),
   d_permRef(c)
 {
@@ -75,8 +83,13 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
 
   // The kinds we are treating as function application in congruence
   d_equalityEngine.addFunctionKind(kind::SELECT);
-  //  d_equalityEngine.addFunctionKind(kind::STORE);
+  if (d_ccStore) {
+    d_equalityEngine.addFunctionKind(kind::STORE);
+  }
   d_equalityEngine.addFunctionKind(kind::EQUAL);
+  if (d_useArrTable) {
+    d_equalityEngine.addFunctionKind(kind::ARR_TABLE_FUN);
+  }
 }
 
 
@@ -298,7 +311,7 @@ Theory::PPAssertStatus TheoryArrays::ppAssert(TNode in, SubstitutionMap& outSubs
 
 
 Node TheoryArrays::ppRewrite(TNode atom) {
-  if (d_donePreregister) return atom;
+  if (!d_preprocess) return atom;
   Assert(atom.getKind() == kind::EQUAL, "expected EQUAL, got %s", atom.toString().c_str());
   return recursivePreprocessTerm(atom);
 }
@@ -531,16 +544,15 @@ EqualityStatus TheoryArrays::getEqualityStatus(TNode a, TNode b) {
     // The terms are implied to be dis-equal
     return EQUALITY_FALSE;
   }
-  // All other terms we interpret as dis-equal in the model
-  // TODO: check this
-  return EQUALITY_FALSE_IN_MODEL;
+  //TODO: can be be more precise sometimes?
+  return EQUALITY_UNKNOWN;
 }
 
 
-void TheoryArrays::computeCareGraph(CareGraph& careGraph)
-{
-  // TODO
-}
+// void TheoryArrays::computeCareGraph(CareGraph& careGraph)
+// {
+//   // TODO
+// }
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -576,7 +588,6 @@ Node TheoryArrays::getValue(TNode n)
 void TheoryArrays::presolve()
 {
   Trace("arrays")<<"Presolving \n";
-  d_donePreregister = true;
 }
 
 
@@ -587,8 +598,6 @@ void TheoryArrays::presolve()
 
 void TheoryArrays::check(Effort e) {
   TimerStat::CodeTimer codeTimer(d_checkTimer);
-
-  Assert(d_donePreregister);
 
   while (!done() && !d_conflict) 
   {
@@ -670,7 +679,7 @@ void TheoryArrays::check(Effort e) {
     // Otherwise we propagate
     propagate(e);
 
-    if(fullEffort(e)) {
+    if(!d_eagerLemmas && fullEffort(e)) {
       // generate the lemmas on the worklist
       Trace("arrays-lem")<<"Arrays::discharging lemmas: "<<d_RowQueue.size()<<"\n";
       dischargeLemmas();
@@ -726,11 +735,12 @@ Node TheoryArrays::mkAnd(std::vector<TNode>& conjunctions)
 }
 
 
-// return true iff a and b are both shared terms
 void TheoryArrays::mergeArrays(TNode a, TNode b)
 {
   // Note: a is the new representative
   Assert(a.getType().isArray() && b.getType().isArray());
+
+  // TODO: check if a and b become nonlinear
 
   checkRowLemmas(a,b);
   checkRowLemmas(b,a);
@@ -749,11 +759,13 @@ void TheoryArrays::checkStore(TNode a) {
   Assert(a.getType().isArray());
   Assert(a.getKind()==kind::STORE);
   TNode b = a[0];
+  Assert(d_equalityEngine.getRepresentative(b) == b);
   TNode i = a[1];
 
   List<TNode>* js = d_infoMap.getIndices(b);
   List<TNode>::const_iterator it = js->begin();
 
+  // TODO: do only if b is nonlinear
   RowLemmaType lem;
   for(; it!= js->end(); it++) {
     TNode j = *it;
@@ -791,6 +803,7 @@ void TheoryArrays::checkRowForIndex(TNode i, TNode a)
     queueRowLemma(lem);
   }
 
+  // TODO: only if a is nonlinear
   it = instores->begin();
   for(; it!= instores->end(); it++) {
     TNode instore = *it;
@@ -840,6 +853,7 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b)
 
   it = i_a->begin();
 
+  //TODO: only if b is nonlinear
   for( ; it != i_a->end(); it++ ) {
     TNode i = *it;
     its = inst_b->begin();
@@ -849,7 +863,6 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b)
       TNode j = store[1];
       TNode c = store[0];
       lem = make_quad(store, c, j, i);
-      // TODO: check nonlinear?
       Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::checkRowLemmas ("<<store<<", "<<c<<", "<<j<<", "<<i<<")\n";
       queueRowLemma(lem);
     }
@@ -860,12 +873,21 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b)
 
 void TheoryArrays::queueRowLemma(RowLemmaType lem)
 {
+  if (d_RowAlreadyAdded.count(lem) != 0) {
+    return;
+  }
   TNode a = lem.first;
   TNode b = lem.second;
   TNode i = lem.third;
   TNode j = lem.fourth;
   Assert(a.getType().isArray() && b.getType().isArray());
+  if (d_equalityEngine.areEqual(a,b) ||
+      d_equalityEngine.areEqual(i,j)) {
+    return;
+  }
+
   NodeManager* nm = NodeManager::currentNM();
+
   Node aj = nm->mkNode(kind::SELECT, a, j);
   Node bj = nm->mkNode(kind::SELECT, b, j);
   if (!d_equalityEngine.hasTerm(aj)) {
@@ -875,51 +897,69 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
     preRegisterTerm(bj);
   }
 
-  if (d_equalityEngine.areEqual(a,b) ||
-      d_equalityEngine.areEqual(i,j) ||
-      d_equalityEngine.areEqual(aj,bj)) {
+  if (d_equalityEngine.areEqual(aj,bj)) {
     return;
   }
 
-  //Propagation
-  if (d_equalityEngine.areDisequal(i,j)) {
-    Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::queueRowLemma: propagating aj = bj ("<<aj<<", "<<bj<<")\n";
-    Node reason = nm->mkNode(kind::OR, aj.eqNode(bj), i.eqNode(j));
-    d_permRef.push_back(reason);
-    d_equalityEngine.addEquality(aj, bj, reason);
-    ++d_numProp;
-    return;
+  if (d_useArrTable) {
+    Node tableEntry = nm->mkNode(kind::ARR_TABLE_FUN, a, b, i, j);
+    if (d_equalityEngine.getSize(tableEntry) != 1) {
+      return;
+    }
   }
-  if (d_equalityEngine.areDisequal(aj,bj)) {
-    Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::queueRowLemma: propagating i = j ("<<i<<", "<<j<<")\n";
-    Node reason = nm->mkNode(kind::OR, i.eqNode(j), aj.eqNode(bj));
-    d_permRef.push_back(reason);
-    d_equalityEngine.addEquality(i, j, reason);
-    ++d_numProp;
-    return;
+
+  //Propagation
+  if (d_propagateLemmas) {
+    if (d_equalityEngine.areDisequal(i,j)) {
+      Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::queueRowLemma: propagating aj = bj ("<<aj<<", "<<bj<<")\n";
+      Node reason = nm->mkNode(kind::OR, aj.eqNode(bj), i.eqNode(j));
+      d_permRef.push_back(reason);
+      d_equalityEngine.addEquality(aj, bj, reason);
+      ++d_numProp;
+      return;
+    }
+    if (d_equalityEngine.areDisequal(aj,bj)) {
+      Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::queueRowLemma: propagating i = j ("<<i<<", "<<j<<")\n";
+      Node reason = nm->mkNode(kind::OR, i.eqNode(j), aj.eqNode(bj));
+      d_permRef.push_back(reason);
+      d_equalityEngine.addEquality(i, j, reason);
+      ++d_numProp;
+      return;
+    }
   }
 
   // TODO: maybe add triggers here
 
-  if (d_RowAlreadyAdded.count(lem) == 0) {
-    d_RowQueue.insert(lem);
+  Node eq1 = nm->mkNode(kind::EQUAL, aj, bj);
+  Node eq2 = nm->mkNode(kind::EQUAL, i, j);
+  Node lemma = nm->mkNode(kind::OR, eq2, eq1);
+
+  if (d_eagerLemmas) {
+    Trace("arrays-lem")<<"Arrays::addRowLemma adding "<<lemma<<"\n";
+    d_RowAlreadyAdded.insert(lem);
+    d_out->lemma(lemma);
+    ++d_numRow;
+  }
+  else {
+    d_RowQueue.push(lem);
   }
 }
 
 
 void TheoryArrays::dischargeLemmas()
 {
-  // we need to swap the temporary lists because adding a lemma calls preregister
-  // which might modify the d_RowQueue we would be iterating through
-  hash_set<RowLemmaType, RowLemmaTypeHashFunction > temp_Row;
-  temp_Row.swap(d_RowQueue);
+  size_t sz = d_RowQueue.size();
+  for (unsigned count = 0; count < sz; ++count) {
+    RowLemmaType l = d_RowQueue.front();
+    d_RowQueue.pop();
+    if (d_RowAlreadyAdded.count(l) != 0) {
+      continue;
+    }
 
-  hash_set<RowLemmaType, RowLemmaTypeHashFunction >::const_iterator it1 = temp_Row.begin();
-  for( ; it1!= temp_Row.end(); it1++) {
-    TNode a = (*it1).first;
-    TNode b = (*it1).second;
-    TNode i = (*it1).third;
-    TNode j = (*it1).fourth;
+    TNode a = l.first;
+    TNode b = l.second;
+    TNode i = l.third;
+    TNode j = l.fourth;
     Assert(a.getType().isArray() && b.getType().isArray());
 
     NodeManager* nm = NodeManager::currentNM();
@@ -931,9 +971,7 @@ void TheoryArrays::dischargeLemmas()
     if (d_equalityEngine.areEqual(i,j) ||
         d_equalityEngine.areEqual(a,b) ||
         d_equalityEngine.areEqual(aj,bj)) {
-      // Put it back in queue - might need it later
-      // TODO: is this really what we want to do?
-      d_RowQueue.insert((*it1));
+      d_RowQueue.push(l);
       continue;
     }
 
@@ -943,7 +981,7 @@ void TheoryArrays::dischargeLemmas()
     Node lem = nm->mkNode(kind::OR, eq2, eq1);
 
     Trace("arrays-lem")<<"Arrays::addRowLemma adding "<<lem<<"\n";
-    d_RowAlreadyAdded.insert((*it1));
+    d_RowAlreadyAdded.insert(l);
     d_out->lemma(lem);
     ++d_numRow;
   }

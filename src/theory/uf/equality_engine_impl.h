@@ -844,6 +844,14 @@ bool EqualityEngine<NotifyClass>::areDisequal(TNode t1, TNode t2)
 }
 
 template <typename NotifyClass>
+size_t EqualityEngine<NotifyClass>::getSize(TNode t)
+{
+  // Add the term
+  addTerm(t);
+  return getEqualityNode(getEqualityNode(t).getFind()).getSize();
+}
+
+template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::addTriggerTerm(TNode t) 
 {
   Debug("equality::internal") << "EqualityEngine::addTriggerTerm(" << t << ")" << std::endl;

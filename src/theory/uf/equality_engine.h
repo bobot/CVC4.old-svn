@@ -688,6 +688,13 @@ public:
    * Check whether the two term are dis-equal.
    */
   bool areDisequal(TNode t1, TNode t2);
+
+  /**
+   * Return the number of nodes in the equivalence class contianing t
+   * Adds t if not already there.
+   */
+  size_t getSize(TNode t);
+
 };
 
 } // Namespace uf
