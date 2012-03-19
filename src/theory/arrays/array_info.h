@@ -82,11 +82,12 @@ bool inList(const CTNodeList* l, const TNode el);
 
 class Info {
 public:
+  context::CDO<bool> isNonLinear;
   List<TNode>* indices;
   CTNodeList* stores;
   CTNodeList* in_stores;
 
-  Info(context::Context* c, Backtracker<TNode>* bck) {
+  Info(context::Context* c, Backtracker<TNode>* bck) : isNonLinear(c, false) {
     indices = new List<TNode>(bck);
     stores = new(true)CTNodeList(c);
     in_stores = new(true)CTNodeList(c);
@@ -229,12 +230,15 @@ public:
   void addStore(const Node a, const TNode st);
   void addInStore(const TNode a, const TNode st);
 
+  void setNonLinear(const TNode a);
 
   /**
    * Returns the information associated with TNode a
    */
 
   const Info* getInfo(const TNode a) const;
+
+  const bool isNonLinear(const TNode a) const;
 
   List<TNode>* getIndices(const TNode a) const;
 

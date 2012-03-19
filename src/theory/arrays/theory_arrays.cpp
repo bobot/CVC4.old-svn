@@ -41,6 +41,9 @@ const bool d_useArrTable = false;
 const bool d_eagerLemmas = true;
 const bool d_propagateLemmas = false;
 const bool d_preprocess = true;
+const bool d_solveWrite = false;
+const bool d_useNonLinearOpt = true;
+
 
 TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation) :
   Theory(THEORY_ARRAY, c, u, out, valuation),
@@ -48,6 +51,7 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_numExt("theory::arrays::number of Ext lemmas", 0),
   d_numProp("theory::arrays::number of propagations", 0),
   d_numExplain("theory::arrays::number of explanations", 0),
+  d_numNonLinear("theory::arrays::number of calls to setNonLinear", 0),
   d_checkTimer("theory::arrays::checkTime"),
   d_ppNotify(),
   d_ppEqualityEngine(d_ppNotify, u, "theory::arrays::TheoryArraysPP"),
@@ -69,6 +73,7 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   StatisticsRegistry::registerStat(&d_numExt);
   StatisticsRegistry::registerStat(&d_numProp);
   StatisticsRegistry::registerStat(&d_numExplain);
+  StatisticsRegistry::registerStat(&d_numNonLinear);
   StatisticsRegistry::registerStat(&d_checkTimer);
 
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
@@ -100,6 +105,7 @@ TheoryArrays::~TheoryArrays() {
   StatisticsRegistry::unregisterStat(&d_numExt);
   StatisticsRegistry::unregisterStat(&d_numProp);
   StatisticsRegistry::unregisterStat(&d_numExplain);
+  StatisticsRegistry::unregisterStat(&d_numNonLinear);
   StatisticsRegistry::unregisterStat(&d_checkTimer);
 
 }
@@ -134,6 +140,7 @@ Node TheoryArrays::preprocessTerm(TNode term) {
       break;
     }
     case kind::EQUAL: {
+      if (!d_solveWrite) break;
       if (term[0].getKind() == kind::STORE ||
           term[1].getKind() == kind::STORE) {
         TNode left = term[0];
@@ -736,12 +743,81 @@ Node TheoryArrays::mkAnd(std::vector<TNode>& conjunctions)
 }
 
 
+void TheoryArrays::setNonLinear(TNode a)
+{
+  if (d_infoMap.isNonLinear(a)) return;
+
+  Trace("arrays") << spaces(getContext()->getLevel()) << "Arrays::setNonLinear (" << a << ")\n";
+  d_infoMap.setNonLinear(a);
+  ++d_numNonLinear;
+
+  List<TNode>* i_a = d_infoMap.getIndices(a);
+  const CTNodeList* st_a = d_infoMap.getStores(a);
+  const CTNodeList* inst_a = d_infoMap.getInStores(a);
+
+  CTNodeList::const_iterator it = st_a->begin();
+
+  // Propagate non-linearity down chain of stores
+  for(; it!= st_a->end(); ++it) {
+    TNode store = *it;
+    Assert(store.getKind()==kind::STORE);
+    setNonLinear(store[0]);
+  }
+
+  // Instantiate ROW lemmas that were ignored before
+  List<TNode>::const_iterator itl = i_a->begin();
+  RowLemmaType lem;
+  for(; itl != i_a->end(); ++itl ) {
+    TNode i = *itl;
+    it = inst_a->begin();
+    for ( ; it !=inst_a->end(); ++it) {
+      TNode store = *it;
+      Assert(store.getKind() == kind::STORE);
+      TNode j = store[1];
+      TNode c = store[0];
+      lem = make_quad(store, c, j, i);
+      Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::setNonLinear ("<<store<<", "<<c<<", "<<j<<", "<<i<<")\n";
+      queueRowLemma(lem);
+    }
+  }
+
+}
+
+
 void TheoryArrays::mergeArrays(TNode a, TNode b)
 {
   // Note: a is the new representative
   Assert(a.getType().isArray() && b.getType().isArray());
 
-  // TODO: check if a and b become nonlinear
+  if (d_useNonLinearOpt) {
+    bool aNL = d_infoMap.isNonLinear(a);
+    bool bNL = d_infoMap.isNonLinear(b);
+    if (aNL) {
+      if (bNL) {
+        // already both marked as non-linear - no need to do anything
+      }
+      else {
+        // Set b to be non-linear
+        setNonLinear(b);
+      }
+    }
+    else {
+      if (bNL) {
+        // Set a to be non-linear
+        setNonLinear(a);
+      }
+      else {
+        // Check for new non-linear arrays
+        const CTNodeList* astores = d_infoMap.getStores(a);
+        const CTNodeList* bstores = d_infoMap.getStores(a);
+        Assert(astores->size() <= 1 && bstores->size() <= 1);
+        if (astores->size() > 0 && bstores->size() > 0) {
+          setNonLinear(a);
+          setNonLinear(b);
+        }
+      }
+    }
+  }
 
   checkRowLemmas(a,b);
   checkRowLemmas(b,a);
@@ -760,20 +836,22 @@ void TheoryArrays::checkStore(TNode a) {
   Assert(a.getType().isArray());
   Assert(a.getKind()==kind::STORE);
   TNode b = a[0];
-  Assert(d_equalityEngine.getRepresentative(b) == b);
   TNode i = a[1];
 
-  List<TNode>* js = d_infoMap.getIndices(b);
-  List<TNode>::const_iterator it = js->begin();
+  TNode brep = d_equalityEngine.getRepresentative(b);
 
-  // TODO: do only if b is nonlinear
-  RowLemmaType lem;
-  for(; it!= js->end(); it++) {
-    TNode j = *it;
-    if (i == j) continue;
-    lem = make_quad(a,b,i,j);
-    Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::checkStore ("<<a<<", "<<b<<", "<<i<<", "<<j<<")\n";
-    queueRowLemma(lem);
+  if (!d_useNonLinearOpt || d_infoMap.isNonLinear(brep)) {
+    List<TNode>* js = d_infoMap.getIndices(brep);
+    List<TNode>::const_iterator it = js->begin();
+
+    RowLemmaType lem;
+    for(; it!= js->end(); ++it) {
+      TNode j = *it;
+      if (i == j) continue;
+      lem = make_quad(a,b,i,j);
+      Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::checkStore ("<<a<<", "<<b<<", "<<i<<", "<<j<<")\n";
+      queueRowLemma(lem);
+    }
   }
 }
 
@@ -794,7 +872,7 @@ void TheoryArrays::checkRowForIndex(TNode i, TNode a)
   CTNodeList::const_iterator it = stores->begin();
   RowLemmaType lem;
 
-  for(; it!= stores->end(); it++) {
+  for(; it!= stores->end(); ++it) {
     TNode store = *it;
     Assert(store.getKind()==kind::STORE);
     TNode j = store[1];
@@ -804,16 +882,17 @@ void TheoryArrays::checkRowForIndex(TNode i, TNode a)
     queueRowLemma(lem);
   }
 
-  // TODO: only if a is nonlinear
-  it = instores->begin();
-  for(; it!= instores->end(); it++) {
-    TNode instore = *it;
-    Assert(instore.getKind()==kind::STORE);
-    TNode j = instore[1];
-    if (i == j) continue;
-    lem = make_quad(instore, instore[0], j, i);
-    Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::checkRowForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
-    queueRowLemma(lem);
+  if (!d_useNonLinearOpt || d_infoMap.isNonLinear(a)) {
+    it = instores->begin();
+    for(; it!= instores->end(); ++it) {
+      TNode instore = *it;
+      Assert(instore.getKind()==kind::STORE);
+      TNode j = instore[1];
+      if (i == j) continue;
+      lem = make_quad(instore, instore[0], j, i);
+      Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::checkRowForIndex ("<<instore<<", "<<instore[0]<<", "<<j<<", "<<i<<")\n";
+      queueRowLemma(lem);
+    }
   }
 }
 
@@ -838,10 +917,10 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b)
 
   RowLemmaType lem;
 
-  for( ; it != i_a->end(); it++ ) {
+  for( ; it != i_a->end(); ++it ) {
     TNode i = *it;
     its = st_b->begin();
-    for ( ; its != st_b->end(); its++) {
+    for ( ; its != st_b->end(); ++its) {
       TNode store = *its;
       Assert(store.getKind() == kind::STORE);
       TNode j = store[1];
@@ -852,20 +931,19 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b)
     }
   }
 
-  it = i_a->begin();
-
-  //TODO: only if b is nonlinear
-  for( ; it != i_a->end(); it++ ) {
-    TNode i = *it;
-    its = inst_b->begin();
-    for ( ; its !=inst_b->end(); its++) {
-      TNode store = *its;
-      Assert(store.getKind() == kind::STORE);
-      TNode j = store[1];
-      TNode c = store[0];
-      lem = make_quad(store, c, j, i);
-      Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::checkRowLemmas ("<<store<<", "<<c<<", "<<j<<", "<<i<<")\n";
-      queueRowLemma(lem);
+  if (!d_useNonLinearOpt || d_infoMap.isNonLinear(b)) {
+    for(it = i_a->begin() ; it != i_a->end(); ++it ) {
+      TNode i = *it;
+      its = inst_b->begin();
+      for ( ; its !=inst_b->end(); ++its) {
+        TNode store = *its;
+        Assert(store.getKind() == kind::STORE);
+        TNode j = store[1];
+        TNode c = store[0];
+        lem = make_quad(store, c, j, i);
+        Trace("arrays-lem") << spaces(getContext()->getLevel()) <<"Arrays::checkRowLemmas ("<<store<<", "<<c<<", "<<j<<", "<<i<<")\n";
+        queueRowLemma(lem);
+      }
     }
   }
   Trace("arrays-crl")<<"Arrays::checkLemmas done.\n";

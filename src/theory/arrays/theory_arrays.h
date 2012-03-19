@@ -113,6 +113,8 @@ class TheoryArrays : public Theory {
   IntStat d_numProp;
   /** number of explanations */
   IntStat d_numExplain;
+  /** calls to non-linear */
+  IntStat d_numNonLinear;
   /** time spent in check() */
   TimerStat d_checkTimer;
 
@@ -284,6 +286,7 @@ class TheoryArrays : public Theory {
   context::CDList<Node> d_permRef;
 
   Node mkAnd(std::vector<TNode>& conjunctions);
+  void setNonLinear(TNode a);
   void mergeArrays(TNode a, TNode b);
   void checkStore(TNode a);
   void checkRowForIndex(TNode i, TNode a);
