@@ -65,6 +65,17 @@ void TheoryRewriteRules::computeMatchBody ( const RewriteRule & rule,
   }
 }
 
+inline void addPattern(TheoryRewriteRules & re,
+                       TNode tri,
+                       std::vector<Node> & pattern,
+                       std::vector<Node> & vars,
+                       std::vector<Node> & inst_constants,
+                       TNode r){
+  if (tri.getKind() == kind::NOT) tri = tri[0];
+  pattern.push_back(re.getQuantifiersEngine()->
+                    convertNodeToPattern(tri,r,vars,inst_constants));
+}
+
 void TheoryRewriteRules::addRewriteRule(const Node r)
 {
   Assert(r.getKind() == kind::REWRITE_RULE);
@@ -93,8 +104,7 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
   case kind::RR_REWRITE:
     /* Equality */
     to_remove.push_back(head);
-    pattern.push_back(getQuantifiersEngine()->
-                      convertNodeToPattern(head,r,vars,inst_constants));
+    addPattern(*this,head,pattern,vars,inst_constants,r);
     body = head.eqNode(body);
     break;
   case kind::RR_REDUCTION:
@@ -107,15 +117,13 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
       guards.reserve(head.getNumChildren());
       for(Node::iterator i = head.begin(); i != head.end(); ++i) {
         guards.push_back(*i);
-        pattern.push_back(getQuantifiersEngine()->
-                          convertNodeToPattern(*i,r,vars,inst_constants));
+        addPattern(*this,*i,pattern,vars,inst_constants,r);
       };
       break;
     default:
       if (head != d_true){
         guards.push_back(head);
-        pattern.push_back(getQuantifiersEngine()->
-                          convertNodeToPattern(head,r,vars,inst_constants));
+        addPattern(*this,head,pattern,vars,inst_constants,r);
       };
       /** otherwise guards is empty */
     };
@@ -138,10 +146,13 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
   };
   /* Add the other triggers */
   if( r[2].getNumChildren() >= 3 )
+  if (!disableAdditionnalTrigger ||
+      (pattern.size() == 0 && r[2][2].getNumChildren() == 1) )
     for(Node::iterator i = r[2][2].begin(); i != r[2][2].end(); ++i) {
-      pattern.push_back(getQuantifiersEngine()->
-                        convertNodeToPattern(*i,r,vars,inst_constants));
+      // todo test during typing that its a good term (no not, atom, or term...)
+      addPattern(*this,(*i)[0],pattern,vars,inst_constants,r);
     };
+  Assert(pattern.size() == 1, "currently only single pattern are supported");
   // final construction
   Trigger trigger = createTrigger(r,pattern);
   Trigger trigger2 = createTrigger(r,pattern); //Hack

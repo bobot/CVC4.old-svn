@@ -58,6 +58,9 @@ public:
       if( n.getNumChildren() == 3 && n[2].getType(check)!=nodeManager->instPatternListType() ){
         throw TypeCheckingExceptionPrivate(n, "third argument of rewrite rule is not instantiation pattern list");
       }
+      if( n[0].getKind()!=kind::APPLY_UF ){
+        throw TypeCheckingExceptionPrivate(n[0], "head of rewrite rules must start with an uninterpreted symbols. If you want to write a propagation rule, add the guard [true] for disambiguation");
+      }
     }
     return TypeNode(nodeManager->mkTypeConst<TypeConstant>(RRHB_TYPE));
   }
@@ -79,6 +82,9 @@ public:
       }
       if( n.getNumChildren() == 3 && n[2].getType(check)!=nodeManager->instPatternListType() ){
         throw TypeCheckingExceptionPrivate(n, "third argument of rewrite rule is not instantiation pattern list");
+      }
+      if( n.getNumChildren() < 3 && n[ 0 ] == nodeManager->mkConst<bool>(true) ){
+        throw TypeCheckingExceptionPrivate(n, "A rewrite rule must have one head or one trigger at least");
       }
     }
     return TypeNode(nodeManager->mkTypeConst<TypeConstant>(RRHB_TYPE));

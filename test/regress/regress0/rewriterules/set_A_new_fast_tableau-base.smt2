@@ -1,0 +1,83 @@
+;; A new fast tableau-base ... Domenico Cantone et Calogero G.Zarba
+(set-logic LIA)
+(set-info :status unsat)
+
+;; don't use a datatypes for currently focusing in uf
+(declare-sort elt 0)
+(declare-sort set 0)
+
+(declare-fun in (elt set) Bool)
+
+;;;;;;;;;;;;;;;;;;;;
+;; inter
+
+(declare-fun inter (set set)  set)
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (in ?s (inter ?t1 ?t2)) (and (in ?s ?t1) (in ?s ?t2))) :rewrite-rule)))
+
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (not (in ?s ?t1)) (not (in ?s (inter ?t1 ?t2)))) :pattern ((inter ?t1 ?t2)) ) :rewrite-rule) ))
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (not (in ?s ?t2)) (not (in ?s (inter ?t1 ?t2)))) :pattern ((inter ?t1 ?t2)) ) :rewrite-rule) ))
+
+;; Multipattern don't work currently.
+
+;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
+;;                 (! (=> (and (not (in ?s (inter ?t1 ?t2)))  (in ?s ?t1)) (not (in ?s ?t2))) :rewrite-rule) ))
+
+;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
+;;                 (! (=> (and (not (in ?s (inter ?t1 ?t2)))  (in ?s ?t2)) (not (in ?s ?t1))) :rewrite-rule) ))
+
+;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
+;;                 (! (! (=> (and (in ?s ?t1)  (in ?s ?t2)) (in ?s (inter ?t1 ?t2))) :pattern ((inter ?t1 ?t2)) ) :rewrite-rule) ))
+
+;;;;;;;;;;;;;;;;;
+;; union
+
+(declare-fun union (set set)  set)
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (not (in ?s (union ?t1 ?t2))) (and (not (in ?s ?t1)) (not (in ?s ?t2)))) :rewrite-rule)))
+
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (in ?s ?t1) (in ?s (union ?t1 ?t2))) :pattern ((union ?t1 ?t2)) ) :rewrite-rule) ))
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (in ?s ?t2) (in ?s (union ?t1 ?t2))) :pattern ((union ?t1 ?t2)) ) :rewrite-rule) ))
+
+;; Multipattern don't work currently.
+
+;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
+;;                 (! (=> (and (in ?s (union ?t1 ?t2))  (not (in ?s ?t1))) (in ?s ?t2)) :rewrite-rule) ))
+
+;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
+;;                 (! (=> (and (in ?s (union ?t1 ?t2))  (not (in ?s ?t2))) (in ?s ?t1)) :rewrite-rule) ))
+
+;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
+;;                 (! (! (=> (and (not (in ?s ?t1))  (not (in ?s ?t2))) (not (in ?s (union ?t1 ?t2)))) :pattern ((union ?t1 ?t2)) ) :rewrite-rule) ))
+
+;;;;;;;;;;;;;;;;
+;;sing
+
+(declare-fun sing (elt)  set)
+(assert (forall ((?s elt))
+                (! (! (=> true (in ?s (sing ?s))) :pattern ((sing ?s)) ) :rewrite-rule) ))
+
+(assert (forall ((?s elt) (?t1 elt))
+                (! (=> true (=> (in ?s (sing ?t1)) (= ?s ?t1))) :rewrite-rule) ))
+
+(assert (forall ((?s elt) (?t1 elt))
+                (! (=> (not (in ?s (sing ?t1))) (not (= ?s ?t1))) :rewrite-rule) ))
+
+
+(declare-fun e () elt)
+(declare-fun t1 () set)
+(declare-fun t2 () set)
+
+(assert (not (=> (in e (inter t1 t2)) (in e t1))))
+
+(check-sat)
+
+(exit)

@@ -288,6 +288,8 @@ Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, RuleInstId rid,
   /** TODO: Should use the representative of g, but should I keep the
       mapping for myself? */
   /** Currently create a node with a literal */
+  Debug("rewriterules") << "getValue:" << g0 << " = "
+                        << getValuation().getValue(g0) << std::endl;
   Node g = getValuation().ensureLiteral(g0);
   GuardedMap::iterator l_i = d_guardeds.find(g);
   GList* l;

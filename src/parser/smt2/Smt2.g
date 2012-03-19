@@ -601,7 +601,7 @@ term[CVC4::Expr& expr, CVC4::Expr& expr2]
         else if( body.getKind()==kind::EQUAL )      kind = kind::RR_REWRITE;
         else PARSER_STATE->parseError("Error parsing rewrite rule.");
 
-        expr = MK_EXPR( kind::RR_REWRITE, args );
+        expr = MK_EXPR( kind, args );
       }
       else if( !attexprs.empty() ){
         if( attexprs[0].getKind()==kind::INST_PATTERN ){
