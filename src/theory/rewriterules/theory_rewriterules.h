@@ -152,8 +152,9 @@ private:
   QRuleInsts d_ruleinsts_to_add;
 
  public:
-  /** true for predicate */
+  /** true and false for predicate */
   Node d_true;
+  Node d_false;
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
   TheoryRewriteRules(context::Context* c,

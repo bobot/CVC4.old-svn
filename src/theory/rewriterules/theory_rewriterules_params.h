@@ -32,6 +32,7 @@ static const bool cache_match = true;
 static const bool compute_opt = true;
 static const bool rewrite_before_cache = true;
 static const size_t checkSlowdown = 10;
+static const bool useCurrentModel = false;
 
 /* temporary */
 static const bool disableAdditionnalTrigger = true;

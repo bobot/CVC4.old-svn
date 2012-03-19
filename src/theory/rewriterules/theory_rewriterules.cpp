@@ -122,6 +122,7 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
   d_explanations(c), d_ruleinsts_to_add(c)
   {
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
+  d_false = NodeManager::currentNM()->mkConst<bool>(false);
   Debug("rewriterules") << Node::setdepth(-1);
 }
 
@@ -287,9 +288,14 @@ Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, RuleInstId rid,
                                          const size_t gid){
   /** TODO: Should use the representative of g, but should I keep the
       mapping for myself? */
+  /* If it false in one model (current valuation) it's false for all */
+  if (useCurrentModel){
+    Node val = getValuation().getValue(g0);
+    Debug("rewriterules") << "getValue:" << g0 << " = "
+                          << val << " is " << (val == d_false) << std::endl;
+    if (val == d_false) return AFALSE;
+  };
   /** Currently create a node with a literal */
-  Debug("rewriterules") << "getValue:" << g0 << " = "
-                        << getValuation().getValue(g0) << std::endl;
   Node g = getValuation().ensureLiteral(g0);
   GuardedMap::iterator l_i = d_guardeds.find(g);
   GList* l;
