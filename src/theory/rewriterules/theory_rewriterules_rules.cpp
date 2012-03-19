@@ -76,6 +76,7 @@ inline void addPattern(TheoryRewriteRules & re,
                     convertNodeToPattern(tri,r,vars,inst_constants));
 }
 
+/*** Check that triggers contains all the variables */
 void checkPatternVarsAux(TNode pat,const std::vector<Node> & vars,
                          std::vector<bool> & seen){
   for(size_t id=0;id < vars.size(); ++id){
@@ -99,6 +100,7 @@ bool checkPatternVars(const std::vector<Node> & pattern,
   return (find(seen.begin(),seen.end(),false) == seen.end());
 }
 
+/** Main function for construction of RewriteRule */
 void TheoryRewriteRules::addRewriteRule(const Node r)
 {
   Assert(r.getKind() == kind::REWRITE_RULE);
@@ -119,7 +121,7 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
   TNode new_terms = r[2][1];
   std::vector<Node> guards;
   std::vector<Node> pattern;
-  std::vector<Node> to_remove;  /* remove the terms from the database
+  std::vector<Node> to_remove;  /* "remove" the terms from the database
                                    when fired */
   /* shortcut */
   TNode head = r[2][0];

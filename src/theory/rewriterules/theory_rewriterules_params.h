@@ -33,6 +33,7 @@ static const bool compute_opt = true;
 static const bool rewrite_before_cache = true;
 static const size_t checkSlowdown = 10;
 static const bool useCurrentModel = false;
+static const bool simulateRewritting = false;
 
 /* temporary */
 static const bool disableAdditionnalTrigger = true;

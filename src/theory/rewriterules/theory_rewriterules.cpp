@@ -43,18 +43,19 @@ inline std::ostream& operator <<(std::ostream& stream, const RuleInst& ri) {
 
 static const size_t RULEINSTID_TRUE = ((size_t) -1);
 static const size_t RULEINSTID_FALSE = ((size_t) -2);
+static const size_t RULEINSTID_TMP = ((size_t) -3);
 
   /** Rule an instantiation with the given match */
 RuleInst::RuleInst(TheoryRewriteRules & re, RewriteRuleId r,
                    std::vector<Node> & inst_subst):
-  rule(r),id(RULEINSTID_TRUE)
+  rule(r),id(RULEINSTID_TMP)
 {
   subst.swap(inst_subst);
 };
 
 void RuleInst::setId(RuleInstId nid){
   Assert(nid != RULEINSTID_TRUE && nid != RULEINSTID_FALSE);
-  Assert(id == RULEINSTID_TRUE);
+  Assert(id == RULEINSTID_TMP);
   id = nid;
 }
 
@@ -68,7 +69,8 @@ Node RuleInst::substNode(const TheoryRewriteRules & re, TNode r,
 
 size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
   TCache cache;
-  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
+  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE &&
+         id != RULEINSTID_TMP);
   const RewriteRule & r = re.get_rule(rule);
   while (start < (r.guards).size()){
     Node g = substNode(re,r.guards[start],cache);
@@ -90,7 +92,21 @@ size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
   return start;
 };
 
+bool RuleInst::alreadyRewritten(TheoryRewriteRules & re) const{
+  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
+  static RewrittenNodeAttribute rewrittenNodeAttribute;
+  TCache cache;
+  for(std::vector<Node>::const_iterator
+        iter = re.get_rule(rule).to_remove.begin();
+      iter != re.get_rule(rule).to_remove.end(); ++iter){
+    if (substNode(re,*iter,cache).getAttribute(rewrittenNodeAttribute))
+      return true;
+  };
+  return false;
+}
+
 void RuleInst::toStream(std::ostream& out) const{
+  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
   out << "(" << rule << ") ";
   for(std::vector<Node>::const_iterator
         iter = subst.begin(); iter != subst.end(); ++iter){
@@ -101,6 +117,7 @@ void RuleInst::toStream(std::ostream& out) const{
 
 void Guarded::nextGuard(TheoryRewriteRules & re)const{
   Assert(inst != RULEINSTID_TRUE && inst != RULEINSTID_FALSE);
+  if(simulateRewritting && re.get_inst(inst).alreadyRewritten(re)) return;
   re.get_inst(inst).findGuard(re,d_guard+1);
 };
 
@@ -133,6 +150,7 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRuleId rid,
                                              bool delay){
   std::vector<Node> subst;
   im.computeTermVec(getQuantifiersEngine(), r.inst_vars , subst);
+
   if(!cache_match || !r.inCache(subst)){
     RuleInst ri = RuleInst(*this,rid,subst);
     Debug("rewriterules") << "One matching found"
@@ -143,6 +161,7 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRuleId rid,
     // things append.
     if(delay) d_ruleinsts_to_add.push(ri);
     else{
+      if(simulateRewritting && ri.alreadyRewritten(*this)) return;
       ri.setId(d_ruleinsts.size());
       if(ri.findGuard(*this, 0) != (r.guards).size())
         d_ruleinsts.push_back(ri);
@@ -196,6 +215,7 @@ void TheoryRewriteRules::check(Effort level) {
     //dequeue instantiated rules
     for(; !d_ruleinsts_to_add.empty(); d_ruleinsts_to_add.pop()){
       RuleInst ri = d_ruleinsts_to_add.front();
+      if(simulateRewritting && ri.alreadyRewritten(*this)) break;
       ri.setId(d_ruleinsts.size());
       if(ri.findGuard(*this, 0) != (get_rule(ri.rule).guards).size())
         d_ruleinsts.push_back(ri);
@@ -241,6 +261,7 @@ void TheoryRewriteRules::check(Effort level) {
       bool value; value = value; // avoiding the warning in non debug mode
       Assert(!getValuation().hasSatValue(g,value));
       Debug("rewriterules") << "Narrowing on:" << g << std::endl;
+      /** Can split on already rewritten instrule... but... */
       getOutputChannel().split(g);
     }
   }
@@ -373,6 +394,15 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst, TCache cache){
       getOutputChannel().propagate(lemma_lit);
       d_explanations.insert(lemma_lit,inst.id);
    };
+  };
+
+  if(simulateRewritting){
+    static RewrittenNodeAttribute rewrittenNodeAttribute;
+    // Tag the rewritted terms
+    for(std::vector<Node>::iterator i = rule.to_remove.begin();
+        i == rule.to_remove.end(); ++i){
+      (*i).setAttribute(rewrittenNodeAttribute,true);
+    };
   };
 
   //Verify that this instantiation can't immediately fire another rule

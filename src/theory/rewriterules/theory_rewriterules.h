@@ -37,6 +37,15 @@ typedef size_t RewriteRuleId;
 typedef size_t RuleInstId;
 typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
 
+/** Attribute true for node which have be rewritten*/
+struct RewrittenNodeAttributeId {};
+/** use the special for boolean flag */
+typedef expr::Attribute<RewrittenNodeAttributeId,
+                        bool,
+                        expr::attr::NullCleanupStrategy,
+                        true  // context dependent
+                        > RewrittenNodeAttribute;
+
   enum Answer {ATRUE, AFALSE, ADONTKNOW};
 
   class TheoryRewriteRules; /** forward */
@@ -46,7 +55,7 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
     // constant
     Trigger trigger;
     std::vector<Node> guards;
-    std::vector<Node> to_remove; /** terms to remove */
+    mutable std::vector<Node> to_remove; /** terms to remove */
     const Node body;
     const TNode new_terms; /** new terms included in the body */
     std::vector<Node> free_vars; /* free variable in the rule */
@@ -96,6 +105,9 @@ typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
     void setId(const RuleInstId i);
 
     void toStream(std::ostream& out) const;
+
+    bool alreadyRewritten(TheoryRewriteRules & re) const;
+
   };
 
 /** A pair? */
