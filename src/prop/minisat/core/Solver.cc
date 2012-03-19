@@ -251,7 +251,7 @@ bool Solver::addClause_(vec<Lit>& ps, bool removable)
             Debug("minisat") << "got new unit " << ps[0] << " at assertion level " << assertionLevel << std::endl;
             trail_user.push(ps[0]);
           }
-          return ok = (propagate(CHECK_WITHOUT_PROPAGATION_QUICK) == CRef_Undef);
+          return ok = (propagate(CHECK_WITHOUTH_THEORY) == CRef_Undef);
         } else return ok;
       } else {
         CRef cr = ca.alloc(assertionLevel, ps, false);
@@ -325,7 +325,7 @@ void Solver::cancelUntil(int level) {
         for (int l = trail_lim.size() - level; l > 0; --l) {
           context->pop();
           if(Dump.isOn("state")) {
-            Dump("state") << PopCommand() << std::endl;
+            Dump("state") << PopCommand();
           }
         }
         for (int c = trail.size()-1; c >= trail_lim[level]; c--){
@@ -659,8 +659,8 @@ CRef Solver::propagate(TheoryCheckType type)
 
     ScopedBool scoped_bool(minisat_busy, true);
 
-    // If we are not in the quick mode add the lemmas that were left begind
-    if (type != CHECK_WITHOUT_PROPAGATION_QUICK && lemmas.size() > 0) {
+    // If we are not in the quick mode add the lemmas that were left behind
+    if (type != CHECK_WITHOUTH_THEORY && lemmas.size() > 0) {
       confl = updateLemmas();
       if (confl != CRef_Undef) {
         return confl;
@@ -669,9 +669,11 @@ CRef Solver::propagate(TheoryCheckType type)
 
     // If this is the final check, no need for Boolean propagation and
     // theory propagation
-    if (type == CHECK_WITHOUT_PROPAGATION_FINAL) {
+    if (type == CHECK_FINAL) {
       // Do the theory check
-      theoryCheck(CVC4::theory::Theory::FULL_EFFORT);
+      theoryCheck(CVC4::theory::Theory::EFFORT_FULL);
+      // Pick up the theory propagated literals (there could be some, if new lemmas are added)
+      propagateTheory();
       // If there are lemmas (or conflicts) update them
       if (lemmas.size() > 0) {
         recheck = true;
@@ -682,38 +684,24 @@ CRef Solver::propagate(TheoryCheckType type)
       }
     }
 
-    // The effort we will be using to theory check
-    CVC4::theory::Theory::Effort effort = type == CHECK_WITHOUT_PROPAGATION_QUICK ?
-    		CVC4::theory::Theory::QUICK_CHECK : 
-    		CVC4::theory::Theory::STANDARD;
-
     // Keep running until we have checked everything, we
     // have no conflict and no new literals have been asserted
-    do {
-        do {
-          // Propagate on the clauses
-          confl = propagateBool();
+      do {
+        // Propagate on the clauses
+        confl = propagateBool();
 
-          // If no conflict, do the theory check
-          if (confl == CRef_Undef) {
-              // Do the theory check
-              theoryCheck(effort);
-              // If there are lemmas (or conflicts) update them
-              if (lemmas.size() > 0) {
-                  confl = updateLemmas();
-              }
-          }
-        } while (confl == CRef_Undef && qhead < trail.size());
-
-        // If still consistent do some theory propagation
-        if (confl == CRef_Undef && type == CHECK_WITH_PROPAGATION_STANDARD) {
-          propagateTheory();
-          if (lemmas.size() > 0) {
-              confl = updateLemmas();
-          }
+        // If no conflict, do the theory check
+        if (confl == CRef_Undef && type != CHECK_WITHOUTH_THEORY) {
+            // Do the theory check
+            theoryCheck(CVC4::theory::Theory::EFFORT_STANDARD);
+            // Pick up the theory propagated literals
+            propagateTheory();
+            // If there are lemmas (or conflicts) update them
+            if (lemmas.size() > 0) {
+                confl = updateLemmas();
+            }
         }
-
-    } while (confl == CRef_Undef && qhead < trail.size());
+      } while (confl == CRef_Undef && qhead < trail.size());
 
     return confl;
 }
@@ -739,7 +727,7 @@ void Solver::propagateTheory() {
       // but we check that this is the case and that they agree
       Debug("minisat") << "trail_index(var(p)) == " << trail_index(var(p)) << std::endl;
       Assert(trail_index(var(p)) >= oldTrailSize);
-      Assert(value(p) == lbool(!sign(p)));
+      Assert(value(p) == l_True, "a literal was theory-propagated, and so was its negation");
     }
   }
 }
@@ -936,7 +924,7 @@ bool Solver::simplify()
 {
     assert(decisionLevel() == 0);
 
-    if (!ok || propagate(CHECK_WITHOUT_PROPAGATION_QUICK) != CRef_Undef)
+    if (!ok || propagate(CHECK_WITHOUTH_THEORY) != CRef_Undef)
         return ok = false;
 
     if (nAssigns() == simpDB_assigns || (simpDB_props > 0))
@@ -977,7 +965,7 @@ lbool Solver::search(int nof_conflicts)
     vec<Lit>    learnt_clause;
     starts++;
 
-    TheoryCheckType check_type = CHECK_WITH_PROPAGATION_STANDARD;
+    TheoryCheckType check_type = CHECK_WITH_THEORY;
     for (;;) {
 
         // Propagate and call the theory solvers
@@ -1030,14 +1018,14 @@ lbool Solver::search(int nof_conflicts)
             }
 
              // We have a conflict so, we are going back to standard checks
-            check_type = CHECK_WITH_PROPAGATION_STANDARD;
+            check_type = CHECK_WITH_THEORY;
         } else {
 
 	    // If this was a final check, we are satisfiable
-            if (check_type == CHECK_WITHOUT_PROPAGATION_FINAL) {
+            if (check_type == CHECK_FINAL) {
               // Unless a lemma has added more stuff to the queues
               if (!order_heap.empty() || qhead < trail.size()) {
-                check_type = CHECK_WITH_PROPAGATION_STANDARD;
+                check_type = CHECK_WITH_THEORY;
                 continue;
               } else if (recheck) {
                 // There some additional stuff added, so we go for another full-check
@@ -1100,7 +1088,7 @@ lbool Solver::search(int nof_conflicts)
 
                 if (next == lit_Undef) {
                     // We need to do a full theory check to confirm
-                    check_type = CHECK_WITHOUT_PROPAGATION_FINAL;
+                    check_type = CHECK_FINAL;
                     continue;
                 }
 

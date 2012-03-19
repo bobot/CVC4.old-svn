@@ -108,7 +108,6 @@ class TheoryEngine {
    */
   theory::QuantifiersEngine* d_quantEngine;
 
-
   typedef std::hash_map<Node, Node, NodeHashFunction> NodeMap;
 
   /**
@@ -442,8 +441,7 @@ class TheoryEngine {
   theory::LemmaStatus lemma(TNode node, bool negated, bool removable) {
     if(Dump.isOn("t-lemmas")) {
       Dump("t-lemmas") << CommentCommand("theory lemma: expect valid")
-                       << std::endl
-                       << QueryCommand(node.toExpr()) << std::endl;
+                       << QueryCommand(node.toExpr());
     }
 
     // Share with other portfolio threads
@@ -517,7 +515,9 @@ public:
   }
 
   /**
-   * Get a pointer to the instantiation engine
+   * Runs theory specific preprocesssing on the non-Boolean parts of
+   * the formula.  This is only called on input assertions, after ITEs
+   * have been removed.
    */
   theory::QuantifiersEngine* getQuantifiersEngine() const {
     return d_quantEngine;

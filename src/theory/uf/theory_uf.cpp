@@ -58,7 +58,6 @@ TheoryUF::TheoryUF(context::Context* c, context::UserContext* u, OutputChannel& 
   d_inst = new InstantiatorTheoryUf( c, qe, this );
   qe->setEqualityQuery( new EqualityQueryInstantiatorTheoryUf( (InstantiatorTheoryUf*)d_inst ) );
   //AJR-hack-end
-
 }/* TheoryUF::TheoryUF() */
 
 static Node mkAnd(const std::vector<TNode>& conjunctions) {
@@ -256,10 +255,12 @@ void TheoryUF::propagate(Effort level) {
       }
     }
   }
+  //AJR-hack
   if( d_thss ){
     d_thss->propagate( level );
   }
   Debug("uf") << "done TheoryUF::propagate()" << std::endl;
+  //AJR-hack-end
 }/* TheoryUF::propagate(Effort) */
 
 void TheoryUF::preRegisterTerm(TNode node) {

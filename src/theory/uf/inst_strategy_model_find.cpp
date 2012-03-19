@@ -77,7 +77,7 @@ Node RepAlphabetIterator::getTerm( int i ){
   return d_ra->d_type_reps[d_f[0][i].getType()][d_index[i]];
 }
 
-InstStrategyFinteModelFind::InstStrategyFinteModelFind( context::Context* c, InstantiatorTheoryUf* ith, StrongSolverTheoryUf* ss, QuantifiersEngine* ie ) : 
+InstStrategyFinteModelFind::InstStrategyFinteModelFind( context::Context* c, InstantiatorTheoryUf* ith, StrongSolverTheoryUf* ss, QuantifiersEngine* ie ) :
     InstStrategy( ie ), d_ith( ith ), d_ss( ss ){
 
 }
@@ -92,7 +92,7 @@ bool InstStrategyFinteModelFind::didInstantiation( RepAlphabetIterator& riter  )
 }
 
 void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort effort ){
-  if( effort==Theory::LAST_CALL ){
+  if( effort==Theory::EFFORT_LAST_CALL ){
     ////translate all previous rep alphabets DO_THIS
     //d_inst_group_temp.clear();
     //for( int i=0; i<(int)d_inst_group.size(); i++ ){
@@ -125,12 +125,12 @@ void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort 
       }
     }
     d_inst_group.push_back( ra );
-    
+
   }
 }
 
 int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, int limitInst ){
-  if( effort==Theory::LAST_CALL ){
+  if( effort==Theory::EFFORT_LAST_CALL ){
     Debug("inst-fmf-debug") << "Add matches for " << f << "..." << std::endl;
     RepAlphabetIterator riter( f, &d_inst_group.back() );
     bool addedLemma = false;
@@ -138,7 +138,7 @@ int InstStrategyFinteModelFind::process( Node f, Theory::Effort effort, int e, i
       while( !riter.isFinished() && didInstantiation( riter ) ){
         riter.increment();
       }
-      //if successful, add instantiation 
+      //if successful, add instantiation
       if( !riter.isFinished() ){
         InstMatch m;
         riter.getMatch( d_quantEngine, m );

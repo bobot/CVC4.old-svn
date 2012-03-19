@@ -55,7 +55,7 @@ class Solver {
 
   /** The only two CVC4 entry points to the private solver data */
   friend class CVC4::prop::TheoryProxy;
-  friend class CVC4::SatProof; 
+  friend class CVC4::SatProof;
   //AJR-hack
   friend class CVC4::prop::DPLLMinisatSatSolver;
   //AJR-hack-end
@@ -316,12 +316,12 @@ protected:
     vec<bool>           theory;           // Is the variable representing a theory atom
 
     enum TheoryCheckType {
-      // Quick check, but don't perform theory propagation
-      CHECK_WITHOUT_PROPAGATION_QUICK,
-      // Check and perform theory propagation
-      CHECK_WITH_PROPAGATION_STANDARD,
-      // The SAT problem is satisfiable, perform a full theory check
-      CHECK_WITHOUT_PROPAGATION_FINAL
+      // Quick check, but don't perform theory reasoning
+      CHECK_WITHOUTH_THEORY,
+      // Check and perform theory reasoning
+      CHECK_WITH_THEORY,
+      // The SAT abstraction of the problem is satisfiable, perform a full theory check
+      CHECK_FINAL
     };
 
     // Temporaries (to reduce allocation overhead). Each variable is prefixed by the method in which it is
@@ -474,7 +474,7 @@ inline bool     Solver::addClause       (Lit p, bool removable)                 
 inline bool     Solver::addClause       (Lit p, Lit q, bool removable)          { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); return addClause_(add_tmp, removable); }
 inline bool     Solver::addClause       (Lit p, Lit q, Lit r, bool removable)   { add_tmp.clear(); add_tmp.push(p); add_tmp.push(q); add_tmp.push(r); return addClause_(add_tmp, removable); }
 inline bool     Solver::locked          (const Clause& c) const { return value(c[0]) == l_True && isPropagatedBy(var(c[0]), c); }
-inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); flipped.push(false); context->push(); if(Dump.isOn("state")) { Dump("state") << CVC4::PushCommand() << std::endl; } }
+inline void     Solver::newDecisionLevel()                      { trail_lim.push(trail.size()); flipped.push(false); context->push(); if(Dump.isOn("state")) { Dump("state") << CVC4::PushCommand(); } }
 
 inline int      Solver::decisionLevel ()      const   { return trail_lim.size(); }
 inline uint32_t Solver::abstractLevel (Var x) const   { return 1 << (level(x) & 31); }
@@ -490,8 +490,8 @@ inline int      Solver::nFreeVars     ()      const   { return (int)dec_vars - (
 inline bool     Solver::properExplanation(Lit l, Lit expl) const { return value(l) == l_True && value(expl) == l_True && trail_index(var(expl)) < trail_index(var(l)); }
 inline void     Solver::setPolarity   (Var v, bool b) { polarity[v] = b; }
 inline void     Solver::freezePolarity(Var v, bool b) { polarity[v] = int(b) | 0x2; }
-inline void     Solver::setDecisionVar(Var v, bool b) 
-{ 
+inline void     Solver::setDecisionVar(Var v, bool b)
+{
     if      ( b && !decision[v] &&  (depends[v] == -1 || value(depends[v]) != l_Undef)) dec_vars++;
     else if (!b &&  decision[v] && !(depends[v] == -1 || value(depends[v]) != l_Undef)) dec_vars--;
 

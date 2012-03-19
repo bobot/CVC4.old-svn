@@ -381,7 +381,6 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
       }
     }
   }
-
   //AJR-hack
   //notify the theory
   if( d_performNotify ){

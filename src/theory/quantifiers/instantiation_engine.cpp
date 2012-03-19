@@ -12,7 +12,7 @@ using namespace CVC4::theory::quantifiers;
 
 //#define IE_PRINT_PROCESS_TIMES
 
-InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th ) : 
+InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th ) :
 d_th( th ), d_forall_asserts( d_th->getContext() ), d_in_instRound( false, d_th->getContext() ){
   d_in_instRound_no_c = false;
 }
@@ -46,7 +46,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
         }
       }
     }
-    int eLimit = effort==Theory::LAST_CALL ? 10 : 2;
+    int eLimit = effort==Theory::EFFORT_LAST_CALL ? 10 : 2;
     int e = 0;
     d_inst_round_status = InstStrategy::STATUS_UNFINISHED;
     //while unfinished, try effort level=0,1,2....
@@ -117,18 +117,18 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
 int ierCounter = 0;
 
 void InstantiationEngine::check( Theory::Effort e ){
-  if( e==Theory::FULL_EFFORT ){
+  if( e==Theory::EFFORT_FULL ){
     ierCounter++;
   }
-  if( ( e==Theory::FULL_EFFORT  && ierCounter%2==0 ) || e==Theory::LAST_CALL ){
-  //if( e==Theory::LAST_CALL ){
+  if( ( e==Theory::EFFORT_FULL  && ierCounter%2==0 ) || e==Theory::EFFORT_LAST_CALL ){
+  //if( e==Theory::EFFORT_LAST_CALL ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);
     std::cout << "Run instantiation round " << e << " " << ierCounter << std::endl;
 #endif
     bool quantActive = false;
-    //for each n in d_forall_asserts, 
+    //for each n in d_forall_asserts,
     // such that the counterexample literal is not in positive in d_counterexample_asserts
     for( BoolMap::iterator i = d_forall_asserts.begin(); i != d_forall_asserts.end(); i++ ) {
       if( (*i).second ) {
@@ -156,7 +156,7 @@ void InstantiationEngine::check( Theory::Effort e ){
             Assert( !d_th->getValuation().isDecision( cel ) );
           }
           if( d_th->getValuation().hasSatValue( n, value ) ){
-            Debug("quantifiers") << ", value = " << value; 
+            Debug("quantifiers") << ", value = " << value;
           }
           if( ceValue ){
             Debug("quantifiers") << ", ce is asserted";
@@ -172,7 +172,7 @@ void InstantiationEngine::check( Theory::Effort e ){
         Debug("quantifiers") << "   Relevance : " << getQuantifiersEngine()->getRelevance( n ) << std::endl;
       }
     }
-    if( quantActive ){  
+    if( quantActive ){
       //Debug("quantifiers-dec") << "Do instantiation, level = " << d_th->getValuation().getDecisionLevel() << std::endl;
       //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
       //  Debug("quantifiers-dec") << "   " << d_valuation.getDecision( i ) << std::endl;
@@ -202,7 +202,7 @@ void InstantiationEngine::registerQuantifier( Node f ){
     if( doCbqi( f ) ){
       //make the counterexample body
       Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
-                                    getQuantifiersEngine()->d_inst_constants[f].begin(), 
+                                    getQuantifiersEngine()->d_inst_constants[f].begin(),
                                     getQuantifiersEngine()->d_inst_constants[f].end() );
       getQuantifiersEngine()->d_counterexample_body[ f ] = ceBody;
       //code for counterexample-based quantifier instantiation

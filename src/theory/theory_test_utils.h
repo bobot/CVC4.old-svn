@@ -92,11 +92,13 @@ public:
     push(LEMMA, n);
     return LemmaStatus(Node::null(), 0);
   }
+
   void requirePhase(TNode, bool, bool = false) throw(Interrupted, AssertionException) { }
   void dependentDecision(TNode, TNode, bool = false) throw(Interrupted, AssertionException) { }
   bool flipDecision(bool = false) throw(Interrupted, AssertionException) { return true; }
   void flipDecision(unsigned, bool = false) throw(Interrupted, AssertionException) { }
   void flipDecision(Node, bool = false) throw(Interrupted, AssertionException) { }
+
   void setIncomplete() throw(AssertionException) {}
 
   void clear() {

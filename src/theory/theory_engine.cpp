@@ -69,7 +69,7 @@ TheoryEngine::TheoryEngine(context::Context* context,
     d_theoryTable[theoryId] = NULL;
     d_theoryOut[theoryId] = NULL;
   }
-  //initialize the instantiation engine
+  //initialize the quantifiers engine
   d_quantEngine = new QuantifiersEngine( context, this );
   Rewriter::init();
 }
@@ -118,6 +118,7 @@ void TheoryEngine::check(Theory::Effort effort) {
          break; \
        } \
     }
+
   //AJR-hack
   //static int ierCounter = 0;
   //bool checkIerCounter = false;
@@ -152,15 +153,7 @@ void TheoryEngine::check(Theory::Effort effort) {
                 } else {
                   Debug("theory::assertions") << "(" << i << "): ";
                 }
-                Debug("theory::assertions") << (*it).assertion;
-                if( getPropEngine()->isSatLiteral( (*it).assertion ) ){
-                  if( theory->getValuation().isDecision( (*it).assertion ) ){
-                    Debug("theory::assertions") << "^d";
-                  }
-                }else{
-                  Debug("theory::assertions") << "(X)";
-                }
-                Debug("theory::assertions") << endl;
+                Debug("theory::assertions") << (*it).assertion << endl;
             }
 
             if (d_sharedTermsExist) {
@@ -179,8 +172,8 @@ void TheoryEngine::check(Theory::Effort effort) {
 
       if(Dump.isOn("missed-t-conflicts")) {
         Dump("missed-t-conflicts")
-            << CommentCommand("Completeness check for T-conflicts; expect sat") << endl
-            << CheckSatCommand() << endl;
+            << CommentCommand("Completeness check for T-conflicts; expect sat")
+            << CheckSatCommand();
       }
 
       Debug("theory") << "TheoryEngine::check(" << effort << "): running propagation after the initial check" << std::endl;
@@ -206,7 +199,7 @@ void TheoryEngine::check(Theory::Effort effort) {
       //    checkIerCounter = true;
       //    ierCounter++;
       //    if( ierCounter%2==0 ){
-      //      ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::PRE_LAST_CALL );
+      //      ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::EFFORT_PRE_LAST_CALL );
       //      if (d_lemmasAdded) {
       //        Debug("theory") << "TheoryEngine::check(" << effort << "): lemmas added, done" << std::endl;
       //        break;
@@ -248,10 +241,10 @@ void TheoryEngine::check(Theory::Effort effort) {
 
     //AJR-hack
     //this is the flip decision code
-    if( effort==Theory::FULL_EFFORT ){
+    if( effort==Theory::EFFORT_FULL ){
       if( !d_inConflict && !d_lemmasAdded ){
         if( d_theoryTable[THEORY_QUANTIFIERS] ){
-          ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::LAST_CALL );
+          ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::EFFORT_LAST_CALL );
           if( d_incomplete && !d_inConflict && !d_lemmasAdded ){
             if( ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ){
               d_incomplete = false;
@@ -373,8 +366,8 @@ void TheoryEngine::propagate(Theory::Effort effort) {
         ++i) {
       if(d_hasPropagated.find(*i) == d_hasPropagated.end()) {
         Dump("missed-t-propagations")
-          << CommentCommand("Completeness check for T-propagations; expect invalid") << endl
-          << QueryCommand((*i).toExpr()) << endl;
+          << CommentCommand("Completeness check for T-propagations; expect invalid")
+          << QueryCommand((*i).toExpr());
       }
     }
   }
@@ -667,8 +660,8 @@ void TheoryEngine::propagate(TNode literal, theory::TheoryId theory) {
   d_propEngine->checkTime();
 
   if(Dump.isOn("t-propagations")) {
-    Dump("t-propagations") << CommentCommand("negation of theory propagation: expect valid") << std::endl
-                           << QueryCommand(literal.toExpr()) << std::endl;
+    Dump("t-propagations") << CommentCommand("negation of theory propagation: expect valid")
+                           << QueryCommand(literal.toExpr());
   }
   if(Dump.isOn("missed-t-propagations")) {
     d_hasPropagated.insert(literal);
@@ -779,8 +772,8 @@ Node TheoryEngine::getExplanation(TNode node) {
 
   Assert(!explanation.isNull());
   if(Dump.isOn("t-explanations")) {
-    Dump("t-explanations") << CommentCommand(std::string("theory explanation from ") + theoryOf(atom)->identify() + ": expect valid") << std::endl
-      << QueryCommand(explanation.impNode(node).toExpr()) << std::endl;
+    Dump("t-explanations") << CommentCommand(std::string("theory explanation from ") + theoryOf(atom)->identify() + ": expect valid")
+      << QueryCommand(explanation.impNode(node).toExpr());
   }
   Assert(properExplanation(node, explanation));
 
@@ -793,8 +786,8 @@ void TheoryEngine::conflict(TNode conflict, TheoryId theoryId) {
   d_inConflict = true;
 
   if(Dump.isOn("t-conflicts")) {
-    Dump("t-conflicts") << CommentCommand("theory conflict: expect unsat") << std::endl
-                        << CheckSatCommand(conflict.toExpr()) << std::endl;
+    Dump("t-conflicts") << CommentCommand("theory conflict: expect unsat")
+                        << CheckSatCommand(conflict.toExpr());
   }
 
   if (d_sharedTermsExist) {

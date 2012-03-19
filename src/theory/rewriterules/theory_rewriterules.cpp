@@ -205,7 +205,7 @@ void TheoryRewriteRules::check(Effort level) {
     }
   }
 
-  const bool do_notification = d_checkLevel == 0 || level==FULL_EFFORT;
+  const bool do_notification = d_checkLevel == 0 || level==EFFORT_FULL;
   bool polldone = false;
 
   GuardedMap::const_iterator p = d_guardeds.begin();
@@ -249,7 +249,7 @@ void TheoryRewriteRules::check(Effort level) {
 
   /** Narrowing by splitting on the guards */
   /** Perhaps only when no notification? */
-  if(level==FULL_EFFORT){
+  if(level==EFFORT_FULL){
     for (GuardedMap::const_iterator p = d_guardeds.begin();
          p != d_guardeds.end(); ++p){
       TNode g = (*p).first;

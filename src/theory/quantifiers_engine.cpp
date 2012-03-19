@@ -48,7 +48,7 @@ int InstStrategy::doInstantiation( Node f, Theory::Effort effort, int e, int lim
   }
 }
 
-Instantiator::Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th) : 
+Instantiator::Instantiator(context::Context* c, QuantifiersEngine* qe, Theory* th) :
 d_quantEngine( qe ),
 d_th( th ){
 
@@ -123,8 +123,8 @@ void Instantiator::setHasConstraintsFrom( Node f ){
   }
 }
 
-bool Instantiator::hasConstraintsFrom( Node f ) { 
-  return d_hasConstraints.find( f )!=d_hasConstraints.end() && d_hasConstraints[f]; 
+bool Instantiator::hasConstraintsFrom( Node f ) {
+  return d_hasConstraints.find( f )!=d_hasConstraints.end() && d_hasConstraints[f];
 }
 
 bool Instantiator::isOwnerOf( Node f ){
@@ -143,14 +143,14 @@ Instantiator* QuantifiersEngine::getInstantiator( int id ){
 }
 
 void QuantifiersEngine::check( Theory::Effort e ){
-  if( e==Theory::FULL_EFFORT ){
-    ++(d_statistics.d_instantiation_rounds);
+  if( e>=Theory::EFFORT_FULL ){
+    ++(d_statistics.d_instantiation_rounds);  //FIXME
     //std::cout << "Instantiation Round" << std::endl;
   }
   for( int i=0; i<(int)d_modules.size(); i++ ){
     d_modules[i]->check( e );
   }
-  //if( e==Theory::FULL_EFFORT ){
+  //if( e==Theory::EFFORT_FULL ){
   //  std::cout << "Done instantiation Round" << std::endl;
   //}
 }
@@ -266,8 +266,8 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
   Assert( f.getKind()==FORALL );
   Assert( !f.hasAttribute(InstConstantAttribute()) );
   Assert( d_vars[f].size()==terms.size() && d_vars[f].size()==f[0].getNumChildren() );
-  Node body = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(), 
-                                 terms.begin(), terms.end() ); 
+  Node body = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(),
+                                 terms.begin(), terms.end() );
   NodeBuilder<> nb(kind::OR);
   nb << f.notNode() << body;
   Node lem = nb;
@@ -296,7 +296,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
         Debug("inst-engine") << std::endl;
         if( terms[i].hasAttribute(InstLevelAttribute()) ){
           if( terms[i].getAttribute(InstLevelAttribute())>maxInstLevel ){
-            maxInstLevel = terms[i].getAttribute(InstLevelAttribute()); 
+            maxInstLevel = terms[i].getAttribute(InstLevelAttribute());
           }
         }else{
           setInstantiationLevelAttr( terms[i], 0 );
@@ -396,7 +396,7 @@ Node QuantifiersEngine::getSkolemizedBody( Node f ){
       Node skv = NodeManager::currentNM()->mkSkolem( f[0][i].getType() );
       d_skolem_constants[ f ].push_back( skv );
     }
-    d_skolem_body[ f ] = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(), 
+    d_skolem_body[ f ] = f[ 1 ].substitute( d_vars[f].begin(), d_vars[f].end(),
                                             d_skolem_constants[ f ].begin(), d_skolem_constants[ f ].end() );
     if( f.hasAttribute(InstLevelAttribute()) ){
       setInstantiationLevelAttr( d_skolem_body[ f ], f.getAttribute(InstLevelAttribute()) );

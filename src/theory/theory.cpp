@@ -33,18 +33,16 @@ TheoryId Theory::s_uninterpretedSortOwner = THEORY_UF;
 
 std::ostream& operator<<(std::ostream& os, Theory::Effort level){
   switch(level){
-  case Theory::MIN_EFFORT:
-    os << "MIN_EFFORT"; break;
-  case Theory::QUICK_CHECK:
-    os << "QUICK_CHECK"; break;
-  case Theory::STANDARD:
-    os << "STANDARD"; break;
-  case Theory::FULL_EFFORT:
-    os << "FULL_EFFORT"; break;
-  case Theory::PRE_LAST_CALL:
-    os << "PRE_LAST_CALL"; break;
-  case Theory::LAST_CALL:
-    os << "LAST_CALL"; break;
+  case Theory::EFFORT_STANDARD:
+    os << "EFFORT_STANDARD"; break;
+  case Theory::EFFORT_FULL:
+    os << "EFFORT_FULL"; break;
+  case Theory::EFFORT_COMBINATION:
+    os << "EFFORT_COMBINATION"; break;
+  //case Theory::EFFORT_PRE_LAST_CALL:
+  //  os << "EFFORT_PRE_LAST_CALL"; break;
+  case Theory::EFFORT_LAST_CALL:
+    os << "EFFORT_LAST_CALL"; break;
   default:
       Unreachable();
   }
@@ -78,7 +76,7 @@ void Theory::computeCareGraph(CareGraph& careGraph) {
   	careGraph.push_back(CarePair(a, b, getId()));
   	break;
       }
-    }  
+    }
   }
 }
 
