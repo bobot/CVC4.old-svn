@@ -76,6 +76,29 @@ inline void addPattern(TheoryRewriteRules & re,
                     convertNodeToPattern(tri,r,vars,inst_constants));
 }
 
+void checkPatternVarsAux(TNode pat,const std::vector<Node> & vars,
+                         std::vector<bool> & seen){
+  for(size_t id=0;id < vars.size(); ++id){
+    if(pat == vars[id]){
+      seen[id]=true;
+      break;
+    };
+  };
+  for(Node::iterator i = pat.begin(); i != pat.end(); ++i) {
+    checkPatternVarsAux(*i,vars,seen);
+  };
+}
+
+bool checkPatternVars(const std::vector<Node> & pattern,
+                      const std::vector<Node> & vars){
+  std::vector<bool> seen(vars.size(),false);
+  for(std::vector<Node>::const_iterator i = pattern.begin();
+      i != pattern.end(); ++i) {
+    checkPatternVarsAux(*i,vars,seen);
+  };
+  return (find(seen.begin(),seen.end(),false) == seen.end());
+}
+
 void TheoryRewriteRules::addRewriteRule(const Node r)
 {
   Assert(r.getKind() == kind::REWRITE_RULE);
@@ -153,6 +176,12 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
       addPattern(*this,(*i)[0],pattern,vars,inst_constants,r);
     };
   Assert(pattern.size() == 1, "currently only single pattern are supported");
+  //Every variable must be seen in the pattern
+  if (!checkPatternVars(pattern,inst_constants)){
+    Warning() << "The rule" << r <<
+      " has been removed since it doesn't contain every variables."
+              << std::endl;
+  }else{
   // final construction
   Trigger trigger = createTrigger(r,pattern);
   Trigger trigger2 = createTrigger(r,pattern); //Hack
@@ -168,7 +197,7 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
       computeMatchBody(d_rules[rid],
                        d_rules.size() - 1);
 
-
+  }
 };
 
 

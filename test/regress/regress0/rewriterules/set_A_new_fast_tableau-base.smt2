@@ -72,11 +72,23 @@
                 (! (=> (not (in ?s (sing ?t1))) (not (= ?s ?t1))) :rewrite-rule) ))
 
 
+
+;;;;;;;;;;;;;;;;;;;
+;; fullfiling
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (in ?s (union ?t1 ?t2)) (or (in ?s ?t1) (not (in ?s ?t1)))) :rewrite-rule)))
+
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (in ?s ?t1) (or (in ?s ?t2) (not (in ?s ?t2)))) :pattern ((inter ?t1 ?t2))) :rewrite-rule)))
+
+
+
 (declare-fun e () elt)
 (declare-fun t1 () set)
 (declare-fun t2 () set)
 
-(assert (not (=> (in e (inter t1 t2)) (in e t1))))
+(assert (not (=> (in e (inter (union t1 t2) (union t1 t1))) (in e t1))))
+
 
 (check-sat)
 
