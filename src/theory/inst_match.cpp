@@ -46,6 +46,7 @@ InstMatch::InstMatch( InstMatch* m ){
 bool InstMatch::setMatch( EqualityQuery* q, Node v, Node m ){ 
   if( d_map.find( v )==d_map.end() ){
     d_map[v] = m; 
+    Debug("matching") << "Add partial " << v << "->" << m << std::endl;
     return true;
   }else{
     return q->areEqual( d_map[v], m );
@@ -352,7 +353,8 @@ bool InstMatchGenerator::getMatchArithmetic( Node t, InstMatch& m, QuantifiersEn
 
 /** get match (not modulo equality) */
 bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe ){
-  Debug("matching") << "Matching " << t << " " << d_match_pattern << std::endl;
+  Debug("matching") << "Matching " << t << " " << d_match_pattern << "("
+                    << m.d_map.size() << ")" << std::endl;
   Assert( !d_match_pattern.isNull() );
   if( d_match_pattern.getKind()!=APPLY_UF ){
     return getMatchArithmetic( t, m, qe );
@@ -372,6 +374,11 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
         if( d_match_pattern[i].getKind()==INST_CONSTANT ){
           if( !partial[0].setMatch( q, d_match_pattern[i], t[i] ) ){
             //match is in conflict
+            Debug("matching") <<
+              "Match in conflict " << t[i] << " and "
+                                   << d_match_pattern[i] << " because "
+                                   << partial[0].d_map[d_match_pattern[i]]
+                                   << std::endl;
             return false;
           }
         }
@@ -388,22 +395,28 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
       Node rep = q->getRepresentative( t[ d_children_index[i] ] );
       d_children[i]->d_cg->reset( rep );
     }
+
+    Assert(partial.size() > 0);
+
     //combine child matches
-    int index = 0;
-    while( index>=0 && index<(int)d_children.size() ){
-      partial.push_back( InstMatch( &partial[index] ) );
-      if( d_children[index]->getNextMatch2( partial[index+1], qe ) ){
-        index++;
-      }else{
+    while( true ){
+      if (d_children.size() == partial.size() - 1){
+        // match found
+        m = partial.back();
+        return true;
+      };
+      partial.push_back( InstMatch( &partial.back() ) );
+
+      Assert(d_children.size() + 1 >= partial.size());
+      const size_t index = partial.size() - 2;
+      if(!d_children[index]->getNextMatch2( partial.back(), qe ) ){
+        // backtrack
+        Node rep = q->getRepresentative( t[ d_children_index[index] ] );
+        d_children[index]->d_cg->reset( rep );
         partial.pop_back();
-        index--;
-      }
-    }
-    if( index>=0 ){
-      m = partial[index];
-      return true;
-    }else{
-      return false;
+        if(partial.size() == 1) return false; //no more possibilities
+        partial.pop_back();
+      };
     }
   }
 }
@@ -455,33 +468,35 @@ void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
 }
 
 bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
-  if( d_match_pattern.isNull() ){
-    int index = (int)d_partial.size();
-    while( index>=0 && index<(int)d_children.size() ){
-      if( index>0 ){
-        d_partial.push_back( InstMatch( &d_partial[index-1] ) );
-      }else{
-        d_partial.push_back( InstMatch() );
-      }
-      if( d_children[index]->getNextMatch( d_partial[index], qe ) ){
-        index++;
-      }else{
-        d_children[index]->reset( Node::null(), qe );
-        d_partial.pop_back();
-        index--;
-      }
-    }
-    if( index>=0 ){
+  if(!d_match_pattern.isNull() ) return getNextMatch2( m, qe );
+
+  // It's a multi-trigger, d_partial is used as the stack for the search.
+  if( d_partial.empty() ) d_partial.push_back( InstMatch() );
+  /** todo reset? */
+
+  while( true ) {
+    if (d_children.size() == d_partial.size() - 1){
+      /** A match is found */
       m = d_partial.back();
       d_partial.pop_back();
       return true;
-    }else{
-      return false;
-    }
-  }else{
-    return getNextMatch2( m, qe );
+    };
+
+    d_partial.push_back( InstMatch( &d_partial.back() ) );
+
+    Assert(d_children.size() + 1 >= d_partial.size());
+    const size_t index = d_partial.size() - 2;
+    if(!d_children[index]->getNextMatch( d_partial.back(), qe ) ){
+      /** No more match: backtrack */
+      d_children[index]->reset( Node::null(), qe );
+      d_partial.pop_back();
+      if(d_partial.size() == 1) return false;  /** No more possibilities */
+      d_partial.pop_back();
+    };
   }
 }
+
+
 
 // Currently the implementation doesn't take into account that
 // variable should have the same value given.
@@ -490,7 +505,8 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
 // We should create a real substitution? slower more precise
 // We don't do that often
 bool InstMatchGenerator::nonunifiable( TNode t0, const std::vector<Node> & vars){
-  Assert(!d_match_pattern.isNull());
+  if(d_match_pattern.isNull()) return true;
+
   typedef std::vector<std::pair<TNode,TNode> > tstack;
   tstack stack(1,std::make_pair(t0,d_match_pattern)); // t * pat
 
