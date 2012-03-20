@@ -146,6 +146,7 @@ void ArrayInfo::setNonLinear(const TNode a) {
   if(it == info_map.end()) {
     temp_info = new Info(ct, bck);
     temp_info->isNonLinear = true;
+    info_map[a] = temp_info;
   } else {
     (*it).second->isNonLinear = true;
   }

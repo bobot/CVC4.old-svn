@@ -274,9 +274,13 @@ class TheoryArrays : public Theory {
   Backtracker<TNode> d_backtracker;
   ArrayInfo d_infoMap;
 
+  context::CDQueue<Node> d_mergeQueue;
+
+  bool d_mergeInProgress;
+
   typedef quad<TNode, TNode, TNode, TNode> RowLemmaType;
 
-  context::CDQueue<RowLemmaType > d_RowQueue;
+  context::CDQueue<RowLemmaType> d_RowQueue;
   context::CDHashSet<RowLemmaType, RowLemmaTypeHashFunction > d_RowAlreadyAdded;
 
   context::CDHashMap<TNode, bool, TNodeHashFunction> d_sharedArrays;

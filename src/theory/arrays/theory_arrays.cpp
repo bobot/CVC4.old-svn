@@ -63,7 +63,9 @@ TheoryArrays::TheoryArrays(context::Context* c, context::UserContext* u, OutputC
   d_equalityEngine(d_notify, c, "theory::arrays::TheoryArrays"),
   d_conflict(c, false),
   d_backtracker(c),
-  d_infoMap(c,&d_backtracker),
+  d_infoMap(c, &d_backtracker),
+  d_mergeQueue(c),
+  d_mergeInProgress(false),
   d_RowQueue(u),
   d_RowAlreadyAdded(u),
   d_sharedArrays(c),
@@ -789,41 +791,64 @@ void TheoryArrays::mergeArrays(TNode a, TNode b)
   // Note: a is the new representative
   Assert(a.getType().isArray() && b.getType().isArray());
 
-  if (d_useNonLinearOpt) {
-    bool aNL = d_infoMap.isNonLinear(a);
-    bool bNL = d_infoMap.isNonLinear(b);
-    if (aNL) {
-      if (bNL) {
-        // already both marked as non-linear - no need to do anything
-      }
-      else {
-        // Set b to be non-linear
-        setNonLinear(b);
-      }
-    }
-    else {
-      if (bNL) {
-        // Set a to be non-linear
-        setNonLinear(a);
-      }
-      else {
-        // Check for new non-linear arrays
-        const CTNodeList* astores = d_infoMap.getStores(a);
-        const CTNodeList* bstores = d_infoMap.getStores(a);
-        Assert(astores->size() <= 1 && bstores->size() <= 1);
-        if (astores->size() > 0 && bstores->size() > 0) {
-          setNonLinear(a);
+  if (d_mergeInProgress) {
+    // Nested call to mergeArrays, just push on the queue and return
+    d_mergeQueue.push(a.eqNode(b));
+    return;
+  }
+
+  d_mergeInProgress = true;
+
+  Node n;
+  while (true) {
+    if (d_useNonLinearOpt) {
+      bool aNL = d_infoMap.isNonLinear(a);
+      bool bNL = d_infoMap.isNonLinear(b);
+      if (aNL) {
+        if (bNL) {
+          // already both marked as non-linear - no need to do anything
+        }
+        else {
+          // Set b to be non-linear
           setNonLinear(b);
         }
       }
+      else {
+        if (bNL) {
+          // Set a to be non-linear
+          setNonLinear(a);
+        }
+        else {
+          // Check for new non-linear arrays
+          const CTNodeList* astores = d_infoMap.getStores(a);
+          const CTNodeList* bstores = d_infoMap.getStores(a);
+          Assert(astores->size() <= 1 && bstores->size() <= 1);
+          if (astores->size() > 0 && bstores->size() > 0) {
+            setNonLinear(a);
+            setNonLinear(b);
+          }
+        }
+      }
     }
+
+    checkRowLemmas(a,b);
+    checkRowLemmas(b,a);
+
+    // merge info adds the list of the 2nd argument to the first
+    d_infoMap.mergeInfo(a, b);
+
+    // If no more to do, break
+    if (d_conflict || d_mergeQueue.empty()) {
+      break;
+    }
+
+    // Otherwise, prepare for next iteration
+    n = d_mergeQueue.front();
+    a = n[0];
+    b = n[1];
+    d_mergeQueue.pop();
   }
-
-  checkRowLemmas(a,b);
-  checkRowLemmas(b,a);
-
-  // merge info adds the list of the 2nd argument to the first
-  d_infoMap.mergeInfo(a, b);
+  d_mergeInProgress = false;
 }
 
 
@@ -952,7 +977,7 @@ void TheoryArrays::checkRowLemmas(TNode a, TNode b)
 
 void TheoryArrays::queueRowLemma(RowLemmaType lem)
 {
-  if (d_RowAlreadyAdded.count(lem) != 0) {
+  if (d_conflict || d_RowAlreadyAdded.count(lem) != 0) {
     return;
   }
   TNode a = lem.first;
@@ -1009,11 +1034,10 @@ void TheoryArrays::queueRowLemma(RowLemmaType lem)
 
   // TODO: maybe add triggers here
 
-  Node eq1 = nm->mkNode(kind::EQUAL, aj, bj);
-  Node eq2 = nm->mkNode(kind::EQUAL, i, j);
-  Node lemma = nm->mkNode(kind::OR, eq2, eq1);
-
   if (d_eagerLemmas) {
+    Node eq1 = nm->mkNode(kind::EQUAL, aj, bj);
+    Node eq2 = nm->mkNode(kind::EQUAL, i, j);
+    Node lemma = nm->mkNode(kind::OR, eq2, eq1);
     Trace("arrays-lem")<<"Arrays::addRowLemma adding "<<lemma<<"\n";
     d_RowAlreadyAdded.insert(lem);
     d_out->lemma(lemma);
