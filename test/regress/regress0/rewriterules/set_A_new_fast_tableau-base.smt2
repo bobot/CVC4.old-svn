@@ -22,16 +22,14 @@
 (assert (forall ((?s elt) (?t1 set) (?t2 set))
                 (! (! (=> (not (in ?s ?t2)) (not (in ?s (inter ?t1 ?t2)))) :pattern ((inter ?t1 ?t2)) ) :rewrite-rule) ))
 
-;; Multipattern don't work currently.
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (and (not (in ?s (inter ?t1 ?t2)))  (in ?s ?t1)) (not (in ?s ?t2))) :rewrite-rule) ))
 
-;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
-;;                 (! (=> (and (not (in ?s (inter ?t1 ?t2)))  (in ?s ?t1)) (not (in ?s ?t2))) :rewrite-rule) ))
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (and (not (in ?s (inter ?t1 ?t2)))  (in ?s ?t2)) (not (in ?s ?t1))) :rewrite-rule) ))
 
-;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
-;;                 (! (=> (and (not (in ?s (inter ?t1 ?t2)))  (in ?s ?t2)) (not (in ?s ?t1))) :rewrite-rule) ))
-
-;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
-;;                 (! (! (=> (and (in ?s ?t1)  (in ?s ?t2)) (in ?s (inter ?t1 ?t2))) :pattern ((inter ?t1 ?t2)) ) :rewrite-rule) ))
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (and (in ?s ?t1)  (in ?s ?t2)) (in ?s (inter ?t1 ?t2))) :pattern ((inter ?t1 ?t2)) ) :rewrite-rule) ))
 
 ;;;;;;;;;;;;;;;;;
 ;; union
@@ -47,16 +45,14 @@
 (assert (forall ((?s elt) (?t1 set) (?t2 set))
                 (! (! (=> (in ?s ?t2) (in ?s (union ?t1 ?t2))) :pattern ((union ?t1 ?t2)) ) :rewrite-rule) ))
 
-;; Multipattern don't work currently.
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (and (in ?s (union ?t1 ?t2))  (not (in ?s ?t1))) (in ?s ?t2)) :rewrite-rule) ))
 
-;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
-;;                 (! (=> (and (in ?s (union ?t1 ?t2))  (not (in ?s ?t1))) (in ?s ?t2)) :rewrite-rule) ))
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (=> (and (in ?s (union ?t1 ?t2))  (not (in ?s ?t2))) (in ?s ?t1)) :rewrite-rule) ))
 
-;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
-;;                 (! (=> (and (in ?s (union ?t1 ?t2))  (not (in ?s ?t2))) (in ?s ?t1)) :rewrite-rule) ))
-
-;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
-;;                 (! (! (=> (and (not (in ?s ?t1))  (not (in ?s ?t2))) (not (in ?s (union ?t1 ?t2)))) :pattern ((union ?t1 ?t2)) ) :rewrite-rule) ))
+(assert (forall ((?s elt) (?t1 set) (?t2 set))
+                (! (! (=> (and (not (in ?s ?t1))  (not (in ?s ?t2))) (not (in ?s (union ?t1 ?t2)))) :pattern ((union ?t1 ?t2)) ) :rewrite-rule) ))
 
 ;;;;;;;;;;;;;;;;
 ;;sing
@@ -75,11 +71,11 @@
 
 ;;;;;;;;;;;;;;;;;;;
 ;; fullfiling
-(assert (forall ((?s elt) (?t1 set) (?t2 set))
-                (! (=> (in ?s (union ?t1 ?t2)) (or (in ?s ?t1) (not (in ?s ?t1)))) :rewrite-rule)))
+;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
+;;                 (! (=> (in ?s (union ?t1 ?t2)) (or (in ?s ?t1) (not (in ?s ?t1)))) :rewrite-rule)))
 
-(assert (forall ((?s elt) (?t1 set) (?t2 set))
-                (! (! (=> (in ?s ?t1) (or (in ?s ?t2) (not (in ?s ?t2)))) :pattern ((inter ?t1 ?t2))) :rewrite-rule)))
+;; (assert (forall ((?s elt) (?t1 set) (?t2 set))
+;;                 (! (! (=> (in ?s ?t1) (or (in ?s ?t2) (not (in ?s ?t2)))) :pattern ((inter ?t1 ?t2))) :rewrite-rule)))
 
 
 
@@ -87,7 +83,14 @@
 (declare-fun t1 () set)
 (declare-fun t2 () set)
 
+;;(assert (not (=> (in e (inter (union t1 t2) (union t1 t1))) (in e (union t1 t1)))))
+;;(assert (not (=> (in e (union t1 t1)) (in e t1))))
+
+;; hyp
+;;(assert (=> (in e (union t1 t1)) (in e t1)))
+
 (assert (not (=> (in e (inter (union t1 t2) (union t1 t1))) (in e t1))))
+
 
 
 (check-sat)

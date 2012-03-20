@@ -104,8 +104,6 @@ bool checkPatternVars(const std::vector<Node> & pattern,
 void TheoryRewriteRules::addRewriteRule(const Node r)
 {
   Assert(r.getKind() == kind::REWRITE_RULE);
-
-  Debug("rewriterules") << "create rewriterule:" << r << std::endl;
   /*   Replace variables by Inst_* variable and tag the terms that
        contain them */
   std::vector<Node> vars;
@@ -177,7 +175,7 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
       // todo test during typing that its a good term (no not, atom, or term...)
       addPattern(*this,(*i)[0],pattern,vars,inst_constants,r);
     };
-  Assert(pattern.size() == 1, "currently only single pattern are supported");
+  // Assert(pattern.size() == 1, "currently only single pattern are supported");
   //Every variable must be seen in the pattern
   if (!checkPatternVars(pattern,inst_constants)){
     Warning() << "The rule" << r <<
@@ -198,6 +196,9 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
     for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid)
       computeMatchBody(d_rules[rid],
                        d_rules.size() - 1);
+
+  Debug("rewriterules") << "created rewriterule:(" << d_rules.size() - 1 << ")"
+                        << d_rules.back() << std::endl;
 
   }
 };

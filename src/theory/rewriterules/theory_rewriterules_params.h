@@ -36,7 +36,7 @@ static const bool useCurrentModel = false;
 static const bool simulateRewritting = false;
 
 /* temporary */
-static const bool disableAdditionnalTrigger = true;
+static const bool disableAdditionnalTrigger = false;
 
 }/* CVC4::theory::rewriterules namespace */
 }/* CVC4::theory namespace */

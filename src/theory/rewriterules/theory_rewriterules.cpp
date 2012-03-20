@@ -110,7 +110,7 @@ void RuleInst::toStream(std::ostream& out) const{
   out << "(" << rule << ") ";
   for(std::vector<Node>::const_iterator
         iter = subst.begin(); iter != subst.end(); ++iter){
-    out << *iter;
+    out << *iter << " ";
   };
 }
 
@@ -200,7 +200,7 @@ void TheoryRewriteRules::check(Effort level) {
     /** Test the possible matching one by one */
     InstMatch im;
     while(tr.getNextMatch( im )){
-      addMatchRuleTrigger(rid, r, im, false);
+      addMatchRuleTrigger(rid, r, im, true);
       im.clear();
     }
   }
@@ -232,7 +232,7 @@ void TheoryRewriteRules::check(Effort level) {
       // cout << "Polled!:" << g << "->" << (glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) << std::endl;
       bool value;
       if(getValuation().hasSatValue(g,value)){
-        polldone = true;
+        if(value) polldone = true; //One guard is true so pass n check
         Debug("rewriterules") << "Poll value:" << g
                              << " is " << (value ? "true" : "false") << std::endl;
         notification(g,value);
@@ -321,7 +321,13 @@ Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, RuleInstId rid,
   GuardedMap::iterator l_i = d_guardeds.find(g);
   GList* l;
   if( l_i == d_guardeds.end() ) {
-    /** Not watched so IDONTNOW */
+    /** Normally Not watched so IDONTNOW but since we poll, we can poll now */
+    bool value;
+    if(getValuation().hasSatValue(g,value)){
+      if(value) return ATRUE;
+      else      return AFALSE;
+    };
+    //Not watched so IDONTNOW
     l = new(getContext()->getCMM())
       GList(true, getContext(), false);//,
             //ContextMemoryAllocator<Guarded>(getContext()->getCMM()));
