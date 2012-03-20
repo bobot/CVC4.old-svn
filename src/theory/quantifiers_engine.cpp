@@ -143,10 +143,6 @@ Instantiator* QuantifiersEngine::getInstantiator( int id ){
 }
 
 void QuantifiersEngine::check( Theory::Effort e ){
-  if( e>=Theory::EFFORT_FULL ){
-    ++(d_statistics.d_instantiation_rounds);  //FIXME
-    //std::cout << "Instantiation Round" << std::endl;
-  }
   for( int i=0; i<(int)d_modules.size(); i++ ){
     d_modules[i]->check( e );
   }
@@ -183,7 +179,6 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       //InstVarNumAttribute ivna;
       //ic.setAttribute(ivna,i);
     }
-#ifdef COMPUTE_RELEVANCE
     std::vector< Node > syms;
     computeSymbols( f[1], syms );
     d_syms[f].insert( d_syms[f].begin(), syms.begin(), syms.end() );
@@ -196,6 +191,7 @@ void QuantifiersEngine::registerQuantifier( Node f ){
         minRelevance = r;
       }
     }
+#ifdef COMPUTE_RELEVANCE
     if( minRelevance!=-1 ){
       setRelevance( f, minRelevance+1 );
     }

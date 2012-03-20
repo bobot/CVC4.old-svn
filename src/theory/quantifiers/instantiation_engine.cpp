@@ -121,6 +121,7 @@ void InstantiationEngine::check( Theory::Effort e ){
     ierCounter++;
   }
   if( ( e==Theory::EFFORT_FULL  && ierCounter%2==0 ) || e==Theory::EFFORT_LAST_CALL ){
+    ++(getQuantifiersEngine()->d_statistics.d_instantiation_rounds); 
   //if( e==Theory::EFFORT_LAST_CALL ){
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES

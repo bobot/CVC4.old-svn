@@ -27,6 +27,16 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 
+#define USE_RELEVANT_TRIGGER
+
+struct sortQuantifiersForSymbol {
+  QuantifiersEngine* d_qe;
+  bool operator() (Node i, Node j) { 
+    return d_qe->getNumQuantifiersForSymbol( i.getOperator() )<d_qe->getNumQuantifiersForSymbol( j.getOperator() ); 
+  }
+};
+
+
 void InstStrategyCheckCESolved::processResetInstantiationRound( Theory::Effort effort ){
   for( std::map< Node, bool >::iterator it = d_solved.begin(); it != d_solved.end(); ++it ){
     calcSolved( it->first );
@@ -160,7 +170,7 @@ void InstStrategyAutoGenTriggers::processResetInstantiationRound( Theory::Effort
 }
 
 int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, int instLimit ){
-  int peffort = ( f.getNumChildren()==3 || d_tr_strategy==MIN_TRIGGER ) ? 2 : 1;
+  int peffort = ( f.getNumChildren()==3 || d_tr_strategy==TS_MIN_TRIGGER ) ? 2 : 1;
   //int peffort = f.getNumChildren()==3 ? 2 : 1;
   //int peffort = 1;
   if( e<peffort ){
@@ -174,7 +184,7 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
       //std::cout << "Try auto-generated triggers..." << std::endl;
       int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
       d_th->d_statistics.d_instantiations += numInst;
-      if( d_tr_strategy==MIN_TRIGGER ){
+      if( d_tr_strategy==TS_MIN_TRIGGER ){
         d_th->d_statistics.d_instantiations_auto_gen_min += numInst;
       }else{
         d_th->d_statistics.d_instantiations_auto_gen += numInst;
@@ -190,22 +200,7 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
 bool InstStrategyAutoGenTriggers::collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt ){
   if( patMap.find( n )==patMap.end() ){
     patMap[ n ] = false;
-    if( tstrt==MAX_TRIGGER ){
-      if( Trigger::isUsableTrigger( n, f ) ){
-        patMap[ n ] = true;
-        return true;
-      }else if( n.getKind()!=FORALL ){
-        bool retVal = false;
-        for( int i=0; i<(int)n.getNumChildren(); i++ ){
-          if( collectPatTerms2( f, n[i], patMap, tstrt ) ){
-            retVal = true;
-          }
-        }
-        return retVal;
-      }else{
-        return false;
-      }
-    }else if( tstrt==MIN_TRIGGER ){
+    if( tstrt==TS_MIN_TRIGGER ){
       if( n.getKind()!=FORALL ){
         bool retVal = false;
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
@@ -224,11 +219,15 @@ bool InstStrategyAutoGenTriggers::collectPatTerms2( Node f, Node n, std::map< No
       }else{
         return false;
       }
-    }else if( tstrt==ALL ){
+    }else{
       bool retVal = false;
       if( Trigger::isUsableTrigger( n, f ) ){
         patMap[ n ] = true;
-        retVal = true;
+        if( tstrt==TS_MAX_TRIGGER ){
+          return true;
+        }else{
+          retVal = true;
+        }
       }
       if( n.getKind()!=FORALL ){
         for( int i=0; i<(int)n.getNumChildren(); i++ ){
@@ -239,6 +238,8 @@ bool InstStrategyAutoGenTriggers::collectPatTerms2( Node f, Node n, std::map< No
       }
       return retVal;
     }
+  }else{
+    return patMap[ n ];
   }
 }
 
@@ -247,7 +248,7 @@ bool InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< 
   if( filterInst ){
     //immediately do not consider any term t for which another term is an instance of t
     std::vector< Node > patTerms2;
-    collectPatTerms( f, n, patTerms2, ALL, false );
+    collectPatTerms( f, n, patTerms2, TS_ALL, false );
     std::vector< Node > temp;
     temp.insert( temp.begin(), patTerms2.begin(), patTerms2.end() );
     Trigger::filterInstances( temp );
@@ -270,7 +271,7 @@ bool InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< 
       }
     }
   }
-  collectPatTerms2( f, d_quantEngine->getCounterexampleBody( f ), patMap, tstrt );
+  collectPatTerms2( f, n, patMap, tstrt );
   for( std::map< Node, bool >::iterator it = patMap.begin(); it != patMap.end(); ++it ){
     if( it->second ){
       patTerms.push_back( it->first );
@@ -281,6 +282,7 @@ bool InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< 
 
 Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
   if( d_auto_gen_trigger.find( f )==d_auto_gen_trigger.end() ){
+    Trigger* tr = NULL;
     //if( f.getNumChildren()==3 ){
     //  //don't auto-generate any trigger for quantifiers with user-provided patterns
     //  d_auto_gen_trigger[f] = NULL;
@@ -288,20 +290,30 @@ Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
     std::vector< Node > patTerms;
     collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );   //, true );
     if( !patTerms.empty() ){
+      //sort terms based on relevance
+      if( d_rlv_strategy==RELEVANCE_DEFAULT ){
+        sortQuantifiersForSymbol sqfs;
+        sqfs.d_qe = d_quantEngine;
+        //sort based on # occurrences (this will cause Trigger to select rarer symbols)
+        std::sort( patTerms.begin(), patTerms.end(), sqfs );
+        Debug("relevant-trigger") << "Terms based on relevance: " << std::endl;
+        for( int i=0; i<(int)patTerms.size(); i++ ){
+          Debug("relevant-trigger") << "   " << patTerms[i] << " (";
+          Debug("relevant-trigger") << d_quantEngine->getNumQuantifiersForSymbol( patTerms[i].getOperator() ) << ")" << std::endl;
+        }
+      }
       int matchOption = 0;
 #ifdef USE_EFFICIENT_E_MATCHING
       matchOption = InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH;
 #endif
-      Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchOption, false, Trigger::TR_RETURN_NULL );
-      //making it during an instantiation round, so must reset
-      if( tr ){
-        tr->resetInstantiationRound();
-        tr->reset( Node::null() );
-      }
-      d_auto_gen_trigger[f] = tr;
-    }else{
-      d_auto_gen_trigger[f] = NULL;
+      tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchOption, false, Trigger::TR_RETURN_NULL );
     }
+    if( tr ){
+      //making it during an instantiation round, so must reset
+      tr->resetInstantiationRound();
+      tr->reset( Node::null() );
+    }
+    d_auto_gen_trigger[f] = tr;
   }
   return d_auto_gen_trigger[f];
 }
@@ -404,9 +416,11 @@ Instantiator( c, ie, th )
       //addInstStrategy( new InstStrategyLitMatch( this, ie ) );
     }
     addInstStrategy( d_isup );
-    InstStrategy* i_ag = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MAX_TRIGGER );
+    InstStrategy* i_ag = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::TS_ALL, 
+                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT );
     addInstStrategy( i_ag );
-    InstStrategy* i_agm = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::MIN_TRIGGER );
+    InstStrategy* i_agm = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::TS_MIN_TRIGGER, 
+                                                           InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT );
     addInstStrategy( i_agm );
     addInstStrategy( new InstStrategyFreeVariable( this, ie ) );
     //d_isup->setPriorityOver( i_ag );
@@ -573,6 +587,7 @@ InstantiatorTheoryUf::Statistics::Statistics():
   d_instantiations_guess("InstantiatorTheoryUf::Free_Var_Instantiations", 0),
   d_instantiations_auto_gen("InstantiatorTheoryUf::Auto_Gen_Instantiations", 0),
   d_instantiations_auto_gen_min("InstantiatorTheoryUf::Auto_Gen_Instantiations_Min", 0),
+  d_instantiations_auto_gen_relevant("InstantiatorTheoryUf::Auto_Gen_Instantiations_Relevant", 0),
   d_splits("InstantiatorTheoryUf::Total_Splits", 0)
 {
   StatisticsRegistry::registerStat(&d_instantiations);
@@ -582,6 +597,7 @@ InstantiatorTheoryUf::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_instantiations_guess );
   StatisticsRegistry::registerStat(&d_instantiations_auto_gen );
   StatisticsRegistry::registerStat(&d_instantiations_auto_gen_min );
+  StatisticsRegistry::registerStat(&d_instantiations_auto_gen_relevant );
   StatisticsRegistry::registerStat(&d_splits);
 }
 
@@ -593,6 +609,7 @@ InstantiatorTheoryUf::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_instantiations_guess );
   StatisticsRegistry::unregisterStat(&d_instantiations_auto_gen );
   StatisticsRegistry::unregisterStat(&d_instantiations_auto_gen_min );
+  StatisticsRegistry::unregisterStat(&d_instantiations_auto_gen_relevant );
   StatisticsRegistry::unregisterStat(&d_splits);
 }
 

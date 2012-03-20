@@ -746,7 +746,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
   if( level>=Theory::EFFORT_STANDARD ){
     Debug("uf-ss") << "StrongSolverTheoryUf: Check " << level << " " << d_type << std::endl;
     //std::cout << "StrongSolverTheoryUf: Check " << level << std::endl;
-    if( d_reps<=d_cardinality ){
+    if( d_reps<=(unsigned)d_cardinality ){
       Debug("uf-ss-debug") << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
       if( level==Theory::EFFORT_FULL ){
         Debug("uf-ss-sat") << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
@@ -828,7 +828,7 @@ void StrongSolverTheoryUf::ConflictFind::debugPrint( const char* c ){
   Debug( c ) << "--  Conflict Find:" << std::endl;
   Debug( c ) << "Number of reps = " << d_reps << std::endl;
   Debug( c ) << "Cardinality req = " << d_cardinality << std::endl;
-  int debugReps = 0;
+  unsigned debugReps = 0;
   for( int i=0; i<(int)d_regions_index; i++ ){
     if( d_regions[i]->d_valid ){
       Debug( c ) << "Region #" << i << ": " << std::endl;

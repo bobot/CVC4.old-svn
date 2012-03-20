@@ -351,6 +351,8 @@ private:
 public:
   /** get relevance */
   int getRelevance( Node s ) { return d_relevance.find( s )==d_relevance.end() ? -1 : d_relevance[s]; }
+  /** get number of quantifiers for symbol s */
+  int getNumQuantifiersForSymbol( Node s ) { return (int)d_syms_quants[s].size(); }
 public:
   /** statistics class */
   class Statistics {

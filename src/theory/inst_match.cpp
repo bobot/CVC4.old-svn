@@ -43,9 +43,9 @@ InstMatch::InstMatch( InstMatch* m ){
   //}
 }
 
-bool InstMatch::setMatch( EqualityQuery* q, Node v, Node m ){ 
+bool InstMatch::setMatch( EqualityQuery* q, Node v, Node m ){
   if( d_map.find( v )==d_map.end() ){
-    d_map[v] = m; 
+    d_map[v] = m;
     Debug("matching") << "Add partial " << v << "->" << m << std::endl;
     return true;
   }else{
@@ -227,7 +227,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
   Debug("inst-match-gen") << "Pattern is " << d_pattern << ", match pattern is " << d_match_pattern << std::endl;
 
   //get the equality engine
-  Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF ); 
+  Theory* th_uf = qe->getTheoryEngine()->getTheory( theory::THEORY_UF );
   uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
   //create candidate generator
   if( d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF ){
@@ -240,14 +240,14 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
   }else if( d_match_pattern.getKind()==APPLY_UF ){
     Node op = d_match_pattern.getOperator();
-    if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){   
+    if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){
       d_cg = new CandidateGeneratorQueue;
       ith->registerCandidateGenerator( d_cg, pat );
     }else{
       //we will be scanning lists trying to find d_match_pattern.getOperator()
       d_cg = new uf::CandidateGeneratorTheoryUf( ith, op );
     }
-  }else{ 
+  }else{
     d_cg = new CandidateGeneratorQueue;
     if( !initializePatternArithmetic( d_match_pattern ) ){
       Debug("inst-match-gen") << "(?) Unknown matching pattern is " << d_match_pattern << std::endl;
@@ -273,7 +273,7 @@ bool InstMatchGenerator::initializePatternArithmetic( Node n ){
       }
     }
     if( t.getNumChildren()==0 ){
-      d_arith_coeffs[ Node::null() ] = NodeManager::currentNM()->mkConst( Rational(0) ); 
+      d_arith_coeffs[ Node::null() ] = NodeManager::currentNM()->mkConst( Rational(0) );
     }else if( t.getNumChildren()==1 ){
       d_arith_coeffs[ Node::null() ]  = t.getChild( 0 );
     }else{
@@ -337,7 +337,7 @@ bool InstMatchGenerator::getMatchArithmetic( Node t, InstMatch& m, QuantifiersEn
       for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
         if( !it->first.isNull() ){
           if( m.d_map.find( it->first )==m.d_map.end() ){
-            m.d_map[ it->first ] = NodeManager::currentNM()->mkConst( Rational(0) ); 
+            m.d_map[ it->first ] = NodeManager::currentNM()->mkConst( Rational(0) );
           }
         }
       }
@@ -391,33 +391,34 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
     }
     //now, fit children into match
     //we will be requesting candidates for matching terms for each child
+    std::vector< Node > reps;
     for( int i=0; i<(int)d_children.size(); i++ ){
       Node rep = q->getRepresentative( t[ d_children_index[i] ] );
+      reps.push_back( rep );
       d_children[i]->d_cg->reset( rep );
     }
 
-    Assert(partial.size() > 0);
-
     //combine child matches
-    while( d_children.size() + 1 != partial.size() ){
-      partial.push_back( InstMatch( &partial.back() ) );
-
-      Assert(d_children.size() + 1 >= partial.size());
-      const size_t index = partial.size() - 2;
-      if(!d_children[index]->getNextMatch2( partial.back(), qe ) ){
-        // backtrack
-        Node rep = q->getRepresentative( t[ d_children_index[index] ] );
-        d_children[index]->d_cg->reset( rep );
+    int index = 0;
+    while( index>=0 && index<(int)d_children.size() ){
+      partial.push_back( InstMatch( &partial[index] ) );
+      if( d_children[index]->getNextMatch2( partial[index+1], qe ) ){
+        index++;
+      }else{
+        d_children[index]->d_cg->reset( reps[index] );
         partial.pop_back();
-        if(partial.size() == 1) return false; //no more possibilities
-        partial.pop_back();
-      };
+        if( !partial.empty() ){
+          partial.pop_back();
+        }
+        index--;
+      }
     }
-
-    // match found
-    m = partial.back();
-    return true;
-
+    if( index>=0 ){
+      m = partial.back();
+      return true;
+    }else{
+      return false;
+    }
   }
 }
 
@@ -460,7 +461,7 @@ void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
       d_cg->reset( eqc );
     }else{
       //otherwise, we have a specific equivalence class in mind
-      //we are producing matches for f(E) ~ t, where E is a non-ground vector of terms, and t is a ground term 
+      //we are producing matches for f(E) ~ t, where E is a non-ground vector of terms, and t is a ground term
       //just look in equivalence class of the RHS
       d_cg->reset( d_pattern.getKind()==NOT ? d_pattern[0][1] : d_pattern[1] );
     }
@@ -468,30 +469,35 @@ void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
 }
 
 bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
-  if(!d_match_pattern.isNull() ) return getNextMatch2( m, qe );
-
-  // It's a multi-trigger, d_partial is used as the stack for the search.
-  if( d_partial.empty() ) d_partial.push_back( InstMatch() );
-  /** todo reset? */
-
-  while( d_children.size() + 1 != d_partial.size() ) {
-    d_partial.push_back( InstMatch( &d_partial.back() ) );
-
-    Assert(d_children.size() + 1 >= d_partial.size());
-    const size_t index = d_partial.size() - 2;
-    if(!d_children[index]->getNextMatch( d_partial.back(), qe ) ){
-      /** No more match: backtrack */
-      d_children[index]->reset( Node::null(), qe );
+  if( d_match_pattern.isNull() ){
+    int index = (int)d_partial.size();
+    while( index>=0 && index<(int)d_children.size() ){
+      if( index>0 ){
+        d_partial.push_back( InstMatch( &d_partial[index-1] ) );
+      }else{
+        d_partial.push_back( InstMatch() );
+      }
+      if( d_children[index]->getNextMatch( d_partial[index], qe ) ){
+        index++;
+      }else{
+        d_children[index]->reset( Node::null(), qe );
+        d_partial.pop_back();
+        if( !d_partial.empty() ){
+          d_partial.pop_back();
+        }
+        index--;
+      }
+    }
+    if( index>=0 ){
+      m = d_partial.back();
       d_partial.pop_back();
-      if(d_partial.size() == 1) return false;  /** No more possibilities */
-      d_partial.pop_back();
-    };
+      return true;
+    }else{
+      return false;
+    }
+  }else{
+    return getNextMatch2( m, qe );
   }
-
-  /** A match is found */
-  m = d_partial.back();
-  d_partial.pop_back();
-  return true;
 }
 
 
@@ -570,9 +576,9 @@ Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int
   trCount++;
   d_nodes.insert( d_nodes.begin(), nodes.begin(), nodes.end() );
   d_mg = new InstMatchGenerator( d_nodes, qe, matchOption );
-  Debug("trigger") << "Trigger: ";
+  Debug("trigger") << "Trigger for " << f << ": " << std::endl;
   for( int i=0; i<(int)d_nodes.size(); i++ ){
-    Debug("trigger") << d_nodes[i] << " ";
+    Debug("trigger") << "   " << d_nodes[i] << std::endl;
   }
   Debug("trigger") << std::endl;
 }
@@ -637,94 +643,83 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
 }
 
 Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int matchOption, bool keepAll, int trOption ){
-  bool success = false;
-  int counter = 0;
   std::vector< Node > trNodes;
-  while( !success ){
-    if( !keepAll ){
-      //only take nodes that contribute variables to the trigger when added
-      std::vector< Node > temp;
-      temp.insert( temp.begin(), nodes.begin(), nodes.end() );
-      std::random_shuffle( temp.begin(), temp.end() );
-      std::map< Node, bool > vars;
-      std::map< Node, std::vector< Node > > patterns;
-      for( int i=0; i<(int)temp.size(); i++ ){
-        bool foundVar = false;
-        computeVarContains( temp[i] );
+  if( !keepAll ){
+    //only take nodes that contribute variables to the trigger when added
+    std::vector< Node > temp;
+    temp.insert( temp.begin(), nodes.begin(), nodes.end() );
+    std::map< Node, bool > vars;
+    std::map< Node, std::vector< Node > > patterns;
+    for( int i=0; i<(int)temp.size(); i++ ){
+      bool foundVar = false;
+      computeVarContains( temp[i] );
+      for( int j=0; j<(int)d_var_contains[ temp[i] ].size(); j++ ){
+        Node v = d_var_contains[ temp[i] ][j];
+        if( vars.find( v )==vars.end() ){
+          vars[ v ] = true;
+          foundVar = true;
+        }
+      }
+      if( foundVar ){
+        trNodes.push_back( temp[i] );
         for( int j=0; j<(int)d_var_contains[ temp[i] ].size(); j++ ){
           Node v = d_var_contains[ temp[i] ][j];
-          if( vars.find( v )==vars.end() ){
-            vars[ v ] = true;
-            foundVar = true;
-          }
-        }
-        if( foundVar ){
-          trNodes.push_back( temp[i] );
-          for( int j=0; j<(int)d_var_contains[ temp[i] ].size(); j++ ){
-            Node v = d_var_contains[ temp[i] ][j];
-            patterns[ v ].push_back( temp[i] );
-          }
+          patterns[ v ].push_back( temp[i] );
         }
       }
-      //now, minimalize the trigger 
-      for( int i=0; i<(int)trNodes.size(); i++ ){
-        bool keepPattern = false;
-        Node n = trNodes[i];
+    }
+    //now, minimalize the trigger
+    for( int i=0; i<(int)trNodes.size(); i++ ){
+      bool keepPattern = false;
+      Node n = trNodes[i];
+      for( int j=0; j<(int)d_var_contains[ n ].size(); j++ ){
+        Node v = d_var_contains[ n ][j];
+        if( patterns[v].size()==1 ){
+          keepPattern = true;
+          break;
+        }
+      }
+      if( !keepPattern ){
+        //remove from pattern vector
         for( int j=0; j<(int)d_var_contains[ n ].size(); j++ ){
           Node v = d_var_contains[ n ][j];
-          if( patterns[v].size()==1 ){
-            keepPattern = true;
-            break;
-          }
-        }
-        if( !keepPattern ){
-          //remove from pattern vector
-          for( int j=0; j<(int)d_var_contains[ n ].size(); j++ ){
-            Node v = d_var_contains[ n ][j];
-            for( int k=0; k<(int)patterns[v].size(); k++ ){
-              if( patterns[v][k]==n ){
-                patterns[v].erase( patterns[v].begin() + k, patterns[v].begin() + k + 1 );
-                break;
-              }
+          for( int k=0; k<(int)patterns[v].size(); k++ ){
+            if( patterns[v][k]==n ){
+              patterns[v].erase( patterns[v].begin() + k, patterns[v].begin() + k + 1 );
+              break;
             }
           }
-          //remove from trigger nodes
-          trNodes.erase( trNodes.begin() + i, trNodes.begin() + i + 1 );
-          i--;
         }
+        //remove from trigger nodes
+        trNodes.erase( trNodes.begin() + i, trNodes.begin() + i + 1 );
+        i--;
       }
-    }else{
-      trNodes.insert( trNodes.begin(), nodes.begin(), nodes.end() );
     }
-    //check for duplicate?
-    if( trOption==TR_MAKE_NEW ){
-      success = true;
-      //static int trNew = 0;
-      //static int trOld = 0;
-      //Trigger* t = d_tr_trie.getTrigger( trNodes );
-      //if( t ){
-      //  trOld++;
-      //}else{
-      //  trNew++;
-      //}
-      //if( (trNew+trOld)%100==0 ){
-      //  std::cout << "Trigger new old = " << trNew << " " << trOld << std::endl;
-      //}
-    }else{
-      Trigger* t = d_tr_trie.getTrigger( trNodes );
-      if( t ){
-        if( trOption==TR_GET_OLD ){
-          //just return old trigger
-          return t;
-        }else{
-          return NULL; 
-        }
+  }else{
+    trNodes.insert( trNodes.begin(), nodes.begin(), nodes.end() );
+  }
+  //check for duplicate?
+  if( trOption==TR_MAKE_NEW ){
+    //static int trNew = 0;
+    //static int trOld = 0;
+    //Trigger* t = d_tr_trie.getTrigger( trNodes );
+    //if( t ){
+    //  trOld++;
+    //}else{
+    //  trNew++;
+    //}
+    //if( (trNew+trOld)%100==0 ){
+    //  std::cout << "Trigger new old = " << trNew << " " << trOld << std::endl;
+    //}
+  }else{
+    Trigger* t = d_tr_trie.getTrigger( trNodes );
+    if( t ){
+      if( trOption==TR_GET_OLD ){
+        //just return old trigger
+        return t;
       }else{
-        success = true;
+        return NULL;
       }
-    }
-    if( !success ){
-      trNodes.clear();
     }
   }
   Trigger* t = new Trigger( qe, f, trNodes, matchOption );

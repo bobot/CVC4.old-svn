@@ -98,30 +98,38 @@ public:
 };
 
 class InstStrategyAutoGenTriggers : public InstStrategy{
+private:
+  /** collect all APPLY_UF pattern terms for f in n */
+  static bool collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt );
 public:
   //different strategies for choosing triggers
   enum {
-    MAX_TRIGGER = 0,
-    MIN_TRIGGER,
-    ALL,
+    TS_MAX_TRIGGER = 0,
+    TS_MIN_TRIGGER,
+    TS_ALL,
+  };
+  static bool collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst = false );
+public:
+  enum {
+    RELEVANCE_NONE,
+    RELEVANCE_DEFAULT,
   };
 private:
   /** InstantiatorTheoryUf class */
   InstantiatorTheoryUf* d_th;
   /** trigger generation strategy */
   int d_tr_strategy;
-  /** current trigger */
+  /** relevance strategy */
+  int d_rlv_strategy;
+  /** triggers for each quantifier */
   std::map< Node, Trigger* > d_auto_gen_trigger;
 private:
-  /** collect all top level APPLY_UF pattern terms for f in n */
-  bool collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt );
-  bool collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst = false );
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
   int process( Node f, Theory::Effort effort, int e, int instLimit );
 public:
-  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt ) : 
-      InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ){}
+  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt, int rstrt ) : 
+      InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ), d_rlv_strategy( rstrt ){}
   ~InstStrategyAutoGenTriggers(){}
 public:
   /** get auto-generated trigger */
@@ -238,6 +246,7 @@ public:
     IntStat d_instantiations_guess;
     IntStat d_instantiations_auto_gen;
     IntStat d_instantiations_auto_gen_min;
+    IntStat d_instantiations_auto_gen_relevant;
     IntStat d_splits;
     Statistics();
     ~Statistics();
