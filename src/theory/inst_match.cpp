@@ -399,12 +399,7 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
     Assert(partial.size() > 0);
 
     //combine child matches
-    while( true ){
-      if (d_children.size() == partial.size() - 1){
-        // match found
-        m = partial.back();
-        return true;
-      };
+    while( d_children.size() + 1 != partial.size() ){
       partial.push_back( InstMatch( &partial.back() ) );
 
       Assert(d_children.size() + 1 >= partial.size());
@@ -418,6 +413,11 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
         partial.pop_back();
       };
     }
+
+    // match found
+    m = partial.back();
+    return true;
+
   }
 }
 
@@ -474,14 +474,7 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
   if( d_partial.empty() ) d_partial.push_back( InstMatch() );
   /** todo reset? */
 
-  while( true ) {
-    if (d_children.size() == d_partial.size() - 1){
-      /** A match is found */
-      m = d_partial.back();
-      d_partial.pop_back();
-      return true;
-    };
-
+  while( d_children.size() + 1 != d_partial.size() ) {
     d_partial.push_back( InstMatch( &d_partial.back() ) );
 
     Assert(d_children.size() + 1 >= d_partial.size());
@@ -494,6 +487,11 @@ bool InstMatchGenerator::getNextMatch( InstMatch& m, QuantifiersEngine* qe ){
       d_partial.pop_back();
     };
   }
+
+  /** A match is found */
+  m = d_partial.back();
+  d_partial.pop_back();
+  return true;
 }
 
 
