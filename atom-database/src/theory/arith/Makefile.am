@@ -17,6 +17,8 @@ libarith_la_SOURCES = \
 	arithvar_node_map.h \
 	atom_database.h \
 	atom_database.cpp \
+	constraint.h \
+	constraint.cpp \
 	difference_manager.h \
 	difference_manager.cpp \
 	normal_form.h\

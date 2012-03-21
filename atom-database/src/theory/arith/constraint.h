@@ -13,27 +13,69 @@
  **
  ** \brief Defines Constraint and ConstraintDatabase which is the internal representation of variables in arithmetic
  **
- ** This defines ArithVar which is the internal representation of variables in
- ** arithmetic. This is a typedef from uint32_t to ArithVar.
- ** This file also provides utilities for ArithVars.
+ ** This file defines Constraint and ConstraintDatabase.
+ ** A Constraint is the internal representation of literals in TheoryArithmetic.
+ ** Constraints are fundamentally a triple:
+ **  - ArithVar associated with the constraint,
+ **  - a DeltaRational value,
+ **  - and a ConstraintType.
+ **
+ ** Literals:
+ **   The constraint may also keep track of a node corresponding to the Constraint.
+ **   This can be accessed by getLiteral() in O(1) if it has been set.
+ **   This node must be in normal form and may be used for communication with the TheoryEngine.
+ **
+ ** In addition, Constraints keep track of the following:
+ **  - A Constrain that is the negation of the Constraint.
+ **  - An iterator into a set of Constraints for the ArithVar sorted by DeltaRational value.
+ **  - A context dependent internal proof of the node that can be used for explanations.
+ **  - Whether an equality/disequality has been split in the user context via a lemma.
+ **  - Whether a constraint, be be used in explanations sent to the context
+ **
+ ** Looking up constraints:
+ **  - All of the Constraints with associated nodes in the ConstraintDatabase can be accessed via
+ **    a single hashtable lookup until the Constraint is removed.
+ **  - Nodes that have not been associated to a constraints can be inserted/associated to existing nodes in O(log n) time.
+ **
+ ** Implications:
+ **  - A Constraint can be used to find unate implications.
+ **  - A unate implication is an implication based purely on the ArithVar matching and the DeltaRational value.
+ **    (implies (<= x c) (<= x d)) given c <= d
+ **  - This is done using the iterator into the sorted set of constraints.
+ **  - Given a tight constraint and previous tightest constraint, this will efficiently propagate internally.
+ **
+ ** Additing and Removing Constraints
+ **  - Adding Constraints takes O(log n) time where n is the number of constraints associated with the ArithVar.
+ **  - Removing Constraints takes O(1) time.
+ **
+ ** Internals:
+ **  - Constraints are pointers to ConstraintValues.
+ **  - Undefined Constraints are NullConstraint.
  **/
 
-/** Requirements:
- * Every atom:
- *  Assign a unique id to every atom.
- *  Store a proof of all atoms (in context).
- *  A context level for when it was last preregistered.
- *  Provide fast access to its negation.
- *  Produce explanations (in context).
- *
- * For each variable:
- *  A sorted set of bounds in the current context.
- *  This is ordered by DeltaRational values.
- *
- * For equalities:
- *  A bit stating whether it has been split (in the current context).
- *  A list of shared equalities that correspond to the atom.
- */
+#include "cvc4_private.h"
+
+#ifndef __CVC4__THEORY__ARITH__ARITH_ATOM_DATABASE_H
+#define __CVC4__THEORY__ARITH__ARITH_ATOM_DATABASE_H
+
+#include "expr/node.h"
+
+#include "context/context.h"
+#include "context/cdlist.h"
+#include "context/cdqueue.h"
+
+#include "theory/arith/arithvar.h"
+#include "theory/arith/arithvar_node_map.h"
+#include "theory/arith/delta_rational.h"
+
+#include <vector>
+#include <list>
+#include <set>
+#include <ext/hash_map>
+
+namespace CVC4 {
+namespace theory {
+namespace arith {
 
 /**
  * The types of constraints.
@@ -43,33 +85,37 @@ enum ConstraintType {LowerBound, Equality, UpperBound, Disequality};
 
 class ConstraintValue;
 typedef ConstraintValue* Constraint;
+static Constraint NullConstraint = NULL;
+
 typedef std::list<Constraint> ConstraintList;
 typedef ConstraintList::iterator ConstraintListIterator;
 
+typedef __gnu_cxx::hash_map<Node, Constraint, NodeHashFunction> NodetoConstraintMap;
 
-typedef hash_map<Node, Constraint> NodetoConstraintMap;
-NodetoConstraintMap d_nodetoConstraintMap;
-
-static Constraint NullConstraint = NULL;
+class ConstraintDatabase;
 
 typedef size_t ProofId;
 static ProofId ProofIdSentinel = std::numeric_limits<ProofId>::max();
 
 /** A ValueCollection binds together convex constraints that have the same delta rational value. */
-struct ValueCollection {
-public:
-  const DeltaRational* d_value;
+class ValueCollection {
+private:
+  ValueCollection()
+    : d_lowerBound(NullConstraint),
+      d_upperBound(NullConstraint),
+      d_equality(NullConstraint)
+  {}
 
+public:
   Constraint d_lowerBound;
   Constraint d_upperBound;
   Constraint d_equality;
 
-  ValueCollection(const DeltaRational& dr) : d_value(&d_dr) {}
+  static ValueCollection mkFromLowerBound(Constraint lb);
+  static ValueCollection mkFromUpperBound(Constraint ub);
+  static ValueCollection mkFromEquality(Constraint eq);
 
-
-  bool operator<(const ValueCollection& other) const {
-    return (*d_value) < (*(other.d_value));
-  }
+  static ValueCollection mkFromConstraint(Constraint c);
 
   bool hasLowerBound() const{
     return d_lowerBound == NullConstraint;
@@ -81,33 +127,77 @@ public:
     return d_equality == NullConstraint;
   }
 
-  static ValueCollection mkFromLowerBound(Constraint lb);
-  static ValueCollection mkFromUpperBound(Constraint ub);
-  static ValueCollection mkFromEquality(Constraint eq);
+  /** Returns true if any of the constraints are non-null. */
+  bool empty() const;
 
-  static ValueCollection mkFromConstraint(Constraint c);
+  /**
+   * Remove the constraint of the type t from the collection.
+   * Returns true if the ValueCollection is now empty.
+   * If true is returned, d_value is now NULL.
+   */
+  void remove(ConstraintType t);
+
+  /**
+   * Adds a constraint to the set.
+   * The collection must not have a constraint of that type already.
+   */
+  void add(Constraint c);
+  
+
+private:
+  Constraint nonNull() const;
+
+public:
+  ArithVar getVariable() const;
+  const DeltaRational& getValue() const;
 };
 
-typedef std::set<ValueCollection> SortedConstraintSet;
-typedef SortedConstraintSet::iterator SortedConstraintSetIterator;
+/**
+ * A Map of ValueCollections sorted by the associated DeltaRational values.
+ *
+ * Discussion:
+ * While it is more natural to consider this a set, this cannot be a set as in sets
+ * the type of both iterator and const_iterator in sets are "constant iterators".
+ * We require iterators that dereference to ValueCollection&.
+ *
+ * See:
+ * http://gcc.gnu.org/onlinedocs/libstdc++/ext/lwg-defects.html#103
+ */
+typedef std::map<DeltaRational, ValueCollection> SortedConstraintMap;
+typedef SortedConstraintMap::iterator SortedConstraintMapIterator;
 
-class ConstraintDatabase;
+/** A Pair associating a variables and a Sorted ConstraintSet. */
+struct PerVariableDatabase{
+  ArithVar d_var;
+  SortedConstraintMap d_constraints;
+
+  // x ? c_1, x ? c_2, x ? c_3, ...
+  // where ? is a non-empty subset of {lb, ub, eq}
+  // c_1 < c_2 < c_3 < ...
+
+  bool empty() const {
+    return d_constraints.empty();
+  }
+
+  static bool IsEmpty(const PerVariableDatabase& p){
+    return p.empty();
+  }
+};
 
 class ConstraintValue {
 private:
 
   /** The type of the Constraint. */
-  ConstraintType d_type;
+  const ConstraintType d_type;
 
   /** The ArithVar associated with the constraint. */
-  ArithVar d_variable;
-
+  const ArithVar d_variable;
 
   /** The DeltaRational value with the constraint. */
-  DeltaRational d_value;
+  const DeltaRational d_value;
 
   /** A pointer to the associated database for the Constraint. */
-  ConstraintDatabase* d_database;
+  ConstraintDatabase * const d_database;
 
   /**
    * The position of the constraint in the d_database.d_constraints.
@@ -155,7 +245,7 @@ private:
    * Position in sorted constraint set for the variable.
    * Unset if d_type is Disequality.
    */
-  SortedConstraintSetIterator d_variablePosition;
+  SortedConstraintMapIterator d_variablePosition;
 
   friend class ConstraintDatabase;
 
@@ -164,13 +254,19 @@ private:
    *
    * This should only be called by ConstraintDatabase.
    *
-   * Because of circular depdendencies a Constraint is not fully valid until
+   * Because of circular dependencies a Constraint is not fully valid until
    * initialize has been called on it.
    */
-  Constraint(ConstraintDatabase* db, ArithVar x, const DeltaRational& v, ConstraintType t);
+  ConstraintValue(ConstraintDatabase* db, ArithVar x, const DeltaRational& v, ConstraintType t);
+
+  /**
+   * Destructor for a constraint.
+   * This should only be called if safeToGarbageCollect() is true.
+   */
+  ~ConstraintValue();
 
   /** This initializes the fields that cannot be set in the constructor due to circular dependencies.*/
-  void initialize(SortedConstraintSetIterator v, ConstraintListIterator pos, Constraint negation){
+  void initialize(SortedConstraintMapIterator v, ConstraintListIterator pos, Constraint negation){
     d_variablePosition = v;
     d_pos = pos;
     d_negation = negation;
@@ -186,7 +282,8 @@ private:
   public:
     ProofWatch(Constraint c) : d_constraint(c) {}
     ~ProofWatch(){
-      d_constraint->d_proof = ProofIDSentinel;
+      Assert(d_constraint->d_proof != ProofIdSentinel);
+      d_constraint->d_proof = ProofIdSentinel;
     }
   };
 
@@ -200,6 +297,7 @@ private:
   public:
     PreregisteredWatch(Constraint c) : d_constraint(c) {}
     ~PreregisteredWatch(){
+      Assert(d_constraint->d_preregistered);
       d_constraint->d_preregistered = false;
     }
   };
@@ -214,19 +312,36 @@ private:
   public:
     SplitWatch(Constraint c) : d_constraint(c){}
     ~SplitWatch(){
+      Assert(d_constraint->d_split);
       d_constraint->d_split = false;
     }
   };
 
+  /**
+   * The internal assistance method for explain.
+   * Pushes back an explanation that is acceptable to send to the sat solver.
+   * nb is assumed to be an AND.
+   */
   static void recExplain(NodeBuilder<>& nb, Constraint c);
 
   /** Returns true if the node is safe to garbage collect. */
   bool safeToGarbageCollect() const;
 
+  /** Returns true if the node correctly corresponds to the constraint that is being set.*/
+  bool sanityChecking(Node n) const;
+
 public:
 
   ConstraintType getType() const {
     return d_type;
+  }
+
+  ArithVar getVariable() const {
+    return d_variable;
+  }
+
+  const DeltaRational& getValue() const {
+    return d_value;
   }
 
   bool isEquality() const{
@@ -258,20 +373,16 @@ public:
   }
 
 
-  void setPreregistered() {
-    Assert(d_preregistered = false);
-    d_database->d_preregisteredList.push_back(PreregisteredWatch(this));
-    d_preregistered = true;
-  }
+  void setPreregistered();
 
 
   bool hasLiteral() const {
     return !d_literal.isNull();
   }
 
-  void setLiteral(Node n) const {
+  void setLiteral(Node n) {
     Assert(!hasLiteral());
-    Assert(sanityChecking());
+    Assert(sanityChecking(n));
     d_literal = n;
   }
 
@@ -280,36 +391,33 @@ public:
     return d_literal;
   }
 
-  bool isSelfExplaining() const {
-    return d_proof != ProofSentinel && d_database->d_proofs[d_proof] == NullConstraint;
-  }
+  bool isSelfExplaining() const;
 
   Node explain() const;
 
-
-  const DeltaRational& getValue() const {
-    return d_value;
-  }
-};
+}; /* class ConstraintValue */
 
 class ConstraintDatabase {
 private:
   /** The list of constraints associated with the database. */
   ConstraintList d_constraints;
 
+  /** Maps literals to constraints.*/
+  NodetoConstraintMap d_nodetoConstraintMap;
+
   /**
    * A queue of propagated constraints.
    *
    * As Constraint are pointers, the elements of the queue do not require destruction.
    */
-  CDQueue<Constraint> d_toPropagate;
+  context::CDQueue<Constraint> d_toPropagate;
 
   /**
    * Proof Lists.
    * Proofs are lists of valid constraints terminated by the first smaller sentinel value
    * in the proof list.
-   * The proof at p in d_proofs[p] is
-   *  (NullConstraint, d_proofs[p-n], ... , d_proofs[p-1], d_proofs[p])
+   * The proof at p in d_proofs[p] of length n is
+   *  (NullConstraint, d_proofs[p-(n-1)], ... , d_proofs[p-1], d_proofs[p])
    * The proof at p corresponds to the conjunction:
    *  (and x_i)
    *
@@ -319,43 +427,67 @@ private:
    *
    * Constraints are pointers so this list is designed not to require any destruction.
    */
-  CDList<Constraint> d_proofs;
+  context::CDList<Constraint> d_proofs;
 
   /** This is a special empty proof that is always a member of the list. */
   ProofId d_emptyProof;
 
   /** Contains the exact list of atoms that have a proof. */
-  CDList<Constraint::ProofWatch> d_proofWatches;
+  context::CDList<ConstraintValue::ProofWatch> d_proofWatches;
 
   /** Contains the exact list of atoms that have been preregistered. */
-  CDList<Constraint::PreregisterWatch> d_preregisteredWatches;
+  context::CDList<ConstraintValue::PreregisteredWatch> d_preregisteredWatches;
 
   /** Contains the exact list of atoms that have been preregistered. */
-  CDList<Constraint::SplitWatch> d_splitWatches;
+  context::CDList<ConstraintValue::SplitWatch> d_splitWatches;
 
-  struct PerVariableDatabase{
-    ArithVar d_var;
-    SortedConstraintSet d_constraints;
-
-    // x ? c_1, x ? c_2, x ? c_3, ...
-    // where ? is a non-empty subset of {lb, ub, eq}
-    // c_1 < c_2 < c_3 < ...
-  };
+  /** The map from ArithVars to their unique databases. */
   std::vector<PerVariableDatabase> d_varDatabases;
+
+  SortedConstraintMap& getVariableSCM(ArithVar v){
+    return d_varDatabases[v].d_constraints;
+  }
+
+  /** Returns true if all of the entries of the vector are empty. */
+  static bool emptyDatabase(const std::vector<PerVariableDatabase>& vec);
+
+  /** Map from node to arithvars. Used for debugging.*/
+  const ArithVarNodeMap& d_av2nodeMap;
+
+  const ArithVarNodeMap& getArithVarNodeMap() const{
+    return d_av2nodeMap;
+  }
 
   friend class ConstraintValue;
 
 public:
 
-  ConstraintDatabase(context::Context* cxt);
+  ConstraintDatabase(context::Context* userContext, context::Context* satContext, const ArithVarNodeMap& av2nodeMap);
+
+  ~ConstraintDatabase();
 
   Constraint addLiteral(TNode lit, ArithVar v);
   Constraint addAtom(TNode atom, ArithVar v);
   Constraint lookup(TNode literal);
 
+  bool hasMorePropagations() const{
+    return !d_toPropagate.empty();
+  }
 
+  TNode nextPropagation(){
+    Assert(hasMorePropagations());
+
+    Constraint p = d_toPropagate.front();
+    d_toPropagate.pop();
+
+    return p->getLiteral();
+  }
 
   bool variableDatabaseIsSetup(ArithVar v);
+}; /* ConstraintDatabase */
 
+}/* CVC4::theory::arith namespace */
+}/* CVC4::theory namespace */
+}/* CVC4 namespace */
 
-};
+#endif /* __CVC4__THEORY__ARITH__ARITH_ATOM_DATABASE_H */
