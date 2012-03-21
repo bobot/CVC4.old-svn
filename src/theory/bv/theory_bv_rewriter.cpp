@@ -31,15 +31,21 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::bv;
 
 
-//CVC4_THREADLOCAL(AllRewriteRules*) TheoryBVRewriter::s_allRules = NULL;
+CVC4_THREADLOCAL(AllRewriteRules*) TheoryBVRewriter::s_allRules = NULL;
+CVC4_THREADLOCAL(TimerStat*) TheoryBVRewriter::d_rewriteTimer = NULL;
 CVC4_THREADLOCAL(RewriteFunction) TheoryBVRewriter::d_rewriteTable[kind::LAST_KIND]; 
 void TheoryBVRewriter::init() {
-  // s_allRules = new AllRewriteRules;
+   s_allRules = new AllRewriteRules;
+   d_rewriteTimer = new TimerStat("theory::bv::rewriteTimer");
+   StatisticsRegistry::registerStat(d_rewriteTimer); 
    initializeRewrites();
+
 }
 
 void TheoryBVRewriter::shutdown() {
-  // delete s_allRules;
+   delete s_allRules;
+   StatisticsRegistry::unregisterStat(d_rewriteTimer); 
+   delete d_rewriteTimer;
 }
 
 RewriteResponse TheoryBVRewriter::preRewrite(TNode node) {
@@ -49,6 +55,7 @@ RewriteResponse TheoryBVRewriter::preRewrite(TNode node) {
 }
 
 RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
+  TimerStat::CodeTimer codeTimer(*d_rewriteTimer); 
   Debug("bitvector-rewrite") << "TheoryBV::postRewrite(" << node << ")" << std::endl;
   RewriteResponse res = d_rewriteTable[node.getKind()](node);
   // if (res.status == REWRITE_DONE) {

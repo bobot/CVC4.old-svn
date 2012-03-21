@@ -23,17 +23,18 @@
 #define __CVC4__THEORY__BV__THEORY_BV_REWRITER_H
 
 #include "theory/rewriter.h"
+#include "util/stats.h"
 
 namespace CVC4 {
 namespace theory {
 namespace bv {
 
-//struct AllRewriteRules;
+struct AllRewriteRules;
 typedef RewriteResponse (*RewriteFunction) (TNode);
 
 class TheoryBVRewriter {
-  //static CVC4_THREADLOCAL(AllRewriteRules*) s_allRules;
-
+  static CVC4_THREADLOCAL(AllRewriteRules*) s_allRules;
+  static CVC4_THREADLOCAL(TimerStat*) d_rewriteTimer; 
   static CVC4_THREADLOCAL(RewriteFunction) d_rewriteTable[kind::LAST_KIND];
 
   static RewriteResponse IdentityRewrite(TNode node);

@@ -45,15 +45,18 @@ TheoryBV::~TheoryBV() {
 }
 TheoryBV::Statistics::Statistics():
   d_avgConflictSize("theory::bv::AvgBVConflictSize"),
-  d_solveSubstitutions("theory::bv::NumberOfSolveSubstitutions", 0)
+  d_solveSubstitutions("theory::bv::NumberOfSolveSubstitutions", 0),
+  d_solveTimer("theory::bv::solveTimer")
 {
   StatisticsRegistry::registerStat(&d_avgConflictSize);
   StatisticsRegistry::registerStat(&d_solveSubstitutions);
+  StatisticsRegistry::registerStat(&d_solveTimer); 
 }
 
 TheoryBV::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_avgConflictSize);
   StatisticsRegistry::unregisterStat(&d_solveSubstitutions);
+  StatisticsRegistry::unregisterStat(&d_solveTimer); 
 }
 
 void TheoryBV::preRegisterTerm(TNode node) {
@@ -64,7 +67,7 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 void TheoryBV::check(Effort e) {
   BVDebug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
-  if (standardEffortOrMore(e)) {
+  if (fullEffort(e)) {
     std::vector<TNode> assertions; 
     while (!done()) {
       TNode assertion = get();
@@ -77,6 +80,7 @@ void TheoryBV::check(Effort e) {
     for (; it != assertions.end(); ++it) {
       d_bitblaster->assertToSat(*it); 
     }
+    TimerStat::CodeTimer codeTimer(d_statistics.d_solveTimer); 
     bool res = d_bitblaster->solve();
     if (res == false) {
       std::vector<TNode> conflictAtoms;

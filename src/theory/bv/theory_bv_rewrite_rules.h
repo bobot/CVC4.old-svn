@@ -69,7 +69,7 @@ enum RewriteRuleId {
   
   /// ground term evaluation
   EvalEquals,
-  EvalConcat, // to remove
+  EvalConcat, 
   EvalAnd,
   EvalOr,
   EvalXor,
@@ -83,7 +83,7 @@ enum RewriteRuleId {
   EvalAshr,
   EvalUlt,
   EvalUle,
-  EvalExtract, // to remove
+  EvalExtract, 
   EvalSignExtend,
   EvalRotateLeft,
   EvalRotateRight,
@@ -137,127 +137,148 @@ enum RewriteRuleId {
   ExtractArith,
   ExtractArith2,
   DoubleNeg,
-  NegConcat,
-  NegAnd, // not sure why this would help (not done)
-  NegOr,  // not sure why this would help (not done)
+  NotConcat,
+  NotAnd, // not sure why this would help (not done)
+  NotOr,  // not sure why this would help (not done)
   NotXor // not sure why this would help (not done)
  };
 
-// inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
-//   switch (ruleId) {
-//   case EmptyRule:           out << "EmptyRule";           return out;
-//   case ConcatFlatten:       out << "ConcatFlatten";       return out;
-//   case ConcatExtractMerge:  out << "ConcatExtractMerge";  return out;
-//   case ConcatConstantMerge: out << "ConcatConstantMerge"; return out;
-//   case ExtractExtract:      out << "ExtractExtract";      return out;
-//   case ExtractWhole:        out << "ExtractWhole";        return out;
-//   case ExtractConcat:       out << "ExtractConcat";       return out;
-//   case ExtractConstant:     out << "ExtractConstant";     return out;
-//   case FailEq:              out << "FailEq";              return out;
-//   case SimplifyEq:          out << "SimplifyEq";          return out;
-//   case ReflexivityEq:       out << "ReflexivityEq";       return out;
-//   case UgtToUlt:            out << "UgtToUlt";            return out;
-//   case SgtToSlt:            out << "SgtToSlt";            return out;
-//   case UgeToUle:            out << "UgeToUle";            return out;
-//   case SgeToSle:            out << "SgeToSle";            return out;
-//   case RepeatEliminate:     out << "RepeatEliminate";     return out;
-//   case RotateLeftEliminate: out << "RotateLeftEliminate"; return out;
-//   case RotateRightEliminate:out << "RotateRightEliminate";return out;
-//   case NandEliminate:       out << "NandEliminate";       return out;
-//   case NorEliminate :       out << "NorEliminate";        return out;
-//   case SdivEliminate :      out << "SdivEliminate";       return out;
-//   case SremEliminate :      out << "SremEliminate";       return out;
-//   case SmodEliminate :      out << "SmodEliminate";       return out;
-//   case ZeroExtendEliminate :out << "ZeroExtendEliminate"; return out;
-//   case EvalEquals :         out << "EvalEquals";          return out;
-//   case EvalConcat :         out << "EvalConcat";          return out;
-//   case EvalAnd :            out << "EvalAnd";             return out;
-//   case EvalOr :             out << "EvalOr";              return out;
-//   case EvalXor :            out << "EvalXor";             return out;
-//   case EvalNot :            out << "EvalNot";             return out;
-//   case EvalMult :           out << "EvalMult";            return out;
-//   case EvalPlus :           out << "EvalPlus";            return out;
-//   case EvalUdiv :           out << "EvalUdiv";            return out;
-//   case EvalUrem :           out << "EvalUrem";            return out;
-//   case EvalShl :            out << "EvalShl";             return out;
-//   case EvalLshr :           out << "EvalLshr";            return out;
-//   case EvalAshr :           out << "EvalAshr";            return out;
-//   case EvalUlt :            out << "EvalUlt";             return out;
-//   case EvalSlt :            out << "EvalSlt";             return out;
-//   case EvalUle :            out << "EvalUle";             return out;
-//   case EvalSle :            out << "EvalSle";             return out;
-//   case EvalExtract :        out << "EvalExtract";         return out;
-//   case EvalSignExtend :     out << "EvalSignExtend";      return out;
-//   case EvalRotateLeft :     out << "EvalRotateLeft";      return out;
-//   case EvalRotateRight :    out << "EvalRotateRight";     return out;
-//   case EvalNeg :            out << "EvalNeg";             return out;
-//   case ShlByConst :         out << "ShlByConst";          return out;
-//   case LshrByConst :        out << "LshrByConst";         return out;
-//   case AshrByConst :        out << "AshrByConst";         return out;
-//   case ExtractBitwise :     out << "ExtractBitwise";      return out;
-//   case ExtractNot :         out << "ExtractNot";          return out;
-//   case ExtractArith :       out << "ExtractArith";        return out;
-//   case DoubleNeg :          out << "DoubleNeg";           return out;
-//   case NegConcat :          out << "NegConcat";           return out;
-//   case NegAnd :             out << "NegAnd";              return out;
-//   case NegOr :              out << "NegOr";               return out;
-//   case NegXor :             out << "NegXor";              return out;
-//   case BitwiseIdemp :       out << "BitwiseIdemp";        return out;
-//   case XorDuplicate :       out << "XorDuplicate";        return out;
-//   case BitwiseNegAnd :      out << "BitwiseNegAnd";       return out;
-//   case BitwiseNegOr :       out << "BitwiseNegOr";        return out;
-//   case XorNeg :             out << "XorNeg";              return out;
-//   case LtSelf :             out << "LtSelf";              return out;
-//   case LteSelf :            out << "LteSelf";              return out;
-//   case UltZero :            out << "UltZero";             return out;
-//   case UleZero :            out << "UleZero";             return out;
-//   case ZeroUle :            out << "ZeroUle";             return out;
-//   case NotUlt :             out << "NotUlt";              return out;
-//   case NotUle :             out << "NotUle";              return out;
-//   case UleMax :             out << "UleMax";              return out;
-//   case SltEliminate :       out << "SltEliminate";        return out;
-//   case SleEliminate :       out << "SleEliminate";        return out;
-//   default:
-//     Unreachable();
-//   }
-// };
+inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
+  switch (ruleId) {
+  case EmptyRule:           out << "EmptyRule";           return out;
+  case ConcatFlatten:       out << "ConcatFlatten";       return out;
+  case ConcatExtractMerge:  out << "ConcatExtractMerge";  return out;
+  case ConcatConstantMerge: out << "ConcatConstantMerge"; return out;
+  case ExtractExtract:      out << "ExtractExtract";      return out;
+  case ExtractWhole:        out << "ExtractWhole";        return out;
+  case ExtractConcat:       out << "ExtractConcat";       return out;
+  case ExtractConstant:     out << "ExtractConstant";     return out;
+  case FailEq:              out << "FailEq";              return out;
+  case SimplifyEq:          out << "SimplifyEq";          return out;
+  case ReflexivityEq:       out << "ReflexivityEq";       return out;
+  case UgtEliminate:            out << "UgtEliminate";            return out;
+  case SgtEliminate:            out << "SgtEliminate";            return out;
+  case UgeEliminate:            out << "UgeEliminate";            return out;
+  case SgeEliminate:            out << "SgeEliminate";            return out;
+  case RepeatEliminate:     out << "RepeatEliminate";     return out;
+  case RotateLeftEliminate: out << "RotateLeftEliminate"; return out;
+  case RotateRightEliminate:out << "RotateRightEliminate";return out;
+  case NandEliminate:       out << "NandEliminate";       return out;
+  case NorEliminate :       out << "NorEliminate";        return out;
+  case SdivEliminate :      out << "SdivEliminate";       return out;
+  case SremEliminate :      out << "SremEliminate";       return out;
+  case SmodEliminate :      out << "SmodEliminate";       return out;
+  case ZeroExtendEliminate :out << "ZeroExtendEliminate"; return out;
+  case EvalEquals :         out << "EvalEquals";          return out;
+  case EvalConcat :         out << "EvalConcat";          return out;
+  case EvalAnd :            out << "EvalAnd";             return out;
+  case EvalOr :             out << "EvalOr";              return out;
+  case EvalXor :            out << "EvalXor";             return out;
+  case EvalNot :            out << "EvalNot";             return out;
+  case EvalMult :           out << "EvalMult";            return out;
+  case EvalPlus :           out << "EvalPlus";            return out;
+  case EvalUdiv :           out << "EvalUdiv";            return out;
+  case EvalUrem :           out << "EvalUrem";            return out;
+  case EvalShl :            out << "EvalShl";             return out;
+  case EvalLshr :           out << "EvalLshr";            return out;
+  case EvalAshr :           out << "EvalAshr";            return out;
+  case EvalUlt :            out << "EvalUlt";             return out;
+  case EvalUle :            out << "EvalUle";             return out;
+  case EvalExtract :        out << "EvalExtract";         return out;
+  case EvalSignExtend :     out << "EvalSignExtend";      return out;
+  case EvalRotateLeft :     out << "EvalRotateLeft";      return out;
+  case EvalRotateRight :    out << "EvalRotateRight";     return out;
+  case EvalNeg :            out << "EvalNeg";             return out;
+  case ShlByConst :         out << "ShlByConst";          return out;
+  case LshrByConst :        out << "LshrByConst";         return out;
+  case AshrByConst :        out << "AshrByConst";         return out;
+  case ExtractBitwise :     out << "ExtractBitwise";      return out;
+  case ExtractNot :         out << "ExtractNot";          return out;
+  case ExtractArith :       out << "ExtractArith";        return out;
+  case ExtractArith2 :       out << "ExtractArith2";       return out;
+  case DoubleNeg :          out << "DoubleNeg";           return out;
+  case NotConcat :          out << "NotConcat";           return out;
+  case NotAnd :             out << "NotAnd";              return out;
+  case NotOr :              out << "NotOr";               return out;
+  case NotXor :             out << "NotXor";              return out;
+  case BitwiseIdemp :       out << "BitwiseIdemp";        return out;
+  case XorDuplicate :       out << "XorDuplicate";        return out;
+  case BitwiseNotAnd :      out << "BitwiseNotAnd";       return out;
+  case BitwiseNotOr :       out << "BitwiseNotOr";        return out;
+  case XorNot :             out << "XorNot";              return out;
+  case LtSelf :             out << "LtSelf";              return out;
+  case LteSelf :            out << "LteSelf";              return out;
+  case UltZero :            out << "UltZero";             return out;
+  case UleZero :            out << "UleZero";             return out;
+  case ZeroUle :            out << "ZeroUle";             return out;
+  case NotUlt :             out << "NotUlt";              return out;
+  case NotUle :             out << "NotUle";              return out;
+  case UleMax :             out << "UleMax";              return out;
+  case SltEliminate :       out << "SltEliminate";        return out;
+  case SleEliminate :       out << "SleEliminate";        return out;
+  case AndZero :       out << "AndZero";        return out;
+  case AndOne :       out << "AndOne";        return out;
+  case OrZero :       out << "OrZero";        return out;
+  case OrOne :       out << "OrOne";        return out;
+  case XorOne :       out << "XorOne";        return out;
+  case XorZero :       out << "XorZero";        return out;
+  case MultOne :       out << "MultOne";        return out;
+  case MultZero :       out << "MultZero";        return out;
+  case MultPow2 :            out << "MultPow2";             return out;
+  case PlusZero :            out << "PlusZero";             return out;
+  case PlusSelf :            out << "PlusSelf";             return out;
+  case PlusNegSelf :            out << "PlusNegSelf";             return out;
+  case NegIdemp :            out << "NegIdemp";             return out;
+  case UdivPow2 :            out << "UdivPow2";             return out;
+  case UdivOne :            out << "UdivOne";             return out;
+  case UdivSelf :            out << "UdivSelf";             return out;
+  case UremPow2 :            out << "UremPow2";             return out;
+  case UremOne :            out << "UremOne";             return out;
+  case UremSelf :            out << "UremSelf";             return out;
+  case ShiftZero :            out << "ShiftZero";             return out;
+  case SubEliminate :            out << "SubEliminate";             return out;
+  case CompEliminate :            out << "CompEliminate";             return out;
+  default:
+    Unreachable();
+  }
+};
 
 template <RewriteRuleId rule>
 class RewriteRule {
 
-  // class RuleStatistics {
+  class RuleStatistics {
 
-  //   /** The name of the rule prefixed with the prefix */
-  //   static std::string getStatName(const char* prefix) {
-  //     std::stringstream statName;
-  //     statName << prefix << rule;
-  //     return statName.str();
-  //   }
+    /** The name of the rule prefixed with the prefix */
+    static std::string getStatName(const char* prefix) {
+      std::stringstream statName;
+      statName << prefix << rule;
+      return statName.str();
+    }
 
-  // public:
+  public:
 
-  //   /** Number of applications of this rule */
-  //   IntStat d_ruleApplications;
+    /** Number of applications of this rule */
+    IntStat d_ruleApplications;
 
-  //   /** Constructor */
-  //   RuleStatistics()
-  //   : d_ruleApplications(getStatName("theory::bv::RewriteRules::count"), 0) {
-  //     StatisticsRegistry::registerStat(&d_ruleApplications);
-  //   }
+    /** Constructor */
+    RuleStatistics()
+    : d_ruleApplications(getStatName("theory::bv::RewriteRules::count"), 0) {
+      StatisticsRegistry::registerStat(&d_ruleApplications);
+    }
 
-  //   /** Destructor */
-  //   ~RuleStatistics() {
-  //     StatisticsRegistry::unregisterStat(&d_ruleApplications);
-  //   }
-  // };
+    /** Destructor */
+    ~RuleStatistics() {
+      StatisticsRegistry::unregisterStat(&d_ruleApplications);
+    }
+  };
 
-  // /* Statistics about the rule */
-  // // NOTE: Cannot have static fields like this, or else you can't have
-  // // two SmtEngines in the process (the second-to-be-destroyed will
-  // // have a dangling pointer and segfault).  If this statistic is needed,
-  // // fix the rewriter by making it an instance per-SmtEngine (instead of
-  // // static).
-  // static RuleStatistics* s_statistics;
+  /* Statistics about the rule */
+  // NOTE: Cannot have static fields like this, or else you can't have
+  // two SmtEngines in the process (the second-to-be-destroyed will
+  // have a dangling pointer and segfault).  If this statistic is needed,
+  // fix the rewriter by making it an instance per-SmtEngine (instead of
+  // static).
+  static RuleStatistics* s_statistics;
 
   /** Actually apply the rewrite rule */
   static inline Node apply(Node node) {
@@ -268,16 +289,16 @@ public:
 
   RewriteRule() {
     
-    // if (s_statistics == NULL) {
-    //   s_statistics = new RuleStatistics();
-    // }
+    if (s_statistics == NULL) {
+      s_statistics = new RuleStatistics();
+    }
     
   }
 
   ~RewriteRule() {
     
-    // delete s_statistics;
-    // s_statistics = NULL;
+    delete s_statistics;
+    s_statistics = NULL;
     
   }
 
@@ -290,7 +311,7 @@ public:
     if (!checkApplies || applies(node)) {
       BVDebug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ")" << std::endl;
       Assert(checkApplies || applies(node));
-      // ++ s_statistics->d_ruleApplications;
+      ++ s_statistics->d_ruleApplications;
       Node result = apply(node);
       BVDebug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ") => " << result << std::endl;
       return result;
@@ -301,89 +322,107 @@ public:
 };
 
 
-// template<RewriteRuleId rule>
-// typename RewriteRule<rule>::RuleStatistics* RewriteRule<rule>::s_statistics = NULL;
+ template<RewriteRuleId rule>
+   typename RewriteRule<rule>::RuleStatistics* RewriteRule<rule>::s_statistics = NULL;
 
 
 /** Have to list all the rewrite rules to get the statistics out */
-// struct AllRewriteRules {
-//   RewriteRule<EmptyRule>            rule00;
-//   RewriteRule<ConcatFlatten>        rule01;
-//   RewriteRule<ConcatExtractMerge>   rule02;
-//   RewriteRule<ConcatConstantMerge>  rule03;
-//   RewriteRule<ExtractExtract>       rule04;
-//   RewriteRule<ExtractWhole>         rule05;
-//   RewriteRule<ExtractConcat>        rule06;
-//   RewriteRule<ExtractConstant>      rule07;
-//   RewriteRule<FailEq>               rule08;
-//   RewriteRule<SimplifyEq>           rule09;
-//   RewriteRule<ReflexivityEq>        rule10;
-//   RewriteRule<UgtToUlt>             rule11;
-//   RewriteRule<SgtToSlt>             rule12;
-//   RewriteRule<UgeToUle>             rule13;
-//   RewriteRule<SgeToSle>             rule14;
-//   RewriteRule<RepeatEliminate>      rule17;
-//   RewriteRule<RotateLeftEliminate>  rule18;
-//   RewriteRule<RotateRightEliminate> rule19;
-//   RewriteRule<NandEliminate>        rule20;
-//   RewriteRule<NorEliminate>         rule21;
-//   RewriteRule<SdivEliminate>        rule22;
-//   RewriteRule<SremEliminate>        rule23;
-//   RewriteRule<SmodEliminate>        rule24;
-//   RewriteRule<EvalConcat>           rule25;
-//   RewriteRule<EvalAnd>              rule26;
-//   RewriteRule<EvalOr>               rule27;
-//   RewriteRule<EvalXor>              rule28;
-//   RewriteRule<EvalNot>              rule29;
-//   RewriteRule<EvalComp>             rule30;
-//   RewriteRule<EvalMult>             rule31;
-//   RewriteRule<EvalPlus>             rule32;
-//   RewriteRule<EvalSub>              rule33;
-//   RewriteRule<EvalUdiv>             rule34;
-//   RewriteRule<EvalUrem>             rule35;
-//   RewriteRule<EvalShl>              rule36;
-//   RewriteRule<EvalLshr>             rule37;
-//   RewriteRule<EvalAshr>             rule38;
-//   RewriteRule<EvalUlt>              rule39;
-//   RewriteRule<EvalUle>              rule40;
-//   RewriteRule<EvalSlt>              rule41;
-//   RewriteRule<EvalSle>              rule42;
-//   RewriteRule<EvalExtract>          rule43;
-//   RewriteRule<EvalSignExtend>       rule44;
-//   RewriteRule<EvalRotateLeft>       rule45;
-//   RewriteRule<EvalRotateRight>      rule46;
-//   RewriteRule<EvalEquals>           rule47;
-//   RewriteRule<EvalNeg>              rule48;
-//   RewriteRule<EvalXnor>             rule49;
-//   RewriteRule<ShlByConst>             rule50;
-//   RewriteRule<LshrByConst>             rule51;
-//   RewriteRule<AshrByConst>             rule52;
-//   RewriteRule<ExtractBitwise>             rule53;
-//   RewriteRule<ExtractNot>             rule54;
-//   RewriteRule<ExtractArith>             rule55;
-//   RewriteRule<DoubleNeg>             rule56;
-//   RewriteRule<NegConcat>             rule57;
-//   RewriteRule<NegAnd>             rule58;
-//   RewriteRule<NegOr>             rule59;
-//   RewriteRule<NegXor>             rule60;
-//   RewriteRule<BitwiseIdemp>             rule61;
-//   RewriteRule<XorDuplicate>             rule62;
-//   RewriteRule<BitwiseNegAnd>             rule63;
-//   RewriteRule<BitwiseNegOr>             rule64;
-//   RewriteRule<XorNeg>             rule65;
-//   RewriteRule<LtSelf>             rule66;
-//   RewriteRule<LtSelf>             rule67;
-//   RewriteRule<UltZero>             rule68;
-//   RewriteRule<UleZero>             rule69;
-//   RewriteRule<ZeroUle>             rule70;
-//   RewriteRule<NotUlt>             rule71;
-//   RewriteRule<NotUle>             rule72;
-//   RewriteRule<ZeroExtendEliminate> rule73;
-//   RewriteRule<UleMax> rule74;
-//   RewriteRule<LteSelf> rule75;
-//   RewriteRule<SltEliminate> rule76;
-//   RewriteRule<SleEliminate> rule77; 
-// };
+struct AllRewriteRules {
+  RewriteRule<EmptyRule>            rule00;
+  RewriteRule<ConcatFlatten>        rule01;
+  RewriteRule<ConcatExtractMerge>   rule02;
+  RewriteRule<ConcatConstantMerge>  rule03;
+  RewriteRule<ExtractExtract>       rule04;
+  RewriteRule<ExtractWhole>         rule05;
+  RewriteRule<ExtractConcat>        rule06;
+  RewriteRule<ExtractConstant>      rule07;
+  RewriteRule<FailEq>               rule08;
+  RewriteRule<SimplifyEq>           rule09;
+  RewriteRule<ReflexivityEq>        rule10;
+  RewriteRule<UgtEliminate>             rule11;
+  RewriteRule<SgtEliminate>             rule12;
+  RewriteRule<UgeEliminate>             rule13;
+  RewriteRule<SgeEliminate>             rule14;
+  RewriteRule<RepeatEliminate>      rule17;
+  RewriteRule<RotateLeftEliminate>  rule18;
+  RewriteRule<RotateRightEliminate> rule19;
+  RewriteRule<NandEliminate>        rule20;
+  RewriteRule<NorEliminate>         rule21;
+  RewriteRule<SdivEliminate>        rule22;
+  RewriteRule<SremEliminate>        rule23;
+  RewriteRule<SmodEliminate>        rule24;
+  RewriteRule<EvalConcat>           rule25;
+  RewriteRule<EvalAnd>              rule26;
+  RewriteRule<EvalOr>               rule27;
+  RewriteRule<EvalXor>              rule28;
+  RewriteRule<EvalNot>              rule29;
+  RewriteRule<EvalMult>             rule31;
+  RewriteRule<EvalPlus>             rule32;
+  RewriteRule<EvalUdiv>             rule34;
+  RewriteRule<EvalUrem>             rule35;
+  RewriteRule<EvalShl>              rule36;
+  RewriteRule<EvalLshr>             rule37;
+  RewriteRule<EvalAshr>             rule38;
+  RewriteRule<EvalUlt>              rule39;
+  RewriteRule<EvalUle>              rule40;
+  RewriteRule<EvalExtract>          rule43;
+  RewriteRule<EvalSignExtend>       rule44;
+  RewriteRule<EvalRotateLeft>       rule45;
+  RewriteRule<EvalRotateRight>      rule46;
+  RewriteRule<EvalEquals>           rule47;
+  RewriteRule<EvalNeg>              rule48;
+  RewriteRule<ShlByConst>             rule50;
+  RewriteRule<LshrByConst>             rule51;
+  RewriteRule<AshrByConst>             rule52;
+  RewriteRule<ExtractBitwise>             rule53;
+  RewriteRule<ExtractNot>             rule54;
+  RewriteRule<ExtractArith>             rule55;
+  RewriteRule<DoubleNeg>             rule56;
+  RewriteRule<NotConcat>             rule57;
+  RewriteRule<NotAnd>             rule58;
+  RewriteRule<NotOr>             rule59;
+  RewriteRule<NotXor>             rule60;
+  RewriteRule<BitwiseIdemp>             rule61;
+  RewriteRule<XorDuplicate>             rule62;
+  RewriteRule<BitwiseNotAnd>             rule63;
+  RewriteRule<BitwiseNotOr>             rule64;
+  RewriteRule<XorNot>             rule65;
+  RewriteRule<LtSelf>             rule66;
+  RewriteRule<LtSelf>             rule67;
+  RewriteRule<UltZero>             rule68;
+  RewriteRule<UleZero>             rule69;
+  RewriteRule<ZeroUle>             rule70;
+  RewriteRule<NotUlt>             rule71;
+  RewriteRule<NotUle>             rule72;
+  RewriteRule<ZeroExtendEliminate> rule73;
+  RewriteRule<UleMax> rule74;
+  RewriteRule<LteSelf> rule75;
+  RewriteRule<SltEliminate> rule76;
+  RewriteRule<SleEliminate> rule77; 
+  RewriteRule<AndZero> rule78;
+  RewriteRule<AndOne> rule79; 
+  RewriteRule<OrZero> rule80;
+  RewriteRule<OrOne> rule81;
+  RewriteRule<SubEliminate> rule82; 
+  RewriteRule<XorOne> rule83;
+  RewriteRule<XorZero> rule84;
+  RewriteRule<MultOne> rule85;
+  RewriteRule<MultZero> rule86;
+  RewriteRule<MultPow2> rule87;
+  RewriteRule<PlusZero> rule88;
+  RewriteRule<PlusSelf> rule89;
+  RewriteRule<PlusNegSelf> rule90;
+  RewriteRule<NegIdemp> rule91;
+  RewriteRule<UdivPow2> rule92;
+  RewriteRule<UdivOne> rule93;
+  RewriteRule<UdivSelf> rule94;
+  RewriteRule<UremPow2> rule95;
+  RewriteRule<UremOne> rule96;
+  RewriteRule<UremSelf> rule97;
+  RewriteRule<ShiftZero> rule98;
+  RewriteRule<CompEliminate> rule99;
+
+};
 
 template<>
 bool RewriteRule<EmptyRule>::applies(Node node) {
