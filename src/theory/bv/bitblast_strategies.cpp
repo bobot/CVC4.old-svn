@@ -263,6 +263,19 @@ Node DefaultUgeBB(TNode node, Bitblaster* bb){
 
 Node DefaultSltBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  // shoudl be rewritten in terms of ult
+  Unimplemented(); 
+}
+
+Node DefaultSleBB(TNode node, Bitblaster* bb){
+  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  // shoudl be rewritten in terms of ule
+  Unimplemented(); 
+}
+
+
+Node SltBB(TNode node, Bitblaster* bb){
+  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 
   Bits a, b;
   bb->bbTerm(node[0], a);
@@ -273,7 +286,7 @@ Node DefaultSltBB(TNode node, Bitblaster* bb){
   return res;
 }
 
-Node DefaultSleBB(TNode node, Bitblaster* bb){
+Node SleBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 
   Bits a, b;

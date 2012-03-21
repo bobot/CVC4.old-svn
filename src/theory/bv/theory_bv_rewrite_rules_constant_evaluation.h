@@ -76,21 +76,21 @@ Node RewriteRule<EvalXor>::apply(Node node) {
   return utils::mkConst(res);
 }
 
-template<>
-bool RewriteRule<EvalXnor>::applies(Node node) {
-  return (node.getKind() == kind::BITVECTOR_XNOR &&
-          utils::isBVGroundTerm(node));
-}
+// template<>
+// bool RewriteRule<EvalXnor>::applies(Node node) {
+//   return (node.getKind() == kind::BITVECTOR_XNOR &&
+//           utils::isBVGroundTerm(node));
+// }
 
-template<>
-Node RewriteRule<EvalXnor>::apply(Node node) {
-  BVDebug("bv-rewrite") << "RewriteRule<EvalXnor>(" << node << ")" << std::endl;
-  BitVector a = node[0].getConst<BitVector>();
-  BitVector b = node[1].getConst<BitVector>();
-  BitVector res = ~ (a ^ b);
+// template<>
+// Node RewriteRule<EvalXnor>::apply(Node node) {
+//   BVDebug("bv-rewrite") << "RewriteRule<EvalXnor>(" << node << ")" << std::endl;
+//   BitVector a = node[0].getConst<BitVector>();
+//   BitVector b = node[1].getConst<BitVector>();
+//   BitVector res = ~ (a ^ b);
   
-  return utils::mkConst(res);
-}
+//   return utils::mkConst(res);
+// }
 template<>
 bool RewriteRule<EvalNot>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_NOT &&
@@ -105,26 +105,26 @@ Node RewriteRule<EvalNot>::apply(Node node) {
   return utils::mkConst(res);
 }
 
-template<>
-bool RewriteRule<EvalComp>::applies(Node node) {
-  return (node.getKind() == kind::BITVECTOR_COMP &&
-          utils::isBVGroundTerm(node));
-}
+// template<>
+// bool RewriteRule<EvalComp>::applies(Node node) {
+//   return (node.getKind() == kind::BITVECTOR_COMP &&
+//           utils::isBVGroundTerm(node));
+// }
 
-template<>
-Node RewriteRule<EvalComp>::apply(Node node) {
-  BVDebug("bv-rewrite") << "RewriteRule<EvalComp>(" << node << ")" << std::endl;
-  BitVector a = node[0].getConst<BitVector>();
-  BitVector b = node[1].getConst<BitVector>();
-  BitVector res;
-  if (a == b) {
-    res = BitVector(1, Integer(1));
-  } else {
-    res = BitVector(1, Integer(0)); 
-  }
+// template<>
+// Node RewriteRule<EvalComp>::apply(Node node) {
+//   BVDebug("bv-rewrite") << "RewriteRule<EvalComp>(" << node << ")" << std::endl;
+//   BitVector a = node[0].getConst<BitVector>();
+//   BitVector b = node[1].getConst<BitVector>();
+//   BitVector res;
+//   if (a == b) {
+//     res = BitVector(1, Integer(1));
+//   } else {
+//     res = BitVector(1, Integer(0)); 
+//   }
   
-  return utils::mkConst(res);
-}
+//   return utils::mkConst(res);
+// }
 
 template<>
 bool RewriteRule<EvalMult>::applies(Node node) {
@@ -158,21 +158,21 @@ Node RewriteRule<EvalPlus>::apply(Node node) {
   return utils::mkConst(res);
 }
 
-template<>
-bool RewriteRule<EvalSub>::applies(Node node) {
-  return (node.getKind() == kind::BITVECTOR_SUB &&
-          utils::isBVGroundTerm(node));
-}
+// template<>
+// bool RewriteRule<EvalSub>::applies(Node node) {
+//   return (node.getKind() == kind::BITVECTOR_SUB &&
+//           utils::isBVGroundTerm(node));
+// }
 
-template<>
-Node RewriteRule<EvalSub>::apply(Node node) {
-  BVDebug("bv-rewrite") << "RewriteRule<EvalSub>(" << node << ")" << std::endl;
-  BitVector a = node[0].getConst<BitVector>();
-  BitVector b = node[1].getConst<BitVector>();
-  BitVector res = a - b;
+// template<>
+// Node RewriteRule<EvalSub>::apply(Node node) {
+//   BVDebug("bv-rewrite") << "RewriteRule<EvalSub>(" << node << ")" << std::endl;
+//   BitVector a = node[0].getConst<BitVector>();
+//   BitVector b = node[1].getConst<BitVector>();
+//   BitVector res = a - b;
   
-  return utils::mkConst(res);
-}
+//   return utils::mkConst(res);
+// }
 template<>
 bool RewriteRule<EvalNeg>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_NEG &&
@@ -283,24 +283,24 @@ Node RewriteRule<EvalUlt>::apply(Node node) {
   return utils::mkFalse();
 }
 
-template<>
-bool RewriteRule<EvalSlt>::applies(Node node) {
-  return (node.getKind() == kind::BITVECTOR_SLT &&
-          utils::isBVGroundTerm(node));
-}
+// template<>
+// bool RewriteRule<EvalSlt>::applies(Node node) {
+//   return (node.getKind() == kind::BITVECTOR_SLT &&
+//           utils::isBVGroundTerm(node));
+// }
 
-template<>
-Node RewriteRule<EvalSlt>::apply(Node node) {
-  BVDebug("bv-rewrite") << "RewriteRule<EvalSlt>(" << node << ")" << std::endl;
-  BitVector a = node[0].getConst<BitVector>();
-  BitVector b = node[1].getConst<BitVector>();
+// template<>
+// Node RewriteRule<EvalSlt>::apply(Node node) {
+//   BVDebug("bv-rewrite") << "RewriteRule<EvalSlt>(" << node << ")" << std::endl;
+//   BitVector a = node[0].getConst<BitVector>();
+//   BitVector b = node[1].getConst<BitVector>();
 
-  if (a.signedLessThan(b)) {
-    return utils::mkTrue();
-  }
-  return utils::mkFalse();
+//   if (a.signedLessThan(b)) {
+//     return utils::mkTrue();
+//   }
+//   return utils::mkFalse();
 
-}
+// }
 
 template<>
 bool RewriteRule<EvalUle>::applies(Node node) {
@@ -320,23 +320,23 @@ Node RewriteRule<EvalUle>::apply(Node node) {
   return utils::mkFalse();
 }
 
-template<>
-bool RewriteRule<EvalSle>::applies(Node node) {
-  return (node.getKind() == kind::BITVECTOR_SLE &&
-          utils::isBVGroundTerm(node));
-}
+// template<>
+// bool RewriteRule<EvalSle>::applies(Node node) {
+//   return (node.getKind() == kind::BITVECTOR_SLE &&
+//           utils::isBVGroundTerm(node));
+// }
 
-template<>
-Node RewriteRule<EvalSle>::apply(Node node) {
-  BVDebug("bv-rewrite") << "RewriteRule<EvalSle>(" << node << ")" << std::endl;
-  BitVector a = node[0].getConst<BitVector>();
-  BitVector b = node[1].getConst<BitVector>();
+// template<>
+// Node RewriteRule<EvalSle>::apply(Node node) {
+//   BVDebug("bv-rewrite") << "RewriteRule<EvalSle>(" << node << ")" << std::endl;
+//   BitVector a = node[0].getConst<BitVector>();
+//   BitVector b = node[1].getConst<BitVector>();
 
-  if (a.signedLessThanEq(b)) {
-    return utils::mkTrue(); 
-  }
-  return utils::mkFalse();
-}
+//   if (a.signedLessThanEq(b)) {
+//     return utils::mkTrue(); 
+//   }
+//   return utils::mkFalse();
+// }
 
 template<>
 bool RewriteRule<EvalExtract>::applies(Node node) {
@@ -371,7 +371,6 @@ Node RewriteRule<EvalConcat>::apply(Node node) {
     BitVector a = node[i].getConst<BitVector>();
     res = res.concat(a); 
   }
-  
   return utils::mkConst(res);
 }
 

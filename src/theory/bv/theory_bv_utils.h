@@ -131,6 +131,7 @@ inline Node mkBitOf(TNode node, unsigned index) {
 
 
 inline Node mkConcat(Node node, unsigned repeat) {
+  Assert (repeat); 
   if(repeat == 1) {
     return node; 
   }
@@ -153,6 +154,10 @@ inline Node mkConcat(TNode t1, TNode t2) {
     return NodeManager::currentNM()->mkNode(kind::BITVECTOR_CONCAT, t1, t2);
 }
 
+inline Node mkOnes(unsigned size) {
+  BitVector val = BitVector(1, Integer(1)).signExtend(size-1);
+  return NodeManager::currentNM()->mkConst<BitVector>(val); 
+}
 
 inline Node mkConst(unsigned size, unsigned int value) {
   BitVector val(size, value);
@@ -208,6 +213,16 @@ inline Node mkConjunction(const std::set<TNode> nodes) {
   }
 
   return conjunction;
+}
+
+
+inline unsigned isPow2Const(TNode node) {
+  if (node.getKind() != kind::CONST_BITVECTOR) {
+    return false; 
+  }
+
+  BitVector bv = node.getConst<BitVector>();
+  return bv.isPow2(); 
 }
 
 // neeed a better name, this is not technically a ground term 

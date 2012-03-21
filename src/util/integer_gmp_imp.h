@@ -361,6 +361,21 @@ public:
   }
 
   /**
+   * Returns k if the integer is equal to 2^(k-1)
+   * @return k if the integer is equal to 2^(k-1) and 0 otherwise
+   */
+  unsigned isPow2() const {
+    if (d_value <= 0) return 0;
+    // check that the number of ones in the binary represenation is 1
+    if (mpz_popcount(d_value.get_mpz_t()) == 1) {
+      // return the index of the first one plus 1
+      return mpz_scan1(d_value.get_mpz_t(), 0) + 1;
+    }
+    return 0; 
+  }
+
+  
+  /**
    * If x != 0, returns the smallest n s.t. 2^{n-1} <= abs(x) < 2^{n}.
    * If x == 0, returns 1.
    */

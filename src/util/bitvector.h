@@ -335,6 +335,16 @@ public:
   const Integer& getValue() const {
     return d_value;
   }
+
+  /**
+   Returns k is the integer is equal to 2^k and zero
+   otherwise
+   @return k if the integer is equal to 2^k and zero otherwise
+   */
+  unsigned isPow2() {
+    return d_value.isPow2(); 
+  }
+
 };/* class BitVector */
 
 

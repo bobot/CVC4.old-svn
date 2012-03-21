@@ -405,6 +405,16 @@ public:
   }
 
   /**
+   * Returns k if the integer is equal to 2^(k-1)
+   * @return k if the integer is equal to 2^(k-1) and 0 otherwise
+   */
+  unsigned isPow2() const {
+    if (d_value <= 0) return 0;
+    // power2p returns n such that d_value = 2^(n-1) 
+    return cln::power2p(d_value);
+  }
+
+  /**
    * If x != 0, returns the unique n s.t. 2^{n-1} <= abs(x) < 2^{n}.
    * If x == 0, returns 1.
    */
