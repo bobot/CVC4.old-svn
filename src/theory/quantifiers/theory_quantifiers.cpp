@@ -178,6 +178,15 @@ bool TheoryQuantifiers::flipDecision(){
   //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
   //  Debug("quantifiers-flip") << "   " << d_valuation.getDecision( i ) << std::endl;
   //}
+  //if( d_valuation.getDecisionLevel()>0 ){
+  //  double r = double(rand())/double(RAND_MAX);
+  //  unsigned decisionLevel = (unsigned)(r*d_valuation.getDecisionLevel());
+  //  d_out->flipDecision( decisionLevel );
+  //  return true;
+  //}else{
+  //  return false;
+  //}
+
   if( !d_out->flipDecision() ){
     return restart();
   }

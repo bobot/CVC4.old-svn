@@ -109,7 +109,7 @@ Options::Options() :
   ufSymmetryBreaker(false),
   ufSymmetryBreakerSetByUser(false),
   finiteModelFind(false),
-  cbqi(true),
+  cbqi(false),
   cbqiSetByUser(false),
   dioSolver(true),
   lemmaOutputChannel(NULL),

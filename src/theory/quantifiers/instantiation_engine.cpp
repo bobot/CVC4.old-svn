@@ -51,6 +51,10 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
     d_inst_round_status = InstStrategy::STATUS_UNFINISHED;
     //while unfinished, try effort level=0,1,2....
     while( d_inst_round_status==InstStrategy::STATUS_UNFINISHED && e<=eLimit ){
+      //if( e==3 ){
+      //  std::cout << "unknown ";
+      //  exit( 24 );
+      //}
       Debug("inst-engine") << "IE: Prepare instantiation (" << e << ")." << std::endl;
       d_inst_round_status = InstStrategy::STATUS_SAT;
       //instantiate each quantifier
@@ -67,7 +71,8 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
               if( getQuantifiersEngine()->getInstantiator( i ) ){
                 Debug("inst-engine-debug") << "Do " << getQuantifiersEngine()->getInstantiator( i )->identify() << " " << e_use << std::endl;
                 //std::cout << "Do " << d_instTable[i]->identify() << " " << e << std::endl;
-                int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e_use );
+                int limitInst = 0;
+                int quantStatus = getQuantifiersEngine()->getInstantiator( i )->doInstantiation( f, effort, e_use, limitInst );
                 Debug("inst-engine-debug") << " -> status is " << quantStatus << std::endl;
                 //std::cout << " -> status is " << d_instTable[i]->getStatus() << std::endl;
                 InstStrategy::updateStatus( d_inst_round_status, quantStatus );
@@ -121,8 +126,8 @@ void InstantiationEngine::check( Theory::Effort e ){
     ierCounter++;
   }
   if( ( e==Theory::EFFORT_FULL  && ierCounter%2==0 ) || e==Theory::EFFORT_LAST_CALL ){
-    ++(getQuantifiersEngine()->d_statistics.d_instantiation_rounds); 
   //if( e==Theory::EFFORT_LAST_CALL ){
+    ++(getQuantifiersEngine()->d_statistics.d_instantiation_rounds); 
     Debug("inst-engine") << "IE: Check " << e << " " << ierCounter << std::endl;
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet = double(clock())/double(CLOCKS_PER_SEC);
@@ -201,6 +206,7 @@ void InstantiationEngine::registerQuantifier( Node f ){
   if( !TheoryQuantifiers::isRewriteKind( f[1].getKind() ) ){
     //std::cout << "do cbqi " << f << " ? " << std::endl;
     if( doCbqi( f ) ){
+      Debug("cbqi") << "Do cbqi for " << f << std::endl;
       //make the counterexample body
       Node ceBody = f[1].substitute( getQuantifiersEngine()->d_vars[f].begin(), getQuantifiersEngine()->d_vars[f].end(),
                                     getQuantifiersEngine()->d_inst_constants[f].begin(),
@@ -210,18 +216,17 @@ void InstantiationEngine::registerQuantifier( Node f ){
       //get the counterexample literal
       Node ceLit = d_th->getValuation().ensureLiteral( ceBody.notNode() );
       getQuantifiersEngine()->d_ce_lit[ f ] = ceLit;
-      Debug("quantifiers") << ceLit << " is the ce literal for " << f << std::endl;
       // set attributes, mark all literals in the body of n as dependent on cel
       registerLiterals( ceLit, f );
       computePhaseReqs( ceBody, false );
       //require any decision on cel to be phase=true
       d_th->getOutputChannel().requirePhase( ceLit, true );
-      Debug("quant-req-phase") << "Require phase " << ceLit << " = true." << std::endl;
+      Debug("cbqi-debug") << "Require phase " << ceLit << " = true." << std::endl;
       //add counterexample lemma
       NodeBuilder<> nb(kind::OR);
       nb << f << ceLit;
       Node lem = nb;
-      Debug("quantifiers") << "Counterexample lemma : " << lem << std::endl;
+      Debug("cbqi-debug") << "Counterexample lemma : " << lem << std::endl;
       d_th->getOutputChannel().lemma( lem );
       ////mark cel as dependent on n?
       //Node quant = ( n.getKind()==kind::NOT ? n[0] : n );
@@ -270,14 +275,18 @@ bool hasApplyUf( Node f ){
 bool InstantiationEngine::doCbqi( Node f ){
   if( Options::current()->cbqiSetByUser ){
     return Options::current()->cbqi;
-  }else{
+  }else if( Options::current()->cbqi ){
+    //if quantifier has a non-arithmetic variable, then do not use cbqi
     for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
       TypeNode tn = f[0][i].getType();
       if( !tn.isInteger() && !tn.isReal() ){
         return false;
       }
     }
+    //if quantifier has an APPLY_UF term, then do not use cbqi
     return !hasApplyUf( f[1] );
+  }else{
+    return false;
   }
 }
 

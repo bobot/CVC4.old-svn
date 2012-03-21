@@ -368,6 +368,8 @@ public:
     IntStat d_inst_duplicate;
     IntStat d_lit_phase_req;
     IntStat d_lit_phase_nreq;
+    IntStat d_triggers;
+    IntStat d_multi_triggers;
     Statistics();
     ~Statistics();
   };

@@ -32,7 +32,15 @@ using namespace CVC4::theory::uf;
 struct sortQuantifiersForSymbol {
   QuantifiersEngine* d_qe;
   bool operator() (Node i, Node j) { 
-    return d_qe->getNumQuantifiersForSymbol( i.getOperator() )<d_qe->getNumQuantifiersForSymbol( j.getOperator() ); 
+    int nqfsi = d_qe->getNumQuantifiersForSymbol( i.getOperator() );
+    int nqfsj = d_qe->getNumQuantifiersForSymbol( j.getOperator() );
+    if( nqfsi<nqfsj ){
+      return true;
+    }else if( nqfsi>nqfsj ){
+      return false;
+    }else{
+      return Trigger::isVariableSubsume( i, j );
+    }
   }
 };
 
@@ -52,7 +60,6 @@ int InstStrategyCheckCESolved::process( Node f, Theory::Effort effort, int e, in
     //check if f is counterexample-solved
     if( d_solved[ f ] ){
       if( d_quantEngine->addInstantiation( f, d_th->d_baseMatch[f] ) ){
-        ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_ce_solved);
         //d_quantEngine->d_hasInstantiated[f] = true;
       }
@@ -135,7 +142,6 @@ int InstStrategyUserPatterns::process( Node f, Theory::Effort effort, int e, int
     //std::cout << "Try user-provided patterns..." << std::endl;
     for( int i=0; i<(int)d_user_gen[f].size(); i++ ){
       int numInst = d_user_gen[f][i]->addInstantiations( d_th->d_baseMatch[f], instLimit );
-      d_th->d_statistics.d_instantiations += numInst;
       d_th->d_statistics.d_instantiations_user_pattern += numInst;
       //d_quantEngine->d_hasInstantiated[f] = true;
     }
@@ -183,7 +189,6 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
       Debug("quant-uf-strategy")  << "Try auto-generated triggers... " << d_tr_strategy << " " << getAutoGenTrigger( f ) << std::endl;
       //std::cout << "Try auto-generated triggers..." << std::endl;
       int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
-      d_th->d_statistics.d_instantiations += numInst;
       if( d_tr_strategy==TS_MIN_TRIGGER ){
         d_th->d_statistics.d_instantiations_auto_gen_min += numInst;
       }else{
@@ -288,7 +293,7 @@ Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
     //  d_auto_gen_trigger[f] = NULL;
     //}
     std::vector< Node > patTerms;
-    collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy );   //, true );
+    collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy, true );
     if( !patTerms.empty() ){
       //sort terms based on relevance
       if( d_rlv_strategy==RELEVANCE_DEFAULT ){
@@ -331,7 +336,6 @@ int InstStrategyFreeVariable::process( Node f, Theory::Effort effort, int e, int
       Debug("quant-uf-alg") << "Add guessed instantiation" << std::endl;
       InstMatch m;
       if( d_quantEngine->addInstantiation( f, m ) ){
-        ++(d_th->d_statistics.d_instantiations);
         ++(d_th->d_statistics.d_instantiations_guess);
         //d_quantEngine->d_hasInstantiated[f] = true;
       }
@@ -411,7 +415,7 @@ Instantiator( c, ie, th )
     addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), ie ) );
   }else{
     d_isup = new InstStrategyUserPatterns( this, ie );
-    if( Options::current()->cbqi || !Options::current()->cbqiSetByUser ){
+    if( Options::current()->cbqi ){
       addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
       //addInstStrategy( new InstStrategyLitMatch( this, ie ) );
     }
@@ -517,7 +521,7 @@ bool InstantiatorTheoryUf::areEqual( Node a, Node b ){
       ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( b ) ){
     return ((TheoryUF*)d_th)->d_equalityEngine.areEqual( a, b );
   }else{
-    return false;
+    return a==b;
   }
 }
 
@@ -526,7 +530,7 @@ bool InstantiatorTheoryUf::areDisequal( Node a, Node b ){
       ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( b ) ){
     return ((TheoryUF*)d_th)->d_equalityEngine.areDisequal( a, b );
   }else{
-    return false;
+    return a==b;
   }
 }
 
@@ -580,7 +584,7 @@ Node InstantiatorTheoryUf::getInternalRepresentative( Node a ){
 //}
 
 InstantiatorTheoryUf::Statistics::Statistics():
-  d_instantiations("InstantiatorTheoryUf::Total_Instantiations", 0),
+  //d_instantiations("InstantiatorTheoryUf::Total_Instantiations", 0),
   d_instantiations_ce_solved("InstantiatorTheoryUf::CE-Solved_Instantiations", 0),
   d_instantiations_e_induced("InstantiatorTheoryUf::E-Induced_Instantiations", 0),
   d_instantiations_user_pattern("InstantiatorTheoryUf::User_Pattern_Instantiations", 0),
@@ -590,7 +594,7 @@ InstantiatorTheoryUf::Statistics::Statistics():
   d_instantiations_auto_gen_relevant("InstantiatorTheoryUf::Auto_Gen_Instantiations_Relevant", 0),
   d_splits("InstantiatorTheoryUf::Total_Splits", 0)
 {
-  StatisticsRegistry::registerStat(&d_instantiations);
+  //StatisticsRegistry::registerStat(&d_instantiations);
   StatisticsRegistry::registerStat(&d_instantiations_ce_solved);
   StatisticsRegistry::registerStat(&d_instantiations_e_induced);
   StatisticsRegistry::registerStat(&d_instantiations_user_pattern );
@@ -602,7 +606,7 @@ InstantiatorTheoryUf::Statistics::Statistics():
 }
 
 InstantiatorTheoryUf::Statistics::~Statistics(){
-  StatisticsRegistry::unregisterStat(&d_instantiations);
+  //StatisticsRegistry::unregisterStat(&d_instantiations);
   StatisticsRegistry::unregisterStat(&d_instantiations_ce_solved);
   StatisticsRegistry::unregisterStat(&d_instantiations_e_induced);
   StatisticsRegistry::unregisterStat(&d_instantiations_user_pattern );

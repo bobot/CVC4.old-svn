@@ -69,7 +69,11 @@ public:
   void addCandidate( Node n ) { d_candidates.push_back( n ); }
 
   void resetInstantiationRound(){}
-  void reset( Node eqc ){}
+  void reset( Node eqc ){
+    if( !eqc.isNull() ){
+      d_candidates.push_back( eqc );
+    }
+  }
   Node getNextCandidate(){
     if( d_candidates.empty() ){
       return Node::null();
@@ -161,6 +165,8 @@ private:
   std::vector< int > d_children_index;
   /** partial vector */
   std::vector< InstMatch > d_partial;
+  /** eq class */
+  Node d_eq_class;
   /** initialize pattern */
   void initializePatterns( std::vector< Node >& pats, QuantifiersEngine* qe );
   void initializePattern( Node pat, QuantifiersEngine* qe );
@@ -310,6 +316,8 @@ public:
   static void filterInstances( std::vector< Node >& nodes );
   /** -1: n1 is an instance of n2, 1: n1 is an instance of n2 */
   static int isInstanceOf( Node n1, Node n2 );
+  /** variables subsume, return true if n1 contains all free variables in n2 */
+  static bool isVariableSubsume( Node n1, Node n2 );
 
   inline void toStream(std::ostream& out) const {
     if (d_mg->d_match_pattern.isNull()) out << "MultiTrigger (TODO)";

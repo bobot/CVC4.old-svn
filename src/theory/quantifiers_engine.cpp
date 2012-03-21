@@ -458,7 +458,9 @@ QuantifiersEngine::Statistics::Statistics():
   d_inst_unspec("QuantifiersEngine::Inst_Unspecified", 0),
   d_inst_duplicate("QuantifiersEngine::Inst_Duplicate", 0),
   d_lit_phase_req("QuantifiersEngine::lit_phase_req", 0),
-  d_lit_phase_nreq("QuantifiersEngine::lit_phase_nreq", 0)
+  d_lit_phase_nreq("QuantifiersEngine::lit_phase_nreq", 0),
+  d_triggers("QuantifiersEngine::Triggers", 0),
+  d_multi_triggers("QuantifiersEngine::Triggers_Multi", 0)
 {
   StatisticsRegistry::registerStat(&d_num_quant);
   StatisticsRegistry::registerStat(&d_instantiation_rounds);
@@ -471,6 +473,8 @@ QuantifiersEngine::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_inst_duplicate);
   StatisticsRegistry::registerStat(&d_lit_phase_req);
   StatisticsRegistry::registerStat(&d_lit_phase_nreq);
+  StatisticsRegistry::registerStat(&d_triggers);
+  StatisticsRegistry::registerStat(&d_multi_triggers);
 }
 
 QuantifiersEngine::Statistics::~Statistics(){
@@ -485,6 +489,8 @@ QuantifiersEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_inst_duplicate);
   StatisticsRegistry::unregisterStat(&d_lit_phase_req);
   StatisticsRegistry::unregisterStat(&d_lit_phase_nreq);
+  StatisticsRegistry::unregisterStat(&d_triggers);
+  StatisticsRegistry::unregisterStat(&d_multi_triggers);
 }
 
 Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){

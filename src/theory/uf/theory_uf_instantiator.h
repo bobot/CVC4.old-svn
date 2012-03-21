@@ -239,7 +239,7 @@ public:
   /** statistics class */
   class Statistics {
   public:
-    IntStat d_instantiations;
+    //IntStat d_instantiations;
     IntStat d_instantiations_ce_solved;
     IntStat d_instantiations_e_induced;
     IntStat d_instantiations_user_pattern;

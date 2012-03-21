@@ -19,6 +19,7 @@
 #include "theory/quantifiers_engine.h"
 #include "theory/uf/theory_uf_instantiator.h"
 #include "theory/uf/theory_uf_candidate_generator.h"
+#include "theory/uf/equality_engine_impl.h"
 
 using namespace std;
 using namespace CVC4;
@@ -144,13 +145,29 @@ bool InstMatchTrie::existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m
     }
     if( modEq ){
       //check modulo equality if any other instantiation match exists
-      for( std::map< Node, InstMatchTrie >::iterator itc = d_data.begin(); itc != d_data.end(); ++itc ){
-        if( itc->first!=n && qe->getEqualityQuery()->areEqual( n, itc->first ) ){
-          if( itc->second.existsInstMatch( qe, f, m, modEq, index+1 ) ){
-            return true;
+      if( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->hasTerm( n ) ){
+        uf::EqClassIterator eqc = uf::EqClassIterator( qe->getEqualityQuery()->getRepresentative( n ), 
+                                ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
+        while( !eqc.isFinished() ){
+          Node en = (*eqc);
+          if( en!=n ){
+            std::map< Node, InstMatchTrie >::iterator itc = d_data.find( en );
+            if( itc!=d_data.end() ){
+              if( itc->second.existsInstMatch( qe, f, m, modEq, index+1 ) ){
+                return true;
+              }
+            }
           }
+          ++eqc;
         }
       }
+      //for( std::map< Node, InstMatchTrie >::iterator itc = d_data.begin(); itc != d_data.end(); ++itc ){
+      //  if( itc->first!=n && qe->getEqualityQuery()->areEqual( n, itc->first ) ){
+      //    if( itc->second.existsInstMatch( qe, f, m, modEq, index+1 ) ){
+      //      return true;
+      //    }
+      //  }
+      //}
     }
     return false;
   }
@@ -209,7 +226,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       d_match_pattern = d_match_pattern[0];
     }
   }
-  int childMatchPolicy = d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ? 0 : d_matchPolicy;
+  int childMatchPolicy = d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ? MATCH_GEN_DEFAULT : d_matchPolicy;
   for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
     if( d_match_pattern[i].hasAttribute(InstConstantAttribute()) ){
       if( d_match_pattern[i].getKind()!=INST_CONSTANT ){
@@ -238,6 +255,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     Node op = d_match_pattern.getKind()==APPLY_UF ? d_match_pattern.getOperator() : Node::null();
     Assert( d_matchPolicy==MATCH_GEN_LIT_MATCH );
     d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
+    d_eq_class = d_pattern.getKind()==NOT ? d_pattern[0][1] : d_pattern[1];
   }else if( d_match_pattern.getKind()==APPLY_UF ){
     Node op = d_match_pattern.getOperator();
     if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){
@@ -251,6 +269,11 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
     d_cg = new CandidateGeneratorQueue;
     if( !initializePatternArithmetic( d_match_pattern ) ){
       Debug("inst-match-gen") << "(?) Unknown matching pattern is " << d_match_pattern << std::endl;
+    }else{
+      Debug("matching-arith") << "Generated arithmetic pattern for " << d_match_pattern << ": " << std::endl;
+      for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
+        Debug("matching-arith") << "   " << it->first << " -> " << it->second << std::endl;
+      }
     }
   }
 }
@@ -264,7 +287,7 @@ bool InstMatchGenerator::initializePatternArithmetic( Node n ){
         if( n[i].getKind()==INST_CONSTANT ){
           d_arith_coeffs[ n[i] ] = Node::null();
         }else if( !initializePatternArithmetic( n[i] ) ){
-          Debug("inst-match-gen-debug") << "(?) Bad arith pattern = " << n << std::endl;
+          Debug("matching-arith") << "(?) Bad arith pattern = " << n << std::endl;
           d_arith_coeffs.clear();
           return false;
         }
@@ -353,8 +376,8 @@ bool InstMatchGenerator::getMatchArithmetic( Node t, InstMatch& m, QuantifiersEn
 
 /** get match (not modulo equality) */
 bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe ){
-  Debug("matching") << "Matching " << t << " " << d_match_pattern << "("
-                    << m.d_map.size() << ")" << std::endl;
+  Debug("matching") << "Matching " << t << " " << d_match_pattern << " ("
+                    << m.d_map.size() << ")" << ", " << d_children.size() << std::endl;
   Assert( !d_match_pattern.isNull() );
   if( d_match_pattern.getKind()!=APPLY_UF ){
     return getMatchArithmetic( t, m, qe );
@@ -374,11 +397,10 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
         if( d_match_pattern[i].getKind()==INST_CONSTANT ){
           if( !partial[0].setMatch( q, d_match_pattern[i], t[i] ) ){
             //match is in conflict
-            Debug("matching") <<
-              "Match in conflict " << t[i] << " and "
-                                   << d_match_pattern[i] << " because "
-                                   << partial[0].d_map[d_match_pattern[i]]
-                                   << std::endl;
+            Debug("matching") << "Match in conflict " << t[i] << " and "
+                              << d_match_pattern[i] << " because "
+                              << partial[0].d_map[d_match_pattern[i]]
+                              << std::endl;
             return false;
           }
         }
@@ -457,13 +479,13 @@ void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
     }
     d_partial.clear();
   }else{
-    if( d_pattern.getKind()==APPLY_UF || !eqc.isNull() || d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF ){
-      d_cg->reset( eqc );
-    }else{
-      //otherwise, we have a specific equivalence class in mind
+    if( !d_eq_class.isNull() ){
+      //we have a specific equivalence class in mind
       //we are producing matches for f(E) ~ t, where E is a non-ground vector of terms, and t is a ground term
       //just look in equivalence class of the RHS
-      d_cg->reset( d_pattern.getKind()==NOT ? d_pattern[0][1] : d_pattern[1] );
+      d_cg->reset( d_eq_class );
+    }else{
+      d_cg->reset( eqc );
     }
   }
 }
@@ -581,6 +603,11 @@ Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int
     Debug("trigger") << "   " << d_nodes[i] << std::endl;
   }
   Debug("trigger") << std::endl;
+  if( d_nodes.size()==1 ){
+    ++(qe->d_statistics.d_triggers);
+  }else{
+    ++(qe->d_statistics.d_multi_triggers);
+  }
 }
 
 void Trigger::computeVarContains2( Node n, Node parent ){
@@ -629,6 +656,11 @@ int Trigger::addInstantiations( InstMatch& baseMatch, int instLimit, bool addSpl
           Debug("inst-trigger") << d_nodes[i] << " ";
         }
         Debug("inst-trigger") << std::endl;
+        //std::cout << "Trigger was ";
+        //for( int i=0; i<(int)d_nodes.size(); i++ ){
+        //  std::cout  << d_nodes[i] << " ";
+        //}
+        //std::cout  << std::endl;
         addedLemmas++;
         if( instLimit>0 && addedLemmas==instLimit ){
           return addedLemmas;
@@ -812,14 +844,25 @@ int Trigger::isInstanceOf( Node n1, Node n2 ){
     return 0;
   }else if( n2.getKind()==INST_CONSTANT ){
     computeVarContains( n1 );
-    if( d_var_contains[ n1 ].size()==1 && d_var_contains[ n1 ][ 0 ]==n2 ){
+    if( std::find( d_var_contains[ n1 ].begin(), d_var_contains[ n1 ].end(), n2 )!=d_var_contains[ n1 ].end() ){
       return 1;
     }
   }else if( n1.getKind()==INST_CONSTANT ){
     computeVarContains( n2 );
-    if( d_var_contains[ n2 ].size()==1 && d_var_contains[ n2 ][ 0 ]==n1 ){
+    if( std::find( d_var_contains[ n2 ].begin(), d_var_contains[ n2 ].end(), n1 )!=d_var_contains[ n2 ].end() ){
       return -1;
     }
   }
   return 0;
+}
+
+bool Trigger::isVariableSubsume( Node n1, Node n2 ){
+  computeVarContains( n1 );
+  computeVarContains( n2 );
+  for( int i=0; i<(int)d_var_contains[n2].size(); i++ ){
+    if( std::find( d_var_contains[n1].begin(), d_var_contains[n1].end(), d_var_contains[n2][i] )==d_var_contains[n1].end() ){
+      return false;
+    }
+  }
+  return true;
 }
