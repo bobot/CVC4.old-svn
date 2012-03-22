@@ -66,30 +66,27 @@ void TheoryBV::preRegisterTerm(TNode node) {
 }
 
 void TheoryBV::check(Effort e) {
-  BVDebug("bitvector") << "TheoryBV::check(" << e << ")" << std::endl;
-  if (fullEffort(e)) {
-    std::vector<TNode> assertions; 
+  if (fullEffort(e) && !done()) {
+    Trace("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
+    std::vector<TNode> assertions;
+      
     while (!done()) {
       TNode assertion = get();
-      Debug("bitvector-assertions") << "assertion " << assertion << "\n"; 
-      assertions.push_back(assertion);
+      Trace("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n"; 
       d_bitblaster->bitblast(assertion); 
+      d_bitblaster->assertToSat(assertion); 
     }
-    
-    std::vector<TNode>::const_iterator it = assertions.begin();
-    for (; it != assertions.end(); ++it) {
-      d_bitblaster->assertToSat(*it); 
-    }
+
     TimerStat::CodeTimer codeTimer(d_statistics.d_solveTimer); 
     bool res = d_bitblaster->solve();
     if (res == false) {
       std::vector<TNode> conflictAtoms;
       d_bitblaster->getConflict(conflictAtoms);
-
       d_statistics.d_avgConflictSize.addEntry(conflictAtoms.size());
       
       Node conflict = mkConjunction(conflictAtoms);
       d_out->conflict(conflict);
+      Trace("bitvector") << "TheoryBV::check returns conflict. \n ";
       return; 
     }
   }

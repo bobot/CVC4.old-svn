@@ -175,7 +175,7 @@ Node inline sLessThanBB(const Bits&a, const Bits& b, bool orEqual) {
 
 
 Node UndefinedAtomBBStrategy(TNode node, Bitblaster* bb) {
-  Debug("bitvector") << "TheoryBV::Bitblaster Undefined bitblasting strategy for kind: "
+  Trace("bitvector") << "TheoryBV::Bitblaster Undefined bitblasting strategy for kind: "
                      << node.getKind() << "\n";
   Unreachable(); 
 }
@@ -261,20 +261,20 @@ Node DefaultUgeBB(TNode node, Bitblaster* bb){
   Unimplemented(); 
 }
 
+// Node DefaultSltBB(TNode node, Bitblaster* bb){
+//   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+//   // shoudl be rewritten in terms of ult
+//   Unimplemented(); 
+// }
+
+// Node DefaultSleBB(TNode node, Bitblaster* bb){
+//   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+//   // shoudl be rewritten in terms of ule
+//   Unimplemented(); 
+// }
+
+
 Node DefaultSltBB(TNode node, Bitblaster* bb){
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
-  // shoudl be rewritten in terms of ult
-  Unimplemented(); 
-}
-
-Node DefaultSleBB(TNode node, Bitblaster* bb){
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
-  // shoudl be rewritten in terms of ule
-  Unimplemented(); 
-}
-
-
-Node SltBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 
   Bits a, b;
@@ -286,7 +286,7 @@ Node SltBB(TNode node, Bitblaster* bb){
   return res;
 }
 
-Node SleBB(TNode node, Bitblaster* bb){
+Node DefaultSleBB(TNode node, Bitblaster* bb){
   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 
   Bits a, b;
@@ -314,7 +314,7 @@ Node DefaultSgeBB(TNode node, Bitblaster* bb){
 /// Term bitblasting strategies 
 
 void UndefinedTermBBStrategy(TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Undefined bitblasting strategy for kind: "
+  Trace("bitvector") << "theory::bv:: Undefined bitblasting strategy for kind: "
                      << node.getKind() << "\n";
   Unreachable(); 
 }

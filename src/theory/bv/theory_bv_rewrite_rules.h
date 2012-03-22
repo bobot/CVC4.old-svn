@@ -66,7 +66,6 @@ enum RewriteRuleId {
   SremEliminate,
   ZeroExtendEliminate,
   SignExtendEliminate,
-  
   /// ground term evaluation
   EvalEquals,
   EvalConcat, 
@@ -238,6 +237,10 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case ShiftZero :            out << "ShiftZero";             return out;
   case SubEliminate :            out << "SubEliminate";             return out;
   case CompEliminate :            out << "CompEliminate";             return out;
+  case XnorEliminate :            out << "XnorEliminate";             return out;
+  case SignExtendEliminate :            out << "SignExtendEliminate";             return out;
+  case NotIdemp :                  out << "NotIdemp"; return out;
+  case UleSelf:                    out << "UleSelf"; return out; 
   default:
     Unreachable();
   }
@@ -421,7 +424,10 @@ struct AllRewriteRules {
   RewriteRule<UremSelf> rule97;
   RewriteRule<ShiftZero> rule98;
   RewriteRule<CompEliminate> rule99;
-
+  RewriteRule<XnorEliminate> rule100;
+  RewriteRule<SignExtendEliminate> rule101;
+  RewriteRule<NotIdemp> rule102;
+  RewriteRule<UleSelf> rule103;
 };
 
 template<>

@@ -78,12 +78,13 @@ RewriteResponse TheoryBVRewriter::RewriteUlt(TNode node) {
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSlt(TNode node){
-  Node resultNode = LinearRewriteStrategy
-    < RewriteRule < SltEliminate >
-      // a <_s b ==> a + 2^{n-1} <_u b + 2^{n-1}
-      >::apply(node);
+  return RewriteResponse(REWRITE_DONE, node); 
+  // Node resultNode = LinearRewriteStrategy
+  //   < RewriteRule < SltEliminate >
+  //     // a <_s b ==> a + 2^{n-1} <_u b + 2^{n-1}
+  //     >::apply(node);
 
-  return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  // return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
 }
 
 RewriteResponse TheoryBVRewriter::RewriteUle(TNode node){
@@ -98,11 +99,12 @@ RewriteResponse TheoryBVRewriter::RewriteUle(TNode node){
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSle(TNode node){
-  Node resultNode = LinearRewriteStrategy
-    < RewriteRule<SleEliminate>
-      >::apply(node);
+  return RewriteResponse(REWRITE_DONE, node); 
+  // Node resultNode = LinearRewriteStrategy
+  //   < RewriteRule<SleEliminate>
+  //     >::apply(node);
 
-  return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  // return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
 }
 
 RewriteResponse TheoryBVRewriter::RewriteUgt(TNode node){
@@ -115,8 +117,8 @@ RewriteResponse TheoryBVRewriter::RewriteUgt(TNode node){
 
 RewriteResponse TheoryBVRewriter::RewriteSgt(TNode node){
   Node resultNode = LinearRewriteStrategy
-    < RewriteRule<SgtEliminate>,
-      RewriteRule<SltEliminate>
+    < RewriteRule<SgtEliminate>
+      //RewriteRule<SltEliminate>
       >::apply(node);
   
   return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
@@ -132,8 +134,8 @@ RewriteResponse TheoryBVRewriter::RewriteUge(TNode node){
 
 RewriteResponse TheoryBVRewriter::RewriteSge(TNode node){
   Node resultNode = LinearRewriteStrategy
-    < RewriteRule<SgeEliminate>,
-      RewriteRule<SleEliminate>
+    < RewriteRule<SgeEliminate>
+      //      RewriteRule<SleEliminate>
     >::apply(node);
   
   return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
@@ -205,8 +207,8 @@ RewriteResponse TheoryBVRewriter::RewriteAnd(TNode node){
     < RewriteRule<EvalAnd>,
       RewriteRule<BitwiseIdemp>,
       //RewriteRule<BitwiseSlice>, -> might need rw again
-      RewriteRule<AndZero>,
-      RewriteRule<AndOne>
+      RewriteRule<AndZero>
+      //RewriteRule<AndOne> // for some reason this makes things worse
       >::apply(node);
 
   return RewriteResponse(REWRITE_DONE, resultNode); 
@@ -302,11 +304,12 @@ RewriteResponse TheoryBVRewriter::RewritePlus(TNode node) {
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSub(TNode node){
-  Node resultNode = LinearRewriteStrategy
-    < RewriteRule<SubEliminate>
-    >::apply(node);
+  return RewriteResponse(REWRITE_DONE, node); 
+  // Node resultNode = LinearRewriteStrategy
+  //   < RewriteRule<SubEliminate>
+  //   >::apply(node);
   
-  return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  // return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
 }
 
 RewriteResponse TheoryBVRewriter::RewriteNeg(TNode node) {
@@ -435,12 +438,12 @@ RewriteResponse TheoryBVRewriter::RewriteZeroExtend(TNode node){
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSignExtend(TNode node) {
-  return RewriteResponse(REWRITE_DONE, node); 
   // Node resultNode = LinearRewriteStrategy
   //   < RewriteRule<SignExtendEliminate >
   //   >::apply(node);
   
-  // return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  // return RewriteResponse(REWRITE_AGAIN_FULL, resultNode);
+  return RewriteResponse(REWRITE_DONE, node); 
 }
 
 

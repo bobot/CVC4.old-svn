@@ -32,6 +32,8 @@
 #define BVDebug(x) if (false) Debug(x)
 #endif
 
+
+
 namespace CVC4 {
 namespace theory {
 namespace bv {

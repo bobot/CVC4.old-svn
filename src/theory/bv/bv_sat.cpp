@@ -125,9 +125,9 @@ void Bitblaster::bitblast(TNode node) {
   
   if (node.getKind() == kind::EQUAL ||
       node.getKind() == kind::BITVECTOR_ULT ||
+      node.getKind() == kind::BITVECTOR_ULE ||
       node.getKind() == kind::BITVECTOR_SLT ||
-      node.getKind() == kind::BITVECTOR_ULE || 
-      node.getKind() == kind::BITVECTOR_SLE )
+      node.getKind() == kind::BITVECTOR_SLE) 
     {
       bbAtom(node); 
     }
@@ -183,6 +183,7 @@ void Bitblaster::assertToSat(TNode lit) {
  */
  
 bool Bitblaster::solve() {
+  Trace("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n"; 
   return SatValTrue == d_satSolver->solve(d_assertedAtoms); 
 }
 

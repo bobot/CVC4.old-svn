@@ -105,7 +105,7 @@ SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assu
   }
   Debug("sat::minisat") <<"\n";
   
- SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump)); 
+ SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump));
  return result;
 }
 
