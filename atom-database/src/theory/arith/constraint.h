@@ -83,6 +83,9 @@ namespace arith {
  */
 enum ConstraintType {LowerBound, Equality, UpperBound, Disequality};
 
+/** Given a simplifiedKind this returns the corresponding ConstraintType. */
+ConstraintType constraintTypeOfLiteral(Kind k);
+
 class ConstraintValue;
 typedef ConstraintValue* Constraint;
 static Constraint NullConstraint = NULL;
@@ -100,20 +103,19 @@ static ProofId ProofIdSentinel = std::numeric_limits<ProofId>::max();
 /** A ValueCollection binds together convex constraints that have the same delta rational value. */
 class ValueCollection {
 private:
-  ValueCollection()
-    : d_lowerBound(NullConstraint),
-      d_upperBound(NullConstraint),
-      d_equality(NullConstraint)
-  {}
 
-public:
   Constraint d_lowerBound;
   Constraint d_upperBound;
   Constraint d_equality;
+  Constraint d_disequality;
 
-  static ValueCollection mkFromLowerBound(Constraint lb);
-  static ValueCollection mkFromUpperBound(Constraint ub);
-  static ValueCollection mkFromEquality(Constraint eq);
+public:
+  ValueCollection()
+    : d_lowerBound(NullConstraint),
+      d_upperBound(NullConstraint),
+      d_equality(NullConstraint),
+      d_disequality(NullConstraint)
+  {}
 
   static ValueCollection mkFromConstraint(Constraint c);
 
@@ -126,6 +128,17 @@ public:
   bool hasEquality() const{
     return d_equality == NullConstraint;
   }
+  bool hasDisequality() const {
+    return d_disequality == NullConstraint;
+  }
+
+  bool hasConstraintType(ConstraintType t) const;
+
+  Constraint getLowerBound() const {
+    return d_lowerBound;
+  }
+
+  Constraint getConstraint(ConstraintType t) const;
 
   /** Returns true if any of the constraints are non-null. */
   bool empty() const;
@@ -175,6 +188,9 @@ struct PerVariableDatabase{
   // where ? is a non-empty subset of {lb, ub, eq}
   // c_1 < c_2 < c_3 < ...
 
+  //PerVariableDatabase() : d_var(ARITHVAR_SENTINEL), d_constraints() {}
+  PerVariableDatabase(ArithVar v) : d_var(v), d_constraints() {}
+
   bool empty() const {
     return d_constraints.empty();
   }
@@ -197,7 +213,7 @@ private:
   const DeltaRational d_value;
 
   /** A pointer to the associated database for the Constraint. */
-  ConstraintDatabase * const d_database;
+  ConstraintDatabase * d_database;
 
   /**
    * The position of the constraint in the d_database.d_constraints.
@@ -257,7 +273,7 @@ private:
    * Because of circular dependencies a Constraint is not fully valid until
    * initialize has been called on it.
    */
-  ConstraintValue(ConstraintDatabase* db, ArithVar x, const DeltaRational& v, ConstraintType t);
+  ConstraintValue(ArithVar x,  ConstraintType t, const DeltaRational& v);
 
   /**
    * Destructor for a constraint.
@@ -265,12 +281,11 @@ private:
    */
   ~ConstraintValue();
 
-  /** This initializes the fields that cannot be set in the constructor due to circular dependencies.*/
-  void initialize(SortedConstraintMapIterator v, ConstraintListIterator pos, Constraint negation){
-    d_variablePosition = v;
-    d_pos = pos;
-    d_negation = negation;
-  }
+  /**
+   * This initializes the fields that cannot be set in the constructor due to
+   * circular dependencies.
+   */
+  void initialize(ConstraintDatabase* db, SortedConstraintMapIterator v, ConstraintListIterator pos, Constraint negation);
 
   /**
    * Upon destruction this sets the d_proof field back to ProofIdSentinel.
@@ -322,13 +337,16 @@ private:
    * Pushes back an explanation that is acceptable to send to the sat solver.
    * nb is assumed to be an AND.
    */
-  static void recExplain(NodeBuilder<>& nb, Constraint c);
+  static void recExplain(NodeBuilder<>& nb, const ConstraintValue* const c);
 
   /** Returns true if the node is safe to garbage collect. */
   bool safeToGarbageCollect() const;
 
   /** Returns true if the node correctly corresponds to the constraint that is being set.*/
   bool sanityChecking(Node n) const;
+
+  /** Returns a reference to the map for d_variable. */
+  SortedConstraintMap& constraintSet();
 
 public:
 
@@ -395,7 +413,37 @@ public:
 
   Node explain() const;
 
+  bool hasProof() const {
+    return d_proof != ProofIdSentinel;
+  }
+  bool negationHasProof() const {
+    return d_negation->hasProof();
+  }
+
+  bool truthIsUnknown() const {
+    return !hasProof() && !negationHasProof();
+  }
+
+private:
+  /**
+   * Marks the node as having a proof and being selfExplaining.
+   * Neither the node nor its negation can have a proof.
+   */
+  void markAsTrue();
+
+  /** Marks the node as having a proof a. */
+  void markAsTrue(Constraint a);
+  void markAsTrue(Constraint a, Constraint b);
+  void markAsTrue(const std::vector<Constraint>& b);
+
+  /** If the node has a proof do nothing, otherwise mark the node.*/
+  void internalPropagate(Constraint a);
+
 }; /* class ConstraintValue */
+
+std::ostream& operator<<(std::ostream& o, const ConstraintValue& c);
+std::ostream& operator<<(std::ostream& o, const Constraint c);
+
 
 class ConstraintDatabase {
 private:
@@ -445,18 +493,22 @@ private:
   std::vector<PerVariableDatabase> d_varDatabases;
 
   SortedConstraintMap& getVariableSCM(ArithVar v){
+    Assert(variableDatabaseIsSetup(v));
     return d_varDatabases[v].d_constraints;
   }
 
   /** Returns true if all of the entries of the vector are empty. */
   static bool emptyDatabase(const std::vector<PerVariableDatabase>& vec);
 
-  /** Map from node to arithvars. Used for debugging.*/
+  /** Map from nodes to arithvars. */
   const ArithVarNodeMap& d_av2nodeMap;
 
   const ArithVarNodeMap& getArithVarNodeMap() const{
     return d_av2nodeMap;
   }
+
+  Constraint allocateConstraintForLiteral(ArithVar v, Node literal);
+
 
   friend class ConstraintValue;
 
@@ -466,10 +518,22 @@ public:
 
   ~ConstraintDatabase();
 
-  Constraint addLiteral(TNode lit, ArithVar v);
-  Constraint addAtom(TNode atom, ArithVar v);
-  Constraint lookup(TNode literal);
+  Constraint addLiteral(TNode lit);
+  Constraint addAtom(TNode atom);
 
+  /**
+   * If hasLiteral() is true, returns the constraint.
+   * Otherwise, returns NullConstraint.
+   */
+  Constraint lookup(TNode literal) const;
+
+  /**
+   * Returns true if the literal has been added to the database.
+   * This is a hash table lookup.
+   * It does not look in the database for an equivalent corresponding constraint.
+   */
+  bool hasLiteral(TNode literal) const;
+  
   bool hasMorePropagations() const{
     return !d_toPropagate.empty();
   }
@@ -483,6 +547,7 @@ public:
     return p->getLiteral();
   }
 
+  void addVariable(ArithVar v);
   bool variableDatabaseIsSetup(ArithVar v);
 }; /* ConstraintDatabase */
 

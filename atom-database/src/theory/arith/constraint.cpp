@@ -13,11 +13,25 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
+bool ValueCollection::hasConstraintType(ConstraintType t) const{
+  switch(t){
+  case LowerBound:
+    return hasLowerBound();
+  case UpperBound:
+    return hasUpperBound();
+  case Equality:
+    return hasEquality();
+  case Disequality:
+    return hasDisequality();
+  default:
+    Unreachable();
+  }
+}
+
 ArithVar ValueCollection::getVariable() const{
   Assert(!empty());
   return nonNull()->getVariable();
 }
-
 
 const DeltaRational& ValueCollection::getValue() const{
   Assert(!empty());
@@ -26,7 +40,6 @@ const DeltaRational& ValueCollection::getValue() const{
 
 void ValueCollection::add(Constraint c){
   Assert(c != NullConstraint);
-  Assert(c->getType() != Disequality);
 
   Assert(empty() || getVariable() == c->getVariable());
   Assert(empty() || getValue() == c->getValue());
@@ -44,26 +57,32 @@ void ValueCollection::add(Constraint c){
     Assert(!hasUpperBound());
     d_upperBound = c;
     break;
+  case Disequality:
+    Assert(!hasDisequality());
+    d_disequality = c;
+    break;
   default:
     Unreachable();
   }
 }
 
 void ValueCollection::remove(ConstraintType t){
-  Assert(t != Disequality);
-
   switch(t){
   case LowerBound:
-    Assert(d_lowerBound != NullConstraint);
+    Assert(hasLowerBound());
     d_lowerBound = NullConstraint;
     break;
   case Equality:
-    Assert(d_equality != NullConstraint);
+    Assert(hasEquality());
     d_equality = NullConstraint;
     break;
   case UpperBound:
-    Assert(d_upperBound != NullConstraint);
+    Assert(hasUpperBound());
     d_upperBound = NullConstraint;
+    break;
+  case Disequality:
+    Assert(hasDisequality());
+    d_disequality = NullConstraint;
     break;
   default:
     Unreachable();
@@ -71,33 +90,39 @@ void ValueCollection::remove(ConstraintType t){
 }
 
 bool ValueCollection::empty() const{
-  return hasLowerBound() || hasUpperBound() || hasEquality();
+  return hasLowerBound() || hasUpperBound() || hasEquality() || hasDisequality();
 }
 
 Constraint ValueCollection::nonNull() const{
+  //This can be optimized by caching, but this is not necessary yet!
+  /* "Premature optimization is the root of all evil." */
   if(hasLowerBound()){
     return d_lowerBound;
   }else if(hasUpperBound()){
     return d_upperBound;
   }else if(hasEquality()){
     return d_equality;
-  }else {
+  }else if(hasDisequality()){
+    return d_disequality;
+  }else{
     return NullConstraint;
   }
 }
-
+void ConstraintValue::initialize(ConstraintDatabase* db, SortedConstraintMapIterator v, ConstraintListIterator pos, Constraint negation){
+    d_database = db;
+    d_variablePosition = v;
+    d_pos = pos;
+    d_negation = negation;
+  }
 ConstraintValue::~ConstraintValue() {
   Assert(safeToGarbageCollect());
 
   ValueCollection& vc =  d_variablePosition->second;
+  vc.remove(getType());
 
-  if(d_type != Disequality){
-    vc.remove(d_type);
-
-    if(vc.empty()){
-      SortedConstraintMap& perVariable = d_database->getVariableSCM(getVariable());
-      perVariable.erase(d_variablePosition);
-    }
+  if(vc.empty()){
+    SortedConstraintMap& perVariable = d_database->getVariableSCM(getVariable());
+    perVariable.erase(d_variablePosition);
   }
 
   if(hasLiteral()){
@@ -108,7 +133,7 @@ ConstraintValue::~ConstraintValue() {
 }
 
 void ConstraintValue::setPreregistered() {
-  Assert(d_preregistered = false);
+  Assert(!isPreregistered());
   d_database->d_preregisteredWatches.push_back(PreregisteredWatch(this));
   d_preregistered = true;
 }
@@ -136,7 +161,6 @@ bool ConstraintValue::sanityChecking(Node n) const {
       return k == EQUAL;
     case Disequality:
       return k == DISTINCT;
-
     default:
       Unreachable();
     }
@@ -177,6 +201,11 @@ ConstraintDatabase::~ConstraintDatabase(){
   Assert(emptyDatabase(d_varDatabases));
 }
 
+void ConstraintDatabase::addVariable(ArithVar v){
+  Assert(v == d_varDatabases.size());
+  d_varDatabases.push_back(PerVariableDatabase(v));
+}
+
 Node ConstraintValue::split(){
   Assert(isEquality() || isDisequality());
 
@@ -205,264 +234,301 @@ Node ConstraintValue::split(){
   return lemma;
 }
 
-Constraint ConstraintDatabase::addLiteral(TNode literal, ArithVar v){
+bool ConstraintDatabase::hasLiteral(TNode literal) const {
+  return lookup(literal) != NullConstraint;
+}
+
+Constraint ConstraintDatabase::addLiteral(TNode literal){
+  Assert(!hasLiteral(literal));
   bool isNot = (literal.getKind() == NOT);
   TNode atom = isNot ? literal[0] : literal;
 
-  Constraint atomC = addAtom(atom, v);
+  Constraint atomC = addAtom(atom);
 
   return isNot ? atomC->d_negation : atomC;
 }
 
-Constraint ConstraintDatabase::addAtom(TNode atom, ArithVar v){
+Constraint ConstraintDatabase::allocateConstraintForLiteral(ArithVar v, Node literal){
+  Kind kind = simplifiedKind(literal);
+  ConstraintType type = constraintTypeOfLiteral(kind);
+  DeltaRational dr = determineRightConstant(literal, kind);
+  return new ConstraintValue(v, type, dr);
+}
+
+Constraint ConstraintDatabase::addAtom(TNode atom){
   Assert(!hasLiteral(atom));
-  Assert(v < d_varDatabases.size());
 
-  PerVariableDatabase& vd = d_varDatabases[v];
+  ArithVar v = d_av2nodeMap.asArithVar(atom[0]);
 
-  Node negation = atom.notNode();
+  Node negation = atom.notNode();  
 
-  Constraint posC = allocateConstraint(atom, v);
-  Constraint negC = allocateConstraint(negation, v);
+  Constraint posC = allocateConstraintForLiteral(v, atom);
 
-  posC->d_negation = negC;
-  negC->d_negation = posC;
+  SortedConstraintMap& scm = getVariableSCM(posC->getVariable());
+  pair<SortedConstraintMapIterator, bool> insertAttempt;
+  insertAttempt = scm.insert(make_pair(posC->getValue(), ValueCollection()));
+  
+  SortedConstraintMapIterator posI = insertAttempt.first;
+  // If the attempt succeeds, i points to a new empty ValueCollection
+  // If the attempt fails, i points to a pre-existing ValueCollection
 
-  vd.d_constraints.insert(posC);
+  if(posI->second.hasConstraintType(posC->getType())){
+    //This is the situation where the Constraint exists, but
+    //the literal has not been  associated with it.
+    Constraint hit = posI->second.getConstraint(posC->getType());
+    delete posC;
 
-  if(!negC->isDisequality()){
-    vd.d_constraints.insert(negC);
+    hit->setLiteral(atom);
+    hit->d_negation->setLiteral(negation);
+    return hit;
+  }else{
+    Constraint negC = allocateConstraintForLiteral(v, negation);
+
+    ConstraintListIterator posIter = d_constraints.insert(d_constraints.end(), posC);
+    ConstraintListIterator negIter = d_constraints.insert(d_constraints.end(), negC);
+
+    SortedConstraintMapIterator negI;
+
+    if(posC->isEquality()){
+      negI = posI;
+    }else{
+      Assert(posC->isLowerBound() || posC->isUpperBound());
+
+      pair<SortedConstraintMapIterator, bool> negInsertAttempt;
+      negInsertAttempt = scm.insert(make_pair(negC->getValue(),
+                                              ValueCollection::mkFromConstraint(negC)));
+      //This should always succeed as the DeltaRational for the negation is unique!
+      Assert(negInsertAttempt.second);
+
+      negI = negInsertAttempt.first;
+    }
+
+    posC->initialize(this, posI, posIter, negC);
+    negC->initialize(this, negI, negIter, posC);
+
+    posC->setLiteral(atom);
+    negC->setLiteral(negation);
+
+    return posC;
   }
-
-  return posC;
 }
 
-
-
-
-Constraint ConstraintDatabase::allocateConstraint(Node literal, ArithVar v){
-  ConstraintType k = simplifiedKind(literal);
-  DeltaRational value = getDeltaRationalValue(literal, k);
-
-  Constraint c = new Constraint(k, literal, v, value);
-
-  ConstraintListIterator iter = d_constraints.insert(d_constraints.end(), c);
-  c->d_pos = iter;
-
-  d_nodetoConstraintMap[literal] = c;
-
-  return c;
+ConstraintType constraintTypeOfLiteral(Kind k){
+  switch(k){
+  case LT:
+  case LEQ:
+    return UpperBound;
+  case GT:
+  case GEQ:
+    return LowerBound;
+  case EQUAL:
+    return Equality;
+  case DISTINCT:
+    return Disequality;
+  default:
+    Unreachable();
+  }
 }
 
-Constraint ConstraintDatabase::lookup(Node literal){
-  NodetoConstraintMap::iterator iter = d_nodetoConstraintMap.find(literal);
+Constraint ConstraintDatabase::lookup(TNode literal) const{
+  NodetoConstraintMap::const_iterator iter = d_nodetoConstraintMap.find(literal);
   if(iter == d_nodetoConstraintMap.end()){
-    return ConstraintSentinel;
+    return NullConstraint;
   }else{
     return iter->second;
   }
 }
 
-void ConstraintDatabase::addVariable(ArithVar v){
-  Assert(v == d_varDatabases.size());
-  d_varDatabases.push_back(PerVariableDatabase(v));
+
+void ConstraintValue::markAsTrue(){
+  Assert(truthIsUnknown());
+#warning "this may be too strict"
+  Assert(hasLiteral());
+  Assert(isPreregistered());
+  d_database->d_proofWatches.push_back(ProofWatch(this));
+  d_proof = d_database->d_emptyProof;
 }
 
+void ConstraintValue::markAsTrue(Constraint imp){
+  Assert(truthIsUnknown());
+  Assert(imp->hasProof());
 
-
-void ConstraintDatabase::addVariable(ArithVar v){
-  Assert(v == d_varDatabases.size());
-  d_varDatabases.push_back(PerVariableDatabase(v));
-}
-
-void ContraintValue::markAsTrue(){
-  Assert(d_proof == ProofIdSentinel);
-  d_proofConstraintWatchList.push_back(ProofConstraintWatch(this, d_database->d_emptyProof));
-}
-
-void ContraintValue::markAsTrue(Constraint imp){
-  Assert(d_proof == ProofIdSentinel);
-  d_database->d_proofs.push_back(ConstraintSentinel);
+  d_database->d_proofs.push_back(NullConstraint);
   d_database->d_proofs.push_back(imp);
-  ProofId proof = d_proofs.size();
-  d_database->d_proofs.push_back(this);
-
-  d_proofConstraintWatchList.push_back(ProofConstraintWatch(this, proof));
+  ProofId proof = d_database->d_proofs.size();
+  d_database->d_proofWatches.push_back(ProofWatch(this));
+  d_proof = proof;
 }
 
-void ContraintValue::markAsTrue(Constraint impA, Constraint impB){
-  Assert(d_proof == ProofIdSentinel);
-  d_database->d_proofs.push_back(ConstraintSentinel);
+void ConstraintValue::markAsTrue(Constraint impA, Constraint impB){
+  Assert(truthIsUnknown());
+  Assert(impA->hasProof());
+  Assert(impB->hasProof());
+
+  d_database->d_proofs.push_back(NullConstraint);
   d_database->d_proofs.push_back(impA);
   d_database->d_proofs.push_back(impB);
-  ProofId proof = d_proofs.size();
-  d_database->d_proofs.push_back(this);
+  ProofId proof = d_database->d_proofs.size();
 
-  d_proofConstraintWatchList.push_back(ProofConstraintWatch(this, proof));
+  d_database->d_proofWatches.push_back(ProofWatch(this));
+  d_proof = proof;
 }
 
-void ContraintValue::markAsTrue(const vector<Constraint>& a){
-  Assert(d_proof == ProofIdSentinel);
-  d_database->d_proofs.push_back(ConstraintSentinel);
+void ConstraintValue::markAsTrue(const vector<Constraint>& a){
+  Assert(truthIsUnknown());
+  d_database->d_proofs.push_back(NullConstraint);
   for(vector<Constraint>::const_iterator i = a.begin(), end = a.end(); i != end; ++i){
     Constraint c_i = *i;
+    Assert(c_i->hasProof());
     d_database->d_proofs.push_back(c_i);
   }
 
-  ProofId proof = d_proofs.size();
-  d_database->d_proofs.push_back(this);
+  ProofId proof = d_database->d_proofs.size();
 
-  d_proofConstraintWatchList.push_back(ProofConstraintWatch(this, proof));
+  d_database->d_proofWatches.push_back(ProofWatch(this));
+  d_proof = proof;
 }
 
-SortedConstraintSet& ContraintValue::constraintSet() const{
+SortedConstraintMap& ConstraintValue::constraintSet(){
+  Assert(d_database->variableDatabaseIsSetup(d_variable));
   return d_database->d_varDatabases[d_variable].d_constraints;
 }
 
-void ConstraintValue::propagateLowerboundRange(Constraint prev){
-  Assert(isLowerBound());
-  Assert(prev->isLowerBound());
-  // If prev == NULL, intrepret this as x >= -infty
-  Assert(prev == NULL || d_value > prev->d_value);
+// void ConstraintValue::propagateLowerboundRange(Constraint prev){
+//   Assert(isLowerBound());
+//   Assert(prev->isLowerBound());
+//   // If prev == NULL, intrepret this as x >= -infty
+//   Assert(prev == NullConstraint || d_value > prev->d_value);
 
-  // It is now known that x >= d_value
-  // Assuming it was known that x >= prev->d_value, and d_value > prev->d_value
-  // Implies x >= c, where d_value > c > prev->d_value
-  // Implies x != c, where d_value > c
+//   // It is now known that x >= d_value
+//   // Assuming it was known that x >= prev->d_value, and d_value > prev->d_value
+//   // Implies x >= c, where d_value > c > prev->d_value
+//   // Implies x != c, where d_value > c
 
-  SortedConstraintSetIterator i = (prev == NULL) ? constraintSet().begin() : (prev->d_variablePosition)+1;
-  SortedConstraintSetIterator end = d_variablePosition;
-  for(;i != end; ++i){
-    const ValueCollection& curr = *i;
+//   SortedConstraintSetIterator i = (prev == NULL) ? constraintSet().begin() : (prev->d_variablePosition)+1;
+//   SortedConstraintSetIterator end = d_variablePosition;
+//   for(;i != end; ++i){
+//     const ValueCollection& curr = *i;
 
-    Assert( (*curr.d_value) < d_value);
+//     Assert( (*curr.d_value) < d_value);
 
-    if(curr.hasLowerBound()){
-      d_database->internalPropagate(curr.d_lowerBound, this);
-    }else if(curr.hasEquality()){
-      Constraint diseq = (curr.d_equality)->d_negation;
-      d_database->internalPropagate(diseq, this);
-    }
-  }
-}
+//     if(curr.hasLowerBound()){
+//       d_database->internalPropagate(curr.d_lowerBound, this);
+//     }else if(curr.hasDisequality()){
+//       Constraint diseq = curr.d_disequality;
+//       d_database->internalPropagate(diseq, this);
+//     }
+//   }
+// }
 
-void ConstraintValue::propagateUpperboundRange(Constraint prev){
-  Assert(isUpperBound());
-  Assert(prev->isUpperBound());
-  // If prev == NULL, intrepret this as x <= infty
-  Assert(prev == NULL || d_value < prev->d_value);
+// void ConstraintValue::propagateUpperboundRange(Constraint prev){
+//   Assert(isUpperBound());
+//   Assert(prev->isUpperBound());
+//   // If prev == NULL, intrepret this as x <= infty
+//   Assert(prev == NULL || d_value < prev->d_value);
 
-  // It is now known that x <= d_value
-  // Assuming it was known that x <= prev->d_value, and d_value < prev->d_value
-  // Implies x <= c, where d_value < c < prev->d_value
-  // Implies x != c, where d_value < c
+//   // It is now known that x <= d_value
+//   // Assuming it was known that x <= prev->d_value, and d_value < prev->d_value
+//   // Implies x <= c, where d_value < c < prev->d_value
+//   // Implies x != c, where d_value < c
 
-  SortedConstraintSetIterator i = d_variablePosition+1;
-  SortedConstraintSetIterator end = (prev == NULL) ? constraintSet().end() : prev->d_variablePosition;
+//   SortedConstraintSetIterator i = d_variablePosition+1;
+//   SortedConstraintSetIterator end = (prev == NULL) ? constraintSet().end() : prev->d_variablePosition;
 
-  for(; i != end; ++i){
-    const ValueCollection& curr = *i;
-    Assert(d_value < *(curr.d_value));
-    if(curr.hasUpperBound()){
-      d_database->internalPropagate(curr.d_upperBound, this);
-    }else if(curr.hasEquality()){
-      Constraint diseq = (curr.d_equality)->d_negation;
-      d_database->internalPropagate(diseq, this);
-    }
-  }
-}
+//   for(; i != end; ++i){
+//     const ValueCollection& curr = *i;
+//     Assert(d_value < *(curr.d_value));
+//     if(curr.hasUpperBound()){
+//       d_database->internalPropagate(curr.d_upperBound, this);
+//     }else if(curr.hasEquality()){
+//       Constraint diseq = (curr.d_equality)->d_negation;
+//       d_database->internalPropagate(diseq, this);
+//     }
+//   }
+// }
 
-void ConstraintValue::propagateEquality(Constraint prevUB, Constraint prevLB){
-  Assert(isEquality());
-  Assert(prevUB->isUpperBound());
-  Assert(prevLB->isLowerBound());
+// void ConstraintValue::propagateEquality(Constraint prevUB, Constraint prevLB){
+//   Assert(isEquality());
+//   Assert(prevUB->isUpperBound());
+//   Assert(prevLB->isLowerBound());
 
-  // If prev == NULL, intrepret this as x <= infty
-  Assert(prevLB == NULL || prevLB->d_value <= d_value);
-  Assert(prevUB == NULL || d_value <= prevUB->d_value);
-  Assert(prevLB == NULL || prevUB == NULL || prevLB->d_value <= prevUB->d_value);
+//   // If prev == NULL, intrepret this as x <= infty
+//   Assert(prevLB == NULL || prevLB->d_value <= d_value);
+//   Assert(prevUB == NULL || d_value <= prevUB->d_value);
+//   Assert(prevLB == NULL || prevUB == NULL || prevLB->d_value <= prevUB->d_value);
 
-  // It is now known that x = d_value
-  // Assuming it was known that prevLB->d_value <= x <= prev->d_value
-  // Implies x >= c, where d_value >= c
-  // Implies x != c, where d_value != c
+//   // It is now known that x = d_value
+//   // Assuming it was known that prevLB->d_value <= x <= prev->d_value
+//   // Implies x >= c, where d_value >= c
+//   // Implies x != c, where d_value != c
 
-  SortedConstraintSetIterator i = (prevLB == NULL) ? constraintSet().begin() : prevLB->d_variablePosition + 1;
-  SortedConstraintSetIterator mid = d_variablePosition;
-  SortedConstraintSetIterator end = (prevUB == NULL) ? constraintSet().end() : prevUB->d_variablePosition;
+//   SortedConstraintSetIterator i = (prevLB == NULL) ? constraintSet().begin() : prevLB->d_variablePosition + 1;
+//   SortedConstraintSetIterator mid = d_variablePosition;
+//   SortedConstraintSetIterator end = (prevUB == NULL) ? constraintSet().end() : prevUB->d_variablePosition;
 
-  for(; i != mid; ++i){
-    const ConstraintValue& curr = *i;
-    Assert(d_value >= curr->d_value);
-    if(curr->isLowerBound()){
-      d_database->internalPropagate(curr, this);
-    }else if(curr->isEquality()){
-      d_database->internalPropagate(curr->d_negation, this);
-    }
-  }
-  Assert(i == mid);
-  ++i;
-  for(; i != end; ++i){
-    Constraint curr = *i;
-    Assert(d_value <= curr->d_value);
-    if(curr->isUpperBound()){
-      d_database->internalPropagate(curr, this);
-    }else if(curr->isEquality()){
-      d_database->internalPropagate(curr->d_negation, this);
-    }
-  }
-}
+//   for(; i != mid; ++i){
+//     const ConstraintValue& curr = *i;
+//     Assert(d_value >= curr->d_value);
+//     if(curr->isLowerBound()){
+//       d_database->internalPropagate(curr, this);
+//     }else if(curr->isEquality()){
+//       d_database->internalPropagate(curr->d_negation, this);
+//     }
+//   }
+//   Assert(i == mid);
+//   ++i;
+//   for(; i != end; ++i){
+//     Constraint curr = *i;
+//     Assert(d_value <= curr->d_value);
+//     if(curr->isUpperBound()){
+//       d_database->internalPropagate(curr, this);
+//     }else if(curr->isEquality()){
+//       d_database->internalPropagate(curr->d_negation, this);
+//     }
+//   }
+// }
 
-void ConstraintDatabase::internalPropagate(Constraint consequent, Constraint antecedent){
-  if(consequent->hasProof()){
-    Debug("arith::db") << "Already has proof " << consequent->d_node << endl;
+void ConstraintValue::internalPropagate(Constraint antecedent){
+  Assert(!negationHasProof());
+
+  if(hasProof()){
+    Debug("arith::db") << "Already has proof " << this << endl;
   }else{
-    Debug("arith::db") << "Propagating (implies " << antecedent->d_node << " " << consequent->d_node << ")"<< endl;
-    consequent->markAsTrue(antecdent);
+    markAsTrue(antecedent);
   }
 }
 
+Node ConstraintValue::explain() const{
+  Assert(hasProof());
 
-bool Constraint::isSelfExplaining() const {
-  return d_database->d_proofs[d_proof] == NULL;
-}
-
-Node ConstraintDatabase::explain(Constraint c){
-  Assert(c->hasProof());
-
-  if(c->isSelfExplaining()){
-    return c->d_node;
+  if(isSelfExplaining()){
+    return getLiteral();
   }else{
-    ProofId p = c->d_proof;
-    if(d_proofs[p-1] == NULL){
-      Constraint antecedent = d_proofs[p];
-      return antecedent->d_node;
+    if(d_database->d_proofs[d_proof-1] == NullConstraint){
+      Constraint antecedent = d_database->d_proofs[d_proof];
+      return antecedent->explain();
     }else{
       NodeBuilder<> nb(AND);
-      explain(nb, c);
+      recExplain(nb, this);
       return nb;
     }
   }
 }
 
-void ConstraintValue::recExplain(NodeBuilder<>& nb, Constraint c){
+void ConstraintValue::recExplain(NodeBuilder<>& nb, const ConstraintValue * const c){
   Assert(c->hasProof());
 
   if(c->isSelfExplaining()){
-    nb << c->d_node;
+    nb << c->getLiteral();
   }else{
     ProofId p = c->d_proof;
+    const context::CDList<Constraint>& d_proofs = c->d_database->d_proofs;
     Constraint antecedent = d_proofs[p];
-
-    for(; antecedent != NULL; actecedent = d_proofs[--p] ){
+    
+    for(; antecedent != NullConstraint; antecedent = d_proofs[--p] ){
       recExplain(nb, antecedent);
     }
   }
-}
-
-
-bool ConstraintDatabase::containsLiteral(TNode lit) const{
-  return d_nodetoConstraintMap.find(lit) != d_nodetoConstraintMap.end();
 }
 
 // Constraint ConstraintDatabase::getUpperBound(ArithVar v, const DeltaRational& b, bool strict) const{
