@@ -34,6 +34,7 @@
 #include "util/language.h"
 #include "util/options.h"
 #include "util/output.h"
+#include "util/dump.h"
 
 #include "cvc4autoconfig.h"
 
@@ -77,6 +78,7 @@ Options::Options() :
   lazyDefinitionExpansion(false),
   printWinner(false),
   simplificationMode(SIMPLIFICATION_MODE_BATCH),
+  simplificationModeSetByUser(false),
   doStaticLearning(true),
   interactive(false),
   interactiveSetByUser(false),
@@ -609,7 +611,7 @@ throw(OptionException) {
       if(optarg == NULL || *optarg == '\0') {
         throw OptionException(string("Bad file name for --dump-to"));
       } else if(!strcmp(optarg, "-")) {
-        Dump.setStream(DumpC::dump_cout);
+        Dump.setStream(DumpOutC::dump_cout);
       } else {
         ostream* dumpTo = new ofstream(optarg, ofstream::out | ofstream::trunc);
         if(!*dumpTo) {
@@ -673,10 +675,13 @@ throw(OptionException) {
     case SIMPLIFICATION_MODE:
       if(!strcmp(optarg, "batch")) {
         simplificationMode = SIMPLIFICATION_MODE_BATCH;
+        simplificationModeSetByUser = true;
       } else if(!strcmp(optarg, "incremental")) {
         simplificationMode = SIMPLIFICATION_MODE_INCREMENTAL;
+        simplificationModeSetByUser = true;
       } else if(!strcmp(optarg, "none")) {
         simplificationMode = SIMPLIFICATION_MODE_NONE;
+        simplificationModeSetByUser = true;
       } else if(!strcmp(optarg, "help")) {
         puts(simplificationHelp.c_str());
         exit(1);
