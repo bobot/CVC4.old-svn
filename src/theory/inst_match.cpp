@@ -27,6 +27,21 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
+void CandidateGeneratorQueue::reset( Node eqc ){
+  if( !eqc.isNull() ){
+    d_candidates.push_back( eqc );
+  }
+}
+Node CandidateGeneratorQueue::getNextCandidate(){
+  if( d_candidates.empty() ){
+    return Node::null();
+  }else{
+    Node n = d_candidates[0];
+    d_candidates.erase( d_candidates.begin(), d_candidates.begin() + 1 );
+    return n;
+  }
+}
+
 int InstMatch::d_im_count = 0;
 
 InstMatch::InstMatch(){
@@ -857,12 +872,19 @@ int Trigger::isInstanceOf( Node n1, Node n2 ){
 }
 
 bool Trigger::isVariableSubsume( Node n1, Node n2 ){
-  computeVarContains( n1 );
-  computeVarContains( n2 );
-  for( int i=0; i<(int)d_var_contains[n2].size(); i++ ){
-    if( std::find( d_var_contains[n1].begin(), d_var_contains[n1].end(), d_var_contains[n2][i] )==d_var_contains[n1].end() ){
-      return false;
+  if( n1==n2 ){
+    return true;
+  }else{
+    //std::cout << "is variable subsume ? " << n1 << " " << n2 << std::endl;
+    computeVarContains( n1 );
+    computeVarContains( n2 );
+    for( int i=0; i<(int)d_var_contains[n2].size(); i++ ){
+      if( std::find( d_var_contains[n1].begin(), d_var_contains[n1].end(), d_var_contains[n2][i] )==d_var_contains[n1].end() ){
+        //std::cout << "no" << std::endl;
+        return false;
+      }
     }
+    //std::cout << "yes" << std::endl;
+    return true;
   }
-  return true;
 }

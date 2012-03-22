@@ -39,7 +39,8 @@ struct sortQuantifiersForSymbol {
     }else if( nqfsi>nqfsj ){
       return false;
     }else{
-      return Trigger::isVariableSubsume( i, j );
+      return false;
+//      return Trigger::isVariableSubsume( i, j );
     }
   }
 };
@@ -167,10 +168,10 @@ void InstStrategyUserPatterns::addUserPattern( Node f, Node pat ){
 }
  
 void InstStrategyAutoGenTriggers::processResetInstantiationRound( Theory::Effort effort ){
-  for( std::map< Node, Trigger* >::iterator it = d_auto_gen_trigger.begin(); it != d_auto_gen_trigger.end(); ++it ){
-    if( it->second ){
-      it->second->resetInstantiationRound();
-      it->second->reset( Node::null() );
+  for( std::map< Node, std::map< Trigger*, bool > >::iterator it = d_auto_gen_trigger.begin(); it != d_auto_gen_trigger.end(); ++it ){
+    for( std::map< Trigger*, bool >::iterator itt = it->second.begin(); itt != it->second.end(); ++itt ){
+      itt->first->resetInstantiationRound();
+      itt->first->reset( Node::null() );
     }
   }
 }
@@ -182,22 +183,33 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
   if( e<peffort ){
     return STATUS_UNFINISHED;
   }else if( e==peffort ){
-    Trigger* tr = getAutoGenTrigger( f );
-    if( !tr ){
-      return STATUS_UNKNOWN;
+    bool gen = false;
+    if( d_counter.find( f )==d_counter.end() ){
+      d_counter[f] = 0;
+      gen = true;
     }else{
-      Debug("quant-uf-strategy")  << "Try auto-generated triggers... " << d_tr_strategy << " " << getAutoGenTrigger( f ) << std::endl;
-      //std::cout << "Try auto-generated triggers..." << std::endl;
-      int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
-      if( d_tr_strategy==TS_MIN_TRIGGER ){
-        d_th->d_statistics.d_instantiations_auto_gen_min += numInst;
-      }else{
-        d_th->d_statistics.d_instantiations_auto_gen += numInst;
-      }
-      //d_quantEngine->d_hasInstantiated[f] = true;
-      Debug("quant-uf-strategy") << "done." << std::endl;
-      //std::cout << "done" << std::endl;
+      d_counter[f]++;
+      gen = d_regenerate && d_counter[f]%d_regenerate_frequency==0;
     }
+    if( gen ){
+      generateTriggers( f );
+    }
+    Debug("quant-uf-strategy")  << "Try auto-generated triggers... " << d_tr_strategy << std::endl;
+    //std::cout << "Try auto-generated triggers..." << std::endl;
+    for( std::map< Trigger*, bool >::iterator itt = d_auto_gen_trigger[f].begin(); itt != d_auto_gen_trigger[f].end(); ++itt ){
+      Trigger* tr = itt->first;
+      if( tr && itt->second ){
+        int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
+        if( d_tr_strategy==TS_MIN_TRIGGER ){
+          d_th->d_statistics.d_instantiations_auto_gen_min += numInst;
+        }else{
+          d_th->d_statistics.d_instantiations_auto_gen += numInst;
+        }
+        //d_quantEngine->d_hasInstantiated[f] = true;
+        Debug("quant-uf-strategy") << "done." << std::endl;
+      }
+    }
+    //std::cout << "done" << std::endl;
   }
   return STATUS_UNKNOWN;
 }
@@ -284,43 +296,85 @@ bool InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< 
   }
 }
 
-
-Trigger* InstStrategyAutoGenTriggers::getAutoGenTrigger( Node f ){
-  if( d_auto_gen_trigger.find( f )==d_auto_gen_trigger.end() ){
-    Trigger* tr = NULL;
-    //if( f.getNumChildren()==3 ){
-    //  //don't auto-generate any trigger for quantifiers with user-provided patterns
-    //  d_auto_gen_trigger[f] = NULL;
-    //}
-    std::vector< Node > patTerms;
-    collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy, true );
-    if( !patTerms.empty() ){
-      //sort terms based on relevance
-      if( d_rlv_strategy==RELEVANCE_DEFAULT ){
-        sortQuantifiersForSymbol sqfs;
-        sqfs.d_qe = d_quantEngine;
-        //sort based on # occurrences (this will cause Trigger to select rarer symbols)
-        std::sort( patTerms.begin(), patTerms.end(), sqfs );
-        Debug("relevant-trigger") << "Terms based on relevance: " << std::endl;
-        for( int i=0; i<(int)patTerms.size(); i++ ){
-          Debug("relevant-trigger") << "   " << patTerms[i] << " (";
-          Debug("relevant-trigger") << d_quantEngine->getNumQuantifiersForSymbol( patTerms[i].getOperator() ) << ")" << std::endl;
-        }
+void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
+  bool firstTime = d_auto_gen_trigger[f].empty();
+  std::vector< Node > patTerms;
+  collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTerms, d_tr_strategy, true );
+  if( !patTerms.empty() ){
+    //sort terms based on relevance
+    if( d_rlv_strategy==RELEVANCE_DEFAULT ){
+      sortQuantifiersForSymbol sqfs;
+      sqfs.d_qe = d_quantEngine;
+      //sort based on # occurrences (this will cause Trigger to select rarer symbols)
+      //std::cout << "do sort" << std::endl;
+      std::sort( patTerms.begin(), patTerms.end(), sqfs );
+      Debug("relevant-trigger") << "Terms based on relevance: " << std::endl;
+      for( int i=0; i<(int)patTerms.size(); i++ ){
+        Debug("relevant-trigger") << "   " << patTerms[i] << " (";
+        Debug("relevant-trigger") << d_quantEngine->getNumQuantifiersForSymbol( patTerms[i].getOperator() ) << ")" << std::endl;
       }
-      int matchOption = 0;
-#ifdef USE_EFFICIENT_E_MATCHING
-      matchOption = InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH;
-#endif
-      tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchOption, false, Trigger::TR_RETURN_NULL );
+      //std::cout << "Terms based on relevance: " << std::endl;
+      //for( int i=0; i<(int)patTerms.size(); i++ ){
+      //  std::cout << "   " << patTerms[i] << " (";
+      //  std::cout << d_quantEngine->getNumQuantifiersForSymbol( patTerms[i].getOperator() ) << ")" << std::endl;
+      //}
     }
+    if( !d_auto_gen_trigger[f].empty() ){
+      if( d_auto_gen_trigger[f].size()<patTerms.size() ){
+        int num_trig = (int)d_auto_gen_trigger[f].size();
+        //cycle num_trig terms to the back
+        std::vector< Node > temp;
+        temp.insert( temp.begin(), patTerms.begin(), patTerms.begin() + num_trig  );
+        patTerms.erase( patTerms.begin(), patTerms.begin() + num_trig );
+        patTerms.insert( patTerms.end(), temp.begin(), temp.end() );
+      }else{
+        //just try shuffling randomly
+        std::random_shuffle( patTerms.begin(), patTerms.end() );
+      }
+    }
+    int matchOption = 0;
+#ifdef USE_EFFICIENT_E_MATCHING
+    matchOption = InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH;
+#endif
+    Trigger* tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchOption, false, Trigger::TR_RETURN_NULL );
     if( tr ){
       //making it during an instantiation round, so must reset
       tr->resetInstantiationRound();
       tr->reset( Node::null() );
+      d_auto_gen_trigger[f][tr] = true;
+      if( d_generate_additional && tr->d_nodes.size()==1 ){
+        int index = 0;
+        while( index<(int)patTerms.size() && patTerms[index]!=tr->d_nodes[0] ){
+          index++;
+        }
+        if( index<(int)patTerms.size() ){
+          //std::cout << "check add additional" << std::endl;
+          //check if similar patterns exist, and if so, add them additionally
+          int nqfs_curr = d_quantEngine->getNumQuantifiersForSymbol( tr->d_nodes[0].getOperator() );
+          index++;
+          bool success = true;
+          while( success && index<(int)patTerms.size() ){
+            success = false;
+            if( d_quantEngine->getNumQuantifiersForSymbol( patTerms[index].getOperator() )<=nqfs_curr 
+                && Trigger::isVariableSubsume( patTerms[index], tr->d_nodes[0] ) ){
+              std::vector< Node > patTerms2;
+              patTerms2.push_back( patTerms[index] );
+              Trigger* tr2 = Trigger::mkTrigger( d_quantEngine, f, patTerms2, matchOption, false, Trigger::TR_RETURN_NULL );
+              if( tr2 ){
+                //std::cout << "Add additional trigger " << patTerms[index] << std::endl;
+                tr2->resetInstantiationRound();
+                tr2->reset( Node::null() );
+                d_auto_gen_trigger[f][tr2] = true;
+              }
+              success = true;
+            }
+            index++;
+          }
+          //std::cout << "done check add additional" << std::endl;
+        }
+      }
     }
-    d_auto_gen_trigger[f] = tr;
   }
-  return d_auto_gen_trigger[f];
 }
 
 void InstStrategyFreeVariable::processResetInstantiationRound( Theory::Effort effort ){
@@ -420,11 +474,12 @@ Instantiator( c, ie, th )
       //addInstStrategy( new InstStrategyLitMatch( this, ie ) );
     }
     addInstStrategy( d_isup );
-    InstStrategy* i_ag = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::TS_ALL, 
-                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT );
+    InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::TS_ALL, 
+                                                                         InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT, 3 );
+    i_ag->setGenerateAdditional( true );
     addInstStrategy( i_ag );
-    InstStrategy* i_agm = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::TS_MIN_TRIGGER, 
-                                                           InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT );
+    InstStrategyAutoGenTriggers* i_agm = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::TS_MIN_TRIGGER, 
+                                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT );
     addInstStrategy( i_agm );
     addInstStrategy( new InstStrategyFreeVariable( this, ie ) );
     //d_isup->setPriorityOver( i_ag );
@@ -530,7 +585,7 @@ bool InstantiatorTheoryUf::areDisequal( Node a, Node b ){
       ((TheoryUF*)d_th)->d_equalityEngine.hasTerm( b ) ){
     return ((TheoryUF*)d_th)->d_equalityEngine.areDisequal( a, b );
   }else{
-    return a==b;
+    return false;
   }
 }
 

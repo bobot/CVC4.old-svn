@@ -69,20 +69,8 @@ public:
   void addCandidate( Node n ) { d_candidates.push_back( n ); }
 
   void resetInstantiationRound(){}
-  void reset( Node eqc ){
-    if( !eqc.isNull() ){
-      d_candidates.push_back( eqc );
-    }
-  }
-  Node getNextCandidate(){
-    if( d_candidates.empty() ){
-      return Node::null();
-    }else{
-      Node n = d_candidates[0];
-      d_candidates.erase( d_candidates.begin(), d_candidates.begin() + 1 );
-      return n;
-    }
-  }
+  void reset( Node eqc );
+  Node getNextCandidate();
 };
 
 class EqualityQuery

@@ -121,21 +121,42 @@ private:
   int d_tr_strategy;
   /** relevance strategy */
   int d_rlv_strategy;
+  /** regeneration */
+  bool d_regenerate;
+  int d_regenerate_frequency;
+  /** generate additional triggers */
+  bool d_generate_additional;
   /** triggers for each quantifier */
-  std::map< Node, Trigger* > d_auto_gen_trigger;
+  std::map< Node, std::map< Trigger*, bool > > d_auto_gen_trigger;
+  std::map< Node, int > d_counter;
 private:
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
   int process( Node f, Theory::Effort effort, int e, int instLimit );
+  /** generate triggers */
+  void generateTriggers( Node f );
 public:
-  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt, int rstrt ) : 
-      InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ), d_rlv_strategy( rstrt ){}
+  InstStrategyAutoGenTriggers( InstantiatorTheoryUf* th, QuantifiersEngine* ie, int tstrt, int rstrt, int rgfr = -1 ) : 
+      InstStrategy( ie ), d_th( th ), d_tr_strategy( tstrt ), d_rlv_strategy( rstrt ), d_generate_additional( false ){
+    setRegenerateFrequency( rgfr );
+  }
   ~InstStrategyAutoGenTriggers(){}
 public:
   /** get auto-generated trigger */
   Trigger* getAutoGenTrigger( Node f );
   /** identify */
   std::string identify() const { return std::string("AutoGenTriggers"); }
+  /** set regenerate frequency, if fr<0, turn off regenerate */
+  void setRegenerateFrequency( int fr ){
+    if( fr<0 ){
+      d_regenerate = false;
+    }else{
+      d_regenerate_frequency = fr;
+      d_regenerate = true;
+    }
+  }
+  /** set generate additional */
+  void setGenerateAdditional( bool val ) { d_generate_additional = val; }
 };
 
 class InstStrategyFreeVariable : public InstStrategy{
