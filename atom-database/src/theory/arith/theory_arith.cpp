@@ -77,6 +77,7 @@ TheoryArith::TheoryArith(context::Context* c, context::UserContext* u, OutputCha
   d_propManager(c, d_arithvarNodeMap, d_atomDatabase, valuation),
   d_differenceManager(c, d_propManager),
   d_simplex(d_propManager, d_linEq),
+  d_constraintDatabase(c, u, d_arithvarNodeMap),
   d_basicVarModelUpdateCallBack(d_simplex),
   d_DELTA_ZERO(0),
   d_statistics()
@@ -583,6 +584,11 @@ void TheoryArith::setupAtom(TNode atom, bool addToDatabase) {
   }
 
   if(addToDatabase){
+    if(d_constraintDatabase.hasLiteral(atom)){
+      cout << "has atom" << atom << endl;
+    }else{
+      d_constraintDatabase.addLiteral(atom);
+    }
     d_atomDatabase.addAtom(atom);
   }
 
@@ -628,6 +634,8 @@ ArithVar TheoryArith::requestArithVar(TNode x, bool slack){
   d_arithvarNodeMap.setArithVar(x,varX);
 
   d_tableau.increaseSize();
+
+  d_constraintDatabase.addVariable(varX);
 
   Debug("arith::arithvar") << x << " |-> " << varX << endl;
 

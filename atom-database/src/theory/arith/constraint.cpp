@@ -13,6 +13,117 @@ namespace CVC4 {
 namespace theory {
 namespace arith {
 
+ConstraintValue::ConstraintValue(ArithVar x,  ConstraintType t, const DeltaRational& v)
+  : d_variable(x),
+    d_type(t),
+    d_value(v),
+    d_database(NULL),
+    d_literal(Node::null()),
+    d_negation(NullConstraint),
+    d_preregistered(false),
+    d_proof(ProofIdSentinel),
+    d_split(false),
+    d_variablePosition()
+{
+  Assert(!initialized());
+}
+
+
+std::ostream& operator<<(std::ostream& o, const Constraint c){
+  return o << *c;
+}
+
+std::ostream& operator<<(std::ostream& o, const ConstraintType t){
+  switch(t){
+  case LowerBound:
+    return o << ">=";
+  case UpperBound:
+    return o << "<=";
+  case Equality:
+    return o << "=";
+  case Disequality:
+    return o << "!=";
+  default:
+    Unreachable();
+  }
+}
+
+std::ostream& operator<<(std::ostream& o, const ConstraintValue& c){
+  o << c.getVariable() << ' ' << c.getType() << ' ' << c.getValue();
+  if(c.hasLiteral()){
+    o << "(node " << c.getLiteral() << ')';
+  }
+  return o;
+}
+
+std::ostream& operator<<(std::ostream& o, const ValueCollection& vc){
+  o << "{";
+  bool pending = false;
+  if(vc.hasEquality()){
+    o << "eq: " << vc.getEquality();
+    pending = true;
+  }
+  if(vc.hasLowerBound()){
+    if(pending){
+      o << ", ";
+    }
+    o << "lb: " << vc.getLowerBound();
+    pending = true;
+  }
+  if(vc.hasUpperBound()){
+    if(pending){
+      o << ", ";
+    }
+    o << "ub: " << vc.getUpperBound();
+    pending = true;
+  }
+  if(vc.hasDisequality()){
+    if(pending){
+      o << ", ";
+    }
+    o << "de: " << vc.getDisequality();
+  }
+  return o << "}";
+}
+
+void ValueCollection::push_into(std::vector<Constraint>& vec) const {
+  Debug("arith::constraint") << "push_into " << *this << endl;
+  if(hasEquality()){
+    vec.push_back(d_equality);
+  }
+  if(hasLowerBound()){
+    vec.push_back(d_lowerBound);
+  }
+  if(hasUpperBound()){
+    vec.push_back(d_upperBound);
+  }
+  if(hasDisequality()){
+    vec.push_back(d_disequality);
+  }
+}
+
+ValueCollection ValueCollection::mkFromConstraint(Constraint c){
+  ValueCollection ret;
+  Assert(ret.empty());
+  switch(c->getType()){
+  case LowerBound:
+    ret.d_lowerBound = c;
+    break;
+  case UpperBound:
+    ret.d_upperBound = c;
+    break;
+  case Equality:
+    ret.d_equality = c;
+    break;
+  case Disequality:
+    ret.d_disequality = c;
+    break;
+  default:
+    Unreachable();
+  }
+  return ret;
+}
+
 bool ValueCollection::hasConstraintType(ConstraintType t) const{
   switch(t){
   case LowerBound:
@@ -66,6 +177,25 @@ void ValueCollection::add(Constraint c){
   }
 }
 
+Constraint ValueCollection::getConstraint(ConstraintType t) const{
+  switch(t){
+  case LowerBound:
+    Assert(!hasLowerBound());
+    return d_lowerBound;
+  case Equality:
+    Assert(!hasEquality());
+    return d_equality;
+  case UpperBound:
+    Assert(!hasUpperBound());
+    return d_upperBound;
+  case Disequality:
+    Assert(!hasDisequality());
+    return d_disequality;
+  default:
+    Unreachable();
+  }
+}
+
 void ValueCollection::remove(ConstraintType t){
   switch(t){
   case LowerBound:
@@ -90,7 +220,11 @@ void ValueCollection::remove(ConstraintType t){
 }
 
 bool ValueCollection::empty() const{
-  return hasLowerBound() || hasUpperBound() || hasEquality() || hasDisequality();
+  return
+    !(hasLowerBound() ||
+      hasUpperBound() ||
+      hasEquality() ||
+      hasDisequality());
 }
 
 Constraint ValueCollection::nonNull() const{
@@ -108,33 +242,42 @@ Constraint ValueCollection::nonNull() const{
     return NullConstraint;
   }
 }
-void ConstraintValue::initialize(ConstraintDatabase* db, SortedConstraintMapIterator v, ConstraintListIterator pos, Constraint negation){
-    d_database = db;
-    d_variablePosition = v;
-    d_pos = pos;
-    d_negation = negation;
-  }
+
+bool ConstraintValue::initialized() const {
+  return d_database != NULL;
+}
+
+void ConstraintValue::initialize(ConstraintDatabase* db, SortedConstraintMapIterator v, Constraint negation){
+  Assert(!initialized());
+  d_database = db;
+  d_variablePosition = v;
+  d_negation = negation;
+}
+
 ConstraintValue::~ConstraintValue() {
   Assert(safeToGarbageCollect());
 
-  ValueCollection& vc =  d_variablePosition->second;
-  vc.remove(getType());
+  if(initialized()){
+    ValueCollection& vc =  d_variablePosition->second;
+    Debug("arith::constraint") << "removing" << vc << endl; 
 
-  if(vc.empty()){
-    SortedConstraintMap& perVariable = d_database->getVariableSCM(getVariable());
-    perVariable.erase(d_variablePosition);
+    vc.remove(getType());
+  
+    if(vc.empty()){
+      Debug("arith::constraint") << "erasing" << vc << endl; 
+      SortedConstraintMap& perVariable = d_database->getVariableSCM(getVariable());
+      perVariable.erase(d_variablePosition);
+    }
+
+    if(hasLiteral()){
+      d_database->d_nodetoConstraintMap.erase(getLiteral());
+    }
   }
-
-  if(hasLiteral()){
-    d_database->d_nodetoConstraintMap.erase(getLiteral());
-  }
-
-  d_database->d_constraints.erase(d_pos);
 }
 
 void ConstraintValue::setPreregistered() {
   Assert(!isPreregistered());
-  d_database->d_preregisteredWatches.push_back(PreregisteredWatch(this));
+  d_database->pushPreregisteredWatch(this);
   d_preregistered = true;
 }
 
@@ -169,15 +312,14 @@ bool ConstraintValue::sanityChecking(Node n) const {
   }
 }
 
-ConstraintDatabase::ConstraintDatabase(context::Context* userContext, context::Context* satContext, const ArithVarNodeMap& av2nodeMap)
-  : d_constraints(),
+ConstraintDatabase::ConstraintDatabase(context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap)
+  : d_varDatabases(),
     d_toPropagate(satContext),
     d_proofs(satContext, false),
-    d_proofWatches(satContext),
-    d_preregisteredWatches(satContext),
-    d_splitWatches(userContext),
-    d_varDatabases(),
-    d_av2nodeMap(av2nodeMap)
+    d_watches(new Watches(satContext, userContext)),
+    d_av2nodeMap(av2nodeMap),
+    d_satContext(satContext),
+    d_satAllocationLevel(d_satContext->getLevel())
 {
   d_emptyProof = d_proofs.size();
   d_proofs.push_back(NullConstraint);
@@ -190,20 +332,40 @@ bool ConstraintDatabase::emptyDatabase(const std::vector<PerVariableDatabase>& v
 }
 
 ConstraintDatabase::~ConstraintDatabase(){
-  ConstraintListIterator i = d_constraints.begin(), end = d_constraints.end();
-  for(; i != end; ++i){
-    Constraint c = *i;
-    delete c;
+  Assert(d_satAllocationLevel <= d_satContext->getLevel());
+
+  delete d_watches;
+
+  std::vector<Constraint> constraintList;
+
+  while(!d_varDatabases.empty()){
+    PerVariableDatabase* back = d_varDatabases.back();
+
+    SortedConstraintMap& scm = back->d_constraints;
+    SortedConstraintMapIterator i = scm.begin(), i_end = scm.end();
+    for(; i != i_end; ++i){
+      (i->second).push_into(constraintList);
+    }
+    while(!constraintList.empty()){
+      Constraint c = constraintList.back();
+      constraintList.pop_back();
+      delete c;
+    }
+    Assert(scm.empty());
+    d_varDatabases.pop_back();
+    delete back;
   }
-  d_constraints.clear();
 
   Assert(d_nodetoConstraintMap.empty());
-  Assert(emptyDatabase(d_varDatabases));
 }
 
 void ConstraintDatabase::addVariable(ArithVar v){
   Assert(v == d_varDatabases.size());
-  d_varDatabases.push_back(PerVariableDatabase(v));
+  d_varDatabases.push_back(new PerVariableDatabase(v));
+}
+
+bool ConstraintValue::safeToGarbageCollect() const{
+  return !isSplit() && !isPreregistered() && !hasProof();
 }
 
 Node ConstraintValue::split(){
@@ -224,11 +386,11 @@ Node ConstraintValue::split(){
 
   Node lemma = NodeBuilder<3>(OR) << eqNode << ltNode << gtNode;
 
-  ConstraintDatabase* db = eq->d_database;
 
-  db->d_splitWatches.push_back(SplitWatch(diseq));
-  db->d_splitWatches.push_back(SplitWatch(eq));
+  eq->d_database->pushSplitWatch(eq);
   eq->d_split = true;
+
+  diseq->d_database->pushSplitWatch(diseq);
   diseq->d_split = true;
 
   return lemma;
@@ -249,6 +411,7 @@ Constraint ConstraintDatabase::addLiteral(TNode literal){
 }
 
 Constraint ConstraintDatabase::allocateConstraintForLiteral(ArithVar v, Node literal){
+  Debug("arith::constraint") << "allocateConstraintForLiteral(" << v << ", "<< literal <<")" << endl;  
   Kind kind = simplifiedKind(literal);
   ConstraintType type = constraintTypeOfLiteral(kind);
   DeltaRational dr = determineRightConstant(literal, kind);
@@ -258,6 +421,7 @@ Constraint ConstraintDatabase::allocateConstraintForLiteral(ArithVar v, Node lit
 Constraint ConstraintDatabase::addAtom(TNode atom){
   Assert(!hasLiteral(atom));
 
+  Debug("arith::constraint") << "addAtom(" << atom << ")" << endl;
   ArithVar v = d_av2nodeMap.asArithVar(atom[0]);
 
   Node negation = atom.notNode();  
@@ -273,19 +437,22 @@ Constraint ConstraintDatabase::addAtom(TNode atom){
   // If the attempt fails, i points to a pre-existing ValueCollection
 
   if(posI->second.hasConstraintType(posC->getType())){
+
+
     //This is the situation where the Constraint exists, but
     //the literal has not been  associated with it.
     Constraint hit = posI->second.getConstraint(posC->getType());
+    Debug("arith::constraint") << "hit " << hit << endl;
+    Debug("arith::constraint") << "posC " << posC << endl;
+
     delete posC;
 
     hit->setLiteral(atom);
     hit->d_negation->setLiteral(negation);
     return hit;
   }else{
-    Constraint negC = allocateConstraintForLiteral(v, negation);
 
-    ConstraintListIterator posIter = d_constraints.insert(d_constraints.end(), posC);
-    ConstraintListIterator negIter = d_constraints.insert(d_constraints.end(), negC);
+    Constraint negC = allocateConstraintForLiteral(v, negation);
 
     SortedConstraintMapIterator negI;
 
@@ -295,16 +462,19 @@ Constraint ConstraintDatabase::addAtom(TNode atom){
       Assert(posC->isLowerBound() || posC->isUpperBound());
 
       pair<SortedConstraintMapIterator, bool> negInsertAttempt;
-      negInsertAttempt = scm.insert(make_pair(negC->getValue(),
-                                              ValueCollection::mkFromConstraint(negC)));
+      negInsertAttempt = scm.insert(make_pair(negC->getValue(), ValueCollection()));
+
       //This should always succeed as the DeltaRational for the negation is unique!
       Assert(negInsertAttempt.second);
 
       negI = negInsertAttempt.first;
     }
 
-    posC->initialize(this, posI, posIter, negC);
-    negC->initialize(this, negI, negIter, posC);
+    (posI->second).add(posC);
+    (negI->second).add(negC);
+
+    posC->initialize(this, posI, negC);
+    negC->initialize(this, negI, posC);
 
     posC->setLiteral(atom);
     negC->setLiteral(negation);
@@ -345,7 +515,7 @@ void ConstraintValue::markAsTrue(){
 #warning "this may be too strict"
   Assert(hasLiteral());
   Assert(isPreregistered());
-  d_database->d_proofWatches.push_back(ProofWatch(this));
+  d_database->pushProofWatch(this);
   d_proof = d_database->d_emptyProof;
 }
 
@@ -356,7 +526,7 @@ void ConstraintValue::markAsTrue(Constraint imp){
   d_database->d_proofs.push_back(NullConstraint);
   d_database->d_proofs.push_back(imp);
   ProofId proof = d_database->d_proofs.size();
-  d_database->d_proofWatches.push_back(ProofWatch(this));
+  d_database->pushProofWatch(this);
   d_proof = proof;
 }
 
@@ -370,7 +540,7 @@ void ConstraintValue::markAsTrue(Constraint impA, Constraint impB){
   d_database->d_proofs.push_back(impB);
   ProofId proof = d_database->d_proofs.size();
 
-  d_database->d_proofWatches.push_back(ProofWatch(this));
+  d_database->pushProofWatch(this);
   d_proof = proof;
 }
 
@@ -385,13 +555,13 @@ void ConstraintValue::markAsTrue(const vector<Constraint>& a){
 
   ProofId proof = d_database->d_proofs.size();
 
-  d_database->d_proofWatches.push_back(ProofWatch(this));
+  d_database->pushProofWatch(this);
   d_proof = proof;
 }
 
 SortedConstraintMap& ConstraintValue::constraintSet(){
   Assert(d_database->variableDatabaseIsSetup(d_variable));
-  return d_database->d_varDatabases[d_variable].d_constraints;
+  return (d_database->d_varDatabases[d_variable])->d_constraints;
 }
 
 // void ConstraintValue::propagateLowerboundRange(Constraint prev){
@@ -531,6 +701,10 @@ void ConstraintValue::recExplain(NodeBuilder<>& nb, const ConstraintValue * cons
   }
 }
 
+bool ConstraintDatabase::variableDatabaseIsSetup(ArithVar v){
+  return v < d_varDatabases.size();
+}
+
 // Constraint ConstraintDatabase::getUpperBound(ArithVar v, const DeltaRational& b, bool strict) const{
 //   ValueCollection key(d_value);
 //   const SortedConstraintSet& constraints = d_varDatabases[v].d_constraints;
@@ -597,6 +771,21 @@ void ConstraintValue::recExplain(NodeBuilder<>& nb, const ConstraintValue * cons
 
 // }
 
+ConstraintDatabase::Watches::Watches(context::Context* satContext, context::Context* userContext):
+  d_proofWatches(satContext),
+  d_preregisteredWatches(satContext),
+  d_splitWatches(userContext)
+{}
+
+
+void ConstraintValue::setLiteral(Node n) {
+  Assert(!hasLiteral());
+  Assert(sanityChecking(n));
+  d_literal = n;
+  NodetoConstraintMap& map = d_database->d_nodetoConstraintMap;
+  Assert(map.find(n) == map.end());
+  map.insert(make_pair(d_literal, this));
+}
 
 
 }/* arith namespace */

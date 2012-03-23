@@ -42,6 +42,8 @@
 #include "theory/arith/dio_solver.h"
 #include "theory/arith/difference_manager.h"
 
+#include "theory/arith/constraint.h"
+
 #include "util/stats.h"
 
 #include <vector>
@@ -249,6 +251,9 @@ private:
 
   /** This implements the Simplex decision procedure. */
   SimplexDecisionProcedure d_simplex;
+
+  ConstraintDatabase d_constraintDatabase;
+
 public:
   TheoryArith(context::Context* c, context::UserContext* u, OutputChannel& out, Valuation valuation);
   virtual ~TheoryArith();

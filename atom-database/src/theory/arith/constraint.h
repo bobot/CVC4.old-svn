@@ -55,8 +55,8 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__THEORY__ARITH__ARITH_ATOM_DATABASE_H
-#define __CVC4__THEORY__ARITH__ARITH_ATOM_DATABASE_H
+#ifndef __CVC4__THEORY__ARITH__CONSTRAINT_H
+#define __CVC4__THEORY__ARITH__CONSTRAINT_H
 
 #include "expr/node.h"
 
@@ -90,9 +90,6 @@ class ConstraintValue;
 typedef ConstraintValue* Constraint;
 static Constraint NullConstraint = NULL;
 
-typedef std::list<Constraint> ConstraintList;
-typedef ConstraintList::iterator ConstraintListIterator;
-
 typedef __gnu_cxx::hash_map<Node, Constraint, NodeHashFunction> NodetoConstraintMap;
 
 class ConstraintDatabase;
@@ -120,22 +117,35 @@ public:
   static ValueCollection mkFromConstraint(Constraint c);
 
   bool hasLowerBound() const{
-    return d_lowerBound == NullConstraint;
+    return d_lowerBound != NullConstraint;
   }
   bool hasUpperBound() const{
-    return d_upperBound == NullConstraint;
+    return d_upperBound != NullConstraint;
   }
   bool hasEquality() const{
-    return d_equality == NullConstraint;
+    return d_equality != NullConstraint;
   }
   bool hasDisequality() const {
-    return d_disequality == NullConstraint;
+    return d_disequality != NullConstraint;
   }
 
   bool hasConstraintType(ConstraintType t) const;
 
   Constraint getLowerBound() const {
+    Assert(hasLowerBound());
     return d_lowerBound;
+  }
+  Constraint getUpperBound() const {
+    Assert(hasUpperBound());
+    return d_upperBound;
+  }
+  Constraint getEquality() const {
+    Assert(hasEquality());
+    return d_equality;
+  }
+  Constraint getDisequality() const {
+    Assert(hasDisequality());
+    return d_disequality;
   }
 
   Constraint getConstraint(ConstraintType t) const;
@@ -155,12 +165,12 @@ public:
    * The collection must not have a constraint of that type already.
    */
   void add(Constraint c);
-  
 
-private:
+  void push_into(std::vector<Constraint>& vec) const;
+
+
   Constraint nonNull() const;
 
-public:
   ArithVar getVariable() const;
   const DeltaRational& getValue() const;
 };
@@ -188,7 +198,6 @@ struct PerVariableDatabase{
   // where ? is a non-empty subset of {lb, ub, eq}
   // c_1 < c_2 < c_3 < ...
 
-  //PerVariableDatabase() : d_var(ARITHVAR_SENTINEL), d_constraints() {}
   PerVariableDatabase(ArithVar v) : d_var(v), d_constraints() {}
 
   bool empty() const {
@@ -202,24 +211,17 @@ struct PerVariableDatabase{
 
 class ConstraintValue {
 private:
+  /** The ArithVar associated with the constraint. */
+  const ArithVar d_variable;
 
   /** The type of the Constraint. */
   const ConstraintType d_type;
-
-  /** The ArithVar associated with the constraint. */
-  const ArithVar d_variable;
 
   /** The DeltaRational value with the constraint. */
   const DeltaRational d_value;
 
   /** A pointer to the associated database for the Constraint. */
   ConstraintDatabase * d_database;
-
-  /**
-   * The position of the constraint in the d_database.d_constraints.
-   * The ConstraintValue must have this for efficient garbage collection.
-   */
-  ConstraintListIterator d_pos;
 
   /**
    * The node to be communicated with the TheoryEngine.
@@ -281,11 +283,13 @@ private:
    */
   ~ConstraintValue();
 
+  bool initialized() const;
+
   /**
    * This initializes the fields that cannot be set in the constructor due to
    * circular dependencies.
    */
-  void initialize(ConstraintDatabase* db, SortedConstraintMapIterator v, ConstraintListIterator pos, Constraint negation);
+  void initialize(ConstraintDatabase* db, SortedConstraintMapIterator v, Constraint negation);
 
   /**
    * Upon destruction this sets the d_proof field back to ProofIdSentinel.
@@ -398,11 +402,7 @@ public:
     return !d_literal.isNull();
   }
 
-  void setLiteral(Node n) {
-    Assert(!hasLiteral());
-    Assert(sanityChecking(n));
-    d_literal = n;
-  }
+  void setLiteral(Node n);
 
   Node getLiteral() const {
     Assert(hasLiteral());
@@ -443,12 +443,22 @@ private:
 
 std::ostream& operator<<(std::ostream& o, const ConstraintValue& c);
 std::ostream& operator<<(std::ostream& o, const Constraint c);
-
+std::ostream& operator<<(std::ostream& o, const ConstraintType t);
+std::ostream& operator<<(std::ostream& o, const ValueCollection& c);
 
 class ConstraintDatabase {
 private:
-  /** The list of constraints associated with the database. */
-  ConstraintList d_constraints;
+  /**
+   * The map from ArithVars to their unique databases.
+   * When the vector changes size, we cannot allow the maps to move so this
+   * is a vector of pointers.
+   */
+  std::vector<PerVariableDatabase*> d_varDatabases;
+
+  SortedConstraintMap& getVariableSCM(ArithVar v){
+    Assert(variableDatabaseIsSetup(v));
+    return d_varDatabases[v]->d_constraints;
+  }
 
   /** Maps literals to constraints.*/
   NodetoConstraintMap d_nodetoConstraintMap;
@@ -480,21 +490,41 @@ private:
   /** This is a special empty proof that is always a member of the list. */
   ProofId d_emptyProof;
 
-  /** Contains the exact list of atoms that have a proof. */
-  context::CDList<ConstraintValue::ProofWatch> d_proofWatches;
+  /**
+   * The watch lists are collected together as they need to be garbage collected
+   * carefully.
+   */
+  struct Watches{
+    /**
+     * Contains the exact list of atoms that have a proof.
+     */
+    context::CDList<ConstraintValue::ProofWatch> d_proofWatches;
 
-  /** Contains the exact list of atoms that have been preregistered. */
-  context::CDList<ConstraintValue::PreregisteredWatch> d_preregisteredWatches;
+    /**
+     * Contains the exact list of atoms that have been preregistered.
+     * This is a pointer as it must be destroyed before the elements of d_varDatabases.
+     */
+    context::CDList<ConstraintValue::PreregisteredWatch> d_preregisteredWatches;
 
-  /** Contains the exact list of atoms that have been preregistered. */
-  context::CDList<ConstraintValue::SplitWatch> d_splitWatches;
+    /**
+     * Contains the exact list of atoms that have been preregistered.
+     * This is a pointer as it must be destroyed before the elements of d_varDatabases.
+     */
+    context::CDList<ConstraintValue::SplitWatch> d_splitWatches;
+    Watches(context::Context* satContext, context::Context* userContext);
+  };
+  Watches* d_watches;
+  
+  void pushPreregisteredWatch(Constraint c){
+    d_watches->d_preregisteredWatches.push_back(ConstraintValue::PreregisteredWatch(c));
+  }
+  
+  void pushSplitWatch(Constraint c){
+    d_watches->d_splitWatches.push_back(ConstraintValue::SplitWatch(c));
+  }
 
-  /** The map from ArithVars to their unique databases. */
-  std::vector<PerVariableDatabase> d_varDatabases;
-
-  SortedConstraintMap& getVariableSCM(ArithVar v){
-    Assert(variableDatabaseIsSetup(v));
-    return d_varDatabases[v].d_constraints;
+  void pushProofWatch(Constraint c){
+    d_watches->d_proofWatches.push_back(ConstraintValue::ProofWatch(c));
   }
 
   /** Returns true if all of the entries of the vector are empty. */
@@ -509,12 +539,14 @@ private:
 
   Constraint allocateConstraintForLiteral(ArithVar v, Node literal);
 
+  const context::Context * const d_satContext;
+  const int d_satAllocationLevel;
 
   friend class ConstraintValue;
 
 public:
 
-  ConstraintDatabase(context::Context* userContext, context::Context* satContext, const ArithVarNodeMap& av2nodeMap);
+  ConstraintDatabase( context::Context* satContext, context::Context* userContext, const ArithVarNodeMap& av2nodeMap);
 
   ~ConstraintDatabase();
 
@@ -555,4 +587,4 @@ public:
 }/* CVC4::theory namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__THEORY__ARITH__ARITH_ATOM_DATABASE_H */
+#endif /* __CVC4__THEORY__ARITH__CONSTRAINT_H */
