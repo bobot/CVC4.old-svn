@@ -52,7 +52,6 @@ void ArithPartialModel::setUpperBound(ArithVar x, const DeltaRational& r){
   d_deltaIsSafe = false;
 
   Debug("partial_model") << "setUpperBound(" << x << "," << r << ")" << endl;
-  d_hasHadABound[x] = true;
   d_upperBound.set(x,r);
 
   if(d_dm.isDifferenceSlack(x)){
@@ -69,7 +68,6 @@ void ArithPartialModel::setLowerBound(ArithVar x, const DeltaRational& r){
   d_deltaIsSafe = false;
 
   Debug("partial_model") << "setLowerBound(" << x << "," << r << ")" << endl;
-  d_hasHadABound[x] = true;
   d_lowerBound.set(x,r);
 
 
@@ -114,12 +112,14 @@ void ArithPartialModel::setAssignment(ArithVar x, const DeltaRational& safe, con
 }
 
 bool ArithPartialModel::equalSizes(){
-  return d_mapSize == d_hasHadABound.size() &&
+  return
     d_mapSize == d_hasSafeAssignment.size() &&
     d_mapSize == d_assignment.size() &&
     d_mapSize == d_safeAssignment.size() &&
     d_mapSize == d_upperBound.size() &&
     d_mapSize == d_lowerBound.size() &&
+    d_mapSize == d_ubc.size() &&
+    d_mapSize == d_lbc.size() &&
     d_mapSize == d_upperConstraint.size() &&
     d_mapSize == d_lowerConstraint.size();
 }
@@ -128,9 +128,6 @@ void ArithPartialModel::initialize(ArithVar x, const DeltaRational& r){
   Assert(x == d_mapSize);
   Assert(equalSizes());
   ++d_mapSize;
-
-
-  d_hasHadABound.push_back( false );
 
   d_hasSafeAssignment.push_back( false );
   d_assignment.push_back( r );
@@ -141,6 +138,9 @@ void ArithPartialModel::initialize(ArithVar x, const DeltaRational& r){
 
   d_upperConstraint.push_back( TNode::null() );
   d_lowerConstraint.push_back( TNode::null() );
+
+  d_ubc.push_back(NullConstraint);
+  d_lbc.push_back(NullConstraint);
 }
 
 /** Must know that the bound exists both calling this! */

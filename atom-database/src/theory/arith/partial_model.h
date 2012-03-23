@@ -19,16 +19,19 @@
 
 #include "cvc4_private.h"
 
-#include "context/context.h"
-#include "context/cdvector.h"
-#include "theory/arith/arithvar.h"
-#include "theory/arith/delta_rational.h"
-#include "expr/attribute.h"
 #include "expr/node.h"
 
+#include "context/context.h"
+#include "context/cdvector.h"
+#include "context/cdo.h"
+
+#include "theory/arith/arithvar.h"
+#include "theory/arith/delta_rational.h"
+#include "theory/arith/constraint.h"
 #include "theory/arith/difference_manager.h"
 
-#include <deque>
+
+#include <vector>
 
 #ifndef __CVC4__THEORY__ARITH__PARTIAL_MODEL_H
 #define __CVC4__THEORY__ARITH__PARTIAL_MODEL_H
@@ -41,10 +44,8 @@ class ArithPartialModel {
 private:
 
   unsigned d_mapSize;
+
   //Maps from ArithVar -> T
-
-  std::vector<bool> d_hasHadABound;
-
   std::vector<bool> d_hasSafeAssignment;
   std::vector<DeltaRational> d_assignment;
   std::vector<DeltaRational> d_safeAssignment;
@@ -54,6 +55,8 @@ private:
   context::CDVector<Node> d_upperConstraint;
   context::CDVector<Node> d_lowerConstraint;
 
+  context::CDVector<Constraint> d_ubc;
+  context::CDVector<Constraint> d_lbc;
 
   bool d_deltaIsSafe;
   Rational d_delta;
@@ -66,11 +69,11 @@ private:
 
   DifferenceManager& d_dm;
 
+
 public:
 
   ArithPartialModel(context::Context* c, DifferenceManager& dm):
     d_mapSize(0),
-    d_hasHadABound(),
     d_hasSafeAssignment(),
     d_assignment(),
     d_safeAssignment(),
@@ -78,6 +81,8 @@ public:
     d_lowerBound(c, true),
     d_upperConstraint(c,true),
     d_lowerConstraint(c,true),
+    d_ubc(c),
+    d_lbc(c),
     d_deltaIsSafe(false),
     d_delta(-1,1),
     d_history(),
@@ -192,10 +197,6 @@ public:
   }
   inline bool hasUpperBound(ArithVar x){
     return !d_upperConstraint[x].isNull();
-  }
-
-  bool hasEverHadABound(ArithVar var){
-    return d_hasHadABound[var];
   }
 
   const Rational& getDelta(){
