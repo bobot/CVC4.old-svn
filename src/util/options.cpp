@@ -109,6 +109,7 @@ Options::Options() :
   ufSymmetryBreaker(false),
   ufSymmetryBreakerSetByUser(false),
   finiteModelFind(false),
+  efficientEMatching(false),
   cbqi(false),
   cbqiSetByUser(false),
   dioSolver(true),
@@ -185,6 +186,7 @@ Additional CVC4 options:\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
+   --efficient-e-matching use efficient E-matching\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [on by default only for arithmetic]\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
@@ -365,6 +367,7 @@ enum OptionValue {
   ENABLE_SYMMETRY_BREAKER,
   DISABLE_SYMMETRY_BREAKER,
   FINITE_MODEL_FIND,
+  EFFICIENT_E_MATCHING,
   ENABLE_CBQI,
   DISABLE_CBQI,
   PARALLEL_THREADS,
@@ -457,6 +460,7 @@ static struct option cmdlineOptions[] = {
   { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
+  { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
   { "disable-cbqi", no_argument, NULL, DISABLE_CBQI },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
@@ -819,6 +823,9 @@ throw(OptionException) {
       break;
     case FINITE_MODEL_FIND:
       finiteModelFind = true;
+      break;
+    case EFFICIENT_E_MATCHING:
+      efficientEMatching = true;
       break;
     case ENABLE_CBQI:
       cbqi = true;

@@ -285,7 +285,30 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
   EqualityNode cc1 = getEqualityNode(n1);
   EqualityNode cc2 = getEqualityNode(n2);
   //AJR-hack-end
+  //AJR-hack
+  //notify the theory
+  if( d_performNotify ){
+    if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
+      d_notify.notifyMerge( n1, n2 );
+    }
+  }
+  //if( d_thss ){
+  //  Debug("uf-ss-merge") << "Merge " << " " << n1 << " " << n2 << std::endl;
+  //  Debug("uf-ss-merge") << "   " << class1Id << " " << class2Id << std::endl;
+  //  Debug("uf-ss-merge") << "   " << cc1.getFind() << " " << cc2.getFind() << std::endl;
+  //  if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
+  //    d_thss->merge( n1, n2 );
+  //  }
+  //}
+  //AJR-hack-end
+  //std::cout << "Merge " << n1 << " " << n2 << std::endl;
+  //Node r1 = getRepresentative( n1 );
+  //Node r2 = getRepresentative( n2 );
+  //std::cout << "Now reps : " << r1 << " " << r2 << std::endl;
+  //Assert( r1==r2 );
+  //Assert( r1==n1 || r1==n2 );
 
+  //AJR-hack-end
   // Update class2 representative information
   Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): updating class " << class2Id << std::endl;
   EqualityNodeId currentId = class2Id;
@@ -381,30 +404,6 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
       }
     }
   }
-  //AJR-hack
-  //notify the theory
-  if( d_performNotify ){
-    if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
-      d_notify.notifyMerge( n1, n2 );
-    }
-  }
-  //if( d_thss ){
-  //  Debug("uf-ss-merge") << "Merge " << " " << n1 << " " << n2 << std::endl;
-  //  Debug("uf-ss-merge") << "   " << class1Id << " " << class2Id << std::endl;
-  //  Debug("uf-ss-merge") << "   " << cc1.getFind() << " " << cc2.getFind() << std::endl;
-  //  if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
-  //    d_thss->merge( n1, n2 );
-  //  }
-  //}
-  //AJR-hack-end
-  //std::cout << "Merge " << n1 << " " << n2 << std::endl;
-  //Node r1 = getRepresentative( n1 );
-  //Node r2 = getRepresentative( n2 );
-  //std::cout << "Now reps : " << r1 << " " << r2 << std::endl;
-  //Assert( r1==r2 );
-  //Assert( r1==n1 || r1==n2 );
-
-  //AJR-hack-end
 }
 
 template <typename NotifyClass>

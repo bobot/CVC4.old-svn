@@ -40,7 +40,7 @@ using namespace CVC4;
 using namespace CVC4::theory;
 
 //AJR-hack
-#define TE_PRINT_PROCESS_TIMES
+//#define TE_PRINT_PROCESS_TIMES
 //AJR-hack-end
 
 TheoryEngine::TheoryEngine(context::Context* context,

@@ -23,7 +23,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-#define QUANTIFIERS_REWRITE_SPLIT_AND
+//#define QUANTIFIERS_REWRITE_SPLIT_AND
 //#define QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
 #define QUANTIFIERS_REWRITE_PUSH_OUT_GROUND_SUBFORMULAS
 

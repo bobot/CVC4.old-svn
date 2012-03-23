@@ -182,13 +182,13 @@ class EqClassInfo
 public:
   typedef context::CDHashMap<Node, bool, NodeHashFunction> BoolMap;
   typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
-private:
-  //a list of operators that occur as top symbols in that equivalence class
+public:
+  //a list of operators that occur as top symbols in this equivalence class
   //  Efficient E-Matching for SMT Solvers: "funs" 
-  NodeList d_funs;
+  BoolMap d_funs;
   //a list of operators f for which a term of the form f( ... t ... ) exists
   //  Efficient E-Matching for SMT Solvers: "pfuns" 
-  NodeList d_pfuns;
+  BoolMap d_pfuns;
   //a list of equivalence classes that are disequal
   BoolMap d_disequal;
 public:
@@ -196,8 +196,10 @@ public:
   ~EqClassInfo(){}
   //set member
   void setMember( Node n );
-  //has function, Efficient E-Matching for SMT Solvers: "funs" 
+  //has function "funs"
   bool hasFunction( Node op );
+  //has parent "pfuns"
+  bool hasParent( Node op );
   //merge with another eq class info
   void merge( EqClassInfo* eci );
 };
@@ -294,27 +296,38 @@ public:
   /** get equivalence class info */
   EqClassInfo* getEquivalenceClassInfo( Node n );
 private:
-  class InvertedPathString{
-  public:
-    std::vector< std::pair< Node, int > > d_string;
-  };
-  class IpsCgVec {
-  public:
-    std::vector< std::pair< InvertedPathString, CandidateGenerator* > > d_vec;
-  };
-  std::map< Node, std::map< Node, IpsCgVec > > d_pp_pairs;
-  std::map< Node, std::map< Node, IpsCgVec > > d_pc_pairs;
+  typedef std::vector< std::pair< Node, int > > InvertedPathString;
+  typedef std::pair< InvertedPathString, InvertedPathString > IpsPair;
+  /** Parent/Child Pairs (for efficient E-matching)
+      Say c is a candidate generator for the pattern f( g( x ) ).  Then, d_pc_pairs[g][f] = ( { 0 }, c ).
+  */
+  std::map< Node, std::map< Node, std::map< CandidateGenerator*, std::vector< InvertedPathString > > > > d_pc_pairs;
+  /** Parent/Parent Pairs (for efficient E-matching) */
+  std::map< Node, std::map< Node, std::map< CandidateGenerator*, std::vector< IpsPair > > > > d_pp_pairs;
+  /** list of all candidate generators for each operator */
   std::map< Node, std::vector< CandidateGenerator* > > d_cand_gens;
   /** helper functions */
   void registerPatternElementPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips, 
                                      std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >& ips_map );
   void registerPatternElementPairs( CandidateGenerator* cg, Node pat );
+  /** compute candidates for pc pairs */
+  void computeCandidatesPcPairs( Node a, Node b );
+  /** compute candidates for pp pairs */
+  void computeCandidatesPpPairs( Node a, Node b );
+  /** collect terms based on inverted path string */
+  void collectTermsIps( InvertedPathString& ips, std::vector< Node >& terms, int index = 0 );
+  bool collectParentsTermsIps( Node n, Node f, int arg, std::vector< Node >& terms, bool addRep, bool modEq = true );
 public:
   /** Register candidate generator cg for pattern pat.  
       This request will ensure that calls will be made to cg->addCandidate( n ) for all
       ground terms n that are relevant for matching with pat.
   */
   void registerCandidateGenerator( CandidateGenerator* cg, Node pat );
+public:
+  /** output eq class */
+  void outputEqClass( const char* c, Node n );
+  /** output inverted path string */
+  void outputInvertedPathString( const char* c, InvertedPathString& ips );
 };/* class InstantiatorTheoryUf */
 
 /** equality query object using instantiator theory uf */

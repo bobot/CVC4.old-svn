@@ -1129,6 +1129,10 @@ void StrongSolverTheoryUf::propagate( Theory::Effort level ){
 void StrongSolverTheoryUf::setCardinality( TypeNode t, int c, bool isStrict ) {
   Debug("uf-ss-solver") << "StrongSolverTheoryUf: Set cardinality " << t << " = " << c << std::endl;
   if( d_conf_find.find( t )==d_conf_find.end() ){
+    if( !d_conf_types.empty() ){
+      std::cout << "Strong solver unimplemented for multiple sorts." << std::endl;
+      exit( 29 );
+    }
     d_conf_find[t] = new ConflictFind( t, d_th->getContext(), d_th );
     d_conf_types.push_back( t );
   }

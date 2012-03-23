@@ -238,6 +238,11 @@ struct CVC4_PUBLIC Options {
    */
   bool finiteModelFind;
 
+  /** 
+   * Whether to use efficient E-matching 
+   */
+  bool efficientEMatching;
+
   /**
    * Whether to do counterexample-based quantifier instantiation
    */

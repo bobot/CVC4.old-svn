@@ -10,7 +10,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-#define IE_PRINT_PROCESS_TIMES
+//#define IE_PRINT_PROCESS_TIMES
 
 InstantiationEngine::InstantiationEngine( TheoryQuantifiers* th ) :
 d_th( th ), d_forall_asserts( d_th->getContext() ), d_in_instRound( false, d_th->getContext() ){
