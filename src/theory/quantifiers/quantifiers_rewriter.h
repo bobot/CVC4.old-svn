@@ -114,7 +114,10 @@ public:
 
   static Node rewriteQuant( std::vector< Node >& args, Node body, NodeBuilder<>& defs, Node ipl, bool isNested = false, 
                             bool isExists = false );
-
+  /** options */
+  static bool doMiniscopingNoFreeVar();
+  static bool doMiniscopingAnd();
+  static bool doMiniscopingAndExt();
 };/* class QuantifiersRewriter */
 
 }/* CVC4::theory::quantifiers namespace */

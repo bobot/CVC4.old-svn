@@ -233,6 +233,20 @@ struct CVC4_PUBLIC Options {
    */
   bool ufSymmetryBreakerSetByUser;
 
+  /** 
+   * Whether to mini-scope quantifiers.
+   * For example, forall x. ( P( x ) ^ Q( x ) ) will be rewritten to 
+   * ( forall x. P( x ) ) ^ ( forall x. Q( x ) )
+   */
+  bool miniscopeQuant;
+
+  /** 
+   * Whether to mini-scope quantifiers based on formulas with no free variables.
+   * For example, forall x. ( P( x ) V Q ) will be rewritten to 
+   * ( forall x. P( x ) ) V Q
+   */
+  bool miniscopeQuantFreeVar;
+
   /**
    * Whether to use finite model find heuristic
    */

@@ -108,6 +108,8 @@ Options::Options() :
   arithPropagateMaxLength(16),
   ufSymmetryBreaker(false),
   ufSymmetryBreakerSetByUser(false),
+  miniscopeQuant(true),
+  miniscopeQuantFreeVar(true),
   finiteModelFind(false),
   efficientEMatching(false),
   cbqi(false),
@@ -185,6 +187,8 @@ Additional CVC4 options:\n\
    --disable-arithmetic-propagation turns on arithmetic propagation\n\
    --enable-symmetry-breaker turns on UF symmetry breaker (Deharbe et al., CADE 2011) [on by default only for QF_UF]\n\
    --disable-symmetry-breaker turns off UF symmetry breaker\n\
+   --disable-miniscope-quant     disable miniscope quantifiers\n\
+   --disable-miniscope-quant-fv  disable miniscope quantifiers for ground subformulas\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --efficient-e-matching use efficient E-matching\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [on by default only for arithmetic]\n\
@@ -366,6 +370,8 @@ enum OptionValue {
   ARITHMETIC_DIO_SOLVER,
   ENABLE_SYMMETRY_BREAKER,
   DISABLE_SYMMETRY_BREAKER,
+  DISABLE_MINISCOPE_QUANT,
+  DISABLE_MINISCOPE_QUANT_FV,
   FINITE_MODEL_FIND,
   EFFICIENT_E_MATCHING,
   ENABLE_CBQI,
@@ -459,6 +465,8 @@ static struct option cmdlineOptions[] = {
   { "disable-dio-solver", no_argument, NULL, ARITHMETIC_DIO_SOLVER },
   { "enable-symmetry-breaker", no_argument, NULL, ENABLE_SYMMETRY_BREAKER },
   { "disable-symmetry-breaker", no_argument, NULL, DISABLE_SYMMETRY_BREAKER },
+  { "disable-miniscope-quant", no_argument, NULL, DISABLE_MINISCOPE_QUANT },
+  { "disable-miniscope-quant-fv", no_argument, NULL, DISABLE_MINISCOPE_QUANT_FV },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
@@ -820,6 +828,12 @@ throw(OptionException) {
     case DISABLE_SYMMETRY_BREAKER:
       ufSymmetryBreaker = false;
       ufSymmetryBreakerSetByUser = true;
+      break;
+    case DISABLE_MINISCOPE_QUANT:
+      miniscopeQuant = false;
+      break;
+    case DISABLE_MINISCOPE_QUANT_FV:
+      miniscopeQuantFreeVar = false;
       break;
     case FINITE_MODEL_FIND:
       finiteModelFind = true;

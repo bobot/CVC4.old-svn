@@ -23,9 +23,7 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
-//#define QUANTIFIERS_REWRITE_SPLIT_AND
 //#define QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
-#define QUANTIFIERS_REWRITE_PUSH_OUT_GROUND_SUBFORMULAS
 
 bool QuantifiersRewriter::isClause( Node n ){
   if( isLiteral( n ) ){
@@ -270,77 +268,78 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
         if( body[0].getKind()==NOT ){
           return rewriteQuant( args, body[0][0], defs, ipl );
         }else if( body[0].getKind()==AND ){
-#ifdef QUANTIFIERS_REWRITE_PUSH_OUT_GROUND_SUBFORMULAS
-          NodeBuilder<> t(kind::OR);
-          for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
-            t <<  body[0][i].notNode();
+          if( doMiniscopingNoFreeVar() ){
+            NodeBuilder<> t(kind::OR);
+            for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
+              t <<  body[0][i].notNode();
+            }
+            Node quant = t;
+            return rewriteQuant( args, quant, defs, ipl );
           }
-          Node quant = t;
-          return rewriteQuant( args, quant, defs, ipl );
-#endif
         }else if( body[0].getKind()==OR || body[0].getKind()==IMPLIES ){
-#ifdef QUANTIFIERS_REWRITE_SPLIT_AND
+          if( doMiniscopingAnd() ){
+            NodeBuilder<> t(kind::AND);
+            for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
+              Node trm = ( body[0].getKind()==IMPLIES && i==0 ) ? body[0][i] : body[0][i].notNode();
+              t << rewriteQuant( args, trm, defs, ipl );
+            }
+            Node retVal = t;
+            return retVal;
+          }
+        }else{
+          if( doMiniscopingAndExt() ){
+            if( body[0].getKind()==IFF || body[0].getKind()==EQUAL ){
+              Assert( body[0][0].getType()==NodeManager::currentNM()->booleanType() );
+              return rewriteQuant( args, 
+                NodeManager::currentNM()->mkNode( body[0].getKind(), body[0][0], body[0][1].notNode() ), defs, ipl );
+            }else if( body[0].getKind()==XOR ){
+              return rewriteQuant( args, 
+                NodeManager::currentNM()->mkNode( XOR, body[0][0], body[0][1].notNode() ), defs, ipl );
+            }else if( body[0].getKind()==ITE ){
+              return rewriteQuant( args, 
+                NodeManager::currentNM()->mkNode( ITE, body[0][0], body[0][1].notNode(), body[0][2].notNode() ), defs, ipl );
+            }
+          }
+        }
+      }else if( body.getKind()==AND ){
+        if( doMiniscopingAnd() ){
+          //break apart
           NodeBuilder<> t(kind::AND);
-          for( int i=0; i<(int)body[0].getNumChildren(); i++ ){
-            Node trm = ( body[0].getKind()==IMPLIES && i==0 ) ? body[0][i] : body[0][i].notNode();
-            t << rewriteQuant( args, trm, defs, ipl );
+          for( int i=0; i<(int)body.getNumChildren(); i++ ){
+            t << rewriteQuant( args, body[i], defs, ipl );
           }
           Node retVal = t;
           return retVal;
-#endif
-        }else{
-#ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
-          if( body[0].getKind()==IFF || body[0].getKind()==EQUAL ){
-            Assert( body[0][0].getType()==NodeManager::currentNM()->booleanType() );
-            return rewriteQuant( args, NodeManager::currentNM()->mkNode( body[0].getKind(), body[0][0], body[0][1].notNode() ), defs, ipl );
-          }else if( body[0].getKind()==XOR ){
-            return rewriteQuant( args, NodeManager::currentNM()->mkNode( XOR, body[0][0], body[0][1].notNode() ), defs, ipl );
-          }else if( body[0].getKind()==ITE ){
-            return rewriteQuant( args, NodeManager::currentNM()->mkNode( ITE, body[0][0], body[0][1].notNode(), body[0][2].notNode() ), defs, ipl );
-          }
-#endif
         }
-      }else if( body.getKind()==AND ){
-#ifdef QUANTIFIERS_REWRITE_SPLIT_AND
-        //break apart
-        NodeBuilder<> t(kind::AND);
-        for( int i=0; i<(int)body.getNumChildren(); i++ ){
-          t << rewriteQuant( args, body[i], defs, ipl );
-        }
-        Node retVal = t;
-        return retVal;
-#endif
       }else if( body.getKind()==OR || body.getKind()==IMPLIES ){
-#ifdef QUANTIFIERS_REWRITE_PUSH_OUT_GROUND_SUBFORMULAS
-        NodeBuilder<> tb(kind::OR);
-        for( int i=0; i<(int)body.getNumChildren(); i++ ){
-          Node trm = ( body.getKind()==IMPLIES && i==0 ) ? body[i].notNode() : body[i];
-          if( hasArg( args, body[i] ) ){
-            tb << trm;
-          }else{
-            body_split << trm;
+        if( doMiniscopingNoFreeVar() ){
+          NodeBuilder<> tb(kind::OR);
+          for( int i=0; i<(int)body.getNumChildren(); i++ ){
+            Node trm = ( body.getKind()==IMPLIES && i==0 ) ? body[i].notNode() : body[i];
+            if( hasArg( args, body[i] ) ){
+              tb << trm;
+            }else{
+              body_split << trm;
+            }
+          }
+          newBody = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
+        }
+      }else{
+        if( doMiniscopingAndExt() ){
+          if( body.getKind()==IFF || body.getKind()==EQUAL ){
+            Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[0], body[1] ), defs, ipl );
+            Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[1], body[0] ), defs, ipl );
+            return NodeManager::currentNM()->mkNode( AND, n1, n2 );
+          }else if( body.getKind()==XOR ){
+            Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, ipl, isNested );
+            Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[1].notNode() ), defs, ipl );
+            return NodeManager::currentNM()->mkNode( AND, n1, n2 );
+          }else if( body.getKind()==ITE ){
+            Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, ipl, isNested );
+            Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[2] ), defs, ipl );
+            return NodeManager::currentNM()->mkNode( AND, n1, n2 );
           }
         }
-        newBody = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
-#endif
-      }else if( body.getKind()==IFF || body.getKind()==EQUAL ){
-#ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
-        Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[0], body[1] ), defs, ipl );
-        Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[1], body[0] ), defs, ipl );
-        return NodeManager::currentNM()->mkNode( AND, n1, n2 );
-#endif
-      }else if( body.getKind()==XOR ){
-#ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
-        Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, ipl, isNested );
-        Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[1].notNode() ), defs, ipl );
-        return NodeManager::currentNM()->mkNode( AND, n1, n2 );
-#endif
-      }else if( body.getKind()==ITE ){
-#ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
-        Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0], body[1] ), defs, ipl, isNested );
-        Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( OR, body[0].notNode(), body[2] ), defs, ipl );
-        return NodeManager::currentNM()->mkNode( AND, n1, n2 );
-#endif
       }
       //if( !isNested && !isClause( newBody ) ){
       //  std::cout << "non-clausal " << body;
@@ -352,4 +351,28 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
     }
     return mkForAll( args, body, ipl );
   }
+}
+
+bool QuantifiersRewriter::doMiniscopingNoFreeVar(){
+  return Options::current()->miniscopeQuantFreeVar;
+}
+
+bool QuantifiersRewriter::doMiniscopingAnd(){
+  if( Options::current()->miniscopeQuant ){
+    return true;
+  }else{
+    if( Options::current()->cbqi ){
+      return true;  
+    }else{
+      return false;
+    }
+  }
+}
+
+bool QuantifiersRewriter::doMiniscopingAndExt(){
+#ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
+  return true;
+#else
+  return false;
+#endif
 }
