@@ -139,7 +139,8 @@ enum RewriteRuleId {
   NotConcat,
   NotAnd, // not sure why this would help (not done)
   NotOr,  // not sure why this would help (not done)
-  NotXor // not sure why this would help (not done)
+  NotXor, // not sure why this would help (not done)
+  FlattenAssocCommut
  };
 
 inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
@@ -241,6 +242,7 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case SignExtendEliminate :            out << "SignExtendEliminate";             return out;
   case NotIdemp :                  out << "NotIdemp"; return out;
   case UleSelf:                    out << "UleSelf"; return out; 
+  case FlattenAssocCommut:     out << "FlattenAssocCommut"; return out; 
   default:
     Unreachable();
   }
@@ -428,6 +430,7 @@ struct AllRewriteRules {
   RewriteRule<SignExtendEliminate> rule101;
   RewriteRule<NotIdemp> rule102;
   RewriteRule<UleSelf> rule103;
+  RewriteRule<FlattenAssocCommut> rule104;
 };
 
 template<>

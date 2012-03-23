@@ -67,6 +67,7 @@ RewriteResponse TheoryBVRewriter::postRewrite(TNode node) {
 }
 
 RewriteResponse TheoryBVRewriter::RewriteUlt(TNode node) {
+  // reduce common subexpressions on both sides
   Node resultNode = LinearRewriteStrategy
     < RewriteRule<EvalUlt>,
       // if both arguments are constants evaluates
@@ -204,7 +205,8 @@ RewriteResponse TheoryBVRewriter::RewriteConcat(TNode node) {
 
 RewriteResponse TheoryBVRewriter::RewriteAnd(TNode node){
   Node resultNode = LinearRewriteStrategy
-    < RewriteRule<EvalAnd>,
+    < RewriteRule<FlattenAssocCommut>,
+      RewriteRule<EvalAnd>,
       RewriteRule<BitwiseIdemp>,
       //RewriteRule<BitwiseSlice>, -> might need rw again
       RewriteRule<AndZero>
@@ -216,7 +218,8 @@ RewriteResponse TheoryBVRewriter::RewriteAnd(TNode node){
 
 RewriteResponse TheoryBVRewriter::RewriteOr(TNode node){
   Node resultNode = LinearRewriteStrategy
-    < RewriteRule<EvalOr>,
+    < RewriteRule<FlattenAssocCommut>,
+      RewriteRule<EvalOr>,
       RewriteRule<BitwiseIdemp>,
       //RewriteRule<BitwiseSlice>, ->  might need rw again
       RewriteRule<OrZero>,
@@ -233,7 +236,8 @@ RewriteResponse TheoryBVRewriter::RewriteXor(TNode node) {
     return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
   }
   resultNode = LinearRewriteStrategy
-    < RewriteRule<XorNot>, 
+    < RewriteRule<FlattenAssocCommut>,
+      RewriteRule<XorNot>, 
       RewriteRule<EvalXor>,
       RewriteRule<XorDuplicate>,
       //RewriteRule<BitwiseSlice>, ->  might need rw again
@@ -283,7 +287,8 @@ RewriteResponse TheoryBVRewriter::RewriteMult(TNode node) {
   }
 
   resultNode = LinearRewriteStrategy
-    < RewriteRule<EvalMult>,
+    < RewriteRule<FlattenAssocCommut>,
+      RewriteRule<EvalMult>,
       RewriteRule<MultOne>,
       RewriteRule<MultZero>
     >::apply(node);
@@ -292,8 +297,14 @@ RewriteResponse TheoryBVRewriter::RewriteMult(TNode node) {
 }
 
 RewriteResponse TheoryBVRewriter::RewritePlus(TNode node) {
-  Node resultNode = LinearRewriteStrategy
-    < RewriteRule<EvalPlus>,
+  Node resultNode = node;
+  if (RewriteRule<FlattenAssocCommut>::applies(node)) {
+    resultNode = RewriteRule<FlattenAssocCommut>::run<false> (node);
+  }
+  resultNode= LinearRewriteStrategy
+    < RewriteRule<FlattenAssocCommut>,
+      //RewriteRule<PlusCombineLikeTerms>
+      RewriteRule<EvalPlus>, //the above rule should take care of these 
       RewriteRule<PlusZero>
       // RewriteRule<PlusSelf>,
       // RewriteRule<PlusNegSelf>

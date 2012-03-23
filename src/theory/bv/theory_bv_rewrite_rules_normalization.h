@@ -128,6 +128,124 @@ Node RewriteRule<ExtractArith2>::apply(Node node) {
   return utils::mkExtract(a_op_b, high, low); 
 }
 
+template<>
+bool RewriteRule<FlattenAssocCommut>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_PLUS ||
+          node.getKind() == kind::BITVECTOR_MULT ||
+          node.getKind() == kind::BITVECTOR_OR ||
+          node.getKind() == kind::BITVECTOR_XOR ||
+          node.getKind() == kind::BITVECTOR_AND);
+}
+
+
+template<>
+Node RewriteRule<FlattenAssocCommut>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<FlattenAssocCommut>(" << node << ")" << std::endl;
+  std::vector<Node> processingStack;
+  processingStack.push_back(node);
+  std::vector<TNode> children;
+  Kind kind = node.getKind(); 
+  
+  while (! processingStack.empty()) {
+    TNode current = processingStack.back();
+    processingStack.pop_back();
+
+    // flatten expression
+    if (current.getKind() == kind) {
+      for (unsigned i = 0; i < current.getNumChildren(); ++i) {
+        processingStack.push_back(current[i]);
+      }
+    } else {
+      children.push_back(current); 
+    }
+  }
+  std::sort(children.begin(), children.end()); 
+  return utils::mkNode(kind, children); 
+}
+
+// template<>
+// bool RewriteRule<PlusCombineLikeTerms>::applies(Node node) {
+//   return (node.getKind() == kind::BITVECTOR_PLUS);
+// }
+
+// template<>
+// Node RewriteRule<PlusCombineLikeTerms>::apply(Node node) {
+//   BVDebug("bv-rewrite") << "RewriteRule<PlusCombineLikeTerms>(" << node << ")" << std::endl;
+//   BitVector constSum(utils::getSize(node), 0); 
+//   std::map<Node, BitVector> termToCoeficient;
+
+//         // combine like-terms
+//       switch(current.getKind()) {
+//       case kind::BITVECTOR_MULT:
+//         // if we are multiplying by a constant
+//         if (current[0].getKind() == kind::CONST_BITVECTOR ||
+//             current[1].getKind() == kind::CONST_BITVECTOR) {
+//           BitVector coeff;
+//           TNode term;
+//           // figure out which part is the constant
+//           if (current[0].getKind() == kind::CONST_BITVECTOR) {
+//             coeff = current[0].getConst<BitVector>();
+//             term = current[1];
+//           } else {
+//             coeff = current[1].getConst<BitVector>();
+//             term = current[0];
+//           }
+          
+//           // add to map
+//           addToCoefMap(termToCoeficient, term, coeff); 
+//         }
+//         break;
+//       case kind::BITVECTOR_SUB:
+//         // change to + and neg
+//         processingStack.push_back(current[0]);
+//         addToCoefMap(termToCoefficient, current[0], -BitVector(utils::getSize(current), 1)); 
+//         break;
+
+//       case kind::BITVECTOR_NEG:
+//         addToCoefMap(termToCoefficient, current[0], -BitVector(utils::getSize(current), 1)); 
+//         break:
+          
+//       case kind::CONST_BITVECTOR:
+//           BitVector constValue = current.getConst<BitVector>(); 
+//         constSum = constSum + constValue; 
+//         break;
+        
+//       default:
+//         // store as 1 * current
+//         addToCoefMap(termToCoefficient, current, BitVector(utils::getSize(current), 1)); 
+//       }
+//     }
+
+//   // construct result grouping like terms
+//   std::map<Node, BitVector>::const_iterator it = termToCoefficient.begin();
+//   NodeBuilder<> sum(kind::BITVECTOR_PLUS);
+    
+//   for (; it != termToCoefficient.end(); ++it) {
+//     BitVector bv_coef = *it.second;
+//     TNode term = *it.first;
+//     if(bv_coef == BitVector(utils::getSize(term), 0)) {
+//       continue;
+//     }
+//     else if (bv_coef == BitVector(utils::getSize(term), 1)) {
+//       sum << term; 
+//     } else {
+//       Node coef = utils::mkConst(coef);
+//       Node product = utils::mkNode(kind::BITVECTOR_MULT, coef, term); 
+//       sum << product; 
+//     }
+//   }
+//   return sum;
+
+// }
+
+// inline void addToCoeffMap(std::map<Node, BitVector>& map, TNode term, BitVector coef) {
+//   if (termToCoeff.find(term) != termToCoeff.end()) {
+//     termToCoeff[term] += coeff; 
+//   } else {
+//     termToCoeff[term] = coeff;
+//   }
+// }
+
 
 // template<>
 // bool RewriteRule<>::applies(Node node) {
