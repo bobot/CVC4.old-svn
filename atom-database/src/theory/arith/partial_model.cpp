@@ -183,19 +183,20 @@ const DeltaRational& ArithPartialModel::getAssignment(ArithVar x) const{
 
 
 
-void ArithPartialModel::setLowerConstraint(ArithVar x, TNode constraint){
+void ArithPartialModel::setLowerConstraint(ArithVar x, TNode constraint, Constraint c){
   Debug("partial_model") << "setLowerConstraint("
                          << x << ":" << constraint << ")" << endl;
   Assert(inMaps(x));
   d_lowerConstraint.set(x,constraint);
-
+  d_lbc.set(x, c);
 }
 
-void ArithPartialModel::setUpperConstraint(ArithVar x, TNode constraint){
+void ArithPartialModel::setUpperConstraint(ArithVar x, TNode constraint, Constraint c){
   Debug("partial_model") << "setUpperConstraint("
                          << x << ":" << constraint << ")" << endl;
   Assert(inMaps(x));
   d_upperConstraint.set(x, constraint);
+  d_ubc.set(x, c);
 }
 
 TNode ArithPartialModel::getLowerConstraint(ArithVar x){

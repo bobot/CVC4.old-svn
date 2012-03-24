@@ -299,9 +299,15 @@ private:
   private:
     Constraint d_constraint;
   public:
-    ProofWatch(Constraint c) : d_constraint(c) {}
+    ProofWatch(Constraint c) : d_constraint(c) {
+      //This is done only to allow for the the destructor of the stack local
+      // variable to have the assertion in the destructor hold.
+      // This must be additionally set after the stack local has been destructed.
+      Assert(d_constraint->d_proof = 1);
+    }
     ~ProofWatch(){
       Assert(d_constraint->d_proof != ProofIdSentinel);
+      //This does not hold on the destruction of the stack local =(
       d_constraint->d_proof = ProofIdSentinel;
     }
   };
@@ -314,7 +320,12 @@ private:
   private:
     Constraint d_constraint;
   public:
-    PreregisteredWatch(Constraint c) : d_constraint(c) {}
+    PreregisteredWatch(Constraint c) : d_constraint(c) {
+      //This is done only to allow for the the destructor of the stack local
+      // variable to have the assertion in the destructor hold.
+      // This must be additionally set after the stack local has been destructed.
+      Assert(d_constraint->d_preregistered = true);
+    }
     ~PreregisteredWatch(){
       Assert(d_constraint->d_preregistered);
       d_constraint->d_preregistered = false;
@@ -329,9 +340,16 @@ private:
   private:
     Constraint d_constraint;
   public:
-    SplitWatch(Constraint c) : d_constraint(c){}
+    SplitWatch(Constraint c) : d_constraint(c){
+      //This is done only to allow for the the destructor of the stack local
+      // variable to have the assertion in the destructor hold.
+      // This must be additionally set after the stack local has been destructed.
+      Assert(d_constraint->d_split = true);
+    }
     ~SplitWatch(){
       Assert(d_constraint->d_split);
+      //This does not hold on the destruction of the stack local =(
+
       d_constraint->d_split = false;
     }
   };

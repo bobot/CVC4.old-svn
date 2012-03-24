@@ -195,7 +195,7 @@ Node TheoryArith::AssertLower(ArithVar x_i, DeltaRational& c_i, TNode original){
     }
   }
 
-  d_partialModel.setLowerConstraint(x_i,original);
+  d_partialModel.setLowerConstraint(x_i,original, NullConstraint);
   d_partialModel.setLowerBound(x_i, c_i);
 
   d_updatedBounds.softAdd(x_i);
@@ -254,7 +254,7 @@ Node TheoryArith::AssertUpper(ArithVar x_i, DeltaRational& c_i, TNode original){
     }
   }
 
-  d_partialModel.setUpperConstraint(x_i,original);
+  d_partialModel.setUpperConstraint(x_i,original, NullConstraint);
   d_partialModel.setUpperBound(x_i, c_i);
 
   d_updatedBounds.softAdd(x_i);
@@ -313,10 +313,10 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
   // Don't bother to check whether x_i != c_i is in d_diseq
   // The a and (not a) should never be on the fact queue
 
-  d_partialModel.setLowerConstraint(x_i,original);
+  d_partialModel.setLowerConstraint(x_i,original, NullConstraint);
   d_partialModel.setLowerBound(x_i, c_i);
 
-  d_partialModel.setUpperConstraint(x_i,original);
+  d_partialModel.setUpperConstraint(x_i,original, NullConstraint);
   d_partialModel.setUpperBound(x_i, c_i);
 
 
@@ -584,12 +584,13 @@ void TheoryArith::setupAtom(TNode atom, bool addToDatabase) {
   }
 
   if(addToDatabase){
-    if(d_constraintDatabase.hasLiteral(atom)){
-      cout << "has atom" << atom << endl;
-    }else{
-      d_constraintDatabase.addLiteral(atom);
-    }
     d_atomDatabase.addAtom(atom);
+  }
+
+  if(d_constraintDatabase.hasLiteral(atom)){
+    cout << "has atom" << atom << endl;
+  }else{
+    d_constraintDatabase.addLiteral(atom);
   }
 
   markSetup(atom);
@@ -603,6 +604,11 @@ void TheoryArith::preRegisterTerm(TNode n) {
       setupAtom(n, true);
     }
     addToContext(n);
+    Constraint c = d_constraintDatabase.lookup(n);
+
+    Debug("arith::preregister") << "setup constraint" << c << endl;
+    Assert(!c->isPreregistered());
+    c->setPreregistered();
   }
 
   Debug("arith::preregister") << "end arith::preRegisterTerm(" << n <<")" << endl;
@@ -814,8 +820,11 @@ Node TheoryArith::callDioSolver(){
 }
 
 Node TheoryArith::assertionCases(TNode assertion){
+  Constraint c = d_constraintDatabase.lookup(assertion);
+
   Kind simpleKind = simplifiedKind(assertion);
   Assert(simpleKind != UNDEFINED_KIND);
+  Assert(c != NullConstraint || simpleKind == EQUAL || simpleKind == DISTINCT );
   if(simpleKind == EQUAL || simpleKind == DISTINCT){
     Node eq = (simpleKind == DISTINCT) ? assertion[0] : assertion;
 
@@ -825,24 +834,16 @@ Node TheoryArith::assertionCases(TNode assertion){
       //We can try:
       //setupAtom(eq, true);
       addToContext(eq);
+      c = d_constraintDatabase.lookup(assertion);
     }
   }
+  Assert(c != NullConstraint);
 
   ArithVar x_i = determineLeftVariable(assertion, simpleKind);
   DeltaRational c_i = determineRightConstant(assertion, simpleKind);
 
-  // bool tightened = false;
-
-  // //If the variable is an integer tighen the constraint.
-  // if(isInteger(x_i)){
-  //   if(simpleKind == LT){
-  //     tightened = true;
-  //     c_i = DeltaRational(c_i.floor());
-  //   }else if(simpleKind == GT){
-  //     tightened = true;
-  //     c_i = DeltaRational(c_i.ceiling());
-  //   }
-  // }
+  Assert(c->getVariable() == x_i);
+  Assert(c->getValue() == c_i);
 
   Debug("arith::assertions")  << "arith assertion @" << getContext()->getLevel()
                               <<"(" << assertion

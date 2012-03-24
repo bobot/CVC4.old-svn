@@ -89,8 +89,8 @@ public:
     d_dm(dm)
   { }
 
-  void setLowerConstraint(ArithVar x, TNode constraint);
-  void setUpperConstraint(ArithVar x, TNode constraint);
+  void setLowerConstraint(ArithVar x, TNode constraint, Constraint c);
+  void setUpperConstraint(ArithVar x, TNode constraint, Constraint c);
   TNode getLowerConstraint(ArithVar x);
   TNode getUpperConstraint(ArithVar x);
 
