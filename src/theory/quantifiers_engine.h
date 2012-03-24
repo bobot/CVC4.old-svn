@@ -21,7 +21,7 @@
 
 #include "theory/theory.h"
 #include "util/hash.h"
-#include "theory/inst_match.h"
+#include "theory/trigger.h"
 
 #include "util/stats.h"
 
@@ -188,6 +188,7 @@ namespace quantifiers{
 class QuantifiersEngine
 {
   friend class quantifiers::InstantiationEngine;
+  friend class InstMatch;
 private:
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
   /** reference to theory engine object */

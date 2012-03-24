@@ -129,6 +129,11 @@ private:
   /** triggers for each quantifier */
   std::map< Node, std::map< Trigger*, bool > > d_auto_gen_trigger;
   std::map< Node, int > d_counter;
+  /** whether single triggers exist for each quantifier */
+  std::map< Node, std::vector< Node > > d_patTerms;
+  std::map< Node, bool > d_is_single_trigger;
+  std::map< Node, bool > d_contains_single_trigger;
+  std::map< Node, bool > d_single_trigger_gen;
 private:
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
@@ -176,6 +181,8 @@ public:
   std::string identify() const { return std::string("FreeVariable"); }
 };
 
+class UfTermDb;
+
 //equivalence class info
 class EqClassInfo
 {
@@ -195,7 +202,7 @@ public:
   EqClassInfo( context::Context* c );
   ~EqClassInfo(){}
   //set member
-  void setMember( Node n );
+  void setMember( Node n, UfTermDb* db );
   //has function "funs"
   bool hasFunction( Node op );
   //has parent "pfuns"
@@ -295,21 +302,24 @@ public:
   void assertDisequal( TNode a, TNode b, TNode reason );
   /** get equivalence class info */
   EqClassInfo* getEquivalenceClassInfo( Node n );
+  EqClassInfo* getOrCreateEquivalenceClassInfo( Node n );
 private:
   typedef std::vector< std::pair< Node, int > > InvertedPathString;
   typedef std::pair< InvertedPathString, InvertedPathString > IpsPair;
   /** Parent/Child Pairs (for efficient E-matching)
-      Say c is a candidate generator for the pattern f( g( x ) ).  Then, d_pc_pairs[g][f] = ( { 0 }, c ).
+      So, for example, if we have the pattern f( g( x ) ), then d_pc_pairs[g][f][f( g( x ) )] = { f.0 }.
   */
-  std::map< Node, std::map< Node, std::map< CandidateGenerator*, std::vector< InvertedPathString > > > > d_pc_pairs;
+  std::map< Node, std::map< Node, std::map< Node, std::vector< InvertedPathString > > > > d_pc_pairs;
   /** Parent/Parent Pairs (for efficient E-matching) */
-  std::map< Node, std::map< Node, std::map< CandidateGenerator*, std::vector< IpsPair > > > > d_pp_pairs;
+  std::map< Node, std::map< Node, std::map< Node, std::vector< IpsPair > > > > d_pp_pairs;
   /** list of all candidate generators for each operator */
   std::map< Node, std::vector< CandidateGenerator* > > d_cand_gens;
+  /** map from patterns to candidate generators */
+  std::map< Node, std::vector< CandidateGenerator* > > d_pat_cand_gens; 
   /** helper functions */
-  void registerPatternElementPairs2( CandidateGenerator* cg, Node pat, InvertedPathString& ips, 
+  void registerPatternElementPairs2( Node opat, Node pat, InvertedPathString& ips, 
                                      std::map< Node, std::vector< std::pair< Node, InvertedPathString > > >& ips_map );
-  void registerPatternElementPairs( CandidateGenerator* cg, Node pat );
+  void registerPatternElementPairs( Node pat );
   /** compute candidates for pc pairs */
   void computeCandidatesPcPairs( Node a, Node b );
   /** compute candidates for pp pairs */

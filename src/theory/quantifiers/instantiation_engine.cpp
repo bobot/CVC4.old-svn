@@ -63,6 +63,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
         Debug("inst-engine-debug") << "Instantiate " << f << "..." << std::endl;
         //if this quantifier is active
         if( getQuantifiersEngine()->getActive( f ) ){
+          //std::cout << "Process " << f << " " << effort << " " << e << std::endl;
           //int e_use = getQuantifiersEngine()->getRelevance( f )==-1 ? e - 1 : e;
           int e_use = e;
           if( e_use>=0 ){
@@ -79,6 +80,7 @@ bool InstantiationEngine::doInstantiationRound( Theory::Effort effort ){
               }
             }
           }
+          //std::cout << "Done" << std::endl;
         }
       }
       //do not consider another level if already added lemma at this level

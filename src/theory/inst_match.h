@@ -107,6 +107,8 @@ public:
   bool merge( EqualityQuery* q, InstMatch& m );
   /** debug print method */
   void debugPrint( const char* c );
+  /** make complete */
+  void makeComplete( Node f, QuantifiersEngine* qe );
   /** make internal: ensure that no term in d_map contains instantiation constants */
   void makeInternal( EqualityQuery* q );
   /** make representative */
@@ -125,23 +127,60 @@ public:
 
 class InstMatchTrie
 {
+public:
+  class ImtIndexOrder{
+  public:
+    std::vector< int > d_order;
+  };
 private:
   /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
-  void addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index );
+  void addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index, ImtIndexOrder* imtio );
   /** exists match */
-  bool existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, int index );
+  bool existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, int index, ImtIndexOrder* imtio );
   /** the data */
   std::map< Node, InstMatchTrie > d_data;
 public:
   InstMatchTrie(){}
   ~InstMatchTrie(){}
 public:
-  /** add match m for quantifier f, take into account equalities, return true if successful */
-  bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false );
+  /** add match m for quantifier f, take into account equalities if modEq = true, 
+      if imtio is non-null, this is the order to add to trie
+      return true if successful 
+  */
+  bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false, ImtIndexOrder* imtio = NULL );
+};
+
+class InstMatchTrieOrdered
+{
+private:
+  InstMatchTrie::ImtIndexOrder* d_imtio;
+  InstMatchTrie d_imt;
+public:
+  InstMatchTrieOrdered( InstMatchTrie::ImtIndexOrder* imtio ) : d_imtio( imtio ){}
+  ~InstMatchTrieOrdered(){}
+public:
+  /** add match m, return true if successful */
+  bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false ){
+    return d_imt.addInstMatch( qe, f, m, modEq, d_imtio );
+  }
+};
+
+class IMGenerator
+{
+public:
+  /** reset instantiation round (call this whenever equivalence classes have changed) */
+  virtual void resetInstantiationRound( QuantifiersEngine* qe ) = 0;
+  /** reset, eqc is the equivalence class to search in (any if eqc=null) */
+  virtual void reset( Node eqc, QuantifiersEngine* qe ) = 0;
+  /** get the next match.  must call reset( eqc ) before this function. */
+  virtual bool getNextMatch( InstMatch& m, QuantifiersEngine* qe ) = 0;
+  /** return true if whatever Node is subsituted for the variables the
+      given Node can't match the pattern */
+  virtual bool nonunifiable( TNode t, const std::vector<Node> & vars) = 0;
 };
 
 
-class InstMatchGenerator
+class InstMatchGenerator : public IMGenerator
 {
 private:
   /** candidate generator */
@@ -205,122 +244,42 @@ public:
   bool nonunifiable( TNode t, const std::vector<Node> & vars);
 };
 
-
-//a collect of nodes representing a trigger
-class Trigger {
-public:
-  static int trCount;
+class InstMatchGeneratorMulti : public IMGenerator
+{
 private:
-  /** computation of variable contains */
-  static std::map< Node, std::vector< Node > > d_var_contains;
-  static void computeVarContains( Node n ) { computeVarContains2( n, n ); }
-  static void computeVarContains2( Node n, Node parent );
-private:
-  /** the quantifiers engine */
-  QuantifiersEngine* d_quantEngine;
-  /** the quantifier this trigger is for */
+  /** quantifier to use */
   Node d_f;
-  /** match generators */
-  InstMatchGenerator* d_mg;
-private:
-  /** a trie of triggers */
-  class TrTrie
-  {
-  private:
-    Trigger* getTrigger2( std::vector< Node >& nodes );
-    void addTrigger2( std::vector< Node >& nodes, Trigger* t );
-  public:
-    TrTrie() : d_tr( NULL ){}
-    Trigger* d_tr;
-    std::map< Node, TrTrie* > d_children;
-    Trigger* getTrigger( std::vector< Node >& nodes ){
-      std::vector< Node > temp;
-      temp.insert( temp.begin(), nodes.begin(), nodes.end() );
-      std::sort( temp.begin(), temp.end() );
-      return getTrigger2( temp );
-    }
-    void addTrigger( std::vector< Node >& nodes, Trigger* t ){
-      std::vector< Node > temp;
-      temp.insert( temp.begin(), nodes.begin(), nodes.end() );
-      std::sort( temp.begin(), temp.end() );
-      return addTrigger2( temp, t );
-    }
-  };
-  /** all triggers will be stored in this trie */
-  static TrTrie d_tr_trie;
-private:
-  /** trigger constructor */
-  Trigger( QuantifiersEngine* ie, Node f, std::vector< Node >& nodes, int matchOption = 0 );
+  /** policy to use for matching */
+  int d_matchPolicy;
+  /** children generators */
+  std::vector< InstMatchGenerator* > d_children;
+  /** inst match tries for each child */
+  std::vector< InstMatchTrie > d_children_trie;
+  /** whether need to calculate matches */
+  bool d_calculate_matches;
+  /** current matches calculated */
+  std::vector< InstMatch > d_curr_matches;
+  /** calculate matches */
+  void calculateMatches( QuantifiersEngine* qe );
 public:
-  ~Trigger(){}
-public:
-  std::vector< Node > d_nodes;
-public:
-  void debugPrint( const char* c );
-  InstMatchGenerator* getGenerator() { return d_mg; }
-public:
+  /** constructors */
+  InstMatchGeneratorMulti( Node f, std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption = 0 );
+  /** destructor */
+  ~InstMatchGeneratorMulti(){}
   /** reset instantiation round (call this whenever equivalence classes have changed) */
-  void resetInstantiationRound();
-  /** reset, eqc is the equivalence class to search in (search in any if eqc=null) */
-  void reset( Node eqc );
-  /** get next match.  must call reset( eqc ) once before this function. */
-  bool getNextMatch( InstMatch& m );
-  /** get the match against ground term or formula t.
-      the trigger and t should have the same shape.
-      Currently the trigger should not be a multi-trigger.
-  */
-  bool getMatch( Node t, InstMatch& m);
+  void resetInstantiationRound( QuantifiersEngine* qe );
+  /** reset, eqc is the equivalence class to search in (any if eqc=null) */
+  void reset( Node eqc, QuantifiersEngine* qe );
+  /** get the next match.  must call reset( eqc ) before this function. */
+  bool getNextMatch( InstMatch& m, QuantifiersEngine* qe );
   /** return true if whatever Node is subsituted for the variables the
       given Node can't match the pattern */
-  bool nonunifiable( TNode t, const std::vector<Node> & vars){
-    return d_mg->nonunifiable(t,vars);
-  };
-public:
-  /** add all available instantiations exhaustively, in any equivalence class 
-      if limitInst>0, limitInst is the max # of instantiations to try */
-  int addInstantiations( InstMatch& baseMatch, int instLimit = 0, bool addSplits = false );
-  /** mkTrigger method
-     ie     : quantifier engine;
-     f      : forall something ....
-     nodes  : (multi-)trigger
-     matchOption : which policy to use for creating matches (one of InstMatchGenerator::MATCH_GEN_* )
-     keepAll: don't remove unneeded patterns;
-     trOption : policy for dealing with triggers that already existed (see below)
-  */
-  enum{
-    TR_MAKE_NEW,    //make new trigger even if it already may exist
-    TR_GET_OLD,     //return a previous trigger if it had already been created
-    TR_RETURN_NULL  //return null if a duplicate is found
-  };
-  static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, 
-                             int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW ); 
-private:  
-  static bool isUsable( Node n, Node f );
-public:
-  /** is usable trigger */
-  static bool isUsableTrigger( std::vector< Node >& nodes, Node f );
-  static bool isUsableTrigger( Node n, Node f );
-  /** filter all nodes that have instances */
-  static void filterInstances( std::vector< Node >& nodes );
-  /** -1: n1 is an instance of n2, 1: n1 is an instance of n2 */
-  static int isInstanceOf( Node n1, Node n2 );
-  /** variables subsume, return true if n1 contains all free variables in n2 */
-  static bool isVariableSubsume( Node n1, Node n2 );
-
-  inline void toStream(std::ostream& out) const {
-    if (d_mg->d_match_pattern.isNull()) out << "MultiTrigger (TODO)";
-    else out << "[" << d_mg->d_match_pattern << "]";
-  }
+  bool nonunifiable( TNode t, const std::vector<Node> & vars) { return true; }
 };
-
-inline std::ostream& operator<<(std::ostream& out, const Trigger & tr) {
-  tr.toStream(out);
-  return out;
-}
 
 
 }/* CVC4::theory namespace */
 
 }/* CVC4 namespace */
 
-#endif /* __CVC4__INSTANTIATION_ENGINE_H */
+#endif /* __CVC4__INST_MATCH_H */

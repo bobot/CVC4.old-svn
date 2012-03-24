@@ -169,12 +169,14 @@ void QuantifiersEngine::registerQuantifier( Node f ){
     ++(d_statistics.d_num_quant);
     Assert( f.getKind()==FORALL );
     d_quants.push_back( f );
+    Debug("quantifiers-engine") << "Instantiation constants for " << f << " : " << std::endl;
     for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
       d_vars[f].push_back( f[0][i] );
       //make instantiation constants
       Node ic = NodeManager::currentNM()->mkInstConstant( f[0][i].getType() );
       d_inst_constants_map[ic] = f;
       d_inst_constants[ f ].push_back( ic );
+      Debug("quantifiers-engine") << "  " << ic << std::endl;
       ////set the var number attribute
       //InstVarNumAttribute ivna;
       //ic.setAttribute(ivna,i);
@@ -312,11 +314,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
 
 bool QuantifiersEngine::addInstantiation( Node f, InstMatch& m, bool addSplits ){
 #if 1
-  for( int i=0; i<(int)d_inst_constants[f].size(); i++ ){
-    if( m.d_map.find( d_inst_constants[f][i] )==m.d_map.end() ){
-      m.d_map[ d_inst_constants[f][i] ] = getFreeVariableForInstConstant( d_inst_constants[f][i] );
-    }
-  }
+  m.makeComplete( f, this );
   m.makeRepresentative( d_eq_query );
   if( !d_inst_match_trie[f].addInstMatch( this, f, m, true ) ){
     ++(d_statistics.d_inst_duplicate);
