@@ -28,6 +28,8 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 
 #define USE_SINGLE_TRIGGER_BEFORE_MULTI_TRIGGER
+//#define MULTI_TRIGGER_ONLY_LAST_CALL
+#define MULTI_TRIGGER_FULL_EFFORT_HALF
 
 struct sortQuantifiersForSymbol {
   QuantifiersEngine* d_qe;
@@ -141,8 +143,14 @@ int InstStrategyUserPatterns::process( Node f, Theory::Effort effort, int e, int
     Debug("quant-uf-strategy") << "Try user-provided patterns..." << std::endl;
     //std::cout << "Try user-provided patterns..." << std::endl;
     for( int i=0; i<(int)d_user_gen[f].size(); i++ ){
-      if( effort==Theory::EFFORT_LAST_CALL || !d_user_gen[f][i]->isMultiTrigger() ){
-        //std::cout << "  Process " << (*d_user_gen[f][i]) << "..." << std::endl;
+      bool processTrigger = true;
+#ifdef MULTI_TRIGGER_ONLY_LAST_CALL
+      if( effort!=Theory::EFFORT_LAST_CALL && d_user_gen[f][i]->isMultiTrigger() ){
+        processTrigger = false;
+      }
+#endif
+      if( processTrigger ){
+        //std::cout << "  Process (user) " << (*d_user_gen[f][i]) << "..." << std::endl;
         int numInst = d_user_gen[f][i]->addInstantiations( d_th->d_baseMatch[f], instLimit );
         //std::cout << "  Done, numInst = " << numInst << "." << std::endl;
         d_th->d_statistics.d_instantiations_user_pattern += numInst;
@@ -198,17 +206,30 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
     //std::cout << "Try auto-generated triggers..." << std::endl;
     for( std::map< Trigger*, bool >::iterator itt = d_auto_gen_trigger[f].begin(); itt != d_auto_gen_trigger[f].end(); ++itt ){
       Trigger* tr = itt->first;
-      if( tr && itt->second && ( effort==Theory::EFFORT_LAST_CALL || !tr->isMultiTrigger() ) ){
-        //std::cout << "  Process " << (*tr) << "..." << std::endl;
-        int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
-        //std::cout << "  Done, numInst = " << numInst << "." << std::endl;
-        if( d_tr_strategy==TS_MIN_TRIGGER ){
-          d_th->d_statistics.d_instantiations_auto_gen_min += numInst;
-        }else{
-          d_th->d_statistics.d_instantiations_auto_gen += numInst;
+      if( tr ){
+        bool processTrigger = itt->second;
+#ifdef MULTI_TRIGGER_ONLY_LAST_CALL
+        if( effort!=Theory::EFFORT_LAST_CALL && tr->isMultiTrigger() ){
+          processTrigger = false;
         }
-        //d_quantEngine->d_hasInstantiated[f] = true;
-        Debug("quant-uf-strategy") << "done." << std::endl;
+#endif
+#ifdef MULTI_TRIGGER_FULL_EFFORT_HALF
+        if( effort!=Theory::EFFORT_LAST_CALL && tr->isMultiTrigger() ){
+          processTrigger = d_counter[f]%2==0;
+        }
+#endif
+        if( processTrigger ){
+          //std::cout << "  Process " << (*tr) << "..." << std::endl;
+          int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
+          //std::cout << "  Done, numInst = " << numInst << "." << std::endl;
+          if( d_tr_strategy==TS_MIN_TRIGGER ){
+            d_th->d_statistics.d_instantiations_auto_gen_min += numInst;
+          }else{
+            d_th->d_statistics.d_instantiations_auto_gen += numInst;
+          }
+          //d_quantEngine->d_hasInstantiated[f] = true;
+          Debug("quant-uf-strategy") << "done." << std::endl;
+        }
       }
     }
     //std::cout << "done" << std::endl;
@@ -318,6 +339,7 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
         d_is_single_trigger[ it->first ] = false;
       }
     }
+    d_made_multi_trigger[f] = false;
   }
 
   //populate candidate pattern term vector for the current trigger
@@ -359,18 +381,27 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
     }
     //now, generate the trigger...
     int matchOption = Options::current()->efficientEMatching ? InstMatchGenerator::MATCH_GEN_EFFICIENT_E_MATCH : 0;
-    Trigger* tr;
+    Trigger* tr = NULL;
     if( d_is_single_trigger[ patTerms[0] ] ){
       tr = Trigger::mkTrigger( d_quantEngine, f, patTerms[0], matchOption, false, Trigger::TR_RETURN_NULL );
       d_single_trigger_gen[ patTerms[0] ] = true;
     }else{
       //if we are re-generating triggers, shuffle based on some method
-      if( !d_auto_gen_trigger[f].empty() ){
+      if( d_made_multi_trigger[f] ){
         std::random_shuffle( patTerms.begin(), patTerms.end() ); //shuffle randomly
       }
       tr = Trigger::mkTrigger( d_quantEngine, f, patTerms, matchOption, false, Trigger::TR_RETURN_NULL );
     }
     if( tr ){
+      if( tr->isMultiTrigger() ){
+        d_made_multi_trigger[f] = true;
+        //disable all other multi triggers 
+        for( std::map< Trigger*, bool >::iterator it = d_auto_gen_trigger[f].begin(); it != d_auto_gen_trigger[f].end(); ++it ){
+          if( it->first->isMultiTrigger() ){
+            d_auto_gen_trigger[f][ it->first ] = false;
+          }
+        }
+      }
       //making it during an instantiation round, so must reset
       tr->resetInstantiationRound();
       tr->reset( Node::null() );
@@ -551,9 +582,9 @@ Instantiator( c, ie, th )
                                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT, 3 );
     i_ag->setGenerateAdditional( true );
     addInstStrategy( i_ag );
-    InstStrategyAutoGenTriggers* i_agm = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::TS_MIN_TRIGGER, 
-                                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT );
-    addInstStrategy( i_agm );
+    //InstStrategyAutoGenTriggers* i_agm = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::TS_MIN_TRIGGER, 
+    //                                                                      InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT );
+    //addInstStrategy( i_agm );
     addInstStrategy( new InstStrategyFreeVariable( this, ie ) );
     //d_isup->setPriorityOver( i_ag );
     //d_isup->setPriorityOver( i_agm );
@@ -759,6 +790,8 @@ void InstantiatorTheoryUf::merge( TNode a, TNode b ){
       //determine new candidates for instantiation
       computeCandidatesPcPairs( a, b );
       computeCandidatesPcPairs( b, a );
+      computeCandidatesPpPairs( a, b );
+      computeCandidatesPpPairs( b, a );
     }
     //merge eqc_ops of b into a
     EqClassInfo* eci_a = getOrCreateEquivalenceClassInfo( a );

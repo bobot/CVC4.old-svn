@@ -133,6 +133,7 @@ private:
   std::map< Node, std::vector< Node > > d_patTerms[2];
   std::map< Node, bool > d_is_single_trigger;
   std::map< Node, bool > d_single_trigger_gen;
+  std::map< Node, bool > d_made_multi_trigger;
 private:
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
