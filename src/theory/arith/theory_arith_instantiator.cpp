@@ -167,7 +167,9 @@ int InstStrategySimplex::process( Node f, Theory::Effort effort, int e, int inst
 
 InstantiatorTheoryArith::InstantiatorTheoryArith(context::Context* c, QuantifiersEngine* ie, Theory* th) :
 Instantiator( c, ie, th ){
-  addInstStrategy( new InstStrategySimplex( this, d_quantEngine ) );
+  if( Options::current()->cbqi ){
+    addInstStrategy( new InstStrategySimplex( this, d_quantEngine ) );
+  }
 }
 
 void InstantiatorTheoryArith::assertNode( Node assertion ){

@@ -141,11 +141,13 @@ int InstStrategyUserPatterns::process( Node f, Theory::Effort effort, int e, int
     Debug("quant-uf-strategy") << "Try user-provided patterns..." << std::endl;
     //std::cout << "Try user-provided patterns..." << std::endl;
     for( int i=0; i<(int)d_user_gen[f].size(); i++ ){
-      //std::cout << "  Process " << (*d_user_gen[f][i]) << "..." << std::endl;
-      int numInst = d_user_gen[f][i]->addInstantiations( d_th->d_baseMatch[f], instLimit );
-      //std::cout << "  Done, numInst = " << numInst << "." << std::endl;
-      d_th->d_statistics.d_instantiations_user_pattern += numInst;
-      //d_quantEngine->d_hasInstantiated[f] = true;
+      if( effort==Theory::EFFORT_LAST_CALL || !d_user_gen[f][i]->isMultiTrigger() ){
+        //std::cout << "  Process " << (*d_user_gen[f][i]) << "..." << std::endl;
+        int numInst = d_user_gen[f][i]->addInstantiations( d_th->d_baseMatch[f], instLimit );
+        //std::cout << "  Done, numInst = " << numInst << "." << std::endl;
+        d_th->d_statistics.d_instantiations_user_pattern += numInst;
+        //d_quantEngine->d_hasInstantiated[f] = true;
+      }
     }
     Debug("quant-uf-strategy") << "done." << std::endl;
     //std::cout << "done" << std::endl;
@@ -196,7 +198,7 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
     //std::cout << "Try auto-generated triggers..." << std::endl;
     for( std::map< Trigger*, bool >::iterator itt = d_auto_gen_trigger[f].begin(); itt != d_auto_gen_trigger[f].end(); ++itt ){
       Trigger* tr = itt->first;
-      if( tr && itt->second ){
+      if( tr && itt->second && ( effort==Theory::EFFORT_LAST_CALL || !tr->isMultiTrigger() ) ){
         //std::cout << "  Process " << (*tr) << "..." << std::endl;
         int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
         //std::cout << "  Done, numInst = " << numInst << "." << std::endl;
@@ -298,44 +300,45 @@ bool InstStrategyAutoGenTriggers::collectPatTerms( Node f, Node n, std::vector< 
 
 void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
   //bool firstTime = d_auto_gen_trigger[f].empty();
-  if( d_patTerms.find( f )==d_patTerms.end() ){
-    d_patTerms[f].clear();
-    collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), d_patTerms[f], d_tr_strategy, true );
-    //try to consider single triggers first
+  if( d_patTerms[0].find( f )==d_patTerms[0].end() ){
+    //determine all possible pattern terms based on trigger term selection strategy d_tr_strategy
+    d_patTerms[0][f].clear();
+    d_patTerms[1][f].clear();
+    std::vector< Node > patTermsF;
+    collectPatTerms( f, d_quantEngine->getCounterexampleBody( f ), patTermsF, d_tr_strategy, true );
+    //sort into single/multi triggers
     std::map< Node, std::vector< Node > > varContains;
-    Trigger::getVarContains( d_patTerms[f], varContains );
-    d_contains_single_trigger[f] = false;
+    Trigger::getVarContains( patTermsF, varContains );
     for( std::map< Node, std::vector< Node > >::iterator it = varContains.begin(); it != varContains.end(); ++it ){
       if( it->second.size()==f[0].getNumChildren() ){
-        d_contains_single_trigger[f] = true;
+        d_patTerms[0][f].push_back( it->first );
         d_is_single_trigger[ it->first ] = true;
       }else{
+        d_patTerms[1][f].push_back( it->first );
         d_is_single_trigger[ it->first ] = false;
       }
     }
   }
+
+  //populate candidate pattern term vector for the current trigger
   std::vector< Node > patTerms;
-  patTerms.insert( patTerms.begin(), d_patTerms[f].begin(), d_patTerms[f].end() );
-  if( !patTerms.empty() ){
-    //generate single triggers before multi-triggers
 #ifdef USE_SINGLE_TRIGGER_BEFORE_MULTI_TRIGGER
-    if( d_contains_single_trigger[f] ){
-      //(possibly) remove all non-single triggers 
-      std::vector< Node > patTermsTemp;
-      for( int i=0; i<(int)patTerms.size(); i++ ){
-        if( d_is_single_trigger[patTerms[i]] && !d_single_trigger_gen[patTerms[i]] ){
-          patTermsTemp.push_back( patTerms[i] );
-        }
-      }
-      //if we haven't already constructed a trigger for all single triggers, only consider single trigger terms
-      if( !patTermsTemp.empty() ){
-        patTerms.clear();
-        patTerms.insert( patTerms.begin(), patTermsTemp.begin(), patTermsTemp.end() );
-      }else{
-        d_contains_single_trigger[f] = false;
-      }
+  //try to add single triggers first
+  for( int i=0; i<(int)d_patTerms[0][f].size(); i++ ){
+    if( !d_single_trigger_gen[d_patTerms[0][f][i]] ){
+      patTerms.push_back( d_patTerms[0][f][i] );
     }
+  }
+  //if no single triggers exist, add multi trigger terms
+  if( patTerms.empty() ){
+    patTerms.insert( patTerms.begin(), d_patTerms[1][f].begin(), d_patTerms[1][f].end() );
+  }
+#else
+  patTerms.insert( patTerms.begin(), d_patTerms[0][f].begin(), d_patTerms[0][f].end() );
+  patTerms.insert( patTerms.begin(), d_patTerms[1][f].begin(), d_patTerms[1][f].end() );
 #endif
+
+  if( !patTerms.empty() ){
     //sort terms based on relevance
     if( d_rlv_strategy==RELEVANCE_DEFAULT ){
       sortQuantifiersForSymbol sqfs;
@@ -538,11 +541,11 @@ Instantiator( c, ie, th )
   if(Options::current()->finiteModelFind ){
     addInstStrategy( new InstStrategyFinteModelFind( c, this, ((TheoryUF*)th)->getStrongSolver(), ie ) );
   }else{
-    d_isup = new InstStrategyUserPatterns( this, ie );
     if( Options::current()->cbqi ){
       addInstStrategy( new InstStrategyCheckCESolved( this, ie ) );
       //addInstStrategy( new InstStrategyLitMatch( this, ie ) );
     }
+    d_isup = new InstStrategyUserPatterns( this, ie );
     addInstStrategy( d_isup );
     InstStrategyAutoGenTriggers* i_ag = new InstStrategyAutoGenTriggers( this, ie, InstStrategyAutoGenTriggers::TS_ALL, 
                                                                          InstStrategyAutoGenTriggers::RELEVANCE_DEFAULT, 3 );

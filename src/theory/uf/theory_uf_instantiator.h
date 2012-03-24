@@ -129,10 +129,9 @@ private:
   /** triggers for each quantifier */
   std::map< Node, std::map< Trigger*, bool > > d_auto_gen_trigger;
   std::map< Node, int > d_counter;
-  /** whether single triggers exist for each quantifier */
-  std::map< Node, std::vector< Node > > d_patTerms;
+  /** single, multi triggers for each quantifier */
+  std::map< Node, std::vector< Node > > d_patTerms[2];
   std::map< Node, bool > d_is_single_trigger;
-  std::map< Node, bool > d_contains_single_trigger;
   std::map< Node, bool > d_single_trigger_gen;
 private:
   /** process functions */
