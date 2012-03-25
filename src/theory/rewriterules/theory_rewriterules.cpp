@@ -140,6 +140,9 @@ void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
                                              InstMatch & im,
                                              bool delay){
   if(rewrite_instantiation) im.applyRewrite();
+  if(representative_instantiation)
+    im.makeRepresentative( getQuantifiersEngine()->getEqualityQuery() );
+
   if(!cache_match || !r->inCache(*this,im)){
     std::vector<Node> subst;
     im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);

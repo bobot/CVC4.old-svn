@@ -50,6 +50,11 @@ static const bool compute_opt = true;
 static const bool rewrite_instantiation = true;
 
 /**
+   use the representative for the matching found
+ */
+static const bool representative_instantiation = false;
+
+/**
    Wait the specified number of check after a new propagation (a
    previous unknown guards becomes true) is found before verifying again the guards.
 
