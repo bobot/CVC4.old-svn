@@ -21,7 +21,7 @@
 #ifndef __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_H
 #define __CVC4__THEORY__REWRITERULES__THEORY_REWRITERULES_H
 
-#include "context/cdlist_context_memory.h"
+#include "context/cdlist.h"
 #include "context/cdqueue.h"
 #include "theory/valuation.h"
 #include "theory/theory.h"
@@ -53,7 +53,7 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
   class RewriteRule{
   public:
     // constant
-    Trigger trigger;
+    mutable Trigger trigger;
     std::vector<Node> guards;
     mutable std::vector<Node> to_remove; /** terms to remove */
     const Node body;
@@ -63,8 +63,7 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
     /* After instantiating the body new match can appear (TNode
        because is a subterm of a body on the assicaited rewrite
        rule) */
-    typedef std::vector<std::pair<TNode,RewriteRuleId> > BodyMatch;
-    /** TODO use a CDList */
+    typedef context::CDList< std::pair<TNode,RewriteRule* > > BodyMatch;
     mutable BodyMatch body_match;
     mutable Trigger trigger_for_body_match; // used because we can be matching
                                     // trigger when we need new match.
@@ -80,7 +79,11 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
                 std::vector<Node> & g, Node b, TNode nt,
                 std::vector<Node> & fv,std::vector<Node> & iv,
                 std::vector<Node> & to_r);
+    RewriteRule(const RewriteRule & r) CVC4_UNUSED;
+    RewriteRule& operator=(const RewriteRule&) CVC4_UNUSED;
+
     bool noGuard()const throw () { return guards.size() == 0; };
+
     bool inCache(std::vector<Node> & subst)const;
 
     void toStream(std::ostream& out) const;
@@ -89,20 +92,16 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
   class RuleInst{
   public:
     /** The rule has at least one guard */
-    const RewriteRuleId rule;
-
-    /** The id of the Rule inst */
-    RuleInstId id;
+    const RewriteRule* rule;
 
     /** the substitution */
     std::vector<Node> subst;
 
     /** Rule an instantiation with the given match */
-    RuleInst(TheoryRewriteRules & re, const RewriteRuleId rule,
+    RuleInst(TheoryRewriteRules & re, const RewriteRule* r,
              std::vector<Node> & inst_subst);
     Node substNode(const TheoryRewriteRules & re, TNode r, TCache cache) const;
     size_t findGuard(TheoryRewriteRules & re, size_t start)const;
-    void setId(const RuleInstId i);
 
     void toStream(std::ostream& out) const;
 
@@ -114,15 +113,15 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
   class Guarded {
   public:
     /** The backtracking is done somewhere else */
-    size_t d_guard; /* the id of the guard */
+    const size_t d_guard; /* the id of the guard */
 
     /** The shared instantiation data */
-    RuleInstId inst;
+    const RuleInst* inst;
 
     void nextGuard(TheoryRewriteRules & re)const;
 
     /** start indicate the first guard which is not true */
-    Guarded(const RuleInstId ri, const size_t start);
+    Guarded(const RuleInst* ri, const size_t start);
     Guarded(const Guarded & g);
     /** Should be ssigned by a good garded after */
     Guarded();
@@ -131,14 +130,26 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
     void destroy(){};
   };
 
+template<class T>
+class CleanUpPointer{
+public:
+  inline static void cleanup(T** e, std::allocator<T *> & alloc){
+    delete(*e);
+  };
+};
+
 class TheoryRewriteRules : public Theory {
 private:
   /** list of all rewrite rules */
   /* std::vector< Node > d_rules; */
   // typedef std::vector< std::pair<Node, Trigger > > Rules;
-  typedef context::CDList< RewriteRule > Rules;
+  typedef context::CDList< RewriteRule *,
+                           std::allocator< RewriteRule * >,
+                           CleanUpPointer<RewriteRule > > Rules;
   Rules d_rules;
-  typedef context::CDList< RuleInst > RuleInsts;
+  typedef context::CDList< RuleInst *,
+                           std::allocator< RuleInst * >,
+                           CleanUpPointer<RuleInst> > RuleInsts;
   RuleInsts d_ruleinsts;
 
   /** The GList* will not lead too memory leaks since that use
@@ -156,11 +167,12 @@ private:
   context::CDO<size_t> d_checkLevel;
 
   /** explanation */
-  typedef context::CDHashMap<Node, RuleInstId , NodeHashFunction> ExplanationMap;
+  typedef context::CDHashMap<Node, const RuleInst* , NodeHashFunction> ExplanationMap;
   ExplanationMap d_explanations;
 
-  /** new instantiation */
-  typedef context::CDQueue< RuleInst > QRuleInsts;
+  /** new instantiation must be cleared at each conflict used only
+      inside check */
+  typedef std::vector< RuleInst* > QRuleInsts;
   QRuleInsts d_ruleinsts_to_add;
 
  public:
@@ -170,11 +182,10 @@ private:
 
   /** Constructs a new instance of TheoryUF w.r.t. the provided context.*/
   TheoryRewriteRules(context::Context* c,
-               context::UserContext* u,
-               OutputChannel& out,
+                     context::UserContext* u,
+                     OutputChannel& out,
                      Valuation valuation,
                      QuantifiersEngine* qe);
-  ~TheoryRewriteRules(){}
 
   /** Usual function for theories */
   void check(Theory::Effort e);
@@ -196,17 +207,13 @@ private:
   /** return if the guard (already substituted) is known true or false
       or unknown. In the last case it add the Guarded(rid,gid) to the watch
       list of this guard */
-  Answer addWatchIfDontKnow(Node g, const RuleInstId rid, const size_t gid);
+  Answer addWatchIfDontKnow(Node g, const RuleInst* r, const size_t gid);
 
   /** An instantiation of a rule is fired (all guards true) we
       propagate the body. That can be done by theory propagation if
       possible or by lemmas.
    */
-  void propagateRule(const RuleInst & r, TCache cache);
-
-  /** access */
-  const RewriteRule & get_rule(const RewriteRuleId r)const{return d_rules[r];};
-  const RuleInst & get_inst(const RuleInstId r)const{return d_ruleinsts[r];};
+  void propagateRule(const RuleInst * r, TCache cache);
 
   /** Auxillary functions */
 private:
@@ -215,14 +222,14 @@ private:
   /* If two guards becomes equals we should notify if one of them is
      already true */
   bool notifyIfKnown(const GList * const ltested, GList * const lpropa);
-  Node substGuards(const RuleInst & inst,const RewriteRule & r,
+
+  Node substGuards(const RuleInst * inst,
                    TCache cache,
                    Node last = Node::null());
 
   void addRewriteRule(const Node r);
-  void computeMatchBody ( const RewriteRule & r, size_t start = 0);
-  void addMatchRuleTrigger(const RewriteRuleId rid,
-                           const RewriteRule & r,
+  void computeMatchBody ( const RewriteRule * r, size_t start = 0);
+  void addMatchRuleTrigger(const RewriteRule* r,
                            InstMatch & im, bool delay = true);
 
 

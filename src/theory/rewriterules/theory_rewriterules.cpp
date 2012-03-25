@@ -41,40 +41,30 @@ inline std::ostream& operator <<(std::ostream& stream, const RuleInst& ri) {
   return stream;
 }
 
-static const size_t RULEINSTID_TRUE = ((size_t) -1);
-static const size_t RULEINSTID_FALSE = ((size_t) -2);
-static const size_t RULEINSTID_TMP = ((size_t) -3);
+static const RuleInst* RULEINST_TRUE = (RuleInst*) 1;
+static const RuleInst* RULEINST_FALSE = (RuleInst*) 2;
 
   /** Rule an instantiation with the given match */
-RuleInst::RuleInst(TheoryRewriteRules & re, RewriteRuleId r,
+RuleInst::RuleInst(TheoryRewriteRules & re, const RewriteRule * r,
                    std::vector<Node> & inst_subst):
-  rule(r),id(RULEINSTID_TMP)
+  rule(r)
 {
+  Assert(r != NULL);
   subst.swap(inst_subst);
 };
 
-void RuleInst::setId(RuleInstId nid){
-  Assert(nid != RULEINSTID_TRUE && nid != RULEINSTID_FALSE);
-  Assert(id == RULEINSTID_TMP);
-  id = nid;
-}
-
 Node RuleInst::substNode(const TheoryRewriteRules & re, TNode r,
                          TCache cache ) const {
-  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
-  const RewriteRule & rrule = re.get_rule(rule);
-  return r.substitute (rrule.free_vars.begin(),rrule.free_vars.end(),
+  Assert(this != RULEINST_TRUE && this != RULEINST_FALSE);
+  return r.substitute (rule->free_vars.begin(),rule->free_vars.end(),
                        subst.begin(),subst.end(),cache);
 };
-
 size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
   TCache cache;
-  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE &&
-         id != RULEINSTID_TMP);
-  const RewriteRule & r = re.get_rule(rule);
-  while (start < (r.guards).size()){
-    Node g = substNode(re,r.guards[start],cache);
-    switch(re.addWatchIfDontKnow(g,id,start)){
+  Assert(this != RULEINST_TRUE && this != RULEINST_FALSE);
+  while (start < (rule->guards).size()){
+    Node g = substNode(re,rule->guards[start],cache);
+    switch(re.addWatchIfDontKnow(g,this,start)){
     case ATRUE:
       Debug("rewriterules") << g << "is true" << std::endl;
       ++start;
@@ -88,7 +78,7 @@ size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
     }
   }
   /** All the guards are verified */
-  re.propagateRule(*this,cache);
+  re.propagateRule(this,cache);
   return start;
 };
 
@@ -97,8 +87,8 @@ bool RuleInst::alreadyRewritten(TheoryRewriteRules & re) const{
   static RewrittenNodeAttribute rewrittenNodeAttribute;
   TCache cache;
   for(std::vector<Node>::const_iterator
-        iter = re.get_rule(rule).to_remove.begin();
-      iter != re.get_rule(rule).to_remove.end(); ++iter){
+        iter = rule->to_remove.begin();
+      iter != rule->to_remove.end(); ++iter){
     if (substNode(re,*iter,cache).getAttribute(rewrittenNodeAttribute))
       return true;
   };
@@ -106,7 +96,8 @@ bool RuleInst::alreadyRewritten(TheoryRewriteRules & re) const{
 }
 
 void RuleInst::toStream(std::ostream& out) const{
-  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
+  if(this == RULEINST_TRUE){ out << "TRUE"; return;};
+  if(this == RULEINST_FALSE){ out << "FALSE"; return;};
   out << "(" << rule << ") ";
   for(std::vector<Node>::const_iterator
         iter = subst.begin(); iter != subst.end(); ++iter){
@@ -116,18 +107,19 @@ void RuleInst::toStream(std::ostream& out) const{
 
 
 void Guarded::nextGuard(TheoryRewriteRules & re)const{
-  Assert(inst != RULEINSTID_TRUE && inst != RULEINSTID_FALSE);
-  if(simulateRewritting && re.get_inst(inst).alreadyRewritten(re)) return;
-  re.get_inst(inst).findGuard(re,d_guard+1);
+  Assert(inst != RULEINST_TRUE && inst != RULEINST_FALSE);
+  if(simulateRewritting && inst->alreadyRewritten(re)) return;
+  inst->findGuard(re,d_guard+1);
 };
 
 /** start indicate the first guard which is not true */
-Guarded::Guarded(RuleInstId ri, const size_t start) :
+Guarded::Guarded(const RuleInst* ri, const size_t start) :
   d_guard(start),inst(ri) {};
 Guarded::Guarded(const Guarded & g) :
   d_guard(g.d_guard),inst(g.inst) {};
 Guarded::Guarded() :
-  d_guard(-1),inst(-1) {};
+  //dumb value
+  d_guard(-1),inst(RULEINST_TRUE) {};
 
 TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
                                        context::UserContext* u,
@@ -136,7 +128,7 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
                                        QuantifiersEngine* qe) :
   Theory(THEORY_REWRITERULES, c, u, out, valuation,qe),
   d_rules(c), d_ruleinsts(c), d_guardeds(c), d_checkLevel(c,0),
-  d_explanations(c), d_ruleinsts_to_add(c)
+  d_explanations(c), d_ruleinsts_to_add()
   {
   d_true = NodeManager::currentNM()->mkConst<bool>(true);
   d_false = NodeManager::currentNM()->mkConst<bool>(false);
@@ -144,33 +136,33 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
 }
 
 
-void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRuleId rid,
-                                             const RewriteRule & r,
+void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
                                              InstMatch & im,
                                              bool delay){
   std::vector<Node> subst;
-  im.computeTermVec(getQuantifiersEngine(), r.inst_vars , subst);
+  im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);
 
-  if(!cache_match || !r.inCache(subst)){
-    RuleInst ri = RuleInst(*this,rid,subst);
+  if(!cache_match || !r->inCache(subst)){
+    RuleInst * ri = new RuleInst(*this,r,subst);
     Debug("rewriterules") << "One matching found"
                           << (delay? "(delayed)":"")
-                          << ":" << ri << std::endl;
+                          << ":" << *ri << std::endl;
     // Find the first non verified guard, don't save the rule if the
     // rule can already be fired In fact I save it otherwise strange
     // things append.
-    if(delay) d_ruleinsts_to_add.push(ri);
+    Assert(ri->rule != NULL);
+    if(delay) d_ruleinsts_to_add.push_back(ri);
     else{
-      if(simulateRewritting && ri.alreadyRewritten(*this)) return;
-      ri.setId(d_ruleinsts.size());
-      if(ri.findGuard(*this, 0) != (r.guards).size())
+      if(simulateRewritting && ri->alreadyRewritten(*this)) return;
+      if(ri->findGuard(*this, 0) != (r->guards).size())
         d_ruleinsts.push_back(ri);
+      else delete(ri);
     };
   };
 }
 
-
 void TheoryRewriteRules::check(Effort level) {
+  Assert(d_ruleinsts_to_add.empty());
 
   while(!done()) {
     // Get all the assertions
@@ -180,7 +172,6 @@ void TheoryRewriteRules::check(Effort level) {
     Debug("rewriterules") << "TheoryRewriteRules::check(): processing " << fact << std::endl;
       if (getValuation().getDecisionLevel()>0)
         Unhandled(getValuation().getDecisionLevel());
-
       addRewriteRule(fact);
 
     };
@@ -189,9 +180,9 @@ void TheoryRewriteRules::check(Effort level) {
 
   /** Test each rewrite rule */
   for(size_t rid = 0, end = d_rules.size(); rid < end; ++rid) {
-    const RewriteRule & r = d_rules[rid];
+    RewriteRule * r = d_rules[rid];
     Debug("rewriterules") << "  rule: " << r << std::endl;
-    Trigger & tr = const_cast<Trigger &> (r.trigger);
+    Trigger & tr = r->trigger;
     //reset instantiation round for trigger (set up match production)
     tr.resetInstantiationRound();
     //begin iterating from the first match produced by the trigger
@@ -200,7 +191,7 @@ void TheoryRewriteRules::check(Effort level) {
     /** Test the possible matching one by one */
     InstMatch im;
     while(tr.getNextMatch( im )){
-      addMatchRuleTrigger(rid, r, im, true);
+      addMatchRuleTrigger(r, im, true);
       im.clear();
     }
   }
@@ -213,12 +204,12 @@ void TheoryRewriteRules::check(Effort level) {
 
 
     //dequeue instantiated rules
-    for(; !d_ruleinsts_to_add.empty(); d_ruleinsts_to_add.pop()){
-      RuleInst ri = d_ruleinsts_to_add.front();
-      if(simulateRewritting && ri.alreadyRewritten(*this)) break;
-      ri.setId(d_ruleinsts.size());
-      if(ri.findGuard(*this, 0) != (get_rule(ri.rule).guards).size())
+    for(; !d_ruleinsts_to_add.empty();){
+      RuleInst * ri = d_ruleinsts_to_add.front(); d_ruleinsts_to_add.pop_back();
+      if(simulateRewritting && ri->alreadyRewritten(*this)) break;
+      if(ri->findGuard(*this, 0) != ri->rule->guards.size())
         d_ruleinsts.push_back(ri);
+      else delete(ri);
     };
 
     if(do_notification)
@@ -226,10 +217,10 @@ void TheoryRewriteRules::check(Effort level) {
     for (; p != d_guardeds.end(); ++p){
       TNode g = (*p).first;
       const GList * const l = (*p).second;
-      const Guarded & glast = (*l).back();
+      const Guarded & glast = l->back();
       // cout << "Polled?:" << g << std::endl;
-      if(glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) continue;
-      // cout << "Polled!:" << g << "->" << (glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE) << std::endl;
+      if(glast.inst == RULEINST_TRUE||glast.inst == RULEINST_FALSE) continue;
+      // cout << "Polled!:" << g << "->" << (glast.inst == RULEINST_TRUE||glast.inst == RULEINST_FALSE) << std::endl;
       bool value;
       if(getValuation().hasSatValue(g,value)){
         if(value) polldone = true; //One guard is true so pass n check
@@ -237,7 +228,7 @@ void TheoryRewriteRules::check(Effort level) {
                              << " is " << (value ? "true" : "false") << std::endl;
         notification(g,value);
         //const Guarded & glast2 = (*l)[l->size()-1];
-        // cout << "Polled!!:" << g << "->" << (glast2.inst == RULEINSTID_TRUE||glast2.inst == RULEINSTID_FALSE) << std::endl;
+        // cout << "Polled!!:" << g << "->" << (glast2.inst == RULEINST_TRUE||glast2.inst == RULEINST_FALSE) << std::endl;
       };
     };
 
@@ -255,7 +246,7 @@ void TheoryRewriteRules::check(Effort level) {
       TNode g = (*p).first;
       const GList * const l = (*p).second;
       const Guarded & glast = (*l)[l->size()-1];
-      if(glast.inst == RULEINSTID_TRUE||glast.inst == RULEINSTID_FALSE)
+      if(glast.inst == RULEINST_TRUE||glast.inst == RULEINST_FALSE)
         continue;
       // If it has a value it should already has been notified
       bool value; value = value; // avoiding the warning in non debug mode
@@ -266,6 +257,7 @@ void TheoryRewriteRules::check(Effort level) {
     }
   }
 
+  Assert(d_ruleinsts_to_add.empty());
   Debug("rewriterules") << "Check done:" << d_checkLevel << std::endl;
 
 };
@@ -284,8 +276,8 @@ bool TheoryRewriteRules::notifyIfKnown(const GList * const ltested,
                                         GList * const lpropa) {
     Assert(ltested->size() > 0);
     const Guarded & glast = (*ltested)[ltested->size()-1];
-    if(glast.inst == RULEINSTID_TRUE || glast.inst == RULEINSTID_FALSE){
-      notification(lpropa,glast.inst == RULEINSTID_TRUE);
+    if(glast.inst == RULEINST_TRUE || glast.inst == RULEINST_FALSE){
+      notification(lpropa,glast.inst == RULEINST_TRUE);
       return true;
     };
     return false;
@@ -297,16 +289,18 @@ void TheoryRewriteRules::notification(GList * const lpropa, bool b){
         g != lpropa->end(); ++g) {
       (*g).nextGuard(*this);
     };
-    lpropa->push_back(Guarded(RULEINSTID_TRUE,0));
+    lpropa->push_back(Guarded(RULEINST_TRUE,0));
   }else{
-    lpropa->push_back(Guarded(RULEINSTID_FALSE,0));
+    lpropa->push_back(Guarded(RULEINST_FALSE,0));
   };
+  Assert(lpropa->back().inst == RULEINST_TRUE ||
+         lpropa->back().inst == RULEINST_FALSE);
 };
 
 
 
-Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, RuleInstId rid,
-                                         const size_t gid){
+Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, const RuleInst* ri,
+                                              const size_t gid){
   /** TODO: Should use the representative of g, but should I keep the
       mapping for myself? */
   /* If it false in one model (current valuation) it's false for all */
@@ -337,12 +331,12 @@ Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, RuleInstId rid,
     l = (*l_i).second;
     Assert(l->size() > 0);
     const Guarded & glast = (*l)[l->size()-1];
-    if(glast.inst == RULEINSTID_TRUE) return ATRUE;
-    if(glast.inst == RULEINSTID_FALSE) return AFALSE;
+    if(glast.inst == RULEINST_TRUE) return ATRUE;
+    if(glast.inst == RULEINST_FALSE) return AFALSE;
 
   };
   /** I DONT KNOW because not watched or because not true nor false */
-  l->push_back(Guarded(rid,gid));
+  l->push_back(Guarded(ri,gid));
   return ADONTKNOW;
 };
 
@@ -375,15 +369,15 @@ void TheoryRewriteRules::notifyEq(TNode lhs, TNode rhs) {
 };
 
 
-void TheoryRewriteRules::propagateRule(const RuleInst & inst, TCache cache){
+void TheoryRewriteRules::propagateRule(const RuleInst * inst, TCache cache){
   //   Debug("rewriterules") << "A rewrite rules is verified. Add lemma:";
-  Debug("rewriterules") << "propagateRule" << inst << std::endl;
-  const RewriteRule & rule = get_rule(inst.rule);
-  Node equality = inst.substNode(*this,rule.body,cache);
+  Debug("rewriterules") << "propagateRule" << *inst << std::endl;
+  const RewriteRule * rule = inst->rule;
+  Node equality = inst->substNode(*this,rule->body,cache);
   if(propagate_as_lemma){
     Node lemma = equality;
-    if(rule.guards.size() > 0){
-      lemma = substGuards(inst,rule, cache).impNode(equality);
+    if(rule->guards.size() > 0){
+      lemma = substGuards(inst, cache).impNode(equality);
     };
     //  Debug("rewriterules") << "lemma:" << lemma << std::endl;
     getOutputChannel().lemma(lemma);
@@ -393,65 +387,62 @@ void TheoryRewriteRules::propagateRule(const RuleInst & inst, TCache cache){
     if(getValuation().hasSatValue(lemma_lit,value)){
       /* Already assigned */
       if (!value){
-        Node conflict = substGuards(inst,rule, cache,lemma_lit);
+        Node conflict = substGuards(inst,cache,lemma_lit);
         getOutputChannel().conflict(conflict);
       };
     }else{
       getOutputChannel().propagate(lemma_lit);
-      d_explanations.insert(lemma_lit,inst.id);
+      d_explanations.insert(lemma_lit, inst);
    };
   };
 
   if(simulateRewritting){
     static RewrittenNodeAttribute rewrittenNodeAttribute;
     // Tag the rewritted terms
-    for(std::vector<Node>::iterator i = rule.to_remove.begin();
-        i == rule.to_remove.end(); ++i){
+    for(std::vector<Node>::iterator i = rule->to_remove.begin();
+        i == rule->to_remove.end(); ++i){
       (*i).setAttribute(rewrittenNodeAttribute,true);
     };
   };
 
   //Verify that this instantiation can't immediately fire another rule
-  for(RewriteRule::BodyMatch::const_iterator p = rule.body_match.begin();
-      p != rule.body_match.end(); ++p){
-    const RewriteRuleId rid = (*p).second;
-    const RewriteRule & r = d_rules[rid];
+  for(RewriteRule::BodyMatch::const_iterator p = rule->body_match.begin();
+      p != rule->body_match.end(); ++p){
+    RewriteRule * r = (*p).second;
     // Debug("rewriterules") << "  rule: " << r << std::endl;
     // Use trigger2 since we can be in check
-    Trigger & tr = r.trigger_for_body_match;
+    Trigger & tr = r->trigger_for_body_match;
     InstMatch im;
-    tr.getMatch(inst.substNode(*this,(*p).first, cache),im);
-    if(!im.empty()) addMatchRuleTrigger(rid, r, im);
+    tr.getMatch(inst->substNode(*this,(*p).first, cache),im);
+    if(!im.empty()) addMatchRuleTrigger(r, im);
   }
 };
 
 
-Node TheoryRewriteRules::substGuards(const RuleInst & inst,
-                                     const RewriteRule & r,
+Node TheoryRewriteRules::substGuards(const RuleInst * inst,
                                      TCache cache,
                                      /* Already substituted */
                                      Node last){
+  const RewriteRule * r = inst->rule;
   /** No guards */
-  const size_t size = r.guards.size();
+  const size_t size = r->guards.size();
   if(size == 0) return d_true;
   /** One guard */
-  if(size == 1) return inst.substNode(*this,r.guards[0],cache);
+  if(size == 1) return inst->substNode(*this,r->guards[0],cache);
   /** Guards */ /* TODO remove the duplicate with a set like in uf? */
   NodeBuilder<> conjunction(kind::AND);
-  for(std::vector<Node>::const_iterator p = r.guards.begin();
-      p != r.guards.end(); ++p) {
-    conjunction << inst.substNode(*this,*p,cache);
+  for(std::vector<Node>::const_iterator p = r->guards.begin();
+      p != r->guards.end(); ++p) {
+    conjunction << inst->substNode(*this,*p,cache);
   };
   if (last != Node::null()) conjunction << last;
   return conjunction;
 }
 
 Node TheoryRewriteRules::explain(TNode n){
-  ExplanationMap::const_iterator rinstid = d_explanations.find(n);
-  Assert(rinstid!=d_explanations.end(),"I forget the explanation...");
-  const RuleInst & inst = get_inst((*rinstid).second);
-  const RewriteRule & r = get_rule(inst.rule);
-  return substGuards(inst,r, TCache ());
+  ExplanationMap::const_iterator p = d_explanations.find(n);
+  Assert(p!=d_explanations.end(),"I forget the explanation...");
+  return substGuards((*p).second, TCache ());
 }
 
 
