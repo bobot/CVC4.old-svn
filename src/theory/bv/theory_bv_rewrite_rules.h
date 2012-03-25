@@ -136,11 +136,16 @@ enum RewriteRuleId {
   ExtractArith,
   ExtractArith2,
   DoubleNeg,
+  NegMult,
+  NegSub,
   NotConcat,
   NotAnd, // not sure why this would help (not done)
   NotOr,  // not sure why this would help (not done)
   NotXor, // not sure why this would help (not done)
-  FlattenAssocCommut
+  FlattenAssocCommut,
+  PlusCombineLikeTerms,
+  MultSimplify,
+  MultDistribConst
  };
 
 inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
@@ -243,6 +248,11 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case NotIdemp :                  out << "NotIdemp"; return out;
   case UleSelf:                    out << "UleSelf"; return out; 
   case FlattenAssocCommut:     out << "FlattenAssocCommut"; return out; 
+  case PlusCombineLikeTerms: out << "PlusCombineLikeTerms"; return out;
+  case MultSimplify: out << "MultSimplify"; return out;
+  case MultDistribConst: out << "MultDistribConst"; return out;
+  case NegMult : out << "NegMult"; return out;
+  case NegSub : out << "NegSub"; return out; 
   default:
     Unreachable();
   }
@@ -348,6 +358,8 @@ struct AllRewriteRules {
   RewriteRule<SgtEliminate>             rule12;
   RewriteRule<UgeEliminate>             rule13;
   RewriteRule<SgeEliminate>             rule14;
+  RewriteRule<NegMult>              rule15;
+  RewriteRule<NegSub>               rule16;
   RewriteRule<RepeatEliminate>      rule17;
   RewriteRule<RotateLeftEliminate>  rule18;
   RewriteRule<RotateRightEliminate> rule19;
@@ -431,6 +443,9 @@ struct AllRewriteRules {
   RewriteRule<NotIdemp> rule102;
   RewriteRule<UleSelf> rule103;
   RewriteRule<FlattenAssocCommut> rule104;
+  RewriteRule<PlusCombineLikeTerms> rule105;
+  RewriteRule<MultSimplify> rule106;
+  RewriteRule<MultDistribConst> rule107;
 };
 
 template<>

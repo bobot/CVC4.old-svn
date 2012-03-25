@@ -80,7 +80,7 @@ inline Node mkAnd(std::vector<TNode>& children) {
 }
 
 
-inline Node mkNode(Kind kind, std::vector<TNode>& children) {
+inline Node mkNode(Kind kind, std::vector<Node>& children) {
   return NodeManager::currentNM()->mkNode(kind, children);
 }
 

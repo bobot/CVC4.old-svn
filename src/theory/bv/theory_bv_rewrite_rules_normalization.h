@@ -143,7 +143,7 @@ Node RewriteRule<FlattenAssocCommut>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<FlattenAssocCommut>(" << node << ")" << std::endl;
   std::vector<Node> processingStack;
   processingStack.push_back(node);
-  std::vector<TNode> children;
+  std::vector<Node> children;
   Kind kind = node.getKind(); 
   
   while (! processingStack.empty()) {
@@ -163,87 +163,258 @@ Node RewriteRule<FlattenAssocCommut>::apply(Node node) {
   return utils::mkNode(kind, children); 
 }
 
-// template<>
-// bool RewriteRule<PlusCombineLikeTerms>::applies(Node node) {
-//   return (node.getKind() == kind::BITVECTOR_PLUS);
-// }
+static inline void addToCoefMap(std::map<Node, BitVector>& map,
+                                TNode term, const BitVector& coef) {
+  if (map.find(term) != map.end()) {
+    map[term] = map[term] + coef; 
+  } else {
+    map[term] = coef;
+  }
+}
 
-// template<>
-// Node RewriteRule<PlusCombineLikeTerms>::apply(Node node) {
-//   BVDebug("bv-rewrite") << "RewriteRule<PlusCombineLikeTerms>(" << node << ")" << std::endl;
-//   BitVector constSum(utils::getSize(node), 0); 
-//   std::map<Node, BitVector> termToCoeficient;
 
-//         // combine like-terms
-//       switch(current.getKind()) {
-//       case kind::BITVECTOR_MULT:
-//         // if we are multiplying by a constant
-//         if (current[0].getKind() == kind::CONST_BITVECTOR ||
-//             current[1].getKind() == kind::CONST_BITVECTOR) {
-//           BitVector coeff;
-//           TNode term;
-//           // figure out which part is the constant
-//           if (current[0].getKind() == kind::CONST_BITVECTOR) {
-//             coeff = current[0].getConst<BitVector>();
-//             term = current[1];
-//           } else {
-//             coeff = current[1].getConst<BitVector>();
-//             term = current[0];
-//           }
-          
-//           // add to map
-//           addToCoefMap(termToCoeficient, term, coeff); 
-//         }
-//         break;
-//       case kind::BITVECTOR_SUB:
-//         // change to + and neg
-//         processingStack.push_back(current[0]);
-//         addToCoefMap(termToCoefficient, current[0], -BitVector(utils::getSize(current), 1)); 
-//         break;
+template<>
+bool RewriteRule<PlusCombineLikeTerms>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_PLUS);
+}
 
-//       case kind::BITVECTOR_NEG:
-//         addToCoefMap(termToCoefficient, current[0], -BitVector(utils::getSize(current), 1)); 
-//         break:
-          
-//       case kind::CONST_BITVECTOR:
-//           BitVector constValue = current.getConst<BitVector>(); 
-//         constSum = constSum + constValue; 
-//         break;
-        
-//       default:
-//         // store as 1 * current
-//         addToCoefMap(termToCoefficient, current, BitVector(utils::getSize(current), 1)); 
-//       }
-//     }
+template<>
+Node RewriteRule<PlusCombineLikeTerms>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<PlusCombineLikeTerms>(" << node << ")" << std::endl;
+  unsigned size = utils::getSize(node); 
+  BitVector constSum(size, (unsigned)0); 
+  std::map<Node, BitVector> factorToCoefficient;
 
-//   // construct result grouping like terms
-//   std::map<Node, BitVector>::const_iterator it = termToCoefficient.begin();
-//   NodeBuilder<> sum(kind::BITVECTOR_PLUS);
+  // combine like-terms
+  for(unsigned i= 0; i < node.getNumChildren(); ++i) {
+    TNode current = node[i];
     
-//   for (; it != termToCoefficient.end(); ++it) {
-//     BitVector bv_coef = *it.second;
-//     TNode term = *it.first;
-//     if(bv_coef == BitVector(utils::getSize(term), 0)) {
-//       continue;
-//     }
-//     else if (bv_coef == BitVector(utils::getSize(term), 1)) {
-//       sum << term; 
-//     } else {
-//       Node coef = utils::mkConst(coef);
-//       Node product = utils::mkNode(kind::BITVECTOR_MULT, coef, term); 
-//       sum << product; 
-//     }
-//   }
-//   return sum;
+    // look for c * x, where c is a constant
+    if (current.getKind() == kind::BITVECTOR_MULT &&
+        (current[0].getKind() == kind::CONST_BITVECTOR ||
+         current[1].getKind() == kind::CONST_BITVECTOR)) {
+      // if we are multiplying by a constant
+      BitVector coeff;
+      TNode term;
+      // figure out which part is the constant
+      if (current[0].getKind() == kind::CONST_BITVECTOR) {
+        coeff = current[0].getConst<BitVector>();
+        term = current[1];
+      } else {
+        coeff = current[1].getConst<BitVector>();
+        term = current[0];
+      }
+      if(term.getKind() == kind::BITVECTOR_SUB) {
+        TNode a = term[0];
+        TNode b = term[1];
+        addToCoefMap(factorToCoefficient, a, coeff);
+        addToCoefMap(factorToCoefficient, b, -coeff); 
+      }
+      else if(term.getKind() == kind::BITVECTOR_NEG) {
+        addToCoefMap(factorToCoefficient, term[0], -BitVector(size, coeff));
+      }
+      else {
+        addToCoefMap(factorToCoefficient, term, coeff);
+      }
+    }
+    else if (current.getKind() == kind::BITVECTOR_SUB) {
+      // turn into a + (-1)*b 
+      addToCoefMap(factorToCoefficient, current[0], BitVector(size, (unsigned)1)); 
+      addToCoefMap(factorToCoefficient, current[1], -BitVector(size, (unsigned)1)); 
+    }
+    else if (current.getKind() == kind::BITVECTOR_NEG) {
+      addToCoefMap(factorToCoefficient, current[0], -BitVector(size, (unsigned)1)); 
+    }
+    else if (current.getKind() == kind::CONST_BITVECTOR) {
+      BitVector constValue = current.getConst<BitVector>(); 
+      constSum = constSum + constValue;
+    }
+    else {
+      // store as 1 * current
+      addToCoefMap(factorToCoefficient, current, BitVector(size, (unsigned)1)); 
+    }
+  }
+    
+  NodeBuilder<> sum(kind::BITVECTOR_PLUS);
+  
+  if ( constSum!= BitVector(size, (unsigned)0)) {
+    sum << utils::mkConst(constSum); 
+  }
 
+  // construct result 
+  std::map<Node, BitVector>::const_iterator it = factorToCoefficient.begin();
+  
+  for (; it != factorToCoefficient.end(); ++it) {
+    BitVector bv_coeff = it->second;
+    TNode term = it->first;
+    if(bv_coeff == BitVector(size, (unsigned)0)) {
+      continue;
+    }
+    else if (bv_coeff == BitVector(size, (unsigned)1)) {
+      sum << term; 
+    }
+    else if (bv_coeff == -BitVector(size, (unsigned)1)) {
+      // avoid introducing an extra multiplication
+      sum << utils::mkNode(kind::BITVECTOR_NEG, term); 
+    }
+    else {
+      Node coeff = utils::mkConst(bv_coeff);
+      Node product = utils::mkNode(kind::BITVECTOR_MULT, coeff, term); 
+      sum << product; 
+    }
+  }
+
+  if(sum.getNumChildren() == 0) {
+    return utils::mkConst(size, (unsigned)0); 
+  }
+  
+  if(sum.getNumChildren() == 1) {
+    return sum[0];
+  }
+  
+  return sum;
+}
+
+
+template<>
+bool RewriteRule<MultSimplify>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_MULT);
+}
+
+template<>
+Node RewriteRule<MultSimplify>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<MultSimplify>(" << node << ")" << std::endl;
+  unsigned size = utils::getSize(node); 
+  BitVector constant(size, Integer(1));
+
+  std::vector<Node> children; 
+  for(unsigned i = 0; i < node.getNumChildren(); ++i) {
+    TNode current = node[i];
+    if (current.getKind() == kind::CONST_BITVECTOR) {
+      BitVector value = current.getConst<BitVector>();
+      if(value == BitVector(size, (unsigned) 0)) {
+        return utils::mkConst(size, 0); 
+      }
+      constant = constant * current.getConst<BitVector>();
+    } else {
+      children.push_back(current); 
+    }
+  }
+
+  std::sort(children.begin(), children.end()); 
+  if(constant != BitVector(size, (unsigned)1)) {
+    children.push_back(utils::mkConst(constant)); 
+  }
+
+  if(children.size() == 0) {
+    return utils::mkConst(size, (unsigned)1); 
+  }
+
+  if(children.size() == 1) {
+    return children[0];
+  }
+  
+  return utils::mkNode(kind::BITVECTOR_MULT, children); 
+}
+
+template<>
+bool RewriteRule<MultDistribConst>::applies(Node node) {
+  if (node.getKind() != kind::BITVECTOR_MULT)
+    return false;
+
+  TNode factor;
+  if (node[0].getKind() == kind::CONST_BITVECTOR) {
+    factor = node[1];
+  } else if (node[1].getKind() == kind::CONST_BITVECTOR) {
+    factor = node[0];
+  } else {
+    return false; 
+  }
+  
+  return (factor.getKind() == kind::BITVECTOR_PLUS ||
+          factor.getKind() == kind::BITVECTOR_SUB ||
+          factor.getKind() == kind::BITVECTOR_NEG); 
+}
+
+template<>
+Node RewriteRule<MultDistribConst>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<MultDistribConst>(" << node << ")" << std::endl;
+
+  TNode constant;
+  TNode factor;
+  if (node[0].getKind() == kind::CONST_BITVECTOR) {
+    constant = node[0];
+    factor = node[1]; 
+  } else {
+  Assert(node[1].getKind() == kind::CONST_BITVECTOR);
+  constant = node[1];
+  factor = node[0];
+  }
+
+  if (factor.getKind() == kind::BITVECTOR_NEG) {
+    // push negation on the constant part
+    BitVector const_bv = constant.getConst<BitVector>();
+    return utils::mkNode(kind::BITVECTOR_MULT,
+                         utils::mkConst(-const_bv),
+                         factor[0]); 
+  }
+  
+  return utils::mkNode(factor.getKind(),
+                       utils::mkNode(kind::BITVECTOR_MULT, constant, factor[0]),
+                       utils::mkNode(kind::BITVECTOR_MULT, constant, factor[1])); 
+}
+
+
+/**
+ * -(c * expr) ==> (-c * expr)
+ * where c is a constant
+ */
+template<>
+bool RewriteRule<NegMult>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_NEG &&
+          node[0].getKind() == kind::BITVECTOR_MULT);
+}
+
+template<>
+Node RewriteRule<NegMult>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<NegMult>(" << node << ")" << std::endl;
+  TNode mult = node[0];
+  std::vector<Node> children;
+  bool has_const = false; 
+  for(unsigned i = 0; i < mult.getNumChildren(); ++i) {
+    if(mult[i].getKind() == kind::CONST_BITVECTOR) {
+      Assert(has_const == false);
+      has_const = true; 
+      BitVector bv = mult[i].getConst<BitVector>();
+      children.push_back(utils::mkConst(-bv)); 
+    } else {
+      children.push_back(mult[i]); 
+    }
+  }
+  return utils::mkNode(kind::BITVECTOR_MULT, children);
+}
+
+template<>
+bool RewriteRule<NegSub>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_NEG &&
+          node[0].getKind() == kind::BITVECTOR_SUB);
+}
+
+template<>
+Node RewriteRule<NegSub>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<NegSub>(" << node << ")" << std::endl;
+  return utils::mkNode(kind::BITVECTOR_SUB, node[0][1], node[0][0]);
+}
+
+// template<>
+// bool RewriteRule<AndSimplify>::applies(Node node) {
+//   return (node.getKind() == kind::BITVECTOR_AND);
 // }
 
-// inline void addToCoeffMap(std::map<Node, BitVector>& map, TNode term, BitVector coef) {
-//   if (termToCoeff.find(term) != termToCoeff.end()) {
-//     termToCoeff[term] += coeff; 
-//   } else {
-//     termToCoeff[term] = coeff;
-//   }
+// template<>
+// Node RewriteRule<AndSimplify>::apply(Node node) {
+//   BVDebug("bv-rewrite") << "RewriteRule<AndSimplify>(" << node << ")" << std::endl;
+//   return resultNode;
 // }
 
 
