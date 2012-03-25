@@ -35,6 +35,29 @@
 namespace CVC4 {
 namespace context {
 
+namespace{
+  /* auxillary structure for defining truncateList */
+  template < class T, class CleanUp >
+    struct HelperTruncateList{
+    static inline void f(T* thi, const size_t size){
+      while(thi->d_size != size) {
+        --thi->d_size;
+        CleanUp::cleanup(&thi->d_list[thi->d_size],thi->d_allocator);
+      };
+    };
+  };
+
+
+  /* cleanmode : CM_NOTHING*/
+  template <class T>
+    struct HelperTruncateList<T, CleanUpNothing >{
+    static inline void f(T* thi, const size_t size){
+      thi->d_size = size;
+    };
+  };
+
+}
+
 /**
  * Generic context-dependent dynamic array.  Note that for efficiency,
  * this implementation makes the following assumptions:
@@ -45,7 +68,7 @@ namespace context {
  * 2. T objects can safely be copied using their copy constructor,
  *    operator=, and memcpy.
  */
-template <class T, class AllocatorT>
+template <class T, class AllocatorT, class CleanUp >
 class CDList : public ContextObj {
 public:
 
@@ -72,13 +95,6 @@ private:
   static const size_t GROWTH_FACTOR = 2;
 
   /**
-   * Whether to call the destructor when items are popped from the
-   * list.  True by default, but can be set to false by setting the
-   * second argument in the constructor to false.
-   */
-  bool d_callDestructor;
-
-  /**
    * Allocated size of d_list.
    */
   size_t d_sizeAlloc;
@@ -94,11 +110,10 @@ protected:
    * d_sizeAlloc are not copied: only the base class information and
    * d_size are needed in restore.
    */
-  CDList(const CDList<T, Allocator>& l) :
+  CDList(const CDList< T, Allocator, CleanUp > & l) :
     ContextObj(l),
     d_list(NULL),
     d_size(l.d_size),
-    d_callDestructor(false),
     d_sizeAlloc(0),
     d_allocator(l.d_allocator) {
     Debug("cdlist") << "copy ctor: " << this
@@ -157,7 +172,7 @@ private:
    * ContextMemoryManager.
    */
   ContextObj* save(ContextMemoryManager* pCMM) {
-    ContextObj* data = new(pCMM) CDList<T, Allocator>(*this);
+    ContextObj* data = new(pCMM) CDList<T, Allocator, CleanUp>(*this);
     Debug("cdlist") << "save " << this
                     << " at level " << this->getContext()->getLevel()
                     << " size at " << this->d_size
@@ -177,14 +192,14 @@ protected:
     Debug("cdlist") << "restore " << this
                     << " level " << this->getContext()->getLevel()
                     << " data == " << data
-                    << " call dtor == " << this->d_callDestructor
                     << " d_list == " << this->d_list << std::endl;
-    truncateList(((CDList<T, Allocator>*)data)->d_size);
+    truncateList(((CDList<T, Allocator, CleanUp>*)data)->d_size);
     Debug("cdlist") << "restore " << this
                     << " level " << this->getContext()->getLevel()
                     << " size back to " << this->d_size
                     << " sizeAlloc at " << this->d_sizeAlloc << std::endl;
-  }
+  };
+
 
   /**
    * Given a size parameter smaller than d_size, truncateList()
@@ -197,28 +212,20 @@ protected:
    */
   void truncateList(const size_t size){
     Assert(size <= d_size);
-    if(d_callDestructor) {
-      while(d_size != size) {
-        --d_size;
-        d_allocator.destroy(&d_list[d_size]);
-      }
-    } else {
-      d_size = size;
-    }
-  }
+    HelperTruncateList<CDList<T,Allocator,CleanUp >,CleanUp >::f(this,size);
+  };
 
+  friend struct HelperTruncateList<CDList<T,Allocator,CleanUp>,CleanUp>;
 
 public:
 
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList(Context* context, bool callDestructor = true,
-         const Allocator& alloc = Allocator()) :
+  CDList(Context* context, const Allocator& alloc = Allocator()) :
     ContextObj(context),
     d_list(NULL),
     d_size(0),
-    d_callDestructor(callDestructor),
     d_sizeAlloc(0),
     d_allocator(alloc) {
   }
@@ -226,12 +233,11 @@ public:
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList(bool allocatedInCMM, Context* context, bool callDestructor = true,
+  CDList(bool allocatedInCMM, Context* context,
          const Allocator& alloc = Allocator()) :
     ContextObj(allocatedInCMM, context),
     d_list(NULL),
     d_size(0),
-    d_callDestructor(callDestructor),
     d_sizeAlloc(0),
     d_allocator(alloc) {
   }
@@ -242,13 +248,11 @@ public:
   ~CDList() throw(AssertionException) {
     this->destroy();
 
-    if(this->d_callDestructor) {
-      for(size_t i = 0; i < this->d_size; ++i) {
-        this->d_allocator.destroy(&this->d_list[i]);
-      }
+    if(d_list != NULL){  //Protect against dumb copy created
+                         //for save/restore
+      truncateList(0);
+      this->d_allocator.deallocate(this->d_list, this->d_sizeAlloc);
     }
-
-    this->d_allocator.deallocate(this->d_list, this->d_sizeAlloc);
   }
 
   /**
@@ -302,6 +306,7 @@ public:
                     << " " << getContext()->getLevel()
                     << ": size now " << d_size << std::endl;
   }
+
 
   /**
    * Access to the ith item in the list.

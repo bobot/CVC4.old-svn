@@ -42,7 +42,8 @@ namespace context {
  * appending to the end of the list.
  */
 template <class T>
-class CDList<T, ContextMemoryAllocator<T> > : public ContextObj {
+class CDList<T, ContextMemoryAllocator<T>,
+             CleanUpDestruct<T,ContextMemoryAllocator<T> > > : public ContextObj {
 public:
 
   /** The value type with which this CDList<> was instantiated. */

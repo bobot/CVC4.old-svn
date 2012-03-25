@@ -329,7 +329,7 @@ Answer TheoryRewriteRules::addWatchIfDontKnow(Node g0, RuleInstId rid,
     };
     //Not watched so IDONTNOW
     l = new(getContext()->getCMM())
-      GList(true, getContext(), false);//,
+      GList(true, getContext());//,
             //ContextMemoryAllocator<Guarded>(getContext()->getCMM()));
     d_guardeds.insert(g ,l);//.insertDataFromContextMemory(g, l);
     /* TODO Add register propagation */

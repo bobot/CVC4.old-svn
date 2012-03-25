@@ -42,14 +42,27 @@ namespace __gnu_cxx {
 
 namespace CVC4 {
   namespace context {
+
     template <class T>
     class ContextMemoryAllocator;
 
-    template <class T, class Allocator = std::allocator<T> >
+    template <class T, class Allocator>
+    class CleanUpDestruct {
+    public:
+      inline static void cleanup (T * e, Allocator & alloc){
+        alloc.destroy(e);
+      };
+    };
+
+    class CleanUpNothing;
+
+    template <class T, class Allocator = std::allocator<T>,
+              class CleanUp = CleanUpDestruct< T, Allocator > >
     class CDList;
 
-    template <class T>
-    class CDList<T, ContextMemoryAllocator<T> >;
+  template <class T> //currently choosed by the constructor (TODO)
+  class CDList<T, ContextMemoryAllocator<T>,
+               CleanUpDestruct<T,ContextMemoryAllocator<T> > >;
   }/* CVC4::context namespace */
 }/* CVC4 namespace */
 
