@@ -96,7 +96,6 @@ TheoryArith::Statistics::Statistics():
   d_statDisequalityConflicts("theory::arith::DisequalityConflicts", 0),
   d_simplifyTimer("theory::arith::simplifyTimer"),
   d_staticLearningTimer("theory::arith::staticLearningTimer"),
-  d_permanentlyRemovedVariables("theory::arith::permanentlyRemovedVariables", 0),
   d_presolveTime("theory::arith::presolveTime"),
   d_externalBranchAndBounds("theory::arith::externalBranchAndBounds",0),
   d_initialTableauSize("theory::arith::initialTableauSize", 0),
@@ -117,7 +116,6 @@ TheoryArith::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_simplifyTimer);
   StatisticsRegistry::registerStat(&d_staticLearningTimer);
 
-  StatisticsRegistry::registerStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::registerStat(&d_presolveTime);
 
   StatisticsRegistry::registerStat(&d_externalBranchAndBounds);
@@ -143,7 +141,6 @@ TheoryArith::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_simplifyTimer);
   StatisticsRegistry::unregisterStat(&d_staticLearningTimer);
 
-  StatisticsRegistry::unregisterStat(&d_permanentlyRemovedVariables);
   StatisticsRegistry::unregisterStat(&d_presolveTime);
 
   StatisticsRegistry::unregisterStat(&d_externalBranchAndBounds);
@@ -337,6 +334,17 @@ Node TheoryArith::AssertEquality(ArithVar x_i, DeltaRational& c_i, TNode origina
 
 void TheoryArith::addSharedTerm(TNode n){
   d_differenceManager.addSharedTerm(n);
+  if(!n.isConst() && !isSetup(n)){
+    Polynomial poly = Polynomial::parsePolynomial(n);
+    Polynomial::iterator it = poly.begin();
+    Polynomial::iterator it_end = poly.end();
+    for (; it != it_end; ++ it) {
+      Monomial m = *it;
+      if (!m.isConstant() && !isSetup(m.getVarList().getNode())) {
+        setupVariableList(m.getVarList());
+      }
+    }
+  }
 }
 
 Node TheoryArith::ppRewrite(TNode atom) {
@@ -1180,19 +1188,93 @@ void TheoryArith::propagate(Effort e) {
   }
 }
 
+bool TheoryArith::getDeltaAtomValue(TNode n) {
+
+  switch (n.getKind()) {
+    case kind::EQUAL: // 2 args
+      return getDeltaValue(n[0]) == getDeltaValue(n[1]);
+    case kind::LT: // 2 args
+      return getDeltaValue(n[0]) < getDeltaValue(n[1]);
+    case kind::LEQ: // 2 args
+      return getDeltaValue(n[0]) <= getDeltaValue(n[1]);
+    case kind::GT: // 2 args
+      return getDeltaValue(n[0]) > getDeltaValue(n[1]);
+    case kind::GEQ: // 2 args
+      return getDeltaValue(n[0]) >= getDeltaValue(n[1]);
+    default:
+      Unreachable();
+  }
+}
+
+
+DeltaRational TheoryArith::getDeltaValue(TNode n) {
+
+  Debug("arith::value") << n << std::endl;
+
+  switch(n.getKind()) {
+
+  case kind::CONST_INTEGER:
+    return Rational(n.getConst<Integer>());
+
+  case kind::CONST_RATIONAL:
+    return n.getConst<Rational>();
+
+  case kind::PLUS: { // 2+ args
+    DeltaRational value(0);
+    for(TNode::iterator i = n.begin(),
+          iend = n.end();
+        i != iend;
+        ++i) {
+      value = value + getDeltaValue(*i);
+    }
+    return value;
+  }
+
+  case kind::MULT: { // 2+ args
+    Assert(n.getNumChildren() == 2 && n[0].isConst());
+    DeltaRational value(1);
+    if (n[0].getKind() == kind::CONST_INTEGER) {
+      return getDeltaValue(n[1]) * n[0].getConst<Integer>();
+    }
+    if (n[0].getKind() == kind::CONST_RATIONAL) {
+      return getDeltaValue(n[1]) * n[0].getConst<Rational>();
+    }
+    Unreachable();
+  }
+
+  case kind::MINUS: // 2 args
+    // should have been rewritten
+    Unreachable();
+
+  case kind::UMINUS: // 1 arg
+    // should have been rewritten
+    Unreachable();
+
+  case kind::DIVISION: // 2 args
+    Assert(n[1].isConst());
+    if (n[1].getKind() == kind::CONST_RATIONAL) {
+      return getDeltaValue(n[0]) / n[0].getConst<Rational>();
+    }
+    if (n[1].getKind() == kind::CONST_INTEGER) {
+      return getDeltaValue(n[0]) / n[0].getConst<Integer>();
+    }
+    Unreachable();
+
+
+  default:
+  {
+    ArithVar var = d_arithvarNodeMap.asArithVar(n);
+    return d_partialModel.getAssignment(var);
+  }
+  }
+}
+
 Node TheoryArith::getValue(TNode n) {
   NodeManager* nodeManager = NodeManager::currentNM();
 
   switch(n.getKind()) {
   case kind::VARIABLE: {
     ArithVar var = d_arithvarNodeMap.asArithVar(n);
-
-    if(d_removedRows.find(var) != d_removedRows.end()){
-      Node eq = d_removedRows.find(var)->second;
-      Assert(n == eq[0]);
-      Node rhs = eq[1];
-      return getValue(rhs);
-    }
 
     DeltaRational drat = d_partialModel.getAssignment(var);
     const Rational& delta = d_partialModel.getDelta();
@@ -1311,78 +1393,8 @@ bool TheoryArith::entireStateIsConsistent(){
   return true;
 }
 
-void TheoryArith::permanentlyRemoveVariable(ArithVar v){
-  //There are 3 cases
-  // 1) v is non-basic and is contained in a row
-  // 2) v is basic
-  // 3) v is non-basic and is not contained in a row
-  //  It appears that this can happen after other variables have been removed!
-  //  Tread carefullty with this one.
-
-  Assert(Options::current()->variableRemovalEnabled);
-
-  bool noRow = false;
-
-  if(!d_tableau.isBasic(v)){
-    ArithVar basic = findShortestBasicRow(v);
-
-    if(basic == ARITHVAR_SENTINEL){
-      noRow = true;
-    }else{
-      Assert(basic != ARITHVAR_SENTINEL);
-      d_tableau.pivot(basic, v);
-    }
-  }
-
-  if(d_tableau.isBasic(v)){
-    Assert(!noRow);
-
-    //remove the row from the tableau
-    Node eq =  d_tableau.rowAsEquality(v, d_arithvarNodeMap.getArithVarToNodeMap());
-    d_tableau.removeRow(v);
-
-    if(Debug.isOn("tableau")) d_tableau.printTableau();
-    Debug("arith::permanentlyRemoveVariable") << eq << endl;
-
-    Assert(d_tableau.getRowLength(v) == 0);
-    Assert(d_tableau.getColLength(v) == 0);
-    Assert(d_removedRows.find(v) ==  d_removedRows.end());
-    d_removedRows[v] = eq;
-  }
-
-  Debug("arith::permanentlyRemoveVariable") << "Permanently removed variable " << v
-                                            << ":" << d_arithvarNodeMap.asNode(v) <<endl;
-  ++(d_statistics.d_permanentlyRemovedVariables);
-}
-
 void TheoryArith::presolve(){
   TimerStat::CodeTimer codeTimer(d_statistics.d_presolveTime);
-
-  /* BREADCRUMB : Turn this on for QF_LRA/QF_RDL problems.
-   *
-   * The big problem for adding things back is that if they are readded they may
-   * need to be assigned an initial value at ALL context values.
-   * This is unsupported with our current datastructures.
-   *
-   * A better solution is to KNOW when the permantent removal is safe.
-   * This is true for single query QF_LRA/QF_RDL problems.
-   * Maybe a mechanism to ask "the sharing manager"
-   * if this variable/row can be used in sharing?
-   */
-  if(Options::current()->variableRemovalEnabled){
-    typedef std::vector<Node>::const_iterator VarIter;
-    for(VarIter i = d_variables.begin(), end = d_variables.end(); i != end; ++i){
-      Node variableNode = *i;
-      ArithVar var = d_arithvarNodeMap.asArithVar(variableNode);
-      if(!isSlackVariable(var) &&
-         !d_atomDatabase.hasAnyAtoms(variableNode) &&
-         !variableNode.getType().isInteger()){
-	//The user variable is unconstrained.
-	//Remove this variable permanently
-	permanentlyRemoveVariable(var);
-      }
-    }
-  }
 
   d_statistics.d_initialTableauSize.setData(d_tableau.size());
 
@@ -1399,7 +1411,7 @@ void TheoryArith::presolve(){
 }
 
 EqualityStatus TheoryArith::getEqualityStatus(TNode a, TNode b) {
-  if (getValue(a) == getValue(b)) {
+  if (getDeltaValue(a) == getDeltaValue(b)) {
     return EQUALITY_TRUE_IN_MODEL;
   } else {
     return EQUALITY_FALSE_IN_MODEL;

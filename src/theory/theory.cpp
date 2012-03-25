@@ -55,7 +55,7 @@ void Theory::addSharedTermInternal(TNode n) {
   addSharedTerm(n);
 }
 
-void Theory::computeCareGraph(CareGraph& careGraph) {
+void Theory::computeCareGraph() {
   Debug("sharing") << "Theory::computeCareGraph<" << getId() << ">()" << std::endl;
   for (unsigned i = 0; i < d_sharedTerms.size(); ++ i) {
     TNode a = d_sharedTerms[i];
@@ -73,7 +73,7 @@ void Theory::computeCareGraph(CareGraph& careGraph) {
   	break;
       default:
   	// Let's split on it
-  	careGraph.push_back(CarePair(a, b, getId()));
+  	addCarePair(a, b);
   	break;
       }
     }
