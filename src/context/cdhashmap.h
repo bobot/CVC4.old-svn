@@ -498,6 +498,8 @@ public:
     }
   }
 
+  Context * getContext() const { return d_context; };
+
   class iterator {
     const Element* d_it;
 

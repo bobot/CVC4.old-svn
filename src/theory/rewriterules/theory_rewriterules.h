@@ -28,13 +28,12 @@
 #include "theory/theory_engine.h"
 #include "theory/quantifiers_engine.h"
 #include "context/context_mm.h"
+#include "theory/inst_match_impl.h"
 
 namespace CVC4 {
 namespace theory {
 namespace rewriterules {
 
-typedef size_t RewriteRuleId;
-typedef size_t RuleInstId;
 typedef std::hash_map<TNode, TNode, TNodeHashFunction> TCache;
 
 /** Attribute true for node which have be rewritten*/
@@ -71,8 +70,8 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
                                     // trigger for that.
 
     //context dependent
-    typedef context::CDHashSet<Node, NodeHashFunction> CacheNode;
-    CacheNode d_cache;
+    typedef InstMatchTrie2<false> CacheNode;
+    mutable CacheNode d_cache;
 
     RewriteRule(TheoryRewriteRules & re,
                 Trigger & tr, Trigger & tr2,
@@ -83,8 +82,7 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
     RewriteRule& operator=(const RewriteRule&) CVC4_UNUSED;
 
     bool noGuard()const throw () { return guards.size() == 0; };
-
-    bool inCache(std::vector<Node> & subst)const;
+    bool inCache(TheoryRewriteRules & re, InstMatch & im)const;
 
     void toStream(std::ostream& out) const;
   };
@@ -106,7 +104,6 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
     void toStream(std::ostream& out) const;
 
     bool alreadyRewritten(TheoryRewriteRules & re) const;
-
   };
 
 /** A pair? */

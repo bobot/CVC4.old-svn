@@ -83,7 +83,7 @@ size_t RuleInst::findGuard(TheoryRewriteRules & re, size_t start)const{
 };
 
 bool RuleInst::alreadyRewritten(TheoryRewriteRules & re) const{
-  Assert(id != RULEINSTID_TRUE && id != RULEINSTID_FALSE);
+  Assert(this != RULEINST_TRUE && this != RULEINST_FALSE);
   static RewrittenNodeAttribute rewrittenNodeAttribute;
   TCache cache;
   for(std::vector<Node>::const_iterator
@@ -139,10 +139,10 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
 void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
                                              InstMatch & im,
                                              bool delay){
-  std::vector<Node> subst;
-  im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);
-
-  if(!cache_match || !r->inCache(subst)){
+  if(rewrite_before_cache) im.applyRewrite();
+  if(!cache_match || !r->inCache(*this,im)){
+    std::vector<Node> subst;
+    im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);
     RuleInst * ri = new RuleInst(*this,r,subst);
     Debug("rewriterules") << "One matching found"
                           << (delay? "(delayed)":"")
@@ -205,7 +205,7 @@ void TheoryRewriteRules::check(Effort level) {
 
     //dequeue instantiated rules
     for(; !d_ruleinsts_to_add.empty();){
-      RuleInst * ri = d_ruleinsts_to_add.front(); d_ruleinsts_to_add.pop_back();
+      RuleInst * ri = d_ruleinsts_to_add.back(); d_ruleinsts_to_add.pop_back();
       if(simulateRewritting && ri->alreadyRewritten(*this)) break;
       if(ri->findGuard(*this, 0) != ri->rule->guards.size())
         d_ruleinsts.push_back(ri);

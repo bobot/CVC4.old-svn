@@ -33,8 +33,9 @@ libtheory_la_SOURCES = \
 	instantiator_default.h \
 	instantiator_default.cpp \
 	inst_match.h \
+	inst_match_impl.h \
 	inst_match.cpp \
-  trigger.h \
+	trigger.h \
 	trigger.cpp
 
 nodist_libtheory_la_SOURCES = \

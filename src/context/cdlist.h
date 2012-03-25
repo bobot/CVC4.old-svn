@@ -42,7 +42,9 @@ namespace{
     static inline void f(T* thi, const size_t size){
       while(thi->d_size != size) {
         --thi->d_size;
+        Debug("cdlist") << "cleanup " << thi->d_size << std::endl;
         CleanUp::cleanup(&thi->d_list[thi->d_size],thi->d_allocator);
+        Debug("cdlist") << "cleanup " << thi->d_size << " done" << std::endl;
       };
     };
   };
@@ -213,6 +215,7 @@ protected:
   void truncateList(const size_t size){
     Assert(size <= d_size);
     HelperTruncateList<CDList<T,Allocator,CleanUp >,CleanUp >::f(this,size);
+    Assert(size == d_size);
   };
 
   friend struct HelperTruncateList<CDList<T,Allocator,CleanUp>,CleanUp>;

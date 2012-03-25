@@ -210,27 +210,13 @@ RewriteRule::RewriteRule(TheoryRewriteRules & re,
                          std::vector<Node> & to_r) :
   trigger(tr), body(b), new_terms(nt), free_vars(), inst_vars(),
   body_match(re.getContext()),trigger_for_body_match(tr2),
-  d_cache(re.getContext()){
+  d_cache(re.getContext(),re.getQuantifiersEngine()){
   free_vars.swap(fv); inst_vars.swap(iv); guards.swap(g); to_remove.swap(to_r);
 };
 
 
-bool RewriteRule::inCache(std::vector<Node> & subst)const{
-  /* INST_PATTERN because its 1: */
-  NodeBuilder<> nodeb(kind::INST_PATTERN);
-  for(std::vector<Node>::const_iterator p = subst.begin();
-      p != subst.end(); ++p){
-    if (rewrite_before_cache) nodeb << Rewriter::rewrite(*p);
-    else nodeb << *p;
-  };
-  Node node = nodeb;
-  CacheNode::const_iterator e = d_cache.find(node);
-  /* Already in the cache */
-  if( e != d_cache.end() ) return true;
-  /* Because we add only context dependent data and the const is for that */
-  RewriteRule & rule = const_cast<RewriteRule &>(*this);
-  rule.d_cache.insert(node);
-  return false;
+bool RewriteRule::inCache(TheoryRewriteRules & re, InstMatch & im)const{
+  return !d_cache.addInstMatch(im);
 };
 
 /** A rewrite rule */

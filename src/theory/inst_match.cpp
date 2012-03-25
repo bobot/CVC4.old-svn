@@ -129,6 +129,12 @@ void InstMatch::makeRepresentative( EqualityQuery* q ){
   }
 }
 
+void InstMatch::applyRewrite(){
+  for( std::map< Node, Node >::iterator it = d_map.begin(); it != d_map.end(); ++it ){
+    it->second = Rewriter::rewrite(it->second);
+  }
+}
+
 void InstMatch::computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match ){
   for( int i=0; i<(int)vars.size(); i++ ){
     std::map< Node, Node >::iterator it = d_map.find( vars[i] );
@@ -208,6 +214,8 @@ bool InstMatchTrie::addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, b
     return false;
   }
 }
+
+// Remove most of the dependance to qe
 
 InstMatchGenerator::InstMatchGenerator( Node pat, QuantifiersEngine* qe, int matchPolicy ) : d_matchPolicy( matchPolicy ){
   initializePattern( pat, qe );

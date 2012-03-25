@@ -26,6 +26,10 @@
 #include <iostream>
 #include <map>
 
+#include "theory/uf/equality_engine.h"
+#include "theory/uf/theory_uf.h"
+#include "context/cdlist.h"
+
 //#define USE_EFFICIENT_E_MATCHING
 
 namespace CVC4 {
@@ -113,6 +117,8 @@ public:
   void makeInternal( EqualityQuery* q );
   /** make representative */
   void makeRepresentative( EqualityQuery* q );
+  /** apply rewrite */
+  void applyRewrite();
   /** compute d_match */
   void computeTermVec( QuantifiersEngine* ie, const std::vector< Node >& vars, std::vector< Node >& match );
   /** compute d_match */
@@ -124,6 +130,7 @@ public:
   /* map from variable to ground terms */
   std::map< Node, Node > d_map;
 };
+
 
 class InstMatchTrie
 {
@@ -163,6 +170,72 @@ public:
   bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false ){
     return d_imt.addInstMatch( qe, f, m, modEq, d_imtio );
   }
+};
+
+template<bool modEq = false>
+class InstMatchTrie2
+{
+private:
+
+  class Tree{
+  public:
+    typedef std::hash_map< Node, Tree *, NodeHashFunction > MLevel;
+    MLevel e;
+    const size_t level;
+    Tree() CVC4_UNDEFINED;
+    const Tree & operator =(const Tree & t) CVC4_UNDEFINED;
+    Tree(size_t l): level(l) {};
+    ~Tree(){
+      for(typename MLevel::iterator i = e.begin(); i!=e.end(); ++i)
+        delete(i->second);
+    };
+  };
+
+
+  typedef std::pair<Tree *, TNode> Mod;
+
+  class CleanUp{
+  public:
+    inline static void cleanup(Mod * m,std::allocator<Mod> & alloc){
+      typename Tree::MLevel::iterator i = m->first->e.find(m->second);
+      if(i != m->first->e.end()) //should not have been already removed
+        m->first->e.erase(i);
+      else std::cout << "Error: already removed node in trie "
+                     << m << " , " << m->first
+                     << " , " << m->second << std::endl;
+      alloc.destroy(m);
+    };
+  };
+
+  EqualityQuery* d_eQ;
+  uf::EqualityEngine<uf::TheoryUF::NotifyClass> * d_eE;
+
+  /* before for the order of destruction */
+  Tree d_data;
+
+  context::CDList<Mod,std::allocator<Mod>, CleanUp > d_mods;
+
+
+  typedef std::map<Node, Node>::const_iterator mapIter;
+
+  /** add the substitution given by the iterator*/
+  void addSubTree( Tree * root, mapIter current, mapIter end);
+  /** test if it exists match, modulo uf-equations if modEq is true if
+   *  return false the deepest point of divergence is put in [e] and
+   *  [diverge].
+   */
+  bool existsInstMatch( Tree * root,
+                        mapIter current, mapIter end,
+                        Tree * & e, mapIter & diverge) const;
+
+public:
+  InstMatchTrie2(context::Context* c,  QuantifiersEngine* q);
+  InstMatchTrie2(const InstMatchTrie2 &) CVC4_UNDEFINED;
+  const InstMatchTrie2 & operator =(const InstMatchTrie2 & e) CVC4_UNDEFINED;
+  /** add match m in the trie,
+      modEq specify to take into account equalities,
+      return true if it was never seen */
+  bool addInstMatch( InstMatch& m);
 };
 
 class IMGenerator
