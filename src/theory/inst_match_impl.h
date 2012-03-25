@@ -32,20 +32,20 @@ namespace theory {
 
 template<bool modEq>
 InstMatchTrie2<modEq>::InstMatchTrie2(context::Context* c,  QuantifiersEngine* qe):
-  d_mods(c), d_data(0){
+  d_data(c->getLevel()), d_mods(c){
   d_eQ = qe->getEqualityQuery();
   d_eE = ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine();
 };
 
 /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
 template<bool modEq>
-void InstMatchTrie2<modEq>::addSubTree( Tree * root, mapIter current, mapIter end ) {
-  if( current != end ){
-    Assert(!current->second.isNull());
-    Tree * & root2 = root->e[current->second];
-    if(root2 == NULL) root2 = new Tree(root->level + 1);
-    addSubTree(root2, ++current, end );
-  }
+void InstMatchTrie2<modEq>::addSubTree( Tree * root, mapIter current, mapIter end, size_t currLevel ) {
+  if( current == end ) return;
+
+  Assert(root->e.find(current->second) == root->e.end());
+  Tree * root2 = new Tree(currLevel);
+  root->e.insert(make_pair(current->second, root2));
+  addSubTree(root2, ++current, end, currLevel );
 }
 
 /** exists match */
@@ -55,8 +55,8 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
                                             Tree * & e, mapIter & diverge) const{
   if( current == end ) return true; //Already their
 
-  if (current->second > diverge->second){
-    // this point is the deepest point currently seen
+  if (current->first > diverge->first){
+    // this point is the deepest point currently seen map are ordered
     e = root;
     diverge = current;
   };
@@ -67,6 +67,8 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
   if( it!=root->e.end() &&
       existsInstMatch( (*it).second, ++current, end, e, diverge) )
     return true;
+
+  Assert( it==root->e.end() || e != root );
 
   // Even if n is in the trie others of the equivalence class
   // can also be in it since the equality can have appeared
@@ -83,10 +85,12 @@ bool InstMatchTrie2<modEq>::existsInstMatch(InstMatchTrie2<modEq>::Tree * root,
       if( itc!=root->e.end() &&
           existsInstMatch( (*itc).second, ++current, end, e, diverge) )
         return true;
+      Assert( itc==root->e.end() || e != root );
     }
   }
   return false;
 }
+
 template<bool modEq>
 bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
  mapIter begin = m.d_map.begin();
@@ -96,8 +100,11 @@ bool InstMatchTrie2<modEq>::addInstMatch( InstMatch& m ) {
  if( !existsInstMatch(e, begin, end, e, diverge ) ){
    //std::cout << "~Exists, add." << std::endl;
    Assert(!diverge->second.isNull());
-   addSubTree( e, diverge, end );
-   d_mods.push_back(make_pair(e,diverge->second));
+   size_t currLevel = d_mods.getContext()->getLevel();
+   addSubTree( e, diverge, end, currLevel );
+   if(e->level != currLevel)
+     //If same level that e, will be removed at the same time than e
+     d_mods.push_back(make_pair(e,diverge->second));
    return true;
  }else{
    //std::cout << "Exists, fail." << std::endl;

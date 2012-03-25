@@ -181,7 +181,7 @@ private:
   public:
     typedef std::hash_map< Node, Tree *, NodeHashFunction > MLevel;
     MLevel e;
-    const size_t level;
+    const size_t level; //context level of creation
     Tree() CVC4_UNDEFINED;
     const Tree & operator =(const Tree & t) CVC4_UNDEFINED;
     Tree(size_t l): level(l) {};
@@ -198,11 +198,8 @@ private:
   public:
     inline static void cleanup(Mod * m,std::allocator<Mod> & alloc){
       typename Tree::MLevel::iterator i = m->first->e.find(m->second);
-      if(i != m->first->e.end()) //should not have been already removed
-        m->first->e.erase(i);
-      else std::cout << "Error: already removed node in trie "
-                     << m << " , " << m->first
-                     << " , " << m->second << std::endl;
+      Assert (i != m->first->e.end()); //should not have been already removed
+      m->first->e.erase(i);
       alloc.destroy(m);
     };
   };
@@ -219,7 +216,7 @@ private:
   typedef std::map<Node, Node>::const_iterator mapIter;
 
   /** add the substitution given by the iterator*/
-  void addSubTree( Tree * root, mapIter current, mapIter end);
+  void addSubTree( Tree * root, mapIter current, mapIter end, size_t currLevel);
   /** test if it exists match, modulo uf-equations if modEq is true if
    *  return false the deepest point of divergence is put in [e] and
    *  [diverge].
