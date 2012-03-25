@@ -139,7 +139,7 @@ TheoryRewriteRules::TheoryRewriteRules(context::Context* c,
 void TheoryRewriteRules::addMatchRuleTrigger(const RewriteRule * r,
                                              InstMatch & im,
                                              bool delay){
-  if(rewrite_before_cache) im.applyRewrite();
+  if(rewrite_instantiation) im.applyRewrite();
   if(!cache_match || !r->inCache(*this,im)){
     std::vector<Node> subst;
     im.computeTermVec(getQuantifiersEngine(), r->inst_vars , subst);

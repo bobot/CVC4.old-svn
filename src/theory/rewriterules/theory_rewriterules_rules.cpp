@@ -167,8 +167,6 @@ void TheoryRewriteRules::addRewriteRule(const Node r)
   };
   /* Add the other triggers */
   if( r[2].getNumChildren() >= 3 )
-  if (!disableAdditionnalTrigger ||
-      (pattern.size() == 0 && r[2][2].getNumChildren() == 1) )
     for(Node::iterator i = r[2][2].begin(); i != r[2][2].end(); ++i) {
       // todo test during typing that its a good term (no not, atom, or term...)
       addPattern(*this,(*i)[0],pattern,vars,inst_constants,r);
