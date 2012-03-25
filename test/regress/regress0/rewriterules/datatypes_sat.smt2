@@ -1,6 +1,6 @@
 ;; try to solve datatypes with rewriterules
 (set-logic LIA)
-(set-info :status unsat)
+(set-info :status sat)
 
 ;; lists 2 nil
 (declare-sort elt 0) ;; we suppose that elt is infinite
@@ -94,7 +94,7 @@
 (declare-fun l2 () list)
 
 
-(assert (not (=> (iscons l1) (=> (= (proj2 l1) (proj2 l2)) (= l1 (cons (proj1 l1) (proj2 l2)))))))
+(assert (not (=> (iscons l1) (=> (= (proj2 l1) (proj2 l2)) (= l1 (cons (proj1 l2) (proj2 l2)))))))
 
 (check-sat)
 
