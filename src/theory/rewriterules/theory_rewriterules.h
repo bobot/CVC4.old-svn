@@ -70,7 +70,7 @@ typedef expr::Attribute<RewrittenNodeAttributeId,
                                     // trigger for that.
 
     //context dependent
-    typedef InstMatchTrie2<false> CacheNode;
+    typedef InstMatchTrie2<true> CacheNode;
     mutable CacheNode d_cache;
 
     RewriteRule(TheoryRewriteRules & re,
