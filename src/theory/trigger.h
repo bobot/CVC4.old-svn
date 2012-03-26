@@ -117,7 +117,18 @@ public:
   static Trigger* mkTrigger( QuantifiersEngine* qe, Node f, Node n, 
                              int matchOption = 0, bool keepAll = true, int trOption = TR_MAKE_NEW ); 
 private:  
+  /** is subterm of trigger usable */
   static bool isUsable( Node n, Node f );
+  /** collect all APPLY_UF pattern terms for f in n */
+  static bool collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt );
+public:
+  //different strategies for choosing trigger terms
+  enum {
+    TS_MAX_TRIGGER = 0,
+    TS_MIN_TRIGGER,
+    TS_ALL,
+  };
+  static void collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst = false );
 public:
   /** is usable trigger */
   static bool isUsableTrigger( std::vector< Node >& nodes, Node f );

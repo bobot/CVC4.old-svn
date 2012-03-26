@@ -222,8 +222,10 @@ private:
   std::vector< Node > d_lemmas_waiting;
   /** inst matches produced for each quantifier */
   std::map< Node, InstMatchTrie > d_inst_match_trie;
-  /** phase requirements for instantiation literals */
-  std::map< Node, bool > d_phase_reqs;
+  /** phase requirements for each quantifier for each instantiation literal */
+  std::map< Node, std::map< Node, bool > > d_phase_reqs;
+  std::map< Node, std::map< Node, Node > > d_phase_reqs_equality;
+  std::map< Node, std::map< Node, Node > > d_phase_reqs_disequality;
   /** free variable for instantiation constant type */
   std::map< TypeNode, Node > d_free_vars;
   /** owner of quantifiers */
@@ -311,9 +313,11 @@ public:
   /** get active */
   bool getActive( Node n ) { return d_active.find( n )!=d_active.end() && d_active[n]; }
   /** is phase required */
-  bool isPhaseReq( Node lit ) { return d_phase_reqs.find( lit )!=d_phase_reqs.end(); }
+  bool isPhaseReq( Node f, Node lit ) { return d_phase_reqs[f].find( lit )!=d_phase_reqs[f].end(); }
   /** get phase requirement */
-  bool getPhaseReq( Node lit ) { return d_phase_reqs.find( lit )==d_phase_reqs.end() ? false : d_phase_reqs[ lit ]; }
+  bool getPhaseReq( Node f, Node lit ) { return d_phase_reqs[f].find( lit )==d_phase_reqs[f].end() ? false : d_phase_reqs[f][ lit ]; }
+  /** get term req terms */
+  void getPhaseReqTerms( Node f, std::vector< Node >& nodes );
 public:
   /** returns node n with bound vars of f replaced by instantiation constants of f
       node n : is the futur pattern
@@ -360,6 +364,7 @@ public:
   public:
     IntStat d_num_quant;
     IntStat d_instantiation_rounds;
+    IntStat d_instantiation_rounds_lc;
     IntStat d_instantiations;
     IntStat d_max_instantiation_level;
     IntStat d_splits;
@@ -371,6 +376,7 @@ public:
     IntStat d_lit_phase_nreq;
     IntStat d_triggers;
     IntStat d_multi_triggers;
+    IntStat d_multi_trigger_instantiations;
     Statistics();
     ~Statistics();
   };

@@ -59,7 +59,7 @@ int InstantiatorTheoryQuantifiers::process( Node f, Theory::Effort effort, int e
 }
 
 InstantiatorTheoryQuantifiers::Statistics::Statistics():
-  d_instantiations("InstantiatorTheoryQuantifiers::Total Instantiations", 0)
+  d_instantiations("InstantiatorTheoryQuantifiers::Instantiations_Total", 0)
 {
   StatisticsRegistry::registerStat(&d_instantiations);
 }

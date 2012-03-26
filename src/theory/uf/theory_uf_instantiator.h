@@ -56,23 +56,6 @@ public:
   std::string identify() const { return std::string("CheckCESolved"); }
 };
 
-class InstStrategyLitMatch : public InstStrategy{
-private:
-  /** InstantiatorTheoryUf class */
-  InstantiatorTheoryUf* d_th;
-  /** triggers for literal matching */
-  std::map< Node, Trigger* > d_lit_match_triggers;
-  /** process functions */
-  void processResetInstantiationRound( Theory::Effort effort );
-  int process( Node f, Theory::Effort effort, int e, int instLimit );
-public:
-  InstStrategyLitMatch( InstantiatorTheoryUf* th, QuantifiersEngine* ie ) : 
-      InstStrategy( ie ), d_th( th ){}
-  ~InstStrategyLitMatch(){}
-  /** identify */
-  std::string identify() const { return std::string("LitMatch"); }
-};
-
 class InstStrategyUserPatterns : public InstStrategy{
 private:
   /** InstantiatorTheoryUf class */
@@ -98,17 +81,6 @@ public:
 };
 
 class InstStrategyAutoGenTriggers : public InstStrategy{
-private:
-  /** collect all APPLY_UF pattern terms for f in n */
-  static bool collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt );
-public:
-  //different strategies for choosing triggers
-  enum {
-    TS_MAX_TRIGGER = 0,
-    TS_MIN_TRIGGER,
-    TS_ALL,
-  };
-  static bool collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst = false );
 public:
   enum {
     RELEVANCE_NONE,
@@ -276,7 +248,6 @@ public:
     IntStat d_instantiations_guess;
     IntStat d_instantiations_auto_gen;
     IntStat d_instantiations_auto_gen_min;
-    IntStat d_instantiations_auto_gen_relevant;
     IntStat d_splits;
     Statistics();
     ~Statistics();

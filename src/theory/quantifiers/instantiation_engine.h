@@ -49,7 +49,8 @@ private:
   /** register literals of n, f is the quantifier it belongs to */
   void registerLiterals( Node n, Node f );
   /** compute phase requirements */
-  void computePhaseReqs( Node n, bool polarity );
+  void computePhaseReqs2( Node n, bool polarity, std::map< Node, int >& phaseReqs );
+  void computePhaseReqs( Node n, Node f, bool polarity );
 private:
   enum{
     SAT_CBQI,

@@ -256,6 +256,17 @@ struct CVC4_PUBLIC Options {
    */
   bool efficientEMatching;
 
+  /** Enumeration of literal matching modes. */
+  typedef enum {
+    /** Do not consider polarity of patterns */
+    LITERAL_MATCH_NONE,
+    /** Consider polarity of boolean predicates only */
+    LITERAL_MATCH_PREDICATE,
+  } LiteralMatchMode;
+
+  /** When/whether to perform nonclausal simplifications. */
+  LiteralMatchMode literalMatchMode;
+
   /**
    * Whether to do counterexample-based quantifier instantiation
    */

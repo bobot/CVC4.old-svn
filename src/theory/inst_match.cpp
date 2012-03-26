@@ -259,7 +259,7 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       d_match_pattern = d_match_pattern[0];
     }
   }
-  int childMatchPolicy = d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ? MATCH_GEN_DEFAULT : d_matchPolicy;
+  int childMatchPolicy = MATCH_GEN_DEFAULT;
   for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
     if( d_match_pattern[i].hasAttribute(InstConstantAttribute()) ){
       if( d_match_pattern[i].getKind()!=INST_CONSTANT ){
@@ -268,11 +268,26 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       }
     }
   }
-  //if lit match, reform boolean predicate as an equality
-  if( d_matchPolicy==MATCH_GEN_LIT_MATCH && d_match_pattern.getKind()==APPLY_UF ){
-    bool pol = pat.getKind()!=NOT;
-    d_pattern = NodeManager::currentNM()->mkNode( IFF, d_match_pattern, NodeManager::currentNM()->mkConst<bool>(pol) );
-  }
+  ////if lit match, reform boolean predicate as an iff
+  //if( d_matchPolicy==MATCH_GEN_LIT_MATCH && d_match_pattern.getKind()==APPLY_UF &&
+  //    d_match_pattern.getType()==NodeManager::currentNM()->booleanType() ){
+  //  bool rewritePattern = false;
+  //  Node pat2 = d_pattern.getKind()==NOT ? d_pattern[0] : d_pattern;
+  //  bool pol = d_pattern.getKind()!=NOT;
+  //  if( pat2==d_match_pattern ){
+  //    rewritePattern = true;
+  //  }else if( pat2.getKind()==IFF ){
+  //    if( pat2[1]==NodeManager::currentNM()->mkConst<bool>(true) ){
+  //      rewritePattern = true;
+  //    }else if( pat2[1]==NodeManager::currentNM()->mkConst<bool>(false) ){
+  //      rewritePattern = true;
+  //      pol = !pol;
+  //    }
+  //  }
+  //  if( rewritePattern ){
+  //    d_pattern = NodeManager::currentNM()->mkNode( IFF, d_match_pattern, NodeManager::currentNM()->mkConst<bool>(pol) );
+  //  }
+  //}
 
   Debug("inst-match-gen") << "Pattern is " << d_pattern << ", match pattern is " << d_match_pattern << std::endl;
 
@@ -281,22 +296,32 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
   uf::InstantiatorTheoryUf* ith = (uf::InstantiatorTheoryUf*)th_uf->getInstantiator();
   //create candidate generator
   if( d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF ){
-    Assert( d_matchPolicy==MATCH_GEN_LIT_MATCH );
+    Assert( d_matchPolicy==MATCH_GEN_DEFAULT );
     //we will be producing candidates via literal matching heuristics
     d_cg = new uf::CandidateGeneratorTheoryUfEq( ith, d_pattern, d_match_pattern );
-  }else if( d_pattern.getKind()==NOT ){
+  }else if( d_pattern.getKind()==EQUAL || d_pattern.getKind()==IFF || d_pattern.getKind()==NOT ){
+    Assert( d_matchPolicy==MATCH_GEN_DEFAULT );
     Node op = d_match_pattern.getKind()==APPLY_UF ? d_match_pattern.getOperator() : Node::null();
-    Assert( d_matchPolicy==MATCH_GEN_LIT_MATCH );
-    d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
+    if( d_pattern.getKind()==NOT ){
+      std::cout << "Disequal generator unimplemented" << std::endl;
+      exit( 34 );
+      //we are matching for a term, but want to be disequal from a particular equivalence class
+      d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
+    }else{
+      //we are matching only in a particular equivalence class
+      d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
+    }
+    //store the equivalence class that we will call d_cg->reset( ... ) on
     d_eq_class = d_pattern.getKind()==NOT ? d_pattern[0][1] : d_pattern[1];
   }else if( d_match_pattern.getKind()==APPLY_UF ){
-    Node op = d_match_pattern.getOperator();
     if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){
+      //we will manually add candidates to queue
       d_cg = new CandidateGeneratorQueue;
-      ith->registerCandidateGenerator( d_cg, pat );
+      //register this candidate generator
+      ith->registerCandidateGenerator( d_cg, d_match_pattern );
     }else{
       //we will be scanning lists trying to find d_match_pattern.getOperator()
-      d_cg = new uf::CandidateGeneratorTheoryUf( ith, op );
+      d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
     }
   }else{
     d_cg = new CandidateGeneratorQueue;
@@ -507,9 +532,12 @@ void InstMatchGenerator::resetInstantiationRound( QuantifiersEngine* qe ){
 
 void InstMatchGenerator::reset( Node eqc, QuantifiersEngine* qe ){
   if( d_match_pattern.isNull() ){
+    //std::cout << "Reset ";
     for( int i=0; i<(int)d_children.size(); i++ ){
       d_children[i]->reset( eqc, qe );
+      //std::cout << d_children[i]->d_match_pattern.getOperator() << ":" << qe->getTermDatabase()->d_op_map[ d_children[i]->d_match_pattern.getOperator() ].size() << " ";
     }
+    //std::cout << std::endl;
     d_partial.clear();
   }else{
     if( !d_eq_class.isNull() ){

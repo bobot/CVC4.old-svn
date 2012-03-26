@@ -270,6 +270,7 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
   nb << f.notNode() << body;
   Node lem = nb;
   if( addLemma( lem ) ){
+    //std::cout << "     Added lemma : " << body << std::endl;
     //std::cout << "***& Instantiate " << f << " with " << std::endl;
     //for( int i=0; i<(int)terms.size(); i++ ){
     //  std::cout << "   " << terms[i] << std::endl;
@@ -399,6 +400,38 @@ Node QuantifiersEngine::getSkolemizedBody( Node f ){
   return d_skolem_body[ f ];
 }
 
+void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
+  if( Options::current()->literalMatchMode!=Options::LITERAL_MATCH_NONE ){
+    bool printed = false;
+    // doing literal-based matching (consider polarity of literals)
+    for( int i=0; i<(int)nodes.size(); i++ ){
+      Node prev = nodes[i];
+      bool nodeChanged = false;
+      if( isPhaseReq( f, nodes[i] ) ){
+        bool preq = getPhaseReq( f, nodes[i] );
+        nodes[i] = NodeManager::currentNM()->mkNode( IFF, nodes[i], NodeManager::currentNM()->mkConst<bool>(preq) );
+        nodeChanged = true;
+      }
+      //else if( qe->isPhaseReqEquality( f, trNodes[i] ) ){
+      //  Node req = qe->getPhaseReqEquality( f, trNodes[i] );
+      //  trNodes[i] = NodeManager::currentNM()->mkNode( EQUAL, trNodes[i], req );
+      //}
+      if( nodeChanged ){
+        if( !printed ){
+          Debug("literal-matching") << "LitMatch for " << f << ":" << std::endl;
+          printed = true;
+        }
+        Debug("literal-matching") << "  Make " << prev << " -> " << nodes[i] << std::endl;
+        ++(d_statistics.d_lit_phase_req);
+      }else{
+        ++(d_statistics.d_lit_phase_nreq);
+      }
+    } 
+  }else{
+    d_statistics.d_lit_phase_nreq += (int)nodes.size();
+  }
+}
+
 Node QuantifiersEngine::getSubstitutedNode( Node n, Node f ){
   return convertNodeToPattern(n,f,d_vars[f],d_inst_constants[ f ]);
 }
@@ -447,21 +480,24 @@ void QuantifiersEngine::setInstantiationConstantAttr( Node n, Node f ){
 
 QuantifiersEngine::Statistics::Statistics():
   d_num_quant("QuantifiersEngine::Num_Quantifiers", 0),
-  d_instantiation_rounds("QuantifiersEngine::Instantiation_Rounds", 0),
-  d_instantiations("QuantifiersEngine::Total_Instantiations", 0),
+  d_instantiation_rounds("QuantifiersEngine::Rounds_Instantiation_Full", 0),
+  d_instantiation_rounds_lc("QuantifiersEngine::Rounds_Instanatiation_Last_Call", 0),
+  d_instantiations("QuantifiersEngine::Instantiations_Total", 0),
   d_max_instantiation_level("QuantifiersEngine::Max_Instantiation_Level", 0),
   d_splits("QuantifiersEngine::Total_Splits", 0),
-  d_total_inst_var("QuantifiersEngine::Inst_Vars", 0),
-  d_total_inst_var_unspec("QuantifiersEngine::Inst_Vars_Unspecified", 0),
-  d_inst_unspec("QuantifiersEngine::Inst_Unspecified", 0),
-  d_inst_duplicate("QuantifiersEngine::Inst_Duplicate", 0),
+  d_total_inst_var("QuantifiersEngine::Vars_Inst", 0),
+  d_total_inst_var_unspec("QuantifiersEngine::Vars_Inst_Unspecified", 0),
+  d_inst_unspec("QuantifiersEngine::Unspecified_Inst", 0),
+  d_inst_duplicate("QuantifiersEngine::Duplicate_Inst", 0),
   d_lit_phase_req("QuantifiersEngine::lit_phase_req", 0),
   d_lit_phase_nreq("QuantifiersEngine::lit_phase_nreq", 0),
   d_triggers("QuantifiersEngine::Triggers", 0),
-  d_multi_triggers("QuantifiersEngine::Triggers_Multi", 0)
+  d_multi_triggers("QuantifiersEngine::Triggers_Multi", 0),
+  d_multi_trigger_instantiations("QuantifiersEngine::Multi_Trigger_Instantiations", 0)
 {
   StatisticsRegistry::registerStat(&d_num_quant);
   StatisticsRegistry::registerStat(&d_instantiation_rounds);
+  StatisticsRegistry::registerStat(&d_instantiation_rounds_lc);
   StatisticsRegistry::registerStat(&d_instantiations);
   StatisticsRegistry::registerStat(&d_max_instantiation_level);
   StatisticsRegistry::registerStat(&d_splits);
@@ -473,11 +509,13 @@ QuantifiersEngine::Statistics::Statistics():
   StatisticsRegistry::registerStat(&d_lit_phase_nreq);
   StatisticsRegistry::registerStat(&d_triggers);
   StatisticsRegistry::registerStat(&d_multi_triggers);
+  StatisticsRegistry::registerStat(&d_multi_trigger_instantiations);
 }
 
 QuantifiersEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_num_quant);
   StatisticsRegistry::unregisterStat(&d_instantiation_rounds);
+  StatisticsRegistry::unregisterStat(&d_instantiation_rounds_lc);
   StatisticsRegistry::unregisterStat(&d_instantiations);
   StatisticsRegistry::unregisterStat(&d_max_instantiation_level);
   StatisticsRegistry::unregisterStat(&d_splits);
@@ -489,6 +527,7 @@ QuantifiersEngine::Statistics::~Statistics(){
   StatisticsRegistry::unregisterStat(&d_lit_phase_nreq);
   StatisticsRegistry::unregisterStat(&d_triggers);
   StatisticsRegistry::unregisterStat(&d_multi_triggers);
+  StatisticsRegistry::unregisterStat(&d_multi_trigger_instantiations);
 }
 
 Node QuantifiersEngine::getFreeVariableForInstConstant( Node n ){

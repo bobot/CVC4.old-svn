@@ -214,6 +214,7 @@ Trigger* Trigger::mkTrigger( QuantifiersEngine* qe, Node f, std::vector< Node >&
   }else{
     trNodes.insert( trNodes.begin(), nodes.begin(), nodes.end() );
   }
+
   //check for duplicate?
   if( trOption==TR_MAKE_NEW ){
     //static int trNew = 0;
@@ -302,6 +303,94 @@ void Trigger::filterInstances( std::vector< Node >& nodes ){
   }
   nodes.clear();
   nodes.insert( nodes.begin(), temp.begin(), temp.end() );
+}
+
+
+bool Trigger::collectPatTerms2( Node f, Node n, std::map< Node, bool >& patMap, int tstrt ){
+  if( patMap.find( n )==patMap.end() ){
+    patMap[ n ] = false;
+    if( tstrt==TS_MIN_TRIGGER ){
+      if( n.getKind()!=FORALL ){
+        bool retVal = false;
+        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+          if( collectPatTerms2( f, n[i], patMap, tstrt ) ){
+            retVal = true;
+          }
+        }
+        if( retVal ){
+          return true;
+        }else if( isUsableTrigger( n, f ) ){
+          patMap[ n ] = true;
+          return true;
+        }else{
+          return false;
+        }
+      }else{
+        return false;
+      }
+    }else{
+      bool retVal = false;
+      if( isUsableTrigger( n, f ) ){
+        patMap[ n ] = true;
+        if( tstrt==TS_MAX_TRIGGER ){
+          return true;
+        }else{
+          retVal = true;
+        }
+      }
+      if( n.getKind()!=FORALL ){
+        for( int i=0; i<(int)n.getNumChildren(); i++ ){
+          if( collectPatTerms2( f, n[i], patMap, tstrt ) ){
+            retVal = true;
+          }
+        }
+      }
+      return retVal;
+    }
+  }else{
+    return patMap[ n ];
+  }
+}
+
+void Trigger::collectPatTerms( Node f, Node n, std::vector< Node >& patTerms, int tstrt, bool filterInst ){
+  std::map< Node, bool > patMap;
+  if( filterInst ){
+    //immediately do not consider any term t for which another term is an instance of t
+    std::vector< Node > patTerms2;
+    collectPatTerms( f, n, patTerms2, TS_ALL, false );
+    std::vector< Node > temp;
+    temp.insert( temp.begin(), patTerms2.begin(), patTerms2.end() );
+    filterInstances( temp );
+    if( temp.size()!=patTerms2.size() ){
+      Debug("trigger-filter-instance") << "Filtered an instance: " << std::endl;
+      Debug("trigger-filter-instance") << "Old: ";
+      for( int i=0; i<(int)patTerms2.size(); i++ ){
+        Debug("trigger-filter-instance") << patTerms2[i] << " ";
+      }
+      Debug("trigger-filter-instance") << std::endl << "New: ";
+      for( int i=0; i<(int)temp.size(); i++ ){
+        Debug("trigger-filter-instance") << temp[i] << " ";
+      }
+      Debug("trigger-filter-instance") << std::endl;
+    }
+    if( tstrt==TS_ALL ){
+      patTerms.insert( patTerms.begin(), temp.begin(), temp.end() );
+      return;
+    }else{
+      //do not consider terms that have instances
+      for( int i=0; i<(int)patTerms2.size(); i++ ){
+        if( std::find( temp.begin(), temp.end(), patTerms2[i] )==temp.end() ){
+          patMap[ patTerms2[i] ] = false;
+        }
+      }
+    }
+  }
+  collectPatTerms2( f, n, patMap, tstrt );
+  for( std::map< Node, bool >::iterator it = patMap.begin(); it != patMap.end(); ++it ){
+    if( it->second ){
+      patTerms.push_back( it->first );
+    }
+  }
 }
 
 /** is n1 an instance of n2 or vice versa? */

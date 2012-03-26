@@ -112,6 +112,7 @@ Options::Options() :
   miniscopeQuantFreeVar(true),
   finiteModelFind(false),
   efficientEMatching(false),
+  literalMatchMode(LITERAL_MATCH_NONE),
   cbqi(false),
   cbqiSetByUser(false),
   dioSolver(true),
@@ -190,6 +191,7 @@ Additional CVC4 options:\n\
    --disable-miniscope-quant-fv  disable miniscope quantifiers for ground subformulas\n\
    --finite-model-find    use finite model finding heuristic for quantifier instantiation\n\
    --efficient-e-matching use efficient E-matching\n\
+   --literal-matching=MODE  choose literal matching mode\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [on by default only for arithmetic]\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
@@ -371,6 +373,7 @@ enum OptionValue {
   DISABLE_MINISCOPE_QUANT_FV,
   FINITE_MODEL_FIND,
   EFFICIENT_E_MATCHING,
+  LITERAL_MATCHING,
   ENABLE_CBQI,
   DISABLE_CBQI,
   PARALLEL_THREADS,
@@ -465,6 +468,7 @@ static struct option cmdlineOptions[] = {
   { "disable-miniscope-quant-fv", no_argument, NULL, DISABLE_MINISCOPE_QUANT_FV },
   { "finite-model-find", no_argument, NULL, FINITE_MODEL_FIND },
   { "efficient-e-matching", no_argument, NULL, EFFICIENT_E_MATCHING },
+  { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
   { "disable-cbqi", no_argument, NULL, DISABLE_CBQI },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
@@ -835,6 +839,19 @@ throw(OptionException) {
       break;
     case EFFICIENT_E_MATCHING:
       efficientEMatching = true;
+      break;
+    case LITERAL_MATCHING:
+      if(!strcmp(optarg, "none")) {
+        literalMatchMode = LITERAL_MATCH_NONE;
+      } else if(!strcmp(optarg, "predicate")) {
+        literalMatchMode = LITERAL_MATCH_PREDICATE;
+      } else if(!strcmp(optarg, "help")) {
+        //puts(literalMatchHelp.c_str());
+        exit(1);
+      } else {
+        throw OptionException(string("unknown option for --literal-matching: `") +
+                              optarg + "'.  Try --literal-matching help.");
+      }
       break;
     case ENABLE_CBQI:
       cbqi = true;

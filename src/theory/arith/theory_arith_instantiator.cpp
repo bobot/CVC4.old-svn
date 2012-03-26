@@ -409,7 +409,7 @@ Node InstantiatorTheoryArith::getDelta( Node n ){
 }
 
 InstantiatorTheoryArith::Statistics::Statistics():
-  d_instantiations("InstantiatorTheoryArith::Total_Instantiations", 0),
+  d_instantiations("InstantiatorTheoryArith::Instantiations_Total", 0),
   d_instantiations_minus("InstantiatorTheoryArith::Instantiations_minus_delta", 0),
   d_instantiations_match_pure("InstantiatorTheoryArith::Instantiations_via_pure_matching", 0),
   d_instantiations_match_var("InstantiatorTheoryArith::Instantiations_via_matching_var", 0),

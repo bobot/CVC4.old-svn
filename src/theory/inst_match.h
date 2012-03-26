@@ -274,7 +274,6 @@ public:
   enum {
     MATCH_GEN_DEFAULT = 0,     
     MATCH_GEN_EFFICIENT_E_MATCH,   //generate matches via Efficient E-matching for SMT solvers
-    MATCH_GEN_LIT_MATCH,           //generate matches via literal-level matching
   };
 private:
   /** for arithmetic matching */

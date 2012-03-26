@@ -44,19 +44,21 @@ void InstantiatorTheoryDatatypes::processResetInstantiationRound( Theory::Effort
 
 int InstantiatorTheoryDatatypes::process( Node f, Theory::Effort effort, int e, int limitInst ){
   Debug("quant-datatypes") << "Datatypes: Try to solve (" << e << ") for " << f << "... " << std::endl;
-  if( e<2 ){
-    return InstStrategy::STATUS_UNFINISHED;
-  }else if( e==2 ){
-    InstMatch m;
-    for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
-      Node i = d_quantEngine->getInstantiationConstant( f, j );
-      if( i.getType().isDatatype() ){
-        Node n = getValueFor( i );
-        Debug("quant-datatypes-debug") << "Value for " << i << " is " << n << std::endl;
-        m.d_map[ i ] = n;
+  if( Options::current()->cbqi ){
+    if( e<2 ){
+      return InstStrategy::STATUS_UNFINISHED;
+    }else if( e==2 ){
+      InstMatch m;
+      for( int j = 0; j<(int)d_quantEngine->getNumInstantiationConstants( f ); j++ ){
+        Node i = d_quantEngine->getInstantiationConstant( f, j );
+        if( i.getType().isDatatype() ){
+          Node n = getValueFor( i );
+          Debug("quant-datatypes-debug") << "Value for " << i << " is " << n << std::endl;
+          m.d_map[ i ] = n;
+        }
       }
+      d_quantEngine->addInstantiation( f, m );
     }
-    d_quantEngine->addInstantiation( f, m );
   }
   return InstStrategy::STATUS_UNKNOWN;
 }
@@ -140,7 +142,7 @@ Node InstantiatorTheoryDatatypes::getRepresentative( Node n ){
 }
 
 InstantiatorTheoryDatatypes::Statistics::Statistics():
-  d_instantiations("InstantiatorTheoryDatatypes::Total Instantiations", 0)
+  d_instantiations("InstantiatorTheoryDatatypes::Instantiations_Total", 0)
 {
   StatisticsRegistry::registerStat(&d_instantiations);
 }
