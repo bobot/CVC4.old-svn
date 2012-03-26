@@ -5,13 +5,13 @@ TESTS_ENVIRONMENT = @srcdir@/../../run_regression @top_builddir@/src/main/cvc4
 # put it below in "TESTS +="
 TESTS =	\
 	bug269.smt2 \
-	ex3.smt2 \
-	array-unsat-simp3.smt2
+	ex3.smt2
 
 # removed becacuse they take more than 20s
 #		ex1.smt2 \
 #		ex6.smt2 \
 #	        ex7.smt2 \
+#		array-unsat-simp3.smt2are
 #
 
 EXTRA_DIST = $(TESTS)
