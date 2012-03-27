@@ -159,8 +159,7 @@ Node RewriteRule<FlattenAssocCommut>::apply(Node node) {
       children.push_back(current); 
     }
   }
-  std::sort(children.begin(), children.end()); 
-  return utils::mkNode(kind, children); 
+  return utils::mkSortedNode(kind, children); 
 }
 
 static inline void addToCoefMap(std::map<Node, BitVector>& map,
@@ -235,10 +234,9 @@ Node RewriteRule<PlusCombineLikeTerms>::apply(Node node) {
     }
   }
     
-  NodeBuilder<> sum(kind::BITVECTOR_PLUS);
-  
+  std::vector<Node> children; 
   if ( constSum!= BitVector(size, (unsigned)0)) {
-    sum << utils::mkConst(constSum); 
+    children.push_back(utils::mkConst(constSum)); 
   }
 
   // construct result 
@@ -251,28 +249,24 @@ Node RewriteRule<PlusCombineLikeTerms>::apply(Node node) {
       continue;
     }
     else if (bv_coeff == BitVector(size, (unsigned)1)) {
-      sum << term; 
+      children.push_back(term); 
     }
     else if (bv_coeff == -BitVector(size, (unsigned)1)) {
       // avoid introducing an extra multiplication
-      sum << utils::mkNode(kind::BITVECTOR_NEG, term); 
+      children.push_back(utils::mkNode(kind::BITVECTOR_NEG, term)); 
     }
     else {
       Node coeff = utils::mkConst(bv_coeff);
-      Node product = utils::mkNode(kind::BITVECTOR_MULT, coeff, term); 
-      sum << product; 
+      Node product = utils::mkSortedNode(kind::BITVECTOR_MULT, coeff, term); 
+      children.push_back(product); 
     }
   }
 
-  if(sum.getNumChildren() == 0) {
+  if(children.size() == 0) {
     return utils::mkConst(size, (unsigned)0); 
   }
   
-  if(sum.getNumChildren() == 1) {
-    return sum[0];
-  }
-  
-  return sum;
+  return utils::mkSortedNode(kind::BITVECTOR_PLUS, children);
 }
 
 
@@ -301,20 +295,17 @@ Node RewriteRule<MultSimplify>::apply(Node node) {
     }
   }
 
-  std::sort(children.begin(), children.end()); 
+
   if(constant != BitVector(size, (unsigned)1)) {
     children.push_back(utils::mkConst(constant)); 
   }
 
+  
   if(children.size() == 0) {
     return utils::mkConst(size, (unsigned)1); 
   }
 
-  if(children.size() == 1) {
-    return children[0];
-  }
-  
-  return utils::mkNode(kind::BITVECTOR_MULT, children); 
+  return utils::mkSortedNode(kind::BITVECTOR_MULT, children); 
 }
 
 template<>
@@ -354,14 +345,14 @@ Node RewriteRule<MultDistribConst>::apply(Node node) {
   if (factor.getKind() == kind::BITVECTOR_NEG) {
     // push negation on the constant part
     BitVector const_bv = constant.getConst<BitVector>();
-    return utils::mkNode(kind::BITVECTOR_MULT,
-                         utils::mkConst(-const_bv),
-                         factor[0]); 
+    return utils::mkSortedNode(kind::BITVECTOR_MULT,
+                               utils::mkConst(-const_bv),
+                               factor[0]); 
   }
   
-  return utils::mkNode(factor.getKind(),
-                       utils::mkNode(kind::BITVECTOR_MULT, constant, factor[0]),
-                       utils::mkNode(kind::BITVECTOR_MULT, constant, factor[1])); 
+  return utils::mkSortedNode(factor.getKind(),
+                             utils::mkSortedNode(kind::BITVECTOR_MULT, constant, factor[0]),
+                             utils::mkSortedNode(kind::BITVECTOR_MULT, constant, factor[1])); 
 }
 
 
@@ -371,8 +362,17 @@ Node RewriteRule<MultDistribConst>::apply(Node node) {
  */
 template<>
 bool RewriteRule<NegMult>::applies(Node node) {
-  return (node.getKind() == kind::BITVECTOR_NEG &&
-          node[0].getKind() == kind::BITVECTOR_MULT);
+  if(node.getKind()!= kind::BITVECTOR_NEG ||
+     node[0].getKind() != kind::BITVECTOR_MULT) {
+    return false; 
+  }
+  TNode mult = node[0]; 
+  for (unsigned i = 0; i < mult.getNumChildren(); ++i) {
+    if (mult[i].getKind() == kind::CONST_BITVECTOR) {
+      return true; 
+    }
+  } 
+  return false; 
 }
 
 template<>
@@ -391,7 +391,8 @@ Node RewriteRule<NegMult>::apply(Node node) {
       children.push_back(mult[i]); 
     }
   }
-  return utils::mkNode(kind::BITVECTOR_MULT, children);
+  Assert (has_const); 
+  return utils::mkSortedNode(kind::BITVECTOR_MULT, children);
 }
 
 template<>
@@ -405,6 +406,251 @@ Node RewriteRule<NegSub>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<NegSub>(" << node << ")" << std::endl;
   return utils::mkNode(kind::BITVECTOR_SUB, node[0][1], node[0][0]);
 }
+
+
+struct Count {
+  unsigned pos;
+  unsigned neg;
+  Count() : pos(0), neg(0) {}
+  Count(unsigned p, unsigned n):
+    pos(p),
+    neg(n)
+  {}
+};
+
+inline static void insert(std::hash_map<TNode, Count, TNodeHashFunction>& map, TNode node, bool neg) {
+  if(map.find(node) == map.end()) {
+    Count c = neg? Count(0,1) : Count(1, 0);
+    map[node] = c; 
+  } else {
+    if (neg) {
+      ++(map[node].neg);
+    } else {
+      ++(map[node].pos);
+    }
+  }
+}
+
+template<>
+bool RewriteRule<AndSimplify>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_AND);
+}
+
+template<>
+Node RewriteRule<AndSimplify>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<AndSimplify>(" << node << ")" << std::endl;
+
+  // this will remove duplicates
+  std::hash_map<TNode, Count, TNodeHashFunction> subterms;
+  unsigned size = utils::getSize(node);
+  BitVector constant = utils::mkBitVectorOnes(size); 
+  
+  for (unsigned i = 0; i < node.getNumChildren(); ++i) {
+    TNode current = node[i];
+    // simplify constants
+    if (current.getKind() == kind::CONST_BITVECTOR) {
+      BitVector bv = current.getConst<BitVector>();
+      constant = constant & bv;
+    } else {
+      if (current.getKind() == kind::BITVECTOR_NOT) {
+        insert(subterms, current[0], true);
+      } else {
+        insert(subterms, current, false);
+      }
+    }
+  }
+
+  std::vector<Node> children;
+  
+  if (constant == BitVector(size, (unsigned)0)) {
+    return utils::mkConst(BitVector(size, (unsigned)0)); 
+  }
+
+  if (constant != utils::mkBitVectorOnes(size)) {
+    children.push_back(utils::mkConst(constant)); 
+  }
+  
+  std::hash_map<TNode, Count, TNodeHashFunction>::const_iterator it = subterms.begin();
+
+  for (; it != subterms.end(); ++it) {
+    if (it->second.pos > 0 && it->second.neg > 0) {
+      // if we have a and ~a 
+      return utils::mkConst(BitVector(size, (unsigned)0)); 
+    } else {
+      // idempotence 
+      if (it->second.neg > 0) {
+        // if it only occured negated
+        children.push_back(utils::mkNode(kind::BITVECTOR_NOT, it->first));
+      } else {
+        // if it only occured positive
+        children.push_back(it->first); 
+      }
+    }
+  }
+  if (children.size() == 0) {
+    return utils::mkOnes(size); 
+  }
+  
+  return utils::mkSortedNode(kind::BITVECTOR_AND, children); 
+}
+
+template<>
+bool RewriteRule<OrSimplify>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_OR);
+}
+
+template<>
+Node RewriteRule<OrSimplify>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<OrSimplify>(" << node << ")" << std::endl;
+
+  // this will remove duplicates
+  std::hash_map<TNode, Count, TNodeHashFunction> subterms;
+  unsigned size = utils::getSize(node);
+  BitVector constant(size, (unsigned)0); 
+  
+  for (unsigned i = 0; i < node.getNumChildren(); ++i) {
+    TNode current = node[i];
+    // simplify constants
+    if (current.getKind() == kind::CONST_BITVECTOR) {
+      BitVector bv = current.getConst<BitVector>();
+      constant = constant | bv;
+    } else {
+      if (current.getKind() == kind::BITVECTOR_NOT) {
+        insert(subterms, current[0], true);
+      } else {
+        insert(subterms, current, false);
+      }
+    }
+  }
+
+  std::vector<Node> children;
+  
+  if (constant == utils::mkBitVectorOnes(size)) {
+    return utils::mkOnes(size); 
+  }
+
+  if (constant != BitVector(size, (unsigned)0)) {
+    children.push_back(utils::mkConst(constant)); 
+  }
+  
+  std::hash_map<TNode, Count, TNodeHashFunction>::const_iterator it = subterms.begin();
+
+  for (; it != subterms.end(); ++it) {
+    if (it->second.pos > 0 && it->second.neg > 0) {
+      // if we have a or ~a 
+      return utils::mkOnes(size); 
+    } else {
+      // idempotence 
+      if (it->second.neg > 0) {
+        // if it only occured negated
+        children.push_back(utils::mkNode(kind::BITVECTOR_NOT, it->first));
+      } else {
+        // if it only occured positive
+        children.push_back(it->first); 
+      }
+    }
+  }
+
+  if (children.size() == 0) {
+    return utils::mkConst(BitVector(size, (unsigned)0)); 
+  }
+  return utils::mkSortedNode(kind::BITVECTOR_OR, children); 
+}
+
+template<>
+bool RewriteRule<XorSimplify>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_XOR);
+}
+
+template<>
+Node RewriteRule<XorSimplify>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<XorSimplify>(" << node << ")" << std::endl;
+
+
+  std::hash_map<TNode, Count, TNodeHashFunction> subterms;
+  unsigned size = utils::getSize(node);
+  BitVector constant; 
+  bool const_set = false; 
+
+  for (unsigned i = 0; i < node.getNumChildren(); ++i) {
+    TNode current = node[i];
+    // simplify constants
+    if (current.getKind() == kind::CONST_BITVECTOR) {
+      BitVector bv = current.getConst<BitVector>();
+      if (const_set) {
+        constant = constant ^ bv;
+      } else {
+        const_set = true; 
+        constant = bv;
+      }
+    } else {
+      // collect number of occurances of each term and its negation
+      if (current.getKind() == kind::BITVECTOR_NOT) {
+        insert(subterms, current[0], true);
+      } else {
+        insert(subterms, current, false);
+      }
+    }
+  }
+
+  std::vector<Node> children;
+
+  std::hash_map<TNode, Count, TNodeHashFunction>::const_iterator it = subterms.begin();
+  unsigned true_count = 0;
+  bool seen_false = false; 
+  for (; it != subterms.end(); ++it) {
+    unsigned pos = it->second.pos; // number of positive occurances
+    unsigned neg = it->second.neg; // number of negated occurances 
+
+    // remove duplicates using the following rules
+    // a xor a ==> false
+    // false xor false ==> false
+    seen_false = seen_false? seen_false : (pos > 1 || neg > 1);
+    // check what did not reduce
+    if (pos % 2 && neg % 2) {
+      // we have a xor ~a ==> true
+      ++true_count;
+    } else if (pos % 2) {
+      // we had a positive occurence left
+      children.push_back(it->first); 
+    } else if (neg % 2) {
+      // we had a negative occurence left
+      children.push_back(utils::mkNode(kind::BITVECTOR_NOT, it->first)); 
+    }
+    // otherwise both reduced to false
+  }
+
+  std::vector<BitVector> xorConst;
+  BitVector true_bv = utils::mkBitVectorOnes(size);
+  BitVector false_bv(size, (unsigned)0);
+  
+  if (true_count) {
+    // true xor ... xor true ==> true (odd)
+    //                       ==> false (even) 
+    xorConst.push_back(true_count % 2? true_bv : false_bv); 
+  }
+  if (seen_false) {
+    xorConst.push_back(false_bv); 
+  }
+  if(const_set) {
+    xorConst.push_back(constant); 
+  }
+
+  if (xorConst.size() > 0) {
+    BitVector result = xorConst[0];
+    for (unsigned i = 1; i < xorConst.size(); ++i) {
+      result = result ^ xorConst[i]; 
+    }
+    children.push_back(utils::mkConst(result)); 
+  }
+
+  Assert(children.size());
+  
+  return utils::mkSortedNode(kind::BITVECTOR_XOR, children); 
+}
+
+
+
 
 // template<>
 // bool RewriteRule<AndSimplify>::applies(Node node) {

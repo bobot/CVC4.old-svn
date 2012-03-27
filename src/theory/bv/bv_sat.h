@@ -120,7 +120,8 @@ private:
   
   class Statistics {
   public:
-    IntStat  d_numTermClauses, d_numAtomClauses;
+    IntStat d_numTermClauses, d_numAtomClauses;
+    IntStat d_numTerms, d_numAtoms; 
     TimerStat d_bitblastTimer;
     Statistics();
     ~Statistics(); 

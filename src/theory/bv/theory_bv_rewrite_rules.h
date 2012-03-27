@@ -145,7 +145,10 @@ enum RewriteRuleId {
   FlattenAssocCommut,
   PlusCombineLikeTerms,
   MultSimplify,
-  MultDistribConst
+  MultDistribConst,
+  AndSimplify,
+  OrSimplify,
+  XorSimplify
  };
 
 inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
@@ -252,7 +255,10 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case MultSimplify: out << "MultSimplify"; return out;
   case MultDistribConst: out << "MultDistribConst"; return out;
   case NegMult : out << "NegMult"; return out;
-  case NegSub : out << "NegSub"; return out; 
+  case NegSub : out << "NegSub"; return out;
+  case AndSimplify : out << "AndSimplify"; return out;
+  case OrSimplify : out << "OrSimplify"; return out;
+  case XorSimplify : out << "XorSimplify"; return out; 
   default:
     Unreachable();
   }
@@ -326,8 +332,11 @@ public:
     if (!checkApplies || applies(node)) {
       BVDebug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ")" << std::endl;
       Assert(checkApplies || applies(node));
-      ++ s_statistics->d_ruleApplications;
       Node result = apply(node);
+      // only count rule application if it actually changes something
+      if (result != node) {
+        ++ s_statistics->d_ruleApplications;
+      }
       BVDebug("theory::bv::rewrite") << "RewriteRule<" << rule << ">(" << node << ") => " << result << std::endl;
       return result;
     } else {
@@ -375,6 +384,7 @@ struct AllRewriteRules {
   RewriteRule<EvalNot>              rule29;
   RewriteRule<EvalMult>             rule31;
   RewriteRule<EvalPlus>             rule32;
+  RewriteRule<XorSimplify>          rule33;
   RewriteRule<EvalUdiv>             rule34;
   RewriteRule<EvalUrem>             rule35;
   RewriteRule<EvalShl>              rule36;
@@ -446,6 +456,8 @@ struct AllRewriteRules {
   RewriteRule<PlusCombineLikeTerms> rule105;
   RewriteRule<MultSimplify> rule106;
   RewriteRule<MultDistribConst> rule107;
+  RewriteRule<AndSimplify> rule108;
+  RewriteRule<OrSimplify> rule109; 
 };
 
 template<>

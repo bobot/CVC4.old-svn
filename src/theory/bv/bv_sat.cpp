@@ -82,7 +82,7 @@ void Bitblaster::bbAtom(TNode node) {
   }
 
   BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
-
+  ++d_statistics.d_numAtoms;
   // the bitblasted definition of the atom
   Node atom_bb = d_atomBBStrategies[node.getKind()](node, this);
   // asserting that the atom is true iff the definition holds
@@ -99,7 +99,9 @@ void Bitblaster::bbTerm(TNode node, Bits& bits) {
     getBBTerm(node, bits);
     return;
   }
+
   BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
+  ++d_statistics.d_numTerms;
   d_termBBStrategies[node.getKind()] (node, bits,this);
   
   Assert (bits.size() == utils::getSize(node)); 
@@ -286,11 +288,15 @@ void Bitblaster::getBBTerm(TNode node, Bits& bits) {
 
 Bitblaster::Statistics::Statistics() :
   d_numTermClauses("theory::bv::NumberOfTermSatClauses", 0),
-  d_numAtomClauses("theory::bv::NumberOfAtomSatClauses", 0), 
+  d_numAtomClauses("theory::bv::NumberOfAtomSatClauses", 0),
+  d_numTerms("theory::bv::NumberOfBitblastedTerms", 0),
+  d_numAtoms("theory::bv::NumberOfBitblastedAtoms", 0), 
   d_bitblastTimer("theory::bv::BitblastTimer")
 {
   StatisticsRegistry::registerStat(&d_numTermClauses);
   StatisticsRegistry::registerStat(&d_numAtomClauses);
+  StatisticsRegistry::registerStat(&d_numTerms);
+  StatisticsRegistry::registerStat(&d_numAtoms);
   StatisticsRegistry::registerStat(&d_bitblastTimer);
 }
 
@@ -298,6 +304,8 @@ Bitblaster::Statistics::Statistics() :
 Bitblaster::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_numTermClauses);
   StatisticsRegistry::unregisterStat(&d_numAtomClauses);
+  StatisticsRegistry::unregisterStat(&d_numTerms);
+  StatisticsRegistry::unregisterStat(&d_numAtoms);
   StatisticsRegistry::unregisterStat(&d_bitblastTimer);
 }
 
