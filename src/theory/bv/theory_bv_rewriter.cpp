@@ -49,6 +49,7 @@ void TheoryBVRewriter::shutdown() {
 }
 
 RewriteResponse TheoryBVRewriter::preRewrite(TNode node) {
+  TimerStat::CodeTimer codeTimer(*d_rewriteTimer); 
   RewriteResponse res = d_rewriteTable[node.getKind()](node, true);
   if(res.node != node) {
     Debug("bitvector-rewrite") << "TheoryBV::preRewrite    " << node << std::endl;
@@ -87,12 +88,13 @@ RewriteResponse TheoryBVRewriter::RewriteUlt(TNode node, bool preregister) {
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSlt(TNode node, bool preregister){
-  Node resultNode = LinearRewriteStrategy
-    < RewriteRule < SltEliminate >
-      // a <_s b ==> a + 2^{n-1} <_u b + 2^{n-1}
-      >::apply(node);
+  return RewriteResponse(REWRITE_DONE, node);
+  // Node resultNode = LinearRewriteStrategy
+  //   < RewriteRule < SltEliminate >
+  //     // a <_s b ==> a + 2^{n-1} <_u b + 2^{n-1}
+  //     >::apply(node);
 
-  return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  // return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
 }
 
 RewriteResponse TheoryBVRewriter::RewriteUle(TNode node, bool preregister){
@@ -107,11 +109,13 @@ RewriteResponse TheoryBVRewriter::RewriteUle(TNode node, bool preregister){
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSle(TNode node, bool preregister){
-  Node resultNode = LinearRewriteStrategy
-    < RewriteRule<SleEliminate>
-      >::apply(node);
+  return RewriteResponse(REWRITE_DONE, node);
+  
+  //  Node resultNode = LinearRewriteStrategy
+  //   < RewriteRule<SleEliminate>
+  //     >::apply(node);
 
-  return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  // return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
 }
 
 RewriteResponse TheoryBVRewriter::RewriteUgt(TNode node, bool preregister){
@@ -330,12 +334,12 @@ RewriteResponse TheoryBVRewriter::RewritePlus(TNode node, bool preregister) {
 }
 
 RewriteResponse TheoryBVRewriter::RewriteSub(TNode node, bool preregister){
-  return RewriteResponse(REWRITE_DONE, node); 
-  // Node resultNode = LinearRewriteStrategy
-  //   < RewriteRule<SubEliminate>
-  //   >::apply(node);
+  // return RewriteResponse(REWRITE_DONE, node); 
+  Node resultNode = LinearRewriteStrategy
+    < RewriteRule<SubEliminate>
+    >::apply(node);
   
-  // return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
 }
 
 RewriteResponse TheoryBVRewriter::RewriteNeg(TNode node, bool preregister) {

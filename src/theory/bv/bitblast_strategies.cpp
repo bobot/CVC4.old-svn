@@ -193,13 +193,13 @@ Node inline sLessThanBB(const Bits&a, const Bits& b, bool orEqual) {
 
 
 Node UndefinedAtomBBStrategy(TNode node, Bitblaster* bb) {
-  Trace("bitvector") << "TheoryBV::Bitblaster Undefined bitblasting strategy for kind: "
+  BVDebug("bitvector") << "TheoryBV::Bitblaster Undefined bitblasting strategy for kind: "
                      << node.getKind() << "\n";
   Unreachable(); 
 }
 
 Node DefaultEqBB(TNode node, Bitblaster* bb) {
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   
   Assert(node.getKind() == kind::EQUAL);
   Bits lhs, rhs; 
@@ -221,7 +221,7 @@ Node DefaultEqBB(TNode node, Bitblaster* bb) {
 
 
 Node AdderUltBB(TNode node, Bitblaster* bb) {
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   Assert(node.getKind() == kind::BITVECTOR_ULT);
   Bits a, b;
   bb->bbTerm(node[0], a);
@@ -243,7 +243,7 @@ Node AdderUltBB(TNode node, Bitblaster* bb) {
 
 
 Node DefaultUltBB(TNode node, Bitblaster* bb) {
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   Assert(node.getKind() == kind::BITVECTOR_ULT);
   Bits a, b;
   bb->bbTerm(node[0], a);
@@ -256,7 +256,7 @@ Node DefaultUltBB(TNode node, Bitblaster* bb) {
 }
 
 Node DefaultUleBB(TNode node, Bitblaster* bb){
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   Assert(node.getKind() == kind::BITVECTOR_ULE);
   Bits a, b;
   
@@ -269,31 +269,31 @@ Node DefaultUleBB(TNode node, Bitblaster* bb){
 }
 
 Node DefaultUgtBB(TNode node, Bitblaster* bb){
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   // should be rewritten 
   Unimplemented(); 
 }
 Node DefaultUgeBB(TNode node, Bitblaster* bb){
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   // should be rewritten 
   Unimplemented(); 
 }
 
 // Node DefaultSltBB(TNode node, Bitblaster* bb){
-//   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+//   BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 //   // shoudl be rewritten in terms of ult
 //   Unimplemented(); 
 // }
 
 // Node DefaultSleBB(TNode node, Bitblaster* bb){
-//   Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+//   BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 //   // shoudl be rewritten in terms of ule
 //   Unimplemented(); 
 // }
 
 
 Node DefaultSltBB(TNode node, Bitblaster* bb){
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 
   Bits a, b;
   bb->bbTerm(node[0], a);
@@ -305,7 +305,7 @@ Node DefaultSltBB(TNode node, Bitblaster* bb){
 }
 
 Node DefaultSleBB(TNode node, Bitblaster* bb){
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
 
   Bits a, b;
   bb->bbTerm(node[0], a);
@@ -317,13 +317,13 @@ Node DefaultSleBB(TNode node, Bitblaster* bb){
 }
  
 Node DefaultSgtBB(TNode node, Bitblaster* bb){
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   // should be rewritten 
   Unimplemented(); 
 }
 
 Node DefaultSgeBB(TNode node, Bitblaster* bb){
-  Debug("bitvector-bb") << "Bitblasting node " << node  << "\n";
+  BVDebug("bitvector-bb") << "Bitblasting node " << node  << "\n";
   // should be rewritten 
   Unimplemented(); 
 }
@@ -332,7 +332,7 @@ Node DefaultSgeBB(TNode node, Bitblaster* bb){
 /// Term bitblasting strategies 
 
 void UndefinedTermBBStrategy(TNode node, Bits& bits, Bitblaster* bb) {
-  Trace("bitvector") << "theory::bv:: Undefined bitblasting strategy for kind: "
+  BVDebug("bitvector") << "theory::bv:: Undefined bitblasting strategy for kind: "
                      << node.getKind() << "\n";
   Unreachable(); 
 }
@@ -345,12 +345,12 @@ void DefaultVarBB (TNode node, Bits& bits, Bitblaster* bb) {
     bits.push_back(utils::mkBitOf(node, i));
   }
 
-  Debug("bitvector-bb") << "theory::bv::DefaultVarBB bitblasting  " << node << "\n";
-  Debug("bitvector-bb") << "                           with bits  " << toString(bits); 
+  BVDebug("bitvector-bb") << "theory::bv::DefaultVarBB bitblasting  " << node << "\n";
+  BVDebug("bitvector-bb") << "                           with bits  " << toString(bits); 
 }
 
 void DefaultConstBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultConstBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultConstBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::CONST_BITVECTOR);
   Assert(bits.size() == 0);
   
@@ -363,12 +363,12 @@ void DefaultConstBB (TNode node, Bits& bits, Bitblaster* bb) {
       bits.push_back(utils::mkTrue()); 
     }
   }
-  Debug("bitvector-bb") << "with  bits: " << toString(bits) << "\n"; 
+  BVDebug("bitvector-bb") << "with  bits: " << toString(bits) << "\n"; 
 }
 
 
 void DefaultNotBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultNotBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultNotBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::BITVECTOR_NOT);
   Assert(bits.size() == 0);
   Bits bv; 
@@ -377,7 +377,7 @@ void DefaultNotBB (TNode node, Bits& bits, Bitblaster* bb) {
 }
 
 void DefaultConcatBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultConcatBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultConcatBB bitblasting " << node << "\n";
   Assert(bits.size() == 0);
   
   Assert (node.getKind() == kind::BITVECTOR_CONCAT);
@@ -391,11 +391,11 @@ void DefaultConcatBB (TNode node, Bits& bits, Bitblaster* bb) {
     }
   }
   Assert (bits.size() == utils::getSize(node)); 
-  Debug("bitvector-bb") << "with  bits: " << toString(bits) << "\n"; 
+  BVDebug("bitvector-bb") << "with  bits: " << toString(bits) << "\n"; 
 }
 
 void DefaultAndBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultAndBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultAndBB bitblasting " << node << "\n";
   
   Assert(node.getKind() == kind::BITVECTOR_AND &&
          bits.size() == 0);
@@ -413,7 +413,7 @@ void DefaultAndBB (TNode node, Bits& bits, Bitblaster* bb) {
 }
 
 void DefaultOrBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultOrBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultOrBB bitblasting " << node << "\n";
 
   Assert(node.getKind() == kind::BITVECTOR_OR &&
          bits.size() == 0);
@@ -431,7 +431,7 @@ void DefaultOrBB (TNode node, Bits& bits, Bitblaster* bb) {
 }
 
 void DefaultXorBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultXorBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultXorBB bitblasting " << node << "\n";
 
   Assert(node.getKind() == kind::BITVECTOR_XOR &&
          bits.size() == 0);
@@ -452,7 +452,7 @@ void DefaultXorBB (TNode node, Bits& bits, Bitblaster* bb) {
 }
 
 void DefaultXnorBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultXnorBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultXnorBB bitblasting " << node << "\n";
 
   Assert(node.getNumChildren() == 2 &&
          node.getKind() == kind::BITVECTOR_XNOR &&
@@ -469,17 +469,17 @@ void DefaultXnorBB (TNode node, Bits& bits, Bitblaster* bb) {
 
 
 void DefaultNandBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
+  BVDebug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
 void DefaultNorBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
+  BVDebug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
 void DefaultCompBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: DefaultCompBB bitblasting "<< node << "\n";
+  BVDebug("bitvector") << "theory::bv:: DefaultCompBB bitblasting "<< node << "\n";
 
   Assert(getSize(node) == 1 && bits.size() == 0 && node.getKind() == kind::BITVECTOR_COMP);
   Bits a, b;
@@ -497,7 +497,7 @@ void DefaultCompBB (TNode node, Bits& bits, Bitblaster* bb) {
 }
 
 void DefaultMultBB (TNode node, Bits& res, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: DefaultMultBB bitblasting "<< node << "\n";
+  BVDebug("bitvector") << "theory::bv:: DefaultMultBB bitblasting "<< node << "\n";
   Assert(res.size() == 0 &&
          node.getKind() == kind::BITVECTOR_MULT);
 
@@ -512,11 +512,11 @@ void DefaultMultBB (TNode node, Bits& res, Bitblaster* bb) {
     shiftAddMultiplier(res, current, newres);
     res = newres;
   }
-  Debug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
+  BVDebug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
 }
 
 void DefaultPlusBB (TNode node, Bits& res, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaulPlusBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaulPlusBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::BITVECTOR_PLUS &&
          res.size() == 0);
 
@@ -537,7 +537,7 @@ void DefaultPlusBB (TNode node, Bits& res, Bitblaster* bb) {
 
 
 void DefaultSubBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefautSubBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefautSubBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::BITVECTOR_SUB &&
          node.getNumChildren() == 2 &&
          bits.size() == 0);
@@ -555,7 +555,7 @@ void DefaultSubBB (TNode node, Bits& bits, Bitblaster* bb) {
 }
 
 void DefaultNegBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefautNegBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefautNegBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::BITVECTOR_NEG);
   
   Bits a;
@@ -633,7 +633,7 @@ void uDivModRec(const Bits& a, const Bits& b, Bits& q, Bits& r, unsigned rec_wid
 }
 
 void DefaultUdivBB (TNode node, Bits& q, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefautUdivBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefautUdivBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::BITVECTOR_UDIV &&  q.size() == 0);
 
   Bits a, b;
@@ -649,7 +649,7 @@ void DefaultUdivBB (TNode node, Bits& q, Bitblaster* bb) {
 }
 
 void DefaultUremBB (TNode node, Bits& rem, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefautUremBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefautUremBB bitblasting " << node << "\n";
   Assert(node.getKind() == kind::BITVECTOR_UREM &&  rem.size() == 0);
 
   Bits a, b;
@@ -666,23 +666,23 @@ void DefaultUremBB (TNode node, Bits& rem, Bitblaster* bb) {
 
 
 void DefaultSdivBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
+  BVDebug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
 void DefaultSremBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
+  BVDebug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
 void DefaultSmodBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
+  BVDebug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }
 
 void DefaultShlBB (TNode node, Bits& res, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultShlBB bitblasting " << node  << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultShlBB bitblasting " << node  << "\n";
   Assert (node.getKind() == kind::BITVECTOR_SHL &&
           res.size() == 0);
   Bits a, b;
@@ -709,11 +709,11 @@ void DefaultShlBB (TNode node, Bits& res, Bitblaster* bb) {
       }
     }
   }
-  Debug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
+  BVDebug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
 }
 
 void DefaultLshrBB (TNode node, Bits& res, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultLshrBB bitblasting " << node  << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultLshrBB bitblasting " << node  << "\n";
   Assert (node.getKind() == kind::BITVECTOR_LSHR &&
           res.size() == 0);
   Bits a, b;
@@ -740,12 +740,12 @@ void DefaultLshrBB (TNode node, Bits& res, Bitblaster* bb) {
       }
     }
   }
-  Debug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
+  BVDebug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
 }
 
 void DefaultAshrBB (TNode node, Bits& res, Bitblaster* bb) {
 
-  Debug("bitvector-bb") << "theory::bv::DefaultAshrBB bitblasting " << node  << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultAshrBB bitblasting " << node  << "\n";
   Assert (node.getKind() == kind::BITVECTOR_ASHR &&
           res.size() == 0);
   Bits a, b;
@@ -773,7 +773,7 @@ void DefaultAshrBB (TNode node, Bits& res, Bitblaster* bb) {
       }
     }
   }
-  Debug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
+  BVDebug("bitvector-bb") << "with bits: " << toString(res)  << "\n";
 
 }
 
@@ -791,14 +791,14 @@ void DefaultExtractBB (TNode node, Bits& bits, Bitblaster* bb) {
   }
   Assert (bits.size() == high - low + 1);   
 
-  Debug("bitvector-bb") << "theory::bv::DefaultExtractBB bitblasting " << node << "\n";
-  Debug("bitvector-bb") << "                               with bits " << toString(bits); 
+  BVDebug("bitvector-bb") << "theory::bv::DefaultExtractBB bitblasting " << node << "\n";
+  BVDebug("bitvector-bb") << "                               with bits " << toString(bits); 
        
 }
 
 
 void DefaultRepeatBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
+  BVDebug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   // this should be rewritten 
   Unimplemented(); 
@@ -806,7 +806,7 @@ void DefaultRepeatBB (TNode node, Bits& bits, Bitblaster* bb) {
 
 void DefaultZeroExtendBB (TNode node, Bits& res_bits, Bitblaster* bb) {
 
-  Debug("bitvector-bb") << "theory::bv::DefaultZeroExtendBB bitblasting " << node  << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultZeroExtendBB bitblasting " << node  << "\n";
  
   // this should be rewritten 
   Unimplemented();
@@ -814,7 +814,7 @@ void DefaultZeroExtendBB (TNode node, Bits& res_bits, Bitblaster* bb) {
 }
 
 void DefaultSignExtendBB (TNode node, Bits& res_bits, Bitblaster* bb) {
-  Debug("bitvector-bb") << "theory::bv::DefaultSignExtendBB bitblasting " << node  << "\n";
+  BVDebug("bitvector-bb") << "theory::bv::DefaultSignExtendBB bitblasting " << node  << "\n";
 
   Assert (node.getKind() == kind::BITVECTOR_SIGN_EXTEND &&
           res_bits.size() == 0);
@@ -837,14 +837,14 @@ void DefaultSignExtendBB (TNode node, Bits& res_bits, Bitblaster* bb) {
 }
 
 void DefaultRotateRightBB (TNode node, Bits& res, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
+  BVDebug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
 
   Unimplemented(); 
 }
 
 void DefaultRotateLeftBB (TNode node, Bits& bits, Bitblaster* bb) {
-  Debug("bitvector") << "theory::bv:: Unimplemented kind "
+  BVDebug("bitvector") << "theory::bv:: Unimplemented kind "
                      << node.getKind() << "\n";
   Unimplemented(); 
 }

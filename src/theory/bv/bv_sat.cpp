@@ -164,15 +164,16 @@ void Bitblaster::assertToSat(TNode lit) {
   }
   
   Assert (hasBBAtom(atom));
-  Node rewr_atom = Rewriter::rewrite(atom); 
+  //Node rewr_atom = Rewriter::rewrite(atom); 
+
   SatLiteral markerLit = d_cnfStream->getLiteral(atom);
 
   if(lit.getKind() == kind::NOT) {
     markerLit = ~markerLit;
   }
   
-  Debug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat asserting node: " << atom <<"\n";
-  Debug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat with literal:   " << markerLit << "\n";  
+  BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat asserting node: " << atom <<"\n";
+  BVDebug("bitvector-bb") << "TheoryBV::Bitblaster::assertToSat with literal:   " << markerLit << "\n";  
 
   d_assertedAtoms.push_back(markerLit);
 }

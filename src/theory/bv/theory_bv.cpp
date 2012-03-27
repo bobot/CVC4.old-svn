@@ -67,12 +67,12 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 void TheoryBV::check(Effort e) {
   if (fullEffort(e) && !done()) {
-    Trace("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
+    BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
     std::vector<TNode> assertions;
       
     while (!done()) {
       TNode assertion = get();
-      Trace("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n"; 
+      BVDebug("bitvector-assertions") << "TheoryBV::check assertion " << assertion << "\n"; 
       d_bitblaster->bitblast(assertion); 
       d_bitblaster->assertToSat(assertion); 
     }
@@ -86,7 +86,7 @@ void TheoryBV::check(Effort e) {
       
       Node conflict = mkConjunction(conflictAtoms);
       d_out->conflict(conflict);
-      Trace("bitvector") << "TheoryBV::check returns conflict. \n ";
+      BVDebug("bitvector") << "TheoryBV::check returns conflict. \n ";
       return; 
     }
   }
