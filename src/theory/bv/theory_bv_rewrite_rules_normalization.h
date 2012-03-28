@@ -411,6 +411,24 @@ Node RewriteRule<NegSub>::apply(Node node) {
   return utils::mkNode(kind::BITVECTOR_SUB, node[0][1], node[0][0]);
 }
 
+template<>
+bool RewriteRule<NegPlus>::applies(Node node) {
+  return (node.getKind() == kind::BITVECTOR_NEG &&
+          node[0].getKind() == kind::BITVECTOR_PLUS);
+}
+
+template<>
+Node RewriteRule<NegPlus>::apply(Node node) {
+  BVDebug("bv-rewrite") << "RewriteRule<NegPlus>(" << node << ")" << std::endl;
+  std::vector<Node> children;
+  for (unsigned i = 0; i < node[0].getNumChildren(); ++i) {
+    children.push_back(utils::mkNode(kind::BITVECTOR_NEG, node[0][i])); 
+  }
+  return utils::mkSortedNode(kind::BITVECTOR_PLUS, children);
+}
+
+
+
 
 struct Count {
   unsigned pos;

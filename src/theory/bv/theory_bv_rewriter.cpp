@@ -347,18 +347,18 @@ RewriteResponse TheoryBVRewriter::RewriteNeg(TNode node, bool preregister) {
   
   resultNode = LinearRewriteStrategy
     < RewriteRule<EvalNeg>,
-      RewriteRule<NegIdemp>
+      RewriteRule<NegIdemp>,
+      RewriteRule<NegSub>
       >::apply(node);
-
-  if (!preregister) {
-    if (RewriteRule<NegMult>::applies(node)) {
-      resultNode = RewriteRule<NegMult>::run<false>(node);
-      return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
-    }
-    if (RewriteRule<NegSub>::applies(node)) {
-      resultNode = RewriteRule<NegSub>::run<false>(node);
-      return RewriteResponse(REWRITE_DONE, resultNode); 
-    }
+  
+  if (RewriteRule<NegPlus>::applies(node)) {
+    resultNode = RewriteRule<NegPlus>::run<false>(node);
+    return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
+  }
+  
+  if (RewriteRule<NegMult>::applies(node)) {
+    resultNode = RewriteRule<NegMult>::run<false>(node);
+    return RewriteResponse(REWRITE_AGAIN_FULL, resultNode); 
   }
   
   return RewriteResponse(REWRITE_DONE, resultNode); 

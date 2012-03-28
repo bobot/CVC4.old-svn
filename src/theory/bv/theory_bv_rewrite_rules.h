@@ -138,6 +138,7 @@ enum RewriteRuleId {
   DoubleNeg,
   NegMult,
   NegSub,
+  NegPlus,
   NotConcat,
   NotAnd, // not sure why this would help (not done)
   NotOr,  // not sure why this would help (not done)
@@ -258,7 +259,8 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case NegSub : out << "NegSub"; return out;
   case AndSimplify : out << "AndSimplify"; return out;
   case OrSimplify : out << "OrSimplify"; return out;
-  case XorSimplify : out << "XorSimplify"; return out; 
+  case XorSimplify : out << "XorSimplify"; return out;
+  case NegPlus : out << "NegPlus"; return out; 
   default:
     Unreachable();
   }
@@ -457,7 +459,8 @@ struct AllRewriteRules {
   RewriteRule<MultSimplify> rule106;
   RewriteRule<MultDistribConst> rule107;
   RewriteRule<AndSimplify> rule108;
-  RewriteRule<OrSimplify> rule109; 
+  RewriteRule<OrSimplify> rule109;
+  RewriteRule<NegPlus> rule110;
 };
 
 template<>
