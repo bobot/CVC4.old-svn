@@ -177,9 +177,9 @@ void QuantifiersEngine::registerQuantifier( Node f ){
       d_inst_constants_map[ic] = f;
       d_inst_constants[ f ].push_back( ic );
       Debug("quantifiers-engine") << "  " << ic << std::endl;
-      ////set the var number attribute
-      //InstVarNumAttribute ivna;
-      //ic.setAttribute(ivna,i);
+      //set the var number attribute
+      InstVarNumAttribute ivna;
+      ic.setAttribute(ivna,i);
     }
     std::vector< Node > syms;
     computeSymbols( f[1], syms );

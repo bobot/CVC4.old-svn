@@ -24,6 +24,7 @@ using namespace CVC4::theory;
 using namespace CVC4::theory::quantifiers;
 
 //#define QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
+#define QUANTIFIERS_DO_PRENEX
 
 bool QuantifiersRewriter::isClause( Node n ){
   if( isLiteral( n ) ){
@@ -110,15 +111,14 @@ void QuantifiersRewriter::computeArgs( std::vector< Node >& args, std::vector< N
 Node QuantifiersRewriter::mkForAll( std::vector< Node >& args, Node n, Node ipl ){
   std::vector< Node > children;
   computeArgs( args, children, n );
-  //std::cout << n << " " << args.size() << ", arguments = " << children.size() << std::endl;
   if( children.empty() ){
     return n;
   }else{
     std::vector< Node > args;
     args.push_back( NodeManager::currentNM()->mkNode(kind::BOUND_VAR_LIST, children ) );
     args.push_back( n );
-    if( !ipl.isNull() ){
-      //must determine patterns that we can use
+    if( !ipl.isNull() ){ 
+      //must determine patterns that we can use DO_THIS?
       args.push_back( ipl );
     }
     return NodeManager::currentNM()->mkNode(kind::FORALL, args );
@@ -302,7 +302,7 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
           }
         }
       }else if( body.getKind()==AND ){
-        if( doMiniscopingAnd() ){
+        if( !isNested && doMiniscopingAnd() ){
           //break apart
           NodeBuilder<> t(kind::AND);
           for( int i=0; i<(int)body.getNumChildren(); i++ ){
@@ -312,7 +312,7 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
           return retVal;
         }
       }else if( body.getKind()==OR || body.getKind()==IMPLIES ){
-        if( doMiniscopingNoFreeVar() ){
+        if( !isNested && doMiniscopingNoFreeVar() ){
           NodeBuilder<> tb(kind::OR);
           for( int i=0; i<(int)body.getNumChildren(); i++ ){
             Node trm = ( body.getKind()==IMPLIES && i==0 ) ? body[i].notNode() : body[i];
@@ -325,7 +325,7 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
           newBody = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
         }
       }else{
-        if( doMiniscopingAndExt() ){
+        if( !isNested && doMiniscopingAndExt() ){
           if( body.getKind()==IFF || body.getKind()==EQUAL ){
             Node n1 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[0], body[1] ), defs, ipl );
             Node n2 = rewriteQuant( args, NodeManager::currentNM()->mkNode( IMPLIES, body[1], body[0] ), defs, ipl );
@@ -341,10 +341,6 @@ Node QuantifiersRewriter::rewriteQuant( std::vector< Node >& args, Node body, No
           }
         }
       }
-      //if( !isNested && !isClause( newBody ) ){
-      //  std::cout << "non-clausal " << body;
-      //  exit( 8 );
-      //}
       body_split << mkForAll( args, newBody, ipl );
       Node retVal = body_split.getNumChildren()==1 ? body_split.getChild( 0 ) : body_split;
       return retVal;
@@ -371,6 +367,14 @@ bool QuantifiersRewriter::doMiniscopingAnd(){
 
 bool QuantifiersRewriter::doMiniscopingAndExt(){
 #ifdef QUANTIFIERS_REWRITE_SPLIT_AND_EXTENSIONS
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool QuantifiersRewriter::doPrenex(){
+#ifdef QUANTIFIERS_DO_PRENEX
   return true;
 #else
   return false;

@@ -143,12 +143,12 @@ public:
   static void getVarContains( std::vector< Node >& pats, std::map< Node, std::vector< Node > >& varContains );
 
   inline void toStream(std::ostream& out) const {
-    out << "TRIGGER(";
+    out << "TRIGGER( ";
     for( int i=0; i<(int)d_nodes.size(); i++ ){
-      if( i>0 ){ out << ", "; }else{ out << " "; }
+      if( i>0 ){ out << ", "; }
       out << d_nodes[i];
     }
-    out << ")";
+    out << " )";
   }
 };
 

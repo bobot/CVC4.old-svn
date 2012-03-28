@@ -262,6 +262,8 @@ struct CVC4_PUBLIC Options {
     LITERAL_MATCH_NONE,
     /** Consider polarity of boolean predicates only */
     LITERAL_MATCH_PREDICATE,
+    /** Consider polarity of boolean predicates, as well as equalities */
+    LITERAL_MATCH_EQUALITY,
   } LiteralMatchMode;
 
   /** When/whether to perform nonclausal simplifications. */

@@ -28,17 +28,23 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 
 void CandidateGeneratorQueue::reset( Node eqc ){
+  if( d_candidate_index>0 ){
+    d_candidates.erase( d_candidates.begin(), d_candidates.begin() + d_candidate_index );
+    d_candidate_index = 0;
+  }
   if( !eqc.isNull() ){
     d_candidates.push_back( eqc );
   }
 }
 Node CandidateGeneratorQueue::getNextCandidate(){
-  if( d_candidates.empty() ){
-    return Node::null();
-  }else{
-    Node n = d_candidates[0];
-    d_candidates.erase( d_candidates.begin(), d_candidates.begin() + 1 );
+  if( d_candidate_index<(int)d_candidates.size() ){
+    Node n = d_candidates[d_candidate_index];
+    d_candidate_index++;
     return n;
+  }else{
+    d_candidate_index = 0;
+    d_candidates.clear();
+    return Node::null();
   }
 }
 
@@ -154,7 +160,7 @@ void InstMatch::computeTermVec( const std::vector< Node >& vars, std::vector< No
 
 /** add match m for quantifier f starting at index, take into account equalities q, return true if successful */
 void InstMatchTrie::addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index, ImtIndexOrder* imtio ){
-  if( index<f[0].getNumChildren() ){
+  if( index<f[0].getNumChildren() && ( !imtio || index<(int)imtio->d_order.size() ) ){
     int i_index = imtio ? imtio->d_order[index] : index;
     Node n = m.d_map[ qe->getInstantiationConstant( f, i_index ) ];
     d_data[n].addInstMatch2( qe, f, m, index+1, imtio );
@@ -163,7 +169,7 @@ void InstMatchTrie::addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, 
 
 /** exists match */
 bool InstMatchTrie::existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, int index, ImtIndexOrder* imtio ){
-  if( index==f[0].getNumChildren() ){
+  if( index==f[0].getNumChildren() || ( imtio && index==(int)imtio->d_order.size() ) ){
     return true;
   }else{
     int i_index = imtio ? imtio->d_order[index] : index;
@@ -625,9 +631,65 @@ bool InstMatchGenerator::nonunifiable( TNode t0, const std::vector<Node> & vars)
 /** constructors */
 InstMatchGeneratorMulti::InstMatchGeneratorMulti( Node f, std::vector< Node >& pats, QuantifiersEngine* qe, int matchOption ) : 
 d_f( f ), d_calculate_matches( false ){
-  for( int i=0; i<(int)pats.size(); i++ ){
-    d_children.push_back( new InstMatchGenerator( pats[i], qe, matchOption ) );
+  Debug("smart-multi-trigger") << "Making smart multi-trigger for " << f << std::endl;
+  std::map< Node, std::vector< Node > > var_contains;
+  Trigger::getVarContains( pats, var_contains );
+  //convert to indicies
+  for( std::map< Node, std::vector< Node > >::iterator it = var_contains.begin(); it != var_contains.end(); ++it ){
+    Debug("smart-multi-trigger") << "Pattern " << it->first << " contains: ";
+    for( int i=0; i<(int)it->second.size(); i++ ){
+      Debug("smart-multi-trigger") << it->second[i] << " ";
+      int index = it->second[i].getAttribute(InstVarNumAttribute());
+      d_var_contains[ it->first ].push_back( index );
+      d_var_to_node[ index ].push_back( it->first );
+    }
+    Debug("smart-multi-trigger") << std::endl;
   }
+  for( int i=0; i<(int)pats.size(); i++ ){
+    Node n = pats[i];
+    //make the match generator
+    d_children.push_back( new InstMatchGenerator( n, qe, matchOption ) );
+    //compute unique/shared variables
+    std::vector< int > unique_vars;
+    std::map< int, bool > shared_vars;
+    int numSharedVars = 0;
+    for( int j=0; j<(int)d_var_contains[n].size(); j++ ){
+      if( d_var_to_node[ d_var_contains[n][j] ].size()==1 ){
+        Debug("smart-multi-trigger") << "Var " << d_var_contains[n][j] << " is unique to " << pats[i] << std::endl;
+        unique_vars.push_back( d_var_contains[n][j] );
+      }else{
+        shared_vars[ d_var_contains[n][j] ] = true;
+        numSharedVars++;
+      }
+    }
+    //we use the latest shared variables, then unique variables
+    std::vector< int > vars;
+    int index = i==0 ? (int)(pats.size()-1) : (i-1);
+    while( numSharedVars>0 && index!=i ){
+      for( std::map< int, bool >::iterator it = shared_vars.begin(); it != shared_vars.end(); ++it ){
+        if( it->second ){
+          if( std::find( d_var_contains[ pats[index] ].begin(), d_var_contains[ pats[index] ].end(), it->first )!=
+              d_var_contains[ pats[index] ].end() ){
+            vars.push_back( it->first );
+            shared_vars[ it->first ] = false;
+            numSharedVars--;
+          }
+        }
+      }
+      index = index==0 ? (int)(pats.size()-1) : (index-1);
+    }
+    vars.insert( vars.end(), unique_vars.begin(), unique_vars.end() );
+    Debug("smart-multi-trigger") << "   Index[" << i << "]: ";
+    for( int i=0; i<(int)vars.size(); i++ ){
+      Debug("smart-multi-trigger") << vars[i] << " ";
+    }
+    Debug("smart-multi-trigger") << std::endl;
+    //make ordered inst match trie
+    InstMatchTrie::ImtIndexOrder* imtio = new InstMatchTrie::ImtIndexOrder;
+    imtio->d_order.insert( imtio->d_order.begin(), vars.begin(), vars.end() );
+    d_children_trie.push_back( InstMatchTrieOrdered( imtio ) );
+  }
+
 }
 
 /** reset instantiation round (call this whenever equivalence classes have changed) */
@@ -643,17 +705,78 @@ void InstMatchGeneratorMulti::reset( Node eqc, QuantifiersEngine* qe ){
     d_children[i]->reset( eqc, qe );
   }
   d_calculate_matches = true;
+  d_curr_matches.clear();
+  d_curr_match_index = 0;
 }
 
 void InstMatchGeneratorMulti::calculateMatches( QuantifiersEngine* qe ){
   for( int i=0; i<(int)d_children.size(); i++ ){
+    //std::cout << "Calculate matches " << i << std::endl;
     std::vector< InstMatch > newMatches;
     InstMatch m;
     while( d_children[i]->getNextMatch( m, qe ) ){
-      newMatches.push_back( m );
+      m.makeRepresentative( qe->getEqualityQuery() );
+      newMatches.push_back( InstMatch( &m ) );
+      m.clear();
     }
-    //see if these produce new matches
-    
+    //std::cout << "Merge for new matches " << i << std::endl;
+    for( int j=0; j<(int)newMatches.size(); j++ ){
+      //see if these produce new matches
+      if( d_children_trie[i].addInstMatch( qe, d_f, newMatches[j], true ) ){
+        Debug("smart-multi-trigger") << "Child " << i << " produced match " << newMatches[j] << std::endl;
+        //collect new instantiations
+        int childIndex = (i+1)%(int)d_children.size();
+        collectInstantiations( qe, newMatches[j], d_children_trie[childIndex].getTrie(), 0, childIndex, i, true );
+      }
+    }
+    //std::cout << "Done. " << i << " " << (int)d_curr_matches.size() << std::endl;
+  }
+}
+
+void InstMatchGeneratorMulti::collectInstantiations( QuantifiersEngine* qe, InstMatch& m, InstMatchTrie* tr, 
+                                                     int trieIndex, int childIndex, int endChildIndex, bool modEq ){
+  if( childIndex==endChildIndex ){
+    //m is an instantiation
+    d_curr_matches.push_back( InstMatch( &m ) );
+    Debug("smart-multi-trigger") << "-> Produced instantiation " << m << std::endl;
+    return;
+  }else if( trieIndex<(int)d_children_trie[childIndex].getOrdering()->d_order.size() ){
+    Node curr_ic = qe->getInstantiationConstant( d_f, d_children_trie[childIndex].getOrdering()->d_order[trieIndex] );
+    if( m.d_map.find( curr_ic )==m.d_map.end() ){
+      //non-shared variable, add to InstMatch
+      for( std::map< Node, InstMatchTrie >::iterator it = tr->d_data.begin(); it != tr->d_data.end(); ++it ){
+        InstMatch mn( &m );
+        mn.d_map[ curr_ic ] = it->first;
+        collectInstantiations( qe, mn, &(it->second), trieIndex+1, childIndex, endChildIndex, modEq );
+      }
+    }else{
+      //shared variable, try to merge
+      Node n = m.d_map[ curr_ic ];
+      std::map< Node, InstMatchTrie >::iterator it = tr->d_data.find( n );
+      if( it!=tr->d_data.end() ){
+        collectInstantiations( qe, m, &(it->second), trieIndex+1, childIndex, endChildIndex, modEq );
+      }
+      if( modEq ){
+        //check modulo equality for other possible instantiations
+        if( ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine()->hasTerm( n ) ){
+          uf::EqClassIterator eqc = uf::EqClassIterator( qe->getEqualityQuery()->getRepresentative( n ), 
+                                  ((uf::TheoryUF*)qe->getTheoryEngine()->getTheory( THEORY_UF ))->getEqualityEngine() );
+          while( !eqc.isFinished() ){
+            Node en = (*eqc);
+            if( en!=n ){
+              std::map< Node, InstMatchTrie >::iterator itc = tr->d_data.find( en );
+              if( itc!=tr->d_data.end() ){
+                collectInstantiations( qe, m, &(itc->second), trieIndex+1, childIndex, endChildIndex, modEq );
+              }
+            }
+            ++eqc;
+          }
+        }
+      }
+    }
+  }else{
+    int newChildIndex = (childIndex+1)%(int)d_children.size();
+    collectInstantiations( qe, m, d_children_trie[newChildIndex].getTrie(), 0, newChildIndex, endChildIndex, modEq );
   }
 }
 
@@ -663,9 +786,10 @@ bool InstMatchGeneratorMulti::getNextMatch( InstMatch& m, QuantifiersEngine* qe 
     calculateMatches( qe );
     d_calculate_matches = false;
   }
-  if( !d_curr_matches.empty() ){
-    m = d_curr_matches[0];
-    d_curr_matches.erase( d_curr_matches.begin(), d_curr_matches.begin() + 1 );
+  if( d_curr_match_index<(int)d_curr_matches.size() ){
+    //std::cout << "Return match " << d_curr_match_index << "/" << d_curr_matches.size() << std::endl;
+    m = d_curr_matches[d_curr_match_index];
+    d_curr_match_index++;
     return true;
   }else{
     return false;

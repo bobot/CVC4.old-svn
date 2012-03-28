@@ -47,8 +47,6 @@ public:
 
   static RewriteResponse postRewrite(TNode in) {
     Debug("quantifiers-rewrite") << "post-rewriting " << in << std::endl;
-#if 0
-#else
     if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
       std::vector< Node > args;
       for( int i=0; i<(int)in[0].getNumChildren(); i++ ){
@@ -71,34 +69,22 @@ public:
         Node n = rewriteQuant( args, in[ 1 ], defs, ipl, 
                                in.hasAttribute(NestedQuantAttribute()), in.getKind()==kind::EXISTS );
         Debug("quantifiers-rewrite") << "Rewrite " << in << " to " << n << std::endl;
+        //if( in!=n ){
+        //  std::cout << "rewrite " << in << " to " << n << std::endl;
+        //}
         return RewriteResponse(REWRITE_DONE, n );
       //}
     }
-#endif
     return RewriteResponse(REWRITE_DONE, in);
   }
 
   static RewriteResponse preRewrite(TNode in) {
     Debug("quantifiers-rewrite") << "pre-rewriting " << in << std::endl;
-#if 0
-    if( in.getKind()==kind::EXISTS ){
-      std::vector< Node > args;
-      args.push_back( in[0] );
-      args.push_back( in[1].notNode() );
-      if( in.getNumChildren()==3 ){
-        args.push_back( in[2] );
-      }
-      Node n = NodeManager::currentNM()->mkNode(kind::FORALL, args );
-      Debug("quantifiers-rewrite") << "Rewrite " << in << " to " << n.notNode() << std::endl;
-      return RewriteResponse(REWRITE_DONE, n.notNode() );
-    }
-#else
     if( in.getKind()==kind::EXISTS || in.getKind()==kind::FORALL ){
       if( !in.hasAttribute(NestedQuantAttribute()) ){
         setNestedQuantifiers( in[ 1 ], in );
       }
     }
-#endif
     return RewriteResponse(REWRITE_DONE, in);
   }
 
@@ -118,6 +104,7 @@ public:
   static bool doMiniscopingNoFreeVar();
   static bool doMiniscopingAnd();
   static bool doMiniscopingAndExt();
+  static bool doPrenex();
 };/* class QuantifiersRewriter */
 
 }/* CVC4::theory::quantifiers namespace */

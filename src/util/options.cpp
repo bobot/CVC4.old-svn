@@ -845,6 +845,8 @@ throw(OptionException) {
         literalMatchMode = LITERAL_MATCH_NONE;
       } else if(!strcmp(optarg, "predicate")) {
         literalMatchMode = LITERAL_MATCH_PREDICATE;
+      } else if(!strcmp(optarg, "equality")) {
+        literalMatchMode = LITERAL_MATCH_EQUALITY;
       } else if(!strcmp(optarg, "help")) {
         //puts(literalMatchHelp.c_str());
         exit(1);

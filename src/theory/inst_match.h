@@ -66,8 +66,9 @@ class CandidateGeneratorQueue : public CandidateGenerator
 {
 private:
   std::vector< Node > d_candidates;
+  int d_candidate_index;
 public:
-  CandidateGeneratorQueue(){}
+  CandidateGeneratorQueue() : d_candidate_index( 0 ){}
   ~CandidateGeneratorQueue(){}
 
   void addCandidate( Node n ) { d_candidates.push_back( n ); }
@@ -129,7 +130,21 @@ public:
   bool empty(){ return d_map.empty(); }
   /* map from variable to ground terms */
   std::map< Node, Node > d_map;
+  /** to stream */
+  inline void toStream(std::ostream& out) const {
+    out << "INST_MATCH( ";
+    for( std::map< Node, Node >::const_iterator it = d_map.begin(); it != d_map.end(); ++it ){
+      if( it != d_map.begin() ){ out << ", "; }
+      out << it->first << " -> " << it->second;
+    }
+    out << " )";
+  }
 };
+
+inline std::ostream& operator<<(std::ostream& out, const InstMatch& m) {
+  m.toStream(out);
+  return out;
+}
 
 
 class InstMatchTrie
@@ -144,6 +159,7 @@ private:
   void addInstMatch2( QuantifiersEngine* qe, Node f, InstMatch& m, int index, ImtIndexOrder* imtio );
   /** exists match */
   bool existsInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq, int index, ImtIndexOrder* imtio );
+public:
   /** the data */
   std::map< Node, InstMatchTrie > d_data;
 public:
@@ -165,6 +181,10 @@ private:
 public:
   InstMatchTrieOrdered( InstMatchTrie::ImtIndexOrder* imtio ) : d_imtio( imtio ){}
   ~InstMatchTrieOrdered(){}
+  /** get ordering */
+  InstMatchTrie::ImtIndexOrder* getOrdering() { return d_imtio; }
+  /** get trie */
+  InstMatchTrie* getTrie() { return &d_imt; }
 public:
   /** add match m, return true if successful */
   bool addInstMatch( QuantifiersEngine* qe, Node f, InstMatch& m, bool modEq = false ){
@@ -316,6 +336,14 @@ public:
 class InstMatchGeneratorMulti : public IMGenerator
 {
 private:
+  /** collect instantiations */
+  void collectInstantiations( QuantifiersEngine* qe, InstMatch& m, InstMatchTrie* tr, 
+                              int trieIndex, int childIndex, int endChildIndex, bool modEq );
+private:
+  /** var contains (variable indicies) for each pattern node */
+  std::map< Node, std::vector< int > > d_var_contains;
+  /** variable indicies contained to pattern nodes */
+  std::map< int, std::vector< Node > > d_var_to_node;
   /** quantifier to use */
   Node d_f;
   /** policy to use for matching */
@@ -323,11 +351,12 @@ private:
   /** children generators */
   std::vector< InstMatchGenerator* > d_children;
   /** inst match tries for each child */
-  std::vector< InstMatchTrie > d_children_trie;
+  std::vector< InstMatchTrieOrdered > d_children_trie;
   /** whether need to calculate matches */
   bool d_calculate_matches;
   /** current matches calculated */
   std::vector< InstMatch > d_curr_matches;
+  int d_curr_match_index;
   /** calculate matches */
   void calculateMatches( QuantifiersEngine* qe );
 public:

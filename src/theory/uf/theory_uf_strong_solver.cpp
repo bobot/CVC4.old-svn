@@ -752,7 +752,7 @@ void StrongSolverTheoryUf::ConflictFind::check( Theory::Effort level, OutputChan
         Debug("uf-ss-sat") << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
         //std::cout << "We have " << d_reps << " representatives for type " << d_type << ", <= " << d_cardinality << std::endl;
         //std::cout << "Model size for " << d_type << " is " << d_cardinality << std::endl;
-        std::cout << d_cardinality << " ";
+        //std::cout << d_cardinality << " ";
       }
       return;
     }else{

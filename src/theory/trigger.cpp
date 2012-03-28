@@ -27,7 +27,7 @@ using namespace CVC4::kind;
 using namespace CVC4::context;
 using namespace CVC4::theory;
 
-//#define SMART_MULTI_TRIGGER
+#define SMART_MULTI_TRIGGER
 
 Trigger* Trigger::TrTrie::getTrigger2( std::vector< Node >& nodes ){
   if( nodes.empty() ){
@@ -82,7 +82,8 @@ Trigger::Trigger( QuantifiersEngine* qe, Node f, std::vector< Node >& nodes, int
     ++(qe->d_statistics.d_triggers);
   }else{
     Debug("multi-trigger") << "Multi-trigger " << (*this) << std::endl;
-    //std::cout << "Multi-trigger " << (*this) << std::endl;
+    //std::cout << "Multi-trigger for " << f << " : " << std::endl;
+    //std::cout << "   " << (*this) << std::endl;
     ++(qe->d_statistics.d_multi_triggers);
   }
 }

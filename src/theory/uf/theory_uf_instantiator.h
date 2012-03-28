@@ -62,6 +62,8 @@ private:
   InstantiatorTheoryUf* d_th;
   /** explicitly provided patterns */
   std::map< Node, std::vector< Trigger* > > d_user_gen;
+  /** counter for quantifiers */
+  std::map< Node, int > d_counter;
   /** process functions */
   void processResetInstantiationRound( Theory::Effort effort );
   int process( Node f, Theory::Effort effort, int e, int instLimit );

@@ -30,6 +30,7 @@ using namespace CVC4::theory::uf;
 #define USE_SINGLE_TRIGGER_BEFORE_MULTI_TRIGGER
 //#define MULTI_TRIGGER_ONLY_LAST_CALL
 #define MULTI_TRIGGER_FULL_EFFORT_HALF
+//#define MULTI_MULTI_TRIGGERS
 
 struct sortQuantifiersForSymbol {
   QuantifiersEngine* d_qe;
@@ -99,19 +100,25 @@ int InstStrategyUserPatterns::process( Node f, Theory::Effort effort, int e, int
   if( e==0 ){
     return STATUS_UNFINISHED;
   }else if( e==1 ){
+    d_counter[f]++;
     Debug("quant-uf-strategy") << "Try user-provided patterns..." << std::endl;
     //std::cout << "Try user-provided patterns..." << std::endl;
     for( int i=0; i<(int)d_user_gen[f].size(); i++ ){
       bool processTrigger = true;
-#ifdef MULTI_TRIGGER_ONLY_LAST_CALL
       if( effort!=Theory::EFFORT_LAST_CALL && d_user_gen[f][i]->isMultiTrigger() ){
-        processTrigger = false;
-      }
+#ifdef MULTI_TRIGGER_FULL_EFFORT_HALF
+        processTrigger = d_counter[f]%2==0;
 #endif
+#ifdef MULTI_TRIGGER_ONLY_LAST_CALL
+        processTrigger = false;
+#endif
+      }
       if( processTrigger ){
-        //if( d_user_gen[f][i]->isMultiTrigger() ) std::cout << "  Process (user) " << (*d_user_gen[f][i]) << "..." << std::endl;
+        //if( d_user_gen[f][i]->isMultiTrigger() ) 
+          //std::cout << "  Process (user) " << (*d_user_gen[f][i]) << " for " << f << "..." << std::endl;
         int numInst = d_user_gen[f][i]->addInstantiations( d_th->d_baseMatch[f], instLimit );
-        //if( d_user_gen[f][i]->isMultiTrigger() ) std::cout << "  Done, numInst = " << numInst << "." << std::endl;
+        //if( d_user_gen[f][i]->isMultiTrigger() ) 
+          //std::cout << "  Done, numInst = " << numInst << "." << std::endl;
         d_th->d_statistics.d_instantiations_user_pattern += numInst;
         if( d_user_gen[f][i]->isMultiTrigger() ){
           d_quantEngine->d_statistics.d_multi_trigger_instantiations += numInst;
@@ -182,9 +189,11 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
 #endif
         }
         if( processTrigger ){
-          //if( tr->isMultiTrigger() ) std::cout << "  Process " << (*tr) << "..." << std::endl;
+          //if( tr->isMultiTrigger() ) 
+            //std::cout << "  Process " << (*tr) << " for " << f << "..." << std::endl;
           int numInst = tr->addInstantiations( d_th->d_baseMatch[f], instLimit );
-          //if( tr->isMultiTrigger() ) std::cout << "  Done, numInst = " << numInst << "." << std::endl;
+          //if( tr->isMultiTrigger() ) 
+            //std::cout << "  Done, numInst = " << numInst << "." << std::endl;
           if( d_tr_strategy==Trigger::TS_MIN_TRIGGER ){
             d_th->d_statistics.d_instantiations_auto_gen_min += numInst;
           }else{
@@ -204,7 +213,7 @@ int InstStrategyAutoGenTriggers::process( Node f, Theory::Effort effort, int e, 
 }
 
 void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
-  //bool firstTime = d_auto_gen_trigger[f].empty();
+  Debug("auto-gen-trigger")  << "Generate trigger for " << f << std::endl;
   if( d_patTerms[0].find( f )==d_patTerms[0].end() ){
     //determine all possible pattern terms based on trigger term selection strategy d_tr_strategy
     d_patTerms[0][f].clear();
@@ -274,6 +283,9 @@ void InstStrategyAutoGenTriggers::generateTriggers( Node f ){
     }else{
       //if we are re-generating triggers, shuffle based on some method
       if( d_made_multi_trigger[f] ){
+#ifndef MULTI_MULTI_TRIGGERS
+        return;
+#endif
         std::random_shuffle( patTerms.begin(), patTerms.end() ); //shuffle randomly
       }
       //will possibly want to get an old trigger
