@@ -349,10 +349,14 @@ Node RewriteRule<MultDistribConst>::apply(Node node) {
                                utils::mkConst(-const_bv),
                                factor[0]); 
   }
+
+  std::vector<Node> children;
+  for(unsigned i = 0; i < factor.getNumChildren(); ++i) {
+    children.push_back(utils::mkSortedNode(kind::BITVECTOR_MULT, constant, factor[i])); 
+  }
   
-  return utils::mkSortedNode(factor.getKind(),
-                             utils::mkSortedNode(kind::BITVECTOR_MULT, constant, factor[0]),
-                             utils::mkSortedNode(kind::BITVECTOR_MULT, constant, factor[1])); 
+  return utils::mkSortedNode(factor.getKind(), children); 
+                              
 }
 
 
