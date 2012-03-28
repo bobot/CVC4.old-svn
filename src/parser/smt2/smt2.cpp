@@ -186,6 +186,7 @@ void Smt2::setLogic(const std::string& name) {
   case Smt::AUFNIRA:
   case Smt::LRA:
   case Smt::UFNIA:
+  case Smt::UFNIRA:
   case Smt::UFLRA:
     if(d_logic != Smt::AUFLIA && d_logic != Smt::UFNIA) {
       addTheory(THEORY_REALS);
@@ -194,7 +195,7 @@ void Smt2::setLogic(const std::string& name) {
       addOperator(kind::APPLY_UF);
       if(d_logic != Smt::UFLRA) {
         addTheory(THEORY_INTS);
-        if(d_logic != Smt::UFNIA) {
+        if(d_logic != Smt::UFNIA && d_logic!=Smt::UFNIRA ) {
           addTheory(THEORY_ARRAYS_EX);
         }
       }

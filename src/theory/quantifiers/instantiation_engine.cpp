@@ -194,7 +194,9 @@ void InstantiationEngine::check( Theory::Effort e ){
           Debug("inst-engine") << "No instantiation given, returning SAT..." << std::endl;
           debugSat( SAT_INST_STRATEGY );
         }else{
-          Debug("inst-engine") << "No instantiation given, returning unknown..." << std::endl;
+          if( e==Theory::EFFORT_LAST_CALL ){
+            Debug("inst-engine") << "No instantiation given, returning unknown..." << std::endl;
+          }
           d_th->getOutputChannel().setIncomplete();
         }
       }

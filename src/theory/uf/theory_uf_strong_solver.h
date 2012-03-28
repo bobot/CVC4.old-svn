@@ -227,6 +227,8 @@ private:
   std::map< TypeNode, ConflictFind* > d_conf_find;
   /** all types */
   std::vector< TypeNode > d_conf_types;
+  /** pre register type */
+  void preRegisterType( TypeNode tn );
 public:
   StrongSolverTheoryUf(context::Context* c, context::UserContext* u, OutputChannel& out, TheoryUF* th);
   ~StrongSolverTheoryUf() {}
@@ -245,6 +247,8 @@ public:
   void check( Theory::Effort level );
   /** preregister a term */
   void preRegisterTerm( TNode n );
+  /** preregister a quantifier */
+  void registerQuantifier( Node f );
   /** notify restart */
   void notifyRestart();
   /** propagate */

@@ -166,6 +166,9 @@ std::vector<Node> QuantifiersEngine::createInstVariable( std::vector<Node> & var
 
 void QuantifiersEngine::registerQuantifier( Node f ){
   if( std::find( d_quants.begin(), d_quants.end(), f )==d_quants.end() ){
+    if( Options::current()->finiteModelFind ){
+      ((uf::TheoryUF*)d_te->getTheory( THEORY_UF ))->getStrongSolver()->registerQuantifier( f );
+    }
     ++(d_statistics.d_num_quant);
     Assert( f.getKind()==FORALL );
     d_quants.push_back( f );
@@ -282,11 +285,11 @@ bool QuantifiersEngine::addInstantiation( Node f, std::vector< Node >& terms )
     uint64_t maxInstLevel = 0;
     for( int i=0; i<(int)terms.size(); i++ ){
       if( terms[i].hasAttribute(InstConstantAttribute()) ){
-        std::cout << "***& Instantiate " << f << " with " << std::endl;
-        for( int i=0; i<(int)terms.size(); i++ ){
-          std::cout << "   " << terms[i] << std::endl;
-        }
-        std::cout << "unknown ";
+        //std::cout << "***& Instantiate " << f << " with " << std::endl;
+        //for( int i=0; i<(int)terms.size(); i++ ){
+        //  std::cout << "   " << terms[i] << std::endl;
+        //}
+        std::cout << "Bad instantiation, unknown ";
         exit( 19 );
       }else{
         Debug("inst-engine") << "   " << terms[i];

@@ -62,6 +62,7 @@ public:
     QF_UFNIRA, // nonstandard
     QF_UFNRA,
     UFNIA,
+    UFNIRA,  // nonstandard
     UFLRA
   };
 

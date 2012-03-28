@@ -911,7 +911,7 @@ void StrongSolverTheoryUf::ConflictFind::getRepresentatives( std::vector< Node >
           success = false;
         }
       }
-      if( (int)reps.size()!=d_cardinality ){
+      if( (int)reps.size()<d_cardinality ){
         //if still not satisfied, choose arbitrary elements
         for( int i=0; i<(int)d_regions_index; i++ ){
           if( i!=index && d_regions[i]->d_valid ){
@@ -924,6 +924,10 @@ void StrongSolverTheoryUf::ConflictFind::getRepresentatives( std::vector< Node >
             }
             if( (int)reps.size()==d_cardinality ) break;
           }
+        }
+        //otherwise, just add new variables
+        while( (int)reps.size()<d_cardinality ){
+          reps.push_back( NodeManager::currentNM()->mkVar( d_type ) );
         }
       }
       //FIXME: this maybe still is unsound, since the coloring does not guarentee this is a possible model?
@@ -953,31 +957,15 @@ d_th( th )
 void StrongSolverTheoryUf::newEqClass( Node n ){
   TypeNode tn = n.getType();
   if( isRelevantType( tn ) ){
-#if 0
-    //TEMPORARY
-    setCardinality( tn, 8 );  //***************
-    //END_TEMPORARY
-#elif 0
-    if( d_conf_find.find( tn )==d_conf_find.end() ){
-      //enter into incremental finite model finding mode: try cardinality = 1 first
-      setCardinality( tn, 1, false );
-    }
-    if( d_conf_find[tn]->d_cardinality_lemma_term==Node::null() ){
-      //just use the first node you find
-      d_conf_find[tn]->d_cardinality_lemma_term = n;
-      //add the appropriate lemma
-      Node lem = d_conf_find[tn]->getCardinalityLemma();
-      d_out->lemma( lem );
-      if( !d_conf_find[tn]->d_isCardinalityStrict ){
-        Assert( lem.getKind()==OR );
-        Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
-        d_out->requirePhase( lem[0], true );
-      }
-    }
-#else
+    ////TEMPORARY
+    //setCardinality( tn, 8 );  //***************
+    ////END_TEMPORARY
+    //if( d_conf_find.find( tn )==d_conf_find.end() ){
+    //  //enter into incremental finite model finding mode: try cardinality = 1 first
+    //  setCardinality( tn, 1, false );
+    //}
     Assert( d_conf_find.find( tn )!=d_conf_find.end() );
     Assert( d_conf_find[tn]->d_cardinality_lemma_term!=Node::null() );
-#endif
     //update type relate information
     if( n.getKind()==APPLY_UF ){
       for( int i=0; i<(int)n.getNumChildren(); i++ ){
@@ -1078,25 +1066,44 @@ void StrongSolverTheoryUf::check( Theory::Effort level ){
 void StrongSolverTheoryUf::preRegisterTerm( TNode n ){
   TypeNode tn = n.getType();
   if( isRelevantType( tn ) ){
-    if( d_conf_find.find( tn )==d_conf_find.end() ){
-      //enter into incremental finite model finding mode: try cardinality = 1 first
-      setCardinality( tn, 1, false );
-    }
-    if( d_conf_find[tn]->d_cardinality_lemma_term==Node::null() ){
-      //just use the first node you find
-      d_conf_find[tn]->d_cardinality_lemma_term = n;
-      //add the appropriate lemma
-      Node lem = d_conf_find[tn]->getCardinalityLemma();
-      d_out->lemma( lem );
-      if( !d_conf_find[tn]->d_isCardinalityStrict ){
-        Assert( lem.getKind()==OR );
-        Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
-        Debug("uf-ss-fmf") << "Initialize, propagate as decision " << lem[0] << std::endl;
-        //std::cout << "Initialize, propagate as decision " << lem[0] << std::endl;
-        //d_out->requirePhase( lem[0], true );
-        d_out->propagateAsDecision( lem[0] );
-        d_conf_find[tn]->d_is_cardinality_requested = true;
+    preRegisterType( tn );
+  }
+}
+
+void StrongSolverTheoryUf::registerQuantifier( Node f ){
+  //must ensure the quantifier does not quantify over arithmetic
+  for( int i=0; i<(int)f[0].getNumChildren(); i++ ){
+    TypeNode tn = f[0][i].getType();
+    if( isRelevantType( tn ) ){
+      preRegisterType( tn );
+    }else{
+      if( tn==NodeManager::currentNM()->integerType() || tn==NodeManager::currentNM()->realType() ){
+        std::cout << "Error: Cannot perform finite model finding on arithmetic quantifier";
+        //std::cout << " (" << f << ")";
+        std::cout << std::endl;
+        exit( 63 );
       }
+    }
+  }
+}
+
+void StrongSolverTheoryUf::preRegisterType( TypeNode tn ){
+  if( d_conf_find.find( tn )==d_conf_find.end() ){
+    //enter into incremental finite model finding mode: try cardinality = 1 first
+    setCardinality( tn, 1, false );
+    //just use the first node you find
+    d_conf_find[tn]->d_cardinality_lemma_term = NodeManager::currentNM()->mkVar( tn );
+    //add the appropriate lemma
+    Node lem = d_conf_find[tn]->getCardinalityLemma();
+    d_out->lemma( lem );
+    if( !d_conf_find[tn]->d_isCardinalityStrict ){
+      Assert( lem.getKind()==OR );
+      Assert( lem[0].getKind()==CARDINALITY_CONSTRAINT );
+      Debug("uf-ss-fmf") << "Initialize, propagate as decision " << lem[0] << std::endl;
+      //std::cout << "Initialize, propagate as decision " << lem[0] << std::endl;
+      //d_out->requirePhase( lem[0], true );
+      d_out->propagateAsDecision( lem[0] );
+      d_conf_find[tn]->d_is_cardinality_requested = true;
     }
   }
 }

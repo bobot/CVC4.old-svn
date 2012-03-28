@@ -74,7 +74,9 @@ void RepAlphabetIterator::getMatch( QuantifiersEngine* ie, InstMatch& m ){
 }
 
 Node RepAlphabetIterator::getTerm( int i ){
-  return d_ra->d_type_reps[d_f[0][i].getType()][d_index[i]];
+  TypeNode tn = d_f[0][i].getType();
+  Assert( d_ra->d_type_reps.find( tn )!=d_ra->d_type_reps.end() );
+  return d_ra->d_type_reps[tn][d_index[i]];
 }
 
 InstStrategyFinteModelFind::InstStrategyFinteModelFind( context::Context* c, InstantiatorTheoryUf* ith, StrongSolverTheoryUf* ss, QuantifiersEngine* ie ) :
@@ -125,7 +127,6 @@ void InstStrategyFinteModelFind::processResetInstantiationRound( Theory::Effort 
       }
     }
     d_inst_group.push_back( ra );
-
   }
 }
 
