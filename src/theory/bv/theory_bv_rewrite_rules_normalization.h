@@ -33,7 +33,7 @@ namespace bv {
  *   (x bvop y) [i:j] ==> x[i:j] bvop y[i:j]
  *  where bvop is bvand,bvor, bvxor
  */
-template<>
+template<> inline
 bool RewriteRule<ExtractBitwise>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_EXTRACT &&
           (node[0].getKind() == kind::BITVECTOR_AND ||
@@ -41,7 +41,7 @@ bool RewriteRule<ExtractBitwise>::applies(Node node) {
            node[0].getKind() == kind::BITVECTOR_XOR ));
 }
 
-template<>
+template<> inline
 Node RewriteRule<ExtractBitwise>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<ExtractBitwise>(" << node << ")" << std::endl;
   unsigned high = utils::getExtractHigh(node);
@@ -57,13 +57,13 @@ Node RewriteRule<ExtractBitwise>::apply(Node node) {
  *
  *  (~ a) [i:j] ==> ~ (a[i:j])
  */
-template<>
+template<> inline
 bool RewriteRule<ExtractNot>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_EXTRACT &&
           node[0].getKind() == kind::BITVECTOR_NOT);
 }
 
-template<>
+template<> inline
 Node RewriteRule<ExtractNot>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<ExtractNot>(" << node << ")" << std::endl;
   unsigned low = utils::getExtractLow(node);
@@ -78,7 +78,7 @@ Node RewriteRule<ExtractNot>::apply(Node node) {
  * (a bvop b) [k:0] ==> (a[k:0] bvop b[k:0])
  */
 
-template<>
+template<> inline
 bool RewriteRule<ExtractArith>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_EXTRACT &&
           utils::getExtractLow(node) == 0 &&
@@ -86,7 +86,7 @@ bool RewriteRule<ExtractArith>::applies(Node node) {
            node[0].getKind() == kind::BITVECTOR_MULT));
 }
 
-template<>
+template<> inline
 Node RewriteRule<ExtractArith>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<ExtractArith>(" << node << ")" << std::endl;
   unsigned low = utils::getExtractLow(node);
@@ -107,14 +107,14 @@ Node RewriteRule<ExtractArith>::apply(Node node) {
  */
 
 // careful not to apply in a loop 
-template<>
+template<> inline
 bool RewriteRule<ExtractArith2>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_EXTRACT &&
           (node[0].getKind() == kind::BITVECTOR_PLUS ||
            node[0].getKind() == kind::BITVECTOR_MULT));
 }
 
-template<>
+template<> inline
 Node RewriteRule<ExtractArith2>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<ExtractArith2>(" << node << ")" << std::endl;
   unsigned low = utils::getExtractLow(node);
@@ -128,7 +128,7 @@ Node RewriteRule<ExtractArith2>::apply(Node node) {
   return utils::mkExtract(a_op_b, high, low); 
 }
 
-template<>
+template<> inline
 bool RewriteRule<FlattenAssocCommut>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_PLUS ||
           node.getKind() == kind::BITVECTOR_MULT ||
@@ -138,7 +138,7 @@ bool RewriteRule<FlattenAssocCommut>::applies(Node node) {
 }
 
 
-template<>
+template<> inline
 Node RewriteRule<FlattenAssocCommut>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<FlattenAssocCommut>(" << node << ")" << std::endl;
   std::vector<Node> processingStack;
@@ -172,12 +172,12 @@ static inline void addToCoefMap(std::map<Node, BitVector>& map,
 }
 
 
-template<>
+template<> inline
 bool RewriteRule<PlusCombineLikeTerms>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_PLUS);
 }
 
-template<>
+template<> inline
 Node RewriteRule<PlusCombineLikeTerms>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<PlusCombineLikeTerms>(" << node << ")" << std::endl;
   unsigned size = utils::getSize(node); 
@@ -270,12 +270,12 @@ Node RewriteRule<PlusCombineLikeTerms>::apply(Node node) {
 }
 
 
-template<>
+template<> inline
 bool RewriteRule<MultSimplify>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_MULT);
 }
 
-template<>
+template<> inline
 Node RewriteRule<MultSimplify>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<MultSimplify>(" << node << ")" << std::endl;
   unsigned size = utils::getSize(node); 
@@ -308,7 +308,7 @@ Node RewriteRule<MultSimplify>::apply(Node node) {
   return utils::mkSortedNode(kind::BITVECTOR_MULT, children); 
 }
 
-template<>
+template<> inline
 bool RewriteRule<MultDistribConst>::applies(Node node) {
   if (node.getKind() != kind::BITVECTOR_MULT)
     return false;
@@ -327,7 +327,7 @@ bool RewriteRule<MultDistribConst>::applies(Node node) {
           factor.getKind() == kind::BITVECTOR_NEG); 
 }
 
-template<>
+template<> inline
 Node RewriteRule<MultDistribConst>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<MultDistribConst>(" << node << ")" << std::endl;
 
@@ -364,7 +364,7 @@ Node RewriteRule<MultDistribConst>::apply(Node node) {
  * -(c * expr) ==> (-c * expr)
  * where c is a constant
  */
-template<>
+template<> inline
 bool RewriteRule<NegMult>::applies(Node node) {
   if(node.getKind()!= kind::BITVECTOR_NEG ||
      node[0].getKind() != kind::BITVECTOR_MULT) {
@@ -379,7 +379,7 @@ bool RewriteRule<NegMult>::applies(Node node) {
   return false; 
 }
 
-template<>
+template<> inline
 Node RewriteRule<NegMult>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<NegMult>(" << node << ")" << std::endl;
   TNode mult = node[0];
@@ -399,25 +399,25 @@ Node RewriteRule<NegMult>::apply(Node node) {
   return utils::mkSortedNode(kind::BITVECTOR_MULT, children);
 }
 
-template<>
+template<> inline
 bool RewriteRule<NegSub>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_NEG &&
           node[0].getKind() == kind::BITVECTOR_SUB);
 }
 
-template<>
+template<> inline
 Node RewriteRule<NegSub>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<NegSub>(" << node << ")" << std::endl;
   return utils::mkNode(kind::BITVECTOR_SUB, node[0][1], node[0][0]);
 }
 
-template<>
+template<> inline
 bool RewriteRule<NegPlus>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_NEG &&
           node[0].getKind() == kind::BITVECTOR_PLUS);
 }
 
-template<>
+template<> inline
 Node RewriteRule<NegPlus>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<NegPlus>(" << node << ")" << std::endl;
   std::vector<Node> children;
@@ -453,12 +453,12 @@ inline static void insert(std::hash_map<TNode, Count, TNodeHashFunction>& map, T
   }
 }
 
-template<>
+template<> inline
 bool RewriteRule<AndSimplify>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_AND);
 }
 
-template<>
+template<> inline
 Node RewriteRule<AndSimplify>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<AndSimplify>(" << node << ")" << std::endl;
 
@@ -516,12 +516,12 @@ Node RewriteRule<AndSimplify>::apply(Node node) {
   return utils::mkSortedNode(kind::BITVECTOR_AND, children); 
 }
 
-template<>
+template<> inline
 bool RewriteRule<OrSimplify>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_OR);
 }
 
-template<>
+template<> inline
 Node RewriteRule<OrSimplify>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<OrSimplify>(" << node << ")" << std::endl;
 
@@ -579,12 +579,12 @@ Node RewriteRule<OrSimplify>::apply(Node node) {
   return utils::mkSortedNode(kind::BITVECTOR_OR, children); 
 }
 
-template<>
+template<> inline
 bool RewriteRule<XorSimplify>::applies(Node node) {
   return (node.getKind() == kind::BITVECTOR_XOR);
 }
 
-template<>
+template<> inline
 Node RewriteRule<XorSimplify>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<XorSimplify>(" << node << ")" << std::endl;
 
@@ -674,24 +674,24 @@ Node RewriteRule<XorSimplify>::apply(Node node) {
 
 
 
-// template<>
+// template<> inline
 // bool RewriteRule<AndSimplify>::applies(Node node) {
 //   return (node.getKind() == kind::BITVECTOR_AND);
 // }
 
-// template<>
+// template<> inline
 // Node RewriteRule<AndSimplify>::apply(Node node) {
 //   BVDebug("bv-rewrite") << "RewriteRule<AndSimplify>(" << node << ")" << std::endl;
 //   return resultNode;
 // }
 
 
-// template<>
+// template<> inline
 // bool RewriteRule<>::applies(Node node) {
 //   return (node.getKind() == kind::BITVECTOR_CONCAT);
 // }
 
-// template<>
+// template<> inline
 // Node RewriteRule<>::apply(Node node) {
 //   BVDebug("bv-rewrite") << "RewriteRule<>(" << node << ")" << std::endl;
 //   return resultNode;

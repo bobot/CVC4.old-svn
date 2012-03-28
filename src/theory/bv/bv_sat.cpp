@@ -22,6 +22,7 @@
 #include "theory/rewriter.h"
 #include "prop/cnf_stream.h"
 #include "prop/sat_module.h"
+#include "theory_bv_rewrite_rules_simplification.h"
 
 using namespace std;
 
@@ -48,7 +49,7 @@ std::string toString(Bits&  bits) {
   
   return os.str(); 
 }
-/////// Bitblaster 
+////// Bitblaster 
 
 Bitblaster::Bitblaster(context::Context* c) :
     d_termCache(),
@@ -102,10 +103,49 @@ void Bitblaster::bbTerm(TNode node, Bits& bits) {
 
   BVDebug("bitvector-bitblast") << "Bitblasting node " << node <<"\n"; 
   ++d_statistics.d_numTerms;
-  d_termBBStrategies[node.getKind()] (node, bits,this);
+
+  Node optimized = bbOptimize(node); 
+
+  // if we already bitblasted the optimized version 
+  if(hasBBTerm(optimized)) {
+    getBBTerm(optimized, bits);
+    // cache it as the same for this node
+    cacheTermDef(node, bits);
+    return; 
+  }
   
-  Assert (bits.size() == utils::getSize(node)); 
+  d_termBBStrategies[optimized.getKind()] (optimized, bits,this);
+  
+  Assert (bits.size() == utils::getSize(node) &&
+          bits.size() == utils::getSize(optimized));
+
+  if(optimized != node) {
+    cacheTermDef(optimized, bits);
+  }
   cacheTermDef(node, bits); 
+}
+
+Node Bitblaster::bbOptimize(TNode node) {
+  std::vector<Node> children;
+
+   if (node.getKind() == kind::BITVECTOR_PLUS) {
+    if (RewriteRule<BBPlusNeg>::applies(node)) {
+      Node res = RewriteRule<BBPlusNeg>::run<false>(node);
+      return res; 
+    }
+    //  if (RewriteRule<BBFactorOut>::applies(node)) {
+    //   Node res = RewriteRule<BBFactorOut>::run<false>(node);
+    //   return res; 
+    // } 
+
+  } else if (node.getKind() == kind::BITVECTOR_MULT) {
+    if (RewriteRule<MultPow2>::applies(node)) {
+      Node res = RewriteRule<MultPow2>::run<false>(node);
+      return res; 
+    }
+  }
+  
+  return node; 
 }
 
 /// Public methods
@@ -164,7 +204,6 @@ void Bitblaster::assertToSat(TNode lit) {
   }
   
   Assert (hasBBAtom(atom));
-  //Node rewr_atom = Rewriter::rewrite(atom); 
 
   SatLiteral markerLit = d_cnfStream->getLiteral(atom);
 
@@ -207,6 +246,10 @@ void Bitblaster::getConflict(std::vector<TNode>& conflict) {
   }
 }
 
+
+void Bitblaster::dumpDimacs(const std::string& file) {
+  d_satSolver->dumpDimacs(file, d_assertedAtoms); 
+}
 
 /// Helper methods
 

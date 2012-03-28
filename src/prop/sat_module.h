@@ -140,7 +140,9 @@ public:
 
   virtual void markUnremovable(SatLiteral lit) = 0;
 
-  virtual void getUnsatCore(SatClause& unsatCore) = 0; 
+  virtual void getUnsatCore(SatClause& unsatCore) = 0;
+
+  virtual void dumpDimacs(const std::string& file, const context::CDList<SatLiteral>& assumptions) = 0;
 }; 
 
 
@@ -161,8 +163,8 @@ public:
 
 class MinisatSatSolver: public BVSatSolverInterface {
   BVMinisat::SimpSolver* d_minisat; 
-
   MinisatSatSolver();
+  unsigned d_solveCount; 
 public:
   ~MinisatSatSolver();
   void addClause(SatClause& clause, bool removable);
@@ -209,6 +211,8 @@ public:
     ~Statistics();
     void init(BVMinisat::SimpSolver* minisat);
   };
+
+  void dumpDimacs(const std::string& file, const context::CDList<SatLiteral>& assumptions); 
   
   Statistics d_statistics;
   friend class SatSolverFactory;

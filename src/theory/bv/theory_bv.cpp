@@ -77,7 +77,8 @@ void TheoryBV::check(Effort e) {
       d_bitblaster->assertToSat(assertion); 
     }
 
-    TimerStat::CodeTimer codeTimer(d_statistics.d_solveTimer); 
+    TimerStat::CodeTimer codeTimer(d_statistics.d_solveTimer);
+    //d_bitblaster->dumpDimacs("sat_input"); 
     bool res = d_bitblaster->solve();
     if (res == false) {
       std::vector<TNode> conflictAtoms;

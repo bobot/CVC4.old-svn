@@ -43,7 +43,8 @@ string SatLiteral::toString() {
 }
 
 MinisatSatSolver::MinisatSatSolver() :
-  d_minisat(new BVMinisat::SimpSolver())
+  d_minisat(new BVMinisat::SimpSolver()),
+  d_solveCount(0)
 {
   d_statistics.init(d_minisat); 
 }
@@ -79,6 +80,8 @@ SatLiteralValue MinisatSatSolver::solve(){
 }
 
 SatLiteralValue MinisatSatSolver::solve(long unsigned int& resource){
+  ++d_solveCount;
+  
   Trace("limit") << "MinisatSatSolver::solve(): have limit of " << resource << " conflicts" << std::endl;
   if(resource == 0) {
     d_minisat->budgetOff();
@@ -95,6 +98,7 @@ SatLiteralValue MinisatSatSolver::solve(long unsigned int& resource){
 }
 
 SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assumptions){
+  ++d_solveCount; 
   Debug("sat::minisat") << "Solve with assumptions ";
   context::CDList<SatLiteral>::const_iterator it = assumptions.begin();
   BVMinisat::vec<BVMinisat::Lit> assump; 
@@ -104,11 +108,22 @@ SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assu
     assump.push(toMinisatLit(lit)); 
   }
   Debug("sat::minisat") <<"\n";
-  
+
  SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump));
  return result;
 }
 
+void MinisatSatSolver::dumpDimacs(const std::string& file, const context::CDList<SatLiteral>& assumptions) {
+  BVMinisat::vec<BVMinisat::Lit> assump;
+  context::CDList<SatLiteral>::const_iterator it = assumptions.begin(); 
+  for(; it != assumptions.end(); ++it) {
+    assump.push(toMinisatLit(*it)); 
+  }
+
+  std::ostringstream os;
+  os << file << d_solveCount << ".dimacs";
+  d_minisat->toDimacs(os.str().c_str(), assump); 
+}
 
 void MinisatSatSolver::getUnsatCore(SatClause& unsatCore) {
   // TODO add assertion to check the call was after an unsat call

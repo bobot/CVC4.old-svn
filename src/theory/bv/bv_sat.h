@@ -97,6 +97,8 @@ class Bitblaster {
   void initAtomBBStrategies();
   void initTermBBStrategies(); 
 
+  // returns a node that might be easier to bitblast
+  Node bbOptimize(TNode node); 
   
   void bbAtom(TNode node);
   // division is bitblasted in terms of constraints
@@ -114,7 +116,7 @@ public:
   bool solve();
   void bitblast(TNode node);
   void getConflict(std::vector<TNode>& conflict); 
-
+  void dumpDimacs(const std::string& file); 
 private:
 
   

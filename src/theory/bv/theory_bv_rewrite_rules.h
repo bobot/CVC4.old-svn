@@ -149,8 +149,12 @@ enum RewriteRuleId {
   MultDistribConst,
   AndSimplify,
   OrSimplify,
-  XorSimplify
- };
+  XorSimplify,
+
+  // rules to simplify bitblasting
+  BBPlusNeg
+};
+
 
 inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   switch (ruleId) {
@@ -260,7 +264,8 @@ inline std::ostream& operator << (std::ostream& out, RewriteRuleId ruleId) {
   case AndSimplify : out << "AndSimplify"; return out;
   case OrSimplify : out << "OrSimplify"; return out;
   case XorSimplify : out << "XorSimplify"; return out;
-  case NegPlus : out << "NegPlus"; return out; 
+  case NegPlus : out << "NegPlus"; return out;
+  case BBPlusNeg : out << "BBPlusNeg"; return out; 
   default:
     Unreachable();
   }
@@ -461,14 +466,15 @@ struct AllRewriteRules {
   RewriteRule<AndSimplify> rule108;
   RewriteRule<OrSimplify> rule109;
   RewriteRule<NegPlus> rule110;
+  RewriteRule<BBPlusNeg> rule111;
 };
 
-template<>
+template<> inline
 bool RewriteRule<EmptyRule>::applies(Node node) {
   return false;
 }
 
-template<>
+template<> inline
 Node RewriteRule<EmptyRule>::apply(Node node) {
   BVDebug("bv-rewrite") << "RewriteRule<EmptyRule> for " << node.getKind() <<"\n"; 
   Unreachable();
