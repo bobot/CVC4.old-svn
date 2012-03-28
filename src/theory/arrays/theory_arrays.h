@@ -151,7 +151,7 @@ private:
   void notifyCongruent(TNode a, TNode b);
 
 
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > CTNodeListAlloc;
+  typedef context::CDChunkList<TNode> CTNodeListAlloc;
   typedef context::CDHashMap<Node, CTNodeListAlloc*, NodeHashFunction> CNodeTNodesMap;
   typedef context::CDHashMap<TNode, List<TNode>*, TNodeHashFunction > EqLists;
 
@@ -163,7 +163,7 @@ private:
    * */
   CNodeTNodesMap d_disequalities;
   EqLists d_equalities;
-  context::CDList<TNode> d_prop_queue;
+  context::CDList_BE<TNode> d_prop_queue;
 
   void checkPropagations(TNode a, TNode b);
 
@@ -182,7 +182,7 @@ private:
    */
   Node d_conflict;
 
-  typedef context::CDList< quad<TNode, TNode, TNode, TNode > > QuadCDList;
+  typedef context::CDList_BE< quad<TNode, TNode, TNode, TNode > > QuadCDList;
 
 
   /**
@@ -449,7 +449,7 @@ public:
 
     // Trace("arrays-prop")<<"Propagating \n";
 
-    // context::CDList<TNode>::const_iterator it = d_prop_queue.begin();
+    // context::CDList_BE<TNode>::const_iterator it = d_prop_queue.begin();
     /*
     for(; it!= d_prop_queue.end(); it++) {
       TNode eq = *it;

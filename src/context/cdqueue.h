@@ -36,7 +36,7 @@ namespace context {
 
 /** We don't define a template with Allocator for the first implementation */
 template <class T>
-class CDQueue : public CDList<T> {
+class CDQueue : public CDList_BE<T> {
 protected:
 
   /** Points to the next element in the current context to dequeue. */
@@ -49,7 +49,7 @@ protected:
    * Private copy constructor used only by save().
    */
   CDQueue(const CDQueue<T>& l):
-    CDList<T>(l),
+    CDList_BE<T>(l),
     d_iter(l.d_iter),
     d_lastsave(l.d_lastsave) {}
 
@@ -60,7 +60,7 @@ protected:
     ContextObj* data = new(pCMM) CDQueue<T>(*this);
     // We save the d_size in d_lastsave and we should never destruct below this
     // indices before the corresponding restore.
-    d_lastsave = CDList<T>::d_size;
+    d_lastsave = CDList_BE<T>::d_size;
     Debug("cdqueue") << "save " << this
                      << " at level " << this->getContext()->getLevel()
                      << " size at " << this->d_size
@@ -80,7 +80,7 @@ protected:
     CDQueue<T>* qdata = static_cast<CDQueue<T>*>(data);
     d_iter = qdata->d_iter;
     d_lastsave = qdata->d_lastsave;
-    CDList<T>::restore(data);
+    CDList_BE<T>::restore(data);
   }
 
 
@@ -89,25 +89,25 @@ public:
 
   /** Creates a new CDQueue associated with the current context. */
   CDQueue(Context* context)
-    : CDList<T>(context),
+    : CDList_BE<T>(context),
       d_iter(0),
       d_lastsave(0)
   {}
 
   /** Returns true if the queue is empty in the current context. */
   bool empty() const{
-    Assert(d_iter <= CDList<T>::d_size);
-    return d_iter == CDList<T>::d_size;
+    Assert(d_iter <= CDList_BE<T>::d_size);
+    return d_iter == CDList_BE<T>::d_size;
   }
 
   /** Returns the number of elements that have not been dequeued in the context. */
   size_t size() const{
-    return CDList<T>::d_size - d_iter;
+    return CDList_BE<T>::d_size - d_iter;
   }
 
   /** Enqueues an element in the current context. */
   void push(const T& data){
-    CDList<T>::push_back(data);
+    CDList_BE<T>::push_back(data);
   }
 
   /**
@@ -117,13 +117,13 @@ public:
    */
   void pop(){
     Assert(!empty(), "Attempting to pop from an empty queue.");
-    CDList<T>::makeCurrent();
+    CDList_BE<T>::makeCurrent();
     d_iter = d_iter + 1;
-    if (empty() && d_lastsave != CDList<T>::d_size) {
+    if (empty() && d_lastsave != CDList_BE<T>::d_size) {
       // Some elements have been enqueued and dequeued in the same
       // context and now the queue is empty we can destruct them.
-      CDList<T>::truncateList(d_lastsave);
-      Assert(CDList<T>::d_size ==  d_lastsave);
+      CDList_BE<T>::truncateList(d_lastsave);
+      Assert(CDList_BE<T>::d_size ==  d_lastsave);
       d_iter = d_lastsave;
     }
   }
@@ -131,7 +131,7 @@ public:
   /** Returns a reference to the next element on the queue. */
   const T& front() const{
     Assert(!empty(), "No front in an empty queue.");
-    return CDList<T>::d_list[d_iter];
+    return CDList_BE<T>::d_list[d_iter];
   }
 
   /**
@@ -139,7 +139,7 @@ public:
    */
   const T& back() const {
     Assert(!empty(), "CDQueue::back() called on empty list");
-    return CDList<T>::d_list[CDList<T>::d_size - 1];
+    return CDList_BE<T>::d_list[CDList_BE<T>::d_size - 1];
   }
 
 };/* class CDQueue<> */

@@ -11,10 +11,10 @@
  ** See the file COPYING in the top-level source directory for licensing
  ** information.\endverbatim
  **
- ** \brief Context-dependent list class specialized for use with a
+ ** \brief Context-dependent list class designed for use with a
  ** context memory allocator.
  **
- ** Context-dependent list class specialized for use with a context
+ ** Context-dependent list class designed for use with a context
  ** memory allocator.
  **/
 
@@ -37,12 +37,12 @@ namespace context {
 /**
  * Generic context-dependent dynamic array.  Like the usual CDList<>,
  * but allocates all memory from context memory.  Elements are kept in
- * cascading "list segments."  Access to elements is not O(1) but
+ * cascading "list segments."  Access to elements by operator[] is not O(1) but
  * O(log n).  As with CDList<>, update is not permitted, only
  * appending to the end of the list.
  */
 template <class T>
-class CDList<T, ContextMemoryAllocator<T> > : public ContextObj {
+class CDChunkList : public ContextObj {
 public:
 
   /** The value type with which this CDList<> was instantiated. */
@@ -131,7 +131,7 @@ protected:
   struct CDListSave : public ContextObj {
     ListSegment* d_tail;
     size_t d_tailSize, d_size, d_sizeAlloc;
-    CDListSave(const CDList<T, Allocator>& list, ListSegment* tail,
+    CDListSave(const CDChunkList<T>& list, ListSegment* tail,
                size_t size, size_t sizeAlloc) :
       ContextObj(list),
       d_tail(tail),
@@ -152,12 +152,12 @@ protected:
       // itself saved or restored.
       Unreachable();
     }
-  };/* struct CDList<T, ContextMemoryAllocator<T> >::CDListSave */
+  };/* struct CDChunkList<T>::CDListSave */
 
   /**
    * Private copy constructor undefined (no copy permitted).
    */
-  CDList(const CDList<T, Allocator>& l) CVC4_UNDEFINED;
+  CDChunkList(const CDChunkList<T>& l) CVC4_UNDEFINED;
 
   /**
    * Allocate the first list segment.
@@ -276,7 +276,7 @@ protected:
 
 public:
 
-  CDList(Context* context, bool callDestructor, const Allocator& alloc) :
+  CDChunkList(Context* context, bool callDestructor, const Allocator& alloc) :
     ContextObj(context),
     d_headSegment(),
     d_tailSegment(&d_headSegment),
@@ -287,7 +287,7 @@ public:
     allocateHeadSegment();
   }
 
-  CDList(Context* context, bool callDestructor = true) :
+  CDChunkList(Context* context, bool callDestructor = true) :
     ContextObj(context),
     d_headSegment(),
     d_tailSegment(&d_headSegment),
@@ -298,7 +298,7 @@ public:
     allocateHeadSegment();
   }
 
-  CDList(bool allocatedInCMM, Context* context, bool callDestructor,
+  CDChunkList(bool allocatedInCMM, Context* context, bool callDestructor,
          const Allocator& alloc) :
     ContextObj(allocatedInCMM, context),
     d_headSegment(),
@@ -310,7 +310,7 @@ public:
     allocateHeadSegment();
   }
 
-  CDList(bool allocatedInCMM, Context* context, bool callDestructor = true) :
+  CDChunkList(bool allocatedInCMM, Context* context, bool callDestructor = true) :
     ContextObj(allocatedInCMM, context),
     d_headSegment(),
     d_tailSegment(&d_headSegment),
@@ -324,7 +324,7 @@ public:
   /**
    * Destructor: delete the list
    */
-  ~CDList() throw(AssertionException) {
+  ~CDChunkList() throw(AssertionException) {
     this->destroy();
 
     if(this->d_callDestructor) {
@@ -410,7 +410,7 @@ public:
    * Returns the most recent item added to the list.
    */
   const T& back() const {
-    Assert(d_size > 0, "CDList::back() called on empty list");
+    Assert(d_size > 0, "CDChunkList::back() called on empty list");
     return (*d_tailSegment)[d_tailSegment->size() - 1];
   }
 
@@ -431,7 +431,7 @@ public:
       d_index(i) {
     }
 
-    friend class CDList<T, Allocator>;
+    friend class CDChunkList<T>;
 
   public:
 
@@ -470,7 +470,7 @@ public:
       ++(*this);
       return i;
     }
-  };/* class CDList<>::const_iterator */
+  };/* class CDChunkList<>::const_iterator */
 
   /**
    * Returns an iterator pointing to the first item in the list.
@@ -489,7 +489,7 @@ public:
   const_iterator end() const {
     return const_iterator(NULL, 0);
   }
-};/* class CDList<T, ContextMemoryAllocator<T> > */
+};/* class CDChunkList<T, ContextMemoryAllocator<T> > */
 
 }/* CVC4::context namespace */
 }/* CVC4 namespace */

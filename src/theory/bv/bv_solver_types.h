@@ -143,8 +143,8 @@ namespace bv {
 //     return res == 10; 
 //   }
   
-//   bool   solve(const context::CDList<SatLit> & assumps) {
-//     context::CDList<SatLit>::const_iterator it = assumps.begin();
+//   bool   solve(const context::CDList_BE<SatLit> & assumps) {
+//     context::CDList_BE<SatLit>::const_iterator it = assumps.begin();
 //     for (; it!= assumps.end(); ++it) {
 //       picosat_assume(*it); 
 //     }

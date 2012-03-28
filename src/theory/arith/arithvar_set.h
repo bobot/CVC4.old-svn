@@ -338,7 +338,7 @@ private:
   };
 
   std::vector<bool> d_set;
-  context::CDList<RemoveIntWrapper> d_list;
+  context::CDList_BE<RemoveIntWrapper> d_list;
 
   class OnDestruction : public ArithVarCallBack {
   private:

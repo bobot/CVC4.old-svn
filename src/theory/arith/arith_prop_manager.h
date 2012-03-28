@@ -52,7 +52,7 @@ public:
   };
 
 private:
-  context::CDList<PropUnit> d_propagated;
+  context::CDList_BE<PropUnit> d_propagated;
   context::CDO<uint32_t> d_propagatedPos;
 
   /* This maps the node a theory engine will request on an explain call to

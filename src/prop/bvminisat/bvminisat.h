@@ -41,7 +41,7 @@ public:
 
   SatValue solve();
   SatValue solve(long unsigned int&);
-  SatValue solve(const context::CDList<SatLiteral> & assumptions);
+  SatValue solve(const context::CDList_BE<SatLiteral> & assumptions);
   void getUnsatCore(SatClause& unsatCore);
 
   SatValue value(SatLiteral l);

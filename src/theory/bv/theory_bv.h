@@ -49,7 +49,7 @@ private:
   context::Context* d_context;
 
   /** The asserted stuff */
-  context::CDList<TNode> d_assertions;
+  context::CDList_BE<TNode> d_assertions;
   
   /** Bitblaster */
   Bitblaster* d_bitblaster; 

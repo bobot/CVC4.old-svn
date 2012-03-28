@@ -46,7 +46,7 @@ namespace context {
  *    operator=, and memcpy.
  */
 template <class T, class AllocatorT>
-class CDList : public ContextObj {
+class CDList_BE : public ContextObj {
 public:
 
   /** The value type with which this CDList<> was instantiated. */
@@ -94,7 +94,7 @@ protected:
    * d_sizeAlloc are not copied: only the base class information and
    * d_size are needed in restore.
    */
-  CDList(const CDList<T, Allocator>& l) :
+  CDList_BE(const CDList_BE<T, Allocator>& l) :
     ContextObj(l),
     d_list(NULL),
     d_size(l.d_size),
@@ -157,7 +157,7 @@ private:
    * ContextMemoryManager.
    */
   ContextObj* save(ContextMemoryManager* pCMM) {
-    ContextObj* data = new(pCMM) CDList<T, Allocator>(*this);
+    ContextObj* data = new(pCMM) CDList_BE<T, Allocator>(*this);
     Debug("cdlist") << "save " << this
                     << " at level " << this->getContext()->getLevel()
                     << " size at " << this->d_size
@@ -179,7 +179,7 @@ protected:
                     << " data == " << data
                     << " call dtor == " << this->d_callDestructor
                     << " d_list == " << this->d_list << std::endl;
-    truncateList(((CDList<T, Allocator>*)data)->d_size);
+    truncateList(((CDList_BE<T, Allocator>*)data)->d_size);
     Debug("cdlist") << "restore " << this
                     << " level " << this->getContext()->getLevel()
                     << " size back to " << this->d_size
@@ -213,7 +213,7 @@ public:
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList(Context* context, bool callDestructor = true,
+  CDList_BE(Context* context, bool callDestructor = true,
          const Allocator& alloc = Allocator()) :
     ContextObj(context),
     d_list(NULL),
@@ -226,7 +226,7 @@ public:
   /**
    * Main constructor: d_list starts as NULL, size is 0
    */
-  CDList(bool allocatedInCMM, Context* context, bool callDestructor = true,
+  CDList_BE(bool allocatedInCMM, Context* context, bool callDestructor = true,
          const Allocator& alloc = Allocator()) :
     ContextObj(allocatedInCMM, context),
     d_list(NULL),
@@ -239,7 +239,7 @@ public:
   /**
    * Destructor: delete the list
    */
-  ~CDList() throw(AssertionException) {
+  ~CDList_BE() throw(AssertionException) {
     this->destroy();
 
     if(this->d_callDestructor) {
@@ -307,7 +307,7 @@ public:
    * Access to the ith item in the list.
    */
   const T& operator[](size_t i) const {
-    Assert(i < d_size, "index out of bounds in CDList::operator[]");
+    Assert(i < d_size, "index out of bounds in CDList_BE::operator[]");
     return d_list[i];
   }
 
@@ -315,12 +315,12 @@ public:
    * Returns the most recent item added to the list.
    */
   const T& back() const {
-    Assert(d_size > 0, "CDList::back() called on empty list");
+    Assert(d_size > 0, "CDList_BE::back() called on empty list");
     return d_list[d_size - 1];
   }
 
   /**
-   * Iterator for CDList class.  It has to be const because we don't
+   * Iterator for CDList_BE class.  It has to be const because we don't
    * allow items in the list to be changed.  It's a straightforward
    * wrapper around a pointer.  Note that for efficiency, we implement
    * only prefix increment and decrement.  Also note that it's OK to
@@ -332,7 +332,7 @@ public:
 
     const_iterator(T const* it) : d_it(it) {}
 
-    friend class CDList<T, Allocator>;
+    friend class CDList_BE<T, Allocator>;
 
   public:
 
@@ -379,7 +379,7 @@ public:
       T& operator*() {
         return *d_t;
       }
-    };/* class CDList<>::const_iterator::Proxy */
+    };/* class CDList_BE<>::const_iterator::Proxy */
 
     /** Postfix increment: returns Proxy with the old value. */
     Proxy operator++(int) {
@@ -395,7 +395,7 @@ public:
       return e;
     }
 
-  };/* class CDList<>::const_iterator */
+  };/* class CDList_BE<>::const_iterator */
 
   /**
    * Returns an iterator pointing to the first item in the list.
@@ -410,7 +410,7 @@ public:
   const_iterator end() const {
     return const_iterator(static_cast<T const*>(d_list) + d_size);
   }
-};/* class CDList<> */
+};/* class CDList_BE<> */
 
 }/* CVC4::context namespace */
 }/* CVC4 namespace */

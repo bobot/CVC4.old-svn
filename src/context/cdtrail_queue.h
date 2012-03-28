@@ -37,7 +37,7 @@ class CDTrailQueue {
 private:
 
   /** List of elements in the queue. */
-  CDList<T> d_list;
+  CDList_BE<T> d_list;
 
   /** Points to the next element in the current context to dequeue. */
   CDO<size_t> d_iter;

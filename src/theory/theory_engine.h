@@ -328,7 +328,7 @@ class TheoryEngine {
    * The theory can only propagate nodes that have an assigned literal in the
    * SAT solver and are hence referenced in the SAT solver.
    */
-  context::CDList<TNode> d_propagatedLiterals;
+  context::CDList_BE<TNode> d_propagatedLiterals;
 
   /**
    * The index of the next literal to be propagated by a theory.
@@ -346,7 +346,7 @@ class TheoryEngine {
    * the SAT solver and are hence referenced in the SAT solver (making the
    * use of TNode safe).
    */
-  context::CDList<TNode> d_decisionRequests;
+  context::CDList_BE<TNode> d_decisionRequests;
 
   /**
    * The index of the next decision requested by a theory.

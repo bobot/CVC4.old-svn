@@ -130,7 +130,7 @@ class TransitiveClosureNode : public TransitiveClosure{
   context::CDO< unsigned > d_counter;
   context::CDHashMap< Node, unsigned, NodeHashFunction > nodeMap;
   //for debugging
-  context::CDList< std::pair< Node, Node > > currEdges;
+  context::CDList_BE< std::pair< Node, Node > > currEdges;
 public:
   TransitiveClosureNode(context::Context* context) : 
     TransitiveClosure(context), d_counter( context, 0 ), nodeMap( context ), currEdges(context) {}

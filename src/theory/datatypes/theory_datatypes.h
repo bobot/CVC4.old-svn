@@ -39,15 +39,15 @@ namespace datatypes {
 
 class TheoryDatatypes : public Theory {
 private:
-  typedef context::CDList<TNode, context::ContextMemoryAllocator<TNode> > EqList;
+  typedef context::CDChunkList<TNode> EqList;
   typedef context::CDHashMap<Node, EqList*, NodeHashFunction> EqLists;
-  typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > EqListN;
+  typedef context::CDChunkList<Node> EqListN;
   typedef context::CDHashMap<Node, EqListN*, NodeHashFunction> EqListsN;
   typedef context::CDHashMap< Node, bool, NodeHashFunction > BoolMap;
 
   /** for debugging */
-  context::CDList<Node> d_currAsserts;
-  context::CDList<Node> d_currEqualities;
+  context::CDList_BE<Node> d_currAsserts;
+  context::CDList_BE<Node> d_currEqualities;
 
   /** keeps track of all selectors we care about, value is whether they have been collapsed */
   BoolMap d_selectors;
