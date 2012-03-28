@@ -67,6 +67,7 @@ void TheoryBV::preRegisterTerm(TNode node) {
 
 void TheoryBV::check(Effort e) {
   if (fullEffort(e) && !done()) {
+    //if(standardEffortOrMore(e) && !done()) {  
     BVDebug("bitvector")<< "TheoryBV::check(" << e << ")" << std::endl;
     std::vector<TNode> assertions;
       
@@ -78,7 +79,7 @@ void TheoryBV::check(Effort e) {
     }
 
     TimerStat::CodeTimer codeTimer(d_statistics.d_solveTimer);
-    //d_bitblaster->dumpDimacs("sat_input"); 
+    //gd_bitblaster->dumpDimacs("sat_input"); 
     bool res = d_bitblaster->solve();
     if (res == false) {
       std::vector<TNode> conflictAtoms;

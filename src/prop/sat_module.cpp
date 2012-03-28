@@ -24,6 +24,8 @@
 #include "expr/expr_stream.h"
 #include "prop/sat.h"
 
+#include <time.h>
+
 // DPLLT Minisat
 #include "prop/minisat/simp/SimpSolver.h"
 
@@ -98,7 +100,9 @@ SatLiteralValue MinisatSatSolver::solve(long unsigned int& resource){
 }
 
 SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assumptions){
-  ++d_solveCount; 
+  ++d_solveCount;
+  ++d_statistics.d_statCallsToSolve;
+
   Debug("sat::minisat") << "Solve with assumptions ";
   context::CDList<SatLiteral>::const_iterator it = assumptions.begin();
   BVMinisat::vec<BVMinisat::Lit> assump; 
@@ -109,8 +113,23 @@ SatLiteralValue MinisatSatSolver::solve(const context::CDList<SatLiteral> & assu
   }
   Debug("sat::minisat") <<"\n";
 
- SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump));
- return result;
+  clock_t begin, end;
+  // begin = clock();
+  // d_minisat->solve(assump);
+  // end = clock();
+  // cerr << "MinisatSatSolver::solve first call to solve(assump) time "<< end - begin <<"\n";
+
+  // BVMinisat::Lit temp = assump[0];
+  // int n = assump.size(); 
+  // assump[0] = assump[n - 1];
+  // assump[n - 1] = temp; 
+  
+  begin = clock(); 
+  SatLiteralValue result = toSatLiteralValue(d_minisat->solve(assump));
+  end = clock();
+  cerr << "MinisatSatSolver::solve second call to solve(assump) time "<< end - begin <<"\n";
+  d_statistics.d_statSolveTime = d_statistics.d_statSolveTime.getData() + (end - begin)/(double)CLOCKS_PER_SEC; 
+  return result;
 }
 
 void MinisatSatSolver::dumpDimacs(const std::string& file, const context::CDList<SatLiteral>& assumptions) {
@@ -226,7 +245,9 @@ MinisatSatSolver::Statistics::Statistics() :
   d_statLearntsLiterals("theory::bv::bvminisat::learnts_literals"),
   d_statMaxLiterals("theory::bv::bvminisat::max_literals"),
   d_statTotLiterals("theory::bv::bvminisat::tot_literals"),
-  d_statEliminatedVars("theory::bv::bvminisat::eliminated_vars")
+  d_statEliminatedVars("theory::bv::bvminisat::eliminated_vars"),
+  d_statCallsToSolve("theory::bv::bvminisat::calls_to_solve", 0),
+  d_statSolveTime("theory::bv::bvminisat::solve_time", 0)
 {
   StatisticsRegistry::registerStat(&d_statStarts);
   StatisticsRegistry::registerStat(&d_statDecisions);
@@ -238,9 +259,12 @@ MinisatSatSolver::Statistics::Statistics() :
   StatisticsRegistry::registerStat(&d_statMaxLiterals);
   StatisticsRegistry::registerStat(&d_statTotLiterals);
   StatisticsRegistry::registerStat(&d_statEliminatedVars);
+  StatisticsRegistry::registerStat(&d_statCallsToSolve);
+  StatisticsRegistry::registerStat(&d_statSolveTime);
 }
 
 MinisatSatSolver::Statistics::~Statistics() {
+  //d_statSolveTime = d_statSolveTime.getData(); 
   StatisticsRegistry::unregisterStat(&d_statStarts);
   StatisticsRegistry::unregisterStat(&d_statDecisions);
   StatisticsRegistry::unregisterStat(&d_statRndDecisions);
@@ -251,6 +275,8 @@ MinisatSatSolver::Statistics::~Statistics() {
   StatisticsRegistry::unregisterStat(&d_statMaxLiterals);
   StatisticsRegistry::unregisterStat(&d_statTotLiterals);
   StatisticsRegistry::unregisterStat(&d_statEliminatedVars);
+  StatisticsRegistry::unregisterStat(&d_statCallsToSolve);
+  StatisticsRegistry::unregisterStat(&d_statSolveTime);
 }
     
 void MinisatSatSolver::Statistics::init(BVMinisat::SimpSolver* minisat){

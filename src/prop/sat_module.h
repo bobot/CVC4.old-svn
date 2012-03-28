@@ -207,6 +207,8 @@ public:
     ReferenceStat<uint64_t> d_statLearntsLiterals,  d_statMaxLiterals;
     ReferenceStat<uint64_t> d_statTotLiterals;
     ReferenceStat<int> d_statEliminatedVars;
+    IntStat d_statCallsToSolve;
+    BackedStat<double> d_statSolveTime; 
     Statistics();
     ~Statistics();
     void init(BVMinisat::SimpSolver* minisat);

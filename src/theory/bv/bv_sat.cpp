@@ -24,6 +24,7 @@
 #include "prop/sat_module.h"
 #include "theory_bv_rewrite_rules_simplification.h"
 
+
 using namespace std;
 
 using namespace CVC4::theory::bv::utils;
@@ -225,7 +226,8 @@ void Bitblaster::assertToSat(TNode lit) {
  */
  
 bool Bitblaster::solve() {
-  Trace("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n"; 
+  Trace("bitvector") << "Bitblaster::solve() asserted atoms " << d_assertedAtoms.size() <<"\n";
+  
   return SatValTrue == d_satSolver->solve(d_assertedAtoms); 
 }
 
