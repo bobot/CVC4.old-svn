@@ -32,6 +32,8 @@
 #include "context/cdlist_forward.h"
 #include "util/Assert.h"
 
+#include <boost/static_assert.hpp>
+
 namespace CVC4 {
 namespace context {
 
@@ -440,11 +442,8 @@ class CDList_BE <T, CleanUp, ContextMemoryAllocator<T> > : public ContextObj {
    * As this is unacceptable for performance in other situations, we do not do
    * this.
    */
-  typedef typename CleanUp::DoNotInstantiateThisIntentionalCompilationFailure Fail;
 
-  /* If you defined a CleanUp::DoNotInstantiateThisIntentionalCompilationFailure,
-   * you deserve this!
-   */
+  BOOST_STATIC_ASSERT(sizeof(T) == 0);
 };
 
 }/* CVC4::context namespace */
