@@ -43,7 +43,13 @@ namespace __gnu_cxx {
 namespace CVC4 {
 namespace context {
 
-template <class T, class Allocator = std::allocator<T> >
+template <class T>
+class DefaultCleanUp {
+public:
+  inline void operator()(T* t) const{}
+};
+
+template <class T, class CleanUp = DefaultCleanUp<T>, class Allocator = std::allocator<T> >
 class CDList_BE;
 
 }/* CVC4::context namespace */
