@@ -726,7 +726,8 @@ void InstMatchGeneratorMulti::calculateMatches( QuantifiersEngine* qe ){
         Debug("smart-multi-trigger") << "Child " << i << " produced match " << newMatches[j] << std::endl;
         //collect new instantiations
         int childIndex = (i+1)%(int)d_children.size();
-        collectInstantiations( qe, newMatches[j], d_children_trie[childIndex].getTrie(), 0, childIndex, i, true );
+        std::map< Node, InstMatchTrie* > unique_var_tries;
+        collectInstantiations( qe, newMatches[j], d_children_trie[childIndex].getTrie(), unique_var_tries, 0, childIndex, i, true );
       }
     }
     //std::cout << "Done. " << i << " " << (int)d_curr_matches.size() << std::endl;
@@ -734,27 +735,38 @@ void InstMatchGeneratorMulti::calculateMatches( QuantifiersEngine* qe ){
 }
 
 void InstMatchGeneratorMulti::collectInstantiations( QuantifiersEngine* qe, InstMatch& m, InstMatchTrie* tr, 
+                                                     std::map< Node, InstMatchTrie* >& unique_var_tries,
                                                      int trieIndex, int childIndex, int endChildIndex, bool modEq ){
   if( childIndex==endChildIndex ){
     //m is an instantiation
     d_curr_matches.push_back( InstMatch( &m ) );
     Debug("smart-multi-trigger") << "-> Produced instantiation " << m << std::endl;
-    return;
   }else if( trieIndex<(int)d_children_trie[childIndex].getOrdering()->d_order.size() ){
-    Node curr_ic = qe->getInstantiationConstant( d_f, d_children_trie[childIndex].getOrdering()->d_order[trieIndex] );
+    int curr_index = d_children_trie[childIndex].getOrdering()->d_order[trieIndex];
+    Node curr_ic = qe->getInstantiationConstant( d_f, curr_index );
     if( m.d_map.find( curr_ic )==m.d_map.end() ){
-      //non-shared variable, add to InstMatch
+      //if( d_var_to_node[ curr_index ].size()==1 ){
+      //  //unique variable(s), defer calculation
+      //  unique_var_tries[ curr_ic ] = tr;
+      //  int newChildIndex = (childIndex+1)%(int)d_children.size();
+      //  collectInstantiations( qe, m, d_children_trie[newChildIndex].getTrie(), unique_var_tries, 
+      //                         0, newChildIndex, endChildIndex, modEq );
+      //}else{
+      //shared and non-set variable, add to InstMatch
       for( std::map< Node, InstMatchTrie >::iterator it = tr->d_data.begin(); it != tr->d_data.end(); ++it ){
         InstMatch mn( &m );
         mn.d_map[ curr_ic ] = it->first;
-        collectInstantiations( qe, mn, &(it->second), trieIndex+1, childIndex, endChildIndex, modEq );
+        collectInstantiations( qe, mn, &(it->second), unique_var_tries,
+                                trieIndex+1, childIndex, endChildIndex, modEq );
       }
+      //}
     }else{
-      //shared variable, try to merge
+      //shared and set variable, try to merge
       Node n = m.d_map[ curr_ic ];
       std::map< Node, InstMatchTrie >::iterator it = tr->d_data.find( n );
       if( it!=tr->d_data.end() ){
-        collectInstantiations( qe, m, &(it->second), trieIndex+1, childIndex, endChildIndex, modEq );
+        collectInstantiations( qe, m, &(it->second), unique_var_tries,
+                               trieIndex+1, childIndex, endChildIndex, modEq );
       }
       if( modEq ){
         //check modulo equality for other possible instantiations
@@ -766,7 +778,8 @@ void InstMatchGeneratorMulti::collectInstantiations( QuantifiersEngine* qe, Inst
             if( en!=n ){
               std::map< Node, InstMatchTrie >::iterator itc = tr->d_data.find( en );
               if( itc!=tr->d_data.end() ){
-                collectInstantiations( qe, m, &(itc->second), trieIndex+1, childIndex, endChildIndex, modEq );
+                collectInstantiations( qe, m, &(itc->second), unique_var_tries,
+                                       trieIndex+1, childIndex, endChildIndex, modEq );
               }
             }
             ++eqc;
@@ -776,7 +789,8 @@ void InstMatchGeneratorMulti::collectInstantiations( QuantifiersEngine* qe, Inst
     }
   }else{
     int newChildIndex = (childIndex+1)%(int)d_children.size();
-    collectInstantiations( qe, m, d_children_trie[newChildIndex].getTrie(), 0, newChildIndex, endChildIndex, modEq );
+    collectInstantiations( qe, m, d_children_trie[newChildIndex].getTrie(), unique_var_tries,
+                           0, newChildIndex, endChildIndex, modEq );
   }
 }
 

@@ -338,6 +338,7 @@ class InstMatchGeneratorMulti : public IMGenerator
 private:
   /** collect instantiations */
   void collectInstantiations( QuantifiersEngine* qe, InstMatch& m, InstMatchTrie* tr, 
+                              std::map< Node, InstMatchTrie* >& unique_var_tries,
                               int trieIndex, int childIndex, int endChildIndex, bool modEq );
 private:
   /** var contains (variable indicies) for each pattern node */

@@ -51,7 +51,8 @@ private:
     }
     //AJR-hack
     void notifyEqClass( TNode t ){}
-    void notifyMerge( TNode t1, TNode t2 ){}
+    void preNotifyMerge( TNode t1, TNode t2 ){}
+    void postNotifyMerge( TNode t1, TNode t2 ){}
     void notifyDisequal( TNode t1, TNode t2, TNode reason ){}
     //AJR-hack-end
   };

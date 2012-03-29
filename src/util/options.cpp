@@ -115,6 +115,7 @@ Options::Options() :
   literalMatchMode(LITERAL_MATCH_NONE),
   cbqi(false),
   cbqiSetByUser(false),
+  flipDecision(true),
   dioSolver(true),
   lemmaOutputChannel(NULL),
   lemmaInputChannel(NULL),
@@ -194,6 +195,7 @@ Additional CVC4 options:\n\
    --literal-matching=MODE  choose literal matching mode\n\
    --enable-cbqi          turns on counterexample-based quantifier instantiation [on by default only for arithmetic]\n\
    --disable-cbqi         turns off counterexample-based quantifier instantiation\n\
+   --disable-flip-decision turns off flip decision heuristic\n\
    --disable-dio-solver   turns off Linear Diophantine Equation solver (Griggio, JSAT 2012)\n\
    --threads=N            sets the number of solver threads\n\
    --threadN=string       configures thread N (0..#threads-1)\n\
@@ -376,6 +378,7 @@ enum OptionValue {
   LITERAL_MATCHING,
   ENABLE_CBQI,
   DISABLE_CBQI,
+  DISABLE_FLIP_DECISION,
   PARALLEL_THREADS,
   PARALLEL_SEPARATE_OUTPUT,
   PORTFOLIO_FILTER_LENGTH,
@@ -471,6 +474,7 @@ static struct option cmdlineOptions[] = {
   { "literal-matching", required_argument, NULL, LITERAL_MATCHING },
   { "enable-cbqi", no_argument, NULL, ENABLE_CBQI },
   { "disable-cbqi", no_argument, NULL, DISABLE_CBQI },
+  { "disable-flip-decision", no_argument, NULL, DISABLE_FLIP_DECISION },
   { "threads", required_argument, NULL, PARALLEL_THREADS },
   { "separate-output", no_argument, NULL, PARALLEL_SEPARATE_OUTPUT },
   { "filter-lemma-length", required_argument, NULL, PORTFOLIO_FILTER_LENGTH },
@@ -862,6 +866,9 @@ throw(OptionException) {
     case DISABLE_CBQI:
       cbqi = false;
       cbqiSetByUser = true;
+      break;
+    case DISABLE_FLIP_DECISION:
+      flipDecision = false;
       break;
     case TIME_LIMIT:
       {

@@ -67,8 +67,11 @@ public:
     void notifyEqClass( TNode t ){
       d_uf.notifyEqClass( t );
     }
-    void notifyMerge( TNode t1, TNode t2 ){
-      d_uf.notifyMerge( t1, t2 );
+    void preNotifyMerge( TNode t1, TNode t2 ){
+      d_uf.preNotifyMerge( t1, t2 );
+    }
+    void postNotifyMerge( TNode t1, TNode t2 ){
+      d_uf.postNotifyMerge( t1, t2 );
     }
     void notifyDisequal( TNode t1, TNode t2, TNode reason ){
       d_uf.notifyDisequal( t1, t2, reason );
@@ -127,8 +130,11 @@ private:
   /** called when a new equivalance class is created */
   void notifyEqClass( TNode t );
 
-  /** called when two equivalance classes merge */
-  void notifyMerge( TNode t1, TNode t2 );
+  /** called when two equivalance classes will merge */
+  void preNotifyMerge( TNode t1, TNode t2 );
+
+  /** called when two equivalance classes have merged */
+  void postNotifyMerge( TNode t1, TNode t2 );
 
   /** called when two equivalence classes are made disequal */
   void notifyDisequal( TNode t1, TNode t2, TNode reason );
@@ -136,9 +142,6 @@ private:
 
   ////AJR-hack
   ////   TEMPORARY
-  //typedef context::CDList<Node, context::ContextMemoryAllocator<Node> > NodeList;
-  ///** map from (representative) nodes to list of representative nodes they are disequal from */
-  //NodeList d_assertions_ajr;
   context::CDO< bool > d_hasCard;
   ////AJR-hack-end
 public:

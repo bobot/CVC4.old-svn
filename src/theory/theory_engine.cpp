@@ -244,14 +244,17 @@ void TheoryEngine::check(Theory::Effort effort) {
     }
 
     //AJR-hack
-    //this is the flip decision code
     if( effort==Theory::EFFORT_FULL ){
       if( !d_inConflict && !d_lemmasAdded ){
+        //must consult quantifiers theory for last call (if it exists) to ensure sat, or otherwise add a lemma
         if( d_theoryTable[THEORY_QUANTIFIERS] ){
           ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->performCheck( Theory::EFFORT_LAST_CALL );
-          if( d_incomplete && !d_inConflict && !d_lemmasAdded ){
-            if( ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ){
-              d_incomplete = false;
+          //if we have given up, then possibly flip decision
+          if( Options::current()->flipDecision ){
+            if( d_incomplete && !d_inConflict && !d_lemmasAdded ){
+              if( ((theory::quantifiers::TheoryQuantifiers*)d_theoryTable[THEORY_QUANTIFIERS])->flipDecision() ){
+                d_incomplete = false;
+              }
             }
           }
         }

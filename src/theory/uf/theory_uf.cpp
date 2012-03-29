@@ -102,7 +102,8 @@ void TheoryUF::check(Effort level) {
           d_hasCard = true;
         }else{
           if( !d_hasCard ){
-            std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
+            //std::cout << "Warning: " << fact << " asserted before cardinality" << std::endl;
+            std::cout << "Error: constraint asserted before cardinality" << std::endl;
             exit( 21 );
           }
         }
@@ -655,12 +656,15 @@ void TheoryUF::notifyEqClass( TNode t ){
   }
 }
 
-void TheoryUF::notifyMerge( TNode t1, TNode t2 ){
-  if( d_thss ){
-    d_thss->merge( t1, t2 );
-  }
+void TheoryUF::preNotifyMerge( TNode t1, TNode t2 ){
   if( getInstantiator() ){
     ((InstantiatorTheoryUf*)getInstantiator())->merge( t1, t2 );
+  }
+}
+
+void TheoryUF::postNotifyMerge( TNode t1, TNode t2 ){
+  if( d_thss ){
+    d_thss->merge( t1, t2 );
   }
 }
 

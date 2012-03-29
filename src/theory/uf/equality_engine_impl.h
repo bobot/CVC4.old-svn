@@ -284,30 +284,16 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
   Node n2 = d_nodes[class2Id];
   EqualityNode cc1 = getEqualityNode(n1);
   EqualityNode cc2 = getEqualityNode(n2);
+  bool doNotify = false;
   //AJR-hack-end
   //AJR-hack
   //notify the theory
-  if( d_performNotify ){
-    if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
-      d_notify.notifyMerge( n1, n2 );
-    }
+  if( d_performNotify && class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
+    doNotify = true;
   }
-  //if( d_thss ){
-  //  Debug("uf-ss-merge") << "Merge " << " " << n1 << " " << n2 << std::endl;
-  //  Debug("uf-ss-merge") << "   " << class1Id << " " << class2Id << std::endl;
-  //  Debug("uf-ss-merge") << "   " << cc1.getFind() << " " << cc2.getFind() << std::endl;
-  //  if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
-  //    d_thss->merge( n1, n2 );
-  //  }
-  //}
-  //AJR-hack-end
-  //std::cout << "Merge " << n1 << " " << n2 << std::endl;
-  //Node r1 = getRepresentative( n1 );
-  //Node r2 = getRepresentative( n2 );
-  //std::cout << "Now reps : " << r1 << " " << r2 << std::endl;
-  //Assert( r1==r2 );
-  //Assert( r1==n1 || r1==n2 );
-
+  if( doNotify ){
+    d_notify.preNotifyMerge( n1, n2 );
+  }
   //AJR-hack-end
   // Update class2 representative information
   Debug("equality") << "EqualityEngine::merge(" << class1.getFind() << "," << class2.getFind() << "): updating class " << class2Id << std::endl;
@@ -386,7 +372,28 @@ void EqualityEngine<NotifyClass>::merge(EqualityNode& class1, EqualityNode& clas
 
   // Now merge the lists
   class1.merge<true>(class2);
+  //AJR-hack
+  //notify the theory
+  if( doNotify ){
+    d_notify.postNotifyMerge( n1, n2 );
+  }
+  //if( d_thss ){
+  //  Debug("uf-ss-merge") << "Merge " << " " << n1 << " " << n2 << std::endl;
+  //  Debug("uf-ss-merge") << "   " << class1Id << " " << class2Id << std::endl;
+  //  Debug("uf-ss-merge") << "   " << cc1.getFind() << " " << cc2.getFind() << std::endl;
+  //  if( class1Id==cc1.getFind() && class2Id==cc2.getFind() ){
+  //    d_thss->merge( n1, n2 );
+  //  }
+  //}
+  //AJR-hack-end
+  //std::cout << "Merge " << n1 << " " << n2 << std::endl;
+  //Node r1 = getRepresentative( n1 );
+  //Node r2 = getRepresentative( n2 );
+  //std::cout << "Now reps : " << r1 << " " << r2 << std::endl;
+  //Assert( r1==r2 );
+  //Assert( r1==n1 || r1==n2 );
 
+  //AJR-hack-end
   // Notfiy the triggers
   EqualityNodeId class1triggerId = d_nodeIndividualTrigger[class1Id];
   EqualityNodeId class2triggerId = d_nodeIndividualTrigger[class2Id];

@@ -185,23 +185,26 @@ void InstantiationEngine::check( Theory::Effort e ){
       }
     }
     if( quantActive ){
+      bool addedLemmas = doInstantiationRound( e );
       //Debug("quantifiers-dec") << "Do instantiation, level = " << d_th->getValuation().getDecisionLevel() << std::endl;
       //for( int i=1; i<=(int)d_valuation.getDecisionLevel(); i++ ){
       //  Debug("quantifiers-dec") << "   " << d_valuation.getDecision( i ) << std::endl;
       //}
-      if( !doInstantiationRound( e ) ){
-        if( d_inst_round_status==InstStrategy::STATUS_SAT ){
-          Debug("inst-engine") << "No instantiation given, returning SAT..." << std::endl;
-          debugSat( SAT_INST_STRATEGY );
-        }else{
-          if( e==Theory::EFFORT_LAST_CALL ){
+      if( e==Theory::EFFORT_LAST_CALL ){
+        if( !addedLemmas ){
+          if( d_inst_round_status==InstStrategy::STATUS_SAT ){
+            Debug("inst-engine") << "No instantiation given, returning SAT..." << std::endl;
+            debugSat( SAT_INST_STRATEGY );
+          }else{
             Debug("inst-engine") << "No instantiation given, returning unknown..." << std::endl;
+            d_th->getOutputChannel().setIncomplete();
           }
-          d_th->getOutputChannel().setIncomplete();
         }
       }
     }else{
-      debugSat( SAT_CBQI );
+      if( e==Theory::EFFORT_LAST_CALL ){
+        debugSat( SAT_CBQI );
+      }
     }
 #ifdef IE_PRINT_PROCESS_TIMES
     double clSet2 = double(clock())/double(CLOCKS_PER_SEC);
@@ -439,13 +442,15 @@ void InstantiationEngine::debugSat( int reason ){
         }
       }
     }
-    Debug("quantifiers-sat") << "No quantifier is active. " << std::endl;
+    Debug("quantifiers-sat") << "return SAT: Cbqi, no quantifier is active. " << std::endl;
     //static bool setTrust = false;
     //if( !setTrust ){
     //  setTrust = true;
     //  std::cout << "trust-";
     //}
   }else if( reason==SAT_INST_STRATEGY ){
-    Debug("quantifiers-sat") << "No strategy chose to add an instantiation." << std::endl;
+    Debug("quantifiers-sat") << "return SAT: No strategy chose to add an instantiation." << std::endl;
+    //std::cout << "sat ";
+    //exit( 11 );
   }
 }

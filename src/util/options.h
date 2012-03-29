@@ -280,6 +280,11 @@ struct CVC4_PUBLIC Options {
    */
   bool cbqiSetByUser;
 
+  /** 
+   * Whether to use flip decision (useful when cbqi=true)
+   */
+  bool flipDecision;
+
   /**
    * Whether to do the linear diophantine equation solver
    * in Arith as described by Griggio JSAT 2012 (on by default).
