@@ -729,11 +729,11 @@ void TheoryArrays::check(Effort e) {
         d_equalityEngine.addEquality(fact[0], fact[1], fact);
         break;
       case kind::SELECT:
-        d_equalityEngine.addEquality(fact, d_true, fact);
+        d_equalityEngine.addPredicate(fact, true, fact);
         break;
       case kind::NOT:
         if (fact[0].getKind() == kind::SELECT) {
-          d_equalityEngine.addEquality(fact[0], d_false, fact);
+          d_equalityEngine.addPredicate(fact[0], false, fact);
         } else if (!d_equalityEngine.areDisequal(fact[0][0], fact[0][1])) {
           // Assert the dis-equality
           d_equalityEngine.addDisequality(fact[0][0], fact[0][1], fact);

@@ -266,17 +266,40 @@ void TheoryEngine::combineTheories() {
         d_sharedTerms.areDisequal(carePair.a, carePair.b)) {
       continue;
     }
-    else if (carePair.a.isConst() && carePair.b.isConst()) {
+
+    if (carePair.a.isConst() && carePair.b.isConst()) {
       // TODO: equality engine should auto-detect these as disequal
       d_sharedTerms.processSharedLiteral(carePair.a.eqNode(carePair.b).notNode(), NodeManager::currentNM()->mkConst<bool>(true));
       continue;
     }
-    else {
-      // There is no value, so we need to split on it
-      Debug("sharing") << "TheoryEngine::combineTheories(): requesting a split " << std::endl;
-      Node equality = carePair.a.eqNode(carePair.b);
-      lemma(equality.orNode(equality.notNode()), false, false);
+
+    Node equality = carePair.a.eqNode(carePair.b);
+    Node normalizedEquality = Rewriter::rewrite(equality);
+    bool isTrivial = normalizedEquality.getKind() == kind::CONST_BOOLEAN;
+    bool value;
+    if (isTrivial || (d_propEngine->isSatLiteral(normalizedEquality) && d_propEngine->hasValue(normalizedEquality, value))) {
+      // Missed propagation!
+      Debug("sharing") << "TheoryEngine::combineTheories(): has a literal or is trivial" << std::endl;
+      
+      if (isTrivial) {
+        value = normalizedEquality.getConst<bool>();
+        normalizedEquality = NodeManager::currentNM()->mkConst<bool>(true);
+      }
+      else {
+        d_sharedLiteralsIn[normalizedEquality] = theory::THEORY_LAST;
+        if (!value) normalizedEquality = normalizedEquality.notNode();
+      }
+      if (!value) {
+        equality = equality.notNode();
+      }
+      d_sharedTerms.processSharedLiteral(equality, normalizedEquality);
+      continue;
     }
+
+    // There is no value, so we need to split on it
+    Debug("sharing") << "TheoryEngine::combineTheories(): requesting a split " << std::endl;
+    lemma(equality.orNode(equality.notNode()), false, false);
+
   }
 }
 

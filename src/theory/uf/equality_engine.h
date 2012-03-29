@@ -622,6 +622,11 @@ public:
   bool hasTerm(TNode t) const;
 
   /**
+   * Adds aa predicate t with given polarity
+   */
+  void addPredicate(TNode t, bool polarity, TNode reason);
+
+  /**
    * Adds an equality t1 = t2 to the database.
    */
   void addEquality(TNode t1, TNode t2, TNode reason);

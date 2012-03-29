@@ -11,12 +11,16 @@ libprop_la_SOURCES = \
 	registrar.h \
 	prop_engine.cpp \
 	prop_engine.h \
-	sat.h \
-	sat.cpp \
+	theory_proxy.h \
+	theory_proxy.cpp \
 	cnf_stream.h \
 	cnf_stream.cpp \
-	sat_module.h \
-	sat_module.cpp
-
+	sat_solver.h \
+	sat_solver_types.h \	
+	sat_solver_factory.h \
+	sat_solver_factory.cpp \
+	sat_solver_registry.h \
+	sat_solver_registry.cpp
+	
 SUBDIRS = minisat bvminisat
 

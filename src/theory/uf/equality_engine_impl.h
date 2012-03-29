@@ -205,6 +205,14 @@ void EqualityEngine<NotifyClass>::addEqualityInternal(TNode t1, TNode t2, TNode 
 }
 
 template <typename NotifyClass>
+void EqualityEngine<NotifyClass>::addPredicate(TNode t, bool polarity, TNode reason) {
+
+  Debug("equality") << "EqualityEngine::addPredicate(" << t << "," << (polarity ? "true" : "false") << ")" << std::endl;
+
+  addEqualityInternal(t, polarity ? d_true : d_false, reason);
+}
+
+template <typename NotifyClass>
 void EqualityEngine<NotifyClass>::addEquality(TNode t1, TNode t2, TNode reason) {
 
   Debug("equality") << "EqualityEngine::addEquality(" << t1 << "," << t2 << ")" << std::endl;

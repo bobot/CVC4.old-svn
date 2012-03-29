@@ -29,15 +29,7 @@
 #include "util/options.h"
 #include "util/stats.h"
 
-#include "prop/sat_module.h"
-
-#ifdef __CVC4_USE_MINISAT
-
-#include "prop/minisat/core/Solver.h"
-#include "prop/minisat/core/SolverTypes.h"
-#include "prop/minisat/simp/SimpSolver.h"
-
-#endif /* __CVC4_USE_MINISAT */
+#include "prop/sat_solver.h"
 
 namespace CVC4 {
 
@@ -130,38 +122,6 @@ inline TheoryProxy::TheoryProxy(PropEngine* propEngine,
 {}
 
 }/* CVC4::prop namespace */
-
-inline std::ostream& operator <<(std::ostream& out, prop::SatLiteral lit) {
-  out << lit.toString(); 
-  return out;
-}
-
-inline std::ostream& operator <<(std::ostream& out, const prop::SatClause& clause) {
-  out << "clause:";
-  for(unsigned i = 0; i < clause.size(); ++i) {
-    out << " " << clause[i];
-  }
-  out << ";";
-  return out;
-}
-
-inline std::ostream& operator <<(std::ostream& out, prop::SatLiteralValue val) {
-  std::string str; 
-  switch(val) {
-  case prop::SatValUnknown:
-    str = "_";
-  case prop::SatValTrue:
-    str = "1";
-  case prop::SatValFalse:
-    str = "0";
-  default:
-    str = "Error"; 
-
-  out << str;
-  return out;
-}
-
-} /* prop namespace */
 
 }/* CVC4 namespace */
 

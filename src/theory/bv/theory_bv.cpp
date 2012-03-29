@@ -127,9 +127,7 @@ void TheoryBV::check(Effort e) {
           // Assert the dis-equality
           d_equalityEngine.addDisequality(fact[0][0], fact[0][1], fact);
         } else {
-          //TODO: this causes an assertion failure due to building an equality between Booleans
-          // disable for now
-          //d_equalityEngine.addEquality(fact[0], d_false, fact);
+          d_equalityEngine.addPredicate(fact[0], false, fact);
           break;
         }
         break;

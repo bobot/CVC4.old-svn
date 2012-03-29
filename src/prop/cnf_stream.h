@@ -28,7 +28,7 @@
 #define __CVC4__PROP__CNF_STREAM_H
 
 #include "expr/node.h"
-#include "prop/sat.h"
+#include "prop/theory_proxy.h"
 #include "prop/registrar.h"
 
 #include <ext/hash_map>
@@ -65,7 +65,7 @@ public:
 protected:
 
   /** The SAT solver we will be using */
-  SatSolverInterface *d_satSolver;
+  SatSolver *d_satSolver;
 
   TranslationCache d_translationCache;
   NodeCache d_nodeCache;
@@ -190,7 +190,7 @@ public:
    * @param fullLitToNodeMap maintain a full SAT-literal-to-Node mapping,
    * even for non-theory literals
    */
-  CnfStream(SatSolverInterface* satSolver, Registrar* registrar, bool fullLitToNodeMap = false);
+  CnfStream(SatSolver* satSolver, Registrar* registrar, bool fullLitToNodeMap = false);
 
   /**
    * Destructs a CnfStream.  This implementation does nothing, but we
@@ -290,7 +290,7 @@ public:
    * @param fullLitToNodeMap maintain a full SAT-literal-to-Node mapping,
    * even for non-theory literals
    */
-  TseitinCnfStream(SatSolverInterface* satSolver, Registrar* registrar, bool fullLitToNodeMap = false);
+  TseitinCnfStream(SatSolver* satSolver, Registrar* registrar, bool fullLitToNodeMap = false);
 
 private:
 
