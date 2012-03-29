@@ -28,7 +28,6 @@
 #include "util/exception.h"
 #include "context/context.h"
 #include "context/cdlist.h"
-#include "context/cdlist_context_memory.h"
 
 using namespace std;
 using namespace CVC4::context;
@@ -136,15 +135,10 @@ public:
     TS_ASSERT_EQUALS(aThirdFalse, false);
   }
 
-  void testEmptyIterators() {
-    CDList_BE<int>* list1 = new(true) CDList_BE<int>(d_context);
-    CDChunkList< int>* list2 =
-      new(d_context->getCMM())
-        CDChunkList< int >(true, d_context, false,
-                                                   ContextMemoryAllocator<int>(d_context->getCMM()));
-    TS_ASSERT_EQUALS(list1->begin(), list1->end());
-    TS_ASSERT_EQUALS(list2->begin(), list2->end());
-    list1->deleteSelf();
+  void testEmptyIterator() {
+    CDList_BE<int>* list = new(true) CDList_BE<int>(d_context);
+    TS_ASSERT_EQUALS(list->begin(), list->end());
+    list->deleteSelf();
   }
 
   /* setrlimit() totally broken on Mac OS X */

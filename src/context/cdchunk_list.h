@@ -1,5 +1,5 @@
 /*********************                                                        */
-/*! \file cdlist_context_memory.h
+/*! \file cdchunk_list.h
  ** \verbatim
  ** Original author: mdeters
  ** Major contributors: none
@@ -20,13 +20,12 @@
 
 #include "cvc4_private.h"
 
-#ifndef __CVC4__CONTEXT__CDLIST_CONTEXT_MEMORY_H
-#define __CVC4__CONTEXT__CDLIST_CONTEXT_MEMORY_H
+#ifndef __CVC4__CONTEXT__CDCHUNK_LIST_H
+#define __CVC4__CONTEXT__CDCHUNK_LIST_H
 
 #include <iterator>
 #include <memory>
 
-#include "context/cdlist_forward.h"
 #include "context/context.h"
 #include "context/context_mm.h"
 #include "util/Assert.h"
@@ -45,9 +44,9 @@ template <class T>
 class CDChunkList : public ContextObj {
 public:
 
-  /** The value type with which this CDList<> was instantiated. */
+  /** The value type with which this CDChunkList<> was instantiated. */
   typedef T value_type;
-  /** The allocator type with which this CDList<> was instantiated. */
+  /** The allocator type with which this CDChunkList<> was instantiated. */
   typedef ContextMemoryAllocator<T> Allocator;
 
 protected:
@@ -91,7 +90,7 @@ protected:
     const T* list() const { return d_list; }
     T& operator[](size_t i) { return d_list[i]; }
     const T& operator[](size_t i) const { return d_list[i]; }
-  };/* struct CDList<T, ContextMemoryAllocator<T> >::ListSegment */
+  };/* struct CDChunkList<T, ContextMemoryAllocator<T> >::ListSegment */
 
   /**
    * The first segment of list memory.
@@ -126,12 +125,12 @@ protected:
   Allocator d_allocator;
 
   /**
-   * Lightweight save object for CDList<T, ContextMemoryAllocator<T> >.
+   * Lightweight save object for CDChunkList<T, ContextMemoryAllocator<T> >.
    */
-  struct CDListSave : public ContextObj {
+  struct CDChunkListSave : public ContextObj {
     ListSegment* d_tail;
     size_t d_tailSize, d_size, d_sizeAlloc;
-    CDListSave(const CDChunkList<T>& list, ListSegment* tail,
+    CDChunkListSave(const CDChunkList<T>& list, ListSegment* tail,
                size_t size, size_t sizeAlloc) :
       ContextObj(list),
       d_tail(tail),
@@ -139,7 +138,7 @@ protected:
       d_size(size),
       d_sizeAlloc(sizeAlloc) {
     }
-    ~CDListSave() {
+    ~CDChunkListSave() {
       this->destroy();
     }
     ContextObj* save(ContextMemoryManager* pCMM) {
@@ -152,7 +151,7 @@ protected:
       // itself saved or restored.
       Unreachable();
     }
-  };/* struct CDChunkList<T>::CDListSave */
+  };/* struct CDChunkList<T>::CDChunkListSave */
 
   /**
    * Private copy constructor undefined (no copy permitted).
@@ -225,7 +224,7 @@ protected:
    * The saved information is allocated using the ContextMemoryManager.
    */
   ContextObj* save(ContextMemoryManager* pCMM) {
-    ContextObj* data = new(pCMM) CDListSave(*this, d_tailSegment,
+    ContextObj* data = new(pCMM) CDChunkListSave(*this, d_tailSegment,
                                             d_size, d_totalSizeAlloc);
     Debug("cdlist:cmm") << "save " << this
                         << " at level " << this->getContext()->getLevel()
@@ -241,7 +240,7 @@ protected:
    * changed.
    */
   void restore(ContextObj* data) {
-    CDListSave* save = static_cast<CDListSave*>(data);
+    CDChunkListSave* save = static_cast<CDChunkListSave*>(data);
     Debug("cdlist:cmm") << "restore " << this
                         << " level " << this->getContext()->getLevel()
                         << " data == " << data
@@ -394,10 +393,10 @@ public:
   }
 
   /**
-   * Access to the ith item in the list.
+   * Access to the ith item in the list in O(log n).
    */
   const T& operator[](size_t i) const {
-    Assert(i < d_size, "index out of bounds in CDList::operator[]");
+    Assert(i < d_size, "index out of bounds in CDChunkList::operator[]");
     const ListSegment* seg = &d_headSegment;
     while(i >= seg->size()) {
       i -= seg->size();
@@ -415,7 +414,7 @@ public:
   }
 
   /**
-   * Iterator for CDList class.  It has to be const because we don't
+   * Iterator for CDChunkList class.  It has to be const because we don't
    * allow items in the list to be changed.  It's a straightforward
    * wrapper around a pointer.  Note that for efficiency, we implement
    * only prefix increment and decrement.  Also note that it's OK to
@@ -494,4 +493,4 @@ public:
 }/* CVC4::context namespace */
 }/* CVC4 namespace */
 
-#endif /* __CVC4__CONTEXT__CDLIST_CONTEXT_MEMORY_H */
+#endif /* __CVC4__CONTEXT__CDCHUNK_LIST_H */

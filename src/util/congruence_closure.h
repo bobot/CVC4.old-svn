@@ -32,7 +32,7 @@
 #include "context/cdo.h"
 #include "context/cdhashmap.h"
 #include "context/cdhashset.h"
-#include "context/cdlist_context_memory.h"
+#include "context/cdchunk_list.h"
 #include "util/exception.h"
 #include "context/stacking_map.h"
 #include "util/stats.h"

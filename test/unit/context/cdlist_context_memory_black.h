@@ -26,7 +26,7 @@
 #include "memory.h"
 
 #include "context/context.h"
-#include "context/cdlist_context_memory.h"
+#include "context/cdchunk_list.h"
 
 using namespace std;
 using namespace CVC4::context;
@@ -89,6 +89,14 @@ public:
     for(int i = 0; i < N; ++i) {
       TS_ASSERT_EQUALS(list[i], i);
     }
+  }
+
+  void testEmptyIterator() {
+    CDChunkList< int>* list =
+      new(d_context->getCMM())
+        CDChunkList< int >(true, d_context, false,
+                                                   ContextMemoryAllocator<int>(d_context->getCMM()));
+    TS_ASSERT_EQUALS(list->begin(), list->end());
   }
 
   void testDtorCalled() {
