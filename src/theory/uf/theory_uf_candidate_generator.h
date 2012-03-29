@@ -32,7 +32,7 @@ class CandidateGeneratorTheoryUf : public CandidateGenerator
 {
   friend class CandidateGeneratorTheoryUfDisequal;
 private:
-  //operator you are looking for (null means just return the representative)
+  //operator you are looking for
   Node d_op;
   //instantiator pointer
   InstantiatorTheoryUf* d_ith;
@@ -41,8 +41,7 @@ private:
   int d_term_iter;
   int d_term_iter_limit;
 public:
-  CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op ) : 
-    d_op( op ), d_ith( ith ), d_term_iter( -2 ){}
+  CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op );
   ~CandidateGeneratorTheoryUf(){}
 
   void resetInstantiationRound();
@@ -53,16 +52,16 @@ public:
 class CandidateGeneratorTheoryUfDisequal : public CandidateGenerator
 {
 private:
-  //equivalence class iterator
-  EqClassInfo::BoolMap::const_iterator d_eqci_iter;
+  //equivalence class 
+  Node d_eq_class;
   //equivalence class info
   EqClassInfo* d_eci;
-  //candidate generator
-  CandidateGeneratorTheoryUf* d_cg;
+  //equivalence class iterator
+  EqClassInfo::BoolMap::const_iterator d_eqci_iter;
   //instantiator pointer
   InstantiatorTheoryUf* d_ith;
 public:
-  CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node op );
+  CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc );
   ~CandidateGeneratorTheoryUfDisequal(){}
 
   void resetInstantiationRound();
@@ -70,25 +69,42 @@ public:
   Node getNextCandidate();
 };
 
-class CandidateGeneratorTheoryUfEq : public CandidateGenerator
+class CandidateGeneratorTheoryUfLitEq : public CandidateGenerator
 {
 private:
   //the equality classes iterator
   EqClassesIterator d_eq;
-  //equality or disequality you are trying to match for
-  Node d_pattern;
-  //this is the node that our pattern will be used for matching
+  //equality you are trying to match equalities for
   Node d_match_pattern;
   //einstantiator pointer
   InstantiatorTheoryUf* d_ith;
 public:
-  CandidateGeneratorTheoryUfEq( InstantiatorTheoryUf* ith, Node pat, Node mpat );
-  ~CandidateGeneratorTheoryUfEq(){}
+  CandidateGeneratorTheoryUfLitEq( InstantiatorTheoryUf* ith, Node mpat );
+  ~CandidateGeneratorTheoryUfLitEq(){}
 
   void resetInstantiationRound();
   void reset( Node eqc );
   Node getNextCandidate();
 };
+
+class CandidateGeneratorTheoryUfLitDeq : public CandidateGenerator
+{
+private:
+  //the equality class iterator for false
+  EqClassIterator d_eqc_false;
+  //equality you are trying to match disequalities for
+  Node d_match_pattern;
+  //einstantiator pointer
+  InstantiatorTheoryUf* d_ith;
+public:
+  CandidateGeneratorTheoryUfLitDeq( InstantiatorTheoryUf* ith, Node mpat );
+  ~CandidateGeneratorTheoryUfLitDeq(){}
+
+  void resetInstantiationRound();
+  void reset( Node eqc );
+  Node getNextCandidate();
+};
+
 
 }
 }/* CVC4::theory namespace */

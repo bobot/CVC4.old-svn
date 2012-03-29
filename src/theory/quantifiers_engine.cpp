@@ -425,6 +425,11 @@ void QuantifiersEngine::getPhaseReqTerms( Node f, std::vector< Node >& nodes ){
           printed = true;
         }
         Debug("literal-matching") << "  Make " << prev << " -> " << nodes[i] << std::endl;
+        Assert( prev.hasAttribute(InstConstantAttribute()) );
+        if( !nodes[i].hasAttribute(InstConstantAttribute()) ){
+          InstConstantAttribute ica;
+          nodes[i].setAttribute(ica,prev.getAttribute(InstConstantAttribute()));
+        }
         ++(d_statistics.d_lit_phase_req);
       }else{
         ++(d_statistics.d_lit_phase_nreq);
@@ -484,7 +489,7 @@ void QuantifiersEngine::setInstantiationConstantAttr( Node n, Node f ){
 QuantifiersEngine::Statistics::Statistics():
   d_num_quant("QuantifiersEngine::Num_Quantifiers", 0),
   d_instantiation_rounds("QuantifiersEngine::Rounds_Instantiation_Full", 0),
-  d_instantiation_rounds_lc("QuantifiersEngine::Rounds_Instanatiation_Last_Call", 0),
+  d_instantiation_rounds_lc("QuantifiersEngine::Rounds_Instantiation_Last_Call", 0),
   d_instantiations("QuantifiersEngine::Instantiations_Total", 0),
   d_max_instantiation_level("QuantifiersEngine::Max_Instantiation_Level", 0),
   d_splits("QuantifiersEngine::Total_Splits", 0),

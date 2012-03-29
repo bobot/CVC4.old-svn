@@ -26,16 +26,20 @@ using namespace CVC4::context;
 using namespace CVC4::theory;
 using namespace CVC4::theory::uf;
 
+CandidateGeneratorTheoryUf::CandidateGeneratorTheoryUf( InstantiatorTheoryUf* ith, Node op ) : 
+  d_op( op ), d_ith( ith ), d_term_iter( -2 ){
+  Assert( !d_op.isNull() );
+}
 void CandidateGeneratorTheoryUf::resetInstantiationRound(){
   d_term_iter_limit = d_ith->getTermDatabase()->d_op_map[d_op].size();
 }
 
 void CandidateGeneratorTheoryUf::reset( Node eqc ){
   if( eqc.isNull() ){
-    Assert( !d_op.isNull() );
     d_term_iter = 0;
   }else{
     //create an equivalence class iterator in eq class eqc
+    eqc = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative( eqc );
     d_eqc = EqClassIterator( eqc, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
     d_term_iter = -1;
   }
@@ -54,17 +58,9 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
     while( !d_eqc.isFinished() ){
       Node n = (*d_eqc);
       ++d_eqc;
-      if( d_op.isNull() ){
-        //done producing matches
+      if( n.getKind()==APPLY_UF && n.getOperator()==d_op ){
         if( !n.hasAttribute(InstConstantAttribute()) ){
-          d_term_iter = -2;
           return n;
-        }
-      }else{
-        if( n.getKind()==APPLY_UF && n.getOperator()==d_op ){
-          if( !n.hasAttribute(InstConstantAttribute()) ){
-            return n;
-          }
         }
       }
     }
@@ -73,16 +69,13 @@ Node CandidateGeneratorTheoryUf::getNextCandidate(){
 }
 
 
-CandidateGeneratorTheoryUfDisequal::CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node op ) : d_ith( ith ){
-  d_cg = new CandidateGeneratorTheoryUf( ith, op );
+CandidateGeneratorTheoryUfDisequal::CandidateGeneratorTheoryUfDisequal( InstantiatorTheoryUf* ith, Node eqc ) : 
+  d_ith( ith ), d_eq_class( eqc ){
   d_eci = NULL;
 }
-
-
 void CandidateGeneratorTheoryUfDisequal::resetInstantiationRound(){
   
 }
-
 //we will iterate over all terms that are disequal from eqc
 void CandidateGeneratorTheoryUfDisequal::reset( Node eqc ){
   //Assert( !eqc.isNull() );
@@ -92,7 +85,6 @@ void CandidateGeneratorTheoryUfDisequal::reset( Node eqc ){
   //  d_eqci_iter = d_eci->d_disequal.begin();
   //}
 }
-
 Node CandidateGeneratorTheoryUfDisequal::getNextCandidate(){
   //if( d_eci ){
   //  while( d_eqci_iter != d_eci->d_disequal.end() ){
@@ -111,22 +103,53 @@ Node CandidateGeneratorTheoryUfDisequal::getNextCandidate(){
   return Node::null();
 }
 
-CandidateGeneratorTheoryUfEq::CandidateGeneratorTheoryUfEq( InstantiatorTheoryUf* ith, Node pat, Node mpat ) : 
-  d_pattern( pat ), d_match_pattern( mpat ), d_ith( ith ){
+
+CandidateGeneratorTheoryUfLitEq::CandidateGeneratorTheoryUfLitEq( InstantiatorTheoryUf* ith, Node mpat ) : 
+  d_match_pattern( mpat ), d_ith( ith ){
   
 }
-
-void CandidateGeneratorTheoryUfEq::resetInstantiationRound(){
+void CandidateGeneratorTheoryUfLitEq::resetInstantiationRound(){
   
 }
-
-void CandidateGeneratorTheoryUfEq::reset( Node eqc ){
-  //bool pol = d_pattern.getKind()!=NOT;
-  //Node eq = d_pattern.getKind()==NOT ? d_pattern[0] : d_pattern;
-  //Assert( eq.getKind()==IFF || eq.getKind()==EQUAL );
-
+void CandidateGeneratorTheoryUfLitEq::reset( Node eqc ){
+  d_eq = EqClassesIterator( ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
+}
+Node CandidateGeneratorTheoryUfLitEq::getNextCandidate(){
+  while( d_eq.isFinished() ){
+    Node n = (*d_eq);
+    ++d_eq;
+    if( n.getType()==d_match_pattern[0].getType() ){
+      //an equivalence class with the same type as the pattern, return reflexive equality
+      return NodeManager::currentNM()->mkNode( d_match_pattern.getKind(), n, n );
+    }
+  }
+  return Node::null();
 }
 
-Node CandidateGeneratorTheoryUfEq::getNextCandidate(){
+
+CandidateGeneratorTheoryUfLitDeq::CandidateGeneratorTheoryUfLitDeq( InstantiatorTheoryUf* ith, Node mpat ) : 
+  d_match_pattern( mpat ), d_ith( ith ){
+  
+}
+void CandidateGeneratorTheoryUfLitDeq::resetInstantiationRound(){
+  
+}
+void CandidateGeneratorTheoryUfLitDeq::reset( Node eqc ){
+  Node false_term = ((TheoryUF*)d_ith->getTheory())->getEqualityEngine()->getRepresentative( 
+                      NodeManager::currentNM()->mkConst<bool>(false) );
+  d_eqc_false = EqClassIterator( false_term, ((TheoryUF*)d_ith->getTheory())->getEqualityEngine() );
+}
+Node CandidateGeneratorTheoryUfLitDeq::getNextCandidate(){
+  //get next candidate term in equivalence class
+  while( !d_eqc_false.isFinished() ){
+    Node n = (*d_eqc_false);
+    ++d_eqc_false;
+    if( n.getKind()==d_match_pattern.getKind() ){
+      //found an iff or equality, try to match it
+      //DO_THIS: cache to avoid redundancies?
+      //DO_THIS: do we need to try the symmetric equality for n?  or will it also exist in the eq class of false?
+      return n;
+    }
+  }
   return Node::null();
 }

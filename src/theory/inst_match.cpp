@@ -246,6 +246,7 @@ void InstMatchGenerator::initializePatterns( std::vector< Node >& pats, Quantifi
 }
 
 void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
+  Debug("inst-match-gen") << "Pattern term is " << pat << std::endl;
   Assert( pat.hasAttribute(InstConstantAttribute()) );
   d_pattern = pat;
   d_match_pattern = pat;
@@ -259,10 +260,16 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
       //swap sides
       d_pattern = NodeManager::currentNM()->mkNode( d_match_pattern.getKind(), d_match_pattern[1], d_match_pattern[0] );
       d_pattern = pat.getKind()==NOT ? d_pattern.notNode() : d_pattern;
-      d_match_pattern = d_match_pattern[1];
+      if( pat.getKind()!=NOT ){   //TEMPORARY until we do better implementation of disequality matching
+        d_match_pattern = d_match_pattern[1];
+      }else{
+        d_match_pattern = d_pattern[0][0];
+      }
     }else if( !d_match_pattern[1].hasAttribute(InstConstantAttribute()) ){
       Assert( d_match_pattern[0].hasAttribute(InstConstantAttribute()) );
-      d_match_pattern = d_match_pattern[0];
+      if( pat.getKind()!=NOT ){   //TEMPORARY until we do better implementation of disequality matching
+        d_match_pattern = d_match_pattern[0];
+      }
     }
   }
   int childMatchPolicy = MATCH_GEN_DEFAULT;
@@ -304,21 +311,30 @@ void InstMatchGenerator::initializePattern( Node pat, QuantifiersEngine* qe ){
   if( d_match_pattern.getKind()==EQUAL || d_match_pattern.getKind()==IFF ){
     Assert( d_matchPolicy==MATCH_GEN_DEFAULT );
     //we will be producing candidates via literal matching heuristics
-    d_cg = new uf::CandidateGeneratorTheoryUfEq( ith, d_pattern, d_match_pattern );
+    if( d_pattern.getKind()==NOT ){
+      //candidates will be all equalities 
+      d_cg = new uf::CandidateGeneratorTheoryUfLitEq( ith, d_match_pattern );
+    }else{
+      //candidates will be all disequalities
+      d_cg = new uf::CandidateGeneratorTheoryUfLitDeq( ith, d_match_pattern );
+    }
   }else if( d_pattern.getKind()==EQUAL || d_pattern.getKind()==IFF || d_pattern.getKind()==NOT ){
     Assert( d_matchPolicy==MATCH_GEN_DEFAULT );
-    Node op = d_match_pattern.getKind()==APPLY_UF ? d_match_pattern.getOperator() : Node::null();
     if( d_pattern.getKind()==NOT ){
-      std::cout << "Disequal generator unimplemented" << std::endl;
+      std::cout << "Disequal generator unimplemented" << std::endl;  //DO_THIS
       exit( 34 );
+      Node op = d_match_pattern.getKind()==APPLY_UF ? d_match_pattern.getOperator() : Node::null();
       //we are matching for a term, but want to be disequal from a particular equivalence class
       d_cg = new uf::CandidateGeneratorTheoryUfDisequal( ith, op );
+      //store the equivalence class that we will call d_cg->reset( ... ) on
+      d_eq_class = d_pattern[0][1];
     }else{
+      Assert( d_match_pattern.getKind()==APPLY_UF );
       //we are matching only in a particular equivalence class
       d_cg = new uf::CandidateGeneratorTheoryUf( ith, d_match_pattern.getOperator() );
+      //store the equivalence class that we will call d_cg->reset( ... ) on
+      d_eq_class = d_pattern[1];
     }
-    //store the equivalence class that we will call d_cg->reset( ... ) on
-    d_eq_class = d_pattern.getKind()==NOT ? d_pattern[0][1] : d_pattern[1];
   }else if( d_match_pattern.getKind()==APPLY_UF ){
     if( d_matchPolicy==MATCH_GEN_EFFICIENT_E_MATCH ){
       //we will manually add candidates to queue
@@ -381,69 +397,12 @@ bool InstMatchGenerator::initializePatternArithmetic( Node n ){
   return false;
 }
 
-bool InstMatchGenerator::getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe ){
-  Debug("matching-arith") << "Matching " << t << " " << d_match_pattern << std::endl;
-  if( !d_arith_coeffs.empty() ){
-    NodeBuilder<> tb(kind::PLUS);
-    Node ic = Node::null();
-    for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
-      Debug("matching-arith") << it->first << " -> " << it->second << std::endl;
-      if( !it->first.isNull() ){
-        if( m.d_map.find( it->first )==m.d_map.end() ){
-          //see if we can choose this to set
-          if( ic.isNull() && ( it->second.isNull() || !it->first.getType().isInteger() ) ){
-            ic = it->first;
-          }
-        }else{
-          Debug("matching-arith") << "already set " << m.d_map[ it->first ] << std::endl;
-          Node tm = m.d_map[ it->first ];
-          if( !it->second.isNull() ){
-            tm = NodeManager::currentNM()->mkNode( MULT, it->second, tm );
-          }
-          tb << tm;
-        }
-      }else{
-        tb << it->second;
-      }
-    }
-    if( !ic.isNull() ){
-      Node tm;
-      if( tb.getNumChildren()==0 ){
-        tm = t;
-      }else{
-        tm = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
-        tm = NodeManager::currentNM()->mkNode( MINUS, t, tm );
-      }
-      if( !d_arith_coeffs[ ic ].isNull() ){
-        Assert( !ic.getType().isInteger() );
-        Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_arith_coeffs[ ic ].getConst<Rational>() );
-        tm = NodeManager::currentNM()->mkNode( MULT, coeff, tm );
-      }
-      m.d_map[ ic ] = Rewriter::rewrite( tm );
-      //set the rest to zeros
-      for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
-        if( !it->first.isNull() ){
-          if( m.d_map.find( it->first )==m.d_map.end() ){
-            m.d_map[ it->first ] = NodeManager::currentNM()->mkConst( Rational(0) );
-          }
-        }
-      }
-      Debug("matching-arith") << "Setting " << ic << " to " << tm << std::endl;
-      return true;
-    }else{
-      return false;
-    }
-  }else{
-    return false;
-  }
-}
-
 /** get match (not modulo equality) */
 bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe ){
   Debug("matching") << "Matching " << t << " " << d_match_pattern << " ("
                     << m.d_map.size() << ")" << ", " << d_children.size() << std::endl;
   Assert( !d_match_pattern.isNull() );
-  if( d_match_pattern.getKind()!=APPLY_UF ){
+  if( !d_arith_coeffs.empty() ){
     return getMatchArithmetic( t, m, qe );
   }else{
     EqualityQuery* q = qe->getEqualityQuery();
@@ -453,8 +412,8 @@ bool InstMatchGenerator::getMatch( Node t, InstMatch& m, QuantifiersEngine* qe )
     //if t is null
     Assert( !t.isNull() );
     Assert( !t.hasAttribute(InstConstantAttribute()) );
-    Assert( t.getKind()==APPLY_UF );
-    Assert( t.getOperator()==d_match_pattern.getOperator() );
+    Assert( t.getKind()==d_match_pattern.getKind() );
+    Assert( d_match_pattern.getKind()!=APPLY_UF || t.getOperator()==d_match_pattern.getOperator() );
     //first, check if ground arguments are not equal, or a match is in conflict
     for( int i=0; i<(int)d_match_pattern.getNumChildren(); i++ ){
       if( d_match_pattern[i].hasAttribute(InstConstantAttribute()) ){
@@ -520,6 +479,60 @@ bool InstMatchGenerator::getNextMatch2( InstMatch& m, QuantifiersEngine* qe ){
     }
   }while( !success && !t.isNull() );
   return success;
+}
+
+bool InstMatchGenerator::getMatchArithmetic( Node t, InstMatch& m, QuantifiersEngine* qe ){
+  Debug("matching-arith") << "Matching " << t << " " << d_match_pattern << std::endl;
+  Assert( !d_arith_coeffs.empty() );
+  NodeBuilder<> tb(kind::PLUS);
+  Node ic = Node::null();
+  for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
+    Debug("matching-arith") << it->first << " -> " << it->second << std::endl;
+    if( !it->first.isNull() ){
+      if( m.d_map.find( it->first )==m.d_map.end() ){
+        //see if we can choose this to set
+        if( ic.isNull() && ( it->second.isNull() || !it->first.getType().isInteger() ) ){
+          ic = it->first;
+        }
+      }else{
+        Debug("matching-arith") << "already set " << m.d_map[ it->first ] << std::endl;
+        Node tm = m.d_map[ it->first ];
+        if( !it->second.isNull() ){
+          tm = NodeManager::currentNM()->mkNode( MULT, it->second, tm );
+        }
+        tb << tm;
+      }
+    }else{
+      tb << it->second;
+    }
+  }
+  if( !ic.isNull() ){
+    Node tm;
+    if( tb.getNumChildren()==0 ){
+      tm = t;
+    }else{
+      tm = tb.getNumChildren()==1 ? tb.getChild( 0 ) : tb;
+      tm = NodeManager::currentNM()->mkNode( MINUS, t, tm );
+    }
+    if( !d_arith_coeffs[ ic ].isNull() ){
+      Assert( !ic.getType().isInteger() );
+      Node coeff = NodeManager::currentNM()->mkConst( Rational(1) / d_arith_coeffs[ ic ].getConst<Rational>() );
+      tm = NodeManager::currentNM()->mkNode( MULT, coeff, tm );
+    }
+    m.d_map[ ic ] = Rewriter::rewrite( tm );
+    //set the rest to zeros
+    for( std::map< Node, Node >::iterator it = d_arith_coeffs.begin(); it != d_arith_coeffs.end(); ++it ){
+      if( !it->first.isNull() ){
+        if( m.d_map.find( it->first )==m.d_map.end() ){
+          m.d_map[ it->first ] = NodeManager::currentNM()->mkConst( Rational(0) );
+        }
+      }
+    }
+    Debug("matching-arith") << "Setting " << ic << " to " << tm << std::endl;
+    return true;
+  }else{
+    return false;
+  }
 }
 
 
